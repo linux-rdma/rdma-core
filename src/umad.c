@@ -610,6 +610,9 @@ umad_send(int portid, int agentid, void *umad, int timeout_ms)
 	mad->timeout_ms = timeout_ms;
 	mad->agent_id = agentid;
 
+	if (umaddebug > 1)
+		umad_dump(mad);
+
 	if (write(port->dev_fd, mad, sizeof (*mad)) == sizeof (*mad))
 		return 0;
 
@@ -736,5 +739,34 @@ umad_debug(int level)
 	if (level)
 		umaddebug = level;
 	return umaddebug;
+}
+
+void
+umad_addr_dump(ib_mad_addr_t *addr)
+{
+#define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))
+	char gid_str[64];
+	int i;
+
+	for (i = 0; i < sizeof addr->gid; i++) {
+		gid_str[i*2] = HEX(addr->gid[i] >> 4);
+		gid_str[i*2+1] = HEX(addr->gid[i] & 0xf);
+	}
+	gid_str[i*2] = 0;
+	WARN("qpn %d qkey 0x%x lid 0x%x sl %d\n"
+		"grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x\n"
+		"Gid 0x%s",
+		ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
+		addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit, (int)addr->traffic_class,
+		addr->flow_label, gid_str);
+}
+
+void
+umad_dump(void *umad)
+{
+	struct ib_user_mad * mad = umad;
+
+	WARN("agent id %d status %x timeout %d", mad->agent_id, mad->status, mad->timeout_ms);
+	umad_addr_dump(&mad->addr);
 }
 

@@ -168,6 +168,8 @@ int	umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_ma
 int	umad_unregister(int portid, int mgmt_class);
 
 int	umad_debug(int level);
+void	umad_addr_dump(ib_mad_addr_t *addr);
+void	umad_dump(void *umad);
 
 umad_port_t 	*umad_get_local_port(int portid);
 
@@ -175,7 +177,7 @@ umad_port_t 	*umad_get_local_port(int portid);
 static inline void *
 umad_alloc(int num)			/* alloc array of umad buffers */
 {
-	return malloc(num * umad_size());
+	return calloc(num, umad_size());
 }
 
 static inline void

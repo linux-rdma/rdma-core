@@ -24,5 +24,7 @@ IBUMAD_1.0 {
 		umad_status;
 		umad_get_mad_addr;
 		umad_debug;
+		umad_addr_dump;
+		umad_dump;
 	local: *;
 };
