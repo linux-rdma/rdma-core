@@ -17,11 +17,17 @@ AC_PROG_MAKE_SET
 AM_PROG_LIBTOOL
 
 dnl Checks for libraries
+LDFLAGS="$LDFLAGS -L/usr/local/ib/lib"
+AC_CHECK_LIB(ibcommon, sys_read_string, [],
+	AC_MSG_ERROR([sys_read_string() not found. libibumad requires libibcommon.]))
 
 dnl Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h netinet/in.h stdlib.h string.h sys/ioctl.h unistd.h])
+AC_CHECK_HEADER(infiniband/common.h, [],
+	AC_MSG_ERROR([<infiniband/common.h> not found. libibumad requires libibcommon.])
+)
 
 dnl Checks for library functions
 AC_PROG_GCC_TRADITIONAL

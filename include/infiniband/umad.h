@@ -34,6 +34,9 @@
 #ifndef _UMAD_H
 #define _UMAD_H
 
+#include <stdint.h>
+#include "common.h"
+
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
