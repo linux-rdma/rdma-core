@@ -48,8 +48,8 @@
 #include <umad.h>
 #include "mad.h"
 
-int mad_agentid = -1;
-int mad_portid = -1;
+static int mad_agentid = -1;
+static int mad_portid = -1;
 int ibdebug;
 
 static int class_agent[256];

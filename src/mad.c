@@ -149,7 +149,7 @@ encode_MAD(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 
 		/* bytes 128 - 256 */
 		mad_set_array(buf, 0, IB_DRSMP_PATH_F, drpath->p);
-		// mad_set_array(buf, 0, IB_DRSMP_RPATH_F, 0);	/* should be zero due memset*/
+		/* mad_set_array(buf, 0, IB_DRSMP_RPATH_F, 0); */	/* should be zero due memset*/
 	}
 
 	if (rpc->mgtclass == IB_SA_CLASS)

@@ -77,7 +77,7 @@ sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 	if (!portid->qkey)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	p = madrpc_sa(&rpc, portid, 0/*&sa->rmpp*/, rcvbuf);		/* TODO: RMPP */
+	p = madrpc_sa(&rpc, portid, 0/*&sa->rmpp*/, rcvbuf);	/* TODO: RMPP */
 
 	sa->recsz = rpc.recsz;
 

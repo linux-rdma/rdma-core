@@ -347,22 +347,21 @@ _set_field(void *buf, int base_offs, ib_field_t *f, uint32 val)
 		return;
 	}
 
-	if (prebits) {	// val lsb in byte msb
+	if (prebits) {	/* val lsb in byte msb */
 		p[3^idx] &= (1 << (8 - prebits)) - 1;
 		p[3^idx++] |= (val & ((1 << prebits) - 1)) << (8 - prebits);
 		val >>= prebits;
 	}
 
-	// BIG endian byte order
+	/* BIG endian byte order */
 	for (; bytelen--; val >>= 8)
 		p[3^idx++] = val & 0xff;
 
-	if (postbits) {	// val msb in byte lsb
+	if (postbits) {	/* val msb in byte lsb */
 		p[3^idx] &= ~((1 << postbits) - 1);
 		p[3^idx] |= val;
 	}
 }
-
 
 uint32
 _get_field(void *buf, int base_offs, ib_field_t *f)
@@ -377,22 +376,22 @@ _get_field(void *buf, int base_offs, ib_field_t *f)
 	if (!bytelen && (f->bitoffs & 7) + f->bitlen < 8)
 		return (p[3^idx] >> (f->bitoffs & 7)) & ((1 << f->bitlen) - 1);
 
-	if (prebits)	// val lsb from byte msb
+	if (prebits)	/* val lsb from byte msb */
 		v = p[3^idx++] >> (8 - prebits);
 
-	if (postbits) {	// val msb from byte lsb
+	if (postbits) {	/* val msb from byte lsb */
 		i = base_offs + (f->bitoffs + f->bitlen) / 8;
 		val = (p[3^i] & ((1 << postbits) - 1));
 	}
 
-	// BIG endian byte order
+	/* BIG endian byte order */
 	for (idx += bytelen - 1; bytelen--; idx--)
 		val = (val << 8) | p[3^idx];
 
 	return (val << prebits) | v;
 }
 
-// field must be byte aligned
+/* field must be byte aligned */
 void
 _set_array(void *buf, int base_offs, ib_field_t *f, void *val)
 {

@@ -83,7 +83,9 @@ mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
 	case 4:
 		snprintf(buf, bufsz, "%u", *(uint32 *)val);
 		break;
-	case 5: case 6: case 7:
+	case 5:
+	case 6:
+	case 7:
 	case 8:
 		snprintf(buf, bufsz, "%llu", *(uint64 *)val);
 		break;
@@ -394,7 +396,6 @@ mad_dump_string(char *buf, int bufsz, void *val, int valsz)
 
 	snprintf(buf, valsz, "'%s'", (char *)val);
 }
-
 
 void
 mad_dump_node_type(char *buf, int bufsz, void *val, int valsz)

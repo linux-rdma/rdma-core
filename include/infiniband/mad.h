@@ -617,7 +617,8 @@ safe_smp_set(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint time
 
 /* sa.c */
 uint8 *	sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout);
-int	ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf);	// returns lid
+uint8 * sa_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint64 mask, uint timeout);
+int	ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf);	/* returns lid */
 
 inline static uint8 *
 safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
