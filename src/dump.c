@@ -223,7 +223,7 @@ mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
 }
 
 void
-map_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
+mad_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
 {
 	int speed = *(int *)val;
 
@@ -247,7 +247,7 @@ map_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
 }
 
 void
-map_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
+mad_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
 {
 	int speed = *(int *)val;
 
