@@ -54,9 +54,9 @@
 int
 mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
-	int status, len;
 	uint8 pktbuf[1024], *p, *mad;
 	void *umad = pktbuf;
+	int len;
 
 	memset(pktbuf, 0, umad_size());
 
