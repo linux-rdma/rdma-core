@@ -53,6 +53,7 @@
  */
 #define BITSOFFS(o, w)	(((o) & ~31) | ((32 - ((o) & 31) - (w)))), (w)
 #define BE_OFFS(o, w)	(o), (w)
+#define BE_TO_BITSOFFS(o, w)	(((o) & ~31) | ((32 - ((o) & 31) - (w))))
 
 ib_field_t ib_mad_f [] = {
 	[0]	{0, 0},		/* IB_NO_FIELD - reserved as invalid */
@@ -400,11 +401,21 @@ _get_field(void *buf, int base_offs, ib_field_t *f)
 void
 _set_array(void *buf, int base_offs, ib_field_t *f, void *val)
 {
-	memcpy((uint8 *)buf + base_offs + f->bitoffs / 8, val, f->bitlen / 8);
+	int bitoffs = f->bitoffs;;
+
+	if (f->bitlen < 32)
+		bitoffs = BE_TO_BITSOFFS(bitoffs, f->bitlen);
+
+	memcpy((uint8 *)buf + base_offs + bitoffs / 8, val, f->bitlen / 8);
 }
 
 void
 _get_array(void *buf, int base_offs, ib_field_t *f, void *val)
 {
-	memcpy(val, (uint8 *)buf + base_offs + f->bitoffs / 8, f->bitlen / 8);
+	int bitoffs = f->bitoffs;;
+
+	if (f->bitlen < 32)
+		bitoffs = BE_TO_BITSOFFS(bitoffs, f->bitlen);
+
+	memcpy(val, (uint8 *)buf + base_offs + bitoffs / 8, f->bitlen / 8);
 }
