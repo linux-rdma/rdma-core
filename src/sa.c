@@ -1,0 +1,161 @@
+/*
+ * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ *
+ * This software is available to you under a choice of one of two
+ * licenses.  You may choose to be licensed under the terms of the GNU
+ * General Public License (GPL) Version 2, available from the file
+ * COPYING in the main directory of this source tree, or the
+ * OpenIB.org BSD license below:
+ *
+ *     Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
+ *
+ *      - Redistributions of source code must retain the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer.
+ *
+ *      - Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials
+ *        provided with the distribution.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * $Id$
+ */
+
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <string.h>
+#include <sys/time.h>
+
+#include <common.h>
+#include <mad.h>
+
+
+#undef DEBUG
+#define DEBUG 	if (ibdebug)	WARN
+
+uint8 *
+sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
+{
+	ib_rpc_t rpc = {0};
+	uint8 *p;
+
+	DEBUG("attr %d mod %d route %s", sa->attrid, sa->mod, portid2str(portid));
+
+	if (portid->lid == -1) {
+		WARN("only lid routes are supported");
+		return 0;
+	}
+
+	rpc.mgtclass = IB_SA_CLASS;
+	rpc.method = sa->method;
+	rpc.attr.id = sa->attrid;
+	rpc.attr.mod = sa->mod;
+	rpc.mask = sa->mask;
+	rpc.timeout = timeout;
+	rpc.datasz = IB_SA_DATA_SIZE;
+	rpc.dataoffs = IB_SA_DATA_OFFS;
+	rpc.trid = sa->trid;
+
+	portid->qp = 1;
+	if (!portid->qkey)
+		portid->qkey = IB_DEFAULT_QP1_QKEY;
+
+	p = madrpc_sa(&rpc, portid, 0/*&sa->rmpp*/, rcvbuf);		/* TODO: RMPP */
+
+	sa->recsz = rpc.recsz;
+
+	return p;
+}
+
+uint8 *
+sa_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint64 mask, uint timeout)
+{
+	ib_sa_call_t sa = {0};
+
+	DEBUG("attr %d mod %d mask %Lx", attrid, mod, portid2str(portid));
+
+	if (portid->lid == -1) {
+		WARN("only lid routes are supported");
+		return 0;
+	}
+
+	sa.attrid = attrid;
+	sa.mask = mask;
+	sa.method = IB_MAD_METHOD_GET;
+	sa.mod = mod;
+
+	return sa_call(rcvbuf, portid, &sa, timeout);
+}
+
+/* PathRecord */
+#define IB_PR_COMPMASK_DGID				(1ull<<2)
+#define IB_PR_COMPMASK_SGID				(1ull<<3)
+#define IB_PR_COMPMASK_DLID				(1ull<<4)
+#define	IB_PR_COMPMASK_SLID				(1ull<<5)
+#define	IB_PR_COMPMASK_RAWTRAFIC			(1ull<<6)
+#define	IB_PR_COMPMASK_RESV0				(1ull<<7)
+#define	IB_PR_COMPMASK_FLOWLABEL			(1ull<<8)
+#define	IB_PR_COMPMASK_HOPLIMIT				(1ull<<9)
+#define	IB_PR_COMPMASK_TCLASS				(1ull<<10)
+#define	IB_PR_COMPMASK_REVERSIBLE			(1ull<<11)
+#define	IB_PR_COMPMASK_NUMBPATH				(1ull<<12)
+#define	IB_PR_COMPMASK_PKEY				(1ull<<13)
+#define	IB_PR_COMPMASK_RESV1				(1ull<<14)
+#define	IB_PR_COMPMASK_SL				(1ull<<15)
+#define	IB_PR_COMPMASK_MTUSELEC				(1ull<<16)
+#define	IB_PR_COMPMASK_MTU				(1ull<<17)
+#define	IB_PR_COMPMASK_RATESELEC			(1ull<<18)
+#define	IB_PR_COMPMASK_RATE				(1ull<<19)
+#define	IB_PR_COMPMASK_PKTLIFETIMESELEC			(1ull<<20)
+#define	IB_PR_COMPMASK_PFTLIFETIME			(1ull<<21)
+
+#define IB_PR_DEF_MASK (IB_PR_COMPMASK_DGID |\
+			IB_PR_COMPMASK_SGID |\
+			IB_PR_COMPMASK_NUMBPATH)
+			
+int
+ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf)
+{
+	int npath;
+	ib_sa_call_t sa = {0};
+	uint8 *p;
+	int dlid;
+
+	npath = 1;			/* only MAD_METHOD_GET is supported */
+	memset(&sa, 0, sizeof sa);
+	sa.method = IB_MAD_METHOD_GET;
+	sa.attrid = IB_SA_ATTR_PATHRECORD;
+	sa.mask = IB_PR_DEF_MASK;
+	sa.trid = mad_trid();
+
+	memset(buf, 0, IB_SA_PR_RECSZ);
+
+	mad_encode_field(buf, IB_SA_PR_NPATH_F, &npath);
+	mad_encode_field(buf, IB_SA_PR_DGID_F, destgid);
+	mad_encode_field(buf, IB_SA_PR_SGID_F, srcgid);
+
+	if (!(p = safe_sa_call(buf, sm_id, &sa, 0))) {
+		WARN("sa call path_query failed");
+		return -1;
+	}
+
+	mad_decode_field(p, IB_SA_PR_DLID_F, &dlid);
+	return dlid;
+}
