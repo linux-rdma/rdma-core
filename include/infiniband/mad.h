@@ -456,7 +456,7 @@ enum MAD_FIELDS {
 
 
 	/*
-	 * IB vendor classes range 2
+	 * IB vendor class range 2
 	 */
 	IB_VEND2_OUI_F,
 	IB_VEND2_DATA_F,
