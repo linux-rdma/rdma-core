@@ -12,10 +12,21 @@ dnl Checks for programs
 AC_PROG_CC
 
 dnl Checks for libraries
+LDFLAGS="$LDFLAGS -L/usr/local/ib/lib"
+AC_CHECK_LIB(ibcommon, sys_read_string, [],
+	AC_MSG_ERROR([sys_read_string() not found. libibmad requires libibcommon.]))
+AC_CHECK_LIB(ibumad, umad_init, [],
+	AC_MSG_ERROR([umad_init() not found. libibmad requires libibumad.]))
 
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([netinet/in.h stdlib.h string.h sys/time.h unistd.h])
+AC_CHECK_HEADER(infiniband/common.h, [],
+	AC_MSG_ERROR([<infiniband/common.h> not found. libibmad requires libibcommon.])
+)
+AC_CHECK_HEADER(infiniband/umad.h, [],
+	AC_MSG_ERROR([<infiniband/umad.h> not found. libibmad requires libibumad.])
+)
 
 dnl Checks for library functions
 AC_CHECK_FUNCS([memset strrchr strtol])
