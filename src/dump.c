@@ -236,6 +236,27 @@ mad_dump_portstate(char *buf, int bufsz, void *val, int valsz)
 }
 
 void
+mad_dump_linkdowndefstate(char *buf, int bufsz, void *val, int valsz)
+{
+	int state = *(int *)val;
+
+	switch(state) {
+	case 0:
+		snprintf(buf, bufsz, "NoChange");
+		break;
+	case 1:
+		snprintf(buf, bufsz, "Sleep");
+		break;
+	case 2:
+		snprintf(buf, bufsz, "Polling");
+		break;
+	default:
+		snprintf(buf, bufsz, "?(%d)", state);
+		break;
+	}
+}
+
+void
 mad_dump_physportstate(char *buf, int bufsz, void *val, int valsz)
 {
 	int state = *(int *)val;
@@ -261,6 +282,9 @@ mad_dump_physportstate(char *buf, int bufsz, void *val, int valsz)
 		break;
 	case 6:
 		snprintf(buf, bufsz, "LinkErrorRecovery");
+		break;
+	case 7:
+		snprintf(buf, bufsz, "PhyTest");
 		break;
 	default:
 		snprintf(buf, bufsz, "?(%d)", state);

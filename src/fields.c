@@ -126,7 +126,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_PORT_LINK_SPEED_SUPPORTED_F]	{BITSOFFS(256, 4), "LinkSpeedSupported", mad_dump_linkspeed},
 	[IB_PORT_STATE_F]		{BITSOFFS(260, 4), "LinkState", mad_dump_portstate},
 	[IB_PORT_PHYS_STATE_F]		{BITSOFFS(264, 4), "PhysLinkState", mad_dump_physportstate},
-	[IB_PORT_LINK_DOWN_DEF_F]	{BITSOFFS(268, 4), "LinkDownDef", mad_dump_uint},
+	[IB_PORT_LINK_DOWN_DEF_F]	{BITSOFFS(268, 4), "LinkDownDefState", mad_dump_linkdowndefstate},
 	[IB_PORT_MKEY_PROT_BITS_F]	{BITSOFFS(272, 2), "ProtectBits", mad_dump_uint},
 	[IB_PORT_LMC_F]			{BITSOFFS(277, 3), "LMC", mad_dump_uint},
 	[IB_PORT_LINK_SPEED_ACTIVE_F]	{BITSOFFS(280, 4), "LinkSpeedActive", mad_dump_linkspeed},
