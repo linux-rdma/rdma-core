@@ -140,6 +140,8 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	int status, len;
 	uint8 pktbuf[1024], *mad, *p;
 	void *umad = pktbuf;
+
+	memset(pktbuf, 0, umad_size());
 #if 0
 	uint8 grh[40] = {0};
 
@@ -196,6 +198,8 @@ madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	int status, len;
 	uint8 pktbuf[1024], *p, *mad;
 	void *umad = pktbuf;
+
+	memset(pktbuf, 0, umad_size());
 
 	DEBUG("rmpp %p data %p", rmpp, data);
 

@@ -89,7 +89,7 @@ mad_encode_field(uint8 *buf, int field, void *val)
 	_set_array(buf, 0, f, val);
 }
 
-static uint64 trid = 0x1122334455667788;
+static uint64 trid = 0x1122334455667788llu;
 
 uint64
 mad_trid(void)
@@ -102,7 +102,7 @@ mad_trid(void)
 		base = random();
 	}
 	next = ++trid | (base << 32);
-	return htonll(next);
+	return next;
 }
 
 void *
