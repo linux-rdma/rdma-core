@@ -139,7 +139,7 @@ mad_respond(void *umad, ib_portid_t *portid, uint32 rstatus)
 		rpc.datasz, rpc.dataoffs, portid->qkey);
 
 	if (mad_build_pkt(umad, &rpc, portid, 0, 0) < 0)
-		return 0;
+		return -1;
 
 	if (ibdebug > 1) 
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
@@ -159,6 +159,8 @@ mad_receive(void *umad, int timeout)
 	int agent;
 
 	if ((agent = umad_recv(madrpc_portid(), mad, timeout)) < 0) {
+		if (!umad)
+			umad_free(mad);
 		DEBUG("recv failed: %m");
 		return 0;
 	}

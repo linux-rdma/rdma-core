@@ -58,7 +58,7 @@ sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 
 	DEBUG("attr %d mod %d route %s", sa->attrid, sa->mod, portid2str(portid));
 
-	if (portid->lid == -1) {
+	if (portid->lid <= 0) {
 		WARN("only lid routes are supported");
 		return 0;
 	}
@@ -77,7 +77,7 @@ sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 	if (!portid->qkey)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	p = madrpc_sa(&rpc, portid, 0/*&sa->rmpp*/, rcvbuf);	/* TODO: RMPP */
+	p = madrpc_rmpp(&rpc, portid, 0/*&sa->rmpp*/, rcvbuf);	/* TODO: RMPP */
 
 	sa->recsz = rpc.recsz;
 

@@ -94,7 +94,7 @@ ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
 	if (resp_expected)
-		return madrpc_sa(&rpc, portid, 0, data);		/* FIXME: no RMPP for now */
+		return madrpc_rmpp(&rpc, portid, 0, data);		/* FIXME: no RMPP for now */
 
 	return mad_send(&rpc, portid, 0, data) < 0 ? 0 : data;		/* FIXME: no RMPP for now */
 }

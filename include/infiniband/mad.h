@@ -655,7 +655,7 @@ int	madrpc_portid(void);
 int	madrpc_set_retries(int retries);
 int	madrpc_set_timeout(int timeout);
 void *	madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata);
-void *  madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
+void *  madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes);
 void	madrpc_save_mad(void *madbuf, int len);
 void	madrpc_lock(void);

@@ -62,7 +62,7 @@ IBMAD_1.0 {
 		madrpc_init;
 		madrpc_lock;
 		madrpc_portid;
-		madrpc_sa;
+		madrpc_rmpp;
 		madrpc_save_mad;
 		madrpc_set_retries;
 		madrpc_set_timeout;

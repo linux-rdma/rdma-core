@@ -186,7 +186,7 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 
 // change to madrpc_qp1 ???
 void *
-madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
+madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
 	int status, len;
 	uint8 pktbuf[1024], *mad;
@@ -211,7 +211,7 @@ madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 
 	if (ibdebug) {
 		WARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
-		xdump(stderr, "sa mad data\n", mad + rpc->dataoffs, rpc->datasz);
+		xdump(stderr, "rmpp mad data\n", mad + rpc->dataoffs, rpc->datasz);
 	}
 
 	if (rmpp) {
