@@ -18,7 +18,7 @@ else
 endif
 
 libibmad_la_SOURCES = src/dump.c src/fields.c src/mad.c src/portid.c \
-		      src/resolve.c src/rpc.c src/sa.c src/smp.c
+		      src/resolve.c src/rpc.c src/sa.c src/smp.c src/gs.c
 libibmad_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibmad_version_script)
 libibmad_la_DEPENDENCIES = $(srcdir)/src/libibmad.map

@@ -665,6 +665,13 @@ mad_dump_switchinfo(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_SW_FIRST_F, IB_SW_LAST_F);
 }
+
+void
+mad_dump_perfcounters(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PC_FIRST_F, IB_PC_LAST_F);
+}
+
 /************************/
 
 char *

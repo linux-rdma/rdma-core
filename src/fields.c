@@ -209,25 +209,24 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * Port counters
 	 */
-	[IB_GS_PERF_COUNT_PORT_F] 	{BITSOFFS(8,8), "PerfCountPort", mad_dump_uint},
-	[IB_GS_PERF_COUNT_MASK_F] 	{BITSOFFS(16,16), "PerfCountMask", mad_dump_hex},
-
-	[IB_ERR_SYM_F] 			{BITSOFFS(32, 16), "SymbolErrors", mad_dump_uint},
-	[IB_LINK_RECOVERS_F] 		{BITSOFFS(48, 8), "LinkRecovers", mad_dump_uint},
-	[IB_LINK_DOWNED_F] 		{BITSOFFS(56, 8), "LinkDowned", mad_dump_uint},
-	[IB_ERR_RCV_F] 			{BITSOFFS(64, 16), "RcvErrors", mad_dump_uint},
-	[IB_ERR_PHYSRCV_F] 		{BITSOFFS(80, 16), "RcvRemotePhysErrors", mad_dump_uint},
-	[IB_ERR_SWITCH_REL_F] 		{BITSOFFS(96, 16), "RcvSwRelayErrors", mad_dump_uint},
-	[IB_XMT_DISCARDS_F] 		{BITSOFFS(112, 16), "XmtDiscards", mad_dump_uint},
-	[IB_ERR_XMTCONSTR_F] 		{BITSOFFS(128, 8), "XmtConstraintErrors", mad_dump_uint},
-	[IB_ERR_RCVCONSTR_F] 		{BITSOFFS(136, 8), "RcvConstraintErrors", mad_dump_uint},
-	[IB_ERR_LOCALINTEG_F] 		{BITSOFFS(152, 4), "LinkIntegrityErrors", mad_dump_uint},
-	[IB_ERR_EXCESS_OVR_F] 		{BITSOFFS(156, 4), "ExcBufOverrunErrors", mad_dump_uint},
-	[IB_VL15_DROPPED_F] 		{BITSOFFS(176, 16), "Vl15Dropped", mad_dump_uint},
-	[IB_XMT_BYTES_F] 		{192, 32, "XmtBytes", mad_dump_uint},
-	[IB_RCV_BYTES_F] 		{224, 32, "RcvBytes", mad_dump_uint},
-	[IB_XMT_PKTS_F] 		{256, 32, "XmtPkts", mad_dump_uint},
-	[IB_RCV_PKTS_F] 		{288, 32, "RcvBytes", mad_dump_uint},
+	[IB_PC_PORT_SELECT_F] 		{BITSOFFS(8,8), "PortSelect", mad_dump_uint},
+	[IB_PC_COUNTER_SELECT_F] 	{BITSOFFS(16,16), "CounterSelect", mad_dump_hex},
+	[IB_PC_ERR_SYM_F] 		{BITSOFFS(32, 16), "SymbolErrors", mad_dump_uint},
+	[IB_PC_LINK_RECOVERS_F] 	{BITSOFFS(48, 8), "LinkRecovers", mad_dump_uint},
+	[IB_PC_LINK_DOWNED_F] 		{BITSOFFS(56, 8), "LinkDowned", mad_dump_uint},
+	[IB_PC_ERR_RCV_F] 		{BITSOFFS(64, 16), "RcvErrors", mad_dump_uint},
+	[IB_PC_ERR_PHYSRCV_F] 		{BITSOFFS(80, 16), "RcvRemotePhysErrors", mad_dump_uint},
+	[IB_PC_ERR_SWITCH_REL_F]	{BITSOFFS(96, 16), "RcvSwRelayErrors", mad_dump_uint},
+	[IB_PC_XMT_DISCARDS_F] 		{BITSOFFS(112, 16), "XmtDiscards", mad_dump_uint},
+	[IB_PC_ERR_XMTCONSTR_F] 	{BITSOFFS(128, 8), "XmtConstraintErrors", mad_dump_uint},
+	[IB_PC_ERR_RCVCONSTR_F] 	{BITSOFFS(136, 8), "RcvConstraintErrors", mad_dump_uint},
+	[IB_PC_ERR_LOCALINTEG_F] 	{BITSOFFS(152, 4), "LinkIntegrityErrors", mad_dump_uint},
+	[IB_PC_ERR_EXCESS_OVR_F] 	{BITSOFFS(156, 4), "ExcBufOverrunErrors", mad_dump_uint},
+	[IB_PC_VL15_DROPPED_F] 		{BITSOFFS(176, 16), "Vl15Dropped", mad_dump_uint},
+	[IB_PC_XMT_BYTES_F] 		{192, 32, "XmtBytes", mad_dump_uint},
+	[IB_PC_RCV_BYTES_F] 		{224, 32, "RcvBytes", mad_dump_uint},
+	[IB_PC_XMT_PKTS_F] 		{256, 32, "XmtPkts", mad_dump_uint},
+	[IB_PC_RCV_PKTS_F] 		{288, 32, "RcvBytes", mad_dump_uint},
 
 	/*
 	 * SMInfo

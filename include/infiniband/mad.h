@@ -330,25 +330,26 @@ enum MAD_FIELDS {
 	/*
 	 * GS Performance
 	 */
-	IB_GS_PERF_COUNT_PORT_F,
-	IB_GS_PERF_COUNT_MASK_F,
-	IB_XMT_BYTES_F,
-	IB_RCV_BYTES_F,
-	IB_XMT_PKTS_F,
-	IB_RCV_PKTS_F,
-	IB_ERR_RCV_F,
-	IB_XMT_DISCARDS_F,
-	IB_VL15_DROPPED_F,
-	IB_XMT_WAITS_F,
-	IB_ERR_PHYSRCV_F,
-	IB_ERR_XMTCONSTR_F,
-	IB_ERR_RCVCONSTR_F,
-	IB_ERR_SYM_F,
-	IB_LINK_RECOVERS_F,
-	IB_LINK_DOWNED_F,
-	IB_ERR_SWITCH_REL_F,
-	IB_ERR_EXCESS_OVR_F,
-	IB_ERR_LOCALINTEG_F,
+	IB_PC_FIRST_F,
+	IB_PC_PORT_SELECT_F = IB_PC_FIRST_F,
+	IB_PC_COUNTER_SELECT_F,
+	IB_PC_ERR_SYM_F,
+	IB_PC_LINK_RECOVERS_F,
+	IB_PC_LINK_DOWNED_F,
+	IB_PC_ERR_RCV_F,
+	IB_PC_ERR_PHYSRCV_F,
+	IB_PC_ERR_SWITCH_REL_F,
+	IB_PC_XMT_DISCARDS_F,
+	IB_PC_ERR_XMTCONSTR_F,
+	IB_PC_ERR_RCVCONSTR_F,
+	IB_PC_ERR_LOCALINTEG_F,
+	IB_PC_ERR_EXCESS_OVR_F,
+	IB_PC_VL15_DROPPED_F,
+	IB_PC_XMT_BYTES_F,
+	IB_PC_RCV_BYTES_F,
+	IB_PC_XMT_PKTS_F,
+	IB_PC_RCV_PKTS_F,
+	IB_PC_LAST_F,
 
 	/*
 	 * SMInfo
@@ -646,7 +647,7 @@ safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 int	ib_resolve_smlid(ib_portid_t *sm_id, int timeout);
 int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int timeout);
 int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id);
-int	ib_resolve_self(ib_portid_t *portid);
+int	ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid);
 
 /* gs.c */
 uint8 *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout);
@@ -663,7 +664,8 @@ ib_mad_dump_fn
 	mad_dump_mtu, mad_dump_vlcap,
 	mad_dump_node_type,
 	mad_dump_sltovl, mad_dump_vlarbitration,
-	mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo, mad_dump_switchinfo;
+	mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo, mad_dump_switchinfo,
+	mad_dump_perfcounters;
 
 int	_mad_dump(ib_mad_dump_fn *fn, char *name, void *val, int valsz);
 char *	_mad_dump_field(ib_field_t *f, char *name, char *buf, int bufsz, void *val);

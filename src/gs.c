@@ -32,6 +32,11 @@
  *
  * $Id$
  */
+
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -51,7 +56,6 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 {
 	ib_rpc_t rpc = {0};
 	int lid = dest->lid;
-	ib_address_t addr;
 
 	DEBUG("lid %d port %d", lid, port);
 
@@ -64,22 +68,17 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 	rpc.method = IB_MAD_METHOD_GET;
 	rpc.attr.id = IB_GSI_PORT_COUNTERS;
 
-	mad_set_field(rcvbuf, 0, IB_GS_PERF_COUNT_PORT_F, port);
+	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
 	rpc.attr.mod = 0;
 	rpc.timeout = timeout;
 	rpc.datasz = IB_PC_DATA_SZ;
 	rpc.dataoffs = IB_PC_DATA_OFFS;
 
-	if (dest->grh) {
-		rpc.grh = 1;
-		memcpy(rpc.dgid, dest->gid, sizeof rpc.dgid);
-	}
-	addr.dlid = lid;
-	addr.sl = 0;
-	addr.dqp = 1;
-	addr.sqp = 1;
+	dest->qp = 1;
+	if (!dest->qkey)
+		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
-	return madrpc(&rpc, &addr, rcvbuf, rcvbuf); 
+	return madrpc(&rpc, dest, rcvbuf, rcvbuf); 
 }
 
 uint8 *
@@ -87,7 +86,6 @@ port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask, uin
 {
 	ib_rpc_t rpc = {0};
 	int lid = dest->lid;
-	ib_address_t addr;
 
 	DEBUG("lid %d port %d mask 0x%x", lid, port, mask);
 
@@ -105,21 +103,16 @@ port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask, uin
 
 	memset(rcvbuf, 0, IB_MAD_SIZE);
 	
-	mad_set_field(rcvbuf, 0, IB_GS_PERF_COUNT_PORT_F, port);
-	mad_set_field(rcvbuf, 0, IB_GS_PERF_COUNT_MASK_F, mask);
+	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
+	mad_set_field(rcvbuf, 0, IB_PC_COUNTER_SELECT_F, mask);
 	rpc.attr.mod = 0;
 	rpc.timeout = timeout;
 	rpc.datasz = IB_PC_DATA_SZ;
 	rpc.dataoffs = IB_PC_DATA_OFFS;
 
-	if (dest->grh) {
-		rpc.grh = 1;
-		memcpy(rpc.dgid, dest->gid, sizeof rpc.dgid);
-	}
-	addr.dlid = lid;
-	addr.sl = 0;
-	addr.dqp = 1;
-	addr.sqp = 1;
+	dest->qp = 1;
+	if (!dest->qkey)
+		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
-	return madrpc(&rpc, &addr, rcvbuf, rcvbuf); 
+	return madrpc(&rpc, dest, rcvbuf, rcvbuf); 
 }

@@ -121,7 +121,7 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 }
 
 int
-ib_resolve_self(ib_portid_t *portid)
+ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid)
 {
 	ib_portid_t self = {0};
 	char portinfo[64];
@@ -138,8 +138,11 @@ ib_resolve_self(ib_portid_t *portid)
 	mad_decode_field(portinfo, IB_PORT_GID_PREFIX_F, &prefix);
 	mad_decode_field(nodeinfo, IB_NODE_PORT_GUID_F, &guid);
 
-	mad_encode_field(portid->gid, IB_GID_PREFIX_F, &prefix);
-	mad_encode_field(portid->gid, IB_GID_GUID_F, &prefix);
-
+	if (portnum)
+		mad_decode_field(nodeinfo, IB_NODE_LOCAL_PORT_F, portnum);
+	if (gid) {
+		mad_encode_field(*gid, IB_GID_PREFIX_F, &prefix);
+		mad_encode_field(*gid, IB_GID_GUID_F, &guid);
+	}
 	return 0;
 }
