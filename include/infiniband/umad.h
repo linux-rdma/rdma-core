@@ -138,19 +138,19 @@ typedef struct umad_ca {
 int	umad_init(void);
 int	umad_done(void);
 
-int	umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max);	/* return number of hcas */
-int	umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max);	/* return number of ports */
+int	umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max);
+int	umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max);
 
 int	umad_get_ca(char *ca_name, umad_ca_t *ca);
 int	umad_release_ca(umad_ca_t *ca);
 int	umad_get_port(char *ca_name, int portnum, umad_port_t *port);
 int	umad_release_port(umad_port_t *port);
 
-int	umad_open_port(char *hca_name, int portnum);	/* return port id */
-int	umad_close_port(int portid);			/* return status */
+int	umad_open_port(char *hca_name, int portnum);
+int	umad_close_port(int portid);
 
 void *	umad_get_mad(void *umad);
-int	umad_size(void);				/* return size of umad buffer */
+int	umad_size(void);
 int	umad_status(void *umad);
 
 ib_mad_addr_t	*umad_get_mad_addr(void *umad);
@@ -160,19 +160,17 @@ int	umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_pkey(void *umad, int pkey);
 
-int	umad_send(int portid, int agentid, void *umad, int timeout_ms);	/* return status: 0 OK, err < 0 */
-int	umad_recv(int portid, void *umad, int timeout_ms);	/* return status: 0 OK, err < 0 */
-int	umad_poll(int portid, int timeout_ms);	/* return status: 1 success, 0 would block, err < 0 */
+int	umad_send(int portid, int agentid, void *umad, int timeout_ms);
+int	umad_recv(int portid, void *umad, int timeout_ms);
+int	umad_poll(int portid, int timeout_ms);
 
 int	umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_mask[4]);
 int	umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4]);
-int	umad_unregister(int portid, int mgmt_class);
+int	umad_unregister(int portid, int agentid);
 
 int	umad_debug(int level);
 void	umad_addr_dump(ib_mad_addr_t *addr);
 void	umad_dump(void *umad);
-
-umad_port_t 	*umad_get_local_port(int portid);
 
 #include <stdlib.h>
 

@@ -547,7 +547,7 @@ umad_open_port(char *ca_name, int portnum)
 	snprintf(port->dev_file, sizeof port->dev_file - 1, "%s/umad%d",
 		 UMAD_DEV_DIR , umad_id);
 
-	if ((port->dev_fd = open(port->dev_file, O_RDWR)) < 0) {
+	if ((port->dev_fd = open(port->dev_file, O_RDWR|O_NONBLOCK)) < 0) {
 		DEBUG("open %s failed", port->dev_file);
 		return -EIO;
 	}
@@ -630,7 +630,7 @@ umad_close_port(int portid)
 
 	TRACE("portid %d", portid);
 	if (!(port = port_get(portid)))
-		return -ENODEV;
+		return -EINVAL;
 
 	close(port->dev_fd);
 	
@@ -707,7 +707,7 @@ umad_send(int portid, int agentid, void *umad, int timeout_ms)
 
 	TRACE("portid %d agentid %d umad %p timeout %u", portid, agentid, umad, timeout_ms);
 	if (!(port = port_get(portid)))
-		return -ENODEV;
+		return -EINVAL;
 
 	mad->timeout_ms = timeout_ms;
 	mad->agent_id = agentid;
@@ -748,7 +748,7 @@ umad_recv(int portid, void *umad, int timeout_ms)
 
 	TRACE("portid %d umad %p timeout %u", portid, umad, timeout_ms);
 	if (!(port = port_get(portid)))
-		return -ENODEV;
+		return -EINVAL;
 
 	if (timeout_ms && (n = dev_poll(port->dev_fd, timeout_ms)) < 0)
 		return n;
@@ -769,7 +769,7 @@ umad_poll(int portid, int timeout_ms)
 
 	TRACE("portid %d timeout %u", portid, timeout_ms);
 	if (!(port = port_get(portid)))
-		return -ENODEV;
+		return -EINVAL;
 
 	return dev_poll(port->dev_fd, timeout_ms);
 }
@@ -785,7 +785,7 @@ umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4
 		(int)oui[2], method_mask);
 
 	if (!(port = port_get(portid)))
-		return -ENODEV;
+		return -EINVAL;
 
 	if (mgmt_class < 0x30 || mgmt_class > 0x4f) {
 		DEBUG("mgmnt class not in vendor range 2");
@@ -824,7 +824,7 @@ umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_mask[4
 		portid, mgmt_class, mgmt_version, method_mask);
 
 	if (!(port = port_get(portid)))
-		return -ENODEV;
+		return -EINVAL;
 
 	req.qpn = qp = (mgmt_class == 0x1 || mgmt_class == 0x81) ? 0 : 1;
 	req.mgmt_class = mgmt_class;
@@ -853,7 +853,7 @@ umad_unregister(int portid, int agentid)
 	TRACE("portid %d unregisters agent %d", agentid);
 
 	if (!(port = port_get(portid)))
-		return -ENODEV;
+		return -EINVAL;
 
 	return ioctl(port->dev_fd, IB_USER_MAD_UNREGISTER_AGENT, &agentid);
 }
