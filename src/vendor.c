@@ -62,7 +62,7 @@ is_vendor_range2(int mgmt)
 }
 
 static inline int
-responde_expected(int method)
+respond_expected(int method)
 {
 	return method == IB_MAD_METHOD_GET ||
 		method == IB_MAD_METHOD_SET ||
@@ -83,7 +83,7 @@ ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
 	    !(is_vendor_range2(call->mgmt_class)))
 		return 0;
 
-	resp_expected = responde_expected(call->mgmt_class);
+	resp_expected = respond_expected(call->method);
 
 	rpc.mgtclass = call->mgmt_class;
 
@@ -97,10 +97,13 @@ ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
 	if (!range1)
 		memcpy(rpc.oui, call->oui, sizeof(rpc.oui));
 
+	WARN("class %d method %d attrid %d mod %x datasz %d off %d res_ex %d",
+		rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod, rpc.datasz, rpc.dataoffs, resp_expected);
+
 	portid->qp = 1;
 
 	if (resp_expected)
-		return madrpc(&rpc, portid, data, data);
+		return madrpc_sa(&rpc, portid, 0, data);		// FIXME: no RMPP for now
 
 	return mad_send(&rpc, portid, 0, data) < 0 ? 0 : data;		// FIXME: no RMPP for now
 }
