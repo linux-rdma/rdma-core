@@ -165,7 +165,7 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 
 	mad = umad_get_mad(umad);
 
-	p = encode_MAD(mad, rpc, dport->lid ? 0 : &dport->drpath, payload);
+	p = mad_encode(mad, rpc, dport->lid ? 0 : &dport->drpath, payload);
 	len = p - pktbuf;
 
 	if ((len = _do_madrpc(umad, class_agent[rpc->mgtclass], len, rpc->timeout)) < 0)
@@ -208,7 +208,7 @@ madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	umad_set_pkey(umad, dport->pkey_idx);
 
 	mad = umad_get_mad(umad);
-	p = encode_MAD(mad, rpc, 0, data);
+	p = mad_encode(mad, rpc, 0, data);
 	len = p - pktbuf;
 
 	if (rmpp) {

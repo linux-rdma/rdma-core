@@ -40,7 +40,7 @@ IBMAD_1.0 {
 		mad_decode_field;
 		mad_encode_field;
 		mad_trid;
-		encode_MAD;
+		mad_encode;
 		portid2portnum;
 		portid2str;
 		str2drpath;

@@ -106,7 +106,7 @@ mad_trid(void)
 }
 
 void *
-encode_MAD(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
+mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 {
 	memset(buf, 0, IB_MAD_SIZE);
 

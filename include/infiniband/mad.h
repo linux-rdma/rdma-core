@@ -75,7 +75,14 @@ enum MAD_CLASSES {
 	IB_SMI_DIRECT_CLASS = 	0x81,
 	IB_SA_CLASS = 		0x3,
 	IB_PERFORMANCE_CLASS = 	0x4,
-	IB_FIRST_VENDOR_CLASS = 0x8,
+	IB_BOARD_MGMT_CLASS = 	0x5,
+	IB_DEVICE_MGMT_CLASS =	0x6,
+	IB_CM_CLASS =		0x7,
+	IB_SNMP_CLASS =		0x8,
+	IB_VENDOR_RANGE1_START_CLASS = 0x9,
+	IB_VENDOR_RANGE1_END_CLASS = 0x0f,
+	IB_VENDOR_RANGE2_START_CLASS = 0x30,
+	IB_VENDOR_RANGE2_END_CLASS = 0x4f,
 };
 
 enum MAD_METHODS {
@@ -440,6 +447,12 @@ enum MAD_FIELDS {
 	IB_VL_ARBITRATION_TABLE_F,
 
 
+	/*
+	 * IB vendor classes range 2
+	 */
+	IB_VEND2_OUI_F,
+	IB_VEND2_DATA_F,
+
 	IB_FIELD_LAST_	/* must be last */
 };
 
@@ -584,7 +597,7 @@ mad_get_array(void *buf, int base_offs, int field, void *val)
 
 void	mad_decode_field(uint8 *buf, int field, void *val);
 void	mad_encode_field(uint8 *buf, int field, void *val);
-void *	encode_MAD(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
+void *	mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
 uint64	mad_trid(void);
 
 /* rpc.c */
