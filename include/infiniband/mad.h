@@ -655,7 +655,7 @@ uint8 *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint ma
 
 /* dump.c */
 ib_mad_dump_fn
-	mad_dump_int, mad_dump_uint, mad_dump_hex,
+	mad_dump_int, mad_dump_uint, mad_dump_hex, mad_dump_rhex,
 	mad_dump_bitfield, mad_dump_array, mad_dump_string,
 	mad_dump_linkwidth, mad_dump_linkwidthsup, mad_dump_linkwidthen,
 	mad_dump_linkdowndefstate,

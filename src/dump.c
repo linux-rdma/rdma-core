@@ -100,28 +100,62 @@ mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "0x%x", *(uint8 *)val);
+		snprintf(buf, bufsz, "0x%02x", *(uint8 *)val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "0x%x", *(uint16 *)val);
+		snprintf(buf, bufsz, "0x%04x", *(uint16 *)val);
 		break;
 	case 3:
-		snprintf(buf, bufsz, "0x%x", *(uint32 *)val & 0xffffff);
+		snprintf(buf, bufsz, "0x%06x", *(uint32 *)val & 0xffffff);
 		break;
 	case 4:
-		snprintf(buf, bufsz, "0x%x", *(uint32 *)val);
+		snprintf(buf, bufsz, "0x%08x", *(uint32 *)val);
 		break;
 	case 5:
-		snprintf(buf, bufsz, "0x%llx", *(uint64 *)val & 0xffffffffffllu);
+		snprintf(buf, bufsz, "0x%010llx", *(uint64 *)val & 0xffffffffffllu);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "0x%llx", *(uint64 *)val & 0xffffffffffffllu);
+		snprintf(buf, bufsz, "0x%012llx", *(uint64 *)val & 0xffffffffffffllu);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "0x%llx", *(uint64 *)val & 0xffffffffffffffllu);
+		snprintf(buf, bufsz, "0x%014llx", *(uint64 *)val & 0xffffffffffffffllu);
 		break;
 	case 8:
-		snprintf(buf, bufsz, "0x%llx", *(uint64 *)val);
+		snprintf(buf, bufsz, "0x%016llx", *(uint64 *)val);
+		break;
+	default:
+		WARN("bad int sz %d", valsz);
+		buf[0] = 0;
+	}
+}
+
+void
+mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
+{
+	switch (valsz) {
+	case 1:
+		snprintf(buf, bufsz, "%02x", *(uint8 *)val);
+		break;
+	case 2:
+		snprintf(buf, bufsz, "%04x", *(uint16 *)val);
+		break;
+	case 3:
+		snprintf(buf, bufsz, "%06x", *(uint32 *)val & 0xffffff);
+		break;
+	case 4:
+		snprintf(buf, bufsz, "%08x", *(uint32 *)val);
+		break;
+	case 5:
+		snprintf(buf, bufsz, "%010llx", *(uint64 *)val & 0xffffffffffllu);
+		break;
+	case 6:
+		snprintf(buf, bufsz, "%012llx", *(uint64 *)val & 0xffffffffffffllu);
+		break;
+	case 7:
+		snprintf(buf, bufsz, "%014llx", *(uint64 *)val & 0xffffffffffffffllu);
+		break;
+	case 8:
+		snprintf(buf, bufsz, "%016llx", *(uint64 *)val);
 		break;
 	default:
 		WARN("bad int sz %d", valsz);

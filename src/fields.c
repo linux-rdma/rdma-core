@@ -57,8 +57,8 @@
 ib_field_t ib_mad_f [] = {
 	[0]	{0, 0},		/* IB_NO_FIELD - reserved as invalid */
 
-	[IB_GID_PREFIX_F]		{0, 64, "GidPrefix", mad_dump_hex},
-	[IB_GID_GUID_F]			{64, 128, "GidPrefix", mad_dump_hex},
+	[IB_GID_PREFIX_F]		{0, 64, "GidPrefix", mad_dump_rhex},
+	[IB_GID_GUID_F]			{64, 64, "GidPrefix", mad_dump_rhex},
 
 	/*
 	 * MAD: common MAD fields (IB spec 13.4.2)

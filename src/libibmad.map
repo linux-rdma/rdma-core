@@ -3,6 +3,7 @@ IBMAD_1.0 {
 		mad_dump_int;
 		mad_dump_uint;
 		mad_dump_hex;
+		mad_dump_rhex;
 		mad_dump_linkwidth;
 		mad_dump_linkwidthsup;
 		mad_dump_linkwidthen;
