@@ -208,13 +208,77 @@ mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
 
 	switch (speed) {
 	case 1:
-		snprintf(buf, bufsz, "2.5 Gbs");
+		snprintf(buf, bufsz, "2.5 Gbps");
+		break;
+	case 2:
+		snprintf(buf, bufsz, "5.0 Gbps");
+		break;
+	case 4:
+		snprintf(buf, bufsz, "10.0 Gbps");
+		break;
+	default:
+		snprintf(buf, bufsz, "?(%d)", speed);
+		break;
+	}
+}
+
+void
+map_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *)val;
+
+	switch (speed) {
+	case 1:
+		snprintf(buf, bufsz, "2.5 Gbps");
+		break;
+	case 3:
+		snprintf(buf, bufsz, "2.5 or 5.0 Gbps");
+		break;
+	case 5:
+		snprintf(buf, bufsz, "2.5 or 10.0 Gbps");
+		break;
+	case 7:
+		snprintf(buf, bufsz, "2.5 or 5.0 or 10.0 Gbps");
+		break;
+	default:
+		snprintf(buf, bufsz, "?(%d)", speed);
+		break;
+	}
+}
+
+void
+map_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *)val;
+
+	switch (speed) {
+	case 1:
+		snprintf(buf, bufsz, "2.5 Gbps");
+		break;
+	case 2:
+		snprintf(buf, bufsz, "5.0 Gbps");
+		break;
+	case 3:
+		snprintf(buf, bufsz, "2.5 or 5.0 Gbps");
+		break;
+	case 4:
+		snprintf(buf, bufsz, "10.0 Gbps");
+		break;
+	case 5:
+		snprintf(buf, bufsz, "2.5 or 10.0 Gbps");
+		break;
+	case 6:
+		snprintf(buf, bufsz, "5.0 or 10.0 Gbps");
+		break;
+	case 7:
+		snprintf(buf, bufsz, "2.5 or 5.0 or 10.0 Gbps");
 		break;
 	case 15:
 		snprintf(buf, bufsz, "SpeedSupported");
 		break;
 	default:
 		snprintf(buf, bufsz, "?(%d)", speed);
+		break;
 	}
 }
 
@@ -398,6 +462,11 @@ mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 		s += sprintf(s, "\t\t\t\tIsCapabilityMaskNoticeSupported\n");
 	if (mask & (1 << 23))
 		s += snprintf(buf, bufsz, "\t\t\t\tIsBootManagementSupported\n");
+	if (mask & (1 << 24))
+		s += snprintf(buf, bufsz, "\t\t\t\tIsLinkRoundTripLatencySupported\n");
+	if (mask & (1 << 25))
+		s += snprintf(buf, bufsz, "\t\t\t\tIsClientRegistrationSupported\n");
+
 	if (s != buf)
 		*(--s) = 0;
 }
