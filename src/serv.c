@@ -158,7 +158,7 @@ mad_receive(void *umad, int timeout)
 	void *mad = umad ? umad : umad_alloc(1);
 	int agent;
 
-	if ((agent = umad_recv(madrpc_portid(), mad, 0)) < 0) {
+	if ((agent = umad_recv(madrpc_portid(), mad, timeout)) < 0) {
 		DEBUG("recv failed: %m");
 		return 0;
 	}
