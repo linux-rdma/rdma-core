@@ -13,8 +13,12 @@ dnl Checks for programs
 AC_PROG_CC
 
 dnl Checks for libraries
-AC_CHECK_LIB(dl, dlsym)
-AC_CHECK_LIB(sysfs, sysfs_open_class)
+AC_CHECK_LIB(dl, dlsym, [],
+    AC_MSG_ERROR([dlsym() not found.  libibverbs requires libdl.]))
+AC_CHECK_LIB(pthread, pthread_mutex_init, [],
+    AC_MSG_ERROR([pthread_mutex_init() not found.  libibverbs requires libpthread.]))
+AC_CHECK_LIB(sysfs, sysfs_open_class, [],
+    AC_MSG_ERROR([sysfs_open_class() not found.  libibverbs requires libsysfs.]))
 
 dnl Checks for header files.
 AC_CHECK_HEADER(sysfs/libsysfs.h, [],

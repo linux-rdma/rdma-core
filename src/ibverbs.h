@@ -35,6 +35,8 @@
 #ifndef IB_VERBS_H
 #define IB_VERBS_H
 
+#include <pthread.h>
+
 #include <infiniband/verbs.h>
 #include <infiniband/driver.h>
 
@@ -50,5 +52,9 @@ struct ibv_driver {
 };
 
 extern Dlist *device_list;
+
+extern int ibv_init_mem_map(void);
+extern int ibv_lock_range(void *base, size_t size);
+extern int ibv_unlock_range(void *base, size_t size);
 
 #endif /* IB_VERBS_H */

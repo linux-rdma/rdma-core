@@ -12,7 +12,7 @@ else
     libibverbs_version_script =
 endif
 
-src_libibverbs_la_SOURCES = src/init.c src/device.c
+src_libibverbs_la_SOURCES = src/init.c src/device.c src/memory.c
 src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibverbs_version_script)
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map

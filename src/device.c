@@ -70,3 +70,23 @@ uint64_t ibv_get_device_guid(struct ibv_device *device)
 
 	return *(uint64_t *) guid;
 }
+
+struct ibv_context *ibv_open_device(struct ibv_device *device)
+{
+	struct ibv_context *context;
+
+	context = malloc(sizeof *context);
+	if (!context)
+		return NULL;
+
+	context->device = device;
+
+	return context;
+}
+
+int ibv_close_device(struct ibv_context *context)
+{
+	free(context);
+
+	return 0;
+}

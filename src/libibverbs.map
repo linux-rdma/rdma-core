@@ -3,5 +3,11 @@ IBVERBS_1.0 {
 		ibv_get_devices;
 		ibv_get_device_name;
 		ibv_get_device_guid;
+		ibv_open_device;
+		ibv_close_device;
+		ibv_alloc_pd;
+		ibv_dealloc_pd;
+		ibv_reg_mr;
+		ibv_dereg_mr;
 	local: *;
 };

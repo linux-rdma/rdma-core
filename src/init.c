@@ -136,6 +136,9 @@ static void INIT ibverbs_init(void)
 	Dlist *ib_dev_list;
 	struct sysfs_class_device *ib_dev;
 
+	if (ibv_init_mem_map())
+		abort();
+
 	driver_list = dlist_new(sizeof (struct ibv_driver));
 	device_list = dlist_new(sizeof (struct ibv_device));
 	if (!driver_list || !device_list)

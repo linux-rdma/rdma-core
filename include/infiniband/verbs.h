@@ -49,6 +49,30 @@
 
 BEGIN_C_DECLS
 
+enum ibv_access_flags {
+	IBV_ACCESS_LOCAL_WRITE		= 1,
+	IBV_ACCESS_REMOTE_WRITE		= (1<<1),
+	IBV_ACCESS_REMOTE_READ		= (1<<2),
+	IBV_ACCESS_REMOTE_ATOMIC	= (1<<3),
+	IBV_ACCESS_MW_BIND		= (1<<4)
+};
+
+struct ibv_pd {
+
+};
+
+struct ibv_mr {
+
+};
+
+struct ibv_qp {
+
+};
+
+struct ibv_cq {
+
+};
+
 struct ibv_device_ops {
 
 };
@@ -57,6 +81,10 @@ struct ibv_device {
 	struct sysfs_class_device *dev;
 	struct ibv_driver         *driver;
 	struct ibv_device_ops      ops;
+};
+
+struct ibv_context {
+	struct ibv_device         *device;
 };
 
 /**
@@ -73,6 +101,37 @@ extern const char *ibv_get_device_name(struct ibv_device *device);
  * ibv_get_device_guid - Return device's node GUID
  */
 extern uint64_t ibv_get_device_guid(struct ibv_device *device);
+
+/**
+ * ibv_open_device - Initialize device for use
+ */
+extern struct ibv_context *ibv_open_device(struct ibv_device *device);
+
+/**
+ * ibv_close_device - Release device
+ */
+extern int ibv_close_device(struct ibv_context *context);
+
+/**
+ * ibv_alloc_pd - Allocate a protection domain
+ */
+extern struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
+
+/**
+ * ibv_dealloc_pd - Free a protection domain
+ */
+extern int ibv_dealloc_pd(struct ibv_pd *pd);
+
+/**
+ * ibv_reg_mr - Register a memory region
+ */
+extern struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
+				 size_t length, enum ibv_access_flags access);
+
+/**
+ * ibv_dereg_mr - Deregister a memory region
+ */
+extern int ibv_dereg_mr(struct ibv_mr *mr);
 
 END_C_DECLS
 
