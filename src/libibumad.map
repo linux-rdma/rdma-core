@@ -20,6 +20,7 @@ IBUMAD_1.0 {
 		umad_recv;
 		umad_poll;
 		umad_register;
+		umad_register_oui;
 		umad_unregister;
 		umad_status;
 		umad_get_mad_addr;

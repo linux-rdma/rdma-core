@@ -673,6 +673,44 @@ umad_poll(int portid, int timeout_ms)
 }
 
 int
+umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4])
+{
+	struct ib_user_mad_reg_req req;
+	Port *port;
+
+	TRACE("portid %d mgmt_class %u oui %u method_mask %p",
+		portid, mgmt_class, oui, method_mask);
+
+	if (!(port = port_get(portid)))
+		return -ENODEV;
+
+	if (mgmt_class < 0x30 || mgmt_class > 0x4f) {
+		DEBUG("mgmnt class not in vendor range 2");
+		return -EINVAL;
+	}
+
+	req.qpn = 1;
+	req.mgmt_class = mgmt_class;
+	req.mgmt_class_version = 1;
+	memcpy(req.oui, oui, sizeof req.oui);
+
+	if ((void *)method_mask != 0)
+		memcpy(req.method_mask, method_mask, sizeof req.method_mask);
+	else
+		memset(req.method_mask, 0, sizeof req.method_mask);
+
+	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
+		DEBUG("portid %d registered to use agent %d qp %d class 0x%x oui 0x%x",
+			portid, req.id, req.qpn, oui);
+		return req.id; 		/* return agentid */
+	}
+	
+	DEBUG("portid %d registering qp %d class %s version %d out 0x%x failed: %m",
+		portid, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
+	return -EPERM;	
+}
+
+int
 umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_mask[4])
 {
 	struct ib_user_mad_reg_req req;

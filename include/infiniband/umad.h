@@ -165,6 +165,7 @@ int	umad_recv(int portid, void *umad, int timeout_ms);	/* return status: 0 OK, e
 int	umad_poll(int portid, int timeout_ms);	/* return status: 1 success, 0 would block, err < 0 */
 
 int	umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_mask[4]);
+int	umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4]);
 int	umad_unregister(int portid, int mgmt_class);
 
 int	umad_debug(int level);
