@@ -62,5 +62,8 @@ IBMAD_1.0 {
 		ib_path_query;
 		smp_set;
 		smp_query;
+		mad_dump_perfcounters;
+		port_performance_query;
+		port_performance_reset;
 	local: *;
 };
