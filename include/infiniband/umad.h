@@ -175,6 +175,7 @@ void	umad_dump(void *umad);
 umad_port_t 	*umad_get_local_port(int portid);
 
 #include <stdlib.h>
+
 static inline void *
 umad_alloc(int num)			/* alloc array of umad buffers */
 {
