@@ -600,17 +600,13 @@ mad_set_field64(void *buf, int base_offs, int field, uint64 val)
 static inline void
 mad_set_array(void *buf, int base_offs, int field, void *val)
 {
-	ib_field_t *f = ib_mad_f + field;
-
-	memcpy((uint8 *)buf + base_offs + f->bitoffs / 8, val, f->bitlen / 8);
+	_set_array(buf, base_offs, ib_mad_f + field, val);
 }
 
 static inline void
 mad_get_array(void *buf, int base_offs, int field, void *val)
 {
-	ib_field_t *f = ib_mad_f + field;
-
-	memcpy(val, (uint8 *)buf + base_offs + f->bitoffs / 8, f->bitlen / 8);
+	_get_array(buf, base_offs, ib_mad_f + field, val);
 }
 
 void	mad_decode_field(uint8 *buf, int field, void *val);
