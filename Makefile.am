@@ -1,0 +1,33 @@
+
+libdir = ${exec_prefix}/ib/lib
+
+SUBDIRS = .
+
+INCLUDES = -I$(srcdir)/include/infiniband \
+	   -I$(srcdir)/../libibcommon/include/infiniband \
+	   -I$(srcdir)/../libibumad/include/infiniband
+
+lib_LTLIBRARIES = libibmad.la
+
+libibmad_la_CFLAGS = -Wall
+
+if HAVE_LD_VERSION_SCRIPT
+    libibmad_version_script = -Wl,--version-script=$(srcdir)/src/libibmad.map
+else
+    libibmad_version_script =
+endif
+
+libibmad_la_SOURCES = src/dump.c src/fields.c src/mad.c src/portid.c \
+		      src/resolve.c src/rpc.c src/sa.c src/smp.c
+libibmad_la_LDFLAGS = -version-info 1 -export-dynamic \
+    $(libibmad_version_script)
+libibmad_la_DEPENDENCIES = $(srcdir)/src/libibmad.map
+
+libibmadincludedir = $(includedir)/infiniband
+
+libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h 
+
+EXTRA_DIST = $(srcdir)/include/infiniband/mad.h libibmad.spec.in
+
+dist-hook: libibmad.spec
+	cp libibmad.spec $(distdir)

@@ -48,9 +48,11 @@
 #include <umad.h>
 #include "mad.h"
 
+
+int ibdebug;
+
 static int mad_agentid = -1;
 static int mad_portid = -1;
-int ibdebug;
 
 static int class_agent[256];
 static int madrpc_retries = MAD_DEF_RETRIES;
