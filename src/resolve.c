@@ -143,3 +143,4 @@ ib_resolve_self(ib_portid_t *portid)
 
 	return 0;
 }
+

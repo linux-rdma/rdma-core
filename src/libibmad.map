@@ -25,6 +25,7 @@ IBMAD_1.0 {
 		mad_dump_nodeinfo;
 		mad_dump_portinfo;
 		mad_dump_switchinfo;
+		ib_mad_f;
 		_mad_dump_val;
 		_mad_dump_field;
 		_mad_dump;
@@ -45,7 +46,9 @@ IBMAD_1.0 {
 		ib_resolve_smlid;
 		ib_resolve_guid;
 		ib_resolve_portid_str;
+		ib_resolve_self;
 		ibdebug;
+		madrpc_show_errors;
 		madrpc_save_mad;
 		madrpc_set_retries;
 		madrpc_set_timeout;
