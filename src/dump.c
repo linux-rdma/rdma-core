@@ -141,6 +141,9 @@ mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 	case 2:
 		snprintf(buf, bufsz, "4X");
 		break;
+	case 4:
+		snprintf(buf, bufsz, "8X");
+		break;
 	case 8:
 		snprintf(buf, bufsz, "12X");
 		break;
@@ -162,9 +165,15 @@ mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 	case 3:
 		snprintf(buf, bufsz, "1X or 4X");
 		break;
-	case 11:
-		snprintf(buf, bufsz, "1X, 4X or 12X");
+	case 7:
+		snprintf(buf, bufsz, "1X or 4X or 8X");
 		break;
+	case 11:
+		snprintf(buf, bufsz, "1X or 4X or 12X");
+		break;
+	case 15:
+		snprintf(buf, bufsz, "1X or 4X or 8X or 12X");
+		break;	
 	default:
 		WARN("bad width %d", width);
 		buf[0] = 0;
