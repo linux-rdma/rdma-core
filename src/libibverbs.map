@@ -5,6 +5,7 @@ IBVERBS_1.0 {
 		ibv_get_device_guid;
 		ibv_open_device;
 		ibv_close_device;
+		ibv_get_async_event;
 		ibv_alloc_pd;
 		ibv_dealloc_pd;
 		ibv_reg_mr;

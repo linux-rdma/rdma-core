@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -29,34 +29,59 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id$
+ * $Id: device_list.c 1393 2004-12-28 02:15:24Z roland $
  */
 
-#ifndef IB_VERBS_H
-#define IB_VERBS_H
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
 
-#include <pthread.h>
+#include <stdio.h>
+#include <endian.h>
+#include <byteswap.h>
 
 #include <infiniband/verbs.h>
-#include <infiniband/driver.h>
 
-#include "kern_abi.h"
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+static inline uint64_t be64_to_cpu(uint64_t x) { return bswap_64(x); }
+#elif __BYTE_ORDER == __BIG_ENDIAN
+static inline uint64_t be64_to_cpu(uint64_t x) { return x; }
+#endif
 
-#define HIDDEN		__attribute__((visibility ("hidden")))
+int main(int argc, char *argv[])
+{
+	struct dlist *dev_list;
+	struct ibv_device *ib_dev;
+	struct ibv_context *context;
+	struct ibv_async_event event;
 
-#define INIT		__attribute__((constructor))
-#define FINI		__attribute__((destructor))
+	dev_list = ibv_get_devices();
 
-#define PFX		"libibverbs: "
+	dlist_start(dev_list);
+	ib_dev = dlist_next(dev_list);
 
-struct ibv_driver {
-	ibv_driver_init_func init_func;
-};
+	if (!ib_dev) {
+		fprintf(stderr, "No IB devices found\n");
+		return 1;
+	}
 
-extern Dlist *device_list;
+	context = ibv_open_device(ib_dev);
+	if (!context) {
+		fprintf(stderr, "Couldn't get context for %s\n",
+			ibv_get_device_name(ib_dev));
+		return 1;
+	}
 
-extern int ibv_init_mem_map(void);
-extern int ibv_lock_range(void *base, size_t size);
-extern int ibv_unlock_range(void *base, size_t size);
+	printf("%s: async event FD %d\n",
+	       ibv_get_device_name(ib_dev), context->async_fd);
 
-#endif /* IB_VERBS_H */
+	while (1) {
+		if (ibv_get_async_event(context, &event))
+			return 1;
+
+		printf("  event_type %d, port %d\n", event.event_type,
+		       event.element.port_num);
+	}
+
+	return 0;
+}

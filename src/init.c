@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -108,16 +108,36 @@ static void find_drivers(char *dir)
 		load_driver(so_glob.gl_pathv[i]);
 }
 
-static void init_drivers(struct sysfs_class_device *ib_dev)
+static void init_drivers(struct sysfs_class_device *verbs_dev)
 {
+	struct sysfs_class_device *ib_dev; 
+	struct sysfs_attribute *attr;
 	struct ibv_driver *driver;
 	struct ibv_device *dev;
+	char ibdev_name[64];
+
+	attr = sysfs_get_classdev_attr(verbs_dev, "ibdev");
+	if (!attr) {
+		fprintf(stderr, PFX "Warning: no ibdev class attr for %s\n",
+			verbs_dev->name);
+		return;
+	}
+
+	sscanf(attr->value, "%63s", ibdev_name);
+
+	ib_dev = sysfs_open_class_device("infiniband", ibdev_name);
+	if (!ib_dev) {
+		fprintf(stderr, PFX "Warning: no infiniband class device %s for %s\n",
+			attr->value, verbs_dev->name);
+		return;
+	}
 
 	dlist_for_each_data(driver_list, driver, struct ibv_driver) {
-		dev = driver->init_func(ib_dev);
+		dev = driver->init_func(verbs_dev);
 		if (dev) {
-			dev->dev    	    = ib_dev;
-			dev->driver 	    = driver;
+			dev->dev    = verbs_dev;
+			dev->ibdev  = ib_dev;
+			dev->driver = driver;
 
 			dlist_push(device_list, dev);
 
@@ -125,16 +145,47 @@ static void init_drivers(struct sysfs_class_device *ib_dev)
 		}
 	}
 
-	printf(PFX "Warning: no driver for %s\n", ib_dev->name);
+	fprintf(stderr, PFX "Warning: no driver for %s\n", verbs_dev->name);
 }
+
+static void check_abi_version(void)
+{
+	char path[256];
+	char val[16];
+	int ver;
+
+	if (sysfs_get_mnt_path(path, sizeof path)) {
+		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
+		abort();
+	}
+
+	strncat(path, "/class/infiniband_verbs/abi_version", sizeof path);
+
+	if (sysfs_read_attribute_value(path, val, sizeof val)) {
+		fprintf(stderr, PFX "Fatal: couldn't read uverbs ABI version.\n");
+		abort();
+	}
+
+	ver = strtol(val, NULL, 10);
+
+	if (ver != IB_USER_VERBS_ABI_VERSION) {
+		fprintf(stderr, PFX "Fatal: kernel ABI version %d "
+			"doesn't match library version %d.\n",
+			ver, IB_USER_VERBS_ABI_VERSION);
+		abort();
+	}
+}
+
 
 static void INIT ibverbs_init(void)
 {
 	const char *user_path;
 	char *wr_path, *dir;
 	struct sysfs_class *cls;
-	Dlist *ib_dev_list;
-	struct sysfs_class_device *ib_dev;
+	Dlist *verbs_dev_list;
+	struct sysfs_class_device *verbs_dev;
+
+	check_abi_version();
 
 	if (ibv_init_mem_map())
 		abort();
@@ -153,18 +204,18 @@ static void INIT ibverbs_init(void)
 
 	find_drivers(default_path);
 
-	cls = sysfs_open_class("infiniband");
+	cls = sysfs_open_class("infiniband_verbs");
 	if (!cls) {
 		fprintf(stderr, PFX "Fatal: couldn't open infiniband sysfs class.\n");
 		abort();
 	}
 
-	ib_dev_list = sysfs_get_class_devices(cls);
-	if (!ib_dev_list) {
+	verbs_dev_list = sysfs_get_class_devices(cls);
+	if (!verbs_dev_list) {
 		fprintf(stderr, PFX "Fatal: no infiniband class devices found.\n");
 		abort();
 	}
 
-	dlist_for_each_data(ib_dev_list, ib_dev, struct sysfs_class_device)
-		init_drivers(ib_dev);
+	dlist_for_each_data(verbs_dev_list, verbs_dev, struct sysfs_class_device)
+		init_drivers(verbs_dev);
 }

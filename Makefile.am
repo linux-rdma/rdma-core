@@ -17,9 +17,13 @@ src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibverbs_version_script)
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map
 
-bin_PROGRAMS = examples/ib_devices
+bin_PROGRAMS = examples/ib_devices examples/asyncwatch examples/pingpong
 examples_ib_devices_SOURCES = examples/device_list.c
 examples_ib_devices_LDADD = $(top_builddir)/src/libibverbs.la
+examples_pingpong_SOURCES = examples/pingpong.c
+examples_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
+examples_asyncwatch_SOURCES = examples/asyncwatch.c
+examples_asyncwatch_LDADD = $(top_builddir)/src/libibverbs.la
 
 libibverbsincludedir = $(includedir)/infiniband
 
