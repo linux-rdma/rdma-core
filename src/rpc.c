@@ -51,8 +51,8 @@
 
 int ibdebug;
 
-static int mad_agentid = -1;
 static int mad_portid = -1;
+static int iberrs;
 
 static int class_agent[256];
 static int madrpc_retries = MAD_DEF_RETRIES;
@@ -62,9 +62,15 @@ static int save_mad_len = 256;
 
 #undef DEBUG
 #define DEBUG	if (ibdebug)	WARN
-
+#define ERRS	if (iberrs || ibdebug)	WARN
 
 #define MAD_TID(mad)	(*((uint64 *)((char *)(mad) + 8)))
+
+void
+madrpc_show_errors(int set)
+{
+	iberrs = set;
+}
 
 void
 madrpc_save_mad(void *madbuf, int len)
@@ -103,7 +109,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 
 	for (retries = 0; retries < madrpc_retries; retries++) {
 		if (retries)
-			WARN("retry %d (timeout %d ms)", retries+1, timeout);
+			ERRS("retry %d (timeout %d ms)", retries+1, timeout);
 
 		if (umad_send(mad_portid, agentid, umad, timeout) < 0) {
 			WARN("send failed; %m");
@@ -124,7 +130,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 			return IB_MAD_SIZE;		/* done */
 	}
 
-	WARN("timeout after %d retries, %d ms", retries, timeout*retries);
+	ERRS("timeout after %d retries, %d ms", retries, timeout*retries);
 	return -1;
 }
 
@@ -168,8 +174,8 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 		save_mad = 0;
 	}
 
-	if ((status = mad_get_field(p, 0, IB_DRSMP_STATUS_F)) != 0) {
-		WARN("SMP ended with error status %x", status);
+	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
+		ERRS("SMP ended with error status %x", status);
 		return 0;
 	}
 
@@ -215,7 +221,7 @@ madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 		return 0;
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
-		WARN("SMP ended with error status %x", status);
+		ERRS("SMP ended with error status %x", status);
 		return 0;
 	}
 

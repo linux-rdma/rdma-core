@@ -506,6 +506,12 @@ enum {
 	IB_DEST_GUID,
 };
 
+enum {
+	IB_NODE_HCA = 1,
+	IB_NODE_SWITCH,
+	IB_NODE_ROUTER
+};
+
 /******************************************************************************/
 
 /* portid.c */
@@ -589,6 +595,7 @@ void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classe
 void	madrpc_save_mad(void *madbuf, int len);
 void	madrpc_lock(void);
 void	madrpc_unlock(void);
+void	madrpc_show_errors(int set);
 
 /* smp.c */
 uint8 *	smp_query(void *buf, ib_portid_t *id, uint attrid, uint mod, uint timeout);
@@ -639,6 +646,7 @@ safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 int	ib_resolve_smlid(ib_portid_t *sm_id, int timeout);
 int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int timeout);
 int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id);
+int	ib_resolve_self(ib_portid_t *portid);
 
 /* gs.c */
 uint8 *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout);
