@@ -135,15 +135,6 @@ port_free(Port *port)
 	memset(port, 0, sizeof *port);
 }
 
-static char *
-resolve_ca_name(char *hca_name)
-{
-	if (hca_name)
-		return hca_name;
-	else			/* FIXME - find first existing HCA */
-		return def_hca_name;
-}
-
 static int
 find_cached_ca(char *ca_name, umad_ca_t *ca)
 {
@@ -219,6 +210,118 @@ release_ca(umad_ca_t *ca)
 		ca->ports[i] = 0;
 	}
 	return 0;
+}
+
+/*
+ * if *port > 0 checks ca[port] state. Otherwise set *port to
+ * the first port that is active, and if such is not found, to
+ * the first port that is (physically) up. Otherwise return -1;
+ */
+static int
+resolve_ca_port(char *ca_name, int *port)
+{
+	umad_ca_t ca;
+	int active = -1, up = -1;
+	int i;
+
+	TRACE("checking ca '%s'", ca_name);
+
+	if (umad_get_ca(ca_name, &ca) < 0)
+		return -1;
+
+	if (ca.node_type == 2) {
+		*port = 0;	// switch sma port 0
+		return 1;
+	}
+
+	if (*port > 0) {		// user wants user gets
+		if (*port > ca.numports)
+			return -1;
+		if (!ca.ports[*port])
+			return -1;
+		if (ca.ports[*port]->state == 4)
+			return 1;
+		if (ca.ports[*port]->phys_state == 5)
+			return 0;
+		return -1;
+	}
+
+	for (i = 0; i <= ca.numports; i++) {
+		DEBUG("checking port %d", i);
+		if (!ca.ports[i])
+			continue;
+		if (up < 0 && ca.ports[i]->phys_state == 5)
+			up = *port = i;
+		if (ca.ports[i]->state == 4) {
+			active = *port = i;
+			DEBUG("found active port %d", i);
+			break;
+		}
+	}
+
+	release_ca(&ca);
+
+	if (active >= 0)
+		return 1;
+	if (up >= 0)
+		return 0;
+	return -1;
+}
+
+static char *
+resolve_ca_name(char *ca_name, int *best_port)
+{
+	static char names[20][UMAD_CA_NAME_LEN];
+	int phys_found = -1, port_found = 0, port, port_type;
+	int caidx, n;
+
+	if (ca_name && (!best_port || *best_port))
+		return ca_name;
+
+	if (ca_name) {
+		if (resolve_ca_port(ca_name, best_port) < 0)
+			return 0;
+		return ca_name;
+	}
+		
+	/* find first existing HCA with Active port */
+	if ((n = umad_get_cas_names((void *)names, UMAD_CA_NAME_LEN)) < 0)
+		return 0;
+
+	for (caidx = 0; caidx < n; caidx++) {
+		TRACE("checking ca '%s'", names[caidx]);
+	
+		port = *best_port;
+		if ((port_type = resolve_ca_port(names[caidx], &port)) < 0)
+			continue;
+
+		DEBUG("found ca %s with port %d type %d",
+			names[caidx], port, port_type);
+
+		if (port_type > 0) {
+			if (best_port)
+				*best_port = port;
+			DEBUG("found ca %s with active port %d", names[caidx], port);
+			return (char *)(names + caidx);
+		}
+
+		if (phys_found == -1) {
+			phys_found = caidx;
+			port_found = port;
+		}
+	}
+
+	DEBUG("phys found %d on %s port %d",
+		phys_found, phys_found >=0 ? names[phys_found] : 0, port_found);
+	if (phys_found >= 0) {
+		if (best_port)
+			*best_port = port_found;
+		return names[phys_found];
+	}
+
+	if (best_port)
+		*best_port = def_hca_port;
+	return def_hca_name;
 }
 
 static int
@@ -404,7 +507,7 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 	int ports = 0, i;
 
 	TRACE("ca name %s max port guids", ca_name, max);
-	if (!(ca_name = resolve_ca_name(ca_name)))
+	if (!(ca_name = resolve_ca_name(ca_name, 0)))
 		return -ENODEV;
 
 	if (umad_get_ca(ca_name, &ca) < 0)
@@ -430,11 +533,10 @@ umad_open_port(char *ca_name, int portnum)
 
 	TRACE("ca %s port %d", ca_name, portnum);
 
-	if (!(ca_name = resolve_ca_name(ca_name)))
+	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
 		return -ENODEV;
 
-	if (!portnum)		/* FIXME - find first existing ACTIVE port */
-		portnum = def_hca_port;
+	DEBUG("opening %s port %d", ca_name, portnum);
 
 	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
 		return -EINVAL;
@@ -460,7 +562,7 @@ umad_get_ca(char *ca_name, umad_ca_t *ca)
 	int r;
 
 	TRACE("ca_name %s", ca_name);
-	if (!(ca_name = resolve_ca_name(ca_name)))
+	if (!(ca_name = resolve_ca_name(ca_name, 0)))
 		return -ENODEV;
 
 	if (find_cached_ca(ca_name, ca) > 0)
