@@ -17,8 +17,8 @@ src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibverbs_version_script)
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map
 
-bin_PROGRAMS = examples/ib_drivers
-examples_ib_drivers_SOURCES = examples/driver_list.c
+bin_PROGRAMS = examples/ib_devices
+examples_ib_drivers_SOURCES = examples/device_list.c
 examples_ib_drivers_LDADD = $(top_builddir)/src/libibverbs.la
 
 libibverbsincludedir = $(includedir)/infiniband
