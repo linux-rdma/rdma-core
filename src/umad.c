@@ -791,7 +791,7 @@ umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4
 		return -EINVAL;
 
 	if (mgmt_class < 0x30 || mgmt_class > 0x4f) {
-		DEBUG("mgmnt class not in vendor range 2");
+		DEBUG("mgmt class %d not in vendor range 2", mgmt_class);
 		return -EINVAL;
 	}
 
