@@ -57,7 +57,7 @@ typedef struct ib_user_mad {
 	uint32	status;
 	uint32	timeout_ms;
 	ib_mad_addr_t addr;
-} __attribute__((packed)) ib_user_mad_t;
+} ib_user_mad_t;
 
 typedef struct ib_user_mad_reg_req {
 	uint32	id;
