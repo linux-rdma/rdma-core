@@ -84,26 +84,6 @@ sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 	return p;
 }
 
-uint8 *
-sa_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint64 mask, uint timeout)
-{
-	ib_sa_call_t sa = {0};
-
-	DEBUG("attr %d mod %d mask %Lx", attrid, mod, portid2str(portid));
-
-	if (portid->lid == -1) {
-		WARN("only lid routes are supported");
-		return 0;
-	}
-
-	sa.attrid = attrid;
-	sa.mask = mask;
-	sa.method = IB_MAD_METHOD_GET;
-	sa.mod = mod;
-
-	return sa_call(rcvbuf, portid, &sa, timeout);
-}
-
 /* PathRecord */
 #define IB_PR_COMPMASK_DGID				(1ull<<2)
 #define IB_PR_COMPMASK_SGID				(1ull<<3)

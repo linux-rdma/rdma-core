@@ -158,5 +158,9 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 	if (data)
 		memcpy((char *)buf + rpc->dataoffs, data, rpc->datasz);
 
+	// vendor mads range 2
+	if (rpc->mgtclass >= IB_VENDOR_RANGE2_START_CLASS && rpc->mgtclass <= IB_VENDOR_RANGE2_END_CLASS)
+		mad_set_array(buf, 0, IB_VEND2_OUI_F, rpc->oui);
+
 	return (uint8 *)buf + IB_MAD_SIZE;
 }

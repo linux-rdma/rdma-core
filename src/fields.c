@@ -319,7 +319,7 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * IB vendor classes range 2
 	 */
-	[IB_VEND2_OUI_F]		{BE_OFFS(36*8, 24), "OUI", mad_dump_hex},
+	[IB_VEND2_OUI_F]		{BE_OFFS(36*8, 24), "OUI", mad_dump_array},
 	[IB_VEND2_DATA_F]		{40*8, (256-40)*8, "Vendor2Data", mad_dump_array},
 
 };

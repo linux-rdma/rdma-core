@@ -54,7 +54,6 @@ int ibdebug;
 static int mad_portid = -1;
 static int iberrs;
 
-static int class_agent[256];
 static int madrpc_retries = MAD_DEF_RETRIES;
 static int def_madrpc_timeout = MAD_DEF_TIMEOUT_MS;
 static void *save_mad;
@@ -92,6 +91,18 @@ madrpc_set_timeout(int timeout)
 {
 	def_madrpc_timeout = timeout;
 	return 0;
+}
+
+int
+madrpc_def_timeout(void)
+{
+	return def_madrpc_timeout;
+}
+
+int
+madrpc_portid(void)
+{
+	return mad_portid;
 }
 
 static int 
@@ -168,7 +179,7 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	p = mad_encode(mad, rpc, dport->lid ? 0 : &dport->drpath, payload);
 	len = p - pktbuf;
 
-	if ((len = _do_madrpc(umad, class_agent[rpc->mgtclass], len, rpc->timeout)) < 0)
+	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass), len, rpc->timeout)) < 0)
 		return 0;
 
 	if (save_mad) {
@@ -221,7 +232,7 @@ madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 		mad_set_field(mad, 0, IB_SA_RMPP_D2_F, rmpp->d2.u);
 	}
 
-	if ((len = _do_madrpc(umad, class_agent[rpc->mgtclass], len, rpc->timeout)) < 0)
+	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass), len, rpc->timeout)) < 0)
 		return 0;
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
@@ -269,22 +280,6 @@ madrpc_unlock(void)
 	pthread_mutex_unlock(&rpclock);
 }
 
-static int
-mgmt_class_vers(int mgmt_class)
-{
-	switch(mgmt_class) {
-		case IB_SMI_CLASS:
-		case IB_SMI_DIRECT_CLASS:
-			return 1;
-		case IB_SA_CLASS:
-			return 2;
-		case IB_PERFORMANCE_CLASS:
-			return 1;
-	}
-
-	return 0;
-}
-
 void
 madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 {
@@ -295,11 +290,9 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		PANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
 
 	while (num_classes--) {
-		int vers, mgmt = *mgmt_classes++;
+		int mgmt = *mgmt_classes++;
 
-		if ((vers = mgmt_class_vers(mgmt)) <= 0)
-			PANIC("Unknown class %d mgmt_class", mgmt);
-		if ((class_agent[mgmt] = umad_register(mad_portid, mgmt, vers, 0)) < 0)
-			PANIC("Can't register agent for class %d", mgmt);
+		if (mad_register_client(mgmt) < 0)
+			PANIC("client_register for mgmt %d failed", mgmt);
 	}
 }

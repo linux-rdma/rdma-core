@@ -49,6 +49,14 @@ IBMAD_1.0 {
 		ib_resolve_portid_str;
 		ib_resolve_self;
 		ibdebug;
+		mad_register_client;
+		mad_register_server;
+		mad_send;
+		mad_receive;
+		mad_alloc;
+		mad_free;
+		ib_vendor_call;
+		madrpc_portid;
 		madrpc_show_errors;
 		madrpc_save_mad;
 		madrpc_set_retries;
@@ -59,7 +67,6 @@ IBMAD_1.0 {
 		madrpc_unlock;
 		madrpc_init;
 		sa_call;
-		sa_query;
 		ib_path_query;
 		smp_set;
 		smp_query;

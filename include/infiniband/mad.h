@@ -58,8 +58,11 @@ BEGIN_C_DECLS
 #define IB_SMP_DATA_OFFS	64
 #define IB_SMP_DATA_SIZE	64
 
-#define IB_VENDOR_DATA_OFFS	24
-#define IB_VENDOR_DATA_SIZE	(IB_MAD_SIZE - IB_VENDOR_DATA_OFFS)
+#define IB_VENDOR_RANGE1_DATA_OFFS	24
+#define IB_VENDOR_RANGE1_DATA_SIZE	(IB_MAD_SIZE - IB_VENDOR_RANGE1_DATA_OFFS)
+
+#define IB_VENDOR_RANGE2_DATA_OFFS	40
+#define IB_VENDOR_RANGE2_DATA_SIZE	(IB_MAD_SIZE - IB_VENDOR_RANGE2_DATA_OFFS)
 
 #define IB_SA_DATA_SIZE		200
 #define IB_SA_DATA_OFFS		56
@@ -86,11 +89,15 @@ enum MAD_CLASSES {
 };
 
 enum MAD_METHODS {
-	IB_MAD_METHOD_GET = 	1,
-	IB_MAD_METHOD_SET = 	2,
-	IB_MAD_METHOD_GET_RESPOND = 0x81,
+	IB_MAD_METHOD_GET = 		0x1,
+	IB_MAD_METHOD_SET = 		0x2,
+	IB_MAD_METHOD_GET_RESPOND =	0x81,
 
-	IB_MAD_METHOD_GET_TABLE =  0x12,
+	IB_MAD_METHOD_SEND = 		0x3,
+	IB_MAD_METHOD_TRAP = 		0x5,
+	IB_MAD_METHOD_TRAP_REPRESS = 	0x7,
+
+	IB_MAD_METHOD_GET_TABLE =  	0x12,
 	IB_MAD_METHOD_GET_TABLE_RESPONSE =  0x92,
 	IB_MAD_METHOD_GETMULTI = 	0x14,
 };
@@ -150,6 +157,7 @@ typedef struct {
 	uint64 mask;	/* for sa mads */
 	uint recsz;	/* for sa mads (attribute offset) */
 	int timeout;
+	uint8 oui[3];	/* for vendor mads range 2 */
 } ib_rpc_t;
 
 typedef struct portid {
@@ -492,7 +500,7 @@ enum SA_SIZES_ENUM {
 	SA_HEADER_SZ = 20,
 };
 
-typedef struct {
+typedef struct ib_sa_call {
 	uint attrid;
 	uint mod;
 	uint64 mask;
@@ -502,6 +510,16 @@ typedef struct {
 	uint recsz;	/* return field */
 	ib_rmpp_hdr_t rmpp;
 } ib_sa_call_t;
+
+typedef struct ib_vendor_call {
+	uint method;
+	uint mgmt_class;
+	uint attrid;
+	uint mod;
+	uint8 oui[3];
+	uint timeout;
+	ib_rmpp_hdr_t rmpp;
+} ib_vendor_call_t;
 
 #define IB_MIN_UCAST_LID	1
 #define IB_MAX_UCAST_LID	(0xc000-1)
@@ -600,7 +618,23 @@ void	mad_encode_field(uint8 *buf, int field, void *val);
 void *	mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
 uint64	mad_trid(void);
 
+/* register.c */
+int	mad_register_client(int mgmt);
+int	mad_register_server(int mgmt, uint32 method_mask[4], uint32 class_oui);
+int	mad_class_agent(int mgmt);
+int	mad_agent_class(int agent);
+
+/* serv.c */
+int	mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
+void *	mad_receive(void *umad, int timeout);
+void *	mad_alloc(void);
+void	mad_free(void *umad);
+
+/* vendor */
+uint8 *ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call);
+
 /* rpc.c */
+int	madrpc_portid(void);
 int	madrpc_set_retries(int retries);
 int	madrpc_set_timeout(int timeout);
 void *	madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata);
@@ -641,7 +675,6 @@ safe_smp_set(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint time
 
 /* sa.c */
 uint8 *	sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout);
-uint8 * sa_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint64 mask, uint timeout);
 int	ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf);	/* returns lid */
 
 inline static uint8 *
