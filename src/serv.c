@@ -54,39 +54,97 @@
 int
 mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
-	uint8 pktbuf[1024], *p, *mad;
+	uint8 pktbuf[1024];
 	void *umad = pktbuf;
-	int len;
 
 	memset(pktbuf, 0, umad_size());
 
 	DEBUG("rmpp %p data %p", rmpp, data);
 
-	umad_set_addr(umad, dport->lid, dport->qp, dport->sl, dport->qkey);
-	umad_set_grh(umad, dport->grh ? 0: 0);	/* FIXME: GRH support */
-	umad_set_pkey(umad, dport->pkey_idx);
-
-	mad = umad_get_mad(umad);
-	p = mad_encode(mad, rpc, 0, data);
-	len = p - pktbuf;
-
-	if (rmpp) {
-		mad_set_field(mad, 0, IB_SA_RMPP_VERS_F, 1);
-		mad_set_field(mad, 0, IB_SA_RMPP_TYPE_F, rmpp->type);
-		mad_set_field(mad, 0, IB_SA_RMPP_RESP_F, 0x3f);
-		mad_set_field(mad, 0, IB_SA_RMPP_FLAGS_F, rmpp->flags);
-		mad_set_field(mad, 0, IB_SA_RMPP_STATUS_F, rmpp->status);
-		mad_set_field(mad, 0, IB_SA_RMPP_D1_F, rmpp->d1.u);
-		mad_set_field(mad, 0, IB_SA_RMPP_D2_F, rmpp->d2.u);
-	}
+	if (mad_build_pkt(umad, rpc, dport, rmpp, data) < 0)
+		return 0;
 
 	if (ibdebug) {
 		WARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
-		xdump(stderr, "mad send data\n", mad + rpc->dataoffs, rpc->datasz);
+		xdump(stderr, "mad send data\n",
+			(char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
 	}
 
 	if (umad_send(madrpc_portid(), mad_class_agent(rpc->mgtclass), umad, rpc->timeout) < 0) {
 		WARN("send failed; %m");
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int
+mad_respond(void *umad, ib_portid_t *portid, uint32 rstatus)
+{
+	uint8 *mad = umad_get_mad(umad);
+	ib_mad_addr_t *mad_addr;
+	ib_rpc_t rpc = {0};
+	ib_portid_t rport;
+	int is_smi;
+
+	if (!portid) {
+		if (!(mad_addr = umad_get_mad_addr(umad)))
+			return -1;
+
+		memset(&rport, 0, sizeof(rport));
+
+		rport.lid = ntohs(mad_addr->lid);
+		rport.qp = ntohl(mad_addr->qpn);
+		rport.qkey = ntohl(mad_addr->qkey);
+		rport.sl = mad_addr->sl;
+
+		portid = &rport;
+	}
+
+	DEBUG("dest %s", portid2str(portid));
+
+	rpc.mgtclass = mad_get_field(mad, 0, IB_MAD_MGMTCLASS_F);
+
+	rpc.method = mad_get_field(mad, 0, IB_MAD_METHOD_F);
+	if (rpc.method == IB_MAD_METHOD_SET)
+		rpc.method = IB_MAD_METHOD_GET;
+	if (rpc.method != IB_MAD_METHOD_SEND)
+		rpc.method |= IB_MAD_RESPONSE;
+
+	rpc.attr.id = mad_get_field(mad, 0, IB_MAD_ATTRID_F);
+	rpc.attr.mod = mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
+	if (rpc.mgtclass == IB_SA_CLASS)
+		rpc.recsz = mad_get_field(mad, 0, IB_SA_ATTROFFS_F);
+	if (mad_is_vendor_range2(rpc.mgtclass))
+		rpc.oui = mad_get_field(mad, 0, IB_VEND2_OUI_F);
+
+	rpc.trid = mad_get_field64(mad, 0, IB_MAD_TRID_F);
+
+	/* cleared by default: timeout, datasz, dataoffs, mkey, mask */
+
+	is_smi = rpc.mgtclass == IB_SMI_CLASS || rpc.mgtclass == IB_SMI_DIRECT_CLASS;
+
+	if (is_smi)
+		portid->qp = 0;
+	else if (!portid->qp)
+		 portid->qp = 1;
+
+	if (!portid->qkey && portid->qp == 1)
+		portid->qkey = IB_DEFAULT_QP1_QKEY;
+
+	DEBUG("qp %d class %d method %d attrid %d mod %x datasz %d off %d qkey %x",
+		portid->qp, rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod,
+		rpc.datasz, rpc.dataoffs, portid->qkey);
+
+	if (mad_build_pkt(umad, &rpc, portid, 0, 0) < 0)
+		return 0;
+
+	if (ibdebug > 1) 
+		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
+
+	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad, rpc.timeout) < 0) {
+		DEBUG("send failed; %m");
 		return -1;
 	}
 

@@ -114,8 +114,13 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 		timeout = def_madrpc_timeout;
 
 	if (ibdebug > 1) {
-		WARN(">>> sending: len %d", len);
-		xdump(stderr, "send buf\n", umad, len);
+		WARN(">>> sending: len %d pktsz %d", len, umad_size());
+		xdump(stderr, "send buf\n", umad, umad_size());
+	}
+
+	if (save_mad) {
+		memcpy(save_mad, umad_get_mad(umad), save_mad_len < len ? save_mad_len : len);
+		save_mad = 0;
 	}
 
 	for (retries = 0; retries < madrpc_retries; retries++) {
@@ -145,47 +150,23 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 	return -1;
 }
 
+// change to madrpc_qp0 ???
 void *
 madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 {
 	int status, len;
-	uint8 pktbuf[1024], *mad, *p;
+	uint8 pktbuf[1024], *mad;
 	void *umad = pktbuf;
 
 	memset(pktbuf, 0, umad_size());
-#if 0
-	uint8 grh[40] = {0};
 
-	if (rpc->grh) {
-		av.grh_flag = 1;        /* Send GRH flag             */
-		av.traffic_class = 0;   /* TClass 8 bits             */
-		av.flow_label = 0;      /* Flow Label 20 bits        */
-		av.hop_limit = 0xff;    /* Hop Limit 8 bits          */
-		av.sgid_index = 0;      /* SGID index in SGID table  */
-		memcpy(av.dgid, rpc->dgid, sizeof(av.dgid)); /* Destination GID */
-	}
-#endif
-	if (dport->lid)
-		umad_set_addr(umad, dport->lid, dport->qp, dport->sl, dport->qkey);
-	else
-		umad_set_addr(umad, 0xffff, 0, 0, 0);
-
-	umad_set_grh(umad, dport->grh ? 0: 0);	/* FIXME: GRH support */
-
-	umad_set_pkey(umad, dport->pkey_idx);
-
-	mad = umad_get_mad(umad);
-
-	p = mad_encode(mad, rpc, dport->lid ? 0 : &dport->drpath, payload);
-	len = p - pktbuf;
+	if ((len = mad_build_pkt(umad, rpc, dport, 0, payload)) < 0)
+		return 0;
 
 	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass), len, rpc->timeout)) < 0)
 		return 0;
 
-	if (save_mad) {
-		memcpy(save_mad, mad, save_mad_len < len ? save_mad_len : len);
-		save_mad = 0;
-	}
+	mad = umad_get_mad(umad);
 
 	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
 		ERRS("SMP ended with error status %x", status);
@@ -203,37 +184,25 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	return rcvdata;
 }
 
+// change to madrpc_qp1 ???
 void *
 madrpc_sa(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
 	int status, len;
-	uint8 pktbuf[1024], *p, *mad;
+	uint8 pktbuf[1024], *mad;
 	void *umad = pktbuf;
 
 	memset(pktbuf, 0, umad_size());
 
 	DEBUG("rmpp %p data %p", rmpp, data);
 
-	umad_set_addr(umad, dport->lid, dport->qp, dport->sl, dport->qkey);
-	umad_set_grh(umad, dport->grh ? 0: 0);	/* FIXME: GRH support */
-	umad_set_pkey(umad, dport->pkey_idx);
-
-	mad = umad_get_mad(umad);
-	p = mad_encode(mad, rpc, 0, data);
-	len = p - pktbuf;
-
-	if (rmpp) {
-		mad_set_field(mad, 0, IB_SA_RMPP_VERS_F, 1);
-		mad_set_field(mad, 0, IB_SA_RMPP_TYPE_F, rmpp->type);
-		mad_set_field(mad, 0, IB_SA_RMPP_RESP_F, 0x3f);
-		mad_set_field(mad, 0, IB_SA_RMPP_FLAGS_F, rmpp->flags);
-		mad_set_field(mad, 0, IB_SA_RMPP_STATUS_F, rmpp->status);
-		mad_set_field(mad, 0, IB_SA_RMPP_D1_F, rmpp->d1.u);
-		mad_set_field(mad, 0, IB_SA_RMPP_D2_F, rmpp->d2.u);
-	}
+	if ((len = mad_build_pkt(umad, rpc, dport, rmpp, data)) < 0)
+		return 0;
 
 	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass), len, rpc->timeout)) < 0)
 		return 0;
+
+	mad = umad_get_mad(umad);
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
 		ERRS("SMP ended with error status %x", status);

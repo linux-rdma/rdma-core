@@ -44,7 +44,8 @@
 #include <sys/time.h>
 
 #include <common.h>
-#include "mad.h"
+#include <umad.h>
+#include <mad.h>
 
 #undef DEBUG
 #define DEBUG	if (ibdebug)	WARN
@@ -82,24 +83,25 @@ mad_encode_field(uint8 *buf, int field, void *val)
 		_set_field(buf, 0, f, *(uint32 *)val);
 		return;
 	}
-	if (f->bitlen == 32) {
+	if (f->bitlen == 64) {
 		_set_field64(buf, 0, f, *(uint64 *)val);
 		return;
 	}
 	_set_array(buf, 0, f, val);
 }
 
-static uint64 trid = 0x1122334455667788llu;
 
 uint64
 mad_trid(void)
 {
 	static uint64 base;
+	static uint64 trid;
 	uint64 next;
 
 	if (!base) {
 		srandom(time(0)*getpid());
 		base = random();
+		trid = random();
 	}
 	next = ++trid | (base << 32);
 	return next;
@@ -108,11 +110,11 @@ mad_trid(void)
 void *
 mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 {
-	memset(buf, 0, IB_MAD_SIZE);
+	int is_resp = rpc->method & IB_MAD_RESPONSE;
 
 	/* first word */
 	mad_set_field(buf, 0, IB_MAD_METHOD_F, rpc->method);
-	mad_set_field(buf, 0, IB_MAD_RESPONSE_F, 0);
+	mad_set_field(buf, 0, IB_MAD_RESPONSE_F, is_resp ? 1 : 0);
 	mad_set_field(buf, 0, IB_MAD_CLASSVER_F, rpc->mgtclass == IB_SA_CLASS ? 2 : 1);
 	mad_set_field(buf, 0, IB_MAD_MGMTCLASS_F, rpc->mgtclass);
 	mad_set_field(buf, 0, IB_MAD_BASEVER_F, 1);
@@ -124,17 +126,17 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 			return 0;
 		}
 		mad_set_field(buf, 0, IB_DRSMP_HOPCNT_F, drpath->cnt);
-		mad_set_field(buf, 0, IB_DRSMP_HOPPTR_F, 0x0);
-		mad_set_field(buf, 0, IB_DRSMP_STATUS_F, 0);
-		mad_set_field(buf, 0, IB_DRSMP_DIRECTION_F, 0);	/* out */
+		mad_set_field(buf, 0, IB_DRSMP_HOPPTR_F, is_resp ? drpath->cnt + 1 : 0x0);
+		mad_set_field(buf, 0, IB_DRSMP_STATUS_F, rpc->rstatus);
+		mad_set_field(buf, 0, IB_DRSMP_DIRECTION_F, is_resp ? 1 : 0);	/* out */
 	} else
-		mad_set_field(buf, 0, IB_MAD_STATUS_F, 0);
+		mad_set_field(buf, 0, IB_MAD_STATUS_F, rpc->rstatus);
 
 	/* words 3,4,5,6 */
 	if (!rpc->trid)
 		rpc->trid = mad_trid();
 
-	mad_encode_field(buf, IB_MAD_TRID_F, &rpc->trid);
+	mad_set_field64(buf, 0, IB_MAD_TRID_F, rpc->trid);
 	mad_set_field(buf, 0, IB_MAD_ATTRID_F, rpc->attr.id);
 	mad_set_field(buf, 0, IB_MAD_ATTRMOD_F, rpc->attr.mod);
 
@@ -147,9 +149,11 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 		mad_set_field(buf, 0, IB_DRSMP_DRDLID_F, drpath->drdlid ? drpath->drdlid : 0xffff);
 		mad_set_field(buf, 0, IB_DRSMP_DRSLID_F, drpath->drslid ? drpath->drslid : 0xffff);
 
-		/* bytes 128 - 256 */
-		mad_set_array(buf, 0, IB_DRSMP_PATH_F, drpath->p);
-		/* mad_set_array(buf, 0, IB_DRSMP_RPATH_F, 0); */	/* should be zero due memset*/
+		/* bytes 128 - 256 - by default should be zero due memset*/
+		if (is_resp)
+			mad_set_array(buf, 0, IB_DRSMP_RPATH_F, drpath->p);
+		else
+			mad_set_array(buf, 0, IB_DRSMP_PATH_F, drpath->p);
 	}
 
 	if (rpc->mgtclass == IB_SA_CLASS)
@@ -159,8 +163,42 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 		memcpy((char *)buf + rpc->dataoffs, data, rpc->datasz);
 
 	// vendor mads range 2
-	if (rpc->mgtclass >= IB_VENDOR_RANGE2_START_CLASS && rpc->mgtclass <= IB_VENDOR_RANGE2_END_CLASS)
-		mad_set_array(buf, 0, IB_VEND2_OUI_F, rpc->oui);
+	if (mad_is_vendor_range2(rpc->mgtclass))
+		mad_set_field(buf, 0, IB_VEND2_OUI_F, rpc->oui);
 
 	return (uint8 *)buf + IB_MAD_SIZE;
 }
+
+int
+mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
+{
+	uint8 *p, *mad;
+	int lid_routed = rpc->mgtclass != IB_SMI_DIRECT_CLASS;
+	int is_smi = (rpc->mgtclass == IB_SMI_CLASS || rpc->mgtclass == IB_SMI_DIRECT_CLASS);
+
+	if (!is_smi)
+		umad_set_addr(umad, dport->lid, dport->qp, dport->sl, dport->qkey);
+	else if (lid_routed)
+		umad_set_addr(umad, dport->lid, dport->qp, 0, 0);
+	else
+		umad_set_addr(umad, 0xffff, 0, 0, 0);	 /* direct routed smi */
+
+	umad_set_grh(umad, (dport->grh && !is_smi) ? 0/*grh*/ : 0);	/* FIXME: GRH support */
+	umad_set_pkey(umad, is_smi ? 0 : dport->pkey_idx);
+
+	mad = umad_get_mad(umad);
+	p = mad_encode(mad, rpc, lid_routed ? 0 : &dport->drpath, data);
+
+	if (!is_smi && rmpp) {
+		mad_set_field(mad, 0, IB_SA_RMPP_VERS_F, 1);
+		mad_set_field(mad, 0, IB_SA_RMPP_TYPE_F, rmpp->type);
+		mad_set_field(mad, 0, IB_SA_RMPP_RESP_F, 0x3f);
+		mad_set_field(mad, 0, IB_SA_RMPP_FLAGS_F, rmpp->flags);
+		mad_set_field(mad, 0, IB_SA_RMPP_STATUS_F, rmpp->status);
+		mad_set_field(mad, 0, IB_SA_RMPP_D1_F, rmpp->d1.u);
+		mad_set_field(mad, 0, IB_SA_RMPP_D2_F, rmpp->d2.u);
+	}
+
+	return p - mad;
+}
+

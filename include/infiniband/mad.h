@@ -100,6 +100,8 @@ enum MAD_METHODS {
 	IB_MAD_METHOD_GET_TABLE =  	0x12,
 	IB_MAD_METHOD_GET_TABLE_RESPONSE =  0x92,
 	IB_MAD_METHOD_GETMULTI = 	0x14,
+
+	IB_MAD_RESPONSE = 		0x80,
 };
 
 enum SMI_ATTR_ID {
@@ -150,6 +152,7 @@ typedef struct {
 	int mgtclass;
 	int method;
 	ib_attr_t attr;
+	uint32 rstatus;	// return status
 	int dataoffs;
 	int datasz;
 	uint64 mkey;
@@ -157,7 +160,7 @@ typedef struct {
 	uint64 mask;	/* for sa mads */
 	uint recsz;	/* for sa mads (attribute offset) */
 	int timeout;
-	uint8 oui[3];	/* for vendor mads range 2 */
+	uint32 oui;	/* for vendor mads range 2 */
 } ib_rpc_t;
 
 typedef struct portid {
@@ -516,7 +519,7 @@ typedef struct ib_vendor_call {
 	uint mgmt_class;
 	uint attrid;
 	uint mod;
-	uint8 oui[3];
+	uint32 oui;
 	uint timeout;
 	ib_rmpp_hdr_t rmpp;
 } ib_vendor_call_t;
@@ -613,6 +616,7 @@ void	mad_decode_field(uint8 *buf, int field, void *val);
 void	mad_encode_field(uint8 *buf, int field, void *val);
 void *	mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
 uint64	mad_trid(void);
+int	mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 
 /* register.c */
 int	mad_register_client(int mgmt);
@@ -623,11 +627,24 @@ int	mad_agent_class(int agent);
 /* serv.c */
 int	mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 void *	mad_receive(void *umad, int timeout);
+int	mad_respond(void *umad, ib_portid_t *portid, uint32 rstatus);
 void *	mad_alloc(void);
 void	mad_free(void *umad);
 
 /* vendor */
 uint8 *ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call);
+
+static inline int
+mad_is_vendor_range1(int mgmt)
+{
+	return mgmt >= 0x9 && mgmt <= 0xf;
+}
+
+static inline int
+mad_is_vendor_range2(int mgmt)
+{
+	return mgmt >= 0x30 && mgmt <= 0x4f;
+}
 
 /* rpc.c */
 int	madrpc_portid(void);
