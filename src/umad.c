@@ -194,7 +194,7 @@ get_port(char *ca_name, char *dir_name, int portnum, umad_port_t *port)
 	return 0;
 clean:
 	free(port);
-	return -1;
+	return -EIO;
 }
 
 static int
@@ -598,8 +598,8 @@ umad_get_port(char *ca_name, int portnum, umad_port_t *port)
 
 	TRACE("ca_name %s portnum %d", ca_name, portnum);
 
-	if (!ca_name)
-		return -EINVAL;
+	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
+		return -ENODEV;
 
 	snprintf(dir_name, sizeof dir_name - 1, "%s/%s/%s",
 		SYS_INFINIBAND, ca_name, SYS_CA_PORTS_DIR);
@@ -758,6 +758,9 @@ umad_recv(int portid, void *umad, int timeout_ms)
 		return mad->agent_id;
 	}
 
+	if (n == -EWOULDBLOCK)
+		return n;
+
 	DEBUG("read returned %d != sizeof umad %d (%m)", n, sizeof (*mad));
 	return -EIO;
 }
@@ -877,7 +880,7 @@ umad_get_mad_addr(void *umad)
 int
 umad_debug(int level)
 {
-	if (level)
+	if (level >= 0)
 		umaddebug = level;
 	return umaddebug;
 }
