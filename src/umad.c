@@ -678,8 +678,9 @@ umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4
 	struct ib_user_mad_reg_req req;
 	Port *port;
 
-	TRACE("portid %d mgmt_class %u oui %u method_mask %p",
-		portid, mgmt_class, oui, method_mask);
+	TRACE("portid %d mgmt_class %u oui 0x%x%x%x method_mask %p",
+		portid, mgmt_class, (int)oui[0], (int)oui[1],
+		(int)oui[2], method_mask);
 
 	if (!(port = port_get(portid)))
 		return -ENODEV;
