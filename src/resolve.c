@@ -136,11 +136,10 @@ ib_resolve_self(ib_portid_t *portid)
 
 	mad_decode_field(portinfo, IB_PORT_LID_F, &portid->lid);
 	mad_decode_field(portinfo, IB_PORT_GID_PREFIX_F, &prefix);
-	mad_decode_field(portinfo, IB_NODE_PORT_GUID_F, &guid);
+	mad_decode_field(nodeinfo, IB_NODE_PORT_GUID_F, &guid);
 
 	mad_encode_field(portid->gid, IB_GID_PREFIX_F, &prefix);
 	mad_encode_field(portid->gid, IB_GID_GUID_F, &prefix);
 
 	return 0;
 }
-
