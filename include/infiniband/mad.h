@@ -134,6 +134,10 @@ enum GSI_ATTR_ID {
 	IB_GSI_ATTR_LAST,
 };
 
+#define IB_VENDOR_OPENIB_PING_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 2)
+#define IB_VENDOR_OPENIB_SYSSTAT_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 3)
+#define IB_OPENIB_OUI			(0x123456 /* to be replaced by real IEEE oui*/ )
+
 typedef uint8 ib_gid_t[16];
 
 typedef struct {
