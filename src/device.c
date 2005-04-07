@@ -78,65 +78,39 @@ uint64_t ibv_get_device_guid(struct ibv_device *device)
 
 struct ibv_context *ibv_open_device(struct ibv_device *device)
 {
-	struct ibv_context *context, *tmp;
 	char *devpath;
-	struct ibv_get_context context_cmd;
-	struct ibv_get_context_resp context_resp;
-	struct ibv_get_event_fds event_fds_cmd;
-	struct ibv_get_event_fds_resp *event_fds_resp;
-	int i;
-
-	context = malloc(sizeof *context);
-	if (!context)
-		return NULL;
-
-	context->device = device;
+	int cmd_fd;
+	struct ibv_context *context;
+	struct ibv_query_params      cmd;
+	struct ibv_query_params_resp resp;
 
 	asprintf(&devpath, "/dev/infiniband/%s", device->dev->name);
-	context->cmd_fd = open(devpath, O_WRONLY);
 
-	if (context->cmd_fd < 0)
+	/*
+	 * We'll only be doing writes, but we need O_RDWR in case the
+	 * provider needs to mmap() the file.
+	 */
+	cmd_fd = open(devpath, O_RDWR);
+	if (cmd_fd < 0)
+		return NULL;
+
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PARAMS, &resp);
+	if (write(cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		goto err;
 
-	context_cmd.command   = IB_USER_VERBS_CMD_GET_CONTEXT;
-	context_cmd.in_words  = sizeof context_cmd / 4;
-	context_cmd.out_words = sizeof context_resp / 4;
-	context_cmd.response  = (unsigned long) &context_resp;
+	context = device->ops.alloc_context(device, resp.num_cq_events, cmd_fd);
+	if (!context)
+		goto err;
 
-	if (write(context->cmd_fd, &context_cmd, sizeof context_cmd) != sizeof context_cmd)
-		goto err_close;
-
-	context->num_comp = context_resp.num_cq_events;
-
-	if (context->num_comp > 1) {
-		tmp = realloc(context, sizeof *context + context->num_comp * sizeof (int));
-		if (!tmp)
-			goto err_close;
-		context = tmp;
-	}
-
-	event_fds_resp = alloca(sizeof *event_fds_resp + context->num_comp * 4);
-
-	event_fds_cmd.command   = IB_USER_VERBS_CMD_GET_EVENT_FDS;
-	event_fds_cmd.in_words  = sizeof event_fds_cmd / 4;
-	event_fds_cmd.out_words = sizeof *event_fds_resp / 4 + context->num_comp;
-	event_fds_cmd.response  = (unsigned long) event_fds_resp;
-
-	if (write(context->cmd_fd, &event_fds_cmd, sizeof event_fds_cmd) !=
-	    sizeof event_fds_cmd)
-		goto err_close;
-
-	context->async_fd = event_fds_resp->async_fd;
-	for (i = 0; i < context->num_comp; ++i)
-		context->cq_fd[i] = event_fds_resp->cq_fd[i];
+	context->device   = device;
+	context->cmd_fd   = cmd_fd;
+	context->num_comp = resp.num_cq_events;
 
 	return context;
 
-err_close:
-	close(context->cmd_fd);
-
 err:
-	free(context);
+	close(cmd_fd);
+
 	return NULL;
 }
 
@@ -149,7 +123,7 @@ int ibv_close_device(struct ibv_context *context)
 		close(context->cq_fd[i]);
 	close(context->cmd_fd);
 
-	free(context);
+	context->device->ops.free_context(context);
 
 	return 0;
 }
@@ -159,9 +133,7 @@ int ibv_get_async_event(struct ibv_context *context,
 {
 	struct ibv_kern_async_event ev;
 
-	int ret = read(context->async_fd, &ev, sizeof ev);
-
-	if (ret != sizeof ev)
+	if (read(context->async_fd, &ev, sizeof ev) != sizeof ev)
 		return -1;
 
 	/* XXX convert CQ/QP handles back to pointers */

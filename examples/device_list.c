@@ -36,6 +36,8 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <stdio.h>
+
 #include <endian.h>
 #include <byteswap.h>
 
@@ -60,5 +62,7 @@ int main(int argc, char *argv[])
 	dlist_for_each_data(dev_list, ib_dev, struct ibv_device)
 		printf("    %-16s\t%016llx\n",
 		       ibv_get_device_name(ib_dev),
-		       be64_to_cpu(ibv_get_device_guid(ib_dev)));
+		       (unsigned long long) be64_to_cpu(ibv_get_device_guid(ib_dev)));
+
+	return 0;
 }

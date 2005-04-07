@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -38,6 +38,7 @@
 #include <sysfs/libsysfs.h>
 
 #include <infiniband/verbs.h>
+#include <infiniband/kern-abi.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -61,5 +62,31 @@
  */
  
 typedef struct ibv_device *(*ibv_driver_init_func)(struct sysfs_class_device *);
+
+extern int ibv_cmd_get_context(int num_comp, struct ibv_context *context,
+			       struct ibv_get_context *cmd, size_t cmd_size);
+extern int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
+			      struct ibv_port_attr *port_attr,
+			      struct ibv_query_port *cmd, size_t cmd_size);
+extern int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
+			    struct ibv_alloc_pd *cmd, size_t cmd_size);
+extern int ibv_cmd_dealloc_pd(struct ibv_pd *pd);
+extern int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			  uint64_t hca_va, enum ibv_access_flags access,
+			  struct ibv_mr *mr, struct ibv_reg_mr *cmd,
+			  size_t cmd_size);
+extern int ibv_cmd_dereg_mr(struct ibv_mr *mr);
+extern int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
+			     struct ibv_cq *cq,
+			     struct ibv_create_cq *cmd, size_t cmd_size);
+extern int ibv_cmd_destroy_cq(struct ibv_cq *cq);
+
+extern int ibv_cmd_create_qp(struct ibv_pd *pd,
+			     struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
+			     struct ibv_create_qp *cmd, size_t cmd_size);
+extern int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			     enum ibv_qp_attr_mask attr_mask,
+			     struct ibv_modify_qp *cmd, size_t cmd_size);
+extern int ibv_cmd_destroy_qp(struct ibv_qp *qp);
 
 #endif /* INFINIBAND_DRIVER_H */

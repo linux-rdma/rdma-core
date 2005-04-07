@@ -66,6 +66,7 @@ struct pingpong_context {
 	struct ibv_mr      *mr;
 	struct ibv_cq      *cq;
 	struct ibv_qp      *qp;
+	struct ibv_ah      *ah;
 	void               *buf;
 	int                 size;
 	int                 rx_depth;
@@ -76,6 +77,7 @@ struct pingpong_dest {
 	int qpn;
 	int psn;
 };
+
 
 static uint16_t pp_get_local_lid(struct pingpong_context *ctx, int port)
 {
@@ -242,13 +244,13 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	ctx->size     = size;
 	ctx->rx_depth = rx_depth;
 
-	ctx->buf = memalign(page_size, size);
+	ctx->buf = memalign(page_size, size + 40);
 	if (!ctx->buf) {
 		fprintf(stderr, "Couldn't allocate work buf.\n");
 		return NULL;
 	}
 
-	memset(ctx->buf, 0, size);
+	memset(ctx->buf, 0, size + 40);
 
 	ctx->context = ibv_open_device(ib_dev);
 	if (!ctx->context) {
@@ -263,7 +265,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		return NULL;
 	}
 
-	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size, IBV_ACCESS_LOCAL_WRITE);
+	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size + 40, IBV_ACCESS_LOCAL_WRITE);
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't allocate MR\n");
 		return NULL;
@@ -285,7 +287,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 				.max_send_sge = 1,
 				.max_recv_sge = 1
 			},
-			.qp_type = IBV_QPT_RC
+			.qp_type = IBV_QPT_UD,
 		};
 
 		ctx->qp = ibv_create_qp(ctx->pd, &attr);
@@ -301,13 +303,13 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		attr.qp_state        = IBV_QPS_INIT;
 		attr.pkey_index      = 0;
 		attr.port_num        = port;
-		attr.qp_access_flags = 0;
+		attr.qkey            = 0x11111111;
 
 		if (ibv_modify_qp(ctx->qp, &attr,
 				  IBV_QP_STATE              |
 				  IBV_QP_PKEY_INDEX         |
 				  IBV_QP_PORT               |
-				  IBV_QP_ACCESS_FLAGS)) {
+				  IBV_QP_QKEY)) {
 			fprintf(stderr, "Failed to modify QP to INIT\n");
 			return NULL;
 		}
@@ -320,7 +322,7 @@ static int pp_post_recv(struct pingpong_context *ctx, int n)
 {
 	struct ibv_sge list = {
 		.addr 	= (uintptr_t) ctx->buf,
-		.length = ctx->size,
+		.length = ctx->size + 40,
 		.lkey 	= ctx->mr->lkey
 	};
 	struct ibv_recv_wr wr = {
@@ -338,10 +340,10 @@ static int pp_post_recv(struct pingpong_context *ctx, int n)
 	return i;
 }
 
-static int pp_post_send(struct pingpong_context *ctx)
+static int pp_post_send(struct pingpong_context *ctx, uint32_t qpn)
 {
 	struct ibv_sge list = {
-		.addr 	= (uintptr_t) ctx->buf,
+		.addr 	= (uintptr_t) ctx->buf + 40,
 		.length = ctx->size,
 		.lkey 	= ctx->mr->lkey
 	};
@@ -351,6 +353,13 @@ static int pp_post_send(struct pingpong_context *ctx)
 		.num_sge    = 1,
 		.opcode     = IBV_WR_SEND,
 		.send_flags = IBV_SEND_SIGNALED,
+		.wr         = {
+			.ud = {
+				 .ah          = ctx->ah,
+				 .remote_qpn  = qpn,
+				 .remote_qkey = 0x11111111
+			 }
+		}
 	};
 	struct ibv_send_wr *bad_wr;
 
@@ -361,44 +370,34 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 			  struct pingpong_dest *dest)
 {
 	struct ibv_qp_attr attr;
+	struct ibv_ah_attr ah_attr;
 
 	attr.qp_state 		= IBV_QPS_RTR;
-	attr.path_mtu 		= IBV_MTU_1024;
-	attr.dest_qp_num 	= dest->qpn;
-	attr.rq_psn 		= dest->psn;
-	attr.max_dest_rd_atomic = 1;
-	attr.min_rnr_timer 	= 12;
-	attr.ah_attr.is_global  = 0;
-	attr.ah_attr.dlid       = dest->lid;
-	attr.ah_attr.sl         = 0;
-	attr.ah_attr.src_path_bits = 0;
-	attr.ah_attr.port_num   = port;
-	if (ibv_modify_qp(ctx->qp, &attr,
-			  IBV_QP_STATE              |
-			  IBV_QP_AV                 |
-			  IBV_QP_PATH_MTU           |
-			  IBV_QP_DEST_QPN           |
-			  IBV_QP_RQ_PSN             |
-			  IBV_QP_MAX_DEST_RD_ATOMIC |
-			  IBV_QP_MIN_RNR_TIMER)) {
+
+	if (ibv_modify_qp(ctx->qp, &attr, IBV_QP_STATE)) {
 		fprintf(stderr, "Failed to modify QP to RTR\n");
 		return 1;
 	}
 
 	attr.qp_state 	    = IBV_QPS_RTS;
-	attr.timeout 	    = 14;
-	attr.retry_cnt 	    = 7;
-	attr.rnr_retry 	    = 7;
 	attr.sq_psn 	    = my_psn;
-	attr.max_rd_atomic  = 1;
+
 	if (ibv_modify_qp(ctx->qp, &attr,
 			  IBV_QP_STATE              |
-			  IBV_QP_TIMEOUT            |
-			  IBV_QP_RETRY_CNT          |
-			  IBV_QP_RNR_RETRY          |
-			  IBV_QP_SQ_PSN             |
-			  IBV_QP_MAX_QP_RD_ATOMIC)) {
+			  IBV_QP_SQ_PSN)) {
 		fprintf(stderr, "Failed to modify QP to RTS\n");
+		return 1;
+	}
+
+	ah_attr.is_global     = 0;
+	ah_attr.dlid          = dest->lid;
+	ah_attr.sl            = 0;
+	ah_attr.src_path_bits = 0;
+	ah_attr.port_num      = port;
+
+	ctx->ah = ibv_create_ah(ctx->pd, &ah_attr);
+	if (!ctx->ah) {
+		fprintf(stderr, "Failed to create AH\n");
 		return 1;
 	}
 
@@ -415,7 +414,7 @@ static void usage(const char *argv0)
 	printf("  -p, --port=<port>      listen on/connect to port <port> (default 18515)\n");
 	printf("  -d, --ib-dev=<dev>     use IB device <dev> (default first device found)\n");
 	printf("  -i, --ib-port=<port>   use port <port> of IB device (default 1)\n");
-	printf("  -s, --size=<size>      size of message to exchange (default 4096)\n");
+	printf("  -s, --size=<size>      size of message to exchange (default 2048)\n");
 	printf("  -r, --rx-depth=<dep>   number of receives to post at a time (default 500)\n");
 	printf("  -n, --iters=<iters>    number of exchanges (default 1000)\n");
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
@@ -433,7 +432,7 @@ int main(int argc, char *argv[])
 	char                    *servername = NULL;
 	int                      port = 18515;
 	int                      ib_port = 1;
-	int                      size = 4096;
+	int                      size = 2048;
 	int                      rx_depth = 500;
 	int                      iters = 1000;
 	int                      use_event = 0;
@@ -572,7 +571,7 @@ int main(int argc, char *argv[])
 		}
 
 	if (servername)
-		if (pp_post_send(ctx)) {
+		if (pp_post_send(ctx, rem_dest->qpn)) {
 			fprintf(stderr, "Couldn't post send\n");
 			return 1;
 		}
@@ -641,7 +640,7 @@ int main(int argc, char *argv[])
 					}
 
 					if (scnt < iters)
-						if (pp_post_send(ctx)) {
+						if (pp_post_send(ctx, rem_dest->qpn)) {
 							fprintf(stderr, "Couldn't post send\n");
 							return 1;
 						}

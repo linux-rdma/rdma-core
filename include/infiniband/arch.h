@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -32,43 +32,47 @@
  * $Id$
  */
 
-#ifndef IB_VERBS_H
-#define IB_VERBS_H
+#ifndef INFINIBAND_ARCH_H
+#define INFINIBAND_ARCH_H
 
-#include <pthread.h>
+/*
+ * Architecture-specific defines.  Currently, an architecture is
+ * required to implement the following operations:
+ *
+ * mb() - memory barrier.  No loads or stores may be reordered across
+ *     this macro by either the compiler or the CPU.
+ */
 
-#include <infiniband/driver.h>
+#if defined(__i386__)
 
-#define HIDDEN		__attribute__((visibility ("hidden")))
+#define mb()	asm volatile("" ::: "memory")
 
-#define INIT		__attribute__((constructor))
-#define FINI		__attribute__((destructor))
+#elif defined(__x86_64__)
 
-#define PFX		"libibverbs: "
+#define mb()	asm volatile("" ::: "memory")
 
-struct ibv_driver {
-	ibv_driver_init_func init_func;
-};
+#elif defined(__PPC64__)
 
-extern Dlist *device_list;
+#define mb()	asm volatile("sync" ::: "memory")
 
-extern int ibv_init_mem_map(void);
-extern int ibv_lock_range(void *base, size_t size);
-extern int ibv_unlock_range(void *base, size_t size);
+#elif defined(__ia64__)
 
-#define IBV_INIT_CMD(cmd, size, opcode)				\
-	do {							\
-		(cmd)->command   = IB_USER_VERBS_CMD_##opcode;	\
-		(cmd)->in_words  = (size) / 4;			\
-		(cmd)->out_words = 0;				\
-	} while (0)
+#define mb()	asm volatile("mf" ::: "memory")
 
-#define IBV_INIT_CMD_RESP(cmd, size, opcode, out)		\
-	do {							\
-		(cmd)->command   = IB_USER_VERBS_CMD_##opcode;	\
-		(cmd)->in_words  = (size) / 4;			\
-		(cmd)->out_words = sizeof (*(out)) / 4;		\
-		(cmd)->response  = (uintptr_t) (out);		\
-	} while (0)
+#elif defined(__PPC__)
 
-#endif /* IB_VERBS_H */
+#define mb()	asm volatile("sync" ::: "memory")
+
+#elif defined(__sparc__)
+
+#define mb()	asm volatile("membar #LoadLoad | #LoadStore | #StoreStore | #StoreLoad" ::: "memory")
+
+#else
+
+#warning No architecture specific defines found.  Using generic implementation.
+
+#define mb()	asm volatile("" ::: "memory")
+
+#endif
+
+#endif /* INFINIBAND_ARCH_H */

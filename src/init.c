@@ -74,7 +74,8 @@ static void load_driver(char *so_path)
 	driver = malloc(sizeof *driver);
 	if (!driver) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate driver for %s\n", so_path);
-		abort();
+		dlclose(dlhandle);
+		return;
 	}
 
 	driver->init_func = init_func;
@@ -148,7 +149,7 @@ static void init_drivers(struct sysfs_class_device *verbs_dev)
 	fprintf(stderr, PFX "Warning: no driver for %s\n", verbs_dev->name);
 }
 
-static void check_abi_version(void)
+static int check_abi_version(void)
 {
 	char path[256];
 	char val[16];
@@ -156,14 +157,14 @@ static void check_abi_version(void)
 
 	if (sysfs_get_mnt_path(path, sizeof path)) {
 		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
-		abort();
+		return -1;
 	}
 
 	strncat(path, "/class/infiniband_verbs/abi_version", sizeof path);
 
 	if (sysfs_read_attribute_value(path, val, sizeof val)) {
 		fprintf(stderr, PFX "Fatal: couldn't read uverbs ABI version.\n");
-		abort();
+		return -1;
 	}
 
 	ver = strtol(val, NULL, 10);
@@ -172,8 +173,10 @@ static void check_abi_version(void)
 		fprintf(stderr, PFX "Fatal: kernel ABI version %d "
 			"doesn't match library version %d.\n",
 			ver, IB_USER_VERBS_ABI_VERSION);
-		abort();
+		return -1;
 	}
+
+	return 0;
 }
 
 
@@ -185,15 +188,15 @@ static void INIT ibverbs_init(void)
 	Dlist *verbs_dev_list;
 	struct sysfs_class_device *verbs_dev;
 
-	check_abi_version();
-
-	if (ibv_init_mem_map())
-		abort();
-
 	driver_list = dlist_new(sizeof (struct ibv_driver));
 	device_list = dlist_new(sizeof (struct ibv_device));
-	if (!driver_list || !device_list)
+	if (!driver_list || !device_list) {
+		fprintf(stderr, PFX "Fatal: couldn't allocate device/driver list.\n");
 		abort();
+	}
+
+	if (ibv_init_mem_map())
+		return;
 
 	user_path = getenv(OPENIB_DRIVER_PATH_ENV);
 	if (user_path) {
@@ -207,13 +210,16 @@ static void INIT ibverbs_init(void)
 	cls = sysfs_open_class("infiniband_verbs");
 	if (!cls) {
 		fprintf(stderr, PFX "Fatal: couldn't open infiniband sysfs class.\n");
-		abort();
+		return;
 	}
+
+	if (check_abi_version())
+		return;
 
 	verbs_dev_list = sysfs_get_class_devices(cls);
 	if (!verbs_dev_list) {
 		fprintf(stderr, PFX "Fatal: no infiniband class devices found.\n");
-		abort();
+		return;
 	}
 
 	dlist_for_each_data(verbs_dev_list, verbs_dev, struct sysfs_class_device)
