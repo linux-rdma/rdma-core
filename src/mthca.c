@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -32,59 +32,177 @@
  * $Id$
  */
 
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <infiniband/driver.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <pthread.h>
 
 #include "mthca.h"
-
-enum {
-	TAVOR,
-	ARBEL
-};
-
-static struct ibv_device_ops mthca_ops[] = {
-	[TAVOR] = { },
-	[ARBEL] = { }
-};
+#include "mthca-abi.h"
 
 #ifndef PCI_VENDOR_ID_MELLANOX
-#define PCI_VENDOR_ID_MELLANOX		0x15b3
+#define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
 
 #ifndef PCI_DEVICE_ID_MELLANOX_TAVOR
-#define PCI_DEVICE_ID_MELLANOX_TAVOR	0x5a44
+#define PCI_DEVICE_ID_MELLANOX_TAVOR		0x5a44
 #endif
 
 #ifndef PCI_DEVICE_ID_MELLANOX_ARBEL_COMPAT
-#define PCI_DEVICE_ID_MELLANOX_ARBEL_COMPAT 0x6278
+#define PCI_DEVICE_ID_MELLANOX_ARBEL_COMPAT	0x6278
 #endif
 
 #ifndef PCI_DEVICE_ID_MELLANOX_ARBEL
-#define PCI_DEVICE_ID_MELLANOX_ARBEL	0x6282
+#define PCI_DEVICE_ID_MELLANOX_ARBEL		0x6282
+#endif
+
+#ifndef PCI_DEVICE_ID_MELLANOX_SINAI_OLD
+#define PCI_DEVICE_ID_MELLANOX_SINAI_OLD	0x5e8c
+#endif
+
+#ifndef PCI_DEVICE_ID_MELLANOX_SINAI
+#define PCI_DEVICE_ID_MELLANOX_SINAI		0x6274
 #endif
 
 #ifndef PCI_VENDOR_ID_TOPSPIN
-#define PCI_VENDOR_ID_TOPSPIN		0x1867
+#define PCI_VENDOR_ID_TOPSPIN			0x1867
 #endif
 
 #define HCA(v, d, t) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
 	  .device = PCI_DEVICE_ID_MELLANOX_##d,		\
-	  .type = t }
+	  .type = MTHCA_##t }
 
 struct {
-	unsigned vendor;
-	unsigned device;
-	int      type;
+	unsigned		vendor;
+	unsigned		device;
+	enum mthca_hca_type	type;
 } hca_table[] = {
-	HCA(MELLANOX, TAVOR, TAVOR),
+	HCA(MELLANOX, TAVOR,	    TAVOR),
 	HCA(MELLANOX, ARBEL_COMPAT, TAVOR),
-	HCA(MELLANOX, ARBEL, ARBEL),
-	HCA(TOPSPIN, TAVOR, TAVOR),
-	HCA(TOPSPIN, ARBEL_COMPAT, TAVOR),
-	HCA(TOPSPIN, ARBEL, ARBEL),
+	HCA(MELLANOX, ARBEL,	    ARBEL),
+	HCA(MELLANOX, SINAI_OLD,    ARBEL),
+	HCA(MELLANOX, SINAI,	    ARBEL),
+	HCA(TOPSPIN,  TAVOR,	    TAVOR),
+	HCA(TOPSPIN,  ARBEL_COMPAT, TAVOR),
+	HCA(TOPSPIN,  ARBEL,	    ARBEL),
+	HCA(TOPSPIN,  SINAI_OLD,    ARBEL),
+	HCA(TOPSPIN,  SINAI,	    ARBEL),
+};
+
+static struct ibv_context_ops mthca_ctx_ops = {
+	.query_port    = mthca_query_port,
+	.alloc_pd      = mthca_alloc_pd,
+	.dealloc_pd    = mthca_free_pd,
+	.reg_mr        = mthca_reg_mr,
+	.dereg_mr      = mthca_dereg_mr,
+	.create_cq     = mthca_create_cq,
+	.poll_cq       = mthca_poll_cq,
+	.destroy_cq    = mthca_destroy_cq,
+	.create_qp     = mthca_create_qp,
+	.modify_qp     = mthca_modify_qp,
+	.destroy_qp    = mthca_destroy_qp,
+	.create_ah     = mthca_create_ah,
+	.destroy_ah    = mthca_destroy_ah
+};
+
+static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev,
+					       int num_comp, int cmd_fd)
+{
+	struct mthca_context            *context;
+	struct mthca_alloc_ucontext      cmd;
+	struct mthca_alloc_ucontext_resp resp;
+	int                              i;
+
+	context = malloc(sizeof *context + num_comp * sizeof (int));
+	if (!context)
+		return NULL;
+
+	context->ibv_ctx.cmd_fd = cmd_fd;
+
+	cmd.respbuf = (uintptr_t) &resp;
+	if (ibv_cmd_get_context(num_comp, &context->ibv_ctx, &cmd.ibv_cmd, sizeof cmd))
+		goto err_free;
+
+	context->num_qps        = resp.qp_tab_size;
+	context->qp_table_shift = ffs(context->num_qps) - 1 - MTHCA_QP_TABLE_BITS;
+	context->qp_table_mask  = (1 << context->qp_table_shift) - 1;
+
+	/*
+	 * Need to set ibv_ctx.device because mthca_is_memfree() will
+	 * look at it to figure out the HCA type.
+	 */
+	context->ibv_ctx.device = ibdev;
+
+	if (mthca_is_memfree(&context->ibv_ctx)) {
+		context->db_tab = mthca_alloc_db_tab(resp.uarc_size);
+		if (!context->db_tab)
+			goto err_free;
+	} else
+		context->db_tab = NULL;
+
+	pthread_mutex_init(&context->qp_table_mutex, NULL);
+	for (i = 0; i < MTHCA_QP_TABLE_SIZE; ++i)
+		context->qp_table[i].refcnt = 0;
+
+	context->uar = mmap(NULL, to_mdev(ibdev)->page_size, PROT_WRITE,
+			    MAP_SHARED, cmd_fd, 0);
+	if (context->uar == MAP_FAILED)
+		goto err_db_tab;
+
+	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
+
+	context->pd = mthca_alloc_pd(&context->ibv_ctx);
+	if (!context->pd)
+		goto err_unmap;
+
+	context->pd->context = &context->ibv_ctx;
+
+	context->ibv_ctx.ops = mthca_ctx_ops;
+
+	if (mthca_is_memfree(&context->ibv_ctx)) {
+		context->ibv_ctx.ops.req_notify_cq = mthca_arbel_arm_cq;
+		context->ibv_ctx.ops.cq_event      = mthca_arbel_cq_event;
+		context->ibv_ctx.ops.post_send     = mthca_arbel_post_send;
+		context->ibv_ctx.ops.post_recv     = mthca_arbel_post_recv;
+	} else {
+		context->ibv_ctx.ops.req_notify_cq = mthca_tavor_arm_cq;
+		context->ibv_ctx.ops.cq_event      = NULL;
+		context->ibv_ctx.ops.post_send     = mthca_tavor_post_send;
+		context->ibv_ctx.ops.post_recv     = mthca_tavor_post_recv;
+	}
+
+	return &context->ibv_ctx;
+
+err_unmap:
+	munmap(context->uar, to_mdev(ibdev)->page_size);
+
+err_db_tab:
+	mthca_free_db_tab(context->db_tab);
+
+err_free:
+	free(context);
+	return NULL;
+}
+
+static void mthca_free_context(struct ibv_context *ibctx)
+{
+	struct mthca_context *context = to_mctx(ibctx);
+
+	munmap(context->uar, to_mdev(ibctx->device)->page_size);
+	mthca_free_db_tab(context->db_tab);
+	free(context);
+}
+
+static struct ibv_device_ops mthca_dev_ops = {
+	.alloc_context = mthca_alloc_context,
+	.free_context  = mthca_free_context
 };
 
 struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
@@ -126,7 +244,9 @@ found:
 		abort();
 	}
 
-	dev->ibv_dev.ops = mthca_ops[hca_table[i].type];
+	dev->ibv_dev.ops = mthca_dev_ops;
+	dev->hca_type    = hca_table[i].type;
+	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
 }

@@ -12,11 +12,13 @@ else
     mthca_version_script =
 endif
 
-src_mthca_la_SOURCES = src/mthca.c
+src_mthca_la_SOURCES = src/ah.c src/cq.c src/memfree.c src/mthca.c src/qp.c src/verbs.c
 src_mthca_la_LDFLAGS = -avoid-version -module \
     $(mthca_version_script)
 
-EXTRA_DIST = libmthca.spec.in
+EXTRA_DIST = src/doorbell.h src/mthca.h src/mthca-abi.h \
+    src/mthca.map \
+    libmthca.spec.in
 
 dist-hook: libmthca.spec
 	cp libmthca.spec $(distdir)
