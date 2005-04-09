@@ -61,6 +61,10 @@ enum {
 	MTHCA_INVAL_LKEY = 0x100
 };
 
+enum {
+	MTHCA_INLINE_SEG = 1 << 31
+};
+
 struct mthca_next_seg {
 	uint32_t	nda_op;	/* [31:6] next WQE [4:0] next opcode */
 	uint32_t	ee_nds;	/* [31:8] next EE  [7] DBD [6] F [5:0] next WQE size */
@@ -109,6 +113,10 @@ struct mthca_data_seg {
 	uint32_t	byte_count;
 	uint32_t	lkey;
 	uint64_t	addr;
+};
+
+struct mthca_inline_seg {
+	uint32_t	byte_count;
 };
 
 static const uint8_t mthca_opcode[] = {
@@ -259,15 +267,41 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		for (i = 0; i < wr->num_sge; ++i) {
-			((struct mthca_data_seg *) wqe)->byte_count =
-				htonl(wr->sg_list[i].length);
-			((struct mthca_data_seg *) wqe)->lkey =
-				htonl(wr->sg_list[i].lkey);
-			((struct mthca_data_seg *) wqe)->addr =
-				htonll(wr->sg_list[i].addr);
-			wqe += sizeof (struct mthca_data_seg);
-			size += sizeof (struct mthca_data_seg) / 16;
+		if (wr->send_flags & IBV_SEND_INLINE) {
+			struct mthca_inline_seg *seg = wqe;
+			int max_size = (1 << qp->sq.wqe_shift) - sizeof *seg - size * 16;
+			int s = 0;
+
+			wqe += sizeof *seg;
+			for (i = 0; i < wr->num_sge; ++i) {
+				struct ibv_sge *sge = &wr->sg_list[i];
+
+				s += sge->length;
+
+				if (s > max_size) {
+					ret = -1;
+					*bad_wr = wr;
+					goto out;
+				}
+
+				memcpy(wqe, (void*) (intptr_t) sge->addr, sge->length);
+				wqe += sge->length;
+			}
+
+			seg->byte_count = htonl(MTHCA_INLINE_SEG | s);
+			size += align(s + sizeof *seg, 16) / 16;
+		} else {
+			struct mthca_data_seg *seg;
+
+			for (i = 0; i < wr->num_sge; ++i) {
+				seg = wqe;
+				seg->byte_count = htonl(wr->sg_list[i].length);
+				seg->lkey = htonl(wr->sg_list[i].lkey);
+				seg->addr = htonll(wr->sg_list[i].addr);
+				wqe += sizeof *seg;
+			}
+
+			size += wr->num_sge * (sizeof *seg / 16);
 		}
 
 		qp->wrid[ind + qp->rq.max] = wr->wr_id;
@@ -516,15 +550,41 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		for (i = 0; i < wr->num_sge; ++i) {
-			((struct mthca_data_seg *) wqe)->byte_count =
-				htonl(wr->sg_list[i].length);
-			((struct mthca_data_seg *) wqe)->lkey =
-				htonl(wr->sg_list[i].lkey);
-			((struct mthca_data_seg *) wqe)->addr =
-				htonll(wr->sg_list[i].addr);
-			wqe += sizeof (struct mthca_data_seg);
-			size += sizeof (struct mthca_data_seg) / 16;
+		if (wr->send_flags & IBV_SEND_INLINE) {
+			struct mthca_inline_seg *seg = wqe;
+			int max_size = (1 << qp->sq.wqe_shift) - sizeof *seg - size * 16;
+			int s = 0;
+
+			wqe += sizeof *seg;
+			for (i = 0; i < wr->num_sge; ++i) {
+				struct ibv_sge *sge = &wr->sg_list[i];
+
+				s += sge->length;
+
+				if (s > max_size) {
+					ret = -1;
+					*bad_wr = wr;
+					goto out;
+				}
+
+				memcpy(wqe, (void*) (uintptr_t) sge->addr, sge->length);
+				wqe += sge->length;
+			}
+
+			seg->byte_count = htonl(MTHCA_INLINE_SEG | s);
+			size += align(s + sizeof *seg, 16) / 16;
+		} else {
+			struct mthca_data_seg *seg;
+
+			for (i = 0; i < wr->num_sge; ++i) {
+				seg = wqe;
+				seg->byte_count = htonl(wr->sg_list[i].length);
+				seg->lkey = htonl(wr->sg_list[i].lkey);
+				seg->addr = htonll(wr->sg_list[i].addr);
+				wqe += sizeof *seg;
+			}
+
+			size += wr->num_sge * (sizeof *seg / 16);
 		}
 
 		qp->wrid[ind + qp->rq.max] = wr->wr_id;
