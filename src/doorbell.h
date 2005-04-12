@@ -69,14 +69,22 @@ static inline void mthca_write_db_rec(uint32_t val[2], uint32_t *db)
 
 #elif SIZEOF_LONG == 8
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#  define MTHCA_PAIR_TO_64(val) ((uint64_t) val[1] << 32 | val[0])
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#  define MTHCA_PAIR_TO_64(val) ((uint64_t) val[0] << 32 | val[1])
+#else
+#  error __BYTE_ORDER not defined
+#endif
+
 static inline void mthca_write64(uint32_t val[2], struct mthca_context *ctx, int offset)
 {
-	*(volatile uint64_t *) (ctx->uar + offset) = *(uint64_t *) val;
+	*(volatile uint64_t *) (ctx->uar + offset) = MTHCA_PAIR_TO_64(val);
 }
 
 static inline void mthca_write_db_rec(uint32_t val[2], uint32_t *db)
 {
-	*(volatile uint64_t *) db = *(uint64_t *) val;
+	*(volatile uint64_t *) db = MTHCA_PAIR_TO_64(val);
 }
 
 #else
