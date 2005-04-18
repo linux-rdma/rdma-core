@@ -198,6 +198,11 @@ static void INIT ibverbs_init(void)
 	if (ibv_init_mem_map())
 		return;
 
+	/*
+	 * Check if a driver is statically linked, and if so load it first.
+	 */
+	load_driver(NULL);
+
 	user_path = getenv(OPENIB_DRIVER_PATH_ENV);
 	if (user_path) {
 		wr_path = strdupa(user_path);
