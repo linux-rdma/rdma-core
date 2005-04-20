@@ -51,16 +51,38 @@
 enum {
 	IB_USER_VERBS_CMD_QUERY_PARAMS,
 	IB_USER_VERBS_CMD_GET_CONTEXT,
+	IB_USER_VERBS_CMD_QUERY_DEVICE,
 	IB_USER_VERBS_CMD_QUERY_PORT,
+	IB_USER_VERBS_CMD_QUERY_GID,
+	IB_USER_VERBS_CMD_QUERY_PKEY,
 	IB_USER_VERBS_CMD_ALLOC_PD,
 	IB_USER_VERBS_CMD_DEALLOC_PD,
+	IB_USER_VERBS_CMD_CREATE_AH,
+	IB_USER_VERBS_CMD_MODIFY_AH,
+	IB_USER_VERBS_CMD_QUERY_AH,
+	IB_USER_VERBS_CMD_DESTROY_AH,
 	IB_USER_VERBS_CMD_REG_MR,
+	IB_USER_VERBS_CMD_REG_SMR,
+	IB_USER_VERBS_CMD_REREG_MR,
+	IB_USER_VERBS_CMD_QUERY_MR,
 	IB_USER_VERBS_CMD_DEREG_MR,
+	IB_USER_VERBS_CMD_ALLOC_MW,
+	IB_USER_VERBS_CMD_BIND_MW,
+	IB_USER_VERBS_CMD_DEALLOC_MW,
 	IB_USER_VERBS_CMD_CREATE_CQ,
+	IB_USER_VERBS_CMD_RESIZE_CQ,
 	IB_USER_VERBS_CMD_DESTROY_CQ,
+	IB_USER_VERBS_CMD_POLL_CQ,
+	IB_USER_VERBS_CMD_PEEK_CQ,
+	IB_USER_VERBS_CMD_REQ_NOTIFY_CQ,
 	IB_USER_VERBS_CMD_CREATE_QP,
+	IB_USER_VERBS_CMD_QUERY_QP,
 	IB_USER_VERBS_CMD_MODIFY_QP,
 	IB_USER_VERBS_CMD_DESTROY_QP,
+	IB_USER_VERBS_CMD_POST_SEND,
+	IB_USER_VERBS_CMD_POST_RECV,
+	IB_USER_VERBS_CMD_ATTACH_MCAST,
+	IB_USER_VERBS_CMD_DETACH_MCAST
 };
 
 /*
@@ -144,6 +166,36 @@ struct ibv_query_port_resp {
 	__u8  active_speed;
 	__u8  phys_state;
 	__u8  reserved[3];
+};
+
+struct ibv_query_gid {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u8  port_num;
+	__u8  index;
+	__u8  reserved[6];
+	__u64 driver_data[0];
+};
+
+struct ibv_query_gid_resp {
+	__u8  gid[16];
+};
+
+struct ibv_query_pkey {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u8  port_num;
+	__u8  index;
+	__u8  reserved[6];
+	__u64 driver_data[0];
+};
+
+struct ibv_query_pkey_resp {
+	__u16 pkey;
 };
 
 struct ibv_alloc_pd {
@@ -294,6 +346,28 @@ struct ibv_destroy_qp {
 	__u16 in_words;
 	__u16 out_words;
 	__u32 qp_handle;
+};
+
+struct ibv_attach_mcast {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u8  gid[16];
+	__u32 qp_handle;
+	__u16 mlid;
+	__u16 reserved;
+	__u64 driver_data[0];
+};
+
+struct ibv_detach_mcast {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u8  gid[16];
+	__u32 qp_handle;
+	__u16 mlid;
+	__u16 reserved;
+	__u64 driver_data[0];
 };
 
 #endif /* KERN_ABI_H */
