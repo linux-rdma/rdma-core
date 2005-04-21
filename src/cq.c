@@ -281,6 +281,12 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 	if (!cqe)
 		return CQ_EMPTY;
 
+	/*
+	 * Make sure we read CQ entry contents after we've checked the
+	 * ownership bit.
+	 */
+	mb();
+
 	qpn = ntohl(cqe->my_qpn);
 
 	is_error = (cqe->opcode & MTHCA_ERROR_CQE_OPCODE_MASK) ==
@@ -423,8 +429,10 @@ int mthca_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 			break;
 	}
 
-	if (freed)
+	if (freed) {
+		mb();
 		update_cons_index(cq, freed);
+	}
 
 	pthread_spin_unlock(&cq->lock);
 

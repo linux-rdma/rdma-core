@@ -36,7 +36,7 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <malloc.h>
+#include <stdlib.h>
 #include <netinet/in.h>
 #include <pthread.h>
 
@@ -98,8 +98,8 @@ int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
 		goto out;
 	}
 
-	db_tab->page[i].db_rec = memalign(MTHCA_DB_REC_PAGE_SIZE, MTHCA_DB_REC_PAGE_SIZE);
-	if (!db_tab->page[i].db_rec) {
+	if (posix_memalign((void **) &db_tab->page[i].db_rec, MTHCA_DB_REC_PAGE_SIZE,
+			   MTHCA_DB_REC_PAGE_SIZE)) {
 		ret = -1;
 		goto out;
 	}

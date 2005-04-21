@@ -37,7 +37,7 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <malloc.h>
+#include <stdlib.h>
 #include <netinet/in.h>
 #include <pthread.h>
 
@@ -755,9 +755,9 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct mthca_qp *qp)
 				    1 << qp->sq.wqe_shift);
 
 	qp->buf_size = qp->send_wqe_offset + (qp->sq.max << qp->sq.wqe_shift);
-	qp->buf = memalign(to_mdev(pd->context->device)->page_size, qp->buf_size);
 
-	if (!qp->buf) {
+	if (posix_memalign(&qp->buf, to_mdev(pd->context->device)->page_size,
+			   align(qp->buf_size, to_mdev(pd->context->device)->page_size))) {
 		free(qp->wrid);
 		return -1;
 	}

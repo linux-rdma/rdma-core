@@ -36,6 +36,7 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <stdlib.h>
 #include <strings.h>
 #include <pthread.h>
 #include <netinet/in.h>
@@ -148,9 +149,8 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe)
 	for (nent = 1; nent <= cqe; nent <<= 1)
 		; /* nothing */
 
-	cq->buf = memalign(to_mdev(context->device)->page_size,
-			   nent * MTHCA_CQ_ENTRY_SIZE);
-	if (!cq->buf)
+	if (posix_memalign(&cq->buf, to_mdev(context->device)->page_size,
+			   align(nent * MTHCA_CQ_ENTRY_SIZE, to_mdev(context->device)->page_size)))
 		goto err;
 
 	mthca_init_cq_buf(cq, nent);

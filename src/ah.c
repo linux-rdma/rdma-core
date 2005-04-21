@@ -36,7 +36,7 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include <malloc.h>
+#include <stdlib.h>
 #include <netinet/in.h>
 #include <pthread.h>
 
@@ -59,8 +59,7 @@ static struct mthca_ah_page *__add_page(struct mthca_pd *pd, int page_size, int 
 	if (!page)
 		return NULL;
 
-	page->buf = memalign(page_size, page_size);
-	if (!page->buf) {
+	if (posix_memalign(&page->buf, page_size, page_size)) {
 		free(page);
 		return NULL;
 	}
