@@ -1,0 +1,27 @@
+Source: libmthca
+Priority: optional
+Maintainer: Roland Dreier <roland@swnocona2.topspincom.com>
+Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), libibverbs-dev (>= 0.1.0), autotools-dev
+Standards-Version: 3.6.1
+Section: libs
+
+Package: libmthca1
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A userspace driver for Mellanox HCAs
+ libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
+ the libibverbs library.
+ .
+ This package contains the loadable plug-in.
+
+Package: libmthca-dev
+Section: libdevel
+Architecture: any
+Depends: libmthca1 (= ${Source-Version})
+Description: Development files for the libmthca driver
+ libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
+ the libibverbs library.
+ .
+ This package contains static versions of libmthca that may be linked
+ directly to an application, which may be useful for debugging.

@@ -1,0 +1,6 @@
+libmthca (0.1.0-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Roland Dreier <roland@topspin.com>  Thu, 28 Apr 2005 13:16:56 -0700
+
