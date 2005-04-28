@@ -461,7 +461,6 @@ enum MAD_FIELDS {
 	 */
 	IB_VL_ARBITRATION_TABLE_F,
 
-
 	/*
 	 * IB vendor class range 2
 	 */

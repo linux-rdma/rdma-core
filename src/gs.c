@@ -90,7 +90,7 @@ port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask, uin
 	DEBUG("lid %d port %d mask 0x%x", lid, port, mask);
 
 	if (lid == -1) {
-		WARN("only lid routes are supported");
+		WARN("only lid routed is supported");
 		return 0;
 	}
 
