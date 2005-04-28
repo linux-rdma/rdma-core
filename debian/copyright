@@ -1,0 +1,16 @@
+Initial Debianization:
+This package was debianized by Roland Dreier <roland@topspin.com> on
+Mon, 25 Apr 2005 10:21:08 -0700.
+
+Source:
+It was downloaded from the OpenIB subversion repository at
+<https://openib.org/svn/gen2/trunk/src/userspace/libibverbs>
+
+Authors:
+The complete list of upstream authors is in the file
+/usr/share/doc/libibverbs/AUTHORS.
+
+Copyright:
+libibverbs is licensed under a choice of the GPL and the OpenIB BSD
+license.  You should have a copy of the GPL in the file
+/usr/share/common-licenses/GPL on your Debian system.

@@ -1,0 +1,2 @@
+usr/include
+usr/lib/libibverbs*.{a,la,so}

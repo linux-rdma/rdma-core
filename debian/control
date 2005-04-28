@@ -1,0 +1,47 @@
+Source: libibverbs
+Priority: optional
+Maintainer: Roland Dreier <roland@swnocona2.topspincom.com>
+Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), autotools-dev
+Standards-Version: 3.6.1
+Section: libs
+
+Package: libibverbs1
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A library for direct userspace use of InfiniBand
+ libibverbs is a library that allows userspace processes to use
+ InfiniBand "verbs" as described in the InfiniBand Architecture
+ Specification.  This includes direct hardware access for fast path
+ operations.
+ .
+ For this library to be useful, a device-specific plug-in module
+ should also be installed.
+ .
+ This package contains the shared library.
+
+Package: libibverbs-dev
+Section: libdevel
+Architecture: any
+Depends: libibverbs1 (= ${Source-Version})
+Description: Development files for the libibverbs library
+ libibverbs is a library that allows userspace processes to use
+ InfiniBand "verbs" as described in the InfiniBand Architecture
+ Specification.  This includes direct hardware access for fast path
+ operations.
+ .
+ This package is needed to compile programs against libibverbs1.
+ It contains the header files and static libraries (optionally)
+ needed for compiling.
+
+Package: ibverbs-examples
+Section: net
+Architecture: any
+Depends: libibverbs1 (= ${Source-Version})
+Description: Examples for the libibverbs library
+ libibverbs is a library that allows userspace processes to use
+ InfiniBand "verbs" as described in the InfiniBand Architecture
+ Specification.  This includes direct hardware access for fast path
+ operations.
+ .
+ This package contains example programs that use libibverbs1.
