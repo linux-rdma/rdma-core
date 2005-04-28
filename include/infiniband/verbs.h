@@ -523,6 +523,16 @@ extern int ibv_get_cq_event(struct ibv_context *context, int comp_num,
 
 /**
  * ibv_poll_cq - Poll a CQ for work completions
+ * @cq:the CQ being polled
+ * @num_entries:maximum number of completions to return
+ * @wc:array of at least @num_entries of &struct ibv_wc where completions
+ *   will be returned
+ *
+ * Poll a CQ for (possibly multiple) completions.  If the return value
+ * is < 0, an error occurred.  If the return value is >= 0, it is the
+ * number of completions returned.  If the return value is
+ * non-negative and strictly less than num_entries, then the CQ was
+ * emptied.
  */
 static inline int ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 {
