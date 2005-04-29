@@ -51,6 +51,7 @@
 Dlist *device_list;
 
 static char default_path[] = DRIVER_PATH;
+static const char *user_path;
 
 static Dlist *driver_list;
 
@@ -146,7 +147,11 @@ static void init_drivers(struct sysfs_class_device *verbs_dev)
 		}
 	}
 
-	fprintf(stderr, PFX "Warning: no driver for %s\n", verbs_dev->name);
+	fprintf(stderr, PFX "Warning: no userspace device-specific driver found for %s\n"
+		"	driver search path: ", verbs_dev->name);
+	if (user_path)
+		fprintf(stderr, "%s:", user_path);
+	fprintf(stderr, "%s\n", default_path);
 }
 
 static int check_abi_version(void)
@@ -182,7 +187,6 @@ static int check_abi_version(void)
 
 static void INIT ibverbs_init(void)
 {
-	const char *user_path;
 	char *wr_path, *dir;
 	struct sysfs_class *cls;
 	Dlist *verbs_dev_list;
@@ -214,7 +218,7 @@ static void INIT ibverbs_init(void)
 
 	cls = sysfs_open_class("infiniband_verbs");
 	if (!cls) {
-		fprintf(stderr, PFX "Fatal: couldn't open infiniband sysfs class.\n");
+		fprintf(stderr, PFX "Fatal: couldn't open sysfs class 'infiniband_verbs'.\n");
 		return;
 	}
 
