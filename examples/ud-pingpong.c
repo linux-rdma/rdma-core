@@ -473,7 +473,7 @@ int main(int argc, char *argv[])
 
 		case 'i':
 			ib_port = strtol(optarg, NULL, 0);
-			if (port < 0) {
+			if (ib_port < 0) {
 				usage(argv[0]);
 				return 1;
 			}
