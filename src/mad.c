@@ -162,7 +162,7 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 	if (data)
 		memcpy((char *)buf + rpc->dataoffs, data, rpc->datasz);
 
-	// vendor mads range 2
+	/* vendor mads range 2 */
 	if (mad_is_vendor_range2(rpc->mgtclass))
 		mad_set_field(buf, 0, IB_VEND2_OUI_F, rpc->oui);
 
