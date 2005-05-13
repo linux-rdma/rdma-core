@@ -117,46 +117,6 @@ static int connect(uint32_t cm_id)
 	return ib_cm_send_req(cm_id, &param);
 }
 
-#if 0
-int ib_ucm_event_get(int cm_id, int *event, int *state)
-{
-	struct ib_ucm_cmd_hdr *hdr;
-	struct ib_ucm_event_get *cmd;
-	struct ib_ucm_event_resp resp;
-	void *msg;
-	int result;
-	int size;
-	
-	size = sizeof(*hdr) + sizeof(*cmd);
-	msg = alloca(size);
-	if (!msg)
-		return -ENOMEM;
-	
-	hdr = msg;
-	cmd = msg + sizeof(*hdr);
-
-	hdr->cmd = IB_USER_CM_CMD_EVENT;
-	hdr->in  = sizeof(*cmd);
-	hdr->out = sizeof(resp);
-
-	cmd->response = (unsigned long)&resp;
-	cmd->data     = (unsigned long)NULL;
-	cmd->info     = (unsigned long)NULL;
-	cmd->data_len = 0;
-	cmd->info_len = 0;
-
-	result = write(fd, msg, size);
-	if (result != size)
-		return (result > 0) ? -ENODATA : result;
-
-	*event = resp.event;
-	*state = resp.state;
-
-	return 0;
-}
-
-#endif
-
 int main(int argc, char **argv)
 {
 	struct ib_cm_event *event;
