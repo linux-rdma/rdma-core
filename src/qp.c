@@ -718,9 +718,16 @@ out:
 	return ret;
 }
 
-int mthca_alloc_qp_buf(struct ibv_pd *pd, struct mthca_qp *qp)
+int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+		       struct mthca_qp *qp)
 {
 	int size;
+
+	qp->rq.max_gs 	 = cap->max_recv_sge;
+	qp->sq.max_gs 	 = align(cap->max_inline_data + sizeof (struct mthca_inline_seg),
+				 sizeof (struct mthca_data_seg)) / sizeof (struct mthca_data_seg);
+	if (qp->sq.max_gs < cap->max_send_sge)
+		qp->sq.max_gs = cap->max_send_sge;
 
 	qp->wrid = malloc((qp->rq.max + qp->sq.max) * sizeof (uint64_t));
 	if (!qp->wrid)
@@ -795,6 +802,39 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct mthca_qp *qp)
 
 	return 0;
 }
+
+void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp, struct ibv_qp_cap *cap)
+{
+	/*
+	 * Maximum inline data size is the full WQE size less the size
+	 * of the next segment, inline segment and other non-data segments.
+	 */
+	cap->max_inline_data = (1 << qp->sq.wqe_shift) -
+		sizeof (struct mthca_next_seg) -
+		sizeof (struct mthca_inline_seg);
+
+	switch (qp->qpt) {
+	case IBV_QPT_UD:
+		if (mthca_is_memfree(pd->context))
+			cap->max_inline_data -= sizeof (struct mthca_arbel_ud_seg);
+		else
+			cap->max_inline_data -= sizeof (struct mthca_tavor_ud_seg);
+		break;
+
+	default:
+		/*
+		 * inline data won't be used in the same WQE as an
+		 * atomic or bind segment, so we don't have to
+		 * subtract anything off here.
+		 */
+		break;
+	}
+
+	cap->max_send_wr     = qp->sq.max;
+	cap->max_recv_wr     = qp->rq.max;
+	cap->max_send_sge    = qp->sq.max_gs;
+	cap->max_recv_sge    = qp->rq.max_gs;
+} 
 
 struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn)
 {

@@ -270,7 +270,6 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	qp->qpt = attr->qp_type;
 
 	qp->sq.max    	 = align_qp_size(pd->context, attr->cap.max_send_wr);
-	qp->sq.max_gs 	 = attr->cap.max_send_sge;
 	qp->sq.next_ind  = 0;
 	qp->sq.last_comp = qp->sq.max - 1;
 	qp->sq.head    	 = 0;
@@ -278,14 +277,13 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	qp->sq.last      = NULL;
 
 	qp->rq.max    	 = align_qp_size(pd->context, attr->cap.max_recv_wr);
-	qp->rq.max_gs 	 = attr->cap.max_recv_sge;
 	qp->rq.next_ind	 = 0;
 	qp->rq.last_comp = qp->rq.max - 1;
 	qp->rq.head    	 = 0;
 	qp->rq.tail    	 = 0;
 	qp->rq.last      = NULL;
 
-	if (mthca_alloc_qp_buf(pd, qp))
+	if (mthca_alloc_qp_buf(pd, &attr->cap, qp))
 		goto err;
 
 	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
@@ -331,6 +329,8 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	ret = mthca_store_qp(to_mctx(pd->context), qp->ibv_qp.qp_num, qp);
 	if (ret)
 		goto err_destroy;
+
+	mthca_return_cap(pd, qp, &attr->cap);
 
 	return &qp->ibv_qp;
 
