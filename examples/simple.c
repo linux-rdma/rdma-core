@@ -58,7 +58,7 @@ static inline uint64_t cpu_to_be64(uint64_t x) { return x; }
 
 #define TEST_SID 0x0000000ff0000000ULL
 
-static int connect(uint32_t cm_id)
+static int cm_connect(uint32_t cm_id)
 {
 	struct ib_cm_req_param param;
 	struct ib_sa_path_rec sa;
@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode) {
-		result = connect(cm_id);
+		result = cm_connect(cm_id);
 		if (result) {
 			printf("Error <%d:%d> sending REQ <%d>\n", 
 			       result, errno, cm_id);
