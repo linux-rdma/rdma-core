@@ -5,7 +5,7 @@ AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
 ibcmlibdir = $(libdir)/infiniband
 
-ibcmlib_LTLIBRARIES = src/ibcm.la
+ibcmlib_LTLIBRARIES = src/libibcm.la
 
 src_ibcm_la_CFLAGS = -g -Wall -D_GNU_SOURCE
 
@@ -15,8 +15,12 @@ else
     ibcm_version_script =
 endif
 
-src_ibcm_la_SOURCES = src/cm.c
-src_ibcm_la_LDFLAGS = -avoid-version -module $(ucm_version_script)
+src_libibcm_la_SOURCES = src/cm.c
+src_libibcm_la_LDFLAGS = -avoid-version -module $(ucm_version_script)
+
+bin_PROGRAMS = examples/ucm_simple
+examples_ucm_simple_SOURCES = examples/simple.c
+examples_ucm_simple_LDADD = $(top_builddir)/src/libibcm.la
 
 libibcmincludedir = $(includedir)/infiniband
 
