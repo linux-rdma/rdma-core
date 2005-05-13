@@ -45,6 +45,7 @@
 #include <stdint.h>
 #include <endian.h>
 #include <byteswap.h>
+#include <netinet/in.h>
 
 #include <infiniband/sa.h>
 #include <infiniband/cm.h>
@@ -63,7 +64,6 @@ static int connect(uint32_t cm_id)
 	struct ib_sa_path_rec sa;
 	union ibv_gid *dst;
 	union ibv_gid *src;
-	int result;
 
 	param.qp_type       = IBV_QPT_RC;
 	param.qp_num        = 0xff00;
