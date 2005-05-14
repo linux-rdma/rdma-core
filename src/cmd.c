@@ -296,3 +296,33 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 
 	return 0;
 }
+
+int ibv_cmd_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+{
+	struct ibv_attach_mcast cmd;
+
+	IBV_INIT_CMD(&cmd, sizeof cmd, ATTACH_MCAST);
+	memcpy(cmd.gid, gid->raw, sizeof cmd.gid);
+	cmd.qp_handle = qp->handle;
+	cmd.mlid      = lid;
+
+	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+{
+	struct ibv_detach_mcast cmd;
+
+	IBV_INIT_CMD(&cmd, sizeof cmd, DETACH_MCAST);
+	memcpy(cmd.gid, gid->raw, sizeof cmd.gid);
+	cmd.qp_handle = qp->handle;
+	cmd.mlid      = lid;
+
+	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	return 0;
+}

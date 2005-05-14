@@ -88,5 +88,7 @@ extern int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			     enum ibv_qp_attr_mask attr_mask,
 			     struct ibv_modify_qp *cmd, size_t cmd_size);
 extern int ibv_cmd_destroy_qp(struct ibv_qp *qp);
+extern int ibv_cmd_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+extern int ibv_cmd_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 #endif /* INFINIBAND_DRIVER_H */

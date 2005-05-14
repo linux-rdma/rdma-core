@@ -173,3 +173,13 @@ int ibv_destroy_ah(struct ibv_ah *ah)
 {
 	return ah->context->ops.destroy_ah(ah);
 }
+
+int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+{
+	return qp->context->ops.attach_mcast(qp, gid, lid);
+}
+
+int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+{
+	return qp->context->ops.detach_mcast(qp, gid, lid);
+}

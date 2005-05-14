@@ -19,6 +19,8 @@ IBVERBS_1.0 {
 		ibv_destroy_qp;
 		ibv_create_ah;
 		ibv_destroy_ah;
+		ibv_attach_mcast;
+		ibv_detach_mcast;
 		ibv_cmd_get_context;
 		ibv_cmd_query_port;
 		ibv_cmd_alloc_pd;
@@ -30,5 +32,7 @@ IBVERBS_1.0 {
 		ibv_cmd_create_qp;
 		ibv_cmd_modify_qp;
 		ibv_cmd_destroy_qp;
+		ibv_cmd_attach_mcast;
+		ibv_cmd_detach_mcast;
 	local: *;
 };

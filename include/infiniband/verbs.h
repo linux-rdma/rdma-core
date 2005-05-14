@@ -434,6 +434,10 @@ struct ibv_context_ops {
 					     struct ibv_recv_wr **bad_wr);
 	struct ibv_ah *		(*create_ah)(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 	int			(*destroy_ah)(struct ibv_ah *ah);
+	int			(*attach_mcast)(struct ibv_qp *qp, union ibv_gid *gid,
+						uint16_t lid);
+	int			(*detach_mcast)(struct ibv_qp *qp, union ibv_gid *gid,
+						uint16_t lid);
 };
 
 struct ibv_context {
@@ -591,6 +595,27 @@ extern struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
  * ibv_destroy_ah - Destroy an address handle.
  */
 extern int ibv_destroy_ah(struct ibv_ah *ah);
+
+/**
+ * ibv_attach_mcast - Attaches the specified QP to a multicast group.
+ * @qp: QP to attach to the multicast group.  The QP must be a UD QP.
+ * @gid: Multicast group GID.
+ * @lid: Multicast group LID in host byte order.
+ *
+ * In order to route multicast packets correctly, subnet
+ * administration must have created the multicast group and configured
+ * the fabric appropriately.  The port associated with the specified
+ * QP must also be a member of the multicast group.
+ */
+extern int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+
+/**
+ * ibv_detach_mcast - Detaches the specified QP from a multicast group.
+ * @qp: QP to detach from the multicast group.
+ * @gid: Multicast group GID.
+ * @lid: Multicast group LID in host byte order.
+ */
+extern int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 END_C_DECLS
 
