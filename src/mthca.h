@@ -298,5 +298,7 @@ extern int mthca_destroy_ah(struct ibv_ah *ah);
 extern int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
 			  struct mthca_ah *ah);
 extern void mthca_free_av(struct mthca_ah *ah);
+extern int mthca_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+extern int mthca_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 #endif /* MTHCA_H */
