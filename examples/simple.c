@@ -92,11 +92,8 @@ static int cm_connect(uint32_t cm_id)
 	src = (union ibv_gid *)&sa.sgid;
 	dst = (union ibv_gid *)&sa.dgid;
 
-        sa.dlid = htons(0x1f9);
-        sa.slid = htons(0x3e1);
-
-        sa.dlid = 0xf901;
-        sa.slid = 0xe103;
+	sa.dlid = htons(0x1f9);
+	sa.slid = htons(0x3e1);
 
 	sa.reversible = 0x1000000;
 
