@@ -183,7 +183,7 @@ int main(int argc, char **argv)
 			
 			cm_id = event->cm_id;
 
-			rep.qp_num       = event->param.req_rcvd.remote_qpn;
+			rep.qp_num = event->param.req_rcvd.remote_qpn + 1;
 			rep.starting_psn = event->param.req_rcvd.starting_psn;
 
 			rep.private_data        = NULL;
