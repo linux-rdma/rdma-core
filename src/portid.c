@@ -43,7 +43,6 @@
 #include <sys/time.h>
 #include <string.h>
 
-#include <common.h>
 #include <mad.h>
 
 #undef DEBUG

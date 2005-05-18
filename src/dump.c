@@ -42,7 +42,6 @@
 #include <string.h>
 #include <netinet/in.h>
 
-#include <common.h>
 #include <mad.h>
 
 void

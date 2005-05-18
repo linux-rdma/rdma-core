@@ -43,9 +43,7 @@
 #include <string.h>
 #include <sys/time.h>
 
-#include <common.h>
 #include <mad.h>
-
 
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	WARN

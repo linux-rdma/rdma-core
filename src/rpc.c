@@ -44,7 +44,6 @@
 #include <sys/time.h>
 #include <string.h>
 
-#include <common.h>
 #include <umad.h>
 #include "mad.h"
 

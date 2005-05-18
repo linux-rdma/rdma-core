@@ -43,7 +43,6 @@
 #include <pthread.h>
 #include <sys/time.h>
 
-#include <common.h>
 #include <mad.h>
 
 #undef DEBUG
