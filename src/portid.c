@@ -72,7 +72,8 @@ portid2str(ib_portid_t *portid)
 		s += sprintf(s, "Lid 0x%x", portid->lid);
 		if (portid->grh) {
 			s += sprintf(s, " Gid %Lx%Lx",
-					*(uint64 *)portid->gid, *(uint64 *)(portid->gid+8));
+					*(uint64 *)portid->gid,
+					*(uint64 *)(portid->gid+8));
 		}
 		return buf;
 	}
