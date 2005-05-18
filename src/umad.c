@@ -51,20 +51,20 @@
 #include "umad.h"
 
 typedef struct ib_user_mad {
-	uint8	data[256];
-	uint32	agent_id;
-	uint32	status;
-	uint32	timeout_ms;
+	uint8_t	 data[256];
+	uint32_t agent_id;
+	uint32_t status;
+	uint32_t timeout_ms;
 	ib_mad_addr_t addr;
 } ib_user_mad_t;
 
 typedef struct ib_user_mad_reg_req {
-	uint32	id;
-	uint32	method_mask[4];
-	uint8	qpn;
-	uint8	mgmt_class;
-	uint8	mgmt_class_version;
-	uint8   oui[3];
+	uint32_t id;
+	uint32_t method_mask[4];
+	uint8_t  qpn;
+	uint8_t  mgmt_class;
+	uint8_t  mgmt_class_version;
+	uint8_t  oui[3];
 } ib_user_mad_reg_req_t;
 
 #define TRACE	if (umaddebug)	WARN
@@ -779,8 +779,8 @@ umad_poll(int portid, int timeout_ms)
 }
 
 int
-umad_register_oui(int portid, int mgmt_class, uint8 oui[3],
-		  uint32 method_mask[4])
+umad_register_oui(int portid, int mgmt_class, uint8_t oui[3],
+		  uint32_t method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
 	Port *port;
@@ -820,7 +820,7 @@ umad_register_oui(int portid, int mgmt_class, uint8 oui[3],
 
 int
 umad_register(int portid, int mgmt_class, int mgmt_version,
-	      uint32 method_mask[4])
+	      uint32_t method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
 	Port *port;

@@ -50,17 +50,17 @@ BEGIN_C_DECLS
 #define UMAD_ANY_PORT	0
 
 typedef struct ib_mad_addr {
-	uint32	qpn;
-	uint32	qkey;
-	uint16	lid;
-	uint8	sl;
-	uint8	path_bits;
-	uint8	grh_present;
-	uint8	gid_index;
-	uint8	hop_limit;
-	uint8	traffic_class;
-	uint8	gid[16];
-	uint32	flow_label;
+	uint32_t qpn;
+	uint32_t qkey;
+	uint16_t lid;
+	uint8_t	 sl;
+	uint8_t	 path_bits;
+	uint8_t	 grh_present;
+	uint8_t	 gid_index;
+	uint8_t	 hop_limit;
+	uint8_t	 traffic_class;
+	uint8_t	 gid[16];
+	uint32_t flow_label;
 } ib_mad_addr_t;
 
 #define IB_UMAD_ABI_VERSION	2
@@ -164,8 +164,10 @@ int	umad_send(int portid, int agentid, void *umad, int timeout_ms);
 int	umad_recv(int portid, void *umad, int timeout_ms);
 int	umad_poll(int portid, int timeout_ms);
 
-int	umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_mask[4]);
-int	umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4]);
+int	umad_register(int portid, int mgmt_class, int mgmt_version,
+		      uint32_t method_mask[4]);
+int	umad_register_oui(int portid, int mgmt_class, uint8_t oui[3],
+			  uint32_t method_mask[4]);
 int	umad_unregister(int portid, int agentid);
 
 int	umad_debug(int level);
