@@ -90,7 +90,6 @@ mad_encode_field(uint8 *buf, int field, void *val)
 	_set_array(buf, 0, f, val);
 }
 
-
 uint64
 mad_trid(void)
 {

@@ -59,7 +59,7 @@ ib_field_t ib_mad_f [] = {
 	[0]	{0, 0},		/* IB_NO_FIELD - reserved as invalid */
 
 	[IB_GID_PREFIX_F]		{0, 64, "GidPrefix", mad_dump_rhex},
-	[IB_GID_GUID_F]			{64, 64, "GidPrefix", mad_dump_rhex},
+	[IB_GID_GUID_F]			{64, 64, "GidGuid", mad_dump_rhex},
 
 	/*
 	 * MAD: common MAD fields (IB spec 13.4.2)
@@ -280,7 +280,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_SA_MCM_QKEY_F]		{256, 32, "McastMemQkey", mad_dump_hex},
 	[IB_SA_MCM_MLID_F]		{BITSOFFS(288, 16), "McastMemMLid", mad_dump_hex},
 	[IB_SA_MCM_MTU_F]		{BITSOFFS(306, 6), "McastMemMTU", mad_dump_uint},
-	[IB_SA_MCM_TCLASS_F]		{BITSOFFS(312, 8), "McastMemTclass", mad_dump_uint},
+	[IB_SA_MCM_TCLASS_F]		{BITSOFFS(312, 8), "McastMemTClass", mad_dump_uint},
 	[IB_SA_MCM_PKEY_F]		{BITSOFFS(320, 16), "McastMemPkey", mad_dump_uint},
 	[IB_SA_MCM_RATE_F]		{BITSOFFS(338, 6), "McastMemRate", mad_dump_uint},
 	[IB_SA_MCM_SL_F]		{BITSOFFS(352, 4), "McastMemSL", mad_dump_uint},
@@ -310,12 +310,12 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * SLTOVL MAPPING TABLE
 	 */
-	[IB_SLTOVL_MAPPING_TABLE_F]	{0, 64, "SlToVlMap", mad_dump_hex},
+	[IB_SLTOVL_MAPPING_TABLE_F]	{0, 64, "SLToVLMap", mad_dump_hex},
 
 	/*
 	 * VL ARBITRATION TABLE
 	 */
-	[IB_VL_ARBITRATION_TABLE_F]	{0, 512, "SlArbTbl", mad_dump_array},
+	[IB_VL_ARBITRATION_TABLE_F]	{0, 512, "VLArbTbl", mad_dump_array},
 
 	/*
 	 * IB vendor classes range 2
