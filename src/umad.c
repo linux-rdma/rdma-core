@@ -229,11 +229,11 @@ resolve_ca_port(char *ca_name, int *port)
 		return -1;
 
 	if (ca.node_type == 2) {
-		*port = 0;	// switch sma port 0
+		*port = 0;	/* switch sma port 0 */
 		return 1;
 	}
 
-	if (*port > 0) {		// user wants user gets
+	if (*port > 0) {		/* user wants user gets */
 		if (*port > ca.numports)
 			return -1;
 		if (!ca.ports[*port])
@@ -689,7 +689,8 @@ umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 {
 	struct ib_user_mad *mad = umad;
 
-	TRACE("umad %p dlid %d dqp %d sl, qkey %x", umad, htons(dlid), htonl(dqp), sl, htonl(qkey));
+	TRACE("umad %p dlid %d dqp %d sl, qkey %x",
+	      umad, htons(dlid), htonl(dqp), sl, htonl(qkey));
 	mad->addr.qpn = dqp;
 	mad->addr.lid = dlid;
 	mad->addr.qkey = qkey;
@@ -704,7 +705,8 @@ umad_send(int portid, int agentid, void *umad, int timeout_ms)
 	struct ib_user_mad *mad = umad;
 	Port *port;
 
-	TRACE("portid %d agentid %d umad %p timeout %u", portid, agentid, umad, timeout_ms);
+	TRACE("portid %d agentid %d umad %p timeout %u",
+	      portid, agentid, umad, timeout_ms);
 	if (!(port = port_get(portid)))
 		return -EINVAL;
 
@@ -777,7 +779,8 @@ umad_poll(int portid, int timeout_ms)
 }
 
 int
-umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4])
+umad_register_oui(int portid, int mgmt_class, uint8 oui[3],
+		  uint32 method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
 	Port *port;
@@ -816,7 +819,8 @@ umad_register_oui(int portid, int mgmt_class, uint8 oui[3], uint32 method_mask[4
 }
 
 int
-umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_mask[4])
+umad_register(int portid, int mgmt_class, int mgmt_version,
+	      uint32 method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
 	Port *port;
@@ -838,7 +842,8 @@ umad_register(int portid, int mgmt_class, int mgmt_version, uint32 method_mask[4
 		memset(req.method_mask, 0, sizeof req.method_mask);
 
 	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
-		DEBUG("portid %d registered to use agent %d qp %d", portid, req.id, qp);
+		DEBUG("portid %d registered to use agent %d qp %d",
+		      portid, req.id, qp);
 		return req.id; 		/* return agentid */
 	}
 	
@@ -900,8 +905,8 @@ umad_addr_dump(ib_mad_addr_t *addr)
 		"grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x\n"
 		"Gid 0x%s",
 		ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
-		addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit, (int)addr->traffic_class,
-		addr->flow_label, gid_str);
+		addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit,
+		(int)addr->traffic_class, addr->flow_label, gid_str);
 }
 
 void
@@ -909,7 +914,8 @@ umad_dump(void *umad)
 {
 	struct ib_user_mad * mad = umad;
 
-	WARN("agent id %d status %x timeout %d", mad->agent_id, mad->status, mad->timeout_ms);
+	WARN("agent id %d status %x timeout %d",
+	     mad->agent_id, mad->status, mad->timeout_ms);
 	umad_addr_dump(&mad->addr);
 }
 
