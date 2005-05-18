@@ -48,7 +48,6 @@
 #include <dirent.h>
 #include <stdlib.h>
 
-#include <common.h>
 #include "umad.h"
 
 typedef struct ib_user_mad {
