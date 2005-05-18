@@ -72,7 +72,7 @@ typedef struct ib_mad_addr {
 #define IB_USER_MAD_REGISTER_AGENT	_IOWR(IB_IOCTL_MAGIC, 1, \
 					      struct ib_user_mad_reg_req)
 
-#define IB_USER_MAD_UNREGISTER_AGENT	_IOW(IB_IOCTL_MAGIC, 2, uint32)
+#define IB_USER_MAD_UNREGISTER_AGENT	_IOW(IB_IOCTL_MAGIC, 2, uint32_t)
 
 #define UMAD_CA_NAME_LEN	20
 #define UMAD_CA_MAX_PORTS	10	/* 0 - 9 */
