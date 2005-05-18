@@ -48,13 +48,14 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	WARN
 
-uint8 *
+uint8_t *
 sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 {
 	ib_rpc_t rpc = {0};
-	uint8 *p;
+	uint8_t *p;
 
-	DEBUG("attr %d mod %d route %s", sa->attrid, sa->mod, portid2str(portid));
+	DEBUG("attr %d mod %d route %s", sa->attrid, sa->mod,
+	      portid2str(portid));
 
 	if (portid->lid <= 0) {
 		WARN("only lid routes are supported");
@@ -113,7 +114,7 @@ ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf)
 {
 	int npath;
 	ib_sa_call_t sa = {0};
-	uint8 *p;
+	uint8_t *p;
 	int dlid;
 
 	npath = 1;			/* only MAD_METHOD_GET is supported */

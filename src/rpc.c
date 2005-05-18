@@ -149,12 +149,12 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 	return -1;
 }
 
-// change to madrpc_qp0 ???
+/* change to madrpc_qp0 ??? */
 void *
 madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 {
 	int status, len;
-	uint8 pktbuf[1024], *mad;
+	uint8_t pktbuf[1024], *mad;
 	void *umad = pktbuf;
 
 	memset(pktbuf, 0, umad_size());
@@ -183,12 +183,12 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	return rcvdata;
 }
 
-// change to madrpc_qp1 ???
+/* change to madrpc_qp1 ??? */
 void *
 madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
 	int status, len;
-	uint8 pktbuf[1024], *mad;
+	uint8_t pktbuf[1024], *mad;
 	void *umad = pktbuf;
 
 	memset(pktbuf, 0, umad_size());
@@ -198,7 +198,8 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	if ((len = mad_build_pkt(umad, rpc, dport, rmpp, data)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass), len, rpc->timeout)) < 0)
+	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass),
+			      len, rpc->timeout)) < 0)
 		return 0;
 
 	mad = umad_get_mad(umad);
@@ -210,7 +211,8 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 
 	if (ibdebug) {
 		WARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
-		xdump(stderr, "rmpp mad data\n", mad + rpc->dataoffs, rpc->datasz);
+		xdump(stderr, "rmpp mad data\n", mad + rpc->dataoffs,
+		      rpc->datasz);
 	}
 
 	if (rmpp) {

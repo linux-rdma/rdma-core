@@ -54,7 +54,7 @@
 int
 mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
-	uint8 pktbuf[1024];
+	uint8_t pktbuf[1024];
 	void *umad = pktbuf;
 
 	memset(pktbuf, 0, umad_size());
@@ -70,7 +70,8 @@ mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 			(char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
 	}
 
-	if (umad_send(madrpc_portid(), mad_class_agent(rpc->mgtclass), umad, rpc->timeout) < 0) {
+	if (umad_send(madrpc_portid(), mad_class_agent(rpc->mgtclass),
+		      umad, rpc->timeout) < 0) {
 		WARN("send failed; %m");
 		return -1;
 	}
@@ -78,11 +79,10 @@ mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	return 0;
 }
 
-
 int
-mad_respond(void *umad, ib_portid_t *portid, uint32 rstatus)
+mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus)
 {
-	uint8 *mad = umad_get_mad(umad);
+	uint8_t *mad = umad_get_mad(umad);
 	ib_mad_addr_t *mad_addr;
 	ib_rpc_t rpc = {0};
 	ib_portid_t rport;
@@ -123,7 +123,8 @@ mad_respond(void *umad, ib_portid_t *portid, uint32 rstatus)
 
 	/* cleared by default: timeout, datasz, dataoffs, mkey, mask */
 
-	is_smi = rpc.mgtclass == IB_SMI_CLASS || rpc.mgtclass == IB_SMI_DIRECT_CLASS;
+	is_smi = rpc.mgtclass == IB_SMI_CLASS ||
+		 rpc.mgtclass == IB_SMI_DIRECT_CLASS;
 
 	if (is_smi)
 		portid->qp = 0;
@@ -143,7 +144,8 @@ mad_respond(void *umad, ib_portid_t *portid, uint32 rstatus)
 	if (ibdebug > 1) 
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
 
-	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad, rpc.timeout) < 0) {
+	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad,
+		      rpc.timeout) < 0) {
 		DEBUG("send failed; %m");
 		return -1;
 	}

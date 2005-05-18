@@ -56,7 +56,7 @@ respond_expected(int method)
 		method == IB_MAD_METHOD_TRAP;
 }
 
-uint8 *
+uint8_t *
 ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
 {
 	ib_rpc_t rpc = {0};

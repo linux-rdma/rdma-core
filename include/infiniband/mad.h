@@ -35,6 +35,7 @@
 #define _MAD_H_
 
 #include <stdint.h>
+#include <string.h>
 #include "common.h"
 
 #ifdef __cplusplus
@@ -46,8 +47,6 @@
 #endif /* __cplusplus */
 
 BEGIN_C_DECLS
-
-#include <string.h>
 
 #define IB_SUBNET_PATH_HOPS_MAX	64
 #define IB_DEFAULT_SUBN_PREFIX	0xfe80000000000000llu
@@ -147,13 +146,13 @@ enum GSI_ATTR_ID {
 #define IB_VENDOR_OPENIB_SYSSTAT_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 3)
 #define IB_OPENIB_OUI			(0x001405)
 
-typedef uint8 ib_gid_t[16];
+typedef uint8_t ib_gid_t[16];
 
 typedef struct {
 	int cnt;
-	uint8 p[IB_SUBNET_PATH_HOPS_MAX];
-	uint16 drslid;
-	uint16 drdlid;
+	uint8_t p[IB_SUBNET_PATH_HOPS_MAX];
+	uint16_t drslid;
+	uint16_t drdlid;
 } ib_dr_path_t;
 
 typedef struct {
@@ -165,15 +164,15 @@ typedef struct {
 	int mgtclass;
 	int method;
 	ib_attr_t attr;
-	uint32 rstatus;	// return status
+	uint32_t rstatus;	// return status
 	int dataoffs;
 	int datasz;
-	uint64 mkey;
-	uint64 trid;	/* used for out mad if nonzero, return real val */
-	uint64 mask;	/* for sa mads */
+	uint64_t mkey;
+	uint64_t trid;	/* used for out mad if nonzero, return real val */
+	uint64_t mask;	/* for sa mads */
 	uint recsz;	/* for sa mads (attribute offset) */
 	int timeout;
-	uint32 oui;	/* for vendor mads range 2 */
+	uint32_t oui;	/* for vendor mads range 2 */
 } ib_rpc_t;
 
 typedef struct portid {
@@ -181,9 +180,9 @@ typedef struct portid {
 	ib_dr_path_t drpath;
 	int grh;		/* flag */
 	ib_gid_t gid;
-	uint32 qp;
-	uint32 qkey;
-	uint8 sl;
+	uint32_t qp;
+	uint32_t qkey;
+	uint8_t sl;
 	uint pkey_idx;
 } ib_portid_t;
 
@@ -501,13 +500,13 @@ typedef struct {
 	int flags;
 	int status;
 	union {
-		uint32 u;
-		uint32 segnum;
+		uint32_t u;
+		uint32_t segnum;
 	} d1;
 	union {
-		uint32 u;
-		uint32 len;
-		uint32 newwin;
+		uint32_t u;
+		uint32_t len;
+		uint32_t newwin;
 	} d2;
 } ib_rmpp_hdr_t;
 
@@ -518,10 +517,10 @@ enum SA_SIZES_ENUM {
 typedef struct ib_sa_call {
 	uint attrid;
 	uint mod;
-	uint64 mask;
+	uint64_t mask;
 	uint method;
 
-	uint64 trid;	/* used for out mad if nonzero, return real val */
+	uint64_t trid;	/* used for out mad if nonzero, return real val */
 	uint recsz;	/* return field */
 	ib_rmpp_hdr_t rmpp;
 } ib_sa_call_t;
@@ -531,7 +530,7 @@ typedef struct ib_vendor_call {
 	uint mgmt_class;
 	uint attrid;
 	uint mod;
-	uint32 oui;
+	uint32_t oui;
 	uint timeout;
 	ib_rmpp_hdr_t rmpp;
 } ib_vendor_call_t;
@@ -579,35 +578,35 @@ ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)
 /* fields.c */
 extern ib_field_t ib_mad_f[];
 
-void	_set_field(void *buf, int base_offs, ib_field_t *f, uint32 val);
-uint32	_get_field(void *buf, int base_offs, ib_field_t *f);
+void	_set_field(void *buf, int base_offs, ib_field_t *f, uint32_t val);
+uint32_t _get_field(void *buf, int base_offs, ib_field_t *f);
 void	_set_array(void *buf, int base_offs, ib_field_t *f, void *val);
 void	_get_array(void *buf, int base_offs, ib_field_t *f, void *val);
-void	_set_field64(void *buf, int base_offs, ib_field_t *f, uint64 val);
-uint64	_get_field64(void *buf, int base_offs, ib_field_t *f);
+void	_set_field64(void *buf, int base_offs, ib_field_t *f, uint64_t val);
+uint64_t _get_field64(void *buf, int base_offs, ib_field_t *f);
 
 /* mad.c */
-static inline uint32
+static inline uint32_t
 mad_get_field(void *buf, int base_offs, int field)
 {
 	return _get_field(buf, base_offs, ib_mad_f + field);
 }
 
 static inline void
-mad_set_field(void *buf, int base_offs, int field, uint32 val)
+mad_set_field(void *buf, int base_offs, int field, uint32_t val)
 {
 	_set_field(buf, base_offs, ib_mad_f + field, val);
 }
 
 /* field must be byte aligned */
-static inline uint64
+static inline uint64_t
 mad_get_field64(void *buf, int base_offs, int field)
 {
 	return _get_field64(buf, base_offs, ib_mad_f + field);
 }
 
 static inline void
-mad_set_field64(void *buf, int base_offs, int field, uint64 val)
+mad_set_field64(void *buf, int base_offs, int field, uint64_t val)
 {
 	_set_field64(buf, base_offs, ib_mad_f + field, val);
 }
@@ -624,27 +623,30 @@ mad_get_array(void *buf, int base_offs, int field, void *val)
 	_get_array(buf, base_offs, ib_mad_f + field, val);
 }
 
-void	mad_decode_field(uint8 *buf, int field, void *val);
-void	mad_encode_field(uint8 *buf, int field, void *val);
+void	mad_decode_field(uint8_t *buf, int field, void *val);
+void	mad_encode_field(uint8_t *buf, int field, void *val);
 void *	mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
-uint64	mad_trid(void);
+uint64_t mad_trid(void);
 int	mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 
 /* register.c */
 int	mad_register_client(int mgmt);
-int	mad_register_server(int mgmt, uint32 method_mask[4], uint32 class_oui);
+int	mad_register_server(int mgmt, uint32_t method_mask[4],
+			    uint32_t class_oui);
 int	mad_class_agent(int mgmt);
 int	mad_agent_class(int agent);
 
 /* serv.c */
-int	mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
+int	mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
+		 void *data);
 void *	mad_receive(void *umad, int timeout);
-int	mad_respond(void *umad, ib_portid_t *portid, uint32 rstatus);
+int	mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus);
 void *	mad_alloc(void);
 void	mad_free(void *umad);
 
 /* vendor */
-uint8 *ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call);
+uint8_t *ib_vendor_call(void *data, ib_portid_t *portid,
+			ib_vendor_call_t *call);
 
 static inline int
 mad_is_vendor_range1(int mgmt)
@@ -663,21 +665,26 @@ int	madrpc_portid(void);
 int	madrpc_set_retries(int retries);
 int	madrpc_set_timeout(int timeout);
 void *	madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata);
-void *  madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
-void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes);
+void *  madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
+		    void *data);
+void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
+		    int num_classes);
 void	madrpc_save_mad(void *madbuf, int len);
 void	madrpc_lock(void);
 void	madrpc_unlock(void);
 void	madrpc_show_errors(int set);
 
 /* smp.c */
-uint8 *	smp_query(void *buf, ib_portid_t *id, uint attrid, uint mod, uint timeout);
-uint8 *	smp_set(void *buf, ib_portid_t *id, uint attrid, uint mod, uint timeout);
+uint8_t * smp_query(void *buf, ib_portid_t *id, uint attrid, uint mod,
+		    uint timeout);
+uint8_t * smp_set(void *buf, ib_portid_t *id, uint attrid, uint mod,
+		  uint timeout);
 
-inline static uint8 *
-safe_smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
+inline static uint8_t *
+safe_smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
+	       uint timeout)
 {
-	uint8 *p;
+	uint8_t *p;
 
 	madrpc_lock();
 	p = smp_query(rcvbuf, portid, attrid, mod, timeout);
@@ -686,10 +693,11 @@ safe_smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint ti
 	return p;
 }
 
-inline static uint8 *
-safe_smp_set(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
+inline static uint8_t *
+safe_smp_set(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
+	     uint timeout)
 {
-	uint8 *p;
+	uint8_t *p;
 
 	madrpc_lock();
 	p = smp_set(rcvbuf, portid, attrid, mod, timeout);
@@ -699,13 +707,16 @@ safe_smp_set(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint time
 }
 
 /* sa.c */
-uint8 *	sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout);
-int	ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf);	/* returns lid */
+uint8_t * sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
+		  uint timeout);
+int	ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id,
+		      void *buf);	/* returns lid */
 
-inline static uint8 *
-safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
+inline static uint8_t *
+safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
+	     uint timeout)
 {
-	uint8 *p;
+	uint8_t *p;
 
 	madrpc_lock();
 	p = sa_call(rcvbuf, portid, sa, timeout);
@@ -716,13 +727,17 @@ safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 
 /* resolve.c */
 int	ib_resolve_smlid(ib_portid_t *sm_id, int timeout);
-int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int timeout);
-int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id);
+int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid,
+			ib_portid_t *sm_id, int timeout);
+int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str,
+			      int dest_type, ib_portid_t *sm_id);
 int	ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid);
 
 /* gs.c */
-uint8 *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout);
-uint8 *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask, uint timeout);
+uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
+				uint timeout);
+uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
+				uint mask, uint timeout);
 
 /* dump.c */
 ib_mad_dump_fn
@@ -739,7 +754,8 @@ ib_mad_dump_fn
 	mad_dump_perfcounters;
 
 int	_mad_dump(ib_mad_dump_fn *fn, char *name, void *val, int valsz);
-char *	_mad_dump_field(ib_field_t *f, char *name, char *buf, int bufsz, void *val);
+char *	_mad_dump_field(ib_field_t *f, char *name, char *buf, int bufsz,
+			void *val);
 int	_mad_print_field(ib_field_t *f, char *name, void *val, int valsz);
 char *	_mad_dump_val(ib_field_t *f, char *buf, int bufsz, void *val);
 

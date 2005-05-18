@@ -48,7 +48,7 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	WARN
 
-uint8 *
+uint8_t *
 smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
 {
 	ib_rpc_t rpc = {0};
@@ -72,8 +72,9 @@ smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
 	return madrpc(&rpc, portid, data, data); 
 }
 
-uint8 *
-smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
+uint8_t *
+smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
+	  uint timeout)
 {
 	ib_rpc_t rpc = {0};
 

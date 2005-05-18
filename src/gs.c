@@ -50,7 +50,7 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	WARN
 
-uint8 *
+uint8_t *
 port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 {
 	ib_rpc_t rpc = {0};
@@ -80,8 +80,9 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 	return madrpc(&rpc, dest, rcvbuf, rcvbuf); 
 }
 
-uint8 *
-port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask, uint timeout)
+uint8_t *
+port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
+		       uint timeout)
 {
 	ib_rpc_t rpc = {0};
 	int lid = dest->lid;

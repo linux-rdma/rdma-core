@@ -76,7 +76,7 @@ ib_resolve_guid(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int tim
 		if (ib_resolve_smlid(sm_id, timeout) < 0)
 			return -1;
 	}
-	if (*(uint64*)&portid->gid == 0)
+	if (*(uint64_t*)&portid->gid == 0)
 		mad_set_field64(portid->gid, 0, IB_GID_PREFIX_F, IB_DEFAULT_SUBN_PREFIX);
 	if (guid)
 		mad_set_field64(portid->gid, 0, IB_GID_GUID_F, *guid);
@@ -125,7 +125,7 @@ ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid)
 	ib_portid_t self = {0};
 	char portinfo[64];
 	char nodeinfo[64];
-	uint64 guid, prefix;
+	uint64_t guid, prefix;
 	
 	if (!smp_query(nodeinfo, &self, IB_ATTR_NODE_INFO, 0, 0))
 		return -1;

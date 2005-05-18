@@ -50,7 +50,7 @@
 #define DEBUG	if (ibdebug)	WARN
 
 void
-mad_decode_field(uint8 *buf, int field, void *val)
+mad_decode_field(uint8_t *buf, int field, void *val)
 {
 	ib_field_t *f = ib_mad_f + field;
 
@@ -59,18 +59,18 @@ mad_decode_field(uint8 *buf, int field, void *val)
 		return;
 	}
 	if (f->bitlen <= 32) {
-		*(uint32 *)val = _get_field(buf, 0, f);
+		*(uint32_t *)val = _get_field(buf, 0, f);
 		return;
 	}
 	if (f->bitlen == 64) {
-		*(uint64 *)val = _get_field64(buf, 0, f);
+		*(uint64_t *)val = _get_field64(buf, 0, f);
 		return;
 	}
 	_get_array(buf, 0, f, val);
 }
 
 void
-mad_encode_field(uint8 *buf, int field, void *val)
+mad_encode_field(uint8_t *buf, int field, void *val)
 {
 	ib_field_t *f = ib_mad_f + field;
 
@@ -79,22 +79,22 @@ mad_encode_field(uint8 *buf, int field, void *val)
 		return;
 	}
 	if (f->bitlen <= 32) {
-		_set_field(buf, 0, f, *(uint32 *)val);
+		_set_field(buf, 0, f, *(uint32_t *)val);
 		return;
 	}
 	if (f->bitlen == 64) {
-		_set_field64(buf, 0, f, *(uint64 *)val);
+		_set_field64(buf, 0, f, *(uint64_t *)val);
 		return;
 	}
 	_set_array(buf, 0, f, val);
 }
 
-uint64
+uint64_t
 mad_trid(void)
 {
-	static uint64 base;
-	static uint64 trid;
-	uint64 next;
+	static uint64_t base;
+	static uint64_t trid;
+	uint64_t next;
 
 	if (!base) {
 		srandom(time(0)*getpid());
@@ -164,15 +164,17 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 	if (mad_is_vendor_range2(rpc->mgtclass))
 		mad_set_field(buf, 0, IB_VEND2_OUI_F, rpc->oui);
 
-	return (uint8 *)buf + IB_MAD_SIZE;
+	return (uint8_t *)buf + IB_MAD_SIZE;
 }
 
 int
-mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
+mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport,
+	      ib_rmpp_hdr_t *rmpp, void *data)
 {
-	uint8 *p, *mad;
+	uint8_t *p, *mad;
 	int lid_routed = rpc->mgtclass != IB_SMI_DIRECT_CLASS;
-	int is_smi = (rpc->mgtclass == IB_SMI_CLASS || rpc->mgtclass == IB_SMI_DIRECT_CLASS);
+	int is_smi = (rpc->mgtclass == IB_SMI_CLASS ||
+		      rpc->mgtclass == IB_SMI_DIRECT_CLASS);
 
 	if (!is_smi)
 		umad_set_addr(umad, dport->lid, dport->qp, dport->sl, dport->qkey);

@@ -141,10 +141,10 @@ mad_register_client(int mgmt)
 }
 
 int
-mad_register_server(int mgmt, uint32 method_mask[4], uint32 class_oui)
+mad_register_server(int mgmt, uint32_t method_mask[4], uint32_t class_oui)
 {
-	uint32 class_method_mask[4] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
-	uint8 oui[3];
+	uint32_t class_method_mask[4] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+	uint8_t oui[3];
 	int agent, vers, mad_portid;
 
 	if ((void *)method_mask != 0)

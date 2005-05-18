@@ -325,20 +325,20 @@ ib_field_t ib_mad_f [] = {
 };
 
 void
-_set_field64(void *buf, int base_offs, ib_field_t *f, uint64 val)
+_set_field64(void *buf, int base_offs, ib_field_t *f, uint64_t val)
 {
-	*(uint64 *)((char *)buf + base_offs + f->bitoffs / 8) = htonll(val);
+	*(uint64_t *)((char *)buf + base_offs + f->bitoffs / 8) = htonll(val);
 }
 
-uint64
+uint64_t
 _get_field64(void *buf, int base_offs, ib_field_t *f)
 {
-	uint64 val = *(uint64 *)((char *)buf + base_offs + f->bitoffs / 8);
+	uint64_t val = *(uint64_t *)((char *)buf + base_offs + f->bitoffs / 8);
 	return ntohll(val);
 }
 
 void
-_set_field(void *buf, int base_offs, ib_field_t *f, uint32 val)
+_set_field(void *buf, int base_offs, ib_field_t *f, uint32_t val)
 {
 	int prebits = (8 - (f->bitoffs & 7)) & 7;
 	int postbits = (f->bitoffs + f->bitlen) & 7;
@@ -368,15 +368,15 @@ _set_field(void *buf, int base_offs, ib_field_t *f, uint32 val)
 	}
 }
 
-uint32
+uint32_t
 _get_field(void *buf, int base_offs, ib_field_t *f)
 {
 	int prebits = (8 - (f->bitoffs & 7)) & 7;
 	int postbits = (f->bitoffs + f->bitlen) & 7;
 	int bytelen = f->bitlen / 8;
 	uint idx = base_offs + f->bitoffs / 8;
-	uint8 *p = (uint8 *)buf;
-	uint32 val = 0, v = 0, i;
+	uint8_t *p = (uint8_t *)buf;
+	uint32_t val = 0, v = 0, i;
 
 	if (!bytelen && (f->bitoffs & 7) + f->bitlen < 8)
 		return (p[3^idx] >> (f->bitoffs & 7)) & ((1 << f->bitlen) - 1);
@@ -405,7 +405,7 @@ _set_array(void *buf, int base_offs, ib_field_t *f, void *val)
 	if (f->bitlen < 32)
 		bitoffs = BE_TO_BITSOFFS(bitoffs, f->bitlen);
 
-	memcpy((uint8 *)buf + base_offs + bitoffs / 8, val, f->bitlen / 8);
+	memcpy((uint8_t *)buf + base_offs + bitoffs / 8, val, f->bitlen / 8);
 }
 
 void
@@ -416,5 +416,5 @@ _get_array(void *buf, int base_offs, ib_field_t *f, void *val)
 	if (f->bitlen < 32)
 		bitoffs = BE_TO_BITSOFFS(bitoffs, f->bitlen);
 
-	memcpy(val, (uint8 *)buf + base_offs + bitoffs / 8, f->bitlen / 8);
+	memcpy(val, (uint8_t *)buf + base_offs + bitoffs / 8, f->bitlen / 8);
 }

@@ -49,14 +49,14 @@ mad_dump_int(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%d", *(uint8 *)val);
+		snprintf(buf, bufsz, "%d", *(uint8_t *)val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%d", *(uint16 *)val);
+		snprintf(buf, bufsz, "%d", *(uint16_t *)val);
 		break;
 	case 3:
 	case 4:
-		snprintf(buf, bufsz, "%d", *(uint32 *)val);
+		snprintf(buf, bufsz, "%d", *(uint32_t *)val);
 		break;
 	case 5: case 6: case 7:
 	case 8:
@@ -73,14 +73,14 @@ mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%u", *(uint8 *)val);
+		snprintf(buf, bufsz, "%u", *(uint8_t *)val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%u", *(uint16 *)val);
+		snprintf(buf, bufsz, "%u", *(uint16_t *)val);
 		break;
 	case 3:
 	case 4:
-		snprintf(buf, bufsz, "%u", *(uint32 *)val);
+		snprintf(buf, bufsz, "%u", *(uint32_t *)val);
 		break;
 	case 5:
 	case 6:
@@ -99,16 +99,16 @@ mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "0x%02x", *(uint8 *)val);
+		snprintf(buf, bufsz, "0x%02x", *(uint8_t *)val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "0x%04x", *(uint16 *)val);
+		snprintf(buf, bufsz, "0x%04x", *(uint16_t *)val);
 		break;
 	case 3:
-		snprintf(buf, bufsz, "0x%06x", *(uint32 *)val & 0xffffff);
+		snprintf(buf, bufsz, "0x%06x", *(uint32_t *)val & 0xffffff);
 		break;
 	case 4:
-		snprintf(buf, bufsz, "0x%08x", *(uint32 *)val);
+		snprintf(buf, bufsz, "0x%08x", *(uint32_t *)val);
 		break;
 	case 5:
 		snprintf(buf, bufsz, "0x%010llx", *(uint64 *)val & 0xffffffffffllu);
@@ -133,16 +133,16 @@ mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%02x", *(uint8 *)val);
+		snprintf(buf, bufsz, "%02x", *(uint8_t *)val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%04x", *(uint16 *)val);
+		snprintf(buf, bufsz, "%04x", *(uint16_t *)val);
 		break;
 	case 3:
-		snprintf(buf, bufsz, "%06x", *(uint32 *)val & 0xffffff);
+		snprintf(buf, bufsz, "%06x", *(uint32_t *)val & 0xffffff);
 		break;
 	case 4:
-		snprintf(buf, bufsz, "%08x", *(uint32 *)val);
+		snprintf(buf, bufsz, "%08x", *(uint32_t *)val);
 		break;
 	case 5:
 		snprintf(buf, bufsz, "%010llx", *(uint64 *)val & 0xffffffffffllu);
@@ -196,6 +196,7 @@ mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "1X");
 		break;
 	case 3:
+
 		snprintf(buf, bufsz, "1X or 4X");
 		break;
 	case 7:
@@ -507,13 +508,13 @@ mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 void
 mad_dump_bitfield(char *buf, int bufsz, void *val, int valsz)
 {
-	snprintf(buf, bufsz, "0x%x", *(uint32 *)val);
+	snprintf(buf, bufsz, "0x%x", *(uint32_t *)val);
 }
 
 void
 mad_dump_array(char *buf, int bufsz, void *val, int valsz)
 {
-	uint8 *p = val, *e;
+	uint8_t *p = val, *e;
 	char *s = buf;
 
 	if (bufsz < valsz*2)
