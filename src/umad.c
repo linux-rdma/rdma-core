@@ -357,8 +357,10 @@ get_ca(char *ca_name, umad_ca_t *ca)
 	if (!(dir = opendir(dir_name)))
 		return -ENOENT;
 
-	if ((r = scandir(dir_name, &namelist, 0, alphasort)) < 0)
-		return -EIO;
+	if ((r = scandir(dir_name, &namelist, 0, alphasort)) < 0) {
+		ret = errno < 0 ? errno : -EIO;
+		goto error;
+	}
 
 	ret = 0;
 	ca->numports = 0;
@@ -388,6 +390,7 @@ get_ca(char *ca_name, umad_ca_t *ca)
 		free(namelist[i]);
 	free(namelist);
 
+	closedir(dir);
 	put_ca(ca);
 	return 0;
 
@@ -395,7 +398,8 @@ clean:
 	for (i = 0; i < r; i++)
 		free(namelist[i]);
 	free(namelist);
-
+error:
+	closedir(dir);
 	release_ca(ca);
 
 	return ret;
