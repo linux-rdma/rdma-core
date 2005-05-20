@@ -58,9 +58,15 @@ mad_dump_int(char *buf, int bufsz, void *val, int valsz)
 	case 4:
 		snprintf(buf, bufsz, "%d", *(uint32_t *)val);
 		break;
-	case 5: case 6: case 7:
+	case 5:
+	case 6:
+	case 7:
 	case 8:
-		snprintf(buf, bufsz, "%llu", *(uint64 *)val);
+#if __WORDSIZE == 64
+		snprintf(buf, bufsz, "%lu", *(uint64_t *)val);
+#else
+		snprintf(buf, bufsz, "%llu", *(uint64_t *)val);
+#endif
 		break;
 	default:
 		WARN("bad int sz %d", valsz);
@@ -86,7 +92,11 @@ mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
 	case 6:
 	case 7:
 	case 8:
-		snprintf(buf, bufsz, "%llu", *(uint64 *)val);
+#if __WORDSIZE == 64
+		snprintf(buf, bufsz, "%lu", *(uint64_t *)val);
+#else
+		snprintf(buf, bufsz, "%llu", *(uint64_t *)val);
+#endif
 		break;
 	default:
 		WARN("bad int sz %u", valsz);
@@ -110,18 +120,33 @@ mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 	case 4:
 		snprintf(buf, bufsz, "0x%08x", *(uint32_t *)val);
 		break;
+#if __WORDSIZE == 64
 	case 5:
-		snprintf(buf, bufsz, "0x%010llx", *(uint64 *)val & 0xffffffffffllu);
+		snprintf(buf, bufsz, "0x%010lx", *(uint64_t *)val & 0xfffffffffflu);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "0x%012llx", *(uint64 *)val & 0xffffffffffffllu);
+		snprintf(buf, bufsz, "0x%012lx", *(uint64_t *)val & 0xfffffffffffflu);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "0x%014llx", *(uint64 *)val & 0xffffffffffffffllu);
+		snprintf(buf, bufsz, "0x%014lx", *(uint64_t *)val & 0xfffffffffffffflu);
 		break;
 	case 8:
-		snprintf(buf, bufsz, "0x%016llx", *(uint64 *)val);
+		snprintf(buf, bufsz, "0x%016lx", *(uint64_t *)val);
 		break;
+#else
+	case 5:
+		snprintf(buf, bufsz, "0x%010llx", *(uint64_t *)val & 0xffffffffffllu);
+		break;
+	case 6:
+		snprintf(buf, bufsz, "0x%012llx", *(uint64_t *)val & 0xffffffffffffllu);
+		break;
+	case 7:
+		snprintf(buf, bufsz, "0x%014llx", *(uint64_t *)val & 0xffffffffffffffllu);
+		break;
+	case 8:
+		snprintf(buf, bufsz, "0x%016llx", *(uint64_t *)val);
+		break;
+#endif
 	default:
 		WARN("bad int sz %d", valsz);
 		buf[0] = 0;
@@ -144,18 +169,33 @@ mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 	case 4:
 		snprintf(buf, bufsz, "%08x", *(uint32_t *)val);
 		break;
+#if __WORDSIZE == 64
 	case 5:
-		snprintf(buf, bufsz, "%010llx", *(uint64 *)val & 0xffffffffffllu);
+		snprintf(buf, bufsz, "%010lx", *(uint64_t *)val & 0xfffffffffflu);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "%012llx", *(uint64 *)val & 0xffffffffffffllu);
+		snprintf(buf, bufsz, "%012lx", *(uint64_t *)val & 0xfffffffffffflu);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "%014llx", *(uint64 *)val & 0xffffffffffffffllu);
+		snprintf(buf, bufsz, "%014lx", *(uint64_t *)val & 0xfffffffffffffflu);
 		break;
 	case 8:
-		snprintf(buf, bufsz, "%016llx", *(uint64 *)val);
+		snprintf(buf, bufsz, "%016lx", *(uint64_t *)val);
 		break;
+#else
+	case 5:
+		snprintf(buf, bufsz, "%010llx", *(uint64_t *)val & 0xffffffffffllu);
+		break;
+	case 6:
+		snprintf(buf, bufsz, "%012llx", *(uint64_t *)val & 0xffffffffffffllu);
+		break;
+	case 7:
+		snprintf(buf, bufsz, "%014llx", *(uint64_t *)val & 0xffffffffffffffllu);
+		break;
+	case 8:
+		snprintf(buf, bufsz, "%016llx", *(uint64_t *)val);
+		break;
+#endif
 	default:
 		WARN("bad int sz %d", valsz);
 		buf[0] = 0;
