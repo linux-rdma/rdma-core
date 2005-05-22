@@ -47,7 +47,6 @@
 #include <umad.h>
 #include "mad.h"
 
-
 int ibdebug;
 
 static int mad_portid = -1;
@@ -62,7 +61,7 @@ static int save_mad_len = 256;
 #define DEBUG	if (ibdebug)	WARN
 #define ERRS	if (iberrs || ibdebug)	WARN
 
-#define MAD_TID(mad)	(*((uint64 *)((char *)(mad) + 8)))
+#define MAD_TID(mad)	(*((uint64_t *)((char *)(mad) + 8)))
 
 void
 madrpc_show_errors(int set)
@@ -118,7 +117,8 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 	}
 
 	if (save_mad) {
-		memcpy(save_mad, umad_get_mad(umad), save_mad_len < len ? save_mad_len : len);
+		memcpy(save_mad, umad_get_mad(umad),
+		       save_mad_len < len ? save_mad_len : len);
 		save_mad = 0;
 	}
 
@@ -162,7 +162,8 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	if ((len = mad_build_pkt(umad, rpc, dport, 0, payload)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass), len, rpc->timeout)) < 0)
+	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass),
+			      len, rpc->timeout)) < 0)
 		return 0;
 
 	mad = umad_get_mad(umad);
