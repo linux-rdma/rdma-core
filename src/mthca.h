@@ -256,6 +256,10 @@ extern void mthca_free_db_tab(struct mthca_db_table *db_tab);
 
 extern int mthca_query_port(struct ibv_context *context, uint8_t port,
 			    struct ibv_port_attr *attr);
+extern int mthca_query_gid(struct ibv_context *context, uint8_t port_num,
+			   int index, union ibv_gid *gid);
+extern int mthca_query_pkey(struct ibv_context *context, uint8_t port_num,
+			    int index, uint16_t *pkey);
 
 extern struct ibv_pd *mthca_alloc_pd(struct ibv_context *context);
 extern int mthca_free_pd(struct ibv_pd *pd);

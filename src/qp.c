@@ -834,7 +834,7 @@ void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp, struct ibv_qp_cap 
 	cap->max_recv_wr     = qp->rq.max;
 	cap->max_send_sge    = qp->sq.max_gs;
 	cap->max_recv_sge    = qp->rq.max_gs;
-} 
+}
 
 struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn)
 {

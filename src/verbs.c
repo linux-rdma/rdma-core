@@ -52,6 +52,18 @@ int mthca_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof cmd);
 }
 
+int mthca_query_gid(struct ibv_context *context, uint8_t port_num,
+		    int index, union ibv_gid *gid)
+{
+	return ibv_cmd_query_gid(context, port_num, index, gid);
+}
+
+int mthca_query_pkey(struct ibv_context *context, uint8_t port_num,
+		     int index, uint16_t *pkey)
+{
+	return ibv_cmd_query_pkey(context, port_num, index, pkey);
+}
+
 struct ibv_pd *mthca_alloc_pd(struct ibv_context *context)
 {
 	struct mthca_alloc_pd      cmd;
