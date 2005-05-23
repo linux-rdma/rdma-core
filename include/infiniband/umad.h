@@ -63,7 +63,7 @@ typedef struct ib_mad_addr {
 	uint32_t flow_label;
 } ib_mad_addr_t;
 
-#define IB_UMAD_ABI_VERSION	2
+#define IB_UMAD_ABI_VERSION	3
 #define IB_UMAD_ABI_DIR		"/sys/class/infiniband_mad"
 #define IB_UMAD_ABI_FILE	"abi_version"
 
@@ -160,14 +160,15 @@ int	umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_pkey(void *umad, int pkey);
 
-int	umad_send(int portid, int agentid, void *umad, int timeout_ms);
+int	umad_send(int portid, int agentid, void *umad, int length,
+		  int timeout_ms);
 int	umad_recv(int portid, void *umad, int timeout_ms);
 int	umad_poll(int portid, int timeout_ms);
 
 int	umad_register(int portid, int mgmt_class, int mgmt_version,
-		      uint32_t method_mask[4]);
-int	umad_register_oui(int portid, int mgmt_class, uint8_t oui[3],
-			  uint32_t method_mask[4]);
+		      uint8_t rmpp_version, uint32_t method_mask[4]);
+int	umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version, 
+			  uint8_t oui[3], uint32_t method_mask[4]);
 int	umad_unregister(int portid, int agentid);
 
 int	umad_debug(int level);
@@ -177,9 +178,9 @@ void	umad_dump(void *umad);
 #include <stdlib.h>
 
 static inline void *
-umad_alloc(int num)			/* alloc array of umad buffers */
+umad_alloc(int num, int size)		/* alloc array of umad buffers */
 {
-	return calloc(num, umad_size());
+	return calloc(num, size); 
 }
 
 static inline void

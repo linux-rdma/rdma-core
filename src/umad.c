@@ -50,12 +50,14 @@
 
 #include "umad.h"
 
+#define IB_OPENIB_OUI                 (0x001405)
+
 typedef struct ib_user_mad {
-	uint8_t	 data[256];
 	uint32_t agent_id;
 	uint32_t status;
 	uint32_t timeout_ms;
 	ib_mad_addr_t addr;
+	uint8_t  data[0];
 } ib_user_mad_t;
 
 typedef struct ib_user_mad_reg_req {
@@ -65,6 +67,7 @@ typedef struct ib_user_mad_reg_req {
 	uint8_t  mgmt_class;
 	uint8_t  mgmt_class_version;
 	uint8_t  oui[3];
+	uint8_t  rmpp_version;
 } ib_user_mad_reg_req_t;
 
 #define TRACE	if (umaddebug)	WARN
@@ -233,7 +236,7 @@ resolve_ca_port(char *ca_name, int *port)
 		return 1;
 	}
 
-	if (*port > 0) {		/* user wants user gets */
+	if (*port > 0) {	/* user wants user gets */
 		if (*port > ca.numports)
 			return -1;
 		if (!ca.ports[*port])
@@ -300,7 +303,8 @@ resolve_ca_name(char *ca_name, int *best_port)
 		if (port_type > 0) {
 			if (best_port)
 				*best_port = port;
-			DEBUG("found ca %s with active port %d", names[caidx], port);
+			DEBUG("found ca %s with active port %d",
+			      names[caidx], port);
 			return (char *)(names + caidx);
 		}
 
@@ -332,18 +336,22 @@ get_ca(char *ca_name, umad_ca_t *ca)
 	int r, i, ret;
 	int portnum;
 
-	strncpy(ca->ca_name, ca_name, sizeof(ca->ca_name));
+	strncpy(ca->ca_name, ca_name, sizeof ca->ca_name);
 	 
-	snprintf(dir_name, sizeof dir_name - 1, "%s/%s", SYS_INFINIBAND, ca->ca_name);
+	snprintf(dir_name, sizeof dir_name - 1, "%s/%s", SYS_INFINIBAND,
+		 ca->ca_name);
 	dir_name[sizeof dir_name - 1] = 0;
 
 	if ((r = sys_read_uint(dir_name, SYS_NODE_TYPE, &ca->node_type)) < 0)
 		return r;
-	if ((r = sys_read_string(dir_name, SYS_CA_FW_VERS, ca->fw_ver, sizeof ca->fw_ver)) < 0)
+	if ((r = sys_read_string(dir_name, SYS_CA_FW_VERS, ca->fw_ver,
+				 sizeof ca->fw_ver)) < 0)
 		return r;
-	if ((r = sys_read_string(dir_name, SYS_CA_HW_VERS, ca->hw_ver, sizeof ca->hw_ver)) < 0)
+	if ((r = sys_read_string(dir_name, SYS_CA_HW_VERS, ca->hw_ver,
+				 sizeof ca->hw_ver)) < 0)
 		return r;
-	if ((r = sys_read_string(dir_name, SYS_CA_TYPE, ca->ca_type, sizeof ca->ca_type)) < 0)
+	if ((r = sys_read_string(dir_name, SYS_CA_TYPE, ca->ca_type,
+				 sizeof ca->ca_type)) < 0)
 		return r;
 	if ((r = sys_read_guid(dir_name, SYS_CA_NODE_GUID, &ca->node_guid)) < 0)
 		return r;
@@ -367,14 +375,16 @@ get_ca(char *ca_name, umad_ca_t *ca)
 	memset(ca->ports, 0, sizeof ca->ports);
 	for (i = 0; i < r; i++) {
 		portnum = 0;
-		if (!strcmp(".", namelist[i]->d_name) || !strcmp("..", namelist[i]->d_name))
+		if (!strcmp(".", namelist[i]->d_name) ||
+		    !strcmp("..", namelist[i]->d_name))
 			continue;
 		if (strcmp("0", namelist[i]->d_name) &&
-		    ((portnum = atoi(namelist[i]->d_name)) <= 0 || portnum >= UMAD_CA_MAX_PORTS)) {
+		    ((portnum = atoi(namelist[i]->d_name)) <= 0 ||
+		     portnum >= UMAD_CA_MAX_PORTS)) {
 			ret = -EIO;
 			goto clean;
 		}
-		if (!(ca->ports[portnum] = calloc(1, sizeof (*ca->ports[portnum])))) {
+		if (!(ca->ports[portnum] = calloc(1, sizeof(*ca->ports[portnum])))) {
 			ret = -ENOMEM;
 			goto clean;
 		}
@@ -489,7 +499,8 @@ umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 			if (!strcmp(namelist[i]->d_name, ".") || 
 			    !strcmp(namelist[i]->d_name, "..")) {
 			} else 
-				strncpy(cas[j++], namelist[i]->d_name, UMAD_CA_NAME_LEN);
+				strncpy(cas[j++], namelist[i]->d_name,
+					UMAD_CA_NAME_LEN);
 			free(namelist[i]);
 		}
 		DEBUG("return %d cas", j);
@@ -679,7 +690,8 @@ umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
 {
 	struct ib_user_mad *mad = umad;
 
-	TRACE("umad %p dlid %d dqp %d sl %d, qkey %x", umad, dlid, dqp, sl, qkey);
+	TRACE("umad %p dlid %d dqp %d sl %d, qkey %x",
+	      umad, dlid, dqp, sl, qkey);
 	mad->addr.qpn = htonl(dqp);
 	mad->addr.lid = htons(dlid);
 	mad->addr.qkey = htonl(qkey);
@@ -704,7 +716,7 @@ umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 }
 
 int
-umad_send(int portid, int agentid, void *umad, int timeout_ms)
+umad_send(int portid, int agentid, void *umad, int length, int timeout_ms)
 {
 	struct ib_user_mad *mad = umad;
 	Port *port;
@@ -720,7 +732,7 @@ umad_send(int portid, int agentid, void *umad, int timeout_ms)
 	if (umaddebug > 1)
 		umad_dump(mad);
 
-	if (write(port->dev_fd, mad, sizeof (*mad)) == sizeof (*mad))
+	if (write(port->dev_fd, mad, length + sizeof *mad) == length + sizeof *mad)
 		return 0;
 
 	DEBUG("send error: %m");
@@ -758,7 +770,7 @@ umad_recv(int portid, void *umad, int timeout_ms)
 	if (timeout_ms && (n = dev_poll(port->dev_fd, timeout_ms)) < 0)
 		return n;
 
-	if ((n = read(port->dev_fd, umad, sizeof (*mad))) == sizeof (*mad)) {
+	if ((n = read(port->dev_fd, umad, sizeof *mad + 256)) == sizeof *mad + 256) {
 		DEBUG("mad received by agent %d", mad->agent_id);
 		return mad->agent_id;
 	}
@@ -766,7 +778,7 @@ umad_recv(int portid, void *umad, int timeout_ms)
 	if (n == -EWOULDBLOCK)
 		return n;
 
-	DEBUG("read returned %d != sizeof umad %d (%m)", n, sizeof (*mad));
+	DEBUG("read returned %d != sizeof umad %d (%m)", n, sizeof *mad);
 	return -EIO;
 }
 
@@ -783,14 +795,14 @@ umad_poll(int portid, int timeout_ms)
 }
 
 int
-umad_register_oui(int portid, int mgmt_class, uint8_t oui[3],
-		  uint32_t method_mask[4])
+umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
+		  uint8_t oui[3], uint32_t method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
 	Port *port;
 
-	TRACE("portid %d mgmt_class %u oui 0x%x%x%x method_mask %p",
-		portid, mgmt_class, (int)oui[0], (int)oui[1],
+	TRACE("portid %d mgmt_class %u rmpp_version %d oui 0x%x%x%x method_mask %p",
+		portid, mgmt_class, (int)rmpp_version, (int)oui[0], (int)oui[1],
 		(int)oui[2], method_mask);
 
 	if (!(port = port_get(portid)))
@@ -805,6 +817,7 @@ umad_register_oui(int portid, int mgmt_class, uint8_t oui[3],
 	req.mgmt_class = mgmt_class;
 	req.mgmt_class_version = 1;
 	memcpy(req.oui, oui, sizeof req.oui);
+	req.rmpp_version = rmpp_version;
 
 	if ((void *)method_mask != 0)
 		memcpy(req.method_mask, method_mask, sizeof req.method_mask);
@@ -817,21 +830,22 @@ umad_register_oui(int portid, int mgmt_class, uint8_t oui[3],
 		return req.id; 		/* return agentid */
 	}
 	
-	DEBUG("portid %d registering qp %d class %s version %d out 0x%x failed: %m",
+	DEBUG("portid %d registering qp %d class %s version %d oui 0x%x failed: %m",
 		portid, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
 	return -EPERM;	
 }
 
 int
 umad_register(int portid, int mgmt_class, int mgmt_version,
-	      uint32_t method_mask[4])
+	      uint8_t rmpp_version, uint32_t method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
 	Port *port;
+	uint32_t oui = htonl(IB_OPENIB_OUI);
 	int qp;
 
-	TRACE("portid %d mgmt_class %u mgmt_version %u method_mask %p",
-		portid, mgmt_class, mgmt_version, method_mask);
+	TRACE("portid %d mgmt_class %u mgmt_version %u rmpp_version %d method_mask %p",
+		portid, mgmt_class, mgmt_version, rmpp_version, method_mask);
 
 	if (!(port = port_get(portid)))
 		return -EINVAL;
@@ -839,11 +853,14 @@ umad_register(int portid, int mgmt_class, int mgmt_version,
 	req.qpn = qp = (mgmt_class == 0x1 || mgmt_class == 0x81) ? 0 : 1;
 	req.mgmt_class = mgmt_class;
 	req.mgmt_class_version = mgmt_version;
+	req.rmpp_version = rmpp_version;
 
 	if ((void *)method_mask != 0)
 		memcpy(req.method_mask, method_mask, sizeof req.method_mask);
 	else
 		memset(req.method_mask, 0, sizeof req.method_mask);
+
+	memcpy(&req.oui, (char *)&oui + 1, sizeof req.oui); 
 
 	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
 		DEBUG("portid %d registered to use agent %d qp %d",
