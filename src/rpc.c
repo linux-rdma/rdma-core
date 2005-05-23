@@ -112,8 +112,8 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 		timeout = def_madrpc_timeout;
 
 	if (ibdebug > 1) {
-		WARN(">>> sending: len %d pktsz %d", len, umad_size());
-		xdump(stderr, "send buf\n", umad, umad_size());
+		WARN(">>> sending: len %d pktsz %d", len, umad_size() + IB_MAD_SIZE);
+		xdump(stderr, "send buf\n", umad, umad_size() + IB_MAD_SIZE);
 	}
 
 	if (save_mad) {
@@ -126,7 +126,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 		if (retries)
 			ERRS("retry %d (timeout %d ms)", retries+1, timeout);
 
-		if (umad_send(mad_portid, agentid, umad, timeout) < 0) {
+		if (umad_send(mad_portid, agentid, umad, IB_MAD_SIZE, timeout) < 0) {
 			WARN("send failed; %m");
 			return -1;
 		}
@@ -157,7 +157,7 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	uint8_t pktbuf[1024], *mad;
 	void *umad = pktbuf;
 
-	memset(pktbuf, 0, umad_size());
+	memset(pktbuf, 0, umad_size() + IB_MAD_SIZE);
 
 	if ((len = mad_build_pkt(umad, rpc, dport, 0, payload)) < 0)
 		return 0;
@@ -192,7 +192,7 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	uint8_t pktbuf[1024], *mad;
 	void *umad = pktbuf;
 
-	memset(pktbuf, 0, umad_size());
+	memset(pktbuf, 0, umad_size() + IB_MAD_SIZE);
 
 	DEBUG("rmpp %p data %p", rmpp, data);
 
@@ -263,7 +263,7 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 	while (num_classes--) {
 		int mgmt = *mgmt_classes++;
 
-		if (mad_register_client(mgmt) < 0)
+		if (mad_register_client(mgmt, 0) < 0)
 			PANIC("client_register for mgmt %d failed", mgmt);
 	}
 }

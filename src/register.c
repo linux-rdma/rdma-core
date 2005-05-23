@@ -116,7 +116,7 @@ mad_agent_class(int agent)
 }
 
 int
-mad_register_client(int mgmt)
+mad_register_client(int mgmt, uint8_t rmpp_version)
 {
 	int vers, agent;
 
@@ -124,7 +124,7 @@ mad_register_client(int mgmt)
 		DEBUG("Unknown class %d mgmt_class", mgmt);
 		return -1;
 	}
-	if ((agent = umad_register(madrpc_portid(), mgmt, vers, 0)) < 0) {
+	if ((agent = umad_register(madrpc_portid(), mgmt, vers, rmpp_version, 0)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
 	}
@@ -141,9 +141,11 @@ mad_register_client(int mgmt)
 }
 
 int
-mad_register_server(int mgmt, uint32_t method_mask[4], uint32_t class_oui)
+mad_register_server(int mgmt, uint8_t rmpp_version,
+		    uint32_t method_mask[4], uint32_t class_oui)
 {
-	uint32_t class_method_mask[4] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+	uint32_t class_method_mask[4] = {0xffffffff, 0xffffffff,
+					 0xffffffff, 0xffffffff};
 	uint8_t oui[3];
 	int agent, vers, mad_portid;
 
@@ -165,11 +167,11 @@ mad_register_server(int mgmt, uint32_t method_mask[4], uint32_t class_oui)
 		oui[0] = (class_oui >> 16) & 0xff;
 		oui[1] = (class_oui >> 8) & 0xff;
 		oui[2] = class_oui & 0xff;
-		if ((agent = umad_register_oui(mad_portid, mgmt, oui, class_method_mask)) < 0) {
+		if ((agent = umad_register_oui(mad_portid, mgmt, rmpp_version, oui, class_method_mask)) < 0) {
 			DEBUG("Can't register agent for class %d", mgmt);
 			return -1;
 		}
-	} else if ((agent = umad_register(mad_portid, mgmt, vers, class_method_mask)) < 0) {
+	} else if ((agent = umad_register(mad_portid, mgmt, vers, rmpp_version, class_method_mask)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
 	}

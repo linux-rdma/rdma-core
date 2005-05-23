@@ -630,9 +630,9 @@ uint64_t mad_trid(void);
 int	mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 
 /* register.c */
-int	mad_register_client(int mgmt);
-int	mad_register_server(int mgmt, uint32_t method_mask[4],
-			    uint32_t class_oui);
+int	mad_register_client(int mgmt, uint8_t rmpp_version);
+int	mad_register_server(int mgmt, uint8_t rmpp_version,
+			    uint32_t method_mask[4], uint32_t class_oui);
 int	mad_class_agent(int mgmt);
 int	mad_agent_class(int agent);
 

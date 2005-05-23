@@ -147,7 +147,7 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 		mad_set_field(buf, 0, IB_DRSMP_DRDLID_F, drpath->drdlid ? drpath->drdlid : 0xffff);
 		mad_set_field(buf, 0, IB_DRSMP_DRSLID_F, drpath->drslid ? drpath->drslid : 0xffff);
 
-		/* bytes 128 - 256 - by default should be zero due memset*/
+		/* bytes 128 - 256 - by default should be zero due to memset*/
 		if (is_resp)
 			mad_set_array(buf, 0, IB_DRSMP_RPATH_F, drpath->p);
 		else
