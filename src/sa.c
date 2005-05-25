@@ -104,6 +104,7 @@ sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 #define	IB_PR_COMPMASK_RATE				(1ull<<19)
 #define	IB_PR_COMPMASK_PKTLIFETIMESELEC			(1ull<<20)
 #define	IB_PR_COMPMASK_PKTLIFETIME			(1ull<<21)
+#define	IB_PR_COMPMASK_PREFERENCE			(1ull<<22)
 
 #define IB_PR_DEF_MASK (IB_PR_COMPMASK_DGID |\
 			IB_PR_COMPMASK_SGID |\
