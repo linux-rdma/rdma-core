@@ -370,7 +370,13 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 			  struct pingpong_dest *dest)
 {
 	struct ibv_qp_attr attr;
-	struct ibv_ah_attr ah_attr;
+	struct ibv_ah_attr ah_attr = {
+		.is_global     = 0,
+		.dlid          = dest->lid,
+		.sl            = 0,
+		.src_path_bits = 0,
+		.port_num      = port
+	};
 
 	attr.qp_state 		= IBV_QPS_RTR;
 
@@ -388,12 +394,6 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 		fprintf(stderr, "Failed to modify QP to RTS\n");
 		return 1;
 	}
-
-	ah_attr.is_global     = 0;
-	ah_attr.dlid          = dest->lid;
-	ah_attr.sl            = 0;
-	ah_attr.src_path_bits = 0;
-	ah_attr.port_num      = port;
 
 	ctx->ah = ibv_create_ah(ctx->pd, &ah_attr);
 	if (!ctx->ah) {

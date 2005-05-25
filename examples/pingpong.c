@@ -360,19 +360,21 @@ static int pp_post_send(struct pingpong_context *ctx)
 static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 			  struct pingpong_dest *dest)
 {
-	struct ibv_qp_attr attr;
-
-	attr.qp_state 		= IBV_QPS_RTR;
-	attr.path_mtu 		= IBV_MTU_1024;
-	attr.dest_qp_num 	= dest->qpn;
-	attr.rq_psn 		= dest->psn;
-	attr.max_dest_rd_atomic = 1;
-	attr.min_rnr_timer 	= 12;
-	attr.ah_attr.is_global  = 0;
-	attr.ah_attr.dlid       = dest->lid;
-	attr.ah_attr.sl         = 0;
-	attr.ah_attr.src_path_bits = 0;
-	attr.ah_attr.port_num   = port;
+	struct ibv_qp_attr attr = {
+		.qp_state		= IBV_QPS_RTR,
+		.path_mtu		= IBV_MTU_1024,
+		.dest_qp_num		= dest->qpn,
+		.rq_psn 		= dest->psn,
+		.max_dest_rd_atomic	= 1,
+		.min_rnr_timer		= 12,
+		.ah_attr		= {
+			.is_global	= 0,
+			.dlid		= dest->lid,
+			.sl		= 0,
+			.src_path_bits	= 0,
+			.port_num	= port
+		}
+	};
 	if (ibv_modify_qp(ctx->qp, &attr,
 			  IBV_QP_STATE              |
 			  IBV_QP_AV                 |
