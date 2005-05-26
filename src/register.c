@@ -82,8 +82,10 @@ register_agent(int agent, int mclass)
 static int
 mgmt_class_vers(int mgmt_class)
 {
-	if ((mgmt_class >= IB_VENDOR_RANGE1_START_CLASS && mgmt_class <= IB_VENDOR_RANGE1_END_CLASS) ||
-	    (mgmt_class >= IB_VENDOR_RANGE2_START_CLASS && mgmt_class <= IB_VENDOR_RANGE2_END_CLASS))
+	if ((mgmt_class >= IB_VENDOR_RANGE1_START_CLASS &&
+	     mgmt_class <= IB_VENDOR_RANGE1_END_CLASS) ||
+	    (mgmt_class >= IB_VENDOR_RANGE2_START_CLASS &&
+	     mgmt_class <= IB_VENDOR_RANGE2_END_CLASS))
 		return 1;
 
 	switch(mgmt_class) {
@@ -124,7 +126,8 @@ mad_register_client(int mgmt, uint8_t rmpp_version)
 		DEBUG("Unknown class %d mgmt_class", mgmt);
 		return -1;
 	}
-	if ((agent = umad_register(madrpc_portid(), mgmt, vers, rmpp_version, 0)) < 0) {
+	if ((agent = umad_register(madrpc_portid(), mgmt,
+				   vers, rmpp_version, 0)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
 	}
@@ -163,15 +166,18 @@ mad_register_server(int mgmt, uint8_t rmpp_version,
 		DEBUG("Unknown class 0x%x mgmt_class", mgmt);
 		return -1;
 	}
-	if (mgmt >= IB_VENDOR_RANGE2_START_CLASS && mgmt <= IB_VENDOR_RANGE2_END_CLASS) {
+	if (mgmt >= IB_VENDOR_RANGE2_START_CLASS &&
+	    mgmt <= IB_VENDOR_RANGE2_END_CLASS) {
 		oui[0] = (class_oui >> 16) & 0xff;
 		oui[1] = (class_oui >> 8) & 0xff;
 		oui[2] = class_oui & 0xff;
-		if ((agent = umad_register_oui(mad_portid, mgmt, rmpp_version, oui, class_method_mask)) < 0) {
+		if ((agent = umad_register_oui(mad_portid, mgmt, rmpp_version,
+					       oui, class_method_mask)) < 0) {
 			DEBUG("Can't register agent for class %d", mgmt);
 			return -1;
 		}
-	} else if ((agent = umad_register(mad_portid, mgmt, vers, rmpp_version, class_method_mask)) < 0) {
+	} else if ((agent = umad_register(mad_portid, mgmt, vers, rmpp_version,
+					  class_method_mask)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
 	}
