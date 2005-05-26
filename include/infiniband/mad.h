@@ -164,7 +164,7 @@ typedef struct {
 	int mgtclass;
 	int method;
 	ib_attr_t attr;
-	uint32_t rstatus;	// return status
+	uint32_t rstatus;	/* return status */
 	int dataoffs;
 	int datasz;
 	uint64_t mkey;
