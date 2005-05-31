@@ -414,6 +414,10 @@ struct ibv_device {
 struct ibv_context_ops {
 	int			(*query_port)(struct ibv_context *context, uint8_t port_num,
 					      struct ibv_port_attr *port_attr);
+	int			(*query_gid)(struct ibv_context *context, uint8_t port_num,
+					     int index, union ibv_gid *gid);
+	int			(*query_pkey)(struct ibv_context *context, uint8_t port_num,
+					      int index, uint16_t *pkey);
 	struct ibv_pd *		(*alloc_pd)(struct ibv_context *context);
 	int			(*dealloc_pd)(struct ibv_pd *pd);
 	struct ibv_mr *		(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
@@ -485,6 +489,18 @@ extern int ibv_get_async_event(struct ibv_context *context,
  */
 extern int ibv_query_port(struct ibv_context *context, uint8_t port_num,
 			  struct ibv_port_attr *port_attr);
+
+/**
+ * ibv_query_gid - Get a GID table entry
+ */
+extern int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
+			 int index, union ibv_gid *gid);
+
+/**
+ * ibv_query_pkey - Get a P_Key table entry
+ */
+extern int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
+			  int index, uint16_t *pkey);
 
 /**
  * ibv_alloc_pd - Allocate a protection domain

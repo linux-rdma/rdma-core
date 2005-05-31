@@ -7,6 +7,8 @@ IBVERBS_1.0 {
 		ibv_close_device;
 		ibv_get_async_event;
 		ibv_query_port;
+		ibv_query_gid;
+		ibv_query_pkey;
 		ibv_alloc_pd;
 		ibv_dealloc_pd;
 		ibv_reg_mr;
@@ -23,6 +25,8 @@ IBVERBS_1.0 {
 		ibv_detach_mcast;
 		ibv_cmd_get_context;
 		ibv_cmd_query_port;
+		ibv_cmd_query_gid;
+		ibv_cmd_query_pkey;
 		ibv_cmd_alloc_pd;
 		ibv_cmd_dealloc_pd;
 		ibv_cmd_reg_mr;

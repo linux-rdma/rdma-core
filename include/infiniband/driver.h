@@ -68,6 +68,10 @@ extern int ibv_cmd_get_context(int num_comp, struct ibv_context *context,
 extern int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 			      struct ibv_port_attr *port_attr,
 			      struct ibv_query_port *cmd, size_t cmd_size);
+extern int ibv_cmd_query_gid(struct ibv_context *context, uint8_t port_num,
+			     int index, union ibv_gid *gid);
+extern int ibv_cmd_query_pkey(struct ibv_context *context, uint8_t port_num,
+			      int index, uint16_t *pkey);
 extern int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 			    struct ibv_alloc_pd *cmd, size_t cmd_size);
 extern int ibv_cmd_dealloc_pd(struct ibv_pd *pd);

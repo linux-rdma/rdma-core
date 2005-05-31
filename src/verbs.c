@@ -48,6 +48,18 @@ int ibv_query_port(struct ibv_context *context, uint8_t port_num,
 	return context->ops.query_port(context, port_num, port_attr);
 }
 
+int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
+		  int index, union ibv_gid *gid)
+{
+	return context->ops.query_gid(context, port_num, index, gid);
+}
+
+int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
+		   int index, uint16_t *pkey)
+{
+	return context->ops.query_pkey(context, port_num, index, pkey);
+}
+
 struct ibv_pd *ibv_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_pd *pd;

@@ -196,6 +196,7 @@ struct ibv_query_pkey {
 
 struct ibv_query_pkey_resp {
 	__u16 pkey;
+	__u16 reserved;
 };
 
 struct ibv_alloc_pd {

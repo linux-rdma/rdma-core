@@ -97,6 +97,42 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	return 0;
 }
 
+int ibv_cmd_query_gid(struct ibv_context *context, uint8_t port_num,
+		      int index, union ibv_gid *gid)
+{
+	struct ibv_query_gid      cmd;
+	struct ibv_query_gid_resp resp;
+
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_GID, &resp);
+	cmd.port_num = port_num;
+	cmd.index    = index;
+
+	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	memcpy(gid->raw, resp.gid, 16);
+
+	return 0;
+}
+
+int ibv_cmd_query_pkey(struct ibv_context *context, uint8_t port_num,
+		       int index, uint16_t *pkey)
+{
+	struct ibv_query_pkey      cmd;
+	struct ibv_query_pkey_resp resp;
+
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PKEY, &resp);
+	cmd.port_num = port_num;
+	cmd.index    = index;
+
+	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	*pkey = resp.pkey;
+
+	return 0;
+}
+
 int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size)
 {
