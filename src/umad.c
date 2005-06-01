@@ -89,7 +89,7 @@ typedef struct Port {
 	int id;
 } Port;
 
-Port ports[UMAD_MAX_PORTS];
+static Port ports[UMAD_MAX_PORTS];
 
 /*************************************
  * Port
@@ -481,7 +481,7 @@ int
 umad_done(void)
 {
 	TRACE("");
-	/* FIXME - verify all ports are closed */
+	/* FIXME - verify that all ports are closed */
 	return 0;
 }
 
@@ -732,7 +732,8 @@ umad_send(int portid, int agentid, void *umad, int length, int timeout_ms)
 	if (umaddebug > 1)
 		umad_dump(mad);
 
-	if (write(port->dev_fd, mad, length + sizeof *mad) == length + sizeof *mad)
+	if (write(port->dev_fd, mad, length + sizeof *mad) ==
+	    length + sizeof *mad)
 		return 0;
 
 	DEBUG("send error: %m");
