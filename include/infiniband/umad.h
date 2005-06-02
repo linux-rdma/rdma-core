@@ -164,6 +164,7 @@ int	umad_send(int portid, int agentid, void *umad, int length,
 		  int timeout_ms);
 int	umad_recv(int portid, void *umad, int timeout_ms);
 int	umad_poll(int portid, int timeout_ms);
+int	umad_get_fd(int portid);
 
 int	umad_register(int portid, int mgmt_class, int mgmt_version,
 		      uint8_t rmpp_version, uint32_t method_mask[4]);

@@ -744,9 +744,10 @@ static int
 dev_poll(int fd, int timeout_ms)
 {
 	struct pollfd ufds;
+	int n;
+
 	ufds.fd     = fd;
 	ufds.events = POLLIN;
-	int n;
 
 	if ((n = poll(&ufds, 1, timeout_ms)) == 1)
 		return 0;
@@ -771,7 +772,8 @@ umad_recv(int portid, void *umad, int timeout_ms)
 	if (timeout_ms && (n = dev_poll(port->dev_fd, timeout_ms)) < 0)
 		return n;
 
-	if ((n = read(port->dev_fd, umad, sizeof *mad + 256)) == sizeof *mad + 256) {
+	if ((n = read(port->dev_fd, umad, sizeof *mad + 256)) ==
+	     sizeof *mad + 256) {
 		DEBUG("mad received by agent %d", mad->agent_id);
 		return mad->agent_id;
 	}
@@ -793,6 +795,18 @@ umad_poll(int portid, int timeout_ms)
 		return -EINVAL;
 
 	return dev_poll(port->dev_fd, timeout_ms);
+}
+
+int
+umad_get_fd(int portid)
+{
+	Port *port;
+
+	TRACE("portid %d", portid);
+	if (!(port = port_get(portid)))
+		return -EINVAL;
+
+	return port->dev_fd;
 }
 
 int
