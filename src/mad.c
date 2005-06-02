@@ -201,4 +201,3 @@ mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport,
 
 	return p - mad;
 }
-
