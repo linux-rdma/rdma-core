@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -65,6 +66,9 @@ typedef struct ibv_device *(*ibv_driver_init_func)(struct sysfs_class_device *);
 
 extern int ibv_cmd_get_context(int num_comp, struct ibv_context *context,
 			       struct ibv_get_context *cmd, size_t cmd_size);
+extern int ibv_cmd_query_device(struct ibv_context *context,
+				struct ibv_device_attr *device_attr,
+				struct ibv_query_device *cmd, size_t cmd_size);
 extern int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 			      struct ibv_port_attr *port_attr,
 			      struct ibv_query_port *cmd, size_t cmd_size);

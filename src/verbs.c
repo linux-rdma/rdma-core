@@ -42,6 +42,12 @@
 
 #include "ibverbs.h"
 
+int ibv_query_device(struct ibv_context *context,
+		     struct ibv_device_attr *device_attr)
+{
+	return context->ops.query_device(context, device_attr);
+}
+
 int ibv_query_port(struct ibv_context *context, uint8_t port_num,
 		   struct ibv_port_attr *port_attr)
 {

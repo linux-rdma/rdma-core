@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -133,6 +134,58 @@ struct ibv_get_context {
 struct ibv_get_context_resp {
 	__u32 async_fd;
 	__u32 cq_fd[1];
+};
+
+struct ibv_query_device {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u64 driver_data[0];
+};
+
+struct ibv_query_device_resp {
+	__u64 fw_ver;
+	__u64 node_guid;
+	__u64 sys_image_guid;
+	__u64 max_mr_size;
+	__u64 page_size_cap;
+	__u32 vendor_id;
+	__u32 vendor_part_id;
+	__u32 hw_ver;
+	__u32 max_qp;
+	__u32 max_qp_wr;
+	__u32 device_cap_flags;
+	__u32 max_sge;
+	__u32 max_sge_rd;
+	__u32 max_cq;
+	__u32 max_cqe;
+	__u32 max_mr;
+	__u32 max_pd;
+	__u32 max_qp_rd_atom;
+	__u32 max_ee_rd_atom;
+	__u32 max_res_rd_atom;
+	__u32 max_qp_init_rd_atom;
+	__u32 max_ee_init_rd_atom;
+	__u32 atomic_cap;
+	__u32 max_ee;
+	__u32 max_rdd;
+	__u32 max_mw;
+	__u32 max_raw_ipv6_qp;
+	__u32 max_raw_ethy_qp;
+	__u32 max_mcast_grp;
+	__u32 max_mcast_qp_attach;
+	__u32 max_total_mcast_qp_attach;
+	__u32 max_ah;
+	__u32 max_fmr;
+	__u32 max_map_per_fmr;
+	__u32 max_srq;
+	__u32 max_srq_wr;
+	__u32 max_srq_sge;
+	__u16 max_pkeys;
+	__u8  local_ca_ack_delay;
+	__u8  phys_port_cnt;
+	__u8  reserved[4];
 };
 
 struct ibv_query_port {

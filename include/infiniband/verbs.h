@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2004 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -56,6 +57,79 @@ union ibv_gid {
 		uint64_t	subnet_prefix;
 		uint64_t	interface_id;
 	} global;
+};
+
+enum ibv_node_type {
+	IBV_NODE_CA 	= 1,
+	IBV_NODE_SWITCH,
+	IBV_NODE_ROUTER
+};
+
+enum ibv_device_cap_flags {
+	IBV_DEVICE_RESIZE_MAX_WR	= 1,
+	IBV_DEVICE_BAD_PKEY_CNTR	= 1 <<  1,
+	IBV_DEVICE_BAD_QKEY_CNTR	= 1 <<  2,
+	IBV_DEVICE_RAW_MULTI		= 1 <<  3,
+	IBV_DEVICE_AUTO_PATH_MIG	= 1 <<  4,
+	IBV_DEVICE_CHANGE_PHY_PORT	= 1 <<  5,
+	IBV_DEVICE_UD_AV_PORT_ENFORCE	= 1 <<  6,
+	IBV_DEVICE_CURR_QP_STATE_MOD	= 1 <<  7,
+	IBV_DEVICE_SHUTDOWN_PORT	= 1 <<  8,
+	IBV_DEVICE_INIT_TYPE		= 1 <<  9,
+	IBV_DEVICE_PORT_ACTIVE_EVENT	= 1 << 10,
+	IBV_DEVICE_SYS_IMAGE_GUID	= 1 << 11,
+	IBV_DEVICE_RC_RNR_NAK_GEN	= 1 << 12,
+	IBV_DEVICE_SRQ_RESIZE		= 1 << 13,
+	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14,
+};
+
+enum ibv_atomic_cap {
+	IBV_ATOMIC_NONE,
+	IBV_ATOMIC_HCA,
+	IBV_ATOMIC_GLOB
+};
+
+struct ibv_device_attr {
+	uint64_t		fw_ver;
+	uint64_t		node_guid;
+	uint64_t		sys_image_guid;
+	uint64_t		max_mr_size;
+	uint64_t		page_size_cap;
+	uint32_t		vendor_id;
+	uint32_t		vendor_part_id;
+	uint32_t		hw_ver;
+	int			max_qp;
+	int			max_qp_wr;
+	int			device_cap_flags;
+	int			max_sge;
+	int			max_sge_rd;
+	int			max_cq;
+	int			max_cqe;
+	int			max_mr;
+	int			max_pd;
+	int			max_qp_rd_atom;
+	int			max_ee_rd_atom;
+	int			max_res_rd_atom;
+	int			max_qp_init_rd_atom;
+	int			max_ee_init_rd_atom;
+	enum ibv_atomic_cap	atomic_cap;
+	int			max_ee;
+	int			max_rdd;
+	int			max_mw;
+	int			max_raw_ipv6_qp;
+	int			max_raw_ethy_qp;
+	int			max_mcast_grp;
+	int			max_mcast_qp_attach;
+	int			max_total_mcast_qp_attach;
+	int			max_ah;
+	int			max_fmr;
+	int			max_map_per_fmr;
+	int			max_srq;
+	int			max_srq_wr;
+	int			max_srq_sge;
+	uint16_t		max_pkeys;
+	uint8_t			local_ca_ack_delay;
+	uint8_t			phys_port_cnt;
 };
 
 enum ibv_mtu {
@@ -412,6 +486,8 @@ struct ibv_device {
 };
 
 struct ibv_context_ops {
+	int			(*query_device)(struct ibv_context *context,
+					      struct ibv_device_attr *device_attr);
 	int			(*query_port)(struct ibv_context *context, uint8_t port_num,
 					      struct ibv_port_attr *port_attr);
 	int			(*query_gid)(struct ibv_context *context, uint8_t port_num,
@@ -483,6 +559,12 @@ extern int ibv_close_device(struct ibv_context *context);
  */
 extern int ibv_get_async_event(struct ibv_context *context,
 			       struct ibv_async_event *event);
+
+/**
+ * ibv_query_device - Get device properties
+ */
+extern int ibv_query_device(struct ibv_context *context,
+			    struct ibv_device_attr *device_attr);
 
 /**
  * ibv_query_port - Get port properties

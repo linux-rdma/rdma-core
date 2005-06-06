@@ -62,6 +62,61 @@ int ibv_cmd_get_context(int num_comp, struct ibv_context *context,
 	return 0;
 }
 
+int ibv_cmd_query_device(struct ibv_context *context,
+			 struct ibv_device_attr *device_attr,
+			 struct ibv_query_device *cmd, size_t cmd_size)
+{
+	struct ibv_query_device_resp resp;
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_DEVICE, &resp);
+
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	device_attr->fw_ver 		       = resp.fw_ver;
+	device_attr->node_guid 		       = resp.node_guid;
+	device_attr->sys_image_guid 	       = resp.sys_image_guid;
+	device_attr->max_mr_size 	       = resp.max_mr_size;
+	device_attr->page_size_cap 	       = resp.page_size_cap;
+	device_attr->vendor_id 		       = resp.vendor_id;
+	device_attr->vendor_part_id 	       = resp.vendor_part_id;
+	device_attr->hw_ver 		       = resp.hw_ver;
+	device_attr->max_qp 		       = resp.max_qp;
+	device_attr->max_qp_wr 		       = resp.max_qp_wr;
+	device_attr->device_cap_flags 	       = resp.device_cap_flags;
+	device_attr->max_sge 		       = resp.max_sge;
+	device_attr->max_sge_rd 	       = resp.max_sge_rd;
+	device_attr->max_cq 		       = resp.max_cq;
+	device_attr->max_cqe 		       = resp.max_cqe;
+	device_attr->max_mr 		       = resp.max_mr;
+	device_attr->max_pd 		       = resp.max_pd;
+	device_attr->max_qp_rd_atom 	       = resp.max_qp_rd_atom;
+	device_attr->max_ee_rd_atom 	       = resp.max_ee_rd_atom;
+	device_attr->max_res_rd_atom 	       = resp.max_res_rd_atom;
+	device_attr->max_qp_init_rd_atom       = resp.max_qp_init_rd_atom;
+	device_attr->max_ee_init_rd_atom       = resp.max_ee_init_rd_atom;
+	device_attr->atomic_cap 	       = resp.atomic_cap;
+	device_attr->max_ee 		       = resp.max_ee;
+	device_attr->max_rdd 		       = resp.max_rdd;
+	device_attr->max_mw 		       = resp.max_mw;
+	device_attr->max_raw_ipv6_qp 	       = resp.max_raw_ipv6_qp;
+	device_attr->max_raw_ethy_qp 	       = resp.max_raw_ethy_qp;
+	device_attr->max_mcast_grp 	       = resp.max_mcast_grp;
+	device_attr->max_mcast_qp_attach       = resp.max_mcast_qp_attach;
+	device_attr->max_total_mcast_qp_attach = resp.max_total_mcast_qp_attach;
+	device_attr->max_ah 		       = resp.max_ah;
+	device_attr->max_fmr 		       = resp.max_fmr;
+	device_attr->max_map_per_fmr 	       = resp.max_map_per_fmr;
+	device_attr->max_srq 		       = resp.max_srq;
+	device_attr->max_srq_wr 	       = resp.max_srq_wr;
+	device_attr->max_srq_sge 	       = resp.max_srq_sge;
+	device_attr->max_pkeys 		       = resp.max_pkeys;
+	device_attr->local_ca_ack_delay        = resp.local_ca_ack_delay;
+	device_attr->phys_port_cnt	       = resp.phys_port_cnt;
+
+	return 0;
+}
+
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
 		       struct ibv_query_port *cmd, size_t cmd_size)
