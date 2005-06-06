@@ -97,6 +97,7 @@ struct {
 };
 
 static struct ibv_context_ops mthca_ctx_ops = {
+	.query_device  = mthca_query_device,
 	.query_port    = mthca_query_port,
 	.query_gid     = mthca_query_gid,
 	.query_pkey    = mthca_query_pkey,

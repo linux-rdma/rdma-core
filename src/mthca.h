@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -254,6 +255,8 @@ extern void mthca_free_db(struct mthca_db_table *db_tab, enum mthca_db_type type
 extern struct mthca_db_table *mthca_alloc_db_tab(int uarc_size);
 extern void mthca_free_db_tab(struct mthca_db_table *db_tab);
 
+extern int mthca_query_device(struct ibv_context *context,
+			      struct ibv_device_attr *attr);
 extern int mthca_query_port(struct ibv_context *context, uint8_t port,
 			    struct ibv_port_attr *attr);
 extern int mthca_query_gid(struct ibv_context *context, uint8_t port_num,

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -43,6 +44,13 @@
 
 #include "mthca.h"
 #include "mthca-abi.h"
+
+int mthca_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
+{
+	struct ibv_query_device cmd;
+
+	return ibv_cmd_query_device(context, attr, &cmd, sizeof cmd);
+}
 
 int mthca_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr)
