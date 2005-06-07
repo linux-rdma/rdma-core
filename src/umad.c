@@ -56,6 +56,7 @@ typedef struct ib_user_mad {
 	uint32_t agent_id;
 	uint32_t status;
 	uint32_t timeout_ms;
+	uint32_t retries;
 	ib_mad_addr_t addr;
 	uint8_t  data[0];
 } ib_user_mad_t;
@@ -716,7 +717,8 @@ umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 }
 
 int
-umad_send(int portid, int agentid, void *umad, int length, int timeout_ms)
+umad_send(int portid, int agentid, void *umad, int length,
+	  int timeout_ms, int retries)
 {
 	struct ib_user_mad *mad = umad;
 	Port *port;
@@ -727,6 +729,7 @@ umad_send(int portid, int agentid, void *umad, int length, int timeout_ms)
 		return -EINVAL;
 
 	mad->timeout_ms = timeout_ms;
+	mad->retries = retries;
 	mad->agent_id = agentid;
 
 	if (umaddebug > 1)

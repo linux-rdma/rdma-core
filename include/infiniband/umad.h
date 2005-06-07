@@ -63,7 +63,7 @@ typedef struct ib_mad_addr {
 	uint32_t flow_label;
 } ib_mad_addr_t;
 
-#define IB_UMAD_ABI_VERSION	3
+#define IB_UMAD_ABI_VERSION	4
 #define IB_UMAD_ABI_DIR		"/sys/class/infiniband_mad"
 #define IB_UMAD_ABI_FILE	"abi_version"
 
@@ -161,7 +161,7 @@ int	umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_pkey(void *umad, int pkey);
 
 int	umad_send(int portid, int agentid, void *umad, int length,
-		  int timeout_ms);
+		  int timeout_ms, int retries);
 int	umad_recv(int portid, void *umad, int timeout_ms);
 int	umad_poll(int portid, int timeout_ms);
 int	umad_get_fd(int portid);
