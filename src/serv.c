@@ -71,7 +71,7 @@ mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	}
 
 	if (umad_send(madrpc_portid(), mad_class_agent(rpc->mgtclass),
-		      umad, IB_MAD_SIZE, rpc->timeout) < 0) {
+		      umad, IB_MAD_SIZE, rpc->timeout, 0) < 0) {
 		WARN("send failed; %m");
 		return -1;
 	}
@@ -145,7 +145,7 @@ mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus)
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
 
 	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad,
-		      IB_MAD_SIZE, rpc.timeout) < 0) {
+		      IB_MAD_SIZE, rpc.timeout, 0) < 0) {
 		DEBUG("send failed; %m");
 		return -1;
 	}

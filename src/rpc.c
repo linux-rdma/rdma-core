@@ -126,7 +126,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 		if (retries)
 			ERRS("retry %d (timeout %d ms)", retries+1, timeout);
 
-		if (umad_send(mad_portid, agentid, umad, IB_MAD_SIZE, timeout) < 0) {
+		if (umad_send(mad_portid, agentid, umad, IB_MAD_SIZE, timeout, 0) < 0) {
 			WARN("send failed; %m");
 			return -1;
 		}
