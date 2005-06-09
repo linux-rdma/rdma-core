@@ -39,33 +39,6 @@
 #include <infiniband/verbs.h>
 #include <infiniband/sa.h>
 
-enum ib_cm_state {
-	IB_CM_IDLE,
-	IB_CM_LISTEN,
-	IB_CM_REQ_SENT,
-	IB_CM_REQ_RCVD,
-	IB_CM_MRA_REQ_SENT,
-	IB_CM_MRA_REQ_RCVD,
-	IB_CM_REP_SENT,
-	IB_CM_REP_RCVD,
-	IB_CM_MRA_REP_SENT,
-	IB_CM_MRA_REP_RCVD,
-	IB_CM_ESTABLISHED,
-	IB_CM_DREQ_SENT,
-	IB_CM_DREQ_RCVD,
-	IB_CM_TIMEWAIT,
-	IB_CM_SIDR_REQ_SENT,
-	IB_CM_SIDR_REQ_RCVD
-};
-
-enum ib_cm_lap_state {
-	IB_CM_LAP_IDLE,
-	IB_CM_LAP_SENT,
-	IB_CM_LAP_RCVD,
-	IB_CM_MRA_LAP_SENT,
-	IB_CM_MRA_LAP_RCVD,
-};
-
 enum ib_cm_event_type {
 	IB_CM_REQ_ERROR,
 	IB_CM_REQ_RECEIVED,
@@ -240,7 +213,6 @@ struct ib_cm_sidr_rep_event_param {
 struct ib_cm_event {
 	uint32_t              cm_id;
 	enum ib_cm_event_type event;
-	enum ib_cm_state      state;
 	union {
 		struct ib_cm_req_event_param	req_rcvd;
 		struct ib_cm_rep_event_param	rep_rcvd;
@@ -313,8 +285,6 @@ int ib_cm_destroy_id(uint32_t cm_id);
 struct ib_cm_attr_param {
 	uint64_t		service_id;
 	uint64_t		service_mask;
-	enum ib_cm_state	state;
-	enum ib_cm_lap_state	lap_state;
 	uint32_t		local_id;
 	uint32_t		remote_id;
 };

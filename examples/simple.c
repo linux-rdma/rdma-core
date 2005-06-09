@@ -168,11 +168,10 @@ int main(int argc, char **argv)
 			goto done;
 		}
 
-		printf("CM ID <%d> Event <%d> State <%d>\n", 
-		       event->cm_id, event->event, event->state);
+		printf("CM ID <%d> Event <%d>\n", event->cm_id, event->event);
 
-		switch (event->state) {
-		case IB_CM_REQ_RCVD:
+		switch (event->event) {
+		case IB_CM_REQ_RECEIVED:
 
 			result = ib_cm_destroy_id(cm_id);
 			if (result < 0) {
@@ -205,7 +204,7 @@ int main(int argc, char **argv)
 			}
 		
 			break;
-		case IB_CM_REP_RCVD:
+		case IB_CM_REP_RECEIVED:
 
 			result = ib_cm_send_rtu(cm_id, NULL, 0);
 			if (result < 0) {
@@ -215,7 +214,7 @@ int main(int argc, char **argv)
 			}
 
 			break;
-		case IB_CM_ESTABLISHED:
+		case IB_CM_RTU_RECEIVED:
 
 			result = ib_cm_send_dreq(cm_id, NULL, 0);
 			if (result < 0) {
@@ -225,7 +224,7 @@ int main(int argc, char **argv)
 			}
 
 			break;
-		case IB_CM_DREQ_RCVD:
+		case IB_CM_DREQ_RECEIVED:
 
 			result = ib_cm_send_drep(cm_id, NULL, 0);
 			if (result < 0) {
@@ -235,15 +234,14 @@ int main(int argc, char **argv)
 			}
 
 			break;
-		case IB_CM_TIMEWAIT:
+		case IB_CM_DREP_RECEIVED:
 			break;
-		case IB_CM_IDLE:
+		case IB_CM_TIMEWAIT_EXIT:
 			status = 1;
 			break;
 		default:
 			status = EINVAL;
-			printf("Unhandled state <%d:%d>\n", 
-			       event->state, event->event);
+			printf("Unhandled event <%d>\n", event->event);
 			break;
 		}
 

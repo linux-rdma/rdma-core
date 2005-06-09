@@ -94,8 +94,6 @@ struct cm_abi_attr_id {
 struct cm_abi_attr_id_resp {
 	__u64 service_id;
 	__u64 service_mask;
-	__u32 state;
-	__u32 lap_state;
 	__u32 local_id;
 	__u32 remote_id;
 };
@@ -314,7 +312,6 @@ struct cm_abi_sidr_rep_event_resp {
 
 struct cm_abi_event_resp {
 	__u32 id;
-	__u32 state;
 	__u32 event;
 	__u32 present;
 	union {

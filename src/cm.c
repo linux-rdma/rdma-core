@@ -188,8 +188,6 @@ int ib_cm_attr_id(uint32_t cm_id, struct ib_cm_attr_param *param)
 
 	param->service_id   = resp->service_id;
 	param->service_mask = resp->service_mask;
-	param->state        = resp->state;
-	param->lap_state    = resp->lap_state;
 	param->local_id     = resp->local_id;
 	param->remote_id    = resp->remote_id;
 
@@ -773,7 +771,6 @@ int ib_cm_event_get(struct ib_cm_event **event)
 
 	evt->cm_id = resp->id;
 	evt->event = resp->event;
-	evt->state = resp->state;
 
 	if (resp->present & CM_ABI_PRES_PRIMARY) {
 
