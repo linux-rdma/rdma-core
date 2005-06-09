@@ -236,7 +236,6 @@ mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "1X");
 		break;
 	case 3:
-
 		snprintf(buf, bufsz, "1X or 4X");
 		break;
 	case 7:
