@@ -511,7 +511,8 @@ umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 		DEBUG("return 1 ca");
 		j = 1;
 	}
-	free(namelist);
+	if (n >= 0)
+		free(namelist);
 	return j;
 }
 
