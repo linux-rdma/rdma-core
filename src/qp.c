@@ -244,6 +244,26 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 			break;
 
+		case IBV_QPT_UC:
+			switch (wr->opcode) {
+			case IBV_WR_RDMA_WRITE:
+			case IBV_WR_RDMA_WRITE_WITH_IMM:
+				((struct mthca_raddr_seg *) wqe)->raddr =
+					htonll(wr->wr.rdma.remote_addr);
+				((struct mthca_raddr_seg *) wqe)->rkey =
+					htonl(wr->wr.rdma.rkey);
+				((struct mthca_raddr_seg *) wqe)->reserved = 0;
+				wqe += sizeof (struct mthca_raddr_seg);
+				size += sizeof (struct mthca_raddr_seg) / 16;
+				break;
+
+			default:
+				/* No extra segments required for sends */
+				break;
+			}
+
+			break;
+
 		case IBV_QPT_UD:
 			((struct mthca_tavor_ud_seg *) wqe)->lkey =
 				htonl(to_mah(wr->wr.ud.ah)->key);
@@ -509,6 +529,27 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					sizeof (struct mthca_atomic_seg);
 				break;
 
+			case IBV_WR_RDMA_WRITE:
+			case IBV_WR_RDMA_WRITE_WITH_IMM:
+			case IBV_WR_RDMA_READ:
+				((struct mthca_raddr_seg *) wqe)->raddr =
+					htonll(wr->wr.rdma.remote_addr);
+				((struct mthca_raddr_seg *) wqe)->rkey =
+					htonl(wr->wr.rdma.rkey);
+				((struct mthca_raddr_seg *) wqe)->reserved = 0;
+				wqe += sizeof (struct mthca_raddr_seg);
+				size += sizeof (struct mthca_raddr_seg) / 16;
+				break;
+
+			default:
+				/* No extra segments required for sends */
+				break;
+			}
+
+			break;
+
+		case IBV_QPT_UC:
+			switch (wr->opcode) {
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
 			case IBV_WR_RDMA_READ:
