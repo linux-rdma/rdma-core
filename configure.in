@@ -1,11 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(libibat, 0.9.0, openib-general@openib.org)
-AC_CONFIG_SRCDIR([src/at.c])
+AC_INIT(libibcm, 0.9.0, openib-general@openib.org)
+AC_CONFIG_SRCDIR([src/cm.c])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libibat, 0.9.0)
+AM_INIT_AUTOMAKE(libibcm, 0.9.0)
 AC_DISABLE_STATIC
 AM_PROG_LIBTOOL
 
@@ -32,5 +32,5 @@ AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
 
 AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
 
-AC_CONFIG_FILES([Makefile libibat.spec])
+AC_CONFIG_FILES([Makefile libibcm.spec])
 AC_OUTPUT
