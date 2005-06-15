@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Voltaire, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -89,6 +90,41 @@ struct ib_sa_path_rec {
 	uint8_t       packet_life_time_selector;
 	uint8_t       packet_life_time;
 	uint8_t       preference;
+};
+
+struct ib_sa_mcmember_rec {
+	union ibv_gid mgid;
+	union ibv_gid port_gid;
+	uint32_t      qkey;
+	uint16_t      mlid;
+	uint8_t       mtu_selector;
+	enum ibv_mtu  mtu;
+	uint8_t       traffic_class;
+	uint16_t      pkey;
+	uint8_t       rate_selector;
+	uint8_t       rate;
+	uint8_t       packet_life_time_selector;
+	uint8_t       packet_life_time;
+	uint8_t       sl;
+	uint32_t      flow_label;
+	uint8_t       hop_limit;
+	uint8_t       scope;
+	uint8_t       join_state;
+	int           proxy_join;
+};
+
+struct ib_sa_service_rec {
+	uint64_t      id;
+	union ibv_gid gid;
+	uint16_t      pkey;
+	/* uint16_t  resv;   */
+	uint32_t      lease;
+	uint8_t       key[16];
+	uint8_t       name[64];
+	uint8_t       data8[16];
+	uint16_t      data16[8];
+	uint32_t      data32[4];
+	uint64_t      data64[2];
 };
 
 #endif /* IB_SA_H */

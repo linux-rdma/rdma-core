@@ -1,0 +1,11 @@
+IBAT_1.0 {
+	global:
+		ib_at_route_by_ip;
+		ib_at_paths_by_route;
+		ib_at_ips_by_gid;
+		ib_at_ips_by_subnet;
+		ib_at_invalidate_paths;
+		ib_at_cancel;
+		ib_at_status;
+	local: *;
+};
