@@ -40,11 +40,13 @@ libibverbsincludedir = $(includedir)/infiniband
 libibverbsinclude_HEADERS = include/infiniband/arch.h include/infiniband/driver.h \
     include/infiniband/kern-abi.h include/infiniband/opcode.h include/infiniband/verbs.h
 
+DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
+    debian/ibverbs-examples.install debian/libibverbs1.install \
+    debian/libibverbs-dev.install debian/rules
+
 EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
-    include/infiniband/opcode.h include/infiniband/verbs.h \
-    src/ibverbs.h \
-    src/libibverbs.map \
-    libibverbs.spec.in
+    include/infiniband/opcode.h include/infiniband/verbs.h src/ibverbs.h \
+    src/libibverbs.map libibverbs.spec.in $(DEBIAN)
 
 dist-hook: libibverbs.spec
 	cp libibverbs.spec $(distdir)
