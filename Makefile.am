@@ -20,13 +20,16 @@ src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map
 
 bin_PROGRAMS = examples/ibv_devices examples/ibv_devinfo \
-    examples/ibv_asyncwatch examples/ibv_pingpong examples/ibv_ud_pingpong
+    examples/ibv_asyncwatch examples/ibv_rc_pingpong examples/ibv_uc_pingpong \
+    examples/ibv_ud_pingpong
 examples_ibv_devices_SOURCES = examples/device_list.c
 examples_ibv_devices_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_devinfo_SOURCES = examples/devinfo.c
 examples_ibv_devinfo_LDADD = $(top_builddir)/src/libibverbs.la
-examples_ibv_pingpong_SOURCES = examples/pingpong.c
-examples_ibv_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
+examples_ibv_rc_pingpong_SOURCES = examples/rc_pingpong.c
+examples_ibv_rc_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
+examples_ibv_uc_pingpong_SOURCES = examples/uc_pingpong.c
+examples_ibv_uc_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_ud_pingpong_SOURCES = examples/ud-pingpong.c
 examples_ibv_ud_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_asyncwatch_SOURCES = examples/asyncwatch.c
