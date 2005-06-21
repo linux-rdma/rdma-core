@@ -128,12 +128,13 @@ struct ibv_get_context {
 	__u16 in_words;
 	__u16 out_words;
 	__u64 response;
+	__u64 cq_fd_tab;
 	__u64 driver_data[0];
 };
 
 struct ibv_get_context_resp {
 	__u32 async_fd;
-	__u32 cq_fd[1];
+	__u32 reserved;
 };
 
 struct ibv_query_device {

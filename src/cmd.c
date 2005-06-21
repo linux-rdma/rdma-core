@@ -44,20 +44,23 @@
 #include "ibverbs.h"
 
 int ibv_cmd_get_context(int num_comp, struct ibv_context *context,
-			struct ibv_get_context *cmd, size_t cmd_size)
+			struct ibv_get_context *cmd, size_t cmd_size,
+			struct ibv_get_context_resp *resp, size_t resp_size)
 {
-	struct ibv_get_context_resp *resp;
+	uint32_t *cq_fd_tab;
 	int i;
 
-	resp = alloca(sizeof *resp + num_comp * sizeof (int));
-	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp);
+	cq_fd_tab = alloca(num_comp * sizeof (uint32_t));
+	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
+
+	cmd->cq_fd_tab = (uintptr_t) cq_fd_tab;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
 	context->async_fd = resp->async_fd;
 	for (i = 0; i < num_comp; ++i)
-		context->cq_fd[i] = resp->cq_fd[i];
+		context->cq_fd[i] = cq_fd_tab[i];
 
 	return 0;
 }
@@ -68,7 +71,7 @@ int ibv_cmd_query_device(struct ibv_context *context,
 {
 	struct ibv_query_device_resp resp;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_DEVICE, &resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_DEVICE, &resp, sizeof resp);
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
@@ -123,7 +126,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 {
 	struct ibv_query_port_resp resp;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_PORT, &resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_PORT, &resp, sizeof resp);
 	cmd->port_num = port_num;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
@@ -158,7 +161,7 @@ int ibv_cmd_query_gid(struct ibv_context *context, uint8_t port_num,
 	struct ibv_query_gid      cmd;
 	struct ibv_query_gid_resp resp;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_GID, &resp);
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_GID, &resp, sizeof resp);
 	cmd.port_num = port_num;
 	cmd.index    = index;
 
@@ -176,7 +179,7 @@ int ibv_cmd_query_pkey(struct ibv_context *context, uint8_t port_num,
 	struct ibv_query_pkey      cmd;
 	struct ibv_query_pkey_resp resp;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PKEY, &resp);
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PKEY, &resp, sizeof resp);
 	cmd.port_num = port_num;
 	cmd.index    = index;
 
@@ -189,16 +192,15 @@ int ibv_cmd_query_pkey(struct ibv_context *context, uint8_t port_num,
 }
 
 int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
-		     struct ibv_alloc_pd *cmd, size_t cmd_size)
+		     struct ibv_alloc_pd *cmd, size_t cmd_size,
+		     struct ibv_alloc_pd_resp *resp, size_t resp_size)
 {
-	struct ibv_alloc_pd_resp resp;
-
-	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_PD, &resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_PD, resp, resp_size);
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	pd->handle  = resp.pd_handle;
+	pd->handle = resp->pd_handle;
 
 	return 0;
 }
@@ -223,7 +225,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	struct ibv_reg_mr_resp resp;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, REG_MR, &resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, REG_MR, &resp, sizeof resp);
 
 	cmd->start 	  = (uintptr_t) addr;
 	cmd->length 	  = length;
@@ -256,19 +258,18 @@ int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 
 int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_cq *cq,
-		      struct ibv_create_cq *cmd, size_t cmd_size)
+		      struct ibv_create_cq *cmd, size_t cmd_size,
+		      struct ibv_create_cq_resp *resp, size_t resp_size)
 {
-	struct ibv_create_cq_resp resp;
-
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, &resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
 	cmd->user_handle = (uintptr_t) cq;
 	cmd->cqe         = cqe;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	cq->handle = resp.cq_handle;
-	cq->cqe    = resp.cqe;
+	cq->handle = resp->cq_handle;
+	cq->cqe    = resp->cqe;
 
 	return 0;
 }
@@ -292,7 +293,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 {
 	struct ibv_create_qp_resp resp;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, &resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, &resp, sizeof resp);
 	cmd->user_handle     = (uintptr_t) qp;
 	cmd->pd_handle 	     = pd->handle;
 	cmd->send_cq_handle  = attr->send_cq->handle;

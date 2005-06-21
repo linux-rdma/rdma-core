@@ -94,7 +94,7 @@ struct ibv_context *ibv_open_device(struct ibv_device *device)
 	if (cmd_fd < 0)
 		return NULL;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PARAMS, &resp);
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PARAMS, &resp, sizeof resp);
 	if (write(cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		goto err;
 
