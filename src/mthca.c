@@ -121,7 +121,7 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev,
 					       int num_comp, int cmd_fd)
 {
 	struct mthca_context            *context;
-	struct mthca_alloc_ucontext      cmd;
+	struct ibv_get_context           cmd;
 	struct mthca_alloc_ucontext_resp resp;
 	int                              i;
 
@@ -131,8 +131,8 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev,
 
 	context->ibv_ctx.cmd_fd = cmd_fd;
 
-	cmd.respbuf = (uintptr_t) &resp;
-	if (ibv_cmd_get_context(num_comp, &context->ibv_ctx, &cmd.ibv_cmd, sizeof cmd))
+	if (ibv_cmd_get_context(num_comp, &context->ibv_ctx, &cmd, sizeof cmd,
+				&resp.ibv_resp, sizeof resp))
 		goto err_free;
 
 	context->num_qps        = resp.qp_tab_size;
