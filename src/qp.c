@@ -553,7 +553,6 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			switch (wr->opcode) {
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
-			case IBV_WR_RDMA_READ:
 				((struct mthca_raddr_seg *) wqe)->raddr =
 					htonll(wr->wr.rdma.remote_addr);
 				((struct mthca_raddr_seg *) wqe)->rkey =
