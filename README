@@ -9,6 +9,29 @@ especially chapter 11.
 Using libibverbs
 ================
 
+Device nodes
+------------
+
+The verbs library expects special character device files named
+/dev/infiniband/uverbsN to be created.  When you load the kernel
+modules, including both the low-level driver for your IB hardware as
+well as the ib_uverbs module, you should see one or more uverbsN
+entries in /sys/class/infiniband_verbs in addition to the
+/dev/infiniband/uverbsN character device files.
+
+To create the appropriate character device files automatically with
+udev, a rule like
+
+    KERNEL="uverbs*", NAME="infiniband/%k"
+
+can be used.  This will create device nodes named
+
+    /dev/infiniband/uverbs0
+
+and so on.  Since the InfiniBand userspace verbs should be safe for
+use by non-privileged, you may want to add an appropriate MODE or
+GROUP to your udev rule.
+
 Permissions
 -----------
 
@@ -56,6 +79,9 @@ Bugs should be reported to the OpenIB mailing list
  * If the bug is a crash, the exact output printed out when the crash
    occurred, including any kernel messages produced.
 
+ * If a verbs call is mysteriously returning an error or failing, the
+   output of "strace -ewrite -ewrite=all <command>".
+
 Submitting patches
 ==================
 
@@ -72,5 +98,6 @@ necessary permissions to release your work.
 TODO
 ====
 
- * Shared receive queues (SRQs) are not implemented
- * Memory windows (MWs) are not implemented
+ * Shared receive queues (SRQs) are not implemented.
+ * Multiple CQ event handlers are not implemented.
+ * Memory windows (MWs) are not implemented.
