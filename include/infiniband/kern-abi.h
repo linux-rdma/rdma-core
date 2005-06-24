@@ -305,7 +305,7 @@ struct ibv_create_cq {
 	__u64 response;
 	__u64 user_handle;
 	__u32 cqe;
-	__u32 reserved;
+	__u32 event_handler;
 	__u64 driver_data[0];
 };
 

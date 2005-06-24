@@ -262,8 +262,9 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_create_cq_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
-	cmd->user_handle = (uintptr_t) cq;
-	cmd->cqe         = cqe;
+	cmd->user_handle   = (uintptr_t) cq;
+	cmd->cqe           = cqe;
+	cmd->event_handler = 0;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
