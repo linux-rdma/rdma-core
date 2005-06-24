@@ -41,6 +41,8 @@
 #include <glob.h>
 #include <stdio.h>
 #include <dlfcn.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "ibverbs.h"
 
@@ -207,11 +209,17 @@ static void INIT ibverbs_init(void)
 	 */
 	load_driver(NULL);
 
-	user_path = getenv(OPENIB_DRIVER_PATH_ENV);
-	if (user_path) {
-		wr_path = strdupa(user_path);
-		while ((dir = strsep(&wr_path, ";:")))
-			find_drivers(dir);
+	/*
+	 * Only follow the path passed in through the calling user's
+	 * environment if we're not running SUID.
+	 */
+	if (getuid() == geteuid()) {
+		user_path = getenv(OPENIB_DRIVER_PATH_ENV);
+		if (user_path) {
+			wr_path = strdupa(user_path);
+			while ((dir = strsep(&wr_path, ";:")))
+				find_drivers(dir);
+		}
 	}
 
 	find_drivers(default_path);
