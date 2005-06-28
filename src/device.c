@@ -118,12 +118,12 @@ int ibv_close_device(struct ibv_context *context)
 {
 	int i;
 
+	context->device->ops.free_context(context);
+
 	close(context->async_fd);
 	for (i = 0; i < context->num_comp; ++i)
 		close(context->cq_fd[i]);
 	close(context->cmd_fd);
-
-	context->device->ops.free_context(context);
 
 	return 0;
 }
