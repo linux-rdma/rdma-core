@@ -131,7 +131,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 			return -1;
 		}
 
-		if (umad_recv(mad_portid, umad, -1) < 0) {
+		if (umad_recv(mad_portid, umad, IB_MAD_SIZE, -1) < 0) {
 			WARN("recv failed: %m");
 			return -1;
 		}
