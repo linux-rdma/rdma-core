@@ -745,7 +745,7 @@ umad_send(int portid, int agentid, void *umad, int length,
 	if (n == length + sizeof *mad)
 		return 0;
 
-	DEBUG("write returned %d != sizeof umad %d + %d (%m)",
+	DEBUG("write returned %d != sizeof umad %d + length %d (%m)",
 	      n, sizeof *mad, length);
 	if (!errno)
 		errno = EIO;
@@ -771,7 +771,7 @@ dev_poll(int fd, int timeout_ms)
 }
 
 int
-umad_recv(int portid, void *umad, int length, int timeout_ms)
+umad_recv(int portid, void *umad, int *length, int timeout_ms)
 {
 	struct ib_user_mad *mad = umad;
 	Port *port;
@@ -779,6 +779,11 @@ umad_recv(int portid, void *umad, int length, int timeout_ms)
 
 	errno = 0;
 	TRACE("portid %d umad %p timeout %u", portid, umad, timeout_ms);
+	if (!length) {
+		errno = EINVAL;
+		return -EINVAL;
+	}
+		
 	if (!(port = port_get(portid))) {
 		if (!errno)
 			errno = EINVAL;
@@ -791,8 +796,8 @@ umad_recv(int portid, void *umad, int length, int timeout_ms)
 		return n;
 	}
 
-	if ((n = read(port->dev_fd, umad, sizeof *mad + length)) ==
-	     sizeof *mad + length) {
+	if ((n = read(port->dev_fd, umad, sizeof *mad + *length)) ==
+	     sizeof *mad + *length) {
 		DEBUG("mad received by agent %d", mad->agent_id);
 		return mad->agent_id;
 	}
@@ -803,7 +808,8 @@ umad_recv(int portid, void *umad, int length, int timeout_ms)
 		return n;
 	}
 
-	DEBUG("read returned %d != sizeof umad %d + length %d (%m)", n, sizeof *mad, length);
+	DEBUG("read returned %d != sizeof umad %d + length %d (%m)",
+	      n, sizeof *mad, *length);
 	if (!errno)	
 		errno = EIO;
 	return -EIO;

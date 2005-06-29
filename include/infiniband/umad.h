@@ -162,7 +162,7 @@ int	umad_set_pkey(void *umad, int pkey);
 
 int	umad_send(int portid, int agentid, void *umad, int length,
 		  int timeout_ms, int retries);
-int	umad_recv(int portid, void *umad, int length, int timeout_ms);
+int	umad_recv(int portid, void *umad, int *length, int timeout_ms);
 int	umad_poll(int portid, int timeout_ms);
 int	umad_get_fd(int portid);
 
