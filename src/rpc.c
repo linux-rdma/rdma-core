@@ -107,6 +107,7 @@ static int
 _do_madrpc(void *umad, int agentid, int len, int timeout)
 {
 	int retries;
+	int length;
 
 	if (!timeout)
 		timeout = def_madrpc_timeout;
@@ -124,14 +125,15 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 
 	for (retries = 0; retries < madrpc_retries; retries++) {
 		if (retries)
-			ERRS("retry %d (timeout %d ms)", retries+1, timeout);
+			ERRS("retry %d (timeout %d ms)", retries + 1, timeout);
 
-		if (umad_send(mad_portid, agentid, umad, IB_MAD_SIZE, timeout, 0) < 0) {
+		length = IB_MAD_SIZE;
+		if (umad_send(mad_portid, agentid, umad, length, timeout, 0) < 0) {
 			WARN("send failed; %m");
 			return -1;
 		}
 
-		if (umad_recv(mad_portid, umad, IB_MAD_SIZE, -1) < 0) {
+		if (umad_recv(mad_portid, umad, &length, -1) < 0) {
 			WARN("recv failed: %m");
 			return -1;
 		}

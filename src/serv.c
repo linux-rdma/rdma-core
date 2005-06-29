@@ -158,9 +158,10 @@ mad_receive(void *umad, int timeout)
 {
 	void *mad = umad ? umad : umad_alloc(1, umad_size() + IB_MAD_SIZE);
 	int agent;
+	int length = IB_MAD_SIZE;
 
 	if ((agent = umad_recv(madrpc_portid(), mad,
-			       IB_MAD_SIZE, timeout)) < 0) {
+			       &length, timeout)) < 0) {
 		if (!umad)
 			umad_free(mad);
 		DEBUG("recv failed: %m");
