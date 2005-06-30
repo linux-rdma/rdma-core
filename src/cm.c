@@ -929,6 +929,9 @@ int ib_cm_event_get_timed(int timeout_ms, struct ib_cm_event **event)
 	struct pollfd ufds;
 	int result;
 
+	if (!event)
+		return -EINVAL;
+
 	ufds.fd      = ib_cm_get_fd();
 	ufds.events  = POLLIN;
 	ufds.revents = 0;
@@ -938,6 +941,9 @@ int ib_cm_event_get_timed(int timeout_ms, struct ib_cm_event **event)
 	result = poll(&ufds, 1, timeout_ms);
 	if (!result)
 		return -ETIMEDOUT;
+
+	if (result < 0)
+		return result;
 
 	return ib_cm_event_get(event);
 }

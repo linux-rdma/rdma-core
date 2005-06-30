@@ -246,6 +246,18 @@ struct ib_cm_event {
 int ib_cm_event_get(struct ib_cm_event **event);
 
 /**
+ * ib_cm_event_get_timed - Retrieves the next pending communications event,
+ *   if no event is pending wait up to a certain timeout for an event.
+ * @timeout_ms: Maximum time in milliseconds to wait for an event.
+ * @event: Allocated information about the next communication event.
+ *    Event should be freed using ib_cm_event_put()
+ *
+ * If timeout expires without an event, the error -ETIMEDOUT will be
+ * returned
+ */
+int ib_cm_event_get_timed(int timeout_ms, struct ib_cm_event **event);
+
+/**
  * ib_cm_event_put - Free a communications event.
  * @event: Event to be released.
  *
