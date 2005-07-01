@@ -54,6 +54,8 @@ int main(int argc, char *argv[])
 	struct ibv_device *ib_dev;
 	struct ibv_context *context;
 	struct ibv_device_attr attr;
+        struct ibv_port_attr pattr;
+        int i;
 
 	dev_list = ibv_get_devices();
 
@@ -85,6 +87,24 @@ int main(int argc, char *argv[])
 	printf("\tMax CQs:\t%d\n", attr.max_cq);
 	printf("\tMax PDs:\t%d\n", attr.max_pd);
 	printf("\tMax AHs:\t%d\n", attr.max_ah);
+
+	for (i = 1; i <= attr.phys_port_cnt; i++) {
+		if(ibv_query_port(context, i, &pattr)) {
+			fprintf(stderr, "Couldn't query port %d\n", i);
+			continue;
+		}
+
+		printf("\n\tPort %d properties:\n", i);
+		printf("\t\tState:\t\t\t%d\n", pattr.state);
+		printf("\t\tLID:\t\t\t%d\n", pattr.lid);
+		printf("\t\tMax MTU:\t\t%d\n", pattr.max_mtu);
+		printf("\t\tActive MTU:\t\t%d\n", pattr.active_mtu);
+		printf("\t\tGID table length:\t%d\n", pattr.gid_tbl_len);
+		printf("\t\tPort cap flags:\t\t0x%08x\n", pattr.port_cap_flags);
+		printf("\t\tActive width:\t\t%u\n", pattr.active_width);
+		printf("\t\tActive speed:\t\t%u\n", pattr.active_speed);
+		printf("\t\tPhys state:\t\t%u\n", pattr.phys_state);
+	}
 
 	return 0;
 }
