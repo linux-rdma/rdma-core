@@ -78,7 +78,6 @@ struct pingpong_dest {
 	int psn;
 };
 
-
 static uint16_t pp_get_local_lid(struct pingpong_context *ctx, int port)
 {
 	struct ibv_port_attr attr;
@@ -87,6 +86,44 @@ static uint16_t pp_get_local_lid(struct pingpong_context *ctx, int port)
 		return 0;
 
 	return attr.lid;
+}
+
+static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
+			  struct pingpong_dest *dest)
+{
+	struct ibv_qp_attr attr;
+	struct ibv_ah_attr ah_attr = {
+		.is_global     = 0,
+		.dlid          = dest->lid,
+		.sl            = 0,
+		.src_path_bits = 0,
+		.port_num      = port
+	};
+
+	attr.qp_state 		= IBV_QPS_RTR;
+
+	if (ibv_modify_qp(ctx->qp, &attr, IBV_QP_STATE)) {
+		fprintf(stderr, "Failed to modify QP to RTR\n");
+		return 1;
+	}
+
+	attr.qp_state 	    = IBV_QPS_RTS;
+	attr.sq_psn 	    = my_psn;
+
+	if (ibv_modify_qp(ctx->qp, &attr,
+			  IBV_QP_STATE              |
+			  IBV_QP_SQ_PSN)) {
+		fprintf(stderr, "Failed to modify QP to RTS\n");
+		return 1;
+	}
+
+	ctx->ah = ibv_create_ah(ctx->pd, &ah_attr);
+	if (!ctx->ah) {
+		fprintf(stderr, "Failed to create AH\n");
+		return 1;
+	}
+
+	return 0;
 }
 
 static struct pingpong_dest *pp_client_exch_dest(const char *servername, int port,
@@ -153,7 +190,9 @@ out:
 	return rem_dest;
 }
 
-static struct pingpong_dest *pp_server_exch_dest(int port, const struct pingpong_dest *my_dest)
+static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
+						 int ib_port, int port,
+						 const struct pingpong_dest *my_dest)
 {
 	struct addrinfo *res, *t;
 	struct addrinfo hints = {
@@ -216,6 +255,13 @@ static struct pingpong_dest *pp_server_exch_dest(int port, const struct pingpong
 		goto out;
 
 	sscanf(msg, "%x:%x:%x", &rem_dest->lid, &rem_dest->qpn, &rem_dest->psn);
+
+	if (pp_connect_ctx(ctx, ib_port, my_dest->psn, rem_dest)) {
+		fprintf(stderr, "Couldn't connect to remote QP\n");
+		free(rem_dest);
+		rem_dest = NULL;
+		goto out;
+	}
 
 	sprintf(msg, "%04x:%06x:%06x", my_dest->lid, my_dest->qpn, my_dest->psn);
 	if (write(connfd, msg, sizeof msg) != sizeof msg) {
@@ -364,44 +410,6 @@ static int pp_post_send(struct pingpong_context *ctx, uint32_t qpn)
 	struct ibv_send_wr *bad_wr;
 
 	return ibv_post_send(ctx->qp, &wr, &bad_wr);
-}
-
-static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
-			  struct pingpong_dest *dest)
-{
-	struct ibv_qp_attr attr;
-	struct ibv_ah_attr ah_attr = {
-		.is_global     = 0,
-		.dlid          = dest->lid,
-		.sl            = 0,
-		.src_path_bits = 0,
-		.port_num      = port
-	};
-
-	attr.qp_state 		= IBV_QPS_RTR;
-
-	if (ibv_modify_qp(ctx->qp, &attr, IBV_QP_STATE)) {
-		fprintf(stderr, "Failed to modify QP to RTR\n");
-		return 1;
-	}
-
-	attr.qp_state 	    = IBV_QPS_RTS;
-	attr.sq_psn 	    = my_psn;
-
-	if (ibv_modify_qp(ctx->qp, &attr,
-			  IBV_QP_STATE              |
-			  IBV_QP_SQ_PSN)) {
-		fprintf(stderr, "Failed to modify QP to RTS\n");
-		return 1;
-	}
-
-	ctx->ah = ibv_create_ah(ctx->pd, &ah_attr);
-	if (!ctx->ah) {
-		fprintf(stderr, "Failed to create AH\n");
-		return 1;
-	}
-
-	return 0;
 }
 
 static void usage(const char *argv0)
@@ -553,7 +561,7 @@ int main(int argc, char *argv[])
 	if (servername)
 		rem_dest = pp_client_exch_dest(servername, port, &my_dest);
 	else
-		rem_dest = pp_server_exch_dest(port, &my_dest);
+		rem_dest = pp_server_exch_dest(ctx, ib_port, port, &my_dest);
 
 	if (!rem_dest)
 		return 1;
@@ -561,8 +569,9 @@ int main(int argc, char *argv[])
 	printf("  remote address: LID 0x%04x, QPN 0x%06x, PSN 0x%06x\n",
 	       rem_dest->lid, rem_dest->qpn, rem_dest->psn);
 
-	if (pp_connect_ctx(ctx, ib_port, my_dest.psn, rem_dest))
-		return 1;
+	if (servername)
+		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, rem_dest))
+			return 1;
 
 	if (use_event)
 		if (ibv_req_notify_cq(ctx->cq, 0)) {
