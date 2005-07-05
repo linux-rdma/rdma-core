@@ -44,9 +44,9 @@
 #include <mad.h>
 
 /*
- * BITSOFFS and BE_OFFS are required due the fact that the bit offsets are incosistently
+ * BITSOFFS and BE_OFFS are required due the fact that the bit offsets are inconsistently
  * encoded in the IB spec - IB headers are encoded such that the bit offsets
- * are in big endian convension (BE_OFFS), while the SMI/GSI queries data fields bit
+ * are in big endian convention (BE_OFFS), while the SMI/GSI queries data fields bit
  * offsets are specified using real bit offset (?!)
  * The following macros normalize everything to big endian offsets.
  */
@@ -202,7 +202,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_LINEAR_FORW_TBL_F]		{0, 512, "LinearForwTbl", mad_dump_array},
 
 	/*
-	 * NodeDescription fileds:
+	 * NodeDescription fields:
 	 */
 	[IB_NODE_DESC_F]		{0, 64*8, "NodeDesc", mad_dump_string},
 
