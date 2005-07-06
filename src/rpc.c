@@ -43,6 +43,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <string.h>
+#include <errno.h>
 
 #include <umad.h>
 #include "mad.h"
@@ -107,14 +108,14 @@ static int
 _do_madrpc(void *umad, int agentid, int len, int timeout)
 {
 	int retries;
-	int length;
+	int length, status;
 
 	if (!timeout)
 		timeout = def_madrpc_timeout;
 
 	if (ibdebug > 1) {
-		WARN(">>> sending: len %d pktsz %d", len, umad_size() + IB_MAD_SIZE);
-		xdump(stderr, "send buf\n", umad, umad_size() + IB_MAD_SIZE);
+		WARN(">>> sending: len %d pktsz %d", len, umad_size() + len);
+		xdump(stderr, "send buf\n", umad, umad_size() + len);
 	}
 
 	if (save_mad) {
@@ -127,7 +128,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 		if (retries)
 			ERRS("retry %d (timeout %d ms)", retries + 1, timeout);
 
-		length = IB_MAD_SIZE;
+		length = len;
 		if (umad_send(mad_portid, agentid, umad, length, timeout, 0) < 0) {
 			WARN("send failed; %m");
 			return -1;
@@ -143,15 +144,17 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 			xdump(stderr, "rcv buf\n", umad_get_mad(umad), IB_MAD_SIZE);
 		}
 
-		if (!umad_status(umad))
-			return IB_MAD_SIZE;		/* done */
+		status = umad_status(umad);
+		if (!status)
+			return length;		/* done */
+		if (status == ENOMEM)
+			return length;
 	}
 
-	ERRS("timeout after %d retries, %d ms", retries, timeout*retries);
+	ERRS("timeout after %d retries, %d ms", retries, timeout * retries);
 	return -1;
 }
 
-/* change to madrpc_qp0 ??? */
 void *
 madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 {
@@ -171,7 +174,7 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	mad = umad_get_mad(umad);
 
 	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
-		ERRS("SMP ended with error status %x", status);
+		ERRS("MAD ended with error status %x", status);
 		return 0;
 	}
 
@@ -186,7 +189,6 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	return rcvdata;
 }
 
-/* change to madrpc_qp1 ??? */
 void *
 madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
@@ -208,7 +210,7 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	mad = umad_get_mad(umad);
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
-		ERRS("SMP ended with error status %x", status);
+		ERRS("MAD ended with error status %x", status);
 		return 0;
 	}
 
@@ -256,6 +258,8 @@ madrpc_unlock(void)
 void
 madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 {
+	int rmpp_version = 0;
+
 	if (umad_init() < 0)
 		PANIC("can't init UMAD library");
 
@@ -265,7 +269,9 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 	while (num_classes--) {
 		int mgmt = *mgmt_classes++;
 
-		if (mad_register_client(mgmt, 0) < 0)
+		if (mgmt == IB_SA_CLASS)
+			rmpp_version = 1;
+		if (mad_register_client(mgmt, rmpp_version) < 0)
 			PANIC("client_register for mgmt %d failed", mgmt);
 	}
 }
