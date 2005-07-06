@@ -63,7 +63,7 @@ typedef struct ib_mad_addr {
 	uint32_t flow_label;
 } ib_mad_addr_t;
 
-#define IB_UMAD_ABI_VERSION	4
+#define IB_UMAD_ABI_VERSION	5
 #define IB_UMAD_ABI_DIR		"/sys/class/infiniband_mad"
 #define IB_UMAD_ABI_FILE	"abi_version"
 

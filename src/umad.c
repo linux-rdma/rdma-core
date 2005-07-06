@@ -57,6 +57,7 @@ typedef struct ib_user_mad {
 	uint32_t status;
 	uint32_t timeout_ms;
 	uint32_t retries;
+	uint32_t length;
 	ib_mad_addr_t addr;
 	uint8_t  data[0];
 } ib_user_mad_t;
@@ -522,18 +523,20 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 	umad_ca_t ca;
 	int ports = 0, i;
 
-	TRACE("ca name %s max port guids", ca_name, max);
+	TRACE("ca name %s max port guids %d", ca_name, max);
 	if (!(ca_name = resolve_ca_name(ca_name, 0)))
 		return -ENODEV;
 
 	if (umad_get_ca(ca_name, &ca) < 0)
 		return -1;
 
-	if (ca.numports + 1 > max)
-		return -ENOMEM;
+	if (portguids) {
+		if (ca.numports + 1 > max)
+			return -ENOMEM;
 
-	for (i = 0; i <= ca.numports; i++)
-		portguids[ports++] = ca.ports[i] ? ca.ports[i]->port_guid : 0;
+		for (i = 0; i <= ca.numports; i++)
+			portguids[ports++] = ca.ports[i] ? ca.ports[i]->port_guid : 0;
+	}
 
 	release_ca(&ca);
 	DEBUG("%s: %d ports", ca_name, ports);
@@ -779,11 +782,12 @@ umad_recv(int portid, void *umad, int *length, int timeout_ms)
 
 	errno = 0;
 	TRACE("portid %d umad %p timeout %u", portid, umad, timeout_ms);
-	if (!length) {
+
+	if (!umad || !length) {
 		errno = EINVAL;
 		return -EINVAL;
 	}
-		
+
 	if (!(port = port_get(portid))) {
 		if (!errno)
 			errno = EINVAL;
@@ -796,9 +800,10 @@ umad_recv(int portid, void *umad, int *length, int timeout_ms)
 		return n;
 	}
 
-	if ((n = read(port->dev_fd, umad, sizeof *mad + *length)) ==
+	if ((n = read(port->dev_fd, umad, sizeof *mad + *length)) <= 
 	     sizeof *mad + *length) {
-		DEBUG("mad received by agent %d", mad->agent_id);
+		DEBUG("mad received by agent %d length %d", mad->agent_id, n);
+		*length = n - sizeof *mad;
 		return mad->agent_id;
 	}
 
@@ -808,11 +813,13 @@ umad_recv(int portid, void *umad, int *length, int timeout_ms)
 		return n;
 	}
 
-	DEBUG("read returned %d != sizeof umad %d + length %d (%m)",
-	      n, sizeof *mad, *length);
-	if (!errno)	
+	DEBUG("read returned %d > sizeof umad %d + length %d (%m)",
+	      mad->length - sizeof *mad, sizeof *mad, *length);
+
+	*length = mad->length - sizeof *mad;
+	if (!errno)
 		errno = EIO;
-	return -EIO;
+	return -errno;
 }
 
 int
