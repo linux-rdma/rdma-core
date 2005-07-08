@@ -863,11 +863,7 @@ void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp, struct ibv_qp_cap 
 		break;
 
 	default:
-		/*
-		 * inline data won't be used in the same WQE as an
-		 * atomic or bind segment, so we don't have to
-		 * subtract anything off here.
-		 */
+		cap->max_inline_data -= sizeof (struct mthca_raddr_seg);
 		break;
 	}
 
