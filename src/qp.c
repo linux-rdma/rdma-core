@@ -149,7 +149,7 @@ static inline int wq_overflow(struct mthca_wq *wq, int nreq, struct mthca_cq *cq
 
 	pthread_spin_lock(&cq->lock);
 	cur = wq->head - wq->tail;
-	pthread_spin_lock(&cq->lock);
+	pthread_spin_unlock(&cq->lock);
 
 	return cur + nreq >= wq->max;
 }
