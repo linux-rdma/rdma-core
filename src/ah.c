@@ -125,7 +125,8 @@ int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
 				break;
 			}
 
-		ah->key = page->mr->lkey;
+		ah->key  = page->mr->lkey;
+		ah->page = page;
 
 		pthread_mutex_unlock(&pd->ah_mutex);
 	}

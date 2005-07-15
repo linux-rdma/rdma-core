@@ -439,8 +439,8 @@ struct ibv_ah *mthca_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 int mthca_destroy_ah(struct ibv_ah *ah)
 {
 	mthca_free_av(to_mah(ah));
+	free(to_mah(ah));
 
-	free(ah);
 	return 0;
 }
 
