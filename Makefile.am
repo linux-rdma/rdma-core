@@ -3,7 +3,7 @@ INCLUDES = -I$(srcdir)/include
 
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
-ibcmlibdir = $(libdir)/infiniband
+ibcmlibdir = $(libdir)
 
 ibcmlib_LTLIBRARIES = src/libibcm.la
 
