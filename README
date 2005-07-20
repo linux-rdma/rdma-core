@@ -8,7 +8,7 @@ To make this directory, run:
 Typically the autogen and configure steps only need be done the first
 time unless configure.in or Makefile.am changes.
 
-Libraries are installed by default at /usr/local/lib/infiniband.
+Libraries are installed by default at /usr/local/lib.
 
 Device files
 
