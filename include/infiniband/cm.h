@@ -274,7 +274,7 @@ int ib_cm_event_put(struct ib_cm_event *event);
  * The primary use of the file descriptor is to test for CM readiness
  * events. When the CM becomes ready to READ there is a pending event
  * ready, and a subsequent call to ib_cm_event_get will not block.
- * Note: The user should not read or writ directly to the CM file
+ * Note: The user should not read or write directly to the CM file
  *       descriptor, it will likely result in an error or unexpected
  *       results.
  */
@@ -300,6 +300,7 @@ struct ib_cm_attr_param {
 	uint32_t		local_id;
 	uint32_t		remote_id;
 };
+
 /**
  * ib_cm_attr_id - Get connection identifier attributes.
  * @cm_id: Connection identifier to retrieve attributes.

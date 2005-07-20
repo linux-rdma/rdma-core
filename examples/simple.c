@@ -124,6 +124,7 @@ int main(int argc, char **argv)
 	int param_c = 0;
 	int status = 0;
 	int mode;
+
 	/*
 	 * read command line.
 	 */
@@ -153,7 +154,7 @@ int main(int argc, char **argv)
 	else {
 		result = ib_cm_listen(cm_id, TEST_SID, 0);
 		if (result) {
-			printf("Error <%d:%d> listneing <%d>\n", 
+			printf("Error <%d:%d> listening <%d>\n", 
 			       result, errno, cm_id);
 			goto done;
 		}

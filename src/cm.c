@@ -181,7 +181,6 @@ int ib_cm_attr_id(uint32_t cm_id, struct ib_cm_attr_param *param)
 
 	cmd->id = cm_id;
 
-
 	result = write(fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
