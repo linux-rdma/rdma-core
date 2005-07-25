@@ -284,6 +284,14 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	struct mthca_qp       *qp;
 	int                    ret;
 
+	/* Sanity check QP size before proceeding */
+	if (attr->cap.max_send_wr     > 65536 ||
+	    attr->cap.max_recv_wr     > 65536 ||
+	    attr->cap.max_send_sge    > 64    ||
+	    attr->cap.max_recv_sge    > 64    ||
+	    attr->cap.max_inline_data > 1024)
+		return NULL;
+
 	qp = malloc(sizeof *qp);
 	if (!qp)
 		return NULL;
