@@ -242,8 +242,12 @@ static int handle_error_cqe(struct mthca_cq *cq,
 	 * If we're at the end of the WQE chain, or we've used up our
 	 * doorbell count, free the CQE.  Otherwise just update it for
 	 * the next poll operation.
+	 * 
+	 * This does not apply to mem-free HCAs: they don't use the
+	 * doorbell count field, and so we should always free the CQE.
 	 */
-	if (!(new_wqe & htonl(0x3f)) || (!cqe->db_cnt && dbd))
+	if (mthca_is_memfree(cq->ibv_cq.context) ||
+	    !(new_wqe & htonl(0x3f)) || (!cqe->db_cnt && dbd))
 		return 0;
 
 	cqe->db_cnt   = htons(ntohs(cqe->db_cnt) - dbd);
