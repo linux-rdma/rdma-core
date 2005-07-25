@@ -50,12 +50,10 @@
 #  define OPENIB_DRIVER_PATH_ENV "OPENIB_DRIVER_PATH"
 #endif
 
-Dlist *device_list;
-
 static char default_path[] = DRIVER_PATH;
 static const char *user_path;
 
-static Dlist *driver_list;
+static struct dlist *driver_list;
 
 static void load_driver(char *so_path)
 {
@@ -112,7 +110,8 @@ static void find_drivers(char *dir)
 		load_driver(so_glob.gl_pathv[i]);
 }
 
-static void init_drivers(struct sysfs_class_device *verbs_dev)
+static void init_drivers(struct sysfs_class_device *verbs_dev,
+			 struct dlist *device_list)
 {
 	struct sysfs_class_device *ib_dev; 
 	struct sysfs_attribute *attr;
@@ -187,11 +186,12 @@ static int check_abi_version(void)
 }
 
 
-static void INIT ibverbs_init(void)
+struct dlist *ibverbs_init(void)
 {
 	char *wr_path, *dir;
 	struct sysfs_class *cls;
-	Dlist *verbs_dev_list;
+	struct dlist *verbs_dev_list;
+	struct dlist *device_list;
 	struct sysfs_class_device *verbs_dev;
 
 	driver_list = dlist_new(sizeof (struct ibv_driver));
@@ -202,7 +202,7 @@ static void INIT ibverbs_init(void)
 	}
 
 	if (ibv_init_mem_map())
-		return;
+		return NULL;
 
 	/*
 	 * Check if a driver is statically linked, and if so load it first.
@@ -227,18 +227,20 @@ static void INIT ibverbs_init(void)
 	cls = sysfs_open_class("infiniband_verbs");
 	if (!cls) {
 		fprintf(stderr, PFX "Fatal: couldn't open sysfs class 'infiniband_verbs'.\n");
-		return;
+		return NULL;
 	}
 
 	if (check_abi_version())
-		return;
+		return NULL;
 
 	verbs_dev_list = sysfs_get_class_devices(cls);
 	if (!verbs_dev_list) {
 		fprintf(stderr, PFX "Fatal: no infiniband class devices found.\n");
-		return;
+		return NULL;
 	}
 
 	dlist_for_each_data(verbs_dev_list, verbs_dev, struct sysfs_class_device)
-		init_drivers(verbs_dev);
+		init_drivers(verbs_dev, device_list);
+
+	return device_list;
 }

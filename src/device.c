@@ -46,8 +46,12 @@
 
 #include "ibverbs.h"
 
+static struct dlist *device_list;
+
 struct dlist *ibv_get_devices(void)
 {
+	if (!device_list)
+		device_list = ibverbs_init();
 	return device_list;
 }
 

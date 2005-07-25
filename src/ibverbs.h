@@ -50,7 +50,7 @@ struct ibv_driver {
 	ibv_driver_init_func init_func;
 };
 
-extern Dlist *device_list;
+extern struct dlist *ibverbs_init(void);
 
 extern int ibv_init_mem_map(void);
 extern int ibv_lock_range(void *base, size_t size);
