@@ -71,6 +71,8 @@ static struct mthca_ah_page *__add_page(struct mthca_pd *pd, int page_size, int 
 		return NULL;
 	}
 
+	page->mr->context = pd->ibv_pd.context;
+
 	page->use_cnt = 0;
 	for (i = 0; i < per_page; ++i)
 		page->free[i] = ~0;
@@ -105,16 +107,17 @@ int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
 			if (page->use_cnt < ps / sizeof *ah->av)
 				for (i = 0; i < pp; ++i)
 					if (page->free[i])
-						break;
+						goto found;
 
-		if (!page)
-			page = __add_page(pd, ps, pp);
-
+		page = __add_page(pd, ps, pp);
 		if (!page) {
 			free(ah);
 			pthread_mutex_unlock(&pd->ah_mutex);
 			return -1;
 		}
+
+	found:
+		++page->use_cnt;
 
 		for (i = 0, j = -1; i < pp; ++i)
 			if (page->free[i]) {
@@ -171,6 +174,7 @@ void mthca_free_av(struct mthca_ah *ah)
 		page = ah->page;
 		i = ((void *) ah->av - page->buf) / sizeof *ah->av;
 		page->free[i / (8 * sizeof (int))] |= 1 << (i % (8 * sizeof (int)));
+
 		if (!--page->use_cnt) {
 			if (page->prev)
 				page->prev->next = page->next;
