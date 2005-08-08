@@ -35,7 +35,7 @@
 #define _UMAD_H
 
 #include <stdint.h>
-#include "common.h"
+#include <infiniband/common.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
