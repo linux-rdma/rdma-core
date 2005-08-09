@@ -453,12 +453,13 @@ int main(int argc, char *argv[])
 		int c;
 
 		static struct option long_options[] = {
-			{ .name = "port",    .has_arg = 1, .val = 'p' },
-			{ .name = "ib-dev",  .has_arg = 1, .val = 'd' },
-			{ .name = "ib-port", .has_arg = 1, .val = 'i' },
-			{ .name = "size",    .has_arg = 1, .val = 's' },
-			{ .name = "iters",   .has_arg = 1, .val = 'n' },
-			{ .name = "events",  .has_arg = 0, .val = 'e' },
+			{ .name = "port",     .has_arg = 1, .val = 'p' },
+			{ .name = "ib-dev",   .has_arg = 1, .val = 'd' },
+			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },
+			{ .name = "size",     .has_arg = 1, .val = 's' },
+			{ .name = "rx-depth", .has_arg = 1, .val = 'r' },
+			{ .name = "iters",    .has_arg = 1, .val = 'n' },
+			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ 0 }
 		};
 
