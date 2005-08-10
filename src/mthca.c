@@ -108,6 +108,8 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.create_cq     = mthca_create_cq,
 	.poll_cq       = mthca_poll_cq,
 	.destroy_cq    = mthca_destroy_cq,
+	.create_srq    = mthca_create_srq,
+	.destroy_srq   = mthca_destroy_srq,
 	.create_qp     = mthca_create_qp,
 	.modify_qp     = mthca_modify_qp,
 	.destroy_qp    = mthca_destroy_qp,
@@ -176,11 +178,13 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev,
 		context->ibv_ctx.ops.cq_event      = mthca_arbel_cq_event;
 		context->ibv_ctx.ops.post_send     = mthca_arbel_post_send;
 		context->ibv_ctx.ops.post_recv     = mthca_arbel_post_recv;
+		context->ibv_ctx.ops.post_srq_recv = mthca_arbel_post_srq_recv;
 	} else {
 		context->ibv_ctx.ops.req_notify_cq = mthca_tavor_arm_cq;
 		context->ibv_ctx.ops.cq_event      = NULL;
 		context->ibv_ctx.ops.post_send     = mthca_tavor_post_send;
 		context->ibv_ctx.ops.post_recv     = mthca_tavor_post_recv;
+		context->ibv_ctx.ops.post_srq_recv = mthca_tavor_post_srq_recv;
 	}
 
 	return &context->ibv_ctx;

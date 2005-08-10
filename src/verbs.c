@@ -265,17 +265,127 @@ int mthca_destroy_cq(struct ibv_cq *cq)
 	return 0;
 }
 
-static int align_qp_size(struct ibv_context *context, int size)
+static int align_queue_size(struct ibv_context *context, int size, int spare)
 {
 	int ret;
 
+	/*
+	 * If someone asks for a 0-sized queue, presumably they're not
+	 * going to use it.  So don't mess with their size.
+	 */
+	if (!size)
+		return 0;
+
 	if (mthca_is_memfree(context)) {
-		for (ret = 1; ret < size; ret <<= 1)
+		for (ret = 1; ret < size + spare; ret <<= 1)
 			; /* nothing */
 
 		return ret;
 	} else
-		return size;
+		return size + spare;
+}
+
+struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
+				 struct ibv_srq_init_attr *attr)
+{
+	struct mthca_create_srq      cmd;
+	struct mthca_create_srq_resp resp;
+	struct mthca_srq            *srq;
+	int                          ret;
+
+	/* Sanity check SRQ size before proceeding */
+	if (attr->attr.max_wr > 16 << 20 || attr->attr.max_sge > 64)
+		return NULL;
+
+	srq = malloc(sizeof *srq);
+	if (!srq)
+		return NULL;
+
+	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
+		goto err;
+
+	srq->max     = align_queue_size(pd->context, attr->attr.max_wr, 1);
+	srq->max_gs  = attr->attr.max_sge;
+	srq->last    = NULL;
+	srq->counter = 0;
+
+	if (mthca_alloc_srq_buf(pd, &attr->attr, srq))
+		goto err;
+
+	srq->mr = __mthca_reg_mr(pd, srq->buf, srq->buf_size, 0, 0);
+	if (!srq->mr)
+		goto err_free;
+
+	srq->mr->context = pd->context;
+
+	if (mthca_is_memfree(pd->context)) {
+		srq->db_index = mthca_alloc_db(to_mctx(pd->context)->db_tab,
+					       MTHCA_DB_TYPE_SRQ, &srq->db);
+		if (srq->db_index < 0)
+			goto err_unreg;
+
+		cmd.db_page  = db_align(srq->db);
+		cmd.db_index = srq->db_index;
+	}
+
+	cmd.lkey = srq->mr->lkey;
+
+	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr,
+				 &cmd.ibv_cmd, sizeof cmd,
+				 &resp.ibv_resp, sizeof resp);
+	if (ret)
+		goto err_db;
+
+	srq->srqn = resp.srqn;
+
+	if (mthca_is_memfree(pd->context))
+		mthca_set_db_qn(srq->db, MTHCA_DB_TYPE_SRQ, srq->srqn);
+
+	return &srq->ibv_srq;
+
+err_db:
+	if (mthca_is_memfree(pd->context))
+		mthca_free_db(to_mctx(pd->context)->db_tab, MTHCA_DB_TYPE_SRQ,
+			      srq->db_index);
+
+err_unreg:
+	mthca_dereg_mr(srq->mr);
+
+err_free:
+	free(srq->wrid);
+	free(srq->buf);
+
+err:
+	free(srq);
+
+	return NULL;
+}
+
+int mthca_modify_srq(struct ibv_srq *srq,
+		     struct ibv_srq_attr *attr,
+		     enum ibv_srq_attr_mask mask)
+{
+	return -1;
+}
+
+int mthca_destroy_srq(struct ibv_srq *srq)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_srq(srq);
+	if (ret)
+		return ret;
+
+	if (mthca_is_memfree(srq->context))
+		mthca_free_db(to_mctx(srq->context)->db_tab, MTHCA_DB_TYPE_SRQ,
+			      to_msrq(srq)->db_index);
+
+	mthca_dereg_mr(to_msrq(srq)->mr);
+
+	free(to_msrq(srq)->buf);
+	free(to_msrq(srq)->wrid);
+
+	return 0;
 }
 
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
@@ -298,14 +408,14 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 	qp->qpt = attr->qp_type;
 
-	qp->sq.max    	 = align_qp_size(pd->context, attr->cap.max_send_wr);
+	qp->sq.max    	 = align_queue_size(pd->context, attr->cap.max_send_wr, 0);
 	qp->sq.next_ind  = 0;
 	qp->sq.last_comp = qp->sq.max - 1;
 	qp->sq.head    	 = 0;
 	qp->sq.tail    	 = 0;
 	qp->sq.last      = NULL;
 
-	qp->rq.max    	 = align_qp_size(pd->context, attr->cap.max_recv_wr);
+	qp->rq.max       = align_queue_size(pd->context, attr->cap.max_recv_wr, 0);
 	qp->rq.next_ind	 = 0;
 	qp->rq.last_comp = qp->rq.max - 1;
 	qp->rq.head    	 = 0;

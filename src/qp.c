@@ -43,81 +43,7 @@
 
 #include "mthca.h"
 #include "doorbell.h"
-
-enum {
-	MTHCA_SEND_DOORBELL	= 0x10,
-        MTHCA_RECV_DOORBELL	= 0x18
-};
-
-enum {
-	MTHCA_NEXT_DBD       = 1 << 7,
-	MTHCA_NEXT_FENCE     = 1 << 6,
-	MTHCA_NEXT_CQ_UPDATE = 1 << 3,
-	MTHCA_NEXT_EVENT_GEN = 1 << 2,
-	MTHCA_NEXT_SOLICIT   = 1 << 1,
-};
-
-enum {
-	MTHCA_INVAL_LKEY = 0x100
-};
-
-enum {
-	MTHCA_INLINE_SEG = 1 << 31
-};
-
-struct mthca_next_seg {
-	uint32_t	nda_op;	/* [31:6] next WQE [4:0] next opcode */
-	uint32_t	ee_nds;	/* [31:8] next EE  [7] DBD [6] F [5:0] next WQE size */
-	uint32_t	flags;	/* [3] CQ [2] Event [1] Solicit */
-	uint32_t	imm;	/* immediate data */
-};
-
-struct mthca_tavor_ud_seg {
-	uint32_t	reserved1;
-	uint32_t	lkey;
-	uint64_t	av_addr;
-	uint32_t	reserved2[4];
-	uint32_t	dqpn;
-	uint32_t	qkey;
-	uint32_t	reserved3[2];
-};
-
-struct mthca_arbel_ud_seg {
-	uint32_t	av[8];
-	uint32_t	dqpn;
-	uint32_t	qkey;
-	uint32_t	reserved[2];
-};
-
-struct mthca_bind_seg {
-	uint32_t	flags;	/* [31] Atomic [30] rem write [29] rem read */
-	uint32_t	reserved;
-	uint32_t	new_rkey;
-	uint32_t	lkey;
-	uint64_t	addr;
-	uint64_t	length;
-};
-
-struct mthca_raddr_seg {
-	uint64_t	raddr;
-	uint32_t	rkey;
-	uint32_t	reserved;
-};
-
-struct mthca_atomic_seg {
-	uint64_t	swap_add;
-	uint64_t	compare;
-};
-
-struct mthca_data_seg {
-	uint32_t	byte_count;
-	uint32_t	lkey;
-	uint64_t	addr;
-};
-
-struct mthca_inline_seg {
-	uint32_t	byte_count;
-};
+#include "wqe.h"
 
 static const uint8_t mthca_opcode[] = {
 	[IBV_WR_SEND]                 = MTHCA_OPCODE_SEND,
@@ -925,15 +851,21 @@ int mthca_free_err_wqe(struct mthca_qp *qp, int is_send,
 {
 	struct mthca_next_seg *next;
 
+	/*
+	 * For SRQs, all WQEs generate a CQE, so we're always at the
+	 * end of the doorbell chain.
+	 */
+	if (qp->ibv_qp.srq) {
+		*new_wqe = 0;
+		return 0;
+	}
+
 	if (is_send)
 		next = get_send_wqe(qp, index);
 	else
 		next = get_recv_wqe(qp, index);
 
-	if (mthca_is_memfree(qp->ibv_qp.context))
-		*dbd = 1;
-	else
-		*dbd = !!(next->ee_nds & htonl(MTHCA_NEXT_DBD));
+	*dbd = !!(next->ee_nds & htonl(MTHCA_NEXT_DBD));
 	if (next->ee_nds & htonl(0x3f))
 		*new_wqe = (next->nda_op & htonl(~0x3f)) |
 			(next->ee_nds & htonl(0x3f));

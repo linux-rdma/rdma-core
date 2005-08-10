@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -32,60 +33,82 @@
  * $Id$
  */
 
-#ifndef MTHCA_ABI_H
-#define MTHCA_ABI_H
+#ifndef WQE_H
+#define WQE_H
 
-#include <infiniband/kern-abi.h>
-
-struct mthca_alloc_ucontext_resp {
-	struct ibv_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-	__u32				uarc_size;
+enum {
+	MTHCA_SEND_DOORBELL	= 0x10,
+	MTHCA_RECV_DOORBELL	= 0x18
 };
 
-struct mthca_alloc_pd_resp {
-	struct ibv_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-	__u32				reserved;
+enum {
+	MTHCA_NEXT_DBD       = 1 << 7,
+	MTHCA_NEXT_FENCE     = 1 << 6,
+	MTHCA_NEXT_CQ_UPDATE = 1 << 3,
+	MTHCA_NEXT_EVENT_GEN = 1 << 2,
+	MTHCA_NEXT_SOLICIT   = 1 << 1,
 };
 
-struct mthca_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u32				lkey;
-	__u32				pdn;
-	__u64				arm_db_page;
-	__u64				set_db_page;
-	__u32				arm_db_index;
-	__u32				set_db_index;
+enum {
+	MTHCA_INLINE_SEG = 1 << 31
 };
 
-struct mthca_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
-	__u32				cqn;
-	__u32				reserved;
+enum {
+	MTHCA_INVAL_LKEY = 0x100
 };
 
-struct mthca_create_srq {
-	struct ibv_create_srq		ibv_cmd;
-	__u32				lkey;
-	__u32				db_index;
-	__u64				db_page;
+struct mthca_next_seg {
+	uint32_t	nda_op;	/* [31:6] next WQE [4:0] next opcode */
+	uint32_t	ee_nds;	/* [31:8] next EE  [7] DBD [6] F [5:0] next WQE size */
+	uint32_t	flags;	/* [3] CQ [2] Event [1] Solicit */
+	uint32_t	imm;	/* immediate data */
 };
 
-struct mthca_create_srq_resp {
-	struct ibv_create_srq_resp	ibv_resp;
-	__u32				srqn;
-	__u32				reserved;
+struct mthca_tavor_ud_seg {
+	uint32_t	reserved1;
+	uint32_t	lkey;
+	uint64_t	av_addr;
+	uint32_t	reserved2[4];
+	uint32_t	dqpn;
+	uint32_t	qkey;
+	uint32_t	reserved3[2];
 };
 
-struct mthca_create_qp {
-	struct ibv_create_qp		ibv_cmd;
-	__u32				lkey;
-	__u32				reserved;
-	__u64				sq_db_page;
-	__u64				rq_db_page;
-	__u32				sq_db_index;
-	__u32				rq_db_index;
+struct mthca_arbel_ud_seg {
+	uint32_t	av[8];
+	uint32_t	dqpn;
+	uint32_t	qkey;
+	uint32_t	reserved[2];
 };
 
-#endif /* MTHCA_ABI_H */
+struct mthca_bind_seg {
+	uint32_t	flags;	/* [31] Atomic [30] rem write [29] rem read */
+	uint32_t	reserved;
+	uint32_t	new_rkey;
+	uint32_t	lkey;
+	uint64_t	addr;
+	uint64_t	length;
+};
+
+struct mthca_raddr_seg {
+	uint64_t	raddr;
+	uint32_t	rkey;
+	uint32_t	reserved;
+};
+
+struct mthca_atomic_seg {
+	uint64_t	swap_add;
+	uint64_t	compare;
+};
+
+struct mthca_data_seg {
+	uint32_t	byte_count;
+	uint32_t	lkey;
+	uint64_t	addr;
+};
+
+struct mthca_inline_seg {
+	uint32_t	byte_count;
+};
+
+#endif /* WQE_H */

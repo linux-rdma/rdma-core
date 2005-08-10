@@ -234,6 +234,13 @@ static int handle_error_cqe(struct mthca_cq *cq,
 		break;
 	}
 
+	/*
+	 * Mem-free HCAs always generate one CQE per WQE, even in the
+	 * error case, so we don't have to check the doorbell count, etc.
+	 */
+	if (mthca_is_memfree(cq->ibv_cq.context))
+		return 0;
+
 	err = mthca_free_err_wqe(qp, is_send, wqe_index, &dbd, &new_wqe);
 	if (err)
 		return err;
@@ -242,12 +249,8 @@ static int handle_error_cqe(struct mthca_cq *cq,
 	 * If we're at the end of the WQE chain, or we've used up our
 	 * doorbell count, free the CQE.  Otherwise just update it for
 	 * the next poll operation.
-	 * 
-	 * This does not apply to mem-free HCAs: they don't use the
-	 * doorbell count field, and so we should always free the CQE.
 	 */
-	if (mthca_is_memfree(cq->ibv_cq.context) ||
-	    !(new_wqe & htonl(0x3f)) || (!cqe->db_cnt && dbd))
+	if (!(new_wqe & htonl(0x3f)) || (!cqe->db_cnt && dbd))
 		return 0;
 
 	cqe->db_cnt   = htons(ntohs(cqe->db_cnt) - dbd);
@@ -274,7 +277,9 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 {
 	struct mthca_wq *wq;
 	struct mthca_cqe *cqe;
+	struct mthca_srq *srq;
 	uint32_t qpn;
+	uint32_t wqe;
 	int wqe_index;
 	int is_error;
 	int is_send;
@@ -319,18 +324,27 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 		wq = &(*cur_qp)->sq;
 		wqe_index = ((ntohl(cqe->wqe) - (*cur_qp)->send_wqe_offset) >> wq->wqe_shift);
 		wc->wr_id = (*cur_qp)->wrid[wqe_index + (*cur_qp)->rq.max];
+	} else if ((*cur_qp)->ibv_qp.srq) {
+		srq = to_msrq((*cur_qp)->ibv_qp.srq);
+		wqe = htonl(cqe->wqe);
+		wq = NULL;
+		wqe_index = wqe >> srq->wqe_shift;
+		wc->wr_id = srq->wrid[wqe_index];
+		mthca_free_srq_wqe(srq, wqe);
 	} else {
 		wq = &(*cur_qp)->rq;
 		wqe_index = ntohl(cqe->wqe) >> wq->wqe_shift;
 		wc->wr_id = (*cur_qp)->wrid[wqe_index];
 	}
 
-	if (wq->last_comp < wqe_index)
-		wq->tail += wqe_index - wq->last_comp;
-	else
-		wq->tail += wqe_index + wq->max - wq->last_comp;
+	if (wq) {
+		if (wq->last_comp < wqe_index)
+			wq->tail += wqe_index - wq->last_comp;
+		else
+			wq->tail += wqe_index + wq->max - wq->last_comp;
 
-	wq->last_comp = wqe_index;
+		wq->last_comp = wqe_index;
+	}
 
 	if (is_error) {
 		err = handle_error_cqe(cq, *cur_qp, wqe_index, is_send,

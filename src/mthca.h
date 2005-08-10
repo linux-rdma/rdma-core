@@ -142,6 +142,27 @@ struct mthca_cq {
 	int                arm_sn;
 };
 
+struct mthca_srq {
+	struct ibv_srq     ibv_srq;
+	void              *buf;
+	void           	  *last;
+	pthread_spinlock_t lock;
+	struct ibv_mr 	  *mr;
+	uint64_t      	  *wrid;
+	uint32_t       	   srqn;
+	int            	   max;
+	int            	   max_gs;
+	int            	   wqe_shift;
+	int            	   first_free;
+	int            	   last_free;
+	int                buf_size;
+
+	/* Next fields are mem-free only */
+	int           	   db_index;
+	uint32_t      	  *db;
+	uint16_t      	   counter;
+};
+
 struct mthca_wq {
 	pthread_spinlock_t lock;
 	int            	   max;
@@ -233,6 +254,11 @@ static inline struct mthca_cq *to_mcq(struct ibv_cq *ibcq)
 	return to_mxxx(cq, cq);
 }
 
+static inline struct mthca_srq *to_msrq(struct ibv_srq *ibsrq)
+{
+	return to_mxxx(srq, srq);
+}
+
 static inline struct mthca_qp *to_mqp(struct ibv_qp *ibqp)
 {
 	return to_mxxx(qp, qp);
@@ -278,6 +304,22 @@ extern int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);
 extern int mthca_arbel_arm_cq(struct ibv_cq *cq, int solicited);
 extern void mthca_arbel_cq_event(struct ibv_cq *cq);
 extern void mthca_init_cq_buf(struct mthca_cq *cq, int nent);
+
+extern struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
+					struct ibv_srq_init_attr *attr);
+extern int mthca_modify_srq(struct ibv_srq *srq,
+			    struct ibv_srq_attr *attr,
+			    enum ibv_srq_attr_mask mask);
+extern int mthca_destroy_srq(struct ibv_srq *srq);
+extern int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
+			       struct mthca_srq *srq);
+extern void mthca_free_srq_wqe(struct mthca_srq *srq, uint32_t wqe_addr);
+extern int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
+				     struct ibv_recv_wr *wr,
+				     struct ibv_recv_wr **bad_wr);
+extern int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
+				     struct ibv_recv_wr *wr,
+				     struct ibv_recv_wr **bad_wr);
 
 extern struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
 extern int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
