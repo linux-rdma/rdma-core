@@ -17,6 +17,9 @@ IBVERBS_1.0 {
 		ibv_create_cq;
 		ibv_destroy_cq;
 		ibv_get_cq_event;
+		ibv_create_srq;
+		ibv_modify_srq;
+		ibv_destroy_srq;
 		ibv_create_qp;
 		ibv_modify_qp;
 		ibv_destroy_qp;
@@ -35,6 +38,9 @@ IBVERBS_1.0 {
 		ibv_cmd_dereg_mr;
 		ibv_cmd_create_cq;
 		ibv_cmd_destroy_cq;
+		ibv_cmd_create_srq;
+		ibv_cmd_modify_srq;
+		ibv_cmd_destroy_srq;
 		ibv_cmd_create_qp;
 		ibv_cmd_modify_qp;
 		ibv_cmd_destroy_qp;

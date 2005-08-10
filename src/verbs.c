@@ -140,6 +140,32 @@ int ibv_get_cq_event(struct ibv_context *context, int comp_num,
 	return 0;
 }
 
+struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
+			       struct ibv_srq_init_attr *srq_init_attr)
+{
+	struct ibv_srq *srq = pd->context->ops.create_srq(pd, srq_init_attr);
+
+	if (srq) {
+		srq->context     = pd->context;
+		srq->srq_context = srq_init_attr->srq_context;
+		srq->pd          = pd;
+	}
+
+	return srq;
+}
+
+int ibv_modify_srq(struct ibv_srq *srq,
+		   struct ibv_srq_attr *srq_attr,
+		   enum ibv_srq_attr_mask srq_attr_mask)
+{
+	return srq->context->ops.modify_srq(srq, srq_attr, srq_attr_mask);
+}
+
+int ibv_destroy_srq(struct ibv_srq *srq)
+{
+	return srq->context->ops.destroy_srq(srq);
+}
+
 struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 			     struct ibv_qp_init_attr *qp_init_attr)
 {
@@ -151,10 +177,12 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 		qp->pd         = pd;
 		qp->send_cq    = qp_init_attr->send_cq;
 		qp->recv_cq    = qp_init_attr->recv_cq;
+		qp->srq        = qp_init_attr->srq;
 	}
 
 	return qp;
 }
+
 int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		  enum ibv_qp_attr_mask attr_mask)
 {

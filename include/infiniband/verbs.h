@@ -185,16 +185,20 @@ enum ibv_event_type {
 	IBV_EVENT_PORT_ERR,
 	IBV_EVENT_LID_CHANGE,
 	IBV_EVENT_PKEY_CHANGE,
-	IBV_EVENT_SM_CHANGE
+	IBV_EVENT_SM_CHANGE,
+	IBV_EVENT_SRQ_ERR,
+	IBV_EVENT_SRQ_LIMIT_REACHED,
+	IBV_EVENT_QP_LAST_WQE_REACHED
 };
 
 struct ibv_async_event {
 	union {
-		struct ibv_cq *cq;
-		struct ibv_qp *qp;
-		int            port_num;
-	}                  element;
-	enum ibv_event_type event_type;
+		struct ibv_cq  *cq;
+		struct ibv_qp  *qp;
+		struct ibv_srq *srq;
+		int		port_num;
+	} element;
+	enum ibv_event_type	event_type;
 };
 
 enum ibv_wc_status {
@@ -295,6 +299,22 @@ struct ibv_ah_attr {
 	uint8_t			static_rate;
 	uint8_t			is_global;
 	uint8_t			port_num;
+};
+
+enum ibv_srq_attr_mask {
+	IBV_SRQ_MAX_WR	= 1 << 0,
+	IBV_SRQ_LIMIT	= 1 << 1,
+};
+
+struct ibv_srq_attr {
+	uint32_t		max_wr;
+	uint32_t		max_sge;
+	uint32_t		srq_limit;
+};
+
+struct ibv_srq_init_attr {
+	void		       *srq_context;
+	struct ibv_srq_attr	attr;
 };
 
 enum ibv_qp_type {
@@ -446,12 +466,20 @@ struct ibv_recv_wr {
 	int			num_sge;
 };
 
+struct ibv_srq {
+	struct ibv_context     *context;
+	void		       *srq_context;
+	struct ibv_pd	       *pd; 
+	uint32_t		handle;
+};
+
 struct ibv_qp {
 	struct ibv_context     *context;
 	void		       *qp_context;
 	struct ibv_pd	       *pd; 
 	struct ibv_cq	       *send_cq;
 	struct ibv_cq	       *recv_cq;
+	struct ibv_srq	       *srq;
 	uint32_t		handle;
 	uint32_t		qp_num;
 	enum ibv_qp_state       state;
@@ -504,6 +532,15 @@ struct ibv_context_ops {
 	int			(*req_notify_cq)(struct ibv_cq *cq, int solicited);
 	void			(*cq_event)(struct ibv_cq *cq);
 	int			(*destroy_cq)(struct ibv_cq *cq);
+	struct ibv_srq *	(*create_srq)(struct ibv_pd *pd,
+					      struct ibv_srq_init_attr *srq_init_attr);
+	int			(*modify_srq)(struct ibv_srq *srq,
+					      struct ibv_srq_attr *srq_attr,
+					      enum ibv_srq_attr_mask srq_attr_mask);
+	int			(*destroy_srq)(struct ibv_srq *srq);
+	int			(*post_srq_recv)(struct ibv_srq *srq,
+						 struct ibv_recv_wr *recv_wr,
+						 struct ibv_recv_wr **bad_recv_wr);
 	struct ibv_qp *		(*create_qp)(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
 	int			(*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 					     enum ibv_qp_attr_mask attr_mask);
@@ -647,6 +684,56 @@ static inline int ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc 
 static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited)
 {
 	return cq->context->ops.req_notify_cq(cq, solicited);
+}
+
+/**
+ * ibv_create_srq - Creates a SRQ associated with the specified protection
+ *   domain.
+ * @pd: The protection domain associated with the SRQ.
+ * @srq_init_attr: A list of initial attributes required to create the SRQ.
+ *
+ * srq_attr->max_wr and srq_attr->max_sge are read the determine the
+ * requested size of the SRQ, and set to the actual values allocated
+ * on return.  If ibv_create_srq() succeeds, then max_wr and max_sge
+ * will always be at least as large as the requested values.
+ */
+struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
+			       struct ibv_srq_init_attr *srq_init_attr);
+
+/**
+ * ibv_modify_srq - Modifies the attributes for the specified SRQ.
+ * @srq: The SRQ to modify.
+ * @srq_attr: On input, specifies the SRQ attributes to modify.  On output,
+ *   the current values of selected SRQ attributes are returned.
+ * @srq_attr_mask: A bit-mask used to specify which attributes of the SRQ
+ *   are being modified.
+ *
+ * The mask may contain IB_SRQ_MAX_WR to resize the SRQ and/or
+ * IB_SRQ_LIMIT to set the SRQ's limit and request notification when
+ * the number of receives queued drops below the limit.
+ */
+int ibv_modify_srq(struct ibv_srq *srq,
+		   struct ibv_srq_attr *srq_attr,
+		   enum ibv_srq_attr_mask srq_attr_mask);
+
+/**
+ * ibv_destroy_srq - Destroys the specified SRQ.
+ * @srq: The SRQ to destroy.
+ */
+int ibv_destroy_srq(struct ibv_srq *srq);
+
+/**
+ * ibv_post_srq_recv - Posts a list of work requests to the specified SRQ.
+ * @srq: The SRQ to post the work request on.
+ * @recv_wr: A list of work requests to post on the receive queue.
+ * @bad_recv_wr: On an immediate failure, this parameter will reference
+ *   the work request that failed to be posted on the QP.
+ */
+static inline int ibv_post_srq_recv(struct ibv_srq *srq,
+				    struct ibv_recv_wr *recv_wr,
+				    struct ibv_recv_wr **bad_recv_wr)
+{
+	return srq->context->ops.post_srq_recv(srq, recv_wr, bad_recv_wr);
 }
 
 /**

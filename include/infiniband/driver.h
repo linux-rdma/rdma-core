@@ -92,6 +92,12 @@ extern int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 			     struct ibv_create_cq_resp *resp, size_t resp_size);
 extern int ibv_cmd_destroy_cq(struct ibv_cq *cq);
 
+extern int ibv_cmd_create_srq(struct ibv_pd *pd,
+			      struct ibv_srq *srq, struct ibv_srq_init_attr *attr,
+			      struct ibv_create_srq *cmd, size_t cmd_size,
+			      struct ibv_create_srq_resp *resp, size_t resp_size);
+extern int ibv_cmd_destroy_srq(struct ibv_srq *srq);
+
 extern int ibv_cmd_create_qp(struct ibv_pd *pd,
 			     struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
 			     struct ibv_create_qp *cmd, size_t cmd_size);

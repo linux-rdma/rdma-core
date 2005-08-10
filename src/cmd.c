@@ -288,6 +288,39 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 	return 0;
 }
 
+int ibv_cmd_create_srq(struct ibv_pd *pd,
+		       struct ibv_srq *srq, struct ibv_srq_init_attr *attr,
+		       struct ibv_create_srq *cmd, size_t cmd_size,
+		       struct ibv_create_srq_resp *resp, size_t resp_size)
+{
+	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_SRQ, resp, resp_size);
+	cmd->user_handle = (uintptr_t) srq;
+	cmd->pd_handle 	 = pd->handle;
+	cmd->max_wr      = attr->attr.max_wr;
+	cmd->max_sge     = attr->attr.max_sge;
+	cmd->srq_limit   = attr->attr.srq_limit;
+
+	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	srq->handle = resp->srq_handle;
+
+	return 0;
+}
+
+int ibv_cmd_destroy_srq(struct ibv_srq *srq)
+{
+	struct ibv_destroy_srq cmd;
+
+	IBV_INIT_CMD(&cmd, sizeof cmd, DESTROY_SRQ);
+	cmd.srq_handle = srq->handle;
+
+	if (write(srq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	return 0;
+}
+
 int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
 		      struct ibv_create_qp *cmd, size_t cmd_size)
@@ -299,6 +332,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	cmd->pd_handle 	     = pd->handle;
 	cmd->send_cq_handle  = attr->send_cq->handle;
 	cmd->recv_cq_handle  = attr->recv_cq->handle;
+	cmd->srq_handle      = attr->srq ? attr->srq->handle : 0;
 	cmd->max_send_wr     = attr->cap.max_send_wr;
 	cmd->max_recv_wr     = attr->cap.max_recv_wr;
 	cmd->max_send_sge    = attr->cap.max_send_sge;
@@ -306,7 +340,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	cmd->max_inline_data = attr->cap.max_inline_data;
 	cmd->sq_sig_all	     = attr->sq_sig_all;
 	cmd->qp_type 	     = attr->qp_type;
-	cmd->is_srq 	     = 0;
+	cmd->is_srq 	     = !!attr->srq;
 
 	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
