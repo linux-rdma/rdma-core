@@ -1,6 +1,4 @@
 
-libdir = ${exec_prefix}/ib/lib
-
 SUBDIRS = .
 
 INCLUDES = -I$(srcdir)/include/infiniband \
