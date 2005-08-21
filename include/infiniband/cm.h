@@ -77,8 +77,13 @@ enum ib_cm_data_size {
 	IB_CM_SIDR_REP_INFO_LENGTH	 = 72
 };
 
+struct ib_cm_id {
+	void			*context;
+	uint32_t		handle;
+};
+
 struct ib_cm_req_event_param {
-	uint32_t		listen_id;
+	struct ib_cm_id		*listen_id;
 
 	struct ib_sa_path_rec	*primary_path;
 	struct ib_sa_path_rec	*alternate_path;
@@ -187,7 +192,7 @@ struct ib_cm_apr_event_param {
 };
 
 struct ib_cm_sidr_req_event_param {
-	uint32_t	  listen_id;
+	struct ib_cm_id	 *listen_id;
 	struct ib_device *device;
 	uint8_t		  port;
 	uint16_t          pkey;
@@ -212,7 +217,7 @@ struct ib_cm_sidr_rep_event_param {
 };
 
 struct ib_cm_event {
-	uint32_t              cm_id;
+	struct ib_cm_id	      *cm_id;
 	enum ib_cm_event_type event;
 	union {
 		struct ib_cm_req_event_param	req_rcvd;
@@ -287,13 +292,13 @@ int ib_cm_get_fd(void);
  * Communication identifiers are used to track connection states, service
  * ID resolution requests, and listen requests.
  */
-int ib_cm_create_id(uint32_t *cm_id);
+int ib_cm_create_id(struct ib_cm_id **cm_id, void *context);
 
 /**
  * ib_cm_destroy_id - Destroy a connection identifier.
  * @cm_id: Connection identifier to destroy.
  */
-int ib_cm_destroy_id(uint32_t cm_id);
+int ib_cm_destroy_id(struct ib_cm_id *cm_id);
 
 struct ib_cm_attr_param {
 	uint64_t		service_id;
@@ -309,7 +314,7 @@ struct ib_cm_attr_param {
  *
  * Not all parameters are valid during all connection states.
  */
-int ib_cm_attr_id(uint32_t cm_id, 
+int ib_cm_attr_id(struct ib_cm_id *cm_id,
 		  struct ib_cm_attr_param *param);
 
 /**
@@ -323,7 +328,7 @@ int ib_cm_attr_id(uint32_t cm_id,
  *   range of service IDs.  If set to 0, the service ID is matched
  *   exactly.
  */
-int ib_cm_listen(uint32_t cm_id,
+int ib_cm_listen(struct ib_cm_id *cm_id,
 		 uint64_t service_id,
 		 uint64_t service_mask);
 
@@ -355,7 +360,7 @@ struct ib_cm_req_param {
  * @param: Connection request information needed to establish the
  *   connection.
  */
-int ib_cm_send_req(uint32_t cm_id,
+int ib_cm_send_req(struct ib_cm_id *cm_id,
 		   struct ib_cm_req_param *param);
 
 struct ib_cm_rep_param {
@@ -380,7 +385,7 @@ struct ib_cm_rep_param {
  * @param: Connection reply information needed to establish the
  *   connection.
  */
-int ib_cm_send_rep(uint32_t cm_id,
+int ib_cm_send_rep(struct ib_cm_id *cm_id,
 		   struct ib_cm_rep_param *param);
 
 /**
@@ -391,7 +396,7 @@ int ib_cm_send_rep(uint32_t cm_id,
  *   ready to use message.
  * @private_data_len: Size of the private data buffer, in bytes.
  */
-int ib_cm_send_rtu(uint32_t cm_id,
+int ib_cm_send_rtu(struct ib_cm_id *cm_id,
 		   void *private_data,
 		   uint8_t private_data_len);
 
@@ -404,7 +409,7 @@ int ib_cm_send_rtu(uint32_t cm_id,
  *   disconnection request message.
  * @private_data_len: Size of the private data buffer, in bytes.
  */
-int ib_cm_send_dreq(uint32_t cm_id,
+int ib_cm_send_dreq(struct ib_cm_id *cm_id,
 		    void *private_data,
 		    uint8_t private_data_len);
 
@@ -416,7 +421,7 @@ int ib_cm_send_dreq(uint32_t cm_id,
  *   disconnection reply message.
  * @private_data_len: Size of the private data buffer, in bytes.
  */
-int ib_cm_send_drep(uint32_t cm_id,
+int ib_cm_send_drep(struct ib_cm_id *cm_id,
 		    void *private_data,
 		    uint8_t private_data_len);
 
@@ -427,7 +432,7 @@ int ib_cm_send_drep(uint32_t cm_id,
  * This routine should be invoked by users who receive messages on a
  * connected QP before an RTU has been received.
  */
-int ib_cm_establish(uint32_t cm_id);
+int ib_cm_establish(struct ib_cm_id *cm_id);
 
 /**
  * ib_cm_send_rej - Sends a connection rejection message to the
@@ -441,7 +446,7 @@ int ib_cm_establish(uint32_t cm_id);
  *   rejection message.
  * @private_data_len: Size of the private data buffer, in bytes.
  */
-int ib_cm_send_rej(uint32_t cm_id,
+int ib_cm_send_rej(struct ib_cm_id *cm_id,
 		   enum ib_cm_rej_reason reason,
 		   void *ari,
 		   uint8_t ari_length,
@@ -458,7 +463,7 @@ int ib_cm_send_rej(uint32_t cm_id,
  *   message receipt acknowledgement.
  * @private_data_len: Size of the private data buffer, in bytes.
  */
-int ib_cm_send_mra(uint32_t cm_id,
+int ib_cm_send_mra(struct ib_cm_id *cm_id,
 		   uint8_t service_timeout,
 		   void *private_data,
 		   uint8_t private_data_len);
@@ -473,10 +478,30 @@ int ib_cm_send_mra(uint32_t cm_id,
  *   load alternate path message.
  * @private_data_len: Size of the private data buffer, in bytes.
  */
-int ib_cm_send_lap(uint32_t cm_id,
+int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		   struct ib_sa_path_rec *alternate_path,
 		   void *private_data,
 		   uint8_t private_data_len);
+
+/**
+ * ib_cm_init_qp_attr - Initializes the QP attributes for use in transitioning
+ *   to a specified QP state.
+ * @cm_id: Communication identifier associated with the QP attributes to
+ *   initialize.
+ * @qp_attr: On input, specifies the desired QP state.  On output, the
+ *   mandatory and desired optional attributes will be set in order to
+ *   modify the QP to the specified state.
+ * @qp_attr_mask: The QP attribute mask that may be used to transition the
+ *   QP to the specified state.
+ *
+ * Users must set the @qp_attr->qp_state to the desired QP state.  This call
+ * will set all required attributes for the given transition, along with
+ * known optional attributes.  Users may override the attributes returned from
+ * this call before calling ib_modify_qp.
+ */
+int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
+		       struct ibv_qp_attr *qp_attr,
+		       int *qp_attr_mask);
 
 /**
  * ib_cm_send_apr - Sends an alternate path response message in response to
@@ -490,7 +515,7 @@ int ib_cm_send_lap(uint32_t cm_id,
  *   alternate path response message.
  * @private_data_len: Size of the private data buffer, in bytes.
  */
-int ib_cm_send_apr(uint32_t cm_id,
+int ib_cm_send_apr(struct ib_cm_id *cm_id,
 		   enum ib_cm_apr_status status,
 		   void *info,
 		   uint8_t info_length,
@@ -514,7 +539,7 @@ struct ib_cm_sidr_req_param {
  *   service ID resolution request.
  * @param: Service ID resolution request information.
  */
-int ib_cm_send_sidr_req(uint32_t cm_id,
+int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_req_param *param);
 
 struct ib_cm_sidr_rep_param {
@@ -534,7 +559,7 @@ struct ib_cm_sidr_rep_param {
  *   resolution request.
  * @param: Service ID resolution reply information.
  */
-int ib_cm_send_sidr_rep(uint32_t cm_id,
+int ib_cm_send_sidr_rep(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_rep_param *param);
 
 #endif /* CM_H */

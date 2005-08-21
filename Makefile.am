@@ -18,9 +18,11 @@ endif
 src_libibcm_la_SOURCES = src/cm.c
 src_libibcm_la_LDFLAGS = -avoid-version -module $(ucm_version_script)
 
-bin_PROGRAMS = examples/ucm_simple
-examples_ucm_simple_SOURCES = examples/simple.c
-examples_ucm_simple_LDADD = $(top_builddir)/src/libibcm.la
+bin_PROGRAMS = examples/ucmpost
+examples_ucmpost_SOURCES = examples/cmpost.c
+examples_ucmpost_LDADD = $(top_builddir)/src/libibcm.la \
+			 $(libdir)/libibverbs.la \
+			 $(libdir)/libibat.la
 
 libibcmincludedir = $(includedir)/infiniband
 

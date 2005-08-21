@@ -58,7 +58,7 @@ static inline uint64_t cpu_to_be64(uint64_t x) { return x; }
 
 #define TEST_SID 0x0000000ff0000000ULL
 
-static int cm_connect(uint32_t cm_id)
+static int cm_connect(struct ib_cm_id *cm_id)
 {
 	struct ib_cm_req_param param;
 	struct ib_sa_path_rec sa;
@@ -108,8 +108,8 @@ static int cm_connect(uint32_t cm_id)
 
 	src->global.subnet_prefix = cpu_to_be64(0xfe80000000000000ULL);
 	dst->global.subnet_prefix = cpu_to_be64(0xfe80000000000000ULL);
-	src->global.interface_id  = cpu_to_be64(0x0002c90200002179ULL);
-	dst->global.interface_id  = cpu_to_be64(0x0005ad000001296cULL);
+	src->global.interface_id  = cpu_to_be64(0x0002c90107fc5e11ULL);
+	dst->global.interface_id  = cpu_to_be64(0x0002c90107fc5eb1ULL);
 
 	return ib_cm_send_req(cm_id, &param);
 }
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 {
 	struct ib_cm_event *event;
 	struct ib_cm_rep_param rep;
-	int cm_id;
+	struct ib_cm_id *cm_id;
 	int result;
 
 	int param_c = 0;
@@ -137,8 +137,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	result = ib_cm_create_id(&cm_id);
-	if (result < 0) {
+	result = ib_cm_create_id(&cm_id, NULL);
+	if (result) {
 		printf("Error creating CM ID <%d:%d>\n", result, errno);
 		goto done;
 	}
@@ -146,16 +146,16 @@ int main(int argc, char **argv)
 	if (mode) {
 		result = cm_connect(cm_id);
 		if (result) {
-			printf("Error <%d:%d> sending REQ <%d>\n", 
-			       result, errno, cm_id);
+			printf("Error <%d:%d> sending REQ\n", 
+			       result, errno);
 			goto done;
 		}
 	}
 	else {
 		result = ib_cm_listen(cm_id, TEST_SID, 0);
 		if (result) {
-			printf("Error <%d:%d> listening <%d>\n", 
-			       result, errno, cm_id);
+			printf("Error <%d:%d> listening\n", 
+			       result, errno);
 			goto done;
 		}
 	}
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
 			goto done;
 		}
 
-		printf("CM ID <%d> Event <%d>\n", event->cm_id, event->event);
+		printf("CM ID <%p> Event <%d>\n", event->cm_id, event->event);
 
 		switch (event->event) {
 		case IB_CM_REQ_RECEIVED:
@@ -264,4 +264,3 @@ int main(int argc, char **argv)
 done:
 	return 0;
 }
-
