@@ -58,6 +58,10 @@ int main(int argc, char *argv[])
         int i;
 
 	dev_list = ibv_get_devices();
+	if (!dev_list) {
+		fprintf(stderr, "No IB devices found\n");
+		return 1;
+	}
 
 	dlist_start(dev_list);
 	ib_dev = dlist_next(dev_list);

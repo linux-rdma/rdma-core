@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * $Id: device_list.c 1393 2004-12-28 02:15:24Z roland $
+ * $Id$
  */
 
 #if HAVE_CONFIG_H
@@ -56,6 +56,10 @@ int main(int argc, char *argv[])
 	struct ibv_async_event event;
 
 	dev_list = ibv_get_devices();
+	if (!dev_list) {
+		fprintf(stderr, "No IB devices found\n");
+		return 1;
+	}
 
 	dlist_start(dev_list);
 	ib_dev = dlist_next(dev_list);

@@ -55,6 +55,10 @@ int main(int argc, char *argv[])
 	struct ibv_device *ib_dev;
 
 	dev_list = ibv_get_devices();
+	if (!dev_list) {
+		fprintf(stderr, "No IB devices found\n");
+		return 1;
+	}
 
 	printf("    %-16s\t   node GUID\n", "device");
 	printf("    %-16s\t----------------\n", "------");

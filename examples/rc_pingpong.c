@@ -524,6 +524,10 @@ int main(int argc, char *argv[])
 	page_size = sysconf(_SC_PAGESIZE);
 
 	dev_list = ibv_get_devices();
+	if (!dev_list) {
+		fprintf(stderr, "No IB devices found\n");
+		return 1;
+	}
 
 	dlist_start(dev_list);
 	if (!ib_devname) {
