@@ -1,6 +1,7 @@
-libibverbs (1.0-rc1) unstable; urgency=low
+libibverbs (1.0-rc1-1) unstable; urgency=low
 
   * Initial Release.
+    (Closes: #325752)
 
- -- Roland Dreier <roland@topspin.com>  Mon, 25 Apr 2005 10:21:08 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Tue, 30 Aug 2005 11:21:59 -0700
 
