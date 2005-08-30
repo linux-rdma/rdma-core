@@ -1,6 +1,7 @@
-libmthca (1.0-rc1) unstable; urgency=low
+libmthca (1.0-rc1-1) unstable; urgency=low
 
   * Initial Release.
+    (Closes: #325753)
 
- -- Roland Dreier <roland@topspin.com>  Thu, 28 Apr 2005 13:16:56 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Tue, 30 Aug 2005 11:22:18 -0700
 
