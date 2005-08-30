@@ -205,8 +205,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 	printf("\tfw_ver:\t\t\t\t%s\n", fw_ver_str(device_attr.fw_ver, buf));
 	printf("\tnode_guid:\t\t\t%s\n", guid_str(device_attr.node_guid, buf));
 	printf("\tsys_image_guid:\t\t\t%s\n", guid_str(device_attr.sys_image_guid, buf));
-	printf("\tmax_mr_size:\t\t\t0x%llx\n", device_attr.max_mr_size);
-	printf("\tpage_size_cap:\t\t\t0x%llx\n", device_attr.page_size_cap);
+	printf("\tmax_mr_size:\t\t\t0x%llx\n", (unsigned long long) device_attr.max_mr_size);
+	printf("\tpage_size_cap:\t\t\t0x%llx\n", (unsigned long long) device_attr.page_size_cap);
 	printf("\tvendor_id:\t\t\t0x%04x\n", device_attr.vendor_id);
 	printf("\tvendor_part_id:\t\t\t%d\n", device_attr.vendor_part_id);
 	printf("\thw_ver:\t\t\t\t0x%X\n", device_attr.hw_ver);
@@ -311,7 +311,7 @@ static void usage(const char *argv0)
         printf("\n");
         printf("Options:\n");
         printf("  -d, --ib-dev=<dev>     use IB device <dev> (default first device found)\n");
-        printf("  -i, --ib-port=<port>   use port <port> of IB device (default 1)\n");
+        printf("  -i, --ib-port=<port>   use port <port> of IB device (default all ports)\n");
 	printf("  -l, --list             print only the IB devices names\n");
 	printf("  -v, --verbose          print all the attributes of the IB device(s)\n");
 }
