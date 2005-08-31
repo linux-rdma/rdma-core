@@ -1,3 +1,8 @@
 2005-08-30  Roland Dreier  <roland@cisco.com>
 
+	* man/ibv_asyncwatch.1, man/ibv_devices.1, man/ibv_devinfo.1,
+	man/ibv_rc_pingpong.1, man/ibv_srq_pingpong.1,
+	man/ibv_uc_pingpong.1, man/ibv_ud_pingpong.1: Add man pages for
+	example programs.
+
 	* examples/devinfo.c: Merge with Dotan Barak's vstat tool.
