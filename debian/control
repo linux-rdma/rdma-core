@@ -25,3 +25,16 @@ Description: Development files for the libmthca driver
  .
  This package contains static versions of libmthca that may be linked
  directly to an application, which may be useful for debugging.
+
+Package: libmthca1-dbg
+Section: libdevel
+Priority: extra
+Architecture: any
+Depends: libmthca1 (= ${Source-Version})
+Description: Development files for the libmthca driver
+ libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
+ the libibverbs library.
+ .
+ This package contains the debugging symbols associated with
+ libmthca1. They will automatically be used by gdb for debugging
+ libmthca-related issues.

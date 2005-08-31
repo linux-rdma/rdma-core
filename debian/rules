@@ -3,6 +3,7 @@
 # Copyright © 2005 Roland Dreier <rolandd@cisco.com>
 
 DEB_DH_INSTALL_SOURCEDIR := debian/tmp
+DEB_DH_STRIP_ARGS := --dbg-package=libmthca1
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/autotools.mk
