@@ -1,0 +1,15 @@
+2005-08-31  Roland Dreier  <roland@cisco.com>
+
+	* src/memfree.c (mthca_free_db): When we free a doorbell record,
+	really mark it as free in the free bitmap.  This we we don't
+	eventually run out of doorbells if a consumer creates and frees a
+	lot of objects.
+
+	* src/memfree.c (mthca_alloc_db): Introduce MTHCA_FREE_MAP_SIZE so
+	that we iterate over the correct number of entries in the mem-free
+	doorbell record free maps.  This fixes some off-by-a-factor-of-8
+	bugs that could lead to crashes.
+
+	* src/verbs.c (mthca_create_cq): In the mem-free case, when
+	creating a CQ fails to allocate an arm doorbell, make sure we free
+	the set CI doorbell instead of the (non-existent) arm doorbell.

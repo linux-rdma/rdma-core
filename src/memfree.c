@@ -148,9 +148,22 @@ void mthca_set_db_qn(uint32_t *db, enum mthca_db_type type, uint32_t qn)
 
 void mthca_free_db(struct mthca_db_table *db_tab, enum mthca_db_type type, int db_index)
 {
+	int i, j;
+	struct mthca_db_page *page;
+
+	i = db_index / MTHCA_DB_REC_PER_PAGE;
+	j = db_index % MTHCA_DB_REC_PER_PAGE;
+
+	page = db_tab->page + i;
+
 	pthread_mutex_lock(&db_tab->mutex);
-	db_tab->page[db_index / MTHCA_DB_REC_PER_PAGE].
-		db_rec[db_index % MTHCA_DB_REC_PER_PAGE] = 0;
+	page->db_rec[j] = 0;
+
+	if (i >= db_tab->min_group2)
+		j = MTHCA_DB_REC_PER_PAGE - 1 - j;
+
+	page->free[j / (SIZEOF_LONG * 8)] |= 1UL << (j % (SIZEOF_LONG * 8));
+
 	pthread_mutex_unlock(&db_tab->mutex);
 }
 
