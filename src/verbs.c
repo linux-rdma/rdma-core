@@ -107,8 +107,11 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
 	struct ibv_cq *cq = context->ops.create_cq(context, cqe);
 
 	if (cq) {
-		cq->context    = context;
-		cq->cq_context = cq_context;
+		cq->context    	     = context;
+		cq->cq_context 	     = cq_context;
+		cq->events_completed = 0;
+		pthread_mutex_init(&cq->mutex, NULL);
+		pthread_cond_init(&cq->cond, NULL);
 	}
 
 	return cq;
@@ -146,9 +149,12 @@ struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
 	struct ibv_srq *srq = pd->context->ops.create_srq(pd, srq_init_attr);
 
 	if (srq) {
-		srq->context     = pd->context;
-		srq->srq_context = srq_init_attr->srq_context;
-		srq->pd          = pd;
+		srq->context          = pd->context;
+		srq->srq_context      = srq_init_attr->srq_context;
+		srq->pd               = pd;
+		srq->events_completed = 0;
+		pthread_mutex_init(&srq->mutex, NULL);
+		pthread_cond_init(&srq->cond, NULL);
 	}
 
 	return srq;
@@ -172,12 +178,15 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 	struct ibv_qp *qp = pd->context->ops.create_qp(pd, qp_init_attr);
 
 	if (qp) {
-		qp->context    = pd->context;
-		qp->qp_context = qp_init_attr->qp_context;
-		qp->pd         = pd;
-		qp->send_cq    = qp_init_attr->send_cq;
-		qp->recv_cq    = qp_init_attr->recv_cq;
-		qp->srq        = qp_init_attr->srq;
+		qp->context    	     = pd->context;
+		qp->qp_context 	     = qp_init_attr->qp_context;
+		qp->pd         	     = pd;
+		qp->send_cq    	     = qp_init_attr->send_cq;
+		qp->recv_cq    	     = qp_init_attr->recv_cq;
+		qp->srq        	     = qp_init_attr->srq;
+		qp->events_completed = 0;
+		pthread_mutex_init(&qp->mutex, NULL);
+		pthread_cond_init(&qp->cond, NULL);
 	}
 
 	return qp;

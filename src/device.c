@@ -140,9 +140,85 @@ int ibv_get_async_event(struct ibv_context *context,
 	if (read(context->async_fd, &ev, sizeof ev) != sizeof ev)
 		return -1;
 
-	/* XXX convert CQ/QP handles back to pointers */
-	event->element.port_num = ev.element;
-	event->event_type       = ev.event_type;
+	event->event_type = ev.event_type;
+
+	switch (event->event_type) {
+	case IBV_EVENT_CQ_ERR:
+		event->element.cq = (void *) (uintptr_t) ev.element;
+		break;
+
+	case IBV_EVENT_QP_FATAL:
+	case IBV_EVENT_QP_REQ_ERR:
+	case IBV_EVENT_QP_ACCESS_ERR:
+	case IBV_EVENT_COMM_EST:
+	case IBV_EVENT_SQ_DRAINED:
+	case IBV_EVENT_PATH_MIG:
+	case IBV_EVENT_PATH_MIG_ERR:
+	case IBV_EVENT_QP_LAST_WQE_REACHED:
+		event->element.qp = (void *) (uintptr_t) ev.element;
+		break;
+
+	case IBV_EVENT_SRQ_ERR:
+	case IBV_EVENT_SRQ_LIMIT_REACHED:
+		event->element.srq = (void *) (uintptr_t) ev.element;
+		break;
+
+	default:
+		event->element.port_num = ev.element;
+		break;
+	}
 
 	return 0;
+}
+
+void ibv_put_async_event(struct ibv_async_event *event)
+{
+	switch (event->event_type) {
+	case IBV_EVENT_CQ_ERR:
+	{
+		struct ibv_cq *cq = event->element.cq;
+
+		pthread_mutex_lock(&cq->mutex);
+		++cq->events_completed;
+		pthread_cond_signal(&cq->cond);
+		pthread_mutex_unlock(&cq->mutex);
+
+		return;
+	}
+
+	case IBV_EVENT_QP_FATAL:
+	case IBV_EVENT_QP_REQ_ERR:
+	case IBV_EVENT_QP_ACCESS_ERR:
+	case IBV_EVENT_COMM_EST:
+	case IBV_EVENT_SQ_DRAINED:
+	case IBV_EVENT_PATH_MIG:
+	case IBV_EVENT_PATH_MIG_ERR:
+	case IBV_EVENT_QP_LAST_WQE_REACHED:
+	{
+		struct ibv_qp *qp = event->element.qp;
+
+		pthread_mutex_lock(&qp->mutex);
+		++qp->events_completed;
+		pthread_cond_signal(&qp->cond);
+		pthread_mutex_unlock(&qp->mutex);
+
+		return;
+	}
+
+	case IBV_EVENT_SRQ_ERR:
+	case IBV_EVENT_SRQ_LIMIT_REACHED:
+	{
+		struct ibv_srq *srq = event->element.srq;
+
+		pthread_mutex_lock(&srq->mutex);
+		++srq->events_completed;
+		pthread_cond_signal(&srq->cond);
+		pthread_mutex_unlock(&srq->mutex);
+
+		return;
+	}
+
+	default:
+		return;
+	}
 }

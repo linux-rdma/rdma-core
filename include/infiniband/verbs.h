@@ -38,6 +38,7 @@
 #define INFINIBAND_VERBS_H
 
 #include <stdint.h>
+#include <pthread.h>
 
 #include <sysfs/libsysfs.h>
 
@@ -471,6 +472,10 @@ struct ibv_srq {
 	void		       *srq_context;
 	struct ibv_pd	       *pd; 
 	uint32_t		handle;
+
+	pthread_mutex_t		mutex;
+	pthread_cond_t		cond;
+	uint32_t		events_completed;
 };
 
 struct ibv_qp {
@@ -483,6 +488,10 @@ struct ibv_qp {
 	uint32_t		handle;
 	uint32_t		qp_num;
 	enum ibv_qp_state       state;
+
+	pthread_mutex_t		mutex;
+	pthread_cond_t		cond;
+	uint32_t		events_completed;
 };
 
 struct ibv_cq {
@@ -490,6 +499,10 @@ struct ibv_cq {
 	void		       *cq_context;
 	uint32_t		handle;
 	int			cqe;
+
+	pthread_mutex_t		mutex;
+	pthread_cond_t		cond;
+	uint32_t		events_completed;
 };
 
 struct ibv_ah {
@@ -593,9 +606,23 @@ extern int ibv_close_device(struct ibv_context *context);
 
 /**
  * ibv_get_async_event - Get next async event
+ * @event: Pointer to use to return async event
+ *
+ * The event returned must eventually be released via ibv_put_async_event().
  */
 extern int ibv_get_async_event(struct ibv_context *context,
 			       struct ibv_async_event *event);
+
+/**
+ * ibv_put_async_event - Free an async event
+ * @event: Event to be released.
+ *
+ * All events which are returned by ib_get_async_event() must be
+ * released.  There should be a one-to-one correspondence between
+ * successful gets and puts.
+ */
+extern void ibv_put_async_event(struct ibv_async_event *event);
+
 
 /**
  * ibv_query_device - Get device properties

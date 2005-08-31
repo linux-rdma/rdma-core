@@ -50,6 +50,8 @@
 #  define OPENIB_DRIVER_PATH_ENV "OPENIB_DRIVER_PATH"
 #endif
 
+HIDDEN int abi_ver;
+
 static char default_path[] = DRIVER_PATH;
 static const char *user_path;
 
@@ -159,7 +161,6 @@ static int check_abi_version(void)
 {
 	char path[256];
 	char val[16];
-	int ver;
 
 	if (sysfs_get_mnt_path(path, sizeof path)) {
 		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
@@ -173,12 +174,13 @@ static int check_abi_version(void)
 		return -1;
 	}
 
-	ver = strtol(val, NULL, 10);
+	abi_ver = strtol(val, NULL, 10);
 
-	if (ver != IB_USER_VERBS_ABI_VERSION) {
+	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION ||
+	    abi_ver > IB_USER_VERBS_MAX_ABI_VERSION) {
 		fprintf(stderr, PFX "Fatal: kernel ABI version %d "
 			"doesn't match library version %d.\n",
-			ver, IB_USER_VERBS_ABI_VERSION);
+			abi_ver, IB_USER_VERBS_MAX_ABI_VERSION);
 		return -1;
 	}
 

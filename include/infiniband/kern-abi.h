@@ -44,10 +44,10 @@
  */
 
 /*
- * Increment this value if any changes that break userspace ABI
- * compatibility are made.
+ * The minimum and maximum kernel ABI that we can handle.
  */
-#define IB_USER_VERBS_ABI_VERSION	1
+#define IB_USER_VERBS_MIN_ABI_VERSION	1
+#define IB_USER_VERBS_MAX_ABI_VERSION	2
 
 enum {
 	IB_USER_VERBS_CMD_QUERY_PARAMS,
@@ -319,11 +319,23 @@ struct ibv_create_cq_resp {
 	__u32 cqe;
 };
 
-struct ibv_destroy_cq {
+struct ibv_destroy_cq_v1 {
 	__u32 command;
 	__u16 in_words;
 	__u16 out_words;
 	__u32 cq_handle;
+};
+
+struct ibv_destroy_cq {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 cq_handle;
+};
+
+struct ibv_destroy_cq_resp {
+	__u32 events_reported;
 };
 
 struct ibv_create_qp {
@@ -401,11 +413,23 @@ struct ibv_modify_qp {
 	__u64 driver_data[0];
 };
 
-struct ibv_destroy_qp {
+struct ibv_destroy_qp_v1 {
 	__u32 command;
 	__u16 in_words;
 	__u16 out_words;
 	__u32 qp_handle;
+};
+
+struct ibv_destroy_qp {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 qp_handle;
+};
+
+struct ibv_destroy_qp_resp {
+	__u32 events_reported;
 };
 
 struct ibv_attach_mcast {
@@ -460,11 +484,23 @@ struct ibv_modify_srq {
 	__u64 driver_data[0];
 };
 
-struct ibv_destroy_srq {
+struct ibv_destroy_srq_v1 {
 	__u32 command;
 	__u16 in_words;
 	__u16 out_words;
 	__u32 srq_handle;
+};
+
+struct ibv_destroy_srq {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 srq_handle;
+};
+
+struct ibv_destroy_srq_resp {
+	__u32 events_reported;
 };
 
 #endif /* KERN_ABI_H */

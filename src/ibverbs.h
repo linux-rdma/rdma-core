@@ -50,6 +50,8 @@ struct ibv_driver {
 	ibv_driver_init_func init_func;
 };
 
+extern HIDDEN int abi_ver;
+
 extern struct dlist *ibverbs_init(void);
 
 extern int ibv_init_mem_map(void);
