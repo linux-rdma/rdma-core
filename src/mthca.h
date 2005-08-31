@@ -297,7 +297,7 @@ extern struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
 				   size_t length, enum ibv_access_flags access);
 extern int mthca_dereg_mr(struct ibv_mr *mr);
 
-struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe);
+extern struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe);
 extern int mthca_destroy_cq(struct ibv_cq *cq);
 extern int mthca_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 extern int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);

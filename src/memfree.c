@@ -42,8 +42,10 @@
 
 #include "mthca.h"
 
+#define MTHCA_FREE_MAP_SIZE (MTHCA_DB_REC_PER_PAGE / (SIZEOF_LONG * 8))
+
 struct mthca_db_page {
-	unsigned long free[MTHCA_DB_REC_PER_PAGE / (SIZEOF_LONG * 8)];
+	unsigned long free[MTHCA_FREE_MAP_SIZE];
 	uint64_t     *db_rec;
 };
 
@@ -89,7 +91,7 @@ int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
 
 	for (i = start; i != end; i += dir)
 		if (db_tab->page[i].db_rec)
-			for (j = 0; j < MTHCA_DB_REC_PER_PAGE / SIZEOF_LONG; ++j)
+			for (j = 0; j < MTHCA_FREE_MAP_SIZE; ++j)
 				if (db_tab->page[i].free[j])
 					goto found;
 
@@ -113,7 +115,7 @@ int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
 		--db_tab->min_group2;
 
 found:
-	for (j = 0; j < MTHCA_DB_REC_PER_PAGE / SIZEOF_LONG; ++j) {
+	for (j = 0; j < MTHCA_FREE_MAP_SIZE; ++j) {
 		k = ffsl(db_tab->page[i].free[j]);
 		if (k)
 			break;
@@ -125,7 +127,7 @@ found:
 	}
 
 	--k;
-	db_tab->page[i].free[j] &= ~(1ULL << k);
+	db_tab->page[i].free[j] &= ~(1UL << k);
 
 	j = j * SIZEOF_LONG * 8 + k;
 	if (group == 1)

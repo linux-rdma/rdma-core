@@ -222,13 +222,13 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe)
 
 err_arm_db:
 	if (mthca_is_memfree(context))
-		mthca_free_db(to_mctx(context)->db_tab, MTHCA_DB_TYPE_CQ_SET_CI,
-			      cq->set_ci_db_index);
+		mthca_free_db(to_mctx(context)->db_tab, MTHCA_DB_TYPE_CQ_ARM,
+			      cq->arm_db_index);
 
 err_set_db:
 	if (mthca_is_memfree(context))
-		mthca_free_db(to_mctx(context)->db_tab, MTHCA_DB_TYPE_CQ_ARM,
-			      cq->arm_db_index);
+		mthca_free_db(to_mctx(context)->db_tab, MTHCA_DB_TYPE_CQ_SET_CI,
+			      cq->set_ci_db_index);
 
 err_unreg:
 	mthca_dereg_mr(cq->mr);
