@@ -34,6 +34,21 @@ Description: Development files for the libibverbs library
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
+Package: libibverbs1-dbg
+Section: libdevel
+Priority: extra
+Architecture: any
+Depends: libibverbs1 (= ${Source-Version})
+Description: Development files for the libmthca driver
+ libibverbs is a library that allows userspace processes to use
+ InfiniBand "verbs" as described in the InfiniBand Architecture
+ Specification.  This includes direct hardware access for fast path
+ operations.
+ .
+ This package contains the debugging symbols associated with
+ libibverbs1. They will automatically be used by gdb for debugging
+ libibverbs-related issues.
+
 Package: ibverbs-examples
 Section: net
 Architecture: any
