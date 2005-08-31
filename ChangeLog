@@ -5,7 +5,12 @@
 	examples/asyncwatch.h: Update to handle new kernel ABI for
 	avoiding stale asynchronous events.  When a CQ, QP or SRQ is
 	destroyed, the kernel reports the number of events it has given to
-	userspace, and we wait until we've handled the same number of events.
+	userspace, and we wait until we've handled the same number of
+	events.
+
+	This does introduce a library API change: consumers are now
+	required to call ibv_put_async_event() to release every
+	asynchronous event that they retrieve via ibv_get_async_event().
 
 2005-08-30  Roland Dreier  <roland@cisco.com>
 
