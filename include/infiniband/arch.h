@@ -44,6 +44,8 @@ static inline uint64_t ntohll(uint64_t x) { return bswap_64(x); }
 #elif __BYTE_ORDER == __BIG_ENDIAN
 static inline uint64_t htonll(uint64_t x) { return x; }
 static inline uint64_t ntohll(uint64_t x) { return x; }
+#else
+#error __BYTE_ORDER is neither __LITTLE_ENDIAN nor __BIG_ENDIAN
 #endif
 
 /*
