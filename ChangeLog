@@ -1,3 +1,8 @@
+2005-09-07  Roland Dreier  <roland@cisco.com>
+
+	* src/mthca.h: Get rid of ntohll() and htonll() now that
+	libibverbs defines them in <infiniband/arch.h>.
+
 2005-08-31  Roland Dreier  <roland@cisco.com>
 
 	* src/memfree.c (mthca_free_db): When we free a doorbell record,
