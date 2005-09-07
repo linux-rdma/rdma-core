@@ -1,3 +1,11 @@
+2005-09-07  Roland Dreier  <roland@cisco.com>
+
+	* src/device.c (ibv_get_device_guid): Use htonll() instead of
+	relying on pointer aliasing (which seems to break for some gcc
+	versions).
+
+	* include/infiniband/arch.h: Add htonll() and ntohll() functions.
+
 2005-09-06  Roland Dreier  <roland@cisco.com>
 
 	* include/infiniband/kern-abi.h, include/infiniband/verbs.h,

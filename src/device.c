@@ -44,6 +44,8 @@
 #include <unistd.h>
 #include <alloca.h>
 
+#include <infiniband/arch.h>
+
 #include "ibverbs.h"
 
 static struct dlist *device_list;
@@ -63,7 +65,8 @@ const char *ibv_get_device_name(struct ibv_device *device)
 uint64_t ibv_get_device_guid(struct ibv_device *device)
 {
 	struct sysfs_attribute *attr;
-	uint16_t guid[4];
+	uint64_t guid = 0;
+	uint16_t parts[4];
 	int i;
 
 	attr = sysfs_get_classdev_attr(device->ibdev, "node_guid");
@@ -71,13 +74,13 @@ uint64_t ibv_get_device_guid(struct ibv_device *device)
 		return 0;
 
 	if (sscanf(attr->value, "%hx:%hx:%hx:%hx",
-		   guid, guid + 1, guid + 2, guid + 3) != 4)
+		   parts, parts + 1, parts + 2, parts + 3) != 4)
 		return 0;
 
 	for (i = 0; i < 4; ++i)
-		guid[i] = htons(guid[i]);
+		guid = (guid << 16) | parts[i];
 
-	return *(uint64_t *) guid;
+	return htonll(guid);
 }
 
 struct ibv_context *ibv_open_device(struct ibv_device *device)
