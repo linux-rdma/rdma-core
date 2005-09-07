@@ -335,7 +335,8 @@ struct ibv_destroy_cq {
 };
 
 struct ibv_destroy_cq_resp {
-	__u32 events_reported;
+	__u32 comp_events_reported;
+	__u32 async_events_reported;
 };
 
 struct ibv_create_qp {

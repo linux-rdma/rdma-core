@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 		printf("  event_type %d, port %d\n", event.event_type,
 		       event.element.port_num);
 
-		ibv_put_async_event(&event);
+		ibv_ack_async_event(&event);
 	}
 
 	return 0;

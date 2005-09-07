@@ -171,7 +171,7 @@ int ibv_get_async_event(struct ibv_context *context,
 	return 0;
 }
 
-void ibv_put_async_event(struct ibv_async_event *event)
+void ibv_ack_async_event(struct ibv_async_event *event)
 {
 	switch (event->event_type) {
 	case IBV_EVENT_CQ_ERR:
@@ -179,7 +179,7 @@ void ibv_put_async_event(struct ibv_async_event *event)
 		struct ibv_cq *cq = event->element.cq;
 
 		pthread_mutex_lock(&cq->mutex);
-		++cq->events_completed;
+		++cq->async_events_completed;
 		pthread_cond_signal(&cq->cond);
 		pthread_mutex_unlock(&cq->mutex);
 

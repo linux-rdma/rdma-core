@@ -1,8 +1,16 @@
+2005-09-06  Roland Dreier  <roland@cisco.com>
+
+	* include/infiniband/kern-abi.h, include/infiniband/verbs.h,
+	src/cmd.c, src/device.c, src/verbs.c, examples/asyncwatch.c:
+	Update to handle new kernel ABI for avoiding stale completion
+	events.  This is completely analogous to the previous asynchronous
+	event change.
+
 2005-08-31  Roland Dreier  <roland@cisco.com>
 
 	* include/infiniband/kern-abi.h, include/infiniband/verbs.h,
 	src/cmd.c, src/device.c, src/ibverbs.h, src/init.c, src/verbs.c,
-	examples/asyncwatch.h: Update to handle new kernel ABI for
+	examples/asyncwatch.c: Update to handle new kernel ABI for
 	avoiding stale asynchronous events.  When a CQ, QP or SRQ is
 	destroyed, the kernel reports the number of events it has given to
 	userspace, and we wait until we've handled the same number of

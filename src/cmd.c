@@ -303,7 +303,8 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 		return errno;
 
 	pthread_mutex_lock(&cq->mutex);
-	while (cq->events_completed != resp.events_reported)
+	while (cq->comp_events_completed  != resp.comp_events_reported ||
+	       cq->async_events_completed != resp.async_events_reported)
 		pthread_cond_wait(&cq->cond, &cq->mutex);
 	pthread_mutex_unlock(&cq->mutex);
 

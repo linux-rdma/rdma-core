@@ -6,7 +6,7 @@ IBVERBS_1.0 {
 		ibv_open_device;
 		ibv_close_device;
 		ibv_get_async_event;
-		ibv_put_async_event;
+		ibv_ack_async_event;
 		ibv_query_device;
 		ibv_query_port;
 		ibv_query_gid;
@@ -18,6 +18,7 @@ IBVERBS_1.0 {
 		ibv_create_cq;
 		ibv_destroy_cq;
 		ibv_get_cq_event;
+		ibv_ack_cq_events;
 		ibv_create_srq;
 		ibv_modify_srq;
 		ibv_destroy_srq;

@@ -107,9 +107,10 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
 	struct ibv_cq *cq = context->ops.create_cq(context, cqe);
 
 	if (cq) {
-		cq->context    	     = context;
-		cq->cq_context 	     = cq_context;
-		cq->events_completed = 0;
+		cq->context    	     	   = context;
+		cq->cq_context 	     	   = cq_context;
+		cq->comp_events_completed  = 0;
+		cq->async_events_completed = 0;
 		pthread_mutex_init(&cq->mutex, NULL);
 		pthread_cond_init(&cq->cond, NULL);
 	}
@@ -141,6 +142,14 @@ int ibv_get_cq_event(struct ibv_context *context, int comp_num,
 		(*cq)->context->ops.cq_event(*cq);
 
 	return 0;
+}
+
+void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
+{
+	pthread_mutex_lock(&cq->mutex);
+	cq->comp_events_completed += nevents;
+	pthread_cond_signal(&cq->cond);
+	pthread_mutex_unlock(&cq->mutex);
 }
 
 struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,

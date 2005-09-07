@@ -502,7 +502,8 @@ struct ibv_cq {
 
 	pthread_mutex_t		mutex;
 	pthread_cond_t		cond;
-	uint32_t		events_completed;
+	uint32_t		comp_events_completed;
+	uint32_t		async_events_completed;
 };
 
 struct ibv_ah {
@@ -608,21 +609,22 @@ extern int ibv_close_device(struct ibv_context *context);
  * ibv_get_async_event - Get next async event
  * @event: Pointer to use to return async event
  *
- * The event returned must eventually be released via ibv_put_async_event().
+ * All async events returned by ibv_get_async_event() must eventually
+ * be acknowledged with ibv_ack_async_event().
  */
 extern int ibv_get_async_event(struct ibv_context *context,
 			       struct ibv_async_event *event);
 
 /**
- * ibv_put_async_event - Free an async event
- * @event: Event to be released.
+ * ibv_ack_async_event - Free an async event
+ * @event: Event to be acknowledged.
  *
- * All events which are returned by ib_get_async_event() must be
- * released.  There should be a one-to-one correspondence between
- * successful gets and puts.
+ * All async events which are returned by ibv_get_async_event() must
+ * be acknowledged.  Destroying an object (CQ, SRQ or QP) will wait
+ * for all affiliated events to be acknowledged, so there should be a
+ * one-to-one correspondence between acks and successful gets.
  */
-extern void ibv_put_async_event(struct ibv_async_event *event);
-
+extern void ibv_ack_async_event(struct ibv_async_event *event);
 
 /**
  * ibv_query_device - Get device properties
@@ -682,10 +684,31 @@ extern int ibv_destroy_cq(struct ibv_cq *cq);
 
 /**
  * ibv_get_cq_event - Read next CQ event
+ * @context: Context to get CQ event for
+ * @comp_num: Index of completion event to check.  Must be >= 0 and
+ *   <= context->num_comp.
+ * @cq: Used to return pointer to CQ.
+ * @cq_context: Used to return consumer-supplied CQ context.
+ *
+ * All completion events returned by ibv_get_cq_event() must
+ * eventually be acknowledged with ibv_ack_cq_events().
  */
 extern int ibv_get_cq_event(struct ibv_context *context, int comp_num,
 			    struct ibv_cq **cq, void **cq_context);
- 
+
+/**
+ * ibv_ack_cq_events - Free an async event
+ * @cq: CQ to acknowledge events for
+ * @nevents: Number of events to acknowledge.
+ *
+ * All completion events which are returned by ibv_get_cq_event() must
+ * be acknowledged.  ibv_destroy_cq() will wait for all completion
+ * events to be acknowledged, so there should be a one-to-one
+ * correspondence between acks and successful gets.  An application
+ * may accumulate multiple completion events and acknowledge them in a
+ * single call by passing the number of events to ack in @nevents.
+ */
+extern void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
 
 /**
  * ibv_poll_cq - Poll a CQ for work completions
