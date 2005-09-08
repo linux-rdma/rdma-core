@@ -779,7 +779,7 @@ static void cm_event_sidr_rep_get(struct ib_cm_sidr_rep_event_param *urep,
 	urep->qpn    = krep->qpn;
 };
 
-int ib_cm_event_get(struct ib_cm_event **event)
+int ib_cm_get_event(struct ib_cm_event **event)
 {
 	struct cm_id_private *cm_id_priv;
 	struct cm_abi_cmd_hdr *hdr;
@@ -948,7 +948,7 @@ done:
 	return result;
 }
 
-int ib_cm_event_put(struct ib_cm_event *event)
+int ib_cm_ack_event(struct ib_cm_event *event)
 {
 	struct cm_id_private *cm_id_priv;
 
@@ -1004,7 +1004,7 @@ int ib_cm_get_fd(void)
 	return fd;
 }
 
-int ib_cm_event_get_timed(int timeout_ms, struct ib_cm_event **event)
+int ib_cm_get_event_timed(int timeout_ms, struct ib_cm_event **event)
 {
 	struct pollfd ufds;
 	int result;
@@ -1025,5 +1025,5 @@ int ib_cm_event_get_timed(int timeout_ms, struct ib_cm_event **event)
 	if (result < 0)
 		return result;
 
-	return ib_cm_event_get(event);
+	return ib_cm_get_event(event);
 }

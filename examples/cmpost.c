@@ -526,10 +526,10 @@ static void connect_events(void)
 	int err = 0;
 
 	while (test.connects_left && !err) {
-		err = ib_cm_event_get(&event);
+		err = ib_cm_get_event(&event);
 		if (!err) {
 			cm_handler(event->cm_id, event);
-			ib_cm_event_put(event);
+			ib_cm_ack_event(event);
 		}
 	}
 }
@@ -540,10 +540,10 @@ static void disconnect_events(void)
 	int err = 0;
 
 	while (test.disconnects_left && !err) {
-		err = ib_cm_event_get(&event);
+		err = ib_cm_get_event(&event);
 		if (!err) {
 			cm_handler(event->cm_id, event);
-			ib_cm_event_put(event);
+			ib_cm_ack_event(event);
 		}
 	}
 }

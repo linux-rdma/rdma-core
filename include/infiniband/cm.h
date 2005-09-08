@@ -237,10 +237,10 @@ struct ib_cm_event {
 };
 
 /**
- * ib_cm_event_get - Retrieves the next pending communications event,
+ * ib_cm_get_event - Retrieves the next pending communications event,
  *   if no event is pending waits for an event.
  * @event: Allocated information about the next communication event.
- *    Event should be freed using ib_cm_event_put()
+ *    Event should be freed using ib_cm_ack_event()
  *
  * IB_CM_REQ_RECEIVED and IB_CM_SIDR_REQ_RECEIVED communication events 
  * generated as a result of listen requests result in the allocation of a 
@@ -249,29 +249,29 @@ struct ib_cm_event {
  * IB_CM_REQ_RECEIVED and all other events, the returned @cm_id corresponds
  * to a user's existing communication identifier.
  */
-int ib_cm_event_get(struct ib_cm_event **event);
+int ib_cm_get_event(struct ib_cm_event **event);
 
 /**
- * ib_cm_event_get_timed - Retrieves the next pending communications event,
+ * ib_cm_get_event_timed - Retrieves the next pending communications event,
  *   if no event is pending wait up to a certain timeout for an event.
  * @timeout_ms: Maximum time in milliseconds to wait for an event.
  * @event: Allocated information about the next communication event.
- *    Event should be freed using ib_cm_event_put()
+ *    Event should be freed using ib_cm_ack_event()
  *
  * If timeout expires without an event, the error -ETIMEDOUT will be
  * returned
  */
-int ib_cm_event_get_timed(int timeout_ms, struct ib_cm_event **event);
+int ib_cm_get_event_timed(int timeout_ms, struct ib_cm_event **event);
 
 /**
- * ib_cm_event_put - Free a communications event.
+ * ib_cm_ack_event - Free a communications event.
  * @event: Event to be released.
  *
- * All events which are allocated by ib_cm_event_get() must be released,
+ * All events which are allocated by ib_cm_get_event() must be released,
  * there should be a one-to-one correspondence between successful gets
  * and puts.
  */
-int ib_cm_event_put(struct ib_cm_event *event);
+int ib_cm_ack_event(struct ib_cm_event *event);
 
 /**
  * ib_cm_get_fd - Returns the file descriptor which the CM uses to
@@ -279,7 +279,7 @@ int ib_cm_event_put(struct ib_cm_event *event);
  *
  * The primary use of the file descriptor is to test for CM readiness
  * events. When the CM becomes ready to READ there is a pending event
- * ready, and a subsequent call to ib_cm_event_get will not block.
+ * ready, and a subsequent call to ib_cm_get_event will not block.
  * Note: The user should not read or write directly to the CM file
  *       descriptor, it will likely result in an error or unexpected
  *       results.

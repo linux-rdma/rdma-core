@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 
 	while (!status) {
 
-		result = ib_cm_event_get(&event);
+		result = ib_cm_get_event(&event);
 		if (result) {
 			printf("Error <%d:%d> getting event\n", 
 			       result, errno);
@@ -246,7 +246,7 @@ int main(int argc, char **argv)
 			break;
 		}
 
-		result = ib_cm_event_put(event);
+		result = ib_cm_ack_event(event);
 		if (result) {
 			printf("Error <%d:%d> freeing event\n", 
 			       result, errno);
