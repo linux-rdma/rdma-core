@@ -332,6 +332,7 @@ struct ibv_destroy_cq {
 	__u16 out_words;
 	__u64 response;
 	__u32 cq_handle;
+	__u32 reserved;
 };
 
 struct ibv_destroy_cq_resp {
@@ -427,6 +428,7 @@ struct ibv_destroy_qp {
 	__u16 out_words;
 	__u64 response;
 	__u32 qp_handle;
+	__u32 reserved;
 };
 
 struct ibv_destroy_qp_resp {
@@ -498,6 +500,7 @@ struct ibv_destroy_srq {
 	__u16 out_words;
 	__u64 response;
 	__u32 srq_handle;
+	__u32 reserved;
 };
 
 struct ibv_destroy_srq_resp {
