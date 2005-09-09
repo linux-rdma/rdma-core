@@ -34,7 +34,7 @@ EXTRA_DIST = include/infiniband/cm_abi.h \
 	     include/infiniband/cm.h \
 	     include/infiniband/sa.h \
 	     src/libibcm.map \
-	     libibverbs.spec.in
+	     libibcm.spec.in
 
 dist-hook: libibcm.spec
 	cp libibcm.spec $(distdir)
