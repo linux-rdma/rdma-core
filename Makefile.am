@@ -16,7 +16,7 @@ else
 endif
 
 src_libibcm_la_SOURCES = src/cm.c
-src_libibcm_la_LDFLAGS = -avoid-version -module $(ucm_version_script)
+src_libibcm_la_LDFLAGS = -avoid-version $(ucm_version_script)
 
 bin_PROGRAMS = examples/ucmpost
 examples_ucmpost_SOURCES = examples/cmpost.c
