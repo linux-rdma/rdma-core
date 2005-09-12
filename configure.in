@@ -13,10 +13,16 @@ dnl Checks for programs
 AC_PROG_CC
 
 dnl Checks for libraries
+AC_CHECK_LIB(ibverbs, ibv_get_devices, [],
+    AC_MSG_ERROR([ibv_get_devices() not found.  libibcm requires libibcm.]))
+AC_CHECK_LIB(ibat, ib_at_route_by_ip, [],
+    AC_MSG_ERROR([ib_at_route_by_ip() not found.  libibcm requires libat.]))
 
 dnl Checks for header files.
 AC_CHECK_HEADER(infiniband/verbs.h, [],
     AC_MSG_ERROR([<infiniband/verbs.h> not found.  Is libibverbs installed?]))
+AC_CHECK_HEADER(infiniband/at.h, [],
+    AC_MSG_ERROR([<infiniband/at.h> not found.  Is libibat installed?]))
 AC_HEADER_STDC
 
 dnl Checks for typedefs, structures, and compiler characteristics.
