@@ -762,7 +762,7 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	}
 
 	qp->sq.last = get_send_wqe(qp, qp->sq.max - 1);
-	qp->rq.last = get_recv_wqe(qp, qp->sq.max - 1);
+	qp->rq.last = get_recv_wqe(qp, qp->rq.max - 1);
 
 	return 0;
 }
