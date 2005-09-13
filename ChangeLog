@@ -1,3 +1,12 @@
+2005-09-13  Roland Dreier  <roland@cisco.com>
+
+	* src/qp.c (mthca_tavor_post_send, mthca_tavor_post_recv,
+	mthca_arbel_post_send), src/srq.c (mthca_tavor_post_srq_recv):
+	Apply Michael S. Tsirkin's patch to fix linking of WQEs on
+	mem-free HCAs.  While we're at it, simplify the Tavor WQE posting
+	code as well -- there's no need for a conditional, just always lik
+	the previous WQE.
+
 2005-09-07  Roland Dreier  <roland@cisco.com>
 
 	* src/mthca.h: Get rid of ntohll() and htonll() now that

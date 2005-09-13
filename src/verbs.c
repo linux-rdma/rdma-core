@@ -306,7 +306,6 @@ struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 
 	srq->max     = align_queue_size(pd->context, attr->attr.max_wr, 1);
 	srq->max_gs  = attr->attr.max_sge;
-	srq->last    = NULL;
 	srq->counter = 0;
 
 	if (mthca_alloc_srq_buf(pd, &attr->attr, srq))
@@ -413,14 +412,12 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	qp->sq.last_comp = qp->sq.max - 1;
 	qp->sq.head    	 = 0;
 	qp->sq.tail    	 = 0;
-	qp->sq.last      = NULL;
 
 	qp->rq.max       = align_queue_size(pd->context, attr->cap.max_recv_wr, 0);
 	qp->rq.next_ind	 = 0;
 	qp->rq.last_comp = qp->rq.max - 1;
 	qp->rq.head    	 = 0;
 	qp->rq.tail    	 = 0;
-	qp->rq.last      = NULL;
 
 	if (mthca_alloc_qp_buf(pd, &attr->cap, qp))
 		goto err;

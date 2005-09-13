@@ -142,13 +142,11 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 			((struct mthca_data_seg *) wqe)->addr = 0;
 		}
 
-		if (prev_wqe) {
-			((struct mthca_next_seg *) prev_wqe)->nda_op =
-				htonl((ind << srq->wqe_shift) | 1);
-			mb();
-			((struct mthca_next_seg *) prev_wqe)->ee_nds =
-				htonl(MTHCA_NEXT_DBD);
-		}
+		((struct mthca_next_seg *) prev_wqe)->nda_op =
+			htonl((ind << srq->wqe_shift) | 1);
+		mb();
+		((struct mthca_next_seg *) prev_wqe)->ee_nds =
+			htonl(MTHCA_NEXT_DBD);
 
 		srq->wrid[ind]  = wr->wr_id;
 		srq->first_free = next_ind;
@@ -294,6 +292,7 @@ int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 
 	srq->first_free = 0;
 	srq->last_free  = srq->max - 1;
+	srq->last       = get_wqe(srq, srq->max - 1);
 
 	return 0;
 }

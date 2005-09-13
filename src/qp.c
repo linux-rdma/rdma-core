@@ -259,15 +259,13 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		if (prev_wqe) {
-			((struct mthca_next_seg *) prev_wqe)->nda_op =
-				htonl(((ind << qp->sq.wqe_shift) +
-				       qp->send_wqe_offset) |
-				      mthca_opcode[wr->opcode]);
+		((struct mthca_next_seg *) prev_wqe)->nda_op =
+			htonl(((ind << qp->sq.wqe_shift) +
+			       qp->send_wqe_offset) |
+			      mthca_opcode[wr->opcode]);
 
-			((struct mthca_next_seg *) prev_wqe)->ee_nds =
-				htonl((size0 ? 0 : MTHCA_NEXT_DBD) | size);
-		}
+		((struct mthca_next_seg *) prev_wqe)->ee_nds =
+			htonl((size0 ? 0 : MTHCA_NEXT_DBD) | size);
 
 		if (!size0) {
 			size0 = size;
@@ -353,12 +351,10 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		qp->wrid[ind] = wr->wr_id;
 
-		if (prev_wqe) {
-			((struct mthca_next_seg *) prev_wqe)->nda_op =
-				htonl((ind << qp->rq.wqe_shift) | 1);
-			((struct mthca_next_seg *) prev_wqe)->ee_nds =
-				htonl(MTHCA_NEXT_DBD | size);
-		}
+		((struct mthca_next_seg *) prev_wqe)->nda_op =
+			htonl((ind << qp->rq.wqe_shift) | 1);
+		((struct mthca_next_seg *) prev_wqe)->ee_nds =
+			htonl(MTHCA_NEXT_DBD | size);
 
 		if (!size0)
 			size0 = size;
@@ -562,15 +558,13 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		if (prev_wqe) {
-			((struct mthca_next_seg *) prev_wqe)->nda_op =
-				htonl(((ind << qp->sq.wqe_shift) +
-				       qp->send_wqe_offset) |
-				      mthca_opcode[wr->opcode]);
-			mb();
-			((struct mthca_next_seg *) prev_wqe)->ee_nds =
-				htonl(MTHCA_NEXT_DBD | size);
-		}
+		((struct mthca_next_seg *) prev_wqe)->nda_op =
+			htonl(((ind << qp->sq.wqe_shift) +
+			       qp->send_wqe_offset) |
+			      mthca_opcode[wr->opcode]);
+		mb();
+		((struct mthca_next_seg *) prev_wqe)->ee_nds =
+			htonl(MTHCA_NEXT_DBD | size);
 
 		if (!size0) {
 			size0 = size;
@@ -766,6 +760,9 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 					     qp->send_wqe_offset);
 		}
 	}
+
+	qp->sq.last = get_send_wqe(qp, qp->sq.max - 1);
+	qp->rq.last = get_recv_wqe(qp, qp->sq.max - 1);
 
 	return 0;
 }
