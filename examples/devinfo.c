@@ -176,7 +176,7 @@ static const char *fw_ver_str(u_int64_t fw_ver, char *str)
 	major = (fw_ver >> 32) & 0xffff;
 	minor = (fw_ver >> 16) & 0xffff;
 	sub_minor = fw_ver & 0xffff;
-	sprintf(str, "%d.%d.%d", major, minor, sub_minor);
+	sprintf(str, "%x.%x.%x", major, minor, sub_minor);
 	return str;
 }
 
