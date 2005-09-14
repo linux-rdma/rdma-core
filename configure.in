@@ -12,6 +12,10 @@ AM_PROG_LIBTOOL
 dnl Checks for programs
 AC_PROG_CC
 
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_CHECK_SIZEOF(long)
+
 dnl Checks for libraries
 AC_CHECK_LIB(ibverbs, ibv_get_devices, [],
     AC_MSG_ERROR([ibv_get_devices() not found.  libibcm requires libibcm.]))
@@ -24,10 +28,6 @@ AC_CHECK_HEADER(infiniband/verbs.h, [],
 AC_CHECK_HEADER(infiniband/at.h, [],
     AC_MSG_ERROR([<infiniband/at.h> not found.  Is libibat installed?]))
 AC_HEADER_STDC
-
-dnl Checks for typedefs, structures, and compiler characteristics.
-AC_C_CONST
-AC_CHECK_SIZEOF(long)
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
