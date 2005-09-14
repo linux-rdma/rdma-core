@@ -45,6 +45,7 @@
 
 #include <umad.h>
 #include <mad.h>
+#include <infiniband/common.h>
 
 
 #undef DEBUG

@@ -36,7 +36,6 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <infiniband/common.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
