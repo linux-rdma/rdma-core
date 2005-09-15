@@ -77,13 +77,21 @@ enum ib_cm_data_size {
 	IB_CM_SIDR_REP_INFO_LENGTH	 = 72
 };
 
+struct ib_cm_device {
+	uint64_t guid;
+	int	 fd;
+};
+
 struct ib_cm_id {
 	void			*context;
+	struct ibv_context	*device_context;
+	struct ib_cm_device	*device;
 	uint32_t		handle;
 };
 
 struct ib_cm_req_event_param {
 	struct ib_cm_id		*listen_id;
+	uint8_t			port;
 
 	struct ib_sa_path_rec	*primary_path;
 	struct ib_sa_path_rec	*alternate_path;
@@ -193,7 +201,6 @@ struct ib_cm_apr_event_param {
 
 struct ib_cm_sidr_req_event_param {
 	struct ib_cm_id	 *listen_id;
-	struct ib_device *device;
 	uint8_t		  port;
 	uint16_t          pkey;
 };
@@ -239,6 +246,7 @@ struct ib_cm_event {
 /**
  * ib_cm_get_event - Retrieves the next pending communications event,
  *   if no event is pending waits for an event.
+ * @device: CM device to retrieve the event.
  * @event: Allocated information about the next communication event.
  *    Event should be freed using ib_cm_ack_event()
  *
@@ -249,19 +257,7 @@ struct ib_cm_event {
  * IB_CM_REQ_RECEIVED and all other events, the returned @cm_id corresponds
  * to a user's existing communication identifier.
  */
-int ib_cm_get_event(struct ib_cm_event **event);
-
-/**
- * ib_cm_get_event_timed - Retrieves the next pending communications event,
- *   if no event is pending wait up to a certain timeout for an event.
- * @timeout_ms: Maximum time in milliseconds to wait for an event.
- * @event: Allocated information about the next communication event.
- *    Event should be freed using ib_cm_ack_event()
- *
- * If timeout expires without an event, the error -ETIMEDOUT will be
- * returned
- */
-int ib_cm_get_event_timed(int timeout_ms, struct ib_cm_event **event);
+int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event);
 
 /**
  * ib_cm_ack_event - Free a communications event.
@@ -272,19 +268,21 @@ int ib_cm_get_event_timed(int timeout_ms, struct ib_cm_event **event);
  * and puts.
  */
 int ib_cm_ack_event(struct ib_cm_event *event);
-
+ 
 /**
- * ib_cm_get_fd - Returns the file descriptor which the CM uses to
- *   submit requests and retrieve events.
+ * ib_cm_get_device - Returns the device the CM uses to submit requests
+ *   and retrieve events that corresponds to the specified verbs device.
  *
- * The primary use of the file descriptor is to test for CM readiness
- * events. When the CM becomes ready to READ there is a pending event
- * ready, and a subsequent call to ib_cm_get_event will not block.
+ * The CM device contains the file descriptor that the CM uses to
+ * communicate with the kernel CM component.  The primary use of the
+ * file descriptor is to test for CM readiness events. When the CM
+ * becomes ready to READ there is a pending event ready, and a subsequent
+ * call to ib_cm_get_event will not block.
  * Note: The user should not read or write directly to the CM file
  *       descriptor, it will likely result in an error or unexpected
  *       results.
  */
-int ib_cm_get_fd(void);
+struct ib_cm_device* ib_cm_get_device(struct ibv_context *device_context);
 
 /**
  * ib_cm_create_id - Allocate a communication identifier.
@@ -292,7 +290,8 @@ int ib_cm_get_fd(void);
  * Communication identifiers are used to track connection states, service
  * ID resolution requests, and listen requests.
  */
-int ib_cm_create_id(struct ib_cm_id **cm_id, void *context);
+int ib_cm_create_id(struct ibv_context *device_context,
+		    struct ib_cm_id **cm_id, void *context);
 
 /**
  * ib_cm_destroy_id - Destroy a connection identifier.

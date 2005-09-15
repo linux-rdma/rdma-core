@@ -47,12 +47,21 @@
 #include <poll.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <endian.h>
+#include <byteswap.h>
 
 #include <infiniband/cm.h>
 #include <infiniband/cm_abi.h>
 
-#define IB_UCM_DEV_PATH "/dev/infiniband/ucm"
-#define PFX "libucm: "
+#define PFX "libibcm: "
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+static inline uint64_t htonll(uint64_t x) { return bswap_64(x); }
+static inline uint64_t ntohll(uint64_t x) { return bswap_64(x); }
+#else
+static inline uint64_t htonll(uint64_t x) { return x; }
+static inline uint64_t ntohll(uint64_t x) { return x; }
+#endif
 
 #define CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, type, size) \
 do {                                        \
@@ -97,19 +106,164 @@ struct cm_id_private {
 	pthread_mutex_t mut;
 };
 
-static int fd;
+static struct dlist *device_list;
 
 #define container_of(ptr, type, field) \
 	((type *) ((void *)ptr - offsetof(type, field)))
 
+static int check_abi_version(void)
+{
+	char path[256];
+	char val[16];
+	int abi_ver;
+
+	if (sysfs_get_mnt_path(path, sizeof path)) {
+		fprintf(stderr, PFX "couldn't find sysfs mount.\n");
+		return -1;
+	}
+
+	strncat(path, "/class/infiniband_cm/abi_version", sizeof path);
+	if (sysfs_read_attribute_value(path, val, sizeof val)) {
+		fprintf(stderr, PFX "couldn't read ucm ABI version.\n");
+		return -1;
+	}
+
+	abi_ver = strtol(val, NULL, 10);
+	if (abi_ver < IB_USER_CM_MIN_ABI_VERSION ||
+	    abi_ver > IB_USER_CM_MAX_ABI_VERSION) {
+		fprintf(stderr, PFX "kernel ABI version %d "
+			"doesn't match library version %d.\n",
+			abi_ver, IB_USER_CM_MAX_ABI_VERSION);
+		return -1;
+	}
+	return 0;
+}
+
+static uint64_t get_device_guid(struct sysfs_class_device *ibdev)
+{
+	struct sysfs_attribute *attr;
+	uint64_t guid = 0;
+	uint16_t parts[4];
+	int i;
+
+	attr = sysfs_get_classdev_attr(ibdev, "node_guid");
+	if (!attr)
+		return 0;
+
+	if (sscanf(attr->value, "%hx:%hx:%hx:%hx",
+		   parts, parts + 1, parts + 2, parts + 3) != 4)
+		return 0;
+
+	for (i = 0; i < 4; ++i)
+		guid = (guid << 16) | parts[i];
+
+	return htonll(guid);
+}
+
+static struct ib_cm_device* open_device(struct sysfs_class_device *cm_dev)
+{
+	struct sysfs_class_device *ib_dev;
+	struct sysfs_attribute *attr;
+	struct ib_cm_device *dev;
+	char ibdev_name[64];
+	char *devpath;
+
+	dev = malloc(sizeof *dev);
+	if (!dev)
+		return NULL;
+
+	attr = sysfs_get_classdev_attr(cm_dev, "ibdev");
+	if (!attr) {
+		fprintf(stderr, PFX "no ibdev class attr for %s\n",
+			cm_dev->name);
+		goto err;
+	}
+
+	sscanf(attr->value, "%63s", ibdev_name);
+	ib_dev = sysfs_open_class_device("infiniband", ibdev_name);
+	if (!ib_dev)
+		goto err;
+
+	dev->guid = get_device_guid(ib_dev);
+	sysfs_close_class_device(ib_dev);
+	if (!dev->guid)
+		goto err;
+
+	asprintf(&devpath, "/dev/infiniband/%s", cm_dev->name);
+	dev->fd = open(devpath, O_RDWR);
+	if (dev->fd < 0) {
+		fprintf(stderr, PFX "error <%d:%d> opening device <%s>\n",
+			dev->fd, errno, devpath);
+		goto err;
+	}
+	return dev;
+err:
+	free(dev);
+	return NULL;
+}
+
 static void __attribute__((constructor)) ib_cm_init(void)
 {
-	fd = open(IB_UCM_DEV_PATH, O_RDWR);
-        if (fd < 0)
-		fprintf(stderr, PFX
-			"Error <%d:%d> couldn't open IB cm device <%s>\n",
-			fd, errno, IB_UCM_DEV_PATH);
+	struct sysfs_class *cls;
+	struct dlist *cm_dev_list;
+	struct sysfs_class_device *cm_dev;
+	struct ib_cm_device *dev;
 
+	device_list = dlist_new(sizeof(struct ib_cm_device));
+	if (!device_list) {
+		fprintf(stderr, PFX "couldn't allocate device list.\n");
+		abort();
+	}
+
+	cls = sysfs_open_class("infiniband_cm");
+	if (!cls) {
+		fprintf(stderr, PFX "couldn't open 'infiniband_cm'.\n");
+		goto err;
+	}
+
+	if (check_abi_version())
+		goto err;
+
+	cm_dev_list = sysfs_get_class_devices(cls);
+	if (!cm_dev_list) {
+		fprintf(stderr, PFX "no class devices found.\n");
+		goto err;
+	}
+
+	dlist_for_each_data(cm_dev_list, cm_dev, struct sysfs_class_device) {
+		dev = open_device(cm_dev);
+		if (dev)
+			dlist_push(device_list, dev);
+	}
+	return;
+err:
+	sysfs_close_class(cls);
+}
+
+static void __attribute__((destructor)) ib_cm_fini(void)
+{
+	struct ib_cm_device *dev;
+
+	if (!device_list)
+		return;
+
+	dlist_for_each_data(device_list, dev, struct ib_cm_device)
+		close(dev->fd);
+	
+	dlist_destroy(device_list);
+}
+
+struct ib_cm_device* ib_cm_get_device(struct ibv_context *device_context)
+{
+	struct ib_cm_device *dev;
+	uint64_t guid;
+
+	guid = ibv_get_device_guid(device_context->device);
+	dlist_for_each_data(device_list, dev, struct ib_cm_device)
+		if (dev->guid == guid)
+			return dev;
+
+	return NULL;
 }
 
 static void cm_param_path_get(struct cm_abi_path_rec *abi,
@@ -146,7 +300,8 @@ static void ib_cm_free_id(struct cm_id_private *cm_id_priv)
 	free(cm_id_priv);
 }
 
-static struct cm_id_private *ib_cm_alloc_id(void *context)
+static struct cm_id_private *ib_cm_alloc_id(struct ibv_context *device_context,
+					    void *context)
 {
 	struct cm_id_private *cm_id_priv;
 
@@ -155,9 +310,14 @@ static struct cm_id_private *ib_cm_alloc_id(void *context)
 		return NULL;
 
 	memset(cm_id_priv, 0, sizeof *cm_id_priv);
+	cm_id_priv->id.device_context = device_context;
 	cm_id_priv->id.context = context;
 	pthread_mutex_init(&cm_id_priv->mut, NULL);
 	if (pthread_cond_init(&cm_id_priv->cond, NULL))
+		goto err;
+
+	cm_id_priv->id.device = ib_cm_get_device(device_context);
+	if (!cm_id_priv->id.device)
 		goto err;
 
 	return cm_id_priv;
@@ -166,7 +326,8 @@ err:	ib_cm_free_id(cm_id_priv);
 	return NULL;
 }
 
-int ib_cm_create_id(struct ib_cm_id **cm_id, void *context)
+int ib_cm_create_id(struct ibv_context *device_context,
+		    struct ib_cm_id **cm_id, void *context)
 {
 	struct cm_abi_create_id_resp *resp;
 	struct cm_abi_create_id *cmd;
@@ -175,14 +336,14 @@ int ib_cm_create_id(struct ib_cm_id **cm_id, void *context)
 	int result;
 	int size;
 
-	cm_id_priv = ib_cm_alloc_id(context);
+	cm_id_priv = ib_cm_alloc_id(device_context, context);
 	if (!cm_id_priv)
 		return -ENOMEM;
 
 	CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, IB_USER_CM_CMD_CREATE_ID, size);
 	cmd->uid = (uintptr_t) cm_id_priv;
 
-	result = write(fd, msg, size);
+	result = write(cm_id_priv->id.device->fd, msg, size);
 	if (result != size)
 		goto err;
 
@@ -206,7 +367,7 @@ int ib_cm_destroy_id(struct ib_cm_id *cm_id)
 	CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, IB_USER_CM_CMD_DESTROY_ID, size);
 	cmd->id = cm_id->handle;
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -235,7 +396,7 @@ int ib_cm_attr_id(struct ib_cm_id *cm_id, struct ib_cm_attr_param *param)
 	CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, IB_USER_CM_CMD_ATTR_ID, size);
 	cmd->id = cm_id->handle;
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -317,7 +478,7 @@ int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
 	cmd->id = cm_id->handle;
 	cmd->qp_state = qp_attr->qp_state;
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -341,7 +502,7 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 	cmd->service_id   = service_id;
 	cmd->service_mask = service_mask;
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -400,7 +561,7 @@ int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 		cmd->len  = param->private_data_len;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -435,7 +596,7 @@ int ib_cm_send_rep(struct ib_cm_id *cm_id, struct ib_cm_rep_param *param)
 		cmd->len  = param->private_data_len;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -460,7 +621,7 @@ static inline int cm_send_private_data(struct ib_cm_id *cm_id,
 		cmd->len  = private_data_len;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -501,7 +662,7 @@ int ib_cm_establish(struct ib_cm_id *cm_id)
 	CM_CREATE_MSG_CMD(msg, cmd, IB_USER_CM_CMD_ESTABLISH, size);
 	cmd->id = cm_id->handle;
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -535,7 +696,7 @@ static inline int cm_send_status(struct ib_cm_id *cm_id,
 		cmd->info_len = info_length;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -585,7 +746,7 @@ int ib_cm_send_mra(struct ib_cm_id *cm_id,
 		cmd->len  = private_data_len;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -620,7 +781,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		cmd->len  = private_data_len;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -660,7 +821,7 @@ int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 		cmd->len  = param->private_data_len;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -694,7 +855,7 @@ int ib_cm_send_sidr_rep(struct ib_cm_id *cm_id,
 		cmd->info_len = param->info_length;
 	}
 
-	result = write(fd, msg, size);
+	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
@@ -750,6 +911,7 @@ static void cm_event_req_get(struct ib_cm_req_event_param *ureq,
 	ureq->retry_count                = kreq->retry_count;
 	ureq->rnr_retry_count            = kreq->rnr_retry_count;
 	ureq->srq                        = kreq->srq;
+	ureq->port			 = kreq->port;
 
 	cm_event_path_get(ureq->primary_path, &kreq->primary_path);
 	cm_event_path_get(ureq->alternate_path, &kreq->alternate_path);
@@ -779,7 +941,7 @@ static void cm_event_sidr_rep_get(struct ib_cm_sidr_rep_event_param *urep,
 	urep->qpn    = krep->qpn;
 };
 
-int ib_cm_get_event(struct ib_cm_event **event)
+int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 {
 	struct cm_id_private *cm_id_priv;
 	struct cm_abi_cmd_hdr *hdr;
@@ -832,7 +994,7 @@ int ib_cm_get_event(struct ib_cm_event **event)
 	cmd->data = (uintptr_t) data;
 	cmd->info = (uintptr_t) info;
 
-	result = write(fd, msg, size);
+	result = write(device->fd, msg, size);
 	if (result != size) {
 		result = (result > 0) ? -ENODATA : result;
 		goto done;
@@ -868,7 +1030,8 @@ int ib_cm_get_event(struct ib_cm_event **event)
 	switch (evt->event) {
 	case IB_CM_REQ_RECEIVED:
 		evt->param.req_rcvd.listen_id = evt->cm_id;
-		cm_id_priv = ib_cm_alloc_id(evt->cm_id->context);
+		cm_id_priv = ib_cm_alloc_id(evt->cm_id->device_context,
+					    evt->cm_id->context);
 		if (!cm_id_priv) {
 			result = -ENOMEM;
 			goto done;
@@ -905,7 +1068,8 @@ int ib_cm_get_event(struct ib_cm_event **event)
 		break;
 	case IB_CM_SIDR_REQ_RECEIVED:
 		evt->param.sidr_req_rcvd.listen_id = evt->cm_id;
-		cm_id_priv = ib_cm_alloc_id(evt->cm_id->context);
+		cm_id_priv = ib_cm_alloc_id(evt->cm_id->device_context,
+					    evt->cm_id->context);
 		if (!cm_id_priv) {
 			result = -ENOMEM;
 			goto done;
@@ -913,6 +1077,7 @@ int ib_cm_get_event(struct ib_cm_event **event)
 		cm_id_priv->id.handle = resp->id;
 		evt->cm_id = &cm_id_priv->id;
 		evt->param.sidr_req_rcvd.pkey = resp->u.sidr_req_resp.pkey;
+		evt->param.sidr_req_rcvd.port = resp->u.sidr_req_resp.port;
 		break;
 	case IB_CM_SIDR_REP_RECEIVED:
 		cm_event_sidr_rep_get(&evt->param.sidr_rep_rcvd,
@@ -997,33 +1162,4 @@ int ib_cm_ack_event(struct ib_cm_event *event)
 
 	free(event);
 	return 0;
-}
-
-int ib_cm_get_fd(void)
-{
-	return fd;
-}
-
-int ib_cm_get_event_timed(int timeout_ms, struct ib_cm_event **event)
-{
-	struct pollfd ufds;
-	int result;
-
-	if (!event)
-		return -EINVAL;
-
-	ufds.fd      = ib_cm_get_fd();
-	ufds.events  = POLLIN;
-	ufds.revents = 0;
-
-	*event = NULL;
-
-	result = poll(&ufds, 1, timeout_ms);
-	if (!result)
-		return -ETIMEDOUT;
-
-	if (result < 0)
-		return result;
-
-	return ib_cm_get_event(event);
 }

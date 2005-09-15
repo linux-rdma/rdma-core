@@ -42,7 +42,8 @@
  * drivers/infiniband/include/ib_user_cm.h
  */
 
-#define IB_USER_CM_ABI_VERSION 2
+#define IB_USER_CM_MIN_ABI_VERSION	3
+#define IB_USER_CM_MAX_ABI_VERSION	3
 
 enum {
 	IB_USER_CM_CMD_CREATE_ID,
@@ -303,8 +304,6 @@ struct cm_abi_event_get {
 };
 
 struct cm_abi_req_event_resp {
-	/* device */
-	/* port */
 	struct cm_abi_path_rec primary_path;
 	struct cm_abi_path_rec alternate_path;
 	__u64                  remote_ca_guid;
@@ -320,6 +319,7 @@ struct cm_abi_req_event_resp {
 	__u8  retry_count;
 	__u8  rnr_retry_count;
 	__u8  srq;
+	__u8  port;
 };
 
 struct cm_abi_rep_event_resp {
@@ -357,10 +357,9 @@ struct cm_abi_apr_event_resp {
 };
 
 struct cm_abi_sidr_req_event_resp {
-	/* device */
-	/* port */
 	__u16 pkey;
-	__u8  reserved[2];
+	__u8  port;
+	__u8  reserved;
 };
 
 struct cm_abi_sidr_rep_event_resp {

@@ -307,7 +307,7 @@ static int init_node(struct cmtest_node *node, struct ibv_qp_init_attr *qp_attr)
 	int cqe, ret;
 
 	if (!is_server) {
-		ret = ib_cm_create_id(&node->cm_id, node);
+		ret = ib_cm_create_id(test.verbs, &node->cm_id, node);
 		if (ret) {
 			printf("failed to create cm_id: %d\n", ret);
 			return ret;
@@ -526,7 +526,7 @@ static void connect_events(void)
 	int err = 0;
 
 	while (test.connects_left && !err) {
-		err = ib_cm_get_event(&event);
+		err = ib_cm_get_event(ib_cm_get_device(test.verbs), &event);
 		if (!err) {
 			cm_handler(event->cm_id, event);
 			ib_cm_ack_event(event);
@@ -540,7 +540,7 @@ static void disconnect_events(void)
 	int err = 0;
 
 	while (test.disconnects_left && !err) {
-		err = ib_cm_get_event(&event);
+		err = ib_cm_get_event(ib_cm_get_device(test.verbs), &event);
 		if (!err) {
 			cm_handler(event->cm_id, event);
 			ib_cm_ack_event(event);
@@ -554,7 +554,7 @@ static void run_server(void)
 	int i, ret;
 
 	printf("starting server\n");
-	if (ib_cm_create_id(&listen_id, &test)) {
+	if (ib_cm_create_id(test.verbs, &listen_id, &test)) {
 		printf("listen request failed\n");
 		return;
 	}
