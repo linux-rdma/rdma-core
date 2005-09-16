@@ -1,8 +1,8 @@
 Source: libmthca
 Priority: optional
 Maintainer: Roland Dreier <rolandd@cisco.com>
-Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), libibverbs-dev (>= 0.1.0), autotools-dev
-Standards-Version: 3.6.1
+Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), libibverbs-dev (>= 1.0-rc2), autotools-dev
+Standards-Version: 3.6.2.1
 Section: libs
 
 Package: libmthca1
@@ -26,7 +26,7 @@ Description: Development files for the libmthca driver
  This package contains static versions of libmthca that may be linked
  directly to an application, which may be useful for debugging.
 
-Package: libmthca1-dbg
+Package: libmthca-dbg
 Section: libdevel
 Priority: extra
 Architecture: any
