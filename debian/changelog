@@ -1,7 +1,6 @@
 libibverbs (1.0-rc2-1) unstable; urgency=low
 
-  * Initial Release.
-    (Closes: #325752)
+  * Initial Release.  (Closes: #325752)
 
  -- Roland Dreier <rolandd@cisco.com>  Tue, 30 Aug 2005 11:21:59 -0700
 

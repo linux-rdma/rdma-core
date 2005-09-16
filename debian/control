@@ -1,8 +1,8 @@
 Source: libibverbs
 Priority: optional
 Maintainer: Roland Dreier <rolandd@cisco.com>
-Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), autotools-dev
-Standards-Version: 3.6.1
+Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), autotools-dev, libsysfs-dev
+Standards-Version: 3.6.2.1
 Section: libs
 
 Package: libibverbs1
@@ -23,7 +23,7 @@ Description: A library for direct userspace use of InfiniBand
 Package: libibverbs-dev
 Section: libdevel
 Architecture: any
-Depends: libibverbs1 (= ${Source-Version})
+Depends: libibverbs1 (= ${Source-Version}), libsysfs-dev
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
@@ -34,7 +34,7 @@ Description: Development files for the libibverbs library
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
-Package: libibverbs1-dbg
+Package: libibverbs-dbg
 Section: libdevel
 Priority: extra
 Architecture: any
@@ -49,7 +49,7 @@ Description: Development files for the libmthca driver
  libibverbs1. They will automatically be used by gdb for debugging
  libibverbs-related issues.
 
-Package: ibverbs-examples
+Package: ibverbs-utils
 Section: net
 Architecture: any
 Depends: libibverbs1 (= ${Source-Version})
@@ -59,4 +59,5 @@ Description: Examples for the libibverbs library
  Specification.  This includes direct hardware access for fast path
  operations.
  .
- This package contains example programs that use libibverbs1.
+ This package contains useful libibverbs1 example programs such as
+ ibv_devinfo, which displays information about InfiniBand devices.
