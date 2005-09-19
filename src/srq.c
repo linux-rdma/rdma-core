@@ -105,7 +105,7 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 		if (ind < 0) {
 			err = -1;
 			*bad_wr = wr;
-			return nreq;
+			break;
 		}
 
 		wqe       = get_wqe(srq, ind);
@@ -123,7 +123,7 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 			err = -1;
 			*bad_wr = wr;
 			srq->last = prev_wqe;
-			return nreq;
+			break;
 		}
 
 		for (i = 0; i < wr->num_sge; ++i) {
@@ -191,7 +191,7 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 		if (ind < 0) {
 			err = -1;
 			*bad_wr = wr;
-			return nreq;
+			break;
 		}
 
 		wqe       = get_wqe(srq, ind);
@@ -207,7 +207,7 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 		if (wr->num_sge > srq->max_gs) {
 			err = -1;
 			*bad_wr = wr;
-			return nreq;
+			break;
 		}
 
 		for (i = 0; i < wr->num_sge; ++i) {
