@@ -9,6 +9,12 @@ AM_INIT_AUTOMAKE(libibcm, 0.9.0)
 AC_DISABLE_STATIC
 AM_PROG_LIBTOOL
 
+AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
+[       if test x$enableval = xno ; then
+                disable_libcheck=yes
+        fi
+])
+
 dnl Checks for programs
 AC_PROG_CC
 
@@ -17,16 +23,22 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for libraries
+if test "$disable_libcheck" != "yes"
+then
 AC_CHECK_LIB(ibverbs, ibv_get_devices, [],
     AC_MSG_ERROR([ibv_get_devices() not found.  libibcm requires libibcm.]))
 AC_CHECK_LIB(ibat, ib_at_route_by_ip, [],
     AC_MSG_ERROR([ib_at_route_by_ip() not found.  libibcm requires libat.]))
+fi
 
 dnl Checks for header files.
+if test "$disable_libcheck" != "yes"
+then
 AC_CHECK_HEADER(infiniband/verbs.h, [],
     AC_MSG_ERROR([<infiniband/verbs.h> not found.  Is libibverbs installed?]))
 AC_CHECK_HEADER(infiniband/at.h, [],
     AC_MSG_ERROR([<infiniband/at.h> not found.  Is libibat installed?]))
+fi
 AC_HEADER_STDC
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
