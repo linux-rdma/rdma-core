@@ -26,7 +26,7 @@ Description: Development files for the libmthca driver
  This package contains static versions of libmthca that may be linked
  directly to an application, which may be useful for debugging.
 
-Package: libmthca-dbg
+Package: libmthca1-dbg
 Section: libdevel
 Priority: extra
 Architecture: any

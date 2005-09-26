@@ -60,18 +60,6 @@ int mthca_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof cmd);
 }
 
-int mthca_query_gid(struct ibv_context *context, uint8_t port_num,
-		    int index, union ibv_gid *gid)
-{
-	return ibv_cmd_query_gid(context, port_num, index, gid);
-}
-
-int mthca_query_pkey(struct ibv_context *context, uint8_t port_num,
-		     int index, uint16_t *pkey)
-{
-	return ibv_cmd_query_pkey(context, port_num, index, pkey);
-}
-
 struct ibv_pd *mthca_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd        cmd;
@@ -151,7 +139,9 @@ int mthca_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
-struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe)
+struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
+			       struct ibv_comp_channel *channel,
+			       int comp_vector)
 {
 	struct mthca_create_cq      cmd;
 	struct mthca_create_cq_resp resp;
@@ -205,8 +195,8 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe)
 
 	cmd.lkey   = cq->mr->lkey;
 	cmd.pdn    = to_mpd(to_mctx(context)->pd)->pdn;
-	ret = ibv_cmd_create_cq(context, nent - 1, &cq->ibv_cq,
-				&cmd.ibv_cmd, sizeof cmd,
+	ret = ibv_cmd_create_cq(context, nent - 1, channel, comp_vector,
+				&cq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);
 	if (ret)
 		goto err_arm_db;

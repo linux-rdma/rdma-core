@@ -274,10 +274,6 @@ extern int mthca_query_device(struct ibv_context *context,
 			      struct ibv_device_attr *attr);
 extern int mthca_query_port(struct ibv_context *context, uint8_t port,
 			    struct ibv_port_attr *attr);
-extern int mthca_query_gid(struct ibv_context *context, uint8_t port_num,
-			   int index, union ibv_gid *gid);
-extern int mthca_query_pkey(struct ibv_context *context, uint8_t port_num,
-			    int index, uint16_t *pkey);
 
 extern struct ibv_pd *mthca_alloc_pd(struct ibv_context *context);
 extern int mthca_free_pd(struct ibv_pd *pd);
@@ -286,7 +282,9 @@ extern struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
 				   size_t length, enum ibv_access_flags access);
 extern int mthca_dereg_mr(struct ibv_mr *mr);
 
-extern struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe);
+struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
+			       struct ibv_comp_channel *channel,
+			       int comp_vector);
 extern int mthca_destroy_cq(struct ibv_cq *cq);
 extern int mthca_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 extern int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);

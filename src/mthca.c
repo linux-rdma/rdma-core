@@ -99,8 +99,6 @@ struct {
 static struct ibv_context_ops mthca_ctx_ops = {
 	.query_device  = mthca_query_device,
 	.query_port    = mthca_query_port,
-	.query_gid     = mthca_query_gid,
-	.query_pkey    = mthca_query_pkey,
 	.alloc_pd      = mthca_alloc_pd,
 	.dealloc_pd    = mthca_free_pd,
 	.reg_mr        = mthca_reg_mr,
@@ -119,21 +117,20 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.detach_mcast  = mthca_detach_mcast
 };
 
-static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev,
-					       int num_comp, int cmd_fd)
+static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd_fd)
 {
 	struct mthca_context            *context;
 	struct ibv_get_context           cmd;
 	struct mthca_alloc_ucontext_resp resp;
 	int                              i;
 
-	context = malloc(sizeof *context + num_comp * sizeof (int));
+	context = malloc(sizeof *context);
 	if (!context)
 		return NULL;
 
 	context->ibv_ctx.cmd_fd = cmd_fd;
 
-	if (ibv_cmd_get_context(num_comp, &context->ibv_ctx, &cmd, sizeof cmd,
+	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp))
 		goto err_free;
 

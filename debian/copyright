@@ -3,8 +3,8 @@ This package was debianized by Roland Dreier <rolandd@cisco.com> on
 Thu, 28 Apr 2005 13:16:56 -0700.
 
 Source:
-It was downloaded from the OpenIB subversion repository at
-<https://openib.org/svn/gen2/trunk/src/userspace/libmthca>
+It was downloaded from the OpenIB web site at
+<https://openib.org/downloads.html>
 
 Authors:
 The complete list of upstream authors is in the file
