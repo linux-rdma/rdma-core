@@ -64,9 +64,9 @@
  
 typedef struct ibv_device *(*ibv_driver_init_func)(struct sysfs_class_device *);
 
-extern int ibv_cmd_get_context(int num_comp, struct ibv_context *context,
-			       struct ibv_get_context *cmd, size_t cmd_size,
-			       struct ibv_get_context_resp *resp, size_t resp_size);
+extern int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
+			       size_t cmd_size, struct ibv_get_context_resp *resp,
+			       size_t resp_size);
 extern int ibv_cmd_query_device(struct ibv_context *context,
 				struct ibv_device_attr *device_attr,
 				struct ibv_query_device *cmd, size_t cmd_size);
@@ -87,7 +87,8 @@ extern int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			  size_t cmd_size);
 extern int ibv_cmd_dereg_mr(struct ibv_mr *mr);
 extern int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
-			     struct ibv_cq *cq,
+			     struct ibv_comp_channel *channel,
+			     int comp_vector, struct ibv_cq *cq,
 			     struct ibv_create_cq *cmd, size_t cmd_size,
 			     struct ibv_create_cq_resp *resp, size_t resp_size);
 extern int ibv_cmd_destroy_cq(struct ibv_cq *cq);

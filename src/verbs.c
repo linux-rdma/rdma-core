@@ -37,6 +37,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
+#include <netinet/in.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -57,13 +58,45 @@ int ibv_query_port(struct ibv_context *context, uint8_t port_num,
 int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 		  int index, union ibv_gid *gid)
 {
-	return context->ops.query_gid(context, port_num, index, gid);
+	char *attr_name;
+	char attr[sizeof "0000:0000:0000:0000:0000:0000:0000:0000\0"];
+	uint16_t val;
+	int i;
+
+	asprintf(&attr_name, "%s/ports/%d/gids/%d",
+		 context->device->ibdev->path, port_num, index);
+
+	if (sysfs_read_attribute_value(attr_name, attr, sizeof attr))
+		return -1;
+
+	for (i = 0; i < 8; ++i) {
+		if (sscanf(attr + i * 5, "%hx", &val) != 1)
+			return -1;
+		gid->raw[i * 2    ] = val >> 8;
+		gid->raw[i * 2 + 1] = val & 0xff;
+	}
+
+	return 0;
 }
 
 int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 		   int index, uint16_t *pkey)
 {
-	return context->ops.query_pkey(context, port_num, index, pkey);
+	char *attr_name;
+	char attr[sizeof "0x0000\0"];
+	uint16_t val;
+
+	asprintf(&attr_name, "%s/ports/%d/pkeys/%d",
+		 context->device->ibdev->path, port_num, index);
+
+	if (sysfs_read_attribute_value(attr_name, attr, sizeof attr))
+		return -1;
+
+	if (sscanf(attr, "%hx", &val) != 1)
+		return -1;
+
+	*pkey = htons(val);
+	return 0;
 }
 
 struct ibv_pd *ibv_alloc_pd(struct ibv_context *context)
@@ -101,10 +134,71 @@ int ibv_dereg_mr(struct ibv_mr *mr)
 	return mr->context->ops.dereg_mr(mr);
 }
 
-struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
-			     void *cq_context)
+static struct ibv_comp_channel *ibv_create_comp_channel_v2(struct ibv_context *context)
 {
-	struct ibv_cq *cq = context->ops.create_cq(context, cqe);
+	struct ibv_abi_compat_v2 *t = context->abi_compat;
+	static int warned;
+
+	if (!pthread_mutex_trylock(&t->in_use))
+		return &t->channel;
+
+	if (!warned) {
+		fprintf(stderr, PFX "Warning: kernel's ABI version %d limits capacity.\n"
+			"    Only one completion channel can be created per context.\n",
+			abi_ver);
+		++warned;
+	}
+
+	return NULL;
+}
+
+struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
+{
+	struct ibv_comp_channel            *channel;
+	struct ibv_create_comp_channel      cmd;
+	struct ibv_create_comp_channel_resp resp;
+
+	if (abi_ver <= 2)
+		return ibv_create_comp_channel_v2(context);
+
+	channel = malloc(sizeof *channel);
+	if (!channel)
+		return NULL;
+
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_COMP_CHANNEL, &resp, sizeof resp);
+	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd) {
+		free(channel);
+		return NULL;
+	}
+
+	channel->fd = resp.fd;
+
+	return channel;
+}
+
+static int ibv_destroy_comp_channel_v2(struct ibv_comp_channel *channel)
+{
+	struct ibv_abi_compat_v2 *t = (struct ibv_abi_compat_v2 *) channel;
+	pthread_mutex_unlock(&t->in_use);
+	return 0;
+}
+
+int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
+{
+	if (abi_ver <= 2)
+		return ibv_destroy_comp_channel_v2(channel);
+
+	close(channel->fd);
+	free(channel);
+
+	return 0;
+}
+
+struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe, void *cq_context,
+			     struct ibv_comp_channel *channel, int comp_vector)
+{
+	struct ibv_cq *cq = context->ops.create_cq(context, cqe, channel,
+						   comp_vector);
 
 	if (cq) {
 		cq->context    	     	   = context;
@@ -124,15 +218,12 @@ int ibv_destroy_cq(struct ibv_cq *cq)
 }
 
 
-int ibv_get_cq_event(struct ibv_context *context, int comp_num,
+int ibv_get_cq_event(struct ibv_comp_channel *channel,
 		     struct ibv_cq **cq, void **cq_context)
 {
 	struct ibv_comp_event ev;
 
-	if (comp_num < 0 || comp_num >= context->num_comp)
-		return -1;
-
-	if (read(context->cq_fd[comp_num], &ev, sizeof ev) != sizeof ev)
+	if (read(channel->fd, &ev, sizeof ev) != sizeof ev)
 		return -1;
 
 	*cq         = (struct ibv_cq *) (uintptr_t) ev.cq_handle;

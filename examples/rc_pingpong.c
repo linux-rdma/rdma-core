@@ -61,14 +61,15 @@ enum {
 static int page_size;
 
 struct pingpong_context {
-	struct ibv_context *context;
-	struct ibv_pd      *pd;
-	struct ibv_mr      *mr;
-	struct ibv_cq      *cq;
-	struct ibv_qp      *qp;
-	void               *buf;
-	int                 size;
-	int                 rx_depth;
+	struct ibv_context	*context;
+	struct ibv_comp_channel *channel;
+	struct ibv_pd		*pd;
+	struct ibv_mr		*mr;
+	struct ibv_cq		*cq;
+	struct ibv_qp		*qp;
+	void			*buf;
+	int			 size;
+	int			 rx_depth;
 };
 
 struct pingpong_dest {
@@ -290,7 +291,8 @@ out:
 }
 
 static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
-					    int rx_depth, int port)
+					    int rx_depth, int port,
+					    int use_event)
 {
 	struct pingpong_context *ctx;
 
@@ -316,6 +318,15 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		return NULL;
 	}
 
+	if (use_event) {
+		ctx->channel = ibv_create_comp_channel(ctx->context);
+		if (!ctx->channel) {
+			fprintf(stderr, "Couldn't create completion channel\n");
+			return NULL;
+		}
+	} else
+		ctx->channel = NULL;
+
 	ctx->pd = ibv_alloc_pd(ctx->context);
 	if (!ctx->pd) {
 		fprintf(stderr, "Couldn't allocate PD\n");
@@ -328,7 +339,8 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		return NULL;
 	}
 
-	ctx->cq = ibv_create_cq(ctx->context, rx_depth + 1, NULL);
+	ctx->cq = ibv_create_cq(ctx->context, rx_depth + 1, NULL,
+				ctx->channel, 0);
 	if (!ctx->cq) {
 		fprintf(stderr, "Couldn't create CQ\n");
 		return NULL;
@@ -546,7 +558,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	ctx = pp_init_ctx(ib_dev, size, rx_depth, ib_port);
+	ctx = pp_init_ctx(ib_dev, size, rx_depth, ib_port, use_event);
 	if (!ctx)
 		return 1;
 
@@ -605,7 +617,7 @@ int main(int argc, char *argv[])
 			struct ibv_cq *ev_cq;
 			void          *ev_ctx;
 
-			if (ibv_get_cq_event(ctx->context, 0, &ev_cq, &ev_ctx)) {
+			if (ibv_get_cq_event(ctx->channel, &ev_cq, &ev_ctx)) {
 				fprintf(stderr, "Failed to get cq_event\n");
 				return 1;
 			}

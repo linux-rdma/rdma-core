@@ -43,24 +43,54 @@
 
 #include "ibverbs.h"
 
-int ibv_cmd_get_context(int num_comp, struct ibv_context *context,
-			struct ibv_get_context *cmd, size_t cmd_size,
-			struct ibv_get_context_resp *resp, size_t resp_size)
+static int ibv_cmd_get_context_v2(struct ibv_context *context,
+				  struct ibv_get_context *new_cmd,
+				  size_t new_cmd_size,
+				  struct ibv_get_context_resp *resp,
+				  size_t resp_size)
 {
-	uint32_t *cq_fd_tab;
-	int i;
+	struct ibv_abi_compat_v2 *t;
+	struct ibv_get_context_v2 *cmd;
+	size_t cmd_size;
+	uint32_t cq_fd;
 
-	cq_fd_tab = alloca(num_comp * sizeof (uint32_t));
+	t = malloc(sizeof *t);
+	if (!t)
+		return ENOMEM;
+	pthread_mutex_init(&t->in_use, NULL);
+
+	cmd_size = sizeof cmd + new_cmd_size - sizeof *new_cmd;
+	cmd      = alloca(cmd_size);
+	memcpy(cmd->driver_data, new_cmd->driver_data, new_cmd_size - sizeof *new_cmd);
+
 	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
-
-	cmd->cq_fd_tab = (uintptr_t) cq_fd_tab;
+	cmd->cq_fd_tab = (uintptr_t) &cq_fd;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	context->async_fd = resp->async_fd;
-	for (i = 0; i < num_comp; ++i)
-		context->cq_fd[i] = cq_fd_tab[i];
+	context->async_fd         = resp->async_fd;
+	context->num_comp_vectors = 1;
+	t->channel.fd		  = cq_fd;
+	context->abi_compat       = t;
+
+	return 0;
+}
+
+int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
+			size_t cmd_size, struct ibv_get_context_resp *resp,
+			size_t resp_size)
+{
+	if (abi_ver <= 2)
+		return ibv_cmd_get_context_v2(context, cmd, cmd_size, resp, resp_size);
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
+
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	context->async_fd         = resp->async_fd;
+	context->num_comp_vectors = resp->num_comp_vectors;
 
 	return 0;
 }
@@ -155,42 +185,6 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	return 0;
 }
 
-int ibv_cmd_query_gid(struct ibv_context *context, uint8_t port_num,
-		      int index, union ibv_gid *gid)
-{
-	struct ibv_query_gid      cmd;
-	struct ibv_query_gid_resp resp;
-
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_GID, &resp, sizeof resp);
-	cmd.port_num = port_num;
-	cmd.index    = index;
-
-	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	memcpy(gid->raw, resp.gid, 16);
-
-	return 0;
-}
-
-int ibv_cmd_query_pkey(struct ibv_context *context, uint8_t port_num,
-		       int index, uint16_t *pkey)
-{
-	struct ibv_query_pkey      cmd;
-	struct ibv_query_pkey_resp resp;
-
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PKEY, &resp, sizeof resp);
-	cmd.port_num = port_num;
-	cmd.index    = index;
-
-	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	*pkey = resp.pkey;
-
-	return 0;
-}
-
 int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
 		     struct ibv_alloc_pd_resp *resp, size_t resp_size)
@@ -256,15 +250,48 @@ int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
-int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
-		      struct ibv_cq *cq,
-		      struct ibv_create_cq *cmd, size_t cmd_size,
-		      struct ibv_create_cq_resp *resp, size_t resp_size)
+static int ibv_cmd_create_cq_v2(struct ibv_context *context, int cqe,
+				struct ibv_cq *cq,
+				struct ibv_create_cq *new_cmd, size_t new_cmd_size,
+				struct ibv_create_cq_resp *resp, size_t resp_size)
 {
+	struct ibv_create_cq_v2 *cmd;
+	size_t cmd_size;
+
+	cmd_size = sizeof *cmd + new_cmd_size - sizeof *new_cmd;
+	cmd      = alloca(cmd_size);
+	memcpy(cmd->driver_data, new_cmd->driver_data, new_cmd_size - sizeof *new_cmd);
+
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
 	cmd->user_handle   = (uintptr_t) cq;
 	cmd->cqe           = cqe;
 	cmd->event_handler = 0;
+
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	cq->handle = resp->cq_handle;
+	cq->cqe    = resp->cqe;
+
+	return 0;
+}
+
+int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
+		      struct ibv_comp_channel *channel,
+		      int comp_vector, struct ibv_cq *cq,
+		      struct ibv_create_cq *cmd, size_t cmd_size,
+		      struct ibv_create_cq_resp *resp, size_t resp_size)
+{
+	if (abi_ver <= 2)
+		return ibv_cmd_create_cq_v2(context, cqe, cq,
+					    cmd, cmd_size, resp, resp_size);
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
+	cmd->user_handle   = (uintptr_t) cq;
+	cmd->cqe           = cqe;
+	cmd->comp_vector   = comp_vector;
+	cmd->comp_channel  = channel ? channel->fd : -1;
+	cmd->reserved      = 0;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;

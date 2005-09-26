@@ -494,6 +494,10 @@ struct ibv_qp {
 	uint32_t		events_completed;
 };
 
+struct ibv_comp_channel {
+	int			fd;
+};
+
 struct ibv_cq {
 	struct ibv_context     *context;
 	void		       *cq_context;
@@ -515,8 +519,7 @@ struct ibv_device;
 struct ibv_context;
 
 struct ibv_device_ops {
-	struct ibv_context *	(*alloc_context)(struct ibv_device *device,
-						 int num_comp, int cmd_fd);
+	struct ibv_context *	(*alloc_context)(struct ibv_device *device, int cmd_fd);
 	void			(*free_context)(struct ibv_context *context);
 };
 
@@ -532,18 +535,16 @@ struct ibv_context_ops {
 					      struct ibv_device_attr *device_attr);
 	int			(*query_port)(struct ibv_context *context, uint8_t port_num,
 					      struct ibv_port_attr *port_attr);
-	int			(*query_gid)(struct ibv_context *context, uint8_t port_num,
-					     int index, union ibv_gid *gid);
-	int			(*query_pkey)(struct ibv_context *context, uint8_t port_num,
-					      int index, uint16_t *pkey);
 	struct ibv_pd *		(*alloc_pd)(struct ibv_context *context);
 	int			(*dealloc_pd)(struct ibv_pd *pd);
 	struct ibv_mr *		(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 					  enum ibv_access_flags access);
 	int			(*dereg_mr)(struct ibv_mr *mr);
-	struct ibv_cq *		(*create_cq)(struct ibv_context *context, int cqe);
+	struct ibv_cq *		(*create_cq)(struct ibv_context *context, int cqe,
+					     struct ibv_comp_channel *channel,
+					     int comp_vector);
 	int			(*poll_cq)(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc);
-	int			(*req_notify_cq)(struct ibv_cq *cq, int solicited);
+	int			(*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
 	void			(*cq_event)(struct ibv_cq *cq);
 	int			(*destroy_cq)(struct ibv_cq *cq);
 	struct ibv_srq *	(*create_srq)(struct ibv_pd *pd,
@@ -576,8 +577,8 @@ struct ibv_context {
 	struct ibv_context_ops	   ops;
 	int                        cmd_fd;
 	int                        async_fd;
-	int                        num_comp;
-	int                        cq_fd[1];
+	int                        num_comp_vectors;
+	void			  *abi_compat;
 };
 
 /**
@@ -672,10 +673,29 @@ extern struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 extern int ibv_dereg_mr(struct ibv_mr *mr);
 
 /**
+ * ibv_create_comp_channel - Create a completion event channel
+ */
+extern struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context);
+
+/**
+ * ibv_destroy_comp_channel - Destroy a completion event channel
+ */
+extern int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
+
+/**
  * ibv_create_cq - Create a completion queue
+ * @context - Context CQ will be attached to
+ * @cqe - Minimum number of entries required for CQ
+ * @cq_context - Consumer-supplied context returned for completion events
+ * @channel - Completion channel where completion events will be queued.
+ *     May be NULL if completion events will not be used.
+ * @comp_vector - Completion vector used to signal completion events.
+ *     Must be >= 0 and < context->num_comp_vectors.
  */
 extern struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
-				    void *cq_context);
+				    void *cq_context,
+				    struct ibv_comp_channel *channel,
+				    int comp_vector);
 
 /**
  * ibv_destroy_cq - Destroy a completion queue
@@ -684,16 +704,14 @@ extern int ibv_destroy_cq(struct ibv_cq *cq);
 
 /**
  * ibv_get_cq_event - Read next CQ event
- * @context: Context to get CQ event for
- * @comp_num: Index of completion event to check.  Must be >= 0 and
- *   <= context->num_comp.
+ * @channel: Channel to get next event from.
  * @cq: Used to return pointer to CQ.
  * @cq_context: Used to return consumer-supplied CQ context.
  *
  * All completion events returned by ibv_get_cq_event() must
  * eventually be acknowledged with ibv_ack_cq_events().
  */
-extern int ibv_get_cq_event(struct ibv_context *context, int comp_num,
+extern int ibv_get_cq_event(struct ibv_comp_channel *channel,
 			    struct ibv_cq **cq, void **cq_context);
 
 /**
@@ -731,9 +749,9 @@ static inline int ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc 
 /**
  * ibv_req_notify_cq - Request completion notification on a CQ.
  */
-static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited)
+static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
 {
-	return cq->context->ops.req_notify_cq(cq, solicited);
+	return cq->context->ops.req_notify_cq(cq, solicited_only);
 }
 
 /**

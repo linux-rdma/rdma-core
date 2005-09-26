@@ -34,7 +34,7 @@ Description: Development files for the libibverbs library
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
-Package: libibverbs-dbg
+Package: libibverbs1-dbg
 Section: libdevel
 Priority: extra
 Architecture: any

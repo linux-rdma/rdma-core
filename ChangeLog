@@ -1,3 +1,20 @@
+2005-09-25  Roland Dreier  <roland@cisco.com>
+
+	* examples/rc_pingpong.c, examples/srq_pingpong.c,
+	examples/uc_pingpong.c, examples/ud_pingpong.c: Update to match
+	new completion channel and CQ creation API.
+
+	* include/infiniband/driver.h, include/infiniband/verbs.h,
+	src/device.c, src/ibverbs.h, src/verbs.c, src/cmd.c: Add notion of
+	"completion channel" that allows consumers to dynamically create
+	and destroy file descriptors for retrieving completion events.
+	Completion channels are handled natively with kernel ABI version 3
+	and simulated with backwards compatibility implementations for ABI
+	versions 1 and 2.
+
+	* include/infiniband/kern-abi.h: Update to match kernel ABI
+	version 3.
+
 2005-09-07  Roland Dreier  <roland@cisco.com>
 
 	* src/device.c (ibv_get_device_guid): Use htonll() instead of

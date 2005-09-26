@@ -88,8 +88,6 @@ struct ibv_context *ibv_open_device(struct ibv_device *device)
 	char *devpath;
 	int cmd_fd;
 	struct ibv_context *context;
-	struct ibv_query_params      cmd;
-	struct ibv_query_params_resp resp;
 
 	asprintf(&devpath, "/dev/infiniband/%s", device->dev->name);
 
@@ -101,17 +99,12 @@ struct ibv_context *ibv_open_device(struct ibv_device *device)
 	if (cmd_fd < 0)
 		return NULL;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY_PARAMS, &resp, sizeof resp);
-	if (write(cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		goto err;
-
-	context = device->ops.alloc_context(device, resp.num_cq_events, cmd_fd);
+	context = device->ops.alloc_context(device, cmd_fd);
 	if (!context)
 		goto err;
 
-	context->device   = device;
-	context->cmd_fd   = cmd_fd;
-	context->num_comp = resp.num_cq_events;
+	context->device = device;
+	context->cmd_fd = cmd_fd;
 
 	return context;
 
@@ -123,14 +116,22 @@ err:
 
 int ibv_close_device(struct ibv_context *context)
 {
-	int i;
+	int async_fd = context->async_fd;
+	int cmd_fd   = context->cmd_fd;
+	int cq_fd    = -1;
+
+	if (abi_ver <= 2) {
+		struct ibv_abi_compat_v2 *t = context->abi_compat;
+		cq_fd = t->channel.fd;
+		free(context->abi_compat);
+	}
 
 	context->device->ops.free_context(context);
 
-	close(context->async_fd);
-	for (i = 0; i < context->num_comp; ++i)
-		close(context->cq_fd[i]);
-	close(context->cmd_fd);
+	close(async_fd);
+	close(cmd_fd);
+	if (abi_ver <= 2)
+		close(cq_fd);
 
 	return 0;
 }

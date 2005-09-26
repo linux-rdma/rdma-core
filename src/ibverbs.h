@@ -50,6 +50,11 @@ struct ibv_driver {
 	ibv_driver_init_func init_func;
 };
 
+struct ibv_abi_compat_v2 {
+	struct ibv_comp_channel	channel;
+	pthread_mutex_t		in_use;
+};
+
 extern HIDDEN int abi_ver;
 
 extern struct dlist *ibverbs_init(void);
@@ -58,19 +63,25 @@ extern int ibv_init_mem_map(void);
 extern int ibv_lock_range(void *base, size_t size);
 extern int ibv_unlock_range(void *base, size_t size);
 
-#define IBV_INIT_CMD(cmd, size, opcode)				\
-	do {							\
-		(cmd)->command   = IB_USER_VERBS_CMD_##opcode;	\
-		(cmd)->in_words  = (size) / 4;			\
-		(cmd)->out_words = 0;				\
+#define IBV_INIT_CMD(cmd, size, opcode)					\
+	do {								\
+		if (abi_ver > 2)					\
+			(cmd)->command = IB_USER_VERBS_CMD_##opcode;	\
+		else							\
+			(cmd)->command = IB_USER_VERBS_CMD_##opcode##_V2; \
+		(cmd)->in_words  = (size) / 4;				\
+		(cmd)->out_words = 0;					\
 	} while (0)
 
-#define IBV_INIT_CMD_RESP(cmd, size, opcode, out, outsize)	\
-	do {							\
-		(cmd)->command   = IB_USER_VERBS_CMD_##opcode;	\
-		(cmd)->in_words  = (size) / 4;			\
-		(cmd)->out_words = (outsize) / 4;		\
-		(cmd)->response  = (uintptr_t) (out);		\
+#define IBV_INIT_CMD_RESP(cmd, size, opcode, out, outsize)		\
+	do {								\
+		if (abi_ver > 2)					\
+			(cmd)->command = IB_USER_VERBS_CMD_##opcode;	\
+		else							\
+			(cmd)->command = IB_USER_VERBS_CMD_##opcode##_V2; \
+		(cmd)->in_words  = (size) / 4;				\
+		(cmd)->out_words = (outsize) / 4;			\
+		(cmd)->response  = (uintptr_t) (out);			\
 	} while (0)
 
 #endif /* IB_VERBS_H */

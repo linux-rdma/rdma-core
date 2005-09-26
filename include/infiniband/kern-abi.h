@@ -47,15 +47,12 @@
  * The minimum and maximum kernel ABI that we can handle.
  */
 #define IB_USER_VERBS_MIN_ABI_VERSION	1
-#define IB_USER_VERBS_MAX_ABI_VERSION	2
+#define IB_USER_VERBS_MAX_ABI_VERSION	3
 
 enum {
-	IB_USER_VERBS_CMD_QUERY_PARAMS,
 	IB_USER_VERBS_CMD_GET_CONTEXT,
 	IB_USER_VERBS_CMD_QUERY_DEVICE,
 	IB_USER_VERBS_CMD_QUERY_PORT,
-	IB_USER_VERBS_CMD_QUERY_GID,
-	IB_USER_VERBS_CMD_QUERY_PKEY,
 	IB_USER_VERBS_CMD_ALLOC_PD,
 	IB_USER_VERBS_CMD_DEALLOC_PD,
 	IB_USER_VERBS_CMD_CREATE_AH,
@@ -70,6 +67,7 @@ enum {
 	IB_USER_VERBS_CMD_ALLOC_MW,
 	IB_USER_VERBS_CMD_BIND_MW,
 	IB_USER_VERBS_CMD_DEALLOC_MW,
+	IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL,
 	IB_USER_VERBS_CMD_CREATE_CQ,
 	IB_USER_VERBS_CMD_RESIZE_CQ,
 	IB_USER_VERBS_CMD_DESTROY_CQ,
@@ -133,13 +131,12 @@ struct ibv_get_context {
 	__u16 in_words;
 	__u16 out_words;
 	__u64 response;
-	__u64 cq_fd_tab;
 	__u64 driver_data[0];
 };
 
 struct ibv_get_context_resp {
 	__u32 async_fd;
-	__u32 reserved;
+	__u32 num_comp_vectors;
 };
 
 struct ibv_query_device {
@@ -227,37 +224,6 @@ struct ibv_query_port_resp {
 	__u8  reserved[3];
 };
 
-struct ibv_query_gid {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u64 response;
-	__u8  port_num;
-	__u8  index;
-	__u8  reserved[6];
-	__u64 driver_data[0];
-};
-
-struct ibv_query_gid_resp {
-	__u8  gid[16];
-};
-
-struct ibv_query_pkey {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u64 response;
-	__u8  port_num;
-	__u8  index;
-	__u8  reserved[6];
-	__u64 driver_data[0];
-};
-
-struct ibv_query_pkey_resp {
-	__u16 pkey;
-	__u16 reserved;
-};
-
 struct ibv_alloc_pd {
 	__u32 command;
 	__u16 in_words;
@@ -303,6 +269,17 @@ struct ibv_dereg_mr {
 	__u32 mr_handle;
 };
 
+struct ibv_create_comp_channel {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+};
+
+struct ibv_create_comp_channel_resp {
+	__u32 fd;
+};
+
 struct ibv_create_cq {
 	__u32 command;
 	__u16 in_words;
@@ -310,20 +287,15 @@ struct ibv_create_cq {
 	__u64 response;
 	__u64 user_handle;
 	__u32 cqe;
-	__u32 event_handler;
+	__u32 comp_vector;
+	__s32 comp_channel;
+	__u32 reserved;
 	__u64 driver_data[0];
 };
 
 struct ibv_create_cq_resp {
 	__u32 cq_handle;
 	__u32 cqe;
-};
-
-struct ibv_destroy_cq_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 cq_handle;
 };
 
 struct ibv_destroy_cq {
@@ -415,13 +387,6 @@ struct ibv_modify_qp {
 	__u64 driver_data[0];
 };
 
-struct ibv_destroy_qp_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 qp_handle;
-};
-
 struct ibv_destroy_qp {
 	__u32 command;
 	__u16 in_words;
@@ -487,13 +452,6 @@ struct ibv_modify_srq {
 	__u64 driver_data[0];
 };
 
-struct ibv_destroy_srq_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 srq_handle;
-};
-
 struct ibv_destroy_srq {
 	__u32 command;
 	__u16 in_words;
@@ -505,6 +463,98 @@ struct ibv_destroy_srq {
 
 struct ibv_destroy_srq_resp {
 	__u32 events_reported;
+};
+
+/*
+ * Compatibility with older ABI versions
+ */
+
+enum {
+	IB_USER_VERBS_CMD_QUERY_PARAMS_V2,
+	IB_USER_VERBS_CMD_GET_CONTEXT_V2,
+	IB_USER_VERBS_CMD_QUERY_DEVICE_V2,
+	IB_USER_VERBS_CMD_QUERY_PORT_V2,
+	IB_USER_VERBS_CMD_QUERY_GID_V2,
+	IB_USER_VERBS_CMD_QUERY_PKEY_V2,
+	IB_USER_VERBS_CMD_ALLOC_PD_V2,
+	IB_USER_VERBS_CMD_DEALLOC_PD_V2,
+	IB_USER_VERBS_CMD_CREATE_AH_V2,
+	IB_USER_VERBS_CMD_MODIFY_AH_V2,
+	IB_USER_VERBS_CMD_QUERY_AH_V2,
+	IB_USER_VERBS_CMD_DESTROY_AH_V2,
+	IB_USER_VERBS_CMD_REG_MR_V2,
+	IB_USER_VERBS_CMD_REG_SMR_V2,
+	IB_USER_VERBS_CMD_REREG_MR_V2,
+	IB_USER_VERBS_CMD_QUERY_MR_V2,
+	IB_USER_VERBS_CMD_DEREG_MR_V2,
+	IB_USER_VERBS_CMD_ALLOC_MW_V2,
+	IB_USER_VERBS_CMD_BIND_MW_V2,
+	IB_USER_VERBS_CMD_DEALLOC_MW_V2,
+	IB_USER_VERBS_CMD_CREATE_CQ_V2,
+	IB_USER_VERBS_CMD_RESIZE_CQ_V2,
+	IB_USER_VERBS_CMD_DESTROY_CQ_V2,
+	IB_USER_VERBS_CMD_POLL_CQ_V2,
+	IB_USER_VERBS_CMD_PEEK_CQ_V2,
+	IB_USER_VERBS_CMD_REQ_NOTIFY_CQ_V2,
+	IB_USER_VERBS_CMD_CREATE_QP_V2,
+	IB_USER_VERBS_CMD_QUERY_QP_V2,
+	IB_USER_VERBS_CMD_MODIFY_QP_V2,
+	IB_USER_VERBS_CMD_DESTROY_QP_V2,
+	IB_USER_VERBS_CMD_POST_SEND_V2,
+	IB_USER_VERBS_CMD_POST_RECV_V2,
+	IB_USER_VERBS_CMD_ATTACH_MCAST_V2,
+	IB_USER_VERBS_CMD_DETACH_MCAST_V2,
+	IB_USER_VERBS_CMD_CREATE_SRQ_V2,
+	IB_USER_VERBS_CMD_MODIFY_SRQ_V2,
+	IB_USER_VERBS_CMD_QUERY_SRQ_V2,
+	IB_USER_VERBS_CMD_DESTROY_SRQ_V2,
+	IB_USER_VERBS_CMD_POST_SRQ_RECV_V2,
+	/*
+	 * Set commands that didn't exist to -1 so our compile-time
+	 * trick opcodes in IBV_INIT_CMD() doesn't break.
+	 */
+	IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL_V2 = -1,
+};
+
+struct ibv_destroy_cq_v1 {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 cq_handle;
+};
+
+struct ibv_destroy_qp_v1 {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 qp_handle;
+};
+
+struct ibv_destroy_srq_v1 {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 srq_handle;
+};
+
+struct ibv_get_context_v2 {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u64 cq_fd_tab;
+	__u64 driver_data[0];
+};
+
+struct ibv_create_cq_v2 {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u64 user_handle;
+	__u32 cqe;
+	__u32 event_handler;
+	__u64 driver_data[0];
 };
 
 #endif /* KERN_ABI_H */

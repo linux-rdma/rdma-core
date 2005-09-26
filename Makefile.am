@@ -47,7 +47,7 @@ man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1 \
     man/ibv_srq_pingpong.1
 
 DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
-    debian/ibverbs-examples.install debian/libibverbs1.install \
+    debian/ibverbs-utils.install debian/libibverbs1.install \
     debian/libibverbs-dev.install debian/rules
 
 EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
