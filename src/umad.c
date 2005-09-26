@@ -72,8 +72,8 @@ typedef struct ib_user_mad_reg_req {
 	uint8_t  rmpp_version;
 } ib_user_mad_reg_req_t;
 
-#define TRACE	if (umaddebug)	WARN
-#define DEBUG	if (umaddebug)	WARN
+#define TRACE	if (umaddebug)	IBWARN
+#define DEBUG	if (umaddebug)	IBWARN
 
 int umaddebug = 0;
 
@@ -102,12 +102,12 @@ port_alloc(int portid, char *dev, int portnum)
 	Port *port = ports + portid;
 
 	if (portid < 0 || portid >= UMAD_MAX_PORTS) {
-		WARN("bad umad portid %d", portid);
+		IBWARN("bad umad portid %d", portid);
 		return 0;
 	}
 
 	if (port->dev_name[0]) {
-		WARN("umad port id %d is already allocated for %s %d",
+		IBWARN("umad port id %d is already allocated for %s %d",
 			portid, port->dev_name, port->dev_port);
 		return 0;
 	}
@@ -467,12 +467,12 @@ umad_init(void)
 
 	TRACE("");
 	if (sys_read_uint(IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, &abi_version) < 0) {
-		WARN("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
+		IBWARN("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
 			IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
 		return -1;
 	}
 	if (abi_version != IB_UMAD_ABI_VERSION) {
-		WARN("wrong ABI version: %s/%s is %d but library ABI is %d",
+		IBWARN("wrong ABI version: %s/%s is %d but library ABI is %d",
 			IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, abi_version, IB_UMAD_ABI_VERSION);
 		return -1;
 	}
@@ -974,7 +974,7 @@ umad_addr_dump(ib_mad_addr_t *addr)
 		gid_str[i*2+1] = HEX(addr->gid[i] & 0xf);
 	}
 	gid_str[i*2] = 0;
-	WARN("qpn %d qkey 0x%x lid 0x%x sl %d\n"
+	IBWARN("qpn %d qkey 0x%x lid 0x%x sl %d\n"
 		"grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x\n"
 		"Gid 0x%s",
 		ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
@@ -987,7 +987,7 @@ umad_dump(void *umad)
 {
 	struct ib_user_mad * mad = umad;
 
-	WARN("agent id %d status %x timeout %d",
+	IBWARN("agent id %d status %x timeout %d",
 	     mad->agent_id, mad->status, mad->timeout_ms);
 	umad_addr_dump(&mad->addr);
 }
