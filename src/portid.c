@@ -47,7 +47,7 @@
 #include <infiniband/common.h>
 
 #undef DEBUG
-#define DEBUG	if (ibdebug)	WARN
+#define DEBUG	if (ibdebug)	IBWARN
 
 int
 portid2portnum(ib_portid_t *portid)

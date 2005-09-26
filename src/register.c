@@ -48,7 +48,7 @@
 #include "mad.h"
 
 #undef DEBUG
-#define DEBUG	if (ibdebug)	WARN
+#define DEBUG	if (ibdebug)	IBWARN
 
 #define MAX_CLASS	256
 #define MAX_AGENTS	256

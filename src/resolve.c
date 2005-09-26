@@ -49,7 +49,7 @@
 
 
 #undef DEBUG
-#define DEBUG 	if (ibdebug)	WARN
+#define DEBUG 	if (ibdebug)	IBWARN
 
 int
 ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
@@ -114,7 +114,7 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 		return ib_resolve_guid(portid, &guid, sm_id, 0);
 
 	default:
-		WARN("bad dest_type %d", dest_type);
+		IBWARN("bad dest_type %d", dest_type);
 	}
 
 	return -1;

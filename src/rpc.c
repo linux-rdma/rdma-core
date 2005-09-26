@@ -59,8 +59,8 @@ static void *save_mad;
 static int save_mad_len = 256;
 
 #undef DEBUG
-#define DEBUG	if (ibdebug)	WARN
-#define ERRS	if (iberrs || ibdebug)	WARN
+#define DEBUG	if (ibdebug)	IBWARN
+#define ERRS	if (iberrs || ibdebug)	IBWARN
 
 #define MAD_TID(mad)	(*((uint64_t *)((char *)(mad) + 8)))
 
@@ -114,7 +114,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 		timeout = def_madrpc_timeout;
 
 	if (ibdebug > 1) {
-		WARN(">>> sending: len %d pktsz %d", len, umad_size() + len);
+		IBWARN(">>> sending: len %d pktsz %d", len, umad_size() + len);
 		xdump(stderr, "send buf\n", umad, umad_size() + len);
 	}
 
@@ -130,17 +130,17 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 
 		length = len;
 		if (umad_send(mad_portid, agentid, umad, length, timeout, 0) < 0) {
-			WARN("send failed; %m");
+			IBWARN("send failed; %m");
 			return -1;
 		}
 
 		if (umad_recv(mad_portid, umad, &length, -1) < 0) {
-			WARN("recv failed: %m");
+			IBWARN("recv failed: %m");
 			return -1;
 		}
 		
 		if (ibdebug > 1) {
-			WARN("rcv buf:");
+			IBWARN("rcv buf:");
 			xdump(stderr, "rcv buf\n", umad_get_mad(umad), IB_MAD_SIZE);
 		}
 
@@ -179,7 +179,7 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	}
 
 	if (ibdebug) {
-		WARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
+		IBWARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
 		xdump(stderr, "mad data\n", mad + rpc->dataoffs, rpc->datasz);
 	}
 
@@ -215,7 +215,7 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	}
 
 	if (ibdebug) {
-		WARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
+		IBWARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
 		xdump(stderr, "rmpp mad data\n", mad + rpc->dataoffs,
 		      rpc->datasz);
 	}
@@ -224,7 +224,7 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 		rmpp->flags = mad_get_field(mad, 0, IB_SA_RMPP_FLAGS_F);
 		if ((rmpp->flags & 0x3) &&
 		    mad_get_field(mad, 0, IB_SA_RMPP_VERS_F) != 1) {
-			WARN("bad rmpp version");
+			IBWARN("bad rmpp version");
 			return 0;
 		}
 		rmpp->type = mad_get_field(mad, 0, IB_SA_RMPP_TYPE_F);
@@ -261,10 +261,10 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 	int rmpp_version = 0;
 
 	if (umad_init() < 0)
-		PANIC("can't init UMAD library");
+		IBPANIC("can't init UMAD library");
 
 	if ((mad_portid = umad_open_port(dev_name, dev_port)) < 0)
-		PANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
+		IBPANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
 
 	while (num_classes--) {
 		int mgmt = *mgmt_classes++;
@@ -272,6 +272,6 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		if (mgmt == IB_SA_CLASS)
 			rmpp_version = 1;
 		if (mad_register_client(mgmt, rmpp_version) < 0)
-			PANIC("client_register for mgmt %d failed", mgmt);
+			IBPANIC("client_register for mgmt %d failed", mgmt);
 	}
 }

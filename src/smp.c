@@ -47,7 +47,7 @@
 #include <infiniband/common.h>
 
 #undef DEBUG
-#define DEBUG 	if (ibdebug)	WARN
+#define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
 smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)

@@ -47,10 +47,10 @@
 #include <infiniband/common.h>
 
 #undef DEBUG
-#define DEBUG 	if (ibdebug)	WARN
+#define DEBUG 	if (ibdebug)	IBWARN
 
 static inline int
-respond_expected(int method)
+response_expected(int method)
 {
 	return method == IB_MAD_METHOD_GET ||
 		method == IB_MAD_METHOD_SET ||
@@ -71,7 +71,7 @@ ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
 	    !(mad_is_vendor_range2(call->mgmt_class)))
 		return 0;
 
-	resp_expected = respond_expected(call->method);
+	resp_expected = response_expected(call->method);
 
 	rpc.mgtclass = call->mgmt_class;
 

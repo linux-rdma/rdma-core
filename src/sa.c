@@ -47,7 +47,7 @@
 #include <infiniband/common.h>
 
 #undef DEBUG
-#define DEBUG 	if (ibdebug)	WARN
+#define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
 sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
@@ -59,7 +59,7 @@ sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 	      portid2str(portid));
 
 	if (portid->lid <= 0) {
-		WARN("only lid routes are supported");
+		IBWARN("only lid routes are supported");
 		return 0;
 	}
 
@@ -133,7 +133,7 @@ ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf)
 	mad_encode_field(buf, IB_SA_PR_SGID_F, srcgid);
 
 	if (!(p = safe_sa_call(buf, sm_id, &sa, 0))) {
-		WARN("sa call path_query failed");
+		IBWARN("sa call path_query failed");
 		return -1;
 	}
 

@@ -48,7 +48,7 @@
 #include "mad.h"
 
 #undef DEBUG
-#define DEBUG 	if (ibdebug)	WARN
+#define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
 port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
@@ -59,7 +59,7 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 	DEBUG("lid %d port %d", lid, port);
 
 	if (lid == -1) {
-		WARN("only lid routes are supported");
+		IBWARN("only lid routes are supported");
 		return 0;
 	}
 
@@ -90,7 +90,7 @@ port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
 	DEBUG("lid %d port %d mask 0x%x", lid, port, mask);
 
 	if (lid == -1) {
-		WARN("only lid routed is supported");
+		IBWARN("only lid routed is supported");
 		return 0;
 	}
 

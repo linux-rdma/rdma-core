@@ -50,7 +50,7 @@
 #include <infiniband/common.h>
 
 #undef DEBUG
-#define DEBUG	if (ibdebug)	WARN
+#define DEBUG	if (ibdebug)	IBWARN
 
 int
 mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
@@ -66,14 +66,14 @@ mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 		return 0;
 
 	if (ibdebug) {
-		WARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
+		IBWARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
 		xdump(stderr, "mad send data\n",
 			(char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
 	}
 
 	if (umad_send(madrpc_portid(), mad_class_agent(rpc->mgtclass),
 		      umad, IB_MAD_SIZE, rpc->timeout, 0) < 0) {
-		WARN("send failed; %m");
+		IBWARN("send failed; %m");
 		return -1;
 	}
 

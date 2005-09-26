@@ -70,7 +70,7 @@ mad_dump_int(char *buf, int bufsz, void *val, int valsz)
 #endif
 		break;
 	default:
-		WARN("bad int sz %d", valsz);
+		IBWARN("bad int sz %d", valsz);
 		buf[0] = 0;
 	}
 }
@@ -100,7 +100,7 @@ mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
 #endif
 		break;
 	default:
-		WARN("bad int sz %u", valsz);
+		IBWARN("bad int sz %u", valsz);
 		buf[0] = 0;
 	}
 }
@@ -149,7 +149,7 @@ mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 		break;
 #endif
 	default:
-		WARN("bad int sz %d", valsz);
+		IBWARN("bad int sz %d", valsz);
 		buf[0] = 0;
 	}
 }
@@ -198,7 +198,7 @@ mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 		break;
 #endif
 	default:
-		WARN("bad int sz %d", valsz);
+		IBWARN("bad int sz %d", valsz);
 		buf[0] = 0;
 	}
 }
@@ -222,7 +222,7 @@ mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "12X");
 		break;
 	default:
-		WARN("bad width %d", width);
+		IBWARN("bad width %d", width);
 		buf[0] = 0;
 	}
 }
@@ -249,7 +249,7 @@ mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "1X or 4X or 8X or 12X");
 		break;	
 	default:
-		WARN("bad width %d", width);
+		IBWARN("bad width %d", width);
 		buf[0] = 0;
 	}
 }

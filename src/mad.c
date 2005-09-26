@@ -48,7 +48,7 @@
 #include <infiniband/common.h>
 
 #undef DEBUG
-#define DEBUG	if (ibdebug)	WARN
+#define DEBUG	if (ibdebug)	IBWARN
 
 void
 mad_decode_field(uint8_t *buf, int field, void *val)
@@ -121,7 +121,7 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 	/* second word */
 	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
 		if (!drpath) {
-			WARN("encoding dr mad without drpath (null)");
+			IBWARN("encoding dr mad without drpath (null)");
 			return 0;
 		}
 		mad_set_field(buf, 0, IB_DRSMP_HOPCNT_F, drpath->cnt);
