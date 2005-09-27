@@ -315,7 +315,7 @@ static int init_node(struct cmtest_node *node, struct ibv_qp_init_attr *qp_attr)
 	}
 
 	cqe = message_count ? message_count * 2 : 2;
-	node->cq = ibv_create_cq(test.verbs, cqe, node);
+	node->cq = ibv_create_cq(test.verbs, cqe, node, NULL, 0);
 	if (!node->cq) {
 		printf("unable to create CQ\n");
 		goto error1;
