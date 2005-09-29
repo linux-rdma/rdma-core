@@ -1,0 +1,26 @@
+Introduction
+============
+
+libmthca is a userspace driver for Mellanox InfiniBand HCAs.  It works
+as a plug-in module for libibverbs that allows programs to use
+Mellanox hardware directly from userspace.  See the libibverbs package
+for more information.
+
+Using libmthca
+==============
+
+libmthca will be loaded and used automatically by programs linked with
+libibverbs.  The ib_mthca kernel module must be loaded for HCA devices
+to be detected and used.
+
+Supported Hardware
+==================
+
+libmthca currently supports HCAs based on the following Mellanox chips:
+
+    MT23108 InfiniHost (PCI-X)
+    MT25208 InfiniHost III Ex (PCI Express)
+    MT25208 InfiniHost III Lx (PCI Express)
+
+Both non-DDR and DDR HCAs are supported, and the MT25208 is supported
+with both MT23108-compatible and native MemFree firmware.

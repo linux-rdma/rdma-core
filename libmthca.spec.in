@@ -4,7 +4,7 @@
 
 Name: libmthca
 Version: 1.0
-Release: 0.1.rc3
+Release: 0.1.rc3%{?dist}
 Summary: Mellanox InfiniBand HCA Userspace Driver
 
 Group: System Environment/Libraries
@@ -48,7 +48,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{_libdir}/infiniband/mthca.so
-%doc AUTHORS COPYING ChangeLog
+%doc AUTHORS COPYING ChangeLog README
 
 %files devel
 %defattr(-,root,root,-)
