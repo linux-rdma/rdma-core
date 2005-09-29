@@ -4,7 +4,7 @@
 
 Name: libibverbs
 Version: 1.0
-Release: 0.1.rc3
+Release: 0.1.rc3%{?dist}
 Summary: A library for direct userspace use of InfiniBand
 
 Group: System Environment/Libraries
@@ -27,7 +27,7 @@ also be installed.
 %package devel
 Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release}
+Requires: %{name} = %{version}-%{release} sysfsutils-devel
 
 %description devel
 Static libraries and header files for the libibverbs verbs library.
