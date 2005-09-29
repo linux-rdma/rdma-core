@@ -1,53 +1,81 @@
 # $Id$
 
-%define prefix /usr
 %define ver      @VERSION@
-%define  RELEASE 1
-%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: InfiniBand verbs library
 Name: libibverbs
-Version: %ver
-Release: %rel
-Copyright: Dual GPL/BSD
+Version: 1.0
+Release: 0.1.rc3
+Summary: A library for direct userspace use of InfiniBand
+
 Group: System Environment/Libraries
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
-Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+License: GPL/BSD
 Url: http://openib.org/
+Source: http://openib.org/downloads/%{name}-%{ver}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+BuildRequires: sysfsutils-devel
 
 %description
-In conjunction with the OpenIB kernel drivers, libibverbs provides an
-InfiniBand verbs API to userspace applications.
+libibverbs is a library that allows userspace processes to use
+InfiniBand "verbs" as described in the InfiniBand Architecture
+Specification.  This includes direct hardware access for fast path
+operations.
+
+For this library to be useful, a device-specific plug-in module should
+also be installed.
 
 %package devel
-Summary: InfiniBand verbs library development files
+Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
 
 %description devel
-Static libraries and header files for the OpenIB verbs library.
+Static libraries and header files for the libibverbs verbs library.
+
+%package utils
+Summary: Examples for the libibverbs library
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
+
+%description utils
+Useful libibverbs1 example programs such as ibv_devinfo, which
+displays information about InfiniBand devices.
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{ver}
 
 %build
 %configure
-make
+make %{?_smp_mflags}
 
 %install
-make DESTDIR=${RPM_BUILD_ROOT} install
+rm -rf $RPM_BUILD_ROOT
+%makeinstall
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%post -p /sbin/ldconfig
+%postun -p /sbin/ldconfig
+
 %files
-%defattr(-,root,root)
+%defattr(-,root,root,-)
 %{_libdir}/libibverbs*.so.*
-%doc AUTHORS COPYING ChangeLog NEWS README
+%doc AUTHORS COPYING ChangeLog README
 
 %files devel
-%defattr(-,root,root)
+%defattr(-,root,root,-)
 %{_libdir}/lib*.so
 %{_libdir}/*.a
-%{prefix}/include/*
+%{_includedir}/*
+
+%files utils
+%defattr(-,root,root,-)
+%{_bindir}/*
+%{_mandir}/man1/*
+
+%changelog
+* Mon Sep 26 2005 Roland Dreier <roland@cisco.com> - 1.0-0.1.rc3
+- Initial attempt at Fedora Extras-compliant spec file
