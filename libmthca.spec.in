@@ -1,41 +1,59 @@
 # $Id$
 
-%define prefix /usr
 %define ver      @VERSION@
-%define  RELEASE 1
-%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: Mellanox InfiniBand HCA Userspace Driver
 Name: libmthca
-Version: %ver
-Release: %rel
-Copyright: Dual GPL/BSD
+Version: 1.0
+Release: 0.1.rc3
+Summary: Mellanox InfiniBand HCA Userspace Driver
+
 Group: System Environment/Libraries
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
-Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+License: GPL/BSD
 Url: http://openib.org/
-Requires: libibverbs
+Source: http://openib.org/downloads/%{name}-%{ver}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+BuildRequires: libibverbs-devel
 
 %description
 libmthca provides a device-specific userspace driver for Mellanox HCAs
-(MT23108 InfiniHost and MT25208 InfiniHost III Ex).
+(MT23108 InfiniHost and MT25208 InfiniHost III Ex) for use with the
+libibverbs library.
+
+%package devel
+Summary: Development files for the libmthca driver
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
+
+%description devel
+Static version of libmthca that may be linked directly to an
+application, which may be useful for debugging.
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{ver}
 
 %build
 %configure
-make
+make %{?_smp_mflags}
 
 %install
-make DESTDIR=${RPM_BUILD_ROOT} install
+rm -rf $RPM_BUILD_ROOT
+%makeinstall
 # remove unpackaged files from the buildroot
-rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
+rm -f $RPM_BUILD_ROOT%{_libdir}/infiniband/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
-%defattr(-,root,root)
-%{_libdir}/libmthca*.so.*
-%doc AUTHORS COPYING ChangeLog NEWS README
+%defattr(-,root,root,-)
+%{_libdir}/infiniband/mthca.so
+%doc AUTHORS COPYING ChangeLog
+
+%files devel
+%defattr(-,root,root,-)
+%{_libdir}/infiniband/mthca.a
+
+%changelog
+* Mon Sep 26 2005 Roland Dreier <roland@cisco.com> - 1.0-0.1.rc3
+- Initial attempt at Fedora Extras-compliant spec file
