@@ -97,6 +97,7 @@ struct mthca_device {
 struct mthca_db_table;
 
 struct mthca_context {
+	struct ibv_context     ibv_ctx;
 	void                  *uar;
 	pthread_spinlock_t     uar_lock;
 	struct mthca_db_table *db_tab;
@@ -109,11 +110,6 @@ struct mthca_context {
 	int                    num_qps;
 	int		       qp_table_shift;
 	int		       qp_table_mask;
-	/*
-	 * ibv_ctx must be last because we size it dynamically
-	 * depending on the number of CQ events available.
-	 */
-	struct ibv_context     ibv_ctx;
 };
 
 struct mthca_pd {
