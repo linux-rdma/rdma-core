@@ -38,6 +38,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <strings.h>
 #include <pthread.h>
 #include <netinet/in.h>
@@ -48,8 +49,22 @@
 int mthca_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 {
 	struct ibv_query_device cmd;
+	uint64_t raw_fw_ver;
+	unsigned major, minor, sub_minor;
+	int ret;
 
-	return ibv_cmd_query_device(context, attr, &cmd, sizeof cmd);
+	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd, sizeof cmd);
+	if (ret)
+		return ret;
+
+	major     = (raw_fw_ver >> 32) & 0xffff;
+	minor     = (raw_fw_ver >> 16) & 0xffff;
+	sub_minor = raw_fw_ver & 0xffff;
+
+	snprintf(attr->fw_ver, sizeof attr->fw_ver,
+		 "%d.%d.%d", major, minor, sub_minor);
+
+	return 0;
 }
 
 int mthca_query_port(struct ibv_context *context, uint8_t port,

@@ -1,3 +1,8 @@
+2005-09-29  Roland Dreier  <roland@cisco.com>
+
+	* src/verbs.c (mthca_query_device): Update to match new libibverbs
+	API that requires device-specific libraries to format firmware version.
+
 2005-09-25  Roland Dreier  <roland@cisco.com>
 
 	* src/cq.c, src/mthca.c, src/mthca.h, src/verbs.c: Update to match
