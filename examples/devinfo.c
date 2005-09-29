@@ -169,17 +169,6 @@ static int print_all_port_gids(struct ibv_context *ctx, uint8_t port_num, int tb
 	return rc;
 }
 
-static const char *fw_ver_str(u_int64_t fw_ver, char *str)
-{
-	u_int32_t major, minor, sub_minor;
-
-	major = (fw_ver >> 32) & 0xffff;
-	minor = (fw_ver >> 16) & 0xffff;
-	sub_minor = fw_ver & 0xffff;
-	sprintf(str, "%x.%x.%x", major, minor, sub_minor);
-	return str;
-}
-
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
@@ -202,7 +191,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 	}
 
 	printf("hca_id:\t%s\n", ibv_get_device_name(ib_dev));
-	printf("\tfw_ver:\t\t\t\t%s\n", fw_ver_str(device_attr.fw_ver, buf));
+	if (strlen(device_attr.fw_ver))
+		printf("\tfw_ver:\t\t\t\t%s\n", device_attr.fw_ver);
 	printf("\tnode_guid:\t\t\t%s\n", guid_str(device_attr.node_guid, buf));
 	printf("\tsys_image_guid:\t\t\t%s\n", guid_str(device_attr.sys_image_guid, buf));
 	printf("\tmax_mr_size:\t\t\t0x%llx\n", (unsigned long long) device_attr.max_mr_size);

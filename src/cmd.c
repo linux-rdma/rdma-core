@@ -97,6 +97,7 @@ int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd
 
 int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
+			 uint64_t *raw_fw_ver,
 			 struct ibv_query_device *cmd, size_t cmd_size)
 {
 	struct ibv_query_device_resp resp;
@@ -106,7 +107,8 @@ int ibv_cmd_query_device(struct ibv_context *context,
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	device_attr->fw_ver 		       = resp.fw_ver;
+	memset(device_attr->fw_ver, 0, sizeof device_attr->fw_ver);
+	*raw_fw_ver			       = resp.fw_ver;
 	device_attr->node_guid 		       = resp.node_guid;
 	device_attr->sys_image_guid 	       = resp.sys_image_guid;
 	device_attr->max_mr_size 	       = resp.max_mr_size;

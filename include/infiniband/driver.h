@@ -69,6 +69,7 @@ extern int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_conte
 			       size_t resp_size);
 extern int ibv_cmd_query_device(struct ibv_context *context,
 				struct ibv_device_attr *device_attr,
+				uint64_t *raw_fw_ver,
 				struct ibv_query_device *cmd, size_t cmd_size);
 extern int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 			      struct ibv_port_attr *port_attr,

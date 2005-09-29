@@ -91,7 +91,7 @@ enum ibv_atomic_cap {
 };
 
 struct ibv_device_attr {
-	uint64_t		fw_ver;
+	char			fw_ver[64];
 	uint64_t		node_guid;
 	uint64_t		sys_image_guid;
 	uint64_t		max_mr_size;

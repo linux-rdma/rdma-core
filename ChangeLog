@@ -1,3 +1,13 @@
+2005-09-29  Roland Dreier  <roland@cisco.com>
+
+	* examples/devinfo.c (print_hca_cap): Get rid of formatting of
+	firmware version in what should be device-independent code.
+
+	* include/infiniband/driver.h, include/infiniband/verbs.h,
+	src/cmd.c (ibv_cmd_query_device): Change firmware version in
+	struct ibv_device_attr to be a string formatted by device-specific
+	library.
+
 2005-09-25  Roland Dreier  <roland@cisco.com>
 
 	* examples/rc_pingpong.c, examples/srq_pingpong.c,
