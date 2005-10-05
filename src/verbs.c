@@ -367,9 +367,11 @@ err:
 
 int mthca_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr,
-		     enum ibv_srq_attr_mask mask)
+		     enum ibv_srq_attr_mask attr_mask)
 {
-	return -1;
+	struct ibv_modify_srq cmd;
+
+	return ibv_cmd_modify_srq(srq, attr, attr_mask, &cmd, sizeof cmd);
 }
 
 int mthca_destroy_srq(struct ibv_srq *srq)

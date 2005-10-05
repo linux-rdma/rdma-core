@@ -107,6 +107,7 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.poll_cq       = mthca_poll_cq,
 	.destroy_cq    = mthca_destroy_cq,
 	.create_srq    = mthca_create_srq,
+	.modify_srq    = mthca_modify_srq,
 	.destroy_srq   = mthca_destroy_srq,
 	.create_qp     = mthca_create_qp,
 	.modify_qp     = mthca_modify_qp,

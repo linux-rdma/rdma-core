@@ -1,3 +1,7 @@
+2005-10-05  Roland Dreier  <roland@cisco.com>
+
+	* src/verbs.c (mthca_modify_srq): Fill in mthca_modify_srq().
+
 2005-09-29  Roland Dreier  <roland@cisco.com>
 
 	* src/verbs.c (mthca_query_device): Update to match new libibverbs
