@@ -360,6 +360,26 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 	return 0;
 }
 
+int ibv_cmd_modify_srq(struct ibv_srq *srq,
+		       struct ibv_srq_attr *srq_attr,
+		       enum ibv_srq_attr_mask srq_attr_mask,
+		       struct ibv_modify_srq *cmd, size_t cmd_size)
+{
+	IBV_INIT_CMD(cmd, cmd_size, MODIFY_SRQ);
+
+	cmd->srq_handle	= srq->handle;
+	cmd->attr_mask	= srq_attr_mask;
+	cmd->max_wr	= srq_attr->max_wr;
+	cmd->max_sge	= srq_attr->max_sge;
+	cmd->srq_limit	= srq_attr->srq_limit;
+	cmd->reserved	= 0;
+
+	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	return 0;
+}
+
 static int ibv_cmd_destroy_srq_v1(struct ibv_srq *srq)
 {
 	struct ibv_destroy_srq_v1 cmd;

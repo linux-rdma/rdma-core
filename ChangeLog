@@ -1,3 +1,8 @@
+2005-10-05  Roland Dreier  <roland@cisco.com>
+
+	* src/cmd.c (ibv_cmd_modify_srq): Add function for marshalling
+	modify SRQ command.
+
 2005-09-29  Roland Dreier  <roland@cisco.com>
 
 	* examples/devinfo.c (print_hca_cap): Get rid of formatting of

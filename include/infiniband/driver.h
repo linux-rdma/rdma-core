@@ -98,6 +98,10 @@ extern int ibv_cmd_create_srq(struct ibv_pd *pd,
 			      struct ibv_srq *srq, struct ibv_srq_init_attr *attr,
 			      struct ibv_create_srq *cmd, size_t cmd_size,
 			      struct ibv_create_srq_resp *resp, size_t resp_size);
+extern int ibv_cmd_modify_srq(struct ibv_srq *srq,
+			      struct ibv_srq_attr *srq_attr,
+			      enum ibv_srq_attr_mask srq_attr_mask,
+			      struct ibv_modify_srq *cmd, size_t cmd_size);
 extern int ibv_cmd_destroy_srq(struct ibv_srq *srq);
 
 extern int ibv_cmd_create_qp(struct ibv_pd *pd,

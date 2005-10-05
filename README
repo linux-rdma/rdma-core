@@ -98,6 +98,4 @@ necessary permissions to release your work.
 TODO
 ====
 
- * Shared receive queues (SRQs) are not implemented.
- * Multiple CQ event handlers are not implemented.
  * Memory windows (MWs) are not implemented.
