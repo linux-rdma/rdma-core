@@ -334,7 +334,7 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 		wq = NULL;
 		wqe_index = wqe >> srq->wqe_shift;
 		wc->wr_id = srq->wrid[wqe_index];
-		mthca_free_srq_wqe(srq, wqe);
+		mthca_free_srq_wqe(srq, wqe_index);
 	} else {
 		wq = &(*cur_qp)->rq;
 		wqe_index = ntohl(cqe->wqe) >> wq->wqe_shift;

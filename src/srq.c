@@ -62,12 +62,8 @@ static inline int *wqe_to_link(void *wqe)
 	return (int *) (wqe + 4);
 }
 
-void mthca_free_srq_wqe(struct mthca_srq *srq, uint32_t wqe_addr)
+void mthca_free_srq_wqe(struct mthca_srq *srq, int ind)
 {
-	int ind;
-
-	ind = wqe_addr >> srq->wqe_shift;
-
 	pthread_spin_lock(&srq->lock);
 
 	if (srq->first_free >= 0)
@@ -110,6 +106,13 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 
 		wqe       = get_wqe(srq, ind);
 		next_ind  = *wqe_to_link(wqe);
+
+		if (next_ind < 0) {
+			err = -1;
+			*bad_wr = wr;
+			break;
+		}
+
 		prev_wqe  = srq->last;
 		srq->last = wqe;
 
@@ -196,6 +199,12 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 
 		wqe       = get_wqe(srq, ind);
 		next_ind  = *wqe_to_link(wqe);
+
+		if (next_ind < 0) {
+			err = -1;
+			*bad_wr = wr;
+			break;
+		}
 
 		((struct mthca_next_seg *) wqe)->nda_op =
 			htonl((next_ind << srq->wqe_shift) | 1);

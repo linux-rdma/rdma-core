@@ -296,7 +296,7 @@ extern int mthca_modify_srq(struct ibv_srq *srq,
 extern int mthca_destroy_srq(struct ibv_srq *srq);
 extern int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 			       struct mthca_srq *srq);
-extern void mthca_free_srq_wqe(struct mthca_srq *srq, uint32_t wqe_addr);
+extern void mthca_free_srq_wqe(struct mthca_srq *srq, int ind);
 extern int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 				     struct ibv_recv_wr *wr,
 				     struct ibv_recv_wr **bad_wr);

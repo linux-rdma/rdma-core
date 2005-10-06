@@ -1,3 +1,13 @@
+2005-10-06  Roland Dreier  <roland@cisco.com>
+
+	* src/srq.c (mthca_free_srq_wqe): Pass index instead of WQE
+	address.  The only caller already has the index handy, so there's
+	no need to recalculate it here.
+	
+	* src/srq.c (mthca_tavor_post_srq_recv,
+	mthca_arbel_post_srq_recv): Add an extra check so that we report
+	the SRQ as full before using the one extra WQE we need internally.
+
 2005-10-05  Roland Dreier  <roland@cisco.com>
 
 	* src/verbs.c (mthca_modify_srq): Fill in mthca_modify_srq().
