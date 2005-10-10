@@ -167,7 +167,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_NODE_BASE_VERS_F]		{BITSOFFS(0,8), "BaseVers", mad_dump_uint},
 	[IB_NODE_CLASS_VERS_F]		{BITSOFFS(8,8), "ClassVers", mad_dump_uint},
 	[IB_NODE_TYPE_F]		{BITSOFFS(16,8), "Type", mad_dump_node_type},
-	[IB_NODE_NPORTS_F]		{BITSOFFS(24,8), "PortsNum", mad_dump_uint},
+	[IB_NODE_NPORTS_F]		{BITSOFFS(24,8), "NumPorts", mad_dump_uint},
 	[IB_NODE_SYSTEM_GUID_F]		{32, 64, "SystemGuid", mad_dump_hex},
 	[IB_NODE_GUID_F]		{96, 64, "Guid", mad_dump_hex},
 	[IB_NODE_PORT_GUID_F]		{160, 64, "PortGuid", mad_dump_hex},
