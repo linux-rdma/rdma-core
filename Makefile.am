@@ -48,8 +48,8 @@ man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1 \
 
 DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
     debian/ibverbs-utils.install debian/libibverbs1.install \
-    debian/libibverbs1.postinst debian/libibverbs1.postrm \
-    debian/libibverbs-dev.install debian/rules
+    debian/libibverbs1.postinst debian/libibverbs-dev.install \
+    debian/rules
 
 EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
     include/infiniband/opcode.h include/infiniband/verbs.h src/ibverbs.h \
