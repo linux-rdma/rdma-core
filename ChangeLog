@@ -1,3 +1,8 @@
+2005-10-09  Roland Dreier  <roland@cisco.com>
+
+	* examples/devinfo.c (print_hca_cap): Only print max_mr_size and
+	page_size_cap if verbose is set.
+
 2005-10-05  Roland Dreier  <roland@cisco.com>
 
 	* src/cmd.c (ibv_cmd_modify_srq): Add function for marshalling

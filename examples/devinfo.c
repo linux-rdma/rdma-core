@@ -195,14 +195,16 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tfw_ver:\t\t\t\t%s\n", device_attr.fw_ver);
 	printf("\tnode_guid:\t\t\t%s\n", guid_str(device_attr.node_guid, buf));
 	printf("\tsys_image_guid:\t\t\t%s\n", guid_str(device_attr.sys_image_guid, buf));
-	printf("\tmax_mr_size:\t\t\t0x%llx\n", (unsigned long long) device_attr.max_mr_size);
-	printf("\tpage_size_cap:\t\t\t0x%llx\n", (unsigned long long) device_attr.page_size_cap);
 	printf("\tvendor_id:\t\t\t0x%04x\n", device_attr.vendor_id);
 	printf("\tvendor_part_id:\t\t\t%d\n", device_attr.vendor_part_id);
 	printf("\thw_ver:\t\t\t\t0x%X\n", device_attr.hw_ver);
 	printf("\tphys_port_cnt:\t\t\t%d\n", device_attr.phys_port_cnt);
 
 	if (verbose) {
+		printf("\tmax_mr_size:\t\t\t0x%llx\n",
+		       (unsigned long long) device_attr.max_mr_size);
+		printf("\tpage_size_cap:\t\t\t0x%llx\n",
+		       (unsigned long long) device_attr.page_size_cap);
 		printf("\tmax_qp:\t\t\t\t%d\n", device_attr.max_qp);
 		printf("\tmax_qp_wr:\t\t\t%d\n", device_attr.max_qp_wr);
 		printf("\tdevice_cap_flags:\t\t0x%08x\n", device_attr.device_cap_flags);
