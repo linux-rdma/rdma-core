@@ -637,6 +637,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	memset(my_dest, 0, sizeof my_dest);
+
 	for (i = 0; i < num_qp; ++i) {
 		my_dest[i].qpn = ctx->qp[i]->qp_num;
 		my_dest[i].psn = lrand48() & 0xffffff;

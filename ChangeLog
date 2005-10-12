@@ -1,3 +1,9 @@
+2005-10-12  Roland Dreier  <roland@cisco.com>
+
+	* examples/srq_pingpong.c (main): Zero out unused entries in
+	my_dest array to avoid string overflows when we send to the other
+	side.
+
 2005-10-09  Roland Dreier  <roland@cisco.com>
 
 	* examples/devinfo.c (print_hca_cap): Only print max_mr_size and
