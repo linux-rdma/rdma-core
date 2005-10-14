@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -92,6 +93,8 @@ extern int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 			     int comp_vector, struct ibv_cq *cq,
 			     struct ibv_create_cq *cmd, size_t cmd_size,
 			     struct ibv_create_cq_resp *resp, size_t resp_size);
+extern int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+extern int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited);
 extern int ibv_cmd_destroy_cq(struct ibv_cq *cq);
 
 extern int ibv_cmd_create_srq(struct ibv_pd *pd,
@@ -111,6 +114,15 @@ extern int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			     enum ibv_qp_attr_mask attr_mask,
 			     struct ibv_modify_qp *cmd, size_t cmd_size);
 extern int ibv_cmd_destroy_qp(struct ibv_qp *qp);
+extern int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			     struct ibv_send_wr **bad_wr);
+extern int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			     struct ibv_recv_wr **bad_wr);
+extern int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
+				 struct ibv_recv_wr **bad_wr);
+extern int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
+			     struct ibv_ah_attr *attr);
+extern int ibv_cmd_destroy_ah(struct ibv_ah *ah);
 extern int ibv_cmd_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 extern int ibv_cmd_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 

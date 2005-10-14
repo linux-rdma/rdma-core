@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -93,8 +94,11 @@ enum {
  * Make sure that all structs defined in this file remain laid out so
  * that they pack the same way on 32-bit and 64-bit architectures (to
  * avoid incompatibility between 32-bit userspace and 64-bit kernels).
- * In particular do not use pointer types -- pass pointers in __u64
- * instead.
+ * Specifically:
+ *  - Do not use pointer types -- pass pointers in __u64 instead.
+ *  - Make sure that any structure larger than 4 bytes is padded to a
+ *    multiple of 8 bytes.  Otherwise the structure size will be
+ *    different between 32-bit and 64-bit architectures.
  */
 
 struct ibv_kern_async_event {
@@ -298,6 +302,47 @@ struct ibv_create_cq_resp {
 	__u32 cqe;
 };
 
+struct ibv_kern_wc {
+	__u64  wr_id;
+	__u32  status;
+	__u32  opcode;
+	__u32  vendor_err;
+	__u32  byte_len;
+	__u32  imm_data;
+	__u32  qp_num;
+	__u32  src_qp;
+	__u32  wc_flags;
+	__u16  pkey_index;
+	__u16  slid;
+	__u8   sl;
+	__u8   dlid_path_bits;
+	__u8   port_num;
+	__u8   reserved;
+};
+
+struct ibv_poll_cq {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 cq_handle;
+	__u32 ne;
+};
+
+struct ibv_poll_cq_resp {
+	__u32 count;
+	__u32 reserved;
+	struct ibv_kern_wc wc[0];
+};
+
+struct ibv_req_notify_cq {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 cq_handle;
+	__u32 solicited;
+};
+
 struct ibv_destroy_cq {
 	__u32 command;
 	__u16 in_words;
@@ -398,6 +443,130 @@ struct ibv_destroy_qp {
 
 struct ibv_destroy_qp_resp {
 	__u32 events_reported;
+};
+
+struct ibv_kern_send_wr {
+	__u64 wr_id;
+	__u32 num_sge;
+	__u32 opcode;
+	__u32 send_flags;
+	__u32 imm_data;
+	union {
+		struct {
+			__u64 remote_addr;
+			__u32 rkey;
+			__u32 reserved;
+		} rdma;
+		struct {
+			__u64 remote_addr;
+			__u64 compare_add;
+			__u64 swap;
+			__u32 rkey;
+			__u32 reserved;
+		} atomic;
+		struct {
+			__u32 ah;
+			__u32 remote_qpn;
+			__u32 remote_qkey;
+			__u32 reserved;
+		} ud;
+	} wr;
+};
+
+struct ibv_post_send {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 qp_handle;
+	__u32 wr_count;
+	__u32 sge_count;
+	__u32 wqe_size;
+	struct ibv_kern_send_wr send_wr[0];
+};
+
+struct ibv_post_send_resp {
+	__u32 bad_wr;
+};
+
+struct ibv_kern_recv_wr {
+	__u64 wr_id;
+	__u32 num_sge;
+	__u32 reserved;
+};
+
+struct ibv_post_recv {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 qp_handle;
+	__u32 wr_count;
+	__u32 sge_count;
+	__u32 wqe_size;
+	struct ibv_kern_recv_wr recv_wr[0];
+};
+
+struct ibv_post_recv_resp {
+	__u32 bad_wr;
+};
+
+struct ibv_post_srq_recv {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 srq_handle;
+	__u32 wr_count;
+	__u32 sge_count;
+	__u32 wqe_size;
+	struct ibv_kern_recv_wr recv_wr[0];
+};
+
+struct ibv_post_srq_recv_resp {
+	__u32 bad_wr;
+};
+
+struct ibv_kern_global_route {
+	__u8  dgid[16];
+	__u32 flow_label;
+	__u8  sgid_index;
+	__u8  hop_limit;
+	__u8  traffic_class;
+	__u8  reserved;
+};
+
+struct ibv_kern_ah_attr {
+	struct ibv_kern_global_route grh;
+	__u16 dlid;
+	__u8  sl;
+	__u8  src_path_bits;
+	__u8  static_rate;
+	__u8  is_global;
+	__u8  port_num;
+	__u8  reserved;
+};
+
+struct ibv_create_ah {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u64 user_handle;
+	__u32 pd_handle;
+	__u32 reserved;
+	struct ibv_kern_ah_attr attr;
+};
+
+struct ibv_create_ah_resp {
+	__u32 handle;
+};
+
+struct ibv_destroy_ah {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 ah_handle;
 };
 
 struct ibv_attach_mcast {

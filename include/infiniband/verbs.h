@@ -2,6 +2,7 @@
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2004 Intel Corporation.  All rights reserved.
  * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -488,6 +489,7 @@ struct ibv_qp {
 	uint32_t		handle;
 	uint32_t		qp_num;
 	enum ibv_qp_state       state;
+	enum ibv_qp_type	qp_type;
 
 	pthread_mutex_t		mutex;
 	pthread_cond_t		cond;
@@ -513,6 +515,7 @@ struct ibv_cq {
 struct ibv_ah {
 	struct ibv_context     *context;
 	struct ibv_pd	       *pd;
+	uint32_t		handle;
 };
 
 struct ibv_device;

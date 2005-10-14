@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -304,6 +305,65 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 	return 0;
 }
 
+int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
+{
+	struct ibv_poll_cq       cmd;
+	struct ibv_poll_cq_resp *resp;
+	int                      i;
+	int                      rsize;
+	int                      ret;
+
+	rsize = sizeof *resp + ne * sizeof(struct ibv_kern_wc);
+	resp  = malloc(rsize);
+	if (!resp)
+		return -1;
+
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, POLL_CQ, resp, rsize);
+	cmd.cq_handle = ibcq->handle;
+	cmd.ne        = ne;
+
+	if (write(ibcq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd) {
+		ret = -1;
+		goto out;
+	}
+
+	for (i = 0; i < resp->count; i++) {
+		wc[i].wr_id 	     = resp->wc[i].wr_id;
+		wc[i].status 	     = resp->wc[i].status;
+		wc[i].opcode 	     = resp->wc[i].opcode;
+		wc[i].vendor_err     = resp->wc[i].vendor_err;
+		wc[i].byte_len 	     = resp->wc[i].byte_len;
+		wc[i].imm_data 	     = resp->wc[i].imm_data;
+		wc[i].qp_num 	     = resp->wc[i].qp_num;
+		wc[i].src_qp 	     = resp->wc[i].src_qp;
+		wc[i].wc_flags 	     = resp->wc[i].wc_flags;
+		wc[i].pkey_index     = resp->wc[i].pkey_index;
+		wc[i].slid 	     = resp->wc[i].slid;
+		wc[i].sl 	     = resp->wc[i].sl;
+		wc[i].dlid_path_bits = resp->wc[i].dlid_path_bits;
+	}
+
+	ret = resp->count;
+
+out:
+	free(resp);
+	return ret;
+}
+
+int ibv_cmd_req_notify_cq(struct ibv_cq *ibcq, int solicited)
+{
+	struct ibv_req_notify_cq cmd;
+
+	IBV_INIT_CMD(&cmd, sizeof cmd, REQ_NOTIFY_CQ);
+	cmd.cq_handle = ibcq->handle;
+	cmd.solicited = solicited ? 0 : 1;
+
+	if (write(ibcq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	return 0;
+}
+
 static int ibv_cmd_destroy_cq_v1(struct ibv_cq *cq)
 {
 	struct ibv_destroy_cq_v1 cmd;
@@ -441,6 +501,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 
 	qp->handle  = resp.qp_handle;
 	qp->qp_num  = resp.qpn;
+	qp->qp_type = attr->qp_type;
 
 	return 0;
 }
@@ -513,6 +574,251 @@ static int ibv_cmd_destroy_qp_v1(struct ibv_qp *qp)
 	cmd.qp_handle = qp->handle;
 
 	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+		      struct ibv_send_wr **bad_wr)
+{
+	struct ibv_post_send     *cmd;
+	struct ibv_post_send_resp resp;
+	struct ibv_send_wr       *i;
+	struct ibv_kern_send_wr  *n, *tmp;
+	struct ibv_sge           *s;
+	unsigned                  wr_count = 0;
+	unsigned                  sge_count = 0;
+	int                       size;
+	int                       ret = 0;
+
+	for (i = wr; i; i = i->next) {
+		wr_count++;
+		sge_count += i->num_sge;
+	}
+
+	size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
+	cmd  = alloca(size);
+
+	IBV_INIT_CMD_RESP(cmd, size, POST_SEND, &resp, sizeof resp);
+	cmd->qp_handle = ibqp->handle;
+	cmd->wr_count  = wr_count;
+	cmd->sge_count = sge_count;
+	cmd->wqe_size  = sizeof *n;
+
+	n = (struct ibv_kern_send_wr *) ((void *) cmd + sizeof *cmd);
+	s = (struct ibv_sge *) (n + wr_count);
+
+	tmp = n;
+	for (i = wr; i; i = i->next) {
+		tmp->wr_id 	= i->wr_id;
+		tmp->num_sge 	= i->num_sge;
+		tmp->opcode 	= i->opcode;
+		tmp->send_flags = i->send_flags;
+		tmp->imm_data 	= i->imm_data;
+		if (ibqp->qp_type == IBV_QPT_UD) {
+			tmp->wr.ud.ah 	       = i->wr.ud.ah->handle;
+			tmp->wr.ud.remote_qpn  = i->wr.ud.remote_qpn;
+			tmp->wr.ud.remote_qkey = i->wr.ud.remote_qkey;
+		} else {
+			switch(i->opcode) {
+			case IBV_WR_RDMA_WRITE:
+			case IBV_WR_RDMA_WRITE_WITH_IMM:
+			case IBV_WR_RDMA_READ:
+				tmp->wr.rdma.remote_addr =
+					i->wr.rdma.remote_addr;
+				tmp->wr.rdma.rkey = i->wr.rdma.rkey;
+				break;
+			case IBV_WR_ATOMIC_CMP_AND_SWP:
+			case IBV_WR_ATOMIC_FETCH_AND_ADD:
+				tmp->wr.atomic.remote_addr =
+					i->wr.atomic.remote_addr;
+				tmp->wr.atomic.compare_add =
+					i->wr.atomic.compare_add;
+				tmp->wr.atomic.swap = i->wr.atomic.swap;
+				tmp->wr.atomic.rkey = i->wr.atomic.rkey;
+				break;
+			default:
+				break;
+			}
+		}
+
+		if (tmp->num_sge) {
+			memcpy(s, i->sg_list, tmp->num_sge * sizeof *s);
+			s += tmp->num_sge;
+		}
+
+		tmp++;
+	}
+
+	resp.bad_wr = 0;
+	if (write(ibqp->context->cmd_fd, cmd, size) != sizeof cmd)
+		ret = errno;
+
+	wr_count = resp.bad_wr;
+	if (wr_count) {
+		i = wr;
+		while (--wr_count)
+			i = i->next;
+		*bad_wr = i;
+	}
+
+	return ret;
+}
+
+int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr)
+{
+	struct ibv_post_recv     *cmd;
+	struct ibv_post_recv_resp resp;
+	struct ibv_recv_wr       *i;
+	struct ibv_kern_recv_wr  *n, *tmp;
+	struct ibv_sge           *s;
+	unsigned                  wr_count = 0;
+	unsigned                  sge_count = 0;
+	int                       size;
+	int                       ret = 0;
+
+	for (i = wr; i; i = i->next) {
+		wr_count++;
+		sge_count += i->num_sge;
+	}
+
+	size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
+	cmd  = alloca(size);
+
+	IBV_INIT_CMD_RESP(cmd, size, POST_RECV, &resp, sizeof resp);
+	cmd->qp_handle = ibqp->handle;
+	cmd->wr_count  = wr_count;
+	cmd->sge_count = sge_count;
+	cmd->wqe_size  = sizeof *n;
+
+	n = (struct ibv_kern_recv_wr *) ((void *) cmd + sizeof *cmd);
+	s = (struct ibv_sge *) (n + wr_count);
+
+	tmp = n;
+	for (i = wr; i; i = i->next) {
+		tmp->wr_id   = i->wr_id;
+		tmp->num_sge = i->num_sge;
+
+		if (tmp->num_sge) {
+			memcpy(s, i->sg_list, tmp->num_sge * sizeof *s);
+			s += tmp->num_sge;
+		}
+
+		tmp++;
+	}
+
+	resp.bad_wr = 0;
+	if (write(ibqp->context->cmd_fd, cmd, size) != sizeof cmd)
+		ret = errno;
+
+	wr_count = resp.bad_wr;
+	if (wr_count) {
+		i = wr;
+		while (--wr_count)
+			i = i->next;
+		*bad_wr = i;
+	}
+
+	return ret;
+}
+
+int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr)
+{
+	struct ibv_post_srq_recv *cmd;
+	struct ibv_post_srq_recv_resp resp;
+	struct ibv_recv_wr       *i;
+	struct ibv_kern_recv_wr  *n, *tmp;
+	struct ibv_sge           *s;
+	unsigned                  wr_count = 0;
+	unsigned                  sge_count = 0;
+	int                       size;
+	int                       ret = 0;
+
+	for (i = wr; i; i = i->next) {
+		wr_count++;
+		sge_count += i->num_sge;
+	}
+
+	size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
+	cmd  = alloca(size);
+
+	IBV_INIT_CMD_RESP(cmd, size, POST_SRQ_RECV, &resp, sizeof resp);
+	cmd->srq_handle = srq->handle;
+	cmd->wr_count  = wr_count;
+	cmd->sge_count = sge_count;
+	cmd->wqe_size  = sizeof *n;
+
+	n = (struct ibv_kern_recv_wr *) ((void *) cmd + sizeof *cmd);
+	s = (struct ibv_sge *) (n + wr_count);
+
+	tmp = n;
+	for (i = wr; i; i = i->next) {
+		tmp->wr_id = i->wr_id;
+		tmp->num_sge = i->num_sge;
+
+		if (tmp->num_sge) {
+			memcpy(s, i->sg_list, tmp->num_sge * sizeof *s);
+			s += tmp->num_sge;
+		}
+
+		tmp++;
+	}
+
+	resp.bad_wr = 0;
+	if (write(srq->context->cmd_fd, cmd, size) != sizeof cmd)
+		ret = errno;
+
+	wr_count = resp.bad_wr;
+	if (wr_count) {
+		i = wr;
+		while (--wr_count)
+			i = i->next;
+		*bad_wr = i;
+	}
+
+	return ret;
+}
+
+int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
+		      struct ibv_ah_attr *attr)
+{
+	struct ibv_create_ah      cmd;
+	struct ibv_create_ah_resp resp;
+
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_AH, &resp, sizeof resp);
+	cmd.user_handle            = (uintptr_t) ah;
+	cmd.pd_handle              = pd->handle;
+	cmd.attr.dlid              = attr->dlid;
+	cmd.attr.sl                = attr->sl;
+	cmd.attr.src_path_bits     = attr->src_path_bits;
+	cmd.attr.static_rate       = attr->static_rate;
+	cmd.attr.is_global         = attr->is_global;
+	cmd.attr.port_num          = attr->port_num;
+	cmd.attr.grh.flow_label    = attr->grh.flow_label;
+	cmd.attr.grh.sgid_index    = attr->grh.sgid_index;
+	cmd.attr.grh.hop_limit     = attr->grh.hop_limit;
+	cmd.attr.grh.traffic_class = attr->grh.traffic_class;
+	memcpy(cmd.attr.grh.dgid, attr->grh.dgid.raw, 16);
+
+	if (write(pd->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	ah->handle = resp.handle;
+
+	return 0;
+}
+
+int ibv_cmd_destroy_ah(struct ibv_ah *ah)
+{
+	struct ibv_destroy_ah cmd;
+
+	IBV_INIT_CMD(&cmd, sizeof cmd, DESTROY_AH);
+	cmd.ah_handle = ah->handle;
+
+	if (write(ah->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
 
 	return 0;

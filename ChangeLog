@@ -1,3 +1,18 @@
+2005-10-13  Roland Dreier  <roland@cisco.com>
+
+	* include/infiniband/driver.h, src/cmd.c, src/libibverbs.map: Add
+	command functions for calling new kernel commands.
+
+	* include/infiniband/verbs.h: Add qp_type to struct ibv_qp so that
+	we know when we're posting a send on a UD QP, and add kernel
+	handle member to struct ibv_ah so we can handle drivers that do
+	create AH and destroy AH operations in the kernel.
+	
+	* include/infiniband/kern-abi.h: Add new command structures for
+	poll CQ, request notification for CQ, post send, post receive,
+	post SRQ receive, create AH and destroy AH commands.  These will
+	be used by the PathScale userspace driver.
+
 2005-10-12  Roland Dreier  <roland@cisco.com>
 
 	* examples/srq_pingpong.c (main): Zero out unused entries in
