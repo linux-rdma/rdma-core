@@ -348,7 +348,7 @@ get_ca(char *ca_name, umad_ca_t *ca)
 		return r;
 	if ((r = sys_read_string(dir_name, SYS_CA_FW_VERS, ca->fw_ver,
 				 sizeof ca->fw_ver)) < 0)
-		return r;
+		ca->fw_ver[0] = '\0';
 	if ((r = sys_read_string(dir_name, SYS_CA_HW_VERS, ca->hw_ver,
 				 sizeof ca->hw_ver)) < 0)
 		return r;
