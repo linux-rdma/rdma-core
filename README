@@ -1,0 +1,21 @@
+Introduction
+============
+
+libipathverbs is a userspace driver for the PathScale InfiniBand HCAs.
+It works as a plug-in module for libibverbs that allows programs to use
+PathScale HCAs directly from userspace.  See the libibverbs package for
+more information.
+
+Using libipathverbs
+===================
+
+libipathverbs will be loaded and used automatically by programs linked
+with libibverbs.  The ib_ipath kernel module must be loaded for PathScale
+HCA devices to be detected and used.
+
+Supported Hardware
+==================
+
+libipathverbs currently supports the following PathScale HCAs:
+
+    InfiniPath HTX Adapter

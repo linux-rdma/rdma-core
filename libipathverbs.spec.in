@@ -1,0 +1,86 @@
+# Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
+#
+# This software is available to you under a choice of one of two
+# licenses.  You may choose to be licensed under the terms of the GNU
+# General Public License (GPL) Version 2, available from the file
+# COPYING in the main directory of this source tree, or the
+# OpenIB.org BSD license below:
+#
+#     Redistribution and use in source and binary forms, with or
+#     without modification, are permitted provided that the following
+#     conditions are met:
+#
+#      - Redistributions of source code must retain the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer.
+#
+#      - Redistributions in binary form must reproduce the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer in the documentation and/or other materials
+#        provided with the distribution.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# Patent licenses, if any, provided herein do not apply to
+# combinations of this program with other software, or any other
+# product whatsoever.
+
+%define prefix /usr
+%define ver      @VERSION@
+%define  RELEASE 1
+%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+
+Summary: PathScale InfiniPath HCA Userspace Driver
+Name: libipathverbs
+Version: %ver
+Release: %rel
+License: GPL/BSD
+Group: System Environment/Libraries
+BuildRoot: %{_tmppath}/%{name}-%{version}-root
+Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+Url: http://openib.org/
+Requires: libibverbs
+
+%description
+libipathverbs provides a device-specific userspace driver for PathScale HCAs.
+
+%package devel
+Summary: Development files for the libipathverbs driver
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
+
+%description devel
+Static version of libipathverbs that may be linked directly to an
+application, which may be useful for debugging.
+
+%prep
+%setup -q
+
+%build
+%configure
+make
+
+%install
+rm -rf $RPM_BUILD_ROOT
+%makeinstall
+# remove unpackaged files from the buildroot
+rm -f $RPM_BUILD_ROOT%{_libdir}/infiniband/*.la
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%defattr(-,root,root)
+%{_libdir}/infiniband/ipathverbs.so
+%doc AUTHORS COPYING
+
+%files devel
+%defattr(-,root,root,-)
+%{_libdir}/infiniband/ipathverbs.a
