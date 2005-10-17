@@ -620,13 +620,14 @@ extern int ibv_get_async_event(struct ibv_context *context,
 			       struct ibv_async_event *event);
 
 /**
- * ibv_ack_async_event - Free an async event
+ * ibv_ack_async_event - Acknowledge an async event
  * @event: Event to be acknowledged.
  *
  * All async events which are returned by ibv_get_async_event() must
- * be acknowledged.  Destroying an object (CQ, SRQ or QP) will wait
- * for all affiliated events to be acknowledged, so there should be a
- * one-to-one correspondence between acks and successful gets.
+ * be acknowledged.  To avoid races, destroying an object (CQ, SRQ or
+ * QP) will wait for all affiliated events to be acknowledged, so
+ * there should be a one-to-one correspondence between acks and
+ * successful gets.
  */
 extern void ibv_ack_async_event(struct ibv_async_event *event);
 
@@ -718,16 +719,17 @@ extern int ibv_get_cq_event(struct ibv_comp_channel *channel,
 			    struct ibv_cq **cq, void **cq_context);
 
 /**
- * ibv_ack_cq_events - Free an async event
+ * ibv_ack_cq_events - Acknowledge CQ completion events
  * @cq: CQ to acknowledge events for
  * @nevents: Number of events to acknowledge.
  *
  * All completion events which are returned by ibv_get_cq_event() must
- * be acknowledged.  ibv_destroy_cq() will wait for all completion
- * events to be acknowledged, so there should be a one-to-one
- * correspondence between acks and successful gets.  An application
- * may accumulate multiple completion events and acknowledge them in a
- * single call by passing the number of events to ack in @nevents.
+ * be acknowledged.  To avoid races, ibv_destroy_cq() will wait for
+ * all completion events to be acknowledged, so there should be a
+ * one-to-one correspondence between acks and successful gets.  An
+ * application may accumulate multiple completion events and
+ * acknowledge them in a single call to ibv_ack_cq_events() by passing
+ * the number of events to ack in @nevents.
  */
 extern void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
 
