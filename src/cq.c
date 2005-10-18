@@ -161,6 +161,15 @@ static inline void update_cons_index(struct mthca_cq *cq, int incr)
 	}
 }
 
+static void dump_cqe(void *cqe_ptr)
+{
+	uint32_t *cqe = cqe_ptr;
+	int i;
+
+	for (i = 0; i < 8; ++i)
+		printf("  [%2x] %08x\n", i * 4, ntohl(((uint32_t *) cqe)[i]));
+}
+
 static int handle_error_cqe(struct mthca_cq *cq,
 			    struct mthca_qp *qp, int wqe_index, int is_send,
 			    struct mthca_err_cqe *cqe,
@@ -169,6 +178,14 @@ static int handle_error_cqe(struct mthca_cq *cq,
 	int err;
 	int dbd;
 	uint32_t new_wqe;
+
+	if (cqe->syndrome == SYNDROME_LOCAL_QP_OP_ERR) {
+		printf("local QP operation err "
+		       "(QPN %06x, WQE @ %08x, CQN %06x, index %d)\n",
+		       ntohl(cqe->my_qpn), ntohl(cqe->wqe),
+		       cq->cqn, cq->cons_index);
+		dump_cqe(cqe);
+	}
 
 	/*
 	 * For completions in error, only work request ID, status (and
@@ -266,14 +283,6 @@ static int handle_error_cqe(struct mthca_cq *cq,
 	return 0;
 }
 
-static void dump_cqe(struct mthca_cqe *cqe)
-{
-	int j;
-
-	for (j = 0; j < 8; ++j)
-		printf("  [%2x] %08x\n", j * 4, ntohl(((uint32_t *) cqe)[j]));
-}
-
 static inline int mthca_poll_one(struct mthca_cq *cq,
 				 struct mthca_qp **cur_qp,
 				 int *freed,
@@ -305,9 +314,6 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 	is_error = (cqe->opcode & MTHCA_ERROR_CQE_OPCODE_MASK) ==
 		MTHCA_ERROR_CQE_OPCODE_MASK;
 	is_send  = is_error ? cqe->opcode & 0x01 : cqe->is_send & 0x80;
-
-	if (is_error)
-		dump_cqe(cqe);
 
 	if (!*cur_qp || ntohl(cqe->my_qpn) != (*cur_qp)->ibv_qp.qp_num) {
 		/*

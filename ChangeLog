@@ -1,3 +1,8 @@
+2005-10-18  Roland Dreier  <roland@cisco.com>
+
+	* src/cq.c (handle_error_cqe, mthca_poll_one): Dump CQEs for local
+	QP operation errors instead of all error statuses.
+
 2005-10-06  Roland Dreier  <roland@cisco.com>
 
 	* src/srq.c (mthca_free_srq_wqe): Pass index instead of WQE
