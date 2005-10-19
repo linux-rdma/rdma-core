@@ -1,3 +1,11 @@
+2005-10-19  Roland Dreier  <roland@cisco.com>
+
+	* src/mthca.h, src/verbs.c (mthca_create_qp), src/qp.c
+	(mthca_tavor_post_send, mthca_arbel_post_send, mthca_alloc_qp_buf,
+	mthca_return_cap): Eliminate struct mthca_qp.qpt field and use
+	struct ibv_qp.qp_type instead (now that that field has been added
+	in libibverbs).
+
 2005-10-18  Roland Dreier  <roland@cisco.com>
 
 	* src/cq.c (handle_error_cqe, mthca_poll_one): Dump CQEs for local

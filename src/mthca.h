@@ -181,7 +181,6 @@ struct mthca_qp {
 	struct mthca_wq  sq;
 	struct mthca_wq  rq;
 	struct ibv_mr   *mr;
-	enum ibv_qp_type qpt;
 	int              sq_sig_all;
 };
 

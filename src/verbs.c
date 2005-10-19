@@ -412,8 +412,6 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (!qp)
 		return NULL;
 
-	qp->qpt = attr->qp_type;
-
 	qp->sq.max    	 = align_queue_size(pd->context, attr->cap.max_send_wr, 0);
 	qp->sq.next_ind  = 0;
 	qp->sq.last_comp = qp->sq.max - 1;

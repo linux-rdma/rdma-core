@@ -122,7 +122,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		wqe += sizeof (struct mthca_next_seg);
 		size = sizeof (struct mthca_next_seg) / 16;
 
-		switch (qp->qpt) {
+		switch (ibqp->qp_type) {
 		case IBV_QPT_RC:
 			switch (wr->opcode) {
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
@@ -423,7 +423,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		wqe += sizeof (struct mthca_next_seg);
 		size = sizeof (struct mthca_next_seg) / 16;
 
-		switch (qp->qpt) {
+		switch (ibqp->qp_type) {
 		case IBV_QPT_RC:
 			switch (wr->opcode) {
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
@@ -703,7 +703,7 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 	size = sizeof (struct mthca_next_seg) +
 		qp->sq.max_gs * sizeof (struct mthca_data_seg);
-	switch (qp->qpt) {
+	switch (qp->ibv_qp.qp_type) {
 	case IBV_QPT_UD:
 		if (mthca_is_memfree(pd->context))
 			size += sizeof (struct mthca_arbel_ud_seg);
@@ -777,7 +777,7 @@ void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp, struct ibv_qp_cap 
 		sizeof (struct mthca_next_seg) -
 		sizeof (struct mthca_inline_seg);
 
-	switch (qp->qpt) {
+	switch (qp->ibv_qp.qp_type) {
 	case IBV_QPT_UD:
 		if (mthca_is_memfree(pd->context))
 			cap->max_inline_data -= sizeof (struct mthca_arbel_ud_seg);
