@@ -1,3 +1,8 @@
+2005-10-19  Roland Dreier  <roland@cisco.com>
+
+	* src/cmd.c (ibv_cmd_req_notify_cq): Correct how we pass
+	solicited_only flag into the kernel.
+
 2005-10-13  Roland Dreier  <roland@cisco.com>
 
 	* include/infiniband/driver.h, src/cmd.c, src/libibverbs.map: Add

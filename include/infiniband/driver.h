@@ -94,7 +94,7 @@ extern int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 			     struct ibv_create_cq *cmd, size_t cmd_size,
 			     struct ibv_create_cq_resp *resp, size_t resp_size);
 extern int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
-extern int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited);
+extern int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 extern int ibv_cmd_destroy_cq(struct ibv_cq *cq);
 
 extern int ibv_cmd_create_srq(struct ibv_pd *pd,
