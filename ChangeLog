@@ -1,3 +1,10 @@
+2005-10-21  Roland Dreier  <roland@cisco.com>
+
+	* src/cmd.c (ibv_cmd_post_send, ibv_cmd_post_recv,
+	ibv_cmd_post_srq_recv): Correct value that we check write() return
+	value against so that we check against the size we actually try to
+	write, instead of just sizeof cmd.
+
 2005-10-19  Roland Dreier  <roland@cisco.com>
 
 	* src/cmd.c (ibv_cmd_req_notify_cq): Correct how we pass

@@ -589,7 +589,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
-	int                       size;
+	int                       cmd_size;
 	int                       ret = 0;
 
 	for (i = wr; i; i = i->next) {
@@ -597,10 +597,10 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		sge_count += i->num_sge;
 	}
 
-	size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
-	cmd  = alloca(size);
+	cmd_size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
+	cmd  = alloca(cmd_size);
 
-	IBV_INIT_CMD_RESP(cmd, size, POST_SEND, &resp, sizeof resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, POST_SEND, &resp, sizeof resp);
 	cmd->qp_handle = ibqp->handle;
 	cmd->wr_count  = wr_count;
 	cmd->sge_count = sge_count;
@@ -652,7 +652,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 
 	resp.bad_wr = 0;
-	if (write(ibqp->context->cmd_fd, cmd, size) != sizeof cmd)
+	if (write(ibqp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		ret = errno;
 
 	wr_count = resp.bad_wr;
@@ -676,7 +676,7 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
-	int                       size;
+	int                       cmd_size;
 	int                       ret = 0;
 
 	for (i = wr; i; i = i->next) {
@@ -684,10 +684,10 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		sge_count += i->num_sge;
 	}
 
-	size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
-	cmd  = alloca(size);
+	cmd_size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
+	cmd  = alloca(cmd_size);
 
-	IBV_INIT_CMD_RESP(cmd, size, POST_RECV, &resp, sizeof resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, POST_RECV, &resp, sizeof resp);
 	cmd->qp_handle = ibqp->handle;
 	cmd->wr_count  = wr_count;
 	cmd->sge_count = sge_count;
@@ -710,7 +710,7 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	}
 
 	resp.bad_wr = 0;
-	if (write(ibqp->context->cmd_fd, cmd, size) != sizeof cmd)
+	if (write(ibqp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		ret = errno;
 
 	wr_count = resp.bad_wr;
@@ -734,7 +734,7 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
-	int                       size;
+	int                       cmd_size;
 	int                       ret = 0;
 
 	for (i = wr; i; i = i->next) {
@@ -742,10 +742,10 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 		sge_count += i->num_sge;
 	}
 
-	size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
-	cmd  = alloca(size);
+	cmd_size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
+	cmd  = alloca(cmd_size);
 
-	IBV_INIT_CMD_RESP(cmd, size, POST_SRQ_RECV, &resp, sizeof resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, POST_SRQ_RECV, &resp, sizeof resp);
 	cmd->srq_handle = srq->handle;
 	cmd->wr_count  = wr_count;
 	cmd->sge_count = sge_count;
@@ -768,7 +768,7 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	}
 
 	resp.bad_wr = 0;
-	if (write(srq->context->cmd_fd, cmd, size) != sizeof cmd)
+	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		ret = errno;
 
 	wr_count = resp.bad_wr;
