@@ -497,7 +497,7 @@ mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 	uint mask = *(uint *)val;
 	char *s = buf;
 
-	s += sprintf(s, "(0x%x):\n", mask);
+	s += sprintf(s, "0x%x\n", mask);
 	if (mask & (1 << 1))
 		s += sprintf(s, "\t\t\t\tIsSM\n");
 	if (mask & (1 << 2))
@@ -535,11 +535,11 @@ mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 	if (mask & (1 << 22))
 		s += sprintf(s, "\t\t\t\tIsCapabilityMaskNoticeSupported\n");
 	if (mask & (1 << 23))
-		s += snprintf(buf, bufsz, "\t\t\t\tIsBootManagementSupported\n");
+		s += sprintf(s, "\t\t\t\tIsBootManagementSupported\n");
 	if (mask & (1 << 24))
-		s += snprintf(buf, bufsz, "\t\t\t\tIsLinkRoundTripLatencySupported\n");
+		s += sprintf(s, "\t\t\t\tIsLinkRoundTripLatencySupported\n");
 	if (mask & (1 << 25))
-		s += snprintf(buf, bufsz, "\t\t\t\tIsClientRegistrationSupported\n");
+		s += sprintf(s, "\t\t\t\tIsClientRegistrationSupported\n");
 
 	if (s != buf)
 		*(--s) = 0;
