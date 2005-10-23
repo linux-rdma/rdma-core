@@ -284,6 +284,7 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 		qp->send_cq    	     = qp_init_attr->send_cq;
 		qp->recv_cq    	     = qp_init_attr->recv_cq;
 		qp->srq        	     = qp_init_attr->srq;
+		qp->qp_type          = qp_init_attr->qp_type;
 		qp->events_completed = 0;
 		pthread_mutex_init(&qp->mutex, NULL);
 		pthread_cond_init(&qp->cond, NULL);

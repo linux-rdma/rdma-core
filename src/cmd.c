@@ -501,7 +501,6 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 
 	qp->handle  = resp.qp_handle;
 	qp->qp_num  = resp.qpn;
-	qp->qp_type = attr->qp_type;
 
 	return 0;
 }
