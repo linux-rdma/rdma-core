@@ -1,3 +1,9 @@
+2005-10-23  Roland Dreier  <roland@cisco.com>
+
+	* src/cmd.c (ibv_cmd_get_context_v2): Correct silly mistake in
+	computation of size of buffer for old ABI command: we need to use
+	sizeof *cmd instead of sizeof cmd, since cmd is a pointer.
+
 2005-10-21  Roland Dreier  <roland@cisco.com>
 
 	* src/cmd.c (ibv_cmd_post_send, ibv_cmd_post_recv,

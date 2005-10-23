@@ -60,7 +60,7 @@ static int ibv_cmd_get_context_v2(struct ibv_context *context,
 		return ENOMEM;
 	pthread_mutex_init(&t->in_use, NULL);
 
-	cmd_size = sizeof cmd + new_cmd_size - sizeof *new_cmd;
+	cmd_size = sizeof *cmd + new_cmd_size - sizeof *new_cmd;
 	cmd      = alloca(cmd_size);
 	memcpy(cmd->driver_data, new_cmd->driver_data, new_cmd_size - sizeof *new_cmd);
 
