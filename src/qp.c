@@ -680,7 +680,7 @@ out:
 }
 
 int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
-		       struct mthca_qp *qp)
+		       enum ibv_qp_type type, struct mthca_qp *qp)
 {
 	int size;
 
@@ -703,7 +703,7 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 	size = sizeof (struct mthca_next_seg) +
 		qp->sq.max_gs * sizeof (struct mthca_data_seg);
-	switch (qp->ibv_qp.qp_type) {
+	switch (type) {
 	case IBV_QPT_UD:
 		if (mthca_is_memfree(pd->context))
 			size += sizeof (struct mthca_arbel_ud_seg);
@@ -767,7 +767,8 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	return 0;
 }
 
-void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp, struct ibv_qp_cap *cap)
+void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp,
+		      enum ibv_qp_type type, struct ibv_qp_cap *cap)
 {
 	/*
 	 * Maximum inline data size is the full WQE size less the size
@@ -777,7 +778,7 @@ void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp, struct ibv_qp_cap 
 		sizeof (struct mthca_next_seg) -
 		sizeof (struct mthca_inline_seg);
 
-	switch (qp->ibv_qp.qp_type) {
+	switch (type) {
 	case IBV_QPT_UD:
 		if (mthca_is_memfree(pd->context))
 			cap->max_inline_data -= sizeof (struct mthca_arbel_ud_seg);

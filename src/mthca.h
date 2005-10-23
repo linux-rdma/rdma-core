@@ -316,9 +316,9 @@ extern int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 extern int mthca_arbel_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 				 struct ibv_recv_wr **bad_wr);
 extern int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
-			      struct mthca_qp *qp);
+			      enum ibv_qp_type type, struct mthca_qp *qp);
 extern void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp,
-			     struct ibv_qp_cap *cap);
+			     enum ibv_qp_type type, struct ibv_qp_cap *cap);
 extern struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn);
 extern int mthca_store_qp(struct mthca_context *ctx, uint32_t qpn, struct mthca_qp *qp);
 extern void mthca_clear_qp(struct mthca_context *ctx, uint32_t qpn);

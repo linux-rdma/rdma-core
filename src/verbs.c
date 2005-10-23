@@ -424,7 +424,7 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	qp->rq.head    	 = 0;
 	qp->rq.tail    	 = 0;
 
-	if (mthca_alloc_qp_buf(pd, &attr->cap, qp))
+	if (mthca_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp))
 		goto err;
 
 	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
@@ -471,7 +471,7 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (ret)
 		goto err_destroy;
 
-	mthca_return_cap(pd, qp, &attr->cap);
+	mthca_return_cap(pd, qp, attr->qp_type, &attr->cap);
 
 	return &qp->ibv_qp;
 

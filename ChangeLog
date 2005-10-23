@@ -1,3 +1,11 @@
+2005-10-23  Roland Dreier  <roland@cisco.com>
+
+	* src/qp.c (mthca_return_cap, mthca_alloc_qp_buf), src/verbs.c
+	(mthca_create_qp): Explicitly pass QP type to functions used while
+	creating QP, since we can't rely on ibv_qp.qp_type to be set until
+	after we return.  This fixes breakage with UD QPs introduced in
+	the last change below.
+
 2005-10-19  Roland Dreier  <roland@cisco.com>
 
 	* src/mthca.h, src/verbs.c (mthca_create_qp), src/qp.c
