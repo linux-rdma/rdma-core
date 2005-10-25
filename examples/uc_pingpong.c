@@ -97,7 +97,6 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 		.path_mtu		= IBV_MTU_1024,
 		.dest_qp_num		= dest->qpn,
 		.rq_psn 		= dest->psn,
-		.max_dest_rd_atomic	= 1,
 		.ah_attr		= {
 			.is_global	= 0,
 			.dlid		= dest->lid,
@@ -111,19 +110,16 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 			  IBV_QP_AV                 |
 			  IBV_QP_PATH_MTU           |
 			  IBV_QP_DEST_QPN           |
-			  IBV_QP_RQ_PSN             |
-			  IBV_QP_MAX_DEST_RD_ATOMIC)) {
+			  IBV_QP_RQ_PSN)) {
 		fprintf(stderr, "Failed to modify QP to RTR\n");
 		return 1;
 	}
 
 	attr.qp_state 	    = IBV_QPS_RTS;
 	attr.sq_psn 	    = my_psn;
-	attr.max_rd_atomic  = 1;
 	if (ibv_modify_qp(ctx->qp, &attr,
 			  IBV_QP_STATE              |
-			  IBV_QP_SQ_PSN             |
-			  IBV_QP_MAX_QP_RD_ATOMIC)) {
+			  IBV_QP_SQ_PSN)) {
 		fprintf(stderr, "Failed to modify QP to RTS\n");
 		return 1;
 	}

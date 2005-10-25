@@ -1,5 +1,10 @@
 2005-10-25  Roland Dreier  <roland@cisco.com>
 
+	* examples/uc_pingpong.c (pp_connect_ctx): Fix QP attribute masks
+	used to modify QP to RTR and RTS -- we should not be setting
+	RDMA/atomic attributes for UC QPs.  Now that the mthca kernel
+	driver bug is fixed, the error is exposed here.
+
 	* examples/rc_pingpong.c, examples/srq_pingpong.c,
 	examples/uc_pingpong.c, examples/ud_pingpong.c: Keep track of
 	whether send and/or receive is pending.  This avoids failures when
