@@ -70,6 +70,7 @@ struct pingpong_context {
 	void			*buf;
 	int			 size;
 	int			 rx_depth;
+	int			 pending;
 };
 
 struct pingpong_dest {
@@ -600,11 +601,15 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-	if (servername)
+	ctx->pending = PINGPONG_RECV_WRID;
+
+	if (servername) {
 		if (pp_post_send(ctx)) {
 			fprintf(stderr, "Couldn't post send\n");
 			return 1;
 		}
+		ctx->pending |= PINGPONG_SEND_WRID;
+	}
 
 	if (gettimeofday(&start, NULL)) {
 		perror("gettimeofday");
@@ -669,12 +674,6 @@ int main(int argc, char *argv[])
 						}
 					}
 
-					if (scnt < iters)
-						if (pp_post_send(ctx)) {
-							fprintf(stderr, "Couldn't post send\n");
-							return 1;
-						}
-
 					++rcnt;
 					break;
 
@@ -682,6 +681,16 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "Completion for unknown wr_id %d\n",
 						(int) wc[i].wr_id);
 					return 1;
+				}
+
+				ctx->pending &= ~(int) wc[i].wr_id;
+				if (scnt < iters && !ctx->pending) {
+					if (pp_post_send(ctx)) {
+						fprintf(stderr, "Couldn't post send\n");
+						return 1;
+					}
+					ctx->pending = PINGPONG_RECV_WRID |
+						       PINGPONG_SEND_WRID;
 				}
 			}
 		}

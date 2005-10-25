@@ -1,3 +1,13 @@
+2005-10-25  Roland Dreier  <roland@cisco.com>
+
+	* examples/rc_pingpong.c, examples/srq_pingpong.c,
+	examples/uc_pingpong.c, examples/ud_pingpong.c: Keep track of
+	whether send and/or receive is pending.  This avoids failures when
+	the remote side receives data and posts a send very quickly, and
+	the local side completes the receive before the previous send.
+	With the old code, this could result in posting a send before the
+	previous send completed, and therefore overrun the send queue.
+
 2005-10-23  Roland Dreier  <roland@cisco.com>
 
 	* src/cmd.c (ibv_cmd_get_context_v2): Correct silly mistake in

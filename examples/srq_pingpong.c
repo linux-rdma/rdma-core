@@ -74,6 +74,7 @@ struct pingpong_context {
 	int			 size;
 	int			 num_qp;
 	int			 rx_depth;
+	int			 pending[MAX_QP];
 };
 
 struct pingpong_dest {
@@ -403,7 +404,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			.recv_cq = ctx->cq,
 			.srq     = ctx->srq,
 			.cap     = {
-				.max_send_wr  = 4,
+				.max_send_wr  = 1,
 				.max_send_sge = 1,
 			},
 			.qp_type = IBV_QPT_RC
@@ -675,11 +676,16 @@ int main(int argc, char *argv[])
 		}
 
 	if (servername)
-		for (i = 0; i < num_qp; ++i)
+		for (i = 0; i < num_qp; ++i) {
 			if (pp_post_send(ctx, i)) {
 				fprintf(stderr, "Couldn't post send\n");
 				return 1;
 			}
+			ctx->pending[i] = PINGPONG_SEND_WRID | PINGPONG_RECV_WRID;
+		}
+	else
+		for (i = 0; i < num_qp; ++i)
+			ctx->pending[i] = PINGPONG_RECV_WRID;
 
 	if (gettimeofday(&start, NULL)) {
 		perror("gettimeofday");
@@ -710,7 +716,7 @@ int main(int argc, char *argv[])
 
 		{
 			struct ibv_wc wc[2];
-			int ne, j;
+			int ne, qp_ind;
 
 			do {
 				ne = ibv_poll_cq(ctx->cq, 2, wc);
@@ -725,6 +731,13 @@ int main(int argc, char *argv[])
 				if (wc[i].status != IBV_WC_SUCCESS) {
 					fprintf(stderr, "Failed status %d for wr_id %d\n",
 						wc[i].status, (int) wc[i].wr_id);
+					return 1;
+				}
+
+				qp_ind = find_qp(wc[i].qp_num, ctx, num_qp);
+				if (qp_ind < 0) {
+					fprintf(stderr, "Couldn't find QPN %06x\n",
+						wc[i].qp_num);
 					return 1;
 				}
 
@@ -744,20 +757,6 @@ int main(int argc, char *argv[])
 						}
 					}
 
-					if (scnt < iters) {
-						j = find_qp(wc[i].qp_num, ctx, num_qp);
-						if (j < 0) {
-							fprintf(stderr, "Couldn't find QPN %06x\n",
-								wc[i].qp_num);
-							return 1;
-						}
-
-						if (pp_post_send(ctx, j)) {
-							fprintf(stderr, "Couldn't post send\n");
-							return 1;
-						}
-					}
-
 					++rcnt;
 					break;
 
@@ -766,6 +765,17 @@ int main(int argc, char *argv[])
 						(int) wc[i].wr_id);
 					return 1;
 				}
+
+				ctx->pending[qp_ind] &= ~(int) wc[i].wr_id;
+				if (scnt < iters && !ctx->pending[qp_ind]) {
+					if (pp_post_send(ctx, qp_ind)) {
+						fprintf(stderr, "Couldn't post send\n");
+						return 1;
+					}
+					ctx->pending[qp_ind] = PINGPONG_RECV_WRID |
+							       PINGPONG_SEND_WRID;
+				}
+
 			}
 		}
 	}
