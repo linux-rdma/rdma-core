@@ -98,4 +98,5 @@ necessary permissions to release your work.
 TODO
 ====
 
- * Memory windows (MWs) are not implemented.
+ * Completion queue (CQ) resizing is not implemented.
+ * Memory windows (MWs) are not implemented at all.

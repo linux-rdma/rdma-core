@@ -1,5 +1,7 @@
 2005-10-25  Roland Dreier  <roland@cisco.com>
 
+	* Release version 1.0-rc4.
+
 	* examples/uc_pingpong.c (pp_connect_ctx): Fix QP attribute masks
 	used to modify QP to RTR and RTS -- we should not be setting
 	RDMA/atomic attributes for UC QPs.  Now that the mthca kernel
