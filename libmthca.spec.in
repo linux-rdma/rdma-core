@@ -55,7 +55,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/infiniband/mthca.a
 
 %changelog
-* Wed Oct  5 2005 Roland Dreier <roland@cisco.com> - 1.0
+* Wed Oct  5 2005 Roland Dreier <roland@cisco.com> - 1.0-0.2.rc4
 - Update to upstream 1.0-rc4 release
 
 * Mon Sep 26 2005 Roland Dreier <roland@cisco.com> - 1.0-0.1.rc3
