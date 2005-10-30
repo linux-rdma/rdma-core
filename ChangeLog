@@ -1,3 +1,10 @@
+2005-10-30  Roland Dreier  <roland@cisco.com>
+
+	* src/srq.c (wqe_to_link): Change to use an offset of 12 (the imm
+	field), because posting an SRQ WQE may actually change the ee_nds
+	field and still cause free list corruption.  A receive WQE will
+	never have immediate data, so using imm is definitely safe.
+
 2005-10-25  Roland Dreier  <roland@cisco.com>
 
 	* Release version 1.0-rc4.
