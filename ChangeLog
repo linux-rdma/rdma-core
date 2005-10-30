@@ -1,3 +1,9 @@
+2005-10-30  Roland Dreier  <roland@cisco.com>
+
+	* examples/srq_pingpong.c (pp_init_ctx): Create CQ with rx_depth +
+	num_qp entries, instead of just rx_depth + 1 entries, because
+	there can be one send completion pending for each QP.
+
 2005-10-25  Roland Dreier  <roland@cisco.com>
 
 	* Release version 1.0-rc4.
