@@ -28,7 +28,7 @@ then
 AC_CHECK_LIB(ibverbs, ibv_get_devices, [],
     AC_MSG_ERROR([ibv_get_devices() not found.  libibcm requires libibverbs.]))
 AC_CHECK_LIB(ibat, ib_at_route_by_ip, [],
-    AC_MSG_ERROR([ib_at_route_by_ip() not found.  libibcm requires libat.]))
+    AC_MSG_ERROR([ib_at_route_by_ip() not found.  libibcm requires libibat.]))
 fi
 
 dnl Checks for header files.
