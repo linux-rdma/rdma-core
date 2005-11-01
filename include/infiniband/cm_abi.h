@@ -42,8 +42,8 @@
  * drivers/infiniband/include/ib_user_cm.h
  */
 
-#define IB_USER_CM_MIN_ABI_VERSION	3
-#define IB_USER_CM_MAX_ABI_VERSION	3
+#define IB_USER_CM_MIN_ABI_VERSION	4
+#define IB_USER_CM_MAX_ABI_VERSION	4
 
 enum {
 	IB_USER_CM_CMD_CREATE_ID,
@@ -89,6 +89,7 @@ struct cm_abi_create_id_resp {
 struct cm_abi_destroy_id {
 	__u64 response;
 	__u32 id;
+	__u32 reserved;
 };
 
 struct cm_abi_destroy_id_resp {
@@ -98,6 +99,7 @@ struct cm_abi_destroy_id_resp {
 struct cm_abi_attr_id {
 	__u64 response;
 	__u32 id;
+	__u32 reserved;
 };
 
 struct cm_abi_attr_id_resp {
@@ -169,6 +171,7 @@ struct cm_abi_listen {
 	__u64 service_id;
 	__u64 service_mask;
 	__u32 id;
+	__u32 reserved;
 };
 
 struct cm_abi_establish {
@@ -224,7 +227,7 @@ struct cm_abi_req {
 	__u8  rnr_retry_count;
 	__u8  max_cm_retries;
 	__u8  srq;
-	__u8  reserved[1];
+	__u8  reserved[5];
 };
 
 struct cm_abi_rep {
@@ -241,6 +244,7 @@ struct cm_abi_rep {
 	__u8  flow_control;
 	__u8  rnr_retry_count;
 	__u8  srq;
+	__u8  reserved[4];
 };
 
 struct cm_abi_info {
@@ -250,7 +254,7 @@ struct cm_abi_info {
 	__u64 data;
 	__u8  info_len;
 	__u8  data_len;
-	__u8  reserved[2];
+	__u8  reserved[6];
 };
 
 struct cm_abi_mra {
@@ -278,6 +282,7 @@ struct cm_abi_sidr_req {
 	__u16 pkey;
 	__u8  len;
 	__u8  max_cm_retries;
+	__u8  reserved[4];
 };
 
 struct cm_abi_sidr_rep {
@@ -289,7 +294,7 @@ struct cm_abi_sidr_rep {
 	__u64 data;
 	__u8  info_len;
 	__u8  data_len;
-	__u8  reserved[2];
+	__u8  reserved[6];
 };
 /*
  * event notification ABI structures.
@@ -300,7 +305,7 @@ struct cm_abi_event_get {
 	__u64 info;
 	__u8  data_len;
 	__u8  info_len;
-	__u8  reserved[2];
+	__u8  reserved[6];
 };
 
 struct cm_abi_req_event_resp {
@@ -320,6 +325,7 @@ struct cm_abi_req_event_resp {
 	__u8  rnr_retry_count;
 	__u8  srq;
 	__u8  port;
+	__u8  reserved[7];
 };
 
 struct cm_abi_rep_event_resp {
@@ -334,7 +340,7 @@ struct cm_abi_rep_event_resp {
 	__u8  flow_control;
 	__u8  rnr_retry_count;
 	__u8  srq;
-	__u8  reserved[1];
+	__u8  reserved[5];
 };
 
 struct cm_abi_rej_event_resp {
@@ -379,6 +385,7 @@ struct cm_abi_event_resp {
 	__u32 id;
 	__u32 event;
 	__u32 present;
+	__u32 reserved;
 	union {
 		struct cm_abi_req_event_resp req_resp;
 		struct cm_abi_rep_event_resp rep_resp;
