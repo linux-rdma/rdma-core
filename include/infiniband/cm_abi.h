@@ -38,8 +38,7 @@
 
 #include <linux/types.h>
 /*
- * This file must be kept in sync with the kernel's version of
- * drivers/infiniband/include/ib_user_cm.h
+ * This file must be kept in sync with the kernel's version of ib_user_cm.h
  */
 
 #define IB_USER_CM_MIN_ABI_VERSION	4
