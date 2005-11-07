@@ -521,6 +521,52 @@ void mthca_arbel_cq_event(struct ibv_cq *cq)
 	to_mcq(cq)->arm_sn++;
 }
 
+void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
+{
+	struct mthca_cqe *cqe;
+	int prod_index;
+	int nfreed = 0;
+
+	pthread_spin_lock(&cq->lock);
+
+	/*
+	 * First we need to find the current producer index, so we
+	 * know where to start cleaning from.  It doesn't matter if HW
+	 * adds new entries after this loop -- the QP we're worried
+	 * about is already in RESET, so the new entries won't come
+	 * from our QP and therefore don't need to be checked.
+	 */
+	for (prod_index = cq->cons_index;
+	     cqe_sw(cq, prod_index & cq->ibv_cq.cqe);
+	     ++prod_index)
+		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+			break;
+
+	/*
+	 * Now sweep backwards through the CQ, removing CQ entries
+	 * that match our QP by copying older entries on top of them.
+	 */
+	while (--prod_index > cq->cons_index) {
+		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
+		if (cqe->my_qpn == htonl(qpn)) {
+			if (srq)
+				mthca_free_srq_wqe(srq,
+						   ntohl(cqe->wqe) >> srq->wqe_shift);
+			++nfreed;
+		} else if (nfreed)
+			memcpy(get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe),
+			       cqe, MTHCA_CQ_ENTRY_SIZE);
+	}
+
+	if (nfreed) {
+		mb();
+		cq->cons_index += nfreed;
+		update_cons_index(cq, nfreed);
+	}
+
+	pthread_spin_unlock(&cq->lock);
+}
+
 void mthca_init_cq_buf(struct mthca_cq *cq, int nent)
 {
 	int i;

@@ -1,3 +1,12 @@
+2005-11-04  Roland Dreier  <roland@cisco.com>
+
+	* src/verbs.c (mthca_destroy_qp): Clean CQEs when we destroy a QP.
+	(mthca_modify_qp): Clean CQEs when we move a QP to RESET state,
+	and reset QP index pointers.
+
+	* src/cq.c (mthca_cq_clean): Add function to clean out CQEs for
+	QPs that are being destroyed or reset.
+
 2005-10-30  Roland Dreier  <roland@cisco.com>
 
 	* src/srq.c (wqe_to_link): Change to use an offset of 12 (the imm

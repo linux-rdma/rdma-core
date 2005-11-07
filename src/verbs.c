@@ -394,6 +394,19 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
+static void mthca_init_qp_indices(struct mthca_qp *qp)
+{
+	qp->sq.next_ind  = 0;
+	qp->sq.last_comp = qp->sq.max - 1;
+	qp->sq.head    	 = 0;
+	qp->sq.tail    	 = 0;
+
+	qp->rq.next_ind	 = 0;
+	qp->rq.last_comp = qp->rq.max - 1;
+	qp->rq.head    	 = 0;
+	qp->rq.tail    	 = 0;
+}
+
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
 	struct mthca_create_qp cmd;
@@ -412,17 +425,9 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (!qp)
 		return NULL;
 
-	qp->sq.max    	 = align_queue_size(pd->context, attr->cap.max_send_wr, 0);
-	qp->sq.next_ind  = 0;
-	qp->sq.last_comp = qp->sq.max - 1;
-	qp->sq.head    	 = 0;
-	qp->sq.tail    	 = 0;
-
-	qp->rq.max       = align_queue_size(pd->context, attr->cap.max_recv_wr, 0);
-	qp->rq.next_ind	 = 0;
-	qp->rq.last_comp = qp->rq.max - 1;
-	qp->rq.head    	 = 0;
-	qp->rq.tail    	 = 0;
+	qp->sq.max = align_queue_size(pd->context, attr->cap.max_send_wr, 0);
+	qp->rq.max = align_queue_size(pd->context, attr->cap.max_recv_wr, 0);
+	mthca_init_qp_indices(qp);
 
 	if (mthca_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp))
 		goto err;
@@ -505,13 +510,41 @@ int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    enum ibv_qp_attr_mask attr_mask)
 {
 	struct ibv_modify_qp cmd;
+	int ret;
 
-	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
+	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
+
+	if (!ret		       &&
+	    (attr_mask & IBV_QP_STATE) &&
+	    attr->qp_state == IBV_QPS_RESET) {
+		mthca_cq_clean(to_mcq(qp->recv_cq), qp->qp_num,
+			       qp->srq ? to_msrq(qp->srq) : NULL);
+		if (qp->send_cq != qp->recv_cq)
+			mthca_cq_clean(to_mcq(qp->send_cq), qp->qp_num, NULL);
+
+		mthca_init_qp_indices(to_mqp(qp));
+
+		if (mthca_is_memfree(qp->context)) {
+			*to_mqp(qp)->sq.db = 0;
+			*to_mqp(qp)->rq.db = 0;
+		}
+	}
+
+	return ret;
 }
 
 int mthca_destroy_qp(struct ibv_qp *qp)
 {
 	int ret;
+
+	ret = ibv_cmd_destroy_qp(qp);
+	if (ret)
+		return ret;
+
+	mthca_cq_clean(to_mcq(qp->recv_cq), qp->qp_num,
+		       qp->srq ? to_msrq(qp->srq) : NULL);
+	if (qp->send_cq != qp->recv_cq)
+		mthca_cq_clean(to_mcq(qp->send_cq), qp->qp_num, NULL);
 
 	pthread_spin_lock(&to_mcq(qp->send_cq)->lock);
 	if (qp->send_cq != qp->recv_cq)
@@ -520,10 +553,6 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 	if (qp->send_cq != qp->recv_cq)
 		pthread_spin_unlock(&to_mcq(qp->recv_cq)->lock);
 	pthread_spin_unlock(&to_mcq(qp->send_cq)->lock);
-
-	ret = ibv_cmd_destroy_qp(qp);
-	if (ret)
-		return ret;
 
 	if (mthca_is_memfree(qp->context)) {
 		mthca_free_db(to_mctx(qp->context)->db_tab, MTHCA_DB_TYPE_RQ,

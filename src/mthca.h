@@ -285,6 +285,8 @@ extern int mthca_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 extern int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);
 extern int mthca_arbel_arm_cq(struct ibv_cq *cq, int solicited);
 extern void mthca_arbel_cq_event(struct ibv_cq *cq);
+extern void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn,
+			   struct mthca_srq *srq);
 extern void mthca_init_cq_buf(struct mthca_cq *cq, int nent);
 
 extern struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
