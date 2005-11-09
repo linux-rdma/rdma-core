@@ -147,8 +147,8 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				}
 
 				wqe += sizeof (struct mthca_atomic_seg);
-				size += sizeof (struct mthca_raddr_seg) / 16 +
-					sizeof (struct mthca_atomic_seg);
+				size += (sizeof (struct mthca_raddr_seg) +
+					 sizeof (struct mthca_atomic_seg)) / 16;
 				break;
 
 			case IBV_WR_RDMA_WRITE:
@@ -447,8 +447,8 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				}
 
 				wqe += sizeof (struct mthca_atomic_seg);
-				size += sizeof (struct mthca_raddr_seg) / 16 +
-					sizeof (struct mthca_atomic_seg);
+				size += (sizeof (struct mthca_raddr_seg) +
+					 sizeof (struct mthca_atomic_seg)) / 16;
 				break;
 
 			case IBV_WR_RDMA_WRITE:

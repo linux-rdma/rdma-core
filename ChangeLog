@@ -1,5 +1,8 @@
 2005-11-09  Michael S. Tsirkin  <mst@mellanox.co.il>
 
+	* src/qp.c (mthca_tavor_post_send, mthca_tavor_post_send): When
+	posting atomic operations, could wqe size in "octowords" correctly.
+
 	* src/ah.c (mthca_alloc_av): Don't free ah if page allocation
 	fails.  It will be freed where it's allocated, in the caller.
 
