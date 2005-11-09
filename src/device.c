@@ -48,13 +48,20 @@
 
 #include "ibverbs.h"
 
+static pthread_mutex_t device_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct dlist *device_list;
 
 struct dlist *ibv_get_devices(void)
 {
+	struct dlist *l;
+
+	pthread_mutex_lock(&device_list_lock);
 	if (!device_list)
 		device_list = ibverbs_init();
-	return device_list;
+	l = device_list;
+	pthread_mutex_unlock(&device_list_lock);
+
+	return l;
 }
 
 const char *ibv_get_device_name(struct ibv_device *device)
