@@ -298,6 +298,7 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr)
 {
 	struct mthca_qp *qp = to_mqp(ibqp);
+	uint32_t doorbell[2];
 	int ret = 0;
 	int nreq;
 	int i;
@@ -312,6 +313,23 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	ind = qp->rq.next_ind;
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		if (nreq == MTHCA_TAVOR_MAX_WQES_PER_RECV_DB) {
+			doorbell[0] = htonl((qp->rq.next_ind << qp->rq.wqe_shift) | size0);
+			doorbell[1] = htonl((ibqp->qp_num << 8) | nreq);
+
+			/*
+			 * Make sure that descriptors are written
+			 * before doorbell is rung.
+			 */
+			mb();
+
+			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
+
+			qp->rq.head += nreq;
+			nreq  = 0;
+			size0 = 0;
+		}
+
 		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.send_cq))) {
 			ret = -1;
 			*bad_wr = wr;
@@ -365,10 +383,14 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 out:
 	if (nreq) {
-		uint32_t doorbell[2];
-
 		doorbell[0] = htonl((qp->rq.next_ind << qp->rq.wqe_shift) | size0);
 		doorbell[1] = htonl((ibqp->qp_num << 8) | nreq);
+
+		/*
+		 * Make sure that descriptors are written before
+		 * doorbell is rung.
+		 */
+		mb();
 
 		mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
 	}

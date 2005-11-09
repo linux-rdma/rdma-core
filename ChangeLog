@@ -1,5 +1,10 @@
 2005-11-09  Michael S. Tsirkin  <mst@mellanox.co.il>
 
+	* src/srq.c (mthca_tavor_post_srq_recv), src/qp.c
+	(mthca_tavor_post_recv): Tavor requires that a doorbell be rung
+	at least every 256 receives, so add code to ring doorbells in the
+	middle of posting a huge list of receives.
+	
 	* src/qp.c (mthca_tavor_post_send, mthca_tavor_post_send): When
 	posting atomic operations, could wqe size in "octowords" correctly.
 

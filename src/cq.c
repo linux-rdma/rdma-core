@@ -524,7 +524,7 @@ void mthca_arbel_cq_event(struct ibv_cq *cq)
 void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 {
 	struct mthca_cqe *cqe;
-	int prod_index;
+	uint32_t prod_index;
 	int nfreed = 0;
 
 	pthread_spin_lock(&cq->lock);
@@ -546,7 +546,7 @@ void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 	 * Now sweep backwards through the CQ, removing CQ entries
 	 * that match our QP by copying older entries on top of them.
 	 */
-	while (--prod_index > cq->cons_index) {
+	while ((int) --prod_index - (int) cq->cons_index >= 0) {
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
 		if (cqe->my_qpn == htonl(qpn)) {
 			if (srq)

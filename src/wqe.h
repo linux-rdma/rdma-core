@@ -54,7 +54,8 @@ enum {
 };
 
 enum {
-	MTHCA_INVAL_LKEY = 0x100
+	MTHCA_INVAL_LKEY			= 0x100,
+	MTHCA_TAVOR_MAX_WQES_PER_RECV_DB	= 256
 };
 
 struct mthca_next_seg {
