@@ -111,7 +111,6 @@ int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
 
 		page = __add_page(pd, ps, pp);
 		if (!page) {
-			free(ah);
 			pthread_mutex_unlock(&pd->ah_mutex);
 			return -1;
 		}

@@ -1,3 +1,8 @@
+2005-11-09  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/ah.c (mthca_alloc_av): Don't free ah if page allocation
+	fails.  It will be freed where it's allocated, in the caller.
+
 2005-11-08  Roland Dreier  <roland@cisco.com>
 
 	* src/qp.c, src/verbs.c, src/mthca.h: Delegate setting of QP
