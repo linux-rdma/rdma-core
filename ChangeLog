@@ -1,3 +1,8 @@
+2005-11-09  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/device.c (ibv_get_devices): Make function reentrant by using
+	a mutex to make sure we initialize the device list at most once.
+
 2005-11-08  Roland Dreier  <roland@cisco.com>
 
 	* src/cmd.c (ibv_cmd_create_qp): Add handling for new create QP
