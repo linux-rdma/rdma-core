@@ -1,3 +1,9 @@
+2005-11-09  Roland Dreier  <roland@cisco.com>
+
+	* src/cq.c (mthca_cq_clean): Handle case where CQ indices wrap
+	around by treating signed comparisons of prod_index and
+	cq->cons_index carefully.
+
 2005-11-09  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* src/srq.c (mthca_tavor_post_srq_recv), src/qp.c
