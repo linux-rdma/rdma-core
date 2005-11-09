@@ -476,7 +476,11 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (ret)
 		goto err_destroy;
 
-	mthca_return_cap(pd, qp, attr->qp_type, &attr->cap);
+	qp->sq.max 	    = attr->cap.max_send_wr;
+	qp->rq.max 	    = attr->cap.max_recv_wr;
+	qp->sq.max_gs 	    = attr->cap.max_send_sge;
+	qp->rq.max_gs 	    = attr->cap.max_recv_sge;
+	qp->max_inline_data = attr->cap.max_inline_data;
 
 	return &qp->ibv_qp;
 

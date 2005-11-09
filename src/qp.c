@@ -216,7 +216,6 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
 			struct mthca_inline_seg *seg = wqe;
-			int max_size = (1 << qp->sq.wqe_shift) - sizeof *seg - size * 16;
 			int s = 0;
 
 			wqe += sizeof *seg;
@@ -225,7 +224,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 				s += sge->length;
 
-				if (s > max_size) {
+				if (s > qp->max_inline_data) {
 					ret = -1;
 					*bad_wr = wr;
 					goto out;
@@ -515,7 +514,6 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
 			struct mthca_inline_seg *seg = wqe;
-			int max_size = (1 << qp->sq.wqe_shift) - sizeof *seg - size * 16;
 			int s = 0;
 
 			wqe += sizeof *seg;
@@ -524,7 +522,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 				s += sge->length;
 
-				if (s > max_size) {
+				if (s > qp->max_inline_data) {
 					ret = -1;
 					*bad_wr = wr;
 					goto out;
@@ -683,12 +681,14 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type, struct mthca_qp *qp)
 {
 	int size;
+	int max_sq_sge;
 
 	qp->rq.max_gs 	 = cap->max_recv_sge;
-	qp->sq.max_gs 	 = align(cap->max_inline_data + sizeof (struct mthca_inline_seg),
+	qp->sq.max_gs 	 = cap->max_send_sge;
+	max_sq_sge 	 = align(cap->max_inline_data + sizeof (struct mthca_inline_seg),
 				 sizeof (struct mthca_data_seg)) / sizeof (struct mthca_data_seg);
-	if (qp->sq.max_gs < cap->max_send_sge)
-		qp->sq.max_gs = cap->max_send_sge;
+	if (max_sq_sge < cap->max_send_sge)
+		max_sq_sge = cap->max_send_sge;
 
 	qp->wrid = malloc((qp->rq.max + qp->sq.max) * sizeof (uint64_t));
 	if (!qp->wrid)
@@ -701,19 +701,41 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	     qp->rq.wqe_shift++)
 		; /* nothing */
 
-	size = sizeof (struct mthca_next_seg) +
-		qp->sq.max_gs * sizeof (struct mthca_data_seg);
+	size = max_sq_sge * sizeof (struct mthca_data_seg);
 	switch (type) {
 	case IBV_QPT_UD:
-		if (mthca_is_memfree(pd->context))
-			size += sizeof (struct mthca_arbel_ud_seg);
-		else
-			size += sizeof (struct mthca_tavor_ud_seg);
+		size += mthca_is_memfree(pd->context) ?
+			sizeof (struct mthca_arbel_ud_seg) :
+			sizeof (struct mthca_tavor_ud_seg);
 		break;
+
+	case IBV_QPT_UC:
+		size += sizeof (struct mthca_raddr_seg);
+		break;
+
+	case IBV_QPT_RC:
+		size += sizeof (struct mthca_raddr_seg);
+		/*
+		 * An atomic op will require an atomic segment, a
+		 * remote address segment and one scatter entry.
+		 */
+		if (size < (sizeof (struct mthca_atomic_seg) +
+			    sizeof (struct mthca_raddr_seg) +
+			    sizeof (struct mthca_data_seg)))
+			size = (sizeof (struct mthca_atomic_seg) +
+				sizeof (struct mthca_raddr_seg) +
+				sizeof (struct mthca_data_seg));
+		break;
+
 	default:
-		/* bind seg is as big as atomic + raddr segs */
-		size += sizeof (struct mthca_bind_seg);
+		break;
 	}
+
+	/* Make sure that we have enough space for a bind request */
+	if (size < sizeof (struct mthca_bind_seg))
+		size = sizeof (struct mthca_bind_seg);
+
+	size += sizeof (struct mthca_next_seg);
 
 	for (qp->sq.wqe_shift = 6; 1 << qp->sq.wqe_shift < size;
 	     qp->sq.wqe_shift++)
@@ -765,36 +787,6 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	qp->rq.last = get_recv_wqe(qp, qp->rq.max - 1);
 
 	return 0;
-}
-
-void mthca_return_cap(struct ibv_pd *pd, struct mthca_qp *qp,
-		      enum ibv_qp_type type, struct ibv_qp_cap *cap)
-{
-	/*
-	 * Maximum inline data size is the full WQE size less the size
-	 * of the next segment, inline segment and other non-data segments.
-	 */
-	cap->max_inline_data = (1 << qp->sq.wqe_shift) -
-		sizeof (struct mthca_next_seg) -
-		sizeof (struct mthca_inline_seg);
-
-	switch (type) {
-	case IBV_QPT_UD:
-		if (mthca_is_memfree(pd->context))
-			cap->max_inline_data -= sizeof (struct mthca_arbel_ud_seg);
-		else
-			cap->max_inline_data -= sizeof (struct mthca_tavor_ud_seg);
-		break;
-
-	default:
-		cap->max_inline_data -= sizeof (struct mthca_raddr_seg);
-		break;
-	}
-
-	cap->max_send_wr     = qp->sq.max;
-	cap->max_recv_wr     = qp->rq.max;
-	cap->max_send_sge    = qp->sq.max_gs;
-	cap->max_recv_sge    = qp->rq.max_gs;
 }
 
 struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn)
