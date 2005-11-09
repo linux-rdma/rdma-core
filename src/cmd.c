@@ -420,19 +420,49 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 	return 0;
 }
 
-int ibv_cmd_modify_srq(struct ibv_srq *srq,
-		       struct ibv_srq_attr *srq_attr,
-		       enum ibv_srq_attr_mask srq_attr_mask,
-		       struct ibv_modify_srq *cmd, size_t cmd_size)
+static int ibv_cmd_modify_srq_v3(struct ibv_srq *srq,
+				 struct ibv_srq_attr *srq_attr,
+				 enum ibv_srq_attr_mask srq_attr_mask,
+				 struct ibv_modify_srq *new_cmd,
+				 size_t new_cmd_size)
 {
+	struct ibv_modify_srq_v3 *cmd;
+	size_t cmd_size;
+
+	cmd_size = sizeof *cmd + new_cmd_size - sizeof *new_cmd;
+	cmd      = alloca(cmd_size);
+	memcpy(cmd->driver_data, new_cmd->driver_data, new_cmd_size - sizeof *new_cmd);
+
 	IBV_INIT_CMD(cmd, cmd_size, MODIFY_SRQ);
 
 	cmd->srq_handle	= srq->handle;
 	cmd->attr_mask	= srq_attr_mask;
 	cmd->max_wr	= srq_attr->max_wr;
-	cmd->max_sge	= srq_attr->max_sge;
 	cmd->srq_limit	= srq_attr->srq_limit;
+	cmd->max_sge	= 0;
 	cmd->reserved	= 0;
+
+	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_modify_srq(struct ibv_srq *srq,
+		       struct ibv_srq_attr *srq_attr,
+		       enum ibv_srq_attr_mask srq_attr_mask,
+		       struct ibv_modify_srq *cmd, size_t cmd_size)
+{
+	if (abi_ver == 3)
+		return ibv_cmd_modify_srq_v3(srq, srq_attr, srq_attr_mask,
+					     cmd, cmd_size);
+
+	IBV_INIT_CMD(cmd, cmd_size, MODIFY_SRQ);
+
+	cmd->srq_handle	= srq->handle;
+	cmd->attr_mask	= srq_attr_mask;
+	cmd->max_wr	= srq_attr->max_wr;
+	cmd->srq_limit	= srq_attr->srq_limit;
 
 	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
@@ -479,9 +509,15 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
 		      struct ibv_create_qp *cmd, size_t cmd_size)
 {
-	struct ibv_create_qp_resp resp;
+	union {
+		struct ibv_create_qp_resp    resp;
+		struct ibv_create_qp_resp_v3 resp_v3;
+	} r;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, &resp, sizeof resp);
+	if (abi_ver > 3)
+		IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, &r.resp, sizeof r.resp);
+	else
+		IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, &r.resp_v3, sizeof r.resp_v3);
 	cmd->user_handle     = (uintptr_t) qp;
 	cmd->pd_handle 	     = pd->handle;
 	cmd->send_cq_handle  = attr->send_cq->handle;
@@ -499,8 +535,18 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	qp->handle  = resp.qp_handle;
-	qp->qp_num  = resp.qpn;
+	if (abi_ver > 3) {
+		qp->handle 		  = r.resp.qp_handle;
+		qp->qp_num 		  = r.resp.qpn;
+		attr->cap.max_recv_sge    = r.resp.max_recv_sge;
+		attr->cap.max_send_sge    = r.resp.max_send_sge;
+		attr->cap.max_recv_wr     = r.resp.max_recv_wr;
+		attr->cap.max_send_wr     = r.resp.max_send_wr;
+		attr->cap.max_inline_data = r.resp.max_inline_data;
+	} else {
+		qp->handle  = r.resp_v3.qp_handle;
+		qp->qp_num  = r.resp_v3.qpn;
+	}
 
 	return 0;
 }

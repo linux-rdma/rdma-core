@@ -1,3 +1,11 @@
+2005-11-08  Roland Dreier  <roland@cisco.com>
+
+	* src/cmd.c (ibv_cmd_create_qp): Add handling for new create QP
+	interface, which has the kernel return QP capabilities.
+
+	* src/cmd.c (ibv_cmd_modify_srq): Split off handling of modify SRQ
+	for ABI versions 3 and older, which passed max_sge as part of command.
+
 2005-10-30  Roland Dreier  <roland@cisco.com>
 
 	* examples/srq_pingpong.c (pp_init_ctx): Create CQ with rx_depth +
