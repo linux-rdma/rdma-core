@@ -99,8 +99,10 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (nreq == MTHCA_TAVOR_MAX_WQES_PER_RECV_DB) {
+			nreq = 0;
+
 			doorbell[0] = htonl(first_ind << srq->wqe_shift);
-			doorbell[1] = htonl((srq->srqn << 8) | nreq);
+			doorbell[1] = htonl(srq->srqn << 8);
 
 			/*
 			 * Make sure that descriptors are written

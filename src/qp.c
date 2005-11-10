@@ -314,8 +314,10 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (nreq == MTHCA_TAVOR_MAX_WQES_PER_RECV_DB) {
+			nreq = 0;
+
 			doorbell[0] = htonl((qp->rq.next_ind << qp->rq.wqe_shift) | size0);
-			doorbell[1] = htonl((ibqp->qp_num << 8) | nreq);
+			doorbell[1] = htonl(ibqp->qp_num << 8);
 
 			/*
 			 * Make sure that descriptors are written
@@ -326,7 +328,6 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
 
 			qp->rq.head += nreq;
-			nreq  = 0;
 			size0 = 0;
 		}
 
