@@ -1,9 +1,9 @@
-IBCM_1.0 {
+IBCM_4.0 {
 	global:
 
-		ib_cm_event_get;
-		ib_cm_event_put;
-		ib_cm_get_fd;
+		ib_cm_get_event;
+		ib_cm_ack_event;
+		ib_cm_get_device;
 		ib_cm_create_id;
 		ib_cm_destroy_id;
 		ib_cm_attr_id;
@@ -20,5 +20,6 @@ IBCM_1.0 {
 		ib_cm_send_apr;
 		ib_cm_send_sidr_req;
 		ib_cm_send_sidr_rep;
+		ib_cm_init_qp_attr;
 	local: *;
 };

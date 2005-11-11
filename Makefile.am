@@ -18,10 +18,6 @@ endif
 src_libibcm_la_SOURCES = src/cm.c
 src_libibcm_la_LDFLAGS = -avoid-version $(ucm_version_script)
 
-bin_PROGRAMS = examples/ucmpost
-examples_ucmpost_SOURCES = examples/cmpost.c
-examples_ucmpost_LDADD = $(top_builddir)/src/libibcm.la
-
 libibcmincludedir = $(includedir)/infiniband
 
 libibcminclude_HEADERS = include/infiniband/cm_abi.h \

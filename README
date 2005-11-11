@@ -12,18 +12,17 @@ Libraries are installed by default at /usr/local/lib.
 
 Device files
 
-The userspace CM uses a single device file regardless of the number
-of adapters or ports present.
+The userspace CM uses a device file per adapter present.
 
 To create the appropriate character device file automatically with
 udev, a rule like
 
-    KERNEL="ucm", NAME="infiniband/%k", MODE="0666"
+    KERNEL="ucm*", NAME="infiniband/%k", MODE="0666"
 
 can be used.  This will create the device node named
 
-    /dev/infiniband/ucm
+    /dev/infiniband/ucm0
 
-or you can create it manually
+for the first HCA in the system, or you can create it manually
 
-  mknod /dev/infiniband/ucm c 231 255
+  mknod /dev/infiniband/ucm0 c 231 255

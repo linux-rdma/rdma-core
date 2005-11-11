@@ -52,6 +52,7 @@
 
 #include <infiniband/cm.h>
 #include <infiniband/cm_abi.h>
+#include <infiniband/marshall.h>
 
 #define PFX "libibcm: "
 
@@ -266,33 +267,6 @@ struct ib_cm_device* ib_cm_get_device(struct ibv_context *device_context)
 	return NULL;
 }
 
-static void cm_param_path_get(struct cm_abi_path_rec *abi,
-			      struct ib_sa_path_rec *sa)
-{
-	memcpy(abi->dgid, sa->dgid.raw, sizeof(union ibv_gid));
-	memcpy(abi->sgid, sa->sgid.raw, sizeof(union ibv_gid));
-
-	abi->dlid = sa->dlid;
-	abi->slid = sa->slid;
-
-	abi->raw_traffic  = sa->raw_traffic;
-	abi->flow_label   = sa->flow_label;
-	abi->reversible   = sa->reversible;
-	abi->mtu          = sa->mtu;
-	abi->pkey         = sa->pkey;
-
-	abi->hop_limit                 = sa->hop_limit;
-	abi->traffic_class             = sa->traffic_class;
-	abi->numb_path                 = sa->numb_path;
-	abi->sl                        = sa->sl;
-	abi->mtu_selector              = sa->mtu_selector;
-	abi->rate_selector             = sa->rate_selector;
-	abi->rate                      = sa->rate;
-	abi->packet_life_time_selector = sa->packet_life_time_selector;
-	abi->packet_life_time          = sa->packet_life_time;
-	abi->preference                = sa->preference;
-}
-
 static void ib_cm_free_id(struct cm_id_private *cm_id_priv)
 {
 	pthread_cond_destroy(&cm_id_priv->cond);
@@ -407,65 +381,11 @@ int ib_cm_attr_id(struct ib_cm_id *cm_id, struct ib_cm_attr_param *param)
 	return 0;
 }
 
-static void ib_cm_copy_ah_attr(struct ibv_ah_attr *dest_attr,
-			       struct cm_abi_ah_attr *src_attr)
-{
-	memcpy(dest_attr->grh.dgid.raw, src_attr->grh_dgid,
-	       sizeof dest_attr->grh.dgid);
-	dest_attr->grh.flow_label = src_attr->grh_flow_label;
-	dest_attr->grh.sgid_index = src_attr->grh_sgid_index;
-	dest_attr->grh.hop_limit = src_attr->grh_hop_limit;
-	dest_attr->grh.traffic_class = src_attr->grh_traffic_class;
-
-	dest_attr->dlid = src_attr->dlid;
-	dest_attr->sl = src_attr->sl;
-	dest_attr->src_path_bits = src_attr->src_path_bits;
-	dest_attr->static_rate = src_attr->static_rate;
-	dest_attr->is_global = src_attr->is_global;
-	dest_attr->port_num = src_attr->port_num;
-}
-
-static void ib_cm_copy_qp_attr(struct ibv_qp_attr *dest_attr,
-			       struct cm_abi_init_qp_attr_resp *src_attr)
-{
-	dest_attr->cur_qp_state = src_attr->cur_qp_state;
-	dest_attr->path_mtu = src_attr->path_mtu;
-	dest_attr->path_mig_state = src_attr->path_mig_state;
-	dest_attr->qkey = src_attr->qkey;
-	dest_attr->rq_psn = src_attr->rq_psn;
-	dest_attr->sq_psn = src_attr->sq_psn;
-	dest_attr->dest_qp_num = src_attr->dest_qp_num;
-	dest_attr->qp_access_flags = src_attr->qp_access_flags;
-
-	dest_attr->cap.max_send_wr = src_attr->max_send_wr;
-	dest_attr->cap.max_recv_wr = src_attr->max_recv_wr;
-	dest_attr->cap.max_send_sge = src_attr->max_send_sge;
-	dest_attr->cap.max_recv_sge = src_attr->max_recv_sge;
-	dest_attr->cap.max_inline_data = src_attr->max_inline_data;
-
-	ib_cm_copy_ah_attr(&dest_attr->ah_attr, &src_attr->ah_attr);
-	ib_cm_copy_ah_attr(&dest_attr->alt_ah_attr, &src_attr->alt_ah_attr);
-
-	dest_attr->pkey_index = src_attr->pkey_index;
-	dest_attr->alt_pkey_index = src_attr->alt_pkey_index;
-	dest_attr->en_sqd_async_notify = src_attr->en_sqd_async_notify;
-	dest_attr->sq_draining = src_attr->sq_draining;
-	dest_attr->max_rd_atomic = src_attr->max_rd_atomic;
-	dest_attr->max_dest_rd_atomic = src_attr->max_dest_rd_atomic;
-	dest_attr->min_rnr_timer = src_attr->min_rnr_timer;
-	dest_attr->port_num = src_attr->port_num;
-	dest_attr->timeout = src_attr->timeout;
-	dest_attr->retry_cnt = src_attr->retry_cnt;
-	dest_attr->rnr_retry = src_attr->rnr_retry;
-	dest_attr->alt_port_num = src_attr->alt_port_num;
-	dest_attr->alt_timeout = src_attr->alt_timeout;
-}
-
 int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
 		       struct ibv_qp_attr *qp_attr,
 		       int *qp_attr_mask)
 {
-	struct cm_abi_init_qp_attr_resp *resp;
+	struct ibv_kern_qp_attr *resp;
 	struct cm_abi_init_qp_attr *cmd;
 	void *msg;
 	int result;
@@ -483,7 +403,7 @@ int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
 		return (result > 0) ? -ENODATA : result;
 
 	*qp_attr_mask = resp->qp_attr_mask;
-	ib_cm_copy_qp_attr(qp_attr, resp);
+	ib_copy_qp_attr_from_kern(qp_attr, resp);
 
 	return 0;
 }
@@ -511,8 +431,8 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 
 int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 {
-	struct cm_abi_path_rec *p_path;
-	struct cm_abi_path_rec *a_path;
+	struct ib_kern_path_rec *p_path;
+	struct ib_kern_path_rec *a_path;
 	struct cm_abi_req *cmd;
 	void *msg;
 	int result;
@@ -543,7 +463,7 @@ int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 		if (!p_path)
 			return -ENOMEM;
 
-		cm_param_path_get(p_path, param->primary_path);
+		ib_copy_path_rec_to_kern(p_path, param->primary_path);
 		cmd->primary_path = (uintptr_t) p_path;
 	}
 		
@@ -552,7 +472,7 @@ int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 		if (!a_path)
 			return -ENOMEM;
 
-		cm_param_path_get(a_path, param->alternate_path);
+		ib_copy_path_rec_to_kern(a_path, param->alternate_path);
 		cmd->alternate_path = (uintptr_t) a_path;
 	}
 
@@ -758,7 +678,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		   void *private_data,
 		   uint8_t private_data_len)
 {
-	struct cm_abi_path_rec *abi_path;
+	struct ib_kern_path_rec *abi_path;
 	struct cm_abi_lap *cmd;
 	void *msg;
 	int result;
@@ -772,7 +692,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		if (!abi_path)
 			return -ENOMEM;
 
-		cm_param_path_get(abi_path, alternate_path);
+		ib_copy_path_rec_to_kern(abi_path, alternate_path);
 		cmd->path = (uintptr_t) abi_path;
 	}
 
@@ -791,7 +711,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_req_param *param)
 {
-	struct cm_abi_path_rec *abi_path;
+	struct ib_kern_path_rec *abi_path;
 	struct cm_abi_sidr_req *cmd;
 	void *msg;
 	int result;
@@ -812,7 +732,7 @@ int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 		if (!abi_path)
 			return -ENOMEM;
 
-		cm_param_path_get(abi_path, param->path);
+		ib_copy_path_rec_to_kern(abi_path, param->path);
 		cmd->path = (uintptr_t) abi_path;
 	}
 
@@ -862,39 +782,6 @@ int ib_cm_send_sidr_rep(struct ib_cm_id *cm_id,
 	return 0;
 }
 
-/*
- * event processing
- */
-static void cm_event_path_get(struct ib_sa_path_rec  *upath,
-			      struct cm_abi_path_rec *kpath)
-{
-	if (!kpath || !upath)
-		return;
-
-	memcpy(upath->dgid.raw, kpath->dgid, sizeof upath->dgid);
-	memcpy(upath->sgid.raw, kpath->sgid, sizeof upath->sgid);
-	
-	upath->dlid             = kpath->dlid;
-	upath->slid             = kpath->slid;
-	upath->raw_traffic      = kpath->raw_traffic;
-	upath->flow_label       = kpath->flow_label;
-	upath->hop_limit        = kpath->hop_limit;
-	upath->traffic_class    = kpath->traffic_class;
-	upath->reversible       = kpath->reversible;
-	upath->numb_path        = kpath->numb_path;
-	upath->pkey             = kpath->pkey;
-	upath->sl	        = kpath->sl;
-	upath->mtu_selector     = kpath->mtu_selector;
-	upath->mtu              = kpath->mtu;
-	upath->rate_selector    = kpath->rate_selector;
-	upath->rate             = kpath->rate;
-	upath->packet_life_time = kpath->packet_life_time;
-	upath->preference       = kpath->preference;
-
-	upath->packet_life_time_selector = 
-		kpath->packet_life_time_selector;
-}
-
 static void cm_event_req_get(struct ib_cm_req_event_param *ureq,
 			     struct cm_abi_req_event_resp *kreq)
 {
@@ -913,8 +800,10 @@ static void cm_event_req_get(struct ib_cm_req_event_param *ureq,
 	ureq->srq                        = kreq->srq;
 	ureq->port			 = kreq->port;
 
-	cm_event_path_get(ureq->primary_path, &kreq->primary_path);
-	cm_event_path_get(ureq->alternate_path, &kreq->alternate_path);
+	ib_copy_path_rec_from_kern(ureq->primary_path, &kreq->primary_path);
+	if (ureq->alternate_path)
+		ib_copy_path_rec_from_kern(ureq->alternate_path,
+					   &kreq->alternate_path);
 }
 
 static void cm_event_rep_get(struct ib_cm_rep_event_param *urep,
@@ -1058,8 +947,8 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 	case IB_CM_LAP_RECEIVED:
 		evt->param.lap_rcvd.alternate_path = path_b;
 		path_b = NULL;
-		cm_event_path_get(evt->param.lap_rcvd.alternate_path,
-				  &resp->u.lap_resp.path);
+		ib_copy_path_rec_from_kern(evt->param.lap_rcvd.alternate_path,
+					   &resp->u.lap_resp.path);
 		break;
 	case IB_CM_APR_RECEIVED:
 		evt->param.apr_rcvd.ap_status = resp->u.apr_resp.status;

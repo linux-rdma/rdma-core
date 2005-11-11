@@ -37,6 +37,9 @@
 #define CM_ABI_H
 
 #include <linux/types.h>
+#include <infiniband/sa.h>
+#include <infiniband/marshall.h>
+
 /*
  * This file must be kept in sync with the kernel's version of ib_user_cm.h
  */
@@ -114,58 +117,6 @@ struct cm_abi_init_qp_attr {
 	__u32 qp_state;
 };
 
-struct cm_abi_ah_attr {
-	__u8	grh_dgid[16];
-	__u32	grh_flow_label;
-	__u16	dlid;
-	__u16	reserved;
-	__u8	grh_sgid_index;
-	__u8	grh_hop_limit;
-	__u8	grh_traffic_class;
-	__u8	sl;
-	__u8	src_path_bits;
-	__u8	static_rate;
-	__u8	is_global;
-	__u8	port_num;
-};
-
-struct cm_abi_init_qp_attr_resp {
-	__u32	qp_attr_mask;
-	__u32	qp_state;
-	__u32	cur_qp_state;
-	__u32	path_mtu;
-	__u32	path_mig_state;
-	__u32	qkey;
-	__u32	rq_psn;
-	__u32	sq_psn;
-	__u32	dest_qp_num;
-	__u32	qp_access_flags;
-
-	struct cm_abi_ah_attr	ah_attr;
-	struct cm_abi_ah_attr	alt_ah_attr;
-
-	/* ibv_qp_cap */
-	__u32	max_send_wr;
-	__u32	max_recv_wr;
-	__u32	max_send_sge;
-	__u32	max_recv_sge;
-	__u32	max_inline_data;
-
-	__u16	pkey_index;
-	__u16	alt_pkey_index;
-	__u8	en_sqd_async_notify;
-	__u8	sq_draining;
-	__u8	max_rd_atomic;
-	__u8	max_dest_rd_atomic;
-	__u8	min_rnr_timer;
-	__u8	port_num;
-	__u8	timeout;
-	__u8	retry_cnt;
-	__u8	rnr_retry;
-	__u8	alt_port_num;
-	__u8	alt_timeout;
-};
-
 struct cm_abi_listen {
 	__u64 service_id;
 	__u64 service_mask;
@@ -182,28 +133,6 @@ struct cm_abi_private_data {
 	__u32 id;
 	__u8  len;
 	__u8  reserved[3];
-};
-
-struct cm_abi_path_rec {
-	__u8  dgid[16];
-	__u8  sgid[16];
-	__u16 dlid;
-	__u16 slid;
-	__u32 raw_traffic;
-	__u32 flow_label;
-	__u32 reversible;
-	__u32 mtu;
-	__u16 pkey;
-	__u8  hop_limit;
-	__u8  traffic_class;
-	__u8  numb_path;
-	__u8  sl;
-	__u8  mtu_selector;
-	__u8  rate_selector;
-	__u8  rate;
-	__u8  packet_life_time_selector;
-	__u8  packet_life_time;
-	__u8  preference;
 };
 
 struct cm_abi_req {
@@ -308,8 +237,8 @@ struct cm_abi_event_get {
 };
 
 struct cm_abi_req_event_resp {
-	struct cm_abi_path_rec primary_path;
-	struct cm_abi_path_rec alternate_path;
+	struct ib_kern_path_rec primary_path;
+	struct ib_kern_path_rec alternate_path;
 	__u64                  remote_ca_guid;
 	__u32                  remote_qkey;
 	__u32                  remote_qpn;
@@ -353,7 +282,7 @@ struct cm_abi_mra_event_resp {
 };
 
 struct cm_abi_lap_event_resp {
-	struct cm_abi_path_rec path;
+	struct ib_kern_path_rec path;
 };
 
 struct cm_abi_apr_event_resp {
