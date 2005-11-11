@@ -291,9 +291,54 @@ static int ucma_addrlen(struct sockaddr *addr)
 	}
 }
 
+static int ucma_query_route(struct rdma_cm_id *id)
+{
+	struct ucma_abi_query_route_resp *resp;
+	struct ucma_abi_query_route *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size, i;
+	
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_QUERY_ROUTE, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+
+	ret = write(cma_fd, msg, size);
+	if (ret != size)
+		return (ret > 0) ? -ENODATA : ret;
+
+	if (resp->num_paths) {
+		id->route.path_rec = malloc(sizeof *id->route.path_rec *
+					    resp->num_paths);
+		if (!id->route.path_rec)
+			return -ENOMEM;
+
+		id->route.num_paths = resp->num_paths;
+		for (i = 0; i < resp->num_paths; i++)
+			ib_copy_path_rec_from_kern(&id->route.path_rec[i],
+						   &resp->ib_route[i]);
+	}
+
+	memcpy(id->route.addr.addr.ibaddr.sgid.raw, resp->ib_route[0].sgid,
+	       sizeof id->route.addr.addr.ibaddr.sgid);
+	memcpy(id->route.addr.addr.ibaddr.dgid.raw, resp->ib_route[0].dgid,
+	       sizeof id->route.addr.addr.ibaddr.dgid);
+	id->route.addr.addr.ibaddr.pkey = resp->ib_route[0].pkey;
+	memcpy(&id->route.addr.src_addr, &resp->src_addr,
+	       sizeof id->route.addr.src_addr);
+
+	if (!id_priv->cma_dev && resp->node_guid) {
+		ret = ucma_get_device(id_priv, resp->node_guid);
+		if (ret)
+			return ret;
+		id_priv->id.port_num = resp->port_num;
+	}
+
+	return 0;
+}
+
 int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 {
-	struct ucma_abi_bind_addr_resp *resp;
 	struct ucma_abi_bind_addr *cmd;
 	struct cma_id_private *id_priv;
 	void *msg;
@@ -303,7 +348,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	if (!addrlen)
 		return -EINVAL;
 
-	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_BIND_ADDR, size);
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_BIND_ADDR, size);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd->id = id_priv->handle;
 	memcpy(&cmd->addr, addr, addrlen);
@@ -312,11 +357,9 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
 
-	if (resp->node_guid) {
-		ret = ucma_get_device(id_priv, resp->node_guid);
-		if (ret)
-			return ret;
-	}
+	ret = ucma_query_route(id);
+	if (ret)
+		return ret;
 
 	memcpy(&id->route.addr.src_addr, addr, addrlen);
 	return 0;
@@ -442,24 +485,6 @@ static int ucma_modify_qp_err(struct rdma_cm_id *id)
 	return ibv_modify_qp(id->qp, &qp_attr, IBV_QP_STATE);
 }
 
-static int ucma_find_gid(struct cma_device *cma_dev, union ibv_gid *gid,
-			 uint8_t *port_num)
-{
-	int port, ret, i;
-	union ibv_gid chk_gid;
-
-	for (port = 1; port <= cma_dev->port_cnt; port++)
-		for (i = 0, ret = 0; !ret; i++) {
-			ret = ibv_query_gid(cma_dev->verbs, port, i, &chk_gid);
-			if (!ret && !memcmp(gid, &chk_gid, sizeof *gid)) {
-				*port_num = port;
-				return 0;
-			}
-		}
-
-	return -EINVAL;
-}
-
 static int ucma_find_pkey(struct cma_device *cma_dev, uint8_t port_num,
 			  uint16_t pkey, uint16_t *pkey_index)
 {
@@ -483,19 +508,15 @@ static int ucma_init_ib_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 	struct ib_addr *ibaddr;
 	int ret;
 
+	ibaddr = &id_priv->id.route.addr.addr.ibaddr;
+	ret = ucma_find_pkey(id_priv->cma_dev, id_priv->id.port_num,
+			     ibaddr->pkey, &qp_attr.pkey_index);
+	if (ret)
+		return ret;
+
+	qp_attr.port_num = id_priv->id.port_num;
 	qp_attr.qp_state = IBV_QPS_INIT;
 	qp_attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE;
-
-	ibaddr = &id_priv->id.route.addr.addr.ibaddr;
-	ret = ucma_find_gid(id_priv->cma_dev, &ibaddr->sgid, &qp_attr.port_num);
-	if (ret)
-		return ret;
-
-	ret = ucma_find_pkey(id_priv->cma_dev, qp_attr.port_num, ibaddr->pkey,
-			     &qp_attr.pkey_index);
-	if (ret)
-		return ret;
-
 	return ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_ACCESS_FLAGS |
 					   IBV_QP_PKEY_INDEX | IBV_QP_PORT);
 }
@@ -529,51 +550,6 @@ err:
 void rdma_destroy_qp(struct rdma_cm_id *id)
 {
 	ibv_destroy_qp(id->qp);
-}
-
-static int ucma_query_route(struct rdma_cm_id *id)
-{
-	struct ucma_abi_query_route_resp *resp;
-	struct ucma_abi_query_route *cmd;
-	struct cma_id_private *id_priv;
-	void *msg;
-	int ret, size, i;
-	
-	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_QUERY_ROUTE, size);
-	id_priv = container_of(id, struct cma_id_private, id);
-	cmd->id = id_priv->handle;
-
-	ret = write(cma_fd, msg, size);
-	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
-
-	if (resp->num_paths) {
-		id->route.path_rec = malloc(sizeof *id->route.path_rec *
-					    resp->num_paths);
-		if (!id->route.path_rec)
-			return -ENOMEM;
-
-		id->route.num_paths = resp->num_paths;
-		for (i = 0; i < resp->num_paths; i++)
-			ib_copy_path_rec_from_kern(&id->route.path_rec[i],
-						   &resp->ib_route[i]);
-	}
-
-	memcpy(id->route.addr.addr.ibaddr.sgid.raw, resp->ib_route[0].sgid,
-	       sizeof id->route.addr.addr.ibaddr.sgid);
-	memcpy(id->route.addr.addr.ibaddr.dgid.raw, resp->ib_route[0].dgid,
-	       sizeof id->route.addr.addr.ibaddr.dgid);
-	id->route.addr.addr.ibaddr.pkey = resp->ib_route[0].pkey;
-	memcpy(&id->route.addr.src_addr, &resp->src_addr,
-	       sizeof id->route.addr.src_addr);
-
-	if (!id_priv->cma_dev) {
-		ret = ucma_get_device(id_priv, resp->node_guid);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
 }
 
 static void ucma_copy_conn_param_to_kern(struct ucma_abi_conn_param *dst,

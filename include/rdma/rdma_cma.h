@@ -79,6 +79,7 @@ struct rdma_cm_id {
 	void			*context;
 	struct ibv_qp		*qp;
 	struct rdma_route	 route;
+	uint8_t			 port_num;
 };
 
 struct rdma_cm_event {

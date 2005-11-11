@@ -91,10 +91,6 @@ struct ucma_abi_bind_addr {
 	__u32 id;
 };
 
-struct ucma_abi_bind_addr_resp {
-	__u64 node_guid;
-};
-
 struct ucma_abi_resolve_addr {
 	struct sockaddr_in6 src_addr;
 	struct sockaddr_in6 dst_addr;
@@ -118,6 +114,8 @@ struct ucma_abi_query_route_resp {
 	struct ib_kern_path_rec ib_route[2];
 	struct sockaddr_in6 src_addr;
 	__u32 num_paths;
+	__u8 port_num;
+	__u8 reserved[7];
 };
 
 struct ucma_abi_conn_param {
