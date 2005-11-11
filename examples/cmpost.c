@@ -40,7 +40,7 @@
 #include <byteswap.h>
 
 #include <infiniband/cm.h>
-#include <infiniband/at.h>
+#include <rdma/rdma_cma.h>
 
 #if __BYTE_ORDER == __BIG_ENDIAN
 static inline uint64_t cpu_to_be64(uint64_t x) { return x; }
@@ -590,18 +590,12 @@ out:
 	ib_cm_destroy_id(listen_id);
 }
 
-static void at_callback(uint64_t req_id, void *context, int rec_num)
+static int get_dst_addr(char *dst, struct sockaddr_in *addr_in)
 {
-}
-
-static int query_for_path(char *dest)
-{
-	struct ib_at_ib_route route;
-	struct ib_at_completion comp;
 	struct addrinfo *res;
 	int ret;
 
-	ret = getaddrinfo(dest, NULL, NULL, &res);
+	ret = getaddrinfo(dst, NULL, NULL, &res);
 	if (ret) {
 		printf("getaddrinfo failed - invalid hostname or IP address\n");
 		return ret;
@@ -612,47 +606,63 @@ static int query_for_path(char *dest)
 		goto out;
 	}
 
-	comp.fn = at_callback;
-	ret = ib_at_route_by_ip(((struct sockaddr_in *)res->ai_addr)->sin_addr.s_addr,
-				0, 0, 0, &route, &comp, NULL);
-	if (ret < 0) {
-		printf("ib_at_route_by_ip failed: %d\n", ret);
-		goto out;
-	}
-
-	if (!ret) {
-		ret = ib_at_callback_get();
-		if (ret) {
-			printf("ib_at_callback_get failed: %d\n", ret);
-			goto out;
-		}
-	}
-
-	ret = ib_at_paths_by_route(&route, 0, &test.path_rec, 1, &comp, NULL);
-	if (ret < 0) {
-		printf("ib_at_paths_by_route failed: %d\n", ret);
-		goto out;
-	}
-
-	if (!ret) {
-		ret = ib_at_callback_get();
-		if (ret)
-			printf("ib_at_callback_get failed: %d\n", ret);
-	} else
-		ret = 0;
-
+	*addr_in = *(struct sockaddr_in *) res->ai_addr;
+	addr_in->sin_port = 7471;
 out:
 	freeaddrinfo(res);
 	return ret;
 }
 
-static void run_client(char *dest)
+static int query_for_path(char *dst)
+{
+	struct rdma_cm_id *id;
+	struct sockaddr_in addr_in;
+	struct rdma_cm_event *event;
+	int ret;
+
+	ret = get_dst_addr(dst, &addr_in);
+	if (ret)
+		return ret;
+
+	ret = rdma_create_id(&id, NULL);
+	if (ret)
+		return ret;
+
+	ret = rdma_resolve_addr(id, NULL, (struct sockaddr *) &addr_in, 2000);
+	if (ret)
+		goto out;
+
+	ret = rdma_get_cm_event(&event);
+	if (!ret && event->event != RDMA_CM_EVENT_ADDR_RESOLVED)
+		ret = event->status;
+	rdma_ack_cm_event(event);
+	if (ret)
+		goto out;
+
+	ret = rdma_resolve_route(id, 2000);
+	if (ret)
+		goto out;
+
+	ret = rdma_get_cm_event(&event);
+	if (!ret && event->event != RDMA_CM_EVENT_ROUTE_RESOLVED)
+		ret = event->status;
+	rdma_ack_cm_event(event);
+	if (ret)
+		goto out;
+
+	test.path_rec = id->route.path_rec[0];
+out:
+	rdma_destroy_id(id);
+	return ret;
+}
+
+static void run_client(char *dst)
 {
 	struct ib_cm_req_param req;
 	int i, ret;
 
 	printf("starting client\n");
-	ret = query_for_path(dest);
+	ret = query_for_path(dst);
 	if (ret) {
 		printf("failed path record query: %d\n", ret);
 		return;
