@@ -14,7 +14,8 @@ else
     libibverbs_version_script =
 endif
 
-src_libibverbs_la_SOURCES = src/cmd.c src/device.c src/init.c src/memory.c src/verbs.c
+src_libibverbs_la_SOURCES = src/cmd.c src/device.c src/init.c src/marshall.c \
+			    src/memory.c src/verbs.c
 src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibverbs_version_script)
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map
@@ -40,7 +41,8 @@ examples_ibv_asyncwatch_LDADD = $(top_builddir)/src/libibverbs.la
 libibverbsincludedir = $(includedir)/infiniband
 
 libibverbsinclude_HEADERS = include/infiniband/arch.h include/infiniband/driver.h \
-    include/infiniband/kern-abi.h include/infiniband/opcode.h include/infiniband/verbs.h
+    include/infiniband/kern-abi.h include/infiniband/opcode.h include/infiniband/verbs.h \
+    include/infiniband/sa-kern-abi.h include/infiniband/sa.h include/infiniband/marshall.h
 
 man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1 \
     man/ibv_rc_pingpong.1 man/ibv_uc_pingpong.1 man/ibv_ud_pingpong.1 \
@@ -53,6 +55,8 @@ DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
 
 EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
     include/infiniband/opcode.h include/infiniband/verbs.h src/ibverbs.h \
+    include/infiniband/marshall.h include/sa-kern-abi.h \
+    include/infiniband/sa.h \
     src/libibverbs.map libibverbs.spec.in $(man_MANS) $(DEBIAN)
 
 dist-hook: libibverbs.spec

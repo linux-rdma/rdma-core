@@ -57,5 +57,8 @@ IBVERBS_1.0 {
 		ibv_cmd_destroy_ah;
 		ibv_cmd_attach_mcast;
 		ibv_cmd_detach_mcast;
+		ib_copy_qp_attr_from_kern;
+		ib_copy_path_rec_from_kern;
+		ib_copy_path_rec_to_kern;
 	local: *;
 };

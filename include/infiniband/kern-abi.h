@@ -357,6 +357,64 @@ struct ibv_destroy_cq_resp {
 	__u32 async_events_reported;
 };
 
+struct ibv_kern_global_route {
+	__u8  dgid[16];
+	__u32 flow_label;
+	__u8  sgid_index;
+	__u8  hop_limit;
+	__u8  traffic_class;
+	__u8  reserved;
+};
+
+struct ibv_kern_ah_attr {
+	struct ibv_kern_global_route grh;
+	__u16 dlid;
+	__u8  sl;
+	__u8  src_path_bits;
+	__u8  static_rate;
+	__u8  is_global;
+	__u8  port_num;
+	__u8  reserved;
+};
+
+struct ibv_kern_qp_attr {
+	__u32	qp_attr_mask;
+	__u32	qp_state;
+	__u32	cur_qp_state;
+	__u32	path_mtu;
+	__u32	path_mig_state;
+	__u32	qkey;
+	__u32	rq_psn;
+	__u32	sq_psn;
+	__u32	dest_qp_num;
+	__u32	qp_access_flags;
+
+	struct ibv_kern_ah_attr ah_attr;
+	struct ibv_kern_ah_attr alt_ah_attr;
+
+	/* ib_qp_cap */
+	__u32	max_send_wr;
+	__u32	max_recv_wr;
+	__u32	max_send_sge;
+	__u32	max_recv_sge;
+	__u32	max_inline_data;
+
+	__u16	pkey_index;
+	__u16	alt_pkey_index;
+	__u8	en_sqd_async_notify;
+	__u8	sq_draining;
+	__u8	max_rd_atomic;
+	__u8	max_dest_rd_atomic;
+	__u8	min_rnr_timer;
+	__u8	port_num;
+	__u8	timeout;
+	__u8	retry_cnt;
+	__u8	rnr_retry;
+	__u8	alt_port_num;
+	__u8	alt_timeout;
+	__u8	reserved[5];
+};
+
 struct ibv_create_qp {
 	__u32 command;
 	__u16 in_words;
@@ -530,26 +588,6 @@ struct ibv_post_srq_recv {
 
 struct ibv_post_srq_recv_resp {
 	__u32 bad_wr;
-};
-
-struct ibv_kern_global_route {
-	__u8  dgid[16];
-	__u32 flow_label;
-	__u8  sgid_index;
-	__u8  hop_limit;
-	__u8  traffic_class;
-	__u8  reserved;
-};
-
-struct ibv_kern_ah_attr {
-	struct ibv_kern_global_route grh;
-	__u16 dlid;
-	__u8  sl;
-	__u8  src_path_bits;
-	__u8  static_rate;
-	__u8  is_global;
-	__u8  port_num;
-	__u8  reserved;
 };
 
 struct ibv_create_ah {
