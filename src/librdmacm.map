@@ -1,0 +1,18 @@
+RDMACM_1.0 {
+	global:
+		rdma_create_id;
+		rdma_destroy_id;
+		rdma_bind_addr;
+		rdma_resolve_addr;
+		rdma_resolve_route;
+		rdma_create_qp;
+		rdma_destroy_qp;
+		rdma_connect;
+		rdma_listen;
+		rdma_accept;
+		rdma_reject;
+		rdma_disconnect;
+		rdma_get_cm_event;
+		rdma_ack_cm_event;
+	local: *;
+};

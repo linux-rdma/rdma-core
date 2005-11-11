@@ -1,0 +1,40 @@
+# $Id: $
+
+%define prefix /usr
+%define ver      @VERSION@
+%define  RELEASE 1
+%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+
+Summary: Userspace RDMA Connection Manager.
+Name: librdmacm
+Version: %ver
+Release: %rel
+Copyright: Dual GPL/BSD
+Group: System Environment/Libraries
+BuildRoot: %{_tmppath}/%{name}-%{version}-root
+Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+Url: http://openib.org/
+
+%description
+Along with the OpenIB kernel drivers, librdmacm provides a userspace
+RDMA Connection Managment API.
+
+%prep
+%setup -q
+
+%build
+%configure
+make
+
+%install
+make DESTDIR=${RPM_BUILD_ROOT} install
+# remove unpackaged files from the buildroot
+rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%defattr(-,root,root)
+%{_libdir}/librdmacm*.so.*
+%doc AUTHORS COPYING ChangeLog NEWS README

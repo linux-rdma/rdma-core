@@ -1,0 +1,29 @@
+This README is for userspace RDMA cm library.
+
+Building
+
+To make this directory, run:
+./autogen.sh && ./configure && make && make install
+
+Typically the autogen and configure steps only need be done the first
+time unless configure.in or Makefile.am changes.
+
+Libraries are installed by default at /usr/local/lib.
+
+Device files
+
+The userspace CMA uses a single device file regardless of the number
+of adapters or ports present.
+
+To create the appropriate character device file automatically with
+udev, a rule like
+
+    KERNEL="ucma", NAME="infiniband/%k", MODE="0666"
+
+can be used.  This will create the device node named
+
+    /dev/infiniband/ucma
+
+or you can create it manually
+
+  mknod /dev/infiniband/ucma c 231 255
