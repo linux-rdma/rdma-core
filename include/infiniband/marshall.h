@@ -48,14 +48,14 @@
 
 BEGIN_C_DECLS
 
-void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
-			       struct ibv_kern_qp_attr *src);
+extern void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
+				      struct ibv_kern_qp_attr *src);
 
-void ib_copy_path_rec_from_kern(struct ib_sa_path_rec *dst,
-				struct ib_kern_path_rec *src);
+extern void ib_copy_path_rec_from_kern(struct ib_sa_path_rec *dst,
+				       struct ib_kern_path_rec *src);
 
-void ib_copy_path_rec_to_kern(struct ib_kern_path_rec *dst,
-			      struct ib_sa_path_rec *src);
+extern void ib_copy_path_rec_to_kern(struct ib_kern_path_rec *dst,
+				     struct ib_sa_path_rec *src);
 
 END_C_DECLS
 
