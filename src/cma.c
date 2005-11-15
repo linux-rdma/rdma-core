@@ -357,9 +357,11 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
 
-	ret = ucma_query_route(id);
-	if (ret)
-		return ret;
+	if (((struct sockaddr_in *) addr)->sin_addr.s_addr != 0) {
+		ret = ucma_query_route(id);
+		if (ret)
+			return ret;
+	}
 
 	memcpy(&id->route.addr.src_addr, addr, addrlen);
 	return 0;
