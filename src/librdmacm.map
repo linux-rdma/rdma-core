@@ -14,5 +14,6 @@ RDMACM_1.0 {
 		rdma_disconnect;
 		rdma_get_cm_event;
 		rdma_ack_cm_event;
+		rdma_get_fd;
 	local: *;
 };
