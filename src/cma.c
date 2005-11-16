@@ -863,3 +863,8 @@ err:
 	free(evt);
 	return ret;
 }
+
+int rdma_get_fd()
+{
+	return cma_fd;
+}

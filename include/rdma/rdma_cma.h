@@ -217,4 +217,6 @@ int rdma_get_cm_event(struct rdma_cm_event **event);
  */
 int rdma_ack_cm_event(struct rdma_cm_event *event);
 
+int rdma_get_fd();
+
 #endif /* RDMA_CMA_H */
