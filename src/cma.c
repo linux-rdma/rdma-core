@@ -116,58 +116,97 @@ struct cma_id_private {
 
 static struct dlist *dev_list;
 static struct dlist *cma_dev_list;
+static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+static int ucma_initialized;
 int cma_fd;
 
 #define container_of(ptr, type, field) \
 	((type *) ((void *)ptr - offsetof(type, field)))
 
-static void __attribute__((constructor)) rdma_cma_init(void)
+static void ucma_cleanup(void)
+{
+	struct cma_device *cma_dev;
+
+	if (cma_dev_list) {
+		dlist_for_each_data(cma_dev_list, cma_dev, struct cma_device)
+			ibv_close_device(cma_dev->verbs);
+	
+		dlist_destroy(cma_dev_list);
+		cma_dev_list = NULL;
+	}
+
+	if (cma_fd > 0)
+		close(cma_fd);
+}
+
+static int ucma_init(void)
 {
 	struct ibv_device *dev;
 	struct cma_device *cma_dev;
 	struct ibv_device_attr attr;
 	int ret;
 
+	pthread_mutex_lock(&mut);
+	if (ucma_initialized)
+		goto out;
+
 	cma_fd = open("/dev/infiniband/rdma_cm", O_RDWR);
-	if (cma_fd < 0)
-		abort();
+	if (cma_fd < 0) {
+		printf("CMA: unable to open /dev/infiniband/rdma_cm\n");
+		ret = -ENOENT;
+		goto err;
+	}
 
 	cma_dev_list = dlist_new(sizeof *cma_dev);
+	if (!cma_dev_list) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	dev_list = ibv_get_devices();
-	if (!cma_dev_list || !dev_list)
-		abort();
+	if (!dev_list) {
+		printf("CMA: unable to get RDMA device liste\n");
+		ret = -ENODEV;
+		goto err;
+	}
 
 	dlist_for_each_data(dev_list, dev, struct ibv_device) {
 		cma_dev = malloc(sizeof *cma_dev);
-		if (!cma_dev)
-			abort();
+		if (!cma_dev) {
+			ret = -ENOMEM;
+			goto err;
+		}
 
 		cma_dev->guid = ibv_get_device_guid(dev);
 		cma_dev->verbs = ibv_open_device(dev);
-		if (!cma_dev->verbs)
-			abort();
+		if (!cma_dev->verbs) {
+			printf("CMA: unable to open RDMA device\n");
+			ret = -ENODEV;
+			goto err;
+		}
 
 		ret = ibv_query_device(cma_dev->verbs, &attr);
-		if (ret)
-			abort();
+		if (ret) {
+			printf("CMA: unable to query RDMA device\n");
+			goto err;
+		}
 
 		cma_dev->port_cnt = attr.phys_port_cnt;
 		dlist_push(cma_dev_list, cma_dev);
 	}
+	ucma_initialized = 1;
+out:
+	pthread_mutex_unlock(&mut);
+	return 0;
+err:
+	ucma_cleanup();
+	pthread_mutex_unlock(&mut);
+	return ret;
 }
 
 static void __attribute__((destructor)) rdma_cma_fini(void)
 {
-	struct cma_device *cma_dev;
-
-	if (!cma_dev_list)
-		return;
-
-	dlist_for_each_data(cma_dev_list, cma_dev, struct cma_device)
-		ibv_close_device(cma_dev->verbs);
-	
-	dlist_destroy(cma_dev_list);
-	close(cma_fd);
+	ucma_cleanup();
 }
 
 static int ucma_get_device(struct cma_id_private *id_priv, uint64_t guid)
@@ -220,6 +259,10 @@ int rdma_create_id(struct rdma_cm_id **id, void *context)
 	struct cma_id_private *id_priv;
 	void *msg;
 	int ret, size;
+
+	ret = ucma_initialized ? 0 : ucma_init();
+	if (ret)
+		return ret;
 
 	id_priv = ucma_alloc_id(context);
 	if (!id_priv)
