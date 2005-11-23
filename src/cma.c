@@ -369,6 +369,8 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	id->route.addr.addr.ibaddr.pkey = resp->ib_route[0].pkey;
 	memcpy(&id->route.addr.src_addr, &resp->src_addr,
 	       sizeof id->route.addr.src_addr);
+	memcpy(&id->route.addr.dst_addr, &resp->dst_addr,
+	       sizeof id->route.addr.dst_addr);
 
 	if (!id_priv->cma_dev && resp->node_guid) {
 		ret = ucma_get_device(id_priv, resp->node_guid);
