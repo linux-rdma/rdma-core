@@ -230,27 +230,30 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		}
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			struct mthca_inline_seg *seg = wqe;
-			int s = 0;
+			if (wr->num_sge) {
+				struct mthca_inline_seg *seg = wqe;
+				int s = 0;
 
-			wqe += sizeof *seg;
-			for (i = 0; i < wr->num_sge; ++i) {
-				struct ibv_sge *sge = &wr->sg_list[i];
+				wqe += sizeof *seg;
+				for (i = 0; i < wr->num_sge; ++i) {
+					struct ibv_sge *sge = &wr->sg_list[i];
 
-				s += sge->length;
+					s += sge->length;
 
-				if (s > qp->max_inline_data) {
-					ret = -1;
-					*bad_wr = wr;
-					goto out;
+					if (s > qp->max_inline_data) {
+						ret = -1;
+						*bad_wr = wr;
+						goto out;
+					}
+
+					memcpy(wqe, (void *) (intptr_t) sge->addr,
+					       sge->length);
+					wqe += sge->length;
 				}
 
-				memcpy(wqe, (void*) (intptr_t) sge->addr, sge->length);
-				wqe += sge->length;
+				seg->byte_count = htonl(MTHCA_INLINE_SEG | s);
+				size += align(s + sizeof *seg, 16) / 16;
 			}
-
-			seg->byte_count = htonl(MTHCA_INLINE_SEG | s);
-			size += align(s + sizeof *seg, 16) / 16;
 		} else {
 			struct mthca_data_seg *seg;
 
@@ -551,27 +554,30 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		}
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			struct mthca_inline_seg *seg = wqe;
-			int s = 0;
+			if (wr->num_sge) {
+				struct mthca_inline_seg *seg = wqe;
+				int s = 0;
 
-			wqe += sizeof *seg;
-			for (i = 0; i < wr->num_sge; ++i) {
-				struct ibv_sge *sge = &wr->sg_list[i];
+				wqe += sizeof *seg;
+				for (i = 0; i < wr->num_sge; ++i) {
+					struct ibv_sge *sge = &wr->sg_list[i];
 
-				s += sge->length;
+					s += sge->length;
 
-				if (s > qp->max_inline_data) {
-					ret = -1;
-					*bad_wr = wr;
-					goto out;
+					if (s > qp->max_inline_data) {
+						ret = -1;
+						*bad_wr = wr;
+						goto out;
+					}
+
+					memcpy(wqe, (void *) (uintptr_t) sge->addr,
+					       sge->length);
+					wqe += sge->length;
 				}
 
-				memcpy(wqe, (void*) (uintptr_t) sge->addr, sge->length);
-				wqe += sge->length;
+				seg->byte_count = htonl(MTHCA_INLINE_SEG | s);
+				size += align(s + sizeof *seg, 16) / 16;
 			}
-
-			seg->byte_count = htonl(MTHCA_INLINE_SEG | s);
-			size += align(s + sizeof *seg, 16) / 16;
 		} else {
 			struct mthca_data_seg *seg;
 

@@ -3,6 +3,9 @@
 	* src/qp.c (mthca_init_qp_indices): Set qp->sq.last and
 	qp->rq.last so that QP is fully reset when the indices are
 	reinited on transition to RESET state.
+	(mthca_tavor_post_send, mthca_arbel_post_send): Don't create an
+	inline send segment when a work request is posted that has the
+	inline flag set but no gather entries included.
 
 2005-11-09  Roland Dreier  <roland@cisco.com>
 
