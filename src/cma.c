@@ -847,7 +847,11 @@ int rdma_get_cm_event(struct rdma_cm_event **event)
 	struct rdma_cm_event *evt;
 	void *msg;
 	int ret, size;
-	
+
+	ret = ucma_initialized ? 0 : ucma_init();
+	if (ret)
+		return ret;
+
 	if (!event)
 		return -EINVAL;
 
@@ -911,5 +915,11 @@ err:
 
 int rdma_get_fd()
 {
+	int ret;
+
+	ret = ucma_initialized ? 0 : ucma_init();
+	if (ret)
+		return ret;
+
 	return cma_fd;
 }
