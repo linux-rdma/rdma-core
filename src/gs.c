@@ -59,7 +59,7 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 	DEBUG("lid %d port %d", lid, port);
 
 	if (lid == -1) {
-		IBWARN("only lid routes are supported");
+		IBWARN("only lid routed is supported");
 		return 0;
 	}
 
