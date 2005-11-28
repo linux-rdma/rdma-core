@@ -310,6 +310,7 @@ extern struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr
 extern int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			   enum ibv_qp_attr_mask attr_mask);
 extern int mthca_destroy_qp(struct ibv_qp *qp);
+extern void mthca_init_qp_indices(struct mthca_qp *qp);
 extern int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				 struct ibv_send_wr **bad_wr);
 extern int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,

@@ -1,3 +1,9 @@
+2005-11-28  Roland Dreier  <roland@cisco.com>
+
+	* src/qp.c (mthca_init_qp_indices): Set qp->sq.last and
+	qp->rq.last so that QP is fully reset when the indices are
+	reinited on transition to RESET state.
+
 2005-11-09  Roland Dreier  <roland@cisco.com>
 
 	* src/srq.c (mthca_tavor_post_srq_recv), src/qp.c

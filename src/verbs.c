@@ -394,19 +394,6 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
-static void mthca_init_qp_indices(struct mthca_qp *qp)
-{
-	qp->sq.next_ind  = 0;
-	qp->sq.last_comp = qp->sq.max - 1;
-	qp->sq.head    	 = 0;
-	qp->sq.tail    	 = 0;
-
-	qp->rq.next_ind	 = 0;
-	qp->rq.last_comp = qp->rq.max - 1;
-	qp->rq.head    	 = 0;
-	qp->rq.tail    	 = 0;
-}
-
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
 	struct mthca_create_qp cmd;
@@ -427,10 +414,11 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 	qp->sq.max = align_queue_size(pd->context, attr->cap.max_send_wr, 0);
 	qp->rq.max = align_queue_size(pd->context, attr->cap.max_recv_wr, 0);
-	mthca_init_qp_indices(qp);
 
 	if (mthca_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp))
 		goto err;
+
+	mthca_init_qp_indices(qp);
 
 	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))

@@ -65,6 +65,21 @@ static void *get_send_wqe(struct mthca_qp *qp, int n)
 	return qp->buf + qp->send_wqe_offset + (n << qp->sq.wqe_shift);
 }
 
+void mthca_init_qp_indices(struct mthca_qp *qp)
+{
+	qp->sq.next_ind  = 0;
+	qp->sq.last_comp = qp->sq.max - 1;
+	qp->sq.head    	 = 0;
+	qp->sq.tail    	 = 0;
+	qp->sq.last      = get_send_wqe(qp, qp->sq.max - 1);
+
+	qp->rq.next_ind	 = 0;
+	qp->rq.last_comp = qp->rq.max - 1;
+	qp->rq.head    	 = 0;
+	qp->rq.tail    	 = 0;
+	qp->rq.last      = get_recv_wqe(qp, qp->rq.max - 1);
+}
+
 static inline int wq_overflow(struct mthca_wq *wq, int nreq, struct mthca_cq *cq)
 {
 	unsigned cur;
