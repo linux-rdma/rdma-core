@@ -1,3 +1,9 @@
+2005-11-29  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/qp.c (mthca_tavor_post_recv): Fix posting long receive
+	lists: nreq is set to zero early on, so we need to use
+	MTHCA_TAVOR_MAX_WQES_PER_RECV_DB as the increment to rq.head.
+
 2005-11-28  Roland Dreier  <roland@cisco.com>
 
 	* src/qp.c (mthca_init_qp_indices): Set qp->sq.last and

@@ -345,7 +345,7 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
 
-			qp->rq.head += nreq;
+			qp->rq.head += MTHCA_TAVOR_MAX_WQES_PER_RECV_DB;
 			size0 = 0;
 		}
 
