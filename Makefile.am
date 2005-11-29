@@ -55,7 +55,7 @@ DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
 
 EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
     include/infiniband/opcode.h include/infiniband/verbs.h src/ibverbs.h \
-    include/infiniband/marshall.h include/sa-kern-abi.h include/infiniband/sa.h \
+    include/infiniband/marshall.h include/infiniband/sa-kern-abi.h include/infiniband/sa.h \
     src/libibverbs.map libibverbs.spec.in $(man_MANS) $(DEBIAN)
 
 dist-hook: libibverbs.spec
