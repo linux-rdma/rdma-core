@@ -425,6 +425,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr)
 {
 	struct mthca_qp *qp = to_mqp(ibqp);
+	uint32_t doorbell[2];
 	void *wqe, *prev_wqe;
 	int ind;
 	int nreq;
@@ -440,6 +441,32 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	ind = qp->sq.head & (qp->sq.max - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		if (nreq == MTHCA_ARBEL_MAX_WQES_PER_SEND_DB) {
+			nreq = 0;
+
+			doorbell[0] = htonl((MTHCA_ARBEL_MAX_WQES_PER_SEND_DB << 24) |
+					    ((qp->sq.head & 0xffff) << 8) | f0 | op0);
+			doorbell[1] = htonl((ibqp->qp_num << 8) | size0);
+
+			qp->sq.head += MTHCA_ARBEL_MAX_WQES_PER_SEND_DB;
+
+			/*
+			 * Make sure that descriptors are written before
+			 * doorbell record.
+			 */
+			mb();
+			*qp->sq.db = htonl(qp->sq.head & 0xffff);
+
+			/*
+			 * Make sure doorbell record is written before we
+			 * write MMIO send doorbell.
+			 */
+			mb();
+			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_SEND_DOORBELL);
+
+			size0 = 0;
+		}
+
 		if (wq_overflow(&qp->sq, nreq, to_mcq(qp->ibv_qp.send_cq))) {
 			ret = -1;
 			*bad_wr = wr;
@@ -620,8 +647,6 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 out:
 	if (nreq) {
-		uint32_t doorbell[2];
-
 		doorbell[0] = htonl((nreq << 24)                  |
 				    ((qp->sq.head & 0xffff) << 8) |
 				    f0 | op0);
