@@ -24,7 +24,7 @@ libibumadincludedir = $(includedir)/infiniband
 libibumadinclude_HEADERS = $(srcdir)/include/infiniband/umad.h
 
 EXTRA_DIST = $(srcdir)/include/infiniband/umad.h libibumad.spec.in \
-	     $(srcdir)/libibumad.map
+	     $(srcdir)/src/libibumad.map
 
 dist-hook: libibumad.spec
 	cp libibumad.spec $(distdir)
