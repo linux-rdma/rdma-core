@@ -109,6 +109,8 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 {
 	int retries;
 	int length, status;
+	ib_user_mad_t *mad;
+	ib_mad_addr_t addr;
 
 	if (!timeout)
 		timeout = def_madrpc_timeout;
@@ -118,6 +120,10 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 		xdump(stderr, "send buf\n", umad, umad_size() + len);
 	}
 
+	/* Save user MAD header in case of retry */
+	mad = umad;
+	memcpy(&addr, &mad->addr, sizeof addr);
+
 	if (save_mad) {
 		memcpy(save_mad, umad_get_mad(umad),
 		       save_mad_len < len ? save_mad_len : len);
@@ -125,8 +131,11 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 	}
 
 	for (retries = 0; retries < madrpc_retries; retries++) {
-		if (retries)
+		if (retries) {
 			ERRS("retry %d (timeout %d ms)", retries + 1, timeout);
+			/* Restore user MAD header */
+			memcpy(&mad->addr, &addr, sizeof addr);
+		}
 
 		length = len;
 		if (umad_send(mad_portid, agentid, umad, length, timeout, 0) < 0) {
