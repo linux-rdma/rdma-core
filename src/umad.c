@@ -52,16 +52,6 @@
 
 #define IB_OPENIB_OUI                 (0x001405)
 
-typedef struct ib_user_mad {
-	uint32_t agent_id;
-	uint32_t status;
-	uint32_t timeout_ms;
-	uint32_t retries;
-	uint32_t length;
-	ib_mad_addr_t addr;
-	uint8_t  data[0];
-} ib_user_mad_t;
-
 typedef struct ib_user_mad_reg_req {
 	uint32_t id;
 	uint32_t method_mask[4];
