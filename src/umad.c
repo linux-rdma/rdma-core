@@ -196,6 +196,7 @@ get_port(char *ca_name, char *dir_name, int portnum, umad_port_t *port)
 
 	/* FIXME: handle pkeys and gids */
 	return 0;
+
 clean:
 	free(port);
 	return -EIO;
@@ -677,7 +678,7 @@ umad_set_grh(void *umad, void *grh)
 {
 	struct ib_user_mad *mad = umad;
 
-	mad->addr.grh_present = 0;		/* FIXME - GRH support */
+	mad->addr.grh_present = 0;	/* FIXME - GRH support */
 	return 0;
 }
 
