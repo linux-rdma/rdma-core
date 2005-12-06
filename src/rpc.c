@@ -176,7 +176,7 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	mad = umad_get_mad(umad);
 
 	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
-		ERRS("MAD ended with error status %x", status);
+		ERRS("MAD completed with error status %x", status);
 		return 0;
 	}
 
@@ -212,7 +212,7 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	mad = umad_get_mad(umad);
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
-		ERRS("MAD ended with error status %x", status);
+		ERRS("MAD completed with error status %x", status);
 		return 0;
 	}
 
