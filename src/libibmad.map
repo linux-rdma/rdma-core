@@ -23,6 +23,7 @@ IBMAD_1.0 {
 		mad_dump_physportstate;
 		mad_dump_portcapmask;
 		mad_dump_portinfo;
+		mad_dump_portstates;
 		mad_dump_portstate;
 		mad_dump_rhex;
 		mad_dump_sltovl;

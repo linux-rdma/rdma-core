@@ -735,6 +735,12 @@ mad_dump_portinfo(char *buf, int bufsz, void *val, int valsz)
 }
 
 void
+mad_dump_portstates(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PORT_STATE_F, IB_PORT_LINK_DOWN_DEF_F);
+}
+
+void
 mad_dump_switchinfo(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_SW_FIRST_F, IB_SW_LAST_F);
