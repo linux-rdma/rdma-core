@@ -114,7 +114,7 @@ struct cma_id_private {
 	uint32_t	  handle;
 };
 
-static struct dlist *dev_list;
+static struct ibv_device **dev_list;
 static struct dlist *cma_dev_list;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static int ucma_initialized;
@@ -141,7 +141,7 @@ static void ucma_cleanup(void)
 
 static int ucma_init(void)
 {
-	struct ibv_device *dev;
+	int i;
 	struct cma_device *cma_dev;
 	struct ibv_device_attr attr;
 	int ret;
@@ -163,22 +163,22 @@ static int ucma_init(void)
 		goto err;
 	}
 
-	dev_list = ibv_get_devices();
+	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
 		printf("CMA: unable to get RDMA device liste\n");
 		ret = -ENODEV;
 		goto err;
 	}
 
-	dlist_for_each_data(dev_list, dev, struct ibv_device) {
+	for (i = 0; dev_list[i]; ++i) {
 		cma_dev = malloc(sizeof *cma_dev);
 		if (!cma_dev) {
 			ret = -ENOMEM;
 			goto err;
 		}
 
-		cma_dev->guid = ibv_get_device_guid(dev);
-		cma_dev->verbs = ibv_open_device(dev);
+		cma_dev->guid = ibv_get_device_guid(dev_list[i]);
+		cma_dev->verbs = ibv_open_device(dev_list[i]);
 		if (!cma_dev->verbs) {
 			printf("CMA: unable to open RDMA device\n");
 			ret = -ENODEV;
@@ -201,6 +201,8 @@ out:
 err:
 	ucma_cleanup();
 	pthread_mutex_unlock(&mut);
+	if (dev_list)
+		ibv_free_device_list(dev_list);
 	return ret;
 }
 
