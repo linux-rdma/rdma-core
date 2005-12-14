@@ -47,7 +47,8 @@
 #define PFX		"libibverbs: "
 
 struct ibv_driver {
-	ibv_driver_init_func init_func;
+	ibv_driver_init_func	init_func;
+	struct ibv_driver      *next;
 };
 
 struct ibv_abi_compat_v2 {
@@ -57,11 +58,11 @@ struct ibv_abi_compat_v2 {
 
 extern HIDDEN int abi_ver;
 
-extern struct dlist *ibverbs_init(void);
+extern HIDDEN int ibverbs_init(struct ibv_device ***list);
 
-extern int ibv_init_mem_map(void);
-extern int ibv_lock_range(void *base, size_t size);
-extern int ibv_unlock_range(void *base, size_t size);
+extern HIDDEN int ibv_init_mem_map(void);
+extern HIDDEN int ibv_lock_range(void *base, size_t size);
+extern HIDDEN int ibv_unlock_range(void *base, size_t size);
 
 #define IBV_INIT_CMD(cmd, size, opcode)					\
 	do {								\

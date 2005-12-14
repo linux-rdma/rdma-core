@@ -1,4 +1,15 @@
-2005-11-10  Sean Hefty <sean.hefty@intel.com>
+2005-11-11  Roland Dreier  <roland@cisco.com>
+
+	* examples/asyncwatch.c, examples/rc_pingpong.c,
+	examples/srq_pingpong.c, examples/uc_pingpong.c,
+	examples/ud_pingpong.c, examples/device_list.c,
+	examples/devinfo.c: Update examples to match new API.
+	
+	* include/infiniband/verbs.h, src/device.c, src/init.c,
+	src/ibverbs.h: Change from dlist-based ibv_get_devices() API to
+	simpler ibv_get_device_list() and ibv_free_device_list() API.
+
+2005-11-10  Sean Hefty  <sean.hefty@intel.com>
 
 	* include/infiniband/sa-kern-abi.h: New include file to contain
 	definitions of SA structures passed between userspace and kernel.

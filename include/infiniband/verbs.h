@@ -585,9 +585,21 @@ struct ibv_context {
 };
 
 /**
- * ibv_get_devices - Return list of IB devices
+ * ibv_get_device_list - Get list of IB devices currently available
+ * @num_devices: optional.  if non-NULL, set to the number of devices
+ * returned in the array.
+ *
+ * Return a NULL-terminated array of IB devices.  The array can be
+ * released with ibv_free_device_list().
  */
-extern struct dlist *ibv_get_devices(void);
+extern struct ibv_device **ibv_get_device_list(int *num_devices);
+
+/**
+ * ibv_free_device_list - Free list from ibv_get_device_list()
+ *
+ * Free an array of devices returned from ibv_get_device_list()
+ */
+extern void ibv_free_device_list(struct ibv_device **list);
 
 /**
  * ibv_get_device_name - Return kernel device name

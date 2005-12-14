@@ -299,11 +299,11 @@ cleanup:
 
 static void usage(const char *argv0)
 {
-        printf("Usage: %s             print the ca attributes\n", argv0);
-        printf("\n");
-        printf("Options:\n");
-        printf("  -d, --ib-dev=<dev>     use IB device <dev> (default first device found)\n");
-        printf("  -i, --ib-port=<port>   use port <port> of IB device (default all ports)\n");
+	printf("Usage: %s             print the ca attributes\n", argv0);
+	printf("\n");
+	printf("Options:\n");
+	printf("  -d, --ib-dev=<dev>     use IB device <dev> (default first device found)\n");
+	printf("  -i, --ib-port=<port>   use port <port> of IB device (default all ports)\n");
 	printf("  -l, --list             print only the IB devices names\n");
 	printf("  -v, --verbose          print all the attributes of the IB device(s)\n");
 }
@@ -312,60 +312,56 @@ int main(int argc, char *argv[])
 {
 	char *ib_devname = NULL;
 	int ret = 0;
-	struct dlist *dev_list;
-	struct ibv_device *ib_dev;
+	struct ibv_device **dev_list;
 	int num_of_hcas;
 	int ib_port = 0;
 
 	/* parse command line options */
 	while (1) {
 	        int c;
-                static struct option long_options[] = {
-                        { .name = "ib-dev",   .has_arg = 1, .val = 'd' },
-                        { .name = "ib-port",  .has_arg = 1, .val = 'i' },
+		static struct option long_options[] = {
+			{ .name = "ib-dev",   .has_arg = 1, .val = 'd' },
+			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },
 			{ .name = "list",     .has_arg = 0, .val = 'l' },
-                        { .name = "verbose",  .has_arg = 0, .val = 'v' },
-                        { 0, 0, 0, 0}
-                };
+			{ .name = "verbose",  .has_arg = 0, .val = 'v' },
+			{ 0, 0, 0, 0}
+		};
 		
-                c = getopt_long(argc, argv, "d:i:lv", long_options, NULL);
-                if (c == -1)
-                        break;
+		c = getopt_long(argc, argv, "d:i:lv", long_options, NULL);
+		if (c == -1)
+			break;
 
-                switch (c) {
-                case 'd':
-                        ib_devname = strdup(optarg);
-                        break;
+		switch (c) {
+		case 'd':
+			ib_devname = strdup(optarg);
+			break;
 
-                case 'i':
-                        ib_port = strtol(optarg, NULL, 0);
-                        if (ib_port < 0) {
-                                usage(argv[0]);
-                                return 1;
-                        }
-                        break;
+		case 'i':
+			ib_port = strtol(optarg, NULL, 0);
+			if (ib_port < 0) {
+				usage(argv[0]);
+				return 1;
+			}
+			break;
 
 		case 'v':
-                        verbose = 1;
-                        break;
+			verbose = 1;
+			break;
 
 		case 'l':
-			dev_list = ibv_get_devices();
+			dev_list = ibv_get_device_list(&num_of_hcas);
 			if (!dev_list) {
 				fprintf(stderr, "Failed to get IB devices list");
 				return -1;
 			}
 
-		        num_of_hcas = 0;
-              		dlist_for_each_data(dev_list, ib_dev, struct ibv_device)
-                    		num_of_hcas ++;
-
 			printf("%d HCA%s found:\n", num_of_hcas,
 			       num_of_hcas != 1 ? "s" : "");
 
-			dlist_start(dev_list);
-			dlist_for_each_data(dev_list, ib_dev, struct ibv_device)
-				printf("\t%s\n", ibv_get_device_name(ib_dev));
+			while (*dev_list) {
+				printf("\t%s\n", ibv_get_device_name(*dev_list));
+				++dev_list;
+			}
 
 			printf("\n");
 			return 0;
@@ -376,28 +372,31 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	dev_list = ibv_get_devices();
+	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
 		fprintf(stderr, "Failed to get IB device list\n");
 		return -1;
 	}
-	dlist_start(dev_list);
+
 	if (ib_devname) {
-		dlist_for_each_data(dev_list, ib_dev, struct ibv_device)
-			if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
+		while (*dev_list) {
+			if (!strcmp(ibv_get_device_name(*dev_list), ib_devname))
 				break;
-		if (!ib_dev) {
+			++dev_list;
+		}
+
+		if (!*dev_list) {
 			fprintf(stderr, "IB device '%s' wasn't found\n", ib_devname);
 			return -1;
 		}
-		ret |= print_hca_cap(ib_dev, ib_port);
+
+		ret |= print_hca_cap(*dev_list, ib_port);
 	} else {
-                ib_dev = dlist_next(dev_list);
-                if (!ib_dev) {
-                        fprintf(stderr, "No IB devices found\n");
-                        return -1;
-                }
-		ret |= print_hca_cap(ib_dev, ib_port);
+		if (!*dev_list) {
+			fprintf(stderr, "No IB devices found\n");
+			return -1;
+		}
+		ret |= print_hca_cap(*dev_list, ib_port);
 	}
 
 	if (ib_devname)

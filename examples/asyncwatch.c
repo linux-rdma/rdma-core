@@ -50,34 +50,30 @@ static inline uint64_t be64_to_cpu(uint64_t x) { return x; }
 
 int main(int argc, char *argv[])
 {
-	struct dlist *dev_list;
-	struct ibv_device *ib_dev;
+	struct ibv_device **dev_list;
 	struct ibv_context *context;
 	struct ibv_async_event event;
 
-	dev_list = ibv_get_devices();
+	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
 		fprintf(stderr, "No IB devices found\n");
 		return 1;
 	}
 
-	dlist_start(dev_list);
-	ib_dev = dlist_next(dev_list);
-
-	if (!ib_dev) {
+	if (!*dev_list) {
 		fprintf(stderr, "No IB devices found\n");
 		return 1;
 	}
 
-	context = ibv_open_device(ib_dev);
+	context = ibv_open_device(*dev_list);
 	if (!context) {
 		fprintf(stderr, "Couldn't get context for %s\n",
-			ibv_get_device_name(ib_dev));
+			ibv_get_device_name(*dev_list));
 		return 1;
 	}
 
 	printf("%s: async event FD %d\n",
-	       ibv_get_device_name(ib_dev), context->async_fd);
+	       ibv_get_device_name(*dev_list), context->async_fd);
 
 	while (1) {
 		if (ibv_get_async_event(context, &event))

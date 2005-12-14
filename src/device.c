@@ -49,19 +49,34 @@
 #include "ibverbs.h"
 
 static pthread_mutex_t device_list_lock = PTHREAD_MUTEX_INITIALIZER;
-static struct dlist *device_list;
+static int num_devices;
+static struct ibv_device **device_list;
 
-struct dlist *ibv_get_devices(void)
+struct ibv_device **ibv_get_device_list(int *num)
 {
-	struct dlist *l;
+	struct ibv_device **l;
+	int i;
 
 	pthread_mutex_lock(&device_list_lock);
-	if (!device_list)
-		device_list = ibverbs_init();
-	l = device_list;
+
+	if (!num_devices)
+		num_devices = ibverbs_init(&device_list);
+
+	l = calloc(num_devices, sizeof (struct ibv_device *));
+	for (i = 0; i < num_devices; ++i)
+		l[i] = device_list[i];
+
 	pthread_mutex_unlock(&device_list_lock);
 
+	if (num)
+		*num = l ? num_devices : 0;
+
 	return l;
+}
+
+void ibv_free_device_list(struct ibv_device **list)
+{
+	free(list);
 }
 
 const char *ibv_get_device_name(struct ibv_device *device)

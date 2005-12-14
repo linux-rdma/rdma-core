@@ -51,10 +51,9 @@ static inline uint64_t be64_to_cpu(uint64_t x) { return x; }
 
 int main(int argc, char *argv[])
 {
-	struct dlist *dev_list;
-	struct ibv_device *ib_dev;
+	struct ibv_device **dev_list;
 
-	dev_list = ibv_get_devices();
+	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
 		fprintf(stderr, "No IB devices found\n");
 		return 1;
@@ -63,10 +62,12 @@ int main(int argc, char *argv[])
 	printf("    %-16s\t   node GUID\n", "device");
 	printf("    %-16s\t----------------\n", "------");
 
-	dlist_for_each_data(dev_list, ib_dev, struct ibv_device)
+	while (*dev_list) {
 		printf("    %-16s\t%016llx\n",
-		       ibv_get_device_name(ib_dev),
-		       (unsigned long long) be64_to_cpu(ibv_get_device_guid(ib_dev)));
+		       ibv_get_device_name(*dev_list),
+		       (unsigned long long) be64_to_cpu(ibv_get_device_guid(*dev_list)));
+		++dev_list;
+	}
 
 	return 0;
 }
