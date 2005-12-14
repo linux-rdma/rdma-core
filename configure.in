@@ -25,8 +25,8 @@ AC_CHECK_SIZEOF(long)
 dnl Checks for libraries
 if test "$disable_libcheck" != "yes"
 then
-AC_CHECK_LIB(ibverbs, ibv_get_devices, [],
-    AC_MSG_ERROR([ibv_get_devices() not found.  libibcm requires libibverbs.]))
+AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
+    AC_MSG_ERROR([ibv_get_device_list() not found.  libibcm requires libibverbs.]))
 #AC_CHECK_LIB(rdmacm, rdma_create_id, [],
 #    AC_MSG_ERROR([rdma_create_id() not found.  ucmpost requires librdmacm.]))
 fi

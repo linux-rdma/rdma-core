@@ -423,15 +423,14 @@ static void destroy_messages(void)
 
 static int init(void)
 {
-	struct dlist *dev_list;
+	struct ibv_device **dev_list;
 	int ret;
 
 	test.connects_left = connections;
 	test.disconnects_left = connections;
 
-	dev_list = ibv_get_devices();
-	dlist_start(dev_list);
-	test.device = dlist_next(dev_list);
+	dev_list = ibv_get_device_list(NULL);
+	test.device = dev_list[0];
 	if (!test.device)
 		return -1;
 
