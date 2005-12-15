@@ -1,3 +1,8 @@
+2005-12-15  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/qp.c (mthca_store_qp): Don't increment qp_table ref count if
+	allocation fails.
+
 2005-11-29  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* src/qp.c (mthca_arbel_post_send): Add handling for posting long

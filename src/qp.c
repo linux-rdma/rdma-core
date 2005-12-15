@@ -875,7 +875,7 @@ int mthca_store_qp(struct mthca_context *ctx, uint32_t qpn, struct mthca_qp *qp)
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
 
-	if (!ctx->qp_table[tind].refcnt++) {
+	if (!ctx->qp_table[tind].refcnt) {
 		ctx->qp_table[tind].table = calloc(ctx->qp_table_mask + 1,
 						   sizeof (struct mthca_qp *));
 		if (!ctx->qp_table[tind].table) {
@@ -884,6 +884,7 @@ int mthca_store_qp(struct mthca_context *ctx, uint32_t qpn, struct mthca_qp *qp)
 		}
 	}
 
+	++ctx->qp_table[tind].refcnt;
 	ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = qp;
 
 out:
