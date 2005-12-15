@@ -246,8 +246,12 @@ void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
 struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
 			       struct ibv_srq_init_attr *srq_init_attr)
 {
-	struct ibv_srq *srq = pd->context->ops.create_srq(pd, srq_init_attr);
+	struct ibv_srq *srq;
 
+	if (!pd->context->ops.create_srq)
+		return NULL;
+
+	srq = pd->context->ops.create_srq(pd, srq_init_attr);
 	if (srq) {
 		srq->context          = pd->context;
 		srq->srq_context      = srq_init_attr->srq_context;

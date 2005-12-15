@@ -1,3 +1,9 @@
+2005-12-15  Roland Dreier  <rdreier@cisco.com>
+
+	* src/verbs.c (ibv_create_srq): Not all provider libraries will
+	support SRQs, so check if the create_srq method is defined before
+	calling it.  (Based on a patch from Shirley Ma <xma@us.ibm.com>)
+
 2005-11-11  Roland Dreier  <roland@cisco.com>
 
 	* examples/asyncwatch.c, examples/rc_pingpong.c,
