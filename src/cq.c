@@ -121,6 +121,15 @@ struct mthca_err_cqe {
 	uint8_t		owner;
 };
 
+static inline int is_recv_cqe(struct mthca_cqe * cqe)
+{
+	if ((cqe->opcode & MTHCA_ERROR_CQE_OPCODE_MASK) ==
+	    MTHCA_ERROR_CQE_OPCODE_MASK)
+		return !(cqe->opcode & 0x01);
+	else
+		return !(cqe->is_send & 0x80);
+}
+
 static inline struct mthca_cqe *get_cqe(struct mthca_cq *cq, int entry)
 {
 	return cq->buf + entry * MTHCA_CQ_ENTRY_SIZE;
@@ -549,7 +558,7 @@ void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
 		if (cqe->my_qpn == htonl(qpn)) {
-			if (srq)
+			if (srq && is_recv_cqe(cqe))
 				mthca_free_srq_wqe(srq,
 						   ntohl(cqe->wqe) >> srq->wqe_shift);
 			++nfreed;
