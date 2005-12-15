@@ -597,7 +597,10 @@ extern struct ibv_device **ibv_get_device_list(int *num_devices);
 /**
  * ibv_free_device_list - Free list from ibv_get_device_list()
  *
- * Free an array of devices returned from ibv_get_device_list()
+ * Free an array of devices returned from ibv_get_device_list().  Once
+ * the array is freed, pointers to devices that were not opened with
+ * ibv_open_device() are no longer valid.  Client code must open all
+ * devices it intends to use before calling ibv_free_device_list().
  */
 extern void ibv_free_device_list(struct ibv_device **list);
 

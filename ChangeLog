@@ -1,5 +1,8 @@
 2005-12-15  Roland Dreier  <rdreier@cisco.com>
 
+	* include/infiniband/verbs.h: Document that devices must be opened
+	before calling ibv_free_device_list().
+	
 	* src/verbs.c (ibv_create_srq): Not all provider libraries will
 	support SRQs, so check if the create_srq method is defined before
 	calling it.  (Based on a patch from Shirley Ma <xma@us.ibm.com>)
