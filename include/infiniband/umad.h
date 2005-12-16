@@ -121,13 +121,13 @@ typedef struct ib_user_mad {
 typedef struct umad_port {
 	char ca_name[UMAD_CA_NAME_LEN];
 	int portnum;
-	int base_lid;
-	int lmc;
-	int sm_lid;
-	int sm_sl;
-	int state;
-	int phys_state;
-	int rate;
+	uint base_lid;
+	uint lmc;
+	uint sm_lid;
+	uint sm_sl;
+	uint state;
+	uint phys_state;
+	uint rate;
 	uint64_t capmask;
 	uint64_t gid_prefix;
 	uint64_t port_guid;
@@ -135,7 +135,7 @@ typedef struct umad_port {
 
 typedef struct umad_ca {
 	char ca_name[UMAD_CA_NAME_LEN];
-	int node_type;
+	uint node_type;
 	int numports;
 	char fw_ver[20];
 	char ca_type[40];

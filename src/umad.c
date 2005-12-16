@@ -409,7 +409,7 @@ error:
 }
 
 static int
-umad_id_to_dev(int umad_id, char *dev, int *port)
+umad_id_to_dev(int umad_id, char *dev, uint *port)
 {
 	char path[256];
 	int r;
@@ -426,7 +426,7 @@ umad_id_to_dev(int umad_id, char *dev, int *port)
 }
 
 static int
-dev_to_umad_id(char *dev, int port)
+dev_to_umad_id(char *dev, uint port)
 {
 	char umad_dev[UMAD_CA_NAME_LEN];
 	uint umad_port;
@@ -454,7 +454,7 @@ dev_to_umad_id(char *dev, int port)
 int
 umad_init(void)
 {
-	int abi_version;
+	uint abi_version;
 
 	TRACE("");
 	if (sys_read_uint(IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, &abi_version) < 0) {
