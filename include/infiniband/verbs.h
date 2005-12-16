@@ -441,7 +441,7 @@ struct ibv_send_wr {
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
 	enum ibv_send_flags	send_flags;
-	uint32_t		imm_data;
+	uint32_t		imm_data;	/* in network byte order */
 	union {
 		struct {
 			uint64_t	remote_addr;
