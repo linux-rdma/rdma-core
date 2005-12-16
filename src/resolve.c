@@ -55,7 +55,7 @@ int
 ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
 {
 	ib_portid_t self = {0};
-	char portinfo[64];
+	uint8_t portinfo[64];
 	int lid;
 
 	if (!smp_query(portinfo, &self, IB_ATTR_PORT_INFO, 0, 0))
@@ -124,8 +124,8 @@ int
 ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid)
 {
 	ib_portid_t self = {0};
-	char portinfo[64];
-	char nodeinfo[64];
+	uint8_t portinfo[64];
+	uint8_t nodeinfo[64];
 	uint64_t guid, prefix;
 	
 	if (!smp_query(nodeinfo, &self, IB_ATTR_NODE_INFO, 0, 0))
