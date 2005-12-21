@@ -51,7 +51,7 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
-port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+pma_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout, uint id)
 {
 	ib_rpc_t rpc = {0};
 	int lid = dest->lid;
@@ -65,7 +65,7 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 
 	rpc.mgtclass = IB_PERFORMANCE_CLASS;
 	rpc.method = IB_MAD_METHOD_GET;
-	rpc.attr.id = IB_GSI_PORT_COUNTERS;
+	rpc.attr.id = id;
 
 	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
 	rpc.attr.mod = 0;
@@ -78,6 +78,12 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
 	return madrpc(&rpc, dest, rcvbuf, rcvbuf); 
+}
+
+uint8_t *
+port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+{
+	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS);
 }
 
 uint8_t *
@@ -120,30 +126,6 @@ port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
 uint8_t *
 port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 {
-	ib_rpc_t rpc = {0};
-	int lid = dest->lid;
-
-	DEBUG("lid %d port %d", lid, port);
-
-	if (lid == -1) {
-		IBWARN("only lid routed is supported");
-		return 0;
-	}
-
-	rpc.mgtclass = IB_PERFORMANCE_CLASS;
-	rpc.method = IB_MAD_METHOD_GET;
-	rpc.attr.id = IB_GSI_PORT_SAMPLES_CONTROL;
-
-	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
-	rpc.attr.mod = 0;
-	rpc.timeout = timeout;
-	rpc.datasz = IB_PC_DATA_SZ;
-	rpc.dataoffs = IB_PC_DATA_OFFS;
-
-	dest->qp = 1;
-	if (!dest->qkey)
-		dest->qkey = IB_DEFAULT_QP1_QKEY;
-
-	return madrpc(&rpc, dest, rcvbuf, rcvbuf);
+	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_SAMPLES_CONTROL);
 }
 
