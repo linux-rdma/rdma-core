@@ -138,6 +138,8 @@ enum SA_ATTR_ID {
 };
 
 enum GSI_ATTR_ID {
+	IB_GSI_PORT_SAMPLES_CONTROL = 0x10,
+	IB_GSI_PORT_SAMPLES_RESULT = 0x11,
 	IB_GSI_PORT_COUNTERS = 0x12,
 	IB_GSI_PORT_COUNTERS_EXT = 0x1D,
 
@@ -740,6 +742,8 @@ uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
 				uint timeout);
 uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
 				uint mask, uint timeout);
+uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
+				    uint timeout);
 
 /* dump.c */
 ib_mad_dump_fn
