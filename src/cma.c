@@ -915,7 +915,7 @@ err:
 	return ret;
 }
 
-int rdma_get_fd()
+int rdma_get_fd(void)
 {
 	int ret;
 
