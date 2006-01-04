@@ -251,7 +251,7 @@ HIDDEN int ibverbs_init(struct ibv_device ***list)
 					goto out;
 				*list = new_list;
 			}
-			*list[num_devices++] = device;
+			(*list)[num_devices++] = device;
 		}
 	}
 

@@ -1,3 +1,8 @@
+2006-01-04  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/init.c (ibverbs_init): Fix ibverbs_init for multiple adapters.
+	Noted by Christoph Raisch.
+
 2005-12-15  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/verbs.h: Document that devices must be opened
