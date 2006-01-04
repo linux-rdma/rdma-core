@@ -796,8 +796,8 @@ struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
  * @srq_attr_mask: A bit-mask used to specify which attributes of the SRQ
  *   are being modified.
  *
- * The mask may contain IB_SRQ_MAX_WR to resize the SRQ and/or
- * IB_SRQ_LIMIT to set the SRQ's limit and request notification when
+ * The mask may contain IBV_SRQ_MAX_WR to resize the SRQ and/or
+ * IBV_SRQ_LIMIT to set the SRQ's limit and request notification when
  * the number of receives queued drops below the limit.
  */
 int ibv_modify_srq(struct ibv_srq *srq,
