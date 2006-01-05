@@ -390,6 +390,7 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 
 	free(to_msrq(srq)->buf);
 	free(to_msrq(srq)->wrid);
+	free(to_msrq(srq));
 
 	return 0;
 }
@@ -557,6 +558,7 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 
 	free(to_mqp(qp)->buf);
 	free(to_mqp(qp)->wrid);
+	free(to_mqp(qp));
 
 	return 0;
 }

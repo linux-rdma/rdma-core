@@ -1,3 +1,8 @@
+2006-01-05  Jack Morgenstein  <jackm@mellanox.co.il>
+
+	* src/verbs.c (mthca_destroy_qp, mthca_destroy_srq): Free QP/SRQ
+	object to avoid memory leak.
+
 2005-12-15  Jack Morgenstein  <jackm@mellanox.co.il>
 
 	* src/cq.c (mthca_cq_clean): When cleaning up a CQ, we should free
