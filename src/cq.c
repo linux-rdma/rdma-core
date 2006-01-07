@@ -112,23 +112,14 @@ struct mthca_err_cqe {
 	uint32_t	my_qpn;
 	uint32_t	reserved1[3];
 	uint8_t		syndrome;
-	uint8_t		reserved2;
+	uint8_t		vendor_err;
 	uint16_t	db_cnt;
-	uint32_t	reserved3;
+	uint32_t	reserved2;
 	uint32_t	wqe;
 	uint8_t		opcode;
-	uint8_t		reserved4[2];
+	uint8_t		reserved3[2];
 	uint8_t		owner;
 };
-
-static inline int is_recv_cqe(struct mthca_cqe * cqe)
-{
-	if ((cqe->opcode & MTHCA_ERROR_CQE_OPCODE_MASK) ==
-	    MTHCA_ERROR_CQE_OPCODE_MASK)
-		return !(cqe->opcode & 0x01);
-	else
-		return !(cqe->is_send & 0x80);
-}
 
 static inline struct mthca_cqe *get_cqe(struct mthca_cq *cq, int entry)
 {
@@ -197,8 +188,8 @@ static int handle_error_cqe(struct mthca_cq *cq,
 	}
 
 	/*
-	 * For completions in error, only work request ID, status (and
-	 * freed resource count for RD) have to be set.
+	 * For completions in error, only work request ID, status, vendor error
+	 * (and freed resource count for RD) have to be set.
 	 */
 	switch (cqe->syndrome) {
 	case SYNDROME_LOCAL_LENGTH_ERR:
@@ -259,6 +250,8 @@ static int handle_error_cqe(struct mthca_cq *cq,
 		wc->status = IBV_WC_GENERAL_ERR;
 		break;
 	}
+
+	wc->vendor_err = cqe->vendor_err;
 
 	/*
 	 * Mem-free HCAs always generate one CQE per WQE, even in the
@@ -528,6 +521,15 @@ int mthca_arbel_arm_cq(struct ibv_cq *ibvcq, int solicited)
 void mthca_arbel_cq_event(struct ibv_cq *cq)
 {
 	to_mcq(cq)->arm_sn++;
+}
+
+static inline int is_recv_cqe(struct mthca_cqe *cqe)
+{
+	if ((cqe->opcode & MTHCA_ERROR_CQE_OPCODE_MASK) ==
+	    MTHCA_ERROR_CQE_OPCODE_MASK)
+		return !(cqe->opcode & 0x01);
+	else
+		return !(cqe->is_send & 0x80);
 }
 
 void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
