@@ -511,6 +511,7 @@ int main(int argc, char *argv[])
 {
 	struct ibv_device      **dev_list;
 	struct ibv_device 	*ib_dev;
+	struct ibv_wc		*wc;
 	struct pingpong_context *ctx;
 	struct pingpong_dest     my_dest[MAX_QP];
 	struct pingpong_dest    *rem_dest;
@@ -526,6 +527,7 @@ int main(int argc, char *argv[])
 	int                      use_event = 0;
 	int                      routs;
 	int                      rcnt, scnt;
+	int			 num_wc;
 	int                      i;
 
 	srand48(getpid() * time(NULL));
@@ -602,6 +604,16 @@ int main(int argc, char *argv[])
 		usage(argv[0]);
 		return 1;
 	}
+
+	if (num_qp > rx_depth) {
+		fprintf(stderr, "rx_depth %d is too small for %d QPs -- "
+			"must have at least one receive per QP.\n",
+			rx_depth, num_qp);
+		return 1;
+	}
+
+	num_wc = num_qp + rx_depth;
+	wc     = alloca(num_wc * sizeof *wc);
 
 	page_size = sysconf(_SC_PAGESIZE);
 
@@ -714,11 +726,10 @@ int main(int argc, char *argv[])
 		}
 
 		{
-			struct ibv_wc wc[2];
 			int ne, qp_ind;
 
 			do {
-				ne = ibv_poll_cq(ctx->cq, 2, wc);
+				ne = ibv_poll_cq(ctx->cq, num_wc, wc);
 				if (ne < 0) {
 					fprintf(stderr, "poll CQ failed %d\n", ne);
 					return 1;
@@ -745,7 +756,7 @@ int main(int argc, char *argv[])
 					break;
 
 				case PINGPONG_RECV_WRID:
-					if (--routs <= 1) {
+					if (--routs <= num_qp) {
 						routs += pp_post_recv(ctx, ctx->rx_depth - routs);
 						if (routs < ctx->rx_depth) {
 							fprintf(stderr,
