@@ -719,12 +719,11 @@ int main(int argc, char *argv[])
 
 			do {
 				ne = ibv_poll_cq(ctx->cq, 2, wc);
+				if (ne < 0) {
+					fprintf(stderr, "poll CQ failed %d\n", ne);
+					return 1;
+				}
 			} while (!use_event && ne < 1);
-
-			if (ne < 0) {
-				fprintf(stderr, "poll CQ failed %d\n", ne);
-				return 1;
-			}
 
 			for (i = 0; i < ne; ++i) {
 				if (wc[i].status != IBV_WC_SUCCESS) {
