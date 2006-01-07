@@ -1,3 +1,26 @@
+2006-01-06  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/verbs.c (mthca_destroy_qp): Jack Morgenstein has discovered
+	the following race condition in libmthca:
+
+	Thread A destroys QP A at the kernel side by calling
+	ibv_cmd_destroy_qp, but its time-slice is over before removing it
+	from the user-space qp_table removal.
+
+	Thread B allocates QP B, receiving a QP number that matches the
+	just-destroyed QP A in the low 16 bits.  Thread B will now
+	over-write the slot in qp_table which was used for QP A.
+
+	Thread A wakes up and clears qp_table slot, in effect removing QP
+	B from qp_table.
+
+	As a solution, remove the QP from qp_table before calling
+	ibv_cmd_destroy_qp.  This also makes sense since operations are
+	performed in the reverse order in create_qp.
+
+	* src/cq.c (handle_error_cqe): Fill in vendor_err field for
+	completions with error.
+
 2006-01-05  Jack Morgenstein  <jackm@mellanox.co.il>
 
 	* src/verbs.c (mthca_destroy_qp, mthca_destroy_srq): Free QP/SRQ

@@ -530,10 +530,6 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 {
 	int ret;
 
-	ret = ibv_cmd_destroy_qp(qp);
-	if (ret)
-		return ret;
-
 	mthca_cq_clean(to_mcq(qp->recv_cq), qp->qp_num,
 		       qp->srq ? to_msrq(qp->srq) : NULL);
 	if (qp->send_cq != qp->recv_cq)
@@ -546,6 +542,18 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 	if (qp->send_cq != qp->recv_cq)
 		pthread_spin_unlock(&to_mcq(qp->recv_cq)->lock);
 	pthread_spin_unlock(&to_mcq(qp->send_cq)->lock);
+
+	ret = ibv_cmd_destroy_qp(qp);
+	if (ret) {
+		pthread_spin_lock(&to_mcq(qp->send_cq)->lock);
+		if (qp->send_cq != qp->recv_cq)
+			pthread_spin_lock(&to_mcq(qp->recv_cq)->lock);
+		mthca_store_qp(to_mctx(qp->context), qp->qp_num, to_mqp(qp));
+		if (qp->send_cq != qp->recv_cq)
+			pthread_spin_unlock(&to_mcq(qp->recv_cq)->lock);
+		pthread_spin_unlock(&to_mcq(qp->send_cq)->lock);
+		return ret;
+	}
 
 	if (mthca_is_memfree(qp->context)) {
 		mthca_free_db(to_mctx(qp->context)->db_tab, MTHCA_DB_TYPE_RQ,
