@@ -188,7 +188,6 @@ get_port(char *ca_name, char *dir_name, int portnum, umad_port_t *port)
 	return 0;
 
 clean:
-	free(port);
 	return -EIO;
 }
 
@@ -382,6 +381,8 @@ get_ca(char *ca_name, umad_ca_t *ca)
 			goto clean;
 		}
 		if (get_port(ca_name, dir_name, portnum, ca->ports[portnum]) < 0) {
+			free(ca->ports[portnum]);
+			ca->ports[portnum] = NULL;
 			ret = -EIO;
 			goto clean;
 		}
