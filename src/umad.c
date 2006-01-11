@@ -207,9 +207,9 @@ release_ca(umad_ca_t *ca)
 }
 
 /*
- * if *port > 0 checks ca[port] state. Otherwise set *port to
+ * if *port > 0, check ca[port] state. Otherwise set *port to
  * the first port that is active, and if such is not found, to
- * the first port that is (physically) up. Otherwise return -1;
+ * the first port that is not disabled.  Otherwise return -1;
  */
 static int
 resolve_ca_port(char *ca_name, int *port)
@@ -228,14 +228,14 @@ resolve_ca_port(char *ca_name, int *port)
 		return 1;
 	}
 
-	if (*port > 0) {	/* user wants user gets */
+	if (*port > 0) {	/* check only the port the user wants */
 		if (*port > ca.numports)
 			return -1;
 		if (!ca.ports[*port])
 			return -1;
 		if (ca.ports[*port]->state == 4)
 			return 1;
-		if (ca.ports[*port]->phys_state == 5)
+		if (ca.ports[*port]->phys_state != 3)
 			return 0;
 		return -1;
 	}
@@ -244,7 +244,7 @@ resolve_ca_port(char *ca_name, int *port)
 		DEBUG("checking port %d", i);
 		if (!ca.ports[i])
 			continue;
-		if (up < 0 && ca.ports[i]->phys_state == 5)
+		if (up < 0 && ca.ports[i]->phys_state != 3)
 			up = *port = i;
 		if (ca.ports[i]->state == 4) {
 			active = *port = i;
@@ -278,10 +278,11 @@ resolve_ca_name(char *ca_name, int *best_port)
 		return ca_name;
 	}
 		
-	/* find first existing HCA with Active port */
+	/* Get the list of CA names */
 	if ((n = umad_get_cas_names((void *)names, UMAD_CA_NAME_LEN)) < 0)
 		return 0;
 
+	/* Find the first existing CA with an active port */
 	for (caidx = 0; caidx < n; caidx++) {
 		TRACE("checking ca '%s'", names[caidx]);
 	
