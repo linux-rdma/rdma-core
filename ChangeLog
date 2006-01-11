@@ -1,5 +1,7 @@
 2006-01-11  Jack Morgenstein  <jackm@mellanox.co.il>
 
+	* src/verbs.c (mthca_free_pd): Free pointer to correct structure
+	(we get lucky now, but don't rely on this).
 	* src/mthca.c (mthca_free_context): Free context's PD so we don't
 	leak it.
 

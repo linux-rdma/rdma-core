@@ -112,7 +112,7 @@ int mthca_free_pd(struct ibv_pd *pd)
 	if (ret)
 		return ret;
 
-	free(pd);
+	free(to_mpd(pd));
 	return 0;
 }
 
