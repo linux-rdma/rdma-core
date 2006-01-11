@@ -209,6 +209,7 @@ release_ca(umad_ca_t *ca)
 /*
  * if *port > 0, check ca[port] state. Otherwise set *port to
  * the first port that is active, and if such is not found, to
+ * the first port that is link up and if none are linkup, then
  * the first port that is not disabled.  Otherwise return -1;
  */
 static int
@@ -244,12 +245,24 @@ resolve_ca_port(char *ca_name, int *port)
 		DEBUG("checking port %d", i);
 		if (!ca.ports[i])
 			continue;
-		if (up < 0 && ca.ports[i]->phys_state != 3)
+		if (up < 0 && ca.ports[i]->phys_state == 5)
 			up = *port = i;
 		if (ca.ports[i]->state == 4) {
 			active = *port = i;
 			DEBUG("found active port %d", i);
 			break;
+		}
+	}
+
+	if (active == -1 && up == -1) { /* no active or linkup port found */
+		for (i = 0; i <= ca.numports; i++) {
+			DEBUG("checking port %d", i);
+			if (!ca.ports[i])
+				continue;
+			if (ca.ports[i]->phys_state != 3) {
+				up = *port = i;
+				break;
+			}
 		}
 	}
 
