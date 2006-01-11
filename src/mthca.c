@@ -202,6 +202,7 @@ static void mthca_free_context(struct ibv_context *ibctx)
 {
 	struct mthca_context *context = to_mctx(ibctx);
 
+	mthca_free_pd(context->pd);
 	munmap(context->uar, to_mdev(ibctx->device)->page_size);
 	mthca_free_db_tab(context->db_tab);
 	free(context);

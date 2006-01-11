@@ -1,3 +1,8 @@
+2006-01-11  Jack Morgenstein  <jackm@mellanox.co.il>
+
+	* src/mthca.c (mthca_free_context): Free context's PD so we don't
+	leak it.
+
 2006-01-06  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* src/verbs.c (mthca_destroy_qp): Jack Morgenstein has discovered
