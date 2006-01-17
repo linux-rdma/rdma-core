@@ -556,6 +556,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	if (use_event)
+		if (ibv_req_notify_cq(ctx->cq, 0)) {
+			fprintf(stderr, "Couldn't request CQ notification\n");
+			return 1;
+		}
+
 	my_dest.lid = pp_get_local_lid(ctx, ib_port);
 	my_dest.qpn = ctx->qp->qp_num;
 	my_dest.psn = lrand48() & 0xffffff;
@@ -581,12 +587,6 @@ int main(int argc, char *argv[])
 	if (servername)
 		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, rem_dest))
 			return 1;
-
-	if (use_event)
-		if (ibv_req_notify_cq(ctx->cq, 0)) {
-			fprintf(stderr, "Couldn't request CQ notification\n");
-			return 1;
-		}
 
 	ctx->pending = PINGPONG_RECV_WRID;
 

@@ -1,3 +1,10 @@
+2006-01-17  Ralph Campbell  <ralphc@pathscale.com>
+
+	* examples/rc_pingpong.c (main), examples/srq_pingpong.c (main),
+	examples/uc_pingpong.c (main), examples/ud_pingpong.c (main): Fix
+	race when using CQ events by arming CQ before allowing remote side
+	to start sending.
+
 2006-01-06  Roland Dreier  <rdreier@cisco.com>
 
 	* examples/srq_pingpong.c (main): Fix SRQ example to avoid

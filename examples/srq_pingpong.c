@@ -649,6 +649,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	if (use_event)
+		if (ibv_req_notify_cq(ctx->cq, 0)) {
+			fprintf(stderr, "Couldn't request CQ notification\n");
+			return 1;
+		}
+
 	memset(my_dest, 0, sizeof my_dest);
 
 	for (i = 0; i < num_qp; ++i) {
@@ -679,12 +685,6 @@ int main(int argc, char *argv[])
 	if (servername)
 		if (pp_connect_ctx(ctx, ib_port, my_dest, rem_dest))
 			return 1;
-
-	if (use_event)
-		if (ibv_req_notify_cq(ctx->cq, 0)) {
-			fprintf(stderr, "Couldn't request CQ notification\n");
-			return 1;
-		}
 
 	if (servername)
 		for (i = 0; i < num_qp; ++i) {
