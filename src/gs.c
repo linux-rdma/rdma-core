@@ -81,6 +81,12 @@ pma_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout, uint id)
 }
 
 uint8_t *
+perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+{
+	return pma_query(rcvbuf, dest, port, timeout, CLASS_PORT_INFO);
+}
+
+uint8_t *
 port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 {
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS);
@@ -127,5 +133,11 @@ uint8_t *
 port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 {
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_SAMPLES_CONTROL);
+}
+
+uint8_t *
+port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,  uint timeout)
+{
+	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_SAMPLES_RESULT);
 }
 

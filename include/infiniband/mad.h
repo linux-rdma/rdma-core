@@ -109,6 +109,12 @@ enum MAD_METHODS {
 	IB_MAD_RESPONSE = 		0x80,
 };
 
+enum MAD_ATTR_ID {
+	CLASS_PORT_INFO = 0x1,
+	NOTICE = 0x2,
+	INFORM_INFO = 0x3,
+};
+
 enum SMI_ATTR_ID {
 	IB_ATTR_NODE_DESC = 0x10,
 	IB_ATTR_NODE_INFO = 0x11,
@@ -738,12 +744,16 @@ int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str,
 int	ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid);
 
 /* gs.c */
+uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port,
+				  uint timeout);
 uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
 				uint timeout);
 uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
 				uint mask, uint timeout);
 uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
 				    uint timeout);
+uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,
+				   uint timeout);
 
 /* dump.c */
 ib_mad_dump_fn

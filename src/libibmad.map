@@ -39,9 +39,11 @@ IBMAD_1.0 {
 		_set_field;
 		_set_field64;
 		ib_mad_f;
+		perf_classportinfo_query;
 		port_performance_query;
 		port_performance_reset;
 		port_samples_control_query;
+		port_samples_result_query;
 		mad_build_pkt;
 		mad_decode_field;
 		mad_encode;
