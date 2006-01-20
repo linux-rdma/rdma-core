@@ -1,3 +1,8 @@
+2006-01-18  Yael Shenhav  <yaeli@mellanox.co.il>
+
+	* src/ib_user_mad.h: Use __u16/__u32 instead of __be16/__be32,
+	since not all toolchains export __beXX types to userspace.
+
 2006-01-17  Roland Dreier  <rdreier@cisco.com>
 
 	* Release as version 0.03

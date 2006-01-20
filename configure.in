@@ -6,7 +6,7 @@ AC_INIT(FULL-PACKAGE-NAME, VERSION, BUG-REPORT-ADDRESS)
 AC_CONFIG_SRCDIR(src/srp-dm.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(srptools, 0.0.3)
+AM_INIT_AUTOMAKE(srptools, 0.0.4)
 
 # Checks for programs.
 AC_PROG_CC
