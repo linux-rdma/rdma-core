@@ -49,9 +49,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 
-#include <sysfs/libsysfs.h>
-
-#include <infiniband/verbs.h>
+#include "pingpong.h"
 
 enum {
 	PINGPONG_RECV_WRID = 1,
@@ -90,11 +88,11 @@ static uint16_t pp_get_local_lid(struct pingpong_context *ctx, int port)
 }
 
 static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
-			  struct pingpong_dest *dest)
+			  enum ibv_mtu mtu, struct pingpong_dest *dest)
 {
 	struct ibv_qp_attr attr = {
 		.qp_state		= IBV_QPS_RTR,
-		.path_mtu		= IBV_MTU_1024,
+		.path_mtu		= mtu,
 		.dest_qp_num		= dest->qpn,
 		.rq_psn 		= dest->psn,
 		.max_dest_rd_atomic	= 1,
@@ -204,7 +202,7 @@ out:
 }
 
 static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
-						 int ib_port, int port,
+						 int ib_port, enum ibv_mtu mtu, int port,
 						 const struct pingpong_dest *my_dest)
 {
 	struct addrinfo *res, *t;
@@ -269,7 +267,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 
 	sscanf(msg, "%x:%x:%x", &rem_dest->lid, &rem_dest->qpn, &rem_dest->psn);
 
-	if (pp_connect_ctx(ctx, ib_port, my_dest->psn, rem_dest)) {
+	if (pp_connect_ctx(ctx, ib_port, my_dest->psn, mtu, rem_dest)) {
 		fprintf(stderr, "Couldn't connect to remote QP\n");
 		free(rem_dest);
 		rem_dest = NULL;
@@ -440,6 +438,7 @@ static void usage(const char *argv0)
 	printf("  -d, --ib-dev=<dev>     use IB device <dev> (default first device found)\n");
 	printf("  -i, --ib-port=<port>   use port <port> of IB device (default 1)\n");
 	printf("  -s, --size=<size>      size of message to exchange (default 4096)\n");
+	printf("  -m, --mtu=<size>       path MTU (default 1024)\n");
 	printf("  -r, --rx-depth=<dep>   number of receives to post at a time (default 500)\n");
 	printf("  -n, --iters=<iters>    number of exchanges (default 1000)\n");
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
@@ -458,6 +457,7 @@ int main(int argc, char *argv[])
 	int                      port = 18515;
 	int                      ib_port = 1;
 	int                      size = 4096;
+	enum ibv_mtu		 mtu = IBV_MTU_1024;
 	int                      rx_depth = 500;
 	int                      iters = 1000;
 	int                      use_event = 0;
@@ -474,13 +474,14 @@ int main(int argc, char *argv[])
 			{ .name = "ib-dev",   .has_arg = 1, .val = 'd' },
 			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },
 			{ .name = "size",     .has_arg = 1, .val = 's' },
+			{ .name = "mtu",      .has_arg = 1, .val = 'm' },
 			{ .name = "rx-depth", .has_arg = 1, .val = 'r' },
 			{ .name = "iters",    .has_arg = 1, .val = 'n' },
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ 0 }
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:r:n:e", long_options, NULL);
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:e", long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -508,6 +509,13 @@ int main(int argc, char *argv[])
 		case 's':
 			size = strtol(optarg, NULL, 0);
 			break;
+
+		case 'm':
+			mtu = pp_mtu_to_enum(strtol(optarg, NULL, 0));
+			if (mtu < 0) {
+				usage(argv[0]);
+				return 1;
+			}
 
 		case 'r':
 			rx_depth = strtol(optarg, NULL, 0);
@@ -588,7 +596,7 @@ int main(int argc, char *argv[])
 	if (servername)
 		rem_dest = pp_client_exch_dest(servername, port, &my_dest);
 	else
-		rem_dest = pp_server_exch_dest(ctx, ib_port, port, &my_dest);
+		rem_dest = pp_server_exch_dest(ctx, ib_port, mtu, port, &my_dest);
 
 	if (!rem_dest)
 		return 1;
@@ -597,7 +605,7 @@ int main(int argc, char *argv[])
 	       rem_dest->lid, rem_dest->qpn, rem_dest->psn);
 
 	if (servername)
-		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, rem_dest))
+		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, mtu, rem_dest))
 			return 1;
 
 	ctx->pending = PINGPONG_RECV_WRID;

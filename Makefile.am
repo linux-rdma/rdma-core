@@ -27,13 +27,13 @@ examples_ibv_devices_SOURCES = examples/device_list.c
 examples_ibv_devices_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_devinfo_SOURCES = examples/devinfo.c
 examples_ibv_devinfo_LDADD = $(top_builddir)/src/libibverbs.la
-examples_ibv_rc_pingpong_SOURCES = examples/rc_pingpong.c
+examples_ibv_rc_pingpong_SOURCES = examples/rc_pingpong.c examples/pingpong.c
 examples_ibv_rc_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
-examples_ibv_uc_pingpong_SOURCES = examples/uc_pingpong.c
+examples_ibv_uc_pingpong_SOURCES = examples/uc_pingpong.c examples/pingpong.c
 examples_ibv_uc_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
-examples_ibv_ud_pingpong_SOURCES = examples/ud_pingpong.c
+examples_ibv_ud_pingpong_SOURCES = examples/ud_pingpong.c examples/pingpong.c
 examples_ibv_ud_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
-examples_ibv_srq_pingpong_SOURCES = examples/srq_pingpong.c
+examples_ibv_srq_pingpong_SOURCES = examples/srq_pingpong.c examples/pingpong.c
 examples_ibv_srq_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_asyncwatch_SOURCES = examples/asyncwatch.c
 examples_ibv_asyncwatch_LDADD = $(top_builddir)/src/libibverbs.la
@@ -54,8 +54,9 @@ DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
     debian/rules
 
 EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
-    include/infiniband/opcode.h include/infiniband/verbs.h src/ibverbs.h \
-    include/infiniband/marshall.h include/infiniband/sa-kern-abi.h include/infiniband/sa.h \
+    include/infiniband/opcode.h include/infiniband/verbs.h include/infiniband/marshall.h \
+    include/infiniband/sa-kern-abi.h include/infiniband/sa.h \
+    src/ibverbs.h examples/pingpong.h \
     src/libibverbs.map libibverbs.spec.in $(man_MANS) $(DEBIAN)
 
 dist-hook: libibverbs.spec

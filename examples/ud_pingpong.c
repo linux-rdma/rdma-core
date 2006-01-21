@@ -49,9 +49,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 
-#include <sysfs/libsysfs.h>
-
-#include <infiniband/verbs.h>
+#include "pingpong.h"
 
 enum {
 	PINGPONG_RECV_WRID = 1,

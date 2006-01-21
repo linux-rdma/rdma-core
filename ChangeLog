@@ -1,3 +1,14 @@
+2006-01-20  Roland Dreier  <rdreier@cisco.com>
+
+	* examples/rc_pingpong.c, examples/uc_pingpong.c,
+	examples/srq_pingpong.c: Add "-m/--mtu=" option to set path MTU.
+	(Based on a patch from Ralph Campbell <ralphc@pathscale.com>)
+
+	* examples/pingpong.c, examples/pingpong.h: Create generic
+	pingpong files so that we can start factoring out common code from
+	the pingpong examples.  Start with functions to convert MTU to an
+	IBV enum value.
+
 2006-01-17  Ralph Campbell  <ralphc@pathscale.com>
 
 	* examples/rc_pingpong.c (main), examples/srq_pingpong.c (main),
