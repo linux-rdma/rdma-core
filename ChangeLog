@@ -1,3 +1,7 @@
+2006-01-22  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0-rc5.
+
 2006-01-11  Jack Morgenstein  <jackm@mellanox.co.il>
 
 	* src/verbs.c (mthca_free_pd): Free pointer to correct structure
