@@ -1,3 +1,7 @@
+2006-01-22  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0-rc5.
+
 2006-01-22  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* examples/devinfo.c (main): Make ibv_devinfo list all IB devices
