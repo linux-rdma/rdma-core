@@ -396,7 +396,11 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "No IB devices found\n");
 			return -1;
 		}
-		ret |= print_hca_cap(*dev_list, ib_port);
+
+		while (*dev_list) {
+			ret |= print_hca_cap(*dev_list, ib_port);
+			++dev_list;
+		}
 	}
 
 	if (ib_devname)

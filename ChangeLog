@@ -1,3 +1,8 @@
+2006-01-22  Dotan Barak  <dotanb@mellanox.co.il>
+
+	* examples/devinfo.c (main): Make ibv_devinfo list all IB devices
+	by default, rather than the first device only.
+
 2006-01-20  Roland Dreier  <rdreier@cisco.com>
 
 	* examples/rc_pingpong.c, examples/uc_pingpong.c,
