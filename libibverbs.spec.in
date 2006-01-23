@@ -4,7 +4,7 @@
 
 Name: libibverbs
 Version: 1.0
-Release: 0.3.rc5%{?dist}
+Release: 0.4.rc6%{?dist}
 Summary: A library for direct userspace use of InfiniBand
 
 Group: System Environment/Libraries
@@ -77,11 +77,14 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
-* Tue Oct 25 2005 Roland Dreier <roland@cisco.com> - 1.0-0.3.rc5
+* Sun Jan 22 2006 Roland Dreier <rolandd@cisco.com> - 1.0-0.4.rc6
 - New upstream release
 
-* Wed Oct  5 2005 Roland Dreier <roland@cisco.com> - 1.0-0.2.rc4
+* Tue Oct 25 2005 Roland Dreier <rolandd@cisco.com> - 1.0-0.3.rc5
+- New upstream release
+
+* Wed Oct  5 2005 Roland Dreier <rolandd@cisco.com> - 1.0-0.2.rc4
 - Update to upstream 1.0-rc4 release
 
-* Mon Sep 26 2005 Roland Dreier <roland@cisco.com> - 1.0-0.1.rc3
+* Mon Sep 26 2005 Roland Dreier <rolandd@cisco.com> - 1.0-0.1.rc3
 - Initial attempt at Fedora Extras-compliant spec file
