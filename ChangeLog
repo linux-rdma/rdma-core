@@ -1,3 +1,10 @@
+2006-01-25  Roland Dreier  <rdreier@cisco.com>
+
+	* examples/pingpong.c, examples/pingpong.h,
+	examples/rc_pingpong.c, examples/uc_pingpong.c,
+	examples/srq_pingpong.c: Move pp_get_local_lid() to pingpong.c to
+	reduce code duplication.
+
 2006-01-22  Roland Dreier  <rdreier@cisco.com>
 
 	* Release version 1.0-rc5.

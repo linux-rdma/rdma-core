@@ -81,16 +81,6 @@ struct pingpong_dest {
 	int psn;
 };
 
-static uint16_t pp_get_local_lid(struct pingpong_context *ctx, int port)
-{
-	struct ibv_port_attr attr;
-
-	if (ibv_query_port(ctx->context, port, &attr))
-		return 0;
-
-	return attr.lid;
-}
-
 static int pp_connect_ctx(struct pingpong_context *ctx, int port, enum ibv_mtu mtu,
 			  const struct pingpong_dest *my_dest,
 			  const struct pingpong_dest *dest)
@@ -668,7 +658,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < num_qp; ++i) {
 		my_dest[i].qpn = ctx->qp[i]->qp_num;
 		my_dest[i].psn = lrand48() & 0xffffff;
-		my_dest[i].lid = pp_get_local_lid(ctx, ib_port);
+		my_dest[i].lid = pp_get_local_lid(ctx->context, ib_port);
 		if (!my_dest[i].lid) {
 			fprintf(stderr, "Couldn't get local LID\n");
 			return 1;

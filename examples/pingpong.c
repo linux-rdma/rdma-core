@@ -45,3 +45,13 @@ enum ibv_mtu pp_mtu_to_enum(int mtu)
 	default:   return -1;
 	}
 }
+
+uint16_t pp_get_local_lid(struct ibv_context *context, int port)
+{
+	struct ibv_port_attr attr;
+
+	if (ibv_query_port(context, port, &attr))
+		return 0;
+
+	return attr.lid;
+}
