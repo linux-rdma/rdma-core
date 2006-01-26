@@ -565,7 +565,9 @@ enum {
 enum {
 	IB_NODE_HCA = 1,
 	IB_NODE_SWITCH,
-	IB_NODE_ROUTER
+	IB_NODE_ROUTER,
+
+	IB_NODE_MAX = IB_NODE_ROUTER
 };
 
 /******************************************************************************/
