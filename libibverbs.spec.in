@@ -10,7 +10,7 @@ Summary: A library for direct userspace use of InfiniBand
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
-Source: http://openib.org/downloads/libibverbs-1.0-rc5.tar.gz
+Source: http://openib.org/downloads/libibverbs-1.0-rc6.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: sysfsutils-devel
