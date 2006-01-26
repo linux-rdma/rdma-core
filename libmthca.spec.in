@@ -10,10 +10,10 @@ Summary: Mellanox InfiniBand HCA Userspace Driver
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
-Source: http://openib.org/downloads/libmthca-1.0-rc5.tar.gz
+Source: http://openib.org/downloads/libmthca-1.0-rc6.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires: libibverbs-devel
+BuildRequires: libibverbs-devel >= 1.0-0.4.rc6
 
 %description
 libmthca provides a device-specific userspace driver for Mellanox HCAs
