@@ -785,8 +785,8 @@ static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
  * on return.  If ibv_create_srq() succeeds, then max_wr and max_sge
  * will always be at least as large as the requested values.
  */
-struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
-			       struct ibv_srq_init_attr *srq_init_attr);
+extern struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
+				      struct ibv_srq_init_attr *srq_init_attr);
 
 /**
  * ibv_modify_srq - Modifies the attributes for the specified SRQ.
@@ -800,15 +800,15 @@ struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
  * IBV_SRQ_LIMIT to set the SRQ's limit and request notification when
  * the number of receives queued drops below the limit.
  */
-int ibv_modify_srq(struct ibv_srq *srq,
-		   struct ibv_srq_attr *srq_attr,
-		   enum ibv_srq_attr_mask srq_attr_mask);
+extern int ibv_modify_srq(struct ibv_srq *srq,
+			  struct ibv_srq_attr *srq_attr,
+			  enum ibv_srq_attr_mask srq_attr_mask);
 
 /**
  * ibv_destroy_srq - Destroys the specified SRQ.
  * @srq: The SRQ to destroy.
  */
-int ibv_destroy_srq(struct ibv_srq *srq);
+extern int ibv_destroy_srq(struct ibv_srq *srq);
 
 /**
  * ibv_post_srq_recv - Posts a list of work requests to the specified SRQ.
