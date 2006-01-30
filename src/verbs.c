@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <strings.h>
 #include <pthread.h>
+#include <errno.h>
 #include <netinet/in.h>
 
 #include "mthca.h"
@@ -154,6 +155,16 @@ int mthca_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
+static int align_cq_size(int cqe)
+{
+	int nent;
+
+	for (nent = 1; nent <= cqe; nent <<= 1)
+		; /* nothing */
+
+	return nent;
+}
+
 struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector)
@@ -161,27 +172,24 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 	struct mthca_create_cq      cmd;
 	struct mthca_create_cq_resp resp;
 	struct mthca_cq      	   *cq;
-	int                  	    nent;
 	int                  	    ret;
 
 	cq = malloc(sizeof *cq);
 	if (!cq)
 		return NULL;
 
+	cq->cons_index = 0;
+
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	for (nent = 1; nent <= cqe; nent <<= 1)
-		; /* nothing */
-
-	if (posix_memalign(&cq->buf, to_mdev(context->device)->page_size,
-			   align(nent * MTHCA_CQ_ENTRY_SIZE, to_mdev(context->device)->page_size)))
+	cqe = align_cq_size(cqe);
+	cq->buf = mthca_alloc_cq_buf(to_mdev(context->device), cqe);
+	if (!cq->buf)
 		goto err;
 
-	mthca_init_cq_buf(cq, nent);
-
 	cq->mr = __mthca_reg_mr(to_mctx(context)->pd, cq->buf,
-				nent * MTHCA_CQ_ENTRY_SIZE,
+				cqe * MTHCA_CQ_ENTRY_SIZE,
 				0, IBV_ACCESS_LOCAL_WRITE);
 	if (!cq->mr)
 		goto err_buf;
@@ -210,7 +218,7 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 
 	cmd.lkey   = cq->mr->lkey;
 	cmd.pdn    = to_mpd(to_mctx(context)->pd)->pdn;
-	ret = ibv_cmd_create_cq(context, nent - 1, channel, comp_vector,
+	ret = ibv_cmd_create_cq(context, cqe - 1, channel, comp_vector,
 				&cq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);
 	if (ret)
@@ -245,6 +253,63 @@ err:
 	free(cq);
 
 	return NULL;
+}
+
+int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
+{
+	struct mthca_cq *cq = to_mcq(ibcq);
+	struct mthca_resize_cq cmd;
+	struct ibv_mr *mr;
+	void *buf;
+	int old_cqe;
+	int ret;
+
+	pthread_spin_lock(&cq->lock);
+
+	cqe = align_cq_size(cqe);
+	if (cqe == ibcq->cqe + 1) {
+		ret = 0;
+		goto out;
+	}
+
+	buf = mthca_alloc_cq_buf(to_mdev(ibcq->context->device), cqe);
+	if (!buf) {
+		ret = ENOMEM;
+		goto out;
+	}
+
+	mr = __mthca_reg_mr(to_mctx(ibcq->context)->pd, buf,
+			    cqe * MTHCA_CQ_ENTRY_SIZE,
+			    0, IBV_ACCESS_LOCAL_WRITE);
+	if (!mr) {
+		free(buf);
+		ret = ENOMEM;
+		goto out;
+	}
+
+	mr->context = ibcq->context;
+
+	old_cqe = ibcq->cqe;
+
+	cmd.lkey = mr->lkey;
+	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd);
+	if (ret) {
+		mthca_dereg_mr(mr);
+		free(buf);
+		goto out;
+	}
+
+	mthca_cq_resize_copy_cqes(cq, buf, old_cqe);
+
+	mthca_dereg_mr(cq->mr);
+	free(cq->buf);
+	
+	cq->buf = buf;
+	cq->mr  = mr;
+
+out:
+	pthread_spin_unlock(&cq->lock);
+	return ret;
 }
 
 int mthca_destroy_cq(struct ibv_cq *cq)

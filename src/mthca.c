@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -105,6 +106,7 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.dereg_mr      = mthca_dereg_mr,
 	.create_cq     = mthca_create_cq,
 	.poll_cq       = mthca_poll_cq,
+	.resize_cq     = mthca_resize_cq,
 	.destroy_cq    = mthca_destroy_cq,
 	.create_srq    = mthca_create_srq,
 	.modify_srq    = mthca_modify_srq,

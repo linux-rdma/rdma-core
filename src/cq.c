@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2005 Mellanox Technologies Ltd.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -38,8 +39,9 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
-#include <netinet/in.h>
+#include <stdlib.h>
 #include <pthread.h>
+#include <netinet/in.h>
 
 #include <infiniband/opcode.h>
 
@@ -578,12 +580,38 @@ void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 	pthread_spin_unlock(&cq->lock);
 }
 
-void mthca_init_cq_buf(struct mthca_cq *cq, int nent)
+void mthca_cq_resize_copy_cqes(struct mthca_cq *cq, void *buf, int old_cqe)
 {
 	int i;
 
-	for (i = 0; i < nent; ++i)
-		set_cqe_hw(get_cqe(cq, i));
+	/*
+	 * In Tavor mode, the hardware keeps the consumer and producer
+	 * indices mod the CQ size.  Since we might be making the CQ
+	 * bigger, we need to deal with the case where the producer
+	 * index wrapped around before the CQ was resized.
+	 */
+	if (!mthca_is_memfree(cq->ibv_cq.context) && old_cqe < cq->ibv_cq.cqe) {
+		cq->cons_index &= old_cqe;
+		if (cqe_sw(cq, old_cqe))
+			cq->cons_index -= old_cqe + 1;
+	}
 
-	cq->cons_index = 0;
+	for (i = cq->cons_index; cqe_sw(cq, i & old_cqe); ++i)
+		memcpy(buf + (i & cq->ibv_cq.cqe) * MTHCA_CQ_ENTRY_SIZE,
+		       get_cqe(cq, i & old_cqe), MTHCA_CQ_ENTRY_SIZE);
+}
+
+void *mthca_alloc_cq_buf(struct mthca_device *dev, int nent)
+{
+	void *buf;
+	int i;
+
+	if (posix_memalign(&buf, dev->page_size,
+			   align(nent * MTHCA_CQ_ENTRY_SIZE, dev->page_size)))
+		return NULL;
+
+	for (i = 0; i < nent; ++i)
+		((struct mthca_cqe *) buf)[i].owner = MTHCA_CQ_ENTRY_OWNER_HW;
+
+	return buf;
 }

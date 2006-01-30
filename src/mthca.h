@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -281,6 +281,7 @@ extern int mthca_dereg_mr(struct ibv_mr *mr);
 struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
+extern int mthca_resize_cq(struct ibv_cq *cq, int cqe);
 extern int mthca_destroy_cq(struct ibv_cq *cq);
 extern int mthca_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 extern int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);
@@ -288,7 +289,8 @@ extern int mthca_arbel_arm_cq(struct ibv_cq *cq, int solicited);
 extern void mthca_arbel_cq_event(struct ibv_cq *cq);
 extern void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn,
 			   struct mthca_srq *srq);
-extern void mthca_init_cq_buf(struct mthca_cq *cq, int nent);
+extern void mthca_cq_resize_copy_cqes(struct mthca_cq *cq, void *buf, int new_cqe);
+extern void *mthca_alloc_cq_buf(struct mthca_device *dev, int cqe);
 
 extern struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 					struct ibv_srq_init_attr *attr);
