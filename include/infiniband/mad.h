@@ -563,7 +563,7 @@ enum {
 };
 
 enum {
-	IB_NODE_HCA = 1,
+	IB_NODE_CA = 1,
 	IB_NODE_SWITCH,
 	IB_NODE_ROUTER,
 
