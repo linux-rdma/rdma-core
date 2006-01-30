@@ -349,7 +349,7 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			size0 = 0;
 		}
 
-		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.send_cq))) {
+		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.recv_cq))) {
 			ret = -1;
 			*bad_wr = wr;
 			goto out;
@@ -690,7 +690,7 @@ int mthca_arbel_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	ind = qp->rq.head & (qp->rq.max - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.send_cq))) {
+		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.recv_cq))) {
 			ret = -1;
 			*bad_wr = wr;
 			goto out;

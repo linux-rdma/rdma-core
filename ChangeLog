@@ -1,3 +1,9 @@
+2006-01-30  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/qp.c (mthca_tavor_post_recv, mthca_arbel_post_recv): Pass
+	recv_cq to wq_overflow() so we lock the correct CQ.  Noticed by
+	Yossi Leybovich.
+
 2006-01-26  Roland Dreier  <rdreier@cisco.com>
 
 	* src/mthca.h, src/verbs.c, src/cq.c, src/mthca.c: Add
