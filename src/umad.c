@@ -70,8 +70,8 @@ int umaddebug = 0;
 #define UMAD_DEV_NAME_SZ	32
 #define UMAD_DEV_FILE_SZ	256
 
-static char *def_hca_name = "mthca0";
-static int def_hca_port = 1;
+static char *def_ca_name = "mthca0";
+static int def_ca_port = 1;
 
 typedef struct Port {
 	char dev_file[UMAD_DEV_FILE_SZ];
@@ -329,8 +329,8 @@ resolve_ca_name(char *ca_name, int *best_port)
 	}
 
 	if (best_port)
-		*best_port = def_hca_port;
-	return def_hca_name;
+		*best_port = def_ca_port;
+	return def_ca_name;
 }
 
 static int
@@ -514,7 +514,7 @@ umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 		DEBUG("return %d cas", j);
 	} else {
 		/* Is this still needed ? */
-		strncpy((char *)cas, def_hca_name, UMAD_CA_NAME_LEN);
+		strncpy((char *)cas, def_ca_name, UMAD_CA_NAME_LEN);
 		DEBUG("return 1 ca");
 		j = 1;
 	}

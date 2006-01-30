@@ -156,7 +156,7 @@ int	umad_release_ca(umad_ca_t *ca);
 int	umad_get_port(char *ca_name, int portnum, umad_port_t *port);
 int	umad_release_port(umad_port_t *port);
 
-int	umad_open_port(char *hca_name, int portnum);
+int	umad_open_port(char *ca_name, int portnum);
 int	umad_close_port(int portid);
 
 void *	umad_get_mad(void *umad);
