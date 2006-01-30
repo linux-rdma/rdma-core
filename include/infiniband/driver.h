@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -95,6 +95,8 @@ extern int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 			     struct ibv_create_cq_resp *resp, size_t resp_size);
 extern int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 extern int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
+extern int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
+			     struct ibv_resize_cq *cmd, size_t cmd_size);
 extern int ibv_cmd_destroy_cq(struct ibv_cq *cq);
 
 extern int ibv_cmd_create_srq(struct ibv_pd *pd,

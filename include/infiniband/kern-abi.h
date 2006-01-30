@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -341,6 +341,20 @@ struct ibv_req_notify_cq {
 	__u16 out_words;
 	__u32 cq_handle;
 	__u32 solicited;
+};
+
+struct ibv_resize_cq {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 cq_handle;
+	__u32 cqe;
+	__u64 driver_data[0];
+};
+
+struct ibv_resize_cq_resp {
+	__u32 cqe;
 };
 
 struct ibv_destroy_cq {

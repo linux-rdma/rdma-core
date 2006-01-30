@@ -1,3 +1,17 @@
+2006-01-26  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/driver.h, src/cmd.c (ibv_cmd_resize_cq): Add
+	driver interface for calling resize CQ kernel command.
+
+	* include/infiniband/kern-abi.h: Add resize CQ kernel ABI.
+
+	* include/infiniband/verbs.h, src/verbs.c (ibv_resize_cq): Add
+	resize CQ library API.  This changes the provider ABI, since a new
+	field is added to struct ibv_context_ops; source compatibility
+	with provider libraries is preserved, but binaries will have to be
+	recompiled.  Neither source nor binary compatibility with
+	consumers of libibverbs is affected.
+
 2006-01-25  Roland Dreier  <rdreier@cisco.com>
 
 	* examples/pingpong.c, examples/pingpong.h,

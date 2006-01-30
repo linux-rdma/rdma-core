@@ -98,6 +98,5 @@ necessary permissions to release your work.
 TODO
 ====
 
- * Completion queue (CQ) resizing need to be implemented.
  * Memory windows (MWs) need to be implemented.
  * Query QP, query SRQ and other query verbs need to be implemented.

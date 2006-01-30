@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -360,6 +361,23 @@ int ibv_cmd_req_notify_cq(struct ibv_cq *ibcq, int solicited_only)
 
 	if (write(ibcq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
+		      struct ibv_resize_cq *cmd, size_t cmd_size)
+{
+	struct ibv_resize_cq_resp resp;
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, RESIZE_CQ, &resp, sizeof resp);
+	cmd->cq_handle = cq->handle;
+	cmd->cqe       = cqe;
+
+	if (write(cq->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	cq->cqe = resp.cqe;
 
 	return 0;
 }

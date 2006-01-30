@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -210,6 +211,14 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe, void *cq_cont
 	}
 
 	return cq;
+}
+
+int ibv_resize_cq(struct ibv_cq *cq, int cqe)
+{
+	if (!cq->context->ops.resize_cq)
+		return ENOSYS;
+
+	return cq->context->ops.resize_cq(cq, cqe);
 }
 
 int ibv_destroy_cq(struct ibv_cq *cq)

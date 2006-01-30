@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2004 Intel Corporation.  All rights reserved.
- * Copyright (c) 2005 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -549,6 +549,7 @@ struct ibv_context_ops {
 	int			(*poll_cq)(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc);
 	int			(*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
 	void			(*cq_event)(struct ibv_cq *cq);
+	int			(*resize_cq)(struct ibv_cq *cq, int cqe);
 	int			(*destroy_cq)(struct ibv_cq *cq);
 	struct ibv_srq *	(*create_srq)(struct ibv_pd *pd,
 					      struct ibv_srq_init_attr *srq_init_attr);
@@ -715,6 +716,15 @@ extern struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
 				    void *cq_context,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector);
+
+/**
+ * ibv_resize_cq - Modifies the capacity of the CQ.
+ * @cq: The CQ to resize.
+ * @cqe: The minimum size of the CQ.
+ *
+ * Users can examine the cq structure to determine the actual CQ size.
+ */
+extern int ibv_resize_cq(struct ibv_cq *cq, int cqe);
 
 /**
  * ibv_destroy_cq - Destroy a completion queue
