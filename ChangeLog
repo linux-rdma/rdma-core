@@ -1,3 +1,8 @@
+2006-01-31  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/verbs.h, include/infiniband/driver.h: Remove
+	useless "extern" from function declarations.
+
 2006-01-26  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/driver.h, src/cmd.c (ibv_cmd_resize_cq): Add

@@ -593,7 +593,7 @@ struct ibv_context {
  * Return a NULL-terminated array of IB devices.  The array can be
  * released with ibv_free_device_list().
  */
-extern struct ibv_device **ibv_get_device_list(int *num_devices);
+struct ibv_device **ibv_get_device_list(int *num_devices);
 
 /**
  * ibv_free_device_list - Free list from ibv_get_device_list()
@@ -603,27 +603,27 @@ extern struct ibv_device **ibv_get_device_list(int *num_devices);
  * ibv_open_device() are no longer valid.  Client code must open all
  * devices it intends to use before calling ibv_free_device_list().
  */
-extern void ibv_free_device_list(struct ibv_device **list);
+void ibv_free_device_list(struct ibv_device **list);
 
 /**
  * ibv_get_device_name - Return kernel device name
  */
-extern const char *ibv_get_device_name(struct ibv_device *device);
+const char *ibv_get_device_name(struct ibv_device *device);
 
 /**
  * ibv_get_device_guid - Return device's node GUID
  */
-extern uint64_t ibv_get_device_guid(struct ibv_device *device);
+uint64_t ibv_get_device_guid(struct ibv_device *device);
 
 /**
  * ibv_open_device - Initialize device for use
  */
-extern struct ibv_context *ibv_open_device(struct ibv_device *device);
+struct ibv_context *ibv_open_device(struct ibv_device *device);
 
 /**
  * ibv_close_device - Release device
  */
-extern int ibv_close_device(struct ibv_context *context);
+int ibv_close_device(struct ibv_context *context);
 
 /**
  * ibv_get_async_event - Get next async event
@@ -632,8 +632,8 @@ extern int ibv_close_device(struct ibv_context *context);
  * All async events returned by ibv_get_async_event() must eventually
  * be acknowledged with ibv_ack_async_event().
  */
-extern int ibv_get_async_event(struct ibv_context *context,
-			       struct ibv_async_event *event);
+int ibv_get_async_event(struct ibv_context *context,
+			struct ibv_async_event *event);
 
 /**
  * ibv_ack_async_event - Acknowledge an async event
@@ -645,62 +645,62 @@ extern int ibv_get_async_event(struct ibv_context *context,
  * there should be a one-to-one correspondence between acks and
  * successful gets.
  */
-extern void ibv_ack_async_event(struct ibv_async_event *event);
+void ibv_ack_async_event(struct ibv_async_event *event);
 
 /**
  * ibv_query_device - Get device properties
  */
-extern int ibv_query_device(struct ibv_context *context,
-			    struct ibv_device_attr *device_attr);
+int ibv_query_device(struct ibv_context *context,
+		     struct ibv_device_attr *device_attr);
 
 /**
  * ibv_query_port - Get port properties
  */
-extern int ibv_query_port(struct ibv_context *context, uint8_t port_num,
-			  struct ibv_port_attr *port_attr);
+int ibv_query_port(struct ibv_context *context, uint8_t port_num,
+		   struct ibv_port_attr *port_attr);
 
 /**
  * ibv_query_gid - Get a GID table entry
  */
-extern int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
-			 int index, union ibv_gid *gid);
+int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
+		  int index, union ibv_gid *gid);
 
 /**
  * ibv_query_pkey - Get a P_Key table entry
  */
-extern int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
-			  int index, uint16_t *pkey);
+int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
+		   int index, uint16_t *pkey);
 
 /**
  * ibv_alloc_pd - Allocate a protection domain
  */
-extern struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
+struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
 
 /**
  * ibv_dealloc_pd - Free a protection domain
  */
-extern int ibv_dealloc_pd(struct ibv_pd *pd);
+int ibv_dealloc_pd(struct ibv_pd *pd);
 
 /**
  * ibv_reg_mr - Register a memory region
  */
-extern struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
-				 size_t length, enum ibv_access_flags access);
+struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
+			  size_t length, enum ibv_access_flags access);
 
 /**
  * ibv_dereg_mr - Deregister a memory region
  */
-extern int ibv_dereg_mr(struct ibv_mr *mr);
+int ibv_dereg_mr(struct ibv_mr *mr);
 
 /**
  * ibv_create_comp_channel - Create a completion event channel
  */
-extern struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context);
+struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context);
 
 /**
  * ibv_destroy_comp_channel - Destroy a completion event channel
  */
-extern int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
+int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
 
 /**
  * ibv_create_cq - Create a completion queue
@@ -712,10 +712,10 @@ extern int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
  * @comp_vector - Completion vector used to signal completion events.
  *     Must be >= 0 and < context->num_comp_vectors.
  */
-extern struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
-				    void *cq_context,
-				    struct ibv_comp_channel *channel,
-				    int comp_vector);
+struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
+			     void *cq_context,
+			     struct ibv_comp_channel *channel,
+			     int comp_vector);
 
 /**
  * ibv_resize_cq - Modifies the capacity of the CQ.
@@ -724,12 +724,12 @@ extern struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
  *
  * Users can examine the cq structure to determine the actual CQ size.
  */
-extern int ibv_resize_cq(struct ibv_cq *cq, int cqe);
+int ibv_resize_cq(struct ibv_cq *cq, int cqe);
 
 /**
  * ibv_destroy_cq - Destroy a completion queue
  */
-extern int ibv_destroy_cq(struct ibv_cq *cq);
+int ibv_destroy_cq(struct ibv_cq *cq);
 
 /**
  * ibv_get_cq_event - Read next CQ event
@@ -740,8 +740,8 @@ extern int ibv_destroy_cq(struct ibv_cq *cq);
  * All completion events returned by ibv_get_cq_event() must
  * eventually be acknowledged with ibv_ack_cq_events().
  */
-extern int ibv_get_cq_event(struct ibv_comp_channel *channel,
-			    struct ibv_cq **cq, void **cq_context);
+int ibv_get_cq_event(struct ibv_comp_channel *channel,
+		     struct ibv_cq **cq, void **cq_context);
 
 /**
  * ibv_ack_cq_events - Acknowledge CQ completion events
@@ -756,7 +756,7 @@ extern int ibv_get_cq_event(struct ibv_comp_channel *channel,
  * acknowledge them in a single call to ibv_ack_cq_events() by passing
  * the number of events to ack in @nevents.
  */
-extern void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
+void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
 
 /**
  * ibv_poll_cq - Poll a CQ for work completions
@@ -795,8 +795,8 @@ static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
  * on return.  If ibv_create_srq() succeeds, then max_wr and max_sge
  * will always be at least as large as the requested values.
  */
-extern struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
-				      struct ibv_srq_init_attr *srq_init_attr);
+struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
+			       struct ibv_srq_init_attr *srq_init_attr);
 
 /**
  * ibv_modify_srq - Modifies the attributes for the specified SRQ.
@@ -810,15 +810,15 @@ extern struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
  * IBV_SRQ_LIMIT to set the SRQ's limit and request notification when
  * the number of receives queued drops below the limit.
  */
-extern int ibv_modify_srq(struct ibv_srq *srq,
-			  struct ibv_srq_attr *srq_attr,
-			  enum ibv_srq_attr_mask srq_attr_mask);
+int ibv_modify_srq(struct ibv_srq *srq,
+		   struct ibv_srq_attr *srq_attr,
+		   enum ibv_srq_attr_mask srq_attr_mask);
 
 /**
  * ibv_destroy_srq - Destroys the specified SRQ.
  * @srq: The SRQ to destroy.
  */
-extern int ibv_destroy_srq(struct ibv_srq *srq);
+int ibv_destroy_srq(struct ibv_srq *srq);
 
 /**
  * ibv_post_srq_recv - Posts a list of work requests to the specified SRQ.
@@ -837,19 +837,19 @@ static inline int ibv_post_srq_recv(struct ibv_srq *srq,
 /**
  * ibv_create_qp - Create a queue pair.
  */
-extern struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
-				    struct ibv_qp_init_attr *qp_init_attr);
+struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
+			     struct ibv_qp_init_attr *qp_init_attr);
 
 /**
  * ibv_modify_qp - Modify a queue pair.
  */
-extern int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-			 enum ibv_qp_attr_mask attr_mask);
+int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		  enum ibv_qp_attr_mask attr_mask);
 
 /**
  * ibv_destroy_qp - Destroy a queue pair.
  */
-extern int ibv_destroy_qp(struct ibv_qp *qp);
+int ibv_destroy_qp(struct ibv_qp *qp);
 
 /**
  * ibv_post_send - Post a list of work requests to a send queue.
@@ -872,12 +872,12 @@ static inline int ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
 /**
  * ibv_create_ah - Create an address handle.
  */
-extern struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
+struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 
 /**
  * ibv_destroy_ah - Destroy an address handle.
  */
-extern int ibv_destroy_ah(struct ibv_ah *ah);
+int ibv_destroy_ah(struct ibv_ah *ah);
 
 /**
  * ibv_attach_mcast - Attaches the specified QP to a multicast group.
@@ -890,7 +890,7 @@ extern int ibv_destroy_ah(struct ibv_ah *ah);
  * the fabric appropriately.  The port associated with the specified
  * QP must also be a member of the multicast group.
  */
-extern int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 /**
  * ibv_detach_mcast - Detaches the specified QP from a multicast group.
@@ -898,7 +898,7 @@ extern int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
  * @gid: Multicast group GID.
  * @lid: Multicast group LID in host byte order.
  */
-extern int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 END_C_DECLS
 
