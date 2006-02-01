@@ -1,3 +1,9 @@
+2006-02-01  Roland Dreier  <rdreier@cisco.com>
+
+	* examples/rc_pingpong.c, examples/uc_pingpong.c,
+	examples/ud_pingpong.c, examples/srq_pingpong.c: Fix bug in
+	searching for device by name when there's more than one device.
+
 2006-01-31  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/verbs.h, include/infiniband/driver.h: Remove

@@ -547,7 +547,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	} else {
-		for (ib_dev = *dev_list; ib_dev; ++dev_list)
+		for (; (ib_dev = *dev_list); ++dev_list)
 			if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
 				break;
 		if (!ib_dev) {
