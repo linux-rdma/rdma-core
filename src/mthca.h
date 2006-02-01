@@ -259,81 +259,81 @@ static inline int mthca_is_memfree(struct ibv_context *ibctx)
 	return to_mdev(ibctx->device)->hca_type == MTHCA_ARBEL;
 }
 
-extern int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
-			  uint32_t **db);
-extern void mthca_set_db_qn(uint32_t *db, enum mthca_db_type type, uint32_t qn);
-extern void mthca_free_db(struct mthca_db_table *db_tab, enum mthca_db_type type, int db_index);
-extern struct mthca_db_table *mthca_alloc_db_tab(int uarc_size);
-extern void mthca_free_db_tab(struct mthca_db_table *db_tab);
+int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
+		   uint32_t **db);
+void mthca_set_db_qn(uint32_t *db, enum mthca_db_type type, uint32_t qn);
+void mthca_free_db(struct mthca_db_table *db_tab, enum mthca_db_type type, int db_index);
+struct mthca_db_table *mthca_alloc_db_tab(int uarc_size);
+void mthca_free_db_tab(struct mthca_db_table *db_tab);
 
-extern int mthca_query_device(struct ibv_context *context,
-			      struct ibv_device_attr *attr);
-extern int mthca_query_port(struct ibv_context *context, uint8_t port,
-			    struct ibv_port_attr *attr);
+int mthca_query_device(struct ibv_context *context,
+		       struct ibv_device_attr *attr);
+int mthca_query_port(struct ibv_context *context, uint8_t port,
+		     struct ibv_port_attr *attr);
 
-extern struct ibv_pd *mthca_alloc_pd(struct ibv_context *context);
-extern int mthca_free_pd(struct ibv_pd *pd);
+struct ibv_pd *mthca_alloc_pd(struct ibv_context *context);
+int mthca_free_pd(struct ibv_pd *pd);
 
-extern struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
-				   size_t length, enum ibv_access_flags access);
-extern int mthca_dereg_mr(struct ibv_mr *mr);
+struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
+			    size_t length, enum ibv_access_flags access);
+int mthca_dereg_mr(struct ibv_mr *mr);
 
 struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
-extern int mthca_resize_cq(struct ibv_cq *cq, int cqe);
-extern int mthca_destroy_cq(struct ibv_cq *cq);
-extern int mthca_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
-extern int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);
-extern int mthca_arbel_arm_cq(struct ibv_cq *cq, int solicited);
-extern void mthca_arbel_cq_event(struct ibv_cq *cq);
-extern void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn,
-			   struct mthca_srq *srq);
-extern void mthca_cq_resize_copy_cqes(struct mthca_cq *cq, void *buf, int new_cqe);
-extern void *mthca_alloc_cq_buf(struct mthca_device *dev, int cqe);
+int mthca_resize_cq(struct ibv_cq *cq, int cqe);
+int mthca_destroy_cq(struct ibv_cq *cq);
+int mthca_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);
+int mthca_arbel_arm_cq(struct ibv_cq *cq, int solicited);
+void mthca_arbel_cq_event(struct ibv_cq *cq);
+void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn,
+		    struct mthca_srq *srq);
+void mthca_cq_resize_copy_cqes(struct mthca_cq *cq, void *buf, int new_cqe);
+void *mthca_alloc_cq_buf(struct mthca_device *dev, int cqe);
 
-extern struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
-					struct ibv_srq_init_attr *attr);
-extern int mthca_modify_srq(struct ibv_srq *srq,
-			    struct ibv_srq_attr *attr,
-			    enum ibv_srq_attr_mask mask);
-extern int mthca_destroy_srq(struct ibv_srq *srq);
-extern int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
-			       struct mthca_srq *srq);
-extern void mthca_free_srq_wqe(struct mthca_srq *srq, int ind);
-extern int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
-				     struct ibv_recv_wr *wr,
-				     struct ibv_recv_wr **bad_wr);
-extern int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
-				     struct ibv_recv_wr *wr,
-				     struct ibv_recv_wr **bad_wr);
+struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
+				 struct ibv_srq_init_attr *attr);
+int mthca_modify_srq(struct ibv_srq *srq,
+		     struct ibv_srq_attr *attr,
+		     enum ibv_srq_attr_mask mask);
+int mthca_destroy_srq(struct ibv_srq *srq);
+int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
+			struct mthca_srq *srq);
+void mthca_free_srq_wqe(struct mthca_srq *srq, int ind);
+int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
+			      struct ibv_recv_wr *wr,
+			      struct ibv_recv_wr **bad_wr);
+int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
+			      struct ibv_recv_wr *wr,
+			      struct ibv_recv_wr **bad_wr);
 
-extern struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
-extern int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-			   enum ibv_qp_attr_mask attr_mask);
-extern int mthca_destroy_qp(struct ibv_qp *qp);
-extern void mthca_init_qp_indices(struct mthca_qp *qp);
-extern int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
-				 struct ibv_send_wr **bad_wr);
-extern int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
-				 struct ibv_recv_wr **bad_wr);
-extern int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
-				 struct ibv_send_wr **bad_wr);
-extern int mthca_arbel_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
-				 struct ibv_recv_wr **bad_wr);
-extern int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
-			      enum ibv_qp_type type, struct mthca_qp *qp);
-extern struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn);
-extern int mthca_store_qp(struct mthca_context *ctx, uint32_t qpn, struct mthca_qp *qp);
-extern void mthca_clear_qp(struct mthca_context *ctx, uint32_t qpn);
-extern int mthca_free_err_wqe(struct mthca_qp *qp, int is_send,
-			      int index, int *dbd, uint32_t *new_wqe);
-extern struct ibv_ah *mthca_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
-extern int mthca_destroy_ah(struct ibv_ah *ah);
-extern int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
-			  struct mthca_ah *ah);
-extern void mthca_free_av(struct mthca_ah *ah);
-extern int mthca_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
-extern int mthca_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
+int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		    enum ibv_qp_attr_mask attr_mask);
+int mthca_destroy_qp(struct ibv_qp *qp);
+void mthca_init_qp_indices(struct mthca_qp *qp);
+int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			  struct ibv_send_wr **bad_wr);
+int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			  struct ibv_recv_wr **bad_wr);
+int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			  struct ibv_send_wr **bad_wr);
+int mthca_arbel_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			  struct ibv_recv_wr **bad_wr);
+int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+		       enum ibv_qp_type type, struct mthca_qp *qp);
+struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn);
+int mthca_store_qp(struct mthca_context *ctx, uint32_t qpn, struct mthca_qp *qp);
+void mthca_clear_qp(struct mthca_context *ctx, uint32_t qpn);
+int mthca_free_err_wqe(struct mthca_qp *qp, int is_send,
+		       int index, int *dbd, uint32_t *new_wqe);
+struct ibv_ah *mthca_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
+int mthca_destroy_ah(struct ibv_ah *ah);
+int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
+		   struct mthca_ah *ah);
+void mthca_free_av(struct mthca_ah *ah);
+int mthca_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+int mthca_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 #endif /* MTHCA_H */

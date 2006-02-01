@@ -1,3 +1,7 @@
+2006-01-31  Roland Dreier  <rdreier@cisco.com>
+
+	* src/mthca.h: Remove useless "extern" from function declarations.
+
 2006-01-30  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* src/qp.c (mthca_tavor_post_recv, mthca_arbel_post_recv): Pass
