@@ -18,9 +18,11 @@ endif
 src_librdmacm_la_SOURCES = src/cma.c
 src_librdmacm_la_LDFLAGS = -avoid-version $(rdmacm_version_script)
 
-bin_PROGRAMS = examples/ucmatose
+bin_PROGRAMS = examples/ucmatose examples/rping
 examples_ucmatose_SOURCES = examples/cmatose.c
 examples_ucmatose_LDADD = $(top_builddir)/src/librdmacm.la
+examples_rping_SOURCES = examples/rping.c
+examples_rping_LDADD = $(top_builddir)/src/librdmacm.la
 
 librdmacmincludedir = $(includedir)/rdma
 
