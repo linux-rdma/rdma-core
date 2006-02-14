@@ -1,3 +1,9 @@
+2006-02-13  Roland Dreier  <rdreier@cisco.com>
+
+	* examples/asyncwatch.c, examples/device_list.c,
+	examples/devinfo.c: Remove cpu_to_be64()/be64_to_cpu() and use
+	htonll()/ntohll() from <infiniband/arch.h>.
+
 2006-02-13  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* src/cmd.c (ibv_cmd_query_qp, ibv_cmd_query_srq),

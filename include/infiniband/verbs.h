@@ -471,7 +471,7 @@ struct ibv_recv_wr {
 struct ibv_srq {
 	struct ibv_context     *context;
 	void		       *srq_context;
-	struct ibv_pd	       *pd; 
+	struct ibv_pd	       *pd;
 	uint32_t		handle;
 
 	pthread_mutex_t		mutex;
@@ -482,7 +482,7 @@ struct ibv_srq {
 struct ibv_qp {
 	struct ibv_context     *context;
 	void		       *qp_context;
-	struct ibv_pd	       *pd; 
+	struct ibv_pd	       *pd;
 	struct ibv_cq	       *send_cq;
 	struct ibv_cq	       *recv_cq;
 	struct ibv_srq	       *srq;

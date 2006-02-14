@@ -42,12 +42,6 @@
 
 #include <infiniband/verbs.h>
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-static inline uint64_t be64_to_cpu(uint64_t x) { return bswap_64(x); }
-#elif __BYTE_ORDER == __BIG_ENDIAN
-static inline uint64_t be64_to_cpu(uint64_t x) { return x; }
-#endif
-
 int main(int argc, char *argv[])
 {
 	struct ibv_device **dev_list;

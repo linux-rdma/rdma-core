@@ -42,12 +42,7 @@
 #include <byteswap.h>
 
 #include <infiniband/verbs.h>
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-static inline uint64_t be64_to_cpu(uint64_t x) { return bswap_64(x); }
-#elif __BYTE_ORDER == __BIG_ENDIAN
-static inline uint64_t be64_to_cpu(uint64_t x) { return x; }
-#endif
+#include <infiniband/arch.h>
 
 int main(int argc, char *argv[])
 {
@@ -65,7 +60,7 @@ int main(int argc, char *argv[])
 	while (*dev_list) {
 		printf("    %-16s\t%016llx\n",
 		       ibv_get_device_name(*dev_list),
-		       (unsigned long long) be64_to_cpu(ibv_get_device_guid(*dev_list)));
+		       (unsigned long long) ntohll(ibv_get_device_guid(*dev_list)));
 		++dev_list;
 	}
 

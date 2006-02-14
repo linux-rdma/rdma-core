@@ -47,24 +47,19 @@
 #include <byteswap.h>
 
 #include <infiniband/verbs.h>
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-static inline uint64_t be64_to_cpu(uint64_t x) { return bswap_64(x); }
-#elif __BYTE_ORDER == __BIG_ENDIAN
-static inline uint64_t be64_to_cpu(uint64_t x) { return x; }
-#endif
+#include <infiniband/arch.h>
 
 static int verbose = 0;
 
 static int null_gid(union ibv_gid *gid)
 {
-	return !(gid->raw[8] | gid->raw[9] | gid->raw[10] | gid->raw[11] | 
+	return !(gid->raw[8] | gid->raw[9] | gid->raw[10] | gid->raw[11] |
 		 gid->raw[12] | gid->raw[13] | gid->raw[14] | gid->raw[15]);
 }
 
 static const char *guid_str(uint64_t node_guid, char *str)
 {
-	node_guid = be64_to_cpu(node_guid);
+	node_guid = ntohll(node_guid);
 	sprintf(str, "%04x:%04x:%04x:%04x",
 		(unsigned) (node_guid >> 48) & 0xffff,
 		(unsigned) (node_guid >> 32) & 0xffff,
@@ -247,7 +242,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 	for (port = 1; port <= device_attr.phys_port_cnt; ++port) {
 		/* if in the command line the user didn't ask for info about this port */
 		if ((ib_port) && (port != ib_port))
-			continue; 
+			continue;
 
 		rc = ibv_query_port(ctx, port, &port_attr);
 		if (rc) {
@@ -267,7 +262,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 
 		if (verbose) {
 			printf("\t\t\tmax_msg_sz:\t\t0x%x\n", port_attr.max_msg_sz);
-			printf("\t\t\tport_cap_flags:\t\t0x%08x\n", port_attr.port_cap_flags); 
+			printf("\t\t\tport_cap_flags:\t\t0x%08x\n", port_attr.port_cap_flags);
 			printf("\t\t\tmax_vl_num:\t\t%d\n", port_attr.max_vl_num);
 			printf("\t\t\tbad_pkey_cntr:\t\t0x%x\n", port_attr.bad_pkey_cntr);
 			printf("\t\t\tqkey_viol_cntr:\t\t0x%x\n", port_attr.qkey_viol_cntr);
@@ -326,7 +321,7 @@ int main(int argc, char *argv[])
 			{ .name = "verbose",  .has_arg = 0, .val = 'v' },
 			{ 0, 0, 0, 0}
 		};
-		
+
 		c = getopt_long(argc, argv, "d:i:lv", long_options, NULL);
 		if (c == -1)
 			break;

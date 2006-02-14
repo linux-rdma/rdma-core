@@ -99,4 +99,4 @@ TODO
 ====
 
  * Memory windows (MWs) need to be implemented.
- * Query QP, query SRQ and other query verbs need to be implemented.
+ * Some query verbs (query AH, etc) need to be implemented.

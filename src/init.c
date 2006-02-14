@@ -115,7 +115,7 @@ static void find_drivers(char *dir)
 
 static struct ibv_device *init_drivers(struct sysfs_class_device *verbs_dev)
 {
-	struct sysfs_class_device *ib_dev; 
+	struct sysfs_class_device *ib_dev;
 	struct sysfs_attribute *attr;
 	struct ibv_driver *driver;
 	struct ibv_device *dev;

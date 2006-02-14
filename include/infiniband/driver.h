@@ -62,7 +62,7 @@
  * ops member filled in.  If the driver does not support the device,
  * it should return NULL from openib_driver_init().
  */
- 
+
 typedef struct ibv_device *(*ibv_driver_init_func)(struct sysfs_class_device *);
 
 int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
