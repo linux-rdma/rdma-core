@@ -556,11 +556,16 @@ struct ibv_context_ops {
 	int			(*modify_srq)(struct ibv_srq *srq,
 					      struct ibv_srq_attr *srq_attr,
 					      enum ibv_srq_attr_mask srq_attr_mask);
+	int			(*query_srq)(struct ibv_srq *srq,
+					     struct ibv_srq_attr *srq_attr);
 	int			(*destroy_srq)(struct ibv_srq *srq);
 	int			(*post_srq_recv)(struct ibv_srq *srq,
 						 struct ibv_recv_wr *recv_wr,
 						 struct ibv_recv_wr **bad_recv_wr);
 	struct ibv_qp *		(*create_qp)(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
+	int			(*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+					    enum ibv_qp_attr_mask attr_mask,
+					    struct ibv_qp_init_attr *init_attr);
 	int			(*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 					     enum ibv_qp_attr_mask attr_mask);
 	int			(*destroy_qp)(struct ibv_qp *qp);
@@ -815,6 +820,14 @@ int ibv_modify_srq(struct ibv_srq *srq,
 		   enum ibv_srq_attr_mask srq_attr_mask);
 
 /**
+ * ibv_query_srq - Returns the attribute list and current values for the
+ *   specified SRQ.
+ * @srq: The SRQ to query.
+ * @srq_attr: The attributes of the specified SRQ.
+ */
+int ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+
+/**
  * ibv_destroy_srq - Destroys the specified SRQ.
  * @srq: The SRQ to destroy.
  */
@@ -845,6 +858,21 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
  */
 int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		  enum ibv_qp_attr_mask attr_mask);
+
+/**
+ * ibv_query_qp - Returns the attribute list and current values for the
+ *   specified QP.
+ * @qp: The QP to query.
+ * @attr: The attributes of the specified QP.
+ * @attr_mask: A bit-mask used to select specific attributes to query.
+ * @init_attr: Additional attributes of the selected QP.
+ *
+ * The qp_attr_mask may be used to limit the query to gathering only the
+ * selected attributes.
+ */
+int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		 enum ibv_qp_attr_mask attr_mask,
+		 struct ibv_qp_init_attr *init_attr);
 
 /**
  * ibv_destroy_qp - Destroy a queue pair.

@@ -1,3 +1,20 @@
+2006-02-13  Dotan Barak  <dotanb@mellanox.co.il>
+
+	* src/cmd.c (ibv_cmd_query_qp, ibv_cmd_query_srq),
+	include/infiniband/driver.h: Add driver interface for calling
+	query QP and query SRQ kernel commands.
+
+	* include/infiniband/kern-abi.h: Add kernel ABI for query QP and
+	query SRQ.
+
+	* src/verbs.c (ibv_query_qp, ibv_query_srq),
+	include/infiniband/verbs.h: Add query QP and query SRQ library
+	APIs.  This changes the provider ABI, since new fields are added
+	to struct ibv_context_ops; source compatibility with provider
+	libraries is preserved, but binaries will have to be recompiled.
+	Neither source nor binary compatibility with consumers of
+	libibverbs is affected.
+
 2006-02-01  Roland Dreier  <rdreier@cisco.com>
 
 	* examples/rc_pingpong.c, examples/uc_pingpong.c,

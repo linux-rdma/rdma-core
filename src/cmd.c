@@ -488,6 +488,24 @@ int ibv_cmd_modify_srq(struct ibv_srq *srq,
 	return 0;
 }
 
+int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
+		      struct ibv_query_srq *cmd, size_t cmd_size)
+{
+	struct ibv_query_srq_resp resp;
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_SRQ, &resp, sizeof resp);
+	cmd->srq_handle = srq->handle;
+
+	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	srq_attr->max_wr    = resp.max_wr;
+	srq_attr->max_sge   = resp.max_sge;
+	srq_attr->srq_limit = resp.srq_limit;
+
+	return 0;
+}
+
 static int ibv_cmd_destroy_srq_v1(struct ibv_srq *srq)
 {
 	struct ibv_destroy_srq_v1 cmd;
@@ -565,6 +583,86 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		qp->handle  = r.resp_v3.qp_handle;
 		qp->qp_num  = r.resp_v3.qpn;
 	}
+
+	return 0;
+}
+
+int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		     enum ibv_qp_attr_mask attr_mask,
+		     struct ibv_qp_init_attr *init_attr,
+		     struct ibv_query_qp *cmd, size_t cmd_size)
+{
+	struct ibv_query_qp_resp resp;
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_QP, &resp, sizeof resp);
+	cmd->qp_handle = qp->handle;
+	cmd->attr_mask = attr_mask;
+
+	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	attr->qkey                          = resp.qkey;
+	attr->rq_psn                        = resp.rq_psn;
+	attr->sq_psn                        = resp.sq_psn;
+	attr->dest_qp_num                   = resp.dest_qp_num;
+	attr->qp_access_flags               = resp.qp_access_flags;
+	attr->pkey_index                    = resp.pkey_index;
+	attr->alt_pkey_index                = resp.alt_pkey_index;
+	attr->qp_state                      = resp.qp_state;
+	attr->cur_qp_state                  = resp.cur_qp_state;
+	attr->path_mtu                      = resp.path_mtu;
+	attr->path_mig_state                = resp.path_mig_state;
+	attr->en_sqd_async_notify           = resp.en_sqd_async_notify;
+	attr->max_rd_atomic                 = resp.max_rd_atomic;
+	attr->max_dest_rd_atomic            = resp.max_dest_rd_atomic;
+	attr->min_rnr_timer                 = resp.min_rnr_timer;
+	attr->port_num                      = resp.port_num;
+	attr->timeout                       = resp.timeout;
+	attr->retry_cnt                     = resp.retry_cnt;
+	attr->rnr_retry                     = resp.rnr_retry;
+	attr->alt_port_num                  = resp.alt_port_num;
+	attr->alt_timeout                   = resp.alt_timeout;
+	attr->cap.max_send_wr               = resp.max_send_wr;
+	attr->cap.max_recv_wr               = resp.max_recv_wr;
+	attr->cap.max_send_sge              = resp.max_send_sge;
+	attr->cap.max_recv_sge              = resp.max_recv_sge;
+	attr->cap.max_inline_data           = resp.max_inline_data;
+
+	memcpy(attr->ah_attr.grh.dgid.raw, resp.dest.dgid, 16);
+	attr->ah_attr.grh.flow_label        = resp.dest.flow_label;
+	attr->ah_attr.dlid                  = resp.dest.dlid;
+	attr->ah_attr.grh.sgid_index        = resp.dest.sgid_index;
+	attr->ah_attr.grh.hop_limit         = resp.dest.hop_limit;
+	attr->ah_attr.grh.traffic_class     = resp.dest.traffic_class;
+	attr->ah_attr.sl                    = resp.dest.sl;
+	attr->ah_attr.src_path_bits         = resp.dest.src_path_bits;
+	attr->ah_attr.static_rate           = resp.dest.static_rate;
+	attr->ah_attr.is_global             = resp.dest.is_global;
+	attr->ah_attr.port_num              = resp.dest.port_num;
+
+	memcpy(attr->alt_ah_attr.grh.dgid.raw, resp.alt_dest.dgid, 16);
+	attr->alt_ah_attr.grh.flow_label    = resp.alt_dest.flow_label;
+	attr->alt_ah_attr.dlid              = resp.alt_dest.dlid;
+	attr->alt_ah_attr.grh.sgid_index    = resp.alt_dest.sgid_index;
+	attr->alt_ah_attr.grh.hop_limit     = resp.alt_dest.hop_limit;
+	attr->alt_ah_attr.grh.traffic_class = resp.alt_dest.traffic_class;
+	attr->alt_ah_attr.sl                = resp.alt_dest.sl;
+	attr->alt_ah_attr.src_path_bits     = resp.alt_dest.src_path_bits;
+	attr->alt_ah_attr.static_rate       = resp.alt_dest.static_rate;
+	attr->alt_ah_attr.is_global         = resp.alt_dest.is_global;
+	attr->alt_ah_attr.port_num          = resp.alt_dest.port_num;
+
+	init_attr->qp_context               = qp->qp_context;
+	init_attr->send_cq                  = qp->send_cq;
+	init_attr->recv_cq                  = qp->recv_cq;
+	init_attr->srq                      = qp->srq;
+	init_attr->qp_type                  = qp->qp_type;
+	init_attr->cap.max_send_wr          = resp.max_send_wr;
+	init_attr->cap.max_recv_wr          = resp.max_recv_wr;
+	init_attr->cap.max_send_sge         = resp.max_send_sge;
+	init_attr->cap.max_recv_sge         = resp.max_recv_sge;
+	init_attr->cap.max_inline_data      = resp.max_inline_data;
+	init_attr->sq_sig_all               = resp.sq_sig_all;
 
 	return 0;
 }

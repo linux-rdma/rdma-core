@@ -280,6 +280,11 @@ int ibv_modify_srq(struct ibv_srq *srq,
 	return srq->context->ops.modify_srq(srq, srq_attr, srq_attr_mask);
 }
 
+int ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
+{
+	return srq->context->ops.query_srq(srq, srq_attr);
+}
+
 int ibv_destroy_srq(struct ibv_srq *srq)
 {
 	return srq->context->ops.destroy_srq(srq);
@@ -304,6 +309,22 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 	}
 
 	return qp;
+}
+
+int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		 enum ibv_qp_attr_mask attr_mask,
+		 struct ibv_qp_init_attr *init_attr)
+{
+	int ret;
+
+	ret = qp->context->ops.query_qp(qp, attr, attr_mask, init_attr);
+	if (ret)
+		return ret;
+
+	if (attr_mask & IBV_QP_STATE)
+		qp->state = attr->qp_state;
+
+	return 0;
 }
 
 int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
