@@ -439,6 +439,14 @@ int mthca_modify_srq(struct ibv_srq *srq,
 	return ibv_cmd_modify_srq(srq, attr, attr_mask, &cmd, sizeof cmd);
 }
 
+int mthca_query_srq(struct ibv_srq *srq,
+		    struct ibv_srq_attr *attr)
+{
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(srq, attr, &cmd, sizeof cmd);
+}
+
 int mthca_destroy_srq(struct ibv_srq *srq)
 {
 	int ret;
@@ -562,6 +570,15 @@ err:
 	free(qp);
 
 	return NULL;
+}
+
+int mthca_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		   enum ibv_qp_attr_mask attr_mask,
+		   struct ibv_qp_init_attr *init_attr)
+{
+	struct ibv_query_qp cmd;
+
+	return ibv_cmd_query_qp(qp, attr, attr_mask, init_attr, &cmd, sizeof cmd);
 }
 
 int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
