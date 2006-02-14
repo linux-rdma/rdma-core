@@ -135,7 +135,7 @@ found:
 
 	ret = i * MTHCA_DB_REC_PER_PAGE + j;
 	*db = (uint32_t *) &db_tab->page[i].db_rec[j];
-	
+
 out:
 	pthread_mutex_unlock(&db_tab->mutex);
 	return ret;

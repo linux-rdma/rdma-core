@@ -303,7 +303,7 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 
 	mthca_dereg_mr(cq->mr);
 	free(cq->buf);
-	
+
 	cq->buf = buf;
 	cq->mr  = mr;
 

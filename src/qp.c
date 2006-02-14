@@ -683,7 +683,7 @@ int mthca_arbel_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	int i;
 	void *wqe;
 
- 	pthread_spin_lock(&qp->rq.lock);
+	pthread_spin_lock(&qp->rq.lock);
 
 	/* XXX check that state is OK to post receive */
 
@@ -902,7 +902,7 @@ void mthca_clear_qp(struct mthca_context *ctx, uint32_t qpn)
 		free(ctx->qp_table[tind].table);
 	else
 		ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = NULL;
-	
+
 	pthread_mutex_unlock(&ctx->qp_table_mutex);
 }
 
