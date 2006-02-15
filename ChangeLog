@@ -1,3 +1,11 @@
+2006-02-15  Roland Dreier  <rdreier@cisco.com>
+
+	* src/cmd.c (ibv_cmd_create_qp): Allow userspace device-specific
+	driver to pass in a response buffer, so that the low-level driver
+	in the kernel can pass back device-specific information.  This
+	changes the userspace driver API, since the signature of
+	ibv_cmd_create_qp() is changed.
+
 2006-02-14  Roland Dreier  <rdreier@cisco.com>
 
 	* Release version 1.0-rc6.

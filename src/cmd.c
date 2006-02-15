@@ -543,17 +543,11 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 
 int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
-		      struct ibv_create_qp *cmd, size_t cmd_size)
+		      struct ibv_create_qp *cmd, size_t cmd_size,
+		      struct ibv_create_qp_resp *resp, size_t resp_size)
 {
-	union {
-		struct ibv_create_qp_resp    resp;
-		struct ibv_create_qp_resp_v3 resp_v3;
-	} r;
+	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
 
-	if (abi_ver > 3)
-		IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, &r.resp, sizeof r.resp);
-	else
-		IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, &r.resp_v3, sizeof r.resp_v3);
 	cmd->user_handle     = (uintptr_t) qp;
 	cmd->pd_handle 	     = pd->handle;
 	cmd->send_cq_handle  = attr->send_cq->handle;
@@ -572,16 +566,22 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		return errno;
 
 	if (abi_ver > 3) {
-		qp->handle 		  = r.resp.qp_handle;
-		qp->qp_num 		  = r.resp.qpn;
-		attr->cap.max_recv_sge    = r.resp.max_recv_sge;
-		attr->cap.max_send_sge    = r.resp.max_send_sge;
-		attr->cap.max_recv_wr     = r.resp.max_recv_wr;
-		attr->cap.max_send_wr     = r.resp.max_send_wr;
-		attr->cap.max_inline_data = r.resp.max_inline_data;
+		qp->handle 		  = resp->qp_handle;
+		qp->qp_num 		  = resp->qpn;
+		attr->cap.max_recv_sge    = resp->max_recv_sge;
+		attr->cap.max_send_sge    = resp->max_send_sge;
+		attr->cap.max_recv_wr     = resp->max_recv_wr;
+		attr->cap.max_send_wr     = resp->max_send_wr;
+		attr->cap.max_inline_data = resp->max_inline_data;
 	} else {
-		qp->handle  = r.resp_v3.qp_handle;
-		qp->qp_num  = r.resp_v3.qpn;
+		struct ibv_create_qp_resp_v3 *resp_v3 =
+			(struct ibv_create_qp_resp_v3 *) resp;
+
+		qp->handle = resp_v3->qp_handle;
+		qp->qp_num = resp_v3->qpn;
+		memmove((void *) resp + sizeof *resp,
+			(void *) resp_v3 + sizeof *resp_v3,
+			resp_size - sizeof *resp);
 	}
 
 	return 0;

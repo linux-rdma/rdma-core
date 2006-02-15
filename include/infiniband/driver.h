@@ -114,7 +114,8 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq);
 
 int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
-		      struct ibv_create_qp *cmd, size_t cmd_size);
+		      struct ibv_create_qp *cmd, size_t cmd_size,
+		      struct ibv_create_qp_resp *resp, size_t resp_size);
 int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr,
 		     enum ibv_qp_attr_mask attr_mask,
 		     struct ibv_qp_init_attr *qp_init_attr,
