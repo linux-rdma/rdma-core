@@ -175,15 +175,16 @@ int ipath_destroy_cq(struct ibv_cq *cq)
 
 struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	struct ibv_create_qp	 cmd;
-	struct ibv_qp		*qp;
-	int			 ret;
+	struct ibv_create_qp	  cmd;
+	struct ibv_create_qp_resp resp;
+	struct ibv_qp		 *qp;
+	int			  ret;
 
 	qp = malloc(sizeof *qp);
 	if (!qp)
 		return NULL;
 
-	ret = ibv_cmd_create_qp(pd, qp, attr, &cmd, sizeof cmd);
+	ret = ibv_cmd_create_qp(pd, qp, attr, &cmd, sizeof cmd, &resp, sizeof resp);
 	if (ret) {
 		free(qp);
 		return NULL;
