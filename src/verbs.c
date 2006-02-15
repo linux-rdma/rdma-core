@@ -470,9 +470,10 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	struct mthca_create_qp cmd;
-	struct mthca_qp       *qp;
-	int                    ret;
+	struct mthca_create_qp    cmd;
+	struct ibv_create_qp_resp resp;
+	struct mthca_qp          *qp;
+	int                       ret;
 
 	/* Sanity check QP size before proceeding */
 	if (attr->cap.max_send_wr     > 65536 ||
@@ -525,7 +526,8 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 	cmd.lkey = qp->mr->lkey;
 
-	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd);
+	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
+				&resp, sizeof resp);
 	if (ret)
 		goto err_rq_db;
 
