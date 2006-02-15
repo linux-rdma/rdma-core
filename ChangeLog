@@ -1,3 +1,7 @@
+2006-02-14  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0-rc6.
+
 2006-02-13  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* src/verbs.c (mthca_query_qp, mthca_query_srq): Add query QP and
