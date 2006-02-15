@@ -98,5 +98,48 @@ necessary permissions to release your work.
 TODO
 ====
 
- * Memory windows (MWs) need to be implemented.
- * Some query verbs (query AH, etc) need to be implemented.
+1.0 series
+----------
+
+ * Use the MADV_DONTFORK advice for madvise(2) to make applications
+   that use fork(2) work better.
+
+1.1 series
+----------
+
+The libibverbs API and ABI are frozen for all releases in the 1.0
+series.  The following changes that break API or ABI are planned for
+the 1.1 release:
+
+ * Implement memory window (MW) support.  This will break the
+   device driver ABI, because new methods will need to be added to
+   struct ibv_context_ops.
+
+ * Implement the reregister memory region (MR) verb.  We will add an
+   extension to the IB spec to allow the application to indicate that
+   the region is only being extended, and that operations in progress
+   should _not_ fail (contrary to the IB spec, which states that
+   reregister must be implemented so that it behaves equivalently to a
+   deregister followed by a register).  This will break the device
+   driver ABI, because a new method will need to be added to struct
+   ibv_context_ops. 
+
+ * Eliminate the dependency on libsysfs by implementing the required
+   sysfs handling directly.  This will break the API, because the dev
+   and ibdev members of struct ibv_device will be removed.  It will
+   also break the device driver ABI, because the signature of the
+   driver initialization function will change.  The driver
+   initialization function will be changed as part of this work; this
+   has the added benefit of allowing us to choose a better name than
+   "openib_driver_init."
+
+Other possibilities
+-------------------
+
+There are no plans to implement the following features, which would be
+needed for completeness but don't seem particularly useful.  However,
+if there is demand from application developers or an implementation is
+contributed, then the feature may be added.
+
+ * Implement the query address handle (AH) verb.
+ * Implement the query memory region (MR) verb.
