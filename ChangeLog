@@ -1,3 +1,7 @@
+2006-02-14  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0-rc6.
+
 2006-02-13  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* examples/devinfo.c (print_hca_cap): Print board_id from sysfs,
