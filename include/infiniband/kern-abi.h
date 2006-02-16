@@ -48,7 +48,7 @@
  * The minimum and maximum kernel ABI that we can handle.
  */
 #define IB_USER_VERBS_MIN_ABI_VERSION	1
-#define IB_USER_VERBS_MAX_ABI_VERSION	4
+#define IB_USER_VERBS_MAX_ABI_VERSION	5
 
 enum {
 	IB_USER_VERBS_CMD_GET_CONTEXT,
@@ -459,6 +459,7 @@ struct ibv_create_qp_resp {
 	__u32 max_send_sge;
 	__u32 max_recv_sge;
 	__u32 max_inline_data;
+	__u32 reserved;
 };
 
 struct ibv_qp_dest {
@@ -858,6 +859,16 @@ struct ibv_modify_srq_v3 {
 struct ibv_create_qp_resp_v3 {
 	__u32 qp_handle;
 	__u32 qpn;
+};
+
+struct ibv_create_qp_resp_v4 {
+	__u32 qp_handle;
+	__u32 qpn;
+	__u32 max_send_wr;
+	__u32 max_recv_wr;
+	__u32 max_send_sge;
+	__u32 max_recv_sge;
+	__u32 max_inline_data;
 };
 
 #endif /* KERN_ABI_H */

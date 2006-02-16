@@ -565,20 +565,28 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
+	qp->handle 		  = resp->qp_handle;
+	qp->qp_num 		  = resp->qpn;
+
 	if (abi_ver > 3) {
-		qp->handle 		  = resp->qp_handle;
-		qp->qp_num 		  = resp->qpn;
 		attr->cap.max_recv_sge    = resp->max_recv_sge;
 		attr->cap.max_send_sge    = resp->max_send_sge;
 		attr->cap.max_recv_wr     = resp->max_recv_wr;
 		attr->cap.max_send_wr     = resp->max_send_wr;
 		attr->cap.max_inline_data = resp->max_inline_data;
-	} else {
+	}
+
+	if (abi_ver == 4) {
+		struct ibv_create_qp_resp_v4 *resp_v4 =
+			(struct ibv_create_qp_resp_v4 *) resp;
+
+		memmove((void *) resp + sizeof *resp,
+			(void *) resp_v4 + sizeof *resp_v4,
+			resp_size - sizeof *resp);
+	} else if (abi_ver <= 3) {
 		struct ibv_create_qp_resp_v3 *resp_v3 =
 			(struct ibv_create_qp_resp_v3 *) resp;
 
-		qp->handle = resp_v3->qp_handle;
-		qp->qp_num = resp_v3->qpn;
 		memmove((void *) resp + sizeof *resp,
 			(void *) resp_v3 + sizeof *resp_v3,
 			resp_size - sizeof *resp);

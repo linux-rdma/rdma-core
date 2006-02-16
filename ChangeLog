@@ -1,3 +1,8 @@
+2006-02-16  Roland Dreier  <rdreier@cisco.com>
+
+	* src/cmd.c (ibv_cmd_create_qp): Add support for kernel ABI
+	version 5 (properly aligned struct ibv_create_qp_resp).
+
 2006-02-15  Roland Dreier  <rdreier@cisco.com>
 
 	* src/cmd.c (ibv_cmd_create_qp): Allow userspace device-specific
