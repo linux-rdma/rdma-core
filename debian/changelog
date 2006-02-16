@@ -1,4 +1,4 @@
-libmthca (1.0-rc7) unstable; urgency=low
+libmthca (1.0) unstable; urgency=low
 	
   * Initial Release.  (Closes: #325753)
 
