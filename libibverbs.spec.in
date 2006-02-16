@@ -4,13 +4,13 @@
 
 Name: libibverbs
 Version: 1.0
-Release: 0.5.rc7%{?dist}
+Release: 1%{?dist}
 Summary: A library for direct userspace use of InfiniBand
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
-Source: http://openib.org/downloads/libibverbs-1.0-rc7.tar.gz
+Source: http://openib.org/downloads/libibverbs-1.0.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: sysfsutils-devel
@@ -77,6 +77,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
+* Thu Feb 16 2006 Roland Dreier <rdreier@cisco.com> - 1.0-1
+- New upstream release
+
 * Wed Feb 15 2006 Roland Dreier <rolandd@cisco.com> - 1.0-0.5.rc7
 - New upstream release
 
