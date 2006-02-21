@@ -160,7 +160,7 @@ int	umad_open_port(char *ca_name, int portnum);
 int	umad_close_port(int portid);
 
 void *	umad_get_mad(void *umad);
-int	umad_size(void);
+size_t	umad_size(void);
 int	umad_status(void *umad);
 
 ib_mad_addr_t	*umad_get_mad_addr(void *umad);
@@ -189,7 +189,7 @@ void	umad_dump(void *umad);
 #include <stdlib.h>
 
 static inline void *
-umad_alloc(int num, int size)		/* alloc array of umad buffers */
+umad_alloc(int num, size_t size)	/* alloc array of umad buffers */
 {
 	return calloc(num, size); 
 }

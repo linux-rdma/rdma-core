@@ -672,7 +672,7 @@ umad_get_mad(void *umad)
 	return ((struct ib_user_mad *)umad)->data;
 }
 
-int
+size_t
 umad_size(void)
 {
 	return sizeof (struct ib_user_mad);
