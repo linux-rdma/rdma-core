@@ -1,7 +1,7 @@
 Source: libmthca
 Priority: optional
 Maintainer: Roland Dreier <rolandd@cisco.com>
-Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), libibverbs-dev (>= 1.0-rc2), autotools-dev
+Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 4.1.0), libibverbs-dev (>= 1.0), autotools-dev
 Standards-Version: 3.6.2.1
 Section: libs
 
