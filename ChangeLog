@@ -1,3 +1,8 @@
+2006-02-23  Dotan Barak  <dotanb@mellanox.co.il>
+
+	* src/cmd.c (ibv_cmd_create_srq): Add support for kernel ABI
+	version 6 (take SRQ capacity from kernel response to create SRQ).
+
 2006-02-16  Roland Dreier  <rdreier@cisco.com>
 
 	* Release version 1.0-rc7.

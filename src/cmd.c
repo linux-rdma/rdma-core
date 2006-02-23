@@ -435,6 +435,18 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 
 	srq->handle = resp->srq_handle;
 
+	if (abi_ver > 5) {
+		attr->attr.max_wr = resp->max_wr;
+		attr->attr.max_sge = resp->max_sge;
+	} else {
+		struct ibv_create_srq_resp_v5 *resp_v5 =
+			(struct ibv_create_srq_resp_v5 *) resp;
+
+		memmove((void *) resp + sizeof *resp,
+			(void *) resp_v5 + sizeof *resp_v5,
+			resp_size - sizeof *resp);
+	}
+
 	return 0;
 }
 
