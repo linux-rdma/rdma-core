@@ -1,5 +1,9 @@
 2006-02-16  Roland Dreier  <rdreier@cisco.com>
 
+	* src/memfree.c (mthca_alloc_db): Introduce a temporary variable
+	to pass to posix_memalign() to avoid "warning: dereferencing
+	type-punned pointer will break strict-aliasing rules."
+
 	* Release version 1.0-rc7.
 
 2006-02-15  Roland Dreier  <rdreier@cisco.com>

@@ -100,10 +100,15 @@ int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
 		goto out;
 	}
 
-	if (posix_memalign((void **) &db_tab->page[i].db_rec, MTHCA_DB_REC_PAGE_SIZE,
-			   MTHCA_DB_REC_PAGE_SIZE)) {
-		ret = -1;
-		goto out;
+	{
+		void *tmp;
+
+		if (posix_memalign(&tmp, MTHCA_DB_REC_PAGE_SIZE,
+				   MTHCA_DB_REC_PAGE_SIZE)) {
+			ret = -1;
+			goto out;
+		}
+		db_tab->page[i].db_rec = tmp;
 	}
 
 	memset(db_tab->page[i].db_rec, 0, MTHCA_DB_REC_PAGE_SIZE);
