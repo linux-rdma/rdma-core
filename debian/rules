@@ -1,6 +1,5 @@
 #!/usr/bin/make -f
 # -*- mode: makefile; coding: utf-8 -*-
-# Copyright © 2005 Roland Dreier <rolandd@cisco.com>
 
 DEB_DH_INSTALL_SOURCEDIR := debian/tmp
 DEB_DH_STRIP_ARGS := --dbg-package=libibverbs1
