@@ -1,6 +1,7 @@
+# $Id$
 
 %define prefix /usr
-%define ver      0.9.0
+%define ver      @VERSION@
 %define  RELEASE 1
 %define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
