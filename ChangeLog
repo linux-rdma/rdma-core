@@ -1,3 +1,8 @@
+2006-02-27  Dotan Barak  <dotanb@mellanox.co.il>
+
+	* src/qp.c (mthca_tavor_post_send, mthca_arbel_post_send): Add
+	support for IBV_SEND_FENCE flag.
+
 2006-02-16  Roland Dreier  <rdreier@cisco.com>
 
 	* src/memfree.c (mthca_alloc_db): Introduce a temporary variable
