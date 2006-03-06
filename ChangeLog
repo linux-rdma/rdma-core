@@ -1,3 +1,8 @@
+2006-03-06  Ralph Campbell  <ralphc@pathscale.com>
+
+	* src/init.c (find_drivers): Fix minor memory leak: call
+	globfree() to free memory allocated by glob().
+
 2006-02-23  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* src/cmd.c (ibv_cmd_create_srq): Add support for kernel ABI

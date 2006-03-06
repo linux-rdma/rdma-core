@@ -111,6 +111,8 @@ static void find_drivers(char *dir)
 
 	for (i = 0; i < so_glob.gl_pathc; ++i)
 		load_driver(so_glob.gl_pathv[i]);
+
+	globfree(&so_glob);
 }
 
 static struct ibv_device *init_drivers(struct sysfs_class_device *verbs_dev)
