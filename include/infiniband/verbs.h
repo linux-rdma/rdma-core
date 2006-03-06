@@ -293,6 +293,19 @@ struct ibv_global_route {
 	uint8_t			traffic_class;
 };
 
+enum ibv_rate {
+	IBV_RATE_MAX      = 0,
+	IBV_RATE_2_5_GBPS = 2,
+	IBV_RATE_5_GBPS   = 5,
+	IBV_RATE_10_GBPS  = 3,
+	IBV_RATE_20_GBPS  = 6,
+	IBV_RATE_30_GBPS  = 4,
+	IBV_RATE_40_GBPS  = 7,
+	IBV_RATE_60_GBPS  = 8,
+	IBV_RATE_80_GBPS  = 9,
+	IBV_RATE_120_GBPS = 10
+};
+
 struct ibv_ah_attr {
 	struct ibv_global_route	grh;
 	uint16_t		dlid;

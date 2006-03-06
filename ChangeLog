@@ -1,3 +1,9 @@
+2006-03-06  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/verbs.h: Add enum ibv_rate to define encoding
+	of static_rate field (based on a patch from Jack Morgenstein
+	<jackm@mellanox.co.il>).
+
 2006-03-06  Ralph Campbell  <ralphc@pathscale.com>
 
 	* src/init.c (find_drivers): Fix minor memory leak: call
