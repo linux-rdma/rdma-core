@@ -1,25 +1,32 @@
 # $Id$
 
-%define prefix /usr
-%define ver      @VERSION@
-%define  RELEASE 1
-%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%define ver @VERSION@
+%define RELEASE 1
+%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: OpenIB InfiniBand Management and Diagnostic Tools
 Name: libibmad
 Version: %ver
-Release: %rel
-Copyright: Dual GPL/BSD
+Release: %rel%{?dist}
+License: GPL/BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
 Url: http://openib.org/
-Requires: 
+BuildRequires: libibumad-devel
 
 %description
 libibmad provides low layer IB functions for use by the IB diagnostic
 and management programs. These include MAD, SA, SMP, and other basic
 IB functions. 
+
+%package devel
+Summary: Development files for the libibmad library
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release} libibumad-devel
+
+%description devel
+Development files for the libibmad library.
 
 %prep
 %setup -q
@@ -39,4 +46,10 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{_libdir}/libibmad*.so.*
-%doc 
+%doc
+
+%files devel
+%defattr(-,root,root)
+%{_libdir}/libibmad.a
+%{_libdir}/libibmad.so
+%{_includedir}/infiniband/*.h
