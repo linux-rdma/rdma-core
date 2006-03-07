@@ -1,23 +1,31 @@
 # $Id: $
 
-%define prefix /usr
-%define ver      @VERSION@
-%define  RELEASE 1
-%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%define ver @VERSION@
+%define RELEASE 1
+%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: Userspace InfiniBand Connection Manager.
 Name: libibcm
 Version: %ver
-Release: %rel
-Copyright: Dual GPL/BSD
+Release: %rel%{?dist}
+License: GPL/BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
 Url: http://openib.org/
+BuildRequires: libibat-devel
 
 %description
 Along with the OpenIB kernel drivers, libibcm provides a userspace
 InfiniBand Connection Managment API.
+
+%package devel
+Summary: Development files for the libibcm library
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release} libibat-devel
+
+%description devel
+Development files for the libibcm library.
 
 %prep
 %setup -q
@@ -30,6 +38,9 @@ make
 make DESTDIR=${RPM_BUILD_ROOT} install
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
+cd $RPM_BUILD_ROOT%{_libdir}
+mv libibcm.so libibcm.so.%{ver}
+ln -s libibcm.so.%{ver} libibcm.so
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -38,3 +49,8 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{_libdir}/libibcm*.so.*
 %doc AUTHORS COPYING ChangeLog NEWS README
+
+%files devel
+%defattr(-,root,root)
+%{_libdir}/libibcm.so
+%{_includedir}/infiniband/*.h
