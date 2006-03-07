@@ -1,15 +1,14 @@
 # $Id: $
 
-%define prefix /usr
-%define ver      @VERSION@
-%define  RELEASE 1
-%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%define ver @VERSION@
+%define RELEASE 1
+%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: Userspace RDMA Connection Manager.
 Name: librdmacm
 Version: %ver
-Release: %rel
-Copyright: Dual GPL/BSD
+Release: %rel%{?dist}
+License: GPL/BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
@@ -18,6 +17,22 @@ Url: http://openib.org/
 %description
 Along with the OpenIB kernel drivers, librdmacm provides a userspace
 RDMA Connection Managment API.
+
+%package devel
+Summary: Development files for the librdmacm library
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
+
+%description devel
+Development files for the librdmacm library.
+
+%package utils
+Summary: Utilities for the librdmacm library
+Group: System Environment/Base
+Requires: %{name} = %{version}-%{release}
+
+%description utils
+Utilities for the librdmacm library.
 
 %prep
 %setup -q
@@ -30,6 +45,9 @@ make
 make DESTDIR=${RPM_BUILD_ROOT} install
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
+cd $RPM_BUILD_ROOT%{_libdir}
+mv librdmacm.so librdmacm.so.%{ver}
+ln -s librdmacm.so.%{ver} librdmacm.so
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -38,3 +56,13 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{_libdir}/librdmacm*.so.*
 %doc AUTHORS COPYING ChangeLog NEWS README
+
+%files devel
+%defattr(-,root,root)
+%{_libdir}/librdmacm.so
+%{_includedir}/rdma/*.h
+
+%files utils
+%defattr(-,root,root)
+%{_bindir}/rping
+%{_bindir}/ucmatose
