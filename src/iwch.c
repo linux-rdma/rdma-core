@@ -44,14 +44,11 @@
 #include "iwch.h"
 #include "iwch-abi.h"
 
-#ifndef PCI_VENDOR_ID_CHELSIO
 #define PCI_VENDOR_ID_CHELSIO		0x1425
-#endif
-
-#ifndef PCI_DEVICE_ID_CHELSIO_IWCH
-#define PCI_DEVICE_ID_CHELSIO_IWCH	0x0020
-#endif
-
+#define PCI_DEVICE_ID_CHELSIO_PE9000_2C	0x0020
+#define PCI_DEVICE_ID_CHELSIO_T302E	0x0021
+#define PCI_DEVICE_ID_CHELSIO_T310E	0x0022
+#define PCI_DEVICE_ID_CHELSIO_T310X	0x0023
 
 #define HCA(v, d, t) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
@@ -63,7 +60,11 @@ struct {
 	unsigned device;
 	enum iwch_hca_type type;
 } hca_table[] = {
-HCA(CHELSIO, IWCH, IWCH),};
+	HCA(CHELSIO, PE9000_2C, CXGB3),
+	HCA(CHELSIO, T302E, CXGB3),
+	HCA(CHELSIO, T310E, CXGB3),
+	HCA(CHELSIO, T310X, CXGB3),
+};
 
 static struct ibv_context_ops iwch_ctx_ops = {
 	.query_device = iwch_query_device,

@@ -41,7 +41,7 @@
 #define PFX		"cxgb3: "
 
 enum iwch_hca_type {
-	CHELSIO_IWCH
+	CHELSIO_CXGB3
 };
 
 struct iwch_device {
