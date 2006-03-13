@@ -1,3 +1,7 @@
+2006-03-13  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0.
+
 2006-03-06  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/verbs.h: Add enum ibv_rate to define encoding
