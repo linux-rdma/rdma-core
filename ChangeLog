@@ -1,3 +1,7 @@
+2006-03-13  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0.
+
 2006-02-27  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* src/qp.c (mthca_tavor_post_send, mthca_arbel_post_send): Add
