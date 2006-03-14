@@ -1,5 +1,11 @@
 2006-03-13  Roland Dreier  <rdreier@cisco.com>
 
+	* src/init.c (check_abi_version), src/verbs.c (ibv_query_gid,
+	ibv_query_pkey): Use sysfs_open_attribute() and
+	sysfs_read_attribute() instead of the deprecated function
+	sysfs_read_attribute_value(), which is no longer present in
+	libsysfs2 (which is already in Debian and Ubuntu).
+
 	* Release version 1.0.
 
 2006-03-06  Roland Dreier  <rdreier@cisco.com>

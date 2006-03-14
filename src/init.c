@@ -162,7 +162,8 @@ static struct ibv_device *init_drivers(struct sysfs_class_device *verbs_dev)
 static int check_abi_version(void)
 {
 	char path[256];
-	char val[16];
+	struct sysfs_attribute *attr;
+	int ret = -1;
 
 	if (sysfs_get_mnt_path(path, sizeof path)) {
 		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
@@ -171,22 +172,30 @@ static int check_abi_version(void)
 
 	strncat(path, "/class/infiniband_verbs/abi_version", sizeof path);
 
-	if (sysfs_read_attribute_value(path, val, sizeof val)) {
-		fprintf(stderr, PFX "Fatal: couldn't read uverbs ABI version.\n");
+	attr = sysfs_open_attribute(path);
+	if (!attr)
 		return -1;
+
+	if (sysfs_read_attribute(attr)) {
+		fprintf(stderr, PFX "Fatal: couldn't read uverbs ABI version.\n");
+		goto out;
 	}
 
-	abi_ver = strtol(val, NULL, 10);
+	abi_ver = strtol(attr->value, NULL, 10);
 
 	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION ||
 	    abi_ver > IB_USER_VERBS_MAX_ABI_VERSION) {
 		fprintf(stderr, PFX "Fatal: kernel ABI version %d "
 			"doesn't match library version %d.\n",
 			abi_ver, IB_USER_VERBS_MAX_ABI_VERSION);
-		return -1;
+		goto out;
 	}
 
-	return 0;
+	ret = 0;
+
+out:
+	sysfs_close_attribute(attr);
+	return ret;
 }
 
 

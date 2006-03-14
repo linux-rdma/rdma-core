@@ -60,44 +60,62 @@ int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 		  int index, union ibv_gid *gid)
 {
 	char *attr_name;
-	char attr[sizeof "0000:0000:0000:0000:0000:0000:0000:0000\0"];
+	struct sysfs_attribute *attr;
 	uint16_t val;
 	int i;
+	int ret = -1;
 
 	asprintf(&attr_name, "%s/ports/%d/gids/%d",
 		 context->device->ibdev->path, port_num, index);
 
-	if (sysfs_read_attribute_value(attr_name, attr, sizeof attr))
+	attr = sysfs_open_attribute(attr_name);
+	if (!attr)
 		return -1;
 
+	if (sysfs_read_attribute(attr))
+		goto out;
+
 	for (i = 0; i < 8; ++i) {
-		if (sscanf(attr + i * 5, "%hx", &val) != 1)
-			return -1;
+		if (sscanf(attr->value + i * 5, "%hx", &val) != 1)
+			goto out;
 		gid->raw[i * 2    ] = val >> 8;
 		gid->raw[i * 2 + 1] = val & 0xff;
 	}
 
-	return 0;
+	ret = 0;
+
+out:
+	sysfs_close_attribute(attr);
+	return ret;
 }
 
 int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 		   int index, uint16_t *pkey)
 {
 	char *attr_name;
-	char attr[sizeof "0x0000\0"];
+	struct sysfs_attribute *attr;
 	uint16_t val;
+	int ret = -1;
 
 	asprintf(&attr_name, "%s/ports/%d/pkeys/%d",
 		 context->device->ibdev->path, port_num, index);
 
-	if (sysfs_read_attribute_value(attr_name, attr, sizeof attr))
+	attr = sysfs_open_attribute(attr_name);
+	if (!attr)
 		return -1;
 
-	if (sscanf(attr, "%hx", &val) != 1)
-		return -1;
+	if (sysfs_read_attribute(attr))
+		goto out;
+
+	if (sscanf(attr->value, "%hx", &val) != 1)
+		goto out;
 
 	*pkey = htons(val);
-	return 0;
+	ret = 0;
+
+out:
+	sysfs_close_attribute(attr);
+	return ret;
 }
 
 struct ibv_pd *ibv_alloc_pd(struct ibv_context *context)
