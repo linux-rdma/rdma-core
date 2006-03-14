@@ -17,10 +17,10 @@ src_cxgb3_la_SOURCES = src/cq.c src/iwch.c src/qp.c \
 src_cxgb3_la_LDFLAGS = -avoid-version -module \
     $(cxgb3_version_script)
 
-DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
-    debian/libcxgb31.install debian/libcxgb3-dev.install debian/rules
+#DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
+#    debian/libcxgb31.install debian/libcxgb3-dev.install debian/rules
 
-EXTRA_DIST = src/doorbell.h src/cxgb3.h src/cxgb3-abi.h src/wqe.h \
+EXTRA_DIST = src/iwch.h src/iwch-abi.h \
     src/iwch.map libcxgb3.spec.in $(DEBIAN)
 
 dist-hook: libcxgb3.spec
