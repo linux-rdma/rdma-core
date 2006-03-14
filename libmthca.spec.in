@@ -3,14 +3,14 @@
 %define ver      @VERSION@
 
 Name: libmthca
-Version: 1.0
+Version: 1.0.1
 Release: 1%{?dist}
 Summary: Mellanox InfiniBand HCA Userspace Driver
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
-Source: http://openib.org/downloads/libmthca-1.0.tar.gz
+Source: http://openib.org/downloads/libmthca-1.0.1.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
@@ -55,6 +55,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/infiniband/mthca.a
 
 %changelog
+* Mon Mar 13 2006 Roland Dreier <rdreier@cisco.com> - 1.0.1-1
+- New upstream release
+
 * Thu Feb 16 2006 Roland Dreier <rdreier@cisco.com> - 1.0-1
 - New upstream release
 

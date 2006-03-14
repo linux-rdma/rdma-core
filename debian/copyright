@@ -11,6 +11,6 @@ The complete list of upstream authors is in the file
 /usr/share/doc/mthca/AUTHORS.
 
 Copyright:
-libibverbs is licensed under a choice of the GPL and the OpenIB BSD
+libmthca is licensed under a choice of the GPL and the OpenIB BSD
 license.  You should have a copy of the GPL in the file
 /usr/share/common-licenses/GPL on your Debian system.
