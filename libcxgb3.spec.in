@@ -1,11 +1,11 @@
-# $Id: libiwch.spec.in 3802 2005-10-18 18:32:06Z tom $
+# $Id: libcxgb3.spec.in 3802 2005-10-18 18:32:06Z tom $
 
 %define ver      @VERSION@
 
-Name: libiwch
+Name: libcxgb3
 Version: 1.0
 Release: 0.2.rc4%{?dist}
-Summary: Mellanox InfiniBand HCA Userspace Driver
+Summary: Chelsio T3 RNIC OpenIB Userspace Library
 
 Group: System Environment/Libraries
 License: GPL/BSD
@@ -16,17 +16,16 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: libibverbs-devel
 
 %description
-libiwch provides a device-specific userspace driver for Mellanox HCAs
-(MT23108 InfiniHost and MT25208 InfiniHost III Ex) for use with the
-libibverbs library.
+libcxgb3 provides a device-specific userspace driver for Chelsio RNICs
+for use with the libibverbs library.
 
 %package devel
-Summary: Development files for the libiwch driver
+Summary: Development files for the libcxgb3 driver
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
 
 %description devel
-Static version of libiwch that may be linked directly to an
+Static version of libcxgb3 that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep
@@ -47,16 +46,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/iwch.so
+%{_libdir}/infiniband/cxgb3.so
 %doc AUTHORS COPYING ChangeLog README
 
 %files devel
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/iwch.a
+%{_libdir}/infiniband/cxgb3.a
 
 %changelog
-* Wed Oct  5 2005 Roland Dreier <roland@cisco.com> - 1.0
-- Update to upstream 1.0-rc4 release
-
-* Mon Sep 26 2005 Roland Dreier <roland@cisco.com> - 1.0-0.1.rc3
-- Initial attempt at Fedora Extras-compliant spec file
