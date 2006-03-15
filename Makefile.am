@@ -57,7 +57,7 @@ EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
     include/infiniband/opcode.h include/infiniband/verbs.h include/infiniband/marshall.h \
     include/infiniband/sa-kern-abi.h include/infiniband/sa.h \
     src/ibverbs.h examples/pingpong.h \
-    src/libibverbs.map libibverbs.spec.in $(man_MANS) $(DEBIAN)
+    src/libibverbs.map libibverbs.spec.in $(man_MANS)
 
 dist-hook: libibverbs.spec
 	cp libibverbs.spec $(distdir)

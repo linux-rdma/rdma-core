@@ -39,7 +39,7 @@ Section: libdevel
 Priority: extra
 Architecture: any
 Depends: libibverbs1 (= ${Source-Version})
-Description: Development files for the libmthca driver
+Description: Debugging symbols for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
  Specification.  This includes direct hardware access for fast path
