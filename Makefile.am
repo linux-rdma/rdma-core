@@ -21,7 +21,7 @@ DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
     debian/libmthca1.install debian/libmthca-dev.install debian/rules
 
 EXTRA_DIST = src/doorbell.h src/mthca.h src/mthca-abi.h src/wqe.h \
-    src/mthca.map libmthca.spec.in $(DEBIAN)
+    src/mthca.map libmthca.spec.in
 
 dist-hook: libmthca.spec
 	cp libmthca.spec $(distdir)

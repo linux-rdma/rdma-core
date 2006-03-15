@@ -7,10 +7,14 @@ It was downloaded from the OpenIB web site at
 <https://openib.org/downloads.html>
 
 Authors:
-The complete list of upstream authors is in the file
-/usr/share/doc/mthca/AUTHORS.
+  Roland Dreier		<roland@topspin.com>
+  Michael S. Tsirkin	<mst@mellanox.co.il>
 
 Copyright:
+ * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2005 Mellanox Technologies Ltd.  All rights reserved.
+
 libmthca is licensed under a choice of the GPL and the OpenIB BSD
 license.  You should have a copy of the GPL in the file
 /usr/share/common-licenses/GPL on your Debian system.
