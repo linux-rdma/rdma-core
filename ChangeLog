@@ -1,5 +1,7 @@
 2006-03-14  Roland Dreier  <rdreier@cisco.com>
 
+	* Release version 1.0.2.
+
 	* Makefile.am (EXTRA_DIST): Remove debian/ directory from
 	tarballs, since Debian policy is that upstream tarballs should not
 	include it.
