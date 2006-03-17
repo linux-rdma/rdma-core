@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <errno.h>
 
 #include "ibverbs.h"

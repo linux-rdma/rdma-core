@@ -1,3 +1,9 @@
+2006-03-16  Roland Dreier  <rdreier@cisco.com>
+
+	* src/cmd.c, src/device.c, src/memory.c, src/verbs.c: Add include
+	of <stdlib.h> to get a declaration of free() and avoid compile
+	warnings.
+
 2006-03-14  Roland Dreier  <rdreier@cisco.com>
 
 	* Release version 1.0.2.
