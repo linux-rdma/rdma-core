@@ -18,7 +18,7 @@ Description: A userspace driver for Mellanox HCAs
 Package: libmthca-dev
 Section: libdevel
 Architecture: any
-Depends: libmthca1 (= ${Source-Version})
+Depends: ${misc:Depends}, libmthca1 (= ${Source-Version})
 Description: Development files for the libmthca driver
  libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
  the libibverbs library.
@@ -30,7 +30,7 @@ Package: libmthca1-dbg
 Section: libdevel
 Priority: extra
 Architecture: any
-Depends: libmthca1 (= ${Source-Version})
+Depends: ${misc:Depends}, libmthca1 (= ${Source-Version})
 Description: Debugging symbols for the libmthca driver
  libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
  the libibverbs library.
