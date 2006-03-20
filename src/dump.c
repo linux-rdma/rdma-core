@@ -647,24 +647,14 @@ void
 mad_dump_sltovl(char *buf, int bufsz, void *val, int valsz)
 {
 	ib_slvl_table_t* p_slvl_tbl = val;
-	char buf_line1[1024];
-	char buf_line2[1024];
 	uint8_t vl;
-	int i;
-
-	buf_line1[0] = 0;
-	buf_line2[0] = 0;
-
-	for (i = 0; i < 16; i++)
-		sprintf(buf_line1, "%s%-4u|", buf_line1, i);
-
+	int i, n = 0;
+	n = snprintf(buf, bufsz, "|");
 	for (i = 0; i < 16; i++) {
 		ib_slvl_get_i(p_slvl_tbl, i, &vl);
-		sprintf(buf_line2, "%s0x%-2X|", buf_line2, vl);
-
+		n += snprintf(buf + n, bufsz - n, "%2u|", vl);
 	}
-	
-	snprintf(buf, bufsz, "\nSL: |%s\nVL: |%s\n", buf_line1, buf_line2);
+	snprintf(buf + n, bufsz - n, "\n");
 }
 
 void
