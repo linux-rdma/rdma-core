@@ -134,7 +134,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_PORT_LINK_SPEED_ENABLED_F]	{BITSOFFS(284, 4), "LinkSpeedEnabled", mad_dump_linkspeeden},
 	[IB_PORT_NEIGHBOR_MTU_F]	{BITSOFFS(288, 4), "NeighborMTU", mad_dump_mtu},
 	[IB_PORT_SMSL_F]		{BITSOFFS(292, 4), "SMSL", mad_dump_uint},
-	[IB_PORT_VL_CAP_F]		{BITSOFFS(296, 4), "LinkVLCap", mad_dump_vlcap},
+	[IB_PORT_VL_CAP_F]		{BITSOFFS(296, 4), "VLCap", mad_dump_vlcap},
 	[IB_PORT_INIT_TYPE_F]		{BITSOFFS(300, 4), "InitType", mad_dump_hex},
 	[IB_PORT_VL_HIGH_LIMIT_F] 		{BITSOFFS(304, 8), "VLHighLimit", mad_dump_uint},
 	[IB_PORT_VL_ARBITRATION_HIGH_CAP_F]	{BITSOFFS(312, 8), "VLArbHighCap", mad_dump_uint},
