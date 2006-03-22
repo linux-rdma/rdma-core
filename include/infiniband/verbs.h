@@ -795,7 +795,13 @@ static inline int ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc 
 }
 
 /**
- * ibv_req_notify_cq - Request completion notification on a CQ.
+ * ibv_req_notify_cq - Request completion notification on a CQ.  An
+ *   event will be added to the completion channel associated with the
+ *   CQ when an entry is added to the CQ.
+ * @cq: The completion queue to request notification for.
+ * @solicited_only: If non-zero, an event will be generated only for
+ *   the next solicited CQ entry.  If zero, any CQ entry, solicited or
+ *   not, will generate an event.
  */
 static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
 {
