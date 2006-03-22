@@ -1,38 +1,42 @@
 # $Id$
 
-%define prefix /usr
 %define ver      @VERSION@
-%define  RELEASE 1
-%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: Tools for SRP/IB
 Name: srptools
 Version: %ver
-Release: %rel
-Copyright: Dual GPL/BSD
+Release: 1%{?dist}
+Summary: Tools for SRP/IB
+
 Group: Applications/System
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
-Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+License: GPL/BSD
 Url: http://openib.org/
+Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %description
 In conjunction with the kernel ib_srp driver, srptools allows you to
 discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{ver}
 
 %build
 %configure
-make
+make %{?_smp_mflags}
 
 %install
-make DESTDIR=${RPM_BUILD_ROOT} install
+rm -rf $RPM_BUILD_ROOT
+%makeinstall
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{prefix}/sbin/%{name}
+%{_sbindir}/ibsrpdm
 %doc README NEWS ChangeLog COPYING
+
+%changelog
+
+* Tue Mar 21 2006 Roland Dreier <rdreier@cisco.com> - @VERSION@-1
+- Initial attempt at a working spec file
