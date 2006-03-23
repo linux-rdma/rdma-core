@@ -42,6 +42,38 @@
 
 #include <infiniband/verbs.h>
 
+static const char *event_name_str(enum ibv_event_type event_type)
+{
+	switch (event_type) {
+	case IBV_EVENT_DEVICE_FATAL:
+		return "IBV_EVENT_DEVICE_FATAL";
+	case IBV_EVENT_PORT_ACTIVE:
+		return "IBV_EVENT_PORT_ACTIVE";
+	case IBV_EVENT_PORT_ERR:
+		return "IBV_EVENT_PORT_ERR";
+	case IBV_EVENT_LID_CHANGE:
+		return "IBV_EVENT_LID_CHANGE";
+	case IBV_EVENT_PKEY_CHANGE:
+		return "IBV_EVENT_PKEY_CHANGE";
+	case IBV_EVENT_SM_CHANGE:
+		return "IBV_EVENT_SM_CHANGE";
+
+	case IBV_EVENT_CQ_ERR:
+	case IBV_EVENT_QP_FATAL:
+	case IBV_EVENT_QP_REQ_ERR:
+	case IBV_EVENT_QP_ACCESS_ERR:
+	case IBV_EVENT_COMM_EST:
+	case IBV_EVENT_SQ_DRAINED:
+	case IBV_EVENT_PATH_MIG:
+	case IBV_EVENT_PATH_MIG_ERR:
+	case IBV_EVENT_SRQ_ERR:
+	case IBV_EVENT_SRQ_LIMIT_REACHED:
+	case IBV_EVENT_QP_LAST_WQE_REACHED:
+	default:
+		return "unexpected";
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct ibv_device **dev_list;
@@ -73,8 +105,9 @@ int main(int argc, char *argv[])
 		if (ibv_get_async_event(context, &event))
 			return 1;
 
-		printf("  event_type %d, port %d\n", event.event_type,
-		       event.element.port_num);
+		printf("  event_type %s (%d), port %d\n",
+		       event_name_str(event.event_type),
+		       event.event_type, event.element.port_num);
 
 		ibv_ack_async_event(&event);
 	}
