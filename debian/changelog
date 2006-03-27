@@ -1,4 +1,10 @@
 libmthca (1.0.1-2) unstable; urgency=low
+
+  * Change priority to extra.
+
+ -- Roland Dreier <rdreier@cisco.com>  Mon, 27 Mar 2006 13:09:05 -0800
+
+libmthca (1.0.1-1) unstable; urgency=low
 	
   * Initial Release.  (Closes: #325753)
 
