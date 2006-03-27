@@ -1,5 +1,5 @@
 Source: libibverbs
-Priority: optional
+Priority: extra
 Maintainer: Roland Dreier <rolandd@cisco.com>
 Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), autotools-dev, libsysfs-dev
 Standards-Version: 3.6.2.1

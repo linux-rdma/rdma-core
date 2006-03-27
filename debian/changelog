@@ -1,5 +1,13 @@
 libibverbs (1.0.2-2) unstable; urgency=low
 
+  * Change priority to extra, since libibverbs depends on libsysfs2, which
+    has priority extra.  (Debian policy section 2.5 states that a package
+    may not depend on another package of lower priority)
+
+ -- Roland Dreier <rdreier@cisco.com>  Mon, 27 Mar 2006 13:07:32 -0800
+
+libibverbs (1.0.2-1) unstable; urgency=low
+
   * Initial Release.  (Closes: #325752)
 
  -- Roland Dreier <rolandd@cisco.com>  Wed, 15 Feb 2006 11:21:59 -0700
