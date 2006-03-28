@@ -1,3 +1,8 @@
+2006-03-28  Roland Dreier  <rdreier@cisco.com>
+
+	* src/init.c (load_driver): Print warning if dlopen() of a driver
+	plugin fails.
+
 2006-03-22  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* examples/asyncwatch.c: Print asynchronous event name as well as

@@ -64,8 +64,11 @@ static void load_driver(char *so_path)
 	struct ibv_driver *driver;
 
 	dlhandle = dlopen(so_path, RTLD_NOW);
-	if (!dlhandle)
+	if (!dlhandle) {
+		fprintf(stderr, PFX "Warning: couldn't load driver %s: %s\n",
+			so_path, dlerror());
 		return;
+	}
 
 	dlerror();
 	init_func = dlsym(dlhandle, "openib_driver_init");
