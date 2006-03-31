@@ -118,6 +118,7 @@ static struct ibv_device **dev_list;
 static struct dlist *cma_dev_list;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static int ucma_initialized;
+static int abi_ver;
 int cma_fd;
 
 #define container_of(ptr, type, field) \
@@ -139,6 +140,32 @@ static void ucma_cleanup(void)
 		close(cma_fd);
 }
 
+static int check_abi_version(void)
+{
+	char path[256];
+	char val[16];
+
+	if (sysfs_get_mnt_path(path, sizeof path)) {
+		fprintf(stderr, "librdmacm: couldn't find sysfs mount.\n");
+		return -ENODEV;
+	}
+
+	strncat(path, "/class/misc/rdma_cm/abi_version", sizeof path);
+	if (sysfs_read_attribute_value(path, val, sizeof val))
+		abi_ver = 1; /* ABI version wasn't available until version 2 */
+	else
+		abi_ver = strtol(val, NULL, 10);
+
+	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
+	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION) {
+		fprintf(stderr, "librdmacm: kernel ABI version %d "
+				"doesn't match library version %d.\n",
+				abi_ver, RDMA_USER_CM_MAX_ABI_VERSION);
+		return -ENOSYS;
+	}
+	return 0;
+}
+
 static int ucma_init(void)
 {
 	int i;
@@ -156,6 +183,10 @@ static int ucma_init(void)
 		ret = -ENOENT;
 		goto err;
 	}
+
+	ret = check_abi_version();
+	if (ret)
+		goto err;
 
 	cma_dev_list = dlist_new(sizeof *cma_dev);
 	if (!cma_dev_list) {
@@ -404,7 +435,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
 
-	if (((struct sockaddr_in *) addr)->sin_addr.s_addr != 0) {
+	if (abi_ver > 1) {
 		ret = ucma_query_route(id);
 		if (ret)
 			return ret;
