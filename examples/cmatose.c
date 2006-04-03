@@ -74,8 +74,10 @@ struct cmatest {
 	int			connects_left;
 	int			disconnects_left;
 
-	struct sockaddr_in	addr_in;
-	struct sockaddr		*addr;
+	struct sockaddr_in	dst_in;
+	struct sockaddr		*dst_addr;
+	struct sockaddr_in	src_in;
+	struct sockaddr		*src_addr;
 };
 
 static struct cmatest test;
@@ -454,9 +456,9 @@ static void run_server(void)
 		return;
 	}
 
-	test.addr_in.sin_family = PF_INET;
-	test.addr_in.sin_port = 7471;
-	ret = rdma_bind_addr(listen_id, test.addr);
+	test.src_in.sin_family = PF_INET;
+	test.src_in.sin_port = 7471;
+	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
 		printf("cmatose: bind address failed: %d\n", ret);
 		return;
@@ -497,7 +499,7 @@ out:
 	rdma_destroy_id(listen_id);
 }
 
-static int get_dst_addr(char *dst)
+static int get_addr(char *dst, struct sockaddr_in *addr)
 {
 	struct addrinfo *res;
 	int ret;
@@ -513,26 +515,34 @@ static int get_dst_addr(char *dst)
 		goto out;
 	}
 
-	test.addr_in = *(struct sockaddr_in *) res->ai_addr;
-	test.addr_in.sin_port = 7471;
+	*addr = *(struct sockaddr_in *) res->ai_addr;
 out:
 	freeaddrinfo(res);
 	return ret;
 }
 
-static void run_client(char *dst)
+static void run_client(char *dst, char *src)
 {
 	int i, ret;
 
 	printf("cmatose: starting client\n");
-	ret = get_dst_addr(dst);
+	if (src) {
+		ret = get_addr(src, &test.src_in);
+		if (ret)
+			return;
+	}
+
+	ret = get_addr(dst, &test.dst_in);
 	if (ret)
 		return;
 
+	test.dst_in.sin_port = 7471;
+
 	printf("cmatose: connecting\n");
 	for (i = 0; i < connections; i++) {
-		ret = rdma_resolve_addr(test.nodes[i].cma_id, NULL,
-					test.addr, 2000);
+		ret = rdma_resolve_addr(test.nodes[i].cma_id,
+					src ? test.src_addr : NULL,
+					test.dst_addr, 2000);
 		if (ret) {
 			printf("cmatose: failure getting addr: %d\n", ret);
 			connect_error();
@@ -560,13 +570,14 @@ out:
 
 int main(int argc, char **argv)
 {
-	if (argc != 1 && argc != 2) {
-		printf("usage: %s [server_addr]\n", argv[0]);
+	if (argc > 3) {
+		printf("usage: %s [server_addr [src_addr]]\n", argv[0]);
 		exit(1);
 	}
 	is_server = (argc == 1);
 
-	test.addr = (struct sockaddr *) &test.addr_in;
+	test.dst_addr = (struct sockaddr *) &test.dst_in;
+	test.src_addr = (struct sockaddr *) &test.src_in;
 	test.connects_left = connections;
 	test.disconnects_left = connections;
 	if (alloc_nodes())
@@ -575,7 +586,7 @@ int main(int argc, char **argv)
 	if (is_server)
 		run_server();
 	else
-		run_client(argv[1]);
+		run_client(argv[1], (argc == 3) ? argv[2] : NULL);
 
 	printf("test complete\n");
 	destroy_nodes();
