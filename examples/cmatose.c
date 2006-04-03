@@ -204,9 +204,11 @@ static int post_sends(struct cmatest_node *node)
 	sge.lkey = node->mr->lkey;
 	sge.addr = (uintptr_t) node->mem;
 
-	for (i = 0; i < message_count && !ret; i++)
+	for (i = 0; i < message_count && !ret; i++) {
 		ret = ibv_post_send(node->cma_id->qp, &send_wr, &bad_send_wr);
-
+		if (ret) 
+			printf("failed to post sends: %d\n", ret);
+	}
 	return ret;
 }
 
