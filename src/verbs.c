@@ -55,7 +55,6 @@ int iwch_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 
 	ret =
 	    ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd, sizeof cmd);
-	fprintf(stderr, "ibv_cmd_query_device ret = 0x%x\n", ret);
 	if (ret)
 		return ret;
 
@@ -121,7 +120,6 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 
 	if (ibv_cmd_reg_mr(pd, addr, length, hca_va,
 			   access, mr, &cmd, sizeof cmd)) {
-		fprintf(stderr, "ibv_cmd_reg_mr failed\n");
 		free(mr);
 		return NULL;
 	}
@@ -155,14 +153,11 @@ struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 	struct iwch_cq *cq;
 	int ret;
 
-	fprintf(stderr, "iwch_create_cq called\n");
-
 	cq = malloc(sizeof *cq);
 	if (!cq) {
 		goto err;
 	}
 
-	fprintf(stderr, "Calling ibv_cmd_create_cq\n");
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 				&cq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);

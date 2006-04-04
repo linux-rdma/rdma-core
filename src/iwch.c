@@ -143,17 +143,14 @@ struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
 	pcidev = sysfs_get_classdev_device(sysdev);
 	if (!pcidev)
 		return NULL;
-	fprintf(stderr, PFX "pcidev 0x%p\n", pcidev);
 
 	attr = sysfs_get_device_attr(pcidev, "vendor");
 	if (!attr)
 		return NULL;
 	sscanf(attr->value, "%i", &vendor);
-	fprintf(stderr, PFX "vendor 0x%p\n", attr->value);
 	sysfs_close_attribute(attr);
 
 	attr = sysfs_get_device_attr(pcidev, "device");
-	fprintf(stderr, PFX "device 0x%p\n", attr->value);
 	if (!attr)
 		return NULL;
 	sscanf(attr->value, "%i", &device);
@@ -169,9 +166,7 @@ struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
 found:
 	dev = malloc(sizeof *dev);
 	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			sysdev->name);
-		abort();
+		return NULL;
 	}
 
 	dev->ibv_dev.ops = iwch_dev_ops;
