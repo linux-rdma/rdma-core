@@ -32,21 +32,20 @@
 # combinations of this program with other software, or any other
 # product whatsoever.
 
-%define prefix /usr
-%define ver      @VERSION@
-%define  RELEASE 1
-%define  rel     %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%define ver @VERSION@
+%define RELEASE 1
+%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: PathScale InfiniPath HCA Userspace Driver
 Name: libipathverbs
 Version: %ver
-Release: %rel
+Release: %rel%{?dist}
 License: GPL/BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
 Url: http://openib.org/
-Requires: libibverbs
+BuildRequires: libibverbs-devel >= 1.0
 
 %description
 libipathverbs provides a device-specific userspace driver for PathScale HCAs.
