@@ -326,7 +326,7 @@ static int rping_accept(struct rping_cb *cb)
 	}
 
 	sem_wait(&cb->sem);
-	if (cb->state != CONNECTED) {
+	if (cb->state == ERROR) {
 		fprintf(stderr, "wait for CONNECTED state %d\n", cb->state);
 		return -1;
 	}
