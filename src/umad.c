@@ -936,7 +936,7 @@ umad_unregister(int portid, int agentid)
 {
 	Port *port;
 
-	TRACE("portid %d unregisters agent %d", agentid);
+	TRACE("portid %d unregistering agent %d", agentid);
 
 	if (!(port = port_get(portid)))
 		return -EINVAL;
