@@ -151,9 +151,7 @@ static int check_abi_version(void)
 	}
 
 	strncat(path, "/class/misc/rdma_cm/abi_version", sizeof path);
-	if (sysfs_read_attribute_value(path, val, sizeof val))
-		abi_ver = 1; /* ABI version wasn't available until version 2 */
-	else
+	if (!sysfs_read_attribute_value(path, val, sizeof val))
 		abi_ver = strtol(val, NULL, 10);
 
 	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
