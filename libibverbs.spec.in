@@ -1,20 +1,19 @@
 # $Id$
 
-%define ver @VERSION@
-%define RELEASE 1
-%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%define ver      @VERSION@
 
 Name: libibverbs
 Version: 1.0.3
-Release: %rel%{?dist}
+Release: 1%{?dist}
 Summary: A library for direct userspace use of InfiniBand
+
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
-Source: http://openib.org/downloads/libibverbs-%{version}.tar.gz
+Source: http://openib.org/downloads/libibverbs-1.0.3.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires: %{_includedir}/sysfs/libsysfs.h
+BuildRequires: sysfsutils-devel
 
 %description
 libibverbs is a library that allows userspace processes to use
@@ -28,7 +27,7 @@ also be installed.
 %package devel
 Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release} %{_includedir}/sysfs/libsysfs.h
+Requires: %{name} = %{version}-%{release} sysfsutils-devel
 
 %description devel
 Static libraries and header files for the libibverbs verbs library.
