@@ -13,7 +13,7 @@ Url: http://openib.org/
 Source: http://openib.org/downloads/libibverbs-1.0.3.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires: sysfsutils-devel
+BuildRequires: %{_includedir}/sysfs/libsysfs.h
 
 %description
 libibverbs is a library that allows userspace processes to use
@@ -27,7 +27,7 @@ also be installed.
 %package devel
 Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release} sysfsutils-devel
+Requires: %{name} = %{version}-%{release} %{_includedir}/sysfs/libsysfs.h
 
 %description devel
 Static libraries and header files for the libibverbs verbs library.
