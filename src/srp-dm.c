@@ -36,8 +36,6 @@
 #include <errno.h>
 #include <getopt.h>
 
-#include <sysfs/libsysfs.h>
-
 #include "ib_user_mad.h"
 #include "srp-dm.h"
 
@@ -72,22 +70,56 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 static inline uint64_t htonll(uint64_t x) { return x; }
 #endif
 
-void usage(const char *argv0)
+static char *sysfs_path = "/sys";
+
+static void usage(const char *argv0)
 {
 	fprintf(stderr, "Usage: %s [-vc] [-d <umad device>]\n", argv0);
 }
 
-int setup_port_sysfs_path(void) {
-	char path[256];
+static int read_file(const char *dir, const char *file, char *buf, size_t size)
+{
+	char *path;
+	int fd;
+	int len;
+
+	asprintf(&path, "%s/%s", dir, file);
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	len = read(fd, buf, size);
+
+	close(fd);
+	free(path);
+
+	if (len > 0 && buf[len - 1] == '\n') {
+		--len;
+		buf[len] = '\0';
+	}
+
+	return len;
+}
+
+
+static int setup_port_sysfs_path(void) {
+	char *env;
+	char class_dev_path[256];
 	char ibport[16];
 	char ibdev[16];
 	char *umad_dev_name;
-	struct sysfs_class_device *umad_sysfs_dev;
-	struct sysfs_attribute *umad_attr;
-	
-	if (sysfs_get_mnt_path(path, sizeof path)) {
-		fprintf(stderr, "Couldn't find sysfs mount.\n");
-		return -1;
+
+	env = getenv("SYSFS_PATH");
+	if (env) {
+		int len;
+
+		sysfs_path = strndup(env, 256);
+		len = strlen(sysfs_path);
+		while (len > 0 && sysfs_path[len - 1] == '/') {
+			--len;
+			sysfs_path[len] = '\0';
+		}
 	}
 
 	umad_dev_name = rindex(umad_dev, '/');
@@ -96,34 +128,26 @@ int setup_port_sysfs_path(void) {
 		return -1;
 	}
 
-	umad_sysfs_dev = sysfs_open_class_device("infiniband_mad", umad_dev_name);
-	if(!umad_sysfs_dev) {
-		fprintf(stderr, "Couldn't open umad sysfs entry %s\n",
-			umad_dev_name);
-		return -1;
-	}
+	snprintf(class_dev_path, sizeof class_dev_path,
+		 "%s/class/infiniband_mad/%s", sysfs_path, umad_dev_name);
 
-	umad_attr = sysfs_get_classdev_attr(umad_sysfs_dev, "ibdev");
-	if(sysfs_read_attribute(umad_attr)) {
+	if (read_file(class_dev_path, "ibdev", ibdev, sizeof ibdev) < 0) {
 		fprintf(stderr, "Couldn't read ibdev attribute\n");
 		return -1;
 	}
-	sscanf(umad_attr->value, "%15s", ibdev);
 		
-	umad_attr = sysfs_get_classdev_attr(umad_sysfs_dev, "port");
-	if(sysfs_read_attribute(umad_attr)) {
-		fprintf(stderr, "Couldn't read port attribute.\n");
+	if (read_file(class_dev_path, "port", ibport, sizeof ibport) < 0) {
+		fprintf(stderr, "Couldn't read port attribute\n");
 		return -1;
 	}
-	sscanf(umad_attr->value, "%15s", ibport);
 
 	asprintf(&port_sysfs_path, "%s/class/infiniband/%s/ports/%s",
-		 path, ibdev, ibport);
+		 sysfs_path, ibdev, ibport);
 
 	return 0;
 }
 
-int create_agent(int fd, uint32_t agent[2])
+static int create_agent(int fd, uint32_t agent[2])
 {
 	struct ib_user_mad_reg_req req;
 	memset(&req, 0, sizeof req);
@@ -146,8 +170,8 @@ int create_agent(int fd, uint32_t agent[2])
 	return 0;
 }
 
-void init_srp_dm_mad(struct ib_user_mad *out_mad, uint32_t agent, uint16_t dlid,
-		     uint16_t attr_id, uint32_t attr_mod)
+static void init_srp_dm_mad(struct ib_user_mad *out_mad, uint32_t agent,
+			    uint16_t dlid, uint16_t attr_id, uint32_t attr_mod)
 {
 	struct srp_dm_mad *out_dm_mad;
 
@@ -171,13 +195,12 @@ void init_srp_dm_mad(struct ib_user_mad *out_mad, uint32_t agent, uint16_t dlid,
 	((uint32_t *) &out_dm_mad->tid)[1] = tid++;
 }
 
-int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
+static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
 	struct srp_dm_class_port_info  *cpi;
 	char val[64];
-	char *name;
 	int i;
 
 	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_CLASS_PORT_INFO, 0);
@@ -187,19 +210,15 @@ int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
 
 	cpi                = (void *) out_dm_mad->data;
 
-	asprintf(&name, "%s/lid", port_sysfs_path);
-
-	if (sysfs_read_attribute_value(name, val, sizeof val)) {
-		fprintf(stderr, "Couldn't read LID at %s\n", name);
+	if (read_file(port_sysfs_path, "lid", val, sizeof val) < 0) {
+		fprintf(stderr, "Couldn't read LID\n");
 		return -1;
 	}
 
 	cpi->trap_lid = htons(strtol(val, NULL, 0));
 
-	asprintf(&name, "%s/gids/0", port_sysfs_path);
-
-	if (sysfs_read_attribute_value(name, val, sizeof val)) {
-		fprintf(stderr, "Couldn't read GID at %s\n", name);
+	if (read_file(port_sysfs_path, "gids/0", val, sizeof val) < 0) {
+		fprintf(stderr, "Couldn't read GID[0]\n");
 		return -1;
 	}
 
@@ -231,7 +250,8 @@ again:
 	return 0;
 }
 
-int get_iou_info(int fd, uint32_t agent[2], uint16_t dlid, struct srp_dm_iou_info *iou_info)
+static int get_iou_info(int fd, uint32_t agent[2], uint16_t dlid,
+			struct srp_dm_iou_info *iou_info)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *in_dm_mad;
@@ -264,7 +284,8 @@ again:
 	return 0;
 }
 
-int get_ioc_prof(int fd, uint32_t agent[2], uint16_t dlid, int ioc, struct srp_dm_ioc_prof *ioc_prof)
+static int get_ioc_prof(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
+			struct srp_dm_ioc_prof *ioc_prof)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *in_dm_mad;
@@ -302,8 +323,8 @@ again:
 	return 0;
 }
 
-int get_svc_entries(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
-		    int start, int end, struct srp_dm_svc_entries *svc_entries)
+static int get_svc_entries(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
+			   int start, int end, struct srp_dm_svc_entries *svc_entries)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *in_dm_mad;
@@ -342,8 +363,8 @@ again:
 	return 0;
 }
 
-int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_prefix,
-	    uint64_t guid)
+static int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_prefix,
+		   uint64_t guid)
 {
 	struct srp_dm_iou_info		iou_info;
 	struct srp_dm_ioc_prof		ioc_prof;
@@ -437,8 +458,8 @@ int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_prefix,
 	return 0;
 }
 
-int get_port_info(int fd, uint32_t agent[2], uint16_t dlid,
-		  uint64_t *subnet_prefix, int *isdm)
+static int get_port_info(int fd, uint32_t agent[2], uint16_t dlid,
+			 uint64_t *subnet_prefix, int *isdm)
 {
 	struct ib_user_mad		out_mad, in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
@@ -479,23 +500,20 @@ again:
 	return 0;
 }
 
-int get_port_list(int fd, uint32_t agent[2])
+static int get_port_list(int fd, uint32_t agent[2])
 {
 	struct ib_user_mad		out_mad, *in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 	ssize_t len;
 	char val[64];
-	char *name;
 	int size;
 	int i;
 	uint64_t subnet_prefix;
 	int isdm;
 
-	asprintf(&name, "%s/sm_lid", port_sysfs_path);
-
-	if (sysfs_read_attribute_value(name, val, sizeof val)) {
-		fprintf(stderr, "Couldn't read LID at %s\n", name);
+	if (read_file(port_sysfs_path, "sm_lid", val, sizeof val) < 0) {
+		fprintf(stderr, "Couldn't read SM LID\n");
 		return -1;
 	}
 

@@ -1,3 +1,11 @@
+2006-04-10  Roland Dreier  <rdreier@cisco.com>
+
+	* configure.in: srptools no longer needs to check for libsysfs.
+
+	* src/srp-dm.c: Remove use of libsysfs -- just read directly to
+	get what we need.
+	Make functions static, since they are only used in one file.
+
 2006-01-18  Yael Shenhav  <yaeli@mellanox.co.il>
 
 	* src/ib_user_mad.h: Use __u16/__u32 instead of __be16/__be32,
