@@ -1,6 +1,6 @@
-libmthca (1.0.1-2) unstable; urgency=low
+libmthca (1.0.2-1) unstable; urgency=low
 
-  * Change priority to extra.
+  * New upstream release.
 
  -- Roland Dreier <rdreier@cisco.com>  Mon, 27 Mar 2006 13:09:05 -0800
 
