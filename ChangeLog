@@ -1,3 +1,9 @@
+2006-04-11  Hoang-Nam Nguyen  <HNGUYEN@de.ibm.com>
+
+	* src/verbs.c (ibv_rate_to_mult, mult_to_ibv_rate): Add new
+	functions to convert between IB rate enums and multiples of the
+	base 2.5 Gb/sec rate.
+
 2006-04-11  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/verbs.h: Add __attribute_const macro to

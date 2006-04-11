@@ -67,5 +67,7 @@ IBVERBS_1.0 {
 		ib_copy_qp_attr_from_kern;
 		ib_copy_path_rec_from_kern;
 		ib_copy_path_rec_to_kern;
+		ibv_rate_to_mult;
+		mult_to_ibv_rate;
 	local: *;
 };

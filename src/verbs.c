@@ -45,6 +45,38 @@
 
 #include "ibverbs.h"
 
+int ibv_rate_to_mult(enum ibv_rate rate)
+{
+	switch (rate) {
+	case IBV_RATE_2_5_GBPS: return  1;
+	case IBV_RATE_5_GBPS:   return  2;
+	case IBV_RATE_10_GBPS:  return  4;
+	case IBV_RATE_20_GBPS:  return  8;
+	case IBV_RATE_30_GBPS:  return 12;
+	case IBV_RATE_40_GBPS:  return 16;
+	case IBV_RATE_60_GBPS:  return 24;
+	case IBV_RATE_80_GBPS:  return 32;
+	case IBV_RATE_120_GBPS: return 48;
+	default:           return -1;
+	}
+}
+
+enum ibv_rate mult_to_ibv_rate(int mult)
+{
+	switch (mult) {
+	case 1:  return IBV_RATE_2_5_GBPS;
+	case 2:  return IBV_RATE_5_GBPS;
+	case 4:  return IBV_RATE_10_GBPS;
+	case 8:  return IBV_RATE_20_GBPS;
+	case 12: return IBV_RATE_30_GBPS;
+	case 16: return IBV_RATE_40_GBPS;
+	case 24: return IBV_RATE_60_GBPS;
+	case 32: return IBV_RATE_80_GBPS;
+	case 48: return IBV_RATE_120_GBPS;
+	default: return IBV_RATE_MAX;
+	}
+}
+
 int ibv_query_device(struct ibv_context *context,
 		     struct ibv_device_attr *device_attr)
 {
