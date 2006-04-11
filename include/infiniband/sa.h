@@ -33,40 +33,19 @@
  * $Id: sa.h 2616 2005-06-15 15:22:39Z halr $
  */
 
-#ifndef IB_SA_H
-#define IB_SA_H
+#ifndef INFINIBAND_SA_H
+#define INFINIBAND_SA_H
 
 #include <infiniband/verbs.h>
 
-enum ib_sa_rate {
-	IB_SA_RATE_2_5_GBPS = 2,
-	IB_SA_RATE_5_GBPS   = 5,
-	IB_SA_RATE_10_GBPS  = 3,
-	IB_SA_RATE_20_GBPS  = 6,
-	IB_SA_RATE_30_GBPS  = 4,
-	IB_SA_RATE_40_GBPS  = 7,
-	IB_SA_RATE_60_GBPS  = 8,
-	IB_SA_RATE_80_GBPS  = 9,
-	IB_SA_RATE_120_GBPS = 10
-};
+/*
+ * Obsolete, deprecated names.  Will be removed in libibverbs 1.1.
+ */
+#define ib_sa_path_rec		ibv_sa_path_rec
+#define ib_sa_mcmember_rec	ibv_sa_mcmember_rec
+#define ib_sa_service_rec	ibv_sa_service_rec
 
-static inline int ib_sa_rate_enum_to_int(enum ib_sa_rate rate)
-{
-	switch (rate) {
-	case IB_SA_RATE_2_5_GBPS: return  1;
-	case IB_SA_RATE_5_GBPS:   return  2;
-	case IB_SA_RATE_10_GBPS:  return  4;
-	case IB_SA_RATE_20_GBPS:  return  8;
-	case IB_SA_RATE_30_GBPS:  return 12;
-	case IB_SA_RATE_40_GBPS:  return 16;
-	case IB_SA_RATE_60_GBPS:  return 24;
-	case IB_SA_RATE_80_GBPS:  return 32;
-	case IB_SA_RATE_120_GBPS: return 48;
-	default: 	          return -1;
-	}
-}
-
-struct ib_sa_path_rec {
+struct ibv_sa_path_rec {
 	/* reserved */
 	/* reserved */
 	union ibv_gid dgid;
@@ -92,7 +71,7 @@ struct ib_sa_path_rec {
 	uint8_t       preference;
 };
 
-struct ib_sa_mcmember_rec {
+struct ibv_sa_mcmember_rec {
 	union ibv_gid mgid;
 	union ibv_gid port_gid;
 	uint32_t      qkey;
@@ -113,7 +92,7 @@ struct ib_sa_mcmember_rec {
 	int           proxy_join;
 };
 
-struct ib_sa_service_rec {
+struct ibv_sa_service_rec {
 	uint64_t      id;
 	union ibv_gid gid;
 	uint16_t      pkey;
@@ -127,4 +106,4 @@ struct ib_sa_service_rec {
 	uint64_t      data64[2];
 };
 
-#endif /* IB_SA_H */
+#endif /* INFINIBAND_SA_H */

@@ -36,8 +36,8 @@
 
 #include <infiniband/marshall.h>
 
-static void ib_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
-				      struct ibv_kern_ah_attr *src)
+static void ibv_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
+				       struct ibv_kern_ah_attr *src)
 {
 	memcpy(dst->grh.dgid.raw, src->grh.dgid, sizeof dst->grh.dgid);
 	dst->grh.flow_label = src->grh.flow_label;
@@ -53,8 +53,8 @@ static void ib_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
 	dst->port_num = src->port_num;
 }
 
-void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
-			       struct ibv_kern_qp_attr *src)
+void ibv_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
+				struct ibv_kern_qp_attr *src)
 {
 	dst->cur_qp_state = src->cur_qp_state;
 	dst->path_mtu = src->path_mtu;
@@ -71,8 +71,8 @@ void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
 	dst->cap.max_recv_sge = src->max_recv_sge;
 	dst->cap.max_inline_data = src->max_inline_data;
 
-	ib_copy_ah_attr_from_kern(&dst->ah_attr, &src->ah_attr);
-	ib_copy_ah_attr_from_kern(&dst->alt_ah_attr, &src->alt_ah_attr);
+	ibv_copy_ah_attr_from_kern(&dst->ah_attr, &src->ah_attr);
+	ibv_copy_ah_attr_from_kern(&dst->alt_ah_attr, &src->alt_ah_attr);
 
 	dst->pkey_index = src->pkey_index;
 	dst->alt_pkey_index = src->alt_pkey_index;
@@ -89,8 +89,8 @@ void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
 	dst->alt_timeout = src->alt_timeout;
 }
 
-void ib_copy_path_rec_from_kern(struct ib_sa_path_rec *dst,
-				struct ib_kern_path_rec *src)
+void ibv_copy_path_rec_from_kern(struct ibv_sa_path_rec *dst,
+				 struct ibv_kern_path_rec *src)
 {
 	memcpy(dst->dgid.raw, src->dgid, sizeof dst->dgid);
 	memcpy(dst->sgid.raw, src->sgid, sizeof dst->sgid);
@@ -114,8 +114,8 @@ void ib_copy_path_rec_from_kern(struct ib_sa_path_rec *dst,
 	dst->packet_life_time_selector = src->packet_life_time_selector;
 }
 
-void ib_copy_path_rec_to_kern(struct ib_kern_path_rec *dst,
-			      struct ib_sa_path_rec *src)
+void ibv_copy_path_rec_to_kern(struct ibv_kern_path_rec *dst,
+			       struct ibv_sa_path_rec *src)
 {
 	memcpy(dst->dgid, src->dgid.raw, sizeof src->dgid);
 	memcpy(dst->sgid, src->sgid.raw, sizeof src->sgid);
@@ -137,4 +137,22 @@ void ib_copy_path_rec_to_kern(struct ib_kern_path_rec *dst,
 	dst->packet_life_time	= src->packet_life_time;
 	dst->preference		= src->preference;
 	dst->packet_life_time_selector = src->packet_life_time_selector;
+}
+
+void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
+			       struct ibv_kern_qp_attr *src)
+{
+	return ibv_copy_qp_attr_from_kern(dst, src);
+}
+
+void ib_copy_path_rec_from_kern(struct ib_sa_path_rec *dst,
+				struct ib_kern_path_rec *src)
+{
+	return ibv_copy_path_rec_from_kern(dst, src);
+}
+
+void ib_copy_path_rec_to_kern(struct ib_kern_path_rec *dst,
+			      struct ib_sa_path_rec *src)
+{
+	return ibv_copy_path_rec_to_kern(dst, src);
 }

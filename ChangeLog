@@ -1,3 +1,15 @@
+2006-04-11  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/sa-kern-abi.h: Deprecate struct
+	ib_kern_path_rec name; struct ibv_kern_path_rec is now preferred.
+
+	* include/infiniband/sa.h: Deprecate struct ib_sa_XXX names;
+	struct ibv_sa_XXX is now preferred.
+
+	* src/marshall.c, include/infiniband/marshall.h: Deprecate
+	ib_copy_XXX() names; ibv_copy_XXX() is preferred.  Add stub
+	wrappers with the old names so old binaries still work.
+
 2006-04-11  Hoang-Nam Nguyen  <HNGUYEN@de.ibm.com>
 
 	* src/verbs.c (ibv_rate_to_mult, mult_to_ibv_rate): Add new

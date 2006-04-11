@@ -30,12 +30,17 @@
  * SOFTWARE.
  */
 
-#ifndef SA_KERN_ABI_H
-#define SA_KERN_ABI_H
+#ifndef INFINIBAND_SA_KERN_ABI_H
+#define INFINIBAND_SA_KERN_ABI_H
 
 #include <linux/types.h>
 
-struct ib_kern_path_rec {
+/*
+ * Obsolete, deprecated names.  Will be removed in libibverbs 1.1.
+ */
+#define ib_kern_path_rec	ibv_kern_path_rec
+
+struct ibv_kern_path_rec {
 	__u8  dgid[16];
 	__u8  sgid[16];
 	__u16 dlid;
@@ -57,4 +62,4 @@ struct ib_kern_path_rec {
 	__u8  preference;
 };
 
-#endif /* SA_KERN_ABI_H */
+#endif /* INFINIBAND_SA_KERN_ABI_H */
