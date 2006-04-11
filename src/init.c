@@ -121,24 +121,21 @@ static void find_drivers(char *dir)
 static struct ibv_device *init_drivers(struct sysfs_class_device *verbs_dev)
 {
 	struct sysfs_class_device *ib_dev;
-	struct sysfs_attribute *attr;
 	struct ibv_driver *driver;
 	struct ibv_device *dev;
 	char ibdev_name[64];
 
-	attr = sysfs_get_classdev_attr(verbs_dev, "ibdev");
-	if (!attr) {
+	if (ibv_read_sysfs_file(verbs_dev->path, "ibdev",
+				ibdev_name, sizeof ibdev_name) < 0) {
 		fprintf(stderr, PFX "Warning: no ibdev class attr for %s\n",
 			verbs_dev->name);
 		return NULL;
 	}
 
-	sscanf(attr->value, "%63s", ibdev_name);
-
 	ib_dev = sysfs_open_class_device("infiniband", ibdev_name);
 	if (!ib_dev) {
 		fprintf(stderr, PFX "Warning: no infiniband class device %s for %s\n",
-			attr->value, verbs_dev->name);
+			ibdev_name, verbs_dev->name);
 		return NULL;
 	}
 
@@ -164,43 +161,33 @@ static struct ibv_device *init_drivers(struct sysfs_class_device *verbs_dev)
 
 static int check_abi_version(void)
 {
-	char path[256];
-	struct sysfs_attribute *attr;
-	int ret = -1;
+	const char *path;
+	char value[8];
 
-	if (sysfs_get_mnt_path(path, sizeof path)) {
+	path = ibv_get_sysfs_path();
+	if (!path) {
 		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
 		return -1;
 	}
 
-	strncat(path, "/class/infiniband_verbs/abi_version", sizeof path);
-
-	attr = sysfs_open_attribute(path);
-	if (!attr)
-		return -1;
-
-	if (sysfs_read_attribute(attr)) {
+	if (ibv_read_sysfs_file(path, "class/infiniband_verbs/abi_version",
+				value, sizeof value) < 0) {
 		fprintf(stderr, PFX "Fatal: couldn't read uverbs ABI version.\n");
-		goto out;
+		return -1;
 	}
 
-	abi_ver = strtol(attr->value, NULL, 10);
+	abi_ver = strtol(value, NULL, 10);
 
 	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION ||
 	    abi_ver > IB_USER_VERBS_MAX_ABI_VERSION) {
 		fprintf(stderr, PFX "Fatal: kernel ABI version %d "
 			"doesn't match library version %d.\n",
 			abi_ver, IB_USER_VERBS_MAX_ABI_VERSION);
-		goto out;
+		return -1;
 	}
 
-	ret = 0;
-
-out:
-	sysfs_close_attribute(attr);
-	return ret;
+	return 0;
 }
-
 
 HIDDEN int ibverbs_init(struct ibv_device ***list)
 {
@@ -221,7 +208,7 @@ HIDDEN int ibverbs_init(struct ibv_device ***list)
 	find_drivers(default_path);
 
 	/*
-	 * Only follow the path passed in through the calling user's
+	 * Only follow use path passed in through the calling user's
 	 * environment if we're not running SUID.
 	 */
 	if (getuid() == geteuid()) {

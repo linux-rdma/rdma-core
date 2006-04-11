@@ -136,4 +136,12 @@ int ibv_cmd_destroy_ah(struct ibv_ah *ah);
 int ibv_cmd_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 int ibv_cmd_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
+/*
+ * sysfs helper functions
+ */
+const char *ibv_get_sysfs_path(void);
+
+int ibv_read_sysfs_file(const char *dir, const char *file,
+			char *buf, size_t size);
+
 #endif /* INFINIBAND_DRIVER_H */

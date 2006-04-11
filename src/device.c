@@ -87,16 +87,16 @@ const char *ibv_get_device_name(struct ibv_device *device)
 
 uint64_t ibv_get_device_guid(struct ibv_device *device)
 {
-	struct sysfs_attribute *attr;
+	char attr[24];
 	uint64_t guid = 0;
 	uint16_t parts[4];
 	int i;
 
-	attr = sysfs_get_classdev_attr(device->ibdev, "node_guid");
-	if (!attr)
+	if (ibv_read_sysfs_file(device->ibdev->path, "node_guid",
+				attr, sizeof attr) < 0)
 		return 0;
 
-	if (sscanf(attr->value, "%hx:%hx:%hx:%hx",
+	if (sscanf(attr, "%hx:%hx:%hx:%hx",
 		   parts, parts + 1, parts + 2, parts + 3) != 4)
 		return 0;
 

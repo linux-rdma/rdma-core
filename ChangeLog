@@ -1,5 +1,12 @@
 2006-04-11  Roland Dreier  <rdreier@cisco.com>
 
+	* src/device.c (ibv_get_device_guid), src/verbs.c (ibv_query_gid,
+	ibv_query_pkey), src/init.c (init_drivers, check_abi_version): Use
+	libibverbs functions instead of libsysfs functions to get to sysfs.
+
+	* src/sysfs.c (ibv_get_sysfs_path, ibv_read_sysfs_file): Add some
+	simple functions for accessing sysfs without using libsysfs.
+
 	* include/infiniband/sa-kern-abi.h: Deprecate struct
 	ib_kern_path_rec name; struct ibv_kern_path_rec is now preferred.
 

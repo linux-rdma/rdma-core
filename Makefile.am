@@ -15,7 +15,7 @@ else
 endif
 
 src_libibverbs_la_SOURCES = src/cmd.c src/device.c src/init.c src/marshall.c \
-			    src/memory.c src/verbs.c
+			    src/memory.c src/sysfs.c src/verbs.c
 src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibverbs_version_script)
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map

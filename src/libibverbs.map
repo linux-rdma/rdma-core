@@ -69,6 +69,9 @@ IBVERBS_1.0 {
 		ibv_copy_path_rec_to_kern;
 		ibv_rate_to_mult;
 		mult_to_ibv_rate;
+		ibv_get_sysfs_path;
+		ibv_read_sysfs_file;
+
 		ib_copy_qp_attr_from_kern;
 		ib_copy_path_rec_from_kern;
 		ib_copy_path_rec_to_kern;
