@@ -51,6 +51,12 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
+#if __GNUC__ >= 3
+#  define __attribute_const __attribute__((const))
+#else
+#  define __attribute_const
+#endif
+
 BEGIN_C_DECLS
 
 union ibv_gid {
@@ -948,5 +954,7 @@ int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 END_C_DECLS
+
+#  undef __attribute_const
 
 #endif /* INFINIBAND_VERBS_H */

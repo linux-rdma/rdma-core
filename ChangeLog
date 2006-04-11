@@ -1,3 +1,8 @@
+2006-04-11  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/verbs.h: Add __attribute_const macro to
+	portably mark functions as __attribute__((const))
+
 2006-03-28  Roland Dreier  <rdreier@cisco.com>
 
 	* src/init.c (load_driver): Print warning if dlopen() of a driver
