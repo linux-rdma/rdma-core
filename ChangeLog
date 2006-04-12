@@ -1,5 +1,7 @@
 2006-04-11  Roland Dreier  <rdreier@cisco.com>
 
+	* src/sysfs.c (ibv_read_sysfs_file): Fix memory leak if open fails.
+
 	* src/device.c (ibv_get_device_guid), src/verbs.c (ibv_query_gid,
 	ibv_query_pkey), src/init.c (init_drivers, check_abi_version): Use
 	libibverbs functions instead of libsysfs functions to get to sysfs.
