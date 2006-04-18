@@ -20,7 +20,7 @@ libmthca currently supports HCAs based on the following Mellanox chips:
 
     MT23108 InfiniHost (PCI-X)
     MT25208 InfiniHost III Ex (PCI Express)
-    MT25208 InfiniHost III Lx (PCI Express)
+    MT25204 InfiniHost III Lx (PCI Express)
 
 Both non-DDR and DDR HCAs are supported, and the MT25208 is supported
 with both MT23108-compatible and native MemFree firmware.
