@@ -44,6 +44,7 @@
 #include <semaphore.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <inttypes.h>
 
 #include <rdma/rdma_cma.h>
 
@@ -219,7 +220,7 @@ static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
 	cb->remote_rkey = cb->recv_buf.rkey;
 	cb->remote_addr = cb->recv_buf.buf;
 	cb->remote_len  = cb->recv_buf.size;
-	DEBUG_LOG("Received rkey %x addr %llx len %d from peer\n",
+	DEBUG_LOG("Received rkey %x addr %" PRIx64 "len %d from peer\n",
 		  cb->remote_rkey, cb->remote_addr, cb->remote_len);
 
 	if (cb->state == CONNECTED || cb->state == RDMA_WRITE_COMPLETE)
@@ -583,7 +584,7 @@ static void rping_format_send(struct rping_cb *cb, char *buf, struct ibv_mr *mr)
 	info->rkey = mr->rkey;
 	info->size = cb->size;
 
-	DEBUG_LOG("RDMA addr %llx rkey %x len %d\n",
+	DEBUG_LOG("RDMA addr %" PRIx64" rkey %x len %d\n",
 		  info->buf, info->rkey, info->size);
 }
 
@@ -651,7 +652,7 @@ static void rping_test_server(struct rping_cb *cb)
 		cb->rdma_sq_wr.wr.rdma.rkey = cb->remote_rkey;
 		cb->rdma_sq_wr.wr.rdma.remote_addr = cb->remote_addr;
 		cb->rdma_sq_wr.sg_list->length = strlen(cb->rdma_buf) + 1;
-		DEBUG_LOG("rdma write from lkey %x laddr %llx len %d\n",
+		DEBUG_LOG("rdma write from lkey %x laddr %" PRIx64 " len %d\n",
 			  cb->rdma_sq_wr.sg_list->lkey,
 			  cb->rdma_sq_wr.sg_list->addr,
 			  cb->rdma_sq_wr.sg_list->length);
