@@ -685,7 +685,7 @@ int rdma_listen(struct rdma_cm_id *id, int backlog)
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
 
-	return 0;
+	return ucma_query_route(id);
 }
 
 int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
