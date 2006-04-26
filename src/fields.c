@@ -241,11 +241,11 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * SA RMPP
 	 */
-	[IB_SA_RMPP_VERS_F]		{BITSOFFS(24*8+24, 8), "RmppVers", mad_dump_uint},
-	[IB_SA_RMPP_TYPE_F]		{BITSOFFS(24*8+16, 8), "RmppType", mad_dump_uint},
-	[IB_SA_RMPP_RESP_F]		{BITSOFFS(24*8+11, 5), "RmppResp", mad_dump_uint},
-	[IB_SA_RMPP_FLAGS_F]		{BITSOFFS(24*8+8, 3), "RmppFlags", mad_dump_hex},
-	[IB_SA_RMPP_STATUS_F]		{BITSOFFS(24*8+0, 8), "RmppStatus", mad_dump_hex},
+	[IB_SA_RMPP_VERS_F]		{BE_OFFS(24*8+24, 8), "RmppVers", mad_dump_uint},
+	[IB_SA_RMPP_TYPE_F]		{BE_OFFS(24*8+16, 8), "RmppType", mad_dump_uint},
+	[IB_SA_RMPP_RESP_F]		{BE_OFFS(24*8+11, 5), "RmppResp", mad_dump_uint},
+	[IB_SA_RMPP_FLAGS_F]		{BE_OFFS(24*8+8, 3), "RmppFlags", mad_dump_hex},
+	[IB_SA_RMPP_STATUS_F]		{BE_OFFS(24*8+0, 8), "RmppStatus", mad_dump_hex},
 
 	/* data1 */
 	[IB_SA_RMPP_D1_F]		{28*8, 32, "RmppData1", mad_dump_hex},
