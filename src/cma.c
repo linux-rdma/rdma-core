@@ -109,6 +109,7 @@ struct cma_id_private {
 	struct rdma_cm_id id;
 	struct cma_device *cma_dev;
 	int		  events_completed;
+	int		  connect_error;
 	pthread_cond_t	  cond;
 	pthread_mutex_t	  mut;
 	uint32_t	  handle;
@@ -920,16 +921,26 @@ retry:
 		evt->status = ucma_process_conn_resp(id_priv);
 		if (!evt->status)
 			evt->event = RDMA_CM_EVENT_ESTABLISHED;
-		else
+		else {
 			evt->event = RDMA_CM_EVENT_CONNECT_ERROR;
+			id_priv->connect_error = 1;
+		}
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
 		evt->status = ucma_process_establish(&id_priv->id);
-		if (evt->status)
+		if (evt->status) {
 			evt->event = RDMA_CM_EVENT_CONNECT_ERROR;
+			id_priv->connect_error = 1;
+		}
 		break;
 	case RDMA_CM_EVENT_REJECTED:
+		if (id_priv->connect_error)
+			goto retry;
 		ucma_modify_qp_err(evt->id);
+		break;
+	case RDMA_CM_EVENT_DISCONNECTED:
+		if (id_priv->connect_error)
+			goto retry;
 		break;
 	default:
 		break;
