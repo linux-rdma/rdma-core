@@ -161,6 +161,7 @@ static void rping_cma_event_handler(struct rdma_cm_id *cma_id,
 		cb->state = ADDR_RESOLVED;
 		ret = rdma_resolve_route(cma_id, 2000);
 		if (ret) {
+			cb->state = ERROR;
 			fprintf(stderr, "rdma_resolve_route error %d\n", ret);
 			sem_post(&cb->sem);
 		}
