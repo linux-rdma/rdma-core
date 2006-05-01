@@ -76,9 +76,13 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 
 #define mb()	asm volatile("sync" ::: "memory")
 
-#elif defined(__sparc__)
+#elif defined(__sparc_v9__)
 
 #define mb()	asm volatile("membar #LoadLoad | #LoadStore | #StoreStore | #StoreLoad" ::: "memory")
+
+#elif defined(__sparc__)
+
+#define mb()	asm volatile("sync" ::: "memory")
 
 #else
 

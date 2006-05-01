@@ -1,11 +1,17 @@
 libibverbs (1.0.3-1) unstable; urgency=low
 
-  * New upstream release.
   * Change priority to extra, since libibverbs depends on libsysfs2, which
     has priority extra.  (Debian policy section 2.5 states that a package
     may not depend on another package of lower priority)
+  * New upstream release:
+    - For sparc, only generate membar instruction if compiling for V9
+      instruction set.  (Closes: #365559)
+    - Reduce (but not yet eliminate) dependency on libsysfs.
+    - Deprecate some ib_XXX symbol names and introduce ibv_XXX
+      replacements for internal consistency.
+    - Other minor fixes.
 
- -- Roland Dreier <rdreier@cisco.com>  Sun,  9 Apr 2006 12:10:17 -0700
+ -- Roland Dreier <rdreier@cisco.com>  Mon,  1 May 2006 15:54:07 -0700
 
 libibverbs (1.0.2-1) unstable; urgency=low
 

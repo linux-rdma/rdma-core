@@ -1,3 +1,8 @@
+2006-05-01  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/arch.h: Only SPARC V9 ISA supports membar.
+	So just use generic memory barrier for older sparc archs.
+
 2006-04-11  Roland Dreier  <rdreier@cisco.com>
 
 	* src/sysfs.c (ibv_read_sysfs_file): Fix memory leak if open fails.
