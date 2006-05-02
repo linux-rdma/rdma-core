@@ -477,6 +477,7 @@ static int get_port_info(int fd, uint32_t agent[2], uint16_t dlid,
 
 static int get_port_list(int fd, uint32_t agent[2])
 {
+	uint8_t                         in_mad_buf[node_table_response_size];
 	struct ib_user_mad		out_mad, *in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
@@ -494,8 +495,7 @@ static int get_port_list(int fd, uint32_t agent[2])
 
 	sm_lid = strtol(val, NULL, 0);
 
-	in_mad    = alloca(node_table_response_size);
-
+	in_mad     = (void *) in_mad_buf;
 	in_sa_mad  = (void *) in_mad->data;
 	out_sa_mad = (void *) out_mad.data;
 
