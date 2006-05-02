@@ -11,7 +11,7 @@ libibverbs (1.0.3-1) unstable; urgency=low
       replacements for internal consistency.
     - Other minor fixes.
 
- -- Roland Dreier <rdreier@cisco.com>  Mon,  1 May 2006 15:54:07 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Mon,  1 May 2006 15:54:07 -0700
 
 libibverbs (1.0.2-1) unstable; urgency=low
 
