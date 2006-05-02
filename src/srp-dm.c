@@ -102,7 +102,6 @@ static int read_file(const char *dir, const char *file, char *buf, size_t size)
 	return len;
 }
 
-
 static int setup_port_sysfs_path(void) {
 	char *env;
 	char class_dev_path[256];
@@ -135,7 +134,7 @@ static int setup_port_sysfs_path(void) {
 		fprintf(stderr, "Couldn't read ibdev attribute\n");
 		return -1;
 	}
-		
+
 	if (read_file(class_dev_path, "port", ibport, sizeof ibport) < 0) {
 		fprintf(stderr, "Couldn't read port attribute\n");
 		return -1;
@@ -385,7 +384,7 @@ static int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_pre
 	pr_human("    change ID:       %04x\n", ntohs(iou_info.change_id));
 	pr_human("    max controllers: 0x%02x\n", iou_info.max_controllers);
 
-	if (verbose > 0) 
+	if (verbose > 0)
 		for (i = 0; i < iou_info.max_controllers; ++i) {
 			pr_human("    controller[%3d]: ", i + 1);
 			switch ((iou_info.controller_list[i / 2] >>
