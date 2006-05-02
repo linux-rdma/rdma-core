@@ -1,3 +1,7 @@
+2006-05-02  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0.3.
+
 2006-05-01  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/arch.h: Only SPARC V9 ISA supports membar.
