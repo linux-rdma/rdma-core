@@ -44,6 +44,8 @@ static const uint8_t topspin_oui[3] = { 0x00, 0x05, 0xad };
 static char *umad_dev   = "/dev/infiniband/umad0";
 static char *port_sysfs_path;
 static int   timeout_ms = 25000;
+static int   max_mad_retries = 3;
+static int   node_table_response_size = 1 << 18;
 static uint16_t sm_lid;
 static uint32_t tid = 1;
 
@@ -75,6 +77,38 @@ static char *sysfs_path = "/sys";
 static void usage(const char *argv0)
 {
 	fprintf(stderr, "Usage: %s [-vc] [-d <umad device>]\n", argv0);
+}
+
+int send_and_get(int fd, struct ib_user_mad *out_mad,
+		 struct ib_user_mad *in_mad, int in_mad_size)
+{
+	struct srp_dm_mad *out_dm_mad = (void *) out_mad->data;
+	int i, len;
+
+	in_mad_size = in_mad_size ? in_mad_size : sizeof (struct ib_user_mad);
+	for (i = 0; i < max_mad_retries; ++i) {
+		((uint32_t *) &out_dm_mad->tid)[1] = tid++;
+
+		len = write(fd, out_mad, sizeof(struct ib_user_mad));
+		if (len != sizeof (struct ib_user_mad)) {
+			perror("write");
+			return -1;
+		}
+
+		len = read(fd, in_mad, in_mad_size);
+		if (len >= sizeof (struct ib_user_mad))
+			return len;
+		else if (len > 0 && in_mad->hdr.status != ETIMEDOUT) {
+			fprintf(stderr, "bad MAD status: 0x%04x\n",
+				in_mad->hdr.status);
+			return -1;
+		} else if (len <= 0) {
+			perror("read");
+			return -1;
+		}
+	}
+
+	return -1;
 }
 
 static int read_file(const char *dir, const char *file, char *buf, size_t size)
@@ -190,8 +224,6 @@ static void init_srp_dm_mad(struct ib_user_mad *out_mad, uint32_t agent,
 	out_dm_mad->method 	  = SRP_DM_METHOD_GET;
 	out_dm_mad->attr_id       = htons(attr_id);
 	out_dm_mad->attr_mod      = htonl(attr_mod);
-
-	((uint32_t *) &out_dm_mad->tid)[1] = tid++;
 }
 
 static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
@@ -225,19 +257,8 @@ static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
 		((uint16_t *) cpi->trap_gid)[i] = htons(strtol(val + i * 5, NULL, 16));
 	}
 
-again:
-	if (write(fd, &out_mad, sizeof out_mad) != sizeof out_mad) {
-		perror("write");
+	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
-	}
-
-	if (read(fd, &in_mad, sizeof in_mad) != sizeof in_mad) {
-		if (in_mad.hdr.status == ETIMEDOUT)
-			goto again;
-		fprintf(stderr, "%s/%d: ", __func__, __LINE__);
-		perror("read");
-		return -1;
-	}
 
 	in_dm_mad = (void *) in_mad.data;
 	if (in_dm_mad->status) {
@@ -257,19 +278,8 @@ static int get_iou_info(int fd, uint32_t agent[2], uint16_t dlid,
 
 	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_IO_UNIT_INFO, 0);
 
-again:
-	if (write(fd, &out_mad, sizeof out_mad) != sizeof out_mad) {
-		perror("write");
+	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
-	}
-
-	if (read(fd, &in_mad, sizeof in_mad) != sizeof in_mad) {
-		if (in_mad.hdr.status == ETIMEDOUT)
-			goto again;
-		fprintf(stderr, "%s/%d: ", __func__, __LINE__);
-		perror("read");
-		return -1;
-	}
 
 	in_dm_mad = (void *) in_mad.data;
 	if (in_dm_mad->status) {
@@ -291,19 +301,8 @@ static int get_ioc_prof(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
 
 	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_IO_CONTROLLER_PROFILE, ioc);
 
-again:
-	if (write(fd, &out_mad, sizeof out_mad) != sizeof out_mad) {
-		perror("write");
+	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
-	}
-
-	if (read(fd, &in_mad, sizeof in_mad) != sizeof in_mad) {
-		if (in_mad.hdr.status == ETIMEDOUT)
-			goto again;
-		fprintf(stderr, "%s/%d: ", __func__, __LINE__);
-		perror("read");
-		return -1;
-	}
 
 	if (in_mad.hdr.status != 0) {
 		fprintf(stderr, "IO Controller Profile query timed out\n");
@@ -331,19 +330,8 @@ static int get_svc_entries(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
 	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_SERVICE_ENTRIES,
 			(ioc << 16) | (end << 8) | start);
 
-again:
-	if (write(fd, &out_mad, sizeof out_mad) != sizeof out_mad) {
-		perror("write");
+	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
-	}
-
-	if (read(fd, &in_mad, sizeof in_mad) != sizeof in_mad) {
-		if (in_mad.hdr.status == ETIMEDOUT)
-			goto again;
-		fprintf(stderr, "%s/%d: ", __func__, __LINE__);
-		perror("read");
-		return -1;
-	}
 
 	if (in_mad.hdr.status != 0) {
 		fprintf(stderr, "Service Entries query timed out\n");
@@ -477,20 +465,8 @@ static int get_port_info(int fd, uint32_t agent[2], uint16_t dlid,
 	port_info                 = (void *) out_sa_mad->data;
 	port_info->endport_lid	  = htons(dlid);
 
-again:
-	if (write(fd, &out_mad, sizeof out_mad) != sizeof out_mad) {
-		perror("write");
+	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
-	}
-
-	if (read(fd, &in_mad, sizeof in_mad) != sizeof in_mad) {
-		if (in_mad.hdr.status == ETIMEDOUT)
-			goto again;
-
-		fprintf(stderr, "%s/%d: ", __func__, __LINE__);
-		perror("read");
-		return -1;
-	}
 
 	port_info = (void *) in_sa_mad->data;
 	*subnet_prefix = ntohll(port_info->subnet_prefix);
@@ -518,7 +494,7 @@ static int get_port_list(int fd, uint32_t agent[2])
 
 	sm_lid = strtol(val, NULL, 0);
 
-	in_mad    = alloca(1 << 18);
+	in_mad    = alloca(node_table_response_size);
 
 	in_sa_mad  = (void *) in_mad->data;
 	out_sa_mad = (void *) out_mad.data;
@@ -534,21 +510,9 @@ static int get_port_list(int fd, uint32_t agent[2])
 	node                      = (void *) out_sa_mad->data;
 	node->type		  = 1; /* CA */
 
-again:
-	if (write(fd, &out_mad, sizeof out_mad) != sizeof out_mad) {
-		perror("write");
+	len = send_and_get(fd, &out_mad, in_mad, node_table_response_size);
+	if (len < 0)
 		return -1;
-	}
-
-	len = read(fd, in_mad, 1 << 18);
-	if (len < 0) {
-		fprintf(stderr, "%s/%d: ", __func__, __LINE__);
-		perror("read");
-		return -1;
-	}
-
-	if (in_mad->hdr.status == ETIMEDOUT)
-		goto again;
 
 	size = ntohs(in_sa_mad->attr_offset) * 8;
 
