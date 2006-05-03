@@ -2,7 +2,7 @@ Source: libmthca
 Priority: extra
 Maintainer: Roland Dreier <rolandd@cisco.com>
 Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), libibverbs-dev (>= 1.0), autotools-dev
-Standards-Version: 3.6.2.1
+Standards-Version: 3.7.0
 Section: libs
 
 Package: libmthca1
