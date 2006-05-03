@@ -1,3 +1,9 @@
+2006-04-11  Roland Dreier  <rdreier@cisco.com>
+
+	* src/mthca.c (ibv_driver_init, openib_driver_init): Add new
+	forward-compatible driver entry point.  Make old entry point a
+	simple wrapper for the new one.
+
 2006-03-14  Roland Dreier  <rdreier@cisco.com>
 
 	* Release version 1.0.1.

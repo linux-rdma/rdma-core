@@ -217,29 +217,53 @@ static struct ibv_device_ops mthca_dev_ops = {
 	.free_context  = mthca_free_context
 };
 
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
+/*
+ * Keep a private implementation of HAVE_IBV_READ_SYSFS_FILE to handle
+ * old versions of libibverbs that didn't implement it.  This can be
+ * removed when libibverbs 1.0.3 or newer is available "everywhere."
+ */
+#ifndef HAVE_IBV_READ_SYSFS_FILE
+static int ibv_read_sysfs_file(const char *dir, const char *file,
+			       char *buf, size_t size)
 {
-	struct sysfs_device    *pcidev;
-	struct sysfs_attribute *attr;
+	char path[256];
+	int fd;
+	int len;
+
+	snprintf(path, sizeof path, "%s/%s", dir, file);
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	len = read(fd, buf, size);
+
+	close(fd);
+
+	if (len > 0 && buf[len - 1] == '\n')
+		buf[--len] = '\0';
+
+	return len;
+}
+#endif /* HAVE_IBV_READ_SYSFS_FILE */
+
+struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
+				   int abi_version)
+{
+	char			value[8];
 	struct mthca_device    *dev;
 	unsigned                vendor, device;
 	int                     i;
 
-	pcidev = sysfs_get_classdev_device(sysdev);
-	if (!pcidev)
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
+				value, sizeof value) < 0)
 		return NULL;
+	sscanf(value, "%i", &vendor);
 
-	attr = sysfs_get_device_attr(pcidev, "vendor");
-	if (!attr)
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
+				value, sizeof value) < 0)
 		return NULL;
-	sscanf(attr->value, "%i", &vendor);
-	sysfs_close_attribute(attr);
-
-	attr = sysfs_get_device_attr(pcidev, "device");
-	if (!attr)
-		return NULL;
-	sscanf(attr->value, "%i", &device);
-	sysfs_close_attribute(attr);
+	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
@@ -252,8 +276,8 @@ found:
 	dev = malloc(sizeof *dev);
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			sysdev->name);
-		abort();
+			uverbs_sys_path);
+		return NULL;
 	}
 
 	dev->ibv_dev.ops = mthca_dev_ops;
@@ -261,4 +285,16 @@ found:
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
+}
+
+struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
+{
+	int abi_ver = 0;
+	char value[8];
+
+	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
+				value, sizeof value) > 0)
+		abi_ver = strtol(value, NULL, 10);
+
+	return ibv_driver_init(sysdev->path, abi_ver);
 }
