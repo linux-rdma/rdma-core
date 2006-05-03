@@ -888,7 +888,7 @@ umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 		return req.id; 		/* return agentid */
 	}
 	
-	DEBUG("portid %d registering qp %d class %s version %d oui 0x%x failed: %m",
+	DEBUG("portid %d registering qp %d class 0x%x version %d oui 0x%x failed: %m",
 		portid, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
 	return -EPERM;	
 }
@@ -926,7 +926,7 @@ umad_register(int portid, int mgmt_class, int mgmt_version,
 		return req.id; 		/* return agentid */
 	}
 	
-	DEBUG("portid %d registering qp %d class %s version %d failed: %m",
+	DEBUG("portid %d registering qp %d class 0x%x version %d failed: %m",
 		portid, qp, mgmt_class, mgmt_version);
 	return -EPERM;	
 }
