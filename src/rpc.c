@@ -269,8 +269,6 @@ madrpc_unlock(void)
 void
 madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 {
-	int rmpp_version = 0;
-
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
 
@@ -278,6 +276,7 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		IBPANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
 
 	while (num_classes--) {
+		int rmpp_version = 0;
 		int mgmt = *mgmt_classes++;
 
 		if (mgmt == IB_SA_CLASS)
