@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -57,7 +57,9 @@ enum {
 	UCMA_CMD_REJECT,
 	UCMA_CMD_DISCONNECT,
 	UCMA_CMD_INIT_QP_ATTR,
-	UCMA_CMD_GET_EVENT
+	UCMA_CMD_GET_EVENT,
+	UCMA_CMD_GET_OPTION,
+	UCMA_CMD_SET_OPTION,
 };
 
 struct ucma_abi_cmd_hdr {
@@ -180,6 +182,27 @@ struct ucma_abi_event_resp {
 	__u8  private_data_len;
 	__u8  reserved[3];
 	__u8  private_data[RDMA_MAX_PRIVATE_DATA];
+};
+
+struct ucma_abi_get_option {
+	__u64 response;
+	__u64 optval;
+	__u32 id;
+	__u32 level;
+	__u32 optname;
+	__u32 optlen;
+};
+
+struct ucma_abi_get_option_resp {
+	__u32 optlen;
+};
+
+struct ucma_abi_set_option {
+	__u64 optval;
+	__u32 id;
+	__u32 level;
+	__u32 optname;
+	__u32 optlen;
 };
 
 #endif /* RDMA_CMA_ABI_H */

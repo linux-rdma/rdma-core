@@ -963,3 +963,51 @@ int rdma_get_fd(void)
 
 	return cma_fd;
 }
+
+int rdma_get_option(struct rdma_cm_id *id, int level, int optname,
+		    void *optval, size_t *optlen)
+{
+	struct ucma_abi_get_option_resp *resp;
+	struct ucma_abi_get_option *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+	
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_GET_OPTION, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	cmd->optval = (uintptr_t) optval;
+	cmd->level = level;
+	cmd->optname = optname;
+	cmd->optlen = *optlen;
+
+	ret = write(cma_fd, msg, size);
+	if (ret != size)
+		return (ret > 0) ? -ENODATA : ret;
+
+	*optlen = resp->optlen;
+	return 0;
+}
+
+int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
+		    void *optval, size_t optlen)
+{
+	struct ucma_abi_set_option *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+	
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_SET_OPTION, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	cmd->optval = (uintptr_t) optval;
+	cmd->level = level;
+	cmd->optname = optname;
+	cmd->optlen = optlen;
+
+	ret = write(cma_fd, msg, size);
+	if (ret != size)
+		return (ret > 0) ? -ENODATA : ret;
+
+	return 0;
+}

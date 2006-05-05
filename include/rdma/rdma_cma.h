@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Voltaire Inc.  All rights reserved.
- * Copyright (c) 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
  *
  * This Software is licensed under one of the following licenses:
  *
@@ -52,6 +52,17 @@ enum rdma_cm_event_type {
 	RDMA_CM_EVENT_ESTABLISHED,
 	RDMA_CM_EVENT_DISCONNECTED,
 	RDMA_CM_EVENT_DEVICE_REMOVAL,
+};
+
+/* Protocol levels for get/set options. */
+enum {
+	RDMA_PROTO_IP = 0,
+	RDMA_PROTO_IB = 1,
+};
+
+/* IB specific option names for get/set. */
+enum {
+	IB_PATH_OPTIONS = 1,
 };
 
 struct ib_addr {
@@ -218,5 +229,28 @@ int rdma_get_cm_event(struct rdma_cm_event **event);
 int rdma_ack_cm_event(struct rdma_cm_event *event);
 
 int rdma_get_fd(void);
+
+/**
+ * rdma_get_option - Retrieve options for an rdma_cm_id.
+ * @id: Communication identifier to retrieve option for.
+ * @level: Protocol level of the option to retrieve.
+ * @optname: Name of the option to retrieve.
+ * @optval: Buffer to receive the returned options.
+ * @optlen: On input, the size of the %optval buffer.  On output, the
+ *   size of the returned data.
+ */
+int rdma_get_option(struct rdma_cm_id *id, int level, int optname,
+		    void *optval, size_t *optlen);
+
+/**
+ * rdma_set_option - Set options for an rdma_cm_id.
+ * @id: Communication identifier to set option for.
+ * @level: Protocol level of the option to set.
+ * @optname: Name of the option to set.
+ * @optval: Reference to the option data.
+ * @optlen: The size of the %optval buffer.
+ */
+int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
+		    void *optval, size_t optlen);
 
 #endif /* RDMA_CMA_H */
