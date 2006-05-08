@@ -1,3 +1,9 @@
+2006-05-08  Jack Morgenstein  <jackm@mellanox.co.il>
+
+	* src/mthca.c: Add include files needed for open() if
+	HAVE_IBV_READ_SYSFS_FILE is not defined (so libmthca includes a
+	private local definition of ibv_read_sysfs_file()).
+
 2006-04-11  Roland Dreier  <rdreier@cisco.com>
 
 	* src/mthca.c (ibv_driver_init, openib_driver_init): Add new

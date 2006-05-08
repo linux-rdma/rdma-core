@@ -44,6 +44,12 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
+#ifndef HAVE_IBV_READ_SYSFS_FILE
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
+
 #include "mthca.h"
 #include "mthca-abi.h"
 
