@@ -1,7 +1,7 @@
 libmthca (1.0.2-1) unstable; urgency=low
 
   * New upstream release.
-  * Update to Standards-Version: 3.7.0.
+  * Update to Standards-Version: 3.7.2.
 
  -- Roland Dreier <rolandd@cisco.com>  Wed,  3 May 2006 09:32:45 -0700
 
