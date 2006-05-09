@@ -410,8 +410,8 @@ static int ucma_query_route(struct rdma_cm_id *id)
 
 		id->route.num_paths = resp->num_paths;
 		for (i = 0; i < resp->num_paths; i++)
-			ib_copy_path_rec_from_kern(&id->route.path_rec[i],
-						   &resp->ib_route[i]);
+			ibv_copy_path_rec_from_kern(&id->route.path_rec[i],
+						    &resp->ib_route[i]);
 	}
 
 	memcpy(id->route.addr.addr.ibaddr.sgid.raw, resp->ib_route[0].sgid,
@@ -527,7 +527,7 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
 
-	ib_copy_qp_attr_from_kern(qp_attr, resp);
+	ibv_copy_qp_attr_from_kern(qp_attr, resp);
 	*qp_attr_mask = resp->qp_attr_mask;
 	return 0;
 }
