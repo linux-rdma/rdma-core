@@ -69,6 +69,7 @@ struct cmatest_node {
 };
 
 struct cmatest {
+	struct rdma_event_channel *channel;
 	struct cmatest_node	*nodes;
 	int			conn_index;
 	int			connects_left;
@@ -375,7 +376,8 @@ static int alloc_nodes(void)
 	for (i = 0; i < connections; i++) {
 		test.nodes[i].id = i;
 		if (!is_server) {
-			ret = rdma_create_id(&test.nodes[i].cma_id,
+			ret = rdma_create_id(test.channel,
+					     &test.nodes[i].cma_id,
 					     &test.nodes[i]);
 			if (ret)
 				goto err;
@@ -424,7 +426,7 @@ static void connect_events(void)
 	int err = 0;
 
 	while (test.connects_left && !err) {
-		err = rdma_get_cm_event(&event);
+		err = rdma_get_cm_event(test.channel, &event);
 		if (!err) {
 			cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
@@ -438,7 +440,7 @@ static void disconnect_events(void)
 	int err = 0;
 
 	while (test.disconnects_left && !err) {
-		err = rdma_get_cm_event(&event);
+		err = rdma_get_cm_event(test.channel, &event);
 		if (!err) {
 			cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
@@ -452,7 +454,7 @@ static void run_server(void)
 	int i, ret;
 
 	printf("cmatose: starting server\n");
-	ret = rdma_create_id(&listen_id, &test);
+	ret = rdma_create_id(test.channel, &listen_id, &test);
 	if (ret) {
 		printf("cmatose: listen request failed\n");
 		return;
@@ -582,6 +584,13 @@ int main(int argc, char **argv)
 	test.src_addr = (struct sockaddr *) &test.src_in;
 	test.connects_left = connections;
 	test.disconnects_left = connections;
+
+	test.channel = rdma_create_event_channel();
+	if (!test.channel) {
+		printf("failed to create event channel\n");
+		exit(1);
+	}
+
 	if (alloc_nodes())
 		exit(1);
 
@@ -592,5 +601,6 @@ int main(int argc, char **argv)
 
 	printf("test complete\n");
 	destroy_nodes();
+	rdma_destroy_event_channel(test.channel);
 	return 0;
 }

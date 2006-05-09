@@ -142,6 +142,7 @@ struct rping_cb {
 
 	/* CM stuff */
 	pthread_t cmthread;
+	struct rdma_event_channel *cm_channel;
 	struct rdma_cm_id *cm_id;	/* connection on client side,*/
 					/* listener on service side. */
 	struct rdma_cm_id *child_cm_id;	/* connection on server side */
@@ -534,11 +535,12 @@ err1:
 
 static void *cm_thread(void *arg)
 {
+	struct rping_cb *cb = arg;
 	struct rdma_cm_event *event;
 	int ret;
 
 	while (1) {
-		ret = rdma_get_cm_event(&event);
+		ret = rdma_get_cm_event(cb->cm_channel, &event);
 		if (ret) {
 			fprintf(stderr, "rdma_get_cm_event err %d\n", ret);
 			exit(ret);
@@ -1019,11 +1021,18 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	ret = rdma_create_id(&cb->cm_id, cb);
+	cb->cm_channel = rdma_create_event_channel();
+	if (!cb->cm_channel) {
+		ret = errno;
+		fprintf(stderr, "rdma_create_event_channel error %d\n", ret);
+		goto out;
+	}
+
+	ret = rdma_create_id(cb->cm_channel, &cb->cm_id, cb);
 	if (ret) {
 		ret = errno;
 		fprintf(stderr, "rdma_create_id error %d\n", ret);
-		goto out;
+		goto out2;
 	}
 	DEBUG_LOG("created cm_id %p\n", cb->cm_id);
 
@@ -1036,6 +1045,8 @@ int main(int argc, char *argv[])
 
 	DEBUG_LOG("destroy cm_id %p\n", cb->cm_id);
 	rdma_destroy_id(cb->cm_id);
+out2:
+	rdma_destroy_event_channel(cb->cm_channel);
 out:
 	free(cb);
 	return ret;

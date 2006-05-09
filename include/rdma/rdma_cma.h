@@ -85,8 +85,13 @@ struct rdma_route {
 	int			 num_paths;
 };
 
+struct rdma_event_channel {
+	int			fd;
+};
+
 struct rdma_cm_id {
 	struct ibv_context	*verbs;
+	struct rdma_event_channel *channel;
 	void			*context;
 	struct ibv_qp		*qp;
 	struct rdma_route	 route;
@@ -102,8 +107,33 @@ struct rdma_cm_event {
 	uint8_t			 private_data_len;
 };
 
-int rdma_create_id(struct rdma_cm_id **id, void *context);
+/**
+ * rdma_create_event_channel - Open a channel used to report communication
+ *   events.
+ */
+struct rdma_event_channel *rdma_create_event_channel();
 
+/**
+ * rdma_destroy_event_channel - Close the event communication channel.
+ * @channel: The communication channel to destroy.
+ */
+int rdma_destroy_event_channel(struct rdma_event_channel *channel);
+
+/**
+ * rdma_create_id - Allocate a communication identifier.
+ * @channel: The communication channel that events associated with the
+ *   allocated rdma_cm_id will be reported on.
+ * @id: A reference where the allocated communication identifier will be
+ *   returned.
+ * @context: User specified context associated with the rdma_cm_id.
+ */
+int rdma_create_id(struct rdma_event_channel *channel,
+		   struct rdma_cm_id **id, void *context);
+
+/**
+ * rdma_destroy_id - Release a communication identifier.
+ * @id: The communication identifier to destroy.
+ */
 int rdma_destroy_id(struct rdma_cm_id *id);
 
 /**
@@ -209,6 +239,7 @@ int rdma_disconnect(struct rdma_cm_id *id);
 /**
  * rdma_get_cm_event - Retrieves the next pending communications event,
  *   if no event is pending waits for an event.
+ * @channel: Event channel to check for events.
  * @event: Allocated information about the next communication event.
  *    Event should be freed using rdma_ack_cm_event()
  *
@@ -216,7 +247,8 @@ int rdma_disconnect(struct rdma_cm_id *id);
  * in the allocation of a new @rdma_cm_id. 
  * Clients are responsible for destroying the new @rdma_cm_id.
  */
-int rdma_get_cm_event(struct rdma_cm_event **event);
+int rdma_get_cm_event(struct rdma_event_channel *channel,
+		      struct rdma_cm_event **event);
 
 /**
  * rdma_ack_cm_event - Free a communications event.
@@ -227,8 +259,6 @@ int rdma_get_cm_event(struct rdma_cm_event **event);
  * and acks.
  */
 int rdma_ack_cm_event(struct rdma_cm_event *event);
-
-int rdma_get_fd(void);
 
 /**
  * rdma_get_option - Retrieve options for an rdma_cm_id.

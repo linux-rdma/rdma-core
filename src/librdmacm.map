@@ -1,5 +1,7 @@
 RDMACM_1.0 {
 	global:
+		rdma_create_event_channel;
+		rdma_destroy_event_channel;
 		rdma_create_id;
 		rdma_destroy_id;
 		rdma_bind_addr;
@@ -14,7 +16,6 @@ RDMACM_1.0 {
 		rdma_disconnect;
 		rdma_get_cm_event;
 		rdma_ack_cm_event;
-		rdma_get_fd;
 		rdma_get_option;
 		rdma_set_option;
 	local: *;
