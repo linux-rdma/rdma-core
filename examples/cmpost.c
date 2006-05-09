@@ -62,7 +62,7 @@ struct cmtest {
 	struct ibv_pd		*pd;
 
 	/* cm info */
-	struct ib_sa_path_rec	path_rec;
+	struct ibv_sa_path_rec	path_rec;
 
 	struct cmtest_node	*nodes;
 	int			conn_index;

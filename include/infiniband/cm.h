@@ -93,8 +93,8 @@ struct ib_cm_req_event_param {
 	struct ib_cm_id		*listen_id;
 	uint8_t			port;
 
-	struct ib_sa_path_rec	*primary_path;
-	struct ib_sa_path_rec	*alternate_path;
+	struct ibv_sa_path_rec	*primary_path;
+	struct ibv_sa_path_rec	*alternate_path;
 
 	uint64_t		remote_ca_guid;
 	uint32_t		remote_qkey;
@@ -173,7 +173,7 @@ struct ib_cm_mra_event_param {
 };
 
 struct ib_cm_lap_event_param {
-	struct ib_sa_path_rec	*alternate_path;
+	struct ibv_sa_path_rec	*alternate_path;
 };
 
 enum ib_cm_apr_status {
@@ -332,8 +332,8 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 		 uint64_t service_mask);
 
 struct ib_cm_req_param {
-	struct ib_sa_path_rec	*primary_path;
-	struct ib_sa_path_rec	*alternate_path;
+	struct ibv_sa_path_rec	*primary_path;
+	struct ibv_sa_path_rec	*alternate_path;
 	uint64_t		service_id;
 	uint32_t		qp_num;
 	enum ibv_qp_type	qp_type;
@@ -478,7 +478,7 @@ int ib_cm_send_mra(struct ib_cm_id *cm_id,
  * @private_data_len: Size of the private data buffer, in bytes.
  */
 int ib_cm_send_lap(struct ib_cm_id *cm_id,
-		   struct ib_sa_path_rec *alternate_path,
+		   struct ibv_sa_path_rec *alternate_path,
 		   void *private_data,
 		   uint8_t private_data_len);
 
@@ -522,7 +522,7 @@ int ib_cm_send_apr(struct ib_cm_id *cm_id,
 		   uint8_t private_data_len);
 
 struct ib_cm_sidr_req_param {
-	struct ib_sa_path_rec	*path;
+	struct ibv_sa_path_rec	*path;
 	uint64_t		service_id;
 	int			timeout_ms;
 	void			*private_data;

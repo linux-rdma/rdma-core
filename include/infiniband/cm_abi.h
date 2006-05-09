@@ -237,8 +237,8 @@ struct cm_abi_event_get {
 };
 
 struct cm_abi_req_event_resp {
-	struct ib_kern_path_rec primary_path;
-	struct ib_kern_path_rec alternate_path;
+	struct ibv_kern_path_rec primary_path;
+	struct ibv_kern_path_rec alternate_path;
 	__u64                  remote_ca_guid;
 	__u32                  remote_qkey;
 	__u32                  remote_qpn;
@@ -282,7 +282,7 @@ struct cm_abi_mra_event_resp {
 };
 
 struct cm_abi_lap_event_resp {
-	struct ib_kern_path_rec path;
+	struct ibv_kern_path_rec path;
 };
 
 struct cm_abi_apr_event_resp {

@@ -403,7 +403,7 @@ int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
 		return (result > 0) ? -ENODATA : result;
 
 	*qp_attr_mask = resp->qp_attr_mask;
-	ib_copy_qp_attr_from_kern(qp_attr, resp);
+	ibv_copy_qp_attr_from_kern(qp_attr, resp);
 
 	return 0;
 }
@@ -431,8 +431,8 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 
 int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 {
-	struct ib_kern_path_rec *p_path;
-	struct ib_kern_path_rec *a_path;
+	struct ibv_kern_path_rec *p_path;
+	struct ibv_kern_path_rec *a_path;
 	struct cm_abi_req *cmd;
 	void *msg;
 	int result;
@@ -463,7 +463,7 @@ int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 		if (!p_path)
 			return -ENOMEM;
 
-		ib_copy_path_rec_to_kern(p_path, param->primary_path);
+		ibv_copy_path_rec_to_kern(p_path, param->primary_path);
 		cmd->primary_path = (uintptr_t) p_path;
 	}
 		
@@ -472,7 +472,7 @@ int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 		if (!a_path)
 			return -ENOMEM;
 
-		ib_copy_path_rec_to_kern(a_path, param->alternate_path);
+		ibv_copy_path_rec_to_kern(a_path, param->alternate_path);
 		cmd->alternate_path = (uintptr_t) a_path;
 	}
 
@@ -674,11 +674,11 @@ int ib_cm_send_mra(struct ib_cm_id *cm_id,
 }
 
 int ib_cm_send_lap(struct ib_cm_id *cm_id,
-		   struct ib_sa_path_rec *alternate_path,
+		   struct ibv_sa_path_rec *alternate_path,
 		   void *private_data,
 		   uint8_t private_data_len)
 {
-	struct ib_kern_path_rec *abi_path;
+	struct ibv_kern_path_rec *abi_path;
 	struct cm_abi_lap *cmd;
 	void *msg;
 	int result;
@@ -692,7 +692,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		if (!abi_path)
 			return -ENOMEM;
 
-		ib_copy_path_rec_to_kern(abi_path, alternate_path);
+		ibv_copy_path_rec_to_kern(abi_path, alternate_path);
 		cmd->path = (uintptr_t) abi_path;
 	}
 
@@ -711,7 +711,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_req_param *param)
 {
-	struct ib_kern_path_rec *abi_path;
+	struct ibv_kern_path_rec *abi_path;
 	struct cm_abi_sidr_req *cmd;
 	void *msg;
 	int result;
@@ -732,7 +732,7 @@ int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 		if (!abi_path)
 			return -ENOMEM;
 
-		ib_copy_path_rec_to_kern(abi_path, param->path);
+		ibv_copy_path_rec_to_kern(abi_path, param->path);
 		cmd->path = (uintptr_t) abi_path;
 	}
 
@@ -800,10 +800,10 @@ static void cm_event_req_get(struct ib_cm_req_event_param *ureq,
 	ureq->srq                        = kreq->srq;
 	ureq->port			 = kreq->port;
 
-	ib_copy_path_rec_from_kern(ureq->primary_path, &kreq->primary_path);
+	ibv_copy_path_rec_from_kern(ureq->primary_path, &kreq->primary_path);
 	if (ureq->alternate_path)
-		ib_copy_path_rec_from_kern(ureq->alternate_path,
-					   &kreq->alternate_path);
+		ibv_copy_path_rec_from_kern(ureq->alternate_path,
+					    &kreq->alternate_path);
 }
 
 static void cm_event_rep_get(struct ib_cm_rep_event_param *urep,
@@ -837,8 +837,8 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 	struct cm_abi_event_get *cmd;
 	struct cm_abi_event_resp *resp;
 	struct ib_cm_event *evt = NULL;
-	struct ib_sa_path_rec *path_a = NULL;
-	struct ib_sa_path_rec *path_b = NULL;
+	struct ibv_sa_path_rec *path_a = NULL;
+	struct ibv_sa_path_rec *path_b = NULL;
 	void *data = NULL;
 	void *info = NULL;
 	void *msg;
@@ -947,8 +947,8 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 	case IB_CM_LAP_RECEIVED:
 		evt->param.lap_rcvd.alternate_path = path_b;
 		path_b = NULL;
-		ib_copy_path_rec_from_kern(evt->param.lap_rcvd.alternate_path,
-					   &resp->u.lap_resp.path);
+		ibv_copy_path_rec_from_kern(evt->param.lap_rcvd.alternate_path,
+					    &resp->u.lap_resp.path);
 		break;
 	case IB_CM_APR_RECEIVED:
 		evt->param.apr_rcvd.ap_status = resp->u.apr_resp.status;
