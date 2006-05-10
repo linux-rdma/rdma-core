@@ -252,7 +252,7 @@ err:
 	return NULL;
 }
 
-int rdma_destroy_event_channel(struct rdma_event_channel *channel)
+void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 {
 	close(channel->fd);
 	free(channel);

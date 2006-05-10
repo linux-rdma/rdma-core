@@ -117,7 +117,7 @@ struct rdma_event_channel *rdma_create_event_channel();
  * rdma_destroy_event_channel - Close the event communication channel.
  * @channel: The communication channel to destroy.
  */
-int rdma_destroy_event_channel(struct rdma_event_channel *channel);
+void rdma_destroy_event_channel(struct rdma_event_channel *channel);
 
 /**
  * rdma_create_id - Allocate a communication identifier.
