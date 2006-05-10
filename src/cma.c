@@ -119,7 +119,7 @@ static struct ibv_device **dev_list;
 static struct dlist *cma_dev_list;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static int ucma_initialized;
-static int abi_ver;
+static int abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
 
 #define container_of(ptr, type, field) \
 	((type *) ((void *)ptr - offsetof(type, field)))
