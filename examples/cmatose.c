@@ -219,7 +219,7 @@ static void connect_error(void)
 	test.connects_left--;
 }
 
-static void addr_handler(struct cmatest_node *node)
+static int addr_handler(struct cmatest_node *node)
 {
 	int ret;
 
@@ -228,9 +228,10 @@ static void addr_handler(struct cmatest_node *node)
 		printf("cmatose: resolve route failed: %d\n", ret);
 		connect_error();
 	}
+	return ret;
 }
 
-static void route_handler(struct cmatest_node *node)
+static int route_handler(struct cmatest_node *node)
 {
 	struct rdma_conn_param conn_param;
 	int ret;
@@ -252,9 +253,10 @@ static void route_handler(struct cmatest_node *node)
 		printf("cmatose: failure connecting: %d\n", ret);
 		goto err;
 	}
-	return;
+	return 0;
 err:
 	connect_error();
+	return ret;
 }
 
 static int connect_handler(struct rdma_cm_id *cma_id)
@@ -305,10 +307,10 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 
 	switch (event->event) {
 	case RDMA_CM_EVENT_ADDR_RESOLVED:
-		addr_handler(cma_id->context);
+		ret = addr_handler(cma_id->context);
 		break;
 	case RDMA_CM_EVENT_ROUTE_RESOLVED:
-		route_handler(cma_id->context);
+		ret = route_handler(cma_id->context);
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
 		ret = connect_handler(cma_id);
@@ -420,35 +422,45 @@ static int poll_cqs(void)
 	return 0;
 }
 
-static void connect_events(void)
+static int connect_events(void)
 {
 	struct rdma_cm_event *event;
-	int err = 0;
+	int err = 0, ret = 0;
 
 	while (test.connects_left && !err) {
 		err = rdma_get_cm_event(test.channel, &event);
 		if (!err) {
 			cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
+		} else {
+			printf("cmatose: failure in rdma_get_cm_event in connect events\n");
+			ret = err;
 		}
 	}
+
+	return ret;
 }
 
-static void disconnect_events(void)
+static int disconnect_events(void)
 {
 	struct rdma_cm_event *event;
-	int err = 0;
+	int err = 0, ret = 0;
 
 	while (test.disconnects_left && !err) {
 		err = rdma_get_cm_event(test.channel, &event);
 		if (!err) {
 			cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
+		} else {
+			printf("cmatose: failure in rdma_get_cm_event in disconnect events\n");
+			ret = err;
 		}
 	}
+
+	return ret;
 }
 
-static void run_server(void)
+static int run_server(void)
 {
 	struct rdma_cm_id *listen_id;
 	int i, ret;
@@ -457,7 +469,7 @@ static void run_server(void)
 	ret = rdma_create_id(test.channel, &listen_id, &test);
 	if (ret) {
 		printf("cmatose: listen request failed\n");
-		return;
+		return ret;
 	}
 
 	test.src_in.sin_family = PF_INET;
@@ -465,7 +477,7 @@ static void run_server(void)
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
 		printf("cmatose: bind address failed: %d\n", ret);
-		return;
+		return ret;
 	}
 
 	ret = rdma_listen(listen_id, 0);
@@ -474,16 +486,21 @@ static void run_server(void)
 		goto out;
 	}
 
-	connect_events();
+	ret = connect_events();
+	if (ret)
+		goto out;
 
 	if (message_count) {
 		printf("initiating data transfers\n");
-		for (i = 0; i < connections; i++)
-			if (post_sends(&test.nodes[i]))
+		for (i = 0; i < connections; i++) {
+			ret = post_sends(&test.nodes[i]);
+			if (ret)
 				goto out;
+		}
 
 		printf("receiving data transfers\n");
-		if (poll_cqs())
+		ret = poll_cqs();
+		if (ret)
 			goto out;
 		printf("data transfers complete\n");
 
@@ -497,10 +514,13 @@ static void run_server(void)
 		rdma_disconnect(test.nodes[i].cma_id);
 	}
 
-	disconnect_events();
+	ret = disconnect_events();
+
  	printf("disconnected\n");
+
 out:
 	rdma_destroy_id(listen_id);
+	return ret;
 }
 
 static int get_addr(char *dst, struct sockaddr_in *addr)
@@ -525,20 +545,20 @@ out:
 	return ret;
 }
 
-static void run_client(char *dst, char *src)
+static int run_client(char *dst, char *src)
 {
-	int i, ret;
+	int i, ret, ret2;
 
 	printf("cmatose: starting client\n");
 	if (src) {
 		ret = get_addr(src, &test.src_in);
 		if (ret)
-			return;
+			return ret;
 	}
 
 	ret = get_addr(dst, &test.dst_in);
 	if (ret)
-		return;
+		return ret;
 
 	test.dst_in.sin_port = 7471;
 
@@ -550,30 +570,44 @@ static void run_client(char *dst, char *src)
 		if (ret) {
 			printf("cmatose: failure getting addr: %d\n", ret);
 			connect_error();
+			return ret;
 		}
 	}
 
-	connect_events();
+	ret = connect_events();
+	if (ret)
+		goto out;
 
 	if (message_count) {
 		printf("receiving data transfers\n");
-		if (poll_cqs())
+		ret = poll_cqs();
+		if (ret)
 			goto out;
 
 		printf("sending replies\n");
-		for (i = 0; i < connections; i++)
-			if (post_sends(&test.nodes[i]))
+		for (i = 0; i < connections; i++) {
+			ret = post_sends(&test.nodes[i]);
+			if (ret)
 				goto out;
+		}
 
 		printf("data transfers complete\n");
 
 	}
+
+	ret = 0;
 out:
-	disconnect_events();
+	ret2 = disconnect_events();
+	if (ret2)
+		ret = ret2;
+
+	return ret;
 }
 
 int main(int argc, char **argv)
 {
+	int ret;
+
 	if (argc > 3) {
 		printf("usage: %s [server_addr [src_addr]]\n", argv[0]);
 		exit(1);
@@ -595,12 +629,14 @@ int main(int argc, char **argv)
 		exit(1);
 
 	if (is_server)
-		run_server();
+		ret = run_server();
 	else
-		run_client(argv[1], (argc == 3) ? argv[2] : NULL);
+		ret = run_client(argv[1], (argc == 3) ? argv[2] : NULL);
 
 	printf("test complete\n");
 	destroy_nodes();
 	rdma_destroy_event_channel(test.channel);
-	return 0;
+
+	printf("return status %d\n", ret);
+	return ret;
 }
