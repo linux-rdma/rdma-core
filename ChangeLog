@@ -1,3 +1,8 @@
+2006-05-18  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/qp.c (mthca_tavor_post_recv): Fix posting of lists of
+	receives that have exactly a multiple of 256 entries.
+
 2006-05-08  Jack Morgenstein  <jackm@mellanox.co.il>
 
 	* src/mthca.c: Add include files needed for open() if
