@@ -931,7 +931,7 @@ static void usage(char *name)
 	printf("\t-c\t\tclient side\n");
 	printf("\t-s\t\tserver side\n");
 	printf("\t-v\t\tdisplay ping data to stdout\n");
-	printf("\t-V\t\tverbosity\n");
+	printf("\t-V\t\tvalidate ping data\n");
 	printf("\t-d\t\tdebug printfs\n");
 	printf("\t-S size \tping data size\n");
 	printf("\t-C count\tping count times\n");
