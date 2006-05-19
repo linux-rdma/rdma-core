@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -566,8 +566,9 @@ enum {
 	IB_NODE_CA = 1,
 	IB_NODE_SWITCH,
 	IB_NODE_ROUTER,
+	NODE_RNIC,
 
-	IB_NODE_MAX = IB_NODE_ROUTER
+	IB_NODE_MAX = NODE_RNIC 
 };
 
 /******************************************************************************/
