@@ -1,3 +1,9 @@
+2006-05-22  Roland Dreier  <rdreier@cisco.com>
+
+	* configure.in, src/mthca.c (openib_driver_init): Check for the
+	presence of <sysfs/libsysfs.h>, and if it is not installed, don't
+	export the old openib_driver_init() entry point.
+
 2006-05-18  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* src/qp.c (mthca_tavor_post_recv): Fix posting of lists of

@@ -293,6 +293,15 @@ found:
 	return &dev->ibv_dev;
 }
 
+/*
+ * Export the old libsysfs sysfs_class_device-based driver entry point
+ * if libsysfs headers are installed.  It doesn't hurt to export it,
+ * even if libibverbs is new enough not to use it; but if libsysfs
+ * headers are not installed, we can assume that the version of
+ * libibverbs we are building against is new enough not to use
+ * openib_driver_init().
+ */
+#ifdef HAVE_SYSFS_LIBSYSFS_H
 struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
 {
 	int abi_ver = 0;
@@ -304,3 +313,4 @@ struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
 
 	return ibv_driver_init(sysdev->path, abi_ver);
 }
+#endif /* HAVE_SYSFS_LIBSYSFS_H */

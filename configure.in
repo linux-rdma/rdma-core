@@ -16,6 +16,7 @@ AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
     AC_MSG_ERROR([ibv_get_device_list() not found.  libmthca requires libibverbs.]))
 
 dnl Checks for header files.
+AC_CHECK_HEADERS(sysfs/libsysfs.h)
 AC_CHECK_HEADER(infiniband/driver.h, [],
     AC_MSG_ERROR([<infiniband/driver.h> not found.  libmthca requires libibverbs.]))
 AC_HEADER_STDC
