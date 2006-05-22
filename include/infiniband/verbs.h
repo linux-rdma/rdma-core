@@ -88,7 +88,7 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_SYS_IMAGE_GUID	= 1 << 11,
 	IBV_DEVICE_RC_RNR_NAK_GEN	= 1 << 12,
 	IBV_DEVICE_SRQ_RESIZE		= 1 << 13,
-	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14,
+	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14
 };
 
 enum ibv_atomic_cap {
@@ -338,7 +338,7 @@ struct ibv_ah_attr {
 
 enum ibv_srq_attr_mask {
 	IBV_SRQ_MAX_WR	= 1 << 0,
-	IBV_SRQ_LIMIT	= 1 << 1,
+	IBV_SRQ_LIMIT	= 1 << 1
 };
 
 struct ibv_srq_attr {
