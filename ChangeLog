@@ -1,3 +1,15 @@
+2006-05-24  Roland Dreier  <rdreier@cisco.com>
+
+	* src/mthca.c: If <sysfs/libsysfs.h> is detected, include it
+	explicitly.  This lets things build when sysfs headers are
+	installed on the build system even when building against
+	libibverbs 1.1 (which does not include sysfs headers implicitly).
+
+	* src/ah.c, src/cq.c, src/memfree.c, src/mthca.c, src/qp.c,
+	src/srq.c: Add include of <string.h>, since it may no long be
+	implicitly included from libsysfs headers when building with
+	libibverbs 1.1.
+
 2006-05-24  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* src/srq.c (mthca_tavor_post_srq_recv): Fix posting of lists of

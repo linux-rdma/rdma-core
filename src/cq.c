@@ -42,6 +42,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <netinet/in.h>
+#include <string.h>
 
 #include <infiniband/opcode.h>
 

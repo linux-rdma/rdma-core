@@ -43,6 +43,11 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <string.h>
+
+#ifdef HAVE_SYSFS_LIBSYSFS_H
+#include <sysfs/libsysfs.h>
+#endif
 
 #ifndef HAVE_IBV_READ_SYSFS_FILE
 #include <sys/types.h>

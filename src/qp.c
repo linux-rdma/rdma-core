@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "mthca.h"
 #include "doorbell.h"
