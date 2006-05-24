@@ -97,24 +97,7 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 
 	first_ind = srq->first_free;
 
-	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (nreq == MTHCA_TAVOR_MAX_WQES_PER_RECV_DB) {
-			nreq = 0;
-
-			doorbell[0] = htonl(first_ind << srq->wqe_shift);
-			doorbell[1] = htonl(srq->srqn << 8);
-
-			/*
-			 * Make sure that descriptors are written
-			 * before doorbell is rung.
-			 */
-			mb();
-
-			mthca_write64(doorbell, to_mctx(ibsrq->context), MTHCA_RECV_DOORBELL);
-
-			first_ind = srq->first_free;
-		}
-
+	for (nreq = 0; wr; wr = wr->next) {
 		ind = srq->first_free;
 
 		if (ind < 0) {
@@ -172,6 +155,23 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 
 		srq->wrid[ind]  = wr->wr_id;
 		srq->first_free = next_ind;
+
+		if (++nreq == MTHCA_TAVOR_MAX_WQES_PER_RECV_DB) {
+			nreq = 0;
+
+			doorbell[0] = htonl(first_ind << srq->wqe_shift);
+			doorbell[1] = htonl(srq->srqn << 8);
+
+			/*
+			 * Make sure that descriptors are written
+			 * before doorbell is rung.
+			 */
+			mb();
+
+			mthca_write64(doorbell, to_mctx(ibsrq->context), MTHCA_RECV_DOORBELL);
+
+			first_ind = srq->first_free;
+		}
 	}
 
 	if (nreq) {
