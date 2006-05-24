@@ -47,6 +47,7 @@
 #include <byteswap.h>
 
 #include <infiniband/verbs.h>
+#include <infiniband/driver.h>
 #include <infiniband/arch.h>
 
 static int verbose = 0;
@@ -169,7 +170,6 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 	struct ibv_context *ctx;
 	struct ibv_device_attr device_attr;
 	struct ibv_port_attr port_attr;
-	struct sysfs_attribute *attr;
 	int rc = 0;
 	uint8_t port;
 	char buf[256];
@@ -194,11 +194,9 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 	printf("\tvendor_id:\t\t\t0x%04x\n", device_attr.vendor_id);
 	printf("\tvendor_part_id:\t\t\t%d\n", device_attr.vendor_part_id);
 	printf("\thw_ver:\t\t\t\t0x%X\n", device_attr.hw_ver);
-	attr = sysfs_get_classdev_attr(ib_dev->ibdev, "board_id");
-	if (attr) {
-		printf("\tboard_id:\t\t\t%s", attr->value);
-		sysfs_close_attribute(attr);
-	}
+
+	if (ibv_read_sysfs_file(ib_dev->ibdev_path, "board_id", buf, sizeof buf) > 0)
+		printf("\tboard_id:\t\t\t%s\n", buf);
 
 	printf("\tphys_port_cnt:\t\t\t%d\n", device_attr.phys_port_cnt);
 

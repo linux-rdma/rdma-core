@@ -34,6 +34,8 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <string.h>
+
 #include <infiniband/marshall.h>
 
 static void ibv_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
@@ -137,22 +139,4 @@ void ibv_copy_path_rec_to_kern(struct ibv_kern_path_rec *dst,
 	dst->packet_life_time	= src->packet_life_time;
 	dst->preference		= src->preference;
 	dst->packet_life_time_selector = src->packet_life_time_selector;
-}
-
-void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
-			       struct ibv_kern_qp_attr *src)
-{
-	return ibv_copy_qp_attr_from_kern(dst, src);
-}
-
-void ib_copy_path_rec_from_kern(struct ib_sa_path_rec *dst,
-				struct ib_kern_path_rec *src)
-{
-	return ibv_copy_path_rec_from_kern(dst, src);
-}
-
-void ib_copy_path_rec_to_kern(struct ib_kern_path_rec *dst,
-			      struct ib_sa_path_rec *src)
-{
-	return ibv_copy_path_rec_to_kern(dst, src);
 }

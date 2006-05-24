@@ -1,3 +1,28 @@
+2006-05-22  Roland Dreier  <rdreier@cisco.com>
+
+	* examples/devinfo.c (print_hca_cap): Read board_id attribute from
+	sysfs using ibv_read_sysfs_file() instead of libsysfs.
+
+	* src/cmd.c, src/marshall.c, src/sysfs.c: Include <string.h>,
+	since it is no longer implicitly included via <sysfs/libsysfs.h>.
+
+	* include/infiniband/driver.h, include/infiniband/verbs.h,
+	src/device.c, src/init.c, src/verbs.c: Remove dependency on
+	libsysfs by implementing what is required directly on top of
+	filesystem operations.
+
+	* include/infiniband/driver.h, src/init.c: Change name of driver
+	entry point to ibv_driver_init(), and update prototype to remove
+	libsysfs dependency.
+
+	* src/marshall.c, include/infiniband/marshall.h,
+	include/infiniband/sa.h: Remove deprecated ib_xxx symbols.
+
+	* Makefile.am: Bump SONAME to 2, since libibverbs 1.1 will be
+	ABI-incompatible with libibverbs 1.0.
+
+	* Create libibverbs 1.1 branch and bump version number to 1.1-pre1.
+
 2006-05-22  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* include/infiniband/verbs.h: Remove trailing commas from

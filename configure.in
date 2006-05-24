@@ -1,11 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(libibverbs, 1.0.4, openib-general@openib.org)
+AC_INIT(libibverbs, 1.1-pre1, openib-general@openib.org)
 AC_CONFIG_SRCDIR([src/ibverbs.h])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libibverbs, 1.0.4)
+AM_INIT_AUTOMAKE(libibverbs, 1.1-pre1)
 
 AM_PROG_LIBTOOL
 
@@ -17,12 +17,8 @@ AC_CHECK_LIB(dl, dlsym, [],
     AC_MSG_ERROR([dlsym() not found.  libibverbs requires libdl.]))
 AC_CHECK_LIB(pthread, pthread_mutex_init, [],
     AC_MSG_ERROR([pthread_mutex_init() not found.  libibverbs requires libpthread.]))
-AC_CHECK_LIB(sysfs, sysfs_open_class, [],
-    AC_MSG_ERROR([sysfs_open_class() not found.  libibverbs requires libsysfs.]))
 
 dnl Checks for header files.
-AC_CHECK_HEADER(sysfs/libsysfs.h, [],
-    AC_MSG_ERROR([<sysfs/libsysfs.h> not found.  libibverbs requires libsysfs.]))
 AC_HEADER_STDC
 
 dnl Checks for typedefs, structures, and compiler characteristics.

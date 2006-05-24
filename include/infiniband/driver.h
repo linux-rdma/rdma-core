@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -37,8 +37,6 @@
 #ifndef INFINIBAND_DRIVER_H
 #define INFINIBAND_DRIVER_H
 
-#include <sysfs/libsysfs.h>
-
 #include <infiniband/verbs.h>
 #include <infiniband/kern-abi.h>
 
@@ -54,16 +52,17 @@
  * Device-specific drivers should declare their device init function
  * as below (the name must be "openib_driver_init"):
  *
- * struct ibv_device *openib_driver_init(struct sysfs_class_device *);
+ * struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
+ *				      int abi_version);
  *
- * libibverbs will call each driver's openib_driver_init() function
- * once for each InfiniBand device.  If the device is one that the
- * driver can support, it should return a struct ibv_device * with the
- * ops member filled in.  If the driver does not support the device,
- * it should return NULL from openib_driver_init().
+ * libibverbs will call each driver's ibv_driver_init() function once
+ * for each InfiniBand device.  If the device is one that the driver
+ * can support, it should return a struct ibv_device * with the ops
+ * member filled in.  If the driver does not support the device, it
+ * should return NULL from openib_driver_init().
  */
 
-typedef struct ibv_device *(*ibv_driver_init_func)(struct sysfs_class_device *);
+typedef struct ibv_device *(*ibv_driver_init_func)(const char *, int);
 
 int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
 			size_t cmd_size, struct ibv_get_context_resp *resp,

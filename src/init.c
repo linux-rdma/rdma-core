@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -43,6 +44,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <dirent.h>
 
 #include "ibverbs.h"
 
@@ -71,7 +73,7 @@ static void load_driver(char *so_path)
 	}
 
 	dlerror();
-	init_func = dlsym(dlhandle, "openib_driver_init");
+	init_func = dlsym(dlhandle, "ibv_driver_init");
 	if (dlerror() != NULL || !init_func) {
 		dlclose(dlhandle);
 		return;
@@ -118,40 +120,45 @@ static void find_drivers(char *dir)
 	globfree(&so_glob);
 }
 
-static struct ibv_device *init_drivers(struct sysfs_class_device *verbs_dev)
+static struct ibv_device *init_drivers(const char *class_path,
+				       const char *dev_name)
 {
-	struct sysfs_class_device *ib_dev;
 	struct ibv_driver *driver;
 	struct ibv_device *dev;
-	char ibdev_name[64];
+	int abi_ver = 0;
+	char sys_path[IBV_SYSFS_PATH_MAX];
+	char ibdev_name[IBV_SYSFS_NAME_MAX];
+	char value[8];
 
-	if (ibv_read_sysfs_file(verbs_dev->path, "ibdev",
-				ibdev_name, sizeof ibdev_name) < 0) {
+	snprintf(sys_path, sizeof sys_path, "%s/%s",
+		 class_path, dev_name);
+
+	if (ibv_read_sysfs_file(sys_path, "abi_version", value, sizeof value) > 0)
+		abi_ver = strtol(value, NULL, 10);
+
+	if (ibv_read_sysfs_file(sys_path, "ibdev", ibdev_name, sizeof ibdev_name) < 0) {
 		fprintf(stderr, PFX "Warning: no ibdev class attr for %s\n",
-			verbs_dev->name);
-		return NULL;
-	}
-
-	ib_dev = sysfs_open_class_device("infiniband", ibdev_name);
-	if (!ib_dev) {
-		fprintf(stderr, PFX "Warning: no infiniband class device %s for %s\n",
-			ibdev_name, verbs_dev->name);
+			sys_path);
 		return NULL;
 	}
 
 	for (driver = driver_list; driver; driver = driver->next) {
-		dev = driver->init_func(verbs_dev);
-		if (dev) {
-			dev->dev    = verbs_dev;
-			dev->ibdev  = ib_dev;
-			dev->driver = driver;
+		dev = driver->init_func(sys_path, abi_ver);
+		if (!dev)
+			continue;
 
-			return dev;
-		}
+		dev->driver = driver;
+		strcpy(dev->dev_path, sys_path);
+		snprintf(dev->ibdev_path, IBV_SYSFS_PATH_MAX, "%s/class/infiniband/%s",
+			 ibv_get_sysfs_path(), ibdev_name);
+		strcpy(dev->dev_name, dev_name);
+		strcpy(dev->name, ibdev_name);
+
+		return dev;
 	}
 
 	fprintf(stderr, PFX "Warning: no userspace device-specific driver found for %s\n"
-		"	driver search path: ", verbs_dev->name);
+		"	driver search path: ", dev_name);
 	if (user_path)
 		fprintf(stderr, "%s:", user_path);
 	fprintf(stderr, "%s\n", default_path);
@@ -159,16 +166,9 @@ static struct ibv_device *init_drivers(struct sysfs_class_device *verbs_dev)
 	return NULL;
 }
 
-static int check_abi_version(void)
+static int check_abi_version(const char *path)
 {
-	const char *path;
 	char value[8];
-
-	path = ibv_get_sysfs_path();
-	if (!path) {
-		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
-		return -1;
-	}
 
 	if (ibv_read_sysfs_file(path, "class/infiniband_verbs/abi_version",
 				value, sizeof value) < 0) {
@@ -191,10 +191,11 @@ static int check_abi_version(void)
 
 HIDDEN int ibverbs_init(struct ibv_device ***list)
 {
+	const char *sysfs_path;
 	char *wr_path, *dir;
-	struct sysfs_class *cls;
-	struct dlist *verbs_dev_list;
-	struct sysfs_class_device *verbs_dev;
+	char class_path[IBV_SYSFS_PATH_MAX];
+	DIR *class_dir;
+	struct dirent *dent;
 	struct ibv_device *device;
 	struct ibv_device **new_list;
 	int num_devices = 0;
@@ -227,34 +228,44 @@ HIDDEN int ibverbs_init(struct ibv_device ***list)
 	 */
 	load_driver(NULL);
 
-	cls = sysfs_open_class("infiniband_verbs");
-	if (!cls) {
-		fprintf(stderr, PFX "Fatal: couldn't open sysfs class 'infiniband_verbs'.\n");
+	sysfs_path = ibv_get_sysfs_path();
+	if (!sysfs_path) {
+		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
 		return 0;
 	}
 
-	if (check_abi_version())
+	if (check_abi_version(sysfs_path))
 		return 0;
 
-	verbs_dev_list = sysfs_get_class_devices(cls);
-	if (!verbs_dev_list) {
-		fprintf(stderr, PFX "Fatal: no infiniband class devices found.\n");
+	snprintf(class_path, sizeof class_path, "%s/class/infiniband_verbs",
+		 sysfs_path);
+	class_dir = opendir(class_path);
+	if (!class_dir) {
+		fprintf(stderr, PFX "Fatal: couldn't open sysfs class "
+			"directory '%s'.\n", class_path);
 		return 0;
 	}
 
-	dlist_for_each_data(verbs_dev_list, verbs_dev, struct sysfs_class_device) {
-		device = init_drivers(verbs_dev);
-		if (device) {
-			if (list_size <= num_devices) {
-				list_size = list_size ? list_size * 2 : 1;
-				new_list = realloc(*list, list_size * sizeof (struct ibv_device *));
-				if (!new_list)
-					goto out;
-				*list = new_list;
-			}
-			(*list)[num_devices++] = device;
+	while ((dent = readdir(class_dir))) {
+		if (dent->d_name[0] == '.' || dent->d_type == DT_REG)
+			continue;
+
+		device = init_drivers(class_path, dent->d_name);
+		if (!device)
+			continue;
+
+		if (list_size <= num_devices) {
+			list_size = list_size ? list_size * 2 : 1;
+			new_list = realloc(*list, list_size * sizeof (struct ibv_device *));
+			if (!new_list)
+				goto out;
+			*list = new_list;
 		}
+
+		(*list)[num_devices++] = device;
 	}
+
+	closedir(class_dir);
 
 out:
 	return num_devices;

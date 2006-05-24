@@ -1,11 +1,11 @@
 Source: libibverbs
 Priority: extra
 Maintainer: Roland Dreier <rolandd@cisco.com>
-Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), autotools-dev, libsysfs-dev
-Standards-Version: 3.7.0
+Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), autotools-dev
+Standards-Version: 3.7.2
 Section: libs
 
-Package: libibverbs1
+Package: libibverbs2
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
@@ -23,22 +23,22 @@ Description: A library for direct userspace use of InfiniBand
 Package: libibverbs-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, libibverbs1 (= ${Source-Version}), libsysfs-dev
+Depends: ${misc:Depends}, libibverbs2 (= ${Source-Version})
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
  Specification.  This includes direct hardware access for fast path
  operations.
  .
- This package is needed to compile programs against libibverbs1.
+ This package is needed to compile programs against libibverbs2.
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
-Package: libibverbs1-dbg
+Package: libibverbs2-dbg
 Section: libdevel
 Priority: extra
 Architecture: any
-Depends: ${misc:Depends}, libibverbs1 (= ${Source-Version})
+Depends: ${misc:Depends}, libibverbs2 (= ${Source-Version})
 Description: Debugging symbols for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
@@ -46,7 +46,7 @@ Description: Debugging symbols for the libibverbs library
  operations.
  .
  This package contains the debugging symbols associated with
- libibverbs1. They will automatically be used by gdb for debugging
+ libibverbs2. They will automatically be used by gdb for debugging
  libibverbs-related issues.
 
 Package: ibverbs-utils
@@ -59,5 +59,5 @@ Description: Examples for the libibverbs library
  Specification.  This includes direct hardware access for fast path
  operations.
  .
- This package contains useful libibverbs1 example programs such as
+ This package contains useful libibverbs2 example programs such as
  ibv_devinfo, which displays information about InfiniBand devices.

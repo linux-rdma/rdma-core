@@ -46,12 +46,6 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
-#if __GNUC__ >= 3
-#  define __attribute_deprecated	__attribute__((deprecated))
-#else
-#  define __attribute_deprecated
-#endif
-
 BEGIN_C_DECLS
 
 void ibv_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
@@ -63,21 +57,6 @@ void ibv_copy_path_rec_from_kern(struct ibv_sa_path_rec *dst,
 void ibv_copy_path_rec_to_kern(struct ibv_kern_path_rec *dst,
 			       struct ibv_sa_path_rec *src);
 
-/*
- * Obsolete, deprecated names.  Will be removed in libibverbs 1.1.
- */
-
-void ib_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
-			       struct ibv_kern_qp_attr *src) __attribute_deprecated;
-
-void ib_copy_path_rec_from_kern(struct ib_sa_path_rec *dst,
-				struct ib_kern_path_rec *src) __attribute_deprecated;
-
-void ib_copy_path_rec_to_kern(struct ib_kern_path_rec *dst,
-			      struct ib_sa_path_rec *src) __attribute_deprecated;
-
 END_C_DECLS
-
-#undef __attribute_deprecated
 
 #endif /* INFINIBAND_MARSHALL_H */

@@ -16,7 +16,7 @@ endif
 
 src_libibverbs_la_SOURCES = src/cmd.c src/device.c src/init.c src/marshall.c \
 			    src/memory.c src/sysfs.c src/verbs.c
-src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
+src_libibverbs_la_LDFLAGS = -version-info 2 -export-dynamic \
     $(libibverbs_version_script)
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map
 
@@ -49,8 +49,8 @@ man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1 \
     man/ibv_srq_pingpong.1
 
 DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
-    debian/ibverbs-utils.install debian/libibverbs1.install \
-    debian/libibverbs1.postinst debian/libibverbs-dev.install \
+    debian/ibverbs-utils.install debian/libibverbs2.install \
+    debian/libibverbs2.postinst debian/libibverbs-dev.install \
     debian/rules
 
 EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \

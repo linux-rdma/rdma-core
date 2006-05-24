@@ -127,15 +127,6 @@ the 1.1 release:
    driver ABI, because a new method will need to be added to struct
    ibv_context_ops. 
 
- * Eliminate the dependency on libsysfs by implementing the required
-   sysfs handling directly.  This will break the API, because the dev
-   and ibdev members of struct ibv_device will be removed.  It will
-   also break the device driver ABI, because the signature of the
-   driver initialization function will change.  The driver
-   initialization function will be changed as part of this work; this
-   has the added benefit of allowing us to choose a better name than
-   "openib_driver_init."
-
 Other possibilities
 -------------------
 

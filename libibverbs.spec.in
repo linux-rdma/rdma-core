@@ -3,17 +3,15 @@
 %define ver      @VERSION@
 
 Name: libibverbs
-Version: 1.0.4
-Release: 1%{?dist}
+Version: 1.1
+Release: 0.1.pre1%{?dist}
 Summary: A library for direct userspace use of InfiniBand
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
-Source: http://openib.org/downloads/libibverbs-1.0.4.tar.gz
+Source: http://openib.org/downloads/libibverbs-1.1-pre1.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-
-BuildRequires: %{_includedir}/sysfs/libsysfs.h
 
 %description
 libibverbs is a library that allows userspace processes to use
@@ -27,7 +25,6 @@ also be installed.
 %package devel
 Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release} %{_includedir}/sysfs/libsysfs.h
 
 %description devel
 Static libraries and header files for the libibverbs verbs library.
@@ -77,6 +74,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
+* Mon May 22 2006 Roland Dreier <rdreier@cisco.com> - 1.1-0.1.pre1
+- New upstream release
+- Remove dependency on libsysfs, since it is no longer used
+
 * Thu May  4 2006 Roland Dreier <rdreier@cisco.com> - 1.0.4-1
 - New upstream release
 

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2004 Intel Corporation.  All rights reserved.
- * Copyright (c) 2005, 2006 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2005, 2006 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -40,8 +40,6 @@
 
 #include <stdint.h>
 #include <pthread.h>
-
-#include <sysfs/libsysfs.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -559,11 +557,22 @@ struct ibv_device_ops {
 	void			(*free_context)(struct ibv_context *context);
 };
 
+enum {
+	IBV_SYSFS_NAME_MAX	= 64,
+	IBV_SYSFS_PATH_MAX	= 256
+};
+
 struct ibv_device {
-	struct sysfs_class_device *dev;
-	struct sysfs_class_device *ibdev;
-	struct ibv_driver         *driver;
-	struct ibv_device_ops      ops;
+	struct ibv_driver      *driver;
+	struct ibv_device_ops	ops;
+	/* Name of underlying kernel IB device, eg "mthca0" */
+	char			name[IBV_SYSFS_NAME_MAX];
+	/* Name of uverbs device, eg "uverbs0" */
+	char			dev_name[IBV_SYSFS_NAME_MAX];
+	/* Path to infiniband_verbs class device in sysfs */
+	char			dev_path[IBV_SYSFS_PATH_MAX];
+	/* Path to infiniband class device in sysfs */
+	char			ibdev_path[IBV_SYSFS_PATH_MAX];
 };
 
 struct ibv_context_ops {

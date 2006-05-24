@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
- * Copyright (c) 2006 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -43,6 +43,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <alloca.h>
+#include <string.h>
 
 #include "ibverbs.h"
 

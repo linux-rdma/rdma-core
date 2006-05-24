@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -82,7 +83,7 @@ void ibv_free_device_list(struct ibv_device **list)
 
 const char *ibv_get_device_name(struct ibv_device *device)
 {
-	return device->ibdev->name;
+	return device->name;
 }
 
 uint64_t ibv_get_device_guid(struct ibv_device *device)
@@ -92,7 +93,7 @@ uint64_t ibv_get_device_guid(struct ibv_device *device)
 	uint16_t parts[4];
 	int i;
 
-	if (ibv_read_sysfs_file(device->ibdev->path, "node_guid",
+	if (ibv_read_sysfs_file(device->ibdev_path, "node_guid",
 				attr, sizeof attr) < 0)
 		return 0;
 
@@ -112,13 +113,15 @@ struct ibv_context *ibv_open_device(struct ibv_device *device)
 	int cmd_fd;
 	struct ibv_context *context;
 
-	asprintf(&devpath, "/dev/infiniband/%s", device->dev->name);
+	asprintf(&devpath, "/dev/infiniband/%s", device->dev_name);
 
 	/*
 	 * We'll only be doing writes, but we need O_RDWR in case the
 	 * provider needs to mmap() the file.
 	 */
 	cmd_fd = open(devpath, O_RDWR);
+	free(devpath);
+
 	if (cmd_fd < 0)
 		return NULL;
 

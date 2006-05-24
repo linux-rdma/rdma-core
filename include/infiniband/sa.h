@@ -38,13 +38,6 @@
 
 #include <infiniband/verbs.h>
 
-/*
- * Obsolete, deprecated names.  Will be removed in libibverbs 1.1.
- */
-#define ib_sa_path_rec		ibv_sa_path_rec
-#define ib_sa_mcmember_rec	ibv_sa_mcmember_rec
-#define ib_sa_service_rec	ibv_sa_service_rec
-
 struct ibv_sa_path_rec {
 	/* reserved */
 	/* reserved */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,6 +42,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
 
 #include "ibverbs.h"
 
@@ -64,7 +65,7 @@ const char *ibv_get_sysfs_path(void)
 	if (env) {
 		int len;
 
-		sysfs_path = strndup(env, 256);
+		sysfs_path = strndup(env, IBV_SYSFS_PATH_MAX);
 		len = strlen(sysfs_path);
 		while (len > 0 && sysfs_path[len - 1] == '/') {
 			--len;

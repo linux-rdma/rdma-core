@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2006 Cisco Systems.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -99,7 +99,7 @@ int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 
 	snprintf(name, sizeof name, "ports/%d/gids/%d", port_num, index);
 
-	if (ibv_read_sysfs_file(context->device->ibdev->path, name,
+	if (ibv_read_sysfs_file(context->device->ibdev_path, name,
 				attr, sizeof attr) < 0)
 		return -1;
 
@@ -122,7 +122,7 @@ int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 
 	snprintf(name, sizeof name, "ports/%d/pkeys/%d", port_num, index);
 
-	if (ibv_read_sysfs_file(context->device->ibdev->path, name,
+	if (ibv_read_sysfs_file(context->device->ibdev_path, name,
 				attr, sizeof attr) < 0)
 		return -1;
 
