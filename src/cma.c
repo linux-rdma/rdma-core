@@ -49,6 +49,8 @@
 #include <endian.h>
 #include <byteswap.h>
 
+#include <sysfs/libsysfs.h>
+
 #include <infiniband/marshall.h>
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_cma_abi.h>
@@ -140,7 +142,8 @@ static void ucma_cleanup(void)
 static int check_abi_version(void)
 {
 	char path[256];
-	char val[16];
+	struct sysfs_attribute *attr;
+	int ret = -1;
 
 	if (sysfs_get_mnt_path(path, sizeof path)) {
 		fprintf(stderr, "librdmacm: couldn't find sysfs mount.\n");
@@ -148,17 +151,33 @@ static int check_abi_version(void)
 	}
 
 	strncat(path, "/class/misc/rdma_cm/abi_version", sizeof path);
-	if (!sysfs_read_attribute_value(path, val, sizeof val))
-		abi_ver = strtol(val, NULL, 10);
+
+	attr = sysfs_open_attribute(path);
+	if (!attr) {
+		fprintf(stderr, "librdmacm: couldn't open rdma_cm ABI version.\n");
+		return -ENOSYS;
+	}
+
+	if (sysfs_read_attribute(attr)) {
+		fprintf(stderr, "librdmacm: couldn't read rdma_cm ABI version.\n");
+		goto out;
+	}
+
+	abi_ver = strtol(attr->value, NULL, 10);
 
 	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
 	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION) {
 		fprintf(stderr, "librdmacm: kernel ABI version %d "
 				"doesn't match library version %d.\n",
 				abi_ver, RDMA_USER_CM_MAX_ABI_VERSION);
-		return -ENOSYS;
+		goto out;
 	}
-	return 0;
+
+	ret = 0;
+
+out:
+	sysfs_close_attribute(attr);
+	return ret;
 }
 
 static int ucma_init(void)
