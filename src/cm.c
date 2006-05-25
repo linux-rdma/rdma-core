@@ -50,6 +50,8 @@
 #include <endian.h>
 #include <byteswap.h>
 
+#include <sysfs/libsysfs.h>
+
 #include <infiniband/cm.h>
 #include <infiniband/cm_abi.h>
 #include <infiniband/marshall.h>
@@ -115,8 +117,9 @@ static struct dlist *device_list;
 static int check_abi_version(void)
 {
 	char path[256];
-	char val[16];
+	struct sysfs_attribute *attr;
 	int abi_ver;
+	int ret = -1;
 
 	if (sysfs_get_mnt_path(path, sizeof path)) {
 		fprintf(stderr, PFX "couldn't find sysfs mount.\n");
@@ -124,20 +127,32 @@ static int check_abi_version(void)
 	}
 
 	strncat(path, "/class/infiniband_cm/abi_version", sizeof path);
-	if (sysfs_read_attribute_value(path, val, sizeof val)) {
-		fprintf(stderr, PFX "couldn't read ucm ABI version.\n");
+
+	attr = sysfs_open_attribute(path);
+	if (!attr) {
+		fprintf(stderr, PFX "couldn't open ucm ABI version.\n");
 		return -1;
 	}
 
-	abi_ver = strtol(val, NULL, 10);
+	if (sysfs_read_attribute(attr)) {
+		fprintf(stderr, PFX "couldn't read ucm ABI version.\n");
+		goto out;
+	}
+
+	abi_ver = strtol(attr->value, NULL, 10);
 	if (abi_ver < IB_USER_CM_MIN_ABI_VERSION ||
 	    abi_ver > IB_USER_CM_MAX_ABI_VERSION) {
 		fprintf(stderr, PFX "kernel ABI version %d "
 			"doesn't match library version %d.\n",
 			abi_ver, IB_USER_CM_MAX_ABI_VERSION);
-		return -1;
+		goto out;
 	}
-	return 0;
+
+	ret = 0;
+
+out:
+	sysfs_close_attribute(attr);
+	return ret;
 }
 
 static uint64_t get_device_guid(struct sysfs_class_device *ibdev)
