@@ -1,3 +1,10 @@
+2006-05-29  Ishai Rabinovitz  <ishai@mellanox.co.il>
+
+	* src/srp-dm.c (main): The agent ID array is declared with 0
+	entries, which leads to corruption when it is filled in by
+	create_agent().  Fix that by declaring it with the correct number
+	of entries, 2.
+
 2006-04-10  Roland Dreier  <rdreier@cisco.com>
 
 	* configure.in: srptools no longer needs to check for libsysfs.

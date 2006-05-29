@@ -536,7 +536,7 @@ static int get_port_list(int fd, uint32_t agent[2])
 int main(int argc, char *argv[])
 {
 	int		fd;
-	uint32_t	agent[0];
+	uint32_t	agent[2];
 	char	       *cmd_name = strdup(argv[0]);
 
 	while (1) {
