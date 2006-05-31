@@ -57,6 +57,8 @@ static const char *event_name_str(enum ibv_event_type event_type)
 		return "IBV_EVENT_PKEY_CHANGE";
 	case IBV_EVENT_SM_CHANGE:
 		return "IBV_EVENT_SM_CHANGE";
+	case IBV_EVENT_CLIENT_REREGISTER:
+		return "IBV_EVENT_CLIENT_REREGISTER";
 
 	case IBV_EVENT_CQ_ERR:
 	case IBV_EVENT_QP_FATAL:
