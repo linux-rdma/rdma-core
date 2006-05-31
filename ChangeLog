@@ -1,3 +1,12 @@
+2006-05-31  Roland Dreier  <rdreier@cisco.com>
+
+	* examples/asyncwatch.c (event_name_str): Print human-readable
+	form of IBV_EVENT_CLIENT_REREGISTER.
+
+2006-05-31  Leonid Arsh  <leonida@voltaire.com>
+
+	* include/infiniband/verbs.h: Add IBV_EVENT_CLIENT_REREGISTER.
+
 2006-05-22  Roland Dreier  <rdreier@cisco.com>
 
 	* examples/devinfo.c (print_hca_cap): Read board_id attribute from
