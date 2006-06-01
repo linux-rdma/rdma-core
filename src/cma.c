@@ -933,8 +933,8 @@ retry:
 	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_GET_EVENT, size);
 	ret = write(channel->fd, msg, size);
 	if (ret != size) {
-		ret = (ret > 0) ? -ENODATA : ret;
-		goto err;
+		free(evt);
+		return (ret > 0) ? -ENODATA : ret;
 	}
 
 	id_priv = (void *) (uintptr_t) resp->uid;
@@ -974,13 +974,17 @@ retry:
 		}
 		break;
 	case RDMA_CM_EVENT_REJECTED:
-		if (id_priv->connect_error)
+		if (id_priv->connect_error) {
+			ucma_complete_event(id_priv);
 			goto retry;
+		}
 		ucma_modify_qp_err(evt->id);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
-		if (id_priv->connect_error)
+		if (id_priv->connect_error) {
+			ucma_complete_event(id_priv);
 			goto retry;
+		}
 		break;
 	default:
 		break;
@@ -988,9 +992,6 @@ retry:
 
 	*event = evt;
 	return 0;
-err:
-	free(evt);
-	return ret;
 }
 
 int rdma_get_option(struct rdma_cm_id *id, int level, int optname,
