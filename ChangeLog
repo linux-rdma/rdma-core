@@ -1,5 +1,9 @@
 2006-05-31  Roland Dreier  <rdreier@cisco.com>
 
+	* src/init.c (find_drivers), src/device.c (ibv_open_device): Fix
+	memleaks: the result of asprintf() needs to be freed when we're
+	done with it.
+
 	* examples/asyncwatch.c (event_name_str): Print human-readable
 	form of IBV_EVENT_CLIENT_REREGISTER.
 

@@ -119,6 +119,8 @@ struct ibv_context *ibv_open_device(struct ibv_device *device)
 	 * provider needs to mmap() the file.
 	 */
 	cmd_fd = open(devpath, O_RDWR);
+	free(devpath);
+
 	if (cmd_fd < 0)
 		return NULL;
 
