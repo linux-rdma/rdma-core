@@ -63,7 +63,7 @@ struct ibv_device **ibv_get_device_list(int *num)
 	if (!num_devices)
 		num_devices = ibverbs_init(&device_list);
 
-	l = calloc(num_devices, sizeof (struct ibv_device *));
+	l = calloc(num_devices + 1, sizeof (struct ibv_device *));
 	for (i = 0; i < num_devices; ++i)
 		l[i] = device_list[i];
 

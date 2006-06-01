@@ -1,8 +1,13 @@
+2006-06-01  Roland Dreier  <rdreier@cisco.com>
+
+	* src/device.c (ibv_get_device_list): Actually return a
+	NULL-terminated array as the documentation promises.
+
 2006-05-31  Roland Dreier  <rdreier@cisco.com>
 
 	* src/init.c (find_drivers), src/device.c (ibv_open_device): Fix
-	memleaks: the result of asprintf() needs to be freed when we're
-	done with it.
+	memory leaks: the result of asprintf() needs to be freed when
+	we're done with it.
 
 	* examples/asyncwatch.c (event_name_str): Print human-readable
 	form of IBV_EVENT_CLIENT_REREGISTER.
