@@ -108,6 +108,8 @@ static void find_drivers(char *dir)
 	asprintf(&pat, "%s/*.so", dir);
 
 	ret = glob(pat, 0, NULL, &so_glob);
+	free(pat);
+
 	if (ret) {
 		if (ret != GLOB_NOMATCH)
 			fprintf(stderr, PFX "Warning: couldn't search %s\n", pat);
