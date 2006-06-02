@@ -41,6 +41,16 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
+#ifdef HAVE_SYSFS_LIBSYSFS_H
+#include <sysfs/libsysfs.h>
+#endif
+
+#ifndef HAVE_IBV_READ_SYSFS_FILE
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
+
 #include "iwch.h"
 #include "iwch-abi.h"
 
@@ -134,29 +144,23 @@ static struct ibv_device_ops iwch_dev_ops = {
 	.free_context = iwch_free_context
 };
 
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
+struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
+				   int abi_version)
 {
-	struct sysfs_device *pcidev;
-	struct sysfs_attribute *attr;
+	char value[8];
 	struct iwch_device *dev;
 	unsigned vendor, device;
 	int i;
 
-	pcidev = sysfs_get_classdev_device(sysdev);
-	if (!pcidev)
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
+				value, sizeof value) < 0)
 		return NULL;
+	sscanf(value, "%i", &vendor);
 
-	attr = sysfs_get_device_attr(pcidev, "vendor");
-	if (!attr)
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
+				value, sizeof value) < 0)
 		return NULL;
-	sscanf(attr->value, "%i", &vendor);
-	sysfs_close_attribute(attr);
-
-	attr = sysfs_get_device_attr(pcidev, "device");
-	if (!attr)
-		return NULL;
-	sscanf(attr->value, "%i", &device);
-	sysfs_close_attribute(attr);
+	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
@@ -177,3 +181,17 @@ found:
 
 	return &dev->ibv_dev;
 }
+
+#ifdef HAVE_SYSFS_LIBSYSFS_H
+struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
+{
+	int abi_ver = 0;
+	char value[8];
+
+	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
+				value, sizeof value) > 0)
+		abi_ver = strtol(value, NULL, 10);
+
+	return ibv_driver_init(sysdev->path, abi_ver);
+}
+#endif /* HAVE_SYSFS_LIBSYSFS_H */

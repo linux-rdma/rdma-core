@@ -12,8 +12,11 @@ dnl Checks for programs
 AC_PROG_CC
 
 dnl Checks for libraries
+AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
+    AC_MSG_ERROR([ibv_get_device_list() not found.  libmthca requires libibverbs.]))
 
 dnl Checks for header files.
+AC_CHECK_HEADERS(sysfs/libsysfs.h)
 AC_CHECK_HEADER(infiniband/driver.h, [],
     AC_MSG_ERROR([<infiniband/driver.h> not found.  Is libibverbs installed?]))
 AC_HEADER_STDC
@@ -21,6 +24,9 @@ AC_HEADER_STDC
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_CHECK_SIZEOF(long)
+
+dnl Checks for library functions
+AC_CHECK_FUNCS(ibv_read_sysfs_file)
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
