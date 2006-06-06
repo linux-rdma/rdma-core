@@ -551,7 +551,7 @@ struct ib_cm_sidr_rep_param {
 };
 
 /**
- * ib_cm_send_sidr_rep - Sends a service ID resolution request to the
+ * ib_cm_send_sidr_rep - Sends a service ID resolution reply to the
  *   remote node.
  * @cm_id: Communication identifier associated with the received service ID
  *   resolution request.
