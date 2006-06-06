@@ -528,7 +528,6 @@ struct ib_cm_sidr_req_param {
 	void			*private_data;
 	uint8_t			private_data_len;
 	uint8_t			max_cm_retries;
-	uint16_t		pkey;
 };
 
 /**

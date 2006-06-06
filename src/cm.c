@@ -739,7 +739,7 @@ int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 	cmd->id             = cm_id->handle;
 	cmd->sid            = param->service_id;
 	cmd->timeout        = param->timeout_ms;
-	cmd->pkey           = param->pkey;
+	cmd->pkey           = param->path->pkey;
 	cmd->max_cm_retries = param->max_cm_retries;
 
 	if (param->path) {
