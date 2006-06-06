@@ -60,11 +60,6 @@ enum {
 	RDMA_PROTO_IB = 1,
 };
 
-/* IB specific option names for get/set. */
-enum {
-	IB_PATH_OPTIONS = 1,
-};
-
 struct ib_addr {
 	union ibv_gid	sgid;
 	union ibv_gid	dgid;

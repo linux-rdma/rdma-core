@@ -27,10 +27,12 @@ examples_rping_LDADD = $(top_builddir)/src/librdmacm.la
 librdmacmincludedir = $(includedir)/rdma
 
 librdmacminclude_HEADERS = include/rdma/rdma_cma_abi.h \
-			   include/rdma/rdma_cma.h
+			   include/rdma/rdma_cma.h \
+			   include/rdma/rdma_cma_ib.h
 
 EXTRA_DIST = include/rdma/rdma_cma_abi.h \
 	     include/rdma/rdma_cma.h \
+	     include/rdma/rdma_cma_ib.h \
 	     src/librdmacm.map \
 	     librdmacm.spec.in
 
