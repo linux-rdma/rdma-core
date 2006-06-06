@@ -66,6 +66,11 @@ enum {
 	SRP_DM_NO_SLOT 	   = 0xf
 };
 
+enum {
+	SRP_REV10_IB_IO_CLASS	= 0xff00,
+	SRP_REV16A_IB_IO_CLASS	= 0x0100
+};
+
 struct srp_dm_mad {
 	uint8_t		base_version;
 	uint8_t		mgmt_class;

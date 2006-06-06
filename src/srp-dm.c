@@ -411,6 +411,7 @@ static int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_pre
 				 (unsigned long long) ntohll(ioc_prof.guid));
 			pr_human("        vendor ID: %06x\n", ntohl(ioc_prof.vendor_id) >> 8);
 			pr_human("        device ID: %06x\n", ntohl(ioc_prof.device_id));
+			pr_human("        IO class : %04hx\n", ntohs(ioc_prof.io_class));
 			pr_human("        ID:        %s\n", ioc_prof.id);
 			pr_human("        service entries: %d\n", ioc_prof.service_entries);
 
@@ -442,12 +443,17 @@ static int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_pre
 					       "ioc_guid=%016llx,"
 					       "dgid=%016llx%016llx,"
 					       "pkey=ffff,"
-					       "service_id=%016llx\n",
+					       "service_id=%016llx",
 					       id_ext,
 					       (unsigned long long) ntohll(ioc_prof.guid),
 					       (unsigned long long) subnet_prefix,
 					       (unsigned long long) guid,
 					       (unsigned long long) ntohll(svc_entries.service[k].id));
+					if (ioc_prof.io_class != htons(SRP_REV16A_IB_IO_CLASS))
+						pr_cmd(",io_class=%04hx",
+						       ntohs(ioc_prof.io_class));
+
+					pr_cmd("\n");
 				}
 			}
 		}
