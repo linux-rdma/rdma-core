@@ -1,3 +1,9 @@
+2006-06-07  Roland Dreier  <rdreier@cisco.com>
+	* src/srp-dm.c (do_port): Use correct endianness when comparing
+	GUID against Topspin OUI.
+
+	* src/srp-dm.c (set_class_port_info): Trivial whitespace fixes.
+
 2006-05-29  Ishai Rabinovitz  <ishai@mellanox.co.il>
 
 	* src/srp-dm.c (main): The agent ID array is declared with 0

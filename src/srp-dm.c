@@ -52,8 +52,6 @@
 #include "ib_user_mad.h"
 #include "srp-dm.h"
 
-static const uint8_t topspin_oui[3] = { 0x00, 0x05, 0xad };
-
 static char *umad_dev   = "/dev/infiniband/umad0";
 static char *port_sysfs_path;
 static int   timeout_ms = 25000;
@@ -249,7 +247,7 @@ static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
 
 	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_CLASS_PORT_INFO, 0);
 
-	out_dm_mad          = (void *) out_mad.data;
+	out_dm_mad         = (void *) out_mad.data;
 	out_dm_mad->method = SRP_DM_METHOD_SET;
 
 	cpi                = (void *) out_dm_mad->data;
@@ -266,9 +264,8 @@ static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
 		return -1;
 	}
 
-	for (i = 0; i < 8; ++i) {
+	for (i = 0; i < 8; ++i)
 		((uint16_t *) cpi->trap_gid)[i] = htons(strtol(val + i * 5, NULL, 16));
-	}
 
 	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -371,7 +368,10 @@ static int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_pre
 	struct srp_dm_svc_entries	svc_entries;
 	int				i, j, k;
 
-	if (!memcmp(&guid, topspin_oui, 3) &&
+	static const uint64_t topspin_oui = 0x0005ad0000000000ull;
+	static const uint64_t oui_mask    = 0xffffff0000000000ull;
+
+	if ((guid & oui_mask) == topspin_oui &&
 	    set_class_port_info(fd, agent, dlid))
 		fprintf(stderr, "Warning: set of ClassPortInfo failed\n");
 
