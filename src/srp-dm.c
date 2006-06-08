@@ -523,11 +523,9 @@ static int get_port_list(int fd, uint32_t agent[2])
 	out_sa_mad->mgmt_class 	  = SRP_MGMT_CLASS_SA;
 	out_sa_mad->method     	  = SRP_SA_METHOD_GET_TABLE;
 	out_sa_mad->class_version = 2;
-	out_sa_mad->comp_mask     = htonll(1ul << 4); /* node type */
+	out_sa_mad->comp_mask     = 0; /* Get all end ports */
 	out_sa_mad->rmpp_version  = 1;
 	out_sa_mad->rmpp_type     = 1;
-	node                      = (void *) out_sa_mad->data;
-	node->type		  = 1; /* CA */
 
 	len = send_and_get(fd, &out_mad, in_mad, node_table_response_size);
 	if (len < 0)

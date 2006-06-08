@@ -1,3 +1,10 @@
+2006-06-08  Roland Dreier  <rdreier@cisco.com>
+
+	* src/srp-dm.c (get_port_list): In some setups (eg Cisco SFS 3001
+	with an FC gateway), there will be switches with the IsDM bit set
+	on port 0.  So the initial get of NodeRecords must retrieve all
+	records, not just CA ports.
+
 2006-06-07  Roland Dreier  <rdreier@cisco.com>
 	* src/srp-dm.c (do_port): Use correct endianness when comparing
 	GUID against Topspin OUI.
