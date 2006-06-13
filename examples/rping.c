@@ -182,7 +182,13 @@ static void rping_cma_event_handler(struct rdma_cm_id *cma_id,
 
 	case RDMA_CM_EVENT_ESTABLISHED:
 		DEBUG_LOG("ESTABLISHED\n");
-		cb->state = CONNECTED;
+
+		/*
+		 * Server will wake up when first RECV completes.
+		 */
+		if (!cb->server) {
+			cb->state = CONNECTED;
+		}
 		sem_post(&cb->sem);
 		break;
 
@@ -197,7 +203,7 @@ static void rping_cma_event_handler(struct rdma_cm_id *cma_id,
 		break;
 
 	case RDMA_CM_EVENT_DISCONNECTED:
-		fprintf(stderr, "DISCONNECT EVENT...\n");
+		fprintf(stderr, "%s DISCONNECT EVENT...\n", cb->server ? "server" : "client");
 		sem_post(&cb->sem);
 		break;
 
@@ -225,7 +231,7 @@ static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
 	DEBUG_LOG("Received rkey %x addr %" PRIx64 "len %d from peer\n",
 		  cb->remote_rkey, cb->remote_addr, cb->remote_len);
 
-	if (cb->state == CONNECTED || cb->state == RDMA_WRITE_COMPLETE)
+	if (cb->state <= CONNECTED || cb->state == RDMA_WRITE_COMPLETE)
 		cb->state = RDMA_READ_ADV;
 	else
 		cb->state = RDMA_WRITE_ADV;
