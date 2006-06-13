@@ -96,6 +96,15 @@ struct rping_rdma_info {
 #define RPING_BUFSIZE 64*1024
 #define RPING_SQ_DEPTH 16
 
+/* Default string for print data and
+ * minimum buffer size
+ */
+#define _stringify( _x ) # _x
+#define stringify( _x ) _stringify( _x )
+
+#define RPING_MSG_FMT           "rdma-ping-%d: "
+#define RPING_MIN_BUFSIZE       sizeof(stringify(INT_MAX)) + sizeof(RPING_MSG_FMT)
+
 /*
  * Control block struct.
  */
@@ -780,7 +789,7 @@ static void rping_test_client(struct rping_cb *cb)
 		cb->state = RDMA_READ_ADV;
 
 		/* Put some ascii text in the buffer. */
-		cc = sprintf(cb->start_buf, "rdma-ping-%d: ", ping);
+		cc = sprintf(cb->start_buf, RPING_MSG_FMT, ping);
 		for (i = cc, c = start; i < cb->size; i++) {
 			cb->start_buf[i] = c;
 			c++;
@@ -983,11 +992,11 @@ int main(int argc, char *argv[])
 			break;
 		case 'S':
 			cb->size = atoi(optarg);
-			if ((cb->size < 1) ||
+			if ((cb->size < RPING_MIN_BUFSIZE) ||
 			    (cb->size > (RPING_BUFSIZE - 1))) {
 				fprintf(stderr, "Invalid size %d "
-				       "(valid range is 1 to %d)\n",
-				       cb->size, RPING_BUFSIZE);
+				       "(valid range is %d to %d)\n",
+				       cb->size, RPING_MIN_BUFSIZE, RPING_BUFSIZE);
 				ret = EINVAL;
 			} else
 				DEBUG_LOG("size %d\n", (int) atoi(optarg));
