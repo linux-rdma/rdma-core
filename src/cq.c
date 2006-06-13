@@ -347,8 +347,18 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 		wc->wr_id = srq->wrid[wqe_index];
 		mthca_free_srq_wqe(srq, wqe_index);
 	} else {
+		int32_t wqe;
 		wq = &(*cur_qp)->rq;
-		wqe_index = ntohl(cqe->wqe) >> wq->wqe_shift;
+		wqe = ntohl(cqe->wqe);
+		wqe_index = wqe >> wq->wqe_shift;
+		/*
+		 * WQE addr == base - 1 might be reported by Sinai FW
+		 * 1.0.800 and Arbel FW 5.1.400 in receive completion
+		 * with error instead of (rq size - 1).  This bug
+		 * should be fixed in later FW revisions.
+		 */
+		if (wqe_index < 0)
+			wqe_index = wq->max - 1;
 		wc->wr_id = (*cur_qp)->wrid[wqe_index];
 	}
 
