@@ -68,6 +68,13 @@ enum {
 };
 
 enum {
+	SRP_SM_SUPPORTS_MASK_MATCH	= 1 << 13,
+	SRP_IS_DM			= 1 << 19,
+	SRP_SM_CAP_MASK_MATCH_ATTR_MOD	= 1 << 31,
+	SRP_MAD_HEADER_SIZE		= 24
+};
+
+enum {
 	SRP_REV10_IB_IO_CLASS	= 0xff00,
 	SRP_REV16A_IB_IO_CLASS	= 0x0100
 };
@@ -171,7 +178,7 @@ struct srp_sa_guid_info_rec {
 	uint64_t	guid[8];
 };
 
-struct srp_dm_class_port_info {
+struct srp_class_port_info {
 	uint8_t		base_version;
 	uint8_t		class_version;
 	uint16_t	cap_mask;

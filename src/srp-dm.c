@@ -107,7 +107,7 @@ int send_and_get(int fd, struct ib_user_mad *out_mad,
 		}
 
 		len = read(fd, in_mad, in_mad_size);
-		if (len >= sizeof (struct ib_user_mad))
+		if (len >= sizeof (struct ib_user_mad_hdr) + SRP_MAD_HEADER_SIZE)
 			return len;
 		else if (len > 0 && in_mad->hdr.status != ETIMEDOUT) {
 			fprintf(stderr, "bad MAD status: 0x%04x\n",
@@ -231,11 +231,35 @@ static void init_srp_dm_mad(struct ib_user_mad *out_mad, uint32_t agent,
 	out_dm_mad->attr_mod      = htonl(attr_mod);
 }
 
+static int check_sm_cap(int fd, uint32_t agent, int *mask_match)
+{
+	struct ib_user_mad		out_mad, in_mad;
+	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct srp_class_port_info     *cpi;
+
+	in_sa_mad  = (void *) in_mad.data;
+	out_sa_mad = (void *) out_mad.data;
+
+	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_ATTR_CLASS_PORT_INFO, 0);
+
+	out_sa_mad->mgmt_class    = SRP_MGMT_CLASS_SA;
+	out_sa_mad->class_version = 2;
+
+	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
+		return -1;
+
+	cpi = (void *) in_sa_mad->data;
+
+	*mask_match = !!(ntohs(cpi->cap_mask) & SRP_SM_SUPPORTS_MASK_MATCH);
+
+	return 0;
+}
+
 static int set_class_port_info(int fd, uint32_t agent, uint16_t dlid)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
-	struct srp_dm_class_port_info  *cpi;
+	struct srp_class_port_info     *cpi;
 	char val[64];
 	int i;
 
@@ -266,7 +290,7 @@ static int set_class_port_info(int fd, uint32_t agent, uint16_t dlid)
 
 	in_dm_mad = (void *) in_mad.data;
 	if (in_dm_mad->status) {
-		fprintf(stderr, "Class Port Info query returned status 0x%04x\n",
+		fprintf(stderr, "Class Port Info set returned status 0x%04x\n",
 			ntohs(in_dm_mad->status));
 		return -1;
 	}
@@ -458,6 +482,34 @@ static int do_port(int fd, uint32_t agent, uint16_t dlid, uint64_t subnet_prefix
 	return 0;
 }
 
+static int get_node(int fd, uint32_t agent, uint16_t dlid, uint64_t *guid)
+{
+	struct ib_user_mad		out_mad, in_mad;
+	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct srp_dm_mad	       *in_dm_mad;
+	struct srp_sa_node_rec	       *node;
+
+	in_sa_mad  = (void *) in_mad.data;
+	in_dm_mad  = (void *) in_mad.data;
+	out_sa_mad = (void *) out_mad.data;
+
+	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_SA_ATTR_PORT_INFO, 0);
+
+	out_sa_mad->mgmt_class 	  = SRP_MGMT_CLASS_SA;
+	out_sa_mad->class_version = 2;
+	out_sa_mad->comp_mask     = htonll(1); /* LID */
+	node			  = (void *) out_sa_mad->data;
+	node->lid		  = htons(dlid);
+
+	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
+		return -1;
+
+	node  = (void *) in_sa_mad->data;
+	*guid = ntohll(node->port_guid);
+
+	return 0;
+}
+
 static int get_port_info(int fd, uint32_t agent, uint16_t dlid,
 			 uint64_t *subnet_prefix, int *isdm)
 {
@@ -483,30 +535,68 @@ static int get_port_info(int fd, uint32_t agent, uint16_t dlid,
 
 	port_info = (void *) in_sa_mad->data;
 	*subnet_prefix = ntohll(port_info->subnet_prefix);
-	*isdm          = !!(ntohl(port_info->capability_mask) & (1 << 19));
+	*isdm          = !!(ntohl(port_info->capability_mask) & SRP_IS_DM);
 
 	return 0;
 }
 
-static int get_port_list(int fd, uint32_t agent)
+static int do_dm_port_list(int fd, uint32_t agent)
+{
+	uint8_t                         in_mad_buf[node_table_response_size];
+	struct ib_user_mad		out_mad, *in_mad;
+	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct srp_sa_port_info_rec    *port_info;
+	ssize_t len;
+	int size;
+	int i;
+	uint64_t guid;
+
+	in_mad     = (void *) in_mad_buf;
+	in_sa_mad  = (void *) in_mad->data;
+	out_sa_mad = (void *) out_mad.data;
+
+	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_SA_ATTR_PORT_INFO,
+			SRP_SM_CAP_MASK_MATCH_ATTR_MOD);
+
+	out_sa_mad->mgmt_class 	   = SRP_MGMT_CLASS_SA;
+	out_sa_mad->method     	   = SRP_SA_METHOD_GET_TABLE;
+	out_sa_mad->class_version  = 2;
+	out_sa_mad->comp_mask      = htonll(1 << 7); /* Capability mask */
+	out_sa_mad->rmpp_version   = 1;
+	out_sa_mad->rmpp_type      = 1;
+	port_info		   = (void *) out_sa_mad->data;
+	port_info->capability_mask = htonl(SRP_IS_DM); /* IsDM */
+
+	len = send_and_get(fd, &out_mad, in_mad, node_table_response_size);
+	if (len < 0)
+		return -1;
+
+	size = ntohs(in_sa_mad->attr_offset) * 8;
+
+	for (i = 0; (i + 1) * size <= len - 56 - 36; ++i) {
+		port_info = (void *) in_sa_mad->data + i * size;
+
+		if (get_node(fd, agent, ntohs(port_info->endport_lid), &guid))
+			continue;
+
+		do_port(fd, agent, ntohs(port_info->endport_lid),
+			ntohll(port_info->subnet_prefix), guid);
+	}
+
+	return 0;
+}
+
+static int do_full_port_list(int fd, uint32_t agent)
 {
 	uint8_t                         in_mad_buf[node_table_response_size];
 	struct ib_user_mad		out_mad, *in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 	ssize_t len;
-	char val[64];
 	int size;
 	int i;
 	uint64_t subnet_prefix;
 	int isdm;
-
-	if (read_file(port_sysfs_path, "sm_lid", val, sizeof val) < 0) {
-		fprintf(stderr, "Couldn't read SM LID\n");
-		return -1;
-	}
-
-	sm_lid = strtol(val, NULL, 0);
 
 	in_mad     = (void *) in_mad_buf;
 	in_sa_mad  = (void *) in_mad->data;
@@ -548,7 +638,9 @@ int main(int argc, char *argv[])
 {
 	int		fd;
 	uint32_t	agent;
+	int		mask_match;
 	char	       *cmd_name = strdup(argv[0]);
+	char		val[16];
 
 	while (1) {
 		int c;
@@ -582,10 +674,23 @@ int main(int argc, char *argv[])
 	if (setup_port_sysfs_path())
 		return 1;
 
+	if (read_file(port_sysfs_path, "sm_lid", val, sizeof val) < 0) {
+		fprintf(stderr, "Couldn't read SM LID\n");
+		return -1;
+	}
+
+	sm_lid = strtol(val, NULL, 0);
+
 	if (create_agent(fd, &agent))
 		return 1;
 
-	get_port_list(fd, agent);
+	if (check_sm_cap(fd, agent, &mask_match))
+		return 1;
+
+	if (mask_match)
+		do_dm_port_list(fd, agent);
+	else
+		do_full_port_list(fd, agent);
 
 	return 0;
 }
