@@ -1,3 +1,8 @@
+2006-06-14  Roland Dreier  <rdreier@cisco.com>
+
+	* src/srp-dm.c: Change agent array into a single value, since only
+	the QP1 agent is ever used.
+
 2006-06-08  Roland Dreier  <rdreier@cisco.com>
 
 	* src/srp-dm.c (get_port_list): In some setups (eg Cisco SFS 3001

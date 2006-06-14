@@ -191,16 +191,10 @@ static int setup_port_sysfs_path(void) {
 	return 0;
 }
 
-static int create_agent(int fd, uint32_t agent[2])
+static int create_agent(int fd, uint32_t *agent)
 {
 	struct ib_user_mad_reg_req req;
 	memset(&req, 0, sizeof req);
-
-	if (ioctl(fd, IB_USER_MAD_REGISTER_AGENT, &req)) {
-		perror("ioctl");
-		return -1;
-	}
-	agent[0] = req.id;
 
 	req.qpn          = 1;
 	req.rmpp_version = 1;
@@ -209,7 +203,7 @@ static int create_agent(int fd, uint32_t agent[2])
 		perror("ioctl");
 		return -1;
 	}
-	agent[1] = req.id;
+	*agent = req.id;
 
 	return 0;
 }
@@ -237,7 +231,7 @@ static void init_srp_dm_mad(struct ib_user_mad *out_mad, uint32_t agent,
 	out_dm_mad->attr_mod      = htonl(attr_mod);
 }
 
-static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
+static int set_class_port_info(int fd, uint32_t agent, uint16_t dlid)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
@@ -245,7 +239,7 @@ static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
 	char val[64];
 	int i;
 
-	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_CLASS_PORT_INFO, 0);
+	init_srp_dm_mad(&out_mad, agent, dlid, SRP_DM_ATTR_CLASS_PORT_INFO, 0);
 
 	out_dm_mad         = (void *) out_mad.data;
 	out_dm_mad->method = SRP_DM_METHOD_SET;
@@ -280,13 +274,13 @@ static int set_class_port_info(int fd, uint32_t agent[2], uint16_t dlid)
 	return 0;
 }
 
-static int get_iou_info(int fd, uint32_t agent[2], uint16_t dlid,
+static int get_iou_info(int fd, uint32_t agent, uint16_t dlid,
 			struct srp_dm_iou_info *iou_info)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *in_dm_mad;
 
-	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_IO_UNIT_INFO, 0);
+	init_srp_dm_mad(&out_mad, agent, dlid, SRP_DM_ATTR_IO_UNIT_INFO, 0);
 
 	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -303,13 +297,13 @@ static int get_iou_info(int fd, uint32_t agent[2], uint16_t dlid,
 	return 0;
 }
 
-static int get_ioc_prof(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
+static int get_ioc_prof(int fd, uint32_t agent, uint16_t dlid, int ioc,
 			struct srp_dm_ioc_prof *ioc_prof)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *in_dm_mad;
 
-	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_IO_CONTROLLER_PROFILE, ioc);
+	init_srp_dm_mad(&out_mad, agent, dlid, SRP_DM_ATTR_IO_CONTROLLER_PROFILE, ioc);
 
 	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -331,13 +325,13 @@ static int get_ioc_prof(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
 	return 0;
 }
 
-static int get_svc_entries(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
+static int get_svc_entries(int fd, uint32_t agent, uint16_t dlid, int ioc,
 			   int start, int end, struct srp_dm_svc_entries *svc_entries)
 {
 	struct ib_user_mad		in_mad, out_mad;
 	struct srp_dm_mad	       *in_dm_mad;
 
-	init_srp_dm_mad(&out_mad, agent[1], dlid, SRP_DM_ATTR_SERVICE_ENTRIES,
+	init_srp_dm_mad(&out_mad, agent, dlid, SRP_DM_ATTR_SERVICE_ENTRIES,
 			(ioc << 16) | (end << 8) | start);
 
 	if (send_and_get(fd, &out_mad, &in_mad, 0) < 0)
@@ -360,7 +354,7 @@ static int get_svc_entries(int fd, uint32_t agent[2], uint16_t dlid, int ioc,
 	return 0;
 }
 
-static int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_prefix,
+static int do_port(int fd, uint32_t agent, uint16_t dlid, uint64_t subnet_prefix,
 		   uint64_t guid)
 {
 	struct srp_dm_iou_info		iou_info;
@@ -464,7 +458,7 @@ static int do_port(int fd, uint32_t agent[2], uint16_t dlid, uint64_t subnet_pre
 	return 0;
 }
 
-static int get_port_info(int fd, uint32_t agent[2], uint16_t dlid,
+static int get_port_info(int fd, uint32_t agent, uint16_t dlid,
 			 uint64_t *subnet_prefix, int *isdm)
 {
 	struct ib_user_mad		out_mad, in_mad;
@@ -476,7 +470,7 @@ static int get_port_info(int fd, uint32_t agent[2], uint16_t dlid,
 	in_dm_mad  = (void *) in_mad.data;
 	out_sa_mad = (void *) out_mad.data;
 
-	init_srp_dm_mad(&out_mad, agent[1], sm_lid, SRP_SA_ATTR_PORT_INFO, 0);
+	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_SA_ATTR_PORT_INFO, 0);
 
 	out_sa_mad->mgmt_class 	  = SRP_MGMT_CLASS_SA;
 	out_sa_mad->class_version = 2;
@@ -494,7 +488,7 @@ static int get_port_info(int fd, uint32_t agent[2], uint16_t dlid,
 	return 0;
 }
 
-static int get_port_list(int fd, uint32_t agent[2])
+static int get_port_list(int fd, uint32_t agent)
 {
 	uint8_t                         in_mad_buf[node_table_response_size];
 	struct ib_user_mad		out_mad, *in_mad;
@@ -518,7 +512,7 @@ static int get_port_list(int fd, uint32_t agent[2])
 	in_sa_mad  = (void *) in_mad->data;
 	out_sa_mad = (void *) out_mad.data;
 
-	init_srp_dm_mad(&out_mad, agent[1], sm_lid, SRP_SA_ATTR_NODE, 0);
+	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_SA_ATTR_NODE, 0);
 
 	out_sa_mad->mgmt_class 	  = SRP_MGMT_CLASS_SA;
 	out_sa_mad->method     	  = SRP_SA_METHOD_GET_TABLE;
@@ -553,7 +547,7 @@ static int get_port_list(int fd, uint32_t agent[2])
 int main(int argc, char *argv[])
 {
 	int		fd;
-	uint32_t	agent[2];
+	uint32_t	agent;
 	char	       *cmd_name = strdup(argv[0]);
 
 	while (1) {
@@ -588,7 +582,7 @@ int main(int argc, char *argv[])
 	if (setup_port_sysfs_path())
 		return 1;
 
-	if (create_agent(fd, agent))
+	if (create_agent(fd, &agent))
 		return 1;
 
 	get_port_list(fd, agent);
