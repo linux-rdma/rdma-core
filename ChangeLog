@@ -1,5 +1,8 @@
 2006-06-14  Roland Dreier  <rdreier@cisco.com>
 
+	* src/srp-dm.h: Change SRP_DM_ATTR_CLASS_PORT_INFO to
+	SRP_ATTR_CLASS_PORT_INFO, since it is not a per-class value.
+
 	* src/srp-dm.c: Change agent array into a single value, since only
 	the QP1 agent is ever used.
 

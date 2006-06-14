@@ -239,7 +239,7 @@ static int set_class_port_info(int fd, uint32_t agent, uint16_t dlid)
 	char val[64];
 	int i;
 
-	init_srp_dm_mad(&out_mad, agent, dlid, SRP_DM_ATTR_CLASS_PORT_INFO, 0);
+	init_srp_dm_mad(&out_mad, agent, dlid, SRP_ATTR_CLASS_PORT_INFO, 0);
 
 	out_dm_mad         = (void *) out_mad.data;
 	out_dm_mad->method = SRP_DM_METHOD_SET;
