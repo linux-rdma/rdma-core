@@ -29,6 +29,7 @@ SRP targets in human-readable form:
             GUID:      0005ad00000013e7
             vendor ID: 0005ad
             device ID: 0005ad
+            IO class : 0100
             ID:        Topspin SRP/FC TCA
             service entries: 2
                 service[  0]: 0000000000000066 / SRP.T10:20030003BA27CC7A
@@ -72,6 +73,9 @@ Patches should also be submitted to the OpenIB mailing list
 option to GNU diff), and include a good description of what your patch
 does and why it should be applied.  If your patch fixes a bug, please
 make sure to describe the bug and how your fix works.
+
+Please include a change to the ChangeLog file (in standard GNU
+changelog format) as part of your patch.
 
 Make sure that your contribution can be licensed under the same
 license as the original code you are patching, and that you have all
