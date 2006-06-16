@@ -896,6 +896,66 @@ int rdma_disconnect(struct rdma_cm_id *id)
 	return 0;
 }
 
+int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
+			void *context)
+{
+	struct ucma_abi_join_mcast *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size, addrlen;
+	
+	addrlen = ucma_addrlen(addr);
+	if (!addrlen)
+		return -EINVAL;
+
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_JOIN_MCAST, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	memcpy(&cmd->addr, addr, addrlen);
+	cmd->uid = (uintptr_t) context;
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		return (ret > 0) ? -ENODATA : ret;
+
+	return 0;
+}
+
+int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
+{
+	struct ucma_abi_leave_mcast *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size, addrlen;
+	struct ibv_ah_attr ah_attr;
+	uint32_t qp_info;
+	
+	addrlen = ucma_addrlen(addr);
+	if (!addrlen)
+		return -EINVAL;
+
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_LEAVE_MCAST, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	memcpy(&cmd->addr, addr, addrlen);
+
+	if (id->qp) {
+		ret = rdma_get_dst_attr(id, addr, &ah_attr, &qp_info, &qp_info);
+		if (ret)
+			goto out;
+
+		ret = ibv_detach_mcast(id->qp, &ah_attr.grh.dgid, ah_attr.dlid);
+		if (ret)
+			goto out;
+	}
+	
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		ret = (ret > 0) ? -ENODATA : ret;
+out:
+	return ret;
+}
+
 static void ucma_copy_event_from_kern(struct rdma_cm_event *dst,
 				      struct ucma_abi_event_resp *src)
 {
@@ -1004,6 +1064,36 @@ static int ucma_process_establish(struct rdma_cm_id *id)
 	return ret;
 }
 
+static void ucma_process_mcast(struct rdma_cm_id *id, struct rdma_cm_event *evt)
+{
+	struct ucma_abi_join_mcast kmc_data;
+	struct rdma_multicast_data *mc_data;
+	struct ibv_ah_attr ah_attr;
+	uint32_t qp_info;
+
+	kmc_data = *(struct ucma_abi_join_mcast *) evt->private_data;
+
+	mc_data = evt->private_data;
+	mc_data->context = (void *) (uintptr_t) kmc_data.uid;
+	memcpy(&mc_data->addr, &kmc_data.addr,
+	       ucma_addrlen((struct sockaddr *) &kmc_data.addr));
+
+	if (evt->status || !id->qp)
+		return;
+
+	evt->status = rdma_get_dst_attr(id, &mc_data->addr, &ah_attr,
+					&qp_info, &qp_info);
+	if (evt->status)
+		goto err;
+
+	evt->status = ibv_attach_mcast(id->qp, &ah_attr.grh.dgid, ah_attr.dlid);
+	if (evt->status)
+		goto err;
+	return;
+err:
+	evt->event = RDMA_CM_EVENT_MULTICAST_ERROR;
+}
+
 int rdma_get_cm_event(struct rdma_event_channel *channel,
 		      struct rdma_cm_event **event)
 {
@@ -1084,6 +1174,10 @@ retry:
 			ucma_complete_event(id_priv);
 			goto retry;
 		}
+		break;
+	case RDMA_CM_EVENT_MULTICAST_JOIN:
+	case RDMA_CM_EVENT_MULTICAST_ERROR:
+		ucma_process_mcast(&id_priv->id, evt);
 		break;
 	default:
 		break;

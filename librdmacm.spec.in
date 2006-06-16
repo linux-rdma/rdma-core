@@ -67,3 +67,4 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/rping
 %{_bindir}/ucmatose
 %{_bindir}/udaddy
+%{_bindir}/mckey

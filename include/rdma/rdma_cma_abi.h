@@ -60,7 +60,9 @@ enum {
 	UCMA_CMD_GET_EVENT,
 	UCMA_CMD_GET_OPTION,
 	UCMA_CMD_SET_OPTION,
-	UCMA_CMD_GET_DST_ATTR
+	UCMA_CMD_GET_DST_ATTR,
+	UCMA_CMD_JOIN_MCAST,
+	UCMA_CMD_LEAVE_MCAST
 };
 
 struct ucma_abi_cmd_hdr {
@@ -176,6 +178,17 @@ struct ucma_abi_init_qp_attr {
 	__u64 response;
 	__u32 id;
 	__u32 qp_state;
+};
+
+struct ucma_abi_join_mcast {
+	__u32 id;
+	struct sockaddr_in6 addr;
+	__u64 uid;
+};
+
+struct ucma_abi_leave_mcast {
+	__u32 id;
+	struct sockaddr_in6 addr;
 };
 
 struct ucma_abi_dst_attr_resp {

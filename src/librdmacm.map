@@ -19,5 +19,7 @@ RDMACM_1.0 {
 		rdma_get_option;
 		rdma_set_option;
 		rdma_get_dst_attr;
+		rdma_join_multicast;
+		rdma_leave_multicast;
 	local: *;
 };
