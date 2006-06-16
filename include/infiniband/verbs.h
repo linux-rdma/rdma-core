@@ -298,6 +298,15 @@ struct ibv_global_route {
 	uint8_t			traffic_class;
 };
 
+struct ibv_grh {
+	uint32_t		version_tclass_flow;
+	uint16_t		paylen;
+	uint8_t			next_hdr;
+	uint8_t			hop_limit;
+	union ibv_gid		sgid;
+	union ibv_gid		dgid;
+};
+
 enum ibv_rate {
 	IBV_RATE_MAX      = 0,
 	IBV_RATE_2_5_GBPS = 2,
@@ -950,6 +959,36 @@ static inline int ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
  * ibv_create_ah - Create an address handle.
  */
 struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
+
+/**
+ * ibv_init_ah_from_wc - Initializes address handle attributes from a
+ *   work completion.
+ * @context: Device context on which the received message arrived.
+ * @port_num: Port on which the received message arrived.
+ * @wc: Work completion associated with the received message.
+ * @grh: References the received global route header.  This parameter is
+ *   ignored unless the work completion indicates that the GRH is valid.
+ * @ah_attr: Returned attributes that can be used when creating an address
+ *   handle for replying to the message.
+ */
+int ibv_init_ah_from_wc(struct ibv_context *context, uint8_t port_num,
+			struct ibv_wc *wc, struct ibv_grh *grh,
+			struct ibv_ah_attr *ah_attr);
+
+/**
+ * ibv_create_ah_from_wc - Creates an address handle associated with the
+ *   sender of the specified work completion.
+ * @pd: The protection domain associated with the address handle.
+ * @wc: Work completion information associated with a received message.
+ * @grh: References the received global route header.  This parameter is
+ *   ignored unless the work completion indicates that the GRH is valid.
+ * @port_num: The outbound port number to associate with the address.
+ *
+ * The address handle is used to reference a local or global destination
+ * in all UD QP post sends.
+ */
+struct ibv_ah *ibv_create_ah_from_wc(struct ibv_pd *pd, struct ibv_wc *wc,
+				     struct ibv_grh *grh, uint8_t port_num);
 
 /**
  * ibv_destroy_ah - Destroy an address handle.

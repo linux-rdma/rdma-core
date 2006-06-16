@@ -32,6 +32,8 @@ IBVERBS_1.0 {
 		ibv_modify_qp;
 		ibv_destroy_qp;
 		ibv_create_ah;
+		ibv_init_ah_from_wc;
+		ibv_create_ah_from_wc;
 		ibv_destroy_ah;
 		ibv_attach_mcast;
 		ibv_detach_mcast;
@@ -65,6 +67,7 @@ IBVERBS_1.0 {
 		ibv_cmd_attach_mcast;
 		ibv_cmd_detach_mcast;
 		ibv_copy_qp_attr_from_kern;
+		ibv_copy_ah_attr_from_kern;
 		ibv_copy_path_rec_from_kern;
 		ibv_copy_path_rec_to_kern;
 		ibv_rate_to_mult;

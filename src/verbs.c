@@ -42,6 +42,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 
 #include "ibverbs.h"
 
@@ -390,6 +391,62 @@ struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	}
 
 	return ah;
+}
+
+static int ibv_find_gid_index(struct ibv_context *context, uint8_t port_num,
+			      union ibv_gid *gid)
+{
+	union ibv_gid sgid;
+	int i = 0, ret;
+
+	do {
+		ret = ibv_query_gid(context, port_num, i++, &sgid);
+	} while (!ret && memcmp(&sgid, gid, sizeof *gid));
+
+	return ret ? ret : i - 1;
+}
+
+int ibv_init_ah_from_wc(struct ibv_context *context, uint8_t port_num,
+			struct ibv_wc *wc, struct ibv_grh *grh,
+			struct ibv_ah_attr *ah_attr)
+{
+	uint32_t flow_class;
+	int ret;
+
+	memset(ah_attr, 0, sizeof *ah_attr);
+	ah_attr->dlid = wc->slid;
+	ah_attr->sl = wc->sl;
+	ah_attr->src_path_bits = wc->dlid_path_bits;
+	ah_attr->port_num = port_num;
+
+	if (wc->wc_flags & IBV_WC_GRH) {
+		ah_attr->is_global = 1;
+		ah_attr->grh.dgid = grh->sgid;
+
+		ret = ibv_find_gid_index(context, port_num, &grh->dgid);
+		if (ret < 0)
+			return ret;
+
+		ah_attr->grh.sgid_index = (uint8_t) ret;
+		flow_class = ntohl(grh->version_tclass_flow);
+		ah_attr->grh.flow_label = flow_class & 0xFFFFF;
+		ah_attr->grh.hop_limit = grh->hop_limit;
+		ah_attr->grh.traffic_class = (flow_class >> 20) & 0xFF;
+	}
+	return 0;
+}
+
+struct ibv_ah *ibv_create_ah_from_wc(struct ibv_pd *pd, struct ibv_wc *wc,
+				     struct ibv_grh *grh, uint8_t port_num)
+{
+	struct ibv_ah_attr ah_attr;
+	int ret;
+
+	ret = ibv_init_ah_from_wc(pd->context, port_num, wc, grh, &ah_attr);
+	if (ret)
+		return NULL;
+
+	return ibv_create_ah(pd, &ah_attr);
 }
 
 int ibv_destroy_ah(struct ibv_ah *ah)

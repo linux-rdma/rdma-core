@@ -1,3 +1,13 @@
+2006-06-07  Sean Hefty     <sean.hefty@intel.com>
+
+	* src/verbs.c include/infiniband/verbs.h: Add new routines:
+	ibv_init_ah_from_wc() and ibv_create_ah_from_wc() to simplify UD QP
+	communication.
+
+	* src/marshall.c include/infiniband/marshall.h: Expose
+	ibv_copy_ah_attr_from_kern to retrieve ibv_ah_attr from kernel for
+	a UD QP.
+
 2006-06-01  Roland Dreier  <rdreier@cisco.com>
 
 	* src/device.c (ibv_get_device_list): Actually return a
