@@ -54,6 +54,11 @@ enum rdma_cm_event_type {
 	RDMA_CM_EVENT_DEVICE_REMOVAL,
 };
 
+enum rdma_port_space {
+	RDMA_PS_TCP  = 0x0106,
+	RDMA_PS_UDP  = 0x0111,
+};
+
 /* Protocol levels for get/set options. */
 enum {
 	RDMA_PROTO_IP = 0,
@@ -90,6 +95,7 @@ struct rdma_cm_id {
 	void			*context;
 	struct ibv_qp		*qp;
 	struct rdma_route	 route;
+	enum rdma_port_space	 ps;
 	uint8_t			 port_num;
 };
 
@@ -121,9 +127,11 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel);
  * @id: A reference where the allocated communication identifier will be
  *   returned.
  * @context: User specified context associated with the rdma_cm_id.
+ * @ps: RDMA port space.
  */
 int rdma_create_id(struct rdma_event_channel *channel,
-		   struct rdma_cm_id **id, void *context);
+		   struct rdma_cm_id **id, void *context,
+		   enum rdma_port_space ps);
 
 /**
  * rdma_destroy_id - Release a communication identifier.
@@ -194,6 +202,10 @@ struct rdma_conn_param {
 	uint8_t flow_control;
 	uint8_t retry_count;		/* ignored when accepting */
 	uint8_t rnr_retry_count;
+	/* Fields below ignored if a QP is created on the rdma_cm_id. */
+	uint8_t srq;
+	uint32_t qp_num;
+	enum ibv_qp_type qp_type;
 };
 
 /**
@@ -227,7 +239,8 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 		uint8_t private_data_len);
 
 /**
- * rdma_disconnect - This function disconnects the associated QP.
+ * rdma_disconnect - This function disconnects the associated QP and
+ *   transitions it into the error state.
  */
 int rdma_disconnect(struct rdma_cm_id *id);
 
@@ -277,5 +290,19 @@ int rdma_get_option(struct rdma_cm_id *id, int level, int optname,
  */
 int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
 		    void *optval, size_t optlen);
+
+static inline uint16_t rdma_get_src_port(struct rdma_cm_id *id)
+{
+	return	id->route.addr.src_addr.sin6_family == PF_INET6 ?
+		id->route.addr.src_addr.sin6_port :
+		((struct sockaddr_in *) &id->route.addr.src_addr)->sin_port;
+}
+
+static inline uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
+{
+	return	id->route.addr.dst_addr.sin6_family == PF_INET6 ?
+		id->route.addr.dst_addr.sin6_port :
+		((struct sockaddr_in *) &id->route.addr.dst_addr)->sin_port;
+}
 
 #endif /* RDMA_CMA_H */

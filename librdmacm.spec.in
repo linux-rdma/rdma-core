@@ -66,3 +66,4 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{_bindir}/rping
 %{_bindir}/ucmatose
+%{_bindir}/udaddy

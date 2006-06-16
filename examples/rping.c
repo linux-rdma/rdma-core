@@ -1043,7 +1043,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	ret = rdma_create_id(cb->cm_channel, &cb->cm_id, cb);
+	ret = rdma_create_id(cb->cm_channel, &cb->cm_id, cb, RDMA_PS_TCP);
 	if (ret) {
 		ret = errno;
 		fprintf(stderr, "rdma_create_id error %d\n", ret);

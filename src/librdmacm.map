@@ -18,5 +18,6 @@ RDMACM_1.0 {
 		rdma_ack_cm_event;
 		rdma_get_option;
 		rdma_set_option;
+		rdma_get_dst_attr;
 	local: *;
 };

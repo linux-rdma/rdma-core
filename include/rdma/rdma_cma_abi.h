@@ -40,7 +40,7 @@
  */
 
 #define RDMA_USER_CM_MIN_ABI_VERSION	1
-#define RDMA_USER_CM_MAX_ABI_VERSION	1
+#define RDMA_USER_CM_MAX_ABI_VERSION	2
 
 #define RDMA_MAX_PRIVATE_DATA		256
 
@@ -60,6 +60,7 @@ enum {
 	UCMA_CMD_GET_EVENT,
 	UCMA_CMD_GET_OPTION,
 	UCMA_CMD_SET_OPTION,
+	UCMA_CMD_GET_DST_ATTR
 };
 
 struct ucma_abi_cmd_hdr {
@@ -68,9 +69,16 @@ struct ucma_abi_cmd_hdr {
 	__u16 out;
 };
 
+struct ucma_abi_create_id_v1 {
+	__u64 uid;
+	__u64 response;
+};
+
 struct ucma_abi_create_id {
 	__u64 uid;
 	__u64 response;
+	__u16 ps;
+	__u8  reserved[6];
 };
 
 struct ucma_abi_create_id_resp {
@@ -168,6 +176,18 @@ struct ucma_abi_init_qp_attr {
 	__u64 response;
 	__u32 id;
 	__u32 qp_state;
+};
+
+struct ucma_abi_dst_attr_resp {
+	__u32 remote_qpn;
+	__u32 remote_qkey;
+	struct ibv_kern_ah_attr ah_attr;
+};
+
+struct ucma_abi_get_dst_attr {
+	__u64 response;
+	struct sockaddr_in6 addr;
+	__u32 id;
 };
 
 struct ucma_abi_get_event {

@@ -54,6 +54,7 @@
 #include <infiniband/marshall.h>
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_cma_abi.h>
+#include <rdma/rdma_cma_ib.h>
 
 #define PFX "librdmacm: "
 
@@ -203,7 +204,7 @@ static int ucma_init(void)
 
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
-		printf("CMA: unable to get RDMA device liste\n");
+		printf("CMA: unable to get RDMA device list\n");
 		ret = -ENODEV;
 		goto err;
 	}
@@ -301,7 +302,8 @@ static void ucma_free_id(struct cma_id_private *id_priv)
 }
 
 static struct cma_id_private *ucma_alloc_id(struct rdma_event_channel *channel,
-					    void *context)
+					    void *context,
+					    enum rdma_port_space ps)
 {
 	struct cma_id_private *id_priv;
 
@@ -311,6 +313,7 @@ static struct cma_id_private *ucma_alloc_id(struct rdma_event_channel *channel,
 
 	memset(id_priv, 0, sizeof *id_priv);
 	id_priv->id.context = context;
+	id_priv->id.ps = ps;
 	id_priv->id.channel = channel;
 	pthread_mutex_init(&id_priv->mut, NULL);
 	if (pthread_cond_init(&id_priv->cond, NULL))
@@ -322,8 +325,44 @@ err:	ucma_free_id(id_priv);
 	return NULL;
 }
 
+static int ucma_create_id_v1(struct rdma_event_channel *channel,
+			     struct rdma_cm_id **id, void *context,
+			     enum rdma_port_space ps)
+{
+	struct ucma_abi_create_id_resp *resp;
+	struct ucma_abi_create_id_v1 *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+
+	if (ps != RDMA_PS_TCP) {
+		fprintf(stderr, "librdmacm: Kernel ABI does not support "
+				"requested port space.\n");
+		return -EPROTONOSUPPORT;
+	}
+
+	id_priv = ucma_alloc_id(channel, context, ps);
+	if (!id_priv)
+		return -ENOMEM;
+
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_CREATE_ID, size);
+	cmd->uid = (uintptr_t) id_priv;
+
+	ret = write(channel->fd, msg, size);
+	if (ret != size)
+		goto err;
+
+	id_priv->handle = resp->id;
+	*id = &id_priv->id;
+	return 0;
+
+err:	ucma_free_id(id_priv);
+	return ret;
+}
+
 int rdma_create_id(struct rdma_event_channel *channel,
-		   struct rdma_cm_id **id, void *context)
+		   struct rdma_cm_id **id, void *context,
+		   enum rdma_port_space ps)
 {
 	struct ucma_abi_create_id_resp *resp;
 	struct ucma_abi_create_id *cmd;
@@ -335,12 +374,16 @@ int rdma_create_id(struct rdma_event_channel *channel,
 	if (ret)
 		return ret;
 
-	id_priv = ucma_alloc_id(channel, context);
+	if (abi_ver == 1)
+		return ucma_create_id_v1(channel, id, context, ps);
+
+	id_priv = ucma_alloc_id(channel, context, ps);
 	if (!id_priv)
 		return -ENOMEM;
 
 	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_CREATE_ID, size);
 	cmd->uid = (uintptr_t) id_priv;
+	cmd->ps = ps;
 
 	ret = write(channel->fd, msg, size);
 	if (ret != size)
@@ -637,6 +680,36 @@ static int ucma_init_ib_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 					   IBV_QP_PKEY_INDEX | IBV_QP_PORT);
 }
 
+static int ucma_init_ud_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
+{
+	struct ibv_qp_attr qp_attr;
+	struct ib_addr *ibaddr;
+	int ret;
+
+	ibaddr = &id_priv->id.route.addr.addr.ibaddr;
+	ret = ucma_find_pkey(id_priv->cma_dev, id_priv->id.port_num,
+			     ibaddr->pkey, &qp_attr.pkey_index);
+	if (ret)
+		return ret;
+
+	qp_attr.port_num = id_priv->id.port_num;
+	qp_attr.qp_state = IBV_QPS_INIT;
+	qp_attr.qkey = ntohs(rdma_get_src_port(&id_priv->id));
+	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_PKEY_INDEX |
+					  IBV_QP_PORT | IBV_QP_QKEY);
+	if (ret)
+		return ret;
+
+	qp_attr.qp_state = IBV_QPS_RTR;
+	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE);
+	if (ret)
+		return ret;
+
+	qp_attr.qp_state = IBV_QPS_RTS;
+	qp_attr.sq_psn = 0;
+	return ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_SQ_PSN);
+}
+
 int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 		   struct ibv_qp_init_attr *qp_init_attr)
 {
@@ -652,7 +725,10 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	if (!qp)
 		return -ENOMEM;
 
-	ret = ucma_init_ib_qp(id_priv, qp);
+	if (id->ps == RDMA_PS_UDP)
+		ret = ucma_init_ud_qp(id_priv, qp);
+	else
+		ret = ucma_init_ib_qp(id_priv, qp);
 	if (ret)
 		goto err;
 
@@ -670,11 +746,12 @@ void rdma_destroy_qp(struct rdma_cm_id *id)
 
 static void ucma_copy_conn_param_to_kern(struct ucma_abi_conn_param *dst,
 					 struct rdma_conn_param *src,
-					 struct ibv_qp *qp)
+					 uint32_t qp_num,
+					 enum ibv_qp_type qp_type, uint8_t srq)
 {
-	dst->qp_num = qp->qp_num;
-	dst->qp_type = qp->qp_type;
-	dst->srq = (qp->srq != NULL);
+	dst->qp_num = qp_num;
+	dst->qp_type = qp_type;
+	dst->srq = srq;
 	dst->responder_resources = src->responder_resources;
 	dst->initiator_depth = src->initiator_depth;
 	dst->flow_control = src->flow_control;
@@ -700,7 +777,15 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_CONNECT, size);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd->id = id_priv->handle;
-	ucma_copy_conn_param_to_kern(&cmd->conn_param, conn_param, id->qp);
+	if (id->qp)
+		ucma_copy_conn_param_to_kern(&cmd->conn_param, conn_param,
+					     id->qp->qp_num, id->qp->qp_type,
+					     (id->qp->srq != NULL));
+	else
+		ucma_copy_conn_param_to_kern(&cmd->conn_param, conn_param,
+					     conn_param->qp_num,
+					     conn_param->qp_type,
+					     conn_param->srq);
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
@@ -735,15 +820,25 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	void *msg;
 	int ret, size;
 
-	ret = ucma_modify_qp_rtr(id);
-	if (ret)
-		return ret;
+	if (id->ps != RDMA_PS_UDP) {
+		ret = ucma_modify_qp_rtr(id);
+		if (ret)
+			return ret;
+	}
 
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_ACCEPT, size);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd->id = id_priv->handle;
 	cmd->uid = (uintptr_t) id_priv;
-	ucma_copy_conn_param_to_kern(&cmd->conn_param, conn_param, id->qp);
+	if (id->qp)
+		ucma_copy_conn_param_to_kern(&cmd->conn_param, conn_param,
+					     id->qp->qp_num, id->qp->qp_type,
+					     (id->qp->srq != NULL));
+	else
+		ucma_copy_conn_param_to_kern(&cmd->conn_param, conn_param,
+					     conn_param->qp_num,
+					     conn_param->qp_type,
+					     conn_param->srq);
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size) {
@@ -845,7 +940,8 @@ static int ucma_process_conn_req(struct rdma_cm_event *event,
 	int ret;
 
 	listen_id_priv = container_of(event->id, struct cma_id_private, id);
-	id_priv = ucma_alloc_id(event->id->channel, event->id->context);
+	id_priv = ucma_alloc_id(event->id->channel, event->id->context,
+				event->id->ps);
 	if (!id_priv) {
 		ucma_destroy_kern_id(event->id->channel->fd, handle);
 		ret = -ENOMEM;
@@ -967,6 +1063,9 @@ retry:
 		}
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
+		if (id_priv->id.ps == RDMA_PS_UDP)
+			break;
+
 		evt->status = ucma_process_establish(&id_priv->id);
 		if (evt->status) {
 			evt->event = RDMA_CM_EVENT_CONNECT_ERROR;
@@ -1039,5 +1138,34 @@ int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
 
+	return 0;
+}
+
+int rdma_get_dst_attr(struct rdma_cm_id *id, struct sockaddr *addr,
+		      struct ibv_ah_attr *ah_attr, uint32_t *remote_qpn,
+		      uint32_t *remote_qkey)
+{
+	struct ucma_abi_dst_attr_resp *resp;
+	struct ucma_abi_get_dst_attr *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size, addrlen;
+	
+	addrlen = ucma_addrlen(addr);
+	if (!addrlen)
+		return -EINVAL;
+
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_GET_DST_ATTR, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	memcpy(&cmd->addr, addr, addrlen);
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		return (ret > 0) ? -ENODATA : ret;
+
+	ibv_copy_ah_attr_from_kern(ah_attr, &resp->ah_attr);
+	*remote_qpn = resp->remote_qpn;
+	*remote_qkey = resp->remote_qkey;
 	return 0;
 }

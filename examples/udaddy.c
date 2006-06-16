@@ -43,14 +43,7 @@
 #include <byteswap.h>
 
 #include <rdma/rdma_cma.h>
-
-#if __BYTE_ORDER == __BIG_ENDIAN
-static inline uint64_t cpu_to_be64(uint64_t x) { return x; }
-static inline uint32_t cpu_to_be32(uint32_t x) { return x; }
-#else
-static inline uint64_t cpu_to_be64(uint64_t x) { return bswap_64(x); }
-static inline uint32_t cpu_to_be32(uint32_t x) { return bswap_32(x); }
-#endif
+#include <rdma/rdma_cma_ib.h>
 
 /*
  * To execute:
@@ -65,6 +58,9 @@ struct cmatest_node {
 	struct ibv_pd		*pd;
 	struct ibv_cq		*cq;
 	struct ibv_mr		*mr;
+	struct ibv_ah		*ah;
+	uint32_t		remote_qpn;
+	uint32_t		remote_qkey;
 	void			*mem;
 };
 
@@ -73,7 +69,6 @@ struct cmatest {
 	struct cmatest_node	*nodes;
 	int			conn_index;
 	int			connects_left;
-	int			disconnects_left;
 
 	struct sockaddr_in	dst_in;
 	struct sockaddr		*dst_addr;
@@ -95,13 +90,14 @@ static int create_message(struct cmatest_node *node)
 	if (!message_count)
 		return 0;
 
-	node->mem = malloc(message_size);
+	node->mem = malloc(message_size + sizeof(struct ibv_grh));
 	if (!node->mem) {
 		printf("failed message allocation\n");
 		return -1;
 	}
-	node->mr = ibv_reg_mr(node->pd, node->mem, message_size,
-			     IBV_ACCESS_LOCAL_WRITE);
+	node->mr = ibv_reg_mr(node->pd, node->mem,
+			      message_size + sizeof(struct ibv_grh),
+			      IBV_ACCESS_LOCAL_WRITE);
 	if (!node->mr) {
 		printf("failed to reg MR\n");
 		goto err;
@@ -138,8 +134,8 @@ static int init_node(struct cmatest_node *node)
 	init_qp_attr.cap.max_send_sge = 1;
 	init_qp_attr.cap.max_recv_sge = 1;
 	init_qp_attr.qp_context = node;
-	init_qp_attr.sq_sig_all = 1;
-	init_qp_attr.qp_type = IBV_QPT_RC;
+	init_qp_attr.sq_sig_all = 0;
+	init_qp_attr.qp_type = IBV_QPT_UD;
 	init_qp_attr.send_cq = node->cq;
 	init_qp_attr.recv_cq = node->cq;
 	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
@@ -171,7 +167,7 @@ static int post_recvs(struct cmatest_node *node)
 	recv_wr.num_sge = 1;
 	recv_wr.wr_id = (uintptr_t) node;
 
-	sge.length = message_size;
+	sge.length = message_size + sizeof(struct ibv_grh);
 	sge.lkey = node->mr->lkey;
 	sge.addr = (uintptr_t) node->mem;
 
@@ -185,7 +181,7 @@ static int post_recvs(struct cmatest_node *node)
 	return ret;
 }
 
-static int post_sends(struct cmatest_node *node)
+static int post_sends(struct cmatest_node *node, int signal_flag)
 {
 	struct ibv_send_wr send_wr, *bad_send_wr;
 	struct ibv_sge sge;
@@ -197,11 +193,16 @@ static int post_sends(struct cmatest_node *node)
 	send_wr.next = NULL;
 	send_wr.sg_list = &sge;
 	send_wr.num_sge = 1;
-	send_wr.opcode = IBV_WR_SEND;
-	send_wr.send_flags = 0;
+	send_wr.opcode = IBV_WR_SEND_WITH_IMM;
+	send_wr.send_flags = IBV_SEND_INLINE | signal_flag;
 	send_wr.wr_id = (unsigned long)node;
+	send_wr.imm_data = htonl(node->cma_id->qp->qp_num);
 
-	sge.length = message_size;
+	send_wr.wr.ud.ah = node->ah;
+	send_wr.wr.ud.remote_qpn = node->remote_qpn;
+	send_wr.wr.ud.remote_qkey = node->remote_qkey;
+
+	sge.length = message_size - sizeof(struct ibv_grh);
 	sge.lkey = node->mr->lkey;
 	sge.addr = (uintptr_t) node->mem;
 
@@ -215,7 +216,6 @@ static int post_sends(struct cmatest_node *node)
 
 static void connect_error(void)
 {
-	test.disconnects_left--;
 	test.connects_left--;
 }
 
@@ -245,8 +245,8 @@ static int route_handler(struct cmatest_node *node)
 		goto err;
 
 	memset(&conn_param, 0, sizeof conn_param);
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
+	conn_param.qp_num = node->cma_id->qp->qp_num;
+	conn_param.qp_type = node->cma_id->qp->qp_type;
 	conn_param.retry_count = 5;
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
@@ -283,13 +283,15 @@ static int connect_handler(struct rdma_cm_id *cma_id)
 		goto err2;
 
 	memset(&conn_param, 0, sizeof conn_param);
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
+	conn_param.qp_num = node->cma_id->qp->qp_num;
+	conn_param.qp_type = node->cma_id->qp->qp_type;
 	ret = rdma_accept(node->cma_id, &conn_param);
 	if (ret) {
 		printf("cmatose: failure accepting: %d\n", ret);
 		goto err2;
 	}
+	node->connected = 1;
+	test.connects_left--;
 	return 0;
 
 err2:
@@ -298,6 +300,32 @@ err2:
 err1:
 	printf("cmatose: failing connection request\n");
 	rdma_reject(cma_id, NULL, 0);
+	return ret;
+}
+
+static int resolved_handler(struct cmatest_node *node)
+{
+	struct ibv_ah_attr ah_attr;
+	int ret;
+
+	ret = rdma_get_dst_attr(node->cma_id, test.dst_addr, &ah_attr,
+				&node->remote_qpn, &node->remote_qkey);
+	if (ret) {
+		printf("udaddy: failure getting destination attributes\n");
+		goto err;
+	}
+
+	node->ah = ibv_create_ah(node->pd, &ah_attr);
+	if (!node->ah) {
+		printf("udaddy: failure creating address handle\n");
+		goto err;
+	}
+
+	node->connected = 1;
+	test.connects_left--;
+	return 0;
+err:
+	connect_error();
 	return ret;
 }
 
@@ -316,8 +344,7 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 		ret = connect_handler(cma_id);
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		((struct cmatest_node *) cma_id->context)->connected = 1;
-		test.connects_left--;
+		ret = resolved_handler(cma_id->context);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
 	case RDMA_CM_EVENT_ROUTE_ERROR:
@@ -327,10 +354,7 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 		printf("cmatose: event: %d, error: %d\n", event->event,
 			event->status);
 		connect_error();
-		break;
-	case RDMA_CM_EVENT_DISCONNECTED:
-		rdma_disconnect(cma_id);
-		test.disconnects_left--;
+		ret = event->status;
 		break;
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
 		/* Cleanup will occur after test completes. */
@@ -345,6 +369,9 @@ static void destroy_node(struct cmatest_node *node)
 {
 	if (!node->cma_id)
 		return;
+
+	if (node->ah)
+		ibv_destroy_ah(node->ah);
 
 	if (node->cma_id->qp)
 		rdma_destroy_qp(node->cma_id);
@@ -380,7 +407,7 @@ static int alloc_nodes(void)
 		if (!is_server) {
 			ret = rdma_create_id(test.channel,
 					     &test.nodes[i].cma_id,
-					     &test.nodes[i], RDMA_PS_TCP);
+					     &test.nodes[i], RDMA_PS_UDP);
 			if (ret)
 				goto err;
 		}
@@ -402,6 +429,14 @@ static void destroy_nodes(void)
 	free(test.nodes);
 }
 
+static void create_reply_ah(struct cmatest_node *node, struct ibv_wc *wc)
+{
+	node->ah = ibv_create_ah_from_wc(node->pd, wc, node->mem,
+					 node->cma_id->port_num);
+	node->remote_qpn = ntohl(wc->imm_data);
+	node->remote_qkey = ntohs(rdma_get_dst_port(node->cma_id));
+}
+
 static int poll_cqs(void)
 {
 	struct ibv_wc wc[8];
@@ -417,6 +452,9 @@ static int poll_cqs(void)
 				printf("cmatose: failed polling CQ: %d\n", ret);
 				return ret;
 			}
+
+			if (ret && !test.nodes[i].ah)
+				create_reply_ah(&test.nodes[i], wc);
 		}
 	}
 	return 0;
@@ -425,38 +463,15 @@ static int poll_cqs(void)
 static int connect_events(void)
 {
 	struct rdma_cm_event *event;
-	int err = 0, ret = 0;
+	int ret = 0;
 
-	while (test.connects_left && !err) {
-		err = rdma_get_cm_event(test.channel, &event);
-		if (!err) {
-			cma_handler(event->id, event);
+	while (test.connects_left && !ret) {
+		ret = rdma_get_cm_event(test.channel, &event);
+		if (!ret) {
+			ret = cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
-		} else {
-			printf("cmatose: failure in rdma_get_cm_event in connect events\n");
-			ret = err;
 		}
 	}
-
-	return ret;
-}
-
-static int disconnect_events(void)
-{
-	struct rdma_cm_event *event;
-	int err = 0, ret = 0;
-
-	while (test.disconnects_left && !err) {
-		err = rdma_get_cm_event(test.channel, &event);
-		if (!err) {
-			cma_handler(event->id, event);
-			rdma_ack_cm_event(event);
-		} else {
-			printf("cmatose: failure in rdma_get_cm_event in disconnect events\n");
-			ret = err;
-		}
-	}
-
 	return ret;
 }
 
@@ -466,14 +481,14 @@ static int run_server(void)
 	int i, ret;
 
 	printf("cmatose: starting server\n");
-	ret = rdma_create_id(test.channel, &listen_id, &test, RDMA_PS_TCP);
+	ret = rdma_create_id(test.channel, &listen_id, &test, RDMA_PS_UDP);
 	if (ret) {
 		printf("cmatose: listen request failed\n");
 		return ret;
 	}
 
 	test.src_in.sin_family = PF_INET;
-	test.src_in.sin_port = 7471;
+	test.src_in.sin_port = 7174;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
 		printf("cmatose: bind address failed: %d\n", ret);
@@ -486,38 +501,26 @@ static int run_server(void)
 		goto out;
 	}
 
-	ret = connect_events();
-	if (ret)
-		goto out;
+	connect_events();
 
 	if (message_count) {
-		printf("initiating data transfers\n");
-		for (i = 0; i < connections; i++) {
-			ret = post_sends(&test.nodes[i]);
-			if (ret)
-				goto out;
-		}
-
 		printf("receiving data transfers\n");
 		ret = poll_cqs();
 		if (ret)
 			goto out;
+
+		printf("sending replies\n");
+		for (i = 0; i < connections; i++) {
+			ret = post_sends(&test.nodes[i], IBV_SEND_SIGNALED);
+			if (ret)
+				goto out;
+		}
+
+		ret = poll_cqs();
+		if (ret)
+			goto out;
 		printf("data transfers complete\n");
-
 	}
-	printf("cmatose: disconnecting\n");
-	for (i = 0; i < connections; i++) {
-		if (!test.nodes[i].connected)
-			continue;
-
-		test.nodes[i].connected = 0;
-		rdma_disconnect(test.nodes[i].cma_id);
-	}
-
-	ret = disconnect_events();
-
- 	printf("disconnected\n");
-
 out:
 	rdma_destroy_id(listen_id);
 	return ret;
@@ -547,7 +550,7 @@ out:
 
 static int run_client(char *dst, char *src)
 {
-	int i, ret, ret2;
+	int i, ret;
 
 	printf("cmatose: starting client\n");
 	if (src) {
@@ -560,7 +563,7 @@ static int run_client(char *dst, char *src)
 	if (ret)
 		return ret;
 
-	test.dst_in.sin_port = 7471;
+	test.dst_in.sin_port = 7174;
 
 	printf("cmatose: connecting\n");
 	for (i = 0; i < connections; i++) {
@@ -579,28 +582,20 @@ static int run_client(char *dst, char *src)
 		goto out;
 
 	if (message_count) {
+		printf("initiating data transfers\n");
+		for (i = 0; i < connections; i++) {
+			ret = post_sends(&test.nodes[i], 0);
+			if (ret)
+				goto out;
+		}
 		printf("receiving data transfers\n");
 		ret = poll_cqs();
 		if (ret)
 			goto out;
 
-		printf("sending replies\n");
-		for (i = 0; i < connections; i++) {
-			ret = post_sends(&test.nodes[i]);
-			if (ret)
-				goto out;
-		}
-
 		printf("data transfers complete\n");
-
 	}
-
-	ret = 0;
 out:
-	ret2 = disconnect_events();
-	if (ret2)
-		ret = ret2;
-
 	return ret;
 }
 
@@ -617,7 +612,6 @@ int main(int argc, char **argv)
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
 	test.src_addr = (struct sockaddr *) &test.src_in;
 	test.connects_left = connections;
-	test.disconnects_left = connections;
 
 	test.channel = rdma_create_event_channel();
 	if (!test.channel) {

@@ -44,4 +44,19 @@ struct ib_cm_req_opt {
 	uint8_t		max_cm_retries;
 };
 
+/**
+ * rdma_get_dst_attr - Retrieve information about a UDP destination.
+ * @id: Connection identifier associated with the request.
+ * @addr: Address of remote destination to retrieve information about.
+ * @ah_attr: Address handle attributes.  A caller uses these attributes to
+ *   create an address handle when communicating with the destination.
+ * @qpn: The remote QP number associated with the UDP address.
+ * @qkey: The QKey of the remote QP.
+ *
+ * Users must have called rdma_connect() to resolve the destination information.
+ */
+int rdma_get_dst_attr(struct rdma_cm_id *id, struct sockaddr *addr,
+		      struct ibv_ah_attr *ah_attr, uint32_t *remote_qpn,
+		      uint32_t *remote_qkey);
+
 #endif /* RDMA_CMA_IB_H */
