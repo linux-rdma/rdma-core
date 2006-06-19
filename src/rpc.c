@@ -132,7 +132,7 @@ _do_madrpc(void *umad, int agentid, int len, int timeout)
 
 	for (retries = 0; retries < madrpc_retries; retries++) {
 		if (retries) {
-			ERRS("retry %d (timeout %d ms)", retries + 1, timeout);
+			ERRS("retry %d (timeout %d ms)", retries, timeout);
 			/* Restore user MAD header */
 			memcpy(&mad->addr, &addr, sizeof addr);
 		}
