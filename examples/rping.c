@@ -157,10 +157,10 @@ struct rping_cb {
 	struct rdma_cm_id *child_cm_id;	/* connection on server side */
 };
 
-static void rping_cma_event_handler(struct rdma_cm_id *cma_id,
+static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 				    struct rdma_cm_event *event)
 {
-	int ret;
+	int ret = 0;
 	struct rping_cb *cb = cma_id->context;
 
 	DEBUG_LOG("cma_event type %d cma_id %p (%s)\n", event->event, cma_id,
@@ -209,6 +209,7 @@ static void rping_cma_event_handler(struct rdma_cm_id *cma_id,
 		fprintf(stderr, "cma event %d, error %d\n", event->event,
 		       event->status);
 		sem_post(&cb->sem);
+		ret = -1;
 		break;
 
 	case RDMA_CM_EVENT_DISCONNECTED:
@@ -218,13 +219,17 @@ static void rping_cma_event_handler(struct rdma_cm_id *cma_id,
 
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
 		fprintf(stderr, "cma detected device removal!!!!\n");
+		ret = -1;
 		break;
 
 	default:
 		fprintf(stderr, "oof bad type!\n");
 		sem_post(&cb->sem);
+		ret = -1;
 		break;
 	}
+
+	return ret;
 }
 
 static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
@@ -263,16 +268,20 @@ static int client_recv(struct rping_cb *cb, struct ibv_wc *wc)
 	return 0;
 }
 
-static void rping_cq_event_handler(struct rping_cb *cb)
+static int rping_cq_event_handler(struct rping_cb *cb)
 {
 	struct ibv_wc wc;
 	struct ibv_recv_wr *bad_wr;
 	int ret;
 
 	while ((ret = ibv_poll_cq(cb->cq, 1, &wc)) == 1) {
+		ret = 0;
+
 		if (wc.status) {
 			fprintf(stderr, "cq completion failed status %d\n",
 				wc.status);
+			if (wc.status != IBV_WC_WR_FLUSH_ERR)
+				ret = -1;
 			goto error;
 		}
 
@@ -312,6 +321,7 @@ static void rping_cq_event_handler(struct rping_cb *cb)
 
 		default:
 			DEBUG_LOG("unknown!!!!! completion\n");
+			ret = -1;
 			goto error;
 		}
 	}
@@ -319,11 +329,12 @@ static void rping_cq_event_handler(struct rping_cb *cb)
 		fprintf(stderr, "poll error %d\n", ret);
 		goto error;
 	}
-	return;
+	return 0;
 
 error:
 	cb->state = ERROR;
 	sem_post(&cb->sem);
+	return ret;
 }
 
 static int rping_accept(struct rping_cb *cb)
@@ -560,8 +571,10 @@ static void *cm_thread(void *arg)
 			fprintf(stderr, "rdma_get_cm_event err %d\n", ret);
 			exit(ret);
 		}
-		rping_cma_event_handler(event->id, event);
+		ret = rping_cma_event_handler(event->id, event);
 		rdma_ack_cm_event(event);
+		if (ret)
+			exit(ret);
 	}
 }
 
@@ -589,8 +602,10 @@ static void *cq_thread(void *arg)
 			fprintf(stderr, "Failed to set notify!\n");
 			exit(ret);
 		}
-		rping_cq_event_handler(cb);
+		ret = rping_cq_event_handler(cb);
 		ibv_ack_cq_events(cb->cq, 1);
+		if (ret)
+			exit(ret);
 	}
 }
 
@@ -606,7 +621,7 @@ static void rping_format_send(struct rping_cb *cb, char *buf, struct ibv_mr *mr)
 		  info->buf, info->rkey, info->size);
 }
 
-static void rping_test_server(struct rping_cb *cb)
+static int rping_test_server(struct rping_cb *cb)
 {
 	struct ibv_send_wr *bad_wr;
 	int ret;
@@ -617,6 +632,7 @@ static void rping_test_server(struct rping_cb *cb)
 		if (cb->state != RDMA_READ_ADV) {
 			fprintf(stderr, "wait for RDMA_READ_ADV state %d\n",
 				cb->state);
+			ret = -1;
 			break;
 		}
 
@@ -640,6 +656,7 @@ static void rping_test_server(struct rping_cb *cb)
 		if (cb->state != RDMA_READ_COMPLETE) {
 			fprintf(stderr, "wait for RDMA_READ_COMPLETE state %d\n",
 				cb->state);
+			ret = -1;
 			break;
 		}
 		DEBUG_LOG("server received read complete\n");
@@ -661,6 +678,7 @@ static void rping_test_server(struct rping_cb *cb)
 		if (cb->state != RDMA_WRITE_ADV) {
 			fprintf(stderr, "wait for RDMA_WRITE_ADV state %d\n",
 				cb->state);
+			ret = -1;
 			break;
 		}
 		DEBUG_LOG("server received sink adv\n");
@@ -686,6 +704,7 @@ static void rping_test_server(struct rping_cb *cb)
 		if (cb->state != RDMA_WRITE_COMPLETE) {
 			fprintf(stderr, "wait for RDMA_WRITE_COMPLETE state %d\n",
 				cb->state);
+			ret = -1;
 			break;
 		}
 		DEBUG_LOG("server rdma write complete \n");
@@ -698,6 +717,8 @@ static void rping_test_server(struct rping_cb *cb)
 		}
 		DEBUG_LOG("server posted go ahead\n");
 	}
+
+	return ret;
 }
 
 static int rping_bind_server(struct rping_cb *cb)
@@ -734,19 +755,19 @@ static int rping_bind_server(struct rping_cb *cb)
 	return 0;
 }
 
-static void rping_run_server(struct rping_cb *cb)
+static int rping_run_server(struct rping_cb *cb)
 {
 	struct ibv_recv_wr *bad_wr;
 	int ret;
 
 	ret = rping_bind_server(cb);
 	if (ret)
-		return;
+		return ret;
 
 	ret = rping_setup_qp(cb, cb->child_cm_id);
 	if (ret) {
 		fprintf(stderr, "setup_qp failed: %d\n", ret);
-		return;
+		return ret;
 	}
 
 	ret = rping_setup_buffers(cb);
@@ -776,11 +797,13 @@ err2:
 	rping_free_buffers(cb);
 err1:
 	rping_free_qp(cb);
+
+	return ret;
 }
 
-static void rping_test_client(struct rping_cb *cb)
+static int rping_test_client(struct rping_cb *cb)
 {
-	int ping, start, cc, i, ret;
+	int ping, start, cc, i, ret = 0;
 	struct ibv_send_wr *bad_wr;
 	unsigned char c;
 
@@ -813,6 +836,7 @@ static void rping_test_client(struct rping_cb *cb)
 		if (cb->state != RDMA_WRITE_ADV) {
 			fprintf(stderr, "wait for RDMA_WRITE_ADV state %d\n",
 				cb->state);
+			ret = -1;
 			break;
 		}
 
@@ -828,18 +852,22 @@ static void rping_test_client(struct rping_cb *cb)
 		if (cb->state != RDMA_WRITE_COMPLETE) {
 			fprintf(stderr, "wait for RDMA_WRITE_COMPLETE state %d\n",
 				cb->state);
+			ret = -1;
 			break;
 		}
 
 		if (cb->validate)
 			if (memcmp(cb->start_buf, cb->rdma_buf, cb->size)) {
 				fprintf(stderr, "data mismatch!\n");
+				ret = -1;
 				break;
 			}
 
 		if (cb->verbose)
 			printf("ping data: %s\n", cb->rdma_buf);
 	}
+
+	return ret;
 }
 
 static int rping_connect_client(struct rping_cb *cb)
@@ -896,19 +924,19 @@ static int rping_bind_client(struct rping_cb *cb)
 	return 0;
 }
 
-static void rping_run_client(struct rping_cb *cb)
+static int rping_run_client(struct rping_cb *cb)
 {
 	struct ibv_recv_wr *bad_wr;
 	int ret;
 
 	ret = rping_bind_client(cb);
 	if (ret)
-		return;
+		return ret;
 
 	ret = rping_setup_qp(cb, cb->cm_id);
 	if (ret) {
 		fprintf(stderr, "setup_qp failed: %d\n", ret);
-		return;
+		return ret;
 	}
 
 	ret = rping_setup_buffers(cb);
@@ -937,6 +965,8 @@ err2:
 	rping_free_buffers(cb);
 err1:
 	rping_free_qp(cb);
+
+	return ret;
 }
 
 static void usage(char *name)
@@ -1054,9 +1084,9 @@ int main(int argc, char *argv[])
 	pthread_create(&cb->cmthread, NULL, cm_thread, cb);
 
 	if (cb->server)
-		rping_run_server(cb);
+		ret = rping_run_server(cb);
 	else
-		rping_run_client(cb);
+		ret = rping_run_client(cb);
 
 	DEBUG_LOG("destroy cm_id %p\n", cb->cm_id);
 	rdma_destroy_id(cb->cm_id);
