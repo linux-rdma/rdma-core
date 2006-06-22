@@ -111,7 +111,7 @@ static int init_node(struct cmatest_node *node)
 	node->pd = ibv_alloc_pd(node->cma_id->verbs);
 	if (!node->pd) {
 		ret = -ENOMEM;
-		printf("cmatose: unable to allocate PD\n");
+		printf("mckey: unable to allocate PD\n");
 		goto out;
 	}
 
@@ -119,7 +119,7 @@ static int init_node(struct cmatest_node *node)
 	node->cq = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
 	if (!node->cq) {
 		ret = -ENOMEM;
-		printf("cmatose: unable to create CQ\n");
+		printf("mckey: unable to create CQ\n");
 		goto out;
 	}
 
@@ -135,13 +135,13 @@ static int init_node(struct cmatest_node *node)
 	init_qp_attr.recv_cq = node->cq;
 	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
 	if (ret) {
-		printf("cmatose: unable to create QP: %d\n", ret);
+		printf("mckey: unable to create QP: %d\n", ret);
 		goto out;
 	}
 
 	ret = create_message(node);
 	if (ret) {
-		printf("cmatose: failed to create messages: %d\n", ret);
+		printf("mckey: failed to create messages: %d\n", ret);
 		goto out;
 	}
 out:
@@ -230,7 +230,7 @@ static int addr_handler(struct cmatest_node *node)
 
 	ret = rdma_join_multicast(node->cma_id, test.dst_addr, node);
 	if (ret) {
-		printf("cmatose: failure joining: %d\n", ret);
+		printf("mckey: failure joining: %d\n", ret);
 		goto err;
 	}
 	return 0;
@@ -279,7 +279,7 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	case RDMA_CM_EVENT_ADDR_ERROR:
 	case RDMA_CM_EVENT_ROUTE_ERROR:
 	case RDMA_CM_EVENT_MULTICAST_ERROR:
-		printf("cmatose: event: %d, error: %d\n", event->event,
+		printf("mckey: event: %d, error: %d\n", event->event,
 			event->status);
 		connect_error();
 		ret = event->status;
@@ -325,7 +325,7 @@ static int alloc_nodes(void)
 
 	test.nodes = malloc(sizeof *test.nodes * connections);
 	if (!test.nodes) {
-		printf("cmatose: unable to allocate memory for test nodes\n");
+		printf("mckey: unable to allocate memory for test nodes\n");
 		return -ENOMEM;
 	}
 	memset(test.nodes, 0, sizeof *test.nodes * connections);
@@ -366,7 +366,7 @@ static int poll_cqs(void)
 		for (done = 0; done < message_count; done += ret) {
 			ret = ibv_poll_cq(test.nodes[i].cq, 8, wc);
 			if (ret < 0) {
-				printf("cmatose: failed polling CQ: %d\n", ret);
+				printf("mckey: failed polling CQ: %d\n", ret);
 				return ret;
 			}
 		}
@@ -415,7 +415,7 @@ static int run(char *dst, char *src)
 {
 	int i, ret;
 
-	printf("cmatose: starting client\n");
+	printf("mckey: starting client\n");
 	if (src) {
 		ret = get_addr(src, &test.src_in);
 		if (ret)
@@ -428,13 +428,13 @@ static int run(char *dst, char *src)
 
 	test.dst_in.sin_port = 7174;
 
-	printf("cmatose: joining\n");
+	printf("mckey: joining\n");
 	for (i = 0; i < connections; i++) {
 		ret = rdma_resolve_addr(test.nodes[i].cma_id,
 					src ? test.src_addr : NULL,
 					test.dst_addr, 2000);
 		if (ret) {
-			printf("cmatose: failure getting addr: %d\n", ret);
+			printf("mckey: failure getting addr: %d\n", ret);
 			connect_error();
 			return ret;
 		}
