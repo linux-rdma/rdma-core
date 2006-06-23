@@ -47,8 +47,8 @@
 
 /*
  * To execute:
- * Server: rdma_cmatose
- * Client: rdma_cmatose "dst_ip=ip"
+ * Server: udaddy
+ * Client: udaddy [server_addr [src_addr]]
  */
 
 struct cmatest_node {
@@ -116,7 +116,7 @@ static int init_node(struct cmatest_node *node)
 	node->pd = ibv_alloc_pd(node->cma_id->verbs);
 	if (!node->pd) {
 		ret = -ENOMEM;
-		printf("cmatose: unable to allocate PD\n");
+		printf("udaddy: unable to allocate PD\n");
 		goto out;
 	}
 
@@ -124,7 +124,7 @@ static int init_node(struct cmatest_node *node)
 	node->cq = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
 	if (!node->cq) {
 		ret = -ENOMEM;
-		printf("cmatose: unable to create CQ\n");
+		printf("udaddy: unable to create CQ\n");
 		goto out;
 	}
 
@@ -140,13 +140,13 @@ static int init_node(struct cmatest_node *node)
 	init_qp_attr.recv_cq = node->cq;
 	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
 	if (ret) {
-		printf("cmatose: unable to create QP: %d\n", ret);
+		printf("udaddy: unable to create QP: %d\n", ret);
 		goto out;
 	}
 
 	ret = create_message(node);
 	if (ret) {
-		printf("cmatose: failed to create messages: %d\n", ret);
+		printf("udaddy: failed to create messages: %d\n", ret);
 		goto out;
 	}
 out:
@@ -225,7 +225,7 @@ static int addr_handler(struct cmatest_node *node)
 
 	ret = rdma_resolve_route(node->cma_id, 2000);
 	if (ret) {
-		printf("cmatose: resolve route failed: %d\n", ret);
+		printf("udaddy: resolve route failed: %d\n", ret);
 		connect_error();
 	}
 	return ret;
@@ -250,7 +250,7 @@ static int route_handler(struct cmatest_node *node)
 	conn_param.retry_count = 5;
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
-		printf("cmatose: failure connecting: %d\n", ret);
+		printf("udaddy: failure connecting: %d\n", ret);
 		goto err;
 	}
 	return 0;
@@ -287,7 +287,7 @@ static int connect_handler(struct rdma_cm_id *cma_id)
 	conn_param.qp_type = node->cma_id->qp->qp_type;
 	ret = rdma_accept(node->cma_id, &conn_param);
 	if (ret) {
-		printf("cmatose: failure accepting: %d\n", ret);
+		printf("udaddy: failure accepting: %d\n", ret);
 		goto err2;
 	}
 	node->connected = 1;
@@ -298,7 +298,7 @@ err2:
 	node->cma_id = NULL;
 	connect_error();
 err1:
-	printf("cmatose: failing connection request\n");
+	printf("udaddy: failing connection request\n");
 	rdma_reject(cma_id, NULL, 0);
 	return ret;
 }
@@ -351,7 +351,7 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	case RDMA_CM_EVENT_CONNECT_ERROR:
 	case RDMA_CM_EVENT_UNREACHABLE:
 	case RDMA_CM_EVENT_REJECTED:
-		printf("cmatose: event: %d, error: %d\n", event->event,
+		printf("udaddy: event: %d, error: %d\n", event->event,
 			event->status);
 		connect_error();
 		ret = event->status;
@@ -397,7 +397,7 @@ static int alloc_nodes(void)
 
 	test.nodes = malloc(sizeof *test.nodes * connections);
 	if (!test.nodes) {
-		printf("cmatose: unable to allocate memory for test nodes\n");
+		printf("udaddy: unable to allocate memory for test nodes\n");
 		return -ENOMEM;
 	}
 	memset(test.nodes, 0, sizeof *test.nodes * connections);
@@ -449,7 +449,7 @@ static int poll_cqs(void)
 		for (done = 0; done < message_count; done += ret) {
 			ret = ibv_poll_cq(test.nodes[i].cq, 8, wc);
 			if (ret < 0) {
-				printf("cmatose: failed polling CQ: %d\n", ret);
+				printf("udaddy: failed polling CQ: %d\n", ret);
 				return ret;
 			}
 
@@ -480,10 +480,10 @@ static int run_server(void)
 	struct rdma_cm_id *listen_id;
 	int i, ret;
 
-	printf("cmatose: starting server\n");
+	printf("udaddy: starting server\n");
 	ret = rdma_create_id(test.channel, &listen_id, &test, RDMA_PS_UDP);
 	if (ret) {
-		printf("cmatose: listen request failed\n");
+		printf("udaddy: listen request failed\n");
 		return ret;
 	}
 
@@ -491,13 +491,13 @@ static int run_server(void)
 	test.src_in.sin_port = 7174;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
-		printf("cmatose: bind address failed: %d\n", ret);
+		printf("udaddy: bind address failed: %d\n", ret);
 		return ret;
 	}
 
 	ret = rdma_listen(listen_id, 0);
 	if (ret) {
-		printf("cmatose: failure trying to listen: %d\n", ret);
+		printf("udaddy: failure trying to listen: %d\n", ret);
 		goto out;
 	}
 
@@ -552,7 +552,7 @@ static int run_client(char *dst, char *src)
 {
 	int i, ret;
 
-	printf("cmatose: starting client\n");
+	printf("udaddy: starting client\n");
 	if (src) {
 		ret = get_addr(src, &test.src_in);
 		if (ret)
@@ -565,13 +565,13 @@ static int run_client(char *dst, char *src)
 
 	test.dst_in.sin_port = 7174;
 
-	printf("cmatose: connecting\n");
+	printf("udaddy: connecting\n");
 	for (i = 0; i < connections; i++) {
 		ret = rdma_resolve_addr(test.nodes[i].cma_id,
 					src ? test.src_addr : NULL,
 					test.dst_addr, 2000);
 		if (ret) {
-			printf("cmatose: failure getting addr: %d\n", ret);
+			printf("udaddy: failure getting addr: %d\n", ret);
 			connect_error();
 			return ret;
 		}
