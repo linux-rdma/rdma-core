@@ -105,57 +105,54 @@ madrpc_portid(void)
 }
 
 static int 
-_do_madrpc(void *umad, int agentid, int len, int timeout)
+_do_madrpc(void *sndbuf, void *rcvbuf, int agentid, int len, int timeout)
 {
+	uint32_t trid; /* only low 32 bits */
 	int retries;
 	int length, status;
-	ib_user_mad_t *mad;
-	ib_mad_addr_t addr;
 
 	if (!timeout)
 		timeout = def_madrpc_timeout;
 
 	if (ibdebug > 1) {
 		IBWARN(">>> sending: len %d pktsz %d", len, umad_size() + len);
-		xdump(stderr, "send buf\n", umad, umad_size() + len);
+		xdump(stderr, "send buf\n", sndbuf, umad_size() + len);
 	}
 
-	/* Save user MAD header in case of retry */
-	mad = umad;
-	memcpy(&addr, &mad->addr, sizeof addr);
-
 	if (save_mad) {
-		memcpy(save_mad, umad_get_mad(umad),
+		memcpy(save_mad, umad_get_mad(sndbuf),
 		       save_mad_len < len ? save_mad_len : len);
 		save_mad = 0;
 	}
 
+	trid = mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
+
 	for (retries = 0; retries < madrpc_retries; retries++) {
 		if (retries) {
 			ERRS("retry %d (timeout %d ms)", retries, timeout);
-			/* Restore user MAD header */
-			memcpy(&mad->addr, &addr, sizeof addr);
 		}
 
 		length = len;
-		if (umad_send(mad_portid, agentid, umad, length, timeout, 0) < 0) {
+		if (umad_send(mad_portid, agentid, sndbuf, length, timeout, 0) < 0) {
 			IBWARN("send failed; %m");
 			return -1;
 		}
 
 		/* Use same timeout on receive side just in case */
 		/* send packet is lost somewhere. */
-		if (umad_recv(mad_portid, umad, &length, timeout) < 0) {
-			IBWARN("recv failed: %m");
-			return -1;
-		}
-		
-		if (ibdebug > 1) {
-			IBWARN("rcv buf:");
-			xdump(stderr, "rcv buf\n", umad_get_mad(umad), IB_MAD_SIZE);
-		}
+		do {
+			if (umad_recv(mad_portid, rcvbuf, &length, timeout) < 0) {
+				IBWARN("recv failed: %m");
+				return -1;
+			}
 
-		status = umad_status(umad);
+			if (ibdebug > 1) {
+				IBWARN("rcv buf:");
+				xdump(stderr, "rcv buf\n", umad_get_mad(rcvbuf), IB_MAD_SIZE);
+			}
+		} while ((uint32_t)mad_get_field64(umad_get_mad(rcvbuf), 0, IB_MAD_TRID_F) != trid);
+
+		status = umad_status(rcvbuf);
 		if (!status)
 			return length;		/* done */
 		if (status == ENOMEM)
@@ -170,19 +167,19 @@ void *
 madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 {
 	int status, len;
-	uint8_t pktbuf[1024], *mad;
-	void *umad = pktbuf;
+	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
-	memset(pktbuf, 0, umad_size() + IB_MAD_SIZE);
+	len = 0;
+	memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
-	if ((len = mad_build_pkt(umad, rpc, dport, 0, payload)) < 0)
+	if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass),
+	if ((len = _do_madrpc(sndbuf, rcvbuf, mad_class_agent(rpc->mgtclass),
 			      len, rpc->timeout)) < 0)
 		return 0;
 
-	mad = umad_get_mad(umad);
+	mad = umad_get_mad(rcvbuf);
 
 	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
 		ERRS("MAD completed with error status 0x%x", status);
@@ -204,21 +201,20 @@ void *
 madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 {
 	int status, len;
-	uint8_t pktbuf[1024], *mad;
-	void *umad = pktbuf;
+	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
-	memset(pktbuf, 0, umad_size() + IB_MAD_SIZE);
+	memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
 	DEBUG("rmpp %p data %p", rmpp, data);
 
-	if ((len = mad_build_pkt(umad, rpc, dport, rmpp, data)) < 0)
+	if ((len = mad_build_pkt(sndbuf, rpc, dport, rmpp, data)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(umad, mad_class_agent(rpc->mgtclass),
+	if ((len = _do_madrpc(sndbuf, rcvbuf, mad_class_agent(rpc->mgtclass),
 			      len, rpc->timeout)) < 0)
 		return 0;
 
-	mad = umad_get_mad(umad);
+	mad = umad_get_mad(rcvbuf);
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
 		ERRS("MAD completed with error status 0x%x", status);
