@@ -1,3 +1,8 @@
+2006-07-01  Roland Dreier  <rdreier@cisco.com>
+
+	* src/srp-dm.c (get_node): Use correct attribute ID to retrieve
+	NodeRecord -- old code incorrectly queried for a PortInfoRecord.
+
 2006-06-14  Roland Dreier  <rdreier@cisco.com>
 
 	* src/srp-dm.c: Add support for SMs that support queries of

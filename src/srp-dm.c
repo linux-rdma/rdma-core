@@ -486,14 +486,12 @@ static int get_node(int fd, uint32_t agent, uint16_t dlid, uint64_t *guid)
 {
 	struct ib_user_mad		out_mad, in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
-	struct srp_dm_mad	       *in_dm_mad;
 	struct srp_sa_node_rec	       *node;
 
 	in_sa_mad  = (void *) in_mad.data;
-	in_dm_mad  = (void *) in_mad.data;
 	out_sa_mad = (void *) out_mad.data;
 
-	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_SA_ATTR_PORT_INFO, 0);
+	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_SA_ATTR_NODE, 0);
 
 	out_sa_mad->mgmt_class 	  = SRP_MGMT_CLASS_SA;
 	out_sa_mad->class_version = 2;
@@ -515,11 +513,9 @@ static int get_port_info(int fd, uint32_t agent, uint16_t dlid,
 {
 	struct ib_user_mad		out_mad, in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
-	struct srp_dm_mad	       *in_dm_mad;
 	struct srp_sa_port_info_rec    *port_info;
 
 	in_sa_mad  = (void *) in_mad.data;
-	in_dm_mad  = (void *) in_mad.data;
 	out_sa_mad = (void *) out_mad.data;
 
 	init_srp_dm_mad(&out_mad, agent, sm_lid, SRP_SA_ATTR_PORT_INFO, 0);
