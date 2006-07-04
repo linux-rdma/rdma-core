@@ -174,6 +174,10 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 	struct mthca_cq      	   *cq;
 	int                  	    ret;
 
+	/* Sanity check CQ size before proceeding */
+	if (cqe > 131072)
+		return NULL;
+
 	cq = malloc(sizeof *cq);
 	if (!cq)
 		return NULL;
@@ -263,6 +267,10 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 	void *buf;
 	int old_cqe;
 	int ret;
+
+	/* Sanity check CQ size before proceeding */
+	if (cqe > 131072)
+		return EINVAL;
 
 	pthread_spin_lock(&cq->lock);
 

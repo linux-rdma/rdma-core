@@ -1,3 +1,10 @@
+2006-07-04  Dotan Barak  <dotanb@mellanox.co.il>
+
+	* src/verbs.c (mthca_create_cq, mthca_resize_cq): Passing huge
+	size values to create_cq/resize_cq causes a hang in
+	align_cq_size().  Fix this by validating input, similiar to what
+	we do for mthca_create_qp() and mthca_create_srq().
+
 2006-06-13  Roland Dreier  <rdreier@cisco.com>
 
 	* Release version 1.0.2.
