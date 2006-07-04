@@ -1,3 +1,9 @@
+2006-07-04  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/arch.h: Fix typo in sparc mb()
+	implementation: the asm should just be empty -- the "sync"
+	instruction was mistakenly cut and pasted from the ppc version.
+
 2006-06-01  Roland Dreier  <rdreier@cisco.com>
 
 	* src/device.c (ibv_get_device_list): Actually return a
