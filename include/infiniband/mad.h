@@ -767,7 +767,7 @@ ib_mad_dump_fn
 	mad_dump_linkspeed, mad_dump_linkspeedsup, mad_dump_linkspeeden,
 	mad_dump_portstate, mad_dump_portstates,
 	mad_dump_physportstate, mad_dump_portcapmask,
-	mad_dump_mtu, mad_dump_vlcap,
+	mad_dump_mtu, mad_dump_vlcap, mad_dump_opervls,
 	mad_dump_node_type,
 	mad_dump_sltovl, mad_dump_vlarbitration,
 	mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo, mad_dump_switchinfo,

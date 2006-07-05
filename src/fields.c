@@ -136,7 +136,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_PORT_SMSL_F]		{BITSOFFS(292, 4), "SMSL", mad_dump_uint},
 	[IB_PORT_VL_CAP_F]		{BITSOFFS(296, 4), "VLCap", mad_dump_vlcap},
 	[IB_PORT_INIT_TYPE_F]		{BITSOFFS(300, 4), "InitType", mad_dump_hex},
-	[IB_PORT_VL_HIGH_LIMIT_F] 		{BITSOFFS(304, 8), "VLHighLimit", mad_dump_uint},
+	[IB_PORT_VL_HIGH_LIMIT_F] 	{BITSOFFS(304, 8), "VLHighLimit", mad_dump_uint},
 	[IB_PORT_VL_ARBITRATION_HIGH_CAP_F]	{BITSOFFS(312, 8), "VLArbHighCap", mad_dump_uint},
 	[IB_PORT_VL_ARBITRATION_LOW_CAP_F]	{BITSOFFS(320, 8), "VLArbLowCap", mad_dump_uint},
 
@@ -144,7 +144,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_PORT_MTRU_CAP_F]		{BITSOFFS(332, 4), "MtuCap", mad_dump_mtu},
 	[IB_PORT_VL_STALL_COUNT_F]	{BITSOFFS(336, 3), "VLStallCount", mad_dump_uint},
 	[IB_PORT_HOQ_LIFE_F]		{BITSOFFS(339, 5), "HoqLife", mad_dump_uint},
-	[IB_PORT_OPER_VLS_F]		{BITSOFFS(344, 4), "OperVLs", mad_dump_uint},
+	[IB_PORT_OPER_VLS_F]		{BITSOFFS(344, 4), "OperVLs", mad_dump_opervls},
 	[IB_PORT_PART_EN_INB_F]		{BITSOFFS(348, 1), "PartEnforceInb", mad_dump_uint},
 	[IB_PORT_PART_EN_OUTB_F]	{BITSOFFS(349, 1), "PartEnforceOutb", mad_dump_uint},
 	[IB_PORT_FILTER_RAW_INB_F]	{BITSOFFS(350, 1), "FilterRawInb", mad_dump_uint},
