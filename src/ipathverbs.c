@@ -145,29 +145,23 @@ static struct ibv_device_ops ipath_dev_ops = {
 	.free_context	= ipath_free_context
 };
 
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
+struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
+				   int abi_version)
 {
-	struct sysfs_device    *pcidev;
-	struct sysfs_attribute *attr;
+	char			value[8];
 	struct ipath_device    *dev;
-	unsigned		vendor, device;
-	int			i;
+	unsigned                vendor, device;
+	int                     i;
 
-	pcidev = sysfs_get_classdev_device(sysdev);
-	if (!pcidev)
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
+				value, sizeof value) < 0)
 		return NULL;
+	sscanf(value, "%i", &vendor);
 
-	attr = sysfs_get_device_attr(pcidev, "vendor");
-	if (!attr)
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
+				value, sizeof value) < 0)
 		return NULL;
-	sscanf(attr->value, "%i", &vendor);
-	sysfs_close_attribute(attr);
-
-	attr = sysfs_get_device_attr(pcidev, "device");
-	if (!attr)
-		return NULL;
-	sscanf(attr->value, "%i", &device);
-	sysfs_close_attribute(attr);
+	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
@@ -180,13 +174,12 @@ found:
 	dev = malloc(sizeof *dev);
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			sysdev->name);
-		abort();
+			uverbs_sys_path);
+		return NULL;
 	}
 
 	dev->ibv_dev.ops = ipath_dev_ops;
 	dev->hca_type    = hca_table[i].type;
-	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
 }

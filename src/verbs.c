@@ -40,7 +40,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <pthread.h>
 #include <netinet/in.h>
 
@@ -83,11 +83,11 @@ struct ibv_pd *ipath_alloc_pd(struct ibv_context *context)
 	struct ibv_pd		 *pd;
 
 	pd = malloc(sizeof *pd);
-	if(!pd)
+	if (!pd)
 		return NULL;
 
-	if(ibv_cmd_alloc_pd(context, pd, &cmd, sizeof cmd,
-			    &resp, sizeof resp)) {
+	if (ibv_cmd_alloc_pd(context, pd, &cmd, sizeof cmd,
+			     &resp, sizeof resp)) {
 		free(pd);
 		return NULL;
 	}
@@ -193,6 +193,16 @@ struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	return qp;
 }
 
+int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		   enum ibv_qp_attr_mask attr_mask,
+		   struct ibv_qp_init_attr *init_attr)
+{
+	struct ibv_query_qp cmd;
+
+	return ibv_cmd_query_qp(qp, attr, attr_mask, init_attr,
+				&cmd, sizeof cmd);
+}
+
 int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    enum ibv_qp_attr_mask attr_mask)
 {
@@ -222,7 +232,7 @@ struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
 	int ret;
 
 	srq = malloc(sizeof *srq);
-	if(srq == NULL)
+	if (srq == NULL)
 		return NULL;
 
 	ret = ibv_cmd_create_srq(pd, srq, attr, &cmd, sizeof cmd,
@@ -244,6 +254,13 @@ int ipath_modify_srq(struct ibv_srq *srq,
 	return ibv_cmd_modify_srq(srq, attr, attr_mask, &cmd, sizeof cmd);
 }
 
+int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr)
+{
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(srq, attr, &cmd, sizeof cmd);
+}
+
 int ipath_destroy_srq(struct ibv_srq *srq)
 {
 	int ret;
@@ -261,10 +278,10 @@ struct ibv_ah *ipath_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct ibv_ah *ah;
 
 	ah = malloc(sizeof *ah);
-	if(ah == NULL)
+	if (ah == NULL)
 		return NULL;
 
-	if(ibv_cmd_create_ah(pd, ah, attr)) {
+	if (ibv_cmd_create_ah(pd, ah, attr)) {
 		free(ah);
 		return NULL;
 	}

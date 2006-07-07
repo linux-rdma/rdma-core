@@ -1,4 +1,4 @@
 {
-	global: openib_driver_init;
+	global: ibv_driver_init;
 	local: *;
 };

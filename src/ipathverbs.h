@@ -57,7 +57,6 @@ enum ipath_hca_type {
 struct ipath_device {
 	struct ibv_device	ibv_dev;
 	enum ipath_hca_type	hca_type;
-	int			page_size;
 };
 
 struct ipath_context {
@@ -97,6 +96,10 @@ int ipath_destroy_cq(struct ibv_cq *cq);
 struct ibv_qp *ipath_create_qp(struct ibv_pd *pd,
 			       struct ibv_qp_init_attr *attr);
 
+int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		   enum ibv_qp_attr_mask attr_mask,
+		   struct ibv_qp_init_attr *init_attr);
+
 int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    enum ibv_qp_attr_mask attr_mask);
 
@@ -115,8 +118,9 @@ int ipath_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr, 
 		     enum ibv_srq_attr_mask attr_mask);
 
-int ipath_destroy_srq(struct ibv_srq *srq);
+int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr);
 
+int ipath_destroy_srq(struct ibv_srq *srq);
 
 struct ibv_ah *ipath_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 
