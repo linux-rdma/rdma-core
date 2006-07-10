@@ -180,22 +180,22 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * SwitchInfo fields:
 	 */
-	[IB_SW_LINEAR_FDB_CAP_F]	{BITSOFFS(0,16), "LinearFdbCap", mad_dump_uint},
-	[IB_SW_RANDOM_FDB_CAP_F]	{BITSOFFS(16,16), "RandomFdbCap", mad_dump_uint},
-	[IB_SW_MCAST_FDB_CAP_F]		{BITSOFFS(32,16), "McastFdbCap", mad_dump_uint},
-	[IB_SW_LINEAR_FDB_TOP_F]	{BITSOFFS(48,16), "LinearFdbTop", mad_dump_uint},
-	[IB_SW_DEF_PORT_F]		{BITSOFFS(64,8), "DefPort", mad_dump_uint},
-	[IB_SW_DEF_MCAST_PRIM_F]	{BITSOFFS(72,8), "DefMcastPrimPort", mad_dump_uint},
-	[IB_SW_DEF_MCAST_NOT_PRIM_F]	{BITSOFFS(80,8), "DefMcastNotPrimPort", mad_dump_uint},
-	[IB_SW_LIFE_TIME_F]		{BITSOFFS(88,5), "LifeTime", mad_dump_uint},
-	[IB_SW_STATE_CHANGE_F]		{BITSOFFS(93,1), "StateChange", mad_dump_uint},
+	[IB_SW_LINEAR_FDB_CAP_F]	{BITSOFFS(0, 16), "LinearFdbCap", mad_dump_uint},
+	[IB_SW_RANDOM_FDB_CAP_F]	{BITSOFFS(16, 16), "RandomFdbCap", mad_dump_uint},
+	[IB_SW_MCAST_FDB_CAP_F]		{BITSOFFS(32, 16), "McastFdbCap", mad_dump_uint},
+	[IB_SW_LINEAR_FDB_TOP_F]	{BITSOFFS(48, 16), "LinearFdbTop", mad_dump_uint},
+	[IB_SW_DEF_PORT_F]		{BITSOFFS(64, 8), "DefPort", mad_dump_uint},
+	[IB_SW_DEF_MCAST_PRIM_F]	{BITSOFFS(72, 8), "DefMcastPrimPort", mad_dump_uint},
+	[IB_SW_DEF_MCAST_NOT_PRIM_F]	{BITSOFFS(80, 8), "DefMcastNotPrimPort", mad_dump_uint},
+	[IB_SW_LIFE_TIME_F]		{BITSOFFS(88, 5), "LifeTime", mad_dump_uint},
+	[IB_SW_STATE_CHANGE_F]		{BITSOFFS(93, 1), "StateChange", mad_dump_uint},
 	[IB_SW_LIDS_PER_PORT_F]		{BITSOFFS(96,16), "LidsPerPort", mad_dump_uint},
-	[IB_SW_PARTITION_ENFORCE_CAP_F]	{BITSOFFS(112,16), "PartEnforceCap", mad_dump_uint},
-	[IB_SW_PARTITION_ENF_INB_F]	{BITSOFFS(128,1), "InboundPartEnf", mad_dump_uint},
-	[IB_SW_PARTITION_ENF_OUTB_F]	{BITSOFFS(129,1), "OutboundPartEnf", mad_dump_uint},
-	[IB_SW_FILTER_RAW_INB_F]	{BITSOFFS(130,1), "FilterRawInbound", mad_dump_uint},
-	[IB_SW_FILTER_RAW_OUTB_F]	{BITSOFFS(131,1), "FilterRawInbound", mad_dump_uint},
-	[IB_SW_ENHANCED_PORT0_F]	{BITSOFFS(132,1), "EnhancedPort0", mad_dump_uint},
+	[IB_SW_PARTITION_ENFORCE_CAP_F]	{BITSOFFS(112, 16), "PartEnforceCap", mad_dump_uint},
+	[IB_SW_PARTITION_ENF_INB_F]	{BITSOFFS(128, 1), "InboundPartEnf", mad_dump_uint},
+	[IB_SW_PARTITION_ENF_OUTB_F]	{BITSOFFS(129, 1), "OutboundPartEnf", mad_dump_uint},
+	[IB_SW_FILTER_RAW_INB_F]	{BITSOFFS(130, 1), "FilterRawInbound", mad_dump_uint},
+	[IB_SW_FILTER_RAW_OUTB_F]	{BITSOFFS(131, 1), "FilterRawInbound", mad_dump_uint},
+	[IB_SW_ENHANCED_PORT0_F]	{BITSOFFS(132, 1), "EnhancedPort0", mad_dump_uint},
 
 	/*
 	 * SwitchLinearForwardingTable fields:
@@ -205,19 +205,19 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * SwitchMulticastForwardingTable fields:
 	 */
-	[IB_MULTICAST_FORW_TBL_F]		{0, 512, "MulticastForwTbl", mad_dump_array},
+	[IB_MULTICAST_FORW_TBL_F]	{0, 512, "MulticastForwTbl", mad_dump_array},
 
 	/*
 	 * Notice/Trap fields
 	 */
-	[IB_NOTICE_IS_GENERIC_F]  	{BITSOFFS(0,1), "NoticeIsGeneric", mad_dump_uint},
-	[IB_NOTICE_TYPE_F]        	{BITSOFFS(1,7), "NoticeType", mad_dump_uint},
-	[IB_NOTICE_PRODUCER_F]    	{BITSOFFS(8,24), "NoticeProducerType", mad_dump_node_type},
-	[IB_NOTICE_TRAP_NUMBER_F] 	{BITSOFFS(32,16), "NoticeTrapNumber", mad_dump_uint},
-	[IB_NOTICE_ISSUER_LID_F]  	{BITSOFFS(48,16), "NoticeIssuerLID", mad_dump_uint},
-	[IB_NOTICE_TOGGLE_F]      	{BITSOFFS(64,1), "NoticeToggle", mad_dump_uint},
-	[IB_NOTICE_COUNT_F]       	{BITSOFFS(65,15), "NoticeCount", mad_dump_uint},
-	[IB_NOTICE_DATA_LID_F]    	{BITSOFFS(80,16), "NoticeDataLID", mad_dump_uint},
+	[IB_NOTICE_IS_GENERIC_F]  	{BITSOFFS(0, 1), "NoticeIsGeneric", mad_dump_uint},
+	[IB_NOTICE_TYPE_F]        	{BITSOFFS(1, 7), "NoticeType", mad_dump_uint},
+	[IB_NOTICE_PRODUCER_F]    	{BITSOFFS(8, 24), "NoticeProducerType", mad_dump_node_type},
+	[IB_NOTICE_TRAP_NUMBER_F] 	{BITSOFFS(32, 16), "NoticeTrapNumber", mad_dump_uint},
+	[IB_NOTICE_ISSUER_LID_F]  	{BITSOFFS(48, 16), "NoticeIssuerLID", mad_dump_uint},
+	[IB_NOTICE_TOGGLE_F]      	{BITSOFFS(64, 1), "NoticeToggle", mad_dump_uint},
+	[IB_NOTICE_COUNT_F]       	{BITSOFFS(65, 15), "NoticeCount", mad_dump_uint},
+	[IB_NOTICE_DATA_LID_F]    	{BITSOFFS(80, 16), "NoticeDataLID", mad_dump_uint},
 
 	/*
 	 * NodeDescription fields:
@@ -227,8 +227,8 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * Port counters
 	 */
-	[IB_PC_PORT_SELECT_F] 		{BITSOFFS(8,8), "PortSelect", mad_dump_uint},
-	[IB_PC_COUNTER_SELECT_F] 	{BITSOFFS(16,16), "CounterSelect", mad_dump_hex},
+	[IB_PC_PORT_SELECT_F] 		{BITSOFFS(8, 8), "PortSelect", mad_dump_uint},
+	[IB_PC_COUNTER_SELECT_F] 	{BITSOFFS(16, 16), "CounterSelect", mad_dump_hex},
 	[IB_PC_ERR_SYM_F] 		{BITSOFFS(32, 16), "SymbolErrors", mad_dump_uint},
 	[IB_PC_LINK_RECOVERS_F] 	{BITSOFFS(48, 8), "LinkRecovers", mad_dump_uint},
 	[IB_PC_LINK_DOWNED_F] 		{BITSOFFS(56, 8), "LinkDowned", mad_dump_uint},

@@ -658,7 +658,7 @@ ib_vl_arb_get_vl_entries_num_in_table(ib_vl_arb_table_t	*tbl)
 {
 	uint8_t i;
 
-	for (i = 0; i<32; i++) {
+	for (i = 0; i < 32; i++) {
 		if (!(tbl->vl_entry[i].res_vl || tbl->vl_entry[i].weight))
 			break;
 	}
