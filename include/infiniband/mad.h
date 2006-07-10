@@ -152,6 +152,12 @@ enum GSI_ATTR_ID {
 	IB_GSI_ATTR_LAST,
 };
 
+enum TRAP_NUM_ID {
+	IB_TRAP_128,
+
+	IB_TRAP_LAST
+};
+
 #define IB_VENDOR_OPENIB_PING_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 2)
 #define IB_VENDOR_OPENIB_SYSSTAT_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 3)
 #define IB_OPENIB_OUI			(0x001405)
@@ -363,9 +369,26 @@ enum MAD_FIELDS {
 	IB_LINEAR_FORW_TBL_F,
 
 	/*
+	 * SwitchMulticastForwardingTable fields:
+	 */
+	IB_MULTICAST_FORW_TBL_F,
+
+	/*
 	 * NodeDescription fields:
 	 */
 	IB_NODE_DESC_F,
+
+	/*
+	 * Notice/Trap fields
+	 */
+	IB_NOTICE_IS_GENERIC_F,
+	IB_NOTICE_TYPE_F,
+	IB_NOTICE_PRODUCER_F,
+	IB_NOTICE_TRAP_NUMBER_F,
+	IB_NOTICE_ISSUER_LID_F,
+	IB_NOTICE_TOGGLE_F,
+	IB_NOTICE_COUNT_F,
+	IB_NOTICE_DATA_LID_F,
 
 	/*
 	 * GS Performance

@@ -203,6 +203,23 @@ ib_field_t ib_mad_f [] = {
 	[IB_LINEAR_FORW_TBL_F]		{0, 512, "LinearForwTbl", mad_dump_array},
 
 	/*
+	 * SwitchMulticastForwardingTable fields:
+	 */
+	[IB_MULTICAST_FORW_TBL_F]		{0, 512, "MulticastForwTbl", mad_dump_array},
+
+	/*
+	 * Notice/Trap fields
+	 */
+	[IB_NOTICE_IS_GENERIC_F]  	{BITSOFFS(0,1), "NoticeIsGeneric", mad_dump_uint},
+	[IB_NOTICE_TYPE_F]        	{BITSOFFS(1,7), "NoticeType", mad_dump_uint},
+	[IB_NOTICE_PRODUCER_F]    	{BITSOFFS(8,24), "NoticeProducerType", mad_dump_node_type},
+	[IB_NOTICE_TRAP_NUMBER_F] 	{BITSOFFS(32,16), "NoticeTrapNumber", mad_dump_uint},
+	[IB_NOTICE_ISSUER_LID_F]  	{BITSOFFS(48,16), "NoticeIssuerLID", mad_dump_uint},
+	[IB_NOTICE_TOGGLE_F]      	{BITSOFFS(64,1), "NoticeToggle", mad_dump_uint},
+	[IB_NOTICE_COUNT_F]       	{BITSOFFS(65,15), "NoticeCount", mad_dump_uint},
+	[IB_NOTICE_DATA_LID_F]    	{BITSOFFS(80,16), "NoticeDataLID", mad_dump_uint},
+
+	/*
 	 * NodeDescription fields:
 	 */
 	[IB_NODE_DESC_F]		{0, 64*8, "NodeDesc", mad_dump_string},
