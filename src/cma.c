@@ -49,8 +49,7 @@
 #include <endian.h>
 #include <byteswap.h>
 
-#include <sysfs/libsysfs.h>
-
+#include <infiniband/driver.h>
 #include <infiniband/marshall.h>
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_cma_abi.h>
@@ -118,10 +117,9 @@ struct cma_id_private {
 	uint32_t	  handle;
 };
 
-static struct ibv_device **dev_list;
-static struct dlist *cma_dev_list;
+static struct cma_device *cma_dev_array;
+static int cma_dev_cnt;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
-static int ucma_initialized;
 static int abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
 
 #define container_of(ptr, type, field) \
@@ -129,92 +127,67 @@ static int abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
 
 static void ucma_cleanup(void)
 {
-	struct cma_device *cma_dev;
-
-	if (cma_dev_list) {
-		dlist_for_each_data(cma_dev_list, cma_dev, struct cma_device)
-			ibv_close_device(cma_dev->verbs);
+	if (cma_dev_cnt) {
+		while (cma_dev_cnt)
+			ibv_close_device(cma_dev_array[--cma_dev_cnt].verbs);
 	
-		dlist_destroy(cma_dev_list);
-		cma_dev_list = NULL;
+		free(cma_dev_array);
+		cma_dev_cnt = 0;
 	}
 }
 
 static int check_abi_version(void)
 {
-	char path[256];
-	struct sysfs_attribute *attr;
-	int ret = -1;
+	char value[8];
 
-	if (sysfs_get_mnt_path(path, sizeof path)) {
-		fprintf(stderr, "librdmacm: couldn't find sysfs mount.\n");
-		return -ENODEV;
+	if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+				"class/misc/rdma_cm/abi_version",
+				value, sizeof value) < 0) {
+		fprintf(stderr, "librdmacm: couldn't read ABI version.\n");
+		return -1;
 	}
 
-	strncat(path, "/class/misc/rdma_cm/abi_version", sizeof path);
-
-	attr = sysfs_open_attribute(path);
-	if (!attr) {
-		fprintf(stderr, "librdmacm: couldn't open rdma_cm ABI version.\n");
-		return -ENOSYS;
-	}
-
-	if (sysfs_read_attribute(attr)) {
-		fprintf(stderr, "librdmacm: couldn't read rdma_cm ABI version.\n");
-		goto out;
-	}
-
-	abi_ver = strtol(attr->value, NULL, 10);
-
+	abi_ver = strtol(value, NULL, 10);
 	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
 	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION) {
 		fprintf(stderr, "librdmacm: kernel ABI version %d "
 				"doesn't match library version %d.\n",
 				abi_ver, RDMA_USER_CM_MAX_ABI_VERSION);
-		goto out;
+		return -1;
 	}
-
-	ret = 0;
-
-out:
-	sysfs_close_attribute(attr);
-	return ret;
+	return 0;
 }
 
 static int ucma_init(void)
 {
-	int i;
+	struct ibv_device **dev_list = NULL;
 	struct cma_device *cma_dev;
 	struct ibv_device_attr attr;
-	int ret;
+	int i, ret;
 
 	pthread_mutex_lock(&mut);
-	if (ucma_initialized)
+	if (cma_dev_cnt)
 		goto out;
 
 	ret = check_abi_version();
 	if (ret)
 		goto err;
 
-	cma_dev_list = dlist_new(sizeof *cma_dev);
-	if (!cma_dev_list) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	dev_list = ibv_get_device_list(NULL);
+	dev_list = ibv_get_device_list(&cma_dev_cnt);
 	if (!dev_list) {
 		printf("CMA: unable to get RDMA device list\n");
 		ret = -ENODEV;
 		goto err;
 	}
 
+	cma_dev_array = malloc(sizeof *cma_dev * cma_dev_cnt);
+	if (!cma_dev_array) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	for (i = 0; dev_list[i]; ++i) {
-		cma_dev = malloc(sizeof *cma_dev);
-		if (!cma_dev) {
-			ret = -ENOMEM;
-			goto err;
-		}
+		cma_dev = &cma_dev_array[i];
 
 		cma_dev->guid = ibv_get_device_guid(dev_list[i]);
 		cma_dev->verbs = ibv_open_device(dev_list[i]);
@@ -231,9 +204,7 @@ static int ucma_init(void)
 		}
 
 		cma_dev->port_cnt = attr.phys_port_cnt;
-		dlist_push(cma_dev_list, cma_dev);
 	}
-	ucma_initialized = 1;
 out:
 	pthread_mutex_unlock(&mut);
 	return 0;
@@ -254,7 +225,7 @@ struct rdma_event_channel *rdma_create_event_channel()
 {
 	struct rdma_event_channel *channel;
 
-	if (!ucma_initialized && ucma_init())
+	if (!cma_dev_cnt && ucma_init())
 		return NULL;
 
 	channel = malloc(sizeof *channel);
@@ -281,13 +252,16 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 static int ucma_get_device(struct cma_id_private *id_priv, uint64_t guid)
 {
 	struct cma_device *cma_dev;
+	int i;
 
-	dlist_for_each_data(cma_dev_list, cma_dev, struct cma_device)
+	for (i = 0; i < cma_dev_cnt; i++) {
+		cma_dev = &cma_dev_array[i];
 		if (cma_dev->guid == guid) {
 			id_priv->cma_dev = cma_dev;
 			id_priv->id.verbs = cma_dev->verbs;
 			return 0;
 		}
+	}
 
 	return -ENODEV;
 }
@@ -370,7 +344,7 @@ int rdma_create_id(struct rdma_event_channel *channel,
 	void *msg;
 	int ret, size;
 
-	ret = ucma_initialized ? 0 : ucma_init();
+	ret = cma_dev_cnt ? 0 : ucma_init();
 	if (ret)
 		return ret;
 
@@ -1104,7 +1078,7 @@ int rdma_get_cm_event(struct rdma_event_channel *channel,
 	void *msg;
 	int ret, size;
 
-	ret = ucma_initialized ? 0 : ucma_init();
+	ret = cma_dev_cnt ? 0 : ucma_init();
 	if (ret)
 		return ret;
 
