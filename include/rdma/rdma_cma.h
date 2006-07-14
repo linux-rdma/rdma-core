@@ -332,4 +332,20 @@ static inline uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
 		((struct sockaddr_in *) &id->route.addr.dst_addr)->sin_port;
 }
 
+/**
+ * rdma_get_devices - Get list of RDMA devices currently available.
+ * @num_devices: If non-NULL, set to the number of devices returned.
+ *
+ * Return a NULL-terminated array of opened RDMA devices.  Callers can use this
+ * routine to allocate resources on specific RDMA devices that will be shared
+ * across multiple rdma_cm_id's.
+ * The array must be released by calling rdma_free_devices().
+ */
+struct ibv_context **rdma_get_devices(int *num_devices);
+
+/**
+ * rdma_free_devices - Frees the list of devices returned by rdma_get_devices().
+ */
+void rdma_free_devices(struct ibv_context **list);
+
 #endif /* RDMA_CMA_H */

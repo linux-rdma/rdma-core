@@ -21,5 +21,7 @@ RDMACM_1.0 {
 		rdma_get_dst_attr;
 		rdma_join_multicast;
 		rdma_leave_multicast;
+		rdma_get_devices;
+		rdma_free_devices;
 	local: *;
 };

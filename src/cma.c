@@ -216,6 +216,32 @@ err:
 	return ret;
 }
 
+struct ibv_context **rdma_get_devices(int *num_devices)
+{
+	struct ibv_context **devs = NULL;
+	int i;
+
+	if (!cma_dev_cnt && ucma_init())
+		goto out;
+
+	devs = malloc(sizeof *devs * (cma_dev_cnt + 1));
+	if (!devs)
+		goto out;
+
+	for (i = 0; i < cma_dev_cnt; i++)
+		devs[i] = cma_dev_array[i].verbs;
+	devs[i] = NULL;
+out:
+	if (num_devices)
+		*num_devices = devs ? cma_dev_cnt : 0;
+	return devs;
+}
+
+void rdma_free_devices(struct ibv_context **list)
+{
+	free(list);
+}
+
 static void __attribute__((destructor)) rdma_cma_fini(void)
 {
 	ucma_cleanup();
