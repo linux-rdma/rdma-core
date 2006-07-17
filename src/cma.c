@@ -48,6 +48,7 @@
 #include <pthread.h>
 #include <endian.h>
 #include <byteswap.h>
+#include <stddef.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/marshall.h>
