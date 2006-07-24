@@ -144,8 +144,14 @@ static int check_abi_version(void)
 	if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
 				"class/misc/rdma_cm/abi_version",
 				value, sizeof value) < 0) {
+		/*
+		 * Older version of Linux do not have class/misc.  To support
+		 * backports, assume the most recent version of the ABI.  If
+		 * we're wrong, we'll simply fail later when calling the ABI.
+		 */
 		fprintf(stderr, "librdmacm: couldn't read ABI version.\n");
-		return -1;
+		fprintf(stderr, "librdmacm: assuming: %d\n", abi_ver);
+		return 0;
 	}
 
 	abi_ver = strtol(value, NULL, 10);
