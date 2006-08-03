@@ -36,6 +36,8 @@
 #ifndef MTHCA_H
 #define MTHCA_H
 
+#include <stddef.h>
+
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 

@@ -1,3 +1,7 @@
+2006-08-03  Jack Morgenstein  <jackm@mellanox.co.il>
+
+	* src/mthca.h: Include <stddef.h> to get definition of offsetof().
+
 2006-08-03  Michael S. Tsirkin  <mst@mellanox.co.il>
 
 	* src/verbs.c (mthca_create_srq): Limit SRQ max_wr to avoid
