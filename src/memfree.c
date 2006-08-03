@@ -46,8 +46,8 @@
 #define MTHCA_FREE_MAP_SIZE (MTHCA_DB_REC_PER_PAGE / (SIZEOF_LONG * 8))
 
 struct mthca_db_page {
-	unsigned long free[MTHCA_FREE_MAP_SIZE];
-	uint64_t     *db_rec;
+	unsigned long		free[MTHCA_FREE_MAP_SIZE];
+	struct mthca_buf	db_rec;
 };
 
 struct mthca_db_table {
@@ -91,7 +91,7 @@ int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
 	}
 
 	for (i = start; i != end; i += dir)
-		if (db_tab->page[i].db_rec)
+		if (db_tab->page[i].db_rec.buf)
 			for (j = 0; j < MTHCA_FREE_MAP_SIZE; ++j)
 				if (db_tab->page[i].free[j])
 					goto found;
@@ -101,18 +101,14 @@ int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
 		goto out;
 	}
 
-	{
-		void *tmp;
-
-		if (posix_memalign(&tmp, MTHCA_DB_REC_PAGE_SIZE,
-				   MTHCA_DB_REC_PAGE_SIZE)) {
-			ret = -1;
-			goto out;
-		}
-		db_tab->page[i].db_rec = tmp;
+	if (mthca_alloc_buf(&db_tab->page[i].db_rec,
+			    MTHCA_DB_REC_PAGE_SIZE,
+			    MTHCA_DB_REC_PAGE_SIZE)) {
+		ret = -1;
+		goto out;
 	}
 
-	memset(db_tab->page[i].db_rec, 0, MTHCA_DB_REC_PAGE_SIZE);
+	memset(db_tab->page[i].db_rec.buf, 0, MTHCA_DB_REC_PAGE_SIZE);
 	memset(db_tab->page[i].free, 0xff, sizeof db_tab->page[i].free);
 
 	if (group == 0)
@@ -140,7 +136,7 @@ found:
 		j = MTHCA_DB_REC_PER_PAGE - 1 - j;
 
 	ret = i * MTHCA_DB_REC_PER_PAGE + j;
-	*db = (uint32_t *) &db_tab->page[i].db_rec[j];
+	*db = db_tab->page[i].db_rec.buf + j * 8;
 
 out:
 	pthread_mutex_unlock(&db_tab->mutex);
@@ -163,7 +159,7 @@ void mthca_free_db(struct mthca_db_table *db_tab, enum mthca_db_type type, int d
 	page = db_tab->page + i;
 
 	pthread_mutex_lock(&db_tab->mutex);
-	page->db_rec[j] = 0;
+	*(uint64_t *) (page->db_rec.buf + j * 8) = 0;
 
 	if (i >= db_tab->min_group2)
 		j = MTHCA_DB_REC_PER_PAGE - 1 - j;
@@ -190,7 +186,7 @@ struct mthca_db_table *mthca_alloc_db_tab(int uarc_size)
 	db_tab->min_group2 = npages - 1;
 
 	for (i = 0; i < npages; ++i)
-		db_tab->page[i].db_rec = NULL;
+		db_tab->page[i].db_rec.buf = NULL;
 
 	return db_tab;
 }
@@ -203,8 +199,8 @@ void mthca_free_db_tab(struct mthca_db_table *db_tab)
 		return;
 
 	for (i = 0; i < db_tab->npages; ++i)
-		if (db_tab->page[i].db_rec)
-			free(db_tab->page[i].db_rec);
+		if (db_tab->page[i].db_rec.buf)
+			mthca_free_buf(&db_tab->page[i].db_rec);
 
 	free(db_tab);
 }

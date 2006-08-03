@@ -112,6 +112,11 @@ struct mthca_context {
 	int		       qp_table_mask;
 };
 
+struct mthca_buf {
+	void		       *buf;
+	size_t			length;
+};
+
 struct mthca_pd {
 	struct ibv_pd         ibv_pd;
 	struct mthca_ah_page *ah_list;
@@ -121,7 +126,7 @@ struct mthca_pd {
 
 struct mthca_cq {
 	struct ibv_cq  	   ibv_cq;
-	void           	  *buf;
+	struct mthca_buf   buf;
 	pthread_spinlock_t lock;
 	struct ibv_mr  	  *mr;
 	uint32_t       	   cqn;
@@ -137,7 +142,7 @@ struct mthca_cq {
 
 struct mthca_srq {
 	struct ibv_srq     ibv_srq;
-	void              *buf;
+	struct mthca_buf   buf;
 	void           	  *last;
 	pthread_spinlock_t lock;
 	struct ibv_mr 	  *mr;
@@ -174,7 +179,7 @@ struct mthca_wq {
 
 struct mthca_qp {
 	struct ibv_qp    ibv_qp;
-	void            *buf;
+	struct mthca_buf buf;
 	uint64_t        *wrid;
 	int              send_wqe_offset;
 	int              max_inline_data;
@@ -259,6 +264,9 @@ static inline int mthca_is_memfree(struct ibv_context *ibctx)
 	return to_mdev(ibctx->device)->hca_type == MTHCA_ARBEL;
 }
 
+int mthca_alloc_buf(struct mthca_buf *buf, size_t size, int page_size);
+void mthca_free_buf(struct mthca_buf *buf);
+
 int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
 		   uint32_t **db);
 void mthca_set_db_qn(uint32_t *db, enum mthca_db_type type, uint32_t qn);
@@ -290,7 +298,7 @@ void mthca_arbel_cq_event(struct ibv_cq *cq);
 void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn,
 		    struct mthca_srq *srq);
 void mthca_cq_resize_copy_cqes(struct mthca_cq *cq, void *buf, int new_cqe);
-void *mthca_alloc_cq_buf(struct mthca_device *dev, int cqe);
+int mthca_alloc_cq_buf(struct mthca_device *dev, struct mthca_buf *buf, int nent);
 
 struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);

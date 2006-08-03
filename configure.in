@@ -26,7 +26,7 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for library functions
-AC_CHECK_FUNCS(ibv_read_sysfs_file)
+AC_CHECK_FUNCS(ibv_read_sysfs_file ibv_dontfork_range ibv_dofork_range)
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then

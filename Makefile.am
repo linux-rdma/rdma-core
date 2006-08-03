@@ -12,10 +12,9 @@ else
     mthca_version_script =
 endif
 
-src_mthca_la_SOURCES = src/ah.c src/cq.c src/memfree.c src/mthca.c src/qp.c \
-    src/srq.c src/verbs.c
-src_mthca_la_LDFLAGS = -avoid-version -module \
-    $(mthca_version_script)
+src_mthca_la_SOURCES = src/ah.c src/buf.c src/cq.c src/memfree.c src/mthca.c \
+    src/qp.c src/srq.c src/verbs.c
+src_mthca_la_LDFLAGS = -avoid-version -module $(mthca_version_script)
 
 DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
     debian/libmthca1.install debian/libmthca-dev.install debian/rules

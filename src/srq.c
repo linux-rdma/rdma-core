@@ -47,7 +47,7 @@
 
 static void *get_wqe(struct mthca_srq *srq, int n)
 {
-	return srq->buf + (n << srq->wqe_shift);
+	return srq->buf.buf + (n << srq->wqe_shift);
 }
 
 /*
@@ -292,13 +292,14 @@ int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 
 	srq->buf_size = srq->max << srq->wqe_shift;
 
-	if (posix_memalign(&srq->buf, to_mdev(pd->context->device)->page_size,
-			   align(srq->buf_size, to_mdev(pd->context->device)->page_size))) {
+	if (mthca_alloc_buf(&srq->buf,
+			    align(srq->buf_size, to_mdev(pd->context->device)->page_size),
+			    to_mdev(pd->context->device)->page_size)) {
 		free(srq->wrid);
 		return -1;
 	}
 
-	memset(srq->buf, 0, srq->buf_size);
+	memset(srq->buf.buf, 0, srq->buf_size);
 
 	/*
 	 * Now initialize the SRQ buffer so that all of the WQEs are

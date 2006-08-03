@@ -1,3 +1,19 @@
+2006-07-26  Roland Dreier  <rdreier@cisco.com>
+
+	* src/mthca.h, src/ah.c, src/cq.c, src/memfree.c, src/qp.c,
+	src/srq.c, src/verbs.c: Convert internal allocations for AH pages
+	(for non-memfree HCAs), CQ buffers, doorbell pages (for memfree
+	HCAs), QP buffers and SRQ buffers to use the new buffer
+	allocator.  This makes libmthca fork()-clean when built against
+	libibverbs 1.1.
+
+	* src/buf.c (mthca_alloc_buf, mthca_free_buf): Add new functions
+	to wrap up allocating page-aligned buffers.  The new functions
+	will call ibv_dontfork_range()/ibv_dofork_range() to do proper
+	madvise()ing to handle fork(), if applicable.
+
+	* configure.in: Check for ibv_dontfork_range() and ibv_dontfork_range().
+
 2006-07-04  Dotan Barak  <dotanb@mellanox.co.il>
 
 	* src/verbs.c (mthca_create_cq, mthca_resize_cq): Passing huge

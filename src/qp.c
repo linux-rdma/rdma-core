@@ -58,12 +58,12 @@ static const uint8_t mthca_opcode[] = {
 
 static void *get_recv_wqe(struct mthca_qp *qp, int n)
 {
-	return qp->buf + (n << qp->rq.wqe_shift);
+	return qp->buf.buf + (n << qp->rq.wqe_shift);
 }
 
 static void *get_send_wqe(struct mthca_qp *qp, int n)
 {
-	return qp->buf + qp->send_wqe_offset + (n << qp->sq.wqe_shift);
+	return qp->buf.buf + qp->send_wqe_offset + (n << qp->sq.wqe_shift);
 }
 
 void mthca_init_qp_indices(struct mthca_qp *qp)
@@ -821,13 +821,14 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 	qp->buf_size = qp->send_wqe_offset + (qp->sq.max << qp->sq.wqe_shift);
 
-	if (posix_memalign(&qp->buf, to_mdev(pd->context->device)->page_size,
-			   align(qp->buf_size, to_mdev(pd->context->device)->page_size))) {
+	if (mthca_alloc_buf(&qp->buf, 
+			    align(qp->buf_size, to_mdev(pd->context->device)->page_size),
+			    to_mdev(pd->context->device)->page_size)) {
 		free(qp->wrid);
 		return -1;
 	}
 
-	memset(qp->buf, 0, qp->buf_size);
+	memset(qp->buf.buf, 0, qp->buf_size);
 
 	if (mthca_is_memfree(pd->context)) {
 		struct mthca_next_seg *next;

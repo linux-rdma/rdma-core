@@ -126,7 +126,7 @@ struct mthca_err_cqe {
 
 static inline struct mthca_cqe *get_cqe(struct mthca_cq *cq, int entry)
 {
-	return cq->buf + entry * MTHCA_CQ_ENTRY_SIZE;
+	return cq->buf.buf + entry * MTHCA_CQ_ENTRY_SIZE;
 }
 
 static inline struct mthca_cqe *cqe_sw(struct mthca_cq *cq, int i)
@@ -612,17 +612,16 @@ void mthca_cq_resize_copy_cqes(struct mthca_cq *cq, void *buf, int old_cqe)
 		       get_cqe(cq, i & old_cqe), MTHCA_CQ_ENTRY_SIZE);
 }
 
-void *mthca_alloc_cq_buf(struct mthca_device *dev, int nent)
+int mthca_alloc_cq_buf(struct mthca_device *dev, struct mthca_buf *buf, int nent)
 {
-	void *buf;
 	int i;
 
-	if (posix_memalign(&buf, dev->page_size,
-			   align(nent * MTHCA_CQ_ENTRY_SIZE, dev->page_size)))
-		return NULL;
+	if (mthca_alloc_buf(buf, align(nent * MTHCA_CQ_ENTRY_SIZE, dev->page_size),
+		    dev->page_size))
+		return -1;
 
 	for (i = 0; i < nent; ++i)
-		((struct mthca_cqe *) buf)[i].owner = MTHCA_CQ_ENTRY_OWNER_HW;
+		((struct mthca_cqe *) buf->buf)[i].owner = MTHCA_CQ_ENTRY_OWNER_HW;
 
-	return buf;
+	return 0;
 }

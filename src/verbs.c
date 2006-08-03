@@ -188,11 +188,10 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 		goto err;
 
 	cqe = align_cq_size(cqe);
-	cq->buf = mthca_alloc_cq_buf(to_mdev(context->device), cqe);
-	if (!cq->buf)
+	if (mthca_alloc_cq_buf(to_mdev(context->device), &cq->buf, cqe))
 		goto err;
 
-	cq->mr = __mthca_reg_mr(to_mctx(context)->pd, cq->buf,
+	cq->mr = __mthca_reg_mr(to_mctx(context)->pd, cq->buf.buf,
 				cqe * MTHCA_CQ_ENTRY_SIZE,
 				0, IBV_ACCESS_LOCAL_WRITE);
 	if (!cq->mr)
@@ -251,7 +250,7 @@ err_unreg:
 	mthca_dereg_mr(cq->mr);
 
 err_buf:
-	free(cq->buf);
+	mthca_free_buf(&cq->buf);
 
 err:
 	free(cq);
@@ -264,7 +263,7 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 	struct mthca_cq *cq = to_mcq(ibcq);
 	struct mthca_resize_cq cmd;
 	struct ibv_mr *mr;
-	void *buf;
+	struct mthca_buf buf;
 	int old_cqe;
 	int ret;
 
@@ -280,17 +279,15 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 		goto out;
 	}
 
-	buf = mthca_alloc_cq_buf(to_mdev(ibcq->context->device), cqe);
-	if (!buf) {
-		ret = ENOMEM;
+	ret = mthca_alloc_cq_buf(to_mdev(ibcq->context->device), &buf, cqe);
+	if (ret)
 		goto out;
-	}
 
-	mr = __mthca_reg_mr(to_mctx(ibcq->context)->pd, buf,
+	mr = __mthca_reg_mr(to_mctx(ibcq->context)->pd, buf.buf,
 			    cqe * MTHCA_CQ_ENTRY_SIZE,
 			    0, IBV_ACCESS_LOCAL_WRITE);
 	if (!mr) {
-		free(buf);
+		mthca_free_buf(&buf);
 		ret = ENOMEM;
 		goto out;
 	}
@@ -303,14 +300,14 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd);
 	if (ret) {
 		mthca_dereg_mr(mr);
-		free(buf);
+		mthca_free_buf(&buf);
 		goto out;
 	}
 
-	mthca_cq_resize_copy_cqes(cq, buf, old_cqe);
+	mthca_cq_resize_copy_cqes(cq, buf.buf, old_cqe);
 
 	mthca_dereg_mr(cq->mr);
-	free(cq->buf);
+	mthca_free_buf(&cq->buf);
 
 	cq->buf = buf;
 	cq->mr  = mr;
@@ -336,8 +333,7 @@ int mthca_destroy_cq(struct ibv_cq *cq)
 	}
 
 	mthca_dereg_mr(to_mcq(cq)->mr);
-
-	free(to_mcq(cq)->buf);
+	mthca_free_buf(&to_mcq(cq)->buf);
 	free(to_mcq(cq));
 
 	return 0;
@@ -389,7 +385,7 @@ struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 	if (mthca_alloc_srq_buf(pd, &attr->attr, srq))
 		goto err;
 
-	srq->mr = __mthca_reg_mr(pd, srq->buf, srq->buf_size, 0, 0);
+	srq->mr = __mthca_reg_mr(pd, srq->buf.buf, srq->buf_size, 0, 0);
 	if (!srq->mr)
 		goto err_free;
 
@@ -430,7 +426,7 @@ err_unreg:
 
 err_free:
 	free(srq->wrid);
-	free(srq->buf);
+	mthca_free_buf(&srq->buf);
 
 err:
 	free(srq);
@@ -469,7 +465,7 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 
 	mthca_dereg_mr(to_msrq(srq)->mr);
 
-	free(to_msrq(srq)->buf);
+	mthca_free_buf(&to_msrq(srq)->buf);
 	free(to_msrq(srq)->wrid);
 	free(to_msrq(srq));
 
@@ -507,7 +503,7 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
 		goto err_free;
 
-	qp->mr = __mthca_reg_mr(pd, qp->buf, qp->buf_size, 0, 0);
+	qp->mr = __mthca_reg_mr(pd, qp->buf.buf, qp->buf_size, 0, 0);
 	if (!qp->mr)
 		goto err_free;
 
@@ -574,7 +570,7 @@ err_unreg:
 
 err_free:
 	free(qp->wrid);
-	free(qp->buf);
+	mthca_free_buf(&qp->buf);
 
 err:
 	free(qp);
@@ -655,8 +651,7 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 	}
 
 	mthca_dereg_mr(to_mqp(qp)->mr);
-
-	free(to_mqp(qp)->buf);
+	mthca_free_buf(&to_mqp(qp)->buf);
 	free(to_mqp(qp)->wrid);
 	free(to_mqp(qp));
 

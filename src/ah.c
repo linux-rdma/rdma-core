@@ -45,7 +45,7 @@
 
 struct mthca_ah_page {
 	struct mthca_ah_page *prev, *next;
-	void           	     *buf;
+	struct mthca_buf      buf;
 	struct ibv_mr 	     *mr;
 	int           	      use_cnt;
 	unsigned      	      free[0];
@@ -60,14 +60,14 @@ static struct mthca_ah_page *__add_page(struct mthca_pd *pd, int page_size, int 
 	if (!page)
 		return NULL;
 
-	if (posix_memalign(&page->buf, page_size, page_size)) {
+	if (mthca_alloc_buf(&page->buf, page_size, page_size)) {
 		free(page);
 		return NULL;
 	}
 
-	page->mr = mthca_reg_mr(&pd->ibv_pd, page->buf, page_size, 0);
+	page->mr = mthca_reg_mr(&pd->ibv_pd, page->buf.buf, page_size, 0);
 	if (!page->mr) {
-		free(page->buf);
+		mthca_free_buf(&page->buf);
 		free(page);
 		return NULL;
 	}
@@ -123,7 +123,7 @@ int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
 			if (page->free[i]) {
 				j = ffs(page->free[i]);
 				page->free[i] &= ~(1 << (j - 1));
-				ah->av = page->buf +
+				ah->av = page->buf.buf +
 					(i * 8 * sizeof (int) + (j - 1)) * sizeof *ah->av;
 				break;
 			}
@@ -172,7 +172,7 @@ void mthca_free_av(struct mthca_ah *ah)
 		pthread_mutex_lock(&pd->ah_mutex);
 
 		page = ah->page;
-		i = ((void *) ah->av - page->buf) / sizeof *ah->av;
+		i = ((void *) ah->av - page->buf.buf) / sizeof *ah->av;
 		page->free[i / (8 * sizeof (int))] |= 1 << (i % (8 * sizeof (int)));
 
 		if (!--page->use_cnt) {
@@ -184,7 +184,7 @@ void mthca_free_av(struct mthca_ah *ah)
 				page->next->prev = page->prev;
 
 			mthca_dereg_mr(page->mr);
-			free(page->buf);
+			mthca_free_buf(&page->buf);
 			free(page);
 		}
 
