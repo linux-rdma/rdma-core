@@ -1,3 +1,8 @@
+2006-08-03  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/verbs.c (mthca_create_srq): Limit SRQ max_wr to avoid
+	integer overflow.
+
 2006-07-26  Roland Dreier  <rdreier@cisco.com>
 
 	* src/mthca.h, src/ah.c, src/cq.c, src/memfree.c, src/qp.c,

@@ -368,7 +368,7 @@ struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 	int                          ret;
 
 	/* Sanity check SRQ size before proceeding */
-	if (attr->attr.max_wr > 16 << 20 || attr->attr.max_sge > 64)
+	if (attr->attr.max_wr > 1 << 16 || attr->attr.max_sge > 64)
 		return NULL;
 
 	srq = malloc(sizeof *srq);
