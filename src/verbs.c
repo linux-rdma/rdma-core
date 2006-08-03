@@ -155,18 +155,32 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 
+	if (ibv_dontfork_range(addr, length))
+		return NULL;
+
 	mr = pd->context->ops.reg_mr(pd, addr, length, access);
 	if (mr) {
 		mr->context = pd->context;
 		mr->pd      = pd;
-	}
+		mr->addr    = addr;
+		mr->length  = length;
+	} else
+		ibv_dofork_range(addr, length);
 
 	return mr;
 }
 
 int ibv_dereg_mr(struct ibv_mr *mr)
 {
-	return mr->context->ops.dereg_mr(mr);
+	int ret;
+	void *addr	= mr->addr;
+	size_t length	= mr->length;
+
+	ret = mr->context->ops.dereg_mr(mr);
+	if (!ret)
+		ibv_dofork_range(addr, length);
+
+	return ret;
 }
 
 static struct ibv_comp_channel *ibv_create_comp_channel_v2(struct ibv_context *context)

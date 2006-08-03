@@ -205,8 +205,10 @@ HIDDEN int ibverbs_init(struct ibv_device ***list)
 
 	*list = NULL;
 
-	if (ibv_init_mem_map())
-		return 0;
+	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
+		if (ibv_fork_init())
+			fprintf(stderr, PFX "Warning: fork()-safety requested "
+				"but init failed\n");
 
 	find_drivers(default_path);
 

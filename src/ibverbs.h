@@ -58,11 +58,7 @@ struct ibv_abi_compat_v2 {
 
 extern HIDDEN int abi_ver;
 
-extern HIDDEN int ibverbs_init(struct ibv_device ***list);
-
-extern HIDDEN int ibv_init_mem_map(void);
-extern HIDDEN int ibv_lock_range(void *base, size_t size);
-extern HIDDEN int ibv_unlock_range(void *base, size_t size);
+HIDDEN int ibverbs_init(struct ibv_device ***list);
 
 #define IBV_INIT_CMD(cmd, size, opcode)					\
 	do {								\

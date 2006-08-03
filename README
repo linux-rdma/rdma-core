@@ -101,12 +101,6 @@ necessary permissions to release your work.
 TODO
 ====
 
-1.0 series
-----------
-
- * Use the MADV_DONTFORK advice for madvise(2) to make applications
-   that use fork(2) work better.
-
 1.1 series
 ----------
 

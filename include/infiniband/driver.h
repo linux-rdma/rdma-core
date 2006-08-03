@@ -135,6 +135,9 @@ int ibv_cmd_destroy_ah(struct ibv_ah *ah);
 int ibv_cmd_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 int ibv_cmd_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
+int ibv_dontfork_range(void *base, size_t size);
+int ibv_dofork_range(void *base, size_t size);
+
 /*
  * sysfs helper functions
  */

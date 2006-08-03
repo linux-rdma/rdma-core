@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -36,6 +37,7 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <errno.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -44,114 +46,424 @@
 #include "ibverbs.h"
 
 /*
- * We keep a linked list of page ranges that have been locked along with a
- * reference count to manage overlapping registrations, etc.
- *
- * Eventually we should turn this into an RB-tree or something similar
- * to avoid the O(n) cost of registering/unregistering memory.
+ * Most distro's headers don't have these yet.
  */
+#ifndef MADV_DONTFORK
+#define MADV_DONTFORK	10
+#endif
+
+#ifndef MADV_DOFORK
+#define MADV_DOFORK	11
+#endif
 
 struct ibv_mem_node {
-	struct ibv_mem_node *prev, *next;
-	uintptr_t            start, end;
-	int                  refcnt;
+	enum {
+		IBV_RED,
+		IBV_BLACK
+	}			color;
+	struct ibv_mem_node    *parent;
+	struct ibv_mem_node    *left, *right;
+	uintptr_t		start, end;
+	int			refcnt;
 };
 
-static struct {
-	struct ibv_mem_node *first;
-	pthread_mutex_t      mutex;
-	uintptr_t            page_size;
-} mem_map;
+static struct ibv_mem_node *mm_root;
+static pthread_mutex_t mm_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int page_size;
+static int too_late;
 
-int ibv_init_mem_map(void)
+int ibv_fork_init(void)
 {
-	struct ibv_mem_node *node = NULL;
+	void *tmp;
 
-	node = malloc(sizeof *node);
-	if (!node)
-		goto fail;
+	if (mm_root)
+		return 0;
 
-	node->prev   = node->next = NULL;
-	node->start  = 0;
-	node->end    = UINTPTR_MAX;
-	node->refcnt = 0;
+	if (too_late)
+		return EINVAL;
 
-	mem_map.first = node;
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0)
+		return errno;
 
-	mem_map.page_size = sysconf(_SC_PAGESIZE);
-	if (mem_map.page_size < 0)
-		goto fail;
+	if (posix_memalign(&tmp, page_size, page_size))
+		return ENOMEM;
 
-	if (pthread_mutex_init(&mem_map.mutex, NULL))
-		goto fail;
+	if (madvise(tmp, page_size, MADV_DONTFORK) ||
+	    madvise(tmp, page_size, MADV_DOFORK))
+		return ENOSYS;
+
+	free(tmp);
+
+	mm_root = malloc(sizeof *mm_root);
+	if (!mm_root)
+		return ENOMEM;
+
+	mm_root->parent = NULL;
+	mm_root->left   = NULL;
+	mm_root->right  = NULL;
+	mm_root->color  = IBV_BLACK;
+	mm_root->start  = 0;
+	mm_root->end    = UINTPTR_MAX;
+	mm_root->refcnt = 0;
 
 	return 0;
-
-fail:
-	if (node)
-		free(node);
-
-	return -1;
 }
 
-static struct ibv_mem_node *__mm_find_first(uintptr_t start, uintptr_t end)
+static struct ibv_mem_node *__mm_prev(struct ibv_mem_node *node)
 {
-	struct ibv_mem_node *node = mem_map.first;
+	if (node->left) {
+		node = node->left;
+		while (node->right)
+			node = node->right;
+	} else {
+		while (node->parent && node == node->parent->left)
+			node = node->parent;
 
-	while (node) {
-		if ((node->start <= start && node->end >= start) ||
-		    (node->start <= end   && node->end >= end))
-			break;
-		node = node->next;
+		node = node->parent;
 	}
 
 	return node;
 }
 
-static struct ibv_mem_node *__mm_prev(struct ibv_mem_node *node)
-{
-	return node->prev;
-}
-
 static struct ibv_mem_node *__mm_next(struct ibv_mem_node *node)
 {
-	return node->next;
+	if (node->right) {
+		node = node->right;
+		while (node->left)
+			node = node->left;
+	} else {
+		while (node->parent && node == node->parent->right)
+			node = node->parent;
+
+		node = node->parent;
+	}
+
+	return node;
 }
 
-static void __mm_add(struct ibv_mem_node *node,
-		     struct ibv_mem_node *new)
+static void __mm_rotate_right(struct ibv_mem_node *node)
 {
-	new->prev  = node;
-	new->next  = node->next;
-	node->next = new;
-	if (new->next)
-		new->next->prev = new;
+	struct ibv_mem_node *tmp;
+
+	tmp = node->left;
+
+	node->left = tmp->right;
+	if (node->left)
+		node->left->parent = node;
+
+	if (node->parent) {
+		if (node->parent->right == node)
+			node->parent->right = tmp;
+		else
+			node->parent->left = tmp;
+	} else
+		mm_root = tmp;
+
+	tmp->parent = node->parent;
+
+	tmp->right = node;
+	node->parent = tmp;
+}
+
+static void __mm_rotate_left(struct ibv_mem_node *node)
+{
+	struct ibv_mem_node *tmp;
+
+	tmp = node->right;
+
+	node->right = tmp->left;
+	if (node->right)
+		node->right->parent = node;
+
+	if (node->parent) {
+		if (node->parent->right == node)
+			node->parent->right = tmp;
+		else
+			node->parent->left = tmp;
+	} else
+		mm_root = tmp;
+
+	tmp->parent = node->parent;
+
+	tmp->left = node;
+	node->parent = tmp;
+}
+
+static int verify(struct ibv_mem_node *node)
+{
+	int hl, hr;
+
+	if (!node)
+		return 1;
+
+	hl = verify(node->left);
+	hr = verify(node->left);
+
+	if (!hl || !hr)
+		return 0;
+	if (hl != hr)
+		return 0;
+
+	if (node->color == IBV_RED) {
+		if (node->left && node->left->color != IBV_BLACK)
+			return 0;
+		if (node->right && node->right->color != IBV_BLACK)
+			return 0;
+		return hl;
+	}
+
+	return hl + 1;
+}
+
+static void __mm_add_rebalance(struct ibv_mem_node *node)
+{
+	struct ibv_mem_node *parent, *gp, *uncle;
+
+	while (node->parent && node->parent->color == IBV_RED) {
+		parent = node->parent;
+		gp     = node->parent->parent;
+
+		if (parent == gp->left) {
+			uncle = gp->right;
+
+			if (uncle && uncle->color == IBV_RED) {
+				parent->color = IBV_BLACK;
+				uncle->color  = IBV_BLACK;
+				gp->color     = IBV_RED;
+
+				node = gp;
+			} else {
+				if (node == parent->right) {
+					__mm_rotate_left(parent);
+					node   = parent;
+					parent = node->parent;
+				}
+
+				parent->color = IBV_BLACK;
+				gp->color     = IBV_RED;
+
+				__mm_rotate_right(gp);
+			}
+		} else {
+			uncle = gp->left;
+
+			if (uncle && uncle->color == IBV_RED) {
+				parent->color = IBV_BLACK;
+				uncle->color  = IBV_BLACK;
+				gp->color     = IBV_RED;
+
+				node = gp;
+			} else {
+				if (node == parent->left) {
+					__mm_rotate_right(parent);
+					node   = parent;
+					parent = node->parent;
+				}
+
+				parent->color = IBV_BLACK;
+				gp->color     = IBV_RED;
+
+				__mm_rotate_left(gp);
+			}
+		}
+	}
+
+	mm_root->color = IBV_BLACK;
+}
+
+static void __mm_add(struct ibv_mem_node *new)
+{
+	struct ibv_mem_node *node, *parent = NULL;
+
+	node = mm_root;
+	while (node) {
+		parent = node;
+		if (node->start < new->start)
+			node = node->right;
+		else
+			node = node->left;
+	}
+
+	if (parent->start < new->start)
+		parent->right = new;
+	else
+		parent->left = new;
+
+	new->parent = parent;
+	new->left   = NULL;
+	new->right  = NULL;
+
+	new->color = IBV_RED;
+	__mm_add_rebalance(new);
 }
 
 static void __mm_remove(struct ibv_mem_node *node)
 {
-	/* Never have to remove the first node, so we can use prev */
-	node->prev->next = node->next;
-	if (node->next)
-		node->next->prev = node->prev;
+	struct ibv_mem_node *child, *parent, *sib, *tmp;
+	int nodecol;
+
+	if (node->left && node->right) {
+		tmp = node->left;
+		while (tmp->right)
+			tmp = tmp->right;
+
+		nodecol    = tmp->color;
+		child      = tmp->left;
+		tmp->color = node->color;
+
+		if (tmp->parent != node) {
+			parent        = tmp->parent;
+			parent->right = tmp->left;
+			if (tmp->left)
+				tmp->left->parent = parent;
+
+			tmp->left   	   = node->left;
+			node->left->parent = tmp;
+		} else
+			parent = tmp;
+
+		tmp->right          = node->right;
+		node->right->parent = tmp;
+
+		tmp->parent = node->parent;
+		if (node->parent) {
+			if (node->parent->left == node)
+				node->parent->left = tmp;
+			else
+				node->parent->right = tmp;
+		} else
+			mm_root = tmp;
+	} else {
+		nodecol = node->color;
+
+		child  = node->left ? node->left : node->right;
+		parent = node->parent;
+
+		if (child)
+			child->parent = parent;
+		if (parent) {
+			if (parent->left == node)
+				parent->left = child;
+			else
+				parent->right = child;
+		} else
+			mm_root = child;
+	}
+
+	free(node);
+
+	if (nodecol == IBV_RED)
+		return;
+
+	while ((!child || child->color == IBV_BLACK) && child != mm_root) {
+		if (parent->left == child) {
+			sib = parent->right;
+
+			if (sib->color == IBV_RED) {
+				parent->color = IBV_RED;
+				sib->color    = IBV_BLACK;
+				__mm_rotate_left(parent);
+				sib = parent->right;
+			}
+
+			if ((!sib->left  || sib->left->color  == IBV_BLACK) &&
+			    (!sib->right || sib->right->color == IBV_BLACK)) {
+				sib->color = IBV_RED;
+				child  = parent;
+				parent = child->parent;
+			} else {
+				if (!sib->right || sib->right->color == IBV_BLACK) {
+					if (sib->left)
+						sib->left->color = IBV_BLACK;
+					sib->color = IBV_RED;
+					__mm_rotate_right(sib);
+					sib = parent->right;
+				}
+
+				sib->color    = parent->color;
+				parent->color = IBV_BLACK;
+				if (sib->right)
+					sib->right->color = IBV_BLACK;
+				__mm_rotate_left(parent);
+				child = mm_root;
+				break;
+			}
+		} else {
+			sib = parent->left;
+
+			if (sib->color == IBV_RED) {
+				parent->color = IBV_RED;
+				sib->color    = IBV_BLACK;
+				__mm_rotate_right(parent);
+				sib = parent->left;
+			}
+
+			if ((!sib->left  || sib->left->color  == IBV_BLACK) &&
+			    (!sib->right || sib->right->color == IBV_BLACK)) {
+				sib->color = IBV_RED;
+				child  = parent;
+				parent = child->parent;
+			} else {
+				if (!sib->left || sib->left->color == IBV_BLACK) {
+					if (sib->right)
+						sib->right->color = IBV_BLACK;
+					sib->color = IBV_RED;
+					__mm_rotate_left(sib);
+					sib = parent->left;
+				}
+
+				sib->color    = parent->color;
+				parent->color = IBV_BLACK;
+				if (sib->left)
+					sib->left->color = IBV_BLACK;
+				__mm_rotate_right(parent);
+				child = mm_root;
+				break;
+			}
+		}
+	}
+
+	if (child)
+		child->color = IBV_BLACK;
 }
 
-int ibv_lock_range(void *base, size_t size)
+static struct ibv_mem_node *__mm_find_start(uintptr_t start, uintptr_t end)
+{
+	struct ibv_mem_node *node = mm_root;
+
+	while (node) {
+		if (node->start <= start && node->end >= start)
+			break;
+
+		if (node->start < start)
+			node = node->right;
+		else
+			node = node->left;
+	}
+
+	return node;
+}
+
+static int ibv_madvise_range(void *base, size_t size, int advice)
 {
 	uintptr_t start, end;
 	struct ibv_mem_node *node, *tmp;
+	int inc;
 	int ret = 0;
 
 	if (!size)
 		return 0;
 
-	start = (uintptr_t) base & ~(mem_map.page_size - 1);
-	end   = ((uintptr_t) (base + size + mem_map.page_size - 1) &
-		 ~(mem_map.page_size - 1)) - 1;
+	inc = advice == MADV_DONTFORK ? 1 : -1;
 
-	pthread_mutex_lock(&mem_map.mutex);
+	start = (uintptr_t) base & ~(page_size - 1);
+	end   = ((uintptr_t) (base + size + page_size - 1) &
+		 ~(page_size - 1)) - 1;
 
-	node = __mm_find_first(start, end);
+	pthread_mutex_lock(&mm_mutex);
+
+	node = __mm_find_start(start, end);
 
 	if (node->start < start) {
 		tmp = malloc(sizeof *tmp);
@@ -165,11 +477,19 @@ int ibv_lock_range(void *base, size_t size)
 		tmp->refcnt = node->refcnt;
 		node->end   = start - 1;
 
-		__mm_add(node, tmp);
+		__mm_add(tmp);
 		node = tmp;
+	} else {
+		tmp = __mm_prev(node);
+		if (tmp && tmp->refcnt == node->refcnt + inc) {
+			tmp->end = node->end;
+			tmp->refcnt = node->refcnt;
+			__mm_remove(node);
+			node = tmp;
+		}
 	}
 
-	while (node->start <= end) {
+	while (node && node->start <= end) {
 		if (node->end > end) {
 			tmp = malloc(sizeof *tmp);
 			if (!tmp) {
@@ -182,13 +502,16 @@ int ibv_lock_range(void *base, size_t size)
 			tmp->refcnt = node->refcnt;
 			node->end   = end;
 
-			__mm_add(node, tmp);
+			__mm_add(tmp);
 		}
 
+		node->refcnt += inc;
 
-		if (node->refcnt++ == 0) {
-			ret = mlock((void *) node->start,
-				    node->end - node->start + 1);
+		if ((inc == -1 && node->refcnt == 0) ||
+		    (inc ==  1 && node->refcnt == 1)) {
+			ret = madvise((void *) node->start,
+				      node->end - node->start + 1,
+				      advice);
 			if (ret)
 				goto out;
 		}
@@ -196,63 +519,36 @@ int ibv_lock_range(void *base, size_t size)
 		node = __mm_next(node);
 	}
 
+	if (node) {
+		tmp = __mm_prev(node);
+		if (tmp && node->refcnt == tmp->refcnt) {
+			tmp->end = node->end;
+			__mm_remove(node);
+		}
+	}
+
 out:
-	pthread_mutex_unlock(&mem_map.mutex);
+	pthread_mutex_unlock(&mm_mutex);
 
 	return ret;
 }
 
-int ibv_unlock_range(void *base, size_t size)
+int ibv_dontfork_range(void *base, size_t size)
 {
-	uintptr_t start, end;
-	struct ibv_mem_node *node, *tmp;
-	int ret = 0;
-
-	if (!size)
+	if (mm_root)
+		return ibv_madvise_range(base, size, MADV_DONTFORK);
+	else {
+		too_late = 1;
 		return 0;
-
-	start = (uintptr_t) base & ~(mem_map.page_size - 1);
-	end   = ((uintptr_t) (base + size + mem_map.page_size - 1) &
-		 ~(mem_map.page_size - 1)) - 1;
-
-	pthread_mutex_lock(&mem_map.mutex);
-
-	node = __mm_find_first(start, end);
-
-	if (node->start != start) {
-		ret = -1;
-		goto out;
 	}
+}
 
-	while (node && node->end <= end) {
-		if (--node->refcnt == 0) {
-			ret = munlock((void *) node->start,
-				      node->end - node->start + 1);
-		}
-
-		if (__mm_prev(node) && node->refcnt == __mm_prev(node)->refcnt) {
-			__mm_prev(node)->end = node->end;
-			tmp = __mm_prev(node);
-			__mm_remove(node);
-			node = tmp;
-		}
-
-		node = __mm_next(node);
+int ibv_dofork_range(void *base, size_t size)
+{
+	if (mm_root)
+		return ibv_madvise_range(base, size, MADV_DOFORK);
+	else {
+		too_late = 1;
+		return 0;
 	}
-
-	if (node && node->refcnt == __mm_prev(node)->refcnt) {
-		__mm_prev(node)->end = node->end;
-		tmp = __mm_prev(node);
-		__mm_remove(node);
-	}
-
-	if (node->end != end) {
-		ret = -1;
-		goto out;
-	}
-
-out:
-	pthread_mutex_unlock(&mem_map.mutex);
-
-	return ret;
 }

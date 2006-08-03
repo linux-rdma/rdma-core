@@ -1,3 +1,29 @@
+2006-07-26  Roland Dreier  <rdreier@cisco.com>
+
+	* src/verbs.c (ibv_reg_mr, ibv_dereg_mr): Add calls to
+	ibv_dontfork_range() and ibv_dofork_range() for memory regions
+	registered by library consumers.
+
+	* include/infiniband/verbs.h: Add declaration of ibv_fork_init().
+
+	* include/infiniband/driver.h: Add declarations of
+	ibv_dontfork_range() and ibv_dofork_range().
+
+	* src/memory.c: Rewrite to use a red-black tree instead of a
+	linked list.  Change from doing mlock()/munlock() to
+	madvise(..., MADV_DONTFORK) and madvise(..., MADV_DOFORK), and
+	change the name of the entry points to ibv_dontfork_range() and
+	ibv_dofork_range().  Add ibv_fork_init() for applications to
+	request fork-safe behavior.
+
+	* src/ibverbs.h: Kill off unused declarations.
+
+	* src/init.c (ibverbs_init): Get rid of call to ibv_init_mem_map().
+
+	* include/infiniband/verbs.h: Add addr and length field to struct
+	ibv_mr so that memory regions can be madvised().  This changes the
+	ABI, since the layout of struct ibv_mr is changed.
+
 2006-07-04  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/arch.h: Fix typo in sparc mb()

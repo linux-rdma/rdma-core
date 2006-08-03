@@ -74,6 +74,9 @@ IBVERBS_1.0 {
 		mult_to_ibv_rate;
 		ibv_get_sysfs_path;
 		ibv_read_sysfs_file;
+		ibv_fork_init;
+		ibv_dontfork_range;
+		ibv_dofork_range;
 
 	local: *;
 };
