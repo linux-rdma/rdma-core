@@ -254,7 +254,7 @@ static void __attribute__((destructor)) rdma_cma_fini(void)
 	ucma_cleanup();
 }
 
-struct rdma_event_channel *rdma_create_event_channel()
+struct rdma_event_channel *rdma_create_event_channel(void)
 {
 	struct rdma_event_channel *channel;
 
