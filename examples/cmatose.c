@@ -55,7 +55,7 @@ static inline uint32_t cpu_to_be32(uint32_t x) { return bswap_32(x); }
 /*
  * To execute:
  * Server: rdma_cmatose
- * Client: rdma_cmatose "dst_ip=ip"
+ * Client: rdma_cmatose <dst_ip>
  */
 
 struct cmatest_node {
