@@ -771,7 +771,7 @@ static void ucma_copy_conn_param_to_kern(struct ucma_abi_conn_param *dst,
 		       src->private_data_len);
 		dst->private_data_len = src->private_data_len;
 	} else
-		src->private_data_len = 0;
+		dst->private_data_len = 0;
 }
 
 int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
