@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -806,10 +806,13 @@ umad_recv(int portid, void *umad, int *length, int timeout_ms)
 		return n;
 	}
 
-	if ((n = read(port->dev_fd, umad, sizeof *mad + *length)) <= 
-	     sizeof *mad + *length) {
+	n = read(port->dev_fd, umad, sizeof *mad + *length);
+	if ((n >= 0) && (n <= sizeof *mad + *length)) {
 		DEBUG("mad received by agent %d length %d", mad->agent_id, n);
-		*length = n - sizeof *mad;
+		if (n > sizeof *mad)
+			*length = n - sizeof *mad;
+		else
+			*length = 0;
 		return mad->agent_id;
 	}
 
