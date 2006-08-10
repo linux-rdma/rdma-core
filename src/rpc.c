@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -240,6 +240,7 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 		rmpp->d1.u = mad_get_field(mad, 0, IB_SA_RMPP_D1_F);
 		rmpp->d2.u = mad_get_field(mad, 0, IB_SA_RMPP_D2_F);
 	}
+
 	if (data)
 		memcpy(data, mad + rpc->dataoffs, rpc->datasz);
 
