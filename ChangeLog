@@ -1,3 +1,8 @@
+2006-08-09  Michael S. Tsirkin  <mst@mellanox.co.il>
+
+	* src/qp.c (mthca_tavor_post_send, mthca_arbel_post_send): Fence
+	bit must be set in both doorbell and WQE.
+
 2006-08-03  Jack Morgenstein  <jackm@mellanox.co.il>
 
 	* src/mthca.h: Include <stddef.h> to get definition of offsetof().

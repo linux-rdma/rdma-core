@@ -46,6 +46,10 @@
 #include "doorbell.h"
 #include "wqe.h"
 
+enum {
+	MTHCA_SEND_DOORBELL_FENCE = 1 << 5
+};
+
 static const uint8_t mthca_opcode[] = {
 	[IBV_WR_SEND]                 = MTHCA_OPCODE_SEND,
 	[IBV_WR_SEND_WITH_IMM]        = MTHCA_OPCODE_SEND_IMM,
@@ -104,9 +108,18 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int ind;
 	int nreq;
 	int ret = 0;
-	int size, size0 = 0;
+	int size;
+	int size0 = 0;
 	int i;
-	uint32_t f0 = 0, op0 = 0;
+	/*
+	 * f0 and op0 cannot be used unless nreq > 0, which means this
+	 * function makes it through the loop at least once.  So the
+	 * code inside the if (!size0) will be executed, and f0 and
+	 * op0 will be initialized.  So any gcc warning about "may be
+	 * used unitialized" is bogus.
+	 */
+	uint32_t f0;
+	uint32_t op0;
 
 	pthread_spin_lock(&qp->sq.lock);
 
@@ -290,6 +303,8 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (!size0) {
 			size0 = size;
 			op0   = mthca_opcode[wr->opcode];
+			f0    = wr->send_flags & IBV_SEND_FENCE ?
+				MTHCA_SEND_DOORBELL_FENCE : 0;
 		}
 
 		++ind;
@@ -434,9 +449,18 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int ind;
 	int nreq;
 	int ret = 0;
-	int size, size0 = 0;
+	int size;
+	int size0 = 0;
 	int i;
-	uint32_t f0 = 0, op0 = 0;
+	/*
+	 * f0 and op0 cannot be used unless nreq > 0, which means this
+	 * function makes it through the loop at least once.  So the
+	 * code inside the if (!size0) will be executed, and f0 and
+	 * op0 will be initialized.  So any gcc warning about "may be
+	 * used unitialized" is bogus.
+	 */
+	uint32_t f0;
+	uint32_t op0;
 
 	pthread_spin_lock(&qp->sq.lock);
 
@@ -644,6 +668,8 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (!size0) {
 			size0 = size;
 			op0   = mthca_opcode[wr->opcode];
+			f0    = wr->send_flags & IBV_SEND_FENCE ?
+				MTHCA_SEND_DOORBELL_FENCE : 0;
 		}
 
 		++ind;
