@@ -78,6 +78,7 @@ ud_resources_init(struct ud_resources *res)
 	res->ib_ctx = NULL;
 	res->send_cq = NULL;
 	res->recv_cq = NULL;
+	res->channel = NULL;
 	res->qp = NULL;
 	res->pd = NULL;
 	res->mr = NULL;
@@ -235,6 +236,12 @@ int ud_resources_create(struct ud_resources *res)
 		fprintf(stderr, "failed to open device %s\n", config->dev_name);
 		return -ENXIO;
 	}
+
+	res->channel = ibv_create_comp_channel(res->ib_ctx);
+	if (!res->channel) {
+		fprintf(stderr, "failed to create completion channel \n");
+		return -ENXIO;
+	}
 	
 	res->pd = ibv_alloc_pd(res->ib_ctx);
 	if (!res->pd) {
@@ -243,7 +250,7 @@ int ud_resources_create(struct ud_resources *res)
 	}
 
 	cq_size = config->num_of_oust;
-	res->recv_cq = ibv_create_cq(res->ib_ctx, cq_size, NULL, NULL, 0);
+	res->recv_cq = ibv_create_cq(res->ib_ctx, cq_size, NULL, res->channel, 0);
 	if (!res->recv_cq) {
 		fprintf(stderr, "failed to create CQ with %u entries\n", cq_size);
 		return -1;
@@ -387,6 +394,13 @@ int ud_resources_destroy(struct ud_resources *res)
 		}
 	}
 
+	if (res->channel) {
+		if (ibv_destroy_comp_channel(res->channel)) {
+			fprintf(stderr, "ibv_destroy_comp_channel failed\n");
+			test_result = 1;
+		}
+	}
+
 	if (res->ah) {
 		if (ibv_destroy_ah(res->ah)) {
 			fprintf(stderr, "ibv_destroy_ah failed\n");
@@ -445,25 +459,48 @@ static void fill_send_request(struct ud_resources *res, struct ibv_send_wr *psr,
 	psg->lkey = res->mr->lkey;
 }
 
-static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, int wait)
+static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel *channel)
 {
 	int ret;
-	
+	struct ibv_cq *ev_cq;
+	void          *ev_ctx;
+
+	if (channel) {
+		if (ibv_get_cq_event(channel, &ev_cq, &ev_ctx)) {
+			fprintf(stderr, "Failed to get cq_event\n");
+			return -1;
+		}
+
+		if (ev_cq != cq) {
+			pr_debug("CQ event for unknown CQ %p\n", ev_cq);
+			return -1;
+		}
+
+		if (ibv_req_notify_cq(cq, 0)) {
+			fprintf(stderr, "Couldn't request CQ notification\n");
+			return -1;
+		}
+	}
+
 	do {
 		ret = ibv_poll_cq(cq, 1, wc);
 		if (ret < 0) {
 			fprintf(stderr, "poll CQ failed\n");
 			return ret;
 		}
-		
+
 		if (ret > 0 && wc->status != IBV_WC_SUCCESS) {
 			fprintf(stderr, "got bad completion with status: 0x%x\n", wc->status);
 			return -ret;
 		}
-		srp_sleep(0, 100);
-	} while (wait && ret == 0); /* while no response in cq */
 
-	return ret;
+		if (ret == 0 && channel) {
+			fprintf(stderr, "Weird poll returned no cqe after CQ event\n");
+			return -1;
+		}
+	} while (ret == 0);
+
+	return 0;
 }
 
 /*****************************************************************************
@@ -513,15 +550,22 @@ static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num
 		res->mad_buffer->base_ver = 0; // flag that the buffer is empty
 		pthread_mutex_unlock(res->mad_buffer_mutex);
 		mad_hdr->trans_id = htonll(trans_id++);
+
+		if (ibv_req_notify_cq(res->recv_cq, 0)) {
+		  fprintf(stderr, "Couldn't request CQ notification\n");
+		  return -1;
+		}
+	
 		ret = ibv_post_send(res->qp, &sr, bad_wr);
 		if (ret) {
 			fprintf(stderr, "failed to post SR\n");
 			return ret;
 		}
 			
-		ret = poll_cq(res->send_cq, &wc, 1);
+		ret = poll_cq(res->send_cq, &wc, NULL);
 		if (ret < 0)
 			return ret;
+
 		/* sleep and check for response from SA */
 		do {
 			srp_sleep(1, 0);
@@ -573,7 +617,7 @@ static int response_to_trap(struct ud_resources *res, ib_sa_mad_t *mad_buffer)
 		fprintf(stderr, "failed to post response\n");
 		return ret;
 	}
-	ret = poll_cq(res->send_cq, &wc, 1);
+	ret = poll_cq(res->send_cq, &wc, NULL);
 
 	return ret;
 }
@@ -594,11 +638,11 @@ static int get_trap_notices(struct resources *res)
 
 	while (!res->sync_res->stop_threads) {
 	
-		ret = poll_cq(res->ud_res->recv_cq, &wc, 1);
+		ret = poll_cq(res->ud_res->recv_cq, &wc, res->ud_res->channel);
 		if (ret < 0)
 			exit(-ret);
 		
-		pr_debug("get_trap_notices: Got CQE wc.wr_id=%ld\n", wc.wr_id);
+		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", wc.wr_id);
 		cur_receive = wc.wr_id;
 		buffer = (void *)(((unsigned long)res->ud_res->recv_buf) + RECV_BUF_SIZE * cur_receive);
 		mad_buffer = (ib_sa_mad_t *) (buffer + GRH_SIZE);

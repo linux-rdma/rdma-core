@@ -307,8 +307,9 @@ struct ud_resources {
 	struct ibv_device_attr  device_attr;
 	struct ibv_port_attr 	port_attr;
 	int   	                cq_size;
-	pthread_mutex_t	       *mad_buffer_mutex;
-	ib_sa_mad_t 	       *mad_buffer;
+	struct ibv_comp_channel *channel;
+	pthread_mutex_t		*mad_buffer_mutex;
+	ib_sa_mad_t		*mad_buffer;
 };
 
 struct umad_resources {
