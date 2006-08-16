@@ -38,6 +38,10 @@
 
 #include <netinet/in.h>
 
+#ifndef PACK_SUFFIX
+#define PACK_SUFFIX __attribute__((packed))
+#endif
+
 /****d* IBA Base: Constants/MAD_BLOCK_SIZE
 * NAME
 *	MAD_BLOCK_SIZE
@@ -95,7 +99,6 @@ typedef ib_net64_t		ib_gid_prefix_t;
 */
 #define IB_SA_DATA_SIZE 200
 
-#include <infiniband/complib/cl_packon.h>
 typedef struct _ib_sa_mad
 {
 	uint8_t					base_ver;
@@ -126,9 +129,7 @@ typedef struct _ib_sa_mad
 
 	uint8_t					data[IB_SA_DATA_SIZE];
 }	PACK_SUFFIX ib_sa_mad_t;
-#include <infiniband/complib/cl_packoff.h>
 
-#include <infiniband/complib/cl_packon.h>
 typedef union _ib_gid
 {
 	uint8_t					raw[16];
@@ -147,7 +148,6 @@ typedef union _ib_gid
 	} PACK_SUFFIX multicast;
 
 }	PACK_SUFFIX ib_gid_t;
-#include <infiniband/complib/cl_packoff.h>
 
 static inline uint32_t ib_get_attr_size(const ib_net16_t attr_offset)
 {
@@ -177,7 +177,6 @@ enum {
 *
 * SYNOPSIS
 */
-#include <infiniband/complib/cl_packon.h>
 typedef struct _ib_path_rec
 {
 	uint8_t					resv0[8];
@@ -197,7 +196,6 @@ typedef struct _ib_path_rec
 	uint8_t					resv2[6];
 
 }	PACK_SUFFIX ib_path_rec_t;
-#include <infiniband/complib/cl_packoff.h>
 
 
 /****s* IBA Base: Types/ib_mad_t
@@ -209,7 +207,6 @@ typedef struct _ib_path_rec
 *
 * SYNOPSIS
 */
-#include <infiniband/complib/cl_packon.h>
 typedef struct _ib_mad
 {
 	uint8_t					base_ver;
@@ -223,7 +220,6 @@ typedef struct _ib_mad
 	ib_net16_t				resv;
 	ib_net32_t				attr_mod;
 }	PACK_SUFFIX ib_mad_t;
-#include <infiniband/complib/cl_packoff.h>
 
 /****f* IBA Base: Types/ib_mad_init_new
 * NAME
@@ -256,7 +252,6 @@ ib_mad_init_new(ib_mad_t* const		p_mad,
 }
 
 
-#include <infiniband/complib/cl_packon.h>
 typedef struct _ib_inform_info
 {
   ib_gid_t				   gid;
@@ -289,9 +284,7 @@ typedef struct _ib_inform_info
   }	PACK_SUFFIX g_or_v;
   
 }	PACK_SUFFIX ib_inform_info_t;
-#include <infiniband/complib/cl_packoff.h>
 
-#include <infiniband/complib/cl_packon.h>
 typedef struct _ib_mad_notice_attr    // Total Size calc  Accumulated
 {
   uint8_t				generic_type;    // 1                1
@@ -401,7 +394,6 @@ typedef struct _ib_mad_notice_attr    // Total Size calc  Accumulated
   ib_gid_t			issuer_gid;    // 16          80
 
 }	PACK_SUFFIX ib_mad_notice_attr_t;
-#include <infiniband/complib/cl_packoff.h>
 
 /****f* IBA Base: Types/ib_gid_get_guid
 * NAME
