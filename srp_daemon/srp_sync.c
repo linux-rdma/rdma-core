@@ -52,6 +52,9 @@ int sync_resources_init(struct sync_resources *res)
 	ret = pthread_mutex_init(&res->mutex, NULL);
 	if (ret < 0)
 		fprintf(stderr, "coult not initilize mutex\n");
+	ret = pthread_cond_init(&res->cond, NULL);
+	if (ret < 0)
+		fprintf(stderr, "coult not initilize cond\n");
 
 	return ret;
 }
@@ -84,6 +87,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 		++res->next_task;
 	}
 
+	pthread_cond_signal(&res->cond);
 	pthread_mutex_unlock(&res->mutex);
 }
 
@@ -115,6 +119,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid)
 		++res->next_task;
 	}
 
+	pthread_cond_signal(&res->cond);
 	pthread_mutex_unlock(&res->mutex);
 }
 
@@ -126,12 +131,12 @@ void clear_traps_list(struct sync_resources *res)
 }
 
 
+/* assumes that res->mutex is locked !!! */
 int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid)
 {
 	int ret=0;
 	int i;
 
-	pthread_mutex_lock(&res->mutex);
 	if (res->next_task) {
 		*lid = res->tasks[0].lid;
 		*gid = res->tasks[0].gid;
@@ -141,7 +146,6 @@ int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid)
 		ret = 1;
 		--res->next_task;
 	}
-	pthread_mutex_unlock(&res->mutex);
 
 	return ret;
 }

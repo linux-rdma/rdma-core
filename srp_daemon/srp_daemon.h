@@ -334,6 +334,7 @@ struct sync_resources {
 		ib_gid_t gid;
 	} tasks[SIZE_OF_TASKS_LIST];
 	pthread_mutex_t mutex;
+	pthread_cond_t cond;
 };
 
 struct resources {

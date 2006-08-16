@@ -724,8 +724,11 @@ void *run_thread_wait_till_timeout(void *res_in)
 		cur_time = time(NULL);
 		sleep_time = res->sync_res->next_recalc_time - cur_time;
 		if (sleep_time < 0) {
+			pthread_mutex_lock(&res->sync_res->mutex);
 			res->sync_res->recalc = 1;
 			res->sync_res->next_recalc_time = time(NULL) + config->recalc_time;
+			pthread_cond_signal(&res->sync_res->cond);
+			pthread_mutex_unlock(&res->sync_res->mutex);
 		} else
 			srp_sleep(sleep_time, 0);
 	}
@@ -756,8 +759,12 @@ void *run_thread_listen_to_events(void *res_in)
 		case IBV_EVENT_SM_CHANGE:
 		case IBV_EVENT_LID_CHANGE:
 		case IBV_EVENT_CLIENT_REREGISTER:
-			if (event.element.port_num == config->port_num) 
+			if (event.element.port_num == config->port_num) {
+				pthread_mutex_lock(&res->sync_res->mutex);
 		    		res->sync_res->recalc = 1;
+				pthread_cond_signal(&res->sync_res->cond);
+				pthread_mutex_unlock(&res->sync_res->mutex);
+			}
 		  	break;
 	  
 		case IBV_EVENT_PKEY_CHANGE:

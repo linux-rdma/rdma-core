@@ -1118,7 +1118,9 @@ int main(int argc, char *argv[])
 	}
 
 	while (1) {
+		pthread_mutex_lock(&res.sync_res->mutex);
 		if (res.sync_res->recalc) {
+			pthread_mutex_unlock(&res.sync_res->mutex);		  
 			pr_debug("Starting a recalculation\n");
 			ret = create_ah(res.ud_res);
 			if (ret) 
@@ -1134,6 +1136,7 @@ int main(int argc, char *argv[])
 			if (ret) 
 				goto kill_threads;
 		} else if (pop_from_list(res.sync_res, &lid, &gid)) {
+			pthread_mutex_unlock(&res.sync_res->mutex);
 			if (lid) {
 				uint64_t guid;
 				ret = get_node(res.umad_res, lid, &guid);
@@ -1155,8 +1158,10 @@ int main(int argc, char *argv[])
 						    ntohll(ib_gid_get_guid(&gid)));
 				}
 			}
-		} else
-			srp_sleep(1, 0);
+		} else {
+			pthread_cond_wait(&res.sync_res->cond, &res.sync_res->mutex);
+			pthread_mutex_unlock(&res.sync_res->mutex);
+		}
 	}
 
 	ret = 0;
