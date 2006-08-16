@@ -1,5 +1,7 @@
 # $Id$
 
+SUBDIRS = srp_daemon
+
 sbin_PROGRAMS = src/ibsrpdm
 
 src_ibsrpdm_CFLAGS = -Wall

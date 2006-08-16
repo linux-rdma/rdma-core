@@ -22,4 +22,4 @@ AC_CHECK_HEADERS(fcntl.h limits.h stdlib.h string.h unistd.h)
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS(memset strchr strtoul)
-AC_OUTPUT(Makefile srptools.spec)
+AC_OUTPUT(Makefile srptools.spec srp_daemon/Makefile)

@@ -1,3 +1,13 @@
+2006-08-16  Ishai Rabinovitz <ishai@mellanox.com>
+
+	* srp_daemon: Add a new tool srp_daemon. srp_daemon check for 
+	new targets that join the fabric. It can also ask ib_srp module
+	to connect to these targets.
+
+	* Makefile.am: Was changed to call to srp_daemon Makefile.
+
+	* Configure.in: Was changed to include srp_daemon.
+
 2006-07-01  Roland Dreier  <rdreier@cisco.com>
 
 	* src/srp-dm.c (get_node): Use correct attribute ID to retrieve
