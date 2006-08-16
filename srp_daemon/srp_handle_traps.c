@@ -257,6 +257,12 @@ int ud_resources_create(struct ud_resources *res)
 	}
        	pr_debug("CQ was created with %u CQEs\n", cq_size);
 
+	if (ibv_req_notify_cq(res->recv_cq, 0)) {
+		fprintf(stderr, "Couldn't request CQ notification\n");
+		return -1;
+	}
+	
+
 	res->send_cq = ibv_create_cq(res->ib_ctx, 1, NULL, NULL, 0);
 	if (!res->send_cq) {
 		fprintf(stderr, "failed to create CQ with %u entries\n", cq_size);
@@ -471,6 +477,8 @@ static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel
 			return -1;
 		}
 
+		ibv_ack_cq_events(ev_cq, 1);
+
 		if (ev_cq != cq) {
 			pr_debug("CQ event for unknown CQ %p\n", ev_cq);
 			return -1;
@@ -480,6 +488,7 @@ static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel
 			fprintf(stderr, "Couldn't request CQ notification\n");
 			return -1;
 		}
+
 	}
 
 	do {
@@ -551,11 +560,6 @@ static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num
 		pthread_mutex_unlock(res->mad_buffer_mutex);
 		mad_hdr->trans_id = htonll(trans_id++);
 
-		if (ibv_req_notify_cq(res->recv_cq, 0)) {
-		  fprintf(stderr, "Couldn't request CQ notification\n");
-		  return -1;
-		}
-	
 		ret = ibv_post_send(res->qp, &sr, bad_wr);
 		if (ret) {
 			fprintf(stderr, "failed to post SR\n");
