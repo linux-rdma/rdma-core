@@ -2,7 +2,7 @@
 
 sbin_PROGRAMS = srp_daemon
 
-srp_daemon_LDADD = -libmad -libverbs
+srp_daemon_LDADD = -libmad -libumad -libcommon -libverbs
 srp_daemon_CFLAGS = -g -Wall -I $(DESTDIR)$(includedir)
 srp_daemon_SOURCES = srp_daemon.c srp_handle_traps.c srp_sync.c
 
