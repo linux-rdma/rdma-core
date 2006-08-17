@@ -1,13 +1,17 @@
 # $Id$
 
-SUBDIRS = srp_daemon
-
-sbin_PROGRAMS = src/ibsrpdm
+sbin_PROGRAMS = src/ibsrpdm srp_daemon/srp_daemon
 
 src_ibsrpdm_CFLAGS = -Wall
 src_ibsrpdm_SOURCES = src/srp-dm.c
 
+srp_daemon_srp_daemon_LDADD = -libumad -libcommon -libverbs -lpthread
+srp_daemon_srp_daemon_CFLAGS = -Wall -I $(DESTDIR)$(includedir)
+srp_daemon_srp_daemon_SOURCES = srp_daemon/srp_daemon.c srp_daemon/srp_handle_traps.c srp_daemon/srp_sync.c
+
 EXTRA_DIST = \
+    srp_daemon/srp_daemon.h \
+    srp_daemon/srp_ib_types.h \
     src/srp-dm.h \
     src/ib_user_mad.h \
     srptools.spec.in
