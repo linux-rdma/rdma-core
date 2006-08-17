@@ -48,12 +48,10 @@ enum {
 
 enum {
 	SRP_MGMT_CLASS_SA_VERSION = 2,
-	SRP_MGMT_CLASS_DM_VERSION = 2 /* ??? */
 };
 
 enum {
         SRP_SA_RMPP_VERSION = 1,
-        SRP_DM_RMPP_VERSION = 0 
 };
 
 
@@ -314,8 +312,7 @@ struct ud_resources {
 
 struct umad_resources {
 	int		portid;
-	int		dm_agent;
-	int		sa_agent;
+	int		agent;
 	char	       *port_sysfs_path;
 	uint16_t	sm_lid;
 };	
