@@ -1,6 +1,7 @@
 # $Id$
 
 sbin_PROGRAMS = src/ibsrpdm srp_daemon/srp_daemon
+man_MANS = man/ibsrpdm.1
 
 src_ibsrpdm_CFLAGS = -Wall
 src_ibsrpdm_SOURCES = src/srp-dm.c
@@ -14,7 +15,7 @@ EXTRA_DIST = \
     srp_daemon/srp_ib_types.h \
     src/srp-dm.h \
     src/ib_user_mad.h \
-    srptools.spec.in
+    srptools.spec.in $(man_MANS)
 
 dist-hook: srptools.spec
 	cp srptools.spec $(distdir)
