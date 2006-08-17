@@ -63,6 +63,10 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 {
 	int i;
 
+	/* If there is going to be a recalc soon - do nothing */
+	if (res->recalc)
+		return;
+
 	pthread_mutex_lock(&res->mutex);
 
 	/* check if the gid is already in the list */
@@ -95,7 +99,12 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid)
 {
 	int i;
 
+	/* If there is going to be a recalc soon - do nothing */
+	if (res->recalc)
+		return;
+
 	pthread_mutex_lock(&res->mutex);
+
 
 	/* check if the lid is already in the list */
 
