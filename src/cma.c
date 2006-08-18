@@ -701,7 +701,7 @@ static int ucma_init_ud_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 
 	qp_attr.port_num = id_priv->id.port_num;
 	qp_attr.qp_state = IBV_QPS_INIT;
-	qp_attr.qkey = ntohs(rdma_get_src_port(&id_priv->id));
+	qp_attr.qkey = RDMA_UD_QKEY;
 	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_PKEY_INDEX |
 					  IBV_QP_PORT | IBV_QP_QKEY);
 	if (ret)

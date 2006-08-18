@@ -434,7 +434,7 @@ static void create_reply_ah(struct cmatest_node *node, struct ibv_wc *wc)
 	node->ah = ibv_create_ah_from_wc(node->pd, wc, node->mem,
 					 node->cma_id->port_num);
 	node->remote_qpn = ntohl(wc->imm_data);
-	node->remote_qkey = ntohs(rdma_get_dst_port(node->cma_id));
+	node->remote_qkey = RDMA_UD_QKEY;
 }
 
 static int poll_cqs(void)

@@ -59,4 +59,10 @@ int rdma_get_dst_attr(struct rdma_cm_id *id, struct sockaddr *addr,
 		      struct ibv_ah_attr *ah_attr, uint32_t *remote_qpn,
 		      uint32_t *remote_qkey);
 
+/*
+ * Global qkey value for all UD QPs and multicast groups created via the 
+ * RDMA CM.
+ */
+#define RDMA_UD_QKEY 0x01234567
+
 #endif /* RDMA_CMA_IB_H */
