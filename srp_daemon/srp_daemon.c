@@ -1145,7 +1145,7 @@ int main(int argc, char *argv[])
 				else {
 					pr_debug("lid is %d\n", lid);
 
-					srp_sleep(1, 0);
+					srp_sleep(0, 100);
 					handle_port(res.umad_res, lid,
 						    ntohll(ib_gid_get_guid(&gid)));
 				}
