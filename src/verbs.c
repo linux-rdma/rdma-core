@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2006 QLogic, Inc. All rights reserved.
  * Copyright (c) 2005. PathScale, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -43,8 +44,11 @@
 #include <string.h>
 #include <pthread.h>
 #include <netinet/in.h>
+#include <sys/mman.h>
+#include <errno.h>
 
 #include "ipathverbs.h"
+#include "ipath-abi.h"
 
 int ipath_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr)
@@ -54,7 +58,8 @@ int ipath_query_device(struct ibv_context *context,
 	unsigned major, minor, sub_minor;
 	int ret;
 
-	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd, sizeof cmd);
+	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver,
+				   &cmd, sizeof cmd);
 	if (ret)
 		return ret;
 
@@ -142,55 +147,147 @@ struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector)
 {
-	struct ibv_cq		 *cq;
-	struct ibv_create_cq	  cmd;
-	struct ibv_create_cq_resp resp;
-	int			  ret;
+	struct ipath_cq		   *cq;
+	struct ibv_create_cq	    cmd;
+	struct ipath_create_cq_resp resp;
+	int			    ret;
+	size_t			    size;
 
 	cq = malloc(sizeof *cq);
 	if (!cq)
 		return NULL;
 
-	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector, cq,
-				&cmd, sizeof cmd, &resp, sizeof resp);
+	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
+				&cq->ibv_cq, &cmd, sizeof cmd,
+				&resp.ibv_resp, sizeof resp);
 	if (ret) {
 		free(cq);
 		return NULL;
 	}
 
-	return cq;
+	size = sizeof(struct ipath_cq_wc) + sizeof(struct ipath_wc) * cqe;
+	cq->queue = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
+			 context->cmd_fd, resp.offset);
+	if ((void *) cq->queue == MAP_FAILED) {
+		free(cq);
+		return NULL;
+	}
+
+	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
+	return &cq->ibv_cq;
 }
 
-int ipath_destroy_cq(struct ibv_cq *cq)
+int ipath_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
+	struct ipath_cq		       *cq = to_icq(ibcq);
+	struct ibv_resize_cq		cmd;
+	struct ipath_resize_cq_resp	resp;
+	size_t				size;
+	int				ret;
+
+	pthread_spin_lock(&cq->lock);
+	/* Save the old size so we can unmmap the queue. */
+	size = sizeof(struct ipath_cq_wc) +
+		(sizeof(struct ipath_wc) * cq->ibv_cq.cqe);
+	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd,
+				&resp.ibv_resp, sizeof resp);
+	if (ret) {
+		pthread_spin_unlock(&cq->lock);
+		return ret;
+	}
+	(void) munmap(cq->queue, size);
+	size = sizeof(struct ipath_cq_wc) +
+		(sizeof(struct ipath_wc) * cq->ibv_cq.cqe);
+	cq->queue = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
+			 ibcq->context->cmd_fd, resp.offset);
+	ret = errno;
+	pthread_spin_unlock(&cq->lock);
+	if ((void *) cq->queue == MAP_FAILED)
+		return ret;
+	return 0;
+}
+
+int ipath_destroy_cq(struct ibv_cq *ibcq)
+{
+	struct ipath_cq *cq = to_icq(ibcq);
 	int ret;
 
-	ret = ibv_cmd_destroy_cq(cq);
+	ret = ibv_cmd_destroy_cq(ibcq);
 	if (ret)
 		return ret;
 
+	(void) munmap(cq->queue, sizeof(struct ipath_cq_wc) +
+				 (sizeof(struct ipath_wc) * cq->ibv_cq.cqe));
 	free(cq);
 	return 0;
 }
 
+int ipath_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
+{
+	struct ipath_cq *cq = to_icq(ibcq);
+	struct ipath_cq_wc *q;
+	int npolled;
+	uint32_t tail;
+
+	pthread_spin_lock(&cq->lock);
+	q = cq->queue;
+	tail = q->tail;
+	for (npolled = 0; npolled < ne; ++npolled, ++wc) {
+		if (tail == q->head)
+			break;
+		memcpy(wc, &q->queue[tail], sizeof(*wc));
+		if (tail == cq->ibv_cq.cqe)
+			tail = 0;
+		else
+			tail++;
+	}
+	q->tail = tail;
+	pthread_spin_unlock(&cq->lock);
+
+	return npolled;
+}
+
 struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	struct ibv_create_qp	  cmd;
-	struct ibv_create_qp_resp resp;
-	struct ibv_qp		 *qp;
-	int			  ret;
+	struct ibv_create_qp	     cmd;
+	struct ipath_create_qp_resp  resp;
+	struct ipath_qp		    *qp;
+	int			     ret;
+	size_t			     size;
 
 	qp = malloc(sizeof *qp);
 	if (!qp)
 		return NULL;
 
-	ret = ibv_cmd_create_qp(pd, qp, attr, &cmd, sizeof cmd, &resp, sizeof resp);
+	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd, sizeof cmd,
+				&resp.ibv_resp, sizeof resp);
 	if (ret) {
 		free(qp);
 		return NULL;
 	}
 
-	return qp;
+	if (attr->srq) {
+		qp->rq.size = 0;
+		qp->rq.max_sge = 0;
+		qp->rq.rwq = NULL;
+	} else {
+		qp->rq.size = attr->cap.max_recv_wr + 1;
+		qp->rq.max_sge = attr->cap.max_recv_sge;
+		size = sizeof(struct ipath_rwq) +
+			(sizeof(struct ipath_rwqe) +
+			 (sizeof(struct ibv_sge) * qp->rq.max_sge)) *
+			qp->rq.size;
+		qp->rq.rwq = mmap(NULL, size,
+				  PROT_READ | PROT_WRITE, MAP_SHARED,
+				  pd->context->cmd_fd, resp.offset);
+		if ((void *) qp->rq.rwq == MAP_FAILED) {
+			free(qp);
+			return NULL;
+		}
+	}
+
+	pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE);
+	return &qp->ibv_qp;
 }
 
 int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -211,47 +308,152 @@ int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
 }
 
-int ipath_destroy_qp(struct ibv_qp *qp)
+int ipath_destroy_qp(struct ibv_qp *ibqp)
 {
+	struct ipath_qp	*qp = to_iqp(ibqp);
 	int ret;
 
-	ret = ibv_cmd_destroy_qp(qp);
+	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret)
 		return ret;
 
+	if (qp->rq.rwq) {
+		size_t size;
+
+		size = sizeof(struct ipath_rwq) +
+			(sizeof(struct ipath_rwqe) +
+			 (sizeof(struct ibv_sge) * qp->rq.max_sge)) *
+			qp->rq.size;
+		(void) munmap(qp->rq.rwq, size);
+	}
 	free(qp);
 	return 0;
+}
+
+static int post_recv(struct ipath_rq *rq, struct ibv_recv_wr *wr,
+		     struct ibv_recv_wr **bad_wr)
+{
+	struct ibv_recv_wr *i;
+	struct ipath_rwq *rwq;
+	struct ipath_rwqe *wqe;
+	uint32_t head;
+	int n, ret;
+
+	pthread_spin_lock(&rq->lock);
+	rwq = rq->rwq;
+	head = rwq->head;
+	for (i = wr; i; i = i->next) {
+		if ((unsigned) i->num_sge > rq->max_sge)
+			goto bad;
+		wqe = get_rwqe_ptr(rq, head);
+		if (++head >= rq->size)
+			head = 0;
+		if (head == rwq->tail)
+			goto bad;
+		wqe->wr_id = i->wr_id;
+		wqe->num_sge = i->num_sge;
+		for (n = 0; n < wqe->num_sge; n++)
+			wqe->sg_list[n] = i->sg_list[n];
+		rwq->head = head;
+	}
+	ret = 0;
+	goto done;
+
+bad:
+	ret = -ENOMEM;
+	if (bad_wr)
+		*bad_wr = i;
+done:
+	pthread_spin_unlock(&rq->lock);
+	return ret;
+}
+
+int ipath_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		    struct ibv_recv_wr **bad_wr)
+{
+	struct ipath_qp *qp = to_iqp(ibqp);
+
+	return post_recv(&qp->rq, wr, bad_wr);
 }
 
 struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr)
 {
-	struct ibv_srq *srq;
+	struct ipath_srq *srq;
 	struct ibv_create_srq cmd;
-	struct ibv_create_srq_resp resp;
+	struct ipath_create_srq_resp resp;
 	int ret;
+	size_t size;
 
 	srq = malloc(sizeof *srq);
 	if (srq == NULL)
 		return NULL;
 
-	ret = ibv_cmd_create_srq(pd, srq, attr, &cmd, sizeof cmd,
-		&resp, sizeof resp);
+	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr, &cmd, sizeof cmd,
+				 &resp.ibv_resp, sizeof resp);
 	if (ret) {
 		free(srq);
 		return NULL;
 	}
 
-	return srq;
+	srq->rq.size = attr->attr.max_wr + 1;
+	srq->rq.max_sge = attr->attr.max_sge;
+	size = sizeof(struct ipath_rwq) +
+		(sizeof(struct ipath_rwqe) +
+		 (sizeof(struct ibv_sge) * srq->rq.max_sge)) * srq->rq.size;
+	srq->rq.rwq = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
+			   pd->context->cmd_fd, resp.offset);
+	if ((void *) srq->rq.rwq == MAP_FAILED) {
+		free(srq);
+		return NULL;
+	}
+
+	pthread_spin_init(&srq->rq.lock, PTHREAD_PROCESS_PRIVATE);
+	return &srq->ibv_srq;
 }
 
-int ipath_modify_srq(struct ibv_srq *srq,
+int ipath_modify_srq(struct ibv_srq *ibsrq,
 		     struct ibv_srq_attr *attr, 
 		     enum ibv_srq_attr_mask attr_mask)
 {
-	struct ibv_modify_srq cmd;
+	struct ipath_srq            *srq = to_isrq(ibsrq);
+	struct ipath_modify_srq_cmd  cmd;
+	__u64                        offset;
+	size_t                       size;
+	int                          ret;
 
-	return ibv_cmd_modify_srq(srq, attr, attr_mask, &cmd, sizeof cmd);
+	if (attr_mask & IBV_SRQ_MAX_WR) {
+		pthread_spin_lock(&srq->rq.lock);
+		/* Save the old size so we can unmmap the queue. */
+		size = sizeof(struct ipath_rwq) +
+			(sizeof(struct ipath_rwqe) +
+			 (sizeof(struct ibv_sge) * srq->rq.max_sge)) *
+			srq->rq.size;
+	}
+	cmd.offset_addr = (__u64) &offset;
+	ret = ibv_cmd_modify_srq(ibsrq, attr, attr_mask,
+				 &cmd.ibv_cmd, sizeof cmd);
+	if (ret) {
+		if (attr_mask & IBV_SRQ_MAX_WR)
+			pthread_spin_unlock(&srq->rq.lock);
+		return ret;
+	}
+	if (attr_mask & IBV_SRQ_MAX_WR) {
+		(void) munmap(srq->rq.rwq, size);
+		srq->rq.size = attr->max_wr + 1;
+		size = sizeof(struct ipath_rwq) +
+			(sizeof(struct ipath_rwqe) +
+			 (sizeof(struct ibv_sge) * srq->rq.max_sge)) *
+			srq->rq.size;
+		srq->rq.rwq = mmap(NULL, size,
+				   PROT_READ | PROT_WRITE, MAP_SHARED,
+				   ibsrq->context->cmd_fd, offset);
+		pthread_spin_unlock(&srq->rq.lock);
+		/* XXX Now we have no receive queue. */
+		if ((void *) srq->rq.rwq == MAP_FAILED)
+			return errno;
+	}
+	return 0;
 }
 
 int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr)
@@ -261,16 +463,30 @@ int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr)
 	return ibv_cmd_query_srq(srq, attr, &cmd, sizeof cmd);
 }
 
-int ipath_destroy_srq(struct ibv_srq *srq)
+int ipath_destroy_srq(struct ibv_srq *ibsrq)
 {
+	struct ipath_srq *srq = to_isrq(ibsrq);
+	size_t size;
 	int ret;
 
-	ret = ibv_cmd_destroy_srq(srq);
+	ret = ibv_cmd_destroy_srq(ibsrq);
 	if (ret)
 		return ret;
 
+	size = sizeof(struct ipath_rwq) +
+		(sizeof(struct ipath_rwqe) +
+		 (sizeof(struct ibv_sge) * srq->rq.max_sge)) * srq->rq.size;
+	(void) munmap(srq->rq.rwq, size);
 	free(srq);
 	return 0;
+}
+
+int ipath_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
+			struct ibv_recv_wr **bad_wr)
+{
+	struct ipath_srq *srq = to_isrq(ibsrq);
+
+	return post_recv(&srq->rq, wr, bad_wr); 
 }
 
 struct ibv_ah *ipath_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)

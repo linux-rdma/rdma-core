@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2006 QLogic Corporation, All rights reserved.
  * Copyright (c) 2005. PathScale, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -43,6 +44,7 @@
 #include <unistd.h>
 
 #include "ipathverbs.h"
+#include "ipath-abi.h"
 
 #ifndef PCI_VENDOR_ID_PATHSCALE
 #define PCI_VENDOR_ID_PATHSCALE			0x1fc1
@@ -86,22 +88,25 @@ static struct ibv_context_ops ipath_ctx_ops = {
 	.dereg_mr	= ipath_dereg_mr,
 
 	.create_cq	= ipath_create_cq,
-	.poll_cq	= ibv_cmd_poll_cq,
+	.poll_cq	= ipath_poll_cq,
 	.req_notify_cq	= ibv_cmd_req_notify_cq,
 	.cq_event	= NULL,
+	.resize_cq	= ipath_resize_cq,
 	.destroy_cq	= ipath_destroy_cq,
 
 	.create_srq	= ipath_create_srq,
 	.modify_srq	= ipath_modify_srq,
+	.query_srq	= ipath_query_srq,
 	.destroy_srq	= ipath_destroy_srq,
-	.post_srq_recv	= ibv_cmd_post_srq_recv,
+	.post_srq_recv	= ipath_post_srq_recv,
 
 	.create_qp	= ipath_create_qp,
+	.query_qp	= ipath_query_qp,
 	.modify_qp	= ipath_modify_qp,
 	.destroy_qp	= ipath_destroy_qp,
 
 	.post_send	= ibv_cmd_post_send,
-	.post_recv	= ibv_cmd_post_recv,
+	.post_recv	= ipath_post_recv,
 
 	.create_ah	= ipath_create_ah,
 	.destroy_ah	= ipath_destroy_ah,
@@ -116,6 +121,7 @@ static struct ibv_context *ipath_alloc_context(struct ibv_device *ibdev,
 	struct ipath_context	    *context;
 	struct ibv_get_context       cmd;
 	struct ibv_get_context_resp  resp;
+	struct ipath_device         *dev;
 
 	context = malloc(sizeof *context);
 	if (!context)
@@ -126,6 +132,12 @@ static struct ibv_context *ipath_alloc_context(struct ibv_device *ibdev,
 		goto err_free;
 
 	context->ibv_ctx.ops = ipath_ctx_ops;
+	dev = to_idev(ibdev);
+	if (dev->abi_version == 1) {
+		context->ibv_ctx.ops.poll_cq       = ibv_cmd_poll_cq;
+		context->ibv_ctx.ops.post_srq_recv = ibv_cmd_post_srq_recv;
+		context->ibv_ctx.ops.post_recv     = ibv_cmd_post_recv;
+	}
 	return &context->ibv_ctx;
 
 err_free:
@@ -180,6 +192,7 @@ found:
 
 	dev->ibv_dev.ops = ipath_dev_ops;
 	dev->hca_type    = hca_table[i].type;
+	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;
 }
