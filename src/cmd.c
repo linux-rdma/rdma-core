@@ -368,18 +368,18 @@ int ibv_cmd_req_notify_cq(struct ibv_cq *ibcq, int solicited_only)
 }
 
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
-		      struct ibv_resize_cq *cmd, size_t cmd_size)
+		      struct ibv_resize_cq *cmd, size_t cmd_size,
+		      struct ibv_resize_cq_resp *resp, size_t resp_size)
 {
-	struct ibv_resize_cq_resp resp;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, RESIZE_CQ, &resp, sizeof resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, RESIZE_CQ, resp, resp_size);
 	cmd->cq_handle = cq->handle;
 	cmd->cqe       = cqe;
 
 	if (write(cq->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	cq->cqe = resp.cqe;
+	cq->cqe = resp->cqe;
 
 	return 0;
 }

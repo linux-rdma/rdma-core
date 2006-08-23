@@ -355,6 +355,8 @@ struct ibv_resize_cq {
 
 struct ibv_resize_cq_resp {
 	__u32 cqe;
+	__u32 reserved;
+	__u64 driver_data[0];
 };
 
 struct ibv_destroy_cq {

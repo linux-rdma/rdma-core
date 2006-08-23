@@ -1,3 +1,15 @@
+2006-08-23  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/driver.h: Add a definition of the macro
+	IBV_CMD_RESIZE_CQ_HAS_RESP_PARAMS so that low-level driver plugins
+	can detect the changed signature of ibv_cmd_resize_cq().
+
+2006-08-23  Ralph Campbell  <ralph.campbell@qlogic.com>
+
+	* src/cmd.c (ibv_cmd_resize_cq): Add resp and resp_size parameters
+	so that the low-level driver in the kernel can return
+	device-specific information from the resize CQ operation.
+
 2006-07-26  Roland Dreier  <rdreier@cisco.com>
 
 	* src/verbs.c (ibv_reg_mr, ibv_dereg_mr): Add calls to
