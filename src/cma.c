@@ -141,9 +141,12 @@ static int check_abi_version(void)
 {
 	char value[8];
 
-	if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
-				"class/misc/rdma_cm/abi_version",
-				value, sizeof value) < 0) {
+	if ((ibv_read_sysfs_file(ibv_get_sysfs_path(),
+				 "class/misc/rdma_cm/abi_version",
+				 value, sizeof value) < 0) &&
+	    (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+				 "class/infiniband_ucma/abi_version",
+				 value, sizeof value) < 0)) {
 		/*
 		 * Older version of Linux do not have class/misc.  To support
 		 * backports, assume the most recent version of the ABI.  If
