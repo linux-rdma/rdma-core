@@ -41,6 +41,7 @@
 #include <endian.h>
 #include <byteswap.h>
 #include <pthread.h>
+#include <stddef.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -202,14 +203,25 @@ struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
 
+struct ibv_cq *ipath_create_cq_v1(struct ibv_context *context, int cqe,
+				  struct ibv_comp_channel *channel,
+				  int comp_vector);
+
 int ipath_resize_cq(struct ibv_cq *cq, int cqe);
 
+int ipath_resize_cq_v1(struct ibv_cq *cq, int cqe);
+
 int ipath_destroy_cq(struct ibv_cq *cq);
+
+int ipath_destroy_cq_v1(struct ibv_cq *cq);
 
 int ipath_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 
 struct ibv_qp *ipath_create_qp(struct ibv_pd *pd,
 			       struct ibv_qp_init_attr *attr);
+
+struct ibv_qp *ipath_create_qp_v1(struct ibv_pd *pd,
+				  struct ibv_qp_init_attr *attr);
 
 int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   enum ibv_qp_attr_mask attr_mask,
@@ -220,6 +232,8 @@ int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 int ipath_destroy_qp(struct ibv_qp *qp);
 
+int ipath_destroy_qp_v1(struct ibv_qp *qp);
+
 int ipath_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		    struct ibv_send_wr **bad_wr);
 
@@ -229,13 +243,22 @@ int ipath_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);
 
+struct ibv_srq *ipath_create_srq_v1(struct ibv_pd *pd,
+				    struct ibv_srq_init_attr *attr);
+
 int ipath_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr, 
 		     enum ibv_srq_attr_mask attr_mask);
 
+int ipath_modify_srq_v1(struct ibv_srq *srq,
+			struct ibv_srq_attr *attr, 
+			enum ibv_srq_attr_mask attr_mask);
+
 int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr);
 
 int ipath_destroy_srq(struct ibv_srq *srq);
+
+int ipath_destroy_srq_v1(struct ibv_srq *srq);
 
 int ipath_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 			struct ibv_recv_wr **bad_wr);

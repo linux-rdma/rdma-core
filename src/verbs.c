@@ -177,6 +177,29 @@ struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
 	return &cq->ibv_cq;
 }
 
+struct ibv_cq *ipath_create_cq_v1(struct ibv_context *context, int cqe,
+				  struct ibv_comp_channel *channel,
+				  int comp_vector)
+{
+	struct ibv_cq		   *cq;
+	struct ibv_create_cq	    cmd;
+	struct ibv_create_cq_resp   resp;
+	int			    ret;
+
+	cq = malloc(sizeof *cq);
+	if (!cq)
+		return NULL;
+
+	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
+				cq, &cmd, sizeof cmd, &resp, sizeof resp);
+	if (ret) {
+		free(cq);
+		return NULL;
+	}
+
+	return cq;
+}
+
 int ipath_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
 	struct ipath_cq		       *cq = to_icq(ibcq);
@@ -207,6 +230,15 @@ int ipath_resize_cq(struct ibv_cq *ibcq, int cqe)
 	return 0;
 }
 
+int ipath_resize_cq_v1(struct ibv_cq *ibcq, int cqe)
+{
+	struct ibv_resize_cq		cmd;
+	struct ibv_resize_cq_resp	resp;
+
+	return ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd,
+				 &resp, sizeof resp);
+}
+
 int ipath_destroy_cq(struct ibv_cq *ibcq)
 {
 	struct ipath_cq *cq = to_icq(ibcq);
@@ -220,6 +252,16 @@ int ipath_destroy_cq(struct ibv_cq *ibcq)
 				 (sizeof(struct ipath_wc) * cq->ibv_cq.cqe));
 	free(cq);
 	return 0;
+}
+
+int ipath_destroy_cq_v1(struct ibv_cq *ibcq)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_cq(ibcq);
+	if (!ret)
+		free(ibcq);
+	return ret;
 }
 
 int ipath_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
@@ -290,6 +332,28 @@ struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	return &qp->ibv_qp;
 }
 
+struct ibv_qp *ipath_create_qp_v1(struct ibv_pd *pd,
+				  struct ibv_qp_init_attr *attr)
+{
+	struct ibv_create_qp	     cmd;
+	struct ibv_create_qp_resp    resp;
+	struct ibv_qp		    *qp;
+	int			     ret;
+
+	qp = malloc(sizeof *qp);
+	if (!qp)
+		return NULL;
+
+	ret = ibv_cmd_create_qp(pd, qp, attr, &cmd, sizeof cmd,
+				&resp, sizeof resp);
+	if (ret) {
+		free(qp);
+		return NULL;
+	}
+
+	return qp;
+}
+
 int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   enum ibv_qp_attr_mask attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
@@ -328,6 +392,16 @@ int ipath_destroy_qp(struct ibv_qp *ibqp)
 	}
 	free(qp);
 	return 0;
+}
+
+int ipath_destroy_qp_v1(struct ibv_qp *ibqp)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_qp(ibqp);
+	if (!ret)
+		free(ibqp);
+	return ret;
 }
 
 static int post_recv(struct ipath_rq *rq, struct ibv_recv_wr *wr,
@@ -412,6 +486,28 @@ struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
 	return &srq->ibv_srq;
 }
 
+struct ibv_srq *ipath_create_srq_v1(struct ibv_pd *pd,
+				    struct ibv_srq_init_attr *attr)
+{
+	struct ibv_srq *srq;
+	struct ibv_create_srq cmd;
+	struct ibv_create_srq_resp resp;
+	int ret;
+
+	srq = malloc(sizeof *srq);
+	if (srq == NULL)
+		return NULL;
+
+	ret = ibv_cmd_create_srq(pd, srq, attr, &cmd, sizeof cmd,
+				 &resp, sizeof resp);
+	if (ret) {
+		free(srq);
+		return NULL;
+	}
+
+	return srq;
+}
+
 int ipath_modify_srq(struct ibv_srq *ibsrq,
 		     struct ibv_srq_attr *attr, 
 		     enum ibv_srq_attr_mask attr_mask)
@@ -456,6 +552,16 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 	return 0;
 }
 
+int ipath_modify_srq_v1(struct ibv_srq *ibsrq,
+			struct ibv_srq_attr *attr, 
+			enum ibv_srq_attr_mask attr_mask)
+{
+	struct ibv_modify_srq cmd;
+
+	return ibv_cmd_modify_srq(ibsrq, attr, attr_mask,
+				  &cmd, sizeof cmd);
+}
+
 int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr)
 {
 	struct ibv_query_srq cmd;
@@ -479,6 +585,16 @@ int ipath_destroy_srq(struct ibv_srq *ibsrq)
 	(void) munmap(srq->rq.rwq, size);
 	free(srq);
 	return 0;
+}
+
+int ipath_destroy_srq_v1(struct ibv_srq *ibsrq)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_srq(ibsrq);
+	if (!ret)
+		free(ibsrq);
+	return ret;
 }
 
 int ipath_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,

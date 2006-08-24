@@ -134,8 +134,16 @@ static struct ibv_context *ipath_alloc_context(struct ibv_device *ibdev,
 	context->ibv_ctx.ops = ipath_ctx_ops;
 	dev = to_idev(ibdev);
 	if (dev->abi_version == 1) {
+		context->ibv_ctx.ops.create_cq     = ipath_create_cq_v1;
 		context->ibv_ctx.ops.poll_cq       = ibv_cmd_poll_cq;
+		context->ibv_ctx.ops.resize_cq     = ipath_resize_cq_v1;
+		context->ibv_ctx.ops.destroy_cq    = ipath_destroy_cq_v1;
+		context->ibv_ctx.ops.create_srq    = ipath_create_srq_v1;
+		context->ibv_ctx.ops.destroy_srq   = ipath_destroy_srq_v1;
+		context->ibv_ctx.ops.modify_srq    = ipath_modify_srq_v1;
 		context->ibv_ctx.ops.post_srq_recv = ibv_cmd_post_srq_recv;
+		context->ibv_ctx.ops.create_qp     = ipath_create_qp_v1;
+		context->ibv_ctx.ops.destroy_qp    = ipath_destroy_qp_v1;
 		context->ibv_ctx.ops.post_recv     = ibv_cmd_post_recv;
 	}
 	return &context->ibv_ctx;
