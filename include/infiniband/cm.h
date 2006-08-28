@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2004-2006 Intel Corporation.  All rights reserved.
  * Copyright (c) 2004 Topspin Corporation.  All rights reserved.
  * Copyright (c) 2004 Voltaire Corporation.  All rights reserved.
  *
@@ -78,13 +78,12 @@ enum ib_cm_data_size {
 };
 
 struct ib_cm_device {
-	uint64_t guid;
-	int	 fd;
+	struct ibv_context	*device_context;
+	int			fd;
 };
 
 struct ib_cm_id {
 	void			*context;
-	struct ibv_context	*device_context;
 	struct ib_cm_device	*device;
 	uint32_t		handle;
 };
@@ -270,8 +269,8 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event);
 int ib_cm_ack_event(struct ib_cm_event *event);
  
 /**
- * ib_cm_get_device - Returns the device the CM uses to submit requests
- *   and retrieve events that corresponds to the specified verbs device.
+ * ib_cm_open_device - Returns the device the CM uses to submit requests
+ *   and retrieve events, corresponding to the specified verbs device.
  *
  * The CM device contains the file descriptor that the CM uses to
  * communicate with the kernel CM component.  The primary use of the
@@ -282,7 +281,13 @@ int ib_cm_ack_event(struct ib_cm_event *event);
  *       descriptor, it will likely result in an error or unexpected
  *       results.
  */
-struct ib_cm_device* ib_cm_get_device(struct ibv_context *device_context);
+struct ib_cm_device* ib_cm_open_device(struct ibv_context *device_context);
+
+/**
+ * ib_cm_close_device - Close a CM device.
+ * @device: Device to close.
+ */
+void ib_cm_close_device(struct ib_cm_device *device);
 
 /**
  * ib_cm_create_id - Allocate a communication identifier.
@@ -290,7 +295,7 @@ struct ib_cm_device* ib_cm_get_device(struct ibv_context *device_context);
  * Communication identifiers are used to track connection states, service
  * ID resolution requests, and listen requests.
  */
-int ib_cm_create_id(struct ibv_context *device_context,
+int ib_cm_create_id(struct ib_cm_device *device,
 		    struct ib_cm_id **cm_id, void *context);
 
 /**

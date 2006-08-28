@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -39,32 +39,21 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <glob.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <stdint.h>
-#include <poll.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <endian.h>
-#include <byteswap.h>
-
-#include <sysfs/libsysfs.h>
 
 #include <infiniband/cm.h>
 #include <infiniband/cm_abi.h>
+#include <infiniband/driver.h>
 #include <infiniband/marshall.h>
 
 #define PFX "libibcm: "
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-static inline uint64_t htonll(uint64_t x) { return bswap_64(x); }
-static inline uint64_t ntohll(uint64_t x) { return bswap_64(x); }
-#else
-static inline uint64_t htonll(uint64_t x) { return x; }
-static inline uint64_t ntohll(uint64_t x) { return x; }
-#endif
+static int abi_ver;
+static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
 #define CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, type, size) \
 do {                                        \
@@ -109,177 +98,79 @@ struct cm_id_private {
 	pthread_mutex_t mut;
 };
 
-static struct dlist *device_list;
-
 #define container_of(ptr, type, field) \
 	((type *) ((void *)ptr - offsetof(type, field)))
 
 static int check_abi_version(void)
 {
-	char path[256];
-	struct sysfs_attribute *attr;
-	int abi_ver;
-	int ret = -1;
+	char value[8];
 
-	if (sysfs_get_mnt_path(path, sizeof path)) {
-		fprintf(stderr, PFX "couldn't find sysfs mount.\n");
-		return -1;
+	if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+				"class/infiniband_cm/abi_version",
+				value, sizeof value) < 0) {
+		fprintf(stderr, PFX "couldn't read ABI version\n");
+		return 0;
 	}
 
-	strncat(path, "/class/infiniband_cm/abi_version", sizeof path);
-
-	attr = sysfs_open_attribute(path);
-	if (!attr) {
-		fprintf(stderr, PFX "couldn't open ucm ABI version.\n");
-		return -1;
-	}
-
-	if (sysfs_read_attribute(attr)) {
-		fprintf(stderr, PFX "couldn't read ucm ABI version.\n");
-		goto out;
-	}
-
-	abi_ver = strtol(attr->value, NULL, 10);
+	abi_ver = strtol(value, NULL, 10);
 	if (abi_ver < IB_USER_CM_MIN_ABI_VERSION ||
 	    abi_ver > IB_USER_CM_MAX_ABI_VERSION) {
 		fprintf(stderr, PFX "kernel ABI version %d "
-			"doesn't match library version %d.\n",
-			abi_ver, IB_USER_CM_MAX_ABI_VERSION);
-		goto out;
+				"doesn't match library version %d.\n",
+				abi_ver, IB_USER_CM_MAX_ABI_VERSION);
+		return -1;
 	}
+	return 0;
+}
 
-	ret = 0;
+static int ucm_init(void)
+{
+	int ret = 0;
 
-out:
-	sysfs_close_attribute(attr);
+	pthread_mutex_lock(&mut);
+	if (!abi_ver)
+		ret = check_abi_version();
+	pthread_mutex_unlock(&mut);
+
 	return ret;
 }
 
-static uint64_t get_device_guid(struct sysfs_class_device *ibdev)
+struct ib_cm_device* ib_cm_open_device(struct ibv_context *device_context)
 {
-	struct sysfs_attribute *attr;
-	uint64_t guid = 0;
-	uint16_t parts[4];
-	int i;
-
-	attr = sysfs_get_classdev_attr(ibdev, "node_guid");
-	if (!attr)
-		return 0;
-
-	if (sscanf(attr->value, "%hx:%hx:%hx:%hx",
-		   parts, parts + 1, parts + 2, parts + 3) != 4)
-		return 0;
-
-	for (i = 0; i < 4; ++i)
-		guid = (guid << 16) | parts[i];
-
-	return htonll(guid);
-}
-
-static struct ib_cm_device* open_device(struct sysfs_class_device *cm_dev)
-{
-	struct sysfs_class_device *ib_dev;
-	struct sysfs_attribute *attr;
 	struct ib_cm_device *dev;
-	char ibdev_name[64];
-	char *devpath;
+	char *dev_path;
+
+	if (ucm_init())
+		return NULL;
 
 	dev = malloc(sizeof *dev);
 	if (!dev)
 		return NULL;
 
-	attr = sysfs_get_classdev_attr(cm_dev, "ibdev");
-	if (!attr) {
-		fprintf(stderr, PFX "no ibdev class attr for %s\n",
-			cm_dev->name);
-		goto err;
-	}
+	dev->device_context = device_context;
 
-	sscanf(attr->value, "%63s", ibdev_name);
-	ib_dev = sysfs_open_class_device("infiniband", ibdev_name);
-	if (!ib_dev)
-		goto err;
+	asprintf(&dev_path, "/dev/infiniband/ucm%s",
+		 device_context->device->dev_name + sizeof("uverbs") - 1);
 
-	dev->guid = get_device_guid(ib_dev);
-	sysfs_close_class_device(ib_dev);
-	if (!dev->guid)
-		goto err;
-
-	asprintf(&devpath, "/dev/infiniband/%s", cm_dev->name);
-	dev->fd = open(devpath, O_RDWR);
+	dev->fd = open(dev_path, O_RDWR);
 	if (dev->fd < 0) {
-		fprintf(stderr, PFX "error <%d:%d> opening device <%s>\n",
-			dev->fd, errno, devpath);
+		fprintf(stderr, PFX "unable to open %s\n", dev_path);
 		goto err;
 	}
+
+	free(dev_path);
 	return dev;
+
 err:
+	free(dev_path);
 	free(dev);
 	return NULL;
 }
 
-static void __attribute__((constructor)) ib_cm_init(void)
+void ib_cm_close_device(struct ib_cm_device *device)
 {
-	struct sysfs_class *cls;
-	struct dlist *cm_dev_list;
-	struct sysfs_class_device *cm_dev;
-	struct ib_cm_device *dev;
-
-	device_list = dlist_new(sizeof(struct ib_cm_device));
-	if (!device_list) {
-		fprintf(stderr, PFX "couldn't allocate device list.\n");
-		abort();
-	}
-
-	cls = sysfs_open_class("infiniband_cm");
-	if (!cls) {
-		fprintf(stderr, PFX "couldn't open 'infiniband_cm'.\n");
-		goto err;
-	}
-
-	if (check_abi_version())
-		goto err;
-
-	cm_dev_list = sysfs_get_class_devices(cls);
-	if (!cm_dev_list) {
-		fprintf(stderr, PFX "no class devices found.\n");
-		goto err;
-	}
-
-	dlist_for_each_data(cm_dev_list, cm_dev, struct sysfs_class_device) {
-		dev = open_device(cm_dev);
-		if (dev)
-			dlist_push(device_list, dev);
-	}
-	return;
-err:
-	sysfs_close_class(cls);
-}
-
-static void __attribute__((destructor)) ib_cm_fini(void)
-{
-	struct ib_cm_device *dev;
-
-	if (!device_list)
-		return;
-
-	dlist_for_each_data(device_list, dev, struct ib_cm_device)
-		close(dev->fd);
-	
-	dlist_destroy(device_list);
-}
-
-struct ib_cm_device* ib_cm_get_device(struct ibv_context *device_context)
-{
-	struct ib_cm_device *dev;
-	uint64_t guid;
-
-	guid = ibv_get_device_guid(device_context->device);
-	dlist_for_each_data(device_list, dev, struct ib_cm_device)
-		if (dev->guid == guid)
-			return dev;
-
-	return NULL;
+	close(device->fd);
+	free(device);
 }
 
 static void ib_cm_free_id(struct cm_id_private *cm_id_priv)
@@ -289,7 +180,7 @@ static void ib_cm_free_id(struct cm_id_private *cm_id_priv)
 	free(cm_id_priv);
 }
 
-static struct cm_id_private *ib_cm_alloc_id(struct ibv_context *device_context,
+static struct cm_id_private *ib_cm_alloc_id(struct ib_cm_device *device,
 					    void *context)
 {
 	struct cm_id_private *cm_id_priv;
@@ -299,14 +190,10 @@ static struct cm_id_private *ib_cm_alloc_id(struct ibv_context *device_context,
 		return NULL;
 
 	memset(cm_id_priv, 0, sizeof *cm_id_priv);
-	cm_id_priv->id.device_context = device_context;
+	cm_id_priv->id.device = device;
 	cm_id_priv->id.context = context;
 	pthread_mutex_init(&cm_id_priv->mut, NULL);
 	if (pthread_cond_init(&cm_id_priv->cond, NULL))
-		goto err;
-
-	cm_id_priv->id.device = ib_cm_get_device(device_context);
-	if (!cm_id_priv->id.device)
 		goto err;
 
 	return cm_id_priv;
@@ -315,7 +202,7 @@ err:	ib_cm_free_id(cm_id_priv);
 	return NULL;
 }
 
-int ib_cm_create_id(struct ibv_context *device_context,
+int ib_cm_create_id(struct ib_cm_device *device,
 		    struct ib_cm_id **cm_id, void *context)
 {
 	struct cm_abi_create_id_resp *resp;
@@ -325,14 +212,14 @@ int ib_cm_create_id(struct ibv_context *device_context,
 	int result;
 	int size;
 
-	cm_id_priv = ib_cm_alloc_id(device_context, context);
+	cm_id_priv = ib_cm_alloc_id(device, context);
 	if (!cm_id_priv)
 		return -ENOMEM;
 
 	CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, IB_USER_CM_CMD_CREATE_ID, size);
 	cmd->uid = (uintptr_t) cm_id_priv;
 
-	result = write(cm_id_priv->id.device->fd, msg, size);
+	result = write(device->fd, msg, size);
 	if (result != size)
 		goto err;
 
@@ -934,7 +821,7 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 	switch (evt->event) {
 	case IB_CM_REQ_RECEIVED:
 		evt->param.req_rcvd.listen_id = evt->cm_id;
-		cm_id_priv = ib_cm_alloc_id(evt->cm_id->device_context,
+		cm_id_priv = ib_cm_alloc_id(evt->cm_id->device,
 					    evt->cm_id->context);
 		if (!cm_id_priv) {
 			result = -ENOMEM;
@@ -972,7 +859,7 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 		break;
 	case IB_CM_SIDR_REQ_RECEIVED:
 		evt->param.sidr_req_rcvd.listen_id = evt->cm_id;
-		cm_id_priv = ib_cm_alloc_id(evt->cm_id->device_context,
+		cm_id_priv = ib_cm_alloc_id(evt->cm_id->device,
 					    evt->cm_id->context);
 		if (!cm_id_priv) {
 			result = -ENOMEM;

@@ -1,9 +1,9 @@
 IBCM_4.0 {
 	global:
-
+		ib_cm_open_device;
+		ib_cm_close_device;
 		ib_cm_get_event;
 		ib_cm_ack_event;
-		ib_cm_get_device;
 		ib_cm_create_id;
 		ib_cm_destroy_id;
 		ib_cm_attr_id;
