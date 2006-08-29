@@ -498,6 +498,11 @@ static int run_server(void)
 				goto out;
 		}
 
+		printf("completing sends\n");
+		ret = poll_cqs();
+		if (ret)
+			goto out;
+
 		printf("receiving data transfers\n");
 		ret = poll_cqs();
 		if (ret)
