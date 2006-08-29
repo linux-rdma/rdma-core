@@ -44,6 +44,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stddef.h>
 
 #include <infiniband/cm.h>
 #include <infiniband/cm_abi.h>
