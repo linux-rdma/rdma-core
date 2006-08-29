@@ -25,4 +25,4 @@ can be used.  This will create the device node named
 
 for the first HCA in the system, or you can create it manually
 
-  mknod /dev/infiniband/ucm0 c 231 255
+  mknod /dev/infiniband/ucm0 c 231 224
