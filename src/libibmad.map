@@ -1,4 +1,4 @@
-IBMAD_1.0 {
+IBMAD_1.1 {
 	global:
 		_mad_dump;
 		_mad_dump_field;
@@ -62,6 +62,10 @@ IBMAD_1.0 {
 		ib_resolve_self;
 		ib_resolve_smlid;
 		ibdebug;
+		mad_rpc_open_port;
+		mad_rpc_close_port;
+		mad_rpc;
+		mad_rpc_rmpp;
 		madrpc;
 		madrpc_def_timeout;
 		madrpc_init;

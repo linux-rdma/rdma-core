@@ -43,6 +43,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <string.h>
+#include <errno.h>
 
 #include <umad.h>
 #include "mad.h"
@@ -118,7 +119,7 @@ mad_agent_class(int agent)
 }
 
 int
-mad_register_client(int mgmt, uint8_t rmpp_version)
+mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 {
 	int vers, agent;
 
@@ -126,7 +127,7 @@ mad_register_client(int mgmt, uint8_t rmpp_version)
 		DEBUG("Unknown class %d mgmt_class", mgmt);
 		return -1;
 	}
-	if ((agent = umad_register(madrpc_portid(), mgmt,
+	if ((agent = umad_register(port_id, mgmt,
 				   vers, rmpp_version, 0)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
@@ -137,10 +138,19 @@ mad_register_client(int mgmt, uint8_t rmpp_version)
 		return -1;
 	}
 
-	if (register_agent(agent, mgmt) < 0)
-		return -1;
-
 	return agent;
+}
+
+int
+mad_register_client(int mgmt, uint8_t rmpp_version)
+{
+	int agent;
+
+	agent = mad_register_port_client(madrpc_portid(), mgmt, rmpp_version);
+	if (agent < 0)
+		return agent;
+
+	return register_agent(agent, mgmt);
 }
 
 int

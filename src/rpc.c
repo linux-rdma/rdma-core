@@ -48,6 +48,13 @@
 #include <umad.h>
 #include "mad.h"
 
+#define MAX_CLASS 256
+
+struct ibmad_port {
+	int port_id;  /* file descriptor returned by umad_open() */
+	int class_agents[MAX_CLASS]; /* class2agent mapper */
+};
+
 int ibdebug;
 
 static int mad_portid = -1;
@@ -105,7 +112,8 @@ madrpc_portid(void)
 }
 
 static int 
-_do_madrpc(void *sndbuf, void *rcvbuf, int agentid, int len, int timeout)
+_do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
+	   int timeout)
 {
 	uint32_t trid; /* only low 32 bits */
 	int retries;
@@ -133,7 +141,7 @@ _do_madrpc(void *sndbuf, void *rcvbuf, int agentid, int len, int timeout)
 		}
 
 		length = len;
-		if (umad_send(mad_portid, agentid, sndbuf, length, timeout, 0) < 0) {
+		if (umad_send(port_id, agentid, sndbuf, length, timeout, 0) < 0) {
 			IBWARN("send failed; %m");
 			return -1;
 		}
@@ -141,7 +149,7 @@ _do_madrpc(void *sndbuf, void *rcvbuf, int agentid, int len, int timeout)
 		/* Use same timeout on receive side just in case */
 		/* send packet is lost somewhere. */
 		do {
-			if (umad_recv(mad_portid, rcvbuf, &length, timeout) < 0) {
+			if (umad_recv(port_id, rcvbuf, &length, timeout) < 0) {
 				IBWARN("recv failed: %m");
 				return -1;
 			}
@@ -164,8 +172,10 @@ _do_madrpc(void *sndbuf, void *rcvbuf, int agentid, int len, int timeout)
 }
 
 void *
-madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
+mad_rpc(void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
+	void *rcvdata)
 {
+	struct ibmad_port *p = port_id;
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
@@ -175,7 +185,8 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(sndbuf, rcvbuf, mad_class_agent(rpc->mgtclass),
+	if ((len = _do_madrpc(p->port_id, sndbuf, rcvbuf,
+			      p->class_agents[rpc->mgtclass],
 			      len, rpc->timeout)) < 0)
 		return 0;
 
@@ -198,8 +209,10 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 }
 
 void *
-madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
+mad_rpc_rmpp(void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
+	     ib_rmpp_hdr_t *rmpp, void *data)
 {
+	struct ibmad_port *p = port_id;
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
@@ -210,7 +223,8 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, rmpp, data)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(sndbuf, rcvbuf, mad_class_agent(rpc->mgtclass),
+	if ((len = _do_madrpc(p->port_id, sndbuf, rcvbuf,
+			      p->class_agents[rpc->mgtclass],
 			      len, rpc->timeout)) < 0)
 		return 0;
 
@@ -249,6 +263,26 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	return data;
 }
 
+void *
+madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
+{
+	struct ibmad_port port;
+
+	port.port_id = mad_portid;
+	port.class_agents[rpc->mgtclass] = mad_class_agent(rpc->mgtclass);
+	return mad_rpc(&port, rpc, dport, payload, rcvdata);
+}
+
+void *
+madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
+{
+	struct ibmad_port port;
+
+	port.port_id = mad_portid;
+	port.class_agents[rpc->mgtclass] = mad_class_agent(rpc->mgtclass);
+	return mad_rpc_rmpp(&port, rpc, dport, rmpp, data);
+}
+
 static pthread_mutex_t rpclock = PTHREAD_MUTEX_INITIALIZER;
 
 void
@@ -281,4 +315,65 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		if (mad_register_client(mgmt, rmpp_version) < 0)
 			IBPANIC("client_register for mgmt %d failed", mgmt);
 	}
+}
+
+void *
+mad_rpc_open_port(char *dev_name, int dev_port,
+		  int *mgmt_classes, int num_classes)
+{
+	struct ibmad_port *p;
+	int port_id;
+
+	if (umad_init() < 0) {
+		IBWARN("can't init UMAD library");
+		errno = ENODEV;
+		return NULL;
+	}
+
+	p = malloc(sizeof(*p));
+	if (!p) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	memset(p, 0, sizeof(*p));
+
+	if ((port_id = umad_open_port(dev_name, dev_port)) < 0) {
+		IBWARN("can't open UMAD port (%s:%d)", dev_name, dev_port);
+		if (!errno)
+			errno = EIO;
+		free(p);
+		return NULL;
+	}
+
+	while (num_classes--) {
+		int rmpp_version = 0;
+		int mgmt = *mgmt_classes++;
+		int agent;
+
+		if (mgmt == IB_SA_CLASS)
+			rmpp_version = 1;
+		if (mgmt < 0 || mgmt >= MAX_CLASS ||
+		    (agent = mad_register_port_client(port_id, mgmt,
+						      rmpp_version)) < 0) {
+			IBWARN("client_register for mgmt %d failed", mgmt);
+			if(!errno)
+				errno = EINVAL;
+			umad_close_port(port_id);
+  			free(p);
+  			return NULL;
+		}
+		p->class_agents[mgmt] = agent;
+	}
+
+	p->port_id = port_id;
+	return p;
+}
+
+void
+mad_rpc_close_port(void *port_id)
+{
+	struct ibmad_port *p = port_id;
+
+	umad_close_port(p->port_id);
+	free(p);
 }

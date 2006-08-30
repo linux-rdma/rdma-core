@@ -660,6 +660,7 @@ uint64_t mad_trid(void);
 int	mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 
 /* register.c */
+int	mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version);
 int	mad_register_client(int mgmt, uint8_t rmpp_version);
 int	mad_register_server(int mgmt, uint8_t rmpp_version,
 			    uint32_t method_mask[4], uint32_t class_oui);
@@ -703,6 +704,14 @@ void	madrpc_save_mad(void *madbuf, int len);
 void	madrpc_lock(void);
 void	madrpc_unlock(void);
 void	madrpc_show_errors(int set);
+
+void *	mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
+			  int num_classes);
+void	mad_rpc_close_port(void *ibmad_port);
+void *	mad_rpc(void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
+		void *payload, void *rcvdata);
+void *  mad_rpc_rmpp(void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
+		     ib_rmpp_hdr_t *rmpp, void *data);
 
 /* smp.c */
 uint8_t * smp_query(void *buf, ib_portid_t *id, uint attrid, uint mod,
