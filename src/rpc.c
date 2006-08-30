@@ -306,6 +306,9 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 	if ((mad_portid = umad_open_port(dev_name, dev_port)) < 0)
 		IBPANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
 
+	if (num_classes >= MAX_CLASS)
+		IBPANIC("too many classes %d requested", num_classes);
+
 	while (num_classes--) {
 		int rmpp_version = 0;
 		int mgmt = *mgmt_classes++;
@@ -323,6 +326,12 @@ mad_rpc_open_port(char *dev_name, int dev_port,
 {
 	struct ibmad_port *p;
 	int port_id;
+
+	if (num_classes >= MAX_CLASS) {
+		IBWARN("too many classes %d requested", num_classes);
+		errno = EINVAL;
+		return NULL;
+	}
 
 	if (umad_init() < 0) {
 		IBWARN("can't init UMAD library");
