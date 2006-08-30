@@ -93,12 +93,14 @@ port_alloc(int portid, char *dev, int portnum)
 
 	if (portid < 0 || portid >= UMAD_MAX_PORTS) {
 		IBWARN("bad umad portid %d", portid);
+		errno = EINVAL;
 		return 0;
 	}
 
 	if (port->dev_name[0]) {
 		IBWARN("umad port id %d is already allocated for %s %d",
 			portid, port->dev_name, port->dev_port);
+		errno = EBUSY;
 		return 0;
 	}
 
@@ -567,7 +569,7 @@ umad_open_port(char *ca_name, int portnum)
 		return -EINVAL;
 
 	if (!(port = port_alloc(umad_id, ca_name, portnum)))
-		return -EINVAL;
+		return -errno;
 
 	snprintf(port->dev_file, sizeof port->dev_file - 1, "%s/umad%d",
 		 UMAD_DEV_DIR , umad_id);
