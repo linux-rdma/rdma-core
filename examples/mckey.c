@@ -189,7 +189,7 @@ static int post_sends(struct cmatest_node *node, int signal_flag)
 	send_wr.sg_list = &sge;
 	send_wr.num_sge = 1;
 	send_wr.opcode = IBV_WR_SEND_WITH_IMM;
-	send_wr.send_flags = IBV_SEND_INLINE | signal_flag;
+	send_wr.send_flags = signal_flag;
 	send_wr.wr_id = (unsigned long)node;
 	send_wr.imm_data = htonl(node->cma_id->qp->qp_num);
 
@@ -197,7 +197,7 @@ static int post_sends(struct cmatest_node *node, int signal_flag)
 	send_wr.wr.ud.remote_qpn = node->remote_qpn;
 	send_wr.wr.ud.remote_qkey = node->remote_qkey;
 
-	sge.length = message_size - sizeof(struct ibv_grh);
+	sge.length = message_size;
 	sge.lkey = node->mr->lkey;
 	sge.addr = (uintptr_t) node->mem;
 
