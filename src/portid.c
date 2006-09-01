@@ -69,7 +69,7 @@ portid2str(ib_portid_t *portid)
 	int i;
 
 	if (portid->lid > 0) {
-		s += sprintf(s, "Lid 0x%x", portid->lid);
+		s += sprintf(s, "Lid %d", portid->lid);
 		if (portid->grh) {
 #if __WORDSIZE == 64
 			s += sprintf(s, " Gid %lx%lx",
