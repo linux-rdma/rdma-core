@@ -1,3 +1,12 @@
+2006-09-04  Roland Dreier  <rdreier@cisco.com>
+
+	* src/verbs.c (mthca_destroy_qp): Avoid potential AB-BA deadlock
+	when destroying QPs by always taking CQ locks in a consistent
+	order (lowest CQN first).  The old code always took the send_cq
+	lock first, which is prone to deadlock if the send_cq of one QP is
+	the recv_cq of another QP destroyed at the same time.  This bug
+	was pointed out by Dotan Barak and Jack Morgenstein.
+
 2006-08-23  Roland Dreier  <rdreier@cisco.com>
 
 	* src/verbs.c (mthca_resize_cq): Add a test for

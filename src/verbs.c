@@ -622,6 +622,38 @@ int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return ret;
 }
 
+static void mthca_lock_cqs(struct ibv_qp *qp)
+{
+	struct mthca_cq *send_cq = to_mcq(qp->send_cq);
+	struct mthca_cq *recv_cq = to_mcq(qp->recv_cq);
+
+	if (send_cq == recv_cq)
+		pthread_spin_lock(&send_cq->lock);
+	else if (send_cq->cqn < recv_cq->cqn) {
+		pthread_spin_lock(&send_cq->lock);
+		pthread_spin_lock(&recv_cq->lock);
+	} else {
+		pthread_spin_lock(&recv_cq->lock);
+		pthread_spin_lock(&send_cq->lock);
+	}
+}
+
+static void mthca_unlock_cqs(struct ibv_qp *qp)
+{
+	struct mthca_cq *send_cq = to_mcq(qp->send_cq);
+	struct mthca_cq *recv_cq = to_mcq(qp->recv_cq);
+
+	if (send_cq == recv_cq)
+		pthread_spin_unlock(&send_cq->lock);
+	else if (send_cq->cqn < recv_cq->cqn) {
+		pthread_spin_unlock(&recv_cq->lock);
+		pthread_spin_unlock(&send_cq->lock);
+	} else {
+		pthread_spin_unlock(&send_cq->lock);
+		pthread_spin_unlock(&recv_cq->lock);
+	}
+}
+
 int mthca_destroy_qp(struct ibv_qp *qp)
 {
 	int ret;
@@ -631,23 +663,16 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 	if (qp->send_cq != qp->recv_cq)
 		mthca_cq_clean(to_mcq(qp->send_cq), qp->qp_num, NULL);
 
-	pthread_spin_lock(&to_mcq(qp->send_cq)->lock);
-	if (qp->send_cq != qp->recv_cq)
-		pthread_spin_lock(&to_mcq(qp->recv_cq)->lock);
+	mthca_lock_cqs(qp);
 	mthca_clear_qp(to_mctx(qp->context), qp->qp_num);
-	if (qp->send_cq != qp->recv_cq)
-		pthread_spin_unlock(&to_mcq(qp->recv_cq)->lock);
-	pthread_spin_unlock(&to_mcq(qp->send_cq)->lock);
+	mthca_unlock_cqs(qp);
 
 	ret = ibv_cmd_destroy_qp(qp);
 	if (ret) {
-		pthread_spin_lock(&to_mcq(qp->send_cq)->lock);
-		if (qp->send_cq != qp->recv_cq)
-			pthread_spin_lock(&to_mcq(qp->recv_cq)->lock);
+		mthca_lock_cqs(qp);
 		mthca_store_qp(to_mctx(qp->context), qp->qp_num, to_mqp(qp));
-		if (qp->send_cq != qp->recv_cq)
-			pthread_spin_unlock(&to_mcq(qp->recv_cq)->lock);
-		pthread_spin_unlock(&to_mcq(qp->send_cq)->lock);
+		mthca_unlock_cqs(qp);
+
 		return ret;
 	}
 
