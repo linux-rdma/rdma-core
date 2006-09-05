@@ -34,6 +34,8 @@ ibdir="/sys/class/infiniband"
 log="/var/log/srp_daemon.log"
 retries=300
 pids=""
+pidfile=/var/run/srp_daemon.sh.pid
+mypid=$$
 
 trap_handler()
 {
@@ -41,8 +43,45 @@ trap_handler()
         kill -15 $pids > /dev/null 2>&1
     fi
     logger -i -t "$(basename $0)" "killing $prog."
+    /bin/rm -f $pidfile
     exit 0
 }
+
+# Check if there is another copy of running srp_daemon.sh
+if [ -s $pidfile ]; then
+    read line < $pidfile
+    for p in $line
+    do
+        if [ -z "${p//[0-9]/}" -a -d "/proc/$p" ]; then
+            if [ "$p" != "$mypid" ]; then
+                echo "$(basename $0) is already running. Exiting."
+                exit 1
+            fi
+        else
+            # pid file exist but no process running
+            echo $mypid > $pidfile 
+        fi
+    done
+else
+    echo $mypid > $pidfile 
+fi
+
+# Check once more to prevent race condition
+if [ -s $pidfile ]; then
+    read line < $pidfile
+    for p in $line
+    do
+        if [ -z "${p//[0-9]/}" -a -d "/proc/$p" ]; then
+            if [ "$p" != "$mypid" ]; then
+                echo "$(basename $0) is already running. Race detected. Exiting."
+                exit 1
+            fi
+        fi
+    done
+else
+    echo "Failed to create $pidfile. Exiting."
+    exit 1
+fi
 
 touch ${log}
 
