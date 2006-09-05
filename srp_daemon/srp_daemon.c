@@ -117,7 +117,7 @@ void pr_cmd(char *target_str)
 	if (config->execute) {
 		int fd = open(config->add_target_file, O_WRONLY);
 		if (fd < 0) {
-			fprintf(stderr, "unable to open %s, maybe ib_srp is not loaded\n", config->add_target_file);
+			pr_err("unable to open %s, maybe ib_srp is not loaded\n", config->add_target_file);
 			return;
 		}
 		ret = write(fd, target_str, strlen(target_str));
@@ -135,7 +135,7 @@ static int check_not_equal_str(char *dir_name, char *attr, char *value)
 	int len = strlen(value);
 
 	if (len > MAX_ATTR_STRING_LENGTH) {
-		fprintf(stderr, "string %s is too long\n", value);
+		pr_err("string %s is too long\n", value);
 		return 1;
 	}
 
@@ -241,7 +241,7 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 		(unsigned long long) h_guid,
 		(unsigned long long) h_service_id);
 	if (len >= MAX_TRAGET_CONFIG_STR_STRING) {
-		fprintf(stderr, "Target conifg string is too long, ignoring target\n");
+		pr_err("Target conifg string is too long, ignoring target\n");
 		closedir(dir);
 		return;
 	}
@@ -253,8 +253,7 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 				",io_class=%04hx", ntohs(ioc_prof.io_class));
 
 		if (len >= MAX_TRAGET_CONFIG_STR_STRING) {
-			fprintf(stderr,
-				"Target conifg string is too long, ignoring target\n");
+			pr_err("Target conifg string is too long, ignoring target\n");
 			closedir(dir);
 			return;
 		}
@@ -286,15 +285,19 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 			        (struct ib_user_mad *) out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
 		if (ret < 0) {
-			fprintf(stderr, "umad_send failed\n");
+			pr_err("umad_send to %u failed\n", 
+				(uint16_t) ntohs(out_mad->hdr.addr.lid));
 			return ret;
 		}
 
 		do {
 			len = in_mad_size ? in_mad_size : MAD_BLOCK_SIZE;
-			in_agent = umad_recv(portid, (struct ib_user_mad *) in_mad, &len, config->timeout);
+			in_agent = umad_recv(portid, (struct ib_user_mad *) in_mad, 
+					     &len, config->timeout);
 			if (in_agent < 0) {
-				fprintf(stderr, "umad_recv failed - %d\n", in_agent);
+				pr_err("umad_recv from %u failed - %d\n", 
+					(uint16_t) ntohs(out_mad->hdr.addr.lid), 
+					in_agent);
 				return in_agent;
 			}
 			if (in_agent != agent) {
@@ -304,12 +307,15 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 
 			ret = umad_status((struct ib_user_mad *) in_mad);
 			if (ret) {
-				fprintf(stderr, "bad MAD status - %d\n", ret);
+				pr_err(
+					"bad MAD status (%u) from lid %d\n", 
+					ret, (uint16_t) ntohs(out_mad->hdr.addr.lid));
 				return -ret;
 			} 
 
 			if (tid != ((uint32_t *) &in_dm_mad->tid)[1])
-				pr_debug("umad_recv returned different transaction id sent %d got %d\n", tid, ((uint32_t *) &in_dm_mad->tid)[1]);
+				pr_debug("umad_recv returned different transaction id sent %d got %d\n", 
+					 tid, ((uint32_t *) &in_dm_mad->tid)[1]);
 
 		} while (tid > ((uint32_t *) &in_dm_mad->tid)[1]);
 
@@ -346,7 +352,7 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 
 	umad_dev_name = rindex(umad_dev, '/');
 	if (!umad_dev_name) {
-		fprintf(stderr, "Couldn't find device name in '%s'\n",
+		pr_err("Couldn't find device name in '%s'\n",
 			umad_dev_name);
 		return -1;
 	}
@@ -355,32 +361,32 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 		       umad_dev_name);
 	
 	if (ret < 0) {
- 		fprintf(stderr, "out of memory\n");
+ 		pr_err("out of memory\n");
 		return -ENOMEM;
 	}
 
 	*ibdev = malloc(IBDEV_STR_SIZE);
 	if (!*ibdev) {
- 		fprintf(stderr, "out of memory\n");
+ 		pr_err("out of memory\n");
 		ret = -ENOMEM;
 		goto end;
 	}
 
 	if (sys_read_string(class_dev_path, "ibdev", *ibdev, 
 			    IBDEV_STR_SIZE) < 0) {
-		fprintf(stderr, "Couldn't read ibdev attribute\n");
+		pr_err("Couldn't read ibdev attribute\n");
 		ret = -1;
 		goto end;
 	}
 
 	*ibport = malloc(IBPORT_STR_SIZE);
 	if (!*ibport) {
-		fprintf(stderr, "out of memory\n");
+		pr_err("out of memory\n");
 		ret = -ENOMEM;
 		goto end;
 	}
 	if (sys_read_string(class_dev_path, "port", *ibport, IBPORT_STR_SIZE) < 0) {
-		fprintf(stderr, "Couldn't read port attribute\n");
+		pr_err("Couldn't read port attribute\n");
 		ret = -1;
 		goto end;
 	}
@@ -471,14 +477,14 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	cpi                = (void *) out_dm_mad->data;
 
 	if (sys_read_string(umad_res->port_sysfs_path, "lid", val, sizeof val) < 0) {
-		fprintf(stderr, "Couldn't read LID\n");
+		pr_err("Couldn't read LID\n");
 		return -1;
 	}
 
 	cpi->trap_lid = htons(strtol(val, NULL, 0));
 
 	if (sys_read_string(umad_res->port_sysfs_path, "gids/0", val, sizeof val) < 0) {
-		fprintf(stderr, "Couldn't read GID[0]\n");
+		pr_err("Couldn't read GID[0]\n");
 		return -1;
 	}
 
@@ -490,7 +496,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
-		fprintf(stderr, "Class Port Info set returned status 0x%04x\n",
+		pr_err("Class Port Info set returned status 0x%04x\n",
 			ntohs(in_dm_mad->status));
 		return -1;
 	}
@@ -511,7 +517,7 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
-		fprintf(stderr, "IO Unit Info query returned status 0x%04x\n",
+		pr_err("IO Unit Info query returned status 0x%04x\n",
 			ntohs(in_dm_mad->status));
 		return -1;
 	}
@@ -536,7 +542,7 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
-		fprintf(stderr, "IO Controller Profile query returned status 0x%04x for %d\n",
+		pr_err("IO Controller Profile query returned status 0x%04x for %d\n",
 			ntohs(in_dm_mad->status), ioc);
 		return -1;
 	}
@@ -560,7 +566,7 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
-		fprintf(stderr, "Service Entries query returned status 0x%04x\n",
+		pr_err("Service Entries query returned status 0x%04x\n",
 			ntohs(in_dm_mad->status));
 		return -1;
 	}
@@ -584,7 +590,7 @@ static int do_port(struct umad_resources *umad_res, uint16_t dlid, uint64_t subn
  	pr_debug("enter do_port\n");
 	if ((h_guid & oui_mask) == topspin_oui &&
 	    set_class_port_info(umad_res, dlid))
-		fprintf(stderr, "Warning: set of ClassPortInfo failed\n");
+		pr_err("Warning: set of ClassPortInfo failed\n");
 
 	ret = get_iou_info(umad_res, dlid, &iou_info);
 	if (ret < 0)
@@ -819,22 +825,22 @@ struct config_t *config;
 
 static void print_config(struct config_t *conf)
 {
-	fprintf(stderr, " configuration report\n");
-	fprintf(stderr, " ------------------------------------------------\n");
-	fprintf(stderr, " Current pid                		: %u\n", getpid());
-	fprintf(stderr, " Device name                		: \"%s\"\n", conf->dev_name);
-	fprintf(stderr, " IB port                    		: %u\n", conf->port_num);
-	fprintf(stderr, " Mad Retries                		: %d\n", conf->mad_retries);
-	fprintf(stderr, " Number of outstanding WR   		: %u\n", conf->num_of_oust);
-	fprintf(stderr, " Mad timeout (msec)	     		: %u\n", conf->timeout);
-	fprintf(stderr, " Prints add target command  		: %d\n", conf->cmd);
- 	fprintf(stderr, " Executes add target command		: %d\n", conf->execute);
- 	fprintf(stderr, " Report current tragets and stop 	: %d\n", conf->once);
+	pr_err(" configuration report\n");
+	pr_err(" ------------------------------------------------\n");
+	pr_err(" Current pid                		: %u\n", getpid());
+	pr_err(" Device name                		: \"%s\"\n", conf->dev_name);
+	pr_err(" IB port                    		: %u\n", conf->port_num);
+	pr_err(" Mad Retries                		: %d\n", conf->mad_retries);
+	pr_err(" Number of outstanding WR   		: %u\n", conf->num_of_oust);
+	pr_err(" Mad timeout (msec)	     		: %u\n", conf->timeout);
+	pr_err(" Prints add target command  		: %d\n", conf->cmd);
+ 	pr_err(" Executes add target command		: %d\n", conf->execute);
+ 	pr_err(" Report current tragets and stop 	: %d\n", conf->once);
 	if (conf->recalc_time)
-		fprintf(stderr, " Performs full target rescan every %d seconds\n", conf->recalc_time);
+		pr_err(" Performs full target rescan every %d seconds\n", conf->recalc_time);
 	else
-		fprintf(stderr, " No full target rescan\n");
-	fprintf(stderr, " ------------------------------------------------\n");
+		pr_err(" No full target rescan\n");
+	pr_err(" ------------------------------------------------\n");
 }		
 
 static int get_config(struct config_t *conf, int argc, char *argv[])
@@ -845,7 +851,6 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	int ret;
 	int len;
 
-	conf->mad_retries	= 10;
 	conf->port_num		= 1;
 	conf->num_of_oust	= 10;
 	conf->dev_name	 	= NULL;
@@ -874,7 +879,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			len = strlen(optarg)+1;
 			conf->dev_name = malloc(len);
 			if (!conf->dev_name) {
-				fprintf(stderr, "Fail to alloc space for dev_name\n");
+				pr_err("Fail to alloc space for dev_name\n");
 				return -ENOMEM;
 			}
 			strncpy(conf->dev_name, optarg, len);
@@ -882,7 +887,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 		case 'p':
 			conf->port_num = atoi(optarg);
 			if (conf->port_num == 0) {
-				fprintf(stderr, "Bad port number %s\n", optarg);
+				pr_err("Bad port number %s\n", optarg);
 				return -1;
 			}
 			break;
@@ -904,21 +909,21 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 		case 't':
 			conf->timeout = atoi(optarg);
 			if (conf->timeout == 0) {
-				fprintf(stderr, "Bad timeout - %s\n", optarg);
+				pr_err("Bad timeout - %s\n", optarg);
 				return -1;
 			}
 			break;
 		case 'r':
 			conf->mad_retries = atoi(optarg);
 			if (conf->mad_retries == 0) {
-				fprintf(stderr, "Bad number of retries - %s\n", optarg);
+				pr_err("Bad number of retries - %s\n", optarg);
 				return -1;
 			}
 			break;
 		case 'R':
 			conf->recalc_time = atoi(optarg);
 			if (conf->recalc_time == 0) {
-				fprintf(stderr, "Bad Rescan time window - %s\n", optarg);
+				pr_err("Bad Rescan time window - %s\n", optarg);
 				return -1;
 			}
 			break;
@@ -933,13 +938,13 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 
 	if (conf->dev_name == NULL) {
 		if (translate_umad_to_ibdev_and_port(umad_dev, &conf->dev_name, &ibport)) {
-			fprintf(stderr, 
+			pr_err(
 				"Fail to translate umad to ibdev and port\n");
 			return -1;
 		}
 		conf->port_num = atoi(ibport);
 		if (conf->port_num == 0) {
-			fprintf(stderr, "Bad port number %s\n", ibport);
+			pr_err("Bad port number %s\n", ibport);
 			free(conf->dev_name);
 			free(ibport);
 			return -1;
@@ -950,7 +955,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 		       "%s/class/infiniband_srp/srp-%s-%d/add_target", sysfs_path,
 		       conf->dev_name, conf->port_num);
 	if (ret < 0) {
-		fprintf(stderr, "error while allocating add_target\n");
+		pr_err("error while allocating add_target\n");
 		return ret;
 	}
 		 
@@ -1003,7 +1008,7 @@ static int umad_resources_create(struct umad_resources *umad_res)
 
 	umad_res->portid = umad_open_port(config->dev_name, config->port_num);
 	if (umad_res->portid < 0) {
-		fprintf(stderr, 
+		pr_err(
 			"umad_open_port failed for device %s port %d\n", 
 			config->dev_name, config->port_num);
 		return -ENXIO;
@@ -1013,7 +1018,7 @@ static int umad_resources_create(struct umad_resources *umad_res)
 					   SRP_MGMT_CLASS_SA_VERSION, 
 					   SRP_SA_RMPP_VERSION, 0); 
 	if (umad_res->agent < 0) {
-		fprintf(stderr, "umad_register failed\n");
+		pr_err("umad_register failed\n");
 		return umad_res->agent;
 	}
 
@@ -1031,26 +1036,26 @@ int main(int argc, char *argv[])
 
 	res.umad_res = malloc(sizeof(struct umad_resources));
 	if (!res.umad_res) {
- 		fprintf(stderr, "out of memory\n");
+ 		pr_err("out of memory\n");
 		return ENOMEM;
 	}	  
 	res.ud_res = malloc(sizeof(struct ud_resources));
 	if (!res.ud_res) {
- 		fprintf(stderr, "out of memory\n");
+ 		pr_err("out of memory\n");
 		ret = ENOMEM;
 		goto free_umad;
 	}	  
 
 	res.sync_res = malloc(sizeof(struct sync_resources));
 	if (!res.sync_res) {
- 		fprintf(stderr, "out of memory\n");
+ 		pr_err("out of memory\n");
 		ret = ENOMEM;
 		goto free_res;
 	}	  
 
 	config = malloc(sizeof(*config));
 	if (!config) {
- 		fprintf(stderr, "out of memory\n");
+ 		pr_err("out of memory\n");
 		ret = ENOMEM;
 		goto free_res;
 	}
@@ -1065,7 +1070,7 @@ int main(int argc, char *argv[])
 
 	ret = umad_init();
 	if (ret < 0) {
-		fprintf(stderr, "umad_init failed\n");
+		pr_err("umad_init failed\n");
 		ret = -ret;
 		goto clean_config;
 	}
@@ -1119,7 +1124,7 @@ int main(int argc, char *argv[])
 				goto kill_threads;
 			
 			if (register_to_traps(res.ud_res))
-				fprintf(stderr, "Fail to register to traps, maybe there is no opensm running on fabric\n");
+				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
 
 			clear_traps_list(res.sync_res);
 			res.sync_res->next_recalc_time = time(NULL) + config->recalc_time;
@@ -1190,13 +1195,13 @@ int recalc(struct umad_resources *umad_res)
 
 	ret = sys_read_string(umad_res->port_sysfs_path, "sm_lid", val, sizeof val); 
 	if (ret < 0) {
-		fprintf(stderr, "Couldn't read SM LID\n");
+		pr_err("Couldn't read SM LID\n");
 		return ret;
 	}
 
 	umad_res->sm_lid = strtol(val, NULL, 0);
 	if (umad_res->sm_lid == 0) {
-		fprintf(stderr, "SM LID is 0, maybe no opesm is running\n");
+		pr_err("SM LID is 0, maybe no opesm is running\n");
 		return -1;
 	}
 

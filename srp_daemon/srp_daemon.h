@@ -354,6 +354,17 @@ static const int   node_table_response_size = 1 << 18;
 			printf(arg);		\
 	} while (0)
 
+#define pr_err(arg...) 							\
+	do {								\
+		char str[1000];						\
+		time_t tt = time(NULL);					\
+		struct tm *t = localtime(&tt);				\
+		sprintf(str, arg);					\
+		fprintf(stderr, "%02d/%02d/%02d %02d:%02d:%02d : %s", 	\
+			t->tm_mday, t->tm_mon, t->tm_year%100, 		\
+			t->tm_hour, t->tm_min, t->tm_sec, str);		\
+	} while (0)
+
 
 int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
 void handle_port(struct umad_resources *umad_res, uint16_t lid, uint64_t guid);
