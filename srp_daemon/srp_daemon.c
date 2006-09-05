@@ -112,7 +112,7 @@ void pr_cmd(char *target_str)
 	int ret;
 
 	if (config->cmd)
-		fprintf(stderr, "%s", target_str);
+		printf("%s", target_str);
 
 	if (config->execute) {
 		int fd = open(config->add_target_file, O_WRONLY);
