@@ -145,6 +145,9 @@ int rdma_create_id(struct rdma_event_channel *channel,
 /**
  * rdma_destroy_id - Release a communication identifier.
  * @id: The communication identifier to destroy.
+ * 
+ * Calling this routine has the effect of canceling any outstanding
+ * asynchronous operation on the associated id.
  */
 int rdma_destroy_id(struct rdma_cm_id *id);
 
