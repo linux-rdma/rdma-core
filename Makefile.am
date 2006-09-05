@@ -17,6 +17,8 @@ sbin_SCRIPTS = \
 EXTRA_DIST = \
     srp_daemon/srp_daemon.h \
     srp_daemon/srp_ib_types.h \
+    srp_daemon/srp_daemon.sh \
+    srp_daemon/run_srp_daemon \
     src/srp-dm.h \
     src/ib_user_mad.h \
     srptools.spec.in $(man_MANS)
