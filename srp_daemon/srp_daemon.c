@@ -825,22 +825,22 @@ struct config_t *config;
 
 static void print_config(struct config_t *conf)
 {
-	pr_err(" configuration report\n");
-	pr_err(" ------------------------------------------------\n");
-	pr_err(" Current pid                		: %u\n", getpid());
-	pr_err(" Device name                		: \"%s\"\n", conf->dev_name);
-	pr_err(" IB port                    		: %u\n", conf->port_num);
-	pr_err(" Mad Retries                		: %d\n", conf->mad_retries);
-	pr_err(" Number of outstanding WR   		: %u\n", conf->num_of_oust);
-	pr_err(" Mad timeout (msec)	     		: %u\n", conf->timeout);
-	pr_err(" Prints add target command  		: %d\n", conf->cmd);
- 	pr_err(" Executes add target command		: %d\n", conf->execute);
- 	pr_err(" Report current tragets and stop 	: %d\n", conf->once);
+	printf(" configuration report\n");
+	printf(" ------------------------------------------------\n");
+	printf(" Current pid                		: %u\n", getpid());
+	printf(" Device name                		: \"%s\"\n", conf->dev_name);
+	printf(" IB port                    		: %u\n", conf->port_num);
+	printf(" Mad Retries                		: %d\n", conf->mad_retries);
+	printf(" Number of outstanding WR   		: %u\n", conf->num_of_oust);
+	printf(" Mad timeout (msec)	     		: %u\n", conf->timeout);
+	printf(" Prints add target command  		: %d\n", conf->cmd);
+ 	printf(" Executes add target command		: %d\n", conf->execute);
+ 	printf(" Report current tragets and stop 	: %d\n", conf->once);
 	if (conf->recalc_time)
-		pr_err(" Performs full target rescan every %d seconds\n", conf->recalc_time);
+		printf(" Performs full target rescan every %d seconds\n", conf->recalc_time);
 	else
-		pr_err(" No full target rescan\n");
-	pr_err(" ------------------------------------------------\n");
+		printf(" No full target rescan\n");
+	printf(" ------------------------------------------------\n");
 }		
 
 static int get_config(struct config_t *conf, int argc, char *argv[])
