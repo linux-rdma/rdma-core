@@ -34,9 +34,13 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{_sbindir}/ibsrpdm
+%{_sbindir}/srp_daemon
+%{_sbindir}/srp_daemon.sh
+%{_sbindir}/run_srp_daemon
 %doc README NEWS ChangeLog COPYING
 
 %changelog
-
+* Tue Sep  5 2006 Vladimir Sokolovsky <vlad@mellanox.co.il>
+- Added srp_daemon and scripts to execute this daemon
 * Tue Mar 21 2006 Roland Dreier <rdreier@cisco.com> - @VERSION@-1
 - Initial attempt at a working spec file

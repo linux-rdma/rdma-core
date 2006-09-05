@@ -1,0 +1,89 @@
+#!/bin/bash
+#
+# Copyright (c) 2006 Mellanox Technologies. All rights reserved.
+#
+# This Software is licensed under one of the following licenses:
+#
+# 1) under the terms of the "Common Public License 1.0" a copy of which is
+#    available from the Open Source Initiative, see
+#    http://www.opensource.org/licenses/cpl.php.
+#
+# 2) under the terms of the "The BSD License" a copy of which is
+#    available from the Open Source Initiative, see
+#    http://www.opensource.org/licenses/bsd-license.php.
+#
+# 3) under the terms of the "GNU General Public License (GPL) Version 2" a
+#    copy of which is available from the Open Source Initiative, see
+#    http://www.opensource.org/licenses/gpl-license.php.
+#
+# Licensee has the right to choose one of the above licenses.
+#
+# Redistributions of source code must retain the above copyright
+# notice and one of the license notices.
+#
+# Redistributions in binary form must reproduce both the above copyright
+# notice, one of the license notices in the documentation
+# and/or other materials provided with the distribution.
+#
+#  $Id$
+#
+
+prog=srp_daemon
+params=$@
+ibdir="/sys/class/infiniband"
+log="/var/log/srp_daemon.log"
+pid=""
+
+trap 'trap_handler' 2 15
+
+while [ ! -z "$1" ]
+do
+    case "$1" in
+        -i)
+            hca_id=$2
+            shift 2
+        ;;
+        -p)
+            port=$2
+            shift 2
+        ;;
+        *)
+            shift
+        ;; 
+    esac
+done
+
+trap_handler()
+{
+    if [ -n "$pid" ]; then
+        kill -15 $pid  > /dev/null 2>&1
+    fi
+    logger -i -t "$(basename $0)" "killing $prog."
+    exit 0
+}
+
+
+while true
+do
+    # Check the ib/srp status
+    if [ ! -d ${ibdir} ]; then
+        sleep 5
+        continue
+    fi
+
+    if [ ! -d ${ibdir}/${hca_id}/ports/${port} ]; then
+        sleep 10
+        continue
+    fi
+   
+    if ! ( /sbin/lsmod | grep -w "ib_srp" > /dev/null 2>&1 ); then
+        sleep 60
+        continue
+    fi
+
+    logger -i -t "$(basename $0)" "starting ${prog}: [HCA=${hca_id}] [port=${port}]"
+    ${prog} ${params} >> ${log} 2>&1 &
+    pid=$!
+    wait
+    logger -i -t "$(basename $0)" "failed ${prog}: [HCA=${hca_id}] [port=${port}] [exit status=$?]"
+done
