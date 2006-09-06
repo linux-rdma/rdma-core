@@ -2,8 +2,9 @@ libibverbs (1.1~pre1-1) unstable; urgency=low
 
   * New upstream prerelease.
   * soname bumped to 2 due to ABI changes.
+  * Improve package description.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed,  9 Aug 2006 10:15:56 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Wed,  6 Sep 2006 14:30:22 -0700
 
 libibverbs (1.0.3-1) unstable; urgency=low
 
