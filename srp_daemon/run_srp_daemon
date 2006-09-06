@@ -33,7 +33,8 @@ params=$@
 ibdir="/sys/class/infiniband"
 log="/var/log/srp_daemon.log"
 pid=""
-sleep_on_failure=60
+min_sleep=60
+sleep_on_failure=${min_sleep}
 
 trap 'trap_handler' 2 15
 
@@ -83,10 +84,17 @@ do
     fi
 
     logger -i -t "$(basename $0)" "starting ${prog}: [HCA=${hca_id}] [port=${port}]"
+
+    start_time=$(date +%s | tr -d '[:space:]')
     ${prog} ${params} >> ${log} 2>&1 &
     pid=$!
     wait
+    let run_time=$(date +%s | tr -d '[:space:]')-${start_time}
     logger -i -t "$(basename $0)" "failed ${prog}: [HCA=${hca_id}] [port=${port}] [exit status=$?]"
     sleep $sleep_on_failure
-    let sleep_on_failure*=2
+    if [ $run_time -gt 10 ]; then
+        sleep_on_failure=${min_sleep}
+    else
+        let sleep_on_failure*=2
+    fi
 done
