@@ -12,13 +12,17 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
 Description: A library for direct userspace use of InfiniBand
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
- Specification.  This includes direct hardware access for fast path
- operations.
+ Specification.  InfiniBand is a high-throughput, low-latency
+ networking technology.  InfiniBand host channel adapters (HCAs)
+ commonly support direct hardware access from userspace (kernel
+ bypass), and libibverbs supports this when available.
  .
  For this library to be useful, a device-specific plug-in module
  should also be installed.
  .
  This package contains the shared library.
+ .
+  Homepage: http://www.openfabrics.org/
 
 Package: libibverbs-dev
 Section: libdevel
@@ -27,12 +31,16 @@ Depends: ${misc:Depends}, libibverbs1 (= ${Source-Version}), libsysfs-dev
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
- Specification.  This includes direct hardware access for fast path
- operations.
+ Specification.  InfiniBand is a high-throughput, low-latency
+ networking technology.  InfiniBand host channel adapters (HCAs)
+ commonly support direct hardware access from userspace (kernel
+ bypass), and libibverbs supports this when available.
  .
- This package is needed to compile programs against libibverbs1.
+ This package is needed to compile programs against libibverbs2.
  It contains the header files and static libraries (optionally)
  needed for compiling.
+ .
+  Homepage: http://www.openfabrics.org/
 
 Package: libibverbs1-dbg
 Section: libdevel
@@ -42,12 +50,16 @@ Depends: ${misc:Depends}, libibverbs1 (= ${Source-Version})
 Description: Debugging symbols for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
- Specification.  This includes direct hardware access for fast path
- operations.
+ Specification.  InfiniBand is a high-throughput, low-latency
+ networking technology.  InfiniBand host channel adapters (HCAs)
+ commonly support direct hardware access from userspace (kernel
+ bypass), and libibverbs supports this when available.
  .
  This package contains the debugging symbols associated with
- libibverbs1. They will automatically be used by gdb for debugging
+ libibverbs2. They will automatically be used by gdb for debugging
  libibverbs-related issues.
+ .
+  Homepage: http://www.openfabrics.org/
 
 Package: ibverbs-utils
 Section: net
@@ -56,8 +68,12 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Examples for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
- Specification.  This includes direct hardware access for fast path
- operations.
+ Specification.  InfiniBand is a high-throughput, low-latency
+ networking technology.  InfiniBand host channel adapters (HCAs)
+ commonly support direct hardware access from userspace (kernel
+ bypass), and libibverbs supports this when available.
  .
- This package contains useful libibverbs1 example programs such as
+ This package contains useful libibverbs2 example programs such as
  ibv_devinfo, which displays information about InfiniBand devices.
+ .
+  Homepage: http://www.openfabrics.org/

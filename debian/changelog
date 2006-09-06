@@ -1,8 +1,9 @@
 libibverbs (1.0.4-1) unstable; urgency=low
 
   * New upstream release.
+  * Improve package description.
 
- -- Roland Dreier <rolandd@cisco.com>  Thu,  4 May 2006 13:46:44 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Wed,  6 Sep 2006 14:31:09 -0700
 
 libibverbs (1.0.3-1) unstable; urgency=low
 
