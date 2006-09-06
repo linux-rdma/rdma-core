@@ -9,22 +9,30 @@ Package: libmthca1
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: A userspace driver for Mellanox HCAs
- libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
- the libibverbs library.
+Description: A userspace driver for Mellanox InfiniBand HCAs
+ libmthca is a device-specific driver for Mellanox InfiniBand host
+ channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
  .
  This package contains the loadable plug-in.
+ .
+  Homepage: http://www.openfabrics.org/
 
 Package: libmthca-dev
 Section: libdevel
 Architecture: any
 Depends: ${misc:Depends}, libmthca1 (= ${Source-Version})
 Description: Development files for the libmthca driver
- libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
- the libibverbs library.
+ libmthca is a device-specific driver for Mellanox InfiniBand host
+ channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
  .
  This package contains static versions of libmthca that may be linked
  directly to an application, which may be useful for debugging.
+ .
+  Homepage: http://www.openfabrics.org/
 
 Package: libmthca1-dbg
 Section: libdevel
@@ -32,9 +40,13 @@ Priority: extra
 Architecture: any
 Depends: ${misc:Depends}, libmthca1 (= ${Source-Version})
 Description: Debugging symbols for the libmthca driver
- libmthca is a device-specific driver for Mellanox InfiniBand HCAs for
- the libibverbs library.
+ libmthca is a device-specific driver for Mellanox InfiniBand host
+ channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
  .
  This package contains the debugging symbols associated with
  libmthca1. They will automatically be used by gdb for debugging
  libmthca-related issues.
+ .
+  Homepage: http://www.openfabrics.org/
