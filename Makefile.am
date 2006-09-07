@@ -49,6 +49,7 @@ src_ipathverbs_la_LDFLAGS = -avoid-version -module \
     $(ipathverbs_version_script)
 
 EXTRA_DIST = src/ipathverbs.h \
+    src/ipath-abi.h \
     src/ipathverbs.map \
     libipathverbs.spec.in
 
