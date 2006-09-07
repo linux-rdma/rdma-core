@@ -646,7 +646,7 @@ static int get_trap_notices(struct resources *res)
 		if (ret < 0)
 			exit(-ret);
 		
-		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", wc.wr_id);
+		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", (long long int) wc.wr_id);
 		cur_receive = wc.wr_id;
 		buffer = (void *)(((unsigned long)res->ud_res->recv_buf) + RECV_BUF_SIZE * cur_receive);
 		mad_buffer = (ib_sa_mad_t *) (buffer + GRH_SIZE);
@@ -755,7 +755,6 @@ void *run_thread_listen_to_events(void *res_in)
 	
 		switch (event.event_type) {
 		case IBV_EVENT_PORT_ACTIVE:
-		case IBV_EVENT_PORT_ERR:
 		case IBV_EVENT_SM_CHANGE:
 		case IBV_EVENT_LID_CHANGE:
 		case IBV_EVENT_CLIENT_REREGISTER:
@@ -778,6 +777,7 @@ void *run_thread_listen_to_events(void *res_in)
 
  	      	 /*
   
+		case IBV_EVENT_PORT_ERR:
 		case IBV_EVENT_QP_REQ_ERR:
 		case IBV_EVENT_QP_ACCESS_ERR:
 		case IBV_EVENT_COMM_EST:
