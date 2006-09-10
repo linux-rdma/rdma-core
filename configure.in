@@ -24,7 +24,7 @@ AC_CHECK_LIB([ibcommon], [stack_dump], [],
 	AC_MSG_ERROR([srptools require libibcommon.]))
 AC_CHECK_LIB([ibumad], [umad_init], [],
 	AC_MSG_ERROR([srptools require libibumad.]))
-AC_CHECK_LIB([ibverbs], [ibv_fork_init], [],
+AC_CHECK_LIB([ibverbs], [ibv_get_device_list], [],
 	AC_MSG_ERROR([srptools require libibverbs.]))
 fi
 AC_CHECK_LIB([pthread], [pthread_self], [],
