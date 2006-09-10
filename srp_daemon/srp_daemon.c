@@ -82,6 +82,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-v 			Verbose\n");
 	fprintf(stderr, "-V 			debug Verbose\n");
 	fprintf(stderr, "-c 			prints connection Commands\n");
+	fprintf(stderr, "-a 			show All - prints also targets that are already connected\n");
 	fprintf(stderr, "-e 			Executes connection commands\n");
 	fprintf(stderr, "-o 			runs only Once and stop\n");
 	fprintf(stderr, "-d <umad device>	use umad Device \n");
@@ -107,14 +108,14 @@ uint64_t attr_value;
 
 int recalc(struct umad_resources *umad_res);
 
-void pr_cmd(char *target_str)
+void pr_cmd(char *target_str, int not_connected)
 {
 	int ret;
 
 	if (config->cmd)
 		printf("%s", target_str);
 
-	if (config->execute) {
+	if (config->execute && not_connected) {
 		int fd = open(config->add_target_file, O_WRONLY);
 		if (fd < 0) {
 			pr_err("unable to open %s, maybe ib_srp is not loaded\n", config->add_target_file);
@@ -175,6 +176,7 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 	const int MAX_TRAGET_CONFIG_STR_STRING = 255;
 	char target_config_str[MAX_TRAGET_CONFIG_STR_STRING];
 	int len, len_left;
+	int not_connected = 1;
 
 	pr_debug("Found an SRP traget - check if it is already connected\n");
 
@@ -224,10 +226,16 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 			continue;
 
 		/* there is a match - this target is already connected */
+		if (config->all) {
+			not_connected = 0;
+			break;
+		}
+
 		pr_debug("This target is alerady connected - skip\n");
 		closedir(dir);
 
 		return;
+
 	}
 
 	len = snprintf(target_config_str, MAX_TRAGET_CONFIG_STR_STRING, "id_ext=%s,"
@@ -262,7 +270,7 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 	target_config_str[len] = '\n';
 	target_config_str[len+1] = '\0';
 
-	pr_cmd(target_config_str);
+	pr_cmd(target_config_str, not_connected);
 
 	closedir(dir);
 	
@@ -835,6 +843,7 @@ static void print_config(struct config_t *conf)
 	printf(" Mad timeout (msec)	     		: %u\n", conf->timeout);
 	printf(" Prints add target command  		: %d\n", conf->cmd);
  	printf(" Executes add target command		: %d\n", conf->execute);
+ 	printf(" Print also connected targets 		: %d\n", conf->all);
  	printf(" Report current tragets and stop 	: %d\n", conf->once);
 	if (conf->recalc_time)
 		printf(" Performs full target rescan every %d seconds\n", conf->recalc_time);
@@ -857,6 +866,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->cmd	 	= 0;
 	conf->once	 	= 0;
 	conf->execute	 	= 0;
+	conf->all	 	= 0;
 	conf->verbose	 	= 0;
 	conf->debug_verbose    	= 0;
 	conf->timeout	 	= 5000;
@@ -867,7 +877,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "cveod:i:p:t:r:R:Vh");
+		c = getopt(argc, argv, "caveod:i:p:t:r:R:Vh");
 		if (c == -1)
 			break;
 
@@ -896,6 +906,9 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			break;
 		case 'o':
 			++conf->once;
+			break;
+		case 'a':
+			++conf->all;
 			break;
 		case 'e':
 			++conf->execute;

@@ -283,6 +283,7 @@ struct config_t {
 	int	cmd;
 	int	once;
 	int	execute;
+	int	all;
 	int	verbose;
 	int	debug_verbose;
 	int	timeout;

@@ -40,6 +40,9 @@ Use device file \fIumad-device\fR (default /dev/infiniband/umad0) This option sh
 Generate output suitable for piping directly to a
 /sys/class/infiniband_srp/srp\-<device>\-<port>/add_target file. 
 .TP
+\fB\-a\fR
+Prints all the targets in the fabric, not only targets that are not connected through the local port. (The same as ibsrpdm.)
+.TP
 \fB\-e\fR
 Execute the connection command, i.e., make the connection to the target.
 .TP
@@ -56,8 +59,8 @@ Use timeout of \fItimoeout\fR msec for MAD responses (default: 5 sec).
 Perform \fIretries\fR retries on each send to MAD (default: 3 retries).
 
 .SH EXAMPLES
-srp_daemon -e -i mthca0 -p 1 -R 60 (Connects to the targets accessible through port 1 of mthca0. Performs a complete rescan every minute.)
-srp_daemon -o -c 		   (Prints the connection commands for the targets in the fabric and exits - similar to ibsrpdm)
+srp_daemon -e -i mthca0 -p 1 -R 60 (Connects to the targets accessible through port 1 of mthca0. Performs a complete rescan every minute)
+srp_daemon -o -c -a		   (Prints the connection commands for the targets in the fabric and exits - similar to ibsrpdm)
 
 .SH AUTHORS
 .TP
