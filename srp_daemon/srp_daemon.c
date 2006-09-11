@@ -1021,9 +1021,8 @@ static int umad_resources_create(struct umad_resources *umad_res)
 
 	umad_res->portid = umad_open_port(config->dev_name, config->port_num);
 	if (umad_res->portid < 0) {
-		pr_err(
-			"umad_open_port failed for device %s port %d\n", 
-			config->dev_name, config->port_num);
+		pr_err("umad_open_port failed for device %s port %d\n", 
+		       config->dev_name, config->port_num);
 		return -ENXIO;
 	}
 
