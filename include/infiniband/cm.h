@@ -39,6 +39,10 @@
 #include <infiniband/verbs.h>
 #include <infiniband/sa.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum ib_cm_event_type {
 	IB_CM_REQ_ERROR,
 	IB_CM_REQ_RECEIVED,
@@ -564,5 +568,9 @@ struct ib_cm_sidr_rep_param {
  */
 int ib_cm_send_sidr_rep(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_rep_param *param);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CM_H */
