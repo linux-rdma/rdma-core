@@ -89,7 +89,7 @@ trap 'trap_handler' 2 15
 
 while [ ! -d ${ibdir} ]
 do
-    usleep 500000
+    sleep 30
 done
 
 

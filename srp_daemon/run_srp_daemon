@@ -28,12 +28,14 @@
 #  $Id$
 #
 
+set -x
 prog=srp_daemon
 params=$@
 ibdir="/sys/class/infiniband"
 log="/var/log/srp_daemon.log"
 pid=""
 min_sleep=1
+max_sleep=30
 sleep_on_failure=${min_sleep}
 
 trap 'trap_handler' 2 15
@@ -97,7 +99,7 @@ do
     else
         let sleep_on_failure*=2
     fi
-    if [ $sleep_on_failure -gt 300 ]; then
-        sleep_on_failure=300
+    if [ $sleep_on_failure -gt $max_sleep ]; then
+        sleep_on_failure=${max_sleep}
     fi
 done
