@@ -35,6 +35,10 @@
 #include <infiniband/verbs.h>
 #include <infiniband/sa.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Upon receiving a device removal event, users must destroy the associated
  * RDMA identifier and release all resources allocated with the device.
@@ -350,5 +354,9 @@ struct ibv_context **rdma_get_devices(int *num_devices);
  * rdma_free_devices - Frees the list of devices returned by rdma_get_devices().
  */
 void rdma_free_devices(struct ibv_context **list);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RDMA_CMA_H */
