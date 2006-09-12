@@ -478,8 +478,8 @@ struct ibv_sge {
 };
 
 struct ibv_send_wr {
-	struct ibv_send_wr     *next;
 	uint64_t		wr_id;
+	struct ibv_send_wr     *next;
 	struct ibv_sge	       *sg_list;
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
@@ -505,8 +505,8 @@ struct ibv_send_wr {
 };
 
 struct ibv_recv_wr {
-	struct ibv_recv_wr     *next;
 	uint64_t		wr_id;
+	struct ibv_recv_wr     *next;
 	struct ibv_sge	       *sg_list;
 	int			num_sge;
 };

@@ -1,3 +1,9 @@
+2006-09-12  Roland Dreier  <rdreier@cisco.com>
+
+	* include/infiniband/verbs.h: Swap wr_id and next members of
+	struct ibv_send_wr and struct ibv_recv_wr.  This allows wr_id to
+	be naturally aligned without padding on 32-bit platforms.
+
 2006-08-23  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/driver.h: Add a definition of the macro
