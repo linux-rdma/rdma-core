@@ -386,3 +386,14 @@ mad_rpc_close_port(void *port_id)
 	umad_close_port(p->port_id);
 	free(p);
 }
+
+uint8_t *
+sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
+{
+	struct ibmad_port port;
+
+	port.port_id = mad_portid;
+	port.class_agents[IB_SA_CLASS] = mad_class_agent(IB_SA_CLASS);
+	return sa_rpc_call(&port, rcvbuf, portid, sa, timeout);
+}
+

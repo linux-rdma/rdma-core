@@ -1,4 +1,4 @@
-IBMAD_1.1 {
+IBMAD_1.2 {
 	global:
 		_mad_dump;
 		_mad_dump_field;
@@ -79,6 +79,7 @@ IBMAD_1.1 {
 		madrpc_unlock;
 		ib_path_query;
 		sa_call;
+		sa_rpc_call;
 		mad_alloc;
 		mad_free;
 		mad_receive;
