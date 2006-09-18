@@ -28,7 +28,6 @@
 #  $Id$
 #
 
-set -x
 prog=srp_daemon
 params=$@
 ibdir="/sys/class/infiniband"
