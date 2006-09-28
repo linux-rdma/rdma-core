@@ -575,7 +575,7 @@ umad_open_port(char *ca_name, int portnum)
 		 UMAD_DEV_DIR , umad_id);
 
 	if ((port->dev_fd = open(port->dev_file, O_RDWR|O_NONBLOCK)) < 0) {
-		DEBUG("open %s failed", port->dev_file);
+		DEBUG("open %s failed: %s", port->dev_file, strerror(errno));
 		return -EIO;
 	}
 
