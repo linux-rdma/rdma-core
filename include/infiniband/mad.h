@@ -435,7 +435,7 @@ enum MAD_FIELDS {
 	IB_SA_RMPP_NEWWIN_F,		/* ACK: new window last */
 
 	/*
-	 * SA Get Multi Path
+	 * SA Multi Path rec
 	 */
 	IB_SA_MP_NPATH_F,
 	IB_SA_MP_NSRC_F,
