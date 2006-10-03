@@ -130,7 +130,9 @@ static struct ibv_device *init_drivers(const char *class_path,
 	int abi_ver = 0;
 	char sys_path[IBV_SYSFS_PATH_MAX];
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
+	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char value[8];
+	enum ibv_node_type node_type;
 
 	snprintf(sys_path, sizeof sys_path, "%s/%s",
 		 class_path, dev_name);
@@ -144,17 +146,44 @@ static struct ibv_device *init_drivers(const char *class_path,
 		return NULL;
 	}
 
+	snprintf(ibdev_path, IBV_SYSFS_PATH_MAX, "%s/class/infiniband/%s",
+		 ibv_get_sysfs_path(), ibdev_name);
+
+	if (ibv_read_sysfs_file(ibdev_path, "node_type", value, sizeof value) < 0) {
+		fprintf(stderr, PFX "Warning: no node_type attr for %s\n",
+			ibdev_path);
+		return NULL;
+	}
+	node_type = strtol(value, NULL, 10);
+	if (node_type < IBV_NODE_CA || node_type > IBV_NODE_RNIC)
+		node_type = IBV_NODE_UNKNOWN;
+
 	for (driver = driver_list; driver; driver = driver->next) {
 		dev = driver->init_func(sys_path, abi_ver);
 		if (!dev)
 			continue;
 
 		dev->driver = driver;
+		dev->node_type = node_type;
+
+		switch (node_type) {
+		case IBV_NODE_CA:
+		case IBV_NODE_SWITCH:
+		case IBV_NODE_ROUTER:
+			dev->transport_type = IBV_TRANSPORT_IB;
+			break;
+		case IBV_NODE_RNIC:
+			dev->transport_type = IBV_TRANSPORT_IWARP;
+			break;
+		default:
+			dev->transport_type = IBV_TRANSPORT_UNKNOWN;
+			break;
+		}
+
 		strcpy(dev->dev_path, sys_path);
-		snprintf(dev->ibdev_path, IBV_SYSFS_PATH_MAX, "%s/class/infiniband/%s",
-			 ibv_get_sysfs_path(), ibdev_name);
 		strcpy(dev->dev_name, dev_name);
 		strcpy(dev->name, ibdev_name);
+		strcpy(dev->ibdev_path, ibdev_path);
 
 		return dev;
 	}

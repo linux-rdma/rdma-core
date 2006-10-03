@@ -66,9 +66,17 @@ union ibv_gid {
 };
 
 enum ibv_node_type {
-	IBV_NODE_CA 	= 1,
+	IBV_NODE_UNKNOWN	= -1,
+	IBV_NODE_CA 		= 1,
 	IBV_NODE_SWITCH,
-	IBV_NODE_ROUTER
+	IBV_NODE_ROUTER,
+	IBV_NODE_RNIC
+};
+
+enum ibv_transport_type {
+	IBV_TRANSPORT_UNKNOWN	= -1,
+	IBV_TRANSPORT_IB	= 0,
+	IBV_TRANSPORT_IWARP
 };
 
 enum ibv_device_cap_flags {
@@ -577,6 +585,8 @@ enum {
 struct ibv_device {
 	struct ibv_driver      *driver;
 	struct ibv_device_ops	ops;
+	enum ibv_node_type	node_type;
+	enum ibv_transport_type	transport_type;
 	/* Name of underlying kernel IB device, eg "mthca0" */
 	char			name[IBV_SYSFS_NAME_MAX];
 	/* Name of uverbs device, eg "uverbs0" */

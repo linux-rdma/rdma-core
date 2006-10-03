@@ -1,3 +1,12 @@
+2006-10-03  Roland Dreier  <rdreier@cisco.com>
+
+	* src/init.c (init_drivers): Set node_type and transport_type
+	values of device being created.
+
+	* include/infiniband/verbs.h: Add ibv_node_type enum value
+	IBV_NODE_RNIC, and add enum ibv_transport_type.  Add node_type and
+	transport_type fields to struct ibv_device.
+
 2006-09-12  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/verbs.h: Swap wr_id and next members of
