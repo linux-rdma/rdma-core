@@ -643,6 +643,17 @@ static int ucma_modify_qp_rts(struct rdma_cm_id *id)
 	return ibv_modify_qp(id->qp, &qp_attr, qp_attr_mask);
 }
 
+static int ucma_modify_qp_sqd(struct rdma_cm_id *id)
+{
+	struct ibv_qp_attr qp_attr;
+
+	if (!id->qp)
+		return 0;
+
+	qp_attr.qp_state = IBV_QPS_SQD;
+	return ibv_modify_qp(id->qp, &qp_attr, IBV_QP_STATE);
+}
+
 static int ucma_modify_qp_err(struct rdma_cm_id *id)
 {
 	struct ibv_qp_attr qp_attr;
@@ -890,7 +901,16 @@ int rdma_disconnect(struct rdma_cm_id *id)
 	void *msg;
 	int ret, size;
 
-	ret = ucma_modify_qp_err(id);
+	switch (id->verbs->device->transport_type) {
+	case IBV_TRANSPORT_IB:
+		ret = ucma_modify_qp_err(id);
+		break;
+	case IBV_TRANSPORT_IWARP:
+		ret = ucma_modify_qp_sqd(id);
+		break;
+	default:
+		ret = -EINVAL;
+	}
 	if (ret)
 		return ret;
 
