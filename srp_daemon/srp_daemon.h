@@ -288,6 +288,7 @@ struct config_t {
 	int	debug_verbose;
 	int	timeout;
 	int	recalc_time;
+	int	print_initiator_ext;
 };
 
 extern struct config_t *config;

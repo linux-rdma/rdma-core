@@ -91,6 +91,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-R <Rescan time>	perform complete Rescan every <Rescan time> seconds\n");
 	fprintf(stderr, "-t <timoeout>		Timeout for mad response in milisec \n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
+	fprintf(stderr, "-n 			New print - prints also initiator extention\n");
 	fprintf(stderr, "\nExample: srp_daemon -e -i mthca0 -p 1 -R 60\n");
 }
 
@@ -259,6 +260,20 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 		len += snprintf(target_config_str+len, 
 				MAX_TRAGET_CONFIG_STR_STRING - len,
 				",io_class=%04hx", ntohs(ioc_prof.io_class));
+
+		if (len >= MAX_TRAGET_CONFIG_STR_STRING) {
+			pr_err("Target conifg string is too long, ignoring target\n");
+			closedir(dir);
+			return;
+		}
+	}
+
+	if (config->print_initiator_ext) {
+		len_left = MAX_TRAGET_CONFIG_STR_STRING - len;
+		len += snprintf(target_config_str+len, 
+				MAX_TRAGET_CONFIG_STR_STRING - len,
+				",initiator_ext=%016llx",
+				(unsigned long long) ntohll(h_guid));
 
 		if (len >= MAX_TRAGET_CONFIG_STR_STRING) {
 			pr_err("Target conifg string is too long, ignoring target\n");
@@ -845,6 +860,10 @@ static void print_config(struct config_t *conf)
  	printf(" Executes add target command		: %d\n", conf->execute);
  	printf(" Print also connected targets 		: %d\n", conf->all);
  	printf(" Report current tragets and stop 	: %d\n", conf->once);
+	if (conf->print_initiator_ext)
+		printf(" Print initiator_ext\n");
+	else
+		printf(" Do not print initiator_ext\n");
 	if (conf->recalc_time)
 		printf(" Performs full target rescan every %d seconds\n", conf->recalc_time);
 	else
@@ -860,24 +879,25 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	int ret;
 	int len;
 
-	conf->port_num		= 1;
-	conf->num_of_oust	= 10;
-	conf->dev_name	 	= NULL;
-	conf->cmd	 	= 0;
-	conf->once	 	= 0;
-	conf->execute	 	= 0;
-	conf->all	 	= 0;
-	conf->verbose	 	= 0;
-	conf->debug_verbose    	= 0;
-	conf->timeout	 	= 5000;
-	conf->mad_retries 	= 3;
-	conf->recalc_time 	= 0;
-	conf->add_target_file   = NULL;
+	conf->port_num			= 1;
+	conf->num_of_oust		= 10;
+	conf->dev_name	 		= NULL;
+	conf->cmd	 		= 0;
+	conf->once	 		= 0;
+	conf->execute	 		= 0;
+	conf->all	 		= 0;
+	conf->verbose	 		= 0;
+	conf->debug_verbose    		= 0;
+	conf->timeout	 		= 5000;
+	conf->mad_retries 		= 3;
+	conf->recalc_time 		= 0;
+	conf->add_target_file  		= NULL;
+	conf->print_initiator_ext	= 0;
 
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:p:t:r:R:Vh");
+		c = getopt(argc, argv, "caveod:i:p:t:r:R:Vhn");
 		if (c == -1)
 			break;
 
@@ -918,6 +938,9 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			break;
 		case 'V':
 			++conf->debug_verbose;
+			break;
+		case 'n':
+			++conf->print_initiator_ext;
 			break;
 		case 't':
 			conf->timeout = atoi(optarg);
