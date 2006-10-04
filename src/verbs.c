@@ -517,6 +517,9 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 	qp->mr->context = pd->context;
 
+	cmd.lkey     = qp->mr->lkey;
+	cmd.reserved = 0;
+
 	if (mthca_is_memfree(pd->context)) {
 		qp->sq.db_index = mthca_alloc_db(to_mctx(pd->context)->db_tab,
 						 MTHCA_DB_TYPE_SQ,
@@ -534,9 +537,10 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 		cmd.rq_db_page  = db_align(qp->rq.db);
 		cmd.sq_db_index = qp->sq.db_index;
 		cmd.rq_db_index = qp->rq.db_index;
-	}
-
-	cmd.lkey = qp->mr->lkey;
+	} else {
+		cmd.sq_db_page  = cmd.rq_db_page  =
+		cmd.sq_db_index = cmd.rq_db_index = 0;
+	}		
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp, sizeof resp);

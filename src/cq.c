@@ -142,6 +142,7 @@ static inline struct mthca_cqe *next_cqe_sw(struct mthca_cq *cq)
 
 static inline void set_cqe_hw(struct mthca_cqe *cqe)
 {
+	VALGRIND_MAKE_MEM_UNDEFINED(cqe, sizeof *cqe);
 	cqe->owner = MTHCA_CQ_ENTRY_OWNER_HW;
 }
 
@@ -307,6 +308,8 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 	cqe = next_cqe_sw(cq);
 	if (!cqe)
 		return CQ_EMPTY;
+
+	VALGRIND_MAKE_MEM_DEFINED(cqe, sizeof *cqe);
 
 	/*
 	 * Make sure we read CQ entry contents after we've checked the

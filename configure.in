@@ -8,6 +8,13 @@ AM_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE(libmthca, 1.0.3)
 AM_PROG_LIBTOOL
 
+AC_ARG_WITH([valgrind],
+    AC_HELP_STRING([--with-valgrind],
+        [Enable Valgrind annotations (small runtime overhead, default NO)]))
+if test "x$with_valgrind" != "xyes"; then
+    AC_DEFINE([NVALGRIND], 1, [disable Valgrind annotations])
+fi
+
 dnl Checks for programs
 AC_PROG_CC
 
@@ -16,10 +23,10 @@ AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
     AC_MSG_ERROR([ibv_get_device_list() not found.  libmthca requires libibverbs.]))
 
 dnl Checks for header files.
-AC_CHECK_HEADERS(sysfs/libsysfs.h)
 AC_CHECK_HEADER(infiniband/driver.h, [],
     AC_MSG_ERROR([<infiniband/driver.h> not found.  libmthca requires libibverbs.]))
 AC_HEADER_STDC
+AC_CHECK_HEADERS(sysfs/libsysfs.h valgrind/memcheck.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST

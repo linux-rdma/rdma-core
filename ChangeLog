@@ -1,3 +1,20 @@
+2006-10-03  Roland Dreier  <rdreier@cisco.com>
+
+	* src/cq.c (mthca_poll_one): Annotate so that Valgrind knows
+	contents of CQ entry are all valid after they are written by HCA.
+	(set_cqe_hw): Annotate so that CQ entries owned by hardware are
+	not defined.
+
+	* src/mthca.h: Add wrapper for VALGRIND_MAKE_MEM_DEFINED so that
+	it can be used in .c files without worrying about whether Valgrind
+	is installed or enabled.
+
+	* configure.in: Add support for Valgrind annotation (enabled with
+	--with-valgrind option to configure).
+
+	* src/verbs.c (mthca_create_qp): Set reserved fields to 0 to avoid
+	future problems and also to make Valgrind a little quieter.
+
 2006-09-04  Roland Dreier  <rdreier@cisco.com>
 
 	* src/verbs.c (mthca_destroy_qp): Avoid potential AB-BA deadlock
