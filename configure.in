@@ -9,6 +9,13 @@ AM_INIT_AUTOMAKE(libibverbs, 1.1-pre1)
 
 AM_PROG_LIBTOOL
 
+AC_ARG_WITH([valgrind],
+    AC_HELP_STRING([--with-valgrind],
+        [Enable Valgrind annotations (small runtime overhead, default NO)]))
+if test "x$with_valgrind" != "xyes"; then
+    AC_DEFINE([NVALGRIND], 1, [disable Valgrind annotations])
+fi
+
 dnl Checks for programs
 AC_PROG_CC
 
@@ -20,6 +27,7 @@ AC_CHECK_LIB(pthread, pthread_mutex_init, [],
 
 dnl Checks for header files.
 AC_HEADER_STDC
+AC_CHECK_HEADERS(valgrind/memcheck.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST

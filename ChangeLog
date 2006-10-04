@@ -1,5 +1,27 @@
 2006-10-03  Roland Dreier  <rdreier@cisco.com>
 
+	* src/cmd.c (ibv_cmd_get_context_v2, ibv_cmd_get_context)
+	(ibv_cmd_query_device, ibv_cmd_query_port, ibv_cmd_alloc_pd)
+	(ibv_cmd_reg_mr, ibv_cmd_create_cq_v2, ibv_cmd_create_cq)
+	(ibv_cmd_poll_cq, ibv_cmd_resize_cq, ibv_cmd_destroy_cq)
+	(ibv_cmd_create_srq, ibv_cmd_create_qp, ibv_cmd_post_send)
+	(ibv_cmd_post_recv, ibv_cmd_post_srq_recv, ibv_cmd_create_ah)
+	(ibv_cmd_destroy_qp): Annotate so that Valgrind knows responses
+	are defined after write() succeeds.  The kernel writes into the
+	response structure directly, so without these, Valgrind thinks
+	that response structures are undefined memory.
+
+	* src/ibverbs.h: Add wrapper for VALGRIND_MAKE_MEM_DEFINED so that
+	it can be used in .c files without worrying about whether Valgrind
+	is installed or enabled.
+
+	* configure.in: Add support for Valgrind annotation (enabled with
+	--with-valgrind option to configure).
+
+	* src/cmd.c (ibv_cmd_query_port, ibv_cmd_create_cq,
+	ibv_cmd_modify_qp): Set reserved fields to 0 to avoid future
+	problems and also to make Valgrind a little quieter.
+
 	* src/init.c (init_drivers): Set node_type and transport_type
 	values of device being created.
 
