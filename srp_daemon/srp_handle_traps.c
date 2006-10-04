@@ -109,7 +109,7 @@ static int modify_qp_to_rts(struct ibv_qp *qp)
 
 	rc = ibv_modify_qp(qp, &attr, flags);
 	if (rc) {
-		fprintf(stderr, "failed to modify QP state to INIT\n");
+		pr_err("failed to modify QP state to INIT\n");
 		return rc;
 	}
 
@@ -122,7 +122,7 @@ static int modify_qp_to_rts(struct ibv_qp *qp)
 
 	rc = ibv_modify_qp(qp, &attr, flags);
 	if (rc) {
-		fprintf(stderr, "failed to modify QP state to RTR\n");
+		pr_err("failed to modify QP state to RTR\n");
 		return rc;
 	}
 
@@ -136,7 +136,7 @@ static int modify_qp_to_rts(struct ibv_qp *qp)
 
 	rc = ibv_modify_qp(qp, &attr, flags);
 	if (rc) {
-		fprintf(stderr, "failed to modify QP state to RTS\n");
+		pr_err("failed to modify QP state to RTS\n");
 		return rc;
 	}
 	
@@ -173,7 +173,7 @@ static int fill_rq_entry(struct ud_resources *res, int cur_receive)
 	
 	ret = ibv_post_recv(res->qp, &rr, bad_wr);
 	if (ret < 0) {
-		fprintf(stderr, "failed to post RR\n");
+		pr_err("failed to post RR\n");
 		return ret;
 	}
 	return 0;
@@ -190,7 +190,7 @@ static int fill_rq(struct ud_resources *res)
 	for (cur_receive=0; cur_receive<config->num_of_oust; ++cur_receive) {	
 		ret = fill_rq_entry(res, cur_receive);
 		if (ret < 0) {
-			fprintf(stderr, "failed to fill_rq_entry\n");
+			pr_err("failed to fill_rq_entry\n");
 			return ret;
 		}
 	}
@@ -212,7 +212,7 @@ int ud_resources_create(struct ud_resources *res)
 	/* get device names in the system */
 	res->dev_list = ibv_get_device_list(&num_devices);
 	if (!res->dev_list) {
-		fprintf(stderr, "failed to get IB devices list\n");
+		pr_err("failed to get IB devices list\n");
 		return -1;
 	}
 
@@ -224,7 +224,7 @@ int ud_resources_create(struct ud_resources *res)
 	}
 	
 	if (!ib_dev) {
-		fprintf(stderr, "IB device %s wasn't found\n", config->dev_name);
+		pr_err("IB device %s wasn't found\n", config->dev_name);
 		return -ENXIO;
 	}
 	
@@ -233,39 +233,39 @@ int ud_resources_create(struct ud_resources *res)
 	/* get device handle */
 	res->ib_ctx = ibv_open_device(ib_dev);
 	if (!res->ib_ctx) {
-		fprintf(stderr, "failed to open device %s\n", config->dev_name);
+		pr_err("failed to open device %s\n", config->dev_name);
 		return -ENXIO;
 	}
 
 	res->channel = ibv_create_comp_channel(res->ib_ctx);
 	if (!res->channel) {
-		fprintf(stderr, "failed to create completion channel \n");
+		pr_err("failed to create completion channel \n");
 		return -ENXIO;
 	}
 	
 	res->pd = ibv_alloc_pd(res->ib_ctx);
 	if (!res->pd) {
-		fprintf(stderr, "ibv_alloc_pd failed\n");
+		pr_err("ibv_alloc_pd failed\n");
 		return -1;
 	}
 
 	cq_size = config->num_of_oust;
 	res->recv_cq = ibv_create_cq(res->ib_ctx, cq_size, NULL, res->channel, 0);
 	if (!res->recv_cq) {
-		fprintf(stderr, "failed to create CQ with %u entries\n", cq_size);
+		pr_err("failed to create CQ with %u entries\n", cq_size);
 		return -1;
 	}
        	pr_debug("CQ was created with %u CQEs\n", cq_size);
 
 	if (ibv_req_notify_cq(res->recv_cq, 0)) {
-		fprintf(stderr, "Couldn't request CQ notification\n");
+		pr_err("Couldn't request CQ notification\n");
 		return -1;
 	}
 	
 
 	res->send_cq = ibv_create_cq(res->ib_ctx, 1, NULL, NULL, 0);
 	if (!res->send_cq) {
-		fprintf(stderr, "failed to create CQ with %u entries\n", cq_size);
+		pr_err("failed to create CQ with %u entries\n", cq_size);
 		return -1;
 	}
 	pr_debug("CQ was created with %u CQEs\n", 1);
@@ -273,7 +273,7 @@ int ud_resources_create(struct ud_resources *res)
 	size = cq_size * RECV_BUF_SIZE + SEND_SIZE;
 	res->recv_buf = (void *) malloc(size);
 	if (!res->recv_buf) {
-		fprintf(stderr, "failed to malloc %Zu bytes to memory buffer\n", size);
+		pr_err("failed to malloc %Zu bytes to memory buffer\n", size);
 		return -ENOMEM;
 	}
 
@@ -283,7 +283,7 @@ int ud_resources_create(struct ud_resources *res)
 
 	res->mr = ibv_reg_mr(res->pd, res->recv_buf, size, IBV_ACCESS_LOCAL_WRITE);
 	if (!res->mr) {
-		fprintf(stderr, "ibv_reg_mr failed\n");
+		pr_err("ibv_reg_mr failed\n");
 		return -1;
 	}
 	pr_debug("MR was created with addr=%p, lkey=0x%x,\n", res->recv_buf, res->mr->lkey);
@@ -304,7 +304,7 @@ int ud_resources_create(struct ud_resources *res)
 
 		res->qp = ibv_create_qp(res->pd, &attr);
 		if (!res->qp) {
-			fprintf(stderr, "failed to create QP\n");
+			pr_err("failed to create QP\n");
 			return -1;
 		}
 		pr_debug("QP was created, QP number=0x%x\n", res->qp->qp_num);
@@ -312,7 +312,7 @@ int ud_resources_create(struct ud_resources *res)
 	
 	/* modify the QP to RTS (connect the QPs) */
 	if (modify_qp_to_rts(res->qp)) {
-		fprintf(stderr, "failed to modify QP state from RESET to RTS\n");
+		pr_err("failed to modify QP state from RESET to RTS\n");
 		return -1;
 	}
 	
@@ -323,18 +323,18 @@ int ud_resources_create(struct ud_resources *res)
 
 	res->mad_buffer = malloc(sizeof(ib_sa_mad_t));
 	if (!res->mad_buffer) {
-		fprintf(stderr, "Could not alloc mad_buffer, abort\n");
+		pr_err("Could not alloc mad_buffer, abort\n");
 		return -1;
 	}
 
 	res->mad_buffer_mutex = malloc(sizeof(pthread_mutex_t));
 	if (!res->mad_buffer_mutex) {
-		fprintf(stderr, "Could not alloc mad_buffer_mutex, abort\n");
+		pr_err("Could not alloc mad_buffer_mutex, abort\n");
 		return -1;
 	}
 
 	if (pthread_mutex_init(res->mad_buffer_mutex, NULL)) {
-		fprintf(stderr, "Could not init mad_buffer_mutex, abort\n");
+		pr_err("Could not init mad_buffer_mutex, abort\n");
 		return -1;
 	}
 			
@@ -349,7 +349,7 @@ int create_ah(struct ud_resources *ud_res)
 	memset(&ah_attr, 0, sizeof(ah_attr));
 
 	if (ibv_query_port(ud_res->ib_ctx, config->port_num, &ud_res->port_attr)) {
-		fprintf(stderr, "ibv_query_port on port %u failed\n", config->port_num);
+		pr_err("ibv_query_port on port %u failed\n", config->port_num);
 		return -1;
 	}
 
@@ -358,7 +358,7 @@ int create_ah(struct ud_resources *ud_res)
 
 	ud_res->ah = ibv_create_ah(ud_res->pd, &ah_attr);
 	if (!ud_res->ah) {
-		fprintf(stderr, "failed to create UD AV\n");
+		pr_err("failed to create UD AV\n");
 		return -1;
 	}
 
@@ -374,56 +374,56 @@ int ud_resources_destroy(struct ud_resources *res)
 	
 	if (res->qp) {
 		if (ibv_destroy_qp(res->qp)) {
-			fprintf(stderr, "failed to destroy QP\n");
+			pr_err("failed to destroy QP\n");
 			test_result = 1;
 		}
 	}
 	
 	if (res->mr) {
 		if (ibv_dereg_mr(res->mr)) {
-			fprintf(stderr, "ibv_dereg_mr failed\n");
+			pr_err("ibv_dereg_mr failed\n");
 			test_result = 1;
 		}
 	}
 	
 	if (res->send_cq) {
 		if (ibv_destroy_cq(res->send_cq)) {
-			fprintf(stderr, "ibv_destroy_cq of CQ failed\n");
+			pr_err("ibv_destroy_cq of CQ failed\n");
 			test_result = 1;
 		}
 	}
 	
 	if (res->recv_cq) {
 		if (ibv_destroy_cq(res->recv_cq)) {
-			fprintf(stderr, "ibv_destroy_cq of CQ failed\n");
+			pr_err("ibv_destroy_cq of CQ failed\n");
 			test_result = 1;
 		}
 	}
 
 	if (res->channel) {
 		if (ibv_destroy_comp_channel(res->channel)) {
-			fprintf(stderr, "ibv_destroy_comp_channel failed\n");
+			pr_err("ibv_destroy_comp_channel failed\n");
 			test_result = 1;
 		}
 	}
 
 	if (res->ah) {
 		if (ibv_destroy_ah(res->ah)) {
-			fprintf(stderr, "ibv_destroy_ah failed\n");
+			pr_err("ibv_destroy_ah failed\n");
 			test_result = 1;
 		}
 	}
 	
 	if (res->pd) {
 		if (ibv_dealloc_pd(res->pd)) {
-			fprintf(stderr, "ibv_dealloc_pd failed\n");
+			pr_err("ibv_dealloc_pd failed\n");
 			test_result = 1;
 		}
 	}
 	
 	if (res->ib_ctx) {
 		if (ibv_close_device(res->ib_ctx)) {
-			fprintf(stderr, "ibv_close_device failed\n");
+			pr_err("ibv_close_device failed\n");
 			test_result = 1;
 		}
 	}
@@ -473,7 +473,7 @@ static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel
 
 	if (channel) {
 		if (ibv_get_cq_event(channel, &ev_cq, &ev_ctx)) {
-			fprintf(stderr, "Failed to get cq_event\n");
+			pr_err("Failed to get cq_event\n");
 			return -1;
 		}
 
@@ -485,7 +485,7 @@ static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel
 		}
 
 		if (ibv_req_notify_cq(cq, 0)) {
-			fprintf(stderr, "Couldn't request CQ notification\n");
+			pr_err("Couldn't request CQ notification\n");
 			return -1;
 		}
 
@@ -494,17 +494,17 @@ static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel
 	do {
 		ret = ibv_poll_cq(cq, 1, wc);
 		if (ret < 0) {
-			fprintf(stderr, "poll CQ failed\n");
+			pr_err("poll CQ failed\n");
 			return ret;
 		}
 
 		if (ret > 0 && wc->status != IBV_WC_SUCCESS) {
-			fprintf(stderr, "got bad completion with status: 0x%x\n", wc->status);
+			pr_err("got bad completion with status: 0x%x\n", wc->status);
 			return -ret;
 		}
 
 		if (ret == 0 && channel) {
-			fprintf(stderr, "Weird poll returned no cqe after CQ event\n");
+			pr_err("Weird poll returned no cqe after CQ event\n");
 			return -1;
 		}
 	} while (ret == 0);
@@ -562,7 +562,7 @@ static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num
 
 		ret = ibv_post_send(res->qp, &sr, bad_wr);
 		if (ret) {
-			fprintf(stderr, "failed to post SR\n");
+			pr_err("failed to post SR\n");
 			return ret;
 		}
 			
@@ -588,7 +588,7 @@ static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num
 	} while (rc == 0 && ++counter < 3);
 
 	if (counter==3) {
-		fprintf(stderr, "No response to inform info registration\n");
+		pr_err("No response to inform info registration\n");
 		return -EAGAIN;
 	}
 
@@ -618,7 +618,7 @@ static int response_to_trap(struct ud_resources *res, ib_sa_mad_t *mad_buffer)
 	fill_send_request(res, &sr, &sg, (ib_mad_t *) response_buffer);
 	ret = ibv_post_send(res->qp, &sr, bad_wr);
 	if (ret < 0) {
-		fprintf(stderr, "failed to post response\n");
+		pr_err("failed to post response\n");
 		return ret;
 	}
 	ret = poll_cq(res->send_cq, &wc, NULL);
@@ -671,7 +671,7 @@ static int get_trap_notices(struct resources *res)
 				if (ntohl(notice_buffer->data_details.ntc_144.new_cap_mask) & SRP_IS_DM)
 					push_lid_to_list(res->sync_res, ntohs(notice_buffer->data_details.ntc_144.lid));
 			} else {
-				fprintf(stderr, "Unhandled trap_num %d\n", trap_num);
+				pr_err("Unhandled trap_num %d\n", trap_num);
 			}
 		}
 
@@ -746,7 +746,7 @@ void *run_thread_listen_to_events(void *res_in)
 		if (ibv_get_async_event(res->ud_res->ib_ctx, &event)) {
 			if (errno == EINTR)
 				continue;
-			fprintf(stderr, "ibv_get_async_event failed\n");
+			pr_err("ibv_get_async_event failed\n");
 			exit(-errno);
 		}
 
@@ -771,7 +771,7 @@ void *run_thread_listen_to_events(void *res_in)
 		case IBV_EVENT_CQ_ERR:
 		case IBV_EVENT_QP_FATAL:
 		  /* clean and restart */
-			fprintf(stderr, "Critical event, ending\n");
+			pr_err("Critical event, ending\n");
 			exit(EAGAIN);
 	  
 

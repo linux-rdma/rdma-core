@@ -51,12 +51,12 @@ int sync_resources_init(struct sync_resources *res)
 	res->next_task = 0;
 	ret = pthread_mutex_init(&res->mutex, NULL);
 	if (ret < 0) {
-		fprintf(stderr, "coult not initilize mutex\n");
+		pr_err("coult not initilize mutex\n");
 		return ret;
 	}
 	ret = pthread_cond_init(&res->cond, NULL);
 	if (ret < 0)
-		fprintf(stderr, "coult not initilize cond\n");
+		pr_err("coult not initilize cond\n");
 
 	return ret;
 }
