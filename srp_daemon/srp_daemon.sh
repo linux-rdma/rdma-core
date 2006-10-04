@@ -97,7 +97,7 @@ for hca_id in `/bin/ls -1 ${ibdir}`
 do
     for port in `/bin/ls -1 ${ibdir}/${hca_id}/ports/`
     do
-        ${prog} -e -c -i ${hca_id} -p ${port} -R ${retries} &
+        ${prog} -e -c -n -i -${hca_id} -p ${port} -R ${retries} &
         pids="$pids $!"
     done
 done
