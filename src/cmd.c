@@ -230,11 +230,11 @@ int ibv_cmd_dealloc_pd(struct ibv_pd *pd)
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, enum ibv_access_flags access,
 		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
-		   size_t cmd_size)
+		   size_t cmd_size,
+		   struct ibv_reg_mr_resp *resp, size_t resp_size)
 {
-	struct ibv_reg_mr_resp resp;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, REG_MR, &resp, sizeof resp);
+	IBV_INIT_CMD_RESP(cmd, cmd_size, REG_MR, resp, resp_size);
 
 	cmd->start 	  = (uintptr_t) addr;
 	cmd->length 	  = length;
@@ -247,9 +247,9 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
-	mr->handle  = resp.mr_handle;
-	mr->lkey    = resp.lkey;
-	mr->rkey    = resp.rkey;
+	mr->handle  = resp->mr_handle;
+	mr->lkey    = resp->lkey;
+	mr->rkey    = resp->rkey;
 
 	return 0;
 }

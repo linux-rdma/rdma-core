@@ -80,10 +80,12 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
 		     struct ibv_alloc_pd_resp *resp, size_t resp_size);
 int ibv_cmd_dealloc_pd(struct ibv_pd *pd);
+#define IBV_CMD_REG_MR_HAS_RESP_PARAMS
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, enum ibv_access_flags access,
 		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
-		   size_t cmd_size);
+		   size_t cmd_size,
+		   struct ibv_reg_mr_resp *resp, size_t resp_size);
 int ibv_cmd_dereg_mr(struct ibv_mr *mr);
 int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_comp_channel *channel,
