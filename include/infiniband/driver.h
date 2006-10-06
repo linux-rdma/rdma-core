@@ -93,7 +93,10 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_create_cq *cmd, size_t cmd_size,
 		      struct ibv_create_cq_resp *resp, size_t resp_size);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
-int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
+#define IBV_CMD_REQ_NOTIFY_HAS_CMD_PARAMS
+int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only,
+			  struct ibv_req_notify_cq *cmd, size_t cmd_size);
+
 #define IBV_CMD_RESIZE_CQ_HAS_RESP_PARAMS
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 		      struct ibv_resize_cq *cmd, size_t cmd_size,
