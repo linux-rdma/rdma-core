@@ -9,7 +9,9 @@
 	(ibv_cmd_destroy_qp): Annotate so that Valgrind knows responses
 	are defined after write() succeeds.  The kernel writes into the
 	response structure directly, so without these, Valgrind thinks
-	that response structures are undefined memory.
+	that response structures are undefined memory.  This is based on
+	patches and suggestions by Rainer Keller <keller@hlrs.de>, Jeff
+	Squyres <jsquyres@cisco.com> and Siqing Fan.
 
 	* src/ibverbs.h: Add wrapper for VALGRIND_MAKE_MEM_DEFINED so that
 	it can be used in .c files without worrying about whether Valgrind
