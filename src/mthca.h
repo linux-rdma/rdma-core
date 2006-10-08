@@ -45,14 +45,18 @@
 
 #  include <valgrind/memcheck.h>
 
-#  ifndef VALGRIND_MAKE_MEM_DEFINED
-#    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_DEFINED not available"
+#  if !defined(VALGRIND_MAKE_MEM_DEFINED) || !defined(VALGRIND_MAKE_MEM_UNDEFINED)
+#    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_(UN)DEFINED not available"
 #  endif
 
 #endif /* HAVE_VALGRIND_MEMCHECK_H */
 
 #ifndef VALGRIND_MAKE_MEM_DEFINED
 #  define VALGRIND_MAKE_MEM_DEFINED(addr,len)
+#endif
+
+#ifndef VALGRIND_MAKE_MEM_UNDEFINED
+#  define VALGRIND_MAKE_MEM_UNDEFINED(addr,len)
 #endif
 
 #define HIDDEN		__attribute__((visibility ("hidden")))
