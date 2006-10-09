@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -107,7 +107,7 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 		return 0;
 
 	case IB_DEST_GUID:
-		if (!(guid = strtoll(addr_str, 0, 0)))
+		if (!(guid = strtoull(addr_str, 0, 0)))
 			return -1;
 
 		/* keep guid in portid? */
