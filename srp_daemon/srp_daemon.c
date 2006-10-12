@@ -78,7 +78,7 @@ static char *sysfs_path = "/sys";
 
 static void usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vVceo] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timoeout (ms)>] [-r <retries>] [-R <Rescan time>]\n", argv0);
+	fprintf(stderr, "Usage: %s [-vVcaeon] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timoeout (ms)>] [-r <retries>] [-R <Rescan time>]\n", argv0);
 	fprintf(stderr, "-v 			Verbose\n");
 	fprintf(stderr, "-V 			debug Verbose\n");
 	fprintf(stderr, "-c 			prints connection Commands\n");
@@ -91,8 +91,8 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-R <Rescan time>	perform complete Rescan every <Rescan time> seconds\n");
 	fprintf(stderr, "-t <timoeout>		Timeout for mad response in milisec \n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
-	fprintf(stderr, "-n 			New print - prints also initiator extention\n");
-	fprintf(stderr, "\nExample: srp_daemon -e -i mthca0 -p 1 -R 60\n");
+	fprintf(stderr, "-n 			New connection command format - use also initiator extention\n");
+	fprintf(stderr, "\nExample: srp_daemon -e -n -i mthca0 -p 1 -R 60\n");
 }
 
 static int 

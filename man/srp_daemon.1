@@ -4,7 +4,7 @@
 srp_daemon \- Discovers SRP targets in an InfiniBand Fabric
 
 .SH SYNOPSIS
-.B srp_daemon [-vVceo] [-d \fIumad-device\fR | -i \fIinfiniband-device\fR [-p \fIport-num\fR]] [-t \fItimoeout(ms)\fR] [-r \fIretries\fR] [-R \fIRescan-time\fR]
+.B srp_daemon [-vVcaeon] [-d \fIumad-device\fR | -i \fIinfiniband-device\fR [-p \fIport-num\fR]] [-t \fItimoeout(ms)\fR] [-r \fIretries\fR] [-R \fIRescan-time\fR]
 
 
 .SH DESCRIPTION
@@ -57,6 +57,9 @@ Use timeout of \fItimoeout\fR msec for MAD responses (default: 5 sec).
 .TP
 \fB\-r\fR \fIretries\fR
 Perform \fIretries\fR retries on each send to MAD (default: 3 retries).
+.TP
+\fB\-n\fR
+New format - use also initiator_ext in the connection command.
 
 .SH EXAMPLES
 srp_daemon -e -i mthca0 -p 1 -R 60 (Connects to the targets accessible through port 1 of mthca0. Performs a complete rescan every minute)
