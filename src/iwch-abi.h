@@ -47,13 +47,21 @@ struct iwch_create_cq {
 	struct ibv_create_cq ibv_cmd;
 };
 
+struct iwch_reg_mr_resp {
+	struct ibv_reg_mr_resp ibv_resp;
+	__u32 pbl_addr;
+};
 
 struct iwch_create_cq_resp {
 	struct ibv_create_cq_resp ibv_resp;
+	__u64 physaddr;
 	__u32 cqid;
-	__u32 entries;
-	__u64 physaddr;		/* library mmaps this to get addressability */
-	__u64 queue;
+	__u32 size_log2;
+};
+
+struct iwch_req_notify_cq {
+	struct ibv_req_notify_cq ibv_cmd;
+	__u32 rptr;
 };
 
 struct iwch_create_qp {
@@ -62,19 +70,11 @@ struct iwch_create_qp {
 
 struct iwch_create_qp_resp {
 	struct ibv_create_qp_resp ibv_resp;
+	__u64 physaddr;
+	__u64 doorbell;
 	__u32 qpid;
-	__u32 entries;		/* actual number of entries after creation */
-	__u64 physaddr;		/* library mmaps this to get addressability */
-	__u64 physsize;		/* library mmaps this to get addressability */
-	__u64 queue;
+	__u32 size_log2;
+	__u32 sq_size_log2;
+	__u32 rq_size_log2;
 };
-
-
-struct t3_cqe {
-	__u32 header:32;
-	__u32 len:32;
-	__u32 wrid_hi_stag:32;
-	__u32 wrid_low_msn:32;
-};
-
 #endif				/* IWCH_ABI_H */

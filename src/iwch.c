@@ -87,7 +87,6 @@ static struct ibv_context_ops iwch_ctx_ops = {
 	.dereg_mr = iwch_dereg_mr,
 	.create_cq = iwch_create_cq,
 	.resize_cq = iwch_resize_cq,
-	.poll_cq = iwch_poll_cq,
 	.destroy_cq = iwch_destroy_cq,
 	.create_srq = iwch_create_srq,
 	.modify_srq = iwch_modify_srq,
@@ -98,7 +97,9 @@ static struct ibv_context_ops iwch_ctx_ops = {
 	.create_ah = iwch_create_ah,
 	.destroy_ah = iwch_destroy_ah,
 	.attach_mcast = iwch_attach_mcast,
-	.detach_mcast = iwch_detach_mcast
+	.detach_mcast = iwch_detach_mcast,
+	.post_srq_recv = iwch_post_srq_recv,
+	.req_notify_cq = iwch_arm_cq,
 };
 
 static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
@@ -107,6 +108,7 @@ static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 	struct iwch_context *context;
 	struct ibv_get_context cmd;
 	struct iwch_alloc_ucontext_resp resp;
+	struct iwch_device *rhp = to_iwch_dev(ibdev);
 
 	context = malloc(sizeof *context);
 	if (!context)
@@ -120,13 +122,30 @@ static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 
 	context->ibv_ctx.device = ibdev;
 	context->ibv_ctx.ops = iwch_ctx_ops;
-	context->ibv_ctx.ops.req_notify_cq = iwch_arm_cq;
-	context->ibv_ctx.ops.cq_event = NULL;
-	context->ibv_ctx.ops.post_send = iwch_post_send;
-	context->ibv_ctx.ops.post_recv = iwch_post_recv;
-	context->ibv_ctx.ops.post_srq_recv = iwch_post_srq_recv;
+
+	switch (rhp->hw_rev) {
+	case T3B:
+		PDBG("%s T3B device\n", __FUNCTION__);
+		context->ibv_ctx.ops.async_event = t3b_async_event;
+		context->ibv_ctx.ops.post_send = t3b_post_send;
+		context->ibv_ctx.ops.post_recv = t3b_post_recv;
+		context->ibv_ctx.ops.poll_cq = t3b_poll_cq;
+		break;
+	case T3A:
+		PDBG("%s T3A device\n", __FUNCTION__);
+		context->ibv_ctx.ops.async_event = NULL;
+		context->ibv_ctx.ops.post_send = t3a_post_send;
+		context->ibv_ctx.ops.post_recv = t3a_post_recv;
+		context->ibv_ctx.ops.poll_cq = t3a_poll_cq;
+		break;
+	default:
+		PDBG("%s unknown HW rev %d\n", __FUNCTION__, rhp->hw_rev);
+		goto err_free;
+		break;
+	}	
 
 	return &context->ibv_ctx;
+
 err_free:
 	free(context);
 	return NULL;
@@ -147,9 +166,10 @@ static struct ibv_device_ops iwch_dev_ops = {
 struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
 				   int abi_version)
 {
-	char value[8];
+	char value[16];
+	char s[32];
 	struct iwch_device *dev;
-	unsigned vendor, device;
+	unsigned vendor, device, hw_rev;
 	int i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
@@ -170,16 +190,56 @@ struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
 	return NULL;
 
 found:
+	DBGLOG("libcxgb3");
+
+	PDBG("%s found vendor %d device %d\n", __FUNCTION__, vendor, device);
+	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev", 
+				value, sizeof value) < 0)
+		return NULL;
+	PDBG("%s ibdev %s\n", __FUNCTION__, value);
+
+	sprintf(s, "device/infiniband:%s/hw_rev", value);
+
+	if (ibv_read_sysfs_file(uverbs_sys_path, s, value, sizeof value) < 0)
+		return NULL;
+
+	sscanf(value, "%i", &hw_rev);
+
+	PDBG("%s device hw_rev %d\n", __FUNCTION__, hw_rev);
+
 	dev = malloc(sizeof *dev);
 	if (!dev) {
 		return NULL;
 	}
 
+	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
+	dev->hw_rev = hw_rev;
 	dev->ibv_dev.ops = iwch_dev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
+
+	dev->stag2hlp = calloc(16384, sizeof(void *)); /* XXX get dev attrs */
+	if (!dev->stag2hlp) {
+		goto err1;
+	}
+	dev->qpid2hlp = calloc(65536, sizeof(void *)); /* XXX get dev attrs */
+	if (!dev->qpid2hlp) {
+		goto err2;
+	}
+	dev->cqid2hlp = calloc(65536, sizeof(void *)); /* XXX get dev attrs */
+	if (!dev->cqid2hlp) 
+		goto err3;
+
 	return &dev->ibv_dev;
+
+err3:
+	free(dev->qpid2hlp);
+err2:
+	free(dev->stag2hlp);
+err1:
+	free(dev);
+	return NULL;
 }
 
 #ifdef HAVE_SYSFS_LIBSYSFS_H
