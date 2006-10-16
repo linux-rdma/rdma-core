@@ -1,11 +1,18 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(libibmad, 1.0, openib-general@openib.org)
+AC_INIT(libibmad, 1.0.0, openib-general@openib.org)
 AC_CONFIG_SRCDIR([src/sa.c])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libibmad, 1.0)
+AM_INIT_AUTOMAKE
+
+dnl the library version info is available in the file: libibmad.ver
+ibmad_api_version=`grep LIBVERSION $srcdir/libibmad.ver | sed 's/LIBVERSION=//'`
+if test -z $ibmad_api_version; then
+   ibmad_api_version=1:0:0
+fi
+AC_SUBST(ibmad_api_version)
 
 AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
 [       if test x$enableval = xno ; then
