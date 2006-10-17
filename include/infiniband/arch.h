@@ -54,41 +54,65 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
  *
  * mb() - memory barrier.  No loads or stores may be reordered across
  *     this macro by either the compiler or the CPU.
+ * rmb() - read memory barrier.  No loads may be reordered across this
+ *     macro by either the compiler or the CPU.
+ * wmb() - write memory barrier.  No stores may be reordered across
+ *     this macro by either the compiler or the CPU.
  */
 
 #if defined(__i386__)
 
-#define mb()	asm volatile("" ::: "memory")
+#define mb()	asm volatile("lock; addl $0,0(%%esp) " ::: "memory")
+#define rmb()	mb()
+#define wmb()	asm volatile("" ::: "memory")
 
 #elif defined(__x86_64__)
 
-#define mb()	asm volatile("" ::: "memory")
+/*
+ * Only use lfence for mb() and rmb() because we don't care about
+ * ordering against non-temporal stores (for now at least).
+ */
+#define mb()	asm volatile("lfence" ::: "memory")
+#define rmb()	mb()
+#define wmb()	asm volatile("" ::: "memory")
 
 #elif defined(__PPC64__)
 
 #define mb()	asm volatile("sync" ::: "memory")
+#define rmb()	asm volatile("lwsync" ::: "memory")
+#define wmb()	mb()
 
 #elif defined(__ia64__)
 
 #define mb()	asm volatile("mf" ::: "memory")
+#define rmb()	mb()
+#define wmb()	mb()
 
 #elif defined(__PPC__)
 
 #define mb()	asm volatile("sync" ::: "memory")
+#define rmb()	mb()
+#define wmb()	asm volatile("eieio" ::: "memory")
 
 #elif defined(__sparc_v9__)
 
 #define mb()	asm volatile("membar #LoadLoad | #LoadStore | #StoreStore | #StoreLoad" ::: "memory")
+#define rmb()	asm volatile("membar #LoadLoad" ::: "memory")
+#define wmb()	asm volatile("membar #StoreStore" ::: "memory")
 
 #elif defined(__sparc__)
 
 #define mb()	asm volatile("" ::: "memory")
+#define rmb()	mb()
+#define wmb()	mb()
 
 #else
 
 #warning No architecture specific defines found.  Using generic implementation.
 
 #define mb()	asm volatile("" ::: "memory")
+#define rmb()	mb()
+#define wmb()	mb()
 
 #endif
 
