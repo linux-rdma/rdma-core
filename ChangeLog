@@ -1,3 +1,13 @@
+2006-10-17  Roland Dreier  <rdreier@cisco.com>
+
+	* src/cq.c, src/qp.c, src/srq.c: Convert existing uses of mb() to
+	rmb() or wmb() as appropriate.  In fact all memory barriers were
+	really just wmb(), except for the barrier between reading a CQE's
+	ownership bit and contents, which should be rmb().
+
+	* src/mthca.h: Add compatibility defines of rmb()/wmb() so that
+	libmthca continues to build against old libibverbs releases.
+
 2006-10-03  Roland Dreier  <rdreier@cisco.com>
 
 	* src/cq.c (mthca_poll_one): Annotate so that Valgrind knows

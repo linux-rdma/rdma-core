@@ -59,6 +59,14 @@
 #  define VALGRIND_MAKE_MEM_UNDEFINED(addr,len)
 #endif
 
+#ifndef rmb
+#  define rmb() mb()
+#endif
+
+#ifndef wmb
+#  define wmb() mb()
+#endif
+
 #define HIDDEN		__attribute__((visibility ("hidden")))
 
 #define PFX		"mthca: "

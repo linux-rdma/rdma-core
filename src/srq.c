@@ -150,7 +150,7 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 
 		((struct mthca_next_seg *) prev_wqe)->nda_op =
 			htonl((ind << srq->wqe_shift) | 1);
-		mb();
+		wmb();
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD);
 
@@ -167,7 +167,7 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 			 * Make sure that descriptors are written
 			 * before doorbell is rung.
 			 */
-			mb();
+			wmb();
 
 			mthca_write64(doorbell, to_mctx(ibsrq->context), MTHCA_RECV_DOORBELL);
 
@@ -183,7 +183,7 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 		 * Make sure that descriptors are written before
 		 * doorbell is rung.
 		 */
-		mb();
+		wmb();
 
 		mthca_write64(doorbell, to_mctx(ibsrq->context), MTHCA_RECV_DOORBELL);
 	}
@@ -264,7 +264,7 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 		 * Make sure that descriptors are written before
 		 * we write doorbell record.
 		 */
-		mb();
+		wmb();
 		*srq->db = htonl(srq->counter);
 	}
 
