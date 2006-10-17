@@ -12,8 +12,14 @@ AM_PROG_LIBTOOL
 AC_ARG_WITH([valgrind],
     AC_HELP_STRING([--with-valgrind],
         [Enable Valgrind annotations (small runtime overhead, default NO)]))
-if test x$with_valgrind != xyes; then
+if test x$with_valgrind = x || test x$with_valgrind = xno; then
+    want_valgrind=no
     AC_DEFINE([NVALGRIND], 1, [disable Valgrind annotations])
+else
+    want_valgrind=yes
+    if test -d $with_valgrind; then
+        CPPFLAGS="$CPPFLAGS -I$with_valgrind/include"
+    fi
 fi
 
 dnl Checks for programs
@@ -33,8 +39,8 @@ AC_CHECK_HEADER(sysfs/libsysfs.h, [],
 AC_HEADER_STDC
 AC_CHECK_HEADER(valgrind/memcheck.h, memcheck_ok=yes, memcheck_ok=no)
 
-if test x$with_valgrind = xyes && test $memcheck_ok = no; then
-    AC_MSG_WARN([Valgrind memcheck support requested, but <valgrind/memcheck.h> not found.])
+if test $want_valgrind = yes && test $memcheck_ok = no; then
+    AC_MSG_ERROR([Valgrind memcheck support requested, but <valgrind/memcheck.h> not found.])
 fi
 
 dnl Checks for typedefs, structures, and compiler characteristics.
