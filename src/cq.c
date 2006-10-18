@@ -315,6 +315,7 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 
 	wc->wr_id = cookie;
 	wc->qp_num = qhp->wq.qpid;
+	wc->vendor_err = CQE_STATUS(cqe);
 
 	PDBG("%s qpid 0x%x type %d opcode %d status 0x%d wrid hi 0x%x "
 	     "lo %x cookie %llx\n", __FUNCTION__, CQE_QPID(cqe), CQE_TYPE(cqe),
