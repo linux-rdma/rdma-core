@@ -193,8 +193,8 @@ struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 	chp->rhp = dev;
 	chp->cq.cqid = resp.cqid;
 	chp->cq.size_log2 = resp.size_log2;
-	chp->cq.queue = mmap(NULL, t3_cq_memsize(&chp->cq), PROT_READ,
-			 MAP_SHARED, context->cmd_fd, resp.physaddr);
+	chp->cq.queue = mmap(NULL, t3_cq_memsize(&chp->cq), PROT_READ, 
+			     MAP_SHARED, context->cmd_fd, resp.physaddr);
 	if (chp->cq.queue == MAP_FAILED)
 		goto err2;
 
@@ -339,6 +339,10 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (!qhp->wq.rq) 
 		goto err5;
 
+	qhp->wq.sq = calloc(t3_sq_depth(&qhp->wq), sizeof (struct t3_swsq));
+	if (!qhp->wq.sq) 
+		goto err6;
+
 	PDBG("%s dbva %p wqva %p wq memsize %d\n", __FUNCTION__, 
 	     qhp->wq.doorbell, qhp->wq.queue, t3_wq_memsize(&qhp->wq));
 
@@ -347,6 +351,8 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	pthread_spin_unlock(&dev->lock);
 
 	return &qhp->ibv_qp;
+err6:
+	free(qhp->wq.rq);
 err5:
 	munmap((void *)qhp->wq.queue, t3_wq_memsize(&qhp->wq));
 err4:

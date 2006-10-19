@@ -168,6 +168,7 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	__u32 idx;
 	union t3_wr *wqe;
 	__u32 num_wrs;
+	struct t3_swsq *sqp;
 
 	qhp = to_iwch_qp(ibqp);
 	pthread_spin_lock(&qhp->lock);
@@ -197,6 +198,8 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			t3_wr_flags |= T3_READ_FENCE_FLAG;
 		if (wr->send_flags & IBV_SEND_SIGNALED)
 			t3_wr_flags |= T3_COMPLETION_FLAG;
+		sqp = qhp->wq.sq + 
+		      Q_PTR2IDX(qhp->wq.sq_wptr, qhp->wq.sq_size_log2);
 		switch (wr->opcode) {
 		case IBV_WR_SEND:
 		case IBV_WR_SEND_WITH_IMM:
@@ -215,6 +218,9 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			t3_wr_opcode = T3_WR_READ;
 			t3_wr_flags = 0; /* XXX */
 			err = iwch_build_rdma_read(wqe, wr, &t3_wr_flit_cnt);
+			sqp->read_len = wqe->read.local_len;
+			if (!qhp->wq.oldest_read)
+				qhp->wq.oldest_read = sqp;
 			break;
 		default:
 			PDBG("iwch_post_sendq: post of type=0x%0x TBD!\n",
@@ -226,8 +232,12 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			break;
 		}
 		wqe->send.wrid.id0.hi = qhp->wq.sq_wptr;
-		wqe->send.wrid.id0.low = qhp->wq.wptr;
-		wqe->flit[T3_SQ_COOKIE_FLIT] = wr->wr_id;
+		sqp->wr_id = wr->wr_id;
+		sqp->opcode = wr2opcode(t3_wr_opcode);
+		sqp->sq_wptr = qhp->wq.sq_wptr;
+		sqp->complete = 0;
+		sqp->signaled = (wr->send_flags & IBV_SEND_SIGNALED);
+
 		build_fw_riwrh((void *) wqe, t3_wr_opcode, t3_wr_flags,
 			       Q_GENBIT(qhp->wq.wptr, qhp->wq.size_log2),
 			       0, t3_wr_flit_cnt);
@@ -235,11 +245,6 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		     "%x wqe %p opcode %d\n", 
 		     __FUNCTION__, __LINE__, wr->wr_id, idx, 
 		     qhp->wq.sq_wptr, qhp->wq.sq_rptr, wqe, t3_wr_opcode);
-		if (!qhp->wq.sq_oldest_wr) {
-			qhp->wq.sq_oldest_wr = wqe;
-			PDBG("%s %d sq_oldest_wr %p\n", __FUNCTION__, __LINE__,
-				qhp->wq.sq_oldest_wr);
-		}
 		wr = wr->next;
 		num_wrs--;
 		++(qhp->wq.wptr);
@@ -263,7 +268,7 @@ int t3a_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 }
 
 /* 
- * XXX: this is going to be moved to firmware. 
+ * XXX: This is going to be moved to firmware. 
  *      Missing pdid/qpid check for now.
  */
 static inline int iwch_sgl2pbl_map(struct iwch_device *rhp,
@@ -384,29 +389,25 @@ static void flush_rq(struct t3_wq *wq, struct t3_cq *cq, int count)
 	}
 }
 
-static void insert_sq_cqe(struct t3_wq *wq, struct t3_cq *cq, union t3_wr *wr)
+static void insert_sq_cqe(struct t3_wq *wq, struct t3_cq *cq, 
+		          struct t3_swsq *sqp)
 {
 	struct t3_cqe cqe;
-	enum t3_rdma_opcode op;
 
 	PDBG("%s %d wq %p cq %p sw_rptr %x sw_wptr %x\n", __FUNCTION__, 
 	    __LINE__, wq, cq, cq->sw_rptr, cq->sw_wptr);
 	memset(&cqe, 0, sizeof(cqe));
-	op = wr2opcode(G_FW_RIWR_OP(ntohl(wr->send.wrh.op_seop_flags)));
-	if (op == T3_SEND && wr->send.rdmaop == T3_TERMINATE) {
-		op = T3_TERMINATE;
-	}
-	PDBG("%s op %x\n", __FUNCTION__, op);
+	PDBG("%s opcode %d\n", __FUNCTION__, sqp->opcode);
 	cqe.header = V_CQE_STATUS(TPT_ERR_SWFLUSH) | 
-		     V_CQE_OPCODE(op) |
+		     V_CQE_OPCODE(sqp->opcode) |
 		     V_CQE_TYPE(1) |
 		     V_CQE_SWCQE(1) |
 		     V_CQE_QPID(wq->qpid) | 
 		     V_CQE_GENBIT(Q_GENBIT(cq->sw_wptr, cq->size_log2));
 	cqe.header = htonl(cqe.header);
+	CQE_WRID_SQ_WPTR(cqe) = sqp->sq_wptr;
+
 	PDBG("%s header be %x\n", __FUNCTION__, cqe.header);
-	CQE_WRID_SQ_WPTR(cqe) = wr->send.wrid.id0.hi;
-	CQE_WRID_WPTR(cqe) = wr->send.wrid.id0.low;
 	*(cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2)) = cqe;
 	cq->sw_wptr++;
 }
@@ -414,22 +415,14 @@ static void insert_sq_cqe(struct t3_wq *wq, struct t3_cq *cq, union t3_wr *wr)
 static void flush_sq(struct t3_wq *wq, struct t3_cq *cq, int count)
 {
 	__u32 ptr;
-	union t3_wr *wr = wq->sq_oldest_wr;
+	struct t3_swsq *sqp = wq->sq + Q_PTR2IDX(wq->sq_rptr, wq->sq_size_log2);
 
-	PDBG("%s %d wq %p cq %p oldest wr %p\n", __FUNCTION__, __LINE__, 
-	     wq, cq, wr);
-
-	/* flush SQ */
-	PDBG("%s sq_rptr %u sq_wptr %u skip count %u\n", __FUNCTION__, 
-	    wq->sq_rptr, wq->sq_wptr, count);
 	ptr = wq->sq_rptr + count;
-	wr += count;
+	sqp += count;
 	while (ptr != wq->sq_wptr) {
-		PDBG("%s ptr %u wr %p\n", __FUNCTION__, ptr, wr);
-		insert_sq_cqe(wq, cq, wr);
-		wr = next_sq_wr(wq, wr);
+		insert_sq_cqe(wq, cq, sqp);
+		sqp++;
 		ptr++;
-
 	}
 }
 
@@ -454,29 +447,6 @@ static void flush_hw_cq(struct t3_cq *cq)
 	}
 }
 
-static int cqe_completes_wr(struct t3_cqe *cqe, struct t3_wq *wq)
-{
-	if (CQE_OPCODE(*cqe) == T3_READ_RESP && 
-	    (!wq->sq_oldest_wr || 
-	     (wq->sq_oldest_wr->send.rdmaop != T3_READ_REQ)))
-		return 0;
-
-	if (CQE_OPCODE(*cqe) == T3_TERMINATE) 
-		return 0;
-
-	if ((CQE_OPCODE(*cqe) == T3_RDMA_WRITE) && RQ_TYPE(*cqe))
-		return 0;
-
-	if ((CQE_OPCODE(*cqe) == T3_READ_RESP) && SQ_TYPE(*cqe))
-		return 0;
-
-	if ((CQE_OPCODE(*cqe) == T3_SEND) && RQ_TYPE(*cqe) &&
-	    Q_EMPTY(wq->rq_rptr, wq->rq_wptr))
-		return 0;
-
-	return 1;
-}
-
 static void count_scqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 {
 	struct t3_cqe *cqe;
@@ -487,8 +457,8 @@ static void count_scqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 	ptr = cq->sw_rptr;
 	while (!Q_EMPTY(ptr, cq->sw_wptr)) {
 		cqe = cq->sw_queue + (Q_PTR2IDX(ptr, cq->size_log2));
-		if (SQ_TYPE(*cqe) && (CQE_QPID(*cqe) == wq->qpid) &&
-		    cqe_completes_wr(cqe, wq))
+		if ((SQ_TYPE(*cqe) || (CQE_OPCODE(*cqe) == T3_READ_RESP)) && 
+		    (CQE_QPID(*cqe) == wq->qpid))
 			(*count)++;
 		ptr++;
 	}	
@@ -506,8 +476,7 @@ static void count_rcqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 	while (!Q_EMPTY(ptr, cq->sw_wptr)) {
 		PDBG("%s ptr %u\n", __FUNCTION__, ptr);
 		cqe = cq->sw_queue + (Q_PTR2IDX(ptr, cq->size_log2));
-		if (!SQ_TYPE(*cqe) && (CQE_QPID(*cqe) == wq->qpid) &&
-		    cqe_completes_wr(cqe, wq))
+		if (!SQ_TYPE(*cqe) && (CQE_QPID(*cqe) == wq->qpid))
 			(*count)++;
 		ptr++;
 	}	

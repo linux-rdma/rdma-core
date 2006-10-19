@@ -101,7 +101,7 @@ static inline enum t3_rdma_opcode wr2opcode(enum t3_wr_opcode wrop)
 		case T3_WR_BP: return T3_BYPASS;
 		case T3_WR_SEND: return T3_SEND;
 		case T3_WR_WRITE: return T3_RDMA_WRITE;
-		case T3_WR_READ: return T3_READ_RESP;
+		case T3_WR_READ: return T3_READ_REQ;
 		case T3_WR_INV_STAG: return T3_LOCAL_INV;
 		case T3_WR_BIND: return T3_BIND_MW;
 		case T3_WR_INIT: return T3_RDMA_INIT;
@@ -563,31 +563,34 @@ struct t3_cqe {
 						 /* mismatch) */
 
 struct t3_swsq {
-	__u64 		cookie;
-	struct t3_cqe 	cqe;
+	__u64 			wr_id;
+	struct t3_cqe 		cqe;
+	__u32			sq_wptr;
+	__u32			read_len;
+	int 			opcode;
+	int			complete;
+	int			signaled;	
 };
 
 /*
  * A T3 WQ implements both the SQ and RQ.
  */
 struct t3_wq {
+	union t3_wr *queue;		/* DMA Mapped work queue */
 	__u32 error;			/* 1 once we go to ERROR */
 	__u32 qpid;
 	__u32 wptr;			/* idx to next available WR slot */
-	__u32 size_log2;			/* total wq size */
+	__u32 size_log2;		/* total wq size */
 	struct t3_swsq *sq;		/* SW SQ */
+	struct t3_swsq *oldest_read;	/* tracks oldest pending read */
 	__u32 sq_wptr;			/* sq_wptr - sq_rptr == count of */
 	__u32 sq_rptr;			/* pending wrs */
-	union t3_wr *sq_oldest_wr;	/* oldest signaled wr on the SQ */
 	__u32 sq_size_log2;		/* sq size */
-	union t3_wr *queue;
 	__u64 *rq;			/* SW RQ (holds consumer wr_ids) */
 	__u32 rq_wptr;			/* rq_wptr - rq_rptr == count of */
 	__u32 rq_rptr;			/* pending wrs */
-	__u64 *rq_oldest_wr;		/* oldest wr on the SW RQ */
 	__u32 rq_size_log2;		/* rq size */
-	volatile __u32 *doorbell;
-	__u64 udb;
+	volatile __u32 *doorbell;	/* mapped adapter doorbell register */
 };
 
 struct t3_cq {
@@ -689,28 +692,22 @@ static inline struct t3_cqe *cxio_next_cqe(struct t3_cq *cq)
 }
 
 /*
- * Return a ptr to the next signaled wr in the SQ or NULL.
+ * Return a ptr to the next read wr in the SWSQ or NULL.
  */
-static inline union t3_wr *next_sq_wr(struct t3_wq *wq, union t3_wr *wr)
+static inline struct t3_swsq *next_read_wr(struct t3_wq *wq)
 {
-	__u32 wptr = wr - wq->queue + 1;
+	__u32 rptr = wq->oldest_read - wq->sq + 1;
+	int count = Q_COUNT(rptr, wq->sq_wptr);
+	struct t3_swsq *sqp;
 
-	if (Q_EMPTY(wq->sq_rptr, wq->sq_wptr))
-		return NULL;
+	while (count--) {
+		sqp = wq->sq + Q_PTR2IDX(rptr, wq->sq_size_log2);
 
-	while (1) {
-		__u32 opflags;
-		wr = (union t3_wr *)(wq->queue+Q_PTR2IDX(wptr, wq->size_log2));
+		if (sqp->opcode == T3_READ_REQ)
+			return sqp;
 
-		opflags = ntohl(wr->recv.wrh.op_seop_flags);
-
-		/* Skip (and don't count) receives */
-		if (G_FW_RIWR_OP(opflags) == T3_WR_RCV) {
-			wptr++;
-			continue;
-		}
-		break;
+		rptr++;
 	}
-	return wr;
+	return NULL;
 }
 #endif

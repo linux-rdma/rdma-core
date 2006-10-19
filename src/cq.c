@@ -58,27 +58,43 @@ int iwch_arm_cq(struct ibv_cq *ibcq, int solicited)
 	return ret;
 }
 
-static inline void create_read_req_cqe(struct t3_rdma_read_wr *wr, 
-				       struct t3_cqe *response_cqe, 
-			               struct t3_cqe *read_cqe)
+static inline void flush_completed_wrs(struct t3_wq *wq, struct t3_cq *cq)
 {
-	PDBG("%s %d enter\n", __FUNCTION__, __LINE__);
+	struct t3_swsq *sqp;
+	__u32 ptr = wq->sq_rptr;
+	int count = Q_COUNT(wq->sq_rptr, wq->sq_wptr);
+	
+	sqp = wq->sq + Q_PTR2IDX(ptr, wq->sq_size_log2);
+	while (count--) {
+		if (!sqp->signaled) {
+			ptr++;
+			sqp = wq->sq + Q_PTR2IDX(ptr,  wq->sq_size_log2);
+		} else if (sqp->complete) {
 
-	/* 
-	 * Now that we found the read response cqe,
-	 * we build a proper read request sq cqe to
-	 * return to the user, using the read request WR
-	 * and bits of the read response cqe.
-	 */
-	read_cqe->header = 
-		V_CQE_STATUS(CQE_STATUS(*response_cqe)) |
-		V_CQE_OPCODE(T3_READ_REQ) |
-		V_CQE_TYPE(1) |
-		V_CQE_QPID(CQE_QPID(*response_cqe));
-	read_cqe->header = htonl(read_cqe->header);
-	CQE_WRID_SQ_WPTR(*read_cqe) = wr->wrid.id0.hi;
-	CQE_WRID_WPTR(*read_cqe) = wr->wrid.id0.low;
-	read_cqe->len = wr->local_len;	/* XXX Violates RDMAC but matches IB */
+			/* 
+			 * Insert this completed cqe into the swcq.
+			 */
+			sqp->cqe.header |= htonl(V_CQE_SWCQE(1));
+			*(cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2)) 
+				= sqp->cqe;
+			cq->sw_wptr++;
+			sqp->signaled = 0;
+			break;
+		} else
+			break;
+	}
+}
+
+static inline void create_read_req_cqe(struct t3_swsq *oldest_read,
+				       struct t3_cqe *hw_cqe,
+				       struct t3_cqe *read_cqe)
+{
+		CQE_WRID_SQ_WPTR(*read_cqe) = oldest_read->sq_wptr;
+		read_cqe->len = oldest_read->read_len;
+		read_cqe->header = htonl(V_CQE_QPID(CQE_QPID(*hw_cqe)) |
+					 V_CQE_SWCQE(SW_CQE(*hw_cqe)) |
+				         V_CQE_OPCODE(T3_READ_REQ) |
+				         V_CQE_TYPE(1));
 }
 
 static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
@@ -86,17 +102,13 @@ static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
 		   __u64 * cookie)
 {
 	int ret = 0;
-	struct t3_cqe *rd_cqe, *peek_cqe, read_cqe;
-	__u32 peekptr;
-	int dontskip = 0;
+	struct t3_cqe *hw_cqe, read_cqe;
 
 	*cqe_flushed = 0;
-	rd_cqe = cxio_next_cqe(cq);
-
-	PDBG("%s rd_cqe %p\n", __FUNCTION__, rd_cqe);
+	hw_cqe = cxio_next_cqe(cq);
 
 	/* 
-	 * skip cqe's not affiliated with a QP.
+	 * Skip cqes not affiliated with a QP.
 	 */
 	if (wq == NULL) {
 		ret = -1;
@@ -104,59 +116,36 @@ static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
 	}
 
 	/*
-	 * If this CQE was already returned (out of order completion)
-	 * then silently toss it.
+	 * Gotta tweak READ completions:
+	 * 	1) the cqe doesn't contain the sq_wptr from the wr.
+	 *	2) opcode not reflected from the wr.
+	 *	3) read_len not reflected from the wr.
+	 *	4) cq_type is RQ_TYPE not SQ_TYPE.
 	 */
-	if (CQE_OPCODE(*rd_cqe) == T3_READ_RESP && 
-	    (!wq->sq_oldest_wr || 
-	     (wq->sq_oldest_wr->send.rdmaop != T3_READ_REQ))) {
-		PDBG("%s %d dropping old read response cqe\n", 
-		    __FUNCTION__, __LINE__);
-		ret = -1;
-		goto skip_cqe;
+	if (CQE_OPCODE(*hw_cqe) == T3_READ_RESP) {
+		
+		/* 
+	 	 * Don't write to the HWCQ, so create a new read req CQE 
+		 * in local memory.
+		 */
+		create_read_req_cqe(wq->oldest_read, hw_cqe, &read_cqe);
+		hw_cqe = &read_cqe;
+		wq->oldest_read = next_read_wr(wq);
 	}
 
-	if (CQE_OPCODE(*rd_cqe) == T3_TERMINATE) {
-		ret = -1;
-		t3_set_wq_in_error(wq);
-		goto skip_cqe;
-	}
-
-	if (CQE_STATUS(*rd_cqe) || t3_wq_in_error(wq)) {
-		ret = 0;
+	/* 
+	 * Errors.
+	 */
+	if (CQE_STATUS(*hw_cqe) || t3_wq_in_error(wq)) {
 		*cqe_flushed = t3_wq_in_error(wq);
 		t3_set_wq_in_error(wq);
-	
-		/* 
-		 * T3A inserts errors into the CQE.  We cannot return 
-	 	 * these as work completions.
-	 	 */
-		/* incoming write failures */
-		if ((CQE_OPCODE(*rd_cqe) == T3_RDMA_WRITE) 
-		     && RQ_TYPE(*rd_cqe)) {
-			ret = -1;
-			goto skip_cqe;
-		}
-		/* incoming read request failures */
-		if ((CQE_OPCODE(*rd_cqe) == T3_READ_RESP) && SQ_TYPE(*rd_cqe)) {
-			ret = -1;
-			goto skip_cqe;
-		}
-
-		/* incoming SEND with no receive posted failures */
-		if ((CQE_OPCODE(*rd_cqe) == T3_SEND) && RQ_TYPE(*rd_cqe) &&
-		    Q_EMPTY(wq->rq_rptr, wq->rq_wptr)) {
-			ret = -1;
-			goto skip_cqe;
-		}
 		goto proc_cqe;
 	}
 
 	/*
-	 * RECV completions.
+	 * RECV completion.
 	 */
-	if (RQ_TYPE(*rd_cqe) && (CQE_OPCODE(*rd_cqe) == T3_SEND)) {
-		ret = 0;
+	if (RQ_TYPE(*hw_cqe)) {
 
 		/* 
 		 * HW only validates 4 bits of MSN.  So we must validate that
@@ -164,91 +153,60 @@ static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
 		 * then we complete this with TPT_ERR_MSN and mark the wq in 
 		 * error.
 		 */
-		if ((CQE_WRID_MSN(*rd_cqe) != (wq->rq_rptr + 1))) {
+		if ((CQE_WRID_MSN(*hw_cqe) != (wq->rq_rptr + 1))) {
 			t3_set_wq_in_error(wq);
-			(*rd_cqe).header = htonl(htonl((*rd_cqe).header) | 
-					         V_CQE_STATUS(TPT_ERR_MSN));
-			goto proc_cqe;
+			hw_cqe->header |= htonl(V_CQE_STATUS(TPT_ERR_MSN));
 		}
 		goto proc_cqe;
 	}
 
-	/*
-	 * If this WQ's oldest pending SQ WR is a read request, then we
-	 * must try and find the RQ Read Response which might not
-	 * be the next CQE for that WQ on the CQ (reads can complete
-	 * out of order). If its not in the CQ yet, then we must return 
-	 * "empty".  This ensures we don't complete a subsequent WR 
-	 * out of order...
+	/* 
+ 	 * If we get here its a send completion.
+	 *
+	 * Handle out of order completion. These get stuffed
+	 * in the SW SQ. Then the SW SQ is walked to move any
+	 * now in-order completions into the SW CQ.  This handles
+	 * 2 cases:
+	 * 	1) reaping unsignaled WRs when the first subsequent
+	 *	   signaled WR is completed.
+	 *	2) out of order read completions.
 	 */
+	if (!SW_CQE(*hw_cqe) && (CQE_WRID_SQ_WPTR(*hw_cqe) != wq->sq_rptr)) {
+		struct t3_swsq *sqp;
 
-	/*
-	 * XXX This stalls the CQ for all QPs.  Need to redesign this later
-	 * to only stall the WQ in question.  
-	 */
-	if (wq->sq_oldest_wr && 
-	    (wq->sq_oldest_wr->send.rdmaop == T3_READ_REQ)) {
-		PDBG("%s %d oldest wr is read!\n", __FUNCTION__, __LINE__);
-		peekptr = cq->rptr;
-		peek_cqe = cq->queue + Q_PTR2IDX(peekptr, cq->size_log2);
-
-		/* 
-		 * see if the read response is here already. 
-		 */
-		while (CQ_VLD_ENTRY(peekptr, cq->size_log2, peek_cqe)) {
-			if ((RQ_TYPE(*peek_cqe)) &&
-			    (CQE_OPCODE(*peek_cqe) == T3_READ_RESP) &&
-			    (CQE_QPID(*peek_cqe) == wq->qpid)) {
-				create_read_req_cqe(&wq->sq_oldest_wr->read, 
-						    peek_cqe, &read_cqe);
-				rd_cqe = &read_cqe;
-				if (peekptr != cq->rptr) 
-					dontskip = 1;
-				ret = 0;
-				goto proc_cqe;
-			} else {
-				++peekptr;
-				peek_cqe = cq->queue +
-				    Q_PTR2IDX(peekptr, cq->size_log2);
-			}
-			if (peekptr == cq->rptr) {	/* CQ full */
-				t3_set_wq_in_error(wq);
-				*cqe_flushed = 1;
-				ret = 0;
-				goto proc_cqe;
-			}
-		}
-
-		/*
-	 	 * The read response hasn't happened, so we cannot return
-		 * any other completion event for this WQ.
-	 	 */
+		sqp = wq->sq + 
+		      Q_PTR2IDX(CQE_WRID_SQ_WPTR(*hw_cqe), wq->sq_size_log2);
+		sqp->cqe = *hw_cqe;
+		sqp->complete = 1;
 		ret = -1;
-		goto ret_cqe;
+		goto flush_wq;
 	}
-	
+
 proc_cqe:
-	*cqe = *rd_cqe;
+	*cqe = *hw_cqe;
 
 	/*
 	 * Reap the associated WR(s) that are freed up with this
 	 * completion.
 	 */
-	if (SQ_TYPE(*rd_cqe)) {
-		wq->sq_rptr = CQE_WRID_SQ_WPTR(*rd_cqe) + 1;
-		*cookie = wq->queue[Q_PTR2IDX(CQE_WRID_WPTR(*rd_cqe), 
-					      wq->size_log2)
-				   ].flit[T3_SQ_COOKIE_FLIT];
-		wq->sq_oldest_wr = next_sq_wr(wq, wq->sq_oldest_wr);
+	if (SQ_TYPE(*hw_cqe)) {
+		wq->sq_rptr = CQE_WRID_SQ_WPTR(*hw_cqe);
+		*cookie = (wq->sq + 
+			   Q_PTR2IDX(wq->sq_rptr, wq->sq_size_log2))->wr_id;
+		wq->sq_rptr++;
 	} else {
-		*cookie = wq->rq[Q_PTR2IDX(wq->rq_rptr, wq->rq_size_log2)];
-		++(wq->rq_rptr);
+		*cookie = *(wq->rq + Q_PTR2IDX(wq->rq_rptr, wq->rq_size_log2));
+		wq->rq_rptr++;
 	}
 
-	if (dontskip)
-		goto ret_cqe;
+flush_wq:
+	/*
+	 * Flush any completed cqes that are now in-order.
+	 */
+	flush_completed_wrs(wq, cq);
+
 skip_cqe:
-	if (SW_CQE(*rd_cqe)) {
+	if (SW_CQE(*hw_cqe)) {
 		PDBG("skip sw cqe sw_rptr %x\n", cq->sw_rptr);
 		++cq->sw_rptr;
 	} else {
@@ -257,23 +215,8 @@ skip_cqe:
 		++cq->rptr;
 	}
 
-ret_cqe:
 	return ret;
 }
-
-#ifdef DEBUG
-static inline void dump_cqe(struct t3_cqe *wce)
-{
-	__u64 *data = (__u64 *)wce;
-	int size = sizeof(*wce);
-
-	while (size > 0) {
-		PDBG("WCE %p: %016" PRIx64"\n", data, ntohll(*data));
-		size -= 8;
-		data++;
-	}
-}
-#endif
 
 /*
  * Get one cq entry from cxio and map it to openib.
@@ -288,18 +231,18 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 		     struct ibv_wc *wc)
 {
 	struct iwch_qp *qhp = NULL;
-	struct t3_cqe cqe, *rd_cqe;
+	struct t3_cqe cqe, *hw_cqe;
 	struct t3_wq *wq;
 	__u8 cqe_flushed;
 	__u64 cookie;
 	int ret = 1;
 
-	rd_cqe = cxio_next_cqe(&chp->cq);
+	hw_cqe = cxio_next_cqe(&chp->cq);
 
-	if (!rd_cqe)
+	if (!hw_cqe)
 		return 0;
 
-	qhp = rhp->qpid2hlp[CQE_QPID(*rd_cqe)];
+	qhp = rhp->qpid2hlp[CQE_QPID(*hw_cqe)];
 	if (!qhp)
 		wq = NULL;
 	else {
@@ -431,8 +374,8 @@ int t3b_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 	for (npolled = 0; npolled < num_entries; ++npolled) {
 
 		/*
-	 	 * Because T3 can post CQEs that are _not_ associated
-	 	 * with a WR, we might have to poll again after removing
+	 	 * Because T3 can post CQEs that are out of order,
+	 	 * we might have to poll again after removing
 	 	 * one of these.  
 		 */
 		do {
