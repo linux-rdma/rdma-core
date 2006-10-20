@@ -1,0 +1,4 @@
+2006-09-28  Sasha Khapyorsky <sashak@voltaire.com>
+
+	* src/umad.c (umad_open_port): Show open()'s errno string
+
