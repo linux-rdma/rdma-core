@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -55,7 +55,9 @@ smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
 	ib_rpc_t rpc = {0};
 
 	DEBUG("attr %d mod %d route %s", attrid, mod, portid2str(portid));
-	if (portid->lid <= 0)
+	if ((portid->lid <= 0) ||
+	    (portid->drpath.drslid == 0xffff) ||
+	    (portid->drpath.drdlid == 0xffff))
 		rpc.mgtclass = IB_SMI_DIRECT_CLASS;	/* direct SMI */
 	else
 		rpc.mgtclass = IB_SMI_CLASS;		/* Lid routed SMI */
@@ -87,7 +89,9 @@ smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
 	rpc.datasz = IB_SMP_DATA_SIZE;
 	rpc.dataoffs = IB_SMP_DATA_OFFS;
 
-	if (portid->lid <= 0)
+	if ((portid->lid <= 0) ||
+	    (portid->drpath.drslid == 0xffff) ||
+	    (portid->drpath.drdlid == 0xffff))
 		rpc.mgtclass = IB_SMI_DIRECT_CLASS;	/* direct SMI */
 	else
 		rpc.mgtclass = IB_SMI_CLASS;		/* Lid routed SMI */

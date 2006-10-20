@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -182,7 +182,10 @@ mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport,
 	else if (lid_routed)
 		umad_set_addr(umad, dport->lid, dport->qp, 0, 0);
 	else
-		umad_set_addr(umad, 0xffff, 0, 0, 0);	 /* direct routed smi */
+		if ((dport->drpath.drslid != 0xffff) && (dport->lid > 0))
+			umad_set_addr(umad, dport->lid, 0, 0, 0);
+		else
+			umad_set_addr(umad, 0xffff, 0, 0, 0);
 
 	umad_set_grh(umad, (dport->grh && !is_smi) ? 0/*grh*/ : 0);	/* FIXME: GRH support */
 	umad_set_pkey(umad, is_smi ? 0 : dport->pkey_idx);

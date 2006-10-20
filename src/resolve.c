@@ -93,6 +93,9 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 {
 	uint64_t guid;
 	int lid;
+	char *routepath;
+	ib_portid_t selfportid = {0};
+	int selfport = 0;
 
 	switch (dest_type) {
 	case IB_DEST_LID:
@@ -112,6 +115,20 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 
 		/* keep guid in portid? */
 		return ib_resolve_guid(portid, &guid, sm_id, 0);
+
+	case IB_DEST_DRSLID:
+		lid = strtol(addr_str, &routepath, 0);
+		routepath++;
+		if (!IB_LID_VALID(lid))
+			return -1;
+		ib_portid_set(portid, lid, 0, 0);
+
+		/* handle DR parsing and set DrSLID to local lid */
+		if (ib_resolve_self(&selfportid, &selfport, 0) < 0)
+			return -1;
+		if (str2drpath(&portid->drpath, routepath, selfportid.lid, 0) < 0)
+			return -1;
+		return 0;
 
 	default:
 		IBWARN("bad dest_type %d", dest_type);

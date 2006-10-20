@@ -577,6 +577,7 @@ enum {
 	IB_DEST_LID,
 	IB_DEST_DRPATH,
 	IB_DEST_GUID,
+	IB_DEST_DRSLID,
 };
 
 enum {

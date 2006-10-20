@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -79,7 +79,10 @@ portid2str(ib_portid_t *portid)
 					*(uint64_t *)portid->gid,
 					*(uint64_t *)(portid->gid+8));
 		}
-		return buf;
+		if (portid->drpath.cnt)
+			s += sprintf(s, " ");
+		else
+			return buf;
 	}
 	s += sprintf(s, "DR path ");
 	for (i = 0; i < portid->drpath.cnt+1; i++)

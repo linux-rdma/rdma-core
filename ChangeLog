@@ -1,0 +1,6 @@
+2006-10-20  Hal Rosenstock <halr@voltaire.com>
+
+	* include/infiniband/mad.h, src/resolve.c (ib_resolve_portid_str),
+	  src/smp.c (smp_set), src/mad.c (mad_build_pkt),
+	  src/portid.c (portid2str): Add and handle IB_DEST_DRSLID. 
+
