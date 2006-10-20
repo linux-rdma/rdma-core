@@ -4,7 +4,7 @@
 	  src/smp.c (smp_set), src/mad.c (mad_build_pkt),
 	  src/portid.c (portid2str): Add and handle IB_DEST_DRSLID. 
 
-2006-10-09 Hal Rosenstock <halr@voltaire.com>
+2006-10-09  Hal Rosenstock <halr@voltaire.com>
 
 	* src/resolve.c (ib_resolve_portid_str): Use strtoull rather than
 	  strtoll for IB_DEST_GUID
