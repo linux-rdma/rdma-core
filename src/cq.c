@@ -85,16 +85,36 @@ static inline void flush_completed_wrs(struct t3_wq *wq, struct t3_cq *cq)
 	}
 }
 
-static inline void create_read_req_cqe(struct t3_swsq *oldest_read,
+static inline void create_read_req_cqe(struct t3_wq *wq,
 				       struct t3_cqe *hw_cqe,
 				       struct t3_cqe *read_cqe)
 {
-		CQE_WRID_SQ_WPTR(*read_cqe) = oldest_read->sq_wptr;
-		read_cqe->len = oldest_read->read_len;
+		CQE_WRID_SQ_WPTR(*read_cqe) = wq->oldest_read->sq_wptr;
+		read_cqe->len = wq->oldest_read->read_len;
 		read_cqe->header = htonl(V_CQE_QPID(CQE_QPID(*hw_cqe)) |
 					 V_CQE_SWCQE(SW_CQE(*hw_cqe)) |
 				         V_CQE_OPCODE(T3_READ_REQ) |
 				         V_CQE_TYPE(1));
+}
+
+/*
+ * Return a ptr to the next read wr in the SWSQ or NULL.
+ */
+static inline void advance_oldest_read(struct t3_wq *wq)
+{
+
+	__u32 rptr = wq->oldest_read - wq->sq + 1;
+	__u32 wptr = Q_PTR2IDX(wq->sq_wptr, wq->sq_size_log2);
+
+	while (Q_PTR2IDX(rptr, wq->sq_size_log2) != wptr) {
+		wq->oldest_read = wq->sq + Q_PTR2IDX(rptr, wq->sq_size_log2);
+
+		if (wq->oldest_read->opcode == T3_READ_REQ) {
+			return;
+		}
+		rptr++;
+	}
+	wq->oldest_read = NULL;
 }
 
 static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
@@ -128,9 +148,9 @@ static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
 	 	 * Don't write to the HWCQ, so create a new read req CQE 
 		 * in local memory.
 		 */
-		create_read_req_cqe(wq->oldest_read, hw_cqe, &read_cqe);
+		create_read_req_cqe(wq, hw_cqe, &read_cqe);
 		hw_cqe = &read_cqe;
-		wq->oldest_read = next_read_wr(wq);
+		advance_oldest_read(wq);
 	}
 
 	/* 

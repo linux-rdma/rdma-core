@@ -408,6 +408,8 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	pthread_spin_unlock(&qhp->lock);
 	munmap(dbva, dev->page_size);
 	munmap(wqva, wqsize);
+	free(qhp->wq.rq);
+	free(qhp->wq.sq);
 	free(qhp);
 	return 0;
 }

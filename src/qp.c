@@ -218,6 +218,8 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			t3_wr_opcode = T3_WR_READ;
 			t3_wr_flags = 0; /* XXX */
 			err = iwch_build_rdma_read(wqe, wr, &t3_wr_flit_cnt);
+			if (err)
+				break;
 			sqp->read_len = wqe->read.local_len;
 			if (!qhp->wq.oldest_read)
 				qhp->wq.oldest_read = sqp;
@@ -476,7 +478,8 @@ static void count_rcqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 	while (!Q_EMPTY(ptr, cq->sw_wptr)) {
 		PDBG("%s ptr %u\n", __FUNCTION__, ptr);
 		cqe = cq->sw_queue + (Q_PTR2IDX(ptr, cq->size_log2));
-		if (!SQ_TYPE(*cqe) && (CQE_QPID(*cqe) == wq->qpid))
+		if (RQ_TYPE(*cqe) && (CQE_OPCODE(*cqe) != T3_READ_RESP) && 
+		    (CQE_QPID(*cqe) == wq->qpid))
 			(*count)++;
 		ptr++;
 	}	

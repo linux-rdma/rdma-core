@@ -470,8 +470,13 @@ struct t3_cqe {
 	__u32 wrid_low_msn:32;
 };
 
+#define S_CQE_OOO	  31
+#define M_CQE_OOO	  0x1
+#define G_CQE_OOO(x)	  ((((x) >> S_CQE_OOO)) & M_CQE_OOO)
+#define V_CEQ_OOO(x)	  ((x)<<S_CQE_OOO)
+
 #define S_CQE_QPID        12
-#define M_CQE_QPID        0xFFFFF
+#define M_CQE_QPID        0x7FFFF
 #define G_CQE_QPID(x)     ((((x) >> S_CQE_QPID)) & M_CQE_QPID)
 #define V_CQE_QPID(x) 	  ((x)<<S_CQE_QPID)
 
@@ -501,6 +506,7 @@ struct t3_cqe {
 #define V_CQE_OPCODE(x)   ((x)<<S_CQE_OPCODE)
 
 #define SW_CQE(x)         (G_CQE_SWCQE(ntohl((x).header)))
+#define CQE_OOO(x)        (G_CQE_OOO(be32_to_cpu((x).header)))
 #define CQE_QPID(x)       (G_CQE_QPID(ntohl((x).header)))
 #define CQE_GENBIT(x)     (G_CQE_GENBIT(ntohl((x).header)))
 #define CQE_TYPE(x)       (G_CQE_TYPE(ntohl((x).header)))
