@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -339,6 +339,20 @@ ib_field_t ib_mad_f [] = {
 	 */
 	[IB_VEND2_OUI_F]		{BE_OFFS(36*8, 24), "OUI", mad_dump_array},
 	[IB_VEND2_DATA_F]		{40*8, (256-40)*8, "Vendor2Data", mad_dump_array},
+
+	/*
+	 * Extended port counters
+	 */
+	[IB_PC_EXT_PORT_SELECT_F]	{BITSOFFS(8, 8), "PortSelect", mad_dump_uint},
+	[IB_PC_EXT_COUNTER_SELECT_F]	{BITSOFFS(16, 16), "CounterSelect", mad_dump_hex},
+	[IB_PC_EXT_XMT_BYTES_F]		{64, 64, "PortXmitData", mad_dump_uint},
+	[IB_PC_EXT_RCV_BYTES_F]		{128, 64, "PortRcvData", mad_dump_uint},
+	[IB_PC_EXT_XMT_PKTS_F]		{192, 64, "PortXmitPkts", mad_dump_uint},
+	[IB_PC_EXT_RCV_PKTS_F]		{256, 64, "PortRcvPkts", mad_dump_uint}, 
+	[IB_PC_EXT_XMT_UPKTS_F]		{320, 64, "PortUnicastXmitPkts", mad_dump_uint},
+	[IB_PC_EXT_RCV_UPKTS_F]		{384, 64, "PortUnicastRcvPkts", mad_dump_uint},
+	[IB_PC_EXT_XMT_MPKTS_F]		{448, 64, "PortMulticastXmitPkts", mad_dump_uint},
+	[IB_PC_EXT_RCV_MPKTS_F]		{512, 64, "PortMulticastPkts", mad_dump_uint},
 
 };
 

@@ -502,6 +502,22 @@ enum MAD_FIELDS {
 	IB_VEND2_OUI_F,
 	IB_VEND2_DATA_F,
 
+	/*
+	 * PortCountersExtended
+	 */
+	IB_PC_EXT_FIRST_F,
+	IB_PC_EXT_PORT_SELECT_F = IB_PC_EXT_FIRST_F,
+	IB_PC_EXT_COUNTER_SELECT_F,
+	IB_PC_EXT_XMT_BYTES_F,
+	IB_PC_EXT_RCV_BYTES_F,
+	IB_PC_EXT_XMT_PKTS_F,
+	IB_PC_EXT_RCV_PKTS_F,
+	IB_PC_EXT_XMT_UPKTS_F,
+	IB_PC_EXT_RCV_UPKTS_F,
+	IB_PC_EXT_XMT_MPKTS_F,
+	IB_PC_EXT_RCV_MPKTS_F,
+	IB_PC_EXT_LAST_F,
+
 	IB_FIELD_LAST_	/* must be last */
 };
 
@@ -782,6 +798,10 @@ uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
 				uint timeout);
 uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
 				uint mask, uint timeout);
+uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port,
+				    uint timeout);
+uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port,
+				    uint mask, uint timeout);
 uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
 				    uint timeout);
 uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,
@@ -800,7 +820,7 @@ ib_mad_dump_fn
 	mad_dump_node_type,
 	mad_dump_sltovl, mad_dump_vlarbitration,
 	mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo, mad_dump_switchinfo,
-	mad_dump_perfcounters;
+	mad_dump_perfcounters, mad_dump_perfcounters_ext;
 
 int	_mad_dump(ib_mad_dump_fn *fn, char *name, void *val, int valsz);
 char *	_mad_dump_field(ib_field_t *f, char *name, char *buf, int bufsz,

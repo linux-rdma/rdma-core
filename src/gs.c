@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -67,6 +67,7 @@ pma_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout, uint id)
 	rpc.method = IB_MAD_METHOD_GET;
 	rpc.attr.id = id;
 
+	/* Same for attribute IDs */
 	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
 	rpc.attr.mod = 0;
 	rpc.timeout = timeout;
@@ -92,9 +93,9 @@ port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS);
 }
 
-uint8_t *
-port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
-		       uint timeout)
+static uint8_t *
+performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
+		  uint timeout, uint id)
 {
 	ib_rpc_t rpc = {0};
 	int lid = dest->lid;
@@ -111,22 +112,42 @@ port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
 	
 	rpc.mgtclass = IB_PERFORMANCE_CLASS;
 	rpc.method = IB_MAD_METHOD_SET;
-	rpc.attr.id = IB_GSI_PORT_COUNTERS;
+	rpc.attr.id = id;
 
 	memset(rcvbuf, 0, IB_MAD_SIZE);
-	
+
+	/* Same for attribute IDs */
 	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
 	mad_set_field(rcvbuf, 0, IB_PC_COUNTER_SELECT_F, mask);
 	rpc.attr.mod = 0;
 	rpc.timeout = timeout;
 	rpc.datasz = IB_PC_DATA_SZ;
 	rpc.dataoffs = IB_PC_DATA_OFFS;
-
 	dest->qp = 1;
 	if (!dest->qkey)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
 	return madrpc(&rpc, dest, rcvbuf, rcvbuf); 
+}
+
+uint8_t *
+port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
+		       uint timeout)
+{
+	return performance_reset(rcvbuf, dest, port, mask, timeout, IB_GSI_PORT_COUNTERS);
+}
+
+uint8_t *
+port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+{
+	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS_EXT);
+}
+
+uint8_t *
+port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
+			   uint timeout)
+{
+	return performance_reset(rcvbuf, dest, port, mask, timeout, IB_GSI_PORT_COUNTERS_EXT);
 }
 
 uint8_t *

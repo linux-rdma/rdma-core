@@ -1,4 +1,4 @@
-IBMAD_1.2 {
+IBMAD_1.3 {
 	global:
 		_mad_dump;
 		_mad_dump_field;
@@ -21,6 +21,7 @@ IBMAD_1.2 {
 		mad_dump_nodeinfo;
 		mad_dump_opervls;
 		mad_dump_perfcounters;
+		mad_dump_perfcounters_ext;
 		mad_dump_physportstate;
 		mad_dump_portcapmask;
 		mad_dump_portinfo;
@@ -43,6 +44,8 @@ IBMAD_1.2 {
 		perf_classportinfo_query;
 		port_performance_query;
 		port_performance_reset;
+		port_performance_ext_query;
+		port_performance_ext_reset;
 		port_samples_control_query;
 		port_samples_result_query;
 		mad_build_pkt;
