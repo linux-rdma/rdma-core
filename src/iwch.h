@@ -33,10 +33,12 @@
 #ifndef IWCH_H
 #define IWCH_H
 
-#include <infiniband/driver.h>
-#include <infiniband/arch.h>
 #include <pthread.h>
 #include <inttypes.h>
+#include <stddef.h>
+
+#include <infiniband/driver.h>
+#include <infiniband/arch.h>
 
 #include "cxio_wr.h"
 
@@ -103,7 +105,7 @@ struct iwch_qp {
 };
 
 #define to_iwch_xxx(xxx, type)						\
-	((struct iwch_##type *)					\
+	((struct iwch_##type *)						\
 	 ((void *) ib##xxx - offsetof(struct iwch_##type, ibv_##xxx)))
 
 static inline struct iwch_device *to_iwch_dev(struct ibv_device *ibdev)
