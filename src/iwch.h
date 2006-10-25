@@ -58,9 +58,9 @@ struct iwch_device {
 	enum iwch_hca_type hca_type;
 	enum t3_rev hw_rev;
 	int page_size;
-	struct iwch_mr **stag2hlp;
-	struct iwch_qp **qpid2hlp;
-	struct iwch_cq **cqid2hlp;
+	struct iwch_mr **mmid2ptr;
+	struct iwch_qp **qpid2ptr;
+	struct iwch_cq **cqid2ptr;
 	pthread_spinlock_t lock;
 };
 

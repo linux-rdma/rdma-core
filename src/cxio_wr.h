@@ -36,13 +36,10 @@
 #include <arpa/inet.h> 			/* For htonl() and friends */
 #include "firmware_exports.h"
 
-/* XXX - get this from the device somehow... */
 #define T3_MAX_NUM_QP (1<<15)
 #define T3_MAX_NUM_CQ (1<<15)
 #define T3_MAX_NUM_PD (1<<15)
-#define T3_MAX_NUM_STAG (1<<13)
-#define T3_MAX_PBL_SIZE 256
-#define T3_MAX_RQ_SIZE 1024
+#define T3_MAX_NUM_STAG (1<<15)
 #define T3_MAX_SGE      4
 
 #define Q_EMPTY(rptr,wptr) ((rptr)==(wptr))
@@ -640,7 +637,7 @@ static inline unsigned t3_cq_memsize(struct t3_cq *cq)
 	return ((1UL<<cq->size_log2) * sizeof (struct t3_cqe));
 }
 
-static inline unsigned t3_stag_index(__u32 stag)
+static inline unsigned t3_mmid(__u32 stag)
 {
 	return (stag>>8);
 }

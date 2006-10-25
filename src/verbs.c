@@ -138,7 +138,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 	     mhp->page_size, mhp->pbl_addr, mhp->len);
 
 	pthread_spin_lock(&dev->lock);
-	dev->stag2hlp[t3_stag_index(mhp->ibv_mr.lkey)] = mhp;
+	dev->mmid2ptr[t3_mmid(mhp->ibv_mr.lkey)] = mhp;
 	pthread_spin_unlock(&dev->lock);
 	
 	return &mhp->ibv_mr;
@@ -161,7 +161,7 @@ int iwch_dereg_mr(struct ibv_mr *mr)
 		return ret;
 
 	pthread_spin_lock(&dev->lock);
-	dev->stag2hlp[t3_stag_index(mr->lkey)] = NULL;
+	dev->mmid2ptr[t3_mmid(mr->lkey)] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
 	free(to_iwch_mr(mr));
@@ -207,7 +207,7 @@ struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 	       t3_cq_memsize(&chp->cq));
 	
 	pthread_spin_lock(&dev->lock);
-	dev->cqid2hlp[chp->cq.cqid] = chp;
+	dev->cqid2ptr[chp->cq.cqid] = chp;
 	pthread_spin_unlock(&dev->lock);
 
 	return &chp->ibv_cq;
@@ -253,7 +253,7 @@ int iwch_destroy_cq(struct ibv_cq *ibcq)
 	}
 
 	pthread_spin_lock(&dev->lock);
-	dev->cqid2hlp[chp->cq.cqid] = NULL;
+	dev->cqid2ptr[chp->cq.cqid] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
 	pthread_spin_unlock(&chp->lock);
@@ -347,7 +347,7 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	     qhp->wq.doorbell, qhp->wq.queue, t3_wq_memsize(&qhp->wq));
 
 	pthread_spin_lock(&dev->lock);
-	dev->qpid2hlp[qhp->wq.qpid] = qhp;
+	dev->qpid2ptr[qhp->wq.qpid] = qhp;
 	pthread_spin_unlock(&dev->lock);
 
 	return &qhp->ibv_qp;
@@ -402,7 +402,7 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	}
 
 	pthread_spin_lock(&dev->lock);
-	dev->qpid2hlp[qhp->wq.qpid] = NULL;
+	dev->qpid2ptr[qhp->wq.qpid] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
 	pthread_spin_unlock(&qhp->lock);

@@ -218,25 +218,24 @@ found:
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
-
-	dev->stag2hlp = calloc(16384, sizeof(void *)); /* XXX get dev attrs */
-	if (!dev->stag2hlp) {
+	dev->mmid2ptr = calloc(T3_MAX_NUM_STAG, sizeof(void *));
+	if (!dev->mmid2ptr) {
 		goto err1;
 	}
-	dev->qpid2hlp = calloc(65536, sizeof(void *)); /* XXX get dev attrs */
-	if (!dev->qpid2hlp) {
+	dev->qpid2ptr = calloc(T3_MAX_NUM_QP, sizeof(void *)); 
+	if (!dev->qpid2ptr) {
 		goto err2;
 	}
-	dev->cqid2hlp = calloc(65536, sizeof(void *)); /* XXX get dev attrs */
-	if (!dev->cqid2hlp) 
+	dev->cqid2ptr = calloc(T3_MAX_NUM_CQ, sizeof(void *));
+	if (!dev->cqid2ptr) 
 		goto err3;
 
 	return &dev->ibv_dev;
 
 err3:
-	free(dev->qpid2hlp);
+	free(dev->qpid2ptr);
 err2:
-	free(dev->stag2hlp);
+	free(dev->mmid2ptr);
 err1:
 	free(dev);
 	return NULL;

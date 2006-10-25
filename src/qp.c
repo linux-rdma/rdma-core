@@ -213,7 +213,7 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			break;
 		case IBV_WR_RDMA_READ:
 			t3_wr_opcode = T3_WR_READ;
-			t3_wr_flags = 0; /* XXX */
+			t3_wr_flags = 0;
 			err = iwch_build_rdma_read(wqe, wr, &t3_wr_flit_cnt);
 			if (err)
 				break;
@@ -278,19 +278,11 @@ static inline int iwch_sgl2pbl_map(struct iwch_device *rhp,
 	struct iwch_mr *mhp;
 	__u32 offset;
 	for (i = 0; i < num_sgle; i++) {
-
-		mhp = rhp->stag2hlp[t3_stag_index(sg_list[i].lkey)];
+		mhp = rhp->mmid2ptr[t3_mmid(sg_list[i].lkey)];
 		if (!mhp) {
 			PDBG("%s %d\n", __FUNCTION__, __LINE__);
 			return -1;
 		}
-#if 0
-		if (!mhp->attr.state)
-			return -1;
-		if (mhp->attr.zbva) 
-			return -1;
-#endif
-
 		if (sg_list[i].addr < mhp->va_fbo) {
 			PDBG("%s %d\n", __FUNCTION__, __LINE__);
 			return -1;
@@ -465,10 +457,8 @@ static void count_rcqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 	__u32 ptr;
 
 	*count = 0;
-	PDBG("%s count zero %d\n", __FUNCTION__, *count);
 	ptr = cq->sw_rptr;
 	while (!Q_EMPTY(ptr, cq->sw_wptr)) {
-		PDBG("%s ptr %u\n", __FUNCTION__, ptr);
 		cqe = cq->sw_queue + (Q_PTR2IDX(ptr, cq->size_log2));
 		if (RQ_TYPE(*cqe) && (CQE_OPCODE(*cqe) != T3_READ_RESP) && 
 		    (CQE_QPID(*cqe) == wq->qpid))
@@ -486,8 +476,8 @@ void iwch_flush_qp(struct iwch_qp *qhp)
 	struct iwch_cq *rchp, *schp;
 	int count;
 
-	rchp = qhp->rhp->cqid2hlp[to_iwch_cq(qhp->ibv_qp.recv_cq)->cq.cqid];
-	schp = qhp->rhp->cqid2hlp[to_iwch_cq(qhp->ibv_qp.send_cq)->cq.cqid];
+	rchp = qhp->rhp->cqid2ptr[to_iwch_cq(qhp->ibv_qp.recv_cq)->cq.cqid];
+	schp = qhp->rhp->cqid2ptr[to_iwch_cq(qhp->ibv_qp.send_cq)->cq.cqid];
 	
 	PDBG("%s qhp %p rchp %p schp %p\n", __FUNCTION__, qhp, rchp, schp);
 

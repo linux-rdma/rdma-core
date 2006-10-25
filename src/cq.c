@@ -118,8 +118,8 @@ static inline void advance_oldest_read(struct t3_wq *wq)
 }
 
 static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
-		   struct t3_cqe *cqe, __u8 * cqe_flushed,
-		   __u64 * cookie)
+		   struct t3_cqe *cqe, __u8 *cqe_flushed,
+		   __u64 *cookie)
 {
 	int ret = 0;
 	struct t3_cqe *hw_cqe, read_cqe;
@@ -263,7 +263,7 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 	if (!hw_cqe)
 		return 0;
 
-	qhp = rhp->qpid2hlp[CQE_QPID(*hw_cqe)];
+	qhp = rhp->qpid2ptr[CQE_QPID(*hw_cqe)];
 	if (!qhp)
 		wq = NULL;
 	else {
