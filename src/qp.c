@@ -212,9 +212,6 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			err = iwch_build_rdma_write(wqe, wr, &t3_wr_flit_cnt);
 			break;
 		case IBV_WR_RDMA_READ:
-			PDBG("%s %d - read sq_wptr %u wptr %u cookie %llx\n",
-				__FUNCTION__, __LINE__, qhp->wq.sq_wptr,
-				qhp->wq.wptr, wr->wr_id);
 			t3_wr_opcode = T3_WR_READ;
 			t3_wr_flags = 0; /* XXX */
 			err = iwch_build_rdma_read(wqe, wr, &t3_wr_flit_cnt);
@@ -225,7 +222,7 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				qhp->wq.oldest_read = sqp;
 			break;
 		default:
-			PDBG("iwch_post_sendq: post of type=0x%0x TBD!\n",
+			PDBG("%s post of type=%d TBD!\n", __FUNCTION__, 
 			     wr->opcode);
 			err = -1;
 		}
@@ -243,10 +240,10 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		build_fw_riwrh((void *) wqe, t3_wr_opcode, t3_wr_flags,
 			       Q_GENBIT(qhp->wq.wptr, qhp->wq.size_log2),
 			       0, t3_wr_flit_cnt);
-		PDBG("%s %d cookie %llx idx 0x%x sq_wptr %x sw_rptr "
-		     "%x wqe %p opcode %d\n", 
-		     __FUNCTION__, __LINE__, wr->wr_id, idx, 
-		     qhp->wq.sq_wptr, qhp->wq.sq_rptr, wqe, t3_wr_opcode);
+		PDBG("%s cookie 0x%llx wq idx 0x%x swsq idx %ld opcode %d\n", 
+		     __FUNCTION__, wr->wr_id, idx, 
+		     Q_PTR2IDX(qhp->wq.sq_wptr, qhp->wq.sq_size_log2),
+		     sqp->opcode);
 		wr = wr->next;
 		num_wrs--;
 		++(qhp->wq.wptr);
@@ -362,8 +359,8 @@ static void insert_recv_cqe(struct t3_wq *wq, struct t3_cq *cq)
 {
 	struct t3_cqe cqe;
 
-	PDBG("%s %d wq %p cq %p sw_rptr %x sw_wptr %x\n", __FUNCTION__, 
-	    __LINE__, wq, cq, cq->sw_rptr, cq->sw_wptr);
+	PDBG("%s wq %p cq %p sw_rptr 0x%x sw_wptr 0x%x\n", __FUNCTION__, 
+	     wq, cq, cq->sw_rptr, cq->sw_wptr);
 	memset(&cqe, 0, sizeof(cqe));
 	cqe.header = V_CQE_STATUS(TPT_ERR_SWFLUSH) | 
 		     V_CQE_OPCODE(T3_SEND) | 
@@ -380,10 +377,8 @@ static void flush_rq(struct t3_wq *wq, struct t3_cq *cq, int count)
 {
 	__u32 ptr;
 
-	PDBG("%s %d wq %p cq %p\n", __FUNCTION__, __LINE__, wq, cq);
-
 	/* flush RQ */
-	PDBG("%s rq_rptr %u rq_wptr %u skip count %u\n", __FUNCTION__, 
+	PDBG("%s rq_rptr 0x%x rq_wptr 0x%x skip count %u\n", __FUNCTION__, 
 	    wq->rq_rptr, wq->rq_wptr, count);
 	ptr = wq->rq_rptr + count;
 	while (ptr++ != wq->rq_wptr) {
@@ -396,10 +391,9 @@ static void insert_sq_cqe(struct t3_wq *wq, struct t3_cq *cq,
 {
 	struct t3_cqe cqe;
 
-	PDBG("%s %d wq %p cq %p sw_rptr %x sw_wptr %x\n", __FUNCTION__, 
-	    __LINE__, wq, cq, cq->sw_rptr, cq->sw_wptr);
+	PDBG("%s wq %p cq %p sw_rptr 0x%x sw_wptr 0x%x\n", __FUNCTION__, 
+	     wq, cq, cq->sw_rptr, cq->sw_wptr);
 	memset(&cqe, 0, sizeof(cqe));
-	PDBG("%s opcode %d\n", __FUNCTION__, sqp->opcode);
 	cqe.header = V_CQE_STATUS(TPT_ERR_SWFLUSH) | 
 		     V_CQE_OPCODE(sqp->opcode) |
 		     V_CQE_TYPE(1) |
@@ -409,7 +403,6 @@ static void insert_sq_cqe(struct t3_wq *wq, struct t3_cq *cq,
 	cqe.header = htonl(cqe.header);
 	CQE_WRID_SQ_WPTR(cqe) = sqp->sq_wptr;
 
-	PDBG("%s header be %x\n", __FUNCTION__, cqe.header);
 	*(cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2)) = cqe;
 	cq->sw_wptr++;
 }
@@ -435,10 +428,10 @@ static void flush_hw_cq(struct t3_cq *cq)
 {
 	struct t3_cqe *cqe, *swcqe;
 
-	PDBG("%s enter cq %p\n", __FUNCTION__, cq);
+	PDBG("%s cq %p cqid 0x%x\n", __FUNCTION__, cq, cq->cqid);
 	cqe = cxio_next_hw_cqe(cq);
 	while (cqe) {
-		PDBG("%s flushing hwcq rptr %u to swcq wptr %u\n", 
+		PDBG("%s flushing hwcq rptr 0x%x to swcq wptr 0x%x\n", 
 		     __FUNCTION__, cq->rptr, cq->sw_wptr);
 		swcqe = cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2);
 		*swcqe = *cqe;
@@ -455,7 +448,6 @@ static void count_scqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 	__u32 ptr;
 
 	*count = 0;
-	PDBG("%s count zero %d\n", __FUNCTION__, *count);
 	ptr = cq->sw_rptr;
 	while (!Q_EMPTY(ptr, cq->sw_wptr)) {
 		cqe = cq->sw_queue + (Q_PTR2IDX(ptr, cq->size_log2));
@@ -464,7 +456,7 @@ static void count_scqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 			(*count)++;
 		ptr++;
 	}	
-	PDBG("%s count %d\n", __FUNCTION__, *count);
+	PDBG("%s cq %p count %d\n", __FUNCTION__, cq, *count);
 }
 
 static void count_rcqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
@@ -483,7 +475,7 @@ static void count_rcqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 			(*count)++;
 		ptr++;
 	}	
-	PDBG("%s count %d\n", __FUNCTION__, *count);
+	PDBG("%s cq %p count %d\n", __FUNCTION__, cq, *count);
 }
 
 /*
@@ -569,8 +561,8 @@ int t3b_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		build_fw_riwrh((void *) wqe, T3_WR_RCV, T3_COMPLETION_FLAG,
 			       Q_GENBIT(qhp->wq.wptr, qhp->wq.size_log2),
 			       0, sizeof(struct t3_receive_wr) >> 3);
-		PDBG("%s %d cookie %llx idx 0x%x rq_wptr %x rw_rptr %x "
-		     "wqe %p \n", __FUNCTION__, __LINE__, wr->wr_id, idx, 
+		PDBG("%s cookie 0x%llx idx 0x%x rq_wptr 0x%x rw_rptr 0x%x "
+		     "wqe %p \n", __FUNCTION__, wr->wr_id, idx, 
 		     qhp->wq.rq_wptr, qhp->wq.rq_rptr, wqe);
 		++(qhp->wq.rq_wptr);
 		++(qhp->wq.wptr);

@@ -132,7 +132,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 	mhp->pbl_addr = resp.pbl_addr;
 	mhp->len = length;
 
-	PDBG("%s stag %x va_fbo 0x%" PRIx64 
+	PDBG("%s stag 0x%x va_fbo 0x%" PRIx64 
              " page_size %d pbl_addr 0x%x len %d\n",
 	     __FUNCTION__, mhp->ibv_mr.rkey, mhp->va_fbo, 
 	     mhp->page_size, mhp->pbl_addr, mhp->len);
@@ -198,7 +198,7 @@ struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 	if (chp->cq.queue == MAP_FAILED)
 		goto err2;
 
-	chp->cq.sw_queue = calloc(t3_cq_depth(&chp->cq), sizeof (struct t3_cqe));
+	chp->cq.sw_queue = calloc(t3_cq_depth(&chp->cq), sizeof(struct t3_cqe));
 	if (!chp->cq.sw_queue)
 		goto err3;
 

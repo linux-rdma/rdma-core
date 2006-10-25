@@ -227,11 +227,12 @@ flush_wq:
 
 skip_cqe:
 	if (SW_CQE(*hw_cqe)) {
-		PDBG("skip sw cqe sw_rptr %x\n", cq->sw_rptr);
+		PDBG("%s cq %p cqid 0x%x skip sw cqe sw_rptr 0x%x\n", 
+		     __FUNCTION__, cq, cq->cqid, cq->sw_rptr);
 		++cq->sw_rptr;
 	} else {
-		PDBG("cq %p cqid %d skip hw cqe rptr %x\n", cq, cq->cqid, 
-		    cq->rptr);
+		PDBG("%s cq %p cqid 0x%x skip hw cqe sw_rptr 0x%x\n", 
+		     __FUNCTION__, cq, cq->cqid, cq->rptr);
 		++cq->rptr;
 	}
 
@@ -280,8 +281,9 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 	wc->qp_num = qhp->wq.qpid;
 	wc->vendor_err = CQE_STATUS(cqe);
 
-	PDBG("%s qpid 0x%x type %d opcode %d status 0x%d wrid hi 0x%x "
-	     "lo %x cookie %llx\n", __FUNCTION__, CQE_QPID(cqe), CQE_TYPE(cqe),
+	PDBG("%s qpid 0x%x type %d opcode %d status 0x%x wrid hi 0x%x "
+	     "lo 0x%x cookie 0x%llx\n", 
+	     __FUNCTION__, CQE_QPID(cqe), CQE_TYPE(cqe),
 	     CQE_OPCODE(cqe), CQE_STATUS(cqe), CQE_WRID_HI(cqe),
 	     CQE_WRID_LOW(cqe), cookie);
 
@@ -314,8 +316,8 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 		case T3_LOCAL_INV:
 		case T3_FAST_REGISTER:
 		default:
-			PDBG("unexpected opcode(0x%0x) in the CQE received "
-			     "for QPID=0x%0x\n", CQE_OPCODE(cqe), 
+			PDBG("%s Unexpected opcode %d CQID 0x%x QPID 0x%x\n", 
+			     __FUNCTION__, CQE_OPCODE(cqe), chp->cq.cqid, 
 			     CQE_QPID(cqe));
 			ret = -EINVAL;
 			goto out;
@@ -369,8 +371,10 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 			wc->status = IBV_WC_WR_FLUSH_ERR;
 			break;
 		default:
-			PDBG("unexpected cqe_status(0x%0x) for QPID=0x(%0x)\n",
-			     CQE_STATUS(cqe), CQE_QPID(cqe));
+			PDBG("%s Unexpected status 0x%x CQID 0x%x QPID 0x%0x\n",
+			     __FUNCTION__, CQE_STATUS(cqe), chp->cq.cqid, 
+			     CQE_QPID(cqe));
+			ret = -EINVAL;
 			ret = -EINVAL;
 		}
 	}
