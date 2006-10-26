@@ -240,7 +240,8 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		build_fw_riwrh((void *) wqe, t3_wr_opcode, t3_wr_flags,
 			       Q_GENBIT(qhp->wq.wptr, qhp->wq.size_log2),
 			       0, t3_wr_flit_cnt);
-		PDBG("%s cookie 0x%llx wq idx 0x%x swsq idx %ld opcode %d\n", 
+		PDBG("%s cookie 0x%" PRIx64 
+		     " wq idx 0x%x swsq idx %ld opcode %d\n", 
 		     __FUNCTION__, wr->wr_id, idx, 
 		     Q_PTR2IDX(qhp->wq.sq_wptr, qhp->wq.sq_size_log2),
 		     sqp->opcode);
@@ -551,7 +552,8 @@ int t3b_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		build_fw_riwrh((void *) wqe, T3_WR_RCV, T3_COMPLETION_FLAG,
 			       Q_GENBIT(qhp->wq.wptr, qhp->wq.size_log2),
 			       0, sizeof(struct t3_receive_wr) >> 3);
-		PDBG("%s cookie 0x%llx idx 0x%x rq_wptr 0x%x rw_rptr 0x%x "
+		PDBG("%s cookie 0x%" PRIx64 
+		     " idx 0x%x rq_wptr 0x%x rw_rptr 0x%x "
 		     "wqe %p \n", __FUNCTION__, wr->wr_id, idx, 
 		     qhp->wq.rq_wptr, qhp->wq.rq_rptr, wqe);
 		++(qhp->wq.rq_wptr);
