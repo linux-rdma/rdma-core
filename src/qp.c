@@ -158,7 +158,7 @@ static inline int iwch_build_rdma_read(union t3_wr *wqe, struct ibv_send_wr *wr,
 }
 
 int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr, 
-		   struct ibv_send_wr **bad_wr)
+		  struct ibv_send_wr **bad_wr)
 {
 	int err = 0;
 	__u8 t3_wr_flit_cnt;
@@ -333,7 +333,7 @@ static inline int iwch_build_rdma_recv(struct iwch_device *rhp,
 		
 		/* to in the WQE == the offset into the page */
 		wqe->recv.sgl[i].to = htonll(((__u32) wr->sg_list[i].addr) %
-				(1UL << (12 + page_size[i])));
+					     (1UL << (12 + page_size[i])));
 
 		/* pbl_addr is the adapters address in the PBL */
 		wqe->recv.pbl_addr[i] = htonl(pbl_addr[i]);
@@ -371,7 +371,7 @@ static void flush_rq(struct t3_wq *wq, struct t3_cq *cq, int count)
 
 	/* flush RQ */
 	PDBG("%s rq_rptr 0x%x rq_wptr 0x%x skip count %u\n", __FUNCTION__, 
-	    wq->rq_rptr, wq->rq_wptr, count);
+	     wq->rq_rptr, wq->rq_wptr, count);
 	ptr = wq->rq_rptr + count;
 	while (ptr++ != wq->rq_wptr) {
 		insert_recv_cqe(wq, cq);

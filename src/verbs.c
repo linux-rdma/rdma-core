@@ -295,13 +295,6 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	int ret;
 	void *dbva;
 
-	/* Sanity check QP size before proceeding */
-	if (attr->cap.max_send_wr > 65536 ||
-	    attr->cap.max_recv_wr > 65536 ||
-	    attr->cap.max_send_sge > 4 ||
-	    attr->cap.max_recv_sge > 4 || attr->cap.max_inline_data > 1024)
-		goto err1;
-
 	qhp = calloc(1, sizeof *qhp);
 	if (!qhp)
 		goto err1;

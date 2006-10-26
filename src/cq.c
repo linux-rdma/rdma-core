@@ -89,12 +89,12 @@ static inline void create_read_req_cqe(struct t3_wq *wq,
 				       struct t3_cqe *hw_cqe,
 				       struct t3_cqe *read_cqe)
 {
-		CQE_WRID_SQ_WPTR(*read_cqe) = wq->oldest_read->sq_wptr;
-		read_cqe->len = wq->oldest_read->read_len;
-		read_cqe->header = htonl(V_CQE_QPID(CQE_QPID(*hw_cqe)) |
-					 V_CQE_SWCQE(SW_CQE(*hw_cqe)) |
-				         V_CQE_OPCODE(T3_READ_REQ) |
-				         V_CQE_TYPE(1));
+	CQE_WRID_SQ_WPTR(*read_cqe) = wq->oldest_read->sq_wptr;
+	read_cqe->len = wq->oldest_read->read_len;
+	read_cqe->header = htonl(V_CQE_QPID(CQE_QPID(*hw_cqe)) |
+				 V_CQE_SWCQE(SW_CQE(*hw_cqe)) |
+				 V_CQE_OPCODE(T3_READ_REQ) |
+				 V_CQE_TYPE(1));
 }
 
 /*
