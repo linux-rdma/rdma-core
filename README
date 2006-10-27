@@ -60,6 +60,23 @@ via the file /etc/security/limits.conf.  More configuration may be
 necessary if you are logging in via OpenSSH and your sshd is
 configured to use privilege separation.
 
+Static linking
+--------------
+
+In almost all cases it is better to dynamically link libibverbs into
+an application.  However, if you are forced to use static linking for
+libibverbs, then you will also have to link a device-specific
+userspace driver (such as libmthca, libipathverbs, libehca, etc)
+statically into your application.  This is because of limitations on
+dynamically loading new modules into a static executable.
+
+In particular, a static application can only be linked against a
+single device-specific driver, which means that the application will
+only work with a single type of device.  This limitation will be
+removed in future libibverbs releases, but this will require a change
+to the libibverbs ABI, so it cannot be done as part of the libibverbs
+1.0 release series.
+
 Valgrind support
 ----------------
 

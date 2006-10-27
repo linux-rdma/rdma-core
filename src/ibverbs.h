@@ -60,6 +60,12 @@
 
 #define PFX		"libibverbs: "
 
+struct ibv_sysfs_dev {
+	struct sysfs_class_device      *verbs_dev;
+	struct ibv_sysfs_dev	       *next;
+	int				have_driver;
+};
+
 struct ibv_driver {
 	ibv_driver_init_func	init_func;
 	struct ibv_driver      *next;

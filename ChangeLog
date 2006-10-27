@@ -1,3 +1,17 @@
+2006-10-27  Roland Dreier  <rdreier@cisco.com>
+
+	* src/init.c: Revise initialization order to fix static linking.
+	Using dlopen() on a device-specific driver from a statically
+	linked copy of libibverbs will crash, because the driver will
+	bring in dynamic copies of libibverbs and libdl that clash with
+	the copies already linked statically.
+
+	To fix this, we change the way we search for drivers: first we
+	find all uverbs devices and try the driver (if any) that is
+	linked in directly.  If all devices are handled by that driver,
+	then we don't proceed any further.  If not, then we try dynamic
+	loading of drivers and match them against any remaining devices.
+
 2006-10-17  Roland Dreier  <rdreier@cisco.com>
 
 	* include/infiniband/arch.h: Update i386 and x86_64 memory barrier
