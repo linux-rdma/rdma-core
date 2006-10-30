@@ -77,7 +77,7 @@ static void find_sysfs_devs(void)
 		return;
 	}
 
-	dlist_for_each_data(verbs_dev_list, verbs_dev, struct sysfs_class_device) {
+	dlist_for_each_data_rev(verbs_dev_list, verbs_dev, struct sysfs_class_device) {
 		dev = malloc(sizeof *dev);
 		if (!dev) {
 			fprintf(stderr, PFX "Warning: couldn't allocate device for %s\n",
@@ -237,7 +237,7 @@ static void add_device(struct ibv_device *dev,
 		*dev_list = new_list;
 	}
 
-	*dev_list[*num_devices++] = dev;
+	(*dev_list)[(*num_devices)++] = dev;
 }
 
 HIDDEN int ibverbs_init(struct ibv_device ***list)

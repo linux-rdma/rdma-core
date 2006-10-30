@@ -1,3 +1,13 @@
+2006-10-30  Roland Dreier  <rdreier@cisco.com>
+
+	* src/init.c (add_device): Fix two operator precedence bugs in the
+	same line: [] and ++ both bind tighter than *.
+	(find_sysfs_devs): Iterate through sysfs devices in reverse, since
+	we're pushing them onto another list.  Otherwise libibverbs will
+	report devices in the opposite order from how it used to.  This
+	should really be OK, but it's nicer not to change behavior in the
+	middle of a stable series.
+
 2006-10-27  Roland Dreier  <rdreier@cisco.com>
 
 	* src/init.c: Revise initialization order to fix static linking.
