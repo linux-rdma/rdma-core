@@ -719,7 +719,7 @@ umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 	struct ib_user_mad *mad = umad;
 
 	TRACE("umad %p dlid %d dqp %d sl %d qkey %x",
-	      umad, htons(dlid), htonl(dqp), sl, htonl(qkey));
+	      umad, ntohs(dlid), ntohl(dqp), sl, ntohl(qkey));
 	mad->addr.qpn = dqp;
 	mad->addr.lid = dlid;
 	mad->addr.qkey = qkey;
