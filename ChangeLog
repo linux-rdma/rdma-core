@@ -1,3 +1,7 @@
+2006-10-31  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0.4.
+
 2006-10-30  Jack Morgenstein  <jackm@mellanox.co.il>
 	
 	* src/cmd.c (ibv_cmd_query_qp): Unmarshall sq_draining instead of
