@@ -661,7 +661,7 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	attr->cur_qp_state                  = resp.cur_qp_state;
 	attr->path_mtu                      = resp.path_mtu;
 	attr->path_mig_state                = resp.path_mig_state;
-	attr->en_sqd_async_notify           = resp.en_sqd_async_notify;
+	attr->sq_draining                   = resp.en_sqd_async_notify;
 	attr->max_rd_atomic                 = resp.max_rd_atomic;
 	attr->max_dest_rd_atomic            = resp.max_dest_rd_atomic;
 	attr->min_rnr_timer                 = resp.min_rnr_timer;
