@@ -1,3 +1,11 @@
+2006-10-30  Jack Morgenstein  <jackm@mellanox.co.il>
+	
+	* src/cmd.c (ibv_cmd_query_qp): Unmarshall sq_draining instead of
+	en_sqd_async_notify.
+
+	* include/infiniband/kern-abi.h: Change en_sqd_async_notify member
+	of struct ibv_query_qp_resp to sq_draining.
+
 2006-10-30  Roland Dreier  <rdreier@cisco.com>
 
 	* src/init.c (find_drivers): Make find_drivers() take a const
