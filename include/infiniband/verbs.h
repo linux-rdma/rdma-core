@@ -583,7 +583,6 @@ enum {
 };
 
 struct ibv_device {
-	struct ibv_driver      *driver;
 	struct ibv_device_ops	ops;
 	enum ibv_node_type	node_type;
 	enum ibv_transport_type	transport_type;

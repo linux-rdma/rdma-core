@@ -54,7 +54,7 @@
 
 HIDDEN int abi_ver;
 
-static char default_path[] = DRIVER_PATH;
+static const char default_path[] = DRIVER_PATH;
 static const char *user_path;
 
 static struct ibv_driver *driver_list;
@@ -91,7 +91,7 @@ static void load_driver(char *so_path)
 	driver_list       = driver;
 }
 
-static void find_drivers(char *dir)
+static void find_drivers(const char *dir)
 {
 	size_t len = strlen(dir);
 	glob_t so_glob;
@@ -103,9 +103,9 @@ static void find_drivers(char *dir)
 		return;
 
 	while (len && dir[len - 1] == '/')
-		dir[--len] = '\0';
+		--len;
 
-	asprintf(&pat, "%s/*.so", dir);
+	asprintf(&pat, "%.*s/*.so", (int) len, dir);
 
 	ret = glob(pat, 0, NULL, &so_glob);
 	free(pat);
@@ -163,7 +163,6 @@ static struct ibv_device *init_drivers(const char *class_path,
 		if (!dev)
 			continue;
 
-		dev->driver = driver;
 		dev->node_type = node_type;
 
 		switch (node_type) {
