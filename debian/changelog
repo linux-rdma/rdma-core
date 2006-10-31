@@ -1,9 +1,12 @@
 libibverbs (1.0.4-1) unstable; urgency=low
 
   * New upstream release.
+    - Fix static linking so it has a chance of working.
+    - Fix cut-and-paste error in sparc mb() macro.
+    - Other miscellaneous fixes.
   * Improve package description.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed,  6 Sep 2006 14:31:09 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Tue, 31 Oct 2006 15:04:33 -0800
 
 libibverbs (1.0.3-1) unstable; urgency=low
 
