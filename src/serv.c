@@ -142,7 +142,7 @@ mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus)
 	if (mad_build_pkt(umad, &rpc, portid, 0, 0) < 0)
 		return -1;
 
-	if (ibdebug > 1) 
+	if (ibdebug > 1)
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
 
 	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad,

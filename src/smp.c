@@ -72,7 +72,7 @@ smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
 	portid->sl = 0;
 	portid->qp = 0;
 
-	return madrpc(&rpc, portid, data, data); 
+	return madrpc(&rpc, portid, data, data);
 }
 
 uint8_t *
@@ -99,5 +99,5 @@ smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
 	portid->sl = 0;
 	portid->qp = 0;
 
-	return madrpc(&rpc, portid, 0, rcvbuf); 
+	return madrpc(&rpc, portid, 0, rcvbuf);
 }

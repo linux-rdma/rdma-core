@@ -257,7 +257,7 @@ enum MAD_FIELDS {
 	IB_SM_DATA_F,
 
 	/* bytes 64 - 256 */
-	IB_GS_DATA_F, 
+	IB_GS_DATA_F,
 
 	/* bytes 128 - 191 */
 	IB_DRSMP_PATH_F,
@@ -602,7 +602,7 @@ enum {
 	IB_NODE_ROUTER,
 	NODE_RNIC,
 
-	IB_NODE_MAX = NODE_RNIC 
+	IB_NODE_MAX = NODE_RNIC
 };
 
 /******************************************************************************/

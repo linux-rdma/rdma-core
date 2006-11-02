@@ -67,7 +67,7 @@ register_agent(int agent, int mclass)
 		memset(class_agent, 0xff, sizeof class_agent);
 		memset(agent_class, 0xff, sizeof agent_class);
 	}
-	
+
 	if (mclass < 0 || mclass >= MAX_CLASS ||
 	    agent < 0 || agent >= MAX_AGENTS) {
 		DEBUG("bad mgmt class %d or agent %d", mclass, agent);

@@ -323,7 +323,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_ATS_SM_MAGIC_KEY_F]		{BITSOFFS(16*8, 16), "ATSMagicKey", mad_dump_hex},
 	[IB_ATS_SM_NODE_TYPE_F]		{BITSOFFS(18*8, 16), "ATSNodeType", mad_dump_hex},
 	[IB_ATS_SM_NODE_NAME_F]		{32*8, 32*8, "ATSNodeName", mad_dump_string},
-	
+
 	/*
 	 * SLTOVL MAPPING TABLE
 	 */
@@ -348,7 +348,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_PC_EXT_XMT_BYTES_F]		{64, 64, "PortXmitData", mad_dump_uint},
 	[IB_PC_EXT_RCV_BYTES_F]		{128, 64, "PortRcvData", mad_dump_uint},
 	[IB_PC_EXT_XMT_PKTS_F]		{192, 64, "PortXmitPkts", mad_dump_uint},
-	[IB_PC_EXT_RCV_PKTS_F]		{256, 64, "PortRcvPkts", mad_dump_uint}, 
+	[IB_PC_EXT_RCV_PKTS_F]		{256, 64, "PortRcvPkts", mad_dump_uint},
 	[IB_PC_EXT_XMT_UPKTS_F]		{320, 64, "PortUnicastXmitPkts", mad_dump_uint},
 	[IB_PC_EXT_RCV_UPKTS_F]		{384, 64, "PortUnicastRcvPkts", mad_dump_uint},
 	[IB_PC_EXT_XMT_MPKTS_F]		{448, 64, "PortMulticastXmitPkts", mad_dump_uint},

@@ -111,7 +111,7 @@ madrpc_portid(void)
 	return mad_portid;
 }
 
-static int 
+static int
 _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	   int timeout)
 {

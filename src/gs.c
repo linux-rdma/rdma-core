@@ -78,7 +78,7 @@ pma_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout, uint id)
 	if (!dest->qkey)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
-	return madrpc(&rpc, dest, rcvbuf, rcvbuf); 
+	return madrpc(&rpc, dest, rcvbuf, rcvbuf);
 }
 
 uint8_t *
@@ -109,7 +109,7 @@ performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
 
 	if (!mask)
 		mask = ~0;
-	
+
 	rpc.mgtclass = IB_PERFORMANCE_CLASS;
 	rpc.method = IB_MAD_METHOD_SET;
 	rpc.attr.id = id;
@@ -127,7 +127,7 @@ performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
 	if (!dest->qkey)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
-	return madrpc(&rpc, dest, rcvbuf, rcvbuf); 
+	return madrpc(&rpc, dest, rcvbuf, rcvbuf);
 }
 
 uint8_t *

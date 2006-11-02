@@ -247,7 +247,7 @@ mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 		break;
 	case 15:
 		snprintf(buf, bufsz, "1X or 4X or 8X or 12X");
-		break;	
+		break;
 	default:
 		IBWARN("bad width %d", width);
 		buf[0] = 0;
@@ -637,7 +637,7 @@ ib_slvl_get_i(ib_slvl_table_t *tbl, int i, uint8_t *vl)
 }
 
 typedef struct _ib_vl_arb_element {
-	uint8_t res_vl; 
+	uint8_t res_vl;
 	uint8_t weight;
 } __attribute__((packed)) ib_vl_arb_element_t;
 
@@ -806,7 +806,7 @@ _mad_dump_field(ib_field_t *f, char *name, char *buf, int bufsz, void *val)
 		dots[32 - l] = 0;
 	}
 
-	n = snprintf(buf, bufsz, "%s:%s", name, dots); 
+	n = snprintf(buf, bufsz, "%s:%s", name, dots);
 	_mad_dump_val(f, buf + n, bufsz - n, val);
 	buf[bufsz - 1] = 0;
 
@@ -816,13 +816,13 @@ _mad_dump_field(ib_field_t *f, char *name, char *buf, int bufsz, void *val)
 int
 _mad_dump(ib_mad_dump_fn *fn, char *name, void *val, int valsz)
 {
-	ib_field_t f = { .def_dump_fn = fn, .bitlen = valsz * 8}; 
+	ib_field_t f = { .def_dump_fn = fn, .bitlen = valsz * 8};
 	char buf[512];
 
-	return printf("%s\n", _mad_dump_field(&f, name, buf, sizeof buf, val)); 
+	return printf("%s\n", _mad_dump_field(&f, name, buf, sizeof buf, val));
 }
 
-int 
+int
 _mad_print_field(ib_field_t *f, char *name, void *val, int valsz)
 {
 	return _mad_dump(f->def_dump_fn, name ? name : f->name, val, valsz ? valsz : ALIGN(f->bitlen, 8) / 8);
