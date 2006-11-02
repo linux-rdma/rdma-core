@@ -8,11 +8,7 @@ AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
 src_libibverbs_la_CFLAGS = -g -Wall -D_GNU_SOURCE -DDRIVER_PATH=\"$(libdir)/infiniband\"
 
-if HAVE_LD_VERSION_SCRIPT
-    libibverbs_version_script = -Wl,--version-script=$(srcdir)/src/libibverbs.map
-else
-    libibverbs_version_script =
-endif
+libibverbs_version_script = @LIBIBVERBS_VERSION_SCRIPT@
 
 src_libibverbs_la_SOURCES = src/cmd.c src/device.c src/init.c src/marshall.c \
 			    src/memory.c src/sysfs.c src/verbs.c

@@ -43,13 +43,12 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
-    if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
-        ac_cv_version_script=yes
+    [if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
+        LIBIBVERBS_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/libibverbs.map'
     else
-        ac_cv_version_script=no
-    fi)
-
-AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
+        LIBIBVERBS_VERSION_SCRIPT=
+    fi])
+AC_SUBST(LIBIBVERBS_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
 
 AC_CONFIG_FILES([Makefile libibverbs.spec])
 AC_OUTPUT
