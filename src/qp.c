@@ -410,7 +410,7 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			 * Make sure that descriptors are written
 			 * before doorbell is rung.
 			 */
-			mb();
+			wmb();
 
 			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
 
@@ -428,7 +428,7 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell is rung.
 		 */
-		mb();
+		wmb();
 
 		mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
 	}
@@ -482,14 +482,14 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			 * Make sure that descriptors are written before
 			 * doorbell record.
 			 */
-			mb();
+			wmb();
 			*qp->sq.db = htonl(qp->sq.head & 0xffff);
 
 			/*
 			 * Make sure doorbell record is written before we
 			 * write MMIO send doorbell.
 			 */
-			mb();
+			wmb();
 			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_SEND_DOORBELL);
 
 			size0 = 0;
@@ -659,7 +659,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			htonl(((ind << qp->sq.wqe_shift) +
 			       qp->send_wqe_offset) |
 			      mthca_opcode[wr->opcode]);
-		mb();
+		wmb();
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD | size |
 			      ((wr->send_flags & IBV_SEND_FENCE) ?
@@ -690,14 +690,14 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		mb();
+		wmb();
 		*qp->sq.db = htonl(qp->sq.head & 0xffff);
 
 		/*
 		 * Make sure doorbell record is written before we
 		 * write MMIO send doorbell.
 		 */
-		mb();
+		wmb();
 		mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_SEND_DOORBELL);
 	}
 
@@ -770,7 +770,7 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		mb();
+		wmb();
 		*qp->rq.db = htonl(qp->rq.head & 0xffff);
 	}
 
