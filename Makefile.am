@@ -6,11 +6,7 @@ mthcalib_LTLIBRARIES = src/mthca.la
 
 src_mthca_la_CFLAGS = -g -Wall -D_GNU_SOURCE
 
-if HAVE_LD_VERSION_SCRIPT
-    mthca_version_script = -Wl,--version-script=$(srcdir)/src/mthca.map
-else
-    mthca_version_script =
-endif
+mthca_version_script = @MTHCA_VERSION_SCRIPT@
 
 src_mthca_la_SOURCES = src/ah.c src/buf.c src/cq.c src/memfree.c src/mthca.c \
     src/qp.c src/srq.c src/verbs.c
