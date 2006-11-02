@@ -178,7 +178,7 @@ int	umad_get_fd(int portid);
 
 int	umad_register(int portid, int mgmt_class, int mgmt_version,
 		      uint8_t rmpp_version, uint32_t method_mask[4]);
-int	umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version, 
+int	umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 			  uint8_t oui[3], uint32_t method_mask[4]);
 int	umad_unregister(int portid, int agentid);
 
@@ -191,7 +191,7 @@ void	umad_dump(void *umad);
 static inline void *
 umad_alloc(int num, size_t size)	/* alloc array of umad buffers */
 {
-	return calloc(num, size); 
+	return calloc(num, size);
 }
 
 static inline void

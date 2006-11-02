@@ -292,7 +292,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 			return 0;
 		return ca_name;
 	}
-		
+
 	/* Get the list of CA names */
 	if ((n = umad_get_cas_names((void *)names, UMAD_CA_NAME_LEN)) < 0)
 		return 0;
@@ -300,7 +300,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 	/* Find the first existing CA with an active port */
 	for (caidx = 0; caidx < n; caidx++) {
 		TRACE("checking ca '%s'", names[caidx]);
-	
+
 		port = *best_port;
 		if ((port_type = resolve_ca_port(names[caidx], &port)) < 0)
 			continue;
@@ -345,7 +345,7 @@ get_ca(char *ca_name, umad_ca_t *ca)
 	int portnum;
 
 	strncpy(ca->ca_name, ca_name, sizeof ca->ca_name);
-	 
+
 	snprintf(dir_name, sizeof dir_name - 1, "%s/%s", SYS_INFINIBAND,
 		 ca->ca_name);
 	dir_name[sizeof dir_name - 1] = 0;
@@ -506,9 +506,9 @@ umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 	n = scandir(SYS_INFINIBAND, &namelist, 0, alphasort);
 	if (n > 0) {
 		for (i = 0; i < n; i++) {
-			if (!strcmp(namelist[i]->d_name, ".") || 
+			if (!strcmp(namelist[i]->d_name, ".") ||
 			    !strcmp(namelist[i]->d_name, "..")) {
-			} else 
+			} else
 				strncpy(cas[j++], namelist[i]->d_name,
 					UMAD_CA_NAME_LEN);
 			free(namelist[i]);
@@ -615,7 +615,7 @@ umad_release_ca(umad_ca_t *ca)
 		return r;
 
 	DEBUG("releasing %s", ca->ca_name);
-	return 0;	
+	return 0;
 }
 
 int
@@ -647,7 +647,7 @@ umad_release_port(umad_port_t *port)
 		return r;
 
 	DEBUG("releasing %s:%d", port->ca_name, port->portnum);
-	return 0;	
+	return 0;
 }
 
 int
@@ -660,7 +660,7 @@ umad_close_port(int portid)
 		return -EINVAL;
 
 	close(port->dev_fd);
-	
+
 	port_free(port);
 
 	DEBUG("closed %s fd %d", port->dev_file, port->dev_fd);
@@ -892,10 +892,10 @@ umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 			portid, req.id, req.qpn, oui);
 		return req.id; 		/* return agentid */
 	}
-	
+
 	DEBUG("portid %d registering qp %d class 0x%x version %d oui 0x%x failed: %m",
 		portid, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
-	return -EPERM;	
+	return -EPERM;
 }
 
 int
@@ -923,17 +923,17 @@ umad_register(int portid, int mgmt_class, int mgmt_version,
 	else
 		memset(req.method_mask, 0, sizeof req.method_mask);
 
-	memcpy(&req.oui, (char *)&oui + 1, sizeof req.oui); 
+	memcpy(&req.oui, (char *)&oui + 1, sizeof req.oui);
 
 	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
 		DEBUG("portid %d registered to use agent %d qp %d",
 		      portid, req.id, qp);
 		return req.id; 		/* return agentid */
 	}
-	
+
 	DEBUG("portid %d registering qp %d class 0x%x version %d failed: %m",
 		portid, qp, mgmt_class, mgmt_version);
-	return -EPERM;	
+	return -EPERM;
 }
 
 int
