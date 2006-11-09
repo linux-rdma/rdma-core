@@ -1,0 +1,9 @@
+.dirstamp
+ibv_asyncwatch
+ibv_devices
+ibv_devinfo
+ibv_rc_pingpong
+ibv_srq_pingpong
+ibv_uc_pingpong
+ibv_ud_pingpong
+.libs
