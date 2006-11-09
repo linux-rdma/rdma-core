@@ -1,11 +1,14 @@
 libmthca (1.0.3-1) unstable; urgency=low
 
   * New upstream release.
+    - Fix various integer overflows.
+    - Fix potential AB-BA deadlock when destroying QPs.
+    - Add more forward compat against future libibverbs releases.
   * Build against libibverbs 1.0.4, with fixed sparc mb() definition.
     (Closes: #365559)
   * Improve package description.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed,  6 Sep 2006 14:31:51 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Thu,  9 Nov 2006 11:07:58 -0800
 
 libmthca (1.0.2-1) unstable; urgency=low
 
