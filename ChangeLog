@@ -1,3 +1,7 @@
+2006-11-09  Roland Dreier  <rdreier@cisco.com>
+
+	* Release version 1.0.3.
+
 2006-10-17  Roland Dreier  <rdreier@cisco.com>
 
 	* src/cq.c, src/qp.c, src/srq.c: Convert existing uses of mb() to
