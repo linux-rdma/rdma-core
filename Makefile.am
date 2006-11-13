@@ -1,5 +1,3 @@
-# $Id$
-
 mthcalibdir = $(libdir)/infiniband
 
 mthcalib_LTLIBRARIES = src/mthca.la
