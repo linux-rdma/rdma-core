@@ -663,7 +663,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD | size |
 			      ((wr->send_flags & IBV_SEND_FENCE) ?
-                       	       MTHCA_NEXT_FENCE : 0));
+			       MTHCA_NEXT_FENCE : 0));
 
 		if (!size0) {
 			size0 = size;
@@ -847,7 +847,7 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 	qp->buf_size = qp->send_wqe_offset + (qp->sq.max << qp->sq.wqe_shift);
 
-	if (mthca_alloc_buf(&qp->buf, 
+	if (mthca_alloc_buf(&qp->buf,
 			    align(qp->buf_size, to_mdev(pd->context->device)->page_size),
 			    to_mdev(pd->context->device)->page_size)) {
 		free(qp->wrid);

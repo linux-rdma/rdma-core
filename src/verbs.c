@@ -540,7 +540,7 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	} else {
 		cmd.sq_db_page  = cmd.rq_db_page  =
 		cmd.sq_db_index = cmd.rq_db_index = 0;
-	}		
+	}
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp, sizeof resp);
