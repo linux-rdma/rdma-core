@@ -1,5 +1,3 @@
-# $Id$
-
 INCLUDES = -I$(srcdir)/include
 
 lib_LTLIBRARIES = src/libibverbs.la
