@@ -121,13 +121,24 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
+	int ret;
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
 		return NULL;
 
-	if (ibv_cmd_reg_mr(pd, addr, length, hca_va,
-			   access, mr, &cmd, sizeof cmd)) {
+#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
+	{
+		struct ibv_reg_mr_resp resp;
+
+		ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, mr,
+				     &cmd, sizeof cmd, &resp, sizeof resp);
+	}
+#else
+	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, mr,
+			     &cmd, sizeof cmd);
+#endif
+	if (ret) {
 		free(mr);
 		return NULL;
 	}
