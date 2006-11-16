@@ -48,7 +48,7 @@ AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     else
         LIBIBVERBS_VERSION_SCRIPT=
     fi])
-AC_SUBST(LIBIBVERBS_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
+AC_SUBST(LIBIBVERBS_VERSION_SCRIPT)
 
 AC_CONFIG_FILES([Makefile libibverbs.spec])
 AC_OUTPUT
