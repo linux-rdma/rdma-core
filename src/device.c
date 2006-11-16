@@ -196,6 +196,9 @@ int ibv_get_async_event(struct ibv_context *context,
 		break;
 	}
 
+	if (context->ops.async_event)
+		context->ops.async_event(event);
+
 	return 0;
 }
 

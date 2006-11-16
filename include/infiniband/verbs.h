@@ -640,6 +640,7 @@ struct ibv_context_ops {
 						uint16_t lid);
 	int			(*detach_mcast)(struct ibv_qp *qp, union ibv_gid *gid,
 						uint16_t lid);
+	void			(*async_event)(struct ibv_async_event *event);
 };
 
 struct ibv_context {
