@@ -473,7 +473,7 @@ umad_init(void)
 {
 	uint abi_version;
 
-	TRACE("");
+	TRACE("umad_init");
 	if (sys_read_uint(IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, &abi_version) < 0) {
 		IBWARN("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
 			IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
@@ -490,7 +490,7 @@ umad_init(void)
 int
 umad_done(void)
 {
-	TRACE("");
+	TRACE("umad_done");
 	/* FIXME - verify that all ports are closed */
 	return 0;
 }
@@ -756,7 +756,7 @@ umad_send(int portid, int agentid, void *umad, int length,
 	if (n == length + sizeof *mad)
 		return 0;
 
-	DEBUG("write returned %d != sizeof umad %d + length %d (%m)",
+	DEBUG("write returned %d != sizeof umad %zu + length %d (%m)",
 	      n, sizeof *mad, length);
 	if (!errno)
 		errno = EIO;
@@ -824,7 +824,7 @@ umad_recv(int portid, void *umad, int *length, int timeout_ms)
 		return n;
 	}
 
-	DEBUG("read returned %d > sizeof umad %d + length %d (%m)",
+	DEBUG("read returned %zu > sizeof umad %zu + length %d (%m)",
 	      mad->length - sizeof *mad, sizeof *mad, *length);
 
 	*length = mad->length - sizeof *mad;
@@ -888,12 +888,12 @@ umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 		memset(req.method_mask, 0, sizeof req.method_mask);
 
 	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
-		DEBUG("portid %d registered to use agent %d qp %d class 0x%x oui 0x%x",
-			portid, req.id, req.qpn, oui);
+		DEBUG("portid %d registered to use agent %d qp %d class 0x%x oui %p",
+			portid, req.id, req.qpn, req.mgmt_class, oui);
 		return req.id; 		/* return agentid */
 	}
 
-	DEBUG("portid %d registering qp %d class 0x%x version %d oui 0x%x failed: %m",
+	DEBUG("portid %d registering qp %d class 0x%x version %d oui %p failed: %m",
 		portid, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
 	return -EPERM;
 }
@@ -941,7 +941,7 @@ umad_unregister(int portid, int agentid)
 {
 	Port *port;
 
-	TRACE("portid %d unregistering agent %d", agentid);
+	TRACE("portid %d unregistering agent %d", portid, agentid);
 
 	if (!(port = port_get(portid)))
 		return -EINVAL;
