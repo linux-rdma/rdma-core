@@ -1,3 +1,7 @@
+2006-11-20  Sasha Khapyorsky <sashak@voltaire.com>
+
+	* src/rpc.c: Fix various uses of printf() style functions 
+
 2006-10-20  Hal Rosenstock <halr@voltaire.com>
 
 	* include/infiniband/mad.h, src/resolve.c (ib_resolve_portid_str),

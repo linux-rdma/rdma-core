@@ -123,7 +123,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 		timeout = def_madrpc_timeout;
 
 	if (ibdebug > 1) {
-		IBWARN(">>> sending: len %d pktsz %d", len, umad_size() + len);
+		IBWARN(">>> sending: len %d pktsz %zu", len, umad_size() + len);
 		xdump(stderr, "send buf\n", sndbuf, umad_size() + len);
 	}
 
