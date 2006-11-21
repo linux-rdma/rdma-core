@@ -49,19 +49,19 @@ struct iwch_create_cq {
 
 struct iwch_reg_mr_resp {
 	struct ibv_reg_mr_resp ibv_resp;
-	__u32 pbl_addr;
+	uint32_t pbl_addr;
 };
 
 struct iwch_create_cq_resp {
 	struct ibv_create_cq_resp ibv_resp;
-	__u64 physaddr;
-	__u32 cqid;
-	__u32 size_log2;
+	uint64_t physaddr;
+	uint32_t cqid;
+	uint32_t size_log2;
 };
 
 struct iwch_req_notify_cq {
 	struct ibv_req_notify_cq ibv_cmd;
-	__u32 rptr;
+	uint32_t rptr;
 };
 
 struct iwch_create_qp {
@@ -70,11 +70,11 @@ struct iwch_create_qp {
 
 struct iwch_create_qp_resp {
 	struct ibv_create_qp_resp ibv_resp;
-	__u64 physaddr;
-	__u64 doorbell;
-	__u32 qpid;
-	__u32 size_log2;
-	__u32 sq_size_log2;
-	__u32 rq_size_log2;
+	uint64_t physaddr;
+	uint64_t doorbell;
+	uint32_t qpid;
+	uint32_t size_log2;
+	uint32_t sq_size_log2;
+	uint32_t rq_size_log2;
 };
 #endif				/* IWCH_ABI_H */

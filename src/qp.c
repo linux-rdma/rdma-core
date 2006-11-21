@@ -43,7 +43,7 @@
 #include <stdio.h>
 
 static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
-				       __u8 *flit_cnt)
+				       uint8_t *flit_cnt)
 {
 	int i;
 	switch (wr->opcode) {
@@ -101,7 +101,7 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 
 static inline int iwch_build_rdma_write(union t3_wr *wqe, 
 					struct ibv_send_wr *wr,
-					__u8 *flit_cnt)
+					uint8_t *flit_cnt)
 {
 	int i;
 	if (wr->num_sge > T3_MAX_SGE)
@@ -142,7 +142,7 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 }
 
 static inline int iwch_build_rdma_read(union t3_wr *wqe, struct ibv_send_wr *wr,
-				       __u8 *flit_cnt)
+				       uint8_t *flit_cnt)
 {
 	if (wr->num_sge > 1)
 		return -1;
@@ -161,13 +161,13 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		  struct ibv_send_wr **bad_wr)
 {
 	int err = 0;
-	__u8 t3_wr_flit_cnt;
+	uint8_t t3_wr_flit_cnt;
 	enum t3_wr_opcode t3_wr_opcode = 0;
 	enum t3_wr_flags t3_wr_flags;
 	struct iwch_qp *qhp;
-	__u32 idx;
+	uint32_t idx;
 	union t3_wr *wqe;
-	__u32 num_wrs;
+	uint32_t num_wrs;
 	struct t3_swsq *sqp;
 
 	qhp = to_iwch_qp(ibqp);
@@ -272,12 +272,12 @@ int t3a_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
  *      Missing pdid/qpid check for now.
  */
 static inline int iwch_sgl2pbl_map(struct iwch_device *rhp,
-				   struct ibv_sge *sg_list, __u32 num_sgle,
-				   __u32 *pbl_addr, __u8 *page_size)
+				   struct ibv_sge *sg_list, uint32_t num_sgle,
+				   uint32_t *pbl_addr, uint8_t *page_size)
 {
 	int i;
 	struct iwch_mr *mhp;
-	__u32 offset;
+	uint32_t offset;
 	for (i = 0; i < num_sgle; i++) {
 		mhp = rhp->mmid2ptr[t3_mmid(sg_list[i].lkey)];
 		if (!mhp) {
@@ -288,18 +288,18 @@ static inline int iwch_sgl2pbl_map(struct iwch_device *rhp,
 			PDBG("%s %d\n", __FUNCTION__, __LINE__);
 			return -1;
 		}
-		if (sg_list[i].addr + ((__u64) sg_list[i].length) <
+		if (sg_list[i].addr + ((uint64_t) sg_list[i].length) <
 		    sg_list[i].addr) {
 			PDBG("%s %d\n", __FUNCTION__, __LINE__);
 			return -1;
 		}
-		if (sg_list[i].addr + ((__u64) sg_list[i].length) >
-		    mhp->va_fbo + ((__u64) mhp->len)) {
+		if (sg_list[i].addr + ((uint64_t) sg_list[i].length) >
+		    mhp->va_fbo + ((uint64_t) mhp->len)) {
 			PDBG("%s %d\n", __FUNCTION__, __LINE__);
 			return -1;
 		}
 		offset = sg_list[i].addr - mhp->va_fbo;
-		offset += ((__u32) mhp->va_fbo) %
+		offset += ((uint32_t) mhp->va_fbo) %
 		    (1UL << (12 + mhp->page_size));
 		pbl_addr[i] = mhp->pbl_addr +
 		    (offset >> (12 + mhp->page_size));
@@ -313,8 +313,8 @@ static inline int iwch_build_rdma_recv(struct iwch_device *rhp,
 				       struct ibv_recv_wr *wr)
 {
 	int i, err = 0;
-	__u32 pbl_addr[4];
-	__u8 page_size[4];
+	uint32_t pbl_addr[4];
+	uint8_t page_size[4];
 
 	if (wr->num_sge > T3_MAX_SGE)
 		return -1;
@@ -333,7 +333,7 @@ static inline int iwch_build_rdma_recv(struct iwch_device *rhp,
 		wqe->recv.sgl[i].len = htonl(wr->sg_list[i].length);
 		
 		/* to in the WQE == the offset into the page */
-		wqe->recv.sgl[i].to = htonll(((__u32) wr->sg_list[i].addr) %
+		wqe->recv.sgl[i].to = htonll(((uint32_t) wr->sg_list[i].addr) %
 					     (1UL << (12 + page_size[i])));
 
 		/* pbl_addr is the adapters address in the PBL */
@@ -368,7 +368,7 @@ static void insert_recv_cqe(struct t3_wq *wq, struct t3_cq *cq)
 
 static void flush_rq(struct t3_wq *wq, struct t3_cq *cq, int count)
 {
-	__u32 ptr;
+	uint32_t ptr;
 
 	/* flush RQ */
 	PDBG("%s rq_rptr 0x%x rq_wptr 0x%x skip count %u\n", __FUNCTION__, 
@@ -402,7 +402,7 @@ static void insert_sq_cqe(struct t3_wq *wq, struct t3_cq *cq,
 
 static void flush_sq(struct t3_wq *wq, struct t3_cq *cq, int count)
 {
-	__u32 ptr;
+	uint32_t ptr;
 	struct t3_swsq *sqp = wq->sq + Q_PTR2IDX(wq->sq_rptr, wq->sq_size_log2);
 
 	ptr = wq->sq_rptr + count;
@@ -438,7 +438,7 @@ static void flush_hw_cq(struct t3_cq *cq)
 static void count_scqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 {
 	struct t3_cqe *cqe;
-	__u32 ptr;
+	uint32_t ptr;
 
 	*count = 0;
 	ptr = cq->sw_rptr;
@@ -455,7 +455,7 @@ static void count_scqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 static void count_rcqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 {
 	struct t3_cqe *cqe;
-	__u32 ptr;
+	uint32_t ptr;
 
 	*count = 0;
 	ptr = cq->sw_rptr;
@@ -519,9 +519,9 @@ int t3b_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 {
 	int err = 0;
 	struct iwch_qp *qhp;
-	__u32 idx;
+	uint32_t idx;
 	union t3_wr *wqe;
-	__u32 num_wrs;
+	uint32_t num_wrs;
 
 	qhp = to_iwch_qp(ibqp);
 	pthread_spin_lock(&qhp->lock);

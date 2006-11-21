@@ -84,10 +84,10 @@ struct iwch_pd {
 
 struct iwch_mr {
 	struct ibv_mr ibv_mr;
-	__u64 va_fbo;
-	__u32 page_size;
-	__u32 pbl_addr;
-	__u32 len;
+	uint64_t va_fbo;
+	uint32_t page_size;
+	uint32_t pbl_addr;
+	uint32_t len;
 };
 
 struct iwch_cq {

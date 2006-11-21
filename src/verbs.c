@@ -328,7 +328,7 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (qhp->wq.queue == MAP_FAILED)
 		goto err4;
 
-	qhp->wq.rq = calloc(t3_rq_depth(&qhp->wq), sizeof (__u64));
+	qhp->wq.rq = calloc(t3_rq_depth(&qhp->wq), sizeof (uint64_t));
 	if (!qhp->wq.rq) 
 		goto err5;
 

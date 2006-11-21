@@ -61,7 +61,7 @@ int iwch_arm_cq(struct ibv_cq *ibcq, int solicited)
 static inline void flush_completed_wrs(struct t3_wq *wq, struct t3_cq *cq)
 {
 	struct t3_swsq *sqp;
-	__u32 ptr = wq->sq_rptr;
+	uint32_t ptr = wq->sq_rptr;
 	int count = Q_COUNT(wq->sq_rptr, wq->sq_wptr);
 	
 	sqp = wq->sq + Q_PTR2IDX(ptr, wq->sq_size_log2);
@@ -103,8 +103,8 @@ static inline void create_read_req_cqe(struct t3_wq *wq,
 static inline void advance_oldest_read(struct t3_wq *wq)
 {
 
-	__u32 rptr = wq->oldest_read - wq->sq + 1;
-	__u32 wptr = Q_PTR2IDX(wq->sq_wptr, wq->sq_size_log2);
+	uint32_t rptr = wq->oldest_read - wq->sq + 1;
+	uint32_t wptr = Q_PTR2IDX(wq->sq_wptr, wq->sq_size_log2);
 
 	while (Q_PTR2IDX(rptr, wq->sq_size_log2) != wptr) {
 		wq->oldest_read = wq->sq + Q_PTR2IDX(rptr, wq->sq_size_log2);
@@ -118,8 +118,8 @@ static inline void advance_oldest_read(struct t3_wq *wq)
 }
 
 static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
-		   struct t3_cqe *cqe, __u8 *cqe_flushed,
-		   __u64 *cookie)
+		   struct t3_cqe *cqe, uint8_t *cqe_flushed,
+		   uint64_t *cookie)
 {
 	int ret = 0;
 	struct t3_cqe *hw_cqe, read_cqe;
@@ -254,8 +254,8 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 	struct iwch_qp *qhp = NULL;
 	struct t3_cqe cqe, *hw_cqe;
 	struct t3_wq *wq;
-	__u8 cqe_flushed;
-	__u64 cookie;
+	uint8_t cqe_flushed;
+	uint64_t cookie;
 	int ret = 1;
 
 	hw_cqe = cxio_next_cqe(&chp->cq);
@@ -282,7 +282,7 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 	wc->vendor_err = CQE_STATUS(cqe);
 
 	PDBG("%s qpid 0x%x type %d opcode %d status 0x%x wrid hi 0x%x "
-	     "lo 0x%x cookie 0x%llx\n", 
+	     "lo 0x%x cookie 0x%" PRIx64 "\n", 
 	     __FUNCTION__, CQE_QPID(cqe), CQE_TYPE(cqe),
 	     CQE_OPCODE(cqe), CQE_STATUS(cqe), CQE_WRID_HI(cqe),
 	     CQE_WRID_LOW(cqe), cookie);

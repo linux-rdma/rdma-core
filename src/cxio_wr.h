@@ -53,7 +53,7 @@
 	*doorbell = QPID; \
 }
 
-#define SEQ32_GE(x,y) (!( (((__u32) (x)) - ((__u32) (y))) & 0x80000000 ))
+#define SEQ32_GE(x,y) (!( (((uint32_t) (x)) - ((uint32_t) (y))) & 0x80000000 ))
 
 enum t3_wr_flags {
 	T3_COMPLETION_FLAG = 0x01,
@@ -112,10 +112,10 @@ static inline enum t3_rdma_opcode wr2opcode(enum t3_wr_opcode wrop)
 /* Work request id */
 union t3_wrid {
 	struct {
-		__u32 hi:32;
-		__u32 low:32;
+		uint32_t hi:32;
+		uint32_t low:32;
 	} id0;
-	__u64 id1;
+	uint64_t id1;
 };
 
 #define WRID(wrid)      	(wrid.id1)
@@ -124,8 +124,8 @@ union t3_wrid {
 #define WRID_LO(wrid)		(wrid.id0.wr_lo)
 
 struct fw_riwrh {
-	__u32 op_seop_flags;
-	__u32 gen_tid_len;
+	uint32_t op_seop_flags;
+	uint32_t gen_tid_len;
 };
 
 #define S_FW_RIWR_OP		24
@@ -152,9 +152,9 @@ struct fw_riwrh {
 #define V_FW_RIWR_GEN(x)        ((x)  << S_FW_RIWR_GEN)
 
 struct t3_sge {
-	__u32 stag;
-	__u32 len;
-	__u64 to;
+	uint32_t stag;
+	uint32_t len;
+	uint64_t to;
 };
 
 /* If num_sgle is zero, flit 5+ contains immediate data.*/
@@ -163,29 +163,29 @@ struct t3_send_wr {
 	union t3_wrid wrid;	/* 1 */
 
 	enum t3_rdma_opcode rdmaop:8;
-	__u32 reserved:24;	/* 2 */
-	__u32 rem_stag;		/* 2 */
-	__u32 plen;		/* 3 */
-	__u32 num_sgle;
+	uint32_t reserved:24;	/* 2 */
+	uint32_t rem_stag;	/* 2 */
+	uint32_t plen;		/* 3 */
+	uint32_t num_sgle;
 	struct t3_sge sgl[T3_MAX_SGE];	/* 4+ */
 };
 
 struct t3_local_inv_wr {
 	struct fw_riwrh wrh;	/* 0 */
 	union t3_wrid wrid;	/* 1 */
-	__u32 stag;		/* 2 */
-	__u32 reserved3;
+	uint32_t stag;		/* 2 */
+	uint32_t reserved3;
 };
 
 struct t3_rdma_write_wr {
 	struct fw_riwrh wrh;	/* 0 */
 	union t3_wrid wrid;	/* 1 */
 	enum t3_rdma_opcode rdmaop:8;	/* 2 */
-	__u32 reserved:24;	/* 2 */
-	__u32 stag_sink;
-	__u64 to_sink;		/* 3 */
-	__u32 plen;		/* 4 */
-	__u32 num_sgle;
+	uint32_t reserved:24;	/* 2 */
+	uint32_t stag_sink;
+	uint64_t to_sink;	/* 3 */
+	uint32_t plen;		/* 4 */
+	uint32_t num_sgle;
 	struct t3_sge sgl[T3_MAX_SGE];	/* 5+ */
 };
 
@@ -193,12 +193,12 @@ struct t3_rdma_read_wr {
 	struct fw_riwrh wrh;	/* 0 */
 	union t3_wrid wrid;	/* 1 */
 	enum t3_rdma_opcode rdmaop:8;	/* 2 */
-	__u32 reserved:24;
-	__u32 rem_stag;
-	__u64 rem_to;		/* 3 */
-	__u32 local_stag;		/* 4 */
-	__u32 local_len;
-	__u64 local_to;		/* 5 */
+	uint32_t reserved:24;
+	uint32_t rem_stag;
+	uint64_t rem_to;	/* 3 */
+	uint32_t local_stag;	/* 4 */
+	uint32_t local_len;
+	uint64_t local_to;	/* 5 */
 };
 
 enum t3_addr_type {
@@ -216,25 +216,25 @@ enum t3_mem_perms {
 struct t3_bind_mw_wr {
 	struct fw_riwrh wrh;	/* 0 */
 	union t3_wrid wrid;	/* 1 */
-	__u32 reserved:16;
+	uint32_t reserved:16;
 	enum t3_addr_type type:8;
 	enum t3_mem_perms perms:8;	/* 2 */
-	__u32 mr_stag;
-	__u32 mw_stag;		/* 3 */
-	__u32 mw_len;
-	__u64 mw_va;		/* 4 */
-	__u32 mr_pbl_addr;	/* 5 */
-	__u32 reserved2:24;
-	__u32 mr_pagesz:8;
+	uint32_t mr_stag;
+	uint32_t mw_stag;	/* 3 */
+	uint32_t mw_len;
+	uint64_t mw_va;		/* 4 */
+	uint32_t mr_pbl_addr;	/* 5 */
+	uint32_t reserved2:24;
+	uint32_t mr_pagesz:8;
 };
 
 struct t3_receive_wr {
 	struct fw_riwrh wrh;	/* 0 */
 	union t3_wrid wrid;	/* 1 */
-	__u8 pagesz[T3_MAX_SGE];
-	__u32 num_sgle;		/* 2 */
+	uint8_t pagesz[T3_MAX_SGE];
+	uint32_t num_sgle;		/* 2 */
 	struct t3_sge sgl[T3_MAX_SGE];	/* 3+ */
-	__u32 pbl_addr[T3_MAX_SGE];
+	uint32_t pbl_addr[T3_MAX_SGE];
 };
 
 struct t3_bypass_wr {
@@ -245,13 +245,13 @@ struct t3_bypass_wr {
 struct t3_modify_qp_wr {
 	struct fw_riwrh wrh;	/* 0 */
 	union t3_wrid wrid;	/* 1 */
-	__u32 flags;		/* 2 */
-	__u32 quiesce;		/* 2 */
-	__u32 max_ird;		/* 3 */
-	__u32 max_ord;		/* 3 */
-	__u64 sge_cmd;		/* 4 */
-	__u64 ctx1;		/* 5 */
-	__u64 ctx0;		/* 6 */
+	uint32_t flags;		/* 2 */
+	uint32_t quiesce;	/* 2 */
+	uint32_t max_ird;	/* 3 */
+	uint32_t max_ord;	/* 3 */
+	uint64_t sge_cmd;	/* 4 */
+	uint64_t ctx1;		/* 5 */
+	uint64_t ctx0;		/* 6 */
 };
 
 enum t3_modify_qp_flags {
@@ -279,42 +279,42 @@ enum t3_qp_caps {
 } __attribute__ ((packed));
 
 struct t3_rdma_init_attr {
-	__u32 tid;
-	__u32 qpid;
-	__u32 pdid;
-	__u32 scqid;
-	__u32 rcqid;
-	__u32 rq_addr;
-	__u32 rq_size;
+	uint32_t tid;
+	uint32_t qpid;
+	uint32_t pdid;
+	uint32_t scqid;
+	uint32_t rcqid;
+	uint32_t rq_addr;
+	uint32_t rq_size;
 	enum t3_mpa_attrs mpaattrs;
 	enum t3_qp_caps qpcaps;
-	__u16 tcp_emss;
-	__u32 ord;
-	__u32 ird;
-	__u64 qp_dma_addr;
-	__u32 qp_dma_size;
-	__u8 rqes_posted;
+	uint16_t tcp_emss;
+	uint32_t ord;
+	uint32_t ird;
+	uint64_t qp_dma_addr;
+	uint32_t qp_dma_size;
+	uint8_t rqes_posted;
 };
 
 struct t3_rdma_init_wr {
 	struct fw_riwrh wrh;	/* 0 */
 	union t3_wrid wrid;	/* 1 */
-	__u32 qpid;		/* 2 */
-	__u32 pdid;
-	__u32 scqid;		/* 3 */
-	__u32 rcqid;
-	__u32 rq_addr;		/* 4 */
-	__u32 rq_size;
+	uint32_t qpid;		/* 2 */
+	uint32_t pdid;
+	uint32_t scqid;		/* 3 */
+	uint32_t rcqid;
+	uint32_t rq_addr;	/* 4 */
+	uint32_t rq_size;
 	enum t3_mpa_attrs mpaattrs:8;	/* 5 */
 	enum t3_qp_caps qpcaps:8;
-	__u32 ulpdu_size:16;
-	__u32 rqes_posted;	/* bits 31-1 - reservered */
+	uint32_t ulpdu_size:16;
+	uint32_t rqes_posted;	/* bits 31-1 - reservered */
 				/* bit     0 - set if RECV posted */
-	__u32 ord;		/* 6 */
-	__u32 ird;
-	__u64 qp_dma_addr;	/* 7 */
-	__u32 qp_dma_size;	/* 8 */
-	__u32 rsvd;
+	uint32_t ord;		/* 6 */
+	uint32_t ird;
+	uint64_t qp_dma_addr;	/* 7 */
+	uint32_t qp_dma_size;	/* 8 */
+	uint32_t rsvd;
 };
 
 union t3_wr {
@@ -327,7 +327,7 @@ union t3_wr {
 	struct t3_bypass_wr bypass;
 	struct t3_rdma_init_wr init;
 	struct t3_modify_qp_wr qp_mod;
-	__u64 flit[16];
+	uint64_t flit[16];
 };
 
 #define T3_SQ_CQE_FLIT 	  13
@@ -337,8 +337,8 @@ union t3_wr {
 #define T3_RQ_CQE_FLIT 	  14
 
 static inline void build_fw_riwrh(struct fw_riwrh *wqe, enum t3_wr_opcode op,
-				  enum t3_wr_flags flags, __u8 genbit, 
-				  __u32 tid, __u8 len)
+				  enum t3_wr_flags flags, uint8_t genbit, 
+				  uint32_t tid, uint8_t len)
 {
 	wqe->op_seop_flags = htonl(V_FW_RIWR_OP(op) |
 				   V_FW_RIWR_SOPEOP(M_FW_RIWR_SOPEOP) |
@@ -380,16 +380,16 @@ enum tpt_mem_perm {
 };
 
 struct tpt_entry {
-	__u32 valid_stag_pdid;
-	__u32 flags_pagesize_qpid;
+	uint32_t valid_stag_pdid;
+	uint32_t flags_pagesize_qpid;
 
-	__u32 rsvd_pbl_addr;
-	__u32 len;
-	__u32 va_hi;
-	__u32 va_low_or_fbo;
+	uint32_t rsvd_pbl_addr;
+	uint32_t len;
+	uint32_t va_hi;
+	uint32_t va_low_or_fbo;
 
-	__u32 rsvd_bind_cnt_or_pstag;
-	__u32 rsvd_pbl_size;
+	uint32_t rsvd_bind_cnt_or_pstag;
+	uint32_t rsvd_pbl_size;
 };
 
 #define S_TPT_VALID		31
@@ -461,10 +461,10 @@ struct tpt_entry {
  * CQE defs
  */
 struct t3_cqe {
-	__u32 header:32;
-	__u32 len:32;
-	__u32 wrid_hi_stag:32;
-	__u32 wrid_low_msn:32;
+	uint32_t header:32;
+	uint32_t len:32;
+	uint32_t wrid_hi_stag:32;
+	uint32_t wrid_low_msn:32;
 };
 
 #define S_CQE_OOO	  31
@@ -566,10 +566,10 @@ struct t3_cqe {
 						 /* mismatch) */
 
 struct t3_swsq {
-	__u64 			wr_id;
+	uint64_t 		wr_id;
 	struct t3_cqe 		cqe;
-	__u32			sq_wptr;
-	__u32			read_len;
+	uint32_t		sq_wptr;
+	uint32_t		read_len;
 	int 			opcode;
 	int			complete;
 	int			signaled;	
@@ -580,31 +580,31 @@ struct t3_swsq {
  */
 struct t3_wq {
 	union t3_wr *queue;		/* DMA Mapped work queue */
-	__u32 error;			/* 1 once we go to ERROR */
-	__u32 qpid;
-	__u32 wptr;			/* idx to next available WR slot */
-	__u32 size_log2;		/* total wq size */
+	uint32_t error;			/* 1 once we go to ERROR */
+	uint32_t qpid;
+	uint32_t wptr;			/* idx to next available WR slot */
+	uint32_t size_log2;		/* total wq size */
 	struct t3_swsq *sq;		/* SW SQ */
 	struct t3_swsq *oldest_read;	/* tracks oldest pending read */
-	__u32 sq_wptr;			/* sq_wptr - sq_rptr == count of */
-	__u32 sq_rptr;			/* pending wrs */
-	__u32 sq_size_log2;		/* sq size */
-	__u64 *rq;			/* SW RQ (holds consumer wr_ids) */
-	__u32 rq_wptr;			/* rq_wptr - rq_rptr == count of */
-	__u32 rq_rptr;			/* pending wrs */
-	__u32 rq_size_log2;		/* rq size */
-	volatile __u32 *doorbell;	/* mapped adapter doorbell register */
+	uint32_t sq_wptr;		/* sq_wptr - sq_rptr == count of */
+	uint32_t sq_rptr;		/* pending wrs */
+	uint32_t sq_size_log2;		/* sq size */
+	uint64_t *rq;			/* SW RQ (holds consumer wr_ids) */
+	uint32_t rq_wptr;		/* rq_wptr - rq_rptr == count of */
+	uint32_t rq_rptr;		/* pending wrs */
+	uint32_t rq_size_log2;		/* rq size */
+	volatile uint32_t *doorbell;	/* mapped adapter doorbell register */
 };
 
 struct t3_cq {
-	__u32 cqid;
-	__u32 rptr;
-	__u32 wptr;
-	__u32 size_log2;
+	uint32_t cqid;
+	uint32_t rptr;
+	uint32_t wptr;
+	uint32_t size_log2;
 	struct t3_cqe *queue;
 	struct t3_cqe *sw_queue;
-	__u32 sw_rptr;
-	__u32 sw_wptr;
+	uint32_t sw_rptr;
+	uint32_t sw_wptr;
 };
 
 static inline unsigned t3_wq_depth(struct t3_wq *wq)
@@ -637,7 +637,7 @@ static inline unsigned t3_cq_memsize(struct t3_cq *cq)
 	return ((1UL<<cq->size_log2) * sizeof (struct t3_cqe));
 }
 
-static inline unsigned t3_mmid(__u32 stag)
+static inline unsigned t3_mmid(uint32_t stag)
 {
 	return (stag>>8);
 }
@@ -699,7 +699,7 @@ static inline struct t3_cqe *cxio_next_cqe(struct t3_cq *cq)
  */
 static inline struct t3_swsq *next_read_wr(struct t3_wq *wq)
 {
-	__u32 rptr = wq->oldest_read - wq->sq + 1;
+	uint32_t rptr = wq->oldest_read - wq->sq + 1;
 	int count = Q_COUNT(rptr, wq->sq_wptr);
 	struct t3_swsq *sqp;
 
