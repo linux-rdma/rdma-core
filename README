@@ -10,7 +10,7 @@ Using libcxgb3
 ===================
 
 libcxgb3 will be loaded and used automatically by programs linked with
-libibverbs.  The iw_c2 kernel module must be loaded for Chelsio RNIC
+libibverbs.  The iw_cxgb3 kernel module must be loaded for Chelsio RNIC
 devices to be detected and used.
 
 Supported Hardware
