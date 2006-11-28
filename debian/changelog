@@ -1,8 +1,10 @@
 libmthca (1.0.4~pre-1) unstable; urgency=low
 
   * New upstream release.
+  * Improved description actually fixes a wishlist bug.
+    (Closes: #385937)
 
- -- Roland Dreier <rolandd@cisco.com>  Thu,  9 Nov 2006 11:49:40 -0800
+ -- Roland Dreier <rolandd@cisco.com>  Mon, 27 Nov 2006 20:45:26 -0800
 
 libmthca (1.0.3-1) unstable; urgency=low
 
