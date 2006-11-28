@@ -1,0 +1,8 @@
+*~
+.*.swp
+autom4te.cache
+config
+configure
+Makefile.in
+config.h.in
+aclocal.m4
