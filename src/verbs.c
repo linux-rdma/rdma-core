@@ -117,13 +117,26 @@ struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
+	int ret;
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
 		return NULL;
 
-	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
-			   access, mr, &cmd, sizeof cmd)) {
+#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
+	{
+		struct ibv_reg_mr_resp resp;
+
+		ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
+				     access, mr, &cmd, sizeof cmd,
+                                     &resp, sizeof resp);
+	}
+#else
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
+			     access, mr, &cmd, sizeof cmd);
+#endif
+
+	if (ret) {
 		free(mr);
 		return NULL;
 	}
