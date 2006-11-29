@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2004-2006 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -39,25 +39,15 @@
 #include <netdb.h>
 #include <byteswap.h>
 
+#include <asm/byteorder.h>
+#include <netinet/in.h>
+
 #include <infiniband/cm.h>
 #include <rdma/rdma_cma.h>
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-static inline uint64_t cpu_to_be64(uint64_t x) { return x; }
-static inline uint32_t cpu_to_be32(uint32_t x) { return x; }
-#else
-static inline uint64_t cpu_to_be64(uint64_t x) { return bswap_64(x); }
-static inline uint32_t cpu_to_be32(uint32_t x) { return bswap_32(x); }
-#endif
-
-/*
- * To execute:
- * Server: ucmpost
- * Client: ucmpost server
- */
-
 struct cmtest {
 	struct ibv_device	*device;
+	struct ib_cm_device	*cm_dev;
 	struct ibv_context	*verbs;
 	struct ibv_pd		*pd;
 
@@ -307,7 +297,7 @@ static int init_node(struct cmtest_node *node, struct ibv_qp_init_attr *qp_attr)
 	int cqe, ret;
 
 	if (!is_server) {
-		ret = ib_cm_create_id(test.verbs, &node->cm_id, node);
+		ret = ib_cm_create_id(test.cm_dev, &node->cm_id, node);
 		if (ret) {
 			printf("failed to create cm_id: %d\n", ret);
 			return ret;
@@ -438,6 +428,10 @@ static int init(void)
 	if (!test.verbs)
 		return -1;
 
+	test.cm_dev = ib_cm_open_device(test.verbs);
+	if (!test.cm_dev)
+		return -1;
+
 	test.pd = ibv_alloc_pd(test.verbs);
 	if (!test.pd) {
 		printf("failed to alloc PD\n");
@@ -466,6 +460,8 @@ static void cleanup(void)
 	destroy_nodes();
 	destroy_messages();
 	ibv_dealloc_pd(test.pd);
+	ib_cm_close_device(test.cm_dev);
+	ibv_close_device(test.verbs);
 }
 
 static int send_msgs(void)
@@ -525,7 +521,7 @@ static void connect_events(void)
 	int err = 0;
 
 	while (test.connects_left && !err) {
-		err = ib_cm_get_event(ib_cm_get_device(test.verbs), &event);
+		err = ib_cm_get_event(test.cm_dev, &event);
 		if (!err) {
 			cm_handler(event->cm_id, event);
 			ib_cm_ack_event(event);
@@ -539,7 +535,7 @@ static void disconnect_events(void)
 	int err = 0;
 
 	while (test.disconnects_left && !err) {
-		err = ib_cm_get_event(ib_cm_get_device(test.verbs), &event);
+		err = ib_cm_get_event(test.cm_dev, &event);
 		if (!err) {
 			cm_handler(event->cm_id, event);
 			ib_cm_ack_event(event);
@@ -553,11 +549,11 @@ static void run_server(void)
 	int i, ret;
 
 	printf("starting server\n");
-	if (ib_cm_create_id(test.verbs, &listen_id, &test)) {
+	if (ib_cm_create_id(test.cm_dev, &listen_id, &test)) {
 		printf("listen request failed\n");
 		return;
 	}
-	ret = ib_cm_listen(listen_id, cpu_to_be64(0x1000), 0);
+	ret = ib_cm_listen(listen_id, __cpu_to_be64(0x1000), 0);
 	if (ret) {
 		printf("failure trying to listen: %d\n", ret);
 		goto out;
@@ -595,10 +591,8 @@ static int get_dst_addr(char *dst, struct sockaddr_in *addr_in)
 	int ret;
 
 	ret = getaddrinfo(dst, NULL, NULL, &res);
-	if (ret) {
-		printf("getaddrinfo failed - invalid hostname or IP address\n");
+	if (ret)
 		return ret;
-	}
 
 	if (res->ai_family != PF_INET) {
 		ret = -1;
@@ -614,6 +608,7 @@ out:
 
 static int query_for_path(char *dst)
 {
+	struct rdma_event_channel *channel;
 	struct rdma_cm_id *id;
 	struct sockaddr_in addr_in;
 	struct rdma_cm_event *event;
@@ -623,15 +618,19 @@ static int query_for_path(char *dst)
 	if (ret)
 		return ret;
 
-	ret = rdma_create_id(&id, NULL);
+	channel = rdma_create_event_channel();
+	if (!channel)
+		return -1;
+
+	ret = rdma_create_id(channel, &id, NULL, RDMA_PS_TCP);
 	if (ret)
-		return ret;
+		goto destroy_channel;
 
 	ret = rdma_resolve_addr(id, NULL, (struct sockaddr *) &addr_in, 2000);
 	if (ret)
 		goto out;
 
-	ret = rdma_get_cm_event(&event);
+	ret = rdma_get_cm_event(channel, &event);
 	if (!ret && event->event != RDMA_CM_EVENT_ADDR_RESOLVED)
 		ret = event->status;
 	rdma_ack_cm_event(event);
@@ -642,7 +641,7 @@ static int query_for_path(char *dst)
 	if (ret)
 		goto out;
 
-	ret = rdma_get_cm_event(&event);
+	ret = rdma_get_cm_event(channel, &event);
 	if (!ret && event->event != RDMA_CM_EVENT_ROUTE_RESOLVED)
 		ret = event->status;
 	rdma_ack_cm_event(event);
@@ -652,6 +651,8 @@ static int query_for_path(char *dst)
 	test.path_rec = id->route.path_rec[0];
 out:
 	rdma_destroy_id(id);
+destroy_channel:
+	rdma_destroy_event_channel(channel);
 	return ret;
 }
 
@@ -669,7 +670,7 @@ static void run_client(char *dst)
 
 	memset(&req, 0, sizeof req);
 	req.primary_path = &test.path_rec;
-	req.service_id = cpu_to_be64(0x1000);
+	req.service_id = __cpu_to_be64(0x1000);
 	req.responder_resources = 1;
 	req.initiator_depth = 1;
 	req.remote_cm_response_timeout = 20;
@@ -707,8 +708,8 @@ out:
 
 int main(int argc, char **argv)
 {
-	if (argc != 1 && argc != 2) {
-		printf("usage: %s [server_addr]\n", argv[0]);
+	if (argc != 1 && argc != 3) {
+		printf("usage: %s [-i server_addr | -l server_lid]\n", argv[0]);
 		exit(1);
 	}
 
