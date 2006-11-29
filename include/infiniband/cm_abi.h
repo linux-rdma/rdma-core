@@ -45,7 +45,7 @@
  */
 
 #define IB_USER_CM_MIN_ABI_VERSION	4
-#define IB_USER_CM_MAX_ABI_VERSION	4
+#define IB_USER_CM_MAX_ABI_VERSION	5
 
 enum {
 	IB_USER_CM_CMD_CREATE_ID,
@@ -53,7 +53,8 @@ enum {
 	IB_USER_CM_CMD_ATTR_ID,
 
 	IB_USER_CM_CMD_LISTEN,
-	IB_USER_CM_CMD_ESTABLISH,
+	IB_USER_CM_CMD_NOTIFY,
+	IB_USER_CM_CMD_ESTABLISH = IB_USER_CM_CMD_NOTIFY, /* ABI 4 support */
 	
 	IB_USER_CM_CMD_SEND_REQ,
 	IB_USER_CM_CMD_SEND_REP,
@@ -124,8 +125,13 @@ struct cm_abi_listen {
 	__u32 reserved;
 };
 
-struct cm_abi_establish {
+struct cm_abi_establish {	/* ABI 4 support */
 	__u32 id;
+};
+
+struct cm_abi_notify {
+	__u32 id;
+	__u32 event;
 };
 
 struct cm_abi_private_data {

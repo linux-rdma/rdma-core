@@ -475,7 +475,7 @@ int ib_cm_send_drep(struct ib_cm_id *cm_id,
 				    private_data, private_data_len);
 }
 
-int ib_cm_establish(struct ib_cm_id *cm_id)
+static int cm_establish(struct ib_cm_id *cm_id)
 {
 	struct cm_abi_establish *cmd;
 	void *msg;
@@ -484,6 +484,31 @@ int ib_cm_establish(struct ib_cm_id *cm_id)
 	
 	CM_CREATE_MSG_CMD(msg, cmd, IB_USER_CM_CMD_ESTABLISH, size);
 	cmd->id = cm_id->handle;
+
+	result = write(cm_id->device->fd, msg, size);
+	if (result != size)
+		return (result > 0) ? -ENODATA : result;
+
+	return 0;
+}
+
+int ib_cm_notify(struct ib_cm_id *cm_id, enum ibv_event_type event)
+{
+	struct cm_abi_notify *cmd;
+	void *msg;
+	int result;
+	int size;
+	
+	if (abi_ver == 4) {
+		if (event == IBV_EVENT_COMM_EST)
+			return cm_establish(cm_id);
+		else
+			return -EINVAL;
+	}
+
+	CM_CREATE_MSG_CMD(msg, cmd, IB_USER_CM_CMD_NOTIFY, size);
+	cmd->id = cm_id->handle;
+	cmd->event = event;
 
 	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
