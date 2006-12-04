@@ -1,4 +1,3 @@
-# $Id$
 
 %define ver @VERSION@
 %define RELEASE 1
