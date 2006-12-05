@@ -55,7 +55,9 @@ enum rdma_cm_event_type {
 	RDMA_CM_EVENT_REJECTED,
 	RDMA_CM_EVENT_ESTABLISHED,
 	RDMA_CM_EVENT_DISCONNECTED,
-	RDMA_CM_EVENT_DEVICE_REMOVAL
+	RDMA_CM_EVENT_DEVICE_REMOVAL,
+	RDMA_CM_EVENT_MULTICAST_JOIN,
+	RDMA_CM_EVENT_MULTICAST_ERROR
 };
 
 enum rdma_port_space {
@@ -278,6 +280,24 @@ int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event);
  *   transitions it into the error state.
  */
 int rdma_disconnect(struct rdma_cm_id *id);
+
+/**
+ * rdma_join_multicast - Join the multicast group specified by the given
+ *   address.
+ * @id: Communication identifier associated with the request.
+ * @addr: Multicast address identifying the group to join.
+ * @context: User-defined context associated with the join request.  The
+ *   context is returned to the user through the private_data field in
+ *   the rdma_cm_event.
+ */
+int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
+			void *context);
+
+/**
+ * rdma_leave_multicast - Leave the multicast group specified by the given
+ *   address.
+ */
+int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr);
 
 /**
  * rdma_get_cm_event - Retrieves the next pending communications event,

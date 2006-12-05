@@ -115,12 +115,28 @@ struct cma_id_private {
 	pthread_cond_t	  cond;
 	pthread_mutex_t	  mut;
 	uint32_t	  handle;
+	struct cma_multicast *mc_list;
+};
+
+struct cma_multicast {
+	struct cma_multicast  *next;
+	struct cma_id_private *id_priv;
+	void		*context;
+	int		events_completed;
+	pthread_cond_t	cond;
+	uint32_t	handle;
+	union ibv_gid	mgid;
+	uint16_t	mlid;
+	struct sockaddr addr;
+	uint8_t		pad[sizeof(struct sockaddr_in6) -
+			    sizeof(struct sockaddr)];
 };
 
 struct cma_event {
 	struct rdma_cm_event	event;
 	uint8_t			private_data[RDMA_MAX_PRIVATE_DATA];
 	struct cma_id_private	*id_priv;
+	struct cma_multicast	*mc;
 };
 
 static struct cma_device *cma_dev_array;
@@ -907,12 +923,124 @@ int rdma_disconnect(struct rdma_cm_id *id)
 	return 0;
 }
 
+int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
+			void *context)
+{
+	struct ucma_abi_join_mcast *cmd;
+	struct ucma_abi_create_id_resp *resp;
+	struct cma_id_private *id_priv;
+	struct cma_multicast *mc, **pos;
+	void *msg;
+	int ret, size, addrlen;
+	
+	id_priv = container_of(id, struct cma_id_private, id);
+	addrlen = ucma_addrlen(addr);
+	if (!addrlen)
+		return -EINVAL;
+
+	mc = malloc(sizeof *mc);
+	if (!mc)
+		return -ENOMEM;
+
+	memset(mc, 0, sizeof *mc);
+	mc->context = context;
+	mc->id_priv = id_priv;
+	memcpy(&mc->addr, addr, addrlen);
+	if (pthread_cond_init(&id_priv->cond, NULL)) {
+		ret = -1;
+		goto err1;
+	}
+
+	pthread_mutex_lock(&id_priv->mut);
+	mc->next = id_priv->mc_list;
+	id_priv->mc_list = mc;
+	pthread_mutex_unlock(&id_priv->mut);
+
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_JOIN_MCAST, size);
+	cmd->id = id_priv->handle;
+	memcpy(&cmd->addr, addr, addrlen);
+	cmd->uid = (uintptr_t) mc;
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size) {
+		ret = (ret > 0) ? -ENODATA : ret;
+		goto err2;
+	}
+
+	mc->handle = resp->id;
+	return 0;
+err2:
+	pthread_mutex_lock(&id_priv->mut);
+	for (pos = &id_priv->mc_list; *pos != mc; pos = &(*pos)->next)
+		;
+	*pos = mc->next;
+	pthread_mutex_unlock(&id_priv->mut);
+err1:
+	free(mc);
+	return ret;
+}
+
+int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
+{
+	struct ucma_abi_destroy_id *cmd;
+	struct ucma_abi_destroy_id_resp *resp;
+	struct cma_id_private *id_priv;
+	struct cma_multicast *mc, **pos;
+	void *msg;
+	int ret, size, addrlen;
+	
+	addrlen = ucma_addrlen(addr);
+	if (!addrlen)
+		return -EINVAL;
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	pthread_mutex_lock(&id_priv->mut);
+	for (pos = &id_priv->mc_list; *pos; pos = &(*pos)->next)
+		if (!memcmp(&(*pos)->addr, addr, addrlen))
+			break;
+
+	mc = *pos;
+	if (*pos)
+		*pos = mc->next;
+	pthread_mutex_unlock(&id_priv->mut);
+	if (!mc)
+		return -EADDRNOTAVAIL;
+
+	if (id->qp)
+		ibv_detach_mcast(id->qp, &mc->mgid, mc->mlid);
+	
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_LEAVE_MCAST, size);
+	cmd->id = mc->handle;
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		ret = (ret > 0) ? -ENODATA : ret;
+
+	pthread_mutex_lock(&id_priv->mut);
+	while (mc->events_completed < resp->events_reported)
+		pthread_cond_wait(&mc->cond, &id_priv->mut);
+	pthread_mutex_unlock(&id_priv->mut);
+
+	free(mc);
+	return ret;
+}
+
 static void ucma_complete_event(struct cma_id_private *id_priv)
 {
 	pthread_mutex_lock(&id_priv->mut);
 	id_priv->events_completed++;
 	pthread_cond_signal(&id_priv->cond);
 	pthread_mutex_unlock(&id_priv->mut);
+}
+
+static void ucma_complete_mc_event(struct cma_multicast *mc)
+{
+	pthread_mutex_lock(&mc->id_priv->mut);
+	mc->events_completed++;
+	pthread_cond_signal(&mc->cond);
+	mc->id_priv->events_completed++;
+	pthread_cond_signal(&mc->id_priv->cond);
+	pthread_mutex_unlock(&mc->id_priv->mut);
 }
 
 int rdma_ack_cm_event(struct rdma_cm_event *event)
@@ -924,7 +1052,10 @@ int rdma_ack_cm_event(struct rdma_cm_event *event)
 
 	evt = container_of(event, struct cma_event, event);
 
-	ucma_complete_event(evt->id_priv);
+	if (evt->mc)
+		ucma_complete_mc_event(evt->mc);
+	else
+		ucma_complete_event(evt->id_priv);
 	free(evt);
 	return 0;
 }
@@ -997,6 +1128,18 @@ static int ucma_process_establish(struct rdma_cm_id *id)
 		ucma_modify_qp_err(id);
 
 	return ret;
+}
+
+static int ucma_process_join(struct cma_event *evt)
+{
+	evt->mc->mgid = evt->event.param.ud.ah_attr.grh.dgid;
+	evt->mc->mlid = evt->event.param.ud.ah_attr.dlid;
+
+	if (evt->id_priv->id.qp)
+		return ibv_attach_mcast(evt->id_priv->id.qp,
+					&evt->mc->mgid, evt->mc->mlid);
+	else
+		return 0;
 }
 
 static void ucma_copy_conn_event(struct cma_event *event,
@@ -1138,6 +1281,23 @@ retry:
 		}
 		evt->event.id = &evt->id_priv->id;
 		ucma_copy_conn_event(evt, &resp->param.conn);
+		break;
+	case RDMA_CM_EVENT_MULTICAST_JOIN:
+		evt->mc = (void *) (uintptr_t) resp->uid;
+		evt->id_priv = evt->mc->id_priv;
+		evt->event.id = &evt->id_priv->id;
+		ucma_copy_ud_event(evt, &resp->param.ud);
+		evt->event.param.ud.private_data = evt->mc->context;
+		evt->event.status = ucma_process_join(evt);
+		if (evt->event.status)
+			evt->event.event = RDMA_CM_EVENT_MULTICAST_ERROR;
+		break;
+	case RDMA_CM_EVENT_MULTICAST_ERROR:
+		evt->mc = (void *) (uintptr_t) resp->uid;
+		evt->id_priv = evt->mc->id_priv;
+		evt->event.id = &evt->id_priv->id;
+		evt->event.status = resp->status;
+		evt->event.param.ud.private_data = evt->mc->context;
 		break;
 	default:
 		evt->id_priv = (void *) (uintptr_t) resp->uid;
