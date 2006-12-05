@@ -33,14 +33,15 @@
 #ifndef RDMA_CMA_ABI_H
 #define RDMA_CMA_ABI_H
 
+#include <infiniband/kern-abi.h>
 #include <infiniband/sa-kern-abi.h>
 
 /*
  * This file must be kept in sync with the kernel's version of rdma_user_cm.h
  */
 
-#define RDMA_USER_CM_MIN_ABI_VERSION	1
-#define RDMA_USER_CM_MAX_ABI_VERSION	2
+#define RDMA_USER_CM_MIN_ABI_VERSION	3
+#define RDMA_USER_CM_MAX_ABI_VERSION	3
 
 #define RDMA_MAX_PRIVATE_DATA		256
 
@@ -60,20 +61,13 @@ enum {
 	UCMA_CMD_GET_EVENT,
 	UCMA_CMD_GET_OPTION,
 	UCMA_CMD_SET_OPTION,
-	UCMA_CMD_GET_DST_ATTR,
-	UCMA_CMD_JOIN_MCAST,
-	UCMA_CMD_LEAVE_MCAST
+	UCMA_CMD_NOTIFY
 };
 
 struct ucma_abi_cmd_hdr {
 	__u32 cmd;
 	__u16 in;
 	__u16 out;
-};
-
-struct ucma_abi_create_id_v1 {
-	__u64 uid;
-	__u64 response;
 };
 
 struct ucma_abi_create_id {
@@ -133,7 +127,7 @@ struct ucma_abi_query_route_resp {
 
 struct ucma_abi_conn_param {
 	__u32 qp_num;
-	__u32 qp_type;
+	__u32 reserved;
 	__u8  private_data[RDMA_MAX_PRIVATE_DATA];
 	__u8  private_data_len;
 	__u8  srq;
@@ -143,6 +137,15 @@ struct ucma_abi_conn_param {
 	__u8  retry_count;
 	__u8  rnr_retry_count;
 	__u8  valid;
+};
+
+struct ucma_abi_ud_param {
+	__u32 qp_num;
+	__u32 qkey;
+	struct ibv_kern_ah_attr ah_attr;
+	__u8 private_data[RDMA_MAX_PRIVATE_DATA];
+	__u8 private_data_len;
+	__u8 reserved[7];
 };
 
 struct ucma_abi_connect {
@@ -180,27 +183,9 @@ struct ucma_abi_init_qp_attr {
 	__u32 qp_state;
 };
 
-struct ucma_abi_join_mcast {
+struct ucma_abi_notify {
 	__u32 id;
-	struct sockaddr_in6 addr;
-	__u64 uid;
-};
-
-struct ucma_abi_leave_mcast {
-	__u32 id;
-	struct sockaddr_in6 addr;
-};
-
-struct ucma_abi_dst_attr_resp {
-	__u32 remote_qpn;
-	__u32 remote_qkey;
-	struct ibv_kern_ah_attr ah_attr;
-};
-
-struct ucma_abi_get_dst_attr {
-	__u64 response;
-	struct sockaddr_in6 addr;
-	__u32 id;
+	__u32 event;
 };
 
 struct ucma_abi_get_event {
@@ -212,30 +197,10 @@ struct ucma_abi_event_resp {
 	__u32 id;
 	__u32 event;
 	__u32 status;
-	__u8  private_data_len;
-	__u8  reserved[3];
-	__u8  private_data[RDMA_MAX_PRIVATE_DATA];
-};
-
-struct ucma_abi_get_option {
-	__u64 response;
-	__u64 optval;
-	__u32 id;
-	__u32 level;
-	__u32 optname;
-	__u32 optlen;
-};
-
-struct ucma_abi_get_option_resp {
-	__u32 optlen;
-};
-
-struct ucma_abi_set_option {
-	__u64 optval;
-	__u32 id;
-	__u32 level;
-	__u32 optname;
-	__u32 optlen;
+	union {
+		struct ucma_abi_conn_param conn;
+		struct ucma_abi_ud_param   ud;
+	} param;
 };
 
 #endif /* RDMA_CMA_ABI_H */

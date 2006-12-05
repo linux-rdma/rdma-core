@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -41,15 +41,9 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <byteswap.h>
+#include <getopt.h>
 
 #include <rdma/rdma_cma.h>
-#include <rdma/rdma_cma_ib.h>
-
-/*
- * To execute:
- * Server: udaddy
- * Client: udaddy [server_addr [src_addr]]
- */
 
 struct cmatest_node {
 	int			id;
@@ -80,7 +74,8 @@ static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
-static int is_server;
+static char *dst_addr;
+static char *src_addr;
 
 static int create_message(struct cmatest_node *node)
 {
@@ -246,7 +241,6 @@ static int route_handler(struct cmatest_node *node)
 
 	memset(&conn_param, 0, sizeof conn_param);
 	conn_param.qp_num = node->cma_id->qp->qp_num;
-	conn_param.qp_type = node->cma_id->qp->qp_type;
 	conn_param.retry_count = 5;
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
@@ -284,7 +278,6 @@ static int connect_handler(struct rdma_cm_id *cma_id)
 
 	memset(&conn_param, 0, sizeof conn_param);
 	conn_param.qp_num = node->cma_id->qp->qp_num;
-	conn_param.qp_type = node->cma_id->qp->qp_type;
 	ret = rdma_accept(node->cma_id, &conn_param);
 	if (ret) {
 		printf("udaddy: failure accepting: %d\n", ret);
@@ -303,19 +296,12 @@ err1:
 	return ret;
 }
 
-static int resolved_handler(struct cmatest_node *node)
+static int resolved_handler(struct cmatest_node *node,
+			    struct rdma_cm_event *event)
 {
-	struct ibv_ah_attr ah_attr;
-	int ret;
-
-	ret = rdma_get_dst_attr(node->cma_id, test.dst_addr, &ah_attr,
-				&node->remote_qpn, &node->remote_qkey);
-	if (ret) {
-		printf("udaddy: failure getting destination attributes\n");
-		goto err;
-	}
-
-	node->ah = ibv_create_ah(node->pd, &ah_attr);
+	node->remote_qpn = event->param.ud.qp_num;
+	node->remote_qkey = event->param.ud.qkey;
+	node->ah = ibv_create_ah(node->pd, &event->param.ud.ah_attr);
 	if (!node->ah) {
 		printf("udaddy: failure creating address handle\n");
 		goto err;
@@ -326,7 +312,7 @@ static int resolved_handler(struct cmatest_node *node)
 	return 0;
 err:
 	connect_error();
-	return ret;
+	return -1;
 }
 
 static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
@@ -344,7 +330,7 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 		ret = connect_handler(cma_id);
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		ret = resolved_handler(cma_id->context);
+		ret = resolved_handler(cma_id->context, event);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
 	case RDMA_CM_EVENT_ROUTE_ERROR:
@@ -404,7 +390,7 @@ static int alloc_nodes(void)
 
 	for (i = 0; i < connections; i++) {
 		test.nodes[i].id = i;
-		if (!is_server) {
+		if (dst_addr) {
 			ret = rdma_create_id(test.channel,
 					     &test.nodes[i].cma_id,
 					     &test.nodes[i], RDMA_PS_UDP);
@@ -475,6 +461,28 @@ static int connect_events(void)
 	return ret;
 }
 
+static int get_addr(char *dst, struct sockaddr_in *addr)
+{
+	struct addrinfo *res;
+	int ret;
+
+	ret = getaddrinfo(dst, NULL, NULL, &res);
+	if (ret) {
+		printf("getaddrinfo failed - invalid hostname or IP address\n");
+		return ret;
+	}
+
+	if (res->ai_family != PF_INET) {
+		ret = -1;
+		goto out;
+	}
+
+	*addr = *(struct sockaddr_in *) res->ai_addr;
+out:
+	freeaddrinfo(res);
+	return ret;
+}
+
 static int run_server(void)
 {
 	struct rdma_cm_id *listen_id;
@@ -487,7 +495,13 @@ static int run_server(void)
 		return ret;
 	}
 
-	test.src_in.sin_family = PF_INET;
+	if (src_addr) {
+		ret = get_addr(src_addr, &test.src_in);
+		if (ret)
+			goto out;
+	} else
+		test.src_in.sin_family = PF_INET;
+
 	test.src_in.sin_port = 7174;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
@@ -526,40 +540,18 @@ out:
 	return ret;
 }
 
-static int get_addr(char *dst, struct sockaddr_in *addr)
-{
-	struct addrinfo *res;
-	int ret;
-
-	ret = getaddrinfo(dst, NULL, NULL, &res);
-	if (ret) {
-		printf("getaddrinfo failed - invalid hostname or IP address\n");
-		return ret;
-	}
-
-	if (res->ai_family != PF_INET) {
-		ret = -1;
-		goto out;
-	}
-
-	*addr = *(struct sockaddr_in *) res->ai_addr;
-out:
-	freeaddrinfo(res);
-	return ret;
-}
-
-static int run_client(char *dst, char *src)
+static int run_client(void)
 {
 	int i, ret;
 
 	printf("udaddy: starting client\n");
-	if (src) {
-		ret = get_addr(src, &test.src_in);
+	if (src_addr) {
+		ret = get_addr(src_addr, &test.src_in);
 		if (ret)
 			return ret;
 	}
 
-	ret = get_addr(dst, &test.dst_in);
+	ret = get_addr(dst_addr, &test.dst_in);
 	if (ret)
 		return ret;
 
@@ -568,7 +560,7 @@ static int run_client(char *dst, char *src)
 	printf("udaddy: connecting\n");
 	for (i = 0; i < connections; i++) {
 		ret = rdma_resolve_addr(test.nodes[i].cma_id,
-					src ? test.src_addr : NULL,
+					src_addr ? test.src_addr : NULL,
 					test.dst_addr, 2000);
 		if (ret) {
 			printf("udaddy: failure getting addr: %d\n", ret);
@@ -601,13 +593,35 @@ out:
 
 int main(int argc, char **argv)
 {
-	int ret;
+	int op, ret;
 
-	if (argc > 3) {
-		printf("usage: %s [server_addr [src_addr]]\n", argv[0]);
-		exit(1);
+	while ((op = getopt(argc, argv, "s:b:c:C:S:")) != -1) {
+		switch (op) {
+		case 's':
+			dst_addr = optarg;
+			break;
+		case 'b':
+			src_addr = optarg;
+			break;
+		case 'c':
+			connections = atoi(optarg);
+			break;
+		case 'C':
+			message_count = atoi(optarg);
+			break;
+		case 'S':
+			message_size = atoi(optarg);
+			break;
+		default:
+			printf("usage: %s\n", argv[0]);
+			printf("\t[-s server_address]\n");
+			printf("\t[-b bind_address]\n");
+			printf("\t[-c connections]\n");
+			printf("\t[-C message_count]\n");
+			printf("\t[-S message_size]\n");
+			exit(1);
+		}
 	}
-	is_server = (argc == 1);
 
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
 	test.src_addr = (struct sockaddr *) &test.src_in;
@@ -622,10 +636,10 @@ int main(int argc, char **argv)
 	if (alloc_nodes())
 		exit(1);
 
-	if (is_server)
-		ret = run_server();
+	if (dst_addr)
+		ret = run_client();
 	else
-		ret = run_client(argv[1], (argc == 3) ? argv[2] : NULL);
+		ret = run_server();
 
 	printf("test complete\n");
 	destroy_nodes();

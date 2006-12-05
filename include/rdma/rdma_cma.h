@@ -55,9 +55,7 @@ enum rdma_cm_event_type {
 	RDMA_CM_EVENT_REJECTED,
 	RDMA_CM_EVENT_ESTABLISHED,
 	RDMA_CM_EVENT_DISCONNECTED,
-	RDMA_CM_EVENT_DEVICE_REMOVAL,
-	RDMA_CM_EVENT_MULTICAST_JOIN,
-	RDMA_CM_EVENT_MULTICAST_ERROR
+	RDMA_CM_EVENT_DEVICE_REMOVAL
 };
 
 enum rdma_port_space {
@@ -65,11 +63,11 @@ enum rdma_port_space {
 	RDMA_PS_UDP  = 0x0111,
 };
 
-/* Protocol levels for get/set options. */
-enum {
-	RDMA_PROTO_IP = 0,
-	RDMA_PROTO_IB = 1,
-};
+/*
+ * Global qkey value for all UD QPs and multicast groups created via the 
+ * RDMA CM.
+ */
+#define RDMA_UD_QKEY 0x01234567
 
 struct ib_addr {
 	union ibv_gid	sgid;
@@ -78,8 +76,12 @@ struct ib_addr {
 };
 
 struct rdma_addr {
-	struct sockaddr_in6	src_addr;
-	struct sockaddr_in6	dst_addr;
+	struct sockaddr		src_addr;
+	uint8_t			src_pad[sizeof(struct sockaddr_storage) -
+					sizeof(struct sockaddr)];
+	struct sockaddr		dst_addr;
+	uint8_t			dst_pad[sizeof(struct sockaddr_storage) -
+					sizeof(struct sockaddr)];
 	union {
 		struct ib_addr	ibaddr;
 	} addr;
@@ -105,11 +107,25 @@ struct rdma_cm_id {
 	uint8_t			 port_num;
 };
 
-struct rdma_multicast_data {
-	void		*context;
-	struct sockaddr addr;
-	uint8_t		pad[sizeof(struct sockaddr_in6) -
-			    sizeof(struct sockaddr)];
+struct rdma_conn_param {
+	const void *private_data;
+	uint8_t private_data_len;
+	uint8_t responder_resources;
+	uint8_t initiator_depth;
+	uint8_t flow_control;
+	uint8_t retry_count;		/* ignored when accepting */
+	uint8_t rnr_retry_count;
+	/* Fields below ignored if a QP is created on the rdma_cm_id. */
+	uint8_t srq;
+	uint32_t qp_num;
+};
+
+struct rdma_ud_param {
+	const void *private_data;
+	uint8_t private_data_len;
+	struct ibv_ah_attr ah_attr;
+	uint32_t qp_num;
+	uint32_t qkey;
 };
 
 struct rdma_cm_event {
@@ -117,8 +133,10 @@ struct rdma_cm_event {
 	struct rdma_cm_id	*listen_id;
 	enum rdma_cm_event_type	 event;
 	int			 status;
-	void			*private_data;
-	uint8_t			 private_data_len;
+	union {
+		struct rdma_conn_param conn;
+		struct rdma_ud_param   ud;
+	} param;
 };
 
 /**
@@ -210,20 +228,6 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
  */
 void rdma_destroy_qp(struct rdma_cm_id *id);
 
-struct rdma_conn_param {
-	const void *private_data;
-	uint8_t private_data_len;
-	uint8_t responder_resources;
-	uint8_t initiator_depth;
-	uint8_t flow_control;
-	uint8_t retry_count;		/* ignored when accepting */
-	uint8_t rnr_retry_count;
-	/* Fields below ignored if a QP is created on the rdma_cm_id. */
-	uint8_t srq;
-	uint32_t qp_num;
-	enum ibv_qp_type qp_type;
-};
-
 /**
  * rdma_connect - Initiate an active connection request.
  *
@@ -255,28 +259,25 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 		uint8_t private_data_len);
 
 /**
+ * rdma_notify - Notifies the RDMA CM of an asynchronous event that has
+ * occurred on the connection.
+ * @id: Connection identifier to transition to established.
+ * @event: Asynchronous event.
+ *
+ * This routine should be invoked by users to notify the CM of relevant
+ * communication events.  Events that should be reported to the CM and
+ * when to report them are:
+ *
+ * IB_EVENT_COMM_EST - Used when a message is received on a connected
+ *    QP before an RTU has been received.
+ */
+int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event);
+
+/**
  * rdma_disconnect - This function disconnects the associated QP and
  *   transitions it into the error state.
  */
 int rdma_disconnect(struct rdma_cm_id *id);
-
-/**
- * rdma_join_multicast - Join the multicast group specified by the given
- *   address.
- * @id: Communication identifier associated with the request.
- * @addr: Multicast address identifying the group to join.
- * @context: User-defined context associated with the join request.  The
- *   context is returned to the user through the private_data field in
- *   the rdma_cm_event.
- */
-int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
-			void *context);
-
-/**
- * rdma_leave_multicast - Leave the multicast group specified by the given
- *   address.
- */
-int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr);
 
 /**
  * rdma_get_cm_event - Retrieves the next pending communications event,
@@ -302,40 +303,17 @@ int rdma_get_cm_event(struct rdma_event_channel *channel,
  */
 int rdma_ack_cm_event(struct rdma_cm_event *event);
 
-/**
- * rdma_get_option - Retrieve options for an rdma_cm_id.
- * @id: Communication identifier to retrieve option for.
- * @level: Protocol level of the option to retrieve.
- * @optname: Name of the option to retrieve.
- * @optval: Buffer to receive the returned options.
- * @optlen: On input, the size of the %optval buffer.  On output, the
- *   size of the returned data.
- */
-int rdma_get_option(struct rdma_cm_id *id, int level, int optname,
-		    void *optval, size_t *optlen);
-
-/**
- * rdma_set_option - Set options for an rdma_cm_id.
- * @id: Communication identifier to set option for.
- * @level: Protocol level of the option to set.
- * @optname: Name of the option to set.
- * @optval: Reference to the option data.
- * @optlen: The size of the %optval buffer.
- */
-int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
-		    void *optval, size_t optlen);
-
 static inline uint16_t rdma_get_src_port(struct rdma_cm_id *id)
 {
-	return	id->route.addr.src_addr.sin6_family == PF_INET6 ?
-		id->route.addr.src_addr.sin6_port :
+	return	id->route.addr.src_addr.sa_family == PF_INET6 ?
+		((struct sockaddr_in6 *) &id->route.addr.src_addr)->sin6_port :
 		((struct sockaddr_in *) &id->route.addr.src_addr)->sin_port;
 }
 
 static inline uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
 {
-	return	id->route.addr.dst_addr.sin6_family == PF_INET6 ?
-		id->route.addr.dst_addr.sin6_port :
+	return	id->route.addr.dst_addr.sa_family == PF_INET6 ?
+		((struct sockaddr_in6 *) &id->route.addr.dst_addr)->sin6_port :
 		((struct sockaddr_in *) &id->route.addr.dst_addr)->sin_port;
 }
 

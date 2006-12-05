@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -41,6 +41,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <byteswap.h>
+#include <getopt.h>
 
 #include <rdma/rdma_cma.h>
 
@@ -51,12 +52,6 @@ static inline uint32_t cpu_to_be32(uint32_t x) { return x; }
 static inline uint64_t cpu_to_be64(uint64_t x) { return bswap_64(x); }
 static inline uint32_t cpu_to_be32(uint32_t x) { return bswap_32(x); }
 #endif
-
-/*
- * To execute:
- * Server: rdma_cmatose
- * Client: rdma_cmatose <dst_ip>
- */
 
 struct cmatest_node {
 	int			id;
@@ -85,7 +80,8 @@ static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
-static int is_server;
+static char *dst_addr;
+static char *src_addr;
 
 static int create_message(struct cmatest_node *node)
 {
@@ -377,7 +373,7 @@ static int alloc_nodes(void)
 
 	for (i = 0; i < connections; i++) {
 		test.nodes[i].id = i;
-		if (!is_server) {
+		if (dst_addr) {
 			ret = rdma_create_id(test.channel,
 					     &test.nodes[i].cma_id,
 					     &test.nodes[i], RDMA_PS_TCP);
@@ -460,6 +456,28 @@ static int disconnect_events(void)
 	return ret;
 }
 
+static int get_addr(char *dst, struct sockaddr_in *addr)
+{
+	struct addrinfo *res;
+	int ret;
+
+	ret = getaddrinfo(dst, NULL, NULL, &res);
+	if (ret) {
+		printf("getaddrinfo failed - invalid hostname or IP address\n");
+		return ret;
+	}
+
+	if (res->ai_family != PF_INET) {
+		ret = -1;
+		goto out;
+	}
+
+	*addr = *(struct sockaddr_in *) res->ai_addr;
+out:
+	freeaddrinfo(res);
+	return ret;
+}
+
 static int run_server(void)
 {
 	struct rdma_cm_id *listen_id;
@@ -472,12 +490,18 @@ static int run_server(void)
 		return ret;
 	}
 
-	test.src_in.sin_family = PF_INET;
+	if (src_addr) {
+		ret = get_addr(src_addr, &test.src_in);
+		if (ret)
+			goto out;
+	} else
+		test.src_in.sin_family = PF_INET;
+
 	test.src_in.sin_port = 7471;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
 		printf("cmatose: bind address failed: %d\n", ret);
-		return ret;
+		goto out;
 	}
 
 	ret = rdma_listen(listen_id, 0);
@@ -528,40 +552,18 @@ out:
 	return ret;
 }
 
-static int get_addr(char *dst, struct sockaddr_in *addr)
-{
-	struct addrinfo *res;
-	int ret;
-
-	ret = getaddrinfo(dst, NULL, NULL, &res);
-	if (ret) {
-		printf("getaddrinfo failed - invalid hostname or IP address\n");
-		return ret;
-	}
-
-	if (res->ai_family != PF_INET) {
-		ret = -1;
-		goto out;
-	}
-
-	*addr = *(struct sockaddr_in *) res->ai_addr;
-out:
-	freeaddrinfo(res);
-	return ret;
-}
-
-static int run_client(char *dst, char *src)
+static int run_client(void)
 {
 	int i, ret, ret2;
 
 	printf("cmatose: starting client\n");
-	if (src) {
-		ret = get_addr(src, &test.src_in);
+	if (src_addr) {
+		ret = get_addr(src_addr, &test.src_in);
 		if (ret)
 			return ret;
 	}
 
-	ret = get_addr(dst, &test.dst_in);
+	ret = get_addr(dst_addr, &test.dst_in);
 	if (ret)
 		return ret;
 
@@ -570,7 +572,7 @@ static int run_client(char *dst, char *src)
 	printf("cmatose: connecting\n");
 	for (i = 0; i < connections; i++) {
 		ret = rdma_resolve_addr(test.nodes[i].cma_id,
-					src ? test.src_addr : NULL,
+					src_addr ? test.src_addr : NULL,
 					test.dst_addr, 2000);
 		if (ret) {
 			printf("cmatose: failure getting addr: %d\n", ret);
@@ -597,7 +599,6 @@ static int run_client(char *dst, char *src)
 		}
 
 		printf("data transfers complete\n");
-
 	}
 
 	ret = 0;
@@ -611,13 +612,35 @@ out:
 
 int main(int argc, char **argv)
 {
-	int ret;
+	int op, ret;
 
-	if (argc > 3) {
-		printf("usage: %s [server_addr [src_addr]]\n", argv[0]);
-		exit(1);
+	while ((op = getopt(argc, argv, "s:b:c:C:S:")) != -1) {
+		switch (op) {
+		case 's':
+			dst_addr = optarg;
+			break;
+		case 'b':
+			src_addr = optarg;
+			break;
+		case 'c':
+			connections = atoi(optarg);
+			break;
+		case 'C':
+			message_count = atoi(optarg);
+			break;
+		case 'S':
+			message_size = atoi(optarg);
+			break;
+		default:
+			printf("usage: %s\n", argv[0]);
+			printf("\t[-s server_address]\n");
+			printf("\t[-b bind_address]\n");
+			printf("\t[-c connections]\n");
+			printf("\t[-C message_count]\n");
+			printf("\t[-S message_size]\n");
+			exit(1);
+		}
 	}
-	is_server = (argc == 1);
 
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
 	test.src_addr = (struct sockaddr *) &test.src_in;
@@ -633,10 +656,10 @@ int main(int argc, char **argv)
 	if (alloc_nodes())
 		exit(1);
 
-	if (is_server)
-		ret = run_server();
+	if (dst_addr)
+		ret = run_client();
 	else
-		ret = run_client(argv[1], (argc == 3) ? argv[2] : NULL);
+		ret = run_server();
 
 	printf("test complete\n");
 	destroy_nodes();

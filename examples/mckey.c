@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,9 +42,9 @@
 #include <netdb.h>
 #include <byteswap.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include <rdma/rdma_cma.h>
-#include <rdma/rdma_cma_ib.h>
 
 struct cmatest_node {
 	int			id;
@@ -76,6 +76,8 @@ static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
 static int is_sender;
+static char *dst_addr;
+static char *src_addr;
 
 static int create_message(struct cmatest_node *node)
 {
@@ -239,19 +241,12 @@ err:
 	return ret;
 }
 
-static int join_handler(struct cmatest_node *node)
+static int join_handler(struct cmatest_node *node,
+			struct rdma_ud_param *param)
 {
-	struct ibv_ah_attr ah_attr;
-	int ret;
-
-	ret = rdma_get_dst_attr(node->cma_id, test.dst_addr, &ah_attr,
-				&node->remote_qpn, &node->remote_qkey);
-	if (ret) {
-		printf("mckey: failure getting destination attributes\n");
-		goto err;
-	}
-
-	node->ah = ibv_create_ah(node->pd, &ah_attr);
+	node->remote_qpn = param->qp_num;
+	node->remote_qkey = param->qkey;
+	node->ah = ibv_create_ah(node->pd, &param->ah_attr);
 	if (!node->ah) {
 		printf("mckey: failure creating address handle\n");
 		goto err;
@@ -262,7 +257,7 @@ static int join_handler(struct cmatest_node *node)
 	return 0;
 err:
 	connect_error();
-	return ret;
+	return -1;
 }
 
 static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
@@ -274,7 +269,7 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 		ret = addr_handler(cma_id->context);
 		break;
 	case RDMA_CM_EVENT_MULTICAST_JOIN:
-		ret = join_handler(cma_id->context);
+		ret = join_handler(cma_id->context, &event->param.ud);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
 	case RDMA_CM_EVENT_ROUTE_ERROR:
@@ -411,18 +406,21 @@ out:
 	return ret;
 }
 
-static int run(char *dst, char *src)
+static int run(void)
 {
 	int i, ret;
 
-	printf("mckey: starting client\n");
-	if (src) {
-		ret = get_addr(src, &test.src_in);
+	if (is_sender)
+		printf("mckey: starting client\n");
+	else
+		printf("mckey: starting server\n");
+	if (src_addr) {
+		ret = get_addr(src_addr, &test.src_in);
 		if (ret)
 			return ret;
 	}
 
-	ret = get_addr(dst, &test.dst_in);
+	ret = get_addr(dst_addr, &test.dst_in);
 	if (ret)
 		return ret;
 
@@ -431,7 +429,7 @@ static int run(char *dst, char *src)
 	printf("mckey: joining\n");
 	for (i = 0; i < connections; i++) {
 		ret = rdma_resolve_addr(test.nodes[i].cma_id,
-					src ? test.src_addr : NULL,
+					src_addr ? test.src_addr : NULL,
 					test.dst_addr, 2000);
 		if (ret) {
 			printf("mckey: failure getting addr: %d\n", ret);
@@ -472,14 +470,39 @@ out:
 
 int main(int argc, char **argv)
 {
-	int ret;
+	int op, ret;
 
-	if (argc < 3 || argc > 4) {
-		printf("usage: %s {s[end] | r[ecv]} mcast_addr [bind_addr]]\n",
-		       argv[0]);
-		exit(1);
+	while ((op = getopt(argc, argv, "m:sb:c:C:S:")) != -1) {
+		switch (op) {
+		case 'm':
+			dst_addr = optarg;
+			break;
+		case 's':
+			is_sender = 1;
+			break;
+		case 'b':
+			src_addr = optarg;
+			break;
+		case 'c':
+			connections = atoi(optarg);
+			break;
+		case 'C':
+			message_count = atoi(optarg);
+			break;
+		case 'S':
+			message_size = atoi(optarg);
+			break;
+		default:
+			printf("usage: %s\n", argv[0]);
+			printf("\t-m multicast_address\n");
+			printf("\t[-s(ender)]\n");
+			printf("\t[-b bind_address]\n");
+			printf("\t[-c connections]\n");
+			printf("\t[-C message_count]\n");
+			printf("\t[-S message_size]\n");
+			exit(1);
+		}
 	}
-	is_sender = (argv[1][0] == 's');
 
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
 	test.src_addr = (struct sockaddr *) &test.src_in;
@@ -494,7 +517,7 @@ int main(int argc, char **argv)
 	if (alloc_nodes())
 		exit(1);
 
-	ret = run(argv[2], (argc == 4) ? argv[3] : NULL);
+	ret = run();
 
 	printf("test complete\n");
 	destroy_nodes();

@@ -18,25 +18,24 @@ endif
 src_librdmacm_la_SOURCES = src/cma.c
 src_librdmacm_la_LDFLAGS = -avoid-version $(rdmacm_version_script)
 
-bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy examples/mckey
+bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy
+#examples/mckey
 examples_ucmatose_SOURCES = examples/cmatose.c
 examples_ucmatose_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rping_SOURCES = examples/rping.c
 examples_rping_LDADD = $(top_builddir)/src/librdmacm.la
 examples_udaddy_SOURCES = examples/udaddy.c
 examples_udaddy_LDADD = $(top_builddir)/src/librdmacm.la
-examples_mckey_SOURCES = examples/mckey.c
-examples_mckey_LDADD = $(top_builddir)/src/librdmacm.la
+#examples_mckey_SOURCES = examples/mckey.c
+#examples_mckey_LDADD = $(top_builddir)/src/librdmacm.la
 
 librdmacmincludedir = $(includedir)/rdma
 
 librdmacminclude_HEADERS = include/rdma/rdma_cma_abi.h \
-			   include/rdma/rdma_cma.h \
-			   include/rdma/rdma_cma_ib.h
+			   include/rdma/rdma_cma.h
 
 EXTRA_DIST = include/rdma/rdma_cma_abi.h \
 	     include/rdma/rdma_cma.h \
-	     include/rdma/rdma_cma_ib.h \
 	     src/librdmacm.map \
 	     librdmacm.spec.in
 
