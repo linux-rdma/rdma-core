@@ -128,7 +128,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 	}
 
 	mhp->va_fbo = hca_va;
-	mhp->page_size = 12 - long_log2(dev->page_size);
+	mhp->page_size = long_log2(dev->page_size) - 12;
 	mhp->pbl_addr = resp.pbl_addr;
 	mhp->len = length;
 
