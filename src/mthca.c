@@ -43,7 +43,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#ifdef HAVE_SYSFS_LIBSYSFS_H
+#ifndef HAVE_IBV_REGISTER_DRIVER
 #include <sysfs/libsysfs.h>
 #endif
 
@@ -256,8 +256,8 @@ static int ibv_read_sysfs_file(const char *dir, const char *file,
 }
 #endif /* HAVE_IBV_READ_SYSFS_FILE */
 
-struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
-				   int abi_version)
+static struct ibv_device *mthca_driver_init(const char *uverbs_sys_path,
+					    int abi_version)
 {
 	char			value[8];
 	struct mthca_device    *dev;
@@ -296,15 +296,16 @@ found:
 	return &dev->ibv_dev;
 }
 
+#ifdef HAVE_IBV_REGISTER_DRIVER
+static __attribute__((constructor)) void mthca_register_driver(void)
+{
+	ibv_register_driver("mthca", mthca_driver_init);
+}
+#else
 /*
  * Export the old libsysfs sysfs_class_device-based driver entry point
- * if libsysfs headers are installed.  It doesn't hurt to export it,
- * even if libibverbs is new enough not to use it; but if libsysfs
- * headers are not installed, we can assume that the version of
- * libibverbs we are building against is new enough not to use
- * openib_driver_init().
+ * if libibverbs does not export an ibv_register_driver() function.
  */
-#ifdef HAVE_SYSFS_LIBSYSFS_H
 struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
 {
 	int abi_ver = 0;
@@ -314,6 +315,6 @@ struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
 				value, sizeof value) > 0)
 		abi_ver = strtol(value, NULL, 10);
 
-	return ibv_driver_init(sysdev->path, abi_ver);
+	return mthca_driver_init(sysdev->path, abi_ver);
 }
-#endif /* HAVE_SYSFS_LIBSYSFS_H */
+#endif /* HAVE_IBV_REGISTER_DRIVER */

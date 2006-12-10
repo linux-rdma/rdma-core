@@ -32,7 +32,6 @@ dnl Checks for header files.
 AC_CHECK_HEADER(infiniband/driver.h, [],
     AC_MSG_ERROR([<infiniband/driver.h> not found.  libmthca requires libibverbs.]))
 AC_HEADER_STDC
-AC_CHECK_HEADERS(sysfs/libsysfs.h)
 AC_CHECK_HEADER(valgrind/memcheck.h, memcheck_ok=yes, memcheck_ok=no)
 
 if test $want_valgrind = yes && test $memcheck_ok = no; then
@@ -44,7 +43,20 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for library functions
-AC_CHECK_FUNCS(ibv_read_sysfs_file ibv_dontfork_range ibv_dofork_range)
+AC_CHECK_FUNCS(ibv_read_sysfs_file ibv_dontfork_range ibv_dofork_range \
+    ibv_register_driver)
+
+dnl Now check if for libibverbs 1.0 vs 1.1
+dummy=if$$
+cat <<IBV_VERSION > $dummy.c
+#include <infiniband/driver.h>
+IBV_DEVICE_LIBRARY_EXTENSION
+IBV_VERSION
+IBV_DEVICE_LIBRARY_EXTENSION=`$CC $CPPFLAGS -E $dummy.c 2> /dev/null | tail -1`
+rm -f $dummy.c
+AM_CONDITIONAL(HAVE_IBV_DEVICE_LIBRARY_EXTENSION,
+    test $IBV_DEVICE_LIBRARY_EXTENSION != IBV_DEVICE_LIBRARY_EXTENSION)
+AC_SUBST(IBV_DEVICE_LIBRARY_EXTENSION)
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     [if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
