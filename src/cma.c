@@ -1015,6 +1015,8 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
 		ret = (ret > 0) ? -ENODATA : ret;
+	else
+		ret = 0;
 
 	pthread_mutex_lock(&id_priv->mut);
 	while (mc->events_completed < resp->events_reported)
