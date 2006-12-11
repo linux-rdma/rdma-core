@@ -58,11 +58,6 @@
 
 #define PFX		"libibverbs: "
 
-struct ibv_driver {
-	ibv_driver_init_func	init_func;
-	struct ibv_driver      *next;
-};
-
 struct ibv_abi_compat_v2 {
 	struct ibv_comp_channel	channel;
 	pthread_mutex_t		in_use;

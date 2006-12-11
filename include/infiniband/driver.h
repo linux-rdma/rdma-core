@@ -47,21 +47,16 @@
 #endif /* __cplusplus */
 
 /*
- * Device-specific drivers should declare their device init function
- * as below (the name must be "openib_driver_init"):
- *
- * struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
- *				      int abi_version);
- *
- * libibverbs will call each driver's ibv_driver_init() function once
- * for each InfiniBand device.  If the device is one that the driver
- * can support, it should return a struct ibv_device * with the ops
- * member filled in.  If the driver does not support the device, it
- * should return NULL from openib_driver_init().
+ * Extension that low-level drivers should add to their .so filename
+ * (probably via libtool "-release" option).  For example a low-level
+ * driver named "libfoo" should build a plug-in named "libfoo-rdmav2.so".
  */
+#define IBV_DEVICE_LIBRARY_EXTENSION rdmav2
 
-typedef struct ibv_device *(*ibv_driver_init_func)(const char *, int);
+typedef struct ibv_device *(*ibv_driver_init_func)(const char *uverbs_sys_path,
+						   int abi_version);
 
+void ibv_register_driver(const char *name, ibv_driver_init_func init_func);
 int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
 			size_t cmd_size, struct ibv_get_context_resp *resp,
 			size_t resp_size);

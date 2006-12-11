@@ -80,7 +80,7 @@ uninitialized" warnings.  This code adds trivial overhead to the
 critical performance path, so it is disabled by default.  The intent
 is that production users can use a "normal" build of libibverbs and
 developers can use the "valgrind debug" build by simply switching
-their LD_LIBRARY_PATH and/or OPENIB_DRIVER_PATH environment variables.
+their LD_LIBRARY_PATH environment variables.
 
 Libibverbs needs some header files from Valgrind in order to compile
 this support; it is important to use the header files from the same

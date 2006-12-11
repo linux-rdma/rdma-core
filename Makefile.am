@@ -4,7 +4,7 @@ lib_LTLIBRARIES = src/libibverbs.la
 
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
-src_libibverbs_la_CFLAGS = -g -Wall -D_GNU_SOURCE -DDRIVER_PATH=\"$(libdir)/infiniband\"
+src_libibverbs_la_CFLAGS = $(AM_CFLAGS) -DIBV_CONFIG_DIR=\"$(sysconfdir)/libibverbs.d\"
 
 libibverbs_version_script = @LIBIBVERBS_VERSION_SCRIPT@
 
