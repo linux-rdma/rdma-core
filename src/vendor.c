@@ -84,7 +84,7 @@ ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
 	if (!range1)
 		rpc.oui = call->oui;
 
-	DEBUG("class %d method %d attrid %d mod %x datasz %d off %d res_ex %d",
+	DEBUG("class 0x%x method 0x%x attr 0x%x mod 0x%x datasz %d off %d res_ex %d",
 		rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod,
 		rpc.datasz, rpc.dataoffs, resp_expected);
 

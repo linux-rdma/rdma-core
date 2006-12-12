@@ -53,7 +53,7 @@ smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
 {
 	ib_rpc_t rpc = {0};
 
-	DEBUG("attr %d mod %d route %s", attrid, mod, portid2str(portid));
+	DEBUG("attr 0x%x mod 0x%x route %s", attrid, mod, portid2str(portid));
 	if ((portid->lid <= 0) ||
 	    (portid->drpath.drslid == 0xffff) ||
 	    (portid->drpath.drdlid == 0xffff))
@@ -80,7 +80,7 @@ smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
 {
 	ib_rpc_t rpc = {0};
 
-	DEBUG("attr %d mod %d route %s", attrid, mod, portid2str(portid));
+	DEBUG("attr 0x%x mod 0x%x route %s", attrid, mod, portid2str(portid));
 	rpc.method = IB_MAD_METHOD_GET;
 	rpc.attr.id = attrid;
 	rpc.attr.mod = mod;

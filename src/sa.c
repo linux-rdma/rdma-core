@@ -55,7 +55,7 @@ sa_rpc_call(void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
 	ib_rpc_t rpc = {0};
 	uint8_t *p;
 
-	DEBUG("attr %d mod %d route %s", sa->attrid, sa->mod,
+	DEBUG("attr 0x%x mod 0x%x route %s", sa->attrid, sa->mod,
 	      portid2str(portid));
 
 	if (portid->lid <= 0) {

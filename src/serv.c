@@ -133,7 +133,7 @@ mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus)
 	if (!portid->qkey && portid->qp == 1)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	DEBUG("qp %d class %d method %d attrid %d mod %x datasz %d off %d qkey %x",
+	DEBUG("qp 0x%x class 0x%x method %d attr 0x%x mod 0x%x datasz %d off %d qkey %x",
 		portid->qp, rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod,
 		rpc.datasz, rpc.dataoffs, portid->qkey);
 

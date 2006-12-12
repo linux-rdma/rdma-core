@@ -1,3 +1,8 @@
+2006-12-11  Hal Rosenstock <halr@voltaire.com>
+
+	* src/(sa serv smp vendor).c: Change some debug parameters
+	to hex from decimal
+
 2006-11-20  Sasha Khapyorsky <sashak@voltaire.com>
 
 	* src/rpc.c: Fix various uses of printf() style functions 
