@@ -691,7 +691,7 @@ int	mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus);
 void *	mad_alloc(void);
 void	mad_free(void *umad);
 
-/* vendor */
+/* vendor.c */
 uint8_t *ib_vendor_call(void *data, ib_portid_t *portid,
 			ib_vendor_call_t *call);
 
