@@ -465,6 +465,12 @@ static int run(void)
 		printf("data transfers complete\n");
 	}
 out:
+	for (i = 0; i < connections; i++) {
+		ret = rdma_leave_multicast(test.nodes[i].cma_id,
+					   test.dst_addr);
+		if (ret)
+			printf("mckey: failure leaving: %d\n", ret);
+	}
 	return ret;
 }
 

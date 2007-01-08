@@ -1013,16 +1013,18 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 	cmd->id = mc->handle;
 
 	ret = write(id->channel->fd, msg, size);
-	if (ret != size)
+	if (ret != size) {
 		ret = (ret > 0) ? -ENODATA : ret;
-	else
-		ret = 0;
+		goto free;
+	}
 
 	pthread_mutex_lock(&id_priv->mut);
 	while (mc->events_completed < resp->events_reported)
 		pthread_cond_wait(&mc->cond, &id_priv->mut);
 	pthread_mutex_unlock(&id_priv->mut);
 
+	ret = 0;
+free:
 	free(mc);
 	return ret;
 }
