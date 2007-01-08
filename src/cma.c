@@ -1304,6 +1304,7 @@ retry:
 	default:
 		evt->id_priv = (void *) (uintptr_t) resp->uid;
 		evt->event.id = &evt->id_priv->id;
+		evt->event.status = resp->status;
 		if (evt->id_priv->id.ps == RDMA_PS_TCP)
 			ucma_copy_conn_event(evt, &resp->param.conn);
 		else
