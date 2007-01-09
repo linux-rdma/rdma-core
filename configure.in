@@ -19,11 +19,15 @@ AC_PROG_CC
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for libraries
+if test "$disable_libcheck" != "yes"
+then
 AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
-    AC_MSG_ERROR([ibv_get_device_list() not found.  libmthca requires libibverbs.]))
+    AC_MSG_ERROR([ibv_get_device_list() not found.  libcxgb3 requires libibverbs.]))
+fi
 
 dnl Checks for header files.
 AC_CHECK_HEADERS(sysfs/libsysfs.h)
+
 if test "$disable_libcheck" != "yes"
 then
 AC_CHECK_HEADER(infiniband/driver.h, [],
