@@ -41,6 +41,19 @@ AC_C_CONST
 dnl Checks for library functions
 AC_CHECK_FUNCS(ibv_read_sysfs_file)
 
+dnl Now check if for libibverbs device library extension
+dummy=if$$
+cat <<IBV_VERSION > $dummy.c
+#include <infiniband/driver.h>
+IBV_DEVICE_LIBRARY_EXTENSION
+IBV_VERSION
+IBV_DEVICE_LIBRARY_EXTENSION=`$CC $CPPFLAGS -E $dummy.c 2> /dev/null | tail -1`
+rm -f $dummy.c
+if test $IBV_DEVICE_LIBRARY_EXTENSION = IBV_DEVICE_LIBRARY_EXTENSION; then
+    AC_MSG_ERROR([IBV_DEVICE_LIBRARY_EXTENSION not defined.  Is libibverbs new enough?])
+fi
+AC_SUBST(IBV_DEVICE_LIBRARY_EXTENSION)
+
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
         ac_cv_version_script=yes

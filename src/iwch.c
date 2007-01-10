@@ -41,16 +41,6 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
-#ifdef HAVE_SYSFS_LIBSYSFS_H
-#include <sysfs/libsysfs.h>
-#endif
-
-#ifndef HAVE_IBV_READ_SYSFS_FILE
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#endif
-
 #include "iwch.h"
 #include "iwch-abi.h"
 
@@ -173,8 +163,8 @@ static struct ibv_device_ops iwch_dev_ops = {
 	.free_context = iwch_free_context
 };
 
-struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
-				   int abi_version)
+static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
+					    int abi_version)
 {
 	char value[16];
 	char s[32];
@@ -251,16 +241,7 @@ err1:
 	return NULL;
 }
 
-#ifdef HAVE_SYSFS_LIBSYSFS_H
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
+static __attribute__((constructor)) void cxgb3_register_driver(void)
 {
-	int abi_ver = 0;
-	char value[8];
-
-	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
-				value, sizeof value) > 0)
-		abi_ver = strtol(value, NULL, 10);
-
-	return ibv_driver_init(sysdev->path, abi_ver);
+	ibv_register_driver("cxgb3", cxgb3_driver_init);
 }
-#endif /* HAVE_SYSFS_LIBSYSFS_H */

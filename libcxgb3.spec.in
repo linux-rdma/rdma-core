@@ -39,18 +39,19 @@ make %{?_smp_mflags}
 rm -rf $RPM_BUILD_ROOT
 %makeinstall
 # remove unpackaged files from the buildroot
-rm -f $RPM_BUILD_ROOT%{_libdir}/infiniband/*.la
+rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/cxgb3.so
+%{_libdir}/libcxgb3*.so
 %doc AUTHORS COPYING ChangeLog README
+%config %{_sysconfdir}/libibverbs.d/cxgb3.driver
 
 %files devel
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/cxgb3.a
+%{_libdir}/libcxgb3*.a
 
 %changelog
