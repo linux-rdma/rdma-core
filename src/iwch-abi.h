@@ -45,6 +45,7 @@ struct iwch_alloc_pd_resp {
 
 struct iwch_create_cq {
 	struct ibv_create_cq ibv_cmd;
+	uint64_t user_rptr_addr;
 };
 
 struct iwch_reg_mr_resp {
@@ -57,11 +58,6 @@ struct iwch_create_cq_resp {
 	uint64_t physaddr;
 	uint32_t cqid;
 	uint32_t size_log2;
-};
-
-struct iwch_req_notify_cq {
-	struct ibv_req_notify_cq ibv_cmd;
-	uint32_t rptr;
 };
 
 struct iwch_create_qp {

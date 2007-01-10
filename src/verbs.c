@@ -183,6 +183,7 @@ struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
+	cmd.user_rptr_addr = (uint64_t)(unsigned long)&chp->cq.rptr;
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 				&chp->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);
