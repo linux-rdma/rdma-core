@@ -32,11 +32,9 @@
 # combinations of this program with other software, or any other
 # product whatsoever.
 
-ipathverbslibdir = $(libdir)/infiniband
+lib_LTLIBRARIES = src/libipathverbs.la
 
-ipathverbslib_LTLIBRARIES = src/ipathverbs.la
-
-src_ipathverbs_la_CFLAGS = -Wall -D_GNU_SOURCE
+AM_CFLAGS = -Wall -D_GNU_SOURCE
 
 if HAVE_LD_VERSION_SCRIPT
     ipathverbs_version_script = -Wl,--version-script=$(srcdir)/src/ipathverbs.map
@@ -44,14 +42,17 @@ else
     ipathverbs_version_script =
 endif
 
-src_ipathverbs_la_SOURCES = src/ipathverbs.c src/verbs.c
-src_ipathverbs_la_LDFLAGS = -avoid-version -module \
+src_libipathverbs_la_SOURCES = src/ipathverbs.c src/verbs.c
+src_libipathverbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
     $(ipathverbs_version_script)
+ipathverbsconfdir = $(sysconfdir)/libibverbs.d
+ipathverbsconf_DATA = ipathverbs.driver
 
 EXTRA_DIST = src/ipathverbs.h \
     src/ipath-abi.h \
     src/ipathverbs.map \
-    libipathverbs.spec.in
+    libipathverbs.spec.in \
+    ipathverbs.driver
 
 dist-hook: libipathverbs.spec
 	cp libipathverbs.spec $(distdir)

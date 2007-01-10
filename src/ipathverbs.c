@@ -165,8 +165,8 @@ static struct ibv_device_ops ipath_dev_ops = {
 	.free_context	= ipath_free_context
 };
 
-struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
-				   int abi_version)
+static struct ibv_device *ipathverbs_driver_init(const char *uverbs_sys_path,
+						 int abi_version)
 {
 	char			value[8];
 	struct ipath_device    *dev;
@@ -203,4 +203,9 @@ found:
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;
+}
+
+static __attribute__((constructor)) void ipathverbs_register_driver(void)
+{
+	ibv_register_driver("ipathverbs", ipathverbs_driver_init);
 }

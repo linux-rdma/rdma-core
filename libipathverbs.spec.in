@@ -77,9 +77,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_libdir}/infiniband/ipathverbs.so
+%{_libdir}/libipathverbs*.so
 %doc AUTHORS COPYING
+%config %{_sysconfdir}/libibverbs.d/ipathverbs.driver
 
 %files devel
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/ipathverbs.a
+%{_libdir}/infiniband/libipathverbs*.a
