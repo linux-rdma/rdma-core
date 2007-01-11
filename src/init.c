@@ -134,7 +134,7 @@ static void find_sysfs_devs(void)
 			 "%s/class/infiniband/%s", ibv_get_sysfs_path(),
 			 sysfs_dev->ibdev_name);
 
-		sysfs_dev->next        = NULL;
+		sysfs_dev->next        = sysfs_dev_list;
 		sysfs_dev->have_driver = 0;
 		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "abi_version",
 					value, sizeof value) > 0)
