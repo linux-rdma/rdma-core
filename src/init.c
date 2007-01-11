@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
 
@@ -78,7 +79,7 @@ static void find_sysfs_devs(void)
 	char class_path[IBV_SYSFS_PATH_MAX];
 	DIR *class_dir;
 	struct dirent *dent;
-	struct ibv_sysfs_dev *sysfs_dev;
+	struct ibv_sysfs_dev *sysfs_dev = NULL;
 	char value[8];
 
 	snprintf(class_path, sizeof class_path, "%s/class/infiniband_verbs",
@@ -92,20 +93,33 @@ static void find_sysfs_devs(void)
 	}
 
 	while ((dent = readdir(class_dir))) {
-		if (dent->d_name[0] == '.' || dent->d_type == DT_REG)
+		struct stat buf;
+
+		if (dent->d_name[0] == '.')
 			continue;
 
-		sysfs_dev = malloc(sizeof *sysfs_dev);
+		if (!sysfs_dev)
+			sysfs_dev = malloc(sizeof *sysfs_dev);
 		if (!sysfs_dev) {
 			fprintf(stderr, PFX "Warning: couldn't allocate sysfs dev "
 				"for '%s'.\n", dent->d_name);
 			continue;
 		}
 
-		snprintf(sysfs_dev->sysfs_name, sizeof sysfs_dev->sysfs_name,
-			"%s", dent->d_name);
 		snprintf(sysfs_dev->sysfs_path, sizeof sysfs_dev->sysfs_path,
 			 "%s/%s", class_path, dent->d_name);
+
+		if (stat(sysfs_dev->sysfs_path, &buf)) {
+			fprintf(stderr, PFX "Warning: couldn't stat '%s'.\n",
+				sysfs_dev->sysfs_path);
+			continue;
+		}
+
+		if (!S_ISDIR(buf.st_mode))
+			continue;
+
+		snprintf(sysfs_dev->sysfs_name, sizeof sysfs_dev->sysfs_name,
+			"%s", dent->d_name);
 
 		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "ibdev",
 					sysfs_dev->ibdev_name,
@@ -129,7 +143,11 @@ static void find_sysfs_devs(void)
 			sysfs_dev->abi_ver = 0;
 
 		sysfs_dev_list = sysfs_dev;
+		sysfs_dev      = NULL;
 	}
+
+	if (sysfs_dev)
+		free(sysfs_dev);
 
 	closedir(class_dir);
 }
@@ -213,9 +231,8 @@ static void load_drivers(void)
 	}
 }
 
-static void read_config_file(const char *dir, const char *name)
+static void read_config_file(const char *path)
 {
-	char *path;
 	FILE *conf;
 	char *line = NULL;
 	char *config;
@@ -223,17 +240,11 @@ static void read_config_file(const char *dir, const char *name)
 	size_t buflen = 0;
 	ssize_t len;
 
-	if (asprintf(&path, "%s/%s", dir, name) < 0) {
-		fprintf(stderr, PFX "Warning: couldn't read config file %s/%s.\n",
-			dir, name);
-		return;
-	}
-
 	conf = fopen(path, "r");
 	if (!conf) {
 		fprintf(stderr, PFX "Warning: couldn't read config file %s.\n",
 			path);
-		goto out;
+		return;
 	}
 
 	while ((len = getline(&line, &buflen, conf)) != -1) {
@@ -274,15 +285,13 @@ static void read_config_file(const char *dir, const char *name)
 	if (line)
 		free(line);
 	fclose(conf);
-
-out:
-	free(path);
 }
 
 static void read_config(void)
 {
 	DIR *conf_dir;
 	struct dirent *dent;
+	char *path;
 
 	conf_dir = opendir(IBV_CONFIG_DIR);
 	if (!conf_dir) {
@@ -292,10 +301,25 @@ static void read_config(void)
 	}
 
 	while ((dent = readdir(conf_dir))) {
-		if (dent->d_type != DT_REG)
+		struct stat buf;
+
+		if (asprintf(&path, "%s/%s", IBV_CONFIG_DIR, dent->d_name) < 0) {
+			fprintf(stderr, PFX "Warning: couldn't read config file %s/%s.\n",
+				IBV_CONFIG_DIR, dent->d_name);
+			return;
+		}
+
+		if (stat(path, &buf)) {
+			fprintf(stderr, PFX "Warning: couldn't stat config file '%s'.\n",
+				path);
+			continue;
+		}
+
+		if (!S_ISREG(buf.st_mode))
 			continue;
 
-		read_config_file(IBV_CONFIG_DIR, dent->d_name);
+		read_config_file(path);
+		free(path);
 	}
 
 	closedir(conf_dir);
