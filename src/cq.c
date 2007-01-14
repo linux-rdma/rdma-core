@@ -48,10 +48,9 @@ int iwch_arm_cq(struct ibv_cq *ibcq, int solicited)
 {
 	int ret;
 	struct iwch_cq *chp = to_iwch_cq(ibcq);
-	struct ibv_req_notify_cq cmd;
 
 	pthread_spin_lock(&chp->lock);
-	ret = ibv_cmd_req_notify_cq(ibcq, solicited, &cmd, sizeof cmd);
+	ret = ibv_cmd_req_notify_cq(ibcq, solicited);
 	pthread_spin_unlock(&chp->lock);
 
 	return ret;
