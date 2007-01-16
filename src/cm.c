@@ -150,8 +150,9 @@ struct ib_cm_device* ib_cm_open_device(struct ibv_context *device_context)
 
 	dev->device_context = device_context;
 
-	asprintf(&dev_path, "/dev/infiniband/ucm%s",
-		 device_context->device->dev_name + sizeof("uverbs") - 1);
+	if (asprintf(&dev_path, "/dev/infiniband/ucm%s",
+		 device_context->device->dev_name + sizeof("uverbs") - 1) < 0)
+		goto err2;
 
 	dev->fd = open(dev_path, O_RDWR);
 	if (dev->fd < 0) {
@@ -164,6 +165,7 @@ struct ib_cm_device* ib_cm_open_device(struct ibv_context *device_context)
 
 err:
 	free(dev_path);
+err2:
 	free(dev);
 	return NULL;
 }
