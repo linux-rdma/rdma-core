@@ -111,7 +111,8 @@ struct ibv_context *ibv_open_device(struct ibv_device *device)
 	int cmd_fd;
 	struct ibv_context *context;
 
-	asprintf(&devpath, "/dev/infiniband/%s", device->dev_name);
+	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev_name))
+		return NULL;
 
 	/*
 	 * We'll only be doing writes, but we need O_RDWR in case the
