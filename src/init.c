@@ -312,13 +312,14 @@ static void read_config(void)
 		if (stat(path, &buf)) {
 			fprintf(stderr, PFX "Warning: couldn't stat config file '%s'.\n",
 				path);
-			continue;
+			goto next;
 		}
 
 		if (!S_ISREG(buf.st_mode))
-			continue;
+			goto next;
 
 		read_config_file(path);
+	next:
 		free(path);
 	}
 
