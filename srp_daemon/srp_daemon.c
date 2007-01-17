@@ -1262,7 +1262,7 @@ static int umad_resources_create(struct umad_resources *umad_res)
 	ret = asprintf(&umad_res->port_sysfs_path, "%s/class/infiniband/%s/ports/%d",
 		       sysfs_path, config->dev_name, config->port_num);
 
-	if (ret == -1) {
+	if (ret < 0) {
 		umad_res->port_sysfs_path = NULL;
 		return -ENOMEM;
 	}
