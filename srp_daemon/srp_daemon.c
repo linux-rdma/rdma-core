@@ -176,8 +176,8 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 	char *subdir_name_ptr;
 	int prefix_len;
 	uint8_t dgid_val[16];
-	const int MAX_TRAGET_CONFIG_STR_STRING = 255;
-	char target_config_str[MAX_TRAGET_CONFIG_STR_STRING];
+	const int MAX_TARGET_CONFIG_STR_STRING = 255;
+	char target_config_str[MAX_TARGET_CONFIG_STR_STRING];
 	int len, len_left;
 	int not_connected = 1;
 	int rule;
@@ -285,7 +285,7 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 
 	}
 
-	len = snprintf(target_config_str, MAX_TRAGET_CONFIG_STR_STRING, "id_ext=%s,"
+	len = snprintf(target_config_str, MAX_TARGET_CONFIG_STR_STRING, "id_ext=%s,"
 		"ioc_guid=%016llx,"
 		"dgid=%016llx%016llx,"
 		"pkey=ffff,"
@@ -295,19 +295,19 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 		(unsigned long long) subnet_prefix,
 		(unsigned long long) h_guid,
 		(unsigned long long) h_service_id);
-	if (len >= MAX_TRAGET_CONFIG_STR_STRING) {
+	if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 		pr_err("Target conifg string is too long, ignoring target\n");
 		closedir(dir);
 		return;
 	}
 
 	if (ioc_prof.io_class != htons(SRP_REV16A_IB_IO_CLASS)) {
-		len_left = MAX_TRAGET_CONFIG_STR_STRING - len;
+		len_left = MAX_TARGET_CONFIG_STR_STRING - len;
 		len += snprintf(target_config_str+len, 
-				MAX_TRAGET_CONFIG_STR_STRING - len,
+				MAX_TARGET_CONFIG_STR_STRING - len,
 				",io_class=%04hx", ntohs(ioc_prof.io_class));
 
-		if (len >= MAX_TRAGET_CONFIG_STR_STRING) {
+		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 			pr_err("Target conifg string is too long, ignoring target\n");
 			closedir(dir);
 			return;
@@ -315,13 +315,13 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 	}
 
 	if (config->print_initiator_ext) {
-		len_left = MAX_TRAGET_CONFIG_STR_STRING - len;
+		len_left = MAX_TARGET_CONFIG_STR_STRING - len;
 		len += snprintf(target_config_str+len, 
-				MAX_TRAGET_CONFIG_STR_STRING - len,
+				MAX_TARGET_CONFIG_STR_STRING - len,
 				",initiator_ext=%016llx",
 				(unsigned long long) ntohll(h_guid));
 
-		if (len >= MAX_TRAGET_CONFIG_STR_STRING) {
+		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 			pr_err("Target conifg string is too long, ignoring target\n");
 			closedir(dir);
 			return;
