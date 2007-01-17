@@ -88,6 +88,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-i <infiniband device>	use Infiniband device \n");
 	fprintf(stderr, "-p <port_num>		use Port num \n");
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
+	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after iTimeout of <rescan time> seconds\n");
 	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect\n");
 	fprintf(stderr, "-t <timoeout>		Timeout for mad response in milisec \n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
@@ -1110,7 +1111,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:p:t:r:R:Vhnf:");
+		c = getopt(argc, argv, "caveod:i:p:t:r:R:T:Vhnf:");
 		if (c == -1)
 			break;
 
@@ -1178,8 +1179,8 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			break;
 		case 'T':
 			conf->retry_timeout = atoi(optarg);
-			if (conf->retry_timeout == 0) {
-				pr_err("Bad retry Timeout value- %s\n", optarg);
+			if (conf->retry_timeout == 0 && strcmp(optarg, "0")) {
+				pr_err("Bad retry Timeout value- %s.\n", optarg);
 				return -1;
 			}
 			break;

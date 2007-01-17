@@ -52,6 +52,9 @@ Perform only one rescan and exit. (The same as ibsrpdm.)
 \fB\-R\fR \fIRescan-time\fR
 Force a complete rescan every \fIRescan-time\fR seconds. If -R is not specified, no timeout rescans will be performed.
 .TP
+\fB\-T\fR \fIretry-Timeout\fR
+Retries to connect to existing target after \fIretry-Timeout\fR seconds. If -R is not specified, uses 5 Seconds timeout. if retry-Timeout is 0, will not try to reconnect. The reason srp_daemon retries to connect to the target is because there may be a rare scnerio in which srp_daemon will try to connect to add a target when the target is about to be removed, but is not removed yet.
+.TP
 \fB\-f\fR \fIrules-File\fR
 Decide to which targets to connect according to the rules in \fIrules-File\fR. If -f is not specified, all targets will be connected
 Each line in the \fIrules-File\fR is a rule which can be either an allow connection or disallow connection according to the first character in the line (a or d accordingly). the rest of the line is values for id_ext, ioc_guid, dgid, service_id. Please take a look at the example section for an example of the file. srp_daemon decide weather to allow or disallow each target according to first rule that match the target. If no rule match the target, the target is allowed and will be connected.
