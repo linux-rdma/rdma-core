@@ -279,6 +279,18 @@ struct rule {
 	char id_ext[17], ioc_guid[17], dgid[33], service_id[17];
 };
 
+#define  MAX_ID_EXT_STRING_LENGTH 17
+
+struct target_details {
+	char 			id_ext[MAX_ID_EXT_STRING_LENGTH];
+	struct 			srp_dm_ioc_prof ioc_prof;
+	uint64_t	 	subnet_prefix;
+	uint64_t 		h_guid;
+	uint64_t 		h_service_id;
+	time_t 			retry_time;
+	struct target_details  *next;
+};
+
 struct config_t {
 	char	       *dev_name;
 	int		port_num;
@@ -296,6 +308,7 @@ struct config_t {
 	int		print_initiator_ext;
 	char	       *rules_file;
 	struct rule    *rules;
+	int 		retry_timeout;
 };
 
 extern struct config_t *config;
@@ -341,6 +354,10 @@ struct sync_resources {
 	} tasks[SIZE_OF_TASKS_LIST];
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
+	struct target_details *retry_tasks_head;
+	struct target_details *retry_tasks_tail;
+	pthread_mutex_t retry_mutex;
+	pthread_cond_t retry_cond;
 };
 
 struct resources {
@@ -376,12 +393,12 @@ static const int   node_table_response_size = 1 << 18;
 
 
 int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
-void handle_port(struct umad_resources *umad_res, uint16_t lid, uint64_t guid);
+void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid);
 void ud_resources_init(struct ud_resources *res);
 int ud_resources_create(struct ud_resources *res);
 int ud_resources_destroy(struct ud_resources *res);
 int wait_for_recalc(struct resources *res_in);
-int recalc(struct umad_resources *umad_res);
+int recalc(struct resources *res);
 int trap_main(struct resources *res);
 void *run_thread_get_trap_notices(void *res_in);
 void *run_thread_listen_to_events(void *res_in);
@@ -392,6 +409,10 @@ int register_to_traps(struct ud_resources *ud_res);
 int create_ah(struct ud_resources *ud_res);
 void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid);
 void push_lid_to_list(struct sync_resources *res, uint16_t lid);
+struct target_details *pop_from_retry_list(struct sync_resources *res);
+void push_to_retry_list(struct sync_resources *res,
+			struct target_details *target);
+int retry_list_is_empty(struct sync_resources *res);
 void clear_traps_list(struct sync_resources *res);
 int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid);
 int sync_resources_init(struct sync_resources *res);
