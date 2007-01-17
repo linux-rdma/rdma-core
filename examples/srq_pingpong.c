@@ -150,7 +150,9 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 	int sockfd = -1;
 	struct pingpong_dest *rem_dest = NULL;
 
-	asprintf(&service, "%d", port);
+	if (asprintf(&service, "%d", port) < 0)
+		return NULL;
+
 	n = getaddrinfo(servername, service, &hints, &res);
 
 	if (n < 0) {
@@ -229,7 +231,9 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	int sockfd = -1, connfd;
 	struct pingpong_dest *rem_dest = NULL;
 
-	asprintf(&service, "%d", port);
+	if (asprintf(&service, "%d", port) < 0)
+		return NULL;
+
 	n = getaddrinfo(NULL, service, &hints, &res);
 
 	if (n < 0) {
