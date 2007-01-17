@@ -274,21 +274,28 @@ enum {
 	RECV_BUF_SIZE   = SEND_SIZE + GRH_SIZE,
 };
 
+struct rule {
+	int allow;
+	char id_ext[17], ioc_guid[17], dgid[33], service_id[17];
+};
+
 struct config_t {
-	char   *dev_name;
-	int	port_num;
-	char   *add_target_file;
-	int	mad_retries;
-	int	num_of_oust;
-	int	cmd;
-	int	once;
-	int	execute;
-	int	all;
-	int	verbose;
-	int	debug_verbose;
-	int	timeout;
-	int	recalc_time;
-	int	print_initiator_ext;
+	char	       *dev_name;
+	int		port_num;
+	char	       *add_target_file;
+	int		mad_retries;
+	int		num_of_oust;
+	int		cmd;
+	int		once;
+	int		execute;
+	int		all;
+	int		verbose;
+	int		debug_verbose;
+	int		timeout;
+	int		recalc_time;
+	int		print_initiator_ext;
+	char	       *rules_file;
+	struct rule    *rules;
 };
 
 extern struct config_t *config;

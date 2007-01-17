@@ -43,6 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -78,7 +79,7 @@ static char *sysfs_path = "/sys";
 
 static void usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vVcaeon] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timoeout (ms)>] [-r <retries>] [-R <Rescan time>]\n", argv0);
+	fprintf(stderr, "Usage: %s [-vVcaeon] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timoeout (ms)>] [-r <retries>] [-R <rescan time>] [-f <rules file>\n", argv0);
 	fprintf(stderr, "-v 			Verbose\n");
 	fprintf(stderr, "-V 			debug Verbose\n");
 	fprintf(stderr, "-c 			prints connection Commands\n");
@@ -88,7 +89,8 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-d <umad device>	use umad Device \n");
 	fprintf(stderr, "-i <infiniband device>	use Infiniband device \n");
 	fprintf(stderr, "-p <port_num>		use Port num \n");
-	fprintf(stderr, "-R <Rescan time>	perform complete Rescan every <Rescan time> seconds\n");
+	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
+	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect\n");
 	fprintf(stderr, "-t <timoeout>		Timeout for mad response in milisec \n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extention\n");
@@ -178,6 +180,50 @@ static void add_non_exist_traget(char *id_ext, struct srp_dm_ioc_prof ioc_prof,
 	char target_config_str[MAX_TRAGET_CONFIG_STR_STRING];
 	int len, len_left;
 	int not_connected = 1;
+	int rule;
+	struct config_t *conf = config;
+
+	if (conf->rules != NULL) {
+		pr_debug("Found an SRP traget - check if it allowed by rules file\n");
+		rule = -1;
+		do {
+			rule++;
+			if (conf->rules[rule].id_ext[0] != '\0' &&
+			    strtoull(id_ext, 0, 16) != 
+			    strtoull(conf->rules[rule].id_ext, 0, 16))
+					continue;
+
+			if (conf->rules[rule].ioc_guid[0] != '\0' &&
+			    ntohll(ioc_prof.guid) != 
+			    strtoull(conf->rules[rule].ioc_guid, 0, 16))
+					continue;
+
+			if (conf->rules[rule].dgid[0] != '\0') {
+				char tmp = conf->rules[rule].dgid[16];
+				conf->rules[rule].dgid[16] = '\0';
+				if (strtoull(conf->rules[rule].dgid, 0, 16) != 
+				    subnet_prefix) {
+					conf->rules[rule].dgid[16] = tmp;
+					continue;
+				}
+				conf->rules[rule].dgid[16] = tmp;
+				if (strtoull(&conf->rules[rule].dgid[16], 0, 16) != 
+				    h_guid) 
+					continue;
+			}
+
+			if (conf->rules[rule].service_id[0] != '\0' &&
+			    strtoull(conf->rules[rule].service_id, 0, 16) !=
+		            h_service_id)
+					continue;
+
+			/* there is a match */
+			if (conf->rules[rule].allow)
+				break;
+
+			return;
+		} while (1);
+	}
 
 	pr_debug("Found an SRP traget - check if it is already connected\n");
 
@@ -860,6 +906,8 @@ static void print_config(struct config_t *conf)
  	printf(" Executes add target command		: %d\n", conf->execute);
  	printf(" Print also connected targets 		: %d\n", conf->all);
  	printf(" Report current tragets and stop 	: %d\n", conf->once);
+	if (conf->rules_file)
+		printf(" Reads rules from 			: %s\n", conf->rules_file);
 	if (conf->print_initiator_ext)
 		printf(" Print initiator_ext\n");
 	else
@@ -870,6 +918,123 @@ static void print_config(struct config_t *conf)
 		printf(" No full target rescan\n");
 	printf(" ------------------------------------------------\n");
 }		
+
+static char *copy_till_comma(char *d, char *s, int len)
+{
+	while (*s != ',' && *s != ' ' && *s != '\t' && *s != '\n') {
+		if (isxdigit(*s)) {
+			*d=*s;
+			++d;
+			++s;
+		} else
+			return NULL;
+	}
+	*d='\0';
+
+	if (*s == '\n')
+		return s;
+
+	++s;
+	return s;
+}
+
+static int get_rules_file(struct config_t *conf)
+{
+	int line_number = 1;
+	char line[255];
+	char *ptr, *ptr2;
+	FILE *infile=fopen(conf->rules_file, "r");
+
+	if (infile == NULL) {
+		pr_err("Could not find rules file %s\n", conf->rules_file);
+		return -1;
+	}
+	
+	while (fgets(line, sizeof(line), infile) != NULL) {
+		if (line[0] != '#' && line[0] != '\n')
+			line_number++;
+	}
+
+	if (fseek(infile, 0L, SEEK_SET) != 0) {
+		pr_err("internal error while seeking %s\n", conf->rules_file);
+		return -1;
+	}
+
+	conf->rules = malloc(sizeof(struct rule) * line_number);
+
+	line_number = -1;
+	while (fgets(line, sizeof(line), infile) != NULL) {
+		if (line[0] == '#' || line[0] == '\n')
+			continue;
+
+		line_number++;
+		switch (line[0]) {
+		case 'a':
+		case 'A':
+			conf->rules[line_number].allow = 1;
+			break;
+		case 'd':
+		case 'D':
+			conf->rules[line_number].allow = 0;
+			break;
+		default:
+			pr_err("Bad syntax in rules file %s line %d:"
+			       " line should start with 'a' or 'd'\n", 
+			       conf->rules_file, line_number + 1);
+			return -1;
+		}
+
+		conf->rules[line_number].id_ext[0]='\0';
+		conf->rules[line_number].ioc_guid[0]='\0';
+		conf->rules[line_number].dgid[0]='\0';
+		conf->rules[line_number].service_id[0]='\0';
+
+		ptr = &line[1];
+		while (*ptr == ' ' || *ptr == '\t')
+			ptr++;
+
+		while (*ptr != '\n') {
+			ptr2 = NULL;
+			if (strncmp(ptr, "id_ext=", 7) == 0)
+				ptr2 = copy_till_comma(
+					conf->rules[line_number].id_ext, 
+					ptr+7, 16); 
+
+			else if (strncmp(ptr, "ioc_guid=", 9) == 0)
+				ptr2 = copy_till_comma(
+					conf->rules[line_number].ioc_guid, 
+					ptr+9, 16); 
+				
+			else if (strncmp(ptr, "dgid=", 5) == 0)
+				ptr2 = copy_till_comma(
+					conf->rules[line_number].dgid, 
+					ptr+5, 32); 
+
+			else if (strncmp(ptr, "service_id=", 11) == 0)
+				ptr2 = copy_till_comma(
+					conf->rules[line_number].service_id, 
+					ptr+11, 16); 
+
+			if (ptr2 == NULL) {
+				pr_err("Bad syntax in rules file %s line %d\n",
+				       conf->rules_file, line_number + 1);
+				return -1;
+			}
+			ptr = ptr2;
+
+			while (*ptr == ' ' || *ptr == '\t')
+				ptr++;
+		}
+	}
+	line_number++;
+	conf->rules[line_number].id_ext[0]='\0';
+	conf->rules[line_number].ioc_guid[0]='\0';
+	conf->rules[line_number].dgid[0]='\0';
+	conf->rules[line_number].service_id[0]='\0';
+	conf->rules[line_number].allow = 1;
+	
+	return 0;
+}
 
 static int get_config(struct config_t *conf, int argc, char *argv[])
 {
@@ -893,11 +1058,13 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->recalc_time 		= 0;
 	conf->add_target_file  		= NULL;
 	conf->print_initiator_ext	= 0;
+	conf->rules_file		= NULL;
+	conf->rules			= NULL;
 
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:p:t:r:R:Vhn");
+		c = getopt(argc, argv, "caveod:i:p:t:r:R:Vhnf:");
 		if (c == -1)
 			break;
 
@@ -962,6 +1129,11 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 				pr_err("Bad Rescan time window - %s\n", optarg);
 				return -1;
 			}
+			break;
+		case 'f':
+			conf->rules_file = optarg;
+			if (get_rules_file(conf))
+				return -1;
 			break;
 		case 'h':
 		default:
