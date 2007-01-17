@@ -1408,7 +1408,7 @@ int recalc(struct umad_resources *umad_res)
 
 	umad_res->sm_lid = strtol(val, NULL, 0);
 	if (umad_res->sm_lid == 0) {
-		pr_err("SM LID is 0, maybe no opesm is running\n");
+		pr_err("SM LID is 0, maybe no opensm is running\n");
 		return -1;
 	}
 
