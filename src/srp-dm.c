@@ -128,7 +128,8 @@ static int read_file(const char *dir, const char *file, char *buf, size_t size)
 	int fd;
 	int len;
 
-	asprintf(&path, "%s/%s", dir, file);
+	if (asprintf(&path, "%s/%s", dir, file) < 0)
+		return -1;
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
@@ -185,8 +186,12 @@ static int setup_port_sysfs_path(void) {
 		return -1;
 	}
 
-	asprintf(&port_sysfs_path, "%s/class/infiniband/%s/ports/%s",
-		 sysfs_path, ibdev, ibport);
+	if (asprintf(&port_sysfs_path, "%s/class/infiniband/%s/ports/%s",
+		     sysfs_path, ibdev, ibport) < 0) {
+		fprintf(stderr, "Couldn't allocate memory\n");
+		return -1;
+	}
+
 
 	return 0;
 }
