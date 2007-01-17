@@ -171,37 +171,6 @@ int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid)
 	return ret;
 }
 
-/* First attempt to implement retry
-   It uses a thread for each retry.
-   The new version uses one therad and a fifo
-
-   It is in comment, so I can return to it
-   It was abandoned in the middle of development
-
-*********
-
-struct info_for_run_thread_schedule_recheck_target {
-	struct resources *res;
-	struct target_details *target;
-};
-
-
-void *run_thread_schedule_recheck_target(void *info_in)
-{
-	struct info_for_run_thread_schedule_recheck_target *info = 
-		(struct info_for_run_thread_schedule_recheck_target *) info_in;
-        time_t cur_time, sleep_time;
-
-	srp_sleep(time_out_for_recheck, 0);
-        if (!res->sync_res->stop_threads) {
-		add_non_exist_target(info->target);
-        }
-	free(info);
-        pr_debug("run_thread_schedule_recheck target ended\n");
-
-        pthread_exit((void *)0);
-}
-*/
 
 /* assumes that res->retry_mutex is locked !!! */
 struct target_details *pop_from_retry_list(struct sync_resources *res) 
