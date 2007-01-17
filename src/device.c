@@ -63,9 +63,13 @@ struct ibv_device **ibv_get_device_list(int *num)
 		num_devices = ibverbs_init(&device_list);
 
 	l = calloc(num_devices + 1, sizeof (struct ibv_device *));
+	if (!l)
+		goto out;
+
 	for (i = 0; i < num_devices; ++i)
 		l[i] = device_list[i];
 
+out:
 	pthread_mutex_unlock(&device_list_lock);
 
 	if (num)
