@@ -315,7 +315,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 
 	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size + 40, IBV_ACCESS_LOCAL_WRITE);
 	if (!ctx->mr) {
-		fprintf(stderr, "Couldn't allocate MR\n");
+		fprintf(stderr, "Couldn't register MR\n");
 		return NULL;
 	}
 
@@ -365,6 +365,51 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	}
 
 	return ctx;
+}
+
+int pp_close_ctx(struct pingpong_context *ctx)
+{
+	if (ibv_destroy_qp(ctx->qp)) {
+		fprintf(stderr, "Couldn't destroy QP\n");
+		return 1;
+	}
+
+	if (ibv_destroy_cq(ctx->cq)) {
+		fprintf(stderr, "Couldn't destroy CQ\n");
+		return 1;
+	}
+
+	if (ibv_dereg_mr(ctx->mr)) {
+		fprintf(stderr, "Couldn't deregister MR\n");
+		return 1;
+	}
+
+	if (ibv_destroy_ah(ctx->ah)) {
+		fprintf(stderr, "Couldn't destroy AH\n");
+		return 1;
+	}
+
+	if (ibv_dealloc_pd(ctx->pd)) {
+		fprintf(stderr, "Couldn't deallocate PD\n");
+		return 1;
+	}
+
+	if (ctx->channel) {
+		if (ibv_destroy_comp_channel(ctx->channel)) {
+			fprintf(stderr, "Couldn't destroy completion channel\n");
+			return 1;
+		}
+	}
+
+	if (ibv_close_device(ctx->context)) {
+		fprintf(stderr, "Couldn't release context\n");
+		return 1;
+	}
+
+	free(ctx->buf);
+	free(ctx);
+
+	return 0;
 }
 
 static int pp_post_recv(struct pingpong_context *ctx, int n)
@@ -449,6 +494,7 @@ int main(int argc, char *argv[])
 	int                      use_event = 0;
 	int                      routs;
 	int                      rcnt, scnt;
+	int                      num_cq_events = 0;
 
 	srand48(getpid() * time(NULL));
 
@@ -612,6 +658,8 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 
+			++num_cq_events;
+
 			if (ev_cq != ctx->cq) {
 				fprintf(stderr, "CQ event for unknown CQ %p\n", ev_cq);
 				return 1;
@@ -695,6 +743,14 @@ int main(int argc, char *argv[])
 		printf("%d iters in %.2f seconds = %.2f usec/iter\n",
 		       iters, usec / 1000000., usec / iters);
 	}
+
+	ibv_ack_cq_events(ctx->cq, num_cq_events);
+
+	if (pp_close_ctx(ctx))
+		return 1;
+
+	ibv_free_device_list(dev_list);
+	free(rem_dest);
 
 	return 0;
 }
