@@ -114,7 +114,7 @@ struct ibv_context *ibv_open_device(struct ibv_device *device)
 	int cmd_fd;
 	struct ibv_context *context;
 
-	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev->name))
+	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev->name) < 0)
 		return NULL;
 
 	/*

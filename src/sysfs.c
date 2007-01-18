@@ -81,7 +81,7 @@ int ibv_read_sysfs_file(const char *dir, const char *file,
 	int fd;
 	int len;
 
-	if (asprintf(&path, "%s/%s", dir, file))
+	if (asprintf(&path, "%s/%s", dir, file) < 0)
 		return -1;
 
 	fd = open(path, O_RDONLY);
