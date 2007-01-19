@@ -66,16 +66,16 @@ struct {
 	unsigned device;
 	enum iwch_hca_type type;
 } hca_table[] = {
-	HCA(CHELSIO, PE9000_2C, CXGB3),
-	HCA(CHELSIO, T302E, CXGB3),
-	HCA(CHELSIO, T302X, CXGB3),
-	HCA(CHELSIO, T310E, CXGB3),
-	HCA(CHELSIO, T310X, CXGB3),
-	HCA(CHELSIO, T320E, CXGB3),
-	HCA(CHELSIO, T320X, CXGB3),
-	HCA(CHELSIO, T3B10, CXGB3),
-	HCA(CHELSIO, T3B20, CXGB3),
-	HCA(CHELSIO, T3B02, CXGB3),
+	HCA(CHELSIO, PE9000_2C, T3A),
+	HCA(CHELSIO, T302E, T3A),
+	HCA(CHELSIO, T302X, T3A),
+	HCA(CHELSIO, T310E, T3A),
+	HCA(CHELSIO, T310X, T3A),
+	HCA(CHELSIO, T320E, T3A),
+	HCA(CHELSIO, T320X, T3A),
+	HCA(CHELSIO, T3B10, T3B),
+	HCA(CHELSIO, T3B20, T3B),
+	HCA(CHELSIO, T3B02, T3B),
 };
 
 static struct ibv_context_ops iwch_ctx_ops = {
@@ -123,15 +123,15 @@ static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 	context->ibv_ctx.device = ibdev;
 	context->ibv_ctx.ops = iwch_ctx_ops;
 
-	switch (rhp->hw_rev) {
-	case T3B:
+	switch (rhp->hca_type) {
+	case CHELSIO_T3B:
 		PDBG("%s T3B device\n", __FUNCTION__);
 		context->ibv_ctx.ops.async_event = t3b_async_event;
 		context->ibv_ctx.ops.post_send = t3b_post_send;
 		context->ibv_ctx.ops.post_recv = t3b_post_recv;
 		context->ibv_ctx.ops.poll_cq = t3b_poll_cq;
 		break;
-	case T3A:
+	case CHELSIO_T3A:
 		PDBG("%s T3A device\n", __FUNCTION__);
 		context->ibv_ctx.ops.async_event = NULL;
 		context->ibv_ctx.ops.post_send = t3a_post_send;
@@ -167,9 +167,8 @@ static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
 	char value[16];
-	char s[32];
 	struct iwch_device *dev;
-	unsigned vendor, device, hw_rev;
+	unsigned vendor, device;
 	int i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
@@ -192,20 +191,8 @@ static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
 found:
 	DBGLOG("libcxgb3");
 
-	PDBG("%s found vendor %d device %d\n", __FUNCTION__, vendor, device);
-	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev", 
-				value, sizeof value) < 0)
-		return NULL;
-	PDBG("%s ibdev %s\n", __FUNCTION__, value);
-
-	sprintf(s, "device/infiniband:%s/hw_rev", value);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, s, value, sizeof value) < 0)
-		return NULL;
-
-	sscanf(value, "%i", &hw_rev);
-
-	PDBG("%s device hw_rev %d\n", __FUNCTION__, hw_rev);
+	PDBG("%s found vendor %d device %d type %d\n", 
+	     __FUNCTION__, vendor, device, hca_table[i].type);
 
 	dev = malloc(sizeof *dev);
 	if (!dev) {
@@ -213,7 +200,6 @@ found:
 	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->hw_rev = hw_rev;
 	dev->ibv_dev.ops = iwch_dev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = sysconf(_SC_PAGESIZE);

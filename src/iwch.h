@@ -43,12 +43,8 @@
 #include "cxio_wr.h"
 
 enum iwch_hca_type {
-	CHELSIO_CXGB3
-};
-
-enum t3_rev {
-	T3A = 0,
-	T3B
+	CHELSIO_T3A = 0,
+	CHELSIO_T3B = 1,
 };
 
 struct iwch_mr;
@@ -56,7 +52,6 @@ struct iwch_mr;
 struct iwch_device {
 	struct ibv_device ibv_dev;
 	enum iwch_hca_type hca_type;
-	enum t3_rev hw_rev;
 	int page_size;
 	struct iwch_mr **mmid2ptr;
 	struct iwch_qp **qpid2ptr;
@@ -66,12 +61,12 @@ struct iwch_device {
 
 static inline int t3b_device(struct iwch_device *dev)
 {
-	return (dev->hw_rev == T3B);
+	return (dev->hca_type == CHELSIO_T3B);
 }
 
 static inline int t3a_device(struct iwch_device *dev)
 {
-	return (dev->hw_rev == T3A);
+	return (dev->hca_type == CHELSIO_T3A);
 }
 
 struct iwch_context {
