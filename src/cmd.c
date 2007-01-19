@@ -209,7 +209,8 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	pd->handle = resp->pd_handle;
+	pd->handle  = resp->pd_handle;
+	pd->context = context;
 
 	return 0;
 }
@@ -250,6 +251,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	mr->handle  = resp->mr_handle;
 	mr->lkey    = resp->lkey;
 	mr->rkey    = resp->rkey;
+	mr->context = pd->context;
 
 	return 0;
 }
@@ -289,8 +291,9 @@ static int ibv_cmd_create_cq_v2(struct ibv_context *context, int cqe,
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof resp_size);
 
-	cq->handle = resp->cq_handle;
-	cq->cqe    = resp->cqe;
+	cq->handle  = resp->cq_handle;
+	cq->cqe     = resp->cqe;
+	cq->context = context;
 
 	return 0;
 }
@@ -317,8 +320,9 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	cq->handle = resp->cq_handle;
-	cq->cqe    = resp->cqe;
+	cq->handle  = resp->cq_handle;
+	cq->cqe     = resp->cqe;
+	cq->context = context;
 
 	return 0;
 }
@@ -458,7 +462,8 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	srq->handle = resp->srq_handle;
+	srq->handle  = resp->srq_handle;
+	srq->context = pd->context;
 
 	if (abi_ver > 5) {
 		attr->attr.max_wr = resp->max_wr;
@@ -607,6 +612,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 
 	qp->handle 		  = resp->qp_handle;
 	qp->qp_num 		  = resp->qpn;
+	qp->context		  = pd->context;
 
 	if (abi_ver > 3) {
 		attr->cap.max_recv_sge    = resp->max_recv_sge;
@@ -1025,7 +1031,8 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
-	ah->handle = resp.handle;
+	ah->handle  = resp.handle;
+	ah->context = pd->context;
 
 	return 0;
 }
