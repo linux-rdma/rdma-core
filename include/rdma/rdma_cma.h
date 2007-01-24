@@ -61,15 +61,16 @@ enum rdma_cm_event_type {
 };
 
 enum rdma_port_space {
+	RDMA_PS_IPOIB= 0x0002,
 	RDMA_PS_TCP  = 0x0106,
 	RDMA_PS_UDP  = 0x0111,
 };
 
 /*
- * Global qkey value for all UD QPs and multicast groups created via the 
+ * Global qkey value for UDP QPs and multicast groups created via the 
  * RDMA CM.
  */
-#define RDMA_UD_QKEY 0x01234567
+#define RDMA_UDP_QKEY 0x01234567
 
 struct ib_addr {
 	union ibv_gid	sgid;

@@ -698,7 +698,7 @@ static int ucma_init_ud_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 
 	qp_attr.port_num = id_priv->id.port_num;
 	qp_attr.qp_state = IBV_QPS_INIT;
-	qp_attr.qkey = RDMA_UD_QKEY;
+	qp_attr.qkey = RDMA_UDP_QKEY;	/* Will override PS_IPOIB on join */
 	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_PKEY_INDEX |
 					  IBV_QP_PORT | IBV_QP_QKEY);
 	if (ret)
@@ -729,7 +729,7 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	if (!qp)
 		return -ENOMEM;
 
-	if (id->ps == RDMA_PS_UDP)
+	if (id->ps == RDMA_PS_UDP || id->ps == RDMA_PS_IPOIB)
 		ret = ucma_init_ud_qp(id_priv, qp);
 	else
 		ret = ucma_init_ib_qp(id_priv, qp);
@@ -1136,14 +1136,25 @@ static int ucma_process_establish(struct rdma_cm_id *id)
 
 static int ucma_process_join(struct cma_event *evt)
 {
+	int ret;
+
 	evt->mc->mgid = evt->event.param.ud.ah_attr.grh.dgid;
 	evt->mc->mlid = evt->event.param.ud.ah_attr.dlid;
 
-	if (evt->id_priv->id.qp)
-		return ibv_attach_mcast(evt->id_priv->id.qp,
-					&evt->mc->mgid, evt->mc->mlid);
-	else
+	if (!evt->id_priv->id.qp)
 		return 0;
+
+	if (evt->id_priv->id.ps == RDMA_PS_IPOIB) {
+		struct ibv_qp_attr qp_attr;
+
+		qp_attr.qkey = evt->event.param.ud.qkey;
+		ret = ibv_modify_qp(evt->id_priv->id.qp, &qp_attr, IBV_QP_QKEY);
+		if (ret)
+			return ret;
+	}
+
+	return ibv_attach_mcast(evt->id_priv->id.qp, &evt->mc->mgid,
+				evt->mc->mlid);
 }
 
 static void ucma_copy_conn_event(struct cma_event *event,

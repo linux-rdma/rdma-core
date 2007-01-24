@@ -78,6 +78,7 @@ static int message_count = 10;
 static int is_sender;
 static char *dst_addr;
 static char *src_addr;
+static enum rdma_port_space port_space = RDMA_PS_UDP;
 
 static int create_message(struct cmatest_node *node)
 {
@@ -328,7 +329,7 @@ static int alloc_nodes(void)
 	for (i = 0; i < connections; i++) {
 		test.nodes[i].id = i;
 		ret = rdma_create_id(test.channel, &test.nodes[i].cma_id,
-				     &test.nodes[i], RDMA_PS_UDP);
+				     &test.nodes[i], port_space);
 		if (ret)
 			goto err;
 	}
@@ -478,7 +479,7 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "m:sb:c:C:S:")) != -1) {
+	while ((op = getopt(argc, argv, "m:sb:c:C:S:p:")) != -1) {
 		switch (op) {
 		case 'm':
 			dst_addr = optarg;
@@ -498,6 +499,9 @@ int main(int argc, char **argv)
 		case 'S':
 			message_size = atoi(optarg);
 			break;
+		case 'p':
+			port_space = strtol(optarg, NULL, 0);
+			break;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t-m multicast_address\n");
@@ -506,6 +510,8 @@ int main(int argc, char **argv)
 			printf("\t[-c connections]\n");
 			printf("\t[-C message_count]\n");
 			printf("\t[-S message_size]\n");
+			printf("\t[-p port_space - %#x for UDP (default), "
+			       "%#x for IPOIB]\n", RDMA_PS_UDP, RDMA_PS_IPOIB);
 			exit(1);
 		}
 	}
