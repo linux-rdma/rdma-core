@@ -45,7 +45,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{_libdir}/libibmad*.so.*
-%doc ChangeLog
+%doc AUTHORS COPYING ChangeLog
 
 %files devel
 %defattr(-,root,root)
