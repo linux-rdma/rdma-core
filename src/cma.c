@@ -564,6 +564,11 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms)
 	return 0;
 }
 
+static int ucma_is_ud_ps(enum rdma_port_space ps)
+{
+	return (ps == RDMA_PS_UDP || ps == RDMA_PS_IPOIB);
+}
+
 static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 			     int *qp_attr_mask)
 {
@@ -648,59 +653,30 @@ static int ucma_modify_qp_err(struct rdma_cm_id *id)
 	return ibv_modify_qp(id->qp, &qp_attr, IBV_QP_STATE);
 }
 
-static int ucma_find_pkey(struct cma_device *cma_dev, uint8_t port_num,
-			  uint16_t pkey, uint16_t *pkey_index)
-{
-	int ret, i;
-	uint16_t chk_pkey;
-
-	for (i = 0, ret = 0; !ret; i++) {
-		ret = ibv_query_pkey(cma_dev->verbs, port_num, i, &chk_pkey);
-		if (!ret && pkey == chk_pkey) {
-			*pkey_index = (uint16_t) i;
-			return 0;
-		}
-	}
-
-	return -EINVAL;
-}
-
-static int ucma_init_ib_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
+static int ucma_init_conn_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 {
 	struct ibv_qp_attr qp_attr;
-	struct ib_addr *ibaddr;
-	int ret;
+	int qp_attr_mask, ret;
 
-	ibaddr = &id_priv->id.route.addr.addr.ibaddr;
-	ret = ucma_find_pkey(id_priv->cma_dev, id_priv->id.port_num,
-			     ibaddr->pkey, &qp_attr.pkey_index);
+	qp_attr.qp_state = IBV_QPS_INIT;
+	ret = rdma_init_qp_attr(&id_priv->id, &qp_attr, &qp_attr_mask);
 	if (ret)
 		return ret;
 
-	qp_attr.port_num = id_priv->id.port_num;
-	qp_attr.qp_state = IBV_QPS_INIT;
-	qp_attr.qp_access_flags = 0;
-	return ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_ACCESS_FLAGS |
-					   IBV_QP_PKEY_INDEX | IBV_QP_PORT);
+	return ibv_modify_qp(qp, &qp_attr, qp_attr_mask);
 }
 
 static int ucma_init_ud_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 {
 	struct ibv_qp_attr qp_attr;
-	struct ib_addr *ibaddr;
-	int ret;
+	int qp_attr_mask, ret;
 
-	ibaddr = &id_priv->id.route.addr.addr.ibaddr;
-	ret = ucma_find_pkey(id_priv->cma_dev, id_priv->id.port_num,
-			     ibaddr->pkey, &qp_attr.pkey_index);
+	qp_attr.qp_state = IBV_QPS_INIT;
+	ret = rdma_init_qp_attr(&id_priv->id, &qp_attr, &qp_attr_mask);
 	if (ret)
 		return ret;
 
-	qp_attr.port_num = id_priv->id.port_num;
-	qp_attr.qp_state = IBV_QPS_INIT;
-	qp_attr.qkey = RDMA_UDP_QKEY;	/* Will override PS_IPOIB on join */
-	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_PKEY_INDEX |
-					  IBV_QP_PORT | IBV_QP_QKEY);
+	ret = ibv_modify_qp(qp, &qp_attr, qp_attr_mask);
 	if (ret)
 		return ret;
 
@@ -729,10 +705,10 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	if (!qp)
 		return -ENOMEM;
 
-	if (id->ps == RDMA_PS_UDP || id->ps == RDMA_PS_IPOIB)
+	if (ucma_is_ud_ps(id->ps))
 		ret = ucma_init_ud_qp(id_priv, qp);
 	else
-		ret = ucma_init_ib_qp(id_priv, qp);
+		ret = ucma_init_conn_qp(id_priv, qp);
 	if (ret)
 		goto err;
 
@@ -820,7 +796,7 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	void *msg;
 	int ret, size;
 
-	if (id->ps != RDMA_PS_UDP) {
+	if (!ucma_is_ud_ps(id->ps)) {
 		ret = ucma_modify_qp_rtr(id);
 		if (ret)
 			return ret;
@@ -1136,22 +1112,11 @@ static int ucma_process_establish(struct rdma_cm_id *id)
 
 static int ucma_process_join(struct cma_event *evt)
 {
-	int ret;
-
 	evt->mc->mgid = evt->event.param.ud.ah_attr.grh.dgid;
 	evt->mc->mlid = evt->event.param.ud.ah_attr.dlid;
 
 	if (!evt->id_priv->id.qp)
 		return 0;
-
-	if (evt->id_priv->id.ps == RDMA_PS_IPOIB) {
-		struct ibv_qp_attr qp_attr;
-
-		qp_attr.qkey = evt->event.param.ud.qkey;
-		ret = ibv_modify_qp(evt->id_priv->id.qp, &qp_attr, IBV_QP_QKEY);
-		if (ret)
-			return ret;
-	}
 
 	return ibv_attach_mcast(evt->id_priv->id.qp, &evt->mc->mgid,
 				evt->mc->mlid);
@@ -1242,10 +1207,10 @@ retry:
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
 		evt->id_priv = (void *) (uintptr_t) resp->uid;
-		if (evt->id_priv->id.ps == RDMA_PS_TCP)
-			ucma_copy_conn_event(evt, &resp->param.conn);
-		else
+		if (ucma_is_ud_ps(evt->id_priv->id.ps))
 			ucma_copy_ud_event(evt, &resp->param.ud);
+		else
+			ucma_copy_conn_event(evt, &resp->param.conn);
 
 		ret = ucma_process_conn_req(evt, resp->id);
 		if (ret)
@@ -1266,7 +1231,7 @@ retry:
 	case RDMA_CM_EVENT_ESTABLISHED:
 		evt->id_priv = (void *) (uintptr_t) resp->uid;
 		evt->event.id = &evt->id_priv->id;
-		if (evt->id_priv->id.ps == RDMA_PS_UDP) {
+		if (ucma_is_ud_ps(evt->id_priv->id.ps)) {
 			ucma_copy_ud_event(evt, &resp->param.ud);
 			break;
 		}
@@ -1318,10 +1283,10 @@ retry:
 		evt->id_priv = (void *) (uintptr_t) resp->uid;
 		evt->event.id = &evt->id_priv->id;
 		evt->event.status = resp->status;
-		if (evt->id_priv->id.ps == RDMA_PS_TCP)
-			ucma_copy_conn_event(evt, &resp->param.conn);
-		else
+		if (ucma_is_ud_ps(evt->id_priv->id.ps))
 			ucma_copy_ud_event(evt, &resp->param.ud);
+		else
+			ucma_copy_conn_event(evt, &resp->param.conn);
 		break;
 	}
 

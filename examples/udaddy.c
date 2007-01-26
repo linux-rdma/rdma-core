@@ -76,6 +76,7 @@ static int message_size = 100;
 static int message_count = 10;
 static char *dst_addr;
 static char *src_addr;
+static enum rdma_port_space port_space = RDMA_PS_UDP;
 
 static int create_message(struct cmatest_node *node)
 {
@@ -393,7 +394,7 @@ static int alloc_nodes(void)
 		if (dst_addr) {
 			ret = rdma_create_id(test.channel,
 					     &test.nodes[i].cma_id,
-					     &test.nodes[i], RDMA_PS_UDP);
+					     &test.nodes[i], port_space);
 			if (ret)
 				goto err;
 		}
@@ -417,10 +418,15 @@ static void destroy_nodes(void)
 
 static void create_reply_ah(struct cmatest_node *node, struct ibv_wc *wc)
 {
+	struct ibv_qp_attr attr;
+	struct ibv_qp_init_attr init_attr;
+
 	node->ah = ibv_create_ah_from_wc(node->pd, wc, node->mem,
 					 node->cma_id->port_num);
 	node->remote_qpn = ntohl(wc->imm_data);
-	node->remote_qkey = RDMA_UDP_QKEY;
+
+	ibv_query_qp(node->cma_id->qp, &attr, IBV_QP_QKEY, &init_attr);
+	node->remote_qkey = attr.qkey;
 }
 
 static int poll_cqs(void)
@@ -489,7 +495,7 @@ static int run_server(void)
 	int i, ret;
 
 	printf("udaddy: starting server\n");
-	ret = rdma_create_id(test.channel, &listen_id, &test, RDMA_PS_UDP);
+	ret = rdma_create_id(test.channel, &listen_id, &test, port_space);
 	if (ret) {
 		printf("udaddy: listen request failed\n");
 		return ret;
@@ -595,7 +601,7 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "s:b:c:C:S:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:C:S:p:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -612,6 +618,9 @@ int main(int argc, char **argv)
 		case 'S':
 			message_size = atoi(optarg);
 			break;
+		case 'p':
+			port_space = strtol(optarg, NULL, 0);
+			break;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");
@@ -619,6 +628,8 @@ int main(int argc, char **argv)
 			printf("\t[-c connections]\n");
 			printf("\t[-C message_count]\n");
 			printf("\t[-S message_size]\n");
+			printf("\t[-p port_space - %#x for UDP (default), "
+			       "%#x for IPOIB]\n", RDMA_PS_UDP, RDMA_PS_IPOIB);
 			exit(1);
 		}
 	}
