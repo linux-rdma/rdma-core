@@ -44,10 +44,16 @@ AC_C_CONST
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     [if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
-        LIBIBVERBS_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/libibverbs.map'
+	ac_cv_version_script=yes
     else
-        LIBIBVERBS_VERSION_SCRIPT=
+	ac_cv_version_script=no
     fi])
+
+if test $ac_cv_version_script = yes; then
+    LIBIBVERBS_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/libibverbs.map'
+else
+    LIBIBVERBS_VERSION_SCRIPT=
+fi
 AC_SUBST(LIBIBVERBS_VERSION_SCRIPT)
 
 AC_CONFIG_FILES([Makefile libibverbs.spec])
