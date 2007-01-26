@@ -60,10 +60,16 @@ AC_SUBST(IBV_DEVICE_LIBRARY_EXTENSION)
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     [if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
-        MTHCA_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/mthca.map'
+        ac_cv_version_script=yes
     else
-        MTHCA_VERSION_SCRIPT=
+        ac_cv_version_script=no
     fi])
+
+if test $ac_cv_version_script = yes; then
+    MTHCA_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/mthca.map'
+else
+    MTHCA_VERSION_SCRIPT=
+fi
 AC_SUBST(MTHCA_VERSION_SCRIPT)
 
 AC_CONFIG_FILES([Makefile libmthca.spec])
