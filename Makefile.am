@@ -8,9 +8,9 @@ src_libibverbs_la_CFLAGS = $(AM_CFLAGS) -DIBV_CONFIG_DIR=\"$(sysconfdir)/libibve
 
 libibverbs_version_script = @LIBIBVERBS_VERSION_SCRIPT@
 
-src_libibverbs_la_SOURCES = src/cmd.c src/device.c src/init.c src/marshall.c \
-			    src/memory.c src/sysfs.c src/verbs.c
-src_libibverbs_la_LDFLAGS = -version-info 2 -export-dynamic \
+src_libibverbs_la_SOURCES = src/cmd.c src/compat-1_0.c src/device.c src/init.c \
+			    src/marshall.c src/memory.c src/sysfs.c src/verbs.c
+src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibverbs_version_script)
 src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map
 

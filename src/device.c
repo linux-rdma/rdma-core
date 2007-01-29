@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -52,7 +52,7 @@ static pthread_mutex_t device_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static int num_devices;
 static struct ibv_device **device_list;
 
-struct ibv_device **ibv_get_device_list(int *num)
+struct ibv_device **__ibv_get_device_list(int *num)
 {
 	struct ibv_device **l;
 	int i;
@@ -77,18 +77,21 @@ out:
 
 	return l;
 }
+default_symver(__ibv_get_device_list, ibv_get_device_list);
 
-void ibv_free_device_list(struct ibv_device **list)
+void __ibv_free_device_list(struct ibv_device **list)
 {
 	free(list);
 }
+default_symver(__ibv_free_device_list, ibv_free_device_list);
 
-const char *ibv_get_device_name(struct ibv_device *device)
+const char *__ibv_get_device_name(struct ibv_device *device)
 {
 	return device->name;
 }
+default_symver(__ibv_get_device_name, ibv_get_device_name);
 
-uint64_t ibv_get_device_guid(struct ibv_device *device)
+uint64_t __ibv_get_device_guid(struct ibv_device *device)
 {
 	char attr[24];
 	uint64_t guid = 0;
@@ -108,8 +111,9 @@ uint64_t ibv_get_device_guid(struct ibv_device *device)
 
 	return htonll(guid);
 }
+default_symver(__ibv_get_device_guid, ibv_get_device_guid);
 
-struct ibv_context *ibv_open_device(struct ibv_device *device)
+struct ibv_context *__ibv_open_device(struct ibv_device *device)
 {
 	char *devpath;
 	int cmd_fd;
@@ -142,8 +146,9 @@ err:
 
 	return NULL;
 }
+default_symver(__ibv_open_device, ibv_open_device);
 
-int ibv_close_device(struct ibv_context *context)
+int __ibv_close_device(struct ibv_context *context)
 {
 	int async_fd = context->async_fd;
 	int cmd_fd   = context->cmd_fd;
@@ -164,9 +169,10 @@ int ibv_close_device(struct ibv_context *context)
 
 	return 0;
 }
+default_symver(__ibv_close_device, ibv_close_device);
 
-int ibv_get_async_event(struct ibv_context *context,
-			struct ibv_async_event *event)
+int __ibv_get_async_event(struct ibv_context *context,
+			  struct ibv_async_event *event)
 {
 	struct ibv_kern_async_event ev;
 
@@ -206,8 +212,9 @@ int ibv_get_async_event(struct ibv_context *context,
 
 	return 0;
 }
+default_symver(__ibv_get_async_event, ibv_get_async_event);
 
-void ibv_ack_async_event(struct ibv_async_event *event)
+void __ibv_ack_async_event(struct ibv_async_event *event)
 {
 	switch (event->event_type) {
 	case IBV_EVENT_CQ_ERR:
@@ -258,3 +265,4 @@ void ibv_ack_async_event(struct ibv_async_event *event)
 		return;
 	}
 }
+default_symver(__ibv_ack_async_event, ibv_ack_async_event);

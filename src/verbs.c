@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2006 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -76,20 +76,22 @@ enum ibv_rate mult_to_ibv_rate(int mult)
 	}
 }
 
-int ibv_query_device(struct ibv_context *context,
-		     struct ibv_device_attr *device_attr)
+int __ibv_query_device(struct ibv_context *context,
+		       struct ibv_device_attr *device_attr)
 {
 	return context->ops.query_device(context, device_attr);
 }
+default_symver(__ibv_query_device, ibv_query_device);
 
-int ibv_query_port(struct ibv_context *context, uint8_t port_num,
-		   struct ibv_port_attr *port_attr)
+int __ibv_query_port(struct ibv_context *context, uint8_t port_num,
+		     struct ibv_port_attr *port_attr)
 {
 	return context->ops.query_port(context, port_num, port_attr);
 }
+default_symver(__ibv_query_port, ibv_query_port);
 
-int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
-		  int index, union ibv_gid *gid)
+int __ibv_query_gid(struct ibv_context *context, uint8_t port_num,
+		    int index, union ibv_gid *gid)
 {
 	char name[24];
 	char attr[41];
@@ -111,9 +113,10 @@ int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 
 	return 0;
 }
+default_symver(__ibv_query_gid, ibv_query_gid);
 
-int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
-		   int index, uint16_t *pkey)
+int __ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
+		     int index, uint16_t *pkey)
 {
 	char name[24];
 	char attr[8];
@@ -131,19 +134,22 @@ int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 	*pkey = htons(val);
 	return 0;
 }
+default_symver(__ibv_query_pkey, ibv_query_pkey);
 
-struct ibv_pd *ibv_alloc_pd(struct ibv_context *context)
+struct ibv_pd *__ibv_alloc_pd(struct ibv_context *context)
 {
 	return context->ops.alloc_pd(context);
 }
+default_symver(__ibv_alloc_pd, ibv_alloc_pd);
 
-int ibv_dealloc_pd(struct ibv_pd *pd)
+int __ibv_dealloc_pd(struct ibv_pd *pd)
 {
 	return pd->context->ops.dealloc_pd(pd);
 }
+default_symver(__ibv_dealloc_pd, ibv_dealloc_pd);
 
-struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
-			  size_t length, enum ibv_access_flags access)
+struct ibv_mr *__ibv_reg_mr(struct ibv_pd *pd, void *addr,
+			    size_t length, enum ibv_access_flags access)
 {
 	struct ibv_mr *mr;
 
@@ -160,8 +166,9 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 
 	return mr;
 }
+default_symver(__ibv_reg_mr, ibv_reg_mr);
 
-int ibv_dereg_mr(struct ibv_mr *mr)
+int __ibv_dereg_mr(struct ibv_mr *mr)
 {
 	int ret;
 	void *addr	= mr->addr;
@@ -173,6 +180,7 @@ int ibv_dereg_mr(struct ibv_mr *mr)
 
 	return ret;
 }
+default_symver(__ibv_dereg_mr, ibv_dereg_mr);
 
 static struct ibv_comp_channel *ibv_create_comp_channel_v2(struct ibv_context *context)
 {
@@ -234,8 +242,8 @@ int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 	return 0;
 }
 
-struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe, void *cq_context,
-			     struct ibv_comp_channel *channel, int comp_vector)
+struct ibv_cq *__ibv_create_cq(struct ibv_context *context, int cqe, void *cq_context,
+			       struct ibv_comp_channel *channel, int comp_vector)
 {
 	struct ibv_cq *cq = context->ops.create_cq(context, cqe, channel,
 						   comp_vector);
@@ -250,23 +258,25 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe, void *cq_cont
 
 	return cq;
 }
+default_symver(__ibv_create_cq, ibv_create_cq);
 
-int ibv_resize_cq(struct ibv_cq *cq, int cqe)
+int __ibv_resize_cq(struct ibv_cq *cq, int cqe)
 {
 	if (!cq->context->ops.resize_cq)
 		return ENOSYS;
 
 	return cq->context->ops.resize_cq(cq, cqe);
 }
+default_symver(__ibv_resize_cq, ibv_resize_cq);
 
-int ibv_destroy_cq(struct ibv_cq *cq)
+int __ibv_destroy_cq(struct ibv_cq *cq)
 {
 	return cq->context->ops.destroy_cq(cq);
 }
+default_symver(__ibv_destroy_cq, ibv_destroy_cq);
 
-
-int ibv_get_cq_event(struct ibv_comp_channel *channel,
-		     struct ibv_cq **cq, void **cq_context)
+int __ibv_get_cq_event(struct ibv_comp_channel *channel,
+		       struct ibv_cq **cq, void **cq_context)
 {
 	struct ibv_comp_event ev;
 
@@ -281,17 +291,19 @@ int ibv_get_cq_event(struct ibv_comp_channel *channel,
 
 	return 0;
 }
+default_symver(__ibv_get_cq_event, ibv_get_cq_event);
 
-void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
+void __ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
 {
 	pthread_mutex_lock(&cq->mutex);
 	cq->comp_events_completed += nevents;
 	pthread_cond_signal(&cq->cond);
 	pthread_mutex_unlock(&cq->mutex);
 }
+default_symver(__ibv_ack_cq_events, ibv_ack_cq_events);
 
-struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
-			       struct ibv_srq_init_attr *srq_init_attr)
+struct ibv_srq *__ibv_create_srq(struct ibv_pd *pd,
+				 struct ibv_srq_init_attr *srq_init_attr)
 {
 	struct ibv_srq *srq;
 
@@ -309,26 +321,30 @@ struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
 
 	return srq;
 }
+default_symver(__ibv_create_srq, ibv_create_srq);
 
-int ibv_modify_srq(struct ibv_srq *srq,
-		   struct ibv_srq_attr *srq_attr,
-		   enum ibv_srq_attr_mask srq_attr_mask)
+int __ibv_modify_srq(struct ibv_srq *srq,
+		     struct ibv_srq_attr *srq_attr,
+		     enum ibv_srq_attr_mask srq_attr_mask)
 {
 	return srq->context->ops.modify_srq(srq, srq_attr, srq_attr_mask);
 }
+default_symver(__ibv_modify_srq, ibv_modify_srq);
 
-int ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
+int __ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 {
 	return srq->context->ops.query_srq(srq, srq_attr);
 }
+default_symver(__ibv_query_srq, ibv_query_srq);
 
-int ibv_destroy_srq(struct ibv_srq *srq)
+int __ibv_destroy_srq(struct ibv_srq *srq)
 {
 	return srq->context->ops.destroy_srq(srq);
 }
+default_symver(__ibv_destroy_srq, ibv_destroy_srq);
 
-struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
-			     struct ibv_qp_init_attr *qp_init_attr)
+struct ibv_qp *__ibv_create_qp(struct ibv_pd *pd,
+			       struct ibv_qp_init_attr *qp_init_attr)
 {
 	struct ibv_qp *qp = pd->context->ops.create_qp(pd, qp_init_attr);
 
@@ -346,10 +362,11 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 
 	return qp;
 }
+default_symver(__ibv_create_qp, ibv_create_qp);
 
-int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		 enum ibv_qp_attr_mask attr_mask,
-		 struct ibv_qp_init_attr *init_attr)
+int __ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		   enum ibv_qp_attr_mask attr_mask,
+		   struct ibv_qp_init_attr *init_attr)
 {
 	int ret;
 
@@ -362,9 +379,10 @@ int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	return 0;
 }
+default_symver(__ibv_query_qp, ibv_query_qp);
 
-int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		  enum ibv_qp_attr_mask attr_mask)
+int __ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		    enum ibv_qp_attr_mask attr_mask)
 {
 	int ret;
 
@@ -377,13 +395,15 @@ int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	return 0;
 }
+default_symver(__ibv_modify_qp, ibv_modify_qp);
 
-int ibv_destroy_qp(struct ibv_qp *qp)
+int __ibv_destroy_qp(struct ibv_qp *qp)
 {
 	return qp->context->ops.destroy_qp(qp);
 }
+default_symver(__ibv_destroy_qp, ibv_destroy_qp);
 
-struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+struct ibv_ah *__ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct ibv_ah *ah = pd->context->ops.create_ah(pd, attr);
 
@@ -392,6 +412,7 @@ struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 
 	return ah;
 }
+default_symver(__ibv_create_ah, ibv_create_ah);
 
 static int ibv_find_gid_index(struct ibv_context *context, uint8_t port_num,
 			      union ibv_gid *gid)
@@ -449,17 +470,20 @@ struct ibv_ah *ibv_create_ah_from_wc(struct ibv_pd *pd, struct ibv_wc *wc,
 	return ibv_create_ah(pd, &ah_attr);
 }
 
-int ibv_destroy_ah(struct ibv_ah *ah)
+int __ibv_destroy_ah(struct ibv_ah *ah)
 {
 	return ah->context->ops.destroy_ah(ah);
 }
+default_symver(__ibv_destroy_ah, ibv_destroy_ah);
 
-int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int __ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
 {
 	return qp->context->ops.attach_mcast(qp, gid, lid);
 }
+default_symver(__ibv_attach_mcast, ibv_attach_mcast);
 
-int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int __ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
 {
 	return qp->context->ops.detach_mcast(qp, gid, lid);
 }
+default_symver(__ibv_detach_mcast, ibv_detach_mcast);

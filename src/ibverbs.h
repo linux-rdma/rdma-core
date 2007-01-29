@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
+ * Copyright (c) 2007 Cisco Systems, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -55,6 +56,19 @@
 
 #define INIT		__attribute__((constructor))
 #define FINI		__attribute__((destructor))
+
+#define DEFAULT_ABI	"IBVERBS_1.1"
+
+#ifdef HAVE_SYMVER_SUPPORT
+#  define symver(name, api, ver) \
+	asm(".symver " #name "," #api "@" #ver)
+#  define default_symver(name, api) \
+	asm(".symver " #name "," #api "@@" DEFAULT_ABI)
+#else
+#  define symver(name, api, ver)
+#  define default_symver(name, api) \
+	extern __typeof(name) api __attribute__((alias(#name)))
+#endif /* HAVE_SYMVER_SUPPORT */
 
 #define PFX		"libibverbs: "
 

@@ -56,5 +56,13 @@ else
 fi
 AC_SUBST(LIBIBVERBS_VERSION_SCRIPT)
 
+AC_CACHE_CHECK(for .symver assembler support, ac_cv_asm_symver_support,
+    [AC_TRY_COMPILE(, [asm("symbol:\n.symver symbol, api@ABI\n");],
+        ac_cv_asm_symver_support=yes,
+        ac_cv_asm_symver_support=no)])
+if test $ac_cv_asm_symver_support = yes; then
+    AC_DEFINE([HAVE_SYMVER_SUPPORT], 1, [assembler has .symver support])
+fi
+
 AC_CONFIG_FILES([Makefile libibverbs.spec])
 AC_OUTPUT
