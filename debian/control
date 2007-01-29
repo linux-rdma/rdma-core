@@ -5,7 +5,7 @@ Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), autotools-dev
 Standards-Version: 3.7.2
 Section: libs
 
-Package: libibverbs2
+Package: libibverbs1
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
@@ -27,7 +27,7 @@ Description: A library for direct userspace use of InfiniBand
 Package: libibverbs-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, libibverbs2 (= ${Source-Version})
+Depends: ${misc:Depends}, libibverbs1 (= ${Source-Version})
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
@@ -36,17 +36,17 @@ Description: Development files for the libibverbs library
  commonly support direct hardware access from userspace (kernel
  bypass), and libibverbs supports this when available.
  .
- This package is needed to compile programs against libibverbs2.
+ This package is needed to compile programs against libibverbs1.
  It contains the header files and static libraries (optionally)
  needed for compiling.
  .
   Homepage: http://www.openfabrics.org/
 
-Package: libibverbs2-dbg
+Package: libibverbs1-dbg
 Section: libdevel
 Priority: extra
 Architecture: any
-Depends: ${misc:Depends}, libibverbs2 (= ${Source-Version})
+Depends: ${misc:Depends}, libibverbs1 (= ${Source-Version})
 Description: Debugging symbols for the libibverbs library
  libibverbs is a library that allows userspace processes to use
  InfiniBand "verbs" as described in the InfiniBand Architecture
@@ -56,7 +56,7 @@ Description: Debugging symbols for the libibverbs library
  bypass), and libibverbs supports this when available.
  .
  This package contains the debugging symbols associated with
- libibverbs2. They will automatically be used by gdb for debugging
+ libibverbs1. They will automatically be used by gdb for debugging
  libibverbs-related issues.
  .
   Homepage: http://www.openfabrics.org/
@@ -73,7 +73,7 @@ Description: Examples for the libibverbs library
  commonly support direct hardware access from userspace (kernel
  bypass), and libibverbs supports this when available.
  .
- This package contains useful libibverbs2 example programs such as
+ This package contains useful libibverbs1 example programs such as
  ibv_devinfo, which displays information about InfiniBand devices.
  .
   Homepage: http://www.openfabrics.org/
