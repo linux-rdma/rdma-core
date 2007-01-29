@@ -1,3 +1,7 @@
+2007-01-25  Hal Rosenstock <halr@voltaire.com>
+
+	* Release version 1.0.2.
+
 2006-12-11  Hal Rosenstock <halr@voltaire.com>
 
 	* src/(sa serv smp vendor).c: Change some debug parameters
