@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2007 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -38,6 +38,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <byteswap.h>
@@ -65,9 +66,9 @@ struct cmatest {
 	int			conn_index;
 	int			connects_left;
 
-	struct sockaddr_in	dst_in;
+	struct sockaddr_in6	dst_in;
 	struct sockaddr		*dst_addr;
-	struct sockaddr_in	src_in;
+	struct sockaddr_in6	src_in;
 	struct sockaddr		*src_addr;
 };
 
@@ -76,6 +77,7 @@ static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
 static int is_sender;
+static int unmapped_addr;
 static char *dst_addr;
 static char *src_addr;
 static enum rdma_port_space port_space = RDMA_PS_UDP;
@@ -245,6 +247,11 @@ err:
 static int join_handler(struct cmatest_node *node,
 			struct rdma_ud_param *param)
 {
+	char buf[40];
+
+	inet_ntop(AF_INET6, param->ah_attr.grh.dgid.raw, buf, 40);
+	printf("mckey: joined dgid: %s\n", buf);
+
 	node->remote_qpn = param->qp_num;
 	node->remote_qkey = param->qkey;
 	node->ah = ibv_create_ah(node->pd, &param->ah_attr);
@@ -385,7 +392,7 @@ static int connect_events(void)
 	return ret;
 }
 
-static int get_addr(char *dst, struct sockaddr_in *addr)
+static int get_addr(char *dst, struct sockaddr *addr)
 {
 	struct addrinfo *res;
 	int ret;
@@ -396,13 +403,7 @@ static int get_addr(char *dst, struct sockaddr_in *addr)
 		return ret;
 	}
 
-	if (res->ai_family != PF_INET) {
-		ret = -1;
-		goto out;
-	}
-
-	*addr = *(struct sockaddr_in *) res->ai_addr;
-out:
+	memcpy(addr, res->ai_addr, res->ai_addrlen);
 	freeaddrinfo(res);
 	return ret;
 }
@@ -411,29 +412,37 @@ static int run(void)
 {
 	int i, ret;
 
-	if (is_sender)
-		printf("mckey: starting client\n");
-	else
-		printf("mckey: starting server\n");
+	printf("mckey: starting %s\n", is_sender ? "client" : "server");
 	if (src_addr) {
-		ret = get_addr(src_addr, &test.src_in);
+		ret = get_addr(src_addr, (struct sockaddr *) &test.src_in);
 		if (ret)
 			return ret;
 	}
 
-	ret = get_addr(dst_addr, &test.dst_in);
+	ret = get_addr(dst_addr, (struct sockaddr *) &test.dst_in);
 	if (ret)
 		return ret;
 
-	test.dst_in.sin_port = 7174;
-
 	printf("mckey: joining\n");
 	for (i = 0; i < connections; i++) {
-		ret = rdma_resolve_addr(test.nodes[i].cma_id,
-					src_addr ? test.src_addr : NULL,
-					test.dst_addr, 2000);
+		if (src_addr) {
+			ret = rdma_bind_addr(test.nodes[i].cma_id,
+					     test.src_addr);
+			if (ret) {
+				printf("mckey: addr bind failure: %d\n", ret);
+				connect_error();
+				return ret;
+			}
+		}
+
+		if (unmapped_addr)
+			ret = addr_handler(&test.nodes[i]);
+		else
+			ret = rdma_resolve_addr(test.nodes[i].cma_id,
+						test.src_addr, test.dst_addr,
+						2000);
 		if (ret) {
-			printf("mckey: failure getting addr: %d\n", ret);
+			printf("mckey: resolve addr failure: %d\n", ret);
 			connect_error();
 			return ret;
 		}
@@ -479,9 +488,14 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "m:sb:c:C:S:p:")) != -1) {
+
+	while ((op = getopt(argc, argv, "m:M:sb:c:C:S:p:")) != -1) {
 		switch (op) {
 		case 'm':
+			dst_addr = optarg;
+			break;
+		case 'M':
+			unmapped_addr = 1;
 			dst_addr = optarg;
 			break;
 		case 's':
@@ -489,6 +503,7 @@ int main(int argc, char **argv)
 			break;
 		case 'b':
 			src_addr = optarg;
+			test.src_addr = (struct sockaddr *) &test.src_in;
 			break;
 		case 'c':
 			connections = atoi(optarg);
@@ -505,6 +520,8 @@ int main(int argc, char **argv)
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t-m multicast_address\n");
+			printf("\t[-M unmapped_multicast_address]\n"
+			       "\t replaces -m and requires -b\n");
 			printf("\t[-s(ender)]\n");
 			printf("\t[-b bind_address]\n");
 			printf("\t[-c connections]\n");
@@ -517,7 +534,6 @@ int main(int argc, char **argv)
 	}
 
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
-	test.src_addr = (struct sockaddr *) &test.src_in;
 	test.connects_left = connections;
 
 	test.channel = rdma_create_event_channel();
