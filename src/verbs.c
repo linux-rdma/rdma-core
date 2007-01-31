@@ -138,7 +138,13 @@ default_symver(__ibv_query_pkey, ibv_query_pkey);
 
 struct ibv_pd *__ibv_alloc_pd(struct ibv_context *context)
 {
-	return context->ops.alloc_pd(context);
+	struct ibv_pd *pd;
+
+	pd = context->ops.alloc_pd(context);
+	if (pd)
+		pd->context = context;
+
+	return pd;
 }
 default_symver(__ibv_alloc_pd, ibv_alloc_pd);
 
@@ -158,6 +164,7 @@ struct ibv_mr *__ibv_reg_mr(struct ibv_pd *pd, void *addr,
 
 	mr = pd->context->ops.reg_mr(pd, addr, length, access);
 	if (mr) {
+		mr->context = pd->context;
 		mr->pd      = pd;
 		mr->addr    = addr;
 		mr->length  = length;
@@ -249,6 +256,7 @@ struct ibv_cq *__ibv_create_cq(struct ibv_context *context, int cqe, void *cq_co
 						   comp_vector);
 
 	if (cq) {
+		cq->context    	     	   = context;
 		cq->cq_context 	     	   = cq_context;
 		cq->comp_events_completed  = 0;
 		cq->async_events_completed = 0;
@@ -312,6 +320,7 @@ struct ibv_srq *__ibv_create_srq(struct ibv_pd *pd,
 
 	srq = pd->context->ops.create_srq(pd, srq_init_attr);
 	if (srq) {
+		srq->context          = pd->context;
 		srq->srq_context      = srq_init_attr->srq_context;
 		srq->pd               = pd;
 		srq->events_completed = 0;
@@ -349,6 +358,7 @@ struct ibv_qp *__ibv_create_qp(struct ibv_pd *pd,
 	struct ibv_qp *qp = pd->context->ops.create_qp(pd, qp_init_attr);
 
 	if (qp) {
+		qp->context    	     = pd->context;
 		qp->qp_context 	     = qp_init_attr->qp_context;
 		qp->pd         	     = pd;
 		qp->send_cq    	     = qp_init_attr->send_cq;
@@ -407,8 +417,10 @@ struct ibv_ah *__ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct ibv_ah *ah = pd->context->ops.create_ah(pd, attr);
 
-	if (ah)
+	if (ah) {
+		ah->context = pd->context;
 		ah->pd      = pd;
+	}
 
 	return ah;
 }
