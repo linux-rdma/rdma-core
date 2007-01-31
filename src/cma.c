@@ -653,10 +653,48 @@ static int ucma_modify_qp_err(struct rdma_cm_id *id)
 	return ibv_modify_qp(id->qp, &qp_attr, IBV_QP_STATE);
 }
 
+static int ucma_find_pkey(struct cma_device *cma_dev, uint8_t port_num,
+			  uint16_t pkey, uint16_t *pkey_index)
+{
+	int ret, i;
+	uint16_t chk_pkey;
+
+	for (i = 0, ret = 0; !ret; i++) {
+		ret = ibv_query_pkey(cma_dev->verbs, port_num, i, &chk_pkey);
+		if (!ret && pkey == chk_pkey) {
+			*pkey_index = (uint16_t) i;
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
+static int ucma_init_conn_qp3(struct cma_id_private *id_priv, struct ibv_qp *qp)
+{
+	struct ibv_qp_attr qp_attr;
+	int ret;
+
+	ret = ucma_find_pkey(id_priv->cma_dev, id_priv->id.port_num,
+			     id_priv->id.route.addr.addr.ibaddr.pkey,
+			     &qp_attr.pkey_index);
+	if (ret)
+		return ret;
+
+	qp_attr.port_num = id_priv->id.port_num;
+	qp_attr.qp_state = IBV_QPS_INIT;
+	qp_attr.qp_access_flags = 0;
+
+	return ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_ACCESS_FLAGS |
+					   IBV_QP_PKEY_INDEX | IBV_QP_PORT);
+}
+
 static int ucma_init_conn_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 {
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
+
+	if (abi_ver == 3)
+		return ucma_init_conn_qp3(id_priv, qp);
 
 	qp_attr.qp_state = IBV_QPS_INIT;
 	ret = rdma_init_qp_attr(&id_priv->id, &qp_attr, &qp_attr_mask);
@@ -666,10 +704,43 @@ static int ucma_init_conn_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 	return ibv_modify_qp(qp, &qp_attr, qp_attr_mask);
 }
 
+static int ucma_init_ud_qp3(struct cma_id_private *id_priv, struct ibv_qp *qp)
+{
+	struct ibv_qp_attr qp_attr;
+	int ret;
+
+	ret = ucma_find_pkey(id_priv->cma_dev, id_priv->id.port_num,
+			     id_priv->id.route.addr.addr.ibaddr.pkey,
+			     &qp_attr.pkey_index);
+	if (ret)
+		return ret;
+
+	qp_attr.port_num = id_priv->id.port_num;
+	qp_attr.qp_state = IBV_QPS_INIT;
+	qp_attr.qkey = RDMA_UDP_QKEY;
+
+	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_QKEY |
+					  IBV_QP_PKEY_INDEX | IBV_QP_PORT);
+	if (ret)
+		return ret;
+
+	qp_attr.qp_state = IBV_QPS_RTR;
+	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE);
+	if (ret)
+		return ret;
+
+	qp_attr.qp_state = IBV_QPS_RTS;
+	qp_attr.sq_psn = 0;
+	return ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_SQ_PSN);
+}
+
 static int ucma_init_ud_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 {
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
+
+	if (abi_ver == 3)
+		return ucma_init_ud_qp3(id_priv, qp);
 
 	qp_attr.qp_state = IBV_QPS_INIT;
 	ret = rdma_init_qp_attr(&id_priv->id, &qp_attr, &qp_attr_mask);
