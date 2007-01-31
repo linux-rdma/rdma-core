@@ -1,11 +1,19 @@
 libibverbs (1.1~pre1-1) unstable; urgency=low
 
   * New upstream prerelease.
-  * soname bumped to 2 due to ABI changes.
+
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 31 Jan 2007 10:41:05 -0800
+
+libibverbs (1.0.4-1) unstable; urgency=low
+
+  * New upstream release.
+    - Fix static linking so it has a chance of working.
+    - Fix cut-and-paste error in sparc mb() macro.
+    - Other miscellaneous fixes.
   * Improve package description.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed,  6 Sep 2006 14:30:22 -0700
-
+ -- Roland Dreier <rolandd@cisco.com>  Tue, 31 Oct 2006 15:04:33 -0800
+	
 libibverbs (1.0.3-1) unstable; urgency=low
 
   * Change priority to extra, since libibverbs depends on libsysfs2, which
