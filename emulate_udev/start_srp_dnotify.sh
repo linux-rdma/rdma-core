@@ -86,11 +86,12 @@ fi
 trap 'trap_handler' 2 15
 
 #make sure the directories will not be removed and recreated causing dnotify wait on the wrong inode
+mkdir -p $MULTIPATH_SYMLINK_DEVICES_DIR
 touch $MULTIPATH_SYMLINK_DEVICES_DIR/dummy_file_to_keep_directory_live
+mkdir -p $KPARTX_SYMLINK_DEVICES_DIR
 touch $KPARTX_SYMLINK_DEVICES_DIR/dummy_file_to_keep_directory_live
 
 ${prog} $KPARTX_SYMLINK_DEVICES_DIR $MULTIPATH_SYMLINK_DEVICES_DIR -e execute_multipath_or_kpartx.sh {} &
+pids="$!"
 
-#mkdir -p /etc/udev/rules.d
-#cp -f 91-srp.rules.old_udev /etc/udev/rules.d/91-srp.rules
 wait

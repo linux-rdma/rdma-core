@@ -29,4 +29,4 @@
 #
 
 dir=`dirname $0`
-$dir/dnotify $@
+$dir/../bin/dnotify $@
