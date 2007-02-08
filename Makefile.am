@@ -31,6 +31,7 @@ EXTRA_DIST = \
     src/srp-dm.h \
     src/ib_user_mad.h \
     emulate_udev/execute_multipath_or_kpartx.sh \
+    emulate_udev/srp_dnotify \
     emulate_udev/start_srp_dnotify.sh \
     emulate_udev/srp_dm_multipath_daemon.h \
     srptools.spec.in $(man_MANS)
