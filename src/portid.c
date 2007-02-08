@@ -84,8 +84,13 @@ portid2str(ib_portid_t *portid)
 			return buf;
 	}
 	s += sprintf(s, "DR path ");
-	for (i = 0; i < portid->drpath.cnt+1; i++)
-		s += sprintf(s, "[%d]", portid->drpath.p[i]);
+	for (i = 0; i < portid->drpath.cnt+1; i++) {
+		if (i == 0)
+			s += sprintf( s, "%d", portid->drpath.p[i] );
+		else
+			s += sprintf( s, ",%d", portid->drpath.p[i] );
+	}
+
 
 	return buf;
 }
