@@ -1,0 +1,41 @@
+.TH UMAD_INIT 3  "2007-02-30" "OpenIB" "OpenIB Programmer's Manual"
+
+.SH "NAME"
+umad_init, umad_done \- perform library initialization and finalization
+
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/umad.h>
+.sp
+.BI "int umad_init(void);
+.nl
+.BI "int umad_done(void);
+.fi
+
+.SH "DESCRIPTION"
+.B umad_init()
+initializes the umad library for use. This should be the first command when using this library.
+.PP
+.B umad_done()
+finalize the use of the umad library.
+
+.SH "RETURN VALUE"
+.B umad_init()
+and
+.B umad_done()
+returns 0 on success, and \-1 on error.
+
+.SH "NOTES"
+If an error occurs during the library initialization, no further use of the umad library should be attempted.
+
+.SH "CONFORMING TO"
+InfiniBand Architecture Specification, Release 1.2.
+
+.SH "SEE ALSO"
+.BR umad_get_cas_names (3),
+.BR umad_get_ca_portguids (3),
+
+.SH "AUTHORS"
+.TP
+Dotan Barak
+.RI < dotanb@mellanox.co.il >

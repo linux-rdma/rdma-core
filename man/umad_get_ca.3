@@ -1,0 +1,61 @@
+.TH UMAD_GET_CA 3  "2007-02-30" "OpenIB" "OpenIB Programmer's Manual"
+
+.SH "NAME"
+umad_get_ca, umad_release_ca \- open and close context to InfiniBand device
+
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/umad.h>
+.sp
+.BI "int umad_get_ca(char " "*ca_name" ", umad_ca_t " "*ca" );
+.nl
+.BI "int umad_release_ca(umad_ca_t " "*ca" );
+.fi
+
+.SH "DESCRIPTION"
+.B umad_get_ca()
+open a context and get the attributes of the device
+.I ca_name\fR.
+The argument
+.I ca
+is an umad_ca_t struct, as specified in <infiniband/umad.h>.
+.PP
+.nf
+typedef struct umad_ca {
+.in +8
+char ca_name[UMAD_CA_NAME_LEN];                 /* Name of the device */
+uint node_type;                                 /* Type of the device */
+int numports;                                   /* Number of physical ports */
+char fw_ver[20];                                /* FW version */
+char ca_type[40];                               /* ??????????????? */
+char hw_ver[20];                                /* Hardware version */
+uint64_t node_guid;                             /* Node GUID */
+uint64_t system_guid;                           /* System image GUID */
+umad_port_t *ports[UMAD_CA_MAX_PORTS];          /* Array of device port properties */
+.in -8
+} umad_ca_t;
+.fi
+.PP
+.B umad_release_ca()
+release the device and the resources that were allocated in the function
+.B umad_get_ca()
+for the device
+.I ca\fR.
+
+.SH "RETURN VALUE"
+.B umad_get_ca()
+and
+.B umad_release_ca()
+returns 0 on success, and a negative value on error.
+
+.SH "CONFORMING TO"
+InfiniBand Architecture Specification, Release 1.2.
+
+.SH "SEE ALSO"
+.BR umad_init (3),
+.BR umad_get_ca_portguids (3)
+
+.SH "AUTHORS"
+.TP
+Dotan Barak
+.RI < dotanb@mellanox.co.il >
