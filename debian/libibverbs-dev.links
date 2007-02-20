@@ -1,0 +1,2 @@
+usr/share/man/man3/ibv_get_device_list.3	usr/share/man/man3/ibv_free_device_list.3
+usr/share/man/man3/ibv_open_device.3		usr/share/man/man3/ibv_close_device.3

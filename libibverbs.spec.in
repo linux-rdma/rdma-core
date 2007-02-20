@@ -65,6 +65,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/lib*.so
 %{_libdir}/*.a
 %{_includedir}/*
+%{_mandir}/man3/*
 
 %files utils
 %defattr(-,root,root,-)
@@ -75,6 +76,7 @@ rm -rf $RPM_BUILD_ROOT
 * Mon May 22 2006 Roland Dreier <rdreier@cisco.com> - 1.1-0.1.pre1
 - New upstream release
 - Remove dependency on libsysfs, since it is no longer used
+- Put section 3 manpages in devel package.
 
 * Thu May  4 2006 Roland Dreier <rdreier@cisco.com> - 1.0.4-1
 - New upstream release

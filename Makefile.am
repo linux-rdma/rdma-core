@@ -40,7 +40,9 @@ libibverbsinclude_HEADERS = include/infiniband/arch.h include/infiniband/driver.
 
 man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1 \
     man/ibv_rc_pingpong.1 man/ibv_uc_pingpong.1 man/ibv_ud_pingpong.1 \
-    man/ibv_srq_pingpong.1
+    man/ibv_srq_pingpong.1 \
+    man/ibv_get_device_list.3 man/ibv_get_device_name.3 \
+    man/ibv_get_device_guid.3 man/ibv_open_device.3 man/ibv_fork_init.3
 
 DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
     debian/ibverbs-utils.install debian/libibverbs1.install \
@@ -55,3 +57,8 @@ EXTRA_DIST = include/infiniband/driver.h include/infiniband/kern-abi.h \
 
 dist-hook: libibverbs.spec
 	cp libibverbs.spec $(distdir)
+
+install-data-hook:
+	cd $(DESTDIR)$(mandir)/man3 && \
+	$(LN_S) ibv_get_device_list.3 ibv_free_device_list.3 && \
+	$(LN_S) ibv_open_device.3 ibv_close_device.3

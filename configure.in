@@ -24,6 +24,7 @@ fi
 
 dnl Checks for programs
 AC_PROG_CC
+AC_PROG_LN_S
 
 dnl Checks for libraries
 AC_CHECK_LIB(dl, dlsym, [],
