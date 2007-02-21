@@ -38,11 +38,21 @@ libibverbsinclude_HEADERS = include/infiniband/arch.h include/infiniband/driver.
     include/infiniband/kern-abi.h include/infiniband/opcode.h include/infiniband/verbs.h \
     include/infiniband/sa-kern-abi.h include/infiniband/sa.h include/infiniband/marshall.h
 
-man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1 \
+man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1   \
     man/ibv_rc_pingpong.1 man/ibv_uc_pingpong.1 man/ibv_ud_pingpong.1 \
     man/ibv_srq_pingpong.1 \
-    man/ibv_get_device_list.3 man/ibv_get_device_name.3 \
-    man/ibv_get_device_guid.3 man/ibv_open_device.3 man/ibv_fork_init.3
+    man/ibv_alloc_pd.3 man/ibv_attach_mcast.3 man/ibv_create_ah.3      \
+    man/ibv_create_ah_from_wc.3 man/ibv_create_comp_channel.3	       \
+    man/ibv_create_cq.3 man/ibv_create_qp.3 man/ibv_create_srq.3       \
+    man/ibv_fork_init.3 man/ibv_get_async_event.3		       \
+    man/ibv_get_cq_event.3 man/ibv_get_device_guid.3		       \
+    man/ibv_get_device_list.3 man/ibv_get_device_name.3		       \
+    man/ibv_modify_qp.3 man/ibv_modify_srq.3 man/ibv_open_device.3     \
+    man/ibv_poll_cq.3 man/ibv_post_recv.3 man/ibv_post_send.3	       \
+    man/ibv_post_srq_recv.3 man/ibv_query_device.3 man/ibv_query_gid.3 \
+    man/ibv_query_pkey.3 man/ibv_query_port.3 man/ibv_query_qp.3       \
+    man/ibv_query_srq.3 man/ibv_rate_to_mult.3 man/ibv_reg_mr.3	       \
+    man/ibv_req_notify_cq.3 man/ibv_resize_cq.3
 
 DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
     debian/ibverbs-utils.install debian/libibverbs1.install \
@@ -60,5 +70,18 @@ dist-hook: libibverbs.spec
 
 install-data-hook:
 	cd $(DESTDIR)$(mandir)/man3 && \
+	$(LN_S) ibv_get_async_event.3 ibv_ack_async_event.3 && \
+	$(LN_S) ibv_get_cq_event.3 ibv_ack_cq_events.3 && \
+	$(LN_S) ibv_open_device.3 ibv_close_device.3 && \
+	$(LN_S) ibv_alloc_pd.3 ibv_dealloc_pd.3 && \
+	$(LN_S) ibv_reg_mr.3 ibv_dereg_mr.3 && \
+	$(LN_S) ibv_create_ah.3 ibv_destroy_ah.3 && \
+	$(LN_S) ibv_create_comp_channel.3 ibv_destroy_comp_channel.3 && \
+	$(LN_S) ibv_create_cq.3 ibv_destroy_cq.3 && \
+	$(LN_S) ibv_create_qp.3 ibv_destroy_qp.3 && \
+	$(LN_S) ibv_create_srq.3 ibv_destroy_srq.3 && \
+	$(LN_S) ibv_attach_mcast.3 ibv_detach_mcast.3 && \
 	$(LN_S) ibv_get_device_list.3 ibv_free_device_list.3 && \
-	$(LN_S) ibv_open_device.3 ibv_close_device.3
+	$(LN_S) ibv_create_ah_from_wc.3 ibv_init_ah_from_wc.3 && \
+	$(LN_S) ibv_rate_to_mult.3 mult_to_ibv_rate.3
+

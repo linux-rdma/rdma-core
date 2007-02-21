@@ -1,0 +1,117 @@
+.\" -*- nroff -*-
+.\"
+.TH IBV_GET_ASYNC_EVENT 3 2006-10-31 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_get_async_event, ibv_ack_async_event \- get or acknowledge asynchronous events
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "int ibv_get_async_event(struct ibv_context " "*context" ,
+.BI "                        struct ibv_async_event " "*event" );
+.nl
+.BI "void ibv_ack_async_event(struct ibv_async_event " "*event" );
+.fi
+.SH "DESCRIPTION"
+.B ibv_get_async_event()
+waits for the next async event of the InfiniBand device context
+.I context
+and returns it through the pointer
+.I event\fR,
+which is an ibv_async_event struct, as defined in <infiniband/verbs.h>.
+.PP
+.nf
+struct ibv_async_event {
+.in +8
+union {
+.in +8
+struct ibv_cq  *cq;             /* CQ that got the event */
+struct ibv_qp  *qp;             /* QP that got the event */
+struct ibv_srq *srq;            /* SRQ that got the event */
+int             port_num;       /* port number that got the event */
+.in -8
+} element;
+enum ibv_event_type     event_type;     /* type of the event */
+.in -8
+};
+.fi
+.PP
+One member of the element union will be valid, depending on the
+event_type member of the structure.  event_type will be one of the
+following events:
+.PP
+.I QP events:
+.TP
+.B IBV_EVENT_QP_FATAL \fR Error occurred on a QP and it transitioned to error state
+.TP
+.B IBV_EVENT_QP_REQ_ERR \fR Invalid Request Local Work Queue Error
+.TP
+.B IBV_EVENT_QP_ACCESS_ERR \fR Local access violation error
+.TP
+.B IBV_EVENT_COMM_EST \fR Communication was established on a QP
+.TP
+.B IBV_EVENT_SQ_DRAINED \fR Send Queue was drained of outstanding messages in progress 
+.TP
+.B IBV_EVENT_PATH_MIG \fR A connection has migrated to the alternate path
+.TP
+.B IBV_EVENT_PATH_MIG_ERR \fR A connection failed to migrate to the alternate path
+.TP
+.B IBV_EVENT_QP_LAST_WQE_REACHED \fR Last WQE Reached on a QP associated with an SRQ
+.PP
+.I CQ events:
+.TP
+.B IBV_EVENT_CQ_ERR \fR CQ is in error (CQ overrun)
+.PP
+.I SRQ events:
+.TP
+.B IBV_EVENT_SRQ_ERR \fR Error occurred on an SRQ
+.TP
+.B IBV_EVENT_SRQ_LIMIT_REACHED \fR SRQ limit was reached
+.PP
+.I Port events:
+.TP
+.B IBV_EVENT_PORT_ACTIVE \fR Link became active on a port
+.TP
+.B IBV_EVENT_PORT_ERR \fR Link became unavailable on a port
+.TP
+.B IBV_EVENT_LID_CHANGE \fR LID was changed on a port
+.TP
+.B IBV_EVENT_PKEY_CHANGE \fR P_Key table was changed on a port
+.TP
+.B IBV_EVENT_SM_CHANGE \fR SM was changed on a port
+.TP
+.B IBV_EVENT_CLIENT_REREGISTER \fR SM sent a CLIENT_REREGISTER request to a port
+.PP
+.I CA events:
+.TP
+.B IBV_EVENT_DEVICE_FATAL \fR CA is in FATAL state
+.PP
+.B ibv_ack_async_event()
+acknowledge the async event
+.I event\fR.
+.SH "RETURN VALUE"
+.B ibv_get_async_event()
+returns 0 on success, and \-1 on error.
+.PP
+.B ibv_ack_async_event()
+returns no value.
+.SH "NOTES"
+All async events that
+.B ibv_get_async_event()
+returns must be acknowledged using
+.B ibv_ack_async_event()\fR.
+To avoid races, destroying an object (CQ, SRQ or QP) will wait for all
+affiliated events for the object to be acknowledged; this avoids an
+application retrieving an affiliated event after the corresponding
+object has already been destroyed.
+.PP
+.B ibv_get_async_event()
+is a blocking function.  If multiple threads call this function
+simultaneously, then when an async event occurs, only one thread will
+receive it, and it is not possible to predict which thread will
+receive it.
+.SH "SEE ALSO"
+.BR ibv_open_device (3)
+.SH "AUTHORS"
+.TP
+Dotan Barak <dotanb@mellanox.co.il>
