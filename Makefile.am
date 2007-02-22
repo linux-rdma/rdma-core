@@ -70,6 +70,20 @@ dist-hook: libibverbs.spec
 
 install-data-hook:
 	cd $(DESTDIR)$(mandir)/man3 && \
+	$(RM) ibv_ack_async_event.3 && \
+	$(RM) ibv_ack_cq_events.3 && \
+	$(RM) ibv_close_device.3 && \
+	$(RM) ibv_dealloc_pd.3 && \
+	$(RM) ibv_dereg_mr.3 && \
+	$(RM) ibv_destroy_ah.3 && \
+	$(RM) ibv_destroy_comp_channel.3 && \
+	$(RM) ibv_destroy_cq.3 && \
+	$(RM) ibv_destroy_qp.3 && \
+	$(RM) ibv_destroy_srq.3 && \
+	$(RM) ibv_detach_mcast.3 && \
+	$(RM) ibv_free_device_list.3 && \
+	$(RM) ibv_init_ah_from_wc.3 && \
+	$(RM) mult_to_ibv_rate.3 && \
 	$(LN_S) ibv_get_async_event.3 ibv_ack_async_event.3 && \
 	$(LN_S) ibv_get_cq_event.3 ibv_ack_cq_events.3 && \
 	$(LN_S) ibv_open_device.3 ibv_close_device.3 && \
