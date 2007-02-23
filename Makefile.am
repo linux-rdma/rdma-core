@@ -1,22 +1,17 @@
-# $Id: Makefile.am 3373 2005-09-12 16:34:20Z roland $
 INCLUDES = -I$(srcdir)/include
+
+lib_LTLIBRARIES = src/librdmacm.la
 
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
-rdmacmlibdir = $(libdir)
+src_librdmacm_la_CFLAGS = $(AM_CFLAGS)
 
-rdmacmlib_LTLIBRARIES = src/librdmacm.la
-
-src_rdmacm_la_CFLAGS = -g -Wall -D_GNU_SOURCE
-
-if HAVE_LD_VERSION_SCRIPT
-    rdmacm_version_script = -Wl,--version-script=$(srcdir)/src/librdmacm.map
-else
-    rdmacm_version_script =
-endif
+librdmacm_version_script = @LIBRDMACM_VERSION_SCRIPT@
 
 src_librdmacm_la_SOURCES = src/cma.c
-src_librdmacm_la_LDFLAGS = -avoid-version $(rdmacm_version_script)
+src_librdmacm_la_LDFLAGS = -version-info 1 -export-dynamic \
+			   $(librdmacm_version_script)
+src_librdmacm_la_DEPENDENCIES =  $(srcdir)/src/librdmacm.map
 
 bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy examples/mckey
 examples_ucmatose_SOURCES = examples/cmatose.c
@@ -33,10 +28,8 @@ librdmacmincludedir = $(includedir)/rdma
 librdmacminclude_HEADERS = include/rdma/rdma_cma_abi.h \
 			   include/rdma/rdma_cma.h
 
-EXTRA_DIST = include/rdma/rdma_cma_abi.h \
-	     include/rdma/rdma_cma.h \
-	     src/librdmacm.map \
-	     librdmacm.spec.in
+EXTRA_DIST = include/rdma/rdma_cma_abi.h include/rdma/rdma_cma.h \
+	     src/librdmacm.map librdmacm.spec.in
 
 dist-hook: librdmacm.spec
 	cp librdmacm.spec $(distdir)

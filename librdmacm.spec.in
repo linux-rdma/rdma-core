@@ -1,70 +1,65 @@
-# $Id: $
-
 %define ver @VERSION@
-%define RELEASE 1
-%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: Userspace RDMA Connection Manager.
 Name: librdmacm
-Version: %ver
-Release: %rel%{?dist}
-License: GPL/BSD
+Version: 1.0
+Release: -rc1%{?dist}
+Summary: Userspace RDMA Connection Manager.
+
 Group: System Environment/Libraries
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
-Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
-Url: http://openib.org/
+License: GPL/BSD
+Url: http://www.openfabrics.org/
+Source: http://www.openfabrics.org/downloads/%{name}-%{version}-%{release}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %description
-Along with the OpenIB kernel drivers, librdmacm provides a userspace
-RDMA Connection Managment API.
+librdmacm provides a userspace RDMA Communication Managment API.
 
 %package devel
 Summary: Development files for the librdmacm library
 Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release}
+Requires: %{name} = %{version}-%{release} %{_includedir}/infiniband/verbs.h
 
 %description devel
 Development files for the librdmacm library.
 
 %package utils
-Summary: Utilities for the librdmacm library
-Group: System Environment/Base
+Summary: Examples for the librdmacm library
+Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
 
 %description utils
-Utilities for the librdmacm library.
+Example test programs for the librdmacm library.
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{ver}
 
 %build
 %configure
-make
+make %{?_smp_mflags}
 
 %install
-make DESTDIR=${RPM_BUILD_ROOT} install
+rm -rf $RPM_BUILD_ROOT
+%makeinstall
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
-cd $RPM_BUILD_ROOT%{_libdir}
-mv librdmacm.so librdmacm.so.%{ver}
-ln -s librdmacm.so.%{ver} librdmacm.so
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%post -p /sbin/ldconfig
+%postun -p /sbin/ldconfig
+
 %files
-%defattr(-,root,root)
+%defattr(-,root,root,-)
 %{_libdir}/librdmacm*.so.*
-%doc AUTHORS COPYING ChangeLog NEWS README
+%doc AUTHORS COPYING ChangeLog README
 
 %files devel
 %defattr(-,root,root)
-%{_libdir}/librdmacm.so
-%{_includedir}/rdma/*.h
+%{_libdir}/lib*.so
+%{_libdir}/*.a
+%{_includedir}/*
 
 %files utils
-%defattr(-,root,root)
-%{_bindir}/rping
-%{_bindir}/ucmatose
-%{_bindir}/udaddy
-%{_bindir}/mckey
+%defattr(-,root,root,-)
+%{_bindir}/*
