@@ -1,4 +1,4 @@
-IBCM_4.0 {
+IBCM_1.0 {
 	global:
 		ib_cm_open_device;
 		ib_cm_close_device;
