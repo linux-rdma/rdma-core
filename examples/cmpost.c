@@ -708,8 +708,8 @@ out:
 
 int main(int argc, char **argv)
 {
-	if (argc != 1 && argc != 3) {
-		printf("usage: %s [-i server_addr | -l server_lid]\n", argv[0]);
+	if (argc != 1 && argc != 2) {
+		printf("usage: %s [server_ip_addr]\n", argv[0]);
 		exit(1);
 	}
 
