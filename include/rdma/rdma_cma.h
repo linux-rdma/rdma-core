@@ -285,7 +285,8 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms);
  *   ready to handle posting of receives.  If the QP is unconnected, it will
  *   be ready to post sends.
  * See also:
- *   rdma_bind_addr, rdma_resolve_addr, rdma_destroy_qp
+ *   rdma_bind_addr, rdma_resolve_addr, rdma_destroy_qp, ibv_create_qp,
+ *   ibv_modify_qp
  */
 int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 		   struct ibv_qp_init_attr *qp_init_attr);
@@ -299,7 +300,7 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
  *   Users must destroy any QP associated with an rdma_cm_id before
  *   destroying the ID.
  * See also:
- *   rdma_create_qp, rdma_destroy_id
+ *   rdma_create_qp, rdma_destroy_id, ibv_destroy_qp
  */
 void rdma_destroy_qp(struct rdma_cm_id *id);
 
