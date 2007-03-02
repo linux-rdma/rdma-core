@@ -1,3 +1,4 @@
+# Copyright (c) 2007. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
 # This software is available to you under a choice of one of two
@@ -36,19 +37,22 @@
 %define RELEASE 1
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: PathScale InfiniPath HCA Userspace Driver
 Name: libipathverbs
 Version: %ver
 Release: %rel%{?dist}
-License: GPL/BSD
+Summary: PathScale InfiniPath HCA Userspace Driver
+
 Group: System Environment/Libraries
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
-Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+License: GPL/BSD
 Url: http://openib.org/
-BuildRequires: libibverbs-devel >= 1.0
+Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-root
+
+BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
 
 %description
-libipathverbs provides a device-specific userspace driver for PathScale HCAs.
+libipathverbs provides a device-specific userspace driver for QLogic HCAs
+for use with the libibverbs library.
 
 %package devel
 Summary: Development files for the libipathverbs driver
@@ -60,26 +64,27 @@ Static version of libipathverbs that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{ver}
 
 %build
 %configure
-make
+make %{?_smp_flags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
 %makeinstall
 # remove unpackaged files from the buildroot
-rm -f $RPM_BUILD_ROOT%{_libdir}/infiniband/*.la
+rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_libdir}/infiniband/ipathverbs.so
-%doc AUTHORS COPYING
+%{_libdir}/libipathverbs*.so
+%doc AUTHORS COPYING README
+%config %{_sysconfdir}/libibverbs.d/ipath.driver
 
 %files devel
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/ipathverbs.a
+%{_libdir}/libipathverbs*.a

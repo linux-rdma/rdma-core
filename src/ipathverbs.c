@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 QLogic Corporation, All rights reserved.
+ * Copyright (C) 2006-2007 QLogic Corporation, All rights reserved.
  * Copyright (c) 2005. PathScale, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -50,21 +50,29 @@
 #define PCI_VENDOR_ID_PATHSCALE			0x1fc1
 #endif
 
-#ifndef PCI_DEVICE_ID_PATHSCALE_SPINNERET
-#define PCI_DEVICE_ID_PATHSCALE_SPINNERET	0x000a
+#ifndef PCI_VENDOR_ID_QLOGIC
+#define PCI_VENDOR_ID_QLOGIC			0x1077
 #endif
 
-#ifndef PCI_DEVICE_ID_PATHSCALE_WALDO
-#define PCI_DEVICE_ID_PATHSCALE_WALDO		0x000d
+#ifndef PCI_DEVICE_ID_INFINIPATH_SPINNERET
+#define PCI_DEVICE_ID_INFINIPATH_SPINNERET	0x000a
 #endif
 
-#ifndef PCI_DEVICE_ID_PATHSCALE_MONTY
-#define PCI_DEVICE_ID_PATHSCALE_MONTY		0x0010
+#ifndef PCI_DEVICE_ID_INFINIPATH_HT
+#define PCI_DEVICE_ID_INFINIPATH_HT		0x000d
+#endif
+
+#ifndef PCI_DEVICE_ID_INFINIPATH_PE800
+#define PCI_DEVICE_ID_INFINIPATH_PE800		0x0010
+#endif
+
+#ifndef PCI_DEVICE_ID_INFINIPATH_6220
+#define PCI_DEVICE_ID_INFINIPATH_6220		0x6220
 #endif
 
 #define HCA(v, d, t) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_PATHSCALE_##d,	\
+	  .device = PCI_DEVICE_ID_INFINIPATH_##d,	\
 	  .type = IPATH_##t }
 
 struct {
@@ -72,9 +80,10 @@ struct {
 	unsigned		device;
 	enum ipath_hca_type	type;
 } hca_table[] = {
-	HCA(PATHSCALE, SPINNERET, SPINNERET),
-	HCA(PATHSCALE, WALDO,	  WALDO),
-	HCA(PATHSCALE, MONTY,	  MONTY),
+	HCA(PATHSCALE,	SPINNERET, SPINNERET),
+	HCA(PATHSCALE,	HT,	  HT),
+	HCA(PATHSCALE,	PE800,	  PE800),
+	HCA(QLOGIC,	6220,	  6220),
 };
 
 static struct ibv_context_ops ipath_ctx_ops = {
@@ -165,8 +174,8 @@ static struct ibv_device_ops ipath_dev_ops = {
 	.free_context	= ipath_free_context
 };
 
-struct ibv_device *ibv_driver_init(const char *uverbs_sys_path,
-				   int abi_version)
+static struct ibv_device *ipath_driver_init(const char *uverbs_sys_path,
+					    int abi_version)
 {
 	char			value[8];
 	struct ipath_device    *dev;
@@ -204,3 +213,26 @@ found:
 
 	return &dev->ibv_dev;
 }
+
+#ifdef HAVE_IBV_REGISTER_DRIVER
+static __attribute__((constructor)) void ipath_register_driver(void)
+{
+	ibv_register_driver("ipathverbs", ipath_driver_init);
+}
+#else
+/*
+ * Export the old libsysfs sysfs_class_device-based driver entry point
+ * if libibverbs does not export an ibv_register_driver() function.
+ */
+struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
+{
+        int abi_ver = 0;
+        char value[8];
+
+        if (ibv_read_sysfs_file(sysdev->path, "abi_version",
+                                value, sizeof value) > 0)
+                abi_ver = strtol(value, NULL, 10);
+
+        return ipath_driver_init(sysdev->path, abi_ver);
+}
+#endif /* HAVE_IBV_REGISTER_DRIVER */

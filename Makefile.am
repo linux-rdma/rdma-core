@@ -1,3 +1,4 @@
+# Copyright (c) 2007. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
 # This software is available to you under a choice of one of two
@@ -32,26 +33,31 @@
 # combinations of this program with other software, or any other
 # product whatsoever.
 
-ipathverbslibdir = $(libdir)/infiniband
+AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
-ipathverbslib_LTLIBRARIES = src/ipathverbs.la
+ipathverbs_version_script = @IPATHVERBS_VERSION_SCRIPT@
 
-src_ipathverbs_la_CFLAGS = -Wall -D_GNU_SOURCE
+IPATHVERBS_SOURCES = src/ipathverbs.c src/verbs.c
 
-if HAVE_LD_VERSION_SCRIPT
-    ipathverbs_version_script = -Wl,--version-script=$(srcdir)/src/ipathverbs.map
+if HAVE_IBV_DEVICE_LIBRARY_EXTENSION
+    lib_LTLIBRARIES = src/libipathverbs.la
+    src_libipathverbs_la_SOURCES = $(IPATHVERBS_SOURCES)
+    src_libipathverbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
+        $(ipathverbs_version_script)
+    ipathverbsconfdir = $(sysconfdir)/libibverbs.d
+    ipathverbsconf_DATA = ipath.driver
 else
-    ipathverbs_version_script =
+    ipathverbslibdir = $(libdir)/infiniband
+    ipathverbslib_LTLIBRARIES = src/ipathverbs.la
+    src_ipathverbs_la_SOURCES = $(IPATHVERBS_SOURCES)
+    src_ipathverbs_la_LDFLAGS = -avoid-version -module $(ipathverbs_version_script)
 endif
-
-src_ipathverbs_la_SOURCES = src/ipathverbs.c src/verbs.c
-src_ipathverbs_la_LDFLAGS = -avoid-version -module \
-    $(ipathverbs_version_script)
 
 EXTRA_DIST = src/ipathverbs.h \
     src/ipath-abi.h \
     src/ipathverbs.map \
-    libipathverbs.spec.in
+    libipathverbs.spec.in \
+    ipath.driver
 
 dist-hook: libipathverbs.spec
 	cp libipathverbs.spec $(distdir)

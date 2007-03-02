@@ -1,21 +1,24 @@
 Introduction
 ============
 
-libipathverbs is a userspace driver for the PathScale InfiniBand HCAs.
+libipathverbs is a userspace driver for the QLogic InfiniBand HCAs.
 It works as a plug-in module for libibverbs that allows programs to use
-PathScale HCAs directly from userspace.  See the libibverbs package for
+QLogic HCAs directly from userspace.  See the libibverbs package for
 more information.
 
 Using libipathverbs
 ===================
 
 libipathverbs will be loaded and used automatically by programs linked
-with libibverbs.  The ib_ipath kernel module must be loaded for PathScale
+with libibverbs.  The ib_ipath kernel module must be loaded for QLogic
 HCA devices to be detected and used.
 
 Supported Hardware
 ==================
 
-libipathverbs currently supports the following PathScale HCAs:
+libipathverbs currently supports the following QLogic HCAs:
 
-    InfiniPath HTX Adapter
+	InfiniPath QLE7140 PCIe Adapter
+	InfiniPath QMI7140 PCIe Adapter
+	InfiniPath QHT7040 HyperTransport Adapter
+	InfiniPath QHT7140 HyperTransport Adapter

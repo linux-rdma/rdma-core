@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 QLogic, Inc. All rights reserved.
+ * Copyright (c) 2006-2007 QLogic Corp. All rights reserved.
  * Copyright (c) 2005. PathScale, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -53,8 +53,9 @@
 
 enum ipath_hca_type {
 	IPATH_SPINNERET,
-	IPATH_WALDO,
-	IPATH_MONTY,
+	IPATH_HT,
+	IPATH_PE800,
+	IPATH_6220,
 };
 
 struct ipath_device {

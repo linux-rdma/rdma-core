@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 QLogic, Inc. All rights reserved.
+ * Copyright (c) 2006-2007 QLogic Corp. All rights reserved.
  * Copyright (c) 2005. PathScale, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -528,7 +528,7 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 	struct ipath_srq            *srq = to_isrq(ibsrq);
 	struct ipath_modify_srq_cmd  cmd;
 	__u64                        offset;
-	size_t                       size;
+	size_t                       size = 0; /* Shut up gcc */
 	int                          ret;
 
 	if (attr_mask & IBV_SRQ_MAX_WR) {
