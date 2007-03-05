@@ -6,7 +6,11 @@ AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
 src_libibcm_la_CFLAGS = $(AM_CFLAGS)
 
-libibcm_version_script = @LIBIBCM_VERSION_SCRIPT@
+if HAVE_LD_VERSION_SCRIPT
+    ibcm_version_script = -Wl,--version-script=$(srcdir)/src/libibcm.map
+else
+    ibcm_version_script =
+endif
 
 src_libibcm_la_SOURCES = src/cm.c
 src_libibcm_la_LDFLAGS = -version-info 1 -export-dynamic \
