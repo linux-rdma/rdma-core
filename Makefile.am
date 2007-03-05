@@ -6,7 +6,11 @@ AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
 src_librdmacm_la_CFLAGS = $(AM_CFLAGS)
 
-librdmacm_version_script = @LIBRDMACM_VERSION_SCRIPT@
+if HAVE_LD_VERSION_SCRIPT
+    librdmacm_version_script = -Wl,--version-script=$(srcdir)/src/librdmacm.map
+else
+    librdmacm_version_script =
+endif
 
 src_librdmacm_la_SOURCES = src/cma.c
 src_librdmacm_la_LDFLAGS = -version-info 1 -export-dynamic \
