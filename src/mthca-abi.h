@@ -36,6 +36,8 @@
 
 #include <infiniband/kern-abi.h>
 
+#define MTHCA_UVERBS_ABI_VERSION	1
+
 struct mthca_alloc_ucontext_resp {
 	struct ibv_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;

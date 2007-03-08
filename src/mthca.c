@@ -282,6 +282,12 @@ static struct ibv_device *mthca_driver_init(const char *uverbs_sys_path,
 	return NULL;
 
 found:
+	if (abi_version > MTHCA_UVERBS_ABI_VERSION) {
+		fprintf(stderr, PFX "Fatal: ABI version %d of %s is too new (expected %d)\n",
+			abi_version, uverbs_sys_path, MTHCA_UVERBS_ABI_VERSION);
+		return NULL;
+	}
+
 	dev = malloc(sizeof *dev);
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
