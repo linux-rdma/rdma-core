@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2004 Intel Corporation.  All rights reserved.
- * Copyright (c) 2005, 2006 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2005, 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -288,6 +288,13 @@ struct ibv_pd {
 	uint32_t		handle;
 };
 
+enum ibv_rereg_mr_flags {
+	IBV_REREG_MR_CHANGE_TRANSLATION	= (1 << 0),
+	IBV_REREG_MR_CHANGE_PD		= (1 << 1),
+	IBV_REREG_MR_CHANGE_ACCESS	= (1 << 2),
+	IBV_REREG_MR_KEEP_VALID		= (1 << 3)
+};
+
 struct ibv_mr {
 	struct ibv_context     *context;
 	struct ibv_pd	       *pd;
@@ -295,6 +302,17 @@ struct ibv_mr {
 	size_t			length;
 	uint32_t		handle;
 	uint32_t		lkey;
+	uint32_t		rkey;
+};
+
+enum ibv_mw_type {
+	IBV_MW_TYPE_1			= 1,
+	IBV_MW_TYPE_2			= 2
+};
+
+struct ibv_mw {
+	struct ibv_context     *context;
+	struct ibv_pd	       *pd;
 	uint32_t		rkey;
 };
 
@@ -517,6 +535,15 @@ struct ibv_recv_wr {
 	int			num_sge;
 };
 
+struct ibv_mw_bind {
+	uint64_t		wr_id;
+	struct ibv_mr	       *mr;
+	void		       *addr;
+	size_t			length;
+	enum ibv_send_flags	send_flags;
+	enum ibv_access_flags	mw_access_flags;
+};
+
 struct ibv_srq {
 	struct ibv_context     *context;
 	void		       *srq_context;
@@ -603,7 +630,16 @@ struct ibv_context_ops {
 	int			(*dealloc_pd)(struct ibv_pd *pd);
 	struct ibv_mr *		(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 					  enum ibv_access_flags access);
+	struct ibv_mr *		(*rereg_mr)(struct ibv_mr *mr,
+					    enum ibv_rereg_mr_flags flags,
+					    struct ibv_pd *pd, void *addr,
+					    size_t length,
+					    enum ibv_access_flags access);
 	int			(*dereg_mr)(struct ibv_mr *mr);
+	struct ibv_mw *		(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
+	int			(*bind_mw)(struct ibv_qp *qp, struct ibv_mw *mw,
+					   struct ibv_mw_bind *mw_bind);
+	int			(*dealloc_mw)(struct ibv_mw *mw);
 	struct ibv_cq *		(*create_cq)(struct ibv_context *context, int cqe,
 					     struct ibv_comp_channel *channel,
 					     int comp_vector);
