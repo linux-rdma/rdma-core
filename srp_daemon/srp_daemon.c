@@ -684,6 +684,7 @@ static int do_port(struct resources *res, uint16_t dlid,
 
 	struct target_details *target = (struct target_details *) 
 		malloc(sizeof(struct target_details));
+	int free_target = 1;
 	
 	target->subnet_prefix = subnet_prefix;
 	target->h_guid = h_guid;
@@ -760,12 +761,12 @@ static int do_port(struct resources *res, uint16_t dlid,
 
 					target->h_service_id = ntohll(svc_entries.service[k].id);
 					if (is_enabled_by_rules_file(target)) {
-						if (!add_non_exist_target(target)) {
+						if (!add_non_exist_target(target) && !config->once) {
 							target->retry_time = 
 								time(NULL) + config->retry_timeout;
 							push_to_retry_list(res->sync_res, target);
-						} else
-							free(target);
+							free_target = 0;
+						}
 					}
 				}
 			}
@@ -774,6 +775,8 @@ static int do_port(struct resources *res, uint16_t dlid,
 
 	pr_human("\n");
 
+	if (free_target)
+		free(target);
 	return 0;
 }
 
@@ -1357,7 +1360,7 @@ int main(int argc, char *argv[])
 	if (!config) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
-		goto free_res;
+		goto free_sync;
 	}
 
 	if (get_config(config, argc, argv)) {
@@ -1511,6 +1514,8 @@ clean_config:
 	config_destroy(config);
 free_all:
 	free(config);
+free_sync:
+	free(res.sync_res);
 free_res:
 	free(res.ud_res);
 free_umad:
