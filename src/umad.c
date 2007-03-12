@@ -538,8 +538,10 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 		return -1;
 
 	if (portguids) {
-		if (ca.numports + 1 > max)
+		if (ca.numports + 1 > max) {
+			release_ca(&ca);
 			return -ENOMEM;
+		}
 
 		for (i = 0; i <= ca.numports; i++)
 			portguids[ports++] = ca.ports[i] ? ca.ports[i]->port_guid : 0;
