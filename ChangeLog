@@ -1,3 +1,8 @@
+2007-03-11 Dotan Barak <dotanb@mellanox.co.il> 
+
+	* src/umad.c: In umad_get_ca_portguids, add release_ca call
+	  in error flow to prevent resource leak
+
 2007-01-25  Hal Rosenstock <halr@voltaire.com>
 
 	* Release version 1.0.2. 
