@@ -247,6 +247,7 @@ int iwch_destroy_cq(struct ibv_cq *ibcq)
 	struct iwch_device *dev = to_iwch_dev(ibcq->context->device);
 
 	pthread_spin_lock(&chp->lock);
+	munmap(cqva, size);
 	ret = ibv_cmd_destroy_cq(ibcq);
 	if (ret) {
 		pthread_spin_unlock(&chp->lock);
@@ -258,7 +259,6 @@ int iwch_destroy_cq(struct ibv_cq *ibcq)
 	pthread_spin_unlock(&dev->lock);
 
 	pthread_spin_unlock(&chp->lock);
-	munmap(cqva, size);
 	free(chp->cq.sw_queue);
 	free(chp);
 	return 0;
@@ -389,6 +389,8 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	wqva = qhp->wq.queue;
 	wqsize = t3_wq_memsize(&qhp->wq);
 
+	munmap(dbva, dev->page_size);
+	munmap(wqva, wqsize);
 	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret) {
 		pthread_spin_unlock(&qhp->lock);
@@ -400,8 +402,6 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	pthread_spin_unlock(&dev->lock);
 
 	pthread_spin_unlock(&qhp->lock);
-	munmap(dbva, dev->page_size);
-	munmap(wqva, wqsize);
 	free(qhp->wq.rq);
 	free(qhp->wq.sq);
 	free(qhp);
