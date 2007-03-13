@@ -1,33 +1,25 @@
-.TH UMAD_GET_MAD 3  "2007-02-30" "OpenIB" "OpenIB Programmer's Manual"
-
+.\" -*- nroff -*-
+.\"
+.TH UMAD_GET_MAD 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
 umad_get_mad \- get mad start address
-
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
 .sp
 .BI "void *umad_get_mad(void " "*umad" );
 .fi
-
 .SH "DESCRIPTION"
 .B umad_get_mad()
 returns the start address of the MAD in the umad buffer
 .I umad\fR.
-
 .SH "RETURN VALUE"
 .B umad_get_mad()
 returns a pointer to MAD start, or NULL if the request fails.
-
-.SH "CONFORMING TO"
-InfiniBand Architecture Specification, Release 1.2.
-
 .SH "SEE ALSO"
 .BR umad_get_cas_names (3),
 .BR umad_get_ca_portguids (3),
 .BR umad_alloc (3)
-
 .SH "AUTHORS"
 .TP
-Dotan Barak
-.RI < dotanb@mellanox.co.il >
+Dotan Barak <dotanb@mellanox.co.il>

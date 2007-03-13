@@ -1,8 +1,8 @@
-.TH UMAD_GET_PORT 3  "2007-02-30" "OpenIB" "OpenIB Programmer's Manual"
-
+.\" -*- nroff -*-
+.\"
+.TH UMAD_GET_PORT 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
 umad_get_port, umad_release_port \- open and close context to InfiniBand device port
-
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
@@ -11,7 +11,6 @@ umad_get_port, umad_release_port \- open and close context to InfiniBand device 
 .nl
 .BI "int umad_release_port(umad_port_t " "*port" );
 .fi
-
 .SH "DESCRIPTION"
 .B umad_get_port()
 open a context and get the attributes of the IB port number
@@ -46,22 +45,15 @@ release the context and the resources that were allocated in the function
 .B umad_get_port()
 for the IB port
 .I port\fR.
-
 .SH "RETURN VALUE"
 .B umad_get_port()
 and
 .B umad_release_port()
 returns 0 on success, and a negative value on error.
-
-.SH "CONFORMING TO"
-InfiniBand Architecture Specification, Release 1.2.
-
 .SH "SEE ALSO"
 .BR umad_init (3),
 .BR umad_get_ca_portguids (3),
 .BR umad_get_ca (3)
-
 .SH "AUTHORS"
 .TP
-Dotan Barak
-.RI < dotanb@mellanox.co.il >
+Dotan Barak <dotanb@mellanox.co.il>

@@ -1,34 +1,26 @@
-.TH UMAD_DEBUG 3  "2007-02-30" "OpenIB" "OpenIB Programmer's Manual"
-
+.\" -*- nroff -*-
+.\"
+.TH UMAD_DEBUG 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
 umad_debug \- set debug level
-
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
 .sp
 .BI "int umad_debug(int " "level" );
 .fi
-
 .SH "DESCRIPTION"
 .B umad_debug()
 set the umad library verbosity level to
 .I level\fR
 only if it's value is non negative, otherwise no value is being changed.
-
 .SH "RETURN VALUE"
 .B umad_debug()
 returns the actual verbosity level after updating it (if needed).
-
-.SH "CONFORMING TO"
-InfiniBand Architecture Specification, Release 1.2.
-
 .SH "SEE ALSO"
 .BR umad_get_cas_names (3),
 .BR umad_get_ca_portguids (3),
 .BR umad_alloc (3)
-
 .SH "AUTHORS"
 .TP
-Dotan Barak
-.RI < dotanb@mellanox.co.il >
+Dotan Barak <dotanb@mellanox.co.il>
