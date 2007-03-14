@@ -89,7 +89,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-p <port_num>		use Port num \n");
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
 	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after iTimeout of <rescan time> seconds\n");
-	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect\n");
+	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect (default: /etc/srp_daemon.conf\n");
 	fprintf(stderr, "-t <timoeout>		Timeout for mad response in milisec \n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extention\n");
@@ -1108,7 +1108,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->retry_timeout 		= 20;
 	conf->add_target_file  		= NULL;
 	conf->print_initiator_ext	= 0;
-	conf->rules_file		= NULL;
+	conf->rules_file		= "/etc/srp_daemon.conf";
 	conf->rules			= NULL;
 
 	while (1) {
@@ -1189,8 +1189,6 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			break;
 		case 'f':
 			conf->rules_file = optarg;
-			if (get_rules_file(conf))
-				return -1;
 			break;
 		case 'h':
 		default:
@@ -1224,6 +1222,9 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 		return ret;
 	}
 		 
+	if (get_rules_file(conf))
+		return -1;
+
 	return 0;
 }
 
