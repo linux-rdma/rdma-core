@@ -518,6 +518,11 @@ enum MAD_FIELDS {
 	IB_PC_EXT_RCV_MPKTS_F,
 	IB_PC_EXT_LAST_F,
 
+	/*
+	 * GUIDInfo fields
+	 */
+	IB_GUID_GUID0_F,
+
 	IB_FIELD_LAST_	/* must be last */
 };
 

@@ -353,6 +353,11 @@ ib_field_t ib_mad_f [] = {
 	[IB_PC_EXT_XMT_MPKTS_F]		{448, 64, "PortMulticastXmitPkts", mad_dump_uint},
 	[IB_PC_EXT_RCV_MPKTS_F]		{512, 64, "PortMulticastPkts", mad_dump_uint},
 
+	/*
+	 * GUIDInfo fields
+	 */
+	[IB_GUID_GUID0_F]		{0, 64, "GUID0", mad_dump_hex},
+
 };
 
 void

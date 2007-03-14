@@ -1,3 +1,8 @@
+2007-03-14  Hal Rosenstock <halr@voltaire.com>
+
+	* include/infiniband/mad.h, src/fields.c: Add encode/decode
+	  support for GUID0 in SM GUIDInfo attribute
+
 2007-03-14  Dotan Barak <dotanb@mellanox.co.il>
 
 	* include/infiniband/mad.h: Add GUIDInfo as SM attribute ID
