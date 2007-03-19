@@ -73,6 +73,7 @@ static int too_late;
 int ibv_fork_init(void)
 {
 	void *tmp;
+	int ret;
 
 	if (mm_root)
 		return 0;
@@ -87,11 +88,13 @@ int ibv_fork_init(void)
 	if (posix_memalign(&tmp, page_size, page_size))
 		return ENOMEM;
 
-	if (madvise(tmp, page_size, MADV_DONTFORK) ||
-	    madvise(tmp, page_size, MADV_DOFORK))
-		return ENOSYS;
+	ret = madvise(tmp, page_size, MADV_DONTFORK) ||
+	      madvise(tmp, page_size, MADV_DOFORK);
 
 	free(tmp);
+
+	if (ret)
+		return ENOSYS;
 
 	mm_root = malloc(sizeof *mm_root);
 	if (!mm_root)
