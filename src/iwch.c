@@ -66,7 +66,7 @@ struct {
 	unsigned device;
 	enum iwch_hca_type type;
 } hca_table[] = {
-	HCA(CHELSIO, PE9000_2C, T3A),
+	HCA(CHELSIO, PE9000_2C, T3B),
 	HCA(CHELSIO, T302E, T3A),
 	HCA(CHELSIO, T302X, T3A),
 	HCA(CHELSIO, T310E, T3A),
