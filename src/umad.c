@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -682,7 +682,7 @@ umad_size(void)
 }
 
 int
-umad_set_grh(void *umad, void *grh)
+umad_set_grh(void *umad, void *mad_addr)
 {
 	struct ib_user_mad *mad = umad;
 

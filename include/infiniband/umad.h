@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -163,8 +163,8 @@ size_t	umad_size(void);
 int	umad_status(void *umad);
 
 ib_mad_addr_t	*umad_get_mad_addr(void *umad);
-int	umad_set_grh_net(void *umad, void *grh);
-int	umad_set_grh(void *umad, void *grh);
+int	umad_set_grh_net(void *umad, void *mad_addr);
+int	umad_set_grh(void *umad, void *mad_addr);
 int	umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_pkey(void *umad, int pkey);
