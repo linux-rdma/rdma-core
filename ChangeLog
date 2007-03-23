@@ -1,3 +1,7 @@
+2007-03-22 Hal Rosenstock <halr@voltaire.com>
+
+	* src/umad.c: Implement GRH support in umad_set_grh
+
 2007-03-11 Dotan Barak <dotanb@mellanox.co.il> 
 
 	* src/umad.c: In umad_get_ca_portguids, add release_ca call

@@ -685,8 +685,16 @@ int
 umad_set_grh(void *umad, void *mad_addr)
 {
 	struct ib_user_mad *mad = umad;
+	struct ib_mad_addr *addr = mad_addr;
 
-	mad->addr.grh_present = 0;	/* FIXME - GRH support */
+	if (mad_addr) {
+		mad->addr.grh_present = 1;
+		memcpy(mad->addr.gid, addr->gid, 16);
+		mad->addr.flow_label = htonl(addr->flow_label);
+		mad->addr.hop_limit = addr->hop_limit;
+		mad->addr.traffic_class = addr->traffic_class;
+	} else
+		mad->addr.grh_present = 0;
 	return 0;
 }
 
