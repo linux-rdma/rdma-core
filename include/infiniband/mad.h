@@ -188,7 +188,7 @@ typedef struct {
 typedef struct portid {
 	int lid;		/* lid or 0 if directed route */
 	ib_dr_path_t drpath;
-	int grh;		/* flag */
+	int grh_present;	/* flag */
 	ib_gid_t gid;
 	uint32_t qp;
 	uint32_t qkey;
@@ -623,7 +623,7 @@ ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)
 	portid->lid = lid;
 	portid->qp = qp;
 	portid->qkey = qkey;
-	portid->grh = 0;
+	portid->grh_present = 0;
 
 	return 0;
 }

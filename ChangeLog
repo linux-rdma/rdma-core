@@ -1,6 +1,7 @@
 2007-03-22  Hal Rosenstock <halr@voltaire.com>
 
-	* include/infiniband/mad.h: In ib_portid_set, ensure grh is 0
+	* include/infiniband/mad.h: In ib_portid_set, ensure
+	  grh_present is 0
 
 	* src/portid.c: In portid2str, fix endian of dispay of GID 
 
