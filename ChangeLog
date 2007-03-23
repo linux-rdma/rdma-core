@@ -1,3 +1,7 @@
+2007-03-22  Hal Rosenstock <halr@voltaire.com>
+
+	* src/portid.c: In portid2str, fix endian of dispay of GID 
+
 2007-03-14  Hal Rosenstock <halr@voltaire.com>
 
 	* include/infiniband/mad.h, src/fields.c: Add encode/decode

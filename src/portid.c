@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -71,12 +71,12 @@ portid2str(ib_portid_t *portid)
 		s += sprintf(s, "Lid %d", portid->lid);
 		if (portid->grh) {
 #if __WORDSIZE == 64
-			s += sprintf(s, " Gid %lx%lx",
+			s += sprintf(s, " Gid 0x%lx%lx",
 #else
-			s += sprintf(s, " Gid %Lx%Lx",
+			s += sprintf(s, " Gid 0x%Lx%Lx",
 #endif
-					*(uint64_t *)portid->gid,
-					*(uint64_t *)(portid->gid+8));
+					ntohll(*(uint64_t *)portid->gid),
+					ntohll(*(uint64_t *)(portid->gid+8)));
 		}
 		if (portid->drpath.cnt)
 			s += sprintf(s, " ");
