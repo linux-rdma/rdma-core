@@ -139,7 +139,7 @@ static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 		context->ibv_ctx.ops.poll_cq = t3a_poll_cq;
 		break;
 	default:
-		PDBG("%s unknown HW rev %d\n", __FUNCTION__, rhp->hw_rev);
+		PDBG("%s unknown hca type %d\n", __FUNCTION__, rhp->hca_type);
 		goto err_free;
 		break;
 	}	
