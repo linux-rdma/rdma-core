@@ -1011,4 +1011,3 @@ umad_dump(void *umad)
 	     mad->agent_id, mad->status, mad->timeout_ms);
 	umad_addr_dump(&mad->addr);
 }
-
