@@ -1,8 +1,8 @@
-libibverbs (1.1~pre1-1) unstable; urgency=low
+libibverbs (1.1~rc1-1) unstable; urgency=low
 
-  * New upstream prerelease.
+  * New upstream release candidate.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 31 Jan 2007 10:41:05 -0800
+ -- Roland Dreier <rolandd@cisco.com>  Tue, 27 Mar 2007 13:14:27 -0700
 
 libibverbs (1.0.4-1) unstable; urgency=low
 
