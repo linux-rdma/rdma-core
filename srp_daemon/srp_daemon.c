@@ -258,8 +258,16 @@ static int add_non_exist_target(struct target_details *target)
 		if (!check_equal_uint64(scsi_host_dir, "ioc_guid",
 					ntohll(target->ioc_prof.guid)))
 			continue;
-		if (sys_read_gid(scsi_host_dir, "dgid", dgid_val))
-			continue;
+		if (sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
+			/* 
+			 * In case this is an old kernel taht does not have 
+			 * orig_dgid in sysfs, use dgid instead (this is 
+			 * problematic when there is a dgid redirection 
+			 * by the CM)
+			 */
+			if (sys_read_gid(scsi_host_dir, "dgid", dgid_val))
+				continue;
+		}
 		if (htonll(target->subnet_prefix) != *((uint64_t *) dgid_val))
 			continue;
 		if (htonll(target->h_guid) != *((uint64_t *) (dgid_val+8)))
