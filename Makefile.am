@@ -19,9 +19,7 @@ emulate_udev_srp_dm_multipath_daemon_SOURCES = emulate_udev/srp_dm_multipath_dae
 sbin_SCRIPTS = \
     srp_daemon/srp_daemon.sh \
     srp_daemon/run_srp_daemon \
-    emulate_udev/execute_multipath_or_kpartx.sh \
-    emulate_udev/srp_dnotify \
-    emulate_udev/start_srp_dnotify.sh
+    emulate_udev/execute_multipath_or_kpartx.sh 
 
 EXTRA_DIST = \
     srp_daemon/srp_daemon.h \
@@ -31,8 +29,6 @@ EXTRA_DIST = \
     src/srp-dm.h \
     src/ib_user_mad.h \
     emulate_udev/execute_multipath_or_kpartx.sh \
-    emulate_udev/srp_dnotify \
-    emulate_udev/start_srp_dnotify.sh \
     emulate_udev/srp_dm_multipath_daemon.h \
     srp_daemon/srp_daemon.conf \
     srptools.spec.in $(man_MANS)
