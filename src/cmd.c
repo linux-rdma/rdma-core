@@ -75,7 +75,9 @@ static int ibv_cmd_get_context_v2(struct ibv_context *context,
 
 	context->async_fd         = resp->async_fd;
 	context->num_comp_vectors = 1;
+	t->channel.context        = context;
 	t->channel.fd		  = cq_fd;
+	t->channel.refcnt	  = 0;
 	context->abi_compat       = t;
 
 	return 0;

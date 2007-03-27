@@ -573,11 +573,14 @@ struct ibv_qp {
 };
 
 struct ibv_comp_channel {
+	struct ibv_context     *context;
 	int			fd;
+	int			refcnt;
 };
 
 struct ibv_cq {
 	struct ibv_context     *context;
+	struct ibv_comp_channel *channel;
 	void		       *cq_context;
 	uint32_t		handle;
 	int			cqe;
@@ -680,12 +683,13 @@ struct ibv_context_ops {
 };
 
 struct ibv_context {
-	struct ibv_device         *device;
-	struct ibv_context_ops	   ops;
-	int                        cmd_fd;
-	int                        async_fd;
-	int                        num_comp_vectors;
-	void			  *abi_compat;
+	struct ibv_device      *device;
+	struct ibv_context_ops	ops;
+	int			cmd_fd;
+	int			async_fd;
+	int			num_comp_vectors;
+	pthread_mutex_t		mutex;
+	void		       *abi_compat;
 };
 
 /**
