@@ -240,8 +240,8 @@ ib_field_t ib_mad_f [] = {
 	[IB_PC_ERR_LOCALINTEG_F] 	{BITSOFFS(152, 4), "LinkIntegrityErrors", mad_dump_uint},
 	[IB_PC_ERR_EXCESS_OVR_F] 	{BITSOFFS(156, 4), "ExcBufOverrunErrors", mad_dump_uint},
 	[IB_PC_VL15_DROPPED_F] 		{BITSOFFS(176, 16), "VL15Dropped", mad_dump_uint},
-	[IB_PC_XMT_BYTES_F] 		{192, 32, "XmtBytes", mad_dump_uint},
-	[IB_PC_RCV_BYTES_F] 		{224, 32, "RcvBytes", mad_dump_uint},
+	[IB_PC_XMT_BYTES_F] 		{192, 32, "XmtData", mad_dump_uint},
+	[IB_PC_RCV_BYTES_F] 		{224, 32, "RcvData", mad_dump_uint},
 	[IB_PC_XMT_PKTS_F] 		{256, 32, "XmtPkts", mad_dump_uint},
 	[IB_PC_RCV_PKTS_F] 		{288, 32, "RcvPkts", mad_dump_uint},
 
