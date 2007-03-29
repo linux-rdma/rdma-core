@@ -137,22 +137,19 @@ TODO
 1.1 series
 ----------
 
-The libibverbs API and ABI are frozen for all releases in the 1.0
-series.  The following changes that break API or ABI are planned for
-the 1.1 release:
+The libibverbs API and ABI are frozen for all releases in the 1.1
+series.  Methods were added to struct ibv_context to implement the
+following features, so it should be possible to add them in a future
+release in the 1.1 series:
 
- * Implement memory window (MW) support.  This will break the
-   device driver ABI, because new methods will need to be added to
-   struct ibv_context_ops.
+ * Memory window (MW) support.
 
  * Implement the reregister memory region (MR) verb.  We will add an
    extension to the IB spec to allow the application to indicate that
    the region is only being extended, and that operations in progress
    should _not_ fail (contrary to the IB spec, which states that
    reregister must be implemented so that it behaves equivalently to a
-   deregister followed by a register).  This will break the device
-   driver ABI, because a new method will need to be added to struct
-   ibv_context_ops. 
+   deregister followed by a register).
 
 Other possibilities
 -------------------
