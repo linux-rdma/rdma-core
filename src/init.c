@@ -43,6 +43,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <dirent.h>
 
 #include "ibverbs.h"
@@ -406,6 +408,21 @@ static int check_abi_version(const char *path)
 	return 0;
 }
 
+static void check_memlock_limit(void)
+{
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_MEMLOCK, &rlim)) {
+		fprintf(stderr, PFX "Warning: getrlimit(RLIMIT_MEMLOCK) failed.");
+		return;
+	}
+
+	if (rlim.rlim_cur <= 32768)
+		fprintf(stderr, PFX "Warning: RLIMIT_MEMLOCK is %lu bytes.\n"
+			"    This will severely limit memory registrations.",
+			rlim.rlim_cur);
+}
+
 static void add_device(struct ibv_device *dev,
 		       struct ibv_device ***dev_list,
 		       int *num_devices,
@@ -449,6 +466,8 @@ HIDDEN int ibverbs_init(struct ibv_device ***list)
 
 	if (check_abi_version(sysfs_path))
 		return 0;
+
+	check_memlock_limit();
 
 	read_config();
 
