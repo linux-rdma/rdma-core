@@ -1,3 +1,7 @@
+2007-03-29  Hal Rosenstock <halr@voltaire.com>
+
+	* Release version 1.1.0. 
+
 2007-03-22  Hal Rosenstock <halr@voltaire.com>
 
 	* src/mad.c: Implement GRH support in mad_build_pkt
