@@ -72,12 +72,23 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 	if (wr->num_sge > T3_MAX_SGE)
 		return -1;
 	wqe->send.reserved = 0;
-	if (wr->opcode == IBV_WR_SEND_WITH_IMM) {
-		wqe->send.plen = 4;
-		wqe->send.sgl[0].stag = wr->imm_data;
-		wqe->send.sgl[0].len = 0;
-		wqe->send.num_sgle = 0;
-		*flit_cnt = 5;
+	if (wr->send_flags & IBV_SEND_INLINE) {
+		uint8_t *datap;
+
+		wqe->send.plen = 0;
+		datap = (uint8_t *)&wqe->send.sgl[0];
+		wqe->send.num_sgle = 0;	/* indicates in-line data */
+		for (i = 0; i < wr->num_sge; i++) {
+			if ((wqe->send.plen + wr->sg_list[i].length) > 96) {
+				return -1;
+			}
+			wqe->send.plen += wr->sg_list[i].length;
+			memcpy(datap, (void *)wr->sg_list[i].addr, 
+			       wr->sg_list[i].length);
+			datap += wr->sg_list[i].length;
+		}
+		*flit_cnt = 4 + (wqe->write.plen >> 3) + 1;
+		wqe->send.plen = htonl(wqe->send.plen);
 	} else {
 		wqe->send.plen = 0;
 		for (i = 0; i < wr->num_sge; i++) {
@@ -104,6 +115,7 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 					uint8_t *flit_cnt)
 {
 	int i;
+
 	if (wr->num_sge > T3_MAX_SGE)
 		return -1;
 	wqe->write.rdmaop = T3_RDMA_WRITE;
@@ -113,12 +125,23 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 
 	wqe->write.num_sgle = wr->num_sge;
 
-	if (wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM) {
-		wqe->write.plen = htonl(4);
-		wqe->write.sgl[0].stag = htonl(wr->imm_data);
-		wqe->write.sgl[0].len = 0;
-		wqe->write.num_sgle = 0;
-		*flit_cnt = 6;
+	if (wr->send_flags & IBV_SEND_INLINE) {
+		uint8_t *datap;
+
+		wqe->write.plen = 0;
+		datap = (uint8_t *)&wqe->write.sgl[0];
+		wqe->write.num_sgle = 0;	/* indicates in-line data */
+		for (i = 0; i < wr->num_sge; i++) {
+			if ((wqe->write.plen + wr->sg_list[i].length) > 88) {
+				return -1;
+			}
+			wqe->write.plen += wr->sg_list[i].length;
+			memcpy(datap, (void *)wr->sg_list[i].addr, 
+			       wr->sg_list[i].length);
+			datap += wr->sg_list[i].length;
+		}
+		*flit_cnt = 5 + (wqe->write.plen >> 3) + 1;
+		wqe->write.plen = htonl(wqe->write.plen);
 	} else {
 		wqe->write.plen = 0;
 		for (i = 0; i < wr->num_sge; i++) {
