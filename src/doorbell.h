@@ -99,7 +99,7 @@ static inline void mthca_write_db_rec(uint32_t val[2], uint32_t *db)
 {
 	*(volatile uint32_t *) db       = val[0];
 	mb();
-	*(volatile uint32_t *) (db + 1) = val[0];
+	*(volatile uint32_t *) (db + 1) = val[1];
 }
 
 #endif
