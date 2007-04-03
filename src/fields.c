@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -240,8 +240,8 @@ ib_field_t ib_mad_f [] = {
 	[IB_PC_ERR_LOCALINTEG_F] 	{BITSOFFS(152, 4), "LinkIntegrityErrors", mad_dump_uint},
 	[IB_PC_ERR_EXCESS_OVR_F] 	{BITSOFFS(156, 4), "ExcBufOverrunErrors", mad_dump_uint},
 	[IB_PC_VL15_DROPPED_F] 		{BITSOFFS(176, 16), "VL15Dropped", mad_dump_uint},
-	[IB_PC_XMT_BYTES_F] 		{192, 32, "XmtBytes", mad_dump_uint},
-	[IB_PC_RCV_BYTES_F] 		{224, 32, "RcvBytes", mad_dump_uint},
+	[IB_PC_XMT_BYTES_F] 		{192, 32, "XmtData", mad_dump_uint},
+	[IB_PC_RCV_BYTES_F] 		{224, 32, "RcvData", mad_dump_uint},
 	[IB_PC_XMT_PKTS_F] 		{256, 32, "XmtPkts", mad_dump_uint},
 	[IB_PC_RCV_PKTS_F] 		{288, 32, "RcvPkts", mad_dump_uint},
 
@@ -274,8 +274,8 @@ ib_field_t ib_mad_f [] = {
 	/*
 	 * SA Path rec
 	 */
-	[IB_SA_PR_DGID_F]		{64,128, "PathRecDGid", mad_dump_array},
-	[IB_SA_PR_SGID_F]		{192,128, "PathRecSGid", mad_dump_array},
+	[IB_SA_PR_DGID_F]		{64, 128, "PathRecDGid", mad_dump_array},
+	[IB_SA_PR_SGID_F]		{192, 128, "PathRecSGid", mad_dump_array},
 	[IB_SA_PR_DLID_F]		{BITSOFFS(320,16), "PathRecDLid", mad_dump_hex},
 	[IB_SA_PR_SLID_F]		{BITSOFFS(336,16), "PathRecSLid", mad_dump_hex},
 	[IB_SA_PR_NPATH_F]		{BITSOFFS(393,7), "PathRecNumPath", mad_dump_uint},
@@ -286,7 +286,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_SA_MP_NPATH_F]		{BITSOFFS(41,7), "MultiPathNumPath", mad_dump_uint},
 	[IB_SA_MP_NSRC_F]		{BITSOFFS(120,8), "MultiPathNumSrc", mad_dump_uint},
 	[IB_SA_MP_NDEST_F]		{BITSOFFS(128,8), "MultiPathNumDest", mad_dump_uint},
-	[IB_SA_MP_GID0_F]		{192,128, "MultiPathGid", mad_dump_array},
+	[IB_SA_MP_GID0_F]		{192, 128, "MultiPathGid", mad_dump_array},
 
 	/*
 	 * MC Member rec
