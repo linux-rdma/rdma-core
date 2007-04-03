@@ -1,5 +1,5 @@
 
-%define RELEASE 1
+%define RELEASE 0.6.20070403git
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: OpenIB InfiniBand Management and Diagnostic Tools
@@ -9,7 +9,7 @@ Release: %rel%{?dist}
 License: GPL/BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Source: git://git.openfabrics.org/~halr/management/libibmad-1.0.2.tgz
+Source: git://git.openfabrics.org/~halr/management/libibmad-git.tgz
 Url: http://openfabrics.org/
 BuildRequires: libibumad-devel, autoconf, libtool, automake
 Requires(post): /sbin/ldconfig
