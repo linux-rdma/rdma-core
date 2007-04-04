@@ -172,7 +172,7 @@ int is_enabled_by_rules_file(struct target_details *target)
 	if (NULL == conf->rules) 
 		return 1;
 
-	pr_debug("Found an SRP target - check if it allowed by rules file\n");
+	pr_debug("Found an SRP target %p - check if it allowed by rules file\n", target);
 	rule = -1;
 	do {
 		rule++;
@@ -226,7 +226,7 @@ static int add_non_exist_target(struct target_details *target)
 	int len, len_left;
 	int not_connected = 1;
 
-	pr_debug("Found an SRP target - check if it is already connected\n");
+	pr_debug("Found an SRP target %p - check if it is already connected\n", target);
 
 	strcpy(scsi_host_dir, "/sys/class/scsi_host/");
 	dir=opendir(scsi_host_dir);
