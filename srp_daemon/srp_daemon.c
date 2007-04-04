@@ -692,7 +692,6 @@ static int do_port(struct resources *res, uint16_t dlid,
 
 	struct target_details *target = (struct target_details *) 
 		malloc(sizeof(struct target_details));
-	int free_target = 1;
 	
 	target->subnet_prefix = subnet_prefix;
 	target->h_guid = h_guid;
@@ -773,7 +772,6 @@ static int do_port(struct resources *res, uint16_t dlid,
 							target->retry_time = 
 								time(NULL) + config->retry_timeout;
 							push_to_retry_list(res->sync_res, target);
-							free_target = 0;
 						}
 					}
 				}
@@ -783,8 +781,7 @@ static int do_port(struct resources *res, uint16_t dlid,
 
 	pr_human("\n");
 
-	if (free_target)
-		free(target);
+	free(target);
 	return 0;
 }
 

@@ -38,6 +38,7 @@
 #include <pthread.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "srp_daemon.h"
@@ -179,16 +180,23 @@ struct target_details *pop_from_retry_list(struct sync_resources *res)
 
 	if (ret)
 		res->retry_tasks_head = ret->next;
+	else
+		res->retry_tasks_tail = NULL;
 
 	return ret;
 }
 
 void push_to_retry_list(struct sync_resources *res,
-			struct target_details *target)
+			struct target_details *orig_target)
 {
+       struct target_details *target;
+
 	/* If there is going to be a recalc soon - do nothing */
 	if (res->recalc)
 		return;
+
+	target = malloc(sizeof(struct target_details));
+	memcpy(target, orig_target, sizeof(struct target_details));
 
 	pthread_mutex_lock(&res->retry_mutex);
 
@@ -199,6 +207,7 @@ void push_to_retry_list(struct sync_resources *res,
 		res->retry_tasks_tail->next = target;
 
 	res->retry_tasks_tail = target;
+
 	target->next = NULL;
 
 	pthread_cond_signal(&res->retry_cond);
