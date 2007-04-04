@@ -311,7 +311,7 @@ static int add_non_exist_target(struct target_details *target)
 			break;
 		}
 
-		pr_debug("This target is alerady connected - skip\n");
+		pr_debug("This target is already connected - skip\n");
 		closedir(dir);
 
 		return 0;
