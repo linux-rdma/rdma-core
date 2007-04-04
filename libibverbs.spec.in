@@ -1,15 +1,15 @@
-%define ver      @VERSION@
-
 Name: libibverbs
 Version: 1.1
-Release: 0.1.rc2-pre1%{?dist}
-Summary: A library for direct userspace use of InfiniBand
+Release: 0.1.rc2.pre1%{?dist}
+Summary: A library for direct userspace use of InfiniBand hardware
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
 Source: http://openib.org/downloads/libibverbs-1.1-rc2-pre1.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+Requires(post): /sbin/ldconfig
+Requires(postun): /sbin/ldconfig
 
 %description
 libibverbs is a library that allows userspace processes to use
@@ -25,7 +25,14 @@ Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
 
 %description devel
-Static libraries and header files for the libibverbs verbs library.
+Header files for the libibverbs library.
+
+%package devel-static
+Summary: Static development files for the libibverbs library
+Group: System Environment/Libraries
+
+%description devel-static
+Static libraries for the libibverbs library.
 
 %package utils
 Summary: Examples for the libibverbs library
@@ -37,7 +44,7 @@ Useful libibverbs1 example programs such as ibv_devinfo, which
 displays information about InfiniBand devices.
 
 %prep
-%setup -q -n %{name}-%{ver}
+%setup -q -n %{name}-@VERSION@
 
 %build
 %configure
@@ -45,7 +52,7 @@ make %{?_smp_mflags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
-%makeinstall
+make DESTDIR=%{buildroot} install
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
@@ -63,9 +70,12 @@ rm -rf $RPM_BUILD_ROOT
 %files devel
 %defattr(-,root,root,-)
 %{_libdir}/lib*.so
-%{_libdir}/*.a
 %{_includedir}/*
 %{_mandir}/man3/*
+
+%files devel-static
+%defattr(-,root,root,-)
+%{_libdir}/*.a
 
 %files utils
 %defattr(-,root,root,-)
@@ -77,6 +87,10 @@ rm -rf $RPM_BUILD_ROOT
 - New upstream release
 - Remove dependency on libsysfs, since it is no longer used
 - Put section 3 manpages in devel package.
+- Spec file cleanups: remove unused ver macro, improve BuildRoot, add
+  Requires for /sbin/ldconfig, split static libraries into
+  devel-static package, and don't use makeinstall any more (all
+  suggested by Doug Ledford <dledford@redhat.com>).
 
 * Thu May  4 2006 Roland Dreier <rdreier@cisco.com> - 1.0.4-1
 - New upstream release
