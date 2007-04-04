@@ -1,12 +1,12 @@
 Name: libibverbs
 Version: 1.1
-Release: 0.1.rc2.pre1%{?dist}
+Release: 0.1.rc2%{?dist}
 Summary: A library for direct userspace use of InfiniBand hardware
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
-Source: http://openib.org/downloads/libibverbs-1.1-rc2-pre1.tar.gz
+Source: http://openib.org/downloads/libibverbs-1.1-rc2.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -83,7 +83,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
-* Mon May 22 2006 Roland Dreier <rdreier@cisco.com> - 1.1-0.1.rc2-pre1
+* Mon May 22 2006 Roland Dreier <rdreier@cisco.com> - 1.1-0.1.rc2
 - New upstream release
 - Remove dependency on libsysfs, since it is no longer used
 - Put section 3 manpages in devel package.
