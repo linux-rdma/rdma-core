@@ -87,7 +87,7 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 			       wr->sg_list[i].length);
 			datap += wr->sg_list[i].length;
 		}
-		*flit_cnt = 4 + (wqe->write.plen >> 3) + 1;
+		*flit_cnt = 4 + (wqe->send.plen >> 3) + 1;
 		wqe->send.plen = htonl(wqe->send.plen);
 	} else {
 		wqe->send.plen = 0;
