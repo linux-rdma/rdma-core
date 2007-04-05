@@ -1,5 +1,3 @@
-%define ver      @VERSION@
-
 Name: libmthca
 Version: 1.0.4
 Release: 0.1.pre%{?dist}
@@ -9,26 +7,26 @@ Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openib.org/
 Source: http://openib.org/downloads/libmthca-1.0.4-pre.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
+BuildRequires: libibverbs-devel >= 1.1-0.1.rc2
 
 %description
 libmthca provides a device-specific userspace driver for Mellanox HCAs
 (MT23108 InfiniHost and MT25208 InfiniHost III Ex) for use with the
 libibverbs library.
 
-%package devel
+%package devel-static
 Summary: Development files for the libmthca driver
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
 
-%description devel
+%description devel-static
 Static version of libmthca that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep
-%setup -q -n %{name}-%{ver}
+%setup -q -n %{name}-@VERSION@
 
 %build
 %configure
@@ -36,25 +34,30 @@ make %{?_smp_mflags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
-%makeinstall
+make DESTDIR=%{buildroot} install
 # remove unpackaged files from the buildroot
-rm -f $RPM_BUILD_ROOT%{_libdir}/infiniband/*.la
+rm -f $RPM_BUILD_ROOT%{_libdir}/*.la $RPM_BUILD_ROOT%{_libdir}/libmthca.so
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/mthca.so
+%{_libdir}/libmthca-rdmav2.so
+%{_sysconfdir}/libibverbs.d/mthca.driver
 %doc AUTHORS COPYING ChangeLog README
 
-%files devel
+%files devel-static
 %defattr(-,root,root,-)
-%{_libdir}/infiniband/mthca.a
+%{_libdir}/libmthca.a
 
 %changelog
 * Thu Nov  9 2006 Roland Dreier <rdreier@cisco.com> - 1.0.4-0.1.pre
 - New upstream release
+- Depend on libibverbs 1.1, and package new library file names.
+- Spec file cleanups: remove unused ver macro, improve BuildRoot, move
+  static libraries into devel-static package, and don't use makeinstall
+  any more (all suggested by Doug Ledford <dledford@redhat.com>).
 
 * Wed Jul 26 2006 Roland Dreier <rdreier@cisco.com> - 1.0.3-1
 - New upstream release
