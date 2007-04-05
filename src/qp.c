@@ -42,6 +42,8 @@
 #include "iwch.h"
 #include <stdio.h>
 
+#define ROUNDUP8(a) (((a) + 7) & ~7)
+
 static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 				       uint8_t *flit_cnt)
 {
@@ -79,15 +81,15 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 		datap = (uint8_t *)&wqe->send.sgl[0];
 		wqe->send.num_sgle = 0;	/* indicates in-line data */
 		for (i = 0; i < wr->num_sge; i++) {
-			if ((wqe->send.plen + wr->sg_list[i].length) > 96) {
+			if ((wqe->send.plen + wr->sg_list[i].length) > 
+			    T3_MAX_INLINE)
 				return -1;
-			}
 			wqe->send.plen += wr->sg_list[i].length;
 			memcpy(datap, (void *)wr->sg_list[i].addr, 
 			       wr->sg_list[i].length);
 			datap += wr->sg_list[i].length;
 		}
-		*flit_cnt = 4 + (wqe->send.plen >> 3) + 1;
+		*flit_cnt = 4 + (ROUNDUP8(wqe->send.plen) >> 3);
 		wqe->send.plen = htonl(wqe->send.plen);
 	} else {
 		wqe->send.plen = 0;
@@ -132,21 +134,21 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 		datap = (uint8_t *)&wqe->write.sgl[0];
 		wqe->write.num_sgle = 0;	/* indicates in-line data */
 		for (i = 0; i < wr->num_sge; i++) {
-			if ((wqe->write.plen + wr->sg_list[i].length) > 88) {
+			if ((wqe->write.plen + wr->sg_list[i].length) >
+			    T3_MAX_INLINE)
 				return -1;
-			}
 			wqe->write.plen += wr->sg_list[i].length;
 			memcpy(datap, (void *)wr->sg_list[i].addr, 
 			       wr->sg_list[i].length);
 			datap += wr->sg_list[i].length;
 		}
-		*flit_cnt = 5 + (wqe->write.plen >> 3) + 1;
+		*flit_cnt = 5 + (ROUNDUP8(wqe->write.plen) >> 3);
 		wqe->write.plen = htonl(wqe->write.plen);
 	} else {
 		wqe->write.plen = 0;
 		for (i = 0; i < wr->num_sge; i++) {
-			if ((wqe->send.plen + wr->sg_list[i].length) < 
-			    wqe->send.plen) {
+			if ((wqe->write.plen + wr->sg_list[i].length) < 
+			    wqe->write.plen) {
 				return -1;
 			}
 			wqe->write.plen += wr->sg_list[i].length;
