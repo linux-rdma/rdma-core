@@ -148,6 +148,7 @@ struct ucma_abi_ud_param {
 	__u8 private_data[RDMA_MAX_PRIVATE_DATA];
 	__u8 private_data_len;
 	__u8 reserved[7];
+	__u8 reserved2[4];  /* Round to 8-byte boundary to support 32/64 */
 };
 
 struct ucma_abi_connect {
