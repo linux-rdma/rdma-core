@@ -419,7 +419,7 @@ static void check_memlock_limit(void)
 
 	if (rlim.rlim_cur <= 32768)
 		fprintf(stderr, PFX "Warning: RLIMIT_MEMLOCK is %lu bytes.\n"
-			"    This will severely limit memory registrations.",
+			"    This will severely limit memory registrations.\n",
 			rlim.rlim_cur);
 }
 
