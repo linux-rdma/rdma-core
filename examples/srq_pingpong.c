@@ -625,6 +625,7 @@ int main(int argc, char *argv[])
 				usage(argv[0]);
 				return 1;
 			}
+			break;
 
 		case 'q':
 			num_qp = strtol(optarg, NULL, 0);
