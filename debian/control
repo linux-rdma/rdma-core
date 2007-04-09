@@ -1,0 +1,52 @@
+Source: libmlx4
+Priority: extra
+Maintainer: Roland Dreier <rolandd@cisco.com>
+Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), libibverbs-dev (>= 1.0), autotools-dev
+Standards-Version: 3.7.2
+Section: libs
+
+Package: libmlx4-1
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A userspace driver for Mellanox ConnectX InfiniBand HCAs
+ libmlx4 is a device-specific driver for Mellanox ConnectX InfiniBand
+ host channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains the loadable plug-in.
+ .
+  Homepage: http://www.openfabrics.org/
+
+Package: libmlx4-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends}, libmlx4-1 (= ${Source-Version})
+Description: Development files for the libmlx4 driver
+ libmlx4 is a device-specific driver for Mellanox ConnectX InfiniBand
+ host channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains static versions of libmlx4 that may be linked
+ directly to an application, which may be useful for debugging.
+ .
+  Homepage: http://www.openfabrics.org/
+
+Package: libmlx4-1-dbg
+Section: libdevel
+Priority: extra
+Architecture: any
+Depends: ${misc:Depends}, libmlx4-1 (= ${Source-Version})
+Description: Debugging symbols for the libmlx4 driver
+ libmlx4 is a device-specific driver for Mellanox ConnectX InfiniBand
+ host channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains the debugging symbols associated with
+ libmlx4-1. They will automatically be used by gdb for debugging
+ libmlx4-related issues.
+ .
+  Homepage: http://www.openfabrics.org/
