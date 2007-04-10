@@ -130,10 +130,8 @@ static void update_cons_index(struct mlx4_cq *cq)
 	*cq->set_ci_db = htonl(cq->cons_index & 0xffffff);
 }
 
-static int handle_error_cqe(struct mlx4_cq *cq, struct mlx4_qp *qp,
-			    int wqe_index, int is_send,
-			    struct mlx4_err_cqe *cqe,
-			    struct ibv_wc *wc)
+static int mlx4_handle_error_cqe(struct mlx4_err_cqe *cqe,
+				 struct ibv_wc *wc)
 {
 	/* XXX handle error CQE */
 	return 0;
@@ -205,8 +203,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 	}
 
 	if (is_error) {
-		err = handle_error_cqe(cq, *cur_qp, wqe_index, is_send,
-				       (struct mlx4_err_cqe *) cqe, wc);
+		err = mlx4_handle_error_cqe((struct mlx4_err_cqe *) cqe, wc);
 		return err;
 	}
 
