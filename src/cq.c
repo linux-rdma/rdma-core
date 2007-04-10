@@ -67,24 +67,19 @@ enum {
 };
 
 enum {
-	SYNDROME_LOCAL_LENGTH_ERR		= 0x01,
-	SYNDROME_LOCAL_QP_OP_ERR		= 0x02,
-	SYNDROME_LOCAL_EEC_OP_ERR		= 0x03,
-	SYNDROME_LOCAL_PROT_ERR			= 0x04,
-	SYNDROME_WR_FLUSH_ERR			= 0x05,
-	SYNDROME_MW_BIND_ERR			= 0x06,
-	SYNDROME_BAD_RESP_ERR			= 0x10,
-	SYNDROME_LOCAL_ACCESS_ERR		= 0x11,
-	SYNDROME_REMOTE_INVAL_REQ_ERR		= 0x12,
-	SYNDROME_REMOTE_ACCESS_ERR		= 0x13,
-	SYNDROME_REMOTE_OP_ERR			= 0x14,
-	SYNDROME_RETRY_EXC_ERR			= 0x15,
-	SYNDROME_RNR_RETRY_EXC_ERR		= 0x16,
-	SYNDROME_LOCAL_RDD_VIOL_ERR		= 0x20,
-	SYNDROME_REMOTE_INVAL_RD_REQ_ERR	= 0x21,
-	SYNDROME_REMOTE_ABORTED_ERR		= 0x22,
-	SYNDROME_INVAL_EECN_ERR			= 0x23,
-	SYNDROME_INVAL_EEC_STATE_ERR		= 0x24
+	MLX4_CQE_SYNDROME_LOCAL_LENGTH_ERR		= 0x01,
+	MLX4_CQE_SYNDROME_LOCAL_QP_OP_ERR		= 0x02,
+	MLX4_CQE_SYNDROME_LOCAL_PROT_ERR		= 0x04,
+	MLX4_CQE_SYNDROME_WR_FLUSH_ERR			= 0x05,
+	MLX4_CQE_SYNDROME_MW_BIND_ERR			= 0x06,
+	MLX4_CQE_SYNDROME_BAD_RESP_ERR			= 0x10,
+	MLX4_CQE_SYNDROME_LOCAL_ACCESS_ERR		= 0x11,
+	MLX4_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR		= 0x12,
+	MLX4_CQE_SYNDROME_REMOTE_ACCESS_ERR		= 0x13,
+	MLX4_CQE_SYNDROME_REMOTE_OP_ERR			= 0x14,
+	MLX4_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR	= 0x15,
+	MLX4_CQE_SYNDROME_RNR_RETRY_EXC_ERR		= 0x16,
+	MLX4_CQE_SYNDROME_REMOTE_ABORTED_ERR		= 0x22,
 };
 
 struct mlx4_cqe {
@@ -130,11 +125,62 @@ static void update_cons_index(struct mlx4_cq *cq)
 	*cq->set_ci_db = htonl(cq->cons_index & 0xffffff);
 }
 
-static int mlx4_handle_error_cqe(struct mlx4_err_cqe *cqe,
-				 struct ibv_wc *wc)
+static void mlx4_handle_error_cqe(struct mlx4_err_cqe *cqe, struct ibv_wc *wc)
 {
-	/* XXX handle error CQE */
-	return 0;
+	if (cqe->syndrome == MLX4_CQE_SYNDROME_LOCAL_QP_OP_ERR)
+		printf(PFX "local QP operation err "
+		       "(QPN %06x, WQE index %x, vendor syndrome %02x, "
+		       "opcode = %02x)\n",
+		       htonl(cqe->my_qpn), htonl(cqe->wqe_index),
+		       cqe->vendor_err,
+		       cqe->owner_sr_opcode & ~MLX4_CQE_OWNER_MASK);
+
+	switch (cqe->syndrome) {
+	case MLX4_CQE_SYNDROME_LOCAL_LENGTH_ERR:
+		wc->status = IBV_WC_LOC_LEN_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_LOCAL_QP_OP_ERR:
+		wc->status = IBV_WC_LOC_QP_OP_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_LOCAL_PROT_ERR:
+		wc->status = IBV_WC_LOC_PROT_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_WR_FLUSH_ERR:
+		wc->status = IBV_WC_WR_FLUSH_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_MW_BIND_ERR:
+		wc->status = IBV_WC_MW_BIND_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_BAD_RESP_ERR:
+		wc->status = IBV_WC_BAD_RESP_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_LOCAL_ACCESS_ERR:
+		wc->status = IBV_WC_LOC_ACCESS_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR:
+		wc->status = IBV_WC_REM_INV_REQ_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_REMOTE_ACCESS_ERR:
+		wc->status = IBV_WC_REM_ACCESS_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_REMOTE_OP_ERR:
+		wc->status = IBV_WC_REM_OP_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR:
+		wc->status = IBV_WC_RETRY_EXC_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_RNR_RETRY_EXC_ERR:
+		wc->status = IBV_WC_RNR_RETRY_EXC_ERR;
+		break;
+	case MLX4_CQE_SYNDROME_REMOTE_ABORTED_ERR:
+		wc->status = IBV_WC_REM_ABORT_ERR;
+		break;
+	default:
+		wc->status = IBV_WC_GENERAL_ERR;
+		break;
+	}
+
+	wc->vendor_err = cqe->vendor_err;
 }
 
 static int mlx4_poll_one(struct mlx4_cq *cq,
@@ -148,7 +194,6 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 	uint16_t wqe_index;
 	int is_error;
 	int is_send;
-	int err = 0;
 
 	cqe = next_cqe_sw(cq);
 	if (!cqe)
@@ -203,8 +248,8 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 	}
 
 	if (is_error) {
-		err = mlx4_handle_error_cqe((struct mlx4_err_cqe *) cqe, wc);
-		return err;
+		mlx4_handle_error_cqe((struct mlx4_err_cqe *) cqe, wc);
+		return CQ_OK;
 	}
 
 	wc->status = IBV_WC_SUCCESS;
@@ -271,7 +316,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 			IBV_WC_GRH : 0;
 	}
 
-	return 0;
+	return CQ_OK;
 }
 
 int mlx4_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
