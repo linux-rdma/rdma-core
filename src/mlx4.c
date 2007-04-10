@@ -79,7 +79,7 @@ static struct ibv_context_ops mlx4_ctx_ops = {
 	.query_port    = mlx4_query_port,
 	.alloc_pd      = mlx4_alloc_pd,
 	.dealloc_pd    = mlx4_free_pd,
-	.reg_mr        = mlx4_reg_mr,
+	.reg_mr	       = mlx4_reg_mr,
 	.dereg_mr      = mlx4_dereg_mr,
 	.create_cq     = mlx4_create_cq,
 	.poll_cq       = mlx4_poll_cq,
@@ -106,10 +106,10 @@ static struct ibv_context_ops mlx4_ctx_ops = {
 
 static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_fd)
 {
-	struct mlx4_context            *context;
-	struct ibv_get_context          cmd;
+	struct mlx4_context	       *context;
+	struct ibv_get_context		cmd;
 	struct mlx4_alloc_ucontext_resp resp;
-	int                             i;
+	int				i;
 
 	context = malloc(sizeof *context);
 	if (!context)
@@ -121,9 +121,9 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 				&resp.ibv_resp, sizeof resp))
 		goto err_free;
 
-	context->num_qps        = resp.qp_tab_size;
+	context->num_qps	= resp.qp_tab_size;
 	context->qp_table_shift = ffs(context->num_qps) - 1 - MLX4_QP_TABLE_BITS;
-	context->qp_table_mask  = (1 << context->qp_table_shift) - 1;
+	context->qp_table_mask	= (1 << context->qp_table_shift) - 1;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	for (i = 0; i < MLX4_QP_TABLE_SIZE; ++i)
@@ -198,8 +198,8 @@ static struct ibv_device *mlx4_driver_init(const char *uverbs_sys_path,
 {
 	char			value[8];
 	struct mlx4_device    *dev;
-	unsigned                vendor, device;
-	int                     i;
+	unsigned		vendor, device;
+	int			i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof value) < 0)
