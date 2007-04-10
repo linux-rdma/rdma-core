@@ -554,9 +554,6 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 			htonl((attr->grh.traffic_class << 20) |
 				    attr->grh.flow_label);
 		memcpy(ah->av.dgid, attr->grh.dgid.raw, 16);
-	} else {
-		/* XXX needed?? low byte of GID must be 2 */
-		ah->av.dgid[3] = htonl(2);
 	}
 
 	return &ah->ibv_ah;
