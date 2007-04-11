@@ -90,7 +90,7 @@ int mlx4_post_srq_recv(struct ibv_srq *ibsrq,
 		for (i = 0; i < wr->num_sge; ++i) {
 			scat[i].byte_count = htonl(wr->sg_list[i].length);
 			scat[i].lkey       = htonl(wr->sg_list[i].lkey);
-			scat[i].addr       = htonl(wr->sg_list[i].addr);
+			scat[i].addr       = htonll(wr->sg_list[i].addr);
 		}
 
 		if (i < srq->max_gs) {
@@ -132,7 +132,7 @@ int mlx4_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	size = sizeof (struct mlx4_wqe_srq_next_seg) +
 		srq->max_gs * sizeof (struct mlx4_wqe_data_seg);
 
-	for (srq->wqe_shift = 6; 1 << srq->wqe_shift < size; ++srq->wqe_shift)
+	for (srq->wqe_shift = 5; 1 << srq->wqe_shift < size; ++srq->wqe_shift)
 		; /* nothing */
 
 	buf_size = srq->max << srq->wqe_shift;
@@ -152,8 +152,7 @@ int mlx4_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 
 	for (i = 0; i < srq->max; ++i) {
 		next = get_wqe(srq, i);
-
-		next->next_wqe_index = (i + 1) & (srq->max - 1);
+		next->next_wqe_index = htons((i + 1) & (srq->max - 1));
 	}
 
 	srq->head = 0;
