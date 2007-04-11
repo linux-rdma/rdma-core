@@ -96,8 +96,8 @@ will make the libibverbs build look for valgrind headers in
 Reporting bugs
 ==============
 
-Bugs should be reported to the OpenIB mailing list
-<openib-general@openib.org>.  In your bug report, please include:
+Bugs should be reported to the OpenFabrics mailing list
+<general@lists.openfabrics.org>.  In your bug report, please include:
 
  * Information about your system:
    - Linux distribution and version
@@ -118,8 +118,8 @@ Bugs should be reported to the OpenIB mailing list
 Submitting patches
 ==================
 
-Patches should also be submitted to the OpenIB mailing list
-<openib-general@openib.org>.  Please use unified diff form (the -u
+Patches should also be submitted to the OpenFabrics mailing list
+<general@lists.openfabrics.org>.  Please use unified diff form (the -u
 option to GNU diff), and include a good description of what your patch
 does and why it should be applied.  If your patch fixes a bug, please
 make sure to describe the bug and how your fix works.
