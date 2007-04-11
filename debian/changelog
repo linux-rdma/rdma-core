@@ -1,8 +1,14 @@
-libibverbs (1.1~rc2-1) unstable; urgency=low
+libibverbs (1.1-1) unstable; urgency=low
 
-  * New upstream release candidate.
+  * New upstream release.
+    - Add support for use of fork() in applications.
+    - Add manual pages documenting API in section 3.
+    - New method of finding and loading device-specific drivers.
+    - Add basic support for iWARP devices.
+    - Provide compatible ABI for applications linked against libibverbs 1.0.
+  * Rerun autotools to avoid setting RPATH in binaries on amd64.
 
- -- Roland Dreier <rolandd@cisco.com>  Tue, 27 Mar 2007 13:14:27 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Thu, 12 Apr 2007 11:49:14 -0700
 
 libibverbs (1.0.4-1) unstable; urgency=low
 
