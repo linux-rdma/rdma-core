@@ -269,8 +269,8 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		if (i < qp->rq.max_gs) {
 			scat[i].byte_count = 0;
-			scat[i].lkey = htonl(MLX4_INVALID_LKEY);
-			scat[i].addr = 0;
+			scat[i].lkey       = htonl(MLX4_INVALID_LKEY);
+			scat[i].addr       = 0;
 		}
 
 		qp->rq.wrid[ind] = wr->wr_id;
