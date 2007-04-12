@@ -273,11 +273,11 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 			break;
 		case MLX4_OPCODE_ATOMIC_CS:
 			wc->opcode    = IBV_WC_COMP_SWAP;
-			/* XXX byte_len? */
+			wc->byte_len  = 8;
 			break;
 		case MLX4_OPCODE_ATOMIC_FA:
 			wc->opcode    = IBV_WC_FETCH_ADD;
-			/* XXX byte_len? */
+			wc->byte_len  = 8;
 			break;
 		case MLX4_OPCODE_BIND_MW:
 			wc->opcode    = IBV_WC_BIND_MW;
