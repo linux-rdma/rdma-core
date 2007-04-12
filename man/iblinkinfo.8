@@ -1,0 +1,44 @@
+.TH IBLINKINFO 8 "January 2, 2007" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+iblinkinfo.pl \- report link info for all links in the fabric
+
+.SH SYNOPSIS
+.B iblinkinfo.pl
+   [-Rhcdl -v <lt,hoq,vlstall> -S <guid>]
+
+.SH DESCRIPTION
+.PP
+iblinkinfo.pl reports the link info for each port of each switch active in the
+IB fabric.
+
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-R\fR
+Recalculate the ibnetdiscover information, ie do not use the cached
+information.  This option is slower but should be used if the diag tools have
+not been used for a long time or if there are other reasons to believe the
+fabric has changed.
+.TP
+\fB\-S <guid>\fR
+output only the switch specified by <guid>
+.TP
+\fB\-l\fR
+Print all information for each link on one line, default is to print a header
+with the switch information and then a list for each port.  (useful for grep'ing output)
+.TP
+\fB\-d\fR
+Print only switches which have a port in the "Down" state.
+.TP
+\fB\-v <lt,hoq,vlstall>\fR
+   verify additional switch settings (<LifeTime>,<HoqLife>,<VLStallCount>)
+.TP
+\fB\-c\fR
+   print port capabilities (enabled and supported values)
+
+.SH AUTHOR
+.TP
+Ira Weiny
+.RI < weiny2@llnl.gov >

@@ -1,0 +1,158 @@
+
+INCLUDES = -I include \
+	   -I$(srcdir)/../libibcommon/include/infiniband \
+	   -I$(srcdir)/../libibumad/include/infiniband \
+	   -I$(srcdir)/../libibmad/include/infiniband \
+	   -I$(srcdir)/../opensm/include \
+	   -I$(includedir)/infiniband
+
+if DEBUG
+DBGFLAGS = -ggdb -D_DEBUG_
+else
+DBGFLAGS =
+endif
+
+bin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
+	       src/ibroute src/ibstat src/ibsysstat src/ibtracert \
+	       src/perfquery src/sminfo src/smpdump src/smpquery \
+	       src/saquery src/vendstat
+
+bin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
+              scripts/ibcheckport scripts/ibhosts scripts/ibstatus \
+	      scripts/ibswitches scripts/ibnodes \
+	      scripts/ibcheckwidth scripts/ibcheckportwidth \
+	      scripts/ibcheckstate scripts/ibcheckportstate \
+	      scripts/ibcheckerrors scripts/ibclearerrors \
+	      scripts/ibclearcounters scripts/ibdiscover.pl \
+	      scripts/dump_lfts.sh scripts/dump_mfts.sh \
+	      scripts/set_mthca_nodedesc.sh \
+	      scripts/ibqueryerrors.pl scripts/ibswportwatch.pl \
+	      scripts/iblinkinfo.pl scripts/ibprintswitch.pl \
+	      scripts/ibprintca.pl scripts/ibfindnodesusing.pl
+
+src_ibaddr_SOURCES = src/ibaddr.c
+src_ibaddr_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibaddr_LDADD = $(libdir)/libibcommon.la \
+# 		     $(libdir)/libibumad.la \
+# 		     $(libdir)/libibmad.la
+# src_ibaddr_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibnetdiscover_SOURCES = src/ibnetdiscover.c src/grouping.c src/ibdiag_common.c
+src_ibnetdiscover_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibnetdiscover_LDADD = $(libdir)/libibcommon.la \
+# 			  $(libdir)/libibumad.la \
+# 			  $(libdir)/libibmad.la
+# src_ibnetdiscover_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibping_SOURCES = src/ibping.c
+src_ibping_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibping_LDADD = $(libdir)/libibcommon.la \
+# 		   $(libdir)/libibumad.la \
+# 		   $(libdir)/libibmad.la
+# src_ibping_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibportstate_SOURCES = src/ibportstate.c
+src_ibportstate_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibportstate_LDADD = $(libdir)/libibcommon.la \
+# 			$(libdir)/libibumad.la \
+# 			$(libdir)/libibmad.la
+# src_ibportstate_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibroute_SOURCES = src/ibroute.c src/ibdiag_common.c
+src_ibroute_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibroute_LDADD = $(libdir)/libibcommon.la \
+# 		    $(libdir)/libibumad.la \
+# 		    $(libdir)/libibmad.la
+# src_ibroute_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibstat_SOURCES = src/ibstat.c
+src_ibstat_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibstat_LDADD = $(libdir)/libibcommon.la \
+# 		   $(libdir)/libibumad.la
+# src_ibstat_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibsysstat_SOURCES = src/ibsysstat.c
+src_ibsysstat_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibsysstat_LDADD = $(libdir)/libibcommon.la \
+# 		      $(libdir)/libibumad.la \
+# 		      $(libdir)/libibmad.la
+# src_ibsysstat_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibtracert_SOURCES = src/ibtracert.c src/ibdiag_common.c
+src_ibtracert_CFLAGS = -Wall $(DBGFLAGS)
+# src_ibtracert_LDADD = $(libdir)/libibcommon.la \
+# 		      $(libdir)/libibumad.la \
+# 		      $(libdir)/libibmad.la
+# src_ibtracert_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_perfquery_SOURCES = src/perfquery.c
+src_perfquery_CFLAGS = -Wall $(DBGFLAGS)
+# src_perfquery_LDADD = $(libdir)/libibcommon.la \
+# 		      $(libdir)/libibumad.la \
+# 		      $(libdir)/libibmad.la
+# src_perfquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_sminfo_SOURCES = src/sminfo.c
+src_sminfo_CFLAGS = -Wall $(DBGFLAGS)
+# src_sminfo_LDADD = $(libdir)/libibcommon.la \
+# 		   $(libdir)/libibumad.la \
+# 		   $(libdir)/libibmad.la
+# src_sminfo_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_smpdump_SOURCES = src/smpdump.c
+src_smpdump_CFLAGS = -Wall $(DBGFLAGS)
+# src_smpdump_LDADD = $(libdir)/libibcommon.la \
+# 		    $(libdir)/libibumad.la \
+# 		    $(libdir)/libibmad.la
+# src_smpdump_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_smpquery_SOURCES = src/smpquery.c
+src_smpquery_CFLAGS = -Wall $(DBGFLAGS)
+# src_smpquery_LDADD = $(libdir)/libibcommon.la \
+# 		     $(libdir)/libibumad.la \
+# 		     $(libdir)/libibmad.la
+# src_smpquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_saquery_SOURCES = src/saquery.c src/ibdiag_common.c
+src_saquery_CFLAGS = -Wall -DOSM_VENDOR_INTF_OPENIB -DVENDOR_RMPP_SUPPORT -DDUAL_SIDED_RMPP $(DBGFLAGS)
+# src_saquery_LDADD = $(libdir)/libibmad.la \
+#		     $(libdir)/libosmvendor.la \
+#		     $(libdir)/libopensm.la \
+#		     $(libdir)/libosmcomp.la
+#src_saquery_LDADD = $(libdir)/libopensm.la \
+#		    $(libdir)/libosmcomp.la \
+#		    $(libdir)/libosmvendor.la
+src_saquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_vendstat_SOURCES = src/vendstat.c
+src_vendstat_CFLAGS = -Wall $(DBGFLAGS)
+#src_vendstat_LDADD = $(libdir)/libibcommon.la \
+#		      $(libdir)/libibumad.la \
+#		      $(libdir)/libibmad.la
+#src_vendstat_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+#src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
+#src_mcm_rereg_test_CFLAGS = -Wall $(DBGFLAGS)
+#bin_PROGRAMS += src/mcm_rereg_test
+
+man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
+	man/ibchecknet.8 man/ibchecknode.8 man/ibcheckport.8 \
+	man/ibcheckportstate.8 man/ibcheckportwidth.8 man/ibcheckstate.8 \
+	man/ibcheckwidth.8 man/ibclearcounters.8 man/ibclearerrors.8 \
+	man/ibhosts.8 man/ibnetdiscover.8 man/ibnodes.8 man/ibping.8 \
+	man/ibportstate.8 man/ibroute.8 man/ibstat.8 man/ibstatus.8 \
+	man/ibswitches.8 man/ibtracert.8 man/perfquery.8 man/sminfo.8 \
+	man/smpdump.8 man/smpquery.8 man/saquery.8 man/vendstat.8 \
+	man/dump_lfts.8 man/dump_mfts.8 man/ibdiscover.8 man/ibsysstat.8 \
+	man/iblinkinfo.8 man/ibqueryerrors.8 man/ibswportwatch.8 \
+	man/ibprintswitch.8 man/ibprintca.8 man/ibfindnodesusing.8
+
+EXTRA_DIST = scripts include infiniband-diags.spec.in $(man_MANS)
+
+dist-hook: infiniband-diags.spec
+	   cp infiniband-diags.spec $(distdir)
+
+# install this to a default location.
+install-data-hook:
+	$(top_srcdir)/config/install-sh -m 444 scripts/IBswcountlimits.pm $(DESTDIR)/$(PERL_INSTALLDIR)/IBswcountlimits.pm
+

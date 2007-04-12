@@ -1,0 +1,31 @@
+.TH IBCHECKERRORS 8 "February 1, 2007" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+ibcheckerrors \- validate IB subnet and report errors 
+
+.SH SYNOPSIS
+.B ibcheckerrors
+[\-h] [\-b] [\-v] [\-N | \-nocolor] [<topology-file>]
+
+.SH DESCRIPTION
+.PP
+ibcheckerrors is a script which uses a full topology file that was created by 
+ibnetdiscover, scans the network to validate the connectivity and reports 
+errors (from port counters).
+
+.SH OPTIONS
+.PP
+\-v	increase the verbosity level
+.PP
+\-b	brief mode.  Reduce the output to show only if errors are present,
+     not what they are.
+.PP
+\-N | \-nocolor	use mono rather than color mode
+
+.SH SEE ALSO
+.BR ibnetdiscover(8), ibchecknode(8), ibcheckport(8), ibcheckerrs(8)
+
+.SH AUTHOR
+.TP
+Hal Rosenstock
+.RI < halr@voltaire.com >

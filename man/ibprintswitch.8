@@ -1,0 +1,38 @@
+.TH IBPRINTSWITCH 8 "September 27, 2006" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+ibprintswitch.pl \- print only the switch specified from the ibnetdiscover output
+
+.SH SYNOPSIS
+.B ibprintswitch.pl
+[-R -l] [<switch_guid|switch_name>]
+
+.SH DESCRIPTION
+.PP
+Faster than greping/viewing with an editor the output of ibnetdiscover,
+ibprintswitch.pl will parse out and print only the switch information for the
+switch specified.  In addition it will crudely parse on the node description
+information and if found report all the information for an entire chasis if the
+description information is consistent.
+
+Finally, ibprintswitch.pl will also reuse the cached ibnetdiscover output from
+some of the other diag tools which makes it a bit faster than running
+ibnetdiscover from scratch.
+
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-l\fR
+List the switches (Simply a wrapper for ibswitches)
+.TP
+\fB\-R\fR
+Recalculate the ibnetdiscover information, ie do not use the cached
+information.  This option is slower but should be used if the diag tools have
+not been used for a long time or if there are other reasons to believe that
+the fabric has changed.
+
+.SH AUTHOR
+.TP
+Ira Weiny
+.RI < weiny2@llnl.gov >

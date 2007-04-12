@@ -1,0 +1,26 @@
+.TH IBCHECKWIDTH 8 "February 1, 2007" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+ibcheckwidth \- find 1x links in IB subnet
+
+.SH SYNOPSIS
+.B ibcheckwidth
+[\-h] [\-v] [\-N | \-nocolor] [<topology-file>]
+
+.SH DESCRIPTION
+.PP
+ibcheckwidth is a script which uses a full topology file that was created by 
+ibnetdiscover, scans the network to validate the active link widths and 
+reports any 1x links.
+
+.SH OPTIONS
+.PP
+\-N | \-nocolor use mono rather than color mode
+
+.SH SEE ALSO
+.BR ibnetdiscover(8), ibchecknode(8), ibcheckportwidth(8)
+
+.SH AUTHOR
+.TP
+Hal Rosenstock
+.RI < halr@voltaire.com >

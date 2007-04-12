@@ -1,0 +1,155 @@
+.TH IBNETDISCOVER 8 "January 31, 2007" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+ibnetdiscover \- discover InfiniBand topology
+
+.SH SYNOPSIS
+.B ibnetdiscover
+[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-s(how)] [\-l(ist)] [\-g(rouping)] [\-H(ca_list)] [\-S(witch_list)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\--switch-map <switch-map>] [\-h(elp)] [<topology-file>]
+
+.SH DESCRIPTION
+.PP
+ibnetdiscover performs IB subnet discovery and outputs a human readable
+topology file. GUIDs, node types, and port numbers are displayed
+as well as port LIDs and NodeDescriptions. All nodes (and links) are displayed
+(full topology). Optionally this utility can be used to list the current
+connected nodes. The output is printed to the standard output unless a
+topology file is specified.
+
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-l\fR, \fB\-\-list\fR
+List of connected nodes
+.TP
+\fB\-g\fR, \fB\-\-grouping\fR
+Show grouping
+.TP
+\fB\-H\fR, \fB\-\-Hca_list\fR
+List of connected CAs
+.TP
+\fB\-S\fR, \fB\-\-Switch_list\fR
+List of connected switches
+.TP
+\fB\-s\fR, \fB\-\-show\fR
+Show more information
+.TP
+\fB\-\-switch\-map\fR <switch-map>
+Specify a switch map.  The switch map file maps GUIDs to more user friendly
+names.  See file format below.
+
+.SH COMMON OPTIONS
+
+Most OpenIB diagnostics take the following common flags. The exact list of 
+supported flags per utility can be found in the usage message and can be shown
+using the util_name -h syntax.
+
+# Debugging flags
+.PP
+\-d      raise the IB debugging level.
+        May be used several times (-ddd or -d -d -d).
+.PP
+\-e      show send and receive errors (timeouts and others)
+.PP
+\-h      show the usage message
+.PP
+\-v      increase the application verbosity level.
+        May be used several times (-vv or -v -v -v)
+.PP
+\-V      show the version info.
+
+# Addressing flags
+.PP
+\-D      use directed path address arguments. The path
+        is a comma separated list of out ports.
+        Examples:
+        "0"             # self port
+        "0,1,2,1,4"     # out via port 1, then 2, ...
+.PP
+\-G      use GUID address argument. In most cases, it is the Port GUID.
+        Example:
+        "0x08f1040023"
+.PP
+\-s <smlid>      use 'smlid' as the target lid for SM/SA queries.
+
+# Other common flags:
+.PP
+\-C <ca_name>    use the specified ca_name.
+.PP
+\-P <ca_port>    use the specified ca_port.
+.PP
+\-t <timeout_ms> override the default timeout for the solicited mads.
+
+Multiple CA/Multiple Port Support
+
+When no IB device or port is specified, the port to use is selected
+by the following criteria:
+.PP
+1. the first port that is ACTIVE.
+.PP
+2. if not found, the first port that is UP (physical link up).
+
+If a port and/or CA name is specified, the user request is  
+attempted to be fulfilled, and will fail if it is not possible.
+
+.SH SWITCH MAP FILE FORMAT
+The switch map is used to specify a user friendly name for switches in the
+output.  GUIDs are used to perform the lookup.
+
+.TP
+\fBGenerically:\fR
+
+# comment
+.br
+<guid> "<name>"
+
+.TP
+\fBExample:\fR
+
+# IB1
+.br
+# Line cards
+.br
+0x0008f104003f125c "IB1 (Rack 11 slot 1   ) ISR9288/ISR9096 Voltaire sLB-24D"
+.br
+0x0008f104003f125d "IB1 (Rack 11 slot 1   ) ISR9288/ISR9096 Voltaire sLB-24D"
+.br
+0x0008f104003f10d2 "IB1 (Rack 11 slot 2   ) ISR9288/ISR9096 Voltaire sLB-24D"
+.br
+0x0008f104003f10d3 "IB1 (Rack 11 slot 2   ) ISR9288/ISR9096 Voltaire sLB-24D"
+.br
+0x0008f104003f10bf "IB1 (Rack 11 slot 12  ) ISR9288/ISR9096 Voltaire sLB-24D"
+.br
+.br
+# Spines
+.br
+0x0008f10400400e2d "IB1 (Rack 11 spine 1   ) ISR9288 Voltaire sFB-12D"
+.br
+0x0008f10400400e2e "IB1 (Rack 11 spine 1   ) ISR9288 Voltaire sFB-12D"
+.br
+0x0008f10400400e2f "IB1 (Rack 11 spine 1   ) ISR9288 Voltaire sFB-12D"
+.br
+0x0008f10400400e31 "IB1 (Rack 11 spine 2   ) ISR9288 Voltaire sFB-12D"
+.br
+0x0008f10400400e32 "IB1 (Rack 11 spine 2   ) ISR9288 Voltaire sFB-12D"
+.br
+.br
+# GUID   Switch Name
+.br
+0x0008f10400411a08 "SW1  (Rack  3) ISR9024 Voltaire 9024D"
+.br
+0x0008f10400411a28 "SW2  (Rack  3) ISR9024 Voltaire 9024D"
+.br
+0x0008f10400411a34 "SW3  (Rack  3) ISR9024 Voltaire 9024D"
+.br
+0x0008f104004119d0 "SW4  (Rack  3) ISR9024 Voltaire 9024D"
+.br
+
+.SH AUTHOR
+.TP
+Hal Rosenstock
+.RI < halr@voltaire.com >
+.TP
+Ira Weiny
+.RI < weiny2@llnl.gov >

@@ -1,0 +1,33 @@
+#!/bin/sh
+
+IBPATH=${IBPATH:-@IBSCRIPTPATH@}
+
+function usage() {
+	echo Usage: `basename $0` [-h] [\<topology-file\>]
+	exit -1
+}
+
+while [ "$1" ]; do
+	case $1 in
+	-h)
+		usage
+		;;
+	-*)
+		usage
+		;;
+	*)
+		break
+		;;
+	esac
+done
+
+if [ "$1" ]; then
+	netcmd="cat $1"
+else
+	netcmd="$IBPATH/ibnetdiscover"
+fi
+
+eval $netcmd | awk '
+/^Ca/	{print $1 "\t: 0x" substr($3, 4, 16) " ports " $2 " "\
+		substr($0, match($0, "#[ \t]*")+RLENGTH)} 
+'

@@ -1,0 +1,86 @@
+#!/bin/sh
+
+IBPATH=${IBPATH:-@IBSCRIPTPATH@}
+
+function usage() {
+	echo Usage: `basename $0` [-h] [-N \| -nocolor] [\<topology-file\>]
+	exit -1
+}
+
+function user_abort() {
+	echo "Aborted"
+	exit 1
+}
+
+trap user_abort SIGINT
+
+gflags=""
+verbose=""
+v=0
+oldlid=""
+
+while [ "$1" ]; do
+	case $1 in
+	-h)
+		usage
+		;;
+	-N|-nocolor)
+		gflags=-N
+		;;
+	-*)
+		usage
+		;;
+	*)
+		break
+		;;
+	esac
+	shift
+done
+
+if [ "$1" ]; then
+	netcmd="cat $1"
+else
+	netcmd="$IBPATH/ibnetdiscover"
+fi
+
+eval $netcmd | awk '
+
+function clear_counters(lid)
+{
+	nodecleared=1
+	if (system("'$IBPATH'/perfquery '$gflags' -R -a " lid))
+		nodeerr++
+}
+
+function clear_port_counters(lid, port)
+{
+	nodecleared=1
+	if (system("'$IBPATH'/perfquery '$gflags' -R " lid " " port))
+		nodeerr++
+}
+
+/^Ca/ || /^Switch/ {
+			nnodes++
+			ntype=$1; nodeguid=substr($3, 4, 16); ports=$2
+			nodecleared=0
+			if (ntype != "Switch")
+				next
+
+			lid = substr($0, index($0, "port 0 lid ") + 11)
+			lid = substr(lid, 1, index(lid, " ") - 1)
+			clear_counters(lid)
+		}
+
+/^\[/   {
+			port = $1
+			gsub("[\\[\\]]", "", port)
+			if (!nodecleared) {
+				lid = $5
+				clear_port_counters(lid, port)
+			}
+		}
+
+END {
+	printf "\n## Summary: %d nodes cleared %d errors\n", nnodes, nodeerr
+}
+'

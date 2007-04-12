@@ -1,0 +1,83 @@
+.TH SAQUERY 8 "April 4, 2007" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+saquery \- query InfiniBand subnet administration attributes 
+
+.SH SYNOPSIS
+.B saquery 
+[\-h] [\-d] [\-P] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-C] [\-s] [\-g] [\-m] [--src-to-dst <src:dst>] [\-t(imeout) <msec>] [<name> | <lid> | <guid>]
+
+.SH DESCRIPTION
+.PP
+saquery issues the selected SA query. Node records are queried by default.
+
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-P\fR
+get PathRecord info
+.TP
+\fB\-N\fR
+get NodeRecord info
+.TP
+\fB\-\-list | \-D\fR
+get NodeDescriptions of CAs only
+.TP
+\fB\-S\fR
+get ServiceRecord info
+.TP
+\fB\-I\fR
+get InformInfoRecord (subscription) info
+.TP
+\fB\-L\fR
+return the Lids of the name specified
+.TP
+\fB\-l\fR
+return the unique Lid of the name specified
+.TP
+\fB\-G\fR
+return the Guids of the name specified
+.TP
+\fB\-O\fR
+return the name for the Lid specified
+.TP
+\fB\-U\fR
+return the name for the Guid specified
+.TP
+\fB\-C\fR
+get the SA's class port info
+.TP
+\fB\-s\fR
+return the PortInfoRecords with isSM or isSMdisabled capability mask bit on
+.TP
+\fB\-g\fR
+get multicast group info
+.TP
+\fB\-m\fR
+get multicast member info.  If a group is specified, limit the output to the
+group specified and print one line containing only the GUID and node
+description for each entry. Example: saquery -m 0xc000
+.TP
+\fB\-\-src-to-dst\fR
+get a PathRecord for <src:dst>
+where src and dst are either node names or LIDs
+.TP
+\fB\-t\fR, \fB\-timeout\fR <msec>
+Specify SA query response timeout in milliseconds.
+Default is 100 milliseconds. You may want to use
+this option if IB_TIMEOUT is indicated.
+.TP
+\fB\-d\fR
+enable debugging
+.TP
+\fB\-h\fR
+show help
+
+.SH AUTHORS
+.TP
+Ira Weiny
+.RI < weiny2@llnl.gov >
+.TP
+Hal Rosenstock
+.RI < halr@voltaire.com >

@@ -1,0 +1,120 @@
+#!/bin/sh
+
+IBPATH=${IBPATH:-@IBSCRIPTPATH@}
+
+function usage() {
+	echo Usage: `basename $0` [-h] [-v] [-N \| -nocolor] [\<topology-file\>]
+	exit -1
+}
+
+function user_abort() {
+	echo "Aborted"
+	exit 1
+}
+
+trap user_abort SIGINT
+
+gflags=""
+verbose=""
+v=0
+oldlid=""
+
+while [ "$1" ]; do
+	case $1 in
+	-h)
+		usage
+		;;
+	-N|-nocolor)
+		gflags=-N
+		;;
+	-v)
+		verbose=-v
+		v=0
+		;;
+	-*)
+		usage
+		;;
+	*)
+		break
+		;;
+	esac
+	shift
+done
+
+if [ "$1" ]; then
+	netcmd="cat $1"
+else
+	netcmd="$IBPATH/ibnetdiscover"
+fi
+
+eval $netcmd | awk '
+BEGIN {
+	ne=0
+	pe=0
+}
+function check_node(lid)
+{
+	nodechecked=1
+	if (system("'$IBPATH'/ibchecknode '$gflags' '$verbose' " lid)) {
+		ne++
+		badnode=1
+		return
+	}
+	if (system("'$IBPATH'/ibcheckerrs '$gflags' '$verbose' " lid " 255"))
+		nodeerr=1;
+}
+
+/^Ca/ || /^Switch/ {
+			nnodes++
+			ntype=$1; nodeguid=substr($3, 4, 16); ports=$2
+			if ('$v' || ntype != "Switch") 
+				print "\n# Checking " ntype ": nodeguid 0x" nodeguid
+
+			nodechecked=0
+			nodeerr=0
+			badnode=0
+			if (ntype != "Switch")
+				next
+
+			lid = substr($0, index($0, "port 0 lid ") + 11)
+			lid = substr(lid, 1, index(lid, " ") - 1)
+			check_node(lid)
+		}
+/^\[/	{
+		nports++
+		port = $1
+		if (!nodechecked) {
+			lid = $5
+			check_node(lid)
+		}
+		if (badnode) {
+			print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
+			next
+		}
+		gsub("[\\[\\]]", "", port)
+		if (system("'$IBPATH'/ibcheckport '$gflags' '$verbose' " lid " " port)) {
+			if (!'$v' && oldlid != lid) {
+				print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
+				oldlid = lid
+			}
+			pe++;
+		}
+
+		if (nodeerr)
+			if (system("'$IBPATH'/ibcheckerrs '$gflags' '$verbose' " lid " " port)) {
+				if (!'$v' && oldlid != lid) {
+					print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
+					oldlid = lid
+				}
+				pcnterr++;
+			}
+}
+
+END {
+	printf "\n## Summary: %d nodes checked, %d bad nodes found\n", nnodes, ne
+	printf "##          %d ports checked, %d bad ports found\n", nports, pe
+	printf "##          %d ports have errors beyond threshold\n", pcnterr
+	exit (ne + pe + pcnterr)
+}
+'
+exit $?
