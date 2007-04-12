@@ -1,10 +1,10 @@
 
-%define RELEASE 0.6.20070403git
+%define RELEASE 0.1.20070409git
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: OpenIB InfiniBand Management and Diagnostic Tools
 Name: libibumad
-Version: 1.0.2
+Version: 1.1.0
 Release: %rel%{?dist}
 License: GPL/BSD
 Group: System Environment/Libraries
