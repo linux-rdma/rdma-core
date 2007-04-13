@@ -96,25 +96,24 @@ struct mlx4_wqe_srq_next_seg {
 	uint32_t		reserved2[3];
 };
 
-/* XXX the rest of these are still old WQE formats... */
-struct mlx4_bind_seg {
-	uint32_t	flags;	/* [31] Atomic [30] rem write [29] rem read */
-	uint32_t	reserved;
-	uint32_t	new_rkey;
-	uint32_t	lkey;
-	uint64_t	addr;
-	uint64_t	length;
+struct mlx4_wqe_raddr_seg {
+	uint64_t		raddr;
+	uint32_t		rkey;
+	uint32_t		reserved;
 };
 
-struct mlx4_raddr_seg {
-	uint64_t	raddr;
-	uint32_t	rkey;
-	uint32_t	reserved;
+struct mlx4_wqe_atomic_seg {
+	uint64_t		swap_add;
+	uint64_t		compare;
 };
 
-struct mlx4_atomic_seg {
-	uint64_t	swap_add;
-	uint64_t	compare;
+struct mlx4_wqe_bind_seg {
+	uint32_t		flags1;
+	uint32_t		flags2;
+	uint32_t		new_rkey;
+	uint32_t		lkey;
+	uint64_t		addr;
+	uint64_t		length;
 };
 
 #endif /* WQE_H */

@@ -150,13 +150,43 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			switch (wr->opcode) {
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
-				/*XXX*/
+				((struct mlx4_wqe_raddr_seg *) wqe)->raddr =
+					htonll(wr->wr.atomic.remote_addr);
+				((struct mlx4_wqe_raddr_seg *) wqe)->rkey =
+					htonl(wr->wr.atomic.rkey);
+				((struct mlx4_wqe_raddr_seg *) wqe)->reserved = 0;
+
+				wqe  += sizeof (struct mlx4_wqe_raddr_seg);
+
+				if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+					((struct mlx4_wqe_atomic_seg *) wqe)->swap_add =
+						htonll(wr->wr.atomic.swap);
+					((struct mlx4_wqe_atomic_seg *) wqe)->compare =
+						htonll(wr->wr.atomic.compare_add);
+				} else {
+					((struct mlx4_wqe_atomic_seg *) wqe)->swap_add =
+						htonll(wr->wr.atomic.compare_add);
+					((struct mlx4_wqe_atomic_seg *) wqe)->compare = 0;
+				}
+
+				wqe  += sizeof (struct mlx4_wqe_atomic_seg);
+				size += (sizeof (struct mlx4_wqe_raddr_seg) +
+					 sizeof (struct mlx4_wqe_atomic_seg)) / 16;
+
 				break;
 
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
 			case IBV_WR_RDMA_READ:
-				/*XXX*/
+				((struct mlx4_wqe_raddr_seg *) wqe)->raddr =
+					htonll(wr->wr.rdma.remote_addr);
+				((struct mlx4_wqe_raddr_seg *) wqe)->rkey =
+					htonl(wr->wr.rdma.rkey);
+				((struct mlx4_wqe_raddr_seg *) wqe)->reserved = 0;
+
+				wqe  += sizeof (struct mlx4_wqe_raddr_seg);
+				size += sizeof (struct mlx4_wqe_raddr_seg) / 16;
+
 				break;
 
 			default:
@@ -334,20 +364,20 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		break;
 
 	case IBV_QPT_UC:
-		size += sizeof (struct mlx4_raddr_seg);
+		size += sizeof (struct mlx4_wqe_raddr_seg);
 		break;
 
 	case IBV_QPT_RC:
-		size += sizeof (struct mlx4_raddr_seg);
+		size += sizeof (struct mlx4_wqe_raddr_seg);
 		/*
 		 * An atomic op will require an atomic segment, a
 		 * remote address segment and one scatter entry.
 		 */
-		if (size < (sizeof (struct mlx4_atomic_seg) +
-			    sizeof (struct mlx4_raddr_seg) +
+		if (size < (sizeof (struct mlx4_wqe_atomic_seg) +
+			    sizeof (struct mlx4_wqe_raddr_seg) +
 			    sizeof (struct mlx4_wqe_data_seg)))
-			size = (sizeof (struct mlx4_atomic_seg) +
-				sizeof (struct mlx4_raddr_seg) +
+			size = (sizeof (struct mlx4_wqe_atomic_seg) +
+				sizeof (struct mlx4_wqe_raddr_seg) +
 				sizeof (struct mlx4_wqe_data_seg));
 		break;
 
@@ -356,8 +386,8 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	}
 
 	/* Make sure that we have enough space for a bind request */
-	if (size < sizeof (struct mlx4_bind_seg))
-		size = sizeof (struct mlx4_bind_seg);
+	if (size < sizeof (struct mlx4_wqe_bind_seg))
+		size = sizeof (struct mlx4_wqe_bind_seg);
 
 	size += sizeof (struct mlx4_wqe_ctrl_seg);
 
