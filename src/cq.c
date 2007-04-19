@@ -307,9 +307,9 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 			break;
 		}
 
-		wc->slid 	   = ntohs(cqe->rlid);
-		wc->sl   	   = cqe->sl >> 4;
-		wc->src_qp 	   = ntohl(cqe->g_mlpath_rqpn) & 0xffffff;
+		wc->slid	   = ntohs(cqe->rlid);
+		wc->sl		   = cqe->sl >> 4;
+		wc->src_qp	   = ntohl(cqe->g_mlpath_rqpn) & 0xffffff;
 		wc->dlid_path_bits = (ntohl(cqe->g_mlpath_rqpn) >> 24) & 0x7f;
 		wc->pkey_index     = ntohl(cqe->immed_rss_invalid) >> 16;
 		wc->wc_flags      |= ntohs(cqe->g_mlpath_rqpn) & 0x80000000 ?

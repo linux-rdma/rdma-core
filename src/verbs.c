@@ -78,7 +78,7 @@ struct ibv_pd *mlx4_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd       cmd;
 	struct mlx4_alloc_pd_resp resp;
-	struct mlx4_pd           *pd;
+	struct mlx4_pd		 *pd;
 
 	pd = malloc(sizeof *pd);
 	if (!pd)
@@ -166,8 +166,8 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 {
 	struct mlx4_create_cq      cmd;
 	struct mlx4_create_cq_resp resp;
-	struct mlx4_cq      	  *cq;
-	int                  	   ret;
+	struct mlx4_cq		  *cq;
+	int			   ret;
 
 	/* Sanity check CQ size before proceeding */
 	if (cqe > 0x3fffff)
@@ -267,8 +267,8 @@ struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 {
 	struct mlx4_create_srq      cmd;
 	struct mlx4_create_srq_resp resp;
-	struct mlx4_srq            *srq;
-	int                         ret;
+	struct mlx4_srq		   *srq;
+	int			    ret;
 
 	/* Sanity check SRQ size before proceeding */
 	if (attr->attr.max_wr > 1 << 16 || attr->attr.max_sge > 64)
@@ -357,8 +357,8 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
 	struct mlx4_create_qp     cmd;
 	struct ibv_create_qp_resp resp;
-	struct mlx4_qp           *qp;
-	int                       ret;
+	struct mlx4_qp		 *qp;
+	int			  ret;
 
 	/* Sanity check QP size before proceeding */
 	if (attr->cap.max_send_wr     > 65536 ||
@@ -402,10 +402,10 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (ret)
 		goto err_destroy;
 
-	qp->sq.max 	    = attr->cap.max_send_wr;
-	qp->rq.max 	    = attr->cap.max_recv_wr;
-	qp->sq.max_gs 	    = attr->cap.max_send_sge;
-	qp->rq.max_gs 	    = attr->cap.max_recv_sge;
+	qp->sq.max	    = attr->cap.max_send_wr;
+	qp->rq.max	    = attr->cap.max_recv_wr;
+	qp->sq.max_gs	    = attr->cap.max_send_sge;
+	qp->rq.max_gs	    = attr->cap.max_recv_sge;
 	qp->max_inline_data = attr->cap.max_inline_data;
 
 	qp->doorbell_qpn    = htonl(qp->ibv_qp.qp_num << 8);

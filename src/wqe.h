@@ -38,9 +38,9 @@ enum {
 };
 
 enum {
-	MLX4_WQE_CTRL_FENCE    	= 1 << 6,
+	MLX4_WQE_CTRL_FENCE	= 1 << 6,
 	MLX4_WQE_CTRL_CQ_UPDATE	= 3 << 2,
-	MLX4_WQE_CTRL_SOLICIT  	= 1 << 1,
+	MLX4_WQE_CTRL_SOLICIT	= 1 << 1,
 };
 
 enum {

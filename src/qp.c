@@ -67,10 +67,10 @@ static void *get_send_wqe(struct mlx4_qp *qp, int n)
 
 void mlx4_init_qp_indices(struct mlx4_qp *qp)
 {
-	qp->sq.head    	 = 0;
-	qp->sq.tail    	 = 0;
-	qp->rq.head    	 = 0;
-	qp->rq.tail    	 = 0;
+	qp->sq.head	 = 0;
+	qp->sq.tail	 = 0;
+	qp->rq.head	 = 0;
+	qp->rq.tail	 = 0;
 }
 
 static inline int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
@@ -334,9 +334,9 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	int max_sq_sge;
 	int i;
 
-	qp->rq.max_gs 	 = cap->max_recv_sge;
-	qp->sq.max_gs 	 = cap->max_send_sge;
-	max_sq_sge 	 = align(cap->max_inline_data + sizeof (struct mlx4_wqe_inline_seg),
+	qp->rq.max_gs	 = cap->max_recv_sge;
+	qp->sq.max_gs	 = cap->max_send_sge;
+	max_sq_sge	 = align(cap->max_inline_data + sizeof (struct mlx4_wqe_inline_seg),
 				 sizeof (struct mlx4_wqe_data_seg)) / sizeof (struct mlx4_wqe_data_seg);
 	if (max_sq_sge < cap->max_send_sge)
 		max_sq_sge = cap->max_send_sge;
