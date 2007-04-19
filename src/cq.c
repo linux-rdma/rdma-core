@@ -107,17 +107,22 @@ struct mlx4_err_cqe {
 	uint8_t		owner_sr_opcode;
 };
 
-static inline struct mlx4_cqe *get_cqe(struct mlx4_cq *cq, int entry)
+static struct mlx4_cqe *get_cqe(struct mlx4_cq *cq, int entry)
 {
 	return cq->buf.buf + entry * MLX4_CQ_ENTRY_SIZE;
 }
 
-static inline struct mlx4_cqe *next_cqe_sw(struct mlx4_cq *cq)
+static void *get_sw_cqe(struct mlx4_cq *cq, int n)
 {
-	struct mlx4_cqe *cqe = get_cqe(cq, cq->cons_index & cq->ibv_cq.cqe);
+	struct mlx4_cqe *cqe = get_cqe(cq, n & cq->ibv_cq.cqe);
 
 	return (!!(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK) ^
-		!!(cq->cons_index & (cq->ibv_cq.cqe + 1))) ? NULL : cqe;
+		!!(n & (cq->ibv_cq.cqe + 1))) ? NULL : cqe;
+}
+
+static struct mlx4_cqe *next_cqe_sw(struct mlx4_cq *cq)
+{
+	return get_sw_cqe(cq, cq->cons_index);
 }
 
 static void update_cons_index(struct mlx4_cq *cq)
@@ -377,6 +382,49 @@ void mlx4_cq_event(struct ibv_cq *cq)
 
 void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 {
+	struct mlx4_cqe *cqe;
+	uint32_t prod_index;
+	int nfreed = 0;
+
+	pthread_spin_lock(&cq->lock);
+
+	/*
+	 * First we need to find the current producer index, so we
+	 * know where to start cleaning from.  It doesn't matter if HW
+	 * adds new entries after this loop -- the QP we're worried
+	 * about is already in RESET, so the new entries won't come
+	 * from our QP and therefore don't need to be checked.
+	 */
+	for (prod_index = cq->cons_index; get_sw_cqe(cq, prod_index); ++prod_index)
+		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+			break;
+
+	/*
+	 * Now sweep backwards through the CQ, removing CQ entries
+	 * that match our QP by copying older entries on top of them.
+	 */
+	while ((int) --prod_index - (int) cq->cons_index >= 0) {
+		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
+		if (ntohl((cqe->my_qpn) & 0xffffff) == qpn) {
+			if (srq && !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK))
+				mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
+			++nfreed;
+		} else if (nfreed)
+			memcpy(get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe),
+			       cqe, sizeof *cqe);
+	}
+
+	if (nfreed) {
+		cq->cons_index += nfreed;
+		/*
+		 * Make sure update of buffer contents is done before
+		 * updating consumer index.
+		 */
+		wmb();
+		update_cons_index(cq);
+	}
+
+	pthread_spin_unlock(&cq->lock);
 }
 
 void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int old_cqe)
