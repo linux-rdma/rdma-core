@@ -1,1 +1,2 @@
-usr/lib/infiniband/mthca.so
+usr/lib/libmthca-rdmav2.so
+etc/libibverbs.d/mthca.driver

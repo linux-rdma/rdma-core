@@ -1,1 +1,1 @@
-usr/lib/infiniband/mthca.{a,la}
+usr/lib/libmthca.{a,la}
