@@ -170,7 +170,7 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 	int                  	   ret;
 
 	/* Sanity check CQ size before proceeding */
-	if (cqe > 131072)
+	if (cqe > 0x3fffff)
 		return NULL;
 
 	cq = malloc(sizeof *cq);
