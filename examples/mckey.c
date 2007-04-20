@@ -108,6 +108,25 @@ err:
 	return -1;
 }
 
+static int verify_test_params(struct cmatest_node *node)
+{
+	struct ibv_port_attr port_attr;
+	int ret;
+
+	ret = ibv_query_port(node->cma_id->verbs, node->cma_id->port_num,
+			     &port_attr);
+	if (ret)
+		return ret;
+
+	if (message_count && message_size > (1 << (port_attr.active_mtu + 7))) {
+		printf("mckey: message_size %d is larger than active mtu %d\n",
+		       message_size, 1 << (port_attr.active_mtu + 7));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int init_node(struct cmatest_node *node)
 {
 	struct ibv_qp_init_attr init_qp_attr;
@@ -208,7 +227,7 @@ static int post_sends(struct cmatest_node *node, int signal_flag)
 
 	for (i = 0; i < message_count && !ret; i++) {
 		ret = ibv_post_send(node->cma_id->qp, &send_wr, &bad_send_wr);
-		if (ret) 
+		if (ret)
 			printf("failed to post sends: %d\n", ret);
 	}
 	return ret;
@@ -222,6 +241,10 @@ static void connect_error(void)
 static int addr_handler(struct cmatest_node *node)
 {
 	int ret;
+
+	ret = verify_test_params(node);
+	if (ret)
+		goto err;
 
 	ret = init_node(node);
 	if (ret)
