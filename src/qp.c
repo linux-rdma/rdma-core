@@ -73,7 +73,7 @@ void mlx4_init_qp_indices(struct mlx4_qp *qp)
 	qp->rq.tail	 = 0;
 }
 
-static inline int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
+static int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
 {
 	unsigned cur;
 
