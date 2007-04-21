@@ -212,7 +212,31 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		}
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			/*XXX handle inline send */
+			if (wr->num_sge) {
+				struct mlx4_wqe_inline_seg *seg = wqe;
+				int s = 0;
+
+				wqe += sizeof *seg;
+				for (i = 0; i < wr->num_sge; ++i) {
+					uint32_t len = wr->sg_list[i].length;
+
+					s += len;
+
+					if (s > qp->max_inline_data) {
+						ret = -1;
+						*bad_wr = wr;
+						goto out;
+					}
+
+					memcpy(wqe,
+					       (void *) (intptr_t) wr->sg_list[i].addr,
+					       len);
+					wqe += len;
+				}
+
+				seg->byte_count = htonl(MLX4_INLINE_SEG | s);
+				size += (s + sizeof *seg + 15) / 16;
+			}
 		} else {
 			struct mlx4_wqe_data_seg *seg = wqe;
 
