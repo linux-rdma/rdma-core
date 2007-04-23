@@ -129,6 +129,11 @@ struct mlx4_context {
 	void			       *uar;
 	pthread_spinlock_t		uar_lock;
 
+	void			       *bf_page;
+	int				bf_buf_size;
+	int				bf_offset;
+	pthread_spinlock_t		bf_lock;
+
 	struct {
 		struct mlx4_qp	      **table;
 		int			refcnt;

@@ -53,7 +53,7 @@ enum {
 
 struct mlx4_wqe_ctrl_seg {
 	uint32_t		owner_opcode;
-	uint8_t			reserved2[3];
+	uint8_t			reserved[3];
 	uint8_t			fence_size;
 	/*
 	 * High 24 bits are SRC remote buffer; low 8 bits are flags:

@@ -91,11 +91,13 @@ static int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr)
 {
+	struct mlx4_context *ctx;
 	struct mlx4_qp *qp = to_mqp(ibqp);
 	void *wqe;
 	struct mlx4_wqe_ctrl_seg *ctrl;
 	int ind;
 	int nreq;
+	int inl = 0;
 	int ret = 0;
 	int size;
 	int i;
@@ -214,15 +216,14 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (wr->send_flags & IBV_SEND_INLINE) {
 			if (wr->num_sge) {
 				struct mlx4_wqe_inline_seg *seg = wqe;
-				int s = 0;
 
 				wqe += sizeof *seg;
 				for (i = 0; i < wr->num_sge; ++i) {
 					uint32_t len = wr->sg_list[i].length;
 
-					s += len;
+					inl += len;
 
-					if (s > qp->max_inline_data) {
+					if (inl > qp->max_inline_data) {
 						ret = -1;
 						*bad_wr = wr;
 						goto out;
@@ -234,8 +235,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					wqe += len;
 				}
 
-				seg->byte_count = htonl(MLX4_INLINE_SEG | s);
-				size += (s + sizeof *seg + 15) / 16;
+				seg->byte_count = htonl(MLX4_INLINE_SEG | inl);
+				size += (inl + sizeof *seg + 15) / 16;
 			}
 		} else {
 			struct mlx4_wqe_data_seg *seg = wqe;
@@ -266,7 +267,25 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 
 out:
-	if (nreq) {
+	ctx = to_mctx(ibqp->context);
+
+	if (nreq == 1 && inl && size > 1 && size < ctx->bf_buf_size / 16) {
+		ctrl->owner_opcode |= htonl((qp->sq.head & 0xffff) << 8);
+		*(uint32_t *) ctrl->reserved |= qp->doorbell_qpn;
+		/*
+		 * Make sure that descriptor is written to memory
+		 * before writing to BlueFlame page.
+		 */
+		wmb();
+
+		++qp->sq.head;
+
+		pthread_spin_lock(&ctx->bf_lock);
+		memcpy(ctx->bf_page + ctx->bf_offset, ctrl, align(size * 16, 64));
+		/* FIXME flush wc buffers */
+		ctx->bf_offset ^= ctx->bf_buf_size;
+		pthread_spin_unlock(&ctx->bf_lock);
+	} else if (nreq) {
 		qp->sq.head += nreq;
 
 		/*
@@ -275,8 +294,7 @@ out:
 		 */
 		wmb();
 
-		*(uint32_t *) (to_mctx(ibqp->context)->uar + MLX4_SEND_DOORBELL) =
-			qp->doorbell_qpn;
+		*(uint32_t *) (ctx->uar + MLX4_SEND_DOORBELL) = qp->doorbell_qpn;
 	}
 
 	pthread_spin_unlock(&qp->sq.lock);
