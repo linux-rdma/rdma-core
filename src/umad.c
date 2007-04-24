@@ -556,7 +556,7 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 int
 umad_open_port(char *ca_name, int portnum)
 {
-	uint umad_id;
+	int umad_id;
 	Port *port;
 
 	TRACE("ca %s port %d", ca_name, portnum);
