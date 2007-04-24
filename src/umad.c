@@ -356,10 +356,10 @@ get_ca(char *ca_name, umad_ca_t *ca)
 		ca->fw_ver[0] = '\0';
 	if ((r = sys_read_string(dir_name, SYS_CA_HW_VERS, ca->hw_ver,
 				 sizeof ca->hw_ver)) < 0)
-		return r;
+		ca->hw_ver[0] = '\0';
 	if ((r = sys_read_string(dir_name, SYS_CA_TYPE, ca->ca_type,
 				 sizeof ca->ca_type)) < 0)
-		return r;
+		ca->ca_type[0] = '\0';
 	if ((r = sys_read_guid(dir_name, SYS_CA_NODE_GUID, &ca->node_guid)) < 0)
 		return r;
 	if ((r = sys_read_guid(dir_name, SYS_CA_SYS_GUID, &ca->system_guid)) < 0)

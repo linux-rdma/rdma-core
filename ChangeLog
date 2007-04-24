@@ -1,3 +1,8 @@
+2007-04-24 Hal Rosenstock <halr@voltaire.com>
+
+	* src/umad,c: In get_ca, handle drivers which do not 
+	  support SYS_CA_HW_VERS or SYS_CA_TYPE
+
 2007-03-29 Hal Rosenstock <halr@voltaire.com>
 
 	* Release version 1.1.0.
