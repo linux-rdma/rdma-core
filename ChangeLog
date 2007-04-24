@@ -1,3 +1,8 @@
+2007-04-24 Roland Dreier <rolandd@cisco.com>
+
+	* src/umad.c: In umad_open_port, fix declaration of
+	  return value from dev_to_umad_id
+
 2007-04-24 Hal Rosenstock <halr@voltaire.com>
 
 	* src/umad,c: In get_ca, handle drivers which do not 
