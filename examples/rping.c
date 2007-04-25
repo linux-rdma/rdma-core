@@ -47,6 +47,7 @@
 #include <inttypes.h>
 
 #include <rdma/rdma_cma.h>
+#include <infiniband/arch.h>
 
 static int debug = 0;
 #define DEBUG_LOG if (debug) printf
@@ -239,9 +240,9 @@ static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
 		return -1;
 	}
 
-	cb->remote_rkey = cb->recv_buf.rkey;
-	cb->remote_addr = cb->recv_buf.buf;
-	cb->remote_len  = cb->recv_buf.size;
+	cb->remote_rkey = ntohl(cb->recv_buf.rkey);
+	cb->remote_addr = ntohll(cb->recv_buf.buf);
+	cb->remote_len  = ntohl(cb->recv_buf.size);
 	DEBUG_LOG("Received rkey %x addr %" PRIx64 "len %d from peer\n",
 		  cb->remote_rkey, cb->remote_addr, cb->remote_len);
 
