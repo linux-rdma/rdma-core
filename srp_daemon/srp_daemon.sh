@@ -48,6 +48,16 @@ trap_handler()
     exit 0
 }
 
+rotate_log()
+{
+        local log=$1
+        if [ -s ${log} ]; then
+                cat ${log} >> ${log}.$(date +%Y-%m-%d)
+                /bin/rm -f ${log}
+        fi
+        touch ${log}
+}
+
 # Check if there is another copy of running srp_daemon.sh
 if [ -s $pidfile ]; then
     read line < $pidfile
@@ -84,7 +94,7 @@ else
     exit 1
 fi
 
-touch ${log}
+rotate_log ${log}
 
 trap 'trap_handler' 2 15
 
