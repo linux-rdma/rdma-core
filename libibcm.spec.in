@@ -2,7 +2,7 @@
 
 Name: libibcm
 Version: 1.0
-Release: rc1%{?dist}
+Release: 1%{?dist}
 Summary: Userspace InfiniBand Communication Manager.
 
 Group: System Environment/Libraries
