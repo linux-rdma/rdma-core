@@ -73,7 +73,7 @@ New format - use also initiator_ext in the connection command.
 
 .SH FILES
 /etc/srp_daemon -
-Default rules configuration file that indicates to which targets to connect. can be overridden using the \fB\-f\fR \fIrules-File\fR option. 
+Default rules configuration file that indicates to which targets to connect. Can be overridden using the \fB\-f\fR \fIrules-File\fR option. 
 Each line in this file is a rule which can be either an allow connection or a disallow connection according to 
 the first character in the line (a or d accordingly). The rest of the line is values for id_ext, ioc_guid, dgid, 
 service_id. Please take a look at the example section for an example of the file. srp_daemon decide whether to allow or disallow each target according  to first rule that match the target. If no rule matches the target, the target is allowed and will be connected.
