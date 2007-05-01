@@ -1,8 +1,9 @@
 libmthca (1.0.4-1) unstable; urgency=low
 
   * New upstream release.
+  * Rebuild against libibverbs 1.1.
 
- -- Roland Dreier <rolandd@cisco.com>  Thu,  5 Apr 2007 13:55:32 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Mon, 30 Apr 2007 17:11:51 -0700
 
 libmthca (1.0.3-1) unstable; urgency=low
 
