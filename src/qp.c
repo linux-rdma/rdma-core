@@ -217,6 +217,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			if (wr->num_sge) {
 				struct mlx4_wqe_inline_seg *seg = wqe;
 
+				inl = 0;
 				wqe += sizeof *seg;
 				for (i = 0; i < wr->num_sge; ++i) {
 					uint32_t len = wr->sg_list[i].length;
