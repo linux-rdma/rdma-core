@@ -243,7 +243,7 @@ static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
 	cb->remote_rkey = ntohl(cb->recv_buf.rkey);
 	cb->remote_addr = ntohll(cb->recv_buf.buf);
 	cb->remote_len  = ntohl(cb->recv_buf.size);
-	DEBUG_LOG("Received rkey %x addr %" PRIx64 "len %d from peer\n",
+	DEBUG_LOG("Received rkey %x addr %" PRIx64 " len %d from peer\n",
 		  cb->remote_rkey, cb->remote_addr, cb->remote_len);
 
 	if (cb->state <= CONNECTED || cb->state == RDMA_WRITE_COMPLETE)
@@ -614,12 +614,12 @@ static void rping_format_send(struct rping_cb *cb, char *buf, struct ibv_mr *mr)
 {
 	struct rping_rdma_info *info = &cb->send_buf;
 
-	info->buf = (uint64_t) (unsigned long) buf;
-	info->rkey = mr->rkey;
-	info->size = cb->size;
+	info->buf = htonll((uint64_t) (unsigned long) buf);
+	info->rkey = htonl(mr->rkey);
+	info->size = htonl(cb->size);
 
 	DEBUG_LOG("RDMA addr %" PRIx64" rkey %x len %d\n",
-		  info->buf, info->rkey, info->size);
+		  ntohll(info->buf), ntohl(info->rkey), ntohl(info->size));
 }
 
 static int rping_test_server(struct rping_cb *cb)
