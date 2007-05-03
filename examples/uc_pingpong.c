@@ -578,9 +578,11 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	} else {
-		for (; (ib_dev = *dev_list); ++dev_list)
-			if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
+		int i;
+		for (i = 0; dev_list[i]; ++i)
+			if (!strcmp(ibv_get_device_name(dev_list[i]), ib_devname))
 				break;
+		ib_dev = dev_list[i];
 		if (!ib_dev) {
 			fprintf(stderr, "IB device %s not found\n", ib_devname);
 			return 1;
