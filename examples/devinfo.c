@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
 
 	/* parse command line options */
 	while (1) {
-	        int c;
+		int c;
 		static struct option long_options[] = {
 			{ .name = "ib-dev",   .has_arg = 1, .val = 'd' },
 			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },
