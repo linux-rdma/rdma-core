@@ -442,7 +442,7 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
  *   Calling this function before a group has been fully joined results in
  *   canceling the join operation.  Users should be aware that messages
  *   received from the multicast group may stilled be queued for
- *   completion processing immediately after leaving a multicast group
+ *   completion processing immediately after leaving a multicast group.
  *   Destroying an rdma_cm_id will automatically leave all multicast groups.
  * See also:
  *   rdma_join_multicast, rdma_destroy_qp
