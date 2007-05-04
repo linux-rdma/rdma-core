@@ -2,7 +2,7 @@
 
 Name: librdmacm
 Version: 1.0
-Release: 1%{?dist}
+Release: 2-rc%{?dist}
 Summary: Userspace RDMA Connection Manager.
 
 Group: System Environment/Libraries
