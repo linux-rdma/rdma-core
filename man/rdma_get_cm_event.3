@@ -1,0 +1,65 @@
+.TH "rdma_get_cm_event" 3 "rdma_get_cm_event" "May 2007" "Librdmacm Programmer's Manual" librdmacm
+.SH NAME
+rdma_get_cm_event \- Retrieves the next pending communication event.
+.SH SYNOPSIS
+.B "#include <rdma/rdma_cma.h>"
+.P
+.B "int" rdma_get_cm_event
+.BI "(struct rdma_event_channel *" channel ","
+.BI "struct rdma_cm_event **" event ");"
+.SH ARGUMENTS
+.IP "channel" 12
+Event channel to check for events.
+.IP "event" 12
+Allocated information about the next communication event.
+.SH "DESCRIPTION"
+Retrieves a communication event.  If no events are pending, by default,
+the call will block until an event is received.
+.SH "NOTES"
+The default synchronous behavior of this routine can be changed by
+modifying the file descriptor associated with the given channel.  All
+events that are reported must be acknowledged by calling rdma_ack_cm_event.
+Destruction of an rdma_cm_id will block until related events have been
+acknowledged.
+.SH "EVENTS"
+The following types of communication events may be reported.
+.IP RDMA_CM_EVENT_ADDR_RESOLVED
+Address resolution (rdma_resolve_addr) completed successfully.
+.IP RDMA_CM_EVENT_ADDR_ERROR
+Address resolution (rdma_resolve_addr) failed.
+.IP RDMA_CM_EVENT_ROUTE_RESOLVED
+Route resolution (rdma_resolve_route) completed successfully.
+.IP RDMA_CM_EVENT_ROUTE_ERROR
+Route resolution (rdma_resolve_route) failed.
+.IP RDMA_CM_EVENT_CONNECT_REQUEST
+Generated on the passive side to notify the user of a new connection request.
+.IP RDMA_CM_EVENT_CONNECT_RESPONSE
+Generated on the active side to notify the user of a successful response
+to a connection request.  It is only generated on rdma_cm_id's that do not
+have a QP associated with them.
+.IP RDMA_CM_EVENT_CONNECT_ERROR
+Indicates that an error has occurred trying to establish or a connection.
+May be generated on the active or passive side of a connection.
+.IP RDMA_CM_EVENT_UNREACHABLE
+Generated on the active side to notify the user that the remote server is
+not reachable or unable to respond to a connection request.
+.IP RDMA_CM_EVENT_REJECTED
+Indicates that a connection request or response was rejected by the remote
+end point.
+.IP RDMA_CM_EVENT_ESTABLISHED
+Indicates that a connection has been established with the remote end point.
+.IP RDMA_CM_EVENT_DISCONNECTED
+The connection has been disconnected.
+.IP RDMA_CM_EVENT_DEVICE_REMOVAL
+The local RDMA device associated with the rdma_cm_id has been removed.
+Upon receiving this event, the user must destroy the related rdma_cm_id.
+.IP RDMA_CM_EVENT_MULTICAST_JOIN
+The multicast join operation (rdma_join_multicast) completed successfully.
+.IP RDMA_CM_EVENT_MULTICAST_ERROR
+An error either occurred joining a multicast group, or, if the group had
+already been joined, on an existing group.  The specified multicast group is
+no longer accessible and should be rejoined, if desired.
+.SH "SEE ALSO"
+rdma_ack_cm_event, rdma_create_event_channel, rdma_resolve_addr,
+rdma_resolve_route, rdma_connect, rdma_listen, rdma_join_multicast,
+rdma_destroy_id

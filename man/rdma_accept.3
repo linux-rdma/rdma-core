@@ -1,0 +1,63 @@
+.TH "rdma_accept" 3 "rdma_accept" "May 2007" "Librdmacm Programmer's Manual" librdmacm
+.SH NAME
+rdma_accept \- Called to accept a connection request.
+.SH SYNOPSIS
+.B "#include <rdma/rdma_cma.h>"
+.P
+.B "int" rdma_accept
+.BI "(struct rdma_cm_id *" id ","
+.BI "struct rdma_conn_param *" conn_param ");"
+.SH ARGUMENTS
+.IP "id" 12
+Connection identifier associated with the request.
+.IP "conn_param" 12
+Information needed to establish the connection.
+.SH "DESCRIPTION"
+Called from the listening side to accept a connection or datagram
+service lookup request.
+.SH "NOTES"
+Unlike the socket accept routine, rdma_accept is not called on a
+listening rdma_cm_id.  Instead, after calling rdma_listen, the user
+waits for an RDMA_CM_EVENT_CONNECT_REQUEST event to occur.  Connection request
+events give the user a newly created rdma_cm_id, similar to a new
+socket, but the rdma_cm_id is bound to a specific RDMA device.
+rdma_accept is called on the new rdma_cm_id.
+.SH "CONNECTION PROPERTIES"
+The following properties are used to configure the communication and specified
+by the conn_param parameter when accepting a connection or datagram
+communication request.  Users should use the conn_param values reported in
+the connection request event to determine appropriate values for these fields
+when accepting.
+.IP private_data
+References a user-controlled data buffer.  The contents of the buffer are
+transparently passed to the remote side as part of the communication request.
+May be NULL if private_data is not required.
+.IP private_data_len
+Specifies the size of the user-controlled data buffer.
+.IP responder_resources
+The maximum number of outstanding RDMA read and atomic operations that the
+local side will accept from the remote side.  Applies only to RDMA_PS_TCP.
+.IP initiator_depth
+The maximum number of outstanding RDMA read and atomic operations that the
+local side will have to the remote side.  Applies only to RDMA_PS_TCP.
+.IP flow_control
+Specifies if hardware flow control should be used.  Applies only to RDMA_PS_TCP.
+.IP retry_count
+The maximum number of times that a data transfer operation should be retried
+on the connection when an error occurs.  This setting controls the number of
+times to retry send, RDMA, and atomic operations when timeouts occur.
+Applies only to RDMA_PS_TCP.
+.IP rnr_retry_count
+The maximum number of times that a send operation should be retried on a
+connection after receiving a receiver not ready (RNR) error.  RNR errors are
+generated when a send request arrives before a buffer has been posted to
+receive the incoming data.  Applies only to RDMA_PS_TCP.
+.IP srq
+Specifies if the QP associated with the connection is using a shared receive
+queue.  This field is ignored by the library if a QP has been created on the
+rdma_cm_id.  Applies only to RDMA_PS_TCP.
+.IP qp_num
+Specifies the QP number associated with the connection.  This field is ignored
+by the library if a QP has been created on the rdma_cm_id.
+.SH "SEE ALSO"
+rdma_listen, rdma_reject, rdma_get_cm_event

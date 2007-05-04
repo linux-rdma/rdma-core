@@ -59,6 +59,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/lib*.so
 %{_libdir}/*.a
 %{_includedir}/*
+%{_mandir}/man3/*
 
 %files utils
 %defattr(-,root,root,-)

@@ -32,8 +32,38 @@ librdmacmincludedir = $(includedir)/rdma
 librdmacminclude_HEADERS = include/rdma/rdma_cma_abi.h \
 			   include/rdma/rdma_cma.h
 
+man_MANS = \
+	man/rdma_accept.3 \
+	man/rdma_ack_cm_event.3 \
+	man/rdma_bind_addr.3 \
+	man/rdma_connect.3 \
+	man/rdma_create_event_channel.3 \
+	man/rdma_create_id.3 \
+	man/rdma_create_qp.3 \
+	man/rdma_destroy_event_channel.3 \
+	man/rdma_destroy_id.3 \
+	man/rdma_destroy_qp.3 \
+	man/rdma_disconnect.3 \
+	man/rdma_free_devices.3 \
+	man/rdma_get_cm_event.3 \
+	man/rdma_get_devices.3 \
+	man/rdma_get_src_port.3 \
+	man/rdma_get_dst_port.3 \
+	man/rdma_join_multicast.3 \
+	man/rdma_leave_multicast.3 \
+	man/rdma_listen.3 \
+	man/rdma_notify.3 \
+	man/rdma_reject.3 \
+	man/rdma_resolve_addr.3 \
+	man/rdma_resolve_route.3 \
+	man/ucmatose.1 \
+	man/udaddy.1 \
+	man/mckey.1 \
+	man/rping.1 \
+	man/rdma_cm.7
+
 EXTRA_DIST = include/rdma/rdma_cma_abi.h include/rdma/rdma_cma.h \
-	     src/librdmacm.map librdmacm.spec.in
+	     src/librdmacm.map librdmacm.spec.in $(man_MANS)
 
 dist-hook: librdmacm.spec
 	cp librdmacm.spec $(distdir)

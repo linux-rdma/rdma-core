@@ -1,0 +1,17 @@
+.TH "rdma_ack_cm_event" 3 "rdma_ack_cm_event" "May 2007" "Librdmacm Programmer's Manual" librdmacm
+.SH NAME
+rdma_ack_cm_event \- Free a communication event.
+.SH SYNOPSIS
+.B "#include <rdma/rdma_cma.h>"
+.P
+.B "int" rdma_ack_cm_event
+.BI "(struct rdma_cm_event *" event ");"
+.SH ARGUMENTS
+.IP "event" 12
+Event to be released.
+.SH "DESCRIPTION"
+All events which are allocated by rdma_get_cm_event must be released,
+there should be a one-to-one correspondence between successful gets
+and acks.
+.SH "SEE ALSO"
+rdma_get_cm_event, rdma_destroy_id
