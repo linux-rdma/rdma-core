@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_CA_PORTGUIDS 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_GET_CA_PORTGUIDS 3  "May 9, 2007" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
 umad_get_ca_portguids \- get the InfiniBand device ports GUIDs
 .SH "SYNOPSIS"
@@ -11,24 +11,29 @@ umad_get_ca_portguids \- get the InfiniBand device ports GUIDs
 .fi
 .SH "DESCRIPTION"
 .B umad_get_ca_portguids()
-fill the first
+fills the 
+.I portguids\fR
+array with up to
 .I max
-(or the available number of ports if available in device less than this number) of the IB device
+port GUIDs belonging the specified IB device
 .I ca_name
-in the array
-.I portguids\fR.
+, or to the default IB device if 
+.I ca_name
+is NULL. 
 The argument
 .I portguids
-is a uint64_t array with
+is an array of
 .I max
-entries.
+uint64_t entries.
 .SH "RETURN VALUE"
 On success,
 .B umad_get_ca_portguids()
-returns a non-negative value equal to the number of port GUIDS found. On failure, a negative value is returned.
+returns a non-negative value equal to the number of port GUIDs actually filled.
+On failure, a negative value is returned.
 .SH "SEE ALSO"
-.BR umad_init (3),
 .BR umad_get_cas_names (3)
 .SH "AUTHORS"
+.TP
+Hal Rosenstock <halr@voltaire.com>
 .TP
 Dotan Barak <dotanb@mellanox.co.il>
