@@ -4,6 +4,10 @@ SUBDIRS = .
 INCLUDES = -I$(srcdir)/include/infiniband \
 	   -I$(srcdir)/../libibcommon/include/infiniband
 
+man_MANS = man/umad_debug.3 man/umad_get_ca.3 \
+	   man/umad_get_ca_portguids.3 man/umad_get_cas_names.3 \
+	   man/umad_get_mad.3 man/umad_get_port.3 man/umad_init.3
+
 lib_LTLIBRARIES = libibumad.la
 
 libibumad_la_CFLAGS = -Wall
@@ -24,7 +28,17 @@ libibumadincludedir = $(includedir)/infiniband
 libibumadinclude_HEADERS = $(srcdir)/include/infiniband/umad.h
 
 EXTRA_DIST = $(srcdir)/include/infiniband/umad.h libibumad.spec.in \
-	     $(srcdir)/src/libibumad.map libibumad.ver
+	     $(srcdir)/src/libibumad.map libibumad.ver \
+	     $(man_MANS)
 
 dist-hook: libibumad.spec
 	cp libibumad.spec $(distdir)
+
+install-data-hook:
+	cd $(DESTDIR)$(mandir)/man3 && \
+	$(RM) umad_done.3 && \
+	$(RM) umad_release_ca.3 && \
+	$(RM) umad_release_port.3 && \
+	$(LN_S) umad_init.3 umad_done.3 && \
+	$(LN_S) umad_get_ca.3 umad_release_ca.3 && \
+	$(LN_S) umad_get_port.3 umad_release_port.3
