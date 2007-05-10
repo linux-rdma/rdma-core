@@ -13,12 +13,12 @@ RDMACM_1.0 {
 		rdma_listen;
 		rdma_accept;
 		rdma_reject;
+		rdma_notify;
 		rdma_disconnect;
 		rdma_get_cm_event;
 		rdma_ack_cm_event;
-		rdma_get_option;
-		rdma_set_option;
-		rdma_get_dst_attr;
+		rdma_get_src_port;
+		rdma_get_dst_port;
 		rdma_join_multicast;
 		rdma_leave_multicast;
 		rdma_get_devices;
