@@ -1,5 +1,7 @@
 2007-05-11 Hal Rosenstock <halr@voltaire.com>
 
+	* Release version 1.1.1.
+
 	* Makefile.am: Added man pages support
 
 	* man: Add initial version of libibumad man pages
