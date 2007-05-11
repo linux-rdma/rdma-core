@@ -1,26 +1,19 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_MAD 3  "May 9, 2007" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_GET_MAD 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
-umad_get_mad \- return a pointer to the MAD within the \'umad\' buffer
+umad_get_mad \- return the address of the MAD contained within the umad buffer
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
 .sp
-.BI "void *umad_get_mad(void " "*umad" );
+.BI "void * umad_get_mad(void " "*umad");
 .fi
 .SH "DESCRIPTION"
 .B umad_get_mad()
-returns the starting address of the MAD in the umad buffer
-.I umad\fR.
-.SH "RETURN VALUE"
-.B umad_get_mad()
-returns a pointer to start of the MAD, or NULL if the request fails.
-.SH "SEE ALSO"
-.BR umad_alloc (3),
-.BR umad_free (3)
-.SH "AUTHORS"
+returns a pointer to the MAD within the
+.I umad\fR
+buffer.
+.SH "AUTHOR"
 .TP
 Hal Rosenstock <halr@voltaire.com>
-.TP
-Dotan Barak <dotanb@mellanox.co.il>

@@ -1,8 +1,8 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_CA 3  "May 9, 2007" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_GET_CA 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
-umad_get_ca, umad_release_ca \- open and close context to InfiniBand device
+umad_get_ca, umad_release_ca \- get and release InfiniBand device port attributes
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
@@ -13,10 +13,10 @@ umad_get_ca, umad_release_ca \- open and close context to InfiniBand device
 .fi
 .SH "DESCRIPTION"
 .B umad_get_ca()
-opens a context and gets the attributes of the device
+gets the attributes of the InfiniBand device
 .I ca_name\fR.
 It fills
-the "
+the
 .I ca
 structure with the device attributes specified by
 the 
