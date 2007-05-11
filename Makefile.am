@@ -6,7 +6,15 @@ INCLUDES = -I$(srcdir)/include/infiniband \
 
 man_MANS = man/umad_debug.3 man/umad_get_ca.3 \
 	   man/umad_get_ca_portguids.3 man/umad_get_cas_names.3 \
-	   man/umad_get_mad.3 man/umad_get_port.3 man/umad_init.3
+	   man/umad_get_mad.3 man/umad_get_port.3 man/umad_init.3 \
+	   man/umad_open_port.3 man/umad_close_port.3 man/umad_size.3 \
+	   man/umad_status.3 man/umad_alloc.3 man/umad_free.3 \
+	   man/umad_dump.3 man/umad_addr_dump.3 man/umad_get_fd.3 \
+	   man/umad_get_mad.3 man/umad_get_mad_addr.3 \
+	   man/umad_set_grh_net.3 man/umad_set_grh.3 \
+	   man/umad_set_addr_net.3 man/umad_set_addr.3 man/umad_set_pkey.3 \
+	   man/umad_register.3 man/umad_register_oui.3 man/umad_unregister.3 \
+	   man/umad_send.3 man/umad_recv.3 man/umad_poll.3
 
 lib_LTLIBRARIES = libibumad.la
 

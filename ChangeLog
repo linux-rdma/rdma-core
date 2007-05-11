@@ -1,3 +1,9 @@
+2007-05-11 Hal Rosenstock <halr@voltaire.com>
+
+	* Makefile.am: Added man pages support
+
+	* man: Add initial version of libibumad man pages
+
 2007-04-24 Roland Dreier <rolandd@cisco.com>
 
 	* src/umad.c: In umad_open_port, fix declaration of
