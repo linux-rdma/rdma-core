@@ -2,7 +2,7 @@
 %define RELEASE 0.1.20070409git
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: OpenIB InfiniBand Management and Diagnostic Tools
+Summary: OpenFabrics Alliance InfiniBand MAD library
 Name: libibmad
 Version: 1.1.0
 Release: %rel%{?dist}
