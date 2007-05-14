@@ -2,7 +2,7 @@
 %define RELEASE @RELEASE@
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: OpenIB InfiniBand Management and Diagnostic Tools
+Summary: OpenFabrics Alliance InfiniBand umad (user MAD) library
 Name: libibumad
 Version: @VERSION@
 Release: %rel%{?dist}
