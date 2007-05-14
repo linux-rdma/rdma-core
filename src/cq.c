@@ -550,7 +550,7 @@ void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 {
 	struct mthca_cqe *cqe;
 	uint32_t prod_index;
-	int nfreed = 0;
+	int i, nfreed = 0;
 
 	pthread_spin_lock(&cq->lock);
 
@@ -584,6 +584,8 @@ void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 	}
 
 	if (nfreed) {
+		for (i = 0; i < nfreed; ++i)
+			set_cqe_hw(get_cqe(cq, (cq->cons_index + i) & cq->ibv_cq.cqe));
 		wmb();
 		cq->cons_index += nfreed;
 		update_cons_index(cq, nfreed);
