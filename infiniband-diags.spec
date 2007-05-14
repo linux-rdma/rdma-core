@@ -2,14 +2,14 @@
 %define RELEASE 0.1.20070409git
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: OpenIB InfiniBand Diagnostic Tools
-Name: openib-diags 
+Summary: OpenFabrics Alliance InfiniBand Diagnostic Tools
+Name: infiniband-diags 
 Version: 1.3.0
 Release: %rel%{?dist}
 License: GPL/BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Source: git://git.openfabrics.org/~halr/management/openib-diags-git.tgz
+Source: git://git.openfabrics.org/~halr/management/infiniband-diags-git.tgz
 Url: http://openfabrics.org/
 BuildRequires: libibmad-devel, opensm-devel, autoconf, automake
 Provides: perl(IBswcountlimits)
