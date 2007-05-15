@@ -62,11 +62,11 @@ if (defined $Getopt::Std::opt_l) { $list_hcas = $Getopt::Std::opt_l; }
 
 my $target_hca = $ARGV[0];
 
-if ($regenerate_map || !(-f "/tmp/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
+if ($regenerate_map || !(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
 
 if ($list_hcas)
 {
-   system ("ibhosts /tmp/ibnetdiscover.topology");
+   system ("ibhosts $IBswcountlimits::cache_dir/ibnetdiscover.topology");
    exit 1;
 }
 
@@ -80,7 +80,7 @@ if ($target_hca eq "")
 sub main
 {
    my $found_hca = undef;
-   open IBNET_TOPO, "</tmp/ibnetdiscover.topology" or die "Failed to open ibnet topology\n";
+   open IBNET_TOPO, "<$IBswcountlimits::cache_dir/ibnetdiscover.topology" or die "Failed to open ibnet topology\n";
    my $in_hca = "no";
    my %ports = undef;
    while (my $line = <IBNET_TOPO>)

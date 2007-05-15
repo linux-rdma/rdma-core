@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -85,8 +85,13 @@ struct AllChassisList {
 #define VTR_DEVID_SFB12_DDR		0x5a32
 #define VTR_DEVID_SFB4_DDR		0x5a33
 #define VTR_DEVID_SLB24_DDR		0x5a34
+#define VTR_DEVID_SFB2012		0x5a37
+#define VTR_DEVID_SLB2024		0x5a38
+#define VTR_DEVID_ISR2012		0x5a39
+#define VTR_DEVID_SFB2004		0x5a40
+#define VTR_DEVID_ISR2004		0x5a41
 
-enum ChassisType { UNRESOLVED_CT, ISR9288_CT, ISR9096_CT };
+enum ChassisType { UNRESOLVED_CT, ISR9288_CT, ISR9096_CT, ISR2012_CT, ISR2004_CT };
 enum ChassisSlot { UNRESOLVED_CS, LINE_CS, SPINE_CS, SRBD_CS };
 
 /*========================================================*/
@@ -98,6 +103,5 @@ char *portmapstring(Port *port);
 char *get_chassis_type(unsigned char chassistype);
 char *get_chassis_slot(unsigned char chassisslot);
 uint64_t get_chassis_guid(unsigned char chassisnum);
-
 
 #endif	/* _GROUPING_H_ */

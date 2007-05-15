@@ -46,7 +46,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define __BUILD_VERSION_TAG__ 1.2
+#define __BUILD_VERSION_TAG__ 1.2.1
 #include <common.h>
 #include <umad.h>
 #include <mad.h>

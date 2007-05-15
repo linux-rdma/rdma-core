@@ -1,3 +1,29 @@
+2007-05-09 Hal Rosenstock <halr@voltaire.com>
+
+	* src/grouping.c: Eliminate conditional compilation
+	  based on WORDSIZE
+
+2007-05-08 Hal Rosenstock <halr@voltaire.com>
+
+	* src/ibnetdiscover.c: Bumped build version
+
+	* include/grouping.h, src/grouping.c: Added support
+	  for ISR2012 and ISR2004
+
+2007-04-27 Ira K. Weiny <weiny2@llnl.gov>
+
+	* scripts/IBswcountlimits.pm, scripts/ibfindnodesusing.pl,
+	  scripts/ibprintca.pl, scripts/ibprintswitch.pl,
+	  scripts/ibqueryerrors.pl, scripts/ibswportwatch.pl:
+	  Remove all uses of "/tmp" from perl diags
+
+2007-04-14 Albert L. Chu <chu11@llnl.gov> 
+
+	* src/saquery.c, man/saquery.8: Add switch map support
+	  (for -O and -U options)
+
+	* man/ibtracert.8: Improve man page formatting
+
 2007-04-04 Hal Rosenstock <halr@voltaire.com>
 
 	* src/saquery.c, man/saquery.8: Add support for isSMdisabled

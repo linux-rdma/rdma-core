@@ -47,7 +47,7 @@
 #define _GNU_SOURCE
 #include <getopt.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.3
+#define __BUILD_VERSION_TAG__ 1.2.4
 
 #include <infiniband/opensm/osm_log.h>
 #include <infiniband/vendor/osm_vendor_api.h>
@@ -58,6 +58,9 @@
 #include "ibdiag_common.h"
 
 char *argv0 = "saquery";
+
+static char *switch_map = NULL;
+static FILE *switch_map_fp = NULL;
 
 /**
  * Declare some globals because I don't want this to be too complex.
@@ -116,6 +119,7 @@ print_node_record(ib_node_record_t *node_record)
 {
 	ib_node_info_t *p_ni = NULL;
 	ib_node_desc_t *p_nd = NULL;
+	char *name;
 
 	p_ni = &(node_record->node_info);
         p_nd = &(node_record->node_desc);
@@ -130,7 +134,13 @@ print_node_record(ib_node_record_t *node_record)
 		return;
 	case NAME_OF_LID:
 	case NAME_OF_GUID:
-		printf("%s\n", clean_nodedesc((char *)p_nd->description));
+		if (p_ni->node_type == IB_NODE_TYPE_SWITCH)
+			name = lookup_switch_name(switch_map_fp,
+						  cl_ntoh64(p_ni->node_guid),
+						  p_nd->description);
+		else
+			name = clean_nodedesc((char *)p_nd->description);
+		printf("%s\n", name);
 		return;
 	case ALL:
 	default:
@@ -506,7 +516,7 @@ print_inform_info_record(ib_inform_info_record_t *p_iir)
 		       cl_ntoh16( p_iir->inform_info.g_or_v.generic.trap_num ),
 		       cl_ntoh32( qpn ),
 		       resp_time_val,
-		       cl_ntoh32(ib_inform_info_get_node_type( &p_iir->inform_info ))
+		       cl_ntoh32(ib_inform_info_get_prod_type( &p_iir->inform_info ))
 		      );
 	} else {
 		printf("InformInfoRecord dump:\n"
@@ -539,7 +549,7 @@ print_inform_info_record(ib_inform_info_record_t *p_iir)
 		       cl_ntoh16( p_iir->inform_info.g_or_v.vend.dev_id ),
 		       cl_ntoh32( qpn ),
 		       resp_time_val,
-		       cl_ntoh32(ib_inform_info_get_node_type( &p_iir->inform_info ))
+		       cl_ntoh32(ib_inform_info_get_prod_type( &p_iir->inform_info ))
 		      );
 	}
 }
@@ -1042,6 +1052,7 @@ usage(void)
 			"                where src amd dst are either node names or LIDs\n");
 	fprintf(stderr, "   -t | --timeout <msec> specify the SA query response timeout (default %u msec)\n",
 			DEFAULT_SA_TIMEOUT_MS);
+	fprintf(stderr, "   --switch-map <switch-map> specify a switch map\n");
 	exit(-1);
 }
 
@@ -1078,6 +1089,7 @@ main(int argc, char **argv)
 	   {"list", 0, 0, 'D'},
 	   {"src-to-dst", 1, 0, 1},
 	   {"timeout", 1, 0, 't'},
+	   {"switch-map", 1, 0, 2},
 	   { }
 	};
 
@@ -1103,6 +1115,9 @@ main(int argc, char **argv)
 			query_type = IB_MAD_ATTR_PATH_RECORD;
 			break;
 		}
+		case 2:
+			switch_map = strdup(optarg);
+			break;
 		case 'P':
 			query_type = IB_MAD_ATTR_PATH_RECORD;
 			break;
@@ -1200,6 +1215,7 @@ main(int argc, char **argv)
 	} 
 
 	bind_handle = get_bind_handle();
+	switch_map_fp = open_switch_map(switch_map);
 
 	switch (query_type) {
 	case IB_MAD_ATTR_NODE_RECORD:
@@ -1245,5 +1261,6 @@ main(int argc, char **argv)
 	if (dst)
 		free(dst);
 	clean_up();
+	close_switch_map(switch_map_fp);
 	return (status);
 }

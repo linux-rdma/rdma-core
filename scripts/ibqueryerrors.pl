@@ -113,7 +113,7 @@ sub get_counts
 my %switches = ();
 sub get_switches
 {
-   my $data = `ibswitches /tmp/ibnetdiscover.topology`;
+   my $data = `ibswitches $IBswcountlimits::cache_dir/ibnetdiscover.topology`;
    my @lines = split("\n", $data);
    foreach my $line (@lines) {
       if ($line =~ /^Switch\s+:\s+(\w+)\s+ports\s+(\d+)\s+.*/)
@@ -164,7 +164,7 @@ sub main
       my $msg = join(",", @IBswcountlimits::suppress_errors);
       print "Suppressing: $msg\n";
    }
-   if ($regenerate_map || !(-f "/tmp/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
+   if ($regenerate_map || !(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
    get_switches;
    get_link_ends;
    foreach my $sw_addr (keys %switches) {

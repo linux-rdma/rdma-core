@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -41,6 +41,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include <common.h>
 #include <mad.h>
@@ -58,13 +59,13 @@ extern int maxhops_discovered;
 
 AllChassisList mylist;
 
-char *ChassisTypeStr[3] = { "", "ISR9288", "ISR9096" };
+char *ChassisTypeStr[5] = { "", "ISR9288", "ISR9096", "ISR2012", "ISR2004" };
 char *ChassisSlotStr[4] = { "", "Line", "Spine", "SRBD" };
 
 
 char *get_chassis_type(unsigned char chassistype)
 {
-	if (chassistype == UNRESOLVED_CT || chassistype > ISR9096_CT)
+	if (chassistype == UNRESOLVED_CT || chassistype > ISR2004_CT)
 		return NULL;
 	return ChassisTypeStr[chassistype];
 }
@@ -146,9 +147,20 @@ static int is_spine_9288(Node *node)
 		node->devid == VTR_DEVID_SFB12_DDR);
 }
 
+static int is_spine_2004(Node *node)
+{
+	return (node->devid == VTR_DEVID_SFB2004);
+}
+
+static int is_spine_2012(Node *node)
+{
+	return (node->devid == VTR_DEVID_SFB2012);
+}
+
 static int is_spine(Node *node)
 {
-	return (is_spine_9096(node) || is_spine_9288(node));
+	return (is_spine_9096(node) || is_spine_9288(node) ||
+		is_spine_2004(node) || is_spine_2012(node));
 }
 
 static int is_line_24(Node *node)
@@ -162,9 +174,14 @@ static int is_line_8(Node *node)
 	return (node->devid == VTR_DEVID_SLB8);
 }
 
+static int is_line_2024(Node *node)
+{
+	return (node->devid == VTR_DEVID_SLB2024);
+}
+
 static int is_line(Node *node)
 {
-	return (is_line_24(node) || is_line_8(node));
+	return (is_line_24(node) || is_line_8(node) || is_line_2024(node));
 }
 
 int is_chassis_switch(Node *node)
@@ -172,7 +189,7 @@ int is_chassis_switch(Node *node)
     return (is_spine(node) || is_line(node));
 }
 
-/* this struct's helps find Line (Anafa) slot number while using spine portnum */
+/* these structs help find Line (Anafa) slot number while using spine portnum */
 int line_slot_2_sfb4[25]        = { 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4 };
 int anafa_line_slot_2_sfb4[25]  = { 0, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2 };
 int line_slot_2_sfb12[25]       = { 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,10, 10, 11, 11, 12, 12 };
@@ -181,7 +198,7 @@ int anafa_line_slot_2_sfb12[25] = { 0, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2,
 /* IPR FCR modules connectivity while using sFB4 port as reference */
 int ipr_slot_2_sfb4_port[25]    = { 0, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1 };
 
-/* this struct's helps find Spine (Anafa) slot number while using spine portnum */
+/* these structs help find Spine (Anafa) slot number while using spine portnum */
 int spine12_slot_2_slb[25]      = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 int anafa_spine12_slot_2_slb[25]= { 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 int spine4_slot_2_slb[25]       = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -197,10 +214,20 @@ static void get_sfb_slot(Node *node, Port *lineport)
 		ch->chassistype = ISR9096_CT;
 		ch->slotnum = spine4_slot_2_slb[lineport->portnum];
 		ch->anafanum = anafa_spine4_slot_2_slb[lineport->portnum];
-	} else {
+	} else if (is_spine_9288(node)) {
 		ch->chassistype = ISR9288_CT;
 		ch->slotnum = spine12_slot_2_slb[lineport->portnum];
 		ch->anafanum = anafa_spine12_slot_2_slb[lineport->portnum];
+	} else if (is_spine_2012(node)) {
+		ch->chassistype = ISR2012_CT;
+		ch->slotnum = spine12_slot_2_slb[lineport->portnum];
+		ch->anafanum = anafa_spine12_slot_2_slb[lineport->portnum];
+	} else if (is_spine_2004(node)) {
+		ch->chassistype = ISR2004_CT;
+		ch->slotnum = spine4_slot_2_slb[lineport->portnum];
+		ch->anafanum = anafa_spine4_slot_2_slb[lineport->portnum];
+	} else {
+		IBPANIC("Unexpected node found: guid 0x%016" PRIx64, node->nodeguid);
 	}
 }
 
@@ -220,7 +247,7 @@ static void get_router_slot(Node *node, Port *spineport)
 		ch->chassistype = ISR9096_CT;
 		ch->slotnum = line_slot_2_sfb4[spineport->portnum];
 		ch->anafanum = ipr_slot_2_sfb4_port[spineport->portnum];
-	} else {
+	} else if (is_spine_9288(spineport->node)) {
 		ch->chassistype = ISR9288_CT;
 		ch->slotnum = line_slot_2_sfb12[spineport->portnum];
 		/* this is a smart guess based on nodeguids order on sFB-12 module */
@@ -229,6 +256,21 @@ static void get_router_slot(Node *node, Port *spineport)
 		/* module 2 <--> remote anafa 2 */
 		/* module 3 <--> remote anafa 1 */
 		ch->anafanum = (guessnum == 3 ? 1 : (guessnum == 1 ? 3 : 2));
+	} else if (is_spine_2012(spineport->node)) {
+		ch->chassistype = ISR2012_CT;
+		ch->slotnum = line_slot_2_sfb12[spineport->portnum];
+		/* this is a smart guess based on nodeguids order on sFB-12 module */
+		guessnum = spineport->node->nodeguid % 4;
+		// module 1 <--> remote anafa 3
+		// module 2 <--> remote anafa 2
+		// module 3 <--> remote anafa 1
+		ch->anafanum = (guessnum == 3? 1 : (guessnum == 1 ? 3 : 2));
+	} else if (is_spine_2004(spineport->node)) {
+		ch->chassistype = ISR2004_CT;
+		ch->slotnum = line_slot_2_sfb4[spineport->portnum];
+		ch->anafanum = ipr_slot_2_sfb4_port[spineport->portnum];
+	} else {
+		IBPANIC("Unexpected node found: guid 0x%016" PRIx64, spineport->node->nodeguid);
 	}
 }
 
@@ -239,10 +281,20 @@ static void get_slb_slot(ChassisRecord *ch, Port *spineport)
 		ch->chassistype = ISR9096_CT;
 		ch->slotnum = line_slot_2_sfb4[spineport->portnum];
 		ch->anafanum = anafa_line_slot_2_sfb4[spineport->portnum];
-	} else {
+	} else if (is_spine_9288(spineport->node)) {
 		ch->chassistype = ISR9288_CT;
 		ch->slotnum = line_slot_2_sfb12[spineport->portnum];
 		ch->anafanum = anafa_line_slot_2_sfb12[spineport->portnum];
+	} else if (is_spine_2012(spineport->node)) {
+		ch->chassistype = ISR2012_CT;
+		ch->slotnum = line_slot_2_sfb12[spineport->portnum];
+		ch->anafanum = anafa_line_slot_2_sfb12[spineport->portnum];
+	} else if (is_spine_2004(spineport->node)) {
+		ch->chassistype = ISR2004_CT;
+		ch->slotnum = line_slot_2_sfb4[spineport->portnum];
+		ch->anafanum = anafa_line_slot_2_sfb4[spineport->portnum];
+	} else {
+		IBPANIC("Unexpected node found: guid 0x%016" PRIx64, spineport->node->nodeguid);
 	}
 }
 
@@ -307,7 +359,7 @@ static int get_line_index(Node *node)
 	int retval = 3 * (node->chrecord->slotnum - 1) + node->chrecord->anafanum;
 
 	if (retval > LINES_MAX_NUM || retval < 1)
-		IBPANIC("Grouping: Internal error");
+		IBPANIC("Internal error");
 	return retval;
 }
 
@@ -315,13 +367,13 @@ static int get_spine_index(Node *node)
 {
 	int retval;
 
-	if (is_spine_9288(node))
+	if (is_spine_9288(node) || is_spine_2012(node))
 		retval = 3 * (node->chrecord->slotnum - 1) + node->chrecord->anafanum;
 	else
 		retval = node->chrecord->slotnum;
 
 	if (retval > SPINES_MAX_NUM || retval < 1)
-		IBPANIC("Grouping: Internal error");
+		IBPANIC("Internal error");
 	return retval;
 }
 
@@ -489,6 +541,14 @@ ext port | -  -  1  -  -  2  | -  -  3  -  -  4
 int port | 21 20 19 15 14 13 | 21 20 19 15 14 13
 ------------------------------------------------
 
+Module : sLB-2024
+
+   ext port | 13 14 15 16 17 18 19 20 21 22 23 24
+A1 int port | 13 14 15 16 17 18 19 20 21 22 23 24
+   ext port | 1  2  3  4  5  6  7  8  9  10 11 12
+A2 int port | 13 14 15 16 17 18 19 20 21 22 23 24
+---------------------------------------------------
+
 */
 
 int int2ext_map_slb24[2][25] = {
@@ -498,6 +558,10 @@ int int2ext_map_slb24[2][25] = {
 int int2ext_map_slb8[2][25] = {
 					{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 6, 6, 6, 1, 1, 1, 5, 5, 5 },
 					{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 8, 8, 8, 3, 3, 3, 7, 7, 7 }
+				};
+int int2ext_map_slb2024[2][25] = {
+					{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 },
+					{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }
 				};
 /*	reference			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 }; */
 
@@ -526,6 +590,8 @@ char *portmapstring(Port *port)
 
 	if (is_line_24(node))
 		pindex = int2ext_map_slb24[chipnum][portnum];
+	else if (is_line_2024(node))
+		pindex = int2ext_map_slb2024[chipnum][portnum];
 	else
 		pindex = int2ext_map_slb8[chipnum][portnum];
 

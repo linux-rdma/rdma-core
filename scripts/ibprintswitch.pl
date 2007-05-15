@@ -62,11 +62,11 @@ if (defined $Getopt::Std::opt_l) { $list_switches = $Getopt::Std::opt_l; }
 
 my $target_switch = $ARGV[0];
 
-if ($regenerate_map || !(-f "/tmp/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
+if ($regenerate_map || !(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
 
 if ($list_switches)
 {
-   system ("ibswitches /tmp/ibnetdiscover.topology");
+   system ("ibswitches $IBswcountlimits::cache_dir/ibnetdiscover.topology");
    exit 1;
 }
 
@@ -80,7 +80,7 @@ if ($target_switch eq "")
 sub main
 {
    my $found_switch = undef;
-   open IBNET_TOPO, "</tmp/ibnetdiscover.topology" or die "Failed to open ibnet topology\n";
+   open IBNET_TOPO, "<$IBswcountlimits::cache_dir/ibnetdiscover.topology" or die "Failed to open ibnet topology\n";
    my $in_switch = "no";
    my %ports = undef;
    while (my $line = <IBNET_TOPO>)

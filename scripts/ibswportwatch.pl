@@ -111,13 +111,14 @@ sub get_new_counts
    my $addr = $_[0];
    my $port = $_[1];
    mv_counts;
-   if (system("perfquery $GUID $addr $port > /tmp/perfquery.out"))
+   ensure_cache_dir;
+   if (system("perfquery $GUID $addr $port > $IBswcountlimits::cache_dir/perfquery.out"))
    {
       print "perfquery failed : \"perfquery $GUID $addr $port\"\n";
-      system("cat /tmp/perfquery.out");
+      system("cat $IBswcountlimits::cache_dir/perfquery.out");
       exit 1;
    }
-   open PERF_QUERY, "</tmp/perfquery.out" or die "perfquery failed";
+   open PERF_QUERY, "<$IBswcountlimits::cache_dir/perfquery.out" or die "perfquery failed";
    while (my $line = <PERF_QUERY>)
    {
       foreach my $count (@IBswcountlimits::counters)

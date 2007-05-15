@@ -43,6 +43,7 @@ use strict;
 @IBswcountlimits::suppress_errors = ();
 $IBswcountlimits::link_ends = undef;
 $IBswcountlimits::pause_time = 10;
+$IBswcountlimits::cache_dir = "/var/cache/infiniband-diags";
 
 # all the PM counters
 @IBswcountlimits::counters = (
@@ -204,9 +205,19 @@ sub any_counts
 
 # =========================================================================
 #
+sub ensure_cache_dir
+{
+   if (!(-d "$IBswcountlimits::cache_dir")) {
+       mkdir $IBswcountlimits::cache_dir, 0700;
+   }
+}
+
+# =========================================================================
+#
 sub generate_ibnetdiscover_topology
 {
-   `ibnetdiscover -g > /tmp/ibnetdiscover.topology`;
+   ensure_cache_dir;
+   `ibnetdiscover -g > $IBswcountlimits::cache_dir/ibnetdiscover.topology`;
    if ($? != 0) {
        die "Execution of ibnetdiscover failed with errors\n";
    }
@@ -216,8 +227,8 @@ sub generate_ibnetdiscover_topology
 #
 sub get_link_ends
 {
-   if (!(-f "/tmp/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
-   open IBNET_TOPO, "</tmp/ibnetdiscover.topology" or die "Failed to open ibnet topology: $!\n";
+   if (!(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
+   open IBNET_TOPO, "<$IBswcountlimits::cache_dir/ibnetdiscover.topology" or die "Failed to open ibnet topology: $!\n";
    my $in_switch = "no";
    my $desc = "";
    my $guid = "";

@@ -1,11 +1,11 @@
-.TH SAQUERY 8 "April 4, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH SAQUERY 8 "April 13, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 saquery \- query InfiniBand subnet administration attributes 
 
 .SH SYNOPSIS
 .B saquery 
-[\-h] [\-d] [\-P] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-C] [\-s] [\-g] [\-m] [--src-to-dst <src:dst>] [\-t(imeout) <msec>] [<name> | <lid> | <guid>]
+[\-h] [\-d] [\-P] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-C] [\-s] [\-g] [\-m] [--src-to-dst <src:dst>] [\-t(imeout) <msec>] [\-\-switch\-map <switch-map>] [<name> | <lid> | <guid>]
 
 .SH DESCRIPTION
 .PP
@@ -67,6 +67,12 @@ where src and dst are either node names or LIDs
 Specify SA query response timeout in milliseconds.
 Default is 100 milliseconds. You may want to use
 this option if IB_TIMEOUT is indicated.
+.TP
+\fB\-\-switch\-map\fR <switch-map>
+Specify a switch map.  The switch map file maps GUIDs to more user friendly
+names.  See 
+.B ibnetdiscover(8)
+for switch map file format.  Only used with the \fB\-O\fR and \fB\-U\fR options.
 .TP
 \fB\-d\fR
 enable debugging
