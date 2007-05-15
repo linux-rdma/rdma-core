@@ -1,0 +1,24 @@
+.\" -*- nroff -*-
+.\"
+.TH UMAD_SET_GRH 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.SH "NAME"
+umad_set_grh \- set GRH fields within umad buffer using host ordering
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/umad.h>
+.sp
+.BI "int umad_set_grh(void " "*umad" ", void " "*grh");
+.fi
+.SH "DESCRIPTION"
+.B umad_set_grh()
+sets the GRH fields within the specified
+.I umad\fR
+buffer. The provided
+.I grh\fR
+fields are expected to be in host order.
+.SH "RETURN VALUE"
+.B umad_set_grh()
+returns 0 on success, and \-1 on errors.
+.SH "AUTHOR"
+.TP
+Hal Rosenstock <halr@voltaire.com>

@@ -1,8 +1,8 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_PORT 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_GET_PORT 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
-umad_get_port, umad_release_port \- open and close context to InfiniBand device port
+umad_get_port, umad_release_port \- open and close an InfiniBand port
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
@@ -13,13 +13,39 @@ umad_get_port, umad_release_port \- open and close context to InfiniBand device 
 .fi
 .SH "DESCRIPTION"
 .B umad_get_port()
-open a context and get the attributes of the IB port number
+fills the 
+.I port
+structure with the IB port attributes specified by 
+.I ca_name
+and
 .I portnum
-of the device
-.I ca_name\fR.
+, or the default port if
+.I ca_name
+is NULL and
+.I portnum
+is zero. If only one of
+.I ca_name
+and
+.I portnum
+are specified, the other is used as a filter.
+For example, passing a NULL 
+.I ca_name
+and 2 for the
+.I portnum
+means get a port from any of the local IB devices, as long as it is
+the second port.
+Note that the library may use some reference scheme to support port caching
+therefore 
+.B umad_release_port()
+should be called before the 
+.I port
+structure can be deallocated.
 The argument
 .I port
-is an umad_port_t struct, as specified in <infiniband/umad.h>.
+is an 
+.B umad_port_t
+struct, as specified in 
+.B <infiniband/umad.h>.
 .PP
 .nf
 typedef struct umad_port {
@@ -41,19 +67,17 @@ uint64_t port_guid;                             /* GUID of this port */
 .fi
 .PP
 .B umad_release_port()
-release the context and the resources that were allocated in the function
+releases the resources that were allocated by the 
 .B umad_get_port()
-for the IB port
+function for the specified IB
 .I port\fR.
 .SH "RETURN VALUE"
 .B umad_get_port()
 and
 .B umad_release_port()
-returns 0 on success, and a negative value on error.
-.SH "SEE ALSO"
-.BR umad_init (3),
-.BR umad_get_ca_portguids (3),
-.BR umad_get_ca (3)
+return 0 on success, and a negative value on error.
 .SH "AUTHORS"
+.TP
+Hal Rosenstock <halr@voltaire.com>
 .TP
 Dotan Barak <dotanb@mellanox.co.il>

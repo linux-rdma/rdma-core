@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_INIT 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_INIT 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_init, umad_done \- perform library initialization and finalization
 .SH "SYNOPSIS"
@@ -13,20 +13,22 @@ umad_init, umad_done \- perform library initialization and finalization
 .fi
 .SH "DESCRIPTION"
 .B umad_init()
-initializes the umad library for use. This should be the first command when using this library.
+initializes the umad library for use. Must be called before any
+other call to this library. Error is returned if the infiniband mad
+class can't be opened, or the abi version doesn\'t match.
 .PP
 .B umad_done()
-finalize the use of the umad library.
+finalizes the use of the umad library.
 .SH "RETURN VALUE"
 .B umad_init()
 and
 .B umad_done()
-returns 0 on success, and \-1 on error.
+return 0 on success, and \-1 on error.
 .SH "NOTES"
-If an error occurs during the library initialization, no further use of the umad library should be attempted.
-.SH "SEE ALSO"
-.BR umad_get_cas_names (3),
-.BR umad_get_ca_portguids (3),
+If an error occurs during the library initialization, no further use of the 
+umad library should be attempted.
 .SH "AUTHORS"
+.TP
+Hal Rosenstock <halr@voltaire.com>
 .TP
 Dotan Barak <dotanb@mellanox.co.il>

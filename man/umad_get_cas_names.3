@@ -1,8 +1,8 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_CAS_NAMES 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_GET_CAS_NAMES 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
-umad_get_cas_names \- get list of available InfiniBand devices
+umad_get_cas_names \- get list of available InfiniBand device names
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
@@ -11,10 +11,11 @@ umad_get_cas_names \- get list of available InfiniBand devices
 .fi
 .SH "DESCRIPTION"
 .B umad_get_cas_names()
-fill the first
+fills the
+.I cas
+array with up to  
 .I max
-(or the available devices if available in host less than this number) in the array
-.I cas.
+local IB devices (CAs) names. 
 The argument
 .I cas
 is a character array with
@@ -24,11 +25,12 @@ entries, each with
 characters.
 .SH "RETURN VALUE"
 .B umad_get_cas_names()
-returns a non-negative value equal to the number of devices found.
+returns a non-negative value equal to the number of entries filled,
+or \-1 on errors.
 .SH "SEE ALSO"
-.BR umad_init (3),
 .BR umad_get_ca_portguids (3)
-
 .SH "AUTHORS"
+.TP
+Hal Rosenstock <halr@voltaire.com>
 .TP
 Dotan Barak <dotanb@mellanox.co.il>

@@ -1,8 +1,8 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_CA 3  "2007-03-12" "OpenIB" "OpenIB Programmer's Manual"
+.TH UMAD_GET_CA 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
-umad_get_ca, umad_release_ca \- open and close context to InfiniBand device
+umad_get_ca, umad_release_ca \- get and release InfiniBand device port attributes
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
@@ -13,11 +13,31 @@ umad_get_ca, umad_release_ca \- open and close context to InfiniBand device
 .fi
 .SH "DESCRIPTION"
 .B umad_get_ca()
-open a context and get the attributes of the device
+gets the attributes of the InfiniBand device
 .I ca_name\fR.
+It fills
+the
+.I ca
+structure with the device attributes specified by
+the 
+.I ca_name
+or with the default device attributes if 
+.I ca_name
+is NULL.
+Note that the library allocates memory for some of the 
+.I ca
+fields, and
+therefore 
+.B umad_release_ca()
+should be used to free these fields before the
+.I ca
+structure can be deallocated.
 The argument
 .I ca
-is an umad_ca_t struct, as specified in <infiniband/umad.h>.
+is an 
+.I umad_ca_t
+struct, as specified in 
+.I <infiniband/umad.h>.
 .PP
 .nf
 typedef struct umad_ca {
@@ -36,18 +56,15 @@ umad_port_t *ports[UMAD_CA_MAX_PORTS];          /* Array of device port properti
 .fi
 .PP
 .B umad_release_ca()
-release the device and the resources that were allocated in the function
-.B umad_get_ca()
-for the device
-.I ca\fR.
+releases the InfiniBand device and the resources that were allocated in the function
+.B umad_get_ca()\fR.
 .SH "RETURN VALUE"
 .B umad_get_ca()
 and
 .B umad_release_ca()
-returns 0 on success, and a negative value on error.
-.SH "SEE ALSO"
-.BR umad_init (3),
-.BR umad_get_ca_portguids (3)
+return 0 on success, and a negative value on error.
 .SH "AUTHORS"
+.TP
+Hal Rosenstock <halr@voltaire.com>
 .TP
 Dotan Barak <dotanb@mellanox.co.il>
