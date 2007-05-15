@@ -12,23 +12,23 @@ else
 DBGFLAGS =
 endif
 
-bin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
-	       src/ibroute src/ibstat src/ibsysstat src/ibtracert \
-	       src/perfquery src/sminfo src/smpdump src/smpquery \
-	       src/saquery src/vendstat
+sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
+	        src/ibroute src/ibstat src/ibsysstat src/ibtracert \
+	        src/perfquery src/sminfo src/smpdump src/smpquery \
+	        src/saquery src/vendstat
 
-bin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
-              scripts/ibcheckport scripts/ibhosts scripts/ibstatus \
-	      scripts/ibswitches scripts/ibnodes \
-	      scripts/ibcheckwidth scripts/ibcheckportwidth \
-	      scripts/ibcheckstate scripts/ibcheckportstate \
-	      scripts/ibcheckerrors scripts/ibclearerrors \
-	      scripts/ibclearcounters scripts/ibdiscover.pl \
-	      scripts/dump_lfts.sh scripts/dump_mfts.sh \
-	      scripts/set_mthca_nodedesc.sh \
-	      scripts/ibqueryerrors.pl scripts/ibswportwatch.pl \
-	      scripts/iblinkinfo.pl scripts/ibprintswitch.pl \
-	      scripts/ibprintca.pl scripts/ibfindnodesusing.pl
+sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
+               scripts/ibcheckport scripts/ibhosts scripts/ibstatus \
+	       scripts/ibswitches scripts/ibnodes \
+	       scripts/ibcheckwidth scripts/ibcheckportwidth \
+	       scripts/ibcheckstate scripts/ibcheckportstate \
+	       scripts/ibcheckerrors scripts/ibclearerrors \
+	       scripts/ibclearcounters scripts/ibdiscover.pl \
+	       scripts/dump_lfts.sh scripts/dump_mfts.sh \
+	       scripts/set_mthca_nodedesc.sh \
+	       scripts/ibqueryerrors.pl scripts/ibswportwatch.pl \
+	       scripts/iblinkinfo.pl scripts/ibprintswitch.pl \
+	       scripts/ibprintca.pl scripts/ibfindnodesusing.pl
 
 src_ibaddr_SOURCES = src/ibaddr.c
 src_ibaddr_CFLAGS = -Wall $(DBGFLAGS)
@@ -133,7 +133,7 @@ src_vendstat_CFLAGS = -Wall $(DBGFLAGS)
 
 #src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
 #src_mcm_rereg_test_CFLAGS = -Wall $(DBGFLAGS)
-#bin_PROGRAMS += src/mcm_rereg_test
+#sbin_PROGRAMS += src/mcm_rereg_test
 
 man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibchecknet.8 man/ibchecknode.8 man/ibcheckport.8 \
