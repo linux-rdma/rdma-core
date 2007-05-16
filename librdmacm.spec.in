@@ -1,14 +1,14 @@
 %define ver @VERSION@
 
 Name: librdmacm
-Version: 1.0
-Release: 2-rc%{?dist}
+Version: 1.0.1
+Release: 1%{?dist}
 Summary: Userspace RDMA Connection Manager.
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/%{name}-%{version}-%{release}.tar.gz
+Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %description
@@ -59,7 +59,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/lib*.so
 %{_libdir}/*.a
 %{_includedir}/*
+%{_mandir}/man1/*
 %{_mandir}/man3/*
+%{_mandir}/man7/*
 
 %files utils
 %defattr(-,root,root,-)
