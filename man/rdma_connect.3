@@ -1,4 +1,4 @@
-.TH "rdma_connect" 3 "rdma_connect" "May 2007" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_CONNECT" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_connect \- Initiate an active connection request.
 .SH SYNOPSIS
@@ -56,5 +56,5 @@ Specifies the QP number associated with the connection.  This field is ignored
 by the library if a QP has been created on the rdma_cm_id.  Applies only to
 RDMA_PS_TCP.
 .SH "SEE ALSO"
-rdma_cm, rdma_create_id, rdma_resolve_route, rdma_disconnect, rdma_listen,
-rdma_get_cm_event
+rdma_cm(7), rdma_create_id(3), rdma_resolve_route(3), rdma_disconnect(3),
+rdma_listen(3), rdma_get_cm_event(3)

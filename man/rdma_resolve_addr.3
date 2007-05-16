@@ -1,4 +1,4 @@
-.TH "rdma_resolve_addr" 3 "rdma_resolve_addr" "May 2007" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_RESOLVE_ADDR" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_resolve_addr \- Resolve destination and optional source addresses.
 .SH SYNOPSIS
@@ -32,5 +32,5 @@ local routing tables.  After this call, the rdma_cm_id will be bound to
 an RDMA device.  This call is typically made from the active side of a
 connection before calling rdma_resolve_route and rdma_connect.
 .SH "SEE ALSO"
-rdma_create_id, rdma_resolve_route, rdma_connect, rdma_create_qp,
-rdma_get_cm_event, rdma_bind_addr
+rdma_create_id(3), rdma_resolve_route(3), rdma_connect(3), rdma_create_qp(3),
+rdma_get_cm_event(3), rdma_bind_addr(3)

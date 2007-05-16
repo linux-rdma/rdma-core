@@ -1,4 +1,4 @@
-.TH "rdma_create_event_channel" 3 "rdma_create_event_channel" "May 2007" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_CREATE_EVENT_CHANNEL" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_create_event_channel \- Open a channel used to report communication events.
 .SH SYNOPSIS
@@ -25,4 +25,4 @@ Each event channel is mapped to a file descriptor.  The associated file
 descriptor can be used and manipulated like any other fd to change its
 behavior.  Users may make the fd non-blocking, poll or select the fd, etc.
 .SH "SEE ALSO"
-rdma_cm, rdma_get_cm_event, rdma_destroy_event_channel
+rdma_cm(7), rdma_get_cm_event(3), rdma_destroy_event_channel(3)

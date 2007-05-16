@@ -1,4 +1,4 @@
-.TH "rdma_destroy_id" 3 "rdma_destroy_id" "May 2007" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_DESTROY_ID" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_destroy_id \- Release a communication identifier.
 .SH SYNOPSIS
@@ -16,4 +16,4 @@ asynchronous operation.
 Users must free any associated QP with the rdma_cm_id before
 calling this routine and ack an related events.
 .SH "SEE ALSO"
-rdma_create_id, rdma_destroy_qp, rdma_ack_cm_event
+rdma_create_id(3), rdma_destroy_qp(3), rdma_ack_cm_event(3)
