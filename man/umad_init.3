@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_INIT 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_INIT 3  "May 17, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_init, umad_done \- perform library initialization and finalization
 .SH "SYNOPSIS"
@@ -14,8 +14,8 @@ umad_init, umad_done \- perform library initialization and finalization
 .SH "DESCRIPTION"
 .B umad_init()
 initializes the umad library for use. Must be called before any
-other call to this library. Error is returned if the infiniband mad
-class can't be opened, or the abi version doesn\'t match.
+other call to this library. Error is returned if infiniband umad
+can't be opened, or the abi version doesn\'t match.
 .PP
 .B umad_done()
 finalizes the use of the umad library.
@@ -24,6 +24,12 @@ finalizes the use of the umad library.
 and
 .B umad_done()
 return 0 on success, and \-1 on error.
+Error is returned from
+.B umad_init()
+if infiniband umad 
+can't be opened, or the abi version doesn\'t match.
+There are no errors currently returned by
+.B umad_done().
 .SH "NOTES"
 If an error occurs during the library initialization, no further use of the 
 umad library should be attempted.

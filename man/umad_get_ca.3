@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_CA 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_GET_CA 3  "May 17, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_get_ca, umad_release_ca \- get and release InfiniBand device port attributes
 .SH "SYNOPSIS"
@@ -24,14 +24,10 @@ the
 or with the default device attributes if 
 .I ca_name
 is NULL.
-Note that the library allocates memory for some of the 
-.I ca
-fields, and
-therefore 
 .B umad_release_ca()
-should be used to free these fields before the
+should be called before the
 .I ca
-structure can be deallocated.
+structure is deallocated.
 The argument
 .I ca
 is an 
@@ -46,7 +42,7 @@ char ca_name[UMAD_CA_NAME_LEN];                 /* Name of the device */
 uint node_type;                                 /* Type of the device */
 int numports;                                   /* Number of physical ports */
 char fw_ver[20];                                /* FW version */
-char ca_type[40];                               /* ??????????????? */
+char ca_type[40];                               /* CA type (e.g. MT23108, etc.) */
 char hw_ver[20];                                /* Hardware version */
 uint64_t node_guid;                             /* Node GUID */
 uint64_t system_guid;                           /* System image GUID */

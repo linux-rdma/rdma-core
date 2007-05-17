@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_STATUS 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_STATUS 3  "May 17, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_status \- get the status of a umad buffer
 .SH "SYNOPSIS"
@@ -17,9 +17,10 @@ status field.
 .SH "RETURN VALUE"
 After a packet is received,
 .B umad_status()
-returns either a non zero status which means that the packet had 
-a send-timeout indication or zero which means it is a valid 
-packet.
+returns 0 on a successful receive, or a non zero status. 
+ETIMEDOUT means that the packet had 
+a send-timeout indication. In this case, the transaction ID will be
+set to the TID of the original request. 
 .SH "AUTHOR"
 .TP
 Hal Rosenstock <halr@voltaire.com>

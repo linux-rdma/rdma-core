@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_FD 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_GET_FD 3  "May 17, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_get_fd \- get the umad fd for the requested port
 .SH "SYNOPSIS"
@@ -15,8 +15,11 @@ returns the umad fd for the port specified by
 .I portid\fR.
 .SH "RETURN VALUE"
 .B umad_get_fd()
-returns the fd for port or -EINVAL if portid is invalid.
- -EINVAL	invalid port handle
+returns the fd for the
+.I portid\fR
+requested or -EINVAL if 
+.I portid\fR
+is invalid.
 .SH "AUTHOR"
 .TP
 Hal Rosenstock <halr@voltaire.com>
