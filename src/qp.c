@@ -282,9 +282,12 @@ out:
 		++qp->sq.head;
 
 		pthread_spin_lock(&ctx->bf_lock);
+
 		memcpy(ctx->bf_page + ctx->bf_offset, ctrl, align(size * 16, 64));
-		/* FIXME flush wc buffers */
+		wc_wmb();
+
 		ctx->bf_offset ^= ctx->bf_buf_size;
+
 		pthread_spin_unlock(&ctx->bf_lock);
 	} else if (nreq) {
 		qp->sq.head += nreq;

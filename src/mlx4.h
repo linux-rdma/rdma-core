@@ -65,6 +65,20 @@
 #  define wmb() mb()
 #endif
 
+#ifndef wc_wmb
+
+#if defined(__i386__)
+#define wc_wmb() asm volatile("lock; addl $0,0(%%esp) " ::: "memory")
+#elif defined(__x86_64__)
+#define wc_wmb() asm volatile("sfence" ::: "memory")
+#elif defined(__ia64__)
+#define wc_wmb() asm volatile("fwb" ::: "memory")
+#else
+#define wc_wmb() wmb()
+#endif
+
+#endif
+
 #define HIDDEN		__attribute__((visibility ("hidden")))
 
 #define PFX		"mlx4: "
