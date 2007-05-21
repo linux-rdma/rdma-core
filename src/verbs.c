@@ -390,8 +390,14 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 	*qp->db = 0;
 
-	cmd.buf_addr = (uintptr_t) qp->buf.buf;
-	cmd.db_addr  = (uintptr_t) qp->db;
+	cmd.buf_addr	  = (uintptr_t) qp->buf.buf;
+	cmd.db_addr	  = (uintptr_t) qp->db;
+	cmd.log_sq_stride = qp->sq.wqe_shift;
+	for (cmd.log_sq_bb_count = 0;
+	     qp->sq.max > 1 << cmd.log_sq_bb_count;
+	     ++cmd.log_sq_bb_count)
+		; /* nothing */
+	memset(cmd.reserved, 0, sizeof cmd.reserved);
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp, sizeof resp);
@@ -402,11 +408,9 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (ret)
 		goto err_destroy;
 
-	qp->sq.max	    = attr->cap.max_send_wr;
-	qp->rq.max	    = attr->cap.max_recv_wr;
-	qp->sq.max_gs	    = attr->cap.max_send_sge;
-	qp->rq.max_gs	    = attr->cap.max_recv_sge;
-	qp->max_inline_data = attr->cap.max_inline_data;
+	qp->rq.max    = attr->cap.max_recv_wr;
+	qp->rq.max_gs = attr->cap.max_recv_sge;
+	mlx4_set_sq_sizes(qp, &attr->cap, attr->qp_type);
 
 	qp->doorbell_qpn    = htonl(qp->ibv_qp.qp_num << 8);
 	if (attr->sq_sig_all)

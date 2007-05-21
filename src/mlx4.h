@@ -343,6 +343,8 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
 int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type, struct mlx4_qp *qp);
+void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
+		       enum ibv_qp_type type);
 struct mlx4_qp *mlx4_find_qp(struct mlx4_context *ctx, uint32_t qpn);
 int mlx4_store_qp(struct mlx4_context *ctx, uint32_t qpn, struct mlx4_qp *qp);
 void mlx4_clear_qp(struct mlx4_context *ctx, uint32_t qpn);

@@ -469,6 +469,32 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	return 0;
 }
 
+void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
+		       enum ibv_qp_type type)
+{
+	int wqe_size;
+
+	wqe_size = 1 << qp->sq.wqe_shift;
+	switch (type) {
+	case IBV_QPT_UD:
+		wqe_size -= sizeof (struct mlx4_wqe_datagram_seg);
+		break;
+
+	case IBV_QPT_UC:
+	case IBV_QPT_RC:
+		wqe_size -= sizeof (struct mlx4_wqe_raddr_seg);
+		break;
+
+	default:
+		break;
+	}
+
+	qp->sq.max_gs        = wqe_size / sizeof (struct mlx4_wqe_data_seg);
+	cap->max_send_sge    = qp->sq.max_gs;
+	qp->max_inline_data  = wqe_size - sizeof (struct mlx4_wqe_inline_seg);
+	cap->max_inline_data = qp->max_inline_data;
+}
+
 struct mlx4_qp *mlx4_find_qp(struct mlx4_context *ctx, uint32_t qpn)
 {
 	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;

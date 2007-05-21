@@ -250,9 +250,13 @@ static struct ibv_device *mlx4_driver_init(const char *uverbs_sys_path,
 	return NULL;
 
 found:
-	if (abi_version > MLX4_UVERBS_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is too new (expected %d)\n",
-			abi_version, uverbs_sys_path, MLX4_UVERBS_ABI_VERSION);
+	if (abi_version < MLX4_UVERBS_MIN_ABI_VERSION ||
+	    abi_version > MLX4_UVERBS_MAX_ABI_VERSION) {
+		fprintf(stderr, PFX "Fatal: ABI version %d of %s is not supported "
+			"(min supported %d, max supported %d)\n",
+			abi_version, uverbs_sys_path,
+			MLX4_UVERBS_MIN_ABI_VERSION,
+			MLX4_UVERBS_MAX_ABI_VERSION);
 		return NULL;
 	}
 
