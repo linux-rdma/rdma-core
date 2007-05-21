@@ -1,3 +1,7 @@
+2007-05-21  Hal Rosenstock <halr@voltaire.com>
+
+	* src/fields.c: Changed PortMulticastPkts to PortMulticastRcvPkts 
+
 2007-03-29  Hal Rosenstock <halr@voltaire.com>
 
 	* src/fields.c: Changed Xmt/RcvBytes to Xmt/RcvData

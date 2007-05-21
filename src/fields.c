@@ -351,7 +351,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_PC_EXT_XMT_UPKTS_F]		{320, 64, "PortUnicastXmitPkts", mad_dump_uint},
 	[IB_PC_EXT_RCV_UPKTS_F]		{384, 64, "PortUnicastRcvPkts", mad_dump_uint},
 	[IB_PC_EXT_XMT_MPKTS_F]		{448, 64, "PortMulticastXmitPkts", mad_dump_uint},
-	[IB_PC_EXT_RCV_MPKTS_F]		{512, 64, "PortMulticastPkts", mad_dump_uint},
+	[IB_PC_EXT_RCV_MPKTS_F]		{512, 64, "PortMulticastRcvPkts", mad_dump_uint},
 
 	/*
 	 * GUIDInfo fields
