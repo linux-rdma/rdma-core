@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_DEBUG 3  "May 17, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_DEBUG 3  "May 21, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_debug \- set debug level
 .SH "SYNOPSIS"
@@ -11,17 +11,17 @@ umad_debug \- set debug level
 .fi
 .SH "DESCRIPTION"
 .B umad_debug()
-sets the umad library internal debugging level to
+sets the umad library internal debug level to
 .I level\fR.
 The following
-debugging levels are supported: 0 - no debugging (the default),
-1 - basic debugging information, 2 - verbose debugging. Negative values are
-ignored. Note that the current debugging level can
+debug levels are supported: 0 - no debug (the default),
+1 - basic debug information, 2 - verbose debug information. Negative values are
+ignored in terms of set. Note that the current debug level can
 be queried by passing a negative value as
-.I level.
+.I level\fR.
 .SH "RETURN VALUE"
 .B umad_debug()
-returns the actual verbosity level. 
+returns the actual debug level. 
 .SH "AUTHORS"
 .TP
 Hal Rosenstock <halr@voltaire.com>

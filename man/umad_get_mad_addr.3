@@ -1,8 +1,8 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_MAD_ADDR 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_GET_MAD_ADDR 3  "May 21, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
-umad_get_mad_addr \- return the address of the ib_mad_addr struct within a umad buffer
+umad_get_mad_addr \- get the address of the ib_mad_addr from a umad buffer
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/umad.h>
@@ -18,8 +18,7 @@ buffer.
 The return value  
 is a pointer to an
 .I ib_mad_addr_t 
-struct, as specified in
-.I <infiniband/umad.h>.
+struct, as specified in <infiniband/umad.h>.
 .PP
 .nf
 typedef struct ib_mad_addr {
