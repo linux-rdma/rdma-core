@@ -81,6 +81,13 @@ int mlx4_post_srq_recv(struct ibv_srq *ibsrq,
 			break;
 		}
 
+		if (srq->head == srq->tail) {
+			/* SRQ is full*/
+			err = -1;
+			*bad_wr = wr;
+			break;
+		}
+
 		srq->wrid[srq->head] = wr->wr_id;
 
 		next      = get_wqe(srq, srq->head);
