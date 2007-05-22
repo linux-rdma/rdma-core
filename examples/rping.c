@@ -972,7 +972,9 @@ err1:
 
 static void usage(char *name)
 {
-	printf("%s -c|s [-vVd] [-S size] [-C count] -a addr [-p port]\n", 
+	printf("%s -s [-vVd] [-S size] [-C count] [-a addr] [-p port]\n", 
+	       basename(name));
+	printf("%s -c [-vVd] [-S size] [-C count] -a addr [-p port]\n", 
 	       basename(name));
 	printf("\t-c\t\tclient side\n");
 	printf("\t-s\t\tserver side\n");
