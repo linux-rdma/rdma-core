@@ -972,7 +972,7 @@ err1:
 
 static void usage(char *name)
 {
-	printf("%s -c|s [-vVd] [-S size] [-C count] -a addr -p port\n", 
+	printf("%s -c|s [-vVd] [-S size] [-C count] -a addr [-p port]\n", 
 	       basename(name));
 	printf("\t-c\t\tclient side\n");
 	printf("\t-s\t\tserver side\n");
@@ -999,6 +999,7 @@ int main(int argc, char *argv[])
 	cb->server = -1;
 	cb->state = IDLE;
 	cb->size = 64;
+	cb->port = htons(7174);
 	sem_init(&cb->sem, 0, 0);
 
 	opterr = 0;
