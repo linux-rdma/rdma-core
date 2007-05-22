@@ -288,7 +288,7 @@ int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size);
 void mlx4_free_buf(struct mlx4_buf *buf);
 
 uint32_t *mlx4_alloc_db(struct mlx4_context *context, enum mlx4_db_type type);
-void mlx4_free_db(struct mlx4_context *context, uint32_t *db);
+void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type, uint32_t *db);
 
 int mlx4_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr);

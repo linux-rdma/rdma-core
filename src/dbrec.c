@@ -46,7 +46,7 @@ struct mlx4_db_page {
 	struct mlx4_buf			buf;
 	int				num_db;
 	int				use_cnt;
-	unsigned			free[0];
+	unsigned long			free[0];
 };
 
 static const int db_size[] = {
@@ -58,24 +58,24 @@ static struct mlx4_db_page *__add_page(struct mlx4_context *context,
 				       enum mlx4_db_type type)
 {
 	struct mlx4_db_page *page;
+	int ps = to_mdev(context->ibv_ctx.device)->page_size;
 	int pp;
 	int i;
 
-	pp = to_mdev(context->ibv_ctx.device)->page_size / db_size[type];
+	pp = ps / db_size[type];
 
 	page = malloc(sizeof *page + pp / 8);
 	if (!page)
 		return NULL;
 
-	if (mlx4_alloc_buf(&page->buf, to_mdev(context->ibv_ctx.device)->page_size,
-			   to_mdev(context->ibv_ctx.device)->page_size)) {
+	if (mlx4_alloc_buf(&page->buf, ps, ps)) {
 		free(page);
 		return NULL;
 	}
 
 	page->num_db  = pp;
 	page->use_cnt = 0;
-	for (i = 0; i < pp / (sizeof (int) * 8); ++i)
+	for (i = 0; i < pp / (sizeof (long) * 8); ++i)
 		page->free[i] = ~0;
 
 	page->prev = NULL;
@@ -109,9 +109,9 @@ found:
 	for (i = 0; !page->free[i]; ++i)
 		/* nothing */;
 
-	j = ffs(page->free[i]);
+	j = ffsl(page->free[i]);
 	page->free[i] &= ~(1 << (j - 1));
-	db = page->buf.buf + (i * 8 * sizeof (int) + (j - 1)) * db_size[type];
+	db = page->buf.buf + (i * 8 * sizeof (long) + (j - 1)) * db_size[type];
 
 out:
 	pthread_mutex_unlock(&context->db_list_mutex);
@@ -119,7 +119,36 @@ out:
 	return db;
 }
 
-void mlx4_free_db(struct mlx4_context *context, uint32_t *db)
+void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type, uint32_t *db)
 {
-	/*XXX nothing for now*/
+	struct mlx4_db_page *page;
+	uintptr_t ps = to_mdev(context->ibv_ctx.device)->page_size;
+	int i;
+
+	pthread_mutex_lock(&context->db_list_mutex);
+
+	for (page = context->db_list[type]; page; page = page->next)
+		if (((uintptr_t) db & ~(ps - 1)) == (uintptr_t) page->buf.buf)
+			break;
+
+	if (!page)
+		goto out;
+
+	i = ((void *) db - page->buf.buf) / db_size[type];
+	page->free[i / (8 * sizeof (long))] |= 1 << (i % (8 * sizeof (long)));
+
+	if (!--page->use_cnt) {
+		if (page->prev)
+			page->prev->next = page->next;
+		else
+			context->db_list[type] = page->next;
+		if (page->next)
+			page->next->prev = page->prev;
+
+		mlx4_free_buf(&page->buf);
+		free(page);
+	}
+
+out:
+	pthread_mutex_unlock(&context->db_list_mutex);
 }
