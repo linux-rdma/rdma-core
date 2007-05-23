@@ -384,15 +384,20 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
 		goto err_free;
 
-	qp->db = mlx4_alloc_db(to_mctx(pd->context), MLX4_DB_TYPE_RQ);
-	if (!qp->db)
-		goto err_free;
+	if (!attr->srq) {
+		qp->db = mlx4_alloc_db(to_mctx(pd->context), MLX4_DB_TYPE_RQ);
+		if (!qp->db)
+			goto err_free;
 
-	*qp->db = 0;
+		*qp->db = 0;
+	}
 
-	cmd.buf_addr	  = (uintptr_t) qp->buf.buf;
-	cmd.db_addr	  = (uintptr_t) qp->db;
-	cmd.log_sq_stride = qp->sq.wqe_shift;
+	cmd.buf_addr	    = (uintptr_t) qp->buf.buf;
+	if (attr->srq)
+		cmd.db_addr = 0;
+	else
+		cmd.db_addr = (uintptr_t) qp->db;
+	cmd.log_sq_stride   = qp->sq.wqe_shift;
 	for (cmd.log_sq_bb_count = 0;
 	     qp->sq.max > 1 << cmd.log_sq_bb_count;
 	     ++cmd.log_sq_bb_count)
@@ -424,7 +429,8 @@ err_destroy:
 	ibv_cmd_destroy_qp(&qp->ibv_qp);
 
 err_rq_db:
-	mlx4_free_db(to_mctx(pd->context), MLX4_DB_TYPE_RQ, qp->db);
+	if (!attr->srq)
+		mlx4_free_db(to_mctx(pd->context), MLX4_DB_TYPE_RQ, qp->db);
 
 err_free:
 	free(qp->sq.wrid);
@@ -523,7 +529,8 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 		return ret;
 	}
 
-	mlx4_free_db(to_mctx(ibqp->context), MLX4_DB_TYPE_RQ, qp->db);
+	if (!ibqp->srq)
+		mlx4_free_db(to_mctx(ibqp->context), MLX4_DB_TYPE_RQ, qp->db);
 	free(qp->sq.wrid);
 	free(qp->rq.wrid);
 	mlx4_free_buf(&qp->buf);
