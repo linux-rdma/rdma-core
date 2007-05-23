@@ -1,3 +1,11 @@
+2007-05-23 Hal Rosenstock <halr@voltaire.com>
+
+	* scripts/ibcheckerrors.in, scripts/ibchecknet.in,
+	  scripts/ibcheckstate.in, scripts/ibcheckwidth.in,
+	  scripts/ibclearcounters.in, scripts/ibclearerrors.in,
+	  scripts/ibfindnodesusing.in, scripts/IBswcountlimits.pm:
+	  Add support for routers
+
 2007-05-09 Hal Rosenstock <halr@voltaire.com>
 
 	* src/grouping.c: Eliminate conditional compilation

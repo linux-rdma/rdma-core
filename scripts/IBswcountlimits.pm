@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
 # Copyright (c) 2006 The Regents of the University of California.
-# Copyright (c) 2006 Voltaire, Inc. All rights reserved.
+# Copyright (c) 2006-2007 Voltaire, Inc. All rights reserved.
 #
 # Produced at Lawrence Livermore National Laboratory.
 # Written by Ira Weiny <weiny2@llnl.gov>.
@@ -300,7 +300,7 @@ sub get_link_ends
 	 }
       }
 
-      if ($line =~ /^Ca.*/) { $in_switch = "no"; }
+      if ($line =~ /^Ca.*/ || $line =~ /^Rt.*/) { $in_switch = "no"; }
    }
    close IBNET_TOPO;
 }

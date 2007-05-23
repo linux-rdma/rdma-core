@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2001-2003 The Regents of the University of California.
 # Copyright (c) 2006 The Regents of the University of California.
+# Copyright (c) 2007 Voltaire, Inc. All rights reserved. 
 #
 # Produced at Lawrence Livermore National Laboratory.
 # Written by Ira Weiny <weiny2@llnl.gov>
@@ -176,7 +177,7 @@ sub main
             goto FOUND;
          }
       }
-      if ($line =~ /^Ca.*/) { $in_switch = "no"; }
+      if ($line =~ /^Ca.*/ || $line =~ /^Rt.*/) { $in_switch = "no"; }
 
       if ( $line =~ /^\[(\d+)\].*/ && $in_switch eq "yes" )
       {

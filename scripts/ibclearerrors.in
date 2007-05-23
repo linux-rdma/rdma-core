@@ -52,7 +52,7 @@ function clear_errors(lid, port)
 		nodeerr++
 }
 
-/^Ca/ || /^Switch/ {
+/^Ca/ || /^Switch/ || /^Rt/ {
 			nnodes++
 			ntype=$1; nodeguid=substr($3, 4, 16); ports=$2
 			nodecleared=0

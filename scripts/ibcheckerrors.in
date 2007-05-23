@@ -71,7 +71,7 @@ function check_node(lid)
 		nodeerr=1;
 }
 
-/^Ca/ || /^Switch/ {
+/^Ca/ || /^Switch/ || /^Rt/ {
 			nnodes++
 			ntype=$1; nodeguid=substr($3, 4, 16); ports=$2
 			if ('$v')
