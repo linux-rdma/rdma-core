@@ -1,3 +1,15 @@
+2007-05-23 Ira K. Weiny <weiny2@llnl.gov>
+
+	* libibumad.spec.in: Add man pages
+
+2007-05-21 Hal Rosenstock <halr@voltaire.com> 
+
+	* man/umad_set_addr.3, man/umad_set_addr_net.3,
+	  man/umad_set_grh.3, man/umad_set_grh_net.3:
+	  Add "SEE ALSO" section
+
+	* man: More changes based on additional comments from Dotan Barak
+
 2007-05-17 Hal Rosenstock <halr@voltaire.com>
 
 	* Makefile.am: No longer install man/umad_set_pkey.3 
