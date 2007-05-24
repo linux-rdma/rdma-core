@@ -458,6 +458,12 @@ int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct ibv_modify_qp cmd;
 	int ret;
 
+	if (qp->state == IBV_QPS_RESET &&
+	    attr_mask & IBV_QP_STATE   &&
+	    attr->qp_state == IBV_QPS_INIT) {
+		mlx4_qp_init_sq_ownership(to_mqp(qp));
+	}
+
 	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
 
 	if (!ret		       &&

@@ -73,6 +73,17 @@ void mlx4_init_qp_indices(struct mlx4_qp *qp)
 	qp->rq.tail	 = 0;
 }
 
+void mlx4_qp_init_sq_ownership(struct mlx4_qp *qp)
+{
+	struct mlx4_wqe_ctrl_seg *ctrl;
+	int i;
+
+	for (i = 0; i < qp->sq.max; ++i) {
+		ctrl = get_send_wqe(qp, i);
+		ctrl->owner_opcode = htonl(1 << 31);
+	}
+}
+
 static int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
 {
 	unsigned cur;
@@ -375,10 +386,8 @@ out:
 int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type, struct mlx4_qp *qp)
 {
-	struct mlx4_wqe_ctrl_seg *ctrl;
 	int size;
 	int max_sq_sge;
-	int i;
 
 	qp->rq.max_gs	 = cap->max_recv_sge;
 	qp->sq.max_gs	 = cap->max_send_sge;
@@ -460,11 +469,6 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	}
 
 	memset(qp->buf.buf, 0, qp->buf_size);
-
-	for (i = 0; i < qp->sq.max; ++i) {
-		ctrl = get_send_wqe(qp, i);
-		ctrl->owner_opcode = htonl(1 << 31);
-	}
 
 	return 0;
 }

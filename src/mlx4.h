@@ -337,6 +337,7 @@ int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    enum ibv_qp_attr_mask attr_mask);
 int mlx4_destroy_qp(struct ibv_qp *qp);
 void mlx4_init_qp_indices(struct mlx4_qp *qp);
+void mlx4_qp_init_sq_ownership(struct mlx4_qp *qp);
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr);
 int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
