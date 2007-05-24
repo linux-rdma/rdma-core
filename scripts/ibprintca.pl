@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 #
 # Copyright (c) 2006 The Regents of the University of California.
+# Copyright (c) 2007 Voltaire, Inc. All rights reserved.
 #
 # Produced at Lawrence Livermore National Laboratory.
 # Written by Ira Weiny <weiny2@llnl.gov>.
@@ -101,7 +102,7 @@ sub main
             $found_hca = "yes";
          }
       }
-      if ($line =~ /^Switch.*/) { $in_hca = "no"; }
+      if ($line =~ /^Switch.*/ || ($line =~ /^Rt.*/) { $in_hca = "no"; }
 
       if ( $line =~ /^\[(\d+)\].*/ && $in_hca eq "yes" )
       {

@@ -1,3 +1,7 @@
+2007-05-24 Hal Rosenstock <halr@voltaire.com>
+
+	* scripts/ibprintca.pl: Add support for routers
+
 2007-05-23 Hal Rosenstock <halr@voltaire.com>
 
 	* scripts/ibcheckerrors.in, scripts/ibchecknet.in,
