@@ -1,3 +1,8 @@
+2007-05-24 Hal Rosenstock <halr@voltaire.com>
+
+	* man/umad_set_grh.3, man/umad_set_grh_net.3: Some more
+	  changes based on comments from Dotan Barak
+
 2007-05-23 Ira K. Weiny <weiny2@llnl.gov>
 
 	* libibumad.spec.in: Add man pages

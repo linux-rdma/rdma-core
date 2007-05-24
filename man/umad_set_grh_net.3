@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_SET_GRH_NET 3  "May 21, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_SET_GRH_NET 3  "May 24, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_set_grh_net \- set GRH fields within umad buffer using network ordering
 .SH "SYNOPSIS"
@@ -11,7 +11,8 @@ umad_set_grh_net \- set GRH fields within umad buffer using network ordering
 .fi
 .SH "DESCRIPTION"
 .B umad_set_grh_net()
-sets the GRH fields within the specified
+sets the GRH fields (grh_present, gid, hop_limit, traffic_class, flow_label)
+within the specified
 .I umad\fR
 buffer based on the
 .I mad_addr\fR
@@ -26,6 +27,12 @@ The argument
 is a pointer to an
 .I ib_mad_addr_t
 struct, as specified in <infiniband/umad.h>.
+The argument
+.I umad
+is a pointer to an
+.I ib_user_mad_t
+struct, as specified in
+.I <infiniband/umad.h>.
 .PP
 .nf
 typedef struct ib_mad_addr {
@@ -43,6 +50,18 @@ uint8_t  gid[16];
 uint32_t flow_label;
 .in -8
 } ib_mad_addr_t;
+.PP
+typedef struct ib_user_mad {
+.in +8
+uint32_t agent_id;
+uint32_t status;
+uint32_t timeout_ms;
+uint32_t retries;
+uint32_t length;
+ib_mad_addr_t addr;
+uint8_t  data[0];
+.in -8
+} ib_user_mad_t;
 .fi
 .SH "RETURN VALUE"
 .B umad_set_grh_net()
