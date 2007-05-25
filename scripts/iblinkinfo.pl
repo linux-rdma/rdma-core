@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 #
 # Copyright (c) 2006 The Regents of the University of California.
+# Copyright (c) 2007 Voltaire, Inc. All rights reserved. 
 #
 # Produced at Lawrence Livermore National Laboratory.
 # Written by Ira Weiny <weiny2@llnl.gov>.
@@ -162,11 +163,11 @@ sub main
 	 }
          if (!$only_down_links || ($only_down_links && $state eq "Down"))
          {
-	        push (@output_lines, sprintf ("   %s %6s %4s[%2s]  ==%s%s==>  %s %4s[%2s] \"%s\"\n",
+	        push (@output_lines, sprintf ("   %s %6s %4s[%2s]  ==%s%s==>  %s %6s %4s[%2s] \"%s\"\n",
 	    	        $line_begin,
                         $hr->{loc_sw_lid}, $port, $hr->{loc_ext_port},
 		        $capabilities, $port_timeouts,
-                        $ext_guid, $hr->{rem_port}, $hr->{rem_ext_port},
+                        $ext_guid, $hr->{rem_lid}, $hr->{rem_port}, $hr->{rem_ext_port},
                         $hr->{rem_desc}));
                 $print_switch = "yes";
          }
