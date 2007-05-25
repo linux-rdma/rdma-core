@@ -1,3 +1,8 @@
+2007-05-25 Hal Rosenstock <halr@voltaire.com>
+
+	* src/ibportstate.c: Add LinkSpeed/Width related components
+	  to output
+
 2007-05-24 Hal Rosenstock <halr@voltaire.com>
 
 	* scripts/ibprintca.pl: Add support for routers

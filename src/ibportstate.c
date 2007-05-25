@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -43,7 +43,7 @@
 #include <string.h>
 #include <getopt.h>
 
-#define __BUILD_VERSION_TAG__ 1.2
+#define __BUILD_VERSION_TAG__ 1.3
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
@@ -106,9 +106,27 @@ get_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
 	if (!smp_query(data, dest, IB_ATTR_PORT_INFO, portnum, 0))
 		return -1;
 
-	if (port_op != 4)
+	if (port_op != 4) {
 		mad_dump_portstates(buf, sizeof buf, data, sizeof data);
-	else {
+		mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, val);
+		mad_dump_field(IB_PORT_LINK_WIDTH_SUPPORTED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");	
+		mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, val);
+		mad_dump_field(IB_PORT_LINK_WIDTH_ENABLED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, val);
+		mad_dump_field(IB_PORT_LINK_WIDTH_ACTIVE_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, val);
+		mad_dump_field(IB_PORT_LINK_SPEED_SUPPORTED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, val);
+		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, val);
+		mad_dump_field(IB_PORT_LINK_SPEED_ACTIVE_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");
+	} else {
 		mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, val);
 		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf, sizeof buf, val);
 		sprintf(buf+strlen(buf), "%s", "\n");
