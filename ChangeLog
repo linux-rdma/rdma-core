@@ -1,5 +1,10 @@
 2007-05-25 Hal Rosenstock <halr@voltaire.com>
 
+	* scripts/iblinkinfo.pl: Display remote LID with peer port info
+
+	* scripts/IBswcountlimits.pm: Add support for rem_lid in
+	  get_link_ends subroutine 
+
 	* src/ibportstate.c: Handle peer ports at 1x that
 	  should be wider and 2.5 Gbps that should be faster
 
