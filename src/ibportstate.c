@@ -43,7 +43,7 @@
 #include <string.h>
 #include <getopt.h>
 
-#define __BUILD_VERSION_TAG__ 1.3
+#define __BUILD_VERSION_TAG__ 1.2.1
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
@@ -187,9 +187,15 @@ validate_width(int width, int peerwidth, int lwa)
 			if (lwa != 4)
 				IBWARN("Peer ports operating at active width %d rather than 4 (8x)", lwa);
 		} else {
-			if ((width & 0x2) && (peerwidth & 0x2))
+			if ((width & 0x2) && (peerwidth & 0x2)) {
 				if (lwa != 2)
 					IBWARN("Peer ports operating at active width %d rather than 2 (4x)", lwa);
+			} else {
+				if ((width & 0x1) && (peerwidth & 0x1)) {
+					if (lwa != 1)
+						IBWARN("Peer ports operating at active width %d rather than 1 (1x)", lwa);
+				}
+			}
 		}
 	}
 }
@@ -201,9 +207,15 @@ validate_speed(int speed, int peerspeed, int lsa)
 		if (lsa != 4)
 			IBWARN("Peer ports operating at active speed %d rather than  4 (10.0 Gbps)", lsa);
 	} else {
-		if ((speed & 0x2) && (peerspeed & 0x2))
+		if ((speed & 0x2) && (peerspeed & 0x2)) {
 			if (lsa != 2)
 				IBWARN("Peer ports operating at active speed %d rather than 2 (5.0 Gbps)", lsa);
+		} else {
+			if ((speed & 0x1) && (peerspeed & 0x1)) {
+				if (lsa != 1)
+					IBWARN("Peer ports operating at active speed %d rather than 1 (2.5 Gbps)", lsa);
+			}
+		}
 	}
 }
 
@@ -443,21 +455,13 @@ main(int argc, char **argv)
 					/* Now validate peer port characteristics */
 					/* Examine Link Width */
 					width = get_link_width(lwe, lws);
-					if (width & 0xe) {	/* more than 1x */
-						peerwidth = get_link_width(peerlwe, peerlws);
-						if (peerwidth & 0xe)
-							/* Look at active widths */
-							validate_width(width, peerwidth, lwa);
-					}
+					peerwidth = get_link_width(peerlwe, peerlws);
+					validate_width(width, peerwidth, lwa);
 
 					/* Examine Link Speed */
 					speed = get_link_speed(lse, lss);
-					if (speed & 0x6) {	/* more than 2.5 Gbps */
-						peerspeed = get_link_speed(peerlse, peerlss);
-						if (peerspeed & 0x6)
-							/* Look at active speeds */
-							validate_speed(speed, peerspeed, lsa);
-					}
+					peerspeed = get_link_speed(peerlse, peerlss);
+					validate_speed(speed, peerspeed, lsa);
 				}
 			}
 		}
