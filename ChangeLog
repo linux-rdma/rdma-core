@@ -1,5 +1,7 @@
 2007-05-25 Hal Rosenstock <halr@voltaire.com>
 
+	* scripts/IBswcountlimits.pm: Add support for routers
+
 	* scripts/iblinkinfo.pl: Display remote LID with peer port info
 
 	* scripts/IBswcountlimits.pm: Add support for rem_lid in
