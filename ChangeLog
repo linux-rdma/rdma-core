@@ -1,5 +1,8 @@
 2007-05-26 Hal Rosenstock <halr@voltaire.com>
 
+	* scripts/IBswcountlimits.pm: Fix node description parsing
+	  for switches
+
 	* scripts/iblinkinfo.pl: Add peer port link width and speed
 	  validation
 

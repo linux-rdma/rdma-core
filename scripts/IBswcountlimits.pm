@@ -239,7 +239,7 @@ sub get_link_ends
 
    while ($line = <IBNET_TOPO>)
    {
-      if ($line =~ /^Switch.*\"S-(.*)\"\s+# (.*) port.* lid (\d+) .*/)
+      if ($line =~ /^Switch.*\"S-(.*)\"\s+#.*\"(.*)\".* lid (\d+).*/)
       {
          $guid = $1;
          $desc = $2;
@@ -259,7 +259,6 @@ sub get_link_ends
             $rec = { loc_guid => "0x$guid", loc_port => $loc_port, loc_ext_port => "", loc_desc => $desc,
                         loc_sw_lid => $loc_sw_lid,
                   rem_guid => "0x$rem_guid", rem_lid => $rem_lid, rem_port => $rem_port, rem_ext_port => "", rem_desc => $rem_desc };
-            #print "$rec->{loc_desc}\n";
          }
          if ($line =~ /^\[(\d+)\]\[ext (\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\]\s+#.*\"(.*)\"\.* lid (\d+).*/)
          {
