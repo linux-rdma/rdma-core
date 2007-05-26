@@ -137,6 +137,27 @@ sub main
             if ($line =~ /^VLStallCount:\.+(.*)/)       { $vl_stall = $1; }
             if ($line =~ /^PhysLinkState:\.+(.*)/)      { $phy_link_state = $1; }
          }
+         my $rem_guid = $hr->{rem_guid};
+         my $rem_port = $hr->{rem_port};
+         my $rem_lid = $hr->{rem_lid};
+         my $rem_speed_sup = "";
+         my $rem_speed_enable = "";
+         my $rem_width_sup = "";
+         my $rem_width_enable = "";
+         if ($rem_lid ne "" && $rem_port ne "")
+         {
+            $data = `smpquery portinfo $rem_lid $rem_port`;
+            if ($data eq "") {
+               printf("ERROR: failed to get portinfo for $switch port $port\n");
+            }
+            my @lines = split("\n", $data);
+            foreach my $line (@lines) {
+               if ($line =~ /^LinkSpeedEnabled:\.+(.*)/)   { $rem_speed_enable = $1; }
+               if ($line =~ /^LinkSpeedSupported:\.+(.*)/) { $rem_speed_sup = $1; }
+               if ($line =~ /^LinkWidthEnabled:\.+(.*)/)   { $rem_width_enable = $1; }
+               if ($line =~ /^LinkWidthSupported:\.+(.*)/) { $rem_width_sup = $1; }
+            }
+         }
 	 my $line_begin = "";
 	 my $ext_guid = "";
          if ($line_mode)
@@ -163,12 +184,39 @@ sub main
 	 }
          if (!$only_down_links || ($only_down_links && $state eq "Down"))
          {
-	        push (@output_lines, sprintf ("   %s %6s %4s[%2s]  ==%s%s==>  %s %6s %4s[%2s] \"%s\"\n",
+	        my $width_msg = "";
+	        my $speed_msg = "";
+	        if ($rem_width_enable ne "" && $rem_width_sup ne "")
+	        {
+	           if ($width_enable =~ /12X/ && $rem_width_enable =~ /12X/ && $width !~ /12X/) {
+	              $width_msg = "Could be 12X";
+	           } else {
+	              if ($width_enable =~ /8X/ && $rem_width_enable =~ /8X/ && $width !~ /8X/) {
+	                 $width_msg = "Could be 8X";
+	              } else {
+	                 if ($width_enable =~ /4X/ && $rem_width_enable =~ /4X/ && $width !~ /4X/) {
+	                    $width_msg = "Could be 4X";
+	                 }
+	              }
+	           }
+	        }
+	        if ($rem_speed_enable ne "" && $rem_speed_sup ne "")
+	        {
+	           if ($speed_enable =~ /10\.0/ && $rem_speed_enable =~ /10\.0/&& $speed !~ /10\.0/) {
+	              $speed_msg = "Could be 10.0 Gbps";
+	           } else {
+	              if ($speed_enable =~ /5\.0/ && $rem_speed_enable =~ /5\.0/&& $speed !~ /5\.0/) {
+	                 $speed_msg = "Could be 5.0 Gbps";
+	              }
+	           }
+	        }
+
+	        push (@output_lines, sprintf ("   %s %6s %4s[%2s]  ==%s%s==>  %s %6s %4s[%2s] \"%s\" ( %s %s)\n",
 	    	        $line_begin,
                         $hr->{loc_sw_lid}, $port, $hr->{loc_ext_port},
 		        $capabilities, $port_timeouts,
                         $ext_guid, $hr->{rem_lid}, $hr->{rem_port}, $hr->{rem_ext_port},
-                        $hr->{rem_desc}));
+                        $hr->{rem_desc}, $width_msg, $speed_msg));
                 $print_switch = "yes";
          }
       }

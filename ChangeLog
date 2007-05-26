@@ -1,3 +1,8 @@
+2007-05-26 Hal Rosenstock <halr@voltaire.com>
+
+	* scripts/iblinkinfo.pl: Add peer port link width and speed
+	  validation
+
 2007-05-25 Hal Rosenstock <halr@voltaire.com>
 
 	* scripts/IBswcountlimits.pm: Add support for routers
