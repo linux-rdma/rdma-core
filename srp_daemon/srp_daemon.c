@@ -984,7 +984,7 @@ static void print_config(struct config_t *conf)
 	if (conf->retry_timeout)
 		printf(" Retries to connect to existing target after %d seconds\n", conf->retry_timeout);
 	else
-		printf(" Do not ertry to connect to existing targets\n");
+		printf(" Do not retry to connect to existing targets\n");
 	printf(" ------------------------------------------------\n");
 }		
 
