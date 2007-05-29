@@ -36,6 +36,11 @@ pid=""
 min_sleep=1
 max_sleep=30
 sleep_on_failure=${min_sleep}
+last_status=1024 # a dummy status
+dump_log=1
+report_timeout=7200
+report_run_time=60
+last_report=0
 
 trap 'trap_handler' 2 15
 
@@ -65,7 +70,6 @@ trap_handler()
     exit 0
 }
 
-
 while true
 do
     # Check the ib/srp status
@@ -84,14 +88,28 @@ do
         continue
     fi
 
-    logger -i -t "$(basename $0)" "starting ${prog}: [HCA=${hca_id}] [port=${port}]"
+    if [ $dump_log -eq 1 ]; then
+        logger -i -t "$(basename $0)" "starting ${prog}: [HCA=${hca_id}] [port=${port}]"
+    fi
 
     start_time=$(date +%s | tr -d '[:space:]')
     ${prog} ${params} >> ${log} 2>&1 &
     pid=$!
-    wait
-    let run_time=$(date +%s | tr -d '[:space:]')-${start_time}
-    logger -i -t "$(basename $0)" "failed ${prog}: [HCA=${hca_id}] [port=${port}] [exit status=$?]"
+    wait $pid
+    status=$?
+    end_time=$(date +%s | tr -d '[:space:]')
+    let run_time=${end_time}-${start_time}
+    let time_from_last_report=${end_time}-${last_report}
+    if [ $run_time -gt $report_run_time -o $time_from_last_report -gt $report_timeout -o $status -ne $last_status ]; then
+	dump_log=1
+    else
+	dump_log=0
+    fi
+    if [ $dump_log -eq 1 ]; then
+        logger -i -t "$(basename $0)" "failed ${prog}: [HCA=${hca_id}] [port=${port}] [exit status=${status}]. Will try to restart ${prog} periodically. No more warnings will be issued in the next ${report_run_time} seconds if the same problem repeats"
+	last_report=$end_time
+    fi
+    last_status=$status
     sleep $sleep_on_failure
     if [ $run_time -gt 10 ]; then
         sleep_on_failure=${min_sleep}
