@@ -390,7 +390,6 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	int max_sq_sge;
 
 	qp->rq.max_gs	 = cap->max_recv_sge;
-	qp->sq.max_gs	 = cap->max_send_sge;
 	max_sq_sge	 = align(cap->max_inline_data + sizeof (struct mlx4_wqe_inline_seg),
 				 sizeof (struct mlx4_wqe_data_seg)) / sizeof (struct mlx4_wqe_data_seg);
 	if (max_sq_sge < cap->max_send_sge)
@@ -478,7 +477,7 @@ void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 {
 	int wqe_size;
 
-	wqe_size = 1 << qp->sq.wqe_shift;
+	wqe_size = (1 << qp->sq.wqe_shift) - sizeof (struct mlx4_wqe_ctrl_seg);
 	switch (type) {
 	case IBV_QPT_UD:
 		wqe_size -= sizeof (struct mlx4_wqe_datagram_seg);
@@ -493,7 +492,7 @@ void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 		break;
 	}
 
-	qp->sq.max_gs        = wqe_size / sizeof (struct mlx4_wqe_data_seg);
+	qp->sq.max_gs	     = wqe_size / sizeof (struct mlx4_wqe_data_seg);
 	cap->max_send_sge    = qp->sq.max_gs;
 	qp->max_inline_data  = wqe_size - sizeof (struct mlx4_wqe_inline_seg);
 	cap->max_inline_data = qp->max_inline_data;
