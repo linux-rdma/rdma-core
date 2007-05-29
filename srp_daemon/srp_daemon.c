@@ -205,6 +205,8 @@ int is_enabled_by_rules_file(struct target_details *target)
 	            target->h_service_id)
 				continue;
 
+		target->options = conf->rules[rule].options;
+
 		return conf->rules[rule].allow;
 
 	} while (1);
@@ -361,8 +363,20 @@ static int add_non_exist_target(struct target_details *target)
 		}
 	}
 
-	target_config_str[len] = '\n';
-	target_config_str[len+1] = '\0';
+	if (target->options) {
+		len += snprintf(target_config_str+len, 
+				MAX_TARGET_CONFIG_STR_STRING - len,
+				"%s",
+				target->options);
+
+		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+			pr_err("Target conifg string is too long, ignoring target\n");
+			closedir(dir);
+			return -1;
+		}
+	}
+
+	target_config_str[len] = '\0';
 
 	pr_cmd(target_config_str, not_connected);
 
@@ -695,6 +709,7 @@ static int do_port(struct resources *res, uint16_t dlid,
 	
 	target->subnet_prefix = subnet_prefix;
 	target->h_guid = h_guid;
+	target->options = NULL;
 
  	pr_debug("enter do_port\n");
 	if ((target->h_guid & oui_mask) == topspin_oui &&
@@ -973,10 +988,10 @@ static void print_config(struct config_t *conf)
 	printf(" ------------------------------------------------\n");
 }		
 
-static char *copy_till_comma(char *d, char *s, int len)
+static char *copy_till_comma(char *d, char *s, int len, int base)
 {
 	while (*s != ',' && *s != ' ' && *s != '\t' && *s != '\n') {
-		if (isxdigit(*s)) {
+		if ((base == 16 && isxdigit(*s)) || ((base == 10) && isdigit(*s))) {
 			*d=*s;
 			++d;
 			++s;
@@ -994,9 +1009,9 @@ static char *copy_till_comma(char *d, char *s, int len)
 
 static int get_rules_file(struct config_t *conf)
 {
-	int line_number = 1;
-	char line[255];
-	char *ptr, *ptr2;
+	int line_number = 1, len;
+	char line[255], option[17];
+	char *ptr, *ptr2, *optr;
 	FILE *infile=fopen(conf->rules_file, "r");
 
 	if (infile == NULL) {
@@ -1042,6 +1057,7 @@ static int get_rules_file(struct config_t *conf)
 		conf->rules[line_number].ioc_guid[0]='\0';
 		conf->rules[line_number].dgid[0]='\0';
 		conf->rules[line_number].service_id[0]='\0';
+		conf->rules[line_number].options[0]='\0';
 
 		ptr = &line[1];
 		while (*ptr == ' ' || *ptr == '\t')
@@ -1049,25 +1065,45 @@ static int get_rules_file(struct config_t *conf)
 
 		while (*ptr != '\n') {
 			ptr2 = NULL;
+			optr = conf->rules[line_number].options;
 			if (strncmp(ptr, "id_ext=", 7) == 0)
 				ptr2 = copy_till_comma(
 					conf->rules[line_number].id_ext, 
-					ptr+7, 16); 
+					ptr+7, 16, 16); 
 
 			else if (strncmp(ptr, "ioc_guid=", 9) == 0)
 				ptr2 = copy_till_comma(
 					conf->rules[line_number].ioc_guid, 
-					ptr+9, 16); 
+					ptr+9, 16, 16); 
 				
 			else if (strncmp(ptr, "dgid=", 5) == 0)
 				ptr2 = copy_till_comma(
 					conf->rules[line_number].dgid, 
-					ptr+5, 32); 
+					ptr+5, 32, 16); 
 
 			else if (strncmp(ptr, "service_id=", 11) == 0)
 				ptr2 = copy_till_comma(
 					conf->rules[line_number].service_id, 
-					ptr+11, 16); 
+					ptr+11, 16, 16); 
+
+			else if (conf->rules[line_number].allow) {
+
+				if (strncmp(ptr, "max_sect=", 9) == 0) {
+					ptr2 = copy_till_comma(option, ptr+9, 16, 10); 
+					if (ptr2) {
+						len = sprintf(optr, ",max_sect=%s", option);
+						optr += len;
+					}
+				}
+
+				else if (strncmp(ptr, "max_cmd_per_lun=", 16) == 0) {
+					ptr2 = copy_till_comma(option, ptr+16, 16, 10); 
+					if (ptr2) {
+						len = sprintf(optr, ",max_cmd_per_lun=%s", option);
+						optr += len;
+					}
+				}
+			}
 
 			if (ptr2 == NULL) {
 				pr_err("Bad syntax in rules file %s line %d\n",
@@ -1085,6 +1121,7 @@ static int get_rules_file(struct config_t *conf)
 	conf->rules[line_number].ioc_guid[0]='\0';
 	conf->rules[line_number].dgid[0]='\0';
 	conf->rules[line_number].service_id[0]='\0';
+	conf->rules[line_number].options[0]='\0';
 	conf->rules[line_number].allow = 1;
 	
 	return 0;
