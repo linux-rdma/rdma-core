@@ -169,12 +169,12 @@ BEGIN {
 
 /^CounterSelect/ {next}
 
-/^PortSelect/	{ if ($2 != '$portnum') {err = err "error: port " $2 " does not match query ('$portnum')\n"; exit -1}}
+/^PortSelect/	{ if ($2 != '$portnum') {err = err "error: lid '$lid' port " $2 " does not match query ('$portnum')\n"; exit -1}}
 
 $1 ~ "(Xmt|Rcv)(Pkts|Data)" { next }
 
 	{ if (th[$1] > 0 && $2 >= th[$1])
-		warn = warn "#warn: counter " $1 " = " $2 " \t(threshold " th[$1] ")\n"
+		warn = warn "#warn: counter " $1 " = " $2 " \t(threshold " th[$1] ") lid '$lid' port '$portnum'\n"
 	}
 END {
 	if (err != "") {

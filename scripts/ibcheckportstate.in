@@ -88,9 +88,9 @@ function blue(s)
 
 # Only check PortPhysicalState and PortState 
 
-/^PhysLinkState/{ if ($2 != "LinkUp") {err = err "#error: Physical link state is " $2 "\n"; exit -1}}
+/^PhysLinkState/{ if ($2 != "LinkUp") {err = err "#error: Physical link state is " $2 "  lid '$lid' port '$portnum'\n"; exit -1}}
 
-/^LinkState/{ if ($2 != "Active") warn = warn "#warn: Logical link state is " $2 "\n"}
+/^LinkState/{ if ($2 != "Active") warn = warn "#warn: Logical link state is " $2 "  lid '$lid' port '$portnum'\n"}
 
 END {
 	if (err != "") {

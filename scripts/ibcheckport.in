@@ -88,13 +88,13 @@ function blue(s)
 
 # Checks
 
-/^PhysLinkState/{ if ($2 != "LinkUp") {err = err "#error: Physical link state is " $2 "\n"; exit -1}}
+/^PhysLinkState/{ if ($2 != "LinkUp") {err = err "#error: Physical link state is " $2 "  lid '$lid' port '$portnum'\n"; exit -1}}
 
-/^LinkState/{ if ($2 != "Active") warn = warn "#warn: Logical link state is " $2 "\n"}
+/^LinkState/{ if ($2 != "Active") warn = warn "#warn: Logical link state is " $2 "  lid '$lid' port '$portnum'\n"}
 
-/^LinkWidthActive/{ if ($2 == "1X") warn = warn "#warn: Link configured as 1X\n"}
+/^LinkWidthActive/{ if ($2 == "1X") warn = warn "#warn: Link configured as 1X  lid '$lid' port '$portnum'\n"}
 
-/^Lid/{ if ($2 == "0") warn = warn "#warn: Lid is not configured\n"}
+/^Lid/{ if ($2 == "0") warn = warn "#warn: Lid is not configured lid '$lid' port '$portnum'\n"}
 
 /^SMLid/{ if ($2 == "0") warn = warn "#warn: SM Lid is not configured\n"}
 
