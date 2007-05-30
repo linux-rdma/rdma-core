@@ -1,5 +1,7 @@
 2007-05-30 Hal Rosenstock <halr@voltaire.com>
 
+	* scripts/ibqueryerrors.pl: Add GUID to output line for ports 
+
 	* scripts/ibcheckerrs.in, scripts/ibcheckport.in,
 	  scripts/ibcheckportstate.in, scripts/ibcheckportwidth.in,
 	  scripts/ibdatacounts.in: Add lid and port into verbose output

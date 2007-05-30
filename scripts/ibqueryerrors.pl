@@ -53,7 +53,7 @@ sub report_counts
 
    if (any_counts())
    {
-      print ("   $port:");
+      print ("   GUID $addr port $port:");
       check_counters($print_action);
       if ($include_data_counters)
       {
