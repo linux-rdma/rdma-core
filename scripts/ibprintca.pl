@@ -102,7 +102,7 @@ sub main
             $found_hca = "yes";
          }
       }
-      if ($line =~ /^Switch.*/ || ($line =~ /^Rt.*/) { $in_hca = "no"; }
+      if ($line =~ /^Switch.*/ || $line =~ /^Rt.*/) { $in_hca = "no"; }
 
       if ( $line =~ /^\[(\d+)\].*/ && $in_hca eq "yes" )
       {
