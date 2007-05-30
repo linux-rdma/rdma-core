@@ -1,5 +1,9 @@
 2007-05-30 Hal Rosenstock <halr@voltaire.com>
 
+	* scripts/ibrouters.in, scripts/ibprintrt.pl,
+	  man/ibrouters.8, man/ibprintrt.8: Add scripts and man pages
+	  for display of IB routers
+
 	* scripts/ibqueryerrors.pl: Add GUID to output line for ports 
 
 	* scripts/ibcheckerrs.in, scripts/ibcheckport.in,
