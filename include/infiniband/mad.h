@@ -182,7 +182,7 @@ typedef struct {
 	uint64_t mask;	/* for sa mads */
 	uint recsz;	/* for sa mads (attribute offset) */
 	int timeout;
-	uint32_t oui;	/* for vendor mads range 2 */
+	uint32_t oui;	/* for vendor range 2 mads */
 } ib_rpc_t;
 
 typedef struct portid {
