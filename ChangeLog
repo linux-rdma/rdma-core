@@ -1,5 +1,8 @@
 2007-05-30 Hal Rosenstock <halr@voltaire.com>
 
+	* scripts/ibcheckerrs.in, scripts/ibcheckport.in,
+	  scripts/ibdatacounts.in: Changed portnum to port in output
+
 	* Makefile.am, configure.in: Added ibdatacounts
 
 	* scripts/ibdatacounts.in, man/ibdatacounts.8: Add script

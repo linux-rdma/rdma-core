@@ -113,7 +113,7 @@ function blue(s)
 
 /^CounterSelect/ {next}
 
-/^PortSelect/	{ if ($2 != '$portnum') {err = err "error: portnum " $2 " does not match query ('$portnum')\n"; exit -1}}
+/^PortSelect/	{ if ($2 != '$portnum') {err = err "error: port " $2 " does not match query ('$portnum')\n"; exit -1}}
 
 $1 ~ "(Xmt|Rcv)(Pkts|Data)" { print $1 ":........................." $2 }
 

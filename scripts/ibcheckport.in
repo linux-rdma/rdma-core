@@ -98,7 +98,7 @@ function blue(s)
 
 /^SMLid/{ if ($2 == "0") warn = warn "#warn: SM Lid is not configured\n"}
 
-#/^LocalPort/	{ if ($2 != '$portnum') {err = err "#error: portnum " $2 " does not match query ('$portnum')\n"; exit -1}}
+#/^LocalPort/	{ if ($2 != '$portnum') {err = err "#error: port " $2 " does not match query ('$portnum')\n"; exit -1}}
 
 END {
 	if (err != "") {
