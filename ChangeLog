@@ -1,5 +1,7 @@
 2007-05-30 Hal Rosenstock <halr@voltaire.com>
 
+	* Makefile.am, configure.in: Add ibrouters and ibprintrt.pl
+
 	* scripts/ibrouters.in, scripts/ibprintrt.pl,
 	  man/ibrouters.8, man/ibprintrt.8: Add scripts and man pages
 	  for display of IB routers
@@ -11,9 +13,9 @@
 	  scripts/ibdatacounts.in: Add lid and port into verbose output
 
 	* scripts/ibcheckerrs.in, scripts/ibcheckport.in,
-	  scripts/ibdatacounts.in: Changed portnum to port in output
+	  scripts/ibdatacounts.in: Change portnum to port in output
 
-	* Makefile.am, configure.in: Added ibdatacounts
+	* Makefile.am, configure.in: Add ibdatacounts
 
 	* scripts/ibdatacounts.in, man/ibdatacounts.8: Add script
 	  to display only data counters and associated man page

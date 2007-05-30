@@ -19,7 +19,7 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 
 sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
                scripts/ibcheckport scripts/ibhosts scripts/ibstatus \
-	       scripts/ibswitches scripts/ibnodes \
+	       scripts/ibswitches scripts/ibnodes scripts/ibrouters \
 	       scripts/ibcheckwidth scripts/ibcheckportwidth \
 	       scripts/ibcheckstate scripts/ibcheckportstate \
 	       scripts/ibcheckerrors scripts/ibclearerrors \
@@ -29,7 +29,8 @@ sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 	       scripts/set_mthca_nodedesc.sh \
 	       scripts/ibqueryerrors.pl scripts/ibswportwatch.pl \
 	       scripts/iblinkinfo.pl scripts/ibprintswitch.pl \
-	       scripts/ibprintca.pl scripts/ibfindnodesusing.pl
+	       scripts/ibprintca.pl scripts/ibprintrt.pl \
+	       scripts/ibfindnodesusing.pl
 
 src_ibaddr_SOURCES = src/ibaddr.c
 src_ibaddr_CFLAGS = -Wall $(DBGFLAGS)
@@ -147,7 +148,7 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/dump_lfts.8 man/dump_mfts.8 man/ibdiscover.8 man/ibsysstat.8 \
 	man/iblinkinfo.8 man/ibqueryerrors.8 man/ibswportwatch.8 \
 	man/ibprintswitch.8 man/ibprintca.8 man/ibfindnodesusing.8 \
-	man/ibdatacounts.8
+	man/ibdatacounts.8 man/ibrouters.8 man/ibprintrt.8
 
 EXTRA_DIST = scripts include infiniband-diags.spec.in $(man_MANS)
 

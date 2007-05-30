@@ -174,5 +174,6 @@ AC_CONFIG_FILES([\
         scripts/ibhosts \
         scripts/ibnodes \
         scripts/ibswitches \
+	scripts/ibrouters
 ])
 AC_OUTPUT
