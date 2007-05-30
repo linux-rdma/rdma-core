@@ -1,3 +1,10 @@
+2007-05-30 Hal Rosenstock <halr@voltaire.com>
+
+	* Makefile.am, configure.in: Added ibdatacounts
+
+	* scripts/ibdatacounts.in, man/ibdatacounts.8: Add script
+	  to display only data counters and associated man page
+
 2007-05-26 Hal Rosenstock <halr@voltaire.com>
 
 	* scripts/IBswcountlimits.pm: Fix node description parsing

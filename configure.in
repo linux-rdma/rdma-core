@@ -170,6 +170,7 @@ AC_CONFIG_FILES([\
         scripts/ibcheckwidth \
         scripts/ibclearcounters \
         scripts/ibclearerrors \
+	scripts/ibdatacounts \
         scripts/ibhosts \
         scripts/ibnodes \
         scripts/ibswitches \
