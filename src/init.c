@@ -412,6 +412,9 @@ static void check_memlock_limit(void)
 {
 	struct rlimit rlim;
 
+	if (!geteuid())
+		return;
+
 	if (getrlimit(RLIMIT_MEMLOCK, &rlim)) {
 		fprintf(stderr, PFX "Warning: getrlimit(RLIMIT_MEMLOCK) failed.");
 		return;
