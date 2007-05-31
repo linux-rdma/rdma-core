@@ -1,5 +1,5 @@
 
-%define RELEASE 0.1.20070409git
+%define RELEASE 0.1.20070531git
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: OpenFabrics Alliance InfiniBand Diagnostic Tools
@@ -41,15 +41,15 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_bindir}/ibdiscover.pl
-%{_bindir}/ib*
-%{_bindir}/perfquery
-%{_bindir}/saquery
-%{_bindir}/vendstat
-%{_bindir}/dump_mfts.sh
-%{_bindir}/dump_lfts.sh
-%{_bindir}/set_mthca_nodedesc.sh
-%{_bindir}/sm*
+%{_sbindir}/ibdiscover.pl
+%{_sbindir}/ib*
+%{_sbindir}/perfquery
+%{_sbindir}/saquery
+%{_sbindir}/vendstat
+%{_sbindir}/dump_mfts.sh
+%{_sbindir}/dump_lfts.sh
+%{_sbindir}/set_mthca_nodedesc.sh
+%{_sbindir}/sm*
 %define _perldir %(perl -e 'use Config; $T=$Config{installsitearch}; $T=~/(.*)\\/site_perl.*/; print $1;')
 %{_perldir}/*
 %{_mandir}/man8/*
