@@ -1,10 +1,10 @@
 
-%define RELEASE 0.1.20070409git
+%define RELEASE 0.1.20070531git
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: OpenFabrics Alliance InfiniBand umad (user MAD) library 
+Summary: OpenFabrics Alliance InfiniBand umad (user MAD) library
 Name: libibumad
-Version: 1.1.0
+Version: 1.1.1
 Release: %rel%{?dist}
 License: GPL/BSD
 Group: System Environment/Libraries
@@ -62,6 +62,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{_libdir}/libibumad*.so.*
+%{_mandir}/man3/*
 %doc AUTHORS COPYING ChangeLog 
 
 %files devel
