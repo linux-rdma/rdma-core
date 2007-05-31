@@ -1,7 +1,7 @@
-.TH IBPRINTRT 8 "May 30, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH IBPRINTRT 8 "May 31, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
-ibprintrt.pl \- print only the router specified from the ibnetdiscover output
+ibprintrt.pl \- print either only the router specified or a list of routers from the ibnetdiscover output
 
 .SH SYNOPSIS
 .B ibprintrt.pl
@@ -10,8 +10,8 @@ ibprintrt.pl \- print only the router specified from the ibnetdiscover output
 .SH DESCRIPTION
 .PP
 Faster than greping/viewing with an editor the output of ibnetdiscover,
-ibprintrt.pl will parse out and print only the router information for the
-IB router specified.
+ibprintrt.pl will parse out and print either the router information for the
+specified IB router or a list of all IB routers in the subnet.
 
 Finally, ibprintrt.pl will also reuse the cached ibnetdiscover output from
 some of the other diag tools which makes it a bit faster than running

@@ -1,7 +1,7 @@
-.TH IBPRINTCA 8 "May 22, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH IBPRINTCA 8 "May 31, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
-ibprintca.pl \- print only the ca specified from the ibnetdiscover output
+ibprintca.pl \- print either the ca specified or the list of cas from the ibnetdiscover output
 
 .SH SYNOPSIS
 .B ibprintca.pl
@@ -10,8 +10,8 @@ ibprintca.pl \- print only the ca specified from the ibnetdiscover output
 .SH DESCRIPTION
 .PP
 Faster than greping/viewing with an editor the output of ibnetdiscover,
-ibprintca.pl will parse out and print only the CA information for the
-CA specified.
+ibprintca.pl will parse out and print either the CA information for the
+specified CA or a list of all the CAs in the subnet.
 
 Finally, ibprintca.pl will also reuse the cached ibnetdiscover output from
 some of the other diag tools which makes it a bit faster than running
@@ -31,7 +31,10 @@ information.  This option is slower but should be used if the diag tools have
 not been used for some time or if there are other reasons to believe that
 the fabric has changed.
 
-.SH AUTHOR
+.SH AUTHORS
 .TP
 Ira Weiny
 .RI < weiny2@llnl.gov >
+.TP
+Hal Rosenstock
+.RI < halr@voltaire.com >

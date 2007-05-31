@@ -1,5 +1,8 @@
 2007-05-31 Hal Rosenstock <halr@voltaire.com>
 
+	* man/ibprintca.8, man/ibprintswitch.8, man/ibprintrt.8:
+	  Add description of list capability
+
 	* Makefile.am, configure.in: Add ibdatacounters
 
 	* scripts/ibdatacounters.in, man/ibdatacounters.8: Add
