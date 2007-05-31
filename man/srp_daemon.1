@@ -60,7 +60,7 @@ Decide to which targets to connect according to the rules in \fIrules-File\fR.
 If \fB\-f\fR is not specified, uses the default rules file /etc/srp_daemon.conf.
 Each line in the \fIrules-File\fR is a rule which can be either an allow connection or a disallow connection according to 
 the first character in the line (a or d accordingly). The rest of the line is values for id_ext, ioc_guid, dgid, 
-service_id. Please take a look at the example section for an example of the file. srp_daemon decide whether to allow or disallow each target according  to first rule that match the target. If no rule matches the target, the target is allowed and will be connected.
+service_id. Please take a look at the example section for an example of the file. srp_daemon decide whether to allow or disallow each target according  to first rule that match the target. If no rule matches the target, the target is allowed and will be connected. In an allow rule it is possible to set attributes for the connection to the target. Supported attributes are max_cmd_per_lun and max_sect.
 .TP
 \fB\-t\fR \fItimeout\fR
 Use timeout of \fItimeout\fR msec for MAD responses (default: 5 sec).
@@ -76,7 +76,7 @@ New format - use also initiator_ext in the connection command.
 Default rules configuration file that indicates to which targets to connect. Can be overridden using the \fB\-f\fR \fIrules-File\fR option. 
 Each line in this file is a rule which can be either an allow connection or a disallow connection according to 
 the first character in the line (a or d accordingly). The rest of the line is values for id_ext, ioc_guid, dgid, 
-service_id. Please take a look at the example section for an example of the file. srp_daemon decide whether to allow or disallow each target according  to first rule that match the target. If no rule matches the target, the target is allowed and will be connected.
+service_id. Please take a look at the example section for an example of the file. srp_daemon decide whether to allow or disallow each target according  to first rule that match the target. If no rule matches the target, the target is allowed and will be connected. In an allow rule it is possible to set attributes for the connection to the target. Supported attributes are max_cmd_per_lun and max_sect.
 
 .SH EXAMPLES
 srp_daemon -e -i mthca0 -p 1 -R 60 (Connects to the targets accessible through port 1 of mthca0. Performs a complete rescan every minute)
@@ -94,8 +94,8 @@ An example for a rules configuration file (such as /etc/srp_daemon.conf)
 d       dgid=fe800000000000000002c90200402bd5
 # allow target with the following ioc_guid
 a       ioc_guid=00a0b80200402bd7
-# allow target with the following id_ext and ioc_guid
-a       id_ext=200500A0B81146A1,ioc_guid=00a0b80200402bef
+# allow target with the following id_ext and ioc_guid. And setting max_cmd_per_lun to 31.
+a       id_ext=200500A0B81146A1,ioc_guid=00a0b80200402bef,max_cmd_per_lun=31
 # disallow all the rest
 d
 .fi
