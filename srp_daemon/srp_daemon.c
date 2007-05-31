@@ -115,7 +115,7 @@ void pr_cmd(char *target_str, int not_connected)
 	int ret;
 
 	if (config->cmd)
-		printf("%s", target_str);
+		printf("%s\n", target_str);
 
 	if (config->execute && not_connected) {
 		int fd = open(config->add_target_file, O_WRONLY);
@@ -990,11 +990,16 @@ static void print_config(struct config_t *conf)
 
 static char *copy_till_comma(char *d, char *s, int len, int base)
 {
-	while (*s != ',' && *s != ' ' && *s != '\t' && *s != '\n') {
-		if ((base == 16 && isxdigit(*s)) || ((base == 10) && isdigit(*s))) {
+	int i=0;
+
+	while (strchr(", \t\n", *s) == NULL) {
+		if (i == len)
+			return NULL;
+		if ((base == 16 && isxdigit(*s)) || (base == 10 && isdigit(*s))) {
 			*d=*s;
 			++d;
 			++s;
+			++i;
 		} else
 			return NULL;
 	}
@@ -1009,7 +1014,7 @@ static char *copy_till_comma(char *d, char *s, int len, int base)
 
 static int get_rules_file(struct config_t *conf)
 {
-	int line_number = 1, len;
+	int line_number = 1, len, line_number_for_output;
 	char line[255], option[17];
 	char *ptr, *ptr2, *optr;
 	FILE *infile=fopen(conf->rules_file, "r");
@@ -1032,7 +1037,9 @@ static int get_rules_file(struct config_t *conf)
 	conf->rules = malloc(sizeof(struct rule) * line_number);
 
 	line_number = -1;
+	line_number_for_output = 0;
 	while (fgets(line, sizeof(line), infile) != NULL) {
+		line_number_for_output++;
 		if (line[0] == '#' || line[0] == '\n')
 			continue;
 
@@ -1049,7 +1056,7 @@ static int get_rules_file(struct config_t *conf)
 		default:
 			pr_err("Bad syntax in rules file %s line %d:"
 			       " line should start with 'a' or 'd'\n", 
-			       conf->rules_file, line_number + 1);
+			       conf->rules_file, line_number_for_output);
 			return -1;
 		}
 
@@ -1107,7 +1114,7 @@ static int get_rules_file(struct config_t *conf)
 
 			if (ptr2 == NULL) {
 				pr_err("Bad syntax in rules file %s line %d\n",
-				       conf->rules_file, line_number + 1);
+				       conf->rules_file, line_number_for_output);
 				return -1;
 			}
 			ptr = ptr2;
