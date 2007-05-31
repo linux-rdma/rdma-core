@@ -151,7 +151,7 @@ AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
 
 dnl Make appropriate substitution for IB script path
 dnl Must expand nested unquoting
-IBSCRIPTPATH_TMP1="`eval echo ${bindir}`"
+IBSCRIPTPATH_TMP1="`eval echo ${sbindir}`"
 IBSCRIPTPATH_TMP2="`echo $IBSCRIPTPATH_TMP1 | sed 's/^NONE/$ac_default_prefix/'`"
 IBSCRIPTPATH="`eval echo $IBSCRIPTPATH_TMP2`"
 AC_SUBST(IBSCRIPTPATH)

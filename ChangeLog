@@ -1,3 +1,7 @@
+2007-05-31 Hal Rosenstock <halr@voltaire.com>
+
+	* configure.in: Change IBSCRIPTPATH from bindir to sbindir 
+
 2007-05-30 Hal Rosenstock <halr@voltaire.com>
 
 	* Makefile.am, configure.in: Add ibrouters and ibprintrt.pl
