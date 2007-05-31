@@ -1,5 +1,5 @@
 
-%define RELEASE 0.1.20070409git
+%define RELEASE 0.1.20070531git
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: OpenFabrics Alliance InfiniBand MAD library
