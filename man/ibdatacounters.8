@@ -1,0 +1,32 @@
+.TH IBDATACOUNTERS 8 "May 31, 2007" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+ibdatacounters \- query IB subnet for data counters
+
+.SH SYNOPSIS
+.B ibdatacounters
+[\-h] [\-b] [\-v] [\-N | \-nocolor] [<topology-file>]
+
+.SH DESCRIPTION
+.PP
+ibdatacounters is a script which uses a full topology file that was created by 
+ibnetdiscover, scans the network to validate the connectivity and reports 
+the data counters (from port counters).
+
+.SH OPTIONS
+.PP
+\-v	increase the verbosity level
+.PP
+\-b	brief mode.  Reduce the output to show only if errors are present,
+     not what they are.
+.PP
+\-N | \-nocolor	use mono rather than color mode
+
+.SH SEE ALSO
+.BR ibnetdiscover(8),
+.BR ibdatacounts(8)
+
+.SH AUTHOR
+.TP
+Hal Rosenstock
+.RI < halr@voltaire.com >

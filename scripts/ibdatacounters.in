@@ -1,0 +1,117 @@
+#!/bin/sh
+
+IBPATH=${IBPATH:-@IBSCRIPTPATH@}
+
+function usage() {
+	echo Usage: `basename $0` [-h] [-b] [-v] [-N \| -nocolor] [\<topology-file\>]
+	exit -1
+}
+
+function user_abort() {
+	echo "Aborted"
+	exit 1
+}
+
+trap user_abort SIGINT
+
+gflags=""
+verbose=""
+brief=""
+v=0
+ntype=""
+nodeguid=""
+oldlid=""
+
+while [ "$1" ]; do
+	case $1 in
+	-h)
+		usage
+		;;
+	-N|-nocolor)
+		gflags=-N
+		;;
+	-v)
+		verbose=-v
+		brief=""
+		v=1
+		;;
+	-b)
+		brief=-b
+		verbose=""
+		;;
+	-*)
+		usage
+		;;
+	*)
+		break
+		;;
+	esac
+	shift
+done
+
+if [ "$1" ]; then
+	netcmd="cat $1"
+else
+	netcmd="$IBPATH/ibnetdiscover"
+fi
+
+eval $netcmd | awk '
+BEGIN {
+	ne=0
+}
+function check_node(lid)
+{
+	nodechecked=1
+	if (system("'$IBPATH'/ibchecknode '$gflags' '$verbose' " lid)) {
+		ne++
+		badnode=1
+		return
+	}
+	if (system("'$IBPATH'/ibdatacounts'$gflags' '$verbose' '$brief' " lid " 255"))
+		nodeerr=1;
+}
+
+/^Ca/ || /^Switch/ || /^Rt/ {
+			nnodes++
+			ntype=$1; nodeguid=substr($3, 4, 16); ports=$2
+			if ('$v')
+				print "\n# Checking " ntype ": nodeguid 0x" nodeguid
+
+			nodechecked=0
+			nodeerr=0
+			badnode=0
+			if (ntype != "Switch")
+				next
+
+			lid = substr($0, index($0, "port 0 lid ") + 11)
+			lid = substr(lid, 1, index(lid, " ") - 1)
+			check_node(lid)
+		}
+/^\[/	{
+		nports++
+		port = $1
+		if (!nodechecked) {
+			lid = $5
+			check_node(lid)
+		}
+		if (badnode) {
+			print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
+			next
+		}
+		gsub("[\\[\\]]", "", port)
+		if (nodeerr)
+			if (system("'$IBPATH'/ibdatacounts'$gflags' '$verbose' '$brief' " lid " " port)) {
+				if (!'$v' && oldlid != lid) {
+					print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
+					oldlid = lid
+				}
+			}
+}
+
+END {
+	printf "\n## Summary: %d nodes checked, %d bad nodes found\n", nnodes, ne
+	printf "##          %d ports checked\n", nports
+	exit (ne )
+}
+'
+exit $?

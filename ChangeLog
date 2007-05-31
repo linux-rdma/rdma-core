@@ -1,5 +1,8 @@
 2007-05-31 Hal Rosenstock <halr@voltaire.com>
 
+	* scripts/ibdatacounters.in, man/ibdatacounters.8: Add
+	  script and man page for subnet wide data counters
+
 	* configure.in: Change IBSCRIPTPATH from bindir to sbindir 
 
 2007-05-30 Hal Rosenstock <halr@voltaire.com>
