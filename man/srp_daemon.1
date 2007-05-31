@@ -15,7 +15,7 @@ Each srp_daemon instance operates on one local port. Upon boot it performs a ful
 
 When a new machine joins the fabric, srp_daemon checks if it is a target. When there is a change of capabilities, srp_daemon checks if the machine has turned into a target. When there is an SA change or a timeout expiration, srp_daemon performs a full rescan of the fabric.
 
-For each target srp_daemon finds, it checks if it should connect to this target according to its rules and if it is already connected to the local port. If it should connect to this target and if it is not connected yet, srp_daemon can either print the target details or connect to it.
+For each target srp_daemon finds, it checks if it should connect to this target according to its rules (default rules file is /etc/srp_daemon.conf) and if it is already connected to the local port. If it should connect to this target and if it is not connected yet, srp_daemon can either print the target details or connect to it.
 
 .SH OPTIONS
 
