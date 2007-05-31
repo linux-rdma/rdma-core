@@ -135,6 +135,18 @@ static const char *speed_str(uint8_t speed)
 	}
 }
 
+static const char *vl_str(uint8_t vl_num)
+{
+	switch (vl_num) {
+	case 1:  return "1";
+	case 2:  return "2";
+	case 3:  return "4";
+	case 4:  return "8";
+	case 5:  return "15";
+	default: return "invalid value";
+	}
+}
+
 static int print_all_port_gids(struct ibv_context *ctx, uint8_t port_num, int tbl_len)
 {
 	union ibv_gid gid;
@@ -266,7 +278,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		if (verbose) {
 			printf("\t\t\tmax_msg_sz:\t\t0x%x\n", port_attr.max_msg_sz);
 			printf("\t\t\tport_cap_flags:\t\t0x%08x\n", port_attr.port_cap_flags);
-			printf("\t\t\tmax_vl_num:\t\t%d\n", port_attr.max_vl_num);
+			printf("\t\t\tmax_vl_num:\t\t%s (%d)\n",
+			       vl_str(port_attr.max_vl_num), port_attr.max_vl_num);
 			printf("\t\t\tbad_pkey_cntr:\t\t0x%x\n", port_attr.bad_pkey_cntr);
 			printf("\t\t\tqkey_viol_cntr:\t\t0x%x\n", port_attr.qkey_viol_cntr);
 			printf("\t\t\tsm_sl:\t\t\t%d\n", port_attr.sm_sl);
@@ -316,7 +329,7 @@ int main(int argc, char *argv[])
 
 	/* parse command line options */
 	while (1) {
-	        int c;
+		int c;
 		static struct option long_options[] = {
 			{ .name = "ib-dev",   .has_arg = 1, .val = 'd' },
 			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },

@@ -1,7 +1,7 @@
 Source: libibverbs
 Priority: extra
 Maintainer: Roland Dreier <rolandd@cisco.com>
-Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), autotools-dev
+Build-Depends: @cdbs@
 Standards-Version: 3.7.2
 Section: libs
 

@@ -6,9 +6,9 @@ libibverbs (1.1-1) unstable; urgency=low
     - New method of finding and loading device-specific drivers.
     - Add basic support for iWARP devices.
     - Provide compatible ABI for applications linked against libibverbs 1.0.
-  * Rerun autotools to avoid setting RPATH in binaries on amd64.
+  * Update libtool during build to avoid setting RPATH in binaries on amd64.
 
- -- Roland Dreier <rolandd@cisco.com>  Thu, 12 Apr 2007 11:49:14 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Sat, 28 Apr 2007 14:15:29 -0700
 
 libibverbs (1.0.4-1) unstable; urgency=low
 

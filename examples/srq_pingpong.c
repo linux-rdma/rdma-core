@@ -90,7 +90,7 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, enum ibv_mtu m
 			.qp_state		= IBV_QPS_RTR,
 			.path_mtu		= mtu,
 			.dest_qp_num		= dest[i].qpn,
-			.rq_psn 		= dest[i].psn,
+			.rq_psn			= dest[i].psn,
 			.max_dest_rd_atomic	= 1,
 			.min_rnr_timer		= 12,
 			.ah_attr		= {
@@ -113,11 +113,11 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, enum ibv_mtu m
 			return 1;
 		}
 
-		attr.qp_state 	    = IBV_QPS_RTS;
-		attr.timeout 	    = 14;
-		attr.retry_cnt 	    = 7;
-		attr.rnr_retry 	    = 7;
-		attr.sq_psn 	    = my_dest[i].psn;
+		attr.qp_state	    = IBV_QPS_RTS;
+		attr.timeout	    = 14;
+		attr.retry_cnt	    = 7;
+		attr.rnr_retry	    = 7;
+		attr.sq_psn	    = my_dest[i].psn;
 		attr.max_rd_atomic  = 1;
 		if (ibv_modify_qp(ctx->qp[i], &attr,
 				  IBV_QP_STATE              |
@@ -480,12 +480,12 @@ int pp_close_ctx(struct pingpong_context *ctx, int num_qp)
 static int pp_post_recv(struct pingpong_context *ctx, int n)
 {
 	struct ibv_sge list = {
-		.addr 	= (uintptr_t) ctx->buf,
+		.addr	= (uintptr_t) ctx->buf,
 		.length = ctx->size,
-		.lkey 	= ctx->mr->lkey
+		.lkey	= ctx->mr->lkey
 	};
 	struct ibv_recv_wr wr = {
-		.wr_id 	    = PINGPONG_RECV_WRID,
+		.wr_id	    = PINGPONG_RECV_WRID,
 		.sg_list    = &list,
 		.num_sge    = 1,
 	};
@@ -502,12 +502,12 @@ static int pp_post_recv(struct pingpong_context *ctx, int n)
 static int pp_post_send(struct pingpong_context *ctx, int qp_index)
 {
 	struct ibv_sge list = {
-		.addr 	= (uintptr_t) ctx->buf,
+		.addr	= (uintptr_t) ctx->buf,
 		.length = ctx->size,
-		.lkey 	= ctx->mr->lkey
+		.lkey	= ctx->mr->lkey
 	};
 	struct ibv_send_wr wr = {
-		.wr_id 	    = PINGPONG_SEND_WRID,
+		.wr_id	    = PINGPONG_SEND_WRID,
 		.sg_list    = &list,
 		.num_sge    = 1,
 		.opcode     = IBV_WR_SEND,
@@ -550,7 +550,7 @@ static void usage(const char *argv0)
 int main(int argc, char *argv[])
 {
 	struct ibv_device      **dev_list;
-	struct ibv_device 	*ib_dev;
+	struct ibv_device	*ib_dev;
 	struct ibv_wc		*wc;
 	struct pingpong_context *ctx;
 	struct pingpong_dest     my_dest[MAX_QP];
@@ -681,9 +681,11 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	} else {
-		for (; (ib_dev = *dev_list); ++dev_list)
-			if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
+		int i;
+		for (i = 0; dev_list[i]; ++i)
+			if (!strcmp(ibv_get_device_name(dev_list[i]), ib_devname))
 				break;
+		ib_dev = dev_list[i];
 		if (!ib_dev) {
 			fprintf(stderr, "IB device %s not found\n", ib_devname);
 			return 1;

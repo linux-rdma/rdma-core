@@ -88,15 +88,15 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 		.port_num      = port
 	};
 
-	attr.qp_state 		= IBV_QPS_RTR;
+	attr.qp_state		= IBV_QPS_RTR;
 
 	if (ibv_modify_qp(ctx->qp, &attr, IBV_QP_STATE)) {
 		fprintf(stderr, "Failed to modify QP to RTR\n");
 		return 1;
 	}
 
-	attr.qp_state 	    = IBV_QPS_RTS;
-	attr.sq_psn 	    = my_psn;
+	attr.qp_state	    = IBV_QPS_RTS;
+	attr.sq_psn	    = my_psn;
 
 	if (ibv_modify_qp(ctx->qp, &attr,
 			  IBV_QP_STATE              |
@@ -415,12 +415,12 @@ int pp_close_ctx(struct pingpong_context *ctx)
 static int pp_post_recv(struct pingpong_context *ctx, int n)
 {
 	struct ibv_sge list = {
-		.addr 	= (uintptr_t) ctx->buf,
+		.addr	= (uintptr_t) ctx->buf,
 		.length = ctx->size + 40,
-		.lkey 	= ctx->mr->lkey
+		.lkey	= ctx->mr->lkey
 	};
 	struct ibv_recv_wr wr = {
-		.wr_id 	    = PINGPONG_RECV_WRID,
+		.wr_id	    = PINGPONG_RECV_WRID,
 		.sg_list    = &list,
 		.num_sge    = 1,
 	};
@@ -437,12 +437,12 @@ static int pp_post_recv(struct pingpong_context *ctx, int n)
 static int pp_post_send(struct pingpong_context *ctx, uint32_t qpn)
 {
 	struct ibv_sge list = {
-		.addr 	= (uintptr_t) ctx->buf + 40,
+		.addr	= (uintptr_t) ctx->buf + 40,
 		.length = ctx->size,
-		.lkey 	= ctx->mr->lkey
+		.lkey	= ctx->mr->lkey
 	};
 	struct ibv_send_wr wr = {
-		.wr_id 	    = PINGPONG_SEND_WRID,
+		.wr_id	    = PINGPONG_SEND_WRID,
 		.sg_list    = &list,
 		.num_sge    = 1,
 		.opcode     = IBV_WR_SEND,
@@ -479,7 +479,7 @@ static void usage(const char *argv0)
 int main(int argc, char *argv[])
 {
 	struct ibv_device      **dev_list;
-	struct ibv_device 	*ib_dev;
+	struct ibv_device	*ib_dev;
 	struct pingpong_context *ctx;
 	struct pingpong_dest     my_dest;
 	struct pingpong_dest    *rem_dest;
@@ -581,9 +581,11 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	} else {
-		for (; (ib_dev = *dev_list); ++dev_list)
-			if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
+		int i;
+		for (i = 0; dev_list[i]; ++i)
+			if (!strcmp(ibv_get_device_name(dev_list[i]), ib_devname))
 				break;
+		ib_dev = dev_list[i];
 		if (!ib_dev) {
 			fprintf(stderr, "IB device %s not found\n", ib_devname);
 			return 1;
