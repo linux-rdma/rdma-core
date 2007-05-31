@@ -171,6 +171,7 @@ AC_CONFIG_FILES([\
         scripts/ibclearcounters \
         scripts/ibclearerrors \
 	scripts/ibdatacounts \
+	scripts/ibdatacounters \
         scripts/ibhosts \
         scripts/ibnodes \
         scripts/ibswitches \

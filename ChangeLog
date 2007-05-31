@@ -1,5 +1,7 @@
 2007-05-31 Hal Rosenstock <halr@voltaire.com>
 
+	* Makefile.am, configure.in: Add ibdatacounters
+
 	* scripts/ibdatacounters.in, man/ibdatacounters.8: Add
 	  script and man page for subnet wide data counters
 

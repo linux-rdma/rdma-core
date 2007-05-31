@@ -24,7 +24,7 @@ sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 	       scripts/ibcheckstate scripts/ibcheckportstate \
 	       scripts/ibcheckerrors scripts/ibclearerrors \
 	       scripts/ibclearcounters scripts/ibdatacounts \
-	       scripts/ibdiscover.pl \
+	       scripts/ibdatacounters scripts/ibdiscover.pl \
 	       scripts/dump_lfts.sh scripts/dump_mfts.sh \
 	       scripts/set_mthca_nodedesc.sh \
 	       scripts/ibqueryerrors.pl scripts/ibswportwatch.pl \
@@ -148,7 +148,8 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/dump_lfts.8 man/dump_mfts.8 man/ibdiscover.8 man/ibsysstat.8 \
 	man/iblinkinfo.8 man/ibqueryerrors.8 man/ibswportwatch.8 \
 	man/ibprintswitch.8 man/ibprintca.8 man/ibfindnodesusing.8 \
-	man/ibdatacounts.8 man/ibrouters.8 man/ibprintrt.8
+	man/ibdatacounts.8 man/ibdatacounters.8 \
+	man/ibrouters.8 man/ibprintrt.8
 
 EXTRA_DIST = scripts include infiniband-diags.spec.in $(man_MANS)
 
