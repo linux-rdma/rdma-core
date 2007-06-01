@@ -143,6 +143,7 @@ sub usage_and_exit
 my $argv0 = `basename $0`;
 my $regenerate_map = undef;
 my $single_switch = undef;
+
 chomp $argv0;
 if (!getopts("has:crRS:d")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
