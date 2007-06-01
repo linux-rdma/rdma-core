@@ -45,7 +45,7 @@ $IBswcountlimits::link_ends = undef;
 $IBswcountlimits::pause_time = 10;
 $IBswcountlimits::cache_dir = "/var/cache/infiniband-diags";
 
-# all the PM counters
+# all the PerfMgt counters
 @IBswcountlimits::counters = (
    "SymbolErrors",
    "LinkRecovers",
@@ -65,7 +65,6 @@ $IBswcountlimits::cache_dir = "/var/cache/infiniband-diags";
    "RcvPkts"
 );
 
-
 # non-critical counters
 %IBswcountlimits::error_counters = (
    "SymbolErrors", "No action is required except if counter is increasing along with LinkRecovers",
@@ -78,9 +77,10 @@ $IBswcountlimits::cache_dir = "/var/cache/infiniband-diags";
    "RcvConstraintErrors", "This is a result of bad partitioning, check partition configuration.",
    "LinkIntegrityErrors", "May indicate a bad link, run ibswportwatch.pl on this port",
    "ExcBufOverrunErrors", "This is a flow control state machine error and can be caused by packets with physical errors",
-   "VL15Dropped", "check with ibswportwatch.pl, if increasing in SMALL incriments, OK",
+   "VL15Dropped", "check with ibswportwatch.pl, if increasing in SMALL increments, OK",
    "RcvSwRelayErrors", "This counter can increase due to a valid network event"
 );
+
 sub check_counters
 {
    my $print_action = $_[0];
@@ -113,6 +113,7 @@ sub check_counters
    "XmtPkts", "Total number of packets, excluding link packets, transmitted on all VLs from the port",
    "RcvPkts", "Total number of packets, excluding link packets, received on all VLs to the port"
 );
+
 sub check_data_counters
 {
    my $print_action = $_[0];
@@ -158,6 +159,7 @@ sub calculate_rate
    "LinkIntegrityErrors", 10,
    "XmtDiscards", 10
 );
+
 sub check_counter_rates
 {
    foreach my $rate_count (keys %IBswcountlimits::rate_dep_thresholds)
