@@ -13,8 +13,8 @@ ibnetdiscover performs IB subnet discovery and outputs a human readable
 topology file. GUIDs, node types, and port numbers are displayed
 as well as port LIDs and NodeDescriptions. All nodes (and links) are displayed
 (full topology). Optionally, this utility can be used to list the current
-connected nodes. The output is printed to the standard output unless a
-topology file is specified.
+connected nodes by nodetype. The output is printed to standard output
+unless a topology file is specified.
 
 .SH OPTIONS
 
@@ -149,7 +149,7 @@ output.  GUIDs are used to perform the lookup.
 0x0008f104004119d0 "SW4  (Rack  3) ISR9024 Voltaire 9024D"
 .br
 
-.SH AUTHOR
+.SH AUTHORS
 .TP
 Hal Rosenstock
 .RI < halr@voltaire.com >
