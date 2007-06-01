@@ -1,5 +1,8 @@
 2007-06-01 Hal Rosenstock <halr@voltaire.com>
 
+	* include/ibnetdiscover.h, src/ibnetdiscover.c: Fix
+	  list by nodetype operations 
+
 	* src/ibnetdiscover.c, man/ibnetdiscover.8: Add support
 	  for -R(outer_list)
 

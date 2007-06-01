@@ -685,7 +685,7 @@ dump_topology(int listtype, int group)
 				if (!listtype) {
 					out_switch(node, group);
 				} else {
-					if (listtype & SWITCH_NODE)
+					if (listtype & LIST_SWITCH_NODE)
 						list_node(node);
 					continue;
 				}
@@ -728,7 +728,8 @@ dump_topology(int listtype, int group)
 		if (!listtype)
 			out_ca(node);
 		else {
-			if ((listtype & CA_NODE) || (listtype & ROUTER_NODE))
+			if (((listtype & LIST_CA_NODE) && (node->type == CA_NODE)) ||
+			    ((listtype & LIST_ROUTER_NODE) && (node->type == ROUTER_NODE)))
 				list_node(node);
 			continue;
 		}
@@ -820,19 +821,19 @@ main(int argc, char **argv)
 			madrpc_show_errors(1);
 			break;
 		case 'l':
-			list = CA_NODE | SWITCH_NODE;
+			list = LIST_CA_NODE | LIST_SWITCH_NODE | LIST_ROUTER_NODE;
 			break;
 		case 'g':
 			group = 1;
 			break;
 		case 'S':
-			list = SWITCH_NODE;
+			list = LIST_SWITCH_NODE;
 			break;
 		case 'H':
-			list = CA_NODE;
+			list = LIST_CA_NODE;
 			break;
 		case 'R':
-			list = ROUTER_NODE;
+			list = LIST_ROUTER_NODE;
 			break;
 		case 'V':
 			fprintf(stderr, "%s %s\n", argv0, get_build_version() );

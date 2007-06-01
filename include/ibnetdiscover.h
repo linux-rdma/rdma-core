@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -39,6 +39,10 @@
 #define CA_NODE		1
 #define SWITCH_NODE	2
 #define ROUTER_NODE	3
+
+#define LIST_CA_NODE	 (1 << CA_NODE)
+#define LIST_SWITCH_NODE (1 << SWITCH_NODE)
+#define LIST_ROUTER_NODE (1 << ROUTER_NODE)
 
 /* Vendor IDs (for chassis based systems) */
 #define VTR_VENDOR_ID			0x8f1	/* Voltaire */
