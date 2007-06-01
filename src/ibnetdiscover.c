@@ -46,7 +46,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.1
+#define __BUILD_VERSION_TAG__ 1.2.2
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
@@ -728,7 +728,7 @@ dump_topology(int listtype, int group)
 		if (!listtype)
 			out_ca(node);
 		else {
-			if (listtype & CA_NODE)
+			if ((listtype & CA_NODE) || (listtype & ROUTER_NODE))
 				list_node(node);
 			continue;
 		}
@@ -744,7 +744,7 @@ dump_topology(int listtype, int group)
 void
 usage(void)
 {
-	fprintf(stderr, "Usage: %s [-d(ebug)] -e(rr_show) -v(erbose) -s(how) -l(ist) -g(rouping) -H(ca_list) -S(witch_list) -V(ersion) -C ca_name -P ca_port "
+	fprintf(stderr, "Usage: %s [-d(ebug)] -e(rr_show) -v(erbose) -s(how) -l(ist) -g(rouping) -H(ca_list) -S(witch_list) -R(outer_list) -V(ersion) -C ca_name -P ca_port "
 			"-t(imeout) timeout_ms --switch-map switch-map] [<topology-file>]\n",
 			argv0);
 	fprintf(stderr, "       --switch-map <switch-map> specify a switch-map file\n");
@@ -761,7 +761,7 @@ main(int argc, char **argv)
 	int ca_port = 0;
 	int group = 0;
 
-	static char const str_opts[] = "C:P:t:devslgHSVhu";
+	static char const str_opts[] = "C:P:t:devslgHSRVhu";
 	static const struct option long_opts[] = {
 		{ "C", 1, 0, 'C'},
 		{ "P", 1, 0, 'P'},
@@ -773,6 +773,7 @@ main(int argc, char **argv)
 		{ "grouping", 0, 0, 'g'},
 		{ "Hca_list", 0, 0, 'H'},
 		{ "Switch_list", 0, 0, 'S'},
+		{ "Router_list", 0, 0, 'R'},
 		{ "timeout", 1, 0, 't'},
 		{ "switch-map", 1, 0, 1},
 		{ "Version", 0, 0, 'V'},
@@ -829,6 +830,9 @@ main(int argc, char **argv)
 			break;
 		case 'H':
 			list = CA_NODE;
+			break;
+		case 'R':
+			list = ROUTER_NODE;
 			break;
 		case 'V':
 			fprintf(stderr, "%s %s\n", argv0, get_build_version() );

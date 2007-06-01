@@ -1,18 +1,18 @@
-.TH IBNETDISCOVER 8 "January 31, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH IBNETDISCOVER 8 "June 1, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibnetdiscover \- discover InfiniBand topology
 
 .SH SYNOPSIS
 .B ibnetdiscover
-[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-s(how)] [\-l(ist)] [\-g(rouping)] [\-H(ca_list)] [\-S(witch_list)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\--switch-map <switch-map>] [\-h(elp)] [<topology-file>]
+[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-s(how)] [\-l(ist)] [\-g(rouping)] [\-H(ca_list)] [\-S(witch_list)] [\-R(outer_list)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\--switch-map <switch-map>] [\-h(elp)] [<topology-file>]
 
 .SH DESCRIPTION
 .PP
 ibnetdiscover performs IB subnet discovery and outputs a human readable
 topology file. GUIDs, node types, and port numbers are displayed
 as well as port LIDs and NodeDescriptions. All nodes (and links) are displayed
-(full topology). Optionally this utility can be used to list the current
+(full topology). Optionally, this utility can be used to list the current
 connected nodes. The output is printed to the standard output unless a
 topology file is specified.
 
@@ -31,6 +31,9 @@ List of connected CAs
 .TP
 \fB\-S\fR, \fB\-\-Switch_list\fR
 List of connected switches
+.TP
+\fB\-R\fR, \fB\-\-Router_list\fR
+List of connected routers
 .TP
 \fB\-s\fR, \fB\-\-show\fR
 Show more information

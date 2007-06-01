@@ -1,5 +1,8 @@
 2007-06-01 Hal Rosenstock <halr@voltaire.com>
 
+	* src/ibnetdiscover.c, man/ibnetdiscover.8: Add support
+	  for -R(outer_list)
+
 	* Makefile.am: Add ibidsverify
 
 	* scripts/ibidsverify.pl, man/ibidsverify.8: Add script
