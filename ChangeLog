@@ -1,6 +1,7 @@
 2007-06-01 Hal Rosenstock <halr@voltaire.com>
 
-	* man/ibidsverify.8: Add man page for ibidsverify.pl script
+	* scripts/ibidsverify.pl, man/ibidsverify.8: Add script
+	  and man page for ibidsverify
 
 2007-05-31 Hal Rosenstock <halr@voltaire.com>
 
