@@ -63,6 +63,7 @@ my $print_add_switch = undef;
 my $print_extended_cap = undef;
 my $only_down_links = undef;
 chomp $argv0;
+
 if (!getopts("hcpldRS:")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
