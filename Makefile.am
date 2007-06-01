@@ -30,7 +30,7 @@ sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 	       scripts/ibqueryerrors.pl scripts/ibswportwatch.pl \
 	       scripts/iblinkinfo.pl scripts/ibprintswitch.pl \
 	       scripts/ibprintca.pl scripts/ibprintrt.pl \
-	       scripts/ibfindnodesusing.pl
+	       scripts/ibfindnodesusing.pl scripts/ibidsverify.pl
 
 src_ibaddr_SOURCES = src/ibaddr.c
 src_ibaddr_CFLAGS = -Wall $(DBGFLAGS)
@@ -149,7 +149,7 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/iblinkinfo.8 man/ibqueryerrors.8 man/ibswportwatch.8 \
 	man/ibprintswitch.8 man/ibprintca.8 man/ibfindnodesusing.8 \
 	man/ibdatacounts.8 man/ibdatacounters.8 \
-	man/ibrouters.8 man/ibprintrt.8
+	man/ibrouters.8 man/ibprintrt.8 man/ibidsverify.8
 
 EXTRA_DIST = scripts include infiniband-diags.spec.in $(man_MANS)
 
