@@ -1,5 +1,7 @@
 2007-06-01 Hal Rosenstock <halr@voltaire.com>
 
+	* man/ibnetdiscover.8: Add grouping information
+
 	* include/ibnetdiscover.h, src/ibnetdiscover.c: Fix
 	  list by nodetype operations 
 
