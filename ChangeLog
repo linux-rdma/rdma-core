@@ -1,3 +1,7 @@
+2007-06-02 Hal Rosenstock <halr@voltaire.com>
+
+	* man/ibnetdiscover.8: Add topology file format section
+
 2007-06-01 Hal Rosenstock <halr@voltaire.com>
 
 	* man/ibnetdiscover.8: Add grouping information
