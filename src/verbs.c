@@ -406,6 +406,7 @@ struct ibv_qp *__ibv_create_qp(struct ibv_pd *pd,
 		qp->recv_cq    	     = qp_init_attr->recv_cq;
 		qp->srq        	     = qp_init_attr->srq;
 		qp->qp_type          = qp_init_attr->qp_type;
+		qp->state	     = IBV_QPS_RESET;
 		qp->events_completed = 0;
 		pthread_mutex_init(&qp->mutex, NULL);
 		pthread_cond_init(&qp->cond, NULL);
