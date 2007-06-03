@@ -265,7 +265,7 @@ int ud_resources_create(struct ud_resources *res)
 
 	res->send_cq = ibv_create_cq(res->ib_ctx, 1, NULL, NULL, 0);
 	if (!res->send_cq) {
-		pr_err("failed to create CQ with %u entries\n", cq_size);
+		pr_err("failed to create CQ with %u entries\n", 1);
 		return -1;
 	}
 	pr_debug("CQ was created with %u CQEs\n", 1);
