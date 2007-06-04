@@ -110,7 +110,7 @@ found:
 		/* nothing */;
 
 	j = ffsl(page->free[i]);
-	page->free[i] &= ~(1 << (j - 1));
+	page->free[i] &= ~(1UL << (j - 1));
 	db = page->buf.buf + (i * 8 * sizeof (long) + (j - 1)) * db_size[type];
 
 out:
@@ -135,7 +135,7 @@ void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type, uint32_t
 		goto out;
 
 	i = ((void *) db - page->buf.buf) / db_size[type];
-	page->free[i / (8 * sizeof (long))] |= 1 << (i % (8 * sizeof (long)));
+	page->free[i / (8 * sizeof (long))] |= 1UL << (i % (8 * sizeof (long)));
 
 	if (!--page->use_cnt) {
 		if (page->prev)
