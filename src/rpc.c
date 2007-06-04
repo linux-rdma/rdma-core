@@ -394,4 +394,3 @@ sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
 	port.class_agents[IB_SA_CLASS] = mad_class_agent(IB_SA_CLASS);
 	return sa_rpc_call(&port, rcvbuf, portid, sa, timeout);
 }
-

@@ -159,4 +159,3 @@ port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,  uint timeo
 {
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_SAMPLES_RESULT);
 }
-
