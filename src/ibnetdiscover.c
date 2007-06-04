@@ -46,7 +46,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.2
+#define __BUILD_VERSION_TAG__ 1.2.3
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
@@ -61,6 +61,26 @@ static char *node_type_str[] = {
 	"switch",
 	"router",
 	"iwarp rnic"
+};
+
+static char *linkwidth_str[] = {
+	"??",
+	"1x",
+	"4x",
+	"??",
+	"8x",
+	"??",
+	"??",
+	"??",
+	"12x"
+};
+
+static char *linkspeed_str[] = {
+	"???",
+	"SDR",
+	"???",
+	"DDR",
+	"QDR"
 };
 
 static int timeout = 2000;		/* ms */
@@ -80,6 +100,24 @@ int maxhops_discovered = 0;
 
 struct ChassisList *chassis = NULL;
 
+static char *
+get_linkwidth_str(int linkwidth)
+{
+	if (linkwidth > 8)
+		return linkwidth_str[0];
+	else
+		return linkwidth_str[linkwidth];
+}
+
+static char *
+get_linkspeed_str(int linkspeed)
+{
+	if (linkspeed > 4)
+		return linkspeed_str[0];
+	else
+		return linkspeed_str[linkspeed];
+}
+
 int
 get_port(Port *port, int portnum, ib_portid_t *portid)
 {
@@ -95,9 +133,11 @@ get_port(Port *port, int portnum, ib_portid_t *portid)
 	mad_decode_field(pi, IB_PORT_LMC_F, &port->lmc);
 	mad_decode_field(pi, IB_PORT_STATE_F, &port->state);
 	mad_decode_field(pi, IB_PORT_PHYS_STATE_F, &port->physstate);
+	mad_decode_field(pi, IB_PORT_LINK_WIDTH_ACTIVE_F, &port->linkwidth);
+	mad_decode_field(pi, IB_PORT_LINK_SPEED_ACTIVE_F, &port->linkspeed);
 
-	DEBUG("portid %s portnum %d: lid %d state %d physstate %d",
-		portid2str(portid), portnum, port->lid, port->state, port->physstate);
+	DEBUG("portid %s portnum %d: lid %d state %d physstate %d %s %s",
+		portid2str(portid), portnum, port->lid, port->state, port->physstate, get_linkwidth_str(port->linkwidth), get_linkspeed_str(port->linkspeed));
 	return 1;
 }
 /*
@@ -135,6 +175,8 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	mad_decode_field(pi, IB_PORT_LMC_F, &port->lmc);
 	mad_decode_field(pi, IB_PORT_STATE_F, &port->state);
 	mad_decode_field(pi, IB_PORT_PHYS_STATE_F, &port->physstate);
+	mad_decode_field(pi, IB_PORT_LINK_WIDTH_ACTIVE_F, &port->linkwidth);
+	mad_decode_field(pi, IB_PORT_LINK_SPEED_ACTIVE_F, &port->linkspeed);
 
 	if (node->type != SWITCH_NODE)
 		return 0;
@@ -571,12 +613,14 @@ out_switch_port(Port *port, int group)
 		rem_nodename = clean_nodedesc(port->remoteport->node->nodedesc);
 
 	ext_port_str = out_ext_port(port->remoteport, group);
-	fprintf(f, "\t%s[%d]%s\t\t# \"%s\" lid %d\n",
+	fprintf(f, "\t%s[%d]%s\t\t# \"%s\" lid %d %s%s\n",
 		node_name(port->remoteport->node),
 		port->remoteport->portnum,
 		ext_port_str ? ext_port_str : "",
 		rem_nodename,
-		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid);
+		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
+		get_linkwidth_str(port->linkwidth),
+		get_linkspeed_str(port->linkspeed));
 
 	if (rem_nodename && (port->remoteport->node->type == SWITCH_NODE))
 		free(rem_nodename);
@@ -601,9 +645,11 @@ out_ca_port(Port *port, int group)
 				port->remoteport->node->nodedesc);
 	else
 		rem_nodename = clean_nodedesc(port->remoteport->node->nodedesc);
-	fprintf(f, "\t\t# lid %d lmc %d \"%s\" lid %d\n",
+	fprintf(f, "\t\t# lid %d lmc %d \"%s\" lid %d %s%s\n",
 		port->lid, port->lmc, rem_nodename,
-		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid);
+		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
+		get_linkwidth_str(port->linkwidth),
+		get_linkspeed_str(port->linkspeed));
 	if (rem_nodename && (port->remoteport->node->type == SWITCH_NODE))
 		free(rem_nodename);
 }

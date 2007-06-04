@@ -72,6 +72,8 @@ struct Port {
 	int lmc;
 	int state;
 	int physstate;
+	int linkwidth;
+	int linkspeed;
 
 	Node *node;
 	Port *remoteport;		/* null if SMA */
