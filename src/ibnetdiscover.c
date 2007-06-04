@@ -120,7 +120,6 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	mad_decode_field(ni, IB_NODE_DEVID_F, &node->devid);
 	mad_decode_field(ni, IB_NODE_VENDORID_F, &node->vendid);
 	mad_decode_field(ni, IB_NODE_SYSTEM_GUID_F, &node->sysimgguid);
-
 	mad_decode_field(ni, IB_NODE_PORT_GUID_F, &node->portguid);
 	mad_decode_field(ni, IB_NODE_LOCAL_PORT_F, &node->localport);
 	port->portnum = node->localport;
