@@ -1,4 +1,4 @@
-.TH IBNETDISCOVER 8 "June 4, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH IBNETDISCOVER 8 "June 5, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibnetdiscover \- discover InfiniBand topology
@@ -115,6 +115,8 @@ dependent on the node type.  If it it a switch node, it is followed by
 the NodeDescription in quotes and the LID of the peer node.  If it is a
 CA or router node, it is followed by the local LID and LMC and then 
 followed by the NodeDescription in quotes and the LID of the peer node.
+The active link width and speed are then appended to the end of this
+output line.
 
 An example of this is:
 .nf
