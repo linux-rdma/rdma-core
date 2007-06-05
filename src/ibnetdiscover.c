@@ -163,7 +163,7 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	mad_decode_field(ni, IB_NODE_PORT_GUID_F, &node->portguid);
 	mad_decode_field(ni, IB_NODE_LOCAL_PORT_F, &node->localport);
 	port->portnum = node->localport;
-	port->portguid = node->nodeguid;
+	port->portguid = node->portguid;
 
 	if (!smp_query(nd, portid, IB_ATTR_NODE_DESC, 0, timeout))
 		return -1;
