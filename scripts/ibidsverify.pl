@@ -83,6 +83,7 @@ sub validate_non_zero_guid
 
 $insert_lid::lids = undef;
 $insert_nodeguid::nodeguids = undef;
+$insert_portguid::portguids = undef;
 
 sub insert_lid
 {
@@ -130,6 +131,29 @@ sub insert_nodeguid
     }
 }
 
+sub insert_portguid
+{
+    my ($lid) = shift (@_);
+    my ($portguid) = shift (@_);
+    my ($nodetype) = shift (@_);
+    my $rec = undef;
+    my $status = "";
+
+    $status = validate_non_zero_guid($lid, $portguid, $nodetype);
+    if ($status eq 0)
+    {
+       if (defined($insert_portguid::portguids{$portguid}))
+       {
+          print "PortGUID $portguid already defined for LID $insert_portguid::portguids{$portguid}->{lid}\n";
+       }
+       else
+       {
+          $rec = { lid => $lid, portguid => $portguid };
+          $insert_portguid::portguids{$portguid} = $rec;
+       }
+    }
+}
+
 sub main
 {
    if ($regenerate_map || !(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
@@ -146,19 +170,34 @@ sub main
    while ($line = <IBNET_TOPO>)
    {
 
-      if ($line =~ /^switchguid=(.*)/ || $line =~ /^caguid=(.*)/ || $line =~ /^rtguid=(.*)/)
+      if ($line =~ /^caguid=(.*)/ || $line =~ /^rtguid=(.*)/)
       {
          $nodeguid = $1;
          $nodetype = "";
       }
 
+      if ($line =~ /^switchguid=(.*)/)
+      {
+         $nodeguid = $1;
+         $portguid = "";
+         $nodetype = "";
+      }
+      if ($nodeguid =~ /^switchguid=(.*)\((.*)\)/)
+      {
+         $nodeguid = $1;
+         $portguid = $2;
+      }
+
       if ($line =~ /^Switch.*\"S-(.*)\"\s+# (.*) port.* lid (\d+) .*/)
       {
          $nodetype = "switch";
-         $portguid = $1;
          $lid = $3;
          insert_lid($lid, $nodeguid, $nodetype);
          insert_nodeguid($lid, $nodeguid, $nodetype);
+         if ($portguid ne "")
+         {
+            insert_portguid($lid, $portguid, $nodetype);
+         }
       }
       if ($line =~ /^Ca.*/)
       {
@@ -202,6 +241,11 @@ sub main
              insert_nodeguid($lid, $nodeguid, $nodetype);
              $firstport = "no";
            }
+        }
+        if ($line =~ /^\[(\d+)\]\((.*)\)/)
+        {
+           $portguid = $2;
+           insert_portguid($lid, $portguid, $nodetype);
         }
       }
 
