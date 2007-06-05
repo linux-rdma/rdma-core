@@ -46,7 +46,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.3
+#define __BUILD_VERSION_TAG__ 1.2.4
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
@@ -518,6 +518,7 @@ out_switch(Node *node, int group)
 
 	out_ids(node);
 	fprintf(f, "switchguid=0x%" PRIx64, node->nodeguid);
+	fprintf(f, "(%" PRIx64 ")", node->portguid);
 	if (group) {
 		if (node->chrecord) {
 			if (node->chrecord->chassisnum) {
@@ -617,6 +618,8 @@ out_switch_port(Port *port, int group)
 		node_name(port->remoteport->node),
 		port->remoteport->portnum,
 		ext_port_str ? ext_port_str : "");
+	if (port->remoteport->node->type != SWITCH_NODE)
+		fprintf(f, "(%" PRIx64 ") ", port->remoteport->portguid);
 	fprintf(f, "\t\t# \"%s\" lid %d %s%s\n",
 		rem_nodename,
 		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
@@ -634,12 +637,16 @@ out_ca_port(Port *port, int group)
 	char *rem_nodename = NULL;
 
 	fprintf(f, "[%d]", port->portnum);
+	if (port->node->type != SWITCH_NODE)
+		fprintf(f, "(%" PRIx64 ") ", port->portguid);
 	fprintf(f, "\t%s[%d]",
 		node_name(port->remoteport->node),
 		port->remoteport->portnum);
 	str = out_ext_port(port->remoteport, group);
 	if (str)
 		fprintf(f, "%s", str);
+	if (port->remoteport->node->type != SWITCH_NODE)
+		fprintf(f, " (%" PRIx64 ") ", port->remoteport->portguid);
 
 	if (port->remoteport->node->type == SWITCH_NODE)
 		rem_nodename = lookup_switch_name(switch_map_fp,
