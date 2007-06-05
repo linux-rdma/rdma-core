@@ -613,10 +613,11 @@ out_switch_port(Port *port, int group)
 		rem_nodename = clean_nodedesc(port->remoteport->node->nodedesc);
 
 	ext_port_str = out_ext_port(port->remoteport, group);
-	fprintf(f, "\t%s[%d]%s\t\t# \"%s\" lid %d %s%s\n",
+	fprintf(f, "\t%s[%d]%s",
 		node_name(port->remoteport->node),
 		port->remoteport->portnum,
-		ext_port_str ? ext_port_str : "",
+		ext_port_str ? ext_port_str : "");
+	fprintf(f, "\t\t# \"%s\" lid %d %s%s\n",
 		rem_nodename,
 		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
 		get_linkwidth_str(port->linkwidth),
@@ -632,7 +633,8 @@ out_ca_port(Port *port, int group)
 	char *str = NULL;
 	char *rem_nodename = NULL;
 
-	fprintf(f, "[%d]\t%s[%d]", port->portnum,
+	fprintf(f, "[%d]", port->portnum);
+	fprintf(f, "\t%s[%d]",
 		node_name(port->remoteport->node),
 		port->remoteport->portnum);
 	str = out_ext_port(port->remoteport, group);
