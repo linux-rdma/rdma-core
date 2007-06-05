@@ -71,11 +71,11 @@ sub validate_non_zero_lid
 sub validate_non_zero_guid
 {
     my ($lid) = shift (@_);
-    my ($nodeguid) = shift (@_);
+    my ($guid) = shift (@_);
     my ($nodetype) = shift (@_);
-    if ($nodeguid eq 0x0)
+    if ($guid eq 0x0)
     {
-       print "$nodetype NodeGUID 0x0 found with LID $lid\n";
+       print "$nodetype GUID 0x0 found with LID $lid\n";
        return 1;
     }
     return 0;
