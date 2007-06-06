@@ -1,3 +1,8 @@
+2007-06-05  Sasha Khapyorsky <sashak@voltaire.com>
+
+	* include/infiniband/mad.h, src/fields.c: Add Notice DataDetails
+	  fields for DataDetails, and trap 144 LID and CapabilityMask
+
 2007-05-21  Hal Rosenstock <halr@voltaire.com>
 
 	* src/fields.c: Changed PortMulticastPkts to PortMulticastRcvPkts 
