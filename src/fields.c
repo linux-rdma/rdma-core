@@ -216,7 +216,10 @@ ib_field_t ib_mad_f [] = {
 	[IB_NOTICE_ISSUER_LID_F]  	{BITSOFFS(48, 16), "NoticeIssuerLID", mad_dump_uint},
 	[IB_NOTICE_TOGGLE_F]      	{BITSOFFS(64, 1), "NoticeToggle", mad_dump_uint},
 	[IB_NOTICE_COUNT_F]       	{BITSOFFS(65, 15), "NoticeCount", mad_dump_uint},
+	[IB_NOTICE_DATA_DETAILS_F]    	{80, 432, "NoticeDataDetails", mad_dump_array},
 	[IB_NOTICE_DATA_LID_F]    	{BITSOFFS(80, 16), "NoticeDataLID", mad_dump_uint},
+	[IB_NOTICE_DATA_144_LID_F]    	{BITSOFFS(96, 16), "NoticeDataTrap144LID", mad_dump_uint},
+	[IB_NOTICE_DATA_144_CAPMASK_F]  {BITSOFFS(128, 32), "NoticeDataTrap144CapMask", mad_dump_uint},
 
 	/*
 	 * NodeDescription fields:
