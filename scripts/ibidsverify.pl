@@ -187,7 +187,7 @@ sub main
       if ($line =~ /^switchguid=(.*)\((.*)\)/)
       {
          $nodeguid = $1;
-         $portguid = $2;
+         $portguid = "0x" . $2;
       }
 
       if ($line =~ /^Switch.*\"S-(.*)\"\s+# (.*) port.* lid (\d+) .*/)
@@ -246,7 +246,7 @@ sub main
         }
         if ($line =~ /^\[(\d+)\]\((.*)\)/)
         {
-           $portguid = $2;
+           $portguid = "0x" . $2;
            insert_portguid($lid, $portguid, $nodetype);
         }
       }
