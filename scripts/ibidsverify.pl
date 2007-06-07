@@ -184,7 +184,7 @@ sub main
          $portguid = "";
          $nodetype = "";
       }
-      if ($nodeguid =~ /^switchguid=(.*)\((.*)\)/)
+      if ($line =~ /^switchguid=(.*)\((.*)\)/)
       {
          $nodeguid = $1;
          $portguid = $2;
