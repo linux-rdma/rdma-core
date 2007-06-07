@@ -399,10 +399,12 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	if (!qp->sq.wrid)
 		return -1;
 
-	qp->rq.wrid = malloc(qp->rq.max * sizeof (uint64_t));
-	if (!qp->rq.wrid) {
-		free(qp->sq.wrid);
-		return -1;
+	if (qp->rq.max) {
+		qp->rq.wrid = malloc(qp->rq.max * sizeof (uint64_t));
+		if (!qp->rq.wrid) {
+			free(qp->sq.wrid);
+			return -1;
+		}
 	}
 
 	size = qp->rq.max_gs * sizeof (struct mlx4_wqe_data_seg);

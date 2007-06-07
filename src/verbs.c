@@ -150,11 +150,11 @@ int mlx4_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
-static int align_cq_size(int cqe)
+static int align_queue_size(int req)
 {
 	int nent;
 
-	for (nent = 1; nent <= cqe; nent <<= 1)
+	for (nent = 1; nent < req; nent <<= 1)
 		; /* nothing */
 
 	return nent;
@@ -182,7 +182,7 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	cqe = align_cq_size(cqe);
+	cqe = align_queue_size(cqe + 1);
 
 	if (mlx4_alloc_buf(&cq->buf, cqe * MLX4_CQ_ENTRY_SIZE,
 			   to_mdev(context->device)->page_size))
@@ -245,23 +245,6 @@ int mlx4_destroy_cq(struct ibv_cq *cq)
 	return 0;
 }
 
-static int align_queue_size(struct ibv_context *context, int size, int spare)
-{
-	int ret;
-
-	/*
-	 * If someone asks for a 0-sized queue, presumably they're not
-	 * going to use it.  So don't mess with their size.
-	 */
-	if (!size)
-		return 0;
-
-	for (ret = 1; ret < size + spare; ret <<= 1)
-		; /* nothing */
-
-	return ret;
-}
-
 struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr)
 {
@@ -281,7 +264,7 @@ struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	srq->max     = align_queue_size(pd->context, attr->attr.max_wr, 1);
+	srq->max     = align_queue_size(attr->attr.max_wr + 1);
 	srq->max_gs  = attr->attr.max_sge;
 	srq->counter = 0;
 
@@ -372,8 +355,11 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (!qp)
 		return NULL;
 
-	qp->sq.max = align_queue_size(pd->context, attr->cap.max_send_wr, 0);
-	qp->rq.max = align_queue_size(pd->context, attr->cap.max_recv_wr, 0);
+	qp->sq.max = align_queue_size(attr->cap.max_send_wr);
+	qp->rq.max = align_queue_size(attr->cap.max_recv_wr);
+
+	if (attr->srq)
+		attr->cap.max_recv_wr = qp->rq.max = 0;
 
 	if (mlx4_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp))
 		goto err;
@@ -434,7 +420,8 @@ err_rq_db:
 
 err_free:
 	free(qp->sq.wrid);
-	free(qp->rq.wrid);
+	if (qp->rq.max)
+		free(qp->rq.wrid);
 	mlx4_free_buf(&qp->buf);
 
 err:
@@ -538,7 +525,8 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	if (!ibqp->srq)
 		mlx4_free_db(to_mctx(ibqp->context), MLX4_DB_TYPE_RQ, qp->db);
 	free(qp->sq.wrid);
-	free(qp->rq.wrid);
+	if (qp->rq.max)
+		free(qp->rq.wrid);
 	mlx4_free_buf(&qp->buf);
 	free(qp);
 
