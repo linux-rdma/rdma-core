@@ -238,7 +238,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 	if (is_send) {
 		wq = &(*cur_qp)->sq;
 		wqe_index = ntohs(cqe->wqe_index);
-		wq->tail += wqe_index - (uint16_t) wq->tail;
+		wq->tail += (uint16_t) (wqe_index - (uint16_t) wq->tail);
 		wc->wr_id = wq->wrid[wq->tail & (wq->max - 1)];
 		++wq->tail;
 	} else if ((*cur_qp)->ibv_qp.srq) {
