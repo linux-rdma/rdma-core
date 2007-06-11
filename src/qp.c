@@ -236,6 +236,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					inl += len;
 
 					if (inl > qp->max_inline_data) {
+						inl = 0;
 						ret = -1;
 						*bad_wr = wr;
 						goto out;
