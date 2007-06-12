@@ -106,7 +106,7 @@ do
 	dump_log=0
     fi
     if [ $dump_log -eq 1 ]; then
-        logger -i -t "$(basename $0)" "failed ${prog}: [HCA=${hca_id}] [port=${port}] [exit status=${status}]. Will try to restart ${prog} periodically. No more warnings will be issued in the next ${report_run_time} seconds if the same problem repeats"
+        logger -i -t "$(basename $0)" "failed ${prog}: [HCA=${hca_id}] [port=${port}] [exit status=${status}]. Will try to restart ${prog} periodically. No more warnings will be issued in the next ${report_timeout} seconds if the same problem repeats"
 	last_report=$end_time
     fi
     last_status=$status
