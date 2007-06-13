@@ -36,7 +36,7 @@
 #include <infiniband/kern-abi.h>
 
 #define MLX4_UVERBS_MIN_ABI_VERSION	2
-#define MLX4_UVERBS_MAX_ABI_VERSION	2
+#define MLX4_UVERBS_MAX_ABI_VERSION	3
 
 struct mlx4_alloc_ucontext_resp {
 	struct ibv_get_context_resp	ibv_resp;
@@ -86,7 +86,8 @@ struct mlx4_create_qp {
 	__u64				db_addr;
 	__u8				log_sq_bb_count;
 	__u8				log_sq_stride;
-	__u8				reserved[6];
+	__u8				sq_no_prefetch;	/* was reserved in ABI 2 */
+	__u8				reserved[5];
 };
 
 #endif /* MLX4_ABI_H */

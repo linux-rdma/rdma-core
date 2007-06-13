@@ -355,11 +355,18 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (!qp)
 		return NULL;
 
-	qp->sq.max = align_queue_size(attr->cap.max_send_wr);
-	qp->rq.max = align_queue_size(attr->cap.max_recv_wr);
+	mlx4_calc_sq_wqe_size(&attr->cap, attr->qp_type, qp);
+
+	/*
+	 * We need to leave 2 KB + 1 WQE of headroom in the SQ to
+	 * allow HW to prefetch.
+	 */
+	qp->sq_spare_wqes = (2048 >> qp->sq.wqe_shift) + 1;
+	qp->sq.wqe_cnt = align_queue_size(attr->cap.max_send_wr + qp->sq_spare_wqes);
+	qp->rq.wqe_cnt = align_queue_size(attr->cap.max_recv_wr);
 
 	if (attr->srq)
-		attr->cap.max_recv_wr = qp->rq.max = 0;
+		attr->cap.max_recv_wr = qp->rq.wqe_cnt = 0;
 	else if (attr->cap.max_recv_sge < 1)
 		attr->cap.max_recv_sge = 1;
 
@@ -387,9 +394,10 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 		cmd.db_addr = (uintptr_t) qp->db;
 	cmd.log_sq_stride   = qp->sq.wqe_shift;
 	for (cmd.log_sq_bb_count = 0;
-	     qp->sq.max > 1 << cmd.log_sq_bb_count;
+	     qp->sq.wqe_cnt > 1 << cmd.log_sq_bb_count;
 	     ++cmd.log_sq_bb_count)
 		; /* nothing */
+	cmd.sq_no_prefetch = 0;	/* OK for ABI 2: just a reserved field */
 	memset(cmd.reserved, 0, sizeof cmd.reserved);
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
@@ -401,8 +409,8 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	if (ret)
 		goto err_destroy;
 
-	qp->rq.max    = attr->cap.max_recv_wr;
-	qp->rq.max_gs = attr->cap.max_recv_sge;
+	qp->rq.wqe_cnt = qp->rq.max_post = attr->cap.max_recv_wr;
+	qp->rq.max_gs  = attr->cap.max_recv_sge;
 	mlx4_set_sq_sizes(qp, &attr->cap, attr->qp_type);
 
 	qp->doorbell_qpn    = htonl(qp->ibv_qp.qp_num << 8);
@@ -422,7 +430,7 @@ err_rq_db:
 
 err_free:
 	free(qp->sq.wrid);
-	if (qp->rq.max)
+	if (qp->rq.wqe_cnt)
 		free(qp->rq.wrid);
 	mlx4_free_buf(&qp->buf);
 
@@ -527,7 +535,7 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	if (!ibqp->srq)
 		mlx4_free_db(to_mctx(ibqp->context), MLX4_DB_TYPE_RQ, qp->db);
 	free(qp->sq.wrid);
-	if (qp->rq.max)
+	if (qp->rq.wqe_cnt)
 		free(qp->rq.wrid);
 	mlx4_free_buf(&qp->buf);
 	free(qp);

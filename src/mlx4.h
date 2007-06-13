@@ -200,7 +200,8 @@ struct mlx4_srq {
 struct mlx4_wq {
 	uint64_t		       *wrid;
 	pthread_spinlock_t		lock;
-	int				max;
+	int				wqe_cnt;
+	int				max_post;
 	unsigned			head;
 	unsigned			tail;
 	int				max_gs;
@@ -216,6 +217,7 @@ struct mlx4_qp {
 
 	uint32_t			doorbell_qpn;
 	uint32_t			sq_signal_bits;
+	int				sq_spare_wqes;
 	struct mlx4_wq			sq;
 
 	uint32_t		       *db;
@@ -342,6 +344,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr);
 int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
+void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
+			   struct mlx4_qp *qp);
 int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type, struct mlx4_qp *qp);
 void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,

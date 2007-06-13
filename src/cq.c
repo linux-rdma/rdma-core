@@ -239,7 +239,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		wq = &(*cur_qp)->sq;
 		wqe_index = ntohs(cqe->wqe_index);
 		wq->tail += (uint16_t) (wqe_index - (uint16_t) wq->tail);
-		wc->wr_id = wq->wrid[wq->tail & (wq->max - 1)];
+		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
 	} else if ((*cur_qp)->ibv_qp.srq) {
 		srq = to_msrq((*cur_qp)->ibv_qp.srq);
@@ -248,7 +248,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		mlx4_free_srq_wqe(srq, wqe_index);
 	} else {
 		wq = &(*cur_qp)->rq;
-		wc->wr_id = wq->wrid[wq->tail & (wq->max - 1)];
+		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
 	}
 

@@ -65,6 +65,20 @@ static void *get_send_wqe(struct mlx4_qp *qp, int n)
 	return qp->buf.buf + qp->sq.offset + (n << qp->sq.wqe_shift);
 }
 
+/*
+ * Stamp a SQ WQE so that it is invalid if prefetched by marking the
+ * first four bytes of every 64 byte chunk with 0xffffffff, except for
+ * the very first chunk of the WQE.
+ */
+static void stamp_send_wqe(struct mlx4_qp *qp, int n)
+{
+	uint32_t *wqe = get_send_wqe(qp, n);
+	int i;
+
+	for (i = 16; i < 1 << (qp->sq.wqe_shift - 2); i += 16)
+		wqe[i] = 0xffffffff;
+}
+
 void mlx4_init_qp_indices(struct mlx4_qp *qp)
 {
 	qp->sq.head	 = 0;
@@ -78,9 +92,11 @@ void mlx4_qp_init_sq_ownership(struct mlx4_qp *qp)
 	struct mlx4_wqe_ctrl_seg *ctrl;
 	int i;
 
-	for (i = 0; i < qp->sq.max; ++i) {
+	for (i = 0; i < qp->sq.wqe_cnt; ++i) {
 		ctrl = get_send_wqe(qp, i);
 		ctrl->owner_opcode = htonl(1 << 31);
+
+		stamp_send_wqe(qp, i);
 	}
 }
 
@@ -89,14 +105,14 @@ static int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
 	unsigned cur;
 
 	cur = wq->head - wq->tail;
-	if (cur + nreq < wq->max)
+	if (cur + nreq < wq->max_post)
 		return 0;
 
 	pthread_spin_lock(&cq->lock);
 	cur = wq->head - wq->tail;
 	pthread_spin_unlock(&cq->lock);
 
-	return cur + nreq >= wq->max;
+	return cur + nreq >= wq->max_post;
 }
 
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
@@ -138,8 +154,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		ctrl = wqe = get_send_wqe(qp, ind & (qp->sq.max - 1));
-		qp->sq.wrid[ind & (qp->sq.max - 1)] = wr->wr_id;
+		ctrl = wqe = get_send_wqe(qp, ind & (qp->sq.wqe_cnt - 1));
+		qp->sq.wrid[ind & (qp->sq.wqe_cnt - 1)] = wr->wr_id;
 
 		ctrl->srcrb_flags =
 			(wr->send_flags & IBV_SEND_SIGNALED ?
@@ -274,7 +290,16 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		wmb();
 
 		ctrl->owner_opcode = htonl(mlx4_ib_opcode[wr->opcode]) |
-			(ind & qp->sq.max ? htonl(1 << 31) : 0);
+			(ind & qp->sq.wqe_cnt ? htonl(1 << 31) : 0);
+
+		/*
+		 * We can improve latency by not stamping the last
+		 * send queue WQE until after ringing the doorbell, so
+		 * only stamp here if there are still more WQEs to post.
+		 */
+		if (wr->next)
+			stamp_send_wqe(qp, (ind + qp->sq_spare_wqes) &
+				       (qp->sq.wqe_cnt - 1));
 
 		++ind;
 	}
@@ -313,6 +338,10 @@ out:
 		*(uint32_t *) (ctx->uar + MLX4_SEND_DOORBELL) = qp->doorbell_qpn;
 	}
 
+	if (nreq)
+		stamp_send_wqe(qp, (ind + qp->sq_spare_wqes - 1) &
+			       (qp->sq.wqe_cnt - 1));
+
 	pthread_spin_unlock(&qp->sq.lock);
 
 	return ret;
@@ -332,7 +361,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 	/* XXX check that state is OK to post receive */
 
-	ind = qp->rq.head & (qp->rq.max - 1);
+	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.recv_cq))) {
@@ -363,7 +392,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		qp->rq.wrid[ind] = wr->wr_id;
 
-		ind = (ind + 1) & (qp->rq.max - 1);
+		ind = (ind + 1) & (qp->rq.wqe_cnt - 1);
 	}
 
 out:
@@ -384,35 +413,16 @@ out:
 	return ret;
 }
 
-int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
-		       enum ibv_qp_type type, struct mlx4_qp *qp)
+void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
+			   struct mlx4_qp *qp)
 {
 	int size;
 	int max_sq_sge;
 
-	qp->rq.max_gs	 = cap->max_recv_sge;
 	max_sq_sge	 = align(cap->max_inline_data + sizeof (struct mlx4_wqe_inline_seg),
 				 sizeof (struct mlx4_wqe_data_seg)) / sizeof (struct mlx4_wqe_data_seg);
 	if (max_sq_sge < cap->max_send_sge)
 		max_sq_sge = cap->max_send_sge;
-
-	qp->sq.wrid = malloc(qp->sq.max * sizeof (uint64_t));
-	if (!qp->sq.wrid)
-		return -1;
-
-	if (qp->rq.max) {
-		qp->rq.wrid = malloc(qp->rq.max * sizeof (uint64_t));
-		if (!qp->rq.wrid) {
-			free(qp->sq.wrid);
-			return -1;
-		}
-	}
-
-	size = qp->rq.max_gs * sizeof (struct mlx4_wqe_data_seg);
-
-	for (qp->rq.wqe_shift = 4; 1 << qp->rq.wqe_shift < size;
-	     qp->rq.wqe_shift++)
-		; /* nothing */
 
 	size = max_sq_sge * sizeof (struct mlx4_wqe_data_seg);
 	switch (type) {
@@ -451,14 +461,37 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	for (qp->sq.wqe_shift = 6; 1 << qp->sq.wqe_shift < size;
 	     qp->sq.wqe_shift++)
 		; /* nothing */
+}
 
-	qp->buf_size = (qp->rq.max << qp->rq.wqe_shift) +
-		(qp->sq.max << qp->sq.wqe_shift);
+int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+		       enum ibv_qp_type type, struct mlx4_qp *qp)
+{
+	qp->rq.max_gs	 = cap->max_recv_sge;
+
+	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof (uint64_t));
+	if (!qp->sq.wrid)
+		return -1;
+
+	if (qp->rq.wqe_cnt) {
+		qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof (uint64_t));
+		if (!qp->rq.wrid) {
+			free(qp->sq.wrid);
+			return -1;
+		}
+	}
+
+	for (qp->rq.wqe_shift = 4;
+	     1 << qp->rq.wqe_shift < qp->rq.max_gs * sizeof (struct mlx4_wqe_data_seg);
+	     qp->rq.wqe_shift++)
+		; /* nothing */
+
+	qp->buf_size = (qp->rq.wqe_cnt << qp->rq.wqe_shift) +
+		(qp->sq.wqe_cnt << qp->sq.wqe_shift);
 	if (qp->rq.wqe_shift > qp->sq.wqe_shift) {
 		qp->rq.offset = 0;
-		qp->sq.offset = qp->rq.max << qp->rq.wqe_shift;
+		qp->sq.offset = qp->rq.wqe_cnt << qp->rq.wqe_shift;
 	} else {
-		qp->rq.offset = qp->sq.max << qp->sq.wqe_shift;
+		qp->rq.offset = qp->sq.wqe_cnt << qp->sq.wqe_shift;
 		qp->sq.offset = 0;
 	}
 
@@ -499,6 +532,8 @@ void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 	cap->max_send_sge    = qp->sq.max_gs;
 	qp->max_inline_data  = wqe_size - sizeof (struct mlx4_wqe_inline_seg);
 	cap->max_inline_data = qp->max_inline_data;
+	qp->sq.max_post	     = qp->sq.wqe_cnt - qp->sq_spare_wqes;
+	cap->max_send_wr     = qp->sq.max_post;
 }
 
 struct mlx4_qp *mlx4_find_qp(struct mlx4_context *ctx, uint32_t qpn)
