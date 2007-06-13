@@ -382,8 +382,9 @@ void mlx4_cq_event(struct ibv_cq *cq)
 
 void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 {
-	struct mlx4_cqe *cqe;
+	struct mlx4_cqe *cqe, *dest;
 	uint32_t prod_index;
+	uint8_t owner_bit;
 	int nfreed = 0;
 
 	pthread_spin_lock(&cq->lock);
@@ -405,13 +406,17 @@ void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	 */
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
-		if (ntohl((cqe->my_qpn) & 0xffffff) == qpn) {
+		if ((ntohl(cqe->my_qpn) & 0xffffff) == qpn) {
 			if (srq && !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK))
 				mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
 			++nfreed;
-		} else if (nfreed)
-			memcpy(get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe),
-			       cqe, sizeof *cqe);
+		} else if (nfreed) {
+			dest = get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe);
+			owner_bit = dest->owner_sr_opcode & MLX4_CQE_OWNER_MASK;
+			memcpy(dest, cqe, sizeof *cqe);
+			dest->owner_sr_opcode = owner_bit |
+				(dest->owner_sr_opcode & ~MLX4_CQE_OWNER_MASK);
+		}
 	}
 
 	if (nfreed) {
