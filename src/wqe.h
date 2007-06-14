@@ -44,11 +44,12 @@ enum {
 };
 
 enum {
-	MLX4_INLINE_SEG			= 1 << 31
+	MLX4_INLINE_SEG		= 1 << 31,
+	MLX4_INLINE_ALIGN	= 64,
 };
 
 enum {
-	MLX4_INVALID_LKEY		= 0x100,
+	MLX4_INVALID_LKEY	= 0x100,
 };
 
 struct mlx4_wqe_ctrl_seg {

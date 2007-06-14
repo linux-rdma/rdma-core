@@ -240,33 +240,59 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			break;
 		}
 
-		if (wr->send_flags & IBV_SEND_INLINE) {
-			if (wr->num_sge) {
-				struct mlx4_wqe_inline_seg *seg = wqe;
+		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
+			struct mlx4_wqe_inline_seg *seg;
+			void *addr;
+			int len, seg_len;
+			int num_seg;
+			int off, to_copy;
 
-				inl = 0;
-				wqe += sizeof *seg;
-				for (i = 0; i < wr->num_sge; ++i) {
-					uint32_t len = wr->sg_list[i].length;
+			inl = 0;
 
-					inl += len;
+			seg = wqe;
+			wqe += sizeof *seg;
+			off = ((uintptr_t) wqe) & (MLX4_INLINE_ALIGN - 1);
+			num_seg = 0;
+			seg_len = 0;
 
-					if (inl > qp->max_inline_data) {
-						inl = 0;
-						ret = -1;
-						*bad_wr = wr;
-						goto out;
-					}
+			for (i = 0; i < wr->num_sge; ++i) {
+				addr = (void *) (uintptr_t) wr->sg_list[i].addr;
+				len  = wr->sg_list[i].length;
+				inl += len;
 
-					memcpy(wqe,
-					       (void *) (intptr_t) wr->sg_list[i].addr,
-					       len);
-					wqe += len;
+				if (inl > qp->max_inline_data) {
+					inl = 0;
+					ret = -1;
+					*bad_wr = wr;
+					goto out;
 				}
 
-				seg->byte_count = htonl(MLX4_INLINE_SEG | inl);
-				size += (inl + sizeof *seg + 15) / 16;
+				while (len >= MLX4_INLINE_ALIGN - off) {
+					to_copy = MLX4_INLINE_ALIGN - off;
+					memcpy(wqe, addr, to_copy);
+					len -= to_copy;
+					wqe += to_copy;
+					addr += to_copy;
+					seg_len += to_copy;
+					seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
+					seg_len = 0;
+					seg = wqe;
+					wqe += sizeof *seg;
+					off = sizeof *seg;
+					++num_seg;
+				}
+
+				memcpy(wqe, addr, len);
+				wqe += len;
+				seg_len += len;
 			}
+
+			if (seg_len) {
+				++num_seg;
+				seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
+			}
+
+			size += (inl + num_seg * sizeof * seg + 15) / 16;
 		} else {
 			struct mlx4_wqe_data_seg *seg = wqe;
 
@@ -413,14 +439,41 @@ out:
 	return ret;
 }
 
+static int num_inline_segs(int data, enum ibv_qp_type type)
+{
+	/*
+	 * Inline data segments are not allowed to cross 64 byte
+	 * boundaries.  For UD QPs, the data segments always start
+	 * aligned to 64 bytes (16 byte control segment + 48 byte
+	 * datagram segment); for other QPs, there will be a 16 byte
+	 * control segment and possibly a 16 byte remote address
+	 * segment, so in the worst case there will be only 32 bytes
+	 * available for the first data segment.
+	 */
+	if (type == IBV_QPT_UD)
+		data += (sizeof (struct mlx4_wqe_ctrl_seg) +
+			 sizeof (struct mlx4_wqe_datagram_seg)) %
+			MLX4_INLINE_ALIGN;
+	else
+		data += (sizeof (struct mlx4_wqe_ctrl_seg) +
+			 sizeof (struct mlx4_wqe_raddr_seg)) %
+			MLX4_INLINE_ALIGN;
+
+	return (data + MLX4_INLINE_ALIGN - sizeof (struct mlx4_wqe_inline_seg) - 1) /
+		(MLX4_INLINE_ALIGN - sizeof (struct mlx4_wqe_inline_seg));
+}
+
 void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 			   struct mlx4_qp *qp)
 {
 	int size;
 	int max_sq_sge;
 
-	max_sq_sge	 = align(cap->max_inline_data + sizeof (struct mlx4_wqe_inline_seg),
-				 sizeof (struct mlx4_wqe_data_seg)) / sizeof (struct mlx4_wqe_data_seg);
+	max_sq_sge	 = align(cap->max_inline_data +
+				 num_inline_segs(cap->max_inline_data, type) *
+				 sizeof (struct mlx4_wqe_inline_seg),
+				 sizeof (struct mlx4_wqe_data_seg)) /
+		sizeof (struct mlx4_wqe_data_seg);
 	if (max_sq_sge < cap->max_send_sge)
 		max_sq_sge = cap->max_send_sge;
 
@@ -530,10 +583,19 @@ void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 
 	qp->sq.max_gs	     = wqe_size / sizeof (struct mlx4_wqe_data_seg);
 	cap->max_send_sge    = qp->sq.max_gs;
-	qp->max_inline_data  = wqe_size - sizeof (struct mlx4_wqe_inline_seg);
 	cap->max_inline_data = qp->max_inline_data;
 	qp->sq.max_post	     = qp->sq.wqe_cnt - qp->sq_spare_wqes;
 	cap->max_send_wr     = qp->sq.max_post;
+
+	/*
+	 * Inline data segments can't cross a 64 byte boundary.  So
+	 * subtract off one segment header for each 64-byte chunk,
+	 * taking into account the fact that wqe_size will be 32 mod
+	 * 64 for non-UD QPs.
+	 */
+	qp->max_inline_data  = wqe_size -
+		sizeof (struct mlx4_wqe_inline_seg) *
+		(align(wqe_size, MLX4_INLINE_ALIGN) / MLX4_INLINE_ALIGN);
 }
 
 struct mlx4_qp *mlx4_find_qp(struct mlx4_context *ctx, uint32_t qpn)
