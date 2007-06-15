@@ -1,12 +1,12 @@
 Name: libibverbs
-Version: 1.1
+Version: 1.1.1
 Release: 1%{?dist}
 Summary: A library for direct userspace use of InfiniBand hardware
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://openfabrics.org/
-Source: http://openfabrics.org/downloads/libibverbs-1.1.tar.gz
+Source: http://openfabrics.org/downloads/libibverbs-1.1.1.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -83,6 +83,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
+* Fri Jun 15 2007 Roland Dreier <rdreier@cisco.com> - 1.1.1-1
+- New upstream release
+
 * Wed Apr 11 2007 Roland Dreier <rdreier@cisco.com> - 1.1-1
 - New upstream release
 
