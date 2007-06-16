@@ -583,7 +583,6 @@ void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 
 	qp->sq.max_gs	     = wqe_size / sizeof (struct mlx4_wqe_data_seg);
 	cap->max_send_sge    = qp->sq.max_gs;
-	cap->max_inline_data = qp->max_inline_data;
 	qp->sq.max_post	     = qp->sq.wqe_cnt - qp->sq_spare_wqes;
 	cap->max_send_wr     = qp->sq.max_post;
 
@@ -596,6 +595,7 @@ void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 	qp->max_inline_data  = wqe_size -
 		sizeof (struct mlx4_wqe_inline_seg) *
 		(align(wqe_size, MLX4_INLINE_ALIGN) / MLX4_INLINE_ALIGN);
+	cap->max_inline_data = qp->max_inline_data;
 }
 
 struct mlx4_qp *mlx4_find_qp(struct mlx4_context *ctx, uint32_t qpn)
