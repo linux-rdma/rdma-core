@@ -1,3 +1,8 @@
+2007-06-18  Hal Rosenstock <halr@voltaire.com>
+
+	* include/infiniband/mad.h, src/fields.c: Change IB_PORT_MTRU_CAP_F
+	  to IB_PORT_MTU_CAP_F
+
 2007-06-05  Sasha Khapyorsky <sashak@voltaire.com>
 
 	* include/infiniband/mad.h, src/fields.c: Add Notice DataDetails

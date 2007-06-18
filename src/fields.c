@@ -140,7 +140,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_PORT_VL_ARBITRATION_LOW_CAP_F]	{BITSOFFS(320, 8), "VLArbLowCap", mad_dump_uint},
 
 	[IB_PORT_INIT_TYPE_REPLY_F]	{BITSOFFS(328, 4), "InitReply", mad_dump_hex},
-	[IB_PORT_MTRU_CAP_F]		{BITSOFFS(332, 4), "MtuCap", mad_dump_mtu},
+	[IB_PORT_MTU_CAP_F]		{BITSOFFS(332, 4), "MtuCap", mad_dump_mtu},
 	[IB_PORT_VL_STALL_COUNT_F]	{BITSOFFS(336, 3), "VLStallCount", mad_dump_uint},
 	[IB_PORT_HOQ_LIFE_F]		{BITSOFFS(339, 5), "HoqLife", mad_dump_uint},
 	[IB_PORT_OPER_VLS_F]		{BITSOFFS(344, 4), "OperVLs", mad_dump_opervls},
