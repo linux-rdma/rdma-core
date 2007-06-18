@@ -274,6 +274,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					wqe += to_copy;
 					addr += to_copy;
 					seg_len += to_copy;
+					wmb(); /* see comment below */
 					seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
 					seg_len = 0;
 					seg = wqe;
@@ -289,6 +290,18 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 			if (seg_len) {
 				++num_seg;
+				/*
+				 * Need a barrier here to make sure
+				 * all the data is visible before the
+				 * byte_count field is set.  Otherwise
+				 * the HCA prefetcher could grab the
+				 * 64-byte chunk with this inline
+				 * segment and get a valid (!=
+				 * 0xffffffff) byte count but stale
+				 * data, and end up sending the wrong
+				 * data.
+				 */
+				wmb();
 				seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
 			}
 
