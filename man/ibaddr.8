@@ -1,4 +1,4 @@
-.TH IBADDR 8 "May 21, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH IBADDR 8 "June 18, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibaddr \- query InfiniBand address(es)
@@ -10,7 +10,7 @@ ibaddr \- query InfiniBand address(es)
 .SH DESCRIPTION
 .PP
 Display the lid (and range) as well as the GID address of the 
-specified port or the local port by default.
+port specified (by DR path, lid, or GUID) or the local port by default.
 .PP
 Note: this utility can be used as simple address resolver.
 
@@ -19,7 +19,7 @@ Note: this utility can be used as simple address resolver.
 .PP
 .TP
 \fB\-G\fR, \fB\-\-Guid\fR
-show lid range and gid of GUID address
+show lid range and gid for GUID address
 .TP
 \fB\-l\fR, \fB\-\-lid_show\fR
 show lid range only

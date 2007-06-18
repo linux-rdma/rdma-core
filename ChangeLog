@@ -1,3 +1,7 @@
+2007-06-18 Hal Rosenstock <halr@voltaire.com>
+
+	* man/ibaddr.8: Improve description
+
 2007-06-04 Hal Rosenstock <halr@voltaire.com>
 
 	* include/ibnetdiscover.h, src/ibnetdiscover.c,
