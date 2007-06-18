@@ -515,8 +515,8 @@ find_mcpath(ib_portid_t *from, int mlid)
 	node->upnode = 0;		/* root */
 	if ((r = new_node(node, port, from, 0)) > 0) {
 		if (node->type != IB_NODE_SWITCH) {
-			IBWARN("mctrace from CA to CA is unsupported");
-			return 0;	/* mctrace from host to itself is unsupported */
+			IBWARN("ibtracert from CA to CA is unsupported");
+			return 0;	/* ibtracert from host to itself is unsupported */
 		}
 
 		if (switch_mclookup(node, from, mlid, map) < 0 ||
