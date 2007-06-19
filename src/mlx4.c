@@ -46,12 +46,6 @@
 #include <sysfs/libsysfs.h>
 #endif
 
-#ifndef HAVE_IBV_READ_SYSFS_FILE
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#endif
-
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
@@ -193,36 +187,6 @@ static struct ibv_device_ops mlx4_dev_ops = {
 	.alloc_context = mlx4_alloc_context,
 	.free_context  = mlx4_free_context
 };
-
-/*
- * Keep a private implementation of HAVE_IBV_READ_SYSFS_FILE to handle
- * old versions of libibverbs that didn't implement it.  This can be
- * removed when libibverbs 1.0.3 or newer is available "everywhere."
- */
-#ifndef HAVE_IBV_READ_SYSFS_FILE
-static int ibv_read_sysfs_file(const char *dir, const char *file,
-			       char *buf, size_t size)
-{
-	char path[256];
-	int fd;
-	int len;
-
-	snprintf(path, sizeof path, "%s/%s", dir, file);
-
-	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		return -1;
-
-	len = read(fd, buf, size);
-
-	close(fd);
-
-	if (len > 0 && buf[len - 1] == '\n')
-		buf[--len] = '\0';
-
-	return len;
-}
-#endif /* HAVE_IBV_READ_SYSFS_FILE */
 
 static struct ibv_device *mlx4_driver_init(const char *uverbs_sys_path,
 					    int abi_version)

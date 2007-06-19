@@ -43,8 +43,9 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for library functions
-AC_CHECK_FUNCS(ibv_read_sysfs_file ibv_dontfork_range ibv_dofork_range \
-    ibv_register_driver)
+AC_CHECK_FUNC(ibv_read_sysfs_file, [],
+    AC_MSG_ERROR([ibv_read_sysfs_file() not found.  libmlx4 requires libibverbs >= 1.0.3.]))
+AC_CHECK_FUNCS(ibv_dontfork_range ibv_dofork_range ibv_register_driver)
 
 dnl Now check if for libibverbs 1.0 vs 1.1
 dummy=if$$
