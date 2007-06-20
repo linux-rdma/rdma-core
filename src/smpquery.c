@@ -47,14 +47,15 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.1
+#define __BUILD_VERSION_TAG__ 1.2.2
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
 
+#include "ibdiag_common.h"
+
 #undef DEBUG
 #define	DEBUG	if (verbose>1) IBWARN
-#define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
 
 static int dest_type = IB_DEST_LID;
 static int verbose;
@@ -82,30 +83,7 @@ static const match_rec_t match_tbl[] = {
 	{0}
 };
 
-static char *argv0 = "smpquery";
-
-static void
-iberror(const char *fn, char *msg, ...)
-{
-	char buf[512], *s;
-	va_list va;
-	int n;
-
-	va_start(va, msg);
-	n = vsprintf(buf, msg, va);
-	va_end(va);
-	buf[n] = 0;
-
-	if ((s = strrchr(argv0, '/')))
-		argv0 = s + 1;
-
-	if (verbose)
-		printf("%s: iberror: [pid %d] %s: failed: %s\n", argv0, getpid(), fn, buf);
-	else
-		printf("%s: iberror: failed: %s\n", argv0, buf);
-
-	exit(-1);
-}
+char *argv0 = "smpquery";
 
 /*******************************************/
 static char *

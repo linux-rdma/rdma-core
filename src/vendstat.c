@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,10 +42,12 @@
 #include <getopt.h>
 #include <netinet/in.h>
 
-#define __BUILD_VERSION_TAG__ 1.2
+#define __BUILD_VERSION_TAG__ 1.2.1
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
+
+#include "ibdiag_common.h"
 
 #define IS3_DEVICE_ID			47396
 
@@ -56,9 +58,7 @@
 /* Config space addresses */
 #define IB_MLX_IS3_PORT_XMIT_WAIT	0x10013C
 
-static char *argv0 = "vendstat";
-
-#define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
+char *argv0 = "vendstat";
 
 typedef struct {
 	uint16_t hw_revision;
@@ -113,27 +113,6 @@ typedef struct {
 	is3_record_t record[18];
 } is3_config_space_t;
 
-
-static void
-iberror(const char *fn, char *msg, ...)
-{
-	char buf[512];
-	va_list va;
-	int n;
-
-	va_start(va, msg);
-	n = vsprintf(buf, msg, va);
-	va_end(va);
-	buf[n] = 0;
-
-	if (ibdebug)
-		printf("%s: iberror: [pid %d] %s: failed: %s\n", argv0, getpid(), fn, buf);
-	else
-		printf("%s: iberror: failed: %s\n", argv0, buf);
-
-	exit(-1);
-}
-
 static void
 usage(void)
 {
@@ -175,12 +154,11 @@ main(int argc, char **argv)
 	int xmit_wait = 0;
 	int i;
 
-	static char const str_opts[] = "C:P:s:t:dNcwGVhu";
+	static char const str_opts[] = "C:P:s:t:dNwGVhu";
 	static const struct option long_opts[] = {
 		{ "C", 1, 0, 'C'},
 		{ "P", 1, 0, 'P'},
 		{ "N", 1, 0, 'N'},
-		{ "c", 1, 0, 'c'},
 		{ "w", 1, 0, 'w'},
 		{ "debug", 0, 0, 'd'},
 		{ "Guid", 0, 0, 'G'},

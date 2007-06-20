@@ -32,7 +32,7 @@ sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 	       scripts/ibprintca.pl scripts/ibprintrt.pl \
 	       scripts/ibfindnodesusing.pl scripts/ibidsverify.pl
 
-src_ibaddr_SOURCES = src/ibaddr.c
+src_ibaddr_SOURCES = src/ibaddr.c src/ibdiag_common.c
 src_ibaddr_CFLAGS = -Wall $(DBGFLAGS)
 # src_ibaddr_LDADD = $(libdir)/libibcommon.la \
 # 		     $(libdir)/libibumad.la \
@@ -46,14 +46,14 @@ src_ibnetdiscover_CFLAGS = -Wall $(DBGFLAGS)
 # 			  $(libdir)/libibmad.la
 # src_ibnetdiscover_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
-src_ibping_SOURCES = src/ibping.c
+src_ibping_SOURCES = src/ibping.c src/ibdiag_common.c
 src_ibping_CFLAGS = -Wall $(DBGFLAGS)
 # src_ibping_LDADD = $(libdir)/libibcommon.la \
 # 		   $(libdir)/libibumad.la \
 # 		   $(libdir)/libibmad.la
 # src_ibping_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
-src_ibportstate_SOURCES = src/ibportstate.c
+src_ibportstate_SOURCES = src/ibportstate.c src/ibdiag_common.c
 src_ibportstate_CFLAGS = -Wall $(DBGFLAGS)
 # src_ibportstate_LDADD = $(libdir)/libibcommon.la \
 # 			$(libdir)/libibumad.la \
@@ -73,7 +73,7 @@ src_ibstat_CFLAGS = -Wall $(DBGFLAGS)
 # 		   $(libdir)/libibumad.la
 # src_ibstat_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
-src_ibsysstat_SOURCES = src/ibsysstat.c
+src_ibsysstat_SOURCES = src/ibsysstat.c src/ibdiag_common.c
 src_ibsysstat_CFLAGS = -Wall $(DBGFLAGS)
 # src_ibsysstat_LDADD = $(libdir)/libibcommon.la \
 # 		      $(libdir)/libibumad.la \
@@ -87,14 +87,14 @@ src_ibtracert_CFLAGS = -Wall $(DBGFLAGS)
 # 		      $(libdir)/libibmad.la
 # src_ibtracert_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
-src_perfquery_SOURCES = src/perfquery.c
+src_perfquery_SOURCES = src/perfquery.c src/ibdiag_common.c
 src_perfquery_CFLAGS = -Wall $(DBGFLAGS)
 # src_perfquery_LDADD = $(libdir)/libibcommon.la \
 # 		      $(libdir)/libibumad.la \
 # 		      $(libdir)/libibmad.la
 # src_perfquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
-src_sminfo_SOURCES = src/sminfo.c
+src_sminfo_SOURCES = src/sminfo.c src/ibdiag_common.c
 src_sminfo_CFLAGS = -Wall $(DBGFLAGS)
 # src_sminfo_LDADD = $(libdir)/libibcommon.la \
 # 		   $(libdir)/libibumad.la \
@@ -108,7 +108,7 @@ src_smpdump_CFLAGS = -Wall $(DBGFLAGS)
 # 		    $(libdir)/libibmad.la
 # src_smpdump_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
-src_smpquery_SOURCES = src/smpquery.c
+src_smpquery_SOURCES = src/smpquery.c src/ibdiag_common.c
 src_smpquery_CFLAGS = -Wall $(DBGFLAGS)
 # src_smpquery_LDADD = $(libdir)/libibcommon.la \
 # 		     $(libdir)/libibumad.la \
@@ -126,7 +126,7 @@ src_saquery_CFLAGS = -Wall -DOSM_VENDOR_INTF_OPENIB -DVENDOR_RMPP_SUPPORT -DDUAL
 #		    $(libdir)/libosmvendor.la
 src_saquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
-src_vendstat_SOURCES = src/vendstat.c
+src_vendstat_SOURCES = src/vendstat.c src/ibdiag_common.c
 src_vendstat_CFLAGS = -Wall $(DBGFLAGS)
 #src_vendstat_LDADD = $(libdir)/libibcommon.la \
 #		      $(libdir)/libibumad.la \

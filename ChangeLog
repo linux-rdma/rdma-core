@@ -1,3 +1,10 @@
+2007-06-20 Hal Rosenstock <halr@voltaire.com>
+
+	* src/ibaddr.c, src/ibping.c, src/ibportstate.c,
+	  src/ibsysstat.c, src/perfquery.c, src/sminfo.c,
+	  src/smpquery.c, src/vendstat.c, Makefile.am:
+	  Use diag common code ib_error routine
+
 2007-06-18 Hal Rosenstock <halr@voltaire.com>
 
 	* man/ibaddr.8: Improve description

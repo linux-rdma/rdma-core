@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -43,14 +43,15 @@
 #include <string.h>
 #include <getopt.h>
 
-#define __BUILD_VERSION_TAG__ 1.1
+#define __BUILD_VERSION_TAG__ 1.2
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
 
+#include "ibdiag_common.h"
+
 #undef DEBUG
 #define	DEBUG	if (verbose) IBWARN
-#define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
 
 static int dest_type = IB_DEST_LID;
 static int verbose;
@@ -71,30 +72,7 @@ typedef struct cpu_info {
 static cpu_info cpus[MAX_CPUS];
 static int host_ncpu;
 
-static char *argv0 = "ibsysstat";
-
-static void
-iberror(const char *fn, char *msg, ...)
-{
-	char buf[512], *s;
-	va_list va;
-	int n;
-
-	va_start(va, msg);
-	n = vsprintf(buf, msg, va);
-	va_end(va);
-	buf[n] = 0;
-
-	if ((s = strrchr(argv0, '/')))
-		argv0 = s + 1;
-
-	if (verbose)
-		printf("%s: iberror: [pid %d] %s: failed: %s\n", argv0, getpid(), fn, buf);
-	else
-		printf("%s: iberror: failed: %s\n", argv0, buf);
-
-	exit(-1);
-}
+char *argv0 = "ibsysstat";
 
 static void
 mk_reply(int attr, void *data, int sz)

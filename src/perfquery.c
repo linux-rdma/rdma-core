@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -41,36 +41,16 @@
 #include <stdarg.h>
 #include <getopt.h>
 
-#define __BUILD_VERSION_TAG__ 1.2
+#define __BUILD_VERSION_TAG__ 1.2.1
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
 
+#include "ibdiag_common.h"
+
 static uint8_t pc[1024];
 
-static char *argv0 = "perfquery";
-
-#define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
-
-static void
-iberror(const char *fn, char *msg, ...)
-{
-	char buf[512];
-	va_list va;
-	int n;
-
-	va_start(va, msg);
-	n = vsprintf(buf, msg, va);
-	va_end(va);
-	buf[n] = 0;
-
-	if (ibdebug)
-		printf("%s: iberror: [pid %d] %s: failed: %s\n", argv0, getpid(), fn, buf);
-	else
-		printf("%s: iberror: failed: %s\n", argv0, buf);
-
-	exit(-1);
-}
+char *argv0 = "perfquery";
 
 static void
 usage(void)
