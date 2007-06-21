@@ -463,7 +463,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr);
  *   Destruction of an rdma_cm_id will block until related events have been
  *   acknowledged.
  * See also:
- *   rdma_ack_cm_event, rdma_create_event_channel
+ *   rdma_ack_cm_event, rdma_create_event_channel, rdma_event_str
  */
 int rdma_get_cm_event(struct rdma_event_channel *channel,
 		      struct rdma_cm_event **event);
@@ -518,6 +518,16 @@ struct ibv_context **rdma_get_devices(int *num_devices);
  *   rdma_get_devices
  */
 void rdma_free_devices(struct ibv_context **list);
+
+/**
+ * rdma_event_str - Returns a string representation of an rdma cm event.
+ * @event: Asynchronous event.
+ * Description:
+ *   Returns a string representation of an asynchronous event.
+ * See also:
+ *   rdma_get_cm_event
+ */
+const char *rdma_event_str(enum rdma_cm_event_type event);
 
 #ifdef __cplusplus
 }
