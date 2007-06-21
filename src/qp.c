@@ -204,9 +204,11 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 				break;
 
+			case IBV_WR_RDMA_READ:
+				inl = 1;
+				/* fall through */
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
-			case IBV_WR_RDMA_READ:
 				((struct mlx4_wqe_raddr_seg *) wqe)->raddr =
 					htonll(wr->wr.rdma.remote_addr);
 				((struct mlx4_wqe_raddr_seg *) wqe)->rkey =
