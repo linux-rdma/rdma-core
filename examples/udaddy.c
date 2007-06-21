@@ -264,8 +264,6 @@ static int route_handler(struct cmatest_node *node)
 		goto err;
 
 	memset(&conn_param, 0, sizeof conn_param);
-	conn_param.qp_num = node->cma_id->qp->qp_num;
-	conn_param.retry_count = 5;
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
 		printf("udaddy: failure connecting: %d\n", ret);
