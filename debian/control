@@ -1,7 +1,7 @@
 Source: libmthca
 Priority: extra
 Maintainer: Roland Dreier <rolandd@cisco.com>
-Build-Depends: cdbs (>= 0.4.25-1), debhelper (>= 5), libibverbs-dev (>= 1.1), autotools-dev
+Build-Depends: dpkg-dev (>= 1.13.19), cdbs (>= 0.4.25-1), debhelper (>= 5), libibverbs-dev (>= 1.1), autotools-dev
 Standards-Version: 3.7.2
 Section: libs
 
@@ -22,7 +22,7 @@ Description: A userspace driver for Mellanox InfiniBand HCAs
 Package: libmthca-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, libmthca1 (= ${Source-Version})
+Depends: ${misc:Depends}, libmthca1 (= ${binary:Version})
 Description: Development files for the libmthca driver
  libmthca is a device-specific driver for Mellanox InfiniBand host
  channel adapters (HCAs) for the libibverbs library.  This allows
@@ -38,7 +38,7 @@ Package: libmthca1-dbg
 Section: libdevel
 Priority: extra
 Architecture: any
-Depends: ${misc:Depends}, libmthca1 (= ${Source-Version})
+Depends: ${misc:Depends}, libmthca1 (= ${binary:Version})
 Description: Debugging symbols for the libmthca driver
  libmthca is a device-specific driver for Mellanox InfiniBand host
  channel adapters (HCAs) for the libibverbs library.  This allows
