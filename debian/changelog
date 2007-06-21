@@ -1,3 +1,9 @@
+libibverbs (1.1.1-2) unstable; urgency=low
+
+  * Replace deprecated ${Source-Version} with ${binary:Version}
+
+ -- Roland Dreier <rolandd@cisco.com>  Thu, 21 Jun 2007 12:04:05 -0700
+
 libibverbs (1.1.1-1) unstable; urgency=low
 
   * New upstream release.
