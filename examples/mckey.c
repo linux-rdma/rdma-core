@@ -305,8 +305,8 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	case RDMA_CM_EVENT_ADDR_ERROR:
 	case RDMA_CM_EVENT_ROUTE_ERROR:
 	case RDMA_CM_EVENT_MULTICAST_ERROR:
-		printf("mckey: event: %d, error: %d\n", event->event,
-			event->status);
+		printf("mckey: event: %s, error: %d\n",
+		       rdma_event_str(event->event), event->status);
 		connect_error();
 		ret = event->status;
 		break;

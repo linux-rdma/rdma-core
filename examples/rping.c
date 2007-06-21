@@ -164,7 +164,8 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 	int ret = 0;
 	struct rping_cb *cb = cma_id->context;
 
-	DEBUG_LOG("cma_event type %d cma_id %p (%s)\n", event->event, cma_id,
+	DEBUG_LOG("cma_event type %s cma_id %p (%s)\n",
+		  rdma_event_str(event->event), cma_id,
 		  (cma_id == cb->cm_id) ? "parent" : "child");
 
 	switch (event->event) {
@@ -207,14 +208,15 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 	case RDMA_CM_EVENT_CONNECT_ERROR:
 	case RDMA_CM_EVENT_UNREACHABLE:
 	case RDMA_CM_EVENT_REJECTED:
-		fprintf(stderr, "cma event %d, error %d\n", event->event,
-		       event->status);
+		fprintf(stderr, "cma event %s, error %d\n",
+			rdma_event_str(event->event), event->status);
 		sem_post(&cb->sem);
 		ret = -1;
 		break;
 
 	case RDMA_CM_EVENT_DISCONNECTED:
-		fprintf(stderr, "%s DISCONNECT EVENT...\n", cb->server ? "server" : "client");
+		fprintf(stderr, "%s DISCONNECT EVENT...\n",
+			cb->server ? "server" : "client");
 		sem_post(&cb->sem);
 		break;
 

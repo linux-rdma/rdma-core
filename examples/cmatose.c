@@ -320,8 +320,8 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	case RDMA_CM_EVENT_CONNECT_ERROR:
 	case RDMA_CM_EVENT_UNREACHABLE:
 	case RDMA_CM_EVENT_REJECTED:
-		printf("cmatose: event: %d, error: %d\n", event->event,
-			event->status);
+		printf("cmatose: event: %s, error: %d\n",
+		       rdma_event_str(event->event), event->status);
 		connect_error();
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
