@@ -290,6 +290,8 @@ int ipath_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	for (npolled = 0; npolled < ne; ++npolled, ++wc) {
 		if (tail == q->head)
 			break;
+		/* Make sure entry is read after head index is read. */
+		rmb();
 		memcpy(wc, &q->queue[tail], sizeof(*wc));
 		if (tail == cq->ibv_cq.cqe)
 			tail = 0;
@@ -441,6 +443,8 @@ static int post_recv(struct ipath_rq *rq, struct ibv_recv_wr *wr,
 		wqe->num_sge = i->num_sge;
 		for (n = 0; n < wqe->num_sge; n++)
 			wqe->sg_list[n] = i->sg_list[n];
+		/* Make sure queue entry is written before the head index. */
+		wmb();
 		rwq->head = head;
 	}
 	ret = 0;
