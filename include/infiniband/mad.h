@@ -166,8 +166,8 @@ typedef struct {
 } ib_dr_path_t;
 
 typedef struct {
-	uint id;
-	uint mod;
+	unsigned id;
+	unsigned mod;
 } ib_attr_t;
 
 typedef struct {
@@ -180,7 +180,7 @@ typedef struct {
 	uint64_t mkey;
 	uint64_t trid;	/* used for out mad if nonzero, return real val */
 	uint64_t mask;	/* for sa mads */
-	uint recsz;	/* for sa mads (attribute offset) */
+	unsigned recsz;	/* for sa mads (attribute offset) */
 	int timeout;
 	uint32_t oui;	/* for vendor range 2 mads */
 } ib_rpc_t;
@@ -193,7 +193,7 @@ typedef struct portid {
 	uint32_t qp;
 	uint32_t qkey;
 	uint8_t sl;
-	uint pkey_idx;
+	unsigned pkey_idx;
 } ib_portid_t;
 
 typedef void (ib_mad_dump_fn)(char *buf, int bufsz, void *val, int valsz);
@@ -566,23 +566,23 @@ enum SA_SIZES_ENUM {
 };
 
 typedef struct ib_sa_call {
-	uint attrid;
-	uint mod;
+	unsigned attrid;
+	unsigned mod;
 	uint64_t mask;
-	uint method;
+	unsigned method;
 
 	uint64_t trid;	/* used for out mad if nonzero, return real val */
-	uint recsz;	/* return field */
+	unsigned recsz;	/* return field */
 	ib_rmpp_hdr_t rmpp;
 } ib_sa_call_t;
 
 typedef struct ib_vendor_call {
-	uint method;
-	uint mgmt_class;
-	uint attrid;
-	uint mod;
+	unsigned method;
+	unsigned mgmt_class;
+	unsigned attrid;
+	unsigned mod;
 	uint32_t oui;
-	uint timeout;
+	unsigned timeout;
 	ib_rmpp_hdr_t rmpp;
 } ib_vendor_call_t;
 
@@ -740,14 +740,14 @@ void *  mad_rpc_rmpp(void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
 		     ib_rmpp_hdr_t *rmpp, void *data);
 
 /* smp.c */
-uint8_t * smp_query(void *buf, ib_portid_t *id, uint attrid, uint mod,
-		    uint timeout);
-uint8_t * smp_set(void *buf, ib_portid_t *id, uint attrid, uint mod,
-		  uint timeout);
+uint8_t * smp_query(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
+		    unsigned timeout);
+uint8_t * smp_set(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
+		  unsigned timeout);
 
 inline static uint8_t *
-safe_smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
-	       uint timeout)
+safe_smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
+	       unsigned timeout)
 {
 	uint8_t *p;
 
@@ -759,8 +759,8 @@ safe_smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
 }
 
 inline static uint8_t *
-safe_smp_set(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
-	     uint timeout)
+safe_smp_set(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
+	     unsigned timeout)
 {
 	uint8_t *p;
 
@@ -773,15 +773,15 @@ safe_smp_set(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
 
 /* sa.c */
 uint8_t * sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
-		  uint timeout);
+		  unsigned timeout);
 uint8_t * sa_rpc_call(void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
-		      ib_sa_call_t *sa, uint timeout);
+		      ib_sa_call_t *sa, unsigned timeout);
 int	ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id,
 		      void *buf);	/* returns lid */
 
 inline static uint8_t *
 safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
-	     uint timeout)
+	     unsigned timeout)
 {
 	uint8_t *p;
 
@@ -802,19 +802,19 @@ int	ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid);
 
 /* gs.c */
 uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port,
-				  uint timeout);
+				  unsigned timeout);
 uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
-				uint timeout);
+				unsigned timeout);
 uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
-				uint mask, uint timeout);
+				unsigned mask, unsigned timeout);
 uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port,
-				    uint timeout);
+				    unsigned timeout);
 uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port,
-				    uint mask, uint timeout);
+				    unsigned mask, unsigned timeout);
 uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
-				    uint timeout);
+				    unsigned timeout);
 uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,
-				   uint timeout);
+				   unsigned timeout);
 
 /* dump.c */
 ib_mad_dump_fn
