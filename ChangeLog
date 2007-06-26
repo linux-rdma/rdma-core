@@ -1,4 +1,8 @@
-2007-06-26  Michael S. Tsirkin <mst@dev.mellanox.co.il>
+2007-06-26 Hal Rosenstock <halr@voltaire.com> 
+
+	* src/umad.c: Change uint to unsigned for strict ANSI
+
+2007-06-26 Michael S. Tsirkin <mst@dev.mellanox.co.il>
 
 	* include/infiniband/umad.h: Change uint to unsigned
 	  for strict ANSI
