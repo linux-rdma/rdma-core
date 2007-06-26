@@ -33,6 +33,7 @@
 #ifndef INFINIBAND_ARCH_H
 #define INFINIBAND_ARCH_H
 
+#include <stdint.h>
 #include <endian.h>
 #include <byteswap.h>
 
