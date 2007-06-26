@@ -60,6 +60,8 @@ typedef struct ib_mad_addr {
 	uint8_t	 traffic_class;
 	uint8_t	 gid[16];
 	uint32_t flow_label;
+	uint16_t pkey_index;
+	uint8_t  reserved[6];
 } ib_mad_addr_t;
 
 typedef struct ib_user_mad {
@@ -72,7 +74,8 @@ typedef struct ib_user_mad {
 	uint8_t  data[0];
 } ib_user_mad_t;
 
-#define IB_UMAD_ABI_VERSION	5
+#define IB_UMAD_MIN_ABI_VERSION	5
+#define IB_UMAD_MAX_ABI_VERSION	6
 #define IB_UMAD_ABI_DIR		"/sys/class/infiniband_mad"
 #define IB_UMAD_ABI_FILE	"abi_version"
 
@@ -120,13 +123,13 @@ typedef struct ib_user_mad {
 typedef struct umad_port {
 	char ca_name[UMAD_CA_NAME_LEN];
 	int portnum;
-	uint base_lid;
-	uint lmc;
-	uint sm_lid;
-	uint sm_sl;
-	uint state;
-	uint phys_state;
-	uint rate;
+	unsigned base_lid;
+	unsigned lmc;
+	unsigned sm_lid;
+	unsigned sm_sl;
+	unsigned state;
+	unsigned phys_state;
+	unsigned rate;
 	uint64_t capmask;
 	uint64_t gid_prefix;
 	uint64_t port_guid;
@@ -134,7 +137,7 @@ typedef struct umad_port {
 
 typedef struct umad_ca {
 	char ca_name[UMAD_CA_NAME_LEN];
-	uint node_type;
+	unsigned node_type;
 	int numports;
 	char fw_ver[20];
 	char ca_type[40];
@@ -167,7 +170,7 @@ int	umad_set_grh_net(void *umad, void *mad_addr);
 int	umad_set_grh(void *umad, void *mad_addr);
 int	umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
-int	umad_set_pkey(void *umad, int pkey);
+int	umad_set_pkey(void *umad, int pkey_index);
 
 int	umad_send(int portid, int agentid, void *umad, int length,
 		  int timeout_ms, int retries);
