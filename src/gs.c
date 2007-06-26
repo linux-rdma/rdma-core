@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -49,7 +49,7 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
-pma_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout, uint id)
+pma_query(void *rcvbuf, ib_portid_t *dest, int port, unsigned timeout, unsigned id)
 {
 	ib_rpc_t rpc = {0};
 	int lid = dest->lid;
@@ -80,20 +80,20 @@ pma_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout, uint id)
 }
 
 uint8_t *
-perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port, unsigned timeout)
 {
 	return pma_query(rcvbuf, dest, port, timeout, CLASS_PORT_INFO);
 }
 
 uint8_t *
-port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+port_performance_query(void *rcvbuf, ib_portid_t *dest, int port, unsigned timeout)
 {
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS);
 }
 
 static uint8_t *
-performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
-		  uint timeout, uint id)
+performance_reset(void *rcvbuf, ib_portid_t *dest, int port, unsigned mask,
+		  unsigned timeout, unsigned id)
 {
 	ib_rpc_t rpc = {0};
 	int lid = dest->lid;
@@ -129,33 +129,33 @@ performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
 }
 
 uint8_t *
-port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
-		       uint timeout)
+port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port, unsigned mask,
+		       unsigned timeout)
 {
 	return performance_reset(rcvbuf, dest, port, mask, timeout, IB_GSI_PORT_COUNTERS);
 }
 
 uint8_t *
-port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port, unsigned timeout)
 {
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS_EXT);
 }
 
 uint8_t *
-port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port, uint mask,
-			   uint timeout)
+port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port, unsigned mask,
+			   unsigned timeout)
 {
 	return performance_reset(rcvbuf, dest, port, mask, timeout, IB_GSI_PORT_COUNTERS_EXT);
 }
 
 uint8_t *
-port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port, uint timeout)
+port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port, unsigned timeout)
 {
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_SAMPLES_CONTROL);
 }
 
 uint8_t *
-port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,  uint timeout)
+port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,  unsigned timeout)
 {
 	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_SAMPLES_RESULT);
 }

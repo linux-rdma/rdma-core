@@ -382,7 +382,7 @@ _set_field(void *buf, int base_offs, ib_field_t *f, uint32_t val)
 	int prebits = (8 - (f->bitoffs & 7)) & 7;
 	int postbits = (f->bitoffs + f->bitlen) & 7;
 	int bytelen = f->bitlen / 8;
-	uint idx = base_offs + f->bitoffs / 8;
+	unsigned idx = base_offs + f->bitoffs / 8;
 	char *p = (char *)buf;
 
 	if (!bytelen && (f->bitoffs & 7) + f->bitlen < 8) {
@@ -413,7 +413,7 @@ _get_field(void *buf, int base_offs, ib_field_t *f)
 	int prebits = (8 - (f->bitoffs & 7)) & 7;
 	int postbits = (f->bitoffs + f->bitlen) & 7;
 	int bytelen = f->bitlen / 8;
-	uint idx = base_offs + f->bitoffs / 8;
+	unsigned idx = base_offs + f->bitoffs / 8;
 	uint8_t *p = (uint8_t *)buf;
 	uint32_t val = 0, v = 0, i;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -49,7 +49,7 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
-smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
+smp_set(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsigned timeout)
 {
 	ib_rpc_t rpc = {0};
 
@@ -75,8 +75,8 @@ smp_set(void *data, ib_portid_t *portid, uint attrid, uint mod, uint timeout)
 }
 
 uint8_t *
-smp_query(void *rcvbuf, ib_portid_t *portid, uint attrid, uint mod,
-	  uint timeout)
+smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
+	  unsigned timeout)
 {
 	ib_rpc_t rpc = {0};
 
