@@ -1,7 +1,7 @@
 2007-06-26  Hal Rosenstock <halr@voltaire.com> 
 
-	* src/dump.c, src/fields.c, src/gs.c, src/sa.c, src/smp.c:
-	  Change uint to unsigned for strict ANSI
+	* src/dump.c, src/fields.c, src/gs.c, src/rpc.c, src/sa.c,
+	  src/smp.c: Change uint to unsigned for strict ANSI
 
 2007-06-26  Michael S. Tsirkin <mst@dev.mellanox.co.il>
 

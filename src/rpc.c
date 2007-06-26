@@ -386,7 +386,7 @@ mad_rpc_close_port(void *port_id)
 }
 
 uint8_t *
-sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, uint timeout)
+sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, unsigned timeout)
 {
 	struct ibmad_port port;
 
