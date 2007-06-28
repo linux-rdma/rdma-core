@@ -920,7 +920,7 @@ static int rping_bind_client(struct rping_cb *cb)
 	if (cb->state != ROUTE_RESOLVED) {
 		fprintf(stderr, "waiting for addr/route resolution state %d\n",
 			cb->state);
-		return ret;
+		return -1;
 	}
 
 	DEBUG_LOG("rdma_resolve_addr - rdma_resolve_route successful\n");
