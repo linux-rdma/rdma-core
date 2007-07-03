@@ -34,11 +34,12 @@ AC_CHECK_LIB(pthread, pthread_mutex_init, [],
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADER(valgrind/memcheck.h, memcheck_ok=yes, memcheck_ok=no)
-
-if test $want_valgrind = yes && test $memcheck_ok = no; then
-    AC_MSG_ERROR([Valgrind memcheck support requested, but <valgrind/memcheck.h> not found.])
-fi
+AC_CHECK_HEADER(valgrind/memcheck.h,
+    [AC_DEFINE(HAVE_VALGRIND_MEMCHECK_H, 1,
+        [Define to 1 if you have the <valgrind/memcheck.h> header file.])],
+    [if test $want_valgrind = yes; then
+        AC_MSG_ERROR([Valgrind memcheck support requested, but <valgrind/memcheck.h> not found.])
+    fi])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
