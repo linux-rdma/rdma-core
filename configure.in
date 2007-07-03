@@ -14,7 +14,7 @@ AC_ARG_WITH([valgrind],
         [Enable Valgrind annotations (small runtime overhead, default NO)]))
 if test x$with_valgrind = x || test x$with_valgrind = xno; then
     want_valgrind=no
-    AC_DEFINE([NVALGRIND], 1, [disable Valgrind annotations])
+    AC_DEFINE([NVALGRIND], 1, [Define to 1 to disable Valgrind annotations.])
 else
     want_valgrind=yes
     if test -d $with_valgrind; then
