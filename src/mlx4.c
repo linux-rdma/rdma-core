@@ -53,29 +53,19 @@
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
 
-#ifndef PCI_DEVICE_ID_MELLANOX_HERMON_SDR
-#define PCI_DEVICE_ID_MELLANOX_HERMON_SDR	0x6340
-#endif
-
-#ifndef PCI_DEVICE_ID_MELLANOX_HERMON_DDR
-#define PCI_DEVICE_ID_MELLANOX_HERMON_DDR	0x634a
-#endif
-
-#ifndef PCI_DEVICE_ID_MELLANOX_HERMON_QDR
-#define PCI_DEVICE_ID_MELLANOX_HERMON_QDR	0x6354
-#endif
-
 #define HCA(v, d) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_MELLANOX_##d }
+	  .device = d }
 
 struct {
 	unsigned		vendor;
 	unsigned		device;
 } hca_table[] = {
-	HCA(MELLANOX, HERMON_SDR),
-	HCA(MELLANOX, HERMON_DDR),
-	HCA(MELLANOX, HERMON_QDR),
+	HCA(MELLANOX, 0x6340),	/* MT25408 "Hermon" SDR */
+	HCA(MELLANOX, 0x634a),	/* MT25408 "Hermon" DDR */
+	HCA(MELLANOX, 0x6354),	/* MT25408 "Hermon" QDR */
+	HCA(MELLANOX, 0x6732),	/* MT25408 "Hermon" DDR PCIe gen2 */
+	HCA(MELLANOX, 0x673c),	/* MT25408 "Hermon" QDR PCIe gen2 */
 };
 
 static struct ibv_context_ops mlx4_ctx_ops = {
