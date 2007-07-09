@@ -56,6 +56,7 @@ man_MANS = \
 	man/rdma_reject.3 \
 	man/rdma_resolve_addr.3 \
 	man/rdma_resolve_route.3 \
+	man/rdma_event_str.3 \
 	man/ucmatose.1 \
 	man/udaddy.1 \
 	man/mckey.1 \
