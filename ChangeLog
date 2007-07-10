@@ -1,3 +1,10 @@
+2007-07-10 Hal Rosenstock <halr@voltaire.com>
+
+	* Makefile.am: Add man/umad_set_pkey.3 into install
+
+	* man/umad_set_pkey.3: Clarify that umad_set_pkey takes
+	  pkey_index rather than pkey
+
 2007-07-10 Sean Hefty <sean.hefty@intel.com>
 
 	* include/infiniband/umad.h: Clarify that umad_set_pkey()
