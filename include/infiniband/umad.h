@@ -167,7 +167,7 @@ int	umad_set_grh_net(void *umad, void *mad_addr);
 int	umad_set_grh(void *umad, void *mad_addr);
 int	umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey);
 int	umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
-int	umad_set_pkey(void *umad, int pkey);
+int	umad_set_pkey(void *umad, int pkey_index);
 
 int	umad_send(int portid, int agentid, void *umad, int length,
 		  int timeout_ms, int retries);
