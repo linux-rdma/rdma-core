@@ -510,9 +510,24 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 
 		if ((inc == -1 && node->refcnt == 0) ||
 		    (inc ==  1 && node->refcnt == 1)) {
-			ret = madvise((void *) node->start,
-				      node->end - node->start + 1,
-				      advice);
+			/*
+			 * If this is the first time through the loop,
+			 * and we merged this node with the previous
+			 * one, then we only want to do the madvise()
+			 * on start ... node->end (rather than
+			 * starting at node->start).
+			 *
+			 * Otherwise we end up doing madvise() on
+			 * bigger region than we're being asked to,
+			 * and that may lead to a spurious failure.
+			 */
+			if (start > node->start)
+				ret = madvise((void *) start, node->end - start + 1,
+					      advice);
+			else
+				ret = madvise((void *) node->start,
+					      node->end - node->start + 1,
+					      advice);
 			if (ret)
 				goto out;
 		}
