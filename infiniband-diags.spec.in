@@ -56,6 +56,26 @@ rm -rf $RPM_BUILD_ROOT
 %doc README ChangeLog
 
 %changelog
+* Tue Jul 10 2007 Hal Rosenstock <halr@voltaire.com> - 1.3.1
+- Add link width and speed to topology file output in ibnetdiscover
+- Add support for -R(outer_list) in ibnetdiscover
+- Add script and man page for ibidsverify
+- Moved diags from bin to sbin
+- Add scripts and man pages for display on IB routers
+- Add GUID to output line for ports in ibqueryerrors.pl
+- Add ibdatacounts and ibdatacounters scripts and man pages
+- Add peer port link width and speed validation in iblinkinfo.pl
+- Display remote LID with peer port info in IBswcountlimits.pm
+- Handle peer ports at 1x that should be wider and 2.5 Gbps
+  links that should be faster in ibportstate
+- Add LinkSpeed/Width components to output of ibportstate
+- Add support for IB routers 
+- Add grouping support for ISR2012 and ISR2004 in ibnetdiscover
+- Remove all uses of "/tmp" from perl scripts
+- Add switch map support for saquery -O and -U options
+- Add support for saquery -s (isSMdisabled)
+- Add name input checks to saquery (-O and -U) 
+
 * Thu Mar 29 2007 Hal Rosenstock <halr@voltaire.com> - 1.3.0
 - Add some extra debug information to IBswcountlimits.pm
 - Send normal output to stdout in ibtracert
