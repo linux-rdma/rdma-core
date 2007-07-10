@@ -1,5 +1,7 @@
 2007-07-10 Hal Rosenstock <halr@voltaire.com>
 
+	* Release version 1.1.2
+
 	* Makefile.am: Add man/umad_set_pkey.3 into install
 
 	* man/umad_set_pkey.3: Clarify that umad_set_pkey takes
