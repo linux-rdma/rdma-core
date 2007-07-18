@@ -440,13 +440,25 @@ err:
 	return NULL;
 }
 
-int mlx4_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+int mlx4_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		   enum ibv_qp_attr_mask attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
 	struct ibv_query_qp cmd;
+	struct mlx4_qp *qp = to_mqp(ibqp);
+	int ret;
 
-	return ibv_cmd_query_qp(qp, attr, attr_mask, init_attr, &cmd, sizeof cmd);
+	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof cmd);
+	if (ret)
+		return ret;
+
+	init_attr->cap.max_send_wr     = qp->sq.max_post;
+	init_attr->cap.max_send_sge    = qp->sq.max_gs;
+	init_attr->cap.max_inline_data = qp->max_inline_data;
+
+	attr->cap = init_attr->cap;
+
+	return 0;
 }
 
 int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
