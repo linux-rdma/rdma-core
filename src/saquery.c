@@ -907,7 +907,7 @@ return_mc:
 	return (status);
 }
 
-static ib_api_status_t 
+static ib_api_status_t
 print_service_records(osm_bind_handle_t bind_handle)
 {
 	int                  i = 0;
@@ -937,7 +937,7 @@ print_inform_info_records(osm_bind_handle_t bind_handle)
 
 	status = get_all_records(bind_handle, IB_MAD_ATTR_INFORM_INFO_RECORD, attr_offset, 0);
 	if (status != IB_SUCCESS)
-		return (status); 
+		return (status);
 
 	for (i = 0; i < result.result_cnt; i++) {
 		inform_info_record = osmv_get_query_inform_info_rec(result.p_result_madw, i);
@@ -1201,18 +1201,18 @@ main(int argc, char **argv)
 	if (node_print_desc == NAME_OF_LID && !requested_lid_flag) {
 		fprintf(stderr, "ERROR: lid not specified\n");
 		usage();
-	} 
+	}
 
 	if (node_print_desc == NAME_OF_GUID && !requested_guid_flag) {
 		fprintf(stderr, "ERROR: guid not specified\n");
 		usage();
-	} 
+	}
 
 	/* Note: lid cannot be 0; see infiniband spec 4.1.3 */
 	if (node_print_desc == NAME_OF_LID && !requested_lid) {
 		fprintf(stderr, "ERROR: lid invalid\n");
 		usage();
-	} 
+	}
 
 	bind_handle = get_bind_handle();
 	switch_map_fp = open_switch_map(switch_map);

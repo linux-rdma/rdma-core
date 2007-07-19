@@ -88,7 +88,7 @@ get_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
 		mad_dump_portstates(buf, sizeof buf, data, sizeof data);
 		mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, val);
 		mad_dump_field(IB_PORT_LINK_WIDTH_SUPPORTED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
-		sprintf(buf+strlen(buf), "%s", "\n");	
+		sprintf(buf+strlen(buf), "%s", "\n");
 		mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, val);
 		mad_dump_field(IB_PORT_LINK_WIDTH_ENABLED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
 		sprintf(buf+strlen(buf), "%s", "\n");

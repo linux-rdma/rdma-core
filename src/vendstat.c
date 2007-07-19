@@ -267,7 +267,7 @@ main(int argc, char **argv)
 		       gi->fw_info.major, gi->fw_info.minor, gi->fw_info.sub_minor);
 		printf("fw_build_id: 0x%04x\n", ntohl(gi->fw_info.build_id));
 		printf("fw_date:     %02d/%02d/%04x\n",
-		       gi->fw_info.month, gi->fw_info.day, ntohs(gi->fw_info.year)); 
+		       gi->fw_info.month, gi->fw_info.day, ntohs(gi->fw_info.year));
 		printf("fw_psid:     '%s'\n", gi->fw_info.psid);
 		printf("fw_ini_ver:  %d\n", ntohl(gi->fw_info.ini_file_version));
 		printf("sw_version:  %02d.%02d.%02d\n",
