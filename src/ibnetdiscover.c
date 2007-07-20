@@ -78,8 +78,8 @@ static char *linkwidth_str[] = {
 static char *linkspeed_str[] = {
 	"???",
 	"SDR",
-	"???",
 	"DDR",
+	"???",
 	"QDR"
 };
 
