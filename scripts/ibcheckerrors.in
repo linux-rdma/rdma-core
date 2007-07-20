@@ -91,13 +91,15 @@ function check_node(lid)
 		nports++
 		port = $1
 		if (!nodechecked) {
-			lid = $5
+			lid = substr($0, index($0, " lid ") + 5)
+			lid = substr(lid, 1, index(lid, " ") - 1)
 			check_node(lid)
 		}
 		if (badnode) {
 			print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
 			next
 		}
+		sub("\\(.*\\)", "", port)
 		gsub("[\\[\\]]", "", port)
 		if (nodeerr)
 			if (system("'$IBPATH'/ibcheckerrs '$gflags' '$verbose' '$brief' " lid " " port)) {

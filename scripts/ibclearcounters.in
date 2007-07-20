@@ -73,9 +73,11 @@ function clear_port_counters(lid, port)
 
 /^\[/   {
 			port = $1
+			sub("\\(.*\\)", "", port)
 			gsub("[\\[\\]]", "", port)
 			if (!nodecleared) {
-				lid = $5
+				lid = substr($0, index($0, " lid ") + 5)
+				lid = substr(lid, 1, index(lid, " ") - 1)
 				clear_port_counters(lid, port)
 			}
 		}
