@@ -288,6 +288,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				memcpy(wqe, addr, len);
 				wqe += len;
 				seg_len += len;
+				off += len;
 			}
 
 			if (seg_len) {
