@@ -193,7 +193,7 @@ ib_field_t ib_mad_f [] = {
 	[IB_SW_PARTITION_ENF_INB_F]	{BITSOFFS(128, 1), "InboundPartEnf", mad_dump_uint},
 	[IB_SW_PARTITION_ENF_OUTB_F]	{BITSOFFS(129, 1), "OutboundPartEnf", mad_dump_uint},
 	[IB_SW_FILTER_RAW_INB_F]	{BITSOFFS(130, 1), "FilterRawInbound", mad_dump_uint},
-	[IB_SW_FILTER_RAW_OUTB_F]	{BITSOFFS(131, 1), "FilterRawInbound", mad_dump_uint},
+	[IB_SW_FILTER_RAW_OUTB_F]	{BITSOFFS(131, 1), "FilterRawOutbound", mad_dump_uint},
 	[IB_SW_ENHANCED_PORT0_F]	{BITSOFFS(132, 1), "EnhancedPort0", mad_dump_uint},
 
 	/*
