@@ -989,6 +989,9 @@ int ibv_destroy_qp(struct ibv_qp *qp);
 
 /**
  * ibv_post_send - Post a list of work requests to a send queue.
+ *
+ * If IBV_SEND_INLINE flag is set, the data buffers can be reused
+ * immediately after the call returns.
  */
 static inline int ibv_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr,
 				struct ibv_send_wr **bad_wr)
