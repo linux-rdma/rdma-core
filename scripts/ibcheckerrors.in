@@ -3,7 +3,8 @@
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
 function usage() {
-	echo Usage: `basename $0` [-h] [-b] [-v] [-N \| -nocolor] [\<topology-file\>]
+	echo Usage: `basename $0` "[-h] [-b] [-v] [-N | -nocolor]"\
+	    "[<topology-file> | -C ca_name -P ca_port -t(imeout) timeout_ms]"
 	exit -1
 }
 
@@ -21,6 +22,8 @@ v=0
 ntype=""
 nodeguid=""
 oldlid=""
+topofile=""
+ca_info=""
 
 while [ "$1" ]; do
 	case $1 in
@@ -39,20 +42,35 @@ while [ "$1" ]; do
 		brief=-b
 		verbose=""
 		;;
+	-P | -C | -t | -timeout)
+		case $2 in
+		-*)
+			usage
+			;;
+		esac
+		if [ x$2 = x ] ; then
+			usage
+		fi
+		ca_info="$ca_info $1 $2"
+		shift
+		;;
 	-*)
 		usage
 		;;
 	*)
-		break
+		if [ "$topofile" ]; then
+			usage
+		fi
+		topofile="$1"
 		;;
 	esac
 	shift
 done
 
-if [ "$1" ]; then
-	netcmd="cat $1"
+if [ "$topofile" ]; then
+	netcmd="cat $topofile"
 else
-	netcmd="$IBPATH/ibnetdiscover"
+	netcmd="$IBPATH/ibnetdiscover $ca_info"
 fi
 
 eval $netcmd | awk '
@@ -62,12 +80,12 @@ BEGIN {
 function check_node(lid)
 {
 	nodechecked=1
-	if (system("'$IBPATH'/ibchecknode '$gflags' '$verbose' " lid)) {
+	if (system("'$IBPATH'/ibchecknode '"$ca_info"' '$gflags' '$verbose' " lid)) {
 		ne++
 		badnode=1
 		return
 	}
-	if (system("'$IBPATH'/ibcheckerrs '$gflags' '$verbose' '$brief' " lid " 255"))
+	if (system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " 255"))
 		nodeerr=1;
 }
 
@@ -102,7 +120,7 @@ function check_node(lid)
 		sub("\\(.*\\)", "", port)
 		gsub("[\\[\\]]", "", port)
 		if (nodeerr)
-			if (system("'$IBPATH'/ibcheckerrs '$gflags' '$verbose' '$brief' " lid " " port)) {
+			if (system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port)) {
 				if (!'$v' && oldlid != lid) {
 					print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
 					oldlid = lid

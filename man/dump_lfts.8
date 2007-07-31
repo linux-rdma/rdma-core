@@ -5,7 +5,8 @@ dump_lfts.sh \- dump InfiniBand unicast forwarding tables
 
 .SH SYNOPSIS
 .B dump_lfts.sh
-[\-h] [\-D] [>/path/to/dump-file]
+[\-h] [\-D] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [>/path/to/dump-file]
+
 
 .SH DESCRIPTION
 .PP
@@ -24,6 +25,15 @@ dump forwarding tables using direct routed rather than LID routed SMPs
 .TP
 \fB\-h\fR
 show help
+.TP
+\fB\-C\fR <ca_name>
+use the specified ca_name.
+.TP
+\fB\-P\fR <ca_port>
+use the specified ca_port.
+.TP
+\fB\-t\fR <timeout_ms>
+override the default timeout for the solicited mads.
 
 .SH SEE ALSO
 .BR dump_mfts(8),

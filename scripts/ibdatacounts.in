@@ -3,7 +3,9 @@
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
 function usage() {
-	echo Usage: `basename $0` "[-h] [-b] [-v] [-G] [-N \| -nocolor] <lid|guid> [<port>]"
+	echo Usage: `basename $0` "[-h] [-b] [-v] [-G] [-N | -nocolor]" \
+	    "[-C ca_name] [-P ca_port] [-t(imeout) timeout_ms] <lid|guid>" \
+	    "[<port>]"
 	exit -1
 }
 
@@ -31,6 +33,7 @@ guid_addr=""
 bw=""
 verbose=""
 brief=""
+ca_info=""
 
 while [ "$1" ]; do
 	case $1 in
@@ -47,6 +50,18 @@ while [ "$1" ]; do
 	-b)
 		brief=yes
 		verbose=""
+		;;
+	-P | -C | -t | -timeout)
+		case $2 in
+		-*)
+			usage
+			;;
+		esac
+		if [ x$2 = x ] ; then
+			usage
+		fi
+		ca_info="$ca_info $1 $2"
+		shift
 		;;
 	-*)
 		usage
@@ -76,7 +91,7 @@ else
 fi
 
 if [ "$guid_addr" ]; then
-	if ! lid=`$IBPATH/ibaddr -G -L $1 | awk '/failed/{exit -1} {print $3}'`; then
+	if ! lid=`$IBPATH/ibaddr $ca_info -G -L $1 | awk '/failed/{exit -1} {print $3}'`; then
 		echo -n "guid $1 address resolution: "
 		red "FAILED"
 		exit -1
@@ -84,16 +99,16 @@ if [ "$guid_addr" ]; then
 	guid=$1
 else
 	lid=$1
-	if ! temp=`$IBPATH/ibaddr -L $1 | awk '/failed/{exit -1} {print $1}'`; then
+	if ! temp=`$IBPATH/ibaddr $ca_info -L $1 | awk '/failed/{exit -1} {print $1}'`; then
 		echo -n "lid $1 address resolution: "
 		red "FAILED"
 		exit -1
 	fi
 fi
 
-nodename=`smpquery nodedesc $lid | sed -e "s/^Node Description:\.*\(.*\)/\1/"`
+nodename=`smpquery $ca_info nodedesc $lid | sed -e "s/^Node Description:\.*\(.*\)/\1/"`
 
-if $IBPATH/perfquery $lid $portnum | awk -v mono=$bw -v brief=$brief -F '[.:]*' '
+if $IBPATH/perfquery $ca_info $lid $portnum | awk -v mono=$bw -v brief=$brief -F '[.:]*' '
 function blue(s)
 {
 	if (brief == "yes") {

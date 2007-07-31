@@ -73,6 +73,8 @@ osm_mad_pool_t     mad_pool;
 osm_vendor_t      *vendor = NULL;
 int                osm_debug = 0;
 uint32_t           sa_timeout_ms = DEFAULT_SA_TIMEOUT_MS;
+char		  *sa_hca_name = NULL;
+uint32_t           sa_port_num = 0;
 
 enum {
 	ALL,
@@ -137,7 +139,7 @@ print_node_record(ib_node_record_t *node_record)
 		if (p_ni->node_type == IB_NODE_TYPE_SWITCH)
 			name = lookup_switch_name(switch_map_fp,
 						  cl_ntoh64(p_ni->node_guid),
-						  p_nd->description);
+						  (char *)p_nd->description);
 		else
 			name = clean_nodedesc((char *)p_nd->description);
 		printf("%s\n", name);
@@ -956,6 +958,7 @@ get_bind_handle(void)
 	ib_api_status_t    status;
 	ib_port_attr_t     attr_array[MAX_PORTS];
 	uint32_t           num_ports = MAX_PORTS;
+	uint32_t           ca_name_index = 0;
 
 	complib_init();
 
@@ -985,6 +988,16 @@ get_bind_handle(void)
 	}
 
 	for (i = 0; i < num_ports; i++) {
+		if (i > 1 && cl_ntoh64(attr_array[i].port_guid)
+				!= (cl_ntoh64(attr_array[i-1].port_guid) + 1))
+			ca_name_index++;
+		if (sa_port_num && sa_port_num != attr_array[i].port_num)
+			continue;
+		if (sa_hca_name && i == 0)
+			continue;
+		if (sa_hca_name
+		 && strcmp(sa_hca_name, vendor->ca_names[ca_name_index]) != 0)
+			continue;
 		if (attr_array[i].link_state == IB_LINK_ACTIVE)
 			port_guid = attr_array[i].port_guid;
 	}
@@ -1029,10 +1042,13 @@ clean_up(void)
 static void
 usage(void)
 {
-	fprintf(stderr, "Usage: %s [-h -d -P -N] [--list | -D] [-S -I -L -l -G -O -U -C -s -g -m --src-to-dst <src:dst> -t(imeout) <msec>] [<name> | <lid> | <guid>]\n", argv0);
+	fprintf(stderr, "Usage: %s [-h -d -p -N] [--list | -D] [-S -I -L -l -G"
+		" -O -U -c -s -g -m --src-to-dst <src:dst> -C <ca_name> "
+		"-P <ca_port> -t(imeout) <msec>] [<name> | <lid> | <guid>]\n",
+		argv0);
 	fprintf(stderr, "   Queries node records by default\n");
 	fprintf(stderr, "   -d enable debugging\n");
-	fprintf(stderr, "   -P get PathRecord info\n");
+	fprintf(stderr, "   -p get PathRecord info\n");
 	fprintf(stderr, "   -N get NodeRecord info\n");
 	fprintf(stderr, "   --list | -D the node desc of the CA's\n");
 	fprintf(stderr, "   -S get ServiceRecord info\n");
@@ -1042,15 +1058,21 @@ usage(void)
 	fprintf(stderr, "   -G return the Guids of the name specified\n");
 	fprintf(stderr, "   -O return name for the Lid specified\n");
 	fprintf(stderr, "   -U return name for the Guid specified\n");
-	fprintf(stderr, "   -C get the SA's class port info\n");
-	fprintf(stderr, "   -s return the PortInfoRecords with isSM or isSMdisabled capability mask bit on\n");
+	fprintf(stderr, "   -c get the SA's class port info\n");
+	fprintf(stderr, "   -s return the PortInfoRecords with isSM or "
+				"isSMdisabled capability mask bit on\n");
 	fprintf(stderr, "   -g get multicast group info\n");
 	fprintf(stderr, "   -m get multicast member info\n");
-	fprintf(stderr, "      (if multicast group specified, list member GIDs only for group specified\n");
+	fprintf(stderr, "      (if multicast group specified, list member GIDs"
+				" only for group specified\n");
 	fprintf(stderr, "      specified, for example 'saquery -m 0xC000')\n");
 	fprintf(stderr, "   --src-to-dst get a PathRecord for <src:dst>\n"
-			"                where src amd dst are either node names or LIDs\n");
-	fprintf(stderr, "   -t | --timeout <msec> specify the SA query response timeout (default %u msec)\n",
+			"                where src amd dst are either node "
+				"names or LIDs\n");
+	fprintf(stderr, "   -C <ca_name> specify the SA query HCA\n");
+	fprintf(stderr, "   -P <ca_port> specify the SA query port\n");
+	fprintf(stderr, "   -t | --timeout <msec> specify the SA query "
+				"response timeout (default %u msec)\n",
 			DEFAULT_SA_TIMEOUT_MS);
 	fprintf(stderr, "   --switch-map <switch-map> specify a switch map\n");
 	exit(-1);
@@ -1068,9 +1090,9 @@ main(int argc, char **argv)
 	ib_net16_t         dst_lid;
 	ib_api_status_t    status;
 
-	static char const str_opts[] = "PVNDLlGOUCSIsgmdht:";
+	static char const str_opts[] = "pVNDLlGOUcSIsgmdhP:C:t:";
 	static const struct option long_opts [] = {
-	   {"P", 0, 0, 'P'},
+	   {"p", 0, 0, 'p'},
 	   {"Version", 0, 0, 'V'},
 	   {"N", 0, 0, 'N'},
 	   {"L", 0, 0, 'L'},
@@ -1082,9 +1104,11 @@ main(int argc, char **argv)
 	   {"g", 0, 0, 'g'},
 	   {"m", 0, 0, 'm'},
 	   {"d", 0, 0, 'd'},
-	   {"C", 0, 0, 'C'},
+	   {"c", 0, 0, 'c'},
 	   {"S", 0, 0, 'S'},
 	   {"I", 0, 0, 'I'},
+	   {"P", 1, 0, 'P'},
+	   {"C", 1, 0, 'C'},
 	   {"help", 0, 0, 'h'},
 	   {"list", 0, 0, 'D'},
 	   {"src-to-dst", 1, 0, 1},
@@ -1118,7 +1142,7 @@ main(int argc, char **argv)
 		case 2:
 			switch_map = strdup(optarg);
 			break;
-		case 'P':
+		case 'p':
 			query_type = IB_MAD_ATTR_PATH_RECORD;
 			break;
 		case 'V':
@@ -1127,7 +1151,7 @@ main(int argc, char **argv)
 		case 'D':
 			node_print_desc = ALL_DESC;
 			break;
-		case 'C':
+		case 'c':
 			query_type = IB_MAD_ATTR_CLASS_PORT_INFO;
 			break;
 		case 'S':
@@ -1166,6 +1190,12 @@ main(int argc, char **argv)
 			break;
 		case 'd':
 			osm_debug = 1;
+			break;
+		case 'C':
+			sa_hca_name = optarg;
+			break;
+		case 'P':
+			sa_port_num = strtoul(optarg, NULL, 0);
 			break;
 		case 't':
 			sa_timeout_ms = strtoul(optarg, NULL, 0);

@@ -7,35 +7,66 @@
 
 usage ()
 {
-	echo "usage: $0 [-D]"
+	echo Usage: `basename $0` "[-h] [-D] [-C ca_name]" \
+	    "[-P ca_port] [-t(imeout) timeout_ms]"
 	exit 2
 }
 
 dump_by_lid ()
 {
-for sw_lid in `ibswitches \
+for sw_lid in `ibswitches $ca_info \
 		| sed -ne 's/^.* lid \([0-9a-f]*\) .*$/\1/p'` ; do
-	ibroute -M $sw_lid
+	ibroute $ca_info -M $sw_lid
 done
 }
 
 dump_by_dr_path ()
 {
-for sw_dr in `ibnetdiscover -v \
+for sw_dr in `ibnetdiscover $ca_info -v \
 		| sed -ne '/^DR path .* switch /s/^DR path \[\(.*\)\].*$/\1/p' \
 		| sed -e 's/\]\[/,/g' \
 		| sort -u` ; do
-	ibroute -D ${sw_dr}
+	ibroute $ca_info -M -D ${sw_dr}
 done
 }
 
+use_d=""
+ca_info=""
 
-if [ "$1" = "-D" ] ; then
+while [ "$1" ]; do
+	case $1 in
+	-D)
+		use_d="-D"
+		;;
+	-h)
+		usage
+		;;
+	-P | -C | -t | -timeout)
+		case $2 in
+		-*)
+			usage
+			;;
+		esac
+		if [ x$2 = x ] ; then
+			usage
+		fi
+		ca_info="$ca_info $1 $2"
+		shift
+		;;
+	-*)
+		usage
+		;;
+	*)
+		usage
+		;;
+	esac
+	shift
+done
+
+if [ "$use_d" = "-D" ] ; then
 	dump_by_dr_path
-elif [ -z "$1" ] ; then
-	dump_by_lid
 else
-	usage
+	dump_by_lid
 fi
 
 exit

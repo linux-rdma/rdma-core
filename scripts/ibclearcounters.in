@@ -3,7 +3,8 @@
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
 function usage() {
-	echo Usage: `basename $0` [-h] [-N \| -nocolor] [\<topology-file\>]
+	echo Usage: `basename $0` "[-h] [-N | -nocolor] [<topology-file>" \
+	    "| -C ca_name -P ca_port -t(imeout) timeout_ms]"
 	exit -1
 }
 
@@ -18,6 +19,8 @@ gflags=""
 verbose=""
 v=0
 oldlid=""
+topofile=""
+ca_info=""
 
 while [ "$1" ]; do
 	case $1 in
@@ -27,20 +30,35 @@ while [ "$1" ]; do
 	-N|-nocolor)
 		gflags=-N
 		;;
+	-P | -C | -t | -timeout)
+		case $2 in
+		-*)
+			usage
+			;;
+		esac
+		if [ x$2 = x ] ; then
+			usage
+		fi
+		ca_info="$ca_info $1 $2"
+		shift
+		;;
 	-*)
 		usage
 		;;
 	*)
-		break
+		if [ "$topofile" ]; then
+			usage
+		fi
+		topofile="$1"
 		;;
 	esac
 	shift
 done
 
-if [ "$1" ]; then
-	netcmd="cat $1"
+if [ "$topofile" ]; then
+	netcmd="cat $topofile"
 else
-	netcmd="$IBPATH/ibnetdiscover"
+	netcmd="$IBPATH/ibnetdiscover $ca_info"
 fi
 
 eval $netcmd | awk '
@@ -48,14 +66,14 @@ eval $netcmd | awk '
 function clear_counters(lid)
 {
 	nodecleared=1
-	if (system("'$IBPATH'/perfquery '$gflags' -R -a " lid))
+	if (system("'$IBPATH'/perfquery'"$ca_info"' '$gflags' -R -a " lid))
 		nodeerr++
 }
 
 function clear_port_counters(lid, port)
 {
 	nodecleared=1
-	if (system("'$IBPATH'/perfquery '$gflags' -R " lid " " port))
+	if (system("'$IBPATH'/perfquery'"$ca_info"' '$gflags' -R " lid " " port))
 		nodeerr++
 }
 

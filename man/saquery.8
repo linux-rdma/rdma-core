@@ -5,7 +5,10 @@ saquery \- query InfiniBand subnet administration attributes
 
 .SH SYNOPSIS
 .B saquery 
-[\-h] [\-d] [\-P] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-C] [\-s] [\-g] [\-m] [--src-to-dst <src:dst>] [\-t(imeout) <msec>] [\-\-switch\-map <switch-map>] [<name> | <lid> | <guid>]
+[\-h] [\-d] [\-p] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-O]
+[\-U] [\-c] [\-s] [\-g] [\-m] [--src-to-dst <src:dst>] [\-C ca_name]
+[\-P ca_port] [\-t(imeout) <msec>] [\-\-switch\-map <switch-map>]
+[<name> | <lid> | <guid>]
 
 .SH DESCRIPTION
 .PP
@@ -15,7 +18,7 @@ saquery issues the selected SA query. Node records are queried by default.
 
 .PP
 .TP
-\fB\-P\fR
+\fB\-p\fR
 get PathRecord info
 .TP
 \fB\-N\fR
@@ -45,7 +48,7 @@ return the name for the Lid specified
 \fB\-U\fR
 return the name for the Guid specified
 .TP
-\fB\-C\fR
+\fB\-c\fR
 get the SA's class port info
 .TP
 \fB\-s\fR
@@ -62,6 +65,12 @@ description for each entry. Example: saquery -m 0xc000
 \fB\-\-src-to-dst\fR
 get a PathRecord for <src:dst>
 where src and dst are either node names or LIDs
+.TP
+\fB\-C\fR <ca_name>
+use the specified ca_name.
+.TP
+\fB\-P\fR <ca_port>
+use the specified ca_port.
 .TP
 \fB\-t\fR, \fB\-timeout\fR <msec>
 Specify SA query response timeout in milliseconds.

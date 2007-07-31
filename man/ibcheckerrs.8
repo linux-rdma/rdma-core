@@ -5,7 +5,10 @@ ibcheckerrs \- validate IB port (or node) and report errors in counters above th
 
 .SH SYNOPSIS
 .B ibcheckerrs
-[\-h] [\-b] [\-v] [\-G] [\-t <threshold_file>] [\-s(how_thresholds)] [\-N | \-nocolor] <lid|guid> <port>
+[\-h] [\-b] [\-v] [\-G] [\-T <threshold_file>] [\-s(how_thresholds)]
+[\-N | \-nocolor] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms]
+<lid|guid> <port>
+
 
 .SH DESCRIPTION
 .PP
@@ -23,7 +26,7 @@ specified using the -t <file> option.
 .PP
 \-s      show predefined thresholds
 .PP
-\-t      use specified threshold file
+\-T      use specified threshold file
 .PP
 \-v      increase the verbosity level
 .PP
@@ -31,6 +34,12 @@ specified using the -t <file> option.
         present, not what they are.
 .PP
 \-N | \-nocolor use mono rather than color mode
+.PP
+\-C <ca_name>    use the specified ca_name.
+.PP
+\-P <ca_port>    use the specified ca_port.
+.PP
+\-t <timeout_ms> override the default timeout for the solicited mads.
 
 .SH EXAMPLE
 .PP
@@ -38,7 +47,7 @@ ibcheckerrs 2           # check aggregated node counter for lid 2
 .PP
 ibcheckerrs 2   4       # check port counters for lid 2 port 4
 .PP
-ibcheckerrs -t xxx 2    # check node using xxx threshold file
+ibcheckerrs -T xxx 2    # check node using xxx threshold file
 
 .SH SEE ALSO
 .BR perfquery(8),

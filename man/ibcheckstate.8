@@ -5,7 +5,8 @@ ibcheckstate \- find ports in IB subnet which are link up but not active
 
 .SH SYNOPSIS
 .B ibcheckstate
-[\-h] [\-v] [\-N | \-nocolor] [<topology-file>]
+[\-h] [\-v] [\-N | \-nocolor] [<topology-file> | \-C ca_name \-P ca_port
+\-t(imeout) timeout_ms]
 
 .SH DESCRIPTION
 .PP
@@ -17,6 +18,12 @@ a port physical state other than LinkUp.
 .SH OPTIONS
 .PP
 \-N | \-nocolor use mono rather than color mode
+.PP
+\-C <ca_name>    use the specified ca_name.
+.PP
+\-P <ca_port>    use the specified ca_port.
+.PP
+\-t <timeout_ms> override the default timeout for the solicited mads.
 
 .SH SEE ALSO
 .BR ibnetdiscover(8),

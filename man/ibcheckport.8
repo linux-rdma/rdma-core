@@ -5,7 +5,8 @@ ibcheckport \- validate IB port and report errors
 
 .SH SYNOPSIS
 .B ibcheckport
-[\-h] [\-v] [\-N | \-nocolor] [\-G] <lid|guid> <port>
+[\-h] [\-v] [\-N | \-nocolor] [\-G] [\-C ca_name] [\-P ca_port]
+[\-t(imeout) timeout_ms]  <lid|guid> <port>
 
 .SH DESCRIPTION
 .PP
@@ -21,6 +22,12 @@ Port address is a lid unless -G option is used to specify a GUID address.
 \-v      increase the verbosity level
 .PP
 \-N | \-nocolor use mono rather than color mode
+.PP
+\-C <ca_name>    use the specified ca_name.
+.PP
+\-P <ca_port>    use the specified ca_port.
+.PP
+\-t <timeout_ms> override the default timeout for the solicited mads.
 
 .SH EXAMPLE
 .PP

@@ -2,4 +2,4 @@
 
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
-$IBPATH/ibhosts; $IBPATH/ibswitches
+$IBPATH/ibhosts $@; $IBPATH/ibswitches $@

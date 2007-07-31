@@ -5,7 +5,8 @@ ibcheckerrors \- validate IB subnet and report errors
 
 .SH SYNOPSIS
 .B ibcheckerrors
-[\-h] [\-b] [\-v] [\-N | \-nocolor] [<topology-file>]
+[\-h] [\-b] [\-v] [\-N | \-nocolor] [<topology-file> | \-C ca_name
+\-P ca_port \-t(imeout) timeout_ms]
 
 .SH DESCRIPTION
 .PP
@@ -21,6 +22,12 @@ errors (from port counters).
      not what they are.
 .PP
 \-N | \-nocolor	use mono rather than color mode
+.PP
+\-C <ca_name>   use the specified ca_name.
+.PP
+\-P <ca_port>   use the specified ca_port.
+.PP
+\-t <timeout_ms> override the default timeout for the solicited mads.
 
 .SH SEE ALSO
 .BR ibnetdiscover(8),

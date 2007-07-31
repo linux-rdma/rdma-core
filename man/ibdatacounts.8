@@ -5,7 +5,8 @@ ibdatacounts \- get IB port data counters
 
 .SH SYNOPSIS
 .B ibdatacounts
-[\-h] [\-b] [\-v] [\-G] [\-N | \-nocolor] <lid|guid> [<port>]
+[\-h] [\-b] [\-v] [\-G] [\-N | \-nocolor] [\-C ca_name] [\-P ca_port]
+[\-t(imeout) timeout_ms] <lid|guid> [<port>]
 
 .SH DESCRIPTION
 .PP
@@ -24,6 +25,12 @@ address.
 \-b      brief mode
 .PP
 \-N | \-nocolor use mono rather than color mode
+.PP
+\-C <ca_name>    use the specified ca_name.
+.PP
+\-P <ca_port>    use the specified ca_port.
+.PP
+\-t <timeout_ms> override the default timeout for the solicited mads.
 
 .SH EXAMPLE
 .PP
