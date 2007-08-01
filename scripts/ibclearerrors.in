@@ -61,7 +61,9 @@ else
 	netcmd="$IBPATH/ibnetdiscover $ca_info"
 fi
 
-eval $netcmd | awk '
+text="`eval $netcmd`"
+rv=$?
+echo "$text" | awk '
 
 function clear_errors(lid, port)
 {
@@ -93,7 +95,13 @@ function clear_errors(lid, port)
 			}
 		}
 
+/^ib/	{print $0}
+/ibpanic:/	{print $0}
+/ibwarn:/	{print $0}
+/iberror:/	{print $0}
+
 END {
 	printf "\n## Summary: %d nodes cleared %d errors\n", nnodes, nodeerr
 }
 '
+exit $rv

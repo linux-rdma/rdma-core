@@ -65,7 +65,9 @@ else
 	netcmd="$IBPATH/ibnetdiscover $ca_info"
 fi
 
-eval $netcmd | awk '
+text="`eval $netcmd`"
+rv=$?
+echo "$text" | awk '
 BEGIN {
 	ne=0
 	pe=0
@@ -130,6 +132,11 @@ function check_node(lid)
 			}
 }
 
+/^ib/	{print $0}
+/ibpanic:/	{print $0}
+/ibwarn:/	{print $0}
+/iberror:/	{print $0}
+
 END {
 	printf "\n## Summary: %d nodes checked, %d bad nodes found\n", nnodes, ne
 	printf "##          %d ports checked, %d bad ports found\n", nports, pe
@@ -137,4 +144,9 @@ END {
 	exit (ne + pe + pcnterr)
 }
 '
-exit $?
+av=$?
+if [ $av -ne 0 ] ; then
+	exit $av
+else
+	exit $rv
+fi

@@ -47,7 +47,9 @@ else
 	netcmd="$IBPATH/ibnetdiscover $ca_info"
 fi
 
-eval $netcmd | awk '
+text="`eval $netcmd`"
+rv=$?
+echo "$text" | awk '
 /^Switch/	{
 			l=$0
 			desc=substr(l, match(l, "#[ \t]*")+RLENGTH)
@@ -69,4 +71,9 @@ eval $netcmd | awk '
 			else
 				print $1 "\t: 0x" substr($3, 4, 16) " ports " $2 " "\
 					desc " " type " " pinfo}
+/^ib/	{print $0}
+/ibpanic:/	{print $0}
+/ibwarn:/	{print $0}
+/iberror:/	{print $0}
 '
+exit $rv

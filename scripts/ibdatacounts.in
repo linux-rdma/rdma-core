@@ -108,7 +108,9 @@ fi
 
 nodename=`smpquery $ca_info nodedesc $lid | sed -e "s/^Node Description:\.*\(.*\)/\1/"`
 
-if $IBPATH/perfquery $ca_info $lid $portnum | awk -v mono=$bw -v brief=$brief -F '[.:]*' '
+text="`eval $IBPATH/perfquery $ca_info $lid $portnum`"
+rv=$?
+if echo "$text" | awk -v mono=$bw -v brief=$brief -F '[.:]*' '
 function blue(s)
 {
 	if (brief == "yes") {
@@ -128,6 +130,11 @@ function blue(s)
 
 /^CounterSelect/ {next}
 
+/^ib/	{print $0}
+/ibpanic:/	{print $0}
+/ibwarn:/	{print $0}
+/iberror:/	{print $0}
+
 /^PortSelect/	{ if ($2 != '$portnum') {err = err "error: lid '$lid' port " $2 " does not match query ('$portnum')\n"; exit -1}}
 
 $1 ~ "(Xmt|Rcv)(Pkts|Data)" { print $1 ":........................." $2 }
@@ -142,7 +149,7 @@ END {
 		exit -1
 	}
 	exit 0
-}' 2>&1 ; then
+}' 2>&1 && test $rv -eq 0 ; then
 	if [ "$verbose" = "yes" ]; then
 		echo -n "Error on lid $lid ($nodename) port $portname: "
 		green OK
