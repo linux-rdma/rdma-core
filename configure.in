@@ -114,7 +114,7 @@ AC_SUBST(PERL)
 
 if test $withperlpath = "no"
 then
-    AC_PATH_PROG([PERL], [perl])        
+    AC_PATH_PROG([PERL], [perl])
 fi
 AC_SUBST(PERL)
 
