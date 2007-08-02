@@ -26,7 +26,7 @@ libibmad_la_DEPENDENCIES = $(srcdir)/src/libibmad.map
 
 libibmadincludedir = $(includedir)/infiniband
 
-libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h 
+libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h
 
 EXTRA_DIST = $(srcdir)/include/infiniband/mad.h libibmad.spec.in \
 	     $(srcdir)/src/libibmad.map libibmad.ver
