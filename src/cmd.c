@@ -756,6 +756,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	memcpy(cmd->dest.dgid, attr->ah_attr.grh.dgid.raw, 16);
 	cmd->dest.flow_label 	    = attr->ah_attr.grh.flow_label;
 	cmd->dest.dlid 		    = attr->ah_attr.dlid;
+	cmd->dest.reserved	    = 0;
 	cmd->dest.sgid_index 	    = attr->ah_attr.grh.sgid_index;
 	cmd->dest.hop_limit 	    = attr->ah_attr.grh.hop_limit;
 	cmd->dest.traffic_class     = attr->ah_attr.grh.traffic_class;
@@ -768,6 +769,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	memcpy(cmd->alt_dest.dgid, attr->alt_ah_attr.grh.dgid.raw, 16);
 	cmd->alt_dest.flow_label    = attr->alt_ah_attr.grh.flow_label;
 	cmd->alt_dest.dlid 	    = attr->alt_ah_attr.dlid;
+	cmd->alt_dest.reserved	    = 0;
 	cmd->alt_dest.sgid_index    = attr->alt_ah_attr.grh.sgid_index;
 	cmd->alt_dest.hop_limit     = attr->alt_ah_attr.grh.hop_limit;
 	cmd->alt_dest.traffic_class = attr->alt_ah_attr.grh.traffic_class;
