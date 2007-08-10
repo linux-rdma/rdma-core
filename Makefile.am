@@ -26,7 +26,7 @@ sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 	       scripts/ibclearcounters scripts/ibdatacounts \
 	       scripts/ibdatacounters scripts/ibdiscover.pl \
 	       scripts/dump_lfts.sh scripts/dump_mfts.sh \
-	       scripts/set_mthca_nodedesc.sh \
+	       scripts/set_nodedesc.sh \
 	       scripts/ibqueryerrors.pl scripts/ibswportwatch.pl \
 	       scripts/iblinkinfo.pl scripts/ibprintswitch.pl \
 	       scripts/ibprintca.pl scripts/ibprintrt.pl \
