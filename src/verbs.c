@@ -245,19 +245,17 @@ int iwch_destroy_cq(struct ibv_cq *ibcq)
 	unsigned size = t3_cq_memsize(&chp->cq);
 	struct iwch_device *dev = to_iwch_dev(ibcq->context->device);
 
-	pthread_spin_lock(&chp->lock);
-	munmap(cqva, size);
 	ret = ibv_cmd_destroy_cq(ibcq);
 	if (ret) {
-		pthread_spin_unlock(&chp->lock);
 		return ret;
 	}
+
+	munmap(cqva, size);
 
 	pthread_spin_lock(&dev->lock);
 	dev->cqid2ptr[chp->cq.cqid] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
-	pthread_spin_unlock(&chp->lock);
 	free(chp->cq.sw_queue);
 	free(chp);
 	return 0;
@@ -381,26 +379,27 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	void *dbva, *wqva;
 	unsigned wqsize;
 
-	pthread_spin_lock(&qhp->lock);
-	if (t3b_device(dev))
+	if (t3b_device(dev)) {
+		pthread_spin_lock(&qhp->lock);
 		iwch_flush_qp(qhp);
+		pthread_spin_unlock(&qhp->lock);
+	}
+
 	dbva = (void *)((unsigned long)qhp->wq.doorbell & ~(dev->page_size-1));
 	wqva = qhp->wq.queue;
 	wqsize = t3_wq_memsize(&qhp->wq);
 
-	munmap(dbva, dev->page_size);
-	munmap(wqva, wqsize);
 	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret) {
-		pthread_spin_unlock(&qhp->lock);
 		return ret;
 	}
+	munmap(dbva, dev->page_size);
+	munmap(wqva, wqsize);
 
 	pthread_spin_lock(&dev->lock);
 	dev->qpid2ptr[qhp->wq.qpid] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
-	pthread_spin_unlock(&qhp->lock);
 	free(qhp->wq.rq);
 	free(qhp->wq.sq);
 	free(qhp);
