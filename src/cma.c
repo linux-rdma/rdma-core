@@ -238,6 +238,7 @@ static int ucma_init(void)
 	}
 out:
 	pthread_mutex_unlock(&mut);
+	ibv_free_device_list(dev_list);
 	return 0;
 err:
 	ucma_cleanup();
