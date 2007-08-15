@@ -108,7 +108,7 @@ sub main
          if ($switch_prompt eq "no" && !$line_mode)
          {
             push (@output_lines,
-                sprintf ("Switch %18s \"%s\"%s:\n", $switch, $hr->{loc_desc}, $pkt_life_prompt));
+                sprintf ("Switch %18s %s%s:\n", $switch, $hr->{loc_desc}, $pkt_life_prompt));
             $switch_prompt = "yes";
          }
          my $data = `smpquery -G portinfo $switch $port`;
