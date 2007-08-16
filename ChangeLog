@@ -1,6 +1,14 @@
-commit 65686b4c4186e3b9f83c186a828e06d76d3e9805
+commit 5678b63964d603a5d391da1da25f2318d6cd6517
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Aug 13 15:02:54 2007 -0500
+Date:   Thu Aug 16 11:08:54 2007 -0500
+
+    Spin release 1.0.1
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f83bb009c9cfd2dcd9e57bfb0f98125b4a032bbf
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Aug 13 15:08:07 2007 -0500
 
     Add ChangeLog File.
     
