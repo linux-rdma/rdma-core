@@ -10,7 +10,7 @@ Using libmlx4
 ==============
 
 libmlx4 will be loaded and used automatically by programs linked with
-libibverbs.  The ib_mlx4 kernel module must be loaded for HCA devices
+libibverbs.  The mlx4_ib kernel module must be loaded for HCA devices
 to be detected and used.
 
 Supported Hardware
