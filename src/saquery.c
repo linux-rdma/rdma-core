@@ -188,7 +188,7 @@ static void
 print_path_record(ib_path_rec_t *p_pr)
 {
 	printf("PathRecord dump:\n"
-	       "\t\tresv0...................0x%016" PRIx64 "\n"
+	       "\t\tservice_id..............0x%016" PRIx64 "\n"
 	       "\t\tdgid....................0x%016" PRIx64 " : "
 	       "0x%016" PRIx64 "\n"
 	       "\t\tsgid....................0x%016" PRIx64 " : "
@@ -199,6 +199,7 @@ print_path_record(ib_path_rec_t *p_pr)
 	       "\t\ttclass..................0x%X\n"
 	       "\t\tnum_path_revers.........0x%X\n"
 	       "\t\tpkey....................0x%X\n"
+	       "\t\tqos_class...............0x%X\n"
 	       "\t\tsl......................0x%X\n"
 	       "\t\tmtu.....................0x%X\n"
 	       "\t\trate....................0x%X\n"
@@ -207,7 +208,7 @@ print_path_record(ib_path_rec_t *p_pr)
 	       "\t\tresv2...................0x%X\n"
 	       "\t\tresv3...................0x%X\n"
 	       "",
-	       *(uint64_t*)p_pr->resv0,
+	       cl_ntoh64( p_pr->service_id ),
 	       cl_ntoh64( p_pr->dgid.unicast.prefix ),
 	       cl_ntoh64( p_pr->dgid.unicast.interface_id ),
 	       cl_ntoh64( p_pr->sgid.unicast.prefix ),
@@ -218,7 +219,8 @@ print_path_record(ib_path_rec_t *p_pr)
 	       p_pr->tclass,
 	       p_pr->num_path,
 	       cl_ntoh16( p_pr->pkey ),
-	       cl_ntoh16( p_pr->sl ),
+	       ib_path_rec_qos_class( p_pr ),
+	       ib_path_rec_sl( p_pr ),
 	       p_pr->mtu,
 	       p_pr->rate,
 	       p_pr->pkt_life,
