@@ -84,17 +84,41 @@ static const match_rec_t match_tbl[] = {
 };
 
 char *argv0 = "smpquery";
+static char *switch_map = NULL;
+static FILE *switch_map_fp = NULL;
 
 /*******************************************/
 static char *
 node_desc(ib_portid_t *dest, char **argv, int argc)
 {
-	char nd[IB_SMP_DATA_SIZE];
+	int       node_type, l;
+	uint64_t  node_guid;
+	char      nd[IB_SMP_DATA_SIZE];
+	char      data[IB_SMP_DATA_SIZE];
+	char      dots[128];
+	char     *nodename = NULL;
+
+	if (!smp_query(data, dest, IB_ATTR_NODE_INFO, 0, 0))
+		return "node info query failed";
+
+	mad_decode_field(data, IB_NODE_TYPE_F, &node_type);
+	mad_decode_field(data, IB_NODE_GUID_F, &node_guid);
 
 	if (!smp_query(nd, dest, IB_ATTR_NODE_DESC, 0, 0))
 		return "node desc query failed";
 
-	_mad_dump(mad_dump_nodedesc, "Node Description", nd, sizeof nd);
+	if (node_type == IB_NODE_SWITCH)
+		nodename = lookup_switch_name(switch_map_fp, node_guid, nd);
+	else
+		nodename = clean_nodedesc(nd);
+
+	l = strlen(nodename);
+	if (l < 32) {
+		memset(dots, '.', 32 - l);
+		dots[32 - l] = '\0';
+	}
+
+	printf("Node Description:%s%s\n", dots, nodename);
 	return 0;
 }
 
@@ -379,7 +403,7 @@ usage(void)
 		basename++;
 
 	fprintf(stderr, "Usage: %s [-d(ebug) -e(rr_show) -v(erbose) -D(irect) -G(uid) -s smlid -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms] <op> <dest dr_path|lid|guid> [op params]\n",
+			"-t(imeout) timeout_ms --switch-map switch-map] <op> <dest dr_path|lid|guid> [op params]\n",
 			basename);
 	fprintf(stderr, "\tsupported ops:\n");
 	for (r = match_tbl ; r->name ; r++) {
@@ -419,6 +443,7 @@ main(int argc, char **argv)
 		{ "Guid", 0, 0, 'G'},
 		{ "smlid", 1, 0, 's'},
 		{ "timeout", 1, 0, 't'},
+		{ "switch-map", 1, 0, 1},
 		{ "Version", 0, 0, 'V'},
 		{ "help", 0, 0, 'h'},
 		{ "usage", 0, 0, 'u'},
@@ -432,6 +457,9 @@ main(int argc, char **argv)
 		if ( ch == -1 )
 			break;
 		switch(ch) {
+		case 1:
+			switch_map = strdup(optarg);
+			break;
 		case 'd':
 			ibdebug++;
 			madrpc_show_errors(1);
@@ -486,6 +514,7 @@ main(int argc, char **argv)
 		IBERROR("operation '%s' not supported", argv[0]);
 
 	madrpc_init(ca, ca_port, mgmt_classes, 3);
+	switch_map_fp = open_switch_map(switch_map);
 
 	if (dest_type != IB_DEST_DRSLID) {
 		if (ib_resolve_portid_str(&portid, argv[1], dest_type, sm_id) < 0)
@@ -502,5 +531,6 @@ main(int argc, char **argv)
 		if ((err = fn(&portid, argv+3, argc-3)))
 			IBERROR("operation %s: %s", argv[0], err);
 	}
+	close_switch_map(switch_map_fp);
 	exit(0);
 }
