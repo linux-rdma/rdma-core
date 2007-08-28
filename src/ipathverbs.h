@@ -55,7 +55,7 @@ enum ipath_hca_type {
 	IPATH_SPINNERET,
 	IPATH_HT,
 	IPATH_PE800,
-	IPATH_6220,
+	IPATH_7220,
 };
 
 struct ipath_device {

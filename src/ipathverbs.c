@@ -70,6 +70,10 @@
 #define PCI_DEVICE_ID_INFINIPATH_6220		0x6220
 #endif
 
+#ifndef PCI_DEVICE_ID_INFINIPATH_7220
+#define PCI_DEVICE_ID_INFINIPATH_7220		0x7220
+#endif
+
 #define HCA(v, d, t) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
 	  .device = PCI_DEVICE_ID_INFINIPATH_##d,	\
@@ -83,7 +87,8 @@ struct {
 	HCA(PATHSCALE,	SPINNERET, SPINNERET),
 	HCA(PATHSCALE,	HT,	  HT),
 	HCA(PATHSCALE,	PE800,	  PE800),
-	HCA(QLOGIC,	6220,	  6220),
+	HCA(QLOGIC,	6220,	  7220),
+	HCA(QLOGIC,	7220,	  7220),
 };
 
 static struct ibv_context_ops ipath_ctx_ops = {
