@@ -333,7 +333,6 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 {
 	struct ibv_device *dev;
 	char value[8];
-	enum ibv_node_type node_type;
 
 	dev = driver->init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
 	if (!dev)
@@ -342,14 +341,14 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "node_type", value, sizeof value) < 0) {
 		fprintf(stderr, PFX "Warning: no node_type attr under %s.\n",
 			sysfs_dev->ibdev_path);
-			node_type = IBV_NODE_UNKNOWN;
+			dev->node_type = IBV_NODE_UNKNOWN;
 	} else {
-		node_type = strtol(value, NULL, 10);
-		if (node_type < IBV_NODE_CA || node_type > IBV_NODE_RNIC)
-			node_type = IBV_NODE_UNKNOWN;
+		dev->node_type = strtol(value, NULL, 10);
+		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_RNIC)
+			dev->node_type = IBV_NODE_UNKNOWN;
 	}
 
-	switch (node_type) {
+	switch (dev->node_type) {
 	case IBV_NODE_CA:
 	case IBV_NODE_SWITCH:
 	case IBV_NODE_ROUTER:
