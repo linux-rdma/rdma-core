@@ -51,6 +51,20 @@
 
 #define IB_OPENIB_OUI                 (0x001405)
 
+#ifdef HAVE_VALGRIND_MEMCHECK_H
+
+#  include <valgrind/memcheck.h>
+
+#  ifndef VALGRIND_MAKE_MEM_DEFINED
+#    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_DEFINED not available"
+#  endif
+
+#endif /* HAVE_VALGRIND_MEMCHECK_H */
+
+#ifndef VALGRIND_MAKE_MEM_DEFINED
+#  define VALGRIND_MAKE_MEM_DEFINED(addr,len)
+#endif
+
 typedef struct ib_user_mad_reg_req {
 	uint32_t id;
 	uint32_t method_mask[4];
@@ -933,6 +947,8 @@ umad_register(int portid, int mgmt_class, int mgmt_version,
 		memset(req.method_mask, 0, sizeof req.method_mask);
 
 	memcpy(&req.oui, (char *)&oui + 1, sizeof req.oui);
+
+	VALGRIND_MAKE_MEM_DEFINED(&req, sizeof req);
 
 	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
 		DEBUG("portid %d registered to use agent %d qp %d",
