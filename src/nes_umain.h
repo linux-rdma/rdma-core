@@ -1,0 +1,283 @@
+/*
+ * Copyright (c) 2006 - 2007 NetEffect, Inc. All rights reserved.
+ * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
+ *
+ * This software is available to you under a choice of one of two
+ * licenses.  You may choose to be licensed under the terms of the GNU
+ * General Public License (GPL) Version 2, available from the file
+ * COPYING in the main directory of this source tree, or the
+ * OpenIB.org BSD license below:
+ *
+ *     Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
+ *
+ *      - Redistributions of source code must retain the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer.
+ *
+ *      - Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials
+ *        provided with the distribution.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef nes_umain_H
+#define nes_umain_H
+
+#include <inttypes.h>
+#include <stddef.h>
+
+#include <infiniband/driver.h>
+#include <infiniband/arch.h>
+
+#ifndef likely
+#define likely(x)   __builtin_expect((x),1)
+#endif
+#ifndef unlikely
+#define unlikely(x) __builtin_expect((x),0)
+#endif
+
+#define HIDDEN __attribute__((visibility ("hidden")))
+
+#define PFX	"nes: "
+
+enum nes_cqe_opcode_bits {
+	NES_CQE_STAG_VALID = (1<<6),
+	NES_CQE_ERROR = (1<<7),
+	NES_CQE_SQ = (1<<8),
+	NES_CQE_SE = (1<<9),
+	NES_CQE_PSH = (1<<29),
+	NES_CQE_FIN = (1<<30),
+	NES_CQE_VALID = (1<<31),
+};
+
+enum nes_cqe_word_idx {
+	NES_CQE_PAYLOAD_LENGTH_IDX = 0,
+	NES_CQE_COMP_COMP_CTX_LOW_IDX = 2,
+	NES_CQE_COMP_COMP_CTX_HIGH_IDX = 3,
+	NES_CQE_INV_STAG_IDX = 4,
+	NES_CQE_QP_ID_IDX = 5,
+	NES_CQE_ERROR_CODE_IDX = 6,
+	NES_CQE_OPCODE_IDX = 7,
+};
+
+enum nes_cqe_allocate_bits {
+	NES_CQE_ALLOC_INC_SELECT = (1<<28),
+	NES_CQE_ALLOC_NOTIFY_NEXT = (1<<29),
+	NES_CQE_ALLOC_NOTIFY_SE = (1<<30),
+	NES_CQE_ALLOC_RESET = (1<<31),
+};
+
+enum nes_iwarp_sq_wqe_word_idx {
+	NES_IWARP_SQ_WQE_MISC_IDX = 0,
+	NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX = 1,
+	NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX = 2,
+	NES_IWARP_SQ_WQE_COMP_CTX_HIGH_IDX = 3,
+	NES_IWARP_SQ_WQE_COMP_SCRATCH_LOW_IDX = 4,
+	NES_IWARP_SQ_WQE_COMP_SCRATCH_HIGH_IDX = 5,
+	NES_IWARP_SQ_WQE_INV_STAG_LOW_IDX = 7,
+	NES_IWARP_SQ_WQE_RDMA_TO_LOW_IDX = 8,
+	NES_IWARP_SQ_WQE_RDMA_TO_HIGH_IDX = 9,
+	NES_IWARP_SQ_WQE_RDMA_LENGTH_IDX = 10,
+	NES_IWARP_SQ_WQE_RDMA_STAG_IDX = 11,
+	NES_IWARP_SQ_WQE_IMM_DATA_START_IDX = 12,
+	NES_IWARP_SQ_WQE_FRAG0_LOW_IDX = 16,
+	NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX = 17,
+	NES_IWARP_SQ_WQE_LENGTH0_IDX = 18,
+	NES_IWARP_SQ_WQE_STAG0_IDX = 19,
+	NES_IWARP_SQ_WQE_FRAG1_LOW_IDX = 20,
+	NES_IWARP_SQ_WQE_FRAG1_HIGH_IDX = 21,
+	NES_IWARP_SQ_WQE_LENGTH1_IDX = 22,
+	NES_IWARP_SQ_WQE_STAG1_IDX = 23,
+	NES_IWARP_SQ_WQE_FRAG2_LOW_IDX = 24,
+	NES_IWARP_SQ_WQE_FRAG2_HIGH_IDX = 25,
+	NES_IWARP_SQ_WQE_LENGTH2_IDX = 26,
+	NES_IWARP_SQ_WQE_STAG2_IDX = 27,
+	NES_IWARP_SQ_WQE_FRAG3_LOW_IDX = 28,
+	NES_IWARP_SQ_WQE_FRAG3_HIGH_IDX = 29,
+	NES_IWARP_SQ_WQE_LENGTH3_IDX = 30,
+	NES_IWARP_SQ_WQE_STAG3_IDX = 31,
+};
+
+enum nes_iwarp_rq_wqe_word_idx {
+	NES_IWARP_RQ_WQE_TOTAL_PAYLOAD_IDX = 1,
+	NES_IWARP_RQ_WQE_COMP_CTX_LOW_IDX = 2,
+	NES_IWARP_RQ_WQE_COMP_CTX_HIGH_IDX = 3,
+	NES_IWARP_RQ_WQE_COMP_SCRATCH_LOW_IDX = 4,
+	NES_IWARP_RQ_WQE_COMP_SCRATCH_HIGH_IDX = 5,
+	NES_IWARP_RQ_WQE_FRAG0_LOW_IDX = 8,
+	NES_IWARP_RQ_WQE_FRAG0_HIGH_IDX = 9,
+	NES_IWARP_RQ_WQE_LENGTH0_IDX = 10,
+	NES_IWARP_RQ_WQE_STAG0_IDX = 11,
+	NES_IWARP_RQ_WQE_FRAG1_LOW_IDX = 12,
+	NES_IWARP_RQ_WQE_FRAG1_HIGH_IDX = 13,
+	NES_IWARP_RQ_WQE_LENGTH1_IDX = 14,
+	NES_IWARP_RQ_WQE_STAG1_IDX = 15,
+	NES_IWARP_RQ_WQE_FRAG2_LOW_IDX = 16,
+	NES_IWARP_RQ_WQE_FRAG2_HIGH_IDX = 17,
+	NES_IWARP_RQ_WQE_LENGTH2_IDX = 18,
+	NES_IWARP_RQ_WQE_STAG2_IDX = 19,
+	NES_IWARP_RQ_WQE_FRAG3_LOW_IDX = 20,
+	NES_IWARP_RQ_WQE_FRAG3_HIGH_IDX = 21,
+	NES_IWARP_RQ_WQE_LENGTH3_IDX = 22,
+	NES_IWARP_RQ_WQE_STAG3_IDX = 23,
+};
+
+enum nes_iwarp_sq_opcodes {
+	NES_IWARP_SQ_WQE_STREAMING = (1<<23),
+	NES_IWARP_SQ_WQE_IMM_DATA = (1<<28),
+	NES_IWARP_SQ_WQE_READ_FENCE = (1<<29),
+	NES_IWARP_SQ_WQE_LOCAL_FENCE = (1<<30),
+	NES_IWARP_SQ_WQE_SIGNALED_COMPL = (1<<31),
+};
+
+enum nes_iwarp_sq_wqe_bits {
+	NES_IWARP_SQ_OP_RDMAW = 0,
+	NES_IWARP_SQ_OP_RDMAR = 1,
+	NES_IWARP_SQ_OP_SEND = 3,
+	NES_IWARP_SQ_OP_SENDINV = 4,
+	NES_IWARP_SQ_OP_SENDSE = 5,
+	NES_IWARP_SQ_OP_SENDSEINV = 6,
+	NES_IWARP_SQ_OP_BIND = 8,
+	NES_IWARP_SQ_OP_FAST_REG = 9,
+	NES_IWARP_SQ_OP_LOCINV = 10,
+	NES_IWARP_SQ_OP_RDMAR_LOCINV = 11,
+	NES_IWARP_SQ_OP_NOP = 12,
+};
+
+struct nes_hw_qp_wqe {
+	uint32_t wqe_words[32];
+};
+
+struct nes_hw_cqe {
+	uint32_t cqe_words[8];
+};
+
+enum nes_uhca_type {
+	NETEFFECT_nes
+};
+
+struct nes_user_doorbell {
+	uint32_t wqe_alloc;
+	uint32_t reserved[3];
+	uint32_t cqe_alloc;
+};
+
+struct nes_udevice {
+	struct ibv_device ibv_dev;
+	enum nes_uhca_type hca_type;
+	int page_size;
+};
+
+struct nes_upd {
+	struct ibv_pd ibv_pd;
+	struct nes_user_doorbell volatile *udoorbell;
+	uint32_t pd_id;
+	uint32_t db_index;
+};
+
+struct nes_uvcontext {
+	struct ibv_context ibv_ctx;
+	struct nes_upd *nesupd;
+	uint32_t max_pds; /* maximum pds allowed for this user process */
+	uint32_t max_qps; /* maximum qps allowed for this user process */
+	uint32_t wq_size; /* size of the WQs (sq+rq) allocated to the mmaped area */
+};
+
+struct nes_ucq {
+	struct ibv_cq ibv_cq;
+	struct nes_hw_cqe volatile *cqes;
+	struct ibv_mr mr;
+	pthread_spinlock_t lock;
+	uint32_t cq_id;
+	uint16_t size;
+	uint16_t head;
+	uint16_t polled_completions;
+};
+
+struct nes_uqp {
+	struct ibv_qp ibv_qp;
+	struct nes_hw_qp_wqe volatile *sq_vbase;
+	struct nes_hw_qp_wqe volatile *rq_vbase;
+	uint32_t qp_id;
+	pthread_spinlock_t lock;
+	uint16_t sq_db_index;
+	uint16_t sq_head;
+	uint16_t sq_tail;
+	uint16_t sq_size;
+	uint16_t rq_db_index;
+	uint16_t rq_head;
+	uint16_t rq_tail;
+	uint16_t rq_size;
+};
+
+#define to_nes_uxxx(xxx, type)				\
+	((struct nes_u##type *)					\
+	((void *) ib##xxx - offsetof(struct nes_u##type, ibv_##xxx)))
+
+static inline struct nes_udevice *to_nes_udev(struct ibv_device *ibdev)
+{
+	return to_nes_uxxx(dev, device);
+}
+
+static inline struct nes_uvcontext *to_nes_uctx(struct ibv_context *ibctx)
+{
+	return to_nes_uxxx(ctx, vcontext);
+}
+
+static inline struct nes_upd *to_nes_upd(struct ibv_pd *ibpd)
+{
+	return to_nes_uxxx(pd, pd);
+}
+
+static inline struct nes_ucq *to_nes_ucq(struct ibv_cq *ibcq)
+{
+	return to_nes_uxxx(cq, cq);
+}
+
+static inline struct nes_uqp *to_nes_uqp(struct ibv_qp *ibqp)
+{
+	return to_nes_uxxx(qp, qp);
+}
+
+
+/* nes_umain.c */
+struct ibv_device *ibv_driver_init(const char *, int);
+
+/* nes_uverbs.c */
+int nes_uquery_device(struct ibv_context *, struct ibv_device_attr *);
+int nes_uquery_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
+struct ibv_pd *nes_ualloc_pd(struct ibv_context *);
+int nes_ufree_pd(struct ibv_pd *);
+struct ibv_mr *nes_ureg_mr(struct ibv_pd *, void *, size_t, enum ibv_access_flags);
+int nes_udereg_mr(struct ibv_mr *);
+struct ibv_cq *nes_ucreate_cq(struct ibv_context *, int, struct ibv_comp_channel *, int);
+int nes_uresize_cq(struct ibv_cq *, int);
+int nes_udestroy_cq(struct ibv_cq *);
+int nes_upoll_cq(struct ibv_cq *, int, struct ibv_wc *);
+int nes_uarm_cq(struct ibv_cq *, int);
+struct ibv_srq *nes_ucreate_srq(struct ibv_pd *, struct ibv_srq_init_attr *);
+int nes_umodify_srq(struct ibv_srq *, struct ibv_srq_attr *, enum ibv_srq_attr_mask);
+int nes_udestroy_srq(struct ibv_srq *);
+int nes_upost_srq_recv(struct ibv_srq *, struct ibv_recv_wr *, struct ibv_recv_wr **);
+struct ibv_qp *nes_ucreate_qp(struct ibv_pd *, struct ibv_qp_init_attr *);
+int nes_umodify_qp(struct ibv_qp *, struct ibv_qp_attr *, enum ibv_qp_attr_mask);
+int nes_udestroy_qp(struct ibv_qp *);
+int nes_upost_send(struct ibv_qp *, struct ibv_send_wr *, struct ibv_send_wr **);
+int nes_upost_recv(struct ibv_qp *, struct ibv_recv_wr *, struct ibv_recv_wr **);
+struct ibv_ah *nes_ucreate_ah(struct ibv_pd *, struct ibv_ah_attr *);
+int nes_udestroy_ah(struct ibv_ah *);
+int nes_uattach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
+int nes_udetach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
+
+#endif				/* nes_umain_H */
