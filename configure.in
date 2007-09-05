@@ -10,7 +10,7 @@ AM_INIT_AUTOMAKE(librdmacm, 1.0.2)
 AM_PROG_LIBTOOL
 
 AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
-[       if test x$enableval = xno ; then
+[       if test "$enableval" = "no"; then
                 disable_libcheck=yes
         fi
 ])
@@ -23,16 +23,14 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for libraries
-if test "$disable_libcheck" != "yes"
-then
+if test "$disable_libcheck" != "yes"; then
 AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
     AC_MSG_ERROR([ibv_get_device_list() not found.  librdmacm requires libibverbs.]))
 fi
 
 dnl Checks for header files.
 AC_HEADER_STDC
-if test "$disable_libcheck" != "yes"
-then
+if test "$disable_libcheck" != "yes"; then
 AC_CHECK_HEADER(infiniband/verbs.h, [],
     AC_MSG_ERROR([<infiniband/verbs.h> not found.  Is libibverbs installed?]))
 fi
