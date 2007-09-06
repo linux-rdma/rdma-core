@@ -55,6 +55,17 @@
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_cma_abi.h>
 
+#ifdef INCLUDE_VALGRIND
+#   include <valgrind/memcheck.h>
+#   ifndef VALGRIND_MAKE_MEM_DEFINED
+#       warning "Valgrind requested, but VALGRIND_MAKE_MEM_DEFINED undefined"
+#   endif
+#endif
+
+#ifndef VALGRIND_MAKE_MEM_DEFINED
+#   define VALGRIND_MAKE_MEM_DEFINED(addr,len)
+#endif
+
 #define PFX "librdmacm: "
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -383,6 +394,8 @@ int rdma_create_id(struct rdma_event_channel *channel,
 	if (ret != size)
 		goto err;
 
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
 	id_priv->handle = resp->id;
 	*id = &id_priv->id;
 	return 0;
@@ -404,6 +417,8 @@ static int ucma_destroy_kern_id(int fd, uint32_t handle)
 	ret = write(fd, msg, size);
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
 	return resp->events_reported;
 }
@@ -457,6 +472,8 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
 	if (resp->num_paths) {
 		id->route.path_rec = malloc(sizeof *id->route.path_rec *
@@ -582,6 +599,8 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
 		return (ret > 0) ? -ENODATA : ret;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
 	ibv_copy_qp_attr_from_kern(qp_attr, resp);
 	*qp_attr_mask = resp->qp_attr_mask;
@@ -1010,6 +1029,8 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 		goto err2;
 	}
 
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
 	mc->handle = resp->id;
 	return 0;
 err2:
@@ -1060,6 +1081,8 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 		ret = (ret > 0) ? -ENODATA : ret;
 		goto free;
 	}
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
 	pthread_mutex_lock(&id_priv->mut);
 	while (mc->events_completed < resp->events_reported)
@@ -1256,6 +1279,8 @@ retry:
 		return (ret > 0) ? -ENODATA : ret;
 	}
 	
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
 	evt->event.event = resp->event;
 	switch (resp->event) {
 	case RDMA_CM_EVENT_ADDR_RESOLVED:

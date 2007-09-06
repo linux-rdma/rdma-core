@@ -9,6 +9,18 @@ AM_INIT_AUTOMAKE(librdmacm, 1.0.2)
 
 AM_PROG_LIBTOOL
 
+AC_ARG_WITH([valgrind],
+    AC_HELP_STRING([--with-valgrind],
+		   [Enable valgrind annotations - default NO]))
+
+if test "$with_valgrind" != "" && test "$with_valgrind" != "no"; then
+	AC_DEFINE([INCLUDE_VALGRIND], 1,
+		  [Define to 1 to enable valgrind annotations])
+	if test -d $with_valgrind; then
+		CPPFLAGS="$CPPLFAGS -I$with_valgrind/include"
+	fi
+fi
+
 AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
 [       if test "$enableval" = "no"; then
                 disable_libcheck=yes
@@ -33,6 +45,12 @@ AC_HEADER_STDC
 if test "$disable_libcheck" != "yes"; then
 AC_CHECK_HEADER(infiniband/verbs.h, [],
     AC_MSG_ERROR([<infiniband/verbs.h> not found.  Is libibverbs installed?]))
+
+if test "$with_valgrind" != "" && test "$with_valgrind" != "no"; then
+AC_CHECK_HEADER(valgrind/memcheck.h, [],
+    AC_MSG_ERROR([valgrind requested but <valgrind/memcheck.h> not found.]))
+fi
+
 fi
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
