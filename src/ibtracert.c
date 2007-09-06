@@ -69,7 +69,6 @@ static int force;
 static FILE *f;
 
 char *argv0 = "ibtracert";
-int ibdebug;
 
 static char *switch_map = NULL;
 static FILE *switch_map_fp = NULL;

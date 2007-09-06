@@ -59,7 +59,6 @@ static int verbose;
 static int dump_all;
 
 char *argv0 = "ibroute";
-int ibdebug;
 
 /*******************************************/
 

@@ -49,6 +49,8 @@
 
 #include "ibdiag_common.h"
 
+int ibdebug;
+
 FILE *
 open_switch_map(char *switch_map)
 {
