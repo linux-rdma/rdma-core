@@ -832,6 +832,9 @@ umad_recv(int portid, void *umad, int *length, int timeout_ms)
 	}
 
 	n = read(port->dev_fd, umad, sizeof *mad + *length);
+
+	VALGRIND_MAKE_MEM_DEFINED(umad, sizeof *mad + *length);
+
 	if ((n >= 0) && (n <= sizeof *mad + *length)) {
 		DEBUG("mad received by agent %d length %d", mad->agent_id, n);
 		if (n > sizeof *mad)
@@ -909,6 +912,8 @@ umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 		memcpy(req.method_mask, method_mask, sizeof req.method_mask);
 	else
 		memset(req.method_mask, 0, sizeof req.method_mask);
+
+	VALGRIND_MAKE_MEM_DEFINED(&req, sizeof req);
 
 	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
 		DEBUG("portid %d registered to use agent %d qp %d class 0x%x oui %p",
