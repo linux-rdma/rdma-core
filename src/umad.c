@@ -519,11 +519,12 @@ umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 	n = scandir(SYS_INFINIBAND, &namelist, 0, alphasort);
 	if (n > 0) {
 		for (i = 0; i < n; i++) {
-			if (!strcmp(namelist[i]->d_name, ".") ||
-			    !strcmp(namelist[i]->d_name, "..")) {
-			} else
-				strncpy(cas[j++], namelist[i]->d_name,
-					UMAD_CA_NAME_LEN);
+			if (strcmp(namelist[i]->d_name, ".") &&
+			    strcmp(namelist[i]->d_name, "..")) {
+				if (j < max)
+					strncpy(cas[j++], namelist[i]->d_name,
+						UMAD_CA_NAME_LEN);
+			}
 			free(namelist[i]);
 		}
 		DEBUG("return %d cas", j);
