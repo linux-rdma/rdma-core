@@ -42,6 +42,8 @@ use strict;
 
 use Getopt::Std;
 use IBswcountlimits;
+my $ca_name = "";
+my $ca_port = "";
 
 # =========================================================================
 #
@@ -50,10 +52,11 @@ sub get_hosts_routed
    my $sw_guid = $_[0];
    my $sw_port = $_[1];
    my @hosts = undef;
+   my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
    if ($sw_guid eq "") { return (@hosts); }
 
-   my $data = `ibroute -G $sw_guid`;
+   my $data = `ibroute $extra_params -G $sw_guid`;
    my @lines = split("\n", $data);
    foreach my $line (@lines) {
       if ($line =~ /\w+\s+(\d+)\s+:\s+\(Channel Adapter.*:\s+'(.*)'\)/)
@@ -73,23 +76,27 @@ sub get_hosts_routed
 sub usage_and_exit
 {
    my $prog = $_[0];
-   print "Usage: $prog <switch_guid|switch_name> <port>\n";
+   print "Usage: $prog [-R -C <ca_name> -P <ca_port>] <switch_guid|switch_name> <port>\n";
    print "   find a list of nodes which are routed through switch:port\n";
    print "   -R Recalculate ibnetdiscover information\n";
+   print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
+   print "   -P <ca_port> use selected channel adaptor port for queries\n";
    exit 0;
 }
 
 my $argv0 = `basename $0`;
 my $regenerate_map = undef;
 chomp $argv0;
-if (!getopts("hR")) { usage_and_exit $argv0; }
+if (!getopts("hRC:P:")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
+if (defined $Getopt::Std::opt_C) { $ca_name = $Getopt::Std::opt_C; }
+if (defined $Getopt::Std::opt_P) { $ca_port = $Getopt::Std::opt_P; }
 
 my $target_switch = $ARGV[0];
 my $target_port = $ARGV[1];
 
-if ($regenerate_map || !(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
+get_link_ends($regenerate_map, $ca_name, $ca_port);
 
 if ($target_switch eq "" || $target_port eq "")
 {
@@ -160,7 +167,8 @@ sub compress_hostlist
 sub main
 {
    my $found_switch = undef;
-   open IBNET_TOPO, "<$IBswcountlimits::cache_dir/ibnetdiscover.topology" or die "Failed to open ibnet topology\n";
+   my $cache_file = get_cache_file($ca_name, $ca_port);
+   open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
    my $in_switch = "no";
    my $switch_guid = "";
    my $desc = undef;
@@ -191,13 +199,12 @@ FOUND:
    if (! $found_switch)
    {
       print "Switch \"$target_switch\" not found\n";
-      print "   Try running with the \"-R\" option.\n";
+      print "   Try running with the \"-R\" or \"-P\" option.\n";
       exit 1;
    }
 
    $switch_guid = "0x$switch_guid";
 
-   get_link_ends;
    my $hr = $IBswcountlimits::link_ends{$switch_guid}{$target_port};
    my $rem_sw_guid = $hr->{rem_guid};
    my $rem_sw_port = $hr->{rem_port};

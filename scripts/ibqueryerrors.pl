@@ -43,6 +43,7 @@ my $print_action = "no";
 my $report_port_info = undef;
 my $single_switch = undef;
 my $include_data_counters = undef;
+my $cache_file = "";
 
 # =========================================================================
 #
@@ -50,6 +51,9 @@ sub report_counts
 {
    my $addr = $_[0];
    my $port = $_[1];
+   my $ca_name = $_[2];
+   my $ca_port = $_[3];
+   my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
    if (any_counts())
    {
@@ -65,7 +69,7 @@ sub report_counts
          my $lid = "";
          my $speed = "";
          my $width = "";
-         my $data = `smpquery -G portinfo $addr $port`;
+         my $data = `smpquery $extra_params -G portinfo $addr $port`;
          my @lines = split("\n", $data);
          foreach my $line (@lines) {
             if ($line =~ /^# Port info: Lid (\w+) port.*/) { $lid = $1; }
@@ -94,7 +98,11 @@ sub get_counts
 {
    my $addr = $_[0];
    my $port = $_[1];
-   my $data = `perfquery -G $addr $port`;
+   my $ca_name = $_[2];
+   my $ca_port = $_[3];
+   my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
+
+   my $data = `perfquery $extra_params -G $addr $port`;
    my @lines = split("\n", $data);
    foreach my $line (@lines)
    {
@@ -113,7 +121,7 @@ sub get_counts
 my %switches = ();
 sub get_switches
 {
-   my $data = `ibswitches $IBswcountlimits::cache_dir/ibnetdiscover.topology`;
+   my $data = `ibswitches $cache_file`;
    my @lines = split("\n", $data);
    foreach my $line (@lines) {
       if ($line =~ /^Switch\s+:\s+(\w+)\s+ports\s+(\d+)\s+.*/)
@@ -128,7 +136,7 @@ sub get_switches
 sub usage_and_exit
 {
    my $prog = $_[0];
-   print "Usage: $prog [-a -c -r -R -s <err1,err2,...> -S <switch_guid> -d]\n";
+   print "Usage: $prog [-a -c -r -R -s <err1,err2,...> -S <switch_guid> -d -C <ca_name> -P <ca_port>]\n";
    print "   Report counters on all switches in subnet\n";
    print "   -a Report an action to take\n";
    print "   -c suppress some of the common counters\n";
@@ -137,15 +145,19 @@ sub usage_and_exit
    print "   -s <err1,err2,...> suppress errors listed\n";
    print "   -S <switch_guid> query only <switch_guid>\n";
    print "   -d include the data counters in the output\n";
+   print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
+   print "   -P <ca_port> use selected channel adaptor port for queries\n";
    exit 0;
 }
 
 my $argv0 = `basename $0`;
 my $regenerate_map = undef;
 my $single_switch = undef;
+my $ca_name = "";
+my $ca_port = "";
 
 chomp $argv0;
-if (!getopts("has:crRS:d")) { usage_and_exit $argv0; }
+if (!getopts("has:crRS:dC:P:")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_a) { $print_action = "yes"; }
 if (defined $Getopt::Std::opt_s) { @IBswcountlimits::suppress_errors = split (",", $Getopt::Std::opt_s); }
@@ -157,6 +169,10 @@ if (defined $Getopt::Std::opt_r) { $report_port_info = $Getopt::Std::opt_r; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
 if (defined $Getopt::Std::opt_S) { $single_switch = $Getopt::Std::opt_S; }
 if (defined $Getopt::Std::opt_d) { $include_data_counters = $Getopt::Std::opt_d; }
+if (defined $Getopt::Std::opt_C) { $ca_name = $Getopt::Std::opt_C; }
+if (defined $Getopt::Std::opt_P) { $ca_port = $Getopt::Std::opt_P; }
+
+$cache_file = get_cache_file($ca_name, $ca_port);
 
 sub main
 {
@@ -165,16 +181,15 @@ sub main
       my $msg = join(",", @IBswcountlimits::suppress_errors);
       print "Suppressing: $msg\n";
    }
-   if ($regenerate_map || !(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
+   get_link_ends($regenerate_map, $ca_name, $ca_port);
    get_switches;
-   get_link_ends;
    foreach my $sw_addr (keys %switches) {
       if ($single_switch && $sw_addr ne "$single_switch") { next; }
 
       my $switch_prompt = "no";
       foreach my $sw_port (1 .. $switches{$sw_addr}) {
          clear_counters;
-         get_counts($sw_addr, $sw_port);
+         get_counts($sw_addr, $sw_port, $ca_name, $ca_port);
          if (any_counts() && $switch_prompt eq "no")
          {
             my $hr = $IBswcountlimits::link_ends{"$sw_addr"}{$sw_port};

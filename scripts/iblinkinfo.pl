@@ -43,7 +43,7 @@ use IBswcountlimits;
 sub usage_and_exit
 {
    my $prog = $_[0];
-   print "Usage: $prog [-Rhclp -S <guid>]\n";
+   print "Usage: $prog [-Rhclp -S <guid> -C <ca_name> -P <ca_port>]\n";
    print "   Report link speed and connection for each port of each switch which is active\n";
    print "   -h This help message\n";
    print "   -R Recalculate ibnetdiscover information (Default is to reuse ibnetdiscover output)\n";
@@ -52,6 +52,8 @@ sub usage_and_exit
    print "   -l (line mode) print all information for each link on each line\n";
    print "   -p print additional switch settings (PktLifeTime,HoqLife,VLStallCount)\n";
    print "   -c print port capabilities (enabled/supported values)\n";
+   print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
+   print "   -P <ca_port> use selected channel adaptor port for queries\n";
    exit 0;
 }
 
@@ -62,9 +64,11 @@ my $line_mode = undef;
 my $print_add_switch = undef;
 my $print_extended_cap = undef;
 my $only_down_links = undef;
+my $ca_name = "";
+my $ca_port = "";
 chomp $argv0;
 
-if (!getopts("hcpldRS:")) { usage_and_exit $argv0; }
+if (!getopts("hcpldRS:C:P:")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
 if (defined $Getopt::Std::opt_S) { $single_switch = $Getopt::Std::opt_S; }
@@ -72,18 +76,21 @@ if (defined $Getopt::Std::opt_d) { $only_down_links = $Getopt::Std::opt_d; }
 if (defined $Getopt::Std::opt_l) { $line_mode = $Getopt::Std::opt_l; }
 if (defined $Getopt::Std::opt_p) { $print_add_switch = $Getopt::Std::opt_p; }
 if (defined $Getopt::Std::opt_c) { $print_extended_cap = $Getopt::Std::opt_c; }
+if (defined $Getopt::Std::opt_C) { $ca_name = $Getopt::Std::opt_C; }
+if (defined $Getopt::Std::opt_P) { $ca_port = $Getopt::Std::opt_P; }
+
+my $extra_smpquery_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
 sub main
 {
-   if ($regenerate_map) { generate_ibnetdiscover_topology; }
-   get_link_ends;
+   get_link_ends($regenerate_map, $ca_name, $ca_port);
    foreach my $switch (sort (keys (%IBswcountlimits::link_ends))) {
       if ($single_switch && $switch ne $single_switch)
       {
          next;
       }
       my $switch_prompt = "no";
-      my $num_ports = get_num_ports($switch);
+      my $num_ports = get_num_ports($switch, $ca_name, $ca_port);
       if ($num_ports == 0) {
             printf("ERROR: switch $switch has 0 ports???\n");
       }
@@ -95,7 +102,7 @@ sub main
       if ($only_down_links) { $print_switch = "no"; }
       if ($print_add_switch)
       {
-         my $data = `smpquery -G switchinfo $switch`;
+         my $data = `smpquery $extra_smpquery_params -G switchinfo $switch`;
          if ($data eq "") {
             printf("ERROR: failed to get switchinfo for $switch\n");
          }
@@ -111,7 +118,7 @@ sub main
                 sprintf ("Switch %18s %s%s:\n", $switch, $hr->{loc_desc}, $pkt_life_prompt));
             $switch_prompt = "yes";
          }
-         my $data = `smpquery -G portinfo $switch $port`;
+         my $data = `smpquery $extra_smpquery_params -G portinfo $switch $port`;
          if ($data eq "") {
             printf("ERROR: failed to get portinfo for $switch port $port\n");
          }
@@ -147,7 +154,7 @@ sub main
          my $rem_width_enable = "";
          if ($rem_lid ne "" && $rem_port ne "")
          {
-            $data = `smpquery portinfo $rem_lid $rem_port`;
+            $data = `smpquery $extra_smpquery_params portinfo $rem_lid $rem_port`;
             if ($data eq "") {
                printf("ERROR: failed to get portinfo for $switch port $port\n");
             }

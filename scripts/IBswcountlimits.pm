@@ -215,22 +215,59 @@ sub ensure_cache_dir
 }
 
 # =========================================================================
+# get_link_ends(ca_name, ca_port)
+#
+sub get_cache_file
+{
+   my $ca_name = $_[0];
+   my $ca_port = $_[1];
+   ensure_cache_dir;
+   return ("$IBswcountlimits::cache_dir/ibnetdiscover-$ca_name-$ca_port.topology");
+}
+
+# =========================================================================
+# get_ca_name_port_param_string(ca_name, ca_port)
+#
+sub get_ca_name_port_param_string
+{
+   my $ca_name = $_[0];
+   my $ca_port = $_[1];
+
+   if ("$ca_name" ne "") { $ca_name = "-C $ca_name"; }
+   if ("$ca_port" ne "") { $ca_port = "-P $ca_port"; }
+
+   return ("$ca_name $ca_port");
+}
+
+# =========================================================================
+# generate_ibnetdiscover_topology(ca_name, ca_port)
 #
 sub generate_ibnetdiscover_topology
 {
-   ensure_cache_dir;
-   `ibnetdiscover -g > $IBswcountlimits::cache_dir/ibnetdiscover.topology`;
+   my $ca_name = $_[0];
+   my $ca_port = $_[1];
+   my $cache_file = get_cache_file($ca_name, $ca_port);
+   my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
+
+   `ibnetdiscover -g $extra_params > $cache_file`;
    if ($? != 0) {
        die "Execution of ibnetdiscover failed with errors\n";
    }
 }
 
 # =========================================================================
+# get_link_ends(regenerate_map, ca_name, ca_port)
 #
 sub get_link_ends
 {
-   if (!(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology")) { generate_ibnetdiscover_topology; }
-   open IBNET_TOPO, "<$IBswcountlimits::cache_dir/ibnetdiscover.topology" or die "Failed to open ibnet topology: $!\n";
+   my $regenerate_map = $_[0];
+   my $ca_name = $_[1];
+   my $ca_port = $_[2];
+
+   my $cache_file = get_cache_file($ca_name, $ca_port);
+
+   if ($regenerate_map || !(-f "$cache_file")) { generate_ibnetdiscover_topology($ca_name, $ca_port); }
+   open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology: $!\n";
    my $in_switch = "no";
    my $desc = "";
    my $guid = "";
@@ -310,12 +347,18 @@ sub get_link_ends
    close IBNET_TOPO;
 }
 
+# =========================================================================
+# get_num_ports(switch_guid, ca_name, ca_port)
+#
 sub get_num_ports
 {
         my $guid = $_[0];
+	my $ca_name = $_[1];
+	my $ca_port = $_[2];
         my $num_ports = 0;
+        my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
-        my $data = `smpquery -G nodeinfo $guid`;
+        my $data = `smpquery $extra_params -G nodeinfo $guid`;
         my @lines = split("\n", $data);
         my $pkt_lifetime = "";
         foreach my $line (@lines) {
