@@ -94,7 +94,7 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	int       node_type, l;
 	uint64_t  node_guid;
 	char      nd[IB_SMP_DATA_SIZE];
-	char      data[IB_SMP_DATA_SIZE];
+	uint8_t   data[IB_SMP_DATA_SIZE];
 	char      dots[128];
 	char     *nodename = NULL;
 
