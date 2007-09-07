@@ -307,7 +307,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 	}
 
 	/* Get the list of CA names */
-	if ((n = umad_get_cas_names((void *)names, UMAD_CA_NAME_LEN)) < 0)
+	if ((n = umad_get_cas_names((void *)names, 20)) < 0)
 		return 0;
 
 	/* Find the first existing CA with an active port */
