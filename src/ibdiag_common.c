@@ -64,11 +64,6 @@ open_switch_map(char *switch_map)
 #ifdef HAVE_DEFAULT_SWITCH_MAP
 	} else {
 		rc = fopen(HAVE_DEFAULT_SWITCH_MAP, "r");
-		if (rc == NULL) {
-			fprintf(stderr,
-				"WARNING failed to open switch map \"%s\" (%s)\n",
-				HAVE_DEFAULT_SWITCH_MAP, strerror(errno));
-		}
 #endif /* HAVE_DEFAULT_SWITCH_MAP */
 	}
 	return (rc);
