@@ -4,7 +4,7 @@ rping \- RDMA CM connection and RDMA ping-pong test.
 .SH SYNOPSIS
 .sp
 .nf
-\fIrping\fR -s [-v] [-V] [-d] [-a address] [-p port]
+\fIrping\fR -s [-v] [-V] [-d] [-P] [-a address] [-p port]
 		[-C message_count] [-S message_size]
 \fIrping\fR -c [-v] [-V] [-d] -a address [-p port]
 		[-C message_count] [-S message_size]
@@ -42,6 +42,10 @@ The number of messages to transfer over each connection.  (default infinite)
 .TP
 \-S message_size
 The size of each message transferred, in bytes.  (default 100)
+.TP
+\-P
+Run the server in persistent mode.  This allows multiple rping clients
+to connect to a single server instance. The server will run until killed.
 .SH "NOTES"
 Because this test maps RDMA resources to userspace, users must ensure
 that they have available system resources and permissions.  See the
