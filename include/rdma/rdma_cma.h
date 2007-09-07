@@ -529,6 +529,27 @@ void rdma_free_devices(struct ibv_context **list);
  */
 const char *rdma_event_str(enum rdma_cm_event_type event);
 
+/* Option levels */
+enum {
+	RDMA_OPTION_ID		= 0
+};
+
+/* Option details */
+enum {
+	RDMA_OPTION_ID_TOS	= 0	/* uint8_t: RFC 2474 */
+};
+
+/**
+ * rdma_set_option - Set options for an rdma_cm_id.
+ * @id: Communication identifier to set option for.
+ * @level: Protocol level of the option to set.
+ * @optname: Name of the option to set.
+ * @optval: Reference to the option data.
+ * @optlen: The size of the %optval buffer.
+ */
+int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
+		    void *optval, size_t optlen);
+
 #ifdef __cplusplus
 }
 #endif

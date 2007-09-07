@@ -213,4 +213,12 @@ struct ucma_abi_event_resp {
 	} param;
 };
 
+struct ucma_abi_set_option {
+	__u64 optval;
+	__u32 id;
+	__u32 level;
+	__u32 optname;
+	__u32 optlen;
+};
+
 #endif /* RDMA_CMA_ABI_H */

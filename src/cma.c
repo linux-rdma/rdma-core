@@ -1421,3 +1421,26 @@ const char *rdma_event_str(enum rdma_cm_event_type event)
 		return "UNKNOWN EVENT";
 	}
 }
+
+int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
+		    void *optval, size_t optlen)
+{
+	struct ucma_abi_set_option *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+	
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_SET_OPTION, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	cmd->optval = (uintptr_t) optval;
+	cmd->level = level;
+	cmd->optname = optname;
+	cmd->optlen = optlen;
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		return (ret > 0) ? -ENODATA : ret;
+
+	return 0;
+}

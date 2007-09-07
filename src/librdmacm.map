@@ -24,5 +24,6 @@ RDMACM_1.0 {
 		rdma_get_devices;
 		rdma_free_devices;
 		rdma_event_str;
+		rdma_set_option;
 	local: *;
 };
