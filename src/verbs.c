@@ -484,6 +484,8 @@ int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			mlx4_cq_clean(to_mcq(qp->send_cq), qp->qp_num, NULL);
 
 		mlx4_init_qp_indices(to_mqp(qp));
+		if (!qp->srq)
+			*to_mqp(qp)->db = 0;
 	}
 
 	return ret;
