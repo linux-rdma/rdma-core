@@ -7,7 +7,7 @@ ucmatose \- RDMA CM connection and simple ping-pong test.
 \fIucmatose\fR [-s server_address] [-b bind_address] [-c connections]
 		[-C message_count] [-S message_size]
 \fIucmatose\fR -s server_address [-b bind_address] [-c connections]
-		[-C message_count] [-S message_size]
+		[-C message_count] [-S message_size] [-t tos]
 .fi
 .SH "DESCRIPTION"
 Establishes a set of reliable RDMA connections between two nodes using the
@@ -31,6 +31,10 @@ The number of messages to transfer over each connection.  (default 10)
 .TP
 \-S message_size
 The size of each message transferred, in bytes.  (default 100)
+.TP
+\-t tos
+Indicates the type of service used for the communication.  Type of service
+is implementation dependent based on subnet configuration.
 .SH "NOTES"
 Basic usage is to start ucmatose on a server system, then run
 ucmatose -s server_name on a client system.

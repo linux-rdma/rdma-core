@@ -74,6 +74,8 @@ static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
+static uint8_t set_tos = 0;
+static uint8_t tos;
 static char *dst_addr;
 static char *src_addr;
 static enum rdma_port_space port_space = RDMA_PS_UDP;
@@ -237,6 +239,13 @@ static void connect_error(void)
 static int addr_handler(struct cmatest_node *node)
 {
 	int ret;
+
+	if (set_tos) {
+		ret = rdma_set_option(node->cma_id, RDMA_OPTION_ID,
+				      RDMA_OPTION_ID_TOS, &tos, sizeof tos);
+		if (ret)
+			printf("cmatose: set TOS option failed: %d\n", ret);
+	}
 
 	ret = rdma_resolve_route(node->cma_id, 2000);
 	if (ret) {
@@ -626,7 +635,7 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "s:b:c:C:S:p:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:C:S:t:p:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -643,6 +652,10 @@ int main(int argc, char **argv)
 		case 'S':
 			message_size = atoi(optarg);
 			break;
+		case 't':
+			set_tos = 1;
+			tos = (uint8_t) atoi(optarg);
+			break;
 		case 'p':
 			port_space = strtol(optarg, NULL, 0);
 			break;
@@ -653,6 +666,7 @@ int main(int argc, char **argv)
 			printf("\t[-c connections]\n");
 			printf("\t[-C message_count]\n");
 			printf("\t[-S message_size]\n");
+			printf("\t[-t type_of_service]\n");
 			printf("\t[-p port_space - %#x for UDP (default), "
 			       "%#x for IPOIB]\n", RDMA_PS_UDP, RDMA_PS_IPOIB);
 			exit(1);

@@ -7,7 +7,7 @@ udaddy \- RDMA CM datagram setup and simple ping-pong test.
 \fIudaddy\fR [-s server_address] [-b bind_address] [-c connections]
 		[-C message_count] [-S message_size] [-p port_space]
 \fIudaddy\fR -s server_address [-b bind_address] [-c connections]
-		[-C message_count] [-S message_size] [-p port_space]
+		[-C message_count] [-S message_size] [-t tos] [-p port_space]
 .fi
 .SH "DESCRIPTION"
 Establishes a set of unreliable RDMA datagram communication paths between two
@@ -35,6 +35,10 @@ The number of messages to transfer over each connection.  (default 10)
 The size of each message transferred, in bytes.  This value must be smaller
 than the MTU of the underlying RDMA transport, or an error will occur.
 (default 100)
+.TP
+\-t tos
+Indicates the type of service used for the communication.  Type of service
+is implementation dependent based on subnet configuration.
 .TP
 \-p port_space
 The port space of the datagram communication.  May be either the RDMA
