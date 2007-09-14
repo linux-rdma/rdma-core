@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -103,5 +104,9 @@ char *portmapstring(Port *port);
 char *get_chassis_type(unsigned char chassistype);
 char *get_chassis_slot(unsigned char chassisslot);
 uint64_t get_chassis_guid(unsigned char chassisnum);
+
+int is_xsigo_guid(uint64_t guid);
+int is_xsigo_tca(uint64_t guid);
+int is_xsigo_hca(uint64_t guid);
 
 #endif	/* _GROUPING_H_ */

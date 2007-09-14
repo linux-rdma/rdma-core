@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -48,6 +49,7 @@
 #define VTR_VENDOR_ID			0x8f1	/* Voltaire */
 #define TS_VENDOR_ID			0x5ad	/* Cisco */
 #define SS_VENDOR_ID			0x66a	/* InfiniCon */
+#define XS_VENDOR_ID			0x1397	/* Xsigo */
 
 
 typedef struct Port Port;

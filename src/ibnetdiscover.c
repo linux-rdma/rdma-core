@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -490,14 +491,26 @@ list_node(Node *node)
 }
 
 void
-out_ids(Node *node)
+out_ids(Node *node, int group, char *chname)
 {
 	fprintf(f, "\nvendid=0x%x\ndevid=0x%x\n", node->vendid, node->devid);
 	if (node->sysimgguid)
-		fprintf(f, "sysimgguid=0x%" PRIx64 "\n", node->sysimgguid);
+		fprintf(f, "sysimgguid=0x%" PRIx64, node->sysimgguid);
+	if (group)
+		if (node->chrecord)
+			if (node->chrecord->chassisnum) {
+				fprintf(f, "\t\t# Chassis %d", node->chrecord->chassisnum);
+				if (chname)
+					fprintf(f, " (%s)", clean_nodedesc(chname));
+				if (is_xsigo_tca(node->nodeguid)) {
+					if (node->ports->remoteport)
+						fprintf(f, " slot %d", node->ports->remoteport->portnum);
+				}
+			}
+	fprintf(f, "\n");
 }
 
-void
+uint64_t
 out_chassis(int chassisnum)
 {
 	uint64_t guid;
@@ -507,21 +520,21 @@ out_chassis(int chassisnum)
 	if (guid)
 		fprintf(f, " (guid 0x%" PRIx64 ")", guid);
 	fprintf(f, "\n");
+	return guid;
 }
 
 void
-out_switch(Node *node, int group)
+out_switch(Node *node, int group, char *chname)
 {
 	char *str;
 	char *nodename = NULL;
 
-	out_ids(node);
+	out_ids(node, group, chname);
 	fprintf(f, "switchguid=0x%" PRIx64, node->nodeguid);
 	fprintf(f, "(%" PRIx64 ")", node->portguid);
 	if (group) {
 		if (node->chrecord) {
 			if (node->chrecord->chassisnum) {
-				fprintf(f, "\t\t# Chassis %d ", node->chrecord->chassisnum);
 				/* Currently, only if Voltaire chassis */
 				if (node->vendid == VTR_VENDOR_ID) {
 					str = get_chassis_type(node->chrecord->chassistype);
@@ -551,12 +564,12 @@ out_switch(Node *node, int group)
 }
 
 void
-out_ca(Node *node)
+out_ca(Node *node, int group, char *chname)
 {
 	char *node_type;
 	char *node_type2;
 
-	out_ids(node);
+	out_ids(node, group, chname);
 	switch(node->type) {
 	case CA_NODE:
 		node_type = "ca";
@@ -573,9 +586,12 @@ out_ca(Node *node)
 	}
 
 	fprintf(f, "%sguid=0x%" PRIx64 "\n", node_type, node->nodeguid);
-	fprintf(f, "%s\t%d %s\t\t# \"%s\"\n",
+	fprintf(f, "%s\t%d %s\t\t# \"%s\"",
 		node_type2, node->numports, node_name(node),
 		clean_nodedesc(node->nodedesc));
+	if (group && is_xsigo_hca(node->nodeguid))
+		fprintf(f, " (scp)");
+	fprintf(f, "\n");
 }
 
 static char *
@@ -619,11 +635,17 @@ out_switch_port(Port *port, int group)
 		ext_port_str ? ext_port_str : "");
 	if (port->remoteport->node->type != SWITCH_NODE)
 		fprintf(f, "(%" PRIx64 ") ", port->remoteport->portguid);
-	fprintf(f, "\t\t# \"%s\" lid %d %s%s\n",
+	fprintf(f, "\t\t# \"%s\" lid %d %s%s",
 		rem_nodename,
 		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
 		get_linkwidth_str(port->linkwidth),
 		get_linkspeed_str(port->linkspeed));
+
+	if (is_xsigo_tca(port->remoteport->portguid))
+		fprintf(f, " slot %d", port->portnum);
+	else if (is_xsigo_hca(port->remoteport->portguid))
+		fprintf(f, " (scp)");
+	fprintf(f, "\n");
 
 	if (rem_nodename && (port->remoteport->node->type == SWITCH_NODE))
 		free(rem_nodename);
@@ -669,6 +691,8 @@ dump_topology(int listtype, int group)
 	Port *port;
 	int i = 0, dist = 0;
 	time_t t = time(0);
+	uint64_t chguid;
+	char *chname = NULL;
 
 	if (!listtype) {
 		fprintf(f, "#\n# Topology file: generated on %s#\n", ctime(&t));
@@ -686,11 +710,31 @@ dump_topology(int listtype, int group)
 
 			if (!ch->chassisnum)
 				continue;
-			out_chassis(ch->chassisnum);
+			chguid = out_chassis(ch->chassisnum);
+			chname = NULL;
+			if (is_xsigo_guid(chguid)) {
+				/* !!! */
+				for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
+					if (node->chrecord) {
+						if (!node->chrecord->chassisnum)
+							continue;
+					} else
+						continue;
+
+					if (node->chrecord->chassisnum != ch->chassisnum)
+						continue;
+
+					if (is_xsigo_hca(node->nodeguid)) {
+						chname = node->nodedesc;
+						fprintf(f, "Hostname: %s\n", clean_nodedesc(node->nodedesc));
+					}
+				}
+			}
+
 			fprintf(f, "\n# Spine Nodes");
 			for (n = 1; n <= (SPINES_MAX_NUM+1); n++) {
 				if (ch->spinenode[n]) {
-					out_switch(ch->spinenode[n], group);
+					out_switch(ch->spinenode[n], group, chname);
 					for (port = ch->spinenode[n]->ports; port; port = port->next, i++)
 						if (port->remoteport)
 							out_switch_port(port, group);
@@ -699,34 +743,57 @@ dump_topology(int listtype, int group)
 			fprintf(f, "\n# Line Nodes");
 			for (n = 1; n <= (LINES_MAX_NUM+1); n++) {
 				if (ch->linenode[n]) {
-					out_switch(ch->linenode[n], group);
+					out_switch(ch->linenode[n], group, chname);
 					for (port = ch->linenode[n]->ports; port; port = port->next, i++)
 						if (port->remoteport)
 							out_switch_port(port, group);
 				}
 			}
 
-		}
+			fprintf(f, "\n# Chassis Switches");
+			for (dist = 0; dist <= maxhops_discovered; dist++) {
 
-		for (dist = 0; dist <= maxhops_discovered; dist++) {
+				for (node = nodesdist[dist]; node; node = node->dnext) {
 
-			for (node = nodesdist[dist]; node; node = node->dnext) {
+					/* Non Voltaire chassis */
+					if (node->vendid == VTR_VENDOR_ID)
+						continue;
+					if (node->chrecord) {
+						if (!node->chrecord->chassisnum)
+							continue;
+					} else
+						continue;
 
-				/* Non Voltaire chassis */
-				if (node->vendid == VTR_VENDOR_ID)
-					continue;
+					if (node->chrecord->chassisnum != ch->chassisnum)
+						continue;
+
+					out_switch(node, group, chname);
+					for (port = node->ports; port; port = port->next, i++)
+						if (port->remoteport)
+							out_switch_port(port, group);
+
+				}
+
+			}
+
+			fprintf(f, "\n# Chassis CAs");
+			for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
 				if (node->chrecord) {
 					if (!node->chrecord->chassisnum)
 						continue;
 				} else
 					continue;
 
-				out_switch(node, group);
+				if (node->chrecord->chassisnum != ch->chassisnum)
+					continue;
+
+				out_ca(node, group, chname);
 				for (port = node->ports; port; port = port->next, i++)
 					if (port->remoteport)
-						out_switch_port(port, group);
+						out_ca_port(port, group);
 
 			}
+
 		}
 
 	} else {
@@ -736,7 +803,7 @@ dump_topology(int listtype, int group)
 
 				DEBUG("SWITCH: dist %d node %p", dist, node);
 				if (!listtype) {
-					out_switch(node, group);
+					out_switch(node, group, chname);
 				} else {
 					if (listtype & LIST_SWITCH_NODE)
 						list_node(node);
@@ -750,6 +817,7 @@ dump_topology(int listtype, int group)
 		}
 	}
 
+	chname = NULL;
 	if (group && !listtype) {
 
 		fprintf(f, "\nNon-Chassis Nodes\n");
@@ -763,7 +831,7 @@ dump_topology(int listtype, int group)
 				if (node->chrecord)
 					if (node->chrecord->chassisnum)
 						continue;
-				out_switch(node, group);
+				out_switch(node, group, chname);
 
 				for (port = node->ports; port; port = port->next, i++)
 					if (port->remoteport)
@@ -778,9 +846,14 @@ dump_topology(int listtype, int group)
 	for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
 
 		DEBUG("CA: dist %d node %p", dist, node);
-		if (!listtype)
-			out_ca(node);
-		else {
+		if (!listtype) {
+			if (group)
+				/* Now, skip chassis based CAs */
+				if (node->chrecord)
+					if (node->chrecord->chassisnum)
+						continue;
+			out_ca(node, group, chname);
+		} else {
 			if (((listtype & LIST_CA_NODE) && (node->type == CA_NODE)) ||
 			    ((listtype & LIST_ROUTER_NODE) && (node->type == ROUTER_NODE)))
 				list_node(node);

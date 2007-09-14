@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -96,20 +97,91 @@ static uint64_t topspin_chassisguid(uint64_t guid)
 	return guid & 0xffffffff00ffffffULL;
 }
 
-static uint64_t get_chassisguid(uint64_t guid, uint32_t vendid)
+int is_xsigo_guid(uint64_t guid)
 {
-	if (vendid == TS_VENDOR_ID || vendid == SS_VENDOR_ID)
-		return topspin_chassisguid(guid);
+	if ((guid & 0xffffff0000000000ULL) == 0x0013970000000000ULL)
+		return 1;
 	else
-		return guid;
+		return 0;
 }
 
-static struct ChassisList *find_chassisguid(uint64_t guid, uint32_t vendid)
+static int is_xsigo_leafone(uint64_t guid)
+{
+	if ((guid & 0xffffffffff000000ULL) == 0x0013970102000000ULL)
+		return 1;
+	else
+		return 0;
+}
+
+int is_xsigo_hca(uint64_t guid)
+{
+	/* NodeType 2 is HCA */
+	if ((guid & 0xffffffff00000000ULL) == 0x0013970200000000ULL)
+		return 1;
+	else
+		return 0;
+}
+
+int is_xsigo_tca(uint64_t guid)
+{
+	/* NodeType 3 is TCA */
+	if ((guid & 0xffffffff00000000ULL) == 0x0013970300000000ULL)
+		return 1;
+	else
+		return 0;
+}
+
+static int is_xsigo_ca(uint64_t guid)
+{
+	if (is_xsigo_hca(guid) || is_xsigo_tca(guid))
+		return 1;
+	else
+		return 0;
+}
+
+static int is_xsigo_switch(uint64_t guid)
+{
+	if ((guid & 0xffffffff00000000ULL) == 0x0013970100000000ULL)
+		return 1;
+	else
+		return 0;
+}
+
+static uint64_t xsigo_chassisguid(Node *node)
+{
+	if (!is_xsigo_ca(node->sysimgguid)) {
+		/* Byte 3 is NodeType and byte 4 is PortType */
+		/* If NodeType is 1 (switch), PortType is masked */
+		if (is_xsigo_switch(node->sysimgguid))
+			return node->sysimgguid & 0xffffffff00ffffffULL;
+		else
+			return node->sysimgguid;
+	} else {
+		/* If peer port is Leaf 1, use its chassis GUID */
+		if (is_xsigo_leafone(node->ports->remoteport->node->sysimgguid))
+			return node->ports->remoteport->node->sysimgguid &
+			       0xffffffff00ffffffULL;
+		else
+			return node->sysimgguid;
+	}
+}
+
+static uint64_t get_chassisguid(Node *node)
+{
+	if (node->vendid == TS_VENDOR_ID || node->vendid == SS_VENDOR_ID)
+		return topspin_chassisguid(node->sysimgguid);
+	else if (node->vendid == XS_VENDOR_ID || is_xsigo_guid(node->sysimgguid))
+		return xsigo_chassisguid(node);
+	else
+		return node->sysimgguid;
+}
+
+static struct ChassisList *find_chassisguid(Node *node)
 {
 	ChassisList *current;
 	uint64_t chguid;
 
-	chguid = get_chassisguid(guid, vendid);
+	chguid = get_chassisguid(node);
 	for (current = mylist.first; current; current = current->next) {
 		if (current->chassisguid == chguid)
 			return current;
@@ -668,14 +740,13 @@ ChassisList *group_nodes()
 			if (node->vendid == VTR_VENDOR_ID)
 				continue;
 			if (node->sysimgguid) {
-				chassis = find_chassisguid(node->sysimgguid,
-							   node->vendid);
+				chassis = find_chassisguid(node);
 				if (chassis)
 					chassis->nodecount++;
 				else {
 					/* Possible new chassis */
 					add_chassislist();
-					mylist.current->chassisguid = get_chassisguid(node->sysimgguid, node->vendid);
+					mylist.current->chassisguid = get_chassisguid(node);
 					mylist.current->nodecount = 1;
 				}
 			}
@@ -684,13 +755,12 @@ ChassisList *group_nodes()
 
 	/* now, make another pass to see which nodes are part of chassis */
 	/* (defined as chassis->nodecount > 1) */
-	for (dist = 0; dist <= maxhops_discovered; dist++) {
+	for (dist = 0; dist <= MAXHOPS; ) {
 		for (node = nodesdist[dist]; node; node = node->dnext) {
 			if (node->vendid == VTR_VENDOR_ID)
 				continue;
 			if (node->sysimgguid) {
-				chassis = find_chassisguid(node->sysimgguid,
-							   node->vendid);
+				chassis = find_chassisguid(node);
 				if (chassis && chassis->nodecount > 1) {
 					if (!chassis->chassisnum)
 						chassis->chassisnum = ++chassisnum;
@@ -702,6 +772,10 @@ ChassisList *group_nodes()
 				}
 			}
 		}
+		if (dist == maxhops_discovered)
+			dist = MAXHOPS;	/* skip to CAs */
+		else
+			dist++;
 	}
 
 	return (mylist.first);
