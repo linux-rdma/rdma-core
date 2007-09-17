@@ -186,9 +186,8 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 
         if (!smp_query(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout))
                 node->smaenhsp0 = 0;	/* assume base SP0 */
-	else {
+	else
         	mad_decode_field(si, IB_SW_ENHANCED_PORT0_F, &node->smaenhsp0);
-	}
 
 	DEBUG("portid %s: got switch node %" PRIx64 " '%s'",
 	      portid2str(portid), node->nodeguid, node->nodedesc);
@@ -464,7 +463,7 @@ list_node(Node *node)
 
 	if (node->type == SWITCH_NODE)
 		nodename = lookup_switch_name(switch_map_fp, node->nodeguid,
-						node->nodedesc);
+					      node->nodedesc);
 	else
 		nodename = clean_nodedesc(node->nodedesc);
 	switch(node->type) {
@@ -496,17 +495,14 @@ out_ids(Node *node, int group, char *chname)
 	fprintf(f, "\nvendid=0x%x\ndevid=0x%x\n", node->vendid, node->devid);
 	if (node->sysimgguid)
 		fprintf(f, "sysimgguid=0x%" PRIx64, node->sysimgguid);
-	if (group)
-		if (node->chrecord)
-			if (node->chrecord->chassisnum) {
-				fprintf(f, "\t\t# Chassis %d", node->chrecord->chassisnum);
-				if (chname)
-					fprintf(f, " (%s)", clean_nodedesc(chname));
-				if (is_xsigo_tca(node->nodeguid)) {
-					if (node->ports->remoteport)
-						fprintf(f, " slot %d", node->ports->remoteport->portnum);
-				}
-			}
+	if (group
+	    && node->chrecord && node->chrecord->chassisnum) {
+		fprintf(f, "\t\t# Chassis %d", node->chrecord->chassisnum);
+		if (chname)
+			fprintf(f, " (%s)", clean_nodedesc(chname));
+		if (is_xsigo_tca(node->nodeguid) && node->ports->remoteport)
+			fprintf(f, " slot %d", node->ports->remoteport->portnum);
+	}
 	fprintf(f, "\n");
 }
 
@@ -532,21 +528,17 @@ out_switch(Node *node, int group, char *chname)
 	out_ids(node, group, chname);
 	fprintf(f, "switchguid=0x%" PRIx64, node->nodeguid);
 	fprintf(f, "(%" PRIx64 ")", node->portguid);
-	if (group) {
-		if (node->chrecord) {
-			if (node->chrecord->chassisnum) {
-				/* Currently, only if Voltaire chassis */
-				if (node->vendid == VTR_VENDOR_ID) {
-					str = get_chassis_type(node->chrecord->chassistype);
-					if (str)
-						fprintf(f, "%s ", str);
-					str = get_chassis_slot(node->chrecord->chassisslot);
-					if (str)
-						fprintf(f, "%s ", str);
-					fprintf(f, "%d Chip %d", node->chrecord->slotnum, node->chrecord->anafanum);
-				}
-			}
-		}
+	/* Currently, only if Voltaire chassis */
+	if (group
+	    && node->chrecord && node->chrecord->chassisnum
+	    && node->vendid == VTR_VENDOR_ID) {
+		str = get_chassis_type(node->chrecord->chassistype);
+		if (str)
+			fprintf(f, "%s ", str);
+		str = get_chassis_slot(node->chrecord->chassisslot);
+		if (str)
+			fprintf(f, "%s ", str);
+		fprintf(f, "%d Chip %d", node->chrecord->slotnum, node->chrecord->anafanum);
 	}
 
 	if (node->type == SWITCH_NODE)
@@ -599,12 +591,11 @@ out_ext_port(Port *port, int group)
 {
 	char *str = NULL;
 
-	if (group) {
-		if (port->node->chrecord && port->node->vendid == VTR_VENDOR_ID) {
-			/* Currently, only if Voltaire chassis */
-			str = portmapstring(port);
-		}
-	}
+	/* Currently, only if Voltaire chassis */
+	if (group
+	    && port->node->chrecord && port->node->vendid == VTR_VENDOR_ID)
+		str = portmapstring(port);
+
 	return (str);
 }
 
@@ -715,10 +706,8 @@ dump_topology(int listtype, int group)
 			if (is_xsigo_guid(chguid)) {
 				/* !!! */
 				for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
-					if (node->chrecord) {
-						if (!node->chrecord->chassisnum)
-							continue;
-					} else
+					if (!node->chrecord ||
+					    !node->chrecord->chassisnum)
 						continue;
 
 					if (node->chrecord->chassisnum != ch->chassisnum)
@@ -758,10 +747,8 @@ dump_topology(int listtype, int group)
 					/* Non Voltaire chassis */
 					if (node->vendid == VTR_VENDOR_ID)
 						continue;
-					if (node->chrecord) {
-						if (!node->chrecord->chassisnum)
-							continue;
-					} else
+					if (!node->chrecord ||
+					    !node->chrecord->chassisnum)
 						continue;
 
 					if (node->chrecord->chassisnum != ch->chassisnum)
@@ -778,10 +765,8 @@ dump_topology(int listtype, int group)
 
 			fprintf(f, "\n# Chassis CAs");
 			for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
-				if (node->chrecord) {
-					if (!node->chrecord->chassisnum)
-						continue;
-				} else
+				if (!node->chrecord ||
+				    !node->chrecord->chassisnum)
 					continue;
 
 				if (node->chrecord->chassisnum != ch->chassisnum)
@@ -802,9 +787,9 @@ dump_topology(int listtype, int group)
 			for (node = nodesdist[dist]; node; node = node->dnext) {
 
 				DEBUG("SWITCH: dist %d node %p", dist, node);
-				if (!listtype) {
+				if (!listtype)
 					out_switch(node, group, chname);
-				} else {
+				else {
 					if (listtype & LIST_SWITCH_NODE)
 						list_node(node);
 					continue;
@@ -828,9 +813,9 @@ dump_topology(int listtype, int group)
 
 				DEBUG("SWITCH: dist %d node %p", dist, node);
 				/* Now, skip chassis based switches */
-				if (node->chrecord)
-					if (node->chrecord->chassisnum)
-						continue;
+				if (node->chrecord &&
+				    node->chrecord->chassisnum)
+					continue;
 				out_switch(node, group, chname);
 
 				for (port = node->ports; port; port = port->next, i++)
@@ -847,11 +832,10 @@ dump_topology(int listtype, int group)
 
 		DEBUG("CA: dist %d node %p", dist, node);
 		if (!listtype) {
-			if (group)
-				/* Now, skip chassis based CAs */
-				if (node->chrecord)
-					if (node->chrecord->chassisnum)
-						continue;
+			/* Now, skip chassis based CAs */
+			if (group && node->chrecord &&
+			    node->chrecord->chassisnum)
+				continue;
 			out_ca(node, group, chname);
 		} else {
 			if (((listtype & LIST_CA_NODE) && (node->type == CA_NODE)) ||
@@ -972,9 +956,8 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc)
-		if (!(f = fopen(argv[0], "w")))
-			IBERROR("can't open file %s for writing", argv[0]);
+	if (argc && !(f = fopen(argv[0], "w")))
+		IBERROR("can't open file %s for writing", argv[0]);
 
 	madrpc_init(ca, ca_port, mgmt_classes, 2);
 	switch_map_fp = open_switch_map(switch_map);
