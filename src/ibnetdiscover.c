@@ -47,7 +47,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.4
+#define __BUILD_VERSION_TAG__ 1.2.5
 #include <common.h>
 #include <umad.h>
 #include <mad.h>
@@ -704,7 +704,6 @@ dump_topology(int listtype, int group)
 			chguid = out_chassis(ch->chassisnum);
 			chname = NULL;
 			if (is_xsigo_guid(chguid)) {
-				/* !!! */
 				for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
 					if (!node->chrecord ||
 					    !node->chrecord->chassisnum)
