@@ -11,7 +11,7 @@ Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source: git://git.openfabrics.org/~sashak/management/@TARBALL@
 Url: http://openfabrics.org/
-BuildRequires: libibumad-devel, autoconf, libtool, automake
+BuildRequires: libibumad-devel, libtool
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 
@@ -42,7 +42,6 @@ Static version of the libibmad library
 %setup -q
 
 %build
-./autogen.sh
 %configure
 make %{?_smp_mflags}
 
