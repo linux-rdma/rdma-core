@@ -13,7 +13,7 @@ Source: git://git.openfabrics.org/~sashak/management/@TARBALL@
 Url: http://openfabrics.org
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
-BuildRequires: libibcommon-devel, autoconf, libtool, automake
+BuildRequires: libibcommon-devel, libtool
 
 %description
 libibumad provides the user MAD library functions which sit on top of 
@@ -42,7 +42,6 @@ Static version of the libibumad library.
 %setup -q
 
 %build
-./autogen.sh
 %configure
 make %{?_smp_mflags}
 
