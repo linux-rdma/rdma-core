@@ -7,6 +7,9 @@ AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE
 
+AC_SUBST(RELEASE, ${RELEASE:-unknown})
+AC_SUBST(TARBALL, ${TARBALL:-${PACKAGE}-${VERSION}.tar.gz})
+
 dnl the library version info is available in the file: libibumad.ver
 ibumad_api_version=`grep LIBVERSION $srcdir/libibumad.ver | sed 's/LIBVERSION=//'`
 if test -z $ibumad_api_version; then
