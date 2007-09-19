@@ -51,6 +51,17 @@
 #include <infiniband/driver.h>
 #include <infiniband/marshall.h>
 
+#ifdef INCLUDE_VALGRIND
+#   include <valgrind/memcheck.h>
+#   ifndef VALGRIND_MAKE_MEM_DEFINED
+#       warning "Valgrind requested, but VALGRIND_MAKE_MEM_DEFINED undefined"
+#   endif
+#endif
+
+#ifndef VALGRIND_MAKE_MEM_DEFINED
+#   define VALGRIND_MAKE_MEM_DEFINED(addr,len)
+#endif
+
 #define PFX "libibcm: "
 
 static int abi_ver;
@@ -226,6 +237,8 @@ int ib_cm_create_id(struct ib_cm_device *device,
 	if (result != size)
 		goto err;
 
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
 	cm_id_priv->id.handle = resp->id;
 	*cm_id = &cm_id_priv->id;
 	return 0;
@@ -249,6 +262,8 @@ int ib_cm_destroy_id(struct ib_cm_id *cm_id)
 	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
 	cm_id_priv = container_of(cm_id, struct cm_id_private, id);
 
@@ -279,6 +294,8 @@ int ib_cm_attr_id(struct ib_cm_id *cm_id, struct ib_cm_attr_param *param)
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
 
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
 	param->service_id   = resp->service_id;
 	param->service_mask = resp->service_mask;
 	param->local_id     = resp->local_id;
@@ -306,6 +323,8 @@ int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
 	result = write(cm_id->device->fd, msg, size);
 	if (result != size)
 		return (result > 0) ? -ENODATA : result;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
 	*qp_attr_mask = resp->qp_attr_mask;
 	ibv_copy_qp_attr_from_kern(qp_attr, resp);
@@ -782,13 +801,15 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 	msg = alloca(size);
 	if (!msg)
 		return -ENOMEM;
-	
+
 	hdr = msg;
 	cmd = msg + sizeof(*hdr);
 
 	hdr->cmd = IB_USER_CM_CMD_EVENT;
 	hdr->in  = sizeof(*cmd);
 	hdr->out = sizeof(*resp);
+
+	memset(cmd, 0, sizeof(*cmd));
 
 	resp = alloca(sizeof(*resp));
 	if (!resp)
@@ -818,6 +839,9 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 		result = (result > 0) ? -ENODATA : result;
 		goto done;
 	}
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
 	/*
 	 * decode event.
 	 */
