@@ -1,10 +1,7 @@
 
 SUBDIRS = .
 
-INCLUDES = -I$(srcdir)/include/infiniband \
-	   -I$(srcdir)/../libibcommon/include/infiniband \
-	   -I$(srcdir)/../libibumad/include/infiniband \
-	   -I$(includedir)/infiniband
+INCLUDES = -I$(srcdir)/include/infiniband -I$(includedir)
 
 lib_LTLIBRARIES = libibmad.la
 
