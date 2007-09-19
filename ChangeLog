@@ -422,7 +422,7 @@
 	  pages for DrSLID support.
 
 	* src/ibportstate.c: For query operations, add peer 
-          port checking of link width and speed active.
+	  port checking of link width and speed active.
 
 	* src/smpquery.c: Add support for DrSLID.
 
