@@ -39,6 +39,10 @@ EXTRA_DIST = $(srcdir)/include/infiniband/umad.h \
 	$(srcdir)/src/libibumad.map libibumad.ver \
 	$(man_MANS) autogen.sh
 
+dist-hook:
+	test -x ../$(top_srcdir)/gen_chlog.sh \
+		&& ../$(top_srcdir)/gen_chlog.sh $(PACKAGE) > $(distdir)/ChangeLog
+
 install-data-hook:
 	cd $(DESTDIR)$(mandir)/man3 && \
 	$(RM) umad_done.3 && \
