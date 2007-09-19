@@ -44,8 +44,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include <common.h>
-#include <mad.h>
+#include <infiniband/common.h>
+#include <infiniband/mad.h>
 
 #include "ibnetdiscover.h"
 #include "grouping.h"

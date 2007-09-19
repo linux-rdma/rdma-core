@@ -57,9 +57,9 @@
 #include <netinet/in.h>
 
 #define __BUILD_VERSION_TAG__ 1.1
-#include <common.h>
-#include <mad.h>
-#include <umad.h>
+#include <infiniband/common.h>
+#include <infiniband/mad.h>
+#include <infiniband/umad.h>
 
 #define DEBUG			if (debug) IBWARN
 

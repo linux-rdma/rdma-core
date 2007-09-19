@@ -48,9 +48,9 @@
 #include <inttypes.h>
 
 #define __BUILD_VERSION_TAG__ 1.2.2
-#include <common.h>
-#include <umad.h>
-#include <mad.h>
+#include <infiniband/common.h>
+#include <infiniband/umad.h>
+#include <infiniband/mad.h>
 
 #include "ibdiag_common.h"
 
