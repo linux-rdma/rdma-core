@@ -88,10 +88,8 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibdatacounts.8 man/ibdatacounters.8 \
 	man/ibrouters.8 man/ibprintrt.8 man/ibidsverify.8
 
-EXTRA_DIST = scripts include infiniband-diags.spec.in $(man_MANS) autogen.sh
-
-dist-hook: infiniband-diags.spec
-	   cp infiniband-diags.spec $(distdir)
+EXTRA_DIST = scripts include infiniband-diags.spec.in infiniband-diags.spec \
+	$(man_MANS) autogen.sh
 
 # install this to a default location.
 install-data-hook:
