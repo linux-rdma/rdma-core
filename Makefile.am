@@ -1,8 +1,7 @@
 
 SUBDIRS = .
 
-INCLUDES = -I$(srcdir)/include/infiniband \
-	   -I$(srcdir)/../libibcommon/include/infiniband
+INCLUDES = -I$(srcdir)/include/infiniband -I$(includedir)
 
 man_MANS = man/umad_debug.3 man/umad_get_ca.3 \
 	   man/umad_get_ca_portguids.3 man/umad_get_cas_names.3 \
