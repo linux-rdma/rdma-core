@@ -37,7 +37,7 @@ libibumadinclude_HEADERS = $(srcdir)/include/infiniband/umad.h
 
 EXTRA_DIST = $(srcdir)/include/infiniband/umad.h libibumad.spec.in \
 	     $(srcdir)/src/libibumad.map libibumad.ver \
-	     $(man_MANS)
+	     $(man_MANS) autogen.sh
 
 dist-hook: libibumad.spec
 	cp libibumad.spec $(distdir)
