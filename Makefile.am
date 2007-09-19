@@ -1,10 +1,5 @@
 
-INCLUDES = -I include \
-	   -I$(srcdir)/../libibcommon/include/infiniband \
-	   -I$(srcdir)/../libibumad/include/infiniband \
-	   -I$(srcdir)/../libibmad/include/infiniband \
-	   -I$(srcdir)/../opensm/include \
-	   -I$(includedir)/infiniband
+INCLUDES = -I$(srcdir)/include -I$(includedir) -I$(includedir)/infiniband
 
 if DEBUG
 DBGFLAGS = -ggdb -D_DEBUG_
