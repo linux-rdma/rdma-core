@@ -29,7 +29,7 @@ libibmadincludedir = $(includedir)/infiniband
 libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h
 
 EXTRA_DIST = $(srcdir)/include/infiniband/mad.h libibmad.spec.in \
-	     $(srcdir)/src/libibmad.map libibmad.ver
+	     $(srcdir)/src/libibmad.map libibmad.ver autogen.sh
 
 dist-hook: libibmad.spec
 	cp libibmad.spec $(distdir)
