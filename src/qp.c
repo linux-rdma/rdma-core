@@ -115,6 +115,42 @@ static int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
 	return cur + nreq >= wq->max_post;
 }
 
+static __always_inline void set_raddr_seg(struct mlx4_wqe_raddr_seg *rseg,
+					  uint64_t remote_addr, uint32_t rkey)
+{
+	rseg->raddr    = htonll(remote_addr);
+	rseg->rkey     = htonl(rkey);
+	rseg->reserved = 0;
+}
+
+static void set_atomic_seg(struct mlx4_wqe_atomic_seg *aseg, struct ibv_send_wr *wr)
+{
+	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+		aseg->swap_add = htonll(wr->wr.atomic.swap);
+		aseg->compare  = htonll(wr->wr.atomic.compare_add);
+	} else {
+		aseg->swap_add = htonll(wr->wr.atomic.compare_add);
+		aseg->compare  = 0;
+	}
+
+}
+
+static void set_datagram_seg(struct mlx4_wqe_datagram_seg *dseg,
+			     struct ibv_send_wr *wr)
+{
+	memcpy(dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof (struct mlx4_av));
+	dseg->dqpn = htonl(wr->wr.ud.remote_qpn);
+	dseg->qkey = htonl(wr->wr.ud.remote_qkey);
+}
+
+static __always_inline void set_data_seg(struct mlx4_wqe_data_seg *dseg,
+					 struct ibv_sge *sg)
+{
+	dseg->byte_count = htonl(sg->length);
+	dseg->lkey       = htonl(sg->lkey);
+	dseg->addr       = htonll(sg->addr);
+}
+
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr)
 {
@@ -179,25 +215,11 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			switch (wr->opcode) {
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
-				((struct mlx4_wqe_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.atomic.remote_addr);
-				((struct mlx4_wqe_raddr_seg *) wqe)->rkey =
-					htonl(wr->wr.atomic.rkey);
-				((struct mlx4_wqe_raddr_seg *) wqe)->reserved = 0;
-
+				set_raddr_seg(wqe, wr->wr.atomic.remote_addr,
+					      wr->wr.atomic.rkey);
 				wqe  += sizeof (struct mlx4_wqe_raddr_seg);
 
-				if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-					((struct mlx4_wqe_atomic_seg *) wqe)->swap_add =
-						htonll(wr->wr.atomic.swap);
-					((struct mlx4_wqe_atomic_seg *) wqe)->compare =
-						htonll(wr->wr.atomic.compare_add);
-				} else {
-					((struct mlx4_wqe_atomic_seg *) wqe)->swap_add =
-						htonll(wr->wr.atomic.compare_add);
-					((struct mlx4_wqe_atomic_seg *) wqe)->compare = 0;
-				}
-
+				set_atomic_seg(wqe, wr);
 				wqe  += sizeof (struct mlx4_wqe_atomic_seg);
 				size += (sizeof (struct mlx4_wqe_raddr_seg) +
 					 sizeof (struct mlx4_wqe_atomic_seg)) / 16;
@@ -209,12 +231,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				/* fall through */
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
-				((struct mlx4_wqe_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.rdma.remote_addr);
-				((struct mlx4_wqe_raddr_seg *) wqe)->rkey =
-					htonl(wr->wr.rdma.rkey);
-				((struct mlx4_wqe_raddr_seg *) wqe)->reserved = 0;
-
+				set_raddr_seg(wqe, wr->wr.rdma.remote_addr,
+					      wr->wr.rdma.rkey);
 				wqe  += sizeof (struct mlx4_wqe_raddr_seg);
 				size += sizeof (struct mlx4_wqe_raddr_seg) / 16;
 
@@ -227,13 +245,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			break;
 
 		case IBV_QPT_UD:
-			memcpy(((struct mlx4_wqe_datagram_seg *) wqe)->av,
-			       &to_mah(wr->wr.ud.ah)->av, sizeof (struct mlx4_av));
-			((struct mlx4_wqe_datagram_seg *) wqe)->dqpn =
-				htonl(wr->wr.ud.remote_qpn);
-			((struct mlx4_wqe_datagram_seg *) wqe)->qkey =
-				htonl(wr->wr.ud.remote_qkey);
-
+			set_datagram_seg(wqe, wr);
 			wqe  += sizeof (struct mlx4_wqe_datagram_seg);
 			size += sizeof (struct mlx4_wqe_datagram_seg) / 16;
 			break;
@@ -312,11 +324,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		} else {
 			struct mlx4_wqe_data_seg *seg = wqe;
 
-			for (i = 0; i < wr->num_sge; ++i) {
-				seg[i].byte_count = htonl(wr->sg_list[i].length);
-				seg[i].lkey       = htonl(wr->sg_list[i].lkey);
-				seg[i].addr       = htonll(wr->sg_list[i].addr);
-			}
+			for (i = 0; i < wr->num_sge; ++i)
+				set_data_seg(seg + i, wr->sg_list + i);
 
 			size += wr->num_sge * (sizeof *seg / 16);
 		}
@@ -420,11 +429,8 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		scat = get_recv_wqe(qp, ind);
 
-		for (i = 0; i < wr->num_sge; ++i) {
-			scat[i].byte_count = htonl(wr->sg_list[i].length);
-			scat[i].lkey       = htonl(wr->sg_list[i].lkey);
-			scat[i].addr       = htonll(wr->sg_list[i].addr);
-		}
+		for (i = 0; i < wr->num_sge; ++i)
+			set_data_seg(scat + i, wr->sg_list + i);
 
 		if (i < qp->rq.max_gs) {
 			scat[i].byte_count = 0;
