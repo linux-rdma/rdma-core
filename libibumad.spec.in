@@ -9,7 +9,7 @@ Release: %rel%{?dist}
 License: GPL/BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Source: git://git.openfabrics.org/~sashak/management/@TARBALL@
+Source: http://www.openfabrics.org/downloads/management/@TARBALL@
 Url: http://openfabrics.org
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
