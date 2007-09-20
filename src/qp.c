@@ -143,12 +143,29 @@ static void set_datagram_seg(struct mlx4_wqe_datagram_seg *dseg,
 	dseg->qkey = htonl(wr->wr.ud.remote_qkey);
 }
 
-static __always_inline void set_data_seg(struct mlx4_wqe_data_seg *dseg,
-					 struct ibv_sge *sg)
+static void __set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
 	dseg->byte_count = htonl(sg->length);
 	dseg->lkey       = htonl(sg->lkey);
 	dseg->addr       = htonll(sg->addr);
+}
+
+static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
+{
+	dseg->lkey       = htonl(sg->lkey);
+	dseg->addr       = htonll(sg->addr);
+
+	/*
+	 * Need a barrier here before writing the byte_count field to
+	 * make sure that all the data is visible before the
+	 * byte_count field is set.  Otherwise, if the segment begins
+	 * a new cacheline, the HCA prefetcher could grab the 64-byte
+	 * chunk and get a valid (!= * 0xffffffff) byte count but
+	 * stale data, and end up sending the wrong data.
+	 */
+	wmb();
+
+	dseg->byte_count = htonl(sg->length);
 }
 
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
@@ -430,7 +447,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		scat = get_recv_wqe(qp, ind);
 
 		for (i = 0; i < wr->num_sge; ++i)
-			set_data_seg(scat + i, wr->sg_list + i);
+			__set_data_seg(scat + i, wr->sg_list + i);
 
 		if (i < qp->rq.max_gs) {
 			scat[i].byte_count = 0;
