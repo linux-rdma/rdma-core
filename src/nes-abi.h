@@ -86,7 +86,7 @@ struct nes_ucreate_qp_resp {
 	__u32 actual_rq_size;
 	__u32 mmap_sq_db_index;
 	__u32 mmap_rq_db_index;
-	__u32 reserved;
+	__u32 nes_drv_opt;
 };
 
 struct nes_cqe {

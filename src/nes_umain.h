@@ -51,6 +51,8 @@
 
 #define PFX	"nes: "
 
+#define NES_DRV_OPT_NO_INLINE_DATA		0x00000080
+
 enum nes_cqe_opcode_bits {
 	NES_CQE_STAG_VALID = (1<<6),
 	NES_CQE_ERROR = (1<<7),
@@ -210,6 +212,7 @@ struct nes_uqp {
 	struct nes_hw_qp_wqe volatile *sq_vbase;
 	struct nes_hw_qp_wqe volatile *rq_vbase;
 	uint32_t qp_id;
+	uint32_t nes_drv_opt;
 	pthread_spinlock_t lock;
 	uint16_t sq_db_index;
 	uint16_t sq_head;
