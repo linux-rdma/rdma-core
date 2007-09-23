@@ -1,6 +1,25 @@
-commit 5678b63964d603a5d391da1da25f2318d6cd6517
+commit 66edec316b6ea0d2ed2ce5f85e3cbfbfcea33e09
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Thu Aug 16 11:08:54 2007 -0500
+Date:   Sun Sep 23 15:47:52 2007 -0500
+
+    Spin release 1.0.2.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 78d24a815e1c8a6d54e918a719dd84847798c52c
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sun Sep 23 13:59:48 2007 -0500
+
+    Doorbell writes need to be in PCI byte order.
+    
+    For BE systems, the qpid written into the user doorbell
+    must be swapped.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 778dfb6e2237bcf3c70b276428280decaa1ad97e
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Aug 16 11:16:25 2007 -0500
 
     Spin release 1.0.1
     
