@@ -49,8 +49,17 @@
 #define Q_FREECNT(rptr,wptr,size_log2) ((1UL<<size_log2)-((wptr)-(rptr)))
 #define Q_COUNT(rptr,wptr) ((wptr)-(rptr))
 #define Q_PTR2IDX(ptr,size_log2) (ptr & ((1UL<<size_log2)-1))
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#  define cpu_to_pci32(val) ((val))
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#  define cpu_to_pci32(val) (__bswap_32((val)))
+#else
+#  error __BYTE_ORDER not defined
+#endif
+
 #define RING_DOORBELL(doorbell, QPID) { \
-	*doorbell = QPID; \
+	*doorbell = cpu_to_pci32(QPID); \
 }
 
 #define SEQ32_GE(x,y) (!( (((uint32_t) (x)) - ((uint32_t) (y))) & 0x80000000 ))
