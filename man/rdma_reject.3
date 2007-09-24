@@ -14,7 +14,9 @@ Connection identifier associated with the request.
 .IP "private_data" 12
 Optional private data to send with the reject message.
 .IP "private_data_len" 12
-Size of the private_data to send, in bytes.
+Specifies the size of the user-controlled data buffer.  Note that the actual
+amount of data transferred to the remote side is transport dependent and may
+be larger than that requested.
 .SH "DESCRIPTION"
 Called from the listening side to reject a connection or datagram
 service lookup request.

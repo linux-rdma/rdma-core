@@ -33,7 +33,9 @@ References a user-controlled data buffer.  The contents of the buffer are
 transparently passed to the remote side as part of the communication request.
 May be NULL if private_data is not required.
 .IP private_data_len
-Specifies the size of the user-controlled data buffer.
+Specifies the size of the user-controlled data buffer.  Note that the actual
+amount of data transferred to the remote side is transport dependent and may
+be larger than that requested.
 .IP responder_resources
 The maximum number of outstanding RDMA read and atomic operations that the
 local side will accept from the remote side.  Applies only to RDMA_PS_TCP.
