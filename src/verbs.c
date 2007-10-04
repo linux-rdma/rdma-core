@@ -245,12 +245,11 @@ int iwch_destroy_cq(struct ibv_cq *ibcq)
 	unsigned size = t3_cq_memsize(&chp->cq);
 	struct iwch_device *dev = to_iwch_dev(ibcq->context->device);
 
+	munmap(cqva, size);
 	ret = ibv_cmd_destroy_cq(ibcq);
 	if (ret) {
 		return ret;
 	}
-
-	munmap(cqva, size);
 
 	pthread_spin_lock(&dev->lock);
 	dev->cqid2ptr[chp->cq.cqid] = NULL;
@@ -389,12 +388,12 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	wqva = qhp->wq.queue;
 	wqsize = t3_wq_memsize(&qhp->wq);
 
+	munmap(dbva, dev->page_size);
+	munmap(wqva, wqsize);
 	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret) {
 		return ret;
 	}
-	munmap(dbva, dev->page_size);
-	munmap(wqva, wqsize);
 
 	pthread_spin_lock(&dev->lock);
 	dev->qpid2ptr[qhp->wq.qpid] = NULL;
