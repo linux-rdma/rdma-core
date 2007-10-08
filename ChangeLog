@@ -1,6 +1,25 @@
-commit 66edec316b6ea0d2ed2ce5f85e3cbfbfcea33e09
+commit 7c0d22611fd0c2bc61d3114c31d2655f8a44afd3
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Sun Sep 23 15:47:52 2007 -0500
+Date:   Mon Oct 8 15:03:58 2007 -0500
+
+    Spin release 1.0.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 352a1c70f9bcb49e784292b3468be35a578b62ab
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 4 14:29:06 2007 -0500
+
+    Unmap cq and wq objects before deleting them.
+    
+    Older kernels BUG_ON() if we free the dma_coherent memory while
+    there is a user mapping.  So unamp first, then delete.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit fee4e0da90b8aa41dcb8de68e1be6401617594fd
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sun Sep 23 15:49:06 2007 -0500
 
     Spin release 1.0.2.
     
