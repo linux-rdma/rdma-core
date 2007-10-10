@@ -45,8 +45,9 @@
 int main(int argc, char *argv[])
 {
 	struct ibv_device **dev_list;
+	int num_devices, i;
 
-	dev_list = ibv_get_device_list(NULL);
+	dev_list = ibv_get_device_list(&num_devices);
 	if (!dev_list) {
 		fprintf(stderr, "No IB devices found\n");
 		return 1;
@@ -55,12 +56,13 @@ int main(int argc, char *argv[])
 	printf("    %-16s\t   node GUID\n", "device");
 	printf("    %-16s\t----------------\n", "------");
 
-	while (*dev_list) {
+	for (i = 0; i < num_devices; ++i) {
 		printf("    %-16s\t%016llx\n",
-		       ibv_get_device_name(*dev_list),
-		       (unsigned long long) ntohll(ibv_get_device_guid(*dev_list)));
-		++dev_list;
+		       ibv_get_device_name(dev_list[i]),
+		       (unsigned long long) ntohll(ibv_get_device_guid(dev_list[i])));
 	}
+
+	ibv_free_device_list(dev_list);
 
 	return 0;
 }

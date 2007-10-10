@@ -79,7 +79,6 @@ struct pingpong_dest {
 static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 			  struct pingpong_dest *dest)
 {
-	struct ibv_qp_attr attr;
 	struct ibv_ah_attr ah_attr = {
 		.is_global     = 0,
 		.dlid          = dest->lid,
@@ -87,8 +86,9 @@ static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
 		.src_path_bits = 0,
 		.port_num      = port
 	};
-
-	attr.qp_state		= IBV_QPS_RTR;
+	struct ibv_qp_attr attr = {
+		.qp_state		= IBV_QPS_RTR
+	};
 
 	if (ibv_modify_qp(ctx->qp, &attr, IBV_QP_STATE)) {
 		fprintf(stderr, "Failed to modify QP to RTR\n");
@@ -135,6 +135,7 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 
 	if (n < 0) {
 		fprintf(stderr, "%s for %s:%d\n", gai_strerror(n), servername, port);
+		free(service);
 		return NULL;
 	}
 
@@ -149,6 +150,7 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 	}
 
 	freeaddrinfo(res);
+	free(service);
 
 	if (sockfd < 0) {
 		fprintf(stderr, "Couldn't connect to %s:%d\n", servername, port);
@@ -203,6 +205,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 
 	if (n < 0) {
 		fprintf(stderr, "%s for port %d\n", gai_strerror(n), port);
+		free(service);
 		return NULL;
 	}
 
@@ -221,6 +224,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	}
 
 	freeaddrinfo(res);
+	free(service);
 
 	if (sockfd < 0) {
 		fprintf(stderr, "Couldn't listen to port %d\n", port);
@@ -347,12 +351,12 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	}
 
 	{
-		struct ibv_qp_attr attr;
-
-		attr.qp_state        = IBV_QPS_INIT;
-		attr.pkey_index      = 0;
-		attr.port_num        = port;
-		attr.qkey            = 0x11111111;
+		struct ibv_qp_attr attr = {
+			.qp_state        = IBV_QPS_INIT,
+			.pkey_index      = 0,
+			.port_num        = port,
+			.qkey            = 0x11111111
+		};
 
 		if (ibv_modify_qp(ctx->qp, &attr,
 				  IBV_QP_STATE              |

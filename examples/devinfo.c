@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 {
 	char *ib_devname = NULL;
 	int ret = 0;
-	struct ibv_device **dev_list;
+	struct ibv_device **dev_list, **orig_dev_list;
 	int num_of_hcas;
 	int ib_port = 0;
 
@@ -360,7 +360,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'l':
-			dev_list = ibv_get_device_list(&num_of_hcas);
+			dev_list = orig_dev_list = ibv_get_device_list(&num_of_hcas);
 			if (!dev_list) {
 				fprintf(stderr, "Failed to get IB devices list");
 				return -1;
@@ -375,6 +375,9 @@ int main(int argc, char *argv[])
 			}
 
 			printf("\n");
+
+			ibv_free_device_list(orig_dev_list);
+
 			return 0;
 
 		default:
@@ -383,7 +386,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	dev_list = ibv_get_device_list(NULL);
+	dev_list = orig_dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
 		fprintf(stderr, "Failed to get IB device list\n");
 		return -1;
@@ -416,6 +419,8 @@ int main(int argc, char *argv[])
 
 	if (ib_devname)
 		free(ib_devname);
+
+	ibv_free_device_list(orig_dev_list);
 
 	return ret;
 }

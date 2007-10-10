@@ -157,6 +157,7 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 
 	if (n < 0) {
 		fprintf(stderr, "%s for %s:%d\n", gai_strerror(n), servername, port);
+		free(service);
 		return NULL;
 	}
 
@@ -171,6 +172,7 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 	}
 
 	freeaddrinfo(res);
+	free(service);
 
 	if (sockfd < 0) {
 		fprintf(stderr, "Couldn't connect to %s:%d\n", servername, port);
@@ -238,6 +240,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 
 	if (n < 0) {
 		fprintf(stderr, "%s for port %d\n", gai_strerror(n), port);
+		free(service);
 		return NULL;
 	}
 
@@ -256,6 +259,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	}
 
 	freeaddrinfo(res);
+	free(service);
 
 	if (sockfd < 0) {
 		fprintf(stderr, "Couldn't listen to port %d\n", port);
@@ -408,12 +412,12 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	}
 
 	for (i = 0; i < num_qp; ++i) {
-		struct ibv_qp_attr attr;
-
-		attr.qp_state        = IBV_QPS_INIT;
-		attr.pkey_index      = 0;
-		attr.port_num        = port;
-		attr.qp_access_flags = 0;
+		struct ibv_qp_attr attr = {
+			.qp_state        = IBV_QPS_INIT,
+			.pkey_index      = 0,
+			.port_num        = port,
+			.qp_access_flags = 0
+		};
 
 		if (ibv_modify_qp(ctx->qp[i], &attr,
 				  IBV_QP_STATE              |
