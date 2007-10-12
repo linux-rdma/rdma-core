@@ -40,8 +40,9 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <getopt.h>
+#include <netinet/in.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.1
+#define __BUILD_VERSION_TAG__ 1.2.2
 #include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -97,7 +98,7 @@ main(int argc, char **argv)
 	char *ca = 0;
 	int ca_port = 0;
 	int extended = 0;
-	uint16_t cap_mask, *pc2;
+	uint16_t cap_mask;
 
 	static char const str_opts[] = "C:P:s:t:dGearRVhu";
 	static const struct option long_opts[] = {
@@ -201,9 +202,9 @@ main(int argc, char **argv)
 		mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
 	} else {
 		/* Should ClassPortInfo be implemented in libibmad ? */
-		pc2 = (uint16_t *)&pc[2];	/* CapabilityMask */
-		cap_mask = *pc2;
-		if (!(cap_mask & 0x100)) /* 1.2 errata: bit 9 is extended counter support */
+		memcpy(&cap_mask, pc+2, sizeof(cap_mask));	/* CapabilityMask */
+		cap_mask = ntohs(cap_mask);
+		if (!(cap_mask & 0x200)) /* 1.2 errata: bit 9 is extended counter support */
 			IBWARN("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n", cap_mask);
 
 		if (!port_performance_ext_query(pc, &portid, port, timeout))
