@@ -62,11 +62,11 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
-#define DEBUG			if (debug) IBWARN
+#include <ibdiag_common.h>
 
 static int debug;
 
-static char *argv0 = "ibstat";
+char *argv0 = "ibstat";
 
 static char *node_type_str[] = {
 	"???",

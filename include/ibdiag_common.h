@@ -65,4 +65,15 @@ void  iberror(const char *fn, char *msg, ...);
 /* NOTE: this modifies the parameter "nodedesc". */
 char *clean_nodedesc(char *nodedesc);
 
+#ifdef __BUILD_VERSION_TAG__
+
+#define stringify(s) to_string(s)
+#define to_string(s) #s
+
+static inline const char* get_build_version(void)
+{
+	return "BUILD VERSION: " stringify(__BUILD_VERSION_TAG__) " Build date: " __DATE__ " " __TIME__ ;
+}
+#endif
+
 #endif	/* _IBDIAG_COMMON_H_ */

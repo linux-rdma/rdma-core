@@ -61,7 +61,7 @@
 #include <infiniband/mad.h>
 #include <infiniband/umad.h>
 
-#define DEBUG			if (debug) IBWARN
+#include <ibdiag_common.h>
 
 static const uint8_t  CLASS_SUBN_DIRECTED_ROUTE = 0x81;
 static const uint8_t  CLASS_SUBN_LID_ROUTE = 0x1;
@@ -73,9 +73,9 @@ static const uint8_t  CLASS_SUBN_LID_ROUTE = 0x1;
 static int mad_agent;
 static int drmad_tid = 0x123;
 
-static int debug;
+static int debug, verbose;
 
-static char *argv0 = "smpdump";
+char *argv0 = "smpdump";
 
 typedef struct {
 	char path[64];
