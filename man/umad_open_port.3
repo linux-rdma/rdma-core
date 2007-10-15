@@ -22,7 +22,7 @@ for details).
 .fi
 .SH "RETURN VALUE"
 .B umad_open_port()
-returns 0 on success, and a negative value on error as follows:
+returns 0 or an unique positive value of umad device descriptor on success, and a negative value on error as follows:
  -ENODEV IB device can\'t be resolved
  -EINVAL port is not valid (bad
 .I portnum\fR
