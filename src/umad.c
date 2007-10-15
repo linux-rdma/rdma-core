@@ -80,70 +80,14 @@ typedef struct ib_user_mad_reg_req {
 
 int umaddebug = 0;
 
-#define UMAD_DEV_NAME_SZ	32
 #define UMAD_DEV_FILE_SZ	256
 
 static char *def_ca_name = "mthca0";
 static int def_ca_port = 1;
 
-typedef struct Port {
-	char dev_file[UMAD_DEV_FILE_SZ];
-	char dev_name[UMAD_DEV_NAME_SZ];
-	int dev_port;
-	int dev_fd;
-	int id;
-} Port;
-
-static Port ports[UMAD_MAX_PORTS];
-
 /*************************************
  * Port
  */
-static Port *
-port_alloc(int portid, char *dev, int portnum)
-{
-	Port *port = ports + portid;
-
-	if (portid < 0 || portid >= UMAD_MAX_PORTS) {
-		IBWARN("bad umad portid %d", portid);
-		errno = EINVAL;
-		return 0;
-	}
-
-	if (port->dev_name[0]) {
-		IBWARN("umad port id %d is already allocated for %s %d",
-			portid, port->dev_name, port->dev_port);
-		errno = EBUSY;
-		return 0;
-	}
-
-	strncpy(port->dev_name, dev, UMAD_CA_NAME_LEN);
-	port->dev_port = portnum;
-	port->id = portid;
-
-	return port;
-}
-
-static Port *
-port_get(int portid)
-{
-	Port *port = ports + portid;
-
-	if (portid < 0 || portid >= UMAD_MAX_PORTS)
-		return 0;
-
-	if (port->dev_name[0] == 0)
-		return 0;
-
-	return port;
-}
-
-static void
-port_free(Port *port)
-{
-	memset(port, 0, sizeof *port);
-}
-
 static int
 find_cached_ca(char *ca_name, umad_ca_t *ca)
 {
@@ -571,8 +515,8 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 int
 umad_open_port(char *ca_name, int portnum)
 {
-	int umad_id;
-	Port *port;
+	char dev_file[UMAD_DEV_FILE_SZ];
+	int umad_id, fd;
 
 	TRACE("ca %s port %d", ca_name, portnum);
 
@@ -584,19 +528,16 @@ umad_open_port(char *ca_name, int portnum)
 	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
 		return -EINVAL;
 
-	if (!(port = port_alloc(umad_id, ca_name, portnum)))
-		return -errno;
-
-	snprintf(port->dev_file, sizeof port->dev_file - 1, "%s/umad%d",
+	snprintf(dev_file, sizeof dev_file - 1, "%s/umad%d",
 		 UMAD_DEV_DIR , umad_id);
 
-	if ((port->dev_fd = open(port->dev_file, O_RDWR|O_NONBLOCK)) < 0) {
-		DEBUG("open %s failed: %s", port->dev_file, strerror(errno));
+	if ((fd = open(dev_file, O_RDWR|O_NONBLOCK)) < 0) {
+		DEBUG("open %s failed: %s", dev_file, strerror(errno));
 		return -EIO;
 	}
 
-	DEBUG("opened %s fd %d portid %d", port->dev_file, port->dev_fd, port->id);
-	return port->id;
+	DEBUG("opened %s fd %d portid %d", dev_file, fd, umad_id);
+	return fd;
 }
 
 int
@@ -667,26 +608,16 @@ umad_release_port(umad_port_t *port)
 }
 
 int
-umad_close_port(int portid)
+umad_close_port(int fd)
 {
-	Port *port;
-
-	TRACE("portid %d", portid);
-	if (!(port = port_get(portid)))
-		return -EINVAL;
-
-	close(port->dev_fd);
-
-	port_free(port);
-
-	DEBUG("closed %s fd %d", port->dev_file, port->dev_fd);
+	close(fd);
+	DEBUG("closed fd %d", fd);
 	return 0;
 }
 
 void *
 umad_get_mad(void *umad)
 {
-	TRACE("umad %p", umad);
 	return ((struct ib_user_mad *)umad)->data;
 }
 
@@ -753,21 +684,15 @@ umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 }
 
 int
-umad_send(int portid, int agentid, void *umad, int length,
+umad_send(int fd, int agentid, void *umad, int length,
 	  int timeout_ms, int retries)
 {
 	struct ib_user_mad *mad = umad;
-	Port *port;
 	int n;
 
-	TRACE("portid %d agentid %d umad %p timeout %u",
-	      portid, agentid, umad, timeout_ms);
+	TRACE("fd %d agentid %d umad %p timeout %u",
+	      fd, agentid, umad, timeout_ms);
 	errno = 0;
-	if (!(port = port_get(portid))) {
-		if (!errno)
-			errno = EINVAL;
-		return -EINVAL;
-	}
 
 	mad->timeout_ms = timeout_ms;
 	mad->retries = retries;
@@ -776,7 +701,7 @@ umad_send(int portid, int agentid, void *umad, int length,
 	if (umaddebug > 1)
 		umad_dump(mad);
 
-	n = write(port->dev_fd, mad, length + sizeof *mad);
+	n = write(fd, mad, length + sizeof *mad);
 	if (n == length + sizeof *mad)
 		return 0;
 
@@ -806,33 +731,26 @@ dev_poll(int fd, int timeout_ms)
 }
 
 int
-umad_recv(int portid, void *umad, int *length, int timeout_ms)
+umad_recv(int fd, void *umad, int *length, int timeout_ms)
 {
 	struct ib_user_mad *mad = umad;
-	Port *port;
 	int n;
 
 	errno = 0;
-	TRACE("portid %d umad %p timeout %u", portid, umad, timeout_ms);
+	TRACE("fd %d umad %p timeout %u", fd, umad, timeout_ms);
 
 	if (!umad || !length) {
 		errno = EINVAL;
 		return -EINVAL;
 	}
 
-	if (!(port = port_get(portid))) {
-		if (!errno)
-			errno = EINVAL;
-		return -EINVAL;
-	}
-
-	if (timeout_ms && (n = dev_poll(port->dev_fd, timeout_ms)) < 0) {
+	if (timeout_ms && (n = dev_poll(fd, timeout_ms)) < 0) {
 		if (!errno)
 			errno = -n;
 		return n;
 	}
 
-	n = read(port->dev_fd, umad, sizeof *mad + *length);
+	n = read(fd, umad, sizeof *mad + *length);
 
 	VALGRIND_MAKE_MEM_DEFINED(umad, sizeof *mad + *length);
 
@@ -861,42 +779,28 @@ umad_recv(int portid, void *umad, int *length, int timeout_ms)
 }
 
 int
-umad_poll(int portid, int timeout_ms)
+umad_poll(int fd, int timeout_ms)
 {
-	Port *port;
-
-	TRACE("portid %d timeout %u", portid, timeout_ms);
-	if (!(port = port_get(portid)))
-		return -EINVAL;
-
-	return dev_poll(port->dev_fd, timeout_ms);
+	TRACE("fd %d timeout %u", fd, timeout_ms);
+	return dev_poll(fd, timeout_ms);
 }
 
 int
-umad_get_fd(int portid)
+umad_get_fd(int fd)
 {
-	Port *port;
-
-	TRACE("portid %d", portid);
-	if (!(port = port_get(portid)))
-		return -EINVAL;
-
-	return port->dev_fd;
+	TRACE("fd %d", fd);
+	return fd;
 }
 
 int
-umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
+umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
 		  uint8_t oui[3], uint32_t method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
-	Port *port;
 
-	TRACE("portid %d mgmt_class %u rmpp_version %d oui 0x%x%x%x method_mask %p",
-		portid, mgmt_class, (int)rmpp_version, (int)oui[0], (int)oui[1],
+	TRACE("fd %d mgmt_class %u rmpp_version %d oui 0x%x%x%x method_mask %p",
+		fd, mgmt_class, (int)rmpp_version, (int)oui[0], (int)oui[1],
 		(int)oui[2], method_mask);
-
-	if (!(port = port_get(portid)))
-		return -EINVAL;
 
 	if (mgmt_class < 0x30 || mgmt_class > 0x4f) {
 		DEBUG("mgmt class %d not in vendor range 2", mgmt_class);
@@ -916,31 +820,27 @@ umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 
 	VALGRIND_MAKE_MEM_DEFINED(&req, sizeof req);
 
-	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
-		DEBUG("portid %d registered to use agent %d qp %d class 0x%x oui %p",
-			portid, req.id, req.qpn, req.mgmt_class, oui);
+	if (!ioctl(fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
+		DEBUG("fd %d registered to use agent %d qp %d class 0x%x oui %p",
+			fd, req.id, req.qpn, req.mgmt_class, oui);
 		return req.id; 		/* return agentid */
 	}
 
-	DEBUG("portid %d registering qp %d class 0x%x version %d oui %p failed: %m",
-		portid, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
+	DEBUG("fd %d registering qp %d class 0x%x version %d oui %p failed: %m",
+		fd, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
 	return -EPERM;
 }
 
 int
-umad_register(int portid, int mgmt_class, int mgmt_version,
+umad_register(int fd, int mgmt_class, int mgmt_version,
 	      uint8_t rmpp_version, uint32_t method_mask[4])
 {
 	struct ib_user_mad_reg_req req;
-	Port *port;
 	uint32_t oui = htonl(IB_OPENIB_OUI);
 	int qp;
 
-	TRACE("portid %d mgmt_class %u mgmt_version %u rmpp_version %d method_mask %p",
-		portid, mgmt_class, mgmt_version, rmpp_version, method_mask);
-
-	if (!(port = port_get(portid)))
-		return -EINVAL;
+	TRACE("fd %d mgmt_class %u mgmt_version %u rmpp_version %d method_mask %p",
+		fd, mgmt_class, mgmt_version, rmpp_version, method_mask);
 
 	req.qpn = qp = (mgmt_class == 0x1 || mgmt_class == 0x81) ? 0 : 1;
 	req.mgmt_class = mgmt_class;
@@ -956,28 +856,22 @@ umad_register(int portid, int mgmt_class, int mgmt_version,
 
 	VALGRIND_MAKE_MEM_DEFINED(&req, sizeof req);
 
-	if (!ioctl(port->dev_fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
-		DEBUG("portid %d registered to use agent %d qp %d",
-		      portid, req.id, qp);
+	if (!ioctl(fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
+		DEBUG("fd %d registered to use agent %d qp %d",
+		      fd, req.id, qp);
 		return req.id; 		/* return agentid */
 	}
 
-	DEBUG("portid %d registering qp %d class 0x%x version %d failed: %m",
-		portid, qp, mgmt_class, mgmt_version);
+	DEBUG("fd %d registering qp %d class 0x%x version %d failed: %m",
+		fd, qp, mgmt_class, mgmt_version);
 	return -EPERM;
 }
 
 int
-umad_unregister(int portid, int agentid)
+umad_unregister(int fd, int agentid)
 {
-	Port *port;
-
-	TRACE("portid %d unregistering agent %d", portid, agentid);
-
-	if (!(port = port_get(portid)))
-		return -EINVAL;
-
-	return ioctl(port->dev_fd, IB_USER_MAD_UNREGISTER_AGENT, &agentid);
+	TRACE("fd %d unregistering agent %d", fd, agentid);
+	return ioctl(fd, IB_USER_MAD_UNREGISTER_AGENT, &agentid);
 }
 
 int
