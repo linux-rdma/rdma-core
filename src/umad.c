@@ -822,7 +822,7 @@ umad_get_fd(int fd)
 
 int
 umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
-		  uint8_t oui[3], uint32_t method_mask[4])
+		  uint8_t oui[3], long method_mask[])
 {
 	struct ib_user_mad_reg_req req;
 
@@ -841,7 +841,7 @@ umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
 	memcpy(req.oui, oui, sizeof req.oui);
 	req.rmpp_version = rmpp_version;
 
-	if ((void *)method_mask != 0)
+	if (method_mask)
 		memcpy(req.method_mask, method_mask, sizeof req.method_mask);
 	else
 		memset(req.method_mask, 0, sizeof req.method_mask);
@@ -861,7 +861,7 @@ umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
 
 int
 umad_register(int fd, int mgmt_class, int mgmt_version,
-	      uint8_t rmpp_version, uint32_t method_mask[4])
+	      uint8_t rmpp_version, long method_mask[])
 {
 	struct ib_user_mad_reg_req req;
 	uint32_t oui = htonl(IB_OPENIB_OUI);
@@ -875,7 +875,7 @@ umad_register(int fd, int mgmt_class, int mgmt_version,
 	req.mgmt_class_version = mgmt_version;
 	req.rmpp_version = rmpp_version;
 
-	if ((void *)method_mask != 0)
+	if (method_mask)
 		memcpy(req.method_mask, method_mask, sizeof req.method_mask);
 	else
 		memset(req.method_mask, 0, sizeof req.method_mask);
