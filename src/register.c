@@ -155,15 +155,16 @@ mad_register_client(int mgmt, uint8_t rmpp_version)
 
 int
 mad_register_server(int mgmt, uint8_t rmpp_version,
-		    uint32_t method_mask[4], uint32_t class_oui)
+		    long method_mask[], uint32_t class_oui)
 {
-	uint32_t class_method_mask[4] = {0xffffffff, 0xffffffff,
-					 0xffffffff, 0xffffffff};
+	long class_method_mask[16/sizeof(long)];
 	uint8_t oui[3];
 	int agent, vers, mad_portid;
 
-	if ((void *)method_mask != 0)
+	if (method_mask)
 		memcpy(class_method_mask, method_mask, sizeof class_method_mask);
+	else
+		memset(class_method_mask, 0xff, sizeof(class_method_mask));
 
 	if ((mad_portid = madrpc_portid()) < 0)
 		return -1;

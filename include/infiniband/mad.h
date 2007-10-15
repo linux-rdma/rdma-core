@@ -689,7 +689,8 @@ int	mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *
 int	mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version);
 int	mad_register_client(int mgmt, uint8_t rmpp_version);
 int	mad_register_server(int mgmt, uint8_t rmpp_version,
-			    uint32_t method_mask[4], uint32_t class_oui);
+			    long method_mask[16/sizeof(long)],
+			    uint32_t class_oui);
 int	mad_class_agent(int mgmt);
 int	mad_agent_class(int agent);
 
