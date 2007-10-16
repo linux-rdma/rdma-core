@@ -11,7 +11,7 @@ rdma_connect \- Initiate an active connection request.
 .IP "id" 12
 RDMA identifier.
 .IP "conn_param" 12
-connection parameters.
+connection parameters.  See CONNECTION PROPERTIES below for details.
 .SH "DESCRIPTION"
 For an rdma_cm_id of type RDMA_PS_TCP, this call initiates a connection request
 to a remote destination.  For an rdma_cm_id of type RDMA_PS_UDP, it initiates
@@ -25,8 +25,8 @@ by the conn_param parameter when connecting or establishing datagram
 communication.
 .IP private_data
 References a user-controlled data buffer.  The contents of the buffer are
-transparently passed to the remote side as part of the communication request.
-May be NULL if private_data is not required.
+copied and transparently passed to the remote side as part of the
+communication request.  May be NULL if private_data is not required.
 .IP private_data_len
 Specifies the size of the user-controlled data buffer.  Note that the actual
 amount of data transferred to the remote side is transport dependent and may
@@ -34,9 +34,15 @@ be larger than that requested.
 .IP responder_resources
 The maximum number of outstanding RDMA read and atomic operations that the
 local side will accept from the remote side.  Applies only to RDMA_PS_TCP.
+This value must be less than or equal to the local RDMA device attribute
+max_qp_rd_atom and remote RDMA device attribute max_qp_init_rd_atom.  The
+remote endpoint can adjust this value when accepting the connection.
 .IP initiator_depth
 The maximum number of outstanding RDMA read and atomic operations that the
 local side will have to the remote side.  Applies only to RDMA_PS_TCP.
+This value must be less than or equal to the local RDMA device attribute
+max_qp_init_rd_atom and remote RDMA device attribute max_qp_rd_atom.  The
+remote endpoint can adjust this value when accepting the connection.
 .IP flow_control
 Specifies if hardware flow control should be used.  Applies only to RDMA_PS_TCP.
 .IP retry_count

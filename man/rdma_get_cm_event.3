@@ -21,7 +21,88 @@ modifying the file descriptor associated with the given channel.  All
 events that are reported must be acknowledged by calling rdma_ack_cm_event.
 Destruction of an rdma_cm_id will block until related events have been
 acknowledged.
-.SH "EVENTS"
+.SH "EVENT DATA"
+Communication event details are returned in the rdma_cm_event structure.
+This structure is allocated by the rdma_cm and released by the
+rdma_ack_cm_event routine.  Details of the rdma_cm_event structure are
+given below.
+.IP "id" 12
+The rdma_cm identifier associated with the event.  If the event type is
+RDMA_CM_EVENT_CONNECT_REQUEST, then this references a new id for that
+communication.
+.IP "listen_id" 12
+For RDMA_CM_EVENT_CONNECT_REQUEST event types, this references the
+corresponding listening request identifier.
+.IP "event" 12
+Specifies the type of communication event which occurred.  See EVENT TYPES
+below.
+.IP "status" 12
+Returns any asynchronous error information associated with an event.  The
+status is zero unless the corresponding operation failed.
+.IP "param" 12
+Provides additional details based on the type of event.  Users should
+select the conn or ud subfields based on the rdma_port_space of the
+rdma_cm_id associated with the event.  See UD EVENT DATA and CONN EVENT
+DATA below.
+.SH "UD EVENT DATA"
+Event parameters related to unreliable datagram (UD) services: RDMA_PS_UDP and
+RDMA_PS_IPOIB.  The UD event data is valid for RDMA_CM_EVENT_ESTABLISHED and
+RDMA_CM_EVENT_MULTICAST_JOIN events, unless stated otherwise.
+.IP "private_data" 12
+References any user-specified data associated with RDMA_CM_EVENT_CONNECT_REQUEST
+or RDMA_CM_EVENT_ESTABLISHED events.  The data referenced by this field matches
+that specified by the remote side when calling rdma_connect or rdma_accept.
+This field is NULL if the event does not include private data.  The buffer
+referenced by this pointer is deallocated when calling rdma_ack_cm_event.
+.IP "private_data_len" 12
+The size of the private data buffer.  Users should note that the size of
+the private data buffer may be larger than the amount of private data
+sent by the remote side.  Any additional space in the buffer will be
+zeroed out.
+.IP "ah_attr" 12
+Address information needed to send data to the remote endpoint(s).
+Users should use this structure when allocating their address handle.
+.IP "qp_num" 12
+QP number of the remote endpoint or multicast group.
+.IP "qkey" 12
+QKey needed to send data to the remote endpoint(s).
+.SH "CONN EVENT DATA"
+Event parameters related to connected QP services: RDMA_PS_TCP.  The
+connection related event data is valid for RDMA_CM_EVENT_CONNECT_REQUEST
+and RDMA_CM_EVENT_ESTABLISHED events, unless stated otherwise.
+.IP "private_data" 12
+References any user-specified data associated with the event.  The data
+referenced by this field matches that specified by the remote side when
+calling rdma_connect or rdma_accept.  This field is NULL if the event
+does not include private data.  The buffer referenced by this pointer is
+deallocated when calling rdma_ack_cm_event.
+.IP "private_data_len" 12
+The size of the private data buffer.  Users should note that the size of
+the private data buffer may be larger than the amount of private data
+sent by the remote side.  Any additional space in the buffer will be
+zeroed out.
+.IP "responder_resources" 12
+The number of responder resources requested of the recipient.
+This field matches the initiator depth specified by the remote node when
+calling rdma_connect and rdma_accept.
+.IP "initiator_depth" 12
+The maximum number of outstanding RDMA read/atomic operations
+that the recipient may have outstanding.  This field matches the responder
+resources specified by the remote node when calling rdma_connect and
+rdma_accept.
+.IP "flow_control" 12
+Indicates if hardware level flow control is provided.
+.IP "retry_count" 12
+For RDMA_CM_EVENT_CONNECT_REQUEST events only, indicates the number of times
+that the recipient should retry send operations.
+.IP "rnr_retry_count" 12
+The number of times that the recipient should retry receiver not ready (RNR)
+NACK errors.
+.IP "srq" 12
+Specifies if the sender is using a shared-receive queue.
+.IP "qp_num" 12
+Indicates the remote QP number for the connection.
+.SH "EVENT TYPES"
 The following types of communication events may be reported.
 .IP RDMA_CM_EVENT_ADDR_RESOLVED
 Address resolution (rdma_resolve_addr) completed successfully.

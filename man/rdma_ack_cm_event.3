@@ -12,6 +12,7 @@ Event to be released.
 .SH "DESCRIPTION"
 All events which are allocated by rdma_get_cm_event must be released,
 there should be a one-to-one correspondence between successful gets
-and acks.
+and acks.  This call frees the event structure and any memory that it
+references.
 .SH "SEE ALSO"
 rdma_get_cm_event(3), rdma_destroy_id(3)

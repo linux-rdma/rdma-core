@@ -11,7 +11,8 @@ rdma_accept \- Called to accept a connection request.
 .IP "id" 12
 Connection identifier associated with the request.
 .IP "conn_param" 12
-Information needed to establish the connection.
+Information needed to establish the connection.  See CONNECTION PROPERTIES
+below for details.
 .SH "DESCRIPTION"
 Called from the listening side to accept a connection or datagram
 service lookup request.
@@ -25,13 +26,16 @@ rdma_accept is called on the new rdma_cm_id.
 .SH "CONNECTION PROPERTIES"
 The following properties are used to configure the communication and specified
 by the conn_param parameter when accepting a connection or datagram
-communication request.  Users should use the conn_param values reported in
-the connection request event to determine appropriate values for these fields
-when accepting.
+communication request.  Users should use the rdma_conn_param values reported
+in the connection request event to determine appropriate values for these
+fields when accepting.  Users may reference the rdma_conn_param structure in
+the connection event directly, or can reference their own structure.  If the
+rdma_conn_param structure from an event is referenced, the event must not be
+acked until after this call returns.
 .IP private_data
 References a user-controlled data buffer.  The contents of the buffer are
-transparently passed to the remote side as part of the communication request.
-May be NULL if private_data is not required.
+copied and transparently passed to the remote side as part of the
+communication request.  May be NULL if private_data is not required.
 .IP private_data_len
 Specifies the size of the user-controlled data buffer.  Note that the actual
 amount of data transferred to the remote side is transport dependent and may
@@ -39,9 +43,15 @@ be larger than that requested.
 .IP responder_resources
 The maximum number of outstanding RDMA read and atomic operations that the
 local side will accept from the remote side.  Applies only to RDMA_PS_TCP.
+This value must be less than or equal to the local RDMA device attribute
+max_qp_rd_atom and the responder_resources value reported in the connect
+request event.
 .IP initiator_depth
 The maximum number of outstanding RDMA read and atomic operations that the
 local side will have to the remote side.  Applies only to RDMA_PS_TCP.
+This value must be less than or equal to the local RDMA device attribute
+max_qp_init_rd_atom and the initiator_depth value reported in the connect
+request event.
 .IP flow_control
 Specifies if hardware flow control should be used.  Applies only to RDMA_PS_TCP.
 .IP retry_count
