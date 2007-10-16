@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,7 +43,7 @@
 #include <getopt.h>
 #include <netinet/in.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.2
+#define __BUILD_VERSION_TAG__ 1.2.3
 #include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -99,6 +100,9 @@ main(int argc, char **argv)
 	int ca_port = 0;
 	int extended = 0;
 	uint16_t cap_mask;
+	int allports = 0;
+	int node_type, num_ports;
+	uint8_t data[IB_SMP_DATA_SIZE];
 
 	static char const str_opts[] = "C:P:s:t:dGearRVhu";
 	static const struct option long_opts[] = {
@@ -191,6 +195,35 @@ main(int argc, char **argv)
 	/* PerfMgt ClassPortInfo is a required attribute */
 	if (!perf_classportinfo_query(pc, &portid, port, timeout))
 		IBERROR("classportinfo query");
+	/* ClassPortInfo should be supported as part of libibmad */
+	memcpy(&cap_mask, pc+2, sizeof(cap_mask));	/* CapabilityMask */
+	cap_mask = ntohs(cap_mask);
+	if (!(cap_mask & 0x100)) /* bit 8 is AllPortSelect */
+		if (port == 255) {
+			allports = 1;
+			IBWARN("AllPortSelect not supported");
+		}
+
+	if (allports == 1) {
+
+		/*
+		 * Simulate all ports support in PMA
+		 * Determine node type, number of (physical) ports,
+		 * and, if switch, whether SP0 is enhanced
+		 * to determine first and last port to query
+		 */
+
+		/* For now, support single port CAs */
+		if (smp_query(data, &portid, IB_ATTR_NODE_INFO, 0, 0) < 0)
+			IBERROR("smp query nodeinfo failed");
+		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
+		if (node_type != IB_NODE_CA)    /* NodeType other than CA ? */
+			IBERROR("smp query nodeinfo: Node type not CA");
+		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
+		if (num_ports != 1)
+			IBERROR("smp query nodeinfo: %d ports; only 1 supported currently", num_ports);
+		port = num_ports;
+	}
 
 	if (reset_only)
 		goto do_reset;
@@ -199,16 +232,19 @@ main(int argc, char **argv)
 		if (!port_performance_query(pc, &portid, port, timeout))
 			IBERROR("perfquery");
 
+		if (allports == 1)
+			pc[1] = 255;	/* fake PortSelect */
+
 		mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
 	} else {
-		/* Should ClassPortInfo be implemented in libibmad ? */
-		memcpy(&cap_mask, pc+2, sizeof(cap_mask));	/* CapabilityMask */
-		cap_mask = ntohs(cap_mask);
 		if (!(cap_mask & 0x200)) /* 1.2 errata: bit 9 is extended counter support */
 			IBWARN("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n", cap_mask);
 
 		if (!port_performance_ext_query(pc, &portid, port, timeout))
 			IBERROR("perfextquery");
+
+		if (allports == 1)
+			pc[1] = 255;	/* fake PortSelect */
 
 		mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
 	}
