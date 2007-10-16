@@ -130,6 +130,8 @@ function blue(s)
 
 /^CounterSelect/ {next}
 
+/AllPortSelect/ {next}
+
 /^ib/	{print $0}
 /ibpanic:/	{print $0}
 /ibwarn:/	{print $0}
