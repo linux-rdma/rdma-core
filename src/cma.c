@@ -116,6 +116,8 @@ struct cma_device {
 	struct ibv_context *verbs;
 	uint64_t	    guid;
 	int		    port_cnt;
+	uint8_t		    max_initiator_depth;
+	uint8_t		    max_responder_resources;
 };
 
 struct cma_id_private {
@@ -246,6 +248,8 @@ static int ucma_init(void)
 		}
 
 		cma_dev->port_cnt = attr.phys_port_cnt;
+		cma_dev->max_initiator_depth = (uint8_t) attr.max_qp_init_rd_atom;
+		cma_dev->max_responder_resources = (uint8_t) attr.max_qp_rd_atom;
 	}
 out:
 	pthread_mutex_unlock(&mut);
@@ -810,6 +814,21 @@ void rdma_destroy_qp(struct rdma_cm_id *id)
 	ibv_destroy_qp(id->qp);
 }
 
+static int ucma_valid_param(struct cma_id_private *id_priv,
+			    struct rdma_conn_param *conn_param)
+{
+	if (id_priv->id.ps != RDMA_PS_TCP)
+		return 0;
+
+	if ((conn_param->responder_resources >
+	     id_priv->cma_dev->max_responder_resources) ||
+	    (conn_param->initiator_depth >
+	     id_priv->cma_dev->max_initiator_depth))
+		return -EINVAL;
+
+	return 0;
+}
+
 static void ucma_copy_conn_param_to_kern(struct ucma_abi_conn_param *dst,
 					 struct rdma_conn_param *src,
 					 uint32_t qp_num, uint8_t srq)
@@ -837,8 +856,12 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	void *msg;
 	int ret, size;
 	
-	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_CONNECT, size);
 	id_priv = container_of(id, struct cma_id_private, id);
+	ret = ucma_valid_param(id_priv, conn_param);
+	if (ret)
+		return ret;
+
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_CONNECT, size);
 	cmd->id = id_priv->handle;
 	if (id->qp)
 		ucma_copy_conn_param_to_kern(&cmd->conn_param, conn_param,
@@ -882,6 +905,11 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	void *msg;
 	int ret, size;
 
+	id_priv = container_of(id, struct cma_id_private, id);
+	ret = ucma_valid_param(id_priv, conn_param);
+	if (ret)
+		return ret;
+
 	if (!ucma_is_ud_ps(id->ps)) {
 		ret = ucma_modify_qp_rtr(id);
 		if (ret)
@@ -889,7 +917,6 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	}
 
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_ACCEPT, size);
-	id_priv = container_of(id, struct cma_id_private, id);
 	cmd->id = id_priv->handle;
 	cmd->uid = (uintptr_t) id_priv;
 	if (id->qp)
