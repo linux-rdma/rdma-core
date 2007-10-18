@@ -25,5 +25,7 @@ RDMACM_1.0 {
 		rdma_free_devices;
 		rdma_event_str;
 		rdma_set_option;
+		rdma_get_local_addr;
+		rdma_get_peer_addr;
 	local: *;
 };

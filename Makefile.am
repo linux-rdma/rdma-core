@@ -49,6 +49,8 @@ man_MANS = \
 	man/rdma_get_devices.3 \
 	man/rdma_get_src_port.3 \
 	man/rdma_get_dst_port.3 \
+	man/rdma_get_local_addr.3 \
+	man/rdma_get_peer_addr.3 \
 	man/rdma_join_multicast.3 \
 	man/rdma_leave_multicast.3 \
 	man/rdma_listen.3 \

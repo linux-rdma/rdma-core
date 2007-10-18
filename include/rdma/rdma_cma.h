@@ -494,6 +494,16 @@ static inline uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
 		((struct sockaddr_in *) &id->route.addr.dst_addr)->sin_port;
 }
 
+static inline struct sockaddr *rdma_get_local_addr(struct rdma_cm_id *id)
+{
+	return &id->route.addr.src_addr;
+}
+
+static inline struct sockaddr *rdma_get_peer_addr(struct rdma_cm_id *id)
+{
+	return &id->route.addr.dst_addr;
+}
+
 /**
  * rdma_get_devices - Get list of RDMA devices currently available.
  * @num_devices: If non-NULL, set to the number of devices returned.
