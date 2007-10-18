@@ -11,6 +11,7 @@ IBUMAD_1.0 {
 		umad_release_port;
 		umad_close_port;
 		umad_get_mad;
+		umad_get_issm_path;
 		umad_size;
 		umad_set_grh;
 		umad_set_pkey;

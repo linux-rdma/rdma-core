@@ -513,6 +513,24 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 }
 
 int
+umad_get_issm_path(char *ca_name, int portnum, char path[], int max)
+{
+	int umad_id;
+
+	TRACE("ca %s port %d", ca_name, portnum);
+
+	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
+		return -ENODEV;
+
+	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
+		return -EINVAL;
+
+	snprintf(path, max - 1, "%s/issm%u", UMAD_DEV_DIR , umad_id);
+
+	return 0;
+}
+
+int
 umad_open_port(char *ca_name, int portnum)
 {
 	char dev_file[UMAD_DEV_FILE_SZ];
