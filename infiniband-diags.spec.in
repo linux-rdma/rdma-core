@@ -11,7 +11,7 @@ Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source: http://www.openfabrics.org/downloads/management/@TARBALL@
 Url: http://openfabrics.org/
-BuildRequires: libibmad-devel, opensm-devel
+BuildRequires: libibmad-devel, opensm-devel, libibcommon-devel, libibumad-devel
 Provides: perl(IBswcountlimits)
 
 %description
