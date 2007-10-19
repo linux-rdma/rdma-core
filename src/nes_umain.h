@@ -36,6 +36,7 @@
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <endian.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -282,5 +283,13 @@ struct ibv_ah *nes_ucreate_ah(struct ibv_pd *, struct ibv_ah_attr *);
 int nes_udestroy_ah(struct ibv_ah *);
 int nes_uattach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
 int nes_udetach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+static inline uint32_t cpu_to_le32(uint32_t x) { return x; }
+static inline uint32_t le32_to_cpu(uint32_t x) { return x; }
+#else
+static inline uint32_t cpu_to_le32(uint32_t x) { return (((x&0xFF000000)>>24) | ((x&0x00FF0000)>>8) | ((x&0x0000FF00)<<8) | ((x&0x000000FF)<<24)); }
+static inline uint32_t le32_to_cpu(uint32_t x) { return (((x&0xFF000000)>>24) | ((x&0x00FF0000)>>8) | ((x&0x0000FF00)<<8) | ((x&0x000000FF)<<24)); }
+#endif
 
 #endif				/* nes_umain_H */

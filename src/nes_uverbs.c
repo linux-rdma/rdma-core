@@ -61,10 +61,7 @@ int nes_uquery_device(struct ibv_context *context, struct ibv_device_attr *attr)
 	int ret;
 
 	ret = ibv_cmd_query_device(context, attr, &reserved, &cmd, sizeof cmd);
-	if (ret)
-		return ret;
-
-	return 0;
+	return ret;
 }
 
 
@@ -121,7 +118,6 @@ int nes_ufree_pd(struct ibv_pd *pd)
 	int ret;
 	struct nes_upd *nesupd;
 
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	nesupd = to_nes_upd(pd);
 
 	ret = ibv_cmd_dealloc_pd(pd);
@@ -130,6 +126,7 @@ int nes_ufree_pd(struct ibv_pd *pd)
 
 	munmap((void *)nesupd->udoorbell, page_size);
 	free(nesupd);
+
 	return 0;
 }
 
@@ -145,8 +142,6 @@ struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 #ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	struct ibv_reg_mr_resp resp;
 #endif
-	/* fprintf(stderr, PFX "%s: address = %p, length = %u.\n",
-			__FUNCTION__, addr, length); */
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
@@ -161,8 +156,8 @@ struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
 			access, mr, &cmd.ibv_cmd, sizeof cmd)) {
 #endif
-		fprintf(stderr, "ibv_cmd_reg_mr failed\n");
 		free(mr);
+
 		return NULL;
 	}
 
@@ -176,8 +171,6 @@ struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 int nes_udereg_mr(struct ibv_mr *mr)
 {
 	int ret;
-
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 
 	ret = ibv_cmd_dereg_mr(mr);
 	if (ret)
@@ -204,10 +197,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 	int ret;
 	struct nes_uvcontext *nesvctx = to_nes_uctx(context);
 
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
-
 	nesucq = malloc(sizeof *nesucq);
-	/* fprintf(stderr, "nesucq=%p, size=%u\n", nesucq, sizeof(*nesucq)); */
 	if (!nesucq) {
 		return NULL;
 	}
@@ -218,7 +208,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
-	if (cqe < 4) /* just trying to keep to a reasonable minimum */
+	if (cqe < 4) 	/* a reasonable minimum */
 		cqe = 4;
 	nesucq->size = cqe + 1;
 
@@ -228,12 +218,6 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 
 	/* Register the memory for the CQ */
 	reg_mr_cmd.reg_type = NES_UMEMREG_TYPE_CQ;
-
-
-	/* fprintf(stderr, PFX "%s: call ibv_cmd_reg_mr: nesucq->cqes=%p,
-			"cq entries=%u, length=0x%lx\n",
-			__FUNCTION__, nesucq->cqes, nesucq->size,
-			nesucq->size * sizeof(struct nes_hw_cqe)); */
 
 #ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	ret = ibv_cmd_reg_mr(&nesvctx->nesupd->ibv_pd, (void *)nesucq->cqes,
@@ -248,7 +232,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 			&reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd);
 #endif
 	if (ret) {
-		fprintf(stderr, "ibv_cmd_reg_mr failed (ret = %d).\n", ret);
+		/* fprintf(stderr, "ibv_cmd_reg_mr failed (ret = %d).\n", ret); */
 		free((struct nes_hw_cqe *)nesucq->cqes);
 		goto err;
 	}
@@ -264,19 +248,14 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 		goto err;
 
 	nesucq->cq_id = (uint16_t)resp.cq_id;
-	if (nesucq->size != (uint16_t)resp.cq_size) {
-		fprintf(stderr, PFX "%s: CQ allocation error: number of requested"
-				" entries = %u, returned = %u.\n",
-				__FUNCTION__, nesucq->size, (uint16_t)resp.cq_size);
-	}
 
 	/* Zero out the CQ */
 	memset((struct nes_hw_cqe *)nesucq->cqes, 0, nesucq->size*sizeof(struct nes_hw_cqe));
 
 	return &nesucq->ibv_cq;
 
-	err:
-	fprintf(stderr, PFX "%s: Error Creating CQ.\n", __FUNCTION__);
+err:
+ 	/* fprintf(stderr, PFX "%s: Error Creating CQ.\n", __FUNCTION__); */
 	pthread_spin_destroy(&nesucq->lock);
 	free(nesucq);
 
@@ -289,8 +268,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
  */
 int nes_uresize_cq(struct ibv_cq *cq, int cqe)
 {
-	fprintf(stderr, PFX "%s\n", __FUNCTION__);
-
+ 	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	return -ENOSYS;
 }
 
@@ -302,8 +280,6 @@ int nes_udestroy_cq(struct ibv_cq *cq)
 {
 	struct nes_ucq *nesucq = to_nes_ucq(cq);
 	int ret;
-
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 
 	ret = ibv_cmd_destroy_cq(cq);
 	if (ret)
@@ -334,8 +310,7 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	uint32_t wqe_index;
 	struct nes_hw_cqe cqe;
 	uint32_t tmp;
-
-	/* fprintf(stderr, PFX "%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__); */
+	unsigned long u64temp;
 
 	nesucq = to_nes_ucq(cq);
 	nesvctx = to_nes_uctx(cq->context);
@@ -346,7 +321,7 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	cq_size = nesucq->size;
 
 	while (cqe_count<num_entries) {
-		if (nesucq->cqes[head].cqe_words[NES_CQE_OPCODE_IDX] & NES_CQE_VALID) {
+		if (le32_to_cpu(nesucq->cqes[head].cqe_words[NES_CQE_OPCODE_IDX]) & NES_CQE_VALID) {
 			cqe = (volatile struct nes_hw_cqe)nesucq->cqes[head];
 
 			memset(entry, 0, sizeof *entry);
@@ -356,11 +331,12 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 			nesucq->cqes[head].cqe_words[NES_CQE_OPCODE_IDX] = 0;
 
 			/* parse CQE, get completion context from WQE (either rq or sq */
-			wqe_index = cqe.cqe_words[NES_CQE_COMP_COMP_CTX_LOW_IDX] & 511;
-			nesuqp = *((struct nes_uqp **)&cqe.cqe_words[NES_CQE_COMP_COMP_CTX_LOW_IDX]);
+			wqe_index = le32_to_cpu(cqe.cqe_words[NES_CQE_COMP_COMP_CTX_LOW_IDX]) & 511;
+			u64temp = ((uint64_t) (le32_to_cpu(cqe.cqe_words[NES_CQE_COMP_COMP_CTX_LOW_IDX]))) |
+				(((uint64_t) (le32_to_cpu(cqe.cqe_words[NES_CQE_COMP_COMP_CTX_HIGH_IDX])))<<32);
+			nesuqp = *((struct nes_uqp **)&u64temp);
 			nesuqp = (struct nes_uqp *)((uintptr_t)nesuqp & (~1023));
-			/* fprintf(stderr, PFX "wqe index = %u. nesuqp = %p\n", wqe_index, nesuqp); */
-			if (0 == cqe.cqe_words[NES_CQE_ERROR_CODE_IDX]) {
+			if (0 == le32_to_cpu(cqe.cqe_words[NES_CQE_ERROR_CODE_IDX])) {
 				entry->status = IBV_WC_SUCCESS;
 			} else {
 				/* TODO: other errors? */
@@ -369,17 +345,16 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 			entry->qp_num = nesuqp->qp_id;
 			entry->src_qp = nesuqp->qp_id;
 
-			if (cqe.cqe_words[NES_CQE_OPCODE_IDX] & NES_CQE_SQ) {
+			if (le32_to_cpu(cqe.cqe_words[NES_CQE_OPCODE_IDX]) & NES_CQE_SQ) {
 				/* Working on a SQ Completion*/
 				wq_tail = wqe_index;
 				nesuqp->sq_tail = (wqe_index+1)&(nesuqp->sq_size - 1);
-				wrid = *((uint64_t *)&nesuqp->sq_vbase[wq_tail].
-						wqe_words[NES_IWARP_SQ_WQE_COMP_SCRATCH_LOW_IDX]);
-				entry->byte_len = nesuqp->sq_vbase[wq_tail].
-						wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX];
+				wrid = ((uint64_t) le32_to_cpu(nesuqp->sq_vbase[wq_tail].wqe_words[NES_IWARP_SQ_WQE_COMP_SCRATCH_LOW_IDX])) |
+					(((uint64_t) le32_to_cpu(nesuqp->sq_vbase[wq_tail].wqe_words[NES_IWARP_SQ_WQE_COMP_SCRATCH_HIGH_IDX]))<<32);
+				entry->byte_len = le32_to_cpu(nesuqp->sq_vbase[wq_tail].wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX]);
 
-				switch (nesuqp->sq_vbase[wq_tail].
-						wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] & 0x3f) {
+				switch (le32_to_cpu(nesuqp->sq_vbase[wq_tail].
+						wqe_words[NES_IWARP_SQ_WQE_MISC_IDX]) & 0x3f) {
 					case NES_IWARP_SQ_OP_RDMAW:
 						/* fprintf(stderr, PFX "%s: Operation = RDMA WRITE.\n",
 								__FUNCTION__ ); */
@@ -389,8 +364,8 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 						/* fprintf(stderr, PFX "%s: Operation = RDMA READ.\n",
 								__FUNCTION__ ); */
 						entry->opcode = IBV_WC_RDMA_READ;
-						entry->byte_len = nesuqp->sq_vbase[wq_tail].
-								wqe_words[NES_IWARP_SQ_WQE_RDMA_LENGTH_IDX];
+						entry->byte_len = le32_to_cpu(nesuqp->sq_vbase[wq_tail].
+								wqe_words[NES_IWARP_SQ_WQE_RDMA_LENGTH_IDX]);
 						break;
 					case NES_IWARP_SQ_OP_SENDINV:
 					case NES_IWARP_SQ_OP_SENDSEINV:
@@ -405,10 +380,9 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 				/* Working on a RQ Completion*/
 				wq_tail = wqe_index;
 				nesuqp->rq_tail = (wqe_index+1)&(nesuqp->rq_size - 1);
-				entry->byte_len = cqe.cqe_words[NES_CQE_PAYLOAD_LENGTH_IDX];
-
-				wrid = *((uint64_t *)&nesuqp->rq_vbase[wq_tail].
-						wqe_words[NES_IWARP_RQ_WQE_COMP_SCRATCH_LOW_IDX]);
+				entry->byte_len = le32_to_cpu(cqe.cqe_words[NES_CQE_PAYLOAD_LENGTH_IDX]);
+				wrid = ((uint64_t) le32_to_cpu(nesuqp->rq_vbase[wq_tail].wqe_words[NES_IWARP_RQ_WQE_COMP_SCRATCH_LOW_IDX])) |
+					(((uint64_t) le32_to_cpu(nesuqp->rq_vbase[wq_tail].wqe_words[NES_IWARP_RQ_WQE_COMP_SCRATCH_HIGH_IDX]))<<32);
 				entry->opcode = IBV_WC_RECV;
 			}
 			entry->wr_id = wrid;
@@ -423,8 +397,8 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 					(nesucq->polled_completions == 255)) {
 				if (NULL == nesvctx)
 					nesvctx = to_nes_uctx(cq->context);
-				nesvctx->nesupd->udoorbell->cqe_alloc = nesucq->cq_id |
-						(nesucq->polled_completions << 16);
+				nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(nesucq->cq_id |
+						(nesucq->polled_completions << 16));
 				tmp = nesvctx->nesupd->udoorbell->cqe_alloc;
 				nesucq->polled_completions = 0;
 			}
@@ -436,8 +410,8 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	if (nesucq->polled_completions) {
 		if (NULL == nesvctx)
 			nesvctx = to_nes_uctx(cq->context);
-		nesvctx->nesupd->udoorbell->cqe_alloc = nesucq->cq_id |
-				(nesucq->polled_completions << 16);
+		nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(nesucq->cq_id |
+				(nesucq->polled_completions << 16));
 		tmp = nesvctx->nesupd->udoorbell->cqe_alloc;
 		nesucq->polled_completions = 0;
 	}
@@ -458,13 +432,9 @@ int nes_uarm_cq(struct ibv_cq *cq, int solicited)
 	uint32_t cq_arm;
 	uint32_t tmp;
 
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
-
 	nesucq = to_nes_ucq(cq);
 	nesvctx = to_nes_uctx(cq->context);
 
-	/* fprintf(stderr, PFX "%s: Requesting notification for CQ%u.\n",
-			__FUNCTION__, nesucq->cq_id); */
 	cq_arm = nesucq->cq_id;
 
 	if (solicited)
@@ -472,9 +442,7 @@ int nes_uarm_cq(struct ibv_cq *cq, int solicited)
 	else
 		cq_arm |= NES_CQE_ALLOC_NOTIFY_NEXT;
 
-	/* fprintf(stderr, PFX "%s: Arming CQ%u, command = 0x%08X.\n",
-			__FUNCTION__, nesucq->cq_id, cq_arm); */
-	nesvctx->nesupd->udoorbell->cqe_alloc = cq_arm;
+	nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(cq_arm);
 	tmp = nesvctx->nesupd->udoorbell->cqe_alloc;
 
 	return 0;
@@ -535,12 +503,11 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	unsigned long mmap_offset;
 	int ret;
 
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	/* Sanity check QP size before proceeding */
 	if (attr->cap.max_send_wr > 510 ||
 			attr->cap.max_recv_wr > 510 ||
 			attr->cap.max_send_sge > 4 ||
-			attr->cap.max_recv_sge > 4)
+			attr->cap.max_recv_sge > 4 )
 		return NULL;
 
 	nesuqp = memalign(1024, sizeof(*nesuqp));
@@ -629,11 +596,8 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 	struct nes_uqp *nesuqp = to_nes_uqp(qp);
 	int ret;
 
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
-
 	munmap((void *) nesuqp->sq_vbase, (nesuqp->sq_size+nesuqp->rq_size) *
 			sizeof(struct nes_hw_qp_wqe));
-
 
 	ret = ibv_cmd_destroy_qp(qp);
 	if (ret)
@@ -652,6 +616,7 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 		struct ibv_send_wr **bad_wr)
 {
+	uint64_t u64temp;
 	struct nes_uqp *nesuqp = to_nes_uqp(ib_qp);
 	struct nes_upd *nesupd = to_nes_upd(ib_qp->pd);
 	struct nes_hw_qp_wqe volatile *wqe;
@@ -661,10 +626,9 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	uint32_t err = 0;
 	uint32_t wqe_count = 0;
 	uint32_t outstanding_wqes;
-	int sge_index;
 	uint32_t total_payload_length = 0;
+	int sge_index;
 
-	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	pthread_spin_lock(&nesuqp->lock);
 
 	while (ib_wr) {
@@ -683,126 +647,129 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 		wqe = (struct nes_hw_qp_wqe *)&nesuqp->sq_vbase[head];
 		/* fprintf(stderr, PFX "%s: QP%u: processing sq wqe at %p, head = %u.\n",
 				__FUNCTION__, nesuqp->qp_id, wqe, head);  */
-		*((volatile uint64_t *)&wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_SCRATCH_LOW_IDX]) =
-				ib_wr->wr_id;
-		*((volatile uint64_t *)&wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX]) =
-				(uint64_t)((uintptr_t)nesuqp);
+		u64temp = (uint64_t) ib_wr->wr_id;
+		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_SCRATCH_LOW_IDX] = cpu_to_le32((uint32_t)u64temp);
+		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_SCRATCH_HIGH_IDX] = cpu_to_le32((uint32_t)(u64temp>>32));
+		u64temp = (uint64_t)((uintptr_t)nesuqp);
+		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX] = cpu_to_le32((uint32_t)u64temp);
+		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_HIGH_IDX] = cpu_to_le32((uint32_t)(u64temp>>32));
 		asm __volatile__("": : :"memory");
-		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX] |= head;
+		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX] |= cpu_to_le32(head);
 
 		switch (ib_wr->opcode) {
-			case IBV_WR_SEND:
-			case IBV_WR_SEND_WITH_IMM:
-				/* fprintf(stderr, PFX "%s: QP%u: processing sq wqe%u. Opcode = %s\n",
-						__FUNCTION__, nesuqp->qp_id, head, "Send"); */
-				if (ib_wr->send_flags & IBV_SEND_SOLICITED) {
-					wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = NES_IWARP_SQ_OP_SENDSE;
-				} else {
-					wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = NES_IWARP_SQ_OP_SEND;
-				}
+		case IBV_WR_SEND:
+		case IBV_WR_SEND_WITH_IMM:
+			/* fprintf(stderr, PFX "%s: QP%u: processing sq wqe%u. Opcode = %s\n",
+					__FUNCTION__, nesuqp->qp_id, head, "Send"); */
+			if (ib_wr->send_flags & IBV_SEND_SOLICITED) {
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = cpu_to_le32(NES_IWARP_SQ_OP_SENDSE);
+			} else {
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = cpu_to_le32(NES_IWARP_SQ_OP_SEND);
+			}
 
-				if (ib_wr->send_flags & IBV_SEND_FENCE) {
-					wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= NES_IWARP_SQ_WQE_LOCAL_FENCE;
-				}
+			if (ib_wr->send_flags & IBV_SEND_FENCE) {
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_LOCAL_FENCE);
+			}
 
-				/* if (ib_wr->send_flags & IBV_SEND_INLINE) {
-					fprintf(stderr, PFX "%s: Send SEND_INLINE, length=%d\n",
-							__FUNCTION__, ib_wr->sg_list[0].length);
-				} */
-				if ((ib_wr->send_flags & IBV_SEND_INLINE) && (ib_wr->sg_list[0].length <= 64) &&
-						(0 == (nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA)) &&
-						(ib_wr->num_sge == 1)) {
-					memcpy((void *)&wqe->wqe_words[NES_IWARP_SQ_WQE_IMM_DATA_START_IDX],
-							(void *)ib_wr->sg_list[0].addr, ib_wr->sg_list[0].length);
-					wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] = ib_wr->sg_list[0].length;
-					wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= NES_IWARP_SQ_WQE_IMM_DATA;
-				} else {
-					total_payload_length = 0;
-					for (sge_index=0; sge_index < ib_wr->num_sge; sge_index++) {
-						wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_LOW_IDX+(sge_index*4)] =
-								(uint32_t)ib_wr->sg_list[sge_index].addr;
-						wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX+(sge_index*4)] =
-								(uint32_t)(ib_wr->sg_list[sge_index].addr>>32);
-						wqe->wqe_words[NES_IWARP_SQ_WQE_LENGTH0_IDX+(sge_index*4)] =
-								ib_wr->sg_list[sge_index].length;
-						wqe->wqe_words[NES_IWARP_SQ_WQE_STAG0_IDX+(sge_index*4)] =
-								ib_wr->sg_list[sge_index].lkey;
-						total_payload_length += ib_wr->sg_list[sge_index].length;
-					}
-					wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] = total_payload_length;
+			/* if (ib_wr->send_flags & IBV_SEND_INLINE) {
+				fprintf(stderr, PFX "%s: Send SEND_INLINE, length=%d\n",
+						__FUNCTION__, ib_wr->sg_list[0].length);
+			} */
+			if ((ib_wr->send_flags & IBV_SEND_INLINE) && (ib_wr->sg_list[0].length <= 64) &&
+				(0 == (nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA)) &&
+				(ib_wr->num_sge == 1)) {
+				memcpy((void *)&wqe->wqe_words[NES_IWARP_SQ_WQE_IMM_DATA_START_IDX],
+						(void *)ib_wr->sg_list[0].addr, ib_wr->sg_list[0].length);
+				wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] = cpu_to_le32(ib_wr->sg_list[0].length);
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_IMM_DATA);
+			} else {
+				total_payload_length = 0;
+				for (sge_index=0; sge_index < ib_wr->num_sge; sge_index++) {
+					wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_LOW_IDX+(sge_index*4)] =
+							cpu_to_le32((uint32_t)ib_wr->sg_list[sge_index].addr);
+					wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX+(sge_index*4)] =
+							cpu_to_le32((uint32_t)(ib_wr->sg_list[sge_index].addr>>32));
+					wqe->wqe_words[NES_IWARP_SQ_WQE_LENGTH0_IDX+(sge_index*4)] =
+							cpu_to_le32(ib_wr->sg_list[sge_index].length);
+					wqe->wqe_words[NES_IWARP_SQ_WQE_STAG0_IDX+(sge_index*4)] =
+							cpu_to_le32(ib_wr->sg_list[sge_index].lkey);
+					total_payload_length += ib_wr->sg_list[sge_index].length;
 				}
+				wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] =
+						cpu_to_le32(total_payload_length);
+			}
 
-				break;
-			case IBV_WR_RDMA_WRITE:
-			case IBV_WR_RDMA_WRITE_WITH_IMM:
-				/* fprintf(stderr, PFX "%s:QP%u: processing sq wqe%u. Opcode = %s\n",
-						__FUNCTION__, nesuqp->qp_id, head, "Write"); */
-				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = NES_IWARP_SQ_OP_RDMAW;
+			break;
+		case IBV_WR_RDMA_WRITE:
+		case IBV_WR_RDMA_WRITE_WITH_IMM:
+			/* fprintf(stderr, PFX "%s:QP%u: processing sq wqe%u. Opcode = %s\n",
+					__FUNCTION__, nesuqp->qp_id, head, "Write"); */
+			wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = cpu_to_le32(NES_IWARP_SQ_OP_RDMAW);
 
-				if (ib_wr->send_flags & IBV_SEND_FENCE) {
-					wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= NES_IWARP_SQ_WQE_LOCAL_FENCE;
-				}
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_STAG_IDX] = ib_wr->wr.rdma.rkey;
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_LOW_IDX] =
-						(uint32_t)ib_wr->wr.rdma.remote_addr;
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_HIGH_IDX] =
-						(uint32_t)(ib_wr->wr.rdma.remote_addr>>32);
+			if (ib_wr->send_flags & IBV_SEND_FENCE) {
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_LOCAL_FENCE);
+			}
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_STAG_IDX] = cpu_to_le32(ib_wr->wr.rdma.rkey);
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_LOW_IDX] = cpu_to_le32(
+					(uint32_t)ib_wr->wr.rdma.remote_addr);
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_HIGH_IDX] = cpu_to_le32(
+					(uint32_t)(ib_wr->wr.rdma.remote_addr>>32));
 
-				/* if (ib_wr->send_flags & IBV_SEND_INLINE) {
-					fprintf(stderr, PFX "%s: Write SEND_INLINE, length=%d\n",
-							__FUNCTION__, ib_wr->sg_list[0].length);
-				} */
-				if ((ib_wr->send_flags & IBV_SEND_INLINE) && (ib_wr->sg_list[0].length <= 64) &&
-						(0 == (nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA)) &&
-						(ib_wr->num_sge == 1)) {
-					memcpy((void *)&wqe->wqe_words[NES_IWARP_SQ_WQE_IMM_DATA_START_IDX],
-							(void *)ib_wr->sg_list[0].addr, ib_wr->sg_list[0].length);
-					wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] = ib_wr->sg_list[0].length;
-					wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= NES_IWARP_SQ_WQE_IMM_DATA;
-				} else {
-					total_payload_length = 0;
-					for (sge_index=0; sge_index < ib_wr->num_sge; sge_index++) {
-						wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_LOW_IDX+(sge_index*4)] =
-								(uint32_t)ib_wr->sg_list[sge_index].addr;
-						wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX+(sge_index*4)] =
-								(uint32_t)(ib_wr->sg_list[sge_index].addr>>32);
-						wqe->wqe_words[NES_IWARP_SQ_WQE_LENGTH0_IDX+(sge_index*4)] =
-								ib_wr->sg_list[sge_index].length;
-						wqe->wqe_words[NES_IWARP_SQ_WQE_STAG0_IDX+(sge_index*4)] =
-								ib_wr->sg_list[sge_index].lkey;
-						total_payload_length += ib_wr->sg_list[sge_index].length;
-					}
-					wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] = total_payload_length;
+			/* if (ib_wr->send_flags & IBV_SEND_INLINE) {
+				fprintf(stderr, PFX "%s: Write SEND_INLINE, length=%d\n",
+						__FUNCTION__, ib_wr->sg_list[0].length);
+			} */
+			if ((ib_wr->send_flags & IBV_SEND_INLINE) && (ib_wr->sg_list[0].length <= 64) &&
+				(0 == (nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA)) &&
+				(ib_wr->num_sge == 1)) {
+				memcpy((void *)&wqe->wqe_words[NES_IWARP_SQ_WQE_IMM_DATA_START_IDX],
+						(void *)ib_wr->sg_list[0].addr, ib_wr->sg_list[0].length);
+				wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] = cpu_to_le32(ib_wr->sg_list[0].length);
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_IMM_DATA);
+			} else {
+				total_payload_length = 0;
+				for (sge_index=0; sge_index < ib_wr->num_sge; sge_index++) {
+					wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_LOW_IDX+(sge_index*4)] = cpu_to_le32(
+							(uint32_t)ib_wr->sg_list[sge_index].addr);
+					wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX+(sge_index*4)] = cpu_to_le32(
+							(uint32_t)(ib_wr->sg_list[sge_index].addr>>32));
+					wqe->wqe_words[NES_IWARP_SQ_WQE_LENGTH0_IDX+(sge_index*4)] = cpu_to_le32(
+							ib_wr->sg_list[sge_index].length);
+					wqe->wqe_words[NES_IWARP_SQ_WQE_STAG0_IDX+(sge_index*4)] = cpu_to_le32(
+							ib_wr->sg_list[sge_index].lkey);
+					total_payload_length += ib_wr->sg_list[sge_index].length;
 				}
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_LENGTH_IDX] =
-						wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX];
-				break;
-			case IBV_WR_RDMA_READ:
-				/* fprintf(stderr, PFX "%s:QP%u:processing sq wqe%u. Opcode = %s\n",
-						__FUNCTION__, nesuqp->qp_id, head, "Read"); */
-				/* IWarp only supports 1 sge for RDMA reads */
-				if (ib_wr->num_sge > 1) {
-					err = -EINVAL;
-					break;
-				}
-				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = NES_IWARP_SQ_OP_RDMAR;
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_LOW_IDX] = (uint32_t)ib_wr->wr.rdma.remote_addr;
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_HIGH_IDX] = (uint32_t)(ib_wr->wr.rdma.remote_addr>>32);
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_STAG_IDX] = ib_wr->wr.rdma.rkey;
-				wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_LENGTH_IDX] = ib_wr->sg_list->length;
-				wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_LOW_IDX] = (uint32_t)ib_wr->sg_list->addr;
-				wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX] = (uint32_t)(ib_wr->sg_list->addr>>32);
-				wqe->wqe_words[NES_IWARP_SQ_WQE_STAG0_IDX] = ib_wr->sg_list->lkey;
-				break;
-			default:
-				/* error */
+				wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX] = cpu_to_le32(total_payload_length);
+			}
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_LENGTH_IDX] =
+					wqe->wqe_words[NES_IWARP_SQ_WQE_TOTAL_PAYLOAD_IDX];
+			break;
+		case IBV_WR_RDMA_READ:
+			/* fprintf(stderr, PFX "%s:QP%u:processing sq wqe%u. Opcode = %s\n",
+					__FUNCTION__, nesuqp->qp_id, head, "Read"); */
+			/* IWarp only supports 1 sge for RDMA reads */
+			if (ib_wr->num_sge > 1) {
 				err = -EINVAL;
 				break;
+			}
+			wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = cpu_to_le32(NES_IWARP_SQ_OP_RDMAR);
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_LOW_IDX] = cpu_to_le32((uint32_t)ib_wr->wr.rdma.remote_addr);
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_HIGH_IDX] = cpu_to_le32((uint32_t)(ib_wr->wr.rdma.remote_addr>>32));
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_STAG_IDX] = cpu_to_le32(ib_wr->wr.rdma.rkey);
+			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_LENGTH_IDX] = cpu_to_le32(ib_wr->sg_list->length);
+			wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_LOW_IDX] = cpu_to_le32((uint32_t)ib_wr->sg_list->addr);
+			wqe->wqe_words[NES_IWARP_SQ_WQE_FRAG0_HIGH_IDX] = cpu_to_le32((uint32_t)(ib_wr->sg_list->addr>>32));
+			wqe->wqe_words[NES_IWARP_SQ_WQE_STAG0_IDX] = cpu_to_le32(ib_wr->sg_list->lkey);
+			break;
+		default:
+			/* error */
+			err = -EINVAL;
+			break;
 		}
 
 		if (ib_wr->send_flags & IBV_SEND_SIGNALED) {
 			/* fprintf(stderr, PFX "%s:sq wqe%u is signalled\n", __FUNCTION__, head); */
-			wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= NES_IWARP_SQ_WQE_SIGNALED_COMPL;
+			wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_SIGNALED_COMPL);
 		}
 		ib_wr = ib_wr->next;
 		head++;
@@ -816,7 +783,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	while (wqe_count) {
 		counter = (wqe_count<(uint32_t)255) ? wqe_count : 255;
 		wqe_count -= counter;
-		nesupd->udoorbell->wqe_alloc =  (counter<<24) | 0x00800000 | nesuqp->qp_id;
+		nesupd->udoorbell->wqe_alloc =  cpu_to_le32((counter<<24) | 0x00800000 | nesuqp->qp_id);
 	}
 
 	if (err)
@@ -834,6 +801,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 		struct ibv_recv_wr **bad_wr)
 {
+	uint64_t u64temp;
 	struct nes_uqp *nesuqp = to_nes_uqp(ib_qp);
 	struct nes_upd *nesupd = to_nes_upd(ib_qp->pd);
 	struct nes_hw_qp_wqe *wqe;
@@ -843,13 +811,9 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	uint32_t err = 0;
 	uint32_t wqe_count = 0;
 	uint32_t outstanding_wqes;
-	int sge_index;
 	uint32_t total_payload_length;
+	int sge_index;
 
-	/* fprintf(stderr, PFX "%s: nesuqp = %p, nesupd = %p.\n", __FUNCTION__,
-			nesuqp, nesupd); */
-	/* fprintf(stderr, PFX "%s: rq_base = %p, sq_base = %p.\n", __FUNCTION__,
-			nesuqp->rq_vbase, nesuqp->sq_vbase); */
 	pthread_spin_lock(&nesuqp->lock);
 
 	while (ib_wr) {
@@ -861,31 +825,33 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 			break;
 		}
 
-		/* fprintf(stderr, PFX "%s: ibwr (%p) sge count = %u, sglist = %p.\n",
-				__FUNCTION__, ib_wr, ib_wr->num_sge, ib_wr->sg_list); */
 		wqe = (struct nes_hw_qp_wqe *)&nesuqp->rq_vbase[head];
-		/* fprintf(stderr, PFX "%s:QP%u: processing rq wqe at %p, head = %u.\n",
-				__FUNCTION__, nesuqp->qp_id, wqe, head); */
-		*((uint64_t volatile *)&wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_SCRATCH_LOW_IDX]) =
-				ib_wr->wr_id;
-		*((uint64_t volatile *)&wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_LOW_IDX]) =
-				(uint64_t)((uintptr_t)nesuqp);
+		u64temp = ib_wr->wr_id;
+		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_SCRATCH_LOW_IDX] =
+				cpu_to_le32((uint32_t)u64temp);
+		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_SCRATCH_HIGH_IDX] =
+				cpu_to_le32((uint32_t)(u64temp >> 32));
+		u64temp = (uint64_t)((uintptr_t)nesuqp);
+		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_LOW_IDX] =
+				cpu_to_le32((uint32_t)u64temp);
+		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_HIGH_IDX] =
+				cpu_to_le32((uint32_t)(u64temp >> 32));
 		asm __volatile__("": : :"memory");
-		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_LOW_IDX] |= head;
+		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_LOW_IDX] |= cpu_to_le32(head);
 
 		total_payload_length = 0;
 		for (sge_index=0; sge_index < ib_wr->num_sge; sge_index++) {
 			wqe->wqe_words[NES_IWARP_RQ_WQE_FRAG0_LOW_IDX+(sge_index*4)] =
-					(uint32_t)ib_wr->sg_list[sge_index].addr;
+					cpu_to_le32((uint32_t)ib_wr->sg_list[sge_index].addr);
 			wqe->wqe_words[NES_IWARP_RQ_WQE_FRAG0_HIGH_IDX+(sge_index*4)] =
-					(uint32_t)(ib_wr->sg_list[sge_index].addr>>32);
+					cpu_to_le32((uint32_t)(ib_wr->sg_list[sge_index].addr>>32));
 			wqe->wqe_words[NES_IWARP_RQ_WQE_LENGTH0_IDX+(sge_index*4)] =
-					ib_wr->sg_list[sge_index].length;
+					cpu_to_le32(ib_wr->sg_list[sge_index].length);
 			wqe->wqe_words[NES_IWARP_RQ_WQE_STAG0_IDX+(sge_index*4)] =
-					ib_wr->sg_list[sge_index].lkey;
+					cpu_to_le32(ib_wr->sg_list[sge_index].lkey);
 			total_payload_length += ib_wr->sg_list->length;
 		}
-		wqe->wqe_words[NES_IWARP_RQ_WQE_TOTAL_PAYLOAD_IDX] = total_payload_length;
+		wqe->wqe_words[NES_IWARP_RQ_WQE_TOTAL_PAYLOAD_IDX] = cpu_to_le32(total_payload_length);
 
 		ib_wr = ib_wr->next;
 		head++;
@@ -899,7 +865,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	while (wqe_count) {
 		counter = (wqe_count<(uint32_t)255) ? wqe_count : 255;
 		wqe_count -= counter;
-		nesupd->udoorbell->wqe_alloc = (counter << 24) | nesuqp->qp_id;
+		nesupd->udoorbell->wqe_alloc = cpu_to_le32((counter << 24) | nesuqp->qp_id);
 	}
 
 	if (err)

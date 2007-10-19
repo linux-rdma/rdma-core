@@ -143,8 +143,8 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 
 	return &nesvctx->ibv_ctx;
 
-	err_free:
-	fprintf(stderr, PFX "%s: Failed to allocate context for device.\n", __FUNCTION__);
+err_free:
+ 	fprintf(stderr, PFX "%s: Failed to allocate context for device.\n", __FUNCTION__);
 	free(nesvctx);
 
 	return NULL;
@@ -172,7 +172,8 @@ static struct ibv_device_ops nes_udev_ops = {
 /**
  * nes_driver_init
  */
-struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version) {
+struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version)
+{
 	char value[16];
 	struct nes_udevice *dev;
 	unsigned vendor, device;
@@ -200,7 +201,7 @@ struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version)
 
 	return NULL;
 
-	found:
+found:
 	dev = malloc(sizeof *dev);
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for libnes\n");
