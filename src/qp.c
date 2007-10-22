@@ -341,7 +341,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		} else {
 			struct mlx4_wqe_data_seg *seg = wqe;
 
-			for (i = 0; i < wr->num_sge; ++i)
+			for (i = wr->num_sge - 1; i >= 0 ; --i)
 				set_data_seg(seg + i, wr->sg_list + i);
 
 			size += wr->num_sge * (sizeof *seg / 16);
