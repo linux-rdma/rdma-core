@@ -77,12 +77,12 @@ struct pingpong_dest {
 };
 
 static int pp_connect_ctx(struct pingpong_context *ctx, int port, int my_psn,
-			  struct pingpong_dest *dest)
+			  int sl, struct pingpong_dest *dest)
 {
 	struct ibv_ah_attr ah_attr = {
 		.is_global     = 0,
 		.dlid          = dest->lid,
-		.sl            = 0,
+		.sl            = sl,
 		.src_path_bits = 0,
 		.port_num      = port
 	};
@@ -183,7 +183,7 @@ out:
 }
 
 static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
-						 int ib_port, int port,
+						 int ib_port, int port, int sl,
 						 const struct pingpong_dest *my_dest)
 {
 	struct addrinfo *res, *t;
@@ -252,7 +252,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 
 	sscanf(msg, "%x:%x:%x", &rem_dest->lid, &rem_dest->qpn, &rem_dest->psn);
 
-	if (pp_connect_ctx(ctx, ib_port, my_dest->psn, rem_dest)) {
+	if (pp_connect_ctx(ctx, ib_port, my_dest->psn, sl, rem_dest)) {
 		fprintf(stderr, "Couldn't connect to remote QP\n");
 		free(rem_dest);
 		rem_dest = NULL;
@@ -499,6 +499,7 @@ int main(int argc, char *argv[])
 	int                      routs;
 	int                      rcnt, scnt;
 	int                      num_cq_events = 0;
+	int                      sl = 0;
 
 	srand48(getpid() * time(NULL));
 
@@ -512,11 +513,12 @@ int main(int argc, char *argv[])
 			{ .name = "size",     .has_arg = 1, .val = 's' },
 			{ .name = "rx-depth", .has_arg = 1, .val = 'r' },
 			{ .name = "iters",    .has_arg = 1, .val = 'n' },
+			{ .name = "sl",       .has_arg = 1, .val = 'l' },
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ 0 }
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:r:n:e", long_options, NULL);
+		c = getopt_long(argc, argv, "p:d:i:s:r:n:l:e", long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -551,6 +553,10 @@ int main(int argc, char *argv[])
 
 		case 'n':
 			iters = strtol(optarg, NULL, 0);
+			break;
+
+		case 'l':
+			sl = strtol(optarg, NULL, 0);
 			break;
 
 		case 'e':
@@ -626,7 +632,7 @@ int main(int argc, char *argv[])
 	if (servername)
 		rem_dest = pp_client_exch_dest(servername, port, &my_dest);
 	else
-		rem_dest = pp_server_exch_dest(ctx, ib_port, port, &my_dest);
+		rem_dest = pp_server_exch_dest(ctx, ib_port, port, sl, &my_dest);
 
 	if (!rem_dest)
 		return 1;
@@ -635,7 +641,7 @@ int main(int argc, char *argv[])
 	       rem_dest->lid, rem_dest->qpn, rem_dest->psn);
 
 	if (servername)
-		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, rem_dest))
+		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, sl, rem_dest))
 			return 1;
 
 	ctx->pending = PINGPONG_RECV_WRID;

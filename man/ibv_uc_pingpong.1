@@ -6,11 +6,11 @@ ibv_uc_pingpong \- simple InfiniBand UC transport test
 .SH SYNOPSIS
 .B ibv_uc_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-r rx depth]
-[\-n iters] [\-e] \fBHOSTNAME\fR
+[\-n iters] [\-l sl] [\-e] \fBHOSTNAME\fR
 
 .B ibv_uc_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-r rx depth]
-[\-n iters] [\-e]
+[\-n iters] [\-l sl] [\-e]
 
 .SH DESCRIPTION
 .PP
@@ -38,6 +38,9 @@ post \fIDEPTH\fR receives at a time (default 1000)
 .TP
 \fB\-n\fR, \fB\-\-iters\fR=\fIITERS\fR
 perform \fIITERS\fR message exchanges (default 1000)
+.TP
+\fB\-l\fR, \fB\-\-sl\fR=\fISL\fR
+use \fISL\fR as the service level value of the QP (default 0)
 .TP
 \fB\-e\fR, \fB\-\-events\fR
 sleep while waiting for work completion events (default is to poll for
