@@ -115,8 +115,8 @@ static int wq_overflow(struct mlx4_wq *wq, int nreq, struct mlx4_cq *cq)
 	return cur + nreq >= wq->max_post;
 }
 
-static __always_inline void set_raddr_seg(struct mlx4_wqe_raddr_seg *rseg,
-					  uint64_t remote_addr, uint32_t rkey)
+static inline void set_raddr_seg(struct mlx4_wqe_raddr_seg *rseg,
+				 uint64_t remote_addr, uint32_t rkey)
 {
 	rseg->raddr    = htonll(remote_addr);
 	rseg->rkey     = htonl(rkey);
