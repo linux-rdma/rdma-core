@@ -262,7 +262,8 @@ print_class_port_info(ib_class_port_info_t *class_port_info)
 	       "\t\tBase version.............%d\n"
 	       "\t\tClass version............%d\n"
 	       "\t\tCapability mask..........0x%04X\n"
-	       "\t\tResponse time value......0x%08X\n"
+	       "\t\tCapability mask 2........0x%08X\n"
+	       "\t\tResponse time value......0x%02X\n"
 	       "\t\tRedirect GID.............0x%s\n"
 	       "\t\tRedirect TC/SL/FL........0x%08X\n"
 	       "\t\tRedirect LID.............0x%04X\n"
@@ -279,7 +280,8 @@ print_class_port_info(ib_class_port_info_t *class_port_info)
 	       class_port_info->base_ver,
 	       class_port_info->class_ver,
 	       cl_ntoh16(class_port_info->cap_mask),
-	       class_port_info->resp_time_val,
+	       ib_class_cap_mask2(class_port_info),
+	       ib_class_resp_time_val(class_port_info),
 	       sprint_gid(&(class_port_info->redir_gid), gid_str, GID_STR_LEN),
 	       cl_ntoh32(class_port_info->redir_tc_sl_fl),
 	       cl_ntoh16(class_port_info->redir_lid),
