@@ -42,7 +42,7 @@
 #include <inttypes.h>
 #include <getopt.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.1
+#define __BUILD_VERSION_TAG__ 1.2.2
 #include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -89,7 +89,8 @@ main(int argc, char **argv)
 	ib_portid_t portid = {0};
 	int timeout = 0;	/* use default */
 	uint8_t *p;
-	int act = 0, prio = 0, state = SMINFO_STANDBY;
+	uint act = 0;
+	int prio = 0, state = SMINFO_STANDBY;
 	uint64_t guid = 0, key = 0;
 	extern int ibdebug;
 	int dest_type = IB_DEST_LID;
@@ -199,7 +200,7 @@ main(int argc, char **argv)
 	mad_decode_field(sminfo, IB_SMINFO_PRIO_F, &prio);
 	mad_decode_field(sminfo, IB_SMINFO_STATE_F, &state);
 
-	printf("sminfo: sm lid %d sm guid 0x%" PRIx64 ", activity count %d priority %d state %d %s\n",
+	printf("sminfo: sm lid %d sm guid 0x%" PRIx64 ", activity count %u priority %d state %d %s\n",
 		portid.lid, guid, act, prio, state, STATESTR(state));
 
 	exit(0);
