@@ -71,7 +71,7 @@ echo "$text" | awk '
 			else
 				print $1 "\t: 0x" substr($3, 4, 16) " ports " $2 " "\
 					desc " " type " " pinfo}
-/^ib/	{print $0}
+/^ib/	{print $0; next}
 /ibpanic:/	{print $0}
 /ibwarn:/	{print $0}
 /iberror:/	{print $0}

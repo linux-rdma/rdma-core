@@ -52,7 +52,7 @@ rv=$?
 echo "$text" | awk '
 /^Rt/	{print $1 "\t: 0x" substr($3, 4, 16) " ports " $2 " "\
 		substr($0, match($0, "#[ \t]*")+RLENGTH)} 
-/^ib/	{print $0}
+/^ib/	{print $0; next}
 /ibpanic:/	{print $0}
 /ibwarn:/	{print $0}
 /iberror:/	{print $0}

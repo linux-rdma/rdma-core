@@ -116,7 +116,7 @@ function blue(s)
 
 #/^LocalPort/	{ if ($2 != '$portnum') {err = err "#error: port " $2 " does not match query ('$portnum')\n"; exit -1}}
 
-/^ib/	{print $0}
+/^ib/	{print $0; next}
 /ibpanic:/	{print $0}
 /ibwarn:/	{print $0}
 /iberror:/	{print $0}

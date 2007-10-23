@@ -106,7 +106,7 @@ function blue(s)
 /^LinkWidthSupported/{ if ($2 != "1X") { next } }
 /^LinkWidthActive/{ if ($2 == "1X") warn = warn "#warn: Link configured as 1X  lid '$lid' port '$portnum'\n"}
 
-/^ib/	{print $0}
+/^ib/	{print $0; next}
 /ibpanic:/	{print $0}
 /ibwarn:/	{print $0}
 /iberror:/	{print $0}

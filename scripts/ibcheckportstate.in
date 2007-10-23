@@ -108,7 +108,7 @@ function blue(s)
 
 /^LinkState/{ if ($2 != "Active") warn = warn "#warn: Logical link state is " $2 "  lid '$lid' port '$portnum'\n"}
 
-/^ib/	{print $0}
+/^ib/	{print $0; next}
 /ibpanic:/	{print $0}
 /ibwarn:/	{print $0}
 /iberror:/	{print $0}
