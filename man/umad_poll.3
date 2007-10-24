@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_POLL 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_POLL 3  "October 23, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_poll \- poll umad
 .SH "SYNOPSIS"
@@ -28,8 +28,8 @@ parameter of zero to
 .B umad_recv()
 to ensure a non-blocking read.
 .SH "RETURN VALUE"
-.B umad_recv()
-returns non negative receiving agentid on success, and a negative value on error as follows:
+.B umad_poll()
+returns 0 on success, and a negative value on error as follows:
  -EINVAL    invalid port handle or agentid
  -ETIMEDOUT poll operation timed out
  -EIO       poll operation failed
