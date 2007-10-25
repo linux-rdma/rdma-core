@@ -85,6 +85,9 @@ int umaddebug = 0;
 static char *def_ca_name = "mthca0";
 static int def_ca_port = 1;
 
+static unsigned abi_version;
+static unsigned new_user_mad_api;
+
 /*************************************
  * Port
  */
@@ -428,16 +431,14 @@ dev_to_umad_id(char *dev, unsigned port)
 int
 umad_init(void)
 {
-	unsigned abi_version;
-
 	TRACE("umad_init");
 	if (sys_read_uint(IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, &abi_version) < 0) {
 		IBWARN("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
 			IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
 		return -1;
 	}
-	if (abi_version != IB_UMAD_ABI_VERSION) {
-		IBWARN("wrong ABI version: %s/%s is %d but library ABI is %d",
+	if (abi_version < IB_UMAD_ABI_VERSION) {
+		IBWARN("wrong ABI version: %s/%s is %d but library minimal ABI is %d",
 			IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, abi_version, IB_UMAD_ABI_VERSION);
 		return -1;
 	}
@@ -554,6 +555,21 @@ umad_open_port(char *ca_name, int portnum)
 		return -EIO;
 	}
 
+	if (abi_version > 5)
+		new_user_mad_api = 1;
+	else {
+		int ret = ioctl(fd, IB_USER_MAD_ENABLE_PKEY, NULL);
+		if (ret == 0)
+			new_user_mad_api = 1;
+		else if (ret < 0 && errno == EINVAL)
+			new_user_mad_api = 0;
+		else {
+			close(fd);
+			IBWARN("cannot detect is user_mad P_Key enabled API supported.");
+			return ret;
+		}
+	}
+
 	DEBUG("opened %s fd %d portid %d", dev_file, fd, umad_id);
 	return fd;
 }
@@ -636,13 +652,15 @@ umad_close_port(int fd)
 void *
 umad_get_mad(void *umad)
 {
-	return ((struct ib_user_mad *)umad)->data;
+	return new_user_mad_api ? ((struct ib_user_mad *)umad)->data :
+		(void *)&((struct ib_user_mad *)umad)->addr.pkey_index;
 }
 
 size_t
 umad_size(void)
 {
-	return sizeof (struct ib_user_mad);
+	return new_user_mad_api ? sizeof (struct ib_user_mad) :
+		sizeof(struct ib_user_mad) - 8;
 }
 
 int
@@ -663,11 +681,13 @@ umad_set_grh(void *umad, void *mad_addr)
 }
 
 int
-umad_set_pkey(void *umad, int pkey)
+umad_set_pkey(void *umad, int pkey_index)
 {
-#if 0
-	mad->addr.pkey = 0;		/* FIXME - PKEY support */
-#endif
+	struct ib_user_mad *mad = umad;
+
+	if (new_user_mad_api)
+		mad->addr.pkey_index = htons(pkey_index);
+
 	return 0;
 }
 
@@ -719,12 +739,12 @@ umad_send(int fd, int agentid, void *umad, int length,
 	if (umaddebug > 1)
 		umad_dump(mad);
 
-	n = write(fd, mad, length + sizeof *mad);
-	if (n == length + sizeof *mad)
+	n = write(fd, mad, length + umad_size());
+	if (n == length + umad_size())
 		return 0;
 
 	DEBUG("write returned %d != sizeof umad %zu + length %d (%m)",
-	      n, sizeof *mad, length);
+	      n, umad_size(), length);
 	if (!errno)
 		errno = EIO;
 	return -EIO;
@@ -768,14 +788,14 @@ umad_recv(int fd, void *umad, int *length, int timeout_ms)
 		return n;
 	}
 
-	n = read(fd, umad, sizeof *mad + *length);
+	n = read(fd, umad, umad_size() + *length);
 
-	VALGRIND_MAKE_MEM_DEFINED(umad, sizeof *mad + *length);
+	VALGRIND_MAKE_MEM_DEFINED(umad, umad_size() + *length);
 
-	if ((n >= 0) && (n <= sizeof *mad + *length)) {
+	if ((n >= 0) && (n <= umad_size() + *length)) {
 		DEBUG("mad received by agent %d length %d", mad->agent_id, n);
-		if (n > sizeof *mad)
-			*length = n - sizeof *mad;
+		if (n > umad_size())
+			*length = n - umad_size();
 		else
 			*length = 0;
 		return mad->agent_id;
@@ -788,9 +808,9 @@ umad_recv(int fd, void *umad, int *length, int timeout_ms)
 	}
 
 	DEBUG("read returned %zu > sizeof umad %zu + length %d (%m)",
-	      mad->length - sizeof *mad, sizeof *mad, *length);
+	      mad->length - umad_size(), umad_size(), *length);
 
-	*length = mad->length - sizeof *mad;
+	*length = mad->length - umad_size();
 	if (!errno)
 		errno = EIO;
 	return -errno;
@@ -929,11 +949,12 @@ umad_addr_dump(ib_mad_addr_t *addr)
 	}
 	gid_str[i*2] = 0;
 	IBWARN("qpn %d qkey 0x%x lid 0x%x sl %d\n"
-		"grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x\n"
+		"grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x pkey_index 0x%x\n"
 		"Gid 0x%s",
 		ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
 		addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit,
-		(int)addr->traffic_class, addr->flow_label, gid_str);
+		(int)addr->traffic_class, addr->flow_label, addr->pkey_index,
+		gid_str);
 }
 
 void
