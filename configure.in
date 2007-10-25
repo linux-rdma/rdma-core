@@ -72,7 +72,7 @@ AC_CHECK_FUNCS([strchr strrchr strtol strtoul memset])
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 
-dnl Check for perl and perl install location
+dnl Check for the specification of a default switch map file
 AC_MSG_CHECKING(for --with-switch-map )
 AC_ARG_WITH(switch-map,
     AC_HELP_STRING([--with-switch-map=file],
