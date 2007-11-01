@@ -132,6 +132,8 @@ typedef struct umad_port {
 	uint64_t capmask;
 	uint64_t gid_prefix;
 	uint64_t port_guid;
+	unsigned pkeys_size;
+	uint16_t *pkeys;
 } umad_port_t;
 
 typedef struct umad_ca {

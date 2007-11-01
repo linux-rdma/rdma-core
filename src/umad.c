@@ -46,6 +46,7 @@
 #include <netinet/in.h>
 #include <dirent.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "umad.h"
 
@@ -106,20 +107,33 @@ put_ca(umad_ca_t *ca)
 static int
 release_port(umad_port_t *port)
 {
-	return 0;	/* nothing yet */
+	free(port->pkeys);
+	port->pkeys = NULL;
+	port->pkeys_size = 0;
+	return 0;
+}
+
+static int check_for_digit_name(const struct dirent *dent)
+{
+	const char *p = dent->d_name;
+	while (*p && isdigit(*p))
+		p++;
+	return *p ? 0 : 1;
 }
 
 static int
-get_port(char *ca_name, char *dir_name, int portnum, umad_port_t *port)
+get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 {
 	char port_dir[256];
 	uint8_t gid[16];
+	struct dirent **namelist = NULL;
+	int i, len, ret;
 
 	strncpy(port->ca_name, ca_name, sizeof port->ca_name - 1);
 	port->portnum = portnum;
+	port->pkeys = NULL;
 
-	snprintf(port_dir, sizeof port_dir - 1, "%s/%d", dir_name, portnum);
-	port_dir[sizeof port_dir - 1] = 0;
+	len = snprintf(port_dir, sizeof port_dir - 1, "%s/%d", dir, portnum);
 
 	if (sys_read_uint(port_dir, SYS_PORT_LMC, &port->lmc) < 0)
 		goto clean;
@@ -146,10 +160,38 @@ get_port(char *ca_name, char *dir_name, int portnum, umad_port_t *port)
 	memcpy(&port->gid_prefix, gid, sizeof port->gid_prefix);
 	memcpy(&port->port_guid, gid + 8, sizeof port->port_guid);
 
-	/* FIXME: handle pkeys and gids */
+	snprintf(port_dir + len, sizeof(port_dir) - len, "/pkeys");
+	ret = scandir(port_dir, &namelist, check_for_digit_name, NULL);
+	if (ret <= 0) {
+		IBWARN("no pkeys found for %s:%u (at dir %s)...",
+		       port->ca_name, port->portnum, port_dir);
+		goto clean;
+	}
+	port->pkeys = calloc(ret, sizeof(port->pkeys[0]));
+	if (!port->pkeys) {
+		IBWARN("get_port: calloc failed: %s", strerror(errno));
+		goto clean;
+	}
+	for (i = 0; i < ret ; i++) {
+		unsigned idx, val;
+		idx = strtoul(namelist[i]->d_name, NULL, 0);
+		sys_read_uint(port_dir, namelist[i]->d_name, &val);
+		port->pkeys[idx] = val;
+	}
+	port->pkeys_size = ret;
+	free(namelist);
+	namelist = NULL;
+	port_dir[len] = '\0';
+
+	/* FIXME: handle gids */
+
 	return 0;
 
 clean:
+	if (namelist)
+		free(namelist);
+	if (port->pkeys)
+		free(port->pkeys);
 	return -EIO;
 }
 
