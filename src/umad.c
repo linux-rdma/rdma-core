@@ -555,20 +555,10 @@ umad_open_port(char *ca_name, int portnum)
 		return -EIO;
 	}
 
-	if (abi_version > 5)
+	if (abi_version > 5 || !ioctl(fd, IB_USER_MAD_ENABLE_PKEY, NULL))
 		new_user_mad_api = 1;
-	else {
-		int ret = ioctl(fd, IB_USER_MAD_ENABLE_PKEY, NULL);
-		if (ret == 0)
-			new_user_mad_api = 1;
-		else if (ret < 0 && errno == EINVAL)
-			new_user_mad_api = 0;
-		else {
-			close(fd);
-			IBWARN("cannot detect is user_mad P_Key enabled API supported.");
-			return ret;
-		}
-	}
+	else
+		new_user_mad_api = 0;
 
 	DEBUG("opened %s fd %d portid %d", dev_file, fd, umad_id);
 	return fd;
