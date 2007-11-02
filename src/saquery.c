@@ -136,13 +136,11 @@ print_node_record(ib_node_record_t *node_record)
 		return;
 	case NAME_OF_LID:
 	case NAME_OF_GUID:
-		if (p_ni->node_type == IB_NODE_TYPE_SWITCH)
-			name = lookup_switch_name(switch_map_fp,
-						  cl_ntoh64(p_ni->node_guid),
-						  (char *)p_nd->description);
-		else
-			name = clean_nodedesc((char *)p_nd->description);
+		name = lookup_switch_name(switch_map_fp,
+					  cl_ntoh64(p_ni->node_guid),
+					  (char *)p_nd->description);
 		printf("%s\n", name);
+		free(name);
 		return;
 	case ALL:
 	default:

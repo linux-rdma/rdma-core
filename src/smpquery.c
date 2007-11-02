@@ -107,10 +107,7 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	if (!smp_query(nd, dest, IB_ATTR_NODE_DESC, 0, 0))
 		return "node desc query failed";
 
-	if (node_type == IB_NODE_SWITCH)
-		nodename = lookup_switch_name(switch_map_fp, node_guid, nd);
-	else
-		nodename = clean_nodedesc(nd);
+	nodename = lookup_switch_name(switch_map_fp, node_guid, nd);
 
 	l = strlen(nodename);
 	if (l < 32) {
@@ -122,6 +119,7 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	}
 
 	printf("Node Description:%s%s\n", dots, nodename);
+	free(nodename);
 	return 0;
 }
 

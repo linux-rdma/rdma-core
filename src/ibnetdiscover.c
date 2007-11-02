@@ -459,13 +459,9 @@ void
 list_node(Node *node)
 {
 	char *node_type;
-	char *nodename = NULL;
-
-	if (node->type == SWITCH_NODE)
-		nodename = lookup_switch_name(switch_map_fp, node->nodeguid,
+	char *nodename = lookup_switch_name(switch_map_fp, node->nodeguid,
 					      node->nodedesc);
-	else
-		nodename = clean_nodedesc(node->nodedesc);
+
 	switch(node->type) {
 	case SWITCH_NODE:
 		node_type = "Switch";
@@ -485,8 +481,7 @@ list_node(Node *node)
 		node->nodeguid, node->numports, node->devid, node->vendid,
 		nodename);
 
-	if (nodename && (node->type == SWITCH_NODE))
-		free(nodename);
+	free(nodename);
 }
 
 void
@@ -541,18 +536,16 @@ out_switch(Node *node, int group, char *chname)
 		fprintf(f, "%d Chip %d", node->chrecord->slotnum, node->chrecord->anafanum);
 	}
 
-	if (node->type == SWITCH_NODE)
-		nodename = lookup_switch_name(switch_map_fp, node->nodeguid,
+	nodename = lookup_switch_name(switch_map_fp, node->nodeguid,
 				node->nodedesc);
-	else
-		nodename = clean_nodedesc(node->nodedesc);
+
 	fprintf(f, "\nSwitch\t%d %s\t\t# \"%s\" %s port 0 lid %d lmc %d\n",
 		node->numports, node_name(node),
 		nodename,
 		node->smaenhsp0 ? "enhanced" : "base",
 		node->smalid, node->smalmc);
-	if (nodename && (node->type == SWITCH_NODE))
-		free(nodename);
+
+	free(nodename);
 }
 
 void
@@ -612,12 +605,9 @@ out_switch_port(Port *port, int group)
 	if (ext_port_str)
 		fprintf(f, "%s", ext_port_str);
 
-	if (port->remoteport->node->type == SWITCH_NODE)
-		rem_nodename = lookup_switch_name(switch_map_fp,
+	rem_nodename = lookup_switch_name(switch_map_fp,
 				port->remoteport->node->nodeguid,
 				port->remoteport->node->nodedesc);
-	else
-		rem_nodename = clean_nodedesc(port->remoteport->node->nodedesc);
 
 	ext_port_str = out_ext_port(port->remoteport, group);
 	fprintf(f, "\t%s[%d]%s",
@@ -638,8 +628,7 @@ out_switch_port(Port *port, int group)
 		fprintf(f, " (scp)");
 	fprintf(f, "\n");
 
-	if (rem_nodename && (port->remoteport->node->type == SWITCH_NODE))
-		free(rem_nodename);
+	free(rem_nodename);
 }
 
 void
@@ -660,19 +649,17 @@ out_ca_port(Port *port, int group)
 	if (port->remoteport->node->type != SWITCH_NODE)
 		fprintf(f, " (%" PRIx64 ") ", port->remoteport->portguid);
 
-	if (port->remoteport->node->type == SWITCH_NODE)
-		rem_nodename = lookup_switch_name(switch_map_fp,
+	rem_nodename = lookup_switch_name(switch_map_fp,
 				port->remoteport->node->nodeguid,
 				port->remoteport->node->nodedesc);
-	else
-		rem_nodename = clean_nodedesc(port->remoteport->node->nodedesc);
+
 	fprintf(f, "\t\t# lid %d lmc %d \"%s\" lid %d %s%s\n",
 		port->lid, port->lmc, rem_nodename,
 		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
 		get_linkwidth_str(port->linkwidth),
 		get_linkspeed_str(port->linkspeed));
-	if (rem_nodename && (port->remoteport->node->type == SWITCH_NODE))
-		free(rem_nodename);
+
+	free(rem_nodename);
 }
 
 int

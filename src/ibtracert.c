@@ -204,10 +204,7 @@ dump_endnode(int dump, char *prompt, Node *node, Port *port)
 		return;
 	}
 
-	if (node->type == IB_NODE_SWITCH)
-		nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
-	else
-		nodename = clean_nodedesc(node->nodedesc);
+	nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
 
 	fprintf(f, "%s %s {0x%016" PRIx64 "} portnum %d lid 0x%x-0x%x \"%s\"\n",
 		prompt,
@@ -216,8 +213,7 @@ dump_endnode(int dump, char *prompt, Node *node, Port *port)
 		port->lid, port->lid + (1 << port->lmc) - 1,
 		nodename);
 
-	if (nodename && (node->type == IB_NODE_SWITCH))
-		free(nodename);
+	free(nodename);
 }
 
 static void
@@ -228,10 +224,7 @@ dump_route(int dump, Node *node, int outport, Port *port)
 	if (!dump && !verbose)
 		return;
 
-	if (node->type == IB_NODE_SWITCH)
-		nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
-	else
-		nodename = clean_nodedesc(node->nodedesc);
+	nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
 
 	if (dump == 1)
 		fprintf(f, "[%d] -> {0x%016" PRIx64 "}[%d]\n",
@@ -244,8 +237,7 @@ dump_route(int dump, Node *node, int outport, Port *port)
 			port->lid, port->lid + (1 << port->lmc) - 1,
 			nodename);
 
-	if (nodename && (node->type == IB_NODE_SWITCH))
-		free(nodename);
+	free(nodename);
 }
 
 static int
@@ -644,10 +636,7 @@ dump_mcpath(Node *node, int dumplevel)
 	if (node->upnode)
 		dump_mcpath(node->upnode, dumplevel);
 
-	if (node->type == IB_NODE_SWITCH)
-		nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
-	else
-		nodename = clean_nodedesc(node->nodedesc);
+	nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
 
 	if (!node->dist) {
 		printf("From %s 0x%" PRIx64 " port %d lid 0x%x-0x%x \"%s\"\n",
@@ -681,8 +670,7 @@ dump_mcpath(Node *node, int dumplevel)
 			nodename);
 
 free_name:
-	if (nodename && (node->type == IB_NODE_SWITCH))
-		free(nodename);
+	free(nodename);
 }
 
 static void
