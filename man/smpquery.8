@@ -5,7 +5,7 @@ smpquery \- query InfiniBand subnet management attributes
 
 .SH SYNOPSIS
 .B smpquery 
-[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-D(irect)] [\-G(uid)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)] <op> <dest dr_path|lid|guid> [op params]
+[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-D(irect)] [\-G(uid)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms --node-name-map node-name-map] [\-V(ersion)] [\-h(elp)] <op> <dest dr_path|lid|guid> [op params]
 
 .SH DESCRIPTION
 .PP
@@ -26,6 +26,13 @@ Current supported operations and their parameters:
         sl2vl <addr> [<portnum>]
         vlarb <addr> [<portnum>]
         guids <addr>
+
+.TP
+\fB\-\-node\-name\-map\fR <node-name-map>
+Specify a node name map.  The node name map file maps GUIDs to more user friendly
+names.  See
+.B ibnetdiscover(8)
+for node name map file format.
 
 .SH COMMON OPTIONS
 

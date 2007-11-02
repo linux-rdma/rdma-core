@@ -70,8 +70,8 @@ static FILE *f;
 
 char *argv0 = "ibtracert";
 
-static char *switch_map = NULL;
-static FILE *switch_map_fp = NULL;
+static char *node_name_map = NULL;
+static FILE *node_name_map_fp = NULL;
 
 typedef struct Port Port;
 typedef struct Switch Switch;
@@ -204,7 +204,7 @@ dump_endnode(int dump, char *prompt, Node *node, Port *port)
 		return;
 	}
 
-	nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
+	nodename = remap_node_name(node_name_map_fp, node->nodeguid, node->nodedesc);
 
 	fprintf(f, "%s %s {0x%016" PRIx64 "} portnum %d lid 0x%x-0x%x \"%s\"\n",
 		prompt,
@@ -224,7 +224,7 @@ dump_route(int dump, Node *node, int outport, Port *port)
 	if (!dump && !verbose)
 		return;
 
-	nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
+	nodename = remap_node_name(node_name_map_fp, node->nodeguid, node->nodedesc);
 
 	if (dump == 1)
 		fprintf(f, "[%d] -> {0x%016" PRIx64 "}[%d]\n",
@@ -636,7 +636,7 @@ dump_mcpath(Node *node, int dumplevel)
 	if (node->upnode)
 		dump_mcpath(node->upnode, dumplevel);
 
-	nodename = lookup_switch_name(switch_map_fp, node->nodeguid, node->nodedesc);
+	nodename = remap_node_name(node_name_map_fp, node->nodeguid, node->nodedesc);
 
 	if (!node->dist) {
 		printf("From %s 0x%" PRIx64 " port %d lid 0x%x-0x%x \"%s\"\n",
@@ -684,7 +684,7 @@ usage(void)
 		basename++;
 
 	fprintf(stderr, "Usage: %s [-d(ebug) -v(erbose) -D(irect) -G(uids) -n(o_info) -C ca_name -P ca_port "
-			"-s smlid -t(imeout) timeout_ms -m mlid --switch-map switch-map ] <src-addr> <dest-addr>\n",
+			"-s smlid -t(imeout) timeout_ms -m mlid --node-name-map node-name-map ] <src-addr> <dest-addr>\n",
 			basename);
 	fprintf(stderr, "\n\tUnicast examples:\n");
 	fprintf(stderr, "\t\t%s 4 16\t\t\t# show path between lids 4 and 16\n", basename);
@@ -726,7 +726,7 @@ main(int argc, char **argv)
 		{ "Version", 0, 0, 'V'},
 		{ "help", 0, 0, 'h'},
 		{ "usage", 0, 0, 'u'},
-		{ "switch-map", 1, 0, 1},
+		{ "node-name-map", 1, 0, 1},
 		{ }
 	};
 
@@ -740,7 +740,7 @@ main(int argc, char **argv)
 			break;
 		switch(ch) {
 		case 1:
-			switch_map = strdup(optarg);
+			node_name_map = strdup(optarg);
 			break;
 		case 'C':
 			ca = optarg;
@@ -798,7 +798,7 @@ main(int argc, char **argv)
 		usage();
 
 	madrpc_init(ca, ca_port, mgmt_classes, 3);
-	switch_map_fp = open_switch_map(switch_map);
+	node_name_map_fp = open_node_name_map(node_name_map);
 
 	if (ib_resolve_portid_str(&src_portid, argv[0], dest_type, sm_id) < 0)
 		IBERROR("can't resolve source port %s", argv[0]);
@@ -837,6 +837,6 @@ main(int argc, char **argv)
 	/* dump multicast path */
 	dump_mcpath(endnode, dumplevel);
 
-	close_switch_map(switch_map_fp);
+	close_node_name_map(node_name_map_fp);
 	exit(0);
 }

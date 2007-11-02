@@ -5,7 +5,9 @@ ibtracert\- trace InfiniBand path
 
 .SH SYNOPSIS
 .B ibtracert
-[\-d(ebug)] [-v(erbose)] [\-D(irect)] [\-G(uids)] [-n(o_info)] [-m mlid] [-s smlid] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-\-switch\-map <switch-map>] [\-h(elp)] [<dest dr_path|lid|guid> [<startlid> [<endlid>]]]
+[\-d(ebug)] [-v(erbose)] [\-D(irect)] [\-G(uids)] [-n(o_info)] [-m mlid] [-s
+smlid] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)]
+[\-\-node\-name\-\-map <node-name-map>] [\-h(elp)] [<dest dr_path|lid|guid> [<startlid> [<endlid>]]]
 
 .SH DESCRIPTION
 .PP
@@ -24,11 +26,11 @@ simple format; don't show additional information
 \fB\-m\fR
 show the multicast trace of the specified mlid
 .TP
-\fB\-\-switch\-map\fR <switch-map>
-Specify a switch map.  The switch map file maps GUIDs to more user friendly
+\fB\-\-node\-name\-map\fR <node-name-map>
+Specify a node name map.  The node name map file maps GUIDs to more user friendly
 names.  See 
 .B ibnetdiscover(8)
-for switch map file format.
+for node name map file format.
 
 .SH COMMON OPTIONS
 

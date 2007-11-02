@@ -5,7 +5,7 @@ ibnetdiscover \- discover InfiniBand topology
 
 .SH SYNOPSIS
 .B ibnetdiscover
-[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-s(how)] [\-l(ist)] [\-g(rouping)] [\-H(ca_list)] [\-S(witch_list)] [\-R(outer_list)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\--switch-map <switch-map>] [\-h(elp)] [<topology-file>]
+[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-s(how)] [\-l(ist)] [\-g(rouping)] [\-H(ca_list)] [\-S(witch_list)] [\-R(outer_list)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\--node-name-map <node-name-map>] [\-h(elp)] [<topology-file>]
 
 .SH DESCRIPTION
 .PP
@@ -39,8 +39,8 @@ List of connected routers
 \fB\-s\fR, \fB\-\-show\fR
 Show more information
 .TP
-\fB\-\-switch\-map\fR <switch-map>
-Specify a switch map.  The switch map file maps GUIDs to more user friendly
+\fB\-\-node\-name\-map\fR <node-name-map>
+Specify a node name map.  The node name map file maps GUIDs to more user friendly
 names.  See file format below.
 
 .SH COMMON OPTIONS
@@ -180,8 +180,8 @@ displayed as "Non-Chassis Nodes".  External ports are also shown on the
 connectivity lines.
  
 
-.SH SWITCH MAP FILE FORMAT
-The switch map is used to specify a user friendly name for switches in the
+.SH NODE NAME MAP FILE FORMAT
+The node name map is used to specify user friendly names for nodes in the
 output.  GUIDs are used to perform the lookup.
 
 .TP
@@ -222,7 +222,7 @@ output.  GUIDs are used to perform the lookup.
 0x0008f10400400e32 "IB1 (Rack 11 spine 2   ) ISR9288 Voltaire sFB-12D"
 .br
 .br
-# GUID   Switch Name
+# GUID   Node Name
 .br
 0x0008f10400411a08 "SW1  (Rack  3) ISR9024 Voltaire 9024D"
 .br

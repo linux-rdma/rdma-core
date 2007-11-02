@@ -84,8 +84,8 @@ static const match_rec_t match_tbl[] = {
 };
 
 char *argv0 = "smpquery";
-static char *switch_map = NULL;
-static FILE *switch_map_fp = NULL;
+static char *node_name_map = NULL;
+static FILE *node_name_map_fp = NULL;
 
 /*******************************************/
 static char *
@@ -107,7 +107,7 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	if (!smp_query(nd, dest, IB_ATTR_NODE_DESC, 0, 0))
 		return "node desc query failed";
 
-	nodename = lookup_switch_name(switch_map_fp, node_guid, nd);
+	nodename = remap_node_name(node_name_map_fp, node_guid, nd);
 
 	l = strlen(nodename);
 	if (l < 32) {
@@ -404,7 +404,7 @@ usage(void)
 		basename++;
 
 	fprintf(stderr, "Usage: %s [-d(ebug) -e(rr_show) -v(erbose) -D(irect) -G(uid) -s smlid -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms --switch-map switch-map] <op> <dest dr_path|lid|guid> [op params]\n",
+			"-t(imeout) timeout_ms --node-name-map node-name-map] <op> <dest dr_path|lid|guid> [op params]\n",
 			basename);
 	fprintf(stderr, "\tsupported ops:\n");
 	for (r = match_tbl ; r->name ; r++) {
@@ -444,7 +444,7 @@ main(int argc, char **argv)
 		{ "Guid", 0, 0, 'G'},
 		{ "smlid", 1, 0, 's'},
 		{ "timeout", 1, 0, 't'},
-		{ "switch-map", 1, 0, 1},
+		{ "node-name-map", 1, 0, 1},
 		{ "Version", 0, 0, 'V'},
 		{ "help", 0, 0, 'h'},
 		{ "usage", 0, 0, 'u'},
@@ -459,7 +459,7 @@ main(int argc, char **argv)
 			break;
 		switch(ch) {
 		case 1:
-			switch_map = strdup(optarg);
+			node_name_map = strdup(optarg);
 			break;
 		case 'd':
 			ibdebug++;
@@ -515,7 +515,7 @@ main(int argc, char **argv)
 		IBERROR("operation '%s' not supported", argv[0]);
 
 	madrpc_init(ca, ca_port, mgmt_classes, 3);
-	switch_map_fp = open_switch_map(switch_map);
+	node_name_map_fp = open_node_name_map(node_name_map);
 
 	if (dest_type != IB_DEST_DRSLID) {
 		if (ib_resolve_portid_str(&portid, argv[1], dest_type, sm_id) < 0)
@@ -532,6 +532,6 @@ main(int argc, char **argv)
 		if ((err = fn(&portid, argv+3, argc-3)))
 			IBERROR("operation %s: %s", argv[0], err);
 	}
-	close_switch_map(switch_map_fp);
+	close_node_name_map(node_name_map_fp);
 	exit(0);
 }

@@ -91,8 +91,8 @@ static FILE *f;
 
 char *argv0 = "ibnetdiscover";
 
-static char *switch_map = NULL;
-static FILE *switch_map_fp = NULL;
+static char *node_name_map = NULL;
+static FILE *node_name_map_fp = NULL;
 
 Node *nodesdist[MAXHOPS+1];     /* last is Ca list */
 Node *mynode;
@@ -459,7 +459,7 @@ void
 list_node(Node *node)
 {
 	char *node_type;
-	char *nodename = lookup_switch_name(switch_map_fp, node->nodeguid,
+	char *nodename = remap_node_name(node_name_map_fp, node->nodeguid,
 					      node->nodedesc);
 
 	switch(node->type) {
@@ -536,7 +536,7 @@ out_switch(Node *node, int group, char *chname)
 		fprintf(f, "%d Chip %d", node->chrecord->slotnum, node->chrecord->anafanum);
 	}
 
-	nodename = lookup_switch_name(switch_map_fp, node->nodeguid,
+	nodename = remap_node_name(node_name_map_fp, node->nodeguid,
 				node->nodedesc);
 
 	fprintf(f, "\nSwitch\t%d %s\t\t# \"%s\" %s port 0 lid %d lmc %d\n",
@@ -605,7 +605,7 @@ out_switch_port(Port *port, int group)
 	if (ext_port_str)
 		fprintf(f, "%s", ext_port_str);
 
-	rem_nodename = lookup_switch_name(switch_map_fp,
+	rem_nodename = remap_node_name(node_name_map_fp,
 				port->remoteport->node->nodeguid,
 				port->remoteport->node->nodedesc);
 
@@ -649,7 +649,7 @@ out_ca_port(Port *port, int group)
 	if (port->remoteport->node->type != SWITCH_NODE)
 		fprintf(f, " (%" PRIx64 ") ", port->remoteport->portguid);
 
-	rem_nodename = lookup_switch_name(switch_map_fp,
+	rem_nodename = remap_node_name(node_name_map_fp,
 				port->remoteport->node->nodeguid,
 				port->remoteport->node->nodedesc);
 
@@ -842,9 +842,9 @@ void
 usage(void)
 {
 	fprintf(stderr, "Usage: %s [-d(ebug)] -e(rr_show) -v(erbose) -s(how) -l(ist) -g(rouping) -H(ca_list) -S(witch_list) -R(outer_list) -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms --switch-map switch-map] [<topology-file>]\n",
+			"-t(imeout) timeout_ms --node-name-map node-name-map] [<topology-file>]\n",
 			argv0);
-	fprintf(stderr, "       --switch-map <switch-map> specify a switch-map file\n");
+	fprintf(stderr, "       --node-name-map <node-name-map> specify a node name map file\n");
 	exit(-1);
 }
 
@@ -872,7 +872,7 @@ main(int argc, char **argv)
 		{ "Switch_list", 0, 0, 'S'},
 		{ "Router_list", 0, 0, 'R'},
 		{ "timeout", 1, 0, 't'},
-		{ "switch-map", 1, 0, 1},
+		{ "node-name-map", 1, 0, 1},
 		{ "Version", 0, 0, 'V'},
 		{ "help", 0, 0, 'h'},
 		{ "usage", 0, 0, 'u'},
@@ -889,7 +889,7 @@ main(int argc, char **argv)
 			break;
 		switch(ch) {
 		case 1:
-			switch_map = strdup(optarg);
+			node_name_map = strdup(optarg);
 			break;
 		case 'C':
 			ca = optarg;
@@ -946,7 +946,7 @@ main(int argc, char **argv)
 		IBERROR("can't open file %s for writing", argv[0]);
 
 	madrpc_init(ca, ca_port, mgmt_classes, 2);
-	switch_map_fp = open_switch_map(switch_map);
+	node_name_map_fp = open_node_name_map(node_name_map);
 
 	if (discover(&my_portid) < 0)
 		IBERROR("discover");
@@ -956,6 +956,6 @@ main(int argc, char **argv)
 
 	dump_topology(list, group);
 
-	close_switch_map(switch_map_fp);
+	close_node_name_map(node_name_map_fp);
 	exit(0);
 }

@@ -7,7 +7,7 @@ saquery \- query InfiniBand subnet administration attributes
 .B saquery 
 [\-h] [\-d] [\-p] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-O]
 [\-U] [\-c] [\-s] [\-g] [\-m] [--src-to-dst <src:dst>] [\-C ca_name]
-[\-P ca_port] [\-t(imeout) <msec>] [\-\-switch\-map <switch-map>]
+[\-P ca_port] [\-t(imeout) <msec>] [\-\-node\-name\-map <node-name-map>]
 [<name> | <lid> | <guid>]
 
 .SH DESCRIPTION
@@ -77,11 +77,11 @@ Specify SA query response timeout in milliseconds.
 Default is 100 milliseconds. You may want to use
 this option if IB_TIMEOUT is indicated.
 .TP
-\fB\-\-switch\-map\fR <switch-map>
-Specify a switch map.  The switch map file maps GUIDs to more user friendly
+\fB\-\-node\-name\-map\fR <node-name-map>
+Specify a node name map.  The node name map file maps GUIDs to more user friendly
 names.  See 
 .B ibnetdiscover(8)
-for switch map file format.  Only used with the \fB\-O\fR and \fB\-U\fR options.
+for node name map file format.  Only used with the \fB\-O\fR and \fB\-U\fR options.
 .TP
 \fB\-d\fR
 enable debugging

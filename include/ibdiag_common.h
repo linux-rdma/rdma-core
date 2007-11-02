@@ -46,12 +46,12 @@ extern int   ibdebug;
 /*========================================================*/
 
 /**
- * Switch map interface.
- * It is OK to pass NULL for the switch_map[_fp] parameters.
+ * Node name map interface.
+ * It is OK to pass NULL for the node_name_map[_fp] parameters.
  */
-FILE *open_switch_map(char *switch_map);
-void  close_switch_map(FILE *switch_map_fp);
-char *lookup_switch_name(FILE *switch_map_fp, uint64_t target_guid,
+FILE *open_node_name_map(char *node_name_map);
+void  close_node_name_map(FILE *node_name_map_fp);
+char *remap_node_name(FILE *node_name_map_fp, uint64_t target_guid,
 			char *nodedesc);
 	/* NOTE: parameter "nodedesc" may be modified here. */
 

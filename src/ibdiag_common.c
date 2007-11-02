@@ -52,34 +52,34 @@
 int ibdebug;
 
 FILE *
-open_switch_map(char *switch_map)
+open_node_name_map(char *node_name_map)
 {
 	FILE *rc = NULL;
 
-	if (switch_map != NULL) {
-		rc = fopen(switch_map, "r");
+	if (node_name_map != NULL) {
+		rc = fopen(node_name_map, "r");
 		if (rc == NULL) {
 			fprintf(stderr,
 				"WARNING failed to open switch map \"%s\" (%s)\n",
-				switch_map, strerror(errno));
+				node_name_map, strerror(errno));
 		}
-#ifdef HAVE_DEFAULT_SWITCH_MAP
+#ifdef HAVE_DEFAULT_NODENAME_MAP
 	} else {
-		rc = fopen(HAVE_DEFAULT_SWITCH_MAP, "r");
-#endif /* HAVE_DEFAULT_SWITCH_MAP */
+		rc = fopen(HAVE_DEFAULT_NODENAME_MAP, "r");
+#endif /* HAVE_DEFAULT_NODENAME_MAP */
 	}
 	return (rc);
 }
 
 void
-close_switch_map(FILE *fp)
+close_node_name_map(FILE *fp)
 {
 	if (fp)
 		fclose(fp);
 }
 
 char *
-lookup_switch_name(FILE *switch_map_fp, uint64_t target_guid, char *nodedesc)
+remap_node_name(FILE *node_name_map_fp, uint64_t target_guid, char *nodedesc)
 {
 #define NAME_LEN (256)
 	char     *line = NULL;
@@ -88,12 +88,12 @@ lookup_switch_name(FILE *switch_map_fp, uint64_t target_guid, char *nodedesc)
 	char     *rc = NULL;
 	int       line_count = 0;
 
-	if (switch_map_fp == NULL)
+	if (node_name_map_fp == NULL)
 		goto done;
 
-	rewind(switch_map_fp);
+	rewind(node_name_map_fp);
 	for (line_count = 1;
-		getline(&line, &len, switch_map_fp) != -1;
+		getline(&line, &len, node_name_map_fp) != -1;
 		line_count++) {
 		line[len-1] = '\0';
 		if (line[0] == '#')

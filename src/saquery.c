@@ -59,8 +59,8 @@
 
 char *argv0 = "saquery";
 
-static char *switch_map = NULL;
-static FILE *switch_map_fp = NULL;
+static char *node_name_map = NULL;
+static FILE *node_name_map_fp = NULL;
 
 /**
  * Declare some globals because I don't want this to be too complex.
@@ -136,7 +136,7 @@ print_node_record(ib_node_record_t *node_record)
 		return;
 	case NAME_OF_LID:
 	case NAME_OF_GUID:
-		name = lookup_switch_name(switch_map_fp,
+		name = remap_node_name(node_name_map_fp,
 					  cl_ntoh64(p_ni->node_guid),
 					  (char *)p_nd->description);
 		printf("%s\n", name);
@@ -1076,7 +1076,7 @@ usage(void)
 	fprintf(stderr, "   -t | --timeout <msec> specify the SA query "
 				"response timeout (default %u msec)\n",
 			DEFAULT_SA_TIMEOUT_MS);
-	fprintf(stderr, "   --switch-map <switch-map> specify a switch map\n");
+	fprintf(stderr, "   --node-name-map <node-name-map> specify a node name map\n");
 	exit(-1);
 }
 
@@ -1115,7 +1115,7 @@ main(int argc, char **argv)
 	   {"list", 0, 0, 'D'},
 	   {"src-to-dst", 1, 0, 1},
 	   {"timeout", 1, 0, 't'},
-	   {"switch-map", 1, 0, 2},
+	   {"node-name-map", 1, 0, 2},
 	   { }
 	};
 
@@ -1142,7 +1142,7 @@ main(int argc, char **argv)
 			break;
 		}
 		case 2:
-			switch_map = strdup(optarg);
+			node_name_map = strdup(optarg);
 			break;
 		case 'p':
 			query_type = IB_MAD_ATTR_PATH_RECORD;
@@ -1247,7 +1247,7 @@ main(int argc, char **argv)
 	}
 
 	bind_handle = get_bind_handle();
-	switch_map_fp = open_switch_map(switch_map);
+	node_name_map_fp = open_node_name_map(node_name_map);
 
 	switch (query_type) {
 	case IB_MAD_ATTR_NODE_RECORD:
@@ -1293,6 +1293,6 @@ main(int argc, char **argv)
 	if (dst)
 		free(dst);
 	clean_up();
-	close_switch_map(switch_map_fp);
+	close_node_name_map(node_name_map_fp);
 	return (status);
 }

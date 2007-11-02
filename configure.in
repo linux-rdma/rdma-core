@@ -72,30 +72,30 @@ AC_CHECK_FUNCS([strchr strrchr strtol strtoul memset])
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 
-dnl Check for the specification of a default switch map file
-AC_MSG_CHECKING(for --with-switch-map )
-AC_ARG_WITH(switch-map,
-    AC_HELP_STRING([--with-switch-map=file],
-                   [define a default switch map file]),
+dnl Check for the specification of a default node name map file
+AC_MSG_CHECKING(for --with-node-name-map )
+AC_ARG_WITH(node-name-map,
+    AC_HELP_STRING([--with-node-name-map=file],
+                   [define a default node name map file]),
     [ case "$withval" in
     no)
         ;;
     *)
-        withswitchmap=yes
-        SWITCHMAPFILE=$withval
+        withnodenamemap=yes
+        NODENAMEMAPFILE=$withval
         ;;
     esac ]
 )
-AC_MSG_RESULT(${withswitchmap=no})
+AC_MSG_RESULT(${withnodenamemap=no})
 
-if test $withswitchmap = "yes"; then
-   SWITCHMAP_TMP1="`eval echo ${sysconfdir}/$SWITCHMAPFILE`"
-   SWITCHMAP_TMP2="`echo $SWITCHMAP_TMP1 | sed 's/^NONE/$ac_default_prefix/'`"
-   SWITCHMAP="`eval echo $SWITCHMAP_TMP2`"
+if test $withnodenamemap = "yes"; then
+   NODENAMEMAP_TMP1="`eval echo ${sysconfdir}/$NODENAMEMAPFILE`"
+   NODENAMEMAP_TMP2="`echo $NODENAMEMAP_TMP1 | sed 's/^NONE/$ac_default_prefix/'`"
+   NODENAMEMAP="`eval echo $NODENAMEMAP_TMP2`"
 
-   AC_DEFINE_UNQUOTED(HAVE_DEFAULT_SWITCH_MAP,
-	         ["$SWITCHMAP"],
-	         [Define a default switch map file])
+   AC_DEFINE_UNQUOTED(HAVE_DEFAULT_NODENAME_MAP,
+	         ["$NODENAMEMAP"],
+	         [Define a default node name map file])
 fi
 
 dnl Check for perl and perl install location
