@@ -92,8 +92,8 @@ static FILE *f;
 
 char *argv0 = "ibnetdiscover";
 
-static char *node_name_map = NULL;
-static FILE *node_name_map_fp = NULL;
+static char *node_name_map_file = NULL;
+static nn_map_t *node_name_map = NULL;
 
 Node *nodesdist[MAXHOPS+1];     /* last is Ca list */
 Node *mynode;
@@ -460,7 +460,7 @@ void
 list_node(Node *node)
 {
 	char *node_type;
-	char *nodename = remap_node_name(node_name_map_fp, node->nodeguid,
+	char *nodename = remap_node_name(node_name_map, node->nodeguid,
 					      node->nodedesc);
 
 	switch(node->type) {
@@ -537,7 +537,7 @@ out_switch(Node *node, int group, char *chname)
 		fprintf(f, "%d Chip %d", node->chrecord->slotnum, node->chrecord->anafanum);
 	}
 
-	nodename = remap_node_name(node_name_map_fp, node->nodeguid,
+	nodename = remap_node_name(node_name_map, node->nodeguid,
 				node->nodedesc);
 
 	fprintf(f, "\nSwitch\t%d %s\t\t# \"%s\" %s port 0 lid %d lmc %d\n",
@@ -606,7 +606,7 @@ out_switch_port(Port *port, int group)
 	if (ext_port_str)
 		fprintf(f, "%s", ext_port_str);
 
-	rem_nodename = remap_node_name(node_name_map_fp,
+	rem_nodename = remap_node_name(node_name_map,
 				port->remoteport->node->nodeguid,
 				port->remoteport->node->nodedesc);
 
@@ -650,7 +650,7 @@ out_ca_port(Port *port, int group)
 	if (port->remoteport->node->type != SWITCH_NODE)
 		fprintf(f, " (%" PRIx64 ") ", port->remoteport->portguid);
 
-	rem_nodename = remap_node_name(node_name_map_fp,
+	rem_nodename = remap_node_name(node_name_map,
 				port->remoteport->node->nodeguid,
 				port->remoteport->node->nodedesc);
 
@@ -890,7 +890,7 @@ main(int argc, char **argv)
 			break;
 		switch(ch) {
 		case 1:
-			node_name_map = strdup(optarg);
+			node_name_map_file = strdup(optarg);
 			break;
 		case 'C':
 			ca = optarg;
@@ -947,7 +947,7 @@ main(int argc, char **argv)
 		IBERROR("can't open file %s for writing", argv[0]);
 
 	madrpc_init(ca, ca_port, mgmt_classes, 2);
-	node_name_map_fp = open_node_name_map(node_name_map);
+	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (discover(&my_portid) < 0)
 		IBERROR("discover");
@@ -957,6 +957,6 @@ main(int argc, char **argv)
 
 	dump_topology(list, group);
 
-	close_node_name_map(node_name_map_fp);
+	close_node_name_map(node_name_map);
 	exit(0);
 }

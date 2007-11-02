@@ -71,8 +71,8 @@ static FILE *f;
 
 char *argv0 = "ibtracert";
 
-static char *node_name_map = NULL;
-static FILE *node_name_map_fp = NULL;
+static char *node_name_map_file = NULL;
+static nn_map_t *node_name_map = NULL;
 
 typedef struct Port Port;
 typedef struct Switch Switch;
@@ -205,7 +205,7 @@ dump_endnode(int dump, char *prompt, Node *node, Port *port)
 		return;
 	}
 
-	nodename = remap_node_name(node_name_map_fp, node->nodeguid, node->nodedesc);
+	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
 	fprintf(f, "%s %s {0x%016" PRIx64 "} portnum %d lid 0x%x-0x%x \"%s\"\n",
 		prompt,
@@ -225,7 +225,7 @@ dump_route(int dump, Node *node, int outport, Port *port)
 	if (!dump && !verbose)
 		return;
 
-	nodename = remap_node_name(node_name_map_fp, node->nodeguid, node->nodedesc);
+	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
 	if (dump == 1)
 		fprintf(f, "[%d] -> {0x%016" PRIx64 "}[%d]\n",
@@ -637,7 +637,7 @@ dump_mcpath(Node *node, int dumplevel)
 	if (node->upnode)
 		dump_mcpath(node->upnode, dumplevel);
 
-	nodename = remap_node_name(node_name_map_fp, node->nodeguid, node->nodedesc);
+	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
 	if (!node->dist) {
 		printf("From %s 0x%" PRIx64 " port %d lid 0x%x-0x%x \"%s\"\n",
@@ -741,7 +741,7 @@ main(int argc, char **argv)
 			break;
 		switch(ch) {
 		case 1:
-			node_name_map = strdup(optarg);
+			node_name_map_file = strdup(optarg);
 			break;
 		case 'C':
 			ca = optarg;
@@ -799,7 +799,7 @@ main(int argc, char **argv)
 		usage();
 
 	madrpc_init(ca, ca_port, mgmt_classes, 3);
-	node_name_map_fp = open_node_name_map(node_name_map);
+	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (ib_resolve_portid_str(&src_portid, argv[0], dest_type, sm_id) < 0)
 		IBERROR("can't resolve source port %s", argv[0]);
@@ -838,6 +838,6 @@ main(int argc, char **argv)
 	/* dump multicast path */
 	dump_mcpath(endnode, dumplevel);
 
-	close_node_name_map(node_name_map_fp);
+	close_node_name_map(node_name_map);
 	exit(0);
 }

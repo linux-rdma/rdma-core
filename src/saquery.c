@@ -60,8 +60,8 @@
 
 char *argv0 = "saquery";
 
-static char *node_name_map = NULL;
-static FILE *node_name_map_fp = NULL;
+static char *node_name_map_file = NULL;
+static nn_map_t *node_name_map = NULL;
 
 /**
  * Declare some globals because I don't want this to be too complex.
@@ -137,7 +137,7 @@ print_node_record(ib_node_record_t *node_record)
 		return;
 	case NAME_OF_LID:
 	case NAME_OF_GUID:
-		name = remap_node_name(node_name_map_fp,
+		name = remap_node_name(node_name_map,
 					  cl_ntoh64(p_ni->node_guid),
 					  (char *)p_nd->description);
 		printf("%s\n", name);
@@ -1143,7 +1143,7 @@ main(int argc, char **argv)
 			break;
 		}
 		case 2:
-			node_name_map = strdup(optarg);
+			node_name_map_file = strdup(optarg);
 			break;
 		case 'p':
 			query_type = IB_MAD_ATTR_PATH_RECORD;
@@ -1248,7 +1248,7 @@ main(int argc, char **argv)
 	}
 
 	bind_handle = get_bind_handle();
-	node_name_map_fp = open_node_name_map(node_name_map);
+	node_name_map = open_node_name_map(node_name_map_file);
 
 	switch (query_type) {
 	case IB_MAD_ATTR_NODE_RECORD:
@@ -1294,6 +1294,6 @@ main(int argc, char **argv)
 	if (dst)
 		free(dst);
 	clean_up();
-	close_node_name_map(node_name_map_fp);
+	close_node_name_map(node_name_map);
 	return (status);
 }

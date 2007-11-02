@@ -85,8 +85,8 @@ static const match_rec_t match_tbl[] = {
 };
 
 char *argv0 = "smpquery";
-static char *node_name_map = NULL;
-static FILE *node_name_map_fp = NULL;
+static char *node_name_map_file = NULL;
+static nn_map_t *node_name_map = NULL;
 
 /*******************************************/
 static char *
@@ -108,7 +108,7 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	if (!smp_query(nd, dest, IB_ATTR_NODE_DESC, 0, 0))
 		return "node desc query failed";
 
-	nodename = remap_node_name(node_name_map_fp, node_guid, nd);
+	nodename = remap_node_name(node_name_map, node_guid, nd);
 
 	l = strlen(nodename);
 	if (l < 32) {
@@ -460,7 +460,7 @@ main(int argc, char **argv)
 			break;
 		switch(ch) {
 		case 1:
-			node_name_map = strdup(optarg);
+			node_name_map_file = strdup(optarg);
 			break;
 		case 'd':
 			ibdebug++;
@@ -516,7 +516,7 @@ main(int argc, char **argv)
 		IBERROR("operation '%s' not supported", argv[0]);
 
 	madrpc_init(ca, ca_port, mgmt_classes, 3);
-	node_name_map_fp = open_node_name_map(node_name_map);
+	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (dest_type != IB_DEST_DRSLID) {
 		if (ib_resolve_portid_str(&portid, argv[1], dest_type, sm_id) < 0)
@@ -533,6 +533,6 @@ main(int argc, char **argv)
 		if ((err = fn(&portid, argv+3, argc-3)))
 			IBERROR("operation %s: %s", argv[0], err);
 	}
-	close_node_name_map(node_name_map_fp);
+	close_node_name_map(node_name_map);
 	exit(0);
 }
