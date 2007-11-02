@@ -116,6 +116,9 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	if (l < 32) {
 		memset(dots, '.', 32 - l);
 		dots[32 - l] = '\0';
+	} else {
+		dots[0] = '.';
+		dots[1] = '\0';
 	}
 
 	printf("Node Description:%s%s\n", dots, nodename);
