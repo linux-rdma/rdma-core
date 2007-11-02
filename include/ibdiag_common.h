@@ -45,25 +45,12 @@ extern int   ibdebug;
 /*                External interface                      */
 /*========================================================*/
 
-/**
- * Node name map interface.
- * It is OK to pass NULL for the node_name_map[_fp] parameters.
- */
-FILE *open_node_name_map(char *node_name_map);
-void  close_node_name_map(FILE *node_name_map_fp);
-char *remap_node_name(FILE *node_name_map_fp, uint64_t target_guid,
-			char *nodedesc);
-	/* NOTE: parameter "nodedesc" may be modified here. */
-
 #undef DEBUG
 #define	DEBUG	if (ibdebug || verbose) IBWARN
 #define	VERBOSE	if (ibdebug || verbose > 1) IBWARN
 #define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
 
 void  iberror(const char *fn, char *msg, ...);
-
-/* NOTE: this modifies the parameter "nodedesc". */
-char *clean_nodedesc(char *nodedesc);
 
 #ifdef __BUILD_VERSION_TAG__
 

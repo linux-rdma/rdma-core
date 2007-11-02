@@ -54,6 +54,7 @@
 #include <infiniband/vendor/osm_vendor_sa_api.h>
 #include <infiniband/opensm/osm_mad_pool.h>
 #include <infiniband/complib/cl_debug.h>
+#include <infiniband/complib/cl_nodenamemap.h>
 
 #include "ibdiag_common.h"
 
