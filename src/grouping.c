@@ -157,6 +157,10 @@ static uint64_t xsigo_chassisguid(Node *node)
 		else
 			return node->sysimgguid;
 	} else {
+		/* Is there a peer port ? */
+		if (!node->ports->remoteport)
+			return node->sysimgguid;
+
 		/* If peer port is Leaf 1, use its chassis GUID */
 		if (is_xsigo_leafone(node->ports->remoteport->node->sysimgguid))
 			return node->ports->remoteport->node->sysimgguid &
