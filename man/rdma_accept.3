@@ -1,4 +1,4 @@
-.TH "RDMA_ACCEPT" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_ACCEPT" 3 "2007-10-31" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_accept \- Called to accept a connection request.
 .SH SYNOPSIS
@@ -53,17 +53,16 @@ This value must be less than or equal to the local RDMA device attribute
 max_qp_init_rd_atom and the initiator_depth value reported in the connect
 request event.
 .IP flow_control
-Specifies if hardware flow control should be used.  Applies only to RDMA_PS_TCP.
+Specifies if hardware flow control is available.  This value is exchanged
+with the remote peer and is not used to configure the QP.  Applies only to
+RDMA_PS_TCP.
 .IP retry_count
-The maximum number of times that a data transfer operation should be retried
-on the connection when an error occurs.  This setting controls the number of
-times to retry send, RDMA, and atomic operations when timeouts occur.
-Applies only to RDMA_PS_TCP.
+This value is ignored.
 .IP rnr_retry_count
-The maximum number of times that a send operation should be retried on a
-connection after receiving a receiver not ready (RNR) error.  RNR errors are
-generated when a send request arrives before a buffer has been posted to
-receive the incoming data.  Applies only to RDMA_PS_TCP.
+The maximum number of times that a send operation from the remote peer
+should be retried on a connection after receiving a receiver not ready (RNR)
+error.  RNR errors are generated when a send request arrives before a buffer
+has been posted to receive the incoming data.  Applies only to RDMA_PS_TCP.
 .IP srq
 Specifies if the QP associated with the connection is using a shared receive
 queue.  This field is ignored by the library if a QP has been created on the
@@ -71,5 +70,14 @@ rdma_cm_id.  Applies only to RDMA_PS_TCP.
 .IP qp_num
 Specifies the QP number associated with the connection.  This field is ignored
 by the library if a QP has been created on the rdma_cm_id.
+.SH "INFINIBAND SPECIFIC"
+In addition to the connection properties defined above, InfiniBand QPs are
+configured with minimum RNR NAK timer and local ACK timeout values.  The
+minimum RNR NAK timer value is set to 0, for a delay of 655 ms.
+The local ACK timeout is calculated based on the packet lifetime and local
+HCA ACK delay.  The packet lifetime is determined by the InfiniBand Subnet
+Administrator and is part of the route (path record) information obtained
+by the active side of the connection.  The HCA ACK delay is a property of
+the locally used HCA.
 .SH "SEE ALSO"
 rdma_listen(3), rdma_reject(3), rdma_get_cm_event(3)

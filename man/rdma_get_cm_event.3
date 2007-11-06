@@ -1,4 +1,4 @@
-.TH "RDMA_GET_CM_EVENT" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_GET_CM_EVENT" 3 "2007-10-31" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_get_cm_event \- Retrieves the next pending communication event.
 .SH SYNOPSIS
@@ -91,7 +91,7 @@ that the recipient may have outstanding.  This field matches the responder
 resources specified by the remote node when calling rdma_connect and
 rdma_accept.
 .IP "flow_control" 12
-Indicates if hardware level flow control is provided.
+Indicates if hardware level flow control is provided by the sender.
 .IP "retry_count" 12
 For RDMA_CM_EVENT_CONNECT_REQUEST events only, indicates the number of times
 that the recipient should retry send operations.
