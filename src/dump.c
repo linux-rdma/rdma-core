@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -235,11 +236,20 @@ mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 	case 1:
 		snprintf(buf, bufsz, "1X");
 		break;
+	case 2:
+		snprintf(buf, bufsz, "4X (IBA extension)");
+		break;
 	case 3:
 		snprintf(buf, bufsz, "1X or 4X");
 		break;
+	case 4:
+		snprintf(buf, bufsz, "8X (IBA extension)");
+		break;
 	case 7:
 		snprintf(buf, bufsz, "1X or 4X or 8X");
+		break;
+	case 8:
+		snprintf(buf, bufsz, "12X (IBA extension)");
 		break;
 	case 11:
 		snprintf(buf, bufsz, "1X or 4X or 12X");
@@ -304,8 +314,14 @@ mad_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
 	case 1:
 		snprintf(buf, bufsz, "2.5 Gbps");
 		break;
+	case 2:
+		snprintf(buf, bufsz, "5.0 Gbps (IBA extension)");
+		break;
 	case 3:
 		snprintf(buf, bufsz, "2.5 or 5.0 Gbps");
+		break;
+	case 4:
+		snprintf(buf, bufsz, "10.0 Gbps (IBA extension)");
 		break;
 	case 5:
 		snprintf(buf, bufsz, "2.5 or 10.0 Gbps");
@@ -329,13 +345,13 @@ mad_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "2.5 Gbps");
 		break;
 	case 2:
-		snprintf(buf, bufsz, "5.0 Gbps");
+		snprintf(buf, bufsz, "5.0 Gbps (IBA extension)");
 		break;
 	case 3:
 		snprintf(buf, bufsz, "2.5 or 5.0 Gbps");
 		break;
 	case 4:
-		snprintf(buf, bufsz, "10.0 Gbps");
+		snprintf(buf, bufsz, "10.0 Gbps (IBA extension)");
 		break;
 	case 5:
 		snprintf(buf, bufsz, "2.5 or 10.0 Gbps");
