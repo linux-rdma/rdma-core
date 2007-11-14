@@ -50,9 +50,50 @@
 
 #define HIDDEN __attribute__((visibility ("hidden")))
 
-#define PFX	"nes: "
+#define PFX	"libnes: "
 
-#define NES_DRV_OPT_NO_INLINE_DATA		0x00000080
+#define  NES_QP_MMAP		1
+#define  NES_QP_VMAP		2
+
+#define NES_DRV_OPT_NO_INLINE_DATA     0x00000080
+
+#define NES_DEBUG
+/* debug levels */
+/* must match kernel */
+#define NES_DBG_HW          0x00000001
+#define NES_DBG_INIT        0x00000002
+#define NES_DBG_ISR         0x00000004
+#define NES_DBG_PHY         0x00000008
+#define NES_DBG_NETDEV      0x00000010
+#define NES_DBG_CM          0x00000020
+#define NES_DBG_CM1         0x00000040
+#define NES_DBG_NIC_RX      0x00000080
+#define NES_DBG_NIC_TX      0x00000100
+#define NES_DBG_CQP         0x00000200
+#define NES_DBG_MMAP        0x00000400
+#define NES_DBG_MR          0x00000800
+#define NES_DBG_PD          0x00001000
+#define NES_DBG_CQ          0x00002000
+#define NES_DBG_QP          0x00004000
+#define NES_DBG_MOD_QP      0x00008000
+#define NES_DBG_AEQ         0x00010000
+#define NES_DBG_IW_RX       0x00020000
+#define NES_DBG_IW_TX       0x00040000
+#define NES_DBG_SHUTDOWN    0x00080000
+#define NES_DBG_RSVD1       0x10000000
+#define NES_DBG_RSVD2       0x20000000
+#define NES_DBG_RSVD3       0x40000000
+#define NES_DBG_RSVD4       0x80000000
+#define NES_DBG_ALL         0xffffffff
+
+extern unsigned int nes_debug_level;
+#ifdef NES_DEBUG
+#define nes_debug(level, fmt, args...) \
+	if (level & nes_debug_level) \
+		fprintf(stderr, PFX "%s[%u]: " fmt, __FUNCTION__, __LINE__, ##args)
+#else
+#define nes_debug(level, fmt, args...)
+#endif
 
 enum nes_cqe_opcode_bits {
 	NES_CQE_STAG_VALID = (1<<6),
@@ -195,6 +236,8 @@ struct nes_uvcontext {
 	uint32_t max_pds; /* maximum pds allowed for this user process */
 	uint32_t max_qps; /* maximum qps allowed for this user process */
 	uint32_t wq_size; /* size of the WQs (sq+rq) allocated to the mmaped area */
+	uint8_t virtwq ; /*  flag if to use virt wqs or not */
+	uint8_t reserved[3] ;
 };
 
 struct nes_ucq {
@@ -213,6 +256,7 @@ struct nes_uqp {
 	struct nes_hw_qp_wqe volatile *sq_vbase;
 	struct nes_hw_qp_wqe volatile *rq_vbase;
 	uint32_t qp_id;
+	struct	ibv_mr mr;
 	uint32_t nes_drv_opt;
 	pthread_spinlock_t lock;
 	uint16_t sq_db_index;
@@ -223,6 +267,8 @@ struct nes_uqp {
 	uint16_t rq_head;
 	uint16_t rq_tail;
 	uint16_t rq_size;
+	uint16_t mapping;
+	uint16_t rsvd;
 };
 
 #define to_nes_uxxx(xxx, type)				\
@@ -256,7 +302,7 @@ static inline struct nes_uqp *to_nes_uqp(struct ibv_qp *ibqp)
 
 
 /* nes_umain.c */
-struct ibv_device *ibv_driver_init(const char *, int);
+struct ibv_device *nes_driver_init(const char *, int);
 
 /* nes_uverbs.c */
 int nes_uquery_device(struct ibv_context *, struct ibv_device_attr *);
@@ -285,11 +331,25 @@ int nes_uattach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
 int nes_udetach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-static inline uint32_t cpu_to_le32(uint32_t x) { return x; }
-static inline uint32_t le32_to_cpu(uint32_t x) { return x; }
+static inline uint32_t cpu_to_le32(uint32_t x)
+{
+	return x;
+}
+static inline uint32_t le32_to_cpu(uint32_t x)
+{
+	return x;
+}
 #else
-static inline uint32_t cpu_to_le32(uint32_t x) { return (((x&0xFF000000)>>24) | ((x&0x00FF0000)>>8) | ((x&0x0000FF00)<<8) | ((x&0x000000FF)<<24)); }
-static inline uint32_t le32_to_cpu(uint32_t x) { return (((x&0xFF000000)>>24) | ((x&0x00FF0000)>>8) | ((x&0x0000FF00)<<8) | ((x&0x000000FF)<<24)); }
+static inline uint32_t cpu_to_le32(uint32_t x)
+{
+	return (((x&0xFF000000)>>24) | ((x&0x00FF0000)>>8) |
+			((x&0x0000FF00)<<8) | ((x&0x000000FF)<<24));
+}
+static inline uint32_t le32_to_cpu(uint32_t x)
+{
+	return (((x&0xFF000000)>>24) | ((x&0x00FF0000)>>8) |
+			((x&0x0000FF00)<<8) | ((x&0x000000FF)<<24));
+}
 #endif
 
 #endif				/* nes_umain_H */

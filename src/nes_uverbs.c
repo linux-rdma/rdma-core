@@ -101,7 +101,7 @@ struct ibv_pd *nes_ualloc_pd(struct ibv_context *context)
 	nesupd->udoorbell = mmap(NULL, page_size, PROT_WRITE | PROT_READ, MAP_SHARED,
 			context->cmd_fd, nesupd->db_index * page_size);
 
-	if (((void *)-1) == nesupd->udoorbell) {
+	if (nesupd->udoorbell == MAP_FAILED) {
 		free(nesupd);
 		return NULL;
 	}
@@ -285,6 +285,10 @@ int nes_udestroy_cq(struct ibv_cq *cq)
 	if (ret)
 		return ret;
 
+	ret = ibv_cmd_dereg_mr(&nesucq->mr);
+	if (ret)
+		fprintf(stderr, PFX "%s: Failed to deregister CQ Memory Region.\n", __FUNCTION__);
+
 	/* Free CQ the memory */
 	free((struct nes_hw_cqe *)nesucq->cqes);
 	pthread_spin_destroy(&nesucq->lock);
@@ -326,17 +330,19 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 
 			memset(entry, 0, sizeof *entry);
 			/* this is for both the cqe copy and the zeroing of entry */
-			asm __volatile__("": : :"memory");
+			mb();
 
 			nesucq->cqes[head].cqe_words[NES_CQE_OPCODE_IDX] = 0;
 
 			/* parse CQE, get completion context from WQE (either rq or sq */
 			wqe_index = le32_to_cpu(cqe.cqe_words[NES_CQE_COMP_COMP_CTX_LOW_IDX]) & 511;
 			u64temp = ((uint64_t) (le32_to_cpu(cqe.cqe_words[NES_CQE_COMP_COMP_CTX_LOW_IDX]))) |
-				(((uint64_t) (le32_to_cpu(cqe.cqe_words[NES_CQE_COMP_COMP_CTX_HIGH_IDX])))<<32);
+					(((uint64_t) (le32_to_cpu(cqe.cqe_words[NES_CQE_COMP_COMP_CTX_HIGH_IDX])))<<32);
+			mb();
 			nesuqp = *((struct nes_uqp **)&u64temp);
+			mb();
 			nesuqp = (struct nes_uqp *)((uintptr_t)nesuqp & (~1023));
-			if (0 == le32_to_cpu(cqe.cqe_words[NES_CQE_ERROR_CODE_IDX])) {
+			if (le32_to_cpu(cqe.cqe_words[NES_CQE_ERROR_CODE_IDX]) == 0) {
 				entry->status = IBV_WC_SUCCESS;
 			} else {
 				/* TODO: other errors? */
@@ -395,7 +401,7 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 			/* TODO: find a better number...if there is one */
 			if ((nesucq->polled_completions > (cq_size/2)) ||
 					(nesucq->polled_completions == 255)) {
-				if (NULL == nesvctx)
+				if (nesvctx == NULL)
 					nesvctx = to_nes_uctx(cq->context);
 				nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(nesucq->cq_id |
 						(nesucq->polled_completions << 16));
@@ -408,7 +414,7 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	}
 
 	if (nesucq->polled_completions) {
-		if (NULL == nesvctx)
+		if (nesvctx == NULL)
 			nesvctx = to_nes_uctx(cq->context);
 		nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(nesucq->cq_id |
 				(nesucq->polled_completions << 16));
@@ -492,23 +498,170 @@ int nes_upost_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 
 
 /**
+ * nes_mmapped_qp
+ * will not invoke registration of memory reqion and will allow
+ * the kernel module to allocate big chunk of contigous memory
+ * for sq and rq... returns 1 if succeeds, 0 if fails..
+ */
+static int nes_mmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
+		struct nes_ucreate_qp_resp *resp)
+{
+
+	unsigned long mmap_offset;
+	struct nes_ucreate_qp cmd;
+	struct nes_uvcontext *nesvctx = to_nes_uctx(pd->context);
+	int ret;
+
+	 memset (&cmd, 0, sizeof(cmd) );
+
+	/* fprintf(stderr, PFX "%s entering==>\n",__FUNCTION__); */
+	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
+		&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );
+	if (ret)
+		return 0;
+
+	/* Map the SQ/RQ buffers */
+	mmap_offset = ((nesvctx->max_pds*4096) + page_size-1) & (~(page_size-1));
+	mmap_offset += (((sizeof(struct nes_hw_qp_wqe) * nesvctx->wq_size) + page_size-1) &
+			(~(page_size-1)))*nesuqp->sq_db_index;
+
+	nesuqp->sq_vbase = mmap(NULL, (nesuqp->sq_size+nesuqp->rq_size) *
+			sizeof(struct nes_hw_qp_wqe), PROT_WRITE | PROT_READ,
+			MAP_SHARED, pd->context->cmd_fd, mmap_offset);
+
+
+	if (nesuqp->sq_vbase == MAP_FAILED) {
+		return 0;
+	}
+	nesuqp->rq_vbase = (struct nes_hw_qp_wqe *)(((char *)nesuqp->sq_vbase) +
+			(nesuqp->sq_size*sizeof(struct nes_hw_qp_wqe)));
+	*((unsigned int *)nesuqp->sq_vbase) = 0;
+	nesuqp->mapping = NES_QP_MMAP;
+
+	return 1;
+}
+
+
+/**
+ * nes_vmapped_qp
+ * invoke registration of memory reqion. This method is used
+ * when kernel can not allocate qp memory (contigous physical).
+ *
+ * returns 1 if succeeds, 0 if fails..
+ */
+static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
+		struct nes_ucreate_qp_resp *resp, int sqdepth, int rqdepth)
+{
+
+	struct nes_ucreate_qp cmd;
+	struct nes_ureg_mr	reg_mr_cmd;
+#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
+        struct ibv_reg_mr_resp reg_mr_resp;
+#endif
+
+	int	totalqpsize;
+	int ret;
+
+	// fprintf(stderr, PFX "%s\n", __FUNCTION__);
+	totalqpsize = (sqdepth + rqdepth) * sizeof (struct nes_hw_qp_wqe) ;
+	nesuqp->sq_vbase = memalign(page_size, totalqpsize);
+	if (!nesuqp->sq_vbase) {
+	//	fprintf(stderr, PFX "CREATE_QP could not allocate mem of size %d\n", totalqpsize);
+		return 0;
+	}
+	nesuqp->rq_vbase = (struct nes_hw_qp_wqe *) (((char *) nesuqp->sq_vbase) +
+			(nesuqp->sq_size * sizeof(struct nes_hw_qp_wqe)));
+
+	reg_mr_cmd.reg_type = NES_UMEMREG_TYPE_QP;
+
+	//fprintf(stderr, PFX "qp_rq_vbase = %p qp_sq_vbase=%p reg_mr = %p\n",
+	//		nesuqp->rq_vbase, nesuqp->sq_vbase, &nesuqp->mr);
+
+
+#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
+        ret = ibv_cmd_reg_mr(pd, (void *)nesuqp->sq_vbase,totalqpsize,
+				(uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
+				&nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
+				&reg_mr_resp, sizeof reg_mr_resp);
+#else
+        ret = ibv_cmd_reg_mr(pd, (void *)nesuqp->sq_vbase,totalqpsize,
+				(uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
+				&nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd);
+#endif
+
+        if (ret) {
+                // fprintf(stderr, PFX "%s ibv_cmd_reg_mr failed (ret = %d).\n", __FUNCTION__, ret);
+			pthread_spin_destroy(&nesuqp->lock);
+			free(nesuqp);
+			return 0;
+        }
+	// So now the memory has been registered..
+	memset (&cmd, 0, sizeof(cmd) );
+	cmd.user_sq_buffer = (__u64) ((uintptr_t) nesuqp->sq_vbase);
+	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
+			&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );
+	if (ret) {
+		free((void *)nesuqp->sq_vbase);
+		return 0;
+	}
+	*((unsigned int *)nesuqp->rq_vbase) = 0;
+	nesuqp->mapping = NES_QP_VMAP;
+	return 1;
+}
+
+
+/**
+ * nes_qp_get_qdepth
+ * This routine will return the size of qdepth to be set for one
+ * of the qp (sq or rq)
+ */
+static int nes_qp_get_qdepth(uint32_t qdepth, uint32_t maxsges)
+{
+	int	retdepth;
+
+	/* Do sanity check on the parameters */
+	/* Should the following be 510 or 511 */
+	if ((qdepth > 510) || (maxsges > 4) )
+		return 0;
+
+	/* Do we need to do the following of */
+	/* we can just return the actual value.. needed for alignment */
+	if (qdepth < 32)
+		retdepth = 32;
+	else if (qdepth < 128)
+		retdepth = 128;
+	else retdepth = 512;
+
+	return retdepth;
+}
+
+
+/**
  * nes_ucreate_qp
  */
 struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	struct nes_uqp *nesuqp;
-	struct nes_uvcontext *nesvctx = to_nes_uctx(pd->context);
-	struct nes_ucreate_qp cmd;
 	struct nes_ucreate_qp_resp resp;
-	unsigned long mmap_offset;
-	int ret;
+	struct nes_uvcontext *nesvctx = to_nes_uctx(pd->context);
+	struct nes_uqp *nesuqp;
+	int	sqdepth, rqdepth;
+	int	 status = 1;
 
+	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	/* Sanity check QP size before proceeding */
-	if (attr->cap.max_send_wr > 510 ||
-			attr->cap.max_recv_wr > 510 ||
-			attr->cap.max_send_sge > 4 ||
-			attr->cap.max_recv_sge > 4 )
+	sqdepth = nes_qp_get_qdepth(attr->cap.max_send_wr, attr->cap.max_send_sge);
+	if (!sqdepth) {
+		fprintf(stderr, PFX "%s Bad sq attr parameters max_send_wr=%d max_send_sge=%d\n",
+			__FUNCTION__, attr->cap.max_send_wr,attr->cap.max_send_sge);
 		return NULL;
+	}
+
+	rqdepth = nes_qp_get_qdepth(attr->cap.max_recv_wr, attr->cap.max_recv_sge);
+	if (!rqdepth) {
+		fprintf(stderr, PFX "%s Bad rq attr parameters max_recv_wr=%d max_recv_sge=%d\n",
+			__FUNCTION__, attr->cap.max_recv_wr,attr->cap.max_recv_sge);
+		return NULL;
+	}
 
 	nesuqp = memalign(1024, sizeof(*nesuqp));
 	if (!nesuqp)
@@ -520,42 +673,37 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 		return NULL;
 	}
 
-	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
-			&resp.ibv_resp, sizeof resp);
-	if (ret) {
+	/* Initially setting it up so we will know how much memory to allocate for mapping */
+	/* also setting it up in attr.. If we do not want to modify the attr struct, we */
+	/* can save the original values and restore them before return. */
+	nesuqp->sq_size = attr->cap.max_send_wr = sqdepth;
+	nesuqp->rq_size = attr->cap.max_recv_wr = rqdepth;
+
+	if (nesvctx->virtwq) {
+		status = nes_vmapped_qp(nesuqp,pd, attr,&resp,sqdepth,rqdepth);
+	}else {
+		status = nes_mmapped_qp(nesuqp,pd,attr, &resp);
+	}
+
+	if (!status) {
 		pthread_spin_destroy(&nesuqp->lock);
 		free(nesuqp);
 		return NULL;
 	}
 
+
+	/* The following are the common parameters no matter how the */
+	/* sq and rq memory was mapped.. */
+
+	/* Account for LSMM, in theory, could get overrun if app preposts to SQ */
+	nesuqp->sq_head = 1;
+	nesuqp->sq_tail = 1;
 	nesuqp->qp_id = resp.qp_id;
 	nesuqp->sq_db_index = resp.mmap_sq_db_index;
 	nesuqp->rq_db_index = resp.mmap_rq_db_index;
 	nesuqp->sq_size = resp.actual_sq_size;
 	nesuqp->rq_size = resp.actual_rq_size;
 	nesuqp->nes_drv_opt = resp.nes_drv_opt;
-	/* Account for LSMM, in theory, could get overrun if app preposts to SQ */
-	nesuqp->sq_head = 1;
-	nesuqp->sq_tail = 1;
-
-	/* Map the SQ/RQ buffers */
-	mmap_offset = ((nesvctx->max_pds*4096) + page_size-1) & (~(page_size-1));
-	mmap_offset += (((sizeof(struct nes_hw_qp_wqe) * nesvctx->wq_size) + page_size-1) &
-			(~(page_size-1)))*nesuqp->sq_db_index;
-
-	nesuqp->sq_vbase = mmap(NULL, (nesuqp->sq_size+nesuqp->rq_size) *
-			sizeof(struct nes_hw_qp_wqe), PROT_WRITE | PROT_READ,
-			MAP_SHARED, pd->context->cmd_fd, mmap_offset);
-
-	if (((void *)-1) == nesuqp->sq_vbase) {
-		pthread_spin_destroy(&nesuqp->lock);
-		free(nesuqp);
-		return NULL;
-	}
-	nesuqp->rq_vbase = (struct nes_hw_qp_wqe *)(((char *)nesuqp->sq_vbase) +
-			(nesuqp->sq_size*sizeof(struct nes_hw_qp_wqe)));
-	*((unsigned int *)nesuqp->sq_vbase) = 0;
-
 	return &nesuqp->ibv_qp;
 }
 
@@ -594,14 +742,29 @@ int nes_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 int nes_udestroy_qp(struct ibv_qp *qp)
 {
 	struct nes_uqp *nesuqp = to_nes_uqp(qp);
-	int ret;
+	int ret = 0;
 
-	munmap((void *) nesuqp->sq_vbase, (nesuqp->sq_size+nesuqp->rq_size) *
-			sizeof(struct nes_hw_qp_wqe));
+	// fprintf(stderr, PFX "%s addr&mr= %p  \n", __FUNCTION__, &nesuqp->mr );
 
 	ret = ibv_cmd_destroy_qp(qp);
-	if (ret)
+	if (ret) {
+	 	fprintf(stderr, PFX "%s FAILED\n", __FUNCTION__);
 		return ret;
+	}
+
+	if (nesuqp->mapping == NES_QP_VMAP) {
+		ret = ibv_cmd_dereg_mr(&nesuqp->mr);
+		if (ret)
+	 		fprintf(stderr, PFX "%s dereg_mr FAILED\n", __FUNCTION__);
+	}
+
+
+	if (nesuqp->mapping == NES_QP_MMAP) {
+		munmap((void *)nesuqp->sq_vbase, (nesuqp->sq_size+nesuqp->rq_size) *
+			sizeof(struct nes_hw_qp_wqe));
+	} else {
+		free((void *)nesuqp->sq_vbase);
+	}
 
 	pthread_spin_destroy(&nesuqp->lock);
 	free(nesuqp);
@@ -653,7 +816,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 		u64temp = (uint64_t)((uintptr_t)nesuqp);
 		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX] = cpu_to_le32((uint32_t)u64temp);
 		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_HIGH_IDX] = cpu_to_le32((uint32_t)(u64temp>>32));
-		asm __volatile__("": : :"memory");
+		mb();
 		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX] |= cpu_to_le32(head);
 
 		switch (ib_wr->opcode) {
@@ -676,7 +839,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 						__FUNCTION__, ib_wr->sg_list[0].length);
 			} */
 			if ((ib_wr->send_flags & IBV_SEND_INLINE) && (ib_wr->sg_list[0].length <= 64) &&
-				(0 == (nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA)) &&
+				((nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA) == 0) &&
 				(ib_wr->num_sge == 1)) {
 				memcpy((void *)&wqe->wqe_words[NES_IWARP_SQ_WQE_IMM_DATA_START_IDX],
 						(void *)ib_wr->sg_list[0].addr, ib_wr->sg_list[0].length);
@@ -720,7 +883,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 						__FUNCTION__, ib_wr->sg_list[0].length);
 			} */
 			if ((ib_wr->send_flags & IBV_SEND_INLINE) && (ib_wr->sg_list[0].length <= 64) &&
-				(0 == (nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA)) &&
+				((nesuqp->nes_drv_opt & NES_DRV_OPT_NO_INLINE_DATA) == 0) &&
 				(ib_wr->num_sge == 1)) {
 				memcpy((void *)&wqe->wqe_words[NES_IWARP_SQ_WQE_IMM_DATA_START_IDX],
 						(void *)ib_wr->sg_list[0].addr, ib_wr->sg_list[0].length);
@@ -779,7 +942,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	}
 
 	nesuqp->sq_head = head;
-	asm __volatile__("": : :"memory");
+	mb();
 	while (wqe_count) {
 		counter = (wqe_count<(uint32_t)255) ? wqe_count : 255;
 		wqe_count -= counter;
@@ -836,7 +999,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 				cpu_to_le32((uint32_t)u64temp);
 		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_HIGH_IDX] =
 				cpu_to_le32((uint32_t)(u64temp >> 32));
-		asm __volatile__("": : :"memory");
+		mb();
 		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_LOW_IDX] |= cpu_to_le32(head);
 
 		total_payload_length = 0;
@@ -861,7 +1024,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	}
 
 	nesuqp->rq_head = head;
-	asm __volatile__("": : :"memory");
+	mb();
 	while (wqe_count) {
 		counter = (wqe_count<(uint32_t)255) ? wqe_count : 255;
 		wqe_count -= counter;
@@ -915,4 +1078,3 @@ int nes_udetach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
 	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	return -ENOSYS;
 }
-

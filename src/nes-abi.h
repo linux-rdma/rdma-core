@@ -36,12 +36,25 @@
 
 #include <infiniband/kern-abi.h>
 
+#define NES_ABI_USERSPACE_VER 1
+#define NES_ABI_KERNEL_VER 1
+
+struct nes_get_context {
+	struct ibv_get_context cmd;
+	__u32 reserved32;
+	__u8 userspace_ver;
+	__u8 reserved8[3];
+};
+
+
 struct nes_ualloc_ucontext_resp {
 	struct ibv_get_context_resp ibv_resp;
 	__u32 max_pds; 	/* maximum pds allowed for this user process */
 	__u32 max_qps; 	/* maximum qps allowed for this user process */
 	__u32 wq_size; 	/* defines the size of the WQs (sq+rq) allocated to the mmaped area */
-	__u32 reserved;
+	__u8 virtwq;
+	__u8 kernel_ver;
+	__u8 reserved[2];
 };
 
 struct nes_ualloc_pd_resp {
@@ -77,6 +90,7 @@ struct nes_ureg_mr {
 
 struct nes_ucreate_qp {
 	struct ibv_create_qp ibv_cmd;
+	__u64	user_sq_buffer;
 };
 
 struct nes_ucreate_qp_resp {

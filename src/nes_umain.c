@@ -45,6 +45,7 @@
 #include "nes_umain.h"
 #include "nes-abi.h"
 
+unsigned int nes_debug_level = NES_DBG_INIT;
 long int page_size;
 
 #include <sys/types.h>
@@ -59,9 +60,9 @@ long int page_size;
 #define PCI_DEVICE_ID_NETEFFECT_nes	0x0100
 #endif
 
-#define HCA(v, d, t) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_NETEFFECT_##d,		\
+#define HCA(v, d, t)                            \
+	{ .vendor = PCI_VENDOR_ID_##v,              \
+	  .device = PCI_DEVICE_ID_NETEFFECT_##d,    \
 	  .type = NETEFFECT_##t }
 
 struct {
@@ -113,7 +114,7 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 {
 	struct ibv_pd *ibv_pd;
 	struct nes_uvcontext *nesvctx;
-	struct ibv_get_context cmd;
+	struct nes_get_context cmd;
 	struct nes_ualloc_ucontext_resp resp;
 
 	page_size = sysconf(_SC_PAGESIZE);
@@ -123,16 +124,24 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 		return NULL;
 
 	nesvctx->ibv_ctx.cmd_fd = cmd_fd;
+	cmd.userspace_ver = NES_ABI_USERSPACE_VER;
 
-	if (ibv_cmd_get_context(&nesvctx->ibv_ctx, &cmd, sizeof cmd,
+	if (ibv_cmd_get_context(&nesvctx->ibv_ctx, (struct ibv_get_context *)&cmd, sizeof cmd,
 			&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
+
+	if (resp.kernel_ver != NES_ABI_KERNEL_VER) {
+	 	fprintf(stderr, PFX "%s: Invalid kernel driver version detected. Detected %d, should be %d\n",
+			__FUNCTION__, resp.kernel_ver, NES_ABI_KERNEL_VER);
+		goto err_free;
+	}
 
 	nesvctx->ibv_ctx.device = ibdev;
 	nesvctx->ibv_ctx.ops = nes_uctx_ops;
 	nesvctx->max_pds = resp.max_pds;
 	nesvctx->max_qps = resp.max_qps;
 	nesvctx->wq_size = resp.wq_size;
+	nesvctx->virtwq = resp.virtwq;
 
 	/* Get a doorbell region for the CQs */
 	ibv_pd = nes_ualloc_pd(&nesvctx->ibv_ctx);
@@ -179,13 +188,10 @@ struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version)
 	unsigned vendor, device;
 	int i;
 
-	/* fprintf(stderr, PFX "called ibv_driver_init()\n");  */
-
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 			value, sizeof(value)) < 0) {
 		return NULL;
 	}
-
 	sscanf(value, "%i", &vendor);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
@@ -202,15 +208,22 @@ struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version)
 	return NULL;
 
 found:
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/driver/module/parameters/debug_level",
+			value, sizeof(value)) > 0) {
+		sscanf(value, "%u", &nes_debug_level);
+	}
+
 	dev = malloc(sizeof *dev);
 	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for libnes\n");
+		nes_debug(NES_DBG_INIT, "Fatal: couldn't allocate device for libnes\n");
 		return NULL;
 	}
 
 	dev->ibv_dev.ops = nes_udev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = sysconf(_SC_PAGESIZE);
+
+	nes_debug(NES_DBG_INIT, "libnes initialized\n");
 
 	return &dev->ibv_dev;
 }
@@ -225,4 +238,3 @@ static __attribute__((constructor)) void nes_register_driver(void)
 
 	ibv_register_driver("nes", nes_driver_init);
 }
-
