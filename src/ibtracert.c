@@ -207,7 +207,7 @@ dump_endnode(int dump, char *prompt, Node *node, Port *port)
 
 	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
-	fprintf(f, "%s %s {0x%016" PRIx64 "} portnum %d lid 0x%x-0x%x \"%s\"\n",
+	fprintf(f, "%s %s {0x%016" PRIx64 "} portnum %d lid %u-%u \"%s\"\n",
 		prompt,
 		(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
 		node->nodeguid, node->type == IB_NODE_SWITCH ? 0 : port->portnum,
@@ -231,7 +231,7 @@ dump_route(int dump, Node *node, int outport, Port *port)
 		fprintf(f, "[%d] -> {0x%016" PRIx64 "}[%d]\n",
 			outport, port->portguid, port->portnum);
 	else
-		fprintf(f, "[%d] -> %s port {0x%016" PRIx64 "}[%d] lid 0x%x-0x%x \"%s\"\n",
+		fprintf(f, "[%d] -> %s port {0x%016" PRIx64 "}[%d] lid %u-%u \"%s\"\n",
 			outport,
 			(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
 			port->portguid, port->portnum,
@@ -640,7 +640,7 @@ dump_mcpath(Node *node, int dumplevel)
 	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
 	if (!node->dist) {
-		printf("From %s 0x%" PRIx64 " port %d lid 0x%x-0x%x \"%s\"\n",
+		printf("From %s 0x%" PRIx64 " port %d lid %u-%u \"%s\"\n",
 			(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
 			node->nodeguid, node->ports->portnum, node->ports->lid,
 			node->ports->lid + (1 << node->ports->lmc) - 1,
@@ -655,7 +655,7 @@ dump_mcpath(Node *node, int dumplevel)
 				(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
 				node->nodeguid, node->upport);
 		else
-			printf("[%d] -> %s 0x%" PRIx64 "[%d] lid 0x%x \"%s\"\n",
+			printf("[%d] -> %s 0x%" PRIx64 "[%d] lid %u \"%s\"\n",
 				node->ports->remoteport->portnum,
 				(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
 				node->nodeguid, node->upport,
@@ -664,7 +664,7 @@ dump_mcpath(Node *node, int dumplevel)
 
 	if (node->dist < 0)
 	/* target node */
-		printf("To %s 0x%" PRIx64 " port %d lid 0x%x-0x%x \"%s\"\n",
+		printf("To %s 0x%" PRIx64 " port %d lid %u-%u \"%s\"\n",
 			(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
 			node->nodeguid, node->ports->portnum, node->ports->lid,
 			node->ports->lid + (1 << node->ports->lmc) - 1,
