@@ -303,7 +303,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 	for (caidx = 0; caidx < n; caidx++) {
 		TRACE("checking ca '%s'", names[caidx]);
 
-		port = *best_port;
+		port = best_port ? *best_port : 0;
 		if ((port_type = resolve_ca_port(names[caidx], &port)) < 0)
 			continue;
 
