@@ -466,13 +466,17 @@ static int post_recv(struct ipath_rq *rq, struct ibv_recv_wr *wr,
 	rwq = rq->rwq;
 	head = rwq->head;
 	for (i = wr; i; i = i->next) {
-		if ((unsigned) i->num_sge > rq->max_sge)
+		if ((unsigned) i->num_sge > rq->max_sge) {
+			ret = EINVAL;
 			goto bad;
+		}
 		wqe = get_rwqe_ptr(rq, head);
 		if (++head >= rq->size)
 			head = 0;
-		if (head == rwq->tail)
+		if (head == rwq->tail) {
+			ret = ENOMEM;
 			goto bad;
+		}
 		wqe->wr_id = i->wr_id;
 		wqe->num_sge = i->num_sge;
 		for (n = 0; n < wqe->num_sge; n++)
@@ -485,7 +489,6 @@ static int post_recv(struct ipath_rq *rq, struct ibv_recv_wr *wr,
 	goto done;
 
 bad:
-	ret = -ENOMEM;
 	if (bad_wr)
 		*bad_wr = i;
 done:
