@@ -419,6 +419,40 @@ int ipath_destroy_qp_v1(struct ibv_qp *ibqp)
 	return ret;
 }
 
+int ipath_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr,
+		    struct ibv_send_wr **bad_wr)
+{
+	unsigned wr_count;
+	struct ibv_send_wr *i;
+
+	/* Sanity check the number of WRs being posted */
+	for (i = wr, wr_count = 0; i; i = i->next)
+		if (++wr_count > 10)
+			goto iter;
+
+	return ibv_cmd_post_send(qp, wr, bad_wr);
+
+iter:
+	do {
+		struct ibv_send_wr *next;
+		int ret;
+
+		next = i->next;
+		i->next = NULL;
+		ret = ibv_cmd_post_send(qp, wr, bad_wr);
+		i->next = next;
+		if (ret)
+			return ret;
+		if (next == NULL)
+			break;
+		wr = next;
+		for (i = wr, wr_count = 0; i->next; i = i->next)
+			if (++wr_count > 2)
+				break;
+	} while (1);
+	return 0;
+}
+
 static int post_recv(struct ipath_rq *rq, struct ibv_recv_wr *wr,
 		     struct ibv_recv_wr **bad_wr)
 {

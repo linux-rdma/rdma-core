@@ -119,7 +119,7 @@ static struct ibv_context_ops ipath_ctx_ops = {
 	.modify_qp	= ipath_modify_qp,
 	.destroy_qp	= ipath_destroy_qp,
 
-	.post_send	= ibv_cmd_post_send,
+	.post_send	= ipath_post_send,
 	.post_recv	= ipath_post_recv,
 
 	.create_ah	= ipath_create_ah,
