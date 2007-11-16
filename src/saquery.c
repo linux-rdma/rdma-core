@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
 #include <string.h>
@@ -782,6 +783,50 @@ get_print_path_rec_lid(osm_bind_handle_t bind_handle,
 }
 
 static ib_api_status_t
+get_print_path_rec_gid(osm_bind_handle_t bind_handle,
+		       const ib_gid_t *src_gid,
+		       const ib_gid_t *dst_gid)
+{
+	int                   i = 0;
+	ib_path_rec_t         *path_record = NULL;
+	osmv_query_req_t      req;
+	osmv_gid_pair_t       gid_pair;
+	ib_api_status_t       status;
+
+	gid_pair.src_gid = *src_gid;
+	gid_pair.dest_gid = *dst_gid;
+
+	memset( &req, 0, sizeof( req ) );
+
+	req.query_type = OSMV_QUERY_PATH_REC_BY_GIDS;
+	req.timeout_ms = sa_timeout_ms;
+	req.retry_cnt = 1;
+	req.flags = OSM_SA_FLAGS_SYNC;
+	req.query_context = NULL;
+	req.pfn_query_cb = query_res_cb;
+	req.p_query_input = (void *)&gid_pair;
+	req.sm_key = 0;
+
+	if ((status = osmv_query_sa(bind_handle, &req)) != IB_SUCCESS) {
+		fprintf(stderr, "ERROR: Query SA failed: %s\n",
+			ib_get_err_str(status));
+		return (status);
+	}
+	if (result.status != IB_SUCCESS) {
+		fprintf(stderr, "ERROR: Query result returned: %s\n",
+			ib_get_err_str(result.status));
+		return (result.status);
+	}
+	status = result.status;
+	for (i = 0; i < result.result_cnt; i++) {
+		path_record = osmv_get_query_path_rec(result.p_result_madw, i);
+		print_path_record(path_record);
+	}
+	return_mad();
+	return (status);
+}
+
+static ib_api_status_t
 get_print_class_port_info(osm_bind_handle_t bind_handle)
 {
 	int                   i = 0;
@@ -1046,8 +1091,8 @@ static void
 usage(void)
 {
 	fprintf(stderr, "Usage: %s [-h -d -p -N] [--list | -D] [-S -I -L -l -G"
-		" -O -U -c -s -g -m --src-to-dst <src:dst> -C <ca_name> "
-		"-P <ca_port> -t(imeout) <msec>] [<name> | <lid> | <guid>]\n",
+		" -O -U -c -s -g -m --src-to-dst <src:dst> --sgid-to-dgid <src-dst> "
+		"-C <ca_name> -P <ca_port> -t(imeout) <msec>] [<name> | <lid> | <guid>]\n",
 		argv0);
 	fprintf(stderr, "   Queries node records by default\n");
 	fprintf(stderr, "   -d enable debugging\n");
@@ -1070,8 +1115,11 @@ usage(void)
 				" only for group specified\n");
 	fprintf(stderr, "      specified, for example 'saquery -m 0xC000')\n");
 	fprintf(stderr, "   --src-to-dst get a PathRecord for <src:dst>\n"
-			"                where src amd dst are either node "
+			"                where src and dst are either node "
 				"names or LIDs\n");
+	fprintf(stderr, "   --sgid-to-dgid get a PathRecord for <sgid-dgid>\n"
+			"                where sgid and dgid are addresses in "
+				"IPv6 format\n");
 	fprintf(stderr, "   -C <ca_name> specify the SA query HCA\n");
 	fprintf(stderr, "   -P <ca_port> specify the SA query port\n");
 	fprintf(stderr, "   -t | --timeout <msec> specify the SA query "
@@ -1089,6 +1137,8 @@ main(int argc, char **argv)
 	osm_bind_handle_t  bind_handle;
 	char              *src = NULL;
 	char              *dst = NULL;
+	char              *sgid = NULL;
+	char              *dgid = NULL;
 	ib_net16_t         src_lid;
 	ib_net16_t         dst_lid;
 	ib_api_status_t    status;
@@ -1115,8 +1165,9 @@ main(int argc, char **argv)
 	   {"help", 0, 0, 'h'},
 	   {"list", 0, 0, 'D'},
 	   {"src-to-dst", 1, 0, 1},
+	   {"sgid-to-dgid", 1, 0, 2},
 	   {"timeout", 1, 0, 't'},
-	   {"node-name-map", 1, 0, 2},
+	   {"node-name-map", 1, 0, 3},
 	   { }
 	};
 
@@ -1143,6 +1194,24 @@ main(int argc, char **argv)
 			break;
 		}
 		case 2:
+		{
+			char *opt  = strdup(optarg);
+			char *tok1 = strtok(opt, "-");
+			char *tok2 = strtok(NULL, "\0");
+
+			if (tok1 && tok2) {
+				sgid = strdup(tok1);
+				dgid = strdup(tok2);
+			} else {
+				fprintf(stderr,
+					"ERROR: --sgid-to-dgid <GID>-<GID>\n");
+				usage();
+			}
+			free(opt);
+			query_type = IB_MAD_ATTR_PATH_RECORD;
+			break;
+		}
+		case 3:
 			node_name_map_file = strdup(optarg);
 			break;
 		case 'p':
@@ -1264,6 +1333,21 @@ main(int argc, char **argv)
 			} else {
 	        		status = get_print_path_rec_lid(bind_handle, src_lid, dst_lid);
 			}
+		} else if (sgid && dgid) {
+			struct in6_addr src_addr, dst_addr;
+
+			if (inet_pton(AF_INET6, sgid, &src_addr) <= 0) {
+				fprintf(stderr, "invalid src gid: %s\n", sgid);
+				exit(-1);
+			}
+			if (inet_pton(AF_INET6, dgid, &dst_addr) <= 0) {
+				fprintf(stderr, "invalid dst gid: %s\n", dgid);
+				exit(-1);
+			}
+			status = get_print_path_rec_gid(
+				bind_handle,
+				(ib_gid_t *) &src_addr.s6_addr,
+				(ib_gid_t *) &dst_addr.s6_addr);
 		} else {
 			status = print_path_records(bind_handle);
 		}

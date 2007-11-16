@@ -6,8 +6,10 @@ saquery \- query InfiniBand subnet administration attributes
 .SH SYNOPSIS
 .B saquery 
 [\-h] [\-d] [\-p] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-O]
-[\-U] [\-c] [\-s] [\-g] [\-m] [--src-to-dst <src:dst>] [\-C ca_name]
-[\-P ca_port] [\-t(imeout) <msec>] [\-\-node\-name\-map <node-name-map>]
+[\-U] [\-c] [\-s] [\-g] [\-m] [\-C ca_name] [\-P ca_port] [\-t(imeout) <msec>]
+[\-\-src\-to\-dst <src:dst>]
+[\-\-sgid\-to\-dgid <sgid\-dgid>]
+[\-\-node\-name\-map <node\-name\-map>]
 [<name> | <lid> | <guid>]
 
 .SH DESCRIPTION
@@ -65,6 +67,14 @@ description for each entry. Example: saquery -m 0xc000
 \fB\-\-src-to-dst\fR
 get a PathRecord for <src:dst>
 where src and dst are either node names or LIDs
+.TP
+.B \-\-sgid\-to\-dgid
+get a PathRecord for
+.I sgid
+to
+.I dgid
+where both GIDs are in an IPv6 format acceptable to
+.BR inet_pton (3).
 .TP
 \fB\-C\fR <ca_name>
 use the specified ca_name.
