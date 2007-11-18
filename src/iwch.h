@@ -204,4 +204,7 @@ extern void t3b_async_event(struct ibv_async_event *event);
 #define PDBG(fmt, args...) do {} while (0)
 #endif
 
+#define FW_MAJ 5
+#define FW_MIN 0
+
 #endif				/* IWCH_H */

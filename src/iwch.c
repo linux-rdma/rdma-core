@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "iwch.h"
 #include "iwch-abi.h"
@@ -165,9 +166,9 @@ static struct ibv_device_ops iwch_dev_ops = {
 static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
-	char value[16];
+	char devstr[64], ibdev[16], value[32], *cp;
 	struct iwch_device *dev;
-	unsigned vendor, device;
+	unsigned vendor, device, fw_maj, fw_min;
 	int i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
@@ -188,7 +189,41 @@ static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
 	return NULL;
 
 found:
+
+	/* 
+	 * Verify that the firmware major number matches.  Major number
+	 * mismatches are fatal.  Minor number mismatches are tolerated.
+	 */
+	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev", 
+				ibdev, sizeof ibdev) < 0)
+		return NULL;
+
+	memset(devstr, 0, sizeof dev);
+	sprintf(devstr, "device/infiniband:%s/fw_ver", ibdev);
+	if (ibv_read_sysfs_file(uverbs_sys_path, devstr,
+				value, sizeof value) < 0)
+		return NULL;
+	cp = strtok(value+1, ".");
+	sscanf(cp, "%i", &fw_maj);
+	cp = strtok(NULL, ".");
+	sscanf(cp, "%i", &fw_min);
+
+	if (fw_maj != FW_MAJ) {
+		fprintf(stderr, "libcxgb3: Fatal firmware version mismatch.  "
+			"Firmware major number is %u and libcxgb3 needs %u.\n",
+			fw_maj, FW_MAJ);	
+		fflush(stderr);
+		return NULL;
+	}
+
 	DBGLOG("libcxgb3");
+
+	if (fw_min < FW_MIN) {
+		PDBG("libcxgb3: non-fatal firmware version mismatch.  "
+			"Firmware minor number is %u and libcxgb3 needs %u.\n",
+			fw_maj, FW_MAJ);	
+		fflush(stderr);
+	}
 
 	PDBG("%s found vendor %d device %d type %d\n", 
 	     __FUNCTION__, vendor, device, hca_table[i].type);
