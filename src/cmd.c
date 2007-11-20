@@ -884,7 +884,8 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		while (--wr_count)
 			i = i->next;
 		*bad_wr = i;
-	}
+	} else if (ret)
+		*bad_wr = wr;
 
 	return ret;
 }
@@ -944,7 +945,8 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		while (--wr_count)
 			i = i->next;
 		*bad_wr = i;
-	}
+	} else if (ret)
+		*bad_wr = wr;
 
 	return ret;
 }
@@ -1004,7 +1006,8 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 		while (--wr_count)
 			i = i->next;
 		*bad_wr = i;
-	}
+	} else if (ret)
+		*bad_wr = wr;
 
 	return ret;
 }
