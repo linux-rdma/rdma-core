@@ -227,7 +227,7 @@ err:
 int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
 	/* XXX resize CQ not implemented */
-	return -ENOSYS;
+	return ENOSYS;
 }
 
 int mlx4_destroy_cq(struct ibv_cq *cq)
