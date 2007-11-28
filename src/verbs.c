@@ -367,8 +367,12 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 	if (attr->srq)
 		attr->cap.max_recv_wr = qp->rq.wqe_cnt = 0;
-	else if (attr->cap.max_recv_sge < 1)
-		attr->cap.max_recv_sge = 1;
+	else {
+		if (attr->cap.max_recv_sge < 1)
+			attr->cap.max_recv_sge = 1;
+		if (attr->cap.max_recv_wr < 1)
+			attr->cap.max_recv_wr = 1;
+	}
 
 	if (mlx4_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp))
 		goto err;
