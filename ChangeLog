@@ -1,6 +1,34 @@
-commit 7c0d22611fd0c2bc61d3114c31d2655f8a44afd3
+commit a2dee14d4a206f0aa5ef7cb6cd786472f9e1a751
+Author: Steve Wise (Open Grid Computing) <swise@hosting.openfabrics.org>
+Date:   Thu Nov 29 07:47:24 2007 -0800
+
+    Spin releases 1.1.0.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ee419d4dd670c070a852a60abd84412dac26e4a1
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Oct 8 15:03:58 2007 -0500
+Date:   Sun Nov 18 16:34:16 2007 -0600
+
+    Support 5.0 firmware.
+    
+    - 5.0 and beyond handles RECV SGL cracking.
+    - fail driver init if the maj number doesn't match compiled-in value.
+    - debug log of minor number is down level.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 6c7f9a508da1ee45acb7ba6b8ce5bdfa171dc907
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 11 16:32:06 2007 -0500
+
+    Fix the configure.in file to update the release number.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 86d1051445e9b7e68cc0a982a1bea818aa4dd553
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 8 15:04:14 2007 -0500
 
     Spin release 1.0.3.
     
