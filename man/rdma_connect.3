@@ -73,6 +73,8 @@ The local ACK timeout is calculated based on the packet lifetime and local
 HCA ACK delay.  The packet lifetime is determined by the InfiniBand Subnet
 Administrator and is part of the resolved route (path record) information.
 The HCA ACK delay is a property of the locally used HCA.
+.P
+Retry count and RNR retry count values are 3-bit values.
 .SH "IWARP SPECIFIC"
 Connections established over iWarp RDMA devices currently require that the
 active side of the connection send the first message.
