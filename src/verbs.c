@@ -182,7 +182,11 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	cqe = align_queue_size(cqe + 1);
+	cqe = align_queue_size(cqe);
+
+	/* Always allocate at least two CQEs to keep things simple */
+	if (cqe < 2)
+		cqe = 2;
 
 	if (mlx4_alloc_buf(&cq->buf, cqe * MLX4_CQ_ENTRY_SIZE,
 			   to_mdev(context->device)->page_size))
@@ -202,6 +206,8 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
 	cmd.db_addr  = (uintptr_t) cq->set_ci_db;
 
+	/* Subtract 1 from the number of entries we pass into the
+	 * kernel because the kernel mlx4_ib driver will add 1 again. */
 	ret = ibv_cmd_create_cq(context, cqe - 1, channel, comp_vector,
 				&cq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);
@@ -209,6 +215,8 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 		goto err_db;
 
 	cq->cqn = resp.cqn;
+	/* Bump the number of entries to make up for subtracting 1 above */
+	++cq->ibv_cq.cqe;
 
 	return &cq->ibv_cq;
 

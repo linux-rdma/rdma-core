@@ -114,10 +114,10 @@ static struct mlx4_cqe *get_cqe(struct mlx4_cq *cq, int entry)
 
 static void *get_sw_cqe(struct mlx4_cq *cq, int n)
 {
-	struct mlx4_cqe *cqe = get_cqe(cq, n & cq->ibv_cq.cqe);
+	struct mlx4_cqe *cqe = get_cqe(cq, n & (cq->ibv_cq.cqe - 1));
 
 	return (!!(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK) ^
-		!!(n & (cq->ibv_cq.cqe + 1))) ? NULL : cqe;
+		!!(n & cq->ibv_cq.cqe)) ? NULL : cqe;
 }
 
 static struct mlx4_cqe *next_cqe_sw(struct mlx4_cq *cq)
@@ -397,7 +397,7 @@ void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	 * from our QP and therefore don't need to be checked.
 	 */
 	for (prod_index = cq->cons_index; get_sw_cqe(cq, prod_index); ++prod_index)
-		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index == cq->cons_index + cq->ibv_cq.cqe - 1)
 			break;
 
 	/*
@@ -405,13 +405,13 @@ void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	 * that match our QP by copying older entries on top of them.
 	 */
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
-		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
+		cqe = get_cqe(cq, prod_index & (cq->ibv_cq.cqe - 1));
 		if ((ntohl(cqe->my_qpn) & 0xffffff) == qpn) {
 			if (srq && !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK))
 				mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
 			++nfreed;
 		} else if (nfreed) {
-			dest = get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe);
+			dest = get_cqe(cq, (prod_index + nfreed) & (cq->ibv_cq.cqe - 1));
 			owner_bit = dest->owner_sr_opcode & MLX4_CQE_OWNER_MASK;
 			memcpy(dest, cqe, sizeof *cqe);
 			dest->owner_sr_opcode = owner_bit |
