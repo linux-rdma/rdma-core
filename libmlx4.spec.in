@@ -43,7 +43,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{_libdir}/libmlx4-rdmav2.so
-%{_sysconfdir}/libibverbs.d/mlx4.driver
+%config %{_sysconfdir}/libibverbs.d/mlx4.driver
 %doc AUTHORS COPYING README
 
 %files devel-static
