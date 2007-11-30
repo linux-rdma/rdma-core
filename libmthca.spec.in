@@ -44,7 +44,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{_libdir}/libmthca-rdmav2.so
-%{_sysconfdir}/libibverbs.d/mthca.driver
+%config %{_sysconfdir}/libibverbs.d/mthca.driver
 %doc AUTHORS COPYING ChangeLog README
 
 %files devel-static
