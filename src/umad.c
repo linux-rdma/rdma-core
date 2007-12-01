@@ -177,6 +177,7 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 		idx = strtoul(namelist[i]->d_name, NULL, 0);
 		sys_read_uint(port_dir, namelist[i]->d_name, &val);
 		port->pkeys[idx] = val;
+		free(namelist[i]);
 	}
 	port->pkeys_size = ret;
 	free(namelist);
@@ -188,8 +189,11 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 	return 0;
 
 clean:
-	if (namelist)
+	if (namelist) {
+		for (i = 0; i < ret ; i++)
+			free(namelist[i]);
 		free(namelist);
+	}
 	if (port->pkeys)
 		free(port->pkeys);
 	return -EIO;
