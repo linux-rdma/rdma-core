@@ -2,6 +2,7 @@
 # -*- mode: makefile; coding: utf-8 -*-
 
 DEB_DH_INSTALL_SOURCEDIR := debian/tmp
+DEB_AUTO_UPDATE_LIBTOOL := post
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/autotools.mk
