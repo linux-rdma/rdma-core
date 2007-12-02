@@ -227,46 +227,9 @@ mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
+static void
+dump_linkwidth(char *buf, int bufsz, int width)
 {
-	int width = *(int *)val;
-
-	switch (width) {
-	case 1:
-		snprintf(buf, bufsz, "1X");
-		break;
-	case 2:
-		snprintf(buf, bufsz, "4X (IBA extension)");
-		break;
-	case 3:
-		snprintf(buf, bufsz, "1X or 4X");
-		break;
-	case 4:
-		snprintf(buf, bufsz, "8X (IBA extension)");
-		break;
-	case 7:
-		snprintf(buf, bufsz, "1X or 4X or 8X");
-		break;
-	case 8:
-		snprintf(buf, bufsz, "12X (IBA extension)");
-		break;
-	case 11:
-		snprintf(buf, bufsz, "1X or 4X or 12X");
-		break;
-	case 15:
-		snprintf(buf, bufsz, "1X or 4X or 8X or 12X");
-		break;
-	default:
-		IBWARN("bad width %d", width);
-		buf[0] = 0;
-	}
-}
-
-void
-mad_dump_linkwidthen(char *buf, int bufsz, void *val, int valsz)
-{
-	int width = *(int *)val;
 	char *s = buf, *e = s + bufsz;
 
 	if (width & 0x1)
@@ -279,9 +242,40 @@ mad_dump_linkwidthen(char *buf, int bufsz, void *val, int valsz)
 		s += snprintf(s, e - s, "12X or ");
 
 	if ((width >> 4) || s == buf)
-		s += snprintf(s, e - s, "?(%d)", width);
+		s += snprintf(s, e - s, "undefined (%d)", width);
 	else
-		s[-3] = 0;
+		s[-4] = 0;
+}
+
+void
+mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
+{
+	int width = *(int *)val;
+
+	dump_linkwidth(buf, bufsz, width);
+
+	switch(width) {
+	case 1:
+	case 3:
+	case 7:
+	case 11:
+	case 15:
+		break;
+
+	default:
+		if (!(width >> 4))
+			snprintf(buf + strlen(buf), bufsz - strlen(buf),
+				 " (IBA extension)");
+		break;
+	}
+}
+
+void
+mad_dump_linkwidthen(char *buf, int bufsz, void *val, int valsz)
+{
+	int width = *(int *)val;
+
+	dump_linkwidth(buf, bufsz, width);
 }
 
 void
@@ -300,7 +294,37 @@ mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "10.0 Gbps");
 		break;
 	default:
-		snprintf(buf, bufsz, "?(%d)", speed);
+		snprintf(buf, bufsz, "undefined (%d)", speed);
+		break;
+	}
+}
+
+static void
+dump_linkspeed(char *buf, int bufsz, int speed)
+{
+	char *s = buf, *e = s + bufsz;
+
+	if (speed & 0x1)
+		s += snprintf(s, e - s, "2.5 Gbps or ");
+	if (s < e && (speed & 0x2))
+		s += snprintf(s, e - s, "5.0 Gbps or ");
+	if (s < e && (speed & 0x4))
+		s += snprintf(s, e - s, "10.0 Gbps or ");
+
+	if ((speed >> 3) || s == buf)
+		s += snprintf(s, e - s, "undefined (%d)", speed);
+	else
+		s[-4] = 0;
+
+	switch (speed) {
+	case 1:
+	case 3:
+	case 5:
+	case 7:
+		break;
+	default:
+		if (!(speed >> 3))
+			snprintf(s, e - s, " (IBA extension)");
 		break;
 	}
 }
@@ -310,29 +334,7 @@ mad_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
 {
 	int speed = *(int *)val;
 
-	switch (speed) {
-	case 1:
-		snprintf(buf, bufsz, "2.5 Gbps");
-		break;
-	case 2:
-		snprintf(buf, bufsz, "5.0 Gbps (IBA extension)");
-		break;
-	case 3:
-		snprintf(buf, bufsz, "2.5 or 5.0 Gbps");
-		break;
-	case 4:
-		snprintf(buf, bufsz, "10.0 Gbps (IBA extension)");
-		break;
-	case 5:
-		snprintf(buf, bufsz, "2.5 or 10.0 Gbps");
-		break;
-	case 7:
-		snprintf(buf, bufsz, "2.5 or 5.0 or 10.0 Gbps");
-		break;
-	default:
-		snprintf(buf, bufsz, "?(%d)", speed);
-		break;
-	}
+	dump_linkspeed(buf, bufsz, speed);
 }
 
 void
@@ -340,35 +342,7 @@ mad_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
 {
 	int speed = *(int *)val;
 
-	switch (speed) {
-	case 1:
-		snprintf(buf, bufsz, "2.5 Gbps");
-		break;
-	case 2:
-		snprintf(buf, bufsz, "5.0 Gbps (IBA extension)");
-		break;
-	case 3:
-		snprintf(buf, bufsz, "2.5 or 5.0 Gbps");
-		break;
-	case 4:
-		snprintf(buf, bufsz, "10.0 Gbps (IBA extension)");
-		break;
-	case 5:
-		snprintf(buf, bufsz, "2.5 or 10.0 Gbps");
-		break;
-	case 6:
-		snprintf(buf, bufsz, "5.0 or 10.0 Gbps");
-		break;
-	case 7:
-		snprintf(buf, bufsz, "2.5 or 5.0 or 10.0 Gbps");
-		break;
-	case 15:
-		snprintf(buf, bufsz, "SpeedSupported");
-		break;
-	default:
-		snprintf(buf, bufsz, "?(%d)", speed);
-		break;
-	}
+	dump_linkspeed(buf, bufsz, speed);
 }
 
 void
