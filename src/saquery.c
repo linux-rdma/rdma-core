@@ -573,6 +573,52 @@ return_mad(void)
 }
 
 /**
+ * Get any record(s)
+ */
+static ib_api_status_t
+get_any_records(osm_bind_handle_t bind_handle,
+		ib_net16_t attr_id, ib_net32_t attr_mod, ib_net64_t comp_mask,
+		void *attr, ib_net16_t attr_offset,
+		ib_net64_t sm_key)
+{
+	ib_api_status_t   status;
+	osmv_query_req_t  req;
+	osmv_user_query_t user;
+
+	memset(&req, 0, sizeof(req));
+	memset(&user, 0, sizeof(user));
+
+	user.attr_id = attr_id;
+	user.attr_offset = attr_offset;
+	user.attr_mod = attr_mod;
+	user.comp_mask = comp_mask;
+	user.p_attr = attr;
+
+	req.query_type = OSMV_QUERY_USER_DEFINED;
+	req.timeout_ms = sa_timeout_ms;
+	req.retry_cnt = 1;
+	req.flags = OSM_SA_FLAGS_SYNC;
+	req.query_context = NULL;
+	req.pfn_query_cb = query_res_cb;
+	req.p_query_input = &user;
+	req.sm_key = sm_key;
+
+	if ((status = osmv_query_sa(bind_handle, &req)) != IB_SUCCESS) {
+		fprintf(stderr, "Query SA failed: %s\n",
+			ib_get_err_str(status));
+		return status;
+	}
+
+	if (result.status != IB_SUCCESS) {
+		fprintf(stderr, "Query result returned: %s\n",
+			ib_get_err_str(result.status));
+		return result.status;
+	}
+
+	return status;
+}
+
+/**
  * Get all the records available for requested query type.
  */
 static ib_api_status_t
@@ -581,40 +627,8 @@ get_all_records(osm_bind_handle_t bind_handle,
 		ib_net16_t attr_offset,
 		int trusted)
 {
-	ib_api_status_t   status;
-	osmv_query_req_t  req;
-	osmv_user_query_t user;
-
-	memset( &req, 0, sizeof( req ) );
-	memset( &user, 0, sizeof( user ) );
-
-	user.attr_id = query_id;
-	user.attr_offset = attr_offset;
-
-	req.query_type = OSMV_QUERY_USER_DEFINED;
-	req.timeout_ms = sa_timeout_ms;
-	req.retry_cnt = 1;
-	req.flags = OSM_SA_FLAGS_SYNC;
-	req.query_context = NULL;
-	req.pfn_query_cb = query_res_cb;
-	req.p_query_input = &user;
-	if (trusted)
-		req.sm_key = OSM_DEFAULT_SM_KEY;
-	else
-		req.sm_key = 0;
-
-	if ((status = osmv_query_sa(bind_handle, &req)) != IB_SUCCESS) {
-		fprintf(stderr, "Query SA failed: %s\n",
-			ib_get_err_str(status));
-		return (status);
-	}
-
-	if (result.status != IB_SUCCESS) {
-		fprintf(stderr, "Query result returned: %s\n",
-			ib_get_err_str(result.status));
-		return (result.status);
-	}
-	return (status);
+	return get_any_records(bind_handle, query_id, 0, 0, NULL, attr_offset,
+			       trusted ? OSM_DEFAULT_SM_KEY : 0);
 }
 
 /*
@@ -623,43 +637,16 @@ get_all_records(osm_bind_handle_t bind_handle,
 static ib_api_status_t
 get_issm_records(osm_bind_handle_t bind_handle, ib_net32_t capability_mask)
 {
-	ib_api_status_t   status;
-	osmv_query_req_t  req;
-	osmv_user_query_t user;
 	ib_portinfo_record_t attr;
 
-	memset( &req, 0, sizeof( req ) );
-	memset( &user, 0, sizeof( user ) );
 	memset( &attr, 0, sizeof ( attr ) );
 	attr.port_info.capability_mask = capability_mask;
 
-	user.attr_id = IB_MAD_ATTR_PORTINFO_RECORD;
-	user.attr_offset = ib_get_attr_offset(sizeof(ib_portinfo_record_t));
-	user.attr_mod = cl_ntoh32(1 << 31);	/* enhanced query */
-	user.comp_mask = IB_PIR_COMPMASK_CAPMASK;
-	user.p_attr = &attr;
-
-	req.query_type = OSMV_QUERY_USER_DEFINED;
-	req.timeout_ms = sa_timeout_ms;
-	req.retry_cnt = 1;
-	req.flags = OSM_SA_FLAGS_SYNC;
-	req.query_context = NULL;
-	req.pfn_query_cb = query_res_cb;
-	req.p_query_input = &user;
-	req.sm_key = 0;
-
-	if ((status = osmv_query_sa(bind_handle, &req)) != IB_SUCCESS) {
-		fprintf(stderr, "Query SA failed: %s\n",
-			ib_get_err_str(status));
-		return (status);
-	}
-
-	if (result.status != IB_SUCCESS) {
-		fprintf(stderr, "Query result returned: %s\n",
-			ib_get_err_str(result.status));
-		return (result.status);
-	}
-	return (status);
+	return get_any_records(bind_handle, IB_MAD_ATTR_PORTINFO_RECORD,
+			       cl_hton32(1 << 31), IB_PIR_COMPMASK_CAPMASK,
+			       &attr,
+			       ib_get_attr_offset(sizeof(ib_portinfo_record_t)),
+			       0);
 }
 
 static ib_api_status_t
@@ -1218,7 +1205,7 @@ main(int argc, char **argv)
 			query_type = IB_MAD_ATTR_PATH_RECORD;
 			break;
 		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
+			fprintf(stderr, "%s %s\n", argv0, get_build_version());
 			exit(-1);
 		case 'D':
 			node_print_desc = ALL_DESC;
