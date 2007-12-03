@@ -560,6 +560,17 @@ print_inform_info_record(ib_inform_info_record_t *p_iir)
 	}
 }
 
+static void dump_one_link_record(ib_link_record_t *lr)
+{
+	printf("LinkRecord dump:\n"
+	       "\t\tFromLID....................%u\n"
+	       "\t\tFromPort...................%u\n"
+	       "\t\tToPort.....................%u\n"
+	       "\t\tToLID......................%u\n",
+	       cl_ntoh16(lr->from_lid), lr->from_port_num,
+	       lr->to_port_num, cl_ntoh16(lr->to_lid));
+}
+
 static void
 return_mad(void)
 {
@@ -692,6 +703,41 @@ get_issm_records(osm_bind_handle_t bind_handle, ib_net32_t capability_mask)
 			       &attr,
 			       ib_get_attr_offset(sizeof(ib_portinfo_record_t)),
 			       0);
+}
+
+/*
+ * Get the LinkRecord(s)
+ */
+static ib_api_status_t get_link_records(osm_bind_handle_t bind_handle,
+					int from_lid, int from_port,
+					int to_lid, int to_port)
+{
+	ib_link_record_t lr;
+	ib_net64_t comp_mask;
+
+	memset(&lr, 0, sizeof(lr));
+	comp_mask = 0;
+
+	if (from_lid > 0) {
+		lr.from_lid = cl_hton16(from_lid);
+		comp_mask |= IB_LR_COMPMASK_FROM_LID;
+	}
+	if (from_port >= 0) {
+		lr.from_port_num = cl_hton16(from_port);
+		comp_mask |= IB_LR_COMPMASK_FROM_PORT;
+	}
+	if (to_lid > 0) {
+		lr.to_lid = cl_hton16(to_lid);
+		comp_mask |= IB_LR_COMPMASK_TO_LID;
+	}
+	if (to_port >= 0) {
+		lr.to_port_num = cl_hton16(to_port);
+		comp_mask |= IB_LR_COMPMASK_TO_PORT;
+	}
+
+	return get_any_records(bind_handle, IB_MAD_ATTR_LINK_RECORD, 0,
+			       comp_mask, &lr,
+			       ib_get_attr_offset(sizeof(ib_link_record_t)), 0);
 }
 
 static ib_api_status_t
@@ -1000,6 +1046,32 @@ print_inform_info_records(osm_bind_handle_t bind_handle)
 	return (status);
 }
 
+static ib_api_status_t
+print_link_records(osm_bind_handle_t bind_handle, char *from, char *to)
+{
+	int i;
+	ib_link_record_t *lr;
+	int from_lid, to_lid, from_port, to_port;
+	ib_api_status_t status;
+
+	from_lid = get_lid(bind_handle, from);
+	to_lid = get_lid(bind_handle, to);
+	from_port = -1;
+	to_port = -1;
+
+	status = get_link_records(bind_handle, from_lid, from_port,
+				  to_lid, to_port);
+	if (status != IB_SUCCESS)
+		return status;
+
+	for (i = 0; i < result.result_cnt; i++) {
+		lr = osmv_get_query_result(result.p_result_madw, i);
+		dump_one_link_record(lr);
+	}
+	return_mad();
+	return status;
+}
+
 static osm_bind_handle_t
 get_bind_handle(void)
 {
@@ -1101,6 +1173,7 @@ usage(void)
 	fprintf(stderr, "      (if multicast group specified, list member GIDs"
 				" only for group specified\n");
 	fprintf(stderr, "      specified, for example 'saquery -m 0xC000')\n");
+	fprintf(stderr, "   -x get LinkRecord info\n");
 	fprintf(stderr, "   --src-to-dst get a PathRecord for <src:dst>\n"
 			"                where src and dst are either node "
 				"names or LIDs\n");
@@ -1130,7 +1203,7 @@ main(int argc, char **argv)
 	ib_net16_t         dst_lid;
 	ib_api_status_t    status;
 
-	static char const str_opts[] = "pVNDLlGOUcSIsgmdhP:C:t:";
+	static char const str_opts[] = "pVNDLlGOUcSIsgmxdhP:C:t:";
 	static const struct option long_opts [] = {
 	   {"p", 0, 0, 'p'},
 	   {"Version", 0, 0, 'V'},
@@ -1143,6 +1216,7 @@ main(int argc, char **argv)
 	   {"s", 0, 0, 's'},
 	   {"g", 0, 0, 'g'},
 	   {"m", 0, 0, 'm'},
+	   {"x", 0, 0, 'x'},
 	   {"d", 0, 0, 'd'},
 	   {"c", 0, 0, 'c'},
 	   {"S", 0, 0, 'S'},
@@ -1246,6 +1320,9 @@ main(int argc, char **argv)
 		case 'm':
 			query_type = IB_MAD_ATTR_MCMEMBER_RECORD;
 			members = 1;
+			break;
+		case 'x':
+			query_type = IB_MAD_ATTR_LINK_RECORD;
 			break;
 		case 'd':
 			osm_debug = 1;
@@ -1353,6 +1430,9 @@ main(int argc, char **argv)
 		break;
 	case IB_MAD_ATTR_INFORM_INFO_RECORD:
 		status = print_inform_info_records(bind_handle);
+		break;
+	case IB_MAD_ATTR_LINK_RECORD:
+		status = print_link_records(bind_handle, src, dst);
 		break;
 	default:
 		fprintf(stderr, "Unknown query type %d\n", query_type);
