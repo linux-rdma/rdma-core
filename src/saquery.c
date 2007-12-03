@@ -1239,17 +1239,17 @@ main(int argc, char **argv)
 		case 1:
 		{
 			char *opt  = strdup(optarg);
-			char *tok1 = strtok(opt, ":");
-			char *tok2 = strtok(NULL, "\0");
-
-			if (tok1 && tok2) {
-				src = strdup(tok1);
-				dst = strdup(tok2);
-			} else {
+			char *ch = strchr(opt, ':');
+			if (!ch) {
 				fprintf(stderr,
 					"ERROR: --src-to-dst <node>:<node>\n");
 				usage();
 			}
+			*ch++ = '\0';
+			if (*opt)
+				src = strdup(opt);
+			if (*ch)
+				dst = strdup(ch);
 			free(opt);
 			query_type = IB_MAD_ATTR_PATH_RECORD;
 			break;
