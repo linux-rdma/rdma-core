@@ -6,7 +6,8 @@ saquery \- query InfiniBand subnet administration attributes
 .SH SYNOPSIS
 .B saquery 
 [\-h] [\-d] [\-p] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-O]
-[\-U] [\-c] [\-s] [\-g] [\-m] [\-C ca_name] [\-P ca_port] [\-t(imeout) <msec>]
+[\-U] [\-c] [\-s] [\-g] [\-m] [\-x]
+[\-C ca_name] [\-P ca_port] [\-t(imeout) <msec>]
 [\-\-src\-to\-dst <src:dst>]
 [\-\-sgid\-to\-dgid <sgid\-dgid>]
 [\-\-node\-name\-map <node\-name\-map>]
@@ -63,6 +64,9 @@ get multicast group info
 get multicast member info.  If a group is specified, limit the output to the
 group specified and print one line containing only the GUID and node
 description for each entry. Example: saquery -m 0xc000
+.TP
+\fB\-x\fR
+get LinkRecord info
 .TP
 \fB\-\-src-to-dst\fR
 get a PathRecord for <src:dst>
