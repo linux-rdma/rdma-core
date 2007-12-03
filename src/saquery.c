@@ -631,6 +631,51 @@ get_all_records(osm_bind_handle_t bind_handle,
 			       trusted ? OSM_DEFAULT_SM_KEY : 0);
 }
 
+/**
+ * return the lid from the node descriptor (name) supplied
+ */
+static ib_api_status_t
+get_lid_from_name(osm_bind_handle_t bind_handle, const char *name, ib_net16_t *lid)
+{
+	int               i = 0;
+	ib_node_record_t *node_record = NULL;
+	ib_node_info_t   *p_ni = NULL;
+	ib_net16_t        attr_offset = ib_get_attr_offset(sizeof(*node_record));
+	ib_api_status_t   status;
+
+	status = get_all_records(bind_handle, IB_MAD_ATTR_NODE_RECORD, attr_offset, 0);
+	if (status != IB_SUCCESS)
+		return (status);
+
+	for (i = 0; i < result.result_cnt; i++) {
+		node_record = osmv_get_query_node_rec(result.p_result_madw, i);
+		p_ni = &(node_record->node_info);
+		if (name && strncmp(name, (char *)node_record->node_desc.description,
+				    sizeof(node_record->node_desc.description)) == 0) {
+			*lid = cl_ntoh16(node_record->lid);
+			break;
+		}
+	}
+	return_mad();
+	return (status);
+}
+
+static ib_net16_t
+get_lid(osm_bind_handle_t bind_handle, const char * name)
+{
+	ib_net16_t rc_lid = 0;
+
+	if (!name)
+		return(0);
+	if (isalpha(name[0]))
+		assert(get_lid_from_name(bind_handle, name, &rc_lid) == IB_SUCCESS);
+	else
+		rc_lid = atoi(name);
+	if (rc_lid == 0)
+		fprintf(stderr, "Failed to find lid for \"%s\"\n", name);
+        return (rc_lid);
+}
+
 /*
  * Get the portinfo records available with IsSM or IsSMdisabled CapabilityMask bit on.
  */
@@ -690,35 +735,6 @@ print_node_records(osm_bind_handle_t bind_handle)
 					exit(0);
 				}
 			}
-		}
-	}
-	return_mad();
-	return (status);
-}
-
-/**
- * return the lid from the node descriptor (name) supplied
- */
-static ib_api_status_t
-get_lid_from_name(osm_bind_handle_t bind_handle, const char *name, ib_net16_t *lid)
-{
-	int               i = 0;
-	ib_node_record_t *node_record = NULL;
-	ib_node_info_t   *p_ni = NULL;
-	ib_net16_t        attr_offset = ib_get_attr_offset(sizeof(*node_record));
-	ib_api_status_t   status;
-
-	status = get_all_records(bind_handle, IB_MAD_ATTR_NODE_RECORD, attr_offset, 0);
-	if (status != IB_SUCCESS)
-		return (status);
-
-	for (i = 0; i < result.result_cnt; i++) {
-		node_record = osmv_get_query_node_rec(result.p_result_madw, i);
-		p_ni = &(node_record->node_info);
-		if (name && strncmp(name, (char *)node_record->node_desc.description,
-				    sizeof(node_record->node_desc.description)) == 0) {
-			*lid = cl_ntoh16(node_record->lid);
-			break;
 		}
 	}
 	return_mad();
@@ -1049,22 +1065,6 @@ get_bind_handle(void)
 		exit(-1);
 	}
 	return (bind_handle);
-}
-
-static ib_net16_t
-get_lid(osm_bind_handle_t bind_handle, const char * name)
-{
-	ib_net16_t rc_lid = 0;
-
-	if (!name)
-		return(0);
-	if (isalpha(name[0]))
-		assert(get_lid_from_name(bind_handle, name, &rc_lid) == IB_SUCCESS);
-	else
-		rc_lid = atoi(name);
-	if (rc_lid == 0)
-		fprintf(stderr, "Failed to find lid for \"%s\"\n", name);
-        return (rc_lid);
 }
 
 static void
