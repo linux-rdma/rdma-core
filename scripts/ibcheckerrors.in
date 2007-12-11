@@ -79,15 +79,15 @@ echo "$text" | awk '
 BEGIN {
 	ne=0
 }
-function check_node(lid)
+function check_node(lid, port)
 {
 	nodechecked=1
 	if (system("'$IBPATH'/ibchecknode '"$ca_info"' '$gflags' '$verbose' " lid)) {
 		ne++
-		badnode=1
+		print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
 		return
 	}
-	if (system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " 255"))
+	if (system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port))
 		nodeerr=1;
 }
 
@@ -105,30 +105,22 @@ function check_node(lid)
 
 			lid = substr($0, index($0, "port 0 lid ") + 11)
 			lid = substr(lid, 1, index(lid, " ") - 1)
-			check_node(lid)
+			check_node(lid, 255)
 		}
 /^\[/	{
 		nports++
 		port = $1
-		if (!nodechecked) {
-			lid = substr($0, index($0, " lid ") + 5)
-			lid = substr(lid, 1, index(lid, " ") - 1)
-			check_node(lid)
-		}
-		if (badnode) {
-			print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
-			next
-		}
 		sub("\\(.*\\)", "", port)
 		gsub("[\\[\\]]", "", port)
-		if (nodeerr)
-			if (system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port)) {
-				if (!'$v' && oldlid != lid) {
-					print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
-					oldlid = lid
-				}
+		if (ntype != "Switch") {
+			lid = substr($0, index($0, " lid ") + 5)
+			lid = substr(lid, 1, index(lid, " ") - 1)
+			check_node(lid, port)
+			if (nodeerr)
 				pcnterr++;
-			}
+		} else if (nodeerr &&
+			   system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port))
+			pcnterr++;
 }
 
 /^ib/	{print $0; next}
