@@ -21,7 +21,6 @@ brief=""
 v=0
 ntype=""
 nodeguid=""
-oldlid=""
 topofile=""
 ca_info=""
 
@@ -81,14 +80,14 @@ BEGIN {
 }
 function check_node(lid, port)
 {
-	nodechecked=1
 	if (system("'$IBPATH'/ibchecknode '"$ca_info"' '$gflags' '$verbose' " lid)) {
 		ne++
 		print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
-		return
+		return 1;
 	}
 	if (system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port))
-		nodeerr=1;
+		return 2;
+	return 0;
 }
 
 /^Ca/ || /^Switch/ || /^Rt/ {
@@ -97,15 +96,13 @@ function check_node(lid, port)
 			if ('$v')
 				print "\n# Checking " ntype ": nodeguid 0x" nodeguid
 
-			nodechecked=0
-			nodeerr=0
-			badnode=0
+			err = 0;
 			if (ntype != "Switch")
 				next
 
 			lid = substr($0, index($0, "port 0 lid ") + 11)
 			lid = substr(lid, 1, index(lid, " ") - 1)
-			check_node(lid, 255)
+			err = check_node(lid, 255)
 		}
 /^\[/	{
 		nports++
@@ -115,10 +112,9 @@ function check_node(lid, port)
 		if (ntype != "Switch") {
 			lid = substr($0, index($0, " lid ") + 5)
 			lid = substr(lid, 1, index(lid, " ") - 1)
-			check_node(lid, port)
-			if (nodeerr)
+			if (check_node(lid, port) == 2)
 				pcnterr++;
-		} else if (nodeerr &&
+		} else if (err &&
 			   system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port))
 			pcnterr++;
 }
