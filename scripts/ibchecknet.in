@@ -72,16 +72,16 @@ BEGIN {
 	ne=0
 	pe=0
 }
-function check_node(lid)
+function check_node(lid, port)
 {
-	nodechecked=1
-	if (system("'$IBPATH'/ibchecknode'"$ca_info"' '$gflags' '$verbose' " lid)) {
+	if (system("'$IBPATH'/ibchecknode '"$ca_info"' '$gflags' '$verbose' " lid)) {
 		ne++
-		badnode=1
-		return
+		print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
+		return 1;
 	}
-	if (system("'$IBPATH'/ibcheckerrs'"$ca_info"' '$gflags' '$verbose' " lid " 255"))
-		nodeerr=1;
+	if (system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port))
+		return  2;
+	return 0;
 }
 
 /^Ca/ || /^Switch/ || /^Rt/ {
@@ -90,30 +90,27 @@ function check_node(lid)
 			if ('$v' || ntype != "Switch") 
 				print "\n# Checking " ntype ": nodeguid 0x" nodeguid
 
-			nodechecked=0
-			nodeerr=0
-			badnode=0
+			err = 0;
 			if (ntype != "Switch")
 				next
 
 			lid = substr($0, index($0, "port 0 lid ") + 11)
 			lid = substr(lid, 1, index(lid, " ") - 1)
-			check_node(lid)
+			err = check_node(lid, 255)
 		}
 /^\[/	{
 		nports++
 		port = $1
-		if (!nodechecked) {
-			lid = substr($0, index($0, " lid ") + 5)
-			lid = substr(lid, 1, index(lid, " ") - 1)
-			check_node(lid)
-		}
-		if (badnode) {
-			print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
-			next
-		}
 		sub("\\(.*\\)", "", port)
 		gsub("[\\[\\]]", "", port)
+		if (ntype != "Switch") {
+			lid = substr($0, index($0, " lid ") + 5)
+			lid = substr(lid, 1, index(lid, " ") - 1)
+			if (check_node(lid, port) == 2)
+  				pcnterr++;
+		} else if (err &&
+			   system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port))
+			pcnterr++;
 		if (system("'$IBPATH'/ibcheckport'"$ca_info"' '$gflags' '$verbose' " lid " " port)) {
 			if (!'$v' && oldlid != lid) {
 				print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
@@ -121,15 +118,6 @@ function check_node(lid)
 			}
 			pe++;
 		}
-
-		if (nodeerr)
-			if (system("'$IBPATH'/ibcheckerrs'"$ca_info"' '$gflags' '$verbose' " lid " " port)) {
-				if (!'$v' && oldlid != lid) {
-					print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
-					oldlid = lid
-				}
-				pcnterr++;
-			}
 }
 
 /^ib/	{print $0; next}

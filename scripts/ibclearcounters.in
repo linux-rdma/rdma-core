@@ -18,7 +18,6 @@ trap user_abort SIGINT
 gflags=""
 verbose=""
 v=0
-oldlid=""
 topofile=""
 ca_info=""
 
@@ -67,14 +66,12 @@ echo "$text" | awk '
 
 function clear_counters(lid)
 {
-	nodecleared=1
 	if (system("'$IBPATH'/perfquery'"$ca_info"' '$gflags' -R -a " lid))
 		nodeerr++
 }
 
 function clear_port_counters(lid, port)
 {
-	nodecleared=1
 	if (system("'$IBPATH'/perfquery'"$ca_info"' '$gflags' -R " lid " " port))
 		nodeerr++
 }
@@ -82,7 +79,6 @@ function clear_port_counters(lid, port)
 /^Ca/ || /^Switch/ || /^Rt/ {
 			nnodes++
 			ntype=$1; nodeguid=substr($3, 4, 16); ports=$2
-			nodecleared=0
 			if (ntype != "Switch")
 				next
 
@@ -95,7 +91,7 @@ function clear_port_counters(lid, port)
 			port = $1
 			sub("\\(.*\\)", "", port)
 			gsub("[\\[\\]]", "", port)
-			if (!nodecleared) {
+			if (ntype != "Switch") {
 				lid = substr($0, index($0, " lid ") + 5)
 				lid = substr(lid, 1, index(lid, " ") - 1)
 				clear_port_counters(lid, port)
