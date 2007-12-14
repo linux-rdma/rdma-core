@@ -1,5 +1,5 @@
 libmlx4 (1.0-1) unstable; urgency=low
 
-  * Initial release.
+  * Initial release.  (Closes: #456355)
 
  -- Roland Dreier <rolandd@cisco.com>  Fri, 14 Dec 2007 09:51:39 -0800
