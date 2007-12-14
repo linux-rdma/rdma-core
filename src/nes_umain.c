@@ -45,7 +45,7 @@
 #include "nes_umain.h"
 #include "nes-abi.h"
 
-unsigned int nes_debug_level = NES_DBG_INIT;
+unsigned int nes_debug_level = 0;
 long int page_size;
 
 #include <sys/types.h>
@@ -208,9 +208,12 @@ struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version)
 	return NULL;
 
 found:
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/driver/module/parameters/debug_level",
+	if (ibv_read_sysfs_file("/sys/module/iw_nes", "parameters/debug_level",
 			value, sizeof(value)) > 0) {
 		sscanf(value, "%u", &nes_debug_level);
+	} else if (ibv_read_sysfs_file("/sys/module/iw_nes", "debug_level",
+				value, sizeof(value)) > 0) {
+			sscanf(value, "%u", &nes_debug_level);
 	}
 
 	dev = malloc(sizeof *dev);

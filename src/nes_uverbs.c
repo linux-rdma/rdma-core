@@ -519,9 +519,13 @@ static int nes_mmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 		&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );
 	if (ret)
 		return 0;
+	nesuqp->sq_db_index = resp->mmap_sq_db_index;
+	nesuqp->rq_db_index = resp->mmap_rq_db_index;
+	nesuqp->sq_size = resp->actual_sq_size;
+	nesuqp->rq_size = resp->actual_rq_size;
 
 	/* Map the SQ/RQ buffers */
-	mmap_offset = ((nesvctx->max_pds*4096) + page_size-1) & (~(page_size-1));
+	mmap_offset = nesvctx->max_pds*page_size;
 	mmap_offset += (((sizeof(struct nes_hw_qp_wqe) * nesvctx->wq_size) + page_size-1) &
 			(~(page_size-1)))*nesuqp->sq_db_index;
 
@@ -605,6 +609,10 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 		return 0;
 	}
 	*((unsigned int *)nesuqp->rq_vbase) = 0;
+	nesuqp->sq_db_index = resp->mmap_sq_db_index;
+	nesuqp->rq_db_index = resp->mmap_rq_db_index;
+	nesuqp->sq_size = resp->actual_sq_size;
+	nesuqp->rq_size = resp->actual_rq_size;
 	nesuqp->mapping = NES_QP_VMAP;
 	return 1;
 }
@@ -699,10 +707,6 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	nesuqp->sq_head = 1;
 	nesuqp->sq_tail = 1;
 	nesuqp->qp_id = resp.qp_id;
-	nesuqp->sq_db_index = resp.mmap_sq_db_index;
-	nesuqp->rq_db_index = resp.mmap_rq_db_index;
-	nesuqp->sq_size = resp.actual_sq_size;
-	nesuqp->rq_size = resp.actual_rq_size;
 	nesuqp->nes_drv_opt = resp.nes_drv_opt;
 	return &nesuqp->ibv_qp;
 }
@@ -746,11 +750,6 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 
 	// fprintf(stderr, PFX "%s addr&mr= %p  \n", __FUNCTION__, &nesuqp->mr );
 
-	ret = ibv_cmd_destroy_qp(qp);
-	if (ret) {
-	 	fprintf(stderr, PFX "%s FAILED\n", __FUNCTION__);
-		return ret;
-	}
 
 	if (nesuqp->mapping == NES_QP_VMAP) {
 		ret = ibv_cmd_dereg_mr(&nesuqp->mr);
@@ -762,8 +761,12 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 	if (nesuqp->mapping == NES_QP_MMAP) {
 		munmap((void *)nesuqp->sq_vbase, (nesuqp->sq_size+nesuqp->rq_size) *
 			sizeof(struct nes_hw_qp_wqe));
-	} else {
-		free((void *)nesuqp->sq_vbase);
+	}
+
+	ret = ibv_cmd_destroy_qp(qp);
+	if (ret) {
+	 	fprintf(stderr, PFX "%s FAILED\n", __FUNCTION__);
+		return ret;
 	}
 
 	pthread_spin_destroy(&nesuqp->lock);
