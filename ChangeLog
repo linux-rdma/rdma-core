@@ -1,6 +1,36 @@
-commit a2dee14d4a206f0aa5ef7cb6cd786472f9e1a751
+commit 3830b367c4ac4df270603e6759d6118c1f8f65c3
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Dec 17 13:32:50 2007 -0600
+
+    Spin release 1.1.1.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 41eeaace0554d9d9e0f87acc8aca012381855657
+Author: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Date:   Mon Dec 17 13:32:49 2007 -0600
+
+    zero context struct at allocation time (prep for additional context ops)
+    
+    The ibv_context structure will be getting additional ops, to be added at
+    the end of the structure (and not as part of the existing ibv_context_ops
+    structure).
+    
+    Reason: ibv_context_ops is declared directly as a member of ibv_context,
+    and not as a pointer.  Binaries compiled with previous libibverbs
+    versions will not be backwards compatible if we add new operations to
+    ibv_context_ops, since fields following the ops structure will move.
+    
+    To enable adding new operations at the end of the existing ibv_context
+    struct, all driver libraries MUST zero their context structure at
+    allocation time, so that new ops will be NULL by default.
+    
+    Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d730d15161ddc58bd906aa854ffb45d54f817045
 Author: Steve Wise (Open Grid Computing) <swise@hosting.openfabrics.org>
-Date:   Thu Nov 29 07:47:24 2007 -0800
+Date:   Thu Nov 29 07:57:36 2007 -0800
 
     Spin releases 1.1.0.
     
