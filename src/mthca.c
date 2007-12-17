@@ -138,7 +138,7 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd
 	struct mthca_alloc_ucontext_resp resp;
 	int                              i;
 
-	context = malloc(sizeof *context);
+	context = calloc(1, sizeof *context);
 	if (!context)
 		return NULL;
 
