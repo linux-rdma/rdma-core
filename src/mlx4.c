@@ -105,7 +105,7 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 	struct mlx4_alloc_ucontext_resp resp;
 	int				i;
 
-	context = malloc(sizeof *context);
+	context = calloc(1, sizeof *context);
 	if (!context)
 		return NULL;
 
