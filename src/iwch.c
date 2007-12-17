@@ -114,6 +114,7 @@ static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 	if (!context)
 		return NULL;
 
+	memset(context, 0, sizeof *context);
 	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
