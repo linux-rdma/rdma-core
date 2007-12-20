@@ -66,6 +66,8 @@ struct nes_ualloc_pd_resp {
 struct nes_ucreate_cq {
 	struct ibv_create_cq ibv_cmd;
 	__u64 user_cq_buffer;
+	__u8 mcrqf;
+	__u8 reserved[7];
 };
 
 struct nes_ucreate_cq_resp {

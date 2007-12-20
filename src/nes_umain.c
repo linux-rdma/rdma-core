@@ -142,6 +142,7 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 	nesvctx->max_qps = resp.max_qps;
 	nesvctx->wq_size = resp.wq_size;
 	nesvctx->virtwq = resp.virtwq;
+	nesvctx->mcrqf = 0;
 
 	/* Get a doorbell region for the CQs */
 	ibv_pd = nes_ualloc_pd(&nesvctx->ibv_ctx);

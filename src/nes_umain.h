@@ -237,7 +237,8 @@ struct nes_uvcontext {
 	uint32_t max_qps; /* maximum qps allowed for this user process */
 	uint32_t wq_size; /* size of the WQs (sq+rq) allocated to the mmaped area */
 	uint8_t virtwq ; /*  flag if to use virt wqs or not */
-	uint8_t reserved[3] ;
+	uint8_t mcrqf;
+	uint8_t reserved[2] ;
 };
 
 struct nes_ucq {

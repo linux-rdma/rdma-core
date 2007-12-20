@@ -240,6 +240,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 	/* Create the CQ */
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.user_cq_buffer = (__u64)((uintptr_t)nesucq->cqes);
+	cmd.mcrqf = nesvctx->mcrqf;
 
 	ret = ibv_cmd_create_cq(context, nesucq->size-1, channel, comp_vector,
 			&nesucq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
