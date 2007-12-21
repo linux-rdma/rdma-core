@@ -41,6 +41,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include <mad.h>
 #include <infiniband/common.h>
@@ -70,11 +71,7 @@ portid2str(ib_portid_t *portid)
 	if (portid->lid > 0) {
 		s += sprintf(s, "Lid %d", portid->lid);
 		if (portid->grh_present) {
-#if __WORDSIZE == 64
-			s += sprintf(s, " Gid 0x%lx%lx",
-#else
-			s += sprintf(s, " Gid 0x%Lx%Lx",
-#endif
+			s += sprintf(s, " Gid 0x%" PRIx64 "%" PRIx64,
 					ntohll(*(uint64_t *)portid->gid),
 					ntohll(*(uint64_t *)(portid->gid+8)));
 		}
