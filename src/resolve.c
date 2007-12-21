@@ -56,6 +56,8 @@ ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
 	uint8_t portinfo[64];
 	int lid;
 
+	memset(sm_id, 0, sizeof(*sm_id));
+
 	if (!smp_query(portinfo, &self, IB_ATTR_PORT_INFO, 0, 0))
 		return -1;
 
