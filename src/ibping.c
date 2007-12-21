@@ -139,13 +139,8 @@ ibping(ib_portid_t *portid, int quiet)
 		memcpy(last_host, data, sizeof last_host);
 
 	if (!quiet)
-#if __WORDSIZE == 64
-		printf("Pong from %s (%s): time %lu.%03lu ms\n",
+		printf("Pong from %s (%s): time %" PRIu64 ".%03" PRIu64 " ms\n",
 			data, portid2str(portid), rtt/1000, rtt%1000);
-#else
-		printf("Pong from %s (%s): time %llu.%03llu ms\n",
-			data, portid2str(portid), rtt/1000, rtt%1000);
-#endif
 
 	return rtt;
 }
@@ -178,27 +173,15 @@ report(int sig)
 	DEBUG("out due signal %d", sig);
 
 	printf("\n--- %s (%s) ibping statistics ---\n", last_host, portid2str(&portid));
-#if __WORDSIZE == 64
-	printf("%lu packets transmitted, %lu received, %lu%% packet loss, time %lu ms\n",
+	printf("%" PRIu64 " packets transmitted, %" PRIu64 " received, %" PRIu64 "%% packet loss, time %" PRIu64 " ms\n",
 		ntrans, replied,
-		(lost != 0) ?  lost * 100ul / ntrans : 0ul, total_time / 1000ul);
-	printf("rtt min/avg/max = %lu.%03lu/%lu.%03lu/%lu.%03lu ms\n",
-		minrtt == ~0ull ? 0 : minrtt/1000,
-		minrtt == ~0ull ? 0 : minrtt%1000,
-		replied ? total_rtt/replied/1000 : 0,
-		replied ? (total_rtt/replied)%1000 : 0,
-		maxrtt/1000, maxrtt%1000);
-#else
-	printf("%llu packets transmitted, %llu received, %llu%% packet loss, time %llu ms\n",
-		(unsigned long long)ntrans, (unsigned long long)replied,
 		(lost != 0) ?  lost * 100ull / ntrans : 0ull, total_time / 1000ull);
-	printf("rtt min/avg/max = %llu.%03llu/%llu.%03llu/%llu.%03llu ms\n",
+	printf("rtt min/avg/max = %" PRIu64 ".%03" PRIu64 "/%" PRIu64 ".%03" PRIu64 "/%" PRIu64 ".%03" PRIu64 " ms\n",
 		minrtt == ~0ull ? 0 : minrtt/1000,
 		minrtt == ~0ull ? 0 : minrtt%1000,
 		replied ? total_rtt/replied/1000 : 0,
 		replied ? (total_rtt/replied)%1000 : 0,
 		maxrtt/1000, maxrtt%1000);
-#endif
 
 	exit(0);
 }
