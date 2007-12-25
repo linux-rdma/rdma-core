@@ -119,6 +119,17 @@ get_linkspeed_str(int linkspeed)
 		return linkspeed_str[linkspeed];
 }
 
+static inline const char*
+node_type_str2(Node *node)
+{
+	switch(node->type) {
+	case SWITCH_NODE: return "SW";
+	case CA_NODE:     return "CA";
+	case ROUTER_NODE: return "RT";
+	}
+	return "??";
+}
+
 int
 get_port(Port *port, int portnum, ib_portid_t *portid)
 {
@@ -839,11 +850,64 @@ dump_topology(int listtype, int group)
 	return i;
 }
 
+void dump_ports_report ()
+{
+	int b, n = 0, p;
+	Node *node;
+	Port *port;
+
+	// If switch and LID == 0, search of other switch ports with
+	// valid LID and assign it to all ports of that switch
+	for (b = 0; b <= MAXHOPS; b++)
+		for (node = nodesdist[b]; node; node = node->dnext)
+			if (node->type == SWITCH_NODE) {
+				int swlid = 0;
+				for (p = 0, port = node->ports;
+				     p < node->numports && port && !swlid;
+				     port = port->next)
+					if (port->lid != 0)
+						swlid = port->lid;
+				for (p = 0, port = node->ports;
+				     p < node->numports && port;
+				     port = port->next)
+					port->lid = swlid;
+			}
+
+	for (b = 0; b <= MAXHOPS; b++)
+		for (node = nodesdist[b]; node; node = node->dnext) {
+			for (p = 0, port = node->ports;
+			     p < node->numports && port;
+			     p++, port = port->next) {
+				fprintf(stdout,
+					"%2s %5d %2d 0x%016" PRIx64 " %s %s",
+					node_type_str2(port->node), port->lid,
+					port->portnum,
+					port->portguid,
+					get_linkwidth_str(port->linkwidth),
+					get_linkspeed_str(port->linkspeed));
+				if (port->remoteport)
+					fprintf(stdout,
+						" - %2s %5d %2d 0x%016" PRIx64
+						" ( '%s' - '%s' )\n",
+						node_type_str2(port->remoteport->node),
+						port->remoteport->lid,
+						port->remoteport->portnum,
+						port->remoteport->portguid,
+						port->node->nodedesc,
+						port->remoteport->node->nodedesc);
+				else
+					fprintf(stdout, "%36s'%s'\n", "",
+						port->node->nodedesc);
+			}
+			n++;
+		}
+}
+
 void
 usage(void)
 {
 	fprintf(stderr, "Usage: %s [-d(ebug)] -e(rr_show) -v(erbose) -s(how) -l(ist) -g(rouping) -H(ca_list) -S(witch_list) -R(outer_list) -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms --node-name-map node-name-map] [<topology-file>]\n",
+			"-t(imeout) timeout_ms --node-name-map node-name-map] -p(orts) [<topology-file>]\n",
 			argv0);
 	fprintf(stderr, "       --node-name-map <node-name-map> specify a node name map file\n");
 	exit(-1);
@@ -858,8 +922,9 @@ main(int argc, char **argv)
 	char *ca = 0;
 	int ca_port = 0;
 	int group = 0;
+	int ports_report = 0;
 
-	static char const str_opts[] = "C:P:t:devslgHSRVhu";
+	static char const str_opts[] = "C:P:t:devslgHSRpVhu";
 	static const struct option long_opts[] = {
 		{ "C", 1, 0, 'C'},
 		{ "P", 1, 0, 'P'},
@@ -874,6 +939,7 @@ main(int argc, char **argv)
 		{ "Router_list", 0, 0, 'R'},
 		{ "timeout", 1, 0, 't'},
 		{ "node-name-map", 1, 0, 1},
+		{ "ports", 0, 0, 'p'},
 		{ "Version", 0, 0, 'V'},
 		{ "help", 0, 0, 'h'},
 		{ "usage", 0, 0, 'u'},
@@ -935,6 +1001,9 @@ main(int argc, char **argv)
 		case 'V':
 			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
 			exit(-1);
+		case 'p':
+			ports_report = 1;
+			break;
 		default:
 			usage();
 			break;
@@ -955,7 +1024,10 @@ main(int argc, char **argv)
 	if (group)
 		chassis = group_nodes();
 
-	dump_topology(list, group);
+	if (ports_report)
+		dump_ports_report();
+	else
+		dump_topology(list, group);
 
 	close_node_name_map(node_name_map);
 	exit(0);
