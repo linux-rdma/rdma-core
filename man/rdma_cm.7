@@ -1,4 +1,4 @@
-.TH "RDMA_CM" 7 "2007-08-06" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_CM" 7 "2008-01-02" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_cm \- RDMA communication manager.
 .SH SYNOPSIS
@@ -103,6 +103,23 @@ release the connected rdma_cm_id
 release the listening rdma_cm_id
 .IP rdma_destroy_event_channel
 release the event channel
+.SH "RETURN CODES"
+.IP "=  0"
+success
+.IP "= -1"
+error - see errno for more details
+.IP "< -1"
+error - see include/asm-generic/errno*.h for more details
+.P
+Librdmacm functions return 0 to indicate success, and a negative return value
+to indicate failure.  If a function operates asynchronously, a return value of 0
+means that the operation was successfully started.  The operation could still
+complete in error; users should check the status of the related event.  If the
+return value is -1, then errno can be examined for additional information
+regarding the reason for the failure.  If the return value is < -1, then
+additional error reasons can be obtained by comparing the returned value with
+the values listed in include/asm-generic/errno-base.h and
+include/asm-generic/errno.h.
 .SH "SEE ALSO"
 rdma_create_event_channel(3), rdma_get_cm_event(3), rdma_create_id(3),
 rdma_resolve_addr(3), rdma_bind_addr(3), rdma_create_qp(3),
