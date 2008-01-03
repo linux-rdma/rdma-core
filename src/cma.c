@@ -611,7 +611,8 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 	return 0;
 }
 
-static int ucma_modify_qp_rtr(struct rdma_cm_id *id)
+static int ucma_modify_qp_rtr(struct rdma_cm_id *id,
+			      struct rdma_conn_param *conn_param)
 {
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
@@ -634,6 +635,8 @@ static int ucma_modify_qp_rtr(struct rdma_cm_id *id)
 	if (ret)
 		return ret;
 
+	if (conn_param)
+		qp_attr.max_dest_rd_atomic = conn_param->responder_resources;
 	return ibv_modify_qp(id->qp, &qp_attr, qp_attr_mask);
 }
 
@@ -911,7 +914,7 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 		return ret;
 
 	if (!ucma_is_ud_ps(id->ps)) {
-		ret = ucma_modify_qp_rtr(id);
+		ret = ucma_modify_qp_rtr(id, conn_param);
 		if (ret)
 			return ret;
 	}
@@ -1193,7 +1196,7 @@ static int ucma_process_conn_resp(struct cma_id_private *id_priv)
 	void *msg;
 	int ret, size;
 
-	ret = ucma_modify_qp_rtr(&id_priv->id);
+	ret = ucma_modify_qp_rtr(&id_priv->id, NULL);
 	if (ret)
 		goto err;
 
