@@ -23,9 +23,8 @@ done
 dump_by_dr_path ()
 {
 for sw_dr in `ibnetdiscover $ca_info -v \
-		| sed -ne '/^DR path .* switch /s/^DR path \[\(.*\)\].*$/\1/p' \
-		| sed -e 's/\]\[/,/g' \
-		| sort -u` ; do
+	| sed -ne '/^DR path .* switch /s/^DR path \([,|0-9]\+\) ->.*$/\1/p' \
+	| sort -u` ; do
 	ibroute $ca_info -D ${sw_dr}
 done
 }
