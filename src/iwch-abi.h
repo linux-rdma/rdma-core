@@ -40,6 +40,7 @@ struct iwch_alloc_ucontext_resp {
 
 struct iwch_alloc_pd_resp {
 	struct ibv_alloc_pd_resp ibv_resp;
+	uint32_t pdid;
 };
 
 struct iwch_create_cq {
