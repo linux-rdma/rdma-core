@@ -37,6 +37,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/mman.h>
@@ -123,6 +124,7 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 	if (!nesvctx)
 		return NULL;
 
+	memset(nesvctx, 0, sizeof *nesvctx);
 	nesvctx->ibv_ctx.cmd_fd = cmd_fd;
 	cmd.userspace_ver = NES_ABI_USERSPACE_VER;
 
