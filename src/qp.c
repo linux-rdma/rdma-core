@@ -84,7 +84,8 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 			    T3_MAX_INLINE)
 				return -1;
 			wqe->send.plen += wr->sg_list[i].length;
-			memcpy(datap, (void *)wr->sg_list[i].addr, 
+			memcpy(datap, 
+			       (void *)(unsigned long)wr->sg_list[i].addr, 
 			       wr->sg_list[i].length);
 			datap += wr->sg_list[i].length;
 		}
@@ -137,7 +138,8 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 			    T3_MAX_INLINE)
 				return -1;
 			wqe->write.plen += wr->sg_list[i].length;
-			memcpy(datap, (void *)wr->sg_list[i].addr, 
+			memcpy(datap, 
+			       (void *)(unsigned long)wr->sg_list[i].addr, 
 			       wr->sg_list[i].length);
 			datap += wr->sg_list[i].length;
 		}
