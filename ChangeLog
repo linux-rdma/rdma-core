@@ -1,6 +1,33 @@
-commit 3830b367c4ac4df270603e6759d6118c1f8f65c3
+commit f7cab7a35edc54e1395551cdecb03c27e1fbf373
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Dec 17 13:32:50 2007 -0600
+Date:   Thu Jan 3 17:18:34 2008 -0600
+
+    Spin release 1.1.2.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a35c74c32d038bd7508ad3cb6c5291c1865d3ba4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jan 3 17:16:27 2008 -0600
+
+    Fix compiler warnings on 32b.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ef3b9d4f99eb6e18c29b70599edf99d0715f03fb
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jan 3 17:15:19 2008 -0600
+
+    segfault running rping over iwarp on 32b distros.
+    
+    The cxgb3 driver is copying out the pd_id, but the lib isn't allocating
+    space for it.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 55950cff6f1f059d3547aee1959a50c1b2a495af
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Dec 17 13:33:00 2007 -0600
 
     Spin release 1.1.1.
     
