@@ -196,6 +196,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 	struct mlx4_cqe *cqe;
 	struct mlx4_srq *srq;
 	uint32_t qpn;
+	uint32_t g_mlpath_rqpn;
 	uint16_t wqe_index;
 	int is_error;
 	int is_send;
@@ -314,11 +315,11 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 
 		wc->slid	   = ntohs(cqe->rlid);
 		wc->sl		   = cqe->sl >> 4;
-		wc->src_qp	   = ntohl(cqe->g_mlpath_rqpn) & 0xffffff;
-		wc->dlid_path_bits = (ntohl(cqe->g_mlpath_rqpn) >> 24) & 0x7f;
+		g_mlpath_rqpn	   = ntohl(cqe->g_mlpath_rqpn);
+		wc->src_qp	   = g_mlpath_rqpn & 0xffffff;
+		wc->dlid_path_bits = (g_mlpath_rqpn >> 24) & 0x7f;
+		wc->wc_flags	  |= g_mlpath_rqpn & 0x80000000 ? IBV_WC_GRH : 0;
 		wc->pkey_index     = ntohl(cqe->immed_rss_invalid) >> 16;
-		wc->wc_flags      |= ntohl(cqe->g_mlpath_rqpn) & 0x80000000 ?
-			IBV_WC_GRH : 0;
 	}
 
 	return CQ_OK;
