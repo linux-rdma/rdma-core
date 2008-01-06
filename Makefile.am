@@ -95,8 +95,9 @@ EXTRA_DIST = scripts include infiniband-diags.spec.in infiniband-diags.spec \
 	$(man_MANS) autogen.sh
 
 dist-hook:
-	test -x ../$(top_srcdir)/gen_chlog.sh \
-		&& ../$(top_srcdir)/gen_chlog.sh $(PACKAGE) > $(distdir)/ChangeLog
+	if [ -x $(top_srcdir)/../gen_chlog.sh ] ; then \
+		$(top_srcdir)/../gen_chlog.sh $(PACKAGE) > $(distdir)/ChangeLog ; \
+	fi
 
 # install this to a default location.
 install-data-hook:
