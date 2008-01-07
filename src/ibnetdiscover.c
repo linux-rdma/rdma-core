@@ -47,7 +47,6 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.5
 #include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>

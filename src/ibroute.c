@@ -46,7 +46,6 @@
 #include <netinet/in.h>
 #include <ctype.h>
 
-#define __BUILD_VERSION_TAG__ 1.2
 #include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>

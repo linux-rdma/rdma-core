@@ -48,8 +48,6 @@
 #define _GNU_SOURCE
 #include <getopt.h>
 
-#define __BUILD_VERSION_TAG__ 1.2.4
-
 #include <infiniband/opensm/osm_log.h>
 #include <infiniband/vendor/osm_vendor_api.h>
 #include <infiniband/vendor/osm_vendor_sa_api.h>
