@@ -136,6 +136,7 @@ AC_SUBST(IBSCRIPTPATH)
 AC_CONFIG_FILES([\
         Makefile \
         infiniband-diags.spec \
+        include/ibdiag_version.h \
         scripts/ibcheckerrors \
         scripts/ibcheckerrs \
         scripts/ibchecknet \
