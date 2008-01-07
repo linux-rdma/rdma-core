@@ -91,6 +91,18 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibdatacounts.8 man/ibdatacounters.8 \
 	man/ibrouters.8 man/ibprintrt.8 man/ibidsverify.8
 
+BUILT_SOURCES = ibdiag_version
+ibdiag_version:
+	if [ -x $(top_srcdir)/../gen_ver.sh ] ; then \
+		ver_file=$(srcdir)/include/ibdiag_version.h ; \
+		ibdiag_ver=`cat $$ver_file | sed -ne '/#define IBDIAG_VERSION /s/^.*\"\(.*\)\"$$/\1/p'` ; \
+		ver=`$(top_srcdir)/../gen_ver.sh $(PACKAGE)` ; \
+		if [ $$ver != $$ibdiag_ver ] ; then \
+			cat $$ver_file | sed -e '/#define IBDIAG_VERSION /s/\".*\"/\"'$$ver'\"/' > tmp_new_version ; \
+			cat tmp_new_version > $$ver_file && rm -f tmp_new_version ; \
+		fi ; \
+	fi
+
 EXTRA_DIST = scripts include infiniband-diags.spec.in infiniband-diags.spec \
 	$(man_MANS) autogen.sh
 
