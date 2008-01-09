@@ -57,6 +57,13 @@
 
 #include "ibdiag_common.h"
 
+struct query_cmd {
+	const char *name, *alias;
+	ib_net16_t query_type;
+	int (*handler)(const struct query_cmd *q, osm_bind_handle_t bind_handle,
+		       int argc, char *argv[]);
+};
+
 char *argv0 = "saquery";
 
 static char *node_name_map_file = NULL;
@@ -568,6 +575,27 @@ static void dump_one_link_record(ib_link_record_t *lr)
 	       lr->to_port_num, cl_ntoh16(lr->to_lid));
 }
 
+static void dump_one_slvl_record(ib_slvl_table_record_t *slvl)
+{
+	ib_slvl_table_t *t = &slvl->slvl_tbl;
+	printf("SL2VLTableRecord dump:\n"
+	       "\t\tLID....................%u\n"
+	       "\t\tInPort...................%u\n"
+	       "\t\tOutPort.....................%u\n"
+	       "\t\tSL: 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|\n"
+	       "\t\tVL:%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u"
+	       "|%2u|%2u|%2u|\n",
+	       cl_ntoh16(slvl->lid), slvl->in_port_num, slvl->out_port_num,
+	       ib_slvl_table_get(t, 0), ib_slvl_table_get(t, 1),
+	       ib_slvl_table_get(t, 2), ib_slvl_table_get(t, 3),
+	       ib_slvl_table_get(t, 4), ib_slvl_table_get(t, 5),
+	       ib_slvl_table_get(t, 6), ib_slvl_table_get(t, 7),
+	       ib_slvl_table_get(t, 8), ib_slvl_table_get(t, 9),
+	       ib_slvl_table_get(t, 10), ib_slvl_table_get(t, 11),
+	       ib_slvl_table_get(t, 12), ib_slvl_table_get(t, 13),
+	       ib_slvl_table_get(t, 14), ib_slvl_table_get(t, 15));
+}
+
 static void
 return_mad(void)
 {
@@ -735,6 +763,33 @@ static ib_api_status_t get_link_records(osm_bind_handle_t bind_handle,
 	return get_any_records(bind_handle, IB_MAD_ATTR_LINK_RECORD, 0,
 			       comp_mask, &lr,
 			       ib_get_attr_offset(sizeof(ib_link_record_t)), 0);
+}
+
+static ib_api_status_t get_slvl_records(osm_bind_handle_t bind_handle,
+					int lid, int in_port, int out_port)
+{
+	ib_slvl_table_record_t slvl;
+	ib_net64_t comp_mask;
+
+	memset(&slvl, 0, sizeof(slvl));
+	comp_mask = 0;
+
+	if (lid > 0) {
+		slvl.lid = cl_hton16(lid);
+		comp_mask |= IB_SLVL_COMPMASK_LID;
+	}
+	if (in_port >= 0) {
+		slvl.in_port_num = in_port;
+		comp_mask |= IB_SLVL_COMPMASK_IN_PORT;
+	}
+	if (out_port >= 0) {
+		slvl.out_port_num = out_port;
+		comp_mask |= IB_SLVL_COMPMASK_OUT_PORT;
+	}
+
+	return get_any_records(bind_handle, IB_MAD_ATTR_SLVL_RECORD, 0,
+			       comp_mask, &slvl,
+			       ib_get_attr_offset(sizeof(ib_slvl_table_record_t)), 0);
 }
 
 static ib_api_status_t
@@ -1069,6 +1124,54 @@ print_link_records(osm_bind_handle_t bind_handle, char *from, char *to)
 	return status;
 }
 
+static int
+print_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
+		    int argc, char *argv[])
+{
+	int i;
+	ib_slvl_table_record_t *slvl;
+	int lid = 0, in_port = -1, out_port = -1;
+	ib_api_status_t status;
+
+	char *p, *s, *e;
+
+	if (argc < 1)
+		goto _query;
+
+	p = argv[0];
+	s = strchr(p, '/');
+	if (s) *s = '\0';
+	lid = get_lid(bind_handle, p);
+
+	if (!s)
+		goto _query;
+	p = s + 1;
+	s = strchr(p, '/');
+	if (s) *s = '\0';
+	in_port = strtoul(p, &e, 0);
+	if (e == p)
+		in_port = -1;
+
+	if (!s)
+		goto _query;
+	p = s + 1;
+	out_port = strtoul(p, &e, 0);
+	if (e == p)
+		out_port = -1;
+
+_query:
+	status = get_slvl_records(bind_handle, lid, in_port, out_port);
+	if (status != IB_SUCCESS)
+		return status;
+
+	for (i = 0; i < result.result_cnt; i++) {
+		slvl = osmv_get_query_result(result.p_result_madw, i);
+		dump_one_slvl_record(slvl);
+	}
+	return_mad();
+	return status;
+}
+
 static osm_bind_handle_t
 get_bind_handle(void)
 {
@@ -1143,17 +1246,12 @@ clean_up(void)
 	osm_vendor_delete(&vendor);
 }
 
-struct query_cmd {
-	const char *name, *alias;
-	ib_net16_t query_type;
-	int (*handler)(const char *name, osm_bind_handle_t bind_handle,
-			char *from, char *to);
-};
-
 static const struct query_cmd query_cmds[] = {
 	{ "ClassPortInfo", "CPI", IB_MAD_ATTR_CLASS_PORT_INFO, },
 	{ "NodeRecord", "NR", IB_MAD_ATTR_NODE_RECORD, },
 	{ "PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD, },
+	{ "SL2VLTableRecord", "SL2VL", IB_MAD_ATTR_SLVL_RECORD,
+	   print_sl2vl_records },
 	{ "InformInfoRecord", "IIR", IB_MAD_ATTR_INFORM_INFO_RECORD, },
 	{ "LinkRecord", "LR", IB_MAD_ATTR_LINK_RECORD, },
 	{ "ServiceRecord", "SR", IB_MAD_ATTR_SERVICE_RECORD, },
@@ -1232,7 +1330,7 @@ main(int argc, char **argv)
 	int                ch = 0;
 	int                members = 0;
 	osm_bind_handle_t  bind_handle;
-	const struct query_cmd *q;
+	const struct query_cmd *q = NULL;
 	char              *src = NULL;
 	char              *dst = NULL;
 	char              *sgid = NULL;
@@ -1484,8 +1582,12 @@ main(int argc, char **argv)
 		status = print_link_records(bind_handle, src, dst);
 		break;
 	default:
-		fprintf(stderr, "Unknown query type %d\n", query_type);
-		status = IB_UNKNOWN_ERROR;
+		if (q && q->handler)
+			status = q->handler(q, bind_handle, argc, argv);
+		else {
+			fprintf(stderr, "Unknown query type %d\n", query_type);
+			status = IB_UNKNOWN_ERROR;
+		}
 		break;
 	}
 
