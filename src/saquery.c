@@ -91,7 +91,6 @@ ib_net16_t         requested_lid = 0;
 int                requested_lid_flag = 0;
 ib_net64_t         requested_guid = 0;
 int                requested_guid_flag = 0;
-ib_net16_t         query_type = IB_MAD_ATTR_NODE_RECORD;
 
 /**
  * Call back for the various record requests.
@@ -1144,12 +1143,46 @@ clean_up(void)
 	osm_vendor_delete(&vendor);
 }
 
+struct query_cmd {
+	const char *name, *alias;
+	ib_net16_t query_type;
+	int (*handler)(const char *name, osm_bind_handle_t bind_handle,
+			char *from, char *to);
+};
+
+static const struct query_cmd query_cmds[] = {
+	{ "ClassPortInfo", "CPI", IB_MAD_ATTR_CLASS_PORT_INFO, },
+	{ "NodeRecord", "NR", IB_MAD_ATTR_NODE_RECORD, },
+	{ "PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD, },
+	{ "InformInfoRecord", "IIR", IB_MAD_ATTR_INFORM_INFO_RECORD, },
+	{ "LinkRecord", "LR", IB_MAD_ATTR_LINK_RECORD, },
+	{ "ServiceRecord", "SR", IB_MAD_ATTR_SERVICE_RECORD, },
+	{ "PathRecord", "PR", IB_MAD_ATTR_PATH_RECORD, },
+	{ "MCMemberRecord", "MCMR", IB_MAD_ATTR_MCMEMBER_RECORD, },
+	{ 0 }
+};
+
+static const struct query_cmd *find_query(const char *name)
+{
+	const struct query_cmd *q;
+	unsigned len = strlen(name);
+
+	for (q = query_cmds; q->name; q++)
+		if (!strncasecmp(name, q->name, len) ||
+		    (q->alias && !strncasecmp(name, q->alias, len)))
+			return q;
+
+	return NULL;
+}
+
 static void
 usage(void)
 {
+	const struct query_cmd *q;
+
 	fprintf(stderr, "Usage: %s [-h -d -p -N] [--list | -D] [-S -I -L -l -G"
 		" -O -U -c -s -g -m --src-to-dst <src:dst> --sgid-to-dgid <src-dst> "
-		"-C <ca_name> -P <ca_port> -t(imeout) <msec>] [<name> | <lid> | <guid>]\n",
+		"-C <ca_name> -P <ca_port> -t(imeout) <msec>] [query-name] [<name> | <lid> | <guid>]\n",
 		argv0);
 	fprintf(stderr, "   Queries node records by default\n");
 	fprintf(stderr, "   -d enable debugging\n");
@@ -1184,6 +1217,12 @@ usage(void)
 				"response timeout (default %u msec)\n",
 			DEFAULT_SA_TIMEOUT_MS);
 	fprintf(stderr, "   --node-name-map <node-name-map> specify a node name map\n");
+	fprintf(stderr, "\n   Supported query names (and aliases):\n");
+	for (q = query_cmds; q->name; q++)
+		fprintf(stderr, "      %s (%s)\n", q->name,
+			q->alias ? q->alias : "");
+	fprintf(stderr, "\n");
+
 	exit(-1);
 }
 
@@ -1193,10 +1232,12 @@ main(int argc, char **argv)
 	int                ch = 0;
 	int                members = 0;
 	osm_bind_handle_t  bind_handle;
+	const struct query_cmd *q;
 	char              *src = NULL;
 	char              *dst = NULL;
 	char              *sgid = NULL;
 	char              *dgid = NULL;
+	ib_net16_t         query_type = 0;
 	ib_net16_t         src_lid;
 	ib_net16_t         dst_lid;
 	ib_api_status_t    status;
@@ -1341,6 +1382,16 @@ main(int argc, char **argv)
 	}
 	argc -= optind;
 	argv += optind;
+
+	if (!query_type) {
+		if (!argc || !(q = find_query(argv[0])))
+			query_type = IB_MAD_ATTR_NODE_RECORD;
+		else {
+			query_type = q->query_type;
+			argc--;
+			argv++;
+		}
+	}
 
 	if (argc) {
 		if (node_print_desc == NAME_OF_LID) {
