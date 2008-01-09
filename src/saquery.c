@@ -712,6 +712,42 @@ get_lid(osm_bind_handle_t bind_handle, const char * name)
         return (rc_lid);
 }
 
+static int parse_lid_and_ports(osm_bind_handle_t bind_handle,
+			       char *str, int *lid, int *port1, int *port2)
+{
+	char *p, *e;
+
+	if (port1) *port1 = -1;
+	if (port2) *port2 = -1;
+
+	p = strchr(str, '/');
+	if (p) *p = '\0';
+	if (lid)
+		*lid = get_lid(bind_handle, str);
+
+	if (!p)
+		return 0;
+	str = p + 1;
+	p = strchr(str, '/');
+	if (p) *p = '\0';
+	if (port1) {
+		*port1 = strtoul(str, &e, 0);
+		if (e == str)
+			*port1 = -1;
+	}
+
+	if (!p)
+		return 0;
+	str = p + 1;
+	if (port2) {
+		*port2 = strtoul(str, &e, 0);
+		if (e == str)
+			*port2 = -1;
+	}
+
+	return 0;
+}
+
 /*
  * Get the portinfo records available with IsSM or IsSMdisabled CapabilityMask bit on.
  */
@@ -748,7 +784,7 @@ static ib_api_status_t get_link_records(osm_bind_handle_t bind_handle,
 		comp_mask |= IB_LR_COMPMASK_FROM_LID;
 	}
 	if (from_port >= 0) {
-		lr.from_port_num = cl_hton16(from_port);
+		lr.from_port_num = from_port;
 		comp_mask |= IB_LR_COMPMASK_FROM_PORT;
 	}
 	if (to_lid > 0) {
@@ -756,7 +792,7 @@ static ib_api_status_t get_link_records(osm_bind_handle_t bind_handle,
 		comp_mask |= IB_LR_COMPMASK_TO_LID;
 	}
 	if (to_port >= 0) {
-		lr.to_port_num = cl_hton16(to_port);
+		lr.to_port_num = to_port;
 		comp_mask |= IB_LR_COMPMASK_TO_PORT;
 	}
 
@@ -1099,17 +1135,20 @@ print_inform_info_records(osm_bind_handle_t bind_handle)
 }
 
 static ib_api_status_t
-print_link_records(osm_bind_handle_t bind_handle, char *from, char *to)
+print_link_records(osm_bind_handle_t bind_handle, int argc, char *argv[])
 {
 	int i;
 	ib_link_record_t *lr;
-	int from_lid, to_lid, from_port, to_port;
+	int from_lid = 0, to_lid = 0, from_port = -1, to_port = -1;
 	ib_api_status_t status;
 
-	from_lid = get_lid(bind_handle, from);
-	to_lid = get_lid(bind_handle, to);
-	from_port = -1;
-	to_port = -1;
+	if (argc > 0)
+		parse_lid_and_ports(bind_handle, argv[0],
+				    &from_lid, &from_port, NULL);
+
+	if (argc > 1)
+		parse_lid_and_ports(bind_handle, argv[1],
+				    &to_lid, &to_port, NULL);
 
 	status = get_link_records(bind_handle, from_lid, from_port,
 				  to_lid, to_port);
@@ -1133,33 +1172,10 @@ print_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 	int lid = 0, in_port = -1, out_port = -1;
 	ib_api_status_t status;
 
-	char *p, *s, *e;
+	if (argc > 0)
+		parse_lid_and_ports(bind_handle, argv[0],
+				    &lid, &in_port, &out_port);
 
-	if (argc < 1)
-		goto _query;
-
-	p = argv[0];
-	s = strchr(p, '/');
-	if (s) *s = '\0';
-	lid = get_lid(bind_handle, p);
-
-	if (!s)
-		goto _query;
-	p = s + 1;
-	s = strchr(p, '/');
-	if (s) *s = '\0';
-	in_port = strtoul(p, &e, 0);
-	if (e == p)
-		in_port = -1;
-
-	if (!s)
-		goto _query;
-	p = s + 1;
-	out_port = strtoul(p, &e, 0);
-	if (e == p)
-		out_port = -1;
-
-_query:
 	status = get_slvl_records(bind_handle, lid, in_port, out_port);
 	if (status != IB_SUCCESS)
 		return status;
@@ -1579,7 +1595,7 @@ main(int argc, char **argv)
 		status = print_inform_info_records(bind_handle);
 		break;
 	case IB_MAD_ATTR_LINK_RECORD:
-		status = print_link_records(bind_handle, src, dst);
+		status = print_link_records(bind_handle, argc, argv);
 		break;
 	default:
 		if (q && q->handler)
