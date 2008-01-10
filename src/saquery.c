@@ -579,9 +579,9 @@ static void dump_one_slvl_record(ib_slvl_table_record_t *slvl)
 {
 	ib_slvl_table_t *t = &slvl->slvl_tbl;
 	printf("SL2VLTableRecord dump:\n"
-	       "\t\tLID....................%u\n"
-	       "\t\tInPort...................%u\n"
-	       "\t\tOutPort.....................%u\n"
+	       "\t\tLID........................%u\n"
+	       "\t\tInPort.....................%u\n"
+	       "\t\tOutPort....................%u\n"
 	       "\t\tSL: 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|\n"
 	       "\t\tVL:%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u"
 	       "|%2u|%2u|%2u|\n",
@@ -594,6 +594,54 @@ static void dump_one_slvl_record(ib_slvl_table_record_t *slvl)
 	       ib_slvl_table_get(t, 10), ib_slvl_table_get(t, 11),
 	       ib_slvl_table_get(t, 12), ib_slvl_table_get(t, 13),
 	       ib_slvl_table_get(t, 14), ib_slvl_table_get(t, 15));
+}
+
+static void dump_one_vlarb_record(ib_vl_arb_table_record_t *vlarb)
+{
+	ib_vl_arb_element_t *e = vlarb->vl_arb_tbl.vl_entry;
+	int i;
+	printf("VLArbTableRecord dump:\n"
+	       "\t\tLID........................%u\n"
+	       "\t\tPort.......................%u\n"
+	       "\t\tBlock......................%u\n",
+	       cl_ntoh16(vlarb->lid), vlarb->port_num, vlarb->block_num);
+	for (i = 0; i < 32 ; i += 16) {
+		printf("\t\tVL    :%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|"
+		       "%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|",
+		       e[i + 0].vl, e[i + 1].vl, e[i + 2].vl, e[i + 3].vl,
+		       e[i + 4].vl, e[i + 5].vl, e[i + 6].vl, e[i + 7].vl,
+		       e[i + 8].vl, e[i + 9].vl, e[i + 10].vl, e[i + 11].vl,
+		       e[i + 12].vl, e[i + 13].vl, e[i + 14].vl, e[i + 15].vl);
+		printf("\n\t\tWeight:%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|"
+		       "%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|",
+		       e[i + 0].weight, e[i + 1].weight, e[i + 2].weight,
+		       e[i + 3].weight, e[i + 4].weight, e[i + 5].weight,
+		       e[i + 6].weight, e[i + 7].weight, e[i + 8].weight,
+		       e[i + 9].weight, e[i + 10].weight, e[i + 11].weight,
+		       e[i + 12].weight, e[i + 13].weight, e[i + 14].weight,
+		       e[i + 15].weight);
+		printf("\n");
+	}
+}
+
+static void dump_one_pkey_tbl_record(ib_pkey_table_record_t *pktr)
+{
+	ib_net16_t *p = pktr->pkey_tbl.pkey_entry;
+	int i;
+	printf("PKeyTableRecord dump:\n"
+	       "\t\tLID........................%u\n"
+	       "\t\tPort.......................%u\n"
+	       "\t\tBlock......................%u\n"
+	       "\t\tPKey Table:\n",
+	       cl_ntoh16(pktr->lid), pktr->port_num, pktr->block_num);
+	for (i = 0; i < 32 ; i += 8)
+		printf("\t\t0x%04x 0x%04x 0x%04x 0x%04x"
+		       " 0x%04x 0x%04x 0x%04x 0x%04x\n",
+		       cl_ntoh16(p[i + 0]), cl_ntoh16(p[i + 1]),
+		       cl_ntoh16(p[i + 2]), cl_ntoh16(p[i + 3]),
+		       cl_ntoh16(p[i + 4]), cl_ntoh16(p[i + 5]),
+		       cl_ntoh16(p[i + 6]), cl_ntoh16(p[i + 7]));
+	printf("\n");
 }
 
 static void
@@ -826,6 +874,59 @@ static ib_api_status_t get_slvl_records(osm_bind_handle_t bind_handle,
 	return get_any_records(bind_handle, IB_MAD_ATTR_SLVL_RECORD, 0,
 			       comp_mask, &slvl,
 			       ib_get_attr_offset(sizeof(ib_slvl_table_record_t)), 0);
+}
+
+static ib_api_status_t get_vlarb_records(osm_bind_handle_t bind_handle,
+					 int lid, int port, int block)
+{
+	ib_vl_arb_table_record_t vlarb;
+	ib_net64_t comp_mask = 0;
+
+	memset(&vlarb, 0, sizeof(vlarb));
+
+	if (lid > 0) {
+		vlarb.lid = cl_hton16(lid);
+		comp_mask |= IB_VLA_COMPMASK_LID;
+	}
+	if (port >= 0) {
+		vlarb.port_num = port;
+		comp_mask |= IB_VLA_COMPMASK_OUT_PORT;
+	}
+	if (block >= 0) {
+		vlarb.block_num = block;
+		comp_mask |= IB_VLA_COMPMASK_BLOCK;
+	}
+
+	return get_any_records(bind_handle, IB_MAD_ATTR_VLARB_RECORD, 0,
+			       comp_mask, &vlarb,
+			       ib_get_attr_offset(sizeof(ib_vl_arb_table_record_t)), 0);
+}
+
+static ib_api_status_t get_pkey_tbl_records(osm_bind_handle_t bind_handle,
+					    int lid, int port, int block)
+{
+	ib_pkey_table_record_t pktr;
+	ib_net64_t comp_mask = 0;
+
+	memset(&pktr, 0, sizeof(pktr));
+
+	if (lid > 0) {
+		pktr.lid = cl_hton16(lid);
+		comp_mask |= IB_PKEY_COMPMASK_LID;
+	}
+	if (port >= 0) {
+		pktr.port_num = port;
+		comp_mask |= IB_PKEY_COMPMASK_PORT;
+	}
+	if (block >= 0) {
+		pktr.block_num = block;
+		comp_mask |= IB_PKEY_COMPMASK_BLOCK;
+	}
+
+	return get_any_records(bind_handle, IB_MAD_ATTR_PKEY_TBL_RECORD, 0,
+			       comp_mask, &pktr,
+			       ib_get_attr_offset(sizeof(pktr)),
+			       OSM_DEFAULT_SM_KEY);
 }
 
 static ib_api_status_t
@@ -1188,6 +1289,56 @@ print_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 	return status;
 }
 
+static int
+print_vlarb_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
+		    int argc, char *argv[])
+{
+	int i;
+	ib_vl_arb_table_record_t *vlarb;
+	int lid = 0, port = -1, block = -1;
+	ib_api_status_t status;
+
+	if (argc > 0)
+		parse_lid_and_ports(bind_handle, argv[0],
+				    &lid, &port, &block);
+
+	status = get_vlarb_records(bind_handle, lid, port, block);
+	if (status != IB_SUCCESS)
+		return status;
+
+	for (i = 0; i < result.result_cnt; i++) {
+		vlarb = osmv_get_query_result(result.p_result_madw, i);
+		dump_one_vlarb_record(vlarb);
+	}
+	return_mad();
+	return status;
+}
+
+static int
+print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
+		       int argc, char *argv[])
+{
+	int i;
+	ib_pkey_table_record_t *pktr;
+	int lid = 0, port = -1, block = -1;
+	ib_api_status_t status;
+
+	if (argc > 0)
+		parse_lid_and_ports(bind_handle, argv[0],
+				    &lid, &port, &block);
+
+	status = get_pkey_tbl_records(bind_handle, lid, port, block);
+	if (status != IB_SUCCESS)
+		return status;
+
+	for (i = 0; i < result.result_cnt; i++) {
+		pktr = osmv_get_query_result(result.p_result_madw, i);
+		dump_one_pkey_tbl_record(pktr);
+	}
+	return_mad();
+	return status;
+}
+
 static osm_bind_handle_t
 get_bind_handle(void)
 {
@@ -1268,6 +1419,10 @@ static const struct query_cmd query_cmds[] = {
 	{ "PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD, },
 	{ "SL2VLTableRecord", "SL2VL", IB_MAD_ATTR_SLVL_RECORD,
 	   print_sl2vl_records },
+	{ "PKeyTableRecord", "PKTR", IB_MAD_ATTR_PKEY_TBL_RECORD,
+	   print_pkey_tbl_records },
+	{ "VLArbitrationTableRecord", "VLAR", IB_MAD_ATTR_VLARB_RECORD,
+	   print_vlarb_records },
 	{ "InformInfoRecord", "IIR", IB_MAD_ATTR_INFORM_INFO_RECORD, },
 	{ "LinkRecord", "LR", IB_MAD_ATTR_LINK_RECORD, },
 	{ "ServiceRecord", "SR", IB_MAD_ATTR_SERVICE_RECORD, },
