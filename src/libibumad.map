@@ -15,6 +15,7 @@ IBUMAD_1.0 {
 		umad_size;
 		umad_set_grh;
 		umad_set_pkey;
+		umad_get_pkey;
 		umad_set_addr;
 		umad_set_addr_net;
 		umad_send;

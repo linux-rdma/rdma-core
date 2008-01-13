@@ -722,7 +722,18 @@ umad_set_pkey(void *umad, int pkey_index)
 	struct ib_user_mad *mad = umad;
 
 	if (new_user_mad_api)
-		mad->addr.pkey_index = htons(pkey_index);
+		mad->addr.pkey_index = pkey_index;
+
+	return 0;
+}
+
+int
+umad_get_pkey(void *umad)
+{
+	struct ib_user_mad *mad = umad;
+
+	if (new_user_mad_api)
+		return mad->addr.pkey_index;
 
 	return 0;
 }
