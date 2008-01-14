@@ -390,6 +390,7 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		((struct mthca_next_seg *) prev_wqe)->nda_op =
 			htonl((ind << qp->rq.wqe_shift) | 1);
+		wmb();
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD | size);
 
