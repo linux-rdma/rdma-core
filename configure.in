@@ -41,7 +41,7 @@ AC_CHECK_LIB(ibmad, mad_dump_int, [],
 AC_CHECK_LIB(ibmad, port_performance_ext_query, [],
 	AC_MSG_ERROR([port_performance_ext_query() not found. diags require more recent libibmad.]))
 AC_CHECK_LIB(osmcomp, cl_thread_init, [],
-	AC_MSG_ERROR([cl_thread_init() not found. diags require libosmcomp.]), [-lopensm -losmvendor])
+	AC_MSG_ERROR([cl_thread_init() not found. diags require libosmcomp.]))
 AC_CHECK_LIB(osmvendor, osmv_query_sa, [],
 	AC_MSG_ERROR([osmv_query_sa() not found. diags require libosmvendor.]), [-lopensm])
 AC_CHECK_LIB(opensm, osm_log_init_v2, [],
