@@ -13,6 +13,7 @@ Source: http://www.openfabrics.org/downloads/management/@TARBALL@
 Url: http://openfabrics.org/
 BuildRequires: libibmad-devel, opensm-devel, libibcommon-devel, libibumad-devel
 Provides: perl(IBswcountlimits)
+Obsoletes: openib-diags
 
 %description
 This package provides IB diagnostic programs and scripts needed to
