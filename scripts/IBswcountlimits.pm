@@ -215,7 +215,7 @@ sub ensure_cache_dir
 }
 
 # =========================================================================
-# get_link_ends(ca_name, ca_port)
+# get_cache_file(ca_name, ca_port)
 #
 sub get_cache_file
 {
