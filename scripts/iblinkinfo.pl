@@ -108,7 +108,7 @@ sub main
          }
          my @lines = split("\n", $data);
          foreach my $line (@lines) { if ($line =~ /^LifeTime:\.+(.*)/) { $pkt_lifetime = $1; } }
-         $pkt_life_prompt = sprintf(" (LT: %s)", $pkt_lifetime);
+         $pkt_life_prompt = sprintf(" (LT: %2s)", $pkt_lifetime);
       }
       foreach my $port (1 .. $num_ports) {
          my $hr = $IBswcountlimits::link_ends{$switch}{$port};
@@ -166,24 +166,17 @@ sub main
                if ($line =~ /^LinkWidthSupported:\.+(.*)/) { $rem_width_sup = $1; }
             }
          }
-	 my $line_begin = "";
-	 my $ext_guid = "";
-         if ($line_mode)
-         {
-            $line_begin = sprintf ("%18s \"%s\"%s", $switch, $hr->{loc_desc}, $pkt_life_prompt);
-            $ext_guid = sprintf ("%18s", $hr->{rem_guid});
-         }
 	 my $capabilities = "";
 	 if ($print_extended_cap)
 	 {
-	 	$capabilities = sprintf("(%3s %s %6s/%s [%s/%s][%s/%s])",
+		$capabilities = sprintf("(%3s %s %6s / %8s [%s/%s][%s/%s])",
 				$width, $speed, $state, $phy_link_state,
 				$width_enable, $width_sup,
 				$speed_enable, $speed_sup);
          }
 	 else
 	 {
-	 	$capabilities = sprintf("(%3s %s %6s/%s)",
+		$capabilities = sprintf("(%3s %s %6s / %8s)",
                                         $width, $speed, $state, $phy_link_state);
 	 }
 	 if ($print_add_switch)
@@ -219,12 +212,23 @@ sub main
 	           }
 	        }
 
-	        push (@output_lines, sprintf ("   %s %6s %4s[%2s]  ==%s%s==>  %s %6s %4s[%2s] \"%s\" ( %s %s)\n",
-	    	        $line_begin,
-                        $hr->{loc_sw_lid}, $port, $hr->{loc_ext_port},
-		        $capabilities, $port_timeouts,
-                        $ext_guid, $hr->{rem_lid}, $hr->{rem_port}, $hr->{rem_ext_port},
-                        $hr->{rem_desc}, $width_msg, $speed_msg));
+		if ($line_mode)
+		{
+			my $line_begin = sprintf ("%18s \"%30s\"%s", $switch, $hr->{loc_desc}, $pkt_life_prompt);
+			my $ext_guid = sprintf ("%18s", $hr->{rem_guid});
+			push (@output_lines, sprintf ("%s %6s %4s[%2s]  ==%s%s==>  %18s %6s %4s[%2s] \"%s\" ( %s %s)\n",
+				$line_begin,
+				$hr->{loc_sw_lid}, $port, $hr->{loc_ext_port},
+				$capabilities, $port_timeouts,
+				$ext_guid, $hr->{rem_lid}, $hr->{rem_port}, $hr->{rem_ext_port},
+				$hr->{rem_desc}, $width_msg, $speed_msg));
+		} else {
+			push (@output_lines, sprintf (" %6s %4s[%2s]  ==%s%s==>  %6s %4s[%2s] \"%s\" ( %s %s)\n",
+				$hr->{loc_sw_lid}, $port, $hr->{loc_ext_port},
+				$capabilities, $port_timeouts,
+				$hr->{rem_lid}, $hr->{rem_port}, $hr->{rem_ext_port},
+				$hr->{rem_desc}, $width_msg, $speed_msg));
+		}
                 $print_switch = "yes";
          }
       }
