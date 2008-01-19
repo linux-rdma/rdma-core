@@ -103,7 +103,7 @@ sub main
             $in_hca = "no";
             goto DONE;
          }
-         if ("0x$guid" eq $target_hca || $desc =~ /.*$target_hca$/)
+         if ("0x$guid" eq $target_hca || $desc =~ /.*$target_hca.*/)
          {
             print $line;
             $in_hca = "yes";
