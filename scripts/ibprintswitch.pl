@@ -104,7 +104,7 @@ sub main
                print $ports{$port};
             }
          }
-         if ("0x$guid" eq $target_switch || $desc =~ /.*$target_switch\s+.*/)
+         if ("0x$guid" eq $target_switch || $desc =~ /.*$target_switch.*/)
          {
             print $line;
             $in_switch = "yes";
