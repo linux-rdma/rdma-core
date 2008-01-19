@@ -5,7 +5,7 @@ ibqueryerrors.pl \- query and report non-zero IB port counters
 
 .SH SYNOPSIS
 .B ibqueryerrors.pl
-[-a -c -r -R -s <err1,err2,...> -S <switch_guid> -d]
+[-a -c -r -R -C <ca_name> -P <ca_port> -s <err1,err2,...> -S <switch_guid> -d]
 
 .SH DESCRIPTION
 .PP
@@ -47,6 +47,10 @@ Report results only for the switch specified.
 .TP
 \fB\-d\fR
 Include the optional transmit and receive data counters.
+.TP
+\fB\-C <ca_name>\fR    use the specified ca_name for the search.
+.TP
+\fB\-P <ca_port>\fR    use the specified ca_port for the search.
 
 
 .SH AUTHOR

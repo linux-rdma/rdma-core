@@ -5,7 +5,7 @@ iblinkinfo.pl \- report link info for all links in the fabric
 
 .SH SYNOPSIS
 .B iblinkinfo.pl
-   [-Rhcdl -v <lt,hoq,vlstall> -S <guid>]
+   [-Rhcdl -C <ca_name> -P <ca_port> -v <lt,hoq,vlstall> -S <guid>]
 
 .SH DESCRIPTION
 .PP
@@ -37,6 +37,11 @@ Verify additional switch settings (<LifeTime>,<HoqLife>,<VLStallCount>)
 .TP
 \fB\-c\fR
 Print port capabilities (enabled and supported values)
+.TP
+\fB\-C <ca_name>\fR    use the specified ca_name for the search.
+.TP
+\fB\-P <ca_port>\fR    use the specified ca_port for the search.
+
 
 .SH AUTHOR
 .TP

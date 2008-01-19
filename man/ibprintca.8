@@ -5,7 +5,7 @@ ibprintca.pl \- print either the ca specified or the list of cas from the ibnetd
 
 .SH SYNOPSIS
 .B ibprintca.pl
-[-R -l] [<ca_guid|node_name>]
+[-R -l -C <ca_name> -P <ca_port>] [<ca_guid|node_name>]
 
 .SH DESCRIPTION
 .PP
@@ -30,6 +30,10 @@ Recalculate the ibnetdiscover information, ie do not use the cached
 information.  This option is slower but should be used if the diag tools have
 not been used for some time or if there are other reasons to believe that
 the fabric has changed.
+.TP
+\fB\-C <ca_name>\fR    use the specified ca_name for the search.
+.TP
+\fB\-P <ca_port>\fR    use the specified ca_port for the search.
 
 .SH AUTHORS
 .TP
