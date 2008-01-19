@@ -103,7 +103,7 @@ sub main
             $in_rt = "no";
             goto DONE;
          }
-         if ("0x$guid" eq $target_rt || $desc =~ /.*$target_rt$/)
+         if ("0x$guid" eq $target_rt || $desc =~ /.*$target_rt.*/)
          {
             print $line;
             $in_rt = "yes";
