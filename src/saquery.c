@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2006,2007 The Regents of the University of California.
- * Copyright (c) 2004-2007 Voltaire, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Voltaire, Inc. All rights reserved.
  * Copyright (c) 2002-2005 Mellanox Technologies LTD. All rights reserved.
  * Copyright (c) 1996-2003 Intel Corporation. All rights reserved.
  *
@@ -60,6 +60,7 @@
 struct query_cmd {
 	const char *name, *alias;
 	ib_net16_t query_type;
+	const char *usage;
 	int (*handler)(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 		       int argc, char *argv[]);
 };
@@ -1418,13 +1419,17 @@ static const struct query_cmd query_cmds[] = {
 	{ "NodeRecord", "NR", IB_MAD_ATTR_NODE_RECORD, },
 	{ "PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD, },
 	{ "SL2VLTableRecord", "SL2VL", IB_MAD_ATTR_SLVL_RECORD,
+	  "[[lid]/[in_port]/[out_port]]",
 	   print_sl2vl_records },
 	{ "PKeyTableRecord", "PKTR", IB_MAD_ATTR_PKEY_TBL_RECORD,
+	  "[[lid]/[port]/[block]]",
 	   print_pkey_tbl_records },
 	{ "VLArbitrationTableRecord", "VLAR", IB_MAD_ATTR_VLARB_RECORD,
+	  "[[lid]/[port]/[block]]",
 	   print_vlarb_records },
 	{ "InformInfoRecord", "IIR", IB_MAD_ATTR_INFORM_INFO_RECORD, },
-	{ "LinkRecord", "LR", IB_MAD_ATTR_LINK_RECORD, },
+	{ "LinkRecord", "LR", IB_MAD_ATTR_LINK_RECORD,
+	  "[[from_lid]/[from_port]] [[to_lid]/[to_port]]", },
 	{ "ServiceRecord", "SR", IB_MAD_ATTR_SERVICE_RECORD, },
 	{ "PathRecord", "PR", IB_MAD_ATTR_PATH_RECORD, },
 	{ "MCMemberRecord", "MCMR", IB_MAD_ATTR_MCMEMBER_RECORD, },
@@ -1488,8 +1493,8 @@ usage(void)
 	fprintf(stderr, "   --node-name-map <node-name-map> specify a node name map\n");
 	fprintf(stderr, "\n   Supported query names (and aliases):\n");
 	for (q = query_cmds; q->name; q++)
-		fprintf(stderr, "      %s (%s)\n", q->name,
-			q->alias ? q->alias : "");
+		fprintf(stderr, "      %s (%s) %s\n", q->name,
+			q->alias ? q->alias : "", q->usage ? q->usage : "");
 	fprintf(stderr, "\n");
 
 	exit(-1);
