@@ -189,9 +189,9 @@ print_node_record(ib_node_record_t *node_record)
 	       );
 }
 
-static void
-print_path_record(ib_path_rec_t *p_pr)
+static void dump_path_record(void *data)
 {
+	ib_path_rec_t *p_pr = data;
 	printf("PathRecord dump:\n"
 	       "\t\tservice_id..............0x%016" PRIx64 "\n"
 	       "\t\tdgid....................0x%016" PRIx64 " : "
@@ -257,11 +257,11 @@ sprint_gid(ib_gid_t *gid, char *str, size_t len)
 	return (str);
 }
 
-static void
-print_class_port_info(ib_class_port_info_t *class_port_info)
+static void dump_class_port_info(void *data)
 {
 	size_t GID_STR_LEN = 256;
 	char   gid_str[GID_STR_LEN];
+	ib_class_port_info_t *class_port_info = data;
 
 	printf("SA ClassPortInfo:\n"
 	       "\t\tBase version.............%d\n"
@@ -302,9 +302,9 @@ print_class_port_info(ib_class_port_info_t *class_port_info)
 	      );
 }
 
-static void
-print_portinfo_record(ib_portinfo_record_t *p_pir)
+static void dump_portinfo_record(void *data)
 {
+	ib_portinfo_record_t *p_pir = data;
 	const ib_port_info_t * const p_pi = &p_pir->port_info;
 
         printf("PortInfoRecord dump:\n"
@@ -390,11 +390,11 @@ print_multicast_member_record(ib_member_rec_t *p_mcmr)
 	}
 }
 
-static void
-print_service_record(ib_service_record_t *p_sr)
+static void dump_service_record(void *data)
 {
 	char buf_service_key[35];
 	char buf_service_name[65];
+	ib_service_record_t *p_sr = data;
 
 	sprintf(buf_service_key,
 		"0x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
@@ -488,9 +488,9 @@ print_service_record(ib_service_record_t *p_sr)
 	      );
 }
 
-static void
-print_inform_info_record(ib_inform_info_record_t *p_iir)
+static void dump_inform_info_record(void *data)
 {
+	ib_inform_info_record_t *p_iir = data;
 	uint32_t qpn;
 	uint8_t  resp_time_val;
 
@@ -565,8 +565,9 @@ print_inform_info_record(ib_inform_info_record_t *p_iir)
 	}
 }
 
-static void dump_one_link_record(ib_link_record_t *lr)
+static void dump_one_link_record(void *data)
 {
+	ib_link_record_t *lr = data;
 	printf("LinkRecord dump:\n"
 	       "\t\tFromLID....................%u\n"
 	       "\t\tFromPort...................%u\n"
@@ -576,8 +577,9 @@ static void dump_one_link_record(ib_link_record_t *lr)
 	       lr->to_port_num, cl_ntoh16(lr->to_lid));
 }
 
-static void dump_one_slvl_record(ib_slvl_table_record_t *slvl)
+static void dump_one_slvl_record(void *data)
 {
+	ib_slvl_table_record_t *slvl = data;
 	ib_slvl_table_t *t = &slvl->slvl_tbl;
 	printf("SL2VLTableRecord dump:\n"
 	       "\t\tLID........................%u\n"
@@ -597,8 +599,9 @@ static void dump_one_slvl_record(ib_slvl_table_record_t *slvl)
 	       ib_slvl_table_get(t, 14), ib_slvl_table_get(t, 15));
 }
 
-static void dump_one_vlarb_record(ib_vl_arb_table_record_t *vlarb)
+static void dump_one_vlarb_record(void *data)
 {
+	ib_vl_arb_table_record_t *vlarb = data;
 	ib_vl_arb_element_t *e = vlarb->vl_arb_tbl.vl_entry;
 	int i;
 	printf("VLArbTableRecord dump:\n"
@@ -625,8 +628,9 @@ static void dump_one_vlarb_record(ib_vl_arb_table_record_t *vlarb)
 	}
 }
 
-static void dump_one_pkey_tbl_record(ib_pkey_table_record_t *pktr)
+static void dump_one_pkey_tbl_record(void *data)
 {
+	ib_pkey_table_record_t *pktr = data;
 	ib_net16_t *p = pktr->pkey_tbl.pkey_entry;
 	int i;
 	printf("PKeyTableRecord dump:\n"
@@ -643,6 +647,15 @@ static void dump_one_pkey_tbl_record(ib_pkey_table_record_t *pktr)
 		       cl_ntoh16(p[i + 4]), cl_ntoh16(p[i + 5]),
 		       cl_ntoh16(p[i + 6]), cl_ntoh16(p[i + 7]));
 	printf("\n");
+}
+
+static void dump_results(osmv_query_res_t *r, void (*dump_func)(void *))
+{
+	int i;
+	for (i = 0; i < r->result_cnt; i++) {
+		void *data = osmv_get_query_svc_rec(r->p_result_madw, i);
+		dump_func(data);
+	}
 }
 
 static void
@@ -815,121 +828,6 @@ get_issm_records(osm_bind_handle_t bind_handle, ib_net32_t capability_mask)
 			       0);
 }
 
-/*
- * Get the LinkRecord(s)
- */
-static ib_api_status_t get_link_records(osm_bind_handle_t bind_handle,
-					int from_lid, int from_port,
-					int to_lid, int to_port)
-{
-	ib_link_record_t lr;
-	ib_net64_t comp_mask;
-
-	memset(&lr, 0, sizeof(lr));
-	comp_mask = 0;
-
-	if (from_lid > 0) {
-		lr.from_lid = cl_hton16(from_lid);
-		comp_mask |= IB_LR_COMPMASK_FROM_LID;
-	}
-	if (from_port >= 0) {
-		lr.from_port_num = from_port;
-		comp_mask |= IB_LR_COMPMASK_FROM_PORT;
-	}
-	if (to_lid > 0) {
-		lr.to_lid = cl_hton16(to_lid);
-		comp_mask |= IB_LR_COMPMASK_TO_LID;
-	}
-	if (to_port >= 0) {
-		lr.to_port_num = to_port;
-		comp_mask |= IB_LR_COMPMASK_TO_PORT;
-	}
-
-	return get_any_records(bind_handle, IB_MAD_ATTR_LINK_RECORD, 0,
-			       comp_mask, &lr,
-			       ib_get_attr_offset(sizeof(ib_link_record_t)), 0);
-}
-
-static ib_api_status_t get_slvl_records(osm_bind_handle_t bind_handle,
-					int lid, int in_port, int out_port)
-{
-	ib_slvl_table_record_t slvl;
-	ib_net64_t comp_mask;
-
-	memset(&slvl, 0, sizeof(slvl));
-	comp_mask = 0;
-
-	if (lid > 0) {
-		slvl.lid = cl_hton16(lid);
-		comp_mask |= IB_SLVL_COMPMASK_LID;
-	}
-	if (in_port >= 0) {
-		slvl.in_port_num = in_port;
-		comp_mask |= IB_SLVL_COMPMASK_IN_PORT;
-	}
-	if (out_port >= 0) {
-		slvl.out_port_num = out_port;
-		comp_mask |= IB_SLVL_COMPMASK_OUT_PORT;
-	}
-
-	return get_any_records(bind_handle, IB_MAD_ATTR_SLVL_RECORD, 0,
-			       comp_mask, &slvl,
-			       ib_get_attr_offset(sizeof(ib_slvl_table_record_t)), 0);
-}
-
-static ib_api_status_t get_vlarb_records(osm_bind_handle_t bind_handle,
-					 int lid, int port, int block)
-{
-	ib_vl_arb_table_record_t vlarb;
-	ib_net64_t comp_mask = 0;
-
-	memset(&vlarb, 0, sizeof(vlarb));
-
-	if (lid > 0) {
-		vlarb.lid = cl_hton16(lid);
-		comp_mask |= IB_VLA_COMPMASK_LID;
-	}
-	if (port >= 0) {
-		vlarb.port_num = port;
-		comp_mask |= IB_VLA_COMPMASK_OUT_PORT;
-	}
-	if (block >= 0) {
-		vlarb.block_num = block;
-		comp_mask |= IB_VLA_COMPMASK_BLOCK;
-	}
-
-	return get_any_records(bind_handle, IB_MAD_ATTR_VLARB_RECORD, 0,
-			       comp_mask, &vlarb,
-			       ib_get_attr_offset(sizeof(ib_vl_arb_table_record_t)), 0);
-}
-
-static ib_api_status_t get_pkey_tbl_records(osm_bind_handle_t bind_handle,
-					    int lid, int port, int block)
-{
-	ib_pkey_table_record_t pktr;
-	ib_net64_t comp_mask = 0;
-
-	memset(&pktr, 0, sizeof(pktr));
-
-	if (lid > 0) {
-		pktr.lid = cl_hton16(lid);
-		comp_mask |= IB_PKEY_COMPMASK_LID;
-	}
-	if (port >= 0) {
-		pktr.port_num = port;
-		comp_mask |= IB_PKEY_COMPMASK_PORT;
-	}
-	if (block >= 0) {
-		pktr.block_num = block;
-		comp_mask |= IB_PKEY_COMPMASK_BLOCK;
-	}
-
-	return get_any_records(bind_handle, IB_MAD_ATTR_PKEY_TBL_RECORD, 0,
-			       comp_mask, &pktr,
-			       ib_get_attr_offset(sizeof(pktr)),
-			       OSM_DEFAULT_SM_KEY);
-}
-
 static ib_api_status_t
 print_node_records(osm_bind_handle_t bind_handle)
 {
@@ -982,8 +880,6 @@ get_print_path_rec_lid(osm_bind_handle_t bind_handle,
 		       ib_net16_t src_lid,
 		       ib_net16_t dst_lid)
 {
-	int                   i = 0;
-	ib_path_rec_t         *path_record = NULL;
 	osmv_query_req_t      req;
 	osmv_lid_pair_t       lid_pair;
 	ib_api_status_t       status;
@@ -1013,10 +909,7 @@ get_print_path_rec_lid(osm_bind_handle_t bind_handle,
 		return (result.status);
 	}
 	status = result.status;
-	for (i = 0; i < result.result_cnt; i++) {
-		path_record = osmv_get_query_path_rec(result.p_result_madw, i);
-		print_path_record(path_record);
-	}
+	dump_results(&result, dump_path_record);
 	return_mad();
 	return (status);
 }
@@ -1026,8 +919,6 @@ get_print_path_rec_gid(osm_bind_handle_t bind_handle,
 		       const ib_gid_t *src_gid,
 		       const ib_gid_t *dst_gid)
 {
-	int                   i = 0;
-	ib_path_rec_t         *path_record = NULL;
 	osmv_query_req_t      req;
 	osmv_gid_pair_t       gid_pair;
 	ib_api_status_t       status;
@@ -1057,10 +948,7 @@ get_print_path_rec_gid(osm_bind_handle_t bind_handle,
 		return (result.status);
 	}
 	status = result.status;
-	for (i = 0; i < result.result_cnt; i++) {
-		path_record = osmv_get_query_path_rec(result.p_result_madw, i);
-		print_path_record(path_record);
-	}
+	dump_results(&result, dump_path_record);
 	return_mad();
 	return (status);
 }
@@ -1068,8 +956,6 @@ get_print_path_rec_gid(osm_bind_handle_t bind_handle,
 static ib_api_status_t
 get_print_class_port_info(osm_bind_handle_t bind_handle)
 {
-	int                   i = 0;
-	ib_class_port_info_t *class_port_info = NULL;
 	osmv_query_req_t      req;
 	ib_api_status_t       status;
 
@@ -1095,10 +981,7 @@ get_print_class_port_info(osm_bind_handle_t bind_handle)
 		return (result.status);
 	}
 	status = result.status;
-	for (i = 0; i < result.result_cnt; i++) {
-		class_port_info = (ib_class_port_info_t*)osmv_get_query_result(result.p_result_madw, i);
-		print_class_port_info(class_port_info);
-	}
+	dump_results(&result, dump_class_port_info);
 	return_mad();
 	return (status);
 }
@@ -1106,19 +989,14 @@ get_print_class_port_info(osm_bind_handle_t bind_handle)
 static ib_api_status_t
 print_path_records(osm_bind_handle_t bind_handle)
 {
-	int               i = 0;
-	ib_path_rec_t    *path_record = NULL;
-	ib_net16_t        attr_offset = ib_get_attr_offset(sizeof(*path_record));
-	ib_api_status_t   status;
+	ib_net16_t attr_offset = ib_get_attr_offset(sizeof(ib_path_rec_t));
+	ib_api_status_t status;
 
 	status = get_all_records(bind_handle, IB_MAD_ATTR_PATH_RECORD, attr_offset, 0);
 	if (status != IB_SUCCESS)
 		return (status);
 
-	for (i = 0; i < result.result_cnt; i++) {
-		path_record = osmv_get_query_path_rec(result.p_result_madw, i);
-		print_path_record(path_record);
-	}
+	dump_results(&result, dump_path_record);
 	return_mad();
 	return (status);
 }
@@ -1126,8 +1004,6 @@ print_path_records(osm_bind_handle_t bind_handle)
 static ib_api_status_t
 print_portinfo_records(osm_bind_handle_t bind_handle)
 {
-	int                   i = 0;
-	ib_portinfo_record_t *portinfo_record = NULL;
 	ib_api_status_t       status;
 
 	/* First, get IsSM records */
@@ -1136,10 +1012,7 @@ print_portinfo_records(osm_bind_handle_t bind_handle)
 		return (status);
 
 	printf("IsSM ports\n");
-	for (i = 0; i < result.result_cnt; i++) {
-		portinfo_record = osmv_get_query_portinfo_rec(result.p_result_madw, i);
-		print_portinfo_record(portinfo_record);
-	}
+	dump_results(&result, dump_portinfo_record);
 	return_mad();
 
 	/* Now, get IsSMdisabled records */
@@ -1148,10 +1021,7 @@ print_portinfo_records(osm_bind_handle_t bind_handle)
 		return (status);
 
 	printf("\nIsSMdisabled ports\n");
-	for (i = 0; i < result.result_cnt; i++) {
-		portinfo_record = osmv_get_query_portinfo_rec(result.p_result_madw, i);
-		print_portinfo_record(portinfo_record);
-	}
+	dump_results(&result, dump_portinfo_record);
 	return_mad();
 
 	return (status);
@@ -1199,19 +1069,14 @@ return_mc:
 static ib_api_status_t
 print_service_records(osm_bind_handle_t bind_handle)
 {
-	int                  i = 0;
-	ib_service_record_t  *service_record = NULL;
-	ib_net16_t           attr_offset = ib_get_attr_offset(sizeof(*service_record));
-	ib_api_status_t      status;
+	ib_net16_t attr_offset = ib_get_attr_offset(sizeof(ib_service_record_t));
+	ib_api_status_t status;
 
 	status = get_all_records(bind_handle, IB_MAD_ATTR_SERVICE_RECORD, attr_offset, 0);
 	if (status != IB_SUCCESS)
 		return (status);
 
-	for (i = 0; i < result.result_cnt; i++) {
-		service_record = osmv_get_query_svc_rec(result.p_result_madw, i);
-		print_service_record(service_record);
-	}
+	dump_results(&result, dump_service_record);
 	return_mad();
 	return (status);
 }
@@ -1219,19 +1084,14 @@ print_service_records(osm_bind_handle_t bind_handle)
 static ib_api_status_t
 print_inform_info_records(osm_bind_handle_t bind_handle)
 {
-	int                      i = 0;
-	ib_inform_info_record_t  *inform_info_record = NULL;
-	ib_net16_t               attr_offset = ib_get_attr_offset(sizeof(*inform_info_record));
-	ib_api_status_t          status;
+	ib_net16_t attr_offset = ib_get_attr_offset(sizeof(ib_inform_info_record_t));
+	ib_api_status_t status;
 
 	status = get_all_records(bind_handle, IB_MAD_ATTR_INFORM_INFO_RECORD, attr_offset, 0);
 	if (status != IB_SUCCESS)
 		return (status);
 
-	for (i = 0; i < result.result_cnt; i++) {
-		inform_info_record = osmv_get_query_inform_info_rec(result.p_result_madw, i);
-		print_inform_info_record(inform_info_record);
-	}
+	dump_results(&result, dump_inform_info_record);
 	return_mad();
 	return (status);
 }
@@ -1239,8 +1099,8 @@ print_inform_info_records(osm_bind_handle_t bind_handle)
 static ib_api_status_t
 print_link_records(osm_bind_handle_t bind_handle, int argc, char *argv[])
 {
-	int i;
-	ib_link_record_t *lr;
+	ib_link_record_t lr;
+	ib_net64_t comp_mask = 0;
 	int from_lid = 0, to_lid = 0, from_port = -1, to_port = -1;
 	ib_api_status_t status;
 
@@ -1252,15 +1112,32 @@ print_link_records(osm_bind_handle_t bind_handle, int argc, char *argv[])
 		parse_lid_and_ports(bind_handle, argv[1],
 				    &to_lid, &to_port, NULL);
 
-	status = get_link_records(bind_handle, from_lid, from_port,
-				  to_lid, to_port);
+	memset(&lr, 0, sizeof(lr));
+
+	if (from_lid > 0) {
+		lr.from_lid = cl_hton16(from_lid);
+		comp_mask |= IB_LR_COMPMASK_FROM_LID;
+	}
+	if (from_port >= 0) {
+		lr.from_port_num = from_port;
+		comp_mask |= IB_LR_COMPMASK_FROM_PORT;
+	}
+	if (to_lid > 0) {
+		lr.to_lid = cl_hton16(to_lid);
+		comp_mask |= IB_LR_COMPMASK_TO_LID;
+	}
+	if (to_port >= 0) {
+		lr.to_port_num = to_port;
+		comp_mask |= IB_LR_COMPMASK_TO_PORT;
+	}
+
+	status = get_any_records(bind_handle, IB_MAD_ATTR_LINK_RECORD, 0,
+				 comp_mask, &lr,
+				 ib_get_attr_offset(sizeof(lr)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
-	for (i = 0; i < result.result_cnt; i++) {
-		lr = osmv_get_query_result(result.p_result_madw, i);
-		dump_one_link_record(lr);
-	}
+	dump_results(&result, dump_one_link_record);
 	return_mad();
 	return status;
 }
@@ -1269,8 +1146,8 @@ static int
 print_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 		    int argc, char *argv[])
 {
-	int i;
-	ib_slvl_table_record_t *slvl;
+	ib_slvl_table_record_t slvl;
+	ib_net64_t comp_mask = 0;
 	int lid = 0, in_port = -1, out_port = -1;
 	ib_api_status_t status;
 
@@ -1278,14 +1155,28 @@ print_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 		parse_lid_and_ports(bind_handle, argv[0],
 				    &lid, &in_port, &out_port);
 
-	status = get_slvl_records(bind_handle, lid, in_port, out_port);
+	memset(&slvl, 0, sizeof(slvl));
+
+	if (lid > 0) {
+		slvl.lid = cl_hton16(lid);
+		comp_mask |= IB_SLVL_COMPMASK_LID;
+	}
+	if (in_port >= 0) {
+		slvl.in_port_num = in_port;
+		comp_mask |= IB_SLVL_COMPMASK_IN_PORT;
+	}
+	if (out_port >= 0) {
+		slvl.out_port_num = out_port;
+		comp_mask |= IB_SLVL_COMPMASK_OUT_PORT;
+	}
+
+	status = get_any_records(bind_handle, IB_MAD_ATTR_SLVL_RECORD, 0,
+				 comp_mask, &slvl,
+				 ib_get_attr_offset(sizeof(slvl)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
-	for (i = 0; i < result.result_cnt; i++) {
-		slvl = osmv_get_query_result(result.p_result_madw, i);
-		dump_one_slvl_record(slvl);
-	}
+	dump_results(&result, dump_one_slvl_record);
 	return_mad();
 	return status;
 }
@@ -1294,8 +1185,8 @@ static int
 print_vlarb_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 		    int argc, char *argv[])
 {
-	int i;
-	ib_vl_arb_table_record_t *vlarb;
+	ib_vl_arb_table_record_t vlarb;
+	ib_net64_t comp_mask = 0;
 	int lid = 0, port = -1, block = -1;
 	ib_api_status_t status;
 
@@ -1303,14 +1194,28 @@ print_vlarb_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 		parse_lid_and_ports(bind_handle, argv[0],
 				    &lid, &port, &block);
 
-	status = get_vlarb_records(bind_handle, lid, port, block);
+	memset(&vlarb, 0, sizeof(vlarb));
+
+	if (lid > 0) {
+		vlarb.lid = cl_hton16(lid);
+		comp_mask |= IB_VLA_COMPMASK_LID;
+	}
+	if (port >= 0) {
+		vlarb.port_num = port;
+		comp_mask |= IB_VLA_COMPMASK_OUT_PORT;
+	}
+	if (block >= 0) {
+		vlarb.block_num = block;
+		comp_mask |= IB_VLA_COMPMASK_BLOCK;
+	}
+
+	status = get_any_records(bind_handle, IB_MAD_ATTR_VLARB_RECORD, 0,
+				 comp_mask, &vlarb,
+				 ib_get_attr_offset(sizeof(vlarb)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
-	for (i = 0; i < result.result_cnt; i++) {
-		vlarb = osmv_get_query_result(result.p_result_madw, i);
-		dump_one_vlarb_record(vlarb);
-	}
+	dump_results(&result, dump_one_vlarb_record);
 	return_mad();
 	return status;
 }
@@ -1319,8 +1224,8 @@ static int
 print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 		       int argc, char *argv[])
 {
-	int i;
-	ib_pkey_table_record_t *pktr;
+	ib_pkey_table_record_t pktr;
+	ib_net64_t comp_mask = 0;
 	int lid = 0, port = -1, block = -1;
 	ib_api_status_t status;
 
@@ -1328,14 +1233,29 @@ print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 		parse_lid_and_ports(bind_handle, argv[0],
 				    &lid, &port, &block);
 
-	status = get_pkey_tbl_records(bind_handle, lid, port, block);
+	memset(&pktr, 0, sizeof(pktr));
+
+	if (lid > 0) {
+		pktr.lid = cl_hton16(lid);
+		comp_mask |= IB_PKEY_COMPMASK_LID;
+	}
+	if (port >= 0) {
+		pktr.port_num = port;
+		comp_mask |= IB_PKEY_COMPMASK_PORT;
+	}
+	if (block >= 0) {
+		pktr.block_num = block;
+		comp_mask |= IB_PKEY_COMPMASK_BLOCK;
+	}
+
+	status = get_any_records(bind_handle, IB_MAD_ATTR_PKEY_TBL_RECORD, 0,
+				 comp_mask, &pktr,
+				 ib_get_attr_offset(sizeof(pktr)),
+				 OSM_DEFAULT_SM_KEY);
 	if (status != IB_SUCCESS)
 		return status;
 
-	for (i = 0; i < result.result_cnt; i++) {
-		pktr = osmv_get_query_result(result.p_result_madw, i);
-		dump_one_pkey_tbl_record(pktr);
-	}
+	dump_results(&result, dump_one_pkey_tbl_record);
 	return_mad();
 	return status;
 }
