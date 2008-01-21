@@ -4,6 +4,7 @@ Maintainer: Roland Dreier <rolandd@cisco.com>
 Build-Depends: @cdbs@, dpkg-dev (>= 1.13.19)
 Standards-Version: 3.7.3
 Section: libs
+Homepage: http://www.openfabrics.org/
 
 Package: libibverbs1
 Section: libs
@@ -21,8 +22,6 @@ Description: A library for direct userspace use of InfiniBand
  should also be installed.
  .
  This package contains the shared library.
- .
-  Homepage: http://www.openfabrics.org/
 
 Package: libibverbs-dev
 Section: libdevel
@@ -39,8 +38,6 @@ Description: Development files for the libibverbs library
  This package is needed to compile programs against libibverbs1.
  It contains the header files and static libraries (optionally)
  needed for compiling.
- .
-  Homepage: http://www.openfabrics.org/
 
 Package: libibverbs1-dbg
 Section: libdevel
@@ -58,8 +55,6 @@ Description: Debugging symbols for the libibverbs library
  This package contains the debugging symbols associated with
  libibverbs1. They will automatically be used by gdb for debugging
  libibverbs-related issues.
- .
-  Homepage: http://www.openfabrics.org/
 
 Package: ibverbs-utils
 Section: net
@@ -75,5 +70,3 @@ Description: Examples for the libibverbs library
  .
  This package contains useful libibverbs1 example programs such as
  ibv_devinfo, which displays information about InfiniBand devices.
- .
-  Homepage: http://www.openfabrics.org/
