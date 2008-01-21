@@ -6,7 +6,7 @@ Release: 1%{?dist}
 Summary: Userspace RDMA Connection Manager.
 
 Group: System Environment/Libraries
-License: GPL/BSD
+License: GPLv2 or BSD
 Url: http://www.openfabrics.org/
 Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
