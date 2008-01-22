@@ -1070,9 +1070,9 @@ static int get_rules_file(struct config_t *conf)
 		while (*ptr == ' ' || *ptr == '\t')
 			ptr++;
 
+		optr = conf->rules[line_number].options;
 		while (*ptr != '\n') {
 			ptr2 = NULL;
-			optr = conf->rules[line_number].options;
 			if (strncmp(ptr, "id_ext=", 7) == 0)
 				ptr2 = copy_till_comma(
 					conf->rules[line_number].id_ext, 
