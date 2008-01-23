@@ -263,7 +263,7 @@ int iwch_destroy_cq(struct ibv_cq *ibcq)
 struct ibv_srq *iwch_create_srq(struct ibv_pd *pd,
 				struct ibv_srq_init_attr *attr)
 {
-	return (void *) -ENOSYS;
+	return NULL;
 }
 
 int iwch_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr, 
@@ -407,7 +407,7 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 
 struct ibv_ah *iwch_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
-	return (void *) -ENOSYS;
+	return NULL;
 }
 
 int iwch_destroy_ah(struct ibv_ah *ah)
