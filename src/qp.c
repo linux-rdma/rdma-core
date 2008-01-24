@@ -168,6 +168,20 @@ static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 	dseg->byte_count = htonl(sg->length);
 }
 
+/*
+ * Avoid using memcpy() to copy to BlueFlame page, since memcpy()
+ * implementations may use move-string-buffer assembler instructions,
+ * which do not guarantee order of copying.
+ */
+static void mlx4_bf_copy(unsigned long *dst, unsigned long *src, unsigned bytecnt)
+{
+	while (bytecnt > 0) {
+		*dst++ = *src++;
+		*dst++ = *src++;
+		bytecnt -= 2 * sizeof (long);
+	}
+}
+
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr)
 {
@@ -388,7 +402,8 @@ out:
 
 		pthread_spin_lock(&ctx->bf_lock);
 
-		memcpy(ctx->bf_page + ctx->bf_offset, ctrl, align(size * 16, 64));
+		mlx4_bf_copy(ctx->bf_page + ctx->bf_offset, (unsigned long *) ctrl,
+			     align(size * 16, 64));
 		wc_wmb();
 
 		ctx->bf_offset ^= ctx->bf_buf_size;
