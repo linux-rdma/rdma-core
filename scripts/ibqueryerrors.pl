@@ -136,13 +136,14 @@ sub get_switches
 sub usage_and_exit
 {
    my $prog = $_[0];
-   print "Usage: $prog [-a -c -r -R -s <err1,err2,...> -S <switch_guid> -d -C <ca_name> -P <ca_port>]\n";
+   print "Usage: $prog [-a -c -r -R -s <err1,err2,...> -S <switch_guid> -D <direct route> -d -C <ca_name> -P <ca_port>]\n";
    print "   Report counters on all switches in subnet\n";
    print "   -a Report an action to take\n";
    print "   -c suppress some of the common counters\n";
    print "   -r report port configuration information\n";
    print "   -R Recalculate ibnetdiscover information\n";
    print "   -s <err1,err2,...> suppress errors listed\n";
+   print "   -D <direct route> output only the switch specified by direct route path\n";
    print "   -S <switch_guid> query only <switch_guid>\n";
    print "   -d include the data counters in the output\n";
    print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
@@ -153,11 +154,12 @@ sub usage_and_exit
 my $argv0 = `basename $0`;
 my $regenerate_map = undef;
 my $single_switch = undef;
+my $direct_route = undef;
 my $ca_name = "";
 my $ca_port = "";
 
 chomp $argv0;
-if (!getopts("has:crRS:dC:P:")) { usage_and_exit $argv0; }
+if (!getopts("has:crRS:D:dC:P:")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_a) { $print_action = "yes"; }
 if (defined $Getopt::Std::opt_s) { @IBswcountlimits::suppress_errors = split (",", $Getopt::Std::opt_s); }
@@ -167,6 +169,7 @@ if (defined $Getopt::Std::opt_c)
 }
 if (defined $Getopt::Std::opt_r) { $report_port_info = $Getopt::Std::opt_r; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
+if (defined $Getopt::Std::opt_D) { $direct_route = $Getopt::Std::opt_D; }
 if (defined $Getopt::Std::opt_S) { $single_switch = $Getopt::Std::opt_S; }
 if (defined $Getopt::Std::opt_d) { $include_data_counters = $Getopt::Std::opt_d; }
 if (defined $Getopt::Std::opt_C) { $ca_name = $Getopt::Std::opt_C; }
@@ -183,6 +186,11 @@ sub main
    }
    get_link_ends($regenerate_map, $ca_name, $ca_port);
    get_switches;
+   if ($direct_route)
+   {
+	# convert DR to guid, then use original single_switch option
+	$single_switch = $IBswcountlimits::convert_dr_to_guid{$direct_route};
+   }
    foreach my $sw_addr (keys %switches) {
       if ($single_switch && $sw_addr ne "$single_switch") { next; }
 

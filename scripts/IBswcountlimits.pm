@@ -373,3 +373,53 @@ sub get_num_ports
         return ($num_ports);
 }
 
+# =========================================================================
+# convert_dr_to_guid(direct_route)
+#
+sub convert_dr_to_guid
+{
+        my $guid = undef;
+
+        my $data = `smpquery nodeinfo -D $_[0]`;
+        my @lines = split("\n", $data);
+        foreach my $line (@lines) {
+                if ($line =~ /^PortGuid:\.+(.*)/) { $guid = $1; }
+        }
+        $guid;
+}
+
+# =========================================================================
+# get_node_type(guid_or_direct_route)
+#
+sub get_node_type
+{
+    my $type = undef;
+	my $query_arg = "smpquery nodeinfo ";
+    if($_[0] =~ /x/)
+	{
+	  # assume arg is a guid if contains an x
+	  $query_arg .= "-G " . $_[0];
+	}
+	else
+	{
+      # assume arg is a direct path
+	  $query_arg .= "-D " . $_[0];
+	}
+
+    my $data = `$query_arg`;
+    my @lines = split("\n", $data);
+    foreach my $line (@lines)
+    {
+       if ($line =~ /^NodeType:\.+(.*)/) { $type = $1; }
+    }
+    $type;
+}
+
+# =========================================================================
+# is_switch(guid_or_direct_route)
+#
+sub is_switch
+{
+	my $node_type = &get_node_type($_[0]);
+    ($node_type =~ /Switch/);
+}

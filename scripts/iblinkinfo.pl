@@ -43,10 +43,11 @@ use IBswcountlimits;
 sub usage_and_exit
 {
    my $prog = $_[0];
-   print "Usage: $prog [-Rhclp -S <guid> -C <ca_name> -P <ca_port>]\n";
+   print "Usage: $prog [-Rhclp -S <guid> -D <direct route> -C <ca_name> -P <ca_port>]\n";
    print "   Report link speed and connection for each port of each switch which is active\n";
    print "   -h This help message\n";
    print "   -R Recalculate ibnetdiscover information (Default is to reuse ibnetdiscover output)\n";
+   print "   -D <direct route> output only the switch specified by direct route path\n";
    print "   -S <guid> output only the switch specified by guid\n";
    print "   -d print only down links\n";
    print "   -l (line mode) print all information for each link on each line\n";
@@ -60,6 +61,7 @@ sub usage_and_exit
 my $argv0 = `basename $0`;
 my $regenerate_map = undef;
 my $single_switch = undef;
+my $direct_route = undef;
 my $line_mode = undef;
 my $print_add_switch = undef;
 my $print_extended_cap = undef;
@@ -68,8 +70,9 @@ my $ca_name = "";
 my $ca_port = "";
 chomp $argv0;
 
-if (!getopts("hcpldRS:C:P:")) { usage_and_exit $argv0; }
+if (!getopts("hcpldRS:D:C:P:")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
+if (defined $Getopt::Std::opt_D) { $direct_route = $Getopt::Std::opt_D; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
 if (defined $Getopt::Std::opt_S) { $single_switch = $Getopt::Std::opt_S; }
 if (defined $Getopt::Std::opt_d) { $only_down_links = $Getopt::Std::opt_d; }
@@ -84,6 +87,11 @@ my $extra_smpquery_params = get_ca_name_port_param_string($ca_name, $ca_port);
 sub main
 {
    get_link_ends($regenerate_map, $ca_name, $ca_port);
+   if ($direct_route)
+   {
+	# convert DR to guid, then use original single_switch option
+	$single_switch = $IBswcountlimits::convert_dr_to_guid{$direct_route};
+   }
    foreach my $switch (sort (keys (%IBswcountlimits::link_ends))) {
       if ($single_switch && $switch ne $single_switch)
       {
