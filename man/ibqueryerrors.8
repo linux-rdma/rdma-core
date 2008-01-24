@@ -1,11 +1,11 @@
-.TH IBQUERYERRORS 8 "May 22, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH IBQUERYERRORS 8 "Jan 24, 2008" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibqueryerrors.pl \- query and report non-zero IB port counters
 
 .SH SYNOPSIS
 .B ibqueryerrors.pl
-[-a -c -r -R -C <ca_name> -P <ca_port> -s <err1,err2,...> -S <switch_guid> -d]
+[-a -c -r -R -C <ca_name> -P <ca_port> -s <err1,err2,...> -S <switch_guid> -D <direct_route> -d]
 
 .SH DESCRIPTION
 .PP
@@ -44,6 +44,9 @@ Suppress the errors listed in the comma separated list provided.
 .TP
 \fB\-S <switch_guid>\fR
 Report results only for the switch specified.
+.TP
+\fB\-D <direct_route>\fR
+Report results only for the switch specified by the direct route path.
 .TP
 \fB\-d\fR
 Include the optional transmit and receive data counters.
