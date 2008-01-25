@@ -55,6 +55,7 @@ sub usage_and_exit
    print "   -c print port capabilities (enabled/supported values)\n";
    print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
    print "   -P <ca_port> use selected channel adaptor port for queries\n";
+   print "   -g print port guids instead of node guids\n";
    exit 0;
 }
 
@@ -68,9 +69,10 @@ my $print_extended_cap = undef;
 my $only_down_links = undef;
 my $ca_name = "";
 my $ca_port = "";
+my $print_port_guids = undef;
 chomp $argv0;
 
-if (!getopts("hcpldRS:D:C:P:")) { usage_and_exit $argv0; }
+if (!getopts("hcpldRS:D:C:P:g")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_D) { $direct_route = $Getopt::Std::opt_D; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
@@ -81,6 +83,7 @@ if (defined $Getopt::Std::opt_p) { $print_add_switch = $Getopt::Std::opt_p; }
 if (defined $Getopt::Std::opt_c) { $print_extended_cap = $Getopt::Std::opt_c; }
 if (defined $Getopt::Std::opt_C) { $ca_name = $Getopt::Std::opt_C; }
 if (defined $Getopt::Std::opt_P) { $ca_port = $Getopt::Std::opt_P; }
+if (defined $Getopt::Std::opt_g) { $print_port_guids = $Getopt::Std::opt_g; }
 
 my $extra_smpquery_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
@@ -153,7 +156,6 @@ sub main
             if ($line =~ /^VLStallCount:\.+(.*)/)       { $vl_stall = $1; }
             if ($line =~ /^PhysLinkState:\.+(.*)/)      { $phy_link_state = $1; }
          }
-         my $rem_guid = $hr->{rem_guid};
          my $rem_port = $hr->{rem_port};
          my $rem_lid = $hr->{rem_lid};
          my $rem_speed_sup = "";
@@ -224,6 +226,9 @@ sub main
 		{
 			my $line_begin = sprintf ("%18s \"%30s\"%s", $switch, $hr->{loc_desc}, $pkt_life_prompt);
 			my $ext_guid = sprintf ("%18s", $hr->{rem_guid});
+			if ($print_port_guids && $hr->{rem_port_guid} ne "") {
+				$ext_guid = sprintf ("0x%016s", $hr->{rem_port_guid});
+			}
 			push (@output_lines, sprintf ("%s %6s %4s[%2s]  ==%s%s==>  %18s %6s %4s[%2s] \"%s\" ( %s %s)\n",
 				$line_begin,
 				$hr->{loc_sw_lid}, $port, $hr->{loc_ext_port},

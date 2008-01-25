@@ -288,62 +288,71 @@ sub get_link_ends
       if ( $in_switch eq "yes" )
       {
 	 my $rec = undef;
-         if ($line =~ /^\[(\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\]\(.+\)\s+#.*\"(.*)\"\.* lid (\d+).*/)
+         if ($line =~ /^\[(\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\](\(.+\))?\s+#.*\"(.*)\"\.* lid (\d+).*/)
          {
             $loc_port = $1;
             my $rem_guid = $2;
             my $rem_port = $3;
-            my $rem_desc = $4;
-            my $rem_lid = $5;
+	    my $rem_port_guid = $4;
+            my $rem_desc = $5;
+            my $rem_lid = $6;
             $rec = { loc_guid => "0x$guid", loc_port => $loc_port, loc_ext_port => "",
 			loc_desc => $desc, loc_sw_lid => $loc_sw_lid,
 			rem_guid => "0x$rem_guid", rem_lid => $rem_lid,
-			rem_port => $rem_port, rem_ext_port => "", rem_desc => $rem_desc };
+			rem_port => $rem_port, rem_ext_port => "", rem_desc => $rem_desc,
+			rem_port_guid => $rem_port_guid };
          }
-         if ($line =~ /^\[(\d+)\]\[ext (\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\]\(.+\)\s+#.*\"(.*)\"\.* lid (\d+).*/)
+         if ($line =~ /^\[(\d+)\]\[ext (\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\](\(.+\))?\s+#.*\"(.*)\"\.* lid (\d+).*/)
          {
             $loc_port = $1;
             my $loc_ext_port = $2;
             my $rem_guid = $3;
             my $rem_port = $4;
-            my $rem_desc = $5;
-            my $rem_lid = $6;
+	    my $rem_port_guid = $5;
+            my $rem_desc = $6;
+            my $rem_lid = $7;
             $rec = { loc_guid => "0x$guid", loc_port => $loc_port, loc_ext_port => $loc_ext_port,
 			loc_desc => $desc, loc_sw_lid => $loc_sw_lid,
 			rem_guid => "0x$rem_guid", rem_lid => $rem_lid,
-			rem_port => $rem_port, rem_ext_port => "", rem_desc => $rem_desc };
+			rem_port => $rem_port, rem_ext_port => "", rem_desc => $rem_desc,
+			rem_port_guid => $rem_port_guid };
          }
-         if ($line =~ /^\[(\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\]\[ext (\d+)\]\(.+\)\s+#.*\"(.*)\"\.* lid (\d+).*/)
+         if ($line =~ /^\[(\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\]\[ext (\d+)\](\(.+\))?\s+#.*\"(.*)\"\.* lid (\d+).*/)
          {
             $loc_port = $1;
             my $rem_guid = $2;
             my $rem_port = $3;
             my $rem_ext_port = $4;
-            my $rem_desc = $5;
-            my $rem_lid = $6;
+	    my $rem_port_guid = $5;
+            my $rem_desc = $6;
+            my $rem_lid = $7;
             $rec = { loc_guid => "0x$guid", loc_port => $loc_port, loc_ext_port => "",
 			loc_desc => $desc, loc_sw_lid => $loc_sw_lid,
 			rem_guid => "0x$rem_guid", rem_lid => $rem_lid,
 			rem_port => $rem_port, rem_ext_port => $rem_ext_port,
-			rem_desc => $rem_desc };
+			rem_desc => $rem_desc,
+			rem_port_guid => $rem_port_guid };
          }
-         if ($line =~ /^\[(\d+)\]\[ext (\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\]\[ext (\d+)\]\(.+\)\s+#.*\"(.*)\"\.* lid (\d+).*/)
+         if ($line =~ /^\[(\d+)\]\[ext (\d+)\]\s+\"[HSR]-(.+)\"\[(\d+)\]\[ext (\d+)\](\(.+\))?\s+#.*\"(.*)\"\.* lid (\d+).*/)
          {
             $loc_port = $1;
             my $loc_ext_port = $2;
             my $rem_guid = $3;
             my $rem_port = $4;
             my $rem_ext_port = $5;
-            my $rem_desc = $6;
-            my $rem_lid = $7;
+	    my $rem_port_guid = $6;
+            my $rem_desc = $7;
+            my $rem_lid = $8;
             $rec = { loc_guid => "0x$guid", loc_port => $loc_port, loc_ext_port => $loc_ext_port,
 			loc_desc => $desc, loc_sw_lid => $loc_sw_lid,
 			rem_guid => "0x$rem_guid", rem_lid => $rem_lid,
 			rem_port => $rem_port, rem_ext_port => $rem_ext_port,
-			rem_desc => $rem_desc };
+			rem_desc => $rem_desc,
+			rem_port_guid => $rem_port_guid };
          }
 	 if ($rec)
 	 {
+	    $rec->{rem_port_guid} =~ s/\((.*)\)/$1/;
 	    $IBswcountlimits::link_ends{"0x$guid"}{$loc_port} = $rec;
 	 }
       }
