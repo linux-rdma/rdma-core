@@ -1,6 +1,36 @@
-commit f7cab7a35edc54e1395551cdecb03c27e1fbf373
+commit ce49ee9af10d2135428613aa4cf641e8faeaa744
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Thu Jan 3 17:18:34 2008 -0600
+Date:   Fri Jan 25 16:46:18 2008 -0600
+
+    Spin release 1.1.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 94fb771a44212a679d7f83ee69df24e841e0ce08
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jan 25 13:04:31 2008 -0600
+
+    Fix path for obtaining the firmware version.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 4bbb15965b53cad6273094e95b06895010ca025c
+Author: Jon Mason <jon@opengridcomputing.com>
+Date:   Wed Jan 23 09:40:28 2008 -0600
+
+    Non-supported functions should return NULL when returning pointers.
+    
+    Some/Most user space programs will not check for a (void *) to -ENOSYS,
+    which can look like a real address until referenced.
+    
+    This patch converts the uses of (void *) -ENOSYS to NULL.
+    
+    Signed-off-by: Jon Mason <jon@opengridcomputing.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 10893a7a45e6913483d90023bb90bf9cb2420384
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jan 3 17:19:27 2008 -0600
 
     Spin release 1.1.2.
     
