@@ -167,7 +167,7 @@ static struct ibv_device_ops iwch_dev_ops = {
 static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
-	char devstr[64], ibdev[16], value[32], *cp;
+	char devstr[IBV_SYSFS_PATH_MAX], ibdev[16], value[32], *cp;
 	struct iwch_device *dev;
 	unsigned vendor, device, fw_maj, fw_min;
 	int i;
@@ -199,11 +199,12 @@ found:
 				ibdev, sizeof ibdev) < 0)
 		return NULL;
 
-	memset(devstr, 0, sizeof dev);
-	sprintf(devstr, "device/infiniband:%s/fw_ver", ibdev);
-	if (ibv_read_sysfs_file(uverbs_sys_path, devstr,
-				value, sizeof value) < 0)
+	memset(devstr, 0, sizeof devstr);
+	snprintf(devstr, sizeof devstr, "%s/class/infiniband/%s", 
+		 ibv_get_sysfs_path(), ibdev);
+	if (ibv_read_sysfs_file(devstr, "fw_ver", value, sizeof value) < 0)
 		return NULL;
+
 	cp = strtok(value+1, ".");
 	sscanf(cp, "%i", &fw_maj);
 	cp = strtok(NULL, ".");
