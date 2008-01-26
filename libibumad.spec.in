@@ -16,9 +16,9 @@ Requires(postun): /sbin/ldconfig
 BuildRequires: libibcommon-devel, libtool
 
 %description
-libibumad provides the user MAD library functions which sit on top of 
+libibumad provides the user MAD library functions which sit on top of
 the user MAD modules in the kernel. These are used by the IB diagnostic
-and management tools, including OpenSM. 
+and management tools, including OpenSM.
 
 %package devel
 Summary: Development files for the libibumad library
@@ -62,7 +62,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{_libdir}/libibumad*.so.*
 %{_mandir}/man3/*
-%doc AUTHORS COPYING ChangeLog 
+%doc AUTHORS COPYING ChangeLog
 
 %files devel
 %defattr(-,root,root)

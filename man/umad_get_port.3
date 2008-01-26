@@ -13,9 +13,9 @@ umad_get_port, umad_release_port \- open and close an InfiniBand port
 .fi
 .SH "DESCRIPTION"
 .B umad_get_port()
-fills the 
+fills the
 .I port
-structure with the IB port attributes specified by 
+structure with the IB port attributes specified by
 .I ca_name
 and
 .I portnum
@@ -28,21 +28,21 @@ is zero. If only one of
 and
 .I portnum
 are specified, the other is used as a filter.
-For example, passing a NULL 
+For example, passing a NULL
 .I ca_name
 and 2 for the
 .I portnum
 means get a port from any of the local IB devices, as long as it is
 the second port.
 Note that the library may use some reference scheme to support port caching
-therefore 
+therefore
 .B umad_release_port()
-should be called before the 
+should be called before the
 .I port
 structure can be deallocated.
 The argument
 .I port
-is an 
+is an
 .B umad_port_t
 struct, as specified in <infiniband/umad.h>.
 .PP
@@ -66,7 +66,7 @@ uint64_t port_guid;                             /* GUID of this port */
 .fi
 .PP
 .B umad_release_port()
-releases the resources that were allocated by the 
+releases the resources that were allocated by the
 .B umad_get_port()
 function for the specified IB
 .I port\fR.

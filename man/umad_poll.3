@@ -22,9 +22,9 @@ Otherwise, \-ETIMEDOUT is returned. Note that successfully polling a port
 does not guarantee that the subsequent
 .B umad_recv()
 will be non blocking when several threads are using
-the same port. Instead, use a 
+the same port. Instead, use a
 .I timeout_ms\fR
-parameter of zero to 
+parameter of zero to
 .B umad_recv()
 to ensure a non-blocking read.
 .SH "RETURN VALUE"

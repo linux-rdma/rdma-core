@@ -11,16 +11,16 @@ umad_status \- get the status of a umad buffer
 .fi
 .SH "DESCRIPTION"
 .B umad_status()
-get the internal 
+get the internal
 .I umad\fR
 status field.
 .SH "RETURN VALUE"
 After a packet is received,
 .B umad_status()
-returns 0 on a successful receive, or a non zero status. 
-ETIMEDOUT means that the packet had 
+returns 0 on a successful receive, or a non zero status.
+ETIMEDOUT means that the packet had
 a send-timeout indication. In this case, the transaction ID will be
-set to the TID of the original request. 
+set to the TID of the original request.
 .SH "AUTHOR"
 .TP
 Hal Rosenstock <halr@voltaire.com>

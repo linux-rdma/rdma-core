@@ -21,7 +21,7 @@ and using the agent specified by
 controls the solicited MADs behavior as follows:
 zero value means not solicited. Positive value makes kernel indicate timeout
 in milliseconds. If reply is not received within the specified value, the
-original buffer is returned in the read channel with the status field set (to 
+original buffer is returned in the read channel with the status field set (to
 non zero). Negative
 .I timeout_ms\fR
 makes kernel wait forever for the reply.
