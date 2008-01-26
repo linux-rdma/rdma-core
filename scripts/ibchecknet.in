@@ -87,7 +87,7 @@ function check_node(lid, port)
 /^Ca/ || /^Switch/ || /^Rt/ {
 			nnodes++
 			ntype=$1; nodeguid=substr($3, 4, 16); ports=$2
-			if ('$v' || ntype != "Switch") 
+			if ('$v' || ntype != "Switch")
 				print "\n# Checking " ntype ": nodeguid 0x" nodeguid
 
 			err = 0;

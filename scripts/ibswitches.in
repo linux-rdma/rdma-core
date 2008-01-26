@@ -57,10 +57,10 @@ echo "$text" | awk '
 			pinfo=substr(desc, pi)
 			desc=substr(desc, 1, pi-2)
 			type="base"
-			ti=match(desc, type) 
+			ti=match(desc, type)
 			if (ti==0) {
 				type="enhanced"
-				ti=match(desc, type) 
+				ti=match(desc, type)
 				if (ti!=0)
 					desc=substr(desc, 1, ti-2)
 			} else

@@ -51,7 +51,7 @@ while(<STDIN>) {
 			$var = sprintf("%s|%2s|%2s|%s", $localGuid, $localPort, $remotePort, $remoteGuid);
 			$topo{$var} += 1;
 			printf("Local: %2s  Remote: %2s  %7s  GUID: %s  Location: %s\n",
-				$localPort, $remotePort, ($type eq "H" ? "Host" : "Switch"), $remoteGuid, 
+				$localPort, $remotePort, ($type eq "H" ? "Host" : "Switch"), $remoteGuid,
 				($val{$remoteGuid} ne "" ? $val{$remoteGuid} : $remoteGuid));
 		}
 	}

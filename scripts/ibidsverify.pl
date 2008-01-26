@@ -227,7 +227,7 @@ sub main
         $firstport = "yes"
       }
 
-      if ($nodetype eq "ca" || $nodetype eq "router") 
+      if ($nodetype eq "ca" || $nodetype eq "router")
       {
         if ($line =~ /"S-(.*)\# lid (\d+) .*/)
         {

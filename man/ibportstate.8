@@ -1,7 +1,7 @@
 .TH IBPORTSTATE 8 "October 19, 2006" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
-ibportstate \- handle port (physical) state and link speed of an InfiniBand port 
+ibportstate \- handle port (physical) state and link speed of an InfiniBand port
 
 .SH SYNOPSIS
 .B ibportstate
@@ -10,9 +10,9 @@ ibportstate \- handle port (physical) state and link speed of an InfiniBand port
 .SH DESCRIPTION
 .PP
 ibportstate allows the port state and port physical state of an IB port
-to be queried (in addition to link width and speed being validated 
+to be queried (in addition to link width and speed being validated
 relative to the peer port when the port queried is a switch port),
-or a switch port to be disabled, enabled, or reset. It 
+or a switch port to be disabled, enabled, or reset. It
 also allows the link speed enabled on any IB port to be adjusted.
 
 .SH OPTIONS
@@ -33,7 +33,7 @@ Port operations allowed
  (NOTE: Speed changes are not effected until the port goes through
   link renegotiation)
  query also validates port characteristics (link width and speed)
-  based on the peer port. This checking is done when the port 
+  based on the peer port. This checking is done when the port
   queried is a switch port as it relies on combined routing
   (an initial LID route with directed routing to the peer) which
   can only be done on a switch. This peer port validation feature
@@ -42,7 +42,7 @@ Port operations allowed
 
 .SH COMMON OPTIONS
 
-Most OpenIB diagnostics take the following common flags. The exact list of 
+Most OpenIB diagnostics take the following common flags. The exact list of
 supported flags per utility can be found in the usage message and can be shown
 using the util_name -h syntax.
 
@@ -91,7 +91,7 @@ by the following criteria:
 .PP
 2. if not found, the first port that is UP (physical link up).
 
-If a port and/or CA name is specified, the user request is  
+If a port and/or CA name is specified, the user request is
 attempted to be fulfilled, and will fail if it is not possible.
 
 .SH EXAMPLES

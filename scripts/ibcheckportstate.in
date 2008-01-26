@@ -102,7 +102,7 @@ function blue(s)
 	}
 }
 
-# Only check PortPhysicalState and PortState 
+# Only check PortPhysicalState and PortState
 
 /^PhysLinkState/{ if ($2 != "LinkUp") {err = err "#error: Physical link state is " $2 "  lid '$lid' port '$portnum'\n"; exit -1}}
 

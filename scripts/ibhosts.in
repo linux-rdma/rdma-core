@@ -51,7 +51,7 @@ text="`eval $netcmd`"
 rv=$?
 echo "$text" | awk '
 /^Ca/	{print $1 "\t: 0x" substr($3, 4, 16) " ports " $2 " "\
-		substr($0, match($0, "#[ \t]*")+RLENGTH)} 
+		substr($0, match($0, "#[ \t]*")+RLENGTH)}
 /^ib/	{print $0; next}
 /ibpanic:/	{print $0}
 /ibwarn:/	{print $0}

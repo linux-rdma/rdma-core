@@ -4,13 +4,13 @@
 sminfo \- query InfiniBand SMInfo attribute
 
 .SH SYNOPSIS
-.B sminfo 
-[\-d(ebug)] [\-e(rr_show)] -s state -p prio -a activity [\-D(irect)] [\-G(uid)]  [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)] sm_lid | sm_dr_path [modifier] 
+.B sminfo
+[\-d(ebug)] [\-e(rr_show)] -s state -p prio -a activity [\-D(irect)] [\-G(uid)]  [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)] sm_lid | sm_dr_path [modifier]
 
 .SH DESCRIPTION
 .PP
 Optionally set and display the output of a sminfo query in human readable
-format. The target SM is the one listed in the local port info, or the SM 
+format. The target SM is the one listed in the local port info, or the SM
 specified by the optional SM lid or by the SM direct routed path.
 .PP
 Note: using sminfo for any purposes other then simple query may be very
@@ -35,7 +35,7 @@ set activity count
 
 .SH COMMON OPTIONS
 
-Most OpenIB diagnostics take the following common flags. The exact list of 
+Most OpenIB diagnostics take the following common flags. The exact list of
 supported flags per utility can be found in the usage message and can be shown
 using the util_name -h syntax.
 
@@ -84,13 +84,13 @@ by the following criteria:
 .PP
 2. if not found, the first port that is UP (physical link up).
 
-If a port and/or CA name is specified, the user request is  
+If a port and/or CA name is specified, the user request is
 attempted to be fulfilled, and will fail if it is not possible.
 
 .SH EXAMPLES
 
 .PP
-sminfo                  # local port\'s sminfo 
+sminfo                  # local port\'s sminfo
 .PP
 sminfo 32               # show sminfo of lid 32
 .PP

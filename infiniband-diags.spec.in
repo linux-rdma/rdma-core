@@ -3,7 +3,7 @@
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: OpenFabrics Alliance InfiniBand Diagnostic Tools
-Name: infiniband-diags 
+Name: infiniband-diags
 Version: @VERSION@
 Release: %rel%{?dist}
 License: GPL/BSD
@@ -75,12 +75,12 @@ rm -rf $RPM_BUILD_ROOT
 - Handle peer ports at 1x that should be wider and 2.5 Gbps
   links that should be faster in ibportstate
 - Add LinkSpeed/Width components to output of ibportstate
-- Add support for IB routers 
+- Add support for IB routers
 - Add grouping support for ISR2012 and ISR2004 in ibnetdiscover
 - Remove all uses of "/tmp" from perl scripts
 - Add switch map support for saquery -O and -U options
 - Add support for saquery -s (isSMdisabled)
-- Add name input checks to saquery (-O and -U) 
+- Add name input checks to saquery (-O and -U)
 
 * Thu Mar 29 2007 Hal Rosenstock <halr@voltaire.com> - 1.3.0
 - Add some extra debug information to IBswcountlimits.pm
@@ -90,7 +90,7 @@ rm -rf $RPM_BUILD_ROOT
 - Add support to query the GUIDInfo table in smpquery
 - Allow user to specify a default switch map file
 
-* Fri Mar 9 2007 Hal Rosenstock <halr@voltaire.com> - 1.2.5 
+* Fri Mar 9 2007 Hal Rosenstock <halr@voltaire.com> - 1.2.5
 - Find perl modules in perl sitearch directory
 - Fix non standard prefix install for diag scripts
 - Clean gcc-4.1 warnings in saquery and ibdiag_common
@@ -118,7 +118,7 @@ rm -rf $RPM_BUILD_ROOT
 - Updated man pages
 - Added build version to saquery and updated build version tags of other tools
 - Added -N | nocolor to usage display of scripts
-- Fixed -nocolor and -G options on scripts 
+- Fixed -nocolor and -G options on scripts
 - Fixed error return status in ibchecknet
 - Added exit code to ibcheckerrors
 - Added nodename to output of ibcheckerrs
@@ -148,7 +148,7 @@ rm -rf $RPM_BUILD_ROOT
 
 * Fri Sep 22 2006 Hal Rosenstock <halr@voltaire.com> - 1.1.0
 - OpenFabrics 1.1 release
- 
+
 * Wed Sep 13 2006 Hal Rosenstock <halr@voltaire.com> - 1.1.0-rc5
 - OpenFabrics 1.1-rc5 release
 

@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2001-2003 The Regents of the University of California.
 # Copyright (c) 2006 The Regents of the University of California.
-# Copyright (c) 2007 Voltaire, Inc. All rights reserved. 
+# Copyright (c) 2007 Voltaire, Inc. All rights reserved.
 #
 # Produced at Lawrence Livermore National Laboratory.
 # Written by Ira Weiny <weiny2@llnl.gov>
@@ -118,17 +118,17 @@ sub sortn
 # takes a list of names and returns a hash of arrays, indexed by name prefix,
 # each containing a list of numerical ranges describing the initial list.
 #
-# e.g.: %hash = comp2(lx01,lx02,lx03,lx05,dev0,dev1,dev21) 
+# e.g.: %hash = comp2(lx01,lx02,lx03,lx05,dev0,dev1,dev21)
 #       will return:
 #       $hash{"lx"}  = ["01-03", "05"]
 #       $hash{"dev"} = ["0-1", "21"]
 #
-sub comp2 
+sub comp2
 {
         my (%i) = ();
         my (%s) = ();
 
-        # turn off warnings here to avoid perl complaints about 
+        # turn off warnings here to avoid perl complaints about
         # uninitialized values for members of %i and %s
         local ($^W) = 0;
         push(@{
@@ -141,25 +141,25 @@ sub comp2
         ) for map { [/(.*?)(\d*)$/] } sortn(@_);
 
         for my $key (keys %s) {
-                @{$s{$key}} = 
+                @{$s{$key}} =
                     map { $#$_>0 ? "$$_[0]-$$_[$#$_]" : @{$_} }  @{$s{$key}};
-        } 
-        
-        
+        }
+
+
         return %s;
 }
 sub compress_hostlist
 {
 	my %rng = comp2(@_);
 	my @list = ();
-	
+
 	local $"=",";
-	
+
 	foreach my $k (keys %rng) {
 	       @{$rng{$k}} = map { "$k$_" } @{$rng{$k}};
 	}
 	@list = map { @{$rng{$_}} } sort keys %rng;
-	return "@list"; 
+	return "@list";
 }
 
 # =========================================================================

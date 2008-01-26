@@ -126,7 +126,7 @@ function blue(s)
 
 # Only display Xmit/Rcv Pkts/Data
 
-/^# Port counters/ {print} 
+/^# Port counters/ {print}
 
 /^CounterSelect/ {next}
 

@@ -34,7 +34,7 @@
 	* man/ibnetdiscover.8: Add grouping information
 
 	* include/ibnetdiscover.h, src/ibnetdiscover.c: Fix
-	  list by nodetype operations 
+	  list by nodetype operations
 
 	* src/ibnetdiscover.c, man/ibnetdiscover.8: Add support
 	  for -R(outer_list)
@@ -54,7 +54,7 @@
 	* scripts/ibdatacounters.in, man/ibdatacounters.8: Add
 	  script and man page for subnet wide data counters
 
-	* configure.in: Change IBSCRIPTPATH from bindir to sbindir 
+	* configure.in: Change IBSCRIPTPATH from bindir to sbindir
 
 2007-05-30 Hal Rosenstock <halr@voltaire.com>
 
@@ -64,7 +64,7 @@
 	  man/ibrouters.8, man/ibprintrt.8: Add scripts and man pages
 	  for display of IB routers
 
-	* scripts/ibqueryerrors.pl: Add GUID to output line for ports 
+	* scripts/ibqueryerrors.pl: Add GUID to output line for ports
 
 	* scripts/ibcheckerrs.in, scripts/ibcheckport.in,
 	  scripts/ibcheckportstate.in, scripts/ibcheckportwidth.in,
@@ -93,7 +93,7 @@
 	* scripts/iblinkinfo.pl: Display remote LID with peer port info
 
 	* scripts/IBswcountlimits.pm: Add support for rem_lid in
-	  get_link_ends subroutine 
+	  get_link_ends subroutine
 
 	* src/ibportstate.c: Handle peer ports at 1x that
 	  should be wider and 2.5 Gbps that should be faster
@@ -132,7 +132,7 @@
 	  scripts/ibqueryerrors.pl, scripts/ibswportwatch.pl:
 	  Remove all uses of "/tmp" from perl diags
 
-2007-04-14 Albert L. Chu <chu11@llnl.gov> 
+2007-04-14 Albert L. Chu <chu11@llnl.gov>
 
 	* src/saquery.c, man/saquery.8: Add switch map support
 	  (for -O and -U options)
@@ -152,7 +152,7 @@
 
 2007-03-29 Hal Rosenstock <halr@voltaire.com>
 
-	* man/perfquery.8: Add note on Data components being octets 
+	* man/perfquery.8: Add note on Data components being octets
 	  divided by 4 rather than just octets
 
 	* scripts/IBswcountlimits.pm, scripts/ibcheckerrs.in: Changed
@@ -160,7 +160,7 @@
 
 2007-03-29 Hal Rosenstock <halr@voltaire.com>
 
-	* 1.3.0 release of openib-diags 
+	* 1.3.0 release of openib-diags
 
 2007-03-21 Albert L. Chu <chu11@llnl.gov>
 
@@ -176,7 +176,7 @@
 2007=03-20 Hal Rosenstock <halr@voltaire.com>
 
 	* src/ibnetdiscover.c: Chassis 0 is not a chassis
-	  Caused Cisco SFS7000 to be reported as a chassis 
+	  Caused Cisco SFS7000 to be reported as a chassis
 
 2007-03-15 Hal Rosenstock <halr@voltaire.com>
 
@@ -209,7 +209,7 @@
 2007-03-05 Sasha Khapyorsky <sashak@voltaire.com>
 
 	* include/ibdiag_common.h, src/ibdiag_common.c,
-	  src/saquery.c: Clean gcc-4.1 warnings 
+	  src/saquery.c: Clean gcc-4.1 warnings
 
 2007-03-03 Hal Rosenstock <halr@voltaire.com>
 
@@ -220,7 +220,7 @@
 	* diags.spec.in: Include set_mthca_nodedesc.sh and dump_lfts.sh
 	  in the rpm
 
-	* Makefile.am, configure.in, diags.spec.in: Fix rpmbuild from make dist 
+	* Makefile.am, configure.in, diags.spec.in: Fix rpmbuild from make dist
 
 2007-03-01 Hal Rosenstock <halr@voltaire.com>
 
@@ -311,7 +311,7 @@
 
 	* src/ibtracert.c, man/ibtracert.8,
 	  src/ibnetdiscover.c, man/ibnetdiscover.8: Add switch-map option
- 
+
 	* src/saquery.c: Clean up node descriptions before printing
 
 2007-01-31  Hal Rosenstock <halr@voltaire.com>
@@ -324,7 +324,7 @@
 2007-01-29  Hal Rosenstock <halr@voltaire.com>
 
 	* src/ibnetdiscover.c: Add non Voltaire chassis listing back
-	  into dump_topology 
+	  into dump_topology
 
 2007-01-29  Ira Weiny <weiny2@llnl.gov>
 
@@ -383,7 +383,7 @@
 
 	* src/ibnetdiscover.c: Discover improvements
 	(memory leaks, ports moving, etc.)
- 
+
 2007-01-02  Ira Weiny <weiny2@llnl.gov>
 
 	* scripts/iblinkinfo.pl: Convert iblinkspeed.pl into
@@ -395,7 +395,7 @@
 
 2006-12-28  Sasha Khapyorsky <sashak@voltaire.com>
 
-	* src/ibnetdiscover.c: Fix loopback handling 
+	* src/ibnetdiscover.c: Fix loopback handling
 
 	* src/ibnetdiscover.c, src/ibroute.c,
 	  src/ibtracert.c, src/sminfo.c:
@@ -421,7 +421,7 @@
 	* man/ibportstate.8, man/smpquery.8: Updated man
 	  pages for DrSLID support.
 
-	* src/ibportstate.c: For query operations, add peer 
+	* src/ibportstate.c: For query operations, add peer
 	  port checking of link width and speed active.
 
 	* src/smpquery.c: Add support for DrSLID.
@@ -448,7 +448,7 @@
 
 	* src/saquery.c: Add additional options for
 	  NodeDescriptions of CAs only, Unique LID of name specified,
-	  SA's ClassPortInfo, and PathRecord by src/dest name. 
+	  SA's ClassPortInfo, and PathRecord by src/dest name.
 
 2006-10-03  Hal Rosenstock <halr@voltaire.com>
 
@@ -457,11 +457,11 @@
 
 	* src/ibportstate.c: Support changing LinkSpeedEnabled
 	  on any IB port.
-	
-	* man/ibportstate.8: Update ibportstate man page for 
+
+	* man/ibportstate.8: Update ibportstate man page for
 	  port reset, enable, and disable operations.
 
-	* src/ibportstate.c: Support explicit port reset in 
+	* src/ibportstate.c: Support explicit port reset in
 	  addition to disable and enable.
 
 2006-09-28  Dotan Barak <dotanb@mellanox.co.il>

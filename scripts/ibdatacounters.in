@@ -111,7 +111,7 @@ function check_node(lid, port)
 			lid = substr($0, index($0, " lid ") + 5)
 			lid = substr(lid, 1, index(lid, " ") - 1)
 			check_node(lid, port)
-		} else if (err) 
+		} else if (err)
 			system("'$IBPATH'/ibdatacounts '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port);
 }
 

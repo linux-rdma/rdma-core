@@ -4,18 +4,18 @@
 perfquery \- query InfiniBand port counters
 
 .SH SYNOPSIS
-.B perfquery 
+.B perfquery
 [\-d(ebug)] [\-G(uid)] [-e(xtended)] [-a(ll_ports)] [-r(eset_after_read)] [-R(eset_only)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)] [<lid|guid> [[port] [reset_mask]]]
 
 .SH DESCRIPTION
 .PP
 perfquery uses PerfMgt GMPs to obtain the PortCounters (basic performance
-and error counters) or PortExtendedCounters from the PMA at the node/port 
-specified. Optionally shows aggregated counters for all ports of node. 
+and error counters) or PortExtendedCounters from the PMA at the node/port
+specified. Optionally shows aggregated counters for all ports of node.
 Also, optionally, reset after read, or only reset counters.
 
 Note: In both PortCounters and PortCountersExtended, components
-that represent Data (e.g. PortXmitData and PortRcvData) indicate octets 
+that represent Data (e.g. PortXmitData and PortRcvData) indicate octets
 divided by 4 rather than just octets.
 
 .SH OPTIONS
@@ -38,7 +38,7 @@ only reset counters
 
 .SH COMMON OPTIONS
 
-Most OpenIB diagnostics take the following common flags. The exact list of 
+Most OpenIB diagnostics take the following common flags. The exact list of
 supported flags per utility can be found in the usage message and can be shown
 using the util_name -h syntax.
 
@@ -81,7 +81,7 @@ by the following criteria:
 .PP
 2. if not found, the first port that is UP (physical link up).
 
-If a port and/or CA name is specified, the user request is  
+If a port and/or CA name is specified, the user request is
 attempted to be fulfilled, and will fail if it is not possible.
 
 .SH EXAMPLES

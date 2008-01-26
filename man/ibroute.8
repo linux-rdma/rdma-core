@@ -1,7 +1,7 @@
 .TH IBROUTE 8 "July 25, 2006" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
-ibroute \- query InfiniBand switch forwarding tables 
+ibroute \- query InfiniBand switch forwarding tables
 
 .SH SYNOPSIS
 .B ibroute
@@ -9,9 +9,9 @@ ibroute \- query InfiniBand switch forwarding tables
 
 .SH DESCRIPTION
 .PP
-ibroute uses SMPs to display the forwarding tables (unicast 
+ibroute uses SMPs to display the forwarding tables (unicast
 (LinearForwardingTable or LFT) or multicast (MulticastForwardingTable or MFT))
-for the specified switch LID and the optional lid (mlid) range. 
+for the specified switch LID and the optional lid (mlid) range.
 The default range is all valid entries in the range 1...FDBTop.
 
 .SH OPTIONS
@@ -30,7 +30,7 @@ In this case, the range parameters are specifying the mlid range.
 
 .SH COMMON OPTIONS
 
-Most OpenIB diagnostics take the following common flags. The exact list of 
+Most OpenIB diagnostics take the following common flags. The exact list of
 supported flags per utility can be found in the usage message and can be shown
 using the util_name -h syntax.
 
@@ -79,7 +79,7 @@ by the following criteria:
 .PP
 2. if not found, the first port that is UP (physical link up).
 
-If a port and/or CA name is specified, the user request is  
+If a port and/or CA name is specified, the user request is
 attempted to be fulfilled, and will fail if it is not possible.
 
 .SH EXAMPLES

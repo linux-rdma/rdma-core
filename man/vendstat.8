@@ -1,15 +1,15 @@
 .TH VENDSTAT 8 "February 15, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
-vendstat \- query InfiniBand vendor specific functions 
+vendstat \- query InfiniBand vendor specific functions
 
 .SH SYNOPSIS
-.B vendstat 
+.B vendstat
 [\-d(ebug)] [\-G(uid)] [\-N] [\-w] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)] <lid|guid>
 
 .SH DESCRIPTION
 .PP
-vendstat uses vendor specific MADs to access beyond the IB spec 
+vendstat uses vendor specific MADs to access beyond the IB spec
 vendor specific functionality. Currently, there is support only for
 Mellanox InfiniSwitch-III (IS3).
 
@@ -25,7 +25,7 @@ show IS3 port xmit wait counters.
 
 .SH COMMON OPTIONS
 
-Most OpenIB diagnostics take the following common flags. The exact list of 
+Most OpenIB diagnostics take the following common flags. The exact list of
 supported flags per utility can be found in the usage message and can be shown
 using the util_name -h syntax.
 
@@ -68,7 +68,7 @@ by the following criteria:
 .PP
 2. if not found, the first port that is UP (physical link up).
 
-If a port and/or CA name is specified, the user request is  
+If a port and/or CA name is specified, the user request is
 attempted to be fulfilled, and will fail if it is not possible.
 
 .SH EXAMPLES
