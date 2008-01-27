@@ -53,7 +53,7 @@ rm -rf $RPM_BUILD_ROOT
 %define _perldir %(perl -e 'use Config; $T=$Config{installsitearch}; $T=~/(.*)\\/site_perl.*/; print $1;')
 %{_perldir}/*
 %{_mandir}/man8/*
-%doc README ChangeLog
+%doc README COPYING ChangeLog
 
 %changelog
 * Wed Oct 31 2007 Ira Weiny <weiny2@llnl.gov> - 1.3.2
