@@ -6,7 +6,7 @@ Summary: OpenFabrics Alliance InfiniBand MAD library
 Name: libibmad
 Version: @VERSION@
 Release: %rel%{?dist}
-License: GPL/BSD
+License: GPLv2 or BSD
 Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source: http://www.openfabrics.org/downloads/management/@TARBALL@
