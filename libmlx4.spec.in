@@ -54,9 +54,9 @@ rm -rf $RPM_BUILD_ROOT
 %changelog
 * Sun Jan 27 2008 Roland Dreier <rdreier@cisco.com> - 1.0-2
 - Spec file cleanups, based on Fedora review: don't mark
-  libmlx4.driver as a %config, since it is not user modifiable, and
-  change the name of the -devel-static package to plain -devel, since
-  it would be empty without the static library.
+  libmlx4.driver as a config file, since it is not user modifiable,
+  and change the name of the -devel-static package to plain -devel,
+  since it would be empty without the static library.
 
 * Sun Dec  9 2007 Roland Dreier <rdreier@cisco.com> - 1.0-1
 - New upstream release
