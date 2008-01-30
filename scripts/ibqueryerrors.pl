@@ -188,9 +188,14 @@ sub main
 	}
 	get_link_ends($regenerate_map, $ca_name, $ca_port);
 	get_switches;
-	if ($direct_route) {
+	if (defined($direct_route)) {
 		# convert DR to guid, then use original single_switch option
-		$single_switch = $IBswcountlimits::convert_dr_to_guid{$direct_route};
+		$single_switch = convert_dr_to_guid($direct_route);
+		if (!defined($single_switch) || !is_switch($single_switch)) {
+			printf("The direct route (%s) does not map to a switch.\n",
+				$direct_route);
+			return;
+		}
 	}
 	foreach my $sw_addr (keys %switches) {
 		if ($single_switch && $sw_addr ne "$single_switch") { next; }

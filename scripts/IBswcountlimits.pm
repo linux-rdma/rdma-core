@@ -442,7 +442,7 @@ sub convert_dr_to_guid
 	foreach my $line (@lines) {
 		if ($line =~ /^PortGuid:\.+(.*)/) { $guid = $1; }
 	}
-	$guid;
+	return $guid;
 }
 
 # =========================================================================
@@ -465,7 +465,7 @@ sub get_node_type
 	foreach my $line (@lines) {
 		if ($line =~ /^NodeType:\.+(.*)/) { $type = $1; }
 	}
-	$type;
+	return $type;
 }
 
 # =========================================================================
@@ -474,5 +474,5 @@ sub get_node_type
 sub is_switch
 {
 	my $node_type = &get_node_type($_[0]);
-	($node_type =~ /Switch/);
+	return ($node_type =~ /Switch/);
 }

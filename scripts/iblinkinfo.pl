@@ -96,9 +96,14 @@ my $extra_smpquery_params = get_ca_name_port_param_string($ca_name, $ca_port);
 sub main
 {
 	get_link_ends($regenerate_map, $ca_name, $ca_port);
-	if ($direct_route) {
+	if (defined($direct_route)) {
 		# convert DR to guid, then use original single_switch option
 		$single_switch = $IBswcountlimits::convert_dr_to_guid{$direct_route};
+		if (!defined($single_switch) || !is_switch($single_switch)) {
+			printf("The direct route (%s) does not map to a switch.\n",
+				$direct_route);
+			return;
+		}
 	}
 	foreach my $switch (sort (keys(%IBswcountlimits::link_ends))) {
 		if ($single_switch && $switch ne $single_switch) {
