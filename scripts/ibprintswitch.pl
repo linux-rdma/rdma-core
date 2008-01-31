@@ -43,89 +43,83 @@ use IBswcountlimits;
 #
 sub usage_and_exit
 {
-   my $prog = $_[0];
-   print "Usage: $prog [-R -l] [<switch_guid|switch_name>]\n";
-   print "   print only the switch specified from the ibnetdiscover output\n";
-   print "   -R Recalculate ibnetdiscover information\n";
-   print "   -l list switches\n";
-   print "   -C <ca_name> use selected channel adaptor name for queries\n";
-   print "   -P <ca_port> use selected channel adaptor port for queries\n";
-   exit 0;
+	my $prog = $_[0];
+	print "Usage: $prog [-R -l] [<switch_guid|switch_name>]\n";
+	print "   print only the switch specified from the ibnetdiscover output\n";
+	print "   -R Recalculate ibnetdiscover information\n";
+	print "   -l list switches\n";
+	print "   -C <ca_name> use selected channel adaptor name for queries\n";
+	print "   -P <ca_port> use selected channel adaptor port for queries\n";
+	exit 0;
 }
 
-my $argv0 = `basename $0`;
+my $argv0          = `basename $0`;
 my $regenerate_map = undef;
-my $list_switches = undef;
-my $ca_name = "";
-my $ca_port = "";
+my $list_switches  = undef;
+my $ca_name        = "";
+my $ca_port        = "";
 chomp $argv0;
-if (!getopts("hRlC:P:")) { usage_and_exit $argv0; }
+if (!getopts("hRlC:P:"))         { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
-if (defined $Getopt::Std::opt_l) { $list_switches = $Getopt::Std::opt_l; }
-if (defined $Getopt::Std::opt_C) { $ca_name = $Getopt::Std::opt_C; }
-if (defined $Getopt::Std::opt_P) { $ca_port = $Getopt::Std::opt_P; }
+if (defined $Getopt::Std::opt_l) { $list_switches  = $Getopt::Std::opt_l; }
+if (defined $Getopt::Std::opt_C) { $ca_name        = $Getopt::Std::opt_C; }
+if (defined $Getopt::Std::opt_P) { $ca_port        = $Getopt::Std::opt_P; }
 
 my $target_switch = $ARGV[0];
 
 my $cache_file = get_cache_file($ca_name, $ca_port);
 
-if ($regenerate_map || !(-f "$cache_file")) { generate_ibnetdiscover_topology($ca_name, $ca_port); }
-
-if ($list_switches)
-{
-   system ("ibswitches $cache_file");
-   exit 1;
+if ($regenerate_map || !(-f "$cache_file")) {
+	generate_ibnetdiscover_topology($ca_name, $ca_port);
 }
 
-if ($target_switch eq "")
-{
-   usage_and_exit $argv0;
+if ($list_switches) {
+	system("ibswitches $cache_file");
+	exit 1;
+}
+
+if ($target_switch eq "") {
+	usage_and_exit $argv0;
 }
 
 # =========================================================================
 #
 sub main
 {
-   my $found_switch = undef;
-   open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
-   my $in_switch = "no";
-   my %ports = undef;
-   while (my $line = <IBNET_TOPO>)
-   {
-      if ($line =~ /^Switch.*\"S-(.*)\"\s+# (.*) port.*/)
-      {
-         my $guid = $1;
-         my $desc = $2;
-         if ($in_switch eq "yes")
-         {
-            $in_switch = "no";
-            foreach my $port (sort { $a <=> $b } (keys %ports)) {
-               print $ports{$port};
-            }
-         }
-         if ("0x$guid" eq $target_switch || $desc =~ /.*$target_switch.*/)
-         {
-            print $line;
-            $in_switch = "yes";
-            $found_switch = "yes";
-         }
-      }
-      if ($line =~ /^Ca.*/) { $in_switch = "no"; }
+	my $found_switch = undef;
+	open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
+	my $in_switch = "no";
+	my %ports     = undef;
+	while (my $line = <IBNET_TOPO>) {
+		if ($line =~ /^Switch.*\"S-(.*)\"\s+# (.*) port.*/) {
+			my $guid = $1;
+			my $desc = $2;
+			if ($in_switch eq "yes") {
+				$in_switch = "no";
+				foreach my $port (sort { $a <=> $b } (keys %ports)) {
+					print $ports{$port};
+				}
+			}
+			if ("0x$guid" eq $target_switch || $desc =~ /.*$target_switch.*/) {
+				print $line;
+				$in_switch    = "yes";
+				$found_switch = "yes";
+			}
+		}
+		if ($line =~ /^Ca.*/) { $in_switch = "no"; }
 
-      if ( $line =~ /^\[(\d+)\].*/ && $in_switch eq "yes" )
-      {
-         $ports{$1} = $line;
-      }
+		if ($line =~ /^\[(\d+)\].*/ && $in_switch eq "yes") {
+			$ports{$1} = $line;
+		}
 
-   }
+	}
 
-   if (! $found_switch)
-   {
-      print "Switch \"$target_switch\" not found\n";
-      print "   Try running with the \"-R\" option.\n";
-   }
-   close IBNET_TOPO;
+	if (!$found_switch) {
+		print "Switch \"$target_switch\" not found\n";
+		print "   Try running with the \"-R\" option.\n";
+	}
+	close IBNET_TOPO;
 }
 main
 

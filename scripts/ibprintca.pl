@@ -44,91 +44,85 @@ use IBswcountlimits;
 #
 sub usage_and_exit
 {
-   my $prog = $_[0];
-   print "Usage: $prog [-R -l] [<ca_guid|node_name>]\n";
-   print "   print only the ca specified from the ibnetdiscover output\n";
-   print "   -R Recalculate ibnetdiscover information\n";
-   print "   -l list cas\n";
-   print "   -C <ca_name> use selected channel adaptor name for queries\n";
-   print "   -P <ca_port> use selected channel adaptor port for queries\n";
-   exit 0;
+	my $prog = $_[0];
+	print "Usage: $prog [-R -l] [<ca_guid|node_name>]\n";
+	print "   print only the ca specified from the ibnetdiscover output\n";
+	print "   -R Recalculate ibnetdiscover information\n";
+	print "   -l list cas\n";
+	print "   -C <ca_name> use selected channel adaptor name for queries\n";
+	print "   -P <ca_port> use selected channel adaptor port for queries\n";
+	exit 0;
 }
 
-my $argv0 = `basename $0`;
+my $argv0          = `basename $0`;
 my $regenerate_map = undef;
-my $list_hcas = undef;
-my $ca_name = "";
-my $ca_port = "";
+my $list_hcas      = undef;
+my $ca_name        = "";
+my $ca_port        = "";
 chomp $argv0;
-if (!getopts("hRlC:P:")) { usage_and_exit $argv0; }
+if (!getopts("hRlC:P:"))         { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
-if (defined $Getopt::Std::opt_l) { $list_hcas = $Getopt::Std::opt_l; }
-if (defined $Getopt::Std::opt_C) { $ca_name = $Getopt::Std::opt_C; }
-if (defined $Getopt::Std::opt_P) { $ca_port = $Getopt::Std::opt_P; }
+if (defined $Getopt::Std::opt_l) { $list_hcas      = $Getopt::Std::opt_l; }
+if (defined $Getopt::Std::opt_C) { $ca_name        = $Getopt::Std::opt_C; }
+if (defined $Getopt::Std::opt_P) { $ca_port        = $Getopt::Std::opt_P; }
 
 my $target_hca = $ARGV[0];
 
 my $cache_file = get_cache_file($ca_name, $ca_port);
 
-if ($regenerate_map || !(-f "$cache_file")) { generate_ibnetdiscover_topology($ca_name, $ca_port); }
-
-if ($list_hcas)
-{
-   system ("ibhosts $cache_file");
-   exit 1;
+if ($regenerate_map || !(-f "$cache_file")) {
+	generate_ibnetdiscover_topology($ca_name, $ca_port);
 }
 
-if ($target_hca eq "")
-{
-   usage_and_exit $argv0;
+if ($list_hcas) {
+	system("ibhosts $cache_file");
+	exit 1;
+}
+
+if ($target_hca eq "") {
+	usage_and_exit $argv0;
 }
 
 # =========================================================================
 #
 sub main
 {
-   my $found_hca = undef;
-   open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
-   my $in_hca = "no";
-   my %ports = undef;
-   while (my $line = <IBNET_TOPO>)
-   {
-      if ($line =~ /^Ca.*\"H-(.*)\"\s+# (.*)/)
-      {
-         my $guid = $1;
-         my $desc = $2;
-         if ($in_hca eq "yes")
-         {
-            $in_hca = "no";
-            goto DONE;
-         }
-         if ("0x$guid" eq $target_hca || $desc =~ /.*$target_hca.*/)
-         {
-            print $line;
-            $in_hca = "yes";
-            $found_hca = "yes";
-         }
-      }
-      if ($line =~ /^Switch.*/ || $line =~ /^Rt.*/) { $in_hca = "no"; }
+	my $found_hca = undef;
+	open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
+	my $in_hca = "no";
+	my %ports  = undef;
+	while (my $line = <IBNET_TOPO>) {
+		if ($line =~ /^Ca.*\"H-(.*)\"\s+# (.*)/) {
+			my $guid = $1;
+			my $desc = $2;
+			if ($in_hca eq "yes") {
+				$in_hca = "no";
+				goto DONE;
+			}
+			if ("0x$guid" eq $target_hca || $desc =~ /.*$target_hca.*/) {
+				print $line;
+				$in_hca    = "yes";
+				$found_hca = "yes";
+			}
+		}
+		if ($line =~ /^Switch.*/ || $line =~ /^Rt.*/) { $in_hca = "no"; }
 
-      if ( $line =~ /^\[(\d+)\].*/ && $in_hca eq "yes" )
-      {
-         $ports{$1} = $line;
-      }
+		if ($line =~ /^\[(\d+)\].*/ && $in_hca eq "yes") {
+			$ports{$1} = $line;
+		}
 
-   }
-DONE:
-   foreach my $port (sort { $a <=> $b } (keys %ports)) {
-      print $ports{$port};
-   }
-   if (! $found_hca)
-   {
-      print "\"$target_hca\" not found\n";
-      print "   Try running with the \"-R\" option.\n";
-      print "   If still not found the node is probably down.\n";
-   }
-   close IBNET_TOPO;
+	}
+	DONE:
+	foreach my $port (sort { $a <=> $b } (keys %ports)) {
+		print $ports{$port};
+	}
+	if (!$found_hca) {
+		print "\"$target_hca\" not found\n";
+		print "   Try running with the \"-R\" option.\n";
+		print "   If still not found the node is probably down.\n";
+	}
+	close IBNET_TOPO;
 }
 main
 
