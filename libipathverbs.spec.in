@@ -1,4 +1,4 @@
-# Copyright (c) 2007. QLogic Corp. All rights reserved.
+# Copyright (c) 2007, 2008. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
 # This software is available to you under a choice of one of two
@@ -43,7 +43,7 @@ Release: %rel%{?dist}
 Summary: PathScale InfiniPath HCA Userspace Driver
 
 Group: System Environment/Libraries
-License: GPL/BSD
+License: GPLv2 or BSD
 Url: http://openib.org/
 Source: http://openib.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
