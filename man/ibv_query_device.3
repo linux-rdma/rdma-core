@@ -22,8 +22,8 @@ is a pointer to an ibv_device_attr struct, as defined in <infiniband/verbs.h>.
 struct ibv_device_attr {
 .in +8
 char                    fw_ver[64];             /* FW version */
-uint64_t                node_guid;              /* Node GUID */
-uint64_t                sys_image_guid;         /* System image GUID */
+uint64_t                node_guid;              /* Node GUID (in network byte order) */
+uint64_t                sys_image_guid;         /* System image GUID (in network byte order) */
 uint64_t                max_mr_size;            /* Largest contiguous block that can be registered */
 uint64_t                page_size_cap;          /* Supported memory shift sizes */
 uint32_t                vendor_id;              /* Vendor ID, per IEEE */

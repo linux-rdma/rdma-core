@@ -18,11 +18,11 @@ ibv_get_cq_event, ibv_ack_cq_events \- get and acknowledge completion queue (CQ)
 .B ibv_get_cq_event()
 waits for the next completion event in the completion event channel
 .I channel\fR.
-The argument
+Fills the arguments
 .I cq
-is used to return the CQ that caused the event and
+with the CQ that got the event and
 .I cq_context
-is used to return the CQ's context.
+with the CQ's context\fR.
 .PP
 .B ibv_ack_cq_events()
 acknowledges
@@ -102,7 +102,7 @@ if (ibv_get_cq_event(channel, &ev_cq, &ev_ctx)) {
 ibv_ack_cq_events(ev_cq, 1);
 .PP
 /* Request notification upon the next completion event */
-if (ibv_req_notify_cq(cq, 0)) {
+if (ibv_req_notify_cq(ev_cq, 0)) {
         fprintf(stderr, "Couldn't request CQ notification\en");
         return 1;
 }
@@ -114,6 +114,10 @@ do {
                 fprintf(stderr, "Failed to poll completions from the CQ\en");
                 return 1;
         }
+
+        /* there may be an extra event with no completion in the CQ */
+        if (ne == 0)
+                continue;
 .PP
         if (wc.status != IBV_WC_SUCCESS) {
                 fprintf(stderr, "Completion with status 0x%x was found\en", wc.status);
