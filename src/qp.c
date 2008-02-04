@@ -360,7 +360,6 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		prev_wqe = qp->rq.last;
 		qp->rq.last = wqe;
 
-		((struct mthca_next_seg *) wqe)->nda_op = 0;
 		((struct mthca_next_seg *) wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD);
 		((struct mthca_next_seg *) wqe)->flags =
@@ -388,9 +387,6 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		qp->wrid[ind] = wr->wr_id;
 
-		((struct mthca_next_seg *) prev_wqe)->nda_op =
-			htonl((ind << qp->rq.wqe_shift) | 1);
-		wmb();
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD | size);
 
@@ -786,6 +782,8 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 {
 	int size;
 	int max_sq_sge;
+	struct mthca_next_seg *next;
+	int i;
 
 	qp->rq.max_gs 	 = cap->max_recv_sge;
 	qp->sq.max_gs 	 = cap->max_send_sge;
@@ -860,9 +858,7 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	memset(qp->buf.buf, 0, qp->buf_size);
 
 	if (mthca_is_memfree(pd->context)) {
-		struct mthca_next_seg *next;
 		struct mthca_data_seg *scatter;
-		int i;
 		uint32_t sz;
 
 		sz = htonl((sizeof (struct mthca_next_seg) +
@@ -885,6 +881,12 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 			next->nda_op = htonl((((i + 1) & (qp->sq.max - 1)) <<
 					      qp->sq.wqe_shift) +
 					     qp->send_wqe_offset);
+		}
+	} else {
+		for (i = 0; i < qp->rq.max; ++i) {
+			next = get_recv_wqe(qp, i);
+			next->nda_op = htonl((((i + 1) % qp->rq.max) <<
+					     qp->rq.wqe_shift) | 1);
 		}
 	}
 

@@ -64,9 +64,13 @@ static inline int *wqe_to_link(void *wqe)
 
 void mthca_free_srq_wqe(struct mthca_srq *srq, int ind)
 {
+	struct mthca_next_seg *last_free;
+
 	pthread_spin_lock(&srq->lock);
 
-	*wqe_to_link(get_wqe(srq, srq->last_free)) = ind;
+	last_free = get_wqe(srq, srq->last_free);
+	*wqe_to_link(last_free) = ind;
+	last_free->nda_op = htonl((ind << srq->wqe_shift) | 1);
 	*wqe_to_link(get_wqe(srq, ind)) = -1;
 	srq->last_free = ind;
 
@@ -106,7 +110,6 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 		prev_wqe  = srq->last;
 		srq->last = wqe;
 
-		((struct mthca_next_seg *) wqe)->nda_op = 0;
 		((struct mthca_next_seg *) wqe)->ee_nds = 0;
 		/* flags field will always remain 0 */
 
@@ -135,9 +138,6 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 			((struct mthca_data_seg *) wqe)->addr = 0;
 		}
 
-		((struct mthca_next_seg *) prev_wqe)->nda_op =
-			htonl((ind << srq->wqe_shift) | 1);
-		wmb();
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD);
 
@@ -204,8 +204,6 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 			break;
 		}
 
-		((struct mthca_next_seg *) wqe)->nda_op =
-			htonl((next_ind << srq->wqe_shift) | 1);
 		((struct mthca_next_seg *) wqe)->ee_nds = 0;
 		/* flags field will always remain 0 */
 
@@ -288,9 +286,17 @@ int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	 */
 
 	for (i = 0; i < srq->max; ++i) {
-		wqe = get_wqe(srq, i);
+		struct mthca_next_seg *next;
 
-		*wqe_to_link(wqe) = i < srq->max - 1 ? i + 1 : -1;
+		next = wqe = get_wqe(srq, i);
+
+		if (i < srq->max - 1) {
+			*wqe_to_link(wqe) = i + 1;
+			next->nda_op = htonl(((i + 1) << srq->wqe_shift) | 1);
+		} else {
+			*wqe_to_link(wqe) = -1;
+			next->nda_op = 0;
+		}
 
 		for (scatter = wqe + sizeof (struct mthca_next_seg);
 		     (void *) scatter < wqe + (1 << srq->wqe_shift);
