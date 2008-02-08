@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2007 NetEffect, Inc. All rights reserved.
+ * Copyright (c) 2006 - 2008 NetEffect, Inc. All rights reserved.
  * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -236,9 +236,9 @@ struct nes_uvcontext {
 	uint32_t max_pds; /* maximum pds allowed for this user process */
 	uint32_t max_qps; /* maximum qps allowed for this user process */
 	uint32_t wq_size; /* size of the WQs (sq+rq) allocated to the mmaped area */
+	uint32_t mcrqf;
 	uint8_t virtwq ; /*  flag if to use virt wqs or not */
-	uint8_t mcrqf;
-	uint8_t reserved[2] ;
+	uint8_t reserved[3] ;
 };
 
 struct nes_ucq {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2007 NetEffect, Inc. All rights reserved.
+ * Copyright (c) 2006 - 2008 NetEffect, Inc. All rights reserved.
  * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -66,8 +66,8 @@ struct nes_ualloc_pd_resp {
 struct nes_ucreate_cq {
 	struct ibv_create_cq ibv_cmd;
 	__u64 user_cq_buffer;
-	__u8 mcrqf;
-	__u8 reserved[7];
+	__u32 mcrqf;
+	__u8 reserved[4];
 };
 
 struct nes_ucreate_cq_resp {
