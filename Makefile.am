@@ -16,10 +16,10 @@ src_libnes_la_LDFLAGS = -avoid-version -module -release @IBV_DEVICE_LIBRARY_EXTE
 nesconfdir = $(sysconfdir)/libibverbs.d
 nesconf_DATA = nes.driver
 
-DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
-    debian/libnes1.install debian/libnes-dev.install debian/rules
+#DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
+#    debian/libnes1.install debian/libnes-dev.install debian/rules
 
-EXTRA_DIST = src/nes.h src/nes-abi.h \
+EXTRA_DIST = src/nes-abi.h \
     src/nes.map libnes.spec.in nes.driver $(DEBIAN)
 
 dist-hook: libnes.spec
