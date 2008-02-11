@@ -1312,17 +1312,17 @@ retry:
 	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
 	evt->event.event = resp->event;
+	evt->id_priv = (void *) (uintptr_t) resp->uid;
+	evt->event.id = &evt->id_priv->id;
+	evt->event.status = resp->status;
+
 	switch (resp->event) {
 	case RDMA_CM_EVENT_ADDR_RESOLVED:
-		evt->id_priv = (void *) (uintptr_t) resp->uid;
-		evt->event.id = &evt->id_priv->id;
 		evt->event.status = ucma_query_route(&evt->id_priv->id);
 		if (evt->event.status)
 			evt->event.event = RDMA_CM_EVENT_ADDR_ERROR;
 		break;
 	case RDMA_CM_EVENT_ROUTE_RESOLVED:
-		evt->id_priv = (void *) (uintptr_t) resp->uid;
-		evt->event.id = &evt->id_priv->id;
 		evt->event.status = ucma_query_route(&evt->id_priv->id);
 		if (evt->event.status)
 			evt->event.event = RDMA_CM_EVENT_ROUTE_ERROR;
@@ -1339,8 +1339,6 @@ retry:
 			goto retry;
 		break;
 	case RDMA_CM_EVENT_CONNECT_RESPONSE:
-		evt->id_priv = (void *) (uintptr_t) resp->uid;
-		evt->event.id = &evt->id_priv->id;
 		ucma_copy_conn_event(evt, &resp->param.conn);
 		evt->event.status = ucma_process_conn_resp(evt->id_priv);
 		if (!evt->event.status)
@@ -1351,8 +1349,6 @@ retry:
 		}
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		evt->id_priv = (void *) (uintptr_t) resp->uid;
-		evt->event.id = &evt->id_priv->id;
 		if (ucma_is_ud_ps(evt->id_priv->id.ps)) {
 			ucma_copy_ud_event(evt, &resp->param.ud);
 			break;
@@ -1366,22 +1362,18 @@ retry:
 		}
 		break;
 	case RDMA_CM_EVENT_REJECTED:
-		evt->id_priv = (void *) (uintptr_t) resp->uid;
 		if (evt->id_priv->connect_error) {
 			ucma_complete_event(evt->id_priv);
 			goto retry;
 		}
-		evt->event.id = &evt->id_priv->id;
 		ucma_copy_conn_event(evt, &resp->param.conn);
 		ucma_modify_qp_err(evt->event.id);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
-		evt->id_priv = (void *) (uintptr_t) resp->uid;
 		if (evt->id_priv->connect_error) {
 			ucma_complete_event(evt->id_priv);
 			goto retry;
 		}
-		evt->event.id = &evt->id_priv->id;
 		ucma_copy_conn_event(evt, &resp->param.conn);
 		break;
 	case RDMA_CM_EVENT_MULTICAST_JOIN:
@@ -1398,7 +1390,6 @@ retry:
 		evt->mc = (void *) (uintptr_t) resp->uid;
 		evt->id_priv = evt->mc->id_priv;
 		evt->event.id = &evt->id_priv->id;
-		evt->event.status = resp->status;
 		evt->event.param.ud.private_data = evt->mc->context;
 		break;
 	default:
