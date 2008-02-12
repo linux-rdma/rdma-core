@@ -1,6 +1,28 @@
-commit ce49ee9af10d2135428613aa4cf641e8faeaa744
+commit 8ddcf0339652a4b8d9c7bc0e104cfa0f4d6e9e01
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Fri Jan 25 16:46:18 2008 -0600
+Date:   Tue Feb 12 15:15:22 2008 -0600
+
+    Spin release 1.1.4.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 1bc6930d8884646ef73db71a95cc32c96c20ba32
+Author: Jon Mason <jon@opengridcomputing.com>
+Date:   Tue Feb 12 14:46:10 2008 -0600
+
+    libcxgb3: zeroing of wc_flags
+    
+    The wc_flags field in struct ibv_wc is left uninitialized in
+    iwch_poll_cq_one.  User space applications may check this field and
+    deterministically perform actions based on the garbage in the field.
+    Zeroing this out will prevent this unintended behavior.
+    
+    Signed-off-by: Jon Mason <jon@opengridcomputing.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 946e1572d38d786038d3bca5a2ec184dcf7636c4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jan 25 16:47:01 2008 -0600
 
     Spin release 1.1.3.
     
