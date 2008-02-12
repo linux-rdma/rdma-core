@@ -1,8 +1,11 @@
 libibverbs (1.1.1-2) unstable; urgency=low
 
   * Replace deprecated ${Source-Version} with ${binary:Version}
+  * Use DEB_DH_MAKESHLIBS_ARGS_ALL to pass appropriate -V option to
+    dh_makeshlibs, since new symbols were added in libibverbs 1.1.0.
+    (Closes: #465435)
 
- -- Roland Dreier <rolandd@cisco.com>  Thu, 21 Jun 2007 12:04:05 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Tue, 12 Feb 2008 11:01:11 -0800
 
 libibverbs (1.1.1-1) unstable; urgency=low
 
