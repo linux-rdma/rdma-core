@@ -277,6 +277,7 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 	wc->wr_id = cookie;
 	wc->qp_num = qhp->wq.qpid;
 	wc->vendor_err = CQE_STATUS(cqe);
+	wc->wc_flags = 0;
 
 	PDBG("%s qpid 0x%x type %d opcode %d status 0x%x wrid hi 0x%x "
 	     "lo 0x%x cookie 0x%" PRIx64 "\n", 
