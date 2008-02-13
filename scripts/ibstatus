@@ -42,7 +42,7 @@ ib_status() {
 	fi
 
 	if [ "$2" = "+" ]; then
-		ports=`(cd "$infiniband_base/$1/ports"; echo *)`
+		ports=`(cd "$infiniband_base/$1/ports" 2>/dev/null || fatal No devices; echo *)`
 	else
 		ports=$2
 	fi
@@ -57,7 +57,7 @@ if [ "$1" = "-h" ]; then
 fi
 
 if [ -z "$1" ]; then
-	cd $infiniband_base
+	cd $infiniband_base 2>/dev/null || fatal No devices
 	for dev in *; do
 		ib_status $dev "+";
 	done
