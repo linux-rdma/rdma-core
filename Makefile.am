@@ -54,6 +54,7 @@ man_MANS = \
 	man/rdma_join_multicast.3 \
 	man/rdma_leave_multicast.3 \
 	man/rdma_listen.3 \
+	man/rdma_migrate_id.3 \
 	man/rdma_notify.3 \
 	man/rdma_reject.3 \
 	man/rdma_resolve_addr.3 \

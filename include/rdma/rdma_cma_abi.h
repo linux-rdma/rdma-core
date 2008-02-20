@@ -63,7 +63,8 @@ enum {
 	UCMA_CMD_SET_OPTION,
 	UCMA_CMD_NOTIFY,
  	UCMA_CMD_JOIN_MCAST,
- 	UCMA_CMD_LEAVE_MCAST
+ 	UCMA_CMD_LEAVE_MCAST,
+	UCMA_CMD_MIGRATE_ID
 };
 
 struct ucma_abi_cmd_hdr {
@@ -219,6 +220,16 @@ struct ucma_abi_set_option {
 	__u32 level;
 	__u32 optname;
 	__u32 optlen;
+};
+
+struct ucma_abi_migrate_id {
+	__u64 response;
+	__u32 id;
+	__u32 fd;
+};
+
+struct ucma_abi_migrate_resp {
+	__u32 events_reported;
 };
 
 #endif /* RDMA_CMA_ABI_H */

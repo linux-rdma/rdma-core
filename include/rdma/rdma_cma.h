@@ -560,6 +560,13 @@ enum {
 int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
 		    void *optval, size_t optlen);
 
+/**
+ * rdma_migrate_id - Move an rdma_cm_id to a new event channel.
+ * @id: Communication identifier to migrate.
+ * @channel: New event channel for rdma_cm_id events.
+ */
+int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel);
+
 #ifdef __cplusplus
 }
 #endif

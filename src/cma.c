@@ -1465,3 +1465,38 @@ int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
 
 	return 0;
 }
+
+int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel)
+{
+	struct ucma_abi_migrate_resp *resp;
+	struct ucma_abi_migrate_id *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_MIGRATE_ID, size);
+	cmd->id = id_priv->handle;
+	cmd->fd = id->channel->fd;
+
+	ret = write(channel->fd, msg, size);
+	if (ret != size)
+		return (ret > 0) ? -ENODATA : ret;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
+	/*
+	 * Eventually if we want to support migrating channels while events are
+	 * being processed on the current channel, we need to block here while
+	 * there are any outstanding events on the current channel for this id
+	 * to prevent the user from processing events for this id on the old
+	 * channel after this call returns.
+	 */
+	pthread_mutex_lock(&id_priv->mut);
+	id->channel = channel;
+	while (id_priv->events_completed < resp->events_reported)
+		pthread_cond_wait(&id_priv->cond, &id_priv->mut);
+	pthread_mutex_unlock(&id_priv->mut);
+
+	return 0;
+}

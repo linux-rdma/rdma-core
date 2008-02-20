@@ -82,6 +82,7 @@ static int message_size = 100;
 static int message_count = 10;
 static uint8_t set_tos = 0;
 static uint8_t tos;
+static uint8_t migrate = 0;
 static char *dst_addr;
 static char *src_addr;
 
@@ -465,6 +466,35 @@ static int disconnect_events(void)
 	return ret;
 }
 
+static int migrate_channel(struct rdma_cm_id *listen_id)
+{
+	struct rdma_event_channel *channel;
+	int i, ret;
+
+	printf("migrating to new event channel\n");
+
+	channel = rdma_create_event_channel();
+	if (!channel) {
+		printf("cmatose: failed to create event channel\n");
+		return -1;
+	}
+
+	ret = 0;
+	if (listen_id)
+		ret = rdma_migrate_id(listen_id, channel);
+
+	for (i = 0; i < connections && !ret; i++)
+		ret = rdma_migrate_id(test.nodes[i].cma_id, channel);
+
+	if (!ret) {
+		rdma_destroy_event_channel(test.channel);
+		test.channel = channel;
+	} else
+		printf("cmatose: failure migrating to channel: %d\n", ret);
+
+	return ret;
+}
+
 static int get_addr(char *dst, struct sockaddr_in *addr)
 {
 	struct addrinfo *res;
@@ -543,6 +573,13 @@ static int run_server(void)
 		printf("data transfers complete\n");
 
 	}
+
+	if (migrate) {
+		ret = migrate_channel(listen_id);
+		if (ret)
+			goto out;
+	}
+
 	printf("cmatose: disconnecting\n");
 	for (i = 0; i < connections; i++) {
 		if (!test.nodes[i].connected)
@@ -592,30 +629,36 @@ static int run_client(void)
 
 	ret = connect_events();
 	if (ret)
-		goto out;
+		goto disc;
 
 	if (message_count) {
 		printf("receiving data transfers\n");
 		ret = poll_cqs();
 		if (ret)
-			goto out;
+			goto disc;
 
 		printf("sending replies\n");
 		for (i = 0; i < connections; i++) {
 			ret = post_sends(&test.nodes[i]);
 			if (ret)
-				goto out;
+				goto disc;
 		}
 
 		printf("data transfers complete\n");
 	}
 
 	ret = 0;
-out:
+
+	if (migrate) {
+		ret = migrate_channel(NULL);
+		if (ret)
+			goto out;
+	}
+disc:
 	ret2 = disconnect_events();
 	if (ret2)
 		ret = ret2;
-
+out:
 	return ret;
 }
 
@@ -623,7 +666,7 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "s:b:c:C:S:t:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:C:S:t:m")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -644,6 +687,9 @@ int main(int argc, char **argv)
 			set_tos = 1;
 			tos = (uint8_t) atoi(optarg);
 			break;
+		case 'm':
+			migrate = 1;
+			break;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");
@@ -652,6 +698,7 @@ int main(int argc, char **argv)
 			printf("\t[-C message_count]\n");
 			printf("\t[-S message_size]\n");
 			printf("\t[-t type_of_service]\n");
+			printf("\t[-m(igrate)]\n");
 			exit(1);
 		}
 	}

@@ -35,6 +35,10 @@ The size of each message transferred, in bytes.  (default 100)
 \-t tos
 Indicates the type of service used for the communication.  Type of service
 is implementation dependent based on subnet configuration.
+.TP
+\-m
+Tests event channel migration.  Migrates all communication identifiers to
+a different event channel for disconnect events.
 .SH "NOTES"
 Basic usage is to start ucmatose on a server system, then run
 ucmatose -s server_name on a client system.
