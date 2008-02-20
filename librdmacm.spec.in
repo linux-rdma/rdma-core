@@ -66,3 +66,8 @@ rm -rf $RPM_BUILD_ROOT
 %files utils
 %defattr(-,root,root,-)
 %{_bindir}/*
+
+%changelog
+
+* Fri Feb 15 2008 Roland Dreier <rdreier@cisco.com> - 1.0.6-1
+- Initial Fedora spec file
