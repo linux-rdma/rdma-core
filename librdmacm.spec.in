@@ -52,7 +52,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{_libdir}/librdmacm*.so.*
-%doc AUTHORS COPYING ChangeLog README
+%doc AUTHORS COPYING README
 
 %files devel
 %defattr(-,root,root)
