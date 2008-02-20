@@ -11,6 +11,8 @@ Url: http://www.openfabrics.org/
 Source: http://www.openfabrics.org/downloads/rdmacm/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
+BuildRequires: libibverbs-devel >= 1.1-1
+
 %description
 librdmacm provides a userspace RDMA Communication Managment API.
 
