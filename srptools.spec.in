@@ -36,6 +36,7 @@ if [ $1 = 1 ]; then # 1 : This package is being installed for the first time
        echo >> %{IB_CONF_DIR}/openib.conf
        echo "# Enable SRP High Availability daemon" >> %{IB_CONF_DIR}/openib.conf
        echo "SRPHA_ENABLE=no" >> %{IB_CONF_DIR}/openib.conf
+       echo "SRP_DAEMON_ENABLE=no" >> %{IB_CONF_DIR}/openib.conf
     fi
 fi
 
