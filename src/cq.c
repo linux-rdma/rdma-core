@@ -373,7 +373,6 @@ int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 			     __FUNCTION__, CQE_STATUS(cqe), chp->cq.cqid, 
 			     CQE_QPID(cqe));
 			ret = -EINVAL;
-			ret = -EINVAL;
 		}
 	}
 out:
