@@ -405,6 +405,12 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	return 0;
 }
 
+int iwch_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		  enum ibv_qp_attr_mask attr_mask, struct ibv_qp_init_attr *init_attr)
+{
+	return -ENOSYS;
+}
+
 struct ibv_ah *iwch_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	return NULL;

@@ -94,6 +94,7 @@ static struct ibv_context_ops iwch_ctx_ops = {
 	.create_qp = iwch_create_qp,
 	.modify_qp = iwch_modify_qp,
 	.destroy_qp = iwch_destroy_qp,
+	.query_qp = iwch_query_qp,
 	.create_ah = iwch_create_ah,
 	.destroy_ah = iwch_destroy_ah,
 	.attach_mcast = iwch_attach_mcast,

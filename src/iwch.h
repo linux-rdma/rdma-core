@@ -178,6 +178,10 @@ extern struct ibv_qp *iwch_create_qp(struct ibv_pd *pd,
 extern int iwch_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			  enum ibv_qp_attr_mask attr_mask);
 extern int iwch_destroy_qp(struct ibv_qp *qp);
+extern int iwch_query_qp(struct ibv_qp *qp,
+			 struct ibv_qp_attr *attr,
+			 enum ibv_qp_attr_mask attr_mask,
+			 struct ibv_qp_init_attr *init_attr);
 extern void iwch_flush_qp(struct iwch_qp *qhp);
 extern int t3a_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr);
