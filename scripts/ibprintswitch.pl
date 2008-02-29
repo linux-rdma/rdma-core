@@ -97,9 +97,7 @@ sub main
 			my $desc = $2;
 			if ($in_switch eq "yes") {
 				$in_switch = "no";
-				foreach my $port (sort { $a <=> $b } (keys %ports)) {
-					print $ports{$port};
-				}
+				goto DONE;
 			}
 			if ("0x$guid" eq $target_switch || $desc =~ /.*$target_switch.*/) {
 				print $line;
@@ -114,7 +112,10 @@ sub main
 		}
 
 	}
-
+	DONE:
+	foreach my $port (sort { $a <=> $b } (keys %ports)) {
+		print $ports{$port};
+	}
 	if (!$found_switch) {
 		print "Switch \"$target_switch\" not found\n";
 		print "   Try running with the \"-R\" option.\n";
