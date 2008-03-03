@@ -52,7 +52,7 @@ sub usage_and_exit
 "   -R Recalculate ibnetdiscover information (Default is to reuse ibnetdiscover output)\n";
 	print
 "   -D <direct route> output only the switch specified by direct route path\n";
-	print "   -S <guid> output only the switch specified by guid\n";
+	print "   -S <guid> output only the switch specified by <guid> (hex format)\n";
 	print "   -d print only down links\n";
 	print
 	  "   -l (line mode) print all information for each link on each line\n";

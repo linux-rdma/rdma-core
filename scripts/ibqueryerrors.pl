@@ -145,7 +145,7 @@ sub usage_and_exit
 	print "   -s <err1,err2,...> suppress errors listed\n";
 	print
 "   -D <direct route> output only the switch specified by direct route path\n";
-	print "   -S <switch_guid> query only <switch_guid>\n";
+	print "   -S <switch_guid> query only <switch_guid> (hex format)\n";
 	print "   -d include the data counters in the output\n";
 	print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
 	print "   -P <ca_port> use selected channel adaptor port for queries\n";
