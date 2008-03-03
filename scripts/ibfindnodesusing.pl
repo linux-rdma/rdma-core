@@ -92,7 +92,7 @@ if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
 if (defined $Getopt::Std::opt_C) { $ca_name        = $Getopt::Std::opt_C; }
 if (defined $Getopt::Std::opt_P) { $ca_port        = $Getopt::Std::opt_P; }
 
-my $target_switch = $ARGV[0];
+my $target_switch = format_guid($ARGV[0]);
 my $target_port   = $ARGV[1];
 
 get_link_ends($regenerate_map, $ca_name, $ca_port);

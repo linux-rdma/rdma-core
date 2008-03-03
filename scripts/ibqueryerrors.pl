@@ -171,7 +171,9 @@ if (defined $Getopt::Std::opt_c) {
 if (defined $Getopt::Std::opt_r) { $report_port_info = $Getopt::Std::opt_r; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map   = $Getopt::Std::opt_R; }
 if (defined $Getopt::Std::opt_D) { $direct_route     = $Getopt::Std::opt_D; }
-if (defined $Getopt::Std::opt_S) { $single_switch    = $Getopt::Std::opt_S; }
+if (defined $Getopt::Std::opt_S) {
+	$single_switch = format_guid($Getopt::Std::opt_S);
+}
 if (defined $Getopt::Std::opt_d) {
 	$include_data_counters = $Getopt::Std::opt_d;
 }

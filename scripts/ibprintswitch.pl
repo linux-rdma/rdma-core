@@ -66,7 +66,7 @@ if (defined $Getopt::Std::opt_l) { $list_switches  = $Getopt::Std::opt_l; }
 if (defined $Getopt::Std::opt_C) { $ca_name        = $Getopt::Std::opt_C; }
 if (defined $Getopt::Std::opt_P) { $ca_port        = $Getopt::Std::opt_P; }
 
-my $target_switch = $ARGV[0];
+my $target_switch = format_guid($ARGV[0]);
 
 my $cache_file = get_cache_file($ca_name, $ca_port);
 

@@ -80,9 +80,11 @@ chomp $argv0;
 
 if (!getopts("hcpldRS:D:C:P:g")) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
-if (defined $Getopt::Std::opt_D) { $direct_route       = $Getopt::Std::opt_D; }
-if (defined $Getopt::Std::opt_R) { $regenerate_map     = $Getopt::Std::opt_R; }
-if (defined $Getopt::Std::opt_S) { $single_switch      = $Getopt::Std::opt_S; }
+if (defined $Getopt::Std::opt_D) { $direct_route   = $Getopt::Std::opt_D; }
+if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
+if (defined $Getopt::Std::opt_S) {
+	$single_switch = format_guid($Getopt::Std::opt_S);
+}
 if (defined $Getopt::Std::opt_d) { $only_down_links    = $Getopt::Std::opt_d; }
 if (defined $Getopt::Std::opt_l) { $line_mode          = $Getopt::Std::opt_l; }
 if (defined $Getopt::Std::opt_p) { $print_add_switch   = $Getopt::Std::opt_p; }

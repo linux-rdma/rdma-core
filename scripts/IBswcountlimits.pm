@@ -431,6 +431,26 @@ sub get_num_ports
 }
 
 # =========================================================================
+# format_guid(guid)
+# The diags store the guids as strings.  This converts the guid supplied
+# to the correct string format.
+# eg: 0x0008f10400411f56 == 0x8f10400411f56
+#
+sub format_guid
+{
+	my $guid     = $_[0];
+	my $guid_str = "";
+
+	$guid =~ tr/[A-F]/[a-f]/;
+	if ($guid =~ /0x(.*)/) {
+		$guid_str = sprintf("0x%016s", $1);
+	} else {
+		$guid_str = sprintf("0x%016s", $guid);
+	}
+	return ($guid_str);
+}
+
+# =========================================================================
 # convert_dr_to_guid(direct_route)
 #
 sub convert_dr_to_guid
@@ -442,7 +462,7 @@ sub convert_dr_to_guid
 	foreach my $line (@lines) {
 		if ($line =~ /^PortGuid:\.+(.*)/) { $guid = $1; }
 	}
-	return $guid;
+	return format_guid($guid);
 }
 
 # =========================================================================
