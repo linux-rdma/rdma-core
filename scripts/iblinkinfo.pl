@@ -76,6 +76,7 @@ my $only_down_links    = undef;
 my $ca_name            = "";
 my $ca_port            = "";
 my $print_port_guids   = undef;
+my $switch_found       = "no";
 chomp $argv0;
 
 if (!getopts("hcpldRS:D:C:P:g")) { usage_and_exit $argv0; }
@@ -110,6 +111,8 @@ sub main
 	foreach my $switch (sort (keys(%IBswcountlimits::link_ends))) {
 		if ($single_switch && $switch ne $single_switch) {
 			next;
+		} else {
+			$switch_found = "yes";
 		}
 		my $switch_prompt = "no";
 		my $num_ports = get_num_ports($switch, $ca_name, $ca_port);
@@ -303,6 +306,9 @@ sub main
 		if ($print_switch eq "yes") {
 			foreach my $line (@output_lines) { print $line; }
 		}
+	}
+	if ($single_switch && $switch_found ne "yes") {
+		printf("Switch \"%s\" not found.\n", $single_switch);
 	}
 }
 main;

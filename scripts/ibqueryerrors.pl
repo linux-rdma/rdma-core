@@ -44,6 +44,7 @@ my $report_port_info      = undef;
 my $single_switch         = undef;
 my $include_data_counters = undef;
 my $cache_file            = "";
+my $switch_found          = "no";
 
 # =========================================================================
 #
@@ -200,7 +201,11 @@ sub main
 		}
 	}
 	foreach my $sw_addr (keys %switches) {
-		if ($single_switch && $sw_addr ne "$single_switch") { next; }
+		if ($single_switch && $sw_addr ne "$single_switch") {
+			next;
+		} else {
+			$switch_found = "yes";
+		}
 
 		my $switch_prompt = "no";
 		foreach my $sw_port (1 .. $switches{$sw_addr}) {
@@ -213,6 +218,9 @@ sub main
 			}
 			report_counts($sw_addr, $sw_port);
 		}
+	}
+	if ($single_switch && $switch_found ne "yes") {
+		printf("Switch \"%s\" not found.\n", $single_switch);
 	}
 }
 main;
