@@ -112,7 +112,7 @@ sa_rpc_call(void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
 			IB_PR_COMPMASK_NUMBPATH)
 
 int
-ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id, void *buf)
+ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf)
 {
 	int npath;
 	ib_sa_call_t sa = {0};

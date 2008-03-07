@@ -138,7 +138,7 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 }
 
 int
-ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid)
+ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid)
 {
 	ib_portid_t self = {0};
 	uint8_t portinfo[64];

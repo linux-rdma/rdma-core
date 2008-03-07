@@ -156,7 +156,10 @@ enum GSI_ATTR_ID {
 #define IB_VENDOR_OPENIB_SYSSTAT_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 3)
 #define IB_OPENIB_OUI			(0x001405)
 
-typedef uint8_t ib_gid_t[16];
+typedef uint8_t ibmad_gid_t[16];
+#ifdef USE_DEPRECATED_IB_GID_T
+typedef ibmad_gid_t ib_gid_t __attribute__((deprecated));
+#endif
 
 typedef struct {
 	int cnt;
@@ -189,7 +192,7 @@ typedef struct portid {
 	int lid;		/* lid or 0 if directed route */
 	ib_dr_path_t drpath;
 	int grh_present;	/* flag */
-	ib_gid_t gid;
+	ibmad_gid_t gid;
 	uint32_t qp;
 	uint32_t qkey;
 	uint8_t sl;
@@ -777,7 +780,7 @@ uint8_t * sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
 		  unsigned timeout);
 uint8_t * sa_rpc_call(void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
 		      ib_sa_call_t *sa, unsigned timeout);
-int	ib_path_query(ib_gid_t srcgid, ib_gid_t destgid, ib_portid_t *sm_id,
+int	ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id,
 		      void *buf);	/* returns lid */
 
 inline static uint8_t *
@@ -799,7 +802,7 @@ int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid,
 			ib_portid_t *sm_id, int timeout);
 int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str,
 			      int dest_type, ib_portid_t *sm_id);
-int	ib_resolve_self(ib_portid_t *portid, int *portnum, ib_gid_t *gid);
+int	ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid);
 
 /* gs.c */
 uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port,
