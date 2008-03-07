@@ -56,7 +56,7 @@ ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 	uint8_t nodeinfo[64];
 	uint64_t guid, prefix;
 	char buf1[64], buf2[64];
-	ib_gid_t gid;
+	ibmad_gid_t gid;
 	int lmc;
 
 	if (!smp_query(nodeinfo, portid, IB_ATTR_NODE_INFO, 0, 0))
