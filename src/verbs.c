@@ -226,6 +226,9 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 		cmd.set_db_page  = db_align(cq->set_ci_db);
 		cmd.arm_db_index = cq->arm_db_index;
 		cmd.set_db_index = cq->set_ci_db_index;
+	} else {
+		cmd.arm_db_page  = cmd.set_db_page  =
+		cmd.arm_db_index = cmd.set_db_index = 0;
 	}
 
 	cmd.lkey   = cq->mr->lkey;
@@ -416,6 +419,8 @@ struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 
 		cmd.db_page  = db_align(srq->db);
 		cmd.db_index = srq->db_index;
+	} else {
+		cmd.db_page  = cmd.db_index = 0;
 	}
 
 	cmd.lkey = srq->mr->lkey;
