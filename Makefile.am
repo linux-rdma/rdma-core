@@ -119,4 +119,4 @@ dist-hook:
 
 # install this to a default location.
 install-data-hook:
-	$(top_srcdir)/config/install-sh -m 444 scripts/IBswcountlimits.pm $(DESTDIR)/$(PERL_INSTALLDIR)/IBswcountlimits.pm
+	$(top_srcdir)/config/install-sh -c -m 444 scripts/IBswcountlimits.pm $(DESTDIR)/$(PERL_INSTALLDIR)/IBswcountlimits.pm
