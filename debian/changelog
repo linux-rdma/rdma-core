@@ -4,8 +4,9 @@ libibverbs (1.1.1-2) unstable; urgency=low
   * Use DEB_DH_MAKESHLIBS_ARGS_ALL to pass appropriate -V option to
     dh_makeshlibs, since new symbols were added in libibverbs 1.1.0.
     (Closes: #465435)
+  * Add debian/watch file
 
- -- Roland Dreier <rolandd@cisco.com>  Tue, 12 Feb 2008 11:01:11 -0800
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 12 Mar 2008 10:39:38 -0700
 
 libibverbs (1.1.1-1) unstable; urgency=low
 
