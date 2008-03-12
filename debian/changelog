@@ -1,9 +1,10 @@
 libmthca (1.0.4-2) unstable; urgency=low
 
   * Replace deprecated ${Source-Version} with ${binary:Version}
-  * Add debian/watch file
+  * Add debian/watch file.
+  * Update libtool during build to avoid setting RPATH in binaries on amd64.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 12 Mar 2008 10:39:22 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 12 Mar 2008 11:29:50 -0700
 
 libmthca (1.0.4-1) unstable; urgency=low
 
