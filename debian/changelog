@@ -1,8 +1,9 @@
 libmthca (1.0.4-2) unstable; urgency=low
 
   * Replace deprecated ${Source-Version} with ${binary:Version}
+  * Add debian/watch file
 
- -- Roland Dreier <rolandd@cisco.com>  Thu, 21 Jun 2007 12:01:20 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 12 Mar 2008 10:39:22 -0700
 
 libmthca (1.0.4-1) unstable; urgency=low
 
