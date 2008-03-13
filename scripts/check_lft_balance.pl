@@ -278,8 +278,8 @@ foreach $lft_line (@lft_lines) {
 		@host_ports                            = ();
 		$lids_per_port                         = 0;
 		$lids_per_port_calculated              = 0;
-	} elsif ($lft_line =~ /Channel/) {
-		$lft_line =~ /.+ (.+) : \(Channel Adapter portguid .+: '(.+)'\)/;
+	} elsif ($lft_line =~ /Channel/ || $lft_line =~ /Router/) {
+		$lft_line =~ /.+ (.+) : \(.+ portguid .+: '(.+)'\)/;
 		$host = $2;
 		$switch_port_count{$1}++;
 		if (@host_ports) {
