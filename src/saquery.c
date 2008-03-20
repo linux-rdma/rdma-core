@@ -325,7 +325,6 @@ static void dump_portinfo_record(void *data)
 static void
 print_multicast_group_record(ib_member_rec_t *p_mcmr)
 {
-
 	uint8_t sl;
 	ib_member_get_sl_flow_hop(p_mcmr->sl_flow_hop, &sl, NULL, NULL);
 	printf("MCMemberRecord group dump:\n"
