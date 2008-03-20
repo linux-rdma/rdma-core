@@ -325,6 +325,9 @@ static void dump_portinfo_record(void *data)
 static void
 print_multicast_group_record(ib_member_rec_t *p_mcmr)
 {
+
+	uint8_t sl;
+	ib_member_get_sl_flow_hop(p_mcmr->sl_flow_hop, &sl, NULL, NULL);
 	printf("MCMemberRecord group dump:\n"
 	       "\t\tMGID....................0x%016" PRIx64 " : "
 	       "0x%016" PRIx64 "\n"
@@ -332,13 +335,15 @@ print_multicast_group_record(ib_member_rec_t *p_mcmr)
 	       "\t\tMtu.....................0x%X\n"
 	       "\t\tpkey....................0x%X\n"
 	       "\t\tRate....................0x%X\n"
+	       "\t\tSL......................0x%X\n"
 	       "",
 	       cl_ntoh64( p_mcmr->mgid.unicast.prefix ),
 	       cl_ntoh64( p_mcmr->mgid.unicast.interface_id ),
 	       cl_ntoh16( p_mcmr->mlid ),
 	       p_mcmr->mtu,
 	       cl_ntoh16( p_mcmr->pkey ),
-	       p_mcmr->rate
+	       p_mcmr->rate,
+	       sl
 	       );
 }
 
