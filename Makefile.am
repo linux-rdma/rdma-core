@@ -13,7 +13,7 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 	        src/saquery src/vendstat
 
 if ENABLE_TEST_UTILS
-sbin_PROGRAMS += src/ibsendtrap
+sbin_PROGRAMS += src/ibsendtrap src/mcm_rereg_test
 endif
 
 sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
@@ -82,9 +82,8 @@ src_ibsendtrap_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 src_vendstat_SOURCES = src/vendstat.c src/ibdiag_common.c
 src_vendstat_CFLAGS = -Wall $(DBGFLAGS)
 
-#src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
-#src_mcm_rereg_test_CFLAGS = -Wall $(DBGFLAGS)
-#sbin_PROGRAMS += src/mcm_rereg_test
+src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
+src_mcm_rereg_test_CFLAGS = -Wall $(DBGFLAGS)
 
 man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibchecknet.8 man/ibchecknode.8 man/ibcheckport.8 \
