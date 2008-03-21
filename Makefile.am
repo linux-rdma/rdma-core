@@ -12,6 +12,10 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 	        src/perfquery src/sminfo src/smpdump src/smpquery \
 	        src/saquery src/vendstat
 
+if ENABLE_TEST_UTILS
+sbin_PROGRAMS += src/ibsendtrap
+endif
+
 sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
                scripts/ibcheckport scripts/ibhosts scripts/ibstatus \
 	       scripts/ibswitches scripts/ibnodes scripts/ibrouters \
@@ -70,6 +74,10 @@ src_smpquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 src_saquery_SOURCES = src/saquery.c src/ibdiag_common.c
 src_saquery_CFLAGS = -Wall -DOSM_VENDOR_INTF_OPENIB -DVENDOR_RMPP_SUPPORT -DDUAL_SIDED_RMPP $(DBGFLAGS)
 src_saquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
+
+src_ibsendtrap_SOURCES = src/ibsendtrap.c src/ibdiag_common.c
+src_ibsendtrap_CFLAGS = -Wall $(DBGFLAGS)
+src_ibsendtrap_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
 src_vendstat_SOURCES = src/vendstat.c src/ibdiag_common.c
 src_vendstat_CFLAGS = -Wall $(DBGFLAGS)
