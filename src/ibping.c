@@ -132,7 +132,7 @@ ibping(ib_portid_t *portid, int quiet)
 	if (!ib_vendor_call(data, portid, &call))
 		return ~0llu;
 
-	rtt = getcurrenttime() - start;;
+	rtt = getcurrenttime() - start;
 
 	if (!last_host[0])
 		memcpy(last_host, data, sizeof last_host);
