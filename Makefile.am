@@ -19,7 +19,7 @@ nesconf_DATA = nes.driver
 #DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
 #    debian/libnes1.install debian/libnes-dev.install debian/rules
 
-EXTRA_DIST = src/nes-abi.h \
+EXTRA_DIST = src/nes-abi.h src/nes_umain.h \
     src/nes.map libnes.spec.in nes.driver $(DEBIAN)
 
 dist-hook: libnes.spec
