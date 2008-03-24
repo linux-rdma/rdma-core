@@ -34,8 +34,10 @@
  *
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #define _GNU_SOURCE
 #include <getopt.h>
