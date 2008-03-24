@@ -47,18 +47,16 @@
 
 #include "ibdiag_common.h"
 
-char     *argv0 = "";
-char	 *sa_hca_name = NULL;
-uint32_t  sa_port_num = 0;
+char *argv0 = "";
+char *sa_hca_name = NULL;
+uint32_t sa_port_num = 0;
 
-
-static int
-send_144_node_desc_update(void)
+static int send_144_node_desc_update(void)
 {
 	ib_portid_t sm_port;
 	ib_portid_t selfportid;
 	int selfport;
-	ib_rpc_t  trap_rpc;
+	ib_rpc_t trap_rpc;
 	ib_mad_notice_attr_t notice;
 
 	if (ib_resolve_self(&selfportid, &selfport, NULL))
@@ -81,35 +79,35 @@ send_144_node_desc_update(void)
 	notice.g_or_v.generic.trap_num = cl_hton16(144);
 	notice.issuer_lid = cl_hton16(selfportid.lid);
 	notice.data_details.ntc_144.lid = cl_hton16(selfportid.lid);
-	notice.data_details.ntc_144.local_changes = TRAP_144_MASK_OTHER_LOCAL_CHANGES;
-	notice.data_details.ntc_144.change_flgs = TRAP_144_MASK_NODE_DESCRIPTION_CHANGE;
+	notice.data_details.ntc_144.local_changes =
+	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
+	notice.data_details.ntc_144.change_flgs =
+	    TRAP_144_MASK_NODE_DESCRIPTION_CHANGE;
 
 	return (mad_send(&trap_rpc, &sm_port, NULL, &notice));
 }
 
 typedef struct _trap_def {
 	char *trap_name;
-	int (*send_func)(void);
+	int (*send_func) (void);
 } trap_def_t;
 
 trap_def_t traps[2] = {
-	{ "node_desc_change", send_144_node_desc_update },
-	{ NULL, NULL }
+	{"node_desc_change", send_144_node_desc_update},
+	{NULL, NULL}
 };
 
-static void
-usage(void)
+static void usage(void)
 {
 	int i = 0;
 	fprintf(stderr, "Usage: %s [-hV]"
-		"[-C <ca_name> -P <ca_port>] <trap_name>\n",
-		argv0);
+		"[-C <ca_name> -P <ca_port>] <trap_name>\n", argv0);
 	fprintf(stderr, "   Queries node records by default\n");
 	fprintf(stderr, "   -C <ca_name> specify the SA query HCA\n");
 	fprintf(stderr, "   -P <ca_port> specify the SA query port\n");
 	fprintf(stderr, "   -V print version\n");
 	fprintf(stderr, "   <trap_name> can be one of the following\n");
-	for (i=0; traps[i].trap_name; i++) {
+	for (i = 0; traps[i].trap_name; i++) {
 		fprintf(stderr, "      %s\n", traps[i].trap_name);
 	}
 	fprintf(stderr, "   default behavior is to send \"%s\"\n",
@@ -118,11 +116,10 @@ usage(void)
 	exit(-1);
 }
 
-int
-send_trap(char *trap_name)
+int send_trap(char *trap_name)
 {
 	int i = 0;
-	for (i=0; traps[i].trap_name; i++) {
+	for (i = 0; traps[i].trap_name; i++) {
 		if (strcmp(traps[i].trap_name, trap_name) == 0) {
 			return (traps[i].send_func());
 		}
@@ -131,20 +128,19 @@ send_trap(char *trap_name)
 	exit(1);
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
-	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
+	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 	int ch = 0;
 	char *trap_name = NULL;
 
 	static char const str_opts[] = "hVP:C:";
-	static const struct option long_opts [] = {
-	   {"Version", 0, 0, 'V'},
-	   {"P", 1, 0, 'P'},
-	   {"C", 1, 0, 'C'},
-	   {"help", 0, 0, 'h'},
-	   { }
+	static const struct option long_opts[] = {
+		{"Version", 0, 0, 'V'},
+		{"P", 1, 0, 'P'},
+		{"C", 1, 0, 'C'},
+		{"help", 0, 0, 'h'},
+		{}
 	};
 
 	argv0 = argv[0];
