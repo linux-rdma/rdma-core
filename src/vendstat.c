@@ -103,11 +103,6 @@ typedef struct {
 } is3_record_t;
 
 typedef struct {
-	uint8_t      reserved[40];
-	is3_record_t record[18];
-} is3_config_space_req_t;
-
-typedef struct {
 	uint8_t      reserved[8];
 	is3_record_t record[18];
 } is3_config_space_t;
@@ -147,7 +142,6 @@ main(int argc, char **argv)
 	int ca_port = 0;
 	ib_vendor_call_t call;
 	is3_general_info_t *gi;
-	is3_config_space_req_t *csr;
 	is3_config_space_t *cs;
 	int general_info = 0;
 	int xmit_wait = 0;
@@ -282,32 +276,32 @@ main(int argc, char **argv)
 		/* Limit of 18 accesses per MAD ? */
 		call.mod = 2 << 22 | 16 << 16; /* 16 records */
 		/* Set record addresses for each port */
-		csr = (is3_config_space_req_t *)&buf;
+		cs = (is3_config_space_t *)&buf;
 		for (i = 0; i < 16; i++)
-			csr->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT | (i + 1) << 12);
+			cs->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 1) << 12));
 		if (!ib_vendor_call(&buf, &portid, &call))
 			IBERROR("vendstat");
 
-		cs = (is3_config_space_t *)&buf;
 		for (i = 0; i < 16; i++)
 			if (cs->record[i].data)	/* PortXmitWait is 32 bit counter */
-				printf("Port %d: PortXmitWait 0x%x\n", i + 1, ntohl(cs->record[i].data));
+				printf("Port %d: PortXmitWait 0x%x\n", i + 4, ntohl(cs->record[i].data)); /* port 4 is first port */
 
 		/* Last 8 ports is another query */
 		memset(&buf, 0, sizeof(buf));
 		call.attrid = IB_MLX_IS3_CONFIG_SPACE_ACCESS;
                 call.mod = 2 << 22 | 8 << 16; /* 8 records */
 		/* Set record addresses for each port */
-		csr = (is3_config_space_req_t *)&buf;
+		cs = (is3_config_space_t *)&buf;
 		for (i = 0; i < 8; i++)
-			csr->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT | (i + 17) << 12);
+			cs->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 17) << 12));
 		if (!ib_vendor_call(&buf, &portid, &call))
 			IBERROR("vendstat");
 
-		cs = (is3_config_space_t *)&buf;
 		for (i = 0; i < 8; i++)
 			if (cs->record[i].data) /* PortXmitWait is 32 bit counter */
-				printf("Port %d: PortXmitWait 0x%x\n", i + 17, ntohl(cs->record[i].data));
+				printf("Port %d: PortXmitWait 0x%x\n",
+				       i < 4 ? i + 21 : i - 3,
+				       ntohl(cs->record[i].data));
 	}
 
 	exit(0);
