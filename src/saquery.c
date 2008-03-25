@@ -1596,7 +1596,7 @@ main(int argc, char **argv)
 			requested_lid = (ib_net16_t)strtoul(argv[0], NULL, 0);
 			requested_lid_flag++;
 		} else if (node_print_desc == NAME_OF_GUID) {
-			requested_guid = (ib_net64_t)strtoul(argv[0], NULL, 0);;
+			requested_guid = (ib_net64_t)strtoul(argv[0], NULL, 0);
 			requested_guid_flag++;
 		} else {
 			requested_name = argv[0];
