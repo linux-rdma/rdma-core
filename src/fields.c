@@ -439,7 +439,7 @@ _get_field(void *buf, int base_offs, ib_field_t *f)
 void
 _set_array(void *buf, int base_offs, ib_field_t *f, void *val)
 {
-	int bitoffs = f->bitoffs;;
+	int bitoffs = f->bitoffs;
 
 	if (f->bitlen < 32)
 		bitoffs = BE_TO_BITSOFFS(bitoffs, f->bitlen);
@@ -450,7 +450,7 @@ _set_array(void *buf, int base_offs, ib_field_t *f, void *val)
 void
 _get_array(void *buf, int base_offs, ib_field_t *f, void *val)
 {
-	int bitoffs = f->bitoffs;;
+	int bitoffs = f->bitoffs;
 
 	if (f->bitlen < 32)
 		bitoffs = BE_TO_BITSOFFS(bitoffs, f->bitlen);
