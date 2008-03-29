@@ -588,35 +588,14 @@ ib_slvl_get_i(ib_slvl_table_t *tbl, int i, uint8_t *vl)
 	*vl = (tbl->vl_by_sl_num[i >> 1] >> ((!(i&1)) << 2)) & 0xf;
 }
 
-typedef struct _ib_vl_arb_element {
-	uint8_t res_vl;
-	uint8_t weight;
-} __attribute__((packed)) ib_vl_arb_element_t;
-
 #define IB_NUM_VL_ARB_ELEMENTS_IN_BLOCK 32
-#define IB_NUM_VL_ARB_ELEMENTS_CONF_SUPPORT 8
-#define IB_NUM_VL_ARB_BLOCKS_IN_TBL		2
 
 typedef struct _ib_vl_arb_table {
-  ib_vl_arb_element_t vl_entry[IB_NUM_VL_ARB_ELEMENTS_IN_BLOCK];
-} ib_vl_arb_table_t;
-
-typedef struct _ib_vl_arb_table_two_blocks {
-  ib_vl_arb_table_t tbl_blocks[IB_NUM_VL_ARB_BLOCKS_IN_TBL];
-} ib_vl_arb_table_two_blocks_t;
-
-static inline uint8_t
-ib_vl_arb_get_vl_entries_num_in_table(ib_vl_arb_table_t	*tbl)
-{
-	uint8_t i;
-
-	for (i = 0; i < 32; i++) {
-		if (!(tbl->vl_entry[i].res_vl || tbl->vl_entry[i].weight))
-			break;
-	}
-
-	return i;
-}
+	struct {
+		uint8_t res_vl;
+		uint8_t weight;
+	} vl_entry[IB_NUM_VL_ARB_ELEMENTS_IN_BLOCK];
+} __attribute__((packed)) ib_vl_arb_table_t;
 
 static inline void
 ib_vl_arb_get_vl(uint8_t res_vl, uint8_t *const vl )
@@ -639,27 +618,26 @@ mad_dump_sltovl(char *buf, int bufsz, void *val, int valsz)
 }
 
 void
-mad_dump_vlarbitration(char *buf, int bufsz, void *val, int valsz)
+mad_dump_vlarbitration(char *buf, int bufsz, void *val, int num)
 {
 	ib_vl_arb_table_t* p_vla_tbl = val;
-	char buf_line1[1024];
-	char buf_line2[1024];
+	unsigned i, n;
 	uint8_t vl;
-	int i;
 
-	buf_line1[0] = 0;
-	buf_line2[0] = 0;
+	num /= sizeof(p_vla_tbl->vl_entry[0]);
 
-	for (i = 0; i<8; i++) {
+	n = snprintf(buf, bufsz, "\nVL    : |");
+	for (i = 0; i < num; i++) {
 		ib_vl_arb_get_vl(p_vla_tbl->vl_entry[i].res_vl, &vl);
-		sprintf(buf_line1, "%s0x%-2X|", buf_line1, vl);
+		n += snprintf(buf + n, bufsz - n, "0x%-2X|", vl);
 	}
 
-	for (i = 0; i<8; i++)
-		sprintf(buf_line2, "%s0x%-2X|",
-			buf_line2, p_vla_tbl->vl_entry[i].weight);
+	n += snprintf(buf + n, bufsz - n, "\nWEIGHT: |");
+	for (i = 0; i < num; i++)
+		n += snprintf(buf + n, bufsz - n, "0x%-2X|",
+			      p_vla_tbl->vl_entry[i].weight);
 
-	snprintf(buf, bufsz, "\nVL    : |%s\nWEIGHT: |%s\n", buf_line1, buf_line2);
+	snprintf(buf + n, bufsz - n, "\n");
 }
 
 static int
