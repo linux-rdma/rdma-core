@@ -275,7 +275,7 @@ sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum, int offset)
+static char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum, int offset, unsigned cap)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
@@ -283,7 +283,7 @@ static char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum, int offset)
 	if (!smp_query(data, dest, IB_ATTR_VL_ARBITRATION,
 			(offset << 16) | portnum, 0))
 		return "vl arb query failed";
-	mad_dump_vlarbitration(buf, sizeof(buf), data, sizeof(data));
+	mad_dump_vlarbitration(buf, sizeof(buf), data, cap * 2);
 	printf("%s", buf);
 	return 0;
 }
@@ -294,11 +294,12 @@ static char *vlarb_dump_table(ib_portid_t *dest, int portnum,
 	char *ret;
 
 	printf("# %s priority VL Arbitration Table:", name);
-	if ( (ret = vlarb_dump_table_entry(dest, portnum, offset)) ||
-	     (cap > 32 &&
-	      (ret = vlarb_dump_table_entry(dest, portnum, offset + 1))) )
-		return ret;
-	return 0;
+	ret = vlarb_dump_table_entry(dest, portnum, offset,
+				     cap < 32 ? cap : 32);
+	if (!ret && cap > 32)
+		ret = vlarb_dump_table_entry(dest, portnum, offset + 1,
+					     cap - 32);
+	return ret;
 }
 
 static char *
