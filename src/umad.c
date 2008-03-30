@@ -127,7 +127,7 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 	char port_dir[256];
 	uint8_t gid[16];
 	struct dirent **namelist = NULL;
-	int i, len, ret;
+	int i, len, ret = 0;
 
 	strncpy(port->ca_name, ca_name, sizeof port->ca_name - 1);
 	port->portnum = portnum;
