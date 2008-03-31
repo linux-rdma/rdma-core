@@ -6,7 +6,7 @@ Summary: A library for direct userspace use of InfiniBand hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
 Url: http://openfabrics.org/
-Source: http://openfabrics.org/downloads/libibverbs-1.1.1.tar.gz
+Source: http://openfabrics.org/downloads/verbs/libibverbs-1.1.1.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
