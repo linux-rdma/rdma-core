@@ -174,6 +174,7 @@ struct mlx4_pd {
 struct mlx4_cq {
 	struct ibv_cq			ibv_cq;
 	struct mlx4_buf			buf;
+	struct mlx4_buf			resize_buf;
 	pthread_spinlock_t		lock;
 	uint32_t			cqn;
 	uint32_t			cons_index;
@@ -307,6 +308,7 @@ int mlx4_dereg_mr(struct ibv_mr *mr);
 struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
+int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent);
 int mlx4_resize_cq(struct ibv_cq *cq, int cqe);
 int mlx4_destroy_cq(struct ibv_cq *cq);
 int mlx4_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
@@ -314,6 +316,7 @@ int mlx4_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx4_cq_event(struct ibv_cq *cq);
 void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq);
 void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq);
+int mlx4_get_outstanding_cqes(struct mlx4_cq *cq);
 void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int new_cqe);
 
 struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,

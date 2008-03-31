@@ -436,6 +436,40 @@ void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	pthread_spin_unlock(&cq->lock);
 }
 
+int mlx4_get_outstanding_cqes(struct mlx4_cq *cq)
+{
+	uint32_t i;
+
+	for (i = cq->cons_index; get_sw_cqe(cq, (i & cq->ibv_cq.cqe)); ++i)
+		;
+
+	return i - cq->cons_index;
+}
+
 void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int old_cqe)
 {
+	struct mlx4_cqe *cqe;
+	int i;
+
+	i = cq->cons_index;
+	cqe = get_cqe(cq, (i & old_cqe));
+
+	while ((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) != MLX4_CQE_OPCODE_RESIZE) {
+		memcpy(buf + ((i + 1) & cq->ibv_cq.cqe) * MLX4_CQ_ENTRY_SIZE,
+		       cqe, MLX4_CQ_ENTRY_SIZE);
+		++i;
+		cqe = get_cqe(cq, (i & old_cqe));
+	}
+
+	++cq->cons_index;
+}
+
+int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent)
+{
+	if (mlx4_alloc_buf(buf, align(nent * MLX4_CQ_ENTRY_SIZE, dev->page_size),
+			   dev->page_size))
+		return -1;
+	memset(buf->buf, 0, nent * MLX4_CQ_ENTRY_SIZE);
+
+	return 0;
 }

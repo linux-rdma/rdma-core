@@ -184,11 +184,8 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 
 	cqe = align_queue_size(cqe + 1);
 
-	if (mlx4_alloc_buf(&cq->buf, cqe * MLX4_CQ_ENTRY_SIZE,
-			   to_mdev(context->device)->page_size))
+	if (mlx4_alloc_cq_buf(to_mdev(context->device), &cq->buf, cqe))
 		goto err;
-
-	memset(cq->buf.buf, 0, cqe * MLX4_CQ_ENTRY_SIZE);
 
 	cq->set_ci_db  = mlx4_alloc_db(to_mctx(context), MLX4_DB_TYPE_CQ);
 	if (!cq->set_ci_db)
@@ -226,8 +223,59 @@ err:
 
 int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
-	/* XXX resize CQ not implemented */
-	return ENOSYS;
+	struct mlx4_cq *cq = to_mcq(ibcq);
+	struct mlx4_resize_cq cmd;
+	struct mlx4_buf buf;
+	int old_cqe, outst_cqe, ret;
+
+	/* Sanity check CQ size before proceeding */
+	if (cqe > 0x3fffff)
+		return EINVAL;
+
+	pthread_spin_lock(&cq->lock);
+
+	cqe = align_queue_size(cqe + 1);
+	if (cqe == ibcq->cqe + 1) {
+		ret = 0;
+		goto out;
+	}
+
+	/* Can't be smaller then the number of outstanding CQEs */
+	outst_cqe = mlx4_get_outstanding_cqes(cq);
+	if (cqe < outst_cqe + 1) {
+		ret = 0;
+		goto out;
+	}
+
+	ret = mlx4_alloc_cq_buf(to_mdev(ibcq->context->device), &buf, cqe);
+	if (ret)
+		goto out;
+
+	old_cqe = ibcq->cqe;
+	cmd.buf_addr = (uintptr_t) buf.buf;
+
+#ifdef IBV_CMD_RESIZE_CQ_HAS_RESP_PARAMS
+	{
+		struct ibv_resize_cq_resp resp;
+		ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd,
+					&resp, sizeof resp);
+	}
+#else
+	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd);
+#endif
+	if (ret) {
+		mlx4_free_buf(&buf);
+		goto out;
+	}
+
+	mlx4_cq_resize_copy_cqes(cq, buf.buf, old_cqe);
+
+	mlx4_free_buf(&cq->buf);
+	cq->buf = buf;
+
+out:
+	pthread_spin_unlock(&cq->lock);
+	return ret;
 }
 
 int mlx4_destroy_cq(struct ibv_cq *cq)
