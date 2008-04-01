@@ -1,6 +1,35 @@
-commit 8ddcf0339652a4b8d9c7bc0e104cfa0f4d6e9e01
+commit df2f3c3fa3ea916be088d78f95ebcb3f789786ad
+Author: Steve Wise (Open Grid Computing) <swise@hosting.openfabrics.org>
+Date:   Tue Apr 1 15:29:21 2008 -0700
+
+    Spin 1.1.5 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit db41ebc10f4cc4c2fe7826589636ab7d4b804218
+Author: Jon Mason <jon@opengridcomputing.com>
+Date:   Tue Feb 26 08:27:12 2008 -0600
+
+    Provide an empty stub for iwch_query_qp.
+    
+    This prevents crashes when calling ibv_query_qp due to an expected
+    library provided function.
+    
+    Signed-off-by: Jon Mason <jon@opengridcomputing.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ec4f7f1c6b8beceb9001519bc4e2ee89fbb2e6d0
+Author: Dotan Barak <dotanb@dev.mellanox.co.il>
+Date:   Tue Feb 26 08:23:36 2008 -0600
+
+    Remove duplicated line.
+    
+    Signed-off-by: Dotan Barak <dotanb@dev.mellanox.co.il>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 8218482d03898f859e1fa272649fafc64f91f05f
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Tue Feb 12 15:15:22 2008 -0600
+Date:   Tue Feb 12 15:16:03 2008 -0600
 
     Spin release 1.1.4.
     
