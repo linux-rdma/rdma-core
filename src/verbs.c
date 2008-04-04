@@ -676,23 +676,20 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 {
 	int ret;
 
-	mthca_cq_clean(to_mcq(qp->recv_cq), qp->qp_num,
-		       qp->srq ? to_msrq(qp->srq) : NULL);
-	if (qp->send_cq != qp->recv_cq)
-		mthca_cq_clean(to_mcq(qp->send_cq), qp->qp_num, NULL);
+	ret = ibv_cmd_destroy_qp(qp);
+	if (ret)
+		return ret;
 
 	mthca_lock_cqs(qp);
+
+	__mthca_cq_clean(to_mcq(qp->recv_cq), qp->qp_num,
+			 qp->srq ? to_msrq(qp->srq) : NULL);
+	if (qp->send_cq != qp->recv_cq)
+		__mthca_cq_clean(to_mcq(qp->send_cq), qp->qp_num, NULL);
+
 	mthca_clear_qp(to_mctx(qp->context), qp->qp_num);
+
 	mthca_unlock_cqs(qp);
-
-	ret = ibv_cmd_destroy_qp(qp);
-	if (ret) {
-		mthca_lock_cqs(qp);
-		mthca_store_qp(to_mctx(qp->context), qp->qp_num, to_mqp(qp));
-		mthca_unlock_cqs(qp);
-
-		return ret;
-	}
 
 	if (mthca_is_memfree(qp->context)) {
 		mthca_free_db(to_mctx(qp->context)->db_tab, MTHCA_DB_TYPE_RQ,

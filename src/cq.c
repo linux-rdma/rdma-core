@@ -546,13 +546,11 @@ static inline int is_recv_cqe(struct mthca_cqe *cqe)
 		return !(cqe->is_send & 0x80);
 }
 
-void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
+void __mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 {
 	struct mthca_cqe *cqe;
 	uint32_t prod_index;
 	int i, nfreed = 0;
-
-	pthread_spin_lock(&cq->lock);
 
 	/*
 	 * First we need to find the current producer index, so we
@@ -590,7 +588,12 @@ void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 		cq->cons_index += nfreed;
 		update_cons_index(cq, nfreed);
 	}
+}
 
+void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
+{
+	pthread_spin_lock(&cq->lock);
+	__mthca_cq_clean(cq, qpn, srq);
 	pthread_spin_unlock(&cq->lock);
 }
 

@@ -321,8 +321,8 @@ int mthca_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited);
 int mthca_arbel_arm_cq(struct ibv_cq *cq, int solicited);
 void mthca_arbel_cq_event(struct ibv_cq *cq);
-void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn,
-		    struct mthca_srq *srq);
+void __mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq);
+void mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq);
 void mthca_cq_resize_copy_cqes(struct mthca_cq *cq, void *buf, int new_cqe);
 int mthca_alloc_cq_buf(struct mthca_device *dev, struct mthca_buf *buf, int nent);
 
