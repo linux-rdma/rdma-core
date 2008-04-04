@@ -532,23 +532,20 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	struct mlx4_qp *qp = to_mqp(ibqp);
 	int ret;
 
-	mlx4_cq_clean(to_mcq(ibqp->recv_cq), ibqp->qp_num,
-		       ibqp->srq ? to_msrq(ibqp->srq) : NULL);
-	if (ibqp->send_cq != ibqp->recv_cq)
-		mlx4_cq_clean(to_mcq(ibqp->send_cq), ibqp->qp_num, NULL);
+	ret = ibv_cmd_destroy_qp(ibqp);
+	if (ret)
+		return ret;
 
 	mlx4_lock_cqs(ibqp);
+
+	__mlx4_cq_clean(to_mcq(ibqp->recv_cq), ibqp->qp_num,
+			ibqp->srq ? to_msrq(ibqp->srq) : NULL);
+	if (ibqp->send_cq != ibqp->recv_cq)
+		__mlx4_cq_clean(to_mcq(ibqp->send_cq), ibqp->qp_num, NULL);
+
 	mlx4_clear_qp(to_mctx(ibqp->context), ibqp->qp_num);
+
 	mlx4_unlock_cqs(ibqp);
-
-	ret = ibv_cmd_destroy_qp(ibqp);
-	if (ret) {
-		mlx4_lock_cqs(ibqp);
-		mlx4_store_qp(to_mctx(ibqp->context), ibqp->qp_num, qp);
-		mlx4_unlock_cqs(ibqp);
-
-		return ret;
-	}
 
 	if (!ibqp->srq)
 		mlx4_free_db(to_mctx(ibqp->context), MLX4_DB_TYPE_RQ, qp->db);

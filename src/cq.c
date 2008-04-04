@@ -381,14 +381,12 @@ void mlx4_cq_event(struct ibv_cq *cq)
 	to_mcq(cq)->arm_sn++;
 }
 
-void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
+void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 {
 	struct mlx4_cqe *cqe, *dest;
 	uint32_t prod_index;
 	uint8_t owner_bit;
 	int nfreed = 0;
-
-	pthread_spin_lock(&cq->lock);
 
 	/*
 	 * First we need to find the current producer index, so we
@@ -429,7 +427,12 @@ void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 		wmb();
 		update_cons_index(cq);
 	}
+}
 
+void mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
+{
+	pthread_spin_lock(&cq->lock);
+	__mlx4_cq_clean(cq, qpn, srq);
 	pthread_spin_unlock(&cq->lock);
 }
 
