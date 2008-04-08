@@ -244,7 +244,7 @@ static int addr_handler(struct cmatest_node *node)
 		ret = rdma_set_option(node->cma_id, RDMA_OPTION_ID,
 				      RDMA_OPTION_ID_TOS, &tos, sizeof tos);
 		if (ret)
-			printf("cmatose: set TOS option failed: %d\n", ret);
+			printf("udaddy: set TOS option failed: %d\n", ret);
 	}
 
 	ret = rdma_resolve_route(node->cma_id, 2000);

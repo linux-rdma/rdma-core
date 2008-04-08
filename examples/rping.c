@@ -123,7 +123,7 @@ struct rping_cb {
 	struct rping_rdma_info recv_buf;/* malloc'd buffer */
 	struct ibv_mr *recv_mr;		/* MR associated with this buffer */
 
-	struct ibv_send_wr sq_wr;	/* send work requrest record */
+	struct ibv_send_wr sq_wr;	/* send work request record */
 	struct ibv_sge send_sgl;
 	struct rping_rdma_info send_buf;/* single send buf */
 	struct ibv_mr *send_mr;
@@ -600,7 +600,7 @@ static void *cq_thread(void *arg)
 			pthread_exit(NULL);
 		}
 		if (ev_cq != cb->cq) {
-			fprintf(stderr, "Unkown CQ!\n");
+			fprintf(stderr, "Unknown CQ!\n");
 			pthread_exit(NULL);
 		}
 		ret = ibv_req_notify_cq(cb->cq, 0);
