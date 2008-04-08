@@ -74,6 +74,7 @@ static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
+static uint16_t port = 7174;
 static uint8_t set_tos = 0;
 static uint8_t tos;
 static char *dst_addr;
@@ -542,7 +543,7 @@ static int run_server(void)
 	} else
 		test.src_in.sin_family = PF_INET;
 
-	test.src_in.sin_port = 7174;
+	test.src_in.sin_port = port;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
 		printf("udaddy: bind address failed: %d\n", ret);
@@ -595,7 +596,7 @@ static int run_client(void)
 	if (ret)
 		return ret;
 
-	test.dst_in.sin_port = 7174;
+	test.dst_in.sin_port = port;
 
 	printf("udaddy: connecting\n");
 	for (i = 0; i < connections; i++) {

@@ -80,6 +80,7 @@ static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
+static uint16_t port = 7471;
 static uint8_t set_tos = 0;
 static uint8_t tos;
 static uint8_t migrate = 0;
@@ -536,7 +537,7 @@ static int run_server(void)
 	} else
 		test.src_in.sin_family = PF_INET;
 
-	test.src_in.sin_port = 7471;
+	test.src_in.sin_port = port;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
 		printf("cmatose: bind address failed: %d\n", ret);
@@ -613,7 +614,7 @@ static int run_client(void)
 	if (ret)
 		return ret;
 
-	test.dst_in.sin_port = 7471;
+	test.dst_in.sin_port = port;
 
 	printf("cmatose: connecting\n");
 	for (i = 0; i < connections; i++) {
@@ -666,7 +667,7 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "s:b:c:C:S:t:m")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:C:S:t:p:m")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -687,6 +688,9 @@ int main(int argc, char **argv)
 			set_tos = 1;
 			tos = (uint8_t) atoi(optarg);
 			break;
+		case 'p':
+			port = atoi(optarg);
+			break;
 		case 'm':
 			migrate = 1;
 			break;
@@ -698,6 +702,7 @@ int main(int argc, char **argv)
 			printf("\t[-C message_count]\n");
 			printf("\t[-S message_size]\n");
 			printf("\t[-t type_of_service]\n");
+			printf("\t[-p port_number]\n");
 			printf("\t[-m(igrate)]\n");
 			exit(1);
 		}
