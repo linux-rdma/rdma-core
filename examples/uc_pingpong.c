@@ -697,7 +697,8 @@ int main(int argc, char *argv[])
 
 			for (i = 0; i < ne; ++i) {
 				if (wc[i].status != IBV_WC_SUCCESS) {
-					fprintf(stderr, "Failed status %d for wr_id %d\n",
+					fprintf(stderr, "Failed status %s (%d) for wr_id %d\n",
+						ibv_wc_status_str(wc[i].status),
 						wc[i].status, (int) wc[i].wr_id);
 					return 1;
 				}

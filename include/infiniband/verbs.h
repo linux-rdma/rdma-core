@@ -238,6 +238,7 @@ enum ibv_wc_status {
 	IBV_WC_RESP_TIMEOUT_ERR,
 	IBV_WC_GENERAL_ERR
 };
+const char *ibv_wc_status_str(enum ibv_wc_status status);
 
 enum ibv_wc_opcode {
 	IBV_WC_SEND,
@@ -1076,6 +1077,21 @@ int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
  * effect of an application calling fork() is undefined.
  */
 int ibv_fork_init(void);
+
+/**
+ * ibv_node_type_str - Return string describing node_type enum value
+ */
+const char *ibv_node_type_str(enum ibv_node_type node_type);
+
+/**
+ * ibv_port_state_str - Return string describing port_state enum value
+ */
+const char *ibv_port_state_str(enum ibv_port_state port_state);
+
+/**
+ * ibv_event_type_str - Return string describing event_type enum value
+ */
+const char *ibv_event_type_str(enum ibv_event_type event);
 
 END_C_DECLS
 
