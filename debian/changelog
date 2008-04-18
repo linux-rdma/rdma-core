@@ -1,15 +1,19 @@
-libibverbs (1.1.1-2) unstable; urgency=low
+libibverbs (1.1.2-1) unstable; urgency=low
 
+  * New upstream release.
+    - Fix memory registration failure cause by too-big madvise()
+    - Fix many Valgrind false positives
+    - Add functions to convert enum values to strings
   * Replace deprecated ${Source-Version} with ${binary:Version}
   * Use DEB_DH_MAKESHLIBS_ARGS_ALL to pass appropriate -V option to
-    dh_makeshlibs, since new symbols were added in libibverbs 1.1.0.
+    dh_makeshlibs, since new symbols were added in libibverbs 1.1.2.
     (Closes: #465435)
   * Add debian/watch file.
   * Update control file to talk about generic RDMA and iWARP, not just
     InfiniBand, since libibverbs works with both IB and iWARP.
   * Acknowledge NMU (Closes: #442638).
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 16 Apr 2008 21:35:37 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Fri, 18 Apr 2008 15:08:52 -0700
 
 libibverbs (1.1.1-1) unstable; urgency=low
 
