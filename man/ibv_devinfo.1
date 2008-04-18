@@ -1,7 +1,7 @@
 .TH IBV_DEVINFO 1 "August 30, 2005" "libibverbs" "USER COMMANDS"
 
 .SH NAME
-ibv_devinfo \- query InfiniBand devices
+ibv_devinfo \- query RDMA devices
 
 .SH SYNOPSIS
 .B ibv_devinfo
@@ -9,7 +9,7 @@ ibv_devinfo \- query InfiniBand devices
 
 .SH DESCRIPTION
 .PP
-Print information about InfiniBand devices available for use from userspace.
+Print information about RDMA devices available for use from userspace.
 
 .SH OPTIONS
 
@@ -22,10 +22,10 @@ use IB device \fIDEVICE\fR (default first device found)
 query port \fIPORT\fR (default all ports)
 
 \fB\-l\fR, \fB\-\-list\fR
-only list names of InfiniBand devices
+only list names of RDMA devices
 
 \fB\-v\fR, \fB\-\-verbose\fR
-print all available information about InfiniBand devices
+print all available information about RDMA devices
 
 .SH SEE ALSO
 .BR ibv_devices (1)

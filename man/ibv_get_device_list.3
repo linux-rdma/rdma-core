@@ -2,7 +2,7 @@
 .\"
 .TH IBV_GET_DEVICE_LIST 3 2006-10-31 libibverbs "Libibverbs Programmer's Manual"
 .SH "NAME"
-ibv_get_device_list, ibv_free_device_list \- get and release list of available InfiniBand devices
+ibv_get_device_list, ibv_free_device_list \- get and release list of available RDMA devices
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/verbs.h>
@@ -13,7 +13,7 @@ ibv_get_device_list, ibv_free_device_list \- get and release list of available I
 .fi
 .SH "DESCRIPTION"
 .B ibv_get_device_list()
-returns a NULL-terminated array of InfiniBand devices currently available.
+returns a NULL-terminated array of RDMA devices currently available.
 The argument
 .I num_devices
 is optional; if not NULL, it is set to the number of devices returned in the array.
@@ -25,7 +25,7 @@ returned by
 .B ibv_get_device_list()\fR.
 .SH "RETURN VALUE"
 .B ibv_get_device_list()
-returns the array of available InfiniBand devices, or NULL if the request fails.
+returns the array of available RDMA devices, or NULL if the request fails.
 .PP
 .B ibv_free_device_list()
 returns no value.

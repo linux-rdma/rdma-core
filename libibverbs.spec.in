@@ -1,7 +1,7 @@
 Name: libibverbs
 Version: 1.1.1
-Release: 1%{?dist}
-Summary: A library for direct userspace use of InfiniBand hardware
+Release: 2%{?dist}
+Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
@@ -12,10 +12,11 @@ Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 
 %description
-libibverbs is a library that allows userspace processes to use
-InfiniBand "verbs" as described in the InfiniBand Architecture
-Specification.  This includes direct hardware access for fast path
-operations.
+libibverbs is a library that allows userspace processes to use RDMA
+"verbs" as described in the InfiniBand Architecture Specification and
+the RDMA Protocol Verbs Specification.  This includes direct hardware
+access from userspace to InfiniBand/iWARP adapters (kernel bypass) for
+fast path operations.
 
 For this library to be useful, a device-specific plug-in module should
 also be installed.
@@ -41,7 +42,7 @@ Requires: %{name} = %{version}-%{release}
 
 %description utils
 Useful libibverbs1 example programs such as ibv_devinfo, which
-displays information about InfiniBand devices.
+displays information about RDMA devices.
 
 %prep
 %setup -q -n %{name}-@VERSION@
@@ -83,6 +84,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
+* Wed Apr 16 2008 Roland Dreier <rdreier@cisco.com> - 1.1.1-2
+- Update description to mention RDMA and iWARP, not just InfiniBand
+
 * Fri Jun 15 2007 Roland Dreier <rdreier@cisco.com> - 1.1.1-1
 - New upstream release
 

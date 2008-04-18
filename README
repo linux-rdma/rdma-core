@@ -1,10 +1,11 @@
 Introduction
 ============
 
-libibverbs is a library that allows programs to use InfiniBand "verbs"
-for direct access to IB hardware from userspace.  For more information
-on verbs, see the InfiniBand Architecture Specification vol. 1,
-especially chapter 11.
+libibverbs is a library that allows programs to use RDMA "verbs" for
+direct access to RDMA (currently InfiniBand and iWARP) hardware from
+userspace.  For more information on RDMA verbs, see the InfiniBand
+Architecture Specification vol. 1, especially chapter 11, and the RDMA
+Consortium's RDMA Protocol Verbs Specification.
 
 Using libibverbs
 ================
@@ -28,9 +29,9 @@ can be used.  This will create device nodes named
 
     /dev/infiniband/uverbs0
 
-and so on.  Since the InfiniBand userspace verbs should be safe for
-use by non-privileged, you may want to add an appropriate MODE or
-GROUP to your udev rule.
+and so on.  Since the RDMA userspace verbs should be safe for use by
+non-privileged users, you may want to add an appropriate MODE or GROUP
+to your udev rule.
 
 Permissions
 -----------
@@ -102,7 +103,7 @@ Bugs should be reported to the OpenFabrics mailing list
  * Information about your system:
    - Linux distribution and version
    - Linux kernel and version
-   - InfiniBand hardware and firmware version
+   - InfiniBand/iWARP hardware and firmware version
    - ... any other relevant information
 
  * How to reproduce the bug.  Command line arguments for a libibverbs

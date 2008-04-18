@@ -68,7 +68,7 @@ returns 0 on success, or the value of errno on failure (which indicates the fail
 The argument
 .I attr_mask
 is a hint that specifies the minimum list of attributes to retrieve.
-Some InfiniBand devices may return extra attributes not requested, for
+Some RDMA devices may return extra attributes not requested, for
 example if the value can be returned cheaply.
 .PP
 Attribute values are valid if they have been set using
