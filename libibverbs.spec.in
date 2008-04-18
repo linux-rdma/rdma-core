@@ -24,6 +24,7 @@ also be installed.
 %package devel
 Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
 
 %description devel
 Header files for the libibverbs library.
@@ -86,6 +87,7 @@ rm -rf $RPM_BUILD_ROOT
 %changelog
 * Wed Apr 16 2008 Roland Dreier <rdreier@cisco.com> - 1.1.1-2
 - Update description to mention RDMA and iWARP, not just InfiniBand
+- Add "Requires" tag for libibverbs base package to -devel
 
 * Fri Jun 15 2007 Roland Dreier <rdreier@cisco.com> - 1.1.1-1
 - New upstream release
