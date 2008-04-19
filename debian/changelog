@@ -15,6 +15,14 @@ libibverbs (1.1.2-1) unstable; urgency=low
 
  -- Roland Dreier <rolandd@cisco.com>  Fri, 18 Apr 2008 15:08:52 -0700
 
+libibverbs (1.1.1-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Re-generated autotools files to fix double build bug, closes: #442638
+  * Bumped Standards-Version to 3.7.3, no change needed.
+
+ -- Michael Meskes <meskes@debian.org>  Mon, 14 Apr 2008 10:07:58 +0000
+
 libibverbs (1.1.1-1) unstable; urgency=low
 
   * New upstream release.
