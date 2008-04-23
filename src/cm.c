@@ -167,7 +167,6 @@ struct ib_cm_device* ib_cm_open_device(struct ibv_context *device_context)
 
 	dev->fd = open(dev_path, O_RDWR);
 	if (dev->fd < 0) {
-		fprintf(stderr, PFX "unable to open %s\n", dev_path);
 		goto err;
 	}
 
