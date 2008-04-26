@@ -1,6 +1,22 @@
-commit df2f3c3fa3ea916be088d78f95ebcb3f789786ad
+commit 056d952ef0a672e57f00d8b1732eaebf6826b800
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sat Apr 26 11:37:38 2008 -0500
+
+    Spin 1.2.0 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 92322b93f48fa98b4fadb736ae49dafda237272a
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Apr 24 14:23:50 2008 -0500
+
+    Support for peer-to-peer connection setup.
+    
+    - ignore unsolicited 0B reads.
+
+commit a8fb6221af4d914f39c1e71f9331f6d428d698c2
 Author: Steve Wise (Open Grid Computing) <swise@hosting.openfabrics.org>
-Date:   Tue Apr 1 15:29:21 2008 -0700
+Date:   Tue Apr 1 15:30:11 2008 -0700
 
     Spin 1.1.5 release.
     
