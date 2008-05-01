@@ -139,11 +139,23 @@ sub main
 		foreach my $port (1 .. $num_ports) {
 			my $hr = $IBswcountlimits::link_ends{$switch}{$port};
 			if ($switch_prompt eq "no" && !$line_mode) {
+				my $switch_name = "";
+				my $tmp_port = $port;
+				while ($switch_name eq "" && $tmp_port <= $num_ports) {
+					# the first port is down find switch name with up port
+					my $hr = $IBswcountlimits::link_ends{$switch}{$tmp_port};
+					$switch_name = $hr->{loc_desc};
+					$tmp_port++;
+				}
+				if ($switch_name eq "") {
+					printf(
+						"WARNING: Switch Name not found for $switch\n");
+				}
 				push(
 					@output_lines,
 					sprintf(
 						"Switch %18s %s%s:\n",
-						$switch, $hr->{loc_desc}, $pkt_life_prompt
+						$switch, $switch_name, $pkt_life_prompt
 					)
 				);
 				$switch_prompt = "yes";
