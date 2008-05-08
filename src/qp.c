@@ -453,7 +453,7 @@ static void count_scqes(struct t3_cq *cq, struct t3_wq *wq, int *count)
 	while (!Q_EMPTY(ptr, cq->sw_wptr)) {
 		cqe = cq->sw_queue + (Q_PTR2IDX(ptr, cq->size_log2));
 		if ((SQ_TYPE(*cqe) || 
-		     ((CQE_OPCODE(*cqe) == T3_READ_RESP) && wq->oldest_read)) &&
+		     (CQE_OPCODE(*cqe) == T3_READ_RESP && CQE_WRID_STAG(*cqe) != 1)) &&
 		    (CQE_QPID(*cqe) == wq->qpid))
 			(*count)++;
 		ptr++;
