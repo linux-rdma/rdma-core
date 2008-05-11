@@ -1,5 +1,5 @@
 
-INCLUDES = -I$(srcdir)/include -I$(includedir) -I$(includedir)/infiniband
+INCLUDES = -I$(top_builddir)/include/ -I$(srcdir)/include -I$(includedir) -I$(includedir)/infiniband
 
 if DEBUG
 DBGFLAGS = -ggdb -D_DEBUG_
@@ -103,7 +103,7 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 BUILT_SOURCES = ibdiag_version
 ibdiag_version:
 	if [ -x $(top_srcdir)/../gen_ver.sh ] ; then \
-		ver_file=$(srcdir)/include/ibdiag_version.h ; \
+		ver_file=$(top_builddir)/include/ibdiag_version.h ; \
 		ibdiag_ver=`cat $$ver_file | sed -ne '/#define IBDIAG_VERSION /s/^.*\"\(.*\)\"$$/\1/p'` ; \
 		ver=`$(top_srcdir)/../gen_ver.sh $(PACKAGE)` ; \
 		if [ $$ver != $$ibdiag_ver ] ; then \
