@@ -1,10 +1,48 @@
-commit 056d952ef0a672e57f00d8b1732eaebf6826b800
+commit 429c17818121cad98813b37ffedee5f8c643422c
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Sat Apr 26 11:37:38 2008 -0500
+Date:   Tue May 13 09:08:51 2008 -0500
+
+    Spin release 1.2.1.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 309916b23ba384a0bd297e7e51b6b89bff357a78
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed May 7 20:45:01 2008 -0500
+
+    Use local stag == 1 to silently drop the p2p read response.
+    
+    The current code fails if there are read completions -and-
+    the p2p read response in the cq when its flushed.
+    
+    This fix uses the fact that the RTR read is to target stag 1,
+    which is not a valid stag.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 67d519c4a9e28e54a9e436404156c9ae7eb60314
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed May 7 20:25:41 2008 -0500
+
+    Handle wrapping when flushing the software sq.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a3dcea751a94ad5e0a9cad6c55a839a9848f327c
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sat Apr 26 11:39:43 2008 -0500
 
     Spin 1.2.0 release.
     
     Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit cc2ef741842883233a77e18d65a828c711e581a3
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sat Apr 26 11:39:43 2008 -0500
+
+    Support for peer-to-peer connection setup.
+    
+    - ignore unsolicited 0B reads.
 
 commit 92322b93f48fa98b4fadb736ae49dafda237272a
 Author: Steve Wise <swise@opengridcomputing.com>
