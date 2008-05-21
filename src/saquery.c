@@ -1308,13 +1308,13 @@ get_bind_handle(void)
 			ca_name_index++;
 		if (sa_port_num && sa_port_num != attr_array[i].port_num)
 			continue;
-		if (sa_hca_name && i == 0)
-			continue;
 		if (sa_hca_name
 		 && strcmp(sa_hca_name, vendor->ca_names[ca_name_index]) != 0)
 			continue;
-		if (attr_array[i].link_state == IB_LINK_ACTIVE)
+		if (attr_array[i].link_state == IB_LINK_ACTIVE) {
 			port_guid = attr_array[i].port_guid;
+			break;
+		}
 	}
 
 	if (port_guid == (uint64_t)-1) {
