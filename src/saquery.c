@@ -37,6 +37,7 @@
  *
  */
 
+#include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -69,6 +70,7 @@ char *argv0 = "saquery";
 
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
+static ib_net64_t smkey = OSM_DEFAULT_SA_KEY;
 
 /**
  * Declare some globals because I don't want this to be too complex.
@@ -730,7 +732,7 @@ get_all_records(osm_bind_handle_t bind_handle,
 		int trusted)
 {
 	return get_any_records(bind_handle, query_id, 0, 0, NULL, attr_offset,
-			       trusted ? OSM_DEFAULT_SA_KEY : 0);
+			       trusted ? smkey : 0);
 }
 
 /**
@@ -1254,8 +1256,7 @@ print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 
 	status = get_any_records(bind_handle, IB_MAD_ATTR_PKEY_TBL_RECORD, 0,
 				 comp_mask, &pktr,
-				 ib_get_attr_offset(sizeof(pktr)),
-				 OSM_DEFAULT_SA_KEY);
+				 ib_get_attr_offset(sizeof(pktr)), smkey);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1411,6 +1412,10 @@ usage(void)
 				"IPv6 format\n");
 	fprintf(stderr, "   -C <ca_name> specify the SA query HCA\n");
 	fprintf(stderr, "   -P <ca_port> specify the SA query port\n");
+	fprintf(stderr, "   --smkey <val> specify SM_Key value for the query."
+			" If non-numeric value \n"
+			"                 (like 'x') is specified then "
+			"saquery will prompt for a value\n");
 	fprintf(stderr, "   -t | --timeout <msec> specify the SA query "
 				"response timeout (default %u msec)\n",
 			DEFAULT_SA_TIMEOUT_MS);
@@ -1466,6 +1471,7 @@ main(int argc, char **argv)
 	   {"sgid-to-dgid", 1, 0, 2},
 	   {"timeout", 1, 0, 't'},
 	   {"node-name-map", 1, 0, 3},
+	   {"smkey", 1, 0, 4},
 	   { }
 	};
 
@@ -1511,6 +1517,14 @@ main(int argc, char **argv)
 		}
 		case 3:
 			node_name_map_file = strdup(optarg);
+			break;
+		case 4:
+			if (!isxdigit(*optarg) &&
+			    !(optarg = getpass("SM_Key: "))) {
+				fprintf(stderr, "cannot get SM_Key\n");
+				usage();
+			}
+			smkey = cl_hton64(strtoull(optarg, NULL, 0));
 			break;
 		case 'p':
 			query_type = IB_MAD_ATTR_PATH_RECORD;
