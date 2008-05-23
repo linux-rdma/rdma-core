@@ -321,7 +321,7 @@ static void read_config(void)
 			goto next;
 
 		read_config_file(path);
-	next:
+next:
 		free(path);
 	}
 

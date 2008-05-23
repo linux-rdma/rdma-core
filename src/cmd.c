@@ -851,7 +851,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			tmp->wr.ud.remote_qpn  = i->wr.ud.remote_qpn;
 			tmp->wr.ud.remote_qkey = i->wr.ud.remote_qkey;
 		} else {
-			switch(i->opcode) {
+			switch (i->opcode) {
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
 			case IBV_WR_RDMA_READ:

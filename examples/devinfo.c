@@ -48,7 +48,7 @@
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 
-static int verbose = 0;
+static int verbose;
 
 static int null_gid(union ibv_gid *gid)
 {
@@ -231,9 +231,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		       device_attr.max_total_mcast_qp_attach);
 		printf("\tmax_ah:\t\t\t\t%d\n", device_attr.max_ah);
 		printf("\tmax_fmr:\t\t\t%d\n", device_attr.max_fmr);
-		if (device_attr.max_fmr) {
+		if (device_attr.max_fmr)
 			printf("\tmax_map_per_fmr:\t\t%d\n", device_attr.max_map_per_fmr);
-		}
 		printf("\tmax_srq:\t\t\t%d\n", device_attr.max_srq);
 		if (device_attr.max_srq) {
 			printf("\tmax_srq_wr:\t\t\t%d\n", device_attr.max_srq_wr);

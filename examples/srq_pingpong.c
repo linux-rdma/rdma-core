@@ -143,7 +143,7 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 		.ai_socktype = SOCK_STREAM
 	};
 	char *service;
-	char msg[ sizeof "0000:000000:000000"];
+	char msg[sizeof "0000:000000:000000"];
 	int n;
 	int r;
 	int i;
@@ -227,7 +227,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 		.ai_socktype = SOCK_STREAM
 	};
 	char *service;
-	char msg[ sizeof "0000:000000:000000"];
+	char msg[sizeof "0000:000000:000000"];
 	int n;
 	int r;
 	int i;
@@ -275,7 +275,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 		return NULL;
 	}
 
-	rem_dest = malloc(MAX_QP *sizeof *rem_dest);
+	rem_dest = malloc(MAX_QP * sizeof *rem_dest);
 	if (!rem_dest)
 		goto out;
 

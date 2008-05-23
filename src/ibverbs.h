@@ -49,7 +49,7 @@
 #endif /* HAVE_VALGRIND_MEMCHECK_H */
 
 #ifndef VALGRIND_MAKE_MEM_DEFINED
-#  define VALGRIND_MAKE_MEM_DEFINED(addr,len)
+#  define VALGRIND_MAKE_MEM_DEFINED(addr, len)
 #endif
 
 #define HIDDEN		__attribute__((visibility ("hidden")))
