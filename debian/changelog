@@ -1,4 +1,4 @@
-libmthca (1.0.5-1) hardy; urgency=low
+libmthca (1.0.5-1) unstable; urgency=low
 
   * New upstream release.
     - Fix issues on non-mem-free HCAs.
@@ -7,7 +7,7 @@ libmthca (1.0.5-1) hardy; urgency=low
   * Add debian/watch file.
   * Update libtool during build to avoid setting RPATH in binaries on amd64.
 
- -- Roland Dreier <rolandd@cisco.com>  Tue, 27 May 2008 11:57:32 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Tue, 27 May 2008 14:19:55 -0700
 
 libmthca (1.0.4-1) unstable; urgency=low
 
