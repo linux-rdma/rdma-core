@@ -1,6 +1,6 @@
 Name: libmthca
 Version: 1.0.4
-Release: 1%{?dist}
+Release: 3%{?dist}
 Summary: Mellanox InfiniBand HCA Userspace Driver
 
 Group: System Environment/Libraries
@@ -52,6 +52,12 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libmthca.a
 
 %changelog
+* Thu May 22 2008 Todd Zullinger <tmz@pobox.com> - 1.0.4-3
+- fix license tag
+
+* Mon Feb 18 2008 Fedora Release Engineering <rel-eng@fedoraproject.org> - 1.0.4-2
+- Autorebuild for GCC 4.3
+
 * Thu Nov  9 2006 Roland Dreier <rdreier@cisco.com> - 1.0.4-1
 - New upstream release
 - Depend on libibverbs 1.1, and package new library file names.
