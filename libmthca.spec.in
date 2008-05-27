@@ -1,12 +1,12 @@
 Name: libmthca
-Version: 1.0.4
-Release: 3%{?dist}
+Version: 1.0.5
+Release: 1%{?dist}
 Summary: Mellanox InfiniBand HCA Userspace Driver
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
 Url: http://openfabrics.org/
-Source: http://openfabrics.org/downloads/mthca/libmthca-1.0.4.tar.gz
+Source: http://openfabrics.org/downloads/mthca/libmthca-1.0.5.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires: libibverbs-devel >= 1.1-0.1.rc2
@@ -52,6 +52,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libmthca.a
 
 %changelog
+* Tue May 27 2008 Roland Dreier <rolandd@cisco.com> - 1.0.5-1
+- New upstream release
+- Change openib.org URLs to openfabrics.org URLs
+
 * Thu May 22 2008 Todd Zullinger <tmz@pobox.com> - 1.0.4-3
 - fix license tag
 
