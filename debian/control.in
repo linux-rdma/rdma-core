@@ -4,6 +4,7 @@ Maintainer: Roland Dreier <rolandd@cisco.com>
 Build-Depends: @cdbs@, dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.1)
 Standards-Version: 3.7.3
 Section: libs
+Homepage: http://www.openfabrics.org/
 
 Package: libmthca1
 Section: libs
@@ -16,8 +17,6 @@ Description: A userspace driver for Mellanox InfiniBand HCAs
  low latency and low overhead.
  .
  This package contains the loadable plug-in.
- .
-  Homepage: http://www.openfabrics.org/
 
 Package: libmthca-dev
 Section: libdevel
@@ -31,8 +30,6 @@ Description: Development files for the libmthca driver
  .
  This package contains static versions of libmthca that may be linked
  directly to an application, which may be useful for debugging.
- .
-  Homepage: http://www.openfabrics.org/
 
 Package: libmthca1-dbg
 Section: libdevel
@@ -48,5 +45,3 @@ Description: Debugging symbols for the libmthca driver
  This package contains the debugging symbols associated with
  libmthca1. They will automatically be used by gdb for debugging
  libmthca-related issues.
- .
-  Homepage: http://www.openfabrics.org/
