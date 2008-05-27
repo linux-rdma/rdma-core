@@ -117,11 +117,21 @@ int mthca_free_pd(struct ibv_pd *pd)
 
 static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 				     size_t length, uint64_t hca_va,
-				     enum ibv_access_flags access)
+				     enum ibv_access_flags access,
+				     int dma_sync)
 {
 	struct ibv_mr *mr;
-	struct ibv_reg_mr cmd;
+	struct mthca_reg_mr cmd;
 	int ret;
+
+	/*
+	 * Old kernels just ignore the extra data we pass in with the
+	 * reg_mr command structure, so there's no need to add an ABI
+	 * version check here (and indeed the kernel ABI was not
+	 * incremented due to this change).
+	 */
+	cmd.mr_attrs = dma_sync ? MTHCA_MR_DMASYNC : 0;
+	cmd.reserved = 0;
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
@@ -132,11 +142,11 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 		struct ibv_reg_mr_resp resp;
 
 		ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, mr,
-				     &cmd, sizeof cmd, &resp, sizeof resp);
+				     &cmd.ibv_cmd, sizeof cmd, &resp, sizeof resp);
 	}
 #else
 	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, mr,
-			     &cmd, sizeof cmd);
+			     &cmd.ibv_cmd, sizeof cmd);
 #endif
 	if (ret) {
 		free(mr);
@@ -149,7 +159,7 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, enum ibv_access_flags access)
 {
-	return __mthca_reg_mr(pd, addr, length, (uintptr_t) addr, access);
+	return __mthca_reg_mr(pd, addr, length, (uintptr_t) addr, access, 0);
 }
 
 int mthca_dereg_mr(struct ibv_mr *mr)
@@ -202,7 +212,7 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 
 	cq->mr = __mthca_reg_mr(to_mctx(context)->pd, cq->buf.buf,
 				cqe * MTHCA_CQ_ENTRY_SIZE,
-				0, IBV_ACCESS_LOCAL_WRITE);
+				0, IBV_ACCESS_LOCAL_WRITE, 1);
 	if (!cq->mr)
 		goto err_buf;
 
@@ -297,7 +307,7 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 
 	mr = __mthca_reg_mr(to_mctx(ibcq->context)->pd, buf.buf,
 			    cqe * MTHCA_CQ_ENTRY_SIZE,
-			    0, IBV_ACCESS_LOCAL_WRITE);
+			    0, IBV_ACCESS_LOCAL_WRITE, 1);
 	if (!mr) {
 		mthca_free_buf(&buf);
 		ret = ENOMEM;
@@ -405,7 +415,7 @@ struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 	if (mthca_alloc_srq_buf(pd, &attr->attr, srq))
 		goto err;
 
-	srq->mr = __mthca_reg_mr(pd, srq->buf.buf, srq->buf_size, 0, 0);
+	srq->mr = __mthca_reg_mr(pd, srq->buf.buf, srq->buf_size, 0, 0, 0);
 	if (!srq->mr)
 		goto err_free;
 
@@ -525,7 +535,7 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
 		goto err_free;
 
-	qp->mr = __mthca_reg_mr(pd, qp->buf.buf, qp->buf_size, 0, 0);
+	qp->mr = __mthca_reg_mr(pd, qp->buf.buf, qp->buf_size, 0, 0, 0);
 	if (!qp->mr)
 		goto err_free;
 
