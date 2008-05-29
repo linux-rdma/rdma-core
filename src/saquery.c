@@ -730,7 +730,7 @@ get_all_records(osm_bind_handle_t bind_handle,
 		int trusted)
 {
 	return get_any_records(bind_handle, query_id, 0, 0, NULL, attr_offset,
-			       trusted ? OSM_DEFAULT_SM_KEY : 0);
+			       trusted ? OSM_DEFAULT_SA_KEY : 0);
 }
 
 /**
@@ -1255,7 +1255,7 @@ print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 	status = get_any_records(bind_handle, IB_MAD_ATTR_PKEY_TBL_RECORD, 0,
 				 comp_mask, &pktr,
 				 ib_get_attr_offset(sizeof(pktr)),
-				 OSM_DEFAULT_SM_KEY);
+				 OSM_DEFAULT_SA_KEY);
 	if (status != IB_SUCCESS)
 		return status;
 
