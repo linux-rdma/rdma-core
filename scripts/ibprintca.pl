@@ -45,12 +45,13 @@ use IBswcountlimits;
 sub usage_and_exit
 {
 	my $prog = $_[0];
-	print "Usage: $prog [-R -l] [<ca_guid|node_name>]\n";
+	print "Usage: $prog [-R -l] [-G <ca_guid> | <node_name>]\n";
 	print "   print only the ca specified from the ibnetdiscover output\n";
 	print "   -R Recalculate ibnetdiscover information\n";
 	print "   -l list cas\n";
 	print "   -C <ca_name> use selected channel adaptor name for queries\n";
 	print "   -P <ca_port> use selected channel adaptor port for queries\n";
+	print "   -G node is specified with GUID\n";
 	exit 0;
 }
 
@@ -59,15 +60,21 @@ my $regenerate_map = undef;
 my $list_hcas      = undef;
 my $ca_name        = "";
 my $ca_port        = "";
+my $name_is_guid   = "no";
 chomp $argv0;
-if (!getopts("hRlC:P:"))         { usage_and_exit $argv0; }
+if (!getopts("hRlC:P:G"))         { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
 if (defined $Getopt::Std::opt_l) { $list_hcas      = $Getopt::Std::opt_l; }
 if (defined $Getopt::Std::opt_C) { $ca_name        = $Getopt::Std::opt_C; }
 if (defined $Getopt::Std::opt_P) { $ca_port        = $Getopt::Std::opt_P; }
+if (defined $Getopt::Std::opt_G) { $name_is_guid   = "yes"; }
 
-my $target_hca = format_guid($ARGV[0]);
+my $target_hca = $ARGV[0];
+
+if ($name_is_guid eq "yes") {
+	$target_hca = format_guid($target_hca);
+}
 
 my $cache_file = get_cache_file($ca_name, $ca_port);
 
@@ -100,7 +107,7 @@ sub main
 				$in_hca = "no";
 				goto DONE;
 			}
-			if ("0x$guid" eq $target_hca || $desc =~ /.*$target_hca.*/) {
+			if ("0x$guid" eq $target_hca || $desc =~ /[\s\"]$target_hca[\s\"]/) {
 				print $line;
 				$in_hca    = "yes";
 				$found_hca = "yes";

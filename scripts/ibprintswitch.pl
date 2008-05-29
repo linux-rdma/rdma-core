@@ -44,12 +44,13 @@ use IBswcountlimits;
 sub usage_and_exit
 {
 	my $prog = $_[0];
-	print "Usage: $prog [-R -l] [<switch_guid|switch_name>]\n";
+	print "Usage: $prog [-R -l] [-G <switch_guid> | <switch_name>]\n";
 	print "   print only the switch specified from the ibnetdiscover output\n";
 	print "   -R Recalculate ibnetdiscover information\n";
 	print "   -l list switches\n";
 	print "   -C <ca_name> use selected channel adaptor name for queries\n";
 	print "   -P <ca_port> use selected channel adaptor port for queries\n";
+	print "   -G node is specified with GUID\n";
 	exit 0;
 }
 
@@ -58,15 +59,21 @@ my $regenerate_map = undef;
 my $list_switches  = undef;
 my $ca_name        = "";
 my $ca_port        = "";
+my $name_is_guid   = "no";
 chomp $argv0;
-if (!getopts("hRlC:P:"))         { usage_and_exit $argv0; }
+if (!getopts("hRlC:P:G"))         { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
 if (defined $Getopt::Std::opt_l) { $list_switches  = $Getopt::Std::opt_l; }
 if (defined $Getopt::Std::opt_C) { $ca_name        = $Getopt::Std::opt_C; }
 if (defined $Getopt::Std::opt_P) { $ca_port        = $Getopt::Std::opt_P; }
+if (defined $Getopt::Std::opt_G) { $name_is_guid   = "yes"; }
 
-my $target_switch = format_guid($ARGV[0]);
+my $target_switch = $ARGV[0];
+
+if ($name_is_guid eq "yes") {
+	$target_switch = format_guid($target_switch);
+}
 
 my $cache_file = get_cache_file($ca_name, $ca_port);
 
@@ -99,7 +106,7 @@ sub main
 				$in_switch = "no";
 				goto DONE;
 			}
-			if ("0x$guid" eq $target_switch || $desc =~ /.*$target_switch.*/) {
+			if ("0x$guid" eq $target_switch || $desc =~ /[\s\"]$target_switch[\s\"]/) {
 				print $line;
 				$in_switch    = "yes";
 				$found_switch = "yes";
