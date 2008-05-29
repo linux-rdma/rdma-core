@@ -95,7 +95,7 @@ if ($target_hca eq "") {
 #
 sub main
 {
-	my $found_hca = undef;
+	my $found_hca = 0;
 	open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
 	my $in_hca = "no";
 	my %ports  = undef;
@@ -105,12 +105,14 @@ sub main
 			my $desc = $2;
 			if ($in_hca eq "yes") {
 				$in_hca = "no";
-				goto DONE;
+				foreach my $port (sort { $a <=> $b } (keys %ports)) {
+					print $ports{$port};
+				}
 			}
 			if ("0x$guid" eq $target_hca || $desc =~ /[\s\"]$target_hca[\s\"]/) {
 				print $line;
 				$in_hca    = "yes";
-				$found_hca = "yes";
+				$found_hca++;
 			}
 		}
 		if ($line =~ /^Switch.*/ || $line =~ /^Rt.*/) { $in_hca = "no"; }
@@ -120,14 +122,13 @@ sub main
 		}
 
 	}
-	DONE:
-	foreach my $port (sort { $a <=> $b } (keys %ports)) {
-		print $ports{$port};
-	}
-	if (!$found_hca) {
+	if ($found_hca == 0) {
 		print "\"$target_hca\" not found\n";
 		print "   Try running with the \"-R\" option.\n";
 		print "   If still not found the node is probably down.\n";
+	}
+	if ($found_hca > 1) {
+		print "\nWARNING: Found $found_hca CA's with the name \"$target_hca\"\n";
 	}
 	close IBNET_TOPO;
 }

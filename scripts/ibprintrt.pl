@@ -95,7 +95,7 @@ if ($target_rt eq "") {
 #
 sub main
 {
-	my $found_rt = undef;
+	my $found_rt = 0;
 	open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
 	my $in_rt = "no";
 	my %ports = undef;
@@ -105,12 +105,14 @@ sub main
 			my $desc = $2;
 			if ($in_rt eq "yes") {
 				$in_rt = "no";
-				goto DONE;
+				foreach my $port (sort { $a <=> $b } (keys %ports)) {
+					print $ports{$port};
+				}
 			}
 			if ("0x$guid" eq $target_rt || $desc =~ /[\s\"]$target_rt[\s\"]/) {
 				print $line;
 				$in_rt    = "yes";
-				$found_rt = "yes";
+				$found_rt++;
 			}
 		}
 		if ($line =~ /^Switch.*/ || $line =~ /^Ca.*/) { $in_rt = "no"; }
@@ -120,14 +122,13 @@ sub main
 		}
 
 	}
-	DONE:
-	foreach my $port (sort { $a <=> $b } (keys %ports)) {
-		print $ports{$port};
-	}
-	if (!$found_rt) {
+	if ($found_rt == 0) {
 		print "\"$target_rt\" not found\n";
 		print "   Try running with the \"-R\" option.\n";
 		print "   If still not found the node is probably down.\n";
+	}
+	if ($found_rt > 1) {
+		print "\nWARNING: Found $found_rt Router's with the name \"$target_rt\"\n";
 	}
 	close IBNET_TOPO;
 }

@@ -94,7 +94,7 @@ if ($target_switch eq "") {
 #
 sub main
 {
-	my $found_switch = undef;
+	my $found_switch = 0;
 	open IBNET_TOPO, "<$cache_file" or die "Failed to open ibnet topology\n";
 	my $in_switch = "no";
 	my %ports     = undef;
@@ -104,12 +104,14 @@ sub main
 			my $desc = $2;
 			if ($in_switch eq "yes") {
 				$in_switch = "no";
-				goto DONE;
+				foreach my $port (sort { $a <=> $b } (keys %ports)) {
+					print $ports{$port};
+				}
 			}
 			if ("0x$guid" eq $target_switch || $desc =~ /[\s\"]$target_switch[\s\"]/) {
 				print $line;
 				$in_switch    = "yes";
-				$found_switch = "yes";
+				$found_switch++;
 			}
 		}
 		if ($line =~ /^Ca.*/) { $in_switch = "no"; }
@@ -119,13 +121,12 @@ sub main
 		}
 
 	}
-	DONE:
-	foreach my $port (sort { $a <=> $b } (keys %ports)) {
-		print $ports{$port};
-	}
-	if (!$found_switch) {
+	if ($found_switch == 0) {
 		print "Switch \"$target_switch\" not found\n";
 		print "   Try running with the \"-R\" option.\n";
+	}
+	if ($found_switch > 1) {
+		print "\nWARNING: Found $found_switch switches with the name \"$target_switch\"\n";
 	}
 	close IBNET_TOPO;
 }
