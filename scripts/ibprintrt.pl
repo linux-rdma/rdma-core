@@ -52,7 +52,7 @@ sub usage_and_exit
 	print "   -C <ca_name> use selected channel adaptor name for queries\n";
 	print "   -P <ca_port> use selected channel adaptor port for queries\n";
 	print "   -G node is specified with GUID\n";
-	exit 0;
+	exit 2;
 }
 
 my $argv0          = `basename $0`;

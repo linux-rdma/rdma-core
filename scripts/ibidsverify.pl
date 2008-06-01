@@ -46,7 +46,7 @@ sub usage_and_exit
 	print "   -h This help message\n";
 	print
 "   -R Recalculate ibnetdiscover information (Default is to reuse ibnetdiscover output)\n";
-	exit 0;
+	exit 2;
 }
 
 my $argv0          = `basename $0`;

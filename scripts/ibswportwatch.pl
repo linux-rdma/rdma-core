@@ -81,7 +81,7 @@ sub usage_and_exit
 	print "   -n <cycles> run n cycles then exit (default -1 == forever)\n";
 	print "   -G Address provided is a GUID\n";
 	print "   -b report bytes/second packets/second\n";
-	exit 0;
+	exit 2;
 }
 
 # =========================================================================

@@ -70,7 +70,7 @@ sub usage
 	print "Usage: $prog [-R -v]\n";
 	print "  -R recalculate all cached information\n";
 	print "  -v verbose output\n";
-	exit 0;
+	exit 2;
 }
 
 sub is_port_up

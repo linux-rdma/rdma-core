@@ -149,7 +149,7 @@ sub usage_and_exit
 	print "   -d include the data counters in the output\n";
 	print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
 	print "   -P <ca_port> use selected channel adaptor port for queries\n";
-	exit 0;
+	exit 2;
 }
 
 my $argv0          = `basename $0`;
