@@ -123,9 +123,9 @@ sub main
 
 	}
 	if ($found_rt == 0) {
-		print "\"$target_rt\" not found\n";
-		print "   Try running with the \"-R\" option.\n";
-		print "   If still not found the node is probably down.\n";
+		die "\"$target_rt\" not found\n" .
+			"   Try running with the \"-R\" option.\n" .
+			"   If still not found the node is probably down.\n";
 	}
 	if ($found_rt > 1) {
 		print "\nWARNING: Found $found_rt Router's with the name \"$target_rt\"\n";

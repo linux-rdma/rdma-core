@@ -122,8 +122,8 @@ sub main
 
 	}
 	if ($found_switch == 0) {
-		print "Switch \"$target_switch\" not found\n";
-		print "   Try running with the \"-R\" option.\n";
+		die "Switch \"$target_switch\" not found\n" .
+			"   Try running with the \"-R\" option.\n";
 	}
 	if ($found_switch > 1) {
 		print "\nWARNING: Found $found_switch switches with the name \"$target_switch\"\n";

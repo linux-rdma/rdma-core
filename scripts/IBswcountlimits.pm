@@ -219,8 +219,9 @@ sub any_counts
 #
 sub ensure_cache_dir
 {
-	if (!(-d "$IBswcountlimits::cache_dir")) {
-		mkdir $IBswcountlimits::cache_dir, 0700;
+	if (!(-d "$IBswcountlimits::cache_dir") &&
+	    !mkdir($IBswcountlimits::cache_dir, 0700)) {
+		die "cannot create $IBswcountlimits::cache_dir: $!\n";
 	}
 }
 
@@ -260,9 +261,8 @@ sub generate_ibnetdiscover_topology
 	my $cache_file   = get_cache_file($ca_name, $ca_port);
 	my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
-	`ibnetdiscover -g $extra_params > $cache_file`;
-	if ($? != 0) {
-		die "Execution of ibnetdiscover failed with errors\n";
+	if (`ibnetdiscover -g $extra_params > $cache_file`) {
+		die "Execution of ibnetdiscover failed: $!\n";
 	}
 }
 
@@ -421,7 +421,8 @@ sub get_num_ports
 	my $num_ports    = 0;
 	my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
-	my $data         = `smpquery $extra_params -G nodeinfo $guid`;
+	my $data         = `smpquery $extra_params -G nodeinfo $guid` ||
+		die "'smpquery $extra_params -G nodeinfo $guid' faild\n";
 	my @lines        = split("\n", $data);
 	my $pkt_lifetime = "";
 	foreach my $line (@lines) {
@@ -457,7 +458,8 @@ sub convert_dr_to_guid
 {
 	my $guid = undef;
 
-	my $data = `smpquery nodeinfo -D $_[0]`;
+	my $data = `smpquery nodeinfo -D $_[0]` ||
+		die "'mpquery nodeinfo -D $_[0]' failed\n";
 	my @lines = split("\n", $data);
 	foreach my $line (@lines) {
 		if ($line =~ /^PortGuid:\.+(.*)/) { $guid = $1; }
@@ -480,7 +482,8 @@ sub get_node_type
 		$query_arg .= "-D " . $_[0];
 	}
 
-	my $data = `$query_arg`;
+	my $data = `$query_arg` ||
+		die "'$query_arg' failed\n";
 	my @lines = split("\n", $data);
 	foreach my $line (@lines) {
 		if ($line =~ /^NodeType:\.+(.*)/) { $type = $1; }

@@ -123,9 +123,9 @@ sub main
 
 	}
 	if ($found_hca == 0) {
-		print "\"$target_hca\" not found\n";
-		print "   Try running with the \"-R\" option.\n";
-		print "   If still not found the node is probably down.\n";
+		die "\"$target_hca\" not found\n" .
+			"   Try running with the \"-R\" option.\n" .
+			"   If still not found the node is probably down.\n";
 	}
 	if ($found_hca > 1) {
 		print "\nWARNING: Found $found_hca CA's with the name \"$target_hca\"\n";

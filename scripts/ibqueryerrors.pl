@@ -104,7 +104,8 @@ sub get_counts
 	my $ca_port      = $_[3];
 	my $extra_params = get_ca_name_port_param_string($ca_name, $ca_port);
 
-	my $data = `perfquery $extra_params -G $addr $port`;
+	my $data = `perfquery $extra_params -G $addr $port` ||
+		die "'perfquery $extra_params -G $addr $port' FAILED.\n";
 	my @lines = split("\n", $data);
 	foreach my $line (@lines) {
 		foreach my $count (@IBswcountlimits::counters) {
@@ -121,7 +122,8 @@ my %switches = ();
 
 sub get_switches
 {
-	my $data = `ibswitches $cache_file`;
+	my $data = `ibswitches $cache_file` ||
+		die "'ibswitches $cache_file' failed.\n";
 	my @lines = split("\n", $data);
 	foreach my $line (@lines) {
 		if ($line =~ /^Switch\s+:\s+(\w+)\s+ports\s+(\d+)\s+.*/) {

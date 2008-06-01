@@ -121,12 +121,10 @@ sub get_new_counts
 		)
 	  )
 	{
-		print "perfquery failed : \"perfquery $GUID $addr $port\"\n";
-		system("cat $IBswcountlimits::cache_dir/perfquery.out");
-		exit 1;
+		die "perfquery failed : \"perfquery $GUID $addr $port\"\n";
 	}
 	open PERF_QUERY, "<$IBswcountlimits::cache_dir/perfquery.out"
-	  or die "perfquery failed";
+	  or die "cannot read '$IBswcountlimits::cache_dir/perfquery.out': $!\n";
 	while (my $line = <PERF_QUERY>) {
 		foreach my $count (@IBswcountlimits::counters) {
 			if ($line =~ /^$count:\.+(\d+)/) {
