@@ -1290,7 +1290,7 @@ get_bind_handle(void)
 
         vendor = osm_vendor_new(&log_osm, sa_timeout_ms);
 	osm_mad_pool_construct(&mad_pool);
-	if ((status = osm_mad_pool_init(&mad_pool, &log_osm)) != IB_SUCCESS) {
+	if ((status = osm_mad_pool_init(&mad_pool)) != IB_SUCCESS) {
 		fprintf(stderr, "Failed to init mad pool: %s\n",
 			ib_get_err_str(status));
 		exit(-1);
