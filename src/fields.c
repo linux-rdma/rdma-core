@@ -366,7 +366,10 @@ ib_field_t ib_mad_f [] = {
 void
 _set_field64(void *buf, int base_offs, ib_field_t *f, uint64_t val)
 {
-	memcpy((char *)buf + base_offs + f->bitoffs / 8, &val, sizeof(uint64_t));
+	uint64_t nval;
+
+	nval = htonll(val);
+	memcpy((char *)buf + base_offs + f->bitoffs / 8, &nval, sizeof(uint64_t));
 }
 
 uint64_t
