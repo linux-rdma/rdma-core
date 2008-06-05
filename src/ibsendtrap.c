@@ -48,8 +48,6 @@
 #include "ibdiag_common.h"
 
 char *argv0 = "";
-char *sa_hca_name = NULL;
-uint32_t sa_port_num = 0;
 
 static int send_144_node_desc_update(void)
 {
@@ -99,12 +97,10 @@ trap_def_t traps[2] = {
 
 static void usage(void)
 {
-	int i = 0;
+	int i;
+
 	fprintf(stderr, "Usage: %s [-hV]"
-		"[-C <ca_name> -P <ca_port>] <trap_name>\n", argv0);
-	fprintf(stderr, "   Queries node records by default\n");
-	fprintf(stderr, "   -C <ca_name> specify the SA query HCA\n");
-	fprintf(stderr, "   -P <ca_port> specify the SA query port\n");
+		" [-C <ca_name>] [-P <ca_port>] [<trap_name>]\n", argv0);
 	fprintf(stderr, "   -V print version\n");
 	fprintf(stderr, "   <trap_name> can be one of the following\n");
 	for (i = 0; traps[i].trap_name; i++) {
@@ -118,7 +114,8 @@ static void usage(void)
 
 int send_trap(char *trap_name)
 {
-	int i = 0;
+	int i;
+
 	for (i = 0; traps[i].trap_name; i++) {
 		if (strcmp(traps[i].trap_name, trap_name) == 0) {
 			return (traps[i].send_func());
@@ -133,6 +130,8 @@ int main(int argc, char **argv)
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 	int ch = 0;
 	char *trap_name = NULL;
+	char *ca = NULL;
+	int ca_port = 0;
 
 	static char const str_opts[] = "hVP:C:";
 	static const struct option long_opts[] = {
@@ -151,10 +150,10 @@ int main(int argc, char **argv)
 			fprintf(stderr, "%s %s\n", argv0, get_build_version());
 			exit(-1);
 		case 'C':
-			sa_hca_name = optarg;
+			ca = optarg;
 			break;
 		case 'P':
-			sa_port_num = strtoul(optarg, NULL, 0);
+			ca_port = strtoul(optarg, NULL, 0);
 			break;
 		case 'h':
 		default:
@@ -171,7 +170,7 @@ int main(int argc, char **argv)
 	}
 
 	madrpc_show_errors(1);
-	madrpc_init(NULL, 0, mgmt_classes, 2);
+	madrpc_init(ca, ca_port, mgmt_classes, 2);
 
 	return (send_trap(trap_name));
 }
