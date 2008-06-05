@@ -397,6 +397,11 @@ static int rereg_and_test_port(char *guid_file, int port, int agent, ib_portid_t
 	}
 
 	f = fopen(guid_file, "r");
+	if (!f) {
+		err("cannot open %s: %s\n", guid_file, strerror(errno));
+		return -1;
+	}
+
 	while (fgets(line, sizeof(line), f)) {
 		guid = strtoull(line, NULL, 0);
 		guid = htonll(guid);
