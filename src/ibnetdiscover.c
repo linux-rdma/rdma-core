@@ -129,6 +129,18 @@ node_type_str2(Node *node)
 	return "??";
 }
 
+void
+decode_port_info(void *pi, Port *port)
+{
+	mad_decode_field(pi, IB_PORT_LID_F, &port->lid);
+	mad_decode_field(pi, IB_PORT_LMC_F, &port->lmc);
+	mad_decode_field(pi, IB_PORT_STATE_F, &port->state);
+	mad_decode_field(pi, IB_PORT_PHYS_STATE_F, &port->physstate);
+	mad_decode_field(pi, IB_PORT_LINK_WIDTH_ACTIVE_F, &port->linkwidth);
+	mad_decode_field(pi, IB_PORT_LINK_SPEED_ACTIVE_F, &port->linkspeed);
+}
+
+
 int
 get_port(Port *port, int portnum, ib_portid_t *portid)
 {
@@ -139,13 +151,7 @@ get_port(Port *port, int portnum, ib_portid_t *portid)
 
 	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, portnum, timeout))
 		return -1;
-
-	mad_decode_field(pi, IB_PORT_LID_F, &port->lid);
-	mad_decode_field(pi, IB_PORT_LMC_F, &port->lmc);
-	mad_decode_field(pi, IB_PORT_STATE_F, &port->state);
-	mad_decode_field(pi, IB_PORT_PHYS_STATE_F, &port->physstate);
-	mad_decode_field(pi, IB_PORT_LINK_WIDTH_ACTIVE_F, &port->linkwidth);
-	mad_decode_field(pi, IB_PORT_LINK_SPEED_ACTIVE_F, &port->linkspeed);
+	decode_port_info(pi, port);
 
 	DEBUG("portid %s portnum %d: lid %d state %d physstate %d %s %s",
 		portid2str(portid), portnum, port->lid, port->state, port->physstate, get_linkwidth_str(port->linkwidth), get_linkspeed_str(port->linkspeed));
@@ -181,19 +187,18 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 
 	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, 0, timeout))
 		return -1;
-
-	mad_decode_field(pi, IB_PORT_LID_F, &port->lid);
-	mad_decode_field(pi, IB_PORT_LMC_F, &port->lmc);
-	mad_decode_field(pi, IB_PORT_STATE_F, &port->state);
-	mad_decode_field(pi, IB_PORT_PHYS_STATE_F, &port->physstate);
-	mad_decode_field(pi, IB_PORT_LINK_WIDTH_ACTIVE_F, &port->linkwidth);
-	mad_decode_field(pi, IB_PORT_LINK_SPEED_ACTIVE_F, &port->linkspeed);
+	decode_port_info(pi, port);
 
 	if (node->type != SWITCH_NODE)
 		return 0;
 
 	node->smalid = port->lid;
 	node->smalmc = port->lmc;
+
+	/* after we have the sma information find out the real PortInfo for this port */
+	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, node->localport, timeout))
+	        return -1;
+	decode_port_info(pi, port);
 
         if (!smp_query(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout))
                 node->smaenhsp0 = 0;	/* assume base SP0 */
