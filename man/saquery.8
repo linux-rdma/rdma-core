@@ -7,7 +7,7 @@ saquery \- query InfiniBand subnet administration attributes
 .B saquery
 [\-h] [\-d] [\-p] [\-N] [\-\-list | \-D] [\-S] [\-I] [\-L] [\-l] [\-G] [\-O]
 [\-U] [\-c] [\-s] [\-g] [\-m] [\-x]
-[\-C ca_name] [\-P ca_port] [\-t(imeout) <msec>]
+[\-C ca_name] [\-P ca_port] [\-\-smkey val] [\-t(imeout) <msec>]
 [\-\-src\-to\-dst <src:dst>]
 [\-\-sgid\-to\-dgid <sgid\-dgid>]
 [\-\-node\-name\-map <node\-name\-map>]
@@ -85,6 +85,11 @@ use the specified ca_name.
 .TP
 \fB\-P\fR <ca_port>
 use the specified ca_port.
+.TP
+\fB\-\-smkey\fR <val>
+use SM_Key value for the query. Will be used only with "trusted" queries.
+If non-numeric value (like 'x') is specified then saquery will prompt for
+a value.
 .TP
 \fB\-t\fR, \fB\-timeout\fR <msec>
 Specify SA query response timeout in milliseconds.
