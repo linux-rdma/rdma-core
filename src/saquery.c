@@ -659,7 +659,7 @@ static void dump_results(osmv_query_res_t *r, void (*dump_func)(void *))
 {
 	int i;
 	for (i = 0; i < r->result_cnt; i++) {
-		void *data = osmv_get_query_svc_rec(r->p_result_madw, i);
+		void *data = osmv_get_query_result(r->p_result_madw, i);
 		dump_func(data);
 	}
 }
