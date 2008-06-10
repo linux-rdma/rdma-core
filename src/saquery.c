@@ -1048,9 +1048,12 @@ print_multicast_group_records(osm_bind_handle_t bind_handle, int members)
 		return (status);
 	mc_group_result = result;
 
-	status  = get_all_records(bind_handle, IB_MAD_ATTR_NODE_RECORD, node_attr_offset, 0);
-	if (status != IB_SUCCESS)
-		goto return_mc;
+	if (members) {
+		status  = get_all_records(bind_handle, IB_MAD_ATTR_NODE_RECORD,
+					  node_attr_offset, 0);
+		if (status != IB_SUCCESS)
+			goto return_mc;
+	}
 
 	for (i = 0; i < mc_group_result.result_cnt; i++) {
 		mcast_record = osmv_get_query_mc_rec(mc_group_result.p_result_madw, i);
@@ -1060,7 +1063,8 @@ print_multicast_group_records(osm_bind_handle_t bind_handle, int members)
 			print_multicast_member_record(mcast_record);
 	}
 
-	return_mad();
+	if (members)
+		return_mad();
 
 return_mc:
 	/* return_mad for the mc_group_result */
