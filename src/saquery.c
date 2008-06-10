@@ -354,14 +354,19 @@ print_multicast_member_record(ib_member_rec_t *p_mcmr)
 	uint64_t gid_prefix = cl_ntoh64( p_mcmr->port_gid.unicast.prefix );
 	uint64_t gid_interface_id = cl_ntoh64( p_mcmr->port_gid.unicast.interface_id );
 	uint16_t mlid = cl_ntoh16( p_mcmr->mlid );
-	ib_node_record_t *node_record = NULL;
 	int      i = 0;
+	char *node_name = "<unknown>";
 
-	/* go through and find the node description for this node GID */
+	/* go through the node records searching for a port guid which matches
+	 * this port gid interface id.
+	 * This gives us a node name to print, if available.
+	 */
 	for (i = 0; i < result.result_cnt; i++) {
-		node_record = osmv_get_query_node_rec(result.p_result_madw, i);
-		if (cl_ntoh64(node_record->node_info.port_guid) == gid_interface_id)
+		ib_node_record_t *nr = osmv_get_query_node_rec(result.p_result_madw, i);
+		if (cl_ntoh64(nr->node_info.port_guid) == gid_interface_id) {
+			node_name = clean_nodedesc((char *)nr->node_desc.description);
 			break;
+		}
 	}
 
 	if (requested_name) {
@@ -370,7 +375,7 @@ print_multicast_member_record(ib_member_rec_t *p_mcmr)
 			       "0x%016" PRIx64 " (%s)\n",
 			       gid_prefix,
 			       gid_interface_id,
-			       clean_nodedesc((char *)node_record->node_desc.description)
+			       node_name
 			      );
 		}
 	} else {
@@ -391,7 +396,7 @@ print_multicast_member_record(ib_member_rec_t *p_mcmr)
 		       gid_interface_id,
 		       p_mcmr->scope_state,
 		       p_mcmr->proxy_join,
-		       clean_nodedesc((char *)node_record->node_desc.description)
+		       node_name
 		      );
 	}
 }
