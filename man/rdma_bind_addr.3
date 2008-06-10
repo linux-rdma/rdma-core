@@ -22,8 +22,8 @@ to a specific port number, but it may also be called on the active side
 of a connection before calling rdma_resolve_addr to bind to a specific
 address.
 .P
-If used to bind to port 0, the rdma_cm will select an available port
-and return it to the user.
+If used to bind to port 0, the rdma_cm will select an available port,
+which can be retrieved with rdma_get_src_port(3).
 .SH "SEE ALSO"
 rdma_create_id(3), rdma_listen(3), rdma_resolve_addr(3), rdma_create_qp(3),
 rdma_get_local_addr(3), rdma_get_src_port(3)
