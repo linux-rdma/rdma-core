@@ -324,9 +324,9 @@ static void dump_portinfo_record(void *data)
                );
 }
 
-static void
-print_multicast_group_record(ib_member_rec_t *p_mcmr)
+static void dump_multicast_group_record(void *data)
 {
+	ib_member_rec_t *p_mcmr = data;
 	uint8_t sl;
 	ib_member_get_sl_flow_hop(p_mcmr->sl_flow_hop, &sl, NULL, NULL);
 	printf("MCMemberRecord group dump:\n"
@@ -348,9 +348,9 @@ print_multicast_group_record(ib_member_rec_t *p_mcmr)
 	       );
 }
 
-static void
-print_multicast_member_record(ib_member_rec_t *p_mcmr)
+static void dump_multicast_member_record(void *data)
 {
+	ib_member_rec_t *p_mcmr = data;
 	uint64_t gid_prefix = cl_ntoh64( p_mcmr->port_gid.unicast.prefix );
 	uint64_t gid_interface_id = cl_ntoh64( p_mcmr->port_gid.unicast.interface_id );
 	uint16_t mlid = cl_ntoh16( p_mcmr->mlid );
@@ -1039,37 +1039,25 @@ print_portinfo_records(osm_bind_handle_t bind_handle)
 }
 
 static ib_api_status_t
-print_multicast_group_records(osm_bind_handle_t bind_handle, int members)
+print_multicast_member_records(osm_bind_handle_t bind_handle)
 {
-	int               i = 0;
-	ib_member_rec_t  *mcast_record = NULL;
-	ib_net16_t        mc_group_attr_offset = ib_get_attr_offset(sizeof(*mcast_record));
 	osmv_query_res_t  mc_group_result;
-	ib_net16_t        node_attr_offset = ib_get_attr_offset(sizeof(ib_node_record_t));
 	ib_api_status_t   status;
 
-	status = get_all_records(bind_handle, IB_MAD_ATTR_MCMEMBER_RECORD, mc_group_attr_offset, members);
+	status = get_all_records(bind_handle, IB_MAD_ATTR_MCMEMBER_RECORD,
+				 ib_get_attr_offset(sizeof(ib_member_rec_t)), 1);
 	if (status != IB_SUCCESS)
 		return (status);
+
 	mc_group_result = result;
 
-	if (members) {
-		status  = get_all_records(bind_handle, IB_MAD_ATTR_NODE_RECORD,
-					  node_attr_offset, 0);
-		if (status != IB_SUCCESS)
-			goto return_mc;
-	}
+	status  = get_all_records(bind_handle, IB_MAD_ATTR_NODE_RECORD,
+				  ib_get_attr_offset(sizeof(ib_node_record_t)), 0);
+	if (status != IB_SUCCESS)
+		goto return_mc;
 
-	for (i = 0; i < mc_group_result.result_cnt; i++) {
-		mcast_record = osmv_get_query_mc_rec(mc_group_result.p_result_madw, i);
-		if (members == 0)
-			print_multicast_group_record(mcast_record);
-		else
-			print_multicast_member_record(mcast_record);
-	}
-
-	if (members)
-		return_mad();
+	dump_results(&mc_group_result, dump_multicast_member_record);
+	return_mad();
 
 return_mc:
 	/* return_mad for the mc_group_result */
@@ -1078,6 +1066,21 @@ return_mc:
 		mc_group_result.p_result_madw = NULL;
 	}
 
+	return (status);
+}
+
+static ib_api_status_t
+print_multicast_group_records(osm_bind_handle_t bind_handle)
+{
+	ib_api_status_t   status;
+
+	status = get_all_records(bind_handle, IB_MAD_ATTR_MCMEMBER_RECORD,
+				 ib_get_attr_offset(sizeof(ib_member_rec_t)), 0);
+	if (status != IB_SUCCESS)
+		return (status);
+
+	dump_results(&result, dump_multicast_group_record);
+	return_mad();
 	return (status);
 }
 
@@ -1693,7 +1696,10 @@ main(int argc, char **argv)
 		status = print_portinfo_records(bind_handle);
 		break;
 	case IB_MAD_ATTR_MCMEMBER_RECORD:
-		status = print_multicast_group_records(bind_handle, members);
+		if (members)
+			status = print_multicast_member_records(bind_handle);
+		else
+			status = print_multicast_group_records(bind_handle);
 		break;
 	case IB_MAD_ATTR_SERVICE_RECORD:
 		status = print_service_records(bind_handle);
