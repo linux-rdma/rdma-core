@@ -74,8 +74,9 @@ static void stamp_send_wqe(struct mlx4_qp *qp, int n)
 {
 	uint32_t *wqe = get_send_wqe(qp, n);
 	int i;
+	int ds = (((struct mlx4_wqe_ctrl_seg *)wqe)->fence_size & 0x3f) << 2;
 
-	for (i = 16; i < 1 << (qp->sq.wqe_shift - 2); i += 16)
+	for (i = 16; i < ds; i += 16)
 		wqe[i] = 0xffffffff;
 }
 
@@ -95,6 +96,7 @@ void mlx4_qp_init_sq_ownership(struct mlx4_qp *qp)
 	for (i = 0; i < qp->sq.wqe_cnt; ++i) {
 		ctrl = get_send_wqe(qp, i);
 		ctrl->owner_opcode = htonl(1 << 31);
+		ctrl->fence_size = 1 << (qp->sq.wqe_shift - 4);
 
 		stamp_send_wqe(qp, i);
 	}
