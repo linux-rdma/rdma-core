@@ -314,7 +314,7 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		if (mgmt == IB_SA_CLASS)
 			rmpp_version = 1;
 		if (mad_register_client(mgmt, rmpp_version) < 0)
-			IBPANIC("client_register for mgmt %d failed", mgmt);
+			IBPANIC("client_register for mgmt class %d failed", mgmt);
 	}
 }
 
