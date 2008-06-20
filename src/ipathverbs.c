@@ -55,10 +55,6 @@
 #define PCI_VENDOR_ID_QLOGIC			0x1077
 #endif
 
-#ifndef PCI_DEVICE_ID_INFINIPATH_SPINNERET
-#define PCI_DEVICE_ID_INFINIPATH_SPINNERET	0x000a
-#endif
-
 #ifndef PCI_DEVICE_ID_INFINIPATH_HT
 #define PCI_DEVICE_ID_INFINIPATH_HT		0x000d
 #endif
@@ -75,21 +71,23 @@
 #define PCI_DEVICE_ID_INFINIPATH_7220		0x7220
 #endif
 
-#define HCA(v, d, t) \
+#ifndef PCI_DEVICE_ID_INFINIPATH_7322
+#define PCI_DEVICE_ID_INFINIPATH_7322		0x7322
+#endif
+
+#define HCA(v, d) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_INFINIPATH_##d,	\
-	  .type = IPATH_##t }
+	  .device = PCI_DEVICE_ID_INFINIPATH_##d }
 
 struct {
 	unsigned		vendor;
 	unsigned		device;
-	enum ipath_hca_type	type;
 } hca_table[] = {
-	HCA(PATHSCALE,	SPINNERET, SPINNERET),
-	HCA(PATHSCALE,	HT,	  HT),
-	HCA(PATHSCALE,	PE800,	  PE800),
-	HCA(QLOGIC,	6220,	  7220),
-	HCA(QLOGIC,	7220,	  7220),
+	HCA(PATHSCALE,	HT),
+	HCA(PATHSCALE,	PE800),
+	HCA(QLOGIC,	6220),
+	HCA(QLOGIC,	7220),
+	HCA(QLOGIC,	7322),
 };
 
 static struct ibv_context_ops ipath_ctx_ops = {
@@ -215,7 +213,6 @@ found:
 	}
 
 	dev->ibv_dev.ops = ipath_dev_ops;
-	dev->hca_type    = hca_table[i].type;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;

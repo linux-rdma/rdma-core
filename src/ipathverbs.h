@@ -51,16 +51,8 @@
 
 #define PFX		"ipath: "
 
-enum ipath_hca_type {
-	IPATH_SPINNERET,
-	IPATH_HT,
-	IPATH_PE800,
-	IPATH_7220,
-};
-
 struct ipath_device {
 	struct ibv_device	ibv_dev;
-	enum ipath_hca_type	hca_type;
 	int			abi_version;
 };
 
