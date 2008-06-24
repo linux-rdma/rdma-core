@@ -49,7 +49,7 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
-smp_set(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsigned timeout)
+smp_set_via(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsigned timeout, const void *srcport)
 {
 	ib_rpc_t rpc = {0};
 
@@ -71,12 +71,22 @@ smp_set(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsigned
 	portid->sl = 0;
 	portid->qp = 0;
 
-	return madrpc(&rpc, portid, data, data);
+	if (srcport) {
+		return mad_rpc(srcport, &rpc, portid, data, data);
+	} else {
+		return madrpc(&rpc, portid, data, data);
+	}
 }
 
 uint8_t *
-smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
-	  unsigned timeout)
+smp_set(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsigned timeout)
+{
+	return smp_set_via(data, portid, attrid, mod, timeout, NULL);
+}
+
+uint8_t *
+smp_query_via(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
+	      unsigned timeout, const void *srcport)
 {
 	ib_rpc_t rpc = {0};
 
@@ -98,5 +108,16 @@ smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
 	portid->sl = 0;
 	portid->qp = 0;
 
-	return madrpc(&rpc, portid, 0, rcvbuf);
+	if (srcport) {
+		return mad_rpc(srcport, &rpc, portid, 0, rcvbuf);
+	} else {
+		return madrpc(&rpc, portid, 0, rcvbuf);
+	}
+}
+
+uint8_t *
+smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
+	  unsigned timeout)
+{
+	return smp_query_via(rcvbuf, portid, attrid, mod, timeout, NULL);
 }

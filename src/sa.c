@@ -49,7 +49,7 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *
-sa_rpc_call(void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
+sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
 	    ib_sa_call_t *sa, unsigned timeout)
 {
 	ib_rpc_t rpc = {0};
@@ -112,7 +112,7 @@ sa_rpc_call(void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
 			IB_PR_COMPMASK_NUMBPATH)
 
 int
-ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf)
+ib_path_query_via(const void *srcport, ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf)
 {
 	int npath;
 	ib_sa_call_t sa = {0};
@@ -132,11 +132,21 @@ ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void 
 	mad_encode_field(buf, IB_SA_PR_DGID_F, destgid);
 	mad_encode_field(buf, IB_SA_PR_SGID_F, srcgid);
 
-	if (!(p = safe_sa_call(buf, sm_id, &sa, 0))) {
+	if (srcport) {
+		p = sa_rpc_call (srcport, buf, sm_id, &sa, 0);
+	} else {
+		p = safe_sa_call(buf, sm_id, &sa, 0);
+	}
+	if (!p) {
 		IBWARN("sa call path_query failed");
 		return -1;
 	}
 
 	mad_decode_field(p, IB_SA_PR_DLID_F, &dlid);
 	return dlid;
+}
+int
+ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf)
+{
+	return ib_path_query_via (NULL, srcgid, destgid, sm_id, buf);
 }

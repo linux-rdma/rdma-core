@@ -170,10 +170,10 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 }
 
 void *
-mad_rpc(void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
+mad_rpc(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
 	void *rcvdata)
 {
-	struct ibmad_port *p = port_id;
+	const struct ibmad_port *p = port_id;
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
@@ -207,7 +207,7 @@ mad_rpc(void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
 }
 
 void *
-mad_rpc_rmpp(void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
+mad_rpc_rmpp(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
 	     ib_rmpp_hdr_t *rmpp, void *data)
 {
 	struct ibmad_port *p = port_id;

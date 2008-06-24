@@ -738,9 +738,9 @@ void	madrpc_show_errors(int set);
 void *	mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
 			  int num_classes);
 void	mad_rpc_close_port(void *ibmad_port);
-void *	mad_rpc(void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
+void *	mad_rpc(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
 		void *payload, void *rcvdata);
-void *  mad_rpc_rmpp(void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
+void *  mad_rpc_rmpp(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
 		     ib_rmpp_hdr_t *rmpp, void *data);
 
 /* smp.c */
@@ -748,6 +748,10 @@ uint8_t * smp_query(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
 		    unsigned timeout);
 uint8_t * smp_set(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
 		  unsigned timeout);
+uint8_t * smp_query_via(void *buf, ib_portid_t *id, unsigned attrid,
+			unsigned mod, unsigned timeout, const void *srcport);
+uint8_t * smp_set_via(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
+		      unsigned timeout, const void *srcport);
 
 inline static uint8_t *
 safe_smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
@@ -778,10 +782,12 @@ safe_smp_set(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
 /* sa.c */
 uint8_t * sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
 		  unsigned timeout);
-uint8_t * sa_rpc_call(void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
-		      ib_sa_call_t *sa, unsigned timeout);
+uint8_t * sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
+                      ib_sa_call_t *sa, unsigned timeout);
 int	ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id,
 		      void *buf);	/* returns lid */
+int	ib_path_query_via(const void *srcport, ibmad_gid_t srcgid,
+			  ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf);
 
 inline static uint8_t *
 safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
@@ -804,6 +810,17 @@ int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str,
 			      int dest_type, ib_portid_t *sm_id);
 int	ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid);
 
+int	ib_resolve_smlid_via(ib_portid_t *sm_id, int timeout,
+			     const void *srcport);
+int	ib_resolve_guid_via(ib_portid_t *portid, uint64_t *guid,
+			    ib_portid_t *sm_id, int timeout,
+			    const void *srcport);
+int	ib_resolve_portid_str_via(ib_portid_t *portid, char *addr_str,
+			          int dest_type, ib_portid_t *sm_id,
+				  const void *srcport);
+int	ib_resolve_self_via(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid,
+			    const void *srcport);
+
 /* gs.c */
 uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port,
 				  unsigned timeout);
@@ -820,6 +837,20 @@ uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
 uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,
 				   unsigned timeout);
 
+uint8_t *perf_classportinfo_query_via(void *rcvbuf, ib_portid_t *dest, int port,
+				  unsigned timeout, const void *srcport);
+uint8_t *port_performance_query_via(void *rcvbuf, ib_portid_t *dest, int port,
+				unsigned timeout, const void *srcport);
+uint8_t *port_performance_reset_via(void *rcvbuf, ib_portid_t *dest, int port,
+				unsigned mask, unsigned timeout, const void *srcport);
+uint8_t *port_performance_ext_query_via(void *rcvbuf, ib_portid_t *dest, int port,
+				    unsigned timeout, const void *srcport);
+uint8_t *port_performance_ext_reset_via(void *rcvbuf, ib_portid_t *dest, int port,
+				    unsigned mask, unsigned timeout, const void *srcport);
+uint8_t *port_samples_control_query_via(void *rcvbuf, ib_portid_t *dest, int port,
+				    unsigned timeout, const void *srcport);
+uint8_t *port_samples_result_query_via(void *rcvbuf, ib_portid_t *dest, int port,
+				   unsigned timeout, const void *srcport);
 /* dump.c */
 ib_mad_dump_fn
 	mad_dump_int, mad_dump_uint, mad_dump_hex, mad_dump_rhex,

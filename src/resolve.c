@@ -50,7 +50,7 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 int
-ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
+ib_resolve_smlid_via(ib_portid_t *sm_id, int timeout, const void *srcport)
 {
 	ib_portid_t self = {0};
 	uint8_t portinfo[64];
@@ -58,7 +58,8 @@ ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
 
 	memset(sm_id, 0, sizeof(*sm_id));
 
-	if (!smp_query(portinfo, &self, IB_ATTR_PORT_INFO, 0, 0))
+	if (!smp_query_via(portinfo, &self, IB_ATTR_PORT_INFO,
+			   0, 0, srcport))
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_SMLID_F, &lid);
@@ -67,14 +68,20 @@ ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
 }
 
 int
-ib_resolve_guid(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int timeout)
+ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
+{
+	return ib_resolve_smlid_via(sm_id, timeout, NULL);
+}
+
+int
+ib_resolve_guid_via(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int timeout, const void *srcport)
 {
 	ib_portid_t sm_portid;
 	char buf[IB_SA_DATA_SIZE] = {0};
 
 	if (!sm_id) {
 		sm_id = &sm_portid;
-		if (ib_resolve_smlid(sm_id, timeout) < 0)
+		if (ib_resolve_smlid_via(sm_id, timeout, srcport) < 0)
 			return -1;
 	}
 	if (*(uint64_t*)&portid->gid == 0)
@@ -82,14 +89,14 @@ ib_resolve_guid(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int tim
 	if (guid)
 		mad_set_field64(portid->gid, 0, IB_GID_GUID_F, *guid);
 
-	if ((portid->lid = ib_path_query(portid->gid, portid->gid, sm_id, buf)) < 0)
+	if ((portid->lid = ib_path_query_via(srcport, portid->gid, portid->gid, sm_id, buf)) < 0)
 		return -1;
 
 	return 0;
 }
 
 int
-ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id)
+ib_resolve_portid_str_via(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id, const void *srcport)
 {
 	uint64_t guid;
 	int lid;
@@ -114,7 +121,7 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 			return -1;
 
 		/* keep guid in portid? */
-		return ib_resolve_guid(portid, &guid, sm_id, 0);
+		return ib_resolve_guid_via(portid, &guid, sm_id, 0, srcport);
 
 	case IB_DEST_DRSLID:
 		lid = strtol(addr_str, &routepath, 0);
@@ -124,7 +131,7 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 		ib_portid_set(portid, lid, 0, 0);
 
 		/* handle DR parsing and set DrSLID to local lid */
-		if (ib_resolve_self(&selfportid, &selfport, 0) < 0)
+		if (ib_resolve_self_via(&selfportid, &selfport, 0, srcport) < 0)
 			return -1;
 		if (str2drpath(&portid->drpath, routepath, selfportid.lid, 0) < 0)
 			return -1;
@@ -138,17 +145,25 @@ ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_por
 }
 
 int
-ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid)
+ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id)
+{
+	return ib_resolve_portid_str_via(portid, addr_str, dest_type,
+					 sm_id, NULL);
+}
+
+int
+ib_resolve_self_via(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid,
+		    const void *srcport)
 {
 	ib_portid_t self = {0};
 	uint8_t portinfo[64];
 	uint8_t nodeinfo[64];
 	uint64_t guid, prefix;
 
-	if (!smp_query(nodeinfo, &self, IB_ATTR_NODE_INFO, 0, 0))
+	if (!smp_query_via(nodeinfo, &self, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return -1;
 
-	if (!smp_query(portinfo, &self, IB_ATTR_PORT_INFO, 0, 0))
+	if (!smp_query_via(portinfo, &self, IB_ATTR_PORT_INFO, 0, 0, srcport))
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_LID_F, &portid->lid);
@@ -162,4 +177,10 @@ ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid)
 		mad_encode_field(*gid, IB_GID_GUID_F, &guid);
 	}
 	return 0;
+}
+
+int
+ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid)
+{
+	return ib_resolve_self_via (portid, portnum, gid, NULL);
 }
