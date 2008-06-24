@@ -185,13 +185,16 @@ mad_rpc(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
 
 	if ((len = _do_madrpc(p->port_id, sndbuf, rcvbuf,
 			      p->class_agents[rpc->mgtclass],
-			      len, rpc->timeout)) < 0)
+			      len, rpc->timeout)) < 0) {
+		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return 0;
+	}
 
 	mad = umad_get_mad(rcvbuf);
 
 	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
-		ERRS("MAD completed with error status 0x%x", status);
+		ERRS("MAD completed with error status 0x%x; dport (%s)",
+			status, portid2str(dport));
 		return 0;
 	}
 
@@ -223,13 +226,16 @@ mad_rpc_rmpp(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
 
 	if ((len = _do_madrpc(p->port_id, sndbuf, rcvbuf,
 			      p->class_agents[rpc->mgtclass],
-			      len, rpc->timeout)) < 0)
+			      len, rpc->timeout)) < 0) {
+		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return 0;
+	}
 
 	mad = umad_get_mad(rcvbuf);
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
-		ERRS("MAD completed with error status 0x%x", status);
+		ERRS("MAD completed with error status 0x%x; dport (%s)",
+			status, portid2str(dport));
 		return 0;
 	}
 
