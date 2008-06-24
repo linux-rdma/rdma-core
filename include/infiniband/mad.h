@@ -622,6 +622,7 @@ enum {
 char *	portid2str(ib_portid_t *portid);
 int	portid2portnum(ib_portid_t *portid);
 int	str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid);
+char *  drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size);
 
 static inline int
 ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)

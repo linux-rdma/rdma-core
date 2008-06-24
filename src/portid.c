@@ -114,3 +114,15 @@ str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid)
 
 	return path->cnt;
 }
+
+char *
+drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size)
+{
+	int i = 0;
+	int rc = snprintf(dstr, dstr_size, "slid %d; dlid %d; %d",
+		path->drslid, path->drdlid, path->p[0]);
+	for (i = 1; i <= path->cnt; i++) {
+		rc += snprintf(dstr+rc, dstr_size-rc, ",%d", path->p[i]);
+	}
+	return (dstr);
+}
