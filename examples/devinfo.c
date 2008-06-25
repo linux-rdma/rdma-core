@@ -67,6 +67,17 @@ static const char *guid_str(uint64_t node_guid, char *str)
 	return str;
 }
 
+static const char *port_state_str(enum ibv_port_state pstate)
+{
+	switch (pstate) {
+	case IBV_PORT_DOWN:   return "PORT_DOWN";
+	case IBV_PORT_INIT:   return "PORT_INIT";
+	case IBV_PORT_ARMED:  return "PORT_ARMED";
+	case IBV_PORT_ACTIVE: return "PORT_ACTIVE";
+	default:              return "invalid state";
+	}
+}
+
 static const char *port_phy_state_str(uint8_t phys_state)
 {
 	switch (phys_state) {
@@ -254,7 +265,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		}
 		printf("\t\tport:\t%d\n", port);
 		printf("\t\t\tstate:\t\t\t%s (%d)\n",
-		       ibv_port_state_str(port_attr.state), port_attr.state);
+		       port_state_str(port_attr.state), port_attr.state);
 		printf("\t\t\tmax_mtu:\t\t%s (%d)\n",
 		       mtu_str(port_attr.max_mtu), port_attr.max_mtu);
 		printf("\t\t\tactive_mtu:\t\t%s (%d)\n",
