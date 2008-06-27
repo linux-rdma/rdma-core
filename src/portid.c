@@ -66,23 +66,22 @@ char *
 portid2str(ib_portid_t *portid)
 {
 	static char buf[1024] = "local";
-	char drpath[512];
-	char *s = buf;
+	int n = 0;
 
 	if (portid->lid > 0) {
-		s += sprintf(s, "Lid %d", portid->lid);
+		n += sprintf(buf + n, "Lid %d", portid->lid);
 		if (portid->grh_present) {
 			char gid[sizeof "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"];
 			if (inet_ntop(AF_INET6, portid->gid, gid, sizeof(gid)))
-				s += sprintf(s, " Gid %s", gid);
+				n += sprintf(buf + n, " Gid %s", gid);
 		}
 		if (portid->drpath.cnt)
-			s += sprintf(s, " ");
+			n += sprintf(buf + n, " ");
 		else
 			return buf;
 	}
-	s += sprintf(s, "DR path %s",
-		drpath2str(&(portid->drpath), drpath, sizeof(drpath)));
+	n += sprintf(buf + n, "DR path ");
+	drpath2str(&(portid->drpath), buf + n, sizeof(buf) - n);
 
 	return buf;
 }
