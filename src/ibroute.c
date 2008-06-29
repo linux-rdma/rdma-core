@@ -108,7 +108,11 @@ dump_mlid(char *str, int strlen, int mlid, int nports,
 			mask = ntohs(mft[i][mlid%IB_MLIDS_IN_BLOCK]);
 			if (mask)
 				nonzero++;
-			n += snprintf(str + n, strlen -n, "%04hx", mask);
+			n += snprintf(str + n, strlen - n, "%04hx", mask);
+			if (n >= strlen) {
+				n = strlen;
+				break;
+			}
 		}
 		if (!nonzero && !dump_all) {
 			str[0] = 0;

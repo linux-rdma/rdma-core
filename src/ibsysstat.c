@@ -100,6 +100,8 @@ mk_reply(int attr, void *data, int sz)
 		for (i = 0; i < host_ncpu && sz > 0; i++) {
 			n = snprintf(s, sz, "cpu %d: model %s MHZ %s\n",
 				     i, cpus[i].model, cpus[i].mhz);
+			if (n >= sz)
+				break;
 			sz -= n;
 			s += n;
 		}
