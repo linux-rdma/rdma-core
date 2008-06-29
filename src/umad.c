@@ -133,7 +133,7 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 	port->portnum = portnum;
 	port->pkeys = NULL;
 
-	len = snprintf(port_dir, sizeof port_dir - 1, "%s/%d", dir, portnum);
+	len = snprintf(port_dir, sizeof(port_dir), "%s/%d", dir, portnum);
 
 	if (sys_read_uint(port_dir, SYS_PORT_LMC, &port->lmc) < 0)
 		goto clean;
@@ -352,9 +352,8 @@ get_ca(char *ca_name, umad_ca_t *ca)
 
 	strncpy(ca->ca_name, ca_name, sizeof ca->ca_name);
 
-	snprintf(dir_name, sizeof dir_name - 1, "%s/%s", SYS_INFINIBAND,
+	snprintf(dir_name, sizeof(dir_name), "%s/%s", SYS_INFINIBAND,
 		 ca->ca_name);
-	dir_name[sizeof dir_name - 1] = 0;
 
 	if ((r = sys_read_uint(dir_name, SYS_NODE_TYPE, &ca->node_type)) < 0)
 		return r;
@@ -372,9 +371,8 @@ get_ca(char *ca_name, umad_ca_t *ca)
 	if ((r = sys_read_guid(dir_name, SYS_CA_SYS_GUID, &ca->system_guid)) < 0)
 		return r;
 
-	snprintf(dir_name, sizeof dir_name - 1, "%s/%s/%s",
+	snprintf(dir_name, sizeof(dir_name), "%s/%s/%s",
 		SYS_INFINIBAND, ca->ca_name, SYS_CA_PORTS_DIR);
-	dir_name[sizeof dir_name - 1] = 0;
 
 	if (!(dir = opendir(dir_name)))
 		return -ENOENT;
@@ -437,7 +435,7 @@ umad_id_to_dev(int umad_id, char *dev, unsigned *port)
 	char path[256];
 	int r;
 
-	snprintf(path, sizeof path - 1, SYS_INFINIBAND_MAD "/umad%d/", umad_id);
+	snprintf(path, sizeof(path), SYS_INFINIBAND_MAD "/umad%d/", umad_id);
 
 	if ((r = sys_read_string(path, SYS_IB_MAD_DEV, dev, UMAD_CA_NAME_LEN)) < 0)
 		return r;
@@ -572,7 +570,7 @@ umad_get_issm_path(char *ca_name, int portnum, char path[], int max)
 	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
 		return -EINVAL;
 
-	snprintf(path, max - 1, "%s/issm%u", UMAD_DEV_DIR , umad_id);
+	snprintf(path, max, "%s/issm%u", UMAD_DEV_DIR , umad_id);
 
 	return 0;
 }
@@ -593,7 +591,7 @@ umad_open_port(char *ca_name, int portnum)
 	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
 		return -EINVAL;
 
-	snprintf(dev_file, sizeof dev_file - 1, "%s/umad%d",
+	snprintf(dev_file, sizeof(dev_file), "%s/umad%d",
 		 UMAD_DEV_DIR , umad_id);
 
 	if ((fd = open(dev_file, O_RDWR|O_NONBLOCK)) < 0) {
@@ -655,7 +653,7 @@ umad_get_port(char *ca_name, int portnum, umad_port_t *port)
 	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
 		return -ENODEV;
 
-	snprintf(dir_name, sizeof dir_name - 1, "%s/%s/%s",
+	snprintf(dir_name, sizeof(dir_name), "%s/%s/%s",
 		SYS_INFINIBAND, ca_name, SYS_CA_PORTS_DIR);
 
 	return get_port(ca_name, dir_name, portnum, port);
