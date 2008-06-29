@@ -134,6 +134,8 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 	port->pkeys = NULL;
 
 	len = snprintf(port_dir, sizeof(port_dir), "%s/%d", dir, portnum);
+	if (len < 0 || len > sizeof(port_dir))
+		goto clean;
 
 	if (sys_read_uint(port_dir, SYS_PORT_LMC, &port->lmc) < 0)
 		goto clean;
