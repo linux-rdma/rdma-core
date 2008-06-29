@@ -193,21 +193,23 @@ mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 static void
 dump_linkwidth(char *buf, int bufsz, int width)
 {
-	char *s = buf, *e = s + bufsz;
+	int n = 0;
 
 	if (width & 0x1)
-		s += snprintf(s, e - s, "1X or ");
-	if (s < e && (width & 0x2))
-		s += snprintf(s, e - s, "4X or ");
-	if (s < e && (width & 0x4))
-		s += snprintf(s, e - s, "8X or ");
-	if (s < e && (width & 0x8))
-		s += snprintf(s, e - s, "12X or ");
+		n += snprintf(buf + n, bufsz - n, "1X or ");
+	if (n < bufsz && (width & 0x2))
+		n += snprintf(buf + n, bufsz - n, "4X or ");
+	if (n < bufsz && (width & 0x4))
+		n += snprintf(buf + n, bufsz - n, "8X or ");
+	if (n < bufsz && (width & 0x8))
+		n += snprintf(buf + n, bufsz - n, "12X or ");
 
-	if ((width >> 4) || s == buf)
-		s += snprintf(s, e - s, "undefined (%d)", width);
-	else
-		s[-4] = 0;
+	if (n >= bufsz)
+		return;
+	else if (width == 0 || (width >> 4))
+		snprintf(buf + n, bufsz - n, "undefined (%d)", width);
+	else if (bufsz > 3)
+		buf[n-4] = '\0';
 }
 
 void
@@ -265,19 +267,25 @@ mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
 static void
 dump_linkspeed(char *buf, int bufsz, int speed)
 {
-	char *s = buf, *e = s + bufsz;
+	int n = 0;
 
 	if (speed & 0x1)
-		s += snprintf(s, e - s, "2.5 Gbps or ");
-	if (s < e && (speed & 0x2))
-		s += snprintf(s, e - s, "5.0 Gbps or ");
-	if (s < e && (speed & 0x4))
-		s += snprintf(s, e - s, "10.0 Gbps or ");
+		n += snprintf(buf + n, bufsz - n, "2.5 Gbps or ");
+	if (n < bufsz && (speed & 0x2))
+		n += snprintf(buf + n, bufsz - n, "5.0 Gbps or ");
+	if (n < bufsz && (speed & 0x4))
+		n += snprintf(buf + n, bufsz - n, "10.0 Gbps or ");
 
-	if ((speed >> 3) || s == buf)
-		s += snprintf(s, e - s, "undefined (%d)", speed);
-	else
-		s[-4] = 0;
+	if (n >= bufsz)
+		return;
+	else if (speed == 0 || (speed >> 3)) {
+		n += snprintf(buf + n, bufsz - n, "undefined (%d)", speed);
+		if (n >= bufsz)
+			return;
+	} else if (bufsz > 3) {
+		buf[n-4] = '\0';
+		n -= 4;
+	}
 
 	switch (speed) {
 	case 1:
@@ -287,7 +295,7 @@ dump_linkspeed(char *buf, int bufsz, int speed)
 		break;
 	default:
 		if (!(speed >> 3))
-			snprintf(s, e - s, " (IBA extension)");
+			snprintf(buf + n, bufsz - n, " (IBA extension)");
 		break;
 	}
 }
@@ -613,6 +621,8 @@ mad_dump_sltovl(char *buf, int bufsz, void *val, int valsz)
 	for (i = 0; i < 16; i++) {
 		ib_slvl_get_i(p_slvl_tbl, i, &vl);
 		n += snprintf(buf + n, bufsz - n, "%2u|", vl);
+		if (n >= bufsz)
+			break;
 	}
 	snprintf(buf + n, bufsz - n, "\n");
 }
@@ -627,15 +637,24 @@ mad_dump_vlarbitration(char *buf, int bufsz, void *val, int num)
 	num /= sizeof(p_vla_tbl->vl_entry[0]);
 
 	n = snprintf(buf, bufsz, "\nVL    : |");
+	if (n >= bufsz)
+		return;
 	for (i = 0; i < num; i++) {
 		ib_vl_arb_get_vl(p_vla_tbl->vl_entry[i].res_vl, &vl);
 		n += snprintf(buf + n, bufsz - n, "0x%-2X|", vl);
+		if (n >= bufsz)
+			return;
 	}
 
 	n += snprintf(buf + n, bufsz - n, "\nWEIGHT: |");
-	for (i = 0; i < num; i++)
+	if (n >= bufsz)
+		return;
+	for (i = 0; i < num; i++) {
 		n += snprintf(buf + n, bufsz - n, "0x%-2X|",
 			      p_vla_tbl->vl_entry[i].weight);
+		if (n >= bufsz)
+			return;
+	}
 
 	snprintf(buf + n, bufsz - n, "\n");
 }

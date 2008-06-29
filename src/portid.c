@@ -115,8 +115,12 @@ drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size)
 	int i = 0;
 	int rc = snprintf(dstr, dstr_size, "slid %d; dlid %d; %d",
 		path->drslid, path->drdlid, path->p[0]);
+	if (rc >= dstr_size)
+		return dstr;
 	for (i = 1; i <= path->cnt; i++) {
 		rc += snprintf(dstr+rc, dstr_size-rc, ",%d", path->p[i]);
+		if (rc >= dstr_size)
+			break;
 	}
 	return (dstr);
 }
