@@ -60,6 +60,8 @@ my $lft_line;
 my $lids_per_port;
 my $lids_per_port_calculated;
 
+my $iblinkinfo_regenerate = 0;
+
 my $cache_file;
 
 sub usage
@@ -161,7 +163,13 @@ sub output_switch_port_usage
 	my $ret;
 
 	# Run command once to reduce number of calls to iblinkinfo.pl
-	$iblinkinfo_output = `iblinkinfo.pl -S $switch_guid`;
+        if ($regenerate_cache && !$iblinkinfo_regenerate) {
+            $iblinkinfo_output = `iblinkinfo.pl -R -S $switch_guid`;
+            $iblinkinfo_regenerate++;
+        }
+        else {
+            $iblinkinfo_output = `iblinkinfo.pl -S $switch_guid`;
+        }
 
 	for $port (@ports) {
 		if (!defined($switch_port_count{$port})) {
