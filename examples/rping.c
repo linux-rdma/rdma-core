@@ -143,9 +143,8 @@ struct rping_cb {
 	enum test_state state;		/* used for cond/signalling */
 	sem_t sem;
 
+	struct sockaddr_in sin;
 	uint16_t port;			/* dst port in NBO */
-	uint32_t addr;			/* dst addr in NBO */
-	char *addr_str;			/* dst addr string */
 	int verbose;			/* verbose logging */
 	int count;			/* ping count */
 	int size;			/* ping data size */
@@ -728,15 +727,10 @@ static int rping_test_server(struct rping_cb *cb)
 
 static int rping_bind_server(struct rping_cb *cb)
 {
-	struct sockaddr_in sin;
 	int ret;
 
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = cb->addr;
-	sin.sin_port = cb->port;
-
-	ret = rdma_bind_addr(cb->cm_id, (struct sockaddr *) &sin);
+	cb->sin.sin_port = cb->port;
+	ret = rdma_bind_addr(cb->cm_id, (struct sockaddr *) &cb->sin);
 	if (ret) {
 		fprintf(stderr, "rdma_bind_addr error %d\n", ret);
 		return ret;
@@ -996,16 +990,10 @@ static int rping_connect_client(struct rping_cb *cb)
 
 static int rping_bind_client(struct rping_cb *cb)
 {
-	struct sockaddr_in sin;
 	int ret;
 
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = cb->addr;
-	sin.sin_port = cb->port;
-
-	ret = rdma_resolve_addr(cb->cm_id, NULL, (struct sockaddr *) &sin,
-				2000);
+	cb->sin.sin_port = cb->port;
+	ret = rdma_resolve_addr(cb->cm_id, NULL, (struct sockaddr *) &cb->sin, 2000);
 	if (ret) {
 		fprintf(stderr, "rdma_resolve_addr error %d\n", ret);
 		return ret;
@@ -1067,6 +1055,28 @@ err1:
 	return ret;
 }
 
+static int get_addr(char *dst, struct sockaddr_in *addr)
+{
+	struct addrinfo *res;
+	int ret;
+
+	ret = getaddrinfo(dst, NULL, NULL, &res);
+	if (ret) {
+		printf("getaddrinfo failed - invalid hostname or IP address\n");
+		return ret;
+	}
+
+	if (res->ai_family != PF_INET) {
+		ret = -1;
+		goto out;
+	}
+
+	*addr = *(struct sockaddr_in *) res->ai_addr;
+out:
+	freeaddrinfo(res);
+	return ret;
+}
+
 static void usage(char *name)
 {
 	printf("%s -s [-vVd] [-S size] [-C count] [-a addr] [-p port]\n", 
@@ -1100,6 +1110,7 @@ int main(int argc, char *argv[])
 	cb->server = -1;
 	cb->state = IDLE;
 	cb->size = 64;
+	cb->sin.sin_family = PF_INET;
 	cb->port = htons(7174);
 	sem_init(&cb->sem, 0, 0);
 
@@ -1107,9 +1118,7 @@ int main(int argc, char *argv[])
 	while ((op=getopt(argc, argv, "a:Pp:C:S:t:scvVd")) != -1) {
 		switch (op) {
 		case 'a':
-			cb->addr_str = optarg;
-			cb->addr = inet_addr(optarg);
-			DEBUG_LOG("ipaddr (%s)\n", optarg);
+			ret = get_addr(optarg, &cb->sin);
 			break;
 		case 'P':
 			persistent_server = 1;
