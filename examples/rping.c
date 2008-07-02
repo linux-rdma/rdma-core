@@ -227,9 +227,8 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 		break;
 
 	default:
-		fprintf(stderr, "oof bad type!\n");
-		sem_post(&cb->sem);
-		ret = -1;
+		fprintf(stderr, "unhandled event: %s, ignoring\n",
+			rdma_event_str(event->event));
 		break;
 	}
 

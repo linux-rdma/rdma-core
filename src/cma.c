@@ -1438,6 +1438,8 @@ const char *rdma_event_str(enum rdma_cm_event_type event)
 		return "RDMA_CM_EVENT_MULTICAST_JOIN";
 	case RDMA_CM_EVENT_MULTICAST_ERROR:
 		return "RDMA_CM_EVENT_MULTICAST_ERROR";
+	case RDMA_CM_EVENT_ADDR_CHANGE:
+		return "RDMA_CM_EVENT_ADDR_CHANGE";
 	default:
 		return "UNKNOWN EVENT";
 	}

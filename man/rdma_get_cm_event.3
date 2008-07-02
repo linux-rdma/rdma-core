@@ -140,6 +140,11 @@ The multicast join operation (rdma_join_multicast) completed successfully.
 An error either occurred joining a multicast group, or, if the group had
 already been joined, on an existing group.  The specified multicast group is
 no longer accessible and should be rejoined, if desired.
+.IP RDMA_CM_EVENT_ADDR_CHANGE_
+The network device associated with this ID through address resolution changed its
+HW address, eg following of bonding failover. This event can serve as a hint for
+applications who want the links used for their RDMA sessions to align with the
+network stack.
 .SH "SEE ALSO"
 rdma_ack_cm_event(3), rdma_create_event_channel(3), rdma_resolve_addr(3),
 rdma_resolve_route(3), rdma_connect(3), rdma_listen(3), rdma_join_multicast(3),
