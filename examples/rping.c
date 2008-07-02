@@ -1160,7 +1160,7 @@ int main(int argc, char *argv[])
 		default:
 			usage("rping");
 			ret = EINVAL;
-			break;
+			goto out;
 		}
 	}
 	if (ret)
