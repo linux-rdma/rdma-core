@@ -140,11 +140,16 @@ The multicast join operation (rdma_join_multicast) completed successfully.
 An error either occurred joining a multicast group, or, if the group had
 already been joined, on an existing group.  The specified multicast group is
 no longer accessible and should be rejoined, if desired.
-.IP RDMA_CM_EVENT_ADDR_CHANGE_
-The network device associated with this ID through address resolution changed its
-HW address, eg following of bonding failover. This event can serve as a hint for
-applications who want the links used for their RDMA sessions to align with the
-network stack.
+.IP RDMA_CM_EVENT_ADDR_CHANGE
+The network device associated with this ID through address resolution changed
+its HW address, eg following of bonding failover. This event can serve as a
+hint for applications who want the links used for their RDMA sessions to
+align with the network stack.
+.IP RDMA_CM_EVENT_TIMEWAIT_EXIT
+The QP associated with a connection has exited its timewait state and is now
+ready to be re-used.  After a QP has been disconnected, it is maintained in
+a timewait state to allow any in flight packets to exit the network.  After
+the timewait state has completed, the rdma_cm will report this event.
 .SH "SEE ALSO"
 rdma_ack_cm_event(3), rdma_create_event_channel(3), rdma_resolve_addr(3),
 rdma_resolve_route(3), rdma_connect(3), rdma_listen(3), rdma_join_multicast(3),
