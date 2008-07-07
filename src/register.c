@@ -97,6 +97,8 @@ mgmt_class_vers(int mgmt_class)
 			return 1;
 		case IB_DEVICE_MGMT_CLASS:
 			return 1;
+		case IB_CC_CLASS:
+			return 2;
 	}
 
 	return 0;
