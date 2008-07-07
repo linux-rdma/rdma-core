@@ -213,7 +213,7 @@ void *
 mad_rpc_rmpp(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
 	     ib_rmpp_hdr_t *rmpp, void *data)
 {
-	struct ibmad_port *p = port_id;
+	const struct ibmad_port *p = port_id;
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
