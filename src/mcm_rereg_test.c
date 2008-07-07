@@ -99,7 +99,6 @@ static void build_mcm_rec_umad(void *umad, ib_portid_t *dport, int method,
 	rpc.datasz = IB_SA_DATA_SIZE;
 	rpc.dataoffs = IB_SA_DATA_OFFS;
 
-
 	mad_build_pkt(umad, &rpc, dport, NULL, data);
 }
 
