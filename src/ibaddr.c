@@ -40,6 +40,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <getopt.h>
+#include <arpa/inet.h>
 
 #include <infiniband/common.h>
 #include <infiniband/umad.h>
@@ -52,6 +53,7 @@ char *argv0 = "ibaddr";
 static int
 ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 {
+	char   gid_str[INET6_ADDRSTRLEN];
 	uint8_t portinfo[64];
 	uint8_t nodeinfo[64];
 	uint64_t guid, prefix;
@@ -74,7 +76,8 @@ ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 	mad_encode_field(gid, IB_GID_GUID_F, &guid);
 
 	if (show_gid) {
-		printf("GID 0x%s%s ", mad_dump_val(IB_GID_PREFIX_F, buf1, sizeof buf1, &prefix), mad_dump_val(IB_GID_GUID_F, buf2, sizeof buf2, &guid));
+		printf("GID %s ", inet_ntop(AF_INET6, gid, gid_str,
+			sizeof gid_str));
 	}
 
 	if (show_lid > 0)
