@@ -193,13 +193,13 @@ print_node_record(ib_node_record_t *node_record)
 
 static void dump_path_record(void *data)
 {
+	char gid_str[INET6_ADDRSTRLEN];
+	char gid_str2[INET6_ADDRSTRLEN];
 	ib_path_rec_t *p_pr = data;
 	printf("PathRecord dump:\n"
 	       "\t\tservice_id..............0x%016" PRIx64 "\n"
-	       "\t\tdgid....................0x%016" PRIx64 " : "
-	       "0x%016" PRIx64 "\n"
-	       "\t\tsgid....................0x%016" PRIx64 " : "
-	       "0x%016" PRIx64 "\n"
+	       "\t\tdgid....................%s\n"
+	       "\t\tsgid....................%s\n"
 	       "\t\tdlid....................0x%X\n"
 	       "\t\tslid....................0x%X\n"
 	       "\t\thop_flow_raw............0x%X\n"
@@ -216,10 +216,8 @@ static void dump_path_record(void *data)
 	       "\t\tresv3...................0x%X\n"
 	       "",
 	       cl_ntoh64( p_pr->service_id ),
-	       cl_ntoh64( p_pr->dgid.unicast.prefix ),
-	       cl_ntoh64( p_pr->dgid.unicast.interface_id ),
-	       cl_ntoh64( p_pr->sgid.unicast.prefix ),
-	       cl_ntoh64( p_pr->sgid.unicast.interface_id ),
+	       inet_ntop(AF_INET6, p_pr->dgid.raw, gid_str, sizeof gid_str),
+	       inet_ntop(AF_INET6, p_pr->sgid.raw, gid_str2, sizeof gid_str2),
 	       cl_ntoh16( p_pr->dlid ),
 	       cl_ntoh16( p_pr->slid ),
 	       cl_ntoh32( p_pr->hop_flow_raw ),
@@ -237,32 +235,10 @@ static void dump_path_record(void *data)
 	       );
 }
 
-/**
- * str must be longer than 32 to hold the full gid.
- * len will be checked to ensure this.
- */
-static char *
-sprint_gid(ib_gid_t *gid, char *str, size_t len)
-{
-	int  i = 0;
-	char tmp[16];
-
-	assert(str != NULL);
-	assert(len > 32);
-
-	str[0] = '\0';
-	for (i = 0; i < 16; i++) {
-		sprintf(tmp, "%02X", gid->raw[i]);
-		strcat(str, tmp);
-	}
-
-	return (str);
-}
-
 static void dump_class_port_info(void *data)
 {
-	size_t GID_STR_LEN = 256;
-	char   gid_str[GID_STR_LEN];
+	char   gid_str[INET6_ADDRSTRLEN];
+	char   gid_str2[INET6_ADDRSTRLEN];
 	ib_class_port_info_t *class_port_info = data;
 
 	printf("SA ClassPortInfo:\n"
@@ -271,13 +247,13 @@ static void dump_class_port_info(void *data)
 	       "\t\tCapability mask..........0x%04X\n"
 	       "\t\tCapability mask 2........0x%08X\n"
 	       "\t\tResponse time value......0x%02X\n"
-	       "\t\tRedirect GID.............0x%s\n"
+	       "\t\tRedirect GID.............%s\n"
 	       "\t\tRedirect TC/SL/FL........0x%08X\n"
 	       "\t\tRedirect LID.............0x%04X\n"
 	       "\t\tRedirect PKey............0x%04X\n"
 	       "\t\tRedirect QP..............0x%08X\n"
 	       "\t\tRedirect QKey............0x%08X\n"
-	       "\t\tTrap GID.................0x%s\n"
+	       "\t\tTrap GID.................%s\n"
 	       "\t\tTrap TC/SL/FL............0x%08X\n"
 	       "\t\tTrap LID.................0x%04X\n"
 	       "\t\tTrap PKey................0x%04X\n"
@@ -289,13 +265,15 @@ static void dump_class_port_info(void *data)
 	       cl_ntoh16(class_port_info->cap_mask),
 	       ib_class_cap_mask2(class_port_info),
 	       ib_class_resp_time_val(class_port_info),
-	       sprint_gid(&(class_port_info->redir_gid), gid_str, GID_STR_LEN),
+	       inet_ntop(AF_INET6, &(class_port_info->redir_gid), gid_str,
+			sizeof gid_str),
 	       cl_ntoh32(class_port_info->redir_tc_sl_fl),
 	       cl_ntoh16(class_port_info->redir_lid),
 	       cl_ntoh16(class_port_info->redir_pkey),
 	       cl_ntoh32(class_port_info->redir_qp),
 	       cl_ntoh32(class_port_info->redir_qkey),
-	       sprint_gid(&(class_port_info->trap_gid), gid_str, GID_STR_LEN),
+	       inet_ntop(AF_INET6, &(class_port_info->trap_gid), gid_str2,
+			sizeof gid_str2),
 	       cl_ntoh32(class_port_info->trap_tc_sl_fl),
 	       cl_ntoh16(class_port_info->trap_lid),
 	       cl_ntoh16(class_port_info->trap_pkey),
@@ -326,20 +304,19 @@ static void dump_portinfo_record(void *data)
 
 static void dump_multicast_group_record(void *data)
 {
+	char   gid_str[INET6_ADDRSTRLEN];
 	ib_member_rec_t *p_mcmr = data;
 	uint8_t sl;
 	ib_member_get_sl_flow_hop(p_mcmr->sl_flow_hop, &sl, NULL, NULL);
 	printf("MCMemberRecord group dump:\n"
-	       "\t\tMGID....................0x%016" PRIx64 " : "
-	       "0x%016" PRIx64 "\n"
+	       "\t\tMGID....................%s\n"
 	       "\t\tMlid....................0x%X\n"
 	       "\t\tMtu.....................0x%X\n"
 	       "\t\tpkey....................0x%X\n"
 	       "\t\tRate....................0x%X\n"
 	       "\t\tSL......................0x%X\n"
 	       "",
-	       cl_ntoh64( p_mcmr->mgid.unicast.prefix ),
-	       cl_ntoh64( p_mcmr->mgid.unicast.interface_id ),
+	       inet_ntop(AF_INET6, p_mcmr->mgid.raw, gid_str, sizeof gid_str),
 	       cl_ntoh16( p_mcmr->mlid ),
 	       p_mcmr->mtu,
 	       cl_ntoh16( p_mcmr->pkey ),
@@ -350,8 +327,9 @@ static void dump_multicast_group_record(void *data)
 
 static void dump_multicast_member_record(void *data)
 {
+	char   gid_str[INET6_ADDRSTRLEN];
+	char   gid_str2[INET6_ADDRSTRLEN];
 	ib_member_rec_t *p_mcmr = data;
-	uint64_t gid_prefix = cl_ntoh64( p_mcmr->port_gid.unicast.prefix );
 	uint64_t gid_interface_id = cl_ntoh64( p_mcmr->port_gid.unicast.interface_id );
 	uint16_t mlid = cl_ntoh16( p_mcmr->mlid );
 	int      i = 0;
@@ -371,29 +349,26 @@ static void dump_multicast_member_record(void *data)
 
 	if (requested_name) {
 		if (strtol(requested_name, NULL, 0) == mlid) {
-			printf("\t\tPortGid.................0x%016" PRIx64 " : "
-			       "0x%016" PRIx64 " (%s)\n",
-			       gid_prefix,
-			       gid_interface_id,
+			printf("\t\tPortGid.................%s (%s)\n",
+				inet_ntop(AF_INET6, p_mcmr->port_gid.raw,
+					gid_str, sizeof gid_str),
 			       node_name
 			      );
 		}
 	} else {
 		printf("MCMemberRecord member dump:\n"
-		       "\t\tMGID....................0x%016" PRIx64 " : "
-		       "0x%016" PRIx64 "\n"
+		       "\t\tMGID....................%s\n"
 		       "\t\tMlid....................0x%X\n"
-		       "\t\tPortGid.................0x%016" PRIx64 " : "
-		       "0x%016" PRIx64 "\n"
+		       "\t\tPortGid.................%s\n"
 		       "\t\tScopeState..............0x%X\n"
 		       "\t\tProxyJoin...............0x%X\n"
 		       "\t\tNodeDescription.........%s\n"
 		       "",
-		       cl_ntoh64( p_mcmr->mgid.unicast.prefix ),
-		       cl_ntoh64( p_mcmr->mgid.unicast.interface_id ),
+		       inet_ntop(AF_INET6, p_mcmr->mgid.raw, gid_str,
+				sizeof gid_str),
 		       cl_ntoh16( p_mcmr->mlid ),
-		       gid_prefix,
-		       gid_interface_id,
+		       inet_ntop(AF_INET6, p_mcmr->port_gid.raw,
+				gid_str2, sizeof gid_str2),
 		       p_mcmr->scope_state,
 		       p_mcmr->proxy_join,
 		       node_name
@@ -403,6 +378,7 @@ static void dump_multicast_member_record(void *data)
 
 static void dump_service_record(void *data)
 {
+	char   gid_str[INET6_ADDRSTRLEN];
 	char buf_service_key[35];
 	char buf_service_name[65];
 	ib_service_record_t *p_sr = data;
@@ -430,8 +406,7 @@ static void dump_service_record(void *data)
 
 	printf("ServiceRecord dump:\n"
 	       "\t\tServiceID...............0x%016" PRIx64 "\n"
-	       "\t\tServiceGID..............0x%016" PRIx64 " : "
-	       "0x%016" PRIx64 "\n"
+	       "\t\tServiceGID..............%s\n"
 	       "\t\tServiceP_Key............0x%X\n"
 	       "\t\tServiceLease............0x%X\n"
 	       "\t\tServiceKey..............%s\n"
@@ -468,8 +443,8 @@ static void dump_service_record(void *data)
 	       "\t\tServiceData64.2.........0x%016" PRIx64 "\n"
 	       "",
 	       cl_ntoh64( p_sr->service_id ),
-	       cl_ntoh64( p_sr->service_gid.unicast.prefix ),
-	       cl_ntoh64( p_sr->service_gid.unicast.interface_id ),
+	       inet_ntop(AF_INET6, p_sr->service_gid.raw, gid_str,
+			sizeof gid_str),
 	       cl_ntoh16( p_sr->service_pkey ),
 	       cl_ntoh32( p_sr->service_lease ),
 	       buf_service_key,
@@ -501,6 +476,8 @@ static void dump_service_record(void *data)
 
 static void dump_inform_info_record(void *data)
 {
+	char   gid_str[INET6_ADDRSTRLEN];
+	char   gid_str2[INET6_ADDRSTRLEN];
 	ib_inform_info_record_t *p_iir = data;
 	uint32_t qpn;
 	uint8_t  resp_time_val;
@@ -510,11 +487,10 @@ static void dump_inform_info_record(void *data)
 	if (p_iir->inform_info.is_generic) {
 		printf("InformInfoRecord dump:\n"
 		       "\t\tRID\n"
-		       "\t\tSubscriberGID...........0x%016" PRIx64 " : "
-		       "0x%016" PRIx64 "\n"
+		       "\t\tSubscriberGID...........%s\n"
 		       "\t\tSubscriberEnum..........0x%X\n"
 		       "\t\tInformInfo dump:\n"
-		       "\t\tgid.....................0x%016" PRIx64 " : 0x%016" PRIx64 "\n"
+		       "\t\tgid.....................%s\n"
 		       "\t\tlid_range_begin.........0x%X\n"
 		       "\t\tlid_range_end...........0x%X\n"
 		       "\t\tis_generic..............0x%X\n"
@@ -525,11 +501,11 @@ static void dump_inform_info_record(void *data)
 		       "\t\tresp_time_val...........0x%X\n"
 		       "\t\tnode_type...............0x%06X\n"
 		       "",
-		       cl_ntoh64( p_iir->subscriber_gid.unicast.prefix ),
-		       cl_ntoh64( p_iir->subscriber_gid.unicast.interface_id ),
+		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
+				sizeof gid_str),
 		       cl_ntoh16( p_iir->subscriber_enum ),
-		       cl_ntoh64( p_iir->inform_info.gid.unicast.prefix ),
-		       cl_ntoh64( p_iir->inform_info.gid.unicast.interface_id ),
+		       inet_ntop(AF_INET6, p_iir->inform_info.gid.raw, gid_str2,
+				sizeof gid_str2),
 		       cl_ntoh16( p_iir->inform_info.lid_range_begin ),
 		       cl_ntoh16( p_iir->inform_info.lid_range_end ),
 		       p_iir->inform_info.is_generic,
@@ -543,11 +519,10 @@ static void dump_inform_info_record(void *data)
 	} else {
 		printf("InformInfoRecord dump:\n"
 		       "\t\tRID\n"
-		       "\t\tSubscriberGID...........0x%016" PRIx64 " : "
-		       "0x%016" PRIx64 "\n"
+		       "\t\tSubscriberGID...........%s\n"
 		       "\t\tSubscriberEnum..........0x%X\n"
 		       "\t\tInformInfo dump:\n"
-		       "\t\tgid.....................0x%016" PRIx64 " : 0x%016" PRIx64 "\n"
+		       "\t\tgid.....................%s\n"
 		       "\t\tlid_range_begin.........0x%X\n"
 		       "\t\tlid_range_end...........0x%X\n"
 		       "\t\tis_generic..............0x%X\n"
@@ -558,11 +533,11 @@ static void dump_inform_info_record(void *data)
 		       "\t\tresp_time_val...........0x%X\n"
 		       "\t\tvendor_id...............0x%06X\n"
 		       "",
-		       cl_ntoh64( p_iir->subscriber_gid.unicast.prefix ),
-		       cl_ntoh64( p_iir->subscriber_gid.unicast.interface_id ),
+		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
+				sizeof gid_str),
 		       cl_ntoh16( p_iir->subscriber_enum ),
-		       cl_ntoh64( p_iir->inform_info.gid.unicast.prefix ),
-		       cl_ntoh64( p_iir->inform_info.gid.unicast.interface_id ),
+		       inet_ntop(AF_INET6, p_iir->inform_info.gid.raw,
+				gid_str2, sizeof gid_str2),
 		       cl_ntoh16( p_iir->inform_info.lid_range_begin ),
 		       cl_ntoh16( p_iir->inform_info.lid_range_end ),
 		       p_iir->inform_info.is_generic,
