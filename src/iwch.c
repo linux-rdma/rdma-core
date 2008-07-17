@@ -211,7 +211,7 @@ found:
 	cp = strtok(NULL, ".");
 	sscanf(cp, "%i", &fw_min);
 
-	if (fw_maj != FW_MAJ) {
+	if (fw_maj < FW_MAJ) {
 		fprintf(stderr, "libcxgb3: Fatal firmware version mismatch.  "
 			"Firmware major number is %u and libcxgb3 needs %u.\n",
 			fw_maj, FW_MAJ);	
