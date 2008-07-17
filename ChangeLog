@@ -1,6 +1,25 @@
-commit 429c17818121cad98813b37ffedee5f8c643422c
+commit c5d7bf534fd5b0f31b4e2efe48045f48af7f60b1
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Tue May 13 09:08:51 2008 -0500
+Date:   Wed Jul 16 19:52:32 2008 -0500
+
+    Spin release 1.2.2
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 13b5d73ee50d680485b2e8772905f5cb288f0983
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 3 15:31:36 2008 -0500
+
+    Relax the required firmware level.
+    
+    Turns out that libcxgb3 can really run on either 6.0 or 5.0
+    firmware.  So I'm relaxing the requirement...
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 6f7485feb244d8571fcab2292ef92c97bea48df0
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue May 13 09:09:35 2008 -0500
 
     Spin release 1.2.1.
     
