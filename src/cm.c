@@ -67,6 +67,10 @@
 static int abi_ver;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
+enum {
+	IB_UCM_MAX_DEVICES = 32
+};
+
 #define CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, type, size) \
 do {                                        \
 	struct cm_abi_cmd_hdr *hdr;         \
@@ -147,12 +151,42 @@ static int ucm_init(void)
 	return ret;
 }
 
+static int ucm_get_dev_index(char *dev_name)
+{
+	char *dev_path;
+	char ibdev[IBV_SYSFS_NAME_MAX];
+	int i, ret;
+
+	for (i = 0; i < IB_UCM_MAX_DEVICES; i++) {
+		ret = asprintf(&dev_path, "/sys/class/infiniband_cm/ucm%d", i);
+		if (ret < 0)
+			return -1;
+
+		ret = ibv_read_sysfs_file(dev_path, "ibdev", ibdev, sizeof ibdev);
+		if (ret < 0)
+			continue;
+
+		if (!strcmp(dev_name, ibdev)) {
+			free(dev_path);
+			return i;
+		}
+
+		free(dev_path);
+	}
+	return -1;
+}
+
 struct ib_cm_device* ib_cm_open_device(struct ibv_context *device_context)
 {
 	struct ib_cm_device *dev;
 	char *dev_path;
+	int index, ret;
 
 	if (ucm_init())
+		return NULL;
+
+	index = ucm_get_dev_index(device_context->device->name);
+	if (index < 0)
 		return NULL;
 
 	dev = malloc(sizeof *dev);
@@ -161,21 +195,20 @@ struct ib_cm_device* ib_cm_open_device(struct ibv_context *device_context)
 
 	dev->device_context = device_context;
 
-	if (asprintf(&dev_path, "/dev/infiniband/ucm%s",
-		 device_context->device->dev_name + sizeof("uverbs") - 1) < 0)
-		goto err2;
+	ret = asprintf(&dev_path, "/dev/infiniband/ucm%d", index);
+	if (ret < 0)
+		goto err1;
 
 	dev->fd = open(dev_path, O_RDWR);
-	if (dev->fd < 0) {
-		goto err;
-	}
+	if (dev->fd < 0)
+		goto err2;
 
 	free(dev_path);
 	return dev;
 
-err:
-	free(dev_path);
 err2:
+	free(dev_path);
+err1:
 	free(dev);
 	return NULL;
 }
