@@ -98,7 +98,7 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 
 #define mb()	 asm volatile("sync" ::: "memory")
 #define rmb()	 mb()
-#define wmb()	 asm volatile("eieio" ::: "memory")
+#define wmb()	 mb()
 #define wc_wmb() wmb()
 
 #elif defined(__sparc_v9__)
