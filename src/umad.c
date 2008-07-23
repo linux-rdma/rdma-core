@@ -499,6 +499,19 @@ umad_done(void)
 	return 0;
 }
 
+static unsigned is_ib_type(char *ca_name)
+{
+	char dir_name[256];
+	unsigned type;
+
+	snprintf(dir_name, sizeof(dir_name), "%s/%s", SYS_INFINIBAND, ca_name);
+
+	if (sys_read_uint(dir_name, SYS_NODE_TYPE, &type) < 0)
+		return 0;
+
+	return type >= 1 && type <= 3 ? 1 : 0;
+}
+
 int
 umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 {
@@ -512,7 +525,7 @@ umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 		for (i = 0; i < n; i++) {
 			if (strcmp(namelist[i]->d_name, ".") &&
 			    strcmp(namelist[i]->d_name, "..")) {
-				if (j < max)
+				if (j < max && is_ib_type(namelist[i]->d_name))
 					strncpy(cas[j++], namelist[i]->d_name,
 						UMAD_CA_NAME_LEN);
 			}
