@@ -330,7 +330,6 @@ static void dump_multicast_member_record(void *data)
 	char   gid_str[INET6_ADDRSTRLEN];
 	char   gid_str2[INET6_ADDRSTRLEN];
 	ib_member_rec_t *p_mcmr = data;
-	uint64_t gid_interface_id = cl_ntoh64( p_mcmr->port_gid.unicast.interface_id );
 	uint16_t mlid = cl_ntoh16( p_mcmr->mlid );
 	int      i = 0;
 	char *node_name = "<unknown>";
@@ -341,7 +340,7 @@ static void dump_multicast_member_record(void *data)
 	 */
 	for (i = 0; i < result.result_cnt; i++) {
 		ib_node_record_t *nr = osmv_get_query_node_rec(result.p_result_madw, i);
-		if (cl_ntoh64(nr->node_info.port_guid) == gid_interface_id) {
+		if (nr->node_info.port_guid == p_mcmr->port_gid.unicast.interface_id) {
 			node_name = clean_nodedesc((char *)nr->node_desc.description);
 			break;
 		}
