@@ -57,7 +57,6 @@ ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 	uint8_t portinfo[64];
 	uint8_t nodeinfo[64];
 	uint64_t guid, prefix;
-	char buf1[64], buf2[64];
 	ibmad_gid_t gid;
 	int lmc;
 
