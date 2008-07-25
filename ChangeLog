@@ -1,7 +1,7 @@
 2008-06-15 Max Matveev <makc@sgi.com>
 	* Add extra entry points for most functions to allow explicit
 	  selection of HCA for MAD rpc.
-	* constify MAD port pointer for mad_rcp, mad_rpc_rmpp and sa_rpc_call
+	* Constify MAD port pointer for mad_rpc, mad_rpc_rmpp, and sa_rpc_call
 
 2007-07-10  Hal Rosenstock <halr@voltaire.com>
 
