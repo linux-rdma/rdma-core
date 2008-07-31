@@ -324,6 +324,9 @@ struct ib_cm_attr_param {
 int ib_cm_attr_id(struct ib_cm_id *cm_id,
 		  struct ib_cm_attr_param *param);
 
+#define IB_CM_ASSIGN_SERVICE_ID_MASK __constant_cpu_to_be64(0xFF00000000000000ULL)
+#define IB_CM_ASSIGN_SERVICE_ID      __constant_cpu_to_be64(0x0200000000000000ULL)
+
 /**
  * ib_cm_listen - Initiates listening on the specified service ID for
  *   connection and service ID resolution requests.
