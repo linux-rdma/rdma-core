@@ -140,9 +140,7 @@ struct cma_multicast {
 	uint32_t	handle;
 	union ibv_gid	mgid;
 	uint16_t	mlid;
-	struct sockaddr addr;
-	uint8_t		pad[sizeof(struct sockaddr_in6) -
-			    sizeof(struct sockaddr)];
+	struct sockaddr_storage addr;
 };
 
 struct cma_event {
