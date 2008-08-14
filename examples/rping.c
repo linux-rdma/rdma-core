@@ -143,7 +143,7 @@ struct rping_cb {
 	enum test_state state;		/* used for cond/signalling */
 	sem_t sem;
 
-	struct sockaddr_in sin;
+	struct sockaddr_storage sin;
 	uint16_t port;			/* dst port in NBO */
 	int verbose;			/* verbose logging */
 	int count;			/* ping count */
@@ -729,7 +729,11 @@ static int rping_bind_server(struct rping_cb *cb)
 {
 	int ret;
 
-	cb->sin.sin_port = cb->port;
+	if (cb->sin.ss_family == AF_INET)
+		((struct sockaddr_in *) &cb->sin)->sin_port = cb->port;
+	else
+		((struct sockaddr_in6 *) &cb->sin)->sin6_port = cb->port;
+
 	ret = rdma_bind_addr(cb->cm_id, (struct sockaddr *) &cb->sin);
 	if (ret) {
 		fprintf(stderr, "rdma_bind_addr error %d\n", ret);
@@ -992,7 +996,11 @@ static int rping_bind_client(struct rping_cb *cb)
 {
 	int ret;
 
-	cb->sin.sin_port = cb->port;
+	if (cb->sin.ss_family == AF_INET)
+		((struct sockaddr_in *) &cb->sin)->sin_port = cb->port;
+	else
+		((struct sockaddr_in6 *) &cb->sin)->sin6_port = cb->port;
+
 	ret = rdma_resolve_addr(cb->cm_id, NULL, (struct sockaddr *) &cb->sin, 2000);
 	if (ret) {
 		fprintf(stderr, "rdma_resolve_addr error %d\n", ret);
@@ -1055,7 +1063,7 @@ err1:
 	return ret;
 }
 
-static int get_addr(char *dst, struct sockaddr_in *addr)
+static int get_addr(char *dst, struct sockaddr *addr)
 {
 	struct addrinfo *res;
 	int ret;
@@ -1066,13 +1074,13 @@ static int get_addr(char *dst, struct sockaddr_in *addr)
 		return ret;
 	}
 
-	if (res->ai_family != PF_INET) {
+	if (res->ai_family == PF_INET)
+		memcpy(addr, res->ai_addr, sizeof(struct sockaddr_in));
+	else if (res->ai_family == PF_INET6)
+		memcpy(addr, res->ai_addr, sizeof(struct sockaddr_in6));
+	else
 		ret = -1;
-		goto out;
-	}
-
-	*addr = *(struct sockaddr_in *) res->ai_addr;
-out:
+	
 	freeaddrinfo(res);
 	return ret;
 }
@@ -1084,7 +1092,7 @@ static void usage(char *name)
 	printf("%s -c [-vVd] [-S size] [-C count] -a addr [-p port]\n", 
 	       basename(name));
 	printf("\t-c\t\tclient side\n");
-	printf("\t-s\t\tserver side\n");
+	printf("\t-s\t\tserver side.  To bind to any address with IPv6 use -a ::0\n");
 	printf("\t-v\t\tdisplay ping data to stdout\n");
 	printf("\t-V\t\tvalidate ping data\n");
 	printf("\t-d\t\tdebug printfs\n");
@@ -1110,7 +1118,7 @@ int main(int argc, char *argv[])
 	cb->server = -1;
 	cb->state = IDLE;
 	cb->size = 64;
-	cb->sin.sin_family = PF_INET;
+	cb->sin.ss_family = PF_INET;
 	cb->port = htons(7174);
 	sem_init(&cb->sem, 0, 0);
 
@@ -1118,7 +1126,7 @@ int main(int argc, char *argv[])
 	while ((op=getopt(argc, argv, "a:Pp:C:S:t:scvVd")) != -1) {
 		switch (op) {
 		case 'a':
-			ret = get_addr(optarg, &cb->sin);
+			ret = get_addr(optarg, (struct sockaddr *) &cb->sin);
 			break;
 		case 'P':
 			persistent_server = 1;
