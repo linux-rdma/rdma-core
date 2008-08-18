@@ -510,7 +510,7 @@ out_ids(Node *node, int group, char *chname)
 	    && node->chrecord && node->chrecord->chassisnum) {
 		fprintf(f, "\t\t# Chassis %d", node->chrecord->chassisnum);
 		if (chname)
-			fprintf(f, " (%s)", clean_nodedesc(chname));
+			fprintf(f, " (%s)", chname);
 		if (is_xsigo_tca(node->nodeguid) && node->ports->remoteport)
 			fprintf(f, " slot %d", node->ports->remoteport->portnum);
 	}
@@ -569,6 +569,8 @@ out_ca(Node *node, int group, char *chname)
 {
 	char *node_type;
 	char *node_type2;
+	char *nodename = remap_node_name(node_name_map, node->nodeguid,
+					      node->nodedesc);
 
 	out_ids(node, group, chname);
 	switch(node->type) {
@@ -589,10 +591,12 @@ out_ca(Node *node, int group, char *chname)
 	fprintf(f, "%sguid=0x%" PRIx64 "\n", node_type, node->nodeguid);
 	fprintf(f, "%s\t%d %s\t\t# \"%s\"",
 		node_type2, node->numports, node_name(node),
-		clean_nodedesc(node->nodedesc));
+		nodename);
 	if (group && is_xsigo_hca(node->nodeguid))
 		fprintf(f, " (scp)");
 	fprintf(f, "\n");
+
+	free(nodename);
 }
 
 static char *
@@ -705,6 +709,8 @@ dump_topology(int listtype, int group)
 			if (!ch->chassisnum)
 				continue;
 			chguid = out_chassis(ch->chassisnum);
+			if (chname)
+				free(chname);
 			chname = NULL;
 			if (is_xsigo_guid(chguid)) {
 				for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
@@ -716,8 +722,10 @@ dump_topology(int listtype, int group)
 						continue;
 
 					if (is_xsigo_hca(node->nodeguid)) {
-						chname = node->nodedesc;
-						fprintf(f, "Hostname: %s\n", clean_nodedesc(node->nodedesc));
+						chname = remap_node_name(node_name_map,
+								node->nodeguid,
+								node->nodedesc);
+						fprintf(f, "Hostname: %s\n", chname);
 					}
 				}
 			}
@@ -804,6 +812,8 @@ dump_topology(int listtype, int group)
 		}
 	}
 
+	if (chname)
+		free(chname);
 	chname = NULL;
 	if (group && !listtype) {
 
@@ -850,6 +860,9 @@ dump_topology(int listtype, int group)
 			if (port->remoteport)
 				out_ca_port(port, group);
 	}
+
+	if (chname)
+		free(chname);
 
 	return i;
 }
