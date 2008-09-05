@@ -424,7 +424,7 @@ discover(ib_portid_t *from)
 
 				if (get_port(&port_buf, i, path) < 0) {
 					IBWARN("can't reach node %s port %d", portid2str(path), i);
-					return 0;
+					continue;
 				}
 
 				port = find_port(node, &port_buf);
