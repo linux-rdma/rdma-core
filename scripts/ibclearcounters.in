@@ -3,7 +3,7 @@
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
 function usage() {
-	echo Usage: `basename $0` "[-h] [-N | -nocolor] [<topology-file>" \
+	echo Usage: `basename $0` "[-h] [<topology-file>" \
 	    "| -C ca_name -P ca_port -t(imeout) timeout_ms]"
 	exit -1
 }
@@ -25,9 +25,6 @@ while [ "$1" ]; do
 	case $1 in
 	-h)
 		usage
-		;;
-	-N|-nocolor)
-		gflags=-N
 		;;
 	-P | -C | -t | -timeout)
 		case $2 in
