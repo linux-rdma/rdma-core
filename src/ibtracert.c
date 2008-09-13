@@ -673,6 +673,20 @@ free_name:
 	free(nodename);
 }
 
+static int resolve_lid(ib_portid_t  *portid, const void *srcport)
+{
+	uint8_t portinfo[64];
+	uint16_t lid;
+
+	if (!smp_query_via(portinfo, portid, IB_ATTR_PORT_INFO, 0, 0, srcport))
+		return -1;
+	mad_decode_field(portinfo, IB_PORT_LID_F, &lid);
+
+	ib_portid_set(portid, lid, 0, 0);
+
+	return 0;
+}
+
 static void
 usage(void)
 {
@@ -805,6 +819,15 @@ main(int argc, char **argv)
 
 	if (ib_resolve_portid_str(&dest_portid, argv[1], dest_type, sm_id) < 0)
 		IBERROR("can't resolve destination port %s", argv[1]);
+
+	if (dest_type == IB_DEST_DRPATH) {
+		if (resolve_lid(&src_portid, NULL) < 0)
+			IBERROR("cannot resolve lid for port \'%s\'",
+				portid2str(&src_portid));
+		if (resolve_lid(&dest_portid, NULL) < 0)
+			IBERROR("cannot resolve lid for port \'%s\'",
+				portid2str(&dest_portid));
+	}
 
 	if (dest_portid.lid == 0 || src_portid.lid == 0) {
 		IBWARN("bad src/dest lid");
