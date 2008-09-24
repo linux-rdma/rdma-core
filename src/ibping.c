@@ -174,7 +174,7 @@ report(int sig)
 	printf("\n--- %s (%s) ibping statistics ---\n", last_host, portid2str(&portid));
 	printf("%" PRIu64 " packets transmitted, %" PRIu64 " received, %" PRIu64 "%% packet loss, time %" PRIu64 " ms\n",
 		ntrans, replied,
-		(lost != 0) ?  lost * 100ull / ntrans : 0ull, total_time / 1000ull);
+		(lost != 0) ?  lost * 100 / ntrans : 0, total_time / 1000);
 	printf("rtt min/avg/max = %" PRIu64 ".%03" PRIu64 "/%" PRIu64 ".%03" PRIu64 "/%" PRIu64 ".%03" PRIu64 " ms\n",
 		minrtt == ~0ull ? 0 : minrtt/1000,
 		minrtt == ~0ull ? 0 : minrtt%1000,
