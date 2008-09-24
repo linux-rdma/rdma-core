@@ -115,13 +115,13 @@ mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "0x%08x", *(uint32_t *)val);
 		break;
 	case 5:
-		snprintf(buf, bufsz, "0x%010" PRIx64, *(uint64_t *)val & 0xffffffffffllu);
+		snprintf(buf, bufsz, "0x%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffllu);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "0x%012" PRIx64, *(uint64_t *)val & 0xffffffffffffllu);
+		snprintf(buf, bufsz, "0x%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffllu);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "0x%014" PRIx64, *(uint64_t *)val & 0xffffffffffffffllu);
+		snprintf(buf, bufsz, "0x%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffllu);
 		break;
 	case 8:
 		snprintf(buf, bufsz, "0x%016" PRIx64, *(uint64_t *)val);
@@ -149,13 +149,13 @@ mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "%08x", *(uint32_t *)val);
 		break;
 	case 5:
-		snprintf(buf, bufsz, "%010" PRIx64, *(uint64_t *)val & 0xffffffffffllu);
+		snprintf(buf, bufsz, "%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffllu);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "%012" PRIx64, *(uint64_t *)val & 0xffffffffffffllu);
+		snprintf(buf, bufsz, "%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffllu);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "%014" PRIx64, *(uint64_t *)val & 0xffffffffffffffllu);
+		snprintf(buf, bufsz, "%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffllu);
 		break;
 	case 8:
 		snprintf(buf, bufsz, "%016" PRIx64, *(uint64_t *)val);
