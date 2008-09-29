@@ -100,8 +100,10 @@ mk_reply(int attr, void *data, int sz)
 		for (i = 0; i < host_ncpu && sz > 0; i++) {
 			n = snprintf(s, sz, "cpu %d: model %s MHZ %s\n",
 				     i, cpus[i].model, cpus[i].mhz);
-			if (n >= sz)
+			if (n >= sz) {
+				IBWARN("cpuinfo truncated");
 				break;
+			}
 			sz -= n;
 			s += n;
 		}
@@ -187,14 +189,16 @@ build_cpuinfo(void)
 	FILE *f;
 	int ncpu = 0;
 
-	if (!(f = fopen("/proc/cpuinfo", "r")))
-		return -1;
+	if (!(f = fopen("/proc/cpuinfo", "r"))) {
+		IBWARN("couldn't open /proc/cpuinfo");
+		return 0;
+	}
 
 	while (fgets(line, sizeof(line) - 1, f)) {
 		if (!strncmp(line, "processor\t", 10)) {
 			ncpu++;
 			if (ncpu > MAX_CPUS)
-				return ncpu;
+				return MAX_CPUS;
 			continue;
 		}
 
