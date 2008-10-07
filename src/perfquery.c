@@ -53,6 +53,8 @@ static uint8_t pc[1024];
 
 char *argv0 = "perfquery";
 
+#define ALL_PORTS 0xFF
+
 static void
 usage(void)
 {
@@ -139,7 +141,7 @@ main(int argc, char **argv)
 			break;
 		case 'a':
 			all++;
-			port = 0xff;
+			port = ALL_PORTS;
 			break;
 		case 'd':
 			ibdebug++;
@@ -198,7 +200,7 @@ main(int argc, char **argv)
 	memcpy(&cap_mask, pc+2, sizeof(cap_mask));	/* CapabilityMask */
 	cap_mask = ntohs(cap_mask);
 	if (!(cap_mask & 0x100)) /* bit 8 is AllPortSelect */
-		if (port == 255) {
+		if (port == ALL_PORTS) {
 			allports = 1;
 			IBWARN("AllPortSelect not supported");
 		}
@@ -232,7 +234,7 @@ main(int argc, char **argv)
 			IBERROR("perfquery");
 
 		if (allports == 1)
-			pc[1] = 255;	/* fake PortSelect */
+			pc[1] = ALL_PORTS;	/* fake PortSelect */
 
 		mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
 	} else {
@@ -243,7 +245,7 @@ main(int argc, char **argv)
 			IBERROR("perfextquery");
 
 		if (allports == 1)
-			pc[1] = 255;	/* fake PortSelect */
+			pc[1] = ALL_PORTS;	/* fake PortSelect */
 
 		mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
 	}
