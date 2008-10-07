@@ -65,7 +65,7 @@ usage(void)
 	else
 		basename++;
 
-	fprintf(stderr, "Usage: %s [-d(ebug) -G(uid) -a(ll_ports) -r(eset_after_read) -C ca_name -P ca_port "
+	fprintf(stderr, "Usage: %s [-d(ebug) -G(uid) -a(ll_ports) -l(oop_ports) -r(eset_after_read) -C ca_name -P ca_port "
 			"-R(eset_only) -t(imeout) timeout_ms -V(ersion) -h(elp)] [<lid|guid> [[port] [reset_mask]]]\n",
 			basename);
 	fprintf(stderr, "\tExamples:\n");
@@ -83,6 +83,46 @@ usage(void)
 	exit(-1);
 }
 
+static void dump_perfcounters(int extended, int allports, int timeout,
+			      uint16_t cap_mask, ib_portid_t *portid, int port)
+{
+	char buf[1024];
+
+	if (extended != 1) {
+		if (!port_performance_query(pc, portid, port, timeout))
+			IBERROR("perfquery");
+
+		if (allports == 1)
+			pc[1] = ALL_PORTS;	/* fake PortSelect */
+
+		mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
+	} else {
+		if (!(cap_mask & 0x200)) /* 1.2 errata: bit 9 is extended counter support */
+			IBWARN("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n", cap_mask);
+
+		if (!port_performance_ext_query(pc, portid, port, timeout))
+			IBERROR("perfextquery");
+
+		if (allports == 1)
+			pc[1] = ALL_PORTS;	/* fake PortSelect */
+
+		mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
+	}
+
+	printf("# Port counters: %s port %d\n%s", portid2str(portid), port, buf);
+}
+
+static void reset_counters(int extended, int timeout, int mask, ib_portid_t *portid, int port)
+{
+	if (extended != 1) {
+		if (!port_performance_reset(pc, portid, port, mask, timeout))
+			IBERROR("perf reset");
+	} else {
+		if (!port_performance_ext_reset(pc, portid, port, mask, timeout))
+			IBERROR("perf ext reset");
+	}
+}
+
 int
 main(int argc, char **argv)
 {
@@ -95,17 +135,18 @@ main(int argc, char **argv)
 	int mask = 0xffff, all = 0;
 	int reset = 0, reset_only = 0;
 	int port = 0;
-	char buf[1024];
 	int udebug = 0;
 	char *ca = 0;
 	int ca_port = 0;
 	int extended = 0;
 	uint16_t cap_mask;
 	int allports = 0;
-	int node_type, num_ports;
+	int loop_ports = 0;
+	int node_type, num_ports = 0;
 	uint8_t data[IB_SMP_DATA_SIZE];
+	int i;
 
-	static char const str_opts[] = "C:P:s:t:dGearRVhu";
+	static char const str_opts[] = "C:P:s:t:dGealrRVhu";
 	static const struct option long_opts[] = {
 		{ "C", 1, 0, 'C'},
 		{ "P", 1, 0, 'P'},
@@ -113,6 +154,7 @@ main(int argc, char **argv)
 		{ "Guid", 0, 0, 'G'},
 		{ "extended", 0, 0, 'e'},
 		{ "all_ports", 0, 0, 'a'},
+		{ "loop_ports", 0, 0, 'l'},
 		{ "reset_after_read", 0, 0, 'r'},
 		{ "Reset_only", 0, 0, 'R'},
 		{ "sm_portid", 1, 0, 's'},
@@ -142,6 +184,9 @@ main(int argc, char **argv)
 		case 'a':
 			all++;
 			port = ALL_PORTS;
+			break;
+		case 'l':
+			loop_ports++;
 			break;
 		case 'd':
 			ibdebug++;
@@ -218,51 +263,42 @@ main(int argc, char **argv)
 		if (smp_query(data, &portid, IB_ATTR_NODE_INFO, 0, 0) < 0)
 			IBERROR("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
-		if (node_type != IB_NODE_CA)    /* NodeType other than CA ? */
-			IBERROR("smp query nodeinfo: Node type not CA, cannot simulate AllPortSelect");
 		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
-		if (num_ports != 1)
-			IBERROR("smp query nodeinfo: %d ports; only 1 supported for AllPortSelect simulation", num_ports);
-		port = num_ports;
+		/* If loop_ports not set, can only do the limited simulation we currently allow */
+		if (!loop_ports) {
+			if (node_type != IB_NODE_CA)    /* NodeType other than CA ? */
+				IBERROR("smp query nodeinfo: Node type not CA, cannot simulate AllPortSelect");
+			if (num_ports != 1)
+				IBERROR("smp query nodeinfo: %d ports; only 1 supported for AllPortSelect simulation", num_ports);
+			port = num_ports;
+		}
+		else if (!num_ports)
+			IBERROR("smp query nodeinfo: num ports invalid");
 	}
 
 	if (reset_only)
 		goto do_reset;
 
-	if (extended != 1) {
-		if (!port_performance_query(pc, &portid, port, timeout))
-			IBERROR("perfquery");
-
-		if (allports == 1)
-			pc[1] = ALL_PORTS;	/* fake PortSelect */
-
-		mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
-	} else {
-		if (!(cap_mask & 0x200)) /* 1.2 errata: bit 9 is extended counter support */
-			IBWARN("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n", cap_mask);
-
-		if (!port_performance_ext_query(pc, &portid, port, timeout))
-			IBERROR("perfextquery");
-
-		if (allports == 1)
-			pc[1] = ALL_PORTS;	/* fake PortSelect */
-
-		mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
+	if (allports && loop_ports) {
+		IBWARN("Emulating AllPortSelect by iterating through all ports");
+		for (i = 1; i <= num_ports; i++)
+			dump_perfcounters(extended, 0, timeout, cap_mask, &portid, i);
 	}
-
-	printf("# Port counters: %s port %d\n%s", portid2str(&portid), port, buf);
+	else
+		dump_perfcounters(extended, allports, timeout, cap_mask, &portid, port);
 
 	if (!reset)
 		exit(0);
 
 do_reset:
-	if (extended != 1) {
-		if (!port_performance_reset(pc, &portid, port, mask, timeout))
-			IBERROR("perf reset");
-	} else {
-		if (!port_performance_ext_reset(pc, &portid, port, mask, timeout))
-			IBERROR("perf ext reset");
+
+	if (allports && loop_ports) {
+		IBWARN("Emulating AllPortSelect by iterating through all ports");
+		for (i = 1; i <= num_ports; i++)
+			reset_counters(extended, timeout, mask, &portid, i);
 	}
+	else
+		reset_counters(extended, timeout, mask, &portid, port);
 
 	exit(0);
 }
