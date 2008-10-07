@@ -219,10 +219,10 @@ main(int argc, char **argv)
 			IBERROR("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
 		if (node_type != IB_NODE_CA)    /* NodeType other than CA ? */
-			IBERROR("smp query nodeinfo: Node type not CA");
+			IBERROR("smp query nodeinfo: Node type not CA, cannot simulate AllPortSelect");
 		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
 		if (num_ports != 1)
-			IBERROR("smp query nodeinfo: %d ports; only 1 supported currently", num_ports);
+			IBERROR("smp query nodeinfo: %d ports; only 1 supported for AllPortSelect simulation", num_ports);
 		port = num_ports;
 	}
 
