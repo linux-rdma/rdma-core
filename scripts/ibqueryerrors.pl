@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 #
+# Copyright (c) 2008 Voltaire, Inc. All rights reserved.
 # Copyright (c) 2006 The Regents of the University of California.
 #
 # Produced at Lawrence Livermore National Laboratory.
