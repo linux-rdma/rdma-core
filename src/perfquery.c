@@ -261,13 +261,13 @@ main(int argc, char **argv)
 		 * to determine first and last port to query
 		 */
 
-		/* For now, support single port CAs */
 		if (smp_query(data, &portid, IB_ATTR_NODE_INFO, 0, 0) < 0)
 			IBERROR("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
 		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
 		/* If loop_ports not set, can only do the limited simulation we currently allow */
 		if (!loop_ports) {
+			/* For now, support single port CAs */
 			if (node_type != IB_NODE_CA)    /* NodeType other than CA ? */
 				IBERROR("smp query nodeinfo: Node type not CA, cannot simulate AllPortSelect");
 			if (num_ports != 1)
