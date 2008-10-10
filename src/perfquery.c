@@ -126,7 +126,7 @@ main(int argc, char **argv)
 	extern int ibdebug;
 	int dest_type = IB_DEST_LID;
 	int timeout = 0;	/* use default */
-	int mask = 0xffff, all = 0;
+	int mask = 0xffff, all_ports = 0;
 	int reset = 0, reset_only = 0;
 	int port = 0;
 	int udebug = 0;
@@ -178,7 +178,7 @@ main(int argc, char **argv)
 			extended = 1;
 			break;
 		case 'a':
-			all++;
+			all_ports++;
 			port = ALL_PORTS;
 			break;
 		case 'l':
@@ -241,13 +241,13 @@ main(int argc, char **argv)
 	memcpy(&cap_mask, pc+2, sizeof(cap_mask));	/* CapabilityMask */
 	cap_mask = ntohs(cap_mask);
 	if (!(cap_mask & 0x100)) { /* bit 8 is AllPortSelect */
-		if (!all && port == ALL_PORTS)
+		if (!all_ports && port == ALL_PORTS)
 			IBERROR("AllPortSelect not supported");
-		if (all)
+		if (all_ports)
 			all_ports_loop = 1;
 	}
 
-	if (all_ports_loop || (loop_ports && (all || port == ALL_PORTS))) {
+	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
 		if (smp_query(data, &portid, IB_ATTR_NODE_INFO, 0, 0) < 0)
 			IBERROR("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
@@ -269,7 +269,7 @@ main(int argc, char **argv)
 	if (reset_only)
 		goto do_reset;
 
-	if (all_ports_loop || (loop_ports && (all || port == ALL_PORTS))) {
+	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
 		for (i = start_port; i <= num_ports; i++)
 			dump_perfcounters(extended, timeout, cap_mask, &portid, i);
 	}
@@ -281,7 +281,7 @@ main(int argc, char **argv)
 
 do_reset:
 
-	if (all_ports_loop || (loop_ports && (all || port == ALL_PORTS))) {
+	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
 		for (i = start_port; i <= num_ports; i++)
 			reset_counters(extended, timeout, mask, &portid, i);
 	}
