@@ -246,11 +246,12 @@ main(int argc, char **argv)
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&cap_mask, pc+2, sizeof(cap_mask));	/* CapabilityMask */
 	cap_mask = ntohs(cap_mask);
-	if (!(cap_mask & 0x100)) /* bit 8 is AllPortSelect */
-		if (port == ALL_PORTS) {
+	if (!(cap_mask & 0x100)) { /* bit 8 is AllPortSelect */
+		if (!all && port == ALL_PORTS)
+			IBERROR("AllPortSelect not supported");
+		if (all)
 			allports = 1;
-			IBWARN("AllPortSelect not supported");
-		}
+	}
 
 	if (allports == 1) {
 
