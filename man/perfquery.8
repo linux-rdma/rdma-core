@@ -29,18 +29,15 @@ show extended port counters rather than (basic) port counters.
 Note that extended port counters attribute is optional.
 .TP
 \fB\-a\fR, \fB\-\-all_ports\fR
-show aggregated counters for all ports of the destination lid.
-Note all ports support is optional.
+show aggregated counters for all ports of the destination lid
+or reset all counters for all ports.  If the destination lid
+does not support the AllPortSelect flag, all ports will be
+iterated through to emulate AllPortSelect behavior.
 .TP
 \fB\-l\fR, \fB\-\-loop_ports\fR
-If all ports are selected by the user (the \fB\-a\fR option or port
-255) and the node/port does not support the AllPortSelect capability,
-this option will inform perfquery to iterate through all potential
-ports instead of outputting an error.  This option is particularly
-useful in combination with the \fB\-R\fR option, so that counters can
-be reset without hitting an AllPortSelect error.  When used with
-outputting port counters, multiple port counter outputs will be output
-rather than a single aggregate output.
+If all ports are selected by the user (either through the
+\fB\-a\fR option or port 255) iterate through each port
+rather than doing than aggregate operation.
 .TP
 \fB\-r\fR, \fB\-\-reset_after_read\fR
 reset counters after read

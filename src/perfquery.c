@@ -134,7 +134,7 @@ main(int argc, char **argv)
 	int ca_port = 0;
 	int extended = 0;
 	uint16_t cap_mask;
-	int allports = 0;
+	int all_ports_loop = 0;
 	int loop_ports = 0;
 	int node_type, num_ports = 0;
 	uint8_t data[IB_SMP_DATA_SIZE];
@@ -244,33 +244,32 @@ main(int argc, char **argv)
 		if (!all && port == ALL_PORTS)
 			IBERROR("AllPortSelect not supported");
 		if (all)
-			allports = 1;
+			all_ports_loop = 1;
 	}
 
-	if (allports == 1) {
+	if (all_ports_loop || (loop_ports && (all || port == ALL_PORTS))) {
 		if (smp_query(data, &portid, IB_ATTR_NODE_INFO, 0, 0) < 0)
 			IBERROR("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
 		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
-		if (loop_ports) {
-			if (!num_ports)
-				IBERROR("smp query nodeinfo: num ports invalid");
+		if (!num_ports)
+			IBERROR("smp query nodeinfo: num ports invalid");
 
-			if (node_type == IB_NODE_SWITCH) {
-				if (smp_query(data, &portid, IB_ATTR_SWITCH_INFO, 0, 0) < 0)
-					IBERROR("smp query nodeinfo failed");
-				enhancedport0 = mad_get_field(data, 0, IB_SW_ENHANCED_PORT0_F);
-				if (enhancedport0)
-					start_port = 0;
-			}
+		if (node_type == IB_NODE_SWITCH) {
+			if (smp_query(data, &portid, IB_ATTR_SWITCH_INFO, 0, 0) < 0)
+				IBERROR("smp query nodeinfo failed");
+			enhancedport0 = mad_get_field(data, 0, IB_SW_ENHANCED_PORT0_F);
+			if (enhancedport0)
+				start_port = 0;
 		}
+		if (all_ports_loop && !loop_ports)
+			IBWARN("Emulating AllPortSelect by iterating through all ports");
 	}
 
 	if (reset_only)
 		goto do_reset;
 
-	if (allports && loop_ports) {
-		IBWARN("Emulating AllPortSelect by iterating through all ports");
+	if (all_ports_loop || (loop_ports && (all || port == ALL_PORTS))) {
 		for (i = start_port; i <= num_ports; i++)
 			dump_perfcounters(extended, timeout, cap_mask, &portid, i);
 	}
@@ -282,8 +281,7 @@ main(int argc, char **argv)
 
 do_reset:
 
-	if (allports && loop_ports) {
-		IBWARN("Emulating AllPortSelect by iterating through all ports");
+	if (all_ports_loop || (loop_ports && (all || port == ALL_PORTS))) {
 		for (i = start_port; i <= num_ports; i++)
 			reset_counters(extended, timeout, mask, &portid, i);
 	}
