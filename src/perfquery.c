@@ -165,7 +165,7 @@ static void aggregate_32bit(uint32_t *dest, uint32_t val)
 static void aggregate_64bit(uint64_t *dest, uint64_t val)
 {
 	if (((*dest) + val) < (*dest))
-		(*dest) = 0xffffffffffffffff;
+		(*dest) = 0xffffffffffffffffULL;
 	else
 		(*dest) = (*dest) + val;
 }
