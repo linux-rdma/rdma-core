@@ -97,7 +97,7 @@ usage(void)
 	else
 		basename++;
 
-	fprintf(stderr, "Usage: %s [-d(ebug) -D(irect) -G(uid) -l(id_show) -g(id_show) -C ca_name -P ca_port "
+	fprintf(stderr, "Usage: %s [-d(ebug) -D(irect) -G(uid) -l(id_show) -g(id_show) -s(m_port) sm_lid -C ca_name -P ca_port "
 			"-t(imeout) timeout_ms -V(ersion) -h(elp)] [<lid|dr_path|guid>]\n",
 			basename);
 	fprintf(stderr, "\tExamples:\n");
