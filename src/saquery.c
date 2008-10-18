@@ -634,6 +634,21 @@ static void dump_one_pkey_tbl_record(void *data)
 	printf("\n");
 }
 
+static void dump_one_lft_record(void *data)
+{
+	ib_lft_record_t *lftr = data;
+	unsigned block = cl_ntoh16(lftr->block_num);
+	int i;
+	printf("LFT Record dump:\n"
+	       "\t\tLID........................%u\n"
+	       "\t\tBlock......................%u\n"
+	       "\t\tLFT:\n",
+	       cl_ntoh16(lftr->lid), block);
+	for (i = 0; i < 64 ; i++)
+		printf("\t\t%u\t%u\n", block*64 + i, lftr->lft[i]);
+	printf("\n");
+}
+
 static void dump_results(osmv_query_res_t *r, void (*dump_func)(void *))
 {
 	int i;
@@ -1251,6 +1266,41 @@ print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 	return status;
 }
 
+static int
+print_lft_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
+		  int argc, char *argv[])
+{
+	ib_lft_record_t lftr;
+	ib_net64_t comp_mask = 0;
+	int lid = 0, block = -1;
+	ib_api_status_t status;
+
+	if (argc > 0)
+		parse_lid_and_ports(bind_handle, argv[0],
+				    &lid, &block, NULL);
+
+	memset(&lftr, 0, sizeof(lftr));
+
+	if (lid > 0) {
+		lftr.lid = cl_hton16(lid);
+		comp_mask |= IB_LFTR_COMPMASK_LID;
+	}
+	if (block >= 0) {
+		lftr.block_num = cl_hton16(block);
+		comp_mask |= IB_LFTR_COMPMASK_BLOCK;
+	}
+
+	status = get_any_records(bind_handle, IB_MAD_ATTR_LFT_RECORD, 0,
+				 comp_mask, &lftr,
+				 ib_get_attr_offset(sizeof(lftr)), 0);
+	if (status != IB_SUCCESS)
+		return status;
+
+	dump_results(&result, dump_one_lft_record);
+	return_mad();
+	return status;
+}
+
 static osm_bind_handle_t
 get_bind_handle(void)
 {
@@ -1344,6 +1394,8 @@ static const struct query_cmd query_cmds[] = {
 	{ "ServiceRecord", "SR", IB_MAD_ATTR_SERVICE_RECORD, },
 	{ "PathRecord", "PR", IB_MAD_ATTR_PATH_RECORD, },
 	{ "MCMemberRecord", "MCMR", IB_MAD_ATTR_MCMEMBER_RECORD, },
+	{ "LFTRecord", "LFTR", IB_MAD_ATTR_LFT_RECORD, "[[lid]/[block]]",
+	  print_lft_records },
 	{ 0 }
 };
 
