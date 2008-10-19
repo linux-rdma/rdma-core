@@ -1,4 +1,4 @@
-.TH SAQUERY 8 "April 13, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH SAQUERY 8 "October 19, 2008" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 saquery \- query InfiniBand subnet administration attributes
@@ -101,6 +101,21 @@ Specify a node name map.  The node name map file maps GUIDs to more user friendl
 names.  See
 .B ibnetdiscover(8)
 for node name map file format.  Only used with the \fB\-O\fR and \fB\-U\fR options.
+.TP
+Supported query names (and aliases):
+ ClassPortInfo (CPI)
+ NodeRecord (NR)
+ PortInfoRecord (PIR)
+ SL2VLTableRecord (SL2VL) [[lid]/[in_port]/[out_port]]
+ PKeyTableRecord (PKTR) [[lid]/[port]/[block]]
+ VLArbitrationTableRecord (VLAR) [[lid]/[port]/[block]]
+ InformInfoRecord (IIR)
+ LinkRecord (LR) [[from_lid]/[from_port]] [[to_lid]/[to_port]]
+ ServiceRecord (SR)
+ PathRecord (PR)
+ MCMemberRecord (MCMR)
+ LFTRecord (LFTR) [[lid]/[block]]
+ MFTRecord (MFTR) [[mlid]/[position]/[block]]
 .TP
 \fB\-d\fR
 enable debugging
