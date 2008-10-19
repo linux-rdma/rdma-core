@@ -642,13 +642,31 @@ static void dump_one_lft_record(void *data)
 	printf("LFT Record dump:\n"
 	       "\t\tLID........................%u\n"
 	       "\t\tBlock......................%u\n"
-	       "\t\tLFT:\n",
+	       "\t\tLFT:\n\t\tLID\tPort Number\n",
 	       cl_ntoh16(lftr->lid), block);
 	for (i = 0; i < 64 ; i++)
 		printf("\t\t%u\t%u\n", block*64 + i, lftr->lft[i]);
 	printf("\n");
 }
 
+static void dump_one_mft_record(void *data)
+{
+	ib_mft_record_t *mftr = data;
+	unsigned position = cl_ntoh16(mftr->position_block_num) >> 12;
+	unsigned block = cl_ntoh16(mftr->position_block_num) &
+			 IB_MCAST_BLOCK_ID_MASK_HO;
+	int i;
+	printf("MFT Record dump:\n"
+	       "\t\tLID........................%u\n"
+	       "\t\tPosition...................%u\n"
+	       "\t\tBlock......................%u\n"
+		"\t\tMFT:\n\t\tMLID\tPort Mask\n",
+	       cl_ntoh16(mftr->lid), position, block);
+	for (i = 0; i < IB_MCAST_BLOCK_SIZE; i++)
+		printf("\t\t0x%x\t0x%x\n", IB_LID_MCAST_START_HO + block*64 + i,
+		       cl_ntoh16(mftr->mft[i]));
+	printf("\n");
+}
 static void dump_results(osmv_query_res_t *r, void (*dump_func)(void *))
 {
 	int i;
@@ -1301,6 +1319,45 @@ print_lft_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
 	return status;
 }
 
+static int
+print_mft_records(const struct query_cmd *q, osm_bind_handle_t bind_handle,
+		  int argc, char *argv[])
+{
+	ib_mft_record_t mftr;
+	ib_net64_t comp_mask = 0;
+	int lid = 0, block = -1, position = -1;
+	ib_api_status_t status;
+
+	if (argc > 0)
+		parse_lid_and_ports(bind_handle, argv[0],
+				   &lid, &position, &block);
+
+	memset(&mftr, 0, sizeof(mftr));
+
+	if (lid > 0) {
+		mftr.lid = cl_hton16(lid);
+		comp_mask |= IB_MFTR_COMPMASK_LID;
+	}
+	if (position >= 0) {
+		mftr.position_block_num = cl_hton16(position << 12);
+		comp_mask |= IB_MFTR_COMPMASK_POSITION;
+	}
+	if (block >= 0) {
+		mftr.position_block_num |= cl_hton16(block & IB_MCAST_BLOCK_ID_MASK_HO);
+		comp_mask |= IB_MFTR_COMPMASK_BLOCK;
+	}
+
+	status = get_any_records(bind_handle, IB_MAD_ATTR_MFT_RECORD, 0,
+				 comp_mask, &mftr,
+				 ib_get_attr_offset(sizeof(mftr)), 0);
+	if (status != IB_SUCCESS)
+		return status;
+
+	dump_results(&result, dump_one_mft_record);
+	return_mad();
+	return status;
+}
+
 static osm_bind_handle_t
 get_bind_handle(void)
 {
@@ -1396,6 +1453,9 @@ static const struct query_cmd query_cmds[] = {
 	{ "MCMemberRecord", "MCMR", IB_MAD_ATTR_MCMEMBER_RECORD, },
 	{ "LFTRecord", "LFTR", IB_MAD_ATTR_LFT_RECORD, "[[lid]/[block]]",
 	  print_lft_records },
+	{ "MFTRecord", "MFTR", IB_MAD_ATTR_MFT_RECORD,
+	  "[[mlid]/[position]/[block]]",
+	  print_mft_records },
 	{ 0 }
 };
 
