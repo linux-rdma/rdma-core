@@ -529,6 +529,10 @@ mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 		s += sprintf(s, "\t\t\t\tIsLinkRoundTripLatencySupported\n");
 	if (mask & (1 << 25))
 		s += sprintf(s, "\t\t\t\tIsClientRegistrationSupported\n");
+	if (mask & (1 << 26))
+		s += sprintf(s, "\t\t\t\tIsOtherLocalChangesNoticeSupported\n");
+	if (mask & (1 << 27))
+		s += sprintf(s, "\t\t\t\tIsLinkSpeedWidthPairsTableSupported\n");
 
 	if (s != buf)
 		*(--s) = 0;
