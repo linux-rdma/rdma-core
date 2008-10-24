@@ -181,11 +181,10 @@ mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport,
 		umad_set_addr(umad, dport->lid, dport->qp, dport->sl, dport->qkey);
 	else if (lid_routed)
 		umad_set_addr(umad, dport->lid, dport->qp, 0, 0);
+	else if ((dport->drpath.drslid != 0xffff) && (dport->lid > 0))
+		umad_set_addr(umad, dport->lid, 0, 0, 0);
 	else
-		if ((dport->drpath.drslid != 0xffff) && (dport->lid > 0))
-			umad_set_addr(umad, dport->lid, 0, 0, 0);
-		else
-			umad_set_addr(umad, 0xffff, 0, 0, 0);
+		umad_set_addr(umad, 0xffff, 0, 0, 0);
 
 	if (dport->grh_present && !is_smi) {
 		addr.grh_present = 1;
