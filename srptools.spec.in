@@ -42,7 +42,7 @@ fi
 
 %files
 %defattr(-,root,root)
-%config(noreplace) %{_sysconfdir}/srp_daemon.conf
+%config(noreplace) /etc/srp_daemon.conf
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon
 %{_sbindir}/srp_daemon.sh
