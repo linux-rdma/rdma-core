@@ -65,6 +65,8 @@
 
 static int debug;
 
+#define MAX_DEVICES 20
+
 char *argv0 = "ibstat";
 
 static char *node_type_str[] = {
@@ -201,7 +203,7 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
-	char names[20][UMAD_CA_NAME_LEN];
+	char names[MAX_DEVICES][UMAD_CA_NAME_LEN];
 	int dev_port = -1;
 	int list_only = 0, short_format = 0, list_ports = 0;
 	int n, i;
@@ -254,7 +256,7 @@ main(int argc, char *argv[])
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
 
-	if ((n = umad_get_cas_names((void *)names, UMAD_CA_NAME_LEN)) < 0)
+	if ((n = umad_get_cas_names((void *)names, MAX_DEVICES)) < 0)
 		IBPANIC("can't list IB device names");
 
 	if (argc) {
