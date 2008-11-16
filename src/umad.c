@@ -288,7 +288,7 @@ resolve_ca_port(char *ca_name, int *port)
 static char *
 resolve_ca_name(char *ca_name, int *best_port)
 {
-	static char names[20][UMAD_CA_NAME_LEN];
+	static char names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN];
 	int phys_found = -1, port_found = 0, port, port_type;
 	int caidx, n;
 
