@@ -256,7 +256,7 @@ main(int argc, char *argv[])
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
 
-	if ((n = umad_get_cas_names((void *)names, MAX_DEVICES)) < 0)
+	if ((n = umad_get_cas_names(names, MAX_DEVICES)) < 0)
 		IBPANIC("can't list IB device names");
 
 	if (argc) {
