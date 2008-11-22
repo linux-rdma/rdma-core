@@ -909,39 +909,27 @@ struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn)
 int mthca_store_qp(struct mthca_context *ctx, uint32_t qpn, struct mthca_qp *qp)
 {
 	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
-	int ret = 0;
-
-	pthread_mutex_lock(&ctx->qp_table_mutex);
 
 	if (!ctx->qp_table[tind].refcnt) {
 		ctx->qp_table[tind].table = calloc(ctx->qp_table_mask + 1,
 						   sizeof (struct mthca_qp *));
-		if (!ctx->qp_table[tind].table) {
-			ret = -1;
-			goto out;
-		}
+		if (!ctx->qp_table[tind].table)
+			return -1;
 	}
 
 	++ctx->qp_table[tind].refcnt;
 	ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = qp;
-
-out:
-	pthread_mutex_unlock(&ctx->qp_table_mutex);
-	return ret;
+	return 0;
 }
 
 void mthca_clear_qp(struct mthca_context *ctx, uint32_t qpn)
 {
 	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
 
-	pthread_mutex_lock(&ctx->qp_table_mutex);
-
 	if (!--ctx->qp_table[tind].refcnt)
 		free(ctx->qp_table[tind].table);
 	else
 		ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = NULL;
-
-	pthread_mutex_unlock(&ctx->qp_table_mutex);
 }
 
 int mthca_free_err_wqe(struct mthca_qp *qp, int is_send,

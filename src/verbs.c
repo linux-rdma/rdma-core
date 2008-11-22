@@ -566,6 +566,7 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 		cmd.sq_db_index = cmd.rq_db_index = 0;
 	}
 
+	pthread_mutex_lock(&to_mctx(pd->context)->qp_table_mutex);
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp, sizeof resp);
 	if (ret)
@@ -579,6 +580,7 @@ struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	ret = mthca_store_qp(to_mctx(pd->context), qp->ibv_qp.qp_num, qp);
 	if (ret)
 		goto err_destroy;
+	pthread_mutex_unlock(&to_mctx(pd->context)->qp_table_mutex);
 
 	qp->sq.max 	    = attr->cap.max_send_wr;
 	qp->rq.max 	    = attr->cap.max_recv_wr;
@@ -592,6 +594,7 @@ err_destroy:
 	ibv_cmd_destroy_qp(&qp->ibv_qp);
 
 err_rq_db:
+	pthread_mutex_unlock(&to_mctx(pd->context)->qp_table_mutex);
 	if (mthca_is_memfree(pd->context))
 		mthca_free_db(to_mctx(pd->context)->db_tab, MTHCA_DB_TYPE_RQ,
 			      qp->rq.db_index);
@@ -686,9 +689,12 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 {
 	int ret;
 
+	pthread_mutex_lock(&to_mctx(qp->context)->qp_table_mutex);
 	ret = ibv_cmd_destroy_qp(qp);
-	if (ret)
+	if (ret) {
+		pthread_mutex_unlock(&to_mctx(qp->context)->qp_table_mutex);
 		return ret;
+	}
 
 	mthca_lock_cqs(qp);
 
@@ -700,6 +706,7 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 	mthca_clear_qp(to_mctx(qp->context), qp->qp_num);
 
 	mthca_unlock_cqs(qp);
+	pthread_mutex_unlock(&to_mctx(qp->context)->qp_table_mutex);
 
 	if (mthca_is_memfree(qp->context)) {
 		mthca_free_db(to_mctx(qp->context)->db_tab, MTHCA_DB_TYPE_RQ,
