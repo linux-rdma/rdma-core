@@ -452,6 +452,8 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	cmd.sq_no_prefetch = 0;	/* OK for ABI 2: just a reserved field */
 	memset(cmd.reserved, 0, sizeof cmd.reserved);
 
+	pthread_mutex_lock(&to_mctx(pd->context)->qp_table_mutex);
+
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp, sizeof resp);
 	if (ret)
@@ -460,6 +462,7 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	ret = mlx4_store_qp(to_mctx(pd->context), qp->ibv_qp.qp_num, qp);
 	if (ret)
 		goto err_destroy;
+	pthread_mutex_unlock(&to_mctx(pd->context)->qp_table_mutex);
 
 	qp->rq.wqe_cnt = qp->rq.max_post = attr->cap.max_recv_wr;
 	qp->rq.max_gs  = attr->cap.max_recv_sge;
@@ -477,6 +480,7 @@ err_destroy:
 	ibv_cmd_destroy_qp(&qp->ibv_qp);
 
 err_rq_db:
+	pthread_mutex_unlock(&to_mctx(pd->context)->qp_table_mutex);
 	if (!attr->srq)
 		mlx4_free_db(to_mctx(pd->context), MLX4_DB_TYPE_RQ, qp->db);
 
@@ -580,9 +584,12 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	struct mlx4_qp *qp = to_mqp(ibqp);
 	int ret;
 
+	pthread_mutex_lock(&to_mctx(ibqp->context)->qp_table_mutex);
 	ret = ibv_cmd_destroy_qp(ibqp);
-	if (ret)
+	if (ret) {
+		pthread_mutex_unlock(&to_mctx(ibqp->context)->qp_table_mutex);
 		return ret;
+	}
 
 	mlx4_lock_cqs(ibqp);
 
@@ -594,6 +601,7 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	mlx4_clear_qp(to_mctx(ibqp->context), ibqp->qp_num);
 
 	mlx4_unlock_cqs(ibqp);
+	pthread_mutex_unlock(&to_mctx(ibqp->context)->qp_table_mutex);
 
 	if (!ibqp->srq)
 		mlx4_free_db(to_mctx(ibqp->context), MLX4_DB_TYPE_RQ, qp->db);

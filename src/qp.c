@@ -667,37 +667,25 @@ struct mlx4_qp *mlx4_find_qp(struct mlx4_context *ctx, uint32_t qpn)
 int mlx4_store_qp(struct mlx4_context *ctx, uint32_t qpn, struct mlx4_qp *qp)
 {
 	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
-	int ret = 0;
-
-	pthread_mutex_lock(&ctx->qp_table_mutex);
 
 	if (!ctx->qp_table[tind].refcnt) {
 		ctx->qp_table[tind].table = calloc(ctx->qp_table_mask + 1,
 						   sizeof (struct mlx4_qp *));
-		if (!ctx->qp_table[tind].table) {
-			ret = -1;
-			goto out;
-		}
+		if (!ctx->qp_table[tind].table)
+			return -1;
 	}
 
 	++ctx->qp_table[tind].refcnt;
 	ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = qp;
-
-out:
-	pthread_mutex_unlock(&ctx->qp_table_mutex);
-	return ret;
+	return 0;
 }
 
 void mlx4_clear_qp(struct mlx4_context *ctx, uint32_t qpn)
 {
 	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
 
-	pthread_mutex_lock(&ctx->qp_table_mutex);
-
 	if (!--ctx->qp_table[tind].refcnt)
 		free(ctx->qp_table[tind].table);
 	else
 		ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = NULL;
-
-	pthread_mutex_unlock(&ctx->qp_table_mutex);
 }
