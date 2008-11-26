@@ -242,7 +242,8 @@ static int is_spine(Node *node)
 static int is_line_24(Node *node)
 {
 	return (node->devid == VTR_DEVID_SLB24 ||
-		node->devid == VTR_DEVID_SLB24_DDR);
+		node->devid == VTR_DEVID_SLB24_DDR ||
+		node->devid == VTR_DEVID_SRB2004);
 }
 
 static int is_line_8(Node *node)
