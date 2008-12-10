@@ -987,7 +987,8 @@ static ib_api_status_t get_print_class_port_info(osm_bind_handle_t h)
 	return (status);
 }
 
-static ib_api_status_t print_path_records(osm_bind_handle_t h)
+static int query_path_records(const struct query_cmd *q,
+			      osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_net16_t attr_offset = ib_get_attr_offset(sizeof(ib_path_rec_t));
 	ib_api_status_t status;
@@ -1073,7 +1074,32 @@ static ib_api_status_t print_multicast_group_records(osm_bind_handle_t h)
 	return (status);
 }
 
-static ib_api_status_t print_service_records(osm_bind_handle_t h)
+static int query_class_port_info(const struct query_cmd *q,
+				 osm_bind_handle_t h, int argc, char *argv[])
+{
+	return get_print_class_port_info(h);
+}
+
+static int query_node_records(const struct query_cmd *q,
+			      osm_bind_handle_t h, int argc, char *argv[])
+{
+	return print_node_records(h);
+}
+
+static int query_portinfo_records(const struct query_cmd *q,
+				  osm_bind_handle_t h, int argc, char *argv[])
+{
+	return print_portinfo_records(h);
+}
+
+static int query_mcmember_records(const struct query_cmd *q,
+				   osm_bind_handle_t h, int argc, char *argv[])
+{
+	return print_multicast_member_records(h);
+}
+
+static int query_service_records(const struct query_cmd *q,
+				 osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_net16_t attr_offset =
 	    ib_get_attr_offset(sizeof(ib_service_record_t));
@@ -1088,7 +1114,8 @@ static ib_api_status_t print_service_records(osm_bind_handle_t h)
 	return (status);
 }
 
-static ib_api_status_t print_inform_info_records(osm_bind_handle_t h)
+static int query_informinfo_records(const struct query_cmd *q,
+				    osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_net16_t attr_offset =
 	    ib_get_attr_offset(sizeof(ib_inform_info_record_t));
@@ -1104,8 +1131,8 @@ static ib_api_status_t print_inform_info_records(osm_bind_handle_t h)
 	return (status);
 }
 
-static ib_api_status_t
-print_link_records(osm_bind_handle_t h, int argc, char *argv[])
+static int query_link_records(const struct query_cmd *q,
+			      osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_link_record_t lr;
 	ib_net64_t comp_mask = 0;
@@ -1148,9 +1175,8 @@ print_link_records(osm_bind_handle_t h, int argc, char *argv[])
 	return status;
 }
 
-static int
-print_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t h,
-		    int argc, char *argv[])
+static int query_sl2vl_records(const struct query_cmd *q,
+			       osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_slvl_table_record_t slvl;
 	ib_net64_t comp_mask = 0;
@@ -1186,9 +1212,8 @@ print_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t h,
 	return status;
 }
 
-static int
-print_vlarb_records(const struct query_cmd *q, osm_bind_handle_t h,
-		    int argc, char *argv[])
+static int query_vlarb_records(const struct query_cmd *q,
+			       osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_vl_arb_table_record_t vlarb;
 	ib_net64_t comp_mask = 0;
@@ -1224,9 +1249,8 @@ print_vlarb_records(const struct query_cmd *q, osm_bind_handle_t h,
 	return status;
 }
 
-static int
-print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t h,
-		       int argc, char *argv[])
+static int query_pkey_tbl_records(const struct query_cmd *q,
+				  osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_pkey_table_record_t pktr;
 	ib_net64_t comp_mask = 0;
@@ -1262,9 +1286,8 @@ print_pkey_tbl_records(const struct query_cmd *q, osm_bind_handle_t h,
 	return status;
 }
 
-static int
-print_lft_records(const struct query_cmd *q, osm_bind_handle_t h,
-		  int argc, char *argv[])
+static int query_lft_records(const struct query_cmd *q,
+			     osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_lft_record_t lftr;
 	ib_net64_t comp_mask = 0;
@@ -1296,9 +1319,8 @@ print_lft_records(const struct query_cmd *q, osm_bind_handle_t h,
 	return status;
 }
 
-static int
-print_mft_records(const struct query_cmd *q, osm_bind_handle_t h,
-		  int argc, char *argv[])
+static int query_mft_records(const struct query_cmd *q,
+			     osm_bind_handle_t h, int argc, char *argv[])
 {
 	ib_mft_record_t mftr;
 	ib_net64_t comp_mask = 0;
@@ -1412,25 +1434,32 @@ static void clean_up(void)
 }
 
 static const struct query_cmd query_cmds[] = {
-	{"ClassPortInfo", "CPI", IB_MAD_ATTR_CLASS_PORT_INFO,},
-	{"NodeRecord", "NR", IB_MAD_ATTR_NODE_RECORD,},
-	{"PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD,},
+	{"ClassPortInfo", "CPI", IB_MAD_ATTR_CLASS_PORT_INFO,
+	 NULL, query_class_port_info},
+	{"NodeRecord", "NR", IB_MAD_ATTR_NODE_RECORD,
+	 NULL, query_node_records},
+	{"PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD,
+	 NULL, query_portinfo_records},
 	{"SL2VLTableRecord", "SL2VL", IB_MAD_ATTR_SLVL_RECORD,
-	 "[[lid]/[in_port]/[out_port]]", print_sl2vl_records},
+	 "[[lid]/[in_port]/[out_port]]", query_sl2vl_records},
 	{"PKeyTableRecord", "PKTR", IB_MAD_ATTR_PKEY_TBL_RECORD,
-	 "[[lid]/[port]/[block]]", print_pkey_tbl_records},
+	 "[[lid]/[port]/[block]]", query_pkey_tbl_records},
 	{"VLArbitrationTableRecord", "VLAR", IB_MAD_ATTR_VLARB_RECORD,
-	 "[[lid]/[port]/[block]]", print_vlarb_records},
-	{"InformInfoRecord", "IIR", IB_MAD_ATTR_INFORM_INFO_RECORD,},
+	 "[[lid]/[port]/[block]]", query_vlarb_records},
+	{"InformInfoRecord", "IIR", IB_MAD_ATTR_INFORM_INFO_RECORD,
+	 NULL, query_informinfo_records},
 	{"LinkRecord", "LR", IB_MAD_ATTR_LINK_RECORD,
-	 "[[from_lid]/[from_port]] [[to_lid]/[to_port]]",},
-	{"ServiceRecord", "SR", IB_MAD_ATTR_SERVICE_RECORD,},
-	{"PathRecord", "PR", IB_MAD_ATTR_PATH_RECORD,},
-	{"MCMemberRecord", "MCMR", IB_MAD_ATTR_MCMEMBER_RECORD,},
+	 "[[from_lid]/[from_port]] [[to_lid]/[to_port]]", query_link_records},
+	{"ServiceRecord", "SR", IB_MAD_ATTR_SERVICE_RECORD,
+	 NULL, query_service_records},
+	{"PathRecord", "PR", IB_MAD_ATTR_PATH_RECORD,
+	 NULL, query_path_records},
+	{"MCMemberRecord", "MCMR", IB_MAD_ATTR_MCMEMBER_RECORD,
+	 NULL, query_mcmember_records},
 	{"LFTRecord", "LFTR", IB_MAD_ATTR_LFT_RECORD,
-	 "[[lid]/[block]]", print_lft_records},
+	 "[[lid]/[block]]", query_lft_records},
 	{"MFTRecord", "MFTR", IB_MAD_ATTR_MFT_RECORD,
-	 "[[mlid]/[position]/[block]]", print_mft_records},
+	 "[[mlid]/[position]/[block]]", query_mft_records},
 	{0}
 };
 
@@ -1442,6 +1471,17 @@ static const struct query_cmd *find_query(const char *name)
 	for (q = query_cmds; q->name; q++)
 		if (!strncasecmp(name, q->name, len) ||
 		    (q->alias && !strncasecmp(name, q->alias, len)))
+			return q;
+
+	return NULL;
+}
+
+static const struct query_cmd *find_query_by_type(ib_net16_t type)
+{
+	const struct query_cmd *q;
+
+	for (q = query_cmds; q->name; q++)
+		if (q->query_type == type)
 			return q;
 
 	return NULL;
@@ -1741,7 +1781,7 @@ int main(int argc, char **argv)
 					(ib_gid_t *) & src_addr.s6_addr,
 					(ib_gid_t *) & dst_addr.s6_addr);
 		} else {
-			status = print_path_records(h);
+			status = query_path_records(q, h, 0, NULL);
 		}
 		break;
 	case IB_MAD_ATTR_CLASS_PORT_INFO:
@@ -1756,22 +1796,14 @@ int main(int argc, char **argv)
 		else
 			status = print_multicast_group_records(h);
 		break;
-	case IB_MAD_ATTR_SERVICE_RECORD:
-		status = print_service_records(h);
-		break;
-	case IB_MAD_ATTR_INFORM_INFO_RECORD:
-		status = print_inform_info_records(h);
-		break;
-	case IB_MAD_ATTR_LINK_RECORD:
-		status = print_link_records(h, argc, argv);
-		break;
 	default:
-		if (q && q->handler)
-			status = q->handler(q, h, argc, argv);
-		else {
-			fprintf(stderr, "Unknown query type %d\n", query_type);
+		if ((!q && !(q = find_query_by_type(query_type)))
+		    || !q->handler) {
+			fprintf(stderr, "Unknown query type %d\n",
+				ntohs(query_type));
 			status = IB_UNKNOWN_ERROR;
-		}
+		} else
+			status = q->handler(q, h, argc, argv);
 		break;
 	}
 
