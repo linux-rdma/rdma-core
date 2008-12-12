@@ -1002,7 +1002,7 @@ static int query_path_records(const struct query_cmd *q,
 	return (status);
 }
 
-static ib_api_status_t print_portinfo_records(osm_bind_handle_t h)
+static ib_api_status_t print_issm_records(osm_bind_handle_t h)
 {
 	ib_api_status_t status;
 
@@ -1089,7 +1089,7 @@ static int query_node_records(const struct query_cmd *q,
 static int query_portinfo_records(const struct query_cmd *q,
 				  osm_bind_handle_t h, int argc, char *argv[])
 {
-	return print_portinfo_records(h);
+	return print_issm_records(h);
 }
 
 static int query_mcmember_records(const struct query_cmd *q,
@@ -1541,11 +1541,21 @@ static void usage(void)
 	exit(-1);
 }
 
+enum saquery_command {
+	SAQUERY_CMD_QUERY,
+	SAQUERY_CMD_NODE_RECORD,
+	SAQUERY_CMD_PATH_RECORD,
+	SAQUERY_CMD_CLASS_PORT_INFO,
+	SAQUERY_CMD_ISSM,
+	SAQUERY_CMD_MCGROUPS,
+	SAQUERY_CMD_MCMEMBERS,
+};
+
 int main(int argc, char **argv)
 {
 	int ch = 0;
-	int members = 0;
 	osm_bind_handle_t h;
+	enum saquery_command command = SAQUERY_CMD_QUERY;
 	const struct query_cmd *q = NULL;
 	char *src = NULL, *dst = NULL;
 	char *sgid = NULL, *dgid = NULL;
@@ -1602,7 +1612,7 @@ int main(int argc, char **argv)
 				if (*ch)
 					dst = strdup(ch);
 				free(opt);
-				query_type = IB_MAD_ATTR_PATH_RECORD;
+				command = SAQUERY_CMD_PATH_RECORD;
 				break;
 			}
 		case 2:
@@ -1620,7 +1630,7 @@ int main(int argc, char **argv)
 					usage();
 				}
 				free(opt);
-				query_type = IB_MAD_ATTR_PATH_RECORD;
+				command = SAQUERY_CMD_PATH_RECORD;
 				break;
 			}
 		case 3:
@@ -1635,7 +1645,7 @@ int main(int argc, char **argv)
 			smkey = cl_hton64(strtoull(optarg, NULL, 0));
 			break;
 		case 'p':
-			query_type = IB_MAD_ATTR_PATH_RECORD;
+			command = SAQUERY_CMD_PATH_RECORD;
 			break;
 		case 'V':
 			fprintf(stderr, "%s %s\n", argv0, get_build_version());
@@ -1644,7 +1654,7 @@ int main(int argc, char **argv)
 			node_print_desc = ALL_DESC;
 			break;
 		case 'c':
-			query_type = IB_MAD_ATTR_CLASS_PORT_INFO;
+			command = SAQUERY_CMD_CLASS_PORT_INFO;
 			break;
 		case 'S':
 			query_type = IB_MAD_ATTR_SERVICE_RECORD;
@@ -1653,7 +1663,7 @@ int main(int argc, char **argv)
 			query_type = IB_MAD_ATTR_INFORM_INFO_RECORD;
 			break;
 		case 'N':
-			query_type = IB_MAD_ATTR_NODE_RECORD;
+			command = SAQUERY_CMD_NODE_RECORD;
 			break;
 		case 'L':
 			node_print_desc = LID_ONLY;
@@ -1671,14 +1681,13 @@ int main(int argc, char **argv)
 			node_print_desc = NAME_OF_GUID;
 			break;
 		case 's':
-			query_type = IB_MAD_ATTR_PORTINFO_RECORD;
+			command = SAQUERY_CMD_ISSM;
 			break;
 		case 'g':
-			query_type = IB_MAD_ATTR_MCMEMBER_RECORD;
+			command = SAQUERY_CMD_MCGROUPS;
 			break;
 		case 'm':
-			query_type = IB_MAD_ATTR_MCMEMBER_RECORD;
-			members = 1;
+			command = SAQUERY_CMD_MCMEMBERS;
 			break;
 		case 'x':
 			query_type = IB_MAD_ATTR_LINK_RECORD;
@@ -1751,11 +1760,11 @@ int main(int argc, char **argv)
 	h = get_bind_handle();
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	switch (query_type) {
-	case IB_MAD_ATTR_NODE_RECORD:
+	switch (command) {
+	case SAQUERY_CMD_NODE_RECORD:
 		status = print_node_records(h);
 		break;
-	case IB_MAD_ATTR_PATH_RECORD:
+	case SAQUERY_CMD_PATH_RECORD:
 		if (src && dst) {
 			src_lid = get_lid(h, src);
 			dst_lid = get_lid(h, dst);
@@ -1784,17 +1793,17 @@ int main(int argc, char **argv)
 			status = query_path_records(q, h, 0, NULL);
 		}
 		break;
-	case IB_MAD_ATTR_CLASS_PORT_INFO:
+	case SAQUERY_CMD_CLASS_PORT_INFO:
 		status = get_print_class_port_info(h);
 		break;
-	case IB_MAD_ATTR_PORTINFO_RECORD:
-		status = print_portinfo_records(h);
+	case SAQUERY_CMD_ISSM:
+		status = print_issm_records(h);
 		break;
-	case IB_MAD_ATTR_MCMEMBER_RECORD:
-		if (members)
-			status = print_multicast_member_records(h);
-		else
-			status = print_multicast_group_records(h);
+	case SAQUERY_CMD_MCGROUPS:
+		status = print_multicast_group_records(h);
+		break;
+	case SAQUERY_CMD_MCMEMBERS:
+		status = print_multicast_member_records(h);
 		break;
 	default:
 		if ((!q && !(q = find_query_by_type(query_type)))
