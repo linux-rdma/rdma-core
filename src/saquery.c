@@ -49,6 +49,7 @@
 #define _GNU_SOURCE
 #include <getopt.h>
 
+#include <infiniband/mad.h>
 #include <infiniband/opensm/osm_log.h>
 #include <infiniband/vendor/osm_vendor_api.h>
 #include <infiniband/vendor/osm_vendor_sa_api.h>
@@ -101,6 +102,20 @@ ib_net16_t requested_lid = 0;
 int requested_lid_flag = 0;
 ib_net64_t requested_guid = 0;
 int requested_guid_flag = 0;
+
+static void format_buf(char *in, char *out, unsigned size)
+{
+	unsigned i;
+
+	for (i = 0; i < size - 3 && *in; i++) {
+		*out++ = *in;
+		if (*in++ == '\n' && *in) {
+			*out++ = '\t';
+			*out++ = '\t';
+		}
+	}
+	*out = '\0';
+}
 
 /**
  * Call back for the various record requests.
@@ -295,6 +310,25 @@ static void dump_portinfo_record(void *data)
 	       cl_ntoh16(p_pi->master_sm_base_lid),
 	       cl_ntoh32(p_pi->capability_mask)
 	    );
+}
+
+static void dump_one_portinfo_record(void *data)
+{
+	char buf[2048], buf2[4096];
+	ib_portinfo_record_t *pir = data;
+	ib_port_info_t *pi = &pir->port_info;
+
+	mad_dump_portinfo(buf, sizeof(buf), pi, sizeof(*pi));
+
+	format_buf(buf, buf2, sizeof(buf2));
+
+	printf("PortInfoRecord dump:\n"
+		"\tRID:\n"
+		"\t\tEndPortLid..............%u\n"
+		"\t\tPortNum.................0x%x\n"
+		"\t\tReserved................0x%x\n"
+		"\tPortInfo dump:\n\t\t%s",
+		cl_ntoh16(pir->lid), pir->port_num, pir->resv, buf2);
 }
 
 static void dump_multicast_group_record(void *data)
@@ -1089,7 +1123,36 @@ static int query_node_records(const struct query_cmd *q,
 static int query_portinfo_records(const struct query_cmd *q,
 				  osm_bind_handle_t h, int argc, char *argv[])
 {
-	return print_issm_records(h);
+	ib_portinfo_record_t pir;
+	ib_net64_t comp_mask = 0;
+	int lid = 0, port = -1;
+	ib_api_status_t status;
+
+	if (argc > 0)
+		parse_lid_and_ports(h, argv[0], &lid, &port, NULL);
+
+	memset(&pir, 0, sizeof(pir));
+
+	if (lid > 0) {
+		pir.lid = cl_hton16(lid);
+		comp_mask |= IB_PIR_COMPMASK_LID;
+	}
+	if (port >= 0) {
+		pir.port_num = cl_hton16(port);
+		comp_mask |= IB_PIR_COMPMASK_PORTNUM;
+	}
+
+	status = get_any_records(h, IB_MAD_ATTR_PORTINFO_RECORD, 0,
+				 comp_mask, &pir,
+				 ib_get_attr_offset(sizeof(pir)), 0);
+
+	if (status != IB_SUCCESS)
+		return status;
+
+	dump_results(&result, dump_one_portinfo_record);
+	return_mad();
+
+	return 0;
 }
 
 static int query_mcmember_records(const struct query_cmd *q,
@@ -1439,7 +1502,7 @@ static const struct query_cmd query_cmds[] = {
 	{"NodeRecord", "NR", IB_MAD_ATTR_NODE_RECORD,
 	 NULL, query_node_records},
 	{"PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD,
-	 NULL, query_portinfo_records},
+	 "[[lid]/[port]]", query_portinfo_records},
 	{"SL2VLTableRecord", "SL2VL", IB_MAD_ATTR_SLVL_RECORD,
 	 "[[lid]/[in_port]/[out_port]]", query_sl2vl_records},
 	{"PKeyTableRecord", "PKTR", IB_MAD_ATTR_PKEY_TBL_RECORD,
