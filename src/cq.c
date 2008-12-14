@@ -455,6 +455,8 @@ void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int old_cqe)
 	cqe = get_cqe(cq, (i & old_cqe));
 
 	while ((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) != MLX4_CQE_OPCODE_RESIZE) {
+		cqe->owner_sr_opcode = (cqe->owner_sr_opcode & ~MLX4_CQE_OWNER_MASK) |
+			(((i + 1) & (cq->ibv_cq.cqe + 1)) ? MLX4_CQE_OWNER_MASK : 0);
 		memcpy(buf + ((i + 1) & cq->ibv_cq.cqe) * MLX4_CQ_ENTRY_SIZE,
 		       cqe, MLX4_CQ_ENTRY_SIZE);
 		++i;
