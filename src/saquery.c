@@ -131,8 +131,7 @@ static void print_node_desc(ib_node_record_t * node_record)
 	ib_node_desc_t *p_nd = &(node_record->node_desc);
 
 	if (p_ni->node_type == IB_NODE_TYPE_CA) {
-		printf("%6d  \"%s\"\n",
-		       cl_ntoh16(node_record->lid),
+		printf("%6d  \"%s\"\n", cl_ntoh16(node_record->lid),
 		       clean_nodedesc((char *)p_nd->description));
 	}
 }
@@ -182,24 +181,16 @@ static void print_node_record(ib_node_record_t * node_record)
 	       "\t\trevision................0x%X\n"
 	       "\t\tport_num................0x%X\n"
 	       "\t\tvendor_id...............0x%X\n"
-	       "\t\tNodeDescription.........%s\n"
-	       "",
-	       cl_ntoh16(node_record->lid),
-	       cl_ntoh16(node_record->resv),
-	       p_ni->base_version,
-	       p_ni->class_version,
-	       ib_get_node_type_str(p_ni->node_type),
-	       p_ni->num_ports,
-	       cl_ntoh64(p_ni->sys_guid),
-	       cl_ntoh64(p_ni->node_guid),
-	       cl_ntoh64(p_ni->port_guid),
-	       cl_ntoh16(p_ni->partition_cap),
-	       cl_ntoh16(p_ni->device_id),
-	       cl_ntoh32(p_ni->revision),
+	       "\t\tNodeDescription.........%s\n",
+	       cl_ntoh16(node_record->lid), cl_ntoh16(node_record->resv),
+	       p_ni->base_version, p_ni->class_version,
+	       ib_get_node_type_str(p_ni->node_type), p_ni->num_ports,
+	       cl_ntoh64(p_ni->sys_guid), cl_ntoh64(p_ni->node_guid),
+	       cl_ntoh64(p_ni->port_guid), cl_ntoh16(p_ni->partition_cap),
+	       cl_ntoh16(p_ni->device_id), cl_ntoh32(p_ni->revision),
 	       ib_node_info_get_local_port_num(p_ni),
 	       cl_ntoh32(ib_node_info_get_vendor_id(p_ni)),
-	       clean_nodedesc((char *)node_record->node_desc.description)
-	    );
+	       clean_nodedesc((char *)node_record->node_desc.description));
 }
 
 static void dump_path_record(void *data)
@@ -224,25 +215,16 @@ static void dump_path_record(void *data)
 	       "\t\tpkt_life................0x%X\n"
 	       "\t\tpreference..............0x%X\n"
 	       "\t\tresv2...................0x%X\n"
-	       "\t\tresv3...................0x%X\n"
-	       "",
+	       "\t\tresv3...................0x%X\n",
 	       cl_ntoh64(p_pr->service_id),
 	       inet_ntop(AF_INET6, p_pr->dgid.raw, gid_str, sizeof gid_str),
 	       inet_ntop(AF_INET6, p_pr->sgid.raw, gid_str2, sizeof gid_str2),
-	       cl_ntoh16(p_pr->dlid),
-	       cl_ntoh16(p_pr->slid),
-	       cl_ntoh32(p_pr->hop_flow_raw),
-	       p_pr->tclass,
-	       p_pr->num_path,
-	       cl_ntoh16(p_pr->pkey),
-	       ib_path_rec_qos_class(p_pr),
-	       ib_path_rec_sl(p_pr),
-	       p_pr->mtu,
-	       p_pr->rate,
-	       p_pr->pkt_life,
+	       cl_ntoh16(p_pr->dlid), cl_ntoh16(p_pr->slid),
+	       cl_ntoh32(p_pr->hop_flow_raw), p_pr->tclass, p_pr->num_path,
+	       cl_ntoh16(p_pr->pkey), ib_path_rec_qos_class(p_pr),
+	       ib_path_rec_sl(p_pr), p_pr->mtu, p_pr->rate, p_pr->pkt_life,
 	       p_pr->preference,
-	       *(uint32_t *) & p_pr->resv2, *((uint16_t *) & p_pr->resv2 + 2)
-	    );
+	       *(uint32_t *) & p_pr->resv2, *((uint16_t *) & p_pr->resv2 + 2));
 }
 
 static void dump_class_port_info(void *data)
@@ -268,10 +250,8 @@ static void dump_class_port_info(void *data)
 	       "\t\tTrap LID.................0x%04X\n"
 	       "\t\tTrap PKey................0x%04X\n"
 	       "\t\tTrap HL/QP...............0x%08X\n"
-	       "\t\tTrap QKey................0x%08X\n"
-	       "",
-	       class_port_info->base_ver,
-	       class_port_info->class_ver,
+	       "\t\tTrap QKey................0x%08X\n",
+	       class_port_info->base_ver, class_port_info->class_ver,
 	       cl_ntoh16(class_port_info->cap_mask),
 	       ib_class_cap_mask2(class_port_info),
 	       ib_class_resp_time_val(class_port_info),
@@ -288,8 +268,7 @@ static void dump_class_port_info(void *data)
 	       cl_ntoh16(class_port_info->trap_lid),
 	       cl_ntoh16(class_port_info->trap_pkey),
 	       cl_ntoh32(class_port_info->trap_hop_qp),
-	       cl_ntoh32(class_port_info->trap_qkey)
-	    );
+	       cl_ntoh32(class_port_info->trap_qkey));
 }
 
 static void dump_portinfo_record(void *data)
@@ -302,14 +281,10 @@ static void dump_portinfo_record(void *data)
 	       "\t\tPortNum.................0x%X\n"
 	       "\t\tbase_lid................0x%X\n"
 	       "\t\tmaster_sm_base_lid......0x%X\n"
-	       "\t\tcapability_mask.........0x%X\n"
-	       "",
-	       cl_ntoh16(p_pir->lid),
-	       p_pir->port_num,
-	       cl_ntoh16(p_pi->base_lid),
-	       cl_ntoh16(p_pi->master_sm_base_lid),
-	       cl_ntoh32(p_pi->capability_mask)
-	    );
+	       "\t\tcapability_mask.........0x%X\n",
+	       cl_ntoh16(p_pir->lid), p_pir->port_num,
+	       cl_ntoh16(p_pi->base_lid), cl_ntoh16(p_pi->master_sm_base_lid),
+	       cl_ntoh32(p_pi->capability_mask));
 }
 
 static void dump_one_portinfo_record(void *data)
@@ -343,8 +318,7 @@ static void dump_multicast_group_record(void *data)
 	       "\t\tMtu.....................0x%X\n"
 	       "\t\tpkey....................0x%X\n"
 	       "\t\tRate....................0x%X\n"
-	       "\t\tSL......................0x%X\n"
-	       "",
+	       "\t\tSL......................0x%X\n",
 	       inet_ntop(AF_INET6, p_mcmr->mgid.raw, gid_str, sizeof gid_str),
 	       cl_ntoh16(p_mcmr->mlid),
 	       p_mcmr->mtu, cl_ntoh16(p_mcmr->pkey), p_mcmr->rate, sl);
@@ -387,8 +361,7 @@ static void dump_multicast_member_record(void *data)
 		       "\t\tPortGid.................%s\n"
 		       "\t\tScopeState..............0x%X\n"
 		       "\t\tProxyJoin...............0x%X\n"
-		       "\t\tNodeDescription.........%s\n"
-		       "",
+		       "\t\tNodeDescription.........%s\n",
 		       inet_ntop(AF_INET6, p_mcmr->mgid.raw, gid_str,
 				 sizeof gid_str),
 		       cl_ntoh16(p_mcmr->mlid),
@@ -454,15 +427,12 @@ static void dump_service_record(void *data)
 	       "\t\tServiceData32.3.........0x%X\n"
 	       "\t\tServiceData32.4.........0x%X\n"
 	       "\t\tServiceData64.1.........0x%016" PRIx64 "\n"
-	       "\t\tServiceData64.2.........0x%016" PRIx64 "\n"
-	       "",
+	       "\t\tServiceData64.2.........0x%016" PRIx64 "\n",
 	       cl_ntoh64(p_sr->service_id),
 	       inet_ntop(AF_INET6, p_sr->service_gid.raw, gid_str,
 			 sizeof gid_str),
-	       cl_ntoh16(p_sr->service_pkey),
-	       cl_ntoh32(p_sr->service_lease),
-	       buf_service_key,
-	       buf_service_name,
+	       cl_ntoh16(p_sr->service_pkey), cl_ntoh32(p_sr->service_lease),
+	       buf_service_key, buf_service_name,
 	       p_sr->service_data8[0], p_sr->service_data8[1],
 	       p_sr->service_data8[2], p_sr->service_data8[3],
 	       p_sr->service_data8[4], p_sr->service_data8[5],
@@ -484,8 +454,7 @@ static void dump_service_record(void *data)
 	       cl_ntoh32(p_sr->service_data32[2]),
 	       cl_ntoh32(p_sr->service_data32[3]),
 	       cl_ntoh64(p_sr->service_data64[0]),
-	       cl_ntoh64(p_sr->service_data64[1])
-	    );
+	       cl_ntoh64(p_sr->service_data64[1]));
 }
 
 static void dump_inform_info_record(void *data)
@@ -515,8 +484,7 @@ static void dump_inform_info_record(void *data)
 		       "\t\ttrap_num................%u\n"
 		       "\t\tqpn.....................0x%06X\n"
 		       "\t\tresp_time_val...........0x%X\n"
-		       "\t\tnode_type...............0x%06X\n"
-		       "",
+		       "\t\tnode_type...............0x%06X\n",
 		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
 				 sizeof gid_str),
 		       cl_ntoh16(p_iir->subscriber_enum),
@@ -528,11 +496,9 @@ static void dump_inform_info_record(void *data)
 		       p_iir->inform_info.subscribe,
 		       cl_ntoh16(p_iir->inform_info.trap_type),
 		       cl_ntoh16(p_iir->inform_info.g_or_v.generic.trap_num),
-		       cl_ntoh32(qpn),
-		       resp_time_val,
+		       cl_ntoh32(qpn), resp_time_val,
 		       cl_ntoh32(ib_inform_info_get_prod_type
-				 (&p_iir->inform_info))
-		    );
+				 (&p_iir->inform_info)));
 	} else {
 		printf("InformInfoRecord dump:\n"
 		       "\t\tRID\n"
@@ -548,8 +514,7 @@ static void dump_inform_info_record(void *data)
 		       "\t\tdev_id..................0x%X\n"
 		       "\t\tqpn.....................0x%06X\n"
 		       "\t\tresp_time_val...........0x%X\n"
-		       "\t\tvendor_id...............0x%06X\n"
-		       "",
+		       "\t\tvendor_id...............0x%06X\n",
 		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
 				 sizeof gid_str),
 		       cl_ntoh16(p_iir->subscriber_enum),
@@ -561,11 +526,9 @@ static void dump_inform_info_record(void *data)
 		       p_iir->inform_info.subscribe,
 		       cl_ntoh16(p_iir->inform_info.trap_type),
 		       cl_ntoh16(p_iir->inform_info.g_or_v.vend.dev_id),
-		       cl_ntoh32(qpn),
-		       resp_time_val,
+		       cl_ntoh32(qpn), resp_time_val,
 		       cl_ntoh32(ib_inform_info_get_prod_type
-				 (&p_iir->inform_info))
-		    );
+				 (&p_iir->inform_info)));
 	}
 }
 
@@ -754,9 +717,7 @@ get_any_records(osm_bind_handle_t h,
 /**
  * Get all the records available for requested query type.
  */
-static ib_api_status_t
-get_all_records(osm_bind_handle_t h,
-		ib_net16_t query_id, ib_net16_t attr_offset, int trusted)
+static ib_api_status_t get_all_records(osm_bind_handle_t h, ib_net16_t query_id,				       ib_net16_t attr_offset, int trusted)
 {
 	return get_any_records(h, query_id, 0, 0, NULL, attr_offset,
 			       trusted ? smkey : 0);
@@ -851,8 +812,8 @@ static int parse_lid_and_ports(osm_bind_handle_t h,
 /*
  * Get the portinfo records available with IsSM or IsSMdisabled CapabilityMask bit on.
  */
-static ib_api_status_t
-get_issm_records(osm_bind_handle_t h, ib_net32_t capability_mask)
+static ib_api_status_t get_issm_records(osm_bind_handle_t h,
+					ib_net32_t capability_mask)
 {
 	ib_portinfo_record_t attr;
 
