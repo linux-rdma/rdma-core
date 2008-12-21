@@ -31,8 +31,8 @@ AC_PROG_CC
 dnl Checks for libraries
 if test "$disable_libcheck" != "yes"
 then
-AC_CHECK_LIB(ibcommon, sys_read_string, [],
-	AC_MSG_ERROR([sys_read_string() not found. libibmad requires libibcommon.]))
+AC_CHECK_LIB(ibcommon, ibpanic, [],
+	AC_MSG_ERROR([ibpanic() not found. libibmad requires libibcommon.]))
 AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. libibmad requires libibumad.]))
 fi

@@ -43,6 +43,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include "mad.h"
 
