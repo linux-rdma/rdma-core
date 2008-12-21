@@ -39,22 +39,9 @@
 
 #include <inttypes.h>
 #include <string.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <stdarg.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <string.h>
 #include <getopt.h>
-#include <endian.h>
-#include <byteswap.h>
-#include <sys/poll.h>
-#include <syslog.h>
 #include <netinet/in.h>
 
 #include <infiniband/common.h>
