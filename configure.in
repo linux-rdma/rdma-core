@@ -32,8 +32,8 @@ AC_PROG_LIBTOOL
 if test "$disable_libcheck" != "yes"
 then
 dnl Checks for libraries
-AC_CHECK_LIB(ibcommon, sys_read_string, [],
-	AC_MSG_ERROR([sys_read_string() not found. diags require libibcommon.]))
+AC_CHECK_LIB(ibcommon, ibpanic, [],
+	AC_MSG_ERROR([ibpanic() not found. diags require libibcommon.]))
 AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. diags require libibumad.]))
 AC_CHECK_LIB(ibmad, mad_dump_int, [],
