@@ -54,7 +54,7 @@
 #define BE_OFFS(o, w)	(o), (w)
 #define BE_TO_BITSOFFS(o, w)	(((o) & ~31) | ((32 - ((o) & 31) - (w))))
 
-ib_field_t ib_mad_f [] = {
+static const ib_field_t ib_mad_f [] = {
 	[0]	{0, 0},		/* IB_NO_FIELD - reserved as invalid */
 
 	[IB_GID_PREFIX_F]		{0, 64, "GidPrefix", mad_dump_rhex},
@@ -363,8 +363,7 @@ ib_field_t ib_mad_f [] = {
 
 };
 
-void
-_set_field64(void *buf, int base_offs, ib_field_t *f, uint64_t val)
+static void _set_field64(void *buf, int base_offs, const ib_field_t *f, uint64_t val)
 {
 	uint64_t nval;
 
@@ -372,16 +371,14 @@ _set_field64(void *buf, int base_offs, ib_field_t *f, uint64_t val)
 	memcpy((char *)buf + base_offs + f->bitoffs / 8, &nval, sizeof(uint64_t));
 }
 
-uint64_t
-_get_field64(void *buf, int base_offs, ib_field_t *f)
+static uint64_t _get_field64(void *buf, int base_offs, const ib_field_t *f)
 {
 	uint64_t val;
 	memcpy(&val, ((char *)buf + base_offs + f->bitoffs / 8), sizeof(uint64_t));
 	return ntohll(val);
 }
 
-void
-_set_field(void *buf, int base_offs, ib_field_t *f, uint32_t val)
+static void _set_field(void *buf, int base_offs, const ib_field_t *f, uint32_t val)
 {
 	int prebits = (8 - (f->bitoffs & 7)) & 7;
 	int postbits = (f->bitoffs + f->bitlen) & 7;
@@ -411,8 +408,7 @@ _set_field(void *buf, int base_offs, ib_field_t *f, uint32_t val)
 	}
 }
 
-uint32_t
-_get_field(void *buf, int base_offs, ib_field_t *f)
+static uint32_t _get_field(void *buf, int base_offs, const ib_field_t *f)
 {
 	int prebits = (8 - (f->bitoffs & 7)) & 7;
 	int postbits = (f->bitoffs + f->bitlen) & 7;
@@ -440,8 +436,7 @@ _get_field(void *buf, int base_offs, ib_field_t *f)
 }
 
 /* field must be byte aligned */
-void
-_set_array(void *buf, int base_offs, ib_field_t *f, void *val)
+static void _set_array(void *buf, int base_offs, const ib_field_t *f, void *val)
 {
 	int bitoffs = f->bitoffs;
 
@@ -451,8 +446,7 @@ _set_array(void *buf, int base_offs, ib_field_t *f, void *val)
 	memcpy((uint8_t *)buf + base_offs + bitoffs / 8, val, f->bitlen / 8);
 }
 
-void
-_get_array(void *buf, int base_offs, ib_field_t *f, void *val)
+static void _get_array(void *buf, int base_offs, const ib_field_t *f, void *val)
 {
 	int bitoffs = f->bitoffs;
 
@@ -460,4 +454,140 @@ _get_array(void *buf, int base_offs, ib_field_t *f, void *val)
 		bitoffs = BE_TO_BITSOFFS(bitoffs, f->bitlen);
 
 	memcpy(val, (uint8_t *)buf + base_offs + bitoffs / 8, f->bitlen / 8);
+}
+
+uint32_t mad_get_field(void *buf, int base_offs, int field)
+{
+	return _get_field(buf, base_offs, ib_mad_f + field);
+}
+
+void mad_set_field(void *buf, int base_offs, int field, uint32_t val)
+{
+	_set_field(buf, base_offs, ib_mad_f + field, val);
+}
+
+uint64_t mad_get_field64(void *buf, int base_offs, int field)
+{
+	return _get_field64(buf, base_offs, ib_mad_f + field);
+}
+
+void mad_set_field64(void *buf, int base_offs, int field, uint64_t val)
+{
+	_set_field64(buf, base_offs, ib_mad_f + field, val);
+}
+
+void mad_set_array(void *buf, int base_offs, int field, void *val)
+{
+	_set_array(buf, base_offs, ib_mad_f + field, val);
+}
+
+void mad_get_array(void *buf, int base_offs, int field, void *val)
+{
+	_get_array(buf, base_offs, ib_mad_f + field, val);
+}
+
+void mad_decode_field(uint8_t *buf, int field, void *val)
+{
+	const ib_field_t *f = ib_mad_f + field;
+
+	if (!field) {
+		*(int *)val = *(int *)buf;
+		return;
+	}
+	if (f->bitlen <= 32) {
+		*(uint32_t *)val = _get_field(buf, 0, f);
+		return;
+	}
+	if (f->bitlen == 64) {
+		*(uint64_t *)val = _get_field64(buf, 0, f);
+		return;
+	}
+	_get_array(buf, 0, f, val);
+}
+
+void mad_encode_field(uint8_t *buf, int field, void *val)
+{
+	const ib_field_t *f = ib_mad_f + field;
+
+	if (!field) {
+		*(int *)buf = *(int *)val;
+		return;
+	}
+	if (f->bitlen <= 32) {
+		_set_field(buf, 0, f, *(uint32_t *)val);
+		return;
+	}
+	if (f->bitlen == 64) {
+		_set_field64(buf, 0, f, *(uint64_t *)val);
+		return;
+	}
+	_set_array(buf, 0, f, val);
+}
+
+/************************/
+
+static char *_mad_dump_val(const ib_field_t *f, char *buf, int bufsz, void *val)
+{
+	f->def_dump_fn(buf, bufsz, val, ALIGN(f->bitlen, 8) / 8);
+	buf[bufsz - 1] = 0;
+
+	return buf;
+}
+
+static char *_mad_dump_field(const ib_field_t *f, const char *name, char *buf, int bufsz, void *val)
+{
+	char dots[128];
+	int l, n;
+
+	if (bufsz <= 32)
+		return 0;		/* buf too small */
+
+	if (!name)
+		name = f->name;
+
+	l = strlen(name);
+	if (l < 32) {
+		memset(dots, '.', 32 - l);
+		dots[32 - l] = 0;
+	}
+
+	n = snprintf(buf, bufsz, "%s:%s", name, dots);
+	_mad_dump_val(f, buf + n, bufsz - n, val);
+	buf[bufsz - 1] = 0;
+
+	return buf;
+}
+
+static int _mad_dump(ib_mad_dump_fn *fn, const char *name, void *val, int valsz)
+{
+	ib_field_t f = { .def_dump_fn = fn, .bitlen = valsz * 8};
+	char buf[512];
+
+	return printf("%s\n", _mad_dump_field(&f, name, buf, sizeof buf, val));
+}
+
+static int _mad_print_field(const ib_field_t *f, const char *name, void *val, int valsz)
+{
+	return _mad_dump(f->def_dump_fn, name ? name : f->name, val, valsz ? valsz : ALIGN(f->bitlen, 8) / 8);
+}
+
+int mad_print_field(int field, const char *name, void *val)
+{
+	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
+		return -1;
+	return _mad_print_field(ib_mad_f + field, name, val, 0);
+}
+
+char *mad_dump_field(int field, char *buf, int bufsz, void *val)
+{
+	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
+		return 0;
+	return _mad_dump_field(ib_mad_f + field, 0, buf, bufsz, val);
+}
+
+char *mad_dump_val(int field, char *buf, int bufsz, void *val)
+{
+	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
+		return 0;
+	return _mad_dump_val(ib_mad_f + field, buf, bufsz, val);
 }

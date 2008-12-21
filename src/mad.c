@@ -49,46 +49,6 @@
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
-void
-mad_decode_field(uint8_t *buf, int field, void *val)
-{
-	ib_field_t *f = ib_mad_f + field;
-
-	if (!field) {
-		*(int *)val = *(int *)buf;
-		return;
-	}
-	if (f->bitlen <= 32) {
-		*(uint32_t *)val = _get_field(buf, 0, f);
-		return;
-	}
-	if (f->bitlen == 64) {
-		*(uint64_t *)val = _get_field64(buf, 0, f);
-		return;
-	}
-	_get_array(buf, 0, f, val);
-}
-
-void
-mad_encode_field(uint8_t *buf, int field, void *val)
-{
-	ib_field_t *f = ib_mad_f + field;
-
-	if (!field) {
-		*(int *)buf = *(int *)val;
-		return;
-	}
-	if (f->bitlen <= 32) {
-		_set_field(buf, 0, f, *(uint32_t *)val);
-		return;
-	}
-	if (f->bitlen == 64) {
-		_set_field64(buf, 0, f, *(uint64_t *)val);
-		return;
-	}
-	_set_array(buf, 0, f, val);
-}
-
 uint64_t
 mad_trid(void)
 {

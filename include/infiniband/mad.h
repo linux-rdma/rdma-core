@@ -637,58 +637,23 @@ ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)
 }
 
 /* fields.c */
-extern ib_field_t ib_mad_f[];
-
-void	_set_field(void *buf, int base_offs, ib_field_t *f, uint32_t val);
-uint32_t _get_field(void *buf, int base_offs, ib_field_t *f);
-void	_set_array(void *buf, int base_offs, ib_field_t *f, void *val);
-void	_get_array(void *buf, int base_offs, ib_field_t *f, void *val);
-void	_set_field64(void *buf, int base_offs, ib_field_t *f, uint64_t val);
-uint64_t _get_field64(void *buf, int base_offs, ib_field_t *f);
+uint32_t mad_get_field(void *buf, int base_offs, int field);
+void mad_set_field(void *buf, int base_offs, int field, uint32_t val);
+/* field must be byte aligned */
+uint64_t mad_get_field64(void *buf, int base_offs, int field);
+void mad_set_field64(void *buf, int base_offs, int field, uint64_t val);
+void mad_set_array(void *buf, int base_offs, int field, void *val);
+void mad_get_array(void *buf, int base_offs, int field, void *val);
+void mad_decode_field(uint8_t *buf, int field, void *val);
+void mad_encode_field(uint8_t *buf, int field, void *val);
+int mad_print_field(int field, const char *name, void *val);
+char *mad_dump_field(int field, char *buf, int bufsz, void *val);
+char *mad_dump_val(int field, char *buf, int bufsz, void *val);
 
 /* mad.c */
-static inline uint32_t
-mad_get_field(void *buf, int base_offs, int field)
-{
-	return _get_field(buf, base_offs, ib_mad_f + field);
-}
-
-static inline void
-mad_set_field(void *buf, int base_offs, int field, uint32_t val)
-{
-	_set_field(buf, base_offs, ib_mad_f + field, val);
-}
-
-/* field must be byte aligned */
-static inline uint64_t
-mad_get_field64(void *buf, int base_offs, int field)
-{
-	return _get_field64(buf, base_offs, ib_mad_f + field);
-}
-
-static inline void
-mad_set_field64(void *buf, int base_offs, int field, uint64_t val)
-{
-	_set_field64(buf, base_offs, ib_mad_f + field, val);
-}
-
-static inline void
-mad_set_array(void *buf, int base_offs, int field, void *val)
-{
-	_set_array(buf, base_offs, ib_mad_f + field, val);
-}
-
-static inline void
-mad_get_array(void *buf, int base_offs, int field, void *val)
-{
-	_get_array(buf, base_offs, ib_mad_f + field, val);
-}
-
-void	mad_decode_field(uint8_t *buf, int field, void *val);
-void	mad_encode_field(uint8_t *buf, int field, void *val);
-void *	mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
+void *mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
 uint64_t mad_trid(void);
-int	mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
+int mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 
 /* register.c */
 int	mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version);
@@ -867,36 +832,6 @@ ib_mad_dump_fn
 	mad_dump_sltovl, mad_dump_vlarbitration,
 	mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo, mad_dump_switchinfo,
 	mad_dump_perfcounters, mad_dump_perfcounters_ext;
-
-int	_mad_dump(ib_mad_dump_fn *fn, char *name, void *val, int valsz);
-char *	_mad_dump_field(ib_field_t *f, char *name, char *buf, int bufsz,
-			void *val);
-int	_mad_print_field(ib_field_t *f, char *name, void *val, int valsz);
-char *	_mad_dump_val(ib_field_t *f, char *buf, int bufsz, void *val);
-
-static inline int
-mad_print_field(int field, char *name, void *val)
-{
-	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
-		return -1;
-	return _mad_print_field(ib_mad_f + field, name, val, 0);
-}
-
-static inline char *
-mad_dump_field(int field, char *buf, int bufsz, void *val)
-{
-	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
-		return 0;
-	return _mad_dump_field(ib_mad_f + field, 0, buf, bufsz, val);
-}
-
-static inline char *
-mad_dump_val(int field, char *buf, int bufsz, void *val)
-{
-	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
-		return 0;
-	return _mad_dump_val(ib_mad_f + field, buf, bufsz, val);
-}
 
 extern int ibdebug;
 

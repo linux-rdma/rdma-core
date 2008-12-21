@@ -1,9 +1,8 @@
 IBMAD_1.3 {
 	global:
-		_mad_dump;
-		_mad_dump_field;
-		_mad_dump_val;
-		_mad_print_field;
+		mad_dump_field;
+		mad_dump_val;
+		mad_print_field;
 		mad_dump_array;
 		mad_dump_bitfield;
 		mad_dump_hex;
@@ -34,13 +33,12 @@ IBMAD_1.3 {
 		mad_dump_uint;
 		mad_dump_vlarbitration;
 		mad_dump_vlcap;
-		_get_array;
-		_get_field;
-		_get_field64;
-		_set_array;
-		_set_field;
-		_set_field64;
-		ib_mad_f;
+		mad_get_field;
+		mad_set_field;
+		mad_get_field64;
+		mad_set_field64;
+		mad_get_array;
+		mad_set_array;
 		perf_classportinfo_query;
 		port_performance_query;
 		port_performance_reset;
