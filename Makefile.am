@@ -27,7 +27,7 @@ else
 libibumad_version_script =
 endif
 
-libibumad_la_SOURCES = src/umad.c
+libibumad_la_SOURCES = src/umad.c src/sysfs.c
 libibumad_la_LDFLAGS = -version-info $(ibumad_api_version) \
     -export-dynamic $(libibumad_version_script)
 libibumad_la_DEPENDENCIES = $(srcdir)/src/libibumad.map

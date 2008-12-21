@@ -13,7 +13,7 @@ Source: http://www.openfabrics.org/downloads/management/@TARBALL@
 Url: http://openfabrics.org
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
-BuildRequires: libibcommon-devel, libtool
+BuildRequires: libtool
 
 %description
 libibumad provides the user MAD library functions which sit on top of
@@ -23,7 +23,7 @@ and management tools, including OpenSM.
 %package devel
 Summary: Development files for the libibumad library
 Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release} libibcommon-devel
+Requires: %{name} = %{version}-%{release}
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 

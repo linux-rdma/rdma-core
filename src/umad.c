@@ -38,6 +38,7 @@
 #include <sys/poll.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -75,6 +76,14 @@ typedef struct ib_user_mad_reg_req {
 	uint8_t  oui[3];
 	uint8_t  rmpp_version;
 } ib_user_mad_reg_req_t;
+
+extern int sys_read_string(char *dir_name, char *file_name, char *str, int len);
+extern int sys_read_guid(char *dir_name, char *file_name, uint64_t *net_guid);
+extern int sys_read_gid(char *dir_name, char *file_name, uint8_t *gid);
+extern int sys_read_uint64(char *dir_name, char *file_name, uint64_t *u);
+extern int sys_read_uint(char *dir_name, char *file_name, unsigned *u);
+
+#define IBWARN(fmt, args...) fprintf(stdout, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
 
 #define TRACE	if (umaddebug)	IBWARN
 #define DEBUG	if (umaddebug)	IBWARN
