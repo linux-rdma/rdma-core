@@ -45,7 +45,6 @@
 #include <getopt.h>
 #include <netinet/in.h>
 
-#include <infiniband/common.h>
 #include <infiniband/mad.h>
 #include <infiniband/umad.h>
 

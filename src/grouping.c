@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include <infiniband/common.h>
 #include <infiniband/mad.h>
 
 #include "ibnetdiscover.h"

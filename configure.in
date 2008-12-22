@@ -32,8 +32,6 @@ AC_PROG_LIBTOOL
 if test "$disable_libcheck" != "yes"
 then
 dnl Checks for libraries
-AC_CHECK_LIB(ibcommon, ibpanic, [],
-	AC_MSG_ERROR([ibpanic() not found. diags require libibcommon.]))
 AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. diags require libibumad.]))
 AC_CHECK_LIB(ibmad, mad_dump_int, [],
@@ -53,9 +51,6 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS([stdlib.h string.h unistd.h fcntl.h inttypes.h netinet/in.h sys/ioctl.h syslog.h])
 if test "$disable_libcheck" != "yes"
 then
-AC_CHECK_HEADER(infiniband/common.h, [],
-	AC_MSG_ERROR([<infiniband/common.h> not found. diags require libibcommon.])
-)
 AC_CHECK_HEADER(infiniband/umad.h, [],
 	AC_MSG_ERROR([<infiniband/umad.h> not found. diags require libibumad.])
 )

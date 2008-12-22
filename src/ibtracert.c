@@ -46,7 +46,6 @@
 #include <inttypes.h>
 #include <errno.h>
 
-#include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 #include <infiniband/complib/cl_nodenamemap.h>

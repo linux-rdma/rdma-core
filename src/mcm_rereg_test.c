@@ -36,7 +36,6 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 

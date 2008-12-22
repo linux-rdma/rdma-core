@@ -43,8 +43,8 @@
 #include <string.h>
 #include <signal.h>
 #include <getopt.h>
+#include <sys/time.h>
 
-#include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
@@ -59,6 +59,14 @@ static char host_and_domain[IB_VENDOR_RANGE2_DATA_SIZE];
 static char last_host[IB_VENDOR_RANGE2_DATA_SIZE];
 
 char *argv0 = "ibping";
+
+static uint64_t getcurrenttime(void)
+{
+        struct timeval tv;
+
+        gettimeofday(&tv, 0);
+        return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+}
 
 static void
 get_host_and_domain(char *data, int sz)

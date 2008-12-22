@@ -42,7 +42,6 @@
 #include <inttypes.h>
 #include <getopt.h>
 
-#include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
