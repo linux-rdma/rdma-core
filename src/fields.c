@@ -41,7 +41,6 @@
 #include <string.h>
 
 #include <mad.h>
-#include <infiniband/common.h>
 
 /*
  * BITSOFFS and BE_OFFS are required due the fact that the bit offsets are inconsistently

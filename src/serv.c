@@ -43,7 +43,6 @@
 #include <string.h>
 #include <netinet/in.h>
 
-#include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <mad.h>
 

@@ -1,5 +1,6 @@
 IBMAD_1.3 {
 	global:
+		xdump;
 		mad_dump_field;
 		mad_dump_val;
 		mad_print_field;

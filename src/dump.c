@@ -44,7 +44,6 @@
 #include <netinet/in.h>
 
 #include <mad.h>
-#include <infiniband/common.h>
 
 void
 mad_dump_int(char *buf, int bufsz, void *val, int valsz)
@@ -728,4 +727,31 @@ void
 mad_dump_perfcounters_ext(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_PC_EXT_FIRST_F, IB_PC_EXT_LAST_F);
+}
+
+void xdump(FILE *file, char *msg, void *p, int size)
+{
+#define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))
+        uint8_t *cp = p;
+        int i;
+
+	if (msg)
+		fputs(msg, file);
+
+        for (i = 0; i < size;) {
+                fputc(HEX(*cp >> 4), file);
+                fputc(HEX(*cp & 0xf), file);
+                if (++i >= size)
+                        break;
+                fputc(HEX(cp[1] >> 4), file);
+                fputc(HEX(cp[1] & 0xf), file);
+                if ((++i) % 16)
+                        fputc(' ', file);
+                else
+                        fputc('\n', file);
+                cp += 2;
+        }
+        if (i % 16) {
+                fputc('\n', file);
+        }
 }

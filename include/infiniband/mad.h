@@ -35,6 +35,11 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <byteswap.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -834,6 +839,45 @@ ib_mad_dump_fn
 	mad_dump_perfcounters, mad_dump_perfcounters_ext;
 
 extern int ibdebug;
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#ifndef ntohll
+static inline uint64_t ntohll(uint64_t x) {
+	return bswap_64(x);
+}
+#endif
+#ifndef htonll
+static inline uint64_t htonll(uint64_t x) {
+	return bswap_64(x);
+}
+#endif
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#ifndef ntohll
+static inline uint64_t ntohll(uint64_t x) {
+	return x;
+}
+#endif
+#ifndef htonll
+static inline uint64_t htonll(uint64_t x) {
+	return x;
+}
+#endif
+#endif	/* __BYTE_ORDER == __BIG_ENDIAN */
+
+/* Misc. macros: */
+/** align value \a l to \a size (ceil) */
+#define ALIGN(l, size) (((l) + ((size) - 1)) / (size) * (size))
+
+/** printf style warning MACRO, includes name of function and pid */
+#define IBWARN(fmt, ...) fprintf(stdout, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## __VA_ARGS__)
+
+/** printf style abort MACRO, includes name of function and pid */
+#define IBPANIC(fmt, ...) do { \
+	fprintf(stdout, "ibpanic: [%d] %s: " fmt ": %m\n", getpid(), __func__, ## __VA_ARGS__); \
+	exit(-1); \
+} while(0)
+
+void xdump(FILE *file, char *msg, void *p, int size);
 
 END_C_DECLS
 

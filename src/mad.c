@@ -42,7 +42,6 @@
 #include <pthread.h>
 #include <sys/time.h>
 
-#include <infiniband/common.h>
 #include <infiniband/umad.h>
 #include <mad.h>
 

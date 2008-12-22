@@ -45,7 +45,6 @@
 #include <arpa/inet.h>
 
 #include <mad.h>
-#include <infiniband/common.h>
 
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
