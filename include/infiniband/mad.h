@@ -703,8 +703,6 @@ void *  madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
 void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
 		    int num_classes);
 void	madrpc_save_mad(void *madbuf, int len);
-void	madrpc_lock(void);
-void	madrpc_unlock(void);
 void	madrpc_show_errors(int set);
 
 void *	mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
@@ -725,32 +723,6 @@ uint8_t * smp_query_via(void *buf, ib_portid_t *id, unsigned attrid,
 uint8_t * smp_set_via(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
 		      unsigned timeout, const void *srcport);
 
-inline static uint8_t *
-safe_smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
-	       unsigned timeout)
-{
-	uint8_t *p;
-
-	madrpc_lock();
-	p = smp_query(rcvbuf, portid, attrid, mod, timeout);
-	madrpc_unlock();
-
-	return p;
-}
-
-inline static uint8_t *
-safe_smp_set(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
-	     unsigned timeout)
-{
-	uint8_t *p;
-
-	madrpc_lock();
-	p = smp_set(rcvbuf, portid, attrid, mod, timeout);
-	madrpc_unlock();
-
-	return p;
-}
-
 /* sa.c */
 uint8_t * sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
 		  unsigned timeout);
@@ -760,19 +732,6 @@ int	ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id,
 		      void *buf);	/* returns lid */
 int	ib_path_query_via(const void *srcport, ibmad_gid_t srcgid,
 			  ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf);
-
-inline static uint8_t *
-safe_sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
-	     unsigned timeout)
-{
-	uint8_t *p;
-
-	madrpc_lock();
-	p = sa_call(rcvbuf, portid, sa, timeout);
-	madrpc_unlock();
-
-	return p;
-}
 
 /* resolve.c */
 int	ib_resolve_smlid(ib_portid_t *sm_id, int timeout);

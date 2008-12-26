@@ -38,7 +38,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <string.h>
 #include <errno.h>
 
@@ -284,20 +283,6 @@ madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	port.port_id = mad_portid;
 	port.class_agents[rpc->mgtclass] = mad_class_agent(rpc->mgtclass);
 	return mad_rpc_rmpp(&port, rpc, dport, rmpp, data);
-}
-
-static pthread_mutex_t rpclock = PTHREAD_MUTEX_INITIALIZER;
-
-void
-madrpc_lock(void)
-{
-	pthread_mutex_lock(&rpclock);
-}
-
-void
-madrpc_unlock(void)
-{
-	pthread_mutex_unlock(&rpclock);
 }
 
 void

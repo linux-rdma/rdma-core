@@ -132,7 +132,7 @@ ib_path_query_via(const void *srcport, ibmad_gid_t srcgid, ibmad_gid_t destgid, 
 	if (srcport) {
 		p = sa_rpc_call (srcport, buf, sm_id, &sa, 0);
 	} else {
-		p = safe_sa_call(buf, sm_id, &sa, 0);
+		p = sa_call(buf, sm_id, &sa, 0);
 	}
 	if (!p) {
 		IBWARN("sa call path_query failed");
@@ -142,8 +142,9 @@ ib_path_query_via(const void *srcport, ibmad_gid_t srcgid, ibmad_gid_t destgid, 
 	mad_decode_field(p, IB_SA_PR_DLID_F, &dlid);
 	return dlid;
 }
+
 int
 ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf)
 {
-	return ib_path_query_via (NULL, srcgid, destgid, sm_id, buf);
+	return ib_path_query_via(NULL, srcgid, destgid, sm_id, buf);
 }
