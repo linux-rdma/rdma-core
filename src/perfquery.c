@@ -175,39 +175,39 @@ static void aggregate_perfcounters(void)
 
 	mad_decode_field(pc, IB_PC_PORT_SELECT_F, &val);
 	perf_count.portselect = val;
-        mad_decode_field(pc, IB_PC_COUNTER_SELECT_F, &val);
+	mad_decode_field(pc, IB_PC_COUNTER_SELECT_F, &val);
 	perf_count.counterselect = val;
-        mad_decode_field(pc, IB_PC_ERR_SYM_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_SYM_F, &val);
 	aggregate_16bit(&perf_count.symbolerrors, val);
-        mad_decode_field(pc, IB_PC_LINK_RECOVERS_F, &val);
+	mad_decode_field(pc, IB_PC_LINK_RECOVERS_F, &val);
 	aggregate_8bit(&perf_count.linkrecovers, val);
-        mad_decode_field(pc, IB_PC_LINK_DOWNED_F, &val);
+	mad_decode_field(pc, IB_PC_LINK_DOWNED_F, &val);
 	aggregate_8bit(&perf_count.linkdowned, val);
-        mad_decode_field(pc, IB_PC_ERR_RCV_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_RCV_F, &val);
 	aggregate_16bit(&perf_count.rcverrors, val);
-        mad_decode_field(pc, IB_PC_ERR_PHYSRCV_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_PHYSRCV_F, &val);
 	aggregate_16bit(&perf_count.rcvremotephyerrors, val);
-        mad_decode_field(pc, IB_PC_ERR_SWITCH_REL_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_SWITCH_REL_F, &val);
 	aggregate_16bit(&perf_count.rcvswrelayerrors, val);
-        mad_decode_field(pc, IB_PC_XMT_DISCARDS_F, &val);
+	mad_decode_field(pc, IB_PC_XMT_DISCARDS_F, &val);
 	aggregate_16bit(&perf_count.xmtdiscards, val);
-        mad_decode_field(pc, IB_PC_ERR_XMTCONSTR_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_XMTCONSTR_F, &val);
 	aggregate_8bit(&perf_count.xmtconstrainterrors, val);
-        mad_decode_field(pc, IB_PC_ERR_RCVCONSTR_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_RCVCONSTR_F, &val);
 	aggregate_8bit(&perf_count.rcvconstrainterrors, val);
-        mad_decode_field(pc, IB_PC_ERR_LOCALINTEG_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_LOCALINTEG_F, &val);
 	aggregate_4bit(&perf_count.linkintegrityerrors, val);
-        mad_decode_field(pc, IB_PC_ERR_EXCESS_OVR_F, &val);
+	mad_decode_field(pc, IB_PC_ERR_EXCESS_OVR_F, &val);
 	aggregate_4bit(&perf_count.excbufoverrunerrors, val);
-        mad_decode_field(pc, IB_PC_VL15_DROPPED_F, &val);
+	mad_decode_field(pc, IB_PC_VL15_DROPPED_F, &val);
 	aggregate_16bit(&perf_count.vl15dropped, val);
-        mad_decode_field(pc, IB_PC_XMT_BYTES_F, &val);
+	mad_decode_field(pc, IB_PC_XMT_BYTES_F, &val);
 	aggregate_32bit(&perf_count.xmtdata, val);
-        mad_decode_field(pc, IB_PC_RCV_BYTES_F, &val);
+	mad_decode_field(pc, IB_PC_RCV_BYTES_F, &val);
 	aggregate_32bit(&perf_count.rcvdata, val);
-        mad_decode_field(pc, IB_PC_XMT_PKTS_F, &val);
+	mad_decode_field(pc, IB_PC_XMT_PKTS_F, &val);
 	aggregate_32bit(&perf_count.xmtpkts, val);
-        mad_decode_field(pc, IB_PC_RCV_PKTS_F, &val);
+	mad_decode_field(pc, IB_PC_RCV_PKTS_F, &val);
 	aggregate_32bit(&perf_count.rcvpkts, val);
 }
 
@@ -273,8 +273,8 @@ static void output_aggregate_perfcounters_ext(ib_portid_t *portid)
 	char buf[1024];
 	uint32_t val = ALL_PORTS;
 
-        /* set port_select to 255 to emulate AllPortSelect */
-        mad_encode_field(pc, IB_PC_EXT_PORT_SELECT_F, &val);
+	/* set port_select to 255 to emulate AllPortSelect */
+	mad_encode_field(pc, IB_PC_EXT_PORT_SELECT_F, &val);
 	mad_encode_field(pc, IB_PC_EXT_COUNTER_SELECT_F, &perf_count_ext.counterselect);
 	mad_encode_field(pc, IB_PC_EXT_XMT_BYTES_F, &perf_count_ext.portxmitdata);
 	mad_encode_field(pc, IB_PC_EXT_RCV_BYTES_F, &perf_count_ext.portrcvdata);
@@ -450,7 +450,7 @@ main(int argc, char **argv)
 	if (!perf_classportinfo_query(pc, &portid, port, timeout))
 		IBERROR("classportinfo query");
 	/* ClassPortInfo should be supported as part of libibmad */
-	memcpy(&cap_mask, pc+2, sizeof(cap_mask));	/* CapabilityMask */
+	memcpy(&cap_mask, pc + 2, sizeof(cap_mask));	/* CapabilityMask */
 	cap_mask = ntohs(cap_mask);
 	if (!(cap_mask & 0x100)) { /* bit 8 is AllPortSelect */
 		if (!all_ports && port == ALL_PORTS)
