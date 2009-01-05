@@ -75,6 +75,65 @@ typedef struct {
 
 static char *sysfs_path = "/sys";
 
+int srpd_sys_read_string(char *dir_name, char *file_name, char *str, int max_len)
+{
+	char path[256], *s;
+	int fd, r;
+
+	snprintf(path, sizeof(path), "%s/%s", dir_name, file_name);
+
+	if ((fd = open(path, O_RDONLY)) < 0)
+		return (errno > 0) ? -errno : errno;
+
+	if ((r = read(fd, str, max_len)) < 0) {
+		int e = errno;
+		close(fd);
+		return (e > 0) ? -e : e;
+	}
+
+	str[(r < max_len) ? r : max_len - 1] = 0;
+
+	if ((s = strrchr(str, '\n')))
+		*s = 0;
+
+	close(fd);
+	return 0;
+}
+
+int srpd_sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
+{
+	char buf[64], *str, *s;
+	uint16_t *ugid = (uint16_t *)gid;
+	int r, i;
+
+	if ((r = srpd_sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
+		return r;
+
+	for (s = buf, i = 0 ; i < 8; i++) {
+		if (!(str = strsep(&s, ": \t\n")))
+			return -EINVAL;
+		ugid[i] = htons(strtoul(str, 0, 16) & 0xffff);
+	}
+
+	return 0;
+}
+
+int srpd_sys_read_uint64(char *dir_name, char *file_name, uint64_t *u)
+{
+	char buf[32];
+	int r;
+
+	if ((r = srpd_sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
+		return r;
+
+	*u = strtoull(buf, 0, 0);
+
+	return 0;
+}
+
+
+
+
 static void usage(const char *argv0)
 {
 	fprintf(stderr, "Usage: %s [-vVcaeon] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timoeout (ms)>] [-r <retries>] [-R <rescan time>] [-f <rules file>\n", argv0);
@@ -101,7 +160,7 @@ check_equal_uint64(char *dir_name, char *attr, uint64_t val)
 {
 uint64_t attr_value;
 
-	if (sys_read_uint64(dir_name, attr, &attr_value))
+	if (srpd_sys_read_uint64(dir_name, attr, &attr_value))
 		return 0;
 
 	return attr_value == val;
@@ -142,7 +201,7 @@ static int check_not_equal_str(char *dir_name, char *attr, char *value)
 		return 1;
 	}
 
-	if (sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
+	if (srpd_sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
 		return 0;
 	if (strncmp(attr_value, value, len))
 		return 1;
@@ -156,7 +215,7 @@ static int check_not_equal_int(char *dir_name, char *attr, int value)
 
 	char attr_value[MAX_ATTR_STRING_LENGTH];
 
-	if (sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
+	if (srpd_sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
 		return 0;
 	if (value != atoi(attr_value))
 		return 1;
@@ -260,14 +319,14 @@ static int add_non_exist_target(struct target_details *target)
 		if (!check_equal_uint64(scsi_host_dir, "ioc_guid",
 					ntohll(target->ioc_prof.guid)))
 			continue;
-		if (sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
+		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
 			/* 
 			 * In case this is an old kernel taht does not have 
 			 * orig_dgid in sysfs, use dgid instead (this is 
 			 * problematic when there is a dgid redirection 
 			 * by the CM)
 			 */
-			if (sys_read_gid(scsi_host_dir, "dgid", dgid_val))
+			if (srpd_sys_read_gid(scsi_host_dir, "dgid", dgid_val))
 				continue;
 		}
 		if (htonll(target->subnet_prefix) != *((uint64_t *) dgid_val))
@@ -489,7 +548,7 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 		goto end;
 	}
 
-	if (sys_read_string(class_dev_path, "ibdev", *ibdev, 
+	if (srpd_sys_read_string(class_dev_path, "ibdev", *ibdev, 
 			    IBDEV_STR_SIZE) < 0) {
 		pr_err("Couldn't read ibdev attribute\n");
 		ret = -1;
@@ -502,7 +561,7 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 		ret = -ENOMEM;
 		goto end;
 	}
-	if (sys_read_string(class_dev_path, "port", *ibport, IBPORT_STR_SIZE) < 0) {
+	if (srpd_sys_read_string(class_dev_path, "port", *ibport, IBPORT_STR_SIZE) < 0) {
 		pr_err("Couldn't read port attribute\n");
 		ret = -1;
 		goto end;
@@ -593,14 +652,14 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 
 	cpi                = (void *) out_dm_mad->data;
 
-	if (sys_read_string(umad_res->port_sysfs_path, "lid", val, sizeof val) < 0) {
+	if (srpd_sys_read_string(umad_res->port_sysfs_path, "lid", val, sizeof val) < 0) {
 		pr_err("Couldn't read LID\n");
 		return -1;
 	}
 
 	cpi->trap_lid = htons(strtol(val, NULL, 0));
 
-	if (sys_read_string(umad_res->port_sysfs_path, "gids/0", val, sizeof val) < 0) {
+	if (srpd_sys_read_string(umad_res->port_sysfs_path, "gids/0", val, sizeof val) < 0) {
 		pr_err("Couldn't read GID[0]\n");
 		return -1;
 	}
@@ -1581,7 +1640,7 @@ int recalc(struct resources *res)
 	char val[6];
 	int ret;
 
-	ret = sys_read_string(umad_res->port_sysfs_path, "sm_lid", val, sizeof val); 
+	ret = srpd_sys_read_string(umad_res->port_sysfs_path, "sm_lid", val, sizeof val); 
 	if (ret < 0) {
 		pr_err("Couldn't read SM LID\n");
 		return ret;
