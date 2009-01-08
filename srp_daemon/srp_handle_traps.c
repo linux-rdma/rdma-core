@@ -557,7 +557,8 @@ static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num
 		pthread_mutex_lock(res->mad_buffer_mutex);
 		res->mad_buffer->base_ver = 0; // flag that the buffer is empty
 		pthread_mutex_unlock(res->mad_buffer_mutex);
-		mad_hdr->trans_id = htonll(trans_id++);
+		mad_hdr->trans_id = htonll(trans_id);
+		trans_id++;
 
 		ret = ibv_post_send(res->qp, &sr, bad_wr);
 		if (ret) {
