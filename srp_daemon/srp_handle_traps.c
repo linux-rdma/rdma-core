@@ -42,7 +42,6 @@
 #include <time.h>
 #include <errno.h>
 #include <string.h>
-#include <infiniband/common.h>
 #include <infiniband/verbs.h>
 
 #include "srp_ib_types.h"

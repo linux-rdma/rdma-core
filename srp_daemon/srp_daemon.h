@@ -37,9 +37,27 @@
 #define SRP_DM_H
 
 #include <stdint.h>
+#include <endian.h>
+#include <byteswap.h>
 #include <infiniband/verbs.h>
 
 #include "srp_ib_types.h"
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#ifndef htonll
+#define htonll(x) bswap_64(x)
+#endif
+#ifndef ntohll
+#define ntohll(x) bswap_64(x)
+#endif
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#ifndef htonll
+#define htonll(x) (x)
+#endif
+#ifndef ntohll
+#define ntohll(x) (x)
+#endif
+#endif
 
 enum {
 	SRP_MGMT_CLASS_SA = 3,

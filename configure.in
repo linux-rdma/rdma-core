@@ -20,8 +20,6 @@ AC_PROG_CC
 # Checks for libraries.
 if test "$disable_libcheck" != "yes"
 then
-AC_CHECK_LIB([ibcommon], [stack_dump], [],
-	AC_MSG_ERROR([srptools require libibcommon.]))
 AC_CHECK_LIB([ibumad], [umad_init], [],
 	AC_MSG_ERROR([srptools require libibumad.]))
 AC_CHECK_LIB([ibverbs], [ibv_get_device_list], [],

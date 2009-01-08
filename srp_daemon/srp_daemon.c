@@ -58,7 +58,6 @@
 #include <pthread.h>
 #include <string.h>
 #include <infiniband/umad.h>
-#include <infiniband/common.h>
 #include "srp_ib_types.h"
 
 #include "srp_daemon.h"
