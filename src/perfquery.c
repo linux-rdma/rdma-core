@@ -67,6 +67,7 @@ struct perf_count {
 	uint32_t rcvdata;
 	uint32_t xmtpkts;
 	uint32_t rcvpkts;
+	uint32_t xmtwait;
 };
 
 struct perf_count_ext {
@@ -209,6 +210,8 @@ static void aggregate_perfcounters(void)
 	aggregate_32bit(&perf_count.xmtpkts, val);
 	mad_decode_field(pc, IB_PC_RCV_PKTS_F, &val);
 	aggregate_32bit(&perf_count.rcvpkts, val);
+	mad_decode_field(pc, IB_PC_XMT_WAIT_F, &val);
+	aggregate_32bit(&perf_count.xmtwait, val);
 }
 
 static void output_aggregate_perfcounters(ib_portid_t *portid)
@@ -235,6 +238,7 @@ static void output_aggregate_perfcounters(ib_portid_t *portid)
 	mad_encode_field(pc, IB_PC_RCV_BYTES_F, &perf_count.rcvdata);
 	mad_encode_field(pc, IB_PC_XMT_PKTS_F, &perf_count.xmtpkts);
 	mad_encode_field(pc, IB_PC_RCV_PKTS_F, &perf_count.rcvpkts);
+	mad_encode_field(pc, IB_PC_XMT_WAIT_F, &perf_count.xmtwait);
 
 	mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
 
@@ -298,6 +302,11 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask, ib_p
 	if (extended != 1) {
 		if (!port_performance_query(pc, portid, port, timeout))
 			IBERROR("perfquery");
+		if (!(cap_mask & 0x1000)) {
+			/* if PortCounters:PortXmitWait not suppported clear this counter */
+			perf_count.xmtwait = 0;
+			mad_encode_field(pc, IB_PC_XMT_WAIT_F, &perf_count.xmtwait);
+		}
 		if (aggregate)
 			aggregate_perfcounters();
 		else
@@ -499,6 +508,9 @@ main(int argc, char **argv)
 		exit(0);
 
 do_reset:
+
+	if (arvc <= 2 && !extended && (cap_mask & 0x1000))
+		mask |= (1<<16); /* reset portxmitwait */
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
 		for (i = start_port; i <= num_ports; i++)
