@@ -142,6 +142,8 @@ performance_reset_via(void *rcvbuf, ib_portid_t *dest, int port, unsigned mask,
 	/* Same for attribute IDs */
 	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
 	mad_set_field(rcvbuf, 0, IB_PC_COUNTER_SELECT_F, mask);
+	mask = mask >> 16;
+	mad_set_field(rcvbuf, 0, IB_PC_COUNTER_SELECT2_F, mask);
 	rpc.attr.mod = 0;
 	rpc.timeout = timeout;
 	rpc.datasz = IB_PC_DATA_SZ;
