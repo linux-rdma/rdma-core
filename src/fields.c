@@ -239,6 +239,7 @@ static const ib_field_t ib_mad_f [] = {
 	[IB_PC_XMT_DISCARDS_F] 		{BITSOFFS(112, 16), "XmtDiscards", mad_dump_uint},
 	[IB_PC_ERR_XMTCONSTR_F] 	{BITSOFFS(128, 8), "XmtConstraintErrors", mad_dump_uint},
 	[IB_PC_ERR_RCVCONSTR_F] 	{BITSOFFS(136, 8), "RcvConstraintErrors", mad_dump_uint},
+	[IB_PC_COUNTER_SELECT2_F]	{BITSOFFS(144, 8), "CounterSelect2", mad_dump_uint},
 	[IB_PC_ERR_LOCALINTEG_F] 	{BITSOFFS(152, 4), "LinkIntegrityErrors", mad_dump_uint},
 	[IB_PC_ERR_EXCESS_OVR_F] 	{BITSOFFS(156, 4), "ExcBufOverrunErrors", mad_dump_uint},
 	[IB_PC_VL15_DROPPED_F] 		{BITSOFFS(176, 16), "VL15Dropped", mad_dump_uint},
@@ -246,6 +247,7 @@ static const ib_field_t ib_mad_f [] = {
 	[IB_PC_RCV_BYTES_F] 		{224, 32, "RcvData", mad_dump_uint},
 	[IB_PC_XMT_PKTS_F] 		{256, 32, "XmtPkts", mad_dump_uint},
 	[IB_PC_RCV_PKTS_F] 		{288, 32, "RcvPkts", mad_dump_uint},
+	[IB_PC_XMT_WAIT_F] 		{320, 32, "XmtWait", mad_dump_uint},
 
 	/*
 	 * SMInfo
