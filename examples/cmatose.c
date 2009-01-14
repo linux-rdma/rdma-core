@@ -58,9 +58,14 @@ struct cmatest_node {
 	struct rdma_cm_id	*cma_id;
 	int			connected;
 	struct ibv_pd		*pd;
-	struct ibv_cq		*cq;
+	struct ibv_cq		*cq[2];
 	struct ibv_mr		*mr;
 	void			*mem;
+};
+
+enum CQ_INDEX {
+	SEND_CQ_INDEX,
+	RECV_CQ_INDEX
 };
 
 struct cmatest {
@@ -124,24 +129,25 @@ static int init_node(struct cmatest_node *node)
 		goto out;
 	}
 
-	cqe = message_count ? message_count * 2 : 2;
-	node->cq = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
-	if (!node->cq) {
+	cqe = message_count ? message_count : 1;
+	node->cq[SEND_CQ_INDEX] = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
+	node->cq[RECV_CQ_INDEX] = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
+	if (!node->cq[SEND_CQ_INDEX] || !node->cq[RECV_CQ_INDEX]) {
 		ret = -ENOMEM;
 		printf("cmatose: unable to create CQ\n");
 		goto out;
 	}
 
 	memset(&init_qp_attr, 0, sizeof init_qp_attr);
-	init_qp_attr.cap.max_send_wr = message_count ? message_count : 1;
-	init_qp_attr.cap.max_recv_wr = message_count ? message_count : 1;
+	init_qp_attr.cap.max_send_wr = cqe;
+	init_qp_attr.cap.max_recv_wr = cqe;
 	init_qp_attr.cap.max_send_sge = 1;
 	init_qp_attr.cap.max_recv_sge = 1;
 	init_qp_attr.qp_context = node;
 	init_qp_attr.sq_sig_all = 1;
 	init_qp_attr.qp_type = IBV_QPT_RC;
-	init_qp_attr.send_cq = node->cq;
-	init_qp_attr.recv_cq = node->cq;
+	init_qp_attr.send_cq = node->cq[SEND_CQ_INDEX];
+	init_qp_attr.recv_cq = node->cq[RECV_CQ_INDEX];
 	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
 	if (ret) {
 		printf("cmatose: unable to create QP: %d\n", ret);
@@ -356,8 +362,11 @@ static void destroy_node(struct cmatest_node *node)
 	if (node->cma_id->qp)
 		rdma_destroy_qp(node->cma_id);
 
-	if (node->cq)
-		ibv_destroy_cq(node->cq);
+	if (node->cq[SEND_CQ_INDEX])
+		ibv_destroy_cq(node->cq[SEND_CQ_INDEX]);
+
+	if (node->cq[RECV_CQ_INDEX])
+		ibv_destroy_cq(node->cq[RECV_CQ_INDEX]);
 
 	if (node->mem) {
 		ibv_dereg_mr(node->mr);
@@ -409,7 +418,7 @@ static void destroy_nodes(void)
 	free(test.nodes);
 }
 
-static int poll_cqs(void)
+static int poll_cqs(enum CQ_INDEX index)
 {
 	struct ibv_wc wc[8];
 	int done, i, ret;
@@ -419,7 +428,7 @@ static int poll_cqs(void)
 			continue;
 
 		for (done = 0; done < message_count; done += ret) {
-			ret = ibv_poll_cq(test.nodes[i].cq, 8, wc);
+			ret = ibv_poll_cq(test.nodes[i].cq[index], 8, wc);
 			if (ret < 0) {
 				printf("cmatose: failed polling CQ: %d\n", ret);
 				return ret;
@@ -563,12 +572,12 @@ static int run_server(void)
 		}
 
 		printf("completing sends\n");
-		ret = poll_cqs();
+		ret = poll_cqs(SEND_CQ_INDEX);
 		if (ret)
 			goto out;
 
 		printf("receiving data transfers\n");
-		ret = poll_cqs();
+		ret = poll_cqs(RECV_CQ_INDEX);
 		if (ret)
 			goto out;
 		printf("data transfers complete\n");
@@ -634,7 +643,7 @@ static int run_client(void)
 
 	if (message_count) {
 		printf("receiving data transfers\n");
-		ret = poll_cqs();
+		ret = poll_cqs(RECV_CQ_INDEX);
 		if (ret)
 			goto disc;
 
