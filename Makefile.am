@@ -23,7 +23,7 @@ libibmad_la_DEPENDENCIES = $(srcdir)/src/libibmad.map
 
 libibmadincludedir = $(includedir)/infiniband
 
-libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h
+libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h $(srcdir)/include/infiniband/mad_osd.h
 
 EXTRA_DIST = libibmad.spec.in libibmad.spec \
 	$(srcdir)/src/libibmad.map libibmad.ver autogen.sh

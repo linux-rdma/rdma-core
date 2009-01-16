@@ -33,13 +33,7 @@
 #ifndef _MAD_H_
 #define _MAD_H_
 
-#include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <byteswap.h>
+#include <infiniband/mad_osd.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -52,7 +46,7 @@
 BEGIN_C_DECLS
 
 #define IB_SUBNET_PATH_HOPS_MAX	64
-#define IB_DEFAULT_SUBN_PREFIX	0xfe80000000000000llu
+#define IB_DEFAULT_SUBN_PREFIX	0xfe80000000000000ULL
 #define IB_DEFAULT_QP1_QKEY	0x80010000
 
 #define IB_MAD_SIZE		256
@@ -627,10 +621,10 @@ enum {
 /******************************************************************************/
 
 /* portid.c */
-char *	portid2str(ib_portid_t *portid);
-int	portid2portnum(ib_portid_t *portid);
-int	str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid);
-char *  drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size);
+MAD_EXPORT char * portid2str(ib_portid_t *portid);
+MAD_EXPORT int	portid2portnum(ib_portid_t *portid);
+MAD_EXPORT int	str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid);
+MAD_EXPORT char * drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size);
 
 static inline int
 ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)
@@ -644,44 +638,44 @@ ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)
 }
 
 /* fields.c */
-uint32_t mad_get_field(void *buf, int base_offs, int field);
-void mad_set_field(void *buf, int base_offs, int field, uint32_t val);
+MAD_EXPORT uint32_t mad_get_field(void *buf, int base_offs, int field);
+MAD_EXPORT void mad_set_field(void *buf, int base_offs, int field, uint32_t val);
 /* field must be byte aligned */
-uint64_t mad_get_field64(void *buf, int base_offs, int field);
-void mad_set_field64(void *buf, int base_offs, int field, uint64_t val);
-void mad_set_array(void *buf, int base_offs, int field, void *val);
-void mad_get_array(void *buf, int base_offs, int field, void *val);
-void mad_decode_field(uint8_t *buf, int field, void *val);
-void mad_encode_field(uint8_t *buf, int field, void *val);
-int mad_print_field(int field, const char *name, void *val);
-char *mad_dump_field(int field, char *buf, int bufsz, void *val);
-char *mad_dump_val(int field, char *buf, int bufsz, void *val);
+MAD_EXPORT uint64_t mad_get_field64(void *buf, int base_offs, int field);
+MAD_EXPORT void mad_set_field64(void *buf, int base_offs, int field, uint64_t val);
+MAD_EXPORT void mad_set_array(void *buf, int base_offs, int field, void *val);
+MAD_EXPORT void mad_get_array(void *buf, int base_offs, int field, void *val);
+MAD_EXPORT void mad_decode_field(uint8_t *buf, int field, void *val);
+MAD_EXPORT void mad_encode_field(uint8_t *buf, int field, void *val);
+MAD_EXPORT int mad_print_field(int field, const char *name, void *val);
+MAD_EXPORT char *mad_dump_field(int field, char *buf, int bufsz, void *val);
+MAD_EXPORT char *mad_dump_val(int field, char *buf, int bufsz, void *val);
 
 /* mad.c */
-void *mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
-uint64_t mad_trid(void);
-int mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
+MAD_EXPORT void *mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
+MAD_EXPORT uint64_t mad_trid(void);
+MAD_EXPORT int mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
 
 /* register.c */
-int	mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version);
-int	mad_register_client(int mgmt, uint8_t rmpp_version);
-int	mad_register_server(int mgmt, uint8_t rmpp_version,
+MAD_EXPORT int	mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version);
+MAD_EXPORT int	mad_register_client(int mgmt, uint8_t rmpp_version);
+MAD_EXPORT int	mad_register_server(int mgmt, uint8_t rmpp_version,
 			    long method_mask[16/sizeof(long)],
 			    uint32_t class_oui);
-int	mad_class_agent(int mgmt);
-int	mad_agent_class(int agent);
+MAD_EXPORT int	mad_class_agent(int mgmt);
+MAD_EXPORT int	mad_agent_class(int agent);
 
 /* serv.c */
-int	mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
+MAD_EXPORT int	mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
 		 void *data);
-void *	mad_receive(void *umad, int timeout);
-int	mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus);
-void *	mad_alloc(void);
-void	mad_free(void *umad);
+MAD_EXPORT void * mad_receive(void *umad, int timeout);
+MAD_EXPORT int	mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus);
+MAD_EXPORT void * mad_alloc(void);
+MAD_EXPORT void	mad_free(void *umad);
 
 /* vendor.c */
-uint8_t *ib_vendor_call(void *data, ib_portid_t *portid,
-			ib_vendor_call_t *call);
+MAD_EXPORT uint8_t *ib_vendor_call(void *data, ib_portid_t *portid,
+				   ib_vendor_call_t *call);
 
 static inline int
 mad_is_vendor_range1(int mgmt)
@@ -696,29 +690,29 @@ mad_is_vendor_range2(int mgmt)
 }
 
 /* rpc.c */
-int	madrpc_portid(void);
-int	madrpc_set_retries(int retries);
-int	madrpc_set_timeout(int timeout);
-void *	madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata);
-void *  madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
+MAD_EXPORT int	madrpc_portid(void);
+MAD_EXPORT int	madrpc_set_retries(int retries);
+MAD_EXPORT int	madrpc_set_timeout(int timeout);
+void * madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata);
+void * madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
 		    void *data);
-void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
+MAD_EXPORT void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
 		    int num_classes);
 void	madrpc_save_mad(void *madbuf, int len);
-void	madrpc_show_errors(int set);
+MAD_EXPORT void	madrpc_show_errors(int set);
 
-void *	mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
+void * mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
 			  int num_classes);
 void	mad_rpc_close_port(void *ibmad_port);
-void *	mad_rpc(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
+void * mad_rpc(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
 		void *payload, void *rcvdata);
-void *  mad_rpc_rmpp(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
+void * mad_rpc_rmpp(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
 		     ib_rmpp_hdr_t *rmpp, void *data);
 
 /* smp.c */
-uint8_t * smp_query(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
+MAD_EXPORT uint8_t * smp_query(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
 		    unsigned timeout);
-uint8_t * smp_set(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
+MAD_EXPORT uint8_t * smp_set(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
 		  unsigned timeout);
 uint8_t * smp_query_via(void *buf, ib_portid_t *id, unsigned attrid,
 			unsigned mod, unsigned timeout, const void *srcport);
@@ -730,18 +724,18 @@ uint8_t * sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
 		  unsigned timeout);
 uint8_t * sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
                       ib_sa_call_t *sa, unsigned timeout);
-int	ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id,
+MAD_EXPORT int	ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id,
 		      void *buf);	/* returns lid */
 int	ib_path_query_via(const void *srcport, ibmad_gid_t srcgid,
 			  ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf);
 
 /* resolve.c */
-int	ib_resolve_smlid(ib_portid_t *sm_id, int timeout);
-int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid,
+MAD_EXPORT int	ib_resolve_smlid(ib_portid_t *sm_id, int timeout);
+MAD_EXPORT int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid,
 			ib_portid_t *sm_id, int timeout);
-int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str,
+MAD_EXPORT int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str,
 			      int dest_type, ib_portid_t *sm_id);
-int	ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid);
+MAD_EXPORT int	ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid);
 
 int	ib_resolve_smlid_via(ib_portid_t *sm_id, int timeout,
 			     const void *srcport);
@@ -755,19 +749,19 @@ int	ib_resolve_self_via(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid,
 			    const void *srcport);
 
 /* gs.c */
-uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port,
+MAD_EXPORT uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port,
 				  unsigned timeout);
-uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
+MAD_EXPORT uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
 				unsigned timeout);
-uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
+MAD_EXPORT uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
 				unsigned mask, unsigned timeout);
-uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port,
+MAD_EXPORT uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port,
 				    unsigned timeout);
-uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port,
+MAD_EXPORT uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port,
 				    unsigned mask, unsigned timeout);
-uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
+MAD_EXPORT uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
 				    unsigned timeout);
-uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,
+MAD_EXPORT uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,
 				   unsigned timeout);
 
 uint8_t *perf_classportinfo_query_via(void *rcvbuf, ib_portid_t *dest, int port,
@@ -785,7 +779,7 @@ uint8_t *port_samples_control_query_via(void *rcvbuf, ib_portid_t *dest, int por
 uint8_t *port_samples_result_query_via(void *rcvbuf, ib_portid_t *dest, int port,
 				   unsigned timeout, const void *srcport);
 /* dump.c */
-ib_mad_dump_fn
+MAD_EXPORT ib_mad_dump_fn
 	mad_dump_int, mad_dump_uint, mad_dump_hex, mad_dump_rhex,
 	mad_dump_bitfield, mad_dump_array, mad_dump_string,
 	mad_dump_linkwidth, mad_dump_linkwidthsup, mad_dump_linkwidthen,
