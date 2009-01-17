@@ -38,10 +38,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <inttypes.h>
-#include <netinet/in.h>
 
 #include <infiniband/mad.h>
 
@@ -114,13 +111,13 @@ mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "0x%08x", *(uint32_t *)val);
 		break;
 	case 5:
-		snprintf(buf, bufsz, "0x%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffllu);
+		snprintf(buf, bufsz, "0x%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffULL);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "0x%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffllu);
+		snprintf(buf, bufsz, "0x%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffULL);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "0x%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffllu);
+		snprintf(buf, bufsz, "0x%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffULL);
 		break;
 	case 8:
 		snprintf(buf, bufsz, "0x%016" PRIx64, *(uint64_t *)val);
@@ -148,13 +145,13 @@ mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 		snprintf(buf, bufsz, "%08x", *(uint32_t *)val);
 		break;
 	case 5:
-		snprintf(buf, bufsz, "%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffllu);
+		snprintf(buf, bufsz, "%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffULL);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffllu);
+		snprintf(buf, bufsz, "%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffULL);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffllu);
+		snprintf(buf, bufsz, "%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffULL);
 		break;
 	case 8:
 		snprintf(buf, bufsz, "%016" PRIx64, *(uint64_t *)val);
@@ -606,7 +603,7 @@ typedef struct _ib_vl_arb_table {
 		uint8_t res_vl;
 		uint8_t weight;
 	} vl_entry[IB_NUM_VL_ARB_ELEMENTS_IN_BLOCK];
-} __attribute__((packed)) ib_vl_arb_table_t;
+} ib_vl_arb_table_t;
 
 static inline void
 ib_vl_arb_get_vl(uint8_t res_vl, uint8_t *const vl )
@@ -634,7 +631,7 @@ void
 mad_dump_vlarbitration(char *buf, int bufsz, void *val, int num)
 {
 	ib_vl_arb_table_t* p_vla_tbl = val;
-	unsigned i, n;
+	int i, n;
 	uint8_t vl;
 
 	num /= sizeof(p_vla_tbl->vl_entry[0]);
@@ -681,7 +678,7 @@ _dump_fields(char *buf, int bufsz, void *data, int start, int end)
 		bufsz -= n;
 	}
 
-	return s - buf;
+	return (int)(s - buf);
 }
 
 void

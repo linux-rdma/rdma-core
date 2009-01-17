@@ -37,7 +37,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <time.h>
 
@@ -55,7 +54,7 @@ mad_trid(void)
 	uint64_t next;
 
 	if (!base) {
-		srandom(time(0)*getpid());
+		srandom((int)time(0)*getpid());
 		base = random();
 		trid = random();
 	}
@@ -97,8 +96,8 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 	mad_set_field(buf, 0, IB_MAD_ATTRMOD_F, rpc->attr.mod);
 
 	/* words 7,8 */
-	mad_set_field(buf, 0, IB_MAD_MKEY_F, rpc->mkey >> 32);
-	mad_set_field(buf, 4, IB_MAD_MKEY_F, rpc->mkey & 0xffffffff);
+	mad_set_field(buf, 0, IB_MAD_MKEY_F, (uint32_t)(rpc->mkey >> 32));
+	mad_set_field(buf, 4, IB_MAD_MKEY_F, (uint32_t)(rpc->mkey & 0xffffffff));
 
 	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
 		/* word 9 */
@@ -168,5 +167,5 @@ mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport,
 		mad_set_field(mad, 0, IB_SA_RMPP_D2_F, rmpp->d2.u);
 	}
 
-	return p - mad;
+	return ((int)(p - mad));
 }

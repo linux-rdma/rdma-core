@@ -37,10 +37,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <inttypes.h>
-#include <arpa/inet.h>
 
 #include <infiniband/mad.h>
 
@@ -94,7 +91,7 @@ str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid)
 	while (str && *str) {
 		if ((s = strchr(str, ',')))
 			*s = 0;
-		path->p[++path->cnt] = atoi(str);
+		path->p[++path->cnt] = (uint8_t)atoi(str);
 		if (!s)
 			break;
 		str = s+1;
@@ -112,11 +109,11 @@ drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size)
 	int i = 0;
 	int rc = snprintf(dstr, dstr_size, "slid %d; dlid %d; %d",
 		path->drslid, path->drdlid, path->p[0]);
-	if (rc >= dstr_size)
+	if (rc >= (int)dstr_size)
 		return dstr;
 	for (i = 1; i <= path->cnt; i++) {
 		rc += snprintf(dstr+rc, dstr_size-rc, ",%d", path->p[i]);
-		if (rc >= dstr_size)
+		if (rc >= (int)dstr_size)
 			break;
 	}
 	return (dstr);

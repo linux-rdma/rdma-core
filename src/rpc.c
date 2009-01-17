@@ -37,7 +37,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
@@ -129,7 +128,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 		save_mad = 0;
 	}
 
-	trid = mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
+	trid = (uint32_t)mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
 
 	for (retries = 0; retries < madrpc_retries; retries++) {
 		if (retries) {
@@ -298,7 +297,7 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		IBPANIC("too many classes %d requested", num_classes);
 
 	while (num_classes--) {
-		int rmpp_version = 0;
+		uint8_t rmpp_version = 0;
 		int mgmt = *mgmt_classes++;
 
 		if (mgmt == IB_SA_CLASS)
@@ -343,7 +342,7 @@ mad_rpc_open_port(char *dev_name, int dev_port,
 	}
 
 	while (num_classes--) {
-		int rmpp_version = 0;
+		uint8_t rmpp_version = 0;
 		int mgmt = *mgmt_classes++;
 		int agent;
 
