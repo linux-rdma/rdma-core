@@ -509,7 +509,7 @@ main(int argc, char **argv)
 
 do_reset:
 
-	if (arvc <= 2 && !extended && (cap_mask & 0x1000))
+	if (argc <= 2 && !extended && (cap_mask & 0x1000))
 		mask |= (1<<16); /* reset portxmitwait */
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
