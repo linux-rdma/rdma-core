@@ -1,7 +1,7 @@
 
 SUBDIRS = .
 
-INCLUDES = -I$(srcdir)/include/infiniband -I$(includedir)
+INCLUDES = -I$(srcdir)/include -I$(includedir)
 
 lib_LTLIBRARIES = libibmad.la
 
@@ -25,7 +25,7 @@ libibmadincludedir = $(includedir)/infiniband
 
 libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h
 
-EXTRA_DIST = $(srcdir)/include/infiniband/mad.h libibmad.spec.in libibmad.spec \
+EXTRA_DIST = libibmad.spec.in libibmad.spec \
 	$(srcdir)/src/libibmad.map libibmad.ver autogen.sh
 
 dist-hook:

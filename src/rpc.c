@@ -42,7 +42,7 @@
 #include <errno.h>
 
 #include <infiniband/umad.h>
-#include "mad.h"
+#include <infiniband/mad.h>
 
 #define MAX_CLASS 256
 

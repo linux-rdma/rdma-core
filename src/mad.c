@@ -42,7 +42,7 @@
 #include <time.h>
 
 #include <infiniband/umad.h>
-#include <mad.h>
+#include <infiniband/mad.h>
 
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN

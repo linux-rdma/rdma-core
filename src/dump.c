@@ -43,7 +43,7 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 
-#include <mad.h>
+#include <infiniband/mad.h>
 
 void
 mad_dump_int(char *buf, int bufsz, void *val, int valsz)

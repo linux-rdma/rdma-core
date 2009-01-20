@@ -42,7 +42,7 @@
 #include <inttypes.h>
 #include <arpa/inet.h>
 
-#include <mad.h>
+#include <infiniband/mad.h>
 
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN

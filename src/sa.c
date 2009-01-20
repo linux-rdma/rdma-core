@@ -40,7 +40,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <mad.h>
+#include <infiniband/mad.h>
 
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
