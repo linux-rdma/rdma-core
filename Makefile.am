@@ -37,7 +37,6 @@ src_ibaddr_CFLAGS = -Wall $(DBGFLAGS)
 
 src_ibnetdiscover_SOURCES = src/ibnetdiscover.c src/grouping.c src/ibdiag_common.c
 src_ibnetdiscover_CFLAGS = -Wall $(DBGFLAGS)
-src_ibnetdiscover_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
 src_ibping_SOURCES = src/ibping.c src/ibdiag_common.c
 src_ibping_CFLAGS = -Wall $(DBGFLAGS)
@@ -56,7 +55,6 @@ src_ibsysstat_CFLAGS = -Wall $(DBGFLAGS)
 
 src_ibtracert_SOURCES = src/ibtracert.c src/ibdiag_common.c
 src_ibtracert_CFLAGS = -Wall $(DBGFLAGS)
-src_ibtracert_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
 src_perfquery_SOURCES = src/perfquery.c src/ibdiag_common.c
 src_perfquery_CFLAGS = -Wall $(DBGFLAGS)
@@ -69,15 +67,12 @@ src_smpdump_CFLAGS = -Wall $(DBGFLAGS)
 
 src_smpquery_SOURCES = src/smpquery.c src/ibdiag_common.c
 src_smpquery_CFLAGS = -Wall $(DBGFLAGS)
-src_smpquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
 src_saquery_SOURCES = src/saquery.c src/ibdiag_common.c
 src_saquery_CFLAGS = -Wall -DOSM_VENDOR_INTF_OPENIB -DVENDOR_RMPP_SUPPORT -DDUAL_SIDED_RMPP $(DBGFLAGS)
-src_saquery_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
 src_ibsendtrap_SOURCES = src/ibsendtrap.c src/ibdiag_common.c
 src_ibsendtrap_CFLAGS = -Wall $(DBGFLAGS)
-src_ibsendtrap_LDFLAGS = -Wl,--rpath -Wl,$(libdir)
 
 src_vendstat_SOURCES = src/vendstat.c src/ibdiag_common.c
 src_vendstat_CFLAGS = -Wall $(DBGFLAGS)
