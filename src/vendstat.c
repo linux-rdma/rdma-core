@@ -131,7 +131,6 @@ main(int argc, char **argv)
 	int mgmt_classes[4] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS, IB_MLX_VENDOR_CLASS};
 	ib_portid_t *sm_id = 0, sm_portid = {0};
 	ib_portid_t portid = {0};
-	extern int ibdebug;
 	int dest_type = IB_DEST_LID;
 	int timeout = 0;	/* use default */
 	int port = 0;

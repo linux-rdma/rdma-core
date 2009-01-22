@@ -244,7 +244,6 @@ main(int argc, char **argv)
 	ib_portid_t *sm_id = 0, sm_portid = {0};
 	int timeout = 0, udebug = 0, server = 0;
 	int oui = IB_OPENIB_OUI, attr = IB_PING_ATTR;
-	extern int ibdebug;
 	char *err;
 	char *ca = 0;
 	int ca_port = 0;

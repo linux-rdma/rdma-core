@@ -203,7 +203,6 @@ main(int argc, char **argv)
 	int oui = IB_OPENIB_OUI;
 	uint64_t rtt;
 	unsigned count = ~0;
-	extern int ibdebug;
 	char *err;
 	char *ca = 0;
 	int ca_port = 0;

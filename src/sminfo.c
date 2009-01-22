@@ -90,7 +90,6 @@ main(int argc, char **argv)
 	unsigned act = 0;
 	int prio = 0, state = SMINFO_STANDBY;
 	uint64_t guid = 0, key = 0;
-	extern int ibdebug;
 	int dest_type = IB_DEST_LID;
 	int udebug = 0;
 	char *ca = 0;
