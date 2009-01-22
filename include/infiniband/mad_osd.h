@@ -45,4 +45,4 @@
 
 #define MAD_EXPORT
 
-#endif /* _MAD_OSD_H_ */
+#endif				/* _MAD_OSD_H_ */

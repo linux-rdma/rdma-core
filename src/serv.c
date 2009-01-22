@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +46,7 @@
 #define DEBUG	if (ibdebug)	IBWARN
 
 int
-mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
+mad_send(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data)
 {
 	uint8_t pktbuf[1024];
 	void *umad = pktbuf;
@@ -61,7 +61,7 @@ mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	if (ibdebug) {
 		IBWARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
 		xdump(stderr, "mad send data\n",
-			(char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
+		      (char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
 	}
 
 	if (umad_send(madrpc_portid(), mad_class_agent(rpc->mgtclass),
@@ -73,12 +73,11 @@ mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
 	return 0;
 }
 
-int
-mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus)
+int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
 {
 	uint8_t *mad = umad_get_mad(umad);
 	ib_mad_addr_t *mad_addr;
-	ib_rpc_t rpc = {0};
+	ib_rpc_t rpc = { 0 };
 	ib_portid_t rport;
 	int is_smi;
 
@@ -118,19 +117,20 @@ mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus)
 	/* cleared by default: timeout, datasz, dataoffs, mkey, mask */
 
 	is_smi = rpc.mgtclass == IB_SMI_CLASS ||
-		 rpc.mgtclass == IB_SMI_DIRECT_CLASS;
+	    rpc.mgtclass == IB_SMI_DIRECT_CLASS;
 
 	if (is_smi)
 		portid->qp = 0;
 	else if (!portid->qp)
-		 portid->qp = 1;
+		portid->qp = 1;
 
 	if (!portid->qkey && portid->qp == 1)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	DEBUG("qp 0x%x class 0x%x method %d attr 0x%x mod 0x%x datasz %d off %d qkey %x",
-		portid->qp, rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod,
-		rpc.datasz, rpc.dataoffs, portid->qkey);
+	DEBUG
+	    ("qp 0x%x class 0x%x method %d attr 0x%x mod 0x%x datasz %d off %d qkey %x",
+	     portid->qp, rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod,
+	     rpc.datasz, rpc.dataoffs, portid->qkey);
 
 	if (mad_build_pkt(umad, &rpc, portid, 0, 0) < 0)
 		return -1;
@@ -147,15 +147,13 @@ mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus)
 	return 0;
 }
 
-void *
-mad_receive(void *umad, int timeout)
+void *mad_receive(void *umad, int timeout)
 {
 	void *mad = umad ? umad : umad_alloc(1, umad_size() + IB_MAD_SIZE);
 	int agent;
 	int length = IB_MAD_SIZE;
 
-	if ((agent = umad_recv(madrpc_portid(), mad,
-			       &length, timeout)) < 0) {
+	if ((agent = umad_recv(madrpc_portid(), mad, &length, timeout)) < 0) {
 		if (!umad)
 			umad_free(mad);
 		DEBUG("recv failed: %m");
@@ -165,14 +163,12 @@ mad_receive(void *umad, int timeout)
 	return mad;
 }
 
-void *
-mad_alloc(void)
+void *mad_alloc(void)
 {
 	return umad_alloc(1, umad_size() + IB_MAD_SIZE);
 }
 
-void
-mad_free(void *umad)
+void mad_free(void *umad)
 {
 	umad_free(umad);
 }

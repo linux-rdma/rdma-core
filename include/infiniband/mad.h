@@ -38,74 +38,67 @@
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
-#else /* !__cplusplus */
+#else				/* !__cplusplus */
 #  define BEGIN_C_DECLS
 #  define END_C_DECLS
-#endif /* __cplusplus */
+#endif				/* __cplusplus */
 
 BEGIN_C_DECLS
 
 #define IB_SUBNET_PATH_HOPS_MAX	64
 #define IB_DEFAULT_SUBN_PREFIX	0xfe80000000000000ULL
 #define IB_DEFAULT_QP1_QKEY	0x80010000
-
 #define IB_MAD_SIZE		256
-
 #define IB_SMP_DATA_OFFS	64
 #define IB_SMP_DATA_SIZE	64
-
 #define IB_VENDOR_RANGE1_DATA_OFFS	24
 #define IB_VENDOR_RANGE1_DATA_SIZE	(IB_MAD_SIZE - IB_VENDOR_RANGE1_DATA_OFFS)
-
 #define IB_VENDOR_RANGE2_DATA_OFFS	40
 #define IB_VENDOR_RANGE2_DATA_SIZE	(IB_MAD_SIZE - IB_VENDOR_RANGE2_DATA_OFFS)
-
 #define IB_SA_DATA_SIZE		200
 #define IB_SA_DATA_OFFS		56
-
 #define IB_PC_DATA_OFFS		64
 #define IB_PC_DATA_SZ		(IB_MAD_SIZE - IB_PC_DATA_OFFS)
-
 #define IB_SA_MCM_RECSZ		53
 #define IB_SA_PR_RECSZ		64
 
 enum MAD_CLASSES {
-	IB_SMI_CLASS = 		0x1,
-	IB_SMI_DIRECT_CLASS = 	0x81,
-	IB_SA_CLASS = 		0x3,
-	IB_PERFORMANCE_CLASS = 	0x4,
-	IB_BOARD_MGMT_CLASS = 	0x5,
-	IB_DEVICE_MGMT_CLASS =	0x6,
-	IB_CM_CLASS =		0x7,
-	IB_SNMP_CLASS =		0x8,
+	IB_SMI_CLASS = 0x1,
+	IB_SMI_DIRECT_CLASS = 0x81,
+	IB_SA_CLASS = 0x3,
+	IB_PERFORMANCE_CLASS = 0x4,
+	IB_BOARD_MGMT_CLASS = 0x5,
+	IB_DEVICE_MGMT_CLASS = 0x6,
+	IB_CM_CLASS = 0x7,
+	IB_SNMP_CLASS = 0x8,
 	IB_VENDOR_RANGE1_START_CLASS = 0x9,
 	IB_VENDOR_RANGE1_END_CLASS = 0x0f,
-	IB_CC_CLASS =		0x21,
+	IB_CC_CLASS = 0x21,
 	IB_VENDOR_RANGE2_START_CLASS = 0x30,
 	IB_VENDOR_RANGE2_END_CLASS = 0x4f,
 };
 
 enum MAD_METHODS {
-	IB_MAD_METHOD_GET = 		0x1,
-	IB_MAD_METHOD_SET = 		0x2,
-	IB_MAD_METHOD_GET_RESPONSE =	0x81,
+	IB_MAD_METHOD_GET = 0x1,
+	IB_MAD_METHOD_SET = 0x2,
+	IB_MAD_METHOD_GET_RESPONSE = 0x81,
 
-	IB_MAD_METHOD_SEND = 		0x3,
-	IB_MAD_METHOD_TRAP = 		0x5,
-	IB_MAD_METHOD_TRAP_REPRESS = 	0x7,
+	IB_MAD_METHOD_SEND = 0x3,
+	IB_MAD_METHOD_TRAP = 0x5,
+	IB_MAD_METHOD_TRAP_REPRESS = 0x7,
 
-	IB_MAD_METHOD_REPORT =		0x6,
+	IB_MAD_METHOD_REPORT = 0x6,
 	IB_MAD_METHOD_REPORT_RESPONSE = 0x86,
-	IB_MAD_METHOD_GET_TABLE =  	0x12,
+	IB_MAD_METHOD_GET_TABLE = 0x12,
 	IB_MAD_METHOD_GET_TABLE_RESPONSE = 0x92,
 	IB_MAD_METHOD_GET_TRACE_TABLE = 0x13,
 	IB_MAD_METHOD_GET_TRACE_TABLE_RESPONSE = 0x93,
-	IB_MAD_METHOD_GETMULTI = 	0x14,
+	IB_MAD_METHOD_GETMULTI = 0x14,
 	IB_MAD_METHOD_GETMULTI_RESPONSE = 0x94,
-	IB_MAD_METHOD_DELETE =		0x15,
+	IB_MAD_METHOD_DELETE = 0x15,
 	IB_MAD_METHOD_DELETE_RESPONSE = 0x95,
 
-	IB_MAD_RESPONSE = 		0x80,
+	IB_MAD_RESPONSE = 0x80,
 };
 
 enum MAD_ATTR_ID {
@@ -158,7 +151,7 @@ enum GSI_ATTR_ID {
 
 typedef uint8_t ibmad_gid_t[16];
 #ifdef USE_DEPRECATED_IB_GID_T
-typedef ibmad_gid_t ib_gid_t __attribute__((deprecated));
+typedef ibmad_gid_t ib_gid_t __attribute__ ((deprecated));
 #endif
 
 typedef struct {
@@ -181,11 +174,11 @@ typedef struct {
 	int dataoffs;
 	int datasz;
 	uint64_t mkey;
-	uint64_t trid;	/* used for out mad if nonzero, return real val */
-	uint64_t mask;	/* for sa mads */
-	unsigned recsz;	/* for sa mads (attribute offset) */
+	uint64_t trid;		/* used for out mad if nonzero, return real val */
+	uint64_t mask;		/* for sa mads */
+	unsigned recsz;		/* for sa mads (attribute offset) */
 	int timeout;
-	uint32_t oui;	/* for vendor range 2 mads */
+	uint32_t oui;		/* for vendor range 2 mads */
 } ib_rpc_t;
 
 typedef struct portid {
@@ -199,7 +192,7 @@ typedef struct portid {
 	unsigned pkey_idx;
 } ib_portid_t;
 
-typedef void (ib_mad_dump_fn)(char *buf, int bufsz, void *val, int valsz);
+typedef void (ib_mad_dump_fn) (char *buf, int bufsz, void *val, int valsz);
 
 #define IB_FIELD_NAME_LEN	32
 
@@ -439,8 +432,8 @@ enum MAD_FIELDS {
 	IB_SA_RMPP_SEGNUM_F,
 	/* data2 */
 	IB_SA_RMPP_D2_F,
-	IB_SA_RMPP_LEN_F,		/* DATA: Payload len */
-	IB_SA_RMPP_NEWWIN_F,		/* ACK: new window last */
+	IB_SA_RMPP_LEN_F,	/* DATA: Payload len */
+	IB_SA_RMPP_NEWWIN_F,	/* ACK: new window last */
 
 	/*
 	 * SA Multi Path rec
@@ -531,7 +524,7 @@ enum MAD_FIELDS {
 	 */
 	IB_GUID_GUID0_F,
 
-	IB_FIELD_LAST_	/* must be last */
+	IB_FIELD_LAST_		/* must be last */
 };
 
 /*
@@ -576,8 +569,8 @@ typedef struct ib_sa_call {
 	uint64_t mask;
 	unsigned method;
 
-	uint64_t trid;	/* used for out mad if nonzero, return real val */
-	unsigned recsz;	/* return field */
+	uint64_t trid;		/* used for out mad if nonzero, return real val */
+	unsigned recsz;		/* return field */
 	ib_rmpp_hdr_t rmpp;
 } ib_sa_call_t;
 
@@ -621,13 +614,13 @@ enum {
 /******************************************************************************/
 
 /* portid.c */
-MAD_EXPORT char * portid2str(ib_portid_t *portid);
-MAD_EXPORT int	portid2portnum(ib_portid_t *portid);
-MAD_EXPORT int	str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid);
-MAD_EXPORT char * drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size);
+MAD_EXPORT char *portid2str(ib_portid_t * portid);
+MAD_EXPORT int portid2portnum(ib_portid_t * portid);
+MAD_EXPORT int str2drpath(ib_dr_path_t * path, char *routepath, int drslid,
+			  int drdlid);
+MAD_EXPORT char *drpath2str(ib_dr_path_t * path, char *dstr, size_t dstr_size);
 
-static inline int
-ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)
+static inline int ib_portid_set(ib_portid_t * portid, int lid, int qp, int qkey)
 {
 	portid->lid = lid;
 	portid->qp = qp;
@@ -639,185 +632,197 @@ ib_portid_set(ib_portid_t *portid, int lid, int qp, int qkey)
 
 /* fields.c */
 MAD_EXPORT uint32_t mad_get_field(void *buf, int base_offs, int field);
-MAD_EXPORT void mad_set_field(void *buf, int base_offs, int field, uint32_t val);
+MAD_EXPORT void mad_set_field(void *buf, int base_offs, int field,
+			      uint32_t val);
 /* field must be byte aligned */
 MAD_EXPORT uint64_t mad_get_field64(void *buf, int base_offs, int field);
-MAD_EXPORT void mad_set_field64(void *buf, int base_offs, int field, uint64_t val);
+MAD_EXPORT void mad_set_field64(void *buf, int base_offs, int field,
+				uint64_t val);
 MAD_EXPORT void mad_set_array(void *buf, int base_offs, int field, void *val);
 MAD_EXPORT void mad_get_array(void *buf, int base_offs, int field, void *val);
-MAD_EXPORT void mad_decode_field(uint8_t *buf, int field, void *val);
-MAD_EXPORT void mad_encode_field(uint8_t *buf, int field, void *val);
+MAD_EXPORT void mad_decode_field(uint8_t * buf, int field, void *val);
+MAD_EXPORT void mad_encode_field(uint8_t * buf, int field, void *val);
 MAD_EXPORT int mad_print_field(int field, const char *name, void *val);
 MAD_EXPORT char *mad_dump_field(int field, char *buf, int bufsz, void *val);
 MAD_EXPORT char *mad_dump_val(int field, char *buf, int bufsz, void *val);
 
 /* mad.c */
-MAD_EXPORT void *mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data);
+MAD_EXPORT void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath,
+			    void *data);
 MAD_EXPORT uint64_t mad_trid(void);
-MAD_EXPORT int mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data);
+MAD_EXPORT int mad_build_pkt(void *umad, ib_rpc_t * rpc, ib_portid_t * dport,
+			     ib_rmpp_hdr_t * rmpp, void *data);
 
 /* register.c */
-MAD_EXPORT int	mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version);
-MAD_EXPORT int	mad_register_client(int mgmt, uint8_t rmpp_version);
-MAD_EXPORT int	mad_register_server(int mgmt, uint8_t rmpp_version,
-			    long method_mask[16/sizeof(long)],
-			    uint32_t class_oui);
-MAD_EXPORT int	mad_class_agent(int mgmt);
-MAD_EXPORT int	mad_agent_class(int agent);
+MAD_EXPORT int mad_register_port_client(int port_id, int mgmt,
+					uint8_t rmpp_version);
+MAD_EXPORT int mad_register_client(int mgmt, uint8_t rmpp_version);
+MAD_EXPORT int mad_register_server(int mgmt, uint8_t rmpp_version,
+				   long method_mask[16 / sizeof(long)],
+				   uint32_t class_oui);
+MAD_EXPORT int mad_class_agent(int mgmt);
+MAD_EXPORT int mad_agent_class(int agent);
 
 /* serv.c */
-MAD_EXPORT int	mad_send(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
-		 void *data);
-MAD_EXPORT void * mad_receive(void *umad, int timeout);
-MAD_EXPORT int	mad_respond(void *umad, ib_portid_t *portid, uint32_t rstatus);
-MAD_EXPORT void * mad_alloc(void);
-MAD_EXPORT void	mad_free(void *umad);
+MAD_EXPORT int mad_send(ib_rpc_t * rpc, ib_portid_t * dport,
+			ib_rmpp_hdr_t * rmpp, void *data);
+MAD_EXPORT void *mad_receive(void *umad, int timeout);
+MAD_EXPORT int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus);
+MAD_EXPORT void *mad_alloc(void);
+MAD_EXPORT void mad_free(void *umad);
 
 /* vendor.c */
-MAD_EXPORT uint8_t *ib_vendor_call(void *data, ib_portid_t *portid,
-				   ib_vendor_call_t *call);
+MAD_EXPORT uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
+				   ib_vendor_call_t * call);
 
-static inline int
-mad_is_vendor_range1(int mgmt)
+static inline int mad_is_vendor_range1(int mgmt)
 {
 	return mgmt >= 0x9 && mgmt <= 0xf;
 }
 
-static inline int
-mad_is_vendor_range2(int mgmt)
+static inline int mad_is_vendor_range2(int mgmt)
 {
 	return mgmt >= 0x30 && mgmt <= 0x4f;
 }
 
 /* rpc.c */
-MAD_EXPORT int	madrpc_portid(void);
-MAD_EXPORT int	madrpc_set_retries(int retries);
-MAD_EXPORT int	madrpc_set_timeout(int timeout);
-void * madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata);
-void * madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp,
-		    void *data);
-MAD_EXPORT void	madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
-		    int num_classes);
-void	madrpc_save_mad(void *madbuf, int len);
-MAD_EXPORT void	madrpc_show_errors(int set);
+MAD_EXPORT int madrpc_portid(void);
+MAD_EXPORT int madrpc_set_retries(int retries);
+MAD_EXPORT int madrpc_set_timeout(int timeout);
+void *madrpc(ib_rpc_t * rpc, ib_portid_t * dport, void *payload, void *rcvdata);
+void *madrpc_rmpp(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
+		  void *data);
+MAD_EXPORT void madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
+			    int num_classes);
+void madrpc_save_mad(void *madbuf, int len);
+MAD_EXPORT void madrpc_show_errors(int set);
 
-void * mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
-			  int num_classes);
-void	mad_rpc_close_port(void *ibmad_port);
-void * mad_rpc(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
-		void *payload, void *rcvdata);
-void * mad_rpc_rmpp(const void *ibmad_port, ib_rpc_t *rpc, ib_portid_t *dport,
-		     ib_rmpp_hdr_t *rmpp, void *data);
+void *mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
+			int num_classes);
+void mad_rpc_close_port(void *ibmad_port);
+void *mad_rpc(const void *ibmad_port, ib_rpc_t * rpc, ib_portid_t * dport,
+	      void *payload, void *rcvdata);
+void *mad_rpc_rmpp(const void *ibmad_port, ib_rpc_t * rpc, ib_portid_t * dport,
+		   ib_rmpp_hdr_t * rmpp, void *data);
 
 /* smp.c */
-MAD_EXPORT uint8_t * smp_query(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
-		    unsigned timeout);
-MAD_EXPORT uint8_t * smp_set(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
-		  unsigned timeout);
-uint8_t * smp_query_via(void *buf, ib_portid_t *id, unsigned attrid,
-			unsigned mod, unsigned timeout, const void *srcport);
-uint8_t * smp_set_via(void *buf, ib_portid_t *id, unsigned attrid, unsigned mod,
-		      unsigned timeout, const void *srcport);
+MAD_EXPORT uint8_t *smp_query(void *buf, ib_portid_t * id, unsigned attrid,
+			      unsigned mod, unsigned timeout);
+MAD_EXPORT uint8_t *smp_set(void *buf, ib_portid_t * id, unsigned attrid,
+			    unsigned mod, unsigned timeout);
+uint8_t *smp_query_via(void *buf, ib_portid_t * id, unsigned attrid,
+		       unsigned mod, unsigned timeout, const void *srcport);
+uint8_t *smp_set_via(void *buf, ib_portid_t * id, unsigned attrid, unsigned mod,
+		     unsigned timeout, const void *srcport);
 
 /* sa.c */
-uint8_t * sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa,
-		  unsigned timeout);
-uint8_t * sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
-                      ib_sa_call_t *sa, unsigned timeout);
-MAD_EXPORT int	ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id,
-		      void *buf);	/* returns lid */
-int	ib_path_query_via(const void *srcport, ibmad_gid_t srcgid,
-			  ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf);
+uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
+		 unsigned timeout);
+uint8_t *sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t * portid,
+		     ib_sa_call_t * sa, unsigned timeout);
+MAD_EXPORT int ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t * sm_id, void *buf);	/* returns lid */
+int ib_path_query_via(const void *srcport, ibmad_gid_t srcgid,
+		      ibmad_gid_t destgid, ib_portid_t * sm_id, void *buf);
 
 /* resolve.c */
-MAD_EXPORT int	ib_resolve_smlid(ib_portid_t *sm_id, int timeout);
-MAD_EXPORT int	ib_resolve_guid(ib_portid_t *portid, uint64_t *guid,
-			ib_portid_t *sm_id, int timeout);
-MAD_EXPORT int	ib_resolve_portid_str(ib_portid_t *portid, char *addr_str,
-			      int dest_type, ib_portid_t *sm_id);
-MAD_EXPORT int	ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid);
+MAD_EXPORT int ib_resolve_smlid(ib_portid_t * sm_id, int timeout);
+MAD_EXPORT int ib_resolve_guid(ib_portid_t * portid, uint64_t * guid,
+			       ib_portid_t * sm_id, int timeout);
+MAD_EXPORT int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
+				     int dest_type, ib_portid_t * sm_id);
+MAD_EXPORT int ib_resolve_self(ib_portid_t * portid, int *portnum,
+			       ibmad_gid_t * gid);
 
-int	ib_resolve_smlid_via(ib_portid_t *sm_id, int timeout,
-			     const void *srcport);
-int	ib_resolve_guid_via(ib_portid_t *portid, uint64_t *guid,
-			    ib_portid_t *sm_id, int timeout,
-			    const void *srcport);
-int	ib_resolve_portid_str_via(ib_portid_t *portid, char *addr_str,
-			          int dest_type, ib_portid_t *sm_id,
-				  const void *srcport);
-int	ib_resolve_self_via(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid,
-			    const void *srcport);
+int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout, const void *srcport);
+int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
+			ib_portid_t * sm_id, int timeout, const void *srcport);
+int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
+			      int dest_type, ib_portid_t * sm_id,
+			      const void *srcport);
+int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
+			const void *srcport);
 
 /* gs.c */
-MAD_EXPORT uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t *dest, int port,
-				  unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_query(void *rcvbuf, ib_portid_t *dest, int port,
-				unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t *dest, int port,
-				unsigned mask, unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t *dest, int port,
-				    unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t *dest, int port,
-				    unsigned mask, unsigned timeout);
-MAD_EXPORT uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t *dest, int port,
-				    unsigned timeout);
-MAD_EXPORT uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t *dest, int port,
-				   unsigned timeout);
+MAD_EXPORT uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t * dest,
+					     int port, unsigned timeout);
+MAD_EXPORT uint8_t *port_performance_query(void *rcvbuf, ib_portid_t * dest,
+					   int port, unsigned timeout);
+MAD_EXPORT uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t * dest,
+					   int port, unsigned mask,
+					   unsigned timeout);
+MAD_EXPORT uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t * dest,
+					       int port, unsigned timeout);
+MAD_EXPORT uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t * dest,
+					       int port, unsigned mask,
+					       unsigned timeout);
+MAD_EXPORT uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t * dest,
+					       int port, unsigned timeout);
+MAD_EXPORT uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t * dest,
+					      int port, unsigned timeout);
 
-uint8_t *perf_classportinfo_query_via(void *rcvbuf, ib_portid_t *dest, int port,
-				  unsigned timeout, const void *srcport);
-uint8_t *port_performance_query_via(void *rcvbuf, ib_portid_t *dest, int port,
-				unsigned timeout, const void *srcport);
-uint8_t *port_performance_reset_via(void *rcvbuf, ib_portid_t *dest, int port,
-				unsigned mask, unsigned timeout, const void *srcport);
-uint8_t *port_performance_ext_query_via(void *rcvbuf, ib_portid_t *dest, int port,
+uint8_t *perf_classportinfo_query_via(void *rcvbuf, ib_portid_t * dest,
+				      int port, unsigned timeout,
+				      const void *srcport);
+uint8_t *port_performance_query_via(void *rcvbuf, ib_portid_t * dest, int port,
 				    unsigned timeout, const void *srcport);
-uint8_t *port_performance_ext_reset_via(void *rcvbuf, ib_portid_t *dest, int port,
-				    unsigned mask, unsigned timeout, const void *srcport);
-uint8_t *port_samples_control_query_via(void *rcvbuf, ib_portid_t *dest, int port,
-				    unsigned timeout, const void *srcport);
-uint8_t *port_samples_result_query_via(void *rcvbuf, ib_portid_t *dest, int port,
-				   unsigned timeout, const void *srcport);
+uint8_t *port_performance_reset_via(void *rcvbuf, ib_portid_t * dest, int port,
+				    unsigned mask, unsigned timeout,
+				    const void *srcport);
+uint8_t *port_performance_ext_query_via(void *rcvbuf, ib_portid_t * dest,
+					int port, unsigned timeout,
+					const void *srcport);
+uint8_t *port_performance_ext_reset_via(void *rcvbuf, ib_portid_t * dest,
+					int port, unsigned mask,
+					unsigned timeout, const void *srcport);
+uint8_t *port_samples_control_query_via(void *rcvbuf, ib_portid_t * dest,
+					int port, unsigned timeout,
+					const void *srcport);
+uint8_t *port_samples_result_query_via(void *rcvbuf, ib_portid_t * dest,
+				       int port, unsigned timeout,
+				       const void *srcport);
 /* dump.c */
 MAD_EXPORT ib_mad_dump_fn
-	mad_dump_int, mad_dump_uint, mad_dump_hex, mad_dump_rhex,
-	mad_dump_bitfield, mad_dump_array, mad_dump_string,
-	mad_dump_linkwidth, mad_dump_linkwidthsup, mad_dump_linkwidthen,
-	mad_dump_linkdowndefstate,
-	mad_dump_linkspeed, mad_dump_linkspeedsup, mad_dump_linkspeeden,
-	mad_dump_portstate, mad_dump_portstates,
-	mad_dump_physportstate, mad_dump_portcapmask,
-	mad_dump_mtu, mad_dump_vlcap, mad_dump_opervls,
-	mad_dump_node_type,
-	mad_dump_sltovl, mad_dump_vlarbitration,
-	mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo, mad_dump_switchinfo,
-	mad_dump_perfcounters, mad_dump_perfcounters_ext;
+    mad_dump_int, mad_dump_uint, mad_dump_hex, mad_dump_rhex,
+    mad_dump_bitfield, mad_dump_array, mad_dump_string,
+    mad_dump_linkwidth, mad_dump_linkwidthsup, mad_dump_linkwidthen,
+    mad_dump_linkdowndefstate,
+    mad_dump_linkspeed, mad_dump_linkspeedsup, mad_dump_linkspeeden,
+    mad_dump_portstate, mad_dump_portstates,
+    mad_dump_physportstate, mad_dump_portcapmask,
+    mad_dump_mtu, mad_dump_vlcap, mad_dump_opervls,
+    mad_dump_node_type, mad_dump_sltovl, mad_dump_vlarbitration,
+    mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo,
+    mad_dump_switchinfo, mad_dump_perfcounters, mad_dump_perfcounters_ext;
 
 extern int ibdebug;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #ifndef ntohll
-static inline uint64_t ntohll(uint64_t x) {
+static inline uint64_t ntohll(uint64_t x)
+{
 	return bswap_64(x);
 }
 #endif
 #ifndef htonll
-static inline uint64_t htonll(uint64_t x) {
+static inline uint64_t htonll(uint64_t x)
+{
 	return bswap_64(x);
 }
 #endif
 #elif __BYTE_ORDER == __BIG_ENDIAN
 #ifndef ntohll
-static inline uint64_t ntohll(uint64_t x) {
+static inline uint64_t ntohll(uint64_t x)
+{
 	return x;
 }
 #endif
 #ifndef htonll
-static inline uint64_t htonll(uint64_t x) {
+static inline uint64_t htonll(uint64_t x)
+{
 	return x;
 }
 #endif
-#endif	/* __BYTE_ORDER == __BIG_ENDIAN */
+#endif				/* __BYTE_ORDER == __BIG_ENDIAN */
 
 /* Misc. macros: */
 /** align value \a l to \a size (ceil) */
@@ -832,8 +837,7 @@ static inline uint64_t htonll(uint64_t x) {
 	exit(-1); \
 } while(0)
 
-void xdump(FILE *file, char *msg, void *p, int size);
+void xdump(FILE * file, char *msg, void *p, int size);
 
 END_C_DECLS
-
-#endif /* _MAD_H_ */
+#endif				/* _MAD_H_ */

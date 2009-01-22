@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,11 +44,10 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-uint8_t *
-sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
-	    ib_sa_call_t *sa, unsigned timeout)
+uint8_t *sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t * portid,
+		     ib_sa_call_t * sa, unsigned timeout)
 {
-	ib_rpc_t rpc = {0};
+	ib_rpc_t rpc = { 0 };
 	uint8_t *p;
 
 	DEBUG("attr 0x%x mod 0x%x route %s", sa->attrid, sa->mod,
@@ -73,7 +72,7 @@ sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
 	if (!portid->qkey)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	p = mad_rpc_rmpp(ibmad_port, &rpc, portid, 0/*&sa->rmpp*/, rcvbuf);	/* TODO: RMPP */
+	p = mad_rpc_rmpp(ibmad_port, &rpc, portid, 0 /*&sa->rmpp */ , rcvbuf);	/* TODO: RMPP */
 
 	sa->recsz = rpc.recsz;
 
@@ -107,15 +106,15 @@ sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t *portid,
 			IB_PR_COMPMASK_SGID |\
 			IB_PR_COMPMASK_NUMBPATH)
 
-int
-ib_path_query_via(const void *srcport, ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf)
+int ib_path_query_via(const void *srcport, ibmad_gid_t srcgid,
+		      ibmad_gid_t destgid, ib_portid_t * sm_id, void *buf)
 {
 	int npath;
-	ib_sa_call_t sa = {0};
+	ib_sa_call_t sa = { 0 };
 	uint8_t *p;
 	int dlid;
 
-	npath = 1;			/* only MAD_METHOD_GET is supported */
+	npath = 1;		/* only MAD_METHOD_GET is supported */
 	memset(&sa, 0, sizeof sa);
 	sa.method = IB_MAD_METHOD_GET;
 	sa.attrid = IB_SA_ATTR_PATHRECORD;
@@ -129,7 +128,7 @@ ib_path_query_via(const void *srcport, ibmad_gid_t srcgid, ibmad_gid_t destgid, 
 	mad_encode_field(buf, IB_SA_PR_SGID_F, srcgid);
 
 	if (srcport) {
-		p = sa_rpc_call (srcport, buf, sm_id, &sa, 0);
+		p = sa_rpc_call(srcport, buf, sm_id, &sa, 0);
 	} else {
 		p = sa_call(buf, sm_id, &sa, 0);
 	}
@@ -142,8 +141,8 @@ ib_path_query_via(const void *srcport, ibmad_gid_t srcgid, ibmad_gid_t destgid, 
 	return dlid;
 }
 
-int
-ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t *sm_id, void *buf)
+int ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t * sm_id,
+		  void *buf)
 {
 	return ib_path_query_via(NULL, srcgid, destgid, sm_id, buf);
 }

@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,17 +45,15 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-int
-ib_resolve_smlid_via(ib_portid_t *sm_id, int timeout, const void *srcport)
+int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout, const void *srcport)
 {
-	ib_portid_t self = {0};
+	ib_portid_t self = { 0 };
 	uint8_t portinfo[64];
 	int lid;
 
 	memset(sm_id, 0, sizeof(*sm_id));
 
-	if (!smp_query_via(portinfo, &self, IB_ATTR_PORT_INFO,
-			   0, 0, srcport))
+	if (!smp_query_via(portinfo, &self, IB_ATTR_PORT_INFO, 0, 0, srcport))
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_SMLID_F, &lid);
@@ -63,41 +61,44 @@ ib_resolve_smlid_via(ib_portid_t *sm_id, int timeout, const void *srcport)
 	return ib_portid_set(sm_id, lid, 0, 0);
 }
 
-int
-ib_resolve_smlid(ib_portid_t *sm_id, int timeout)
+int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
 {
 	return ib_resolve_smlid_via(sm_id, timeout, NULL);
 }
 
-int
-ib_resolve_guid_via(ib_portid_t *portid, uint64_t *guid, ib_portid_t *sm_id, int timeout, const void *srcport)
+int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
+			ib_portid_t * sm_id, int timeout, const void *srcport)
 {
 	ib_portid_t sm_portid;
-	char buf[IB_SA_DATA_SIZE] = {0};
+	char buf[IB_SA_DATA_SIZE] = { 0 };
 
 	if (!sm_id) {
 		sm_id = &sm_portid;
 		if (ib_resolve_smlid_via(sm_id, timeout, srcport) < 0)
 			return -1;
 	}
-	if (*(uint64_t*)&portid->gid == 0)
-		mad_set_field64(portid->gid, 0, IB_GID_PREFIX_F, IB_DEFAULT_SUBN_PREFIX);
+	if (*(uint64_t *) & portid->gid == 0)
+		mad_set_field64(portid->gid, 0, IB_GID_PREFIX_F,
+				IB_DEFAULT_SUBN_PREFIX);
 	if (guid)
 		mad_set_field64(portid->gid, 0, IB_GID_GUID_F, *guid);
 
-	if ((portid->lid = ib_path_query_via(srcport, portid->gid, portid->gid, sm_id, buf)) < 0)
+	if ((portid->lid =
+	     ib_path_query_via(srcport, portid->gid, portid->gid, sm_id,
+			       buf)) < 0)
 		return -1;
 
 	return 0;
 }
 
-int
-ib_resolve_portid_str_via(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id, const void *srcport)
+int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
+			      int dest_type, ib_portid_t * sm_id,
+			      const void *srcport)
 {
 	uint64_t guid;
 	int lid;
 	char *routepath;
-	ib_portid_t selfportid = {0};
+	ib_portid_t selfportid = { 0 };
 	int selfport = 0;
 
 	switch (dest_type) {
@@ -129,7 +130,8 @@ ib_resolve_portid_str_via(ib_portid_t *portid, char *addr_str, int dest_type, ib
 		/* handle DR parsing and set DrSLID to local lid */
 		if (ib_resolve_self_via(&selfportid, &selfport, 0, srcport) < 0)
 			return -1;
-		if (str2drpath(&portid->drpath, routepath, selfportid.lid, 0) < 0)
+		if (str2drpath(&portid->drpath, routepath, selfportid.lid, 0) <
+		    0)
 			return -1;
 		return 0;
 
@@ -140,18 +142,17 @@ ib_resolve_portid_str_via(ib_portid_t *portid, char *addr_str, int dest_type, ib
 	return -1;
 }
 
-int
-ib_resolve_portid_str(ib_portid_t *portid, char *addr_str, int dest_type, ib_portid_t *sm_id)
+int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str, int dest_type,
+			  ib_portid_t * sm_id)
 {
 	return ib_resolve_portid_str_via(portid, addr_str, dest_type,
 					 sm_id, NULL);
 }
 
-int
-ib_resolve_self_via(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid,
-		    const void *srcport)
+int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
+			const void *srcport)
 {
-	ib_portid_t self = {0};
+	ib_portid_t self = { 0 };
 	uint8_t portinfo[64];
 	uint8_t nodeinfo[64];
 	uint64_t guid, prefix;
@@ -175,8 +176,7 @@ ib_resolve_self_via(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid,
 	return 0;
 }
 
-int
-ib_resolve_self(ib_portid_t *portid, int *portnum, ibmad_gid_t *gid)
+int ib_resolve_self(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid)
 {
-	return ib_resolve_self_via (portid, portnum, gid, NULL);
+	return ib_resolve_self_via(portid, portnum, gid, NULL);
 }

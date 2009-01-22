@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,8 +44,7 @@
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
-int
-portid2portnum(ib_portid_t *portid)
+int portid2portnum(ib_portid_t * portid)
 {
 	if (portid->lid > 0)
 		return -1;
@@ -53,11 +52,10 @@ portid2portnum(ib_portid_t *portid)
 	if (portid->drpath.cnt == 0)
 		return 0;
 
-	return portid->drpath.p[(portid->drpath.cnt-1)];
+	return portid->drpath.p[(portid->drpath.cnt - 1)];
 }
 
-char *
-portid2str(ib_portid_t *portid)
+char *portid2str(ib_portid_t * portid)
 {
 	static char buf[1024] = "local";
 	int n = 0;
@@ -65,7 +63,8 @@ portid2str(ib_portid_t *portid)
 	if (portid->lid > 0) {
 		n += sprintf(buf + n, "Lid %d", portid->lid);
 		if (portid->grh_present) {
-			char gid[sizeof "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"];
+			char gid[sizeof
+				 "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"];
 			if (inet_ntop(AF_INET6, portid->gid, gid, sizeof(gid)))
 				n += sprintf(buf + n, " Gid %s", gid);
 		}
@@ -80,8 +79,7 @@ portid2str(ib_portid_t *portid)
 	return buf;
 }
 
-int
-str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid)
+int str2drpath(ib_dr_path_t * path, char *routepath, int drslid, int drdlid)
 {
 	char *s, *str = routepath;
 
@@ -91,10 +89,10 @@ str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid)
 	while (str && *str) {
 		if ((s = strchr(str, ',')))
 			*s = 0;
-		path->p[++path->cnt] = (uint8_t)atoi(str);
+		path->p[++path->cnt] = (uint8_t) atoi(str);
 		if (!s)
 			break;
-		str = s+1;
+		str = s + 1;
 	}
 
 	path->drdlid = drdlid ? drdlid : 0xffff;
@@ -103,16 +101,15 @@ str2drpath(ib_dr_path_t *path, char *routepath, int drslid, int drdlid)
 	return path->cnt;
 }
 
-char *
-drpath2str(ib_dr_path_t *path, char *dstr, size_t dstr_size)
+char *drpath2str(ib_dr_path_t * path, char *dstr, size_t dstr_size)
 {
 	int i = 0;
 	int rc = snprintf(dstr, dstr_size, "slid %d; dlid %d; %d",
-		path->drslid, path->drdlid, path->p[0]);
+			  path->drslid, path->drdlid, path->p[0]);
 	if (rc >= (int)dstr_size)
 		return dstr;
 	for (i = 1; i <= path->cnt; i++) {
-		rc += snprintf(dstr+rc, dstr_size-rc, ",%d", path->p[i]);
+		rc += snprintf(dstr + rc, dstr_size - rc, ",%d", path->p[i]);
 		if (rc >= (int)dstr_size)
 			break;
 	}

@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,18 +44,16 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-static inline int
-response_expected(int method)
+static inline int response_expected(int method)
 {
 	return method == IB_MAD_METHOD_GET ||
-		method == IB_MAD_METHOD_SET ||
-		method == IB_MAD_METHOD_TRAP;
+	    method == IB_MAD_METHOD_SET || method == IB_MAD_METHOD_TRAP;
 }
 
-uint8_t *
-ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
+uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
+			ib_vendor_call_t * call)
 {
-	ib_rpc_t rpc = {0};
+	ib_rpc_t rpc = { 0 };
 	int range1 = 0, resp_expected;
 
 	DEBUG("route %s data %p", portid2str(portid), data);
@@ -74,22 +72,25 @@ ib_vendor_call(void *data, ib_portid_t *portid, ib_vendor_call_t *call)
 	rpc.attr.id = call->attrid;
 	rpc.attr.mod = call->mod;
 	rpc.timeout = resp_expected ? call->timeout : 0;
-	rpc.datasz = range1 ? IB_VENDOR_RANGE1_DATA_SIZE : IB_VENDOR_RANGE2_DATA_SIZE;
-	rpc.dataoffs = range1 ? IB_VENDOR_RANGE1_DATA_OFFS : IB_VENDOR_RANGE2_DATA_OFFS;
+	rpc.datasz =
+	    range1 ? IB_VENDOR_RANGE1_DATA_SIZE : IB_VENDOR_RANGE2_DATA_SIZE;
+	rpc.dataoffs =
+	    range1 ? IB_VENDOR_RANGE1_DATA_OFFS : IB_VENDOR_RANGE2_DATA_OFFS;
 
 	if (!range1)
 		rpc.oui = call->oui;
 
-	DEBUG("class 0x%x method 0x%x attr 0x%x mod 0x%x datasz %d off %d res_ex %d",
-		rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod,
-		rpc.datasz, rpc.dataoffs, resp_expected);
+	DEBUG
+	    ("class 0x%x method 0x%x attr 0x%x mod 0x%x datasz %d off %d res_ex %d",
+	     rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod, rpc.datasz,
+	     rpc.dataoffs, resp_expected);
 
 	portid->qp = 1;
 	if (!portid->qkey)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
 	if (resp_expected)
-		return madrpc_rmpp(&rpc, portid, 0, data);		/* FIXME: no RMPP for now */
+		return madrpc_rmpp(&rpc, portid, 0, data);	/* FIXME: no RMPP for now */
 
-	return mad_send(&rpc, portid, 0, data) < 0 ? 0 : data;		/* FIXME: no RMPP for now */
+	return mad_send(&rpc, portid, 0, data) < 0 ? 0 : data;	/* FIXME: no RMPP for now */
 }

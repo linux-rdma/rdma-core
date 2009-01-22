@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,8 +46,8 @@
 #define MAX_CLASS 256
 
 struct ibmad_port {
-	int port_id;  /* file descriptor returned by umad_open() */
-	int class_agents[MAX_CLASS]; /* class2agent mapper */
+	int port_id;		/* file descriptor returned by umad_open() */
+	int class_agents[MAX_CLASS];	/* class2agent mapper */
 };
 
 int ibdebug;
@@ -66,42 +66,36 @@ static int save_mad_len = 256;
 
 #define MAD_TID(mad)	(*((uint64_t *)((char *)(mad) + 8)))
 
-void
-madrpc_show_errors(int set)
+void madrpc_show_errors(int set)
 {
 	iberrs = set;
 }
 
-void
-madrpc_save_mad(void *madbuf, int len)
+void madrpc_save_mad(void *madbuf, int len)
 {
 	save_mad = madbuf;
 	save_mad_len = len;
 }
 
-int
-madrpc_set_retries(int retries)
+int madrpc_set_retries(int retries)
 {
 	if (retries > 0)
 		madrpc_retries = retries;
 	return madrpc_retries;
 }
 
-int
-madrpc_set_timeout(int timeout)
+int madrpc_set_timeout(int timeout)
 {
 	def_madrpc_timeout = timeout;
 	return 0;
 }
 
-int
-madrpc_def_timeout(void)
+int madrpc_def_timeout(void)
 {
 	return def_madrpc_timeout;
 }
 
-int
-madrpc_portid(void)
+int madrpc_portid(void)
 {
 	return mad_portid;
 }
@@ -110,7 +104,7 @@ static int
 _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	   int timeout)
 {
-	uint32_t trid; /* only low 32 bits */
+	uint32_t trid;		/* only low 32 bits */
 	int retries;
 	int length, status;
 
@@ -128,7 +122,8 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 		save_mad = 0;
 	}
 
-	trid = (uint32_t)mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
+	trid =
+	    (uint32_t) mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
 
 	for (retries = 0; retries < madrpc_retries; retries++) {
 		if (retries) {
@@ -151,13 +146,16 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 
 			if (ibdebug > 1) {
 				IBWARN("rcv buf:");
-				xdump(stderr, "rcv buf\n", umad_get_mad(rcvbuf), IB_MAD_SIZE);
+				xdump(stderr, "rcv buf\n", umad_get_mad(rcvbuf),
+				      IB_MAD_SIZE);
 			}
-		} while ((uint32_t)mad_get_field64(umad_get_mad(rcvbuf), 0, IB_MAD_TRID_F) != trid);
+		} while ((uint32_t)
+			 mad_get_field64(umad_get_mad(rcvbuf), 0,
+					 IB_MAD_TRID_F) != trid);
 
 		status = umad_status(rcvbuf);
 		if (!status)
-			return length;		/* done */
+			return length;	/* done */
 		if (status == ENOMEM)
 			return length;
 	}
@@ -166,9 +164,8 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	return -1;
 }
 
-void *
-mad_rpc(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
-	void *rcvdata)
+void *mad_rpc(const void *port_id, ib_rpc_t * rpc, ib_portid_t * dport,
+	      void *payload, void *rcvdata)
 {
 	const struct ibmad_port *p = port_id;
 	int status, len;
@@ -191,7 +188,7 @@ mad_rpc(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
 
 	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",
-			status, portid2str(dport));
+		     status, portid2str(dport));
 		return 0;
 	}
 
@@ -206,9 +203,8 @@ mad_rpc(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport, void *payload,
 	return rcvdata;
 }
 
-void *
-mad_rpc_rmpp(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
-	     ib_rmpp_hdr_t *rmpp, void *data)
+void *mad_rpc_rmpp(const void *port_id, ib_rpc_t * rpc, ib_portid_t * dport,
+		   ib_rmpp_hdr_t * rmpp, void *data)
 {
 	const struct ibmad_port *p = port_id;
 	int status, len;
@@ -232,7 +228,7 @@ mad_rpc_rmpp(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
 
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",
-			status, portid2str(dport));
+		     status, portid2str(dport));
 		return 0;
 	}
 
@@ -264,8 +260,7 @@ mad_rpc_rmpp(const void *port_id, ib_rpc_t *rpc, ib_portid_t *dport,
 	return data;
 }
 
-void *
-madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
+void *madrpc(ib_rpc_t * rpc, ib_portid_t * dport, void *payload, void *rcvdata)
 {
 	struct ibmad_port port;
 
@@ -274,8 +269,8 @@ madrpc(ib_rpc_t *rpc, ib_portid_t *dport, void *payload, void *rcvdata)
 	return mad_rpc(&port, rpc, dport, payload, rcvdata);
 }
 
-void *
-madrpc_rmpp(ib_rpc_t *rpc, ib_portid_t *dport, ib_rmpp_hdr_t *rmpp, void *data)
+void *madrpc_rmpp(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
+		  void *data)
 {
 	struct ibmad_port port;
 
@@ -303,13 +298,13 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		if (mgmt == IB_SA_CLASS)
 			rmpp_version = 1;
 		if (mad_register_client(mgmt, rmpp_version) < 0)
-			IBPANIC("client_register for mgmt class %d failed", mgmt);
+			IBPANIC("client_register for mgmt class %d failed",
+				mgmt);
 	}
 }
 
-void *
-mad_rpc_open_port(char *dev_name, int dev_port,
-		  int *mgmt_classes, int num_classes)
+void *mad_rpc_open_port(char *dev_name, int dev_port,
+			int *mgmt_classes, int num_classes)
 {
 	struct ibmad_port *p;
 	int port_id;
@@ -352,11 +347,11 @@ mad_rpc_open_port(char *dev_name, int dev_port,
 		    (agent = mad_register_port_client(port_id, mgmt,
 						      rmpp_version)) < 0) {
 			IBWARN("client_register for mgmt %d failed", mgmt);
-			if(!errno)
+			if (!errno)
 				errno = EINVAL;
 			umad_close_port(port_id);
-  			free(p);
-  			return NULL;
+			free(p);
+			return NULL;
 		}
 		p->class_agents[mgmt] = agent;
 	}
@@ -365,8 +360,7 @@ mad_rpc_open_port(char *dev_name, int dev_port,
 	return p;
 }
 
-void
-mad_rpc_close_port(void *port_id)
+void mad_rpc_close_port(void *port_id)
 {
 	struct ibmad_port *p = port_id;
 
@@ -374,8 +368,8 @@ mad_rpc_close_port(void *port_id)
 	free(p);
 }
 
-uint8_t *
-sa_call(void *rcvbuf, ib_portid_t *portid, ib_sa_call_t *sa, unsigned timeout)
+uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
+		 unsigned timeout)
 {
 	struct ibmad_port port;
 

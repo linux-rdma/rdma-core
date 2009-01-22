@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,8 +52,7 @@
 static int class_agent[MAX_CLASS];
 static int agent_class[MAX_AGENTS];
 
-static int
-register_agent(int agent, int mclass)
+static int register_agent(int agent, int mclass)
 {
 	static int initialized;
 
@@ -75,8 +74,7 @@ register_agent(int agent, int mclass)
 	return 0;
 }
 
-static int
-mgmt_class_vers(int mgmt_class)
+static int mgmt_class_vers(int mgmt_class)
 {
 	if ((mgmt_class >= IB_VENDOR_RANGE1_START_CLASS &&
 	     mgmt_class <= IB_VENDOR_RANGE1_END_CLASS) ||
@@ -84,41 +82,38 @@ mgmt_class_vers(int mgmt_class)
 	     mgmt_class <= IB_VENDOR_RANGE2_END_CLASS))
 		return 1;
 
-	switch(mgmt_class) {
-		case IB_SMI_CLASS:
-		case IB_SMI_DIRECT_CLASS:
-			return 1;
-		case IB_SA_CLASS:
-			return 2;
-		case IB_PERFORMANCE_CLASS:
-			return 1;
-		case IB_DEVICE_MGMT_CLASS:
-			return 1;
-		case IB_CC_CLASS:
-			return 2;
+	switch (mgmt_class) {
+	case IB_SMI_CLASS:
+	case IB_SMI_DIRECT_CLASS:
+		return 1;
+	case IB_SA_CLASS:
+		return 2;
+	case IB_PERFORMANCE_CLASS:
+		return 1;
+	case IB_DEVICE_MGMT_CLASS:
+		return 1;
+	case IB_CC_CLASS:
+		return 2;
 	}
 
 	return 0;
 }
 
-int
-mad_class_agent(int mgmt)
+int mad_class_agent(int mgmt)
 {
 	if (mgmt < 1 || mgmt > MAX_CLASS)
 		return -1;
 	return class_agent[mgmt];
 }
 
-int
-mad_agent_class(int agent)
+int mad_agent_class(int agent)
 {
 	if (agent < 1 || agent > MAX_AGENTS)
 		return -1;
 	return agent_class[agent];
 }
 
-int
-mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
+int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 {
 	int vers, agent;
 
@@ -126,8 +121,7 @@ mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 		DEBUG("Unknown class %d mgmt_class", mgmt);
 		return -1;
 	}
-	if ((agent = umad_register(port_id, mgmt,
-				   vers, rmpp_version, 0)) < 0) {
+	if ((agent = umad_register(port_id, mgmt, vers, rmpp_version, 0)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
 	}
@@ -140,8 +134,7 @@ mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 	return agent;
 }
 
-int
-mad_register_client(int mgmt, uint8_t rmpp_version)
+int mad_register_client(int mgmt, uint8_t rmpp_version)
 {
 	int agent;
 
@@ -156,12 +149,13 @@ int
 mad_register_server(int mgmt, uint8_t rmpp_version,
 		    long method_mask[], uint32_t class_oui)
 {
-	long class_method_mask[16/sizeof(long)];
+	long class_method_mask[16 / sizeof(long)];
 	uint8_t oui[3];
 	int agent, vers, mad_portid;
 
 	if (method_mask)
-		memcpy(class_method_mask, method_mask, sizeof class_method_mask);
+		memcpy(class_method_mask, method_mask,
+		       sizeof class_method_mask);
 	else
 		memset(class_method_mask, 0xff, sizeof(class_method_mask));
 

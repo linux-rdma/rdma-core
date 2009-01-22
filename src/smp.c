@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,10 +44,10 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-uint8_t *
-smp_set_via(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsigned timeout, const void *srcport)
+uint8_t *smp_set_via(void *data, ib_portid_t * portid, unsigned attrid,
+		     unsigned mod, unsigned timeout, const void *srcport)
 {
-	ib_rpc_t rpc = {0};
+	ib_rpc_t rpc = { 0 };
 
 	DEBUG("attr 0x%x mod 0x%x route %s", attrid, mod, portid2str(portid));
 	if ((portid->lid <= 0) ||
@@ -55,7 +55,7 @@ smp_set_via(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsi
 	    (portid->drpath.drdlid == 0xffff))
 		rpc.mgtclass = IB_SMI_DIRECT_CLASS;	/* direct SMI */
 	else
-		rpc.mgtclass = IB_SMI_CLASS;		/* Lid routed SMI */
+		rpc.mgtclass = IB_SMI_CLASS;	/* Lid routed SMI */
 
 	rpc.method = IB_MAD_METHOD_SET;
 	rpc.attr.id = attrid;
@@ -74,17 +74,16 @@ smp_set_via(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsi
 	}
 }
 
-uint8_t *
-smp_set(void *data, ib_portid_t *portid, unsigned attrid, unsigned mod, unsigned timeout)
+uint8_t *smp_set(void *data, ib_portid_t * portid, unsigned attrid,
+		 unsigned mod, unsigned timeout)
 {
 	return smp_set_via(data, portid, attrid, mod, timeout, NULL);
 }
 
-uint8_t *
-smp_query_via(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
-	      unsigned timeout, const void *srcport)
+uint8_t *smp_query_via(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
+		       unsigned mod, unsigned timeout, const void *srcport)
 {
-	ib_rpc_t rpc = {0};
+	ib_rpc_t rpc = { 0 };
 
 	DEBUG("attr 0x%x mod 0x%x route %s", attrid, mod, portid2str(portid));
 	rpc.method = IB_MAD_METHOD_GET;
@@ -99,7 +98,7 @@ smp_query_via(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
 	    (portid->drpath.drdlid == 0xffff))
 		rpc.mgtclass = IB_SMI_DIRECT_CLASS;	/* direct SMI */
 	else
-		rpc.mgtclass = IB_SMI_CLASS;		/* Lid routed SMI */
+		rpc.mgtclass = IB_SMI_CLASS;	/* Lid routed SMI */
 
 	portid->sl = 0;
 	portid->qp = 0;
@@ -111,9 +110,8 @@ smp_query_via(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
 	}
 }
 
-uint8_t *
-smp_query(void *rcvbuf, ib_portid_t *portid, unsigned attrid, unsigned mod,
-	  unsigned timeout)
+uint8_t *smp_query(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
+		   unsigned mod, unsigned timeout)
 {
 	return smp_query_via(rcvbuf, portid, attrid, mod, timeout, NULL);
 }

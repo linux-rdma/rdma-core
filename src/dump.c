@@ -34,7 +34,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,25 +42,24 @@
 
 #include <infiniband/mad.h>
 
-void
-mad_dump_int(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_int(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%d", *(uint8_t *)val);
+		snprintf(buf, bufsz, "%d", *(uint8_t *) val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%d", *(uint16_t *)val);
+		snprintf(buf, bufsz, "%d", *(uint16_t *) val);
 		break;
 	case 3:
 	case 4:
-		snprintf(buf, bufsz, "%d", *(uint32_t *)val);
+		snprintf(buf, bufsz, "%d", *(uint32_t *) val);
 		break;
 	case 5:
 	case 6:
 	case 7:
 	case 8:
-		snprintf(buf, bufsz, "%" PRIu64, *(uint64_t *)val);
+		snprintf(buf, bufsz, "%" PRIu64, *(uint64_t *) val);
 		break;
 	default:
 		IBWARN("bad int sz %d", valsz);
@@ -68,25 +67,24 @@ mad_dump_int(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%u", *(uint8_t *)val);
+		snprintf(buf, bufsz, "%u", *(uint8_t *) val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%u", *(uint16_t *)val);
+		snprintf(buf, bufsz, "%u", *(uint16_t *) val);
 		break;
 	case 3:
 	case 4:
-		snprintf(buf, bufsz, "%u", *(uint32_t *)val);
+		snprintf(buf, bufsz, "%u", *(uint32_t *) val);
 		break;
 	case 5:
 	case 6:
 	case 7:
 	case 8:
-		snprintf(buf, bufsz, "%" PRIu64, *(uint64_t *)val);
+		snprintf(buf, bufsz, "%" PRIu64, *(uint64_t *) val);
 		break;
 	default:
 		IBWARN("bad int sz %u", valsz);
@@ -94,33 +92,35 @@ mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "0x%02x", *(uint8_t *)val);
+		snprintf(buf, bufsz, "0x%02x", *(uint8_t *) val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "0x%04x", *(uint16_t *)val);
+		snprintf(buf, bufsz, "0x%04x", *(uint16_t *) val);
 		break;
 	case 3:
-		snprintf(buf, bufsz, "0x%06x", *(uint32_t *)val & 0xffffff);
+		snprintf(buf, bufsz, "0x%06x", *(uint32_t *) val & 0xffffff);
 		break;
 	case 4:
-		snprintf(buf, bufsz, "0x%08x", *(uint32_t *)val);
+		snprintf(buf, bufsz, "0x%08x", *(uint32_t *) val);
 		break;
 	case 5:
-		snprintf(buf, bufsz, "0x%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffULL);
+		snprintf(buf, bufsz, "0x%010" PRIx64,
+			 *(uint64_t *) val & (uint64_t) 0xffffffffffULL);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "0x%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffULL);
+		snprintf(buf, bufsz, "0x%012" PRIx64,
+			 *(uint64_t *) val & (uint64_t) 0xffffffffffffULL);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "0x%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffULL);
+		snprintf(buf, bufsz, "0x%014" PRIx64,
+			 *(uint64_t *) val & (uint64_t) 0xffffffffffffffULL);
 		break;
 	case 8:
-		snprintf(buf, bufsz, "0x%016" PRIx64, *(uint64_t *)val);
+		snprintf(buf, bufsz, "0x%016" PRIx64, *(uint64_t *) val);
 		break;
 	default:
 		IBWARN("bad int sz %d", valsz);
@@ -128,33 +128,35 @@ mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%02x", *(uint8_t *)val);
+		snprintf(buf, bufsz, "%02x", *(uint8_t *) val);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%04x", *(uint16_t *)val);
+		snprintf(buf, bufsz, "%04x", *(uint16_t *) val);
 		break;
 	case 3:
-		snprintf(buf, bufsz, "%06x", *(uint32_t *)val & 0xffffff);
+		snprintf(buf, bufsz, "%06x", *(uint32_t *) val & 0xffffff);
 		break;
 	case 4:
-		snprintf(buf, bufsz, "%08x", *(uint32_t *)val);
+		snprintf(buf, bufsz, "%08x", *(uint32_t *) val);
 		break;
 	case 5:
-		snprintf(buf, bufsz, "%010" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffULL);
+		snprintf(buf, bufsz, "%010" PRIx64,
+			 *(uint64_t *) val & (uint64_t) 0xffffffffffULL);
 		break;
 	case 6:
-		snprintf(buf, bufsz, "%012" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffULL);
+		snprintf(buf, bufsz, "%012" PRIx64,
+			 *(uint64_t *) val & (uint64_t) 0xffffffffffffULL);
 		break;
 	case 7:
-		snprintf(buf, bufsz, "%014" PRIx64, *(uint64_t *)val & (uint64_t) 0xffffffffffffffULL);
+		snprintf(buf, bufsz, "%014" PRIx64,
+			 *(uint64_t *) val & (uint64_t) 0xffffffffffffffULL);
 		break;
 	case 8:
-		snprintf(buf, bufsz, "%016" PRIx64, *(uint64_t *)val);
+		snprintf(buf, bufsz, "%016" PRIx64, *(uint64_t *) val);
 		break;
 	default:
 		IBWARN("bad int sz %d", valsz);
@@ -162,8 +164,7 @@ mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 {
 	int width = *(int *)val;
 
@@ -186,8 +187,7 @@ mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-static void
-dump_linkwidth(char *buf, int bufsz, int width)
+static void dump_linkwidth(char *buf, int bufsz, int width)
 {
 	int n = 0;
 
@@ -205,17 +205,16 @@ dump_linkwidth(char *buf, int bufsz, int width)
 	else if (width == 0 || (width >> 4))
 		snprintf(buf + n, bufsz - n, "undefined (%d)", width);
 	else if (bufsz > 3)
-		buf[n-4] = '\0';
+		buf[n - 4] = '\0';
 }
 
-void
-mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 {
 	int width = *(int *)val;
 
 	dump_linkwidth(buf, bufsz, width);
 
-	switch(width) {
+	switch (width) {
 	case 1:
 	case 3:
 	case 7:
@@ -231,16 +230,14 @@ mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_linkwidthen(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_linkwidthen(char *buf, int bufsz, void *val, int valsz)
 {
 	int width = *(int *)val;
 
 	dump_linkwidth(buf, bufsz, width);
 }
 
-void
-mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
 {
 	int speed = *(int *)val;
 
@@ -260,8 +257,7 @@ mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-static void
-dump_linkspeed(char *buf, int bufsz, int speed)
+static void dump_linkspeed(char *buf, int bufsz, int speed)
 {
 	int n = 0;
 
@@ -279,7 +275,7 @@ dump_linkspeed(char *buf, int bufsz, int speed)
 		if (n >= bufsz)
 			return;
 	} else if (bufsz > 3) {
-		buf[n-4] = '\0';
+		buf[n - 4] = '\0';
 		n -= 4;
 	}
 
@@ -296,24 +292,21 @@ dump_linkspeed(char *buf, int bufsz, int speed)
 	}
 }
 
-void
-mad_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_linkspeedsup(char *buf, int bufsz, void *val, int valsz)
 {
 	int speed = *(int *)val;
 
 	dump_linkspeed(buf, bufsz, speed);
 }
 
-void
-mad_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
 {
 	int speed = *(int *)val;
 
 	dump_linkspeed(buf, bufsz, speed);
 }
 
-void
-mad_dump_portstate(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_portstate(char *buf, int bufsz, void *val, int valsz)
 {
 	int state = *(int *)val;
 
@@ -338,12 +331,11 @@ mad_dump_portstate(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_linkdowndefstate(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_linkdowndefstate(char *buf, int bufsz, void *val, int valsz)
 {
 	int state = *(int *)val;
 
-	switch(state) {
+	switch (state) {
 	case 0:
 		snprintf(buf, bufsz, "NoChange");
 		break;
@@ -359,8 +351,7 @@ mad_dump_linkdowndefstate(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_physportstate(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_physportstate(char *buf, int bufsz, void *val, int valsz)
 {
 	int state = *(int *)val;
 
@@ -394,8 +385,7 @@ mad_dump_physportstate(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_mtu(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_mtu(char *buf, int bufsz, void *val, int valsz)
 {
 	int mtu = *(int *)val;
 
@@ -421,8 +411,7 @@ mad_dump_mtu(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_vlcap(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_vlcap(char *buf, int bufsz, void *val, int valsz)
 {
 	int vlcap = *(int *)val;
 
@@ -447,8 +436,7 @@ mad_dump_vlcap(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_opervls(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_opervls(char *buf, int bufsz, void *val, int valsz)
 {
 	int opervls = *(int *)val;
 
@@ -476,8 +464,7 @@ mad_dump_opervls(char *buf, int bufsz, void *val, int valsz)
 	}
 }
 
-void
-mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 {
 	unsigned mask = *(unsigned *)val;
 	char *s = buf;
@@ -504,7 +491,8 @@ mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 	if (mask & (1 << 11))
 		s += sprintf(s, "\t\t\t\tIsSystemImageGUIDsupported\n");
 	if (mask & (1 << 12))
-		s += sprintf(s, "\t\t\t\tIsPkeySwitchExternalPortTrapSupported\n");
+		s += sprintf(s,
+			     "\t\t\t\tIsPkeySwitchExternalPortTrapSupported\n");
 	if (mask & (1 << 16))
 		s += sprintf(s, "\t\t\t\tIsCommunicatonManagementSupported\n");
 	if (mask & (1 << 17))
@@ -528,33 +516,31 @@ mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 	if (mask & (1 << 26))
 		s += sprintf(s, "\t\t\t\tIsOtherLocalChangesNoticeSupported\n");
 	if (mask & (1 << 27))
-		s += sprintf(s, "\t\t\t\tIsLinkSpeedWidthPairsTableSupported\n");
+		s += sprintf(s,
+			     "\t\t\t\tIsLinkSpeedWidthPairsTableSupported\n");
 
 	if (s != buf)
 		*(--s) = 0;
 }
 
-void
-mad_dump_bitfield(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_bitfield(char *buf, int bufsz, void *val, int valsz)
 {
-	snprintf(buf, bufsz, "0x%x", *(uint32_t *)val);
+	snprintf(buf, bufsz, "0x%x", *(uint32_t *) val);
 }
 
-void
-mad_dump_array(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_array(char *buf, int bufsz, void *val, int valsz)
 {
 	uint8_t *p = val, *e;
 	char *s = buf;
 
-	if (bufsz < valsz*2)
-		valsz = bufsz/2;
+	if (bufsz < valsz * 2)
+		valsz = bufsz / 2;
 
 	for (p = val, e = p + valsz; p < e; p++, s += 2)
 		sprintf(s, "%02x", *p);
 }
 
-void
-mad_dump_string(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_string(char *buf, int bufsz, void *val, int valsz)
 {
 	if (bufsz < valsz)
 		valsz = bufsz;
@@ -562,19 +548,18 @@ mad_dump_string(char *buf, int bufsz, void *val, int valsz)
 	snprintf(buf, valsz, "'%s'", (char *)val);
 }
 
-void
-mad_dump_node_type(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_node_type(char *buf, int bufsz, void *val, int valsz)
 {
-	int nodetype = *(int*)val;
+	int nodetype = *(int *)val;
 
 	switch (nodetype) {
- 	case 1:
+	case 1:
 		snprintf(buf, bufsz, "Channel Adapter");
 		break;
- 	case 2:
+	case 2:
 		snprintf(buf, bufsz, "Switch");
 		break;
- 	case 3:
+	case 3:
 		snprintf(buf, bufsz, "Router");
 		break;
 	default:
@@ -590,10 +575,9 @@ typedef struct _ib_slvl_table {
 	uint8_t vl_by_sl_num[IB_MAX_NUM_VLS_TO_U8];
 } ib_slvl_table_t;
 
-static inline void
-ib_slvl_get_i(ib_slvl_table_t *tbl, int i, uint8_t *vl)
+static inline void ib_slvl_get_i(ib_slvl_table_t * tbl, int i, uint8_t * vl)
 {
-	*vl = (tbl->vl_by_sl_num[i >> 1] >> ((!(i&1)) << 2)) & 0xf;
+	*vl = (tbl->vl_by_sl_num[i >> 1] >> ((!(i & 1)) << 2)) & 0xf;
 }
 
 #define IB_NUM_VL_ARB_ELEMENTS_IN_BLOCK 32
@@ -605,16 +589,14 @@ typedef struct _ib_vl_arb_table {
 	} vl_entry[IB_NUM_VL_ARB_ELEMENTS_IN_BLOCK];
 } ib_vl_arb_table_t;
 
-static inline void
-ib_vl_arb_get_vl(uint8_t res_vl, uint8_t *const vl )
+static inline void ib_vl_arb_get_vl(uint8_t res_vl, uint8_t * const vl)
 {
 	*vl = res_vl & 0x0F;
 }
 
-void
-mad_dump_sltovl(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_sltovl(char *buf, int bufsz, void *val, int valsz)
 {
-	ib_slvl_table_t* p_slvl_tbl = val;
+	ib_slvl_table_t *p_slvl_tbl = val;
 	uint8_t vl;
 	int i, n = 0;
 	n = snprintf(buf, bufsz, "|");
@@ -627,10 +609,9 @@ mad_dump_sltovl(char *buf, int bufsz, void *val, int valsz)
 	snprintf(buf + n, bufsz - n, "\n");
 }
 
-void
-mad_dump_vlarbitration(char *buf, int bufsz, void *val, int num)
+void mad_dump_vlarbitration(char *buf, int bufsz, void *val, int num)
 {
-	ib_vl_arb_table_t* p_vla_tbl = val;
+	ib_vl_arb_table_t *p_vla_tbl = val;
 	int i, n;
 	uint8_t vl;
 
@@ -659,8 +640,7 @@ mad_dump_vlarbitration(char *buf, int bufsz, void *val, int num)
 	snprintf(buf + n, bufsz - n, "\n");
 }
 
-static int
-_dump_fields(char *buf, int bufsz, void *data, int start, int end)
+static int _dump_fields(char *buf, int bufsz, void *data, int start, int end)
 {
 	char val[64];
 	char *s = buf;
@@ -681,8 +661,7 @@ _dump_fields(char *buf, int bufsz, void *data, int start, int end)
 	return (int)(s - buf);
 }
 
-void
-mad_dump_nodedesc(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_nodedesc(char *buf, int bufsz, void *val, int valsz)
 {
 	strncpy(buf, val, bufsz);
 
@@ -690,65 +669,59 @@ mad_dump_nodedesc(char *buf, int bufsz, void *val, int valsz)
 		buf[valsz] = 0;
 }
 
-void
-mad_dump_nodeinfo(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_nodeinfo(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_NODE_FIRST_F, IB_NODE_LAST_F);
 }
 
-void
-mad_dump_portinfo(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_portinfo(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_PORT_FIRST_F, IB_PORT_LAST_F);
 }
 
-void
-mad_dump_portstates(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_portstates(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_PORT_STATE_F, IB_PORT_LINK_DOWN_DEF_F);
 }
 
-void
-mad_dump_switchinfo(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_switchinfo(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_SW_FIRST_F, IB_SW_LAST_F);
 }
 
-void
-mad_dump_perfcounters(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_perfcounters(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_PC_FIRST_F, IB_PC_LAST_F);
 }
 
-void
-mad_dump_perfcounters_ext(char *buf, int bufsz, void *val, int valsz)
+void mad_dump_perfcounters_ext(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_PC_EXT_FIRST_F, IB_PC_EXT_LAST_F);
 }
 
-void xdump(FILE *file, char *msg, void *p, int size)
+void xdump(FILE * file, char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))
-        uint8_t *cp = p;
-        int i;
+	uint8_t *cp = p;
+	int i;
 
 	if (msg)
 		fputs(msg, file);
 
-        for (i = 0; i < size;) {
-                fputc(HEX(*cp >> 4), file);
-                fputc(HEX(*cp & 0xf), file);
-                if (++i >= size)
-                        break;
-                fputc(HEX(cp[1] >> 4), file);
-                fputc(HEX(cp[1] & 0xf), file);
-                if ((++i) % 16)
-                        fputc(' ', file);
-                else
-                        fputc('\n', file);
-                cp += 2;
-        }
-        if (i % 16) {
-                fputc('\n', file);
-        }
+	for (i = 0; i < size;) {
+		fputc(HEX(*cp >> 4), file);
+		fputc(HEX(*cp & 0xf), file);
+		if (++i >= size)
+			break;
+		fputc(HEX(cp[1] >> 4), file);
+		fputc(HEX(cp[1] & 0xf), file);
+		if ((++i) % 16)
+			fputc(' ', file);
+		else
+			fputc('\n', file);
+		cp += 2;
+	}
+	if (i % 16) {
+		fputc('\n', file);
+	}
 }

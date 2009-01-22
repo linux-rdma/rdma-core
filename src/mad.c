@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,15 +46,14 @@
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
-uint64_t
-mad_trid(void)
+uint64_t mad_trid(void)
 {
 	static uint64_t base;
 	static uint64_t trid;
 	uint64_t next;
 
 	if (!base) {
-		srandom((int)time(0)*getpid());
+		srandom((int)time(0) * getpid());
 		base = random();
 		trid = random();
 	}
@@ -62,15 +61,15 @@ mad_trid(void)
 	return next;
 }
 
-void *
-mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
+void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 {
 	int is_resp = rpc->method & IB_MAD_RESPONSE;
 
 	/* first word */
 	mad_set_field(buf, 0, IB_MAD_METHOD_F, rpc->method);
 	mad_set_field(buf, 0, IB_MAD_RESPONSE_F, is_resp ? 1 : 0);
-	mad_set_field(buf, 0, IB_MAD_CLASSVER_F, rpc->mgtclass == IB_SA_CLASS ? 2 : 1);
+	mad_set_field(buf, 0, IB_MAD_CLASSVER_F,
+		      rpc->mgtclass == IB_SA_CLASS ? 2 : 1);
 	mad_set_field(buf, 0, IB_MAD_MGMTCLASS_F, rpc->mgtclass);
 	mad_set_field(buf, 0, IB_MAD_BASEVER_F, 1);
 
@@ -81,7 +80,8 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 			return 0;
 		}
 		mad_set_field(buf, 0, IB_DRSMP_HOPCNT_F, drpath->cnt);
-		mad_set_field(buf, 0, IB_DRSMP_HOPPTR_F, is_resp ? drpath->cnt + 1 : 0x0);
+		mad_set_field(buf, 0, IB_DRSMP_HOPPTR_F,
+			      is_resp ? drpath->cnt + 1 : 0x0);
 		mad_set_field(buf, 0, IB_DRSMP_STATUS_F, rpc->rstatus);
 		mad_set_field(buf, 0, IB_DRSMP_DIRECTION_F, is_resp ? 1 : 0);	/* out */
 	} else
@@ -96,15 +96,18 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 	mad_set_field(buf, 0, IB_MAD_ATTRMOD_F, rpc->attr.mod);
 
 	/* words 7,8 */
-	mad_set_field(buf, 0, IB_MAD_MKEY_F, (uint32_t)(rpc->mkey >> 32));
-	mad_set_field(buf, 4, IB_MAD_MKEY_F, (uint32_t)(rpc->mkey & 0xffffffff));
+	mad_set_field(buf, 0, IB_MAD_MKEY_F, (uint32_t) (rpc->mkey >> 32));
+	mad_set_field(buf, 4, IB_MAD_MKEY_F,
+		      (uint32_t) (rpc->mkey & 0xffffffff));
 
 	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
 		/* word 9 */
-		mad_set_field(buf, 0, IB_DRSMP_DRDLID_F, drpath->drdlid ? drpath->drdlid : 0xffff);
-		mad_set_field(buf, 0, IB_DRSMP_DRSLID_F, drpath->drslid ? drpath->drslid : 0xffff);
+		mad_set_field(buf, 0, IB_DRSMP_DRDLID_F,
+			      drpath->drdlid ? drpath->drdlid : 0xffff);
+		mad_set_field(buf, 0, IB_DRSMP_DRSLID_F,
+			      drpath->drslid ? drpath->drslid : 0xffff);
 
-		/* bytes 128 - 256 - by default should be zero due to memset*/
+		/* bytes 128 - 256 - by default should be zero due to memset */
 		if (is_resp)
 			mad_set_array(buf, 0, IB_DRSMP_RPATH_F, drpath->p);
 		else
@@ -121,12 +124,11 @@ mad_encode(void *buf, ib_rpc_t *rpc, ib_dr_path_t *drpath, void *data)
 	if (mad_is_vendor_range2(rpc->mgtclass))
 		mad_set_field(buf, 0, IB_VEND2_OUI_F, rpc->oui);
 
-	return (uint8_t *)buf + IB_MAD_SIZE;
+	return (uint8_t *) buf + IB_MAD_SIZE;
 }
 
-int
-mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport,
-	      ib_rmpp_hdr_t *rmpp, void *data)
+int mad_build_pkt(void *umad, ib_rpc_t * rpc, ib_portid_t * dport,
+		  ib_rmpp_hdr_t * rmpp, void *data)
 {
 	uint8_t *p, *mad;
 	int lid_routed = rpc->mgtclass != IB_SMI_DIRECT_CLASS;
@@ -135,7 +137,8 @@ mad_build_pkt(void *umad, ib_rpc_t *rpc, ib_portid_t *dport,
 	struct ib_mad_addr addr;
 
 	if (!is_smi)
-		umad_set_addr(umad, dport->lid, dport->qp, dport->sl, dport->qkey);
+		umad_set_addr(umad, dport->lid, dport->qp, dport->sl,
+			      dport->qkey);
 	else if (lid_routed)
 		umad_set_addr(umad, dport->lid, dport->qp, 0, 0);
 	else if ((dport->drpath.drslid != 0xffff) && (dport->lid > 0))
