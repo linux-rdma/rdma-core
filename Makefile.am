@@ -32,53 +32,24 @@ sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 	       scripts/ibfindnodesusing.pl scripts/ibidsverify.pl \
 	       scripts/check_lft_balance.pl
 
+AM_CFLAGS = -Wall $(DBGFLAGS)
+
 src_ibaddr_SOURCES = src/ibaddr.c src/ibdiag_common.c
-src_ibaddr_CFLAGS = -Wall $(DBGFLAGS)
-
 src_ibnetdiscover_SOURCES = src/ibnetdiscover.c src/grouping.c src/ibdiag_common.c
-src_ibnetdiscover_CFLAGS = -Wall $(DBGFLAGS)
-
 src_ibping_SOURCES = src/ibping.c src/ibdiag_common.c
-src_ibping_CFLAGS = -Wall $(DBGFLAGS)
-
 src_ibportstate_SOURCES = src/ibportstate.c src/ibdiag_common.c
-src_ibportstate_CFLAGS = -Wall $(DBGFLAGS)
-
 src_ibroute_SOURCES = src/ibroute.c src/ibdiag_common.c
-src_ibroute_CFLAGS = -Wall $(DBGFLAGS)
-
 src_ibstat_SOURCES = src/ibstat.c
-src_ibstat_CFLAGS = -Wall $(DBGFLAGS)
-
 src_ibsysstat_SOURCES = src/ibsysstat.c src/ibdiag_common.c
-src_ibsysstat_CFLAGS = -Wall $(DBGFLAGS)
-
 src_ibtracert_SOURCES = src/ibtracert.c src/ibdiag_common.c
-src_ibtracert_CFLAGS = -Wall $(DBGFLAGS)
-
 src_perfquery_SOURCES = src/perfquery.c src/ibdiag_common.c
-src_perfquery_CFLAGS = -Wall $(DBGFLAGS)
-
 src_sminfo_SOURCES = src/sminfo.c src/ibdiag_common.c
-src_sminfo_CFLAGS = -Wall $(DBGFLAGS)
-
 src_smpdump_SOURCES = src/smpdump.c
-src_smpdump_CFLAGS = -Wall $(DBGFLAGS)
-
 src_smpquery_SOURCES = src/smpquery.c src/ibdiag_common.c
-src_smpquery_CFLAGS = -Wall $(DBGFLAGS)
-
 src_saquery_SOURCES = src/saquery.c src/ibdiag_common.c
-src_saquery_CFLAGS = -Wall -DOSM_VENDOR_INTF_OPENIB -DVENDOR_RMPP_SUPPORT -DDUAL_SIDED_RMPP $(DBGFLAGS)
-
 src_ibsendtrap_SOURCES = src/ibsendtrap.c src/ibdiag_common.c
-src_ibsendtrap_CFLAGS = -Wall $(DBGFLAGS)
-
 src_vendstat_SOURCES = src/vendstat.c src/ibdiag_common.c
-src_vendstat_CFLAGS = -Wall $(DBGFLAGS)
-
 src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
-src_mcm_rereg_test_CFLAGS = -Wall $(DBGFLAGS)
 
 man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibchecknet.8 man/ibchecknode.8 man/ibcheckport.8 \
