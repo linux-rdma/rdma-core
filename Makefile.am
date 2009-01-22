@@ -32,23 +32,27 @@ sbin_SCRIPTS = scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 	       scripts/ibfindnodesusing.pl scripts/ibidsverify.pl \
 	       scripts/check_lft_balance.pl
 
-AM_CFLAGS = -Wall $(DBGFLAGS)
+noinst_LIBRARIES = libcommon.a
 
-src_ibaddr_SOURCES = src/ibaddr.c src/ibdiag_common.c
-src_ibnetdiscover_SOURCES = src/ibnetdiscover.c src/grouping.c src/ibdiag_common.c
-src_ibping_SOURCES = src/ibping.c src/ibdiag_common.c
-src_ibportstate_SOURCES = src/ibportstate.c src/ibdiag_common.c
-src_ibroute_SOURCES = src/ibroute.c src/ibdiag_common.c
+AM_CFLAGS = -Wall $(DBGFLAGS)
+LDADD = libcommon.a
+
+libcommon_a_SOURCES = src/ibdiag_common.c
+src_ibaddr_SOURCES = src/ibaddr.c
+src_ibnetdiscover_SOURCES = src/ibnetdiscover.c src/grouping.c
+src_ibping_SOURCES = src/ibping.c
+src_ibportstate_SOURCES = src/ibportstate.c
+src_ibroute_SOURCES = src/ibroute.c
 src_ibstat_SOURCES = src/ibstat.c
-src_ibsysstat_SOURCES = src/ibsysstat.c src/ibdiag_common.c
-src_ibtracert_SOURCES = src/ibtracert.c src/ibdiag_common.c
-src_perfquery_SOURCES = src/perfquery.c src/ibdiag_common.c
-src_sminfo_SOURCES = src/sminfo.c src/ibdiag_common.c
+src_ibsysstat_SOURCES = src/ibsysstat.c
+src_ibtracert_SOURCES = src/ibtracert.c
+src_perfquery_SOURCES = src/perfquery.c
+src_sminfo_SOURCES = src/sminfo.c
 src_smpdump_SOURCES = src/smpdump.c
-src_smpquery_SOURCES = src/smpquery.c src/ibdiag_common.c
-src_saquery_SOURCES = src/saquery.c src/ibdiag_common.c
-src_ibsendtrap_SOURCES = src/ibsendtrap.c src/ibdiag_common.c
-src_vendstat_SOURCES = src/vendstat.c src/ibdiag_common.c
+src_smpquery_SOURCES = src/smpquery.c
+src_saquery_SOURCES = src/saquery.c
+src_ibsendtrap_SOURCES = src/ibsendtrap.c
+src_vendstat_SOURCES = src/vendstat.c
 src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
 
 man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
