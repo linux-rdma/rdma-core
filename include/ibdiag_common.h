@@ -35,11 +35,8 @@
 #ifndef _IBDIAG_COMMON_H_
 #define _IBDIAG_COMMON_H_
 
-#include <stdio.h>
-#include <inttypes.h>
-
 extern char *argv0;
-extern int   ibdebug;
+extern int ibdebug;
 
 /*========================================================*/
 /*                External interface                      */
@@ -50,13 +47,13 @@ extern int   ibdebug;
 #define	VERBOSE	if (ibdebug || verbose > 1) IBWARN
 #define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
 
-void  iberror(const char *fn, char *msg, ...);
+extern void iberror(const char *fn, char *msg, ...);
 
 #include <ibdiag_version.h>
 
-static inline const char* get_build_version(void)
+static inline const char *get_build_version(void)
 {
-	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " " __TIME__ ;
+	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " " __TIME__;
 }
 
-#endif	/* _IBDIAG_COMMON_H_ */
+#endif				/* _IBDIAG_COMMON_H_ */

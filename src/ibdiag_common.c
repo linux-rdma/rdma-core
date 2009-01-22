@@ -47,12 +47,11 @@
 #include <ctype.h>
 #include <config.h>
 
-#include "ibdiag_common.h"
+#include <ibdiag_common.h>
 
 int ibdebug;
 
-void
-iberror(const char *fn, char *msg, ...)
+void iberror(const char *fn, char *msg, ...)
 {
 	char buf[512], *s;
 	va_list va;
@@ -67,10 +66,10 @@ iberror(const char *fn, char *msg, ...)
 		argv0 = s + 1;
 
 	if (ibdebug)
-		printf("%s: iberror: [pid %d] %s: failed: %s\n", argv0, getpid(), fn, buf);
+		printf("%s: iberror: [pid %d] %s: failed: %s\n", argv0,
+		       getpid(), fn, buf);
 	else
 		printf("%s: iberror: failed: %s\n", argv0, buf);
 
 	exit(-1);
 }
-
