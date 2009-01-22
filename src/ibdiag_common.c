@@ -48,6 +48,7 @@
 #include <config.h>
 
 #include <ibdiag_common.h>
+#include <ibdiag_version.h>
 
 int ibdebug;
 
@@ -72,4 +73,9 @@ void iberror(const char *fn, char *msg, ...)
 		printf("%s: iberror: failed: %s\n", argv0, buf);
 
 	exit(-1);
+}
+
+const char *get_build_version(void)
+{
+	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " " __TIME__;
 }

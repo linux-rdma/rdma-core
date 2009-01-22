@@ -48,12 +48,6 @@ extern int ibdebug;
 #define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
 
 extern void iberror(const char *fn, char *msg, ...);
-
-#include <ibdiag_version.h>
-
-static inline const char *get_build_version(void)
-{
-	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " " __TIME__;
-}
+extern const char *get_build_version(void);
 
 #endif				/* _IBDIAG_COMMON_H_ */
