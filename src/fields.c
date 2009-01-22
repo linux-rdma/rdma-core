@@ -87,7 +87,7 @@ static const ib_field_t ib_mad_f[] = {
 	{160, 32, "MadModifier", mad_dump_hex},	/* TODO: add dumper */
 
 	/* word 7,8 (24-31 bytes) */
-	{196, 64, "MadMkey", mad_dump_hex},
+	{192, 64, "MadMkey", mad_dump_hex},
 
 	/* word 9 (32-37 bytes) */
 	{BE_OFFS(256, 16), "DrSmpDLID", mad_dump_hex},
