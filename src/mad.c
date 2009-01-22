@@ -96,9 +96,7 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 	mad_set_field(buf, 0, IB_MAD_ATTRMOD_F, rpc->attr.mod);
 
 	/* words 7,8 */
-	mad_set_field(buf, 0, IB_MAD_MKEY_F, (uint32_t) (rpc->mkey >> 32));
-	mad_set_field(buf, 4, IB_MAD_MKEY_F,
-		      (uint32_t) (rpc->mkey & 0xffffffff));
+	mad_set_field64(buf, 0, IB_MAD_MKEY_F, rpc->mkey);
 
 	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
 		/* word 9 */
