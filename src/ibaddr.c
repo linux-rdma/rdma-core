@@ -86,108 +86,53 @@ ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 	return 0;
 }
 
-static void
-usage(void)
+static int show_lid, show_gid;
+
+static int process_opt(void *context, int ch, char *optarg)
 {
-	char *basename;
-
-	if (!(basename = strrchr(argv0, '/')))
-		basename = argv0;
-	else
-		basename++;
-
-	fprintf(stderr, "Usage: %s [-d(ebug) -D(irect) -G(uid) -l(id_show) -g(id_show) -s(m_port) sm_lid -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms -V(ersion) -h(elp)] [<lid|dr_path|guid>]\n",
-			basename);
-	fprintf(stderr, "\tExamples:\n");
-	fprintf(stderr, "\t\t%s\t\t\t# local port's address\n", basename);
-	fprintf(stderr, "\t\t%s 32\t\t# show lid range and gid of lid 32\n", basename);
-	fprintf(stderr, "\t\t%s -G 0x8f1040023\t# same but using guid address\n", basename);
-	fprintf(stderr, "\t\t%s -l 32\t\t# show lid range only\n", basename);
-	fprintf(stderr, "\t\t%s -L 32\t\t# show decimal lid range only\n", basename);
-	fprintf(stderr, "\t\t%s -g 32\t\t# show gid address only\n", basename);
-	exit(-1);
+	switch (ch) {
+	case 'g':
+		show_gid = 1;
+		break;
+	case 'l':
+		show_lid++;
+		break;
+	case 'L':
+		show_lid = -100;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
-	ib_portid_t *sm_id = 0, sm_portid = {0};
 	ib_portid_t portid = {0};
-	int dest_type = IB_DEST_LID;
-	int timeout = 0;	/* use default */
-	int show_lid = 0, show_gid = 0;
 	int port = 0;
-	char *ca = 0;
-	int ca_port = 0;
 
-	static char const str_opts[] = "C:P:t:s:dDGglLVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "Direct", 0, 0, 'D'},
-		{ "Guid", 0, 0, 'G'},
-		{ "gid_show", 0, 0, 'g'},
-		{ "lid_show", 0, 0, 'l'},
-		{ "Lid_show", 0, 0, 'L'},
-		{ "timeout", 1, 0, 't'},
-		{ "sm_port", 1, 0, 's'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
-		{ }
+	const struct ibdiag_opt opts[] = {
+		{ "gid_show", 'g', 0, NULL, "show gid address only"},
+		{ "lid_show", 'l', 0, NULL, "show lid range only"},
+		{ "Lid_show", 'L', 0, NULL, "show lid range (in decimal) only"},
+		{}
+	};
+	char usage_args[] = "[<lid|dr_path|guid>]";
+	const char *usage_examples[] = {
+		"\t\t# local port's address",
+		"32\t\t# show lid range and gid of lid 32",
+		"-G 0x8f1040023\t# same but using guid address",
+		"-l 32\t\t# show lid range only",
+		"-L 32\t\t# show decimal lid range only",
+		"-g 32\t\t# show gid address only",
+		NULL
 	};
 
-	argv0 = argv[0];
+	ibdiag_process_opts(argc, argv, NULL, "L", opts, process_opt,
+			    usage_args, usage_examples);
 
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 'd':
-			ibdebug++;
-			break;
-		case 'D':
-			dest_type = IB_DEST_DRPATH;
-			break;
-		case 'g':
-			show_gid++;
-			break;
-		case 'G':
-			dest_type = IB_DEST_GUID;
-			break;
-		case 'l':
-			show_lid++;
-			break;
-		case 'L':
-			show_lid = -100;
-			break;
-		case 's':
-			if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
-				IBERROR("can't resolve SM destination port %s", optarg);
-			sm_id = &sm_portid;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			madrpc_set_timeout(timeout);
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
+	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 
@@ -197,10 +142,10 @@ main(int argc, char **argv)
 	if (!show_lid && !show_gid)
 		show_lid = show_gid = 1;
 
-	madrpc_init(ca, ca_port, mgmt_classes, 3);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 
 	if (argc) {
-		if (ib_resolve_portid_str(&portid, argv[0], dest_type, sm_id) < 0)
+		if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
 		if (ib_resolve_self(&portid, &port, 0) < 0)

@@ -85,7 +85,6 @@ static char *linkspeed_str[] = {
 
 static int timeout = 2000;		/* ms */
 static int dumplevel = 0;
-static int verbose;
 static FILE *f;
 
 char *argv0 = "ibnetdiscover";
@@ -919,119 +918,79 @@ void dump_ports_report ()
 		}
 }
 
-void
-usage(void)
+static int list, group, ports_report;
+
+static int process_opt(void *context, int ch, char *optarg)
 {
-	fprintf(stderr, "Usage: %s [-d(ebug)] -e(rr_show) -v(erbose) -s(how) -l(ist) -g(rouping) -H(ca_list) -S(witch_list) -R(outer_list) -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms --node-name-map node-name-map] -p(orts) [<topology-file>]\n",
-			argv0);
-	fprintf(stderr, "       --node-name-map <node-name-map> specify a node name map file\n");
-	exit(-1);
+	switch (ch) {
+	case 1:
+		node_name_map_file = strdup(optarg);
+		break;
+	case 's':
+		dumplevel = 1;
+		break;
+	case 'l':
+		list = LIST_CA_NODE | LIST_SWITCH_NODE | LIST_ROUTER_NODE;
+		break;
+	case 'g':
+		group = 1;
+		break;
+	case 'S':
+		list = LIST_SWITCH_NODE;
+		break;
+	case 'H':
+		list = LIST_CA_NODE;
+		break;
+	case 'R':
+		list = LIST_ROUTER_NODE;
+		break;
+	case 'p':
+		ports_report = 1;
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
 	ib_portid_t my_portid = {0};
-	int udebug = 0, list = 0;
-	char *ca = 0;
-	int ca_port = 0;
-	int group = 0;
-	int ports_report = 0;
 
-	static char const str_opts[] = "C:P:t:devslgHSRpVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "err_show", 0, 0, 'e'},
-		{ "verbose", 0, 0, 'v'},
-		{ "show", 0, 0, 's'},
-		{ "list", 0, 0, 'l'},
-		{ "grouping", 0, 0, 'g'},
-		{ "Hca_list", 0, 0, 'H'},
-		{ "Switch_list", 0, 0, 'S'},
-		{ "Router_list", 0, 0, 'R'},
-		{ "timeout", 1, 0, 't'},
-		{ "node-name-map", 1, 0, 1},
-		{ "ports", 0, 0, 'p'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
+	const struct ibdiag_opt opts[] = {
+		{ "show", 's', 0, NULL, "show more information" },
+		{ "list", 'l', 0, NULL, "list of connected nodes" },
+		{ "grouping", 'g', 0, NULL, "show grouping" },
+		{ "Hca_list", 'H', 0, NULL, "list of connected CAs" },
+		{ "Switch_list", 'S', 0, NULL, "list of connected switches" },
+		{ "Router_list", 'R', 0, NULL, "list of connected routers" },
+		{ "node-name-map", 1, 1, "<file>", "node name map file" },
+		{ "ports", 'p', 0, NULL, "obtain a ports report" },
 		{ }
 	};
+	char usage_args[] = "[topology-file]";
+
+	ibdiag_process_opts(argc, argv, NULL, "sGDL", opts, process_opt,
+			    usage_args, NULL);
 
 	f = stdout;
 
 	argv0 = argv[0];
-
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 1:
-			node_name_map_file = strdup(optarg);
-			break;
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 'd':
-			ibdebug++;
-			madrpc_show_errors(1);
-			umad_debug(udebug);
-			udebug++;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			break;
-		case 'v':
-			verbose++;
-			dumplevel++;
-			break;
-		case 's':
-			dumplevel = 1;
-			break;
-		case 'e':
-			madrpc_show_errors(1);
-			break;
-		case 'l':
-			list = LIST_CA_NODE | LIST_SWITCH_NODE | LIST_ROUTER_NODE;
-			break;
-		case 'g':
-			group = 1;
-			break;
-		case 'S':
-			list = LIST_SWITCH_NODE;
-			break;
-		case 'H':
-			list = LIST_CA_NODE;
-			break;
-		case 'R':
-			list = LIST_ROUTER_NODE;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		case 'p':
-			ports_report = 1;
-			break;
-		default:
-			usage();
-			break;
-		}
-	}
 	argc -= optind;
 	argv += optind;
+
+	if (ibd_timeout)
+		timeout = ibd_timeout;
+
+	if (ibverbose)
+		dumplevel = 1;
 
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
 
-	madrpc_init(ca, ca_port, mgmt_classes, 2);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (discover(&my_portid) < 0)

@@ -53,8 +53,6 @@
 static int mad_agent;
 static int drmad_tid = 0x123;
 
-static int debug, verbose;
-
 char *argv0 = "smpdump";
 
 typedef struct {
@@ -193,26 +191,29 @@ str2DRPath(char *str, DRPath *path)
 	return path->hop_cnt;
 }
 
-void
-usage(void)
+static int dump_char, mgmt_class = IB_SMI_CLASS;
+
+static int process_opt(void *context, int ch, char *optarg)
 {
-	fprintf(stderr, "Usage: %s [-s(ring) -D(irect) -V(ersion) -C ca_name -P ca_port -t(imeout) timeout_ms] <dlid|dr_path> <attr> [mod]\n", argv0);
-	fprintf(stderr, "\tDR examples:\n");
-	fprintf(stderr, "\t\t%s -D 0,1,2,3,5 16	# NODE DESC\n", argv0);
-	fprintf(stderr, "\t\t%s -D 0,1,2 0x15 2	# PORT INFO, port 2\n", argv0);
-	fprintf(stderr, "\n\tLID routed examples:\n");
-	fprintf(stderr, "\t\t%s 3 0x15 2	# PORT INFO, lid 3 port 2\n", argv0);
-	fprintf(stderr, "\t\t%s 0xa0 0x11	# NODE INFO, lid 0xa0\n", argv0);
-	fprintf(stderr, "\n");
-	exit(-1);
+	switch (ch) {
+	case 's':
+		dump_char++;
+		break;
+	case 'D':
+		mgmt_class = IB_SMI_DIRECT_CLASS;
+		break;
+	case 'L':
+		mgmt_class = IB_SMI_CLASS;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-	int dump_char = 0, timeout_ms = 1000;
-	int dev_port = 0, mgmt_class = IB_SMI_CLASS, dlid = 0;
-	char *dev_name = 0;
+	int dlid = 0;
 	void *umad;
 	struct drsmp *smp;
 	int i, portid, mod = 0, attr;
@@ -220,60 +221,32 @@ main(int argc, char *argv[])
 	uint8_t *desc;
 	int length;
 
-	static char const str_opts[] = "C:P:t:dsDVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "sring", 0, 0, 's'},
-		{ "Direct", 0, 0, 'D'},
-		{ "timeout", 1, 0, 't'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
+	const struct ibdiag_opt opts[] = {
+		{ "sring", 's', 0, NULL, ""},
 		{ }
 	};
+	char usage_args[] = "<dlid|dr_path> <attr> [mod]";
+	const char *usage_examples[] = {
+		" -- DR routed examples:",
+		"%s -D 0,1,2,3,5 16	# NODE DESC",
+		"%s -D 0,1,2 0x15 2	# PORT INFO, port 2",
+		" -- LID routed examples:",
+		"%s 3 0x15 2	# PORT INFO, lid 3 port 2",
+		"%s 0xa0 0x11	# NODE INFO, lid 0xa0",
+		NULL
+	};
+
+	ibd_timeout = 1000;
+
+	ibdiag_process_opts(argc, argv, NULL, "Gs", opts, process_opt,
+			    usage_args, usage_examples);
 
 	argv0 = argv[0];
-
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 's':
-			dump_char++;
-			break;
-		case 'd':
-			debug++;
-			if (debug > 1)
-				umad_debug(debug-1);
-			break;
-		case 'D':
-			mgmt_class = IB_SMI_DIRECT_CLASS;
-			break;
-		case 'C':
-			dev_name = optarg;
-			break;
-		case 'P':
-			dev_port = atoi(optarg);
-			break;
-		case 't':
-			timeout_ms = strtoul(optarg, 0, 0);
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
 	argc -= optind;
 	argv += optind;
 
 	if (argc < 2)
-		usage();
+		ibdiag_show_usage();
 
 	if (mgmt_class == IB_SMI_DIRECT_CLASS &&
 	    str2DRPath(strdupa(argv[0]), &path) < 0)
@@ -289,8 +262,8 @@ main(int argc, char *argv[])
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
 
-	if ((portid = umad_open_port(dev_name, dev_port)) < 0)
-		IBPANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
+	if ((portid = umad_open_port(ibd_ca, ibd_ca_port)) < 0)
+		IBPANIC("can't open UMAD port (%s:%d)", ibd_ca, ibd_ca_port);
 
 	if ((mad_agent = umad_register(portid, mgmt_class, 1, 0, 0)) < 0)
 		IBPANIC("Couldn't register agent for SMPs");
@@ -305,11 +278,11 @@ main(int argc, char *argv[])
 	else
 		smp_get_init(umad, dlid, attr, mod);
 
-	if (debug > 1)
+	if (ibdebug > 1)
 		xdump(stderr, "before send:\n", smp, 256);
 
 	length = IB_MAD_SIZE;
-	if (umad_send(portid, mad_agent, umad, length, timeout_ms, 0) < 0)
+	if (umad_send(portid, mad_agent, umad, length, ibd_timeout, 0) < 0)
 		IBPANIC("send failed");
 
 	if (umad_recv(portid, umad, &length, -1) != mad_agent)

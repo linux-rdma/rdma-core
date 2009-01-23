@@ -82,8 +82,6 @@ osmv_query_res_t result;
 osm_log_t log_osm;
 osm_mad_pool_t mad_pool;
 osm_vendor_t *vendor = NULL;
-int osm_debug = 0;
-uint32_t sa_timeout_ms = DEFAULT_SA_TIMEOUT_MS;
 char *sa_hca_name = NULL;
 uint32_t sa_port_num = 0;
 
@@ -691,7 +689,7 @@ get_any_records(osm_bind_handle_t h,
 	user.p_attr = attr;
 
 	req.query_type = OSMV_QUERY_USER_DEFINED;
-	req.timeout_ms = sa_timeout_ms;
+	req.timeout_ms = ibd_timeout;
 	req.retry_cnt = 1;
 	req.flags = OSM_SA_FLAGS_SYNC;
 	req.query_context = NULL;
@@ -888,7 +886,7 @@ get_print_path_rec_lid(osm_bind_handle_t h,
 	memset(&req, 0, sizeof(req));
 
 	req.query_type = OSMV_QUERY_PATH_REC_BY_LIDS;
-	req.timeout_ms = sa_timeout_ms;
+	req.timeout_ms = ibd_timeout;
 	req.retry_cnt = 1;
 	req.flags = OSM_SA_FLAGS_SYNC;
 	req.query_context = NULL;
@@ -926,7 +924,7 @@ get_print_path_rec_gid(osm_bind_handle_t h,
 	memset(&req, 0, sizeof(req));
 
 	req.query_type = OSMV_QUERY_PATH_REC_BY_GIDS;
-	req.timeout_ms = sa_timeout_ms;
+	req.timeout_ms = ibd_timeout;
 	req.retry_cnt = 1;
 	req.flags = OSM_SA_FLAGS_SYNC;
 	req.query_context = NULL;
@@ -958,7 +956,7 @@ static ib_api_status_t get_print_class_port_info(osm_bind_handle_t h)
 	memset(&req, 0, sizeof(req));
 
 	req.query_type = OSMV_QUERY_CLASS_PORT_INFO;
-	req.timeout_ms = sa_timeout_ms;
+	req.timeout_ms = ibd_timeout;
 	req.retry_cnt = 1;
 	req.flags = OSM_SA_FLAGS_SYNC;
 	req.query_context = NULL;
@@ -1401,10 +1399,10 @@ static osm_bind_handle_t get_bind_handle(void)
 		exit(-1);
 	}
 	osm_log_set_level(&log_osm, OSM_LOG_NONE);
-	if (osm_debug)
+	if (ibdebug)
 		osm_log_set_level(&log_osm, OSM_LOG_DEFAULT_LEVEL);
 
-	vendor = osm_vendor_new(&log_osm, sa_timeout_ms);
+	vendor = osm_vendor_new(&log_osm, ibd_timeout);
 	osm_mad_pool_construct(&mad_pool);
 	if ((status = osm_mad_pool_init(&mad_pool)) != IB_SUCCESS) {
 		fprintf(stderr, "Failed to init mad pool: %s\n",
@@ -1511,60 +1509,6 @@ static const struct query_cmd *find_query_by_type(ib_net16_t type)
 	return NULL;
 }
 
-static void usage(void)
-{
-	const struct query_cmd *q;
-
-	fprintf(stderr, "Usage: %s [-h -d -p -N] [--list | -D] [-S -I -L -l -G"
-		" -O -U -c -s -g -m --src-to-dst <src:dst> --sgid-to-dgid <src-dst> "
-		"-C <ca_name> -P <ca_port> -t(imeout) <msec>] [query-name] [<name> | <lid> | <guid>]\n",
-		argv0);
-	fprintf(stderr, "   Queries node records by default\n");
-	fprintf(stderr, "   -d enable debugging\n");
-	fprintf(stderr, "   -p get PathRecord info\n");
-	fprintf(stderr, "   -N get NodeRecord info\n");
-	fprintf(stderr, "   --list | -D the node desc of the CA's\n");
-	fprintf(stderr, "   -S get ServiceRecord info\n");
-	fprintf(stderr, "   -I get InformInfoRecord (subscription) info\n");
-	fprintf(stderr, "   -L return the Lids of the name specified\n");
-	fprintf(stderr, "   -l return the unique Lid of the name specified\n");
-	fprintf(stderr, "   -G return the Guids of the name specified\n");
-	fprintf(stderr, "   -O return name for the Lid specified\n");
-	fprintf(stderr, "   -U return name for the Guid specified\n");
-	fprintf(stderr, "   -c get the SA's class port info\n");
-	fprintf(stderr, "   -s return the PortInfoRecords with isSM or "
-		"isSMdisabled capability mask bit on\n");
-	fprintf(stderr, "   -g get multicast group info\n");
-	fprintf(stderr, "   -m get multicast member info\n");
-	fprintf(stderr, "      (if multicast group specified, list member GIDs"
-		" only for group specified\n");
-	fprintf(stderr, "      specified, for example 'saquery -m 0xC000')\n");
-	fprintf(stderr, "   -x get LinkRecord info\n");
-	fprintf(stderr, "   --src-to-dst get a PathRecord for <src:dst>\n"
-		"                where src and dst are either node "
-		"names or LIDs\n");
-	fprintf(stderr, "   --sgid-to-dgid get a PathRecord for <sgid-dgid>\n"
-		"                where sgid and dgid are addresses in "
-		"IPv6 format\n");
-	fprintf(stderr, "   -C <ca_name> specify the SA query HCA\n");
-	fprintf(stderr, "   -P <ca_port> specify the SA query port\n");
-	fprintf(stderr, "   --smkey <val> specify SM_Key value for the query."
-		" If non-numeric value \n"
-		"                 (like 'x') is specified then "
-		"saquery will prompt for a value\n");
-	fprintf(stderr, "   -t | --timeout <msec> specify the SA query "
-		"response timeout (default %u msec)\n", DEFAULT_SA_TIMEOUT_MS);
-	fprintf(stderr,
-		"   --node-name-map <node-name-map> specify a node name map\n");
-	fprintf(stderr, "\n   Supported query names (and aliases):\n");
-	for (q = query_cmds; q->name; q++)
-		fprintf(stderr, "      %s (%s) %s\n", q->name,
-			q->alias ? q->alias : "", q->usage ? q->usage : "");
-	fprintf(stderr, "\n");
-
-	exit(-1);
-}
-
 enum saquery_command {
 	SAQUERY_CMD_QUERY,
 	SAQUERY_CMD_NODE_RECORD,
@@ -1575,164 +1519,170 @@ enum saquery_command {
 	SAQUERY_CMD_MCMEMBERS,
 };
 
+static enum saquery_command command = SAQUERY_CMD_QUERY;
+static ib_net16_t query_type;
+static char *src, *dst, *sgid, *dgid;
+
+static int process_opt(void *context, int ch, char *optarg)
+{
+	switch (ch) {
+	case 1:
+		{
+			char *opt = strdup(optarg);
+			char *ch = strchr(opt, ':');
+			if (!ch) {
+				fprintf(stderr,
+					"ERROR: --src-to-dst <node>:<node>\n");
+				ibdiag_show_usage();
+			}
+			*ch++ = '\0';
+			if (*opt)
+				src = strdup(opt);
+			if (*ch)
+				dst = strdup(ch);
+			free(opt);
+			command = SAQUERY_CMD_PATH_RECORD;
+			break;
+		}
+	case 2:
+		{
+			char *opt = strdup(optarg);
+			char *tok1 = strtok(opt, "-");
+			char *tok2 = strtok(NULL, "\0");
+
+			if (tok1 && tok2) {
+				sgid = strdup(tok1);
+				dgid = strdup(tok2);
+			} else {
+				fprintf(stderr,
+					"ERROR: --sgid-to-dgid <GID>-<GID>\n");
+				ibdiag_show_usage();
+			}
+			free(opt);
+			command = SAQUERY_CMD_PATH_RECORD;
+			break;
+		}
+	case 3:
+		node_name_map_file = strdup(optarg);
+		break;
+	case 4:
+		if (!isxdigit(*optarg) &&
+		    !(optarg = getpass("SM_Key: "))) {
+			fprintf(stderr, "cannot get SM_Key\n");
+			ibdiag_show_usage();
+		}
+		smkey = cl_hton64(strtoull(optarg, NULL, 0));
+		break;
+	case 'p':
+		command = SAQUERY_CMD_PATH_RECORD;
+		break;
+	case 'D':
+		node_print_desc = ALL_DESC;
+		break;
+	case 'c':
+		command = SAQUERY_CMD_CLASS_PORT_INFO;
+		break;
+	case 'S':
+		query_type = IB_MAD_ATTR_SERVICE_RECORD;
+		break;
+	case 'I':
+		query_type = IB_MAD_ATTR_INFORM_INFO_RECORD;
+		break;
+	case 'N':
+		command = SAQUERY_CMD_NODE_RECORD;
+		break;
+	case 'L':
+		node_print_desc = LID_ONLY;
+		break;
+	case 'l':
+		node_print_desc = UNIQUE_LID_ONLY;
+		break;
+	case 'G':
+		node_print_desc = GUID_ONLY;
+		break;
+	case 'O':
+		node_print_desc = NAME_OF_LID;
+		break;
+	case 'U':
+		node_print_desc = NAME_OF_GUID;
+		break;
+	case 's':
+		command = SAQUERY_CMD_ISSM;
+		break;
+	case 'g':
+		command = SAQUERY_CMD_MCGROUPS;
+		break;
+	case 'm':
+		command = SAQUERY_CMD_MCMEMBERS;
+		break;
+	case 'x':
+		query_type = IB_MAD_ATTR_LINK_RECORD;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
-	int ch = 0;
+	char usage_args[1024];
 	osm_bind_handle_t h;
-	enum saquery_command command = SAQUERY_CMD_QUERY;
-	const struct query_cmd *q = NULL;
-	char *src = NULL, *dst = NULL;
-	char *sgid = NULL, *dgid = NULL;
-	ib_net16_t query_type = 0;
+	const struct query_cmd *q;
 	ib_net16_t src_lid, dst_lid;
 	ib_api_status_t status;
+	int n;
 
-	static char const str_opts[] = "pVNDLlGOUcSIsgmxdhP:C:t:";
-	static const struct option long_opts[] = {
-		{"p", 0, 0, 'p'},
-		{"Version", 0, 0, 'V'},
-		{"N", 0, 0, 'N'},
-		{"L", 0, 0, 'L'},
-		{"l", 0, 0, 'l'},
-		{"G", 0, 0, 'G'},
-		{"O", 0, 0, 'O'},
-		{"U", 0, 0, 'U'},
-		{"s", 0, 0, 's'},
-		{"g", 0, 0, 'g'},
-		{"m", 0, 0, 'm'},
-		{"x", 0, 0, 'x'},
-		{"d", 0, 0, 'd'},
-		{"c", 0, 0, 'c'},
-		{"S", 0, 0, 'S'},
-		{"I", 0, 0, 'I'},
-		{"P", 1, 0, 'P'},
-		{"C", 1, 0, 'C'},
-		{"help", 0, 0, 'h'},
-		{"list", 0, 0, 'D'},
-		{"src-to-dst", 1, 0, 1},
-		{"sgid-to-dgid", 1, 0, 2},
-		{"timeout", 1, 0, 't'},
-		{"node-name-map", 1, 0, 3},
-		{"smkey", 1, 0, 4},
+	const struct ibdiag_opt opts[] = {
+		{"p", 'p', 0, NULL, "get PathRecord info"},
+		{"N", 'N', 0, NULL, "get NodeRecord info"},
+		{"L", 'L', 0, NULL, "return the Lids of the name specified"},
+		{"l", 'l', 0, NULL, "return the unique Lid of the name specified"},
+		{"G", 'G', 0, NULL, "return the Guids of the name specified"},
+		{"O", 'O', 0, NULL, "return name for the Lid specified"},
+		{"U", 'U', 0, NULL, "return name for the Guid specified"},
+		{"s", 's', 0, NULL, "return the PortInfoRecords with isSM or"
+		 " isSMdisabled capability mask bit on"},
+		{"g", 'g', 0, NULL, "get multicast group info"},
+		{"m", 'm', 0, NULL, "get multicast member info (if multicast"
+		 " group specified, list member GIDs only for group specified,"
+		 " for example 'saquery -m 0xC000')"},
+		{"x", 'x', 0, NULL, "get LinkRecord info"},
+		{"c", 'c', 0, NULL, "get the SA's class port info"},
+		{"S", 'S', 0, NULL, "get ServiceRecord info"},
+		{"I", 'I', 0, NULL, "get InformInfoRecord (subscription) info"},
+		{"list", 'D', 0, NULL, "the node desc of the CA's"},
+		{"src-to-dst", 1, 1, "<src:dst>", "get a PathRecord for"
+		 " <src:dst> where src and dst are either node names or LIDs"},
+		{"sgid-to-dgid", 2, 1, "<sgid-dgid>", "get a PathRecord for"
+		 " <sgid-dgid> where sgid and dgid are addresses in IPv6 format"},
+		{"node-name-map", 3, 1, "<file>", "specify a node name map file"},
+		{"smkey", 4, 1, "<val>", "SA SM_Key value for the query."
+		 " If non-numeric value (like 'x') is specified then"
+		 " saquery will prompt for a value"},
 		{}
 	};
 
-	argv0 = argv[0];
-
-	while ((ch = getopt_long(argc, argv, str_opts, long_opts, NULL)) != -1) {
-		switch (ch) {
-		case 1:
-			{
-				char *opt = strdup(optarg);
-				char *ch = strchr(opt, ':');
-				if (!ch) {
-					fprintf(stderr,
-						"ERROR: --src-to-dst <node>:<node>\n");
-					usage();
-				}
-				*ch++ = '\0';
-				if (*opt)
-					src = strdup(opt);
-				if (*ch)
-					dst = strdup(ch);
-				free(opt);
-				command = SAQUERY_CMD_PATH_RECORD;
-				break;
-			}
-		case 2:
-			{
-				char *opt = strdup(optarg);
-				char *tok1 = strtok(opt, "-");
-				char *tok2 = strtok(NULL, "\0");
-
-				if (tok1 && tok2) {
-					sgid = strdup(tok1);
-					dgid = strdup(tok2);
-				} else {
-					fprintf(stderr,
-						"ERROR: --sgid-to-dgid <GID>-<GID>\n");
-					usage();
-				}
-				free(opt);
-				command = SAQUERY_CMD_PATH_RECORD;
-				break;
-			}
-		case 3:
-			node_name_map_file = strdup(optarg);
-			break;
-		case 4:
-			if (!isxdigit(*optarg) &&
-			    !(optarg = getpass("SM_Key: "))) {
-				fprintf(stderr, "cannot get SM_Key\n");
-				usage();
-			}
-			smkey = cl_hton64(strtoull(optarg, NULL, 0));
-			break;
-		case 'p':
-			command = SAQUERY_CMD_PATH_RECORD;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version());
+	n = sprintf(usage_args, "[query-name] [<name> | <lid> | <guid>]\n"
+		    "\nSupported query names (and aliases):\n");
+	for (q = query_cmds; q->name; q++) {
+		n += snprintf(usage_args + n, sizeof(usage_args) - n,
+			      "  %s (%s) %s\n", q->name,
+			      q->alias ? q->alias : "",
+			      q->usage ? q->usage : "");
+		if (n >= sizeof(usage_args))
 			exit(-1);
-		case 'D':
-			node_print_desc = ALL_DESC;
-			break;
-		case 'c':
-			command = SAQUERY_CMD_CLASS_PORT_INFO;
-			break;
-		case 'S':
-			query_type = IB_MAD_ATTR_SERVICE_RECORD;
-			break;
-		case 'I':
-			query_type = IB_MAD_ATTR_INFORM_INFO_RECORD;
-			break;
-		case 'N':
-			command = SAQUERY_CMD_NODE_RECORD;
-			break;
-		case 'L':
-			node_print_desc = LID_ONLY;
-			break;
-		case 'l':
-			node_print_desc = UNIQUE_LID_ONLY;
-			break;
-		case 'G':
-			node_print_desc = GUID_ONLY;
-			break;
-		case 'O':
-			node_print_desc = NAME_OF_LID;
-			break;
-		case 'U':
-			node_print_desc = NAME_OF_GUID;
-			break;
-		case 's':
-			command = SAQUERY_CMD_ISSM;
-			break;
-		case 'g':
-			command = SAQUERY_CMD_MCGROUPS;
-			break;
-		case 'm':
-			command = SAQUERY_CMD_MCMEMBERS;
-			break;
-		case 'x':
-			query_type = IB_MAD_ATTR_LINK_RECORD;
-			break;
-		case 'd':
-			osm_debug = 1;
-			break;
-		case 'C':
-			sa_hca_name = optarg;
-			break;
-		case 'P':
-			sa_port_num = strtoul(optarg, NULL, 0);
-			break;
-		case 't':
-			sa_timeout_ms = strtoul(optarg, NULL, 0);
-			break;
-		case 'h':
-		default:
-			usage();
-		}
 	}
+	snprintf(usage_args + n, sizeof(usage_args) - n,
+		 "\n  Queries node records by default.");
+
+	q = NULL;
+	ibd_timeout = DEFAULT_SA_TIMEOUT_MS;
+
+	ibdiag_process_opts(argc, argv, NULL, "DLGs", opts, process_opt,
+			    usage_args, NULL);
+
+	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 
@@ -1762,23 +1712,23 @@ int main(int argc, char **argv)
 	     node_print_desc == UNIQUE_LID_ONLY ||
 	     node_print_desc == GUID_ONLY) && !requested_name) {
 		fprintf(stderr, "ERROR: name not specified\n");
-		usage();
+		ibdiag_show_usage();
 	}
 
 	if (node_print_desc == NAME_OF_LID && !requested_lid_flag) {
 		fprintf(stderr, "ERROR: lid not specified\n");
-		usage();
+		ibdiag_show_usage();
 	}
 
 	if (node_print_desc == NAME_OF_GUID && !requested_guid_flag) {
 		fprintf(stderr, "ERROR: guid not specified\n");
-		usage();
+		ibdiag_show_usage();
 	}
 
 	/* Note: lid cannot be 0; see infiniband spec 4.1.3 */
 	if (node_print_desc == NAME_OF_LID && !requested_lid) {
 		fprintf(stderr, "ERROR: lid invalid\n");
-		usage();
+		ibdiag_show_usage();
 	}
 
 	h = get_bind_handle();

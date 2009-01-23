@@ -52,10 +52,7 @@
 
 #include "ibdiag_common.h"
 
-static int dest_type = IB_DEST_LID;
-static int brief;
-static int verbose;
-static int dump_all;
+static int brief, dump_all, multicast;
 
 char *argv0 = "ibroute";
 
@@ -191,7 +188,7 @@ dump_multicast_tables(ib_portid_t *portid, int startlid, int endlid)
 		printf("     Ports: %s\n", str);
 		printf(" MLid\n");
 	}
-	if (verbose)
+	if (ibverbose)
 		printf("Switch muticast mlids capability is 0x%d\n", cap);
 
 	chunks = ALIGN(nports + 1, 16) / 16;
@@ -349,138 +346,76 @@ dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
 	return 0;
 }
 
-void
-usage(void)
+static int process_opt(void *context, int ch, char *optarg)
 {
-	char *basename;
-
-	if (!(basename = strrchr(argv0, '/')))
-		basename = argv0;
-	else
-		basename++;
-
-	fprintf(stderr, "Usage: %s [-d(ebug)] -a(ll) -n(o_dests) -v(erbose) -D(irect) -G(uid) -M(ulticast) -s smlid -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms] [<dest dr_path|lid|guid> [<startlid> [<endlid>]]]\n",
-			basename);
-	fprintf(stderr, "\n\tUnicast examples:\n");
-	fprintf(stderr, "\t\t%s 4\t# dump all lids with valid out ports of switch with lid 4\n", basename);
-	fprintf(stderr, "\t\t%s -a 4\t# same, but dump all lids, even with invalid out ports\n", basename);
-	fprintf(stderr, "\t\t%s -n 4\t# simple dump format - no destination resolving\n", basename);
-	fprintf(stderr, "\t\t%s 4 10\t# dump lids starting from 10\n", basename);
-	fprintf(stderr, "\t\t%s 4 0x10 0x20\t# dump lid range\n", basename);
-	fprintf(stderr, "\t\t%s -G 0x08f1040023\t# resolve switch by GUID\n", basename);
-	fprintf(stderr, "\t\t%s -D 0,1\t# resolve switch by direct path\n", basename);
-
-	fprintf(stderr, "\n\tMulticast examples:\n");
-	fprintf(stderr, "\t\t%s -M 4\t# dump all non empty mlids of switch with lid 4\n", basename);
-	fprintf(stderr, "\t\t%s -M 4 0xc010 0xc020\t# same, but with range\n", basename);
-	fprintf(stderr, "\t\t%s -M -n 4\t# simple dump format\n", basename);
-	exit(-1);
+	switch (ch) {
+	case 'a':
+		dump_all++;
+		break;
+	case 'M':
+		multicast++;
+		break;
+	case 'n':
+		brief++;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
 	ib_portid_t portid = {0};
-	ib_portid_t *sm_id = 0, sm_portid = {0};
-	int timeout;
-	int multicast = 0, startlid = 0, endlid = 0;
+	int startlid = 0, endlid = 0;
 	char *err;
-	char *ca = 0;
-	int ca_port = 0;
 
-	static char const str_opts[] = "C:P:t:s:danvDGMVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "all", 0, 0, 'a'},
-		{ "no_dests", 0, 0, 'n'},
-		{ "verbose", 0, 0, 'v'},
-		{ "Direct", 0, 0, 'D'},
-		{ "Guid", 0, 0, 'G'},
-		{ "Multicast", 0, 0, 'M'},
-		{ "timeout", 1, 0, 't'},
-		{ "s", 1, 0, 's'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
+	const struct ibdiag_opt opts[] = {
+		{ "all", 'a', 0, NULL, "show all lids, even invalid entries" },
+		{ "no_dests", 'n', 0, NULL, "do not try to resolve destinations" },
+		{ "Multicast", 'M', 0, NULL, "show multicast forwarding tables" },
 		{ }
 	};
+	char usage_args[] = "[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]";
+	const char *usage_examples[] = {
+		" -- Unicast examples:",
+		"4\t# dump all lids with valid out ports of switch with lid 4",
+		"-a 4\t# same, but dump all lids, even with invalid out ports",
+		"-n 4\t# simple dump format - no destination resolving",
+		"4 10\t# dump lids starting from 10",
+		"4 0x10 0x20\t# dump lid range",
+		"-G 0x08f1040023\t# resolve switch by GUID",
+		"-D 0,1\t# resolve switch by direct path",
+		" -- Multicast examples:",
+		"-M 4\t# dump all non empty mlids of switch with lid 4",
+		"-M 4 0xc010 0xc020\t# same, but with range",
+		"-M -n 4\t# simple dump format",
+		NULL,
+	};
+
+	ibdiag_process_opts(argc, argv, NULL, NULL, opts, process_opt,
+			    usage_args, usage_examples);
 
 	argv0 = argv[0];
-
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 'a':
-			dump_all++;
-			break;
-		case 'd':
-			ibdebug++;
-			break;
-		case 'D':
-			dest_type = IB_DEST_DRPATH;
-			break;
-		case 'G':
-			dest_type = IB_DEST_GUID;
-			break;
-		case 'M':
-			multicast++;
-			break;
-		case 'n':
-			brief++;
-			break;
-		case 's':
-			if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
-				IBERROR("can't resolve SM destination port %s", optarg);
-			sm_id = &sm_portid;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			madrpc_set_timeout(timeout);
-			break;
-		case 'v':
-			madrpc_show_errors(1);
-			verbose++;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
 	argc -= optind;
 	argv += optind;
 
 	if (!argc)
-		usage();
+		ibdiag_show_usage();
 
 	if (argc > 1)
 		startlid = strtoul(argv[1], 0, 0);
 	if (argc > 2)
 		endlid = strtoul(argv[2], 0, 0);
 
-	madrpc_init(ca, ca_port, mgmt_classes, 3);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 
 	if (!argc) {
 		if (ib_resolve_self(&portid, 0, 0) < 0)
 			IBERROR("can't resolve self addr");
-	} else {
-		if (ib_resolve_portid_str(&portid, argv[0], dest_type, sm_id) < 0)
-			IBERROR("can't resolve destination port %s", argv[1]);
-	}
+	} else if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+		IBERROR("can't resolve destination port %s", argv[1]);
 
 	if (multicast)
 		err = dump_multicast_tables(&portid, startlid, endlid);

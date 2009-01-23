@@ -63,7 +63,6 @@ static char *node_type_str[] = {
 };
 
 static int timeout = 0;		/* ms */
-static int verbose;
 static int force;
 static FILE *f;
 
@@ -220,7 +219,7 @@ dump_route(int dump, Node *node, int outport, Port *port)
 {
 	char *nodename = NULL;
 
-	if (!dump && !verbose)
+	if (!dump && !ibverbose)
 		return;
 
 	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
@@ -413,7 +412,7 @@ new_node(Node *node, Port *port, ib_portid_t *path, int dist)
 	if (port->portguid == target_portguid) {
 		node->dist = -1;		/* tag as target */
 		link_port(port, node);
-		dump_endnode(verbose, "found target", node, port);
+		dump_endnode(ibverbose, "found target", node, port);
 		return 1;	/* found; */
 	}
 
@@ -522,7 +521,7 @@ find_mcpath(ib_portid_t *from, int mlid)
 			path = &node->path;
 
 			VERBOSE("dist %d node %p", dist, node);
-			dump_endnode(verbose, "processing", node, node->ports);
+			dump_endnode(ibverbose, "processing", node, node->ports);
 
 			memset(map, 0, sizeof(map));
 
@@ -599,7 +598,7 @@ find_mcpath(ib_portid_t *from, int mlid)
 					return remotenode;
 
 				if (r == 0)
-					dump_endnode(verbose, "new remote",
+					dump_endnode(ibverbose, "new remote",
 						remotenode, remoteport);
 				else if (remotenode->type == IB_NODE_SWITCH)
 					dump_endnode(2, "ERR: circle discovered at",
@@ -686,140 +685,82 @@ static int resolve_lid(ib_portid_t  *portid, const void *srcport)
 	return 0;
 }
 
-static void
-usage(void)
+static int dumplevel = 2, multicast, mlid;
+
+static int process_opt(void *context, int ch, char *optarg)
 {
-	char *basename;
-
-	if (!(basename = strrchr(argv0, '/')))
-		basename = argv0;
-	else
-		basename++;
-
-	fprintf(stderr, "Usage: %s [-d(ebug) -v(erbose) -D(irect) -G(uids) -n(o_info) -C ca_name -P ca_port "
-			"-s smlid -t(imeout) timeout_ms -m mlid --node-name-map node-name-map ] <src-addr> <dest-addr>\n",
-			basename);
-	fprintf(stderr, "\n\tUnicast examples:\n");
-	fprintf(stderr, "\t\t%s 4 16\t\t\t# show path between lids 4 and 16\n", basename);
-	fprintf(stderr, "\t\t%s -n 4 16\t\t# same, but using simple output format\n", basename);
-	fprintf(stderr, "\t\t%s -G 0x8f1040396522d 0x002c9000100d051\t# use guid addresses\n", basename);
-
-	fprintf(stderr, "\n\tMulticast example:\n");
-	fprintf(stderr, "\t\t%s -m 0xc000 4 16\t# show multicast path of mlid 0xc000 between lids 4 and 16\n", basename);
-	exit(-1);
+	switch (ch) {
+	case 1:
+		node_name_map_file = strdup(optarg);
+		break;
+	case 'm':
+		multicast++;
+		mlid = strtoul(optarg, 0, 0);
+		break;
+	case 'f':
+		force++;
+		break;
+	case 'n':
+		dumplevel = 1;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
 	ib_portid_t my_portid = {0};
 	ib_portid_t src_portid = {0};
 	ib_portid_t dest_portid = {0};
-	ib_portid_t *sm_id = 0, sm_portid = {0};
-	int dumplevel = 2, dest_type = IB_DEST_LID, multicast = 0, mlid = 0;
 	Node *endnode;
-	int udebug = 0;
-	char *ca = 0;
-	int ca_port = 0;
 
-	static char const str_opts[] = "C:P:t:s:m:dvfDGnVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "verbose", 0, 0, 'v'},
-		{ "force", 0, 0, 'f'},
-		{ "Direct", 0, 0, 'D'},
-		{ "Guids", 0, 0, 'G'},
-		{ "no_info", 0, 0, 'n'},
-		{ "timeout", 1, 0, 't'},
-		{ "s", 1, 0, 's'},
-		{ "m", 1, 0, 'm'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
-		{ "node-name-map", 1, 0, 1},
+	const struct ibdiag_opt opts[] = {
+		{ "force", 'f', 0, NULL, "force" },
+		{ "no_info", 'n', 0, NULL, "simple format" },
+		{ "mlid", 'm', 1, "<mlid>", "multicast trace of the mlid" },
+		{ "node-name-map", 1, 1, "<file>", "node name map file" },
 		{ }
 	};
+	char usage_args[] = "<src-addr> <dest-addr>";
+	const char *usage_examples[] = {
+		"- Unicast examples:",
+		"4 16\t\t\t# show path between lids 4 and 16",
+		"-n 4 16\t\t# same, but using simple output format",
+		"-G 0x8f1040396522d 0x002c9000100d051\t# use guid addresses",
 
-	argv0 = argv[0];
+		" - Multicast examples:",
+		"-m 0xc000 4 16\t# show multicast path of mlid 0xc000 between lids 4 and 16",
+		NULL,
+	};
+
+
+	ibdiag_process_opts(argc, argv, NULL, NULL, opts, process_opt,
+			    usage_args, usage_examples);
 
 	f = stdout;
-
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 1:
-			node_name_map_file = strdup(optarg);
-			break;
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 'd':
-			ibdebug++;
-			madrpc_show_errors(1);
-			umad_debug(udebug);
-			udebug++;
-			break;
-		case 'D':
-			dest_type = IB_DEST_DRPATH;
-			break;
-		case 'G':
-			dest_type = IB_DEST_GUID;
-			break;
-		case 'm':
-			multicast++;
-			mlid = strtoul(optarg, 0, 0);
-			break;
-		case 'f':
-			force++;
-			break;
-		case 'n':
-			dumplevel = 1;
-			break;
-		case 's':
-			if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
-				IBERROR("can't resolve SM destination port %s", optarg);
-			sm_id = &sm_portid;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			madrpc_set_timeout(timeout);
-			break;
-		case 'v':
-			madrpc_show_errors(1);
-			verbose++;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
+	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 
 	if (argc < 2)
-		usage();
+		ibdiag_show_usage();
 
-	madrpc_init(ca, ca_port, mgmt_classes, 3);
+	if (ibd_timeout)
+		timeout = ibd_timeout;
+
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (ib_resolve_portid_str(&src_portid, argv[0], dest_type, sm_id) < 0)
+	if (ib_resolve_portid_str(&src_portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
 		IBERROR("can't resolve source port %s", argv[0]);
 
-	if (ib_resolve_portid_str(&dest_portid, argv[1], dest_type, sm_id) < 0)
+	if (ib_resolve_portid_str(&dest_portid, argv[1], ibd_dest_type, ibd_sm_id) < 0)
 		IBERROR("can't resolve destination port %s", argv[1]);
 
-	if (dest_type == IB_DEST_DRPATH) {
+	if (ibd_dest_type == IB_DEST_DRPATH) {
 		if (resolve_lid(&src_portid, NULL) < 0)
 			IBERROR("cannot resolve lid for port \'%s\'",
 				portid2str(&src_portid));
@@ -830,10 +771,10 @@ main(int argc, char **argv)
 
 	if (dest_portid.lid == 0 || src_portid.lid == 0) {
 		IBWARN("bad src/dest lid");
-		usage();
+		ibdiag_show_usage();
 	}
 
-	if (dest_type != IB_DEST_DRPATH) {
+	if (ibd_dest_type != IB_DEST_DRPATH) {
 		/* first find a direct path to the src port */
 		if (find_route(&my_portid, &src_portid, 0) < 0)
 			IBERROR("can't find a route to the src port");

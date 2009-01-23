@@ -48,12 +48,6 @@
 
 #include "ibdiag_common.h"
 
-#undef DEBUG
-#define	DEBUG	if (verbose>1) IBWARN
-
-static int dest_type = IB_DEST_LID;
-static int verbose;
-
 char *argv0 = "ibportstate";
 
 /*******************************************/
@@ -195,39 +189,11 @@ validate_speed(int speed, int peerspeed, int lsa)
 	}
 }
 
-void
-usage(void)
-{
-	char *basename;
-
-	if (!(basename = strrchr(argv0, '/')))
-		basename = argv0;
-	else
-		basename++;
-
-	fprintf(stderr, "Usage: %s [-d(ebug) -e(rr_show) -v(erbose) -D(irect) -G(uid) -s smlid -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms] <dest dr_path|lid|guid> <portnum> [<op>]\n",
-			basename);
-	fprintf(stderr, "\tsupported ops: enable, disable, reset, speed, query\n");
-	fprintf(stderr, "\n\texamples:\n");
-	fprintf(stderr, "\t\t%s 3 1 disable\t\t\t# by lid\n", basename);
-	fprintf(stderr, "\t\t%s -G 0x2C9000100D051 1 enable\t# by guid\n", basename);
-	fprintf(stderr, "\t\t%s -D 0 1\t\t\t# (query) by direct route\n", basename);
-	fprintf(stderr, "\t\t%s 3 1 reset\t\t\t# by lid\n", basename);
-	fprintf(stderr, "\t\t%s 3 1 speed 1\t\t\t# by lid\n", basename);
-	exit(-1);
-}
-
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
 	ib_portid_t portid = {0};
-	ib_portid_t *sm_id = 0, sm_portid = {0};
 	int err;
-	int timeout = 0, udebug = 0;
-	char *ca = 0;
-	int ca_port = 0;
 	int port_op = 0;	/* default to query */
 	int speed = 15;
 	int is_switch = 1;
@@ -240,80 +206,31 @@ main(int argc, char **argv)
 	ib_portid_t selfportid = {0};
 	int selfport = 0;
 
-	static char const str_opts[] = "C:P:t:s:devDGVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "err_show", 0, 0, 'e'},
-		{ "verbose", 0, 0, 'v'},
-		{ "Direct", 0, 0, 'D'},
-		{ "Guid", 0, 0, 'G'},
-		{ "timeout", 1, 0, 't'},
-		{ "s", 1, 0, 's'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
-		{ }
+	char usage_args[] = "<dest dr_path|lid|guid> <portnum> [<op>]\n"
+		"\nSupported ops: enable, disable, reset, speed, query";
+	const char *usage_examples[] = {
+		"3 1 disable\t\t\t# by lid",
+		"-G 0x2C9000100D051 1 enable\t# by guid",
+		"-D 0 1\t\t\t# (query) by direct route",
+		"3 1 reset\t\t\t# by lid",
+		"3 1 speed 1\t\t\t# by lid",
+		NULL
 	};
 
-	argv0 = argv[0];
 
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 'd':
-			ibdebug++;
-			madrpc_show_errors(1);
-			umad_debug(udebug);
-			udebug++;
-			break;
-		case 'e':
-			madrpc_show_errors(1);
-			break;
-		case 'D':
-			dest_type = IB_DEST_DRPATH;
-			break;
-		case 'G':
-			dest_type = IB_DEST_GUID;
-			break;
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 's':
-			if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
-				IBERROR("can't resolve SM destination port %s", optarg);
-			sm_id = &sm_portid;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			madrpc_set_timeout(timeout);
-			break;
-		case 'v':
-			verbose++;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
+	ibdiag_process_opts(argc, argv, NULL, NULL, NULL, NULL,
+			    usage_args, usage_examples);
+
+	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 
 	if (argc < 2)
-		usage();
+		ibdiag_show_usage();
 
-	madrpc_init(ca, ca_port, mgmt_classes, 3);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 
-	if (ib_resolve_portid_str(&portid, argv[0], dest_type, sm_id) < 0)
+	if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	/* First, make sure it is a switch port if it is a "set" */

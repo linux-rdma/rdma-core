@@ -49,8 +49,6 @@
 
 #include <ibdiag_common.h>
 
-static int debug;
-
 char *argv0 = "ibstat";
 
 static char *node_type_str[] = {
@@ -174,63 +172,49 @@ ports_list(char names[][UMAD_CA_NAME_LEN], int n)
 	return found;
 }
 
-void
-usage(void)
+static int list_only, short_format, list_ports;
+
+static int process_opt(void *context, int ch, char *optarg)
 {
-	fprintf(stderr, "Usage: %s [-d(ebug) -l(ist_of_cas) -s(hort) -p(ort_list) -V(ersion)] <ca_name> [portnum]\n", argv0);
-	fprintf(stderr, "\tExamples:\n");
-	fprintf(stderr, "\t\t%s -l	  # list all IB devices\n", argv0);
-	fprintf(stderr, "\t\t%s mthca0 2 # stat port 2 of 'mthca0'\n", argv0);
-	exit(-1);
+	switch (ch) {
+	case 'l':
+		list_only++;
+		break;
+	case 's':
+		short_format++;
+		break;
+	case 'p':
+		list_ports++;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	char names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN];
 	int dev_port = -1;
-	int list_only = 0, short_format = 0, list_ports = 0;
 	int n, i;
 
-	static char const str_opts[] = "dlspVhu";
-	static const struct option long_opts[] = {
-		{ "debug", 0, 0, 'd'},
-		{ "list_of_cas", 0, 0, 'l'},
-		{ "short", 0, 0, 's'},
-		{ "port_list", 0, 0, 'p'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
+	const struct ibdiag_opt opts[] = {
+		{ "list_of_cas", 'l', 0, NULL, "list all IB devices" },
+		{ "short", 's', 0, NULL, "short output" },
+		{ "port_list", 'p', 0, NULL, "show port list" },
 		{ }
 	};
+	char usage_args[] = "<ca_name> [portnum]";
+	const char *usage_examples[] = {
+		"-l       # list all IB devices",
+		"mthca0 2 # stat port 2 of 'mthca0'",
+		NULL
+	};
+
+	ibdiag_process_opts(argc, argv, NULL, "sDGLCPte", opts, process_opt,
+			    usage_args, usage_examples);
 
 	argv0 = argv[0];
-
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 'd':
-			debug++;
-			break;
-		case 'l':
-			list_only++;
-			break;
-		case 's':
-			short_format++;
-			break;
-		case 'p':
-			list_ports++;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
 	argc -= optind;
 	argv += optind;
 

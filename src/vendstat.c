@@ -106,116 +106,60 @@ typedef struct {
 	is3_record_t record[18];
 } is3_config_space_t;
 
-static void
-usage(void)
+static int general_info, xmit_wait = 0;
+
+static int process_opt(void *context, int ch, char *optarg)
 {
-	char *basename;
-
-	if (!(basename = strrchr(argv0, '/')))
-		basename = argv0;
-	else
-		basename++;
-
-	fprintf(stderr, "Usage: %s [-d(ebug) -N -w -G(uid) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms -V(ersion) -h(elp)] <lid|guid>\n",
-			basename);
-	fprintf(stderr, "\tExamples:\n");
-	fprintf(stderr, "\t\t%s -N 6\t\t# read IS3 general information\n", basename);
-	fprintf(stderr, "\t\t%s -w 6\t\t# read IS3 port xmit wait counters\n", basename);
-	exit(-1);
+	switch (ch) {
+	case 'N':
+		general_info = 1;
+		break;
+	case 'w':
+		xmit_wait = 1;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int mgmt_classes[4] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS, IB_MLX_VENDOR_CLASS};
-	ib_portid_t *sm_id = 0, sm_portid = {0};
 	ib_portid_t portid = {0};
-	int dest_type = IB_DEST_LID;
-	int timeout = 0;	/* use default */
 	int port = 0;
 	char buf[1024];
-	int udebug = 0;
-	char *ca = 0;
-	int ca_port = 0;
 	ib_vendor_call_t call;
 	is3_general_info_t *gi;
 	is3_config_space_t *cs;
-	int general_info = 0;
-	int xmit_wait = 0;
 	int i;
 
-	static char const str_opts[] = "C:P:s:t:dNwGVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "N", 1, 0, 'N'},
-		{ "w", 1, 0, 'w'},
-		{ "debug", 0, 0, 'd'},
-		{ "Guid", 0, 0, 'G'},
-		{ "sm_portid", 1, 0, 's'},
-		{ "timeout", 1, 0, 't'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
-		{ }
+	const struct ibdiag_opt opts[] = {
+		{ "N", 'N', 0, NULL, "show IS3 general information"},
+		{ "w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
+		{}
+	};
+	char usage_args[] = "<lid|guid>";
+	const char *usage_examples[] = {
+		"-N 6\t\t# read IS3 general information",
+		"-w 6\t\t# read IS3 port xmit wait counters",
+		NULL
 	};
 
-	argv0 = argv[0];
+	ibdiag_process_opts(argc, argv, NULL, "D", opts, process_opt,
+			    usage_args, usage_examples);
 
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 'N':
-			general_info = 1;
-			break;
-		case 'w':
-			xmit_wait = 1;
-			break;
-		case 'd':
-			ibdebug++;
-			madrpc_show_errors(1);
-			umad_debug(udebug);
-			udebug++;
-			break;
-		case 'G':
-			dest_type = IB_DEST_GUID;
-			break;
-		case 's':
-			if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
-				IBERROR("can't resolve SM destination port %s", optarg);
-			sm_id = &sm_portid;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			madrpc_set_timeout(timeout);
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
+	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 
 	if (argc > 1)
 		port = strtoul(argv[1], 0, 0);
 
-	madrpc_init(ca, ca_port, mgmt_classes, 4);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 4);
 
 	if (argc) {
-		if (ib_resolve_portid_str(&portid, argv[0], dest_type, sm_id) < 0)
+		if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
 		if (ib_resolve_self(&portid, &port, 0) < 0)
@@ -235,7 +179,7 @@ main(int argc, char **argv)
 	memset(&call, 0, sizeof(call));
 	call.mgmt_class = IB_MLX_VENDOR_CLASS;
 	call.method = IB_MAD_METHOD_GET;
-	call.timeout = timeout;
+	call.timeout = ibd_timeout;
 
 	memset(&buf, 0, sizeof(buf));
 	/* vendor ClassPortInfo is required attribute if class supported */

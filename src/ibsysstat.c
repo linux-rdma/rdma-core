@@ -48,12 +48,6 @@
 
 #include "ibdiag_common.h"
 
-#undef DEBUG
-#define	DEBUG	if (verbose) IBWARN
-
-static int dest_type = IB_DEST_LID;
-static int verbose;
-
 #define MAX_CPUS 8
 
 enum ib_sysstat_attr_t {
@@ -219,114 +213,52 @@ build_cpuinfo(void)
 	return ncpu;
 }
 
-static void
-usage(void)
+static int server = 0, oui = IB_OPENIB_OUI;
+
+static int process_opt(void *context, int ch, char *optarg)
 {
-	char *basename;
-
-	if (!(basename = strrchr(argv0, '/')))
-		basename = argv0;
-	else
-		basename++;
-
-	fprintf(stderr, "Usage: %s [-d(ebug) -e(rr_show) -v(erbose) -G(uid) -s smlid -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms -o oui -S(erver)] <dest lid|guid> [<op>]\n",
-			basename);
-	exit(-1);
+	switch (ch) {
+	case 'o':
+		oui = strtoul(optarg, 0, 0);
+		break;
+	case 'S':
+		server++;
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
 	int sysstat_class = IB_VENDOR_OPENIB_SYSSTAT_CLASS;
 	ib_portid_t portid = {0};
-	ib_portid_t *sm_id = 0, sm_portid = {0};
-	int timeout = 0, udebug = 0, server = 0;
-	int oui = IB_OPENIB_OUI, attr = IB_PING_ATTR;
+	int attr = IB_PING_ATTR;
 	char *err;
-	char *ca = 0;
-	int ca_port = 0;
 
-	static char const str_opts[] = "C:P:t:s:o:devGSVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "err_show", 0, 0, 'e'},
-		{ "verbose", 0, 0, 'v'},
-		{ "Guid", 0, 0, 'G'},
-		{ "timeout", 1, 0, 't'},
-		{ "s", 1, 0, 's'},
-		{ "o", 1, 0, 'o'},
-		{ "Server", 0, 0, 'S'},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
+	const struct ibdiag_opt opts[] = {
+		{ "oui", 'o', 1, NULL, "use specified OUI number" },
+		{ "Server", 'S', 0, NULL, "start in server mode" },
 		{ }
 	};
+	char usage_args[] = "<dest lid|guid> [<op>]";
+
+	ibdiag_process_opts(argc, argv, NULL, "D", opts, process_opt,
+			    usage_args, NULL);
 
 	argv0 = argv[0];
-
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 'd':
-			ibdebug++;
-			madrpc_show_errors(1);
-			umad_debug(udebug);
-			udebug++;
-			break;
-		case 'e':
-			madrpc_show_errors(1);
-			break;
-		case 'G':
-			dest_type = IB_DEST_GUID;
-			break;
-		case 'o':
-			oui = strtoul(optarg, 0, 0);
-			break;
-		case 's':
-			if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
-				IBERROR("can't resolve SM destination port %s", optarg);
-			sm_id = &sm_portid;
-			break;
-		case 'S':
-			server++;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			madrpc_set_timeout(timeout);
-			break;
-		case 'v':
-			verbose++;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
-			exit(-1);
-		default:
-			usage();
-			break;
-		}
-	}
 	argc -= optind;
 	argv += optind;
 
 	if (!argc && !server)
-		usage();
+		ibdiag_show_usage();
 
 	if (argc > 1 && (attr = match_attr(argv[1])) < 0)
-		usage();
+		ibdiag_show_usage();
 
-	madrpc_init(ca, ca_port, mgmt_classes, 3);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 
 	if (server) {
 		if (mad_register_server(sysstat_class, 0, 0, oui) < 0)
@@ -342,7 +274,7 @@ main(int argc, char **argv)
 	if (mad_register_client(sysstat_class, 0) < 0)
 		IBERROR("can't register to sysstat class %d", sysstat_class);
 
-	if (ib_resolve_portid_str(&portid, argv[0], dest_type, sm_id) < 0)
+	if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	if ((err = ibsystat(&portid, attr)))

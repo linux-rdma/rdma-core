@@ -47,7 +47,7 @@
 
 #include "ibdiag_common.h"
 
-char *argv0 = "";
+char *argv0 = "ibsendtrap";
 
 static int send_144_node_desc_update(void)
 {
@@ -95,23 +95,6 @@ trap_def_t traps[2] = {
 	{NULL, NULL}
 };
 
-static void usage(void)
-{
-	int i;
-
-	fprintf(stderr, "Usage: %s [-hV]"
-		" [-C <ca_name>] [-P <ca_port>] [<trap_name>]\n", argv0);
-	fprintf(stderr, "   -V print version\n");
-	fprintf(stderr, "   <trap_name> can be one of the following\n");
-	for (i = 0; traps[i].trap_name; i++) {
-		fprintf(stderr, "      %s\n", traps[i].trap_name);
-	}
-	fprintf(stderr, "   default behavior is to send \"%s\"\n",
-		traps[0].trap_name);
-
-	exit(-1);
-}
-
 int send_trap(char *trap_name)
 {
 	int i;
@@ -121,45 +104,32 @@ int send_trap(char *trap_name)
 			return (traps[i].send_func());
 		}
 	}
-	usage();
+	ibdiag_show_usage();
 	exit(1);
 }
 
 int main(int argc, char **argv)
 {
+	char usage_args[1024];
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
-	int ch = 0;
 	char *trap_name = NULL;
-	char *ca = NULL;
-	int ca_port = 0;
+	int i, n;
 
-	static char const str_opts[] = "hVP:C:";
-	static const struct option long_opts[] = {
-		{"Version", 0, 0, 'V'},
-		{"P", 1, 0, 'P'},
-		{"C", 1, 0, 'C'},
-		{"help", 0, 0, 'h'},
-		{}
-	};
+	n = sprintf(usage_args, "[<trap_name>]\n"
+		    "\nArgument <trap_name> can be one of the following:\n");
+	for (i = 0; traps[i].trap_name; i++) {
+		n += snprintf(usage_args + n, sizeof(usage_args) - n,
+			      "  %s\n", traps[i].trap_name);
+		if (n >= sizeof(usage_args))
+			exit(-1);
+	}
+	snprintf(usage_args + n, sizeof(usage_args) - n,
+		 "\n  default behavior is to send \"%s\"", traps[0].trap_name);
+
+	ibdiag_process_opts(argc, argv, NULL, "DLG", NULL, NULL,
+			    usage_args, NULL);
 
 	argv0 = argv[0];
-
-	while ((ch = getopt_long(argc, argv, str_opts, long_opts, NULL)) != -1) {
-		switch (ch) {
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version());
-			exit(-1);
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, NULL, 0);
-			break;
-		case 'h':
-		default:
-			usage();
-		}
-	}
 	argc -= optind;
 	argv += optind;
 
@@ -170,7 +140,7 @@ int main(int argc, char **argv)
 	}
 
 	madrpc_show_errors(1);
-	madrpc_init(ca, ca_port, mgmt_classes, 2);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 
 	return (send_trap(trap_name));
 }

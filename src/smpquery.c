@@ -53,12 +53,6 @@
 
 #include "ibdiag_common.h"
 
-#undef DEBUG
-#define	DEBUG	if (verbose>1) IBWARN
-
-static int dest_type = IB_DEST_LID;
-static int verbose;
-
 typedef char *(op_fn_t)(ib_portid_t *dest, char **argv, int argc);
 
 typedef struct match_rec {
@@ -392,132 +386,72 @@ match_op(char *name)
 	return 0;
 }
 
-static void
-usage(void)
+static int process_opt(void *context, int ch, char *optarg)
 {
-	char *basename;
-	const match_rec_t *r;
-
-	if (!(basename = strrchr(argv0, '/')))
-		basename = argv0;
-	else
-		basename++;
-
-	fprintf(stderr, "Usage: %s [-d(ebug) -e(rr_show) -v(erbose) -D(irect) -G(uid) -s smlid -V(ersion) -C ca_name -P ca_port "
-			"-t(imeout) timeout_ms --node-name-map node-name-map] <op> <dest dr_path|lid|guid> [op params]\n",
-			basename);
-	fprintf(stderr, "\tsupported ops:\n");
-	for (r = match_tbl ; r->name ; r++) {
-		fprintf(stderr, "\t\t%s <addr>%s\n", r->name,
-				r->opt_portnum ? " [<portnum>]" : "");
+	switch (ch) {
+	case 1:
+		node_name_map_file = strdup(optarg);
+		break;
+	case 'c':
+		ibd_dest_type = IB_DEST_DRSLID;
+		break;
+	default:
+		return -1;
 	}
-	fprintf(stderr, "\n\texamples:\n");
-	fprintf(stderr, "\t\t%s portinfo 3 1\t\t\t\t# portinfo by lid, with port modifier\n", basename);
-	fprintf(stderr, "\t\t%s -G switchinfo 0x2C9000100D051 1\t# switchinfo by guid\n", basename);
-	fprintf(stderr, "\t\t%s -D nodeinfo 0\t\t\t\t# nodeinfo by direct route\n", basename);
-	fprintf(stderr, "\t\t%s -c nodeinfo 6 0,12\t\t\t# nodeinfo by combined route\n", basename);
-	exit(-1);
+	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
+	char usage_args[1024];
 	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
 	ib_portid_t portid = {0};
-	ib_portid_t *sm_id = 0, sm_portid = {0};
-	int timeout = 0, udebug = 0;
-	char *ca = 0;
-	int ca_port = 0;
 	char *err;
 	op_fn_t *fn;
+	const match_rec_t *r;
+	int n;
 
-	static char const str_opts[] = "C:P:t:s:devDcGVhu";
-	static const struct option long_opts[] = {
-		{ "C", 1, 0, 'C'},
-		{ "P", 1, 0, 'P'},
-		{ "debug", 0, 0, 'd'},
-		{ "err_show", 0, 0, 'e'},
-		{ "verbose", 0, 0, 'v'},
-		{ "Direct", 0, 0, 'D'},
-		{ "combined", 0, 0, 'c'},
-		{ "Guid", 0, 0, 'G'},
-		{ "smlid", 1, 0, 's'},
-		{ "timeout", 1, 0, 't'},
-		{ "node-name-map", 1, 0, 1},
-		{ "Version", 0, 0, 'V'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
-		{ }
+	const struct ibdiag_opt opts[] = {
+		{ "combined", 'c', 0, NULL, "use Combined route address argument"},
+		{ "node-name-map", 1, 1, "<file>", "node name map file"},
+		{}
+	};
+	const char *usage_examples[] = {
+		"portinfo 3 1\t\t\t\t# portinfo by lid, with port modifier",
+		"-G switchinfo 0x2C9000100D051 1\t# switchinfo by guid",
+		"-D nodeinfo 0\t\t\t\t# nodeinfo by direct route",
+		"-c nodeinfo 6 0,12\t\t\t# nodeinfo by combined route",
+		NULL
 	};
 
-	argv0 = argv[0];
-
-	while (1) {
-		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
-			break;
-		switch(ch) {
-		case 1:
-			node_name_map_file = strdup(optarg);
-			break;
-		case 'd':
-			ibdebug++;
-			madrpc_show_errors(1);
-			umad_debug(udebug);
-			udebug++;
-			break;
-		case 'e':
-			madrpc_show_errors(1);
-			break;
-		case 'D':
-			dest_type = IB_DEST_DRPATH;
-			break;
-		case 'c':
-			dest_type = IB_DEST_DRSLID;
-			break;
-		case 'G':
-			dest_type = IB_DEST_GUID;
-			break;
-		case 'C':
-			ca = optarg;
-			break;
-		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
-			break;
-		case 's':
-			if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
-				IBERROR("can't resolve SM destination port %s", optarg);
-			sm_id = &sm_portid;
-			break;
-		case 't':
-			timeout = strtoul(optarg, 0, 0);
-			madrpc_set_timeout(timeout);
-			break;
-		case 'v':
-			verbose++;
-			break;
-		case 'V':
-			fprintf(stderr, "%s %s\n", argv0, get_build_version() );
+	n = sprintf(usage_args, "<op> <dest dr_path|lid|guid> [op params]\n"
+		    "\nSupported ops:\n");
+	for (r = match_tbl ; r->name ; r++) {
+		n += snprintf(usage_args + n, sizeof(usage_args) - n,
+			      "  %s <addr>%s\n", r->name,
+			      r->opt_portnum ? " [<portnum>]" : "");
+		if (n >= sizeof(usage_args))
 			exit(-1);
-		default:
-			usage();
-			break;
-		}
 	}
+
+	ibdiag_process_opts(argc, argv, NULL, NULL, opts, process_opt,
+			    usage_args, usage_examples);
+
+	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 
 	if (argc < 2)
-		usage();
+		ibdiag_show_usage();
 
 	if (!(fn = match_op(argv[0])))
 		IBERROR("operation '%s' not supported", argv[0]);
 
-	madrpc_init(ca, ca_port, mgmt_classes, 3);
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (dest_type != IB_DEST_DRSLID) {
-		if (ib_resolve_portid_str(&portid, argv[1], dest_type, sm_id) < 0)
+	if (ibd_dest_type != IB_DEST_DRSLID) {
+		if (ib_resolve_portid_str(&portid, argv[1], ibd_dest_type, ibd_sm_id) < 0)
 			IBERROR("can't resolve destination port %s", argv[1]);
 		if ((err = fn(&portid, argv+2, argc-2)))
 			IBERROR("operation %s: %s", argv[0], err);
@@ -526,7 +460,7 @@ main(int argc, char **argv)
 
 		memset(concat, 0, 64);
 		snprintf(concat, sizeof(concat), "%s %s", argv[1], argv[2]);
-		if (ib_resolve_portid_str(&portid, concat, dest_type, sm_id) < 0)
+		if (ib_resolve_portid_str(&portid, concat, ibd_dest_type, ibd_sm_id) < 0)
 			IBERROR("can't resolve destination port %s", concat);
 		if ((err = fn(&portid, argv+3, argc-3)))
 			IBERROR("operation %s: %s", argv[0], err);
