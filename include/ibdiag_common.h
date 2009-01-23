@@ -35,18 +35,42 @@
 #ifndef _IBDIAG_COMMON_H_
 #define _IBDIAG_COMMON_H_
 
+#include <infiniband/mad.h>
+
 extern int ibdebug;
+extern int ibverbose;
+extern char *ibd_ca;
+extern int ibd_ca_port;
+extern int ibd_dest_type;
+extern ib_portid_t *ibd_sm_id;
+extern int ibd_timeout;
 
 /*========================================================*/
 /*                External interface                      */
 /*========================================================*/
 
 #undef DEBUG
-#define	DEBUG	if (ibdebug || verbose) IBWARN
-#define	VERBOSE	if (ibdebug || verbose > 1) IBWARN
+#define	DEBUG	if (ibdebug || ibverbose) IBWARN
+#define	VERBOSE	if (ibdebug || ibverbose > 1) IBWARN
 #define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
 
 extern void iberror(const char *fn, char *msg, ...);
 extern const char *get_build_version(void);
+
+struct ibdiag_opt {
+	const char *name;
+	char letter;
+	unsigned has_arg;
+	const char *arg_tmpl;
+	const char *description;
+};
+
+extern int ibdiag_process_opts(int argc, char * const argv[], void *context,
+			       const char *exclude_common_str,
+			       const struct ibdiag_opt custom_opts[],
+			       int (*custom_handler)(void *cxt, int val, char *optarg),
+			       const char *usage_args,
+			       const char *usage_examples[]);
+extern void ibdiag_show_usage();
 
 #endif				/* _IBDIAG_COMMON_H_ */
