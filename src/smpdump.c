@@ -50,13 +50,6 @@
 
 #include <ibdiag_common.h>
 
-static const uint8_t  CLASS_SUBN_DIRECTED_ROUTE = 0x81;
-static const uint8_t  CLASS_SUBN_LID_ROUTE = 0x1;
-
-#define  ATTR_NODE_DESC ((uint16_t)(htons(0x10)))
-#define  ATTR_NODE_INFO ((uint16_t)(htons(0x11)))
-#define  ATTR_PORT_INFO ((uint16_t)(htons(0x15)))
-
 static int mad_agent;
 static int drmad_tid = 0x123;
 
@@ -98,7 +91,7 @@ drsmp_get_init(void *umad, DRPath *path, int attr, int mod)
 	memset(smp, 0, sizeof (*smp));
 
 	smp->base_version  = 1;
-	smp->mgmt_class    = CLASS_SUBN_DIRECTED_ROUTE;
+	smp->mgmt_class    = IB_SMI_DIRECT_CLASS;
 	smp->class_version = 1;
 
 	smp->method        = 1;
@@ -124,7 +117,7 @@ smp_get_init(void *umad, int lid, int attr, int mod)
 	memset(smp, 0, sizeof (*smp));
 
 	smp->base_version  = 1;
-	smp->mgmt_class    = CLASS_SUBN_LID_ROUTE;
+	smp->mgmt_class    = IB_SMI_CLASS;
 	smp->class_version = 1;
 
 	smp->method        = 1;
@@ -218,7 +211,7 @@ int
 main(int argc, char *argv[])
 {
 	int dump_char = 0, timeout_ms = 1000;
-	int dev_port = 0, mgmt_class = CLASS_SUBN_LID_ROUTE, dlid = 0;
+	int dev_port = 0, mgmt_class = IB_SMI_CLASS, dlid = 0;
 	char *dev_name = 0;
 	void *umad;
 	struct drsmp *smp;
@@ -257,7 +250,7 @@ main(int argc, char *argv[])
 				umad_debug(debug-1);
 			break;
 		case 'D':
-			mgmt_class = CLASS_SUBN_DIRECTED_ROUTE;
+			mgmt_class = IB_SMI_DIRECT_CLASS;
 			break;
 		case 'C':
 			dev_name = optarg;
@@ -282,11 +275,11 @@ main(int argc, char *argv[])
 	if (argc < 2)
 		usage();
 
-	if (mgmt_class == CLASS_SUBN_DIRECTED_ROUTE &&
+	if (mgmt_class == IB_SMI_DIRECT_CLASS &&
 	    str2DRPath(strdupa(argv[0]), &path) < 0)
 		IBPANIC("bad path str '%s'", argv[0]);
 
-	if (mgmt_class == CLASS_SUBN_LID_ROUTE)
+	if (mgmt_class == IB_SMI_CLASS)
 		dlid = strtoul(argv[0], 0, 0);
 
 	attr = strtoul(argv[1], 0, 0);
@@ -307,7 +300,7 @@ main(int argc, char *argv[])
 
 	smp = umad_get_mad(umad);
 
-	if (mgmt_class == CLASS_SUBN_DIRECTED_ROUTE)
+	if (mgmt_class == IB_SMI_DIRECT_CLASS)
 		drsmp_get_init(umad, &path, attr, mod);
 	else
 		smp_get_init(umad, dlid, attr, mod);
