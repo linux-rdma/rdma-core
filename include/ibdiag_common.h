@@ -35,7 +35,6 @@
 #ifndef _IBDIAG_COMMON_H_
 #define _IBDIAG_COMMON_H_
 
-extern char *argv0;
 extern int ibdebug;
 
 /*========================================================*/

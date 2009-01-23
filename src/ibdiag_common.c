@@ -52,6 +52,8 @@
 
 int ibdebug;
 
+extern char *argv0;
+
 void iberror(const char *fn, char *msg, ...)
 {
 	char buf[512], *s;
