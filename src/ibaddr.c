@@ -38,9 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdarg.h>
 #include <getopt.h>
-#include <arpa/inet.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>

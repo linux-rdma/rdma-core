@@ -39,12 +39,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdarg.h>
 #include <ctype.h>
 #include <getopt.h>
 #include <netinet/in.h>
 #include <inttypes.h>
-#include <errno.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>

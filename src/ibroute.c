@@ -38,13 +38,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdarg.h>
-#include <time.h>
 #include <string.h>
 #include <inttypes.h>
 #include <getopt.h>
 #include <netinet/in.h>
-#include <ctype.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>

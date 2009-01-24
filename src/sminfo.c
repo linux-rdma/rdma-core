@@ -38,7 +38,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdarg.h>
 #include <inttypes.h>
 #include <getopt.h>
 

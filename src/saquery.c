@@ -39,10 +39,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <assert.h>
 #include <ctype.h>
 #include <string.h>
 
