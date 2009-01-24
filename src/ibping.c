@@ -53,8 +53,6 @@
 static char host_and_domain[IB_VENDOR_RANGE2_DATA_SIZE];
 static char last_host[IB_VENDOR_RANGE2_DATA_SIZE];
 
-char *argv0 = "ibping";
-
 static uint64_t getcurrenttime(void)
 {
         struct timeval tv;
@@ -214,7 +212,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "D", opts, process_opt,
 			    usage_args, NULL);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

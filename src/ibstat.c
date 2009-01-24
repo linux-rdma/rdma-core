@@ -49,8 +49,6 @@
 
 #include <ibdiag_common.h>
 
-char *argv0 = "ibstat";
-
 static char *node_type_str[] = {
 	"???",
 	"CA",
@@ -214,7 +212,6 @@ int main(int argc, char *argv[])
 	ibdiag_process_opts(argc, argv, NULL, "sDGLCPte", opts, process_opt,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

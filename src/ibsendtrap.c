@@ -47,8 +47,6 @@
 
 #include "ibdiag_common.h"
 
-char *argv0 = "ibsendtrap";
-
 static int send_144_node_desc_update(void)
 {
 	ib_portid_t sm_port;
@@ -129,7 +127,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "DLG", NULL, NULL,
 			    usage_args, NULL);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

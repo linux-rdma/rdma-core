@@ -47,8 +47,6 @@
 
 #include "ibdiag_common.h"
 
-char *argv0 = "ibaddr";
-
 static int
 ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 {
@@ -132,7 +130,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "L", opts, process_opt,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

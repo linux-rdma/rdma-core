@@ -54,8 +54,6 @@
 
 static int brief, dump_all, multicast;
 
-char *argv0 = "ibroute";
-
 /*******************************************/
 
 char *
@@ -397,7 +395,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, NULL, opts, process_opt,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

@@ -87,8 +87,6 @@ static int timeout = 2000;		/* ms */
 static int dumplevel = 0;
 static FILE *f;
 
-char *argv0 = "ibnetdiscover";
-
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 
@@ -977,7 +975,6 @@ int main(int argc, char **argv)
 
 	f = stdout;
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

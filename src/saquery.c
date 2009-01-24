@@ -67,8 +67,6 @@ struct query_cmd {
 			int argc, char *argv[]);
 };
 
-char *argv0 = "saquery";
-
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 static ib_net64_t smkey = OSM_DEFAULT_SA_KEY;
@@ -1682,7 +1680,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "DLGs", opts, process_opt,
 			    usage_args, NULL);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

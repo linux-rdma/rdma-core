@@ -64,8 +64,6 @@ typedef struct cpu_info {
 static cpu_info cpus[MAX_CPUS];
 static int host_ncpu;
 
-char *argv0 = "ibsysstat";
-
 static void
 mk_reply(int attr, void *data, int sz)
 {
@@ -248,7 +246,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "D", opts, process_opt,
 			    usage_args, NULL);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

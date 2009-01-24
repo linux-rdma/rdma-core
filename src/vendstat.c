@@ -56,8 +56,6 @@
 /* Config space addresses */
 #define IB_MLX_IS3_PORT_XMIT_WAIT	0x10013C
 
-char *argv0 = "vendstat";
-
 typedef struct {
 	uint16_t hw_revision;
 	uint16_t device_id;
@@ -149,7 +147,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "D", opts, process_opt,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

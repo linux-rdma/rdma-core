@@ -53,8 +53,6 @@
 static int mad_agent;
 static int drmad_tid = 0x123;
 
-char *argv0 = "smpdump";
-
 typedef struct {
 	char path[64];
 	int hop_cnt;
@@ -241,7 +239,6 @@ int main(int argc, char *argv[])
 	ibdiag_process_opts(argc, argv, NULL, "Gs", opts, process_opt,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

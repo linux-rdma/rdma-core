@@ -76,7 +76,6 @@ static const match_rec_t match_tbl[] = {
 	{0}
 };
 
-char *argv0 = "smpquery";
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 
@@ -437,7 +436,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, NULL, opts, process_opt,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

@@ -88,8 +88,6 @@ static uint8_t pc[1024];
 struct perf_count perf_count = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 struct perf_count_ext perf_count_ext = {0,0,0,0,0,0,0,0,0,0};
 
-char *argv0 = "perfquery";
-
 #define ALL_PORTS 0xFF
 
 /* Notes: IB semantics is to cap counters if count has exceeded limits.
@@ -377,7 +375,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "De", opts, process_opt,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

@@ -49,8 +49,6 @@
 
 static uint8_t sminfo[1024];
 
-char *argv0 = "sminfo";
-
 int strdata, xdata=1, bindata;
 enum {
 	SMINFO_NOTACT,
@@ -110,7 +108,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, "s", opts, process_opt,
 			    usage_args, NULL);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

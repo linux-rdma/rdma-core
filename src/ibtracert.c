@@ -66,8 +66,6 @@ static int timeout = 0;		/* ms */
 static int force;
 static FILE *f;
 
-char *argv0 = "ibtracert";
-
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 
@@ -741,7 +739,6 @@ int main(int argc, char **argv)
 			    usage_args, usage_examples);
 
 	f = stdout;
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

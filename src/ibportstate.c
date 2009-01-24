@@ -48,8 +48,6 @@
 
 #include "ibdiag_common.h"
 
-char *argv0 = "ibportstate";
-
 /*******************************************/
 
 static int
@@ -221,7 +219,6 @@ int main(int argc, char **argv)
 	ibdiag_process_opts(argc, argv, NULL, NULL, NULL, NULL,
 			    usage_args, usage_examples);
 
-	argv0 = argv[0];
 	argc -= optind;
 	argv += optind;
 

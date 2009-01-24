@@ -300,11 +300,9 @@ int ibdiag_process_opts(int argc, char * const argv[], void *cxt,
 	return 0;
 }
 
-extern char *argv0;
-
 void iberror(const char *fn, char *msg, ...)
 {
-	char buf[512], *s;
+	char buf[512];
 	va_list va;
 	int n;
 
@@ -313,14 +311,12 @@ void iberror(const char *fn, char *msg, ...)
 	va_end(va);
 	buf[n] = 0;
 
-	if ((s = strrchr(argv0, '/')))
-		argv0 = s + 1;
-
 	if (ibdebug)
-		printf("%s: iberror: [pid %d] %s: failed: %s\n", argv0,
-		       getpid(), fn, buf);
+		printf("%s: iberror: [pid %d] %s: failed: %s\n",
+		       prog_name ? prog_name : "", getpid(), fn, buf);
 	else
-		printf("%s: iberror: failed: %s\n", argv0, buf);
+		printf("%s: iberror: failed: %s\n",
+		       prog_name ? prog_name : "", buf);
 
 	exit(-1);
 }
