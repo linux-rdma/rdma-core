@@ -54,9 +54,6 @@ extern int ibd_timeout;
 #define	VERBOSE	if (ibdebug || ibverbose > 1) IBWARN
 #define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
 
-extern void iberror(const char *fn, char *msg, ...);
-extern const char *get_build_version(void);
-
 struct ibdiag_opt {
 	const char *name;
 	char letter;
@@ -72,5 +69,6 @@ extern int ibdiag_process_opts(int argc, char * const argv[], void *context,
 			       const char *usage_args,
 			       const char *usage_examples[]);
 extern void ibdiag_show_usage();
+extern void iberror(const char *fn, char *msg, ...);
 
 #endif				/* _IBDIAG_COMMON_H_ */

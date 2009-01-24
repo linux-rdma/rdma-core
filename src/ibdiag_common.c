@@ -69,6 +69,11 @@ static const char **prog_examples;
 static struct option *long_opts;
 static const struct ibdiag_opt *opts_map[256];
 
+const static char *get_build_version(void)
+{
+	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " " __TIME__;
+}
+
 static void pretty_print(int start, int width, const char *str)
 {
 	int len = width - start;
@@ -319,9 +324,4 @@ void iberror(const char *fn, char *msg, ...)
 		       prog_name ? prog_name : "", buf);
 
 	exit(-1);
-}
-
-const char *get_build_version(void)
-{
-	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " " __TIME__;
 }
