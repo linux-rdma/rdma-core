@@ -22,8 +22,8 @@ done
 
 dump_by_dr_path ()
 {
-for sw_dr in `ibnetdiscover $ca_info -v \
-	| sed -ne '/^DR path .* switch /s/^DR path \([,|0-9]\+\) ->.*{\([0-9|a-f]\+\)}.*$/\2 \1/p' \
+for sw_dr in `ibnetdiscover $ca_info -s \
+	| sed -ne '/^DR path .* switch /s/^DR path .*; \([,|0-9]\+\) ->.*{\([0-9|a-f]\+\)}.*$/\2 \1/p' \
 	| sort -u \
 	| awk 'BEGIN {guid=0;} {if ($1 != guid) { guid=$1; print $2; }}'` ; do
 	ibroute $ca_info -D ${sw_dr}
