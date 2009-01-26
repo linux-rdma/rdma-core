@@ -129,14 +129,43 @@ static void print_node_desc(ib_node_record_t * node_record)
 	}
 }
 
+static void dump_node_record(void *data)
+{
+	ib_node_record_t *nr = data;
+	ib_node_info_t *ni = &nr->node_info;
+
+	printf("NodeRecord dump:\n"
+	       "\t\tlid.....................0x%X\n"
+	       "\t\treserved................0x%X\n"
+	       "\t\tbase_version............0x%X\n"
+	       "\t\tclass_version...........0x%X\n"
+	       "\t\tnode_type...............%s\n"
+	       "\t\tnum_ports...............0x%X\n"
+	       "\t\tsys_guid................0x%016" PRIx64 "\n"
+	       "\t\tnode_guid...............0x%016" PRIx64 "\n"
+	       "\t\tport_guid...............0x%016" PRIx64 "\n"
+	       "\t\tpartition_cap...........0x%X\n"
+	       "\t\tdevice_id...............0x%X\n"
+	       "\t\trevision................0x%X\n"
+	       "\t\tport_num................0x%X\n"
+	       "\t\tvendor_id...............0x%X\n"
+	       "\t\tNodeDescription.........%s\n",
+	       cl_ntoh16(nr->lid), cl_ntoh16(nr->resv),
+	       ni->base_version, ni->class_version,
+	       ib_get_node_type_str(ni->node_type), ni->num_ports,
+	       cl_ntoh64(ni->sys_guid), cl_ntoh64(ni->node_guid),
+	       cl_ntoh64(ni->port_guid), cl_ntoh16(ni->partition_cap),
+	       cl_ntoh16(ni->device_id), cl_ntoh32(ni->revision),
+	       ib_node_info_get_local_port_num(ni),
+	       cl_ntoh32(ib_node_info_get_vendor_id(ni)),
+	       clean_nodedesc((char *)nr->node_desc.description));
+}
+
 static void print_node_record(ib_node_record_t * node_record)
 {
-	ib_node_info_t *p_ni = NULL;
-	ib_node_desc_t *p_nd = NULL;
+	ib_node_info_t *p_ni = &node_record->node_info;
+	ib_node_desc_t *p_nd = &node_record->node_desc;
 	char *name;
-
-	p_ni = &(node_record->node_info);
-	p_nd = &(node_record->node_desc);
 
 	switch (node_print_desc) {
 	case LID_ONLY:
@@ -159,31 +188,7 @@ static void print_node_record(ib_node_record_t * node_record)
 		break;
 	}
 
-	printf("NodeRecord dump:\n"
-	       "\t\tlid.....................0x%X\n"
-	       "\t\treserved................0x%X\n"
-	       "\t\tbase_version............0x%X\n"
-	       "\t\tclass_version...........0x%X\n"
-	       "\t\tnode_type...............%s\n"
-	       "\t\tnum_ports...............0x%X\n"
-	       "\t\tsys_guid................0x%016" PRIx64 "\n"
-	       "\t\tnode_guid...............0x%016" PRIx64 "\n"
-	       "\t\tport_guid...............0x%016" PRIx64 "\n"
-	       "\t\tpartition_cap...........0x%X\n"
-	       "\t\tdevice_id...............0x%X\n"
-	       "\t\trevision................0x%X\n"
-	       "\t\tport_num................0x%X\n"
-	       "\t\tvendor_id...............0x%X\n"
-	       "\t\tNodeDescription.........%s\n",
-	       cl_ntoh16(node_record->lid), cl_ntoh16(node_record->resv),
-	       p_ni->base_version, p_ni->class_version,
-	       ib_get_node_type_str(p_ni->node_type), p_ni->num_ports,
-	       cl_ntoh64(p_ni->sys_guid), cl_ntoh64(p_ni->node_guid),
-	       cl_ntoh64(p_ni->port_guid), cl_ntoh16(p_ni->partition_cap),
-	       cl_ntoh16(p_ni->device_id), cl_ntoh32(p_ni->revision),
-	       ib_node_info_get_local_port_num(p_ni),
-	       cl_ntoh32(ib_node_info_get_vendor_id(p_ni)),
-	       clean_nodedesc((char *)node_record->node_desc.description));
+	dump_node_record(node_record);
 }
 
 static void dump_path_record(void *data)
@@ -1071,7 +1076,31 @@ static int query_class_port_info(const struct query_cmd *q,
 static int query_node_records(const struct query_cmd *q,
 			      osm_bind_handle_t h, int argc, char *argv[])
 {
-	return print_node_records(h);
+	ib_node_record_t nr;
+	ib_net64_t comp_mask = 0;
+	int lid;
+	ib_api_status_t status;
+
+	if (argc > 0)
+		parse_lid_and_ports(h, argv[0], &lid, NULL, NULL);
+
+	memset(&nr, 0, sizeof(nr));
+
+	if (lid > 0) {
+		nr.lid = cl_hton16(lid);
+		comp_mask |= IB_NR_COMPMASK_LID;
+	}
+
+	status = get_any_records(h, IB_MAD_ATTR_NODE_RECORD, 0,
+				 comp_mask, &nr,
+				 ib_get_attr_offset(sizeof(nr)), 0);
+	if (status != IB_SUCCESS)
+		return status;
+
+	dump_results(&result, dump_node_record);
+	return_mad();
+
+	return 0;
 }
 
 static int query_portinfo_records(const struct query_cmd *q,
@@ -1099,7 +1128,6 @@ static int query_portinfo_records(const struct query_cmd *q,
 	status = get_any_records(h, IB_MAD_ATTR_PORTINFO_RECORD, 0,
 				 comp_mask, &pir,
 				 ib_get_attr_offset(sizeof(pir)), 0);
-
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1454,7 +1482,7 @@ static const struct query_cmd query_cmds[] = {
 	{"ClassPortInfo", "CPI", IB_MAD_ATTR_CLASS_PORT_INFO,
 	 NULL, query_class_port_info},
 	{"NodeRecord", "NR", IB_MAD_ATTR_NODE_RECORD,
-	 NULL, query_node_records},
+	 "[lid]", query_node_records},
 	{"PortInfoRecord", "PIR", IB_MAD_ATTR_PORTINFO_RECORD,
 	 "[[lid]/[port]]", query_portinfo_records},
 	{"SL2VLTableRecord", "SL2VL", IB_MAD_ATTR_SLVL_RECORD,
@@ -1682,7 +1710,7 @@ int main(int argc, char **argv)
 
 	if (!query_type) {
 		if (!argc || !(q = find_query(argv[0])))
-			query_type = IB_MAD_ATTR_NODE_RECORD;
+			command = SAQUERY_CMD_NODE_RECORD;
 		else {
 			query_type = q->query_type;
 			argc--;
@@ -1757,9 +1785,8 @@ int main(int argc, char **argv)
 			status = get_print_path_rec_gid(h,
 					(ib_gid_t *) & src_addr.s6_addr,
 					(ib_gid_t *) & dst_addr.s6_addr);
-		} else {
+		} else
 			status = query_path_records(q, h, 0, NULL);
-		}
 		break;
 	case SAQUERY_CMD_CLASS_PORT_INFO:
 		status = get_print_class_port_info(h);
