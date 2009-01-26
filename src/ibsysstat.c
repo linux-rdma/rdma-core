@@ -62,11 +62,57 @@ typedef struct cpu_info {
 static cpu_info cpus[MAX_CPUS];
 static int host_ncpu;
 
-static void
-mk_reply(int attr, void *data, int sz)
+static int server_respond(void *umad, int size)
+{
+	ib_rpc_t rpc = {0};
+	ib_rmpp_hdr_t rmpp = {0};
+	ib_portid_t rport;
+	uint8_t *mad = umad_get_mad(umad);
+	ib_mad_addr_t *mad_addr;
+
+	if (!(mad_addr = umad_get_mad_addr(umad)))
+		return -1;
+
+	memset(&rport, 0, sizeof(rport));
+
+	rport.lid = ntohs(mad_addr->lid);
+	rport.qp = ntohl(mad_addr->qpn);
+	rport.qkey = ntohl(mad_addr->qkey);
+	rport.sl = mad_addr->sl;
+	if (!rport.qkey && rport.qp == 1)
+		rport.qkey = IB_DEFAULT_QP1_QKEY;
+
+	rpc.mgtclass = mad_get_field(mad, 0, IB_MAD_MGMTCLASS_F);
+	rpc.method = IB_MAD_METHOD_GET | IB_MAD_RESPONSE;
+	rpc.attr.id = mad_get_field(mad, 0, IB_MAD_ATTRID_F);
+	rpc.attr.mod = mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
+	rpc.oui = mad_get_field(mad, 0, IB_VEND2_OUI_F);
+	rpc.trid = mad_get_field64(mad, 0, IB_MAD_TRID_F);
+
+	rmpp.flags = IB_RMPP_FLAG_ACTIVE;
+
+	DEBUG("responding %d bytes to %s, attr 0x%x mod 0x%x qkey %x",
+	      size, portid2str(&rport), rpc.attr.id, rpc.attr.mod, rport.qkey);
+
+	if (mad_build_pkt(umad, &rpc, &rport, &rmpp, 0) < 0)
+		return -1;
+
+	if (ibdebug > 1)
+		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
+
+	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad,
+		      size, rpc.timeout, 0) < 0) {
+		DEBUG("send failed; %m");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int mk_reply(int attr, void *data, int sz)
 {
 	char *s = data;
-	int n, i;
+	int n, i, ret = 0;
 
 	switch (attr) {
 	case IB_PING_ATTR:
@@ -75,43 +121,54 @@ mk_reply(int attr, void *data, int sz)
 		if (gethostname(s, sz) < 0)
 			snprintf(s, sz, "?hostname?");
 		s[sz-1] = 0;
-		if ((n = strlen(s)) >= sz)
+		if ((n = strlen(s)) >= sz - 1) {
+			ret = sz;
 			break;
+		}
 		s[n] = '.';
 		s += n+1;
 		sz -= n+1;
+		ret += n + 1;
 		if (getdomainname(s, sz) < 0)
 			snprintf(s, sz, "?domainname?");
-		if (strlen(s) == 0)
+		if ((n = strlen(s)) == 0)
 			s[-1] = 0;	/* no domain */
+		else
+			ret += n;
 		break;
 	case IB_CPUINFO_ATTR:
+		s[0] = '\0';
 		for (i = 0; i < host_ncpu && sz > 0; i++) {
 			n = snprintf(s, sz, "cpu %d: model %s MHZ %s\n",
 				     i, cpus[i].model, cpus[i].mhz);
 			if (n >= sz) {
 				IBWARN("cpuinfo truncated");
+				ret = sz;
 				break;
 			}
 			sz -= n;
 			s += n;
+			ret += n;
 		}
+		ret++;
 		break;
 	default:
 		DEBUG("unknown attr %d", attr);
 	}
+	return ret;
 }
 
-static char *
-ibsystat_serv(void)
+static uint8_t buf[2048];
+
+static char *ibsystat_serv(void)
 {
 	void *umad;
 	void *mad;
-	int attr, mod;
+	int attr, mod, size;
 
 	DEBUG("starting to serve...");
 
-	while ((umad = mad_receive(0, -1))) {
+	while ((umad = mad_receive(buf, -1))) {
 
 		mad = umad_get_mad(umad);
 
@@ -120,12 +177,11 @@ ibsystat_serv(void)
 
 		DEBUG("got packet: attr 0x%x mod 0x%x", attr, mod);
 
-		mk_reply(attr, (char *)mad + IB_VENDOR_RANGE2_DATA_OFFS, IB_VENDOR_RANGE2_DATA_SIZE);
+		size = mk_reply(attr, mad + IB_VENDOR_RANGE2_DATA_OFFS,
+				sizeof(buf) - umad_size() - IB_VENDOR_RANGE2_DATA_OFFS);
 
-		if (mad_respond(umad, 0, 0) < 0)
+		if (server_respond(umad, IB_VENDOR_RANGE2_DATA_OFFS + size) < 0)
 			DEBUG("respond failed");
-
-		mad_free(umad);
 	}
 
 	DEBUG("server out");
@@ -144,24 +200,40 @@ match_attr(char *str)
 	return -1;
 }
 
-static char *
-ibsystat(ib_portid_t *portid, int attr)
+static char *ibsystat(ib_portid_t *portid, int attr)
 {
-	char data[IB_VENDOR_RANGE2_DATA_SIZE] = {0};
-	ib_vendor_call_t call;
+	ib_rpc_t rpc = { 0 };
+	int fd, agent, timeout, len;
+	void *data = umad_get_mad(buf) + IB_VENDOR_RANGE2_DATA_OFFS;
 
 	DEBUG("Sysstat ping..");
 
-	call.method = IB_MAD_METHOD_GET;
-	call.mgmt_class = IB_VENDOR_OPENIB_SYSSTAT_CLASS;
-	call.attrid = attr;
-	call.mod = 0;
-	call.oui = IB_OPENIB_OUI;
-	call.timeout = 0;
-	memset(&call.rmpp, 0, sizeof call.rmpp);
+	rpc.mgtclass = IB_VENDOR_OPENIB_SYSSTAT_CLASS;
+	rpc.method = IB_MAD_METHOD_GET;
+	rpc.attr.id = attr;
+	rpc.attr.mod = 0;
+	rpc.oui = IB_OPENIB_OUI;
+	rpc.timeout = 0;
+	rpc.datasz = IB_VENDOR_RANGE2_DATA_SIZE;
+	rpc.dataoffs = IB_VENDOR_RANGE2_DATA_OFFS;
 
-	if (!ib_vendor_call(data, portid, &call))
-		return "vendor call failed";
+	portid->qp = 1;
+	if (!portid->qkey)
+		portid->qkey = IB_DEFAULT_QP1_QKEY;
+
+	if ((len = mad_build_pkt(buf, &rpc, portid, NULL, NULL)) < 0)
+		IBPANIC("cannot build packet.");
+
+	fd = madrpc_portid();
+	agent = mad_class_agent(rpc.mgtclass);
+	timeout = ibd_timeout ? ibd_timeout : MAD_DEF_TIMEOUT_MS;
+
+	if (umad_send(fd, agent, buf, len, timeout, 0) < 0)
+		IBPANIC("umad_send failed.");
+
+	len = sizeof(buf) - umad_size();
+	if (umad_recv(fd, buf, &len, timeout) < 0)
+		IBPANIC("umad_recv failed.");
 
 	DEBUG("Got sysstat pong..");
 	if (attr != IB_PING_ATTR)
@@ -256,7 +328,7 @@ int main(int argc, char **argv)
 	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 
 	if (server) {
-		if (mad_register_server(sysstat_class, 0, 0, oui) < 0)
+		if (mad_register_server(sysstat_class, 1, 0, oui) < 0)
 			IBERROR("can't serve class %d", sysstat_class);
 
 		host_ncpu = build_cpuinfo();
@@ -266,7 +338,7 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	if (mad_register_client(sysstat_class, 0) < 0)
+	if (mad_register_client(sysstat_class, 1) < 0)
 		IBERROR("can't register to sysstat class %d", sysstat_class);
 
 	if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
