@@ -54,7 +54,7 @@
 typedef char *(op_fn_t)(ib_portid_t *dest, char **argv, int argc);
 
 typedef struct match_rec {
-	char *name;
+	const char *name, *alias;
 	op_fn_t *fn;
 	unsigned opt_portnum;
 } match_rec_t;
@@ -63,14 +63,14 @@ static op_fn_t	node_desc, node_info, port_info, switch_info, pkey_table,
 	sl2vl_table, vlarb_table, guid_info;
 
 static const match_rec_t match_tbl[] = {
-	{ "nodeinfo", node_info },
-	{ "nodedesc", node_desc },
-	{ "portinfo", port_info, 1 },
-	{ "switchinfo", switch_info },
-	{ "pkeys", pkey_table, 1 },
-	{ "sl2vl", sl2vl_table, 1 },
-	{ "vlarb", vlarb_table, 1 },
-	{ "guids", guid_info },
+	{ "NodeInfo", "NI", node_info },
+	{ "NodeDesc", "ND", node_desc },
+	{ "PortInfo", "PI", port_info, 1 },
+	{ "SwitchInfo", "SI", switch_info },
+	{ "PKeyTable", "PKeys", pkey_table, 1 },
+	{ "SL2VLTable", "SL2VL", sl2vl_table, 1 },
+	{ "VLArbitration", "VLArb", vlarb_table, 1 },
+	{ "GUIDInfo", "GI", guid_info },
 	{0}
 };
 
@@ -373,14 +373,15 @@ guid_info(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static op_fn_t *
-match_op(char *name)
+static op_fn_t *match_op(char *name)
 {
 	const match_rec_t *r;
+	unsigned len = strlen(name);
 	for (r = match_tbl; r->name; r++)
-		if (!strcmp(r->name, name))
+		if (!strncasecmp(r->name, name, len) ||
+		    (r->alias && !strncasecmp(r->alias, name, len)))
 			return r->fn;
-	return 0;
+	return NULL;
 }
 
 static int process_opt(void *context, int ch, char *optarg)
@@ -422,10 +423,11 @@ int main(int argc, char **argv)
 	};
 
 	n = sprintf(usage_args, "<op> <dest dr_path|lid|guid> [op params]\n"
-		    "\nSupported ops:\n");
+		    "\nSupported ops (and aliases, case insensitive):\n");
 	for (r = match_tbl ; r->name ; r++) {
 		n += snprintf(usage_args + n, sizeof(usage_args) - n,
-			      "  %s <addr>%s\n", r->name,
+			      "  %s (%s) <addr>%s\n", r->name,
+			      r->alias ? r->alias : "",
 			      r->opt_portnum ? " [<portnum>]" : "");
 		if (n >= sizeof(usage_args))
 			exit(-1);
