@@ -89,7 +89,8 @@ static int server_respond(void *umad, int size)
 	rpc.oui = mad_get_field(mad, 0, IB_VEND2_OUI_F);
 	rpc.trid = mad_get_field64(mad, 0, IB_MAD_TRID_F);
 
-	rmpp.flags = IB_RMPP_FLAG_ACTIVE;
+	if (size > IB_MAD_SIZE)
+		rmpp.flags = IB_RMPP_FLAG_ACTIVE;
 
 	DEBUG("responding %d bytes to %s, attr 0x%x mod 0x%x qkey %x",
 	      size, portid2str(&rport), rpc.attr.id, rpc.attr.mod, rport.qkey);
@@ -169,6 +170,11 @@ static char *ibsystat_serv(void)
 	DEBUG("starting to serve...");
 
 	while ((umad = mad_receive(buf, -1))) {
+		if (umad_status(buf)) {
+			DEBUG("drop mad with status %x: %s", umad_status(buf),
+			      strerror(umad_status(buf)));
+			continue;
+		}
 
 		mad = umad_get_mad(umad);
 
@@ -234,6 +240,9 @@ static char *ibsystat(ib_portid_t *portid, int attr)
 	len = sizeof(buf) - umad_size();
 	if (umad_recv(fd, buf, &len, timeout) < 0)
 		IBPANIC("umad_recv failed.");
+
+	if (umad_status(buf))
+		return strerror(umad_status(buf));
 
 	DEBUG("Got sysstat pong..");
 	if (attr != IB_PING_ATTR)
