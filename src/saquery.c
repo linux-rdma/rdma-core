@@ -56,12 +56,17 @@
 
 #include "ibdiag_common.h"
 
+struct query_params {
+	ib_gid_t sgid, dgid;
+	uint16_t slid, dlid;
+};
+
 struct query_cmd {
 	const char *name, *alias;
 	ib_net16_t query_type;
 	const char *usage;
 	int (*handler) (const struct query_cmd * q, osm_bind_handle_t h,
-			int argc, char *argv[]);
+			struct query_params *p, int argc, char *argv[]);
 };
 
 static char *node_name_map_file = NULL;
@@ -95,6 +100,12 @@ ib_net16_t requested_lid = 0;
 int requested_lid_flag = 0;
 ib_net64_t requested_guid = 0;
 int requested_guid_flag = 0;
+
+static unsigned valid_gid(ib_gid_t *gid)
+{
+	ib_gid_t zero_gid = { };
+	return memcmp(&zero_gid, gid, sizeof(*gid));
+}
 
 static void format_buf(char *in, char *out, unsigned size)
 {
@@ -797,6 +808,12 @@ static int parse_lid_and_ports(osm_bind_handle_t h,
 		comp_mask |= IB_##name##_COMPMASK_##mask; \
 	}
 
+#define CHECK_AND_SET_GID(val, target, name, mask) \
+	if (valid_gid(&(val))) { \
+		memcpy(&(target), &(val), sizeof(val)); \
+		comp_mask |= IB_##name##_COMPMASK_##mask; \
+	}
+
 /*
  * Get the portinfo records available with IsSM or IsSMdisabled CapabilityMask bit on.
  */
@@ -861,15 +878,14 @@ static ib_api_status_t print_node_records(osm_bind_handle_t h)
 }
 
 static ib_api_status_t
-get_print_path_rec_lid(osm_bind_handle_t h,
-		       ib_net16_t src_lid, ib_net16_t dst_lid)
+get_print_path_rec_lid(osm_bind_handle_t h, struct query_params *p)
 {
 	osmv_query_req_t req;
 	osmv_lid_pair_t lid_pair;
 	ib_api_status_t status;
 
-	lid_pair.src_lid = cl_hton16(src_lid);
-	lid_pair.dest_lid = cl_hton16(dst_lid);
+	lid_pair.src_lid = cl_hton16(p->slid);
+	lid_pair.dest_lid = cl_hton16(p->dlid);
 
 	memset(&req, 0, sizeof(req));
 
@@ -893,21 +909,21 @@ get_print_path_rec_lid(osm_bind_handle_t h,
 		return (result.status);
 	}
 	status = result.status;
+	printf("Path record for %u -> %u\n", p->slid, p->dlid);
 	dump_results(&result, dump_path_record);
 	return_mad();
 	return (status);
 }
 
 static ib_api_status_t
-get_print_path_rec_gid(osm_bind_handle_t h,
-		       const ib_gid_t * src_gid, const ib_gid_t * dst_gid)
+get_print_path_rec_gid(osm_bind_handle_t h, struct query_params *p)
 {
 	osmv_query_req_t req;
 	osmv_gid_pair_t gid_pair;
 	ib_api_status_t status;
 
-	gid_pair.src_gid = *src_gid;
-	gid_pair.dest_gid = *dst_gid;
+	gid_pair.src_gid = p->sgid;
+	gid_pair.dest_gid = p->dgid;
 
 	memset(&req, 0, sizeof(req));
 
@@ -968,13 +984,21 @@ static ib_api_status_t get_print_class_port_info(osm_bind_handle_t h)
 	return (status);
 }
 
-static int query_path_records(const struct query_cmd *q,
-			      osm_bind_handle_t h, int argc, char *argv[])
+static int query_path_records(const struct query_cmd *q, osm_bind_handle_t h,
+			      struct query_params *p, int argc, char *argv[])
 {
-	ib_net16_t attr_offset = ib_get_attr_offset(sizeof(ib_path_rec_t));
+	ib_path_rec_t pr;
+	ib_net64_t comp_mask = 0;
 	ib_api_status_t status;
 
-	status = get_all_records(h, IB_MAD_ATTR_PATH_RECORD, attr_offset, 0);
+	memset(&pr, 0, sizeof(pr));
+	CHECK_AND_SET_GID(p->sgid, pr.sgid, PR, SGID);
+	CHECK_AND_SET_GID(p->dgid, pr.dgid, PR, DGID);
+	CHECK_AND_SET_VAL(p->slid, 16, 0, pr.slid, PR, SLID);
+	CHECK_AND_SET_VAL(p->dlid, 16, 0, pr.dlid, PR, DLID);
+
+	status = get_any_records(h, IB_MAD_ATTR_PATH_RECORD, 0, comp_mask,
+				 &pr, ib_get_attr_offset(sizeof(pr)), 0);
 	if (status != IB_SUCCESS)
 		return (status);
 
@@ -1055,14 +1079,14 @@ static ib_api_status_t print_multicast_group_records(osm_bind_handle_t h)
 	return (status);
 }
 
-static int query_class_port_info(const struct query_cmd *q,
-				 osm_bind_handle_t h, int argc, char *argv[])
+static int query_class_port_info(const struct query_cmd *q, osm_bind_handle_t h,
+				 struct query_params *p, int argc, char *argv[])
 {
 	return get_print_class_port_info(h);
 }
 
-static int query_node_records(const struct query_cmd *q,
-			      osm_bind_handle_t h, int argc, char *argv[])
+static int query_node_records(const struct query_cmd *q, osm_bind_handle_t h,
+			      struct query_params *p, int argc, char *argv[])
 {
 	ib_node_record_t nr;
 	ib_net64_t comp_mask = 0;
@@ -1087,7 +1111,8 @@ static int query_node_records(const struct query_cmd *q,
 }
 
 static int query_portinfo_records(const struct query_cmd *q,
-				  osm_bind_handle_t h, int argc, char *argv[])
+				  osm_bind_handle_t h, struct query_params *p,
+				  int argc, char *argv[])
 {
 	ib_portinfo_record_t pir;
 	ib_net64_t comp_mask = 0;
@@ -1112,14 +1137,14 @@ static int query_portinfo_records(const struct query_cmd *q,
 	return 0;
 }
 
-static int query_mcmember_records(const struct query_cmd *q,
-				   osm_bind_handle_t h, int argc, char *argv[])
+static int query_mcmember_records(const struct query_cmd *q, osm_bind_handle_t h,
+				  struct query_params *p, int argc, char *argv[])
 {
 	return print_multicast_member_records(h);
 }
 
-static int query_service_records(const struct query_cmd *q,
-				 osm_bind_handle_t h, int argc, char *argv[])
+static int query_service_records(const struct query_cmd *q, osm_bind_handle_t h,
+				 struct query_params *p, int argc, char *argv[])
 {
 	ib_net16_t attr_offset =
 	    ib_get_attr_offset(sizeof(ib_service_record_t));
@@ -1135,7 +1160,8 @@ static int query_service_records(const struct query_cmd *q,
 }
 
 static int query_informinfo_records(const struct query_cmd *q,
-				    osm_bind_handle_t h, int argc, char *argv[])
+				    osm_bind_handle_t h, struct query_params *p,
+				    int argc, char *argv[])
 {
 	ib_net16_t attr_offset =
 	    ib_get_attr_offset(sizeof(ib_inform_info_record_t));
@@ -1151,8 +1177,8 @@ static int query_informinfo_records(const struct query_cmd *q,
 	return (status);
 }
 
-static int query_link_records(const struct query_cmd *q,
-			      osm_bind_handle_t h, int argc, char *argv[])
+static int query_link_records(const struct query_cmd *q, osm_bind_handle_t h,
+			      struct query_params *p, int argc, char *argv[])
 {
 	ib_link_record_t lr;
 	ib_net64_t comp_mask = 0;
@@ -1181,8 +1207,8 @@ static int query_link_records(const struct query_cmd *q,
 	return status;
 }
 
-static int query_sl2vl_records(const struct query_cmd *q,
-			       osm_bind_handle_t h, int argc, char *argv[])
+static int query_sl2vl_records(const struct query_cmd *q, osm_bind_handle_t h,
+			       struct query_params *p, int argc, char *argv[])
 {
 	ib_slvl_table_record_t slvl;
 	ib_net64_t comp_mask = 0;
@@ -1207,8 +1233,8 @@ static int query_sl2vl_records(const struct query_cmd *q,
 	return status;
 }
 
-static int query_vlarb_records(const struct query_cmd *q,
-			       osm_bind_handle_t h, int argc, char *argv[])
+static int query_vlarb_records(const struct query_cmd *q, osm_bind_handle_t h,
+			       struct query_params *p, int argc, char *argv[])
 {
 	ib_vl_arb_table_record_t vlarb;
 	ib_net64_t comp_mask = 0;
@@ -1234,7 +1260,8 @@ static int query_vlarb_records(const struct query_cmd *q,
 }
 
 static int query_pkey_tbl_records(const struct query_cmd *q,
-				  osm_bind_handle_t h, int argc, char *argv[])
+				  osm_bind_handle_t h, struct query_params *p,
+				  int argc, char *argv[])
 {
 	ib_pkey_table_record_t pktr;
 	ib_net64_t comp_mask = 0;
@@ -1259,8 +1286,8 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 	return status;
 }
 
-static int query_lft_records(const struct query_cmd *q,
-			     osm_bind_handle_t h, int argc, char *argv[])
+static int query_lft_records(const struct query_cmd *q, osm_bind_handle_t h,
+			     struct query_params *p, int argc, char *argv[])
 {
 	ib_lft_record_t lftr;
 	ib_net64_t comp_mask = 0;
@@ -1284,8 +1311,8 @@ static int query_lft_records(const struct query_cmd *q,
 	return status;
 }
 
-static int query_mft_records(const struct query_cmd *q,
-			     osm_bind_handle_t h, int argc, char *argv[])
+static int query_mft_records(const struct query_cmd *q, osm_bind_handle_t h,
+			     struct query_params *p, int argc, char *argv[])
 {
 	ib_mft_record_t mftr;
 	ib_net64_t comp_mask = 0;
@@ -1455,47 +1482,38 @@ enum saquery_command {
 
 static enum saquery_command command = SAQUERY_CMD_QUERY;
 static ib_net16_t query_type;
-static char *src, *dst, *sgid, *dgid;
+static char *src_lid, *dst_lid;
 
 static int process_opt(void *context, int ch, char *optarg)
 {
+	struct query_params *p = context;
+
 	switch (ch) {
 	case 1:
 		{
-			char *opt = strdup(optarg);
-			char *ch = strchr(opt, ':');
-			if (!ch) {
-				fprintf(stderr,
-					"ERROR: --src-to-dst <node>:<node>\n");
+			src_lid = strdup(optarg);
+			dst_lid = strchr(src_lid, ':');
+			if (!dst_lid)
 				ibdiag_show_usage();
-			}
-			*ch++ = '\0';
-			if (*opt)
-				src = strdup(opt);
-			if (*ch)
-				dst = strdup(ch);
-			free(opt);
-			command = SAQUERY_CMD_PATH_RECORD;
-			break;
+			*dst_lid++ = '\0';
 		}
+		command = SAQUERY_CMD_PATH_RECORD;
+		break;
 	case 2:
 		{
-			char *opt = strdup(optarg);
-			char *tok1 = strtok(opt, "-");
-			char *tok2 = strtok(NULL, "\0");
-
-			if (tok1 && tok2) {
-				sgid = strdup(tok1);
-				dgid = strdup(tok2);
-			} else {
-				fprintf(stderr,
-					"ERROR: --sgid-to-dgid <GID>-<GID>\n");
+			char *src_addr = strdup(optarg);
+			char *dst_addr = strchr(src_addr, '-');
+			if (!dst_addr)
 				ibdiag_show_usage();
-			}
-			free(opt);
-			command = SAQUERY_CMD_PATH_RECORD;
-			break;
+			*dst_addr++ = '\0';
+			if (inet_pton(AF_INET6, src_addr, &p->sgid) <= 0)
+				ibdiag_show_usage();
+			if (inet_pton(AF_INET6, dst_addr, &p->dgid) <= 0)
+				ibdiag_show_usage();
+			free(src_addr);
 		}
+		command = SAQUERY_CMD_PATH_RECORD;
+		break;
 	case 3:
 		node_name_map_file = strdup(optarg);
 		break;
@@ -1508,7 +1526,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		smkey = cl_hton64(strtoull(optarg, NULL, 0));
 		break;
 	case 'p':
-		command = SAQUERY_CMD_PATH_RECORD;
+		query_type = IB_MAD_ATTR_PATH_RECORD;
 		break;
 	case 'D':
 		node_print_desc = ALL_DESC;
@@ -1557,6 +1575,20 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'x':
 		query_type = IB_MAD_ATTR_LINK_RECORD;
 		break;
+	case 5:
+		p->slid = strtoul(optarg, NULL, 0);
+		break;
+	case 6:
+		p->dlid = strtoul(optarg, NULL, 0);
+		break;
+	case 14:
+		if (inet_pton(AF_INET6, optarg, &p->sgid) <= 0)
+			ibdiag_show_usage();
+		break;
+	case 15:
+		if (inet_pton(AF_INET6, optarg, &p->dgid) <= 0)
+			ibdiag_show_usage();
+		break;
 	default:
 		return -1;
 	}
@@ -1567,8 +1599,8 @@ int main(int argc, char **argv)
 {
 	char usage_args[1024];
 	osm_bind_handle_t h;
+	struct query_params params = { };
 	const struct query_cmd *q;
-	ib_net16_t src_lid, dst_lid;
 	ib_api_status_t status;
 	int n;
 
@@ -1599,6 +1631,10 @@ int main(int argc, char **argv)
 		{"smkey", 4, 1, "<val>", "SA SM_Key value for the query."
 		 " If non-numeric value (like 'x') is specified then"
 		 " saquery will prompt for a value"},
+		{ "slid", 5, 1, "<lid>", "Source LID (PathRecord)" },
+		{ "dlid", 6, 1, "<lid>", "Destination LID (PathRecord)" },
+		{ "sgid", 14, 1, "<gid>", "Source GID (IPv6 format) (PathRecord)" },
+		{ "dgid", 15, 1, "<gid>", "Destination GID (IPv6 format) (PathRecord)" },
 		{}
 	};
 
@@ -1618,7 +1654,7 @@ int main(int argc, char **argv)
 	q = NULL;
 	ibd_timeout = DEFAULT_SA_TIMEOUT_MS;
 
-	ibdiag_process_opts(argc, argv, NULL, "DLGs", opts, process_opt,
+	ibdiag_process_opts(argc, argv, &params, "DLGs", opts, process_opt,
 			    usage_args, NULL);
 
 	argc -= optind;
@@ -1671,36 +1707,22 @@ int main(int argc, char **argv)
 	h = get_bind_handle();
 	node_name_map = open_node_name_map(node_name_map_file);
 
+	if (src_lid && *src_lid)
+		params.slid = get_lid(h, src_lid);
+	if (dst_lid && *dst_lid)
+		params.dlid = get_lid(h, dst_lid);
+
 	switch (command) {
 	case SAQUERY_CMD_NODE_RECORD:
 		status = print_node_records(h);
 		break;
 	case SAQUERY_CMD_PATH_RECORD:
-		if (src && dst) {
-			src_lid = get_lid(h, src);
-			dst_lid = get_lid(h, dst);
-			printf("Path record for %s -> %s\n", src, dst);
-			if (src_lid == 0 || dst_lid == 0)
-				status = IB_UNKNOWN_ERROR;
-			else
-				status =
-				    get_print_path_rec_lid(h, src_lid, dst_lid);
-		} else if (sgid && dgid) {
-			struct in6_addr src_addr, dst_addr;
-
-			if (inet_pton(AF_INET6, sgid, &src_addr) <= 0) {
-				fprintf(stderr, "invalid src gid: %s\n", sgid);
-				exit(-1);
-			}
-			if (inet_pton(AF_INET6, dgid, &dst_addr) <= 0) {
-				fprintf(stderr, "invalid dst gid: %s\n", dgid);
-				exit(-1);
-			}
-			status = get_print_path_rec_gid(h,
-					(ib_gid_t *) & src_addr.s6_addr,
-					(ib_gid_t *) & dst_addr.s6_addr);
-		} else
-			status = query_path_records(q, h, 0, NULL);
+		if (params.slid && params.dlid)
+			status = get_print_path_rec_lid(h, &params);
+		else if (valid_gid(&params.sgid) && valid_gid(&params.dgid))
+			status = get_print_path_rec_gid(h, &params);
+		else
+			status = query_path_records(q, h, &params, 0, NULL);
 		break;
 	case SAQUERY_CMD_CLASS_PORT_INFO:
 		status = get_print_class_port_info(h);
@@ -1721,14 +1743,12 @@ int main(int argc, char **argv)
 				ntohs(query_type));
 			status = IB_UNKNOWN_ERROR;
 		} else
-			status = q->handler(q, h, argc, argv);
+			status = q->handler(q, h, &params, argc, argv);
 		break;
 	}
 
-	if (src)
-		free(src);
-	if (dst)
-		free(dst);
+	if (src_lid)
+		free(src_lid);
 	clean_up();
 	close_node_name_map(node_name_map);
 	return (status);
