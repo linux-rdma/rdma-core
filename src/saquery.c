@@ -1616,18 +1616,23 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'L':
 		node_print_desc = LID_ONLY;
+		command = SAQUERY_CMD_NODE_RECORD;
 		break;
 	case 'l':
 		node_print_desc = UNIQUE_LID_ONLY;
+		command = SAQUERY_CMD_NODE_RECORD;
 		break;
 	case 'G':
 		node_print_desc = GUID_ONLY;
+		command = SAQUERY_CMD_NODE_RECORD;
 		break;
 	case 'O':
 		node_print_desc = NAME_OF_LID;
+		command = SAQUERY_CMD_NODE_RECORD;
 		break;
 	case 'U':
 		node_print_desc = NAME_OF_GUID;
+		command = SAQUERY_CMD_NODE_RECORD;
 		break;
 	case 's':
 		command = SAQUERY_CMD_ISSM;
@@ -1708,9 +1713,9 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (!query_type) {
+	if (!query_type && command == SAQUERY_CMD_QUERY) {
 		if (!argc || !(q = find_query(argv[0])))
-			command = SAQUERY_CMD_NODE_RECORD;
+			query_type = IB_MAD_ATTR_NODE_RECORD;
 		else {
 			query_type = q->query_type;
 			argc--;
