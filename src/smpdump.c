@@ -121,7 +121,7 @@ smp_get_init(void *umad, int lid, int attr, int mod)
 	smp->attr_mod	   = htonl(mod);
 	smp->tid           = htonll(drmad_tid++);
 
-	umad_set_addr(umad, lid, 0, 0xffff, 0);
+	umad_set_addr(umad, lid, 0, 0, 0);
 }
 
 void
