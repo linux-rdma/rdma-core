@@ -57,8 +57,19 @@
 #include "ibdiag_common.h"
 
 struct query_params {
-	ib_gid_t sgid, dgid;
-	uint16_t slid, dlid;
+	ib_gid_t sgid, dgid, gid, mgid;
+	uint16_t slid, dlid, mlid;
+	uint32_t flow_label;
+	int hop_limit;
+	uint8_t tclass;
+	int reversible, numb_path;
+	uint16_t pkey;
+	int qos_class, sl;
+	uint8_t mtu, rate, pkt_life;
+	uint32_t qkey;
+	uint8_t scope;
+	uint8_t join_state;
+	int proxy_join;
 };
 
 struct query_cmd {
@@ -302,6 +313,37 @@ static void dump_one_portinfo_record(void *data)
 		"\t\tReserved................0x%x\n"
 		"\tPortInfo dump:\n\t\t%s",
 		cl_ntoh16(pir->lid), pir->port_num, pir->resv, buf2);
+}
+
+static void dump_one_mcmember_record(void *data)
+{
+	char mgid[INET6_ADDRSTRLEN], gid[INET6_ADDRSTRLEN];
+	ib_member_rec_t *mr = data;
+	uint32_t flow;
+	uint8_t sl, hop, scope, join;
+	ib_member_get_sl_flow_hop(mr->sl_flow_hop, &sl, &flow, &hop);
+	ib_member_get_scope_state(mr->scope_state, &scope, &join);
+	printf("MCMember Record dump:\n"
+	       "\t\tMGID....................%s\n"
+	       "\t\tPortGid.................%s\n"
+	       "\t\tqkey....................0x%x\n"
+	       "\t\tmlid....................0x%x\n"
+	       "\t\tmtu.....................0x%x\n"
+	       "\t\tTClass..................0x%x\n"
+	       "\t\tpkey....................0x%x\n"
+	       "\t\trate....................0x%x\n"
+	       "\t\tpkt_life................0x%x\n"
+	       "\t\tSL......................0x%x\n"
+	       "\t\tFlowLabel...............0x%x\n"
+	       "\t\tHopLimit................0x%x\n"
+	       "\t\tScope...................0x%x\n"
+	       "\t\tJoinState...............0x%x\n"
+	       "\t\tProxyJoin...............0x%x\n",
+	       inet_ntop(AF_INET6, mr->mgid.raw, mgid, sizeof(mgid)),
+	       inet_ntop(AF_INET6, mr->port_gid.raw, gid, sizeof(gid)),
+	       cl_ntoh32(mr->qkey), cl_ntoh16(mr->mlid), mr->mtu, mr->tclass,
+	       cl_ntoh16(mr->pkey), mr->rate, mr->pkt_life, sl,
+	       cl_ntoh32(flow), hop, scope, join, mr->proxy_join);
 }
 
 static void dump_multicast_group_record(void *data)
@@ -814,6 +856,13 @@ static int parse_lid_and_ports(osm_bind_handle_t h,
 		comp_mask |= IB_##name##_COMPMASK_##mask; \
 	}
 
+#define CHECK_AND_SET_VAL_AND_SEL(val, target, name, mask, sel) \
+	if (val) { \
+		target = val; \
+		comp_mask |= IB_##name##_COMPMASK_##mask##sel; \
+		comp_mask |= IB_##name##_COMPMASK_##mask; \
+	}
+
 /*
  * Get the portinfo records available with IsSM or IsSMdisabled CapabilityMask bit on.
  */
@@ -990,12 +1039,29 @@ static int query_path_records(const struct query_cmd *q, osm_bind_handle_t h,
 	ib_path_rec_t pr;
 	ib_net64_t comp_mask = 0;
 	ib_api_status_t status;
+	uint32_t flow = 0;
+	uint16_t qos_class = 0;
+	uint8_t reversible = 0;
 
 	memset(&pr, 0, sizeof(pr));
 	CHECK_AND_SET_GID(p->sgid, pr.sgid, PR, SGID);
 	CHECK_AND_SET_GID(p->dgid, pr.dgid, PR, DGID);
 	CHECK_AND_SET_VAL(p->slid, 16, 0, pr.slid, PR, SLID);
 	CHECK_AND_SET_VAL(p->dlid, 16, 0, pr.dlid, PR, DLID);
+	CHECK_AND_SET_VAL(p->hop_limit, 32, -1, pr.hop_flow_raw, PR, HOPLIMIT);
+	CHECK_AND_SET_VAL(p->flow_label, 8, 0, flow, PR, FLOWLABEL);
+	pr.hop_flow_raw |= cl_hton32(flow << 8);
+	CHECK_AND_SET_VAL(p->tclass, 8, 0, pr.tclass, PR, TCLASS);
+	CHECK_AND_SET_VAL(p->reversible, 8, -1, reversible, PR, REVERSIBLE);
+	CHECK_AND_SET_VAL(p->numb_path, 8, -1, pr.num_path, PR, NUMBPATH);
+	pr.num_path |= reversible << 7;
+	CHECK_AND_SET_VAL(p->pkey, 16, 0, pr.pkey, PR, PKEY);
+	CHECK_AND_SET_VAL(p->sl, 16, -1, pr.qos_class_sl, PR, SL);
+	CHECK_AND_SET_VAL(p->qos_class, 16, -1, qos_class, PR, QOS_CLASS);
+	ib_path_rec_set_qos_class(&pr, qos_class);
+	CHECK_AND_SET_VAL_AND_SEL(p->mtu, pr.mtu, PR, MTU, SELEC);
+	CHECK_AND_SET_VAL_AND_SEL(p->rate, pr.rate, PR, RATE, SELEC);
+	CHECK_AND_SET_VAL_AND_SEL(p->pkt_life, pr.pkt_life, PR, PKTLIFETIME, SELEC);
 
 	status = get_any_records(h, IB_MAD_ATTR_PATH_RECORD, 0, comp_mask,
 				 &pr, ib_get_attr_offset(sizeof(pr)), 0);
@@ -1137,10 +1203,43 @@ static int query_portinfo_records(const struct query_cmd *q,
 	return 0;
 }
 
-static int query_mcmember_records(const struct query_cmd *q, osm_bind_handle_t h,
-				  struct query_params *p, int argc, char *argv[])
+static int query_mcmember_records(const struct query_cmd *q,
+				  osm_bind_handle_t h, struct query_params *p,
+				  int argc, char *argv[])
 {
-	return print_multicast_member_records(h);
+	ib_member_rec_t mr;
+	ib_net64_t comp_mask = 0;
+	ib_api_status_t status;
+	uint32_t flow = 0;
+	uint8_t sl = 0, hop = 0, scope = 0;
+
+	memset(&mr, 0, sizeof(mr));
+	CHECK_AND_SET_GID(p->mgid, mr.mgid, MCR, MGID);
+	CHECK_AND_SET_GID(p->gid, mr.port_gid, MCR, PORT_GID);
+	CHECK_AND_SET_VAL(p->mlid, 16, 0, mr.mlid, MCR, MLID);
+	CHECK_AND_SET_VAL(p->qkey, 32, 0, mr.qkey, MCR, QKEY);
+	CHECK_AND_SET_VAL_AND_SEL(p->mtu, mr.mtu, MCR, MTU, _SEL);
+	CHECK_AND_SET_VAL_AND_SEL(p->rate, mr.rate, MCR, RATE, _SEL);
+	CHECK_AND_SET_VAL_AND_SEL(p->pkt_life, mr.pkt_life, MCR, LIFE, _SEL);
+	CHECK_AND_SET_VAL(p->tclass, 8, 0, mr.tclass, MCR, TCLASS);
+	CHECK_AND_SET_VAL(p->pkey, 16, 0, mr.pkey, MCR, PKEY);
+	CHECK_AND_SET_VAL(p->sl, 8, -1, sl, MCR, SL);
+	CHECK_AND_SET_VAL(p->flow_label, 8, 0, flow, MCR, FLOW);
+	CHECK_AND_SET_VAL(p->hop_limit, 8, -1, hop, MCR, HOP);
+	mr.sl_flow_hop = ib_member_set_sl_flow_hop(sl, flow, hop);
+	CHECK_AND_SET_VAL(p->scope, 8, 0, scope, MCR, SCOPE);
+	CHECK_AND_SET_VAL(p->join_state, 8, 0, mr.scope_state, MCR, JOIN_STATE);
+	mr.scope_state |= scope << 4;
+	CHECK_AND_SET_VAL(p->proxy_join, 8, -1, mr.proxy_join, MCR, PROXY);
+
+	status = get_any_records(h, IB_MAD_ATTR_MCMEMBER_RECORD, 0, comp_mask,
+				 &mr, ib_get_attr_offset(sizeof(mr)), smkey);
+	if (status != IB_SUCCESS)
+		return status;
+
+	dump_results(&result, dump_one_mcmember_record);
+	return_mad();
+	return status;
 }
 
 static int query_service_records(const struct query_cmd *q, osm_bind_handle_t h,
@@ -1581,6 +1680,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 6:
 		p->dlid = strtoul(optarg, NULL, 0);
 		break;
+	case 7:
+		p->mlid = strtoul(optarg, NULL, 0);
+		break;
 	case 14:
 		if (inet_pton(AF_INET6, optarg, &p->sgid) <= 0)
 			ibdiag_show_usage();
@@ -1588,6 +1690,59 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 15:
 		if (inet_pton(AF_INET6, optarg, &p->dgid) <= 0)
 			ibdiag_show_usage();
+		break;
+	case 16:
+		if (inet_pton(AF_INET6, optarg, &p->gid) <= 0)
+			ibdiag_show_usage();
+		break;
+	case 17:
+		if (inet_pton(AF_INET6, optarg, &p->mgid) <= 0)
+			ibdiag_show_usage();
+		break;
+	case 'r':
+		p->reversible = strtoul(optarg, NULL, 0);
+		break;
+	case 'n':
+		p->numb_path = strtoul(optarg, NULL, 0);
+		break;
+	case 18:
+		p->pkey = strtoul(optarg, NULL, 0);
+		break;
+	case 'Q':
+		p->qos_class = strtoul(optarg, NULL, 0);
+		break;
+	case 19:
+		p->sl = strtoul(optarg, NULL, 0);
+		break;
+	case 'M':
+		p->mtu = strtoul(optarg, NULL, 0);
+		break;
+	case 'R':
+		p->rate = strtoul(optarg, NULL, 0);
+		break;
+	case 20:
+		p->pkt_life = strtoul(optarg, NULL, 0);
+		break;
+	case 'q':
+		p->qkey = strtoul(optarg, NULL, 0);
+		break;
+	case 'T':
+		p->tclass = strtoul(optarg, NULL, 0);
+		break;
+	case 'F':
+		p->flow_label = strtoul(optarg, NULL, 0);
+		break;
+	case 'H':
+		p->hop_limit = strtoul(optarg, NULL, 0);
+		break;
+	case 21:
+		p->scope = strtoul(optarg, NULL, 0);
+		break;
+	case 'J':
+		p->join_state = strtoul(optarg, NULL, 0);
+		break;
+	case 'X':
+		p->proxy_join = strtoul(optarg, NULL, 0);
 		break;
 	default:
 		return -1;
@@ -1599,7 +1754,14 @@ int main(int argc, char **argv)
 {
 	char usage_args[1024];
 	osm_bind_handle_t h;
-	struct query_params params = { };
+	struct query_params params = {
+		.hop_limit = -1,
+		.reversible = -1,
+		.numb_path = -1,
+		.qos_class = -1,
+		.sl = -1,
+		.proxy_join = -1,
+	};
 	const struct query_cmd *q;
 	ib_api_status_t status;
 	int n;
@@ -1633,8 +1795,26 @@ int main(int argc, char **argv)
 		 " saquery will prompt for a value"},
 		{ "slid", 5, 1, "<lid>", "Source LID (PathRecord)" },
 		{ "dlid", 6, 1, "<lid>", "Destination LID (PathRecord)" },
+		{ "mlid", 7, 1, "<lid>", "Multicast LID (MCMemberRecord)" },
 		{ "sgid", 14, 1, "<gid>", "Source GID (IPv6 format) (PathRecord)" },
 		{ "dgid", 15, 1, "<gid>", "Destination GID (IPv6 format) (PathRecord)" },
+		{ "gid", 16, 1, "<gid>", "Port GID (MCMemberRecord)" },
+		{ "mgid", 17, 1, "<gid>", "Multicast GID (MCMemberRecord)" },
+		{ "reversible", 'r', 1, NULL, "Reversible path (PathRecord)" },
+		{ "numb_path", 'n', 1, NULL, "Number of paths (PathRecord)" },
+		{ "pkey", 18, 1, NULL, "P_Key (PathRecord, MCMemberRecord)" },
+		{ "qos_calss", 'Q', 1, NULL, "QoS Class (PathRecord)"},
+		{ "sl", 19, 1, NULL, "Service level (PathRecord, MCMemberRecord)" },
+		{ "mtu", 'M', 1, NULL, "MTU and selector (PathRecord, MCMemberRecord)" },
+		{ "rate", 'R', 1, NULL, "Rate and selector (PathRecord, MCMemberRecord)" },
+		{ "pkt_lifetime", 20, 1, NULL, "Packet lifetime and selector (PathRecord, MCMemberRecord)" },
+		{ "qkey", 'q', 1, NULL, "Q_Key (MCMemberRecord)" },
+		{ "tclass", 'T', 1, NULL, "Traffic Class (PathRecord, MCMemberRecord)" },
+		{ "flow_label", 'F', 1, NULL, "Flow Label (PathRecord, MCMemberRecord)" },
+		{ "hop_limit", 'H', 1, NULL, "Hop limit (PathRecord, MCMemberRecord)" },
+		{ "scope", 21, 1, NULL, "Scope (MCMemberRecord)" },
+		{ "join_state", 'J', 1, NULL, "Join state (MCMemberRecord)" },
+		{ "proxy_join", 'X', 1, NULL, "Proxy join (MCMemberRecord)" },
 		{}
 	};
 
