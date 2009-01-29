@@ -1078,7 +1078,7 @@ static int query_node_records(const struct query_cmd *q,
 {
 	ib_node_record_t nr;
 	ib_net64_t comp_mask = 0;
-	int lid;
+	int lid = 0;
 	ib_api_status_t status;
 
 	if (argc > 0)
@@ -1121,7 +1121,7 @@ static int query_portinfo_records(const struct query_cmd *q,
 		comp_mask |= IB_PIR_COMPMASK_LID;
 	}
 	if (port >= 0) {
-		pir.port_num = cl_hton16(port);
+		pir.port_num = port;
 		comp_mask |= IB_PIR_COMPMASK_PORTNUM;
 	}
 
@@ -1316,7 +1316,7 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 		comp_mask |= IB_PKEY_COMPMASK_PORT;
 	}
 	if (block >= 0) {
-		pktr.block_num = block;
+		pktr.block_num = cl_hton16(block);
 		comp_mask |= IB_PKEY_COMPMASK_BLOCK;
 	}
 
