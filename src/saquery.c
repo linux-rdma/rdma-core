@@ -123,10 +123,9 @@ static void print_node_desc(ib_node_record_t * node_record)
 	ib_node_info_t *p_ni = &(node_record->node_info);
 	ib_node_desc_t *p_nd = &(node_record->node_desc);
 
-	if (p_ni->node_type == IB_NODE_TYPE_CA) {
+	if (p_ni->node_type == IB_NODE_TYPE_CA)
 		printf("%6d  \"%s\"\n", cl_ntoh16(node_record->lid),
 		       clean_nodedesc((char *)p_nd->description));
-	}
 }
 
 static void dump_node_record(void *data)
@@ -229,7 +228,7 @@ static void dump_class_port_info(void *data)
 {
 	char gid_str[INET6_ADDRSTRLEN];
 	char gid_str2[INET6_ADDRSTRLEN];
-	ib_class_port_info_t *class_port_info = data;
+	ib_class_port_info_t *cpi = data;
 
 	printf("SA ClassPortInfo:\n"
 	       "\t\tBase version.............%d\n"
@@ -249,24 +248,16 @@ static void dump_class_port_info(void *data)
 	       "\t\tTrap PKey................0x%04X\n"
 	       "\t\tTrap HL/QP...............0x%08X\n"
 	       "\t\tTrap QKey................0x%08X\n",
-	       class_port_info->base_ver, class_port_info->class_ver,
-	       cl_ntoh16(class_port_info->cap_mask),
-	       ib_class_cap_mask2(class_port_info),
-	       ib_class_resp_time_val(class_port_info),
-	       inet_ntop(AF_INET6, &(class_port_info->redir_gid), gid_str,
-			 sizeof gid_str),
-	       cl_ntoh32(class_port_info->redir_tc_sl_fl),
-	       cl_ntoh16(class_port_info->redir_lid),
-	       cl_ntoh16(class_port_info->redir_pkey),
-	       cl_ntoh32(class_port_info->redir_qp),
-	       cl_ntoh32(class_port_info->redir_qkey),
-	       inet_ntop(AF_INET6, &(class_port_info->trap_gid), gid_str2,
-			 sizeof gid_str2),
-	       cl_ntoh32(class_port_info->trap_tc_sl_fl),
-	       cl_ntoh16(class_port_info->trap_lid),
-	       cl_ntoh16(class_port_info->trap_pkey),
-	       cl_ntoh32(class_port_info->trap_hop_qp),
-	       cl_ntoh32(class_port_info->trap_qkey));
+	       cpi->base_ver, cpi->class_ver, cl_ntoh16(cpi->cap_mask),
+	       ib_class_cap_mask2(cpi), ib_class_resp_time_val(cpi),
+	       inet_ntop(AF_INET6, &(cpi->redir_gid), gid_str, sizeof gid_str),
+	       cl_ntoh32(cpi->redir_tc_sl_fl), cl_ntoh16(cpi->redir_lid),
+	       cl_ntoh16(cpi->redir_pkey), cl_ntoh32(cpi->redir_qp),
+	       cl_ntoh32(cpi->redir_qkey),
+	       inet_ntop(AF_INET6, &(cpi->trap_gid), gid_str2, sizeof gid_str2),
+	       cl_ntoh32(cpi->trap_tc_sl_fl), cl_ntoh16(cpi->trap_lid),
+	       cl_ntoh16(cpi->trap_pkey), cl_ntoh32(cpi->trap_hop_qp),
+	       cl_ntoh32(cpi->trap_qkey));
 }
 
 static void dump_portinfo_record(void *data)
@@ -292,9 +283,7 @@ static void dump_one_portinfo_record(void *data)
 	ib_port_info_t *pi = &pir->port_info;
 
 	mad_dump_portinfo(buf, sizeof(buf), pi, sizeof(*pi));
-
 	format_buf(buf, buf2, sizeof(buf2));
-
 	printf("PortInfoRecord dump:\n"
 		"\tRID:\n"
 		"\t\tEndPortLid..............%u\n"
@@ -347,11 +336,10 @@ static void dump_multicast_member_record(void *data)
 	}
 
 	if (requested_name) {
-		if (strtol(requested_name, NULL, 0) == mlid) {
+		if (strtol(requested_name, NULL, 0) == mlid)
 			printf("\t\tPortGid.................%s (%s)\n",
 			       inet_ntop(AF_INET6, p_mcmr->port_gid.raw,
 					 gid_str, sizeof gid_str), node_name);
-		}
 	} else {
 		printf("MCMemberRecord member dump:\n"
 		       "\t\tMGID....................%s\n"
@@ -371,7 +359,7 @@ static void dump_multicast_member_record(void *data)
 
 static void dump_service_record(void *data)
 {
-	char gid_str[INET6_ADDRSTRLEN];
+	char gid[INET6_ADDRSTRLEN];
 	char buf_service_key[35];
 	char buf_service_name[65];
 	ib_service_record_t *p_sr = data;
@@ -427,8 +415,7 @@ static void dump_service_record(void *data)
 	       "\t\tServiceData64.1.........0x%016" PRIx64 "\n"
 	       "\t\tServiceData64.2.........0x%016" PRIx64 "\n",
 	       cl_ntoh64(p_sr->service_id),
-	       inet_ntop(AF_INET6, p_sr->service_gid.raw, gid_str,
-			 sizeof gid_str),
+	       inet_ntop(AF_INET6, p_sr->service_gid.raw, gid, sizeof gid),
 	       cl_ntoh16(p_sr->service_pkey), cl_ntoh32(p_sr->service_lease),
 	       buf_service_key, buf_service_name,
 	       p_sr->service_data8[0], p_sr->service_data8[1],
@@ -466,8 +453,7 @@ static void dump_inform_info_record(void *data)
 	ib_inform_info_get_qpn_resp_time(p_iir->inform_info.g_or_v.generic.
 					 qpn_resp_time_val, &qpn,
 					 &resp_time_val);
-
-	if (p_iir->inform_info.is_generic) {
+	if (p_iir->inform_info.is_generic)
 		printf("InformInfoRecord dump:\n"
 		       "\t\tRID\n"
 		       "\t\tSubscriberGID...........%s\n"
@@ -497,7 +483,7 @@ static void dump_inform_info_record(void *data)
 		       cl_ntoh32(qpn), resp_time_val,
 		       cl_ntoh32(ib_inform_info_get_prod_type
 				 (&p_iir->inform_info)));
-	} else {
+	else
 		printf("InformInfoRecord dump:\n"
 		       "\t\tRID\n"
 		       "\t\tSubscriberGID...........%s\n"
@@ -527,7 +513,6 @@ static void dump_inform_info_record(void *data)
 		       cl_ntoh32(qpn), resp_time_val,
 		       cl_ntoh32(ib_inform_info_get_prod_type
 				 (&p_iir->inform_info)));
-	}
 }
 
 static void dump_one_link_record(void *data)
@@ -574,23 +559,21 @@ static void dump_one_vlarb_record(void *data)
 	       "\t\tPort.......................%u\n"
 	       "\t\tBlock......................%u\n",
 	       cl_ntoh16(vlarb->lid), vlarb->port_num, vlarb->block_num);
-	for (i = 0; i < 32; i += 16) {
+	for (i = 0; i < 32; i += 16)
 		printf("\t\tVL    :%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|"
-		       "%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|",
+		       "%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|\n"
+		       "\t\tWeight:%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|"
+		       "%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|\n",
 		       e[i + 0].vl, e[i + 1].vl, e[i + 2].vl, e[i + 3].vl,
 		       e[i + 4].vl, e[i + 5].vl, e[i + 6].vl, e[i + 7].vl,
 		       e[i + 8].vl, e[i + 9].vl, e[i + 10].vl, e[i + 11].vl,
-		       e[i + 12].vl, e[i + 13].vl, e[i + 14].vl, e[i + 15].vl);
-		printf("\n\t\tWeight:%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|"
-		       "%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|",
+		       e[i + 12].vl, e[i + 13].vl, e[i + 14].vl, e[i + 15].vl,
 		       e[i + 0].weight, e[i + 1].weight, e[i + 2].weight,
 		       e[i + 3].weight, e[i + 4].weight, e[i + 5].weight,
 		       e[i + 6].weight, e[i + 7].weight, e[i + 8].weight,
 		       e[i + 9].weight, e[i + 10].weight, e[i + 11].weight,
 		       e[i + 12].weight, e[i + 13].weight, e[i + 14].weight,
 		       e[i + 15].weight);
-		printf("\n");
-	}
 }
 
 static void dump_one_pkey_tbl_record(void *data)
@@ -845,15 +828,13 @@ static ib_api_status_t print_node_records(osm_bind_handle_t h)
 		if (node_print_desc == ALL_DESC) {
 			print_node_desc(node_record);
 		} else if (node_print_desc == NAME_OF_LID) {
-			if (requested_lid == cl_ntoh16(node_record->lid)) {
+			if (requested_lid == cl_ntoh16(node_record->lid))
 				print_node_record(node_record);
-			}
 		} else if (node_print_desc == NAME_OF_GUID) {
 			ib_node_info_t *p_ni = &(node_record->node_info);
 
-			if (requested_guid == cl_ntoh64(p_ni->port_guid)) {
+			if (requested_guid == cl_ntoh64(p_ni->port_guid))
 				print_node_record(node_record);
-			}
 		} else {
 			if (!requested_name ||
 			    (strncmp(requested_name,
@@ -1091,9 +1072,8 @@ static int query_node_records(const struct query_cmd *q,
 		comp_mask |= IB_NR_COMPMASK_LID;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_NODE_RECORD, 0,
-				 comp_mask, &nr,
-				 ib_get_attr_offset(sizeof(nr)), 0);
+	status = get_any_records(h, IB_MAD_ATTR_NODE_RECORD, 0, comp_mask,
+				 &nr, ib_get_attr_offset(sizeof(nr)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1125,9 +1105,8 @@ static int query_portinfo_records(const struct query_cmd *q,
 		comp_mask |= IB_PIR_COMPMASK_PORTNUM;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_PORTINFO_RECORD, 0,
-				 comp_mask, &pir,
-				 ib_get_attr_offset(sizeof(pir)), 0);
+	status = get_any_records(h, IB_MAD_ATTR_PORTINFO_RECORD, 0, comp_mask,
+				 &pir, ib_get_attr_offset(sizeof(pir)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1209,9 +1188,8 @@ static int query_link_records(const struct query_cmd *q,
 		comp_mask |= IB_LR_COMPMASK_TO_PORT;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_LINK_RECORD, 0,
-				 comp_mask, &lr,
-				 ib_get_attr_offset(sizeof(lr)), 0);
+	status = get_any_records(h, IB_MAD_ATTR_LINK_RECORD, 0, comp_mask,
+				 &lr, ib_get_attr_offset(sizeof(lr)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1246,9 +1224,8 @@ static int query_sl2vl_records(const struct query_cmd *q,
 		comp_mask |= IB_SLVL_COMPMASK_OUT_PORT;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_SLVL_RECORD, 0,
-				 comp_mask, &slvl,
-				 ib_get_attr_offset(sizeof(slvl)), 0);
+	status = get_any_records(h, IB_MAD_ATTR_SLVL_RECORD, 0, comp_mask,
+				 &slvl, ib_get_attr_offset(sizeof(slvl)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1283,9 +1260,8 @@ static int query_vlarb_records(const struct query_cmd *q,
 		comp_mask |= IB_VLA_COMPMASK_BLOCK;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_VLARB_RECORD, 0,
-				 comp_mask, &vlarb,
-				 ib_get_attr_offset(sizeof(vlarb)), 0);
+	status = get_any_records(h, IB_MAD_ATTR_VLARB_RECORD, 0, comp_mask,
+				 &vlarb, ib_get_attr_offset(sizeof(vlarb)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1320,9 +1296,8 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 		comp_mask |= IB_PKEY_COMPMASK_BLOCK;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_PKEY_TBL_RECORD, 0,
-				 comp_mask, &pktr,
-				 ib_get_attr_offset(sizeof(pktr)), smkey);
+	status = get_any_records(h, IB_MAD_ATTR_PKEY_TBL_RECORD, 0, comp_mask,
+				 &pktr, ib_get_attr_offset(sizeof(pktr)), smkey);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1353,9 +1328,8 @@ static int query_lft_records(const struct query_cmd *q,
 		comp_mask |= IB_LFTR_COMPMASK_BLOCK;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_LFT_RECORD, 0,
-				 comp_mask, &lftr,
-				 ib_get_attr_offset(sizeof(lftr)), 0);
+	status = get_any_records(h, IB_MAD_ATTR_LFT_RECORD, 0, comp_mask,
+				 &lftr, ib_get_attr_offset(sizeof(lftr)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1391,9 +1365,8 @@ static int query_mft_records(const struct query_cmd *q,
 		comp_mask |= IB_MFTR_COMPMASK_BLOCK;
 	}
 
-	status = get_any_records(h, IB_MAD_ATTR_MFT_RECORD, 0,
-				 comp_mask, &mftr,
-				 ib_get_attr_offset(sizeof(mftr)), 0);
+	status = get_any_records(h, IB_MAD_ATTR_MFT_RECORD, 0, comp_mask,
+				 &mftr, ib_get_attr_offset(sizeof(mftr)), 0);
 	if (status != IB_SUCCESS)
 		return status;
 
@@ -1730,9 +1703,8 @@ int main(int argc, char **argv)
 		} else if (node_print_desc == NAME_OF_GUID) {
 			requested_guid = (ib_net64_t) strtoul(argv[0], NULL, 0);
 			requested_guid_flag++;
-		} else {
+		} else
 			requested_name = argv[0];
-		}
 	}
 
 	if ((node_print_desc == LID_ONLY ||
@@ -1770,12 +1742,11 @@ int main(int argc, char **argv)
 			src_lid = get_lid(h, src);
 			dst_lid = get_lid(h, dst);
 			printf("Path record for %s -> %s\n", src, dst);
-			if (src_lid == 0 || dst_lid == 0) {
+			if (src_lid == 0 || dst_lid == 0)
 				status = IB_UNKNOWN_ERROR;
-			} else {
+			else
 				status =
 				    get_print_path_rec_lid(h, src_lid, dst_lid);
-			}
 		} else if (sgid && dgid) {
 			struct in6_addr src_addr, dst_addr;
 
