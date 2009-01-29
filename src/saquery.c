@@ -790,6 +790,13 @@ static int parse_lid_and_ports(osm_bind_handle_t h,
 	return 0;
 }
 
+#define cl_hton8(x) (x)
+#define CHECK_AND_SET_VAL(val, size, comp_with, target, name, mask) \
+	if (val > comp_with) { \
+		target = cl_hton##size(val); \
+		comp_mask |= IB_##name##_COMPMASK_##mask; \
+	}
+
 /*
  * Get the portinfo records available with IsSM or IsSMdisabled CapabilityMask bit on.
  */
@@ -1066,11 +1073,7 @@ static int query_node_records(const struct query_cmd *q,
 		parse_lid_and_ports(h, argv[0], &lid, NULL, NULL);
 
 	memset(&nr, 0, sizeof(nr));
-
-	if (lid > 0) {
-		nr.lid = cl_hton16(lid);
-		comp_mask |= IB_NR_COMPMASK_LID;
-	}
+	CHECK_AND_SET_VAL(lid, 16, 0, nr.lid, NR, LID);
 
 	status = get_any_records(h, IB_MAD_ATTR_NODE_RECORD, 0, comp_mask,
 				 &nr, ib_get_attr_offset(sizeof(nr)), 0);
@@ -1095,15 +1098,8 @@ static int query_portinfo_records(const struct query_cmd *q,
 		parse_lid_and_ports(h, argv[0], &lid, &port, NULL);
 
 	memset(&pir, 0, sizeof(pir));
-
-	if (lid > 0) {
-		pir.lid = cl_hton16(lid);
-		comp_mask |= IB_PIR_COMPMASK_LID;
-	}
-	if (port >= 0) {
-		pir.port_num = port;
-		comp_mask |= IB_PIR_COMPMASK_PORTNUM;
-	}
+	CHECK_AND_SET_VAL(lid, 16, 0, pir.lid, PIR, LID);
+	CHECK_AND_SET_VAL(port, 8, -1, pir.port_num, PIR, PORTNUM);
 
 	status = get_any_records(h, IB_MAD_ATTR_PORTINFO_RECORD, 0, comp_mask,
 				 &pir, ib_get_attr_offset(sizeof(pir)), 0);
@@ -1170,23 +1166,10 @@ static int query_link_records(const struct query_cmd *q,
 		parse_lid_and_ports(h, argv[1], &to_lid, &to_port, NULL);
 
 	memset(&lr, 0, sizeof(lr));
-
-	if (from_lid > 0) {
-		lr.from_lid = cl_hton16(from_lid);
-		comp_mask |= IB_LR_COMPMASK_FROM_LID;
-	}
-	if (from_port >= 0) {
-		lr.from_port_num = from_port;
-		comp_mask |= IB_LR_COMPMASK_FROM_PORT;
-	}
-	if (to_lid > 0) {
-		lr.to_lid = cl_hton16(to_lid);
-		comp_mask |= IB_LR_COMPMASK_TO_LID;
-	}
-	if (to_port >= 0) {
-		lr.to_port_num = to_port;
-		comp_mask |= IB_LR_COMPMASK_TO_PORT;
-	}
+	CHECK_AND_SET_VAL(from_lid, 16, 0, lr.from_lid, LR, FROM_LID);
+	CHECK_AND_SET_VAL(from_port, 8, -1, lr.from_port_num, LR, FROM_PORT);
+	CHECK_AND_SET_VAL(to_lid, 16, 0, lr.to_lid, LR, TO_LID);
+	CHECK_AND_SET_VAL(to_port, 8, -1, lr.to_port_num, LR, TO_PORT);
 
 	status = get_any_records(h, IB_MAD_ATTR_LINK_RECORD, 0, comp_mask,
 				 &lr, ib_get_attr_offset(sizeof(lr)), 0);
@@ -1210,19 +1193,9 @@ static int query_sl2vl_records(const struct query_cmd *q,
 		parse_lid_and_ports(h, argv[0], &lid, &in_port, &out_port);
 
 	memset(&slvl, 0, sizeof(slvl));
-
-	if (lid > 0) {
-		slvl.lid = cl_hton16(lid);
-		comp_mask |= IB_SLVL_COMPMASK_LID;
-	}
-	if (in_port >= 0) {
-		slvl.in_port_num = in_port;
-		comp_mask |= IB_SLVL_COMPMASK_IN_PORT;
-	}
-	if (out_port >= 0) {
-		slvl.out_port_num = out_port;
-		comp_mask |= IB_SLVL_COMPMASK_OUT_PORT;
-	}
+	CHECK_AND_SET_VAL(lid, 16, 0, slvl.lid, SLVL, LID);
+	CHECK_AND_SET_VAL(in_port, 8, -1, slvl.in_port_num, SLVL, IN_PORT);
+	CHECK_AND_SET_VAL(out_port, 8, -1, slvl.out_port_num, SLVL, OUT_PORT);
 
 	status = get_any_records(h, IB_MAD_ATTR_SLVL_RECORD, 0, comp_mask,
 				 &slvl, ib_get_attr_offset(sizeof(slvl)), 0);
@@ -1246,19 +1219,9 @@ static int query_vlarb_records(const struct query_cmd *q,
 		parse_lid_and_ports(h, argv[0], &lid, &port, &block);
 
 	memset(&vlarb, 0, sizeof(vlarb));
-
-	if (lid > 0) {
-		vlarb.lid = cl_hton16(lid);
-		comp_mask |= IB_VLA_COMPMASK_LID;
-	}
-	if (port >= 0) {
-		vlarb.port_num = port;
-		comp_mask |= IB_VLA_COMPMASK_OUT_PORT;
-	}
-	if (block >= 0) {
-		vlarb.block_num = block;
-		comp_mask |= IB_VLA_COMPMASK_BLOCK;
-	}
+	CHECK_AND_SET_VAL(lid, 16, 0, vlarb.lid, VLA, LID);
+	CHECK_AND_SET_VAL(port, 8, -1, vlarb.port_num, VLA, OUT_PORT);
+	CHECK_AND_SET_VAL(block, 8, -1, vlarb.block_num, VLA, BLOCK);
 
 	status = get_any_records(h, IB_MAD_ATTR_VLARB_RECORD, 0, comp_mask,
 				 &vlarb, ib_get_attr_offset(sizeof(vlarb)), 0);
@@ -1282,19 +1245,9 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 		parse_lid_and_ports(h, argv[0], &lid, &port, &block);
 
 	memset(&pktr, 0, sizeof(pktr));
-
-	if (lid > 0) {
-		pktr.lid = cl_hton16(lid);
-		comp_mask |= IB_PKEY_COMPMASK_LID;
-	}
-	if (port >= 0) {
-		pktr.port_num = port;
-		comp_mask |= IB_PKEY_COMPMASK_PORT;
-	}
-	if (block >= 0) {
-		pktr.block_num = cl_hton16(block);
-		comp_mask |= IB_PKEY_COMPMASK_BLOCK;
-	}
+	CHECK_AND_SET_VAL(lid, 16, 0, pktr.lid, PKEY, LID);
+	CHECK_AND_SET_VAL(port, 8, -1, pktr.port_num, PKEY, PORT);
+	CHECK_AND_SET_VAL(block, 16, -1, pktr.port_num, PKEY, BLOCK);
 
 	status = get_any_records(h, IB_MAD_ATTR_PKEY_TBL_RECORD, 0, comp_mask,
 				 &pktr, ib_get_attr_offset(sizeof(pktr)), smkey);
@@ -1318,15 +1271,8 @@ static int query_lft_records(const struct query_cmd *q,
 		parse_lid_and_ports(h, argv[0], &lid, &block, NULL);
 
 	memset(&lftr, 0, sizeof(lftr));
-
-	if (lid > 0) {
-		lftr.lid = cl_hton16(lid);
-		comp_mask |= IB_LFTR_COMPMASK_LID;
-	}
-	if (block >= 0) {
-		lftr.block_num = cl_hton16(block);
-		comp_mask |= IB_LFTR_COMPMASK_BLOCK;
-	}
+	CHECK_AND_SET_VAL(lid, 16, 0, lftr.lid, LFTR, LID);
+	CHECK_AND_SET_VAL(block, 16, -1, lftr.block_num, LFTR, BLOCK);
 
 	status = get_any_records(h, IB_MAD_ATTR_LFT_RECORD, 0, comp_mask,
 				 &lftr, ib_get_attr_offset(sizeof(lftr)), 0);
@@ -1344,26 +1290,18 @@ static int query_mft_records(const struct query_cmd *q,
 	ib_mft_record_t mftr;
 	ib_net64_t comp_mask = 0;
 	int lid = 0, block = -1, position = -1;
+	uint16_t pos = 0;
 	ib_api_status_t status;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &lid, &position, &block);
 
 	memset(&mftr, 0, sizeof(mftr));
-
-	if (lid > 0) {
-		mftr.lid = cl_hton16(lid);
-		comp_mask |= IB_MFTR_COMPMASK_LID;
-	}
-	if (position >= 0) {
-		mftr.position_block_num = cl_hton16(position << 12);
-		comp_mask |= IB_MFTR_COMPMASK_POSITION;
-	}
-	if (block >= 0) {
-		mftr.position_block_num |=
-		    cl_hton16(block & IB_MCAST_BLOCK_ID_MASK_HO);
-		comp_mask |= IB_MFTR_COMPMASK_BLOCK;
-	}
+	CHECK_AND_SET_VAL(lid, 16, 0, mftr.lid, MFTR, LID);
+	CHECK_AND_SET_VAL(block, 16, -1, mftr.position_block_num, MFTR, BLOCK);
+	mftr.position_block_num &= cl_hton16(IB_MCAST_BLOCK_ID_MASK_HO);
+	CHECK_AND_SET_VAL(position, 8, -1, pos, MFTR, POSITION);
+	mftr.position_block_num |= cl_hton16(pos << 12);
 
 	status = get_any_records(h, IB_MAD_ATTR_MFT_RECORD, 0, comp_mask,
 				 &mftr, ib_get_attr_offset(sizeof(mftr)), 0);
