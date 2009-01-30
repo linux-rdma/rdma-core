@@ -926,81 +926,6 @@ static ib_api_status_t print_node_records(osm_bind_handle_t h)
 	return (status);
 }
 
-static ib_api_status_t
-get_print_path_rec_lid(osm_bind_handle_t h, struct query_params *p)
-{
-	osmv_query_req_t req;
-	osmv_lid_pair_t lid_pair;
-	ib_api_status_t status;
-
-	lid_pair.src_lid = cl_hton16(p->slid);
-	lid_pair.dest_lid = cl_hton16(p->dlid);
-
-	memset(&req, 0, sizeof(req));
-
-	req.query_type = OSMV_QUERY_PATH_REC_BY_LIDS;
-	req.timeout_ms = ibd_timeout;
-	req.retry_cnt = 1;
-	req.flags = OSM_SA_FLAGS_SYNC;
-	req.query_context = NULL;
-	req.pfn_query_cb = query_res_cb;
-	req.p_query_input = (void *)&lid_pair;
-	req.sm_key = 0;
-
-	if ((status = osmv_query_sa(h, &req)) != IB_SUCCESS) {
-		fprintf(stderr, "ERROR: Query SA failed: %s\n",
-			ib_get_err_str(status));
-		return (status);
-	}
-	if (result.status != IB_SUCCESS) {
-		fprintf(stderr, "ERROR: Query result returned: %s\n",
-			ib_get_err_str(result.status));
-		return (result.status);
-	}
-	status = result.status;
-	printf("Path record for %u -> %u\n", p->slid, p->dlid);
-	dump_results(&result, dump_path_record);
-	return_mad();
-	return (status);
-}
-
-static ib_api_status_t
-get_print_path_rec_gid(osm_bind_handle_t h, struct query_params *p)
-{
-	osmv_query_req_t req;
-	osmv_gid_pair_t gid_pair;
-	ib_api_status_t status;
-
-	gid_pair.src_gid = p->sgid;
-	gid_pair.dest_gid = p->dgid;
-
-	memset(&req, 0, sizeof(req));
-
-	req.query_type = OSMV_QUERY_PATH_REC_BY_GIDS;
-	req.timeout_ms = ibd_timeout;
-	req.retry_cnt = 1;
-	req.flags = OSM_SA_FLAGS_SYNC;
-	req.query_context = NULL;
-	req.pfn_query_cb = query_res_cb;
-	req.p_query_input = (void *)&gid_pair;
-	req.sm_key = 0;
-
-	if ((status = osmv_query_sa(h, &req)) != IB_SUCCESS) {
-		fprintf(stderr, "ERROR: Query SA failed: %s\n",
-			ib_get_err_str(status));
-		return (status);
-	}
-	if (result.status != IB_SUCCESS) {
-		fprintf(stderr, "ERROR: Query result returned: %s\n",
-			ib_get_err_str(result.status));
-		return (result.status);
-	}
-	status = result.status;
-	dump_results(&result, dump_path_record);
-	return_mad();
-	return (status);
-}
-
 static ib_api_status_t get_print_class_port_info(osm_bind_handle_t h)
 {
 	osmv_query_req_t req;
@@ -1572,7 +1497,6 @@ static const struct query_cmd *find_query_by_type(ib_net16_t type)
 enum saquery_command {
 	SAQUERY_CMD_QUERY,
 	SAQUERY_CMD_NODE_RECORD,
-	SAQUERY_CMD_PATH_RECORD,
 	SAQUERY_CMD_CLASS_PORT_INFO,
 	SAQUERY_CMD_ISSM,
 	SAQUERY_CMD_MCGROUPS,
@@ -1596,7 +1520,8 @@ static int process_opt(void *context, int ch, char *optarg)
 				ibdiag_show_usage();
 			*dst_lid++ = '\0';
 		}
-		command = SAQUERY_CMD_PATH_RECORD;
+		p->numb_path = 0x7f;
+		query_type = IB_MAD_ATTR_PATH_RECORD;
 		break;
 	case 2:
 		{
@@ -1611,7 +1536,8 @@ static int process_opt(void *context, int ch, char *optarg)
 				ibdiag_show_usage();
 			free(src_addr);
 		}
-		command = SAQUERY_CMD_PATH_RECORD;
+		p->numb_path = 0x7f;
+		query_type = IB_MAD_ATTR_PATH_RECORD;
 		break;
 	case 3:
 		node_name_map_file = strdup(optarg);
@@ -1895,14 +1821,6 @@ int main(int argc, char **argv)
 	switch (command) {
 	case SAQUERY_CMD_NODE_RECORD:
 		status = print_node_records(h);
-		break;
-	case SAQUERY_CMD_PATH_RECORD:
-		if (params.slid && params.dlid)
-			status = get_print_path_rec_lid(h, &params);
-		else if (valid_gid(&params.sgid) && valid_gid(&params.dgid))
-			status = get_print_path_rec_gid(h, &params);
-		else
-			status = query_path_records(q, h, &params, 0, NULL);
 		break;
 	case SAQUERY_CMD_CLASS_PORT_INFO:
 		status = get_print_class_port_info(h);
