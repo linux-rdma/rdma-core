@@ -361,6 +361,8 @@ get_ca(char *ca_name, umad_ca_t *ca)
 	int r, i, ret;
 	int portnum;
 
+	ca->numports = 0;
+	memset(ca->ports, 0, sizeof ca->ports);
 	strncpy(ca->ca_name, ca_name, sizeof ca->ca_name);
 
 	snprintf(dir_name, sizeof(dir_name), "%s/%s", SYS_INFINIBAND,
@@ -394,8 +396,6 @@ get_ca(char *ca_name, umad_ca_t *ca)
 	}
 
 	ret = 0;
-	ca->numports = 0;
-	memset(ca->ports, 0, sizeof ca->ports);
 	for (i = 0; i < r; i++) {
 		portnum = 0;
 		if (!strcmp(".", namelist[i]->d_name) ||
