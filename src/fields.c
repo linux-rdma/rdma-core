@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -118,7 +119,7 @@ static const ib_field_t ib_mad_f[] = {
 	{1536, 512, "DrSmpRetPath", mad_dump_hex},
 
 	/*
-	 * PortInfo fields:
+	 * PortInfo fields
 	 */
 	{0, 64, "Mkey", mad_dump_hex},
 	{64, 64, "GidPrefix", mad_dump_hex},
@@ -169,7 +170,7 @@ static const ib_field_t ib_mad_f[] = {
 	{0, 0},			/* IB_PORT_LAST_F */
 
 	/*
-	 * NodeInfo fields:
+	 * NodeInfo fields
 	 */
 	{BITSOFFS(0, 8), "BaseVers", mad_dump_uint},
 	{BITSOFFS(8, 8), "ClassVers", mad_dump_uint},
@@ -186,7 +187,7 @@ static const ib_field_t ib_mad_f[] = {
 	{0, 0},			/* IB_NODE_LAST_F */
 
 	/*
-	 * SwitchInfo fields:
+	 * SwitchInfo fields
 	 */
 	{BITSOFFS(0, 16), "LinearFdbCap", mad_dump_uint},
 	{BITSOFFS(16, 16), "RandomFdbCap", mad_dump_uint},
@@ -207,17 +208,17 @@ static const ib_field_t ib_mad_f[] = {
 	{0, 0},			/* IB_SW_LAST_F */
 
 	/*
-	 * SwitchLinearForwardingTable fields:
+	 * SwitchLinearForwardingTable fields
 	 */
 	{0, 512, "LinearForwTbl", mad_dump_array},
 
 	/*
-	 * SwitchMulticastForwardingTable fields:
+	 * SwitchMulticastForwardingTable fields
 	 */
 	{0, 512, "MulticastForwTbl", mad_dump_array},
 
 	/*
-	 * NodeDescription fields:
+	 * NodeDescription fields
 	 */
 	{0, 64 * 8, "NodeDesc", mad_dump_string},
 
@@ -374,6 +375,33 @@ static const ib_field_t ib_mad_f[] = {
 	 * GUIDInfo fields
 	 */
 	{0, 64, "GUID0", mad_dump_hex},
+
+	/*
+	 * ClassPortInfo fields
+	 */
+	{BITSOFFS(0, 8), "BaseVersion", mad_dump_uint},
+	{BITSOFFS(8, 8), "ClassVersion", mad_dump_uint},
+	{BITSOFFS(16, 16), "CapabilityMask", mad_dump_hex},
+	{BITSOFFS(32, 27), "CapabilityMask2", mad_dump_hex},
+	{BITSOFFS(59, 5), "RespTimeVal", mad_dump_uint},
+	{64, 128, "RedirectGID", mad_dump_array},
+	{BITSOFFS(192, 8), "RedirectTC", mad_dump_hex},
+	{BITSOFFS(200, 4), "RedirectSL", mad_dump_uint},
+	{BITSOFFS(204, 20), "RedirectFL", mad_dump_hex},
+	{BITSOFFS(224, 16), "RedirectLID", mad_dump_hex},
+	{BITSOFFS(240, 16), "RedirectPKey", mad_dump_hex},
+	{BITSOFFS(264, 24), "RedirectQP", mad_dump_hex},
+	{288, 32, "RedirectQKey", mad_dump_hex},
+	{320, 128, "TrapGID", mad_dump_array},
+	{BITSOFFS(448, 8), "TrapTC", mad_dump_hex},
+	{BITSOFFS(456, 4), "TrapSL", mad_dump_uint},
+	{BITSOFFS(460, 20), "TrapFL", mad_dump_hex},
+	{BITSOFFS(480, 16), "TrapLID", mad_dump_hex},
+	{BITSOFFS(496, 16), "TrapPKey", mad_dump_hex},
+	{BITSOFFS(512, 8), "TrapHL", mad_dump_uint},
+	{BITSOFFS(520, 24), "TrapQP", mad_dump_hex},
+	{544, 32, "TrapQKey", mad_dump_hex},
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };

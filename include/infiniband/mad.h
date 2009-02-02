@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -262,7 +263,7 @@ enum MAD_FIELDS {
 	IB_DRSMP_RPATH_F,
 
 	/*
-	 * PortInfo fields:
+	 * PortInfo fields
 	 */
 	IB_PORT_FIRST_F,
 	IB_PORT_MKEY_F = IB_PORT_FIRST_F,
@@ -314,7 +315,7 @@ enum MAD_FIELDS {
 	IB_PORT_LAST_F,
 
 	/*
-	 * NodeInfo fields:
+	 * NodeInfo fields
 	 */
 	IB_NODE_FIRST_F,
 	IB_NODE_BASE_VERS_F = IB_NODE_FIRST_F,
@@ -332,7 +333,7 @@ enum MAD_FIELDS {
 	IB_NODE_LAST_F,
 
 	/*
-	 * SwitchInfo fields:
+	 * SwitchInfo fields
 	 */
 	IB_SW_FIRST_F,
 	IB_SW_LINEAR_FDB_CAP_F = IB_SW_FIRST_F,
@@ -354,17 +355,17 @@ enum MAD_FIELDS {
 	IB_SW_LAST_F,
 
 	/*
-	 * SwitchLinearForwardingTable fields:
+	 * SwitchLinearForwardingTable fields
 	 */
 	IB_LINEAR_FORW_TBL_F,
 
 	/*
-	 * SwitchMulticastForwardingTable fields:
+	 * SwitchMulticastForwardingTable fields
 	 */
 	IB_MULTICAST_FORW_TBL_F,
 
 	/*
-	 * NodeDescription fields:
+	 * NodeDescription fields
 	 */
 	IB_NODE_DESC_F,
 
@@ -523,6 +524,32 @@ enum MAD_FIELDS {
 	 * GUIDInfo fields
 	 */
 	IB_GUID_GUID0_F,
+
+	/*
+	 * ClassPortInfo fields
+	 */
+	IB_CPI_BASEVER_F,
+	IB_CPI_CLASSVER_F,
+	IB_CPI_CAPMASK_F,
+	IB_CPI_CAPMASK2_F,
+	IB_CPI_RESP_TIME_VALUE_F,
+	IB_CPI_REDIRECT_GID_F,
+	IB_CPI_REDIRECT_TC_F,
+	IB_CPI_REDIRECT_SL_F,
+	IB_CPI_REDIRECT_FL_F,
+	IB_CPI_REDIRECT_LID_F,
+	IB_CPI_REDIRECT_PKEY_F,
+	IB_CPI_REDIRECT_QP_F,
+	IB_CPI_REDIRECT_QKEY_F,
+	IB_CPI_TRAP_GID_F,
+	IB_CPI_TRAP_TC_F,
+	IB_CPI_TRAP_SL_F,
+	IB_CPI_TRAP_FL_F,
+	IB_CPI_TRAP_LID_F,
+	IB_CPI_TRAP_PKEY_F,
+	IB_CPI_TRAP_HL_F,
+	IB_CPI_TRAP_QP_F,
+	IB_CPI_TRAP_QKEY_F,
 
 	IB_FIELD_LAST_		/* must be last */
 };
