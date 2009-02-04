@@ -46,10 +46,10 @@ void mad_dump_int(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%d", *(uint8_t *) val);
+		snprintf(buf, bufsz, "%d", *(uint32_t *) val & 0xff);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%d", *(uint16_t *) val);
+		snprintf(buf, bufsz, "%d", *(uint32_t *) val & 0xffff);
 		break;
 	case 3:
 	case 4:
@@ -71,10 +71,10 @@ void mad_dump_uint(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%u", *(uint8_t *) val);
+		snprintf(buf, bufsz, "%u", *(uint32_t *) val & 0xff);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%u", *(uint16_t *) val);
+		snprintf(buf, bufsz, "%u", *(uint32_t *) val & 0xffff);
 		break;
 	case 3:
 	case 4:
@@ -96,10 +96,10 @@ void mad_dump_hex(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "0x%02x", *(uint8_t *) val);
+		snprintf(buf, bufsz, "0x%02x", *(uint32_t *) val & 0xff);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "0x%04x", *(uint16_t *) val);
+		snprintf(buf, bufsz, "0x%04x", *(uint32_t *) val & 0xffff);
 		break;
 	case 3:
 		snprintf(buf, bufsz, "0x%06x", *(uint32_t *) val & 0xffffff);
@@ -132,10 +132,10 @@ void mad_dump_rhex(char *buf, int bufsz, void *val, int valsz)
 {
 	switch (valsz) {
 	case 1:
-		snprintf(buf, bufsz, "%02x", *(uint8_t *) val);
+		snprintf(buf, bufsz, "%02x", *(uint32_t *) val & 0xff);
 		break;
 	case 2:
-		snprintf(buf, bufsz, "%04x", *(uint16_t *) val);
+		snprintf(buf, bufsz, "%04x", *(uint32_t *) val & 0xffff);
 		break;
 	case 3:
 		snprintf(buf, bufsz, "%06x", *(uint32_t *) val & 0xffffff);
