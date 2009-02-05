@@ -765,7 +765,7 @@ umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
 {
 	struct ib_user_mad *mad = umad;
 
-	TRACE("umad %p dlid %d dqp %d sl %d, qkey %x",
+	TRACE("umad %p dlid %u dqp %d sl %d, qkey %x",
 	      umad, dlid, dqp, sl, qkey);
 	mad->addr.qpn = htonl(dqp);
 	mad->addr.lid = htons(dlid);
@@ -780,7 +780,7 @@ umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 {
 	struct ib_user_mad *mad = umad;
 
-	TRACE("umad %p dlid %d dqp %d sl %d qkey %x",
+	TRACE("umad %p dlid %u dqp %d sl %d qkey %x",
 	      umad, ntohs(dlid), ntohl(dqp), sl, ntohl(qkey));
 	mad->addr.qpn = dqp;
 	mad->addr.lid = dlid;
@@ -1017,7 +1017,7 @@ umad_addr_dump(ib_mad_addr_t *addr)
 		gid_str[i*2+1] = HEX(addr->gid[i] & 0xf);
 	}
 	gid_str[i*2] = 0;
-	IBWARN("qpn %d qkey 0x%x lid 0x%x sl %d\n"
+	IBWARN("qpn %d qkey 0x%x lid %u sl %d\n"
 		"grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x pkey_index 0x%x\n"
 		"Gid 0x%s",
 		ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
