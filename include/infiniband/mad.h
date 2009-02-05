@@ -622,14 +622,14 @@ typedef struct ib_vendor_call {
 #define MAD_DEF_RETRIES		3
 #define MAD_DEF_TIMEOUT_MS	1000
 
-enum {
+enum MAD_DEST {
 	IB_DEST_LID,
 	IB_DEST_DRPATH,
 	IB_DEST_GUID,
 	IB_DEST_DRSLID,
 };
 
-enum {
+enum MAD_NODE_TYPE {
 	IB_NODE_CA = 1,
 	IB_NODE_SWITCH,
 	IB_NODE_ROUTER,
@@ -658,20 +658,20 @@ static inline int ib_portid_set(ib_portid_t * portid, int lid, int qp, int qkey)
 }
 
 /* fields.c */
-MAD_EXPORT uint32_t mad_get_field(void *buf, int base_offs, int field);
-MAD_EXPORT void mad_set_field(void *buf, int base_offs, int field,
+MAD_EXPORT uint32_t mad_get_field(void *buf, int base_offs, enum MAD_FIELDS field);
+MAD_EXPORT void mad_set_field(void *buf, int base_offs, enum MAD_FIELDS field,
 			      uint32_t val);
 /* field must be byte aligned */
-MAD_EXPORT uint64_t mad_get_field64(void *buf, int base_offs, int field);
-MAD_EXPORT void mad_set_field64(void *buf, int base_offs, int field,
+MAD_EXPORT uint64_t mad_get_field64(void *buf, int base_offs, enum MAD_FIELDS field);
+MAD_EXPORT void mad_set_field64(void *buf, int base_offs, enum MAD_FIELDS field,
 				uint64_t val);
-MAD_EXPORT void mad_set_array(void *buf, int base_offs, int field, void *val);
-MAD_EXPORT void mad_get_array(void *buf, int base_offs, int field, void *val);
-MAD_EXPORT void mad_decode_field(uint8_t * buf, int field, void *val);
-MAD_EXPORT void mad_encode_field(uint8_t * buf, int field, void *val);
-MAD_EXPORT int mad_print_field(int field, const char *name, void *val);
-MAD_EXPORT char *mad_dump_field(int field, char *buf, int bufsz, void *val);
-MAD_EXPORT char *mad_dump_val(int field, char *buf, int bufsz, void *val);
+MAD_EXPORT void mad_set_array(void *buf, int base_offs, enum MAD_FIELDS field, void *val);
+MAD_EXPORT void mad_get_array(void *buf, int base_offs, enum MAD_FIELDS field, void *val);
+MAD_EXPORT void mad_decode_field(uint8_t * buf, enum MAD_FIELDS field, void *val);
+MAD_EXPORT void mad_encode_field(uint8_t * buf, enum MAD_FIELDS field, void *val);
+MAD_EXPORT int mad_print_field(enum MAD_FIELDS field, const char *name, void *val);
+MAD_EXPORT char *mad_dump_field(enum MAD_FIELDS field, char *buf, int bufsz, void *val);
+MAD_EXPORT char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz, void *val);
 
 /* mad.c */
 MAD_EXPORT void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath,
@@ -756,7 +756,7 @@ MAD_EXPORT int ib_resolve_smlid(ib_portid_t * sm_id, int timeout);
 MAD_EXPORT int ib_resolve_guid(ib_portid_t * portid, uint64_t * guid,
 			       ib_portid_t * sm_id, int timeout);
 MAD_EXPORT int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
-				     int dest_type, ib_portid_t * sm_id);
+				     enum MAD_DEST dest, ib_portid_t * sm_id);
 MAD_EXPORT int ib_resolve_self(ib_portid_t * portid, int *portnum,
 			       ibmad_gid_t * gid);
 
@@ -764,7 +764,7 @@ int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout, const void *srcport);
 int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 			ib_portid_t * sm_id, int timeout, const void *srcport);
 int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
-			      int dest_type, ib_portid_t * sm_id,
+			      enum MAD_DEST dest, ib_portid_t * sm_id,
 			      const void *srcport);
 int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
 			const void *srcport);

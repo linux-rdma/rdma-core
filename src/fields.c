@@ -507,37 +507,37 @@ static void _get_array(void *buf, int base_offs, const ib_field_t * f,
 	memcpy(val, (uint8_t *) buf + base_offs + bitoffs / 8, f->bitlen / 8);
 }
 
-uint32_t mad_get_field(void *buf, int base_offs, int field)
+uint32_t mad_get_field(void *buf, int base_offs, enum MAD_FIELDS field)
 {
 	return _get_field(buf, base_offs, ib_mad_f + field);
 }
 
-void mad_set_field(void *buf, int base_offs, int field, uint32_t val)
+void mad_set_field(void *buf, int base_offs, enum MAD_FIELDS field, uint32_t val)
 {
 	_set_field(buf, base_offs, ib_mad_f + field, val);
 }
 
-uint64_t mad_get_field64(void *buf, int base_offs, int field)
+uint64_t mad_get_field64(void *buf, int base_offs, enum MAD_FIELDS field)
 {
 	return _get_field64(buf, base_offs, ib_mad_f + field);
 }
 
-void mad_set_field64(void *buf, int base_offs, int field, uint64_t val)
+void mad_set_field64(void *buf, int base_offs, enum MAD_FIELDS field, uint64_t val)
 {
 	_set_field64(buf, base_offs, ib_mad_f + field, val);
 }
 
-void mad_set_array(void *buf, int base_offs, int field, void *val)
+void mad_set_array(void *buf, int base_offs, enum MAD_FIELDS field, void *val)
 {
 	_set_array(buf, base_offs, ib_mad_f + field, val);
 }
 
-void mad_get_array(void *buf, int base_offs, int field, void *val)
+void mad_get_array(void *buf, int base_offs, enum MAD_FIELDS field, void *val)
 {
 	_get_array(buf, base_offs, ib_mad_f + field, val);
 }
 
-void mad_decode_field(uint8_t * buf, int field, void *val)
+void mad_decode_field(uint8_t * buf, enum MAD_FIELDS field, void *val)
 {
 	const ib_field_t *f = ib_mad_f + field;
 
@@ -556,7 +556,7 @@ void mad_decode_field(uint8_t * buf, int field, void *val)
 	_get_array(buf, 0, f, val);
 }
 
-void mad_encode_field(uint8_t * buf, int field, void *val)
+void mad_encode_field(uint8_t * buf, enum MAD_FIELDS field, void *val)
 {
 	const ib_field_t *f = ib_mad_f + field;
 
@@ -630,21 +630,21 @@ static int _mad_print_field(const ib_field_t * f, const char *name, void *val,
 			 valsz ? valsz : ALIGN(f->bitlen, 8) / 8);
 }
 
-int mad_print_field(int field, const char *name, void *val)
+int mad_print_field(enum MAD_FIELDS field, const char *name, void *val)
 {
 	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
 		return -1;
 	return _mad_print_field(ib_mad_f + field, name, val, 0);
 }
 
-char *mad_dump_field(int field, char *buf, int bufsz, void *val)
+char *mad_dump_field(enum MAD_FIELDS field, char *buf, int bufsz, void *val)
 {
 	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
 		return 0;
 	return _mad_dump_field(ib_mad_f + field, 0, buf, bufsz, val);
 }
 
-char *mad_dump_val(int field, char *buf, int bufsz, void *val)
+char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz, void *val)
 {
 	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
 		return 0;

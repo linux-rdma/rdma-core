@@ -92,7 +92,7 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 }
 
 int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
-			      int dest_type, ib_portid_t * sm_id,
+			      enum MAD_DEST dest_type, ib_portid_t * sm_id,
 			      const void *srcport)
 {
 	uint64_t guid;
@@ -142,8 +142,8 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 	return -1;
 }
 
-int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str, int dest_type,
-			  ib_portid_t * sm_id)
+int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
+			enum MAD_DEST dest_type, ib_portid_t * sm_id)
 {
 	return ib_resolve_portid_str_via(portid, addr_str, dest_type,
 					 sm_id, NULL);
