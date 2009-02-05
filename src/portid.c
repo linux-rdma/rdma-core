@@ -104,7 +104,7 @@ int str2drpath(ib_dr_path_t * path, char *routepath, int drslid, int drdlid)
 char *drpath2str(ib_dr_path_t * path, char *dstr, size_t dstr_size)
 {
 	int i = 0;
-	int rc = snprintf(dstr, dstr_size, "slid %d; dlid %d; %d",
+	int rc = snprintf(dstr, dstr_size, "slid %u; dlid %u; %d",
 			  path->drslid, path->drdlid, path->p[0]);
 	if (rc >= (int)dstr_size)
 		return dstr;

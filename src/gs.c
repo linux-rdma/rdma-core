@@ -52,7 +52,7 @@ static uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
 
-	DEBUG("lid %d port %d", lid, port);
+	DEBUG("lid %u port %d", lid, port);
 
 	if (lid == -1) {
 		IBWARN("only lid routed is supported");
@@ -121,7 +121,7 @@ static uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
 
-	DEBUG("lid %d port %d mask 0x%x", lid, port, mask);
+	DEBUG("lid %u port %d mask 0x%x", lid, port, mask);
 
 	if (lid == -1) {
 		IBWARN("only lid routed is supported");
