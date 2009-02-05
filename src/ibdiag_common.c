@@ -57,7 +57,7 @@ int ibdebug;
 int ibverbose;
 char *ibd_ca;
 int ibd_ca_port;
-int ibd_dest_type = IB_DEST_LID;
+enum MAD_DEST ibd_dest_type = IB_DEST_LID;
 ib_portid_t *ibd_sm_id;
 int ibd_timeout;
 

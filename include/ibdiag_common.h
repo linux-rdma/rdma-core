@@ -41,7 +41,7 @@ extern int ibdebug;
 extern int ibverbose;
 extern char *ibd_ca;
 extern int ibd_ca_port;
-extern int ibd_dest_type;
+extern enum MAD_DEST ibd_dest_type;
 extern ib_portid_t *ibd_sm_id;
 extern int ibd_timeout;
 
