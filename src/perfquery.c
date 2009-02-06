@@ -263,8 +263,8 @@ static void output_aggregate_perfcounters_ext(ib_portid_t *portid)
 	printf("# Port counters: %s port %d\n%s", portid2str(portid), ALL_PORTS, buf);
 }
 
-static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask, ib_portid_t *portid,
-			      int port, int aggregate)
+static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
+			      ib_portid_t *portid, int port, int aggregate)
 {
 	char buf[1024];
 
@@ -312,7 +312,7 @@ static int reset, reset_only, all_ports, loop_ports, port, extended;
 static int process_opt(void *context, int ch, char *optarg)
 {
 	switch (ch) {
-	case 'e':
+	case 'x':
 		extended = 1;
 		break;
 	case 'a':
@@ -348,7 +348,7 @@ int main(int argc, char **argv)
 	int i;
 
 	const struct ibdiag_opt opts[] = {
-		{ "extended", 'e', 0, NULL, "show extended port counters" },
+		{ "extended", 'x', 0, NULL, "show extended port counters" },
 		{ "all_ports", 'a', 0, NULL, "show aggregated counters" },
 		{ "loop_ports", 'l', 0, NULL, "iterate through each port" },
 		{ "reset_after_read", 'r', 0, NULL, "reset counters after read" },
@@ -359,19 +359,19 @@ int main(int argc, char **argv)
 	const char *usage_examples[] = {
 		"\t\t# read local port's performance counters",
 		"32 1\t\t# read performance counters from lid 32, port 1",
-		"-e 32 1\t# read extended performance counters from lid 32, port 1",
+		"-x 32 1\t# read extended performance counters from lid 32, port 1",
 		"-a 32\t\t# read performance counters from lid 32, all ports",
 		"-r 32 1\t# read performance counters and reset",
-		"-e -r 32 1\t# read extended performance counters and reset",
+		"-x -r 32 1\t# read extended performance counters and reset",
 		"-R 0x20 1\t# reset performance counters of port 1 only",
-		"-e -R 0x20 1\t# reset extended performance counters of port 1 only",
+		"-x -R 0x20 1\t# reset extended performance counters of port 1 only",
 		"-R -a 32\t# reset performance counters of all ports",
 		"-R 32 2 0x0fff\t# reset only error counters of port 2",
 		"-R 32 2 0xf000\t# reset only non-error counters of port 2",
 		NULL,
 	};
 
-	ibdiag_process_opts(argc, argv, NULL, "De", opts, process_opt,
+	ibdiag_process_opts(argc, argv, NULL, "D", opts, process_opt,
 			    usage_args, usage_examples);
 
 	argc -= optind;
