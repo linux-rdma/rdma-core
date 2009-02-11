@@ -95,7 +95,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BE_OFFS(272, 16), "DrSmpSLID", mad_dump_hex},
 
 	/* word 10,11 (36-43 bytes) */
-	{0, 0},			/* IB_SA_MKEY_F - reserved as invalid */
+	{288, 64, "SaSMkey", mad_dump_hex},
 
 	/* word 12 (44-47 bytes) */
 	{BE_OFFS(46 * 8, 16), "SaAttrOffs", mad_dump_uint},
