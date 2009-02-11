@@ -42,19 +42,32 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <string.h>
+#include <errno.h>
 
 #define _GNU_SOURCE
 #include <getopt.h>
 
+#include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <infiniband/opensm/osm_log.h>
-#include <infiniband/vendor/osm_vendor_api.h>
-#include <infiniband/vendor/osm_vendor_sa_api.h>
-#include <infiniband/opensm/osm_mad_pool.h>
+#include <infiniband/iba/ib_types.h>
 #include <infiniband/complib/cl_debug.h>
 #include <infiniband/complib/cl_nodenamemap.h>
 
 #include "ibdiag_common.h"
+
+struct sa_bind_handle {
+	int fd, agent;
+	ib_portid_t dport;
+};
+
+struct sa_result {
+	int status;
+	unsigned result_cnt;
+	void *p_result_madw;
+};
+
+#define osmv_query_res_t struct sa_result
+#define osm_bind_handle_t struct sa_bind_handle *
 
 struct query_params {
 	ib_gid_t sgid, dgid, gid, mgid;
@@ -82,7 +95,7 @@ struct query_cmd {
 
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
-static ib_net64_t smkey = OSM_DEFAULT_SA_KEY;
+static ib_net64_t smkey = CL_HTON64(1);
 
 /**
  * Declare some globals because I don't want this to be too complex.
@@ -90,11 +103,6 @@ static ib_net64_t smkey = OSM_DEFAULT_SA_KEY;
 #define MAX_PORTS (8)
 #define DEFAULT_SA_TIMEOUT_MS (1000)
 osmv_query_res_t result;
-osm_log_t log_osm;
-osm_mad_pool_t mad_pool;
-osm_vendor_t *vendor = NULL;
-char *sa_hca_name = NULL;
-uint32_t sa_port_num = 0;
 
 enum {
 	ALL,
@@ -111,6 +119,83 @@ ib_net16_t requested_lid = 0;
 int requested_lid_flag = 0;
 ib_net64_t requested_guid = 0;
 int requested_guid_flag = 0;
+
+static int sa_query(struct sa_bind_handle *h, uint8_t method,
+		    ib_net16_t attr, ib_net32_t mod, ib_net64_t comp_mask,
+		    ib_net64_t sm_key, void *data)
+{
+	ib_rpc_t rpc;
+	void *umad, *mad;
+	int ret, offset, len = 256;
+
+	memset(&rpc, 0, sizeof(rpc));
+	rpc.mgtclass = IB_SA_CLASS;
+	rpc.method = method;
+	rpc.attr.id = cl_ntoh16(attr);
+	rpc.attr.mod = cl_ntoh32(mod);
+	rpc.mask = cl_ntoh64(comp_mask);
+	rpc.datasz = IB_SA_DATA_SIZE;
+	rpc.dataoffs = IB_SA_DATA_OFFS;
+
+	umad = calloc(1, len + umad_size());
+	if (!umad)
+		IBPANIC("cannot alloc mem for umad: %s\n", strerror(errno));
+
+	mad_build_pkt(umad, &rpc, &h->dport, NULL, data);
+
+	/* SA SM_Key (36/8) - temporary done using IB_MAD_MKEY_F */
+	mad_set_field64(umad_get_mad(umad), 12, IB_MAD_MKEY_F, cl_hton64(sm_key));
+
+	if (ibdebug > 1)
+		xdump(stdout, "SA Request:\n", umad_get_mad(umad), len);
+
+	ret = umad_send(h->fd, h->agent, umad, len, ibd_timeout, 0);
+	if (ret < 0)
+		IBPANIC("umad_send failed: attr %u: %s\n",
+			attr, strerror(errno));
+
+recv_mad:
+	ret = umad_recv(h->fd, umad, &len, ibd_timeout);
+	if (ret < 0) {
+		if (errno == ENOSPC) {
+			umad = realloc(umad, umad_size() + len);
+			goto recv_mad;
+		}
+		IBPANIC("umad_recv failed: attr %u: %s\n", attr,
+			strerror(errno));
+	}
+
+	if ((ret = umad_status(umad)))
+		return ret;
+
+	mad = umad_get_mad(umad);
+
+	if (ibdebug > 1)
+		xdump(stdout, "SA Response:\n", mad, len);
+
+	method = mad_get_field(mad, 0, IB_MAD_METHOD_F);
+	offset = mad_get_field(mad, 0, IB_SA_ATTROFFS_F);
+	result.status = mad_get_field(mad, 0, IB_MAD_STATUS_F);
+	result.p_result_madw = mad;
+	if (result.status)
+		result.result_cnt = 0;
+	else if (method != IB_MAD_METHOD_GET_TABLE)
+		result.result_cnt = 1;
+	else if (!offset)
+		result.result_cnt = 0;
+	else
+		result.result_cnt = (len - IB_SA_DATA_OFFS) / (offset << 3);
+
+	return 0;
+}
+
+static void *osmv_get_query_result(void *mad, unsigned i)
+{
+	int offset = mad_get_field(mad, 0, IB_SA_ATTROFFS_F);
+	return mad + IB_SA_DATA_OFFS + i * (offset << 3);
+}
+
+#define osmv_get_query_node_rec(mad, i) osmv_get_query_result(mad, i)
 
 static unsigned valid_gid(ib_gid_t *gid)
 {
@@ -130,14 +215,6 @@ static void format_buf(char *in, char *out, unsigned size)
 		}
 	}
 	*out = '\0';
-}
-
-/**
- * Call back for the various record requests.
- */
-static void query_res_cb(osmv_query_res_t * res)
-{
-	result = *res;
 }
 
 static void print_node_desc(ib_node_record_t * node_record)
@@ -683,6 +760,7 @@ static void dump_one_mft_record(void *data)
 		       cl_ntoh16(mftr->mft[i]));
 	printf("\n");
 }
+
 static void dump_results(osmv_query_res_t * r, void (*dump_func) (void *))
 {
 	int i;
@@ -694,11 +772,8 @@ static void dump_results(osmv_query_res_t * r, void (*dump_func) (void *))
 
 static void return_mad(void)
 {
-	/*
-	 * Return the IB query MAD to the pool as necessary.
-	 */
-	if (result.p_result_madw != NULL) {
-		osm_mad_pool_put(&mad_pool, result.p_result_madw);
+	if (result.p_result_madw) {
+		free(result.p_result_madw - umad_size());
 		result.p_result_madw = NULL;
 	}
 }
@@ -711,32 +786,11 @@ get_any_records(osm_bind_handle_t h,
 		ib_net16_t attr_id, ib_net32_t attr_mod, ib_net64_t comp_mask,
 		void *attr, ib_net16_t attr_offset, ib_net64_t sm_key)
 {
-	ib_api_status_t status;
-	osmv_query_req_t req;
-	osmv_user_query_t user;
-
-	memset(&req, 0, sizeof(req));
-	memset(&user, 0, sizeof(user));
-
-	user.attr_id = attr_id;
-	user.attr_offset = attr_offset;
-	user.attr_mod = attr_mod;
-	user.comp_mask = comp_mask;
-	user.p_attr = attr;
-
-	req.query_type = OSMV_QUERY_USER_DEFINED;
-	req.timeout_ms = ibd_timeout;
-	req.retry_cnt = 1;
-	req.flags = OSM_SA_FLAGS_SYNC;
-	req.query_context = NULL;
-	req.pfn_query_cb = query_res_cb;
-	req.p_query_input = &user;
-	req.sm_key = sm_key;
-
-	if ((status = osmv_query_sa(h, &req)) != IB_SUCCESS) {
-		fprintf(stderr, "Query SA failed: %s\n",
-			ib_get_err_str(status));
-		return status;
+	int ret = sa_query(h, IB_MAD_METHOD_GET_TABLE, attr_id, attr_mod,
+			   comp_mask, sm_key, attr);
+	if (ret) {
+		fprintf(stderr, "Query SA failed: %s\n", ib_get_err_str(ret));
+		return ret;
 	}
 
 	if (result.status != IB_SUCCESS) {
@@ -745,7 +799,7 @@ get_any_records(osm_bind_handle_t h,
 		return result.status;
 	}
 
-	return status;
+	return ret;
 }
 
 /**
@@ -928,34 +982,21 @@ static ib_api_status_t print_node_records(osm_bind_handle_t h)
 
 static ib_api_status_t get_print_class_port_info(osm_bind_handle_t h)
 {
-	osmv_query_req_t req;
-	ib_api_status_t status;
-
-	memset(&req, 0, sizeof(req));
-
-	req.query_type = OSMV_QUERY_CLASS_PORT_INFO;
-	req.timeout_ms = ibd_timeout;
-	req.retry_cnt = 1;
-	req.flags = OSM_SA_FLAGS_SYNC;
-	req.query_context = NULL;
-	req.pfn_query_cb = query_res_cb;
-	req.p_query_input = NULL;
-	req.sm_key = 0;
-
-	if ((status = osmv_query_sa(h, &req)) != IB_SUCCESS) {
+	int ret = sa_query(h, IB_MAD_METHOD_GET, IB_MAD_ATTR_CLASS_PORT_INFO,
+			   0, 0, 0, NULL);
+	if (ret) {
 		fprintf(stderr, "ERROR: Query SA failed: %s\n",
-			ib_get_err_str(status));
-		return (status);
+			ib_get_err_str(ret));
+		return ret;
 	}
 	if (result.status != IB_SUCCESS) {
 		fprintf(stderr, "ERROR: Query result returned: %s\n",
 			ib_get_err_str(result.status));
 		return (result.status);
 	}
-	status = result.status;
 	dump_results(&result, dump_class_port_info);
 	return_mad();
-	return (status);
+	return ret;
 }
 
 static int query_path_records(const struct query_cmd *q, osm_bind_handle_t h,
@@ -1046,11 +1087,8 @@ static ib_api_status_t print_multicast_member_records(osm_bind_handle_t h)
 	return_mad();
 
 return_mc:
-	/* return_mad for the mc_group_result */
-	if (mc_group_result.p_result_madw != NULL) {
-		osm_mad_pool_put(&mad_pool, mc_group_result.p_result_madw);
-		mc_group_result.p_result_madw = NULL;
-	}
+	if (mc_group_result.p_result_madw)
+		free(mc_group_result.p_result_madw - umad_size());
 
 	return (status);
 }
@@ -1366,78 +1404,30 @@ static int query_mft_records(const struct query_cmd *q, osm_bind_handle_t h,
 
 static osm_bind_handle_t get_bind_handle(void)
 {
-	uint32_t i = 0;
-	uint64_t port_guid = (uint64_t) - 1;
-	osm_bind_handle_t h;
-	ib_api_status_t status;
-	ib_port_attr_t attr_array[MAX_PORTS];
-	uint32_t num_ports = MAX_PORTS;
-	uint32_t ca_name_index = 0;
+	static struct sa_bind_handle handle;
+	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
-	complib_init();
+	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 
-	osm_log_construct(&log_osm);
-	if ((status = osm_log_init_v2(&log_osm, TRUE, 0x0001, NULL,
-				      0, TRUE)) != IB_SUCCESS) {
-		fprintf(stderr, "Failed to init osm_log: %s\n",
-			ib_get_err_str(status));
-		exit(-1);
-	}
-	osm_log_set_level(&log_osm, OSM_LOG_NONE);
-	if (ibdebug)
-		osm_log_set_level(&log_osm, OSM_LOG_DEFAULT_LEVEL);
+	ib_resolve_smlid(&handle.dport, ibd_timeout);
+	if (!handle.dport.lid)
+		IBPANIC("No SM found.");
 
-	vendor = osm_vendor_new(&log_osm, ibd_timeout);
-	osm_mad_pool_construct(&mad_pool);
-	if ((status = osm_mad_pool_init(&mad_pool)) != IB_SUCCESS) {
-		fprintf(stderr, "Failed to init mad pool: %s\n",
-			ib_get_err_str(status));
-		exit(-1);
-	}
+	handle.dport.qp = 1;
+	if (!handle.dport.qkey)
+		handle.dport.qkey = IB_DEFAULT_QP1_QKEY;
 
-	if ((status =
-	     osm_vendor_get_all_port_attr(vendor, attr_array,
-					  &num_ports)) != IB_SUCCESS) {
-		fprintf(stderr, "Failed to get port attributes: %s\n",
-			ib_get_err_str(status));
-		exit(-1);
-	}
+	handle.fd = madrpc_portid();
+	handle.agent = umad_register(handle.fd, IB_SA_CLASS, 2, 1, NULL);
 
-	for (i = 0; i < num_ports; i++) {
-		if (i > 1 && cl_ntoh64(attr_array[i].port_guid)
-		    != (cl_ntoh64(attr_array[i - 1].port_guid) + 1))
-			ca_name_index++;
-		if (sa_port_num && sa_port_num != attr_array[i].port_num)
-			continue;
-		if (sa_hca_name
-		    && strcmp(sa_hca_name,
-			      vendor->ca_names[ca_name_index]) != 0)
-			continue;
-		if (attr_array[i].link_state == IB_LINK_ACTIVE) {
-			port_guid = attr_array[i].port_guid;
-			break;
-		}
-	}
-
-	if (port_guid == (uint64_t) - 1) {
-		fprintf(stderr,
-			"Failed to find active port, check port status with \"ibstat\"\n");
-		exit(-1);
-	}
-
-	h = osmv_bind_sa(vendor, &mad_pool, port_guid);
-
-	if (h == OSM_BIND_INVALID_HANDLE) {
-		fprintf(stderr, "Failed to bind to SA\n");
-		exit(-1);
-	}
-	return h;
+	return &handle;
 }
 
-static void clean_up(void)
+static void clean_up(struct sa_bind_handle *h)
 {
-	osm_mad_pool_destroy(&mad_pool);
-	osm_vendor_delete(&vendor);
+	umad_unregister(h->fd, h->agent);
+	umad_close_port(h->fd);
+	umad_done();
 }
 
 static const struct query_cmd query_cmds[] = {
@@ -1847,7 +1837,7 @@ int main(int argc, char **argv)
 
 	if (src_lid)
 		free(src_lid);
-	clean_up();
+	clean_up(h);
 	close_node_name_map(node_name_map);
 	return (status);
 }
