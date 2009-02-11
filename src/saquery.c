@@ -796,12 +796,39 @@ static int get_any_records(bind_handle_t h,
 	return ret;
 }
 
+static int get_and_dump_any_records(bind_handle_t h, uint16_t attr_id,
+				    uint32_t attr_mod, ib_net64_t comp_mask,
+				    void *attr, uint64_t sm_key,
+				    void (*dump_func) (void *))
+{
+	int ret = get_any_records(h, attr_id, attr_mod, comp_mask, attr,
+				  sm_key);
+	if (ret)
+		return ret;
+
+	dump_results(&result, dump_func);
+
+	return 0;
+}
+
 /**
  * Get all the records available for requested query type.
  */
 static int get_all_records(bind_handle_t h, uint16_t attr_id, int trusted)
 {
 	return get_any_records(h, attr_id, 0, 0, NULL, trusted ? smkey : 0);
+}
+
+static int get_and_dump_all_records(bind_handle_t h, uint16_t attr_id,
+				    int trusted, void (*dump_func) (void *))
+{
+	int ret = get_all_records(h, attr_id, 0);
+	if (ret)
+		return ret;
+
+	dump_results(&result, dump_func);
+	return_mad();
+	return ret;
 }
 
 /**
@@ -989,7 +1016,6 @@ static int query_path_records(const struct query_cmd *q, bind_handle_t h,
 {
 	ib_path_rec_t pr;
 	ib_net64_t comp_mask = 0;
-	int ret;
 	uint32_t flow = 0;
 	uint16_t qos_class = 0;
 	uint8_t reversible = 0;
@@ -1014,13 +1040,8 @@ static int query_path_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL_AND_SEL(p->rate, pr.rate, PR, RATE, SELEC);
 	CHECK_AND_SET_VAL_AND_SEL(p->pkt_life, pr.pkt_life, PR, PKTLIFETIME, SELEC);
 
-	ret = get_any_records(h, IB_SA_ATTR_PATHRECORD, 0, comp_mask, &pr, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_path_record);
-	return_mad();
-	return ret;
+	return get_and_dump_any_records(h, IB_SA_ATTR_PATHRECORD, 0, comp_mask,
+					&pr, 0, dump_path_record);
 }
 
 static ib_api_status_t print_issm_records(bind_handle_t h)
@@ -1075,13 +1096,8 @@ return_mc:
 
 static int print_multicast_group_records(bind_handle_t h)
 {
-	int ret = get_all_records(h, IB_SA_ATTR_MCRECORD, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_multicast_group_record);
-	return_mad();
-	return ret;
+	return get_and_dump_all_records(h, IB_SA_ATTR_MCRECORD, 0,
+					dump_multicast_group_record);
 }
 
 static int query_class_port_info(const struct query_cmd *q, bind_handle_t h,
@@ -1095,7 +1111,7 @@ static int query_node_records(const struct query_cmd *q, bind_handle_t h,
 {
 	ib_node_record_t nr;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, ret;
+	int lid = 0;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &lid, NULL, NULL);
@@ -1103,14 +1119,8 @@ static int query_node_records(const struct query_cmd *q, bind_handle_t h,
 	memset(&nr, 0, sizeof(nr));
 	CHECK_AND_SET_VAL(lid, 16, 0, nr.lid, NR, LID);
 
-	ret = get_any_records(h, IB_SA_ATTR_NODERECORD, 0, comp_mask, &nr, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_node_record);
-	return_mad();
-
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_NODERECORD, 0, comp_mask,
+					&nr, 0, dump_node_record);
 }
 
 static int query_portinfo_records(const struct query_cmd *q,
@@ -1119,7 +1129,7 @@ static int query_portinfo_records(const struct query_cmd *q,
 {
 	ib_portinfo_record_t pir;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, port = -1, ret;
+	int lid = 0, port = -1;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &lid, &port, NULL);
@@ -1128,15 +1138,9 @@ static int query_portinfo_records(const struct query_cmd *q,
 	CHECK_AND_SET_VAL(lid, 16, 0, pir.lid, PIR, LID);
 	CHECK_AND_SET_VAL(port, 8, -1, pir.port_num, PIR, PORTNUM);
 
-	ret = get_any_records(h, IB_SA_ATTR_PORTINFORECORD, 0, comp_mask,
-			      &pir, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_portinfo_record);
-	return_mad();
-
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_PORTINFORECORD, 0,
+					comp_mask, &pir, 0,
+					dump_one_portinfo_record);
 }
 
 static int query_mcmember_records(const struct query_cmd *q,
@@ -1145,7 +1149,6 @@ static int query_mcmember_records(const struct query_cmd *q,
 {
 	ib_member_rec_t mr;
 	ib_net64_t comp_mask = 0;
-	int ret;
 	uint32_t flow = 0;
 	uint8_t sl = 0, hop = 0, scope = 0;
 
@@ -1168,38 +1171,23 @@ static int query_mcmember_records(const struct query_cmd *q,
 	mr.scope_state |= scope << 4;
 	CHECK_AND_SET_VAL(p->proxy_join, 8, -1, mr.proxy_join, MCR, PROXY);
 
-	ret = get_any_records(h, IB_SA_ATTR_MCRECORD, 0, comp_mask, &mr, smkey);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_mcmember_record);
-	return_mad();
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_MCRECORD, 0, comp_mask,
+					&mr, smkey, dump_one_mcmember_record);
 }
 
 static int query_service_records(const struct query_cmd *q, bind_handle_t h,
 				 struct query_params *p, int argc, char *argv[])
 {
-	int ret = get_all_records(h, IB_SA_ATTR_SERVICERECORD, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_service_record);
-	return_mad();
-	return 0;
+	return get_and_dump_all_records(h, IB_SA_ATTR_SERVICERECORD, 0,
+					dump_service_record);
 }
 
 static int query_informinfo_records(const struct query_cmd *q,
 				    bind_handle_t h, struct query_params *p,
 				    int argc, char *argv[])
 {
-	int ret = get_all_records(h, IB_SA_ATTR_INFORMINFORECORD, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_inform_info_record);
-	return_mad();
-	return 0;
+	return get_and_dump_all_records(h, IB_SA_ATTR_INFORMINFORECORD, 0,
+					dump_inform_info_record);
 }
 
 static int query_link_records(const struct query_cmd *q, bind_handle_t h,
@@ -1207,7 +1195,7 @@ static int query_link_records(const struct query_cmd *q, bind_handle_t h,
 {
 	ib_link_record_t lr;
 	ib_net64_t comp_mask = 0;
-	int from_lid = 0, to_lid = 0, from_port = -1, to_port = -1, ret;
+	int from_lid = 0, to_lid = 0, from_port = -1, to_port = -1;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &from_lid, &from_port, NULL);
@@ -1221,13 +1209,8 @@ static int query_link_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(to_lid, 16, 0, lr.to_lid, LR, TO_LID);
 	CHECK_AND_SET_VAL(to_port, 8, -1, lr.to_port_num, LR, TO_PORT);
 
-	ret = get_any_records(h, IB_SA_ATTR_LINKRECORD, 0, comp_mask, &lr, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_link_record);
-	return_mad();
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_LINKRECORD, 0, comp_mask,
+					&lr, 0, dump_one_link_record);
 }
 
 static int query_sl2vl_records(const struct query_cmd *q, bind_handle_t h,
@@ -1235,7 +1218,7 @@ static int query_sl2vl_records(const struct query_cmd *q, bind_handle_t h,
 {
 	ib_slvl_table_record_t slvl;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, in_port = -1, out_port = -1, ret;
+	int lid = 0, in_port = -1, out_port = -1;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &lid, &in_port, &out_port);
@@ -1245,14 +1228,9 @@ static int query_sl2vl_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(in_port, 8, -1, slvl.in_port_num, SLVL, IN_PORT);
 	CHECK_AND_SET_VAL(out_port, 8, -1, slvl.out_port_num, SLVL, OUT_PORT);
 
-	ret = get_any_records(h, IB_SA_ATTR_SL2VLTABLERECORD, 0, comp_mask,
-			      &slvl, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_slvl_record);
-	return_mad();
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_SL2VLTABLERECORD, 0,
+					comp_mask, &slvl, 0,
+					dump_one_slvl_record);
 }
 
 static int query_vlarb_records(const struct query_cmd *q, bind_handle_t h,
@@ -1260,7 +1238,7 @@ static int query_vlarb_records(const struct query_cmd *q, bind_handle_t h,
 {
 	ib_vl_arb_table_record_t vlarb;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, port = -1, block = -1, ret;
+	int lid = 0, port = -1, block = -1;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &lid, &port, &block);
@@ -1270,14 +1248,9 @@ static int query_vlarb_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(port, 8, -1, vlarb.port_num, VLA, OUT_PORT);
 	CHECK_AND_SET_VAL(block, 8, -1, vlarb.block_num, VLA, BLOCK);
 
-	ret = get_any_records(h, IB_SA_ATTR_VLARBTABLERECORD, 0, comp_mask,
-			      &vlarb, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_vlarb_record);
-	return_mad();
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_VLARBTABLERECORD, 0,
+					comp_mask, &vlarb, 0,
+					dump_one_vlarb_record);
 }
 
 static int query_pkey_tbl_records(const struct query_cmd *q,
@@ -1286,7 +1259,7 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 {
 	ib_pkey_table_record_t pktr;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, port = -1, block = -1, ret;
+	int lid = 0, port = -1, block = -1;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &lid, &port, &block);
@@ -1296,14 +1269,9 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 	CHECK_AND_SET_VAL(port, 8, -1, pktr.port_num, PKEY, PORT);
 	CHECK_AND_SET_VAL(block, 16, -1, pktr.port_num, PKEY, BLOCK);
 
-	ret = get_any_records(h, IB_SA_ATTR_PKEYTABLERECORD, 0, comp_mask,
-			      &pktr, smkey);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_pkey_tbl_record);
-	return_mad();
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_PKEYTABLERECORD, 0,
+					comp_mask, &pktr, smkey,
+					dump_one_pkey_tbl_record);
 }
 
 static int query_lft_records(const struct query_cmd *q, bind_handle_t h,
@@ -1311,7 +1279,7 @@ static int query_lft_records(const struct query_cmd *q, bind_handle_t h,
 {
 	ib_lft_record_t lftr;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, block = -1, ret;
+	int lid = 0, block = -1;
 
 	if (argc > 0)
 		parse_lid_and_ports(h, argv[0], &lid, &block, NULL);
@@ -1320,13 +1288,8 @@ static int query_lft_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(lid, 16, 0, lftr.lid, LFTR, LID);
 	CHECK_AND_SET_VAL(block, 16, -1, lftr.block_num, LFTR, BLOCK);
 
-	ret = get_any_records(h, IB_SA_ATTR_LFTRECORD, 0, comp_mask, &lftr, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_lft_record);
-	return_mad();
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_LFTRECORD, 0, comp_mask,
+					&lftr, 0, dump_one_lft_record);
 }
 
 static int query_mft_records(const struct query_cmd *q, bind_handle_t h,
@@ -1334,7 +1297,7 @@ static int query_mft_records(const struct query_cmd *q, bind_handle_t h,
 {
 	ib_mft_record_t mftr;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, block = -1, position = -1, ret;
+	int lid = 0, block = -1, position = -1;
 	uint16_t pos = 0;
 
 	if (argc > 0)
@@ -1347,13 +1310,8 @@ static int query_mft_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(position, 8, -1, pos, MFTR, POSITION);
 	mftr.position_block_num |= cl_hton16(pos << 12);
 
-	ret = get_any_records(h, IB_SA_ATTR_MFTRECORD, 0, comp_mask, &mftr, 0);
-	if (ret)
-		return ret;
-
-	dump_results(&result, dump_one_mft_record);
-	return_mad();
-	return 0;
+	return get_and_dump_any_records(h, IB_SA_ATTR_MFTRECORD, 0, comp_mask,
+					&mftr, 0, dump_one_mft_record);
 }
 
 static bind_handle_t get_bind_handle(void)
