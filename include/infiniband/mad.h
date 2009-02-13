@@ -748,7 +748,7 @@ MAD_EXPORT uint8_t *smp_query(void *buf, ib_portid_t * id, unsigned attrid,
 			      unsigned mod, unsigned timeout);
 MAD_EXPORT uint8_t *smp_set(void *buf, ib_portid_t * id, unsigned attrid,
 			    unsigned mod, unsigned timeout);
-uint8_t *smp_query_via(void *buf, ib_portid_t * id, unsigned attrid,
+MAD_EXPORT uint8_t *smp_query_via(void *buf, ib_portid_t * id, unsigned attrid,
 		       unsigned mod, unsigned timeout, const void *srcport);
 uint8_t *smp_set_via(void *buf, ib_portid_t * id, unsigned attrid, unsigned mod,
 		     unsigned timeout, const void *srcport);
@@ -875,7 +875,7 @@ static inline uint64_t htonll(uint64_t x)
 	exit(-1); \
 } while(0)
 
-void xdump(FILE * file, char *msg, void *p, int size);
+MAD_EXPORT void xdump(FILE * file, char *msg, void *p, int size);
 
 END_C_DECLS
 #endif				/* _MAD_H_ */
