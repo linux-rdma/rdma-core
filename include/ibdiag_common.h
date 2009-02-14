@@ -50,9 +50,13 @@ extern int ibd_timeout;
 /*========================================================*/
 
 #undef DEBUG
-#define	DEBUG	if (ibdebug || ibverbose) IBWARN
-#define	VERBOSE	if (ibdebug || ibverbose > 1) IBWARN
-#define IBERROR(fmt, args...)	iberror(__FUNCTION__, fmt, ## args)
+#define DEBUG(fmt, ...) do { \
+	if (ibdebug || ibverbose) IBWARN(fmt, ## __VA_ARGS__); \
+} while (0)
+#define VERBOSE(fmt, ...) do { \
+	if (ibdebug || ibverbose > 1) IBWARN(fmt, ## __VA_ARGS__); \
+} while (0)
+#define IBERROR(fmt, ...) iberror(__FUNCTION__, fmt, ## __VA_ARGS__)
 
 struct ibdiag_opt {
 	const char *name;
