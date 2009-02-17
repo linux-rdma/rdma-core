@@ -62,8 +62,8 @@ ca_dump(umad_ca_t *ca)
 {
 	if (!ca->node_type)
 		return;
-	printf("%s '%s'\n", ((uint)ca->node_type <= IB_NODE_MAX ? node_type_str[ca->node_type] : "???"), ca->ca_name);
-	printf("\t%s type: %s\n", ((uint)ca->node_type <= IB_NODE_MAX ? node_type_str[ca->node_type] : "???"),ca->ca_type);
+	printf("%s '%s'\n", ((unsigned)ca->node_type <= IB_NODE_MAX ? node_type_str[ca->node_type] : "???"), ca->ca_name);
+	printf("\t%s type: %s\n", ((unsigned)ca->node_type <= IB_NODE_MAX ? node_type_str[ca->node_type] : "???"),ca->ca_type);
 	printf("\tNumber of ports: %d\n", ca->numports);
 	printf("\tFirmware version: %s\n", ca->fw_ver);
 	printf("\tHardware version: %s\n", ca->hw_ver);
@@ -105,13 +105,13 @@ port_dump(umad_port_t *port, int alone)
 	}
 
 	printf("%sPort %d:\n", hdrpre, port->portnum);
-	printf("%sState: %s\n", pre, (uint)port->state <= 4 ? port_state_str[port->state] : "???");
-	printf("%sPhysical state: %s\n", pre, (uint)port->state <= 7 ? port_phy_state_str[port->phys_state] : "???");
+	printf("%sState: %s\n", pre, (unsigned)port->state <= 4 ? port_state_str[port->state] : "???");
+	printf("%sPhysical state: %s\n", pre, (unsigned)port->state <= 7 ? port_phy_state_str[port->phys_state] : "???");
 	printf("%sRate: %d\n", pre, port->rate);
 	printf("%sBase lid: %d\n", pre, port->base_lid);
 	printf("%sLMC: %d\n", pre, port->lmc);
 	printf("%sSM lid: %d\n", pre, port->sm_lid);
-	printf("%sCapability mask: 0x%08x\n", pre, (unsigned)ntohl(port->capmask));
+	printf("%sCapability mask: 0x%08x\n", pre, (unsigned)ntohll(port->capmask));
 	printf("%sPort GUID: 0x%016llx\n", pre, (long long unsigned)ntohll(port->port_guid));
 	return 0;
 }
@@ -131,11 +131,11 @@ ca_stat(char *ca_name, int portnum, int no_ports)
 	if (!no_ports && portnum >= 0) {
 		if (portnum > ca.numports || !ca.ports[portnum]) {
 			IBWARN("%s: '%s' has no port number %d - max (%d)",
-				((uint)ca.node_type <= IB_NODE_MAX ? node_type_str[ca.node_type] : "???"),
+				((unsigned)ca.node_type <= IB_NODE_MAX ? node_type_str[ca.node_type] : "???"),
 				ca_name, portnum, ca.numports);
 			return -1;
 		}
-		printf("%s: '%s'\n", ((uint)ca.node_type <= IB_NODE_MAX ? node_type_str[ca.node_type] : "???"), ca.ca_name);
+		printf("%s: '%s'\n", ((unsigned)ca.node_type <= IB_NODE_MAX ? node_type_str[ca.node_type] : "???"), ca.ca_name);
 		port_dump(ca.ports[portnum], 1);
 		return 0;
 	}
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
 		{ "list_of_cas", 'l', 0, NULL, "list all IB devices" },
 		{ "short", 's', 0, NULL, "short output" },
 		{ "port_list", 'p', 0, NULL, "show port list" },
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "<ca_name> [portnum]";
 	const char *usage_examples[] = {
