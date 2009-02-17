@@ -102,7 +102,7 @@ drsmp_get_init(void *umad, DRPath *path, int attr, int mod)
 	if (path)
 		memcpy(smp->initial_path, path->path, path->hop_cnt+1);
 
-	smp->hop_cnt = path->hop_cnt;
+	smp->hop_cnt = (uint8_t) path->hop_cnt;
 }
 
 void
@@ -146,7 +146,7 @@ drsmp_set_init(void *umad, DRPath *path, int attr, int mod, void *data)
 	if (data)
 		memcpy(smp->data, data, sizeof smp->data);
 
-	smp->hop_cnt = path->hop_cnt;
+	smp->hop_cnt = (uint8_t) path->hop_cnt;
 }
 
 char *
@@ -172,7 +172,7 @@ str2DRPath(char *str, DRPath *path)
 	while (str && *str) {
 		if ((s = strchr(str, ',')))
 			*s = 0;
-		path->path[++path->hop_cnt] = atoi(str);
+		path->path[++path->hop_cnt] = (char) atoi(str);
 		if (!s)
 			break;
 		str = s+1;
@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
 
 	const struct ibdiag_opt opts[] = {
 		{ "sring", 's', 0, NULL, ""},
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "<dlid|dr_path> <attr> [mod]";
 	const char *usage_examples[] = {
