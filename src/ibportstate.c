@@ -311,12 +311,12 @@ int main(int argc, char **argv)
 					/* Setup portid for peer port */
 					memcpy(&peerportid, &portid, sizeof(peerportid));
 					peerportid.drpath.cnt = 1;
-					peerportid.drpath.p[1] = portnum;
+					peerportid.drpath.p[1] = (uint8_t) portnum;
 
 					/* Set DrSLID to local lid */
 					if (ib_resolve_self(&selfportid, &selfport, 0) < 0)
 						IBERROR("could not resolve self");
-					peerportid.drpath.drslid = selfportid.lid;
+					peerportid.drpath.drslid = (uint16_t) selfportid.lid;
 					peerportid.drpath.drdlid = 0xffff;
 
 					/* Get peer port NodeInfo to obtain peer port number */
