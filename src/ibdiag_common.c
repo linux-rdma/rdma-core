@@ -204,7 +204,7 @@ static const struct ibdiag_opt common_opts[] = {
 	{ "usage", 'u', 0, NULL, "usage message" },
 	{ "help", 'h', 0, NULL, "help message" },
 	{ "version", 'V', 0, NULL, "show version" },
-	{}
+	{ 0 }
 };
 
 static void make_opt(struct option *l, const struct ibdiag_opt *o,
@@ -254,11 +254,11 @@ static struct option *make_long_opts(const char *exclude_str,
 
 static void make_str_opts(const struct option *o, char *p, unsigned size)
 {
-	int i, n = 0;
+	unsigned i, n = 0;
 
 	for (n = 0; o->name  && n + 2 + o->has_arg < size; o++) {
-		p[n++] = o->val;
-		for (i = 0; i < o->has_arg; i++)
+		p[n++] = (char) o->val;
+		for (i = 0; i < (unsigned) o->has_arg; i++)
 			p[n++] = ':';
 	}
 	p[n] = '\0';
@@ -272,8 +272,6 @@ int ibdiag_process_opts(int argc, char * const argv[], void *cxt,
 {
 	char str_opts[1024];
 	const struct ibdiag_opt *o;
-
-	memset(opts_map, 0, sizeof(opts_map));
 
 	prog_name = argv[0];
 	prog_args = usage_args;

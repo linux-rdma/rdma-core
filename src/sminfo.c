@@ -59,10 +59,10 @@ enum {
 };
 
 char *statestr[] = {
-	[SMINFO_NOTACT] "SMINFO_NOTACT",
-	[SMINFO_DISCOVER] "SMINFO_DISCOVER",
-	[SMINFO_STANDBY] "SMINFO_STANDBY",
-	[SMINFO_MASTER] "SMINFO_MASTER",
+	"SMINFO_NOTACT",
+	"SMINFO_DISCOVER",
+	"SMINFO_STANDBY",
+	"SMINFO_MASTER",
 };
 
 #define STATESTR(s)	(((unsigned)(s)) < SMINFO_STATE_LAST ? statestr[s] : "???")
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 		{ "state", 's', 1, "<0-3>", "set SM state"},
 		{ "priority", 'p', 1, "<0-15>", "set SM priority"},
 		{ "activity", 'a', 1, NULL, "set activity count"},
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "<sm_lid|sm_dr_path> [modifier]";
 
