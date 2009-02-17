@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 	const struct ibdiag_opt opts[] = {
 		{ "N", 'N', 0, NULL, "show IS3 general information"},
 		{ "w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
-		{}
+		{ 0 }
 	};
 	char usage_args[] = "<lid|guid>";
 	const char *usage_examples[] = {
