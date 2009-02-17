@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 		{ "gid_show", 'g', 0, NULL, "show gid address only"},
 		{ "lid_show", 'l', 0, NULL, "show lid range only"},
 		{ "Lid_show", 'L', 0, NULL, "show lid range (in decimal) only"},
-		{}
+		{ 0 }
 	};
 	char usage_args[] = "[<lid|dr_path|guid>]";
 	const char *usage_examples[] = {
