@@ -353,7 +353,7 @@ int main(int argc, char **argv)
 		{ "loop_ports", 'l', 0, NULL, "iterate through each port" },
 		{ "reset_after_read", 'r', 0, NULL, "reset counters after read" },
 		{ "Reset_only", 'R', 0, NULL, "only reset counters" },
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = " [<lid|guid> [[port] [reset_mask]]]";
 	const char *usage_examples[] = {
