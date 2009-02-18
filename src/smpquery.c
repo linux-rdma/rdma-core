@@ -47,7 +47,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <infiniband/complib/cl_nodenamemap.h>
+#include <complib/cl_nodenamemap.h>
 
 #include "ibdiag_common.h"
 
@@ -166,7 +166,7 @@ static char *
 pkey_table(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE];
-	uint32_t i, j, k;
+	int i, j, k;
 	uint16_t *p;
 	unsigned mod;
 	int n, t, phy_ports;
@@ -343,7 +343,7 @@ static char *
 guid_info(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE];
-	uint32_t i, j, k;
+	int i, j, k;
 	uint64_t *p;
 	unsigned mod;
 	int n;
@@ -412,7 +412,7 @@ int main(int argc, char **argv)
 	const struct ibdiag_opt opts[] = {
 		{ "combined", 'c', 0, NULL, "use Combined route address argument"},
 		{ "node-name-map", 1, 1, "<file>", "node name map file"},
-		{}
+		{ 0 }
 	};
 	const char *usage_examples[] = {
 		"portinfo 3 1\t\t\t\t# portinfo by lid, with port modifier",
