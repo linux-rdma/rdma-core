@@ -226,11 +226,11 @@ int main(int argc, char *argv[])
 	char usage_args[] = "<dlid|dr_path> <attr> [mod]";
 	const char *usage_examples[] = {
 		" -- DR routed examples:",
-		"%s -D 0,1,2,3,5 16	# NODE DESC",
-		"%s -D 0,1,2 0x15 2	# PORT INFO, port 2",
+		"-D 0,1,2,3,5 16	# NODE DESC",
+		"-D 0,1,2 0x15 2	# PORT INFO, port 2",
 		" -- LID routed examples:",
-		"%s 3 0x15 2	# PORT INFO, lid 3 port 2",
-		"%s 0xa0 0x11	# NODE INFO, lid 0xa0",
+		"3 0x15 2	# PORT INFO, lid 3 port 2",
+		"0xa0 0x11	# NODE INFO, lid 0xa0",
 		NULL
 	};
 
