@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
 		xdump(stdout, 0, smp->data, 64);
 		if (smp->status)
 			fprintf(stdout, "SMP status: 0x%x\n", ntohs(smp->status));
-		return 0;
+		goto exit;
 	}
 
 	desc = smp->data;
@@ -301,5 +301,8 @@ int main(int argc, char *argv[])
 	putchar('\n');
 	if (smp->status)
 		fprintf(stdout, "SMP status: 0x%x\n", ntohs(smp->status));
+
+exit:
+	umad_free(umad);
 	return 0;
 }
