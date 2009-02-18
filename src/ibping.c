@@ -41,23 +41,15 @@
 #include <string.h>
 #include <signal.h>
 #include <getopt.h>
-#include <sys/time.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
+#include <complib/cl_timer.h>
 
 #include "ibdiag_common.h"
 
 static char host_and_domain[IB_VENDOR_RANGE2_DATA_SIZE];
 static char last_host[IB_VENDOR_RANGE2_DATA_SIZE];
-
-static uint64_t getcurrenttime(void)
-{
-        struct timeval tv;
-
-        gettimeofday(&tv, 0);
-        return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-}
 
 static void
 get_host_and_domain(char *data, int sz)
@@ -118,7 +110,7 @@ ibping(ib_portid_t *portid, int quiet)
 
 	DEBUG("Ping..");
 
-	start = getcurrenttime();
+	start = cl_get_time_stamp();
 
 	call.method = IB_MAD_METHOD_GET;
 	call.mgmt_class = IB_VENDOR_OPENIB_PING_CLASS;
@@ -129,9 +121,9 @@ ibping(ib_portid_t *portid, int quiet)
 	memset(&call.rmpp, 0, sizeof call.rmpp);
 
 	if (!ib_vendor_call(data, portid, &call))
-		return ~0llu;
+		return ~0ull;
 
-	rtt = getcurrenttime() - start;
+	rtt = cl_get_time_stamp() - start;
 
 	if (!last_host[0])
 		memcpy(last_host, data, sizeof last_host);
@@ -149,7 +141,7 @@ static ib_portid_t portid = {0};
 
 void report(int sig)
 {
-	total_time = getcurrenttime() - start;
+	total_time = cl_get_time_stamp() - start;
 
 	DEBUG("out due signal %d", sig);
 
@@ -203,7 +195,7 @@ int main(int argc, char **argv)
 		{ "flood", 'f', 0, NULL, "flood destination" },
 		{ "oui", 'o', 1, NULL, "use specified OUI number" },
 		{ "Server", 'S', 0, NULL, "start in server mode" },
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "<dest lid|guid>";
 
@@ -238,7 +230,7 @@ int main(int argc, char **argv)
 	signal(SIGINT, report);
 	signal(SIGTERM, report);
 
-	start = getcurrenttime();
+	start = cl_get_time_stamp();
 
 	while (count-- > 0) {
 		ntrans++;
