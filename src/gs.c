@@ -46,8 +46,8 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
-		      unsigned timeout, unsigned id,
-		      const void *srcport)
+		       unsigned timeout, unsigned id,
+		       const struct ibmad_port *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
@@ -82,8 +82,8 @@ uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
 }
 
 uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
-			      int port, unsigned mask, unsigned timeout,
-			      unsigned id, const void *srcport)
+			       int port, unsigned mask, unsigned timeout,
+			       unsigned id, const struct ibmad_port *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;

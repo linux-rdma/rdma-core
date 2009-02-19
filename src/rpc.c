@@ -100,6 +100,11 @@ int madrpc_portid(void)
 	return mad_portid;
 }
 
+int mad_rpc_portid(struct ibmad_port *srcport)
+{
+	return (srcport->port_id);
+}
+
 static int
 _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	   int timeout)
@@ -164,10 +169,9 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	return -1;
 }
 
-void *mad_rpc(const void *port_id, ib_rpc_t * rpc, ib_portid_t * dport,
+void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * dport,
 	      void *payload, void *rcvdata)
 {
-	const struct ibmad_port *p = port_id;
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
@@ -177,8 +181,8 @@ void *mad_rpc(const void *port_id, ib_rpc_t * rpc, ib_portid_t * dport,
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(p->port_id, sndbuf, rcvbuf,
-			      p->class_agents[rpc->mgtclass],
+	if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
+			      port->class_agents[rpc->mgtclass],
 			      len, rpc->timeout)) < 0) {
 		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return 0;
@@ -203,10 +207,9 @@ void *mad_rpc(const void *port_id, ib_rpc_t * rpc, ib_portid_t * dport,
 	return rcvdata;
 }
 
-void *mad_rpc_rmpp(const void *port_id, ib_rpc_t * rpc, ib_portid_t * dport,
+void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * dport,
 		   ib_rmpp_hdr_t * rmpp, void *data)
 {
-	const struct ibmad_port *p = port_id;
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 
@@ -217,8 +220,8 @@ void *mad_rpc_rmpp(const void *port_id, ib_rpc_t * rpc, ib_portid_t * dport,
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, rmpp, data)) < 0)
 		return 0;
 
-	if ((len = _do_madrpc(p->port_id, sndbuf, rcvbuf,
-			      p->class_agents[rpc->mgtclass],
+	if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
+			      port->class_agents[rpc->mgtclass],
 			      len, rpc->timeout)) < 0) {
 		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return 0;
@@ -303,7 +306,7 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 	}
 }
 
-void *mad_rpc_open_port(char *dev_name, int dev_port,
+struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 			int *mgmt_classes, int num_classes)
 {
 	struct ibmad_port *p;
@@ -360,12 +363,10 @@ void *mad_rpc_open_port(char *dev_name, int dev_port,
 	return p;
 }
 
-void mad_rpc_close_port(void *port_id)
+void mad_rpc_close_port(struct ibmad_port *port)
 {
-	struct ibmad_port *p = port_id;
-
-	umad_close_port(p->port_id);
-	free(p);
+	umad_close_port(port->port_id);
+	free(port);
 }
 
 uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,

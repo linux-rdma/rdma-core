@@ -66,6 +66,7 @@ IBMAD_1.3 {
 		mad_rpc_close_port;
 		mad_rpc;
 		mad_rpc_rmpp;
+		mad_rpc_portid;
 		madrpc;
 		madrpc_def_timeout;
 		madrpc_init;

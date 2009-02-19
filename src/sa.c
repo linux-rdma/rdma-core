@@ -44,7 +44,7 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-uint8_t *sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t * portid,
+uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf, ib_portid_t * portid,
 		     ib_sa_call_t * sa, unsigned timeout)
 {
 	ib_rpc_t rpc = { 0 };
@@ -106,7 +106,7 @@ uint8_t *sa_rpc_call(const void *ibmad_port, void *rcvbuf, ib_portid_t * portid,
 			IB_PR_COMPMASK_SGID |\
 			IB_PR_COMPMASK_NUMBPATH)
 
-int ib_path_query_via(const void *srcport, ibmad_gid_t srcgid,
+int ib_path_query_via(const struct ibmad_port *srcport, ibmad_gid_t srcgid,
 		      ibmad_gid_t destgid, ib_portid_t * sm_id, void *buf)
 {
 	int npath;

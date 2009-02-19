@@ -45,7 +45,8 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout, const void *srcport)
+int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
+			const struct ibmad_port *srcport)
 {
 	ib_portid_t self = { 0 };
 	uint8_t portinfo[64];
@@ -67,7 +68,8 @@ int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
 }
 
 int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
-			ib_portid_t * sm_id, int timeout, const void *srcport)
+			ib_portid_t * sm_id, int timeout,
+			const struct ibmad_port *srcport)
 {
 	ib_portid_t sm_portid;
 	char buf[IB_SA_DATA_SIZE] = { 0 };
@@ -93,7 +95,7 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 
 int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 			      enum MAD_DEST dest_type, ib_portid_t * sm_id,
-			      const void *srcport)
+			      const struct ibmad_port *srcport)
 {
 	uint64_t guid;
 	int lid;
@@ -150,7 +152,7 @@ int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
 }
 
 int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
-			const void *srcport)
+			const struct ibmad_port *srcport)
 {
 	ib_portid_t self = { 0 };
 	uint8_t portinfo[64];
