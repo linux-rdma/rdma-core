@@ -53,6 +53,8 @@
 #include "grouping.h"
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 static char *node_type_str[] = {
 	"???",
 	"ca",
@@ -143,7 +145,8 @@ get_port(Port *port, int portnum, ib_portid_t *portid)
 
 	port->portnum = portnum;
 
-	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, portnum, timeout))
+	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, portnum, timeout,
+			srcport))
 		return -1;
 	decode_port_info(pi, port);
 
@@ -162,7 +165,7 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	void *pi = portinfo, *ni = node->nodeinfo, *nd = node->nodedesc;
 	void *si = switchinfo;
 
-	if (!smp_query(ni, portid, IB_ATTR_NODE_INFO, 0, timeout))
+	if (!smp_query_via(ni, portid, IB_ATTR_NODE_INFO, 0, timeout, srcport))
 		return -1;
 
 	mad_decode_field(ni, IB_NODE_GUID_F, &node->nodeguid);
@@ -176,10 +179,10 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	port->portnum = node->localport;
 	port->portguid = node->portguid;
 
-	if (!smp_query(nd, portid, IB_ATTR_NODE_DESC, 0, timeout))
+	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, timeout, srcport))
 		return -1;
 
-	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, 0, timeout))
+	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, 0, timeout, srcport))
 		return -1;
 	decode_port_info(pi, port);
 
@@ -190,15 +193,16 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	node->smalmc = port->lmc;
 
 	/* after we have the sma information find out the real PortInfo for this port */
-	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, node->localport, timeout))
+	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, node->localport,
+			   timeout, srcport))
 	        return -1;
 	decode_port_info(pi, port);
 
 	port->lid = node->smalid;  /* LID is still defined by port 0 */
 	port->lmc = node->smalmc;
 
-        if (!smp_query(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout))
-                node->smaenhsp0 = 0;	/* assume base SP0 */
+	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout, srcport))
+		node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
         	mad_decode_field(si, IB_SW_ENHANCED_PORT0_F, &node->smaenhsp0);
 
@@ -990,7 +994,10 @@ int main(int argc, char **argv)
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (discover(&my_portid) < 0)
@@ -1005,5 +1012,6 @@ int main(int argc, char **argv)
 		dump_topology(list, group);
 
 	close_node_name_map(node_name_map);
+	mad_rpc_close_port(srcport);
 	exit(0);
 }
