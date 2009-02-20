@@ -78,6 +78,8 @@ static ibmad_gid_t mgid_ipoib = {
 	0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
 };
 
+struct ibmad_port *srcport;
+
 uint64_t build_mcm_rec(uint8_t *data, ibmad_gid_t mgid, ibmad_gid_t port_gid)
 {
 	memset(data, 0, IB_SA_DATA_SIZE);
@@ -442,10 +444,13 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		guid_file = argv[1];
 
-	madrpc_init(NULL, 0, mgmt_classes, 2);
+	srcport = mad_rpc_open_port(NULL, 0, mgmt_classes, 2);
+	if (!srcport)
+		err("Failed to open port");
+
 
 #if 1
-	ib_resolve_smlid(&dport_id, TMO);
+	ib_resolve_smlid_via(&dport_id, TMO, srcport);
 #else
 	memset(&dport_id, 0, sizeof(dport_id));
 	dport_id.lid = 1;
@@ -463,7 +468,7 @@ int main(int argc, char **argv)
 	}
 
 #if 1
-	port = madrpc_portid();
+	port = mad_rpc_portid(srcport);
 #else
 	ret = umad_init();
 
