@@ -48,6 +48,8 @@
 
 static uint8_t sminfo[1024];
 
+struct ibmad_port *srcport;
+
 int strdata, xdata=1, bindata;
 enum {
 	SMINFO_NOTACT,
@@ -113,13 +115,16 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		mod = atoi(argv[1]);
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (argc) {
-		if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, 0) < 0)
+		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
+				0, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
-		if (ib_resolve_smlid(&portid, ibd_timeout) < 0)
+		if (ib_resolve_smlid_via(&portid, ibd_timeout, srcport) < 0)
 			IBERROR("can't resolve sm port %s", argv[0]);
 	}
 
@@ -130,10 +135,12 @@ int main(int argc, char **argv)
 	mad_encode_field(sminfo, IB_SMINFO_STATE_F, &state);
 
 	if (mod) {
-		if (!(p = smp_set(sminfo, &portid, IB_ATTR_SMINFO, mod, ibd_timeout)))
+		if (!(p = smp_set_via(sminfo, &portid, IB_ATTR_SMINFO, mod,
+				ibd_timeout, srcport)))
 			IBERROR("query");
 	} else
-		if (!(p = smp_query(sminfo, &portid, IB_ATTR_SMINFO, 0, ibd_timeout)))
+		if (!(p = smp_query_via(sminfo, &portid, IB_ATTR_SMINFO, 0,
+				ibd_timeout, srcport)))
 			IBERROR("query");
 
 	mad_decode_field(sminfo, IB_SMINFO_GUID_F, &guid);
@@ -145,5 +152,6 @@ int main(int argc, char **argv)
 	printf("sminfo: sm lid %d sm guid 0x%" PRIx64 ", activity count %u priority %d state %d %s\n",
 		portid.lid, guid, act, prio, state, STATESTR(state));
 
+	mad_rpc_close_port(srcport);
 	exit(0);
 }

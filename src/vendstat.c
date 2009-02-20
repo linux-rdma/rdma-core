@@ -55,6 +55,8 @@
 /* Config space addresses */
 #define IB_MLX_IS3_PORT_XMIT_WAIT	0x10013C
 
+struct ibmad_port *srcport;
+
 typedef struct {
 	uint16_t hw_revision;
 	uint16_t device_id;
@@ -152,13 +154,16 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		port = strtoul(argv[1], 0, 0);
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 4);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 4);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (argc) {
-		if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
+				ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
-		if (ib_resolve_self(&portid, &port, 0) < 0)
+		if (ib_resolve_self_via(&portid, &port, 0, srcport) < 0)
 			IBERROR("can't resolve self port %s", argv[0]);
 	}
 
@@ -180,12 +185,12 @@ int main(int argc, char **argv)
 	memset(&buf, 0, sizeof(buf));
 	/* vendor ClassPortInfo is required attribute if class supported */
 	call.attrid = CLASS_PORT_INFO;
-	if (!ib_vendor_call(&buf, &portid, &call))
+	if (!ib_vendor_call_via(&buf, &portid, &call, srcport))
 		IBERROR("classportinfo query");
 
 	memset(&buf, 0, sizeof(buf));
 	call.attrid = IB_MLX_IS3_GENERAL_INFO;
-	if (!ib_vendor_call(&buf, &portid, &call))
+	if (!ib_vendor_call_via(&buf, &portid, &call, srcport))
 		IBERROR("vendstat");
 	gi = (is3_general_info_t *)&buf;
 
@@ -217,7 +222,7 @@ int main(int argc, char **argv)
 		cs = (is3_config_space_t *)&buf;
 		for (i = 0; i < 16; i++)
 			cs->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 1) << 12));
-		if (!ib_vendor_call(&buf, &portid, &call))
+		if (!ib_vendor_call_via(&buf, &portid, &call, srcport))
 			IBERROR("vendstat");
 
 		for (i = 0; i < 16; i++)
@@ -232,7 +237,7 @@ int main(int argc, char **argv)
 		cs = (is3_config_space_t *)&buf;
 		for (i = 0; i < 8; i++)
 			cs->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 17) << 12));
-		if (!ib_vendor_call(&buf, &portid, &call))
+		if (!ib_vendor_call_via(&buf, &portid, &call, srcport))
 			IBERROR("vendstat");
 
 		for (i = 0; i < 8; i++)

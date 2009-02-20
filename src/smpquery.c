@@ -51,6 +51,8 @@
 
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 typedef char *(op_fn_t)(ib_portid_t *dest, char **argv, int argc);
 
 typedef struct match_rec {
@@ -88,13 +90,13 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	char      dots[128];
 	char     *nodename = NULL;
 
-	if (!smp_query(data, dest, IB_ATTR_NODE_INFO, 0, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info query failed";
 
 	mad_decode_field(data, IB_NODE_TYPE_F, &node_type);
 	mad_decode_field(data, IB_NODE_GUID_F, &node_guid);
 
-	if (!smp_query(nd, dest, IB_ATTR_NODE_DESC, 0, 0))
+	if (!smp_query_via(nd, dest, IB_ATTR_NODE_DESC, 0, 0, srcport))
 		return "node desc query failed";
 
 	nodename = remap_node_name(node_name_map, node_guid, nd);
@@ -119,7 +121,7 @@ node_info(ib_portid_t *dest, char **argv, int argc)
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
 
-	if (!smp_query(data, dest, IB_ATTR_NODE_INFO, 0, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info query failed";
 
 	mad_dump_nodeinfo(buf, sizeof buf, data, sizeof data);
@@ -138,7 +140,7 @@ port_info(ib_portid_t *dest, char **argv, int argc)
 	if (argc > 0)
 		portnum = strtol(argv[0], 0, 0);
 
-	if (!smp_query(data, dest, IB_ATTR_PORT_INFO, portnum, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return "port info query failed";
 
 	mad_dump_portinfo(buf, sizeof buf, data, sizeof data);
@@ -153,7 +155,7 @@ switch_info(ib_portid_t *dest, char **argv, int argc)
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
 
-	if (!smp_query(data, dest, IB_ATTR_SWITCH_INFO, 0, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0, 0, srcport))
 		return "switch info query failed";
 
 	mad_dump_switchinfo(buf, sizeof buf, data, sizeof data);
@@ -176,7 +178,7 @@ pkey_table(ib_portid_t *dest, char **argv, int argc)
 		portnum = strtol(argv[0], 0, 0);
 
 	/* Get the partition capacity */
-	if (!smp_query(data, dest, IB_ATTR_NODE_INFO, 0, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info query failed";
 
 	mad_decode_field(data, IB_NODE_TYPE_F, &t);
@@ -185,7 +187,8 @@ pkey_table(ib_portid_t *dest, char **argv, int argc)
 		return "invalid port number";
 
 	if ((t == IB_NODE_SWITCH) && (portnum != 0)) {
-		if (!smp_query(data, dest, IB_ATTR_SWITCH_INFO, 0, 0))
+		if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0, 0,
+				srcport))
 			return "switch info failed";
 		mad_decode_field(data, IB_SW_PARTITION_ENFORCE_CAP_F, &n);
 	} else
@@ -193,7 +196,8 @@ pkey_table(ib_portid_t *dest, char **argv, int argc)
 
 	for (i = 0; i < (n + 31) / 32; i++) {
 		mod =  i | (portnum << 16);
-		if (!smp_query(data, dest, IB_ATTR_PKEY_TBL, mod, 0))
+		if (!smp_query_via(data, dest, IB_ATTR_PKEY_TBL, mod, 0,
+				srcport))
 			return "pkey table query failed";
 		if (i + 1 == (n + 31) / 32)
 			k = ((n + 7 - i * 32) / 8) * 8;
@@ -220,7 +224,7 @@ static char *sl2vl_dump_table_entry(ib_portid_t *dest, int in, int out)
 	char data[IB_SMP_DATA_SIZE];
 	int portnum = (in << 8) | out;
 
-	if (!smp_query(data, dest, IB_ATTR_SLVL_TABLE, portnum, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_SLVL_TABLE, portnum, 0, srcport))
 		return "slvl query failed";
 
 	mad_dump_sltovl(buf, sizeof buf, data, sizeof data);
@@ -240,7 +244,7 @@ sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 	if (argc > 0)
 		portnum = strtol(argv[0], 0, 0);
 
-	if (!smp_query(data, dest, IB_ATTR_NODE_INFO, 0, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info query failed";
 
 	mad_decode_field(data, IB_NODE_TYPE_F, &type);
@@ -270,8 +274,8 @@ static char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum, int offset, 
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
 
-	if (!smp_query(data, dest, IB_ATTR_VL_ARBITRATION,
-			(offset << 16) | portnum, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_VL_ARBITRATION,
+			(offset << 16) | portnum, 0, srcport))
 		return "vl arb query failed";
 	mad_dump_vlarbitration(buf, sizeof(buf), data, cap * 2);
 	printf("%s", buf);
@@ -305,12 +309,14 @@ vlarb_table(ib_portid_t *dest, char **argv, int argc)
 
 	/* port number of 0 could mean SP0 or port MAD arrives on */
 	if (portnum == 0) {
-		if (!smp_query(data, dest, IB_ATTR_NODE_INFO, 0, 0))
+		if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0,
+				srcport))
 			return "node info query failed";
 
 		mad_decode_field(data, IB_NODE_TYPE_F, &type);
 		if (type == IB_NODE_SWITCH) {
-			if (!smp_query(data, dest, IB_ATTR_SWITCH_INFO, 0, 0))
+			if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0,
+					0, srcport))
 				return "switch info query failed";
 			mad_decode_field(data, IB_SW_ENHANCED_PORT0_F, &enhsp0);
 			if (!enhsp0) {
@@ -321,7 +327,7 @@ vlarb_table(ib_portid_t *dest, char **argv, int argc)
 		}
 	}
 
-	if (!smp_query(data, dest, IB_ATTR_PORT_INFO, portnum, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return "port info query failed";
 
 	mad_decode_field(data, IB_PORT_VL_ARBITRATION_LOW_CAP_F, &lowcap);
@@ -349,13 +355,14 @@ guid_info(ib_portid_t *dest, char **argv, int argc)
 	int n;
 
 	/* Get the guid capacity */
-	if (!smp_query(data, dest, IB_ATTR_PORT_INFO, 0, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, 0, 0, srcport))
 		return "port info failed";
 	mad_decode_field(data, IB_PORT_GUID_CAP_F, &n);
 
 	for (i = 0; i < (n + 7) / 8; i++) {
 		mod =  i;
-		if (!smp_query(data, dest, IB_ATTR_GUID_INFO, mod, 0))
+		if (!smp_query_via(data, dest, IB_ATTR_GUID_INFO, mod, 0,
+				srcport))
 			return "guid info query failed";
 		if (i + 1 == (n + 7) / 8)
 			k = ((n + 1 - i * 8) / 2) * 2;
@@ -445,11 +452,15 @@ int main(int argc, char **argv)
 	if (!(fn = match_op(argv[0])))
 		IBERROR("operation '%s' not supported", argv[0]);
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (ibd_dest_type != IB_DEST_DRSLID) {
-		if (ib_resolve_portid_str(&portid, argv[1], ibd_dest_type, ibd_sm_id) < 0)
+		if (ib_resolve_portid_str_via(&portid, argv[1], ibd_dest_type,
+				ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[1]);
 		if ((err = fn(&portid, argv+2, argc-2)))
 			IBERROR("operation %s: %s", argv[0], err);
@@ -458,11 +469,13 @@ int main(int argc, char **argv)
 
 		memset(concat, 0, 64);
 		snprintf(concat, sizeof(concat), "%s %s", argv[1], argv[2]);
-		if (ib_resolve_portid_str(&portid, concat, ibd_dest_type, ibd_sm_id) < 0)
+		if (ib_resolve_portid_str_via(&portid, concat, ibd_dest_type,
+				ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", concat);
 		if ((err = fn(&portid, argv+3, argc-3)))
 			IBERROR("operation %s: %s", argv[0], err);
 	}
 	close_node_name_map(node_name_map);
+	mad_rpc_close_port(srcport);
 	exit(0);
 }

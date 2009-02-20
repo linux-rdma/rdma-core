@@ -1324,12 +1324,15 @@ static int query_mft_records(const struct query_cmd *q, bind_handle_t h,
 
 static bind_handle_t get_bind_handle(void)
 {
+	static struct ibmad_port *srcport;
 	static struct bind_handle handle;
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
-	ib_resolve_smlid(&handle.dport, ibd_timeout);
+	ib_resolve_smlid_via(&handle.dport, ibd_timeout, srcport);
 	if (!handle.dport.lid)
 		IBPANIC("No SM found.");
 
@@ -1337,7 +1340,7 @@ static bind_handle_t get_bind_handle(void)
 	if (!handle.dport.qkey)
 		handle.dport.qkey = IB_DEFAULT_QP1_QKEY;
 
-	handle.fd = madrpc_portid();
+	handle.fd = mad_rpc_portid(srcport);
 	handle.agent = umad_register(handle.fd, IB_SA_CLASS, 2, 1, NULL);
 
 	return &handle;
