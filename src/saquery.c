@@ -332,13 +332,13 @@ static void dump_class_port_info(void *data)
 	       "\t\tResponse time value......0x%02X\n"
 	       "\t\tRedirect GID.............%s\n"
 	       "\t\tRedirect TC/SL/FL........0x%08X\n"
-	       "\t\tRedirect LID.............0x%04X\n"
+	       "\t\tRedirect LID.............%u\n"
 	       "\t\tRedirect PKey............0x%04X\n"
 	       "\t\tRedirect QP..............0x%08X\n"
 	       "\t\tRedirect QKey............0x%08X\n"
 	       "\t\tTrap GID.................%s\n"
 	       "\t\tTrap TC/SL/FL............0x%08X\n"
-	       "\t\tTrap LID.................0x%04X\n"
+	       "\t\tTrap LID.................%u\n"
 	       "\t\tTrap PKey................0x%04X\n"
 	       "\t\tTrap HL/QP...............0x%08X\n"
 	       "\t\tTrap QKey................0x%08X\n",
@@ -360,7 +360,7 @@ static void dump_portinfo_record(void *data)
 	const ib_port_info_t *const p_pi = &p_pir->port_info;
 
 	printf("PortInfoRecord dump:\n"
-	       "\t\tEndPortLid..............0x%X\n"
+	       "\t\tEndPortLid..............%u\n"
 	       "\t\tPortNum.................0x%X\n"
 	       "\t\tbase_lid................0x%X\n"
 	       "\t\tmaster_sm_base_lid......0x%X\n"
