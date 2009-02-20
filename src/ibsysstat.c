@@ -48,6 +48,8 @@
 
 #define MAX_CPUS 8
 
+struct ibmad_port *srcport;
+
 enum ib_sysstat_attr_t {
 	IB_PING_ATTR = 0x10,
 	IB_HOSTINFO_ATTR = 0x11,
@@ -101,7 +103,7 @@ static int server_respond(void *umad, int size)
 	if (ibdebug > 1)
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
 
-	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad,
+	if (umad_send(mad_rpc_portid(srcport), mad_class_agent(rpc.mgtclass), umad,
 		      size, rpc.timeout, 0) < 0) {
 		DEBUG("send failed; %m");
 		return -1;
@@ -169,7 +171,7 @@ static char *ibsystat_serv(void)
 
 	DEBUG("starting to serve...");
 
-	while ((umad = mad_receive(buf, -1))) {
+	while ((umad = mad_receive_via(buf, -1, srcport))) {
 		if (umad_status(buf)) {
 			DEBUG("drop mad with status %x: %s", umad_status(buf),
 			      strerror(umad_status(buf)));
@@ -230,7 +232,7 @@ static char *ibsystat(ib_portid_t *portid, int attr)
 	if ((len = mad_build_pkt(buf, &rpc, portid, NULL, NULL)) < 0)
 		IBPANIC("cannot build packet.");
 
-	fd = madrpc_portid();
+	fd = mad_rpc_portid(srcport);
 	agent = mad_class_agent(rpc.mgtclass);
 	timeout = ibd_timeout ? ibd_timeout : MAD_DEF_TIMEOUT_MS;
 
@@ -334,10 +336,12 @@ int main(int argc, char **argv)
 	if (argc > 1 && (attr = match_attr(argv[1])) < 0)
 		ibdiag_show_usage();
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (server) {
-		if (mad_register_server(sysstat_class, 1, 0, oui) < 0)
+		if (mad_register_server_via(sysstat_class, 1, 0, oui, srcport) < 0)
 			IBERROR("can't serve class %d", sysstat_class);
 
 		host_ncpu = build_cpuinfo();
@@ -347,14 +351,16 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	if (mad_register_client(sysstat_class, 1) < 0)
+	if (mad_register_client_via(sysstat_class, 1, srcport) < 0)
 		IBERROR("can't register to sysstat class %d", sysstat_class);
 
-	if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+	if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
+			ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	if ((err = ibsystat(&portid, attr)))
 		IBERROR("ibsystat to %s: %s", portid2str(&portid), err);
 
+	mad_rpc_close_port(srcport);
 	exit(0);
 }
