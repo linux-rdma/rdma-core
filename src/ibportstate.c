@@ -46,6 +46,8 @@
 
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 /*******************************************/
 
 static int
@@ -53,7 +55,7 @@ get_node_info(ib_portid_t *dest, uint8_t *data)
 {
 	int node_type;
 
-	if (!smp_query(data, dest, IB_ATTR_NODE_INFO, 0, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return -1;
 
 	node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
@@ -69,7 +71,7 @@ get_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
 	char buf[2048];
 	char val[64];
 
-	if (!smp_query(data, dest, IB_ATTR_PORT_INFO, portnum, 0))
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return -1;
 
 	if (port_op != 4) {
@@ -108,7 +110,7 @@ set_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
 	char buf[2048];
 	char val[64];
 
-	if (!smp_set(data, dest, IB_ATTR_PORT_INFO, portnum, 0))
+	if (!smp_set_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return -1;
 
 	if (port_op != 4)
@@ -223,9 +225,12 @@ int main(int argc, char **argv)
 	if (argc < 2)
 		ibdiag_show_usage();
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
-	if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+	if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
+				ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	/* First, make sure it is a switch port if it is a "set" */
@@ -314,7 +319,8 @@ int main(int argc, char **argv)
 					peerportid.drpath.p[1] = (uint8_t) portnum;
 
 					/* Set DrSLID to local lid */
-					if (ib_resolve_self(&selfportid, &selfport, 0) < 0)
+					if (ib_resolve_self_via(&selfportid,
+							&selfport, 0, srcport) < 0)
 						IBERROR("could not resolve self");
 					peerportid.drpath.drslid = (uint16_t) selfportid.lid;
 					peerportid.drpath.drdlid = 0xffff;
@@ -354,5 +360,6 @@ int main(int argc, char **argv)
 		}
 	}
 
+	mad_rpc_close_port(srcport);
 	exit(0);
 }
