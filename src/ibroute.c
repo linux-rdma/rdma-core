@@ -49,6 +49,8 @@
 
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 static int brief, dump_all, multicast;
 
 /*******************************************/
@@ -61,12 +63,12 @@ check_switch(ib_portid_t *portid, unsigned int *nports, uint64_t *guid,
 	int type;
 
 	DEBUG("checking node type");
-	if (!smp_query(ni, portid, IB_ATTR_NODE_INFO, 0, 0)) {
+	if (!smp_query_via(ni, portid, IB_ATTR_NODE_INFO, 0, 0, srcport)) {
 		xdump(stderr, "nodeinfo\n", ni, sizeof ni);
 		return "node info failed: valid addr?";
 	}
 
-	if (!smp_query(nd, portid, IB_ATTR_NODE_DESC, 0, 0))
+	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, 0, srcport))
 		return "node desc failed";
 
 	mad_decode_field(ni, IB_NODE_TYPE_F, &type);
@@ -77,7 +79,7 @@ check_switch(ib_portid_t *portid, unsigned int *nports, uint64_t *guid,
 	mad_decode_field(ni, IB_NODE_NPORTS_F, nports);
 	mad_decode_field(ni, IB_NODE_GUID_F, guid);
 
-	if (!smp_query(sw, portid, IB_ATTR_SWITCH_INFO, 0, 0))
+	if (!smp_query_via(sw, portid, IB_ATTR_SWITCH_INFO, 0, 0, srcport))
 		return "switch info failed: is a switch node?";
 
 	return 0;
@@ -195,7 +197,8 @@ dump_multicast_tables(ib_portid_t *portid, unsigned startlid, unsigned endlid)
 			mod = (block - IB_MIN_MCAST_LID/IB_MLIDS_IN_BLOCK) | (j << 28);
 
 			DEBUG("reading block %x chunk %d mod %x", block, j, mod);
-			if (!smp_query(mft + j, portid, IB_ATTR_MULTICASTFORWTBL, mod, 0))
+			if (!smp_query_via(mft + j, portid,
+					IB_ATTR_MULTICASTFORWTBL, mod, 0, srcport))
 				return "multicast forwarding table get failed";
 		}
 
@@ -259,9 +262,9 @@ dump_lid(char *str, int strlen, int lid, int valid)
 	portguid = 0;
 	lidport.lid = lid;
 
-	if (!smp_query(nd, &lidport, IB_ATTR_NODE_DESC, 0, 100) ||
-	    !smp_query(pi, &lidport, IB_ATTR_PORT_INFO, 0, 100) ||
-	    !smp_query(ni, &lidport, IB_ATTR_NODE_INFO, 0, 100))
+	if (!smp_query_via(nd, &lidport, IB_ATTR_NODE_DESC, 0, 100, srcport) ||
+	    !smp_query_via(pi, &lidport, IB_ATTR_PORT_INFO, 0, 100, srcport) ||
+	    !smp_query_via(ni, &lidport, IB_ATTR_NODE_INFO, 0, 100, srcport))
 		return snprintf(str, strlen, ": (unknown node and type)");
 
 	mad_decode_field(ni, IB_NODE_PORT_GUID_F, &portguid);
@@ -317,7 +320,8 @@ dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
 	endblock = ALIGN(endlid, IB_SMP_DATA_SIZE) / IB_SMP_DATA_SIZE;
 	for (block = startblock; block <= endblock; block++) {
 		DEBUG("reading block %d", block);
-		if (!smp_query(lft, portid, IB_ATTR_LINEARFORWTBL, block, 0))
+		if (!smp_query_via(lft, portid, IB_ATTR_LINEARFORWTBL, block,
+				0, srcport))
 			return "linear forwarding table get failed";
 		i = block * IB_SMP_DATA_SIZE;
 		e = i + IB_SMP_DATA_SIZE;
@@ -404,12 +408,15 @@ int main(int argc, char **argv)
 	if (argc > 2)
 		endlid = strtoul(argv[2], 0, 0);
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (!argc) {
-		if (ib_resolve_self(&portid, 0, 0) < 0)
+		if (ib_resolve_self_via(&portid, 0, 0, srcport) < 0)
 			IBERROR("can't resolve self addr");
-	} else if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+	} else if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
+			ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[1]);
 
 	if (multicast)
@@ -420,5 +427,6 @@ int main(int argc, char **argv)
 	if (err)
 		IBERROR("dump tables: %s", err);
 
+	mad_rpc_close_port(srcport);
 	exit(0);
 }
