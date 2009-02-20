@@ -123,8 +123,8 @@ static const ib_field_t ib_mad_f[] = {
 	 */
 	{0, 64, "Mkey", mad_dump_hex},
 	{64, 64, "GidPrefix", mad_dump_hex},
-	{BITSOFFS(128, 16), "Lid", mad_dump_hex},
-	{BITSOFFS(144, 16), "SMLid", mad_dump_hex},
+	{BITSOFFS(128, 16), "Lid", mad_dump_uint},
+	{BITSOFFS(144, 16), "SMLid", mad_dump_uint},
 	{160, 32, "CapMask", mad_dump_portcapmask},
 	{BITSOFFS(192, 16), "DiagCode", mad_dump_hex},
 	{BITSOFFS(208, 16), "MkeyLeasePeriod", mad_dump_uint},
