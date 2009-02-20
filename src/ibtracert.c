@@ -50,6 +50,8 @@
 
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 #define MAXHOPS	63
 
 static char *node_type_str[] = {
@@ -116,10 +118,10 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	void *pi = port->portinfo, *ni = node->nodeinfo, *nd = node->nodedesc;
 	char *s, *e;
 
-	if (!smp_query(ni, portid, IB_ATTR_NODE_INFO, 0, timeout))
+	if (!smp_query_via(ni, portid, IB_ATTR_NODE_INFO, 0, timeout, srcport))
 		return -1;
 
-	if (!smp_query(nd, portid, IB_ATTR_NODE_DESC, 0, timeout))
+	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, timeout, srcport))
 		return -1;
 
 	for (s = nd, e = s + 64; s < e; s++) {
@@ -129,7 +131,7 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 			*s = ' ';
 	}
 
-	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, 0, timeout))
+	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, 0, timeout, srcport))
 		return -1;
 
 	mad_decode_field(ni, IB_NODE_GUID_F, &node->nodeguid);
@@ -151,7 +153,7 @@ switch_lookup(Switch *sw, ib_portid_t *portid, int lid)
 {
 	void *si = sw->switchinfo, *fdb = sw->fdb;
 
-	if (!smp_query(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout))
+	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout, srcport))
 		return -1;
 
 	mad_decode_field(si, IB_SW_LINEAR_FDB_CAP_F, &sw->linearcap);
@@ -160,7 +162,8 @@ switch_lookup(Switch *sw, ib_portid_t *portid, int lid)
 	if (lid > sw->linearcap && lid > sw->linearFDBtop)
 		return -1;
 
-	if (!smp_query(fdb, portid, IB_ATTR_LINEARFORWTBL, lid / 64, timeout))
+	if (!smp_query_via(fdb, portid, IB_ATTR_LINEARFORWTBL, lid / 64,
+			timeout, srcport))
 		return -1;
 
 	DEBUG("portid %s: forward lid %d to port %d",
@@ -382,7 +385,8 @@ get_port(Port *port, int portnum, ib_portid_t *portid)
 
 	port->portnum = portnum;
 
-	if (!smp_query(pi, portid, IB_ATTR_PORT_INFO, portnum, timeout))
+	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, portnum, timeout,
+			srcport))
 		return -1;
 
 	mad_decode_field(pi, IB_PORT_LID_F, &port->lid);
@@ -439,7 +443,7 @@ switch_mclookup(Node *node, ib_portid_t *portid, int mlid, char *map)
 
 	memset(map, 0, 256);
 
-	if (!smp_query(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout))
+	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout, srcport))
 		return -1;
 
 	mlid -= 0xc000;
@@ -453,8 +457,8 @@ switch_mclookup(Node *node, ib_portid_t *portid, int mlid, char *map)
 	maxsets = (node->numports + 15) / 16;		/* round up */
 
 	for (set = 0; set < maxsets; set++) {
-		if (!smp_query(mdb, portid, IB_ATTR_MULTICASTFORWTBL,
-		    block | (set << 28), timeout))
+		if (!smp_query_via(mdb, portid, IB_ATTR_MULTICASTFORWTBL,
+		    block | (set << 28), timeout, srcport))
 			return -1;
 
 		for (i = 0; i < 16; i++, map++) {
@@ -746,13 +750,18 @@ int main(int argc, char **argv)
 	if (ibd_timeout)
 		timeout = ibd_timeout;
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (ib_resolve_portid_str(&src_portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+	if (ib_resolve_portid_str_via(&src_portid, argv[0], ibd_dest_type,
+			ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve source port %s", argv[0]);
 
-	if (ib_resolve_portid_str(&dest_portid, argv[1], ibd_dest_type, ibd_sm_id) < 0)
+	if (ib_resolve_portid_str_via(&dest_portid, argv[1], ibd_dest_type,
+			ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[1]);
 
 	if (ibd_dest_type == IB_DEST_DRPATH) {
@@ -796,5 +805,8 @@ int main(int argc, char **argv)
 	dump_mcpath(endnode, dumplevel);
 
 	close_node_name_map(node_name_map);
+
+	mad_rpc_close_port(srcport);
+
 	exit(0);
 }
