@@ -47,6 +47,8 @@
 
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 static int send_144_node_desc_update(void)
 {
 	ib_portid_t sm_port;
@@ -55,10 +57,10 @@ static int send_144_node_desc_update(void)
 	ib_rpc_t trap_rpc;
 	ib_mad_notice_attr_t notice;
 
-	if (ib_resolve_self(&selfportid, &selfport, NULL))
+	if (ib_resolve_self_via(&selfportid, &selfport, NULL, srcport))
 		IBERROR("can't resolve self");
 
-	if (ib_resolve_smlid(&sm_port, 0))
+	if (ib_resolve_smlid_via(&sm_port, 0, srcport))
 		IBERROR("can't resolve SM destination port");
 
 	memset(&trap_rpc, 0, sizeof(trap_rpc));
@@ -80,7 +82,7 @@ static int send_144_node_desc_update(void)
 	notice.data_details.ntc_144.change_flgs =
 	    TRAP_144_MASK_NODE_DESCRIPTION_CHANGE;
 
-	return (mad_send(&trap_rpc, &sm_port, NULL, &notice));
+	return (mad_send_via(&trap_rpc, &sm_port, NULL, &notice, srcport));
 }
 
 typedef struct _trap_def {
@@ -103,7 +105,7 @@ int send_trap(char *trap_name)
 		}
 	}
 	ibdiag_show_usage();
-	exit(1);
+	return(1);
 }
 
 int main(int argc, char **argv)
@@ -111,7 +113,7 @@ int main(int argc, char **argv)
 	char usage_args[1024];
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 	char *trap_name = NULL;
-	int i, n;
+	int i, n, rc;
 
 	n = sprintf(usage_args, "[<trap_name>]\n"
 		    "\nArgument <trap_name> can be one of the following:\n");
@@ -137,7 +139,12 @@ int main(int argc, char **argv)
 	}
 
 	madrpc_show_errors(1);
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 
-	return (send_trap(trap_name));
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+
+	rc = send_trap(trap_name);
+	mad_rpc_close_port(srcport);
+	return (rc);
 }
