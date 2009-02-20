@@ -88,6 +88,7 @@ IBMAD_1.3 {
 		mad_receive_via;
 		mad_respond_via;
 		mad_send;
+		mad_send_via;
 		smp_query;
 		smp_set;
 		ib_vendor_call;
