@@ -194,6 +194,9 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	        return -1;
 	decode_port_info(pi, port);
 
+	port->lid = node->smalid;  /* LID is still defined by port 0 */
+	port->lmc = node->smalmc;
+
         if (!smp_query(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout))
                 node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
