@@ -37,20 +37,25 @@
  *
  */
 
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <unistd.h>
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 
 #define _GNU_SOURCE
 #include <getopt.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <infiniband/iba/ib_types.h>
-#include <infiniband/complib/cl_nodenamemap.h>
+#include <iba/ib_types.h>
+#include <complib/cl_nodenamemap.h>
 
 #include "ibdiag_common.h"
 
@@ -170,7 +175,7 @@ recv_mad:
 	if (ibdebug > 1)
 		xdump(stdout, "SA Response:\n", mad, len);
 
-	method = mad_get_field(mad, 0, IB_MAD_METHOD_F);
+	method = (uint8_t) mad_get_field(mad, 0, IB_MAD_METHOD_F);
 	offset = mad_get_field(mad, 0, IB_SA_ATTROFFS_F);
 	result.status = mad_get_field(mad, 0, IB_MAD_STATUS_F);
 	result.p_result_madw = mad;
@@ -189,12 +194,13 @@ recv_mad:
 static void *get_query_rec(void *mad, unsigned i)
 {
 	int offset = mad_get_field(mad, 0, IB_SA_ATTROFFS_F);
-	return mad + IB_SA_DATA_OFFS + i * (offset << 3);
+	return (uint8_t *) mad + IB_SA_DATA_OFFS + i * (offset << 3);
 }
 
 static unsigned valid_gid(ib_gid_t *gid)
 {
-	ib_gid_t zero_gid = { };
+	ib_gid_t zero_gid;
+	memset(&zero_gid, 0, sizeof zero_gid);
 	return memcmp(&zero_gid, gid, sizeof(*gid));
 }
 
@@ -442,7 +448,7 @@ static void dump_multicast_member_record(void *data)
 	char gid_str2[INET6_ADDRSTRLEN];
 	ib_member_rec_t *p_mcmr = data;
 	uint16_t mlid = cl_ntoh16(p_mcmr->mlid);
-	int i = 0;
+	unsigned i = 0;
 	char *node_name = "<unknown>";
 
 	/* go through the node records searching for a port guid which matches
@@ -758,7 +764,7 @@ static void dump_one_mft_record(void *data)
 
 static void dump_results(struct query_res *r, void (*dump_func) (void *))
 {
-	int i;
+	unsigned i;
 	for (i = 0; i < r->result_cnt; i++) {
 		void *data = get_query_rec(r->p_result_madw, i);
 		dump_func(data);
@@ -768,7 +774,7 @@ static void dump_results(struct query_res *r, void (*dump_func) (void *))
 static void return_mad(void)
 {
 	if (result.p_result_madw) {
-		free(result.p_result_madw - umad_size());
+		free((uint8_t *) result.p_result_madw - umad_size());
 		result.p_result_madw = NULL;
 	}
 }
@@ -839,7 +845,8 @@ get_lid_from_name(bind_handle_t h, const char *name, uint16_t* lid)
 {
 	ib_node_record_t *node_record = NULL;
 	ib_node_info_t *p_ni = NULL;
-	int i = 0, ret;
+	unsigned i;
+	int ret;
 
 	ret = get_all_records(h, IB_SA_ATTR_NODERECORD, 0);
 	if (ret)
@@ -869,7 +876,7 @@ static uint16_t get_lid(bind_handle_t h, const char *name)
 	if (isalpha(name[0]))
 		assert(get_lid_from_name(h, name, &rc_lid) == IB_SUCCESS);
 	else
-		rc_lid = atoi(name);
+		rc_lid = (uint16_t) atoi(name);
 	if (rc_lid == 0)
 		fprintf(stderr, "Failed to find lid for \"%s\"\n", name);
 	return rc_lid;
@@ -917,8 +924,8 @@ static int parse_lid_and_ports(bind_handle_t h,
 
 #define cl_hton8(x) (x)
 #define CHECK_AND_SET_VAL(val, size, comp_with, target, name, mask) \
-	if (val > comp_with) { \
-		target = cl_hton##size(val); \
+	if ((int##size##_t) val > (int##size##_t) comp_with) { \
+		target = cl_hton##size((uint##size##_t) val); \
 		comp_mask |= IB_##name##_COMPMASK_##mask; \
 	}
 
@@ -951,7 +958,8 @@ static int get_issm_records(bind_handle_t h, ib_net32_t capability_mask)
 
 static int print_node_records(bind_handle_t h)
 {
-	int i = 0, ret;
+	unsigned i;
+	int ret;
 
 	ret = get_all_records(h, IB_SA_ATTR_NODERECORD, 0);
 	if (ret)
@@ -1089,7 +1097,7 @@ static int print_multicast_member_records(bind_handle_t h)
 
 return_mc:
 	if (mc_group_result.p_result_madw)
-		free(mc_group_result.p_result_madw - umad_size());
+		free((uint8_t *) mc_group_result.p_result_madw - umad_size());
 
 	return ret;
 }
@@ -1503,13 +1511,13 @@ static int process_opt(void *context, int ch, char *optarg)
 		query_type = IB_SA_ATTR_LINKRECORD;
 		break;
 	case 5:
-		p->slid = strtoul(optarg, NULL, 0);
+		p->slid = (uint16_t) strtoul(optarg, NULL, 0);
 		break;
 	case 6:
-		p->dlid = strtoul(optarg, NULL, 0);
+		p->dlid = (uint16_t) strtoul(optarg, NULL, 0);
 		break;
 	case 7:
-		p->mlid = strtoul(optarg, NULL, 0);
+		p->mlid = (uint16_t) strtoul(optarg, NULL, 0);
 		break;
 	case 14:
 		if (inet_pton(AF_INET6, optarg, &p->sgid) <= 0)
@@ -1534,7 +1542,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		p->numb_path = strtoul(optarg, NULL, 0);
 		break;
 	case 18:
-		p->pkey = strtoul(optarg, NULL, 0);
+		p->pkey = (uint16_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'Q':
 		p->qos_class = strtoul(optarg, NULL, 0);
@@ -1543,19 +1551,19 @@ static int process_opt(void *context, int ch, char *optarg)
 		p->sl = strtoul(optarg, NULL, 0);
 		break;
 	case 'M':
-		p->mtu = strtoul(optarg, NULL, 0);
+		p->mtu = (uint8_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'R':
-		p->rate = strtoul(optarg, NULL, 0);
+		p->rate = (uint8_t) strtoul(optarg, NULL, 0);
 		break;
 	case 20:
-		p->pkt_life = strtoul(optarg, NULL, 0);
+		p->pkt_life = (uint8_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'q':
 		p->qkey = strtoul(optarg, NULL, 0);
 		break;
 	case 'T':
-		p->tclass = strtoul(optarg, NULL, 0);
+		p->tclass = (uint8_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'F':
 		p->flow_label = strtoul(optarg, NULL, 0);
@@ -1564,10 +1572,10 @@ static int process_opt(void *context, int ch, char *optarg)
 		p->hop_limit = strtoul(optarg, NULL, 0);
 		break;
 	case 21:
-		p->scope = strtoul(optarg, NULL, 0);
+		p->scope = (uint8_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'J':
-		p->join_state = strtoul(optarg, NULL, 0);
+		p->join_state = (uint8_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'X':
 		p->proxy_join = strtoul(optarg, NULL, 0);
@@ -1582,14 +1590,7 @@ int main(int argc, char **argv)
 {
 	char usage_args[1024];
 	bind_handle_t h;
-	struct query_params params = {
-		.hop_limit = -1,
-		.reversible = -1,
-		.numb_path = -1,
-		.qos_class = -1,
-		.sl = -1,
-		.proxy_join = -1,
-	};
+	struct query_params params;
 	const struct query_cmd *q;
 	ib_api_status_t status;
 	int n;
@@ -1643,8 +1644,16 @@ int main(int argc, char **argv)
 		{ "scope", 21, 1, NULL, "Scope (MCMemberRecord)" },
 		{ "join_state", 'J', 1, NULL, "Join state (MCMemberRecord)" },
 		{ "proxy_join", 'X', 1, NULL, "Proxy join (MCMemberRecord)" },
-		{}
+		{ 0 }
 	};
+
+	memset(&params, 0, sizeof params);
+	params.hop_limit = -1;
+	params.reversible = -1;
+	params.numb_path = -1;
+	params.qos_class = -1;
+	params.sl = -1;
+	params.proxy_join = -1;
 
 	n = sprintf(usage_args, "[query-name] [<name> | <lid> | <guid>]\n"
 		    "\nSupported query names (and aliases):\n");
@@ -1680,7 +1689,7 @@ int main(int argc, char **argv)
 
 	if (argc) {
 		if (node_print_desc == NAME_OF_LID) {
-			requested_lid = strtoul(argv[0], NULL, 0);
+			requested_lid = (uint16_t) strtoul(argv[0], NULL, 0);
 			requested_lid_flag++;
 		} else if (node_print_desc == NAME_OF_GUID) {
 			requested_guid = strtoul(argv[0], NULL, 0);
