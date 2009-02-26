@@ -183,7 +183,7 @@ static char *ibsystat_serv(void)
 
 		DEBUG("got packet: attr 0x%x mod 0x%x", attr, mod);
 
-		size = mk_reply(attr, mad + IB_VENDOR_RANGE2_DATA_OFFS,
+		size = mk_reply(attr, (uint8_t *) mad + IB_VENDOR_RANGE2_DATA_OFFS,
 				sizeof(buf) - umad_size() - IB_VENDOR_RANGE2_DATA_OFFS);
 
 		if (server_respond(umad, IB_VENDOR_RANGE2_DATA_OFFS + size) < 0)
@@ -210,7 +210,7 @@ static char *ibsystat(ib_portid_t *portid, int attr)
 {
 	ib_rpc_t rpc = { 0 };
 	int fd, agent, timeout, len;
-	void *data = umad_get_mad(buf) + IB_VENDOR_RANGE2_DATA_OFFS;
+	void *data = (uint8_t *) umad_get_mad(buf) + IB_VENDOR_RANGE2_DATA_OFFS;
 
 	DEBUG("Sysstat ping..");
 
@@ -318,7 +318,7 @@ int main(int argc, char **argv)
 	const struct ibdiag_opt opts[] = {
 		{ "oui", 'o', 1, NULL, "use specified OUI number" },
 		{ "Server", 'S', 0, NULL, "start in server mode" },
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "<dest lid|guid> [<op>]";
 
