@@ -46,7 +46,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <infiniband/complib/cl_nodenamemap.h>
+#include <complib/cl_nodenamemap.h>
 
 #include "ibdiag_common.h"
 
@@ -180,7 +180,7 @@ extend_dpath(ib_dr_path_t *path, int nextport)
 	if (path->cnt+2 >= sizeof(path->p))
 		return -1;
 	++path->cnt;
-	path->p[path->cnt] = nextport;
+	path->p[path->cnt] = (uint8_t) nextport;
 	return path->cnt;
 }
 
@@ -718,7 +718,7 @@ int main(int argc, char **argv)
 		{ "no_info", 'n', 0, NULL, "simple format" },
 		{ "mlid", 'm', 1, "<mlid>", "multicast trace of the mlid" },
 		{ "node-name-map", 1, 1, "<file>", "node name map file" },
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "<src-addr> <dest-addr>";
 	const char *usage_examples[] = {
