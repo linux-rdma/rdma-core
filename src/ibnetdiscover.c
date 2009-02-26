@@ -47,7 +47,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <infiniband/complib/cl_nodenamemap.h>
+#include <complib/cl_nodenamemap.h>
 
 #include "ibnetdiscover.h"
 #include "grouping.h"
@@ -215,7 +215,7 @@ extend_dpath(ib_dr_path_t *path, int nextport)
 	++path->cnt;
 	if (path->cnt > maxhops_discovered)
 		maxhops_discovered = path->cnt;
-	path->p[path->cnt] = nextport;
+	path->p[path->cnt] = (uint8_t) nextport;
 	return path->cnt;
 }
 
@@ -515,7 +515,7 @@ out_ids(Node *node, int group, char *chname)
 }
 
 uint64_t
-out_chassis(int chassisnum)
+out_chassis(unsigned char chassisnum)
 {
 	uint64_t guid;
 
@@ -967,7 +967,7 @@ int main(int argc, char **argv)
 		{ "Router_list", 'R', 0, NULL, "list of connected routers" },
 		{ "node-name-map", 1, 1, "<file>", "node name map file" },
 		{ "ports", 'p', 0, NULL, "obtain a ports report" },
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "[topology-file]";
 

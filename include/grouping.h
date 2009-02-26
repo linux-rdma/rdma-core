@@ -48,9 +48,9 @@ typedef struct AllChassisList AllChassisList;
 struct ChassisList {
 	ChassisList *next;
 	uint64_t chassisguid;
-	int chassisnum;
-	int chassistype;
-	int nodecount;		/* used for grouping by SystemImageGUID */
+	unsigned char chassisnum;
+	unsigned char chassistype;
+	unsigned int nodecount;	  /* used for grouping by SystemImageGUID */
 	Node *spinenode[SPINES_MAX_NUM + 1];
 	Node *linenode[LINES_MAX_NUM + 1];
 };
