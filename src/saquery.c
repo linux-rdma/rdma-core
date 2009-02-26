@@ -1267,7 +1267,7 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 	memset(&pktr, 0, sizeof(pktr));
 	CHECK_AND_SET_VAL(lid, 16, 0, pktr.lid, PKEY, LID);
 	CHECK_AND_SET_VAL(port, 8, -1, pktr.port_num, PKEY, PORT);
-	CHECK_AND_SET_VAL(block, 16, -1, pktr.port_num, PKEY, BLOCK);
+	CHECK_AND_SET_VAL(block, 16, -1, pktr.block_num, PKEY, BLOCK);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_PKEYTABLERECORD, 0,
 					comp_mask, &pktr, smkey,
