@@ -43,7 +43,7 @@
 #include <getopt.h>
 
 #include <infiniband/mad.h>
-#include <infiniband/iba/ib_types.h>
+#include <iba/ib_types.h>
 
 #include "ibdiag_common.h"
 
@@ -73,8 +73,8 @@ static int send_144_node_desc_update(void)
 	notice.generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
 	notice.g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
 	notice.g_or_v.generic.trap_num = cl_hton16(144);
-	notice.issuer_lid = cl_hton16(selfportid.lid);
-	notice.data_details.ntc_144.lid = cl_hton16(selfportid.lid);
+	notice.issuer_lid = cl_hton16((uint16_t) selfportid.lid);
+	notice.data_details.ntc_144.lid = cl_hton16((uint16_t) selfportid.lid);
 	notice.data_details.ntc_144.local_changes =
 	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
 	notice.data_details.ntc_144.change_flgs =
