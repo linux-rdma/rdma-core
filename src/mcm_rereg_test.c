@@ -31,6 +31,10 @@
  *
  */
 
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -39,12 +43,12 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
-#define info(fmt, arg...) fprintf(stderr, "INFO: " fmt, ##arg )
-#define err(fmt, arg...) fprintf(stderr, "ERR: " fmt, ##arg )
+#define info(fmt, ...) fprintf(stderr, "INFO: " fmt, ## __VA_ARGS__ )
+#define err(fmt, ...) fprintf(stderr, "ERR: " fmt, ## __VA_ARGS__ )
 #ifdef NOISY_DEBUG
-#define dbg(fmt, arg...) fprintf(stderr, "DBG: " fmt, ##arg )
+#define dbg(fmt, ...) fprintf(stderr, "DBG: " fmt, ## __VA_ARGS__ )
 #else
-#define dbg(fmt, arg...)
+#define dbg(fmt, ...)
 #endif
 
 #define TMO 100
@@ -161,7 +165,8 @@ static int rereg_send_all(int port, int agent, ib_portid_t *dport,
 {
 	uint8_t *umad;
 	int len = umad_size() + 256;
-	int i, ret;
+	unsigned i;
+	int ret;
 
 	info("rereg_send_all... cnt = %u\n", cnt);
 
@@ -247,7 +252,7 @@ static int rereg_recv_all(int port, int agent, ib_portid_t *dport,
 	int len = umad_size() + 256;
 	uint64_t trid;
 	unsigned n, method, status;
-	int i;
+	unsigned i;
 
 	info("rereg_recv_all...\n");
 
@@ -301,7 +306,8 @@ static int rereg_query_all(int port, int agent, ib_portid_t *dport,
 	uint8_t *umad, *mad;
 	int len = umad_size() + 256;
 	unsigned method, status;
-	int i, ret;
+	unsigned i;
+	int ret;
 
 	info("rereg_query_all...\n");
 
@@ -384,8 +390,8 @@ static int rereg_and_test_port(char *guid_file, int port, int agent, ib_portid_t
 	char line[256];
 	FILE *f;
 	ibmad_gid_t port_gid;
-	uint64_t prefix = htonll(0xfe80000000000000llu);
-	uint64_t guid = htonll(0x0002c90200223825llu);
+	uint64_t prefix = htonll(0xfe80000000000000ull);
+	uint64_t guid = htonll(0x0002c90200223825ull);
 	struct guid_trid *list;
 	int i = 0;
 
