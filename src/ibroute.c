@@ -45,7 +45,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <infiniband/complib/cl_nodenamemap.h>
+#include <complib/cl_nodenamemap.h>
 
 #include "ibdiag_common.h"
 
@@ -54,7 +54,7 @@ static int brief, dump_all, multicast;
 /*******************************************/
 
 char *
-check_switch(ib_portid_t *portid, int *nports, uint64_t *guid,
+check_switch(ib_portid_t *portid, unsigned int *nports, uint64_t *guid,
 	     uint8_t *sw, char *nd)
 {
 	uint8_t ni[IB_SMP_DATA_SIZE] = {0};
@@ -289,7 +289,8 @@ dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
 	uint8_t sw[IB_SMP_DATA_SIZE];
 	char str[200], *s;
 	uint64_t nodeguid;
-	int block, i, e, nports, top;
+	int block, i, e, top;
+	unsigned nports;
 	int n = 0, startblock, endblock;
 
 	if ((s = check_switch(portid, &nports, &nodeguid, sw, nd)))
@@ -370,7 +371,7 @@ int main(int argc, char **argv)
 		{ "all", 'a', 0, NULL, "show all lids, even invalid entries" },
 		{ "no_dests", 'n', 0, NULL, "do not try to resolve destinations" },
 		{ "Multicast", 'M', 0, NULL, "show multicast forwarding tables" },
-		{ }
+		{ 0 }
 	};
 	char usage_args[] = "[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]";
 	const char *usage_examples[] = {
