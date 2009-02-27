@@ -870,8 +870,10 @@ void dump_ports_report ()
 	Node *node;
 	Port *port;
 
-	// If switch and LID == 0, search of other switch ports with
-	// valid LID and assign it to all ports of that switch
+	/*
+	 * If switch and LID == 0, search of other switch ports with
+	 * valid LID and assign it to all ports of that switch
+	 */
 	for (b = 0; b <= MAXHOPS; b++)
 		for (node = nodesdist[b]; node; node = node->dnext)
 			if (node->type == SWITCH_NODE) {

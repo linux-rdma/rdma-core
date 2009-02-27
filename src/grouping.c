@@ -336,9 +336,9 @@ static void get_router_slot(Node *node, Port *spineport)
 		ch->slotnum = line_slot_2_sfb12[spineport->portnum];
 		/* this is a smart guess based on nodeguids order on sFB-12 module */
 		guessnum = spineport->node->nodeguid % 4;
-		// module 1 <--> remote anafa 3
-		// module 2 <--> remote anafa 2
-		// module 3 <--> remote anafa 1
+		/* module 1 <--> remote anafa 3 */
+		/* module 2 <--> remote anafa 2 */
+		/* module 3 <--> remote anafa 1 */
 		ch->anafanum = (guessnum == 3? 1 : (guessnum == 1 ? 3 : 2));
 	} else if (is_spine_2004(spineport->node)) {
 		ch->chassistype = ISR2004_CT;
