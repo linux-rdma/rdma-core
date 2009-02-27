@@ -86,15 +86,15 @@ check_switch(ib_portid_t *portid, unsigned int *nports, uint64_t *guid,
 #define IB_MLIDS_IN_BLOCK	(IB_SMP_DATA_SIZE/2)
 
 int
-dump_mlid(char *str, int strlen, int mlid, int nports,
+dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 	  uint16_t mft[16][IB_MLIDS_IN_BLOCK])
 {
 	uint16_t mask;
-	int i, chunk, bit;
-	int nonzero = 0;
+	unsigned i, chunk, bit, nonzero = 0;
 
 	if (brief) {
-		int n = 0, chunks = ALIGN(nports + 1, 16) / 16;
+		int n = 0;
+		unsigned chunks = ALIGN(nports + 1, 16) / 16;
 		for (i = 0; i < chunks; i++) {
 			mask = ntohs(mft[i][mlid%IB_MLIDS_IN_BLOCK]);
 			if (mask)
@@ -132,7 +132,7 @@ dump_mlid(char *str, int strlen, int mlid, int nports,
 uint16_t mft[16][IB_MLIDS_IN_BLOCK];
 
 char *
-dump_multicast_tables(ib_portid_t *portid, int startlid, int endlid)
+dump_multicast_tables(ib_portid_t *portid, unsigned startlid, unsigned endlid)
 {
 	char nd[IB_SMP_DATA_SIZE] = {0};
 	uint8_t sw[IB_SMP_DATA_SIZE] = {0};
@@ -140,8 +140,8 @@ dump_multicast_tables(ib_portid_t *portid, int startlid, int endlid)
 	char *s;
 	uint64_t nodeguid;
 	uint32_t mod;
-	int block, i, j, e, nports, cap, chunks;
-	int n = 0, startblock, lastblock;
+	unsigned block, i, j, e, nports, cap, chunks, startblock, lastblock;
+	int n = 0;
 
 	if ((s = check_switch(portid, &nports, &nodeguid, sw, nd)))
 		return s;
@@ -364,7 +364,7 @@ int main(int argc, char **argv)
 {
 	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
 	ib_portid_t portid = {0};
-	int startlid = 0, endlid = 0;
+	unsigned startlid = 0, endlid = 0;
 	char *err;
 
 	const struct ibdiag_opt opts[] = {
