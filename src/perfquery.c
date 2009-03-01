@@ -311,13 +311,67 @@ static void reset_counters(int extended, int timeout, int mask, ib_portid_t *por
 	}
 }
 
-static int reset, reset_only, all_ports, loop_ports, port, extended;
+static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl, rcv_sl;
+
+void xmt_sl_query(ib_portid_t *portid, int port, int mask)
+{
+	char buf[1024];
+
+	if (reset_only) {
+		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
+						IB_GSI_PORT_XMIT_DATA_SL, NULL))
+			IBERROR("perfslreset");
+		return;
+	}
+
+	if (!pma_query_via(pc, portid, port, ibd_timeout,
+				IB_GSI_PORT_XMIT_DATA_SL, NULL))
+		IBERROR("perfslquery");
+
+	mad_dump_perfcounters_xmt_sl(buf, sizeof buf, pc, sizeof pc);
+	printf("# Port counters: %s port %d\n%s", portid2str(portid), port, buf);
+
+	if(reset)
+		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
+						IB_GSI_PORT_XMIT_DATA_SL, NULL))
+			IBERROR("perfslreset");
+}
+
+void rcv_sl_query(ib_portid_t *portid, int port, int mask)
+{
+	char buf[1024];
+
+	if (reset_only) {
+		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
+						IB_GSI_PORT_RCV_DATA_SL, NULL))
+			IBERROR("perfslreset");
+		return;
+	}
+
+	if (!pma_query_via(pc, portid, port, ibd_timeout,
+				IB_GSI_PORT_RCV_DATA_SL, NULL))
+		IBERROR("perfslquery");
+
+	mad_dump_perfcounters_rcv_sl(buf, sizeof buf, pc, sizeof pc);
+	printf("# Port counters: %s port %d\n%s", portid2str(portid), port, buf);
+
+	if(reset)
+		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
+						IB_GSI_PORT_RCV_DATA_SL, NULL))
+			IBERROR("perfslreset");
+}
 
 static int process_opt(void *context, int ch, char *optarg)
 {
 	switch (ch) {
 	case 'x':
 		extended = 1;
+		break;
+	case 'X':
+		xmt_sl = 1;
+		break;
+	case 'S':
+		rcv_sl = 1;
 		break;
 	case 'a':
 		all_ports++;
@@ -353,6 +407,8 @@ int main(int argc, char **argv)
 
 	const struct ibdiag_opt opts[] = {
 		{ "extended", 'x', 0, NULL, "show extended port counters" },
+		{ "xmtsl", 'X', 0, NULL, "show Xmt SL port counters" },
+		{ "rcvsl", 'S', 0, NULL, "show Rcv SL port counters" },
 		{ "all_ports", 'a', 0, NULL, "show aggregated counters" },
 		{ "loop_ports", 'l', 0, NULL, "iterate through each port" },
 		{ "reset_after_read", 'r', 0, NULL, "reset counters after read" },
@@ -408,6 +464,16 @@ int main(int argc, char **argv)
 			IBERROR("AllPortSelect not supported");
 		if (all_ports)
 			all_ports_loop = 1;
+	}
+
+	if (xmt_sl) {
+		xmt_sl_query(&portid, port, mask);
+		exit(0);
+	}
+
+	if (rcv_sl) {
+		rcv_sl_query(&portid, port, mask);
+		exit(0);
 	}
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
