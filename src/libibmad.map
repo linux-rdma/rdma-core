@@ -40,13 +40,8 @@ IBMAD_1.3 {
 		mad_set_field64;
 		mad_get_array;
 		mad_set_array;
-		perf_classportinfo_query;
-		port_performance_query;
-		port_performance_reset;
-		port_performance_ext_query;
-		port_performance_ext_reset;
-		port_samples_control_query;
-		port_samples_result_query;
+		pma_query_via;
+		performance_reset_via;
 		mad_build_pkt;
 		mad_decode_field;
 		mad_encode;
@@ -97,11 +92,5 @@ IBMAD_1.3 {
 		ib_resolve_portid_str_via;
 		ib_resolve_self_via;
 		perf_classportinfo_query_via;
-		port_performance_query_via;
-		port_performance_reset_via;
-		port_performance_ext_query_via;
-		port_performance_ext_reset_via;
-		port_samples_control_query_via;
-		port_samples_result_query_via;
 	local: *;
 };

@@ -781,43 +781,13 @@ int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
 			const void *srcport);
 
 /* gs.c */
-MAD_EXPORT uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t * dest,
-					     int port, unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_query(void *rcvbuf, ib_portid_t * dest,
-					   int port, unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t * dest,
-					   int port, unsigned mask,
-					   unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t * dest,
-					       int port, unsigned timeout);
-MAD_EXPORT uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t * dest,
-					       int port, unsigned mask,
-					       unsigned timeout);
-MAD_EXPORT uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t * dest,
-					       int port, unsigned timeout);
-MAD_EXPORT uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t * dest,
-					      int port, unsigned timeout);
+MAD_EXPORT uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
+			      unsigned timeout, unsigned id,
+			      const void *srcport);
 
-uint8_t *perf_classportinfo_query_via(void *rcvbuf, ib_portid_t * dest,
-				      int port, unsigned timeout,
-				      const void *srcport);
-uint8_t *port_performance_query_via(void *rcvbuf, ib_portid_t * dest, int port,
-				    unsigned timeout, const void *srcport);
-uint8_t *port_performance_reset_via(void *rcvbuf, ib_portid_t * dest, int port,
-				    unsigned mask, unsigned timeout,
-				    const void *srcport);
-uint8_t *port_performance_ext_query_via(void *rcvbuf, ib_portid_t * dest,
-					int port, unsigned timeout,
-					const void *srcport);
-uint8_t *port_performance_ext_reset_via(void *rcvbuf, ib_portid_t * dest,
-					int port, unsigned mask,
-					unsigned timeout, const void *srcport);
-uint8_t *port_samples_control_query_via(void *rcvbuf, ib_portid_t * dest,
-					int port, unsigned timeout,
-					const void *srcport);
-uint8_t *port_samples_result_query_via(void *rcvbuf, ib_portid_t * dest,
-				       int port, unsigned timeout,
-				       const void *srcport);
+MAD_EXPORT uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
+				      int port, unsigned mask, unsigned timeout,
+				      unsigned id, const void *srcport);
 /* dump.c */
 MAD_EXPORT ib_mad_dump_fn
     mad_dump_int, mad_dump_uint, mad_dump_hex, mad_dump_rhex,

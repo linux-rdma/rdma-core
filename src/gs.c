@@ -45,9 +45,9 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-static uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
-			      unsigned timeout, unsigned id,
-			      const void *srcport)
+uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
+		      unsigned timeout, unsigned id,
+		      const void *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
@@ -81,42 +81,9 @@ static uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
 	}
 }
 
-uint8_t *pma_query(void *rcvbuf, ib_portid_t * dest, int port, unsigned timeout,
-		   unsigned id)
-{
-	return pma_query_via(rcvbuf, dest, port, timeout, id, NULL);
-}
-
-uint8_t *perf_classportinfo_query_via(void *rcvbuf, ib_portid_t * dest,
-				      int port, unsigned timeout,
-				      const void *srcport)
-{
-	return pma_query_via(rcvbuf, dest, port, timeout, CLASS_PORT_INFO,
-			     srcport);
-}
-
-uint8_t *perf_classportinfo_query(void *rcvbuf, ib_portid_t * dest, int port,
-				  unsigned timeout)
-{
-	return pma_query(rcvbuf, dest, port, timeout, CLASS_PORT_INFO);
-}
-
-uint8_t *port_performance_query_via(void *rcvbuf, ib_portid_t * dest, int port,
-				    unsigned timeout, const void *srcport)
-{
-	return pma_query_via(rcvbuf, dest, port, timeout,
-			     IB_GSI_PORT_COUNTERS, srcport);
-}
-
-uint8_t *port_performance_query(void *rcvbuf, ib_portid_t * dest, int port,
-				unsigned timeout)
-{
-	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS);
-}
-
-static uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
-				      int port, unsigned mask, unsigned timeout,
-				      unsigned id, const void *srcport)
+uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
+			      int port, unsigned mask, unsigned timeout,
+			      unsigned id, const void *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
@@ -155,85 +122,4 @@ static uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 	} else {
 		return madrpc(&rpc, dest, rcvbuf, rcvbuf);
 	}
-}
-
-static uint8_t *performance_reset(void *rcvbuf, ib_portid_t * dest, int port,
-				  unsigned mask, unsigned timeout, unsigned id)
-{
-	return performance_reset_via(rcvbuf, dest, port, mask, timeout,
-				     id, NULL);
-}
-
-uint8_t *port_performance_reset_via(void *rcvbuf, ib_portid_t * dest, int port,
-				    unsigned mask, unsigned timeout,
-				    const void *srcport)
-{
-	return performance_reset_via(rcvbuf, dest, port, mask, timeout,
-				     IB_GSI_PORT_COUNTERS, srcport);
-}
-
-uint8_t *port_performance_reset(void *rcvbuf, ib_portid_t * dest, int port,
-				unsigned mask, unsigned timeout)
-{
-	return performance_reset(rcvbuf, dest, port, mask, timeout,
-				 IB_GSI_PORT_COUNTERS);
-}
-
-uint8_t *port_performance_ext_query_via(void *rcvbuf, ib_portid_t * dest,
-					int port, unsigned timeout,
-					const void *srcport)
-{
-	return pma_query_via(rcvbuf, dest, port, timeout,
-			     IB_GSI_PORT_COUNTERS_EXT, srcport);
-}
-
-uint8_t *port_performance_ext_query(void *rcvbuf, ib_portid_t * dest, int port,
-				    unsigned timeout)
-{
-	return pma_query(rcvbuf, dest, port, timeout, IB_GSI_PORT_COUNTERS_EXT);
-}
-
-uint8_t *port_performance_ext_reset_via(void *rcvbuf, ib_portid_t * dest,
-					int port, unsigned mask,
-					unsigned timeout, const void *srcport)
-{
-	return performance_reset_via(rcvbuf, dest, port, mask, timeout,
-				     IB_GSI_PORT_COUNTERS_EXT, srcport);
-}
-
-uint8_t *port_performance_ext_reset(void *rcvbuf, ib_portid_t * dest, int port,
-				    unsigned mask, unsigned timeout)
-{
-	return performance_reset(rcvbuf, dest, port, mask, timeout,
-				 IB_GSI_PORT_COUNTERS_EXT);
-}
-
-uint8_t *port_samples_control_query_via(void *rcvbuf, ib_portid_t * dest,
-					int port, unsigned timeout,
-					const void *srcport)
-{
-	return pma_query_via(rcvbuf, dest, port, timeout,
-			     IB_GSI_PORT_SAMPLES_CONTROL, srcport);
-}
-
-uint8_t *port_samples_control_query(void *rcvbuf, ib_portid_t * dest, int port,
-				    unsigned timeout)
-{
-	return pma_query(rcvbuf, dest, port, timeout,
-			 IB_GSI_PORT_SAMPLES_CONTROL);
-}
-
-uint8_t *port_samples_result_query_via(void *rcvbuf, ib_portid_t * dest,
-				       int port, unsigned timeout,
-				       const void *srcport)
-{
-	return pma_query_via(rcvbuf, dest, port, timeout,
-			     IB_GSI_PORT_SAMPLES_RESULT, srcport);
-}
-
-uint8_t *port_samples_result_query(void *rcvbuf, ib_portid_t * dest, int port,
-				   unsigned timeout)
-{
-	return pma_query(rcvbuf, dest, port, timeout,
-			 IB_GSI_PORT_SAMPLES_RESULT);
 }
