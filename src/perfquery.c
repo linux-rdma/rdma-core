@@ -269,7 +269,8 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 	char buf[1024];
 
 	if (extended != 1) {
-		if (!port_performance_query(pc, portid, port, timeout))
+		if (!pma_query_via(pc, portid, port, timeout,
+						IB_GSI_PORT_COUNTERS, NULL))
 			IBERROR("perfquery");
 		if (!(cap_mask & 0x1000)) {
 			/* if PortCounters:PortXmitWait not suppported clear this counter */
@@ -284,7 +285,8 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		if (!(cap_mask & 0x200)) /* 1.2 errata: bit 9 is extended counter support */
 			IBWARN("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n", cap_mask);
 
-		if (!port_performance_ext_query(pc, portid, port, timeout))
+		if (!pma_query_via(pc, portid, port, timeout,
+					IB_GSI_PORT_COUNTERS_EXT, NULL))
 			IBERROR("perfextquery");
 		if (aggregate)
 			aggregate_perfcounters_ext();
@@ -299,10 +301,12 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 static void reset_counters(int extended, int timeout, int mask, ib_portid_t *portid, int port)
 {
 	if (extended != 1) {
-		if (!port_performance_reset(pc, portid, port, mask, timeout))
+		if (!performance_reset_via(pc, portid, port, mask, timeout,
+						IB_GSI_PORT_COUNTERS, NULL))
 			IBERROR("perf reset");
 	} else {
-		if (!port_performance_ext_reset(pc, portid, port, mask, timeout))
+		if (!performance_reset_via(pc, portid, port, mask, timeout,
+						IB_GSI_PORT_COUNTERS_EXT, NULL))
 			IBERROR("perf ext reset");
 	}
 }
@@ -393,7 +397,8 @@ int main(int argc, char **argv)
 	}
 
 	/* PerfMgt ClassPortInfo is a required attribute */
-	if (!perf_classportinfo_query(pc, &portid, port, ibd_timeout))
+	if (!pma_query_via(pc, &portid, port, ibd_timeout,
+					CLASS_PORT_INFO, NULL))
 		IBERROR("classportinfo query");
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&cap_mask, pc + 2, sizeof(cap_mask));	/* CapabilityMask */
