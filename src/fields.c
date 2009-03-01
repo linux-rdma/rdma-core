@@ -402,6 +402,42 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(520, 24), "TrapQP", mad_dump_hex},
 	{544, 32, "TrapQKey", mad_dump_hex},
 
+	{32,  32, "XmtDataSL0", mad_dump_uint},
+	{64,  32, "XmtDataSL1", mad_dump_uint},
+	{96,  32, "XmtDataSL2", mad_dump_uint},
+	{128, 32, "XmtDataSL3", mad_dump_uint},
+	{160, 32, "XmtDataSL4", mad_dump_uint},
+	{196, 32, "XmtDataSL5", mad_dump_uint},
+	{224, 32, "XmtDataSL6", mad_dump_uint},
+	{256, 32, "XmtDataSL7", mad_dump_uint},
+	{288, 32, "XmtDataSL8", mad_dump_uint},
+	{320, 32, "XmtDataSL9", mad_dump_uint},
+	{352, 32, "XmtDataSL10", mad_dump_uint},
+	{384, 32, "XmtDataSL11", mad_dump_uint},
+	{416, 32, "XmtDataSL12", mad_dump_uint},
+	{448, 32, "XmtDataSL13", mad_dump_uint},
+	{480, 32, "XmtDataSL14", mad_dump_uint},
+	{512, 32, "XmtDataSL15", mad_dump_uint},
+	{0, 0},			/* IB_PC_XMT_DATA_SL_LAST_F */
+
+	{32,  32, "RcvDataSL0", mad_dump_uint},
+	{64,  32, "RcvDataSL1", mad_dump_uint},
+	{96,  32, "RcvDataSL2", mad_dump_uint},
+	{128, 32, "RcvDataSL3", mad_dump_uint},
+	{160, 32, "RcvDataSL4", mad_dump_uint},
+	{196, 32, "RcvDataSL5", mad_dump_uint},
+	{224, 32, "RcvDataSL6", mad_dump_uint},
+	{256, 32, "RcvDataSL7", mad_dump_uint},
+	{288, 32, "RcvDataSL8", mad_dump_uint},
+	{320, 32, "RcvDataSL9", mad_dump_uint},
+	{352, 32, "RcvDataSL10", mad_dump_uint},
+	{384, 32, "RcvDataSL11", mad_dump_uint},
+	{416, 32, "RcvDataSL12", mad_dump_uint},
+	{448, 32, "RcvDataSL13", mad_dump_uint},
+	{480, 32, "RcvDataSL14", mad_dump_uint},
+	{512, 32, "RcvDataSL15", mad_dump_uint},
+	{0, 0},			/* IB_PC_RCV_DATA_SL_LAST_F */
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };

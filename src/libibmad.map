@@ -22,6 +22,8 @@ IBMAD_1.3 {
 		mad_dump_opervls;
 		mad_dump_perfcounters;
 		mad_dump_perfcounters_ext;
+		mad_dump_perfcounters_xmt_sl;
+		mad_dump_perfcounters_rcv_sl;
 		mad_dump_physportstate;
 		mad_dump_portcapmask;
 		mad_dump_portinfo;

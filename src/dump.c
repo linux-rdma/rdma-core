@@ -699,6 +699,16 @@ void mad_dump_perfcounters_ext(char *buf, int bufsz, void *val, int valsz)
 	_dump_fields(buf, bufsz, val, IB_PC_EXT_FIRST_F, IB_PC_EXT_LAST_F);
 }
 
+void mad_dump_perfcounters_xmt_sl(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PC_XMT_DATA_SL_FIRST_F, IB_PC_XMT_DATA_SL_LAST_F);
+}
+
+void mad_dump_perfcounters_rcv_sl(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PC_RCV_DATA_SL_FIRST_F, IB_PC_RCV_DATA_SL_LAST_F);
+}
+
 void xdump(FILE * file, char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))
