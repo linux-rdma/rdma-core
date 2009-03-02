@@ -36,8 +36,8 @@ AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. diags require libibumad.]))
 AC_CHECK_LIB(ibmad, mad_dump_int, [],
 	AC_MSG_ERROR([mad_dump_int() not found. diags require libibmad.]))
-AC_CHECK_LIB(ibmad, port_performance_ext_query, [],
-	AC_MSG_ERROR([port_performance_ext_query() not found. diags require more recent libibmad.]))
+AC_CHECK_LIB(ibmad, pma_query_via, [],
+	AC_MSG_ERROR([pma_query_via() not found. diags require more recent libibmad.]))
 AC_CHECK_LIB(osmcomp, cl_thread_init, [],
 	AC_MSG_ERROR([cl_thread_init() not found. diags require libosmcomp.]))
 fi
