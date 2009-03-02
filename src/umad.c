@@ -136,7 +136,7 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 	char port_dir[256];
 	uint8_t gid[16];
 	struct dirent **namelist = NULL;
-	int i, len, ret = 0;
+	int i, len, num_pkeys = 0;
 
 	strncpy(port->ca_name, ca_name, sizeof port->ca_name - 1);
 	port->portnum = portnum;
@@ -172,25 +172,25 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 	memcpy(&port->port_guid, gid + 8, sizeof port->port_guid);
 
 	snprintf(port_dir + len, sizeof(port_dir) - len, "/pkeys");
-	ret = scandir(port_dir, &namelist, check_for_digit_name, NULL);
-	if (ret <= 0) {
+	num_pkeys = scandir(port_dir, &namelist, check_for_digit_name, NULL);
+	if (num_pkeys <= 0) {
 		IBWARN("no pkeys found for %s:%u (at dir %s)...",
 		       port->ca_name, port->portnum, port_dir);
 		goto clean;
 	}
-	port->pkeys = calloc(ret, sizeof(port->pkeys[0]));
+	port->pkeys = calloc(num_pkeys, sizeof(port->pkeys[0]));
 	if (!port->pkeys) {
 		IBWARN("get_port: calloc failed: %s", strerror(errno));
 		goto clean;
 	}
-	for (i = 0; i < ret ; i++) {
+	for (i = 0; i < num_pkeys; i++) {
 		unsigned idx, val;
 		idx = strtoul(namelist[i]->d_name, NULL, 0);
 		sys_read_uint(port_dir, namelist[i]->d_name, &val);
 		port->pkeys[idx] = val;
 		free(namelist[i]);
 	}
-	port->pkeys_size = ret;
+	port->pkeys_size = num_pkeys;
 	free(namelist);
 	namelist = NULL;
 	port_dir[len] = '\0';
@@ -201,7 +201,7 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 
 clean:
 	if (namelist) {
-		for (i = 0; i < ret ; i++)
+		for (i = 0; i < num_pkeys; i++)
 			free(namelist[i]);
 		free(namelist);
 	}
@@ -311,7 +311,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 	}
 
 	/* Get the list of CA names */
-	if ((n = umad_get_cas_names((void *)names, 20)) < 0)
+	if ((n = umad_get_cas_names((void *)names, UMAD_MAX_DEVICES)) < 0)
 		return 0;
 
 	/* Find the first existing CA with an active port */
