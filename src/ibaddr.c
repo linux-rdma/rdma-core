@@ -45,6 +45,8 @@
 
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 static int
 ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 {
@@ -55,10 +57,10 @@ ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 	ibmad_gid_t gid;
 	int lmc;
 
-	if (!smp_query(nodeinfo, portid, IB_ATTR_NODE_INFO, 0, 0))
+	if (!smp_query_via(nodeinfo, portid, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return -1;
 
-	if (!smp_query(portinfo, portid, IB_ATTR_PORT_INFO, portnum, 0))
+	if (!smp_query_via(portinfo, portid, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_LID_F, &portid->lid);
@@ -137,17 +139,22 @@ int main(int argc, char **argv)
 	if (!show_lid && !show_gid)
 		show_lid = show_gid = 1;
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (argc) {
-		if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
+						ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
-		if (ib_resolve_self(&portid, &port, 0) < 0)
+		if (ib_resolve_self_via(&portid, &port, 0, srcport) < 0)
 			IBERROR("can't resolve self port %s", argv[0]);
 	}
 
 	if (ib_resolve_addr(&portid, port, show_lid, show_gid) < 0)
 		IBERROR("can't resolve requested address");
+
+	mad_rpc_close_port(srcport);
 	exit(0);
 }

@@ -48,6 +48,8 @@
 
 #include "ibdiag_common.h"
 
+struct ibmad_port *srcport;
+
 static char host_and_domain[IB_VENDOR_RANGE2_DATA_SIZE];
 static char last_host[IB_VENDOR_RANGE2_DATA_SIZE];
 
@@ -82,7 +84,7 @@ ibping_serv(void)
 
 	DEBUG("starting to serve...");
 
-	while ((umad = mad_receive(0, -1))) {
+	while ((umad = mad_receive_via(0, -1, srcport))) {
 
 		mad = umad_get_mad(umad);
 		data = (char *)mad + IB_VENDOR_RANGE2_DATA_OFFS;
@@ -91,7 +93,7 @@ ibping_serv(void)
 
 		DEBUG("Pong: %s", data);
 
-		if (mad_respond(umad, 0, 0) < 0)
+		if (mad_respond_via(umad, 0, 0, srcport) < 0)
 			DEBUG("respond failed");
 
 		mad_free(umad);
@@ -120,7 +122,7 @@ ibping(ib_portid_t *portid, int quiet)
 	call.timeout = 0;
 	memset(&call.rmpp, 0, sizeof call.rmpp);
 
-	if (!ib_vendor_call(data, portid, &call))
+	if (!ib_vendor_call_via(data, portid, &call, srcport))
 		return ~0ull;
 
 	rtt = cl_get_time_stamp() - start;
@@ -208,10 +210,12 @@ int main(int argc, char **argv)
 	if (!argc && !server)
 		ibdiag_show_usage();
 
-	madrpc_init(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	if (!srcport)
+		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (server) {
-		if (mad_register_server(ping_class, 0, 0, oui) < 0)
+		if (mad_register_server_via(ping_class, 0, 0, oui, srcport) < 0)
 			IBERROR("can't serve class %d on this port", ping_class);
 
 		get_host_and_domain(host_and_domain, sizeof host_and_domain);
@@ -221,10 +225,11 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	if (mad_register_client(ping_class, 0) < 0)
+	if (mad_register_client_via(ping_class, 0, srcport) < 0)
 		IBERROR("can't register ping class %d on this port", ping_class);
 
-	if (ib_resolve_portid_str(&portid, argv[0], ibd_dest_type, ibd_sm_id) < 0)
+	if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
+					ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	signal(SIGINT, report);
@@ -251,6 +256,8 @@ int main(int argc, char **argv)
 	}
 
 	report(0);
+
+	mad_rpc_close_port(srcport);
 
 	exit(-1);
 }

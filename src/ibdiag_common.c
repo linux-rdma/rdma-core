@@ -179,7 +179,9 @@ static int process_opt(int ch, char *optarg)
 		ibd_timeout = val;
 		break;
 	case 's':
-		if (ib_resolve_portid_str(&sm_portid, optarg, IB_DEST_LID, 0) < 0)
+		/* srcport is not required when resolving via IB_DEST_LID */
+		if (ib_resolve_portid_str_via(&sm_portid, optarg, IB_DEST_LID,
+				0, NULL) < 0)
 			IBERROR("cannot resolve SM destination port %s", optarg);
 		ibd_sm_id = &sm_portid;
 		break;
