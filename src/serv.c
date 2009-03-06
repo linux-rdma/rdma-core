@@ -42,11 +42,24 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
+#include "mad_internal.h"
+
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
 int
 mad_send(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data)
+{
+	struct ibmad_port port;
+
+	port.port_id = madrpc_portid();
+	port.class_agents[rpc->mgtclass] = mad_class_agent(rpc->mgtclass);
+	return mad_send_via(rpc, dport, rmpp, data, &port);
+}
+
+int
+mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data,
+		struct ibmad_port *srcport)
 {
 	uint8_t pktbuf[1024];
 	void *umad = pktbuf;
@@ -64,7 +77,7 @@ mad_send(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data)
 		      (char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
 	}
 
-	if (umad_send(madrpc_portid(), mad_class_agent(rpc->mgtclass),
+	if (umad_send(srcport->port_id, srcport->class_agents[rpc->mgtclass],
 		      umad, IB_MAD_SIZE, rpc->timeout, 0) < 0) {
 		IBWARN("send failed; %m");
 		return -1;
@@ -74,6 +87,18 @@ mad_send(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data)
 }
 
 int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
+{
+	int i = 0;
+	struct ibmad_port port;
+
+	port.port_id = madrpc_portid();
+	for (i = 1; i < MAX_CLASS; i++)
+		port.class_agents[i] = mad_class_agent(i);
+	return mad_respond_via(umad, portid, rstatus, &port);
+}
+
+int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
+		struct ibmad_port *srcport)
 {
 	uint8_t *mad = umad_get_mad(umad);
 	ib_mad_addr_t *mad_addr;
@@ -138,7 +163,7 @@ int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
 	if (ibdebug > 1)
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
 
-	if (umad_send(madrpc_portid(), mad_class_agent(rpc.mgtclass), umad,
+	if (umad_send(srcport->port_id, srcport->class_agents[rpc.mgtclass], umad,
 		      IB_MAD_SIZE, rpc.timeout, 0) < 0) {
 		DEBUG("send failed; %m");
 		return -1;
@@ -149,11 +174,19 @@ int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
 
 void *mad_receive(void *umad, int timeout)
 {
+	struct ibmad_port port;
+
+	port.port_id = madrpc_portid();
+	return mad_receive_via(umad, timeout, &port);
+}
+
+void *mad_receive_via(void *umad, int timeout, struct ibmad_port *srcport)
+{
 	void *mad = umad ? umad : umad_alloc(1, umad_size() + IB_MAD_SIZE);
 	int agent;
 	int length = IB_MAD_SIZE;
 
-	if ((agent = umad_recv(madrpc_portid(), mad, &length, timeout)) < 0) {
+	if ((agent = umad_recv(srcport->port_id, mad, &length, timeout)) < 0) {
 		if (!umad)
 			umad_free(mad);
 		DEBUG("recv failed: %m");

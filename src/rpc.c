@@ -43,12 +43,7 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
-#define MAX_CLASS 256
-
-struct ibmad_port {
-	int port_id;		/* file descriptor returned by umad_open() */
-	int class_agents[MAX_CLASS];	/* class2agent mapper */
-};
+#include "mad_internal.h"
 
 int ibdebug;
 
@@ -339,6 +334,7 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 		return NULL;
 	}
 
+	memset(p->class_agents, 0xff, sizeof p->class_agents);
 	while (num_classes--) {
 		uint8_t rmpp_version = 0;
 		int mgmt = *mgmt_classes++;

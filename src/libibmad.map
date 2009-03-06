@@ -57,6 +57,8 @@ IBMAD_1.3 {
 		mad_class_agent;
 		mad_register_client;
 		mad_register_server;
+		mad_register_client_via;
+		mad_register_server_via;
 		ib_resolve_guid;
 		ib_resolve_portid_str;
 		ib_resolve_self;
@@ -83,10 +85,13 @@ IBMAD_1.3 {
 		mad_free;
 		mad_receive;
 		mad_respond;
+		mad_receive_via;
+		mad_respond_via;
 		mad_send;
 		smp_query;
 		smp_set;
 		ib_vendor_call;
+		ib_vendor_call_via;
 		smp_query_via;
 		smp_set_via;
 		ib_path_query_via;

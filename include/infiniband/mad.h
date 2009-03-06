@@ -730,27 +730,64 @@ MAD_EXPORT uint64_t mad_trid(void);
 MAD_EXPORT int mad_build_pkt(void *umad, ib_rpc_t * rpc, ib_portid_t * dport,
 			     ib_rmpp_hdr_t * rmpp, void *data);
 
+/* New interface */
+MAD_EXPORT void madrpc_show_errors(int set);
+MAD_EXPORT int madrpc_set_retries(int retries);
+MAD_EXPORT int madrpc_set_timeout(int timeout);
+MAD_EXPORT struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
+			int num_classes);
+MAD_EXPORT void mad_rpc_close_port(struct ibmad_port *srcport);
+MAD_EXPORT void *mad_rpc(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_portid_t * dport,
+			void *payload, void *rcvdata);
+MAD_EXPORT void *mad_rpc_rmpp(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_portid_t * dport,
+			ib_rmpp_hdr_t * rmpp, void *data);
+MAD_EXPORT int mad_rpc_portid(struct ibmad_port *srcport);
+
 /* register.c */
 MAD_EXPORT int mad_register_port_client(int port_id, int mgmt,
-					uint8_t rmpp_version);
-MAD_EXPORT int mad_register_client(int mgmt, uint8_t rmpp_version);
+			uint8_t rmpp_version) DEPRECATED;
+MAD_EXPORT int mad_register_client(int mgmt, uint8_t rmpp_version)
+			DEPRECATED;
 MAD_EXPORT int mad_register_server(int mgmt, uint8_t rmpp_version,
-				   long method_mask[16 / sizeof(long)],
-				   uint32_t class_oui);
+			   long method_mask[16 / sizeof(long)],
+			   uint32_t class_oui) DEPRECATED;
+/* register.c new interface */
+MAD_EXPORT int mad_register_client_via(int mgmt, uint8_t rmpp_version,
+				struct ibmad_port *srcport);
+MAD_EXPORT int mad_register_server_via(int mgmt, uint8_t rmpp_version,
+				long method_mask[16 / sizeof(long)],
+				uint32_t class_oui,
+				struct ibmad_port *srcport);
 MAD_EXPORT int mad_class_agent(int mgmt);
 MAD_EXPORT int mad_agent_class(int agent);
 
 /* serv.c */
 MAD_EXPORT int mad_send(ib_rpc_t * rpc, ib_portid_t * dport,
-			ib_rmpp_hdr_t * rmpp, void *data);
-MAD_EXPORT void *mad_receive(void *umad, int timeout);
-MAD_EXPORT int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus);
+		ib_rmpp_hdr_t * rmpp, void *data) DEPRECATED;
+MAD_EXPORT void *mad_receive(void *umad, int timeout)
+		DEPRECATED;
+MAD_EXPORT int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
+		DEPRECATED;
+
+/* serv.c new interface */
+MAD_EXPORT int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport,
+			ib_rmpp_hdr_t * rmpp, void *data,
+			struct ibmad_port *srcport);
+MAD_EXPORT void *mad_receive_via(void *umad, int timeout,
+			struct ibmad_port *srcport);
+MAD_EXPORT int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
+			struct ibmad_port *srcport);
 MAD_EXPORT void *mad_alloc(void);
 MAD_EXPORT void mad_free(void *umad);
 
 /* vendor.c */
 MAD_EXPORT uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
-				   ib_vendor_call_t * call);
+			   ib_vendor_call_t * call) DEPRECATED;
+
+/* vendor.c new interface */
+MAD_EXPORT uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
+				   ib_vendor_call_t * call,
+				   struct ibmad_port *srcport);
 
 static inline int mad_is_vendor_range1(int mgmt)
 {
@@ -771,19 +808,6 @@ void *madrpc_rmpp(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, voi
 MAD_EXPORT void madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
 			    int num_classes) DEPRECATED;
 void madrpc_save_mad(void *madbuf, int len) DEPRECATED;
-
-/* New interface */
-MAD_EXPORT void madrpc_show_errors(int set);
-MAD_EXPORT int madrpc_set_retries(int retries);
-MAD_EXPORT int madrpc_set_timeout(int timeout);
-MAD_EXPORT struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
-			int num_classes);
-MAD_EXPORT void mad_rpc_close_port(struct ibmad_port *srcport);
-MAD_EXPORT void *mad_rpc(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_portid_t * dport,
-			void *payload, void *rcvdata);
-MAD_EXPORT void *mad_rpc_rmpp(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_portid_t * dport,
-			ib_rmpp_hdr_t * rmpp, void *data);
-MAD_EXPORT int mad_rpc_portid(struct ibmad_port *srcport);
 
 /* smp.c */
 MAD_EXPORT uint8_t *smp_query(void *buf, ib_portid_t * id, unsigned attrid,

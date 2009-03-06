@@ -43,10 +43,11 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
+#include "mad_internal.h"
+
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
-#define MAX_CLASS	256
 #define MAX_AGENTS	256
 
 static int class_agent[MAX_CLASS];
@@ -136,22 +137,57 @@ int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 
 int mad_register_client(int mgmt, uint8_t rmpp_version)
 {
+	int rc = 0;
+	struct ibmad_port port;
+
+	port.port_id = madrpc_portid();
+	rc = mad_register_client_via(mgmt, rmpp_version, &port);
+	if (rc < 0)
+		return rc;
+	return register_agent(port.class_agents[mgmt], mgmt);
+}
+
+int mad_register_client_via(int mgmt, uint8_t rmpp_version,
+			struct ibmad_port *srcport)
+{
 	int agent;
 
-	agent = mad_register_port_client(madrpc_portid(), mgmt, rmpp_version);
+	if (!srcport)
+		return -1;
+
+	agent = mad_register_port_client(mad_rpc_portid(srcport), mgmt, rmpp_version);
 	if (agent < 0)
 		return agent;
 
-	return register_agent(agent, mgmt);
+	srcport->class_agents[mgmt] = agent;
+	return 0;
 }
 
 int
 mad_register_server(int mgmt, uint8_t rmpp_version,
 		    long method_mask[], uint32_t class_oui)
 {
+	int rc = 0;
+	struct ibmad_port port;
+
+	port.port_id = madrpc_portid();
+	port.class_agents[mgmt] = class_agent[mgmt];
+	rc = mad_register_server_via(mgmt, rmpp_version,
+				method_mask, class_oui,
+				&port);
+	if (rc < 0)
+		return rc;
+	return register_agent(port.class_agents[mgmt], mgmt);
+}
+
+int
+mad_register_server_via(int mgmt, uint8_t rmpp_version,
+		    long method_mask[], uint32_t class_oui,
+		    struct ibmad_port *srcport)
+{
 	long class_method_mask[16 / sizeof(long)];
 	uint8_t oui[3];
-	int agent, vers, mad_portid;
+	int agent, vers;
 
 	if (method_mask)
 		memcpy(class_method_mask, method_mask,
@@ -159,11 +195,12 @@ mad_register_server(int mgmt, uint8_t rmpp_version,
 	else
 		memset(class_method_mask, 0xff, sizeof(class_method_mask));
 
-	if ((mad_portid = madrpc_portid()) < 0)
+	if (!srcport)
 		return -1;
 
-	if (class_agent[mgmt] >= 0) {
-		DEBUG("Class 0x%x already registered", mgmt);
+	if (srcport->class_agents[mgmt] >= 0) {
+		DEBUG("Class 0x%x already registered %d",
+			mgmt, srcport->class_agents[mgmt]);
 		return -1;
 	}
 	if ((vers = mgmt_class_vers(mgmt)) <= 0) {
@@ -175,19 +212,18 @@ mad_register_server(int mgmt, uint8_t rmpp_version,
 		oui[0] = (class_oui >> 16) & 0xff;
 		oui[1] = (class_oui >> 8) & 0xff;
 		oui[2] = class_oui & 0xff;
-		if ((agent = umad_register_oui(mad_portid, mgmt, rmpp_version,
+		if ((agent = umad_register_oui(srcport->port_id, mgmt, rmpp_version,
 					       oui, class_method_mask)) < 0) {
 			DEBUG("Can't register agent for class %d", mgmt);
 			return -1;
 		}
-	} else if ((agent = umad_register(mad_portid, mgmt, vers, rmpp_version,
+	} else if ((agent = umad_register(srcport->port_id, mgmt, vers, rmpp_version,
 					  class_method_mask)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
 	}
 
-	if (register_agent(agent, mgmt) < 0)
-		return -1;
+	srcport->class_agents[mgmt] = agent;
 
 	return agent;
 }

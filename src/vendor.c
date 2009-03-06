@@ -40,6 +40,7 @@
 #include <string.h>
 
 #include <infiniband/mad.h>
+#include "mad_internal.h"
 
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
@@ -52,6 +53,17 @@ static inline int response_expected(int method)
 
 uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
 			ib_vendor_call_t * call)
+{
+	struct ibmad_port port;
+
+	port.port_id = madrpc_portid();
+	port.class_agents[call->mgmt_class] = mad_class_agent(call->mgmt_class);
+	return ib_vendor_call_via(data, portid, call, &port);
+}
+
+uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
+			ib_vendor_call_t * call,
+			struct ibmad_port *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int range1 = 0, resp_expected;
@@ -90,7 +102,7 @@ uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
 	if (resp_expected)
-		return madrpc_rmpp(&rpc, portid, 0, data);	/* FIXME: no RMPP for now */
+		return mad_rpc_rmpp(srcport, &rpc, portid, 0, data);	/* FIXME: no RMPP for now */
 
-	return mad_send(&rpc, portid, 0, data) < 0 ? 0 : data;	/* FIXME: no RMPP for now */
+	return mad_send_via(&rpc, portid, 0, data, srcport) < 0 ? 0 : data;	/* FIXME: no RMPP for now */
 }
