@@ -41,4 +41,6 @@ struct ibmad_port {
 	int class_agents[MAX_CLASS];	/* class2agent mapper */
 };
 
+extern struct ibmad_port *ibmp;
+
 #endif /* _MAD_INTERNAL_H_ */

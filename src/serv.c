@@ -50,11 +50,7 @@
 int
 mad_send(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data)
 {
-	struct ibmad_port port;
-
-	port.port_id = madrpc_portid();
-	port.class_agents[rpc->mgtclass] = mad_class_agent(rpc->mgtclass);
-	return mad_send_via(rpc, dport, rmpp, data, &port);
+	return mad_send_via(rpc, dport, rmpp, data, ibmp);
 }
 
 int
@@ -88,13 +84,7 @@ mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *da
 
 int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
 {
-	int i = 0;
-	struct ibmad_port port;
-
-	port.port_id = madrpc_portid();
-	for (i = 1; i < MAX_CLASS; i++)
-		port.class_agents[i] = mad_class_agent(i);
-	return mad_respond_via(umad, portid, rstatus, &port);
+	return mad_respond_via(umad, portid, rstatus, ibmp);
 }
 
 int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
@@ -174,10 +164,7 @@ int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
 
 void *mad_receive(void *umad, int timeout)
 {
-	struct ibmad_port port;
-
-	port.port_id = madrpc_portid();
-	return mad_receive_via(umad, timeout, &port);
+	return mad_receive_via(umad, timeout, ibmp);
 }
 
 void *mad_receive_via(void *umad, int timeout, struct ibmad_port *srcport)

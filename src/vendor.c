@@ -54,11 +54,7 @@ static inline int response_expected(int method)
 uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
 			ib_vendor_call_t * call)
 {
-	struct ibmad_port port;
-
-	port.port_id = madrpc_portid();
-	port.class_agents[call->mgmt_class] = mad_class_agent(call->mgmt_class);
-	return ib_vendor_call_via(data, portid, call, &port);
+	return ib_vendor_call_via(data, portid, call, ibmp);
 }
 
 uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,

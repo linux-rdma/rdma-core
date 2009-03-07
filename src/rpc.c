@@ -47,7 +47,9 @@
 
 int ibdebug;
 
-static int mad_portid = -1;
+static struct ibmad_port mad_port;
+struct ibmad_port *ibmp = &mad_port;
+
 static int iberrs;
 
 static int madrpc_retries = MAD_DEF_RETRIES;
@@ -92,7 +94,7 @@ int madrpc_def_timeout(void)
 
 int madrpc_portid(void)
 {
-	return mad_portid;
+	return ibmp->port_id;
 }
 
 int mad_rpc_portid(struct ibmad_port *srcport)
@@ -260,42 +262,38 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * 
 
 void *madrpc(ib_rpc_t * rpc, ib_portid_t * dport, void *payload, void *rcvdata)
 {
-	struct ibmad_port port;
-
-	port.port_id = mad_portid;
-	port.class_agents[rpc->mgtclass] = mad_class_agent(rpc->mgtclass);
-	return mad_rpc(&port, rpc, dport, payload, rcvdata);
+	return mad_rpc(ibmp, rpc, dport, payload, rcvdata);
 }
 
 void *madrpc_rmpp(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 		  void *data)
 {
-	struct ibmad_port port;
-
-	port.port_id = mad_portid;
-	port.class_agents[rpc->mgtclass] = mad_class_agent(rpc->mgtclass);
-	return mad_rpc_rmpp(&port, rpc, dport, rmpp, data);
+	return mad_rpc_rmpp(ibmp, rpc, dport, rmpp, data);
 }
 
 void
 madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 {
+	int fd;
+
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
 
-	if ((mad_portid = umad_open_port(dev_name, dev_port)) < 0)
+	if ((fd = umad_open_port(dev_name, dev_port)) < 0)
 		IBPANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
 
 	if (num_classes >= MAX_CLASS)
 		IBPANIC("too many classes %d requested", num_classes);
 
+	ibmp->port_id = fd;
+	memset(ibmp->class_agents, 0xff, sizeof ibmp->class_agents);
 	while (num_classes--) {
 		uint8_t rmpp_version = 0;
 		int mgmt = *mgmt_classes++;
 
 		if (mgmt == IB_SA_CLASS)
 			rmpp_version = 1;
-		if (mad_register_client(mgmt, rmpp_version) < 0)
+		if (mad_register_client_via(mgmt, rmpp_version, ibmp) < 0)
 			IBPANIC("client_register for mgmt class %d failed",
 				mgmt);
 	}
@@ -334,6 +332,7 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 		return NULL;
 	}
 
+	p->port_id = port_id;
 	memset(p->class_agents, 0xff, sizeof p->class_agents);
 	while (num_classes--) {
 		uint8_t rmpp_version = 0;
@@ -343,8 +342,7 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 		if (mgmt == IB_SA_CLASS)
 			rmpp_version = 1;
 		if (mgmt < 0 || mgmt >= MAX_CLASS ||
-		    (agent = mad_register_port_client(port_id, mgmt,
-						      rmpp_version)) < 0) {
+		    (agent = mad_register_client_via(mgmt, rmpp_version, p)) < 0) {
 			IBWARN("client_register for mgmt %d failed", mgmt);
 			if (!errno)
 				errno = EINVAL;
@@ -355,7 +353,6 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 		p->class_agents[mgmt] = agent;
 	}
 
-	p->port_id = port_id;
 	return p;
 }
 
@@ -363,14 +360,4 @@ void mad_rpc_close_port(struct ibmad_port *port)
 {
 	umad_close_port(port->port_id);
 	free(port);
-}
-
-uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
-		 unsigned timeout)
-{
-	struct ibmad_port port;
-
-	port.port_id = mad_portid;
-	port.class_agents[IB_SA_CLASS] = mad_class_agent(IB_SA_CLASS);
-	return sa_rpc_call(&port, rcvbuf, portid, sa, timeout);
 }

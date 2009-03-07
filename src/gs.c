@@ -74,11 +74,7 @@ uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
 	if (!dest->qkey)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
-	if (srcport) {
-		return mad_rpc(srcport, &rpc, dest, rcvbuf, rcvbuf);
-	} else {
-		return madrpc(&rpc, dest, rcvbuf, rcvbuf);
-	}
+	return mad_rpc(srcport, &rpc, dest, rcvbuf, rcvbuf);
 }
 
 uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
@@ -117,9 +113,5 @@ uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 	if (!dest->qkey)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
-	if (srcport) {
-		return mad_rpc(srcport, &rpc, dest, rcvbuf, rcvbuf);
-	} else {
-		return madrpc(&rpc, dest, rcvbuf, rcvbuf);
-	}
+	return mad_rpc(srcport, &rpc, dest, rcvbuf, rcvbuf);
 }

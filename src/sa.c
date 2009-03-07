@@ -40,6 +40,7 @@
 #include <string.h>
 
 #include <infiniband/mad.h>
+#include "mad_internal.h"
 
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
@@ -77,6 +78,12 @@ uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf, ib_porti
 	sa->recsz = rpc.recsz;
 
 	return p;
+}
+
+uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
+		 unsigned timeout)
+{
+	return sa_rpc_call(ibmp, rcvbuf, portid, sa, timeout);
 }
 
 /* PathRecord */
@@ -127,11 +134,7 @@ int ib_path_query_via(const struct ibmad_port *srcport, ibmad_gid_t srcgid,
 	mad_encode_field(buf, IB_SA_PR_DGID_F, destgid);
 	mad_encode_field(buf, IB_SA_PR_SGID_F, srcgid);
 
-	if (srcport) {
-		p = sa_rpc_call(srcport, buf, sm_id, &sa, 0);
-	} else {
-		p = sa_call(buf, sm_id, &sa, 0);
-	}
+	p = sa_rpc_call(srcport, buf, sm_id, &sa, 0);
 	if (!p) {
 		IBWARN("sa call path_query failed");
 		return -1;
@@ -144,5 +147,5 @@ int ib_path_query_via(const struct ibmad_port *srcport, ibmad_gid_t srcgid,
 int ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t * sm_id,
 		  void *buf)
 {
-	return ib_path_query_via(NULL, srcgid, destgid, sm_id, buf);
+	return ib_path_query_via(ibmp, srcgid, destgid, sm_id, buf);
 }

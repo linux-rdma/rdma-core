@@ -41,6 +41,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
+#include "mad_internal.h"
 
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
@@ -64,7 +65,7 @@ int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
 
 int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
 {
-	return ib_resolve_smlid_via(sm_id, timeout, NULL);
+	return ib_resolve_smlid_via(sm_id, timeout, ibmp);
 }
 
 int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
@@ -148,7 +149,7 @@ int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
 			enum MAD_DEST dest_type, ib_portid_t * sm_id)
 {
 	return ib_resolve_portid_str_via(portid, addr_str, dest_type,
-					 sm_id, NULL);
+					 sm_id, ibmp);
 }
 
 int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
@@ -180,5 +181,5 @@ int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
 
 int ib_resolve_self(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid)
 {
-	return ib_resolve_self_via(portid, portnum, gid, NULL);
+	return ib_resolve_self_via(portid, portnum, gid, ibmp);
 }

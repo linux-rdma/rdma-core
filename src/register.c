@@ -48,33 +48,6 @@
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
-#define MAX_AGENTS	256
-
-static int class_agent[MAX_CLASS];
-static int agent_class[MAX_AGENTS];
-
-static int register_agent(int agent, int mclass)
-{
-	static int initialized;
-
-	if (!initialized) {
-		initialized++;
-		memset(class_agent, 0xff, sizeof class_agent);
-		memset(agent_class, 0xff, sizeof agent_class);
-	}
-
-	if (mclass < 0 || mclass >= MAX_CLASS ||
-	    agent < 0 || agent >= MAX_AGENTS) {
-		DEBUG("bad mgmt class %d or agent %d", mclass, agent);
-		return -1;
-	}
-
-	class_agent[mclass] = agent;
-	agent_class[agent] = mclass;
-
-	return 0;
-}
-
 static int mgmt_class_vers(int mgmt_class)
 {
 	if ((mgmt_class >= IB_VENDOR_RANGE1_START_CLASS &&
@@ -104,14 +77,7 @@ int mad_class_agent(int mgmt)
 {
 	if (mgmt < 1 || mgmt > MAX_CLASS)
 		return -1;
-	return class_agent[mgmt];
-}
-
-int mad_agent_class(int agent)
-{
-	if (agent < 1 || agent > MAX_AGENTS)
-		return -1;
-	return agent_class[agent];
+	return ibmp->class_agents[mgmt];
 }
 
 int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
@@ -122,14 +88,10 @@ int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 		DEBUG("Unknown class %d mgmt_class", mgmt);
 		return -1;
 	}
-	if ((agent = umad_register(port_id, mgmt, vers, rmpp_version, 0)) < 0) {
-		DEBUG("Can't register agent for class %d", mgmt);
-		return -1;
-	}
 
-	if (mgmt < 0 || mgmt >= MAX_CLASS || agent >= MAX_AGENTS) {
-		DEBUG("bad mgmt class %d or agent %d", mgmt, agent);
-		return -1;
+	agent = umad_register(port_id, mgmt, vers, rmpp_version, 0);
+	if (agent < 0) {
+		DEBUG("Can't register agent for class %d", mgmt);
 	}
 
 	return agent;
@@ -137,14 +99,7 @@ int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 
 int mad_register_client(int mgmt, uint8_t rmpp_version)
 {
-	int rc = 0;
-	struct ibmad_port port;
-
-	port.port_id = madrpc_portid();
-	rc = mad_register_client_via(mgmt, rmpp_version, &port);
-	if (rc < 0)
-		return rc;
-	return register_agent(port.class_agents[mgmt], mgmt);
+	return mad_register_client_via(mgmt, rmpp_version, ibmp);
 }
 
 int mad_register_client_via(int mgmt, uint8_t rmpp_version,
@@ -167,17 +122,8 @@ int
 mad_register_server(int mgmt, uint8_t rmpp_version,
 		    long method_mask[], uint32_t class_oui)
 {
-	int rc = 0;
-	struct ibmad_port port;
-
-	port.port_id = madrpc_portid();
-	port.class_agents[mgmt] = class_agent[mgmt];
-	rc = mad_register_server_via(mgmt, rmpp_version,
-				method_mask, class_oui,
-				&port);
-	if (rc < 0)
-		return rc;
-	return register_agent(port.class_agents[mgmt], mgmt);
+	return mad_register_server_via(mgmt, rmpp_version, method_mask,
+				       class_oui, ibmp);
 }
 
 int

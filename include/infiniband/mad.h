@@ -745,7 +745,7 @@ MAD_EXPORT int mad_rpc_portid(struct ibmad_port *srcport);
 
 /* register.c */
 MAD_EXPORT int mad_register_port_client(int port_id, int mgmt,
-			uint8_t rmpp_version) DEPRECATED;
+					uint8_t rmpp_version);
 MAD_EXPORT int mad_register_client(int mgmt, uint8_t rmpp_version)
 			DEPRECATED;
 MAD_EXPORT int mad_register_server(int mgmt, uint8_t rmpp_version,
@@ -759,7 +759,6 @@ MAD_EXPORT int mad_register_server_via(int mgmt, uint8_t rmpp_version,
 				uint32_t class_oui,
 				struct ibmad_port *srcport);
 MAD_EXPORT int mad_class_agent(int mgmt);
-MAD_EXPORT int mad_agent_class(int agent);
 
 /* serv.c */
 MAD_EXPORT int mad_send(ib_rpc_t * rpc, ib_portid_t * dport,

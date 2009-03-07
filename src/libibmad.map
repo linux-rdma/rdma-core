@@ -53,7 +53,6 @@ IBMAD_1.3 {
 		portid2str;
 		str2drpath;
 		drpath2str;
-		mad_agent_class;
 		mad_class_agent;
 		mad_register_client;
 		mad_register_server;
