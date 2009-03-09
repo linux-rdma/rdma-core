@@ -321,13 +321,13 @@ void xmt_sl_query(ib_portid_t *portid, int port, int mask)
 
 	if (reset_only) {
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_XMIT_DATA_SL, NULL))
+						IB_GSI_PORT_XMIT_DATA_SL, srcport))
 			IBERROR("perfslreset");
 		return;
 	}
 
 	if (!pma_query_via(pc, portid, port, ibd_timeout,
-				IB_GSI_PORT_XMIT_DATA_SL, NULL))
+				IB_GSI_PORT_XMIT_DATA_SL, srcport))
 		IBERROR("perfslquery");
 
 	mad_dump_perfcounters_xmt_sl(buf, sizeof buf, pc, sizeof pc);
@@ -335,7 +335,7 @@ void xmt_sl_query(ib_portid_t *portid, int port, int mask)
 
 	if(reset)
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_XMIT_DATA_SL, NULL))
+						IB_GSI_PORT_XMIT_DATA_SL, srcport))
 			IBERROR("perfslreset");
 }
 
@@ -345,13 +345,13 @@ void rcv_sl_query(ib_portid_t *portid, int port, int mask)
 
 	if (reset_only) {
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_RCV_DATA_SL, NULL))
+						IB_GSI_PORT_RCV_DATA_SL, srcport))
 			IBERROR("perfslreset");
 		return;
 	}
 
 	if (!pma_query_via(pc, portid, port, ibd_timeout,
-				IB_GSI_PORT_RCV_DATA_SL, NULL))
+				IB_GSI_PORT_RCV_DATA_SL, srcport))
 		IBERROR("perfslquery");
 
 	mad_dump_perfcounters_rcv_sl(buf, sizeof buf, pc, sizeof pc);
@@ -359,7 +359,7 @@ void rcv_sl_query(ib_portid_t *portid, int port, int mask)
 
 	if(reset)
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_RCV_DATA_SL, NULL))
+						IB_GSI_PORT_RCV_DATA_SL, srcport))
 			IBERROR("perfslreset");
 }
 
