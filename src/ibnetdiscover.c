@@ -913,11 +913,18 @@ void dump_ports_report ()
 						port->remoteport->lid,
 						port->remoteport->portnum,
 						port->remoteport->portguid,
-						port->node->nodedesc,
-						port->remoteport->node->nodedesc);
+						remap_node_name(node_name_map,
+							port->node->nodeguid,
+							port->node->nodedesc),
+						remap_node_name(node_name_map,
+							port->remoteport->node->nodeguid,
+							port->remoteport->node->nodedesc));
 				else
 					fprintf(stdout, "%36s'%s'\n", "",
-						port->node->nodedesc);
+						remap_node_name(node_name_map,
+							port->node->nodeguid,
+							port->node->nodedesc));
+
 			}
 			n++;
 		}
