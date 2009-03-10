@@ -473,12 +473,12 @@ int main(int argc, char **argv)
 
 	if (xmt_sl) {
 		xmt_sl_query(&portid, port, mask);
-		exit(0);
+		goto done;
 	}
 
 	if (rcv_sl) {
 		rcv_sl_query(&portid, port, mask);
-		exit(0);
+		goto done;
 	}
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
@@ -519,10 +519,8 @@ int main(int argc, char **argv)
 	else
 		dump_perfcounters(extended, ibd_timeout, cap_mask, &portid, port, 0);
 
-	if (!reset) {
-		mad_rpc_close_port(srcport);
-		exit(0);
-	}
+	if (!reset)
+		goto done;
 
 do_reset:
 
@@ -536,6 +534,7 @@ do_reset:
 	else
 		reset_counters(extended, ibd_timeout, mask, &portid, port);
 
+done:
 	mad_rpc_close_port(srcport);
 	exit(0);
 }
