@@ -734,13 +734,14 @@ MAD_EXPORT int mad_build_pkt(void *umad, ib_rpc_t * rpc, ib_portid_t * dport,
 MAD_EXPORT void madrpc_show_errors(int set);
 MAD_EXPORT int madrpc_set_retries(int retries);
 MAD_EXPORT int madrpc_set_timeout(int timeout);
-MAD_EXPORT struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port, int *mgmt_classes,
-			int num_classes);
+MAD_EXPORT struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
+			int *mgmt_classes, int num_classes);
 MAD_EXPORT void mad_rpc_close_port(struct ibmad_port *srcport);
-MAD_EXPORT void *mad_rpc(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_portid_t * dport,
-			void *payload, void *rcvdata);
-MAD_EXPORT void *mad_rpc_rmpp(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_portid_t * dport,
-			ib_rmpp_hdr_t * rmpp, void *data);
+MAD_EXPORT void *mad_rpc(const struct ibmad_port *srcport, ib_rpc_t * rpc,
+			ib_portid_t * dport, void *payload, void *rcvdata);
+MAD_EXPORT void *mad_rpc_rmpp(const struct ibmad_port *srcport, ib_rpc_t * rpc,
+			      ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
+			      void *data);
 MAD_EXPORT int mad_rpc_portid(struct ibmad_port *srcport);
 MAD_EXPORT void mad_rpc_set_retries(struct ibmad_port *port, int retries);
 MAD_EXPORT void mad_rpc_set_timeout(struct ibmad_port *port, int timeout);
@@ -752,20 +753,20 @@ MAD_EXPORT int mad_register_port_client(int port_id, int mgmt,
 MAD_EXPORT int mad_register_client(int mgmt, uint8_t rmpp_version)
 			DEPRECATED;
 MAD_EXPORT int mad_register_server(int mgmt, uint8_t rmpp_version,
-			   long method_mask[16 / sizeof(long)],
-			   uint32_t class_oui) DEPRECATED;
+				   long method_mask[16 / sizeof(long)],
+				   uint32_t class_oui) DEPRECATED;
 /* register.c new interface */
 MAD_EXPORT int mad_register_client_via(int mgmt, uint8_t rmpp_version,
-				struct ibmad_port *srcport);
+				       struct ibmad_port *srcport);
 MAD_EXPORT int mad_register_server_via(int mgmt, uint8_t rmpp_version,
-				long method_mask[16 / sizeof(long)],
-				uint32_t class_oui,
-				struct ibmad_port *srcport);
+				       long method_mask[16 / sizeof(long)],
+				       uint32_t class_oui,
+				       struct ibmad_port *srcport);
 MAD_EXPORT int mad_class_agent(int mgmt) DEPRECATED;
 
 /* serv.c */
 MAD_EXPORT int mad_send(ib_rpc_t * rpc, ib_portid_t * dport,
-		ib_rmpp_hdr_t * rmpp, void *data) DEPRECATED;
+			ib_rmpp_hdr_t * rmpp, void *data) DEPRECATED;
 MAD_EXPORT void *mad_receive(void *umad, int timeout)
 		DEPRECATED;
 MAD_EXPORT int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
@@ -773,23 +774,23 @@ MAD_EXPORT int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
 
 /* serv.c new interface */
 MAD_EXPORT int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport,
-			ib_rmpp_hdr_t * rmpp, void *data,
-			struct ibmad_port *srcport);
+			    ib_rmpp_hdr_t * rmpp, void *data,
+			    struct ibmad_port *srcport);
 MAD_EXPORT void *mad_receive_via(void *umad, int timeout,
-			struct ibmad_port *srcport);
+				 struct ibmad_port *srcport);
 MAD_EXPORT int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
-			struct ibmad_port *srcport);
+			       struct ibmad_port *srcport);
 MAD_EXPORT void *mad_alloc(void);
 MAD_EXPORT void mad_free(void *umad);
 
 /* vendor.c */
 MAD_EXPORT uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
-			   ib_vendor_call_t * call) DEPRECATED;
+				   ib_vendor_call_t * call) DEPRECATED;
 
 /* vendor.c new interface */
 MAD_EXPORT uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
-				   ib_vendor_call_t * call,
-				   struct ibmad_port *srcport);
+				       ib_vendor_call_t * call,
+				       struct ibmad_port *srcport);
 
 static inline int mad_is_vendor_range1(int mgmt)
 {
@@ -813,27 +814,31 @@ void madrpc_save_mad(void *madbuf, int len) DEPRECATED;
 
 /* smp.c */
 MAD_EXPORT uint8_t *smp_query(void *buf, ib_portid_t * id, unsigned attrid,
-		      unsigned mod, unsigned timeout) DEPRECATED;
+			      unsigned mod, unsigned timeout) DEPRECATED;
 MAD_EXPORT uint8_t *smp_set(void *buf, ib_portid_t * id, unsigned attrid,
-		    unsigned mod, unsigned timeout) DEPRECATED;
+			    unsigned mod, unsigned timeout) DEPRECATED;
 
 /* smp.c new interface */
 MAD_EXPORT uint8_t *smp_query_via(void *buf, ib_portid_t * id, unsigned attrid,
-		       unsigned mod, unsigned timeout, const struct ibmad_port *srcport);
-MAD_EXPORT uint8_t *smp_set_via(void *buf, ib_portid_t * id, unsigned attrid, unsigned mod,
-		     unsigned timeout, const struct ibmad_port *srcport);
+				  unsigned mod, unsigned timeout,
+				  const struct ibmad_port *srcport);
+MAD_EXPORT uint8_t *smp_set_via(void *buf, ib_portid_t * id, unsigned attrid,
+				unsigned mod, unsigned timeout,
+				const struct ibmad_port *srcport);
 
 /* sa.c */
 uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
 		 unsigned timeout) DEPRECATED;
-MAD_EXPORT int ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t * sm_id,
-		void *buf) DEPRECATED;
+MAD_EXPORT int ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid,
+			     ib_portid_t * sm_id, void *buf) DEPRECATED;
 
 /* sa.c new interface */
-MAD_EXPORT uint8_t *sa_rpc_call(const struct ibmad_port *srcport, void *rcvbuf, ib_portid_t * portid,
-		     ib_sa_call_t * sa, unsigned timeout);
-MAD_EXPORT int ib_path_query_via(const struct ibmad_port *srcport, ibmad_gid_t srcgid,
-		      ibmad_gid_t destgid, ib_portid_t * sm_id, void *buf);
+MAD_EXPORT uint8_t *sa_rpc_call(const struct ibmad_port *srcport, void *rcvbuf,
+				ib_portid_t * portid, ib_sa_call_t * sa,
+				unsigned timeout);
+MAD_EXPORT int ib_path_query_via(const struct ibmad_port *srcport,
+				 ibmad_gid_t srcgid, ibmad_gid_t destgid,
+				 ib_portid_t * sm_id, void *buf);
 	/* returns lid */
 
 /* resolve.c */
@@ -851,15 +856,16 @@ MAD_EXPORT int ib_resolve_self(ib_portid_t * portid, int *portnum,
 
 /* resolve.c new interface */
 MAD_EXPORT int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
-			const struct ibmad_port *srcport);
+				    const struct ibmad_port *srcport);
 MAD_EXPORT int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
-			ib_portid_t * sm_id, int timeout,
-			const struct ibmad_port *srcport);
+				   ib_portid_t * sm_id, int timeout,
+				   const struct ibmad_port *srcport);
 MAD_EXPORT int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
-			      enum MAD_DEST dest, ib_portid_t * sm_id,
-			      const struct ibmad_port *srcport);
-MAD_EXPORT int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
-			const struct ibmad_port *srcport);
+					 enum MAD_DEST dest, ib_portid_t * sm_id,
+					 const struct ibmad_port *srcport);
+MAD_EXPORT int ib_resolve_self_via(ib_portid_t * portid, int *portnum,
+				   ibmad_gid_t * gid,
+				   const struct ibmad_port *srcport);
 
 /* gs.c new interface */
 MAD_EXPORT uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
