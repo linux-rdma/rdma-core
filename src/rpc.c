@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -59,7 +60,10 @@ static int save_mad_len = 256;
 
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
-#define ERRS	if (iberrs || ibdebug)	IBWARN
+#define ERRS(fmt, ...) do {	\
+	if (iberrs || ibdebug)	\
+		IBWARN(fmt, ## __VA_ARGS__); \
+} while (0)
 
 #define MAD_TID(mad)	(*((uint64_t *)((char *)(mad) + 8)))
 
@@ -142,9 +146,8 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	    (uint32_t) mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
 
 	for (retries = 0; retries < max_retries; retries++) {
-		if (retries) {
+		if (retries)
 			ERRS("retry %d (timeout %d ms)", retries, timeout);
-		}
 
 		length = len;
 		if (umad_send(port_id, agentid, sndbuf, length, timeout, 0) < 0) {
