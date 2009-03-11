@@ -103,8 +103,9 @@ static int server_respond(void *umad, int size)
 	if (ibdebug > 1)
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
 
-	if (umad_send(mad_rpc_portid(srcport), mad_class_agent(rpc.mgtclass), umad,
-		      size, rpc.timeout, 0) < 0) {
+	if (umad_send(mad_rpc_portid(srcport),
+		      mad_rpc_class_agent(srcport, rpc.mgtclass), umad, size,
+		      rpc.timeout, 0) < 0) {
 		DEBUG("send failed; %m");
 		return -1;
 	}
@@ -233,7 +234,7 @@ static char *ibsystat(ib_portid_t *portid, int attr)
 		IBPANIC("cannot build packet.");
 
 	fd = mad_rpc_portid(srcport);
-	agent = mad_class_agent(rpc.mgtclass);
+	agent = mad_rpc_class_agent(srcport, rpc.mgtclass);
 	timeout = ibd_timeout ? ibd_timeout : MAD_DEF_TIMEOUT_MS;
 
 	if (umad_send(fd, agent, buf, len, timeout, 0) < 0)
