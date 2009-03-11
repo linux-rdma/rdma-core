@@ -109,7 +109,14 @@ int madrpc_portid(void)
 
 int mad_rpc_portid(struct ibmad_port *srcport)
 {
-	return (srcport->port_id);
+	return srcport->port_id;
+}
+
+int mad_rpc_class_agent(struct ibmad_port *port, int class)
+{
+	if (class < 1 || class > MAX_CLASS)
+		return -1;
+	return port->class_agents[class];
 }
 
 static int
