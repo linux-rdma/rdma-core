@@ -247,5 +247,6 @@ int main(int argc, char **argv)
 				       ntohl(cs->record[i].data));
 	}
 
+	mad_rpc_close_port(srcport);
 	exit(0);
 }
