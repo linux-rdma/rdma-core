@@ -68,6 +68,8 @@ IBMAD_1.3 {
 		mad_rpc;
 		mad_rpc_rmpp;
 		mad_rpc_portid;
+		mad_rpc_set_retries;
+		mad_rpc_set_timeout;
 		madrpc;
 		madrpc_def_timeout;
 		madrpc_init;

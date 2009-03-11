@@ -742,6 +742,8 @@ MAD_EXPORT void *mad_rpc(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_po
 MAD_EXPORT void *mad_rpc_rmpp(const struct ibmad_port *srcport, ib_rpc_t * rpc, ib_portid_t * dport,
 			ib_rmpp_hdr_t * rmpp, void *data);
 MAD_EXPORT int mad_rpc_portid(struct ibmad_port *srcport);
+MAD_EXPORT void mad_rpc_set_retries(struct ibmad_port *port, int retries);
+MAD_EXPORT void mad_rpc_set_timeout(struct ibmad_port *port, int timeout);
 
 /* register.c */
 MAD_EXPORT int mad_register_port_client(int port_id, int mgmt,

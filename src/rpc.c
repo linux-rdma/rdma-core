@@ -53,7 +53,7 @@ struct ibmad_port *ibmp = &mad_port;
 static int iberrs;
 
 static int madrpc_retries = MAD_DEF_RETRIES;
-static int def_madrpc_timeout = MAD_DEF_TIMEOUT_MS;
+static int madrpc_timeout = MAD_DEF_TIMEOUT_MS;
 static void *save_mad;
 static int save_mad_len = 256;
 
@@ -83,13 +83,23 @@ int madrpc_set_retries(int retries)
 
 int madrpc_set_timeout(int timeout)
 {
-	def_madrpc_timeout = timeout;
+	madrpc_timeout = timeout;
 	return 0;
+}
+
+void mad_rpc_set_retries(struct ibmad_port *port, int retries)
+{
+	port->retries = retries;
+}
+
+void mad_rpc_set_timeout(struct ibmad_port *port, int timeout)
+{
+	port->timeout = timeout;
 }
 
 int madrpc_def_timeout(void)
 {
-	return def_madrpc_timeout;
+	return madrpc_timeout;
 }
 
 int madrpc_portid(void)
@@ -104,14 +114,11 @@ int mad_rpc_portid(struct ibmad_port *srcport)
 
 static int
 _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
-	   int timeout)
+	   int timeout, int max_retries)
 {
 	uint32_t trid;		/* only low 32 bits */
 	int retries;
 	int length, status;
-
-	if (!timeout)
-		timeout = def_madrpc_timeout;
 
 	if (ibdebug > 1) {
 		IBWARN(">>> sending: len %d pktsz %zu", len, umad_size() + len);
@@ -127,7 +134,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	trid =
 	    (uint32_t) mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
 
-	for (retries = 0; retries < madrpc_retries; retries++) {
+	for (retries = 0; retries < max_retries; retries++) {
 		if (retries) {
 			ERRS("retry %d (timeout %d ms)", retries, timeout);
 		}
@@ -171,6 +178,7 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * dport
 {
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
+	int timeout, retries;
 
 	len = 0;
 	memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
@@ -178,9 +186,13 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * dport
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
 		return 0;
 
+	timeout = rpc->timeout ? rpc->timeout :
+			port->timeout ? port->timeout : madrpc_timeout;
+	retries = port->retries ? port->retries : madrpc_retries;
+
 	if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
 			      port->class_agents[rpc->mgtclass],
-			      len, rpc->timeout)) < 0) {
+			      len, timeout, retries)) < 0) {
 		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return 0;
 	}
@@ -209,6 +221,7 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * 
 {
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
+	int timeout, retries;
 
 	memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
@@ -217,9 +230,13 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * 
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, rmpp, data)) < 0)
 		return 0;
 
+	timeout = rpc->timeout ? rpc->timeout :
+			port->timeout ? port->timeout : madrpc_timeout;
+	retries = port->retries ? port->retries : madrpc_retries;
+
 	if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
 			      port->class_agents[rpc->mgtclass],
-			      len, rpc->timeout)) < 0) {
+			      len, rpc->timeout, retries)) < 0) {
 		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return 0;
 	}
