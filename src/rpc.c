@@ -243,7 +243,7 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc, ib_portid_t * 
 
 	if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
 			      port->class_agents[rpc->mgtclass],
-			      len, rpc->timeout, retries)) < 0) {
+			      len, timeout, retries)) < 0) {
 		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return 0;
 	}
