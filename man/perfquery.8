@@ -107,17 +107,17 @@ perfquery               # read local port performance counters
 .PP
 perfquery 32 1          # read performance counters from lid 32, port 1
 .PP
-perfquery -e 32 1       # read extended performance counters from lid 32, port 1
+perfquery -x 32 1       # read extended performance counters from lid 32, port 1
 .PP
 perfquery -a 32         # read perf counters from lid 32, all ports
 .PP
 perfquery -r 32 1       # read performance counters and reset
 .PP
-perfquery -e -r 32 1    # read extended performance counters and reset
+perfquery -x -r 32 1    # read extended performance counters and reset
 .PP
 perfquery -R 0x20 1     # reset performance counters of port 1 only
 .PP
-perfquery -e -R 0x20 1  # reset extended performance counters of port 1 only
+perfquery -x -R 0x20 1  # reset extended performance counters of port 1 only
 .PP
 perfquery -R -a 32      # reset performance counters of all ports
 .PP
