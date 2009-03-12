@@ -337,12 +337,11 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 	while (num_classes--) {
 		uint8_t rmpp_version = 0;
 		int mgmt = *mgmt_classes++;
-		int agent;
 
 		if (mgmt == IB_SA_CLASS)
 			rmpp_version = 1;
 		if (mgmt < 0 || mgmt >= MAX_CLASS ||
-		    (agent = mad_register_client_via(mgmt, rmpp_version, p)) < 0) {
+		    mad_register_client_via(mgmt, rmpp_version, p) < 0) {
 			IBWARN("client_register for mgmt %d failed", mgmt);
 			if (!errno)
 				errno = EINVAL;
@@ -350,7 +349,6 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 			free(p);
 			return NULL;
 		}
-		p->class_agents[mgmt] = agent;
 	}
 
 	return p;
