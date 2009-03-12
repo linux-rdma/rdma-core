@@ -182,6 +182,7 @@ struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
 	cq->queue = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			 context->cmd_fd, resp.offset);
 	if ((void *) cq->queue == MAP_FAILED) {
+		ibv_cmd_destroy_cq(&cq->ibv_cq);
 		free(cq);
 		return NULL;
 	}
@@ -338,6 +339,7 @@ struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 				  PROT_READ | PROT_WRITE, MAP_SHARED,
 				  pd->context->cmd_fd, resp.offset);
 		if ((void *) qp->rq.rwq == MAP_FAILED) {
+			ibv_cmd_destroy_qp(&qp->ibv_qp);
 			free(qp);
 			return NULL;
 		}
@@ -532,6 +534,7 @@ struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
 	srq->rq.rwq = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			   pd->context->cmd_fd, resp.offset);
 	if ((void *) srq->rq.rwq == MAP_FAILED) {
+		ibv_cmd_destroy_srq(&srq->ibv_srq);
 		free(srq);
 		return NULL;
 	}
