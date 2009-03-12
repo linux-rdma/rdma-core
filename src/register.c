@@ -90,9 +90,8 @@ int mad_register_port_client(int port_id, int mgmt, uint8_t rmpp_version)
 	}
 
 	agent = umad_register(port_id, mgmt, vers, rmpp_version, 0);
-	if (agent < 0) {
+	if (agent < 0)
 		DEBUG("Can't register agent for class %d", mgmt);
-	}
 
 	return agent;
 }
