@@ -331,9 +331,9 @@ void xmt_sl_query(ib_portid_t *portid, int port, int mask)
 		IBERROR("perfslquery");
 
 	mad_dump_perfcounters_xmt_sl(buf, sizeof buf, pc, sizeof pc);
-	printf("# Port counters: %s port %d\n%s", portid2str(portid), port, buf);
+	printf("# PortXmitDataSL counters: %s port %d\n%s", portid2str(portid), port, buf);
 
-	if(reset)
+	if (reset)
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
 						IB_GSI_PORT_XMIT_DATA_SL, srcport))
 			IBERROR("perfslreset");
@@ -355,9 +355,9 @@ void rcv_sl_query(ib_portid_t *portid, int port, int mask)
 		IBERROR("perfslquery");
 
 	mad_dump_perfcounters_rcv_sl(buf, sizeof buf, pc, sizeof pc);
-	printf("# Port counters: %s port %d\n%s", portid2str(portid), port, buf);
+	printf("# PortRcvDataSL counters: %s port %d\n%s", portid2str(portid), port, buf);
 
-	if(reset)
+	if (reset)
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
 						IB_GSI_PORT_RCV_DATA_SL, srcport))
 			IBERROR("perfslreset");
