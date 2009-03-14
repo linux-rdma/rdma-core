@@ -756,6 +756,7 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 		ret = ibv_cmd_dereg_mr(&nesuqp->mr);
 		if (ret)
 	 		fprintf(stderr, PFX "%s dereg_mr FAILED\n", __FUNCTION__);
+		free(nesuqp->sq_vbase);
 	}
 
 
