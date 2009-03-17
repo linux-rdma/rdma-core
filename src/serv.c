@@ -128,6 +128,7 @@ int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
 		rpc.oui = mad_get_field(mad, 0, IB_VEND2_OUI_F);
 
 	rpc.trid = mad_get_field64(mad, 0, IB_MAD_TRID_F);
+	rpc.rstatus = rstatus;
 
 	/* cleared by default: timeout, datasz, dataoffs, mkey, mask */
 
