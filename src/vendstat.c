@@ -52,6 +52,8 @@
 /* Vendor specific Attribute IDs */
 #define IB_MLX_IS3_GENERAL_INFO		0x17
 #define IB_MLX_IS3_CONFIG_SPACE_ACCESS	0x50
+#define IB_MLX_IS4_COUNTER_GROUP_INFO   0x90
+#define IB_MLX_IS4_CONFIG_COUNTER_GROUP 0x91
 /* Config space addresses */
 #define IB_MLX_IS3_PORT_XMIT_WAIT	0x10013C
 
@@ -105,16 +107,30 @@ typedef struct {
 	is3_record_t record[18];
 } is3_config_space_t;
 
+void counter_groups_info(ib_portid_t *portid, int port);
+void config_counter_groups(ib_portid_t *portid, int port);
+
 static int general_info, xmit_wait = 0;
+static int counter_group_info, config_counter_group, cg0, cg1;
 
 static int process_opt(void *context, int ch, char *optarg)
 {
+	int ret;
 	switch (ch) {
 	case 'N':
 		general_info = 1;
 		break;
 	case 'w':
 		xmit_wait = 1;
+		break;
+	case 'i':
+		counter_group_info = 1;
+		break;
+	case 'c':
+		config_counter_group = 1;
+		ret = sscanf(optarg, "%d,%d", &cg0, &cg1);
+		if (ret != 2)
+			return -1;
 		break;
 	default:
 		return -1;
@@ -136,12 +152,17 @@ int main(int argc, char **argv)
 	const struct ibdiag_opt opts[] = {
 		{ "N", 'N', 0, NULL, "show IS3 general information"},
 		{ "w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
+		{ "i", 'i', 0, NULL, "show is4 counter group info"},
+		{ "c", 'c', 1, "<num,num>", "set is4 config counter group"},
 		{ 0 }
 	};
-	char usage_args[] = "<lid|guid>";
+
+	char usage_args[] = "<lid|guid> [port]";
 	const char *usage_examples[] = {
 		"-N 6\t\t# read IS3 general information",
 		"-w 6\t\t# read IS3 port xmit wait counters",
+		"-i 6 12\t# read IS4 port 12 counter group info",
+		"-c 0,1 6 12\t# set IS4 port 12 config counter group for XmitDataSL",
 		NULL
 	};
 
@@ -167,13 +188,23 @@ int main(int argc, char **argv)
 			IBERROR("can't resolve self port %s", argv[0]);
 	}
 
+	if (counter_group_info) {
+		counter_groups_info(&portid, port);
+		exit(0);
+	}
+
+	if (config_counter_group) {
+		config_counter_groups(&portid, port);
+		exit(0);
+	}
+
+	/* These are Mellanox specific vendor MADs */
+	/* but vendors change the VendorId so how know for sure ? */
 	/* Only General Info and Port Xmit Wait Counters */
 	/* queries are currently supported */
 	if (!general_info && !xmit_wait)
 		IBERROR("at least one of -N and -w must be specified");
 
-	/* These are Mellanox specific vendor MADs */
-	/* but vendors change the VendorId so how know for sure ? */
 	/* Would need a list of these and it might not be complete */
 	/* so for right now, punt on this */
 
@@ -249,4 +280,95 @@ int main(int argc, char **argv)
 
 	mad_rpc_close_port(srcport);
 	exit(0);
+}
+
+
+#define COUNTER_GROUPS_NUM 2
+
+typedef struct {
+	uint8_t reserved1[8];
+	uint8_t	reserved[3];
+	uint8_t num_of_counter_groups;
+	uint32_t group_masks[COUNTER_GROUPS_NUM];
+}  is4_counter_group_info_t;
+
+typedef struct {
+	uint8_t reserved[3];
+	uint8_t group_select;
+} is4_group_select_t;
+
+typedef struct {
+	uint8_t reserved1[8];
+	uint8_t	reserved[4];
+	is4_group_select_t group_selects[COUNTER_GROUPS_NUM];
+} is4_config_counter_groups_t;
+
+
+void counter_groups_info(ib_portid_t *portid, int port)
+{
+	char buf[1024];
+	ib_vendor_call_t call;
+	is4_counter_group_info_t *cg_info;
+	int i, num_cg;
+
+	memset(&call, 0, sizeof(call));
+	call.mgmt_class = IB_MLX_VENDOR_CLASS;
+	call.method  =  IB_MAD_METHOD_GET;
+	call.timeout = ibd_timeout;
+	call.attrid  = IB_MLX_IS4_COUNTER_GROUP_INFO;
+	call.mod     = port;
+
+	/* Counter Group Info */
+	memset(&buf, 0, sizeof(buf));
+	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
+		IBERROR("counter group info query");
+
+	cg_info = (is4_counter_group_info_t *)&buf;
+	num_cg = cg_info->num_of_counter_groups;
+	printf("counter_group_info:\n");
+	printf("%d counter groups\n", num_cg);
+	for (i = 0; i < num_cg; i++)
+		printf("group%d mask %#x\n", i, ntohl(cg_info->group_masks[i]));
+}
+
+/* Group0 counter config values */
+#define IS4_G0_PortXmtDataSL_0_7  0
+#define IS4_G0_PortXmtDataSL_8_15 1
+#define IS4_G0_PortRcvDataSL_0_7  2
+
+/* Group1 counter config values */
+#define IS4_G1_PortXmtDataSL_8_15 1
+#define IS4_G1_PortRcvDataSL_0_7  2
+#define IS4_G1_PortRcvDataSL_8_15 8
+
+void config_counter_groups(ib_portid_t *portid, int port)
+{
+	char buf[1024];
+	ib_vendor_call_t call;
+	is4_config_counter_groups_t *cg_config;
+
+	memset(&call, 0, sizeof(call));
+	call.mgmt_class = IB_MLX_VENDOR_CLASS;
+	call.attrid  = IB_MLX_IS4_CONFIG_COUNTER_GROUP;
+	call.timeout = ibd_timeout;
+	call.mod     = port;
+	/* set config counter groups for groups 0 and 1 */
+	call.method  = IB_MAD_METHOD_SET;
+
+	memset(&buf, 0, sizeof(buf));
+	cg_config = (is4_config_counter_groups_t *)&buf;
+
+	printf("counter_groups_config: configuring group0 %d group1 %d\n", cg0, cg1);
+	cg_config->group_selects[0].group_select = cg0;
+	cg_config->group_selects[1].group_select = cg1;
+
+	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
+		IBERROR("config counter group set");
+
+	/* get config counter groups */
+	memset(&buf, 0, sizeof(buf));
+	call.method  =  IB_MAD_METHOD_GET;
+
+	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
+		IBERROR("config counter group query");
 }
