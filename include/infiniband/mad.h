@@ -63,6 +63,11 @@ BEGIN_C_DECLS
 #define IB_SA_MCM_RECSZ		53
 #define IB_SA_PR_RECSZ		64
 
+#define IB_BM_DATA_OFFS		64
+#define IB_BM_DATA_SZ		(IB_MAD_SIZE - IB_BM_DATA_OFFS)
+#define IB_BM_BKEY_OFFS		24
+#define IB_BM_BKEY_AND_DATA_SZ	(IB_MAD_SIZE - IB_BM_BKEY_OFFS)
+
 enum MAD_CLASSES {
 	IB_SMI_CLASS = 0x1,
 	IB_SMI_DIRECT_CLASS = 0x81,
@@ -106,6 +111,14 @@ enum MAD_ATTR_ID {
 	CLASS_PORT_INFO = 0x1,
 	NOTICE = 0x2,
 	INFORM_INFO = 0x3,
+};
+
+enum MAD_STATUS {
+	IB_MAD_STS_OK                        = (0 << 2),
+	IB_MAD_STS_BAD_BASE_VER_OR_CLASS     = (1 << 2),
+	IB_MAD_STS_METHOD_NOT_SUPPORTED      = (2 << 2),
+	IB_MAD_STS_METHOD_ATTR_NOT_SUPPORTED = (3 << 2),
+	IB_MAD_STS_INV_ATTR_VALUE            = (7 << 2),
 };
 
 enum SMI_ATTR_ID {
@@ -156,6 +169,28 @@ enum GSI_ATTR_ID {
 	IB_GSI_PORT_XMIT_DATA_SL = 0x36,
 	IB_GSI_PORT_RCV_DATA_SL  = 0x37,
 	IB_GSI_ATTR_LAST
+};
+
+enum BM_ATTR_ID {
+        IB_BM_ATTR_BKEYINFO = 0x10,
+        IB_BM_ATTR_WRITE_VPD = 0x20,
+        IB_BM_ATTR_READ_VPD = 0x21,
+        IB_BM_ATTR_RESET_IBML = 0x22,
+        IB_BM_ATTR_SET_MODULE_PM_CONTROL = 0x23,
+        IB_BM_ATTR_GET_MODULE_PM_CONTROL = 0x24,
+        IB_BM_ATTR_SET_UNIT_PM_CONTROL = 0x25,
+        IB_BM_ATTR_GET_UNIT_PM_CONTROL = 0x26,
+        IB_BM_ATTR_SET_IOC_PM_CONTROL = 0x27,
+        IB_BM_ATTR_GET_IOC_PM_CONTROL = 0x28,
+        IB_BM_ATTR_SET_MODULE_STATE = 0x29,
+        IB_BM_ATTR_SET_MODULE_ATTENTION = 0x2A,
+        IB_BM_ATTR_GET_MODULE_STATUS = 0x2B,
+        IB_BM_ATTR_IB2IBML = 0x2C,
+        IB_BM_ATTR_IB2CME = 0x2D,
+        IB_BM_ATTR_IB2MME = 0x2E,
+        IB_BM_ATTR_OEM = 0x2F,
+
+        IB_BM_ATTR_LAST
 };
 
 #define IB_VENDOR_OPENIB_PING_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 2)
@@ -661,6 +696,14 @@ typedef struct ib_vendor_call {
 	ib_rmpp_hdr_t rmpp;
 } ib_vendor_call_t;
 
+typedef struct ib_bm_call {
+	unsigned method;
+	unsigned attrid;
+	unsigned mod;
+	unsigned timeout;
+	uint64_t bkey;
+} ib_bm_call_t;
+
 #define IB_MIN_UCAST_LID	1
 #define IB_MAX_UCAST_LID	(0xc000-1)
 #define IB_MIN_MCAST_LID	0xc000
@@ -875,6 +918,9 @@ MAD_EXPORT uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 					  int port, unsigned mask,
 					  unsigned timeout, unsigned id,
 					  const struct ibmad_port *srcport);
+
+/* bm.c */
+MAD_EXPORT uint8_t * bm_call_via(void *data, ib_portid_t *portid, ib_bm_call_t *call, struct ibmad_port *srcport);
 
 /* dump.c */
 MAD_EXPORT ib_mad_dump_fn

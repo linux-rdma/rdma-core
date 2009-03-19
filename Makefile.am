@@ -15,7 +15,8 @@ endif
 
 libibmad_la_SOURCES = src/dump.c src/fields.c src/mad.c src/portid.c \
 		      src/resolve.c src/rpc.c src/sa.c src/smp.c src/gs.c \
-		      src/serv.c src/register.c src/vendor.c src/mad_internal.h
+		      src/serv.c src/register.c src/vendor.c src/bm.c \
+		      src/mad_internal.h
 
 libibmad_la_LDFLAGS = -version-info $(ibmad_api_version) \
     -export-dynamic $(libibmad_version_script)

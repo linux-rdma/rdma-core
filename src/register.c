@@ -68,6 +68,8 @@ static int mgmt_class_vers(int mgmt_class)
 		return 1;
 	case IB_CC_CLASS:
 		return 2;
+	case IB_BOARD_MGMT_CLASS:
+		return 1;
 	}
 
 	return 0;

@@ -102,5 +102,6 @@ IBMAD_1.3 {
 		ib_resolve_guid_via;
 		ib_resolve_portid_str_via;
 		ib_resolve_self_via;
+		bm_call_via;
 	local: *;
 };
