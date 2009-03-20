@@ -110,18 +110,15 @@ uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
 #define	IB_PR_COMPMASK_PREFERENCE			(1ull<<22)
 
 #define IB_PR_DEF_MASK (IB_PR_COMPMASK_DGID |\
-			IB_PR_COMPMASK_SGID |\
-			IB_PR_COMPMASK_NUMBPATH)
+			IB_PR_COMPMASK_SGID)
 
 int ib_path_query_via(const struct ibmad_port *srcport, ibmad_gid_t srcgid,
 		      ibmad_gid_t destgid, ib_portid_t * sm_id, void *buf)
 {
-	int npath;
 	ib_sa_call_t sa = { 0 };
 	uint8_t *p;
 	int dlid;
 
-	npath = 1;		/* only MAD_METHOD_GET is supported */
 	memset(&sa, 0, sizeof sa);
 	sa.method = IB_MAD_METHOD_GET;
 	sa.attrid = IB_SA_ATTR_PATHRECORD;
@@ -130,7 +127,6 @@ int ib_path_query_via(const struct ibmad_port *srcport, ibmad_gid_t srcgid,
 
 	memset(buf, 0, IB_SA_PR_RECSZ);
 
-	mad_encode_field(buf, IB_SA_PR_NPATH_F, &npath);
 	mad_encode_field(buf, IB_SA_PR_DGID_F, destgid);
 	mad_encode_field(buf, IB_SA_PR_SGID_F, srcgid);
 
