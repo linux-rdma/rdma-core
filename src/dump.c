@@ -701,12 +701,18 @@ void mad_dump_perfcounters_ext(char *buf, int bufsz, void *val, int valsz)
 
 void mad_dump_perfcounters_xmt_sl(char *buf, int bufsz, void *val, int valsz)
 {
-	_dump_fields(buf, bufsz, val, IB_PC_XMT_DATA_SL_FIRST_F, IB_PC_XMT_DATA_SL_LAST_F);
+	int cnt;
+
+	cnt = _dump_fields(buf, bufsz, val, IB_PC_EXT_PORT_SELECT_F, IB_PC_EXT_XMT_BYTES_F);
+	_dump_fields(buf + cnt, bufsz - cnt, val, IB_PC_XMT_DATA_SL_FIRST_F, IB_PC_XMT_DATA_SL_LAST_F);
 }
 
 void mad_dump_perfcounters_rcv_sl(char *buf, int bufsz, void *val, int valsz)
 {
-	_dump_fields(buf, bufsz, val, IB_PC_RCV_DATA_SL_FIRST_F, IB_PC_RCV_DATA_SL_LAST_F);
+	int cnt;
+
+	cnt = _dump_fields(buf, bufsz, val, IB_PC_EXT_PORT_SELECT_F, IB_PC_EXT_XMT_BYTES_F);
+	_dump_fields(buf + cnt, bufsz - cnt, val, IB_PC_RCV_DATA_SL_FIRST_F, IB_PC_RCV_DATA_SL_LAST_F);
 }
 
 void xdump(FILE * file, char *msg, void *p, int size)
