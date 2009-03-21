@@ -45,8 +45,8 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf, ib_portid_t * portid,
-		     ib_sa_call_t * sa, unsigned timeout)
+uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf,
+		     ib_portid_t * portid, ib_sa_call_t * sa, unsigned timeout)
 {
 	ib_rpc_t rpc = { 0 };
 	uint8_t *p;
@@ -73,7 +73,7 @@ uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf, ib_porti
 	if (!portid->qkey)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	p = mad_rpc_rmpp(ibmad_port, &rpc, portid, 0 /*&sa->rmpp */ , rcvbuf);	/* TODO: RMPP */
+	p = mad_rpc_rmpp(ibmad_port, &rpc, portid, 0 /*&sa->rmpp */, rcvbuf);	/* TODO: RMPP */
 
 	sa->recsz = rpc.recsz;
 
