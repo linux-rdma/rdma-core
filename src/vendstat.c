@@ -107,11 +107,98 @@ typedef struct {
 	is3_record_t record[18];
 } is3_config_space_t;
 
-void counter_groups_info(ib_portid_t *portid, int port);
-void config_counter_groups(ib_portid_t *portid, int port);
+#define COUNTER_GROUPS_NUM 2
 
-static int general_info, xmit_wait = 0;
-static int counter_group_info, config_counter_group, cg0, cg1;
+typedef struct {
+	uint8_t reserved1[8];
+	uint8_t	reserved[3];
+	uint8_t num_of_counter_groups;
+	uint32_t group_masks[COUNTER_GROUPS_NUM];
+}  is4_counter_group_info_t;
+
+typedef struct {
+	uint8_t reserved[3];
+	uint8_t group_select;
+} is4_group_select_t;
+
+typedef struct {
+	uint8_t reserved1[8];
+	uint8_t	reserved[4];
+	is4_group_select_t group_selects[COUNTER_GROUPS_NUM];
+} is4_config_counter_groups_t;
+
+void counter_groups_info(ib_portid_t *portid, int port)
+{
+	char buf[1024];
+	ib_vendor_call_t call;
+	is4_counter_group_info_t *cg_info;
+	int i, num_cg;
+
+	memset(&call, 0, sizeof(call));
+	call.mgmt_class = IB_MLX_VENDOR_CLASS;
+	call.method  =  IB_MAD_METHOD_GET;
+	call.timeout = ibd_timeout;
+	call.attrid  = IB_MLX_IS4_COUNTER_GROUP_INFO;
+	call.mod     = port;
+
+	/* Counter Group Info */
+	memset(&buf, 0, sizeof(buf));
+	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
+		IBERROR("counter group info query");
+
+	cg_info = (is4_counter_group_info_t *)&buf;
+	num_cg = cg_info->num_of_counter_groups;
+	printf("counter_group_info:\n");
+	printf("%d counter groups\n", num_cg);
+	for (i = 0; i < num_cg; i++)
+		printf("group%d mask %#x\n", i, ntohl(cg_info->group_masks[i]));
+}
+
+/* Group0 counter config values */
+#define IS4_G0_PortXmtDataSL_0_7  0
+#define IS4_G0_PortXmtDataSL_8_15 1
+#define IS4_G0_PortRcvDataSL_0_7  2
+
+/* Group1 counter config values */
+#define IS4_G1_PortXmtDataSL_8_15 1
+#define IS4_G1_PortRcvDataSL_0_7  2
+#define IS4_G1_PortRcvDataSL_8_15 8
+
+static int cg0, cg1;
+
+void config_counter_groups(ib_portid_t *portid, int port)
+{
+	char buf[1024];
+	ib_vendor_call_t call;
+	is4_config_counter_groups_t *cg_config;
+
+	memset(&call, 0, sizeof(call));
+	call.mgmt_class = IB_MLX_VENDOR_CLASS;
+	call.attrid  = IB_MLX_IS4_CONFIG_COUNTER_GROUP;
+	call.timeout = ibd_timeout;
+	call.mod     = port;
+	/* set config counter groups for groups 0 and 1 */
+	call.method  = IB_MAD_METHOD_SET;
+
+	memset(&buf, 0, sizeof(buf));
+	cg_config = (is4_config_counter_groups_t *)&buf;
+
+	printf("counter_groups_config: configuring group0 %d group1 %d\n", cg0, cg1);
+	cg_config->group_selects[0].group_select = cg0;
+	cg_config->group_selects[1].group_select = cg1;
+
+	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
+		IBERROR("config counter group set");
+
+	/* get config counter groups */
+	memset(&buf, 0, sizeof(buf));
+	call.method  =  IB_MAD_METHOD_GET;
+
+	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
+		IBERROR("config counter group query");
+}
+
+static int general_info, xmit_wait, counter_group_info, config_counter_group;
 
 static int process_opt(void *context, int ch, char *optarg)
 {
@@ -280,95 +367,4 @@ int main(int argc, char **argv)
 
 	mad_rpc_close_port(srcport);
 	exit(0);
-}
-
-
-#define COUNTER_GROUPS_NUM 2
-
-typedef struct {
-	uint8_t reserved1[8];
-	uint8_t	reserved[3];
-	uint8_t num_of_counter_groups;
-	uint32_t group_masks[COUNTER_GROUPS_NUM];
-}  is4_counter_group_info_t;
-
-typedef struct {
-	uint8_t reserved[3];
-	uint8_t group_select;
-} is4_group_select_t;
-
-typedef struct {
-	uint8_t reserved1[8];
-	uint8_t	reserved[4];
-	is4_group_select_t group_selects[COUNTER_GROUPS_NUM];
-} is4_config_counter_groups_t;
-
-
-void counter_groups_info(ib_portid_t *portid, int port)
-{
-	char buf[1024];
-	ib_vendor_call_t call;
-	is4_counter_group_info_t *cg_info;
-	int i, num_cg;
-
-	memset(&call, 0, sizeof(call));
-	call.mgmt_class = IB_MLX_VENDOR_CLASS;
-	call.method  =  IB_MAD_METHOD_GET;
-	call.timeout = ibd_timeout;
-	call.attrid  = IB_MLX_IS4_COUNTER_GROUP_INFO;
-	call.mod     = port;
-
-	/* Counter Group Info */
-	memset(&buf, 0, sizeof(buf));
-	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
-		IBERROR("counter group info query");
-
-	cg_info = (is4_counter_group_info_t *)&buf;
-	num_cg = cg_info->num_of_counter_groups;
-	printf("counter_group_info:\n");
-	printf("%d counter groups\n", num_cg);
-	for (i = 0; i < num_cg; i++)
-		printf("group%d mask %#x\n", i, ntohl(cg_info->group_masks[i]));
-}
-
-/* Group0 counter config values */
-#define IS4_G0_PortXmtDataSL_0_7  0
-#define IS4_G0_PortXmtDataSL_8_15 1
-#define IS4_G0_PortRcvDataSL_0_7  2
-
-/* Group1 counter config values */
-#define IS4_G1_PortXmtDataSL_8_15 1
-#define IS4_G1_PortRcvDataSL_0_7  2
-#define IS4_G1_PortRcvDataSL_8_15 8
-
-void config_counter_groups(ib_portid_t *portid, int port)
-{
-	char buf[1024];
-	ib_vendor_call_t call;
-	is4_config_counter_groups_t *cg_config;
-
-	memset(&call, 0, sizeof(call));
-	call.mgmt_class = IB_MLX_VENDOR_CLASS;
-	call.attrid  = IB_MLX_IS4_CONFIG_COUNTER_GROUP;
-	call.timeout = ibd_timeout;
-	call.mod     = port;
-	/* set config counter groups for groups 0 and 1 */
-	call.method  = IB_MAD_METHOD_SET;
-
-	memset(&buf, 0, sizeof(buf));
-	cg_config = (is4_config_counter_groups_t *)&buf;
-
-	printf("counter_groups_config: configuring group0 %d group1 %d\n", cg0, cg1);
-	cg_config->group_selects[0].group_select = cg0;
-	cg_config->group_selects[1].group_select = cg1;
-
-	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
-		IBERROR("config counter group set");
-
-	/* get config counter groups */
-	memset(&buf, 0, sizeof(buf));
-	call.method  =  IB_MAD_METHOD_GET;
-
-	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
-		IBERROR("config counter group query");
 }
