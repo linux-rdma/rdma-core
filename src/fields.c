@@ -251,7 +251,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(112, 16), "XmtDiscards", mad_dump_uint},
 	{BITSOFFS(128, 8), "XmtConstraintErrors", mad_dump_uint},
 	{BITSOFFS(136, 8), "RcvConstraintErrors", mad_dump_uint},
-	{BITSOFFS(144, 8), "CounterSelect2", mad_dump_uint},
+	{BITSOFFS(144, 8), "CounterSelect2", mad_dump_hex},
 	{BITSOFFS(152, 4), "LinkIntegrityErrors", mad_dump_uint},
 	{BITSOFFS(156, 4), "ExcBufOverrunErrors", mad_dump_uint},
 	{BITSOFFS(176, 16), "VL15Dropped", mad_dump_uint},
