@@ -46,16 +46,22 @@ sub usage_and_exit
 	print "   -h This help message\n";
 	print
 "   -R Recalculate ibnetdiscover information (Default is to reuse ibnetdiscover output)\n";
+	print "   -C <ca_name> use selected Channel Adaptor name for queries\n";
+	print "   -P <ca_port> use selected channel adaptor port for queries\n";
 	exit 2;
 }
 
 my $argv0          = `basename $0`;
 my $regenerate_map = undef;
+my $ca_name        = "";
+my $ca_port        = "";
 
 chomp $argv0;
-if (!getopts("hR")) { usage_and_exit $argv0; }
+if (!getopts("hRC:P:"))          { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_h) { usage_and_exit $argv0; }
 if (defined $Getopt::Std::opt_R) { $regenerate_map = $Getopt::Std::opt_R; }
+if (defined $Getopt::Std::opt_C) { $ca_name        = $Getopt::Std::opt_C; }
+if (defined $Getopt::Std::opt_P) { $ca_port        = $Getopt::Std::opt_P; }
 
 sub validate_non_zero_lid
 {
@@ -163,13 +169,12 @@ sub insert_portguid
 
 sub main
 {
-	if ($regenerate_map
-		|| !(-f "$IBswcountlimits::cache_dir/ibnetdiscover.topology"))
-	{
-		generate_ibnetdiscover_topology;
-	}
+	my $cache_file = get_cache_file($ca_name, $ca_port);
 
-	open IBNET_TOPO, "<$IBswcountlimits::cache_dir/ibnetdiscover.topology"
+	if ($regenerate_map || !(-f "$cache_file")) {
+		generate_ibnetdiscover_topology($ca_name, $ca_port);
+	}
+	open IBNET_TOPO, "<$cache_file"
 	  or die "Failed to open ibnet topology: $!\n";
 
 	my $nodetype  = "";
