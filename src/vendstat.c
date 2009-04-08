@@ -177,7 +177,7 @@ void config_counter_groups(ib_portid_t *portid, int port)
 	call.attrid  = IB_MLX_IS4_CONFIG_COUNTER_GROUP;
 	call.timeout = ibd_timeout;
 	call.mod     = port;
-	/* set config counter groups for groups 0 and 1 */
+	/* configure counter groups for groups 0 and 1 */
 	call.method  = IB_MAD_METHOD_SET;
 
 	memset(&buf, 0, sizeof(buf));
@@ -239,8 +239,8 @@ int main(int argc, char **argv)
 	const struct ibdiag_opt opts[] = {
 		{ "N", 'N', 0, NULL, "show IS3 general information"},
 		{ "w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
-		{ "i", 'i', 0, NULL, "show is4 counter group info"},
-		{ "c", 'c', 1, "<num,num>", "set is4 config counter group"},
+		{ "i", 'i', 0, NULL, "show IS4 counter group info"},
+		{ "c", 'c', 1, "<num,num>", "configure IS4 counter groups"},
 		{ 0 }
 	};
 
@@ -249,7 +249,8 @@ int main(int argc, char **argv)
 		"-N 6\t\t# read IS3 general information",
 		"-w 6\t\t# read IS3 port xmit wait counters",
 		"-i 6 12\t# read IS4 port 12 counter group info",
-		"-c 0,1 6 12\t# set IS4 port 12 config counter group for XmitDataSL",
+		"-c 0,1 6 12\t# configure IS4 port 12 counter groups for PortXmitDataSL",
+		"-c 2,8 6 12\t# configure IS4 port 12 counter groups for PortRcvDataSL",
 		NULL
 	};
 

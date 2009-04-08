@@ -1,17 +1,17 @@
-.TH VENDSTAT 8 "February 15, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH VENDSTAT 8 "April 6, 2009" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 vendstat \- query InfiniBand vendor specific functions
 
 .SH SYNOPSIS
 .B vendstat
-[\-d(ebug)] [\-G(uid)] [\-N] [\-w] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)] <lid|guid>
+[\-d(ebug)] [\-G(uid)] [\-N] [\-w] [\-i] [\-c <num,num>] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)] <lid|guid>
 
 .SH DESCRIPTION
 .PP
 vendstat uses vendor specific MADs to access beyond the IB spec
-vendor specific functionality. Currently, there is support only for
-Mellanox InfiniSwitch-III (IS3).
+vendor specific functionality. Currently, there is support for
+Mellanox InfiniSwitch-III (IS3) and InfiniSwitch-IV (IS4).
 
 .SH OPTIONS
 
@@ -22,6 +22,26 @@ show IS3 general information.
 .TP
 \fB\-w\fR
 show IS3 port xmit wait counters.
+.TP
+\fB\-i\fR
+show IS4 counter group info.
+.TP
+\fB\-c\fR <num,num>
+configure IS4 counter groups.
+
+Configure IS4 counter groups 0 and 1.
+First number is for counter group 0 and second is for
+counter group 1.
+
+Group 0 counter config values:
+ 0 - PortXmitDataSL0-7
+ 1 - PortXmitDataSL8-15
+ 2 - PortRcvDataSL0-7
+
+Group 1 counter config values:
+ 1 - PortXmitDataSL8-15
+ 2 - PortRcvDataSL0-7
+ 8 - PortRcvDataSL8-15
 
 .SH COMMON OPTIONS
 
@@ -77,6 +97,12 @@ attempted to be fulfilled, and will fail if it is not possible.
 vendstat -N 6		# read IS3 general information
 .PP
 vendstat -w 6		# read IS3 port xmit wait counters
+.PP
+vendstat -i 6 12	# read IS4 port 12 counter group info
+.PP
+vendstat -c 0,1 6,12	# configure IS4 port 12 counter groups for PortXmitDataSL
+.PP
+vendstat -c 2,8 6,12	# configure IS4 port 12 counter groups for PortRcvDataSL
 
 .SH AUTHOR
 .TP
