@@ -943,6 +943,13 @@ static int do_dm_port_list(struct resources *res)
 
 	size = ib_get_attr_size(in_sa_mad->attr_offset);
 
+	if (!size) {
+		if (config->verbose) {
+			printf("Query did not find any targets\n");
+		}
+		return 0;
+	}
+
 	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
 		port_info = (void *) in_sa_mad->data + i * size;
 
