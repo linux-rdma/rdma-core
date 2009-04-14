@@ -198,6 +198,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(80, 8), "DefMcastNotPrimPort", mad_dump_uint},
 	{BITSOFFS(88, 5), "LifeTime", mad_dump_uint},
 	{BITSOFFS(93, 1), "StateChange", mad_dump_uint},
+	{BITSOFFS(94, 2), "OptSLtoVLMapping", mad_dump_uint},
 	{BITSOFFS(96, 16), "LidsPerPort", mad_dump_uint},
 	{BITSOFFS(112, 16), "PartEnforceCap", mad_dump_uint},
 	{BITSOFFS(128, 1), "InboundPartEnf", mad_dump_uint},
