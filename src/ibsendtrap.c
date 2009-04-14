@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008 Lawrence Livermore National Security
+ * Copyright (c) 2009 Voltaire Inc.  All rights reserved.
  *
  * Produced at Lawrence Livermore National Laboratory.
  * Written by Ira Weiny <weiny2@llnl.gov>.
@@ -51,43 +52,32 @@ struct ibmad_port *srcport;
 /* for local link integrity */
 int error_port = 1;
 
-static int send_144_node_desc_update(void)
+static void build_trap144(ib_mad_notice_attr_t * n, uint16_t lid)
 {
-	ib_portid_t sm_port;
-	ib_portid_t selfportid;
-	int selfport;
-	ib_rpc_t trap_rpc;
-	ib_mad_notice_attr_t notice;
-
-	if (ib_resolve_self_via(&selfportid, &selfport, NULL, srcport))
-		IBERROR("can't resolve self");
-
-	if (ib_resolve_smlid_via(&sm_port, 0, srcport))
-		IBERROR("can't resolve SM destination port");
-
-	memset(&trap_rpc, 0, sizeof(trap_rpc));
-	trap_rpc.mgtclass = IB_SMI_CLASS;
-	trap_rpc.method = IB_MAD_METHOD_TRAP;
-	trap_rpc.trid = mad_trid();
-	trap_rpc.attr.id = NOTICE;
-	trap_rpc.datasz = IB_SMP_DATA_SIZE;
-	trap_rpc.dataoffs = IB_SMP_DATA_OFFS;
-
-	memset(&notice, 0, sizeof(notice));
-	notice.generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
-	notice.g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
-	notice.g_or_v.generic.trap_num = cl_hton16(144);
-	notice.issuer_lid = cl_hton16((uint16_t) selfportid.lid);
-	notice.data_details.ntc_144.lid = cl_hton16((uint16_t) selfportid.lid);
-	notice.data_details.ntc_144.local_changes =
+	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
+	n->g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
+	n->g_or_v.generic.trap_num = cl_hton16(144);
+	n->issuer_lid = cl_hton16(lid);
+	n->data_details.ntc_144.lid = cl_hton16(lid);
+	n->data_details.ntc_144.local_changes =
 	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
-	notice.data_details.ntc_144.change_flgs =
+	n->data_details.ntc_144.change_flgs =
 	    TRAP_144_MASK_NODE_DESCRIPTION_CHANGE;
-
-	return (mad_send_via(&trap_rpc, &sm_port, NULL, &notice, srcport));
 }
 
-static int send_129_local_link_integrity(void)
+static void build_trap129(ib_mad_notice_attr_t * n, uint16_t lid)
+{
+	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
+	n->g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
+	n->g_or_v.generic.trap_num = cl_hton16(129);
+	n->issuer_lid = cl_hton16(lid);
+	n->data_details.ntc_129_131.lid = cl_hton16(lid);
+	n->data_details.ntc_129_131.pad = 0;
+	n->data_details.ntc_129_131.port_num = error_port;
+}
+
+static int send_trap(const char *name,
+		     void (*build) (ib_mad_notice_attr_t *, uint16_t))
 {
 	ib_portid_t sm_port;
 	ib_portid_t selfportid;
@@ -110,39 +100,31 @@ static int send_129_local_link_integrity(void)
 	trap_rpc.dataoffs = IB_SMP_DATA_OFFS;
 
 	memset(&notice, 0, sizeof(notice));
-	notice.generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
-	notice.g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
-	notice.g_or_v.generic.trap_num = cl_hton16(129);
-	notice.issuer_lid = cl_hton16((uint16_t) selfportid.lid);
-	notice.data_details.ntc_129_131.lid = cl_hton16((uint16_t) selfportid.lid);
-	notice.data_details.ntc_129_131.pad = 0;
-	notice.data_details.ntc_129_131.port_num = error_port;
+	build(&notice, selfportid.lid);
 
-	return (mad_send_via(&trap_rpc, &sm_port, NULL, &notice, srcport));
+	return mad_send_via(&trap_rpc, &sm_port, NULL, &notice, srcport);
 }
 
 typedef struct _trap_def {
 	char *trap_name;
-	int (*send_func) (void);
+	void (*build_func) (ib_mad_notice_attr_t *, uint16_t);
 } trap_def_t;
 
 trap_def_t traps[3] = {
-	{"node_desc_change", send_144_node_desc_update},
-	{"local_link_integrity", send_129_local_link_integrity},
+	{"node_desc_change", build_trap144},
+	{"local_link_integrity", build_trap129},
 	{NULL, NULL}
 };
 
-int send_trap(char *trap_name)
+int process_send_trap(char *trap_name)
 {
 	int i;
 
-	for (i = 0; traps[i].trap_name; i++) {
-		if (strcmp(traps[i].trap_name, trap_name) == 0) {
-			return (traps[i].send_func());
-		}
-	}
+	for (i = 0; traps[i].trap_name; i++)
+		if (strcmp(traps[i].trap_name, trap_name) == 0)
+			return send_trap(trap_name, traps[i].build_func);
 	ibdiag_show_usage();
-	return(1);
+	return 1;
 }
 
 int main(int argc, char **argv)
@@ -169,15 +151,10 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (!argv[0]) {
-		trap_name = traps[0].trap_name;
-	} else {
-		trap_name = argv[0];
-	}
+	trap_name = argv[0] ? argv[0] : traps[0].trap_name;
 
-	if (argc > 1) {
+	if (argc > 1)
 		error_port = atoi(argv[1]);
-	}
 
 	madrpc_show_errors(1);
 
@@ -185,7 +162,7 @@ int main(int argc, char **argv)
 	if (!srcport)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
-	rc = send_trap(trap_name);
+	rc = process_send_trap(trap_name);
 	mad_rpc_close_port(srcport);
-	return (rc);
+	return rc;
 }
