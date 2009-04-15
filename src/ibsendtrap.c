@@ -67,7 +67,7 @@ static void build_trap144(ib_mad_notice_attr_t * n, uint16_t lid)
 
 static void build_trap129(ib_mad_notice_attr_t * n, uint16_t lid)
 {
-	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
+	n->generic_type = 0x80 | IB_NOTICE_TYPE_URGENT;
 	n->g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
 	n->g_or_v.generic.trap_num = cl_hton16(129);
 	n->issuer_lid = cl_hton16(lid);
