@@ -40,9 +40,16 @@ argv0=`basename $0`
 scripts_dir=`dirname $0`/scripts
 
 if [ "$1" == "-h" ]; then
-   echo "$argv0 [-h]"
+   echo "$argv0 [-h] [perl_script]"
    echo "   Run perltidy on all perl scripts and modules in the scripts directory"
    exit 1
+fi
+
+if [ ! -z "$1" ] ; then
+   file=$1
+   echo "tidy : $file"
+   $tidy_cmd $file
+   exit $?
 fi
 
 cd $scripts_dir
