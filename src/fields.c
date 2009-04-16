@@ -91,8 +91,8 @@ static const ib_field_t ib_mad_f[] = {
 	{192, 64, "MadMkey", mad_dump_hex},
 
 	/* word 9 (32-37 bytes) */
-	{BE_OFFS(256, 16), "DrSmpDLID", mad_dump_hex},
-	{BE_OFFS(272, 16), "DrSmpSLID", mad_dump_hex},
+	{BE_OFFS(256, 16), "DrSmpDLID", mad_dump_uint},
+	{BE_OFFS(272, 16), "DrSmpSLID", mad_dump_uint},
 
 	/* word 10,11 (36-43 bytes) */
 	{288, 64, "SaSMkey", mad_dump_hex},
@@ -301,8 +301,8 @@ static const ib_field_t ib_mad_f[] = {
 	 */
 	{64, 128, "PathRecDGid", mad_dump_array},
 	{192, 128, "PathRecSGid", mad_dump_array},
-	{BITSOFFS(320, 16), "PathRecDLid", mad_dump_hex},
-	{BITSOFFS(336, 16), "PathRecSLid", mad_dump_hex},
+	{BITSOFFS(320, 16), "PathRecDLid", mad_dump_uint},
+	{BITSOFFS(336, 16), "PathRecSLid", mad_dump_uint},
 	{BITSOFFS(393, 7), "PathRecNumPath", mad_dump_uint},
 
 	/*
@@ -388,7 +388,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(192, 8), "RedirectTC", mad_dump_hex},
 	{BITSOFFS(200, 4), "RedirectSL", mad_dump_uint},
 	{BITSOFFS(204, 20), "RedirectFL", mad_dump_hex},
-	{BITSOFFS(224, 16), "RedirectLID", mad_dump_hex},
+	{BITSOFFS(224, 16), "RedirectLID", mad_dump_uint},
 	{BITSOFFS(240, 16), "RedirectPKey", mad_dump_hex},
 	{BITSOFFS(264, 24), "RedirectQP", mad_dump_hex},
 	{288, 32, "RedirectQKey", mad_dump_hex},
@@ -396,7 +396,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(448, 8), "TrapTC", mad_dump_hex},
 	{BITSOFFS(456, 4), "TrapSL", mad_dump_uint},
 	{BITSOFFS(460, 20), "TrapFL", mad_dump_hex},
-	{BITSOFFS(480, 16), "TrapLID", mad_dump_hex},
+	{BITSOFFS(480, 16), "TrapLID", mad_dump_uint},
 	{BITSOFFS(496, 16), "TrapPKey", mad_dump_hex},
 	{BITSOFFS(512, 8), "TrapHL", mad_dump_uint},
 	{BITSOFFS(520, 24), "TrapQP", mad_dump_hex},
