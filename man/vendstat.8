@@ -1,4 +1,4 @@
-.TH VENDSTAT 8 "April 6, 2009" "OpenIB" "OpenIB Diagnostics"
+.TH VENDSTAT 8 "April 16, 2009" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 vendstat \- query InfiniBand vendor specific functions
@@ -100,9 +100,9 @@ vendstat -w 6		# read IS3 port xmit wait counters
 .PP
 vendstat -i 6 12	# read IS4 port 12 counter group info
 .PP
-vendstat -c 0,1 6,12	# configure IS4 port 12 counter groups for PortXmitDataSL
+vendstat -c 0,1 6 12	# configure IS4 port 12 counter groups for PortXmitDataSL
 .PP
-vendstat -c 2,8 6,12	# configure IS4 port 12 counter groups for PortRcvDataSL
+vendstat -c 2,8 6 12	# configure IS4 port 12 counter groups for PortRcvDataSL
 
 .SH AUTHOR
 .TP
