@@ -555,16 +555,14 @@ static int nes_mmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
  * returns 1 if succeeds, 0 if fails..
  */
 static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
-		struct nes_ucreate_qp_resp *resp, int sqdepth, int rqdepth)
+			  struct nes_ucreate_qp_resp *resp, int sqdepth, int rqdepth)
 {
-
 	struct nes_ucreate_qp cmd;
-	struct nes_ureg_mr	reg_mr_cmd;
+	struct nes_ureg_mr reg_mr_cmd;
 #ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
         struct ibv_reg_mr_resp reg_mr_resp;
 #endif
-
-	int	totalqpsize;
+	int totalqpsize;
 	int ret;
 
 	// fprintf(stderr, PFX "%s\n", __FUNCTION__);
@@ -575,37 +573,36 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 		return 0;
 	}
 	nesuqp->rq_vbase = (struct nes_hw_qp_wqe *) (((char *) nesuqp->sq_vbase) +
-			(nesuqp->sq_size * sizeof(struct nes_hw_qp_wqe)));
+			   (nesuqp->sq_size * sizeof(struct nes_hw_qp_wqe)));
 
 	reg_mr_cmd.reg_type = NES_UMEMREG_TYPE_QP;
 
 	//fprintf(stderr, PFX "qp_rq_vbase = %p qp_sq_vbase=%p reg_mr = %p\n",
 	//		nesuqp->rq_vbase, nesuqp->sq_vbase, &nesuqp->mr);
 
-
 #ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
         ret = ibv_cmd_reg_mr(pd, (void *)nesuqp->sq_vbase,totalqpsize,
-				(uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
-				&nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
-				&reg_mr_resp, sizeof reg_mr_resp);
+			     (uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
+			     &nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
+			     &reg_mr_resp, sizeof reg_mr_resp);
 #else
         ret = ibv_cmd_reg_mr(pd, (void *)nesuqp->sq_vbase,totalqpsize,
-				(uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
-				&nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd);
+			     (uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
+			     &nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd);
 #endif
 
         if (ret) {
                 // fprintf(stderr, PFX "%s ibv_cmd_reg_mr failed (ret = %d).\n", __FUNCTION__, ret);
-			pthread_spin_destroy(&nesuqp->lock);
-			free(nesuqp);
-			return 0;
+		free((void *) nesuqp->sq_vbase);
+		return 0;
         }
 	// So now the memory has been registered..
 	memset (&cmd, 0, sizeof(cmd) );
 	cmd.user_sq_buffer = (__u64) ((uintptr_t) nesuqp->sq_vbase);
 	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
-			&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );
+				&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );
 	if (ret) {
+		ibv_cmd_dereg_mr(&nesuqp->mr);
 		free((void *)nesuqp->sq_vbase);
 		return 0;
 	}
