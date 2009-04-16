@@ -1,22 +1,22 @@
 Name: libnes
 Version: @VERSION@
 Release: 0.%{?dist}
-Summary: NetEffect RNIC Userspace Library
+Summary: NetEffect Ethernet Server Cluster Adapter Userspace Library
 
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/libnes-0.6.tar.gz
+Source: http://www.openfabrics.org/downloads/nes/libnes-0.6.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: libibverbs-devel
 
 %description
-libnes provides a device-specific userspace driver for NetEffect RNICs
-for use with the libibverbs library.
+libnes provides a device-specific userspace library for NetEffect
+Ethernet Server Cluster Adaper for use with the libibverbs library.
 
 %package devel-static
-Summary: Development files for the libnes driver
+Summary: Development files for the libnes library
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
 
@@ -51,6 +51,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libnes*.a
 
 %changelog
+* Wed Apr 15 2009 Chien Tung <chien.tin.tung@intel.com> - 0.6
+- Updated for OFED-1.4.1
+
 * Wed Aug 29 2007 Glenn Grundstrom <ggrundstrom@neteffect.com> - 0.5
 - Updated for OFED-1.3
 
