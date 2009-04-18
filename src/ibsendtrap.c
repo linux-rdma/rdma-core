@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2008 Lawrence Livermore National Security
  * Copyright (c) 2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * Produced at Lawrence Livermore National Laboratory.
  * Written by Ira Weiny <weiny2@llnl.gov>.
@@ -52,32 +53,42 @@ struct ibmad_port *srcport;
 /* for local link integrity */
 int error_port = 1;
 
-static void build_trap144(ib_mad_notice_attr_t * n, uint16_t lid)
+static int get_node_type(ib_portid_t *port)
+{
+	int node_type = IB_NODE_TYPE_CA;
+	uint8_t data[IB_SMP_DATA_SIZE];
+
+	if (smp_query_via(data, port, IB_ATTR_NODE_INFO, 0, 0, srcport))
+		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
+	return node_type;
+}
+
+static void build_trap144(ib_mad_notice_attr_t * n, ib_portid_t *port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
-	n->g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
+	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
 	n->g_or_v.generic.trap_num = cl_hton16(144);
-	n->issuer_lid = cl_hton16(lid);
-	n->data_details.ntc_144.lid = cl_hton16(lid);
+	n->issuer_lid = cl_hton16(port->lid);
+	n->data_details.ntc_144.lid = cl_hton16(port->lid);
 	n->data_details.ntc_144.local_changes =
 	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
 	n->data_details.ntc_144.change_flgs =
 	    TRAP_144_MASK_NODE_DESCRIPTION_CHANGE;
 }
 
-static void build_trap129(ib_mad_notice_attr_t * n, uint16_t lid)
+static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t *port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_URGENT;
-	n->g_or_v.generic.prod_type_lsb = cl_hton16(IB_NODE_TYPE_CA);
+	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
 	n->g_or_v.generic.trap_num = cl_hton16(129);
-	n->issuer_lid = cl_hton16(lid);
-	n->data_details.ntc_129_131.lid = cl_hton16(lid);
+	n->issuer_lid = cl_hton16(port->lid);
+	n->data_details.ntc_129_131.lid = cl_hton16(port->lid);
 	n->data_details.ntc_129_131.pad = 0;
 	n->data_details.ntc_129_131.port_num = error_port;
 }
 
 static int send_trap(const char *name,
-		     void (*build) (ib_mad_notice_attr_t *, uint16_t))
+		     void (*build) (ib_mad_notice_attr_t *, ib_portid_t *))
 {
 	ib_portid_t sm_port;
 	ib_portid_t selfportid;
@@ -100,14 +111,14 @@ static int send_trap(const char *name,
 	trap_rpc.dataoffs = IB_SMP_DATA_OFFS;
 
 	memset(&notice, 0, sizeof(notice));
-	build(&notice, selfportid.lid);
+	build(&notice, &selfportid);
 
 	return mad_send_via(&trap_rpc, &sm_port, NULL, &notice, srcport);
 }
 
 typedef struct _trap_def {
 	char *trap_name;
-	void (*build_func) (ib_mad_notice_attr_t *, uint16_t);
+	void (*build_func) (ib_mad_notice_attr_t *, ib_portid_t *);
 } trap_def_t;
 
 trap_def_t traps[3] = {
