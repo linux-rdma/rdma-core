@@ -156,6 +156,8 @@ static int is_xsigo_switch(uint64_t guid)
 static uint64_t xsigo_chassisguid(ibnd_node_t *node)
 {
 	uint64_t sysimgguid = mad_get_field64(node->info, 0, IB_NODE_SYSTEM_GUID_F);
+	uint64_t remote_sysimgguid;
+
 	if (!is_xsigo_ca(sysimgguid)) {
 		/* Byte 3 is NodeType and byte 4 is PortType */
 		/* If NodeType is 1 (switch), PortType is masked */
@@ -172,7 +174,7 @@ static uint64_t xsigo_chassisguid(ibnd_node_t *node)
 			return sysimgguid;
 
 		/* If peer port is Leaf 1, use its chassis GUID */
-		uint64_t remote_sysimgguid = mad_get_field64(
+		remote_sysimgguid = mad_get_field64(
 					node->ports[1]->remoteport->node->info,
 					0, IB_NODE_SYSTEM_GUID_F);
 		if (is_xsigo_leafone(remote_sysimgguid))

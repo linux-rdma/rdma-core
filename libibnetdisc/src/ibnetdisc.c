@@ -59,12 +59,13 @@
 
 static int timeout_ms = 2000;
 static int show_progress = 0;
+int ibdebug;
 
 void
 decode_port_info(ibnd_port_t *port)
 {
-	port->base_lid = mad_get_field(port->info, 0, IB_PORT_LID_F);
-	port->lmc = mad_get_field(port->info, 0, IB_PORT_LMC_F);
+	port->base_lid = (uint16_t) mad_get_field(port->info, 0, IB_PORT_LID_F);
+	port->lmc = (uint8_t) mad_get_field(port->info, 0, IB_PORT_LMC_F);
 }
 
 static int
@@ -72,11 +73,12 @@ get_port_info(struct ibnd_fabric *fabric, struct ibnd_port *port,
 		int portnum, ib_portid_t *portid)
 {
 	char width[64], speed[64];
+	int iwidth;
+	int ispeed;
+
 	port->port.portnum = portnum;
-	int iwidth = mad_get_field(port->port.info, 0,
-				IB_PORT_LINK_WIDTH_ACTIVE_F);
-	int ispeed = mad_get_field(port->port.info, 0,
-				IB_PORT_LINK_SPEED_ACTIVE_F);
+	iwidth = mad_get_field(port->port.info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
+	ispeed = mad_get_field(port->port.info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
 
 	if (!smp_query_via(port->port.info, portid, IB_ATTR_PORT_INFO, portnum, timeout_ms,
 			fabric->ibmad_port))
@@ -150,8 +152,8 @@ query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
 		return -1;
 	decode_port_info(port);
 
-	port->base_lid = node->smalid;  /* LID is still defined by port 0 */
-	port->lmc = node->smalmc;
+	port->base_lid = (uint16_t) node->smalid;  /* LID is still defined by port 0 */
+	port->lmc = (uint8_t) node->smalmc;
 
         if (!smp_query_via(node->switchinfo, portid, IB_ATTR_SWITCH_INFO, 0, timeout_ms,
 			fabric->ibmad_port))
