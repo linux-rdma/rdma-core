@@ -844,9 +844,6 @@ MAD_EXPORT int ib_path_query_via(const struct ibmad_port *srcport,
 /* resolve.c */
 MAD_EXPORT int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
 				DEPRECATED;
-MAD_EXPORT int ib_resolve_guid(ib_portid_t * portid, uint64_t * guid,
-			       ib_portid_t * sm_id, int timeout)
-				DEPRECATED;
 MAD_EXPORT int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
 				     enum MAD_DEST dest, ib_portid_t * sm_id)
 				DEPRECATED;

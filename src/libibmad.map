@@ -58,7 +58,6 @@ IBMAD_1.3 {
 		mad_register_server;
 		mad_register_client_via;
 		mad_register_server_via;
-		ib_resolve_guid;
 		ib_resolve_portid_str;
 		ib_resolve_self;
 		ib_resolve_smlid;
