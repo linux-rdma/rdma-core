@@ -210,7 +210,7 @@ out_chassis(ibnd_fabric_t *fabric, int chassisnum)
 	uint64_t guid;
 
 	fprintf(f, "\nChassis %d", chassisnum);
-	guid = ibnd_get_chassis_guid(fabric, chassisnum);
+	guid = ibnd_get_chassis_guid(fabric, (unsigned char) chassisnum);
 	if (guid)
 		fprintf(f, " (guid 0x%" PRIx64 ")", guid);
 	fprintf(f, "\n");

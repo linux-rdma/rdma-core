@@ -48,7 +48,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#include <infiniband/complib/cl_nodenamemap.h>
+#include <complib/cl_nodenamemap.h>
 #include <infiniband/ibnetdisc.h>
 
 char *argv0 = "iblinkinfotest";
@@ -286,7 +286,7 @@ main(int argc, char **argv)
 		{ "compat", 0, 0, 3},
 		{ "from", 1, 0, 'f'},
 		{ "R", 0, 0, 'R'},
-		{ }
+		{ 0 }
 	};
 
 	f = stdout;
