@@ -167,6 +167,7 @@ AC_CONFIG_FILES([\
         scripts/ibswitches \
 	scripts/ibrouters \
 	scripts/iblinkinfo.pl \
+	scripts/ibqueryerrors.pl \
    libibnetdisc/Makefile
 ])
 AC_OUTPUT
