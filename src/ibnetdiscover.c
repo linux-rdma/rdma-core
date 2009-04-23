@@ -650,6 +650,9 @@ int main(int argc, char **argv)
 {
 	ibnd_fabric_t *fabric = NULL;
 
+	struct ibmad_port *ibmad_port;
+	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
+
 	const struct ibdiag_opt opts[] = {
 		{ "show", 's', 0, NULL, "show more information" },
 		{ "list", 'l', 0, NULL, "list of connected nodes" },
@@ -677,15 +680,17 @@ int main(int argc, char **argv)
 	if (ibverbose)
 		ibnd_debug(1);
 
+	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	if (!ibmad_port)
+		IBERROR("Failed to open %s port %d", ibd_ca, ibd_ca_port);
+
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if ((fabric = ibnd_discover_fabric(ibd_ca, ibd_ca_port, ibd_timeout, NULL, -1)) == NULL) {
-		fprintf(stderr, "discover failed\n");
-		exit(1);
-	}
+	if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL)
+		IBERROR("discover failed\n");
 
 	if (ports_report)
 		ibnd_iter_nodes(fabric,
@@ -698,5 +703,6 @@ int main(int argc, char **argv)
 
 	ibnd_destroy_fabric(fabric);
 	close_node_name_map(node_name_map);
+	mad_rpc_close_port(ibmad_port);
 	exit(0);
 }

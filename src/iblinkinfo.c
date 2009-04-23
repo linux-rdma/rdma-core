@@ -257,6 +257,7 @@ usage(void)
 int
 main(int argc, char **argv)
 {
+	int rc = 0;
 	char *ca = 0;
 	int ca_port = 0;
 	ibnd_fabric_t *fabric = NULL;
@@ -265,6 +266,9 @@ main(int argc, char **argv)
 	char *from = NULL;
 	int hops = 0;
 	ib_portid_t port_id;
+
+	struct ibmad_port *ibmad_port;
+	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
 
 	static char const str_opts[] = "S:D:n:C:P:t:sldgphuf:R";
 	static const struct option long_opts[] = {
@@ -354,20 +358,28 @@ main(int argc, char **argv)
 	if (argc && !(f = fopen(argv[0], "w")))
 		fprintf(stderr, "can't open file %s for writing", argv[0]);
 
+	ibmad_port = mad_rpc_open_port(ca, ca_port, mgmt_classes, 2);
+	if (!ibmad_port) {
+		fprintf(stderr, "Failed to open %s port %d", ca, ca_port);
+		exit(1);
+	}
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (from) {
 		/* only scan part of the fabric */
 		str2drpath(&(port_id.drpath), from, 0, 0);
-		if ((fabric = ibnd_discover_fabric(ca, ca_port, timeout_ms, &port_id, hops)) == NULL) {
+		if ((fabric = ibnd_discover_fabric(ibmad_port, timeout_ms, &port_id, hops)) == NULL) {
 			fprintf(stderr, "discover failed\n");
-			exit(1);
+			rc = 1;
+			goto close_port;
 		}
 		guid = 0;
 	} else {
-		if ((fabric = ibnd_discover_fabric(ca, ca_port, timeout_ms, NULL, -1)) == NULL) {
+		if ((fabric = ibnd_discover_fabric(ibmad_port, timeout_ms, NULL, -1)) == NULL) {
 			fprintf(stderr, "discover failed\n");
-			exit(1);
+			rc = 1;
+			goto close_port;
 		}
 	}
 
@@ -383,6 +395,8 @@ main(int argc, char **argv)
 
 	ibnd_destroy_fabric(fabric);
 
+close_port:
 	close_node_name_map(node_name_map);
-	exit(0);
+	mad_rpc_close_port(ibmad_port);
+	exit(rc);
 }

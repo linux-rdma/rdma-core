@@ -81,7 +81,7 @@ get_port_info(struct ibnd_fabric *fabric, struct ibnd_port *port,
 	ispeed = mad_get_field(port->port.info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
 
 	if (!smp_query_via(port->port.info, portid, IB_ATTR_PORT_INFO, portnum, timeout_ms,
-			fabric->ibmad_port))
+			fabric->fabric.ibmad_port))
 		return -1;
 
 	decode_port_info(&(port->port));
@@ -102,7 +102,7 @@ static int
 query_node_info(struct ibnd_fabric *fabric, struct ibnd_node *node, ib_portid_t *portid)
 {
 	if (!smp_query_via(&(node->node.info), portid, IB_ATTR_NODE_INFO, 0, timeout_ms,
-			fabric->ibmad_port))
+			fabric->fabric.ibmad_port))
 		return -1;
 
 	/* decode just a couple of fields for quicker reference. */
@@ -132,11 +132,11 @@ query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
 	port->guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
 
 	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, timeout_ms,
-			fabric->ibmad_port))
+			fabric->fabric.ibmad_port))
 		return -1;
 
 	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, 0, timeout_ms,
-			fabric->ibmad_port))
+			fabric->fabric.ibmad_port))
 		return -1;
 	decode_port_info(port);
 
@@ -148,7 +148,7 @@ query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
 
 	/* after we have the sma information find out the real PortInfo for this port */
 	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, port->portnum, timeout_ms,
-			fabric->ibmad_port))
+			fabric->fabric.ibmad_port))
 		return -1;
 	decode_port_info(port);
 
@@ -156,7 +156,7 @@ query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
 	port->lmc = (uint8_t) node->smalmc;
 
         if (!smp_query_via(node->switchinfo, portid, IB_ATTR_SWITCH_INFO, 0, timeout_ms,
-			fabric->ibmad_port))
+			fabric->fabric.ibmad_port))
 		node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
 		mad_decode_field(node->switchinfo, IB_SW_ENHANCED_PORT0_F, &node->smaenhsp0);
@@ -243,7 +243,7 @@ ibnd_update_node(ibnd_node_t *node)
 		return (NULL);
 
 	if (!smp_query_via(nd, &(n->node.path_portid), IB_ATTR_NODE_DESC, 0, timeout_ms,
-			f->ibmad_port))
+			f->fabric.ibmad_port))
 		return (NULL);
 
 	/* update all the port info's */
@@ -255,14 +255,14 @@ ibnd_update_node(ibnd_node_t *node)
 		goto done;
 
 	if (!smp_query_via(portinfo_port0, &(n->node.path_portid), IB_ATTR_PORT_INFO, 0, timeout_ms,
-			f->ibmad_port))
+			f->fabric.ibmad_port))
 		return (NULL);
 
 	n->node.smalid = mad_get_field(portinfo_port0, 0, IB_PORT_LID_F);
 	n->node.smalmc = mad_get_field(portinfo_port0, 0, IB_PORT_LMC_F);
 
         if (!smp_query_via(node->switchinfo, &(n->node.path_portid), IB_ATTR_SWITCH_INFO, 0, timeout_ms,
-			f->ibmad_port))
+			f->fabric.ibmad_port))
                 node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
 		mad_decode_field(node->switchinfo, IB_SW_ENHANCED_PORT0_F, &n->node.smaenhsp0);
@@ -478,17 +478,8 @@ get_remote_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd_
 	return 0;
 }
 
-static void *
-ibnd_init_port(char *dev_name, int dev_port)
-{
-	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
-
-	/* Crank up the mad lib */
-	return (mad_rpc_open_port(dev_name, dev_port, mgmt_classes, 2));
-}
-
 ibnd_fabric_t *
-ibnd_discover_fabric(char *dev_name, int dev_port, int timeout_ms,
+ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 			ib_portid_t *from, int hops)
 {
 	struct ibnd_fabric *fabric = NULL;
@@ -502,15 +493,27 @@ ibnd_discover_fabric(char *dev_name, int dev_port, int timeout_ms,
 	ib_portid_t *path;
 	int max_hops = MAXHOPS-1; /* default find everything */
 
+	if (!ibmad_port) {
+		IBPANIC("ibmad_port must be specified to "
+			"ibnd_discover_fabric\n");
+		return (NULL);
+	}
+	if (mad_rpc_class_agent(ibmad_port, IB_SMI_CLASS) == -1
+			||
+		mad_rpc_class_agent(ibmad_port, IB_SMI_DIRECT_CLASS) == -1) {
+		IBPANIC("ibmad_port must be opened with "
+			"IB_SMI_CLASS && IB_SMI_DIRECT_CLASS\n");
+		return (NULL);
+	}
+
 	/* if not everything how much? */
 	if (hops >= 0) {
 		max_hops = hops;
 	}
 
 	/* If not specified start from "my" port */
-	if (!from) {
+	if (!from)
 		from = &my_portid;
-	}
 
 	fabric = malloc(sizeof(*fabric));
 
@@ -521,12 +524,7 @@ ibnd_discover_fabric(char *dev_name, int dev_port, int timeout_ms,
 
 	memset(fabric, 0, sizeof(*fabric));
 
-	fabric->ibmad_port = ibnd_init_port(dev_name, dev_port);
-	if (!fabric->ibmad_port) {
-		IBPANIC("OOM: failed to open \"%s\" port %d\n",
-			dev_name, dev_port);
-		goto error;
-	}
+	fabric->fabric.ibmad_port = ibmad_port;
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 
@@ -635,8 +633,6 @@ ibnd_destroy_fabric(ibnd_fabric_t *fabric)
 			node = next;
 		}
 	}
-	if (f->ibmad_port)
-		mad_rpc_close_port(f->ibmad_port);
 	free(f);
 }
 

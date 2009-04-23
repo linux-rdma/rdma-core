@@ -79,7 +79,6 @@ struct ibnd_fabric {
 	ibnd_fabric_t fabric;
 
 	/* internal use only */
-	void *ibmad_port;
 	struct ibnd_node *nodestbl[HTSZ];
 	struct ibnd_port *portstbl[HTSZ];
 	struct ibnd_node *nodesdist[MAXHOPS+1];

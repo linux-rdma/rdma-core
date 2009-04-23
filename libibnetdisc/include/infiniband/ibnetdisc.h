@@ -122,6 +122,7 @@ typedef struct chassis {
  * Main fabric object which is returned and represents the data discovered
  */
 typedef struct ib_fabric {
+	struct ibmad_port *ibmad_port;
 	/* the node the discover was initiated from
 	 * "from" parameter in ibnd_discover_fabric
 	 * or by default the node you ar running on
@@ -141,12 +142,11 @@ typedef struct ib_fabric {
 MAD_EXPORT void ibnd_debug(int i);
 MAD_EXPORT void ibnd_show_progress(int i);
 
-MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(char *dev_name, int dev_port,
+MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 					       int timeout_ms,
 					       ib_portid_t *from, int hops);
 	/**
-	 * dev_name: (required) local device name to use to access the fabric
-	 * dev_port: (required) local device port to use to access the fabric
+	 * open: (required) ibmad_port object from libibmad
 	 * timeout_ms: (required) gives the timeout for a _SINGLE_ query on
 	 *             the fabric.  So if there are multiple nodes not
 	 *             responding this may result in a lengthy delay.
