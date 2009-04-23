@@ -121,14 +121,16 @@ print_port(ibnd_node_t *node, ibnd_port_t *port)
 	char width_msg[256];
 	char speed_msg[256];
 	char ext_port_str[256];
-	int iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
-	int ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
-	int istate = mad_get_field(port->info, 0, IB_PORT_STATE_F);
-	int iphystate = mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F);
+	int iwidth, ispeed, istate, iphystate;
 	int n = 0;
 
 	if (!port)
 		return;
+
+	iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
+	ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
+	istate = mad_get_field(port->info, 0, IB_PORT_STATE_F);
+	iphystate = mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F);
 
 	remote_guid_str[0] = '\0';
 	remote_str[0] = '\0';
