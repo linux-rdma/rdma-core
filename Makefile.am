@@ -41,7 +41,8 @@ LDADD = libcommon.a
 
 libcommon_a_SOURCES = src/ibdiag_common.c
 src_ibaddr_SOURCES = src/ibaddr.c
-src_ibnetdiscover_SOURCES = src/ibnetdiscover.c src/grouping.c
+src_ibnetdiscover_SOURCES = src/ibnetdiscover.c
+src_ibnetdiscover_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibping_SOURCES = src/ibping.c
 src_ibportstate_SOURCES = src/ibportstate.c
 src_ibroute_SOURCES = src/ibroute.c

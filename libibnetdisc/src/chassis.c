@@ -292,19 +292,19 @@ int is_chassis_switch(struct ibnd_node *n)
 }
 
 /* these structs help find Line (Anafa) slot number while using spine portnum */
-int line_slot_2_sfb4[25]        = { 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4 };
-int anafa_line_slot_2_sfb4[25]  = { 0, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2 };
-int line_slot_2_sfb12[25]       = { 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,10, 10, 11, 11, 12, 12 };
-int anafa_line_slot_2_sfb12[25] = { 0, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2 };
+char line_slot_2_sfb4[25]        = { 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4 };
+char anafa_line_slot_2_sfb4[25]  = { 0, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2 };
+char line_slot_2_sfb12[25]       = { 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,10, 10, 11, 11, 12, 12 };
+char anafa_line_slot_2_sfb12[25] = { 0, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2 };
 
 /* IPR FCR modules connectivity while using sFB4 port as reference */
-int ipr_slot_2_sfb4_port[25]    = { 0, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1 };
+char ipr_slot_2_sfb4_port[25]    = { 0, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1 };
 
 /* these structs help find Spine (Anafa) slot number while using spine portnum */
-int spine12_slot_2_slb[25]      = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-int anafa_spine12_slot_2_slb[25]= { 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-int spine4_slot_2_slb[25]       = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-int anafa_spine4_slot_2_slb[25] = { 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+char spine12_slot_2_slb[25]      = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+char anafa_spine12_slot_2_slb[25]= { 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+char spine4_slot_2_slb[25]       = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+char anafa_spine4_slot_2_slb[25] = { 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 /*	reference                     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 }; */
 
 static void get_sfb_slot(struct ibnd_node *node, ibnd_port_t *lineport)
@@ -337,7 +337,7 @@ static void get_sfb_slot(struct ibnd_node *node, ibnd_port_t *lineport)
 static void get_router_slot(struct ibnd_node *node, ibnd_port_t *spineport)
 {
 	ibnd_node_t *n = (ibnd_node_t *)node;
-	int guessnum = 0;
+	uint64_t guessnum = 0;
 
 	node->ch_found = 1;
 

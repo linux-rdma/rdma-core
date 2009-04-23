@@ -150,6 +150,9 @@ query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
 		return -1;
 	decode_port_info(port);
 
+	port->base_lid = node->smalid;  /* LID is still defined by port 0 */
+	port->lmc = node->smalmc;
+
         if (!smp_query_via(node->switchinfo, portid, IB_ATTR_SWITCH_INFO, 0, timeout_ms,
 			fabric->ibmad_port))
 		node->smaenhsp0 = 0;	/* assume base SP0 */
@@ -167,7 +170,7 @@ add_port_to_dpath(ib_dr_path_t *path, int nextport)
 	if (path->cnt+2 >= sizeof(path->p))
 		return -1;
 	++path->cnt;
-	path->p[path->cnt] = nextport;
+	path->p[path->cnt] = (uint8_t) nextport;
 	return path->cnt;
 }
 
