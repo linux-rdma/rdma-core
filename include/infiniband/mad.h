@@ -724,6 +724,7 @@ enum MAD_DEST {
 	IB_DEST_DRPATH,
 	IB_DEST_GUID,
 	IB_DEST_DRSLID,
+	IB_DEST_GID
 };
 
 enum MAD_NODE_TYPE {
@@ -910,6 +911,9 @@ MAD_EXPORT int ib_resolve_self(ib_portid_t * portid, int *portnum,
 MAD_EXPORT int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
 				    const struct ibmad_port *srcport);
 MAD_EXPORT int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
+				   ib_portid_t * sm_id, int timeout,
+				   const struct ibmad_port *srcport);
+MAD_EXPORT int ib_resolve_gid_via(ib_portid_t * portid, ibmad_gid_t gid,
 				   ib_portid_t * sm_id, int timeout,
 				   const struct ibmad_port *srcport);
 MAD_EXPORT int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,

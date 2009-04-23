@@ -70,6 +70,26 @@ int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
 	return ib_resolve_smlid_via(sm_id, timeout, ibmp);
 }
 
+int ib_resolve_gid_via(ib_portid_t * portid, ibmad_gid_t gid,
+			ib_portid_t * sm_id, int timeout,
+			const struct ibmad_port *srcport)
+{
+	ib_portid_t sm_portid;
+	char buf[IB_SA_DATA_SIZE] = { 0 };
+
+	if (!sm_id) {
+		sm_id = &sm_portid;
+		if (ib_resolve_smlid_via(sm_id, timeout, srcport) < 0)
+			return -1;
+	}
+
+	if ((portid->lid =
+	     ib_path_query_via(srcport, gid, gid, sm_id, buf)) < 0)
+		return -1;
+
+	return 0;
+}
+
 int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 			ib_portid_t * sm_id, int timeout,
 			const struct ibmad_port *srcport)
@@ -112,11 +132,14 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 			      enum MAD_DEST dest_type, ib_portid_t * sm_id,
 			      const struct ibmad_port *srcport)
 {
+	ibmad_gid_t gid;
 	uint64_t guid;
 	int lid;
 	char *routepath;
 	ib_portid_t selfportid = { 0 };
 	int selfport = 0;
+
+	memset(portid, 0, sizeof *portid);
 
 	switch (dest_type) {
 	case IB_DEST_LID:
@@ -152,6 +175,10 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 			return -1;
 		return 0;
 
+	case IB_DEST_GID:
+		if (inet_pton(AF_INET6, addr_str, &gid) <= 0)
+			return -1;
+		return ib_resolve_gid_via(portid, gid, sm_id, 0, srcport);
 	default:
 		IBWARN("bad dest_type %d", dest_type);
 	}

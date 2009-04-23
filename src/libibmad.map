@@ -99,6 +99,7 @@ IBMAD_1.3 {
 		ib_path_query_via;
 		ib_resolve_smlid_via;
 		ib_resolve_guid_via;
+		ib_resolve_gid_via;
 		ib_resolve_portid_str_via;
 		ib_resolve_self_via;
 		mad_field_name;
