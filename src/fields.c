@@ -686,3 +686,8 @@ char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz, void *val)
 		return 0;
 	return _mad_dump_val(ib_mad_f + field, buf, bufsz, val);
 }
+
+const char *mad_field_name(enum MAD_FIELDS field)
+{
+	return (ib_mad_f[field].name);
+}
