@@ -104,10 +104,10 @@ typedef struct port {
 typedef struct chassis {
 	struct chassis *next;
 	uint64_t chassisguid;
-	int chassisnum;
+	unsigned char chassisnum;
 
 	/* generic grouping by SystemImageGUID */
-	int nodecount;
+	unsigned char nodecount;
 	ibnd_node_t *nodes;
 
 	/* specific to voltaire type nodes */

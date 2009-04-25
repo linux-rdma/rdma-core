@@ -205,12 +205,12 @@ out_ids(ibnd_node_t *node, int group, char *chname)
 }
 
 uint64_t
-out_chassis(ibnd_fabric_t *fabric, int chassisnum)
+out_chassis(ibnd_fabric_t *fabric, unsigned char chassisnum)
 {
 	uint64_t guid;
 
-	fprintf(f, "\nChassis %d", chassisnum);
-	guid = ibnd_get_chassis_guid(fabric, (unsigned char) chassisnum);
+	fprintf(f, "\nChassis %u", chassisnum);
+	guid = ibnd_get_chassis_guid(fabric, chassisnum);
 	if (guid)
 		fprintf(f, " (guid 0x%" PRIx64 ")", guid);
 	fprintf(f, "\n");
