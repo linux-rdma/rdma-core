@@ -89,15 +89,16 @@ bm_call_via(void *data, ib_portid_t *portid, ib_bm_call_t *call, struct ibmad_po
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
 	if (resp_expected) {
-		mad_rpc(srcport, &rpc, portid, data_with_bkey, data_with_bkey);		/* FIXME: no RMPP for now */
-		memcpy(data, data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS, IB_BM_DATA_SZ);
-		return data;
+		/* FIXME: no RMPP for now */
+		if (mad_rpc(srcport, &rpc, portid, data_with_bkey, data_with_bkey))
+			goto return_ok;
+		return NULL;
 	}
 
-	if (mad_send_via(&rpc, portid, 0, data_with_bkey, srcport) < 0) {
-		return 0;
-	} else {
-		memcpy(data, data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS, IB_BM_DATA_SZ);
-		return data;
-	}
+	if (mad_send_via(&rpc, portid, 0, data_with_bkey, srcport) < 0)
+		return NULL;
+
+return_ok:
+	memcpy(data, data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS, IB_BM_DATA_SZ);
+	return data;
 }
