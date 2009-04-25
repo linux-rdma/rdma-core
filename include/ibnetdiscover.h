@@ -51,7 +51,6 @@
 #define SS_VENDOR_ID			0x66a	/* InfiniCon */
 #define XS_VENDOR_ID			0x1397	/* Xsigo */
 
-
 typedef struct Port Port;
 typedef struct Node Node;
 typedef struct ChassisRecord ChassisRecord;

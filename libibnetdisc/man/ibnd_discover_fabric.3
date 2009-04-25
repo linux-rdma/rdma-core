@@ -9,8 +9,6 @@ ibnd_discover_fabric, ibnd_destroy_fabric, ibnd_debug ibnd_show_progress \- init
 .BI "void ibnd_destroy_fabric(ibnd_fabric_t *fabric)"
 .BI "void ibnd_debug(int i)"
 .BI "void ibnd_show_progress(int i)"
-
-
 .SH "DESCRIPTION"
 .B ibnd_discover_fabric()
 Discover the fabric connected to the port specified by ibmad_port, using a timeout specified.  The "from" and "hops" parameters are optional and allow one to scan part of a fabric by specifying a node "from" and a number of hops away from that node to scan, "hops".  This gives the user a "sub-fabric" which is "centered" anywhere they chose.
@@ -34,7 +32,6 @@ return NULL on failure, otherwise a valid ibnd_fabric_t object.
 
 .B ibnd_destory_fabric(), ibnd_debug()
 NONE
-
 .SH "EXAMPLES"
 
 .B Discover the entire fabric connected to device "mthca0", port 1.
@@ -53,10 +50,8 @@ NONE
 	...
 	ibnd_discover_fabric(ibmad_port, 100, &port_id, 1);
 	...
-
 .SH "SEE ALSO"
 	libibmad, mad_rpc_open_port
-
 .SH "AUTHORS"
 .TP
 Ira Weiny <weiny2@llnl.gov>

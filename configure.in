@@ -146,25 +146,25 @@ AC_SUBST(ibnetdisc_api_version)
 dnl End libibnetdisc stuff
 
 AC_CONFIG_FILES([\
-        Makefile \
-        infiniband-diags.spec \
-        include/ibdiag_version.h \
-        scripts/ibcheckerrors \
-        scripts/ibcheckerrs \
-        scripts/ibchecknet \
-        scripts/ibchecknode \
-        scripts/ibcheckport \
-        scripts/ibcheckportstate \
-        scripts/ibcheckportwidth \
-        scripts/ibcheckstate \
-        scripts/ibcheckwidth \
-        scripts/ibclearcounters \
-        scripts/ibclearerrors \
+	Makefile \
+	infiniband-diags.spec \
+	include/ibdiag_version.h \
+	scripts/ibcheckerrors \
+	scripts/ibcheckerrs \
+	scripts/ibchecknet \
+	scripts/ibchecknode \
+	scripts/ibcheckport \
+	scripts/ibcheckportstate \
+	scripts/ibcheckportwidth \
+	scripts/ibcheckstate \
+	scripts/ibcheckwidth \
+	scripts/ibclearcounters \
+	scripts/ibclearerrors \
 	scripts/ibdatacounts \
 	scripts/ibdatacounters \
-        scripts/ibhosts \
-        scripts/ibnodes \
-        scripts/ibswitches \
+	scripts/ibhosts \
+	scripts/ibnodes \
+	scripts/ibswitches \
 	scripts/ibrouters \
 	scripts/iblinkinfo.pl \
 	scripts/ibqueryerrors.pl \

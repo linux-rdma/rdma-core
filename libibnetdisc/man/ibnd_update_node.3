@@ -1,21 +1,17 @@
 .TH IBND_UPDATE_NODE 3  "July 25, 2008" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
 ibnd_update_node \- Update the node specified with new data from the fabric.
-
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/ibnetdisc.h>
 .sp
 .BI "ibnd_node_t *ibnd_update_node(ibnd_node_t *node)"
-
 .SH "DESCRIPTION"
 .B ibnd_update_node()
 Update the node info, port info, and node description of the node specified.
-
 .SH "RETURN VALUE"
 .B ibnd_update_node()
 Return NULL on failure, otherwise a valid ibnd_node_t object which is part of the fabric object.
-
 .SH "AUTHORS"
 .TP
 Ira Weiny <weiny2@llnl.gov>

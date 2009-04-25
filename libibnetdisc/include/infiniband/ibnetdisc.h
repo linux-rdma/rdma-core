@@ -135,7 +135,6 @@ typedef struct ib_fabric {
 	int maxhops_discovered;
 } ibnd_fabric_t;
 
-
 /** =========================================================================
  * Initialization (fabric operations)
  */
