@@ -53,7 +53,6 @@
 #include <ibdiag_common.h>
 #include <ibdiag_version.h>
 
-int ibdebug;
 int ibverbose;
 char *ibd_ca;
 int ibd_ca_port;

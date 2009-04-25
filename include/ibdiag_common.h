@@ -37,7 +37,6 @@
 
 #include <infiniband/mad.h>
 
-extern int ibdebug;
 extern int ibverbose;
 extern char *ibd_ca;
 extern int ibd_ca_port;
