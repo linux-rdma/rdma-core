@@ -58,8 +58,8 @@ uint8_t *ib_vendor_call(void *data, ib_portid_t * portid,
 }
 
 uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
-			ib_vendor_call_t * call,
-			struct ibmad_port *srcport)
+			    ib_vendor_call_t * call,
+			    struct ibmad_port * srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int range1 = 0, resp_expected;

@@ -47,7 +47,7 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
-			const struct ibmad_port *srcport)
+			 const struct ibmad_port *srcport)
 {
 	ib_portid_t self = { 0 };
 	uint8_t portinfo[64];
@@ -146,7 +146,7 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 }
 
 int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
-			enum MAD_DEST dest_type, ib_portid_t * sm_id)
+			  enum MAD_DEST dest_type, ib_portid_t * sm_id)
 {
 	return ib_resolve_portid_str_via(portid, addr_str, dest_type,
 					 sm_id, ibmp);

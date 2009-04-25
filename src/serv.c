@@ -47,15 +47,14 @@
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
-int
-mad_send(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data)
+int mad_send(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
+	     void *data)
 {
 	return mad_send_via(rpc, dport, rmpp, data, ibmp);
 }
 
-int
-mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data,
-		struct ibmad_port *srcport)
+int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
+		 void *data, struct ibmad_port *srcport)
 {
 	uint8_t pktbuf[1024];
 	void *umad = pktbuf;
@@ -88,7 +87,7 @@ int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
 }
 
 int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
-		struct ibmad_port *srcport)
+		    struct ibmad_port *srcport)
 {
 	uint8_t *mad = umad_get_mad(umad);
 	ib_mad_addr_t *mad_addr;
@@ -154,8 +153,9 @@ int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
 	if (ibdebug > 1)
 		xdump(stderr, "mad respond pkt\n", mad, IB_MAD_SIZE);
 
-	if (umad_send(srcport->port_id, srcport->class_agents[rpc.mgtclass], umad,
-		      IB_MAD_SIZE, rpc.timeout, 0) < 0) {
+	if (umad_send
+	    (srcport->port_id, srcport->class_agents[rpc.mgtclass], umad,
+	     IB_MAD_SIZE, rpc.timeout, 0) < 0) {
 		DEBUG("send failed; %m");
 		return -1;
 	}

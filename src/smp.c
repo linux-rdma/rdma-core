@@ -46,7 +46,8 @@
 #define DEBUG 	if (ibdebug)	IBWARN
 
 uint8_t *smp_set_via(void *data, ib_portid_t * portid, unsigned attrid,
-		     unsigned mod, unsigned timeout, const struct ibmad_port *srcport)
+		     unsigned mod, unsigned timeout,
+		     const struct ibmad_port *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 
@@ -78,7 +79,8 @@ uint8_t *smp_set(void *data, ib_portid_t * portid, unsigned attrid,
 }
 
 uint8_t *smp_query_via(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
-		       unsigned mod, unsigned timeout, const struct ibmad_port *srcport)
+		       unsigned mod, unsigned timeout,
+		       const struct ibmad_port * srcport)
 {
 	ib_rpc_t rpc = { 0 };
 

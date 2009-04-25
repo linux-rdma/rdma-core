@@ -104,14 +104,15 @@ int mad_register_client(int mgmt, uint8_t rmpp_version)
 }
 
 int mad_register_client_via(int mgmt, uint8_t rmpp_version,
-			struct ibmad_port *srcport)
+			    struct ibmad_port *srcport)
 {
 	int agent;
 
 	if (!srcport)
 		return -1;
 
-	agent = mad_register_port_client(mad_rpc_portid(srcport), mgmt, rmpp_version);
+	agent = mad_register_port_client(mad_rpc_portid(srcport), mgmt,
+					 rmpp_version);
 	if (agent < 0)
 		return agent;
 
@@ -119,18 +120,16 @@ int mad_register_client_via(int mgmt, uint8_t rmpp_version,
 	return 0;
 }
 
-int
-mad_register_server(int mgmt, uint8_t rmpp_version,
-		    long method_mask[], uint32_t class_oui)
+int mad_register_server(int mgmt, uint8_t rmpp_version,
+			long method_mask[], uint32_t class_oui)
 {
 	return mad_register_server_via(mgmt, rmpp_version, method_mask,
 				       class_oui, ibmp);
 }
 
-int
-mad_register_server_via(int mgmt, uint8_t rmpp_version,
-		    long method_mask[], uint32_t class_oui,
-		    struct ibmad_port *srcport)
+int mad_register_server_via(int mgmt, uint8_t rmpp_version,
+			    long method_mask[], uint32_t class_oui,
+			    struct ibmad_port *srcport)
 {
 	long class_method_mask[16 / sizeof(long)];
 	uint8_t oui[3];
@@ -147,7 +146,7 @@ mad_register_server_via(int mgmt, uint8_t rmpp_version,
 
 	if (srcport->class_agents[mgmt] >= 0) {
 		DEBUG("Class 0x%x already registered %d",
-			mgmt, srcport->class_agents[mgmt]);
+		      mgmt, srcport->class_agents[mgmt]);
 		return -1;
 	}
 	if ((vers = mgmt_class_vers(mgmt)) <= 0) {
@@ -159,13 +158,16 @@ mad_register_server_via(int mgmt, uint8_t rmpp_version,
 		oui[0] = (class_oui >> 16) & 0xff;
 		oui[1] = (class_oui >> 8) & 0xff;
 		oui[2] = class_oui & 0xff;
-		if ((agent = umad_register_oui(srcport->port_id, mgmt, rmpp_version,
-					       oui, class_method_mask)) < 0) {
+		if ((agent =
+		     umad_register_oui(srcport->port_id, mgmt, rmpp_version,
+				       oui, class_method_mask)) < 0) {
 			DEBUG("Can't register agent for class %d", mgmt);
 			return -1;
 		}
-	} else if ((agent = umad_register(srcport->port_id, mgmt, vers, rmpp_version,
-					  class_method_mask)) < 0) {
+	} else
+	    if ((agent =
+		 umad_register(srcport->port_id, mgmt, vers, rmpp_version,
+			       class_method_mask)) < 0) {
 		DEBUG("Can't register agent for class %d", mgmt);
 		return -1;
 	}

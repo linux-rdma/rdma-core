@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <string.h>
 
@@ -42,20 +42,18 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-static inline int
-response_expected(int method)
+static inline int response_expected(int method)
 {
 	return method == IB_MAD_METHOD_GET ||
-		method == IB_MAD_METHOD_SET ||
-		method == IB_MAD_METHOD_TRAP;
+	    method == IB_MAD_METHOD_SET || method == IB_MAD_METHOD_TRAP;
 }
 
-uint8_t *
-bm_call_via(void *data, ib_portid_t *portid, ib_bm_call_t *call, struct ibmad_port *srcport)
+uint8_t *bm_call_via(void *data, ib_portid_t * portid, ib_bm_call_t * call,
+		     struct ibmad_port * srcport)
 {
-	ib_rpc_t rpc = {0};
+	ib_rpc_t rpc = { 0 };
 	int resp_expected;
-	char data_with_bkey[IB_BM_BKEY_AND_DATA_SZ] = {0};
+	char data_with_bkey[IB_BM_BKEY_AND_DATA_SZ] = { 0 };
 
 	DEBUG("route %s data %p", portid2str(portid), data);
 	if (portid->lid <= 0) {
@@ -77,12 +75,13 @@ bm_call_via(void *data, ib_portid_t *portid, ib_bm_call_t *call, struct ibmad_po
 
 	// copy data to a buffer which also includes the bkey
 	*((uint64_t *) data_with_bkey) = htonll(call->bkey);
-	memcpy(data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS, data, IB_BM_DATA_SZ);
+	memcpy(data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS, data,
+	       IB_BM_DATA_SZ);
 
-	DEBUG("method 0x%x attr 0x%x mod 0x%x datasz %d off %d res_ex %d bkey 0x%08x%08x",
-		rpc.method, rpc.attr.id, rpc.attr.mod,
-		rpc.datasz, rpc.dataoffs, resp_expected,
-		(int) (call->bkey >> 32), (int) call->bkey);
+	DEBUG
+	    ("method 0x%x attr 0x%x mod 0x%x datasz %d off %d res_ex %d bkey 0x%08x%08x",
+	     rpc.method, rpc.attr.id, rpc.attr.mod, rpc.datasz, rpc.dataoffs,
+	     resp_expected, (int)(call->bkey >> 32), (int)call->bkey);
 
 	portid->qp = 1;
 	if (!portid->qkey)
@@ -90,7 +89,8 @@ bm_call_via(void *data, ib_portid_t *portid, ib_bm_call_t *call, struct ibmad_po
 
 	if (resp_expected) {
 		/* FIXME: no RMPP for now */
-		if (mad_rpc(srcport, &rpc, portid, data_with_bkey, data_with_bkey))
+		if (mad_rpc
+		    (srcport, &rpc, portid, data_with_bkey, data_with_bkey))
 			goto return_ok;
 		return NULL;
 	}
@@ -99,6 +99,7 @@ bm_call_via(void *data, ib_portid_t *portid, ib_bm_call_t *call, struct ibmad_po
 		return NULL;
 
 return_ok:
-	memcpy(data, data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS, IB_BM_DATA_SZ);
+	memcpy(data, data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS,
+	       IB_BM_DATA_SZ);
 	return data;
 }

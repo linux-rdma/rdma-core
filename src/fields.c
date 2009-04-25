@@ -402,9 +402,9 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(520, 24), "TrapQP", mad_dump_hex},
 	{544, 32, "TrapQKey", mad_dump_hex},
 
-	{32,  32, "XmtDataSL0", mad_dump_uint},
-	{64,  32, "XmtDataSL1", mad_dump_uint},
-	{96,  32, "XmtDataSL2", mad_dump_uint},
+	{32, 32, "XmtDataSL0", mad_dump_uint},
+	{64, 32, "XmtDataSL1", mad_dump_uint},
+	{96, 32, "XmtDataSL2", mad_dump_uint},
 	{128, 32, "XmtDataSL3", mad_dump_uint},
 	{160, 32, "XmtDataSL4", mad_dump_uint},
 	{192, 32, "XmtDataSL5", mad_dump_uint},
@@ -420,9 +420,9 @@ static const ib_field_t ib_mad_f[] = {
 	{512, 32, "XmtDataSL15", mad_dump_uint},
 	{0, 0},			/* IB_PC_XMT_DATA_SL_LAST_F */
 
-	{32,  32, "RcvDataSL0", mad_dump_uint},
-	{64,  32, "RcvDataSL1", mad_dump_uint},
-	{96,  32, "RcvDataSL2", mad_dump_uint},
+	{32, 32, "RcvDataSL0", mad_dump_uint},
+	{64, 32, "RcvDataSL1", mad_dump_uint},
+	{96, 32, "RcvDataSL2", mad_dump_uint},
 	{128, 32, "RcvDataSL3", mad_dump_uint},
 	{160, 32, "RcvDataSL4", mad_dump_uint},
 	{192, 32, "RcvDataSL5", mad_dump_uint},
@@ -548,7 +548,8 @@ uint32_t mad_get_field(void *buf, int base_offs, enum MAD_FIELDS field)
 	return _get_field(buf, base_offs, ib_mad_f + field);
 }
 
-void mad_set_field(void *buf, int base_offs, enum MAD_FIELDS field, uint32_t val)
+void mad_set_field(void *buf, int base_offs, enum MAD_FIELDS field,
+		   uint32_t val)
 {
 	_set_field(buf, base_offs, ib_mad_f + field, val);
 }
@@ -558,7 +559,8 @@ uint64_t mad_get_field64(void *buf, int base_offs, enum MAD_FIELDS field)
 	return _get_field64(buf, base_offs, ib_mad_f + field);
 }
 
-void mad_set_field64(void *buf, int base_offs, enum MAD_FIELDS field, uint64_t val)
+void mad_set_field64(void *buf, int base_offs, enum MAD_FIELDS field,
+		     uint64_t val)
 {
 	_set_field64(buf, base_offs, ib_mad_f + field, val);
 }

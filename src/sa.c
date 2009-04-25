@@ -73,7 +73,7 @@ uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf,
 	if (!portid->qkey)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	p = mad_rpc_rmpp(ibmad_port, &rpc, portid, 0 /*&sa->rmpp */, rcvbuf);	/* TODO: RMPP */
+	p = mad_rpc_rmpp(ibmad_port, &rpc, portid, 0 /*&sa->rmpp */ , rcvbuf);	/* TODO: RMPP */
 
 	sa->recsz = rpc.recsz;
 
