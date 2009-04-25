@@ -51,8 +51,11 @@
 #include <complib/cl_nodenamemap.h>
 #include <infiniband/ibnetdisc.h>
 
-#include "ibnetdiscover.h"
 #include "ibdiag_common.h"
+
+#define LIST_CA_NODE	 (1 << IB_NODE_CA)
+#define LIST_SWITCH_NODE (1 << IB_NODE_SWITCH)
+#define LIST_ROUTER_NODE (1 << IB_NODE_ROUTER)
 
 struct ibmad_port *srcport;
 
