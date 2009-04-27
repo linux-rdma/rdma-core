@@ -364,6 +364,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		all_nodes++;
 		break;
 	case 'S':
+		switch_guid_str = optarg;
 		switch_guid = strtoull(optarg, 0, 0);
 		break;
 	case 'D':
