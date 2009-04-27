@@ -163,7 +163,7 @@ recv_mad:
 			umad = realloc(umad, umad_size() + len);
 			goto recv_mad;
 		}
-		IBPANIC("umad_recv failed: attr %u: %s\n", attr,
+		IBPANIC("umad_recv failed: attr 0x%x: %s\n", attr,
 			strerror(errno));
 	}
 
