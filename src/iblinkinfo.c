@@ -262,13 +262,14 @@ main(int argc, char **argv)
 	int ca_port = 0;
 	ibnd_fabric_t *fabric = NULL;
 	uint64_t guid = 0;
+	char *guid_str = NULL;
 	char *dr_path = NULL;
 	char *from = NULL;
 	int hops = 0;
-	ib_portid_t port_id;
+	ib_portid_t port_id = {0};
 
 	struct ibmad_port *ibmad_port;
-	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
+	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
 
 	static char const str_opts[] = "S:D:n:C:P:t:sldgphuf:R";
 	static const struct option long_opts[] = {
@@ -339,7 +340,8 @@ main(int argc, char **argv)
 			print_port_guids = 1;
 			break;
 		case 'S':
-			guid = (uint64_t)strtoull(optarg, 0, 0);
+			guid_str = optarg;
+			guid = (uint64_t)strtoull(guid_str, 0, 0);
 			break;
 		case 'p':
 			add_sw_settings = 1;
@@ -358,7 +360,7 @@ main(int argc, char **argv)
 	if (argc && !(f = fopen(argv[0], "w")))
 		fprintf(stderr, "can't open file %s for writing", argv[0]);
 
-	ibmad_port = mad_rpc_open_port(ca, ca_port, mgmt_classes, 2);
+	ibmad_port = mad_rpc_open_port(ca, ca_port, mgmt_classes, 3);
 	if (!ibmad_port) {
 		fprintf(stderr, "Failed to open %s port %d", ca, ca_port);
 		exit(1);
@@ -375,13 +377,23 @@ main(int argc, char **argv)
 			goto close_port;
 		}
 		guid = 0;
-	} else {
+	} else if (guid_str) {
+		if (ib_resolve_portid_str_via(&port_id, guid_str, IB_DEST_GUID,
+				NULL, ibmad_port) >= 0) {
+			if ((fabric = ibnd_discover_fabric(ibmad_port,
+					timeout_ms, &port_id, 1)) == NULL)
+				IBWARN("Single node discover failed; attempting full scan\n");
+		} else
+			IBWARN("Failed to resolve %s; attempting full scan\n",
+				guid_str);
+	}
+
+	if (!fabric) /* do a full scan */
 		if ((fabric = ibnd_discover_fabric(ibmad_port, timeout_ms, NULL, -1)) == NULL) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
 			goto close_port;
 		}
-	}
 
 	if (guid) {
 		ibnd_node_t *sw = ibnd_find_node_guid(fabric, guid);

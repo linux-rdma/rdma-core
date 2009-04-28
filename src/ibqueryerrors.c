@@ -424,25 +424,19 @@ main(int argc, char **argv)
 		ib_portid_t portid = {0};
 
 		if (ib_resolve_portid_str_via(&portid, switch_guid_str, IB_DEST_GUID,
-					ibd_sm_id, ibmad_port) < 0) {
-			fprintf(stderr, "can't resolve destination port %s %p\n",
-				switch_guid_str, ibd_sm_id);
-			rc = 1;
-			goto close_port;
-		}
+					ibd_sm_id, ibmad_port) >= 0) {
+			if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &portid, 1)) == NULL)
+				IBWARN("Single node discover failed; attempting full scan\n");
+		} else
+			IBWARN("Failed to resolve %s; attempting full scan\n", switch_guid_str);
+	}
 
-		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &portid, 1)) == NULL) {
-			fprintf(stderr, "discover failed\n");
-			rc = 1;
-			goto close_port;
-		}
-	} else {
+	if (!fabric) /* do a full scan */
 		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
 			goto close_port;
 		}
-	}
 
 	report_suppressed();
 
