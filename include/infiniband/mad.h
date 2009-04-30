@@ -282,8 +282,8 @@ enum MAD_FIELDS {
 	IB_MAD_MKEY_F,
 
 	/* word 9 (32-37 bytes) */
-	IB_DRSMP_DRSLID_F,
 	IB_DRSMP_DRDLID_F,
+	IB_DRSMP_DRSLID_F,
 
 	/* word 10,11 (36-43 bytes) */
 	IB_SA_MKEY_F,
