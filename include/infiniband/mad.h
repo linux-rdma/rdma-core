@@ -766,6 +766,7 @@ MAD_EXPORT void mad_encode_field(uint8_t * buf, enum MAD_FIELDS field, void *val
 MAD_EXPORT int mad_print_field(enum MAD_FIELDS field, const char *name, void *val);
 MAD_EXPORT char *mad_dump_field(enum MAD_FIELDS field, char *buf, int bufsz, void *val);
 MAD_EXPORT char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz, void *val);
+MAD_EXPORT const char *mad_field_name(enum MAD_FIELDS field);
 
 /* mad.c */
 MAD_EXPORT void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath,
@@ -887,9 +888,6 @@ MAD_EXPORT int ib_path_query_via(const struct ibmad_port *srcport,
 
 /* resolve.c */
 MAD_EXPORT int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
-				DEPRECATED;
-MAD_EXPORT int ib_resolve_guid(ib_portid_t * portid, uint64_t * guid,
-			       ib_portid_t * sm_id, int timeout)
 				DEPRECATED;
 MAD_EXPORT int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
 				     enum MAD_DEST dest, ib_portid_t * sm_id)
