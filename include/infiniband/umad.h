@@ -129,7 +129,7 @@ typedef struct umad_port {
 	unsigned state;
 	unsigned phys_state;
 	unsigned rate;
-	uint64_t capmask;
+	uint32_t capmask;
 	uint64_t gid_prefix;
 	uint64_t port_guid;
 	unsigned pkeys_size;

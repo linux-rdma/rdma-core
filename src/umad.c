@@ -160,7 +160,7 @@ get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
 		goto clean;
 	if (sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate) < 0)
 		goto clean;
-	if (sys_read_uint64(port_dir, SYS_PORT_CAPMASK, &port->capmask) < 0)
+	if (sys_read_uint(port_dir, SYS_PORT_CAPMASK, &port->capmask) < 0)
 		goto clean;
 
 	port->capmask = htonl(port->capmask);
