@@ -111,7 +111,7 @@ port_dump(umad_port_t *port, int alone)
 	printf("%sBase lid: %d\n", pre, port->base_lid);
 	printf("%sLMC: %d\n", pre, port->lmc);
 	printf("%sSM lid: %d\n", pre, port->sm_lid);
-	printf("%sCapability mask: 0x%08x\n", pre, (unsigned)ntohll(port->capmask));
+	printf("%sCapability mask: 0x%08x\n", pre, ntohl(port->capmask));
 	printf("%sPort GUID: 0x%016llx\n", pre, (long long unsigned)ntohll(port->port_guid));
 	return 0;
 }
