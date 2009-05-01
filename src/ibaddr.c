@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <arpa/inet.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>

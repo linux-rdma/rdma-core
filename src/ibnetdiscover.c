@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004-2008 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
+ * Copyright (c) 2008 Lawrence Livermore National Lab.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -48,445 +49,111 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 #include <complib/cl_nodenamemap.h>
+#include <infiniband/ibnetdisc.h>
 
-#include "ibnetdiscover.h"
-#include "grouping.h"
 #include "ibdiag_common.h"
+
+#define LIST_CA_NODE	 (1 << IB_NODE_CA)
+#define LIST_SWITCH_NODE (1 << IB_NODE_SWITCH)
+#define LIST_ROUTER_NODE (1 << IB_NODE_ROUTER)
 
 struct ibmad_port *srcport;
 
-static char *node_type_str[] = {
-	"???",
-	"ca",
-	"switch",
-	"router",
-	"iwarp rnic"
-};
-
-static char *linkwidth_str[] = {
-	"??",
-	"1x",
-	"4x",
-	"??",
-	"8x",
-	"??",
-	"??",
-	"??",
-	"12x"
-};
-
-static char *linkspeed_str[] = {
-	"???",
-	"SDR",
-	"DDR",
-	"???",
-	"QDR"
-};
-
 static int timeout = 2000;		/* ms */
-static int dumplevel = 0;
 static FILE *f;
 
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 
-Node *nodesdist[MAXHOPS+1];     /* last is Ca list */
-Node *mynode;
-int maxhops_discovered = 0;
-
-struct ChassisList *chassis = NULL;
-
-static char *
-get_linkwidth_str(int linkwidth)
+/**
+ * Define our own conversion functions to maintain compatibility with the old
+ * ibnetdiscover which did not use the ibmad conversion functions.
+ */
+char *dump_linkspeed_compat(uint32_t speed)
 {
-	if (linkwidth > 8)
-		return linkwidth_str[0];
-	else
-		return linkwidth_str[linkwidth];
+	switch (speed) {
+	case 1:
+		return ("SDR");
+		break;
+	case 2:
+		return ("DDR");
+		break;
+	case 4:
+		return ("QDR");
+		break;
+	}
+	return ("???");
 }
 
-static char *
-get_linkspeed_str(int linkspeed)
+char *dump_linkwidth_compat(uint32_t width)
 {
-	if (linkspeed > 4)
-		return linkspeed_str[0];
-	else
-		return linkspeed_str[linkspeed];
+	switch (width) {
+	case 1:
+		return ("1x");
+		break;
+	case 2:
+		return ("4x");
+		break;
+	case 4:
+		return ("8x");
+		break;
+	case 8:
+		return ("12x");
+		break;
+	}
+	return ("??");
 }
 
 static inline const char*
-node_type_str2(Node *node)
+ports_nt_str_compat(ibnd_node_t *node)
 {
 	switch(node->type) {
-	case SWITCH_NODE: return "SW";
-	case CA_NODE:     return "CA";
-	case ROUTER_NODE: return "RT";
+	case IB_NODE_SWITCH: return "SW";
+	case IB_NODE_CA:     return "CA";
+	case IB_NODE_ROUTER: return "RT";
 	}
 	return "??";
 }
 
-void
-decode_port_info(void *pi, Port *port)
-{
-	mad_decode_field(pi, IB_PORT_LID_F, &port->lid);
-	mad_decode_field(pi, IB_PORT_LMC_F, &port->lmc);
-	mad_decode_field(pi, IB_PORT_STATE_F, &port->state);
-	mad_decode_field(pi, IB_PORT_PHYS_STATE_F, &port->physstate);
-	mad_decode_field(pi, IB_PORT_LINK_WIDTH_ACTIVE_F, &port->linkwidth);
-	mad_decode_field(pi, IB_PORT_LINK_SPEED_ACTIVE_F, &port->linkspeed);
-}
-
-
-int
-get_port(Port *port, int portnum, ib_portid_t *portid)
-{
-	char portinfo[64];
-	void *pi = portinfo;
-
-	port->portnum = portnum;
-
-	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, portnum, timeout,
-			srcport))
-		return -1;
-	decode_port_info(pi, port);
-
-	DEBUG("portid %s portnum %d: lid %d state %d physstate %d %s %s",
-		portid2str(portid), portnum, port->lid, port->state, port->physstate, get_linkwidth_str(port->linkwidth), get_linkspeed_str(port->linkspeed));
-	return 1;
-}
-/*
- * Returns 0 if non switch node is found, 1 if switch is found, -1 if error.
- */
-int
-get_node(Node *node, Port *port, ib_portid_t *portid)
-{
-	char portinfo[64];
-	char switchinfo[64];
-	void *pi = portinfo, *ni = node->nodeinfo, *nd = node->nodedesc;
-	void *si = switchinfo;
-
-	if (!smp_query_via(ni, portid, IB_ATTR_NODE_INFO, 0, timeout, srcport))
-		return -1;
-
-	mad_decode_field(ni, IB_NODE_GUID_F, &node->nodeguid);
-	mad_decode_field(ni, IB_NODE_TYPE_F, &node->type);
-	mad_decode_field(ni, IB_NODE_NPORTS_F, &node->numports);
-	mad_decode_field(ni, IB_NODE_DEVID_F, &node->devid);
-	mad_decode_field(ni, IB_NODE_VENDORID_F, &node->vendid);
-	mad_decode_field(ni, IB_NODE_SYSTEM_GUID_F, &node->sysimgguid);
-	mad_decode_field(ni, IB_NODE_PORT_GUID_F, &node->portguid);
-	mad_decode_field(ni, IB_NODE_LOCAL_PORT_F, &node->localport);
-	port->portnum = node->localport;
-	port->portguid = node->portguid;
-
-	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, timeout, srcport))
-		return -1;
-
-	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, 0, timeout, srcport))
-		return -1;
-	decode_port_info(pi, port);
-
-	if (node->type != SWITCH_NODE)
-		return 0;
-
-	node->smalid = port->lid;
-	node->smalmc = port->lmc;
-
-	/* after we have the sma information find out the real PortInfo for this port */
-	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, node->localport,
-			   timeout, srcport))
-	        return -1;
-	decode_port_info(pi, port);
-
-	port->lid = node->smalid;  /* LID is still defined by port 0 */
-	port->lmc = node->smalmc;
-
-	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout, srcport))
-		node->smaenhsp0 = 0;	/* assume base SP0 */
-	else
-        	mad_decode_field(si, IB_SW_ENHANCED_PORT0_F, &node->smaenhsp0);
-
-	DEBUG("portid %s: got switch node %" PRIx64 " '%s'",
-	      portid2str(portid), node->nodeguid, node->nodedesc);
-	return 1;
-}
-
-static int
-extend_dpath(ib_dr_path_t *path, int nextport)
-{
-	if (path->cnt+2 >= sizeof(path->p))
-		return -1;
-	++path->cnt;
-	if (path->cnt > maxhops_discovered)
-		maxhops_discovered = path->cnt;
-	path->p[path->cnt] = (uint8_t) nextport;
-	return path->cnt;
-}
-
-static void
-dump_endnode(ib_portid_t *path, char *prompt, Node *node, Port *port)
-{
-	if (!dumplevel)
-		return;
-
-	fprintf(f, "%s -> %s %s {%016" PRIx64 "} portnum %d lid %d-%d\"%s\"\n",
-		portid2str(path), prompt,
-		(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
-		node->nodeguid, node->type == SWITCH_NODE ? 0 : port->portnum,
-		port->lid, port->lid + (1 << port->lmc) - 1,
-		clean_nodedesc(node->nodedesc));
-}
-
-#define HASHGUID(guid)		((uint32_t)(((uint32_t)(guid) * 101) ^ ((uint32_t)((guid) >> 32) * 103)))
-#define HTSZ 137
-
-static Node *nodestbl[HTSZ];
-
-static Node *
-find_node(Node *new)
-{
-	int hash = HASHGUID(new->nodeguid) % HTSZ;
-	Node *node;
-
-	for (node = nodestbl[hash]; node; node = node->htnext)
-		if (node->nodeguid == new->nodeguid)
-			return node;
-
-	return NULL;
-}
-
-static Node *
-create_node(Node *temp, ib_portid_t *path, int dist)
-{
-	Node *node;
-	int hash = HASHGUID(temp->nodeguid) % HTSZ;
-
-	node = malloc(sizeof(*node));
-	if (!node)
-		return NULL;
-
-	memcpy(node, temp, sizeof(*node));
-	node->dist = dist;
-	node->path = *path;
-
-	node->htnext = nodestbl[hash];
-	nodestbl[hash] = node;
-
-	if (node->type != SWITCH_NODE)
-		dist = MAXHOPS; 	/* special Ca list */
-
-	node->dnext = nodesdist[dist];
-	nodesdist[dist] = node;
-
-	return node;
-}
-
-static Port *
-find_port(Node *node, Port *port)
-{
-	Port *old;
-
-	for (old = node->ports; old; old = old->next)
-		if (old->portnum == port->portnum)
-			return old;
-
-	return NULL;
-}
-
-static Port *
-create_port(Node *node, Port *temp)
-{
-	Port *port;
-
-	port = malloc(sizeof(*port));
-	if (!port)
-		return NULL;
-
-	memcpy(port, temp, sizeof(*port));
-	port->node = node;
-	port->next = node->ports;
-	node->ports = port;
-
-	return port;
-}
-
-static void
-link_ports(Node *node, Port *port, Node *remotenode, Port *remoteport)
-{
-	DEBUG("linking: 0x%" PRIx64 " %p->%p:%u and 0x%" PRIx64 " %p->%p:%u",
-		node->nodeguid, node, port, port->portnum,
-		remotenode->nodeguid, remotenode, remoteport, remoteport->portnum);
-	if (port->remoteport)
-		port->remoteport->remoteport = NULL;
-	if (remoteport->remoteport)
-		remoteport->remoteport->remoteport = NULL;
-	port->remoteport = remoteport;
-	remoteport->remoteport = port;
-}
-
-static int
-handle_port(Node *node, Port *port, ib_portid_t *path, int portnum, int dist)
-{
-	Node node_buf;
-	Port port_buf;
-	Node *remotenode, *oldnode;
-	Port *remoteport, *oldport;
-
-	memset(&node_buf, 0, sizeof(node_buf));
-	memset(&port_buf, 0, sizeof(port_buf));
-
-	DEBUG("handle node %p port %p:%d dist %d", node, port, portnum, dist);
-	if (port->physstate != 5)	/* LinkUp */
-		return -1;
-
-	if (extend_dpath(&path->drpath, portnum) < 0)
-		return -1;
-
-	if (get_node(&node_buf, &port_buf, path) < 0) {
-		IBWARN("NodeInfo on %s failed, skipping port",
-			portid2str(path));
-		path->drpath.cnt--;	/* restore path */
-		return -1;
-	}
-
-	oldnode = find_node(&node_buf);
-	if (oldnode)
-		remotenode = oldnode;
-	else if (!(remotenode = create_node(&node_buf, path, dist + 1)))
-		IBERROR("no memory");
-
-	oldport = find_port(remotenode, &port_buf);
-	if (oldport) {
-		remoteport = oldport;
-		if (node != remotenode || port != remoteport)
-			IBWARN("port moving...");
-	} else if (!(remoteport = create_port(remotenode, &port_buf)))
-		IBERROR("no memory");
-
-	dump_endnode(path, oldnode ? "known remote" : "new remote",
-		     remotenode, remoteport);
-
-	link_ports(node, port, remotenode, remoteport);
-
-	path->drpath.cnt--;	/* restore path */
-	return 0;
-}
-
-/*
- * Return 1 if found, 0 if not, -1 on errors.
- */
-static int
-discover(ib_portid_t *from)
-{
-	Node node_buf;
-	Port port_buf;
-	Node *node;
-	Port *port;
-	int i;
-	int dist = 0;
-	ib_portid_t *path;
-
-	DEBUG("from %s", portid2str(from));
-
-	memset(&node_buf, 0, sizeof(node_buf));
-	memset(&port_buf, 0, sizeof(port_buf));
-
-	if (get_node(&node_buf, &port_buf, from) < 0) {
-		IBWARN("can't reach node %s", portid2str(from));
-		return -1;
-	}
-
-	node = create_node(&node_buf, from, 0);
-	if (!node)
-		IBERROR("out of memory");
-
-	mynode = node;
-
-	port = create_port(node, &port_buf);
-	if (!port)
-		IBERROR("out of memory");
-
-	if (node->type != SWITCH_NODE &&
-	    handle_port(node, port, from, node->localport, 0) < 0)
-		return 0;
-
-	for (dist = 0; dist < MAXHOPS; dist++) {
-
-		for (node = nodesdist[dist]; node; node = node->dnext) {
-
-			path = &node->path;
-
-			DEBUG("dist %d node %p", dist, node);
-			dump_endnode(path, "processing", node, port);
-
-			for (i = 1; i <= node->numports; i++) {
-				if (i == node->localport)
-					continue;
-
-				if (get_port(&port_buf, i, path) < 0) {
-					IBWARN("can't reach node %s port %d", portid2str(path), i);
-					continue;
-				}
-
-				port = find_port(node, &port_buf);
-				if (port)
-					continue;
-
-				port = create_port(node, &port_buf);
-				if (!port)
-					IBERROR("out of memory");
-
-				/* If switch, set port GUID to node GUID */
-				if (node->type == SWITCH_NODE)
-					port->portguid = node->portguid;
-
-				handle_port(node, port, path, i, dist);
-			}
-		}
-	}
-
-	return 0;
-}
-
 char *
-node_name(Node *node)
+node_name(ibnd_node_t *node)
 {
 	static char buf[256];
 
 	switch(node->type) {
-	case SWITCH_NODE:
+	case IB_NODE_SWITCH:
 		sprintf(buf, "\"%s", "S");
 		break;
-	case CA_NODE:
+	case IB_NODE_CA:
 		sprintf(buf, "\"%s", "H");
 		break;
-	case ROUTER_NODE:
+	case IB_NODE_ROUTER:
 		sprintf(buf, "\"%s", "R");
 		break;
 	default:
 		sprintf(buf, "\"%s", "?");
 		break;
 	}
-	sprintf(buf+2, "-%016" PRIx64 "\"", node->nodeguid);
+	sprintf(buf+2, "-%016" PRIx64 "\"", node->guid);
 
 	return buf;
 }
 
 void
-list_node(Node *node)
+list_node(ibnd_node_t *node, void *user_data)
 {
 	char *node_type;
-	char *nodename = remap_node_name(node_name_map, node->nodeguid,
+	char *nodename = remap_node_name(node_name_map, node->guid,
 					      node->nodedesc);
 
 	switch(node->type) {
-	case SWITCH_NODE:
+	case IB_NODE_SWITCH:
 		node_type = "Switch";
 		break;
-	case CA_NODE:
+	case IB_NODE_CA:
 		node_type = "Ca";
 		break;
-	case ROUTER_NODE:
+	case IB_NODE_ROUTER:
 		node_type = "Router";
 		break;
 	default:
@@ -495,36 +162,58 @@ list_node(Node *node)
 	}
 	fprintf(f, "%s\t : 0x%016" PRIx64 " ports %d devid 0x%x vendid 0x%x \"%s\"\n",
 		node_type,
-		node->nodeguid, node->numports, node->devid, node->vendid,
+		node->guid, node->numports,
+		mad_get_field(node->info, 0, IB_NODE_DEVID_F),
+		mad_get_field(node->info, 0, IB_NODE_VENDORID_F),
 		nodename);
 
 	free(nodename);
 }
 
 void
-out_ids(Node *node, int group, char *chname)
+list_nodes(ibnd_fabric_t *fabric, int list)
 {
-	fprintf(f, "\nvendid=0x%x\ndevid=0x%x\n", node->vendid, node->devid);
-	if (node->sysimgguid)
-		fprintf(f, "sysimgguid=0x%" PRIx64, node->sysimgguid);
+	if (list & LIST_CA_NODE) {
+		ibnd_iter_nodes_type(fabric, list_node, IB_NODE_CA, NULL);
+	}
+	if (list & LIST_SWITCH_NODE) {
+		ibnd_iter_nodes_type(fabric, list_node, IB_NODE_SWITCH, NULL);
+	}
+	if (list & LIST_ROUTER_NODE) {
+		ibnd_iter_nodes_type(fabric, list_node, IB_NODE_ROUTER, NULL);
+	}
+}
+
+void
+out_ids(ibnd_node_t *node, int group, char *chname)
+{
+	uint64_t sysimgguid = mad_get_field64(node->info, 0, IB_NODE_SYSTEM_GUID_F);
+
+	fprintf(f, "\nvendid=0x%x\ndevid=0x%x\n",
+		mad_get_field(node->info, 0, IB_NODE_VENDORID_F),
+		mad_get_field(node->info, 0, IB_NODE_DEVID_F));
+	if (sysimgguid)
+		fprintf(f, "sysimgguid=0x%" PRIx64, sysimgguid);
 	if (group
-	    && node->chrecord && node->chrecord->chassisnum) {
-		fprintf(f, "\t\t# Chassis %d", node->chrecord->chassisnum);
+	    && node->chassis && node->chassis->chassisnum) {
+		fprintf(f, "\t\t# Chassis %d", node->chassis->chassisnum);
 		if (chname)
-			fprintf(f, " (%s)", chname);
-		if (is_xsigo_tca(node->nodeguid) && node->ports->remoteport)
-			fprintf(f, " slot %d", node->ports->remoteport->portnum);
+			fprintf(f, " (%s)", clean_nodedesc(chname));
+		if (ibnd_is_xsigo_tca(node->guid)
+				&& node->ports[1]
+				&& node->ports[1]->remoteport)
+			fprintf(f, " slot %d", node->ports[1]->remoteport->portnum);
 	}
 	fprintf(f, "\n");
 }
 
 uint64_t
-out_chassis(unsigned char chassisnum)
+out_chassis(ibnd_fabric_t *fabric, unsigned char chassisnum)
 {
 	uint64_t guid;
 
-	fprintf(f, "\nChassis %d", chassisnum);
-	guid = get_chassis_guid(chassisnum);
+	fprintf(f, "\nChassis %u", chassisnum);
+	guid = ibnd_get_chassis_guid(fabric, chassisnum);
 	if (guid)
 		fprintf(f, " (guid 0x%" PRIx64 ")", guid);
 	fprintf(f, "\n");
@@ -532,29 +221,25 @@ out_chassis(unsigned char chassisnum)
 }
 
 void
-out_switch(Node *node, int group, char *chname)
+out_switch(ibnd_node_t *node, int group, char *chname)
 {
 	char *str;
+	char  str2[256];
 	char *nodename = NULL;
 
 	out_ids(node, group, chname);
-	fprintf(f, "switchguid=0x%" PRIx64, node->nodeguid);
-	fprintf(f, "(%" PRIx64 ")", node->portguid);
-	/* Currently, only if Voltaire chassis */
-	if (group
-	    && node->chrecord && node->chrecord->chassisnum
-	    && node->vendid == VTR_VENDOR_ID) {
-		str = get_chassis_type(node->chrecord->chassistype);
+	fprintf(f, "switchguid=0x%" PRIx64, node->guid);
+	fprintf(f, "(%" PRIx64 ")", mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F));
+	if (group) {
+		str = ibnd_get_chassis_type(node);
 		if (str)
 			fprintf(f, "%s ", str);
-		str = get_chassis_slot(node->chrecord->chassisslot);
+		str = ibnd_get_chassis_slot_str(node, str2, 256);
 		if (str)
-			fprintf(f, "%s ", str);
-		fprintf(f, "%d Chip %d", node->chrecord->slotnum, node->chrecord->anafanum);
+			fprintf(f, "%s", str);
 	}
 
-	nodename = remap_node_name(node_name_map, node->nodeguid,
-				node->nodedesc);
+	nodename = remap_node_name(node_name_map, node->guid, node->nodedesc);
 
 	fprintf(f, "\nSwitch\t%d %s\t\t# \"%s\" %s port 0 lid %d lmc %d\n",
 		node->numports, node_name(node),
@@ -566,20 +251,18 @@ out_switch(Node *node, int group, char *chname)
 }
 
 void
-out_ca(Node *node, int group, char *chname)
+out_ca(ibnd_node_t *node, int group, char *chname)
 {
 	char *node_type;
 	char *node_type2;
-	char *nodename = remap_node_name(node_name_map, node->nodeguid,
-					      node->nodedesc);
 
 	out_ids(node, group, chname);
 	switch(node->type) {
-	case CA_NODE:
+	case IB_NODE_CA:
 		node_type = "ca";
 		node_type2 = "Ca";
 		break;
-	case ROUTER_NODE:
+	case IB_NODE_ROUTER:
 		node_type = "rt";
 		node_type2 = "Rt";
 		break;
@@ -589,37 +272,41 @@ out_ca(Node *node, int group, char *chname)
 		break;
 	}
 
-	fprintf(f, "%sguid=0x%" PRIx64 "\n", node_type, node->nodeguid);
+	fprintf(f, "%sguid=0x%" PRIx64 "\n", node_type, node->guid);
 	fprintf(f, "%s\t%d %s\t\t# \"%s\"",
 		node_type2, node->numports, node_name(node),
-		nodename);
-	if (group && is_xsigo_hca(node->nodeguid))
+		clean_nodedesc(node->nodedesc));
+	if (group && ibnd_is_xsigo_hca(node->guid))
 		fprintf(f, " (scp)");
 	fprintf(f, "\n");
-
-	free(nodename);
 }
 
+#define OUT_BUFFER_SIZE 16
 static char *
-out_ext_port(Port *port, int group)
+out_ext_port(ibnd_port_t *port, int group)
 {
-	char *str = NULL;
+	static char mapping[OUT_BUFFER_SIZE];
 
-	/* Currently, only if Voltaire chassis */
-	if (group
-	    && port->node->chrecord && port->node->vendid == VTR_VENDOR_ID)
-		str = portmapstring(port);
+	if (group && port->ext_portnum != 0) {
+		snprintf(mapping, OUT_BUFFER_SIZE,
+			"[ext %d]", port->ext_portnum);
+		return (mapping);
+	}
 
-	return (str);
+	return (NULL);
 }
 
 void
-out_switch_port(Port *port, int group)
+out_switch_port(ibnd_port_t *port, int group)
 {
 	char *ext_port_str = NULL;
 	char *rem_nodename = NULL;
+	uint32_t iwidth = mad_get_field(port->info, 0,
+					IB_PORT_LINK_WIDTH_ACTIVE_F);
+	uint32_t ispeed = mad_get_field(port->info, 0,
+					IB_PORT_LINK_SPEED_ACTIVE_F);
 
-	DEBUG("port %p:%d remoteport %p", port, port->portnum, port->remoteport);
+	DEBUG("port %p:%d remoteport %p\n", port, port->portnum, port->remoteport);
 	fprintf(f, "[%d]", port->portnum);
 
 	ext_port_str = out_ext_port(port, group);
@@ -627,7 +314,7 @@ out_switch_port(Port *port, int group)
 		fprintf(f, "%s", ext_port_str);
 
 	rem_nodename = remap_node_name(node_name_map,
-				port->remoteport->node->nodeguid,
+				port->remoteport->node->guid,
 				port->remoteport->node->nodedesc);
 
 	ext_port_str = out_ext_port(port->remoteport, group);
@@ -635,17 +322,19 @@ out_switch_port(Port *port, int group)
 		node_name(port->remoteport->node),
 		port->remoteport->portnum,
 		ext_port_str ? ext_port_str : "");
-	if (port->remoteport->node->type != SWITCH_NODE)
-		fprintf(f, "(%" PRIx64 ") ", port->remoteport->portguid);
+	if (port->remoteport->node->type != IB_NODE_SWITCH)
+		fprintf(f, "(%" PRIx64 ") ", port->remoteport->guid);
 	fprintf(f, "\t\t# \"%s\" lid %d %s%s",
 		rem_nodename,
-		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
-		get_linkwidth_str(port->linkwidth),
-		get_linkspeed_str(port->linkspeed));
+		port->remoteport->node->type == IB_NODE_SWITCH ?
+			port->remoteport->node->smalid :
+			port->remoteport->base_lid,
+			dump_linkwidth_compat(iwidth),
+			dump_linkspeed_compat(ispeed));
 
-	if (is_xsigo_tca(port->remoteport->portguid))
+	if (ibnd_is_xsigo_tca(port->remoteport->guid))
 		fprintf(f, " slot %d", port->portnum);
-	else if (is_xsigo_hca(port->remoteport->portguid))
+	else if (ibnd_is_xsigo_hca(port->remoteport->guid))
 		fprintf(f, " (scp)");
 	fprintf(f, "\n");
 
@@ -653,281 +342,275 @@ out_switch_port(Port *port, int group)
 }
 
 void
-out_ca_port(Port *port, int group)
+out_ca_port(ibnd_port_t *port, int group)
 {
 	char *str = NULL;
 	char *rem_nodename = NULL;
+	uint32_t iwidth = mad_get_field(port->info, 0,
+					IB_PORT_LINK_WIDTH_ACTIVE_F);
+	uint32_t ispeed = mad_get_field(port->info, 0,
+					IB_PORT_LINK_SPEED_ACTIVE_F);
 
 	fprintf(f, "[%d]", port->portnum);
-	if (port->node->type != SWITCH_NODE)
-		fprintf(f, "(%" PRIx64 ") ", port->portguid);
+	if (port->node->type != IB_NODE_SWITCH)
+		fprintf(f, "(%" PRIx64 ") ", port->guid);
 	fprintf(f, "\t%s[%d]",
 		node_name(port->remoteport->node),
 		port->remoteport->portnum);
 	str = out_ext_port(port->remoteport, group);
 	if (str)
 		fprintf(f, "%s", str);
-	if (port->remoteport->node->type != SWITCH_NODE)
-		fprintf(f, " (%" PRIx64 ") ", port->remoteport->portguid);
+	if (port->remoteport->node->type != IB_NODE_SWITCH)
+		fprintf(f, " (%" PRIx64 ") ", port->remoteport->guid);
 
 	rem_nodename = remap_node_name(node_name_map,
-				port->remoteport->node->nodeguid,
+				port->remoteport->node->guid,
 				port->remoteport->node->nodedesc);
 
 	fprintf(f, "\t\t# lid %d lmc %d \"%s\" lid %d %s%s\n",
-		port->lid, port->lmc, rem_nodename,
-		port->remoteport->node->type == SWITCH_NODE ? port->remoteport->node->smalid : port->remoteport->lid,
-		get_linkwidth_str(port->linkwidth),
-		get_linkspeed_str(port->linkspeed));
+		port->base_lid, port->lmc, rem_nodename,
+		port->remoteport->node->type == IB_NODE_SWITCH ?
+			port->remoteport->node->smalid :
+			port->remoteport->base_lid,
+		dump_linkwidth_compat(iwidth),
+		dump_linkspeed_compat(ispeed));
 
 	free(rem_nodename);
 }
 
-int
-dump_topology(int listtype, int group)
+
+struct iter_user_data {
+	int group;
+	int skip_chassis_nodes;
+};
+
+static void
+switch_iter_func(ibnd_node_t *node, void *iter_user_data)
 {
-	Node *node;
-	Port *port;
-	int i = 0, dist = 0;
+	ibnd_port_t *port;
+	int p = 0;
+	struct iter_user_data *data = (struct iter_user_data *)iter_user_data;
+
+	DEBUG("SWITCH: node %p\n", node);
+
+	/* skip chassis based switches if flagged */
+	if (data->skip_chassis_nodes && node->chassis && node->chassis->chassisnum)
+		return;
+
+	out_switch(node, data->group, NULL);
+	for (p = 1; p <= node->numports; p++) {
+		port = node->ports[p];
+		if (port && port->remoteport)
+			out_switch_port(port, data->group);
+	}
+}
+
+static void
+ca_iter_func(ibnd_node_t *node, void *iter_user_data)
+{
+	ibnd_port_t *port;
+	int p = 0;
+	struct iter_user_data *data = (struct iter_user_data *)iter_user_data;
+
+	DEBUG("CA: node %p\n", node);
+	/* Now, skip chassis based CAs */
+	if (data->group && node->chassis && node->chassis->chassisnum)
+		return;
+	out_ca(node, data->group, NULL);
+
+	for (p = 1; p <= node->numports; p++) {
+		port = node->ports[p];
+		if (port && port->remoteport)
+			out_ca_port(port, data->group);
+	}
+}
+
+static void
+router_iter_func(ibnd_node_t *node, void *iter_user_data)
+{
+	ibnd_port_t *port;
+	int p = 0;
+	struct iter_user_data *data = (struct iter_user_data *)iter_user_data;
+
+	DEBUG("RT: node %p\n", node);
+	/* Now, skip chassis based RTs */
+	if (data->group && node->chassis &&
+	    node->chassis->chassisnum)
+		return;
+	out_ca(node, data->group, NULL);
+	for (p = 1; p <= node->numports; p++) {
+		port = node->ports[p];
+		if (port && port->remoteport)
+			out_ca_port(port, data->group);
+	}
+}
+
+int
+dump_topology(int group, ibnd_fabric_t *fabric)
+{
+	ibnd_node_t *node;
+	ibnd_port_t *port;
+	int i = 0, p = 0;
 	time_t t = time(0);
 	uint64_t chguid;
 	char *chname = NULL;
+	struct iter_user_data iter_user_data;
 
-	if (!listtype) {
-		fprintf(f, "#\n# Topology file: generated on %s#\n", ctime(&t));
-		fprintf(f, "# Max of %d hops discovered\n", maxhops_discovered);
-		fprintf(f, "# Initiated from node %016" PRIx64 " port %016" PRIx64 "\n", mynode->nodeguid, mynode->portguid);
-	}
+	fprintf(f, "#\n# Topology file: generated on %s#\n", ctime(&t));
+	fprintf(f, "# Max of %d hops discovered\n", fabric->maxhops_discovered);
+	fprintf(f, "# Initiated from node %016" PRIx64 " port %016" PRIx64 "\n",
+		fabric->from_node->guid,
+		mad_get_field64(fabric->from_node->info, 0, IB_NODE_PORT_GUID_F));
 
 	/* Make pass on switches */
-	if (group && !listtype) {
-		ChassisList *ch = NULL;
+	if (group) {
+		ibnd_chassis_t *ch = NULL;
 
 		/* Chassis based switches first */
-		for (ch = chassis; ch; ch = ch->next) {
+		for (ch = fabric->chassis; ch; ch = ch->next) {
 			int n = 0;
 
 			if (!ch->chassisnum)
 				continue;
-			chguid = out_chassis(ch->chassisnum);
-			if (chname)
-				free(chname);
+			chguid = out_chassis(fabric, ch->chassisnum);
+
 			chname = NULL;
-			if (is_xsigo_guid(chguid)) {
-				for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
-					if (!node->chrecord ||
-					    !node->chrecord->chassisnum)
-						continue;
-
-					if (node->chrecord->chassisnum != ch->chassisnum)
-						continue;
-
-					if (is_xsigo_hca(node->nodeguid)) {
-						chname = remap_node_name(node_name_map,
-								node->nodeguid,
-								node->nodedesc);
-						fprintf(f, "Hostname: %s\n", chname);
+/**
+ * Will this work for Xsigo?
+ */
+			if (ibnd_is_xsigo_guid(chguid)) {
+				for (node = ch->nodes; node;
+						node = node->next_chassis_node) {
+					if (ibnd_is_xsigo_hca(node->guid)) {
+						chname = node->nodedesc;
+						fprintf(f, "Hostname: %s\n", clean_nodedesc(node->nodedesc));
 					}
 				}
 			}
 
 			fprintf(f, "\n# Spine Nodes");
-			for (n = 1; n <= (SPINES_MAX_NUM+1); n++) {
+			for (n = 1; n <= SPINES_MAX_NUM; n++) {
 				if (ch->spinenode[n]) {
 					out_switch(ch->spinenode[n], group, chname);
-					for (port = ch->spinenode[n]->ports; port; port = port->next, i++)
-						if (port->remoteport)
+					for (p = 1; p <= ch->spinenode[n]->numports; p++) {
+						port = ch->spinenode[n]->ports[p];
+						if (port && port->remoteport)
 							out_switch_port(port, group);
+					}
 				}
 			}
 			fprintf(f, "\n# Line Nodes");
-			for (n = 1; n <= (LINES_MAX_NUM+1); n++) {
+			for (n = 1; n <= LINES_MAX_NUM; n++) {
 				if (ch->linenode[n]) {
 					out_switch(ch->linenode[n], group, chname);
-					for (port = ch->linenode[n]->ports; port; port = port->next, i++)
-						if (port->remoteport)
+					for (p = 1; p <= ch->linenode[n]->numports; p++) {
+						port = ch->linenode[n]->ports[p];
+						if (port && port->remoteport)
 							out_switch_port(port, group);
+					}
 				}
 			}
 
 			fprintf(f, "\n# Chassis Switches");
-			for (dist = 0; dist <= maxhops_discovered; dist++) {
-
-				for (node = nodesdist[dist]; node; node = node->dnext) {
-
-					/* Non Voltaire chassis */
-					if (node->vendid == VTR_VENDOR_ID)
-						continue;
-					if (!node->chrecord ||
-					    !node->chrecord->chassisnum)
-						continue;
-
-					if (node->chrecord->chassisnum != ch->chassisnum)
-						continue;
-
+			for (node = ch->nodes; node;
+					node = node->next_chassis_node) {
+				if (node->type == IB_NODE_SWITCH) {
 					out_switch(node, group, chname);
-					for (port = node->ports; port; port = port->next, i++)
-						if (port->remoteport)
+					for (p = 1; p <= node->numports; p++) {
+						port = node->ports[p];
+						if (port && port->remoteport)
 							out_switch_port(port, group);
-
+					}
 				}
 
 			}
 
 			fprintf(f, "\n# Chassis CAs");
-			for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
-				if (!node->chrecord ||
-				    !node->chrecord->chassisnum)
-					continue;
-
-				if (node->chrecord->chassisnum != ch->chassisnum)
-					continue;
-
-				out_ca(node, group, chname);
-				for (port = node->ports; port; port = port->next, i++)
-					if (port->remoteport)
-						out_ca_port(port, group);
-
-			}
-
-		}
-
-	} else {
-		for (dist = 0; dist <= maxhops_discovered; dist++) {
-
-			for (node = nodesdist[dist]; node; node = node->dnext) {
-
-				DEBUG("SWITCH: dist %d node %p", dist, node);
-				if (!listtype)
-					out_switch(node, group, chname);
-				else {
-					if (listtype & LIST_SWITCH_NODE)
-						list_node(node);
-					continue;
+			for (node = ch->nodes; node;
+					node = node->next_chassis_node) {
+				if (node->type == IB_NODE_CA) {
+					out_ca(node, group, chname);
+					for (p = 1; p <= node->numports; p++) {
+						port = node->ports[p];
+						if (port && port->remoteport)
+							out_ca_port(port, group);
+					}
 				}
-
-				for (port = node->ports; port; port = port->next, i++)
-					if (port->remoteport)
-						out_switch_port(port, group);
 			}
+
 		}
+
+
+	} else { /* !group */
+		iter_user_data.group = group;
+		iter_user_data.skip_chassis_nodes = 0;
+		ibnd_iter_nodes_type(fabric, switch_iter_func,
+				IB_NODE_SWITCH, &iter_user_data);
 	}
 
-	if (chname)
-		free(chname);
 	chname = NULL;
-	if (group && !listtype) {
+	if (group) {
+		iter_user_data.group = group;
+		iter_user_data.skip_chassis_nodes = 1;
 
 		fprintf(f, "\nNon-Chassis Nodes\n");
 
-		for (dist = 0; dist <= maxhops_discovered; dist++) {
-
-			for (node = nodesdist[dist]; node; node = node->dnext) {
-
-				DEBUG("SWITCH: dist %d node %p", dist, node);
-				/* Now, skip chassis based switches */
-				if (node->chrecord &&
-				    node->chrecord->chassisnum)
-					continue;
-				out_switch(node, group, chname);
-
-				for (port = node->ports; port; port = port->next, i++)
-					if (port->remoteport)
-						out_switch_port(port, group);
-			}
-
-		}
-
+		ibnd_iter_nodes_type(fabric, switch_iter_func,
+				IB_NODE_SWITCH, &iter_user_data);
 	}
 
+	iter_user_data.group = group;
+	iter_user_data.skip_chassis_nodes = 0;
 	/* Make pass on CAs */
-	for (node = nodesdist[MAXHOPS]; node; node = node->dnext) {
+	ibnd_iter_nodes_type(fabric, ca_iter_func, IB_NODE_CA,
+			&iter_user_data);
 
-		DEBUG("CA: dist %d node %p", dist, node);
-		if (!listtype) {
-			/* Now, skip chassis based CAs */
-			if (group && node->chrecord &&
-			    node->chrecord->chassisnum)
-				continue;
-			out_ca(node, group, chname);
-		} else {
-			if (((listtype & LIST_CA_NODE) && (node->type == CA_NODE)) ||
-			    ((listtype & LIST_ROUTER_NODE) && (node->type == ROUTER_NODE)))
-				list_node(node);
-			continue;
-		}
-
-		for (port = node->ports; port; port = port->next, i++)
-			if (port->remoteport)
-				out_ca_port(port, group);
-	}
-
-	if (chname)
-		free(chname);
+	/* make pass on routers */
+	ibnd_iter_nodes_type(fabric, router_iter_func, IB_NODE_ROUTER,
+			&iter_user_data);
 
 	return i;
 }
 
-void dump_ports_report ()
+void dump_ports_report (ibnd_node_t *node, void *user_data)
 {
-	int b, n = 0, p;
-	Node *node;
-	Port *port;
+	int p = 0;
+	ibnd_port_t *port = NULL;
 
-	/*
-	 * If switch and LID == 0, search of other switch ports with
-	 * valid LID and assign it to all ports of that switch
-	 */
-	for (b = 0; b <= MAXHOPS; b++)
-		for (node = nodesdist[b]; node; node = node->dnext)
-			if (node->type == SWITCH_NODE) {
-				int swlid = 0;
-				for (p = 0, port = node->ports;
-				     p < node->numports && port && !swlid;
-				     port = port->next)
-					if (port->lid != 0)
-						swlid = port->lid;
-				for (p = 0, port = node->ports;
-				     p < node->numports && port;
-				     port = port->next)
-					port->lid = swlid;
-			}
-
-	for (b = 0; b <= MAXHOPS; b++)
-		for (node = nodesdist[b]; node; node = node->dnext) {
-			for (p = 0, port = node->ports;
-			     p < node->numports && port;
-			     p++, port = port->next) {
-				fprintf(stdout,
-					"%2s %5d %2d 0x%016" PRIx64 " %s %s",
-					node_type_str2(port->node), port->lid,
-					port->portnum,
-					port->portguid,
-					get_linkwidth_str(port->linkwidth),
-					get_linkspeed_str(port->linkspeed));
-				if (port->remoteport)
-					fprintf(stdout,
-						" - %2s %5d %2d 0x%016" PRIx64
-						" ( '%s' - '%s' )\n",
-						node_type_str2(port->remoteport->node),
-						port->remoteport->lid,
-						port->remoteport->portnum,
-						port->remoteport->portguid,
-						remap_node_name(node_name_map,
-							port->node->nodeguid,
-							port->node->nodedesc),
-						remap_node_name(node_name_map,
-							port->remoteport->node->nodeguid,
-							port->remoteport->node->nodedesc));
-				else
-					fprintf(stdout, "%36s'%s'\n", "",
-						remap_node_name(node_name_map,
-							port->node->nodeguid,
-							port->node->nodedesc));
-
-			}
-			n++;
-		}
+	/* for each port */
+	for (p = node->numports, port = node->ports[p];
+	     p > 0;
+	     port = node->ports[--p]) {
+		uint32_t iwidth, ispeed;
+		if (port == NULL)
+			continue;
+		iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
+		ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
+		fprintf(stdout,
+			"%2s %5d %2d 0x%016" PRIx64 " %s %s",
+			ports_nt_str_compat(node),
+			node->type == IB_NODE_SWITCH ?
+				node->smalid : port->base_lid,
+			port->portnum,
+			port->guid,
+			dump_linkwidth_compat(iwidth),
+			dump_linkspeed_compat(ispeed));
+		if (port->remoteport)
+			fprintf(stdout,
+				" - %2s %5d %2d 0x%016" PRIx64
+				" ( '%s' - '%s' )\n",
+				ports_nt_str_compat(port->remoteport->node),
+				port->remoteport->node->type == IB_NODE_SWITCH ?
+					port->remoteport->node->smalid :
+					port->remoteport->base_lid,
+				port->remoteport->portnum,
+				port->remoteport->guid,
+				port->node->nodedesc,
+				port->remoteport->node->nodedesc);
+		else
+			fprintf(stdout, "%36s'%s'\n", "",
+				port->node->nodedesc);
+	}
 }
 
 static int list, group, ports_report;
@@ -939,7 +622,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		node_name_map_file = strdup(optarg);
 		break;
 	case 's':
-		dumplevel = 1;
+		ibnd_show_progress(1);
 		break;
 	case 'l':
 		list = LIST_CA_NODE | LIST_SWITCH_NODE | LIST_ROUTER_NODE;
@@ -968,8 +651,10 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
+	ibnd_fabric_t *fabric = NULL;
+
+	struct ibmad_port *ibmad_port;
 	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
-	ib_portid_t my_portid = {0};
 
 	const struct ibdiag_opt opts[] = {
 		{ "show", 's', 0, NULL, "show more information" },
@@ -996,29 +681,31 @@ int main(int argc, char **argv)
 		timeout = ibd_timeout;
 
 	if (ibverbose)
-		dumplevel = 1;
+		ibnd_debug(1);
+
+	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
+	if (!ibmad_port)
+		IBERROR("Failed to open %s port %d", ibd_ca, ibd_ca_port);
 
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
-	if (!srcport)
-		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
-
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (discover(&my_portid) < 0)
-		IBERROR("discover");
-
-	if (group)
-		chassis = group_nodes();
+	if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL)
+		IBERROR("discover failed\n");
 
 	if (ports_report)
-		dump_ports_report();
+		ibnd_iter_nodes(fabric,
+				dump_ports_report,
+				NULL);
+	else if (list)
+		list_nodes(fabric, list);
 	else
-		dump_topology(list, group);
+		dump_topology(group, fabric);
 
+	ibnd_destroy_fabric(fabric);
 	close_node_name_map(node_name_map);
-	mad_rpc_close_port(srcport);
+	mad_rpc_close_port(ibmad_port);
 	exit(0);
 }

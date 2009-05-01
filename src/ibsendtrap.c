@@ -84,7 +84,7 @@ static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t *port)
 	n->issuer_lid = cl_hton16(port->lid);
 	n->data_details.ntc_129_131.lid = cl_hton16(port->lid);
 	n->data_details.ntc_129_131.pad = 0;
-	n->data_details.ntc_129_131.port_num = error_port;
+	n->data_details.ntc_129_131.port_num = (uint8_t) error_port;
 }
 
 static int send_trap(const char *name,

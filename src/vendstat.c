@@ -184,8 +184,8 @@ void config_counter_groups(ib_portid_t *portid, int port)
 	cg_config = (is4_config_counter_groups_t *)&buf;
 
 	printf("counter_groups_config: configuring group0 %d group1 %d\n", cg0, cg1);
-	cg_config->group_selects[0].group_select = cg0;
-	cg_config->group_selects[1].group_select = cg1;
+	cg_config->group_selects[0].group_select = (uint8_t) cg0;
+	cg_config->group_selects[1].group_select = (uint8_t) cg1;
 
 	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
 		IBERROR("config counter group set");

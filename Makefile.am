@@ -1,5 +1,7 @@
+SUBDIRS = libibnetdisc
 
-INCLUDES = -I$(top_builddir)/include/ -I$(srcdir)/include -I$(includedir) -I$(includedir)/infiniband
+INCLUDES = -I$(top_builddir)/include/ -I$(srcdir)/include -I$(includedir) \
+	-I$(includedir)/infiniband -I$(top_srcdir)/libibnetdisc/include
 
 if DEBUG
 DBGFLAGS = -ggdb -D_DEBUG_
@@ -10,7 +12,8 @@ endif
 sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 	        src/ibroute src/ibstat src/ibsysstat src/ibtracert \
 	        src/perfquery src/sminfo src/smpdump src/smpquery \
-	        src/saquery src/vendstat
+	        src/saquery src/vendstat src/iblinkinfo \
+		src/ibqueryerrors
 
 if ENABLE_TEST_UTILS
 sbin_PROGRAMS += src/ibsendtrap src/mcm_rereg_test
@@ -39,7 +42,8 @@ LDADD = libcommon.a
 
 libcommon_a_SOURCES = src/ibdiag_common.c
 src_ibaddr_SOURCES = src/ibaddr.c
-src_ibnetdiscover_SOURCES = src/ibnetdiscover.c src/grouping.c
+src_ibnetdiscover_SOURCES = src/ibnetdiscover.c
+src_ibnetdiscover_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibping_SOURCES = src/ibping.c
 src_ibportstate_SOURCES = src/ibportstate.c
 src_ibroute_SOURCES = src/ibroute.c
@@ -54,6 +58,10 @@ src_saquery_SOURCES = src/saquery.c
 src_ibsendtrap_SOURCES = src/ibsendtrap.c
 src_vendstat_SOURCES = src/vendstat.c
 src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
+src_iblinkinfo_SOURCES = src/iblinkinfo.c
+src_iblinkinfo_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
+src_ibqueryerrors_SOURCES = src/ibqueryerrors.c
+src_ibqueryerrors_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 
 man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibchecknet.8 man/ibchecknode.8 man/ibcheckport.8 \

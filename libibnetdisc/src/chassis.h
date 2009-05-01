@@ -32,18 +32,44 @@
  *
  */
 
-#ifndef _IBNETDISCOVER_H_
-#define _IBNETDISCOVER_H_
+#ifndef _CHASSIS_H_
+#define _CHASSIS_H_
 
-#define MAXHOPS		63
+#include <infiniband/ibnetdisc.h>
 
-#define CA_NODE		1
-#define SWITCH_NODE	2
-#define ROUTER_NODE	3
+#include "internal.h"
 
-#define LIST_CA_NODE	 (1 << CA_NODE)
-#define LIST_SWITCH_NODE (1 << SWITCH_NODE)
-#define LIST_ROUTER_NODE (1 << ROUTER_NODE)
+/*========================================================*/
+/*                CHASSIS RECOGNITION SPECIFIC DATA       */
+/*========================================================*/
+
+/* Device IDs */
+#define VTR_DEVID_IB_FC_ROUTER		0x5a00
+#define VTR_DEVID_IB_IP_ROUTER		0x5a01
+#define VTR_DEVID_ISR9600_SPINE		0x5a02
+#define VTR_DEVID_ISR9600_LEAF		0x5a03
+#define VTR_DEVID_HCA1			0x5a04
+#define VTR_DEVID_HCA2			0x5a44
+#define VTR_DEVID_HCA3			0x6278
+#define VTR_DEVID_SW_6IB4		0x5a05
+#define VTR_DEVID_ISR9024		0x5a06
+#define VTR_DEVID_ISR9288		0x5a07
+#define VTR_DEVID_SLB24			0x5a09
+#define VTR_DEVID_SFB12			0x5a08
+#define VTR_DEVID_SFB4			0x5a0b
+#define VTR_DEVID_ISR9024_12		0x5a0c
+#define VTR_DEVID_SLB8			0x5a0d
+#define VTR_DEVID_RLX_SWITCH_BLADE	0x5a20
+#define VTR_DEVID_ISR9024_DDR		0x5a31
+#define VTR_DEVID_SFB12_DDR		0x5a32
+#define VTR_DEVID_SFB4_DDR		0x5a33
+#define VTR_DEVID_SLB24_DDR		0x5a34
+#define VTR_DEVID_SFB2012		0x5a37
+#define VTR_DEVID_SLB2024		0x5a38
+#define VTR_DEVID_ISR2012		0x5a39
+#define VTR_DEVID_SFB2004		0x5a40
+#define VTR_DEVID_ISR2004		0x5a41
+#define VTR_DEVID_SRB2004		0x5a42
 
 /* Vendor IDs (for chassis based systems) */
 #define VTR_VENDOR_ID			0x8f1	/* Voltaire */
@@ -51,57 +77,9 @@
 #define SS_VENDOR_ID			0x66a	/* InfiniCon */
 #define XS_VENDOR_ID			0x1397	/* Xsigo */
 
+enum ibnd_chassis_type { UNRESOLVED_CT, ISR9288_CT, ISR9096_CT, ISR2012_CT, ISR2004_CT };
+enum ibnd_chassis_slot_type { UNRESOLVED_CS, LINE_CS, SPINE_CS, SRBD_CS };
 
-typedef struct Port Port;
-typedef struct Node Node;
-typedef struct ChassisRecord ChassisRecord;
+ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric);
 
-struct ChassisRecord {
-	ChassisRecord *next;
-
-	unsigned char chassisnum;
-	unsigned char anafanum;
-	unsigned char slotnum;
-	unsigned char chassistype;
-	unsigned char chassisslot;
-};
-
-struct Port {
-	Port *next;
-	uint64_t portguid;
-	int portnum;
-	int lid;
-	int lmc;
-	int state;
-	int physstate;
-	int linkwidth;
-	int linkspeed;
-
-	Node *node;
-	Port *remoteport;		/* null if SMA */
-};
-
-struct Node {
-	Node *htnext;
-	Node *dnext;
-	Port *ports;
-	ib_portid_t path;
-	int type;
-	int dist;
-	int numports;
-	int localport;
-	int smalid;
-	int smalmc;
-	int smaenhsp0;
-	uint32_t devid;
-	uint32_t vendid;
-	uint64_t sysimgguid;
-	uint64_t nodeguid;
-	uint64_t portguid;
-	char nodedesc[64];
-	uint8_t nodeinfo[64];
-
-	ChassisRecord *chrecord;
-};
-
-#endif	/* _IBNETDISCOVER_H_ */
+#endif	/* _CHASSIS_H_ */
