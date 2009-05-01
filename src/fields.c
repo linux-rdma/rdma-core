@@ -305,6 +305,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(320, 16), "PathRecDLid", mad_dump_uint},
 	{BITSOFFS(336, 16), "PathRecSLid", mad_dump_uint},
 	{BITSOFFS(393, 7), "PathRecNumPath", mad_dump_uint},
+	{BITSOFFS(428, 4), "PathRecSL", mad_dump_uint},
 
 	/*
 	 * MC Member rec

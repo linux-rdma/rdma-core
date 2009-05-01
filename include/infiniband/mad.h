@@ -500,6 +500,7 @@ enum MAD_FIELDS {
 	IB_SA_PR_DLID_F,
 	IB_SA_PR_SLID_F,
 	IB_SA_PR_NPATH_F,
+	IB_SA_PR_SL_F,
 
 	/*
 	 * MC Member rec
