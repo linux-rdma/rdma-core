@@ -51,9 +51,13 @@ rm -rf $RPM_BUILD_ROOT
 %{_sbindir}/check_lft_balance.pl
 %{_sbindir}/set_nodedesc.sh
 %{_sbindir}/sm*
+%{_libdir}/*.a
+%{_libdir}/*.so*
+%{_includedir}/infiniband/*.h
 %define _perldir %(perl -e 'use Config; $T=$Config{installsitearch}; $T=~/(.*)\\/site_perl.*/; print $1;')
 %{_perldir}/*
 %{_mandir}/man8/*
+%{_mandir}/man3/*
 %doc README COPYING ChangeLog
 
 %changelog
