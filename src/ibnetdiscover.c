@@ -144,7 +144,7 @@ list_node(ibnd_node_t *node, void *user_data)
 {
 	char *node_type;
 	char *nodename = remap_node_name(node_name_map, node->guid,
-					      node->nodedesc);
+					 node->nodedesc);
 
 	switch(node->type) {
 	case IB_NODE_SWITCH:
@@ -161,8 +161,7 @@ list_node(ibnd_node_t *node, void *user_data)
 		break;
 	}
 	fprintf(f, "%s\t : 0x%016" PRIx64 " ports %d devid 0x%x vendid 0x%x \"%s\"\n",
-		node_type,
-		node->guid, node->numports,
+		node_type, node->guid, node->numports,
 		mad_get_field(node->info, 0, IB_NODE_DEVID_F),
 		mad_get_field(node->info, 0, IB_NODE_VENDORID_F),
 		nodename);
@@ -173,15 +172,12 @@ list_node(ibnd_node_t *node, void *user_data)
 void
 list_nodes(ibnd_fabric_t *fabric, int list)
 {
-	if (list & LIST_CA_NODE) {
+	if (list & LIST_CA_NODE)
 		ibnd_iter_nodes_type(fabric, list_node, IB_NODE_CA, NULL);
-	}
-	if (list & LIST_SWITCH_NODE) {
+	if (list & LIST_SWITCH_NODE)
 		ibnd_iter_nodes_type(fabric, list_node, IB_NODE_SWITCH, NULL);
-	}
-	if (list & LIST_ROUTER_NODE) {
+	if (list & LIST_ROUTER_NODE)
 		ibnd_iter_nodes_type(fabric, list_node, IB_NODE_ROUTER, NULL);
-	}
 }
 
 void
@@ -194,14 +190,12 @@ out_ids(ibnd_node_t *node, int group, char *chname)
 		mad_get_field(node->info, 0, IB_NODE_DEVID_F));
 	if (sysimgguid)
 		fprintf(f, "sysimgguid=0x%" PRIx64, sysimgguid);
-	if (group
-	    && node->chassis && node->chassis->chassisnum) {
+	if (group && node->chassis && node->chassis->chassisnum) {
 		fprintf(f, "\t\t# Chassis %d", node->chassis->chassisnum);
 		if (chname)
 			fprintf(f, " (%s)", clean_nodedesc(chname));
-		if (ibnd_is_xsigo_tca(node->guid)
-				&& node->ports[1]
-				&& node->ports[1]->remoteport)
+		if (ibnd_is_xsigo_tca(node->guid) && node->ports[1] &&
+		    node->ports[1]->remoteport)
 			fprintf(f, " slot %d", node->ports[1]->remoteport->portnum);
 	}
 	fprintf(f, "\n");
@@ -242,8 +236,7 @@ out_switch(ibnd_node_t *node, int group, char *chname)
 	nodename = remap_node_name(node_name_map, node->guid, node->nodedesc);
 
 	fprintf(f, "\nSwitch\t%d %s\t\t# \"%s\" %s port 0 lid %d lmc %d\n",
-		node->numports, node_name(node),
-		nodename,
+		node->numports, node_name(node), nodename,
 		node->smaenhsp0 ? "enhanced" : "base",
 		node->smalid, node->smalmc);
 
@@ -314,13 +307,12 @@ out_switch_port(ibnd_port_t *port, int group)
 		fprintf(f, "%s", ext_port_str);
 
 	rem_nodename = remap_node_name(node_name_map,
-				port->remoteport->node->guid,
-				port->remoteport->node->nodedesc);
+				       port->remoteport->node->guid,
+				       port->remoteport->node->nodedesc);
 
 	ext_port_str = out_ext_port(port->remoteport, group);
 	fprintf(f, "\t%s[%d]%s",
-		node_name(port->remoteport->node),
-		port->remoteport->portnum,
+		node_name(port->remoteport->node), port->remoteport->portnum,
 		ext_port_str ? ext_port_str : "");
 	if (port->remoteport->node->type != IB_NODE_SWITCH)
 		fprintf(f, "(%" PRIx64 ") ", port->remoteport->guid);
@@ -355,8 +347,7 @@ out_ca_port(ibnd_port_t *port, int group)
 	if (port->node->type != IB_NODE_SWITCH)
 		fprintf(f, "(%" PRIx64 ") ", port->guid);
 	fprintf(f, "\t%s[%d]",
-		node_name(port->remoteport->node),
-		port->remoteport->portnum);
+		node_name(port->remoteport->node), port->remoteport->portnum);
 	str = out_ext_port(port->remoteport, group);
 	if (str)
 		fprintf(f, "%s", str);
@@ -364,8 +355,8 @@ out_ca_port(ibnd_port_t *port, int group)
 		fprintf(f, " (%" PRIx64 ") ", port->remoteport->guid);
 
 	rem_nodename = remap_node_name(node_name_map,
-				port->remoteport->node->guid,
-				port->remoteport->node->nodedesc);
+				       port->remoteport->node->guid,
+				       port->remoteport->node->nodedesc);
 
 	fprintf(f, "\t\t# lid %d lmc %d \"%s\" lid %d %s%s\n",
 		port->base_lid, port->lmc, rem_nodename,
@@ -513,7 +504,7 @@ dump_topology(int group, ibnd_fabric_t *fabric)
 
 			fprintf(f, "\n# Chassis Switches");
 			for (node = ch->nodes; node;
-					node = node->next_chassis_node) {
+			     node = node->next_chassis_node) {
 				if (node->type == IB_NODE_SWITCH) {
 					out_switch(node, group, chname);
 					for (p = 1; p <= node->numports; p++) {
@@ -527,7 +518,7 @@ dump_topology(int group, ibnd_fabric_t *fabric)
 
 			fprintf(f, "\n# Chassis CAs");
 			for (node = ch->nodes; node;
-					node = node->next_chassis_node) {
+			     node = node->next_chassis_node) {
 				if (node->type == IB_NODE_CA) {
 					out_ca(node, group, chname);
 					for (p = 1; p <= node->numports; p++) {
@@ -545,7 +536,7 @@ dump_topology(int group, ibnd_fabric_t *fabric)
 		iter_user_data.group = group;
 		iter_user_data.skip_chassis_nodes = 0;
 		ibnd_iter_nodes_type(fabric, switch_iter_func,
-				IB_NODE_SWITCH, &iter_user_data);
+				     IB_NODE_SWITCH, &iter_user_data);
 	}
 
 	chname = NULL;
@@ -556,18 +547,17 @@ dump_topology(int group, ibnd_fabric_t *fabric)
 		fprintf(f, "\nNon-Chassis Nodes\n");
 
 		ibnd_iter_nodes_type(fabric, switch_iter_func,
-				IB_NODE_SWITCH, &iter_user_data);
+				     IB_NODE_SWITCH, &iter_user_data);
 	}
 
 	iter_user_data.group = group;
 	iter_user_data.skip_chassis_nodes = 0;
 	/* Make pass on CAs */
-	ibnd_iter_nodes_type(fabric, ca_iter_func, IB_NODE_CA,
-			&iter_user_data);
+	ibnd_iter_nodes_type(fabric, ca_iter_func, IB_NODE_CA, &iter_user_data);
 
-	/* make pass on routers */
+	/* Make pass on routers */
 	ibnd_iter_nodes_type(fabric, router_iter_func, IB_NODE_ROUTER,
-			&iter_user_data);
+			     &iter_user_data);
 
 	return i;
 }
@@ -578,8 +568,7 @@ void dump_ports_report (ibnd_node_t *node, void *user_data)
 	ibnd_port_t *port = NULL;
 
 	/* for each port */
-	for (p = node->numports, port = node->ports[p];
-	     p > 0;
+	for (p = node->numports, port = node->ports[p]; p > 0;
 	     port = node->ports[--p]) {
 		uint32_t iwidth, ispeed;
 		if (port == NULL)
@@ -591,8 +580,7 @@ void dump_ports_report (ibnd_node_t *node, void *user_data)
 			ports_nt_str_compat(node),
 			node->type == IB_NODE_SWITCH ?
 				node->smalid : port->base_lid,
-			port->portnum,
-			port->guid,
+			port->portnum, port->guid,
 			dump_linkwidth_compat(iwidth),
 			dump_linkspeed_compat(ispeed));
 		if (port->remoteport)
@@ -604,12 +592,10 @@ void dump_ports_report (ibnd_node_t *node, void *user_data)
 					port->remoteport->node->smalid :
 					port->remoteport->base_lid,
 				port->remoteport->portnum,
-				port->remoteport->guid,
-				port->node->nodedesc,
+				port->remoteport->guid, port->node->nodedesc,
 				port->remoteport->node->nodedesc);
 		else
-			fprintf(stdout, "%36s'%s'\n", "",
-				port->node->nodedesc);
+			fprintf(stdout, "%36s'%s'\n", "", port->node->nodedesc);
 	}
 }
 
