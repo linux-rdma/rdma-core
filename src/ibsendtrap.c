@@ -53,13 +53,13 @@ struct ibmad_port *srcport;
 /* for local link integrity */
 int error_port = 1;
 
-static int get_node_type(ib_portid_t *port)
+static uint16_t get_node_type(ib_portid_t *port)
 {
-	int node_type = IB_NODE_TYPE_CA;
+	uint16_t node_type = IB_NODE_TYPE_CA;
 	uint8_t data[IB_SMP_DATA_SIZE];
 
 	if (smp_query_via(data, port, IB_ATTR_NODE_INFO, 0, 0, srcport))
-		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
+		node_type = (uint16_t)mad_get_field(data, 0, IB_NODE_TYPE_F);
 	return node_type;
 }
 
@@ -68,8 +68,8 @@ static void build_trap144(ib_mad_notice_attr_t * n, ib_portid_t *port)
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
 	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
 	n->g_or_v.generic.trap_num = cl_hton16(144);
-	n->issuer_lid = cl_hton16(port->lid);
-	n->data_details.ntc_144.lid = cl_hton16(port->lid);
+	n->issuer_lid = cl_hton16((uint16_t) port->lid);
+	n->data_details.ntc_144.lid = n->issuer_lid;
 	n->data_details.ntc_144.local_changes =
 	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
 	n->data_details.ntc_144.change_flgs =
@@ -81,8 +81,8 @@ static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t *port)
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_URGENT;
 	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
 	n->g_or_v.generic.trap_num = cl_hton16(129);
-	n->issuer_lid = cl_hton16(port->lid);
-	n->data_details.ntc_129_131.lid = cl_hton16(port->lid);
+	n->issuer_lid = cl_hton16((uint16_t) port->lid);
+	n->data_details.ntc_129_131.lid = n->issuer_lid;
 	n->data_details.ntc_129_131.pad = 0;
 	n->data_details.ntc_129_131.port_num = (uint8_t) error_port;
 }
