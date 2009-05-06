@@ -88,6 +88,7 @@ struct ibnd_fabric {
 	struct ibnd_node *switches;
 	struct ibnd_node *ch_adapters;
 	struct ibnd_node *routers;
+	ib_portid_t selfportid;
 };
 #define CONV_FABRIC_INTERNAL(fabric) ((struct ibnd_fabric *)fabric)
 

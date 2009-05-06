@@ -177,11 +177,25 @@ add_port_to_dpath(ib_dr_path_t *path, int nextport)
 }
 
 static int
-extend_dpath(struct ibnd_fabric *f, ib_dr_path_t *path, int nextport)
+extend_dpath(struct ibnd_fabric *f, ib_portid_t *portid, int nextport)
 {
-	int rc = add_port_to_dpath(path, nextport);
-	if ((rc != -1) && (path->cnt > f->fabric.maxhops_discovered))
-		f->fabric.maxhops_discovered = path->cnt;
+	int rc = 0;
+
+	if (portid->lid) {
+		/* If we were LID routed we need to set up the drslid */
+		if (!f->selfportid.lid)
+			if (ib_resolve_self_via(&f->selfportid, NULL, NULL,
+					f->fabric.ibmad_port) < 0)
+				return -1;
+
+		portid->drpath.drslid = f->selfportid.lid;
+		portid->drpath.drdlid = 0xFFFF;
+	}
+
+	rc = add_port_to_dpath(&portid->drpath, nextport);
+
+	if ((rc != -1) && (portid->drpath.cnt > f->fabric.maxhops_discovered))
+		f->fabric.maxhops_discovered = portid->drpath.cnt;
 	return (rc);
 }
 
@@ -447,7 +461,7 @@ get_remote_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd_
 			!= IB_PORT_PHYS_STATE_LINKUP)
 		return -1;
 
-	if (extend_dpath(fabric, &path->drpath, portnum) < 0)
+	if (extend_dpath(fabric, path, portnum) < 0)
 		return -1;
 
 	if (query_node(fabric, &node_buf, &port_buf, path)) {
@@ -546,8 +560,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 	if (!port)
 		IBPANIC("out of memory");
 
-	if (node->node.type != IB_NODE_SWITCH &&
-	    get_remote_node(fabric, node, port, from,
+	if(get_remote_node(fabric, node, port, from,
 				mad_get_field(node->node.info, 0, IB_NODE_LOCAL_PORT_F),
 				0) < 0)
 		return ((ibnd_fabric_t *)fabric);
