@@ -123,7 +123,6 @@ print_port_config(ibnd_node_t *node, int portnum)
 	char speed_msg[256];
 	char ext_port_str[256];
 	int iwidth, ispeed, istate, iphystate;
-	int n = 0;
 
 	ibnd_port_t *port = node->ports[portnum];
 
@@ -140,7 +139,7 @@ print_port_config(ibnd_node_t *node, int portnum)
 	width_msg[0] = '\0';
 	speed_msg[0] = '\0';
 
-	n = snprintf(link_str, 256, "(%3s %s %6s/%8s)",
+	snprintf(link_str, 256, "(%3s %s %6s/%8s)",
 		mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64, &iwidth),
 		mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64, &ispeed),
 		mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
@@ -177,9 +176,9 @@ print_port_config(ibnd_node_t *node, int portnum)
 		ext_port_str[0] = '\0';
 
 	if (node->type == IB_NODE_SWITCH)
-		printf("       %6d", node->smalid);
+		printf("       Link info: %6d", node->smalid);
 	else
-		printf("       %6d", port->base_lid);
+		printf("       Link info: %6d", port->base_lid);
 
 	printf("%4d[%2s] ==%s==>  %s",
 		port->portnum, ext_port_str, link_str, remote_str);
@@ -211,7 +210,7 @@ report_suppressed(void)
 }
 
 static void
-print_results(ibnd_node_t *node, uint8_t *pc, int portnum)
+print_results(ibnd_node_t *node, uint8_t *pc, int portnum, int *header_printed)
 {
 	char buf[1024];
 	char *str = buf;
@@ -237,7 +236,6 @@ print_results(ibnd_node_t *node, uint8_t *pc, int portnum)
 
 	/* if we found errors. */
 	if (n != 0) {
-		char *nodename = remap_node_name(node_name_map, node->guid, node->nodedesc);
 		if (data_counters)
 			for (i = IB_PC_XMT_BYTES_F; i <= IB_PC_RCV_PKTS_F; i++) {
 				uint64_t val64 = 0;
@@ -247,17 +245,21 @@ print_results(ibnd_node_t *node, uint8_t *pc, int portnum)
 						mad_field_name(i), val64);
 			}
 
-		printf("Errors for 0x%" PRIx64 " \"%s\"\n", node->guid, nodename);
-		printf("   GUID 0x%" PRIx64 " port %d:%s\n",
-			node->guid, portnum, str);
+		if (!*header_printed) {
+			char *nodename = remap_node_name(node_name_map, node->guid, node->nodedesc);
+			printf("Errors for 0x%" PRIx64 " \"%s\"\n", node->guid, nodename);
+			*header_printed = 1;
+			free(nodename);
+		}
+
+		printf("   GUID 0x%" PRIx64 " port %d:%s\n", node->guid, portnum, str);
 		if (port_config)
 			print_port_config(node, portnum);
-		free(nodename);
 	}
 }
 
 static void
-print_port(ibnd_node_t *node, int portnum)
+print_port(ibnd_node_t *node, int portnum, int *header_printed)
 {
 	uint8_t pc[1024];
 	uint16_t cap_mask;
@@ -291,7 +293,7 @@ print_port(ibnd_node_t *node, int portnum)
 		uint32_t foo = 0;
 		mad_encode_field(pc, IB_PC_XMT_WAIT_F, &foo);
 	}
-	print_results(node, pc, portnum);
+	print_results(node, pc, portnum, header_printed);
 
 cleanup:
 	free(nodename);
@@ -300,6 +302,7 @@ cleanup:
 void
 print_node(ibnd_node_t *node, void *user_data)
 {
+	int header_printed = 0;
 	int p = 0;
 	int startport = 1;
 
@@ -311,7 +314,7 @@ print_node(ibnd_node_t *node, void *user_data)
 
 	for (p = startport; p <= node->numports; p++) {
 		if (node->ports[p]) {
-			print_port(node, p);
+			print_port(node, p, &header_printed);
 		}
 	}
 }
