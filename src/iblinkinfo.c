@@ -205,13 +205,8 @@ void
 print_switch(ibnd_node_t *node, void *user_data)
 {
 	int i = 0;
-
-	if (!line_mode) {
-		char *remap = remap_node_name(node_name_map, node->guid,
-					node->nodedesc);
-		printf("Switch 0x%016"PRIx64" %s:\n", node->guid, remap);
-		free(remap);
-	}
+	int head_print = 0;
+	char *remap = remap_node_name(node_name_map, node->guid, node->nodedesc);
 
 	for (i = 1; i <= node->numports; i++) {
 		ibnd_port_t *port = node->ports[i];
@@ -219,9 +214,14 @@ print_switch(ibnd_node_t *node, void *user_data)
 			continue;
 		if (!down_links_only ||
 				mad_get_field(port->info, 0, IB_PORT_STATE_F) == IB_LINK_DOWN) {
+			if (!head_print && !line_mode) {
+				printf("Switch 0x%016"PRIx64" %s:\n", node->guid, remap);
+				head_print = 1;
+			}
 			print_port(node, port);
 		}
 	}
+	free(remap);
 }
 
 void
