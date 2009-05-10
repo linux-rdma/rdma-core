@@ -1470,7 +1470,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		node_print_desc = ALL_DESC;
 		break;
 	case 'c':
-		command = CLASS_PORT_INFO;
+		command = SAQUERY_CMD_CLASS_PORT_INFO;
 		break;
 	case 'S':
 		query_type = IB_SA_ATTR_SERVICERECORD;
