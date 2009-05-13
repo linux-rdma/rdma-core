@@ -65,6 +65,8 @@ static FILE *f;
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 
+static int report_max_hops = 0;
+
 /**
  * Define our own conversion functions to maintain compatibility with the old
  * ibnetdiscover which did not use the ibmad conversion functions.
@@ -448,7 +450,8 @@ dump_topology(int group, ibnd_fabric_t *fabric)
 	struct iter_user_data iter_user_data;
 
 	fprintf(f, "#\n# Topology file: generated on %s#\n", ctime(&t));
-	fprintf(f, "# Max of %d hops discovered\n", fabric->maxhops_discovered);
+	if (report_max_hops)
+		fprintf(f, "# Reported max hops discovered: %d\n", fabric->maxhops_discovered);
 	fprintf(f, "# Initiated from node %016" PRIx64 " port %016" PRIx64 "\n",
 		fabric->from_node->guid,
 		mad_get_field64(fabric->from_node->info, 0, IB_NODE_PORT_GUID_F));
@@ -628,6 +631,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'p':
 		ports_report = 1;
 		break;
+	case 'm':
+		report_max_hops = 1;
+		break;
 	default:
 		return -1;
 	}
@@ -651,6 +657,7 @@ int main(int argc, char **argv)
 		{ "Router_list", 'R', 0, NULL, "list of connected routers" },
 		{ "node-name-map", 1, 1, "<file>", "node name map file" },
 		{ "ports", 'p', 0, NULL, "obtain a ports report" },
+		{ "max_hops", 'm', 0, NULL, "report max hops discovered by the library" },
 		{ 0 }
 	};
 	char usage_args[] = "[topology-file]";
