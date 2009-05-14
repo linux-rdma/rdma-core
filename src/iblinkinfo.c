@@ -395,11 +395,18 @@ main(int argc, char **argv)
 			goto close_port;
 		}
 
-	if (guid) {
+	if (guid_str) {
 		ibnd_node_t *sw = ibnd_find_node_guid(fabric, guid);
-		print_switch(sw, NULL);
+		if (sw)
+			print_switch(sw, NULL);
+		else
+			fprintf(stderr, "Failed to find switch: %s\n", guid_str);
 	} else if (dr_path) {
 		ibnd_node_t *sw = ibnd_find_node_dr(fabric, dr_path);
+		if (sw)
+			print_switch(sw, NULL);
+		else
+			fprintf(stderr, "Failed to find switch: %s\n", dr_path);
 		print_switch(sw, NULL);
 	} else {
 		ibnd_iter_nodes_type(fabric, print_switch, IB_NODE_SWITCH, NULL);

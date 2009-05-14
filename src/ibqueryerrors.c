@@ -445,10 +445,16 @@ main(int argc, char **argv)
 
 	if (switch_guid) {
 		ibnd_node_t *node = ibnd_find_node_guid(fabric, switch_guid);
-		print_node(node, NULL);
+		if (node)
+			print_node(node, NULL);
+		else
+			fprintf(stderr, "Failed to find node: %s\n", switch_guid_str);
 	} else if (dr_path) {
 		ibnd_node_t *node = ibnd_find_node_dr(fabric, dr_path);
-		print_node(node, NULL);
+		if (node)
+			print_node(node, NULL);
+		else
+			fprintf(stderr, "Failed to find node: %s\n", dr_path);
 	} else
 		ibnd_iter_nodes(fabric, print_node, NULL);
 
