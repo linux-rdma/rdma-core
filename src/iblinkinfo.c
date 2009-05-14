@@ -52,7 +52,6 @@
 #include <infiniband/ibnetdisc.h>
 
 char *argv0 = "iblinkinfotest";
-static FILE *f;
 
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
@@ -294,8 +293,6 @@ main(int argc, char **argv)
 		{ 0 }
 	};
 
-	f = stdout;
-
 	argv0 = argv[0];
 
 	while (1) {
@@ -356,9 +353,6 @@ main(int argc, char **argv)
 	}
 	argc -= optind;
 	argv += optind;
-
-	if (argc && !(f = fopen(argv[0], "w")))
-		fprintf(stderr, "can't open file %s for writing", argv[0]);
 
 	ibmad_port = mad_rpc_open_port(ca, ca_port, mgmt_classes, 3);
 	if (!ibmad_port) {
