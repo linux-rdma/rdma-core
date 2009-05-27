@@ -188,7 +188,7 @@ extend_dpath(struct ibnd_fabric *f, ib_portid_t *portid, int nextport)
 					f->fabric.ibmad_port) < 0)
 				return -1;
 
-		portid->drpath.drslid = f->selfportid.lid;
+		portid->drpath.drslid = (uint16_t) f->selfportid.lid;
 		portid->drpath.drdlid = 0xFFFF;
 	}
 
