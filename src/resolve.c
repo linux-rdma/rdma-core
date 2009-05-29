@@ -59,6 +59,7 @@ int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_SMLID_F, &lid);
+	mad_decode_field(portinfo, IB_PORT_SMSL_F, &sm_id->sl);
 
 	return ib_portid_set(sm_id, lid, 0, 0);
 }
@@ -74,12 +75,23 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 {
 	ib_portid_t sm_portid;
 	char buf[IB_SA_DATA_SIZE] = { 0 };
+	ib_portid_t self = { 0 };
+	uint64_t selfguid;
+	ibmad_gid_t selfgid;
+	uint8_t nodeinfo[64];
 
 	if (!sm_id) {
 		sm_id = &sm_portid;
 		if (ib_resolve_smlid_via(sm_id, timeout, srcport) < 0)
 			return -1;
 	}
+
+	if (!smp_query_via(nodeinfo, &self, IB_ATTR_NODE_INFO, 0, 0, srcport))
+		return -1;
+	mad_decode_field(nodeinfo, IB_NODE_PORT_GUID_F, &selfguid);
+	mad_set_field64(selfgid, 0, IB_GID_PREFIX_F, IB_DEFAULT_SUBN_PREFIX);
+	mad_set_field64(selfgid, 0, IB_GID_GUID_F, selfguid);
+
 	if (*(uint64_t *) & portid->gid == 0)
 		mad_set_field64(portid->gid, 0, IB_GID_PREFIX_F,
 				IB_DEFAULT_SUBN_PREFIX);
@@ -87,10 +99,11 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 		mad_set_field64(portid->gid, 0, IB_GID_GUID_F, *guid);
 
 	if ((portid->lid =
-	     ib_path_query_via(srcport, portid->gid, portid->gid, sm_id,
+	     ib_path_query_via(srcport, selfgid, portid->gid, sm_id,
 			       buf)) < 0)
 		return -1;
 
+	mad_decode_field(buf, IB_SA_PR_SL_F, &portid->sl);
 	return 0;
 }
 
@@ -167,6 +180,7 @@ int ib_resolve_self_via(ib_portid_t * portid, int *portnum, ibmad_gid_t * gid,
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_LID_F, &portid->lid);
+	mad_decode_field(portinfo, IB_PORT_SMSL_F, &portid->sl);
 	mad_decode_field(portinfo, IB_PORT_GID_PREFIX_F, &prefix);
 	mad_decode_field(nodeinfo, IB_NODE_PORT_GUID_F, &guid);
 
