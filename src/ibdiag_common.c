@@ -92,7 +92,7 @@ static void pretty_print(int start, int width, const char *str)
 		}
 		if (e - str == 1)
 			e = p;
-		fprintf(stderr, "%.*s\n%*s", e - str, str, start, "");
+		fprintf(stderr, "%.*s\n%*s", (int)(e - str), str, start, "");
 		str = e;
 	}
 }
