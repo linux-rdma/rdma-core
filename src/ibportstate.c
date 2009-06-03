@@ -275,8 +275,10 @@ int main(int argc, char **argv)
 
 	/* Only if one of the "set" options is chosen */
 	if (port_op) {
-		if (port_op == 1)		/* Enable port */
+		if (port_op == 1) {		/* Enable port */
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 2);	/* Polling */
+			mad_set_field(data, 0, IB_PORT_STATE_F, 0);             /* No Change */
+		}
 		else if ((port_op == 2) || (port_op == 3)) { /* Disable port */
 			mad_set_field(data, 0, IB_PORT_STATE_F, 1);             /* Down */
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 3);        /* Disabled */
@@ -292,6 +294,7 @@ int main(int argc, char **argv)
 
 		if (port_op == 3) {	/* Reset port - so also enable */
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 2);	/* Polling */
+			mad_set_field(data, 0, IB_PORT_STATE_F, 0);             /* No Change */
 			err = set_port_info(&portid, data, portnum, port_op);
 			if (err < 0)
 				IBERROR("smp set portinfo failed");
