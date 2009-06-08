@@ -233,6 +233,9 @@ int main(int argc, char **argv)
 				ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
+	if (argc > 1)
+		portnum = strtol(argv[1], 0, 0);
+
 	/* First, make sure it is a switch port if it is a "set" */
 	if (argc >= 3) {
 		if (!strcmp(argv[2], "enable"))
@@ -258,12 +261,9 @@ int main(int argc, char **argv)
 	if (err) {		/* not switch */
 		if (port_op == 0)	/* query op */
 			is_switch = 0;
-		else if (port_op != 4)	/* other than speed op */
-			IBERROR("smp query nodeinfo: Node type not switch");
+		else if (port_op == 2)	/* disable */
+			IBERROR("Node type not switch - disable not allowed");
 	}
-
-	if (argc-1 > 0)
-		portnum = strtol(argv[1], 0, 0);
 
 	if (port_op)
 		printf("Initial PortInfo:\n");
@@ -275,11 +275,11 @@ int main(int argc, char **argv)
 
 	/* Only if one of the "set" options is chosen */
 	if (port_op) {
-		if (port_op == 1) {		/* Enable port */
+		if ((port_op == 1) || (port_op == 3)) {		/* Enable or Reset port */
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 2);	/* Polling */
 			mad_set_field(data, 0, IB_PORT_STATE_F, 0);             /* No Change */
-		}
-		else if ((port_op == 2) || (port_op == 3)) { /* Disable port */
+		} else if (port_op == 2) { /* Disable port */
+			printf("Disable may be irreversible\n");
 			mad_set_field(data, 0, IB_PORT_STATE_F, 1);             /* Down */
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 3);        /* Disabled */
 		} else if (port_op == 4) {	/* Set speed */
@@ -291,14 +291,6 @@ int main(int argc, char **argv)
 		err = set_port_info(&portid, data, portnum, port_op);
 		if (err < 0)
 			IBERROR("smp set portinfo failed");
-
-		if (port_op == 3) {	/* Reset port - so also enable */
-			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 2);	/* Polling */
-			mad_set_field(data, 0, IB_PORT_STATE_F, 0);             /* No Change */
-			err = set_port_info(&portid, data, portnum, port_op);
-			if (err < 0)
-				IBERROR("smp set portinfo failed");
-		}
 	} else {	/* query op */
 		/* only compare peer port if switch port */
 		if (is_switch) {
