@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2006 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -74,7 +75,7 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 			const struct ibmad_port *srcport)
 {
 	ib_portid_t sm_portid;
-	char buf[IB_SA_DATA_SIZE] = { 0 };
+	uint8_t buf[IB_SA_DATA_SIZE] = { 0 };
 	ib_portid_t self = { 0 };
 	uint64_t selfguid;
 	ibmad_gid_t selfgid;
