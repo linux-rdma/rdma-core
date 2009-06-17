@@ -32,7 +32,7 @@ Description: Development files for the libmlx4 driver
  directly to an application, which may be useful for debugging.
 
 Package: libmlx4-1-dbg
-Section: libdevel
+Section: debug
 Priority: extra
 Architecture: any
 Depends: ${misc:Depends}, libmlx4-1 (= ${binary:Version})
