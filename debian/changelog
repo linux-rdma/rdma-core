@@ -1,10 +1,14 @@
-libmlx4 (1.0-2) unstable; urgency=low
+libmlx4 (1.0.1-1) unstable; urgency=low
 
   * Add debian/watch file.
   * Move -dbg package to section debug.
   * Update to Standards-Version: 3.8.2.
+  * New upstream release.
+    - Fix potential problems running under Valgrind.
+    - Add support for resize CQ operation.
+    - Fix other minor bugs.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 17 Jun 2009 10:26:42 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 17 Jun 2009 10:56:33 -0700
 
 libmlx4 (1.0-1) unstable; urgency=low
 

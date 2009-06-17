@@ -1,6 +1,6 @@
 Name: libmlx4
-Version: 1.0
-Release: 3%{?dist}
+Version: 1.0.1
+Release: 1%{?dist}
 Summary: Mellanox ConnectX InfiniBand HCA Userspace Driver
 
 Group: System Environment/Libraries
@@ -52,6 +52,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libmlx4.a
 
 %changelog
+* Wed Jun 17 2009 Roland Dreier <rdreier@cisco.com> - 1.0.1-1
+- New upstream release
+- Change openib.org URLs to openfabrics.org URLs
+
 * Wed Feb 25 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_11_Mass_Rebuild
 
