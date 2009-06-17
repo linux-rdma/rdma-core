@@ -1,8 +1,9 @@
 libmlx4 (1.0-2) unstable; urgency=low
 
   * Add debian/watch file
+  * Update to Standards-Version: 3.8.2.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 12 Mar 2008 10:40:19 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 17 Jun 2009 10:04:22 -0700
 
 libmlx4 (1.0-1) unstable; urgency=low
 
