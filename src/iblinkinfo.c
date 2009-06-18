@@ -59,7 +59,7 @@ static nn_map_t *node_name_map = NULL;
 static uint64_t guid = 0;
 static char *guid_str = NULL;
 static char *dr_path = NULL;
-static char *from = NULL;
+static int all = 0;
 static int hops = 0;
 
 static int down_links_only = 0;
@@ -240,8 +240,8 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'D':
 		dr_path = strdup(optarg);
 		break;
-	case 'f':
-		from = strdup(optarg);
+	case 'a':
+		all = 1;
 		break;
 	case 'n':
 		hops = (int)strtol(optarg, NULL, 0);
@@ -271,8 +271,8 @@ static int process_opt(void *context, int ch, char *optarg)
 int
 main(int argc, char **argv)
 {
-
 	int rc = 0;
+	int resolved = -1;
 	ibnd_fabric_t *fabric = NULL;
 	struct ibmad_port *ibmad_port;
 	ib_portid_t port_id = {0};
@@ -282,7 +282,7 @@ main(int argc, char **argv)
 		{ "node-name-map", 1, 1, "<file>", "node name map file" },
 		{ "switch", 'S', 1, "<switch_guid>", "query only <switch_guid> (hex format)"},
 		{ "Direct", 'D', 1, "<dr_path>", "query only node specified by <dr_path>"},
-		{ "from", 'f', 1, "<from>", "specify node to start \"<from>\""},
+		{ "all", 'a', 0, NULL, "print all switches found in a partial fabric scan"},
 		{ "hops", 'n', 1, "<hops>", "Number of hops to include away from specified node"},
 		{ "down", 'd', 0, NULL, "print only down links"},
 		{ "line", 'l', 0, NULL, "(line mode) print all information for each link on a single line"},
@@ -293,7 +293,7 @@ main(int argc, char **argv)
 	};
 	char usage_args[] = "";
 
-	ibdiag_process_opts(argc, argv, "sDLG", "SDfndlpgR", opts, process_opt,
+	ibdiag_process_opts(argc, argv, "sDLG", "SDandlpgR", opts, process_opt,
 			    usage_args, NULL);
 
 	argc -= optind;
@@ -310,49 +310,53 @@ main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (from) {
+	if (dr_path) {
 		/* only scan part of the fabric */
-		str2drpath(&(port_id.drpath), from, 0, 0);
-		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &port_id, hops)) == NULL) {
-			fprintf(stderr, "discover failed\n");
-			rc = 1;
-			goto close_port;
-		}
-		guid = 0;
+		if ((resolved = ib_resolve_portid_str_via(&port_id, dr_path, IB_DEST_DRPATH,
+				NULL, ibmad_port)) < 0)
+			IBWARN("Failed to resolve %s; attempting full scan\n",
+				dr_path);
 	} else if (guid_str) {
-		if (ib_resolve_portid_str_via(&port_id, guid_str, IB_DEST_GUID,
-				NULL, ibmad_port) >= 0) {
-			if ((fabric = ibnd_discover_fabric(ibmad_port,
-					ibd_timeout, &port_id, 1)) == NULL)
-				IBWARN("Single node discover failed; attempting full scan\n");
-		} else
+		if ((resolved = ib_resolve_portid_str_via(&port_id, guid_str, IB_DEST_GUID,
+				NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
 				guid_str);
 	}
 
-	if (!fabric) /* do a full scan */
+	if (resolved >= 0)
+		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &port_id,
+				hops)) == NULL)
+			IBWARN("Single node discover failed; attempting full scan\n");
+
+	if (!fabric)
 		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
 			goto close_port;
 		}
 
-	if (guid_str) {
+	if (!all && guid_str) {
 		ibnd_node_t *sw = ibnd_find_node_guid(fabric, guid);
 		if (sw)
 			print_switch(sw, NULL);
 		else
 			fprintf(stderr, "Failed to find switch: %s\n", guid_str);
-	} else if (dr_path) {
-		ibnd_node_t *sw = ibnd_find_node_dr(fabric, dr_path);
+	} else if (!all && dr_path) {
+		ibnd_node_t *sw = NULL;
+		uint8_t ni[IB_SMP_DATA_SIZE];
+
+		if (!smp_query_via(ni, &port_id, IB_ATTR_NODE_INFO, 0,
+				ibd_timeout, ibmad_port))
+			return -1;
+		mad_decode_field(ni, IB_NODE_GUID_F, &(guid));
+
+		sw = ibnd_find_node_guid(fabric, guid);
 		if (sw)
 			print_switch(sw, NULL);
 		else
 			fprintf(stderr, "Failed to find switch: %s\n", dr_path);
-		print_switch(sw, NULL);
-	} else {
+	} else
 		ibnd_iter_nodes_type(fabric, print_switch, IB_NODE_SWITCH, NULL);
-	}
 
 	ibnd_destroy_fabric(fabric);
 
