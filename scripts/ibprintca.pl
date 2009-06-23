@@ -122,6 +122,13 @@ sub main
 		}
 
 	}
+
+	if ($in_hca eq "yes") {
+		foreach my $port (sort { $a <=> $b } (keys %ports)) {
+			print $ports{$port};
+		}
+	}
+
 	if ($found_hca == 0) {
 		die "\"$target_hca\" not found\n" .
 			"   Try running with the \"-R\" option.\n" .
