@@ -15,3 +15,5 @@ Makefile
 config.status
 stamp-h1
 libtool
+shave
+shave-libtool
