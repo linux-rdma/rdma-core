@@ -44,7 +44,7 @@ Description: Development files for the libibverbs library
  needed for compiling.
 
 Package: libibverbs1-dbg
-Section: libdevel
+Section: debug
 Priority: extra
 Architecture: any
 Depends: ${misc:Depends}, libibverbs1 (= ${binary:Version})

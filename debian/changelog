@@ -1,3 +1,9 @@
+libibverbs (1.1.2-2) unstable; urgency=low
+
+  * Move -dbg package to section debug.
+
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 24 Jun 2009 11:39:19 -0700
+
 libibverbs (1.1.2-1) unstable; urgency=low
 
   * New upstream release.
