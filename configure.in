@@ -73,5 +73,6 @@ else
 fi
 AC_SUBST(MTHCA_VERSION_SCRIPT)
 
-AC_CONFIG_FILES([Makefile libmthca.spec])
+SHAVE_INIT([], [enable])
+AC_CONFIG_FILES([Makefile libmthca.spec shave shave-libtool])
 AC_OUTPUT
