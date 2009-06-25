@@ -2,7 +2,7 @@ Source: libibverbs
 Priority: extra
 Maintainer: Roland Dreier <rolandd@cisco.com>
 Build-Depends: @cdbs@, dpkg-dev (>= 1.13.19)
-Standards-Version: 3.7.3
+Standards-Version: 3.8.2
 Section: libs
 Homepage: http://www.openfabrics.org/
 
@@ -44,7 +44,7 @@ Description: Development files for the libibverbs library
  needed for compiling.
 
 Package: libibverbs1-dbg
-Section: libdevel
+Section: debug
 Priority: extra
 Architecture: any
 Depends: ${misc:Depends}, libibverbs1 (= ${binary:Version})
