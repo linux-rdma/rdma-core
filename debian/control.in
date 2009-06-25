@@ -2,7 +2,7 @@ Source: libmthca
 Priority: extra
 Maintainer: Roland Dreier <rolandd@cisco.com>
 Build-Depends: @cdbs@, dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.1)
-Standards-Version: 3.7.3
+Standards-Version: 3.8.2
 Section: libs
 Homepage: http://www.openfabrics.org/
 

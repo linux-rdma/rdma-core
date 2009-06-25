@@ -1,8 +1,9 @@
 libmthca (1.0.5-2) unstable; urgency=low
 
   * Move -dbg package to section debug.
+  * Update to Standards-Version: 3.8.2.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 17 Jun 2009 10:27:49 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Thu, 25 Jun 2009 10:29:52 -0700
 
 libmthca (1.0.5-1) unstable; urgency=low
 
