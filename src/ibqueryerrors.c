@@ -388,6 +388,8 @@ static int process_opt(void *context, int ch, char *optarg)
 int
 main(int argc, char **argv)
 {
+	int resolved = -1;
+	ib_portid_t portid = {0};
 	int rc = 0;
 	ibnd_fabric_t *fabric = NULL;
 
@@ -422,17 +424,22 @@ main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (switch_guid) {
-		/* limit the scan the fabric around the target */
-		ib_portid_t portid = {0};
-
-		if (ib_resolve_portid_str_via(&portid, switch_guid_str, IB_DEST_GUID,
-					ibd_sm_id, ibmad_port) >= 0) {
-			if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &portid, 1)) == NULL)
-				IBWARN("Single node discover failed; attempting full scan\n");
-		} else
+	/* limit the scan the fabric around the target */
+	if (dr_path) {
+		if ((resolved = ib_resolve_portid_str_via(&portid, dr_path, IB_DEST_DRPATH,
+				NULL, ibmad_port)) < 0)
+			IBWARN("Failed to resolve %s; attempting full scan\n",
+				dr_path);
+	} else if (switch_guid_str) {
+		if ((resolved = ib_resolve_portid_str_via(&portid, switch_guid_str, IB_DEST_GUID,
+					ibd_sm_id, ibmad_port)) >= 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n", switch_guid_str);
 	}
+
+	if (resolved >= 0)
+		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &portid,
+				0)) == NULL)
+			IBWARN("Single node discover failed; attempting full scan\n");
 
 	if (!fabric) /* do a full scan */
 		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL) {
@@ -443,7 +450,7 @@ main(int argc, char **argv)
 
 	report_suppressed();
 
-	if (switch_guid) {
+	if (switch_guid_str) {
 		ibnd_node_t *node = ibnd_find_node_guid(fabric, switch_guid);
 		if (node)
 			print_node(node, NULL);
@@ -451,6 +458,14 @@ main(int argc, char **argv)
 			fprintf(stderr, "Failed to find node: %s\n", switch_guid_str);
 	} else if (dr_path) {
 		ibnd_node_t *node = ibnd_find_node_dr(fabric, dr_path);
+		uint8_t ni[IB_SMP_DATA_SIZE];
+
+		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
+				ibd_timeout, ibmad_port))
+			return -1;
+		mad_decode_field(ni, IB_NODE_GUID_F, &(switch_guid));
+
+		node = ibnd_find_node_guid(fabric, switch_guid);
 		if (node)
 			print_node(node, NULL);
 		else
