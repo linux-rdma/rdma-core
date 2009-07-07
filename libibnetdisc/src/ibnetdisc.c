@@ -245,12 +245,12 @@ ibnd_find_node_guid(ibnd_fabric_t *fabric, uint64_t guid)
 }
 
 ibnd_node_t *
-ibnd_update_node(ibnd_node_t *node)
+ibnd_update_node(ibnd_fabric_t *fabric, ibnd_node_t *node)
 {
 	char portinfo_port0[IB_SMP_DATA_SIZE];
 	void *nd = node->nodedesc;
 	int p = 0;
-	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(node->fabric);
+	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	struct ibnd_node *n = CONV_NODE_INTERNAL(node);
 
 	if (query_node_info(f, n, &(n->node.path_portid)))
@@ -377,7 +377,6 @@ create_node(struct ibnd_fabric *fabric, struct ibnd_node *temp, ib_portid_t *pat
 	memcpy(node, temp, sizeof(*node));
 	node->node.dist = dist;
 	node->node.path_portid = *path;
-	node->node.fabric = (ibnd_fabric_t *)fabric;
 
 	add_to_nodeguid_hash(node, fabric->nodestbl);
 

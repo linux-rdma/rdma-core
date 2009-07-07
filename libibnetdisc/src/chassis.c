@@ -197,9 +197,8 @@ static uint64_t get_chassisguid(ibnd_node_t *node)
 		return sysimgguid;
 }
 
-static ibnd_chassis_t *find_chassisguid(ibnd_node_t *node)
+static ibnd_chassis_t *find_chassisguid(struct ibnd_fabric *f, ibnd_node_t *node)
 {
-	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(node->fabric);
 	ibnd_chassis_t *current;
 	uint64_t chguid;
 
@@ -790,7 +789,7 @@ ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric)
 			if (mad_get_field(node->node.info, 0, IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 				continue;
 			if (mad_get_field64(node->node.info, 0, IB_NODE_SYSTEM_GUID_F)) {
-				chassis = find_chassisguid((ibnd_node_t *)node);
+				chassis = find_chassisguid(fabric, (ibnd_node_t *)node);
 				if (chassis)
 					chassis->nodecount++;
 				else {
@@ -811,7 +810,7 @@ ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric)
 			if (mad_get_field(node->node.info, 0, IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 				continue;
 			if (mad_get_field64(node->node.info, 0, IB_NODE_SYSTEM_GUID_F)) {
-				chassis = find_chassisguid((ibnd_node_t *)node);
+				chassis = find_chassisguid(fabric, (ibnd_node_t *)node);
 				if (chassis && chassis->nodecount > 1) {
 					if (!chassis->chassisnum)
 						chassis->chassisnum = ++chassisnum;
