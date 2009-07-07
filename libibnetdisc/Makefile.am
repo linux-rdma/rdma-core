@@ -18,7 +18,7 @@ else
 libibnetdisc_version_script =
 endif
 
-libibnetdisc_la_SOURCES = src/ibnetdisc.c src/chassis.c src/chassis.h
+libibnetdisc_la_SOURCES = src/ibnetdisc.c src/chassis.c src/chassis.h src/internal.h
 libibnetdisc_la_CFLAGS = -Wall $(DBGFLAGS)
 libibnetdisc_la_LDFLAGS = -version-info $(ibnetdisc_api_version) \
 	-export-dynamic $(libibnetdisc_version_script) \
