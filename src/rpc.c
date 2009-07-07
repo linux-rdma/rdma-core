@@ -183,33 +183,68 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	return -1;
 }
 
+static int redirect_port(ib_portid_t *port, uint8_t *mad)
+{
+	port->lid = mad_get_field(mad, 64, IB_CPI_REDIRECT_LID_F);
+	if (!port->lid) {
+		IBWARN("GID-based redirection is not supported");
+		return -1;
+	}
+
+	port->qp = mad_get_field(mad, 64, IB_CPI_REDIRECT_QP_F);
+	port->qkey = mad_get_field(mad, 64, IB_CPI_REDIRECT_QKEY_F);
+	port->sl = mad_get_field(mad, 64, IB_CPI_REDIRECT_SL_F);
+
+	/* TODO: Reverse map redirection P_Key to P_Key index */
+
+	if (ibdebug)
+		IBWARN("redirected to lid %d, qp 0x%x, qkey 0x%x, sl 0x%x",
+		       port->lid, port->qp, port->qkey, port->sl);
+
+	return 0;
+}
+
 void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 	      ib_portid_t * dport, void *payload, void *rcvdata)
 {
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 	int timeout, retries;
+	int redirect = 1;
 
-	len = 0;
-	memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
+	while (redirect) {
+		len = 0;
+		memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
-	if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
-		return 0;
+		if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
+			return 0;
 
-	timeout = rpc->timeout ? rpc->timeout :
-	    port->timeout ? port->timeout : madrpc_timeout;
-	retries = port->retries ? port->retries : madrpc_retries;
+		timeout = rpc->timeout ? rpc->timeout :
+			port->timeout ? port->timeout : madrpc_timeout;
+		retries = port->retries ? port->retries : madrpc_retries;
 
-	if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
-			      port->class_agents[rpc->mgtclass],
-			      len, timeout, retries)) < 0) {
-		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
-		return 0;
+		if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
+				      port->class_agents[rpc->mgtclass],
+				      len, timeout, retries)) < 0) {
+			IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
+			return 0;
+		}
+
+		mad = umad_get_mad(rcvbuf);
+		status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F);
+
+		/* check for exact match instead of only the redirect bit;
+		 * that way, weird statuses cause an error, too */
+		if (status == IB_MAD_STS_REDIRECT) {
+			/* update dport for next request and retry */
+			/* bail if redirection fails */
+			if (redirect_port(dport, mad))
+				redirect = 0;
+		} else
+			redirect = 0;
 	}
 
-	mad = umad_get_mad(rcvbuf);
-
-	if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F)) != 0) {
+	if (status != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",
 		     status, portid2str(dport));
 		return 0;

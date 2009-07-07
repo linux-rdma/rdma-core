@@ -115,6 +115,8 @@ enum MAD_ATTR_ID {
 
 enum MAD_STATUS {
 	IB_MAD_STS_OK                        = (0 << 2),
+	IB_MAD_STS_BUSY                      = (1 << 0),
+	IB_MAD_STS_REDIRECT                  = (1 << 1),
 	IB_MAD_STS_BAD_BASE_VER_OR_CLASS     = (1 << 2),
 	IB_MAD_STS_METHOD_NOT_SUPPORTED      = (2 << 2),
 	IB_MAD_STS_METHOD_ATTR_NOT_SUPPORTED = (3 << 2),
@@ -783,8 +785,15 @@ MAD_EXPORT int madrpc_set_timeout(int timeout);
 MAD_EXPORT struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 			int *mgmt_classes, int num_classes);
 MAD_EXPORT void mad_rpc_close_port(struct ibmad_port *srcport);
+
+/*
+ * On redirection, the dport argument is updated with the redirection target,
+ * so subsequent MADs will not go through the redirection process again but
+ * reach the target directly.
+ */
 MAD_EXPORT void *mad_rpc(const struct ibmad_port *srcport, ib_rpc_t * rpc,
 			ib_portid_t * dport, void *payload, void *rcvdata);
+
 MAD_EXPORT void *mad_rpc_rmpp(const struct ibmad_port *srcport, ib_rpc_t * rpc,
 			      ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 			      void *data);

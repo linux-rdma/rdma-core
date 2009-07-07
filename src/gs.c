@@ -70,7 +70,8 @@ uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
 	rpc.datasz = IB_PC_DATA_SZ;
 	rpc.dataoffs = IB_PC_DATA_OFFS;
 
-	dest->qp = 1;
+	if (!dest->qp)
+		dest->qp = 1;
 	if (!dest->qkey)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
@@ -109,7 +110,8 @@ uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 	rpc.timeout = timeout;
 	rpc.datasz = IB_PC_DATA_SZ;
 	rpc.dataoffs = IB_PC_DATA_OFFS;
-	dest->qp = 1;
+	if (!dest->qp)
+		dest->qp = 1;
 	if (!dest->qkey)
 		dest->qkey = IB_DEFAULT_QP1_QKEY;
 
