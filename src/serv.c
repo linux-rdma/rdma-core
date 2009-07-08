@@ -64,7 +64,7 @@ int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 	DEBUG("rmpp %p data %p", rmpp, data);
 
 	if (mad_build_pkt(umad, rpc, dport, rmpp, data) < 0)
-		return 0;
+		return -1;
 
 	if (ibdebug) {
 		IBWARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
