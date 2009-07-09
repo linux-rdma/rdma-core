@@ -186,7 +186,7 @@ dump_multicast_tables(ib_portid_t *portid, unsigned startlid, unsigned endlid)
 		printf(" MLid\n");
 	}
 	if (ibverbose)
-		printf("Switch muticast mlids capability is 0x%d\n", cap);
+		printf("Switch multicast mlid capability is %d\n", cap);
 
 	chunks = ALIGN(nports + 1, 16) / 16;
 
