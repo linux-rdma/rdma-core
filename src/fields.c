@@ -633,7 +633,7 @@ static char *_mad_dump_field(const ib_field_t * f, const char *name, char *buf,
 	int l, n;
 
 	if (bufsz <= 32)
-		return 0;	/* buf too small */
+		return NULL;	/* buf too small */
 
 	if (!name)
 		name = f->name;
@@ -680,14 +680,14 @@ int mad_print_field(enum MAD_FIELDS field, const char *name, void *val)
 char *mad_dump_field(enum MAD_FIELDS field, char *buf, int bufsz, void *val)
 {
 	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
-		return 0;
+		return NULL;
 	return _mad_dump_field(ib_mad_f + field, 0, buf, bufsz, val);
 }
 
 char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz, void *val)
 {
 	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
-		return 0;
+		return NULL;
 	return _mad_dump_val(ib_mad_f + field, buf, bufsz, val);
 }
 

@@ -58,7 +58,7 @@ uint8_t *bm_call_via(void *data, ib_portid_t * portid, ib_bm_call_t * call,
 	DEBUG("route %s data %p", portid2str(portid), data);
 	if (portid->lid <= 0) {
 		IBWARN("only lid routes are supported");
-		return 0;
+		return NULL;
 	}
 
 	resp_expected = response_expected(call->method);

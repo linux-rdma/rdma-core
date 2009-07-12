@@ -66,11 +66,11 @@ uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
 
 	DEBUG("route %s data %p", portid2str(portid), data);
 	if (portid->lid <= 0)
-		return 0;	/* no direct SMI */
+		return NULL;	/* no direct SMI */
 
 	if (!(range1 = mad_is_vendor_range1(call->mgmt_class)) &&
 	    !(mad_is_vendor_range2(call->mgmt_class)))
-		return 0;
+		return NULL;
 
 	resp_expected = response_expected(call->method);
 

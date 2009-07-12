@@ -78,11 +78,11 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
 		if (!drpath) {
 			IBWARN("encoding dr mad without drpath (null)");
-			return 0;
+			return NULL;
 		}
 		if (drpath->cnt >= IB_SUBNET_PATH_HOPS_MAX) {
 			IBWARN("dr path with hop count %d", drpath->cnt);
-			return 0;
+			return NULL;
 		}
 		mad_set_field(buf, 0, IB_DRSMP_HOPCNT_F, drpath->cnt);
 		mad_set_field(buf, 0, IB_DRSMP_HOPPTR_F,

@@ -56,7 +56,7 @@ uint8_t *pma_query_via(void *rcvbuf, ib_portid_t * dest, int port,
 
 	if (lid == -1) {
 		IBWARN("only lid routed is supported");
-		return 0;
+		return NULL;
 	}
 
 	rpc.mgtclass = IB_PERFORMANCE_CLASS;
@@ -89,7 +89,7 @@ uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 
 	if (lid == -1) {
 		IBWARN("only lid routed is supported");
-		return 0;
+		return NULL;
 	}
 
 	if (!mask)

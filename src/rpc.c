@@ -218,7 +218,7 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 		memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
 		if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
-			return 0;
+			return NULL;
 
 		timeout = rpc->timeout ? rpc->timeout :
 			port->timeout ? port->timeout : madrpc_timeout;
@@ -228,7 +228,7 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 				      port->class_agents[rpc->mgtclass],
 				      len, timeout, retries)) < 0) {
 			IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
-			return 0;
+			return NULL;
 		}
 
 		mad = umad_get_mad(rcvbuf);
@@ -248,7 +248,7 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 	if (status != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",
 		     status, portid2str(dport));
-		return 0;
+		return NULL;
 	}
 
 	if (ibdebug) {
@@ -274,7 +274,7 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc,
 	DEBUG("rmpp %p data %p", rmpp, data);
 
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, rmpp, data)) < 0)
-		return 0;
+		return NULL;
 
 	timeout = rpc->timeout ? rpc->timeout :
 	    port->timeout ? port->timeout : madrpc_timeout;
@@ -284,7 +284,7 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc,
 			      port->class_agents[rpc->mgtclass],
 			      len, timeout, retries)) < 0) {
 		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
-		return 0;
+		return NULL;
 	}
 
 	mad = umad_get_mad(rcvbuf);
@@ -292,7 +292,7 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc,
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",
 		     status, portid2str(dport));
-		return 0;
+		return NULL;
 	}
 
 	if (ibdebug) {
@@ -306,7 +306,7 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc,
 		if ((rmpp->flags & 0x3) &&
 		    mad_get_field(mad, 0, IB_SA_RMPP_VERS_F) != 1) {
 			IBWARN("bad rmpp version");
-			return 0;
+			return NULL;
 		}
 		rmpp->type = mad_get_field(mad, 0, IB_SA_RMPP_TYPE_F);
 		rmpp->status = mad_get_field(mad, 0, IB_SA_RMPP_STATUS_F);

@@ -56,7 +56,7 @@ uint8_t *sa_rpc_call(const struct ibmad_port *ibmad_port, void *rcvbuf,
 
 	if (portid->lid <= 0) {
 		IBWARN("only lid routes are supported");
-		return 0;
+		return NULL;
 	}
 
 	rpc.mgtclass = IB_SA_CLASS;
