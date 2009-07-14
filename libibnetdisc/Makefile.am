@@ -43,5 +43,5 @@ man_MANS = man/ibnd_debug.3 \
 	man/ibnd_show_progress.3 \
 	man/ibnd_update_node.3
 
-EXTRA_DIST = $(srcdir)/src/libibnetdisc.map libibnetdisc.ver
+EXTRA_DIST = $(srcdir)/src/libibnetdisc.map libibnetdisc.ver $(man_MANS)
 
