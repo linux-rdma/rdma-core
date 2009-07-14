@@ -542,7 +542,7 @@ Usage: saquery [-h -d -P -N -L -G -s -g][<name>]
    -g get multicast group info
 
 Dependencies:
-OpenSM libvendor, OpenSM libopensm, libibumad
+OpenSM libosmcomp, libibumad, libibmad
 
 29. ibsysstat
 
