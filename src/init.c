@@ -184,6 +184,8 @@ static void load_driver(const char *name)
 #define IBV_QUOTE(x)	__IBV_QUOTE(x)
 
 	if (asprintf(&so_name,
+		     name[0] == '/' ?
+		     "%s-" IBV_QUOTE(IBV_DEVICE_LIBRARY_EXTENSION) ".so" :
 		     "lib%s-" IBV_QUOTE(IBV_DEVICE_LIBRARY_EXTENSION) ".so",
 		     name) < 0) {
 		fprintf(stderr, PFX "Warning: couldn't load driver '%s'.\n",
