@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2008 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -450,7 +451,7 @@ switch_mclookup(Node *node, ib_portid_t *portid, int mlid, char *map)
 
 	mad_decode_field(si, IB_SW_MCAST_FDB_CAP_F, &sw.mccap);
 
-	if (mlid > sw.mccap)
+	if (mlid >= sw.mccap)
 		return -1;
 
 	block = mlid / 32;
