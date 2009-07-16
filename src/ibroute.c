@@ -305,7 +305,7 @@ dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
 		endlid = top;
 
 	if (endlid > IB_MAX_UCAST_LID) {
-		IBWARN("ilegal lft top %d, truncate to %d", endlid, IB_MAX_UCAST_LID);
+		IBWARN("illegal lft top %d, truncate to %d", endlid, IB_MAX_UCAST_LID);
 		endlid = IB_MAX_UCAST_LID;
 	}
 
