@@ -1,4 +1,4 @@
-# Copyright (c) 2007, 2008. QLogic Corp. All rights reserved.
+# Copyright (c) 2007, 2008, 2009. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
 # This software is available to you under a choice of one of two
@@ -40,7 +40,7 @@
 Name: libipathverbs
 Version: %ver
 Release: %rel%{?dist}
-Summary: PathScale InfiniPath HCA Userspace Driver
+Summary: QLogic InfiniPath HCA Userspace Driver
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
