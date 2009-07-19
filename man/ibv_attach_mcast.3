@@ -8,10 +8,10 @@ ibv_attach_mcast, ibv_detach_mcast \- attach and detach a queue pair
 .nf
 .B #include <infiniband/verbs.h>
 .sp
-.BI "int ibv_attach_mcast(struct ibv_qp " "*qp" ", union ibv_gid " "*gid" ",
+.BI "int ibv_attach_mcast(struct ibv_qp " "*qp" ", const union ibv_gid " "*gid" ",
 .BI "                     uint16_t " "lid" ");
 .sp
-.BI "int ibv_detach_mcast(struct ibv_qp " "*qp" ", union ibv_gid " "*gid" ",
+.BI "int ibv_detach_mcast(struct ibv_qp " "*qp" ", const union ibv_gid " "*gid" ",
 .BI "                     uint16_t " "lid" ");
 .fi
 .SH "DESCRIPTION"

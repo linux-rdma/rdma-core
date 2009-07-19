@@ -676,9 +676,9 @@ struct ibv_context_ops {
 					     struct ibv_recv_wr **bad_wr);
 	struct ibv_ah *		(*create_ah)(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 	int			(*destroy_ah)(struct ibv_ah *ah);
-	int			(*attach_mcast)(struct ibv_qp *qp, union ibv_gid *gid,
+	int			(*attach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 						uint16_t lid);
-	int			(*detach_mcast)(struct ibv_qp *qp, union ibv_gid *gid,
+	int			(*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 						uint16_t lid);
 	void			(*async_event)(struct ibv_async_event *event);
 };
@@ -1060,7 +1060,7 @@ int ibv_destroy_ah(struct ibv_ah *ah);
  * the fabric appropriately.  The port associated with the specified
  * QP must also be a member of the multicast group.
  */
-int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+int ibv_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
 
 /**
  * ibv_detach_mcast - Detaches the specified QP from a multicast group.
@@ -1068,7 +1068,7 @@ int ibv_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
  * @gid: Multicast group GID.
  * @lid: Multicast group LID in host byte order.
  */
-int ibv_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
+int ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
 
 /**
  * ibv_fork_init - Prepare data structures so that fork() may be used

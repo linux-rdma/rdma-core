@@ -1091,7 +1091,7 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 	return 0;
 }
 
-int ibv_cmd_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int ibv_cmd_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	struct ibv_attach_mcast cmd;
 
@@ -1107,7 +1107,7 @@ int ibv_cmd_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
 	return 0;
 }
 
-int ibv_cmd_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	struct ibv_detach_mcast cmd;
 
