@@ -361,7 +361,5 @@ int mlx4_destroy_ah(struct ibv_ah *ah);
 int mlx4_alloc_av(struct mlx4_pd *pd, struct ibv_ah_attr *attr,
 		   struct mlx4_ah *ah);
 void mlx4_free_av(struct mlx4_ah *ah);
-int mlx4_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
-int mlx4_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid);
 
 #endif /* MLX4_H */

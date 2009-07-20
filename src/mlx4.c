@@ -94,8 +94,8 @@ static struct ibv_context_ops mlx4_ctx_ops = {
 	.post_recv     = mlx4_post_recv,
 	.create_ah     = mlx4_create_ah,
 	.destroy_ah    = mlx4_destroy_ah,
-	.attach_mcast  = mlx4_attach_mcast,
-	.detach_mcast  = mlx4_detach_mcast
+	.attach_mcast  = ibv_cmd_attach_mcast,
+	.detach_mcast  = ibv_cmd_detach_mcast
 };
 
 static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_fd)
