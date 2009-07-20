@@ -160,7 +160,7 @@ switch_lookup(Switch *sw, ib_portid_t *portid, int lid)
 	mad_decode_field(si, IB_SW_LINEAR_FDB_CAP_F, &sw->linearcap);
 	mad_decode_field(si, IB_SW_LINEAR_FDB_TOP_F, &sw->linearFDBtop);
 
-	if (lid > sw->linearcap && lid > sw->linearFDBtop)
+	if (lid >= sw->linearcap && lid > sw->linearFDBtop)
 		return -1;
 
 	if (!smp_query_via(fdb, portid, IB_ATTR_LINEARFORWTBL, lid / 64,
