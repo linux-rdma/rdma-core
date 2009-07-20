@@ -746,13 +746,3 @@ int mthca_destroy_ah(struct ibv_ah *ah)
 
 	return 0;
 }
-
-int mthca_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
-{
-	return ibv_cmd_attach_mcast(qp, gid, lid);
-}
-
-int mthca_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
-{
-	return ibv_cmd_detach_mcast(qp, gid, lid);
-}

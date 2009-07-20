@@ -127,8 +127,8 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.destroy_qp    = mthca_destroy_qp,
 	.create_ah     = mthca_create_ah,
 	.destroy_ah    = mthca_destroy_ah,
-	.attach_mcast  = mthca_attach_mcast,
-	.detach_mcast  = mthca_detach_mcast
+	.attach_mcast  = ibv_cmd_attach_mcast,
+	.detach_mcast  = ibv_cmd_detach_mcast
 };
 
 static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd_fd)
