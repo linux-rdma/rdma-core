@@ -158,6 +158,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 		/* Use same timeout on receive side just in case */
 		/* send packet is lost somewhere. */
 		do {
+			length = len;
 			if (umad_recv(port_id, rcvbuf, &length, timeout) < 0) {
 				IBWARN("recv failed: %m");
 				return -1;
