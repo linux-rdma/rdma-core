@@ -1,14 +1,30 @@
-commit c5d7bf534fd5b0f31b4e2efe48045f48af7f60b1
+commit 596aa88065f89906884a821a1bb4eb631abd6af0
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Wed Jul 16 19:52:32 2008 -0500
+Date:   Wed Jul 22 12:57:58 2009 -0500
+
+    Spin release version 1.2.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0ec532c2b6b92be6adf58849c9e3d215a50d306d
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Jul 22 12:52:51 2009 -0500
+
+    Support new device ids: 0x35, 0x36.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f685c8fe7e77e64614d825e563dd9f02a0b1ae16
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 17 11:28:46 2008 -0500
 
     Spin release 1.2.2
     
     Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 
-commit 13b5d73ee50d680485b2e8772905f5cb288f0983
+commit ebd19d077d331270805aefa9ca00d3661561ba87
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Thu Jul 3 15:31:36 2008 -0500
+Date:   Thu Jul 17 11:28:27 2008 -0500
 
     Relax the required firmware level.
     
