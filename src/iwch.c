@@ -55,6 +55,8 @@
 #define PCI_DEVICE_ID_CHELSIO_T3B10	0x0030
 #define PCI_DEVICE_ID_CHELSIO_T3B20	0x0031
 #define PCI_DEVICE_ID_CHELSIO_T3B02	0x0032
+#define PCI_DEVICE_ID_CHELSIO_T3C20	0x0035
+#define PCI_DEVICE_ID_CHELSIO_S320E	0x0036
 
 #define HCA(v, d, t) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
@@ -76,6 +78,8 @@ struct {
 	HCA(CHELSIO, T3B10, T3B),
 	HCA(CHELSIO, T3B20, T3B),
 	HCA(CHELSIO, T3B02, T3B),
+	HCA(CHELSIO, T3C20, T3B),
+	HCA(CHELSIO, S320E, T3B),
 };
 
 static struct ibv_context_ops iwch_ctx_ops = {
