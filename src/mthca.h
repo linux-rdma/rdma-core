@@ -309,7 +309,7 @@ struct ibv_pd *mthca_alloc_pd(struct ibv_context *context);
 int mthca_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, enum ibv_access_flags access);
+			    size_t length, int access);
 int mthca_dereg_mr(struct ibv_mr *mr);
 
 struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
@@ -330,7 +330,7 @@ struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);
 int mthca_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr,
-		     enum ibv_srq_attr_mask mask);
+		     int mask);
 int mthca_query_srq(struct ibv_srq *srq,
 			   struct ibv_srq_attr *attr);
 int mthca_destroy_srq(struct ibv_srq *srq);
@@ -346,10 +346,10 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
 int mthca_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		   enum ibv_qp_attr_mask attr_mask,
+		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr);
 int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    enum ibv_qp_attr_mask attr_mask);
+		    int attr_mask);
 int mthca_destroy_qp(struct ibv_qp *qp);
 void mthca_init_qp_indices(struct mthca_qp *qp);
 int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,

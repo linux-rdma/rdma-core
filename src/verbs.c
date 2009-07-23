@@ -117,7 +117,7 @@ int mthca_free_pd(struct ibv_pd *pd)
 
 static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 				     size_t length, uint64_t hca_va,
-				     enum ibv_access_flags access,
+				     int access,
 				     int dma_sync)
 {
 	struct ibv_mr *mr;
@@ -157,7 +157,7 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 }
 
 struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, enum ibv_access_flags access)
+			    size_t length, int access)
 {
 	return __mthca_reg_mr(pd, addr, length, (uintptr_t) addr, access, 0);
 }
@@ -468,7 +468,7 @@ err:
 
 int mthca_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr,
-		     enum ibv_srq_attr_mask attr_mask)
+		     int attr_mask)
 {
 	struct ibv_modify_srq cmd;
 
@@ -618,7 +618,7 @@ err:
 }
 
 int mthca_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		   enum ibv_qp_attr_mask attr_mask,
+		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
 	struct ibv_query_qp cmd;
@@ -627,7 +627,7 @@ int mthca_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 }
 
 int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    enum ibv_qp_attr_mask attr_mask)
+		    int attr_mask)
 {
 	struct ibv_modify_qp cmd;
 	int ret;
