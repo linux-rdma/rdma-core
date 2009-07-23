@@ -302,7 +302,7 @@ struct ibv_pd *mlx4_alloc_pd(struct ibv_context *context);
 int mlx4_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, enum ibv_access_flags access);
+			    size_t length, int access);
 int mlx4_dereg_mr(struct ibv_mr *mr);
 
 struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
@@ -323,7 +323,7 @@ struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);
 int mlx4_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr,
-		     enum ibv_srq_attr_mask mask);
+		     int mask);
 int mlx4_query_srq(struct ibv_srq *srq,
 			   struct ibv_srq_attr *attr);
 int mlx4_destroy_srq(struct ibv_srq *srq);
@@ -336,10 +336,10 @@ int mlx4_post_srq_recv(struct ibv_srq *ibsrq,
 
 struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
 int mlx4_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		   enum ibv_qp_attr_mask attr_mask,
+		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr);
 int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    enum ibv_qp_attr_mask attr_mask);
+		    int attr_mask);
 int mlx4_destroy_qp(struct ibv_qp *qp);
 void mlx4_init_qp_indices(struct mlx4_qp *qp);
 void mlx4_qp_init_sq_ownership(struct mlx4_qp *qp);

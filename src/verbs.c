@@ -108,7 +108,7 @@ int mlx4_free_pd(struct ibv_pd *pd)
 }
 
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
-			   enum ibv_access_flags access)
+			   int access)
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
@@ -353,7 +353,7 @@ err:
 
 int mlx4_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr,
-		     enum ibv_srq_attr_mask attr_mask)
+		     int attr_mask)
 {
 	struct ibv_modify_srq cmd;
 
@@ -497,7 +497,7 @@ err:
 }
 
 int mlx4_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
-		   enum ibv_qp_attr_mask attr_mask,
+		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
 	struct ibv_query_qp cmd;
@@ -518,7 +518,7 @@ int mlx4_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 }
 
 int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    enum ibv_qp_attr_mask attr_mask)
+		    int attr_mask)
 {
 	struct ibv_modify_qp cmd;
 	int ret;
