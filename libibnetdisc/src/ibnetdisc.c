@@ -369,10 +369,8 @@ create_node(struct ibnd_fabric *fabric, struct ibnd_node *temp, ib_portid_t *pat
 	struct ibnd_node *node;
 
 	node = malloc(sizeof(*node));
-	if (!node) {
+	if (!node)
 		IBPANIC("OOM: node creation failed\n");
-		return NULL;
-	}
 
 	memcpy(node, temp, sizeof(*node));
 	node->node.dist = dist;
@@ -530,10 +528,8 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 
 	fabric = malloc(sizeof(*fabric));
 
-	if (!fabric) {
+	if (!fabric)
 		IBPANIC("OOM: failed to malloc ibnd_fabric_t\n");
-		return (NULL);
-	}
 
 	memset(fabric, 0, sizeof(*fabric));
 
