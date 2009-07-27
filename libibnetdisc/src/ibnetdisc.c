@@ -602,7 +602,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 
 	return ((ibnd_fabric_t *)fabric);
 error:
-	free(fabric);
+	ibnd_destroy_fabric(fabric);
 	return (NULL);
 }
 
