@@ -464,8 +464,8 @@ get_remote_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd_
 		return -1;
 
 	if (query_node(fabric, &node_buf, &port_buf, path)) {
-		IBWARN("NodeInfo on %s failed, skipping port",
-			portid2str(path));
+		IBND_DEBUG("NodeInfo on %s failed, skipping port",
+			   portid2str(path));
 		path->drpath.cnt--;	/* restore path */
 		return -1;
 	}
@@ -507,15 +507,15 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 	int max_hops = MAXHOPS-1; /* default find everything */
 
 	if (!ibmad_port) {
-		IBPANIC("ibmad_port must be specified to "
-			"ibnd_discover_fabric\n");
+		IBND_DEBUG("ibmad_port must be specified to "
+			   "ibnd_discover_fabric\n");
 		return (NULL);
 	}
 	if (mad_rpc_class_agent(ibmad_port, IB_SMI_CLASS) == -1
 			||
 		mad_rpc_class_agent(ibmad_port, IB_SMI_DIRECT_CLASS) == -1) {
-		IBPANIC("ibmad_port must be opened with "
-			"IB_SMI_CLASS && IB_SMI_DIRECT_CLASS\n");
+		IBND_DEBUG("ibmad_port must be opened with "
+			   "IB_SMI_CLASS && IB_SMI_DIRECT_CLASS\n");
 		return (NULL);
 	}
 
@@ -545,7 +545,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 	memset(&port_buf, 0, sizeof(port_buf));
 
 	if (query_node(fabric, &node_buf, &port_buf, from)) {
-		IBWARN("can't reach node %s\n", portid2str(from));
+		IBND_DEBUG("can't reach node %s\n", portid2str(from));
 		goto error;
 	}
 
@@ -579,7 +579,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 					continue;
 
 				if (get_port_info(fabric, &port_buf, i, path)) {
-					IBWARN("can't reach node %s port %d", portid2str(path), i);
+					IBND_DEBUG("can't reach node %s port %d", portid2str(path), i);
 					continue;
 				}
 
