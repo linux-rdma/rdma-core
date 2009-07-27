@@ -54,6 +54,11 @@ static char *ChassisSlotTypeStr[4] = { "", "Line", "Spine", "SRBD" };
 
 char *ibnd_get_chassis_type(ibnd_node_t *node)
 {
+	if (!node) {
+		IBND_DEBUG("node parameter NULL\n");
+		return (NULL);
+	}
+
 	/* Currently, only if Voltaire chassis */
 	if (mad_get_field(node->info, 0, IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
 		return (NULL);
@@ -67,6 +72,11 @@ char *ibnd_get_chassis_type(ibnd_node_t *node)
 
 char *ibnd_get_chassis_slot_str(ibnd_node_t *node, char *str, size_t size)
 {
+	if (!node) {
+		IBND_DEBUG("node parameter NULL\n");
+		return (NULL);
+	}
+
 	/* Currently, only if Voltaire chassis */
 	if (mad_get_field(node->info, 0, IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
 		return (NULL);
@@ -215,6 +225,11 @@ uint64_t ibnd_get_chassis_guid(ibnd_fabric_t *fabric, unsigned char chassisnum)
 {
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	ibnd_chassis_t *chassis;
+
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return 0;
+	}
 
 	chassis = find_chassisnum(f, chassisnum);
 	if (chassis)

@@ -239,6 +239,11 @@ ibnd_find_node_guid(ibnd_fabric_t *fabric, uint64_t guid)
 	int hash = HASHGUID(guid) % HTSZ;
 	struct ibnd_node *node;
 
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return (NULL);
+	}
+
 	for (node = f->nodestbl[hash]; node; node = node->htnext)
 		if (node->node.guid == guid)
 			return (ibnd_node_t *)node;
@@ -274,6 +279,16 @@ ibnd_update_node(struct ibmad_port *ibmad_port, ibnd_fabric_t *fabric, ibnd_node
 
 	if (_check_ibmad_port(ibmad_port) < 0)
 		return (NULL);
+
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return (NULL);
+	}
+
+	if (!node) {
+		IBND_DEBUG("node parameter NULL\n");
+		return (NULL);
+	}
 
 	if (query_node_info(ibmad_port, f, n, &(n->node.path_portid)))
 		return (NULL);
@@ -313,8 +328,15 @@ ibnd_find_node_dr(ibnd_fabric_t *fabric, char *dr_str)
 {
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	int i = 0;
-	ibnd_node_t *rc = f->fabric.from_node;
+	ibnd_node_t *rc;
 	ib_dr_path_t path;
+
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return (NULL);
+	}
+
+	rc = f->fabric.from_node;
 
 	if (str2drpath(&path, dr_str, 0, 0) == -1) {
 		return (NULL);
@@ -640,6 +662,9 @@ ibnd_destroy_fabric(ibnd_fabric_t *fabric)
 	struct ibnd_node *next = NULL;
 	ibnd_chassis_t *ch, *ch_next;
 
+	if (!fabric)
+		return;
+
 	ch = f->first_chassis;
 	while (ch) {
 		ch_next = ch->next;
@@ -684,6 +709,16 @@ ibnd_iter_nodes(ibnd_fabric_t *fabric,
 {
 	ibnd_node_t *cur = NULL;
 
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return;
+	}
+
+	if (!func) {
+		IBND_DEBUG("func parameter NULL\n");
+		return;
+	}
+
 	for (cur = fabric->nodes; cur; cur = cur->next) {
 		func(cur, user_data);
 	}
@@ -699,6 +734,16 @@ ibnd_iter_nodes_type(ibnd_fabric_t *fabric,
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	struct ibnd_node *list = NULL;
 	struct ibnd_node *cur = NULL;
+
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return;
+	}
+
+	if (!func) {
+		IBND_DEBUG("func parameter NULL\n");
+		return;
+	}
 
 	switch (node_type) {
 		case IB_NODE_SWITCH:
