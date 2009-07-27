@@ -69,8 +69,8 @@ decode_port_info(ibnd_port_t *port)
 }
 
 static int
-get_port_info(struct ibnd_fabric *fabric, struct ibnd_port *port,
-		int portnum, ib_portid_t *portid)
+get_port_info(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
+	      struct ibnd_port *port, int portnum, ib_portid_t *portid)
 {
 	char width[64], speed[64];
 	int iwidth;
@@ -81,7 +81,7 @@ get_port_info(struct ibnd_fabric *fabric, struct ibnd_port *port,
 	ispeed = mad_get_field(port->port.info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
 
 	if (!smp_query_via(port->port.info, portid, IB_ATTR_PORT_INFO, portnum, timeout_ms,
-			fabric->fabric.ibmad_port))
+			ibmad_port))
 		return -1;
 
 	decode_port_info(&(port->port));
@@ -99,10 +99,11 @@ get_port_info(struct ibnd_fabric *fabric, struct ibnd_port *port,
  * Returns -1 if error.
  */
 static int
-query_node_info(struct ibnd_fabric *fabric, struct ibnd_node *node, ib_portid_t *portid)
+query_node_info(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
+		struct ibnd_node *node, ib_portid_t *portid)
 {
 	if (!smp_query_via(&(node->node.info), portid, IB_ATTR_NODE_INFO, 0, timeout_ms,
-			fabric->fabric.ibmad_port))
+			ibmad_port))
 		return -1;
 
 	/* decode just a couple of fields for quicker reference. */
@@ -118,25 +119,25 @@ query_node_info(struct ibnd_fabric *fabric, struct ibnd_node *node, ib_portid_t 
  * Returns 0 if non switch node is found, 1 if switch is found, -1 if error.
  */
 static int
-query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
-		struct ibnd_port *iport, ib_portid_t *portid)
+query_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
+	   struct ibnd_node *inode, struct ibnd_port *iport, ib_portid_t *portid)
 {
 	ibnd_node_t *node = &(inode->node);
 	ibnd_port_t *port = &(iport->port);
 	void *nd = inode->node.nodedesc;
 
-	if (query_node_info(fabric, inode, portid))
+	if (query_node_info(ibmad_port, fabric, inode, portid))
 		return -1;
 
 	port->portnum = mad_get_field(node->info, 0, IB_NODE_LOCAL_PORT_F);
 	port->guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
 
 	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, timeout_ms,
-			fabric->fabric.ibmad_port))
+			ibmad_port))
 		return -1;
 
 	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, 0, timeout_ms,
-			fabric->fabric.ibmad_port))
+			ibmad_port))
 		return -1;
 	decode_port_info(port);
 
@@ -148,7 +149,7 @@ query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
 
 	/* after we have the sma information find out the real PortInfo for this port */
 	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, port->portnum, timeout_ms,
-			fabric->fabric.ibmad_port))
+			ibmad_port))
 		return -1;
 	decode_port_info(port);
 
@@ -156,7 +157,7 @@ query_node(struct ibnd_fabric *fabric, struct ibnd_node *inode,
 	port->lmc = (uint8_t) node->smalmc;
 
         if (!smp_query_via(node->switchinfo, portid, IB_ATTR_SWITCH_INFO, 0, timeout_ms,
-			fabric->fabric.ibmad_port))
+			ibmad_port))
 		node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
 		mad_decode_field(node->switchinfo, IB_SW_ENHANCED_PORT0_F, &node->smaenhsp0);
@@ -177,7 +178,8 @@ add_port_to_dpath(ib_dr_path_t *path, int nextport)
 }
 
 static int
-extend_dpath(struct ibnd_fabric *f, ib_portid_t *portid, int nextport)
+extend_dpath(struct ibmad_port *ibmad_port, struct ibnd_fabric *f,
+	     ib_portid_t *portid, int nextport)
 {
 	int rc = 0;
 
@@ -185,7 +187,7 @@ extend_dpath(struct ibnd_fabric *f, ib_portid_t *portid, int nextport)
 		/* If we were LID routed we need to set up the drslid */
 		if (!f->selfportid.lid)
 			if (ib_resolve_self_via(&f->selfportid, NULL, NULL,
-					f->fabric.ibmad_port) < 0)
+					ibmad_port) < 0)
 				return -1;
 
 		portid->drpath.drslid = (uint16_t) f->selfportid.lid;
@@ -244,8 +246,25 @@ ibnd_find_node_guid(ibnd_fabric_t *fabric, uint64_t guid)
 	return NULL;
 }
 
+static int
+_check_ibmad_port(struct ibmad_port *ibmad_port)
+{
+	if (!ibmad_port) {
+		IBND_DEBUG("ibmad_port must be specified\n");
+		return (-1);
+	}
+	if (mad_rpc_class_agent(ibmad_port, IB_SMI_CLASS) == -1
+			||
+		mad_rpc_class_agent(ibmad_port, IB_SMI_DIRECT_CLASS) == -1) {
+		IBND_DEBUG("ibmad_port must be opened with "
+			   "IB_SMI_CLASS && IB_SMI_DIRECT_CLASS\n");
+		return (-1);
+	}
+	return (0);
+}
+
 ibnd_node_t *
-ibnd_update_node(ibnd_fabric_t *fabric, ibnd_node_t *node)
+ibnd_update_node(struct ibmad_port *ibmad_port, ibnd_fabric_t *fabric, ibnd_node_t *node)
 {
 	char portinfo_port0[IB_SMP_DATA_SIZE];
 	void *nd = node->nodedesc;
@@ -253,30 +272,34 @@ ibnd_update_node(ibnd_fabric_t *fabric, ibnd_node_t *node)
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	struct ibnd_node *n = CONV_NODE_INTERNAL(node);
 
-	if (query_node_info(f, n, &(n->node.path_portid)))
+	if (_check_ibmad_port(ibmad_port) < 0)
+		return (NULL);
+
+	if (query_node_info(ibmad_port, f, n, &(n->node.path_portid)))
 		return (NULL);
 
 	if (!smp_query_via(nd, &(n->node.path_portid), IB_ATTR_NODE_DESC, 0, timeout_ms,
-			f->fabric.ibmad_port))
+			ibmad_port))
 		return (NULL);
 
 	/* update all the port info's */
 	for (p = 1; p >= n->node.numports; p++) {
-		get_port_info(f, CONV_PORT_INTERNAL(n->node.ports[p]), p, &(n->node.path_portid));
+		get_port_info(ibmad_port, f, CONV_PORT_INTERNAL(n->node.ports[p]),
+			      p, &(n->node.path_portid));
 	}
 
 	if (n->node.type != IB_NODE_SWITCH)
 		goto done;
 
 	if (!smp_query_via(portinfo_port0, &(n->node.path_portid), IB_ATTR_PORT_INFO, 0, timeout_ms,
-			f->fabric.ibmad_port))
+			ibmad_port))
 		return (NULL);
 
 	n->node.smalid = mad_get_field(portinfo_port0, 0, IB_PORT_LID_F);
 	n->node.smalmc = mad_get_field(portinfo_port0, 0, IB_PORT_LMC_F);
 
         if (!smp_query_via(node->switchinfo, &(n->node.path_portid), IB_ATTR_SWITCH_INFO, 0, timeout_ms,
-			f->fabric.ibmad_port))
+			ibmad_port))
                 node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
 		mad_decode_field(node->switchinfo, IB_SW_ENHANCED_PORT0_F, &n->node.smaenhsp0);
@@ -441,7 +464,8 @@ link_ports(struct ibnd_node *node, struct ibnd_port *port,
 }
 
 static int
-get_remote_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd_port *port, ib_portid_t *path,
+get_remote_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
+		struct ibnd_node *node, struct ibnd_port *port, ib_portid_t *path,
 		int portnum, int dist)
 {
 	struct ibnd_node node_buf;
@@ -458,10 +482,10 @@ get_remote_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd_
 			!= IB_PORT_PHYS_STATE_LINKUP)
 		return -1;
 
-	if (extend_dpath(fabric, path, portnum) < 0)
+	if (extend_dpath(ibmad_port, fabric, path, portnum) < 0)
 		return -1;
 
-	if (query_node(fabric, &node_buf, &port_buf, path)) {
+	if (query_node(ibmad_port, fabric, &node_buf, &port_buf, path)) {
 		IBND_DEBUG("NodeInfo on %s failed, skipping port",
 			   portid2str(path));
 		path->drpath.cnt--;	/* restore path */
@@ -504,18 +528,8 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 	ib_portid_t *path;
 	int max_hops = MAXHOPS-1; /* default find everything */
 
-	if (!ibmad_port) {
-		IBND_DEBUG("ibmad_port must be specified to "
-			   "ibnd_discover_fabric\n");
+	if (_check_ibmad_port(ibmad_port) < 0)
 		return (NULL);
-	}
-	if (mad_rpc_class_agent(ibmad_port, IB_SMI_CLASS) == -1
-			||
-		mad_rpc_class_agent(ibmad_port, IB_SMI_DIRECT_CLASS) == -1) {
-		IBND_DEBUG("ibmad_port must be opened with "
-			   "IB_SMI_CLASS && IB_SMI_DIRECT_CLASS\n");
-		return (NULL);
-	}
 
 	/* if not everything how much? */
 	if (hops >= 0) {
@@ -533,14 +547,12 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 
 	memset(fabric, 0, sizeof(*fabric));
 
-	fabric->fabric.ibmad_port = ibmad_port;
-
 	IBND_DEBUG("from %s\n", portid2str(from));
 
 	memset(&node_buf, 0, sizeof(node_buf));
 	memset(&port_buf, 0, sizeof(port_buf));
 
-	if (query_node(fabric, &node_buf, &port_buf, from)) {
+	if (query_node(ibmad_port, fabric, &node_buf, &port_buf, from)) {
 		IBND_DEBUG("can't reach node %s\n", portid2str(from));
 		goto error;
 	}
@@ -555,7 +567,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 	if (!port)
 		IBPANIC("out of memory");
 
-	if(get_remote_node(fabric, node, port, from,
+	if(get_remote_node(ibmad_port, fabric, node, port, from,
 				mad_get_field(node->node.info, 0, IB_NODE_LOCAL_PORT_F),
 				0) < 0)
 		return ((ibnd_fabric_t *)fabric);
@@ -574,7 +586,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 							IB_NODE_LOCAL_PORT_F))
 					continue;
 
-				if (get_port_info(fabric, &port_buf, i, path)) {
+				if (get_port_info(ibmad_port, fabric, &port_buf, i, path)) {
 					IBND_DEBUG("can't reach node %s port %d", portid2str(path), i);
 					continue;
 				}
@@ -593,7 +605,8 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 								0, IB_NODE_PORT_GUID_F);
 				}
 
-				get_remote_node(fabric, node, port, path, i, dist);
+				get_remote_node(ibmad_port, fabric, node, port,
+						path, i, dist);
 			}
 		}
 	}

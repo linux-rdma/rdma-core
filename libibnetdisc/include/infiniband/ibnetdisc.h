@@ -121,7 +121,6 @@ typedef struct chassis {
  * Main fabric object which is returned and represents the data discovered
  */
 typedef struct ib_fabric {
-	struct ibmad_port *ibmad_port;
 	/* the node the discover was initiated from
 	 * "from" parameter in ibnd_discover_fabric
 	 * or by default the node you ar running on
@@ -160,7 +159,8 @@ MAD_EXPORT void ibnd_destroy_fabric(ibnd_fabric_t *fabric);
  */
 MAD_EXPORT ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t *fabric, uint64_t guid);
 MAD_EXPORT ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t *fabric, char *dr_str);
-MAD_EXPORT ibnd_node_t *ibnd_update_node(ibnd_fabric_t *fabric, ibnd_node_t *node);
+MAD_EXPORT ibnd_node_t *ibnd_update_node(struct ibmad_port *ibmad_port,
+					 ibnd_fabric_t *fabric, ibnd_node_t *node);
 
 typedef void (*ibnd_iter_node_func_t)(ibnd_node_t *node, void *user_data);
 MAD_EXPORT void         ibnd_iter_nodes(ibnd_fabric_t *fabric,
