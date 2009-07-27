@@ -161,11 +161,13 @@ main(int argc, char **argv)
 
 	ibmad_port = mad_rpc_open_port(ca, ca_port, mgmt_classes, 2);
 
+	mad_rpc_set_timeout(ibmad_port, timeout_ms);
+
 	while (iters == -1 || iters-- > 0) {
 		if (from) {
 			/* only scan part of the fabric */
 			str2drpath(&(port_id.drpath), from, 0, 0);
-			if ((fabric = ibnd_discover_fabric(ibmad_port, timeout_ms,
+			if ((fabric = ibnd_discover_fabric(ibmad_port,
 					&port_id, hops)) == NULL) {
 				fprintf(stderr, "discover failed\n");
 				rc = 1;
@@ -173,7 +175,7 @@ main(int argc, char **argv)
 			}
 			guid = 0;
 		} else {
-			if ((fabric = ibnd_discover_fabric(ibmad_port, timeout_ms, NULL, -1)) == NULL) {
+			if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
 				fprintf(stderr, "discover failed\n");
 				rc = 1;
 				goto close_port;

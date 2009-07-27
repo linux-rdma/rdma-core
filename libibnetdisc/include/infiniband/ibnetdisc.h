@@ -140,13 +140,9 @@ MAD_EXPORT void ibnd_debug(int i);
 MAD_EXPORT void ibnd_show_progress(int i);
 
 MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
-					       int timeout_ms,
 					       ib_portid_t *from, int hops);
 	/**
 	 * open: (required) ibmad_port object from libibmad
-	 * timeout_ms: (required) gives the timeout for a _SINGLE_ query on
-	 *             the fabric.  So if there are multiple nodes not
-	 *             responding this may result in a lengthy delay.
 	 * from: (optional) specify the node to start scanning from.
 	 *       If NULL start from the node we are running on.
 	 * hops: (optional) Specify how much of the fabric to traverse.

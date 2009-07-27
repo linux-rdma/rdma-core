@@ -422,6 +422,9 @@ main(int argc, char **argv)
 	if (!ibmad_port)
 		IBERROR("Failed to open port; %s:%d\n", ibd_ca, ibd_ca_port);
 
+	if (ibd_timeout)
+		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	/* limit the scan the fabric around the target */
@@ -437,12 +440,12 @@ main(int argc, char **argv)
 	}
 
 	if (resolved >= 0)
-		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &portid,
+		if ((fabric = ibnd_discover_fabric(ibmad_port, &portid,
 				0)) == NULL)
 			IBWARN("Single node discover failed; attempting full scan\n");
 
 	if (!fabric) /* do a full scan */
-		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL) {
+		if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
 			goto close_port;

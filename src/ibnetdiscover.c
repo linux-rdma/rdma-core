@@ -670,9 +670,6 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (ibd_timeout)
-		timeout = ibd_timeout;
-
 	if (ibverbose)
 		ibnd_debug(1);
 
@@ -680,12 +677,15 @@ int main(int argc, char **argv)
 	if (!ibmad_port)
 		IBERROR("Failed to open %s port %d", ibd_ca, ibd_ca_port);
 
+	if (ibd_timeout)
+		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
+
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL)
+	if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL)
 		IBERROR("discover failed\n");
 
 	if (ports_report)

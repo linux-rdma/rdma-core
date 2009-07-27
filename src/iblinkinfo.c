@@ -308,6 +308,9 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
+	if (ibd_timeout)
+		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (dr_path) {
@@ -324,12 +327,12 @@ main(int argc, char **argv)
 	}
 
 	if (resolved >= 0)
-		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, &port_id,
+		if ((fabric = ibnd_discover_fabric(ibmad_port, &port_id,
 				hops)) == NULL)
 			IBWARN("Single node discover failed; attempting full scan\n");
 
 	if (!fabric)
-		if ((fabric = ibnd_discover_fabric(ibmad_port, ibd_timeout, NULL, -1)) == NULL) {
+		if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
 			goto close_port;

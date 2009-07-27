@@ -57,7 +57,6 @@
 #include "internal.h"
 #include "chassis.h"
 
-static int timeout_ms = 2000;
 static int show_progress = 0;
 int ibdebug;
 
@@ -80,7 +79,7 @@ get_port_info(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 	iwidth = mad_get_field(port->port.info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 	ispeed = mad_get_field(port->port.info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
 
-	if (!smp_query_via(port->port.info, portid, IB_ATTR_PORT_INFO, portnum, timeout_ms,
+	if (!smp_query_via(port->port.info, portid, IB_ATTR_PORT_INFO, portnum, 0,
 			ibmad_port))
 		return -1;
 
@@ -102,7 +101,7 @@ static int
 query_node_info(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 		struct ibnd_node *node, ib_portid_t *portid)
 {
-	if (!smp_query_via(&(node->node.info), portid, IB_ATTR_NODE_INFO, 0, timeout_ms,
+	if (!smp_query_via(&(node->node.info), portid, IB_ATTR_NODE_INFO, 0, 0,
 			ibmad_port))
 		return -1;
 
@@ -132,11 +131,11 @@ query_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 	port->portnum = mad_get_field(node->info, 0, IB_NODE_LOCAL_PORT_F);
 	port->guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
 
-	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, timeout_ms,
+	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, 0,
 			ibmad_port))
 		return -1;
 
-	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, 0, timeout_ms,
+	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, 0, 0,
 			ibmad_port))
 		return -1;
 	decode_port_info(port);
@@ -148,7 +147,7 @@ query_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 	node->smalmc = port->lmc;
 
 	/* after we have the sma information find out the real PortInfo for this port */
-	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, port->portnum, timeout_ms,
+	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, port->portnum, 0,
 			ibmad_port))
 		return -1;
 	decode_port_info(port);
@@ -156,7 +155,7 @@ query_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 	port->base_lid = (uint16_t) node->smalid;  /* LID is still defined by port 0 */
 	port->lmc = (uint8_t) node->smalmc;
 
-        if (!smp_query_via(node->switchinfo, portid, IB_ATTR_SWITCH_INFO, 0, timeout_ms,
+	if (!smp_query_via(node->switchinfo, portid, IB_ATTR_SWITCH_INFO, 0, 0,
 			ibmad_port))
 		node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
@@ -293,7 +292,7 @@ ibnd_update_node(struct ibmad_port *ibmad_port, ibnd_fabric_t *fabric, ibnd_node
 	if (query_node_info(ibmad_port, f, n, &(n->node.path_portid)))
 		return (NULL);
 
-	if (!smp_query_via(nd, &(n->node.path_portid), IB_ATTR_NODE_DESC, 0, timeout_ms,
+	if (!smp_query_via(nd, &(n->node.path_portid), IB_ATTR_NODE_DESC, 0, 0,
 			ibmad_port))
 		return (NULL);
 
@@ -306,14 +305,14 @@ ibnd_update_node(struct ibmad_port *ibmad_port, ibnd_fabric_t *fabric, ibnd_node
 	if (n->node.type != IB_NODE_SWITCH)
 		goto done;
 
-	if (!smp_query_via(portinfo_port0, &(n->node.path_portid), IB_ATTR_PORT_INFO, 0, timeout_ms,
+	if (!smp_query_via(portinfo_port0, &(n->node.path_portid), IB_ATTR_PORT_INFO, 0, 0,
 			ibmad_port))
 		return (NULL);
 
 	n->node.smalid = mad_get_field(portinfo_port0, 0, IB_PORT_LID_F);
 	n->node.smalmc = mad_get_field(portinfo_port0, 0, IB_PORT_LMC_F);
 
-        if (!smp_query_via(node->switchinfo, &(n->node.path_portid), IB_ATTR_SWITCH_INFO, 0, timeout_ms,
+	if (!smp_query_via(node->switchinfo, &(n->node.path_portid), IB_ATTR_SWITCH_INFO, 0, 0,
 			ibmad_port))
                 node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
@@ -536,7 +535,7 @@ get_remote_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 }
 
 ibnd_fabric_t *
-ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
+ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 			ib_portid_t *from, int hops)
 {
 	struct ibnd_fabric *fabric = NULL;
