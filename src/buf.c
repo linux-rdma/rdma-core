@@ -61,16 +61,15 @@ int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size)
 {
 	int ret;
 
-	ret = posix_memalign(&buf->buf, page_size, align(size, page_size));
-	if (ret)
-		return ret;
+	buf->length = align(size, page_size);
+	buf->buf = mmap(NULL, buf->length, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (buf->buf == MAP_FAILED)
+		return errno;
 
 	ret = ibv_dontfork_range(buf->buf, size);
 	if (ret)
-		free(buf->buf);
-
-	if (!ret)
-		buf->length = size;
+		munmap(buf->buf, buf->length);
 
 	return ret;
 }
@@ -78,5 +77,5 @@ int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size)
 void mlx4_free_buf(struct mlx4_buf *buf)
 {
 	ibv_dofork_range(buf->buf, buf->length);
-	free(buf->buf);
+	munmap(buf->buf, buf->length);
 }
