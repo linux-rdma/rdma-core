@@ -35,6 +35,8 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdlib.h>
+#include <sys/mman.h>
+#include <errno.h>
 
 #include "mthca.h"
 
@@ -61,16 +63,15 @@ int mthca_alloc_buf(struct mthca_buf *buf, size_t size, int page_size)
 {
 	int ret;
 
-	ret = posix_memalign(&buf->buf, page_size, align(size, page_size));
-	if (ret)
-		return ret;
+	buf->length = align(size, page_size);
+	buf->buf = mmap(NULL, buf->length, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (buf->buf == MAP_FAILED)
+		return errno;
 
 	ret = ibv_dontfork_range(buf->buf, size);
 	if (ret)
-		free(buf->buf);
-
-	if (!ret)
-		buf->length = size;
+		munmap(buf->buf, buf->length);
 
 	return ret;
 }
@@ -78,5 +79,5 @@ int mthca_alloc_buf(struct mthca_buf *buf, size_t size, int page_size)
 void mthca_free_buf(struct mthca_buf *buf)
 {
 	ibv_dofork_range(buf->buf, buf->length);
-	free(buf->buf);
+	munmap(buf->buf, buf->length);
 }
