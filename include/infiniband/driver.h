@@ -77,7 +77,7 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 int ibv_cmd_dealloc_pd(struct ibv_pd *pd);
 #define IBV_CMD_REG_MR_HAS_RESP_PARAMS
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
-		   uint64_t hca_va, enum ibv_access_flags access,
+		   uint64_t hca_va, int access,
 		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
 		   size_t cmd_size,
 		   struct ibv_reg_mr_resp *resp, size_t resp_size);
@@ -101,7 +101,7 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_create_srq_resp *resp, size_t resp_size);
 int ibv_cmd_modify_srq(struct ibv_srq *srq,
 		       struct ibv_srq_attr *srq_attr,
-		       enum ibv_srq_attr_mask srq_attr_mask,
+		       int srq_attr_mask,
 		       struct ibv_modify_srq *cmd, size_t cmd_size);
 int ibv_cmd_query_srq(struct ibv_srq *srq,
 		      struct ibv_srq_attr *srq_attr,
@@ -113,11 +113,11 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_create_qp *cmd, size_t cmd_size,
 		      struct ibv_create_qp_resp *resp, size_t resp_size);
 int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr,
-		     enum ibv_qp_attr_mask attr_mask,
+		     int attr_mask,
 		     struct ibv_qp_init_attr *qp_init_attr,
 		     struct ibv_query_qp *cmd, size_t cmd_size);
 int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		      enum ibv_qp_attr_mask attr_mask,
+		      int attr_mask,
 		      struct ibv_modify_qp *cmd, size_t cmd_size);
 int ibv_cmd_destroy_qp(struct ibv_qp *qp);
 int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,

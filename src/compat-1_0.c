@@ -88,7 +88,7 @@ struct ibv_send_wr_1_0 {
 	struct ibv_sge	       *sg_list;
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
-	enum ibv_send_flags	send_flags;
+	int			send_flags;
 	uint32_t		imm_data;	/* in network byte order */
 	union {
 		struct {
@@ -172,7 +172,7 @@ struct ibv_context_ops_1_0 {
 	struct ibv_pd *		(*alloc_pd)(struct ibv_context *context);
 	int			(*dealloc_pd)(struct ibv_pd *pd);
 	struct ibv_mr *		(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
-					  enum ibv_access_flags access);
+					  int access);
 	int			(*dereg_mr)(struct ibv_mr *mr);
 	struct ibv_cq *		(*create_cq)(struct ibv_context *context, int cqe,
 					     struct ibv_comp_channel *channel,
@@ -188,7 +188,7 @@ struct ibv_context_ops_1_0 {
 					      struct ibv_srq_init_attr *srq_init_attr);
 	int			(*modify_srq)(struct ibv_srq *srq,
 					      struct ibv_srq_attr *srq_attr,
-					      enum ibv_srq_attr_mask srq_attr_mask);
+					      int srq_attr_mask);
 	int			(*query_srq)(struct ibv_srq *srq,
 					     struct ibv_srq_attr *srq_attr);
 	int			(*destroy_srq)(struct ibv_srq *srq);
@@ -197,10 +197,10 @@ struct ibv_context_ops_1_0 {
 						 struct ibv_recv_wr_1_0 **bad_recv_wr);
 	struct ibv_qp *		(*create_qp)(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
 	int			(*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-					    enum ibv_qp_attr_mask attr_mask,
+					    int attr_mask,
 					    struct ibv_qp_init_attr *init_attr);
 	int			(*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-					     enum ibv_qp_attr_mask attr_mask);
+					     int attr_mask);
 	int			(*destroy_qp)(struct ibv_qp *qp);
 	int			(*post_send)(struct ibv_qp_1_0 *qp,
 					     struct ibv_send_wr_1_0 *wr,
@@ -596,7 +596,7 @@ int __ibv_dealloc_pd_1_0(struct ibv_pd_1_0 *pd)
 symver(__ibv_dealloc_pd_1_0, ibv_dealloc_pd, IBVERBS_1.0);
 
 struct ibv_mr_1_0 *__ibv_reg_mr_1_0(struct ibv_pd_1_0 *pd, void *addr,
-				    size_t length, enum ibv_access_flags access)
+				    size_t length, int access)
 {
 	struct ibv_mr *real_mr;
 	struct ibv_mr_1_0 *mr;
@@ -736,7 +736,7 @@ symver(__ibv_create_srq_1_0, ibv_create_srq, IBVERBS_1.0);
 
 int __ibv_modify_srq_1_0(struct ibv_srq_1_0 *srq,
 			 struct ibv_srq_attr *srq_attr,
-			 enum ibv_srq_attr_mask srq_attr_mask)
+			 int srq_attr_mask)
 {
 	return ibv_modify_srq(srq->real_srq, srq_attr, srq_attr_mask);
 }
@@ -806,7 +806,7 @@ struct ibv_qp_1_0 *__ibv_create_qp_1_0(struct ibv_pd_1_0 *pd,
 symver(__ibv_create_qp_1_0, ibv_create_qp, IBVERBS_1.0);
 
 int __ibv_query_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
-		       enum ibv_qp_attr_mask attr_mask,
+		       int attr_mask,
 		       struct ibv_qp_init_attr_1_0 *init_attr)
 {
 	struct ibv_qp_init_attr real_init_attr;
@@ -829,7 +829,7 @@ int __ibv_query_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
 symver(__ibv_query_qp_1_0, ibv_query_qp, IBVERBS_1.0);
 
 int __ibv_modify_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
-			enum ibv_qp_attr_mask attr_mask)
+			int attr_mask)
 {
 	return ibv_modify_qp(qp->real_qp, attr, attr_mask);
 }

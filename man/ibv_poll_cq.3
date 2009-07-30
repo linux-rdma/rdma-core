@@ -33,7 +33,7 @@ uint32_t                byte_len;       /* Number of bytes transferred */
 uint32_t                imm_data;       /* Immediate data (in network byte order) */
 uint32_t                qp_num;         /* Local QP number of completed WR */
 uint32_t                src_qp;         /* Source QP number (remote QP number) of completed WR (valid only for UD QPs) */
-enum ibv_wc_flags       wc_flags;       /* Flags of the completed WR */
+int                     wc_flags;       /* Flags of the completed WR */
 uint16_t                pkey_index;     /* P_Key index (valid only for GSI QPs) */
 uint16_t                slid;           /* Source LID */
 uint8_t                 sl;             /* Service Level */

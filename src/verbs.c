@@ -155,7 +155,7 @@ int __ibv_dealloc_pd(struct ibv_pd *pd)
 default_symver(__ibv_dealloc_pd, ibv_dealloc_pd);
 
 struct ibv_mr *__ibv_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, enum ibv_access_flags access)
+			    size_t length, int access)
 {
 	struct ibv_mr *mr;
 
@@ -377,7 +377,7 @@ default_symver(__ibv_create_srq, ibv_create_srq);
 
 int __ibv_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *srq_attr,
-		     enum ibv_srq_attr_mask srq_attr_mask)
+		     int srq_attr_mask)
 {
 	return srq->context->ops.modify_srq(srq, srq_attr, srq_attr_mask);
 }
@@ -419,7 +419,7 @@ struct ibv_qp *__ibv_create_qp(struct ibv_pd *pd,
 default_symver(__ibv_create_qp, ibv_create_qp);
 
 int __ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		   enum ibv_qp_attr_mask attr_mask,
+		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
 	int ret;
@@ -436,7 +436,7 @@ int __ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 default_symver(__ibv_query_qp, ibv_query_qp);
 
 int __ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    enum ibv_qp_attr_mask attr_mask)
+		    int attr_mask)
 {
 	int ret;
 

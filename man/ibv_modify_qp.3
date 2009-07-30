@@ -8,7 +8,7 @@ ibv_modify_qp \- modify the attributes of a queue pair (QP)
 .B #include <infiniband/verbs.h>
 .sp
 .BI "int ibv_modify_qp(struct ibv_qp " "*qp" ", struct ibv_qp_attr " "*attr" ,
-.BI "                  enum ibv_qp_attr_mask " "attr_mask" );
+.BI "                  int " "attr_mask" );
 .fi
 .SH "DESCRIPTION"
 .B ibv_modify_qp()

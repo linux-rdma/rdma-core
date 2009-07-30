@@ -269,7 +269,7 @@ struct ibv_wc {
 	uint32_t		imm_data;	/* in network byte order */
 	uint32_t		qp_num;
 	uint32_t		src_qp;
-	enum ibv_wc_flags	wc_flags;
+	int			wc_flags;
 	uint16_t		pkey_index;
 	uint16_t		slid;
 	uint8_t			sl;
@@ -508,7 +508,7 @@ struct ibv_send_wr {
 	struct ibv_sge	       *sg_list;
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
-	enum ibv_send_flags	send_flags;
+	int			send_flags;
 	uint32_t		imm_data;	/* in network byte order */
 	union {
 		struct {
@@ -541,8 +541,8 @@ struct ibv_mw_bind {
 	struct ibv_mr	       *mr;
 	void		       *addr;
 	size_t			length;
-	enum ibv_send_flags	send_flags;
-	enum ibv_access_flags	mw_access_flags;
+	int			send_flags;
+	int			mw_access_flags;
 };
 
 struct ibv_srq {
@@ -633,12 +633,12 @@ struct ibv_context_ops {
 	struct ibv_pd *		(*alloc_pd)(struct ibv_context *context);
 	int			(*dealloc_pd)(struct ibv_pd *pd);
 	struct ibv_mr *		(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
-					  enum ibv_access_flags access);
+					  int access);
 	struct ibv_mr *		(*rereg_mr)(struct ibv_mr *mr,
-					    enum ibv_rereg_mr_flags flags,
+					    int flags,
 					    struct ibv_pd *pd, void *addr,
 					    size_t length,
-					    enum ibv_access_flags access);
+					    int access);
 	int			(*dereg_mr)(struct ibv_mr *mr);
 	struct ibv_mw *		(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
 	int			(*bind_mw)(struct ibv_qp *qp, struct ibv_mw *mw,
@@ -656,7 +656,7 @@ struct ibv_context_ops {
 					      struct ibv_srq_init_attr *srq_init_attr);
 	int			(*modify_srq)(struct ibv_srq *srq,
 					      struct ibv_srq_attr *srq_attr,
-					      enum ibv_srq_attr_mask srq_attr_mask);
+					      int srq_attr_mask);
 	int			(*query_srq)(struct ibv_srq *srq,
 					     struct ibv_srq_attr *srq_attr);
 	int			(*destroy_srq)(struct ibv_srq *srq);
@@ -665,10 +665,10 @@ struct ibv_context_ops {
 						 struct ibv_recv_wr **bad_recv_wr);
 	struct ibv_qp *		(*create_qp)(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
 	int			(*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-					    enum ibv_qp_attr_mask attr_mask,
+					    int attr_mask,
 					    struct ibv_qp_init_attr *init_attr);
 	int			(*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-					     enum ibv_qp_attr_mask attr_mask);
+					     int attr_mask);
 	int			(*destroy_qp)(struct ibv_qp *qp);
 	int			(*post_send)(struct ibv_qp *qp, struct ibv_send_wr *wr,
 					     struct ibv_send_wr **bad_wr);
@@ -793,7 +793,7 @@ int ibv_dealloc_pd(struct ibv_pd *pd);
  * ibv_reg_mr - Register a memory region
  */
 struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
-			  size_t length, enum ibv_access_flags access);
+			  size_t length, int access);
 
 /**
  * ibv_dereg_mr - Deregister a memory region
@@ -926,7 +926,7 @@ struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
  */
 int ibv_modify_srq(struct ibv_srq *srq,
 		   struct ibv_srq_attr *srq_attr,
-		   enum ibv_srq_attr_mask srq_attr_mask);
+		   int srq_attr_mask);
 
 /**
  * ibv_query_srq - Returns the attribute list and current values for the
@@ -966,7 +966,7 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
  * ibv_modify_qp - Modify a queue pair.
  */
 int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		  enum ibv_qp_attr_mask attr_mask);
+		  int attr_mask);
 
 /**
  * ibv_query_qp - Returns the attribute list and current values for the
@@ -980,7 +980,7 @@ int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
  * selected attributes.
  */
 int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		 enum ibv_qp_attr_mask attr_mask,
+		 int attr_mask,
 		 struct ibv_qp_init_attr *init_attr);
 
 /**

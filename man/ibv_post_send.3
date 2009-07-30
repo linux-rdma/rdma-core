@@ -33,7 +33,7 @@ struct ibv_send_wr     *next;                   /* Pointer to next WR in list, N
 struct ibv_sge         *sg_list;                /* Pointer to the s/g array */
 int                     num_sge;                /* Size of the s/g array */
 enum ibv_wr_opcode      opcode;                 /* Operation type */
-enum ibv_send_flags     send_flags;             /* Flags of the WR properties */
+int                     send_flags;             /* Flags of the WR properties */
 uint32_t                imm_data;               /* Immediate data (in network byte order) */
 union {
 .in +8
