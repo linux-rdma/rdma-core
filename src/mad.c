@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -77,6 +78,10 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
 		if (!drpath) {
 			IBWARN("encoding dr mad without drpath (null)");
+			return 0;
+		}
+		if (drpath->cnt >= IB_SUBNET_PATH_HOPS_MAX) {
+			IBWARN("dr path with hop count %d", drpath->cnt);
 			return 0;
 		}
 		mad_set_field(buf, 0, IB_DRSMP_HOPCNT_F, drpath->cnt);
@@ -157,6 +162,8 @@ int mad_build_pkt(void *umad, ib_rpc_t * rpc, ib_portid_t * dport,
 
 	mad = umad_get_mad(umad);
 	p = mad_encode(mad, rpc, lid_routed ? 0 : &dport->drpath, data);
+	if (!p)
+		return -1;
 
 	if (!is_smi && rmpp) {
 		mad_set_field(mad, 0, IB_SA_RMPP_VERS_F, 1);
