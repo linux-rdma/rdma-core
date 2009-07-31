@@ -615,7 +615,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port, int timeout_ms,
 
 	return ((ibnd_fabric_t *)fabric);
 error:
-	ibnd_destroy_fabric(fabric);
+	ibnd_destroy_fabric((ibnd_fabric_t *)fabric);
 	return (NULL);
 }
 
