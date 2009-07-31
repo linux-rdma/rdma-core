@@ -10,7 +10,11 @@ if ENABLE_TEST_UTILS
 sbin_PROGRAMS += test/testleaks
 endif
 
-DBGFLAGS = -g
+if DEBUG
+DBGFLAGS = -ggdb -D_DEBUG_
+else
+DBGFLAGS =
+endif
 
 if HAVE_LD_VERSION_SCRIPT
 libibnetdisc_version_script = -Wl,--version-script=$(srcdir)/src/libibnetdisc.map
