@@ -59,7 +59,6 @@
 
 struct ibmad_port *srcport;
 
-static int timeout = 2000;		/* ms */
 static FILE *f;
 
 static char *node_name_map_file = NULL;
