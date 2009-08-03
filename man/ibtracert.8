@@ -5,16 +5,18 @@ ibtracert\- trace InfiniBand path
 
 .SH SYNOPSIS
 .B ibtracert
-[\-d(ebug)] [-v(erbose)] [\-D(irect)] [\-G(uids)] [-n(o_info)] [-m mlid] [-s
-smlid] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)]
-[\-\-node\-name\-\-map <node-name-map>] [\-h(elp)] [<dest dr_path|lid|guid> [<startlid> [<endlid>]]]
+[\-d(ebug)] [-v(erbose)] [\-D(irect)] [\-G(uids)] [-n(o_info)] [-m mlid]
+[-s smlid] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms]
+[\-V(ersion)] [\-\-node\-name\-\-map <node-name-map>] [\-h(elp)]
+[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]
 
 .SH DESCRIPTION
 .PP
 ibtracert uses SMPs to trace the path from a source GID/LID to a
-destination GID/LID. Each hop along the path is displayed until the destination
-is reached or a hop does not respond. By using the -m option, multicast path
-tracing can be performed between source and destination nodes.
+destination GID/LID. Each hop along the path is displayed until
+the destination is reached or a hop does not respond. By using
+the -m option, multicast path tracing can be performed between source
+and destination nodes.
 
 .SH OPTIONS
 
@@ -27,8 +29,8 @@ simple format; don't show additional information
 show the multicast trace of the specified mlid
 .TP
 \fB\-\-node\-name\-map\fR <node-name-map>
-Specify a node name map.  The node name map file maps GUIDs to more user friendly
-names.  See
+Specify a node name map.  The node name map file maps GUIDs to more
+user friendly names.  See
 .B ibnetdiscover(8)
 for node name map file format.
 

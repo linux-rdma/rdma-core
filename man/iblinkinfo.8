@@ -5,7 +5,8 @@ iblinkinfo.pl \- report link info for all links in the fabric
 
 .SH SYNOPSIS
 .B iblinkinfo.pl
-   [-Rhcdl -C <ca_name> -P <ca_port> -v <lt,hoq,vlstall> -S <guid> -D <direct_route>]
+   [-Rhcdl -C <ca_name> -P <ca_port> -v <lt,hoq,vlstall> -S <guid>
+-D <direct_route>]
 
 .SH DESCRIPTION
 .PP
@@ -30,7 +31,8 @@ Output only the switch specified by the direct route path.
 .TP
 \fB\-l\fR
 Print all information for each link on one line. Default is to print a header
-with the switch information and then a list for each port (useful for grep\'ing output).
+with the switch information and then a list for each port (useful for
+grep\'ing output).
 .TP
 \fB\-d\fR
 Print only switches which have a port in the "Down" state.

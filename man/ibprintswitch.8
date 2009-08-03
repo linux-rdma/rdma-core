@@ -1,7 +1,8 @@
 .TH IBPRINTSWITCH 8 "May 31, 2007" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
-ibprintswitch.pl \- print either the switch specified or a list of switches from the ibnetdiscover output
+ibprintswitch.pl \- print either the switch specified or a list of switches
+from the ibnetdiscover output
 
 .SH SYNOPSIS
 .B ibprintswitch.pl
@@ -10,14 +11,14 @@ ibprintswitch.pl \- print either the switch specified or a list of switches from
 .SH DESCRIPTION
 .PP
 Faster than greping/viewing with an editor the output of ibnetdiscover,
-ibprintswitch.pl will parse out and print either the switch information for the
-switch specified or a list of all the switches found in the subnet.
+ibprintswitch.pl will parse out and print either the switch information
+for the switch specified or a list of all the switches found in the subnet.
 In addition, it will crudely parse on the node description
-information and if found report all the information for an entire chasis if the
-description information is consistent.
+information and if found report all the information for an entire chasis
+if the description information is consistent.
 
-Finally, ibprintswitch.pl will also reuse the cached ibnetdiscover output from
-some of the other diag tools which makes it a bit faster than running
+Finally, ibprintswitch.pl will also reuse the cached ibnetdiscover output
+from some of the other diag tools which makes it a bit faster than running
 ibnetdiscover from scratch.
 
 .SH OPTIONS
