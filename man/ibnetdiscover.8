@@ -1,11 +1,11 @@
-.TH IBNETDISCOVER 8 "January 3, 2008" "OpenIB" "OpenIB Diagnostics"
+.TH IBNETDISCOVER 8 "May 13, 2009" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibnetdiscover \- discover InfiniBand topology
 
 .SH SYNOPSIS
 .B ibnetdiscover
-[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-s(how)] [\-l(ist)] [\-g(rouping)] [\-H(ca_list)] [\-S(witch_list)] [\-R(outer_list)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\--node-name-map <node-name-map>] [\-p(orts)] [\-h(elp)] [<topology-file>]
+[\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-s(how)] [\-l(ist)] [\-g(rouping)] [\-H(ca_list)] [\-S(witch_list)] [\-R(outer_list)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\--node-name-map <node-name-map>] [\-p(orts)] [\-m(ax_hops)] [\-h(elp)] [<topology-file>]
 
 .SH DESCRIPTION
 .PP
@@ -47,6 +47,9 @@ names.  See file format below.
 Obtain a ports report which is a
 list of connected ports with relevant information (like LID, portnum,
 GUID, width, speed, and NodeDescription).
+.TP
+\fB\-m\fR, \fB\-\-max_hops\fR
+Report max hops discovered.
 
 .SH COMMON OPTIONS
 
