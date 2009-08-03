@@ -63,6 +63,16 @@ static uint16_t get_node_type(ib_portid_t *port)
 	return node_type;
 }
 
+static uint32_t get_cap_mask(ib_portid_t *port)
+{
+	uint8_t data[IB_SMP_DATA_SIZE];
+	uint32_t cap_mask = 0;
+
+	if (smp_query_via(data, port, IB_ATTR_PORT_INFO, 0, 0, srcport))
+		cap_mask = (uint32_t)mad_get_field(data, 0, IB_PORT_CAPMASK_F);
+	return cap_mask;
+}
+
 static void build_trap144(ib_mad_notice_attr_t * n, ib_portid_t *port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
@@ -70,6 +80,7 @@ static void build_trap144(ib_mad_notice_attr_t * n, ib_portid_t *port)
 	n->g_or_v.generic.trap_num = cl_hton16(144);
 	n->issuer_lid = cl_hton16((uint16_t) port->lid);
 	n->data_details.ntc_144.lid = n->issuer_lid;
+	n->data_details.ntc_144.new_cap_mask = cl_hton32(get_cap_mask(port));
 	n->data_details.ntc_144.local_changes =
 	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
 	n->data_details.ntc_144.change_flgs =
