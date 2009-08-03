@@ -35,6 +35,8 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdlib.h>
+#include <errno.h>
+#include <sys/mman.h>
 
 #include "mlx4.h"
 
