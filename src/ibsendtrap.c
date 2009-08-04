@@ -87,6 +87,20 @@ static void build_trap144(ib_mad_notice_attr_t * n, ib_portid_t *port)
 	    TRAP_144_MASK_NODE_DESCRIPTION_CHANGE;
 }
 
+static void build_trap144_2(ib_mad_notice_attr_t * n, ib_portid_t *port)
+{
+	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
+	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
+	n->g_or_v.generic.trap_num = cl_hton16(144);
+	n->issuer_lid = cl_hton16((uint16_t) port->lid);
+	n->data_details.ntc_144.lid = n->issuer_lid;
+	n->data_details.ntc_144.new_cap_mask = cl_hton32(get_cap_mask(port));
+	n->data_details.ntc_144.local_changes =
+	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
+	n->data_details.ntc_144.change_flgs =
+	    TRAP_144_MASK_LINK_SPEED_ENABLE_CHANGE;
+}
+
 static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t *port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_URGENT;
@@ -134,6 +148,7 @@ typedef struct _trap_def {
 
 trap_def_t traps[3] = {
 	{"node_desc_change", build_trap144},
+	{"link_speed_enabled_change", build_trap144_2},
 	{"local_link_integrity", build_trap129},
 	{NULL, NULL}
 };
