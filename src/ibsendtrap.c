@@ -146,7 +146,7 @@ typedef struct _trap_def {
 	void (*build_func) (ib_mad_notice_attr_t *, ib_portid_t *);
 } trap_def_t;
 
-trap_def_t traps[3] = {
+static const trap_def_t traps[] = {
 	{"node_desc_change", build_trap144},
 	{"link_speed_enabled_change", build_trap144_2},
 	{"local_link_integrity", build_trap129},
