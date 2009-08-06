@@ -43,5 +43,6 @@ struct ibmad_port {
 };
 
 extern struct ibmad_port *ibmp;
+extern int madrpc_timeout;
 
 #endif /* _MAD_INTERNAL_H_ */

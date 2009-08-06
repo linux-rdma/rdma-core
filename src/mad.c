@@ -44,6 +44,8 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 
+#include "mad_internal.h"
+
 #undef DEBUG
 #define DEBUG	if (ibdebug)	IBWARN
 
@@ -60,6 +62,12 @@ uint64_t mad_trid(void)
 	}
 	next = ++trid | (base << 32);
 	return next;
+}
+
+int mad_get_timeout(struct ibmad_port *srcport, int override_ms)
+{
+	return (override_ms ? override_ms :
+	    srcport->timeout ? srcport->timeout : madrpc_timeout);
 }
 
 void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
