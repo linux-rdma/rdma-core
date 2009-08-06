@@ -71,6 +71,7 @@ IBMAD_1.3 {
 		mad_rpc_set_retries;
 		mad_rpc_set_timeout;
 		mad_get_timeout;
+		mad_get_retries;
 		madrpc;
 		madrpc_def_timeout;
 		madrpc_init;

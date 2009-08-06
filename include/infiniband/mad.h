@@ -804,6 +804,7 @@ MAD_EXPORT void mad_rpc_set_timeout(struct ibmad_port *port, int timeout);
 MAD_EXPORT int mad_rpc_class_agent(struct ibmad_port *srcport, int cls);
 
 MAD_EXPORT int mad_get_timeout(struct ibmad_port *srcport, int override_ms);
+MAD_EXPORT int mad_get_retries(struct ibmad_port *srcport);
 
 
 /* register.c */

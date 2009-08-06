@@ -70,6 +70,11 @@ int mad_get_timeout(struct ibmad_port *srcport, int override_ms)
 	    srcport->timeout ? srcport->timeout : madrpc_timeout);
 }
 
+int mad_get_retries(struct ibmad_port *srcport)
+{
+	return (srcport->retries ? srcport->retries : madrpc_retries);
+}
+
 void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 {
 	int is_resp = rpc->method & IB_MAD_RESPONSE;
