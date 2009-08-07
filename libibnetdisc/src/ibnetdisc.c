@@ -446,14 +446,6 @@ add_port_to_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd
 {
 	struct ibnd_port *port;
 
-	port = malloc(sizeof(*port));
-	if (!port)
-		return NULL;
-
-	memcpy(port, temp, sizeof(*port));
-	port->port.node = (ibnd_node_t *)node;
-	port->port.ext_portnum = 0;
-
 	if (node->node.ports == NULL) {
 		node->node.ports = calloc(sizeof(*node->node.ports), node->node.numports + 1);
 		if (!node->node.ports) {
@@ -461,6 +453,14 @@ add_port_to_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd
 			return (NULL);
 		}
 	}
+
+	port = malloc(sizeof(*port));
+	if (!port)
+		return NULL;
+
+	memcpy(port, temp, sizeof(*port));
+	port->port.node = (ibnd_node_t *)node;
+	port->port.ext_portnum = 0;
 
 	node->node.ports[temp->port.portnum] = (ibnd_port_t *)port;
 
