@@ -59,7 +59,7 @@ int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 	uint8_t pktbuf[1024];
 	void *umad = pktbuf;
 
-	memset(pktbuf, 0, umad_size());
+	memset(pktbuf, 0, umad_size() + IB_MAD_SIZE);
 
 	DEBUG("rmpp %p data %p", rmpp, data);
 
