@@ -49,18 +49,6 @@
 #define	IBND_ERROR(fmt, ...) \
 		fprintf(stderr, "%s:%u; " fmt, __FILE__, __LINE__, ## __VA_ARGS__)
 
-struct ibnd_node {
-	/* This member MUST BE FIRST */
-	ibnd_node_t node;
-
-	/* internal use only */
-	unsigned char ch_found;
-	struct ibnd_node *htnext;	/* hash table list */
-	struct ibnd_node *dnext;	/* nodesdist next */
-	struct ibnd_node *type_next;	/* next based on type */
-};
-#define CONV_NODE_INTERNAL(node) ((struct ibnd_node *)node)
-
 struct ibnd_port {
 	/* This member MUST BE FIRST */
 	ibnd_port_t port;
@@ -79,15 +67,15 @@ struct ibnd_fabric {
 	ibnd_fabric_t fabric;
 
 	/* internal use only */
-	struct ibnd_node *nodestbl[HTSZ];
+	ibnd_node_t *nodestbl[HTSZ];
 	struct ibnd_port *portstbl[HTSZ];
-	struct ibnd_node *nodesdist[MAXHOPS + 1];
+	ibnd_node_t *nodesdist[MAXHOPS + 1];
 	ibnd_chassis_t *first_chassis;
 	ibnd_chassis_t *current_chassis;
 	ibnd_chassis_t *last_chassis;
-	struct ibnd_node *switches;
-	struct ibnd_node *ch_adapters;
-	struct ibnd_node *routers;
+	ibnd_node_t *switches;
+	ibnd_node_t *ch_adapters;
+	ibnd_node_t *routers;
 	ib_portid_t selfportid;
 };
 #define CONV_FABRIC_INTERNAL(fabric) ((struct ibnd_fabric *)fabric)

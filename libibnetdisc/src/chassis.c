@@ -239,68 +239,68 @@ uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric, unsigned char chassisnum)
 		return 0;
 }
 
-static int is_router(struct ibnd_node *n)
+static int is_router(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
 	return (devid == VTR_DEVID_IB_FC_ROUTER ||
 		devid == VTR_DEVID_IB_IP_ROUTER);
 }
 
-static int is_spine_9096(struct ibnd_node *n)
+static int is_spine_9096(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
 	return (devid == VTR_DEVID_SFB4 || devid == VTR_DEVID_SFB4_DDR);
 }
 
-static int is_spine_9288(struct ibnd_node *n)
+static int is_spine_9288(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
 	return (devid == VTR_DEVID_SFB12 || devid == VTR_DEVID_SFB12_DDR);
 }
 
-static int is_spine_2004(struct ibnd_node *n)
+static int is_spine_2004(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
 	return (devid == VTR_DEVID_SFB2004);
 }
 
-static int is_spine_2012(struct ibnd_node *n)
+static int is_spine_2012(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
 	return (devid == VTR_DEVID_SFB2012);
 }
 
-static int is_spine(struct ibnd_node *n)
+static int is_spine(ibnd_node_t * n)
 {
 	return (is_spine_9096(n) || is_spine_9288(n) ||
 		is_spine_2004(n) || is_spine_2012(n));
 }
 
-static int is_line_24(struct ibnd_node *n)
+static int is_line_24(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
-	return (devid == VTR_DEVID_SLB24 || devid == VTR_DEVID_SLB24_DDR ||
-		devid == VTR_DEVID_SRB2004);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
+	return (devid == VTR_DEVID_SLB24 ||
+		devid == VTR_DEVID_SLB24_DDR || devid == VTR_DEVID_SRB2004);
 }
 
-static int is_line_8(struct ibnd_node *n)
+static int is_line_8(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
 	return (devid == VTR_DEVID_SLB8);
 }
 
-static int is_line_2024(struct ibnd_node *n)
+static int is_line_2024(ibnd_node_t * n)
 {
-	uint32_t devid = mad_get_field(n->node.info, 0, IB_NODE_DEVID_F);
+	uint32_t devid = mad_get_field(n->info, 0, IB_NODE_DEVID_F);
 	return (devid == VTR_DEVID_SLB2024);
 }
 
-static int is_line(struct ibnd_node *n)
+static int is_line(ibnd_node_t * n)
 {
 	return (is_line_24(n) || is_line_8(n) || is_line_2024(n));
 }
 
-int is_chassis_switch(struct ibnd_node *n)
+int is_chassis_switch(ibnd_node_t * n)
 {
 	return (is_spine(n) || is_line(n));
 }
@@ -349,7 +349,7 @@ char anafa_spine4_slot_2_slb[25] = {
 
 /*	reference                     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 }; */
 
-static int get_sfb_slot(struct ibnd_node *node, ibnd_port_t * lineport)
+static int get_sfb_slot(ibnd_node_t * node, ibnd_port_t * lineport)
 {
 	ibnd_node_t *n = (ibnd_node_t *) node;
 
@@ -372,25 +372,24 @@ static int get_sfb_slot(struct ibnd_node *node, ibnd_port_t * lineport)
 		n->ch_anafanum = anafa_spine4_slot_2_slb[lineport->portnum];
 	} else {
 		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
-			   node->node.guid);
+			   node->guid);
 		return (-1);
 	}
 	return (0);
 }
 
-static int get_router_slot(struct ibnd_node *node, ibnd_port_t * spineport)
+static int get_router_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 {
-	ibnd_node_t *n = (ibnd_node_t *) node;
 	uint64_t guessnum = 0;
 
-	node->ch_found = 1;
+	n->ch_found = 1;
 
 	n->ch_slot = SRBD_CS;
-	if (is_spine_9096(CONV_NODE_INTERNAL(spineport->node))) {
+	if (is_spine_9096(spineport->node)) {
 		n->ch_type = ISR9096_CT;
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = ipr_slot_2_sfb4_port[spineport->portnum];
-	} else if (is_spine_9288(CONV_NODE_INTERNAL(spineport->node))) {
+	} else if (is_spine_9288(spineport->node)) {
 		n->ch_type = ISR9288_CT;
 		n->ch_slotnum = line_slot_2_sfb12[spineport->portnum];
 		/* this is a smart guess based on nodeguids order on sFB-12 module */
@@ -399,7 +398,7 @@ static int get_router_slot(struct ibnd_node *node, ibnd_port_t * spineport)
 		/* module 2 <--> remote anafa 2 */
 		/* module 3 <--> remote anafa 1 */
 		n->ch_anafanum = (guessnum == 3 ? 1 : (guessnum == 1 ? 3 : 2));
-	} else if (is_spine_2012(CONV_NODE_INTERNAL(spineport->node))) {
+	} else if (is_spine_2012(spineport->node)) {
 		n->ch_type = ISR2012_CT;
 		n->ch_slotnum = line_slot_2_sfb12[spineport->portnum];
 		/* this is a smart guess based on nodeguids order on sFB-12 module */
@@ -408,7 +407,7 @@ static int get_router_slot(struct ibnd_node *node, ibnd_port_t * spineport)
 		// module 2 <--> remote anafa 2
 		// module 3 <--> remote anafa 1
 		n->ch_anafanum = (guessnum == 3 ? 1 : (guessnum == 1 ? 3 : 2));
-	} else if (is_spine_2004(CONV_NODE_INTERNAL(spineport->node))) {
+	} else if (is_spine_2004(spineport->node)) {
 		n->ch_type = ISR2004_CT;
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = ipr_slot_2_sfb4_port[spineport->portnum];
@@ -423,19 +422,19 @@ static int get_router_slot(struct ibnd_node *node, ibnd_port_t * spineport)
 static int get_slb_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 {
 	n->ch_slot = LINE_CS;
-	if (is_spine_9096(CONV_NODE_INTERNAL(spineport->node))) {
+	if (is_spine_9096(spineport->node)) {
 		n->ch_type = ISR9096_CT;
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = anafa_line_slot_2_sfb4[spineport->portnum];
-	} else if (is_spine_9288(CONV_NODE_INTERNAL(spineport->node))) {
+	} else if (is_spine_9288(spineport->node)) {
 		n->ch_type = ISR9288_CT;
 		n->ch_slotnum = line_slot_2_sfb12[spineport->portnum];
 		n->ch_anafanum = anafa_line_slot_2_sfb12[spineport->portnum];
-	} else if (is_spine_2012(CONV_NODE_INTERNAL(spineport->node))) {
+	} else if (is_spine_2012(spineport->node)) {
 		n->ch_type = ISR2012_CT;
 		n->ch_slotnum = line_slot_2_sfb12[spineport->portnum];
 		n->ch_anafanum = anafa_line_slot_2_sfb12[spineport->portnum];
-	} else if (is_spine_2004(CONV_NODE_INTERNAL(spineport->node))) {
+	} else if (is_spine_2004(spineport->node)) {
 		n->ch_type = ISR2004_CT;
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = anafa_line_slot_2_sfb4[spineport->portnum];
@@ -454,12 +453,11 @@ static void voltaire_portmap(ibnd_port_t * port);
 	It could be optimized so, but time overhead is very small
 	and its only diag.util
 */
-static int fill_voltaire_chassis_record(struct ibnd_node *node)
+static int fill_voltaire_chassis_record(ibnd_node_t * node)
 {
-	ibnd_node_t *n = (ibnd_node_t *) node;
 	int p = 0;
 	ibnd_port_t *port;
-	struct ibnd_node *remnode = 0;
+	ibnd_node_t *remnode = 0;
 
 	if (node->ch_found)	/* somehow this node has already been passed */
 		return (0);
@@ -470,25 +468,23 @@ static int fill_voltaire_chassis_record(struct ibnd_node *node)
 	/* in such case node->ports is actually a requested port... */
 	if (is_router(node)) {
 		/* find the remote node */
-		for (p = 1; p <= node->node.numports; p++) {
-			port = node->node.ports[p];
-			if (port &&
-			    is_spine(CONV_NODE_INTERNAL
-				     (port->remoteport->node)))
+		for (p = 1; p <= node->numports; p++) {
+			port = node->ports[p];
+			if (port && is_spine(port->remoteport->node))
 				get_router_slot(node, port->remoteport);
 		}
 	} else if (is_spine(node)) {
-		for (p = 1; p <= node->node.numports; p++) {
-			port = node->node.ports[p];
+		for (p = 1; p <= node->numports; p++) {
+			port = node->ports[p];
 			if (!port || !port->remoteport)
 				continue;
-			remnode = CONV_NODE_INTERNAL(port->remoteport->node);
-			if (remnode->node.type != IB_NODE_SWITCH) {
+			remnode = port->remoteport->node;
+			if (remnode->type != IB_NODE_SWITCH) {
 				if (!remnode->ch_found)
 					get_router_slot(remnode, port);
 				continue;
 			}
-			if (!n->ch_type)
+			if (!node->ch_type)
 				/* we assume here that remoteport belongs to line */
 				if (get_sfb_slot(node, port->remoteport))
 					return (-1);
@@ -497,20 +493,20 @@ static int fill_voltaire_chassis_record(struct ibnd_node *node)
 		}
 
 	} else if (is_line(node)) {
-		for (p = 1; p <= node->node.numports; p++) {
-			port = node->node.ports[p];
+		for (p = 1; p <= node->numports; p++) {
+			port = node->ports[p];
 			if (!port || port->portnum > 12 || !port->remoteport)
 				continue;
 			/* we assume here that remoteport belongs to spine */
-			if (get_slb_slot(n, port->remoteport))
+			if (get_slb_slot(node, port->remoteport))
 				return (-1);
 			break;
 		}
 	}
 
 	/* for each port of this node, map external ports */
-	for (p = 1; p <= node->node.numports; p++) {
-		port = node->node.ports[p];
+	for (p = 1; p <= node->numports; p++) {
+		port = node->ports[p];
 		if (!port)
 			continue;
 		voltaire_portmap(port);
@@ -534,8 +530,7 @@ static int get_spine_index(ibnd_node_t * node)
 {
 	int retval;
 
-	if (is_spine_9288(CONV_NODE_INTERNAL(node))
-	    || is_spine_2012(CONV_NODE_INTERNAL(node)))
+	if (is_spine_9288(node) || is_spine_2012(node))
 		retval = 3 * (node->ch_slotnum - 1) + node->ch_anafanum;
 	else
 		retval = node->ch_slotnum;
@@ -586,7 +581,7 @@ static int pass_on_lines_catch_spines(ibnd_chassis_t * chassis)
 	for (i = 1; i <= LINES_MAX_NUM; i++) {
 		node = chassis->linenode[i];
 
-		if (!(node && is_line(CONV_NODE_INTERNAL(node))))
+		if (!(node && is_line(node)))
 			continue;	/* empty slot or router */
 
 		for (p = 1; p <= node->numports; p++) {
@@ -596,7 +591,7 @@ static int pass_on_lines_catch_spines(ibnd_chassis_t * chassis)
 
 			remnode = port->remoteport->node;
 
-			if (!CONV_NODE_INTERNAL(remnode)->ch_found)
+			if (!remnode->ch_found)
 				continue;	/* some error - spine not initialized ? FIXME */
 			if (insert_spine(remnode, chassis))
 				return (-1);
@@ -621,7 +616,7 @@ static int pass_on_spines_catch_lines(ibnd_chassis_t * chassis)
 				continue;
 			remnode = port->remoteport->node;
 
-			if (!CONV_NODE_INTERNAL(remnode)->ch_found)
+			if (!remnode->ch_found)
 				continue;	/* some error - line/router not initialized ? FIXME */
 			if (insert_line_router(remnode, chassis))
 				return (-1);
@@ -655,10 +650,10 @@ static void pass_on_spines_interpolate_chguid(ibnd_chassis_t * chassis)
 	in that chassis
 	chassis structure = structure of one standalone chassis
 */
-static int build_chassis(struct ibnd_node *node, ibnd_chassis_t * chassis)
+static int build_chassis(ibnd_node_t * node, ibnd_chassis_t * chassis)
 {
 	int p = 0;
-	struct ibnd_node *remnode = 0;
+	ibnd_node_t *remnode = 0;
 	ibnd_port_t *port = 0;
 
 	/* we get here with node = chassis_spine */
@@ -666,16 +661,16 @@ static int build_chassis(struct ibnd_node *node, ibnd_chassis_t * chassis)
 		return (-1);
 
 	/* loop: pass on all ports of node */
-	for (p = 1; p <= node->node.numports; p++) {
-		port = node->node.ports[p];
+	for (p = 1; p <= node->numports; p++) {
+		port = node->ports[p];
 		if (!port || !port->remoteport)
 			continue;
-		remnode = CONV_NODE_INTERNAL(port->remoteport->node);
+		remnode = port->remoteport->node;
 
 		if (!remnode->ch_found)
 			continue;	/* some error - line or router not initialized ? FIXME */
 
-		insert_line_router(&(remnode->node), chassis);
+		insert_line_router(remnode, chassis);
 	}
 
 	if (pass_on_lines_catch_spines(chassis))
@@ -764,13 +759,11 @@ int int2ext_map_slb2024[2][25] = {
 /* map internal ports to external ports if appropriate */
 static void voltaire_portmap(ibnd_port_t * port)
 {
-	struct ibnd_node *n = CONV_NODE_INTERNAL(port->node);
 	int portnum = port->portnum;
 	int chipnum = 0;
 	ibnd_node_t *node = port->node;
 
-	if (!n->ch_found || !is_line(CONV_NODE_INTERNAL(node))
-	    || (portnum < 13 || portnum > 24)) {
+	if (!node->ch_found || !is_line(node) || (portnum < 13 || portnum > 24)) {
 		port->ext_portnum = 0;
 		return;
 	}
@@ -782,9 +775,9 @@ static void voltaire_portmap(ibnd_port_t * port)
 
 	chipnum = port->node->ch_anafanum - 1;
 
-	if (is_line_24(CONV_NODE_INTERNAL(node)))
+	if (is_line_24(node))
 		port->ext_portnum = int2ext_map_slb24[chipnum][portnum];
-	else if (is_line_2024(CONV_NODE_INTERNAL(node)))
+	else if (is_line_2024(node))
 		port->ext_portnum = int2ext_map_slb2024[chipnum][portnum];
 	else
 		port->ext_portnum = int2ext_map_slb8[chipnum][portnum];
@@ -828,7 +821,7 @@ static void add_node_to_chassis(ibnd_chassis_t * chassis, ibnd_node_t * node)
 */
 int group_nodes(struct ibnd_fabric *fabric)
 {
-	struct ibnd_node *node;
+	ibnd_node_t *node;
 	int dist;
 	int chassisnum = 0;
 	ibnd_chassis_t *chassis;
@@ -842,7 +835,7 @@ int group_nodes(struct ibnd_fabric *fabric)
 	/* not very efficient but clear code so... */
 	for (dist = 0; dist <= fabric->fabric.maxhops_discovered; dist++) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
-			if (mad_get_field(node->node.info, 0,
+			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 				if (fill_voltaire_chassis_record(node))
 					return (-1);
@@ -853,13 +846,11 @@ int group_nodes(struct ibnd_fabric *fabric)
 	/* algorithm: catch spine and find all surrounding nodes */
 	for (dist = 0; dist <= fabric->fabric.maxhops_discovered; dist++) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
-			if (mad_get_field(node->node.info, 0,
+			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
 				continue;
-			//if (!node->node.chrecord || node->node.chrecord->chassisnum || !is_spine(node))
 			if (!node->ch_found
-			    || (node->node.chassis
-				&& node->node.chassis->chassisnum)
+			    || (node->chassis && node->chassis->chassisnum)
 			    || !is_spine(node))
 				continue;
 			if (add_chassis(fabric))
@@ -874,10 +865,10 @@ int group_nodes(struct ibnd_fabric *fabric)
 	/* grouped by common SystemImageGUID */
 	for (dist = 0; dist <= fabric->fabric.maxhops_discovered; dist++) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
-			if (mad_get_field(node->node.info, 0,
+			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 				continue;
-			if (mad_get_field64(node->node.info, 0,
+			if (mad_get_field64(node->info, 0,
 					    IB_NODE_SYSTEM_GUID_F)) {
 				chassis =
 				    find_chassisguid(fabric,
@@ -901,10 +892,10 @@ int group_nodes(struct ibnd_fabric *fabric)
 	/* (defined as chassis->nodecount > 1) */
 	for (dist = 0; dist <= MAXHOPS;) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
-			if (mad_get_field(node->node.info, 0,
+			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 				continue;
-			if (mad_get_field64(node->node.info, 0,
+			if (mad_get_field64(node->info, 0,
 					    IB_NODE_SYSTEM_GUID_F)) {
 				chassis =
 				    find_chassisguid(fabric,

@@ -45,8 +45,8 @@ struct port;			/* forward declare */
 /** =========================================================================
  * Node
  */
-typedef struct node {
-	struct node *next;	/* all node list in fabric */
+typedef struct ibnd_node {
+	struct ibnd_node *next;	/* all node list in fabric */
 
 	ib_portid_t path_portid;	/* path from "from_node" */
 	int dist;		/* num of hops from "from_node" */
@@ -72,12 +72,18 @@ typedef struct node {
 				   items MAY BE NULL!  (ie 0 == switches only) */
 
 	/* chassis info */
-	struct node *next_chassis_node;	/* next node in ibnd_chassis_t->nodes */
+	struct ibnd_node *next_chassis_node;	/* next node in ibnd_chassis_t->nodes */
 	struct chassis *chassis;	/* if != NULL the chassis this node belongs to */
 	unsigned char ch_type;
 	unsigned char ch_anafanum;
 	unsigned char ch_slotnum;
 	unsigned char ch_slot;
+
+	/* internal use only */
+	unsigned char ch_found;
+	struct ibnd_node *htnext;	/* hash table list */
+	struct ibnd_node *dnext;	/* nodesdist next */
+	struct ibnd_node *type_next;	/* next based on type */
 } ibnd_node_t;
 
 /** =========================================================================

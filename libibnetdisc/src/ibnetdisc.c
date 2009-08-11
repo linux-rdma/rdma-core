@@ -98,18 +98,17 @@ static int get_port_info(struct ibmad_port *ibmad_port,
  * Returns -1 if error.
  */
 static int query_node_info(struct ibmad_port *ibmad_port,
-			   struct ibnd_fabric *fabric, struct ibnd_node *node,
+			   struct ibnd_fabric *fabric, ibnd_node_t * node,
 			   ib_portid_t * portid)
 {
-	if (!smp_query_via(&(node->node.info), portid, IB_ATTR_NODE_INFO, 0, 0,
+	if (!smp_query_via(&(node->info), portid, IB_ATTR_NODE_INFO, 0, 0,
 			   ibmad_port))
 		return -1;
 
 	/* decode just a couple of fields for quicker reference. */
-	mad_decode_field(node->node.info, IB_NODE_GUID_F, &(node->node.guid));
-	mad_decode_field(node->node.info, IB_NODE_TYPE_F, &(node->node.type));
-	mad_decode_field(node->node.info, IB_NODE_NPORTS_F,
-			 &(node->node.numports));
+	mad_decode_field(node->info, IB_NODE_GUID_F, &(node->guid));
+	mad_decode_field(node->info, IB_NODE_TYPE_F, &(node->type));
+	mad_decode_field(node->info, IB_NODE_NPORTS_F, &(node->numports));
 
 	return (0);
 }
@@ -118,15 +117,14 @@ static int query_node_info(struct ibmad_port *ibmad_port,
  * Returns 0 if non switch node is found, 1 if switch is found, -1 if error.
  */
 static int query_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
-		      struct ibnd_node *inode, struct ibnd_port *iport,
+		      ibnd_node_t * node, struct ibnd_port *iport,
 		      ib_portid_t * portid)
 {
 	int rc = 0;
-	ibnd_node_t *node = &(inode->node);
 	ibnd_port_t *port = &(iport->port);
-	void *nd = inode->node.nodedesc;
+	void *nd = node->nodedesc;
 
-	if ((rc = query_node_info(ibmad_port, fabric, inode, portid)) != 0)
+	if ((rc = query_node_info(ibmad_port, fabric, node, portid)) != 0)
 		return rc;
 
 	port->portnum = mad_get_field(node->info, 0, IB_NODE_LOCAL_PORT_F);
@@ -204,30 +202,30 @@ static int extend_dpath(struct ibmad_port *ibmad_port, struct ibnd_fabric *f,
 }
 
 static void dump_endnode(ib_portid_t * path, char *prompt,
-			 struct ibnd_node *node, struct ibnd_port *port)
+			 ibnd_node_t * node, struct ibnd_port *port)
 {
 	char type[64];
 	if (!show_progress)
 		return;
 
-	mad_dump_node_type(type, 64, &(node->node.type), sizeof(int));
-
-	printf("%s -> %s %s {%016" PRIx64 "} portnum %d base lid %d-%d\"%s\"\n",
-	       portid2str(path), prompt, type, node->node.guid,
-	       node->node.type == IB_NODE_SWITCH ? 0 : port->port.portnum,
-	       port->port.base_lid,
-	       port->port.base_lid + (1 << port->port.lmc) - 1,
-	       node->node.nodedesc);
+	mad_dump_node_type(type, 64, &(node->type), sizeof(int)),
+	    printf("%s -> %s %s {%016" PRIx64
+		   "} portnum %d base lid %d-%d\"%s\"\n", portid2str(path),
+		   prompt, type, node->guid,
+		   node->type == IB_NODE_SWITCH ? 0 : port->port.portnum,
+		   port->port.base_lid,
+		   port->port.base_lid + (1 << port->port.lmc) - 1,
+		   node->nodedesc);
 }
 
-static struct ibnd_node *find_existing_node(struct ibnd_fabric *fabric,
-					    struct ibnd_node *new)
+static ibnd_node_t *find_existing_node(struct ibnd_fabric *fabric,
+				       ibnd_node_t * new)
 {
-	int hash = HASHGUID(new->node.guid) % HTSZ;
-	struct ibnd_node *node;
+	int hash = HASHGUID(new->guid) % HTSZ;
+	ibnd_node_t *node;
 
 	for (node = fabric->nodestbl[hash]; node; node = node->htnext)
-		if (node->node.guid == new->node.guid)
+		if (node->guid == new->guid)
 			return node;
 
 	return NULL;
@@ -237,7 +235,7 @@ ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric, uint64_t guid)
 {
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	int hash = HASHGUID(guid) % HTSZ;
-	struct ibnd_node *node;
+	ibnd_node_t *node;
 
 	if (!fabric) {
 		IBND_DEBUG("fabric parameter NULL\n");
@@ -245,7 +243,7 @@ ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric, uint64_t guid)
 	}
 
 	for (node = f->nodestbl[hash]; node; node = node->htnext)
-		if (node->node.guid == guid)
+		if (node->guid == guid)
 			return (ibnd_node_t *) node;
 
 	return NULL;
@@ -273,7 +271,6 @@ ibnd_node_t *ibnd_update_node(struct ibmad_port * ibmad_port,
 	void *nd = node->nodedesc;
 	int p = 0;
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
-	struct ibnd_node *n = CONV_NODE_INTERNAL(node);
 
 	if (_check_ibmad_port(ibmad_port) < 0)
 		return (NULL);
@@ -288,36 +285,36 @@ ibnd_node_t *ibnd_update_node(struct ibmad_port * ibmad_port,
 		return (NULL);
 	}
 
-	if (query_node_info(ibmad_port, f, n, &(n->node.path_portid)))
+	if (query_node_info(ibmad_port, f, node, &(node->path_portid)))
 		return (NULL);
 
-	if (!smp_query_via(nd, &(n->node.path_portid), IB_ATTR_NODE_DESC, 0, 0,
+	if (!smp_query_via(nd, &(node->path_portid), IB_ATTR_NODE_DESC, 0, 0,
 			   ibmad_port))
 		return (NULL);
 
 	/* update all the port info's */
-	for (p = 1; p >= n->node.numports; p++) {
-		get_port_info(ibmad_port, f,
-			      CONV_PORT_INTERNAL(n->node.ports[p]), p,
-			      &(n->node.path_portid));
+	for (p = 1; p >= node->numports; p++) {
+		get_port_info(ibmad_port, f, CONV_PORT_INTERNAL(node->ports[p]),
+			      p, &(node->path_portid));
 	}
 
-	if (n->node.type != IB_NODE_SWITCH)
+	if (node->type != IB_NODE_SWITCH)
 		goto done;
 
-	if (!smp_query_via(portinfo_port0, &(n->node.path_portid),
-			   IB_ATTR_PORT_INFO, 0, 0, ibmad_port))
+	if (!smp_query_via
+	    (portinfo_port0, &(node->path_portid), IB_ATTR_PORT_INFO, 0, 0,
+	     ibmad_port))
 		return (NULL);
 
-	n->node.smalid = mad_get_field(portinfo_port0, 0, IB_PORT_LID_F);
-	n->node.smalmc = mad_get_field(portinfo_port0, 0, IB_PORT_LMC_F);
+	node->smalid = mad_get_field(portinfo_port0, 0, IB_PORT_LID_F);
+	node->smalmc = mad_get_field(portinfo_port0, 0, IB_PORT_LMC_F);
 
-	if (!smp_query_via(node->switchinfo, &(n->node.path_portid),
+	if (!smp_query_via(node->switchinfo, &(node->path_portid),
 			   IB_ATTR_SWITCH_INFO, 0, 0, ibmad_port))
 		node->smaenhsp0 = 0;	/* assume base SP0 */
 	else
 		mad_decode_field(node->switchinfo, IB_SW_ENHANCED_PORT0_F,
-				 &n->node.smaenhsp0);
+				 &node->smaenhsp0);
 
 done:
 	return (node);
@@ -358,10 +355,9 @@ ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 	return (rc);
 }
 
-static void add_to_nodeguid_hash(struct ibnd_node *node,
-				 struct ibnd_node *hash[])
+static void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
 {
-	int hash_idx = HASHGUID(node->node.guid) % HTSZ;
+	int hash_idx = HASHGUID(node->guid) % HTSZ;
 
 	node->htnext = hash[hash_idx];
 	hash[hash_idx] = node;
@@ -376,9 +372,9 @@ static void add_to_portguid_hash(struct ibnd_port *port,
 	hash[hash_idx] = port;
 }
 
-static void add_to_type_list(struct ibnd_node *node, struct ibnd_fabric *fabric)
+static void add_to_type_list(ibnd_node_t * node, struct ibnd_fabric *fabric)
 {
-	switch (node->node.type) {
+	switch (node->type) {
 	case IB_NODE_CA:
 		node->type_next = fabric->ch_adapters;
 		fabric->ch_adapters = node;
@@ -394,21 +390,21 @@ static void add_to_type_list(struct ibnd_node *node, struct ibnd_fabric *fabric)
 	}
 }
 
-static void add_to_nodedist(struct ibnd_node *node, struct ibnd_fabric *fabric)
+static void add_to_nodedist(ibnd_node_t * node, struct ibnd_fabric *fabric)
 {
-	int dist = node->node.dist;
-	if (node->node.type != IB_NODE_SWITCH)
+	int dist = node->dist;
+	if (node->type != IB_NODE_SWITCH)
 		dist = MAXHOPS;	/* special Ca list */
 
 	node->dnext = fabric->nodesdist[dist];
 	fabric->nodesdist[dist] = node;
 }
 
-static struct ibnd_node *create_node(struct ibnd_fabric *fabric,
-				     struct ibnd_node *temp, ib_portid_t * path,
-				     int dist)
+static ibnd_node_t *create_node(struct ibnd_fabric *fabric,
+				ibnd_node_t * temp, ib_portid_t * path,
+				int dist)
 {
-	struct ibnd_node *node;
+	ibnd_node_t *node;
 
 	node = malloc(sizeof(*node));
 	if (!node) {
@@ -417,13 +413,13 @@ static struct ibnd_node *create_node(struct ibnd_fabric *fabric,
 	}
 
 	memcpy(node, temp, sizeof(*node));
-	node->node.dist = dist;
-	node->node.path_portid = *path;
+	node->dist = dist;
+	node->path_portid = *path;
 
 	add_to_nodeguid_hash(node, fabric->nodestbl);
 
 	/* add this to the all nodes list */
-	node->node.next = fabric->fabric.nodes;
+	node->next = fabric->fabric.nodes;
 	fabric->fabric.nodes = (ibnd_node_t *) node;
 
 	add_to_type_list(node, fabric);
@@ -432,26 +428,24 @@ static struct ibnd_node *create_node(struct ibnd_fabric *fabric,
 	return node;
 }
 
-static struct ibnd_port *find_existing_port_node(struct ibnd_node *node,
+static struct ibnd_port *find_existing_port_node(ibnd_node_t * node,
 						 struct ibnd_port *port)
 {
-	if (port->port.portnum > node->node.numports
-	    || node->node.ports == NULL)
+	if (port->port.portnum > node->numports || node->ports == NULL)
 		return (NULL);
 
-	return (CONV_PORT_INTERNAL(node->node.ports[port->port.portnum]));
+	return (CONV_PORT_INTERNAL(node->ports[port->port.portnum]));
 }
 
 static struct ibnd_port *add_port_to_node(struct ibnd_fabric *fabric,
-					  struct ibnd_node *node,
+					  ibnd_node_t * node,
 					  struct ibnd_port *temp)
 {
 	struct ibnd_port *port;
 
-	if (node->node.ports == NULL) {
-		node->node.ports =
-		    calloc(sizeof(*node->node.ports), node->node.numports + 1);
-		if (!node->node.ports) {
+	if (node->ports == NULL) {
+		node->ports = calloc(sizeof(*node->ports), node->numports + 1);
+		if (!node->ports) {
 			IBND_ERROR("Failed to allocate the ports array\n");
 			return (NULL);
 		}
@@ -467,20 +461,19 @@ static struct ibnd_port *add_port_to_node(struct ibnd_fabric *fabric,
 	port->port.node = (ibnd_node_t *) node;
 	port->port.ext_portnum = 0;
 
-	node->node.ports[temp->port.portnum] = (ibnd_port_t *) port;
+	node->ports[temp->port.portnum] = (ibnd_port_t *) port;
 
 	add_to_portguid_hash(port, fabric->portstbl);
 	return port;
 }
 
-static void link_ports(struct ibnd_node *node, struct ibnd_port *port,
-		       struct ibnd_node *remotenode,
-		       struct ibnd_port *remoteport)
+static void link_ports(ibnd_node_t * node, struct ibnd_port *port,
+		       ibnd_node_t * remotenode, struct ibnd_port *remoteport)
 {
 	IBND_DEBUG("linking: 0x%" PRIx64 " %p->%p:%u and 0x%" PRIx64
-		   " %p->%p:%u\n", node->node.guid, node, port,
-		   port->port.portnum, remotenode->node.guid, remotenode,
-		   remoteport, remoteport->port.portnum);
+		   " %p->%p:%u\n", node->guid, node, port, port->port.portnum,
+		   remotenode->guid, remotenode, remoteport,
+		   remoteport->port.portnum);
 	if (port->port.remoteport)
 		port->port.remoteport->remoteport = NULL;
 	if (remoteport->port.remoteport)
@@ -490,14 +483,14 @@ static void link_ports(struct ibnd_node *node, struct ibnd_port *port,
 }
 
 static int get_remote_node(struct ibmad_port *ibmad_port,
-			   struct ibnd_fabric *fabric, struct ibnd_node *node,
+			   struct ibnd_fabric *fabric, ibnd_node_t * node,
 			   struct ibnd_port *port, ib_portid_t * path,
 			   int portnum, int dist)
 {
 	int rc = 0;
-	struct ibnd_node node_buf;
+	ibnd_node_t node_buf;
 	struct ibnd_port port_buf;
-	struct ibnd_node *remotenode, *oldnode;
+	ibnd_node_t *remotenode, *oldnode;
 	struct ibnd_port *remoteport, *oldport;
 
 	memset(&node_buf, 0, sizeof(node_buf));
@@ -554,9 +547,9 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	int rc = 0;
 	struct ibnd_fabric *fabric = NULL;
 	ib_portid_t my_portid = { 0 };
-	struct ibnd_node node_buf;
+	ibnd_node_t node_buf;
 	struct ibnd_port port_buf;
-	struct ibnd_node *node;
+	ibnd_node_t *node;
 	struct ibnd_port *port;
 	int i;
 	int dist = 0;
@@ -605,7 +598,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 		goto error;
 
 	rc = get_remote_node(ibmad_port, fabric, node, port, from,
-			     mad_get_field(node->node.info, 0,
+			     mad_get_field(node->info, 0,
 					   IB_NODE_LOCAL_PORT_F), 0);
 	if (rc < 0)
 		goto error;
@@ -616,13 +609,13 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
 
-			path = &node->node.path_portid;
+			path = &node->path_portid;
 
 			IBND_DEBUG("dist %d node %p\n", dist, node);
 			dump_endnode(path, "processing", node, port);
 
-			for (i = 1; i <= node->node.numports; i++) {
-				if (i == mad_get_field(node->node.info, 0,
+			for (i = 1; i <= node->numports; i++) {
+				if (i == mad_get_field(node->info, 0,
 						       IB_NODE_LOCAL_PORT_F))
 					continue;
 
@@ -644,9 +637,9 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 					goto error;
 
 				/* If switch, set port GUID to node port GUID */
-				if (node->node.type == IB_NODE_SWITCH) {
+				if (node->type == IB_NODE_SWITCH) {
 					port->port.guid =
-					    mad_get_field64(node->node.info, 0,
+					    mad_get_field64(node->info, 0,
 							    IB_NODE_PORT_GUID_F);
 				}
 
@@ -666,14 +659,14 @@ error:
 	return (NULL);
 }
 
-static void destroy_node(struct ibnd_node *node)
+static void destroy_node(ibnd_node_t * node)
 {
 	int p = 0;
 
-	for (p = 0; p <= node->node.numports; p++) {
-		free(node->node.ports[p]);
+	for (p = 0; p <= node->numports; p++) {
+		free(node->ports[p]);
 	}
-	free(node->node.ports);
+	free(node->ports);
 	free(node);
 }
 
@@ -681,8 +674,8 @@ void ibnd_destroy_fabric(ibnd_fabric_t * fabric)
 {
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	int dist = 0;
-	struct ibnd_node *node = NULL;
-	struct ibnd_node *next = NULL;
+	ibnd_node_t *node = NULL;
+	ibnd_node_t *next = NULL;
 	ibnd_chassis_t *ch, *ch_next;
 
 	if (!fabric)
@@ -747,8 +740,8 @@ void ibnd_iter_nodes_type(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,
 			  int node_type, void *user_data)
 {
 	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
-	struct ibnd_node *list = NULL;
-	struct ibnd_node *cur = NULL;
+	ibnd_node_t *list = NULL;
+	ibnd_node_t *cur = NULL;
 
 	if (!fabric) {
 		IBND_DEBUG("fabric parameter NULL\n");
