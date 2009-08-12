@@ -121,12 +121,13 @@ static int
 query_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 	   struct ibnd_node *inode, struct ibnd_port *iport, ib_portid_t *portid)
 {
+	int rc = 0;
 	ibnd_node_t *node = &(inode->node);
 	ibnd_port_t *port = &(iport->port);
 	void *nd = inode->node.nodedesc;
 
-	if (query_node_info(ibmad_port, fabric, inode, portid))
-		return -1;
+	if ((rc = query_node_info(ibmad_port, fabric, inode, portid)) != 0)
+		return rc;
 
 	port->portnum = mad_get_field(node->info, 0, IB_NODE_LOCAL_PORT_F);
 	port->guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
@@ -169,8 +170,10 @@ query_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 static int
 add_port_to_dpath(ib_dr_path_t *path, int nextport)
 {
-	if (path->cnt+2 >= sizeof(path->p))
+	if (path->cnt+2 >= sizeof(path->p)) {
+		IBND_ERROR("DR path has grown too long\n");
 		return -1;
+	}
 	++path->cnt;
 	path->p[path->cnt] = (uint8_t) nextport;
 	return path->cnt;
@@ -186,8 +189,10 @@ extend_dpath(struct ibmad_port *ibmad_port, struct ibnd_fabric *f,
 		/* If we were LID routed we need to set up the drslid */
 		if (!f->selfportid.lid)
 			if (ib_resolve_self_via(&f->selfportid, NULL, NULL,
-					ibmad_port) < 0)
+					ibmad_port) < 0) {
+				IBND_ERROR("Failed to resolve self\n");
 				return -1;
+			}
 
 		portid->drpath.drslid = (uint16_t) f->selfportid.lid;
 		portid->drpath.drdlid = 0xFFFF;
@@ -413,8 +418,10 @@ create_node(struct ibnd_fabric *fabric, struct ibnd_node *temp, ib_portid_t *pat
 	struct ibnd_node *node;
 
 	node = malloc(sizeof(*node));
-	if (!node)
-		IBPANIC("OOM: node creation failed\n");
+	if (!node) {
+		IBND_ERROR("OOM: node creation failed\n");
+		return (NULL);
+	}
 
 	memcpy(node, temp, sizeof(*node));
 	node->node.dist = dist;
@@ -455,8 +462,10 @@ add_port_to_node(struct ibnd_fabric *fabric, struct ibnd_node *node, struct ibnd
 	}
 
 	port = malloc(sizeof(*port));
-	if (!port)
+	if (!port) {
+		IBND_ERROR("Failed to allocate port\n");
 		return NULL;
+	}
 
 	memcpy(port, temp, sizeof(*port));
 	port->port.node = (ibnd_node_t *)node;
@@ -489,6 +498,7 @@ get_remote_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 		struct ibnd_node *node, struct ibnd_port *port, ib_portid_t *path,
 		int portnum, int dist)
 {
+	int rc = 0;
 	struct ibnd_node node_buf;
 	struct ibnd_port port_buf;
 	struct ibnd_node *remotenode, *oldnode;
@@ -501,43 +511,51 @@ get_remote_node(struct ibmad_port *ibmad_port, struct ibnd_fabric *fabric,
 
 	if (mad_get_field(port->port.info, 0, IB_PORT_PHYS_STATE_F)
 			!= IB_PORT_PHYS_STATE_LINKUP)
-		return -1;
+		return 1; /* positive == non-fatal error */
 
 	if (extend_dpath(ibmad_port, fabric, path, portnum) < 0)
 		return -1;
 
 	if (query_node(ibmad_port, fabric, &node_buf, &port_buf, path)) {
-		IBND_DEBUG("NodeInfo on %s failed, skipping port",
+		IBND_ERROR("Query remote node (%s) failed, skipping port\n",
 			   portid2str(path));
 		path->drpath.cnt--;	/* restore path */
-		return -1;
+		return 1; /* positive == non-fatal error */
 	}
 
 	oldnode = find_existing_node(fabric, &node_buf);
 	if (oldnode)
 		remotenode = oldnode;
-	else if (!(remotenode = create_node(fabric, &node_buf, path, dist + 1)))
-		IBPANIC("no memory");
+	else if (!(remotenode = create_node(fabric, &node_buf, path, dist + 1))) {
+		rc = -1;
+		goto error;
+	}
 
 	oldport = find_existing_port_node(remotenode, &port_buf);
 	if (oldport) {
 		remoteport = oldport;
-	} else if (!(remoteport = add_port_to_node(fabric, remotenode, &port_buf)))
-		IBPANIC("no memory");
+	} else if (!(remoteport = add_port_to_node(fabric, remotenode,
+			&port_buf))) {
+		IBND_ERROR("OOM failed to add port to node\n");
+		rc = -1;
+		goto error;
+	}
 
 	dump_endnode(path, oldnode ? "known remote" : "new remote",
 			remotenode, remoteport);
 
 	link_ports(node, port, remotenode, remoteport);
 
+error:
 	path->drpath.cnt--;	/* restore path */
-	return 0;
+	return (rc);
 }
 
 ibnd_fabric_t *
 ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 			ib_portid_t *from, int hops)
 {
+	int rc = 0;
 	struct ibnd_fabric *fabric = NULL;
 	ib_portid_t my_portid = {0};
 	struct ibnd_node node_buf;
@@ -563,8 +581,10 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 
 	fabric = malloc(sizeof(*fabric));
 
-	if (!fabric)
-		IBPANIC("OOM: failed to malloc ibnd_fabric_t\n");
+	if (!fabric) {
+		IBND_ERROR("OOM: failed to malloc ibnd_fabric_t\n");
+		return (NULL);
+	}
 
 	memset(fabric, 0, sizeof(*fabric));
 
@@ -586,11 +606,14 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 
 	port = add_port_to_node(fabric, node, &port_buf);
 	if (!port)
-		IBPANIC("out of memory");
+		goto error;
 
-	if(get_remote_node(ibmad_port, fabric, node, port, from,
+	rc = get_remote_node(ibmad_port, fabric, node, port, from,
 				mad_get_field(node->node.info, 0, IB_NODE_LOCAL_PORT_F),
-				0) < 0)
+				0);
+	if (rc < 0)
+		goto error;
+	if (rc > 0) /* non-fatal error, nothing more to be done */
 		return ((ibnd_fabric_t *)fabric);
 
 	for (dist = 0; dist <= max_hops; dist++) {
@@ -608,7 +631,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 					continue;
 
 				if (get_port_info(ibmad_port, fabric, &port_buf, i, path)) {
-					IBND_DEBUG("can't reach node %s port %d", portid2str(path), i);
+					IBND_ERROR("can't reach node %s port %d", portid2str(path), i);
 					continue;
 				}
 
@@ -618,7 +641,7 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 
 				port = add_port_to_node(fabric, node, &port_buf);
 				if (!port)
-					IBPANIC("out of memory");
+					goto error;
 
 				/* If switch, set port GUID to node port GUID */
 				if (node->node.type == IB_NODE_SWITCH) {
@@ -626,13 +649,15 @@ ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 								0, IB_NODE_PORT_GUID_F);
 				}
 
-				get_remote_node(ibmad_port, fabric, node, port,
-						path, i, dist);
+				if (get_remote_node(ibmad_port, fabric, node, port,
+						path, i, dist) < 0)
+					goto error;
 			}
 		}
 	}
 
-	fabric->fabric.chassis = group_nodes(fabric);
+	if (group_nodes(fabric))
+		goto error;
 
 	return ((ibnd_fabric_t *)fabric);
 error:

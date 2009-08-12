@@ -80,6 +80,6 @@
 enum ibnd_chassis_type { UNRESOLVED_CT, ISR9288_CT, ISR9096_CT, ISR2012_CT, ISR2004_CT };
 enum ibnd_chassis_slot_type { UNRESOLVED_CS, LINE_CS, SPINE_CS, SRBD_CS };
 
-ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric);
+int group_nodes(struct ibnd_fabric *fabric);
 
 #endif	/* _CHASSIS_H_ */

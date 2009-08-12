@@ -323,7 +323,7 @@ char spine4_slot_2_slb[25]       = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0
 char anafa_spine4_slot_2_slb[25] = { 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 /*	reference                     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 }; */
 
-static void get_sfb_slot(struct ibnd_node *node, ibnd_port_t *lineport)
+static int get_sfb_slot(struct ibnd_node *node, ibnd_port_t *lineport)
 {
 	ibnd_node_t *n = (ibnd_node_t *)node;
 
@@ -345,12 +345,14 @@ static void get_sfb_slot(struct ibnd_node *node, ibnd_port_t *lineport)
 		n->ch_slotnum = spine4_slot_2_slb[lineport->portnum];
 		n->ch_anafanum = anafa_spine4_slot_2_slb[lineport->portnum];
 	} else {
-		IBPANIC("Unexpected node found: guid 0x%016" PRIx64,
-		node->node.guid);
+		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
+			node->node.guid);
+		return (-1);
 	}
+	return (0);
 }
 
-static void get_router_slot(struct ibnd_node *node, ibnd_port_t *spineport)
+static int get_router_slot(struct ibnd_node *node, ibnd_port_t *spineport)
 {
 	ibnd_node_t *n = (ibnd_node_t *)node;
 	uint64_t guessnum = 0;
@@ -385,12 +387,14 @@ static void get_router_slot(struct ibnd_node *node, ibnd_port_t *spineport)
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = ipr_slot_2_sfb4_port[spineport->portnum];
 	} else {
-		IBPANIC("Unexpected node found: guid 0x%016" PRIx64,
-		spineport->node->guid);
+		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
+			spineport->node->guid);
+		return (-1);
 	}
+	return (0);
 }
 
-static void get_slb_slot(ibnd_node_t *n, ibnd_port_t *spineport)
+static int get_slb_slot(ibnd_node_t *n, ibnd_port_t *spineport)
 {
 	n->ch_slot = LINE_CS;
 	if (is_spine_9096(CONV_NODE_INTERNAL(spineport->node))) {
@@ -410,9 +414,11 @@ static void get_slb_slot(ibnd_node_t *n, ibnd_port_t *spineport)
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = anafa_line_slot_2_sfb4[spineport->portnum];
 	} else {
-		IBPANIC("Unexpected node found: guid 0x%016" PRIx64,
-		spineport->node->guid);
+		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
+			spineport->node->guid);
+		return (-1);
 	}
+	return (0);
 }
 
 /* forward declare this */
@@ -422,7 +428,7 @@ static void voltaire_portmap(ibnd_port_t *port);
 	It could be optimized so, but time overhead is very small
 	and its only diag.util
 */
-static void fill_voltaire_chassis_record(struct ibnd_node *node)
+static int fill_voltaire_chassis_record(struct ibnd_node *node)
 {
 	ibnd_node_t *n = (ibnd_node_t *)node;
 	int p = 0;
@@ -430,7 +436,7 @@ static void fill_voltaire_chassis_record(struct ibnd_node *node)
 	struct ibnd_node *remnode = 0;
 
 	if (node->ch_found) /* somehow this node has already been passed */
-		return;
+		return (0);
 	node->ch_found = 1;
 
 	/* node is router only in case of using unique lid */
@@ -456,7 +462,8 @@ static void fill_voltaire_chassis_record(struct ibnd_node *node)
 			}
 			if (!n->ch_type)
 				/* we assume here that remoteport belongs to line */
-				get_sfb_slot(node, port->remoteport);
+				if (get_sfb_slot(node, port->remoteport))
+					return (-1);
 
 				/* we could break here, but need to find if more routers connected */
 		}
@@ -467,7 +474,8 @@ static void fill_voltaire_chassis_record(struct ibnd_node *node)
 			if (!port || port->portnum > 12 || !port->remoteport)
 				continue;
 			/* we assume here that remoteport belongs to spine */
-			get_slb_slot(n, port->remoteport);
+			if (get_slb_slot(n, port->remoteport))
+				return (-1);
 			break;
 		}
 	}
@@ -480,15 +488,17 @@ static void fill_voltaire_chassis_record(struct ibnd_node *node)
 		voltaire_portmap(port);
 	}
 
-	return;
+	return (0);
 }
 
 static int get_line_index(ibnd_node_t *node)
 {
 	int retval = 3 * (node->ch_slotnum - 1) + node->ch_anafanum;
 
-	if (retval > LINES_MAX_NUM || retval < 1)
-		IBPANIC("Internal error");
+	if (retval > LINES_MAX_NUM || retval < 1) {
+		IBND_ERROR("Internal error\n");
+		return (-1);
+	}
 	return retval;
 }
 
@@ -501,34 +511,44 @@ static int get_spine_index(ibnd_node_t *node)
 	else
 		retval = node->ch_slotnum;
 
-	if (retval > SPINES_MAX_NUM || retval < 1)
-		IBPANIC("Internal error");
+	if (retval > SPINES_MAX_NUM || retval < 1) {
+		IBND_ERROR("Internal error\n");
+		return (-1);
+	}
 	return retval;
 }
 
-static void insert_line_router(ibnd_node_t *node, ibnd_chassis_t *chassis)
+static int insert_line_router(ibnd_node_t *node, ibnd_chassis_t *chassis)
 {
 	int i = get_line_index(node);
 
+	if (i < 0)
+		return (i);
+
 	if (chassis->linenode[i])
-		return;		/* already filled slot */
+		return (0);		/* already filled slot */
 
 	chassis->linenode[i] = node;
 	node->chassis = chassis;
+	return (0);
 }
 
-static void insert_spine(ibnd_node_t *node, ibnd_chassis_t *chassis)
+static int insert_spine(ibnd_node_t *node, ibnd_chassis_t *chassis)
 {
 	int i = get_spine_index(node);
 
+	if (i < 0)
+		return (i);
+
 	if (chassis->spinenode[i])
-		return;		/* already filled slot */
+		return (0);		/* already filled slot */
 
 	chassis->spinenode[i] = node;
 	node->chassis = chassis;
+	return (0);
 }
 
-static void pass_on_lines_catch_spines(ibnd_chassis_t *chassis)
+static int pass_on_lines_catch_spines(ibnd_chassis_t *chassis)
 {
 	ibnd_node_t *node, *remnode;
 	ibnd_port_t *port;
@@ -549,12 +569,14 @@ static void pass_on_lines_catch_spines(ibnd_chassis_t *chassis)
 
 			if (!CONV_NODE_INTERNAL(remnode)->ch_found)
 				continue;	/* some error - spine not initialized ? FIXME */
-			insert_spine(remnode, chassis);
+			if (insert_spine(remnode, chassis))
+				return (-1);
 		}
 	}
+	return (0);
 }
 
-static void pass_on_spines_catch_lines(ibnd_chassis_t *chassis)
+static int pass_on_spines_catch_lines(ibnd_chassis_t *chassis)
 {
 	ibnd_node_t *node, *remnode;
 	ibnd_port_t *port;
@@ -572,9 +594,11 @@ static void pass_on_spines_catch_lines(ibnd_chassis_t *chassis)
 
 			if (!CONV_NODE_INTERNAL(remnode)->ch_found)
 				continue;	/* some error - line/router not initialized ? FIXME */
-			insert_line_router(remnode, chassis);
+			if (insert_line_router(remnode, chassis))
+				return (-1);
 		}
 	}
+	return (0);
 }
 
 /*
@@ -602,14 +626,15 @@ static void pass_on_spines_interpolate_chguid(ibnd_chassis_t *chassis)
 	in that chassis
 	chassis structure = structure of one standalone chassis
 */
-static void build_chassis(struct ibnd_node *node, ibnd_chassis_t *chassis)
+static int build_chassis(struct ibnd_node *node, ibnd_chassis_t *chassis)
 {
 	int p = 0;
 	struct ibnd_node *remnode = 0;
 	ibnd_port_t *port = 0;
 
 	/* we get here with node = chassis_spine */
-	insert_spine((ibnd_node_t *)node, chassis);
+	if (insert_spine((ibnd_node_t *)node, chassis))
+		return (-1);
 
 	/* loop: pass on all ports of node */
 	for (p = 1; p <= node->node.numports; p++ ) {
@@ -624,17 +649,23 @@ static void build_chassis(struct ibnd_node *node, ibnd_chassis_t *chassis)
 		insert_line_router(&(remnode->node), chassis);
 	}
 
-	pass_on_lines_catch_spines(chassis);
+	if (pass_on_lines_catch_spines(chassis))
+		return (-1);
 	/* this pass needed for to catch routers, since routers connected only */
 	/* to spines in slot 1 or 4 and we could miss them first time */
-	pass_on_spines_catch_lines(chassis);
+	if (pass_on_spines_catch_lines(chassis))
+		return (-1);
 
 	/* additional 2 passes needed for to overcome a problem of pure "in-chassis" */
 	/* connectivity - extra pass to ensure that all related chips/modules */
 	/* inserted into the chassis */
-	pass_on_lines_catch_spines(chassis);
-	pass_on_spines_catch_lines(chassis);
+	if (pass_on_lines_catch_spines(chassis))
+		return (-1);
+	if (pass_on_spines_catch_lines(chassis))
+		return (-1);
 	pass_on_spines_interpolate_chguid(chassis);
+
+	return (0);
 }
 
 /*========================================================*/
@@ -724,10 +755,12 @@ voltaire_portmap(ibnd_port_t *port)
 		port->ext_portnum = int2ext_map_slb8[chipnum][portnum];
 }
 
-static void add_chassis(struct ibnd_fabric *fabric)
+static int add_chassis(struct ibnd_fabric *fabric)
 {
-	if (!(fabric->current_chassis = calloc(1, sizeof(ibnd_chassis_t))))
-		IBPANIC("out of mem");
+	if (!(fabric->current_chassis = calloc(1, sizeof(ibnd_chassis_t)))) {
+		IBND_ERROR("OOM: failed to allocate chassis object\n");
+		return (-1);
+	}
 
 	if (fabric->first_chassis == NULL) {
 		fabric->first_chassis = fabric->current_chassis;
@@ -736,6 +769,7 @@ static void add_chassis(struct ibnd_fabric *fabric)
 		fabric->last_chassis->next = fabric->current_chassis;
 		fabric->last_chassis = fabric->current_chassis;
 	}
+	return (0);
 }
 
 static void
@@ -756,10 +790,9 @@ add_node_to_chassis(ibnd_chassis_t *chassis, ibnd_node_t *node)
 	3. pass on non Voltaire nodes (SystemImageGUID based grouping)
 	4. now group non Voltaire nodes by SystemImageGUID
 	Returns:
-	Pointer to the first chassis in a NULL terminated list of chassis in
-	the fabric specified.
+	0 on success, -1 on failure
 */
-ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric)
+int group_nodes(struct ibnd_fabric *fabric)
 {
 	struct ibnd_node *node;
 	int dist;
@@ -776,7 +809,8 @@ ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric)
 	for (dist = 0; dist <= fabric->fabric.maxhops_discovered; dist++) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
 			if (mad_get_field(node->node.info, 0, IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
-				fill_voltaire_chassis_record(node);
+				if (fill_voltaire_chassis_record(node))
+					return (-1);
 		}
 	}
 
@@ -791,9 +825,11 @@ ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric)
 					|| (node->node.chassis && node->node.chassis->chassisnum)
 					|| !is_spine(node))
 				continue;
-			add_chassis(fabric);
+			if (add_chassis(fabric))
+				return (-1);
 			fabric->current_chassis->chassisnum = ++chassisnum;
-			build_chassis(node, fabric->current_chassis);
+			if (build_chassis(node, fabric->current_chassis))
+				return (-1);
 		}
 	}
 
@@ -809,7 +845,8 @@ ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric)
 					chassis->nodecount++;
 				else {
 					/* Possible new chassis */
-					add_chassis(fabric);
+					if (add_chassis(fabric))
+						return (-1);
 					fabric->current_chassis->chassisguid =
 							get_chassisguid((ibnd_node_t *)node);
 					fabric->current_chassis->nodecount = 1;
@@ -842,5 +879,6 @@ ibnd_chassis_t *group_nodes(struct ibnd_fabric *fabric)
 			dist++;
 	}
 
-	return (fabric->first_chassis);
+	fabric->fabric.chassis = fabric->first_chassis;
+	return (0);
 }
