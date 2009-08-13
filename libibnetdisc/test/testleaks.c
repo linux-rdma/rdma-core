@@ -35,7 +35,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -56,33 +56,26 @@ static FILE *f;
 
 static int timeout_ms = 500;
 
-void
-usage(void)
+void usage(void)
 {
 	fprintf(stderr,
 		"Usage: %s [-hclp -S <guid> -D <direct route> -C <ca_name> -P <ca_port>]\n"
 		"   Report link speed and connection for each port of each switch which is active\n"
 		"   -h This help message\n"
 		"   -i <iters> Number of iterations to run (default -1 == infinate)\n"
-
 		"   -S <guid> output only the node specified by guid\n"
 		"   -D <direct route> print only node specified by <direct route>\n"
 		"   -f <dr_path> specify node to start \"from\"\n"
 		"   -n <hops> Number of hops to include away from specified node\n"
-
 		"   -t <timeout_ms> timeout for any single fabric query\n"
 		"   -s show errors\n"
-
 		"   -C <ca_name> use selected Channel Adaptor name for queries\n"
 		"   -P <ca_port> use selected channel adaptor port for queries\n"
-		"   --debug print debug messages\n"
-		,
-			argv0);
+		"   --debug print debug messages\n", argv0);
 	exit(-1);
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int rc = 0;
 	char *ca = 0;
@@ -96,23 +89,23 @@ main(int argc, char **argv)
 	int iters = -1;
 
 	struct ibmad_port *ibmad_port;
-	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
+	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
 	static char const str_opts[] = "S:D:n:C:P:t:shuf:i:";
 	static const struct option long_opts[] = {
-		{ "S", 1, 0, 'S'},
-		{ "D", 1, 0, 'D'},
-		{ "num-hops", 1, 0, 'n'},
-		{ "ca-name", 1, 0, 'C'},
-		{ "ca-port", 1, 0, 'P'},
-		{ "timeout", 1, 0, 't'},
-		{ "show", 0, 0, 's'},
-		{ "help", 0, 0, 'h'},
-		{ "usage", 0, 0, 'u'},
-		{ "debug", 0, 0, 2},
-		{ "from", 1, 0, 'f'},
-		{ "iters", 1, 0, 'i'},
-		{ }
+		{"S", 1, 0, 'S'},
+		{"D", 1, 0, 'D'},
+		{"num-hops", 1, 0, 'n'},
+		{"ca-name", 1, 0, 'C'},
+		{"ca-port", 1, 0, 'P'},
+		{"timeout", 1, 0, 't'},
+		{"show", 0, 0, 's'},
+		{"help", 0, 0, 'h'},
+		{"usage", 0, 0, 'u'},
+		{"debug", 0, 0, 2},
+		{"from", 1, 0, 'f'},
+		{"iters", 1, 0, 'i'},
+		{}
 	};
 
 	f = stdout;
@@ -121,9 +114,9 @@ main(int argc, char **argv)
 
 	while (1) {
 		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
+		if (ch == -1)
 			break;
-		switch(ch) {
+		switch (ch) {
 		case 2:
 			ibnd_debug(1);
 			break;
@@ -149,7 +142,7 @@ main(int argc, char **argv)
 			timeout_ms = strtoul(optarg, 0, 0);
 			break;
 		case 'S':
-			guid = (uint64_t)strtoull(optarg, 0, 0);
+			guid = (uint64_t) strtoull(optarg, 0, 0);
 			break;
 		default:
 			usage();
@@ -168,14 +161,17 @@ main(int argc, char **argv)
 			/* only scan part of the fabric */
 			str2drpath(&(port_id.drpath), from, 0, 0);
 			if ((fabric = ibnd_discover_fabric(ibmad_port,
-					&port_id, hops)) == NULL) {
+							   &port_id,
+							   hops)) == NULL) {
 				fprintf(stderr, "discover failed\n");
 				rc = 1;
 				goto close_port;
 			}
 			guid = 0;
 		} else {
-			if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
+			if ((fabric =
+			     ibnd_discover_fabric(ibmad_port, NULL,
+						  -1)) == NULL) {
 				fprintf(stderr, "discover failed\n");
 				rc = 1;
 				goto close_port;

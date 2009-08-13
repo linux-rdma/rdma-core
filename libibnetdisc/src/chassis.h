@@ -77,9 +77,11 @@
 #define SS_VENDOR_ID			0x66a	/* InfiniCon */
 #define XS_VENDOR_ID			0x1397	/* Xsigo */
 
-enum ibnd_chassis_type { UNRESOLVED_CT, ISR9288_CT, ISR9096_CT, ISR2012_CT, ISR2004_CT };
+enum ibnd_chassis_type {
+	UNRESOLVED_CT, ISR9288_CT, ISR9096_CT, ISR2012_CT, ISR2004_CT
+};
 enum ibnd_chassis_slot_type { UNRESOLVED_CS, LINE_CS, SPINE_CS, SRBD_CS };
 
 int group_nodes(struct ibnd_fabric *fabric);
 
-#endif	/* _CHASSIS_H_ */
+#endif				/* _CHASSIS_H_ */

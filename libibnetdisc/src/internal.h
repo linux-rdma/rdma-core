@@ -55,9 +55,9 @@ struct ibnd_node {
 
 	/* internal use only */
 	unsigned char ch_found;
-	struct ibnd_node *htnext; /* hash table list */
-	struct ibnd_node *dnext; /* nodesdist next */
-	struct ibnd_node *type_next; /* next based on type */
+	struct ibnd_node *htnext;	/* hash table list */
+	struct ibnd_node *dnext;	/* nodesdist next */
+	struct ibnd_node *type_next;	/* next based on type */
 };
 #define CONV_NODE_INTERNAL(node) ((struct ibnd_node *)node)
 
@@ -81,7 +81,7 @@ struct ibnd_fabric {
 	/* internal use only */
 	struct ibnd_node *nodestbl[HTSZ];
 	struct ibnd_port *portstbl[HTSZ];
-	struct ibnd_node *nodesdist[MAXHOPS+1];
+	struct ibnd_node *nodesdist[MAXHOPS + 1];
 	ibnd_chassis_t *first_chassis;
 	ibnd_chassis_t *current_chassis;
 	ibnd_chassis_t *last_chassis;
@@ -92,4 +92,4 @@ struct ibnd_fabric {
 };
 #define CONV_FABRIC_INTERNAL(fabric) ((struct ibnd_fabric *)fabric)
 
-#endif /* _INTERNAL_H_ */
+#endif				/* _INTERNAL_H_ */
