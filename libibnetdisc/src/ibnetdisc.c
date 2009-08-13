@@ -213,7 +213,7 @@ dump_endnode(ib_portid_t *path, char *prompt,
 	if (!show_progress)
 		return;
 
-	mad_dump_node_type(type, 64, &(node->node.type), sizeof(int)),
+	mad_dump_node_type(type, 64, &(node->node.type), sizeof(int));
 
 	printf("%s -> %s %s {%016" PRIx64 "} portnum %d base lid %d-%d\"%s\"\n",
 		portid2str(path), prompt, type,
