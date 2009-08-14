@@ -1638,7 +1638,7 @@ int main(int argc, char **argv)
 		{"reversible", 'r', 1, NULL, "Reversible path (PathRecord)"},
 		{"numb_path", 'n', 1, NULL, "Number of paths (PathRecord)"},
 		{"pkey", 18, 1, NULL, "P_Key (PathRecord, MCMemberRecord)"},
-		{"qos_calss", 'Q', 1, NULL, "QoS Class (PathRecord)"},
+		{"qos_class", 'Q', 1, NULL, "QoS Class (PathRecord)"},
 		{"sl", 19, 1, NULL,
 		 "Service level (PathRecord, MCMemberRecord)"},
 		{"mtu", 'M', 1, NULL,
