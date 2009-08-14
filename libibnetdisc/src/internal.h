@@ -49,15 +49,6 @@
 #define	IBND_ERROR(fmt, ...) \
 		fprintf(stderr, "%s:%u; " fmt, __FILE__, __LINE__, ## __VA_ARGS__)
 
-struct ibnd_port {
-	/* This member MUST BE FIRST */
-	ibnd_port_t port;
-
-	/* internal use only */
-	struct ibnd_port *htnext;
-};
-#define CONV_PORT_INTERNAL(port) ((struct ibnd_port *)port)
-
 /* HASH table defines */
 #define HASHGUID(guid) ((uint32_t)(((uint32_t)(guid) * 101) ^ ((uint32_t)((guid) >> 32) * 103)))
 #define HTSZ 137
@@ -68,7 +59,7 @@ struct ibnd_fabric {
 
 	/* internal use only */
 	ibnd_node_t *nodestbl[HTSZ];
-	struct ibnd_port *portstbl[HTSZ];
+	ibnd_port_t *portstbl[HTSZ];
 	ibnd_node_t *nodesdist[MAXHOPS + 1];
 	ibnd_chassis_t *first_chassis;
 	ibnd_chassis_t *current_chassis;

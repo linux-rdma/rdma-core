@@ -40,7 +40,7 @@
 
 struct ib_fabric;		/* forward declare */
 struct chassis;			/* forward declare */
-struct port;			/* forward declare */
+struct ibnd_port;		/* forward declare */
 
 /** =========================================================================
  * Node
@@ -67,7 +67,7 @@ typedef struct ibnd_node {
 
 	char nodedesc[IB_SMP_DATA_SIZE];
 
-	struct port **ports;	/* in order array of port pointers
+	struct ibnd_port **ports; /* in order array of port pointers
 				   the size of this array is info.numports + 1
 				   items MAY BE NULL!  (ie 0 == switches only) */
 
@@ -89,17 +89,20 @@ typedef struct ibnd_node {
 /** =========================================================================
  * Port
  */
-typedef struct port {
+typedef struct ibnd_port {
 	uint64_t guid;
 	int portnum;
-	int ext_portnum;	/* optional if != 0 external port num */
-	ibnd_node_t *node;	/* node this port belongs to */
-	struct port *remoteport;	/* null if SMA, or does not exist */
+	int ext_portnum; /* optional if != 0 external port num */
+	ibnd_node_t *node; /* node this port belongs to */
+	struct ibnd_port *remoteport; /* null if SMA, or does not exist */
 	/* quick cache of info below */
 	uint16_t base_lid;
 	uint8_t lmc;
 	/* use libibmad decoder functions for info */
 	uint8_t info[IB_SMP_DATA_SIZE];
+
+	/* internal use only */
+	struct ibnd_port *htnext;
 } ibnd_port_t;
 
 /** =========================================================================
