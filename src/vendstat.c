@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,7 +62,7 @@ struct ibmad_port *srcport;
 typedef struct {
 	uint16_t hw_revision;
 	uint16_t device_id;
-	uint8_t  reserved[24];
+	uint8_t reserved[24];
 	uint32_t uptime;
 } is3_hw_info_t;
 
@@ -90,7 +90,7 @@ typedef struct {
 } is3_sw_info_t;
 
 typedef struct {
-	uint8_t       reserved[8];
+	uint8_t reserved[8];
 	is3_hw_info_t hw_info;
 	is3_fw_info_t fw_info;
 	is3_sw_info_t sw_info;
@@ -103,7 +103,7 @@ typedef struct {
 } is3_record_t;
 
 typedef struct {
-	uint8_t      reserved[8];
+	uint8_t reserved[8];
 	is3_record_t record[18];
 } is3_config_space_t;
 
@@ -111,10 +111,10 @@ typedef struct {
 
 typedef struct {
 	uint8_t reserved1[8];
-	uint8_t	reserved[3];
+	uint8_t reserved[3];
 	uint8_t num_of_counter_groups;
 	uint32_t group_masks[COUNTER_GROUPS_NUM];
-}  is4_counter_group_info_t;
+} is4_counter_group_info_t;
 
 typedef struct {
 	uint8_t reserved[3];
@@ -123,11 +123,11 @@ typedef struct {
 
 typedef struct {
 	uint8_t reserved1[8];
-	uint8_t	reserved[4];
+	uint8_t reserved[4];
 	is4_group_select_t group_selects[COUNTER_GROUPS_NUM];
 } is4_config_counter_groups_t;
 
-void counter_groups_info(ib_portid_t *portid, int port)
+void counter_groups_info(ib_portid_t * portid, int port)
 {
 	char buf[1024];
 	ib_vendor_call_t call;
@@ -136,17 +136,17 @@ void counter_groups_info(ib_portid_t *portid, int port)
 
 	memset(&call, 0, sizeof(call));
 	call.mgmt_class = IB_MLX_VENDOR_CLASS;
-	call.method  =  IB_MAD_METHOD_GET;
+	call.method = IB_MAD_METHOD_GET;
 	call.timeout = ibd_timeout;
-	call.attrid  = IB_MLX_IS4_COUNTER_GROUP_INFO;
-	call.mod     = port;
+	call.attrid = IB_MLX_IS4_COUNTER_GROUP_INFO;
+	call.mod = port;
 
 	/* Counter Group Info */
 	memset(&buf, 0, sizeof(buf));
 	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
 		IBERROR("counter group info query");
 
-	cg_info = (is4_counter_group_info_t *)&buf;
+	cg_info = (is4_counter_group_info_t *) & buf;
 	num_cg = cg_info->num_of_counter_groups;
 	printf("counter_group_info:\n");
 	printf("%d counter groups\n", num_cg);
@@ -166,7 +166,7 @@ void counter_groups_info(ib_portid_t *portid, int port)
 
 static int cg0, cg1;
 
-void config_counter_groups(ib_portid_t *portid, int port)
+void config_counter_groups(ib_portid_t * portid, int port)
 {
 	char buf[1024];
 	ib_vendor_call_t call;
@@ -174,16 +174,17 @@ void config_counter_groups(ib_portid_t *portid, int port)
 
 	memset(&call, 0, sizeof(call));
 	call.mgmt_class = IB_MLX_VENDOR_CLASS;
-	call.attrid  = IB_MLX_IS4_CONFIG_COUNTER_GROUP;
+	call.attrid = IB_MLX_IS4_CONFIG_COUNTER_GROUP;
 	call.timeout = ibd_timeout;
-	call.mod     = port;
+	call.mod = port;
 	/* configure counter groups for groups 0 and 1 */
-	call.method  = IB_MAD_METHOD_SET;
+	call.method = IB_MAD_METHOD_SET;
 
 	memset(&buf, 0, sizeof(buf));
-	cg_config = (is4_config_counter_groups_t *)&buf;
+	cg_config = (is4_config_counter_groups_t *) & buf;
 
-	printf("counter_groups_config: configuring group0 %d group1 %d\n", cg0, cg1);
+	printf("counter_groups_config: configuring group0 %d group1 %d\n", cg0,
+	       cg1);
 	cg_config->group_selects[0].group_select = (uint8_t) cg0;
 	cg_config->group_selects[1].group_select = (uint8_t) cg1;
 
@@ -192,7 +193,7 @@ void config_counter_groups(ib_portid_t *portid, int port)
 
 	/* get config counter groups */
 	memset(&buf, 0, sizeof(buf));
-	call.method  =  IB_MAD_METHOD_GET;
+	call.method = IB_MAD_METHOD_GET;
 
 	if (!ib_vendor_call_via(&buf, portid, &call, srcport))
 		IBERROR("config counter group query");
@@ -227,8 +228,10 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[4] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS, IB_MLX_VENDOR_CLASS};
-	ib_portid_t portid = {0};
+	int mgmt_classes[4] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS,
+		IB_MLX_VENDOR_CLASS
+	};
+	ib_portid_t portid = { 0 };
 	int port = 0;
 	char buf[1024];
 	ib_vendor_call_t call;
@@ -237,11 +240,11 @@ int main(int argc, char **argv)
 	int i;
 
 	const struct ibdiag_opt opts[] = {
-		{ "N", 'N', 0, NULL, "show IS3 general information"},
-		{ "w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
-		{ "i", 'i', 0, NULL, "show IS4 counter group info"},
-		{ "c", 'c', 1, "<num,num>", "configure IS4 counter groups"},
-		{ 0 }
+		{"N", 'N', 0, NULL, "show IS3 general information"},
+		{"w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
+		{"i", 'i', 0, NULL, "show IS4 counter group info"},
+		{"c", 'c', 1, "<num,num>", "configure IS4 counter groups"},
+		{0}
 	};
 
 	char usage_args[] = "<lid|guid> [port]";
@@ -269,7 +272,7 @@ int main(int argc, char **argv)
 
 	if (argc) {
 		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-				ibd_sm_id, srcport) < 0)
+					      ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
 		if (ib_resolve_self_via(&portid, &port, 0, srcport) < 0)
@@ -311,7 +314,7 @@ int main(int argc, char **argv)
 	call.attrid = IB_MLX_IS3_GENERAL_INFO;
 	if (!ib_vendor_call_via(&buf, &portid, &call, srcport))
 		IBERROR("vendstat");
-	gi = (is3_general_info_t *)&buf;
+	gi = (is3_general_info_t *) & buf;
 
 	if (general_info) {
 		/* dump IS3 general info here */
@@ -319,48 +322,54 @@ int main(int argc, char **argv)
 		printf("hw_dev_id:   0x%04x\n", ntohs(gi->hw_info.device_id));
 		printf("hw_uptime:   0x%08x\n", ntohl(gi->hw_info.uptime));
 		printf("fw_version:  %02d.%02d.%02d\n",
-		       gi->fw_info.major, gi->fw_info.minor, gi->fw_info.sub_minor);
+		       gi->fw_info.major, gi->fw_info.minor,
+		       gi->fw_info.sub_minor);
 		printf("fw_build_id: 0x%04x\n", ntohl(gi->fw_info.build_id));
 		printf("fw_date:     %02d/%02d/%04x\n",
-		       gi->fw_info.month, gi->fw_info.day, ntohs(gi->fw_info.year));
+		       gi->fw_info.month, gi->fw_info.day,
+		       ntohs(gi->fw_info.year));
 		printf("fw_psid:     '%s'\n", gi->fw_info.psid);
-		printf("fw_ini_ver:  %d\n", ntohl(gi->fw_info.ini_file_version));
-		printf("sw_version:  %02d.%02d.%02d\n",
-		       gi->sw_info.major, gi->sw_info.minor, gi->sw_info.sub_minor);
+		printf("fw_ini_ver:  %d\n",
+		       ntohl(gi->fw_info.ini_file_version));
+		printf("sw_version:  %02d.%02d.%02d\n", gi->sw_info.major,
+		       gi->sw_info.minor, gi->sw_info.sub_minor);
 	}
 
 	if (xmit_wait) {
 		if (ntohs(gi->hw_info.device_id) != IS3_DEVICE_ID)
-			IBERROR("Unsupported device ID 0x%x", ntohs(gi->hw_info.device_id));
+			IBERROR("Unsupported device ID 0x%x",
+				ntohs(gi->hw_info.device_id));
 
 		memset(&buf, 0, sizeof(buf));
 		call.attrid = IB_MLX_IS3_CONFIG_SPACE_ACCESS;
 		/* Limit of 18 accesses per MAD ? */
-		call.mod = 2 << 22 | 16 << 16; /* 16 records */
+		call.mod = 2 << 22 | 16 << 16;	/* 16 records */
 		/* Set record addresses for each port */
-		cs = (is3_config_space_t *)&buf;
+		cs = (is3_config_space_t *) & buf;
 		for (i = 0; i < 16; i++)
-			cs->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 1) << 12));
+			cs->record[i].address =
+			    htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 1) << 12));
 		if (!ib_vendor_call_via(&buf, &portid, &call, srcport))
 			IBERROR("vendstat");
 
 		for (i = 0; i < 16; i++)
 			if (cs->record[i].data)	/* PortXmitWait is 32 bit counter */
-				printf("Port %d: PortXmitWait 0x%x\n", i + 4, ntohl(cs->record[i].data)); /* port 4 is first port */
+				printf("Port %d: PortXmitWait 0x%x\n", i + 4, ntohl(cs->record[i].data));	/* port 4 is first port */
 
 		/* Last 8 ports is another query */
 		memset(&buf, 0, sizeof(buf));
 		call.attrid = IB_MLX_IS3_CONFIG_SPACE_ACCESS;
-                call.mod = 2 << 22 | 8 << 16; /* 8 records */
+		call.mod = 2 << 22 | 8 << 16;	/* 8 records */
 		/* Set record addresses for each port */
-		cs = (is3_config_space_t *)&buf;
+		cs = (is3_config_space_t *) & buf;
 		for (i = 0; i < 8; i++)
-			cs->record[i].address = htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 17) << 12));
+			cs->record[i].address =
+			    htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 17) << 12));
 		if (!ib_vendor_call_via(&buf, &portid, &call, srcport))
 			IBERROR("vendstat");
 
 		for (i = 0; i < 8; i++)
-			if (cs->record[i].data) /* PortXmitWait is 32 bit counter */
+			if (cs->record[i].data)	/* PortXmitWait is 32 bit counter */
 				printf("Port %d: PortXmitWait 0x%x\n",
 				       i < 4 ? i + 21 : i - 3,
 				       ntohl(cs->record[i].data));

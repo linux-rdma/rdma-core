@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,10 +48,10 @@
 
 struct ibmad_port *srcport;
 
-static int
-ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
+static int ib_resolve_addr(ib_portid_t * portid, int portnum, int show_lid,
+			   int show_gid)
 {
-	char   gid_str[INET6_ADDRSTRLEN];
+	char gid_str[INET6_ADDRSTRLEN];
 	uint8_t portinfo[64];
 	uint8_t nodeinfo[64];
 	uint64_t guid, prefix;
@@ -61,7 +61,8 @@ ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 	if (!smp_query_via(nodeinfo, portid, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return -1;
 
-	if (!smp_query_via(portinfo, portid, IB_ATTR_PORT_INFO, portnum, 0, srcport))
+	if (!smp_query_via(portinfo, portid, IB_ATTR_PORT_INFO, portnum, 0,
+			   srcport))
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_LID_F, &portid->lid);
@@ -74,13 +75,15 @@ ib_resolve_addr(ib_portid_t *portid, int portnum, int show_lid, int show_gid)
 
 	if (show_gid) {
 		printf("GID %s ", inet_ntop(AF_INET6, gid, gid_str,
-			sizeof gid_str));
+					    sizeof gid_str));
 	}
 
 	if (show_lid > 0)
-		printf("LID start 0x%x end 0x%x", portid->lid, portid->lid + (1 << lmc) - 1);
+		printf("LID start 0x%x end 0x%x", portid->lid,
+		       portid->lid + (1 << lmc) - 1);
 	else if (show_lid < 0)
-		printf("LID start %d end %d", portid->lid, portid->lid + (1 << lmc) - 1);
+		printf("LID start %d end %d", portid->lid,
+		       portid->lid + (1 << lmc) - 1);
 	printf("\n");
 	return 0;
 }
@@ -107,15 +110,16 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
-	ib_portid_t portid = {0};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
+	ib_portid_t portid = { 0 };
 	int port = 0;
 
 	const struct ibdiag_opt opts[] = {
-		{ "gid_show", 'g', 0, NULL, "show gid address only"},
-		{ "lid_show", 'l', 0, NULL, "show lid range only"},
-		{ "Lid_show", 'L', 0, NULL, "show lid range (in decimal) only"},
-		{ 0 }
+		{"gid_show", 'g', 0, NULL, "show gid address only"},
+		{"lid_show", 'l', 0, NULL, "show lid range only"},
+		{"Lid_show", 'L', 0, NULL, "show lid range (in decimal) only"},
+		{0}
 	};
 	char usage_args[] = "[<lid|dr_path|guid>]";
 	const char *usage_examples[] = {
@@ -146,7 +150,7 @@ int main(int argc, char **argv)
 
 	if (argc) {
 		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-						ibd_sm_id, srcport) < 0)
+					      ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
 		if (ib_resolve_self_via(&portid, &port, 0, srcport) < 0)

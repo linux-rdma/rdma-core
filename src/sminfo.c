@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,7 +50,8 @@ static uint8_t sminfo[1024];
 
 struct ibmad_port *srcport;
 
-int strdata, xdata=1, bindata;
+int strdata, xdata = 1, bindata;
+
 enum {
 	SMINFO_NOTACT,
 	SMINFO_DISCOVER,
@@ -92,17 +93,18 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
 	int mod = 0;
-	ib_portid_t portid = {0};
+	ib_portid_t portid = { 0 };
 	uint8_t *p;
 	uint64_t guid = 0, key = 0;
 
 	const struct ibdiag_opt opts[] = {
-		{ "state", 's', 1, "<0-3>", "set SM state"},
-		{ "priority", 'p', 1, "<0-15>", "set SM priority"},
-		{ "activity", 'a', 1, NULL, "set activity count"},
-		{ 0 }
+		{"state", 's', 1, "<0-3>", "set SM state"},
+		{"priority", 'p', 1, "<0-15>", "set SM priority"},
+		{"activity", 'a', 1, NULL, "set activity count"},
+		{0}
 	};
 	char usage_args[] = "<sm_lid|sm_dr_path> [modifier]";
 
@@ -121,7 +123,7 @@ int main(int argc, char **argv)
 
 	if (argc) {
 		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-				0, srcport) < 0)
+					      0, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
 		if (ib_resolve_smlid_via(&portid, ibd_timeout, srcport) < 0)
@@ -136,12 +138,11 @@ int main(int argc, char **argv)
 
 	if (mod) {
 		if (!(p = smp_set_via(sminfo, &portid, IB_ATTR_SMINFO, mod,
-				ibd_timeout, srcport)))
+				      ibd_timeout, srcport)))
 			IBERROR("query");
-	} else
-		if (!(p = smp_query_via(sminfo, &portid, IB_ATTR_SMINFO, 0,
-				ibd_timeout, srcport)))
-			IBERROR("query");
+	} else if (!(p = smp_query_via(sminfo, &portid, IB_ATTR_SMINFO, 0,
+				       ibd_timeout, srcport)))
+		IBERROR("query");
 
 	mad_decode_field(sminfo, IB_SMINFO_GUID_F, &guid);
 	mad_decode_field(sminfo, IB_SMINFO_ACT_F, &act);
@@ -149,8 +150,9 @@ int main(int argc, char **argv)
 	mad_decode_field(sminfo, IB_SMINFO_PRIO_F, &prio);
 	mad_decode_field(sminfo, IB_SMINFO_STATE_F, &state);
 
-	printf("sminfo: sm lid %d sm guid 0x%" PRIx64 ", activity count %u priority %d state %d %s\n",
-		portid.lid, guid, act, prio, state, STATESTR(state));
+	printf("sminfo: sm lid %d sm guid 0x%" PRIx64
+	       ", activity count %u priority %d state %d %s\n", portid.lid,
+	       guid, act, prio, state, STATESTR(state));
 
 	mad_rpc_close_port(srcport);
 	exit(0);

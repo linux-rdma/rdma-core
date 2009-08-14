@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,8 +50,7 @@ struct ibmad_port *srcport;
 
 /*******************************************/
 
-static int
-get_node_info(ib_portid_t *dest, uint8_t *data)
+static int get_node_info(ib_portid_t * dest, uint8_t * data)
 {
 	int node_type;
 
@@ -65,8 +64,8 @@ get_node_info(ib_portid_t *dest, uint8_t *data)
 		return 1;
 }
 
-static int
-get_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
+static int get_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
+			 int port_op)
 {
 	char buf[2048];
 	char val[64];
@@ -77,35 +76,44 @@ get_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
 	if (port_op != 4) {
 		mad_dump_portstates(buf, sizeof buf, data, sizeof data);
 		mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, val);
-		mad_dump_field(IB_PORT_LINK_WIDTH_SUPPORTED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_WIDTH_SUPPORTED_F,
+			       buf + strlen(buf), sizeof buf - strlen(buf),
+			       val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 		mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, val);
-		mad_dump_field(IB_PORT_LINK_WIDTH_ENABLED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_WIDTH_ENABLED_F, buf + strlen(buf),
+			       sizeof buf - strlen(buf), val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 		mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, val);
-		mad_dump_field(IB_PORT_LINK_WIDTH_ACTIVE_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_WIDTH_ACTIVE_F, buf + strlen(buf),
+			       sizeof buf - strlen(buf), val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 		mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, val);
-		mad_dump_field(IB_PORT_LINK_SPEED_SUPPORTED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_SPEED_SUPPORTED_F,
+			       buf + strlen(buf), sizeof buf - strlen(buf),
+			       val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 		mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, val);
-		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf + strlen(buf),
+			       sizeof buf - strlen(buf), val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 		mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, val);
-		mad_dump_field(IB_PORT_LINK_SPEED_ACTIVE_F, buf + strlen(buf), sizeof buf - strlen(buf), val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_SPEED_ACTIVE_F, buf + strlen(buf),
+			       sizeof buf - strlen(buf), val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 	} else {
 		mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, val);
-		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf, sizeof buf, val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf, sizeof buf,
+			       val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 	}
 
 	printf("# Port info: %s port %d\n%s", portid2str(dest), portnum, buf);
 	return 0;
 }
 
-static int
-set_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
+static int set_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
+			 int port_op)
 {
 	char buf[2048];
 	char val[64];
@@ -117,8 +125,9 @@ set_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
 		mad_dump_portstates(buf, sizeof buf, data, sizeof data);
 	else {
 		mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, val);
-		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf, sizeof buf, val);
-		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_dump_field(IB_PORT_LINK_SPEED_ENABLED_F, buf, sizeof buf,
+			       val);
+		sprintf(buf + strlen(buf), "%s", "\n");
 	}
 
 	printf("\nAfter PortInfo set:\n");
@@ -126,8 +135,7 @@ set_port_info(ib_portid_t *dest, uint8_t *data, int portnum, int port_op)
 	return 0;
 }
 
-static int
-get_link_width(int lwe, int lws)
+static int get_link_width(int lwe, int lws)
 {
 	if (lwe == 255)
 		return lws;
@@ -135,8 +143,7 @@ get_link_width(int lwe, int lws)
 		return lwe;
 }
 
-static int
-get_link_speed(int lse, int lss)
+static int get_link_speed(int lse, int lss)
 {
 	if (lse == 15)
 		return lss;
@@ -144,58 +151,72 @@ get_link_speed(int lse, int lss)
 		return lse;
 }
 
-static void
-validate_width(int width, int peerwidth, int lwa)
+static void validate_width(int width, int peerwidth, int lwa)
 {
 	if ((width & peerwidth & 0x8)) {
 		if (lwa != 8)
-			IBWARN("Peer ports operating at active width %d rather than 8 (12x)", lwa);
+			IBWARN
+			    ("Peer ports operating at active width %d rather than 8 (12x)",
+			     lwa);
 	} else if ((width & peerwidth & 0x4)) {
 		if (lwa != 4)
-			IBWARN("Peer ports operating at active width %d rather than 4 (8x)", lwa);
+			IBWARN
+			    ("Peer ports operating at active width %d rather than 4 (8x)",
+			     lwa);
 	} else if ((width & peerwidth & 0x2)) {
 		if (lwa != 2)
-			IBWARN("Peer ports operating at active width %d rather than 2 (4x)", lwa);
+			IBWARN
+			    ("Peer ports operating at active width %d rather than 2 (4x)",
+			     lwa);
 	} else if ((width & peerwidth & 0x1)) {
 		if (lwa != 1)
-			IBWARN("Peer ports operating at active width %d rather than 1 (1x)", lwa);
+			IBWARN
+			    ("Peer ports operating at active width %d rather than 1 (1x)",
+			     lwa);
 	}
 }
 
-static void
-validate_speed(int speed, int peerspeed, int lsa)
+static void validate_speed(int speed, int peerspeed, int lsa)
 {
 	if ((speed & peerspeed & 0x4)) {
 		if (lsa != 4)
-			IBWARN("Peer ports operating at active speed %d rather than  4 (10.0 Gbps)", lsa);
+			IBWARN
+			    ("Peer ports operating at active speed %d rather than  4 (10.0 Gbps)",
+			     lsa);
 	} else if ((speed & peerspeed & 0x2)) {
 		if (lsa != 2)
-			IBWARN("Peer ports operating at active speed %d rather than 2 (5.0 Gbps)", lsa);
+			IBWARN
+			    ("Peer ports operating at active speed %d rather than 2 (5.0 Gbps)",
+			     lsa);
 	} else if ((speed & peerspeed & 0x1)) {
 		if (lsa != 1)
-			IBWARN("Peer ports operating at active speed %d rather than 1 (2.5 Gbps)", lsa);
+			IBWARN
+			    ("Peer ports operating at active speed %d rather than 1 (2.5 Gbps)",
+			     lsa);
 	}
 }
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
-	ib_portid_t portid = {0};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
+	ib_portid_t portid = { 0 };
 	int err;
 	int port_op = 0;	/* default to query */
 	int speed = 15;
 	int is_switch = 1;
 	int state, physstate, lwe, lws, lwa, lse, lss, lsa;
-	int peerlocalportnum, peerlwe, peerlws, peerlwa, peerlse, peerlss, peerlsa;
+	int peerlocalportnum, peerlwe, peerlws, peerlwa, peerlse, peerlss,
+	    peerlsa;
 	int width, peerwidth, peerspeed;
 	uint8_t data[IB_SMP_DATA_SIZE];
-	ib_portid_t peerportid = {0};
+	ib_portid_t peerportid = { 0 };
 	int portnum = 0;
-	ib_portid_t selfportid = {0};
+	ib_portid_t selfportid = { 0 };
 	int selfport = 0;
 
 	char usage_args[] = "<dest dr_path|lid|guid> <portnum> [<op>]\n"
-		"\nSupported ops: enable, disable, reset, speed, query";
+	    "\nSupported ops: enable, disable, reset, speed, query";
 	const char *usage_examples[] = {
 		"3 1 disable\t\t\t# by lid",
 		"-G 0x2C9000100D051 1 enable\t# by guid",
@@ -204,7 +225,6 @@ int main(int argc, char **argv)
 		"3 1 speed 1\t\t\t# by lid",
 		NULL
 	};
-
 
 	ibdiag_process_opts(argc, argv, NULL, NULL, NULL, NULL,
 			    usage_args, usage_examples);
@@ -220,7 +240,7 @@ int main(int argc, char **argv)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-				ibd_sm_id, srcport) < 0)
+				      ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	if (argc > 1)
@@ -236,7 +256,8 @@ int main(int argc, char **argv)
 			port_op = 3;
 		else if (!strcmp(argv[2], "speed")) {
 			if (argc < 4)
-				IBERROR("speed requires an additional parameter");
+				IBERROR
+				    ("speed requires an additional parameter");
 			port_op = 4;
 			/* Parse speed value */
 			speed = strtoul(argv[3], 0, 0);
@@ -265,15 +286,16 @@ int main(int argc, char **argv)
 
 	/* Only if one of the "set" options is chosen */
 	if (port_op) {
-		if ((port_op == 1) || (port_op == 3)) {		/* Enable or Reset port */
+		if ((port_op == 1) || (port_op == 3)) {	/* Enable or Reset port */
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 2);	/* Polling */
-			mad_set_field(data, 0, IB_PORT_STATE_F, 0);             /* No Change */
-		} else if (port_op == 2) { /* Disable port */
+			mad_set_field(data, 0, IB_PORT_STATE_F, 0);	/* No Change */
+		} else if (port_op == 2) {	/* Disable port */
 			printf("Disable may be irreversible\n");
-			mad_set_field(data, 0, IB_PORT_STATE_F, 1);             /* Down */
-			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 3);        /* Disabled */
+			mad_set_field(data, 0, IB_PORT_STATE_F, 1);	/* Down */
+			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 3);	/* Disabled */
 		} else if (port_op == 4) {	/* Set speed */
-			mad_set_field(data, 0, IB_PORT_LINK_SPEED_ENABLED_F, speed);
+			mad_set_field(data, 0, IB_PORT_LINK_SPEED_ENABLED_F,
+				      speed);
 			mad_set_field(data, 0, IB_PORT_STATE_F, 0);
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);
 		}
@@ -281,19 +303,25 @@ int main(int argc, char **argv)
 		err = set_port_info(&portid, data, portnum, port_op);
 		if (err < 0)
 			IBERROR("smp set portinfo failed");
-	/* query op - only compare peer port if switch port, exclude SP0 */
+		/* query op - only compare peer port if switch port, exclude SP0 */
 	} else if (is_switch && portnum) {
 		/* Now, make sure PortState is Active */
 		/* Or is PortPhysicalState LinkUp sufficient ? */
 		mad_decode_field(data, IB_PORT_STATE_F, &state);
 		mad_decode_field(data, IB_PORT_PHYS_STATE_F, &physstate);
 		if (state == 4) {	/* Active */
-			mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, &lwe );
-			mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, &lws);
-			mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, &lwa);
-			mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, &lss);
-			mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, &lsa);
-			mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, &lse);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F,
+					 &lwe);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F,
+					 &lws);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F,
+					 &lwa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F,
+					 &lss);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F,
+					 &lsa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F,
+					 &lse);
 
 			/* Setup portid for peer port */
 			memcpy(&peerportid, &portid, sizeof(peerportid));
@@ -312,20 +340,29 @@ int main(int argc, char **argv)
 			if (err < 0)
 				IBERROR("smp query nodeinfo failed");
 
-			mad_decode_field(data, IB_NODE_LOCAL_PORT_F, &peerlocalportnum);
+			mad_decode_field(data, IB_NODE_LOCAL_PORT_F,
+					 &peerlocalportnum);
 
 			printf("Peer PortInfo:\n");
 			/* Get peer port characteristics */
-			err = get_port_info(&peerportid, data, peerlocalportnum, port_op);
+			err =
+			    get_port_info(&peerportid, data, peerlocalportnum,
+					  port_op);
 			if (err < 0)
 				IBERROR("smp query peer portinfofailed");
 
-			mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, &peerlwe );
-			mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, &peerlws);
-			mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, &peerlwa);
-			mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, &peerlss);
-			mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, &peerlsa);
-			mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, &peerlse);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F,
+					 &peerlwe);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F,
+					 &peerlws);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F,
+					 &peerlwa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F,
+					 &peerlss);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F,
+					 &peerlsa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F,
+					 &peerlse);
 
 			/* Now validate peer port characteristics */
 			/* Examine Link Width */

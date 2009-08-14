@@ -53,27 +53,27 @@ struct ibmad_port *srcport;
 /* for local link integrity */
 int error_port = 1;
 
-static uint16_t get_node_type(ib_portid_t *port)
+static uint16_t get_node_type(ib_portid_t * port)
 {
 	uint16_t node_type = IB_NODE_TYPE_CA;
 	uint8_t data[IB_SMP_DATA_SIZE];
 
 	if (smp_query_via(data, port, IB_ATTR_NODE_INFO, 0, 0, srcport))
-		node_type = (uint16_t)mad_get_field(data, 0, IB_NODE_TYPE_F);
+		node_type = (uint16_t) mad_get_field(data, 0, IB_NODE_TYPE_F);
 	return node_type;
 }
 
-static uint32_t get_cap_mask(ib_portid_t *port)
+static uint32_t get_cap_mask(ib_portid_t * port)
 {
 	uint8_t data[IB_SMP_DATA_SIZE];
 	uint32_t cap_mask = 0;
 
 	if (smp_query_via(data, port, IB_ATTR_PORT_INFO, 0, 0, srcport))
-		cap_mask = (uint32_t)mad_get_field(data, 0, IB_PORT_CAPMASK_F);
+		cap_mask = (uint32_t) mad_get_field(data, 0, IB_PORT_CAPMASK_F);
 	return cap_mask;
 }
 
-static void build_trap144_local(ib_mad_notice_attr_t * n, ib_portid_t *port)
+static void build_trap144_local(ib_mad_notice_attr_t * n, ib_portid_t * port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
 	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
@@ -85,21 +85,22 @@ static void build_trap144_local(ib_mad_notice_attr_t * n, ib_portid_t *port)
 	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
 }
 
-static void build_trap144_nodedesc(ib_mad_notice_attr_t * n, ib_portid_t *port)
+static void build_trap144_nodedesc(ib_mad_notice_attr_t * n, ib_portid_t * port)
 {
 	build_trap144_local(n, port);
 	n->data_details.ntc_144.change_flgs =
 	    TRAP_144_MASK_NODE_DESCRIPTION_CHANGE;
 }
 
-static void build_trap144_linkspeed(ib_mad_notice_attr_t * n, ib_portid_t *port)
+static void build_trap144_linkspeed(ib_mad_notice_attr_t * n,
+				    ib_portid_t * port)
 {
 	build_trap144_local(n, port);
 	n->data_details.ntc_144.change_flgs =
 	    TRAP_144_MASK_LINK_SPEED_ENABLE_CHANGE;
 }
 
-static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t *port)
+static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t * port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_URGENT;
 	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));

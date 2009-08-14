@@ -35,7 +35,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <inttypes.h>
 #include <string.h>
@@ -57,18 +57,25 @@ static char *node_type_str[] = {
 	"iWARP RNIC"
 };
 
-static void
-ca_dump(umad_ca_t *ca)
+static void ca_dump(umad_ca_t * ca)
 {
 	if (!ca->node_type)
 		return;
-	printf("%s '%s'\n", ((unsigned)ca->node_type <= IB_NODE_MAX ? node_type_str[ca->node_type] : "???"), ca->ca_name);
-	printf("\t%s type: %s\n", ((unsigned)ca->node_type <= IB_NODE_MAX ? node_type_str[ca->node_type] : "???"),ca->ca_type);
+	printf("%s '%s'\n",
+	       ((unsigned)ca->node_type <=
+		IB_NODE_MAX ? node_type_str[ca->node_type] : "???"),
+	       ca->ca_name);
+	printf("\t%s type: %s\n",
+	       ((unsigned)ca->node_type <=
+		IB_NODE_MAX ? node_type_str[ca->node_type] : "???"),
+	       ca->ca_type);
 	printf("\tNumber of ports: %d\n", ca->numports);
 	printf("\tFirmware version: %s\n", ca->fw_ver);
 	printf("\tHardware version: %s\n", ca->hw_ver);
-	printf("\tNode GUID: 0x%016llx\n", (long long unsigned)ntohll(ca->node_guid));
-	printf("\tSystem image GUID: 0x%016llx\n", (long long unsigned)ntohll(ca->system_guid));
+	printf("\tNode GUID: 0x%016llx\n",
+	       (long long unsigned)ntohll(ca->node_guid));
+	printf("\tSystem image GUID: 0x%016llx\n",
+	       (long long unsigned)ntohll(ca->system_guid));
 }
 
 static char *port_state_str[] = {
@@ -90,8 +97,7 @@ static char *port_phy_state_str[] = {
 	"PhyTest"
 };
 
-static int
-port_dump(umad_port_t *port, int alone)
+static int port_dump(umad_port_t * port, int alone)
 {
 	char *pre = "";
 	char *hdrpre = "";
@@ -105,19 +111,23 @@ port_dump(umad_port_t *port, int alone)
 	}
 
 	printf("%sPort %d:\n", hdrpre, port->portnum);
-	printf("%sState: %s\n", pre, (unsigned)port->state <= 4 ? port_state_str[port->state] : "???");
-	printf("%sPhysical state: %s\n", pre, (unsigned)port->state <= 7 ? port_phy_state_str[port->phys_state] : "???");
+	printf("%sState: %s\n", pre,
+	       (unsigned)port->state <=
+	       4 ? port_state_str[port->state] : "???");
+	printf("%sPhysical state: %s\n", pre,
+	       (unsigned)port->state <=
+	       7 ? port_phy_state_str[port->phys_state] : "???");
 	printf("%sRate: %d\n", pre, port->rate);
 	printf("%sBase lid: %d\n", pre, port->base_lid);
 	printf("%sLMC: %d\n", pre, port->lmc);
 	printf("%sSM lid: %d\n", pre, port->sm_lid);
 	printf("%sCapability mask: 0x%08x\n", pre, ntohl(port->capmask));
-	printf("%sPort GUID: 0x%016llx\n", pre, (long long unsigned)ntohll(port->port_guid));
+	printf("%sPort GUID: 0x%016llx\n", pre,
+	       (long long unsigned)ntohll(port->port_guid));
 	return 0;
 }
 
-static int
-ca_stat(char *ca_name, int portnum, int no_ports)
+static int ca_stat(char *ca_name, int portnum, int no_ports)
 {
 	umad_ca_t ca;
 	int r;
@@ -131,11 +141,16 @@ ca_stat(char *ca_name, int portnum, int no_ports)
 	if (!no_ports && portnum >= 0) {
 		if (portnum > ca.numports || !ca.ports[portnum]) {
 			IBWARN("%s: '%s' has no port number %d - max (%d)",
-				((unsigned)ca.node_type <= IB_NODE_MAX ? node_type_str[ca.node_type] : "???"),
-				ca_name, portnum, ca.numports);
+			       ((unsigned)ca.node_type <=
+				IB_NODE_MAX ? node_type_str[ca.
+							    node_type] : "???"),
+			       ca_name, portnum, ca.numports);
 			return -1;
 		}
-		printf("%s: '%s'\n", ((unsigned)ca.node_type <= IB_NODE_MAX ? node_type_str[ca.node_type] : "???"), ca.ca_name);
+		printf("%s: '%s'\n",
+		       ((unsigned)ca.node_type <=
+			IB_NODE_MAX ? node_type_str[ca.node_type] : "???"),
+		       ca.ca_name);
 		port_dump(ca.ports[portnum], 1);
 		return 0;
 	}
@@ -152,21 +167,23 @@ ca_stat(char *ca_name, int portnum, int no_ports)
 	return 0;
 }
 
-static int
-ports_list(char names[][UMAD_CA_NAME_LEN], int n)
+static int ports_list(char names[][UMAD_CA_NAME_LEN], int n)
 {
 	uint64_t guids[64];
 	int found, ports, i;
 
 	for (i = 0, found = 0; i < n && found < 64; i++) {
-		if ((ports = umad_get_ca_portguids(names[i], guids + found, 64 - found)) < 0)
+		if ((ports =
+		     umad_get_ca_portguids(names[i], guids + found,
+					   64 - found)) < 0)
 			return -1;
 		found += ports;
 	}
 
 	for (i = 0; i < found; i++)
 		if (guids[i])
-			printf("0x%016llx\n", (long long unsigned)ntohll(guids[i]));
+			printf("0x%016llx\n",
+			       (long long unsigned)ntohll(guids[i]));
 	return found;
 }
 
@@ -197,10 +214,10 @@ int main(int argc, char *argv[])
 	int n, i;
 
 	const struct ibdiag_opt opts[] = {
-		{ "list_of_cas", 'l', 0, NULL, "list all IB devices" },
-		{ "short", 's', 0, NULL, "short output" },
-		{ "port_list", 'p', 0, NULL, "show port list" },
-		{ 0 }
+		{"list_of_cas", 'l', 0, NULL, "list all IB devices"},
+		{"short", 's', 0, NULL, "short output"},
+		{"port_list", 'p', 0, NULL, "show port list"},
+		{0}
 	};
 	char usage_args[] = "<ca_name> [portnum]";
 	const char *usage_examples[] = {
@@ -250,9 +267,8 @@ int main(int argc, char *argv[])
 	for (i = 0; i < n; i++) {
 		if (list_only)
 			printf("%s\n", names[i]);
-		else
-			if (ca_stat(names[i], -1, short_format) < 0)
-				IBPANIC("stat of IB device '%s' failed", names[i]);
+		else if (ca_stat(names[i], -1, short_format) < 0)
+			IBPANIC("stat of IB device '%s' failed", names[i]);
 	}
 
 	return 0;

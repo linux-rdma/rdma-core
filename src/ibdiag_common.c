@@ -60,7 +60,7 @@ enum MAD_DEST ibd_dest_type = IB_DEST_LID;
 ib_portid_t *ibd_sm_id;
 int ibd_timeout;
 
-static ib_portid_t sm_portid = {0};
+static ib_portid_t sm_portid = { 0 };
 
 static const char *prog_name;
 static const char *prog_args;
@@ -70,7 +70,8 @@ static const struct ibdiag_opt *opts_map[256];
 
 const static char *get_build_version(void)
 {
-	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " " __TIME__;
+	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " "
+	    __TIME__;
 }
 
 static void pretty_print(int start, int width, const char *str)
@@ -79,7 +80,7 @@ static void pretty_print(int start, int width, const char *str)
 	const char *p, *e;
 
 	while (1) {
-		while(isspace(*str))
+		while (isspace(*str))
 			str++;
 		p = str;
 		do {
@@ -116,7 +117,8 @@ void ibdiag_show_usage()
 			n += fprintf(stderr, " %s",
 				     io->arg_tmpl ? io->arg_tmpl : "<val>");
 		if (io->description && *io->description) {
-			n += fprintf(stderr, "%*s  ", 24 - n > 0 ? 24 - n : 0, "");
+			n += fprintf(stderr, "%*s  ", 24 - n > 0 ? 24 - n : 0,
+				     "");
 			pretty_print(n, 74, io->description);
 		}
 		fprintf(stderr, "\n");
@@ -180,8 +182,9 @@ static int process_opt(int ch, char *optarg)
 	case 's':
 		/* srcport is not required when resolving via IB_DEST_LID */
 		if (ib_resolve_portid_str_via(&sm_portid, optarg, IB_DEST_LID,
-				0, NULL) < 0)
-			IBERROR("cannot resolve SM destination port %s", optarg);
+					      0, NULL) < 0)
+			IBERROR("cannot resolve SM destination port %s",
+				optarg);
 		ibd_sm_id = &sm_portid;
 		break;
 	default:
@@ -192,20 +195,20 @@ static int process_opt(int ch, char *optarg)
 }
 
 static const struct ibdiag_opt common_opts[] = {
-	{ "Ca", 'C', 1, "<ca>", "Ca name to use"},
-	{ "Port", 'P', 1, "<port>", "Ca port number to use"},
-	{ "Direct", 'D', 0, NULL, "use Direct address argument"},
-	{ "Lid", 'L', 0, NULL, "use LID address argument"},
-	{ "Guid", 'G', 0, NULL, "use GUID address argument"},
-	{ "timeout", 't', 1, "<ms>", "timeout in ms"},
-	{ "sm_port", 's', 1, "<lid>", "SM port lid" },
-	{ "errors", 'e', 0, NULL, "show send and receive errors" },
-	{ "verbose", 'v', 0, NULL, "increase verbosity level" },
-	{ "debug", 'd', 0, NULL, "raise debug level" },
-	{ "usage", 'u', 0, NULL, "usage message" },
-	{ "help", 'h', 0, NULL, "help message" },
-	{ "version", 'V', 0, NULL, "show version" },
-	{ 0 }
+	{"Ca", 'C', 1, "<ca>", "Ca name to use"},
+	{"Port", 'P', 1, "<port>", "Ca port number to use"},
+	{"Direct", 'D', 0, NULL, "use Direct address argument"},
+	{"Lid", 'L', 0, NULL, "use LID address argument"},
+	{"Guid", 'G', 0, NULL, "use GUID address argument"},
+	{"timeout", 't', 1, "<ms>", "timeout in ms"},
+	{"sm_port", 's', 1, "<lid>", "SM port lid"},
+	{"errors", 'e', 0, NULL, "show send and receive errors"},
+	{"verbose", 'v', 0, NULL, "increase verbosity level"},
+	{"debug", 'd', 0, NULL, "raise debug level"},
+	{"usage", 'u', 0, NULL, "usage message"},
+	{"help", 'h', 0, NULL, "help message"},
+	{"version", 'V', 0, NULL, "show version"},
+	{0}
 };
 
 static void make_opt(struct option *l, const struct ibdiag_opt *o,
@@ -231,7 +234,7 @@ static struct option *make_long_opts(const char *exclude_str,
 		for (o = custom_opts; o->name; o++)
 			n++;
 
-	long_opts = malloc((sizeof(common_opts)/sizeof(common_opts[0]) + n) *
+	long_opts = malloc((sizeof(common_opts) / sizeof(common_opts[0]) + n) *
 			   sizeof(*long_opts));
 	if (!long_opts)
 		return NULL;
@@ -257,18 +260,19 @@ static void make_str_opts(const struct option *o, char *p, unsigned size)
 {
 	unsigned i, n = 0;
 
-	for (n = 0; o->name  && n + 2 + o->has_arg < size; o++) {
-		p[n++] = (char) o->val;
-		for (i = 0; i < (unsigned) o->has_arg; i++)
+	for (n = 0; o->name && n + 2 + o->has_arg < size; o++) {
+		p[n++] = (char)o->val;
+		for (i = 0; i < (unsigned)o->has_arg; i++)
 			p[n++] = ':';
 	}
 	p[n] = '\0';
 }
 
-int ibdiag_process_opts(int argc, char * const argv[], void *cxt,
+int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 			const char *exclude_common_str,
 			const struct ibdiag_opt custom_opts[],
-			int (*custom_handler)(void *cxt, int val, char *optarg),
+			int (*custom_handler) (void *cxt, int val,
+					       char *optarg),
 			const char *usage_args, const char *usage_examples[])
 {
 	char str_opts[1024];
@@ -286,7 +290,7 @@ int ibdiag_process_opts(int argc, char * const argv[], void *cxt,
 
 	while (1) {
 		int ch = getopt_long(argc, argv, str_opts, long_opts, NULL);
-		if ( ch == -1 )
+		if (ch == -1)
 			break;
 		o = opts_map[ch];
 		if (!o)

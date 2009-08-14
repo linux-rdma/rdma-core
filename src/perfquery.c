@@ -34,7 +34,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,8 +86,9 @@ struct perf_count_ext {
 
 static uint8_t pc[1024];
 
-struct perf_count perf_count = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-struct perf_count_ext perf_count_ext = {0,0,0,0,0,0,0,0,0,0};
+struct perf_count perf_count =
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+struct perf_count_ext perf_count_ext = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 #define ALL_PORTS 0xFF
 
@@ -98,16 +99,15 @@ struct perf_count_ext perf_count_ext = {0,0,0,0,0,0,0,0,0,0};
  * for fields < 32 bits in length.
  */
 
-static void aggregate_4bit(uint32_t *dest, uint32_t val)
+static void aggregate_4bit(uint32_t * dest, uint32_t val)
 {
-	if ((((*dest) + val) < (*dest))
-	    || ((*dest) + val) > 0xf)
+	if ((((*dest) + val) < (*dest)) || ((*dest) + val) > 0xf)
 		(*dest) = 0xf;
 	else
 		(*dest) = (*dest) + val;
 }
 
-static void aggregate_8bit(uint32_t *dest, uint32_t val)
+static void aggregate_8bit(uint32_t * dest, uint32_t val)
 {
 	if ((((*dest) + val) < (*dest))
 	    || ((*dest) + val) > 0xff)
@@ -116,7 +116,7 @@ static void aggregate_8bit(uint32_t *dest, uint32_t val)
 		(*dest) = (*dest) + val;
 }
 
-static void aggregate_16bit(uint32_t *dest, uint32_t val)
+static void aggregate_16bit(uint32_t * dest, uint32_t val)
 {
 	if ((((*dest) + val) < (*dest))
 	    || ((*dest) + val) > 0xffff)
@@ -125,7 +125,7 @@ static void aggregate_16bit(uint32_t *dest, uint32_t val)
 		(*dest) = (*dest) + val;
 }
 
-static void aggregate_32bit(uint32_t *dest, uint32_t val)
+static void aggregate_32bit(uint32_t * dest, uint32_t val)
 {
 	if (((*dest) + val) < (*dest))
 		(*dest) = 0xffffffff;
@@ -133,7 +133,7 @@ static void aggregate_32bit(uint32_t *dest, uint32_t val)
 		(*dest) = (*dest) + val;
 }
 
-static void aggregate_64bit(uint64_t *dest, uint64_t val)
+static void aggregate_64bit(uint64_t * dest, uint64_t val)
 {
 	if (((*dest) + val) < (*dest))
 		(*dest) = 0xffffffffffffffffULL;
@@ -185,7 +185,7 @@ static void aggregate_perfcounters(void)
 	aggregate_32bit(&perf_count.xmtwait, val);
 }
 
-static void output_aggregate_perfcounters(ib_portid_t *portid)
+static void output_aggregate_perfcounters(ib_portid_t * portid)
 {
 	char buf[1024];
 	uint32_t val = ALL_PORTS;
@@ -197,13 +197,19 @@ static void output_aggregate_perfcounters(ib_portid_t *portid)
 	mad_encode_field(pc, IB_PC_LINK_RECOVERS_F, &perf_count.linkrecovers);
 	mad_encode_field(pc, IB_PC_LINK_DOWNED_F, &perf_count.linkdowned);
 	mad_encode_field(pc, IB_PC_ERR_RCV_F, &perf_count.rcverrors);
-	mad_encode_field(pc, IB_PC_ERR_PHYSRCV_F, &perf_count.rcvremotephyerrors);
-	mad_encode_field(pc, IB_PC_ERR_SWITCH_REL_F, &perf_count.rcvswrelayerrors);
+	mad_encode_field(pc, IB_PC_ERR_PHYSRCV_F,
+			 &perf_count.rcvremotephyerrors);
+	mad_encode_field(pc, IB_PC_ERR_SWITCH_REL_F,
+			 &perf_count.rcvswrelayerrors);
 	mad_encode_field(pc, IB_PC_XMT_DISCARDS_F, &perf_count.xmtdiscards);
-	mad_encode_field(pc, IB_PC_ERR_XMTCONSTR_F, &perf_count.xmtconstrainterrors);
-	mad_encode_field(pc, IB_PC_ERR_RCVCONSTR_F, &perf_count.rcvconstrainterrors);
-	mad_encode_field(pc, IB_PC_ERR_LOCALINTEG_F, &perf_count.linkintegrityerrors);
-	mad_encode_field(pc, IB_PC_ERR_EXCESS_OVR_F, &perf_count.excbufoverrunerrors);
+	mad_encode_field(pc, IB_PC_ERR_XMTCONSTR_F,
+			 &perf_count.xmtconstrainterrors);
+	mad_encode_field(pc, IB_PC_ERR_RCVCONSTR_F,
+			 &perf_count.rcvconstrainterrors);
+	mad_encode_field(pc, IB_PC_ERR_LOCALINTEG_F,
+			 &perf_count.linkintegrityerrors);
+	mad_encode_field(pc, IB_PC_ERR_EXCESS_OVR_F,
+			 &perf_count.excbufoverrunerrors);
 	mad_encode_field(pc, IB_PC_VL15_DROPPED_F, &perf_count.vl15dropped);
 	mad_encode_field(pc, IB_PC_XMT_BYTES_F, &perf_count.xmtdata);
 	mad_encode_field(pc, IB_PC_RCV_BYTES_F, &perf_count.rcvdata);
@@ -213,7 +219,8 @@ static void output_aggregate_perfcounters(ib_portid_t *portid)
 
 	mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
 
-	printf("# Port counters: %s port %d\n%s", portid2str(portid), ALL_PORTS, buf);
+	printf("# Port counters: %s port %d\n%s", portid2str(portid), ALL_PORTS,
+	       buf);
 }
 
 static void aggregate_perfcounters_ext(void)
@@ -243,30 +250,39 @@ static void aggregate_perfcounters_ext(void)
 	aggregate_64bit(&perf_count_ext.portmulticastrcvpkts, val64);
 }
 
-static void output_aggregate_perfcounters_ext(ib_portid_t *portid)
+static void output_aggregate_perfcounters_ext(ib_portid_t * portid)
 {
 	char buf[1024];
 	uint32_t val = ALL_PORTS;
 
 	/* set port_select to 255 to emulate AllPortSelect */
 	mad_encode_field(pc, IB_PC_EXT_PORT_SELECT_F, &val);
-	mad_encode_field(pc, IB_PC_EXT_COUNTER_SELECT_F, &perf_count_ext.counterselect);
-	mad_encode_field(pc, IB_PC_EXT_XMT_BYTES_F, &perf_count_ext.portxmitdata);
-	mad_encode_field(pc, IB_PC_EXT_RCV_BYTES_F, &perf_count_ext.portrcvdata);
-	mad_encode_field(pc, IB_PC_EXT_XMT_PKTS_F, &perf_count_ext.portxmitpkts);
+	mad_encode_field(pc, IB_PC_EXT_COUNTER_SELECT_F,
+			 &perf_count_ext.counterselect);
+	mad_encode_field(pc, IB_PC_EXT_XMT_BYTES_F,
+			 &perf_count_ext.portxmitdata);
+	mad_encode_field(pc, IB_PC_EXT_RCV_BYTES_F,
+			 &perf_count_ext.portrcvdata);
+	mad_encode_field(pc, IB_PC_EXT_XMT_PKTS_F,
+			 &perf_count_ext.portxmitpkts);
 	mad_encode_field(pc, IB_PC_EXT_RCV_PKTS_F, &perf_count_ext.portrcvpkts);
-	mad_encode_field(pc, IB_PC_EXT_XMT_UPKTS_F, &perf_count_ext.portunicastxmitpkts);
-	mad_encode_field(pc, IB_PC_EXT_RCV_UPKTS_F, &perf_count_ext.portunicastrcvpkts);
-	mad_encode_field(pc, IB_PC_EXT_XMT_MPKTS_F, &perf_count_ext.portmulticastxmitpkits);
-	mad_encode_field(pc, IB_PC_EXT_RCV_MPKTS_F, &perf_count_ext.portmulticastrcvpkts);
+	mad_encode_field(pc, IB_PC_EXT_XMT_UPKTS_F,
+			 &perf_count_ext.portunicastxmitpkts);
+	mad_encode_field(pc, IB_PC_EXT_RCV_UPKTS_F,
+			 &perf_count_ext.portunicastrcvpkts);
+	mad_encode_field(pc, IB_PC_EXT_XMT_MPKTS_F,
+			 &perf_count_ext.portmulticastxmitpkits);
+	mad_encode_field(pc, IB_PC_EXT_RCV_MPKTS_F,
+			 &perf_count_ext.portmulticastrcvpkts);
 
 	mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
 
-	printf("# Port counters: %s port %d\n%s", portid2str(portid), ALL_PORTS, buf);
+	printf("# Port counters: %s port %d\n%s", portid2str(portid), ALL_PORTS,
+	       buf);
 }
 
 static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
-			      ib_portid_t *portid, int port, int aggregate)
+			      ib_portid_t * portid, int port, int aggregate)
 {
 	char buf[1024];
 
@@ -277,15 +293,18 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		if (!(cap_mask & 0x1000)) {
 			/* if PortCounters:PortXmitWait not suppported clear this counter */
 			perf_count.xmtwait = 0;
-			mad_encode_field(pc, IB_PC_XMT_WAIT_F, &perf_count.xmtwait);
+			mad_encode_field(pc, IB_PC_XMT_WAIT_F,
+					 &perf_count.xmtwait);
 		}
 		if (aggregate)
 			aggregate_perfcounters();
 		else
 			mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
 	} else {
-		if (!(cap_mask & 0x200)) /* 1.2 errata: bit 9 is extended counter support */
-			IBWARN("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n", cap_mask);
+		if (!(cap_mask & 0x200))	/* 1.2 errata: bit 9 is extended counter support */
+			IBWARN
+			    ("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n",
+			     cap_mask);
 
 		if (!pma_query_via(pc, portid, port, timeout,
 				   IB_GSI_PORT_COUNTERS_EXT, srcport))
@@ -293,14 +312,17 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		if (aggregate)
 			aggregate_perfcounters_ext();
 		else
-			mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
+			mad_dump_perfcounters_ext(buf, sizeof buf, pc,
+						  sizeof pc);
 	}
 
 	if (!aggregate)
-		printf("# Port counters: %s port %d\n%s", portid2str(portid), port, buf);
+		printf("# Port counters: %s port %d\n%s", portid2str(portid),
+		       port, buf);
 }
 
-static void reset_counters(int extended, int timeout, int mask, ib_portid_t *portid, int port)
+static void reset_counters(int extended, int timeout, int mask,
+			   ib_portid_t * portid, int port)
 {
 	if (extended != 1) {
 		if (!performance_reset_via(pc, portid, port, mask, timeout,
@@ -313,53 +335,56 @@ static void reset_counters(int extended, int timeout, int mask, ib_portid_t *por
 	}
 }
 
-static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl, rcv_sl;
+static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl,
+    rcv_sl;
 
-void xmt_sl_query(ib_portid_t *portid, int port, int mask)
+void xmt_sl_query(ib_portid_t * portid, int port, int mask)
 {
 	char buf[1024];
 
 	if (reset_only) {
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_XMIT_DATA_SL, srcport))
+					   IB_GSI_PORT_XMIT_DATA_SL, srcport))
 			IBERROR("perfslreset");
 		return;
 	}
 
 	if (!pma_query_via(pc, portid, port, ibd_timeout,
-				IB_GSI_PORT_XMIT_DATA_SL, srcport))
+			   IB_GSI_PORT_XMIT_DATA_SL, srcport))
 		IBERROR("perfslquery");
 
 	mad_dump_perfcounters_xmt_sl(buf, sizeof buf, pc, sizeof pc);
-	printf("# PortXmitDataSL counters: %s port %d\n%s", portid2str(portid), port, buf);
+	printf("# PortXmitDataSL counters: %s port %d\n%s", portid2str(portid),
+	       port, buf);
 
 	if (reset)
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_XMIT_DATA_SL, srcport))
+					   IB_GSI_PORT_XMIT_DATA_SL, srcport))
 			IBERROR("perfslreset");
 }
 
-void rcv_sl_query(ib_portid_t *portid, int port, int mask)
+void rcv_sl_query(ib_portid_t * portid, int port, int mask)
 {
 	char buf[1024];
 
 	if (reset_only) {
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_RCV_DATA_SL, srcport))
+					   IB_GSI_PORT_RCV_DATA_SL, srcport))
 			IBERROR("perfslreset");
 		return;
 	}
 
 	if (!pma_query_via(pc, portid, port, ibd_timeout,
-				IB_GSI_PORT_RCV_DATA_SL, srcport))
+			   IB_GSI_PORT_RCV_DATA_SL, srcport))
 		IBERROR("perfslquery");
 
 	mad_dump_perfcounters_rcv_sl(buf, sizeof buf, pc, sizeof pc);
-	printf("# PortRcvDataSL counters: %s port %d\n%s", portid2str(portid), port, buf);
+	printf("# PortRcvDataSL counters: %s port %d\n%s", portid2str(portid),
+	       port, buf);
 
 	if (reset)
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-						IB_GSI_PORT_RCV_DATA_SL, srcport))
+					   IB_GSI_PORT_RCV_DATA_SL, srcport))
 			IBERROR("perfslreset");
 }
 
@@ -396,8 +421,10 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[4] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS, IB_PERFORMANCE_CLASS};
-	ib_portid_t portid = {0};
+	int mgmt_classes[4] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS,
+		IB_PERFORMANCE_CLASS
+	};
+	ib_portid_t portid = { 0 };
 	int mask = 0xffff;
 	uint16_t cap_mask;
 	int all_ports_loop = 0;
@@ -408,14 +435,14 @@ int main(int argc, char **argv)
 	int i;
 
 	const struct ibdiag_opt opts[] = {
-		{ "extended", 'x', 0, NULL, "show extended port counters" },
-		{ "xmtsl", 'X', 0, NULL, "show Xmt SL port counters" },
-		{ "rcvsl", 'S', 0, NULL, "show Rcv SL port counters" },
-		{ "all_ports", 'a', 0, NULL, "show aggregated counters" },
-		{ "loop_ports", 'l', 0, NULL, "iterate through each port" },
-		{ "reset_after_read", 'r', 0, NULL, "reset counters after read" },
-		{ "Reset_only", 'R', 0, NULL, "only reset counters" },
-		{ 0 }
+		{"extended", 'x', 0, NULL, "show extended port counters"},
+		{"xmtsl", 'X', 0, NULL, "show Xmt SL port counters"},
+		{"rcvsl", 'S', 0, NULL, "show Rcv SL port counters"},
+		{"all_ports", 'a', 0, NULL, "show aggregated counters"},
+		{"loop_ports", 'l', 0, NULL, "iterate through each port"},
+		{"reset_after_read", 'r', 0, NULL, "reset counters after read"},
+		{"Reset_only", 'R', 0, NULL, "only reset counters"},
+		{0}
 	};
 	char usage_args[] = " [<lid|guid> [[port] [reset_mask]]]";
 	const char *usage_examples[] = {
@@ -450,7 +477,7 @@ int main(int argc, char **argv)
 
 	if (argc) {
 		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-				ibd_sm_id, srcport) < 0)
+					      ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
 		if (ib_resolve_self_via(&portid, &port, 0, srcport) < 0)
@@ -464,7 +491,7 @@ int main(int argc, char **argv)
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&cap_mask, pc + 2, sizeof(cap_mask));	/* CapabilityMask */
 	cap_mask = ntohs(cap_mask);
-	if (!(cap_mask & 0x100)) { /* bit 8 is AllPortSelect */
+	if (!(cap_mask & 0x100)) {	/* bit 8 is AllPortSelect */
 		if (!all_ports && port == ALL_PORTS)
 			IBERROR("AllPortSelect not supported");
 		if (all_ports)
@@ -483,7 +510,7 @@ int main(int argc, char **argv)
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
 		if (smp_query_via(data, &portid, IB_ATTR_NODE_INFO, 0, 0,
-				srcport) < 0)
+				  srcport) < 0)
 			IBERROR("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
 		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
@@ -492,14 +519,16 @@ int main(int argc, char **argv)
 
 		if (node_type == IB_NODE_SWITCH) {
 			if (smp_query_via(data, &portid, IB_ATTR_SWITCH_INFO,
-					0, 0, srcport) < 0)
+					  0, 0, srcport) < 0)
 				IBERROR("smp query nodeinfo failed");
-			enhancedport0 = mad_get_field(data, 0, IB_SW_ENHANCED_PORT0_F);
+			enhancedport0 =
+			    mad_get_field(data, 0, IB_SW_ENHANCED_PORT0_F);
 			if (enhancedport0)
 				start_port = 0;
 		}
 		if (all_ports_loop && !loop_ports)
-			IBWARN("Emulating AllPortSelect by iterating through all ports");
+			IBWARN
+			    ("Emulating AllPortSelect by iterating through all ports");
 	}
 
 	if (reset_only)
@@ -507,17 +536,18 @@ int main(int argc, char **argv)
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
 		for (i = start_port; i <= num_ports; i++)
-			dump_perfcounters(extended, ibd_timeout, cap_mask, &portid, i,
-					  (all_ports_loop && !loop_ports));
+			dump_perfcounters(extended, ibd_timeout, cap_mask,
+					  &portid, i, (all_ports_loop
+						       && !loop_ports));
 		if (all_ports_loop && !loop_ports) {
 			if (extended != 1)
 				output_aggregate_perfcounters(&portid);
 			else
 				output_aggregate_perfcounters_ext(&portid);
 		}
-	}
-	else
-		dump_perfcounters(extended, ibd_timeout, cap_mask, &portid, port, 0);
+	} else
+		dump_perfcounters(extended, ibd_timeout, cap_mask, &portid,
+				  port, 0);
 
 	if (!reset)
 		goto done;
@@ -525,13 +555,12 @@ int main(int argc, char **argv)
 do_reset:
 
 	if (argc <= 2 && !extended && (cap_mask & 0x1000))
-		mask |= (1<<16); /* reset portxmitwait */
+		mask |= (1 << 16);	/* reset portxmitwait */
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
 		for (i = start_port; i <= num_ports; i++)
 			reset_counters(extended, ibd_timeout, mask, &portid, i);
-	}
-	else
+	} else
 		reset_counters(extended, ibd_timeout, mask, &portid, port);
 
 done:

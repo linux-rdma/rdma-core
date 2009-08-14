@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,8 +53,7 @@ struct ibmad_port *srcport;
 static char host_and_domain[IB_VENDOR_RANGE2_DATA_SIZE];
 static char last_host[IB_VENDOR_RANGE2_DATA_SIZE];
 
-static void
-get_host_and_domain(char *data, int sz)
+static void get_host_and_domain(char *data, int sz)
 {
 	char *s = data;
 	int n;
@@ -62,7 +61,7 @@ get_host_and_domain(char *data, int sz)
 	if (gethostname(s, sz) < 0)
 		snprintf(s, sz, "?hostname?");
 
-	s[sz-1] = 0;
+	s[sz - 1] = 0;
 	if ((n = strlen(s)) >= sz)
 		return;
 	s[n] = '.';
@@ -75,8 +74,7 @@ get_host_and_domain(char *data, int sz)
 		s[-1] = 0;	/* no domain */
 }
 
-static char *
-ibping_serv(void)
+static char *ibping_serv(void)
 {
 	void *umad;
 	void *mad;
@@ -103,10 +101,9 @@ ibping_serv(void)
 	return 0;
 }
 
-static uint64_t
-ibping(ib_portid_t *portid, int quiet)
+static uint64_t ibping(ib_portid_t * portid, int quiet)
 {
-	char data[IB_VENDOR_RANGE2_DATA_SIZE] = {0};
+	char data[IB_VENDOR_RANGE2_DATA_SIZE] = { 0 };
 	ib_vendor_call_t call;
 	uint64_t start, rtt;
 
@@ -132,14 +129,14 @@ ibping(ib_portid_t *portid, int quiet)
 
 	if (!quiet)
 		printf("Pong from %s (%s): time %" PRIu64 ".%03" PRIu64 " ms\n",
-			data, portid2str(portid), rtt/1000, rtt%1000);
+		       data, portid2str(portid), rtt / 1000, rtt % 1000);
 
 	return rtt;
 }
 
 static uint64_t minrtt = ~0ull, maxrtt, total_rtt;
 static uint64_t start, total_time, replied, lost, ntrans;
-static ib_portid_t portid = {0};
+static ib_portid_t portid = { 0 };
 
 void report(int sig)
 {
@@ -147,16 +144,18 @@ void report(int sig)
 
 	DEBUG("out due signal %d", sig);
 
-	printf("\n--- %s (%s) ibping statistics ---\n", last_host, portid2str(&portid));
-	printf("%" PRIu64 " packets transmitted, %" PRIu64 " received, %" PRIu64 "%% packet loss, time %" PRIu64 " ms\n",
-		ntrans, replied,
-		(lost != 0) ?  lost * 100 / ntrans : 0, total_time / 1000);
-	printf("rtt min/avg/max = %" PRIu64 ".%03" PRIu64 "/%" PRIu64 ".%03" PRIu64 "/%" PRIu64 ".%03" PRIu64 " ms\n",
-		minrtt == ~0ull ? 0 : minrtt/1000,
-		minrtt == ~0ull ? 0 : minrtt%1000,
-		replied ? total_rtt/replied/1000 : 0,
-		replied ? (total_rtt/replied)%1000 : 0,
-		maxrtt/1000, maxrtt%1000);
+	printf("\n--- %s (%s) ibping statistics ---\n", last_host,
+	       portid2str(&portid));
+	printf("%" PRIu64 " packets transmitted, %" PRIu64 " received, %" PRIu64
+	       "%% packet loss, time %" PRIu64 " ms\n", ntrans, replied,
+	       (lost != 0) ? lost * 100 / ntrans : 0, total_time / 1000);
+	printf("rtt min/avg/max = %" PRIu64 ".%03" PRIu64 "/%" PRIu64 ".%03"
+	       PRIu64 "/%" PRIu64 ".%03" PRIu64 " ms\n",
+	       minrtt == ~0ull ? 0 : minrtt / 1000,
+	       minrtt == ~0ull ? 0 : minrtt % 1000,
+	       replied ? total_rtt / replied / 1000 : 0,
+	       replied ? (total_rtt / replied) % 1000 : 0, maxrtt / 1000,
+	       maxrtt % 1000);
 
 	exit(0);
 }
@@ -187,17 +186,18 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
 	int ping_class = IB_VENDOR_OPENIB_PING_CLASS;
 	uint64_t rtt;
 	char *err;
 
 	const struct ibdiag_opt opts[] = {
-		{ "count", 'c', 1, "<num>", "stop after count packets" },
-		{ "flood", 'f', 0, NULL, "flood destination" },
-		{ "oui", 'o', 1, NULL, "use specified OUI number" },
-		{ "Server", 'S', 0, NULL, "start in server mode" },
-		{ 0 }
+		{"count", 'c', 1, "<num>", "stop after count packets"},
+		{"flood", 'f', 0, NULL, "flood destination"},
+		{"oui", 'o', 1, NULL, "use specified OUI number"},
+		{"Server", 'S', 0, NULL, "start in server mode"},
+		{0}
 	};
 	char usage_args[] = "<dest lid|guid>";
 
@@ -216,7 +216,8 @@ int main(int argc, char **argv)
 
 	if (server) {
 		if (mad_register_server_via(ping_class, 0, 0, oui, srcport) < 0)
-			IBERROR("can't serve class %d on this port", ping_class);
+			IBERROR("can't serve class %d on this port",
+				ping_class);
 
 		get_host_and_domain(host_and_domain, sizeof host_and_domain);
 
@@ -226,10 +227,11 @@ int main(int argc, char **argv)
 	}
 
 	if (mad_register_client_via(ping_class, 0, srcport) < 0)
-		IBERROR("can't register ping class %d on this port", ping_class);
+		IBERROR("can't register ping class %d on this port",
+			ping_class);
 
 	if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-					ibd_sm_id, srcport) < 0)
+				      ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	signal(SIGINT, report);

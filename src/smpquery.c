@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +53,7 @@
 
 struct ibmad_port *srcport;
 
-typedef char *(op_fn_t)(ib_portid_t *dest, char **argv, int argc);
+typedef char *(op_fn_t) (ib_portid_t * dest, char **argv, int argc);
 
 typedef struct match_rec {
 	const char *name, *alias;
@@ -61,18 +61,18 @@ typedef struct match_rec {
 	unsigned opt_portnum;
 } match_rec_t;
 
-static op_fn_t	node_desc, node_info, port_info, switch_info, pkey_table,
-	sl2vl_table, vlarb_table, guid_info;
+static op_fn_t node_desc, node_info, port_info, switch_info, pkey_table,
+    sl2vl_table, vlarb_table, guid_info;
 
 static const match_rec_t match_tbl[] = {
-	{ "NodeInfo", "NI", node_info },
-	{ "NodeDesc", "ND", node_desc },
-	{ "PortInfo", "PI", port_info, 1 },
-	{ "SwitchInfo", "SI", switch_info },
-	{ "PKeyTable", "PKeys", pkey_table, 1 },
-	{ "SL2VLTable", "SL2VL", sl2vl_table, 1 },
-	{ "VLArbitration", "VLArb", vlarb_table, 1 },
-	{ "GUIDInfo", "GI", guid_info },
+	{"NodeInfo", "NI", node_info},
+	{"NodeDesc", "ND", node_desc},
+	{"PortInfo", "PI", port_info, 1},
+	{"SwitchInfo", "SI", switch_info},
+	{"PKeyTable", "PKeys", pkey_table, 1},
+	{"SL2VLTable", "SL2VL", sl2vl_table, 1},
+	{"VLArbitration", "VLArb", vlarb_table, 1},
+	{"GUIDInfo", "GI", guid_info},
 	{0}
 };
 
@@ -80,15 +80,14 @@ static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 
 /*******************************************/
-static char *
-node_desc(ib_portid_t *dest, char **argv, int argc)
+static char *node_desc(ib_portid_t * dest, char **argv, int argc)
 {
-	int       node_type, l;
-	uint64_t  node_guid;
-	char      nd[IB_SMP_DATA_SIZE];
-	uint8_t   data[IB_SMP_DATA_SIZE];
-	char      dots[128];
-	char     *nodename = NULL;
+	int node_type, l;
+	uint64_t node_guid;
+	char nd[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE];
+	char dots[128];
+	char *nodename = NULL;
 
 	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info query failed";
@@ -115,8 +114,7 @@ node_desc(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static char *
-node_info(ib_portid_t *dest, char **argv, int argc)
+static char *node_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
@@ -130,8 +128,7 @@ node_info(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static char *
-port_info(ib_portid_t *dest, char **argv, int argc)
+static char *port_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
@@ -149,8 +146,7 @@ port_info(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static char *
-switch_info(ib_portid_t *dest, char **argv, int argc)
+static char *switch_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
@@ -164,8 +160,7 @@ switch_info(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static char *
-pkey_table(ib_portid_t *dest, char **argv, int argc)
+static char *pkey_table(ib_portid_t * dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE];
 	int i, j, k;
@@ -188,16 +183,16 @@ pkey_table(ib_portid_t *dest, char **argv, int argc)
 
 	if ((t == IB_NODE_SWITCH) && (portnum != 0)) {
 		if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0, 0,
-				srcport))
+				   srcport))
 			return "switch info failed";
 		mad_decode_field(data, IB_SW_PARTITION_ENFORCE_CAP_F, &n);
 	} else
 		mad_decode_field(data, IB_NODE_PARTITION_CAP_F, &n);
 
 	for (i = 0; i < (n + 31) / 32; i++) {
-		mod =  i | (portnum << 16);
+		mod = i | (portnum << 16);
 		if (!smp_query_via(data, dest, IB_ATTR_PKEY_TBL, mod, 0,
-				srcport))
+				   srcport))
 			return "pkey table query failed";
 		if (i + 1 == (n + 31) / 32)
 			k = ((n + 7 - i * 32) / 8) * 8;
@@ -205,12 +200,11 @@ pkey_table(ib_portid_t *dest, char **argv, int argc)
 			k = 32;
 		p = (uint16_t *) data;
 		for (j = 0; j < k; j += 8, p += 8) {
-			printf("%4u: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
-				(i * 32) + j,
-				ntohs(p[0]), ntohs(p[1]),
-				ntohs(p[2]), ntohs(p[3]),
-				ntohs(p[4]), ntohs(p[5]),
-				ntohs(p[6]), ntohs(p[7]));
+			printf
+			    ("%4u: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
+			     (i * 32) + j, ntohs(p[0]), ntohs(p[1]),
+			     ntohs(p[2]), ntohs(p[3]), ntohs(p[4]), ntohs(p[5]),
+			     ntohs(p[6]), ntohs(p[7]));
 		}
 	}
 	printf("%d pkeys capacity for this port\n", n);
@@ -218,7 +212,7 @@ pkey_table(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static char *sl2vl_dump_table_entry(ib_portid_t *dest, int in, int out)
+static char *sl2vl_dump_table_entry(ib_portid_t * dest, int in, int out)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
@@ -233,8 +227,7 @@ static char *sl2vl_dump_table_entry(ib_portid_t *dest, int in, int out)
 	return 0;
 }
 
-static char *
-sl2vl_table(ib_portid_t *dest, char **argv, int argc)
+static char *sl2vl_table(ib_portid_t * dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE];
 	int type, num_ports, portnum = 0;
@@ -254,14 +247,14 @@ sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 
 	printf("# SL2VL table: %s\n", portid2str(dest));
 	printf("#                 SL: |");
-	for (i = 0 ; i < 16 ; i++)
+	for (i = 0; i < 16; i++)
 		printf("%2d|", i);
 	printf("\n");
 
 	if (type != IB_NODE_SWITCH)
 		return sl2vl_dump_table_entry(dest, 0, 0);
 
-	for (i = 0 ; i <= num_ports ; i++) {
+	for (i = 0; i <= num_ports; i++) {
 		ret = sl2vl_dump_table_entry(dest, i, portnum);
 		if (ret)
 			return ret;
@@ -269,21 +262,22 @@ sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 	return 0;
 }
 
-static char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum, int offset, unsigned cap)
+static char *vlarb_dump_table_entry(ib_portid_t * dest, int portnum, int offset,
+				    unsigned cap)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE];
 
 	if (!smp_query_via(data, dest, IB_ATTR_VL_ARBITRATION,
-			(offset << 16) | portnum, 0, srcport))
+			   (offset << 16) | portnum, 0, srcport))
 		return "vl arb query failed";
 	mad_dump_vlarbitration(buf, sizeof(buf), data, cap * 2);
 	printf("%s", buf);
 	return 0;
 }
 
-static char *vlarb_dump_table(ib_portid_t *dest, int portnum,
-	char *name, int offset, int cap)
+static char *vlarb_dump_table(ib_portid_t * dest, int portnum,
+			      char *name, int offset, int cap)
 {
 	char *ret;
 
@@ -296,8 +290,7 @@ static char *vlarb_dump_table(ib_portid_t *dest, int portnum,
 	return ret;
 }
 
-static char *
-vlarb_table(ib_portid_t *dest, char **argv, int argc)
+static char *vlarb_table(ib_portid_t * dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE];
 	int portnum = 0;
@@ -310,18 +303,19 @@ vlarb_table(ib_portid_t *dest, char **argv, int argc)
 	/* port number of 0 could mean SP0 or port MAD arrives on */
 	if (portnum == 0) {
 		if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0,
-				srcport))
+				   srcport))
 			return "node info query failed";
 
 		mad_decode_field(data, IB_NODE_TYPE_F, &type);
 		if (type == IB_NODE_SWITCH) {
 			if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0,
-					0, srcport))
+					   0, srcport))
 				return "switch info query failed";
 			mad_decode_field(data, IB_SW_ENHANCED_PORT0_F, &enhsp0);
 			if (!enhsp0) {
-				printf("# No VLArbitration tables (BSP0): %s port %d\n",
-                        		portid2str(dest), 0);
+				printf
+				    ("# No VLArbitration tables (BSP0): %s port %d\n",
+				     portid2str(dest), 0);
 				return 0;
 			}
 		}
@@ -331,10 +325,10 @@ vlarb_table(ib_portid_t *dest, char **argv, int argc)
 		return "port info query failed";
 
 	mad_decode_field(data, IB_PORT_VL_ARBITRATION_LOW_CAP_F, &lowcap);
-	mad_decode_field(data, IB_PORT_VL_ARBITRATION_HIGH_CAP_F,&highcap);
+	mad_decode_field(data, IB_PORT_VL_ARBITRATION_HIGH_CAP_F, &highcap);
 
 	printf("# VLArbitration tables: %s port %d LowCap %d HighCap %d\n",
-			portid2str(dest), portnum, lowcap, highcap);
+	       portid2str(dest), portnum, lowcap, highcap);
 
 	if (lowcap > 0)
 		ret = vlarb_dump_table(dest, portnum, "Low", 1, lowcap);
@@ -345,8 +339,7 @@ vlarb_table(ib_portid_t *dest, char **argv, int argc)
 	return ret;
 }
 
-static char *
-guid_info(ib_portid_t *dest, char **argv, int argc)
+static char *guid_info(ib_portid_t * dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE];
 	int i, j, k;
@@ -360,9 +353,9 @@ guid_info(ib_portid_t *dest, char **argv, int argc)
 	mad_decode_field(data, IB_PORT_GUID_CAP_F, &n);
 
 	for (i = 0; i < (n + 7) / 8; i++) {
-		mod =  i;
+		mod = i;
 		if (!smp_query_via(data, dest, IB_ATTR_GUID_INFO, mod, 0,
-				srcport))
+				   srcport))
 			return "guid info query failed";
 		if (i + 1 == (n + 7) / 8)
 			k = ((n + 1 - i * 8) / 2) * 2;
@@ -370,9 +363,8 @@ guid_info(ib_portid_t *dest, char **argv, int argc)
 			k = 8;
 		p = (uint64_t *) data;
 		for (j = 0; j < k; j += 2, p += 2) {
-			printf("%4u: 0x%016"PRIx64" 0x%016"PRIx64"\n",
-				(i * 8) + j,
-				ntohll(p[0]), ntohll(p[1]));
+			printf("%4u: 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
+			       (i * 8) + j, ntohll(p[0]), ntohll(p[1]));
 		}
 	}
 	printf("%d guids capacity for this port\n", n);
@@ -409,17 +401,19 @@ static int process_opt(void *context, int ch, char *optarg)
 int main(int argc, char **argv)
 {
 	char usage_args[1024];
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
-	ib_portid_t portid = {0};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
+	ib_portid_t portid = { 0 };
 	char *err;
 	op_fn_t *fn;
 	const match_rec_t *r;
 	int n;
 
 	const struct ibdiag_opt opts[] = {
-		{ "combined", 'c', 0, NULL, "use Combined route address argument"},
-		{ "node-name-map", 1, 1, "<file>", "node name map file"},
-		{ 0 }
+		{"combined", 'c', 0, NULL,
+		 "use Combined route address argument"},
+		{"node-name-map", 1, 1, "<file>", "node name map file"},
+		{0}
 	};
 	const char *usage_examples[] = {
 		"portinfo 3 1\t\t\t\t# portinfo by lid, with port modifier",
@@ -431,7 +425,7 @@ int main(int argc, char **argv)
 
 	n = sprintf(usage_args, "<op> <dest dr_path|lid|guid> [op params]\n"
 		    "\nSupported ops (and aliases, case insensitive):\n");
-	for (r = match_tbl ; r->name ; r++) {
+	for (r = match_tbl; r->name; r++) {
 		n += snprintf(usage_args + n, sizeof(usage_args) - n,
 			      "  %s (%s) <addr>%s\n", r->name,
 			      r->alias ? r->alias : "",
@@ -460,9 +454,9 @@ int main(int argc, char **argv)
 
 	if (ibd_dest_type != IB_DEST_DRSLID) {
 		if (ib_resolve_portid_str_via(&portid, argv[1], ibd_dest_type,
-				ibd_sm_id, srcport) < 0)
+					      ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[1]);
-		if ((err = fn(&portid, argv+2, argc-2)))
+		if ((err = fn(&portid, argv + 2, argc - 2)))
 			IBERROR("operation %s: %s", argv[0], err);
 	} else {
 		char concat[64];
@@ -470,9 +464,9 @@ int main(int argc, char **argv)
 		memset(concat, 0, 64);
 		snprintf(concat, sizeof(concat), "%s %s", argv[1], argv[2]);
 		if (ib_resolve_portid_str_via(&portid, concat, ibd_dest_type,
-				ibd_sm_id, srcport) < 0)
+					      ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", concat);
-		if ((err = fn(&portid, argv+3, argc-3)))
+		if ((err = fn(&portid, argv + 3, argc - 3)))
 			IBERROR("operation %s: %s", argv[0], err);
 	}
 	close_node_name_map(node_name_map);

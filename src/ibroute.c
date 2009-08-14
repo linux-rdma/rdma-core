@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,11 +55,10 @@ static int brief, dump_all, multicast;
 
 /*******************************************/
 
-char *
-check_switch(ib_portid_t *portid, unsigned int *nports, uint64_t *guid,
-	     uint8_t *sw, char *nd)
+char *check_switch(ib_portid_t * portid, unsigned int *nports, uint64_t * guid,
+		   uint8_t * sw, char *nd)
 {
-	uint8_t ni[IB_SMP_DATA_SIZE] = {0};
+	uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 	int type;
 
 	DEBUG("checking node type");
@@ -87,9 +86,8 @@ check_switch(ib_portid_t *portid, unsigned int *nports, uint64_t *guid,
 
 #define IB_MLIDS_IN_BLOCK	(IB_SMP_DATA_SIZE/2)
 
-int
-dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
-	  uint16_t mft[16][IB_MLIDS_IN_BLOCK])
+int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
+	      uint16_t mft[16][IB_MLIDS_IN_BLOCK])
 {
 	uint16_t mask;
 	unsigned i, chunk, bit, nonzero = 0;
@@ -98,7 +96,7 @@ dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 		int n = 0;
 		unsigned chunks = ALIGN(nports + 1, 16) / 16;
 		for (i = 0; i < chunks; i++) {
-			mask = ntohs(mft[i][mlid%IB_MLIDS_IN_BLOCK]);
+			mask = ntohs(mft[i][mlid % IB_MLIDS_IN_BLOCK]);
 			if (mask)
 				nonzero++;
 			n += snprintf(str + n, strlen - n, "%04hx", mask);
@@ -117,27 +115,27 @@ dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 		chunk = i / 16;
 		bit = i % 16;
 
-		mask = ntohs(mft[chunk][mlid%IB_MLIDS_IN_BLOCK]);
+		mask = ntohs(mft[chunk][mlid % IB_MLIDS_IN_BLOCK]);
 		if (mask)
 			nonzero++;
-		str[i*2] = (mask & (1 << bit)) ? 'x' : ' ';
-		str[i*2+1] = ' ';
+		str[i * 2] = (mask & (1 << bit)) ? 'x' : ' ';
+		str[i * 2 + 1] = ' ';
 	}
 	if (!nonzero && !dump_all) {
 		str[0] = 0;
 		return 0;
 	}
-	str[i*2] = 0;
+	str[i * 2] = 0;
 	return i * 2;
 }
 
 uint16_t mft[16][IB_MLIDS_IN_BLOCK];
 
-char *
-dump_multicast_tables(ib_portid_t *portid, unsigned startlid, unsigned endlid)
+char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
+			    unsigned endlid)
 {
-	char nd[IB_SMP_DATA_SIZE] = {0};
-	uint8_t sw[IB_SMP_DATA_SIZE] = {0};
+	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t sw[IB_SMP_DATA_SIZE] = { 0 };
 	char str[512];
 	char *s;
 	uint64_t nodeguid;
@@ -157,31 +155,34 @@ dump_multicast_tables(ib_portid_t *portid, unsigned startlid, unsigned endlid)
 		startlid = IB_MIN_MCAST_LID;
 
 	if (startlid < IB_MIN_MCAST_LID) {
-		IBWARN("illegal start mlid %x, set to %x", startlid, IB_MIN_MCAST_LID);
+		IBWARN("illegal start mlid %x, set to %x", startlid,
+		       IB_MIN_MCAST_LID);
 		startlid = IB_MIN_MCAST_LID;
 	}
 
 	if (endlid > IB_MAX_MCAST_LID) {
-		IBWARN("illegal end mlid %x, truncate to %x", endlid, IB_MAX_MCAST_LID);
+		IBWARN("illegal end mlid %x, truncate to %x", endlid,
+		       IB_MAX_MCAST_LID);
 		endlid = IB_MAX_MCAST_LID;
 	}
 
-	printf("Multicast mlids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64 " (%s):\n",
-		startlid, endlid, portid2str(portid), nodeguid, clean_nodedesc(nd));
+	printf("Multicast mlids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
+	       " (%s):\n", startlid, endlid, portid2str(portid), nodeguid,
+	       clean_nodedesc(nd));
 
 	if (brief)
 		printf(" MLid       Port Mask\n");
 	else {
 		if (nports > 9) {
 			for (i = 0, s = str; i <= nports; i++) {
-				*s++ = (i%10) ? ' ' : '0' + i/10;
+				*s++ = (i % 10) ? ' ' : '0' + i / 10;
 				*s++ = ' ';
 			}
 			*s = 0;
 			printf("            %s\n", str);
 		}
 		for (i = 0, s = str; i <= nports; i++)
-			s += sprintf(s, "%d ", i%10);
+			s += sprintf(s, "%d ", i % 10);
 		printf("     Ports: %s\n", str);
 		printf(" MLid\n");
 	}
@@ -194,11 +195,14 @@ dump_multicast_tables(ib_portid_t *portid, unsigned startlid, unsigned endlid)
 	lastblock = endlid / IB_MLIDS_IN_BLOCK;
 	for (block = startblock; block <= lastblock; block++) {
 		for (j = 0; j < chunks; j++) {
-			mod = (block - IB_MIN_MCAST_LID/IB_MLIDS_IN_BLOCK) | (j << 28);
+			mod = (block - IB_MIN_MCAST_LID / IB_MLIDS_IN_BLOCK)
+			    | (j << 28);
 
-			DEBUG("reading block %x chunk %d mod %x", block, j, mod);
-			if (!smp_query_via(mft + j, portid,
-					IB_ATTR_MULTICASTFORWTBL, mod, 0, srcport))
+			DEBUG("reading block %x chunk %d mod %x", block, j,
+			      mod);
+			if (!smp_query_via
+			    (mft + j, portid, IB_ATTR_MULTICASTFORWTBL, mod, 0,
+			     srcport))
 				return "multicast forwarding table get failed";
 		}
 
@@ -221,13 +225,12 @@ dump_multicast_tables(ib_portid_t *portid, unsigned startlid, unsigned endlid)
 	return 0;
 }
 
-int
-dump_lid(char *str, int strlen, int lid, int valid)
+int dump_lid(char *str, int strlen, int lid, int valid)
 {
-	char nd[IB_SMP_DATA_SIZE] = {0};
-	uint8_t ni[IB_SMP_DATA_SIZE] = {0};
-	uint8_t pi[IB_SMP_DATA_SIZE] = {0};
-	ib_portid_t lidport = {0};
+	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t pi[IB_SMP_DATA_SIZE] = { 0 };
+	ib_portid_t lidport = { 0 };
 	static int last_port_lid, base_port_lid;
 	char ntype[50], sguid[30], desc[64];
 	static uint64_t portguid;
@@ -240,7 +243,8 @@ dump_lid(char *str, int strlen, int lid, int valid)
 
 	if (lid <= last_port_lid) {
 		if (!valid)
-			return snprintf(str, strlen, ": (path #%d - illegal port)",
+			return snprintf(str, strlen,
+					": (path #%d - illegal port)",
 					lid - base_port_lid);
 		else if (!portguid)
 			return snprintf(str, strlen,
@@ -252,7 +256,8 @@ dump_lid(char *str, int strlen, int lid, int valid)
 					": (path #%d out of %d: portguid %s)",
 					lid - base_port_lid + 1,
 					last_port_lid - base_port_lid + 1,
-					mad_dump_val(IB_NODE_PORT_GUID_F, sguid, sizeof sguid, &portguid));
+					mad_dump_val(IB_NODE_PORT_GUID_F, sguid,
+						     sizeof sguid, &portguid));
 		}
 	}
 
@@ -279,13 +284,15 @@ dump_lid(char *str, int strlen, int lid, int valid)
 	}
 
 	return snprintf(str, strlen, ": (%s portguid %s: %s)",
-		mad_dump_val(IB_NODE_TYPE_F, ntype, sizeof ntype, &type),
-		mad_dump_val(IB_NODE_PORT_GUID_F, sguid, sizeof sguid, &portguid),
-		mad_dump_val(IB_NODE_DESC_F, desc, sizeof desc, clean_nodedesc(nd)));
+			mad_dump_val(IB_NODE_TYPE_F, ntype, sizeof ntype,
+				     &type), mad_dump_val(IB_NODE_PORT_GUID_F,
+							  sguid, sizeof sguid,
+							  &portguid),
+			mad_dump_val(IB_NODE_DESC_F, desc, sizeof desc,
+				     clean_nodedesc(nd)));
 }
 
-char *
-dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
+char *dump_unicast_tables(ib_portid_t * portid, int startlid, int endlid)
 {
 	char lft[IB_SMP_DATA_SIZE];
 	char nd[IB_SMP_DATA_SIZE];
@@ -305,12 +312,14 @@ dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
 		endlid = top;
 
 	if (endlid > IB_MAX_UCAST_LID) {
-		IBWARN("illegal lft top %d, truncate to %d", endlid, IB_MAX_UCAST_LID);
+		IBWARN("illegal lft top %d, truncate to %d", endlid,
+		       IB_MAX_UCAST_LID);
 		endlid = IB_MAX_UCAST_LID;
 	}
 
-	printf("Unicast lids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64 " (%s):\n",
-		startlid, endlid, portid2str(portid), nodeguid, clean_nodedesc(nd));
+	printf("Unicast lids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
+	       " (%s):\n", startlid, endlid, portid2str(portid), nodeguid,
+	       clean_nodedesc(nd));
 
 	DEBUG("Switch top is 0x%x\n", top);
 
@@ -321,7 +330,7 @@ dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
 	for (block = startblock; block <= endblock; block++) {
 		DEBUG("reading block %d", block);
 		if (!smp_query_via(lft, portid, IB_ATTR_LINEARFORWTBL, block,
-				0, srcport))
+				   0, srcport))
 			return "linear forwarding table get failed";
 		i = block * IB_SMP_DATA_SIZE;
 		e = i + IB_SMP_DATA_SIZE;
@@ -330,7 +339,7 @@ dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
 		if (e > endlid + 1)
 			e = endlid + 1;
 
-		for (;i < e; i++) {
+		for (; i < e; i++) {
 			unsigned outport = lft[i % IB_SMP_DATA_SIZE];
 			unsigned valid = (outport <= nports);
 
@@ -366,16 +375,18 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
-	ib_portid_t portid = {0};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
+	ib_portid_t portid = { 0 };
 	unsigned startlid = 0, endlid = 0;
 	char *err;
 
 	const struct ibdiag_opt opts[] = {
-		{ "all", 'a', 0, NULL, "show all lids, even invalid entries" },
-		{ "no_dests", 'n', 0, NULL, "do not try to resolve destinations" },
-		{ "Multicast", 'M', 0, NULL, "show multicast forwarding tables" },
-		{ 0 }
+		{"all", 'a', 0, NULL, "show all lids, even invalid entries"},
+		{"no_dests", 'n', 0, NULL,
+		 "do not try to resolve destinations"},
+		{"Multicast", 'M', 0, NULL, "show multicast forwarding tables"},
+		{0}
 	};
 	char usage_args[] = "[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]";
 	const char *usage_examples[] = {
@@ -416,7 +427,7 @@ int main(int argc, char **argv)
 		if (ib_resolve_self_via(&portid, 0, 0, srcport) < 0)
 			IBERROR("can't resolve self addr");
 	} else if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-			ibd_sm_id, srcport) < 0)
+					     ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[1]);
 
 	if (multicast)

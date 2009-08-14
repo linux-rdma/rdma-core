@@ -35,7 +35,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <inttypes.h>
 #include <string.h>
@@ -59,89 +59,86 @@ typedef struct {
 } DRPath;
 
 struct drsmp {
-	uint8_t		base_version;
-	uint8_t		mgmt_class;
-	uint8_t		class_version;
-	uint8_t		method;
-	uint16_t	status;
-	uint8_t		hop_ptr;
-	uint8_t		hop_cnt;
-	uint64_t	tid;
-	uint16_t	attr_id;
-	uint16_t	resv;
-	uint32_t	attr_mod;
-	uint64_t	mkey;
-	uint16_t	dr_slid;
-	uint16_t	dr_dlid;
-	uint8_t		reserved[28];
-	uint8_t		data[64];
-	uint8_t		initial_path[64];
-	uint8_t		return_path[64];
+	uint8_t base_version;
+	uint8_t mgmt_class;
+	uint8_t class_version;
+	uint8_t method;
+	uint16_t status;
+	uint8_t hop_ptr;
+	uint8_t hop_cnt;
+	uint64_t tid;
+	uint16_t attr_id;
+	uint16_t resv;
+	uint32_t attr_mod;
+	uint64_t mkey;
+	uint16_t dr_slid;
+	uint16_t dr_dlid;
+	uint8_t reserved[28];
+	uint8_t data[64];
+	uint8_t initial_path[64];
+	uint8_t return_path[64];
 };
 
-void
-drsmp_get_init(void *umad, DRPath *path, int attr, int mod)
+void drsmp_get_init(void *umad, DRPath * path, int attr, int mod)
 {
 	struct drsmp *smp = (struct drsmp *)(umad_get_mad(umad));
 
-	memset(smp, 0, sizeof (*smp));
+	memset(smp, 0, sizeof(*smp));
 
-	smp->base_version  = 1;
-	smp->mgmt_class    = IB_SMI_DIRECT_CLASS;
+	smp->base_version = 1;
+	smp->mgmt_class = IB_SMI_DIRECT_CLASS;
 	smp->class_version = 1;
 
-	smp->method        = 1;
-	smp->attr_id	   = (uint16_t)htons((uint16_t)attr);
-	smp->attr_mod	   = htonl(mod);
-	smp->tid           = htonll(drmad_tid++);
-	smp->dr_slid       = 0xffff;
-	smp->dr_dlid       = 0xffff;
+	smp->method = 1;
+	smp->attr_id = (uint16_t) htons((uint16_t) attr);
+	smp->attr_mod = htonl(mod);
+	smp->tid = htonll(drmad_tid++);
+	smp->dr_slid = 0xffff;
+	smp->dr_dlid = 0xffff;
 
 	umad_set_addr(umad, 0xffff, 0, 0, 0);
 
 	if (path)
-		memcpy(smp->initial_path, path->path, path->hop_cnt+1);
+		memcpy(smp->initial_path, path->path, path->hop_cnt + 1);
 
 	smp->hop_cnt = (uint8_t) path->hop_cnt;
 }
 
-void
-smp_get_init(void *umad, int lid, int attr, int mod)
+void smp_get_init(void *umad, int lid, int attr, int mod)
 {
 	struct drsmp *smp = (struct drsmp *)(umad_get_mad(umad));
 
-	memset(smp, 0, sizeof (*smp));
+	memset(smp, 0, sizeof(*smp));
 
-	smp->base_version  = 1;
-	smp->mgmt_class    = IB_SMI_CLASS;
+	smp->base_version = 1;
+	smp->mgmt_class = IB_SMI_CLASS;
 	smp->class_version = 1;
 
-	smp->method        = 1;
-	smp->attr_id	   = (uint16_t)htons((uint16_t)attr);
-	smp->attr_mod	   = htonl(mod);
-	smp->tid           = htonll(drmad_tid++);
+	smp->method = 1;
+	smp->attr_id = (uint16_t) htons((uint16_t) attr);
+	smp->attr_mod = htonl(mod);
+	smp->tid = htonll(drmad_tid++);
 
 	umad_set_addr(umad, lid, 0, 0, 0);
 }
 
-void
-drsmp_set_init(void *umad, DRPath *path, int attr, int mod, void *data)
+void drsmp_set_init(void *umad, DRPath * path, int attr, int mod, void *data)
 {
 	struct drsmp *smp = (struct drsmp *)(umad_get_mad(umad));
 
-	memset(smp, 0, sizeof (*smp));
+	memset(smp, 0, sizeof(*smp));
 
-	smp->method        = 2;		/* SET */
-	smp->attr_id	   = (uint16_t)htons((uint16_t)attr);
-	smp->attr_mod	   = htonl(mod);
-	smp->tid           = htonll(drmad_tid++);
-	smp->dr_slid       = 0xffff;
-	smp->dr_dlid       = 0xffff;
+	smp->method = 2;	/* SET */
+	smp->attr_id = (uint16_t) htons((uint16_t) attr);
+	smp->attr_mod = htonl(mod);
+	smp->tid = htonll(drmad_tid++);
+	smp->dr_slid = 0xffff;
+	smp->dr_dlid = 0xffff;
 
 	umad_set_addr(umad, 0xffff, 0, 0, 0);
 
 	if (path)
-		memcpy(smp->initial_path, path->path, path->hop_cnt+1);
+		memcpy(smp->initial_path, path->path, path->hop_cnt + 1);
 
 	if (data)
 		memcpy(smp->data, data, sizeof smp->data);
@@ -149,8 +146,7 @@ drsmp_set_init(void *umad, DRPath *path, int attr, int mod, void *data)
 	smp->hop_cnt = (uint8_t) path->hop_cnt;
 }
 
-char *
-drmad_status_str(struct drsmp *drsmp)
+char *drmad_status_str(struct drsmp *drsmp)
 {
 	switch (drsmp->status) {
 	case 0:
@@ -161,8 +157,7 @@ drmad_status_str(struct drsmp *drsmp)
 	return "unknown error";
 }
 
-int
-str2DRPath(char *str, DRPath *path)
+int str2DRPath(char *str, DRPath * path)
 {
 	char *s;
 
@@ -172,15 +167,15 @@ str2DRPath(char *str, DRPath *path)
 	while (str && *str) {
 		if ((s = strchr(str, ',')))
 			*s = 0;
-		path->path[++path->hop_cnt] = (char) atoi(str);
+		path->path[++path->hop_cnt] = (char)atoi(str);
 		if (!s)
 			break;
-		str = s+1;
+		str = s + 1;
 	}
 
 #if 0
 	if (path->path[0] != 0 ||
-	   (path->hop_cnt > 0 && dev_port && path->path[1] != dev_port)) {
+	    (path->hop_cnt > 0 && dev_port && path->path[1] != dev_port)) {
 		DEBUG("hop 0 != 0 or hop 1 != dev_port");
 		return -1;
 	}
@@ -220,8 +215,8 @@ int main(int argc, char *argv[])
 	int length;
 
 	const struct ibdiag_opt opts[] = {
-		{ "sring", 's', 0, NULL, ""},
-		{ 0 }
+		{"sring", 's', 0, NULL, ""},
+		{0}
 	};
 	char usage_args[] = "<dlid|dr_path> <attr> [mod]";
 	const char *usage_examples[] = {
@@ -288,7 +283,8 @@ int main(int argc, char *argv[])
 	if (!dump_char) {
 		xdump(stdout, 0, smp->data, 64);
 		if (smp->status)
-			fprintf(stdout, "SMP status: 0x%x\n", ntohs(smp->status));
+			fprintf(stdout, "SMP status: 0x%x\n",
+				ntohs(smp->status));
 		goto exit;
 	}
 

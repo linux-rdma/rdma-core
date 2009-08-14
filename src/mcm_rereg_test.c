@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <string.h>
@@ -80,19 +80,19 @@ static ibmad_gid_t mgid_ipoib = {
 
 struct ibmad_port *srcport;
 
-uint64_t build_mcm_rec(uint8_t *data, ibmad_gid_t mgid, ibmad_gid_t port_gid)
+uint64_t build_mcm_rec(uint8_t * data, ibmad_gid_t mgid, ibmad_gid_t port_gid)
 {
 	memset(data, 0, IB_SA_DATA_SIZE);
 	mad_set_array(data, 0, IB_SA_MCM_MGID_F, mgid);
 	mad_set_array(data, 0, IB_SA_MCM_PORTGID_F, port_gid);
 	mad_set_field(data, 0, IB_SA_MCM_JOIN_STATE_F, 1);
 
-	return IB_MCR_COMPMASK_MGID|IB_MCR_COMPMASK_PORT_GID|
-		IB_MCR_COMPMASK_JOIN_STATE;
+	return IB_MCR_COMPMASK_MGID | IB_MCR_COMPMASK_PORT_GID |
+	    IB_MCR_COMPMASK_JOIN_STATE;
 }
 
-static void build_mcm_rec_umad(void *umad, ib_portid_t *dport, int method,
-			       uint64_t comp_mask, uint8_t *data)
+static void build_mcm_rec_umad(void *umad, ib_portid_t * dport, int method,
+			       uint64_t comp_mask, uint8_t * data)
 {
 	ib_rpc_t rpc;
 
@@ -100,7 +100,7 @@ static void build_mcm_rec_umad(void *umad, ib_portid_t *dport, int method,
 	rpc.mgtclass = IB_SA_CLASS;
 	rpc.method = method;
 	rpc.attr.id = IB_SA_ATTR_MCRECORD;
-	rpc.attr.mod = 0; // ???
+	rpc.attr.mod = 0;	// ???
 	rpc.mask = comp_mask;
 	rpc.datasz = IB_SA_DATA_SIZE;
 	rpc.dataoffs = IB_SA_DATA_OFFS;
@@ -108,8 +108,8 @@ static void build_mcm_rec_umad(void *umad, ib_portid_t *dport, int method,
 	mad_build_pkt(umad, &rpc, dport, NULL, data);
 }
 
-static int rereg_send(int port, int agent, ib_portid_t *dport,
-		      uint8_t *umad, int len, int method, ibmad_gid_t port_gid)
+static int rereg_send(int port, int agent, ib_portid_t * dport,
+		      uint8_t * umad, int len, int method, ibmad_gid_t port_gid)
 {
 	uint8_t data[IB_SA_DATA_SIZE];
 	uint64_t comp_mask;
@@ -117,7 +117,7 @@ static int rereg_send(int port, int agent, ib_portid_t *dport,
 	comp_mask = build_mcm_rec(data, mgid_ipoib, port_gid);
 
 	build_mcm_rec_umad(umad, dport, method, comp_mask, data);
-	if(umad_send(port, agent, umad, len, TMO, 0) < 0) {
+	if (umad_send(port, agent, umad, len, TMO, 0) < 0) {
 		err("umad_send leave failed: %s\n", strerror(errno));
 		return -1;
 	}
@@ -127,26 +127,24 @@ static int rereg_send(int port, int agent, ib_portid_t *dport,
 	return 0;
 }
 
-static int rereg_port_gid(int port, int agent, ib_portid_t *dport,
-			  uint8_t *umad, int len, ibmad_gid_t port_gid)
+static int rereg_port_gid(int port, int agent, ib_portid_t * dport,
+			  uint8_t * umad, int len, ibmad_gid_t port_gid)
 {
 	uint8_t data[IB_SA_DATA_SIZE];
 	uint64_t comp_mask;
 
 	comp_mask = build_mcm_rec(data, mgid_ipoib, port_gid);
 
-	build_mcm_rec_umad(umad, dport, IB_MAD_METHOD_DELETE,
-			   comp_mask, data);
-	if(umad_send(port, agent, umad, len, TMO, 0) < 0) {
+	build_mcm_rec_umad(umad, dport, IB_MAD_METHOD_DELETE, comp_mask, data);
+	if (umad_send(port, agent, umad, len, TMO, 0) < 0) {
 		err("umad_send leave failed: %s\n", strerror(errno));
 		return -1;
 	}
 	dbg("umad_send leave: tid = 0x%016" PRIx64 "\n",
 	    mad_get_field64(umad_get_mad(umad), 0, IB_MAD_TRID_F));
 
-	build_mcm_rec_umad(umad, dport, IB_MAD_METHOD_SET,
-			   comp_mask, data);
-	if(umad_send(port, agent, umad, len, TMO, 0) < 0) {
+	build_mcm_rec_umad(umad, dport, IB_MAD_METHOD_SET, comp_mask, data);
+	if (umad_send(port, agent, umad, len, TMO, 0) < 0) {
 		err("umad_send join failed: %s\n", strerror(errno));
 		return -1;
 	}
@@ -162,7 +160,7 @@ struct guid_trid {
 	uint64_t trid;
 };
 
-static int rereg_send_all(int port, int agent, ib_portid_t *dport,
+static int rereg_send_all(int port, int agent, ib_portid_t * dport,
 			  struct guid_trid *list, unsigned cnt)
 {
 	uint8_t *umad;
@@ -179,7 +177,8 @@ static int rereg_send_all(int port, int agent, ib_portid_t *dport,
 	}
 
 	for (i = 0; i < cnt; i++) {
-		ret = rereg_port_gid(port, agent, dport, umad, len, list[i].gid);
+		ret =
+		    rereg_port_gid(port, agent, dport, umad, len, list[i].gid);
 		if (ret < 0) {
 			err("rereg_send_all: rereg_port_gid 0x%016" PRIx64
 			    " failed\n", list[i].guid);
@@ -189,7 +188,7 @@ static int rereg_send_all(int port, int agent, ib_portid_t *dport,
 					       IB_MAD_TRID_F);
 	}
 
-	info("rereg_send_all: sent %u requests\n", cnt*2);
+	info("rereg_send_all: sent %u requests\n", cnt * 2);
 
 	free(umad);
 
@@ -197,7 +196,7 @@ static int rereg_send_all(int port, int agent, ib_portid_t *dport,
 }
 
 #if 0
-static int rereg_mcm_rec_send(int port, int agent, ib_portid_t *dport, int cnt)
+static int rereg_mcm_rec_send(int port, int agent, ib_portid_t * dport, int cnt)
 {
 	ib_portid_t portid;
 	ibmad_gid_t port_gid;
@@ -213,7 +212,7 @@ static int rereg_mcm_rec_send(int port, int agent, ib_portid_t *dport, int cnt)
 		return -1;
 	}
 
-	while(cnt--) {
+	while (cnt--) {
 		if (!rereg_port_gid(port, agent, dport, umad, len, port_gid))
 			ret += 2;
 	}
@@ -224,14 +223,14 @@ static int rereg_mcm_rec_send(int port, int agent, ib_portid_t *dport, int cnt)
 }
 #endif
 
-static int rereg_recv(int port, int agent, ib_portid_t *dport,
-		      uint8_t *umad, int length, int tmo)
+static int rereg_recv(int port, int agent, ib_portid_t * dport,
+		      uint8_t * umad, int length, int tmo)
 {
 	int ret, retry = 0;
 	int len = length;
 
-	while((ret = umad_recv(port, umad, &len, tmo)) < 0 &&
-	      errno == ETIMEDOUT) {
+	while ((ret = umad_recv(port, umad, &len, tmo)) < 0 &&
+	       errno == ETIMEDOUT) {
 		if (retry++ > 3)
 			return 0;
 	}
@@ -239,15 +238,15 @@ static int rereg_recv(int port, int agent, ib_portid_t *dport,
 		err("umad_recv %d failed: %s\n", ret, strerror(errno));
 		return -1;
 	}
-	dbg("umad_recv (retries %d), tid = 0x%016" PRIx64 ": len = %d, status = %d\n",
-	    retry,
-	    mad_get_field64(umad_get_mad(umad), 0, IB_MAD_TRID_F),
-	    len, umad_status(umad));
+	dbg("umad_recv (retries %d), tid = 0x%016" PRIx64
+	    ": len = %d, status = %d\n", retry,
+	    mad_get_field64(umad_get_mad(umad), 0, IB_MAD_TRID_F), len,
+	    umad_status(umad));
 
 	return 1;
 }
 
-static int rereg_recv_all(int port, int agent, ib_portid_t *dport,
+static int rereg_recv_all(int port, int agent, ib_portid_t * dport,
 			  struct guid_trid *list, unsigned cnt)
 {
 	uint8_t *umad, *mad;
@@ -277,7 +276,7 @@ static int rereg_recv_all(int port, int agent, ib_portid_t *dport,
 			dbg("MAD status %x, method %x\n", status, method);
 
 		if (status &&
-		    (method&0x7f) == (IB_MAD_METHOD_GET_RESPONSE&0x7f)) {
+		    (method & 0x7f) == (IB_MAD_METHOD_GET_RESPONSE & 0x7f)) {
 			trid = mad_get_field64(mad, 0, IB_MAD_TRID_F);
 			for (i = 0; i < cnt; i++)
 				if (trid == list[i].trid)
@@ -287,12 +286,14 @@ static int rereg_recv_all(int port, int agent, ib_portid_t *dport,
 				    trid);
 				continue;
 			}
-			info("guid 0x%016" PRIx64 ": method = %x status = %x. Resending\n",
+			info("guid 0x%016" PRIx64
+			     ": method = %x status = %x. Resending\n",
 			     ntohll(list[i].guid), method, status);
 			rereg_port_gid(port, agent, dport, umad, len,
 				       list[i].gid);
-			list[i].trid = mad_get_field64(umad_get_mad(umad), 0,
-						       IB_MAD_TRID_F);
+			list[i].trid =
+			    mad_get_field64(umad_get_mad(umad), 0,
+					    IB_MAD_TRID_F);
 		}
 	}
 
@@ -302,7 +303,7 @@ static int rereg_recv_all(int port, int agent, ib_portid_t *dport,
 	return 0;
 }
 
-static int rereg_query_all(int port, int agent, ib_portid_t *dport,
+static int rereg_query_all(int port, int agent, ib_portid_t * dport,
 			   struct guid_trid *list, unsigned cnt)
 {
 	uint8_t *umad, *mad;
@@ -319,7 +320,7 @@ static int rereg_query_all(int port, int agent, ib_portid_t *dport,
 		return -1;
 	}
 
-	for ( i = 0; i < cnt; i++ ) {
+	for (i = 0; i < cnt; i++) {
 		ret = rereg_send(port, agent, dport, umad, len,
 				 IB_MAD_METHOD_GET, list[i].gid);
 		if (ret < 0) {
@@ -362,7 +363,7 @@ static int rereg_mcm_rec_recv(int port, int agent, int cnt)
 		return -1;
 	}
 
-	for ( i = 0; i < cnt; i++ ) {
+	for (i = 0; i < cnt; i++) {
 		int retry;
 		retry = 0;
 		while (umad_recv(port, umad, &len, TMO) < 0 &&
@@ -373,10 +374,10 @@ static int rereg_mcm_rec_recv(int port, int agent, int cnt)
 				free(umad);
 				return -1;
 			}
-		dbg("umad_recv %d (retries %d), tid = 0x%016" PRIx64 ": len = %d, status = %d\n",
-		    i, retry,
-		    mad_get_field64(umad_get_mad(umad), 0, IB_MAD_TRID_F),
-		    len, umad_status(umad));
+		dbg("umad_recv %d (retries %d), tid = 0x%016" PRIx64
+		    ": len = %d, status = %d\n", i, retry,
+		    mad_get_field64(umad_get_mad(umad), 0, IB_MAD_TRID_F), len,
+		    umad_status(umad));
 		mad = umad_get_mad(umad);
 	}
 
@@ -387,7 +388,8 @@ static int rereg_mcm_rec_recv(int port, int agent, int cnt)
 
 #define MAX_CLIENTS 50
 
-static int rereg_and_test_port(char *guid_file, int port, int agent, ib_portid_t *dport, int timeout)
+static int rereg_and_test_port(char *guid_file, int port, int agent,
+			       ib_portid_t * dport, int timeout)
 {
 	char line[256];
 	FILE *f;
@@ -399,7 +401,8 @@ static int rereg_and_test_port(char *guid_file, int port, int agent, ib_portid_t
 
 	list = calloc(MAX_CLIENTS, sizeof(*list));
 	if (!list) {
-		err("cannot alloc mem for guid/trid list: %s\n", strerror(errno));
+		err("cannot alloc mem for guid/trid list: %s\n",
+		    strerror(errno));
 		return -1;
 	}
 
@@ -435,7 +438,7 @@ static int rereg_and_test_port(char *guid_file, int port, int agent, ib_portid_t
 int main(int argc, char **argv)
 {
 	char *guid_file = "port_guids.list";
-	int mgmt_classes[2] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS};
+	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 	ib_portid_t dport_id;
 	int port, agent;
 	uint8_t *umad, *mad;
@@ -448,7 +451,6 @@ int main(int argc, char **argv)
 	if (!srcport)
 		err("Failed to open port");
 
-
 #if 1
 	ib_resolve_smlid_via(&dport_id, TMO, srcport);
 #else
@@ -459,14 +461,12 @@ int main(int argc, char **argv)
 	if (!dport_id.qkey)
 		dport_id.qkey = IB_DEFAULT_QP1_QKEY;
 
-
 	len = umad_size() + 256;
 	umad = calloc(1, len);
 	if (!umad) {
 		err("cannot alloc mem for umad: %s\n", strerror(errno));
 		return -1;
 	}
-
 #if 1
 	port = mad_rpc_portid(srcport);
 #else

@@ -39,7 +39,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <unistd.h>
 #include <stdio.h>
@@ -70,7 +70,7 @@ struct query_res {
 	void *p_result_madw;
 };
 
-typedef struct bind_handle * bind_handle_t;
+typedef struct bind_handle *bind_handle_t;
 
 struct query_params {
 	ib_gid_t sgid, dgid, gid, mgid;
@@ -93,7 +93,7 @@ struct query_cmd {
 	uint16_t query_type;
 	const char *usage;
 	int (*handler) (const struct query_cmd * q, bind_handle_t h,
-			struct query_params *p, int argc, char *argv[]);
+			struct query_params * p, int argc, char *argv[]);
 };
 
 static char *node_name_map_file = NULL;
@@ -197,7 +197,7 @@ static void *get_query_rec(void *mad, unsigned i)
 	return (uint8_t *) mad + IB_SA_DATA_OFFS + i * (offset << 3);
 }
 
-static unsigned valid_gid(ib_gid_t *gid)
+static unsigned valid_gid(ib_gid_t * gid)
 {
 	ib_gid_t zero_gid;
 	memset(&zero_gid, 0, sizeof zero_gid);
@@ -385,12 +385,12 @@ static void dump_one_portinfo_record(void *data)
 	mad_dump_portinfo(buf, sizeof(buf), pi, sizeof(*pi));
 	format_buf(buf, buf2, sizeof(buf2));
 	printf("PortInfoRecord dump:\n"
-		"\tRID:\n"
-		"\t\tEndPortLid..............%u\n"
-		"\t\tPortNum.................0x%x\n"
-		"\t\tReserved................0x%x\n"
-		"\tPortInfo dump:\n\t\t%s",
-		cl_ntoh16(pir->lid), pir->port_num, pir->resv, buf2);
+	       "\tRID:\n"
+	       "\t\tEndPortLid..............%u\n"
+	       "\t\tPortNum.................0x%x\n"
+	       "\t\tReserved................0x%x\n"
+	       "\tPortInfo dump:\n\t\t%s",
+	       cl_ntoh16(pir->lid), pir->port_num, pir->resv, buf2);
 }
 
 static void dump_one_mcmember_record(void *data)
@@ -456,8 +456,7 @@ static void dump_multicast_member_record(void *data)
 	 * This gives us a node name to print, if available.
 	 */
 	for (i = 0; i < result.result_cnt; i++) {
-		ib_node_record_t *nr =
-		    get_query_rec(result.p_result_madw, i);
+		ib_node_record_t *nr = get_query_rec(result.p_result_madw, i);
 		if (nr->node_info.port_guid ==
 		    p_mcmr->port_gid.unicast.interface_id) {
 			node_name =
@@ -840,8 +839,7 @@ static int get_and_dump_all_records(bind_handle_t h, uint16_t attr_id,
 /**
  * return the lid from the node descriptor (name) supplied
  */
-static int
-get_lid_from_name(bind_handle_t h, const char *name, uint16_t* lid)
+static int get_lid_from_name(bind_handle_t h, const char *name, uint16_t * lid)
 {
 	ib_node_record_t *node_record = NULL;
 	ib_node_info_t *p_ni = NULL;
@@ -1046,7 +1044,8 @@ static int query_path_records(const struct query_cmd *q, bind_handle_t h,
 	ib_path_rec_set_qos_class(&pr, qos_class);
 	CHECK_AND_SET_VAL_AND_SEL(p->mtu, pr.mtu, PR, MTU, SELEC);
 	CHECK_AND_SET_VAL_AND_SEL(p->rate, pr.rate, PR, RATE, SELEC);
-	CHECK_AND_SET_VAL_AND_SEL(p->pkt_life, pr.pkt_life, PR, PKTLIFETIME, SELEC);
+	CHECK_AND_SET_VAL_AND_SEL(p->pkt_life, pr.pkt_life, PR, PKTLIFETIME,
+				  SELEC);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_PATHRECORD, 0, comp_mask,
 					&pr, 0, dump_path_record);
@@ -1456,8 +1455,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		node_name_map_file = strdup(optarg);
 		break;
 	case 4:
-		if (!isxdigit(*optarg) &&
-		    !(optarg = getpass("SM_Key: "))) {
+		if (!isxdigit(*optarg) && !(optarg = getpass("SM_Key: "))) {
 			fprintf(stderr, "cannot get SM_Key\n");
 			ibdiag_show_usage();
 		}
@@ -1602,7 +1600,8 @@ int main(int argc, char **argv)
 		{"p", 'p', 0, NULL, "get PathRecord info"},
 		{"N", 'N', 0, NULL, "get NodeRecord info"},
 		{"L", 'L', 0, NULL, "return the Lids of the name specified"},
-		{"l", 'l', 0, NULL, "return the unique Lid of the name specified"},
+		{"l", 'l', 0, NULL,
+		 "return the unique Lid of the name specified"},
 		{"G", 'G', 0, NULL, "return the Guids of the name specified"},
 		{"O", 'O', 0, NULL, "return name for the Lid specified"},
 		{"U", 'U', 0, NULL, "return name for the Guid specified"},
@@ -1621,33 +1620,44 @@ int main(int argc, char **argv)
 		 " <src:dst> where src and dst are either node names or LIDs"},
 		{"sgid-to-dgid", 2, 1, "<sgid-dgid>", "get a PathRecord for"
 		 " <sgid-dgid> where sgid and dgid are addresses in IPv6 format"},
-		{"node-name-map", 3, 1, "<file>", "specify a node name map file"},
-		{"smkey", 4, 1, "<val>", "SA SM_Key value for the query."
+		{"node-name-map", 3, 1, "<file>",
+		 "specify a node name map file"},
+		{"smkey", 4, 1, "<val>",
+		 "SA SM_Key value for the query."
 		 " If non-numeric value (like 'x') is specified then"
 		 " saquery will prompt for a value"},
-		{ "slid", 5, 1, "<lid>", "Source LID (PathRecord)" },
-		{ "dlid", 6, 1, "<lid>", "Destination LID (PathRecord)" },
-		{ "mlid", 7, 1, "<lid>", "Multicast LID (MCMemberRecord)" },
-		{ "sgid", 14, 1, "<gid>", "Source GID (IPv6 format) (PathRecord)" },
-		{ "dgid", 15, 1, "<gid>", "Destination GID (IPv6 format) (PathRecord)" },
-		{ "gid", 16, 1, "<gid>", "Port GID (MCMemberRecord)" },
-		{ "mgid", 17, 1, "<gid>", "Multicast GID (MCMemberRecord)" },
-		{ "reversible", 'r', 1, NULL, "Reversible path (PathRecord)" },
-		{ "numb_path", 'n', 1, NULL, "Number of paths (PathRecord)" },
-		{ "pkey", 18, 1, NULL, "P_Key (PathRecord, MCMemberRecord)" },
-		{ "qos_calss", 'Q', 1, NULL, "QoS Class (PathRecord)"},
-		{ "sl", 19, 1, NULL, "Service level (PathRecord, MCMemberRecord)" },
-		{ "mtu", 'M', 1, NULL, "MTU and selector (PathRecord, MCMemberRecord)" },
-		{ "rate", 'R', 1, NULL, "Rate and selector (PathRecord, MCMemberRecord)" },
-		{ "pkt_lifetime", 20, 1, NULL, "Packet lifetime and selector (PathRecord, MCMemberRecord)" },
-		{ "qkey", 'q', 1, NULL, "Q_Key (MCMemberRecord)" },
-		{ "tclass", 'T', 1, NULL, "Traffic Class (PathRecord, MCMemberRecord)" },
-		{ "flow_label", 'F', 1, NULL, "Flow Label (PathRecord, MCMemberRecord)" },
-		{ "hop_limit", 'H', 1, NULL, "Hop limit (PathRecord, MCMemberRecord)" },
-		{ "scope", 21, 1, NULL, "Scope (MCMemberRecord)" },
-		{ "join_state", 'J', 1, NULL, "Join state (MCMemberRecord)" },
-		{ "proxy_join", 'X', 1, NULL, "Proxy join (MCMemberRecord)" },
-		{ 0 }
+		{"slid", 5, 1, "<lid>", "Source LID (PathRecord)"},
+		{"dlid", 6, 1, "<lid>", "Destination LID (PathRecord)"},
+		{"mlid", 7, 1, "<lid>", "Multicast LID (MCMemberRecord)"},
+		{"sgid", 14, 1, "<gid>",
+		 "Source GID (IPv6 format) (PathRecord)"},
+		{"dgid", 15, 1, "<gid>",
+		 "Destination GID (IPv6 format) (PathRecord)"},
+		{"gid", 16, 1, "<gid>", "Port GID (MCMemberRecord)"},
+		{"mgid", 17, 1, "<gid>", "Multicast GID (MCMemberRecord)"},
+		{"reversible", 'r', 1, NULL, "Reversible path (PathRecord)"},
+		{"numb_path", 'n', 1, NULL, "Number of paths (PathRecord)"},
+		{"pkey", 18, 1, NULL, "P_Key (PathRecord, MCMemberRecord)"},
+		{"qos_calss", 'Q', 1, NULL, "QoS Class (PathRecord)"},
+		{"sl", 19, 1, NULL,
+		 "Service level (PathRecord, MCMemberRecord)"},
+		{"mtu", 'M', 1, NULL,
+		 "MTU and selector (PathRecord, MCMemberRecord)"},
+		{"rate", 'R', 1, NULL,
+		 "Rate and selector (PathRecord, MCMemberRecord)"},
+		{"pkt_lifetime", 20, 1, NULL,
+		 "Packet lifetime and selector (PathRecord, MCMemberRecord)"},
+		{"qkey", 'q', 1, NULL, "Q_Key (MCMemberRecord)"},
+		{"tclass", 'T', 1, NULL,
+		 "Traffic Class (PathRecord, MCMemberRecord)"},
+		{"flow_label", 'F', 1, NULL,
+		 "Flow Label (PathRecord, MCMemberRecord)"},
+		{"hop_limit", 'H', 1, NULL,
+		 "Hop limit (PathRecord, MCMemberRecord)"},
+		{"scope", 21, 1, NULL, "Scope (MCMemberRecord)"},
+		{"join_state", 'J', 1, NULL, "Join state (MCMemberRecord)"},
+		{"proxy_join", 'X', 1, NULL, "Proxy join (MCMemberRecord)"},
+		{0}
 	};
 
 	memset(&params, 0, sizeof params);

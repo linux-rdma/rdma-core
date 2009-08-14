@@ -34,7 +34,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -113,8 +113,7 @@ struct Node {
 Node *nodesdist[MAXHOPS];
 uint64_t target_portguid;
 
-static int
-get_node(Node *node, Port *port, ib_portid_t *portid)
+static int get_node(Node * node, Port * port, ib_portid_t * portid)
 {
 	void *pi = port->portinfo, *ni = node->nodeinfo, *nd = node->nodedesc;
 	char *s, *e;
@@ -145,16 +144,17 @@ get_node(Node *node, Port *port, ib_portid_t *portid)
 	mad_decode_field(pi, IB_PORT_LMC_F, &port->lmc);
 	mad_decode_field(pi, IB_PORT_STATE_F, &port->state);
 
-	DEBUG("portid %s: got node %" PRIx64 " '%s'", portid2str(portid), node->nodeguid, node->nodedesc);
+	DEBUG("portid %s: got node %" PRIx64 " '%s'", portid2str(portid),
+	      node->nodeguid, node->nodedesc);
 	return 0;
 }
 
-static int
-switch_lookup(Switch *sw, ib_portid_t *portid, int lid)
+static int switch_lookup(Switch * sw, ib_portid_t * portid, int lid)
 {
 	void *si = sw->switchinfo, *fdb = sw->fdb;
 
-	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout, srcport))
+	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout,
+			   srcport))
 		return -1;
 
 	mad_decode_field(si, IB_SW_LINEAR_FDB_CAP_F, &sw->linearcap);
@@ -164,32 +164,29 @@ switch_lookup(Switch *sw, ib_portid_t *portid, int lid)
 		return -1;
 
 	if (!smp_query_via(fdb, portid, IB_ATTR_LINEARFORWTBL, lid / 64,
-			timeout, srcport))
+			   timeout, srcport))
 		return -1;
 
 	DEBUG("portid %s: forward lid %d to port %d",
-		portid2str(portid), lid, sw->fdb[lid % 64]);
+	      portid2str(portid), lid, sw->fdb[lid % 64]);
 	return sw->fdb[lid % 64];
 }
 
-static int
-sameport(Port *a, Port *b)
+static int sameport(Port * a, Port * b)
 {
 	return a->portguid == b->portguid || (force && a->lid == b->lid);
 }
 
-static int
-extend_dpath(ib_dr_path_t *path, int nextport)
+static int extend_dpath(ib_dr_path_t * path, int nextport)
 {
-	if (path->cnt+2 >= sizeof(path->p))
+	if (path->cnt + 2 >= sizeof(path->p))
 		return -1;
 	++path->cnt;
 	path->p[path->cnt] = (uint8_t) nextport;
 	return path->cnt;
 }
 
-static void
-dump_endnode(int dump, char *prompt, Node *node, Port *port)
+static void dump_endnode(int dump, char *prompt, Node * node, Port * port)
 {
 	char *nodename = NULL;
 
@@ -202,44 +199,44 @@ dump_endnode(int dump, char *prompt, Node *node, Port *port)
 		return;
 	}
 
-	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
+	nodename =
+	    remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
 	fprintf(f, "%s %s {0x%016" PRIx64 "} portnum %d lid %u-%u \"%s\"\n",
 		prompt,
 		(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
-		node->nodeguid, node->type == IB_NODE_SWITCH ? 0 : port->portnum,
-		port->lid, port->lid + (1 << port->lmc) - 1,
-		nodename);
+		node->nodeguid,
+		node->type == IB_NODE_SWITCH ? 0 : port->portnum, port->lid,
+		port->lid + (1 << port->lmc) - 1, nodename);
 
 	free(nodename);
 }
 
-static void
-dump_route(int dump, Node *node, int outport, Port *port)
+static void dump_route(int dump, Node * node, int outport, Port * port)
 {
 	char *nodename = NULL;
 
 	if (!dump && !ibverbose)
 		return;
 
-	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
+	nodename =
+	    remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
 	if (dump == 1)
 		fprintf(f, "[%d] -> {0x%016" PRIx64 "}[%d]\n",
 			outport, port->portguid, port->portnum);
 	else
-		fprintf(f, "[%d] -> %s port {0x%016" PRIx64 "}[%d] lid %u-%u \"%s\"\n",
-			outport,
-			(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
-			port->portguid, port->portnum,
-			port->lid, port->lid + (1 << port->lmc) - 1,
-			nodename);
+		fprintf(f, "[%d] -> %s port {0x%016" PRIx64
+			"}[%d] lid %u-%u \"%s\"\n", outport,
+			(node->type <=
+			 IB_NODE_MAX ? node_type_str[node->type] : "???"),
+			port->portguid, port->portnum, port->lid,
+			port->lid + (1 << port->lmc) - 1, nodename);
 
 	free(nodename);
 }
 
-static int
-find_route(ib_portid_t *from, ib_portid_t *to, int dump)
+static int find_route(ib_portid_t * from, ib_portid_t * to, int dump)
 {
 	Node *node, fromnode, tonode, nextnode;
 	Port *port, fromport, toport, nextport;
@@ -283,7 +280,8 @@ find_route(ib_portid_t *from, ib_portid_t *to, int dump)
 				goto badpath;
 
 			if (get_node(&nextnode, &nextport, from) < 0) {
-				IBWARN("can't reach port at %s", portid2str(from));
+				IBWARN("can't reach port at %s",
+				       portid2str(from));
 				return -1;
 			}
 			if (outport == 0) {
@@ -298,8 +296,10 @@ find_route(ib_portid_t *from, ib_portid_t *to, int dump)
 
 			DEBUG("ca or router node");
 			if (!sameport(port, &fromport)) {
-				IBWARN("can't continue: reached CA or router port %" PRIx64 ", lid %d",
-					port->portguid, port->lid);
+				IBWARN
+				    ("can't continue: reached CA or router port %"
+				     PRIx64 ", lid %d", port->portguid,
+				     port->lid);
 				return -1;
 			}
 			/* we are at CA or router "from" - go one hop back to (hopefully) a switch */
@@ -308,16 +308,19 @@ find_route(ib_portid_t *from, ib_portid_t *to, int dump)
 				from->drpath.cnt--;
 			} else {
 				ca_src = 1;
-				if (portnum && extend_dpath(&from->drpath, portnum) < 0)
+				if (portnum
+				    && extend_dpath(&from->drpath, portnum) < 0)
 					goto badpath;
 			}
 			if (get_node(&nextnode, &nextport, from) < 0) {
-				IBWARN("can't reach port at %s", portid2str(from));
+				IBWARN("can't reach port at %s",
+				       portid2str(from));
 				return -1;
 			}
 			/* fix port num to be seen from the CA or router side */
 			if (!ca_src)
-				nextport.portnum = from->drpath.p[from->drpath.cnt+1];
+				nextport.portnum =
+				    from->drpath.p[from->drpath.cnt + 1];
 		}
 		port = &nextport;
 		if (port->state != 4)
@@ -336,21 +339,21 @@ find_route(ib_portid_t *from, ib_portid_t *to, int dump)
 
 badport:
 	IBWARN("Bad port state found: node \"%s\" port %d state %d",
-		clean_nodedesc(node->nodedesc), portnum, port->state);
+	       clean_nodedesc(node->nodedesc), portnum, port->state);
 	return -1;
 badoutport:
 	IBWARN("Bad out port state found: node \"%s\" outport %d state %d",
-		clean_nodedesc(node->nodedesc), outport, port->state);
+	       clean_nodedesc(node->nodedesc), outport, port->state);
 	return -1;
 badtbl:
-	IBWARN("Bad forwarding table entry found at: node \"%s\" lid entry %d is %d (top %d)",
-		clean_nodedesc(node->nodedesc), to->lid, outport, sw.linearFDBtop);
+	IBWARN
+	    ("Bad forwarding table entry found at: node \"%s\" lid entry %d is %d (top %d)",
+	     clean_nodedesc(node->nodedesc), to->lid, outport, sw.linearFDBtop);
 	return -1;
 badpath:
 	IBWARN("Direct path too long!");
 	return -1;
 }
-
 
 /**************************
  * MC span part
@@ -359,12 +362,11 @@ badpath:
 #define HASHGUID(guid)		((uint32_t)(((uint32_t)(guid) * 101) ^ ((uint32_t)((guid) >> 32) * 103)))
 #define HTSZ 137
 
-static int
-insert_node(Node *new)
+static int insert_node(Node * new)
 {
 	static Node *nodestbl[HTSZ];
 	int hash = HASHGUID(new->nodeguid) % HTSZ;
-	Node *node ;
+	Node *node;
 
 	for (node = nodestbl[hash]; node; node = node->htnext)
 		if (node->nodeguid == new->nodeguid) {
@@ -378,8 +380,7 @@ insert_node(Node *new)
 	return 0;
 }
 
-static int
-get_port(Port *port, int portnum, ib_portid_t *portid)
+static int get_port(Port * port, int portnum, ib_portid_t * portid)
 {
 	char portinfo[64];
 	void *pi = portinfo;
@@ -387,7 +388,7 @@ get_port(Port *port, int portnum, ib_portid_t *portid)
 	port->portnum = portnum;
 
 	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, portnum, timeout,
-			srcport))
+			   srcport))
 		return -1;
 
 	mad_decode_field(pi, IB_PORT_LID_F, &port->lid);
@@ -396,22 +397,21 @@ get_port(Port *port, int portnum, ib_portid_t *portid)
 	mad_decode_field(pi, IB_PORT_PHYS_STATE_F, &port->physstate);
 
 	VERBOSE("portid %s portnum %d: lid %d state %d physstate %d",
-		portid2str(portid), portnum, port->lid, port->state, port->physstate);
+		portid2str(portid), portnum, port->lid, port->state,
+		port->physstate);
 	return 1;
 }
 
-static void
-link_port(Port *port, Node *node)
+static void link_port(Port * port, Node * node)
 {
 	port->next = node->ports;
 	node->ports = port;
 }
 
-static int
-new_node(Node *node, Port *port, ib_portid_t *path, int dist)
+static int new_node(Node * node, Port * port, ib_portid_t * path, int dist)
 {
 	if (port->portguid == target_portguid) {
-		node->dist = -1;		/* tag as target */
+		node->dist = -1;	/* tag as target */
 		link_port(port, node);
 		dump_endnode(ibverbose, "found target", node, port);
 		return 1;	/* found; */
@@ -421,7 +421,8 @@ new_node(Node *node, Port *port, ib_portid_t *path, int dist)
 	if (insert_node(node) < 0)
 		return -1;	/* known switch */
 
-	VERBOSE("insert dist %d node %p port %d lid %d", dist, node, port->portnum, port->lid);
+	VERBOSE("insert dist %d node %p port %d lid %d", dist, node,
+		port->portnum, port->lid);
 
 	link_port(port, node);
 
@@ -433,18 +434,19 @@ new_node(Node *node, Port *port, ib_portid_t *path, int dist)
 	return 0;
 }
 
-static int
-switch_mclookup(Node *node, ib_portid_t *portid, int mlid, char *map)
+static int switch_mclookup(Node * node, ib_portid_t * portid, int mlid,
+			   char *map)
 {
 	Switch sw;
 	char mdb[64];
 	void *si = sw.switchinfo;
-	uint16_t *msets = (uint16_t *)mdb;
+	uint16_t *msets = (uint16_t *) mdb;
 	int maxsets, block, i, set;
 
 	memset(map, 0, 256);
 
-	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout, srcport))
+	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout,
+			   srcport))
 		return -1;
 
 	mlid -= 0xc000;
@@ -455,11 +457,11 @@ switch_mclookup(Node *node, ib_portid_t *portid, int mlid, char *map)
 		return -1;
 
 	block = mlid / 32;
-	maxsets = (node->numports + 15) / 16;		/* round up */
+	maxsets = (node->numports + 15) / 16;	/* round up */
 
 	for (set = 0; set < maxsets; set++) {
 		if (!smp_query_via(mdb, portid, IB_ATTR_MULTICASTFORWTBL,
-		    block | (set << 28), timeout, srcport))
+				   block | (set << 28), timeout, srcport))
 			return -1;
 
 		for (i = 0; i < 16; i++, map++) {
@@ -468,7 +470,8 @@ switch_mclookup(Node *node, ib_portid_t *portid, int mlid, char *map)
 				*map = 1;
 			else
 				continue;
-			VERBOSE("Switch guid 0x%" PRIx64 ": mlid 0x%x is forwarded to port %d",
+			VERBOSE("Switch guid 0x%" PRIx64
+				": mlid 0x%x is forwarded to port %d",
 				node->nodeguid, mlid + 0xc000, i + set * 16);
 		}
 	}
@@ -479,8 +482,7 @@ switch_mclookup(Node *node, ib_portid_t *portid, int mlid, char *map)
 /*
  * Return 1 if found, 0 if not, -1 on errors.
  */
-static Node *
-find_mcpath(ib_portid_t *from, int mlid)
+static Node *find_mcpath(ib_portid_t * from, int mlid)
 {
 	Node *node, *remotenode;
 	Port *port, *remoteport;
@@ -502,15 +504,14 @@ find_mcpath(ib_portid_t *from, int mlid)
 		return 0;
 	}
 
-	node->upnode = 0;		/* root */
+	node->upnode = 0;	/* root */
 	if ((r = new_node(node, port, from, 0)) > 0) {
 		if (node->type != IB_NODE_SWITCH) {
 			IBWARN("ibtracert from CA to CA is unsupported");
 			return 0;	/* ibtracert from host to itself is unsupported */
 		}
 
-		if (switch_mclookup(node, from, mlid, map) < 0 ||
-		    !map[0])
+		if (switch_mclookup(node, from, mlid, map) < 0 || !map[0])
 			return 0;
 		return node;
 	}
@@ -522,7 +523,8 @@ find_mcpath(ib_portid_t *from, int mlid)
 			path = &node->path;
 
 			VERBOSE("dist %d node %p", dist, node);
-			dump_endnode(ibverbose, "processing", node, node->ports);
+			dump_endnode(ibverbose, "processing", node,
+				     node->ports);
 
 			memset(map, 0, sizeof(map));
 
@@ -532,8 +534,10 @@ find_mcpath(ib_portid_t *from, int mlid)
 				leafport = path->drpath.p[path->drpath.cnt];
 				map[port->portnum] = 1;
 				node->upport = 0;	/* starting here */
-				DEBUG("Starting from CA 0x%" PRIx64 " lid %d port %d (leafport %d)",
-					node->nodeguid, port->lid, port->portnum, leafport);
+				DEBUG("Starting from CA 0x%" PRIx64
+				      " lid %d port %d (leafport %d)",
+				      node->nodeguid, port->lid, port->portnum,
+				      leafport);
 			} else {	/* switch */
 
 				/* if starting from a leaf port fix up port (up port) */
@@ -541,8 +545,8 @@ find_mcpath(ib_portid_t *from, int mlid)
 					node->upport = leafport;
 
 				if (switch_mclookup(node, path, mlid, map) < 0) {
-					IBWARN("skipping bad Switch 0x%" PRIx64 "",
-						node->nodeguid);
+					IBWARN("skipping bad Switch 0x%" PRIx64
+					       "", node->nodeguid);
 					continue;
 				}
 			}
@@ -559,7 +563,9 @@ find_mcpath(ib_portid_t *from, int mlid)
 						IBERROR("out of memory");
 
 					if (get_port(port, i, path) < 0) {
-						IBWARN("can't reach node %s port %d", portid2str(path), i);
+						IBWARN
+						    ("can't reach node %s port %d",
+						     portid2str(path), i);
 						return 0;
 					}
 
@@ -567,7 +573,6 @@ find_mcpath(ib_portid_t *from, int mlid)
 						free(port);
 						continue;
 					}
-
 #if 0
 					link_port(port, node);
 #endif
@@ -583,8 +588,9 @@ find_mcpath(ib_portid_t *from, int mlid)
 					IBERROR("out of memory");
 
 				if (get_node(remotenode, remoteport, path) < 0) {
-					IBWARN("NodeInfo on %s port %d failed, skipping port",
-						portid2str(path), i);
+					IBWARN
+					    ("NodeInfo on %s port %d failed, skipping port",
+					     portid2str(path), i);
 					path->drpath.cnt--;	/* restore path */
 					free(remotenode);
 					free(remoteport);
@@ -595,15 +601,17 @@ find_mcpath(ib_portid_t *from, int mlid)
 				remotenode->upport = remoteport->portnum;
 				remoteport->remoteport = port;
 
-				if ((r = new_node(remotenode, remoteport, path, dist+1)) > 0)
+				if ((r = new_node(remotenode, remoteport, path,
+						  dist + 1)) > 0)
 					return remotenode;
 
 				if (r == 0)
 					dump_endnode(ibverbose, "new remote",
-						remotenode, remoteport);
+						     remotenode, remoteport);
 				else if (remotenode->type == IB_NODE_SWITCH)
-					dump_endnode(2, "ERR: circle discovered at",
-						remotenode, remoteport);
+					dump_endnode(2,
+						     "ERR: circle discovered at",
+						     remotenode, remoteport);
 
 				path->drpath.cnt--;	/* restore path */
 			}
@@ -613,8 +621,7 @@ find_mcpath(ib_portid_t *from, int mlid)
 	return 0;		/* not found */
 }
 
-static uint64_t
-find_target_portguid(ib_portid_t *to)
+static uint64_t find_target_portguid(ib_portid_t * to)
 {
 	Node tonode;
 	Port toport;
@@ -627,52 +634,58 @@ find_target_portguid(ib_portid_t *to)
 	return toport.portguid;
 }
 
-static void
-dump_mcpath(Node *node, int dumplevel)
+static void dump_mcpath(Node * node, int dumplevel)
 {
 	char *nodename = NULL;
 
 	if (node->upnode)
 		dump_mcpath(node->upnode, dumplevel);
 
-	nodename = remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
+	nodename =
+	    remap_node_name(node_name_map, node->nodeguid, node->nodedesc);
 
 	if (!node->dist) {
 		printf("From %s 0x%" PRIx64 " port %d lid %u-%u \"%s\"\n",
-			(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
-			node->nodeguid, node->ports->portnum, node->ports->lid,
-			node->ports->lid + (1 << node->ports->lmc) - 1,
-			nodename);
+		       (node->type <=
+			IB_NODE_MAX ? node_type_str[node->type] : "???"),
+		       node->nodeguid, node->ports->portnum, node->ports->lid,
+		       node->ports->lid + (1 << node->ports->lmc) - 1,
+		       nodename);
 		goto free_name;
 	}
 
 	if (node->dist) {
 		if (dumplevel == 1)
 			printf("[%d] -> %s {0x%016" PRIx64 "}[%d]\n",
-				node->ports->remoteport->portnum,
-				(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
-				node->nodeguid, node->upport);
+			       node->ports->remoteport->portnum,
+			       (node->type <=
+				IB_NODE_MAX ? node_type_str[node->
+							    type] : "???"),
+			       node->nodeguid, node->upport);
 		else
 			printf("[%d] -> %s 0x%" PRIx64 "[%d] lid %u \"%s\"\n",
-				node->ports->remoteport->portnum,
-				(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
-				node->nodeguid, node->upport,
-				node->ports->lid, nodename);
+			       node->ports->remoteport->portnum,
+			       (node->type <=
+				IB_NODE_MAX ? node_type_str[node->
+							    type] : "???"),
+			       node->nodeguid, node->upport, node->ports->lid,
+			       nodename);
 	}
 
 	if (node->dist < 0)
-	/* target node */
+		/* target node */
 		printf("To %s 0x%" PRIx64 " port %d lid %u-%u \"%s\"\n",
-			(node->type <= IB_NODE_MAX ? node_type_str[node->type] : "???"),
-			node->nodeguid, node->ports->portnum, node->ports->lid,
-			node->ports->lid + (1 << node->ports->lmc) - 1,
-			nodename);
+		       (node->type <=
+			IB_NODE_MAX ? node_type_str[node->type] : "???"),
+		       node->nodeguid, node->ports->portnum, node->ports->lid,
+		       node->ports->lid + (1 << node->ports->lmc) - 1,
+		       nodename);
 
 free_name:
 	free(nodename);
 }
 
-static int resolve_lid(ib_portid_t  *portid, const void *srcport)
+static int resolve_lid(ib_portid_t * portid, const void *srcport)
 {
 	uint8_t portinfo[64];
 	uint16_t lid;
@@ -712,18 +725,19 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
-	ib_portid_t my_portid = {0};
-	ib_portid_t src_portid = {0};
-	ib_portid_t dest_portid = {0};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
+	ib_portid_t my_portid = { 0 };
+	ib_portid_t src_portid = { 0 };
+	ib_portid_t dest_portid = { 0 };
 	Node *endnode;
 
 	const struct ibdiag_opt opts[] = {
-		{ "force", 'f', 0, NULL, "force" },
-		{ "no_info", 'n', 0, NULL, "simple format" },
-		{ "mlid", 'm', 1, "<mlid>", "multicast trace of the mlid" },
-		{ "node-name-map", 1, 1, "<file>", "node name map file" },
-		{ 0 }
+		{"force", 'f', 0, NULL, "force"},
+		{"no_info", 'n', 0, NULL, "simple format"},
+		{"mlid", 'm', 1, "<mlid>", "multicast trace of the mlid"},
+		{"node-name-map", 1, 1, "<file>", "node name map file"},
+		{0}
 	};
 	char usage_args[] = "<src-addr> <dest-addr>";
 	const char *usage_examples[] = {
@@ -736,7 +750,6 @@ int main(int argc, char **argv)
 		"-m 0xc000 4 16\t# show multicast path of mlid 0xc000 between lids 4 and 16",
 		NULL,
 	};
-
 
 	ibdiag_process_opts(argc, argv, NULL, NULL, opts, process_opt,
 			    usage_args, usage_examples);
@@ -758,11 +771,11 @@ int main(int argc, char **argv)
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (ib_resolve_portid_str_via(&src_portid, argv[0], ibd_dest_type,
-			ibd_sm_id, srcport) < 0)
+				      ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve source port %s", argv[0]);
 
 	if (ib_resolve_portid_str_via(&dest_portid, argv[1], ibd_dest_type,
-			ibd_sm_id, srcport) < 0)
+				      ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[1]);
 
 	if (ibd_dest_type == IB_DEST_DRPATH) {

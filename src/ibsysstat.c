@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,8 +66,8 @@ static int host_ncpu;
 
 static int server_respond(void *umad, int size)
 {
-	ib_rpc_t rpc = {0};
-	ib_rmpp_hdr_t rmpp = {0};
+	ib_rpc_t rpc = { 0 };
+	ib_rmpp_hdr_t rmpp = { 0 };
 	ib_portid_t rport;
 	uint8_t *mad = umad_get_mad(umad);
 	ib_mad_addr_t *mad_addr;
@@ -124,14 +124,14 @@ static int mk_reply(int attr, void *data, int sz)
 	case IB_HOSTINFO_ATTR:
 		if (gethostname(s, sz) < 0)
 			snprintf(s, sz, "?hostname?");
-		s[sz-1] = 0;
+		s[sz - 1] = 0;
 		if ((n = strlen(s)) >= sz - 1) {
 			ret = sz;
 			break;
 		}
 		s[n] = '.';
-		s += n+1;
-		sz -= n+1;
+		s += n + 1;
+		sz -= n + 1;
 		ret += n + 1;
 		if (getdomainname(s, sz) < 0)
 			snprintf(s, sz, "?domainname?");
@@ -186,8 +186,10 @@ static char *ibsystat_serv(void)
 
 		DEBUG("got packet: attr 0x%x mod 0x%x", attr, mod);
 
-		size = mk_reply(attr, (uint8_t *) mad + IB_VENDOR_RANGE2_DATA_OFFS,
-				sizeof(buf) - umad_size() - IB_VENDOR_RANGE2_DATA_OFFS);
+		size =
+		    mk_reply(attr, (uint8_t *) mad + IB_VENDOR_RANGE2_DATA_OFFS,
+			     sizeof(buf) - umad_size() -
+			     IB_VENDOR_RANGE2_DATA_OFFS);
 
 		if (server_respond(umad, IB_VENDOR_RANGE2_DATA_OFFS + size) < 0)
 			DEBUG("respond failed");
@@ -197,8 +199,7 @@ static char *ibsystat_serv(void)
 	return 0;
 }
 
-static int
-match_attr(char *str)
+static int match_attr(char *str)
 {
 	if (!strcmp(str, "ping"))
 		return IB_PING_ATTR;
@@ -209,7 +210,7 @@ match_attr(char *str)
 	return -1;
 }
 
-static char *ibsystat(ib_portid_t *portid, int attr)
+static char *ibsystat(ib_portid_t * portid, int attr)
 {
 	ib_rpc_t rpc = { 0 };
 	int fd, agent, timeout, len;
@@ -255,10 +256,9 @@ static char *ibsystat(ib_portid_t *portid, int attr)
 	return 0;
 }
 
-int
-build_cpuinfo(void)
+int build_cpuinfo(void)
 {
-	char line[1024] = {0}, *s, *e;
+	char line[1024] = { 0 }, *s, *e;
 	FILE *f;
 	int ncpu = 0;
 
@@ -281,9 +281,9 @@ build_cpuinfo(void)
 		if ((e = strchr(s, '\n')))
 			*e = 0;
 		if (!strncmp(line, "model name\t", 11))
-			cpus[ncpu-1].model = strdup(s+1);
+			cpus[ncpu - 1].model = strdup(s + 1);
 		else if (!strncmp(line, "cpu MHz\t", 8))
-			cpus[ncpu-1].mhz = strdup(s+1);
+			cpus[ncpu - 1].mhz = strdup(s + 1);
 	}
 
 	fclose(f);
@@ -312,16 +312,17 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS};
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
 	int sysstat_class = IB_VENDOR_OPENIB_SYSSTAT_CLASS;
-	ib_portid_t portid = {0};
+	ib_portid_t portid = { 0 };
 	int attr = IB_PING_ATTR;
 	char *err;
 
 	const struct ibdiag_opt opts[] = {
-		{ "oui", 'o', 1, NULL, "use specified OUI number" },
-		{ "Server", 'S', 0, NULL, "start in server mode" },
-		{ 0 }
+		{"oui", 'o', 1, NULL, "use specified OUI number"},
+		{"Server", 'S', 0, NULL, "start in server mode"},
+		{0}
 	};
 	char usage_args[] = "<dest lid|guid> [<op>]";
 
@@ -342,13 +343,15 @@ int main(int argc, char **argv)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (server) {
-		if (mad_register_server_via(sysstat_class, 1, 0, oui, srcport) < 0)
+		if (mad_register_server_via(sysstat_class, 1, 0, oui, srcport) <
+		    0)
 			IBERROR("can't serve class %d", sysstat_class);
 
 		host_ncpu = build_cpuinfo();
 
 		if ((err = ibsystat_serv()))
-			IBERROR("ibssystat to %s: %s", portid2str(&portid), err);
+			IBERROR("ibssystat to %s: %s", portid2str(&portid),
+				err);
 		exit(0);
 	}
 
@@ -356,7 +359,7 @@ int main(int argc, char **argv)
 		IBERROR("can't register to sysstat class %d", sysstat_class);
 
 	if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-			ibd_sm_id, srcport) < 0)
+				      ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[0]);
 
 	if ((err = ibsystat(&portid, attr)))
