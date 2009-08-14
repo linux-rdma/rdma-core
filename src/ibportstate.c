@@ -147,16 +147,16 @@ get_link_speed(int lse, int lss)
 static void
 validate_width(int width, int peerwidth, int lwa)
 {
-	if ((width & 0x8) && (peerwidth & 0x8)) {
+	if ((width & peerwidth & 0x8)) {
 		if (lwa != 8)
 			IBWARN("Peer ports operating at active width %d rather than 8 (12x)", lwa);
-	} else if ((width & 0x4) && (peerwidth & 0x4)) {
+	} else if ((width & peerwidth & 0x4)) {
 		if (lwa != 4)
 			IBWARN("Peer ports operating at active width %d rather than 4 (8x)", lwa);
-	} else if ((width & 0x2) && (peerwidth & 0x2)) {
+	} else if ((width & peerwidth & 0x2)) {
 		if (lwa != 2)
 			IBWARN("Peer ports operating at active width %d rather than 2 (4x)", lwa);
-	} else if ((width & 0x1) && (peerwidth & 0x1)) {
+	} else if ((width & peerwidth & 0x1)) {
 		if (lwa != 1)
 			IBWARN("Peer ports operating at active width %d rather than 1 (1x)", lwa);
 	}
@@ -165,13 +165,13 @@ validate_width(int width, int peerwidth, int lwa)
 static void
 validate_speed(int speed, int peerspeed, int lsa)
 {
-	if ((speed & 0x4) && (peerspeed & 0x4)) {
+	if ((speed & peerspeed & 0x4)) {
 		if (lsa != 4)
 			IBWARN("Peer ports operating at active speed %d rather than  4 (10.0 Gbps)", lsa);
-	} else if ((speed & 0x2) && (peerspeed & 0x2)) {
+	} else if ((speed & peerspeed & 0x2)) {
 		if (lsa != 2)
 			IBWARN("Peer ports operating at active speed %d rather than 2 (5.0 Gbps)", lsa);
-	} else if ((speed & 0x1) && (peerspeed & 0x1)) {
+	} else if ((speed & peerspeed & 0x1)) {
 		if (lsa != 1)
 			IBWARN("Peer ports operating at active speed %d rather than 1 (2.5 Gbps)", lsa);
 	}
