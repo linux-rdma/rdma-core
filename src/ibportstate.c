@@ -150,21 +150,15 @@ validate_width(int width, int peerwidth, int lwa)
 	if ((width & 0x8) && (peerwidth & 0x8)) {
 		if (lwa != 8)
 			IBWARN("Peer ports operating at active width %d rather than 8 (12x)", lwa);
-	} else {
-		if ((width & 0x4) && (peerwidth & 0x4)) {
-			if (lwa != 4)
-				IBWARN("Peer ports operating at active width %d rather than 4 (8x)", lwa);
-		} else {
-			if ((width & 0x2) && (peerwidth & 0x2)) {
-				if (lwa != 2)
-					IBWARN("Peer ports operating at active width %d rather than 2 (4x)", lwa);
-			} else {
-				if ((width & 0x1) && (peerwidth & 0x1)) {
-					if (lwa != 1)
-						IBWARN("Peer ports operating at active width %d rather than 1 (1x)", lwa);
-				}
-			}
-		}
+	} else if ((width & 0x4) && (peerwidth & 0x4)) {
+		if (lwa != 4)
+			IBWARN("Peer ports operating at active width %d rather than 4 (8x)", lwa);
+	} else if ((width & 0x2) && (peerwidth & 0x2)) {
+		if (lwa != 2)
+			IBWARN("Peer ports operating at active width %d rather than 2 (4x)", lwa);
+	} else if ((width & 0x1) && (peerwidth & 0x1)) {
+		if (lwa != 1)
+			IBWARN("Peer ports operating at active width %d rather than 1 (1x)", lwa);
 	}
 }
 
@@ -174,16 +168,12 @@ validate_speed(int speed, int peerspeed, int lsa)
 	if ((speed & 0x4) && (peerspeed & 0x4)) {
 		if (lsa != 4)
 			IBWARN("Peer ports operating at active speed %d rather than  4 (10.0 Gbps)", lsa);
-	} else {
-		if ((speed & 0x2) && (peerspeed & 0x2)) {
-			if (lsa != 2)
-				IBWARN("Peer ports operating at active speed %d rather than 2 (5.0 Gbps)", lsa);
-		} else {
-			if ((speed & 0x1) && (peerspeed & 0x1)) {
-				if (lsa != 1)
-					IBWARN("Peer ports operating at active speed %d rather than 1 (2.5 Gbps)", lsa);
-			}
-		}
+	} else if ((speed & 0x2) && (peerspeed & 0x2)) {
+		if (lsa != 2)
+			IBWARN("Peer ports operating at active speed %d rather than 2 (5.0 Gbps)", lsa);
+	} else if ((speed & 0x1) && (peerspeed & 0x1)) {
+		if (lsa != 1)
+			IBWARN("Peer ports operating at active speed %d rather than 1 (2.5 Gbps)", lsa);
 	}
 }
 
@@ -291,67 +281,62 @@ int main(int argc, char **argv)
 		err = set_port_info(&portid, data, portnum, port_op);
 		if (err < 0)
 			IBERROR("smp set portinfo failed");
-	} else {	/* query op */
-		/* only compare peer port if switch port */
-		if (is_switch) {
-			/* First, exclude SP0 */
-			if (portnum) {
-				/* Now, make sure PortState is Active */
-				/* Or is PortPhysicalState LinkUp sufficient ? */
-				mad_decode_field(data, IB_PORT_STATE_F, &state);
-				mad_decode_field(data, IB_PORT_PHYS_STATE_F, &physstate);
-				if (state == 4) {	/* Active */
-					mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, &lwe );
-					mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, &lws);
-					mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, &lwa);
-					mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, &lss);
-					mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, &lsa);
-					mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, &lse);
+	/* query op - only compare peer port if switch port, exclude SP0 */
+	} else if (is_switch && portnum) {
+		/* Now, make sure PortState is Active */
+		/* Or is PortPhysicalState LinkUp sufficient ? */
+		mad_decode_field(data, IB_PORT_STATE_F, &state);
+		mad_decode_field(data, IB_PORT_PHYS_STATE_F, &physstate);
+		if (state == 4) {	/* Active */
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, &lwe );
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, &lws);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, &lwa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, &lss);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, &lsa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, &lse);
 
-					/* Setup portid for peer port */
-					memcpy(&peerportid, &portid, sizeof(peerportid));
-					peerportid.drpath.cnt = 1;
-					peerportid.drpath.p[1] = (uint8_t) portnum;
+			/* Setup portid for peer port */
+			memcpy(&peerportid, &portid, sizeof(peerportid));
+			peerportid.drpath.cnt = 1;
+			peerportid.drpath.p[1] = (uint8_t) portnum;
 
-					/* Set DrSLID to local lid */
-					if (ib_resolve_self_via(&selfportid,
-							&selfport, 0, srcport) < 0)
-						IBERROR("could not resolve self");
-					peerportid.drpath.drslid = (uint16_t) selfportid.lid;
-					peerportid.drpath.drdlid = 0xffff;
+			/* Set DrSLID to local lid */
+			if (ib_resolve_self_via(&selfportid,
+						&selfport, 0, srcport) < 0)
+				IBERROR("could not resolve self");
+			peerportid.drpath.drslid = (uint16_t) selfportid.lid;
+			peerportid.drpath.drdlid = 0xffff;
 
-					/* Get peer port NodeInfo to obtain peer port number */
-					err = get_node_info(&peerportid, data);
-					if (err < 0)
-						IBERROR("smp query nodeinfo failed");
+			/* Get peer port NodeInfo to obtain peer port number */
+			err = get_node_info(&peerportid, data);
+			if (err < 0)
+				IBERROR("smp query nodeinfo failed");
 
-					mad_decode_field(data, IB_NODE_LOCAL_PORT_F, &peerlocalportnum);
+			mad_decode_field(data, IB_NODE_LOCAL_PORT_F, &peerlocalportnum);
 
-					printf("Peer PortInfo:\n");
-					/* Get peer port characteristics */
-					err = get_port_info(&peerportid, data, peerlocalportnum, port_op);
-					if (err < 0)
-						IBERROR("smp query peer portinfofailed");
+			printf("Peer PortInfo:\n");
+			/* Get peer port characteristics */
+			err = get_port_info(&peerportid, data, peerlocalportnum, port_op);
+			if (err < 0)
+				IBERROR("smp query peer portinfofailed");
 
-					mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, &peerlwe );
-					mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, &peerlws);
-					mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, &peerlwa);
-					mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, &peerlss);
-					mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, &peerlsa);
-					mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, &peerlse);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F, &peerlwe );
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_SUPPORTED_F, &peerlws);
+			mad_decode_field(data, IB_PORT_LINK_WIDTH_ACTIVE_F, &peerlwa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_SUPPORTED_F, &peerlss);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ACTIVE_F, &peerlsa);
+			mad_decode_field(data, IB_PORT_LINK_SPEED_ENABLED_F, &peerlse);
 
-					/* Now validate peer port characteristics */
-					/* Examine Link Width */
-					width = get_link_width(lwe, lws);
-					peerwidth = get_link_width(peerlwe, peerlws);
-					validate_width(width, peerwidth, lwa);
+			/* Now validate peer port characteristics */
+			/* Examine Link Width */
+			width = get_link_width(lwe, lws);
+			peerwidth = get_link_width(peerlwe, peerlws);
+			validate_width(width, peerwidth, lwa);
 
-					/* Examine Link Speed */
-					speed = get_link_speed(lse, lss);
-					peerspeed = get_link_speed(peerlse, peerlss);
-					validate_speed(speed, peerspeed, lsa);
-				}
-			}
+			/* Examine Link Speed */
+			speed = get_link_speed(lse, lss);
+			peerspeed = get_link_speed(peerlse, peerlss);
+			validate_speed(speed, peerspeed, lsa);
 		}
 	}
 
