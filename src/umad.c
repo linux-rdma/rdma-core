@@ -33,7 +33,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <sys/poll.h>
 #include <unistd.h>
@@ -61,7 +61,7 @@
 #    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_DEFINED not available"
 #  endif
 
-#endif /* HAVE_VALGRIND_MEMCHECK_H */
+#endif				/* HAVE_VALGRIND_MEMCHECK_H */
 
 #ifndef VALGRIND_MAKE_MEM_DEFINED
 #  define VALGRIND_MAKE_MEM_DEFINED(addr,len)
@@ -70,17 +70,17 @@
 typedef struct ib_user_mad_reg_req {
 	uint32_t id;
 	uint32_t method_mask[4];
-	uint8_t  qpn;
-	uint8_t  mgmt_class;
-	uint8_t  mgmt_class_version;
-	uint8_t  oui[3];
-	uint8_t  rmpp_version;
+	uint8_t qpn;
+	uint8_t mgmt_class;
+	uint8_t mgmt_class_version;
+	uint8_t oui[3];
+	uint8_t rmpp_version;
 } ib_user_mad_reg_req_t;
 
 extern int sys_read_string(char *dir_name, char *file_name, char *str, int len);
-extern int sys_read_guid(char *dir_name, char *file_name, uint64_t *net_guid);
-extern int sys_read_gid(char *dir_name, char *file_name, uint8_t *gid);
-extern int sys_read_uint64(char *dir_name, char *file_name, uint64_t *u);
+extern int sys_read_guid(char *dir_name, char *file_name, uint64_t * net_guid);
+extern int sys_read_gid(char *dir_name, char *file_name, uint8_t * gid);
+extern int sys_read_uint64(char *dir_name, char *file_name, uint64_t * u);
 extern int sys_read_uint(char *dir_name, char *file_name, unsigned *u);
 
 #define IBWARN(fmt, args...) fprintf(stdout, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
@@ -101,20 +101,17 @@ static unsigned new_user_mad_api;
 /*************************************
  * Port
  */
-static int
-find_cached_ca(char *ca_name, umad_ca_t *ca)
+static int find_cached_ca(char *ca_name, umad_ca_t * ca)
 {
-	return 0;	/* caching not implemented yet */
+	return 0;		/* caching not implemented yet */
 }
 
-static int
-put_ca(umad_ca_t *ca)
+static int put_ca(umad_ca_t * ca)
 {
-	return 0;	/* caching not implemented yet */
+	return 0;		/* caching not implemented yet */
 }
 
-static int
-release_port(umad_port_t *port)
+static int release_port(umad_port_t * port)
 {
 	free(port->pkeys);
 	port->pkeys = NULL;
@@ -130,8 +127,7 @@ static int check_for_digit_name(const struct dirent *dent)
 	return *p ? 0 : 1;
 }
 
-static int
-get_port(char *ca_name, char *dir, int portnum, umad_port_t *port)
+static int get_port(char *ca_name, char *dir, int portnum, umad_port_t * port)
 {
 	char port_dir[256];
 	uint8_t gid[16];
@@ -210,8 +206,7 @@ clean:
 	return -EIO;
 }
 
-static int
-release_ca(umad_ca_t *ca)
+static int release_ca(umad_ca_t * ca)
 {
 	int i;
 
@@ -231,8 +226,7 @@ release_ca(umad_ca_t *ca)
  * the first port that is link up and if none are linkup, then
  * the first port that is not disabled.  Otherwise return -1.
  */
-static int
-resolve_ca_port(char *ca_name, int *port)
+static int resolve_ca_port(char *ca_name, int *port)
 {
 	umad_ca_t ca;
 	int active = -1, up = -1;
@@ -273,7 +267,7 @@ resolve_ca_port(char *ca_name, int *port)
 		}
 	}
 
-	if (active == -1 && up == -1) { /* no active or linkup port found */
+	if (active == -1 && up == -1) {	/* no active or linkup port found */
 		for (i = 0; i <= ca.numports; i++) {
 			DEBUG("checking port %d", i);
 			if (!ca.ports[i])
@@ -294,8 +288,7 @@ resolve_ca_port(char *ca_name, int *port)
 	return -1;
 }
 
-static char *
-resolve_ca_name(char *ca_name, int *best_port)
+static char *resolve_ca_name(char *ca_name, int *best_port)
 {
 	static char names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN];
 	int phys_found = -1, port_found = 0, port, port_type;
@@ -323,7 +316,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 			continue;
 
 		DEBUG("found ca %s with port %d type %d",
-			names[caidx], port, port_type);
+		      names[caidx], port, port_type);
 
 		if (port_type > 0) {
 			if (best_port)
@@ -340,7 +333,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 	}
 
 	DEBUG("phys found %d on %s port %d",
-		phys_found, phys_found >=0 ? names[phys_found] : 0, port_found);
+	      phys_found, phys_found >= 0 ? names[phys_found] : 0, port_found);
 	if (phys_found >= 0) {
 		if (best_port)
 			*best_port = port_found;
@@ -352,8 +345,7 @@ resolve_ca_name(char *ca_name, int *best_port)
 	return def_ca_name;
 }
 
-static int
-get_ca(char *ca_name, umad_ca_t *ca)
+static int get_ca(char *ca_name, umad_ca_t * ca)
 {
 	DIR *dir;
 	char dir_name[256];
@@ -381,11 +373,12 @@ get_ca(char *ca_name, umad_ca_t *ca)
 		ca->ca_type[0] = '\0';
 	if ((r = sys_read_guid(dir_name, SYS_CA_NODE_GUID, &ca->node_guid)) < 0)
 		return r;
-	if ((r = sys_read_guid(dir_name, SYS_CA_SYS_GUID, &ca->system_guid)) < 0)
+	if ((r =
+	     sys_read_guid(dir_name, SYS_CA_SYS_GUID, &ca->system_guid)) < 0)
 		return r;
 
 	snprintf(dir_name, sizeof(dir_name), "%s/%s/%s",
-		SYS_INFINIBAND, ca->ca_name, SYS_CA_PORTS_DIR);
+		 SYS_INFINIBAND, ca->ca_name, SYS_CA_PORTS_DIR);
 
 	if (!(dir = opendir(dir_name)))
 		return -ENOENT;
@@ -407,11 +400,13 @@ get_ca(char *ca_name, umad_ca_t *ca)
 			ret = -EIO;
 			goto clean;
 		}
-		if (!(ca->ports[portnum] = calloc(1, sizeof(*ca->ports[portnum])))) {
+		if (!(ca->ports[portnum] =
+		      calloc(1, sizeof(*ca->ports[portnum])))) {
 			ret = -ENOMEM;
 			goto clean;
 		}
-		if (get_port(ca_name, dir_name, portnum, ca->ports[portnum]) < 0) {
+		if (get_port(ca_name, dir_name, portnum, ca->ports[portnum]) <
+		    0) {
 			free(ca->ports[portnum]);
 			ca->ports[portnum] = NULL;
 			ret = -EIO;
@@ -440,15 +435,15 @@ error:
 	return ret;
 }
 
-static int
-umad_id_to_dev(int umad_id, char *dev, unsigned *port)
+static int umad_id_to_dev(int umad_id, char *dev, unsigned *port)
 {
 	char path[256];
 	int r;
 
 	snprintf(path, sizeof(path), SYS_INFINIBAND_MAD "/umad%d/", umad_id);
 
-	if ((r = sys_read_string(path, SYS_IB_MAD_DEV, dev, UMAD_CA_NAME_LEN)) < 0)
+	if ((r =
+	     sys_read_string(path, SYS_IB_MAD_DEV, dev, UMAD_CA_NAME_LEN)) < 0)
 		return r;
 
 	if ((r = sys_read_uint(path, SYS_IB_MAD_PORT, port)) < 0)
@@ -457,8 +452,7 @@ umad_id_to_dev(int umad_id, char *dev, unsigned *port)
 	return 0;
 }
 
-static int
-dev_to_umad_id(char *dev, unsigned port)
+static int dev_to_umad_id(char *dev, unsigned port)
 {
 	char umad_dev[UMAD_CA_NAME_LEN];
 	unsigned umad_port;
@@ -476,32 +470,33 @@ dev_to_umad_id(char *dev, unsigned port)
 		return id;
 	}
 
-	return -1;	/* not found */
+	return -1;		/* not found */
 }
 
 /*******************************
  * Public interface
  */
 
-int
-umad_init(void)
+int umad_init(void)
 {
 	TRACE("umad_init");
 	if (sys_read_uint(IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, &abi_version) < 0) {
-		IBWARN("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
-			IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
+		IBWARN
+		    ("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
+		     IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
 		return -1;
 	}
 	if (abi_version < IB_UMAD_ABI_VERSION) {
-		IBWARN("wrong ABI version: %s/%s is %d but library minimal ABI is %d",
-			IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, abi_version, IB_UMAD_ABI_VERSION);
+		IBWARN
+		    ("wrong ABI version: %s/%s is %d but library minimal ABI is %d",
+		     IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, abi_version,
+		     IB_UMAD_ABI_VERSION);
 		return -1;
 	}
 	return 0;
 }
 
-int
-umad_done(void)
+int umad_done(void)
 {
 	TRACE("umad_done");
 	/* FIXME - verify that all ports are closed */
@@ -521,8 +516,7 @@ static unsigned is_ib_type(char *ca_name)
 	return type >= 1 && type <= 3 ? 1 : 0;
 }
 
-int
-umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
+int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 {
 	struct dirent **namelist;
 	int n, i, j = 0;
@@ -552,8 +546,7 @@ umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 	return j;
 }
 
-int
-umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
+int umad_get_ca_portguids(char *ca_name, uint64_t * portguids, int max)
 {
 	umad_ca_t ca;
 	int ports = 0, i;
@@ -572,7 +565,8 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 		}
 
 		for (i = 0; i <= ca.numports; i++)
-			portguids[ports++] = ca.ports[i] ? ca.ports[i]->port_guid : 0;
+			portguids[ports++] =
+			    ca.ports[i] ? ca.ports[i]->port_guid : 0;
 	}
 
 	release_ca(&ca);
@@ -581,8 +575,7 @@ umad_get_ca_portguids(char *ca_name, uint64_t *portguids, int max)
 	return ports;
 }
 
-int
-umad_get_issm_path(char *ca_name, int portnum, char path[], int max)
+int umad_get_issm_path(char *ca_name, int portnum, char path[], int max)
 {
 	int umad_id;
 
@@ -594,13 +587,12 @@ umad_get_issm_path(char *ca_name, int portnum, char path[], int max)
 	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
 		return -EINVAL;
 
-	snprintf(path, max, "%s/issm%u", UMAD_DEV_DIR , umad_id);
+	snprintf(path, max, "%s/issm%u", UMAD_DEV_DIR, umad_id);
 
 	return 0;
 }
 
-int
-umad_open_port(char *ca_name, int portnum)
+int umad_open_port(char *ca_name, int portnum)
 {
 	char dev_file[UMAD_DEV_FILE_SZ];
 	int umad_id, fd;
@@ -616,9 +608,9 @@ umad_open_port(char *ca_name, int portnum)
 		return -EINVAL;
 
 	snprintf(dev_file, sizeof(dev_file), "%s/umad%d",
-		 UMAD_DEV_DIR , umad_id);
+		 UMAD_DEV_DIR, umad_id);
 
-	if ((fd = open(dev_file, O_RDWR|O_NONBLOCK)) < 0) {
+	if ((fd = open(dev_file, O_RDWR | O_NONBLOCK)) < 0) {
 		DEBUG("open %s failed: %s", dev_file, strerror(errno));
 		return -EIO;
 	}
@@ -632,8 +624,7 @@ umad_open_port(char *ca_name, int portnum)
 	return fd;
 }
 
-int
-umad_get_ca(char *ca_name, umad_ca_t *ca)
+int umad_get_ca(char *ca_name, umad_ca_t * ca)
 {
 	int r;
 
@@ -651,8 +642,7 @@ umad_get_ca(char *ca_name, umad_ca_t *ca)
 	return 0;
 }
 
-int
-umad_release_ca(umad_ca_t *ca)
+int umad_release_ca(umad_ca_t * ca)
 {
 	int r;
 
@@ -667,8 +657,7 @@ umad_release_ca(umad_ca_t *ca)
 	return 0;
 }
 
-int
-umad_get_port(char *ca_name, int portnum, umad_port_t *port)
+int umad_get_port(char *ca_name, int portnum, umad_port_t * port)
 {
 	char dir_name[256];
 
@@ -678,13 +667,12 @@ umad_get_port(char *ca_name, int portnum, umad_port_t *port)
 		return -ENODEV;
 
 	snprintf(dir_name, sizeof(dir_name), "%s/%s/%s",
-		SYS_INFINIBAND, ca_name, SYS_CA_PORTS_DIR);
+		 SYS_INFINIBAND, ca_name, SYS_CA_PORTS_DIR);
 
 	return get_port(ca_name, dir_name, portnum, port);
 }
 
-int
-umad_release_port(umad_port_t *port)
+int umad_release_port(umad_port_t * port)
 {
 	int r;
 
@@ -699,30 +687,26 @@ umad_release_port(umad_port_t *port)
 	return 0;
 }
 
-int
-umad_close_port(int fd)
+int umad_close_port(int fd)
 {
 	close(fd);
 	DEBUG("closed fd %d", fd);
 	return 0;
 }
 
-void *
-umad_get_mad(void *umad)
+void *umad_get_mad(void *umad)
 {
 	return new_user_mad_api ? ((struct ib_user_mad *)umad)->data :
-		(void *)&((struct ib_user_mad *)umad)->addr.pkey_index;
+	    (void *)&((struct ib_user_mad *)umad)->addr.pkey_index;
 }
 
-size_t
-umad_size(void)
+size_t umad_size(void)
 {
-	return new_user_mad_api ? sizeof (struct ib_user_mad) :
-		sizeof(struct ib_user_mad) - 8;
+	return new_user_mad_api ? sizeof(struct ib_user_mad) :
+	    sizeof(struct ib_user_mad) - 8;
 }
 
-int
-umad_set_grh(void *umad, void *mad_addr)
+int umad_set_grh(void *umad, void *mad_addr)
 {
 	struct ib_user_mad *mad = umad;
 	struct ib_mad_addr *addr = mad_addr;
@@ -738,8 +722,7 @@ umad_set_grh(void *umad, void *mad_addr)
 	return 0;
 }
 
-int
-umad_set_pkey(void *umad, int pkey_index)
+int umad_set_pkey(void *umad, int pkey_index)
 {
 	struct ib_user_mad *mad = umad;
 
@@ -749,8 +732,7 @@ umad_set_pkey(void *umad, int pkey_index)
 	return 0;
 }
 
-int
-umad_get_pkey(void *umad)
+int umad_get_pkey(void *umad)
 {
 	struct ib_user_mad *mad = umad;
 
@@ -760,8 +742,7 @@ umad_get_pkey(void *umad)
 	return 0;
 }
 
-int
-umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
+int umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
 {
 	struct ib_user_mad *mad = umad;
 
@@ -775,8 +756,7 @@ umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
 	return 0;
 }
 
-int
-umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
+int umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 {
 	struct ib_user_mad *mad = umad;
 
@@ -790,9 +770,8 @@ umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 	return 0;
 }
 
-int
-umad_send(int fd, int agentid, void *umad, int length,
-	  int timeout_ms, int retries)
+int umad_send(int fd, int agentid, void *umad, int length,
+	      int timeout_ms, int retries)
 {
 	struct ib_user_mad *mad = umad;
 	int n;
@@ -819,13 +798,12 @@ umad_send(int fd, int agentid, void *umad, int length,
 	return -EIO;
 }
 
-static int
-dev_poll(int fd, int timeout_ms)
+static int dev_poll(int fd, int timeout_ms)
 {
 	struct pollfd ufds;
 	int n;
 
-	ufds.fd     = fd;
+	ufds.fd = fd;
 	ufds.events = POLLIN;
 
 	if ((n = poll(&ufds, 1, timeout_ms)) == 1)
@@ -837,8 +815,7 @@ dev_poll(int fd, int timeout_ms)
 	return -EIO;
 }
 
-int
-umad_recv(int fd, void *umad, int *length, int timeout_ms)
+int umad_recv(int fd, void *umad, int *length, int timeout_ms)
 {
 	struct ib_user_mad *mad = umad;
 	int n;
@@ -885,29 +862,26 @@ umad_recv(int fd, void *umad, int *length, int timeout_ms)
 	return -errno;
 }
 
-int
-umad_poll(int fd, int timeout_ms)
+int umad_poll(int fd, int timeout_ms)
 {
 	TRACE("fd %d timeout %u", fd, timeout_ms);
 	return dev_poll(fd, timeout_ms);
 }
 
-int
-umad_get_fd(int fd)
+int umad_get_fd(int fd)
 {
 	TRACE("fd %d", fd);
 	return fd;
 }
 
-int
-umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
-		  uint8_t oui[3], long method_mask[])
+int umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
+		      uint8_t oui[3], long method_mask[])
 {
 	struct ib_user_mad_reg_req req;
 
 	TRACE("fd %d mgmt_class %u rmpp_version %d oui 0x%x%x%x method_mask %p",
-		fd, mgmt_class, (int)rmpp_version, (int)oui[0], (int)oui[1],
-		(int)oui[2], method_mask);
+	      fd, mgmt_class, (int)rmpp_version, (int)oui[0], (int)oui[1],
+	      (int)oui[2], method_mask);
 
 	if (mgmt_class < 0x30 || mgmt_class > 0x4f) {
 		DEBUG("mgmt class %d not in vendor range 2", mgmt_class);
@@ -928,26 +902,27 @@ umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
 	VALGRIND_MAKE_MEM_DEFINED(&req, sizeof req);
 
 	if (!ioctl(fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
-		DEBUG("fd %d registered to use agent %d qp %d class 0x%x oui %p",
-			fd, req.id, req.qpn, req.mgmt_class, oui);
-		return req.id; 		/* return agentid */
+		DEBUG
+		    ("fd %d registered to use agent %d qp %d class 0x%x oui %p",
+		     fd, req.id, req.qpn, req.mgmt_class, oui);
+		return req.id;	/* return agentid */
 	}
 
 	DEBUG("fd %d registering qp %d class 0x%x version %d oui %p failed: %m",
-		fd, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
+	      fd, req.qpn, req.mgmt_class, req.mgmt_class_version, oui);
 	return -EPERM;
 }
 
-int
-umad_register(int fd, int mgmt_class, int mgmt_version,
-	      uint8_t rmpp_version, long method_mask[])
+int umad_register(int fd, int mgmt_class, int mgmt_version,
+		  uint8_t rmpp_version, long method_mask[])
 {
 	struct ib_user_mad_reg_req req;
 	uint32_t oui = htonl(IB_OPENIB_OUI);
 	int qp;
 
-	TRACE("fd %d mgmt_class %u mgmt_version %u rmpp_version %d method_mask %p",
-		fd, mgmt_class, mgmt_version, rmpp_version, method_mask);
+	TRACE
+	    ("fd %d mgmt_class %u mgmt_version %u rmpp_version %d method_mask %p",
+	     fd, mgmt_class, mgmt_version, rmpp_version, method_mask);
 
 	req.qpn = qp = (mgmt_class == 0x1 || mgmt_class == 0x81) ? 0 : 1;
 	req.mgmt_class = mgmt_class;
@@ -964,74 +939,67 @@ umad_register(int fd, int mgmt_class, int mgmt_version,
 	VALGRIND_MAKE_MEM_DEFINED(&req, sizeof req);
 
 	if (!ioctl(fd, IB_USER_MAD_REGISTER_AGENT, (void *)&req)) {
-		DEBUG("fd %d registered to use agent %d qp %d",
-		      fd, req.id, qp);
-		return req.id; 		/* return agentid */
+		DEBUG("fd %d registered to use agent %d qp %d", fd, req.id, qp);
+		return req.id;	/* return agentid */
 	}
 
 	DEBUG("fd %d registering qp %d class 0x%x version %d failed: %m",
-		fd, qp, mgmt_class, mgmt_version);
+	      fd, qp, mgmt_class, mgmt_version);
 	return -EPERM;
 }
 
-int
-umad_unregister(int fd, int agentid)
+int umad_unregister(int fd, int agentid)
 {
 	TRACE("fd %d unregistering agent %d", fd, agentid);
 	return ioctl(fd, IB_USER_MAD_UNREGISTER_AGENT, &agentid);
 }
 
-int
-umad_status(void *umad)
+int umad_status(void *umad)
 {
 	struct ib_user_mad *mad = umad;
 
 	return mad->status;
 }
 
-ib_mad_addr_t *
-umad_get_mad_addr(void *umad)
+ib_mad_addr_t *umad_get_mad_addr(void *umad)
 {
 	struct ib_user_mad *mad = umad;
 
 	return &mad->addr;
 }
 
-int
-umad_debug(int level)
+int umad_debug(int level)
 {
 	if (level >= 0)
 		umaddebug = level;
 	return umaddebug;
 }
 
-void
-umad_addr_dump(ib_mad_addr_t *addr)
+void umad_addr_dump(ib_mad_addr_t * addr)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))
 	char gid_str[64];
 	int i;
 
 	for (i = 0; i < sizeof addr->gid; i++) {
-		gid_str[i*2] = HEX(addr->gid[i] >> 4);
-		gid_str[i*2+1] = HEX(addr->gid[i] & 0xf);
+		gid_str[i * 2] = HEX(addr->gid[i] >> 4);
+		gid_str[i * 2 + 1] = HEX(addr->gid[i] & 0xf);
 	}
-	gid_str[i*2] = 0;
+	gid_str[i * 2] = 0;
 	IBWARN("qpn %d qkey 0x%x lid %u sl %d\n"
-		"grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x pkey_index 0x%x\n"
-		"Gid 0x%s",
-		ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
-		addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit,
-		(int)addr->traffic_class, addr->flow_label, addr->pkey_index,
-		gid_str);
+	       "grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x pkey_index 0x%x\n"
+	       "Gid 0x%s",
+	       ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
+	       addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit,
+	       (int)addr->traffic_class, addr->flow_label, addr->pkey_index,
+	       gid_str);
 }
 
-void
-umad_dump(void *umad)
+void umad_dump(void *umad)
 {
-	struct ib_user_mad * mad = umad;
+	struct ib_user_mad *mad = umad;
 
 	IBWARN("agent id %d status %x timeout %d",
-	     mad->agent_id, mad->status, mad->timeout_ms);
+	       mad->agent_id, mad->status, mad->timeout_ms);
 	umad_addr_dump(&mad->addr);
 }

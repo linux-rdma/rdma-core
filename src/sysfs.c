@@ -35,7 +35,7 @@
 
 #if HAVE_CONFIG_H
 #  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#endif				/* HAVE_CONFIG_H */
 
 #include <inttypes.h>
 #include <string.h>
@@ -91,7 +91,7 @@ int sys_read_string(char *dir_name, char *file_name, char *str, int max_len)
 	return 0;
 }
 
-int sys_read_guid(char *dir_name, char *file_name, uint64_t *net_guid)
+int sys_read_guid(char *dir_name, char *file_name, uint64_t * net_guid)
 {
 	char buf[32], *str, *s;
 	uint64_t guid;
@@ -102,7 +102,7 @@ int sys_read_guid(char *dir_name, char *file_name, uint64_t *net_guid)
 
 	guid = 0;
 
-	for (s = buf, i = 0 ; i < 4; i++) {
+	for (s = buf, i = 0; i < 4; i++) {
 		if (!(str = strsep(&s, ": \t\n")))
 			return -EINVAL;
 		guid = (guid << 16) | (strtoul(str, 0, 16) & 0xffff);
@@ -113,16 +113,16 @@ int sys_read_guid(char *dir_name, char *file_name, uint64_t *net_guid)
 	return 0;
 }
 
-int sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
+int sys_read_gid(char *dir_name, char *file_name, uint8_t * gid)
 {
 	char buf[64], *str, *s;
-	uint16_t *ugid = (uint16_t *)gid;
+	uint16_t *ugid = (uint16_t *) gid;
 	int r, i;
 
 	if ((r = sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
 		return r;
 
-	for (s = buf, i = 0 ; i < 8; i++) {
+	for (s = buf, i = 0; i < 8; i++) {
 		if (!(str = strsep(&s, ": \t\n")))
 			return -EINVAL;
 		ugid[i] = htons(strtoul(str, 0, 16) & 0xffff);
@@ -131,7 +131,7 @@ int sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
 	return 0;
 }
 
-int sys_read_uint64(char *dir_name, char *file_name, uint64_t *u)
+int sys_read_uint64(char *dir_name, char *file_name, uint64_t * u)
 {
 	char buf[32];
 	int r;
