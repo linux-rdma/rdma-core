@@ -3,6 +3,7 @@
  * Copyright (c) 2004-2008 Voltaire, Inc. All rights reserved.
  * Copyright (c) 2002-2005 Mellanox Technologies LTD. All rights reserved.
  * Copyright (c) 1996-2003 Intel Corporation. All rights reserved.
+ * Copyright (c) 2009 HNR Consulting. All rights reserved.
  *
  * Produced at Lawrence Livermore National Laboratory.
  * Written by Ira Weiny <weiny2@llnl.gov>.
@@ -922,7 +923,7 @@ static int parse_lid_and_ports(bind_handle_t h,
 
 #define cl_hton8(x) (x)
 #define CHECK_AND_SET_VAL(val, size, comp_with, target, name, mask) \
-	if ((int##size##_t) val > (int##size##_t) comp_with) { \
+	if ((int##size##_t) val != (int##size##_t) comp_with) { \
 		target = cl_hton##size((uint##size##_t) val); \
 		comp_mask |= IB_##name##_COMPMASK_##mask; \
 	}
