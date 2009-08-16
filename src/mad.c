@@ -64,13 +64,13 @@ uint64_t mad_trid(void)
 	return next;
 }
 
-int mad_get_timeout(struct ibmad_port *srcport, int override_ms)
+int mad_get_timeout(const struct ibmad_port *srcport, int override_ms)
 {
 	return (override_ms ? override_ms :
 	    srcport->timeout ? srcport->timeout : madrpc_timeout);
 }
 
-int mad_get_retries(struct ibmad_port *srcport)
+int mad_get_retries(const struct ibmad_port *srcport)
 {
 	return (srcport->retries ? srcport->retries : madrpc_retries);
 }
