@@ -1544,6 +1544,10 @@ static int process_opt(void *context, int ch, char *optarg)
 		p->numb_path = strtoul(optarg, NULL, 0);
 		break;
 	case 18:
+		if (!isxdigit(*optarg) && !(optarg = getpass("P_Key: "))) {
+			fprintf(stderr, "cannot get P_Key\n");
+			ibdiag_show_usage();
+		}
 		p->pkey = (uint16_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'Q':
@@ -1562,6 +1566,10 @@ static int process_opt(void *context, int ch, char *optarg)
 		p->pkt_life = (uint8_t) strtoul(optarg, NULL, 0);
 		break;
 	case 'q':
+		if (!isxdigit(*optarg) && !(optarg = getpass("Q_Key: "))) {
+			fprintf(stderr, "cannot get Q_Key\n");
+			ibdiag_show_usage();
+		}
 		p->qkey = strtoul(optarg, NULL, 0);
 		break;
 	case 'T':
@@ -1638,7 +1646,9 @@ int main(int argc, char **argv)
 		{"mgid", 17, 1, "<gid>", "Multicast GID (MCMemberRecord)"},
 		{"reversible", 'r', 1, NULL, "Reversible path (PathRecord)"},
 		{"numb_path", 'n', 1, NULL, "Number of paths (PathRecord)"},
-		{"pkey", 18, 1, NULL, "P_Key (PathRecord, MCMemberRecord)"},
+		{"pkey", 18, 1, NULL, "P_Key (PathRecord, MCMemberRecord)."
+		 " If non-numeric value (like 'x') is specified then"
+		 " saquery will prompt for a value"},
 		{"qos_class", 'Q', 1, NULL, "QoS Class (PathRecord)"},
 		{"sl", 19, 1, NULL,
 		 "Service level (PathRecord, MCMemberRecord)"},
@@ -1648,7 +1658,9 @@ int main(int argc, char **argv)
 		 "Rate and selector (PathRecord, MCMemberRecord)"},
 		{"pkt_lifetime", 20, 1, NULL,
 		 "Packet lifetime and selector (PathRecord, MCMemberRecord)"},
-		{"qkey", 'q', 1, NULL, "Q_Key (MCMemberRecord)"},
+		{"qkey", 'q', 1, NULL, "Q_Key (MCMemberRecord)."
+		 " If non-numeric value (like 'x') is specified then"
+		 " saquery will prompt for a value"},
 		{"tclass", 'T', 1, NULL,
 		 "Traffic Class (PathRecord, MCMemberRecord)"},
 		{"flow_label", 'F', 1, NULL,
