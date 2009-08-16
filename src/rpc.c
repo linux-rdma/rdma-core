@@ -185,7 +185,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	return -1;
 }
 
-static int redirect_port(ib_portid_t *port, uint8_t *mad)
+static int redirect_port(ib_portid_t * port, uint8_t * mad)
 {
 	port->lid = mad_get_field(mad, 64, IB_CPI_REDIRECT_LID_F);
 	if (!port->lid) {
@@ -224,7 +224,8 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 				      port->class_agents[rpc->mgtclass],
 				      len, mad_get_timeout(port, rpc->timeout),
 				      mad_get_retries(port))) < 0) {
-			IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
+			IBWARN("_do_madrpc failed; dport (%s)",
+			       portid2str(dport));
 			return NULL;
 		}
 

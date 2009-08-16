@@ -71,8 +71,8 @@ int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
 }
 
 int ib_resolve_gid_via(ib_portid_t * portid, ibmad_gid_t gid,
-			ib_portid_t * sm_id, int timeout,
-			const struct ibmad_port *srcport)
+		       ib_portid_t * sm_id, int timeout,
+		       const struct ibmad_port *srcport)
 {
 	ib_portid_t sm_portid;
 	char buf[IB_SA_DATA_SIZE] = { 0 };
@@ -120,8 +120,7 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 		mad_set_field64(portid->gid, 0, IB_GID_GUID_F, *guid);
 
 	if ((portid->lid =
-	     ib_path_query_via(srcport, selfgid, portid->gid, sm_id,
-			       buf)) < 0)
+	     ib_path_query_via(srcport, selfgid, portid->gid, sm_id, buf)) < 0)
 		return -1;
 
 	mad_decode_field(buf, IB_SA_PR_SL_F, &portid->sl);

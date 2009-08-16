@@ -45,7 +45,6 @@
 #endif				/* __cplusplus */
 
 BEGIN_C_DECLS
-
 #define IB_SUBNET_PATH_HOPS_MAX	64
 #define IB_DEFAULT_SUBN_PREFIX	0xfe80000000000000ULL
 #define IB_DEFAULT_QP1_QKEY	0x80010000
@@ -62,7 +61,6 @@ BEGIN_C_DECLS
 #define IB_PC_DATA_SZ		(IB_MAD_SIZE - IB_PC_DATA_OFFS)
 #define IB_SA_MCM_RECSZ		53
 #define IB_SA_PR_RECSZ		64
-
 #define IB_BM_DATA_OFFS		64
 #define IB_BM_DATA_SZ		(IB_MAD_SIZE - IB_BM_DATA_OFFS)
 #define IB_BM_BKEY_OFFS		24
@@ -114,13 +112,13 @@ enum MAD_ATTR_ID {
 };
 
 enum MAD_STATUS {
-	IB_MAD_STS_OK                        = (0 << 2),
-	IB_MAD_STS_BUSY                      = (1 << 0),
-	IB_MAD_STS_REDIRECT                  = (1 << 1),
-	IB_MAD_STS_BAD_BASE_VER_OR_CLASS     = (1 << 2),
-	IB_MAD_STS_METHOD_NOT_SUPPORTED      = (2 << 2),
+	IB_MAD_STS_OK = (0 << 2),
+	IB_MAD_STS_BUSY = (1 << 0),
+	IB_MAD_STS_REDIRECT = (1 << 1),
+	IB_MAD_STS_BAD_BASE_VER_OR_CLASS = (1 << 2),
+	IB_MAD_STS_METHOD_NOT_SUPPORTED = (2 << 2),
 	IB_MAD_STS_METHOD_ATTR_NOT_SUPPORTED = (3 << 2),
-	IB_MAD_STS_INV_ATTR_VALUE            = (7 << 2),
+	IB_MAD_STS_INV_ATTR_VALUE = (7 << 2),
 };
 
 enum SMI_ATTR_ID {
@@ -169,30 +167,30 @@ enum GSI_ATTR_ID {
 	IB_GSI_PORT_COUNTERS = 0x12,
 	IB_GSI_PORT_COUNTERS_EXT = 0x1D,
 	IB_GSI_PORT_XMIT_DATA_SL = 0x36,
-	IB_GSI_PORT_RCV_DATA_SL  = 0x37,
+	IB_GSI_PORT_RCV_DATA_SL = 0x37,
 	IB_GSI_ATTR_LAST
 };
 
 enum BM_ATTR_ID {
-        IB_BM_ATTR_BKEYINFO = 0x10,
-        IB_BM_ATTR_WRITE_VPD = 0x20,
-        IB_BM_ATTR_READ_VPD = 0x21,
-        IB_BM_ATTR_RESET_IBML = 0x22,
-        IB_BM_ATTR_SET_MODULE_PM_CONTROL = 0x23,
-        IB_BM_ATTR_GET_MODULE_PM_CONTROL = 0x24,
-        IB_BM_ATTR_SET_UNIT_PM_CONTROL = 0x25,
-        IB_BM_ATTR_GET_UNIT_PM_CONTROL = 0x26,
-        IB_BM_ATTR_SET_IOC_PM_CONTROL = 0x27,
-        IB_BM_ATTR_GET_IOC_PM_CONTROL = 0x28,
-        IB_BM_ATTR_SET_MODULE_STATE = 0x29,
-        IB_BM_ATTR_SET_MODULE_ATTENTION = 0x2A,
-        IB_BM_ATTR_GET_MODULE_STATUS = 0x2B,
-        IB_BM_ATTR_IB2IBML = 0x2C,
-        IB_BM_ATTR_IB2CME = 0x2D,
-        IB_BM_ATTR_IB2MME = 0x2E,
-        IB_BM_ATTR_OEM = 0x2F,
+	IB_BM_ATTR_BKEYINFO = 0x10,
+	IB_BM_ATTR_WRITE_VPD = 0x20,
+	IB_BM_ATTR_READ_VPD = 0x21,
+	IB_BM_ATTR_RESET_IBML = 0x22,
+	IB_BM_ATTR_SET_MODULE_PM_CONTROL = 0x23,
+	IB_BM_ATTR_GET_MODULE_PM_CONTROL = 0x24,
+	IB_BM_ATTR_SET_UNIT_PM_CONTROL = 0x25,
+	IB_BM_ATTR_GET_UNIT_PM_CONTROL = 0x26,
+	IB_BM_ATTR_SET_IOC_PM_CONTROL = 0x27,
+	IB_BM_ATTR_GET_IOC_PM_CONTROL = 0x28,
+	IB_BM_ATTR_SET_MODULE_STATE = 0x29,
+	IB_BM_ATTR_SET_MODULE_ATTENTION = 0x2A,
+	IB_BM_ATTR_GET_MODULE_STATUS = 0x2B,
+	IB_BM_ATTR_IB2IBML = 0x2C,
+	IB_BM_ATTR_IB2CME = 0x2D,
+	IB_BM_ATTR_IB2MME = 0x2E,
+	IB_BM_ATTR_OEM = 0x2F,
 
-        IB_BM_ATTR_LAST
+	IB_BM_ATTR_LAST
 };
 
 #define IB_VENDOR_OPENIB_PING_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 2)
@@ -756,20 +754,29 @@ static inline int ib_portid_set(ib_portid_t * portid, int lid, int qp, int qkey)
 }
 
 /* fields.c */
-MAD_EXPORT uint32_t mad_get_field(void *buf, int base_offs, enum MAD_FIELDS field);
+MAD_EXPORT uint32_t mad_get_field(void *buf, int base_offs,
+				  enum MAD_FIELDS field);
 MAD_EXPORT void mad_set_field(void *buf, int base_offs, enum MAD_FIELDS field,
 			      uint32_t val);
 /* field must be byte aligned */
-MAD_EXPORT uint64_t mad_get_field64(void *buf, int base_offs, enum MAD_FIELDS field);
+MAD_EXPORT uint64_t mad_get_field64(void *buf, int base_offs,
+				    enum MAD_FIELDS field);
 MAD_EXPORT void mad_set_field64(void *buf, int base_offs, enum MAD_FIELDS field,
 				uint64_t val);
-MAD_EXPORT void mad_set_array(void *buf, int base_offs, enum MAD_FIELDS field, void *val);
-MAD_EXPORT void mad_get_array(void *buf, int base_offs, enum MAD_FIELDS field, void *val);
-MAD_EXPORT void mad_decode_field(uint8_t * buf, enum MAD_FIELDS field, void *val);
-MAD_EXPORT void mad_encode_field(uint8_t * buf, enum MAD_FIELDS field, void *val);
-MAD_EXPORT int mad_print_field(enum MAD_FIELDS field, const char *name, void *val);
-MAD_EXPORT char *mad_dump_field(enum MAD_FIELDS field, char *buf, int bufsz, void *val);
-MAD_EXPORT char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz, void *val);
+MAD_EXPORT void mad_set_array(void *buf, int base_offs, enum MAD_FIELDS field,
+			      void *val);
+MAD_EXPORT void mad_get_array(void *buf, int base_offs, enum MAD_FIELDS field,
+			      void *val);
+MAD_EXPORT void mad_decode_field(uint8_t * buf, enum MAD_FIELDS field,
+				 void *val);
+MAD_EXPORT void mad_encode_field(uint8_t * buf, enum MAD_FIELDS field,
+				 void *val);
+MAD_EXPORT int mad_print_field(enum MAD_FIELDS field, const char *name,
+			       void *val);
+MAD_EXPORT char *mad_dump_field(enum MAD_FIELDS field, char *buf, int bufsz,
+				void *val);
+MAD_EXPORT char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz,
+			      void *val);
 MAD_EXPORT const char *mad_field_name(enum MAD_FIELDS field);
 
 /* mad.c */
@@ -784,7 +791,8 @@ MAD_EXPORT void madrpc_show_errors(int set);
 MAD_EXPORT int madrpc_set_retries(int retries);
 MAD_EXPORT int madrpc_set_timeout(int timeout);
 MAD_EXPORT struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
-			int *mgmt_classes, int num_classes);
+						int *mgmt_classes,
+						int num_classes);
 MAD_EXPORT void mad_rpc_close_port(struct ibmad_port *srcport);
 
 /*
@@ -793,7 +801,7 @@ MAD_EXPORT void mad_rpc_close_port(struct ibmad_port *srcport);
  * reach the target directly.
  */
 MAD_EXPORT void *mad_rpc(const struct ibmad_port *srcport, ib_rpc_t * rpc,
-			ib_portid_t * dport, void *payload, void *rcvdata);
+			 ib_portid_t * dport, void *payload, void *rcvdata);
 
 MAD_EXPORT void *mad_rpc_rmpp(const struct ibmad_port *srcport, ib_rpc_t * rpc,
 			      ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
@@ -803,15 +811,14 @@ MAD_EXPORT void mad_rpc_set_retries(struct ibmad_port *port, int retries);
 MAD_EXPORT void mad_rpc_set_timeout(struct ibmad_port *port, int timeout);
 MAD_EXPORT int mad_rpc_class_agent(struct ibmad_port *srcport, int cls);
 
-MAD_EXPORT int mad_get_timeout(const struct ibmad_port *srcport, int override_ms);
+MAD_EXPORT int mad_get_timeout(const struct ibmad_port *srcport,
+			       int override_ms);
 MAD_EXPORT int mad_get_retries(const struct ibmad_port *srcport);
-
 
 /* register.c */
 MAD_EXPORT int mad_register_port_client(int port_id, int mgmt,
 					uint8_t rmpp_version);
-MAD_EXPORT int mad_register_client(int mgmt, uint8_t rmpp_version)
-			DEPRECATED;
+MAD_EXPORT int mad_register_client(int mgmt, uint8_t rmpp_version) DEPRECATED;
 MAD_EXPORT int mad_register_server(int mgmt, uint8_t rmpp_version,
 				   long method_mask[16 / sizeof(long)],
 				   uint32_t class_oui) DEPRECATED;
@@ -827,10 +834,9 @@ MAD_EXPORT int mad_class_agent(int mgmt) DEPRECATED;
 /* serv.c */
 MAD_EXPORT int mad_send(ib_rpc_t * rpc, ib_portid_t * dport,
 			ib_rmpp_hdr_t * rmpp, void *data) DEPRECATED;
-MAD_EXPORT void *mad_receive(void *umad, int timeout)
-		DEPRECATED;
+MAD_EXPORT void *mad_receive(void *umad, int timeout) DEPRECATED;
 MAD_EXPORT int mad_respond(void *umad, ib_portid_t * portid, uint32_t rstatus)
-		DEPRECATED;
+    DEPRECATED;
 
 /* serv.c new interface */
 MAD_EXPORT int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport,
@@ -838,8 +844,8 @@ MAD_EXPORT int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport,
 			    struct ibmad_port *srcport);
 MAD_EXPORT void *mad_receive_via(void *umad, int timeout,
 				 struct ibmad_port *srcport);
-MAD_EXPORT int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
-			       struct ibmad_port *srcport);
+MAD_EXPORT int mad_respond_via(void *umad, ib_portid_t * portid,
+			       uint32_t rstatus, struct ibmad_port *srcport);
 MAD_EXPORT void *mad_alloc(void);
 MAD_EXPORT void mad_free(void *umad);
 
@@ -865,9 +871,9 @@ static inline int mad_is_vendor_range2(int mgmt)
 /* rpc.c */
 MAD_EXPORT int madrpc_portid(void) DEPRECATED;
 void *madrpc(ib_rpc_t * rpc, ib_portid_t * dport, void *payload, void *rcvdata)
-		DEPRECATED;
-void *madrpc_rmpp(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp, void *data)
-		DEPRECATED;
+    DEPRECATED;
+void *madrpc_rmpp(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
+		  void *data) DEPRECATED;
 MAD_EXPORT void madrpc_init(char *dev_name, int dev_port, int *mgmt_classes,
 			    int num_classes) DEPRECATED;
 void madrpc_save_mad(void *madbuf, int len) DEPRECATED;
@@ -902,14 +908,12 @@ MAD_EXPORT int ib_path_query_via(const struct ibmad_port *srcport,
 	/* returns lid */
 
 /* resolve.c */
-MAD_EXPORT int ib_resolve_smlid(ib_portid_t * sm_id, int timeout)
-				DEPRECATED;
+MAD_EXPORT int ib_resolve_smlid(ib_portid_t * sm_id, int timeout) DEPRECATED;
 MAD_EXPORT int ib_resolve_portid_str(ib_portid_t * portid, char *addr_str,
 				     enum MAD_DEST dest, ib_portid_t * sm_id)
-				DEPRECATED;
+    DEPRECATED;
 MAD_EXPORT int ib_resolve_self(ib_portid_t * portid, int *portnum,
-			       ibmad_gid_t * gid)
-				DEPRECATED;
+			       ibmad_gid_t * gid) DEPRECATED;
 
 /* resolve.c new interface */
 MAD_EXPORT int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
@@ -918,10 +922,11 @@ MAD_EXPORT int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 				   ib_portid_t * sm_id, int timeout,
 				   const struct ibmad_port *srcport);
 MAD_EXPORT int ib_resolve_gid_via(ib_portid_t * portid, ibmad_gid_t gid,
-				   ib_portid_t * sm_id, int timeout,
-				   const struct ibmad_port *srcport);
+				  ib_portid_t * sm_id, int timeout,
+				  const struct ibmad_port *srcport);
 MAD_EXPORT int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
-					 enum MAD_DEST dest, ib_portid_t * sm_id,
+					 enum MAD_DEST dest,
+					 ib_portid_t * sm_id,
 					 const struct ibmad_port *srcport);
 MAD_EXPORT int ib_resolve_self_via(ib_portid_t * portid, int *portnum,
 				   ibmad_gid_t * gid,
@@ -937,7 +942,9 @@ MAD_EXPORT uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 					  const struct ibmad_port *srcport);
 
 /* bm.c */
-MAD_EXPORT uint8_t * bm_call_via(void *data, ib_portid_t *portid, ib_bm_call_t *call, struct ibmad_port *srcport);
+MAD_EXPORT uint8_t *bm_call_via(void *data, ib_portid_t * portid,
+				ib_bm_call_t * call,
+				struct ibmad_port *srcport);
 
 /* dump.c */
 MAD_EXPORT ib_mad_dump_fn

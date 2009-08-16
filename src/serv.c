@@ -74,7 +74,7 @@ int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 
 	if (umad_send(srcport->port_id, srcport->class_agents[rpc->mgtclass],
 		      umad, IB_MAD_SIZE, mad_get_timeout(srcport, rpc->timeout),
-			0) < 0) {
+		      0) < 0) {
 		IBWARN("send failed; %m");
 		return -1;
 	}
@@ -176,7 +176,7 @@ void *mad_receive_via(void *umad, int timeout, struct ibmad_port *srcport)
 	int length = IB_MAD_SIZE;
 
 	if ((agent = umad_recv(srcport->port_id, mad, &length,
-			mad_get_timeout(srcport, timeout))) < 0) {
+			       mad_get_timeout(srcport, timeout))) < 0) {
 		if (!umad)
 			umad_free(mad);
 		DEBUG("recv failed: %m");
