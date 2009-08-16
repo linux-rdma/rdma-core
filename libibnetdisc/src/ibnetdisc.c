@@ -208,14 +208,12 @@ static void dump_endnode(ib_portid_t * path, char *prompt,
 	if (!show_progress)
 		return;
 
-	mad_dump_node_type(type, 64, &(node->type), sizeof(int)),
-	    printf("%s -> %s %s {%016" PRIx64
-		   "} portnum %d base lid %d-%d\"%s\"\n", portid2str(path),
-		   prompt, type, node->guid,
-		   node->type == IB_NODE_SWITCH ? 0 : port->port.portnum,
-		   port->port.base_lid,
-		   port->port.base_lid + (1 << port->port.lmc) - 1,
-		   node->nodedesc);
+	mad_dump_node_type(type, 64, &(node->type), sizeof(int));
+	printf("%s -> %s %s {%016" PRIx64 "} portnum %d base lid %d-%d\"%s\"\n",
+	       portid2str(path), prompt, type, node->guid,
+	       node->type == IB_NODE_SWITCH ? 0 : port->port.portnum,
+	       port->port.base_lid,
+	       port->port.base_lid + (1 << port->port.lmc) - 1, node->nodedesc);
 }
 
 static ibnd_node_t *find_existing_node(struct ibnd_fabric *fabric,
