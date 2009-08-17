@@ -38,8 +38,7 @@
 #include <infiniband/mad.h>
 #include <iba/ib_types.h>
 
-struct ib_fabric;		/* forward declare */
-struct chassis;			/* forward declare */
+struct ibnd_chassis;		/* forward declare */
 struct ibnd_port;		/* forward declare */
 
 /** =========================================================================
@@ -67,13 +66,13 @@ typedef struct ibnd_node {
 
 	char nodedesc[IB_SMP_DATA_SIZE];
 
-	struct ibnd_port **ports; /* in order array of port pointers
-				   the size of this array is info.numports + 1
-				   items MAY BE NULL!  (ie 0 == switches only) */
+	struct ibnd_port **ports;	/* in order array of port pointers
+					   the size of this array is info.numports + 1
+					   items MAY BE NULL!  (ie 0 == switches only) */
 
 	/* chassis info */
 	struct ibnd_node *next_chassis_node;	/* next node in ibnd_chassis_t->nodes */
-	struct chassis *chassis;	/* if != NULL the chassis this node belongs to */
+	struct ibnd_chassis *chassis;	/* if != NULL the chassis this node belongs to */
 	unsigned char ch_type;
 	unsigned char ch_anafanum;
 	unsigned char ch_slotnum;
@@ -92,9 +91,9 @@ typedef struct ibnd_node {
 typedef struct ibnd_port {
 	uint64_t guid;
 	int portnum;
-	int ext_portnum; /* optional if != 0 external port num */
-	ibnd_node_t *node; /* node this port belongs to */
-	struct ibnd_port *remoteport; /* null if SMA, or does not exist */
+	int ext_portnum;	/* optional if != 0 external port num */
+	ibnd_node_t *node;	/* node this port belongs to */
+	struct ibnd_port *remoteport;	/* null if SMA, or does not exist */
 	/* quick cache of info below */
 	uint16_t base_lid;
 	uint8_t lmc;
@@ -108,8 +107,8 @@ typedef struct ibnd_port {
 /** =========================================================================
  * Chassis
  */
-typedef struct chassis {
-	struct chassis *next;
+typedef struct ibnd_chassis {
+	struct ibnd_chassis *next;
 	uint64_t chassisguid;
 	unsigned char chassisnum;
 
@@ -124,11 +123,14 @@ typedef struct chassis {
 	ibnd_node_t *linenode[LINES_MAX_NUM + 1];
 } ibnd_chassis_t;
 
+#define HTSZ 137
+#define MAXHOPS		63
+
 /** =========================================================================
  * Fabric
  * Main fabric object which is returned and represents the data discovered
  */
-typedef struct ib_fabric {
+typedef struct ibnd_fabric {
 	/* the node the discover was initiated from
 	 * "from" parameter in ibnd_discover_fabric
 	 * or by default the node you ar running on
@@ -139,6 +141,18 @@ typedef struct ib_fabric {
 	/* NULL terminated list of all chassis found in the fabric */
 	ibnd_chassis_t *chassis;
 	int maxhops_discovered;
+
+	/* internal use only */
+	ibnd_node_t *nodestbl[HTSZ];
+	ibnd_port_t *portstbl[HTSZ];
+	ibnd_node_t *nodesdist[MAXHOPS + 1];
+	ibnd_chassis_t *first_chassis;
+	ibnd_chassis_t *current_chassis;
+	ibnd_chassis_t *last_chassis;
+	ibnd_node_t *switches;
+	ibnd_node_t *ch_adapters;
+	ibnd_node_t *routers;
+	ib_portid_t selfportid;
 } ibnd_fabric_t;
 
 /** =========================================================================

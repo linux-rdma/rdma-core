@@ -91,7 +91,7 @@ char *ibnd_get_chassis_slot_str(ibnd_node_t * node, char *str, size_t size)
 	return (str);
 }
 
-static ibnd_chassis_t *find_chassisnum(struct ibnd_fabric *fabric,
+static ibnd_chassis_t *find_chassisnum(ibnd_fabric_t * fabric,
 				       unsigned char chassisnum)
 {
 	ibnd_chassis_t *current;
@@ -207,14 +207,14 @@ static uint64_t get_chassisguid(ibnd_node_t * node)
 		return sysimgguid;
 }
 
-static ibnd_chassis_t *find_chassisguid(struct ibnd_fabric *f,
+static ibnd_chassis_t *find_chassisguid(ibnd_fabric_t * fabric,
 					ibnd_node_t * node)
 {
 	ibnd_chassis_t *current;
 	uint64_t chguid;
 
 	chguid = get_chassisguid(node);
-	for (current = f->first_chassis; current; current = current->next) {
+	for (current = fabric->first_chassis; current; current = current->next) {
 		if (current->chassisguid == chguid)
 			return current;
 	}
@@ -224,7 +224,6 @@ static ibnd_chassis_t *find_chassisguid(struct ibnd_fabric *f,
 
 uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric, unsigned char chassisnum)
 {
-	struct ibnd_fabric *f = CONV_FABRIC_INTERNAL(fabric);
 	ibnd_chassis_t *chassis;
 
 	if (!fabric) {
@@ -232,7 +231,7 @@ uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric, unsigned char chassisnum)
 		return 0;
 	}
 
-	chassis = find_chassisnum(f, chassisnum);
+	chassis = find_chassisnum(fabric, chassisnum);
 	if (chassis)
 		return chassis->chassisguid;
 	else
@@ -783,7 +782,7 @@ static void voltaire_portmap(ibnd_port_t * port)
 		port->ext_portnum = int2ext_map_slb8[chipnum][portnum];
 }
 
-static int add_chassis(struct ibnd_fabric *fabric)
+static int add_chassis(ibnd_fabric_t * fabric)
 {
 	if (!(fabric->current_chassis = calloc(1, sizeof(ibnd_chassis_t)))) {
 		IBND_ERROR("OOM: failed to allocate chassis object\n");
@@ -819,7 +818,7 @@ static void add_node_to_chassis(ibnd_chassis_t * chassis, ibnd_node_t * node)
 	Returns:
 	0 on success, -1 on failure
 */
-int group_nodes(struct ibnd_fabric *fabric)
+int group_nodes(ibnd_fabric_t * fabric)
 {
 	ibnd_node_t *node;
 	int dist;
@@ -833,7 +832,7 @@ int group_nodes(struct ibnd_fabric *fabric)
 	/* an appropriate chassis record (slotnum and position) */
 	/* according to internal connectivity */
 	/* not very efficient but clear code so... */
-	for (dist = 0; dist <= fabric->fabric.maxhops_discovered; dist++) {
+	for (dist = 0; dist <= fabric->maxhops_discovered; dist++) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
@@ -844,7 +843,7 @@ int group_nodes(struct ibnd_fabric *fabric)
 
 	/* separate every Voltaire chassis from each other and build linked list of them */
 	/* algorithm: catch spine and find all surrounding nodes */
-	for (dist = 0; dist <= fabric->fabric.maxhops_discovered; dist++) {
+	for (dist = 0; dist <= fabric->maxhops_discovered; dist++) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
@@ -863,7 +862,7 @@ int group_nodes(struct ibnd_fabric *fabric)
 
 	/* now make pass on nodes for chassis which are not Voltaire */
 	/* grouped by common SystemImageGUID */
-	for (dist = 0; dist <= fabric->fabric.maxhops_discovered; dist++) {
+	for (dist = 0; dist <= fabric->maxhops_discovered; dist++) {
 		for (node = fabric->nodesdist[dist]; node; node = node->dnext) {
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
@@ -913,12 +912,12 @@ int group_nodes(struct ibnd_fabric *fabric)
 				}
 			}
 		}
-		if (dist == fabric->fabric.maxhops_discovered)
+		if (dist == fabric->maxhops_discovered)
 			dist = MAXHOPS;	/* skip to CAs */
 		else
 			dist++;
 	}
 
-	fabric->fabric.chassis = fabric->first_chassis;
+	fabric->chassis = fabric->first_chassis;
 	return (0);
 }

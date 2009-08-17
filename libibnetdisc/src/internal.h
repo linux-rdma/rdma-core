@@ -40,8 +40,6 @@
 
 #include <infiniband/ibnetdisc.h>
 
-#define MAXHOPS		63
-
 #define	IBND_DEBUG(fmt, ...) \
 	if (ibdebug) { \
 		printf("%s:%u; " fmt, __FILE__, __LINE__, ## __VA_ARGS__); \
@@ -51,24 +49,5 @@
 
 /* HASH table defines */
 #define HASHGUID(guid) ((uint32_t)(((uint32_t)(guid) * 101) ^ ((uint32_t)((guid) >> 32) * 103)))
-#define HTSZ 137
-
-struct ibnd_fabric {
-	/* This member MUST BE FIRST */
-	ibnd_fabric_t fabric;
-
-	/* internal use only */
-	ibnd_node_t *nodestbl[HTSZ];
-	ibnd_port_t *portstbl[HTSZ];
-	ibnd_node_t *nodesdist[MAXHOPS + 1];
-	ibnd_chassis_t *first_chassis;
-	ibnd_chassis_t *current_chassis;
-	ibnd_chassis_t *last_chassis;
-	ibnd_node_t *switches;
-	ibnd_node_t *ch_adapters;
-	ibnd_node_t *routers;
-	ib_portid_t selfportid;
-};
-#define CONV_FABRIC_INTERNAL(fabric) ((struct ibnd_fabric *)fabric)
 
 #endif				/* _INTERNAL_H_ */
