@@ -617,7 +617,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 				if (get_port_info(ibmad_port, fabric,
 						  &port_buf, i, path)) {
 					IBND_ERROR
-					    ("can't reach node %s port %d",
+					    ("can't reach node %s port %d\n",
 					     portid2str(path), i);
 					continue;
 				}
