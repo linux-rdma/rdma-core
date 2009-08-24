@@ -8,6 +8,11 @@ AM_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE(libibverbs, 1.1.2)
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
+dnl Checks for programs
+AC_PROG_CC
+AC_GNU_SOURCE
+AC_PROG_LN_S
+
 AM_PROG_LIBTOOL
 
 AC_ARG_WITH([valgrind],
@@ -22,10 +27,6 @@ else
         CPPFLAGS="$CPPFLAGS -I$with_valgrind/include"
     fi
 fi
-
-dnl Checks for programs
-AC_PROG_CC
-AC_PROG_LN_S
 
 dnl Checks for libraries
 AC_CHECK_LIB(dl, dlsym, [],

@@ -2,7 +2,7 @@ INCLUDES = -I$(srcdir)/include
 
 lib_LTLIBRARIES = src/libibverbs.la
 
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+AM_CFLAGS = -g -Wall
 
 src_libibverbs_la_CFLAGS = $(AM_CFLAGS) -DIBV_CONFIG_DIR=\"$(sysconfdir)/libibverbs.d\"
 
