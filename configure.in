@@ -66,6 +66,5 @@ if test $ac_cv_asm_symver_support = yes; then
     AC_DEFINE([HAVE_SYMVER_SUPPORT], 1, [assembler has .symver support])
 fi
 
-SHAVE_INIT([], [enable])
-AC_CONFIG_FILES([Makefile libibverbs.spec shave shave-libtool])
+AC_CONFIG_FILES([Makefile libibverbs.spec])
 AC_OUTPUT
