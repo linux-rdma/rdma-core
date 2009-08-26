@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
+ * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -400,6 +401,7 @@ enum MAD_FIELDS {
 	IB_SW_FILTER_RAW_INB_F,
 	IB_SW_FILTER_RAW_OUTB_F,
 	IB_SW_ENHANCED_PORT0_F,
+	IB_SW_MCAST_FDB_TOP_F,
 	IB_SW_LAST_F,
 
 	/*

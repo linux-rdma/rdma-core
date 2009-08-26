@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
+ * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -206,6 +207,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(130, 1), "FilterRawInbound", mad_dump_uint},
 	{BITSOFFS(131, 1), "FilterRawOutbound", mad_dump_uint},
 	{BITSOFFS(132, 1), "EnhancedPort0", mad_dump_uint},
+	{BITSOFFS(144, 16), "MulticastFDBTop", mad_dump_hex},
 	{0, 0},			/* IB_SW_LAST_F */
 
 	/*
