@@ -175,6 +175,16 @@ static int add_port_to_dpath(ib_dr_path_t * path, int nextport)
 	return path->cnt;
 }
 
+static int retract_dpath(ib_portid_t * path)
+{
+	path->drpath.cnt--;	/* restore path */
+	if (path->drpath.cnt == 0 && path->lid) {
+		/* return to lid based routing on this path */
+		path->drpath.drslid = 0;
+		path->drpath.drdlid = 0;
+	}
+}
+
 static int extend_dpath(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
 			ib_portid_t * portid, int nextport)
 {
@@ -502,7 +512,7 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	if (query_node(ibmad_port, fabric, &node_buf, &port_buf, path)) {
 		IBND_ERROR("Query remote node (%s) failed, skipping port\n",
 			   portid2str(path));
-		path->drpath.cnt--;	/* restore path */
+		retract_dpath(path);
 		return 1;	/* positive == non-fatal error */
 	}
 
@@ -530,7 +540,7 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	link_ports(node, port, remotenode, remoteport);
 
 error:
-	path->drpath.cnt--;	/* restore path */
+	retract_dpath(path);
 	return (rc);
 }
 
