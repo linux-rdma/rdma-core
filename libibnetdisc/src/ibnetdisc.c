@@ -590,13 +590,15 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	if (!port)
 		goto error;
 
-	rc = get_remote_node(ibmad_port, fabric, node, port, from,
-			     mad_get_field(node->info, 0,
-					   IB_NODE_LOCAL_PORT_F), 0);
-	if (rc < 0)
-		goto error;
-	if (rc > 0)		/* non-fatal error, nothing more to be done */
-		return ((ibnd_fabric_t *) fabric);
+	if (node->type != IB_NODE_SWITCH) {
+		rc = get_remote_node(ibmad_port, fabric, node, port, from,
+				     mad_get_field(node->info, 0,
+						   IB_NODE_LOCAL_PORT_F), 0);
+		if (rc < 0)
+			goto error;
+		if (rc > 0)		/* non-fatal error, nothing more to be done */
+			return ((ibnd_fabric_t *) fabric);
+	}
 
 	for (dist = 0; dist <= max_hops; dist++) {
 
