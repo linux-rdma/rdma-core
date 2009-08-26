@@ -5,7 +5,7 @@ INCLUDES = -I$(srcdir)/include/infiniband -I$(includedir)
 
 man_MANS = man/umad_debug.3 man/umad_get_ca.3 \
 	   man/umad_get_ca_portguids.3 man/umad_get_cas_names.3 \
-	   man/umad_get_mad.3 man/umad_get_port.3 man/umad_init.3 \
+	   man/umad_get_port.3 man/umad_init.3 \
 	   man/umad_open_port.3 man/umad_close_port.3 man/umad_size.3 \
 	   man/umad_status.3 man/umad_alloc.3 man/umad_free.3 \
 	   man/umad_dump.3 man/umad_addr_dump.3 man/umad_get_fd.3 \
