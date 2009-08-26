@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004-2008 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -277,8 +278,8 @@ static void output_aggregate_perfcounters_ext(ib_portid_t * portid)
 
 	mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
 
-	printf("# Port counters: %s port %d\n%s", portid2str(portid), ALL_PORTS,
-	       buf);
+	printf("# Port extended counters: %s port %d\n%s", portid2str(portid),
+	       ALL_PORTS, buf);
 }
 
 static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
@@ -291,7 +292,8 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 				   IB_GSI_PORT_COUNTERS, srcport))
 			IBERROR("perfquery");
 		if (!(cap_mask & 0x1000)) {
-			/* if PortCounters:PortXmitWait not suppported clear this counter */
+			/* if PortCounters:PortXmitWait not supported clear this counter */
+			IBWARN("PortXmitWait not indicated so ignore this counter");
 			perf_count.xmtwait = 0;
 			mad_encode_field(pc, IB_PC_XMT_WAIT_F,
 					 &perf_count.xmtwait);
@@ -316,9 +318,14 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 						  sizeof pc);
 	}
 
-	if (!aggregate)
-		printf("# Port counters: %s port %d\n%s", portid2str(portid),
-		       port, buf);
+	if (!aggregate) {
+		if (extended)
+			printf("# Port extended counters: %s port %d\n%s",
+			       portid2str(portid), port, buf);
+		else
+			printf("# Port counters: %s port %d\n%s",
+			       portid2str(portid), port, buf);
+	}
 }
 
 static void reset_counters(int extended, int timeout, int mask,
@@ -421,9 +428,8 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[4] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS,
-		IB_PERFORMANCE_CLASS
-	};
+	int mgmt_classes[4] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS,
+			       IB_PERFORMANCE_CLASS};
 	ib_portid_t portid = { 0 };
 	int mask = 0xffff;
 	uint16_t cap_mask;
@@ -553,7 +559,6 @@ int main(int argc, char **argv)
 		goto done;
 
 do_reset:
-
 	if (argc <= 2 && !extended && (cap_mask & 0x1000))
 		mask |= (1 << 16);	/* reset portxmitwait */
 
