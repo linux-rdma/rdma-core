@@ -175,7 +175,7 @@ static int add_port_to_dpath(ib_dr_path_t * path, int nextport)
 	return path->cnt;
 }
 
-static int retract_dpath(ib_portid_t * path)
+static void retract_dpath(ib_portid_t * path)
 {
 	path->drpath.cnt--;	/* restore path */
 	if (path->drpath.cnt == 0 && path->lid) {
