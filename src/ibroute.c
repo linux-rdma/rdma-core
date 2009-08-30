@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2008 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -140,16 +141,24 @@ char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 	char *s;
 	uint64_t nodeguid;
 	uint32_t mod;
-	unsigned block, i, j, e, nports, cap, chunks, startblock, lastblock;
+	unsigned block, i, j, e, nports, cap, chunks, startblock, lastblock,
+		 top;
 	int n = 0;
 
 	if ((s = check_switch(portid, &nports, &nodeguid, sw, nd)))
 		return s;
 
 	mad_decode_field(sw, IB_SW_MCAST_FDB_CAP_F, &cap);
+	mad_decode_field(sw, IB_SW_MCAST_FDB_TOP_F, &top);
 
 	if (!endlid || endlid > IB_MIN_MCAST_LID + cap - 1)
 		endlid = IB_MIN_MCAST_LID + cap - 1;
+	if (!dump_all && top && top < endlid) {
+		if (top < IB_MIN_MCAST_LID - 1)
+			IBWARN("illegal top mlid %x", top);
+		else
+			endlid = top;
+	}
 
 	if (!startlid)
 		startlid = IB_MIN_MCAST_LID;
@@ -187,7 +196,8 @@ char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 		printf(" MLid\n");
 	}
 	if (ibverbose)
-		printf("Switch multicast mlid capability is %d\n", cap);
+		printf("Switch multicast mlid capability is %d top is 0x%x\n",
+		       cap, top);
 
 	chunks = ALIGN(nports + 1, 16) / 16;
 
