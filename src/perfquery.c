@@ -293,7 +293,8 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 			IBERROR("perfquery");
 		if (!(cap_mask & 0x1000)) {
 			/* if PortCounters:PortXmitWait not supported clear this counter */
-			IBWARN("PortXmitWait not indicated so ignore this counter");
+			IBWARN
+			    ("PortXmitWait not indicated so ignore this counter");
 			perf_count.xmtwait = 0;
 			mad_encode_field(pc, IB_PC_XMT_WAIT_F,
 					 &perf_count.xmtwait);
@@ -428,8 +429,9 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[4] = {IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS,
-			       IB_PERFORMANCE_CLASS};
+	int mgmt_classes[4] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS,
+		IB_PERFORMANCE_CLASS
+	};
 	ib_portid_t portid = { 0 };
 	int mask = 0xffff;
 	uint16_t cap_mask;
