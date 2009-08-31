@@ -162,8 +162,7 @@ char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 
 	if (!startlid)
 		startlid = IB_MIN_MCAST_LID;
-
-	if (startlid < IB_MIN_MCAST_LID) {
+	else if (startlid < IB_MIN_MCAST_LID) {
 		IBWARN("illegal start mlid %x, set to %x", startlid,
 		       IB_MIN_MCAST_LID);
 		startlid = IB_MIN_MCAST_LID;
