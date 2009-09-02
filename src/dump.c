@@ -2,6 +2,7 @@
  * Copyright (c) 2004-2008 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -519,8 +520,14 @@ void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 	if (mask & (1 << 27))
 		s += sprintf(s,
 			     "\t\t\t\tIsLinkSpeedWidthPairsTableSupported\n");
+	if (mask & (1 << 28))
+		s += sprintf(s, "\t\t\t\tIsVendorSpecificMadsTableSupported\n");
+	if (mask & (1 << 29))
+		s += sprintf(s, "\t\t\t\tIsiMcastPkeyTrapSuppressionSupported\n");
 	if (mask & (1 << 30))
 		s += sprintf(s, "\t\t\t\tIsMulticastFDBTopSupported\n");
+	if (mask & (1 << 31))
+		s += sprintf(s, "\t\t\t\tIsHierarchyInfoSupported\n");
 
 	if (s != buf)
 		*(--s) = 0;
