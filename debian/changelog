@@ -1,10 +1,10 @@
 libibverbs (1.1.2-2) unstable; urgency=low
 
   * Move -dbg package to section debug.
-  * Update to Standards-Version: 3.8.2.
+  * Update to Standards-Version: 3.8.3 (no changes needed).
   * Change build system from cdbs to debhelper 7.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 02 Sep 2009 12:09:23 -0700
+ -- Roland Dreier <rolandd@cisco.com>  Wed, 02 Sep 2009 12:13:36 -0700
 
 libibverbs (1.1.2-1) unstable; urgency=low
 
