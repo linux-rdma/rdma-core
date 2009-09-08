@@ -204,6 +204,7 @@ int main(int argc, char **argv)
 	int err;
 	int port_op = 0;	/* default to query */
 	int speed = 15;
+	int new_width = 255;
 	int is_switch = 1;
 	int state, physstate, lwe, lws, lwa, lse, lss, lsa;
 	int peerlocalportnum, peerlwe, peerlws, peerlwa, peerlse, peerlss,
@@ -216,13 +217,14 @@ int main(int argc, char **argv)
 	int selfport = 0;
 
 	char usage_args[] = "<dest dr_path|lid|guid> <portnum> [<op>]\n"
-	    "\nSupported ops: enable, disable, reset, speed, query";
+	    "\nSupported ops: enable, disable, reset, speed, width, query";
 	const char *usage_examples[] = {
 		"3 1 disable\t\t\t# by lid",
 		"-G 0x2C9000100D051 1 enable\t# by guid",
 		"-D 0 1\t\t\t# (query) by direct route",
 		"3 1 reset\t\t\t# by lid",
 		"3 1 speed 1\t\t\t# by lid",
+		"3 1 width 1\t\t\t# by lid",
 		NULL
 	};
 
@@ -263,6 +265,15 @@ int main(int argc, char **argv)
 			speed = strtoul(argv[3], 0, 0);
 			if (speed > 15)
 				IBERROR("invalid speed value %d", speed);
+		} else if (!strcmp(argv[2], "width")) {
+			if (argc < 4)
+				IBERROR
+				    ("width requires an additional parameter");
+			port_op = 5;
+			/* Parse width value */
+			new_width = strtoul(argv[3], 0, 0);
+			if (new_width > 255)
+				IBERROR("invalid width value %d", new_width);
 		}
 	}
 
@@ -296,6 +307,11 @@ int main(int argc, char **argv)
 		} else if (port_op == 4) {	/* Set speed */
 			mad_set_field(data, 0, IB_PORT_LINK_SPEED_ENABLED_F,
 				      speed);
+			mad_set_field(data, 0, IB_PORT_STATE_F, 0);
+			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);
+		} else if (port_op == 5) {	/* Set width */
+			mad_set_field(data, 0, IB_PORT_LINK_WIDTH_ENABLED_F,
+				      new_width);
 			mad_set_field(data, 0, IB_PORT_STATE_F, 0);
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);
 		}

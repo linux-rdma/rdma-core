@@ -1,4 +1,4 @@
-.TH IBPORTSTATE 8 "October 19, 2006" "OpenIB" "OpenIB Diagnostics"
+.TH IBPORTSTATE 8 "September 8, 2009" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibportstate \- handle port (physical) state and link speed of an InfiniBand port
@@ -23,16 +23,19 @@ also allows the link speed enabled on any IB port to be adjusted.
 .TP
 op
 Port operations allowed
- supported ops: enable, disable, reset, speed, query
+ supported ops: enable, disable, reset, speed, width, query
  Default is query
 .PP
  ops enable, disable, and reset are only allowed on switch ports
  (An error is indicated if attempted on CA or router ports)
- speed op is allowed on any port
+ speed and width ops are allowed on any port
  speed values are legal values for PortInfo:LinkSpeedEnabled
  (An error is indicated if PortInfo:LinkSpeedSupported does not support
   this setting)
- (NOTE: Speed changes are not effected until the port goes through
+ width valyes are legal values for PortInfo:LinkWidthEnabled
+ (An error is indicated if PortInfo:LinkWidthSupported does not support
+  this setting)
+ (NOTE: Speed and width changes are not effected until the port goes through
   link renegotiation)
  query also validates port characteristics (link width and speed)
   based on the peer port. This checking is done when the port
@@ -108,8 +111,10 @@ ibportstate -D 0 1                      # (query) by direct route
 ibportstate 3 1 reset				# by lid
 .PP
 ibportstate 3 1 speed 1				# by lid
+.PP
+ibportstate 3 1 width 1				# by lid
 
 .SH AUTHOR
 .TP
 Hal Rosenstock
-.RI < halr@voltaire.com >
+.RI < hal.rosenstock@gmail.com >
