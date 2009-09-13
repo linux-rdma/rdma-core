@@ -204,7 +204,6 @@ int main(int argc, char **argv)
 	int err;
 	int port_op = 0;	/* default to query */
 	int speed = 15;
-	int new_width = 255;
 	int is_switch = 1;
 	int state, physstate, lwe, lws, lwa, lse, lss, lsa;
 	int peerlocalportnum, peerlwe, peerlws, peerlwa, peerlse, peerlss,
@@ -271,9 +270,9 @@ int main(int argc, char **argv)
 				    ("width requires an additional parameter");
 			port_op = 5;
 			/* Parse width value */
-			new_width = strtoul(argv[3], 0, 0);
-			if (new_width > 255)
-				IBERROR("invalid width value %d", new_width);
+			width = strtoul(argv[3], 0, 0);
+			if (width > 15 && width != 255)
+				IBERROR("invalid width value %d", width);
 		}
 	}
 
@@ -311,7 +310,7 @@ int main(int argc, char **argv)
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);
 		} else if (port_op == 5) {	/* Set width */
 			mad_set_field(data, 0, IB_PORT_LINK_WIDTH_ENABLED_F,
-				      new_width);
+				      width);
 			mad_set_field(data, 0, IB_PORT_STATE_F, 0);
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);
 		}

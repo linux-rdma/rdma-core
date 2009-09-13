@@ -15,7 +15,7 @@ ibportstate allows the port state and port physical state of an IB port
 to be queried (in addition to link width and speed being validated
 relative to the peer port when the port queried is a switch port),
 or a switch port to be disabled, enabled, or reset. It
-also allows the link speed enabled on any IB port to be adjusted.
+also allows the link speed/width enabled on any IB port to be adjusted.
 
 .SH OPTIONS
 
@@ -32,7 +32,7 @@ Port operations allowed
  speed values are legal values for PortInfo:LinkSpeedEnabled
  (An error is indicated if PortInfo:LinkSpeedSupported does not support
   this setting)
- width valyes are legal values for PortInfo:LinkWidthEnabled
+ width values are legal values for PortInfo:LinkWidthEnabled
  (An error is indicated if PortInfo:LinkWidthSupported does not support
   this setting)
  (NOTE: Speed and width changes are not effected until the port goes through
