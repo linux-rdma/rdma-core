@@ -226,6 +226,7 @@ void out_switch(ibnd_node_t * node, int group, char *chname)
 	fprintf(f, "(%" PRIx64 ")",
 		mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F));
 	if (group) {
+		fprintf(f, "\t# ");
 		str = ibnd_get_chassis_type(node);
 		if (str)
 			fprintf(f, "%s ", str);
