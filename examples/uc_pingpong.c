@@ -546,6 +546,7 @@ int main(int argc, char *argv[])
 				usage(argv[0]);
 				return 1;
 			}
+			break;
 
 		case 'r':
 			rx_depth = strtol(optarg, NULL, 0);
