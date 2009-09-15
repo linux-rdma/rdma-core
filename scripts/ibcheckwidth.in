@@ -77,7 +77,7 @@ BEGIN {
 function check_node(lid)
 {
 	nodechecked=1
-	if (system("'$IBPATH'/ibchecknode'"$ca_info"' '$gflags' '$verbose' " lid)) {
+	if (system("'$IBPATH'/ibchecknode '"$ca_info"' '$gflags' '$verbose' " lid)) {
 		ne++
 		badnode=1
 		return
@@ -113,7 +113,7 @@ function check_node(lid)
 		}
 		sub("\\(.*\\)", "", port)
 		gsub("[\\[\\]]", "", port)
-		if (system("'$IBPATH'/ibcheckportwidth'"$ca_info"' '$gflags' '$verbose' " lid " " port)) {
+		if (system("'$IBPATH'/ibcheckportwidth '"$ca_info"' '$gflags' '$verbose' " lid " " port)) {
 			if (!'$v' && oldlid != lid) {
 				print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
 				oldlid = lid

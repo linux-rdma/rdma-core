@@ -349,7 +349,7 @@ int main(int argc, char **argv)
 			    get_port_info(&peerportid, data, peerlocalportnum,
 					  port_op);
 			if (err < 0)
-				IBERROR("smp query peer portinfofailed");
+				IBERROR("smp query peer portinfo failed");
 
 			mad_decode_field(data, IB_PORT_LINK_WIDTH_ENABLED_F,
 					 &peerlwe);
