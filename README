@@ -1,0 +1,12 @@
+This README is for userspace IB CM assistant library.
+
+
+Building
+========
+To make this directory, run:
+./autogen.sh && ./configure && make && make install
+
+Typically the autogen and configure steps only need be done the first
+time unless configure.in or Makefile.am changes.
+
+Libraries are installed by default at /usr/local/lib.

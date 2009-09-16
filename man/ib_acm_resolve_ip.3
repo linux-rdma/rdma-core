@@ -1,0 +1,40 @@
+.TH "IB_ACM_RESOLVE_IP" 3 "2009-09-09" "libibacm" "Libibacm Programmer's Manual" libibacm
+.SH NAME
+ib_acm_resolve_ip \- Resolve path data between the specified addresses.
+.SH SYNOPSIS
+.B "#include <infiniband/ib_acm.h>"
+.P
+.B "int" ib_acm_resolve_ip
+.BI "(struct sockaddr *" src ","
+.BI "struct sockaddr *" dest ","
+.BI	"struct ib_acm_dev_addr *" dev_addr ","
+.BI "struct ibv_ah_attr *" ah ","
+.BI	"struct ib_acm_resolve_data *" data ");"
+.SH ARGUMENTS
+.IP "src" 12
+Source address.
+.IP "dest" 12
+Destination address.
+.IP "dev_addr" 12
+On success, local IB device address information.  This includes the
+local device GUID, port number, and pkey index to use for communication.
+.IP "ah" 12
+On success, address handle attributes to send to the destination.  The
+address handle attributes may be used to configure a connected QP or
+create an address handle for datagram traffic.
+.IP "data" 12
+On success, additional route and endpoint information.  This includes
+the MTU, packet lifetime, and maximum initiator depth and responder
+resources information usable between the end points.
+.SH "DESCRIPTION"
+Discover path information, including identifying the local device,
+between the given the source and destination addresses.
+.SH "NOTES"
+The source and destination addresses should match entries in acm_addr.cfg
+configuration files on their respective systems.  Typically, the
+source and destination addresses will refer to IP addresses assigned
+to an IPoIB instance.
+.SH "SEE ALSO"
+ib_acm_resolve_name(3), ib_acm_resolve_path(3), ib_acm_query_path(3),
+ib_acm_convert_to_path(3), ib_acm(7)
+

@@ -1,0 +1,36 @@
+TARGETNAME = ib_acme
+TARGETPATH = ..\..\..\..\bin\user\obj$(BUILD_ALT_DIR)
+TARGETTYPE = PROGRAM
+
+UMTYPE = console
+UMENTRY = main
+
+USE_MSVCRT = 1
+USE_STL = 1
+USE_NATIVE_EH = 1
+USE_IOSTREAM = 1
+
+SOURCES = ..\acme_windows.c
+	
+INCLUDES = ..;..\..\include;..\..\..\..\inc;..\..\..\..\inc\user;\
+		   ..\..\..\libibverbs\include;..\..\..\librdmacm\include;\
+		   ..\..\..\..\inc\user\linux;
+
+TARGETLIBS =						\
+	$(SDK_LIB_PATH)\kernel32.lib	\
+	$(SDK_LIB_PATH)\advapi32.lib	\
+	$(SDK_LIB_PATH)\user32.lib		\
+	$(SDK_LIB_PATH)\ole32.lib		\
+	$(SDK_LIB_PATH)\ws2_32.lib		\
+!if $(FREEBUILD)
+	$(TARGETPATH)\*\libibverbs.lib	\
+	$(TARGETPATH)\*\librdmacm.lib	\
+	$(TARGETPATH)\*\libibacm.lib	\
+	$(TARGETPATH)\*\winverbs.lib
+!else
+	$(TARGETPATH)\*\libibverbsd.lib	\
+	$(TARGETPATH)\*\librdmacmd.lib	\
+	$(TARGETPATH)\*\libibacmd.lib	\
+	$(TARGETPATH)\*\winverbsd.lib
+!endif
+

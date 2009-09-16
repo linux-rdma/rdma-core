@@ -1,0 +1,25 @@
+.TH "IB_ACM_CONVERT_TO_PATH" 3 "2009-09-09" "libibacm" "Libibacm Programmer's Manual" libibacm
+.SH NAME
+ib_acm_convert_to_path \- Convert resolved path data to a path record.
+.SH SYNOPSIS
+.B "#include <infiniband/ib_acm.h>"
+.P
+.B "int" ib_acm_convert_to_path
+.BI "(struct ib_acm_dev_addr *" dev_addr ","
+.BI "struct ibv_ah_attr *" ah ","
+.BI	"struct ib_acm_resolve_data *" data ","
+.BI "struct ib_path_record *" path ");"
+.SH ARGUMENTS
+.IP "dev_addr" 12
+Local IB device address information.
+.IP "ah" 12
+Address handle attributes to send to the destination.
+.IP "data" 12
+Additional route and endpoint information.
+.SH "DESCRIPTION"
+Converts path information obtained from ib_acm_resolve_ip or ib_acm_resolve_name
+to the format of an IB path record.
+.SH "SEE ALSO"
+ib_acm_resolve_name(3), ib_acm_resolve_ip(3), ib_acm_resolve_path(3),
+ib_acm_query_path(3), ib_acm(7)
+

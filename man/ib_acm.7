@@ -1,0 +1,34 @@
+.TH "IB_ACM" 7 "2009-09-09" "IB_ACM" "IB ACM User Guide" IB_ACM
+.SH NAME
+ib_acm \- InfiniBand communication management assistant
+.SH SYNOPSIS
+.B "#include <infiniband/ib_acm.h>"
+.SH "DESCRIPTION"
+Used to resolve remote endpoint information before establishing communications
+over InfiniBand.
+.SH "NOTES"
+Th IB ACM provides scalable address and route resolution services over
+InfiniBand.  It resolves system network names and IP addresses to InfiniBand
+path record data using efficient mechanisms, including caching of data.
+.P
+The IB ACM provides information needed to establish a connection, but does
+not implement the communication management protocol.  It provides services
+similar to getaddrinfo, rdma_resolve_addr, and rdma_resolve_route using
+IB multicast.
+The IB ACM does not require IPoIB or use standard naming services, such as
+DNS, and limits network communication, especially with the IB SA.
+Because it uses multicast traffic and limits SA interaction, it may
+not support all cluster configurations.  The ib_acme utility assists in
+verifying what options of the ib_acm service may be usable.
+.P
+Client interactions with the ib_acm service are done over sockets through
+a standard TCP connection.  The libibacm abstracts this interaction with
+a simple set of interfaces.
+.SH "RETURN CODES"
+.IP "== 0"
+success
+.IP "!= 0"
+error
+.SH "SEE ALSO"
+ib_acm_resolve_ip(3), ib_acm_resolve_name(3), ib_acm_resolve_path(3),
+ib_acm_query_path(3), ib_acm_convert_to_path(3), ib_acme(1), ib_acm(1)

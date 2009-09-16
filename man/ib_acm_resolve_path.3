@@ -1,0 +1,24 @@
+.TH "IB_ACM_RESOLVE_PATH" 3 "2009-09-09" "libibacm" "Libibacm Programmer's Manual" libibacm
+.SH NAME
+ib_acm_resolve_path \- Resolve path data meeting specified restrictions.
+.SH SYNOPSIS
+.B "#include <infiniband/ib_acm.h>"
+.P
+.B "int" ib_acm_resolve_name
+.BI "(struct ib_path_record *" path ");"
+.SH ARGUMENTS
+.IP "path" 12
+On input, provides path information used to restrict path resolution.  On
+output, contains the full path record.
+.SH "DESCRIPTION"
+Discover path information using the provided path record to
+restrict the discovery.
+.SH "NOTES"
+Uses the provided path record as input into an query for path
+information.  If successful, fills in any missing information.  The
+caller must provide at least the source and destination LIDs as input.
+The returned path record may come from cached data.
+.SH "SEE ALSO"
+ib_acm_resolve_name(3), ib_acm_resolve_ip(3), ib_acm_query_path(3),
+ib_acm_convert_to_path(3), ib_acm(7)
+

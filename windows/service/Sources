@@ -1,0 +1,31 @@
+TARGETNAME = ib_acm
+TARGETPATH = ..\..\..\..\bin\user\obj$(BUILD_ALT_DIR)
+TARGETTYPE = PROGRAM
+
+UMTYPE = console
+UMENTRY = main
+
+USE_MSVCRT = 1
+USE_STL = 1
+USE_NATIVE_EH = 1
+USE_IOSTREAM = 1
+
+SOURCES = ..\acm_windows.c
+
+INCLUDES = ..;..\..\include;..\..\..\..\inc;..\..\..\..\inc\user;\
+		   ..\..\..\..\inc\iba;..\..\..\libibverbs\include;\
+		   ..\..\..\libibumad\include;..\..\..\..\inc\user\linux
+
+TARGETLIBS = \
+	$(SDK_LIB_PATH)\kernel32.lib	\
+	$(SDK_LIB_PATH)\ws2_32.lib		\
+	$(SDK_LIB_PATH)\iphlpapi.lib	\
+!if $(FREEBUILD)
+	$(TARGETPATH)\*\libibverbs.lib	\
+	$(TARGETPATH)\*\libibumad.lib	\
+	$(TARGETPATH)\*\complib.lib
+!else
+	$(TARGETPATH)\*\libibverbsd.lib	\
+	$(TARGETPATH)\*\libibumadd.lib	\
+	$(TARGETPATH)\*\complibd.lib
+!endif

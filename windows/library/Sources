@@ -1,0 +1,32 @@
+!if $(FREEBUILD)
+TARGETNAME = libibacm
+!else
+TARGETNAME = libibacmd
+!endif
+
+TARGETPATH = ..\..\..\..\bin\user\obj$(BUILD_ALT_DIR)
+TARGETTYPE = DYNLINK
+
+!if $(_NT_TOOLS_VERSION) == 0x700
+DLLDEF = $O\acm_exports.def
+!else
+DLLDEF = $(OBJ_PATH)\$O\libacm_exports.def
+!endif
+
+DLLENTRY = DllMain
+USE_MSVCRT = 1
+
+SOURCES = ..\libacm_windows.c
+
+INCLUDES = ..;..\..\include;..\..\..\..\inc;..\..\..\..\inc\user;\
+		   ..\..\..\libibverbs\include;
+		   
+TARGETLIBS = \
+	$(SDK_LIB_PATH)\kernel32.lib	\
+	$(SDK_LIB_PATH)\ws2_32.lib		\
+	$(SDK_LIB_PATH)\iphlpapi.lib	\
+!if $(FREEBUILD)
+	$(TARGETPATH)\*\libibverbs.lib
+!else
+	$(TARGETPATH)\*\libibverbsd.lib
+!endif

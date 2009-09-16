@@ -1,0 +1,20 @@
+.TH "ib_acm" 1 "2009-09-09" "ib_acm" "ib_acm" ib_acm
+.SH NAME
+ib_acm \- address and route resolution services for InfiniBand.
+.SH SYNOPSIS
+.sp
+.nf
+\fIib_acm\fR
+.fi
+.SH "DESCRIPTION"
+ib_acm provides address and route (path) resolution services
+over Infiniband.  It resolves names and IP addresses and returns path
+information needed to communicate with a remote node.
+.SH "NOTES"
+The ib_acm application should actively run with administrative privileges on
+all nodes in a cluster.  This version of the ib_acm is for evaluation purposes
+only and is intended to assist with MPI application scaling.  See the
+acm_opts.cfg file included with the installation for details on available
+configuration options.
+.SH "SEE ALSO"
+ib_acm(7) ib_acme(1)
