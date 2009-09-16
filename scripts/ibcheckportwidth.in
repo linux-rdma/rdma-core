@@ -103,7 +103,7 @@ function blue(s)
 }
 
 # Only check LinkWidthActive if LinkWidthSupported is not 1X
-/^LinkWidthSupported/{ if ($2 != "1X") { next } }
+/^LinkWidthSupported/{ if ($2 == "1X") { exit } }
 /^LinkWidthActive/{ if ($2 == "1X") warn = warn "#warn: Link configured as 1X  lid '$lid' port '$portnum'\n"}
 
 /^ib/	{print $0; next}
