@@ -713,6 +713,7 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	nesuqp->sq_size = attr->cap.max_send_wr = sqdepth;
 	nesuqp->rq_size = attr->cap.max_recv_wr = rqdepth;
 
+	nesuqp->sq_sig_all = attr->sq_sig_all;
 	if (nesvctx->virtwq) {
 		status = nes_vmapped_qp(nesuqp,pd, attr,&resp,sqdepth,rqdepth);
 	}else {
@@ -1003,7 +1004,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			break;
 		}
 
-		if (ib_wr->send_flags & IBV_SEND_SIGNALED) {
+			if ((ib_wr->send_flags & IBV_SEND_SIGNALED) || nesuqp->sq_sig_all) {
 			/* fprintf(stderr, PFX "%s:sq wqe%u is signalled\n", __FUNCTION__, head); */
 			wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_SIGNALED_COMPL);
 		}

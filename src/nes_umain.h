@@ -275,6 +275,7 @@ struct nes_uqp {
 	uint16_t sq_head;
 	uint16_t sq_tail;
 	uint16_t sq_size;
+	uint16_t sq_sig_all;
 	uint16_t rq_db_index;
 	uint16_t rq_head;
 	uint16_t rq_tail;
