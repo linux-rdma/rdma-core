@@ -104,7 +104,7 @@ static struct ibv_context_ops nes_uctx_ops = {
 	.destroy_ah = nes_udestroy_ah,
 	.attach_mcast = nes_uattach_mcast,
 	.detach_mcast = nes_udetach_mcast,
-	.async_event = NULL
+	.async_event = nes_async_event
 };
 
 

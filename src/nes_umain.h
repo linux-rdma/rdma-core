@@ -199,6 +199,15 @@ enum nes_iwarp_sq_wqe_bits {
 	NES_IWARP_SQ_OP_NOP = 12,
 };
 
+enum nes_iwarp_cqe_major_code {
+	NES_IWARP_CQE_MAJOR_FLUSH = 1,
+	NES_IWARP_CQE_MAJOR_DRV = 0x8000
+};
+
+enum nes_iwarp_cqe_minor_code {
+	NES_IWARP_CQE_MINOR_FLUSH = 1
+};
+
 struct nes_hw_qp_wqe {
 	uint32_t wqe_words[32];
 };
@@ -257,6 +266,8 @@ struct nes_uqp {
 	struct nes_hw_qp_wqe volatile *sq_vbase;
 	struct nes_hw_qp_wqe volatile *rq_vbase;
 	uint32_t qp_id;
+	struct nes_ucq *send_cq;
+	struct nes_ucq *recv_cq;
 	struct	ibv_mr mr;
 	uint32_t nes_drv_opt;
 	pthread_spinlock_t lock;
@@ -269,6 +280,7 @@ struct nes_uqp {
 	uint16_t rq_tail;
 	uint16_t rq_size;
 	uint16_t mapping;
+	uint16_t qperr;
 	uint16_t rsvd;
 };
 
@@ -330,6 +342,7 @@ struct ibv_ah *nes_ucreate_ah(struct ibv_pd *, struct ibv_ah_attr *);
 int nes_udestroy_ah(struct ibv_ah *);
 int nes_uattach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
 int nes_udetach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
+void nes_async_event(struct ibv_async_event *event);
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 static inline uint32_t cpu_to_le32(uint32_t x)
