@@ -208,7 +208,7 @@ int main(int argc, char **argv)
 	int state, physstate, lwe, lws, lwa, lse, lss, lsa;
 	int peerlocalportnum, peerlwe, peerlws, peerlwa, peerlse, peerlss,
 	    peerlsa;
-	int width, peerwidth, peerspeed;
+	int width = 255, peerwidth, peerspeed;
 	uint8_t data[IB_SMP_DATA_SIZE];
 	ib_portid_t peerportid = { 0 };
 	int portnum = 0;
