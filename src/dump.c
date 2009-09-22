@@ -523,7 +523,7 @@ void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 	if (mask & (1 << 28))
 		s += sprintf(s, "\t\t\t\tIsVendorSpecificMadsTableSupported\n");
 	if (mask & (1 << 29))
-		s += sprintf(s, "\t\t\t\tIsiMcastPkeyTrapSuppressionSupported\n");
+		s += sprintf(s, "\t\t\t\tIsMcastPkeyTrapSuppressionSupported\n");
 	if (mask & (1 << 30))
 		s += sprintf(s, "\t\t\t\tIsMulticastFDBTopSupported\n");
 	if (mask & (1 << 31))
