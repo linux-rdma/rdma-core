@@ -406,6 +406,9 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(520, 24), "TrapQP", mad_dump_hex},
 	{544, 32, "TrapQKey", mad_dump_hex},
 
+	/*
+	 * PortXmitDataSL fields
+	 */
 	{32, 32, "XmtDataSL0", mad_dump_uint},
 	{64, 32, "XmtDataSL1", mad_dump_uint},
 	{96, 32, "XmtDataSL2", mad_dump_uint},
@@ -424,6 +427,9 @@ static const ib_field_t ib_mad_f[] = {
 	{512, 32, "XmtDataSL15", mad_dump_uint},
 	{0, 0},			/* IB_PC_XMT_DATA_SL_LAST_F */
 
+	/*
+	 * PortRcvDataSL fields
+	 */
 	{32, 32, "RcvDataSL0", mad_dump_uint},
 	{64, 32, "RcvDataSL1", mad_dump_uint},
 	{96, 32, "RcvDataSL2", mad_dump_uint},
@@ -441,6 +447,15 @@ static const ib_field_t ib_mad_f[] = {
 	{480, 32, "RcvDataSL14", mad_dump_uint},
 	{512, 32, "RcvDataSL15", mad_dump_uint},
 	{0, 0},			/* IB_PC_RCV_DATA_SL_LAST_F */
+
+	/*
+	 * PortXmitDiscardDetails fields
+	 */
+	{32, 16, "PortInactiveDiscards", mad_dump_uint},
+	{48, 16, "PortNeighborMTUDiscards", mad_dump_uint},
+	{64, 16, "PortSwLifetimeLimitDiscards", mad_dump_uint},
+	{80, 16, "PortSwHOQLifetimeLimitDiscards", mad_dump_uint},
+	{0, 0},			/* IB_PC_XMT_DISC_LAST_F */
 
 	{0, 0}			/* IB_FIELD_LAST_ */
 

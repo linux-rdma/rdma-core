@@ -168,6 +168,7 @@ enum GSI_ATTR_ID {
 	IB_GSI_PORT_SAMPLES_CONTROL = 0x10,
 	IB_GSI_PORT_SAMPLES_RESULT = 0x11,
 	IB_GSI_PORT_COUNTERS = 0x12,
+	IB_GSI_PORT_XMIT_DISCARD_DETAILS = 0x16,
 	IB_GSI_PORT_COUNTERS_EXT = 0x1D,
 	IB_GSI_PORT_XMIT_DATA_SL = 0x36,
 	IB_GSI_PORT_RCV_DATA_SL = 0x37,
@@ -604,6 +605,9 @@ enum MAD_FIELDS {
 	IB_CPI_TRAP_QP_F,
 	IB_CPI_TRAP_QKEY_F,
 
+	/*
+	 * PortXmitDataSL fields
+	 */
 	IB_PC_XMT_DATA_SL_FIRST_F,
 	IB_PC_XMT_DATA_SL0_F = IB_PC_XMT_DATA_SL_FIRST_F,
 	IB_PC_XMT_DATA_SL1_F,
@@ -623,6 +627,9 @@ enum MAD_FIELDS {
 	IB_PC_XMT_DATA_SL15_F,
 	IB_PC_XMT_DATA_SL_LAST_F,
 
+	/*
+	 * PortRcvDataSL fields
+	 */
 	IB_PC_RCV_DATA_SL_FIRST_F,
 	IB_PC_RCV_DATA_SL0_F = IB_PC_RCV_DATA_SL_FIRST_F,
 	IB_PC_RCV_DATA_SL1_F,
@@ -641,6 +648,15 @@ enum MAD_FIELDS {
 	IB_PC_RCV_DATA_SL14_F,
 	IB_PC_RCV_DATA_SL15_F,
 	IB_PC_RCV_DATA_SL_LAST_F,
+
+	/*
+	 * PortXmitDiscardDetails fields
+	 */
+	IB_PC_XMT_INACT_DISC_F,
+	IB_PC_XMT_NEIGH_MTU_DISC_F,
+	IB_PC_XMT_SW_LIFE_DISC_F,
+	IB_PC_XMT_SW_HOL_DISC_F,
+	IB_PC_XMT_DISC_LAST_F,
 
 	IB_FIELD_LAST_		/* must be last */
 };
@@ -963,7 +979,8 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_node_type, mad_dump_sltovl, mad_dump_vlarbitration,
     mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo,
     mad_dump_switchinfo, mad_dump_perfcounters, mad_dump_perfcounters_ext,
-    mad_dump_perfcounters_xmt_sl, mad_dump_perfcounters_rcv_sl;
+    mad_dump_perfcounters_xmt_sl, mad_dump_perfcounters_rcv_sl,
+    mad_dump_perfcounters_xmt_disc;
 
 MAD_EXPORT int ibdebug;
 
