@@ -59,12 +59,17 @@ static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 int data_counters = 0;
 int port_config = 0;
-uint64_t switch_guid = 0;
-char *switch_guid_str = NULL;
+uint64_t node_guid = 0;
+char *node_guid_str = NULL;
 int sup_total = 0;
 enum MAD_FIELDS *suppressed_fields = NULL;
 char *dr_path = NULL;
-int all_nodes = 0;
+
+#define PRINT_ALL 0xFF /* all nodes default flag */
+uint8_t node_type_to_print = PRINT_ALL;
+#define PRINT_SWITCH 0x1
+#define PRINT_CA     0x2
+#define PRINT_ROUTER 0x4
 
 static unsigned int get_max(unsigned int num)
 {
@@ -304,8 +309,21 @@ void print_node(ibnd_node_t * node, void *user_data)
 	int header_printed = 0;
 	int p = 0;
 	int startport = 1;
+	int type = 0;
 
-	if (!all_nodes && node->type != IB_NODE_SWITCH)
+	switch (node->type) {
+	case IB_NODE_SWITCH:
+		type = PRINT_SWITCH;
+		break;
+	case IB_NODE_CA:
+		type = PRINT_CA;
+		break;
+	case IB_NODE_ROUTER:
+		type = PRINT_ROUTER;
+		break;
+	}
+
+	if ((type & node_type_to_print) == 0)
 		return;
 
 	if (node->type == IB_NODE_SWITCH && node->smaenhsp0)
@@ -361,11 +379,24 @@ static int process_opt(void *context, int ch, char *optarg)
 		data_counters++;
 		break;
 	case 3:
-		all_nodes++;
+		if (node_type_to_print == PRINT_ALL)
+			node_type_to_print = 0;
+		node_type_to_print |= PRINT_SWITCH;
 		break;
+	case 4:
+		if (node_type_to_print == PRINT_ALL)
+			node_type_to_print = 0;
+		node_type_to_print |= PRINT_CA;
+		break;
+	case 5:
+		if (node_type_to_print == PRINT_ALL)
+			node_type_to_print = 0;
+		node_type_to_print |= PRINT_ROUTER;
+		break;
+	case 'G':
 	case 'S':
-		switch_guid_str = optarg;
-		switch_guid = strtoull(optarg, 0, 0);
+		node_guid_str = optarg;
+		node_guid = strtoull(optarg, 0, 0);
 		break;
 	case 'D':
 		dr_path = strdup(optarg);
@@ -399,8 +430,9 @@ int main(int argc, char **argv)
 		{"suppress-common", 'c', 0, NULL,
 		 "suppress some of the common counters"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
-		{"switch", 'S', 1, "<switch_guid>",
-		 "query only <switch_guid> (hex format)"},
+		{"node-guid", 'G', 1, "<node_guid>", "query only <node_guid>"},
+		{"", 'S', 1, "<node_guid>",
+		 "Same as \"-G\" for backward compatibility"},
 		{"Direct", 'D', 1, "<dr_path>",
 		 "query only switch specified by <dr_path>"},
 		{"report-port", 'r', 0, NULL,
@@ -408,7 +440,9 @@ int main(int argc, char **argv)
 		{"GNDN", 'R', 0, NULL,
 		 "(This option is obsolete and does nothing)"},
 		{"data", 2, 0, NULL, "include the data counters in the output"},
-		{"all", 3, 0, NULL, "output all nodes (not just switches)"},
+		{"switch", 3, 0, NULL, "print data for switches only"},
+		{"ca", 4, 0, NULL, "print data for CA's only"},
+		{"router", 5, 0, NULL, "print data for routers only"},
 		{0}
 	};
 	char usage_args[] = "";
@@ -438,13 +472,13 @@ int main(int argc, char **argv)
 					       NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
 			       dr_path);
-	} else if (switch_guid_str) {
+	} else if (node_guid_str) {
 		if ((resolved =
-		     ib_resolve_portid_str_via(&portid, switch_guid_str,
-					       IB_DEST_GUID, NULL,
+		     ib_resolve_portid_str_via(&portid, node_guid_str,
+					       IB_DEST_GUID, ibd_sm_id,
 					       ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
-			       switch_guid_str);
+			       node_guid_str);
 	}
 
 	if (resolved >= 0)
@@ -463,13 +497,13 @@ int main(int argc, char **argv)
 
 	report_suppressed();
 
-	if (switch_guid_str) {
-		ibnd_node_t *node = ibnd_find_node_guid(fabric, switch_guid);
+	if (node_guid_str) {
+		ibnd_node_t *node = ibnd_find_node_guid(fabric, node_guid);
 		if (node)
 			print_node(node, NULL);
 		else
 			fprintf(stderr, "Failed to find node: %s\n",
-				switch_guid_str);
+				node_guid_str);
 	} else if (dr_path) {
 		ibnd_node_t *node = ibnd_find_node_dr(fabric, dr_path);
 		uint8_t ni[IB_SMP_DATA_SIZE];
@@ -477,9 +511,9 @@ int main(int argc, char **argv)
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
 				   ibd_timeout, ibmad_port))
 			return -1;
-		mad_decode_field(ni, IB_NODE_GUID_F, &(switch_guid));
+		mad_decode_field(ni, IB_NODE_GUID_F, &(node_guid));
 
-		node = ibnd_find_node_guid(fabric, switch_guid);
+		node = ibnd_find_node_guid(fabric, node_guid);
 		if (node)
 			print_node(node, NULL);
 		else
