@@ -1,4 +1,4 @@
-.TH PERFQUERY 8 "March 10, 2009" "OpenIB" "OpenIB Diagnostics"
+.TH PERFQUERY 8 "September 21, 2009" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 perfquery \- query InfiniBand port counters
@@ -6,6 +6,7 @@ perfquery \- query InfiniBand port counters
 .SH SYNOPSIS
 .B perfquery
 [\-d(ebug)] [\-G(uid)] [\-x|\-\-extended] [\-X|\-\-xmtsl] [\-S|\-\-rcvsl]
+[\-D|\-\-xmtdisc]
 [-a(ll_ports)] [-l(oop_ports)] [-r(eset_after_read)] [-R(eset_only)]
 [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)]
 [<lid|guid> [[port] [reset_mask]]]
@@ -37,6 +38,9 @@ show transmit data SL counter. This is an optional counter for QoS.
 .TP
 \fB\-S\fR, \fB\-\-rcvsl\fR
 show receive data SL counter. This is an optional counter for QoS.
+.TP
+\fB\-D\fR, \fB\-\-xmtdisc\fR
+show transmit discard details. This is an optional counter.
 .TP
 \fB\-a\fR, \fB\-\-all_ports\fR
 show aggregated counters for all ports of the destination lid

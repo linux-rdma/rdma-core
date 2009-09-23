@@ -344,7 +344,7 @@ static void reset_counters(int extended, int timeout, int mask,
 }
 
 static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl,
-    rcv_sl;
+    rcv_sl, xmt_disc;
 
 void xmt_sl_query(ib_portid_t * portid, int port, int mask)
 {
@@ -396,6 +396,33 @@ void rcv_sl_query(ib_portid_t * portid, int port, int mask)
 			IBERROR("perfslreset");
 }
 
+void xmt_disc_query(ib_portid_t * portid, int port, int mask)
+{
+	char buf[1024];
+
+	if (reset_only) {
+		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
+					   IB_GSI_PORT_XMIT_DISCARD_DETAILS,
+					   srcport))
+		IBERROR("xmtdiscreset");
+		return;
+	}
+
+	if (!pma_query_via(pc, portid, port, ibd_timeout,
+			   IB_GSI_PORT_XMIT_DISCARD_DETAILS, srcport))
+		IBERROR("xmtdiscquery");
+
+	mad_dump_perfcounters_xmt_disc(buf, sizeof buf, pc, sizeof pc);
+	printf("# PortXmitDiscardDetails: %s port %d\n%s", portid2str(portid),
+	       port, buf);
+
+	if (reset)
+		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
+					   IB_GSI_PORT_XMIT_DISCARD_DETAILS,
+					   srcport))
+			IBERROR("xmtdiscreset");
+}
+
 static int process_opt(void *context, int ch, char *optarg)
 {
 	switch (ch) {
@@ -407,6 +434,9 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'S':
 		rcv_sl = 1;
+		break;
+	case 'D':
+		xmt_disc = 1;
 		break;
 	case 'a':
 		all_ports++;
@@ -446,6 +476,7 @@ int main(int argc, char **argv)
 		{"extended", 'x', 0, NULL, "show extended port counters"},
 		{"xmtsl", 'X', 0, NULL, "show Xmt SL port counters"},
 		{"rcvsl", 'S', 0, NULL, "show Rcv SL port counters"},
+		{"xmtdisc", 'D', 0, NULL, "show Xmt Discard Details"},
 		{"all_ports", 'a', 0, NULL, "show aggregated counters"},
 		{"loop_ports", 'l', 0, NULL, "iterate through each port"},
 		{"reset_after_read", 'r', 0, NULL, "reset counters after read"},
@@ -513,6 +544,11 @@ int main(int argc, char **argv)
 
 	if (rcv_sl) {
 		rcv_sl_query(&portid, port, mask);
+		goto done;
+	}
+
+	if (xmt_disc) {
+		xmt_disc_query(&portid, port, mask);
 		goto done;
 	}
 
