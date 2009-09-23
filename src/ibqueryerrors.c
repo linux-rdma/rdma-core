@@ -441,8 +441,8 @@ int main(int argc, char **argv)
 	} else if (switch_guid_str) {
 		if ((resolved =
 		     ib_resolve_portid_str_via(&portid, switch_guid_str,
-					       IB_DEST_GUID, ibd_sm_id,
-					       ibmad_port)) >= 0)
+					       IB_DEST_GUID, NULL,
+					       ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
 			       switch_guid_str);
 	}
