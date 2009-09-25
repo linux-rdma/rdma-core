@@ -6,15 +6,14 @@ ibqueryerrors.pl \- query and report non-zero IB port counters
 .SH SYNOPSIS
 .B ibqueryerrors.pl
 [-s <err1,err2,...> -c -r -C <ca_name> -P <ca_port> -G <node_guid>
--D <direct_route> -d]
+-D <direct_route> -d -k -K]
 
 .SH DESCRIPTION
 .PP
-ibqueryerrors.pl reports the port counters of switches.  This is similar to
-ibcheckerrors with the additional ability to filter out selected errors,
-include the optional transmit and receive data counters, report actions to
-remedy a non-zero count, and report full link information for the link
-reported.
+ibqueryerrors.pl reports port counters.  This is similar to ibcheckerrors with
+the additional ability to filter out selected errors, include the optional
+transmit and receive data counters, and report full link information for the
+link reported.
 
 .SH OPTIONS
 
@@ -49,6 +48,15 @@ Include the optional transmit and receive data counters.
 \fB\-\-ca\fR  print data for CA's only
 .TP
 \fB\-\-router\fR  print data for routers only
+.TP
+\fB\-\-clear\-errors\fR \fB\-k\fR Clear error counters after read.
+\-k and \-K can be used together to clear both errors and counters.
+.TP
+\fB\-\-clear\-counts\fR \fB\-K\fR Clear data counters after read.
+\fBCAUTION\fR clearing data counters will occur regardless of if they are
+printed or not.  This is because data counters are only \fBprinted\fR on ports
+which have errors.  This means if a port has 0 errors and the \-K option is
+specified the data counters will be cleared without any printed output.
 .TP
 \fB\-R\fR  (This option is obsolete and does nothing)
 
