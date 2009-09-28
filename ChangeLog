@@ -1,6 +1,30 @@
-commit 596aa88065f89906884a821a1bb4eb631abd6af0
+commit 436a64f85c095d2e71077393bc5f96600c463607
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Wed Jul 22 12:57:58 2009 -0500
+Date:   Mon Sep 28 14:09:13 2009 -0500
+
+    Spin release 1.2.4.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 76d2a6347ab753d26237dc94c95da8d0c6c0c251
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Sep 28 14:07:44 2009 -0500
+
+    Support for doorbell overflow avoidance.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ad77c21cafde669c878032fc0f46635408568498
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Sep 28 14:07:20 2009 -0500
+
+    Support sq_sig_all QP attribute.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f6ea9eb207fa4b68f3a9c6f016bc8a262edb1808
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Jul 22 12:58:03 2009 -0500
 
     Spin release version 1.2.3.
     
