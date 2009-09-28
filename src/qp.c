@@ -277,7 +277,8 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		++(qhp->wq.sq_wptr);
 	}
 	pthread_spin_unlock(&qhp->lock);
-	RING_DOORBELL(qhp->wq.doorbell, qhp->wq.qpid);
+	if (t3_wq_db_enabled(&qhp->wq))
+		RING_DOORBELL(qhp->wq.doorbell, qhp->wq.qpid);
 	return err;
 }
 
@@ -571,7 +572,8 @@ int t3b_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		num_wrs--;
 	}
 	pthread_spin_unlock(&qhp->lock);
-	RING_DOORBELL(qhp->wq.doorbell, qhp->wq.qpid);
+	if (t3_wq_db_enabled(&qhp->wq))
+		RING_DOORBELL(qhp->wq.doorbell, qhp->wq.qpid);
 	return err;
 }
 

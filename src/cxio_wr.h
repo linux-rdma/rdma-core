@@ -657,12 +657,17 @@ static inline int t3_wq_in_error(struct t3_wq *wq)
 	 * The kernel sets bit 0 in the first WR of the WQ memory
 	 * when the QP moves out of RTS...
 	 */
-        return (wq->queue->flit[13]);
+        return (wq->queue->flit[13] & 1);
 }
 
 static inline void t3_set_wq_in_error(struct t3_wq *wq)
 {
-        wq->queue->flit[13] = 1;
+        wq->queue->flit[13] |= 1;
+}
+
+static inline int t3_wq_db_enabled(struct t3_wq *wq)
+{
+	return !(wq->queue->flit[13] & 2);
 }
 
 #define CQ_VLD_ENTRY(ptr,size_log2,cqe) (Q_GENBIT(ptr,size_log2) == \
