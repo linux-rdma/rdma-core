@@ -222,7 +222,7 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			t3_wr_flags |= T3_SOLICITED_EVENT_FLAG;
 		if (wr->send_flags & IBV_SEND_FENCE)
 			t3_wr_flags |= T3_READ_FENCE_FLAG;
-		if (wr->send_flags & IBV_SEND_SIGNALED)
+		if ((wr->send_flags & IBV_SEND_SIGNALED) || qhp->sq_sig_all)
 			t3_wr_flags |= T3_COMPLETION_FLAG;
 		sqp = qhp->wq.sq + 
 		      Q_PTR2IDX(qhp->wq.sq_wptr, qhp->wq.sq_size_log2);

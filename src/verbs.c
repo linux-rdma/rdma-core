@@ -336,6 +336,8 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	PDBG("%s dbva %p wqva %p wq memsize %d\n", __FUNCTION__, 
 	     qhp->wq.doorbell, qhp->wq.queue, t3_wq_memsize(&qhp->wq));
 
+	qhp->sq_sig_all = attr->sq_sig_all;
+
 	pthread_spin_lock(&dev->lock);
 	dev->qpid2ptr[qhp->wq.qpid] = qhp;
 	pthread_spin_unlock(&dev->lock);

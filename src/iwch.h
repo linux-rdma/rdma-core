@@ -96,6 +96,7 @@ struct iwch_qp {
 	struct iwch_device *rhp;
 	struct t3_wq wq;
 	pthread_spinlock_t lock;
+	int sq_sig_all;
 };
 
 #define to_iwch_xxx(xxx, type)						\
