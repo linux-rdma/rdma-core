@@ -47,31 +47,14 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 				       uint8_t *flit_cnt)
 {
 	int i;
-	switch (wr->opcode) {
-	case IBV_WR_SEND:
-	case IBV_WR_SEND_WITH_IMM:
-		if (wr->send_flags & IBV_SEND_SOLICITED)
-			wqe->send.rdmaop = T3_SEND_WITH_SE;
-		else
-			wqe->send.rdmaop = T3_SEND;
-		wqe->send.rem_stag = 0;
-		break;
-#if 0				/* Not currently supported */
-	case TYPE_SEND_INVALIDATE:
-	case TYPE_SEND_INVALIDATE_IMMEDIATE:
-		wqe->send.rdmaop = T3_SEND_WITH_INV;
-		wqe->send.rem_stag = htonl(wr->wr.rdma.rkey);
-		break;
-	case TYPE_SEND_SE_INVALIDATE:
-		wqe->send.rdmaop = T3_SEND_WITH_SE_INV;
-		wqe->send.rem_stag = htonl(wr->wr.rdma.rkey);
-		break;
-#endif
-	default:
-		break;
-	}
+
 	if (wr->num_sge > T3_MAX_SGE)
 		return -1;
+	if (wr->send_flags & IBV_SEND_SOLICITED)
+		wqe->send.rdmaop = T3_SEND_WITH_SE;
+	else
+		wqe->send.rdmaop = T3_SEND;
+	wqe->send.rem_stag = 0;
 	wqe->send.reserved = 0;
 	if ((wr->send_flags & IBV_SEND_INLINE) || wr->num_sge == 0) {
 		uint8_t *datap;
@@ -238,12 +221,10 @@ int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		      Q_PTR2IDX(qhp->wq.sq_wptr, qhp->wq.sq_size_log2);
 		switch (wr->opcode) {
 		case IBV_WR_SEND:
-		case IBV_WR_SEND_WITH_IMM:
 			t3_wr_opcode = T3_WR_SEND;
 			err = iwch_build_rdma_send(wqe, wr, &t3_wr_flit_cnt);
 			break;
 		case IBV_WR_RDMA_WRITE:
-		case IBV_WR_RDMA_WRITE_WITH_IMM:
 			t3_wr_opcode = T3_WR_WRITE;
 			err = iwch_build_rdma_write(wqe, wr, &t3_wr_flit_cnt);
 			break;
