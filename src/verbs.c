@@ -35,7 +35,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <strings.h>
+#include <string.h>
 #include <errno.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -146,7 +146,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
 			   size_t length, enum ibv_access_flags access)
 {
-	PDBG("%s addr %p length %d\n", __FUNCTION__, addr, length);
+	PDBG("%s addr %p length %ld\n", __FUNCTION__, addr, length);
 	return __iwch_reg_mr(pd, addr, length, (uintptr_t) addr, access);
 }
 
@@ -292,6 +292,7 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	int ret;
 	void *dbva;
 
+	PDBG("%s enter qp\n", __FUNCTION__);
 	qhp = calloc(1, sizeof *qhp);
 	if (!qhp)
 		goto err1;
@@ -357,6 +358,17 @@ err1:
 	return NULL;
 }
 
+static void reset_qp(struct iwch_qp *qhp)
+{
+	PDBG("%s enter qp %p\n", __FUNCTION__, qhp);
+	qhp->wq.wptr = 0;
+	qhp->wq.rq_wptr = qhp->wq.rq_rptr = 0;
+	qhp->wq.sq_wptr = qhp->wq.sq_rptr = 0;
+	qhp->wq.error = 0;
+	qhp->wq.oldest_read = NULL;
+	memset(qhp->wq.queue, 0, t3_wq_memsize(&qhp->wq));
+}
+
 int iwch_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		   enum ibv_qp_attr_mask attr_mask)
 {
@@ -364,10 +376,13 @@ int iwch_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	struct iwch_qp *qhp = to_iwch_qp(ibqp);
 	int ret;
 
+	PDBG("%s enter qp %p new state %d\n", __FUNCTION__, ibqp, attr_mask & IBV_QP_STATE ? attr->qp_state : -1);
 	pthread_spin_lock(&qhp->lock);
 	if (t3b_device(qhp->rhp) && t3_wq_in_error(&qhp->wq))
 		iwch_flush_qp(qhp);
 	ret = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof cmd);
+	if (!ret && (attr_mask & IBV_QP_STATE) && attr->qp_state == IBV_QPS_RESET)
+		reset_qp(qhp);
 	pthread_spin_unlock(&qhp->lock);
 	return ret;
 }
@@ -380,6 +395,7 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 	void *dbva, *wqva;
 	unsigned wqsize;
 
+	PDBG("%s enter qp %p\n", __FUNCTION__, ibqp);
 	if (t3b_device(dev)) {
 		pthread_spin_lock(&qhp->lock);
 		iwch_flush_qp(qhp);
