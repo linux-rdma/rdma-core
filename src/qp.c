@@ -73,7 +73,7 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 	if (wr->num_sge > T3_MAX_SGE)
 		return -1;
 	wqe->send.reserved = 0;
-	if (wr->send_flags & IBV_SEND_INLINE) {
+	if ((wr->send_flags & IBV_SEND_INLINE) || wr->num_sge == 0) {
 		uint8_t *datap;
 
 		wqe->send.plen = 0;
@@ -127,7 +127,7 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 
 	wqe->write.num_sgle = wr->num_sge;
 
-	if (wr->send_flags & IBV_SEND_INLINE) {
+	if ((wr->send_flags & IBV_SEND_INLINE) || wr->num_sge == 0) {
 		uint8_t *datap;
 
 		wqe->write.plen = 0;
@@ -174,11 +174,21 @@ static inline int iwch_build_rdma_read(union t3_wr *wqe, struct ibv_send_wr *wr,
 		return -1;
 	wqe->read.rdmaop = T3_READ_REQ;
 	wqe->read.reserved = 0;
-	wqe->read.rem_stag = htonl(wr->wr.rdma.rkey);
-	wqe->read.rem_to = htonll(wr->wr.rdma.remote_addr);
-	wqe->read.local_stag = htonl(wr->sg_list[0].lkey);
-	wqe->read.local_len = htonl(wr->sg_list[0].length);
-	wqe->read.local_to = htonll(wr->sg_list[0].addr);
+	if (wr->num_sge == 1 && wr->sg_list[0].length > 0) {
+		wqe->read.rem_stag = htonl(wr->wr.rdma.rkey);
+		wqe->read.rem_to = htonll(wr->wr.rdma.remote_addr);
+		wqe->read.local_stag = htonl(wr->sg_list[0].lkey);
+		wqe->read.local_len = htonl(wr->sg_list[0].length);
+		wqe->read.local_to = htonll(wr->sg_list[0].addr);
+	} else {
+
+		/* build passable 0B read request */
+		wqe->read.rem_stag = 2;
+		wqe->read.rem_to = 2;
+		wqe->read.local_stag = 2;
+		wqe->read.local_len = 0;
+		wqe->read.local_to = 2;
+	}
 	*flit_cnt = sizeof(struct t3_rdma_read_wr) >> 3;
 	return 0;
 }
