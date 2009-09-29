@@ -64,12 +64,12 @@ char *node_guid_str = NULL;
 int sup_total = 0;
 enum MAD_FIELDS *suppressed_fields = NULL;
 char *dr_path = NULL;
+uint8_t node_type_to_print = 0;
 
-#define PRINT_ALL 0xFF /* all nodes default flag */
-uint8_t node_type_to_print = PRINT_ALL;
 #define PRINT_SWITCH 0x1
 #define PRINT_CA     0x2
 #define PRINT_ROUTER 0x4
+#define PRINT_ALL 0xFF /* all nodes default flag */
 
 static unsigned int get_max(unsigned int num)
 {
@@ -379,18 +379,12 @@ static int process_opt(void *context, int ch, char *optarg)
 		data_counters++;
 		break;
 	case 3:
-		if (node_type_to_print == PRINT_ALL)
-			node_type_to_print = 0;
 		node_type_to_print |= PRINT_SWITCH;
 		break;
 	case 4:
-		if (node_type_to_print == PRINT_ALL)
-			node_type_to_print = 0;
 		node_type_to_print |= PRINT_CA;
 		break;
 	case 5:
-		if (node_type_to_print == PRINT_ALL)
-			node_type_to_print = 0;
 		node_type_to_print |= PRINT_ROUTER;
 		break;
 	case 'G':
@@ -452,6 +446,9 @@ int main(int argc, char **argv)
 
 	argc -= optind;
 	argv += optind;
+
+	if (!node_type_to_print)
+		node_type_to_print = PRINT_ALL;
 
 	if (ibverbose)
 		ibnd_debug(1);
