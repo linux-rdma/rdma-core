@@ -1,6 +1,46 @@
-commit 436a64f85c095d2e71077393bc5f96600c463607
+commit c3cc42fffb2d1266cb2c3389a5fa3a8fd4f3f9e9
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Sep 28 14:09:13 2009 -0500
+Date:   Tue Sep 29 14:52:23 2009 -0500
+
+    Spin 1.2.5 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit bfdca7d4392aaee9d8253d306378b036b8a60874
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:52:22 2009 -0500
+
+    Remove immediate work requests
+    
+    The aren't supported/defined in iWARP.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 7b7460e47ad82ea81101230642c43ee10c6ad517
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:18:12 2009 -0500
+
+    Handle 0B IO better.
+    
+    Allow num_sge == 0 to indicate a 0B IO.
+    
+    Also, for read, if length is 0 then create a valid 0B read request
+    regardless of the user's specified lkey/rkey.  This avoids 0 stag
+    connection terminations.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit e901d7d2ab0e9429118765e98e69a3992b91c584
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:00:54 2009 -0500
+
+    Reset the T3 wq when the qp moves to RESET.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0f71e2dc0e1a40f4954f30f14deae965818c3c4e
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Sep 28 14:10:57 2009 -0500
 
     Spin release 1.2.4.
     
