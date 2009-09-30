@@ -195,7 +195,7 @@ static int redirect_port(ib_portid_t * port, uint8_t * mad)
 
 	port->qp = mad_get_field(mad, 64, IB_CPI_REDIRECT_QP_F);
 	port->qkey = mad_get_field(mad, 64, IB_CPI_REDIRECT_QKEY_F);
-	port->sl = mad_get_field(mad, 64, IB_CPI_REDIRECT_SL_F);
+	port->sl = (uint8_t) mad_get_field(mad, 64, IB_CPI_REDIRECT_SL_F);
 
 	/* TODO: Reverse map redirection P_Key to P_Key index */
 
