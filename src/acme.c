@@ -459,7 +459,7 @@ static int resolve(char *program)
 	return ret;
 }
 
-int main(int argc, char **argv)
+int CDECL_FUNC main(int argc, char **argv)
 {
 	int op, ret;
 
