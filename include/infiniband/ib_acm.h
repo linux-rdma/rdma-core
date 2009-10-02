@@ -54,7 +54,7 @@ struct ib_acm_resolve_data
 {
 	uint32_t reserved1;
 	uint8_t  init_depth;
-	uint8_t	 resp_resources;
+	uint8_t  resp_resources;
 	uint8_t  packet_lifetime;
 	uint8_t  mtu;
 	uint8_t  reserved2[8];

@@ -27,16 +27,26 @@
  * SOFTWARE.
  */
 
-#if !defined(MC_CM_OSD_H)
-#define MC_CM_OSD_H
+#if !defined(OSD_H)
+#define OSD_H
 
 #include <windows.h>
 #include <process.h>
+#include <malloc.h>
 #include <winsock2.h>
 
 #define __func__ __FUNCTION__
 #define LIB_DESTRUCTOR
 #define CDECL_FUNC __cdecl
+
+static __inline void *zalloc(size_t size)
+{
+	void *buf;
+
+	if ((buf = malloc(size)))
+		memset(buf, 0, size);
+	return buf;
+}
 
 typedef struct { volatile LONG val; } atomic_t;
 #define atomic_inc(v) InterlockedIncrement(&(v)->val)
@@ -85,4 +95,4 @@ static __inline UINT64 time_stamp_us(void)
 #define beginthread(func, arg)	(int) _beginthread(func, 0, arg)
 #define container_of CONTAINING_RECORD
 
-#endif /* MC_CM_OSD_H */
+#endif /* OSD_H */

@@ -60,6 +60,15 @@
 #endif
 #define ntohll(x) htonll(x)
 
+static inline void *zalloc(size_t size)
+{
+	void *buf;
+
+	if ((buf = malloc(size)))
+		memset(buf, 0, size);
+	return buf;
+}
+
 typedef struct { volatile int val; } atomic_t;
 #define atomic_inc(v) (__sync_fetch_and_add(&(v)->val, 1) + 1)
 #define atomic_dec(v) (__sync_fetch_and_sub(&(v)->val, 1) - 1)

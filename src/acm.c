@@ -211,16 +211,6 @@ static void acm_log_ep_addr(int level, const char *msg,
 	lock_release(&log_lock);
 }
 
-static void *zalloc(size_t size)
-{
-	void *buf;
-
-	buf = malloc(size);
-	if (buf)
-		memset(buf, 0, size);
-	return buf;
-}
-
 static struct acm_send_msg *
 acm_alloc_send(struct acm_ep *ep, struct acm_dest *dest, size_t size)
 {
