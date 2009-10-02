@@ -100,7 +100,7 @@ static inline int event_wait(event_t *e, int timeout)
 	return ret;
 }
 
-#define lock_t			pthread_mutex_t
+#define lock_t		pthread_mutex_t
 #define lock_init(x)	pthread_mutex_init(x, NULL)
 #define lock_acquire	pthread_mutex_lock
 #define lock_release	pthread_mutex_unlock
