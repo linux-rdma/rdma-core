@@ -506,7 +506,7 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	    != IB_PORT_PHYS_STATE_LINKUP)
 		return 1;	/* positive == non-fatal error */
 
-	if (extend_dpath(ibmad_port, fabric, path, portnum) < 0)
+	if (portnum > 0 && extend_dpath(ibmad_port, fabric, path, portnum) < 0)
 		return -1;
 
 	if (query_node(ibmad_port, fabric, &node_buf, &port_buf, path)) {
@@ -600,15 +600,13 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	if (!port)
 		goto error;
 
-	if (node->type != IB_NODE_SWITCH) {
-		rc = get_remote_node(ibmad_port, fabric, node, port, from,
-				     mad_get_field(node->info, 0,
-						   IB_NODE_LOCAL_PORT_F), 0);
-		if (rc < 0)
-			goto error;
-		if (rc > 0)		/* non-fatal error, nothing more to be done */
-			return ((ibnd_fabric_t *) fabric);
-	}
+	rc = get_remote_node(ibmad_port, fabric, node, port, from,
+			     mad_get_field(node->info, 0,
+					   IB_NODE_LOCAL_PORT_F), 0);
+	if (rc < 0)
+		goto error;
+	if (rc > 0)		/* non-fatal error, nothing more to be done */
+		return ((ibnd_fabric_t *) fabric);
 
 	for (dist = 0; dist <= max_hops; dist++) {
 
