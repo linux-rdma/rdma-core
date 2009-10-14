@@ -94,9 +94,6 @@ static int get_port_info(struct ibmad_port *ibmad_port,
 	return 0;
 }
 
-/*
- * Returns -1 if error.
- */
 static int query_node_info(struct ibmad_port *ibmad_port,
 			   ibnd_fabric_t * fabric, ibnd_node_t * node,
 			   ib_portid_t * portid)
@@ -113,9 +110,6 @@ static int query_node_info(struct ibmad_port *ibmad_port,
 	return (0);
 }
 
-/*
- * Returns 0 if non switch node is found, 1 if switch is found, -1 if error.
- */
 static int query_node(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
 		      ibnd_node_t * node, ibnd_port_t * port,
 		      ib_portid_t * portid)
