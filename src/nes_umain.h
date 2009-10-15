@@ -335,6 +335,10 @@ int nes_umodify_srq(struct ibv_srq *, struct ibv_srq_attr *, enum ibv_srq_attr_m
 int nes_udestroy_srq(struct ibv_srq *);
 int nes_upost_srq_recv(struct ibv_srq *, struct ibv_recv_wr *, struct ibv_recv_wr **);
 struct ibv_qp *nes_ucreate_qp(struct ibv_pd *, struct ibv_qp_init_attr *);
+int nes_uquery_qp(struct ibv_qp *qp,
+		  struct ibv_qp_attr *attr,
+		  enum ibv_qp_attr_mask attr_mask,
+		  struct ibv_qp_init_attr *init_attr);
 int nes_umodify_qp(struct ibv_qp *, struct ibv_qp_attr *, enum ibv_qp_attr_mask);
 int nes_udestroy_qp(struct ibv_qp *);
 int nes_upost_send(struct ibv_qp *, struct ibv_send_wr *, struct ibv_send_wr **);
