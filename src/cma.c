@@ -1044,7 +1044,7 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 	mc->context = context;
 	mc->id_priv = id_priv;
 	memcpy(&mc->addr, addr, addrlen);
-	if (pthread_cond_init(&id_priv->cond, NULL)) {
+	if (pthread_cond_init(&mc->cond, NULL)) {
 		ret = -1;
 		goto err1;
 	}
