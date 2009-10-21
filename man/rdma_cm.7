@@ -108,18 +108,18 @@ release the event channel
 success
 .IP "= -1"
 error - see errno for more details
-.IP "< -1"
-error - see include/asm-generic/errno*.h for more details
 .P
-Librdmacm functions return 0 to indicate success, and a negative return value
+Librdmacm functions return 0 to indicate success, and a -1 return value
 to indicate failure.  If a function operates asynchronously, a return value of 0
 means that the operation was successfully started.  The operation could still
 complete in error; users should check the status of the related event.  If the
-return value is -1, then errno can be examined for additional information
-regarding the reason for the failure.  If the return value is < -1, then
-additional error reasons can be obtained by comparing the returned value with
-the values listed in include/asm-generic/errno-base.h and
-include/asm-generic/errno.h.
+return value is -1, then errno will contain additional information
+regarding the reason for the failure.
+.P
+Prior versions of the library would return -errno and not set errno for some cases
+related to ENOMEM, ENODEV, ENODATA, EINVAL, and EADDRNOTAVAIL codes. Applications
+that want to check these codes and have compatability with prior library versions
+must manually set errno to the negative of the return code if it is < -1.
 .SH "SEE ALSO"
 rdma_create_event_channel(3), rdma_get_cm_event(3), rdma_create_id(3),
 rdma_resolve_addr(3), rdma_bind_addr(3), rdma_create_qp(3),

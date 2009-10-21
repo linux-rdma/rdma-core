@@ -174,7 +174,7 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 		ret = rdma_resolve_route(cma_id, 2000);
 		if (ret) {
 			cb->state = ERROR;
-			fprintf(stderr, "rdma_resolve_route error %d\n", ret);
+			perror("rdma_resolve_route");
 			sem_post(&cb->sem);
 		}
 		break;
@@ -352,7 +352,7 @@ static int rping_accept(struct rping_cb *cb)
 
 	ret = rdma_accept(cb->child_cm_id, &conn_param);
 	if (ret) {
-		fprintf(stderr, "rdma_accept error: %d\n", ret);
+		perror("rdma_accept");
 		return ret;
 	}
 
@@ -546,7 +546,7 @@ static int rping_setup_qp(struct rping_cb *cb, struct rdma_cm_id *cm_id)
 
 	ret = rping_create_qp(cb);
 	if (ret) {
-		fprintf(stderr, "rping_create_qp failed: %d\n", ret);
+		perror("rdma_create_qp");
 		goto err3;
 	}
 	DEBUG_LOG("created qp %p\n", cb->qp);
@@ -570,7 +570,7 @@ static void *cm_thread(void *arg)
 	while (1) {
 		ret = rdma_get_cm_event(cb->cm_channel, &event);
 		if (ret) {
-			fprintf(stderr, "rdma_get_cm_event err %d\n", ret);
+			perror("rdma_get_cm_event");
 			exit(ret);
 		}
 		ret = rping_cma_event_handler(event->id, event);
@@ -736,7 +736,7 @@ static int rping_bind_server(struct rping_cb *cb)
 
 	ret = rdma_bind_addr(cb->cm_id, (struct sockaddr *) &cb->sin);
 	if (ret) {
-		fprintf(stderr, "rdma_bind_addr error %d\n", ret);
+		perror("rdma_bind_addr");
 		return ret;
 	}
 	DEBUG_LOG("rdma_bind_addr successful\n");
@@ -744,7 +744,7 @@ static int rping_bind_server(struct rping_cb *cb)
 	DEBUG_LOG("rdma_listen\n");
 	ret = rdma_listen(cb->cm_id, 3);
 	if (ret) {
-		fprintf(stderr, "rdma_listen failed: %d\n", ret);
+		perror("rdma_listen");
 		return ret;
 	}
 
@@ -978,7 +978,7 @@ static int rping_connect_client(struct rping_cb *cb)
 
 	ret = rdma_connect(cb->cm_id, &conn_param);
 	if (ret) {
-		fprintf(stderr, "rdma_connect error %d\n", ret);
+		perror("rdma_connect");
 		return ret;
 	}
 
@@ -1003,7 +1003,7 @@ static int rping_bind_client(struct rping_cb *cb)
 
 	ret = rdma_resolve_addr(cb->cm_id, NULL, (struct sockaddr *) &cb->sin, 2000);
 	if (ret) {
-		fprintf(stderr, "rdma_resolve_addr error %d\n", ret);
+		perror("rdma_resolve_addr");
 		return ret;
 	}
 
@@ -1191,15 +1191,13 @@ int main(int argc, char *argv[])
 
 	cb->cm_channel = rdma_create_event_channel();
 	if (!cb->cm_channel) {
-		ret = errno;
-		fprintf(stderr, "rdma_create_event_channel error %d\n", ret);
+		perror("rdma_create_event_channel");
 		goto out;
 	}
 
 	ret = rdma_create_id(cb->cm_channel, &cb->cm_id, cb, RDMA_PS_TCP);
 	if (ret) {
-		ret = errno;
-		fprintf(stderr, "rdma_create_id error %d\n", ret);
+		perror("rdma_create_id");
 		goto out2;
 	}
 	DEBUG_LOG("created cm_id %p\n", cb->cm_id);

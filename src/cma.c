@@ -76,6 +76,12 @@ static inline uint64_t htonll(uint64_t x) { return x; }
 static inline uint64_t ntohll(uint64_t x) { return x; }
 #endif
 
+static inline int ERR(int err)
+{
+	errno = err;
+	return -1;
+}
+
 #define CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, type, size) \
 do {                                        \
 	struct ucma_abi_cmd_hdr *hdr;         \
@@ -83,7 +89,7 @@ do {                                        \
 	size = sizeof(*hdr) + sizeof(*cmd); \
 	msg = alloca(size);                 \
 	if (!msg)                           \
-		return -ENOMEM;             \
+		return ERR(ENOMEM);         \
 	hdr = msg;                          \
 	cmd = msg + sizeof(*hdr);           \
 	hdr->cmd = type;                    \
@@ -92,18 +98,18 @@ do {                                        \
 	memset(cmd, 0, sizeof(*cmd));       \
 	resp = alloca(sizeof(*resp));       \
 	if (!resp)                          \
-		return -ENOMEM;             \
+		return ERR(ENOMEM);         \
 	cmd->response = (uintptr_t)resp;\
 } while (0)
 
 #define CMA_CREATE_MSG_CMD(msg, cmd, type, size) \
 do {                                        \
-	struct ucma_abi_cmd_hdr *hdr;         \
+	struct ucma_abi_cmd_hdr *hdr;       \
                                             \
 	size = sizeof(*hdr) + sizeof(*cmd); \
 	msg = alloca(size);                 \
 	if (!msg)                           \
-		return -ENOMEM;             \
+		return ERR(ENOMEM);         \
 	hdr = msg;                          \
 	cmd = msg + sizeof(*hdr);           \
 	hdr->cmd = type;                    \
@@ -220,13 +226,13 @@ static int ucma_init(void)
 	dev_list = ibv_get_device_list(&dev_cnt);
 	if (!dev_list) {
 		printf("CMA: unable to get RDMA device list\n");
-		ret = -ENODEV;
+		ret = ERR(ENODEV);
 		goto err1;
 	}
 
 	cma_dev_array = malloc(sizeof *cma_dev * dev_cnt);
 	if (!cma_dev_array) {
-		ret = -ENOMEM;
+		ret = ERR(ENOMEM);
 		goto err2;
 	}
 
@@ -237,7 +243,7 @@ static int ucma_init(void)
 		cma_dev->verbs = ibv_open_device(dev_list[i]);
 		if (!cma_dev->verbs) {
 			printf("CMA: unable to open RDMA device\n");
-			ret = -ENODEV;
+			ret = ERR(ENODEV);
 			goto err3;
 		}
 
@@ -342,7 +348,7 @@ static int ucma_get_device(struct cma_id_private *id_priv, uint64_t guid)
 		}
 	}
 
-	return -ENODEV;
+	return ERR(ENODEV);
 }
 
 static void ucma_free_id(struct cma_id_private *id_priv)
@@ -394,7 +400,7 @@ int rdma_create_id(struct rdma_event_channel *channel,
 
 	id_priv = ucma_alloc_id(channel, context, ps);
 	if (!id_priv)
-		return -ENOMEM;
+		return ERR(ENOMEM);
 
 	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_CREATE_ID, size);
 	cmd->uid = (uintptr_t) id_priv;
@@ -426,7 +432,7 @@ static int ucma_destroy_kern_id(int fd, uint32_t handle)
 
 	ret = write(fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
@@ -481,7 +487,7 @@ static int ucma_query_route(struct rdma_cm_id *id)
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
@@ -489,7 +495,7 @@ static int ucma_query_route(struct rdma_cm_id *id)
 		id->route.path_rec = malloc(sizeof *id->route.path_rec *
 					    resp->num_paths);
 		if (!id->route.path_rec)
-			return -ENOMEM;
+			return ERR(ENOMEM);
 
 		id->route.num_paths = resp->num_paths;
 		for (i = 0; i < resp->num_paths; i++)
@@ -526,7 +532,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_BIND_ADDR, size);
 	id_priv = container_of(id, struct cma_id_private, id);
@@ -535,7 +541,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return ucma_query_route(id);
 }
@@ -550,7 +556,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	
 	daddrlen = ucma_addrlen(dst_addr);
 	if (!daddrlen)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_RESOLVE_ADDR, size);
 	id_priv = container_of(id, struct cma_id_private, id);
@@ -562,7 +568,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	memcpy(&id->route.addr.dst_addr, dst_addr, daddrlen);
 	return 0;
@@ -582,7 +588,7 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms)
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return 0;
 }
@@ -608,7 +614,7 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
@@ -624,7 +630,7 @@ static int ucma_modify_qp_rtr(struct rdma_cm_id *id,
 	int qp_attr_mask, ret;
 
 	if (!id->qp)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	/* Need to update QP attributes from default values. */
 	qp_attr.qp_state = IBV_QPS_INIT;
@@ -694,7 +700,7 @@ static int ucma_find_pkey(struct cma_device *cma_dev, uint8_t port_num,
 			return 0;
 		}
 	}
-	return -EINVAL;
+	return ERR(EINVAL);
 }
 
 static int ucma_init_conn_qp3(struct cma_id_private *id_priv, struct ibv_qp *qp)
@@ -798,11 +804,11 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 
 	id_priv = container_of(id, struct cma_id_private, id);
 	if (id->verbs != pd->context)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	qp = ibv_create_qp(pd, qp_init_attr);
 	if (!qp)
-		return -ENOMEM;
+		return ERR(ENOMEM);
 
 	if (ucma_is_ud_ps(id->ps))
 		ret = ucma_init_ud_qp(id_priv, qp);
@@ -833,7 +839,7 @@ static int ucma_valid_param(struct cma_id_private *id_priv,
 	     id_priv->cma_dev->max_responder_resources) ||
 	    (conn_param->initiator_depth >
 	     id_priv->cma_dev->max_initiator_depth))
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	return 0;
 }
@@ -883,7 +889,7 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return 0;
 }
@@ -902,7 +908,7 @@ int rdma_listen(struct rdma_cm_id *id, int backlog)
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return ucma_query_route(id);
 }
@@ -940,7 +946,7 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size) {
 		ucma_modify_qp_err(id);
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 	}
 
 	return 0;
@@ -966,7 +972,7 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return 0;
 }
@@ -985,7 +991,7 @@ int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event)
 	cmd->event = event;
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return 0;
 }
@@ -1005,7 +1011,7 @@ int rdma_disconnect(struct rdma_cm_id *id)
 		ret = ucma_modify_qp_sqd(id);
 		break;
 	default:
-		ret = -EINVAL;
+		ret = ERR(EINVAL);
 	}
 	if (ret)
 		return ret;
@@ -1016,7 +1022,7 @@ int rdma_disconnect(struct rdma_cm_id *id)
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return 0;
 }
@@ -1034,11 +1040,11 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 	id_priv = container_of(id, struct cma_id_private, id);
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	mc = malloc(sizeof *mc);
 	if (!mc)
-		return -ENOMEM;
+		return ERR(ENOMEM);
 
 	memset(mc, 0, sizeof *mc);
 	mc->context = context;
@@ -1061,7 +1067,7 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size) {
-		ret = (ret > 0) ? -ENODATA : ret;
+		ret = (ret >= 0) ? ERR(ENODATA) : -1;
 		goto err2;
 	}
 
@@ -1091,7 +1097,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 	
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	id_priv = container_of(id, struct cma_id_private, id);
 	pthread_mutex_lock(&id_priv->mut);
@@ -1104,7 +1110,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 		*pos = mc->next;
 	pthread_mutex_unlock(&id_priv->mut);
 	if (!mc)
-		return -EADDRNOTAVAIL;
+		return ERR(EADDRNOTAVAIL);
 
 	if (id->qp)
 		ibv_detach_mcast(id->qp, &mc->mgid, mc->mlid);
@@ -1114,7 +1120,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size) {
-		ret = (ret > 0) ? -ENODATA : ret;
+		ret = (ret >= 0) ? ERR(ENODATA) : -1;
 		goto free;
 	}
 
@@ -1154,7 +1160,7 @@ int rdma_ack_cm_event(struct rdma_cm_event *event)
 	struct cma_event *evt;
 
 	if (!event)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	evt = container_of(event, struct cma_event, event);
 
@@ -1176,7 +1182,7 @@ static int ucma_process_conn_req(struct cma_event *evt,
 				evt->id_priv->id.context, evt->id_priv->id.ps);
 	if (!id_priv) {
 		ucma_destroy_kern_id(evt->id_priv->id.channel->fd, handle);
-		ret = -ENOMEM;
+		ret = ERR(ENOMEM);
 		goto err;
 	}
 
@@ -1215,7 +1221,7 @@ static int ucma_process_conn_resp(struct cma_id_private *id_priv)
 
 	ret = write(id_priv->id.channel->fd, msg, size);
 	if (ret != size) {
-		ret = (ret > 0) ? -ENODATA : ret;
+		ret = (ret >= 0) ? ERR(ENODATA) : -1;
 		goto err;
 	}
 
@@ -1300,11 +1306,11 @@ int rdma_get_cm_event(struct rdma_event_channel *channel,
 		return ret;
 
 	if (!event)
-		return -EINVAL;
+		return ERR(EINVAL);
 
 	evt = malloc(sizeof *evt);
 	if (!evt)
-		return -ENOMEM;
+		return ERR(ENOMEM);
 
 retry:
 	memset(evt, 0, sizeof *evt);
@@ -1312,7 +1318,7 @@ retry:
 	ret = write(channel->fd, msg, size);
 	if (ret != size) {
 		free(evt);
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 	}
 	
 	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
@@ -1471,7 +1477,7 @@ int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return 0;
 }
@@ -1491,7 +1497,7 @@ int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel)
 
 	ret = write(channel->fd, msg, size);
 	if (ret != size)
-		return (ret > 0) ? -ENODATA : ret;
+		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
 
