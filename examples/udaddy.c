@@ -158,7 +158,7 @@ static int init_node(struct cmatest_node *node)
 	init_qp_attr.recv_cq = node->cq;
 	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
 	if (ret) {
-		printf("udaddy: unable to create QP: %d\n", ret);
+		perror("udaddy: unable to create QP");
 		goto out;
 	}
 
@@ -245,12 +245,12 @@ static int addr_handler(struct cmatest_node *node)
 		ret = rdma_set_option(node->cma_id, RDMA_OPTION_ID,
 				      RDMA_OPTION_ID_TOS, &tos, sizeof tos);
 		if (ret)
-			printf("udaddy: set TOS option failed: %d\n", ret);
+			perror("udaddy: set TOS option failed");
 	}
 
 	ret = rdma_resolve_route(node->cma_id, 2000);
 	if (ret) {
-		printf("udaddy: resolve route failed: %d\n", ret);
+		perror("udaddy: resolve route failed");
 		connect_error();
 	}
 	return ret;
@@ -276,7 +276,7 @@ static int route_handler(struct cmatest_node *node)
 	memset(&conn_param, 0, sizeof conn_param);
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
-		printf("udaddy: failure connecting: %d\n", ret);
+		perror("udaddy: failure connecting");
 		goto err;
 	}
 	return 0;
@@ -316,7 +316,7 @@ static int connect_handler(struct rdma_cm_id *cma_id)
 	conn_param.qp_num = node->cma_id->qp->qp_num;
 	ret = rdma_accept(node->cma_id, &conn_param);
 	if (ret) {
-		printf("udaddy: failure accepting: %d\n", ret);
+		perror("udaddy: failure accepting");
 		goto err2;
 	}
 	node->connected = 1;
@@ -532,7 +532,7 @@ static int run_server(void)
 	printf("udaddy: starting server\n");
 	ret = rdma_create_id(test.channel, &listen_id, &test, port_space);
 	if (ret) {
-		printf("udaddy: listen request failed\n");
+		perror("udaddy: listen request failed");
 		return ret;
 	}
 
@@ -546,13 +546,13 @@ static int run_server(void)
 	test.src_in.sin_port = port;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
-		printf("udaddy: bind address failed: %d\n", ret);
+		perror("udaddy: bind address failed");
 		return ret;
 	}
 
 	ret = rdma_listen(listen_id, 0);
 	if (ret) {
-		printf("udaddy: failure trying to listen: %d\n", ret);
+		perror("udaddy: failure trying to listen");
 		goto out;
 	}
 
@@ -604,7 +604,7 @@ static int run_client(void)
 					src_addr ? test.src_addr : NULL,
 					test.dst_addr, 2000);
 		if (ret) {
-			printf("udaddy: failure getting addr: %d\n", ret);
+			perror("udaddy: failure getting addr");
 			connect_error();
 			return ret;
 		}
@@ -680,7 +680,7 @@ int main(int argc, char **argv)
 
 	test.channel = rdma_create_event_channel();
 	if (!test.channel) {
-		printf("failed to create event channel\n");
+		perror("failed to create event channel");
 		exit(1);
 	}
 

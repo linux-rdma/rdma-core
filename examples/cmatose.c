@@ -150,7 +150,7 @@ static int init_node(struct cmatest_node *node)
 	init_qp_attr.recv_cq = node->cq[RECV_CQ_INDEX];
 	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
 	if (ret) {
-		printf("cmatose: unable to create QP: %d\n", ret);
+		perror("cmatose: unable to create QP");
 		goto out;
 	}
 
@@ -233,12 +233,12 @@ static int addr_handler(struct cmatest_node *node)
 		ret = rdma_set_option(node->cma_id, RDMA_OPTION_ID,
 				      RDMA_OPTION_ID_TOS, &tos, sizeof tos);
 		if (ret)
-			printf("cmatose: set TOS option failed: %d\n", ret);
+			perror("cmatose: set TOS option failed");
 	}
 
 	ret = rdma_resolve_route(node->cma_id, 2000);
 	if (ret) {
-		printf("cmatose: resolve route failed: %d\n", ret);
+		perror("cmatose: resolve route failed");
 		connect_error();
 	}
 	return ret;
@@ -263,7 +263,7 @@ static int route_handler(struct cmatest_node *node)
 	conn_param.retry_count = 5;
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
-		printf("cmatose: failure connecting: %d\n", ret);
+		perror("cmatose: failure connecting");
 		goto err;
 	}
 	return 0;
@@ -300,7 +300,7 @@ static int connect_handler(struct rdma_cm_id *cma_id)
 	conn_param.initiator_depth = 1;
 	ret = rdma_accept(node->cma_id, &conn_param);
 	if (ret) {
-		printf("cmatose: failure accepting: %d\n", ret);
+		perror("cmatose: failure accepting");
 		goto err2;
 	}
 	return 0;
@@ -449,8 +449,8 @@ static int connect_events(void)
 			cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
 		} else {
-			printf("cmatose: failure in rdma_get_cm_event in connect events\n");
-			ret = err;
+			perror("cmatose: failure in rdma_get_cm_event in connect events");
+			ret = errno;
 		}
 	}
 
@@ -468,8 +468,8 @@ static int disconnect_events(void)
 			cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
 		} else {
-			printf("cmatose: failure in rdma_get_cm_event in disconnect events\n");
-			ret = err;
+			perror("cmatose: failure in rdma_get_cm_event in disconnect events");
+			ret = errno;
 		}
 	}
 
@@ -485,7 +485,7 @@ static int migrate_channel(struct rdma_cm_id *listen_id)
 
 	channel = rdma_create_event_channel();
 	if (!channel) {
-		printf("cmatose: failed to create event channel\n");
+		perror("cmatose: failed to create event channel");
 		return -1;
 	}
 
@@ -500,7 +500,7 @@ static int migrate_channel(struct rdma_cm_id *listen_id)
 		rdma_destroy_event_channel(test.channel);
 		test.channel = channel;
 	} else
-		printf("cmatose: failure migrating to channel: %d\n", ret);
+		perror("cmatose: failure migrating to channel");
 
 	return ret;
 }
@@ -535,7 +535,7 @@ static int run_server(void)
 	printf("cmatose: starting server\n");
 	ret = rdma_create_id(test.channel, &listen_id, &test, RDMA_PS_TCP);
 	if (ret) {
-		printf("cmatose: listen request failed\n");
+		perror("cmatose: listen request failed");
 		return ret;
 	}
 
@@ -549,13 +549,13 @@ static int run_server(void)
 	test.src_in.sin_port = port;
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
-		printf("cmatose: bind address failed: %d\n", ret);
+		perror("cmatose: bind address failed");
 		goto out;
 	}
 
 	ret = rdma_listen(listen_id, 0);
 	if (ret) {
-		printf("cmatose: failure trying to listen: %d\n", ret);
+		perror("cmatose: failure trying to listen");
 		goto out;
 	}
 
@@ -631,7 +631,7 @@ static int run_client(void)
 					src_addr ? test.src_addr : NULL,
 					test.dst_addr, 2000);
 		if (ret) {
-			printf("cmatose: failure getting addr: %d\n", ret);
+			perror("cmatose: failure getting addr");
 			connect_error();
 			return ret;
 		}

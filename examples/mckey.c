@@ -159,7 +159,7 @@ static int init_node(struct cmatest_node *node)
 	init_qp_attr.recv_cq = node->cq;
 	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
 	if (ret) {
-		printf("mckey: unable to create QP: %d\n", ret);
+		perror("mckey: unable to create QP");
 		goto out;
 	}
 
@@ -258,7 +258,7 @@ static int addr_handler(struct cmatest_node *node)
 
 	ret = rdma_join_multicast(node->cma_id, test.dst_addr, node);
 	if (ret) {
-		printf("mckey: failure joining: %d\n", ret);
+		perror("mckey: failure joining");
 		goto err;
 	}
 	return 0;
@@ -452,7 +452,7 @@ static int run(void)
 			ret = rdma_bind_addr(test.nodes[i].cma_id,
 					     test.src_addr);
 			if (ret) {
-				printf("mckey: addr bind failure: %d\n", ret);
+				perror("mckey: addr bind failure");
 				connect_error();
 				return ret;
 			}
@@ -465,7 +465,7 @@ static int run(void)
 						test.src_addr, test.dst_addr,
 						2000);
 		if (ret) {
-			printf("mckey: resolve addr failure: %d\n", ret);
+			perror("mckey: resolve addr failure");
 			connect_error();
 			return ret;
 		}
@@ -502,7 +502,7 @@ out:
 		ret = rdma_leave_multicast(test.nodes[i].cma_id,
 					   test.dst_addr);
 		if (ret)
-			printf("mckey: failure leaving: %d\n", ret);
+			perror("mckey: failure leaving");
 	}
 	return ret;
 }
@@ -561,7 +561,7 @@ int main(int argc, char **argv)
 
 	test.channel = rdma_create_event_channel();
 	if (!test.channel) {
-		printf("failed to create event channel\n");
+		perror("failed to create event channel");
 		exit(1);
 	}
 
