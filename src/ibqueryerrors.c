@@ -282,12 +282,12 @@ static void print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
 
 	if (!pma_query_via(pc, portid, portnum, ibd_timeout,
 			   IB_GSI_PORT_COUNTERS, ibmad_port)) {
-		IBWARN("IB_GSI_PORT_COUNTERS query failed on %s, %s port %d\n",
+		IBWARN("IB_GSI_PORT_COUNTERS query failed on %s, %s port %d",
 		       node_name, portid2str(portid), portnum);
 		return;
 	}
 	if (!(cap_mask & 0x1000)) {
-		/* if PortCounters:PortXmitWait not suppported clear this counter */
+		/* if PortCounters:PortXmitWait not supported clear this counter */
 		uint32_t foo = 0;
 		mad_encode_field(pc, IB_PC_XMT_WAIT_F, &foo);
 	}
@@ -515,14 +515,14 @@ int main(int argc, char **argv)
 		if ((resolved =
 		     ib_resolve_portid_str_via(&portid, dr_path, IB_DEST_DRPATH,
 					       NULL, ibmad_port)) < 0)
-			IBWARN("Failed to resolve %s; attempting full scan\n",
+			IBWARN("Failed to resolve %s; attempting full scan",
 			       dr_path);
 	} else if (node_guid_str) {
 		if ((resolved =
 		     ib_resolve_portid_str_via(&portid, node_guid_str,
 					       IB_DEST_GUID, ibd_sm_id,
 					       ibmad_port)) < 0)
-			IBWARN("Failed to resolve %s; attempting full scan\n",
+			IBWARN("Failed to resolve %s; attempting full scan",
 			       node_guid_str);
 	}
 
@@ -530,7 +530,7 @@ int main(int argc, char **argv)
 		if ((fabric = ibnd_discover_fabric(ibmad_port, &portid,
 						   0)) == NULL)
 			IBWARN
-			    ("Single node discover failed; attempting full scan\n");
+			    ("Single node discover failed; attempting full scan");
 
 	if (!fabric)		/* do a full scan */
 		if ((fabric =
