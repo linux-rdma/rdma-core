@@ -69,13 +69,10 @@ static int print_port_guids = 0;
 
 static unsigned int get_max(unsigned int num)
 {
-	unsigned int v = num;	// 32-bit word to find the log base 2 of
-	unsigned r = 0;		// r will be lg(v)
+	unsigned r = 0;		// r will be lg(num)
 
-	while (v >>= 1)		// unroll for more speed...
-	{
+	while (num >>= 1)	// unroll for more speed...
 		r++;
-	}
 
 	return (1 << r);
 }
@@ -90,26 +87,24 @@ void get_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * port)
 				     & mad_get_field(port->remoteport->info, 0,
 						     IB_PORT_LINK_WIDTH_SUPPORTED_F));
 	if ((max_width & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_WIDTH_ACTIVE_F)) == 0) {
+				       IB_PORT_LINK_WIDTH_ACTIVE_F)) == 0)
 		// we are not at the max supported width
 		// print what we could be at.
 		snprintf(width_msg, msg_size, "Could be %s",
 			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F,
 				      buf, 64, &max_width));
-	}
 
 	max_speed = get_max(mad_get_field(port->info, 0,
 					  IB_PORT_LINK_SPEED_SUPPORTED_F)
 			    & mad_get_field(port->remoteport->info, 0,
 					    IB_PORT_LINK_SPEED_SUPPORTED_F));
 	if ((max_speed & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_SPEED_ACTIVE_F)) == 0) {
+				       IB_PORT_LINK_SPEED_ACTIVE_F)) == 0)
 		// we are not at the max supported speed
 		// print what we could be at.
 		snprintf(speed_msg, msg_size, "Could be %s",
 			 mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F,
 				      buf, 64, &max_speed));
-	}
 }
 
 void print_port(ibnd_node_t * node, ibnd_port_t * port)

@@ -70,17 +70,14 @@ unsigned clear_errors = 0, clear_counts = 0;
 #define PRINT_SWITCH 0x1
 #define PRINT_CA     0x2
 #define PRINT_ROUTER 0x4
-#define PRINT_ALL 0xFF /* all nodes default flag */
+#define PRINT_ALL 0xFF		/* all nodes default flag */
 
 static unsigned int get_max(unsigned int num)
 {
-	unsigned int v = num;	// 32-bit word to find the log base 2 of
-	unsigned r = 0;		// r will be lg(v)
+	unsigned r = 0;		// r will be lg(num)
 
-	while (v >>= 1)		// unroll for more speed...
-	{
+	while (num >>= 1)	// unroll for more speed...
 		r++;
-	}
 
 	return (1 << r);
 }
@@ -96,26 +93,24 @@ static void get_msg(char *width_msg, char *speed_msg, int msg_size,
 				     & mad_get_field(port->remoteport->info, 0,
 						     IB_PORT_LINK_WIDTH_SUPPORTED_F));
 	if ((max_width & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_WIDTH_ACTIVE_F)) == 0) {
+				       IB_PORT_LINK_WIDTH_ACTIVE_F)) == 0)
 		// we are not at the max supported width
 		// print what we could be at.
 		snprintf(width_msg, msg_size, "Could be %s",
 			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F,
 				      buf, 64, &max_width));
-	}
 
 	max_speed = get_max(mad_get_field(port->info, 0,
 					  IB_PORT_LINK_SPEED_SUPPORTED_F)
 			    & mad_get_field(port->remoteport->info, 0,
 					    IB_PORT_LINK_SPEED_SUPPORTED_F));
 	if ((max_speed & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_SPEED_ACTIVE_F)) == 0) {
+				       IB_PORT_LINK_SPEED_ACTIVE_F)) == 0)
 		// we are not at the max supported speed
 		// print what we could be at.
 		snprintf(speed_msg, msg_size, "Could be %s",
 			 mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F,
 				      buf, 64, &max_speed));
-	}
 }
 
 static void print_port_config(ibnd_node_t * node, int portnum)
@@ -191,11 +186,10 @@ static int suppress(enum MAD_FIELDS field)
 {
 	int i = 0;
 	if (suppressed_fields)
-		for (i = 0; i < sup_total; i++) {
+		for (i = 0; i < sup_total; i++)
 			if (field == suppressed_fields[i])
-				return (1);
-		}
-	return (0);
+				return 1;
+	return 0;
 }
 
 static void report_suppressed(void)
@@ -203,9 +197,8 @@ static void report_suppressed(void)
 	int i = 0;
 	if (suppressed_fields) {
 		printf("Suppressing:");
-		for (i = 0; i < sup_total; i++) {
+		for (i = 0; i < sup_total; i++)
 			printf(" %s", mad_field_name(suppressed_fields[i]));
-		}
 		printf("\n");
 	}
 }
@@ -216,8 +209,7 @@ static void print_results(ibnd_node_t * node, uint8_t * pc, int portnum,
 	char buf[1024];
 	char *str = buf;
 	uint32_t val = 0;
-	int n = 0;
-	int i = 0;
+	int i = 0, n = 0;
 
 	for (n = 0, i = IB_PC_ERR_SYM_F; i <= IB_PC_VL15_DROPPED_F; i++) {
 		if (suppress(i))
@@ -285,15 +277,16 @@ static int query_cap_mask(ibnd_node_t * node, int portnum, uint16_t * cap_mask)
 			   ibmad_port)) {
 		IBWARN("classportinfo query failed on %s, %s port %d",
 		       remap_node_name(node_name_map, node->guid,
-		       node->nodedesc), portid2str(&portid), portnum);
-		return (-1);
+				       node->nodedesc), portid2str(&portid),
+		       portnum);
+		return -1;
 	}
 
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&rc_cap_mask, pc + 2, sizeof(rc_cap_mask));	/* CapabilityMask */
 
 	*cap_mask = ntohs(rc_cap_mask);
-	return (0);
+	return 0;
 }
 
 static void print_port(ib_portid_t * portid, uint16_t cap_mask,
@@ -308,7 +301,7 @@ static void print_port(ib_portid_t * portid, uint16_t cap_mask,
 	if (!pma_query_via(pc, portid, portnum, ibd_timeout,
 			   IB_GSI_PORT_COUNTERS, ibmad_port)) {
 		IBWARN("IB_GSI_PORT_COUNTERS query failed on %s, %s port %d\n",
-		nodename, portid2str(portid), portnum);
+		       nodename, portid2str(portid), portnum);
 		goto cleanup;
 	}
 	if (!(cap_mask & 0x1000)) {
@@ -323,7 +316,7 @@ cleanup:
 }
 
 static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
-			      ibnd_node_t * node, int port)
+		       ibnd_node_t * node, int port)
 {
 	uint8_t pc[1024];
 	/* bits defined in Table 228 PortCounters CounterSelect and
@@ -387,7 +380,8 @@ void print_node(ibnd_node_t * node, void *user_data)
 			if (node->type == IB_NODE_SWITCH)
 				ib_portid_set(&portid, node->smalid, 0, 0);
 			else
-				ib_portid_set(&portid, node->ports[p]->base_lid, 0, 0);
+				ib_portid_set(&portid, node->ports[p]->base_lid,
+					      0, 0);
 
 			print_port(&portid, cap_mask, node, p, &header_printed);
 			if (!all_port_sup)
@@ -414,11 +408,9 @@ static void calculate_suppressed_fields(char *str)
 
 	val = strtok_r(tmp, ",", &lasts);
 	while (val) {
-		for (f = IB_PC_FIRST_F; f <= IB_PC_LAST_F; f++) {
-			if (strcmp(val, mad_field_name(f)) == 0) {
+		for (f = IB_PC_FIRST_F; f <= IB_PC_LAST_F; f++)
+			if (strcmp(val, mad_field_name(f)) == 0)
 				add_suppressed(f);
-			}
-		}
 		val = strtok_r(NULL, ",", &lasts);
 	}
 
@@ -506,8 +498,10 @@ int main(int argc, char **argv)
 		{"switch", 3, 0, NULL, "print data for switches only"},
 		{"ca", 4, 0, NULL, "print data for CA's only"},
 		{"router", 5, 0, NULL, "print data for routers only"},
-		{"clear-errors", 'k', 0, NULL, "Clear error counters after read"},
-		{"clear-counts", 'K', 0, NULL, "Clear data counters after read"},
+		{"clear-errors", 'k', 0, NULL,
+		 "Clear error counters after read"},
+		{"clear-counts", 'K', 0, NULL,
+		 "Clear data counters after read"},
 		{0}
 	};
 	char usage_args[] = "";
