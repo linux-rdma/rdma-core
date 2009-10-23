@@ -98,7 +98,7 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 	ib_portid_t sm_portid;
 	uint8_t buf[IB_SA_DATA_SIZE] = { 0 };
 	ib_portid_t self = { 0 };
-	uint64_t selfguid;
+	uint64_t selfguid, prefix;
 	ibmad_gid_t selfgid;
 	uint8_t nodeinfo[64];
 
@@ -114,7 +114,8 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 	mad_set_field64(selfgid, 0, IB_GID_PREFIX_F, IB_DEFAULT_SUBN_PREFIX);
 	mad_set_field64(selfgid, 0, IB_GID_GUID_F, selfguid);
 
-	if (*(uint64_t *) & portid->gid == 0)
+	memcpy(&prefix, portid->gid, sizeof(prefix));
+	if (!prefix)
 		mad_set_field64(portid->gid, 0, IB_GID_PREFIX_F,
 				IB_DEFAULT_SUBN_PREFIX);
 	if (guid)

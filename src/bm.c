@@ -53,7 +53,11 @@ uint8_t *bm_call_via(void *data, ib_portid_t * portid, ib_bm_call_t * call,
 {
 	ib_rpc_t rpc = { 0 };
 	int resp_expected;
-	char data_with_bkey[IB_BM_BKEY_AND_DATA_SZ] = { 0 };
+	struct {
+		uint64_t bkey;
+		uint8_t reserved[32];
+		uint8_t data[IB_BM_DATA_SZ];
+	} bm_data;
 
 	DEBUG("route %s data %p", portid2str(portid), data);
 	if (portid->lid <= 0) {
@@ -74,9 +78,9 @@ uint8_t *bm_call_via(void *data, ib_portid_t * portid, ib_bm_call_t * call,
 	rpc.dataoffs = IB_BM_BKEY_OFFS;
 
 	// copy data to a buffer which also includes the bkey
-	*((uint64_t *) data_with_bkey) = htonll(call->bkey);
-	memcpy(data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS, data,
-	       IB_BM_DATA_SZ);
+	bm_data.bkey = htonll(call->bkey);
+	memset(bm_data.reserved, 0, sizeof(bm_data.reserved));
+	memcpy(bm_data.data, data, IB_BM_DATA_SZ);
 
 	DEBUG
 	    ("method 0x%x attr 0x%x mod 0x%x datasz %d off %d res_ex %d bkey 0x%08x%08x",
@@ -89,17 +93,15 @@ uint8_t *bm_call_via(void *data, ib_portid_t * portid, ib_bm_call_t * call,
 
 	if (resp_expected) {
 		/* FIXME: no RMPP for now */
-		if (mad_rpc
-		    (srcport, &rpc, portid, data_with_bkey, data_with_bkey))
+		if (mad_rpc(srcport, &rpc, portid, &bm_data, &bm_data))
 			goto return_ok;
 		return NULL;
 	}
 
-	if (mad_send_via(&rpc, portid, 0, data_with_bkey, srcport) < 0)
+	if (mad_send_via(&rpc, portid, 0, &bm_data, srcport) < 0)
 		return NULL;
 
 return_ok:
-	memcpy(data, data_with_bkey + IB_BM_DATA_OFFS - IB_BM_BKEY_OFFS,
-	       IB_BM_DATA_SZ);
+	memcpy(data, bm_data.data, IB_BM_DATA_SZ);
 	return data;
 }
