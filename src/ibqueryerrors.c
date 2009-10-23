@@ -261,23 +261,18 @@ static void print_results(ibnd_node_t * node, uint8_t * pc, int portnum,
 	}
 }
 
-static int query_cap_mask(ibnd_node_t * node, int portnum, uint16_t * cap_mask)
+static int query_cap_mask(ib_portid_t *portid, ibnd_node_t * node, int portnum,
+			  uint16_t * cap_mask)
 {
 	uint8_t pc[1024];
 	uint16_t rc_cap_mask;
-	ib_portid_t portid = { 0 };
-
-	if (node->type == IB_NODE_SWITCH)
-		ib_portid_set(&portid, node->smalid, 0, 0);
-	else
-		ib_portid_set(&portid, node->ports[portnum]->base_lid, 0, 0);
 
 	/* PerfMgt ClassPortInfo is a required attribute */
-	if (!pma_query_via(pc, &portid, portnum, ibd_timeout, CLASS_PORT_INFO,
+	if (!pma_query_via(pc, portid, portnum, ibd_timeout, CLASS_PORT_INFO,
 			   ibmad_port)) {
 		IBWARN("classportinfo query failed on %s, %s port %d",
 		       remap_node_name(node_name_map, node->guid,
-				       node->nodedesc), portid2str(&portid),
+				       node->nodedesc), portid2str(portid),
 		       portnum);
 		return -1;
 	}
@@ -371,17 +366,17 @@ void print_node(ibnd_node_t * node, void *user_data)
 
 	for (p = startport; p <= node->numports; p++) {
 		if (node->ports[p]) {
-			if (query_cap_mask(node, p, &cap_mask) < 0)
-				continue;
-
-			if (cap_mask & 0x100)
-				all_port_sup = 1;
-
 			if (node->type == IB_NODE_SWITCH)
 				ib_portid_set(&portid, node->smalid, 0, 0);
 			else
 				ib_portid_set(&portid, node->ports[p]->base_lid,
 					      0, 0);
+
+			if (query_cap_mask(&portid, node, p, &cap_mask) < 0)
+				continue;
+
+			if (cap_mask & 0x100)
+				all_port_sup = 1;
 
 			print_port(&portid, cap_mask, node, p, &header_printed);
 			if (!all_port_sup)
