@@ -75,10 +75,7 @@ struct cmatest {
 	int			connects_left;
 	int			disconnects_left;
 
-	struct sockaddr_in	dst_in;
-	struct sockaddr		*dst_addr;
-	struct sockaddr_in	src_in;
-	struct sockaddr		*src_addr;
+	struct rdma_addr	addr;
 };
 
 static struct cmatest test;
@@ -505,7 +502,7 @@ static int migrate_channel(struct rdma_cm_id *listen_id)
 	return ret;
 }
 
-static int get_addr(char *dst, struct sockaddr_in *addr)
+static int get_addr(char *dst, struct sockaddr *addr)
 {
 	struct addrinfo *res;
 	int ret;
@@ -516,15 +513,15 @@ static int get_addr(char *dst, struct sockaddr_in *addr)
 		return ret;
 	}
 
-	if (res->ai_family != PF_INET) {
+	if (res->ai_family == PF_INET)
+		memcpy(addr, res->ai_addr, sizeof(struct sockaddr_in));
+	else if (res->ai_family == PF_INET6)
+		memcpy(addr, res->ai_addr, sizeof(struct sockaddr_in6));
+	else
 		ret = -1;
-		goto out;
-	}
 
-	*addr = *(struct sockaddr_in *) res->ai_addr;
-out:
-	freeaddrinfo(res);
-	return ret;
+        freeaddrinfo(res);
+        return ret;
 }
 
 static int run_server(void)
@@ -540,14 +537,21 @@ static int run_server(void)
 	}
 
 	if (src_addr) {
-		ret = get_addr(src_addr, &test.src_in);
+		ret = get_addr(src_addr, &test.addr.src_addr);
 		if (ret)
 			goto out;
-	} else
-		test.src_in.sin_family = PF_INET;
+		if (test.addr.src_addr.sa_family == AF_INET)
+			((struct sockaddr_in *) &test.addr.src_addr)->sin_port = port;
+		else
+			((struct sockaddr_in6 *) &test.addr.src_addr)->sin6_port = port;
+		
+	} else {
+		test.addr.src_addr.sa_family = PF_INET;
+		((struct sockaddr_in *) &test.addr.src_addr)->sin_port = port;
+	}
 
-	test.src_in.sin_port = port;
-	ret = rdma_bind_addr(listen_id, test.src_addr);
+	ret = rdma_bind_addr(listen_id, &test.addr.src_addr);
+
 	if (ret) {
 		perror("cmatose: bind address failed");
 		goto out;
@@ -614,22 +618,25 @@ static int run_client(void)
 
 	printf("cmatose: starting client\n");
 	if (src_addr) {
-		ret = get_addr(src_addr, &test.src_in);
+		ret = get_addr(src_addr, &test.addr.src_addr);
 		if (ret)
 			return ret;
 	}
 
-	ret = get_addr(dst_addr, &test.dst_in);
+	ret = get_addr(dst_addr, &test.addr.dst_addr);
 	if (ret)
 		return ret;
 
-	test.dst_in.sin_port = port;
+	if (test.addr.dst_addr.sa_family == AF_INET)
+		((struct sockaddr_in *) &test.addr.dst_addr)->sin_port = port;
+	else
+		((struct sockaddr_in6 *) &test.addr.dst_addr)->sin6_port = port;
 
 	printf("cmatose: connecting\n");
 	for (i = 0; i < connections; i++) {
 		ret = rdma_resolve_addr(test.nodes[i].cma_id,
-					src_addr ? test.src_addr : NULL,
-					test.dst_addr, 2000);
+					src_addr ? &test.addr.src_addr : NULL,
+					&test.addr.dst_addr, 2000);
 		if (ret) {
 			perror("cmatose: failure getting addr");
 			connect_error();
@@ -717,8 +724,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	test.dst_addr = (struct sockaddr *) &test.dst_in;
-	test.src_addr = (struct sockaddr *) &test.src_in;
 	test.connects_left = connections;
 	test.disconnects_left = connections;
 
