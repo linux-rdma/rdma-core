@@ -295,7 +295,7 @@ static void print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
 }
 
 static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
-		       ibnd_node_t * node, int port)
+		       char * node_name, int port)
 {
 	uint8_t pc[1024];
 	/* bits defined in Table 228 PortCounters CounterSelect and
@@ -317,7 +317,7 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 	if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
 				   IB_GSI_PORT_COUNTERS, ibmad_port))
 		IBERROR("Failed to reset errors %s port %d",
-			node->nodedesc, port);
+			node_name, port);
 }
 
 void print_node(ibnd_node_t * node, void *user_data)
@@ -329,6 +329,7 @@ void print_node(ibnd_node_t * node, void *user_data)
 	int all_port_sup = 0;
 	ib_portid_t portid = { 0 };
 	uint16_t cap_mask = 0;
+	char *node_name = NULL;
 
 	switch (node->type) {
 	case IB_NODE_SWITCH:
@@ -348,9 +349,10 @@ void print_node(ibnd_node_t * node, void *user_data)
 	if (node->type == IB_NODE_SWITCH && node->smaenhsp0)
 		startport = 0;
 
+	node_name = remap_node_name(node_name_map, node->guid,
+				    node->nodedesc);
+
 	for (p = startport; p <= node->numports; p++) {
-		char *node_name = remap_node_name(node_name_map, node->guid,
-						  node->nodedesc);
 		if (node->ports[p]) {
 			if (node->type == IB_NODE_SWITCH)
 				ib_portid_set(&portid, node->smalid, 0, 0);
@@ -367,13 +369,14 @@ void print_node(ibnd_node_t * node, void *user_data)
 			print_port(&portid, cap_mask, node_name, node, p,
 				   &header_printed);
 			if (!all_port_sup)
-				clear_port(&portid, cap_mask, node, p);
+				clear_port(&portid, cap_mask, node_name, p);
 		}
-		free(node_name);
 	}
 
 	if (all_port_sup)
-		clear_port(&portid, cap_mask, node, 0xFF);
+		clear_port(&portid, cap_mask, node_name, 0xFF);
+
+	free(node_name);
 }
 
 static void add_suppressed(enum MAD_FIELDS field)
