@@ -372,7 +372,7 @@ int main(int argc, char *argv[])
 		case 'l':
 			dev_list = orig_dev_list = ibv_get_device_list(&num_of_hcas);
 			if (!dev_list) {
-				fprintf(stderr, "Failed to get IB devices list");
+				perror("Failed to get IB devices list");
 				return -1;
 			}
 
@@ -398,7 +398,7 @@ int main(int argc, char *argv[])
 
 	dev_list = orig_dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
-		fprintf(stderr, "Failed to get IB device list\n");
+		perror("Failed to get IB devices list");
 		return -1;
 	}
 

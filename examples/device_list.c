@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 
 	dev_list = ibv_get_device_list(&num_devices);
 	if (!dev_list) {
-		fprintf(stderr, "No IB devices found\n");
+		perror("Failed to get IB devices list");
 		return 1;
 	}
 

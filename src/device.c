@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <alloca.h>
+#include <errno.h>
 
 #include <infiniband/arch.h>
 
@@ -54,27 +55,35 @@ static struct ibv_device **device_list;
 
 struct ibv_device **__ibv_get_device_list(int *num)
 {
-	struct ibv_device **l;
+	struct ibv_device **l = 0;
 	int i;
+
+	if (num)
+		*num = 0;
 
 	pthread_mutex_lock(&device_list_lock);
 
 	if (!num_devices)
 		num_devices = ibverbs_init(&device_list);
 
-	l = calloc(num_devices + 1, sizeof (struct ibv_device *));
-	if (!l)
+	if (num_devices < 0) {
+		errno = -num_devices;
 		goto out;
+	}
+
+	l = calloc(num_devices + 1, sizeof (struct ibv_device *));
+	if (!l) {
+		errno = ENOMEM;
+		goto out;
+	}
 
 	for (i = 0; i < num_devices; ++i)
 		l[i] = device_list[i];
+	if (num)
+		*num = num_devices;
 
 out:
 	pthread_mutex_unlock(&device_list_lock);
-
-	if (num)
-		*num = l ? num_devices : 0;
-
 	return l;
 }
 default_symver(__ibv_get_device_list, ibv_get_device_list);

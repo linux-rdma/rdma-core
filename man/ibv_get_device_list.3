@@ -25,10 +25,24 @@ returned by
 .B ibv_get_device_list()\fR.
 .SH "RETURN VALUE"
 .B ibv_get_device_list()
-returns the array of available RDMA devices, or NULL if the request fails.
+returns the array of available RDMA devices, or sets
+.I errno
+and returns NULL if the request fails. If no devices are found then
+.I num_devices
+is set to 0, and non-NULL is returned.
 .PP
 .B ibv_free_device_list()
 returns no value.
+.SH "ERRORS"
+.TP
+.B EPERM
+Permission denied.
+.TP
+.B ENOSYS
+No kernel support for RDMA.
+.TP
+.B ENOMEM
+Insufficient memory to complete the operation.
 .SH "NOTES"
 Client code should open all the devices it intends to use with
 .B ibv_open_device()\fR before calling

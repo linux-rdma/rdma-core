@@ -46,6 +46,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <dirent.h>
+#include <errno.h>
 
 #include "ibverbs.h"
 
@@ -76,23 +77,21 @@ static struct ibv_sysfs_dev *sysfs_dev_list;
 static struct ibv_driver_name *driver_name_list;
 static struct ibv_driver *head_driver, *tail_driver;
 
-static void find_sysfs_devs(void)
+static int find_sysfs_devs(void)
 {
 	char class_path[IBV_SYSFS_PATH_MAX];
 	DIR *class_dir;
 	struct dirent *dent;
 	struct ibv_sysfs_dev *sysfs_dev = NULL;
 	char value[8];
+	int ret = 0;
 
 	snprintf(class_path, sizeof class_path, "%s/class/infiniband_verbs",
 		 ibv_get_sysfs_path());
 
 	class_dir = opendir(class_path);
-	if (!class_dir) {
-		fprintf(stderr, PFX "Fatal: couldn't open sysfs class "
-			"directory '%s'.\n", class_path);
-		return;
-	}
+	if (!class_dir)
+		return ENOSYS;
 
 	while ((dent = readdir(class_dir))) {
 		struct stat buf;
@@ -103,9 +102,8 @@ static void find_sysfs_devs(void)
 		if (!sysfs_dev)
 			sysfs_dev = malloc(sizeof *sysfs_dev);
 		if (!sysfs_dev) {
-			fprintf(stderr, PFX "Warning: couldn't allocate sysfs dev "
-				"for '%s'.\n", dent->d_name);
-			continue;
+			ret = ENOMEM;
+			goto out;
 		}
 
 		snprintf(sysfs_dev->sysfs_path, sizeof sysfs_dev->sysfs_path,
@@ -147,10 +145,12 @@ static void find_sysfs_devs(void)
 		sysfs_dev      = NULL;
 	}
 
+ out:
 	if (sysfs_dev)
 		free(sysfs_dev);
 
 	closedir(class_dir);
+	return ret;
 }
 
 void ibv_register_driver(const char *name, ibv_driver_init_func init_func)
@@ -391,8 +391,7 @@ static int check_abi_version(const char *path)
 
 	if (ibv_read_sysfs_file(path, "class/infiniband_verbs/abi_version",
 				value, sizeof value) < 0) {
-		fprintf(stderr, PFX "Fatal: couldn't read uverbs ABI version.\n");
-		return -1;
+		return ENOSYS;
 	}
 
 	abi_ver = strtol(value, NULL, 10);
@@ -402,7 +401,7 @@ static int check_abi_version(const char *path)
 		fprintf(stderr, PFX "Fatal: kernel ABI version %d "
 			"doesn't match library version %d.\n",
 			abi_ver, IB_USER_VERBS_MAX_ABI_VERSION);
-		return -1;
+		return ENOSYS;
 	}
 
 	return 0;
@@ -453,6 +452,7 @@ HIDDEN int ibverbs_init(struct ibv_device ***list)
 	int list_size = 0;
 	int statically_linked = 0;
 	int no_driver = 0;
+	int ret;
 
 	*list = NULL;
 
@@ -462,19 +462,20 @@ HIDDEN int ibverbs_init(struct ibv_device ***list)
 				"but init failed\n");
 
 	sysfs_path = ibv_get_sysfs_path();
-	if (!sysfs_path) {
-		fprintf(stderr, PFX "Fatal: couldn't find sysfs mount.\n");
-		return 0;
-	}
+	if (!sysfs_path)
+		return -ENOSYS;
 
-	if (check_abi_version(sysfs_path))
-		return 0;
+	ret = check_abi_version(sysfs_path);
+	if (ret)
+		return -ret;
 
 	check_memlock_limit();
 
 	read_config();
 
-	find_sysfs_devs();
+	ret = find_sysfs_devs();
+	if (ret)
+		return -ret;
 
 	for (sysfs_dev = sysfs_dev_list; sysfs_dev; sysfs_dev = sysfs_dev->next) {
 		device = try_drivers(sysfs_dev);
