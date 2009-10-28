@@ -50,4 +50,14 @@
 /* HASH table defines */
 #define HASHGUID(guid) ((uint32_t)(((uint32_t)(guid) * 101) ^ ((uint32_t)((guid) >> 32) * 103)))
 
+#define MAXHOPS         63
+
+typedef struct ibnd_scan {
+	ibnd_node_t *nodesdist[MAXHOPS + 1];
+	ibnd_chassis_t *first_chassis;
+	ibnd_chassis_t *current_chassis;
+	ibnd_chassis_t *last_chassis;
+	ib_portid_t selfportid;
+} ibnd_scan_t;
+
 #endif				/* _INTERNAL_H_ */
