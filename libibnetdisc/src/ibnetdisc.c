@@ -387,9 +387,8 @@ static void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 	}
 }
 
-static void add_to_nodedist(ibnd_node_t * node, ibnd_scan_t * ibnd_scan)
+static void add_to_nodedist(ibnd_node_t * node, ibnd_scan_t * ibnd_scan, int dist)
 {
-	int dist = node->dist;
 	if (node->type != IB_NODE_SWITCH)
 		dist = MAXHOPS;	/* special Ca list */
 
@@ -410,7 +409,6 @@ static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * ibnd_scan,
 	}
 
 	memcpy(node, temp, sizeof(*node));
-	node->dist = dist;
 	node->path_portid = *path;
 
 	add_to_nodeguid_hash(node, fabric->nodestbl);
@@ -420,7 +418,7 @@ static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * ibnd_scan,
 	fabric->nodes = (ibnd_node_t *) node;
 
 	add_to_type_list(node, fabric);
-	add_to_nodedist(node, ibnd_scan);
+	add_to_nodedist(node, ibnd_scan, dist);
 
 	return node;
 }
