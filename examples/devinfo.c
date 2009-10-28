@@ -67,6 +67,15 @@ static const char *guid_str(uint64_t node_guid, char *str)
 	return str;
 }
 
+static const char *transport_str(enum ibv_transport_type transport)
+{
+	switch (transport) {
+	case IBV_TRANSPORT_IB:    return "InfiniBand";
+	case IBV_TRANSPORT_IWARP: return "iWARP";
+	default:		  return "invalid transport";
+	}
+}
+
 static const char *port_state_str(enum ibv_port_state pstate)
 {
 	switch (pstate) {
@@ -197,6 +206,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 	}
 
 	printf("hca_id:\t%s\n", ibv_get_device_name(ib_dev));
+	printf("\ttransport:\t\t\t%s (%d)\n",
+	       transport_str(ib_dev->transport_type), ib_dev->transport_type);
 	if (strlen(device_attr.fw_ver))
 		printf("\tfw_ver:\t\t\t\t%s\n", device_attr.fw_ver);
 	printf("\tnode_guid:\t\t\t%s\n", guid_str(device_attr.node_guid, buf));
