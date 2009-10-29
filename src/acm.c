@@ -43,16 +43,15 @@
 
 struct acm_dest
 {
-	uint8_t            address[ACM_MAX_ADDRESS]; /* keep first */
-	struct ibv_ah      *ah;
-	struct ibv_ah_attr av;
-	union ibv_gid      mgid;
-	DLIST_ENTRY        req_queue;
-	uint32_t           remote_qpn;
-	uint8_t            init_depth;
-	uint8_t            resp_resources;
-	uint8_t            mtu;
-	uint8_t            packet_lifetime;
+	uint8_t               address[ACM_MAX_ADDRESS]; /* keep first */
+	struct ibv_ah         *ah;
+	struct ibv_ah_attr    av;
+	struct ib_path_record path;
+	union ibv_gid         mgid;
+	DLIST_ENTRY           req_queue;
+	uint32_t              remote_qpn;
+	uint8_t               init_depth;
+	uint8_t               resp_resources;
 };
 
 struct acm_port
@@ -95,7 +94,7 @@ struct acm_ep
 	struct ibv_mr      *mr;
 	uint8_t            *recv_bufs;
 	DLIST_ENTRY        entry;
-	union acm_ep_addr  addr[MAX_EP_ADDR];
+	union acm_ep_info  addr[MAX_EP_ADDR];
 	uint8_t            addr_type[MAX_EP_ADDR];
 	void               *dest_map[ACM_ADDRESS_RESERVED - 1];
 	struct acm_dest    mc_dest[MAX_EP_MC];
@@ -176,9 +175,9 @@ static void acm_write(int level, const char *format, ...)
 	va_end(args);
 }
 
-static void acm_log_ep_addr(int level, const char *msg,
-	union acm_ep_addr *addr, uint8_t ep_type)
+static void acm_log_ep_addr(int level, const char *msg, uint16_t type, uint8_t *data)
 {
+	struct ib_path_record *path;
 	char ip_addr[ACM_MAX_ADDRESS];
 
 	if (level > log_level)
@@ -186,27 +185,28 @@ static void acm_log_ep_addr(int level, const char *msg,
 
 	lock_acquire(&log_lock);
 	fprintf(flog, msg);
-	switch (ep_type) {
-	case ACM_EP_TYPE_NAME:
-		fprintf(flog, "%s\n", addr->name);
+	switch (type) {
+	case ACM_EP_INFO_NAME:
+		fprintf(flog, "%s\n", data);
 		break;
-	case ACM_EP_TYPE_ADDRESS_IP:
-		inet_ntop(AF_INET, addr->addr, ip_addr, ACM_MAX_ADDRESS);
+	case ACM_EP_INFO_ADDRESS_IP:
+		inet_ntop(AF_INET, data, ip_addr, ACM_MAX_ADDRESS);
 		fprintf(flog, "%s\n", ip_addr);
 		break;
-	case ACM_EP_TYPE_ADDRESS_IP6:
-		inet_ntop(AF_INET6, addr->addr, ip_addr, ACM_MAX_ADDRESS);
+	case ACM_EP_INFO_ADDRESS_IP6:
+		inet_ntop(AF_INET6, data, ip_addr, ACM_MAX_ADDRESS);
 		fprintf(flog, "%s\n", ip_addr);
 		break;
-	case ACM_EP_TYPE_DEVICE:
-		fprintf(flog, "device guid 0x%llx, pkey index %d, port %d\n",
-			addr->dev.guid, addr->dev.pkey_index, addr->dev.port_num);
+	case ACM_EP_INFO_CM:
+		fprintf(flog, "cm data not displayed\n");
 		break;
-	case ACM_EP_TYPE_AV:
-		fprintf(flog, "endpoint specified using address vector\n");
+	case ACM_EP_INFO_PATH:
+		path = (struct ib_path_record *) data;
+		fprintf(flog, "path record, SLID 0x%x, DLID 0x%x\n",
+			ntohs(path->slid), ntohs(path->dlid));
 		break;
 	default:
-		fprintf(flog, "unknown endpoint address 0x%x\n", ep_type);
+		fprintf(flog, "unknown endpoint address 0x%x\n", type);
 	}
 	lock_release(&log_lock);
 }
@@ -390,25 +390,38 @@ static int acm_mc_index(struct acm_ep *ep, union ibv_gid *gid)
 }
 
 static void
-acm_init_mc_av(struct acm_port *port, struct ib_mc_member_rec *mc_rec,
-	struct ibv_ah_attr *av)
+acm_record_mc_av(struct acm_port *port, struct ib_mc_member_rec *mc_rec,
+	struct acm_dest *dest)
 {
 	uint32_t sl_flow_hop;
 
 	sl_flow_hop = ntohl(mc_rec->sl_flow_hop);
 
-	av->dlid = ntohs(mc_rec->mlid);
-	av->sl = (uint8_t) (sl_flow_hop >> 28);
-	av->src_path_bits = port->sa_dest.av.src_path_bits;
-	av->static_rate = mc_rec->rate & 0x3F;
-	av->port_num = port->port_num;
+	dest->av.dlid = ntohs(mc_rec->mlid);
+	dest->av.sl = (uint8_t) (sl_flow_hop >> 28);
+	dest->av.src_path_bits = port->sa_dest.av.src_path_bits;
+	dest->av.static_rate = mc_rec->rate & 0x3F;
+	dest->av.port_num = port->port_num;
 
-	av->is_global = 1;
-	av->grh.dgid = mc_rec->mgid;
-	av->grh.flow_label = (sl_flow_hop >> 8) & 0xFFFFF;
-	av->grh.sgid_index = acm_gid_index(port, &mc_rec->port_gid);
-	av->grh.hop_limit = (uint8_t) sl_flow_hop;
-	av->grh.traffic_class = mc_rec->tclass;
+	dest->av.is_global = 1;
+	dest->av.grh.dgid = mc_rec->mgid;
+	dest->av.grh.flow_label = (sl_flow_hop >> 8) & 0xFFFFF;
+	dest->av.grh.sgid_index = acm_gid_index(port, &mc_rec->port_gid);
+	dest->av.grh.hop_limit = (uint8_t) sl_flow_hop;
+	dest->av.grh.traffic_class = mc_rec->tclass;
+
+	dest->path.dgid = mc_rec->mgid;
+	dest->path.sgid = mc_rec->port_gid;
+	dest->path.dlid = mc_rec->mlid;
+	dest->path.slid = htons(port->lid) | port->sa_dest.av.src_path_bits;
+	dest->path.flowlabel_hoplimit = htonl(sl_flow_hop & 0xFFFFFFF);
+	dest->path.tclass = mc_rec->tclass;
+	dest->path.reversible_numpath = IB_PATH_RECORD_REVERSIBLE | 1;
+	dest->path.pkey = mc_rec->pkey;
+	dest->path.qosclass_sl = htons((uint16_t) (sl_flow_hop >> 28));
+	dest->path.mtu = mc_rec->mtu;
+	dest->path.rate = mc_rec->rate;
+	dest->path.packetlifetime = mc_rec->packet_lifetime;
 }
 
 static void acm_process_join_resp(struct acm_ep *ep, struct ib_user_mad *umad)
@@ -437,9 +450,7 @@ static void acm_process_join_resp(struct acm_ep *ep, struct ib_user_mad *umad)
 		dest = &ep->mc_dest[index];
 		dest->remote_qpn = IB_MC_QPN;
 		dest->mgid = mc_rec->mgid;
-		acm_init_mc_av(ep->port, mc_rec, &dest->av);
-		dest->mtu = mc_rec->mtu & 0x3F;
-		dest->packet_lifetime = mc_rec->packet_lifetime & 0x3F;
+		acm_record_mc_av(ep->port, mc_rec, dest);
 		dest->ah = ibv_create_ah(ep->port->dev->pd, &dest->av);
 		ret = ibv_attach_mcast(ep->qp, &mc_rec->mgid, mc_rec->mlid);
 		if (ret) {
@@ -493,8 +504,10 @@ acm_record_av(struct acm_dest *dest, struct acm_ep *ep,
 			dest->av.grh.dgid = ((struct ibv_grh *) (uintptr_t) wc->wr_id)->sgid;
 			
 			dest->mgid = ep->mc_dest[index].mgid;
-			dest->mtu = ep->mc_dest[index].mtu;
-			dest->packet_lifetime = ep->mc_dest[index].packet_lifetime;
+
+			dest->path = ep->mc_dest[index].path;
+			dest->path.dgid = dest->av.grh.dgid;
+			dest->path.dlid = htons(dest->av.dlid);
 			return ACM_STATUS_SUCCESS;
 		}
 	}
@@ -651,11 +664,15 @@ acm_process_resolve_req(struct acm_ep *ep, struct ibv_wc *wc, struct acm_mad *ma
 
 static int
 acm_client_resolve_resp(struct acm_ep *ep, struct acm_client *client,
-	struct acm_resolve_msg *msg, struct acm_dest *dest, uint8_t status)
+	struct acm_resolve_msg *req_msg, struct acm_dest *dest, uint8_t status)
 {
+	struct acm_msg msg;
+	struct acm_resolve_msg *resp_msg = (struct acm_resolve_msg *) &msg;
 	int ret;
 
 	acm_log(1, "status 0x%x\n", status);
+	memset(&msg, 0, sizeof msg);
+
 	lock_acquire(&client->lock);
 	if (client->sock == INVALID_SOCKET) {
 		acm_log(0, "ERROR - connection lost\n");
@@ -663,29 +680,27 @@ acm_client_resolve_resp(struct acm_ep *ep, struct acm_client *client,
 		goto release;
 	}
 
-	msg->hdr.opcode |= ACM_OP_ACK;
-	msg->hdr.status = status;
-	msg->hdr.param = 0;
+	resp_msg->hdr = req_msg->hdr;
+	resp_msg->hdr.opcode |= ACM_OP_ACK;
+	resp_msg->hdr.status = status;
+	resp_msg->hdr.length = ACM_MSG_HDR_LENGTH;
 
 	if (!status) {
-		msg->hdr.src_type = ACM_EP_TYPE_DEVICE;
-		msg->src.dev.guid = ep->port->dev->guid;
-		msg->src.dev.pkey_index = ep->pkey_index;
-		msg->src.dev.port_num = ep->port->port_num;
+		resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
+		resp_msg->data[0].flags = IB_ACM_FLAGS_CM |
+			IB_ACM_FLAGS_PRIMARY | IB_ACM_FLAGS_BIDIRECTIONAL;
+		resp_msg->data[0].type = ACM_EP_INFO_PATH;
+		resp_msg->data[0].info.path = dest->path;
 
-		if (dest) {
-			acm_log(2, "destination found\n");
-			msg->hdr.dest_type = ACM_EP_TYPE_AV;
-			msg->dest.av = dest->av;
-			msg->data.init_depth = min(ep->port->dev->init_depth, dest->resp_resources);
-			msg->data.resp_resources = min(ep->port->dev->resp_resources, dest->init_depth);
-			msg->data.packet_lifetime = dest->packet_lifetime;
-			msg->data.mtu = dest->mtu;
-		}
+		resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
+		resp_msg->data[1].flags = IB_ACM_FLAGS_CM | IB_ACM_FLAGS_BIDIRECTIONAL;
+		resp_msg->data[1].type = ACM_EP_INFO_CM;
+		resp_msg->data[1].info.cm.init_depth = dest->init_depth;
+		resp_msg->data[1].info.cm.resp_resources = dest->resp_resources;
 	}
 
-	ret = send(client->sock, (char *) msg, sizeof *msg, 0);
-	if (ret != sizeof(*msg))
+	ret = send(client->sock, (char *) resp_msg, resp_msg->hdr.length, 0);
+	if (ret != resp_msg->hdr.length)
 		acm_log(0, "failed to send response\n");
 	else
 		ret = 0;
@@ -1118,8 +1133,7 @@ static void acm_process_timeouts(void)
 		rec = (struct acm_resolve_rec *) mad->data;
 		ep = msg->ep;
 
-		acm_log_ep_addr(0, "acm_process_timeouts: dest ",
-			(union acm_ep_addr *) &rec->dest, rec->dest_type);
+		acm_log_ep_addr(0, "acm_process_timeouts: dest ", rec->dest_type, rec->dest);
 		lock_acquire(&ep->lock);
 		tdest = tfind(rec->dest, &ep->dest_map[rec->dest_type - 1], acm_compare_dest);
 		if (!tdest) {
@@ -1300,18 +1314,9 @@ static void acm_svr_accept(void)
 	acm_log(2, "assigned client id %d\n", i);
 }
 
-static uint8_t acm_get_addr_type(uint8_t ep_type)
-{
-	if (ep_type >= ACM_ADDRESS_RESERVED) {
-		acm_log(0, "ERROR - invalid ep type %d\n", ep_type);
-		return ACM_ADDRESS_INVALID;
-	}
-	return ep_type;
-}
-
 static int
 acm_client_query_resp(struct acm_ep *ep, struct acm_client *client,
-	struct acm_query_msg *msg, uint8_t status)
+	struct acm_resolve_msg *msg, uint8_t status)
 {
 	int ret;
 
@@ -1326,8 +1331,8 @@ acm_client_query_resp(struct acm_ep *ep, struct acm_client *client,
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.status = status;
 
-	ret = send(client->sock, (char *) msg, sizeof *msg, 0);
-	if (ret != sizeof(*msg))
+	ret = send(client->sock, (char *) msg, msg->hdr.length, 0);
+	if (ret != msg->hdr.length)
 		acm_log(0, "failed to send response\n");
 	else
 		ret = 0;
@@ -1338,48 +1343,13 @@ release:
 	return ret;
 }
 
-static struct acm_ep *
-acm_get_ep_by_path(struct ib_path_record *path)
-{
-	struct acm_device *dev;
-	struct acm_port *port;
-	struct acm_ep *ep;
-	DLIST_ENTRY *dev_entry, *ep_entry;
-	int i;
-
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-		 dev_entry = dev_entry->Next) {
-
-		dev = container_of(dev_entry, struct acm_device, entry);
-		for (i = 0; i < dev->port_cnt; i++) {
-			port = &dev->port[i];
-
-			// requires slid
-			if (port->lid != ntohs(path->slid))
-				continue;
-
-			for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
-				 ep_entry = ep_entry->Next) {
-
-				// ignores pkey
-				ep = container_of(ep_entry, struct acm_ep, entry);
-				return ep;
-			}
-		}
-	}
-
-	acm_log(0, "could not find endpoint\n");
-	return NULL;
-}
-
 // TODO: process send/recv asynchronously
-static uint8_t acm_query_sa(struct acm_ep *ep, uint8_t query, union acm_query_data *data)
+static uint8_t acm_query_sa(struct acm_ep *ep, struct ib_path_record *path)
 {
 	struct acm_port *port;
 	struct ib_sa_mad *mad;
 	struct ib_user_mad *umad;
 	int ret, len;
-	size_t size;
 
 	acm_log(2, "\n");
 	len = sizeof(*umad) + sizeof(*mad);
@@ -1398,16 +1368,7 @@ static uint8_t acm_query_sa(struct acm_ep *ep, uint8_t query, union acm_query_da
 	umad->addr.path_bits = port->sa_dest.av.src_path_bits;
 
 	mad = (struct ib_sa_mad *) umad->data;
-	switch (query) {
-	case ACM_QUERY_PATH_RECORD:
-		acm_init_path_query(mad, &data->path);
-		size = sizeof(data->path);
-		break;
-	default:
-		acm_log(0, "ERROR - unknown attribute id\n");
-		ret = ACM_STATUS_EINVAL;
-		goto out;
-	}
+	acm_init_path_query(mad, path);
 
 	ret = umad_send(port->mad_portid, port->mad_agentid, (void *) umad,
 		sizeof(*mad), timeout, retries);
@@ -1423,7 +1384,7 @@ static uint8_t acm_query_sa(struct acm_ep *ep, uint8_t query, union acm_query_da
 		goto out;
 	}
 
-	memcpy(data, mad->data, size);
+	memcpy(path, mad->data, sizeof *path);
 	ret = umad->status ? umad->status : mad->status;
 	if (ret) {
 		acm_log(0, "SA query response error: 0x%x\n", ret);
@@ -1434,14 +1395,65 @@ out:
 	return (uint8_t) ret;
 }
 
+static struct acm_ep *
+acm_get_ep(struct acm_ep_addr_data *data)
+{
+	struct acm_device *dev;
+	struct acm_port *port;
+	struct acm_ep *ep;
+	DLIST_ENTRY *dev_entry, *ep_entry;
+	int i;
+
+	acm_log_ep_addr(2, "acm_get_ep: ", data->type, data->info.addr);
+	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
+		 dev_entry = dev_entry->Next) {
+
+		dev = container_of(dev_entry, struct acm_device, entry);
+		for (i = 0; i < dev->port_cnt; i++) {
+			port = &dev->port[i];
+
+			if (data->type == ACM_EP_INFO_PATH &&
+			    port->lid != ntohs(data->info.path.slid))
+				continue;
+
+			for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
+				 ep_entry = ep_entry->Next) {
+
+				ep = container_of(ep_entry, struct acm_ep, entry);
+				if (data->type == ACM_EP_INFO_PATH)
+					return ep; // TODO: check pkey
+
+				if (acm_addr_index(ep, data->info.addr,
+				    (uint8_t) data->type) >= 0)
+					return ep;
+			}
+		}
+	}
+
+	acm_log_ep_addr(0, "acm_get_ep: could not find ", data->type, data->info.addr);
+	return NULL;
+}
+
 static int
-acm_svr_query(struct acm_client *client, struct acm_query_msg *msg)
+acm_svr_query(struct acm_client *client, struct acm_resolve_msg *msg)
 {
 	struct acm_ep *ep;
 	uint8_t status;
 
 	acm_log(2, "processing client query\n");
-	ep = acm_get_ep_by_path(&msg->data.path);
+	if (msg->hdr.length != ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH) {
+		acm_log(0, "ERROR - invalid length: 0x%x\n", msg->hdr.length);
+		status = ACM_STATUS_EINVAL;
+		goto resp;
+	}
+
+	if (msg->data[0].type != ACM_EP_INFO_PATH) {
+		acm_log(0, "ERROR - unsupported type: 0x%x\n", msg->data[0].type);
+		status = ACM_STATUS_EINVAL;
+		goto resp;
+	}
+
+	ep = acm_get_ep(&msg->data[0]);
 	if (!ep) {
 		acm_log(0, "could not find local end point\n");
 		status = ACM_STATUS_ESRCADDR;
@@ -1450,7 +1462,7 @@ acm_svr_query(struct acm_client *client, struct acm_query_msg *msg)
 
 	(void) atomic_inc(&client->refcnt);
 	lock_acquire(&ep->lock);
-	status = acm_query_sa(ep, msg->hdr.param & ~ACM_QUERY_SA, &msg->data);
+	status = acm_query_sa(ep, &msg->data[0].info.path);
 	lock_release(&ep->lock);
 
 resp:
@@ -1458,8 +1470,8 @@ resp:
 }
 
 static uint8_t
-acm_send_resolve(struct acm_ep *ep, union acm_ep_addr *src, uint8_t src_type,
-	struct acm_dest *dest, uint8_t dest_type)
+acm_send_resolve(struct acm_ep *ep, struct acm_ep_addr_data *saddr,
+	struct acm_ep_addr_data *daddr)
 {
 	struct acm_send_msg *msg;
 	struct acm_mad *mad;
@@ -1488,12 +1500,12 @@ acm_send_resolve(struct acm_ep *ep, union acm_ep_addr *src, uint8_t src_type,
 	mad->tid = (uint64_t) atomic_inc(&tid);
 
 	rec = (struct acm_resolve_rec *) mad->data;
-	rec->src_type = src_type;
+	rec->src_type = (uint8_t) saddr->type;
 	rec->src_length = ACM_MAX_ADDRESS;
-	memcpy(rec->src, src->addr, ACM_MAX_ADDRESS);
-	rec->dest_type = dest_type;
+	memcpy(rec->src, saddr->info.addr, ACM_MAX_ADDRESS);
+	rec->dest_type = (uint8_t) daddr->type;
 	rec->dest_length = ACM_MAX_ADDRESS;
-	memcpy(rec->dest, dest->address, ACM_MAX_ADDRESS);
+	memcpy(rec->dest, daddr->info.addr, ACM_MAX_ADDRESS);
 	rec->resp_resources = ep->port->dev->resp_resources;
 	rec->init_depth = ep->port->dev->init_depth;
 
@@ -1505,35 +1517,27 @@ acm_send_resolve(struct acm_ep *ep, union acm_ep_addr *src, uint8_t src_type,
 	return 0;
 }
 
-static struct acm_ep *
-acm_get_ep_by_addr(union acm_ep_addr *addr, uint8_t src_type)
+static uint8_t
+acm_svr_verify_resolve(struct acm_resolve_msg *msg)
 {
-	struct acm_device *dev;
-	struct acm_port *port;
-	struct acm_ep *ep;
-	DLIST_ENTRY *dev_entry, *ep_entry;
-	int i;
-
-	acm_log_ep_addr(2, "acm_get_ep_by_addr: ", addr, src_type);
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-		 dev_entry = dev_entry->Next) {
-
-		dev = container_of(dev_entry, struct acm_device, entry);
-		for (i = 0; i < dev->port_cnt; i++) {
-			port = &dev->port[i];
-
-			for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
-				 ep_entry = ep_entry->Next) {
-
-				ep = container_of(ep_entry, struct acm_ep, entry);
-				if (acm_addr_index(ep, addr->addr, src_type) >= 0)
-					return ep;
-			}
-		}
+	if (msg->hdr.length != ACM_MSG_HDR_LENGTH + 2 * ACM_MSG_EP_LENGTH) {
+		acm_log(0, "ERROR - invalid msg hdr length %d\n", msg->hdr.length);
+		return ACM_STATUS_EINVAL;
 	}
 
-	acm_log_ep_addr(0, "acm_get_ep_by_addr: could not find ", addr, src_type);
-	return NULL;
+	if ((msg->data[0].flags != IB_ACM_FLAGS_INBOUND) ||
+	    !msg->data[0].type || (msg->data[0].type >= ACM_ADDRESS_RESERVED)) {
+		acm_log(0, "ERROR - source address required first\n");
+		return ACM_STATUS_ESRCTYPE;
+	}
+
+	if ((msg->data[1].flags != IB_ACM_FLAGS_OUTBOUND) ||
+	    !msg->data[1].type || (msg->data[1].type >= ACM_ADDRESS_RESERVED)) {
+		acm_log(0, "ERROR - destination address required second\n");
+		return ACM_STATUS_EDESTTYPE;
+	}
+
+	return ACM_STATUS_SUCCESS;
 }
 
 static int
@@ -1542,28 +1546,30 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 	struct acm_ep *ep;
 	struct acm_dest *dest, **tdest;
 	struct acm_request *req;
-	uint8_t dest_type, src_type;
+	struct acm_ep_addr_data *saddr, *daddr;
 	uint8_t status;
 
-	acm_log_ep_addr(2, "acm_svr_resolve: source ", &msg->src, msg->hdr.src_type);
-	ep = acm_get_ep_by_addr(&msg->src, msg->hdr.src_type);
+	status = acm_svr_verify_resolve(msg);
+	if (status) {
+		acm_log(0, "misformatted or unsupported request\n");
+		goto resp;
+	}
+
+	saddr = &msg->data[0];
+	daddr = &msg->data[1];
+
+	acm_log_ep_addr(2, "acm_svr_resolve: source ", saddr->type, saddr->info.addr);
+	ep = acm_get_ep(saddr);
 	if (!ep) {
 		acm_log(0, "unknown local end point\n");
 		status = ACM_STATUS_ESRCADDR;
 		goto resp;
 	}
 
-	dest_type = acm_get_addr_type(msg->hdr.dest_type);
-	if (dest_type == ACM_ADDRESS_INVALID) {
-		acm_log(0, "ERROR - unknown destination type\n");
-		status = ACM_STATUS_EDESTTYPE;
-		goto resp;
-	}
-
-	acm_log_ep_addr(2, "acm_svr_resolve: dest ", &msg->dest, msg->hdr.dest_type);
+	acm_log_ep_addr(2, "acm_svr_resolve: dest ", daddr->type, daddr->info.addr);
 	(void) atomic_inc(&client->refcnt);
 	lock_acquire(&ep->lock);
-	tdest = tfind(msg->dest.addr, &ep->dest_map[dest_type - 1], acm_compare_dest);
+	tdest = tfind(&daddr->info.addr, &ep->dest_map[daddr->type - 1], acm_compare_dest);
 	dest = tdest ? *tdest : NULL;
 	if (dest && dest->ah) {
 		acm_log(2, "request satisfied from local cache\n");
@@ -1587,17 +1593,16 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 			goto free_req;
 		}
 
-		memcpy(dest->address, msg->dest.addr, ACM_MAX_ADDRESS);
-		src_type = acm_get_addr_type(msg->hdr.src_type);
+		memcpy(dest->address, &daddr->info.addr, ACM_MAX_ADDRESS);
 		acm_log(2, "sending resolve msg to dest\n");
-		status = acm_send_resolve(ep, &msg->src, src_type, dest, dest_type);
+		status = acm_send_resolve(ep, saddr, daddr);
 		if (status) {
 			acm_log(0, "ERROR - failure sending resolve request 0x%x\n", status);
 			goto free_dest;
 		}
 
 		DListInit(&dest->req_queue);
-		tsearch(dest, &ep->dest_map[dest_type - 1], acm_compare_dest);
+		tsearch(dest, &ep->dest_map[daddr->type - 1], acm_compare_dest);
 	}
 
 	acm_log(2, "queuing client request\n");
@@ -1621,11 +1626,12 @@ resp:
 static void acm_svr_receive(struct acm_client *client)
 {
 	struct acm_msg msg;
+	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
 	int ret;
 
 	acm_log(2, "\n");
 	ret = recv(client->sock, (char *) &msg, sizeof msg, 0);
-	if (ret != sizeof msg) {
+	if (ret != msg.hdr.length) {
 		acm_log(2, "client disconnected\n");
 		ret = ACM_STATUS_ENOTCONN;
 		goto out;
@@ -1636,17 +1642,15 @@ static void acm_svr_receive(struct acm_client *client)
 		goto out;
 	}
 
-	switch (msg.hdr.opcode & ACM_OP_MASK) {
-	case ACM_OP_RESOLVE:
-		ret = acm_svr_resolve(client, (struct acm_resolve_msg *) &msg);
-		break;
-	case ACM_OP_QUERY:
-		ret = acm_svr_query(client, (struct acm_query_msg *) &msg);
-		break;
-	default:
+	if ((msg.hdr.opcode & ACM_OP_MASK) != ACM_OP_RESOLVE) {
 		acm_log(0, "ERROR - unknown opcode 0x%x\n", msg.hdr.opcode);
-		ret = -1;
-		break;
+		goto out;
+	}
+
+	if (resolve_msg->data[0].type == ACM_EP_INFO_PATH) {
+		ret = acm_svr_query(client, resolve_msg);
+	} else {
+		ret = acm_svr_resolve(client, resolve_msg);
 	}
 
 out:

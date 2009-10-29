@@ -8,4 +8,5 @@ LIBRARY libibacm.dll
 EXPORTS
 ib_acm_resolve_name
 ib_acm_resolve_ip
+ib_acm_resolve_path
 #endif

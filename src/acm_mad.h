@@ -48,7 +48,6 @@
 
 #define ACM_CTRL_ACK     htons(0x8000)
 #define ACM_CTRL_RESOLVE htons(0x0001)
-#define ACM_CTRL_CM      htons(0x0002)
 
 struct acm_mad
 {
@@ -67,6 +66,7 @@ struct acm_mad
 
 #define ACM_QKEY 0x80010000
 
+/* Map to ACM_EP_INFO_* */
 #define ACM_ADDRESS_INVALID    0x00
 #define ACM_ADDRESS_NAME       0x01
 #define ACM_ADDRESS_IP         0x02

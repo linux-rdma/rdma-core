@@ -32,8 +32,6 @@ man_MANS = \
 	man/ib_acm_resolve_name.3 \
 	man/ib_acm_resolve_ip.3 \
 	man/ib_acm_resolve_path.3 \
-	man/ib_acm_query_path.3 \
-	man/ib_acm_convert_to_path.3 \
 	man/ib_acme.1 \
 	man/ib_acm.1 \
 	man/ib_acm.7

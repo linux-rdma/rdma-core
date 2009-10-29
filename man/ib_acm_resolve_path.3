@@ -4,12 +4,16 @@ ib_acm_resolve_path \- Resolve path data meeting specified restrictions.
 .SH SYNOPSIS
 .B "#include <infiniband/ib_acm.h>"
 .P
-.B "int" ib_acm_resolve_name
-.BI "(struct ib_path_record *" path ");"
+.B "int" ib_acm_resolve_path
+.BI "(struct ib_path_record *" path ","
+.BI "uint32_t " flags ");"
 .SH ARGUMENTS
 .IP "path" 12
 On input, provides path information used to restrict path resolution.  On
 output, contains the full path record.
+.IP "flags" 12
+If set to IB_ACM_FLAGS_QUERY_SA, the requested path data will be obtained
+by querying the SA directly.  Otherwise, cached data may be provided.
 .SH "DESCRIPTION"
 Discover path information using the provided path record to
 restrict the discovery.
@@ -19,6 +23,5 @@ information.  If successful, fills in any missing information.  The
 caller must provide at least the source and destination LIDs as input.
 The returned path record may come from cached data.
 .SH "SEE ALSO"
-ib_acm_resolve_name(3), ib_acm_resolve_ip(3), ib_acm_query_path(3),
-ib_acm_convert_to_path(3), ib_acm(7)
+ib_acm_resolve_name(3), ib_acm_resolve_ip(3), ib_acm(7)
 

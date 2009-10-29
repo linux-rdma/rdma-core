@@ -347,11 +347,10 @@ static void show_path(struct ib_path_record *path)
 
 static int resolve_ip(struct ib_path_record *path)
 {
-	struct ib_acm_dev_addr dev_addr;
-	struct ibv_ah_attr ah;
-	struct ib_acm_resolve_data data;
+	struct ib_acm_path_data *paths;
+	struct ib_acm_cm_data data;
 	struct sockaddr_in src, dest;
-	int ret;
+	int ret, count;
 
 	src.sin_family = AF_INET;
 	ret = inet_pton(AF_INET, src_addr, &src.sin_addr);
@@ -368,37 +367,32 @@ static int resolve_ip(struct ib_path_record *path)
 	}
 
 	ret = ib_acm_resolve_ip((struct sockaddr *) &src, (struct sockaddr *) &dest,
-		&dev_addr, &ah, &data);
+		&paths, &count, &data);
 	if (ret) {
 		printf("ib_acm_resolve_ip failed: 0x%x\n", ret);
 		return ret;
 	}
 
-	ret = ib_acm_convert_to_path(&dev_addr, &ah, &data, path);
-	if (ret)
-		printf("ib_acm_convert_to_path failed: 0x%x\n", ret);
-
-	return ret;
+	*path = paths[0].path;
+	ib_acm_free_paths(paths);
+	return 0;
 }
 
 static int resolve_name(struct ib_path_record *path)
 {
-	struct ib_acm_dev_addr dev_addr;
-	struct ibv_ah_attr ah;
-	struct ib_acm_resolve_data data;
-	int ret;
+	struct ib_acm_path_data *paths;
+	struct ib_acm_cm_data data;
+	int ret, count;
 
-	ret = ib_acm_resolve_name(src_addr, dest_addr, &dev_addr, &ah, &data);
+	ret = ib_acm_resolve_name(src_addr, dest_addr, &paths, &count, &data);
 	if (ret) {
 		printf("ib_acm_resolve_name failed: 0x%x\n", ret);
 		return ret;
 	}
 
-	ret = ib_acm_convert_to_path(&dev_addr, &ah, &data, path);
-	if (ret)
-		printf("ib_acm_convert_to_path failed: 0x%x\n", ret);
-
-	return ret;
+	*path = paths[0].path;
+	ib_acm_free_paths(paths);
+	return 0;
 }
 
 static int resolve_lid(struct ib_path_record *path)
@@ -409,7 +403,7 @@ static int resolve_lid(struct ib_path_record *path)
 	path->dlid = htons((uint16_t) atoi(dest_addr));
 	path->reversible_numpath = IB_PATH_RECORD_REVERSIBLE | 1;
 
-	ret = ib_acm_resolve_path(path);
+	ret = ib_acm_resolve_path(path, 0);
 	if (ret)
 		printf("ib_acm_resolve_path failed: 0x%x\n", ret);
 
@@ -420,7 +414,7 @@ static int verify_resolve(struct ib_path_record *path)
 {
 	int ret;
 
-	ret = ib_acm_query_path(path);
+	ret = ib_acm_resolve_path(path, IB_ACM_FLAGS_QUERY_SA);
 	if (ret)
 		printf("SA verification: failed 0x%x\n", ret);
 	else

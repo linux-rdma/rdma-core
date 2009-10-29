@@ -42,57 +42,6 @@
 extern "C" {
 #endif
 
-struct ib_acm_dev_addr
-{
-	uint64_t guid;
-	uint16_t pkey_index;
-	uint8_t  port_num;
-	uint8_t  reserved[5];
-};
-
-struct ib_acm_resolve_data
-{
-	uint32_t reserved1;
-	uint8_t  init_depth;
-	uint8_t  resp_resources;
-	uint8_t  packet_lifetime;
-	uint8_t  mtu;
-	uint8_t  reserved2[8];
-};
-
-/**
- * ib_acm_resolve_name - Resolve path data between the specified names.
- * Description:
- *   Discover path information, including identifying the local device,
- *   between the given the source and destination names.
- * Notes:
- *   The source and destination names should match entries in acm_addr.cfg
- *   configuration files on their respective systems.  Typically, the
- *   source and destination names will refer to system host names
- *   assigned to an Infiniband port.
- */
-LIB_EXPORT
-int ib_acm_resolve_name(char *src, char *dest,
-	struct ib_acm_dev_addr *dev_addr, struct ibv_ah_attr *ah,
-	struct ib_acm_resolve_data *data);
-
-/**
- * ib_acm_resolve_ip - Resolve path data between the specified addresses.
- * Description:
- *   Discover path information, including identifying the local device,
- *   between the given the source and destination addresses.
- * Notes:
- *   The source and destination addresses should match entries in acm_addr.cfg
- *   configuration files on their respective systems.  Typically, the
- *   source and destination addresses will refer to IP addresses assigned
- *   to an IPoIB instance.
- */
-LIB_EXPORT
-int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
-	struct ib_acm_dev_addr *dev_addr, struct ibv_ah_attr *ah,
-	struct ib_acm_resolve_data *data);
-
-
 #define IB_PATH_RECORD_REVERSIBLE 0x80
 
 struct ib_path_record
@@ -114,6 +63,66 @@ struct ib_path_record
 	uint8_t         reserved[6];
 };
 
+#define IB_ACM_FLAGS_CM              (1<<0)
+#define IB_ACM_FLAGS_PRIMARY         (1<<1)
+#define IB_ACM_FLAGS_ALTERNATE       (1<<2)
+#define IB_ACM_FLAGS_OUTBOUND        (1<<3)
+#define IB_ACM_FLAGS_INBOUND         (1<<4)
+#define IB_ACM_FLAGS_INBOUND_REVERSE (1<<5)
+#define IB_ACM_FLAGS_BIDIRECTIONAL   (IB_ACM_FLAGS_OUTBOUND | IB_ACM_FLAGS_INBOUND_REVERSE)
+
+struct ib_acm_path_data
+{
+	uint32_t              flags;
+	uint32_t              reserved;
+	struct ib_path_record path;
+};
+
+struct ib_acm_cm_data
+{
+	uint8_t  init_depth;
+	uint8_t  resp_resources;
+	uint8_t  reserved2;
+	uint8_t  cm_data_length;
+	uint32_t cm_data[15];
+};
+
+/**
+ * ib_acm_resolve_name - Resolve path data between the specified names.
+ * Description:
+ *   Discover path information, including identifying the local device,
+ *   between the given the source and destination names.
+ * Notes:
+ *   The source and destination names should match entries in acm_addr.cfg
+ *   configuration files on their respective systems.  Typically, the
+ *   source and destination names will refer to system host names
+ *   assigned to an Infiniband port.
+ */
+LIB_EXPORT
+int ib_acm_resolve_name(char *src, char *dest,
+	struct ib_acm_path_data **paths, int *count,
+	struct ib_acm_cm_data *data);
+
+/**
+ * ib_acm_resolve_ip - Resolve path data between the specified addresses.
+ * Description:
+ *   Discover path information, including identifying the local device,
+ *   between the given the source and destination addresses.
+ * Notes:
+ *   The source and destination addresses should match entries in acm_addr.cfg
+ *   configuration files on their respective systems.  Typically, the
+ *   source and destination addresses will refer to IP addresses assigned
+ *   to an IPoIB instance.
+ */
+LIB_EXPORT
+int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
+	struct ib_acm_path_data **paths, int *count,
+	struct ib_acm_cm_data *data);
+
+#define ib_acm_free_paths(paths) free(paths)
+
+#define IB_ACM_FLAGS_QUERY_SA   (1<<31)
+
 /**
  * ib_acm_resolve_path - Resolve path data meeting specified restrictions
  * Description:
@@ -125,32 +134,7 @@ struct ib_path_record
  *   caller must provide at least the source and destination LIDs as input.
  */
 LIB_EXPORT
-int ib_acm_resolve_path(struct ib_path_record *path);
-
-/**
- * ib_acm_query_path - Resolve path data meeting specified restrictions
- * Description:
- *   Queries the IB SA for a path record using the provided path record to
- *   restrict the query.
- * Notes:
- *   Uses the provided path record as input into an SA query for path
- *   information.  If successful, fills in any missing information.  The
- *   caller must provide at least the source and destination LIDs as input.
- *   Use of this call always results in sending a query to the IB SA.
- */
-LIB_EXPORT
-int ib_acm_query_path(struct ib_path_record *path);
-
-/**
- * ib_acm_convert_to_path - Convert resolved path data to a path record
- * Description:
- *   Converts path information returned from resolving a host name or address
- *   to the format of an IB path record.
- */
-LIB_EXPORT
-int ib_acm_convert_to_path(struct ib_acm_dev_addr *dev_addr,
-	struct ibv_ah_attr *ah, struct ib_acm_resolve_data *data,
-	struct ib_path_record *path);
+int ib_acm_resolve_path(struct ib_path_record *path, uint32_t flags);
 
 #ifdef __cplusplus
 }
