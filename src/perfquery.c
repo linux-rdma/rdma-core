@@ -346,81 +346,48 @@ static void reset_counters(int extended, int timeout, int mask,
 static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl,
     rcv_sl, xmt_disc;
 
-void xmt_sl_query(ib_portid_t * portid, int port, int mask)
+static void common_func(ib_portid_t *portid, int port_num, int mask,
+			unsigned query, unsigned reset,
+			const char *name, uint16_t attr,
+			void dump_func(char *, int, void *, int))
 {
 	char buf[1024];
 
-	if (reset_only) {
-		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-					   IB_GSI_PORT_XMIT_DATA_SL, srcport))
-			IBERROR("perfslreset");
-		return;
+	if (query) {
+		if (!pma_query_via(pc, portid, port_num, ibd_timeout, attr,
+				   srcport))
+			IBERROR("cannot query %s", name);
+
+		dump_func(buf, sizeof(buf), pc, sizeof(pc));
+
+		printf("# %s counters: %s port %d\n%s", name,
+		       portid2str(portid), port_num, buf);
 	}
 
-	if (!pma_query_via(pc, portid, port, ibd_timeout,
-			   IB_GSI_PORT_XMIT_DATA_SL, srcport))
-		IBERROR("perfslquery");
-
-	mad_dump_perfcounters_xmt_sl(buf, sizeof buf, pc, sizeof pc);
-	printf("# PortXmitDataSL counters: %s port %d\n%s", portid2str(portid),
-	       port, buf);
-
-	if (reset)
-		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-					   IB_GSI_PORT_XMIT_DATA_SL, srcport))
-			IBERROR("perfslreset");
+	if (reset && !performance_reset_via(pc, portid, port, mask, ibd_timeout,
+					    attr, srcport))
+		IBERROR("cannot reset %s", name);
 }
 
-void rcv_sl_query(ib_portid_t * portid, int port, int mask)
+static void xmt_sl_query(ib_portid_t * portid, int port, int mask)
 {
-	char buf[1024];
-
-	if (reset_only) {
-		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-					   IB_GSI_PORT_RCV_DATA_SL, srcport))
-			IBERROR("perfslreset");
-		return;
-	}
-
-	if (!pma_query_via(pc, portid, port, ibd_timeout,
-			   IB_GSI_PORT_RCV_DATA_SL, srcport))
-		IBERROR("perfslquery");
-
-	mad_dump_perfcounters_rcv_sl(buf, sizeof buf, pc, sizeof pc);
-	printf("# PortRcvDataSL counters: %s port %d\n%s", portid2str(portid),
-	       port, buf);
-
-	if (reset)
-		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-					   IB_GSI_PORT_RCV_DATA_SL, srcport))
-			IBERROR("perfslreset");
+	common_func(portid, port, mask, !reset_only, (reset_only || reset),
+		    "PortXmitDataSL", IB_GSI_PORT_XMIT_DATA_SL,
+		    mad_dump_perfcounters_xmt_sl);
 }
 
-void xmt_disc_query(ib_portid_t * portid, int port, int mask)
+static void rcv_sl_query(ib_portid_t * portid, int port, int mask)
 {
-	char buf[1024];
+	common_func(portid, port, mask, !reset_only, (reset_only || reset),
+		    "PortRcvDataSL", IB_GSI_PORT_RCV_DATA_SL,
+		    mad_dump_perfcounters_rcv_sl);
+}
 
-	if (reset_only) {
-		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-					   IB_GSI_PORT_XMIT_DISCARD_DETAILS,
-					   srcport))
-		IBERROR("xmtdiscreset");
-		return;
-	}
-
-	if (!pma_query_via(pc, portid, port, ibd_timeout,
-			   IB_GSI_PORT_XMIT_DISCARD_DETAILS, srcport))
-		IBERROR("xmtdiscquery");
-
-	mad_dump_perfcounters_xmt_disc(buf, sizeof buf, pc, sizeof pc);
-	printf("# PortXmitDiscardDetails: %s port %d\n%s", portid2str(portid),
-	       port, buf);
-
-	if (reset)
-		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
-					   IB_GSI_PORT_XMIT_DISCARD_DETAILS,
-					   srcport))
-			IBERROR("xmtdiscreset");
+static void xmt_disc_query(ib_portid_t * portid, int port, int mask)
+{
+	common_func(portid, port, mask, !reset_only, (reset_only || reset),
+		    "PortXmitDiscardDetails", IB_GSI_PORT_XMIT_DISCARD_DETAILS,
+		    mad_dump_perfcounters_xmt_disc);
 }
 
 static int process_opt(void *context, int ch, char *optarg)
