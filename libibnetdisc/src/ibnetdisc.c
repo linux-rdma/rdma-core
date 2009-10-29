@@ -180,20 +180,20 @@ static void retract_dpath(ib_portid_t * path)
 }
 
 static int extend_dpath(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
-			ibnd_scan_t *ibnd_scan, ib_portid_t * portid, int nextport)
+			ibnd_scan_t *scan, ib_portid_t * portid, int nextport)
 {
 	int rc = 0;
 
 	if (portid->lid) {
 		/* If we were LID routed we need to set up the drslid */
-		if (!ibnd_scan->selfportid.lid)
-			if (ib_resolve_self_via(&ibnd_scan->selfportid, NULL, NULL,
+		if (!scan->selfportid.lid)
+			if (ib_resolve_self_via(&scan->selfportid, NULL, NULL,
 						ibmad_port) < 0) {
 				IBND_ERROR("Failed to resolve self\n");
 				return -1;
 			}
 
-		portid->drpath.drslid = (uint16_t) ibnd_scan->selfportid.lid;
+		portid->drpath.drslid = (uint16_t) scan->selfportid.lid;
 		portid->drpath.drdlid = 0xFFFF;
 	}
 
@@ -387,16 +387,16 @@ static void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 	}
 }
 
-static void add_to_nodedist(ibnd_node_t * node, ibnd_scan_t * ibnd_scan, int dist)
+static void add_to_nodedist(ibnd_node_t * node, ibnd_scan_t * scan, int dist)
 {
 	if (node->type != IB_NODE_SWITCH)
 		dist = MAXHOPS;	/* special Ca list */
 
-	node->dnext = ibnd_scan->nodesdist[dist];
-	ibnd_scan->nodesdist[dist] = node;
+	node->dnext = scan->nodesdist[dist];
+	scan->nodesdist[dist] = node;
 }
 
-static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * ibnd_scan,
+static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * scan,
 				ibnd_node_t * temp, ib_portid_t * path,
 				int dist)
 {
@@ -418,7 +418,7 @@ static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * ibnd_scan,
 	fabric->nodes = (ibnd_node_t *) node;
 
 	add_to_type_list(node, fabric);
-	add_to_nodedist(node, ibnd_scan, dist);
+	add_to_nodedist(node, scan, dist);
 
 	return node;
 }
@@ -478,7 +478,7 @@ static void link_ports(ibnd_node_t * node, ibnd_port_t * port,
 }
 
 static int get_remote_node(struct ibmad_port *ibmad_port,
-			   ibnd_fabric_t * fabric, ibnd_scan_t * ibnd_scan,
+			   ibnd_fabric_t * fabric, ibnd_scan_t * scan,
 			   ibnd_node_t * node, ibnd_port_t * port,
 			   ib_portid_t * path, int portnum, int dist)
 {
@@ -498,7 +498,7 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	    != IB_PORT_PHYS_STATE_LINKUP)
 		return 1;	/* positive == non-fatal error */
 
-	if (portnum > 0 && extend_dpath(ibmad_port, fabric, ibnd_scan,
+	if (portnum > 0 && extend_dpath(ibmad_port, fabric, scan,
 					path, portnum) < 0)
 		return -1;
 
@@ -512,8 +512,8 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	oldnode = find_existing_node(fabric, &node_buf);
 	if (oldnode)
 		remotenode = oldnode;
-	else if (!(remotenode = create_node(fabric, ibnd_scan, &node_buf,
-					    path, dist + 1))) {
+	else if (!(remotenode = create_node(fabric, scan, &node_buf, path,
+					    dist + 1))) {
 		rc = -1;
 		goto error;
 	}
@@ -552,7 +552,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	int dist = 0;
 	ib_portid_t *path;
 	int max_hops = MAXHOPS - 1;	/* default find everything */
-	ibnd_scan_t ibnd_scan;
+	ibnd_scan_t scan;
 
 	if (_check_ibmad_port(ibmad_port) < 0)
 		return (NULL);
@@ -575,7 +575,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 	memset(fabric, 0, sizeof(*fabric));
 
-	memset(&ibnd_scan, '\0', sizeof(ibnd_scan_t));
+	memset(&scan, '\0', sizeof(ibnd_scan_t));
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 
@@ -587,7 +587,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 		goto error;
 	}
 
-	node = create_node(fabric, &ibnd_scan, &node_buf, from, 0);
+	node = create_node(fabric, &scan, &node_buf, from, 0);
 	if (!node)
 		goto error;
 
@@ -597,7 +597,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	if (!port)
 		goto error;
 
-	rc = get_remote_node(ibmad_port, fabric, &ibnd_scan, node, port, from,
+	rc = get_remote_node(ibmad_port, fabric, &scan, node, port, from,
 			     mad_get_field(node->info, 0,
 					   IB_NODE_LOCAL_PORT_F), 0);
 	if (rc < 0)
@@ -607,7 +607,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 	for (dist = 0; dist <= max_hops; dist++) {
 
-		for (node = ibnd_scan.nodesdist[dist]; node; node = node->dnext) {
+		for (node = scan.nodesdist[dist]; node; node = node->dnext) {
 
 			path = &node->path_portid;
 
@@ -643,14 +643,14 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 							    IB_NODE_PORT_GUID_F);
 				}
 
-				if (get_remote_node(ibmad_port, fabric, &ibnd_scan,
+				if (get_remote_node(ibmad_port, fabric, &scan,
 						    node, port, path, i, dist) < 0)
 					goto error;
 			}
 		}
 	}
 
-	if (group_nodes(fabric, &ibnd_scan))
+	if (group_nodes(fabric, &scan))
 		goto error;
 
 	return ((ibnd_fabric_t *) fabric);
