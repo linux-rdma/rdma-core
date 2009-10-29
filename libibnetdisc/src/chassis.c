@@ -57,16 +57,16 @@ char *ibnd_get_chassis_type(ibnd_node_t * node)
 {
 	if (!node) {
 		IBND_DEBUG("node parameter NULL\n");
-		return (NULL);
+		return NULL;
 	}
 
 	/* Currently, only if Voltaire chassis */
 	if (mad_get_field(node->info, 0, IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
-		return (NULL);
+		return NULL;
 	if (!node->chassis)
-		return (NULL);
+		return NULL;
 	if (node->ch_type == UNRESOLVED_CT || node->ch_type > ISR2004_CT)
-		return (NULL);
+		return NULL;
 	return ChassisTypeStr[node->ch_type];
 }
 
@@ -74,21 +74,21 @@ char *ibnd_get_chassis_slot_str(ibnd_node_t * node, char *str, size_t size)
 {
 	if (!node) {
 		IBND_DEBUG("node parameter NULL\n");
-		return (NULL);
+		return NULL;
 	}
 
 	/* Currently, only if Voltaire chassis */
 	if (mad_get_field(node->info, 0, IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
-		return (NULL);
+		return NULL;
 	if (!node->chassis)
-		return (NULL);
+		return NULL;
 	if (node->ch_slot == UNRESOLVED_CS || node->ch_slot > SRBD_CS)
-		return (NULL);
+		return NULL;
 	if (!str)
-		return (NULL);
+		return NULL;
 	snprintf(str, size, "%s %d Chip %d", ChassisSlotTypeStr[node->ch_slot],
 		 node->ch_slotnum, node->ch_anafanum);
-	return (str);
+	return str;
 }
 
 static ibnd_chassis_t *find_chassisnum(ibnd_fabric_t * fabric,
@@ -96,10 +96,9 @@ static ibnd_chassis_t *find_chassisnum(ibnd_fabric_t * fabric,
 {
 	ibnd_chassis_t *current;
 
-	for (current = fabric->chassis; current; current = current->next) {
+	for (current = fabric->chassis; current; current = current->next)
 		if (current->chassisnum == chassisnum)
 			return current;
-	}
 
 	return NULL;
 }
@@ -176,7 +175,7 @@ static uint64_t xsigo_chassisguid(ibnd_node_t * node)
 			return sysimgguid;
 	} else {
 		if (!node->ports || !node->ports[1])
-			return (0);
+			return 0;
 
 		/* Is there a peer port ? */
 		if (!node->ports[1]->remoteport)
@@ -214,10 +213,9 @@ static ibnd_chassis_t *find_chassisguid(ibnd_fabric_t * fabric,
 	uint64_t chguid;
 
 	chguid = get_chassisguid(node);
-	for (current = fabric->chassis; current; current = current->next) {
+	for (current = fabric->chassis; current; current = current->next)
 		if (current->chassisguid == chguid)
 			return current;
-	}
 
 	return NULL;
 }
@@ -372,9 +370,9 @@ static int get_sfb_slot(ibnd_node_t * node, ibnd_port_t * lineport)
 	} else {
 		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
 			   node->guid);
-		return (-1);
+		return -1;
 	}
-	return (0);
+	return 0;
 }
 
 static int get_router_slot(ibnd_node_t * n, ibnd_port_t * spineport)
@@ -413,9 +411,9 @@ static int get_router_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 	} else {
 		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
 			   spineport->node->guid);
-		return (-1);
+		return -1;
 	}
-	return (0);
+	return 0;
 }
 
 static int get_slb_slot(ibnd_node_t * n, ibnd_port_t * spineport)
@@ -440,9 +438,9 @@ static int get_slb_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 	} else {
 		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
 			   spineport->node->guid);
-		return (-1);
+		return -1;
 	}
-	return (0);
+	return 0;
 }
 
 /* forward declare this */
@@ -459,20 +457,20 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 	ibnd_node_t *remnode = 0;
 
 	if (node->ch_found)	/* somehow this node has already been passed */
-		return (0);
+		return 0;
 	node->ch_found = 1;
 
 	/* node is router only in case of using unique lid */
 	/* (which is lid of chassis router port) */
 	/* in such case node->ports is actually a requested port... */
-	if (is_router(node)) {
+	if (is_router(node))
 		/* find the remote node */
 		for (p = 1; p <= node->numports; p++) {
 			port = node->ports[p];
 			if (port && is_spine(port->remoteport->node))
 				get_router_slot(node, port->remoteport);
 		}
-	} else if (is_spine(node)) {
+	else if (is_spine(node))
 		for (p = 1; p <= node->numports; p++) {
 			port = node->ports[p];
 			if (!port || !port->remoteport)
@@ -486,22 +484,21 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 			if (!node->ch_type)
 				/* we assume here that remoteport belongs to line */
 				if (get_sfb_slot(node, port->remoteport))
-					return (-1);
+					return -1;
 
 			/* we could break here, but need to find if more routers connected */
 		}
 
-	} else if (is_line(node)) {
+	else if (is_line(node))
 		for (p = 1; p <= node->numports; p++) {
 			port = node->ports[p];
 			if (!port || port->portnum > 12 || !port->remoteport)
 				continue;
 			/* we assume here that remoteport belongs to spine */
 			if (get_slb_slot(node, port->remoteport))
-				return (-1);
+				return -1;
 			break;
 		}
-	}
 
 	/* for each port of this node, map external ports */
 	for (p = 1; p <= node->numports; p++) {
@@ -511,7 +508,7 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 		voltaire_portmap(port);
 	}
 
-	return (0);
+	return 0;
 }
 
 static int get_line_index(ibnd_node_t * node)
@@ -520,7 +517,7 @@ static int get_line_index(ibnd_node_t * node)
 
 	if (retval > LINES_MAX_NUM || retval < 1) {
 		IBND_ERROR("Internal error\n");
-		return (-1);
+		return -1;
 	}
 	return retval;
 }
@@ -536,7 +533,7 @@ static int get_spine_index(ibnd_node_t * node)
 
 	if (retval > SPINES_MAX_NUM || retval < 1) {
 		IBND_ERROR("Internal error\n");
-		return (-1);
+		return -1;
 	}
 	return retval;
 }
@@ -546,14 +543,14 @@ static int insert_line_router(ibnd_node_t * node, ibnd_chassis_t * chassis)
 	int i = get_line_index(node);
 
 	if (i < 0)
-		return (i);
+		return i;
 
 	if (chassis->linenode[i])
-		return (0);	/* already filled slot */
+		return 0;	/* already filled slot */
 
 	chassis->linenode[i] = node;
 	node->chassis = chassis;
-	return (0);
+	return 0;
 }
 
 static int insert_spine(ibnd_node_t * node, ibnd_chassis_t * chassis)
@@ -561,14 +558,14 @@ static int insert_spine(ibnd_node_t * node, ibnd_chassis_t * chassis)
 	int i = get_spine_index(node);
 
 	if (i < 0)
-		return (i);
+		return i;
 
 	if (chassis->spinenode[i])
-		return (0);	/* already filled slot */
+		return 0;	/* already filled slot */
 
 	chassis->spinenode[i] = node;
 	node->chassis = chassis;
-	return (0);
+	return 0;
 }
 
 static int pass_on_lines_catch_spines(ibnd_chassis_t * chassis)
@@ -593,10 +590,10 @@ static int pass_on_lines_catch_spines(ibnd_chassis_t * chassis)
 			if (!remnode->ch_found)
 				continue;	/* some error - spine not initialized ? FIXME */
 			if (insert_spine(remnode, chassis))
-				return (-1);
+				return -1;
 		}
 	}
-	return (0);
+	return 0;
 }
 
 static int pass_on_spines_catch_lines(ibnd_chassis_t * chassis)
@@ -618,10 +615,10 @@ static int pass_on_spines_catch_lines(ibnd_chassis_t * chassis)
 			if (!remnode->ch_found)
 				continue;	/* some error - line/router not initialized ? FIXME */
 			if (insert_line_router(remnode, chassis))
-				return (-1);
+				return -1;
 		}
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -657,7 +654,7 @@ static int build_chassis(ibnd_node_t * node, ibnd_chassis_t * chassis)
 
 	/* we get here with node = chassis_spine */
 	if (insert_spine((ibnd_node_t *) node, chassis))
-		return (-1);
+		return -1;
 
 	/* loop: pass on all ports of node */
 	for (p = 1; p <= node->numports; p++) {
@@ -673,22 +670,22 @@ static int build_chassis(ibnd_node_t * node, ibnd_chassis_t * chassis)
 	}
 
 	if (pass_on_lines_catch_spines(chassis))
-		return (-1);
+		return -1;
 	/* this pass needed for to catch routers, since routers connected only */
 	/* to spines in slot 1 or 4 and we could miss them first time */
 	if (pass_on_spines_catch_lines(chassis))
-		return (-1);
+		return -1;
 
 	/* additional 2 passes needed for to overcome a problem of pure "in-chassis" */
 	/* connectivity - extra pass to ensure that all related chips/modules */
 	/* inserted into the chassis */
 	if (pass_on_lines_catch_spines(chassis))
-		return (-1);
+		return -1;
 	if (pass_on_spines_catch_lines(chassis))
-		return (-1);
+		return -1;
 	pass_on_spines_interpolate_chguid(chassis);
 
-	return (0);
+	return 0;
 }
 
 /*========================================================*/
@@ -786,7 +783,7 @@ static int add_chassis(ibnd_scan_t *scan)
 {
 	if (!(scan->current_chassis = calloc(1, sizeof(ibnd_chassis_t)))) {
 		IBND_ERROR("OOM: failed to allocate chassis object\n");
-		return (-1);
+		return -1;
 	}
 
 	if (scan->first_chassis == NULL) {
@@ -796,7 +793,7 @@ static int add_chassis(ibnd_scan_t *scan)
 		scan->last_chassis->next = scan->current_chassis;
 		scan->last_chassis = scan->current_chassis;
 	}
-	return (0);
+	return 0;
 }
 
 static void add_node_to_chassis(ibnd_chassis_t * chassis, ibnd_node_t * node)
@@ -834,18 +831,16 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 	/* an appropriate chassis record (slotnum and position) */
 	/* according to internal connectivity */
 	/* not very efficient but clear code so... */
-	for (dist = 0; dist <= fabric->maxhops_discovered; dist++) {
-		for (node = scan->nodesdist[dist]; node; node = node->dnext) {
+	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
+		for (node = scan->nodesdist[dist]; node; node = node->dnext)
 			if (mad_get_field(node->info, 0,
-					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
-				if (fill_voltaire_chassis_record(node))
-					goto cleanup;
-		}
-	}
+					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID
+			    && fill_voltaire_chassis_record(node))
+				goto cleanup;
 
 	/* separate every Voltaire chassis from each other and build linked list of them */
 	/* algorithm: catch spine and find all surrounding nodes */
-	for (dist = 0; dist <= fabric->maxhops_discovered; dist++) {
+	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
 		for (node = scan->nodesdist[dist]; node; node = node->dnext) {
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
@@ -860,11 +855,10 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 			if (build_chassis(node, scan->current_chassis))
 				goto cleanup;
 		}
-	}
 
 	/* now make pass on nodes for chassis which are not Voltaire */
 	/* grouped by common SystemImageGUID */
-	for (dist = 0; dist <= fabric->maxhops_discovered; dist++) {
+	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
 		for (node = scan->nodesdist[dist]; node; node = node->dnext) {
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
@@ -887,7 +881,6 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 				}
 			}
 		}
-	}
 
 	/* now, make another pass to see which nodes are part of chassis */
 	/* (defined as chassis->nodecount > 1) */
@@ -921,7 +914,7 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 	}
 
 	fabric->chassis = scan->first_chassis;
-	return (0);
+	return 0;
 
 cleanup:
 	ch = scan->first_chassis;
@@ -933,5 +926,5 @@ cleanup:
 	scan->first_chassis = NULL;
 	scan->current_chassis = NULL;
 	scan->last_chassis = NULL;
-	return (-1);
+	return -1;
 }

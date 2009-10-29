@@ -107,7 +107,7 @@ static int query_node_info(struct ibmad_port *ibmad_port,
 	mad_decode_field(node->info, IB_NODE_TYPE_F, &(node->type));
 	mad_decode_field(node->info, IB_NODE_NPORTS_F, &(node->numports));
 
-	return (0);
+	return 0;
 }
 
 static int query_node(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
@@ -199,9 +199,9 @@ static int extend_dpath(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
 
 	rc = add_port_to_dpath(&portid->drpath, nextport);
 
-	if ((rc != -1) && (portid->drpath.cnt > fabric->maxhops_discovered))
+	if (rc != -1 && portid->drpath.cnt > fabric->maxhops_discovered)
 		fabric->maxhops_discovered = portid->drpath.cnt;
-	return (rc);
+	return rc;
 }
 
 static void dump_endnode(ib_portid_t * path, char *prompt,
@@ -211,7 +211,7 @@ static void dump_endnode(ib_portid_t * path, char *prompt,
 	if (!show_progress)
 		return;
 
-	mad_dump_node_type(type, 64, &(node->type), sizeof(int));
+	mad_dump_node_type(type, 64, &node->type, sizeof(int));
 	printf("%s -> %s %s {%016" PRIx64 "} portnum %d base lid %d-%d\"%s\"\n",
 	       portid2str(path), prompt, type, node->guid,
 	       node->type == IB_NODE_SWITCH ? 0 : port->portnum,
@@ -239,12 +239,12 @@ ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric, uint64_t guid)
 
 	if (!fabric) {
 		IBND_DEBUG("fabric parameter NULL\n");
-		return (NULL);
+		return NULL;
 	}
 
 	for (node = fabric->nodestbl[hash]; node; node = node->htnext)
 		if (node->guid == guid)
-			return (ibnd_node_t *) node;
+			return node;
 
 	return NULL;
 }
@@ -253,15 +253,15 @@ static int _check_ibmad_port(struct ibmad_port *ibmad_port)
 {
 	if (!ibmad_port) {
 		IBND_DEBUG("ibmad_port must be specified\n");
-		return (-1);
+		return -1;
 	}
 	if (mad_rpc_class_agent(ibmad_port, IB_SMI_CLASS) == -1
 	    || mad_rpc_class_agent(ibmad_port, IB_SMI_DIRECT_CLASS) == -1) {
 		IBND_DEBUG("ibmad_port must be opened with "
 			   "IB_SMI_CLASS && IB_SMI_DIRECT_CLASS\n");
-		return (-1);
+		return -1;
 	}
-	return (0);
+	return 0;
 }
 
 ibnd_node_t *ibnd_update_node(struct ibmad_port * ibmad_port,
@@ -272,24 +272,24 @@ ibnd_node_t *ibnd_update_node(struct ibmad_port * ibmad_port,
 	int p = 0;
 
 	if (_check_ibmad_port(ibmad_port) < 0)
-		return (NULL);
+		return NULL;
 
 	if (!fabric) {
 		IBND_DEBUG("fabric parameter NULL\n");
-		return (NULL);
+		return NULL;
 	}
 
 	if (!node) {
 		IBND_DEBUG("node parameter NULL\n");
-		return (NULL);
+		return NULL;
 	}
 
 	if (query_node_info(ibmad_port, fabric, node, &(node->path_portid)))
-		return (NULL);
+		return NULL;
 
 	if (!smp_query_via(nd, &(node->path_portid), IB_ATTR_NODE_DESC, 0, 0,
 			   ibmad_port))
-		return (NULL);
+		return NULL;
 
 	/* update all the port info's */
 	for (p = 1; p >= node->numports; p++) {
@@ -303,7 +303,7 @@ ibnd_node_t *ibnd_update_node(struct ibmad_port * ibmad_port,
 	if (!smp_query_via
 	    (portinfo_port0, &(node->path_portid), IB_ATTR_PORT_INFO, 0, 0,
 	     ibmad_port))
-		return (NULL);
+		return NULL;
 
 	node->smalid = mad_get_field(portinfo_port0, 0, IB_PORT_LID_F);
 	node->smalmc = mad_get_field(portinfo_port0, 0, IB_PORT_LMC_F);
@@ -316,7 +316,7 @@ ibnd_node_t *ibnd_update_node(struct ibmad_port * ibmad_port,
 				 &node->smaenhsp0);
 
 done:
-	return (node);
+	return node;
 }
 
 ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
@@ -327,13 +327,13 @@ ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 
 	if (!fabric) {
 		IBND_DEBUG("fabric parameter NULL\n");
-		return (NULL);
+		return NULL;
 	}
 
 	rc = fabric->from_node;
 
 	if (str2drpath(&path, dr_str, 0, 0) == -1) {
-		return (NULL);
+		return NULL;
 	}
 
 	for (i = 0; i <= path.cnt; i++) {
@@ -341,16 +341,16 @@ ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 		if (path.p[i] == 0)
 			continue;
 		if (!rc->ports)
-			return (NULL);
+			return NULL;
 
 		remote_port = rc->ports[path.p[i]]->remoteport;
 		if (!remote_port)
-			return (NULL);
+			return NULL;
 
 		rc = remote_port->node;
 	}
 
-	return (rc);
+	return rc;
 }
 
 static void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
@@ -405,7 +405,7 @@ static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * scan,
 	node = malloc(sizeof(*node));
 	if (!node) {
 		IBND_ERROR("OOM: node creation failed\n");
-		return (NULL);
+		return NULL;
 	}
 
 	memcpy(node, temp, sizeof(*node));
@@ -415,7 +415,7 @@ static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * scan,
 
 	/* add this to the all nodes list */
 	node->next = fabric->nodes;
-	fabric->nodes = (ibnd_node_t *) node;
+	fabric->nodes = node;
 
 	add_to_type_list(node, fabric);
 	add_to_nodedist(node, scan, dist);
@@ -427,9 +427,9 @@ static struct ibnd_port *find_existing_port_node(ibnd_node_t * node,
 						 ibnd_port_t * port)
 {
 	if (port->portnum > node->numports || node->ports == NULL)
-		return (NULL);
+		return NULL;
 
-	return (node->ports[port->portnum]);
+	return node->ports[port->portnum];
 }
 
 static struct ibnd_port *add_port_to_node(ibnd_fabric_t * fabric,
@@ -442,7 +442,7 @@ static struct ibnd_port *add_port_to_node(ibnd_fabric_t * fabric,
 		node->ports = calloc(sizeof(*node->ports), node->numports + 1);
 		if (!node->ports) {
 			IBND_ERROR("Failed to allocate the ports array\n");
-			return (NULL);
+			return NULL;
 		}
 	}
 
@@ -453,10 +453,10 @@ static struct ibnd_port *add_port_to_node(ibnd_fabric_t * fabric,
 	}
 
 	memcpy(port, temp, sizeof(*port));
-	port->node = (ibnd_node_t *) node;
+	port->node = node;
 	port->ext_portnum = 0;
 
-	node->ports[temp->portnum] = (ibnd_port_t *) port;
+	node->ports[temp->portnum] = port;
 
 	add_to_portguid_hash(port, fabric->portstbl);
 	return port;
@@ -498,8 +498,8 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	    != IB_PORT_PHYS_STATE_LINKUP)
 		return 1;	/* positive == non-fatal error */
 
-	if (portnum > 0 && extend_dpath(ibmad_port, fabric, scan,
-					path, portnum) < 0)
+	if (portnum > 0 && extend_dpath(ibmad_port, fabric, scan, path,
+					portnum) < 0)
 		return -1;
 
 	if (query_node(ibmad_port, fabric, &node_buf, &port_buf, path)) {
@@ -519,9 +519,9 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	}
 
 	oldport = find_existing_port_node(remotenode, &port_buf);
-	if (oldport) {
+	if (oldport)
 		remoteport = oldport;
-	} else if (!(remoteport = add_port_to_node(fabric, remotenode,
+	else if (!(remoteport = add_port_to_node(fabric, remotenode,
 						   &port_buf))) {
 		IBND_ERROR("OOM failed to add port to node\n");
 		rc = -1;
@@ -535,7 +535,7 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 
 error:
 	retract_dpath(path);
-	return (rc);
+	return rc;
 }
 
 ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
@@ -555,7 +555,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	ibnd_scan_t scan;
 
 	if (_check_ibmad_port(ibmad_port) < 0)
-		return (NULL);
+		return NULL;
 
 	/* if not everything how much? */
 	if (hops >= 0) {
@@ -570,7 +570,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 	if (!fabric) {
 		IBND_ERROR("OOM: failed to malloc ibnd_fabric_t\n");
-		return (NULL);
+		return NULL;
 	}
 
 	memset(fabric, 0, sizeof(*fabric));
@@ -598,12 +598,12 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 		goto error;
 
 	rc = get_remote_node(ibmad_port, fabric, &scan, node, port, from,
-			     mad_get_field(node->info, 0,
-					   IB_NODE_LOCAL_PORT_F), 0);
+			     mad_get_field(node->info, 0, IB_NODE_LOCAL_PORT_F),
+			     0);
 	if (rc < 0)
 		goto error;
 	if (rc > 0)		/* non-fatal error, nothing more to be done */
-		return ((ibnd_fabric_t *) fabric);
+		return fabric;
 
 	for (dist = 0; dist <= max_hops; dist++) {
 
@@ -653,10 +653,10 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	if (group_nodes(fabric, &scan))
 		goto error;
 
-	return ((ibnd_fabric_t *) fabric);
+	return fabric;
 error:
-	ibnd_destroy_fabric((ibnd_fabric_t *) fabric);
-	return (NULL);
+	ibnd_destroy_fabric(fabric);
+	return NULL;
 }
 
 static void destroy_node(ibnd_node_t * node)
@@ -727,9 +727,8 @@ void ibnd_iter_nodes(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,
 		return;
 	}
 
-	for (cur = fabric->nodes; cur; cur = cur->next) {
+	for (cur = fabric->nodes; cur; cur = cur->next)
 		func(cur, user_data);
-	}
 }
 
 void ibnd_iter_nodes_type(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,
@@ -763,7 +762,6 @@ void ibnd_iter_nodes_type(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,
 		break;
 	}
 
-	for (cur = list; cur; cur = cur->type_next) {
-		func((ibnd_node_t *) cur, user_data);
-	}
+	for (cur = list; cur; cur = cur->type_next)
+		func(cur, user_data);
 }
