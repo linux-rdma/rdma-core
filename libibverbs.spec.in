@@ -1,6 +1,6 @@
 Name: libibverbs
 Version: 1.1.2
-Release: 1%{?dist}
+Release: 3%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 
 Group: System Environment/Libraries
@@ -85,10 +85,22 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
+* Fri Jul 24 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.1.2-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_12_Mass_Rebuild
+
+* Wed Feb 25 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.1.2-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_11_Mass_Rebuild
+
 * Wed Apr 16 2008 Roland Dreier <rdreier@cisco.com> - 1.1.2-1
 - New upstream release
 - Update description to mention RDMA and iWARP, not just InfiniBand
 - Add "Requires" tag for libibverbs base package to -devel
+
+* Mon Feb 18 2008 Fedora Release Engineering <rel-eng@fedoraproject.org> - 1.1.1-3
+- Autorebuild for GCC 4.3
+
+* Tue Aug 28 2007 Fedora Release Engineering <rel-eng at fedoraproject dot org> - 1.1.1-2
+- Rebuild for selinux ppc32 issue.
 
 * Fri Jun 15 2007 Roland Dreier <rdreier@cisco.com> - 1.1.1-1
 - New upstream release
