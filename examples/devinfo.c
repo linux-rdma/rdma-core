@@ -170,16 +170,16 @@ static int print_all_port_gids(struct ibv_context *ctx, uint8_t port_num, int tb
 			return rc;
 		}
 		if (!null_gid(&gid))
-			printf("\t\t\tGID[%3d]:\t\t%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
+			printf("\t\t\tGID[%3d]:\t\t%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
 			       i,
-			       ntohs(*((uint16_t *) gid.raw + 0)),
-			       ntohs(*((uint16_t *) gid.raw + 1)),
-			       ntohs(*((uint16_t *) gid.raw + 2)),
-			       ntohs(*((uint16_t *) gid.raw + 3)),
-			       ntohs(*((uint16_t *) gid.raw + 4)),
-			       ntohs(*((uint16_t *) gid.raw + 5)),
-			       ntohs(*((uint16_t *) gid.raw + 6)),
-			       ntohs(*((uint16_t *) gid.raw + 7)));
+			       gid.raw[ 0], gid.raw[ 1],
+			       gid.raw[ 2], gid.raw[ 3],
+			       gid.raw[ 4], gid.raw[ 5],
+			       gid.raw[ 6], gid.raw[ 7],
+			       gid.raw[ 8], gid.raw[ 9],
+			       gid.raw[10], gid.raw[11],
+			       gid.raw[12], gid.raw[13],
+			       gid.raw[14], gid.raw[15]);
 	}
 	return rc;
 }
