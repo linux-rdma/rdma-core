@@ -1,12 +1,12 @@
 Name: libibverbs
-Version: 1.1.2
-Release: 3%{?dist}
+Version: 1.1.3
+Release: 1%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
 Url: http://openfabrics.org/
-Source: http://openfabrics.org/downloads/verbs/libibverbs-1.1.2.tar.gz
+Source: http://openfabrics.org/downloads/verbs/libibverbs-1.1.3.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -85,6 +85,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
+* Thu Oct 29 2009 Roland Dreier <rdreier@cisco.com> - 1.1.3-1
+- New upstream release
+
 * Fri Jul 24 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.1.2-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_12_Mass_Rebuild
 
