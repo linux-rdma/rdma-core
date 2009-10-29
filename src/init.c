@@ -128,7 +128,6 @@ static void find_sysfs_devs(void)
 					sizeof sysfs_dev->ibdev_name) < 0) {
 			fprintf(stderr, PFX "Warning: no ibdev class attr for '%s'.\n",
 				dent->d_name);
-			free(sysfs_dev);
 			continue;
 		}
 
