@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
  *
