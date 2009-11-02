@@ -261,61 +261,6 @@ static int _check_ibmad_port(struct ibmad_port *ibmad_port)
 	return 0;
 }
 
-ibnd_node_t *ibnd_update_node(struct ibmad_port * ibmad_port,
-			      ibnd_fabric_t * fabric, ibnd_node_t * node)
-{
-	char portinfo_port0[IB_SMP_DATA_SIZE];
-	void *nd = node->nodedesc;
-	int p = 0;
-
-	if (_check_ibmad_port(ibmad_port) < 0)
-		return NULL;
-
-	if (!fabric) {
-		IBND_DEBUG("fabric parameter NULL\n");
-		return NULL;
-	}
-
-	if (!node) {
-		IBND_DEBUG("node parameter NULL\n");
-		return NULL;
-	}
-
-	if (query_node_info(ibmad_port, fabric, node, &(node->path_portid)))
-		return NULL;
-
-	if (!smp_query_via(nd, &(node->path_portid), IB_ATTR_NODE_DESC, 0, 0,
-			   ibmad_port))
-		return NULL;
-
-	/* update all the port info's */
-	for (p = 1; p >= node->numports; p++) {
-		get_port_info(ibmad_port, fabric, node->ports[p],
-			      p, &(node->path_portid));
-	}
-
-	if (node->type != IB_NODE_SWITCH)
-		goto done;
-
-	if (!smp_query_via
-	    (portinfo_port0, &(node->path_portid), IB_ATTR_PORT_INFO, 0, 0,
-	     ibmad_port))
-		return NULL;
-
-	node->smalid = mad_get_field(portinfo_port0, 0, IB_PORT_LID_F);
-	node->smalmc = mad_get_field(portinfo_port0, 0, IB_PORT_LMC_F);
-
-	if (!smp_query_via(node->switchinfo, &(node->path_portid),
-			   IB_ATTR_SWITCH_INFO, 0, 0, ibmad_port))
-		node->smaenhsp0 = 0;	/* assume base SP0 */
-	else
-		mad_decode_field(node->switchinfo, IB_SW_ENHANCED_PORT0_F,
-				 &node->smaenhsp0);
-
-done:
-	return node;
-}
-
 ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 {
 	int i = 0;
