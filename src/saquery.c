@@ -124,6 +124,45 @@ int requested_lid_flag = 0;
 uint64_t requested_guid = 0;
 int requested_guid_flag = 0;
 
+#define SA_ERR_UNKNOWN IB_SA_MAD_STATUS_PRIO_SUGGESTED
+
+const char *ib_sa_error_str[] = {
+	"SA_NO_ERROR",
+	"SA_ERR_NO_RESOURCES",
+	"SA_ERR_REQ_INVALID",
+	"SA_ERR_NO_RECORDS",
+	"SA_ERR_TOO_MANY_RECORDS",
+	"SA_ERR_REQ_INVALID_GID",
+	"SA_ERR_REQ_INSUFFICIENT_COMPONENTS",
+	"SA_ERR_REQ_DENIED",
+	"SA_ERR_STATUS_PRIO_SUGGESTED",
+	"SA_ERR_UNKNOWN"
+};
+
+static inline const char *ib_sa_err_str(IN uint8_t status)
+{
+	if (status > SA_ERR_UNKNOWN)
+		status = SA_ERR_UNKNOWN;
+	return (ib_sa_error_str[status]);
+}
+
+static inline void report_err(int status)
+{
+	int st = status & 0xff;
+	char sm_err_str[64] = { 0 };
+	char sa_err_str[64] = { 0 };
+
+	if (st)
+		sprintf(sm_err_str, " SM(%s)", ib_get_err_str(st));
+
+	st = status >> 8;
+	if (st)
+		sprintf(sa_err_str, " SA(%s)", ib_sa_err_str(st));
+
+	fprintf(stderr, "ERROR: Query result returned 0x%04x, %s%s\n",
+		status, sm_err_str, sa_err_str);
+}
+
 static int sa_query(struct bind_handle *h, uint8_t method,
 		    uint16_t attr, uint32_t mod, uint64_t comp_mask,
 		    uint64_t sm_key, void *data)
@@ -794,8 +833,7 @@ static int get_any_records(bind_handle_t h,
 	}
 
 	if (result.status != IB_SUCCESS) {
-		fprintf(stderr, "Query result returned: %s\n",
-			ib_get_err_str(result.status));
+		report_err(result.status);
 		return result.status;
 	}
 
@@ -1009,8 +1047,7 @@ static int get_print_class_port_info(bind_handle_t h)
 		return ret;
 	}
 	if (result.status != IB_SUCCESS) {
-		fprintf(stderr, "ERROR: Query result returned: %s\n",
-			ib_get_err_str(result.status));
+		report_err(result.status);
 		return (result.status);
 	}
 	dump_results(&result, dump_class_port_info);
