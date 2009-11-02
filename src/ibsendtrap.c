@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2008 Lawrence Livermore National Security
- * Copyright (c) 2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2008-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * Produced at Lawrence Livermore National Laboratory.
