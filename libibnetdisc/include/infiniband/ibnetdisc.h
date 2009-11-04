@@ -66,9 +66,14 @@ typedef struct ibnd_node {
 
 	char nodedesc[IB_SMP_DATA_SIZE];
 
-	struct ibnd_port **ports;	/* in order array of port pointers
-					   the size of this array is info.numports + 1
-					   items MAY BE NULL!  (ie 0 == switches only) */
+	struct ibnd_port **ports;	/* array of ports, indexed by port number
+					   ports[1] == port 1,
+					   ports[2] == port 2,
+					   etc...
+					   Any port in the array MAY BE NULL!
+					   Most notable is non-switches have no
+					   port 0 therefore node.ports[0] == NULL
+					   for those nodes */
 
 	/* chassis info */
 	struct ibnd_node *next_chassis_node;	/* next node in ibnd_chassis_t->nodes */
