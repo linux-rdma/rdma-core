@@ -62,8 +62,9 @@ int data_counters = 0;
 int port_config = 0;
 uint64_t node_guid = 0;
 char *node_guid_str = NULL;
+#define SUP_MAX 64
 int sup_total = 0;
-enum MAD_FIELDS *suppressed_fields = NULL;
+enum MAD_FIELDS suppressed_fields[SUP_MAX];
 char *dr_path = NULL;
 uint8_t node_type_to_print = 0;
 unsigned clear_errors = 0, clear_counts = 0, details = 0;
@@ -189,22 +190,19 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 static int suppress(enum MAD_FIELDS field)
 {
 	int i = 0;
-	if (suppressed_fields)
-		for (i = 0; i < sup_total; i++)
-			if (field == suppressed_fields[i])
-				return 1;
+	for (i = 0; i < sup_total; i++)
+		if (field == suppressed_fields[i])
+			return 1;
 	return 0;
 }
 
 static void report_suppressed(void)
 {
 	int i = 0;
-	if (suppressed_fields) {
-		printf("Suppressing:");
-		for (i = 0; i < sup_total; i++)
-			printf(" %s", mad_field_name(suppressed_fields[i]));
-		printf("\n");
-	}
+	printf("Suppressing:");
+	for (i = 0; i < sup_total; i++)
+		printf(" %s", mad_field_name(suppressed_fields[i]));
+	printf("\n");
 }
 
 static int print_xmitdisc_details(char *buf, size_t size, ib_portid_t * portid,
@@ -430,9 +428,12 @@ void print_node(ibnd_node_t * node, void *user_data)
 
 static void add_suppressed(enum MAD_FIELDS field)
 {
-	suppressed_fields = realloc(suppressed_fields, sizeof(enum MAD_FIELDS));
-	suppressed_fields[sup_total] = field;
-	sup_total++;
+	if (sup_total >= SUP_MAX) {
+		IBWARN("Maximum (%d) fields have been suppressed; skipping %s",
+			sup_total, mad_field_name(field));
+		return;
+	}
+	suppressed_fields[sup_total++] = field;
 }
 
 static void calculate_suppressed_fields(char *str)
@@ -545,6 +546,7 @@ int main(int argc, char **argv)
 	};
 	char usage_args[] = "";
 
+	memset(suppressed_fields, 0, sizeof suppressed_fields);
 	ibdiag_process_opts(argc, argv, NULL, "scnSrRDGL", opts, process_opt,
 			    usage_args, NULL);
 
