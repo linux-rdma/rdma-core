@@ -612,8 +612,10 @@ int main(int argc, char **argv)
 		uint8_t ni[IB_SMP_DATA_SIZE];
 
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
-				   ibd_timeout, ibmad_port))
-			return -1;
+				   ibd_timeout, ibmad_port)) {
+			rc = -1;
+			goto destroy_fabric;
+		}
 		mad_decode_field(ni, IB_NODE_GUID_F, &(node_guid));
 
 		node = ibnd_find_node_guid(fabric, node_guid);
@@ -624,6 +626,7 @@ int main(int argc, char **argv)
 	} else
 		ibnd_iter_nodes(fabric, print_node, NULL);
 
+destroy_fabric:
 	ibnd_destroy_fabric(fabric);
 
 close_port:
