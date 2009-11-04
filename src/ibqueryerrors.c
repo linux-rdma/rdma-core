@@ -146,6 +146,8 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 		 mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64, &iphystate));
 
 	if (port->remoteport) {
+		char *rem_node_name = NULL;
+
 		if (port->remoteport->ext_portnum)
 			snprintf(ext_port_str, 256, "%d",
 				 port->remoteport->ext_portnum);
@@ -154,13 +156,19 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 
 		get_msg(width_msg, speed_msg, 256, port);
 
+		rem_node_name = remap_node_name(node_name_map,
+						port->remoteport->node->guid,
+						port->remoteport->node->nodedesc);
+
 		snprintf(remote_str, 256,
 			 "0x%016" PRIx64 " %6d %4d[%2s] \"%s\" (%s %s)\n",
 			 port->remoteport->node->guid,
 			 port->remoteport->base_lid ? port->
 			 remoteport->base_lid : port->remoteport->node->smalid,
-			 port->remoteport->portnum, ext_port_str, node_name,
+			 port->remoteport->portnum, ext_port_str, rem_node_name,
 			 width_msg, speed_msg);
+
+		free(rem_node_name);
 	} else
 		snprintf(remote_str, 256, "           [  ] \"\" ( )\n");
 
