@@ -1,4 +1,4 @@
-.TH IBQUERYERRORS 8 "Jan 24, 2008" "OpenIB" "OpenIB Diagnostics"
+.TH IBQUERYERRORS 8 "Oct 30, 2009" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibqueryerrors.pl \- query and report non-zero IB port counters
@@ -57,6 +57,8 @@ Include the optional transmit and receive data counters.
 printed or not.  This is because data counters are only \fBprinted\fR on ports
 which have errors.  This means if a port has 0 errors and the \-K option is
 specified the data counters will be cleared without any printed output.
+.TP
+\fB\-\-details\fR include transmit discard details
 .TP
 \fB\-R\fR  (This option is obsolete and does nothing)
 
