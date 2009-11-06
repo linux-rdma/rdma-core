@@ -5,7 +5,6 @@ IBNETDISC_1.0 {
 		ibnd_discover_fabric;
 		ibnd_destroy_fabric;
 		ibnd_find_node_guid;
-		ibnd_update_node;
 		ibnd_find_node_dr;
 		ibnd_is_xsigo_guid;
 		ibnd_is_xsigo_tca;
