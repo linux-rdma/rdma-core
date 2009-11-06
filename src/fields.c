@@ -162,6 +162,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(384, 16), "QkeyViolations", mad_dump_uint},
 	{BITSOFFS(400, 8), "GuidCap", mad_dump_uint},
 	{BITSOFFS(408, 1), "ClientReregister", mad_dump_uint},
+	{BITSOFFS(409, 1), "McastPkeyTrapSuppressionEnabled", mad_dump_uint},
 	{BITSOFFS(411, 5), "SubnetTimeout", mad_dump_uint},
 	{BITSOFFS(419, 5), "RespTimeVal", mad_dump_uint},
 	{BITSOFFS(424, 4), "LocalPhysErr", mad_dump_uint},
