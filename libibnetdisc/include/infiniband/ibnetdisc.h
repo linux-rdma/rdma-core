@@ -49,8 +49,8 @@ typedef struct ibnd_node {
 	struct ibnd_node *next;	/* all node list in fabric */
 
 	ib_portid_t path_portid;	/* path from "from_node" */
-	int smalid;
-	int smalmc;
+	uint16_t smalid;
+	uint8_t smalmc;
 
 	/* quick cache of switchinfo below */
 	int smaenhsp0;
