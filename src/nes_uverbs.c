@@ -135,7 +135,7 @@ int nes_ufree_pd(struct ibv_pd *pd)
  * nes_ureg_mr
  */
 struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
-		size_t length, enum ibv_access_flags access)
+		size_t length, int access)
 {
 	struct ibv_mr *mr;
 	struct nes_ureg_mr cmd;
@@ -493,8 +493,7 @@ struct ibv_srq *nes_ucreate_srq(struct ibv_pd *pd, struct ibv_srq_init_attr *att
 /**
  * nes_umodify_srq
  */
-int nes_umodify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr,
-		enum ibv_srq_attr_mask attr_mask)
+int nes_umodify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr, int attr_mask)
 {
 	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	return -ENOSYS;
@@ -743,7 +742,7 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
  * nes_uquery_qp
  */
 int nes_uquery_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		enum ibv_qp_attr_mask attr_mask, struct ibv_qp_init_attr *init_attr)
+		  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
 	struct ibv_query_qp cmd;
 
@@ -756,13 +755,12 @@ int nes_uquery_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 /**
  * nes_umodify_qp
  */
-int nes_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		enum ibv_qp_attr_mask attr_mask)
+int nes_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
 	struct ibv_modify_qp cmd;
 
-	/* fprintf(stderr, PFX "%s, QP State = %u, attr_mask = 0x%X.\n", __FUNCTION__,
-			(unsigned int)attr->qp_state, (unsigned int)attr_mask ); */
+	/* fprintf(stderr, PFX "%s, QP State = %u, attr_mask = %d.\n", __FUNCTION__,
+			(unsigned int)attr->qp_state, attr_mask); */
 	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
 }
 
@@ -1142,7 +1140,7 @@ int nes_udestroy_ah(struct ibv_ah *ah)
 /**
  * nes_uattach_mcast
  */
-int nes_uattach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int nes_uattach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	return -ENOSYS;
@@ -1152,7 +1150,7 @@ int nes_uattach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
 /**
  * nes_udetach_mcast
  */
-int nes_udetach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int nes_udetach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 	return -ENOSYS;

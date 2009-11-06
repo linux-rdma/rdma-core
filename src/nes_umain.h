@@ -323,7 +323,7 @@ int nes_uquery_device(struct ibv_context *, struct ibv_device_attr *);
 int nes_uquery_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
 struct ibv_pd *nes_ualloc_pd(struct ibv_context *);
 int nes_ufree_pd(struct ibv_pd *);
-struct ibv_mr *nes_ureg_mr(struct ibv_pd *, void *, size_t, enum ibv_access_flags);
+struct ibv_mr *nes_ureg_mr(struct ibv_pd *, void *, size_t, int);
 int nes_udereg_mr(struct ibv_mr *);
 struct ibv_cq *nes_ucreate_cq(struct ibv_context *, int, struct ibv_comp_channel *, int);
 int nes_uresize_cq(struct ibv_cq *, int);
@@ -331,22 +331,20 @@ int nes_udestroy_cq(struct ibv_cq *);
 int nes_upoll_cq(struct ibv_cq *, int, struct ibv_wc *);
 int nes_uarm_cq(struct ibv_cq *, int);
 struct ibv_srq *nes_ucreate_srq(struct ibv_pd *, struct ibv_srq_init_attr *);
-int nes_umodify_srq(struct ibv_srq *, struct ibv_srq_attr *, enum ibv_srq_attr_mask);
+int nes_umodify_srq(struct ibv_srq *, struct ibv_srq_attr *, int);
 int nes_udestroy_srq(struct ibv_srq *);
 int nes_upost_srq_recv(struct ibv_srq *, struct ibv_recv_wr *, struct ibv_recv_wr **);
 struct ibv_qp *nes_ucreate_qp(struct ibv_pd *, struct ibv_qp_init_attr *);
-int nes_uquery_qp(struct ibv_qp *qp,
-		  struct ibv_qp_attr *attr,
-		  enum ibv_qp_attr_mask attr_mask,
-		  struct ibv_qp_init_attr *init_attr);
-int nes_umodify_qp(struct ibv_qp *, struct ibv_qp_attr *, enum ibv_qp_attr_mask);
+int nes_uquery_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		  int, struct ibv_qp_init_attr *init_attr);
+int nes_umodify_qp(struct ibv_qp *, struct ibv_qp_attr *, int);
 int nes_udestroy_qp(struct ibv_qp *);
 int nes_upost_send(struct ibv_qp *, struct ibv_send_wr *, struct ibv_send_wr **);
 int nes_upost_recv(struct ibv_qp *, struct ibv_recv_wr *, struct ibv_recv_wr **);
 struct ibv_ah *nes_ucreate_ah(struct ibv_pd *, struct ibv_ah_attr *);
 int nes_udestroy_ah(struct ibv_ah *);
-int nes_uattach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
-int nes_udetach_mcast(struct ibv_qp *, union ibv_gid *, uint16_t);
+int nes_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
+int nes_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 void nes_async_event(struct ibv_async_event *event);
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
