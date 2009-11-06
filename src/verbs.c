@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 QLogic Corp. All rights reserved.
+ * Copyright (c) 2006-2009 QLogic Corp. All rights reserved.
  * Copyright (c) 2005. PathScale, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -113,7 +113,7 @@ int ipath_free_pd(struct ibv_pd *pd)
 }
 
 struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, enum ibv_access_flags access)
+			    size_t length, int access)
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
@@ -372,7 +372,7 @@ struct ibv_qp *ipath_create_qp_v1(struct ibv_pd *pd,
 }
 
 int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		   enum ibv_qp_attr_mask attr_mask,
+		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
 	struct ibv_query_qp cmd;
@@ -382,7 +382,7 @@ int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 }
 
 int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    enum ibv_qp_attr_mask attr_mask)
+		    int attr_mask)
 {
 	struct ibv_modify_qp cmd;
 
@@ -567,7 +567,7 @@ struct ibv_srq *ipath_create_srq_v1(struct ibv_pd *pd,
 
 int ipath_modify_srq(struct ibv_srq *ibsrq,
 		     struct ibv_srq_attr *attr, 
-		     enum ibv_srq_attr_mask attr_mask)
+		     int attr_mask)
 {
 	struct ipath_srq            *srq = to_isrq(ibsrq);
 	struct ipath_modify_srq_cmd  cmd;
@@ -611,7 +611,7 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 
 int ipath_modify_srq_v1(struct ibv_srq *ibsrq,
 			struct ibv_srq_attr *attr, 
-			enum ibv_srq_attr_mask attr_mask)
+			int attr_mask)
 {
 	struct ibv_modify_srq cmd;
 
