@@ -596,10 +596,11 @@ static void destroy_node(ibnd_node_t * node)
 {
 	int p = 0;
 
-	for (p = 0; p <= node->numports; p++) {
-		free(node->ports[p]);
+	if (node->ports) {
+		for (p = 0; p <= node->numports; p++)
+			free(node->ports[p]);
+		free(node->ports);
 	}
-	free(node->ports);
 	free(node);
 }
 
