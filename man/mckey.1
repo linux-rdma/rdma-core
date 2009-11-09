@@ -47,6 +47,11 @@ UDP (0x0111) or IPoIB (0x0002) port space.  (default RDMA_PS_UDP)
 Basic usage is to start mckey -m multicast_address on a server system,
 then run mckey -m multicast_address -s on a client system.
 .P
+Unique Infiniband SA assigned multicast GIDs can be retrived by
+invoking mckey with a zero MGID or IP address.  (Example, -M 0 or
+-m 0.0.0.0).  The assigned address will be displayed to allow
+mckey clients to join the created group. 
+.P
 Because this test maps RDMA resources to userspace, users must ensure
 that they have available system resources and permissions.  See the
 libibverbs README file for additional details.

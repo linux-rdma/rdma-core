@@ -273,7 +273,8 @@ static int join_handler(struct cmatest_node *node,
 	char buf[40];
 
 	inet_ntop(AF_INET6, param->ah_attr.grh.dgid.raw, buf, 40);
-	printf("mckey: joined dgid: %s\n", buf);
+	printf("mckey: joined dgid: %s mlid 0x%x sl %d\n", buf,
+		param->ah_attr.dlid, param->ah_attr.sl);
 
 	node->remote_qpn = param->qp_num;
 	node->remote_qkey = param->qkey;
@@ -554,6 +555,12 @@ int main(int argc, char **argv)
 			       "%#x for IPOIB]\n", RDMA_PS_UDP, RDMA_PS_IPOIB);
 			exit(1);
 		}
+	}
+
+	if (unmapped_addr && !src_addr) {
+		printf("unmapped multicast address requires binding "
+			"to source address\n");
+		exit(1);
 	}
 
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
