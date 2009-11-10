@@ -60,32 +60,20 @@ int ibdebug;
 int query_port_info(struct ibmad_port *ibmad_port, ib_portid_t * portid,
 		    int portnum, ibnd_port_t * port)
 {
+	char width[64], speed[64];
+	int iwidth;
+	int ispeed;
+
 	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO,
 			   portnum, 0, ibmad_port))
 		return -1;
 
 	port->base_lid = (uint16_t) mad_get_field(port->info, 0, IB_PORT_LID_F);
 	port->lmc = (uint8_t) mad_get_field(port->info, 0, IB_PORT_LMC_F);
-
-	return 0;
-}
-
-static int get_port_info(struct ibmad_port *ibmad_port,
-			 ibnd_fabric_t * fabric, ibnd_port_t * port,
-			 int portnum, ib_portid_t * portid)
-{
-	int rc = 0;
-	char width[64], speed[64];
-	int iwidth;
-	int ispeed;
-
 	port->portnum = portnum;
+
 	iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 	ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
-
-	if ((rc = query_port_info(ibmad_port, portid, portnum, port)) != 0)
-		return rc;
-
 	IBND_DEBUG
 	    ("portid %s portnum %d: base lid %d state %d physstate %d %s %s\n",
 	     portid2str(portid), portnum, port->base_lid,
@@ -93,6 +81,7 @@ static int get_port_info(struct ibmad_port *ibmad_port,
 	     mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F),
 	     mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64, &iwidth),
 	     mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64, &ispeed));
+
 	return 0;
 }
 
@@ -122,14 +111,14 @@ static int query_node(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
 	if ((rc = query_node_info(ibmad_port, fabric, node, portid)) != 0)
 		return rc;
 
-	port->portnum = mad_get_field(node->info, 0, IB_NODE_LOCAL_PORT_F);
-	port->guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
-
 	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, 0, ibmad_port))
 		return -1;
 
 	if ((rc = query_port_info(ibmad_port, portid, 0, port)) != 0)
 		return rc;
+
+	port->portnum = mad_get_field(node->info, 0, IB_NODE_LOCAL_PORT_F);
+	port->guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
 
 	if (node->type != IB_NODE_SWITCH)
 		return 0;
@@ -563,8 +552,8 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 						       IB_NODE_LOCAL_PORT_F))
 					continue;
 
-				if (get_port_info(ibmad_port, fabric,
-						  &port_buf, i, path)) {
+				if (query_port_info(ibmad_port, path, i,
+						    &port_buf)) {
 					IBND_ERROR
 					    ("can't reach node %s port %d\n",
 					     portid2str(path), i);
