@@ -57,16 +57,24 @@
 static int show_progress = 0;
 int ibdebug;
 
-void decode_port_info(ibnd_port_t * port)
+int query_port_info(struct ibmad_port *ibmad_port, ib_portid_t * portid,
+		    int portnum, ibnd_port_t * port)
 {
+	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO,
+			   portnum, 0, ibmad_port))
+		return -1;
+
 	port->base_lid = (uint16_t) mad_get_field(port->info, 0, IB_PORT_LID_F);
 	port->lmc = (uint8_t) mad_get_field(port->info, 0, IB_PORT_LMC_F);
+
+	return 0;
 }
 
 static int get_port_info(struct ibmad_port *ibmad_port,
 			 ibnd_fabric_t * fabric, ibnd_port_t * port,
 			 int portnum, ib_portid_t * portid)
 {
+	int rc = 0;
 	char width[64], speed[64];
 	int iwidth;
 	int ispeed;
@@ -75,11 +83,8 @@ static int get_port_info(struct ibmad_port *ibmad_port,
 	iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 	ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
 
-	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO,
-			   portnum, 0, ibmad_port))
-		return -1;
-
-	decode_port_info(port);
+	if ((rc = query_port_info(ibmad_port, portid, portnum, port)) != 0)
+		return rc;
 
 	IBND_DEBUG
 	    ("portid %s portnum %d: base lid %d state %d physstate %d %s %s\n",
@@ -123,10 +128,8 @@ static int query_node(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
 	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, 0, ibmad_port))
 		return -1;
 
-	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO, 0, 0,
-			   ibmad_port))
-		return -1;
-	decode_port_info(port);
+	if ((rc = query_port_info(ibmad_port, portid, 0, port)) != 0)
+		return rc;
 
 	if (node->type != IB_NODE_SWITCH)
 		return 0;
@@ -134,11 +137,10 @@ static int query_node(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
 	node->smalid = port->base_lid;
 	node->smalmc = port->lmc;
 
-	/* after we have the sma information find out the real PortInfo for this port */
-	if (!smp_query_via(port->info, portid, IB_ATTR_PORT_INFO,
-			   port->portnum, 0, ibmad_port))
-		return -1;
-	decode_port_info(port);
+	/* after we have the sma information find out the "real" PortInfo for
+	 * the external port */
+	if ((rc = query_port_info(ibmad_port, portid, port->portnum, port)) != 0)
+		return rc;
 
 	port->base_lid = (uint16_t) node->smalid;	/* LID is still defined by port 0 */
 	port->lmc = (uint8_t) node->smalmc;
