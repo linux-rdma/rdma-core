@@ -157,8 +157,8 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 		snprintf(remote_str, 256,
 			 "0x%016" PRIx64 " %6d %4d[%2s] \"%s\" (%s %s)\n",
 			 port->remoteport->node->guid,
-			 port->remoteport->base_lid ? port->remoteport->
-			 base_lid : port->remoteport->node->smalid,
+			 port->remoteport->base_lid ? port->
+			 remoteport->base_lid : port->remoteport->node->smalid,
 			 port->remoteport->portnum, ext_port_str, node_name,
 			 width_msg, speed_msg);
 	} else
@@ -200,24 +200,24 @@ static void report_suppressed(void)
 }
 
 static int print_xmitdisc_details(char *buf, size_t size, ib_portid_t * portid,
-				  ibnd_node_t * node, char * node_name, int portnum)
+				  ibnd_node_t * node, char *node_name,
+				  int portnum)
 {
 	uint8_t pc[1024];
 	uint32_t val = 0;
-	int n = 0;
-	int i = 0;
+	int i, n;
 
 	memset(pc, 0, 1024);
 
 	if (!pma_query_via(pc, portid, portnum, ibd_timeout,
-			  IB_GSI_PORT_XMIT_DISCARD_DETAILS,
-			  ibmad_port)) {
-		IBWARN("IB_GSI_PORT_XMIT_DISCARD_DETAILS query failed on %s, %s port %d",
-		node_name, portid2str(portid), portnum);
+			   IB_GSI_PORT_XMIT_DISCARD_DETAILS, ibmad_port)) {
+		IBWARN("IB_GSI_PORT_XMIT_DISCARD_DETAILS query failed on %s, "
+		       "%s port %d", node_name, portid2str(portid), portnum);
 		return 0;
 	}
 
-	for (n = 0, i = IB_PC_XMT_INACT_DISC_F; i <= IB_PC_XMT_SW_HOL_DISC_F; i++) {
+	for (n = 0, i = IB_PC_XMT_INACT_DISC_F; i <= IB_PC_XMT_SW_HOL_DISC_F;
+	     i++) {
 		mad_decode_field(pc, i, (void *)&val);
 		if (val)
 			n += snprintf(buf + n, size - n, " [%s == %d]",
@@ -226,13 +226,14 @@ static int print_xmitdisc_details(char *buf, size_t size, ib_portid_t * portid,
 	return n;
 }
 
-static void print_results(ib_portid_t * portid, char *node_name, ibnd_node_t * node,
-			  uint8_t * pc, int portnum, int *header_printed)
+static void print_results(ib_portid_t * portid, char *node_name,
+			  ibnd_node_t * node, uint8_t * pc, int portnum,
+			  int *header_printed)
 {
 	char buf[1024];
 	char *str = buf;
 	uint32_t val = 0;
-	int i = 0, n = 0;
+	int i, n;
 
 	for (n = 0, i = IB_PC_ERR_SYM_F; i <= IB_PC_VL15_DROPPED_F; i++) {
 		if (suppress(i))
@@ -249,7 +250,7 @@ static void print_results(ib_portid_t * portid, char *node_name, ibnd_node_t * n
 
 		/* If there are PortXmitDiscards, get details (if supported) */
 		if (i == IB_PC_XMT_DISCARDS_F && details && val) {
-			n += print_xmitdisc_details(str + n, 1024-n, portid,
+			n += print_xmitdisc_details(str + n, 1024 - n, portid,
 						    node, node_name, portnum);
 		}
 	}
@@ -286,7 +287,7 @@ static void print_results(ib_portid_t * portid, char *node_name, ibnd_node_t * n
 	}
 }
 
-static int query_cap_mask(ib_portid_t *portid, char *node_name, int portnum,
+static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
 			  uint16_t * cap_mask)
 {
 	uint8_t pc[1024];
@@ -329,7 +330,7 @@ static void print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
 }
 
 static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
-		       char * node_name, int port)
+		       char *node_name, int port)
 {
 	uint8_t pc[1024];
 	/* bits defined in Table 228 PortCounters CounterSelect and
@@ -350,8 +351,7 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 
 	if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
 				   IB_GSI_PORT_COUNTERS, ibmad_port))
-		IBERROR("Failed to reset errors %s port %d",
-			node_name, port);
+		IBERROR("Failed to reset errors %s port %d", node_name, port);
 
 	if (details && clear_errors) {
 		mask = 0xF;
@@ -390,8 +390,7 @@ void print_node(ibnd_node_t * node, void *user_data)
 	if (node->type == IB_NODE_SWITCH && node->smaenhsp0)
 		startport = 0;
 
-	node_name = remap_node_name(node_name_map, node->guid,
-				    node->nodedesc);
+	node_name = remap_node_name(node_name_map, node->guid, node->nodedesc);
 
 	for (p = startport; p <= node->numports; p++) {
 		if (node->ports[p]) {
@@ -401,7 +400,8 @@ void print_node(ibnd_node_t * node, void *user_data)
 				ib_portid_set(&portid, node->ports[p]->base_lid,
 					      0, 0);
 
-			if (query_cap_mask(&portid, node_name, p, &cap_mask) < 0)
+			if (query_cap_mask(&portid, node_name, p, &cap_mask) <
+			    0)
 				continue;
 
 			if (cap_mask & 0x100)
