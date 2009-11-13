@@ -86,7 +86,6 @@ typedef struct ibnd_node {
 	/* internal use only */
 	unsigned char ch_found;
 	struct ibnd_node *htnext;	/* hash table list */
-	struct ibnd_node *dnext;	/* nodesdist next */
 	struct ibnd_node *type_next;	/* next based on type */
 } ibnd_node_t;
 

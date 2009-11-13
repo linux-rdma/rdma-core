@@ -822,6 +822,7 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 	int chassisnum = 0;
 	ibnd_chassis_t *chassis;
 	ibnd_chassis_t *ch, *ch_next;
+	ibnd_node_scan_t *node_scan;
 
 	scan->first_chassis = NULL;
 	scan->current_chassis = NULL;
@@ -832,16 +833,21 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 	/* according to internal connectivity */
 	/* not very efficient but clear code so... */
 	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
-		for (node = scan->nodesdist[dist]; node; node = node->dnext)
+		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
+			node = node_scan->node;
+
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID
 			    && fill_voltaire_chassis_record(node))
 				goto cleanup;
+		}
 
 	/* separate every Voltaire chassis from each other and build linked list of them */
 	/* algorithm: catch spine and find all surrounding nodes */
 	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
-		for (node = scan->nodesdist[dist]; node; node = node->dnext) {
+		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
+			node = node_scan->node;
+
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
 				continue;
@@ -859,7 +865,9 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 	/* now make pass on nodes for chassis which are not Voltaire */
 	/* grouped by common SystemImageGUID */
 	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
-		for (node = scan->nodesdist[dist]; node; node = node->dnext) {
+		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
+			node = node_scan->node;
+
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 				continue;
@@ -885,7 +893,9 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 	/* now, make another pass to see which nodes are part of chassis */
 	/* (defined as chassis->nodecount > 1) */
 	for (dist = 0; dist <= MAXHOPS;) {
-		for (node = scan->nodesdist[dist]; node; node = node->dnext) {
+		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
+			node = node_scan->node;
+
 			if (mad_get_field(node->info, 0,
 					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 				continue;

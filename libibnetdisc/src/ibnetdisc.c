@@ -320,13 +320,25 @@ static void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 	}
 }
 
-static void add_to_nodedist(ibnd_node_t * node, ibnd_scan_t * scan, int dist)
+static int add_to_nodedist(ibnd_node_t * node, ibnd_scan_t * scan,
+			   ib_portid_t * path, int dist)
 {
+	ibnd_node_scan_t *node_scan;
+
+	node_scan = malloc(sizeof(*node_scan));
+	if (!node_scan) {
+		IBND_ERROR("OOM: node scan creation failed\n");
+		return -1;
+	}
+	node_scan->node = node;
+
 	if (node->type != IB_NODE_SWITCH)
 		dist = MAXHOPS;	/* special Ca list */
 
-	node->dnext = scan->nodesdist[dist];
-	scan->nodesdist[dist] = node;
+	node_scan->dnext = scan->nodesdist[dist];
+	scan->nodesdist[dist] = node_scan;
+
+	return 0;
 }
 
 static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * scan,
@@ -351,7 +363,11 @@ static ibnd_node_t *create_node(ibnd_fabric_t * fabric, ibnd_scan_t * scan,
 	fabric->nodes = node;
 
 	add_to_type_list(node, fabric);
-	add_to_nodedist(node, scan, dist);
+
+	if (add_to_nodedist(node, scan, path, dist) < 0) {
+		free(node);
+		return NULL;
+	}
 
 	return node;
 }
@@ -471,6 +487,23 @@ error:
 	return rc;
 }
 
+static void ibnd_scan_destroy(ibnd_scan_t *scan)
+{
+	int dist = 0;
+	int max_hops = MAXHOPS - 1;
+	ibnd_node_scan_t *node_scan;
+	ibnd_node_scan_t *next;
+
+	for (dist = 0; dist <= max_hops; dist++) {
+		node_scan = scan->nodesdist[dist];
+		while (node_scan) {
+			next = node_scan->dnext;
+			free(node_scan);
+			node_scan = next;
+		}
+	}
+}
+
 ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 				    ib_portid_t * from, int hops)
 {
@@ -480,6 +513,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	ibnd_node_t node_buf;
 	ibnd_port_t port_buf;
 	ibnd_node_t *node;
+	ibnd_node_scan_t *node_scan;
 	ibnd_port_t *port;
 	int i;
 	int dist = 0;
@@ -540,7 +574,8 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 	for (dist = 0; dist <= max_hops; dist++) {
 
-		for (node = scan.nodesdist[dist]; node; node = node->dnext) {
+		for (node_scan = scan.nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
+			node = node_scan->node;
 
 			path = &node->path_portid;
 
@@ -586,8 +621,10 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 	if (group_nodes(fabric, &scan))
 		goto error;
 
+	ibnd_scan_destroy(&scan);
 	return fabric;
 error:
+	ibnd_scan_destroy(&scan);
 	ibnd_destroy_fabric(fabric);
 	return NULL;
 }

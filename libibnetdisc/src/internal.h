@@ -52,8 +52,13 @@
 
 #define MAXHOPS         63
 
+typedef struct ibnd_node_scan {
+	ibnd_node_t *node;
+	struct ibnd_node_scan *dnext;	/* nodesdist next */
+} ibnd_node_scan_t;
+
 typedef struct ibnd_scan {
-	ibnd_node_t *nodesdist[MAXHOPS + 1];
+	ibnd_node_scan_t *nodesdist[MAXHOPS + 1];
 	ibnd_chassis_t *first_chassis;
 	ibnd_chassis_t *current_chassis;
 	ibnd_chassis_t *last_chassis;
