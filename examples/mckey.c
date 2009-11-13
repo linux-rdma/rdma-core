@@ -62,6 +62,7 @@ struct cmatest_node {
 
 struct cmatest {
 	struct rdma_event_channel *channel;
+	pthread_t 		cmathread;
 	struct cmatest_node	*nodes;
 	int			conn_index;
 	int			connects_left;
@@ -320,6 +321,33 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	return ret;
 }
 
+static void *cma_thread(void *arg)
+{
+	struct rdma_cm_event *event;
+	int ret;
+
+	while (1) {
+		ret = rdma_get_cm_event(test.channel, &event);
+		if (ret) {
+			perror("rdma_get_cm_event");
+			break;
+		}
+
+		switch (event->event) {
+		case RDMA_CM_EVENT_MULTICAST_ERROR:
+		case RDMA_CM_EVENT_ADDR_CHANGE:
+			printf("mckey: event: %s, status: %d\n",
+			       rdma_event_str(event->event), event->status);
+			break;
+		default:
+			break;
+		}
+
+		rdma_ack_cm_event(event);
+	}
+	return NULL;
+}
+
 static void destroy_node(struct cmatest_node *node)
 {
 	if (!node->cma_id)
@@ -475,6 +503,8 @@ static int run(void)
 	ret = connect_events();
 	if (ret)
 		goto out;
+
+	pthread_create(&test.cmathread, NULL, cma_thread, NULL);
 
 	/*
 	 * Pause to give SM chance to configure switches.  We don't want to
