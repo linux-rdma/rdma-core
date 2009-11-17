@@ -2,7 +2,7 @@ INCLUDES = -I$(srcdir)/include -I$(srcdir)/linux
 
 lib_LTLIBRARIES = linux/libibacm.la
 
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE -march=i686
+AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
 linux_libibacm_la_CFLAGS = $(AM_CFLAGS)
 
