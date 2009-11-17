@@ -816,11 +816,9 @@ static void add_node_to_chassis(ibnd_chassis_t * chassis, ibnd_node_t * node)
 int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 {
 	ibnd_node_t *node;
-	int dist;
 	int chassisnum = 0;
 	ibnd_chassis_t *chassis;
 	ibnd_chassis_t *ch, *ch_next;
-	ibnd_node_scan_t *node_scan;
 
 	scan->first_chassis = NULL;
 	scan->current_chassis = NULL;
@@ -830,91 +828,71 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 	/* an appropriate chassis record (slotnum and position) */
 	/* according to internal connectivity */
 	/* not very efficient but clear code so... */
-	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
-		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
-			node = node_scan->node;
-
-			if (mad_get_field(node->info, 0,
-					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID
-			    && fill_voltaire_chassis_record(node))
-				goto cleanup;
-		}
+	for (node = fabric->switches; node; node = node->type_next) {
+		if (mad_get_field(node->info, 0,
+				  IB_NODE_VENDORID_F) == VTR_VENDOR_ID
+		    && fill_voltaire_chassis_record(node))
+			goto cleanup;
+	}
 
 	/* separate every Voltaire chassis from each other and build linked list of them */
 	/* algorithm: catch spine and find all surrounding nodes */
-	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
-		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
-			node = node_scan->node;
-
-			if (mad_get_field(node->info, 0,
-					  IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
-				continue;
-			if (!node->ch_found
-			    || (node->chassis && node->chassis->chassisnum)
-			    || !is_spine(node))
-				continue;
-			if (add_chassis(scan))
-				goto cleanup;
-			scan->current_chassis->chassisnum = ++chassisnum;
-			if (build_chassis(node, scan->current_chassis))
-				goto cleanup;
-		}
+	for (node = fabric->switches; node; node = node->type_next) {
+		if (mad_get_field(node->info, 0,
+				  IB_NODE_VENDORID_F) != VTR_VENDOR_ID)
+			continue;
+		if (!node->ch_found
+		    || (node->chassis && node->chassis->chassisnum)
+		    || !is_spine(node))
+			continue;
+		if (add_chassis(scan))
+			goto cleanup;
+		scan->current_chassis->chassisnum = ++chassisnum;
+		if (build_chassis(node, scan->current_chassis))
+			goto cleanup;
+	}
 
 	/* now make pass on nodes for chassis which are not Voltaire */
 	/* grouped by common SystemImageGUID */
-	for (dist = 0; dist <= fabric->maxhops_discovered; dist++)
-		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
-			node = node_scan->node;
-
-			if (mad_get_field(node->info, 0,
-					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
-				continue;
-			if (mad_get_field64(node->info, 0,
-					    IB_NODE_SYSTEM_GUID_F)) {
-				chassis =
-				    find_chassisguid(fabric, node);
-				if (chassis)
-					chassis->nodecount++;
-				else {
-					/* Possible new chassis */
-					if (add_chassis(scan))
-						goto cleanup;
-					scan->current_chassis->chassisguid =
-					    get_chassisguid(node);
-					scan->current_chassis->nodecount = 1;
-				}
+	for (node = fabric->switches; node; node = node->type_next) {
+		if (mad_get_field(node->info, 0,
+				  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
+			continue;
+		if (mad_get_field64(node->info, 0,
+				    IB_NODE_SYSTEM_GUID_F)) {
+			chassis = find_chassisguid(fabric, node);
+			if (chassis)
+				chassis->nodecount++;
+			else {
+				/* Possible new chassis */
+				if (add_chassis(scan))
+					goto cleanup;
+				scan->current_chassis->chassisguid =
+				    get_chassisguid(node);
+				scan->current_chassis->nodecount = 1;
 			}
 		}
+	}
 
 	/* now, make another pass to see which nodes are part of chassis */
 	/* (defined as chassis->nodecount > 1) */
-	for (dist = 0; dist <= MAXHOPS;) {
-		for (node_scan = scan->nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
-			node = node_scan->node;
-
-			if (mad_get_field(node->info, 0,
-					  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
-				continue;
-			if (mad_get_field64(node->info, 0,
-					    IB_NODE_SYSTEM_GUID_F)) {
-				chassis =
-				    find_chassisguid(fabric, node);
-				if (chassis && chassis->nodecount > 1) {
-					if (!chassis->chassisnum)
-						chassis->chassisnum =
-						    ++chassisnum;
-					if (!node->ch_found) {
-						node->ch_found = 1;
-						add_node_to_chassis(chassis,
-								    node);
-					}
+	for (node = fabric->nodes; node; node = node->next) {
+		if (mad_get_field(node->info, 0,
+				  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
+			continue;
+		if (mad_get_field64(node->info, 0,
+				    IB_NODE_SYSTEM_GUID_F)) {
+			chassis = find_chassisguid(fabric, node);
+			if (chassis && chassis->nodecount > 1) {
+				if (!chassis->chassisnum)
+					chassis->chassisnum =
+					    ++chassisnum;
+				if (!node->ch_found) {
+					node->ch_found = 1;
+					add_node_to_chassis(chassis, node);
 				}
 			}
 		}
-		if (dist == fabric->maxhops_discovered)
-			dist = MAXHOPS;	/* skip to CAs */
-		else
-			dist++;
 	}
 
 	fabric->chassis = scan->first_chassis;
