@@ -1018,11 +1018,11 @@ static inline uint64_t htonll(uint64_t x)
 #define ALIGN(l, size) (((l) + ((size) - 1)) / (size) * (size))
 
 /** printf style warning MACRO, includes name of function and pid */
-#define IBWARN(fmt, ...) fprintf(stdout, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## __VA_ARGS__)
+#define IBWARN(fmt, ...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## __VA_ARGS__)
 
 /** printf style abort MACRO, includes name of function and pid */
 #define IBPANIC(fmt, ...) do { \
-	fprintf(stdout, "ibpanic: [%d] %s: " fmt ": %m\n", getpid(), __func__, ## __VA_ARGS__); \
+	fprintf(stderr, "ibpanic: [%d] %s: " fmt ": %m\n", getpid(), __func__, ## __VA_ARGS__); \
 	exit(-1); \
 } while(0)
 
