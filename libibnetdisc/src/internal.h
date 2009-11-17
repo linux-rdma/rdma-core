@@ -59,9 +59,6 @@ typedef struct ibnd_node_scan {
 
 typedef struct ibnd_scan {
 	ibnd_node_scan_t *nodesdist[MAXHOPS + 1];
-	ibnd_chassis_t *first_chassis;
-	ibnd_chassis_t *current_chassis;
-	ibnd_chassis_t *last_chassis;
 	ib_portid_t selfportid;
 } ibnd_scan_t;
 

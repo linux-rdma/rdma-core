@@ -53,6 +53,12 @@ static char *ChassisTypeStr[5] =
     { "", "ISR9288", "ISR9096", "ISR2012", "ISR2004" };
 static char *ChassisSlotTypeStr[4] = { "", "Line", "Spine", "SRBD" };
 
+typedef struct chassis_scan {
+	ibnd_chassis_t *first_chassis;
+	ibnd_chassis_t *current_chassis;
+	ibnd_chassis_t *last_chassis;
+} chassis_scan_t;
+
 char *ibnd_get_chassis_type(ibnd_node_t * node)
 {
 	if (!node) {
@@ -777,19 +783,19 @@ static void voltaire_portmap(ibnd_port_t * port)
 		port->ext_portnum = int2ext_map_slb8[chipnum][portnum];
 }
 
-static int add_chassis(ibnd_scan_t *scan)
+static int add_chassis(chassis_scan_t * chassis_scan)
 {
-	if (!(scan->current_chassis = calloc(1, sizeof(ibnd_chassis_t)))) {
+	if (!(chassis_scan->current_chassis = calloc(1, sizeof(ibnd_chassis_t)))) {
 		IBND_ERROR("OOM: failed to allocate chassis object\n");
 		return -1;
 	}
 
-	if (scan->first_chassis == NULL) {
-		scan->first_chassis = scan->current_chassis;
-		scan->last_chassis = scan->current_chassis;
+	if (chassis_scan->first_chassis == NULL) {
+		chassis_scan->first_chassis = chassis_scan->current_chassis;
+		chassis_scan->last_chassis = chassis_scan->current_chassis;
 	} else {
-		scan->last_chassis->next = scan->current_chassis;
-		scan->last_chassis = scan->current_chassis;
+		chassis_scan->last_chassis->next = chassis_scan->current_chassis;
+		chassis_scan->last_chassis = chassis_scan->current_chassis;
 	}
 	return 0;
 }
@@ -813,16 +819,17 @@ static void add_node_to_chassis(ibnd_chassis_t * chassis, ibnd_node_t * node)
 	Returns:
 	0 on success, -1 on failure
 */
-int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
+int group_nodes(ibnd_fabric_t * fabric)
 {
 	ibnd_node_t *node;
 	int chassisnum = 0;
 	ibnd_chassis_t *chassis;
 	ibnd_chassis_t *ch, *ch_next;
+	chassis_scan_t chassis_scan;
 
-	scan->first_chassis = NULL;
-	scan->current_chassis = NULL;
-	scan->last_chassis = NULL;
+	chassis_scan.first_chassis = NULL;
+	chassis_scan.current_chassis = NULL;
+	chassis_scan.last_chassis = NULL;
 
 	/* first pass on switches and build for every Voltaire node */
 	/* an appropriate chassis record (slotnum and position) */
@@ -845,10 +852,10 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 		    || (node->chassis && node->chassis->chassisnum)
 		    || !is_spine(node))
 			continue;
-		if (add_chassis(scan))
+		if (add_chassis(&chassis_scan))
 			goto cleanup;
-		scan->current_chassis->chassisnum = ++chassisnum;
-		if (build_chassis(node, scan->current_chassis))
+		chassis_scan.current_chassis->chassisnum = ++chassisnum;
+		if (build_chassis(node, chassis_scan.current_chassis))
 			goto cleanup;
 	}
 
@@ -865,11 +872,11 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 				chassis->nodecount++;
 			else {
 				/* Possible new chassis */
-				if (add_chassis(scan))
+				if (add_chassis(&chassis_scan))
 					goto cleanup;
-				scan->current_chassis->chassisguid =
+				chassis_scan.current_chassis->chassisguid =
 				    get_chassisguid(node);
-				scan->current_chassis->nodecount = 1;
+				chassis_scan.current_chassis->nodecount = 1;
 			}
 		}
 	}
@@ -895,18 +902,15 @@ int group_nodes(ibnd_fabric_t * fabric, ibnd_scan_t *scan)
 		}
 	}
 
-	fabric->chassis = scan->first_chassis;
+	fabric->chassis = chassis_scan.first_chassis;
 	return 0;
 
 cleanup:
-	ch = scan->first_chassis;
+	ch = chassis_scan.first_chassis;
 	while (ch) {
 		ch_next = ch->next;
 		free(ch);
 		ch = ch_next;
 	}
-	scan->first_chassis = NULL;
-	scan->current_chassis = NULL;
-	scan->last_chassis = NULL;
 	return -1;
 }

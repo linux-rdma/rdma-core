@@ -618,7 +618,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 		}
 	}
 
-	if (group_nodes(fabric, &scan))
+	if (group_nodes(fabric))
 		goto error;
 
 	ibnd_scan_destroy(&scan);
