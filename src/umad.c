@@ -83,7 +83,7 @@ extern int sys_read_gid(char *dir_name, char *file_name, uint8_t * gid);
 extern int sys_read_uint64(char *dir_name, char *file_name, uint64_t * u);
 extern int sys_read_uint(char *dir_name, char *file_name, unsigned *u);
 
-#define IBWARN(fmt, args...) fprintf(stdout, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
+#define IBWARN(fmt, args...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
 
 #define TRACE	if (umaddebug)	IBWARN
 #define DEBUG	if (umaddebug)	IBWARN
