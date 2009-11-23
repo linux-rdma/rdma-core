@@ -50,10 +50,10 @@ extern int ibd_timeout;
 
 #undef DEBUG
 #define DEBUG(fmt, ...) do { \
-	if (ibdebug || ibverbose) IBWARN(fmt, ## __VA_ARGS__); \
+	if (ibdebug) IBDEBUG(fmt, ## __VA_ARGS__); \
 } while (0)
 #define VERBOSE(fmt, ...) do { \
-	if (ibdebug || ibverbose > 1) IBWARN(fmt, ## __VA_ARGS__); \
+	if (ibverbose) IBVERBOSE(fmt, ## __VA_ARGS__); \
 } while (0)
 #define IBERROR(fmt, ...) iberror(__FUNCTION__, fmt, ## __VA_ARGS__)
 
