@@ -1020,13 +1020,10 @@ static inline uint64_t htonll(uint64_t x)
 /** printf style warning MACRO, includes name of function and pid */
 #define IBWARN(fmt, ...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## __VA_ARGS__)
 
-/** printf style debug MACRO, includes name of function and pid */
 #define IBDEBUG(fmt, ...) fprintf(stdout, "ibdebug: [%d] %s: " fmt "\n", getpid(), __func__, ## __VA_ARGS__)
 
-/** printf style verbose MACRO, includes name of function and pid */
 #define IBVERBOSE(fmt, ...) fprintf(stdout, "[%d] %s: " fmt "\n", getpid(), __func__, ## __VA_ARGS__)
 
-/** printf style abort MACRO, includes name of function and pid */
 #define IBPANIC(fmt, ...) do { \
 	fprintf(stderr, "ibpanic: [%d] %s: " fmt ": %m\n", getpid(), __func__, ## __VA_ARGS__); \
 	exit(-1); \
