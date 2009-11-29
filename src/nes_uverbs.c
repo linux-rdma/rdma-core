@@ -850,7 +850,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	struct nes_uqp *nesuqp = to_nes_uqp(ib_qp);
 	struct nes_upd *nesupd = to_nes_upd(ib_qp->pd);
 	struct nes_hw_qp_wqe volatile *wqe;
-	uint32_t head = nesuqp->sq_head;
+	uint32_t head;
 	uint32_t qsize = nesuqp->sq_size;
 	uint32_t counter;
 	uint32_t err = 0;
@@ -861,6 +861,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 
 	pthread_spin_lock(&nesuqp->lock);
 
+	head = nesuqp->sq_head;
 	while (ib_wr) {
 		if (unlikely(nesuqp->qperr)) {
 			err = -EINVAL;
@@ -1040,7 +1041,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	struct nes_uqp *nesuqp = to_nes_uqp(ib_qp);
 	struct nes_upd *nesupd = to_nes_upd(ib_qp->pd);
 	struct nes_hw_qp_wqe *wqe;
-	uint32_t head = nesuqp->rq_head;
+	uint32_t head;
 	uint32_t qsize = nesuqp->rq_size;
 	uint32_t counter;
 	uint32_t err = 0;
@@ -1051,6 +1052,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 
 	pthread_spin_lock(&nesuqp->lock);
 
+	head = nesuqp->rq_head;
 	while (ib_wr) {
 		if (unlikely(nesuqp->qperr)) {
 			err = -EINVAL;
