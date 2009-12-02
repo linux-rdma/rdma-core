@@ -904,7 +904,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			}
 
 			if (ib_wr->send_flags & IBV_SEND_FENCE) {
-				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_LOCAL_FENCE);
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_READ_FENCE);
 			}
 
 			/* if (ib_wr->send_flags & IBV_SEND_INLINE) {
@@ -943,7 +943,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] = cpu_to_le32(NES_IWARP_SQ_OP_RDMAW);
 
 			if (ib_wr->send_flags & IBV_SEND_FENCE) {
-				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_LOCAL_FENCE);
+				wqe->wqe_words[NES_IWARP_SQ_WQE_MISC_IDX] |= cpu_to_le32(NES_IWARP_SQ_WQE_READ_FENCE);
 			}
 			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_STAG_IDX] = cpu_to_le32(ib_wr->wr.rdma.rkey);
 			wqe->wqe_words[NES_IWARP_SQ_WQE_RDMA_TO_LOW_IDX] = cpu_to_le32(
