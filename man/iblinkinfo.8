@@ -5,7 +5,7 @@ iblinkinfo.pl \- report link info for all links in the fabric
 
 .SH SYNOPSIS
 .B iblinkinfo.pl
-   [-Rhcdl -C <ca_name> -P <ca_port> -v <lt,hoq,vlstall> -S <guid>
+   [-hcdl -C <ca_name> -P <ca_port> -v <lt,hoq,vlstall> -S <guid>
 -D <direct_route>]
 
 .SH DESCRIPTION
@@ -16,12 +16,6 @@ IB fabric.
 .SH OPTIONS
 
 .PP
-.TP
-\fB\-R\fR
-Recalculate the ibnetdiscover information, ie do not use the cached
-information.  This option is slower but should be used if the diag tools have
-not been used for some time or if there are other reasons to believe the
-fabric has changed.
 .TP
 \fB\-S <guid>\fR
 Output only the switch specified by <guid> (hex format)
@@ -46,6 +40,8 @@ Print port capabilities (enabled and supported values)
 \fB\-C <ca_name>\fR    use the specified ca_name for the search.
 .TP
 \fB\-P <ca_port>\fR    use the specified ca_port for the search.
+.TP
+\fB\-R\fR (This option is obsolete and does nothing)
 
 
 .SH AUTHOR
