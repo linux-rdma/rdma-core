@@ -128,6 +128,7 @@ int mlx4_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 		       struct mlx4_srq *srq)
 {
 	struct mlx4_wqe_srq_next_seg *next;
+	struct mlx4_wqe_data_seg *scatter;
 	int size;
 	int buf_size;
 	int i;
@@ -160,6 +161,11 @@ int mlx4_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	for (i = 0; i < srq->max; ++i) {
 		next = get_wqe(srq, i);
 		next->next_wqe_index = htons((i + 1) & (srq->max - 1));
+
+		for (scatter = (void *) (next + 1);
+		     (void *) scatter < (void *) next + (1 << srq->wqe_shift);
+		     ++scatter)
+			scatter->lkey = htonl(MLX4_INVALID_LKEY);
 	}
 
 	srq->head = 0;
