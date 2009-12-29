@@ -226,7 +226,7 @@ static int print_xmitdisc_details(char *buf, size_t size, ib_portid_t * portid,
 	     i++) {
 		mad_decode_field(pc, i, (void *)&val);
 		if (val)
-			n += snprintf(buf + n, size - n, " [%s == %d]",
+			n += snprintf(buf + n, size - n, " [%s == %u]",
 				      mad_field_name(i), val);
 	}
 	return n;
@@ -251,7 +251,7 @@ static void print_results(ib_portid_t * portid, char *node_name,
 
 		mad_decode_field(pc, i, (void *)&val);
 		if (val)
-			n += snprintf(str + n, 1024 - n, " [%s == %d]",
+			n += snprintf(str + n, 1024 - n, " [%s == %u]",
 				      mad_field_name(i), val);
 
 		/* If there are PortXmitDiscards, get details (if supported) */
@@ -264,7 +264,7 @@ static void print_results(ib_portid_t * portid, char *node_name,
 	if (!suppress(IB_PC_XMT_WAIT_F)) {
 		mad_decode_field(pc, IB_PC_XMT_WAIT_F, (void *)&val);
 		if (val)
-			n += snprintf(str + n, 1024 - n, " [%s == %d]",
+			n += snprintf(str + n, 1024 - n, " [%s == %u]",
 				      mad_field_name(IB_PC_XMT_WAIT_F), val);
 	}
 
@@ -276,7 +276,7 @@ static void print_results(ib_portid_t * portid, char *node_name,
 				mad_decode_field(pc, i, (void *)&val64);
 				if (val64)
 					n += snprintf(str + n, 1024 - n,
-						      " [%s == %" PRId64 "]",
+						      " [%s == %" PRIu64 "]",
 						      mad_field_name(i), val64);
 			}
 
