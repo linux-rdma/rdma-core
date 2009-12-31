@@ -168,6 +168,7 @@ enum GSI_ATTR_ID {
 	IB_GSI_PORT_SAMPLES_CONTROL = 0x10,
 	IB_GSI_PORT_SAMPLES_RESULT = 0x11,
 	IB_GSI_PORT_COUNTERS = 0x12,
+	IB_GSI_PORT_RCV_ERROR_DETAILS = 0x15,
 	IB_GSI_PORT_XMIT_DISCARD_DETAILS = 0x16,
 	IB_GSI_PORT_COUNTERS_EXT = 0x1D,
 	IB_GSI_PORT_XMIT_DATA_SL = 0x36,
@@ -659,6 +660,17 @@ enum MAD_FIELDS {
 	IB_PC_XMT_SW_HOL_DISC_F,
 	IB_PC_XMT_DISC_LAST_F,
 
+	/*
+	 * PortRcvErrorDetails fields
+	 */
+	IB_PC_RCV_LOCAL_PHY_ERR_F,
+	IB_PC_RCV_MALFORMED_PKT_ERR_F,
+	IB_PC_RCV_BUF_OVR_ERR_F,
+	IB_PC_RCV_DLID_MAP_ERR_F,
+	IB_PC_RCV_VL_MAP_ERR_F,
+	IB_PC_RCV_LOOPING_ERR_F,
+	IB_PC_RCV_ERR_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 
@@ -981,7 +993,7 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_nodedesc, mad_dump_nodeinfo, mad_dump_portinfo,
     mad_dump_switchinfo, mad_dump_perfcounters, mad_dump_perfcounters_ext,
     mad_dump_perfcounters_xmt_sl, mad_dump_perfcounters_rcv_sl,
-    mad_dump_perfcounters_xmt_disc;
+    mad_dump_perfcounters_xmt_disc, mad_dump_perfcounters_rcv_err;
 
 MAD_EXPORT int ibdebug;
 

@@ -739,6 +739,16 @@ void mad_dump_perfcounters_xmt_disc(char *buf, int bufsz, void *val, int valsz)
 		     IB_PC_XMT_DISC_LAST_F);
 }
 
+void mad_dump_perfcounters_rcv_err(char *buf, int bufsz, void *val, int valsz)
+{
+	int cnt;
+
+	cnt = _dump_fields(buf, bufsz, val, IB_PC_EXT_PORT_SELECT_F,
+			   IB_PC_EXT_XMT_BYTES_F);
+	_dump_fields(buf + cnt, bufsz - cnt, val, IB_PC_RCV_LOCAL_PHY_ERR_F,
+		     IB_PC_RCV_ERR_LAST_F);
+}
+
 void xdump(FILE * file, char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))

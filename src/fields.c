@@ -458,6 +458,17 @@ static const ib_field_t ib_mad_f[] = {
 	{80, 16, "PortSwHOQLifetimeLimitDiscards", mad_dump_uint},
 	{0, 0},			/* IB_PC_XMT_DISC_LAST_F */
 
+	/*
+	 * PortRcvErrorDetails fields
+	 */
+	{32, 16, "PortLocalPhysicalErrors", mad_dump_uint},
+	{48, 16, "PortMalformedPktErrors", mad_dump_uint},
+	{64, 16, "PortBufferOverrunErrors", mad_dump_uint},
+	{80, 16, "PortDLIDMappingErrors", mad_dump_uint},
+	{96, 16, "PortVLMappingErrors", mad_dump_uint},
+	{112, 16, "PortLoopingErrors", mad_dump_uint},
+	{0, 0},                 /* IB_PC_RCV_ERR_LAST_F */
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };
