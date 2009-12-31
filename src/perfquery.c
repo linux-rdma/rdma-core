@@ -344,7 +344,7 @@ static void reset_counters(int extended, int timeout, int mask,
 }
 
 static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl,
-    rcv_sl, xmt_disc;
+    rcv_sl, xmt_disc, rcv_err;
 
 static void common_func(ib_portid_t *portid, int port_num, int mask,
 			unsigned query, unsigned reset,
@@ -390,6 +390,13 @@ static void xmt_disc_query(ib_portid_t * portid, int port, int mask)
 		    mad_dump_perfcounters_xmt_disc);
 }
 
+static void rcv_err_query(ib_portid_t * portid, int port, int mask)
+{
+	common_func(portid, port, mask, !reset_only, (reset_only || reset),
+		    "PortRcvErrorDetails", IB_GSI_PORT_RCV_ERROR_DETAILS,
+		    mad_dump_perfcounters_rcv_err);
+}
+
 static int process_opt(void *context, int ch, char *optarg)
 {
 	switch (ch) {
@@ -404,6 +411,9 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'D':
 		xmt_disc = 1;
+		break;
+	case 'E':
+		rcv_err = 1;
 		break;
 	case 'a':
 		all_ports++;
@@ -444,6 +454,7 @@ int main(int argc, char **argv)
 		{"xmtsl", 'X', 0, NULL, "show Xmt SL port counters"},
 		{"rcvsl", 'S', 0, NULL, "show Rcv SL port counters"},
 		{"xmtdisc", 'D', 0, NULL, "show Xmt Discard Details"},
+		{"rcverr", 'E', 0, NULL, "show Rcv Error Details"},
 		{"all_ports", 'a', 0, NULL, "show aggregated counters"},
 		{"loop_ports", 'l', 0, NULL, "iterate through each port"},
 		{"reset_after_read", 'r', 0, NULL, "reset counters after read"},
@@ -516,6 +527,11 @@ int main(int argc, char **argv)
 
 	if (xmt_disc) {
 		xmt_disc_query(&portid, port, mask);
+		goto done;
+	}
+
+	if (rcv_err) {
+		rcv_err_query(&portid, port, mask);
 		goto done;
 	}
 
