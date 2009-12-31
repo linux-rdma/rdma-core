@@ -206,24 +206,31 @@ static void report_suppressed(void)
 	printf("\n");
 }
 
-static int print_xmitdisc_details(char *buf, size_t size, ib_portid_t * portid,
-				  ibnd_node_t * node, char *node_name,
-				  int portnum)
+static int print_details(char *buf, size_t size, ib_portid_t * portid,
+			 ibnd_node_t * node, char *node_name, int portnum,
+			 int j)
 {
 	uint8_t pc[1024];
 	uint32_t val = 0;
 	int i, n;
 
+	if (j != IB_PC_ERR_RCV_F && j!= IB_PC_XMT_DISCARDS_F)
+		return 0;
+
 	memset(pc, 0, 1024);
 
 	if (!pma_query_via(pc, portid, portnum, ibd_timeout,
-			   IB_GSI_PORT_XMIT_DISCARD_DETAILS, ibmad_port)) {
-		IBWARN("IB_GSI_PORT_XMIT_DISCARD_DETAILS query failed on %s, "
-		       "%s port %d", node_name, portid2str(portid), portnum);
+			   (j == IB_PC_ERR_RCV_F ? IB_GSI_PORT_RCV_ERROR_DETAILS : IB_GSI_PORT_XMIT_DISCARD_DETAILS),
+			   ibmad_port)) {
+		IBWARN("%s query failed on %s, %s port %d",
+			(j == IB_PC_ERR_RCV_F ? "IB_GSI_PORT_RCV_ERROR_DETAILS" : "IB_GSI_PORT_XMIT_DISCARD_DETAILS"),
+			node_name, portid2str(portid), portnum);
 		return 0;
 	}
 
-	for (n = 0, i = IB_PC_XMT_INACT_DISC_F; i <= IB_PC_XMT_SW_HOL_DISC_F;
+	for (n = 0,
+	     i = (j == IB_PC_ERR_RCV_F ? IB_PC_RCV_LOCAL_PHY_ERR_F : IB_PC_XMT_INACT_DISC_F);
+	     i <= (j == IB_PC_ERR_RCV_F ? IB_PC_RCV_LOOPING_ERR_F : IB_PC_XMT_SW_HOL_DISC_F);
 	     i++) {
 		mad_decode_field(pc, i, (void *)&val);
 		if (val)
@@ -255,10 +262,14 @@ static void print_results(ib_portid_t * portid, char *node_name,
 			n += snprintf(str + n, 1024 - n, " [%s == %u]",
 				      mad_field_name(i), val);
 
+		/* If there are PortRcvErrors, get details (if supported) */
+		if (i == IB_PC_ERR_RCV_F && details && val) {
+			n += print_details(str + n, 1024 - n, portid,
+					   node, node_name, portnum, i);
 		/* If there are PortXmitDiscards, get details (if supported) */
-		if (i == IB_PC_XMT_DISCARDS_F && details && val) {
-			n += print_xmitdisc_details(str + n, 1024 - n, portid,
-						    node, node_name, portnum);
+		} else if (i == IB_PC_XMT_DISCARDS_F && details && val) {
+			n += print_details(str + n, 1024 - n, portid,
+					   node, node_name, portnum, i);
 		}
 	}
 
@@ -364,6 +375,10 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 		mask = 0xF;
 		performance_reset_via(pc, portid, port, mask, ibd_timeout,
 				      IB_GSI_PORT_XMIT_DISCARD_DETAILS,
+				      ibmad_port);
+		mask = 0x3F;
+		performance_reset_via(pc, portid, port, mask, ibd_timeout,
+				      IB_GSI_PORT_RCV_ERROR_DETAILS,
 				      ibmad_port);
 	}
 }
