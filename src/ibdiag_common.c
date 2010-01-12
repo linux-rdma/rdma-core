@@ -147,7 +147,7 @@ static int process_opt(int ch, char *optarg)
 		break;
 	case 'V':
 		fprintf(stderr, "%s %s\n", prog_name, get_build_version());
-		exit(2);
+		exit(0);
 	case 'e':
 		madrpc_show_errors(1);
 		break;
