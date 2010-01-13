@@ -1,4 +1,4 @@
-.TH IBPORTSTATE 8 "September 8, 2009" "OpenIB" "OpenIB Diagnostics"
+.TH IBPORTSTATE 8 "Jan 13, 2010" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibportstate \- handle port (physical) state and link speed of an InfiniBand port
@@ -23,7 +23,8 @@ also allows the link speed/width enabled on any IB port to be adjusted.
 .TP
 op
 Port operations allowed
- supported ops: enable, disable, reset, speed, width, query
+ supported ops: enable, disable, reset, speed, width, query,
+		down, arm, active, vls, mtu, lid, smlid, lmc
  Default is query
 .PP
  ops enable, disable, and reset are only allowed on switch ports
@@ -113,6 +114,8 @@ ibportstate 3 1 reset				# by lid
 ibportstate 3 1 speed 1				# by lid
 .PP
 ibportstate 3 1 width 1				# by lid
+.PP
+ibportstate -D 0 1 lid 0x1234 arm		# by direct route
 
 .SH AUTHOR
 .TP
