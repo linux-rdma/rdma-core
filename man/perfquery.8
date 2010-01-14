@@ -6,7 +6,7 @@ perfquery \- query InfiniBand port counters
 .SH SYNOPSIS
 .B perfquery
 [\-d(ebug)] [\-G(uid)] [\-x|\-\-extended] [\-X|\-\-xmtsl] [\-S|\-\-rcvsl]
-[\-D|\-\-xmtdisc] [\-E|\-\-rcverr]
+[\-D|\-\-xmtdisc] [\-E|\-\-rcverr] [\-c|\-\-smplctl]
 [-a(ll_ports)] [-l(oop_ports)] [-r(eset_after_read)] [-R(eset_only)]
 [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)]
 [<lid|guid> [[port] [reset_mask]]]
@@ -44,6 +44,12 @@ show transmit discard details. This is an optional counter.
 .TP
 \fB\-E\fR, \fB\-\-rcverr\fR
 show receive error details. This is an optional counter.
+.TP
+\fB\-D\fR, \fB\-\-xmtdisc\fR
+show transmit discard details. This is an optional counter.
+.TP
+\fB\-c\fR, \fB\-\-smplctl\fR
+show port samples control.
 .TP
 \fB\-a\fR, \fB\-\-all_ports\fR
 show aggregated counters for all ports of the destination lid

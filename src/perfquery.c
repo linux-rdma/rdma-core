@@ -344,7 +344,7 @@ static void reset_counters(int extended, int timeout, int mask,
 }
 
 static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl,
-    rcv_sl, xmt_disc, rcv_err;
+    rcv_sl, xmt_disc, rcv_err, smpl_ctl;
 
 static void common_func(ib_portid_t *portid, int port_num, int mask,
 			unsigned query, unsigned reset,
@@ -397,6 +397,19 @@ static void rcv_err_query(ib_portid_t * portid, int port, int mask)
 		    mad_dump_perfcounters_rcv_err);
 }
 
+void dump_portsamples_control(ib_portid_t * portid, int port)
+{
+	char buf[1024];
+
+	if (!pma_query_via(pc, portid, port, ibd_timeout,
+			   IB_GSI_PORT_SAMPLES_CONTROL, srcport))
+		IBERROR("sampctlquery");
+
+	mad_dump_portsamples_control(buf, sizeof buf, pc, sizeof pc);
+	printf("# PortSamplesControl: %s port %d\n%s", portid2str(portid),
+	       port, buf);
+}
+
 static int process_opt(void *context, int ch, char *optarg)
 {
 	switch (ch) {
@@ -414,6 +427,9 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'E':
 		rcv_err = 1;
+		break;
+	case 'c':
+		smpl_ctl = 1;
 		break;
 	case 'a':
 		all_ports++;
@@ -455,6 +471,7 @@ int main(int argc, char **argv)
 		{"rcvsl", 'S', 0, NULL, "show Rcv SL port counters"},
 		{"xmtdisc", 'D', 0, NULL, "show Xmt Discard Details"},
 		{"rcverr", 'E', 0, NULL, "show Rcv Error Details"},
+		{"smplctl", 'c', 0, NULL, "show samples control"},
 		{"all_ports", 'a', 0, NULL, "show aggregated counters"},
 		{"loop_ports", 'l', 0, NULL, "iterate through each port"},
 		{"reset_after_read", 'r', 0, NULL, "reset counters after read"},
@@ -532,6 +549,11 @@ int main(int argc, char **argv)
 
 	if (rcv_err) {
 		rcv_err_query(&portid, port, mask);
+		goto done;
+	}
+
+	if (smpl_ctl) {
+		dump_portsamples_control(&portid, port);
 		goto done;
 	}
 
