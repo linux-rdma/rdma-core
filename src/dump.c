@@ -749,6 +749,11 @@ void mad_dump_perfcounters_rcv_err(char *buf, int bufsz, void *val, int valsz)
 		     IB_PC_RCV_ERR_LAST_F);
 }
 
+void mad_dump_portsamples_control(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PSC_OPCODE_F, IB_PSC_LAST_F);
+}
+
 void xdump(FILE * file, char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))
