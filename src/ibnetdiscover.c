@@ -63,6 +63,8 @@ static FILE *f;
 
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
+static char *cache_file = NULL;
+static char *load_cache_file = NULL;
 
 static int report_max_hops = 0;
 
@@ -616,6 +618,12 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 1:
 		node_name_map_file = strdup(optarg);
 		break;
+	case 2:
+		cache_file = strdup(optarg);
+		break;
+	case 3:
+		load_cache_file = strdup(optarg);
+		break;
 	case 's':
 		ibnd_show_progress(1);
 		break;
@@ -662,6 +670,8 @@ int main(int argc, char **argv)
 		{"Switch_list", 'S', 0, NULL, "list of connected switches"},
 		{"Router_list", 'R', 0, NULL, "list of connected routers"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
+		{"cache", 2, 1, "<file>", "filename to cache ibnetdiscover data to"},
+		{"load-cache", 3, 1, "<file>", "filename of ibnetdiscover cache to load"},
 		{"ports", 'p', 0, NULL, "obtain a ports report"},
 		{"max_hops", 'm', 0, NULL,
 		 "report max hops discovered by the library"},
@@ -692,8 +702,14 @@ int main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL)
-		IBERROR("discover failed\n");
+	if (load_cache_file) {
+		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL)
+			IBERROR("loading cached fabric failed\n");
+	}
+	else {
+		if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL)
+			IBERROR("discover failed\n");
+	}
 
 	if (ports_report)
 		ibnd_iter_nodes(fabric, dump_ports_report, NULL);
@@ -701,6 +717,12 @@ int main(int argc, char **argv)
 		list_nodes(fabric, list);
 	else
 		dump_topology(group, fabric);
+
+	if (cache_file)
+		if (ibnd_cache_fabric(fabric,
+				      cache_file,
+				      0) < 0)
+			IBERROR("caching ibnetdiscover data failed\n");
 
 	ibnd_destroy_fabric(fabric);
 	close_node_name_map(node_name_map);
