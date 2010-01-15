@@ -62,4 +62,10 @@ typedef struct ibnd_scan {
 	ib_portid_t selfportid;
 } ibnd_scan_t;
 
+void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[]);
+
+void add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[]);
+
+void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric);
+
 #endif				/* _INTERNAL_H_ */

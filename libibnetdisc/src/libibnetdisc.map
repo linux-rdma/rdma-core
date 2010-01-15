@@ -4,6 +4,8 @@ IBNETDISC_1.0 {
 		ibnd_show_progress;
 		ibnd_discover_fabric;
 		ibnd_destroy_fabric;
+		ibnd_load_fabric;
+		ibnd_cache_fabric;
 		ibnd_find_node_guid;
 		ibnd_find_node_dr;
 		ibnd_is_xsigo_guid;

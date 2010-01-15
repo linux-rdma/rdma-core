@@ -286,7 +286,7 @@ ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 	return rc;
 }
 
-static void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
+void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
 {
 	int hash_idx = HASHGUID(node->guid) % HTSZ;
 
@@ -294,7 +294,7 @@ static void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
 	hash[hash_idx] = node;
 }
 
-static void add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[])
+void add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[])
 {
 	int hash_idx = HASHGUID(port->guid) % HTSZ;
 
@@ -302,7 +302,7 @@ static void add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[])
 	hash[hash_idx] = port;
 }
 
-static void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
+void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 {
 	switch (node->type) {
 	case IB_NODE_CA:
