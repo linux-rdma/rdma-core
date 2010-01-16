@@ -620,8 +620,8 @@ static void dump_inform_info_record(void *data)
 	uint32_t qpn;
 	uint8_t resp_time_val;
 
-	ib_inform_info_get_qpn_resp_time(p_iir->inform_info.g_or_v.generic.
-					 qpn_resp_time_val, &qpn,
+	ib_inform_info_get_qpn_resp_time(p_iir->inform_info.g_or_v.
+					 generic.qpn_resp_time_val, &qpn,
 					 &resp_time_val);
 	if (p_iir->inform_info.is_generic)
 		printf("InformInfoRecord dump:\n"
@@ -1023,8 +1023,8 @@ static int print_node_records(bind_handle_t h)
 			if (!requested_name ||
 			    (strncmp(requested_name,
 				     (char *)node_record->node_desc.description,
-				     sizeof(node_record->node_desc.
-					    description)) == 0)) {
+				     sizeof(node_record->
+					    node_desc.description)) == 0)) {
 				print_node_record(node_record);
 				if (node_print_desc == UNIQUE_LID_ONLY) {
 					return_mad();

@@ -142,9 +142,8 @@ static int ca_stat(char *ca_name, int portnum, int no_ports)
 		if (portnum > ca.numports || !ca.ports[portnum]) {
 			IBWARN("%s: '%s' has no port number %d - max (%d)",
 			       ((unsigned)ca.node_type <=
-				IB_NODE_MAX ? node_type_str[ca.
-							    node_type] : "???"),
-			       ca_name, portnum, ca.numports);
+				IB_NODE_MAX ? node_type_str[ca.node_type] :
+				"???"), ca_name, portnum, ca.numports);
 			return -1;
 		}
 		printf("%s: '%s'\n",

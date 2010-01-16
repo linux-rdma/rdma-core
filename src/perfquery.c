@@ -346,7 +346,7 @@ static void reset_counters(int extended, int timeout, int mask,
 static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl,
     rcv_sl, xmt_disc, rcv_err, smpl_ctl;
 
-static void common_func(ib_portid_t *portid, int port_num, int mask,
+static void common_func(ib_portid_t * portid, int port_num, int mask,
 			unsigned query, unsigned reset,
 			const char *name, uint16_t attr,
 			void dump_func(char *, int, void *, int))

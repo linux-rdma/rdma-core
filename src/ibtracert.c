@@ -659,17 +659,15 @@ static void dump_mcpath(Node * node, int dumplevel)
 			printf("[%d] -> %s {0x%016" PRIx64 "}[%d]\n",
 			       node->ports->remoteport->portnum,
 			       (node->type <=
-				IB_NODE_MAX ? node_type_str[node->
-							    type] : "???"),
-			       node->nodeguid, node->upport);
+				IB_NODE_MAX ? node_type_str[node->type] :
+				"???"), node->nodeguid, node->upport);
 		else
 			printf("[%d] -> %s 0x%" PRIx64 "[%d] lid %u \"%s\"\n",
 			       node->ports->remoteport->portnum,
 			       (node->type <=
-				IB_NODE_MAX ? node_type_str[node->
-							    type] : "???"),
-			       node->nodeguid, node->upport, node->ports->lid,
-			       nodename);
+				IB_NODE_MAX ? node_type_str[node->type] :
+				"???"), node->nodeguid, node->upport,
+			       node->ports->lid, nodename);
 	}
 
 	if (node->dist < 0)

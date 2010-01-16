@@ -159,13 +159,14 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 
 		rem_node_name = remap_node_name(node_name_map,
 						port->remoteport->node->guid,
-						port->remoteport->node->nodedesc);
+						port->remoteport->node->
+						nodedesc);
 
 		snprintf(remote_str, 256,
 			 "0x%016" PRIx64 " %6d %4d[%2s] \"%s\" (%s %s)\n",
 			 port->remoteport->node->guid,
-			 port->remoteport->base_lid ? port->
-			 remoteport->base_lid : port->remoteport->node->smalid,
+			 port->remoteport->base_lid ? port->remoteport->
+			 base_lid : port->remoteport->node->smalid,
 			 port->remoteport->portnum, ext_port_str, rem_node_name,
 			 width_msg, speed_msg);
 
@@ -430,7 +431,7 @@ static void add_suppressed(enum MAD_FIELDS field)
 {
 	if (sup_total >= SUP_MAX) {
 		IBWARN("Maximum (%d) fields have been suppressed; skipping %s",
-			sup_total, mad_field_name(field));
+		       sup_total, mad_field_name(field));
 		return;
 	}
 	suppressed_fields[sup_total++] = field;

@@ -128,7 +128,8 @@ static int query_node(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
 
 	/* after we have the sma information find out the "real" PortInfo for
 	 * the external port */
-	if ((rc = query_port_info(ibmad_port, portid, port->portnum, port)) != 0)
+	if ((rc =
+	     query_port_info(ibmad_port, portid, port->portnum, port)) != 0)
 		return rc;
 
 	port->base_lid = (uint16_t) node->smalid;	/* LID is still defined by port 0 */
@@ -168,7 +169,7 @@ static void retract_dpath(ib_portid_t * path)
 }
 
 static int extend_dpath(struct ibmad_port *ibmad_port, ibnd_fabric_t * fabric,
-			ibnd_scan_t *scan, ib_portid_t * portid, int nextport)
+			ibnd_scan_t * scan, ib_portid_t * portid, int nextport)
 {
 	int rc = 0;
 
@@ -471,7 +472,7 @@ static int get_remote_node(struct ibmad_port *ibmad_port,
 	if (oldport)
 		remoteport = oldport;
 	else if (!(remoteport = add_port_to_node(fabric, remotenode,
-						   &port_buf))) {
+						 &port_buf))) {
 		IBND_ERROR("OOM failed to add port to node\n");
 		rc = -1;
 		goto error;
@@ -487,7 +488,7 @@ error:
 	return rc;
 }
 
-static void ibnd_scan_destroy(ibnd_scan_t *scan)
+static void ibnd_scan_destroy(ibnd_scan_t * scan)
 {
 	int dist = 0;
 	int max_hops = MAXHOPS - 1;
@@ -504,7 +505,7 @@ static void ibnd_scan_destroy(ibnd_scan_t *scan)
 	}
 }
 
-ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
+ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 				    ib_portid_t * from, int hops)
 {
 	int rc = 0;
@@ -574,7 +575,8 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 	for (dist = 0; dist <= max_hops; dist++) {
 
-		for (node_scan = scan.nodesdist[dist]; node_scan; node_scan = node_scan->dnext) {
+		for (node_scan = scan.nodesdist[dist]; node_scan;
+		     node_scan = node_scan->dnext) {
 			node = node_scan->node;
 
 			path = &node->path_portid;
@@ -612,7 +614,8 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 				}
 
 				if (get_remote_node(ibmad_port, fabric, &scan,
-						    node, port, path, i, dist) < 0)
+						    node, port, path, i,
+						    dist) < 0)
 					goto error;
 			}
 		}

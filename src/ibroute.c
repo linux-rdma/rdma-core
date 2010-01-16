@@ -142,7 +142,7 @@ char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 	uint64_t nodeguid;
 	uint32_t mod;
 	unsigned block, i, j, e, nports, cap, chunks, startblock, lastblock,
-		 top;
+	    top;
 	int n = 0;
 
 	if ((s = check_switch(portid, &nports, &nodeguid, sw, nd)))

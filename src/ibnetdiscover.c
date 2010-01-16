@@ -472,8 +472,8 @@ int dump_topology(int group, ibnd_fabric_t * fabric)
 					if (ibnd_is_xsigo_hca(node->guid)) {
 						chname = node->nodedesc;
 						fprintf(f, "Hostname: %s\n",
-							clean_nodedesc(node->
-								       nodedesc));
+							clean_nodedesc
+							(node->nodedesc));
 					}
 				}
 			}
@@ -670,8 +670,10 @@ int main(int argc, char **argv)
 		{"Switch_list", 'S', 0, NULL, "list of connected switches"},
 		{"Router_list", 'R', 0, NULL, "list of connected routers"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
-		{"cache", 2, 1, "<file>", "filename to cache ibnetdiscover data to"},
-		{"load-cache", 3, 1, "<file>", "filename of ibnetdiscover cache to load"},
+		{"cache", 2, 1, "<file>",
+		 "filename to cache ibnetdiscover data to"},
+		{"load-cache", 3, 1, "<file>",
+		 "filename of ibnetdiscover cache to load"},
 		{"ports", 'p', 0, NULL, "obtain a ports report"},
 		{"max_hops", 'm', 0, NULL,
 		 "report max hops discovered by the library"},
@@ -705,9 +707,9 @@ int main(int argc, char **argv)
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL)
 			IBERROR("loading cached fabric failed\n");
-	}
-	else {
-		if ((fabric = ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL)
+	} else {
+		if ((fabric =
+		     ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL)
 			IBERROR("discover failed\n");
 	}
 
@@ -719,9 +721,7 @@ int main(int argc, char **argv)
 		dump_topology(group, fabric);
 
 	if (cache_file)
-		if (ibnd_cache_fabric(fabric,
-				      cache_file,
-				      0) < 0)
+		if (ibnd_cache_fabric(fabric, cache_file, 0) < 0)
 			IBERROR("caching ibnetdiscover data failed\n");
 
 	ibnd_destroy_fabric(fabric);

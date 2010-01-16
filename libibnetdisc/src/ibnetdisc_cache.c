@@ -172,41 +172,41 @@ static ssize_t _read(int fd, void *buf, size_t count)
 	return count_done;
 }
 
-static size_t _unmarshall8(uint8_t *inbuf, uint8_t *num)
+static size_t _unmarshall8(uint8_t * inbuf, uint8_t * num)
 {
 	(*num) = inbuf[0];
 
 	return (sizeof(*num));
 }
 
-static size_t _unmarshall16(uint8_t *inbuf, uint16_t *num)
+static size_t _unmarshall16(uint8_t * inbuf, uint16_t * num)
 {
-	(*num) = (uint64_t)inbuf[0];
-	(*num) |= ((uint16_t)inbuf[1] << 8);
+	(*num) = (uint64_t) inbuf[0];
+	(*num) |= ((uint16_t) inbuf[1] << 8);
 
 	return (sizeof(*num));
 }
 
-static size_t _unmarshall32(uint8_t *inbuf, uint32_t *num)
+static size_t _unmarshall32(uint8_t * inbuf, uint32_t * num)
 {
-	(*num) = (uint32_t)inbuf[0];
-	(*num) |= ((uint32_t)inbuf[1] << 8);
-	(*num) |= ((uint32_t)inbuf[2] << 16);
-	(*num) |= ((uint32_t)inbuf[3] << 24);
+	(*num) = (uint32_t) inbuf[0];
+	(*num) |= ((uint32_t) inbuf[1] << 8);
+	(*num) |= ((uint32_t) inbuf[2] << 16);
+	(*num) |= ((uint32_t) inbuf[3] << 24);
 
 	return (sizeof(*num));
 }
 
-static size_t _unmarshall64(uint8_t *inbuf, uint64_t *num)
+static size_t _unmarshall64(uint8_t * inbuf, uint64_t * num)
 {
-	(*num) = (uint64_t)inbuf[0];
-	(*num) |= ((uint64_t)inbuf[1] << 8);
-	(*num) |= ((uint64_t)inbuf[2] << 16);
-	(*num) |= ((uint64_t)inbuf[3] << 24);
-	(*num) |= ((uint64_t)inbuf[4] << 32);
-	(*num) |= ((uint64_t)inbuf[5] << 40);
-	(*num) |= ((uint64_t)inbuf[6] << 48);
-	(*num) |= ((uint64_t)inbuf[7] << 56);
+	(*num) = (uint64_t) inbuf[0];
+	(*num) |= ((uint64_t) inbuf[1] << 8);
+	(*num) |= ((uint64_t) inbuf[2] << 16);
+	(*num) |= ((uint64_t) inbuf[3] << 24);
+	(*num) |= ((uint64_t) inbuf[4] << 32);
+	(*num) |= ((uint64_t) inbuf[5] << 40);
+	(*num) |= ((uint64_t) inbuf[6] << 48);
+	(*num) |= ((uint64_t) inbuf[7] << 56);
 
 	return (sizeof(*num));
 }
@@ -218,10 +218,8 @@ static size_t _unmarshall_buf(const void *inbuf, void *outbuf, unsigned int len)
 	return len;
 }
 
-static int _load_header_info(int fd,
-			     ibnd_fabric_cache_t *fabric_cache,
-			     unsigned int *node_count,
-			     unsigned int *port_count)
+static int _load_header_info(int fd, ibnd_fabric_cache_t * fabric_cache,
+			     unsigned int *node_count, unsigned int *port_count)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	uint32_t magic = 0;
@@ -256,13 +254,13 @@ static int _load_header_info(int fd,
 	return 0;
 }
 
-static void _destroy_ibnd_node_cache(ibnd_node_cache_t *node_cache)
+static void _destroy_ibnd_node_cache(ibnd_node_cache_t * node_cache)
 {
 	free(node_cache->port_cache_keys);
 	free(node_cache);
 }
 
-static void _destroy_ibnd_fabric_cache(ibnd_fabric_cache_t *fabric_cache)
+static void _destroy_ibnd_fabric_cache(ibnd_fabric_cache_t * fabric_cache)
 {
 	ibnd_node_cache_t *node_cache;
 	ibnd_node_cache_t *node_cache_next;
@@ -293,8 +291,8 @@ static void _destroy_ibnd_fabric_cache(ibnd_fabric_cache_t *fabric_cache)
 	free(fabric_cache);
 }
 
-static void store_node_cache(ibnd_node_cache_t *node_cache,
-			     ibnd_fabric_cache_t *fabric_cache)
+static void store_node_cache(ibnd_node_cache_t * node_cache,
+			     ibnd_fabric_cache_t * fabric_cache)
 {
 	int hash_indx = HASHGUID(node_cache->node->guid) % HTSZ;
 
@@ -305,7 +303,7 @@ static void store_node_cache(ibnd_node_cache_t *node_cache,
 	fabric_cache->nodescachetbl[hash_indx] = node_cache;
 }
 
-static int _load_node(int fd, ibnd_fabric_cache_t *fabric_cache)
+static int _load_node(int fd, ibnd_fabric_cache_t * fabric_cache)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	ibnd_node_cache_t *node_cache = NULL;
@@ -313,14 +311,14 @@ static int _load_node(int fd, ibnd_fabric_cache_t *fabric_cache)
 	size_t offset = 0;
 	uint8_t tmp8;
 
-	node_cache = (ibnd_node_cache_t *)malloc(sizeof(ibnd_node_cache_t));
+	node_cache = (ibnd_node_cache_t *) malloc(sizeof(ibnd_node_cache_t));
 	if (!node_cache) {
 		IBND_DEBUG("OOM: node_cache\n");
 		return -1;
 	}
 	memset(node_cache, '\0', sizeof(ibnd_node_cache_t));
 
-	node = (ibnd_node_t *)malloc(sizeof(ibnd_node_t));
+	node = (ibnd_node_t *) malloc(sizeof(ibnd_node_t));
 	if (!node) {
 		IBND_DEBUG("OOM: node\n");
 		return -1;
@@ -336,14 +334,16 @@ static int _load_node(int fd, ibnd_fabric_cache_t *fabric_cache)
 	offset += _unmarshall8(buf + offset, &node->smalmc);
 	offset += _unmarshall8(buf + offset, &tmp8);
 	node->smaenhsp0 = tmp8;
-	offset += _unmarshall_buf(buf + offset, node->switchinfo, IB_SMP_DATA_SIZE);
+	offset += _unmarshall_buf(buf + offset, node->switchinfo,
+				  IB_SMP_DATA_SIZE);
 	offset += _unmarshall64(buf + offset, &node->guid);
 	offset += _unmarshall8(buf + offset, &tmp8);
 	node->type = tmp8;
 	offset += _unmarshall8(buf + offset, &tmp8);
 	node->numports = tmp8;
 	offset += _unmarshall_buf(buf + offset, node->info, IB_SMP_DATA_SIZE);
-	offset += _unmarshall_buf(buf + offset, node->nodedesc, IB_SMP_DATA_SIZE);
+	offset += _unmarshall_buf(buf + offset, node->nodedesc,
+				  IB_SMP_DATA_SIZE);
 
 	offset += _unmarshall8(buf + offset, &node_cache->ports_stored_count);
 
@@ -352,11 +352,15 @@ static int _load_node(int fd, ibnd_fabric_cache_t *fabric_cache)
 		unsigned int toread = 0;
 		unsigned int i;
 
-		tomalloc = sizeof(ibnd_port_cache_key_t) * node_cache->ports_stored_count;
+		tomalloc =
+		    sizeof(ibnd_port_cache_key_t) *
+		    node_cache->ports_stored_count;
 
-		toread = IBND_PORT_CACHE_KEY_LEN * node_cache->ports_stored_count;
+		toread =
+		    IBND_PORT_CACHE_KEY_LEN * node_cache->ports_stored_count;
 
-		node_cache->port_cache_keys = (ibnd_port_cache_key_t *)malloc(tomalloc);
+		node_cache->port_cache_keys =
+		    (ibnd_port_cache_key_t *) malloc(tomalloc);
 		if (!node_cache->port_cache_keys) {
 			IBND_DEBUG("OOM: node_cache port_cache_keys\n");
 			goto cleanup;
@@ -368,10 +372,13 @@ static int _load_node(int fd, ibnd_fabric_cache_t *fabric_cache)
 		offset = 0;
 
 		for (i = 0; i < node_cache->ports_stored_count; i++) {
-			offset += _unmarshall64(buf + offset,
-						&node_cache->port_cache_keys[i].guid);
-			offset += _unmarshall8(buf + offset,
-					       &node_cache->port_cache_keys[i].portnum);
+			offset +=
+			    _unmarshall64(buf + offset,
+					  &node_cache->port_cache_keys[i].guid);
+			offset +=
+			    _unmarshall8(buf + offset,
+					 &node_cache->port_cache_keys[i].
+					 portnum);
 		}
 	}
 
@@ -386,8 +393,8 @@ cleanup:
 	return -1;
 }
 
-static void store_port_cache(ibnd_port_cache_t *port_cache,
-			     ibnd_fabric_cache_t *fabric_cache)
+static void store_port_cache(ibnd_port_cache_t * port_cache,
+			     ibnd_fabric_cache_t * fabric_cache)
 {
 	int hash_indx = HASHGUID(port_cache->port->guid) % HTSZ;
 
@@ -398,7 +405,7 @@ static void store_port_cache(ibnd_port_cache_t *port_cache,
 	fabric_cache->portscachetbl[hash_indx] = port_cache;
 }
 
-static int _load_port(int fd, ibnd_fabric_cache_t *fabric_cache)
+static int _load_port(int fd, ibnd_fabric_cache_t * fabric_cache)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	ibnd_port_cache_t *port_cache = NULL;
@@ -406,14 +413,14 @@ static int _load_port(int fd, ibnd_fabric_cache_t *fabric_cache)
 	size_t offset = 0;
 	uint8_t tmp8;
 
-	port_cache = (ibnd_port_cache_t *)malloc(sizeof(ibnd_port_cache_t));
+	port_cache = (ibnd_port_cache_t *) malloc(sizeof(ibnd_port_cache_t));
 	if (!port_cache) {
 		IBND_DEBUG("OOM: port_cache\n");
 		return -1;
 	}
 	memset(port_cache, '\0', sizeof(ibnd_port_cache_t));
 
-	port = (ibnd_port_t *)malloc(sizeof(ibnd_port_t));
+	port = (ibnd_port_t *) malloc(sizeof(ibnd_port_t));
 	if (!port) {
 		IBND_DEBUG("OOM: port\n");
 		return -1;
@@ -435,8 +442,11 @@ static int _load_port(int fd, ibnd_fabric_cache_t *fabric_cache)
 	offset += _unmarshall_buf(buf + offset, port->info, IB_SMP_DATA_SIZE);
 	offset += _unmarshall64(buf + offset, &port_cache->node_guid);
 	offset += _unmarshall8(buf + offset, &port_cache->remoteport_flag);
-	offset += _unmarshall64(buf + offset, &port_cache->remoteport_cache_key.guid);
-	offset += _unmarshall8(buf + offset, &port_cache->remoteport_cache_key.portnum);
+	offset +=
+	    _unmarshall64(buf + offset, &port_cache->remoteport_cache_key.guid);
+	offset +=
+	    _unmarshall8(buf + offset,
+			 &port_cache->remoteport_cache_key.portnum);
 
 	store_port_cache(port_cache, fabric_cache);
 
@@ -448,15 +458,14 @@ cleanup:
 	return -1;
 }
 
-static ibnd_port_cache_t * _find_port(ibnd_fabric_cache_t *fabric_cache,
-				      ibnd_port_cache_key_t *port_cache_key)
+static ibnd_port_cache_t *_find_port(ibnd_fabric_cache_t * fabric_cache,
+				     ibnd_port_cache_key_t * port_cache_key)
 {
 	int hash_indx = HASHGUID(port_cache_key->guid) % HTSZ;
 	ibnd_port_cache_t *port_cache;
 
 	for (port_cache = fabric_cache->portscachetbl[hash_indx];
-	     port_cache;
-	     port_cache = port_cache->htnext) {
+	     port_cache; port_cache = port_cache->htnext) {
 		if (port_cache->port->guid == port_cache_key->guid
 		    && port_cache->port->portnum == port_cache_key->portnum)
 			return port_cache;
@@ -465,15 +474,14 @@ static ibnd_port_cache_t * _find_port(ibnd_fabric_cache_t *fabric_cache,
 	return NULL;
 }
 
-static ibnd_node_cache_t * _find_node(ibnd_fabric_cache_t *fabric_cache,
-				      uint64_t guid)
+static ibnd_node_cache_t *_find_node(ibnd_fabric_cache_t * fabric_cache,
+				     uint64_t guid)
 {
 	int hash_indx = HASHGUID(guid) % HTSZ;
 	ibnd_node_cache_t *node_cache;
 
 	for (node_cache = fabric_cache->nodescachetbl[hash_indx];
-	     node_cache;
-	     node_cache = node_cache->htnext) {
+	     node_cache; node_cache = node_cache->htnext) {
 		if (node_cache->node->guid == guid)
 			return node_cache;
 	}
@@ -481,9 +489,8 @@ static ibnd_node_cache_t * _find_node(ibnd_fabric_cache_t *fabric_cache,
 	return NULL;
 }
 
-static int _fill_port(ibnd_fabric_cache_t *fabric_cache,
-		      ibnd_node_t *node,
-		      ibnd_port_cache_key_t *port_cache_key)
+static int _fill_port(ibnd_fabric_cache_t * fabric_cache, ibnd_node_t * node,
+		      ibnd_port_cache_key_t * port_cache_key)
 {
 	ibnd_port_cache_t *port_cache;
 
@@ -497,7 +504,7 @@ static int _fill_port(ibnd_fabric_cache_t *fabric_cache,
 	return 0;
 }
 
-static int _rebuild_nodes(ibnd_fabric_cache_t *fabric_cache)
+static int _rebuild_nodes(ibnd_fabric_cache_t * fabric_cache)
 {
 	ibnd_node_cache_t *node_cache;
 	ibnd_node_cache_t *node_cache_next;
@@ -516,19 +523,22 @@ static int _rebuild_nodes(ibnd_fabric_cache_t *fabric_cache)
 		node->next = fabric_cache->fabric->nodes;
 		fabric_cache->fabric->nodes = node;
 
-		add_to_nodeguid_hash(node_cache->node, fabric_cache->fabric->nodestbl);
+		add_to_nodeguid_hash(node_cache->node,
+				     fabric_cache->fabric->nodestbl);
 
 		add_to_type_list(node_cache->node, fabric_cache->fabric);
 
 		/* Rebuild node ports array */
 
-		if (!(node->ports = calloc(sizeof(*node->ports), node->numports + 1))) {
+		if (!(node->ports =
+		      calloc(sizeof(*node->ports), node->numports + 1))) {
 			IBND_DEBUG("OOM: node->ports\n");
 			return -1;
 		}
 
 		for (i = 0; i < node_cache->ports_stored_count; i++) {
-			if (_fill_port(fabric_cache, node, &node_cache->port_cache_keys[i]) < 0)
+			if (_fill_port(fabric_cache, node,
+				       &node_cache->port_cache_keys[i]) < 0)
 				return -1;
 		}
 
@@ -538,7 +548,7 @@ static int _rebuild_nodes(ibnd_fabric_cache_t *fabric_cache)
 	return 0;
 }
 
-static int _rebuild_ports(ibnd_fabric_cache_t *fabric_cache)
+static int _rebuild_ports(ibnd_fabric_cache_t * fabric_cache)
 {
 	ibnd_port_cache_t *port_cache;
 	ibnd_port_cache_t *port_cache_next;
@@ -553,7 +563,8 @@ static int _rebuild_ports(ibnd_fabric_cache_t *fabric_cache)
 
 		port = port_cache->port;
 
-		if (!(node_cache = _find_node(fabric_cache, port_cache->node_guid))) {
+		if (!(node_cache =
+		      _find_node(fabric_cache, port_cache->node_guid))) {
 			IBND_DEBUG("Cache invalid: cannot find node\n");
 			return -1;
 		}
@@ -562,14 +573,16 @@ static int _rebuild_ports(ibnd_fabric_cache_t *fabric_cache)
 
 		if (port_cache->remoteport_flag) {
 			if (!(remoteport_cache = _find_port(fabric_cache,
-							    &port_cache->remoteport_cache_key))) {
-				IBND_DEBUG("Cache invalid: cannot find remote port\n");
+							    &port_cache->
+							    remoteport_cache_key)))
+			{
+				IBND_DEBUG
+				    ("Cache invalid: cannot find remote port\n");
 				return -1;
 			}
 
 			port->remoteport = remoteport_cache->port;
-		}
-		else
+		} else
 			port->remoteport = NULL;
 
 		port_cache = port_cache_next;
@@ -598,14 +611,15 @@ ibnd_fabric_t *ibnd_load_fabric(const char *file, unsigned int flags)
 		return NULL;
 	}
 
-	fabric_cache = (ibnd_fabric_cache_t *)malloc(sizeof(ibnd_fabric_cache_t));
+	fabric_cache =
+	    (ibnd_fabric_cache_t *) malloc(sizeof(ibnd_fabric_cache_t));
 	if (!fabric_cache) {
 		IBND_DEBUG("OOM: fabric_cache\n");
 		goto cleanup;
 	}
 	memset(fabric_cache, '\0', sizeof(ibnd_fabric_cache_t));
 
-	fabric = (ibnd_fabric_t *)malloc(sizeof(ibnd_fabric_t));
+	fabric = (ibnd_fabric_t *) malloc(sizeof(ibnd_fabric_t));
 	if (!fabric) {
 		IBND_DEBUG("OOM: fabric\n");
 		goto cleanup;
@@ -628,7 +642,8 @@ ibnd_fabric_t *ibnd_load_fabric(const char *file, unsigned int flags)
 	}
 
 	/* Special case - find from node */
-	if (!(node_cache = _find_node(fabric_cache, fabric_cache->from_node_guid))) {
+	if (!(node_cache =
+	      _find_node(fabric_cache, fabric_cache->from_node_guid))) {
 		IBND_DEBUG("Cache invalid: cannot find from node\n");
 		goto cleanup;
 	}
@@ -674,15 +689,14 @@ static ssize_t _write(int fd, const void *buf, size_t count)
 	return count_done;
 }
 
-
-static size_t _marshall8(uint8_t *outbuf, uint8_t num)
+static size_t _marshall8(uint8_t * outbuf, uint8_t num)
 {
 	outbuf[0] = num;
 
 	return (sizeof(num));
 }
 
-static size_t _marshall16(uint8_t *outbuf, uint16_t num)
+static size_t _marshall16(uint8_t * outbuf, uint16_t num)
 {
 	outbuf[0] = num & 0x00FF;
 	outbuf[1] = (num & 0xFF00) >> 8;
@@ -690,7 +704,7 @@ static size_t _marshall16(uint8_t *outbuf, uint16_t num)
 	return (sizeof(num));
 }
 
-static size_t _marshall32(uint8_t *outbuf, uint32_t num)
+static size_t _marshall32(uint8_t * outbuf, uint32_t num)
 {
 	outbuf[0] = num & 0x000000FF;
 	outbuf[1] = (num & 0x0000FF00) >> 8;
@@ -700,7 +714,7 @@ static size_t _marshall32(uint8_t *outbuf, uint32_t num)
 	return (sizeof(num));
 }
 
-static size_t _marshall64(uint8_t *outbuf, uint64_t num)
+static size_t _marshall64(uint8_t * outbuf, uint64_t num)
 {
 	outbuf[0] = num & 0x00000000000000FFULL;
 	outbuf[1] = (num & 0x000000000000FF00ULL) >> 8;
@@ -721,7 +735,7 @@ static size_t _marshall_buf(void *outbuf, const void *inbuf, unsigned int len)
 	return len;
 }
 
-static int _cache_header_info(int fd, ibnd_fabric_t *fabric)
+static int _cache_header_info(int fd, ibnd_fabric_t * fabric)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	size_t offset = 0;
@@ -744,7 +758,8 @@ static int _cache_header_info(int fd, ibnd_fabric_t *fabric)
 	return 0;
 }
 
-static int _cache_header_counts(int fd, unsigned int node_count, unsigned int port_count)
+static int _cache_header_counts(int fd, unsigned int node_count,
+				unsigned int port_count)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	size_t offset = 0;
@@ -763,7 +778,7 @@ static int _cache_header_counts(int fd, unsigned int node_count, unsigned int po
 	return 0;
 }
 
-static int _cache_node(int fd, ibnd_node_t *node)
+static int _cache_node(int fd, ibnd_node_t * node)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	size_t offset = 0;
@@ -774,7 +789,8 @@ static int _cache_node(int fd, ibnd_node_t *node)
 	offset += _marshall16(buf + offset, node->smalid);
 	offset += _marshall8(buf + offset, node->smalmc);
 	offset += _marshall8(buf + offset, node->smaenhsp0);
-	offset += _marshall_buf(buf + offset, node->switchinfo, IB_SMP_DATA_SIZE);
+	offset += _marshall_buf(buf + offset, node->switchinfo,
+				IB_SMP_DATA_SIZE);
 	offset += _marshall64(buf + offset, node->guid);
 	offset += _marshall8(buf + offset, node->type);
 	offset += _marshall8(buf + offset, node->numports);
@@ -789,8 +805,10 @@ static int _cache_node(int fd, ibnd_node_t *node)
 
 	for (i = 0; i <= node->numports; i++) {
 		if (node->ports[i]) {
-			offset += _marshall64(buf + offset, node->ports[i]->guid);
-			offset += _marshall8(buf + offset, node->ports[i]->portnum);
+			offset += _marshall64(buf + offset,
+					      node->ports[i]->guid);
+			offset += _marshall8(buf + offset,
+					     node->ports[i]->portnum);
 			ports_stored_count++;
 		}
 	}
@@ -804,7 +822,7 @@ static int _cache_node(int fd, ibnd_node_t *node)
 	return 0;
 }
 
-static int _cache_port(int fd, ibnd_port_t *port)
+static int _cache_port(int fd, ibnd_port_t * port)
 {
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	size_t offset = 0;
@@ -820,8 +838,7 @@ static int _cache_port(int fd, ibnd_port_t *port)
 		offset += _marshall8(buf + offset, 1);
 		offset += _marshall64(buf + offset, port->remoteport->guid);
 		offset += _marshall8(buf + offset, port->remoteport->portnum);
-	}
-	else {
+	} else {
 		offset += _marshall8(buf + offset, 0);
 		offset += _marshall64(buf + offset, 0);
 		offset += _marshall8(buf + offset, 0);
@@ -833,7 +850,8 @@ static int _cache_port(int fd, ibnd_port_t *port)
 	return 0;
 }
 
-int ibnd_cache_fabric(ibnd_fabric_t *fabric, const char *file, unsigned int flags)
+int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
+		      unsigned int flags)
 {
 	struct stat statbuf;
 	ibnd_node_t *node = NULL;

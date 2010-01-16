@@ -313,14 +313,17 @@ char line_slot_2_sfb4[25] = {
 	0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
 	4
 };
+
 char anafa_line_slot_2_sfb4[25] = {
 	0, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2,
 	2
 };
+
 char line_slot_2_sfb12[25] = {
 	0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11,
 	12, 12
 };
+
 char anafa_line_slot_2_sfb12[25] = {
 	0, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1,
 	2
@@ -337,14 +340,17 @@ char spine12_slot_2_slb[25] = {
 	0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0
 };
+
 char anafa_spine12_slot_2_slb[25] = {
 	0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0
 };
+
 char spine4_slot_2_slb[25] = {
 	0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0
 };
+
 char anafa_spine4_slot_2_slb[25] = {
 	0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0
@@ -473,8 +479,7 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 			port = node->ports[p];
 			if (port && is_spine(port->remoteport->node))
 				get_router_slot(node, port->remoteport);
-		}
-	else if (is_spine(node))
+	} else if (is_spine(node))
 		for (p = 1; p <= node->numports; p++) {
 			port = node->ports[p];
 			if (!port || !port->remoteport)
@@ -741,12 +746,14 @@ int int2ext_map_slb24[2][25] = {
 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 11, 10, 24, 23, 22, 7, 8, 9,
 	 19, 20, 21}
 };
+
 int int2ext_map_slb8[2][25] = {
 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 6, 6, 6, 1, 1, 1, 5, 5,
 	 5},
 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 8, 8, 8, 3, 3, 3, 7, 7,
 	 7}
 };
+
 int int2ext_map_slb2024[2][25] = {
 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 14, 15, 16, 17, 18, 19, 20,
 	 21, 22, 23, 24},
@@ -785,7 +792,8 @@ static void voltaire_portmap(ibnd_port_t * port)
 
 static int add_chassis(chassis_scan_t * chassis_scan)
 {
-	if (!(chassis_scan->current_chassis = calloc(1, sizeof(ibnd_chassis_t)))) {
+	if (!(chassis_scan->current_chassis =
+	      calloc(1, sizeof(ibnd_chassis_t)))) {
 		IBND_ERROR("OOM: failed to allocate chassis object\n");
 		return -1;
 	}
@@ -794,7 +802,8 @@ static int add_chassis(chassis_scan_t * chassis_scan)
 		chassis_scan->first_chassis = chassis_scan->current_chassis;
 		chassis_scan->last_chassis = chassis_scan->current_chassis;
 	} else {
-		chassis_scan->last_chassis->next = chassis_scan->current_chassis;
+		chassis_scan->last_chassis->next =
+		    chassis_scan->current_chassis;
 		chassis_scan->last_chassis = chassis_scan->current_chassis;
 	}
 	return 0;
@@ -865,8 +874,7 @@ int group_nodes(ibnd_fabric_t * fabric)
 		if (mad_get_field(node->info, 0,
 				  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 			continue;
-		if (mad_get_field64(node->info, 0,
-				    IB_NODE_SYSTEM_GUID_F)) {
+		if (mad_get_field64(node->info, 0, IB_NODE_SYSTEM_GUID_F)) {
 			chassis = find_chassisguid(fabric, node);
 			if (chassis)
 				chassis->nodecount++;
@@ -887,13 +895,11 @@ int group_nodes(ibnd_fabric_t * fabric)
 		if (mad_get_field(node->info, 0,
 				  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 			continue;
-		if (mad_get_field64(node->info, 0,
-				    IB_NODE_SYSTEM_GUID_F)) {
+		if (mad_get_field64(node->info, 0, IB_NODE_SYSTEM_GUID_F)) {
 			chassis = find_chassisguid(fabric, node);
 			if (chassis && chassis->nodecount > 1) {
 				if (!chassis->chassisnum)
-					chassis->chassisnum =
-					    ++chassisnum;
+					chassis->chassisnum = ++chassisnum;
 				if (!node->ch_found) {
 					node->ch_found = 1;
 					add_node_to_chassis(chassis, node);

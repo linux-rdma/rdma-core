@@ -173,7 +173,7 @@ MAD_EXPORT void ibnd_destroy_fabric(ibnd_fabric_t * fabric);
 MAD_EXPORT ibnd_fabric_t *ibnd_load_fabric(const char *file,
 					   unsigned int flags);
 
-MAD_EXPORT int ibnd_cache_fabric(ibnd_fabric_t *fabric, const char *file,
+MAD_EXPORT int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 				 unsigned int flags);
 
 /** =========================================================================

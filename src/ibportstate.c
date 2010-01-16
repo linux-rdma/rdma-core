@@ -77,20 +77,20 @@ struct {
 	int *val;
 	int set;
 } port_args[] = {
-	{ "query", NULL, 0 },	/* QUERY */
-	{ "enable", NULL, 0 },	/* ENABLE */
-	{ "reset", NULL, 0 },	/* RESET */
-	{ "disable", NULL, 0 },	/* DISABLE */
-	{ "speed", &speed, 0 },	/* SPEED */
-	{ "width", &width, 0 },	/* WIDTH */
-	{ "down", NULL, 0 },	/* DOWN */
-	{ "arm", NULL, 0 },	/* ARM */
-	{ "active", NULL, 0 },	/* ACTIVE */
-	{ "vls", &vls, 0 },	/* VLS */
-	{ "mtu", &mtu, 0 },	/* MTU */
-	{ "lid", &lid, 0 },	/* LID */
-	{ "smlid", &smlid, 0 },	/* SMLID */
-	{ "lmc", &lmc, 0 },	/* LMC */
+	{"query", NULL, 0},	/* QUERY */
+	{"enable", NULL, 0},	/* ENABLE */
+	{"reset", NULL, 0},	/* RESET */
+	{"disable", NULL, 0},	/* DISABLE */
+	{"speed", &speed, 0},	/* SPEED */
+	{"width", &width, 0},	/* WIDTH */
+	{"down", NULL, 0},	/* DOWN */
+	{"arm", NULL, 0},	/* ARM */
+	{"active", NULL, 0},	/* ACTIVE */
+	{"vls", &vls, 0},	/* VLS */
+	{"mtu", &mtu, 0},	/* MTU */
+	{"lid", &lid, 0},	/* LID */
+	{"smlid", &smlid, 0},	/* SMLID */
+	{"lmc", &lmc, 0},	/* LMC */
 };
 
 #define NPORT_ARGS (sizeof(port_args) / sizeof(port_args[0]))
@@ -340,7 +340,7 @@ int main(int argc, char **argv)
 				if (val < 0 || val > 7)
 					IBERROR("invalid lmc value %ld", val);
 			}
-			*port_args[j].val = (int) val;
+			*port_args[j].val = (int)val;
 			changed = 1;
 			break;
 		}
@@ -371,8 +371,8 @@ int main(int argc, char **argv)
 		val = mad_get_field(data, 0, IB_PORT_SMLID_F);
 		if (!port_args[SMLID].set && (!val || val == 0xFFFF))
 			mad_set_field(data, 0, IB_PORT_SMLID_F, 0x1234);
-		mad_set_field(data, 0, IB_PORT_STATE_F, 0);       /* NOP */
-		mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);  /* NOP */
+		mad_set_field(data, 0, IB_PORT_STATE_F, 0);	/* NOP */
+		mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);	/* NOP */
 
 		switch (port_op) {
 		case ENABLE:
