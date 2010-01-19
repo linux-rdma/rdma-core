@@ -563,7 +563,8 @@ int main(int argc, char **argv)
 		 "Clear error counters after read"},
 		{"clear-counts", 'K', 0, NULL,
 		 "Clear data counters after read"},
-		{"load-cache", 7, 1, "<file>", "filename of ibnetdiscover cache to load"},
+		{"load-cache", 7, 1, "<file>",
+		 "filename of ibnetdiscover cache to load"},
 		{0}
 	};
 	char usage_args[] = "";
@@ -616,22 +617,17 @@ int main(int argc, char **argv)
 			fprintf(stderr, "loading cached fabric failed\n");
 			exit(1);
 		}
-	}
-	else {
-		if (resolved >= 0) {
-			if ((fabric = ibnd_discover_fabric(ibmad_port, &portid,
-							   0)) == NULL)
-				IBWARN
-				    ("Single node discover failed; attempting full scan");
-		}
+	} else {
+		if (resolved >= 0 &&
+		    !(fabric = ibnd_discover_fabric(ibmad_port, &portid, 0)))
+			IBWARN("Single node discover failed;"
+			       " attempting full scan");
 
-		if (!fabric) {		/* do a full scan */
-			if ((fabric =
-			     ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
-				fprintf(stderr, "discover failed\n");
-				rc = 1;
-				goto close_port;
-			}
+		if (!fabric &&
+		    !(fabric = ibnd_discover_fabric(ibmad_port, NULL, -1))) {
+			fprintf(stderr, "discover failed\n");
+			rc = 1;
+			goto close_port;
 		}
 	}
 

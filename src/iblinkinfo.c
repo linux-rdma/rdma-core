@@ -295,7 +295,8 @@ int main(int argc, char **argv)
 		 "print additional switch settings (PktLifeTime, HoqLife, VLStallCount)"},
 		{"portguids", 'g', 0, NULL,
 		 "print port guids instead of node guids"},
-		{"load-cache", 2, 1, "<file>", "filename of ibnetdiscover cache to load"},
+		{"load-cache", 2, 1, "<file>",
+		 "filename of ibnetdiscover cache to load"},
 		{"GNDN", 'R', 0, NULL,
 		 "(This option is obsolete and does nothing)"},
 		{0}
@@ -349,22 +350,18 @@ int main(int argc, char **argv)
 			fprintf(stderr, "loading cached fabric failed\n");
 			exit(1);
 		}
-	}
-	else {
-		if (resolved >= 0) {
-			if ((fabric = ibnd_discover_fabric(ibmad_port, &port_id,
-							   hops)) == NULL)
-				IBWARN
-				    ("Single node discover failed; attempting full scan\n");
-		}
+	} else {
+		if (resolved >= 0 &&
+		    !(fabric =
+		      ibnd_discover_fabric(ibmad_port, &port_id, hops)))
+			IBWARN("Single node discover failed;"
+			       " attempting full scan\n");
 
-		if (!fabric) {
-			if ((fabric =
-				ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
-					fprintf(stderr, "discover failed\n");
-					rc = 1;
-					goto close_port;
-			}
+		if (!fabric &&
+		    !(fabric = ibnd_discover_fabric(ibmad_port, NULL, -1))) {
+			fprintf(stderr, "discover failed\n");
+			rc = 1;
+			goto close_port;
 		}
 	}
 
