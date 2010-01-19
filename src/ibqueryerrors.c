@@ -58,6 +58,8 @@
 struct ibmad_port *ibmad_port;
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
+static char *load_cache_file = NULL;
+
 int data_counters = 0;
 int port_config = 0;
 uint64_t node_guid = 0;
@@ -497,6 +499,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 6:
 		details = 1;
 		break;
+	case 7:
+		load_cache_file = strdup(optarg);
+		break;
 	case 'G':
 	case 'S':
 		node_guid_str = optarg;
@@ -558,6 +563,7 @@ int main(int argc, char **argv)
 		 "Clear error counters after read"},
 		{"clear-counts", 'K', 0, NULL,
 		 "Clear data counters after read"},
+		{"load-cache", 7, 1, "<file>", "filename of ibnetdiscover cache to load"},
 		{0}
 	};
 	char usage_args[] = "";
@@ -584,6 +590,11 @@ int main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
+	if (dr_path && load_cache_file) {
+		fprintf(stderr, "Cannot specify cache and direct route path\n");
+		exit(1);
+	}
+
 	/* limit the scan the fabric around the target */
 	if (dr_path) {
 		if ((resolved =
@@ -600,19 +611,29 @@ int main(int argc, char **argv)
 			       node_guid_str);
 	}
 
-	if (resolved >= 0)
-		if ((fabric = ibnd_discover_fabric(ibmad_port, &portid,
-						   0)) == NULL)
-			IBWARN
-			    ("Single node discover failed; attempting full scan");
-
-	if (!fabric)		/* do a full scan */
-		if ((fabric =
-		     ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
-			fprintf(stderr, "discover failed\n");
-			rc = 1;
-			goto close_port;
+	if (load_cache_file) {
+		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL) {
+			fprintf(stderr, "loading cached fabric failed\n");
+			exit(1);
 		}
+	}
+	else {
+		if (resolved >= 0) {
+			if ((fabric = ibnd_discover_fabric(ibmad_port, &portid,
+							   0)) == NULL)
+				IBWARN
+				    ("Single node discover failed; attempting full scan");
+		}
+
+		if (!fabric) {		/* do a full scan */
+			if ((fabric =
+			     ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
+				fprintf(stderr, "discover failed\n");
+				rc = 1;
+				goto close_port;
+			}
+		}
+	}
 
 	report_suppressed();
 

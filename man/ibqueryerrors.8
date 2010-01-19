@@ -6,7 +6,7 @@ ibqueryerrors \- query and report non-zero IB port counters
 .SH SYNOPSIS
 .B ibqueryerrors
 [-s <err1,err2,...> -c -r -C <ca_name> -P <ca_port> -G <node_guid>
--D <direct_route> -d -k -K]
+-D <direct_route> -d -k -K \-\-load\-cache <filename>]
 
 .SH DESCRIPTION
 .PP
@@ -59,6 +59,14 @@ which have errors.  This means if a port has 0 errors and the \-K option is
 specified the data counters will be cleared without any printed output.
 .TP
 \fB\-\-details\fR include receive error and transmit discard details
+.TP
+\fB\-\-load\-cache\fR <filename>
+Load and use the cached ibnetdiscover data stored in the specified
+filename.  May be useful for outputting and learning about other
+fabrics or a previous state of a fabric.  Cannot be used if user
+specifies a directo route path.  See
+.B ibnetdiscover
+for information on caching ibnetdiscover output.
 .TP
 \fB\-R\fR  (This option is obsolete and does nothing)
 

@@ -6,7 +6,7 @@ iblinkinfo \- report link info for all links in the fabric
 .SH SYNOPSIS
 .B iblinkinfo
    [-hcdl -C <ca_name> -P <ca_port> -v <lt,hoq,vlstall> -S <guid>
--D <direct_route>]
+-D <direct_route> \-\-load\-cache <filename>]
 
 .SH DESCRIPTION
 .PP
@@ -42,7 +42,14 @@ Print port capabilities (enabled and supported values)
 \fB\-P <ca_port>\fR    use the specified ca_port for the search.
 .TP
 \fB\-R\fR (This option is obsolete and does nothing)
-
+.TP
+\fB\-\-load\-cache\fR <filename>
+Load and use the cached ibnetdiscover data stored in the specified
+filename.  May be useful for outputting and learning about other
+fabrics or a previous state of a fabric.  Cannot be used if user
+specifies a directo route path.  See
+.B ibnetdiscover
+for information on caching ibnetdiscover output.
 
 .SH AUTHOR
 .TP

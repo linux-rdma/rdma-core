@@ -55,6 +55,7 @@
 
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
+static char *load_cache_file = NULL;
 
 static uint64_t guid = 0;
 static char *guid_str = NULL;
@@ -230,6 +231,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 1:
 		node_name_map_file = strdup(optarg);
 		break;
+	case 2:
+		load_cache_file = strdup(optarg);
+		break;
 	case 'S':
 		guid_str = optarg;
 		guid = (uint64_t) strtoull(guid_str, 0, 0);
@@ -291,6 +295,7 @@ int main(int argc, char **argv)
 		 "print additional switch settings (PktLifeTime, HoqLife, VLStallCount)"},
 		{"portguids", 'g', 0, NULL,
 		 "print port guids instead of node guids"},
+		{"load-cache", 2, 1, "<file>", "filename of ibnetdiscover cache to load"},
 		{"GNDN", 'R', 0, NULL,
 		 "(This option is obsolete and does nothing)"},
 		{0}
@@ -318,6 +323,11 @@ int main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
+	if (dr_path && load_cache_file) {
+		fprintf(stderr, "Cannot specify cache and direct route path\n");
+		exit(1);
+	}
+
 	if (dr_path) {
 		/* only scan part of the fabric */
 		if ((resolved =
@@ -334,19 +344,29 @@ int main(int argc, char **argv)
 			       guid_str);
 	}
 
-	if (resolved >= 0)
-		if ((fabric = ibnd_discover_fabric(ibmad_port, &port_id,
-						   hops)) == NULL)
-			IBWARN
-			    ("Single node discover failed; attempting full scan\n");
-
-	if (!fabric)
-		if ((fabric =
-		     ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
-			fprintf(stderr, "discover failed\n");
-			rc = 1;
-			goto close_port;
+	if (load_cache_file) {
+		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL) {
+			fprintf(stderr, "loading cached fabric failed\n");
+			exit(1);
 		}
+	}
+	else {
+		if (resolved >= 0) {
+			if ((fabric = ibnd_discover_fabric(ibmad_port, &port_id,
+							   hops)) == NULL)
+				IBWARN
+				    ("Single node discover failed; attempting full scan\n");
+		}
+
+		if (!fabric) {
+			if ((fabric =
+				ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL) {
+					fprintf(stderr, "discover failed\n");
+					rc = 1;
+					goto close_port;
+			}
+		}
+	}
 
 	if (!all && guid_str) {
 		ibnd_node_t *sw = ibnd_find_node_guid(fabric, guid);
