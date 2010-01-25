@@ -270,7 +270,7 @@ static void print_results(ib_portid_t * portid, char *node_name,
 		} else if (i == IB_PC_ERR_RCV_F && details && val) {
 			n += query_and_dump(str + n, sizeof(buf) - n, portid,
 					    node, node_name, portnum,
-					    "PortRcvErrorsDetails",
+					    "PortRcvErrorDetails",
 					    IB_GSI_PORT_RCV_ERROR_DETAILS,
 					    IB_PC_XMT_INACT_DISC_F,
 					    IB_PC_XMT_DISC_LAST_F);
