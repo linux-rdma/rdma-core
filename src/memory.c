@@ -521,10 +521,8 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 			}
 		}
 
-		node->refcnt += inc;
-
-		if ((inc == -1 && node->refcnt == 0) ||
-		    (inc ==  1 && node->refcnt == 1)) {
+		if ((inc == -1 && node->refcnt == 1) ||
+		    (inc ==  1 && node->refcnt == 0)) {
 			/*
 			 * If this is the first time through the loop,
 			 * and we merged this node with the previous
@@ -547,6 +545,7 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 				goto out;
 		}
 
+		node->refcnt += inc;
 		node = __mm_next(node);
 	}
 
