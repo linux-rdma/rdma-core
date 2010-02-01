@@ -489,6 +489,39 @@ static struct ibv_mem_node *get_start_node(uintptr_t start, uintptr_t end,
 	return node;
 }
 
+/*
+ * This function is called if madvise() fails to undo merging/splitting
+ * operations performed on the node.
+ */
+static struct ibv_mem_node *undo_node(struct ibv_mem_node *node,
+				      uintptr_t start, int inc)
+{
+	struct ibv_mem_node *tmp = NULL;
+
+	/*
+	 * This condition can be true only if we merged this
+	 * node with the previous one, so we need to split them.
+	*/
+	if (start > node->start) {
+		tmp = split_range(node, start);
+		if (tmp) {
+			node->refcnt += inc;
+			node = tmp;
+		} else
+			return NULL;
+	}
+
+	tmp  =  __mm_prev(node);
+	if (tmp && tmp->refcnt == node->refcnt)
+		node = merge_ranges(node, tmp);
+
+	tmp  =  __mm_next(node);
+	if (tmp && tmp->refcnt == node->refcnt)
+		node = merge_ranges(tmp, node);
+
+	return node;
+}
+
 static int ibv_madvise_range(void *base, size_t size, int advice)
 {
 	uintptr_t start, end;
@@ -541,8 +574,10 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 				ret = madvise((void *) node->start,
 					      node->end - node->start + 1,
 					      advice);
-			if (ret)
+			if (ret) {
+				node = undo_node(node, start, inc);
 				goto out;
+			}
 		}
 
 		node->refcnt += inc;
