@@ -70,6 +70,7 @@ enum MAD_FIELDS suppressed_fields[SUP_MAX];
 char *dr_path = NULL;
 uint8_t node_type_to_print = 0;
 unsigned clear_errors = 0, clear_counts = 0, details = 0;
+static int outstanding_smps = 0; /* use default from lib */
 
 #define PRINT_SWITCH 0x1
 #define PRINT_CA     0x2
@@ -530,6 +531,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'K':
 		clear_counts = 1;
 		break;
+	case 'o':
+		outstanding_smps = atoi(optarg);
+		break;
 	default:
 		return -1;
 	}
@@ -574,6 +578,9 @@ int main(int argc, char **argv)
 		 "Clear data counters after read"},
 		{"load-cache", 7, 1, "<file>",
 		 "filename of ibnetdiscover cache to load"},
+		{"outstanding_smps", 'o', 1, NULL,
+		 "specify the number of outstanding SMP's which should be "
+		 "issued during the scan"},
 		{0}
 	};
 	char usage_args[] = "";
@@ -599,6 +606,9 @@ int main(int argc, char **argv)
 		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 
 	node_name_map = open_node_name_map(node_name_map_file);
+
+	if (outstanding_smps)
+		ibnd_set_max_smps_on_wire(outstanding_smps);
 
 	if (dr_path && load_cache_file) {
 		fprintf(stderr, "Cannot specify cache and direct route path\n");

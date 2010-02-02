@@ -67,6 +67,7 @@ static int down_links_only = 0;
 static int line_mode = 0;
 static int add_sw_settings = 0;
 static int print_port_guids = 0;
+static int outstanding_smps = 0; /* use default from lib */
 
 static unsigned int get_max(unsigned int num)
 {
@@ -275,6 +276,9 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'R':		/* nop */
 		break;
+	case 'o':
+		outstanding_smps = atoi(optarg);
+		break;
 	default:
 		return -1;
 	}
@@ -311,6 +315,9 @@ int main(int argc, char **argv)
 		 "print port guids instead of node guids"},
 		{"load-cache", 2, 1, "<file>",
 		 "filename of ibnetdiscover cache to load"},
+		{"outstanding_smps", 'o', 1, NULL,
+		 "specify the number of outstanding SMP's which should be "
+		 "issued during the scan"},
 		{"GNDN", 'R', 0, NULL,
 		 "(This option is obsolete and does nothing)"},
 		{0}
@@ -337,6 +344,9 @@ int main(int argc, char **argv)
 		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 
 	node_name_map = open_node_name_map(node_name_map_file);
+
+	if (outstanding_smps)
+		ibnd_set_max_smps_on_wire(outstanding_smps);
 
 	if (dr_path && load_cache_file) {
 		fprintf(stderr, "Cannot specify cache and direct route path\n");

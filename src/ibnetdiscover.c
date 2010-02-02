@@ -67,6 +67,7 @@ static char *cache_file = NULL;
 static char *load_cache_file = NULL;
 
 static int report_max_hops = 0;
+static int outstanding_smps = 0; /* use default from lib */
 
 /**
  * Define our own conversion functions to maintain compatibility with the old
@@ -648,6 +649,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'm':
 		report_max_hops = 1;
 		break;
+	case 'o':
+		outstanding_smps = atoi(optarg);
+		break;
 	default:
 		return -1;
 	}
@@ -677,6 +681,9 @@ int main(int argc, char **argv)
 		{"ports", 'p', 0, NULL, "obtain a ports report"},
 		{"max_hops", 'm', 0, NULL,
 		 "report max hops discovered by the library"},
+		{"outstanding_smps", 'o', 1, NULL,
+		 "specify the number of outstanding SMP's which should be "
+		 "issued during the scan"},
 		{0}
 	};
 	char usage_args[] = "[topology-file]";
@@ -703,6 +710,9 @@ int main(int argc, char **argv)
 		IBERROR("can't open file %s for writing", argv[0]);
 
 	node_name_map = open_node_name_map(node_name_map_file);
+
+	if (outstanding_smps)
+		ibnd_set_max_smps_on_wire(outstanding_smps);
 
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL)

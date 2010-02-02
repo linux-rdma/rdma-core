@@ -158,6 +158,7 @@ typedef struct ibnd_fabric {
  */
 MAD_EXPORT void ibnd_debug(int i);
 MAD_EXPORT void ibnd_show_progress(int i);
+MAD_EXPORT int ibnd_set_max_smps_on_wire(int i);
 
 MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 					       ib_portid_t * from, int hops);

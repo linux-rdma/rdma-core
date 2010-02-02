@@ -55,6 +55,7 @@
 #include "chassis.h"
 
 static int show_progress = 0;
+static int max_smps_on_wire = DEFAULT_MAX_SMP_ON_WIRE;
 int ibdebug;
 
 /* forward declare */
@@ -456,6 +457,13 @@ void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 	}
 }
 
+int ibnd_set_max_smps_on_wire(int i)
+{
+	int rc = max_smps_on_wire;
+	max_smps_on_wire = i;
+	return rc;
+}
+
 ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 				    ib_portid_t * from, int hops)
 {
@@ -488,7 +496,7 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 	memset(&(scan.selfportid), 0, sizeof(scan.selfportid));
 	scan.fabric = fabric;
 
-	smp_engine_init(&engine, ibmad_port, &scan, DEFAULT_MAX_SMP_ON_WIRE);
+	smp_engine_init(&engine, ibmad_port, &scan, max_smps_on_wire);
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 
