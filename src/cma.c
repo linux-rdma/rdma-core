@@ -652,7 +652,8 @@ static int ucma_modify_qp_rtr(struct rdma_cm_id *id,
 	return ibv_modify_qp(id->qp, &qp_attr, qp_attr_mask);
 }
 
-static int ucma_modify_qp_rts(struct rdma_cm_id *id)
+static int ucma_modify_qp_rts(struct rdma_cm_id *id,
+			      struct rdma_conn_param *conn_param)
 {
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
@@ -662,6 +663,8 @@ static int ucma_modify_qp_rts(struct rdma_cm_id *id)
 	if (ret)
 		return ret;
 
+	if (conn_param)
+		qp_attr.max_rd_atomic = conn_param->initiator_depth;
 	return ibv_modify_qp(id->qp, &qp_attr, qp_attr_mask);
 }
 
@@ -927,6 +930,10 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 
 	if (!ucma_is_ud_ps(id->ps)) {
 		ret = ucma_modify_qp_rtr(id, conn_param);
+		if (ret)
+			return ret;
+
+		ret = ucma_modify_qp_rts(id, conn_param);
 		if (ret)
 			return ret;
 	}
@@ -1212,7 +1219,7 @@ static int ucma_process_conn_resp(struct cma_id_private *id_priv)
 	if (ret)
 		goto err;
 
-	ret = ucma_modify_qp_rts(&id_priv->id);
+	ret = ucma_modify_qp_rts(&id_priv->id, NULL);
 	if (ret)
 		goto err;
 
@@ -1228,17 +1235,6 @@ static int ucma_process_conn_resp(struct cma_id_private *id_priv)
 	return 0;
 err:
 	ucma_modify_qp_err(&id_priv->id);
-	return ret;
-}
-
-static int ucma_process_establish(struct rdma_cm_id *id)
-{
-	int ret;
-
-	ret = ucma_modify_qp_rts(id);
-	if (ret)
-		ucma_modify_qp_err(id);
-
 	return ret;
 }
 
@@ -1367,11 +1363,6 @@ retry:
 		}
 
 		ucma_copy_conn_event(evt, &resp->param.conn);
-		evt->event.status = ucma_process_establish(&evt->id_priv->id);
-		if (evt->event.status) {
-			evt->event.event = RDMA_CM_EVENT_CONNECT_ERROR;
-			evt->id_priv->connect_error = 1;
-		}
 		break;
 	case RDMA_CM_EVENT_REJECTED:
 		if (evt->id_priv->connect_error) {
