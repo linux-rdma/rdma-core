@@ -1,4 +1,4 @@
-.TH VENDSTAT 8 "April 16, 2009" "OpenIB" "OpenIB Diagnostics"
+.TH VENDSTAT 8 "February 10, 2010" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 vendstat \- query InfiniBand vendor specific functions
@@ -20,7 +20,7 @@ Mellanox InfiniSwitch-III (IS3) and InfiniSwitch-IV (IS4).
 .PP
 .TP
 \fB\-N\fR
-show IS3 general information.
+show IS3 or IS4 general information.
 .TP
 \fB\-w\fR
 show IS3 port xmit wait counters.
@@ -97,7 +97,7 @@ attempted to be fulfilled, and will fail if it is not possible.
 .SH EXAMPLES
 
 .PP
-vendstat -N 6		# read IS3 general information
+vendstat -N 6		# read IS3 or IS4 general information
 .PP
 vendstat -w 6		# read IS3 port xmit wait counters
 .PP
@@ -110,4 +110,4 @@ vendstat -c 2,8 6 12	# configure IS4 port 12 counter groups for PortRcvDataSL
 .SH AUTHOR
 .TP
 Hal Rosenstock
-.RI < halr@voltaire.com >
+.RI < hal.rosenstock@gmail.com >

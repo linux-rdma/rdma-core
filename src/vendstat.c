@@ -240,7 +240,7 @@ int main(int argc, char **argv)
 	int i;
 
 	const struct ibdiag_opt opts[] = {
-		{"N", 'N', 0, NULL, "show IS3 general information"},
+		{"N", 'N', 0, NULL, "show IS3 or IS4 general information"},
 		{"w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
 		{"i", 'i', 0, NULL, "show IS4 counter group info"},
 		{"c", 'c', 1, "<num,num>", "configure IS4 counter groups"},
@@ -249,7 +249,7 @@ int main(int argc, char **argv)
 
 	char usage_args[] = "<lid|guid> [port]";
 	const char *usage_examples[] = {
-		"-N 6\t\t# read IS3 general information",
+		"-N 6\t\t# read IS3 or IS4 general information",
 		"-w 6\t\t# read IS3 port xmit wait counters",
 		"-i 6 12\t# read IS4 port 12 counter group info",
 		"-c 0,1 6 12\t# configure IS4 port 12 counter groups for PortXmitDataSL",
@@ -317,7 +317,7 @@ int main(int argc, char **argv)
 	gi = (is3_general_info_t *) & buf;
 
 	if (general_info) {
-		/* dump IS3 general info here */
+		/* dump IS3 or IS4 general info here */
 		printf("hw_dev_rev:  0x%04x\n", ntohs(gi->hw_info.hw_revision));
 		printf("hw_dev_id:   0x%04x\n", ntohs(gi->hw_info.device_id));
 		printf("hw_uptime:   0x%08x\n", ntohl(gi->hw_info.uptime));
