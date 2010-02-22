@@ -57,13 +57,9 @@ long int page_size;
 #define PCI_VENDOR_ID_NETEFFECT		0x1678
 #endif
 
-#ifndef PCI_DEVICE_ID_NETEFFECT_nes
-#define PCI_DEVICE_ID_NETEFFECT_nes	0x0100
-#endif
-
 #define HCA(v, d, t)                            \
 	{ .vendor = PCI_VENDOR_ID_##v,              \
-	  .device = PCI_DEVICE_ID_NETEFFECT_##d,    \
+	  .device = d,    \
 	  .type = NETEFFECT_##t }
 
 struct {
@@ -71,7 +67,9 @@ struct {
 	unsigned device;
 	enum nes_uhca_type type;
 } hca_table[] = {
-	HCA(NETEFFECT, nes, nes),};
+	HCA(NETEFFECT, 0x0100, nes),
+	HCA(NETEFFECT, 0x0110, nes),
+};
 
 static struct ibv_context *nes_ualloc_context(struct ibv_device *, int);
 static void nes_ufree_context(struct ibv_context *);
