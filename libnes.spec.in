@@ -6,7 +6,7 @@ Summary: NetEffect Ethernet Server Cluster Adapter Userspace Library
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/nes/libnes-1.0.0.tar.gz
+Source: http://www.openfabrics.org/downloads/nes/libnes-1.0.1.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: libibverbs-devel
@@ -44,13 +44,18 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %{_libdir}/libnes*.so
 %{_sysconfdir}/libibverbs.d/nes.driver
-%doc AUTHORS COPYING
+%doc AUTHORS COPYING gpl-2.0.txt
 
 %files devel-static
 %defattr(-,root,root,-)
 %{_libdir}/libnes*.a
 
 %changelog
+* Wed Mar 3 2010 Chien Tung <chien.tin.tung@intel.com> - 1.0.1
+- Update for OFED 1.5.1 RC3.
+- Add support for device id 0x0110
+- Fix COPYING and gpl-2.0.txt reference
+
 * Tue Dec 8 2009 Chien Tung <chien.tin.tung@intel.com> - 1.0.0
 - Update for OFED 1.5 RC4.
 - Sync up with libibverbs 1.1.3
