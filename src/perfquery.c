@@ -293,8 +293,8 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 			IBERROR("perfquery");
 		if (!(cap_mask & 0x1000)) {
 			/* if PortCounters:PortXmitWait not supported clear this counter */
-			IBWARN
-			    ("PortXmitWait not indicated so ignore this counter");
+			VERBOSE("PortXmitWait not indicated"
+				" so ignore this counter");
 			perf_count.xmtwait = 0;
 			mad_encode_field(pc, IB_PC_XMT_WAIT_F,
 					 &perf_count.xmtwait);
