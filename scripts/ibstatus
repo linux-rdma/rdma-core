@@ -31,6 +31,7 @@ port_status() {
 	echo "	state:		" `[ -r $port_dir/state ] && cat $port_dir/state || echo unknown`
 	echo "	phys state:	" `[ -r $port_dir/phys_state ] && cat $port_dir/phys_state || echo unknown`
 	echo "	rate:		" `[ -r $port_dir/rate ] && cat $port_dir/rate || echo unknown`
+	echo "	link_layer:	" `[ -r $port_dir/link_layer ] && cat $port_dir/link_layer || echo IB`
 	echo
 }
 
