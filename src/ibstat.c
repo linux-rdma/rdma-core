@@ -124,6 +124,7 @@ static int port_dump(umad_port_t * port, int alone)
 	printf("%sCapability mask: 0x%08x\n", pre, ntohl(port->capmask));
 	printf("%sPort GUID: 0x%016llx\n", pre,
 	       (long long unsigned)ntohll(port->port_guid));
+	printf("%sLink layer: %s\n", pre, port->link_layer);
 	return 0;
 }
 
