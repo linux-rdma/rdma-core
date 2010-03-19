@@ -134,20 +134,34 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port)
 	width_msg[0] = '\0';
 	speed_msg[0] = '\0';
 
-	n = snprintf(link_str, 256, "(%3s %s %6s/%8s)",
+	/* C14-24.2.1 states that a down port allows for invalid data to be
+	 * returned for all PortInfo components except PortState and
+	 * PortPhysicalState */
+	if (istate != IB_LINK_DOWN) {
+		n = snprintf(link_str, 256, "(%3s %9s %6s/%8s)",
 		     mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64,
 				  &iwidth),
 		     mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64,
-				  &ispeed), mad_dump_val(IB_PORT_STATE_F, state,
-							 64, &istate),
+				  &ispeed),
+		     mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
 		     mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64,
 				  &iphystate));
+	} else {
+		n = snprintf(link_str, 256, "(              %6s/%8s)",
+		     mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
+		     mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64,
+				  &iphystate));
+	}
 
-	if (add_sw_settings)
-		snprintf(link_str + n, 256 - n, " (HOQ:%d VL_Stall:%d)",
-			 mad_get_field(port->info, 0, IB_PORT_HOQ_LIFE_F),
-			 mad_get_field(port->info, 0,
-				       IB_PORT_VL_STALL_COUNT_F));
+	/* again default values due to C14-24.2.1 */
+	if (add_sw_settings && istate != IB_LINK_DOWN) {
+		snprintf(link_str + n, 256 - n,
+			" (HOQ:%d VL_Stall:%d)",
+			mad_get_field(port->info, 0,
+				IB_PORT_HOQ_LIFE_F),
+			mad_get_field(port->info, 0,
+				IB_PORT_VL_STALL_COUNT_F));
+	}
 
 	if (port->remoteport) {
 		char *remap =

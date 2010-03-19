@@ -142,11 +142,20 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 	width_msg[0] = '\0';
 	speed_msg[0] = '\0';
 
-	snprintf(link_str, 256, "(%3s %s %6s/%8s)",
-		 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64, &iwidth),
-		 mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64, &ispeed),
-		 mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
-		 mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64, &iphystate));
+	/* C14-24.2.1 states that a down port allows for invalid data to be
+	 * returned for all PortInfo components except PortState and
+	 * PortPhysicalState */
+	if (istate != IB_LINK_DOWN) {
+		snprintf(link_str, 256, "(%3s %9s %6s/%8s)",
+			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64, &iwidth),
+			 mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64, &ispeed),
+			 mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
+			 mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64, &iphystate));
+	} else {
+		snprintf(link_str, 256, "(              %6s/%8s)",
+			 mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
+			 mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64, &iphystate));
+	}
 
 	if (port->remoteport) {
 		char *rem_node_name = NULL;
