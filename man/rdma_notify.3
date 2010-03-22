@@ -24,6 +24,8 @@ necessary, however if connection establishment is done out of band
 QP that is not yet considered connected.  This routine forces the
 connection into an established state in this case in order to handle
 the rare situation where the connection never forms on its own.
+Calling this routine ensures the delivery of the RDMA_CM_EVENT_ESTABLISHED
+event to the application.
 Events that should be reported to the CM are: IB_EVENT_COMM_EST.
 .SH "SEE ALSO"
 rdma_connect(3), rdma_accept(3), rdma_listen(3)
