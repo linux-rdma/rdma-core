@@ -259,6 +259,10 @@ struct nes_ucq {
 	uint16_t size;
 	uint16_t head;
 	uint16_t polled_completions;
+	uint8_t is_armed;
+	uint8_t skip_arm;
+	int arm_sol;
+	int skip_sol;
 };
 
 struct nes_uqp {
@@ -330,6 +334,7 @@ int nes_uresize_cq(struct ibv_cq *, int);
 int nes_udestroy_cq(struct ibv_cq *);
 int nes_upoll_cq(struct ibv_cq *, int, struct ibv_wc *);
 int nes_uarm_cq(struct ibv_cq *, int);
+void nes_cq_event(struct ibv_cq *);
 struct ibv_srq *nes_ucreate_srq(struct ibv_pd *, struct ibv_srq_init_attr *);
 int nes_umodify_srq(struct ibv_srq *, struct ibv_srq_attr *, int);
 int nes_udestroy_srq(struct ibv_srq *);

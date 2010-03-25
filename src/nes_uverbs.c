@@ -452,6 +452,26 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	return cqe_count;
 }
 
+/**
+ * nes_arm_cq
+ */
+void nes_arm_cq(struct nes_ucq *nesucq, struct nes_uvcontext *nesvctx, int sol)
+{
+	uint32_t cq_arm;
+
+	cq_arm = nesucq->cq_id;
+
+	if (sol)
+		cq_arm |= NES_CQE_ALLOC_NOTIFY_SE;
+	else
+		cq_arm |= NES_CQE_ALLOC_NOTIFY_NEXT;
+
+	nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(cq_arm);
+	nesucq->is_armed = 1;
+	nesucq->arm_sol = sol;
+	nesucq->skip_arm = 0;
+	nesucq->skip_sol = 1;
+}
 
 /**
  * nes_uarm_cq
@@ -460,23 +480,51 @@ int nes_uarm_cq(struct ibv_cq *cq, int solicited)
 {
 	struct nes_ucq *nesucq;
 	struct nes_uvcontext *nesvctx;
-	uint32_t cq_arm;
-	uint32_t tmp;
 
 	nesucq = to_nes_ucq(cq);
 	nesvctx = to_nes_uctx(cq->context);
 
-	cq_arm = nesucq->cq_id;
+	pthread_spin_lock(&nesucq->lock);
 
-	if (solicited)
-		cq_arm |= NES_CQE_ALLOC_NOTIFY_SE;
-	else
-		cq_arm |= NES_CQE_ALLOC_NOTIFY_NEXT;
+	if (nesucq->is_armed) {
+	/* don't arm again unless... */
+		if ((nesucq->arm_sol) && (!solicited)) {
+			/* solicited changed from notify SE to notify next */
+			nes_arm_cq(nesucq, nesvctx, solicited);
+		} else {
+			nesucq->skip_arm = 1;
+			nesucq->skip_sol &= solicited;
+		}
+	} else {
+		nes_arm_cq(nesucq, nesvctx, solicited);
+	}
 
-	nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(cq_arm);
-	tmp = nesvctx->nesupd->udoorbell->cqe_alloc;
+	pthread_spin_unlock(&nesucq->lock);
 
 	return 0;
+}
+
+
+/**
+ * nes_cq_event
+ */
+void nes_cq_event(struct ibv_cq *cq)
+{
+	struct nes_ucq *nesucq;
+
+	nesucq = to_nes_ucq(cq);
+
+	pthread_spin_lock(&nesucq->lock);
+
+	if (nesucq->skip_arm) {
+		struct nes_uvcontext *nesvctx;
+		nesvctx = to_nes_uctx(cq->context);
+		nes_arm_cq(nesucq, nesvctx, nesucq->skip_sol);
+	} else {
+		nesucq->is_armed = 0;
+	}
+
+	pthread_spin_unlock(&nesucq->lock);
 }
 
 
