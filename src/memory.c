@@ -527,18 +527,19 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 	uintptr_t start, end;
 	struct ibv_mem_node *node, *tmp;
 	int inc;
+	int rolling_back = 0;
 	int ret = 0;
 
 	if (!size)
 		return 0;
-
-	inc = advice == MADV_DONTFORK ? 1 : -1;
 
 	start = (uintptr_t) base & ~(page_size - 1);
 	end   = ((uintptr_t) (base + size + page_size - 1) &
 		 ~(page_size - 1)) - 1;
 
 	pthread_mutex_lock(&mm_mutex);
+again:
+	inc = advice == MADV_DONTFORK ? 1 : -1;
 
 	node = get_start_node(start, end, inc);
 	if (!node) {
@@ -576,7 +577,19 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 					      advice);
 			if (ret) {
 				node = undo_node(node, start, inc);
-				goto out;
+
+				if (rolling_back || !node)
+					goto out;
+
+				/* madvise failed, roll back previous changes */
+				rolling_back = 1;
+				advice = advice == MADV_DONTFORK ?
+					MADV_DOFORK : MADV_DONTFORK;
+				tmp = __mm_prev(node);
+				if (!tmp || start > tmp->end)
+					goto out;
+				end = tmp->end;
+				goto again;
 			}
 		}
 
@@ -591,6 +604,9 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 	}
 
 out:
+	if (rolling_back)
+		ret = -1;
+
 	pthread_mutex_unlock(&mm_mutex);
 
 	return ret;
