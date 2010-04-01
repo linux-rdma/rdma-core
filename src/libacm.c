@@ -28,7 +28,7 @@
  */
 
 #include <osd.h>
-#include <infiniband/ib_acm.h>
+#include "libacm.h"
 #include <infiniband/acm.h>
 #include <stdio.h>
 
@@ -52,9 +52,8 @@ struct acm_device
 extern lock_t lock;
 static SOCKET sock = INVALID_SOCKET;
 static short server_port = 6125;
-static int ready;
 
-static int acm_init(void)
+int libacm_init(void)
 {
 	struct sockaddr_in addr;
 	int ret;
@@ -77,7 +76,6 @@ static int acm_init(void)
 	if (ret)
 		goto err2;
 
-	ready = 1;
 	return 0;
 
 err2:
@@ -88,7 +86,7 @@ err1:
 	return ret;
 }
 
-void LIB_DESTRUCTOR acm_cleanup(void)
+void libacm_cleanup(void)
 {
 	if (sock != INVALID_SOCKET) {
 		shutdown(sock, SHUT_RDWR);
@@ -97,30 +95,25 @@ void LIB_DESTRUCTOR acm_cleanup(void)
 }
 
 static int acm_format_resp(struct acm_resolve_msg *msg,
-	struct ib_acm_path_data **paths, int *count, struct ib_acm_cm_data *data)
+	struct ib_path_data **paths, int *count)
 {
-	struct ib_acm_path_data *path_data;
+	struct ib_path_data *path_data;
 	int i, addr_cnt;
 
 	*count = 0;
 	addr_cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) /
 		sizeof(struct acm_ep_addr_data);
-	path_data = (struct ib_acm_path_data *)
-		zalloc(addr_cnt * sizeof(struct ib_acm_path_data));
+	path_data = (struct ib_path_data *)
+		zalloc(addr_cnt * sizeof(struct ib_path_data));
 	if (!path_data)
 		return -1;
 
-	memset(data, 0, sizeof *data);
 	for (i = 0; i < addr_cnt; i++) {
 		switch (msg->data[i].type) {
 		case ACM_EP_INFO_PATH:
 			path_data[i].flags = msg->data[i].flags;
 			path_data[i].path  = msg->data[i].info.path;
 			(*count)++;
-			break;
-		case ACM_EP_INFO_CM:
-			data->init_depth = msg->data[i].info.cm.init_depth;
-			data->resp_resources = msg->data[i].info.cm.resp_resources;
 			break;
 		default:
 			goto err;
@@ -135,8 +128,7 @@ err:
 }
 
 static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
-	struct ib_acm_path_data **paths, int *count,
-	struct ib_acm_cm_data *data)
+	struct ib_path_data **paths, int *count)
 {
 	struct acm_msg msg;
 	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
@@ -144,9 +136,6 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	int ret;
 
 	lock_acquire(&lock);
-	if (!ready && (ret = acm_init()))
-		goto out;
-
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;
@@ -156,9 +145,9 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	dest_data = &resolve_msg->data[1];
 
 	src_data->type   = type;
-	src_data->flags  = IB_ACM_FLAGS_INBOUND;
+	src_data->flags  = ACM_EP_FLAG_SOURCE;
 	dest_data->type  = type;
-	dest_data->flags = IB_ACM_FLAGS_OUTBOUND;
+	dest_data->flags = ACM_EP_FLAG_DEST;
 
 	switch (type) {
 	case ACM_EP_INFO_NAME:
@@ -191,36 +180,31 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 		goto out;
 	}
 
-	ret = acm_format_resp(resolve_msg, paths, count, data);
+	ret = acm_format_resp(resolve_msg, paths, count);
 out:
 	lock_release(&lock);
 	return ret;
 }
 
-LIB_EXPORT
 int ib_acm_resolve_name(char *src, char *dest,
-	struct ib_acm_path_data **paths, int *count,
-	struct ib_acm_cm_data *data)
+	struct ib_path_data **paths, int *count)
 {
 	return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-		ACM_EP_INFO_NAME, paths, count, data);
+		ACM_EP_INFO_NAME, paths, count);
 }
 
-LIB_EXPORT
 int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
-	struct ib_acm_path_data **paths, int *count,
-	struct ib_acm_cm_data *data)
+	struct ib_path_data **paths, int *count)
 {
 	if (((struct sockaddr *) dest)->sa_family == AF_INET) {
 		return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-			ACM_EP_INFO_ADDRESS_IP, paths, count, data);
+			ACM_EP_INFO_ADDRESS_IP, paths, count);
 	} else {
 		return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-			ACM_EP_INFO_ADDRESS_IP6, paths, count, data);
+			ACM_EP_INFO_ADDRESS_IP6, paths, count);
 	}
 }
 
-LIB_EXPORT
 int ib_acm_resolve_path(struct ib_path_record *path, uint32_t flags)
 {
 	struct acm_msg msg;
@@ -228,9 +212,6 @@ int ib_acm_resolve_path(struct ib_path_record *path, uint32_t flags)
 	int ret;
 
 	lock_acquire(&lock);
-	if (!ready && (ret = acm_init()))
-		goto out;
-
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;

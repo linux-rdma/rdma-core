@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Intel Corporation. All rights reserved.
+ * Copyright (c) 2009 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under the OpenIB.org BSD license
  * below:
@@ -27,11 +27,14 @@
  * SOFTWARE.
  */
 
-#include <osd.h>
+#include <infiniband/acm.h>
 
-lock_t lock;
+int libacm_init();
+void libacm_cleanup();
 
-static void __attribute__((constructor)) lib_init(void)
-{
-	lock_init(&lock);
-}
+int ib_acm_resolve_name(char *src, char *dest,
+	struct ib_path_data **paths, int *count);
+int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
+	struct ib_path_data **paths, int *count);
+int ib_acm_resolve_path(struct ib_path_record *path, uint32_t flags);
+#define ib_acm_free_paths(paths) free(paths)

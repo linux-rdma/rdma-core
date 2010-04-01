@@ -36,7 +36,8 @@
 
 #include <osd.h>
 #include <infiniband/verbs.h>
-#include <infiniband/ib_acm.h>
+#include <infiniband/acm.h>
+#include "libacm.h"
 
 static char *dest_addr;
 static char *src_addr;
@@ -49,7 +50,6 @@ struct ibv_context **verbs;
 int dev_cnt;
 
 extern int gen_addr_ip(FILE *f);
-
 
 static void show_usage(char *program)
 {
@@ -95,6 +95,21 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# 2 - verbose operation\n");
 	fprintf(f, "\n");
 	fprintf(f, "log_level 0\n");
+	fprintf(f, "\n");
+	fprintf(f, "# addr_prot:\n");
+	fprintf(f, "# Default resolution protocol to resolve IP addresses into IB GIDs.\n");
+	fprintf(f, "# Supported protocols are:\n");
+	fprintf(f, "# acm - Use ACM multicast protocol, which is similar to ARP.\n");
+	fprintf(f, "\n");
+	fprintf(f, "addr_prot acm\n");
+	fprintf(f, "\n");
+	fprintf(f, "# route_prot:\n");
+	fprintf(f, "# Default resolution protocol to resolve IB routing information.\n");
+	fprintf(f, "# Supported protocols are:\n");
+	fprintf(f, "# sa - Query SA for path record data and cache results.\n");
+	fprintf(f, "# acm - Use ACM multicast protocol.\n");
+	fprintf(f, "\n");
+	fprintf(f, "route_prot acm\n");
 	fprintf(f, "\n");
 	fprintf(f, "# server_port:\n");
 	fprintf(f, "# TCP port number that the server listens on.\n");
@@ -347,8 +362,7 @@ static void show_path(struct ib_path_record *path)
 
 static int resolve_ip(struct ib_path_record *path)
 {
-	struct ib_acm_path_data *paths;
-	struct ib_acm_cm_data data;
+	struct ib_path_data *paths;
 	struct sockaddr_in src, dest;
 	int ret, count;
 
@@ -367,7 +381,7 @@ static int resolve_ip(struct ib_path_record *path)
 	}
 
 	ret = ib_acm_resolve_ip((struct sockaddr *) &src, (struct sockaddr *) &dest,
-		&paths, &count, &data);
+		&paths, &count);
 	if (ret) {
 		printf("ib_acm_resolve_ip failed: 0x%x\n", ret);
 		return ret;
@@ -380,11 +394,10 @@ static int resolve_ip(struct ib_path_record *path)
 
 static int resolve_name(struct ib_path_record *path)
 {
-	struct ib_acm_path_data *paths;
-	struct ib_acm_cm_data data;
+	struct ib_path_data *paths;
 	int ret, count;
 
-	ret = ib_acm_resolve_name(src_addr, dest_addr, &paths, &count, &data);
+	ret = ib_acm_resolve_name(src_addr, dest_addr, &paths, &count);
 	if (ret) {
 		printf("ib_acm_resolve_name failed: 0x%x\n", ret);
 		return ret;
@@ -414,7 +427,7 @@ static int verify_resolve(struct ib_path_record *path)
 {
 	int ret;
 
-	ret = ib_acm_resolve_path(path, IB_ACM_FLAGS_QUERY_SA);
+	ret = ib_acm_resolve_path(path, ACM_FLAGS_QUERY_SA);
 	if (ret)
 		printf("SA verification: failed 0x%x\n", ret);
 	else
@@ -427,6 +440,12 @@ static int resolve(char *program)
 {
 	struct ib_path_record path;
 	int ret;
+
+	ret = libacm_init();
+	if (ret) {
+		printf("Unable to contact ib_acm service\n");
+		return ret;
+	}
 
 	switch (addr_type) {
 	case 'i':
@@ -450,6 +469,7 @@ static int resolve(char *program)
 	if (verify)
 		ret = verify_resolve(&path);
 
+	libacm_cleanup();
 	return ret;
 }
 

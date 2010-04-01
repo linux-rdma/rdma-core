@@ -1,15 +1,15 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(ib_acm, 0.0.1, general@lists.openfabrics.org)
-AC_CONFIG_SRCDIR([src/libacm.c])
+AC_INIT(ib_acm, 0.0.2, linux-rdma@vger.kernel.org)
+AC_CONFIG_SRCDIR([src/acm.c])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libibacm, 0.0.1)
+AM_INIT_AUTOMAKE(ib_acm, 0.0.2)
 
 AM_PROG_LIBTOOL
 
-AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
+AC_ARG_ENABLE(libcheck, [  --disable-libcheck  do not test for presence of ib libraries],
 [       if test "$enableval" = "no"; then
                 disable_libcheck=yes
         fi
@@ -48,5 +48,5 @@ AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
 
 AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
 
-AC_CONFIG_FILES([Makefile libibacm.spec])
+AC_CONFIG_FILES([Makefile ibacm.spec])
 AC_OUTPUT

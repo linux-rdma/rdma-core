@@ -30,7 +30,8 @@
 #if !defined(ACM_H)
 #define ACM_H
 
-#include <infiniband/ib_acm.h>
+#include <infiniband/verbs.h>
+#include <infiniband/sa.h>
 
 #define ACM_VERSION             1
 
@@ -74,22 +75,16 @@ struct acm_hdr
 #define ACM_EP_INFO_ADDRESS_IP  0x0002
 #define ACM_EP_INFO_ADDRESS_IP6 0x0003
 #define ACM_EP_INFO_PATH        0x0010
-#define ACM_EP_INFO_CM          0x0100
-
-struct acm_cm_data
-{
-	uint8_t                 init_depth;
-	uint8_t                 resp_resources;
-	uint8_t                 reserved2[62];
-};
 
 union acm_ep_info
 {
 	uint8_t                 addr[ACM_MAX_ADDRESS];
 	uint8_t                 name[ACM_MAX_ADDRESS];
-	struct acm_cm_data      cm;
 	struct ib_path_record   path;
 };
+
+#define ACM_EP_FLAG_SOURCE      (1<<0)
+#define ACM_EP_FLAG_DEST        (1<<1)
 
 struct acm_ep_addr_data
 {

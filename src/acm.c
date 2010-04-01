@@ -34,12 +34,24 @@
 #include <arpa/inet.h>
 #include <infiniband/acm.h>
 #include <infiniband/umad.h>
+#include <infiniband/verbs.h>
 #include <dlist.h>
 #include <search.h>
 #include "acm_mad.h"
 
 #define MAX_EP_ADDR 4
 #define MAX_EP_MC   2
+
+enum acm_addr_prot
+{
+	ACM_ADDR_PROT_ACM
+};
+
+enum acm_route_prot
+{
+	ACM_ROUTE_PROT_ACM,
+	ACM_ROUTE_PROT_SA
+};
 
 struct acm_dest
 {
@@ -50,8 +62,6 @@ struct acm_dest
 	union ibv_gid         mgid;
 	DLIST_ENTRY           req_queue;
 	uint32_t              remote_qpn;
-	uint8_t               init_depth;
-	uint8_t               resp_resources;
 };
 
 struct acm_port
@@ -80,8 +90,6 @@ struct acm_device
 	uint64_t                guid;
 	DLIST_ENTRY             entry;
 	uint8_t                 active;
-	uint8_t                 init_depth;
-	uint8_t                 resp_resources;
 	int                     port_cnt;
 	struct acm_port         port[0];
 };
@@ -150,6 +158,8 @@ static lock_t log_lock;
 
 static char log_file[128] = "stdout";
 static int log_level = 0;
+static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
+static enum acm_route_prot route_prot = ACM_ROUTE_PROT_ACM;
 static short server_port = 6125;
 static int timeout = 2000;
 static int retries = 15;
@@ -196,9 +206,6 @@ static void acm_log_ep_addr(int level, const char *msg, uint16_t type, uint8_t *
 	case ACM_EP_INFO_ADDRESS_IP6:
 		inet_ntop(AF_INET6, data, ip_addr, ACM_MAX_ADDRESS);
 		fprintf(flog, "%s\n", ip_addr);
-		break;
-	case ACM_EP_INFO_CM:
-		fprintf(flog, "cm data not displayed\n");
 		break;
 	case ACM_EP_INFO_PATH:
 		path = (struct ib_path_record *) data;
@@ -565,8 +572,6 @@ acm_record_src(struct acm_ep *ep, struct ibv_wc *wc, struct acm_resolve_rec *rec
 	}
 
 	dest->remote_qpn = wc->src_qp;
-	dest->init_depth = rec->init_depth;
-	dest->resp_resources = rec->resp_resources;
 
 unlock:
 	lock_release(&ep->lock);
@@ -650,8 +655,6 @@ acm_process_resolve_req(struct acm_ep *ep, struct ibv_wc *wc, struct acm_mad *ma
 	resp_rec->src_type = rec->dest_type;
 	resp_rec->src_length = rec->dest_length;
 	resp_rec->gid_cnt = 1;
-	resp_rec->resp_resources = ep->port->dev->resp_resources;
-	resp_rec->init_depth = ep->port->dev->init_depth;
 	memcpy(resp_rec->dest, rec->src, ACM_MAX_ADDRESS);
 	memcpy(resp_rec->src, rec->dest, ACM_MAX_ADDRESS);
 	memcpy(resp_rec->gid, dest->mgid.raw, sizeof(union ibv_gid));
@@ -687,16 +690,10 @@ acm_client_resolve_resp(struct acm_ep *ep, struct acm_client *client,
 
 	if (!status) {
 		resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
-		resp_msg->data[0].flags = IB_ACM_FLAGS_CM |
-			IB_ACM_FLAGS_PRIMARY | IB_ACM_FLAGS_BIDIRECTIONAL;
+		resp_msg->data[0].flags = IB_PATH_FLAG_GMP |
+			IB_PATH_FLAG_PRIMARY | IB_PATH_FLAG_BIDIRECTIONAL;
 		resp_msg->data[0].type = ACM_EP_INFO_PATH;
 		resp_msg->data[0].info.path = dest->path;
-
-		resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
-		resp_msg->data[1].flags = IB_ACM_FLAGS_CM | IB_ACM_FLAGS_BIDIRECTIONAL;
-		resp_msg->data[1].type = ACM_EP_INFO_CM;
-		resp_msg->data[1].info.cm.init_depth = dest->init_depth;
-		resp_msg->data[1].info.cm.resp_resources = dest->resp_resources;
 	}
 
 	ret = send(client->sock, (char *) resp_msg, resp_msg->hdr.length, 0);
@@ -744,8 +741,6 @@ acm_record_dest(struct acm_ep *ep, struct ibv_wc *wc,
 	}
 
 	dest->remote_qpn = wc->src_qp;
-	dest->init_depth = resp_rec->init_depth;
-	dest->resp_resources = resp_rec->resp_resources;
 
 unlock:
 	lock_release(&ep->lock);
@@ -1506,8 +1501,6 @@ acm_send_resolve(struct acm_ep *ep, struct acm_ep_addr_data *saddr,
 	rec->dest_type = (uint8_t) daddr->type;
 	rec->dest_length = ACM_MAX_ADDRESS;
 	memcpy(rec->dest, daddr->info.addr, ACM_MAX_ADDRESS);
-	rec->resp_resources = ep->port->dev->resp_resources;
-	rec->init_depth = ep->port->dev->init_depth;
 
 	rec->gid_cnt = (uint8_t) ep->mc_cnt;
 	for (i = 0; i < ep->mc_cnt; i++)
@@ -1525,13 +1518,13 @@ acm_svr_verify_resolve(struct acm_resolve_msg *msg)
 		return ACM_STATUS_EINVAL;
 	}
 
-	if ((msg->data[0].flags != IB_ACM_FLAGS_INBOUND) ||
+	if ((msg->data[0].flags != ACM_EP_FLAG_SOURCE) ||
 	    !msg->data[0].type || (msg->data[0].type >= ACM_ADDRESS_RESERVED)) {
 		acm_log(0, "ERROR - source address required first\n");
 		return ACM_STATUS_ESRCTYPE;
 	}
 
-	if ((msg->data[1].flags != IB_ACM_FLAGS_OUTBOUND) ||
+	if ((msg->data[1].flags != ACM_EP_FLAG_DEST) ||
 	    !msg->data[1].type || (msg->data[1].type >= ACM_ADDRESS_RESERVED)) {
 		acm_log(0, "ERROR - destination address required second\n");
 		return ACM_STATUS_EDESTTYPE;
@@ -1631,7 +1624,7 @@ static void acm_svr_receive(struct acm_client *client)
 
 	acm_log(2, "\n");
 	ret = recv(client->sock, (char *) &msg, sizeof msg, 0);
-	if (ret != msg.hdr.length) {
+	if (ret <= 0 || ret != msg.hdr.length) {
 		acm_log(2, "client disconnected\n");
 		ret = ACM_STATUS_ENOTCONN;
 		goto out;
@@ -1700,6 +1693,24 @@ static void acm_server(void)
 			}
 		}
 	}
+}
+
+static enum acm_addr_prot acm_convert_addr_prot(char *param)
+{
+	if (!stricmp("acm", param))
+		return ACM_ADDR_PROT_ACM;
+
+	return addr_prot;
+}
+
+static enum acm_route_prot acm_convert_route_prot(char *param)
+{
+	if (!stricmp("acm", param))
+		return ACM_ROUTE_PROT_ACM;
+	else if (!stricmp("sa", param))
+		return ACM_ROUTE_PROT_SA;
+
+	return route_prot;
 }
 
 static enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed)
@@ -2108,8 +2119,6 @@ static void acm_open_dev(struct ibv_device *ibdev)
 	dev->verbs = verbs;
 	dev->guid = ibv_get_device_guid(ibdev);
 	dev->port_cnt = attr.phys_port_cnt;
-	dev->init_depth = (uint8_t) attr.max_qp_init_rd_atom;
-	dev->resp_resources = (uint8_t) attr.max_qp_rd_atom;
 
 	for (i = 0; i < dev->port_cnt; i++) {
 		dev->port[i].dev = dev;
@@ -2150,6 +2159,10 @@ static void acm_set_options(void)
 			strcpy(log_file, value);
 		else if (!stricmp("log_level", opt))
 			log_level = atoi(value);
+		else if (!stricmp("addr_prot", opt))
+			addr_prot = acm_convert_addr_prot(value);
+		else if (!stricmp("route_prot", opt))
+			route_prot = acm_convert_route_prot(value);
 		else if (!stricmp("server_port", opt))
 			server_port = (short) atoi(value);
 		else if (!stricmp("timeout", opt))
@@ -2172,6 +2185,8 @@ static void acm_set_options(void)
 static void acm_log_options(void)
 {
 	acm_log(0, "log level %d\n", log_level);
+	acm_log(0, "address resolution %d\n", addr_prot);
+	acm_log(0, "route resolution %d\n", route_prot);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "timeout %d ms\n", timeout);
 	acm_log(0, "retries %d\n", retries);

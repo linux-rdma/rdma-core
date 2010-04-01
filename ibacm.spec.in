@@ -1,7 +1,7 @@
 %define ver @VERSION@
 
-Name: libibacm
-Version: 0.0.1
+Name: ib_acm
+Version: 0.0.2
 Release: 1%{?dist}
 Summary: InfiniBand Communication Manager Assistant
 
@@ -14,15 +14,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: libibverbs-devel >= 1.1-1
 
 %description
-libibacm assists with establishing communication over Infiniband.
-
-%package devel
-Summary: Development files for the libibacm library
-Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release}
-
-%description devel
-Development files for the libibacm library.
+ib_acm assists with establishing communication over Infiniband.
 
 %package svc
 Summary: IB CM pre-connection service application
@@ -42,8 +34,6 @@ make %{?_smp_mflags}
 %install
 rm -rf $RPM_BUILD_ROOT
 %makeinstall
-# remove unpackaged files from the buildroot
-rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -53,20 +43,13 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/libibacm*.so.*
 %doc AUTHORS COPYING README
-
-%files devel
-%defattr(-,root,root)
-%{_libdir}/lib*.so
-%{_libdir}/*.a
-%{_includedir}/*
-%{_mandir}/man3/*
-%{_mandir}/man7/*
 
 %files svc
 %defattr(-,root,root,-)
 %{_bindir}/*
 %{_mandir}/man1/*
+%{_mandir}/man3/*
+%{_mandir}/man7/*
 
 %changelog
