@@ -64,6 +64,14 @@ output will be displayed showing differences between the old and current
 fabric.  By default, the following are compared for differences: switches,
 channel adapters, routers, and port connections.
 .TP
+\fB\-\-diffcheck\fR <key(s)>
+Specify what diff checks should be done in the \fB\-\-diff\fR option above.
+Comma separate multiple diff check key(s).  The available diff checks
+are: \fIsw\fR = switches, \fIca\fR = channel adapters, \fIrouter\fR = routers,
+\fIport\fR = port connections descriptions.  Note that \fIport\fR is
+checked only for the node types that are specified (e.g. \fIsw\fR,
+\fIca\fR, \fIrouter\fR).
+.TP
 \fB\-p\fR, \fB\-\-ports\fR
 Obtain a ports report which is a
 list of connected ports with relevant information (like LID, portnum,

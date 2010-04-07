@@ -57,10 +57,10 @@
 #define LIST_SWITCH_NODE (1 << IB_NODE_SWITCH)
 #define LIST_ROUTER_NODE (1 << IB_NODE_ROUTER)
 
-#define DIFF_FLAG_SWITCH          0x00000001
-#define DIFF_FLAG_CA              0x00000002
-#define DIFF_FLAG_ROUTER          0x00000004
-#define DIFF_FLAG_PORT_CONNECTION 0x00000008
+#define DIFF_FLAG_SWITCH           0x00000001
+#define DIFF_FLAG_CA               0x00000002
+#define DIFF_FLAG_ROUTER           0x00000004
+#define DIFF_FLAG_PORT_CONNECTION  0x00000008
 
 #define DIFF_FLAG_DEFAULT      (DIFF_FLAG_SWITCH \
 				| DIFF_FLAG_CA \
@@ -76,6 +76,7 @@ static nn_map_t *node_name_map = NULL;
 static char *cache_file = NULL;
 static char *load_cache_file = NULL;
 static char *diff_cache_file = NULL;
+static uint32_t diffcheck_flags = DIFF_FLAG_DEFAULT;
 
 static int report_max_hops = 0;
 static int outstanding_smps = 0; /* use default from lib */
@@ -737,7 +738,9 @@ static int diff_common(ibnd_fabric_t * orig_fabric,
 	 * in new_fabric but not in orig_fabric.
 	 *
 	 * In this diff, we don't need to check port connections,
-	 * since it has already been done before.
+	 * lids, or node descriptions since it has already been
+	 * done (i.e. checks are only done when guid exists on both
+	 * orig and new).
 	 */
 	iter_diff_data.diff_flags = diff_flags & ~DIFF_FLAG_PORT_CONNECTION;
 	iter_diff_data.fabric1 = new_fabric;
@@ -754,29 +757,27 @@ static int diff_common(ibnd_fabric_t * orig_fabric,
 
 int diff(ibnd_fabric_t * orig_fabric, ibnd_fabric_t * new_fabric)
 {
-	uint32_t diff_flags = DIFF_FLAG_DEFAULT;
-
-	if (diff_flags & DIFF_FLAG_SWITCH)
+	if (diffcheck_flags & DIFF_FLAG_SWITCH)
 		diff_common(orig_fabric,
 			    new_fabric,
 			    IB_NODE_SWITCH,
-			    diff_flags,
+			    diffcheck_flags,
 			    out_switch,
 			    out_switch_port);
 
-	if (diff_flags & DIFF_FLAG_CA)
+	if (diffcheck_flags & DIFF_FLAG_CA)
 		diff_common(orig_fabric,
 			    new_fabric,
 			    IB_NODE_CA,
-			    diff_flags,
+			    diffcheck_flags,
 			    out_ca,
 			    out_ca_port);
 
-	if (diff_flags & DIFF_FLAG_ROUTER)
+	if (diffcheck_flags & DIFF_FLAG_ROUTER)
 		diff_common(orig_fabric,
 			    new_fabric,
 			    IB_NODE_ROUTER,
-			    diff_flags,
+			    diffcheck_flags,
 			    out_ca,
 			    out_ca_port);
 
@@ -788,6 +789,8 @@ static int list, group, ports_report;
 
 static int process_opt(void *context, int ch, char *optarg)
 {
+	char *p;
+
 	switch (ch) {
 	case 1:
 		node_name_map_file = strdup(optarg);
@@ -800,6 +803,25 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 4:
 		diff_cache_file = strdup(optarg);
+		break;
+	case 5:
+		diffcheck_flags = 0;
+		p = strtok(optarg, ",");
+		while (p) {
+			if (!strcasecmp(p, "sw"))
+				diffcheck_flags |= DIFF_FLAG_SWITCH;
+			else if (!strcasecmp(p, "ca"))
+				diffcheck_flags |= DIFF_FLAG_CA;
+			else if (!strcasecmp(p, "router"))
+				diffcheck_flags |= DIFF_FLAG_ROUTER;
+			else if (!strcasecmp(p, "port"))
+				diffcheck_flags |= DIFF_FLAG_PORT_CONNECTION;
+			else {
+				fprintf(stderr, "invalid diff check key: %s\n", p);
+				return -1;
+			}
+			p = strtok(NULL, ",");
+		}
 		break;
 	case 's':
 		ibnd_show_progress(1);
@@ -857,6 +879,8 @@ int main(int argc, char **argv)
 		 "filename of ibnetdiscover cache to load"},
 		{"diff", 4, 1, "<file>",
 		 "filename of ibnetdiscover cache to diff"},
+		{"diffcheck", 5, 1, "<key(s)>",
+		 "specify checks to execute for --diff"},
 		{"ports", 'p', 0, NULL, "obtain a ports report"},
 		{"max_hops", 'm', 0, NULL,
 		 "report max hops discovered by the library"},
