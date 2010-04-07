@@ -525,7 +525,7 @@ static int ucma_query_route(struct rdma_cm_id *id)
 
 int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 {
-	struct ucma_abi_bind_addr *cmd;
+	struct ucma_abi_bind_ip *cmd;
 	struct cma_id_private *id_priv;
 	void *msg;
 	int ret, size, addrlen;
@@ -534,7 +534,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	if (!addrlen)
 		return ERR(EINVAL);
 
-	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_BIND_ADDR, size);
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_BIND_IP, size);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd->id = id_priv->handle;
 	memcpy(&cmd->addr, addr, addrlen);
@@ -549,7 +549,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 		      struct sockaddr *dst_addr, int timeout_ms)
 {
-	struct ucma_abi_resolve_addr *cmd;
+	struct ucma_abi_resolve_ip *cmd;
 	struct cma_id_private *id_priv;
 	void *msg;
 	int ret, size, daddrlen;
@@ -558,7 +558,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	if (!daddrlen)
 		return ERR(EINVAL);
 
-	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_RESOLVE_ADDR, size);
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_RESOLVE_IP, size);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd->id = id_priv->handle;
 	if (src_addr)
@@ -1037,7 +1037,7 @@ int rdma_disconnect(struct rdma_cm_id *id)
 int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 			void *context)
 {
-	struct ucma_abi_join_mcast *cmd;
+	struct ucma_abi_join_ip_mcast *cmd;
 	struct ucma_abi_create_id_resp *resp;
 	struct cma_id_private *id_priv;
 	struct cma_multicast *mc, **pos;
@@ -1067,7 +1067,7 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 	id_priv->mc_list = mc;
 	pthread_mutex_unlock(&id_priv->mut);
 
-	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_JOIN_MCAST, size);
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_JOIN_IP_MCAST, size);
 	cmd->id = id_priv->handle;
 	memcpy(&cmd->addr, addr, addrlen);
 	cmd->uid = (uintptr_t) mc;

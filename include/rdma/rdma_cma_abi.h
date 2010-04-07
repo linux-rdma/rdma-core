@@ -48,8 +48,8 @@
 enum {
 	UCMA_CMD_CREATE_ID,
 	UCMA_CMD_DESTROY_ID,
-	UCMA_CMD_BIND_ADDR,
-	UCMA_CMD_RESOLVE_ADDR,
+	UCMA_CMD_BIND_IP,
+	UCMA_CMD_RESOLVE_IP,
 	UCMA_CMD_RESOLVE_ROUTE,
 	UCMA_CMD_QUERY_ROUTE,
 	UCMA_CMD_CONNECT,
@@ -62,7 +62,7 @@ enum {
 	UCMA_CMD_GET_OPTION,
 	UCMA_CMD_SET_OPTION,
 	UCMA_CMD_NOTIFY,
- 	UCMA_CMD_JOIN_MCAST,
+ 	UCMA_CMD_JOIN_IP_MCAST,
  	UCMA_CMD_LEAVE_MCAST,
 	UCMA_CMD_MIGRATE_ID
 };
@@ -94,13 +94,13 @@ struct ucma_abi_destroy_id_resp {
 	__u32 events_reported;
 };
 
-struct ucma_abi_bind_addr {
+struct ucma_abi_bind_ip {
 	__u64 response;
 	struct sockaddr_in6 addr;
 	__u32 id;
 };
 
-struct ucma_abi_resolve_addr {
+struct ucma_abi_resolve_ip {
 	struct sockaddr_in6 src_addr;
 	struct sockaddr_in6 dst_addr;
 	__u32 id;
@@ -192,7 +192,7 @@ struct ucma_abi_notify {
 	__u32 event;
 };
 
-struct ucma_abi_join_mcast {
+struct ucma_abi_join_ip_mcast {
 	__u64 response;		/* ucma_abi_create_id_resp */
 	__u64 uid;
 	struct sockaddr_in6 addr;
