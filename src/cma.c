@@ -473,10 +473,43 @@ static int ucma_addrlen(struct sockaddr *addr)
 	}
 }
 
+static int ucma_query_addr(struct rdma_cm_id *id)
+{
+	struct ucma_abi_query_addr_resp *resp;
+	struct ucma_abi_query *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+	
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_QUERY, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	cmd->option = UCMA_QUERY_ADDR;
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		return (ret >= 0) ? ERR(ENODATA) : -1;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
+	memcpy(&id->route.addr.src_addr, &resp->src_addr, resp->src_size);
+	memcpy(&id->route.addr.dst_addr, &resp->dst_addr, resp->dst_size);
+
+	if (!id_priv->cma_dev && resp->node_guid) {
+		ret = ucma_get_device(id_priv, resp->node_guid);
+		if (ret)
+			return ret;
+		id->port_num = resp->port_num;
+		id->route.addr.addr.ibaddr.pkey = resp->pkey;
+	}
+
+	return 0;
+}
+
 static int ucma_query_route(struct rdma_cm_id *id)
 {
 	struct ucma_abi_query_route_resp *resp;
-	struct ucma_abi_query_route *cmd;
+	struct ucma_abi_query *cmd;
 	struct cma_id_private *id_priv;
 	void *msg;
 	int ret, size, i;

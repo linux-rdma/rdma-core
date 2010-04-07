@@ -64,7 +64,8 @@ enum {
 	UCMA_CMD_NOTIFY,
  	UCMA_CMD_JOIN_IP_MCAST,
  	UCMA_CMD_LEAVE_MCAST,
-	UCMA_CMD_MIGRATE_ID
+	UCMA_CMD_MIGRATE_ID,
+	UCMA_CMD_QUERY
 };
 
 struct ucma_abi_cmd_hdr {
@@ -112,10 +113,14 @@ struct ucma_abi_resolve_route {
 	__u32 timeout_ms;
 };
 
-struct ucma_abi_query_route {
+enum {
+	UCMA_QUERY_ADDR
+};
+
+struct ucma_abi_query {
 	__u64 response;
 	__u32 id;
-	__u32 reserved;
+	__u32 option;
 };
 
 struct ucma_abi_query_route_resp {
@@ -126,6 +131,17 @@ struct ucma_abi_query_route_resp {
 	__u32 num_paths;
 	__u8 port_num;
 	__u8 reserved[3];
+};
+
+struct ucma_abi_query_addr_resp {
+	__u64 node_guid;
+	__u8  port_num;
+	__u8  reserved;
+	__u16 pkey;
+	__u16 src_size;
+	__u16 dst_size;
+	struct sockaddr_storage src_addr;
+	struct sockaddr_storage dst_addr;
 };
 
 struct ucma_abi_conn_param {
