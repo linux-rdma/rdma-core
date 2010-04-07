@@ -61,6 +61,8 @@
 #define DIFF_FLAG_CA               0x00000002
 #define DIFF_FLAG_ROUTER           0x00000004
 #define DIFF_FLAG_PORT_CONNECTION  0x00000008
+#define DIFF_FLAG_LID              0x00000010
+#define DIFF_FLAG_NODE_DESCRIPTION 0x00000020
 
 #define DIFF_FLAG_DEFAULT      (DIFF_FLAG_SWITCH \
 				| DIFF_FLAG_CA \
@@ -234,15 +236,29 @@ uint64_t out_chassis(ibnd_fabric_t * fabric, unsigned char chassisnum)
 	return guid;
 }
 
-void out_switch(ibnd_node_t * node, int group, char *chname, char *out_prefix)
+void out_switch_detail(ibnd_node_t * node, char *sw_prefix)
+{
+	char *nodename = NULL;
+
+	nodename = remap_node_name(node_name_map, node->guid, node->nodedesc);
+
+	fprintf(f, "%sSwitch\t%d %s\t\t# \"%s\" %s port 0 lid %d lmc %d",
+		sw_prefix ? sw_prefix : "",
+		node->numports, node_name(node), nodename,
+		node->smaenhsp0 ? "enhanced" : "base",
+		node->smalid, node->smalmc);
+
+	free(nodename);
+}
+
+void out_switch(ibnd_node_t * node, int group, char *chname, char *id_prefix, char *sw_prefix)
 {
 	char *str;
 	char str2[256];
-	char *nodename = NULL;
 
-	out_ids(node, group, chname, out_prefix);
+	out_ids(node, group, chname, id_prefix);
 	fprintf(f, "%sswitchguid=0x%" PRIx64,
-		out_prefix ? out_prefix : "", node->guid);
+		id_prefix ? id_prefix : "", node->guid);
 	fprintf(f, "(%" PRIx64 ")",
 		mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F));
 	if (group) {
@@ -254,45 +270,54 @@ void out_switch(ibnd_node_t * node, int group, char *chname, char *out_prefix)
 		if (str)
 			fprintf(f, "%s", str);
 	}
+	fprintf(f, "\n");
 
-	nodename = remap_node_name(node_name_map, node->guid, node->nodedesc);
-
-	fprintf(f, "\n%sSwitch\t%d %s\t\t# \"%s\" %s port 0 lid %d lmc %d\n",
-		out_prefix ? out_prefix : "",
-		node->numports, node_name(node), nodename,
-		node->smaenhsp0 ? "enhanced" : "base",
-		node->smalid, node->smalmc);
-
-	free(nodename);
+	out_switch_detail(node, sw_prefix);
+	fprintf(f, "\n");
 }
 
-void out_ca(ibnd_node_t * node, int group, char *chname, char *out_prefix)
+void out_ca_detail(ibnd_node_t * node, char *ca_prefix)
 {
 	char *node_type;
-	char *node_type2;
 
-	out_ids(node, group, chname, out_prefix);
 	switch (node->type) {
 	case IB_NODE_CA:
-		node_type = "ca";
-		node_type2 = "Ca";
+		node_type = "Ca";
 		break;
 	case IB_NODE_ROUTER:
-		node_type = "rt";
-		node_type2 = "Rt";
+		node_type = "Rt";
 		break;
 	default:
 		node_type = "???";
-		node_type2 = "???";
+		break;
+	}
+
+	fprintf(f, "%s%s\t%d %s\t\t# \"%s\"",
+		ca_prefix ? ca_prefix : "",
+		node_type, node->numports, node_name(node),
+		clean_nodedesc(node->nodedesc));
+}
+
+void out_ca(ibnd_node_t * node, int group, char *chname, char *id_prefix, char *ca_prefix)
+{
+	char *node_type;
+
+	out_ids(node, group, chname, id_prefix);
+	switch (node->type) {
+	case IB_NODE_CA:
+		node_type = "ca";
+		break;
+	case IB_NODE_ROUTER:
+		node_type = "rt";
+		break;
+	default:
+		node_type = "???";
 		break;
 	}
 
 	fprintf(f, "%s%sguid=0x%" PRIx64 "\n",
-		out_prefix ? out_prefix : "", node_type, node->guid);
-	fprintf(f, "%s%s\t%d %s\t\t# \"%s\"",
-		out_prefix ? out_prefix : "",
-		node_type2, node->numports, node_name(node),
-		clean_nodedesc(node->nodedesc));
+		id_prefix ? id_prefix : "", node_type, node->guid);
+	out_ca_detail(node, ca_prefix);
 	if (group && ibnd_is_xsigo_hca(node->guid))
 		fprintf(f, " (scp)");
 	fprintf(f, "\n");
@@ -407,7 +432,7 @@ static void switch_iter_func(ibnd_node_t * node, void *iter_user_data)
 	    && node->chassis->chassisnum)
 		return;
 
-	out_switch(node, data->group, NULL, NULL);
+	out_switch(node, data->group, NULL, NULL, NULL);
 	for (p = 1; p <= node->numports; p++) {
 		port = node->ports[p];
 		if (port && port->remoteport)
@@ -425,7 +450,7 @@ static void ca_iter_func(ibnd_node_t * node, void *iter_user_data)
 	/* Now, skip chassis based CAs */
 	if (data->group && node->chassis && node->chassis->chassisnum)
 		return;
-	out_ca(node, data->group, NULL, NULL);
+	out_ca(node, data->group, NULL, NULL, NULL);
 
 	for (p = 1; p <= node->numports; p++) {
 		port = node->ports[p];
@@ -444,7 +469,7 @@ static void router_iter_func(ibnd_node_t * node, void *iter_user_data)
 	/* Now, skip chassis based RTs */
 	if (data->group && node->chassis && node->chassis->chassisnum)
 		return;
-	out_ca(node, data->group, NULL, NULL);
+	out_ca(node, data->group, NULL, NULL, NULL);
 	for (p = 1; p <= node->numports; p++) {
 		port = node->ports[p];
 		if (port && port->remoteport)
@@ -504,7 +529,7 @@ int dump_topology(int group, ibnd_fabric_t * fabric)
 			for (n = 1; n <= SPINES_MAX_NUM; n++) {
 				if (ch->spinenode[n]) {
 					out_switch(ch->spinenode[n], group,
-						   chname, NULL);
+						   chname, NULL, NULL);
 					for (p = 1;
 					     p <= ch->spinenode[n]->numports;
 					     p++) {
@@ -521,7 +546,7 @@ int dump_topology(int group, ibnd_fabric_t * fabric)
 			for (n = 1; n <= LINES_MAX_NUM; n++) {
 				if (ch->linenode[n]) {
 					out_switch(ch->linenode[n], group,
-						   chname, NULL);
+						   chname, NULL, NULL);
 					for (p = 1;
 					     p <= ch->linenode[n]->numports;
 					     p++) {
@@ -539,7 +564,8 @@ int dump_topology(int group, ibnd_fabric_t * fabric)
 			for (node = ch->nodes; node;
 			     node = node->next_chassis_node) {
 				if (node->type == IB_NODE_SWITCH) {
-					out_switch(node, group, chname, NULL);
+					out_switch(node, group, chname, NULL,
+						   NULL);
 					for (p = 1; p <= node->numports; p++) {
 						port = node->ports[p];
 						if (port && port->remoteport)
@@ -555,7 +581,8 @@ int dump_topology(int group, ibnd_fabric_t * fabric)
 			for (node = ch->nodes; node;
 			     node = node->next_chassis_node) {
 				if (node->type == IB_NODE_CA) {
-					out_ca(node, group, chname, NULL);
+					out_ca(node, group, chname, NULL,
+					       NULL);
 					for (p = 1; p <= node->numports; p++) {
 						port = node->ports[p];
 						if (port && port->remoteport)
@@ -642,7 +669,8 @@ struct iter_diff_data {
 	ibnd_fabric_t * fabric2;
 	char *fabric1_prefix;
 	char *fabric2_prefix;
-	void (*out_header)(ibnd_node_t *, int, char *, char *);
+	void (*out_header)(ibnd_node_t *, int, char *, char *, char *);
+	void (*out_header_detail)(ibnd_node_t *, char *);
 	void (*out_port)(ibnd_port_t *, int, char *);
 };
 
@@ -651,8 +679,60 @@ static void diff_iter_out_header(ibnd_node_t * node,
 				 int *out_header_flag)
 {
 	if (!(*out_header_flag)) {
-		(*data->out_header)(node, 0, NULL, NULL);
+		(*data->out_header)(node, 0, NULL, NULL, NULL);
 		(*out_header_flag)++;
+	}
+}
+
+static void diff_ports(ibnd_node_t * fabric1_node,
+		       ibnd_node_t * fabric2_node,
+		       int *out_header_flag,
+		       struct iter_diff_data *data)
+{
+	ibnd_port_t *fabric1_port;
+	ibnd_port_t *fabric2_port;
+	int p;
+
+	for (p = 1; p <= fabric1_node->numports; p++) {
+		int fabric1_out = 0, fabric2_out = 0;
+
+		fabric1_port = fabric1_node->ports[p];
+		fabric2_port = fabric2_node->ports[p];
+
+		if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION) {
+			if ((fabric1_port && !fabric2_port)
+			    || ((fabric1_port && fabric2_port)
+				&& (fabric1_port->remoteport && !fabric2_port->remoteport)))
+				fabric1_out++;
+			else if ((!fabric1_port && fabric2_port)
+				 || ((fabric1_port && fabric2_port)
+				     && (!fabric1_port->remoteport && fabric2_port->remoteport)))
+				fabric2_out++;
+			else if ((fabric1_port && fabric2_port)
+				 && ((fabric1_port->guid != fabric2_port->guid)
+				     || ((fabric1_port->remoteport && fabric2_port->remoteport)
+					 && (fabric1_port->remoteport->guid != fabric2_port->remoteport->guid)))) {
+				fabric1_out++;
+				fabric2_out++;
+			}
+		}
+
+		if (data->diff_flags & DIFF_FLAG_LID) {
+			if ((fabric1_port && fabric2_port)
+			    && (fabric1_port->base_lid != fabric2_port->base_lid)) {
+				fabric1_out++;
+				fabric2_out++;
+			}
+		}
+
+		if (fabric1_out) {
+			diff_iter_out_header(fabric1_node, data, out_header_flag);
+			(*data->out_port)(fabric1_port, 0, data->fabric1_prefix);
+		}
+		if (fabric2_out) {
+			diff_iter_out_header(fabric1_node, data, out_header_flag);
+			(*data->out_port)(fabric2_port, 0, data->fabric2_prefix);
+		}
 	}
 }
 
@@ -668,16 +748,35 @@ static void diff_iter_func(ibnd_node_t * fabric1_node, void *iter_user_data)
 	fabric2_node = ibnd_find_node_guid (data->fabric2, fabric1_node->guid);
 
 	if (!fabric2_node) {
-		(*data->out_header)(fabric1_node, 0, NULL, data->fabric1_prefix);
+		(*data->out_header)(fabric1_node, 0, NULL, data->fabric1_prefix,
+				    data->fabric1_prefix);
 		for (p = 1; p <= fabric1_node->numports; p++) {
 			fabric1_port = fabric1_node->ports[p];
 			if (fabric1_port && fabric1_port->remoteport)
 				(*data->out_port)(fabric1_port, 0, data->fabric1_prefix);
 		}
 	}
-	else if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION) {
-		ibnd_port_t *fabric2_port;
+	else if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION
+		 || data->diff_flags & DIFF_FLAG_LID
+		 || data->diff_flags & DIFF_FLAG_NODE_DESCRIPTION) {
 		int out_header_flag = 0;
+		int out_header_detail_diff = 0;
+
+		if (data->diff_flags & DIFF_FLAG_LID
+		    && fabric1_node->smalid != fabric2_node->smalid)
+			out_header_detail_diff++;
+
+		if (data->diff_flags & DIFF_FLAG_NODE_DESCRIPTION
+		    && memcmp(fabric1_node->nodedesc, fabric2_node->nodedesc, IB_SMP_DATA_SIZE))
+			out_header_detail_diff++;
+
+		if (out_header_detail_diff) {
+			(*data->out_header)(fabric1_node, 0, NULL, NULL,
+					    data->fabric1_prefix);
+			(*data->out_header_detail)(fabric2_node, data->fabric2_prefix);
+			fprintf(f, "\n");
+			out_header_flag++;
+		}
 
 		if (fabric1_node->numports != fabric2_node->numports) {
 			diff_iter_out_header(fabric1_node, data, &out_header_flag);
@@ -688,30 +787,12 @@ static void diff_iter_func(ibnd_node_t * fabric1_node, void *iter_user_data)
 			return;
 		}
 
-		for (p = 1; p <= fabric1_node->numports; p++) {
-			fabric1_port = fabric1_node->ports[p];
-			fabric2_port = fabric2_node->ports[p];
-			if ((fabric1_port && !fabric2_port)
-			    || ((fabric1_port && fabric2_port)
-				&& (fabric1_port->remoteport && !fabric2_port->remoteport))) {
-				diff_iter_out_header(fabric1_node, data, &out_header_flag);
-				(*data->out_port)(fabric1_port, 0, data->fabric1_prefix);
-			}
-			else if ((!fabric1_port && fabric2_port)
-				 || ((fabric1_port && fabric2_port)
-				     && (!fabric1_port->remoteport && fabric2_port->remoteport))) {
-				diff_iter_out_header(fabric1_node, data, &out_header_flag);
-				(*data->out_port)(fabric2_port, 0, data->fabric2_prefix);
-			}
-			else if ((fabric1_port && fabric2_port)
-				 && ((fabric1_port->guid != fabric2_port->guid)
-				     || ((fabric1_port->remoteport && fabric2_port->remoteport)
-					 && (fabric1_port->remoteport->guid != fabric2_port->remoteport->guid)))) {
-				diff_iter_out_header(fabric1_node, data, &out_header_flag);
-				(*data->out_port)(fabric1_port, 0, data->fabric1_prefix);
-				(*data->out_port)(fabric2_port, 0, data->fabric2_prefix);
-			}
-		}
+		if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION
+		    || data->diff_flags & DIFF_FLAG_LID)
+			diff_ports(fabric1_node,
+				   fabric2_node,
+				   &out_header_flag,
+				   data);
 	}
 }
 
@@ -719,7 +800,8 @@ static int diff_common(ibnd_fabric_t * orig_fabric,
 		       ibnd_fabric_t * new_fabric,
 		       int node_type,
 		       uint32_t diff_flags,
-		       void (*out_header)(ibnd_node_t *, int, char *, char *),
+		       void (*out_header)(ibnd_node_t *, int, char *, char *, char*),
+		       void (*out_header_detail)(ibnd_node_t *, char *),
 		       void (*out_port)(ibnd_port_t *, int, char *))
 {
 	struct iter_diff_data iter_diff_data;
@@ -730,6 +812,7 @@ static int diff_common(ibnd_fabric_t * orig_fabric,
 	iter_diff_data.fabric1_prefix = "< ";
 	iter_diff_data.fabric2_prefix = "> ";
 	iter_diff_data.out_header = out_header;
+	iter_diff_data.out_header_detail = out_header_detail;
 	iter_diff_data.out_port = out_port;
 	ibnd_iter_nodes_type(orig_fabric, diff_iter_func,
 			     node_type, &iter_diff_data);
@@ -743,11 +826,14 @@ static int diff_common(ibnd_fabric_t * orig_fabric,
 	 * orig and new).
 	 */
 	iter_diff_data.diff_flags = diff_flags & ~DIFF_FLAG_PORT_CONNECTION;
+	iter_diff_data.diff_flags &= ~DIFF_FLAG_LID;
+	iter_diff_data.diff_flags &= ~DIFF_FLAG_NODE_DESCRIPTION;
 	iter_diff_data.fabric1 = new_fabric;
 	iter_diff_data.fabric2 = orig_fabric;
 	iter_diff_data.fabric1_prefix = "> ";
 	iter_diff_data.fabric2_prefix = "< ";
 	iter_diff_data.out_header = out_header;
+	iter_diff_data.out_header_detail = out_header_detail;
 	iter_diff_data.out_port = out_port;
 	ibnd_iter_nodes_type(new_fabric, diff_iter_func,
 			     node_type, &iter_diff_data);
@@ -763,6 +849,7 @@ int diff(ibnd_fabric_t * orig_fabric, ibnd_fabric_t * new_fabric)
 			    IB_NODE_SWITCH,
 			    diffcheck_flags,
 			    out_switch,
+			    out_switch_detail,
 			    out_switch_port);
 
 	if (diffcheck_flags & DIFF_FLAG_CA)
@@ -771,6 +858,7 @@ int diff(ibnd_fabric_t * orig_fabric, ibnd_fabric_t * new_fabric)
 			    IB_NODE_CA,
 			    diffcheck_flags,
 			    out_ca,
+			    out_ca_detail,
 			    out_ca_port);
 
 	if (diffcheck_flags & DIFF_FLAG_ROUTER)
@@ -779,6 +867,7 @@ int diff(ibnd_fabric_t * orig_fabric, ibnd_fabric_t * new_fabric)
 			    IB_NODE_ROUTER,
 			    diffcheck_flags,
 			    out_ca,
+			    out_ca_detail,
 			    out_ca_port);
 
 
@@ -816,6 +905,10 @@ static int process_opt(void *context, int ch, char *optarg)
 				diffcheck_flags |= DIFF_FLAG_ROUTER;
 			else if (!strcasecmp(p, "port"))
 				diffcheck_flags |= DIFF_FLAG_PORT_CONNECTION;
+			else if (!strcasecmp(p, "lid"))
+				diffcheck_flags |= DIFF_FLAG_LID;
+			else if (!strcasecmp(p, "nodedesc"))
+				diffcheck_flags |= DIFF_FLAG_NODE_DESCRIPTION;
 			else {
 				fprintf(stderr, "invalid diff check key: %s\n", p);
 				return -1;
