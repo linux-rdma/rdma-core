@@ -96,6 +96,9 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 	ibnd_scan_t *scan = engine->user_data;
 	ibnd_fabric_t *fabric = scan->fabric;
 
+	if (scan->max_hops && fabric->maxhops_discovered >= scan->max_hops)
+		return 0;
+
 	if (portid->lid) {
 		/* If we were LID routed we need to set up the drslid */
 		if (!scan->selfportid.lid)
@@ -198,7 +201,7 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	    == IB_PORT_PHYS_STATE_LINKUP
 	    && (node->type == IB_NODE_SWITCH || node == fabric->from_node)) {
 		ib_portid_t path = smp->path;
-		if (extend_dpath(engine, &path, port_num) != -1)
+		if (extend_dpath(engine, &path, port_num) > 0)
 			query_node_info(engine, &path, node);
 	}
 
@@ -471,16 +474,11 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 {
 	ibnd_fabric_t *fabric = NULL;
 	ib_portid_t my_portid = { 0 };
-	int max_hops = MAXHOPS - 1;	/* default find everything */
 	smp_engine_t engine;
 	ibnd_scan_t scan;
 
 	if (_check_ibmad_port(ibmad_port) < 0)
 		return NULL;
-
-	/* if not everything how much? */
-	if (hops >= 0)
-		max_hops = hops;
 
 	/* If not specified start from "my" port */
 	if (!from)
@@ -496,6 +494,8 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 	memset(&scan.selfportid, 0, sizeof(scan.selfportid));
 	scan.fabric = fabric;
+	if (hops >= 0)
+		scan.max_hops = hops;
 
 	smp_engine_init(&engine, ibmad_port, &scan, max_smps_on_wire);
 
