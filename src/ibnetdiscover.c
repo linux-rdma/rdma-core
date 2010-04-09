@@ -444,8 +444,9 @@ int dump_topology(int group, ibnd_fabric_t * fabric)
 
 	fprintf(f, "#\n# Topology file: generated on %s#\n", ctime(&t));
 	if (report_max_hops)
-		fprintf(f, "# Reported max hops discovered: %d\n",
-			fabric->maxhops_discovered);
+		fprintf(f, "# Reported max hops discovered: %u\n"
+			"# Total MADs used: %u\n",
+			fabric->maxhops_discovered, fabric->total_mads_used);
 	fprintf(f, "# Initiated from node %016" PRIx64 " port %016" PRIx64 "\n",
 		fabric->from_node->guid,
 		mad_get_field64(fabric->from_node->info, 0,
