@@ -501,6 +501,10 @@ static int _fill_port(ibnd_fabric_cache_t * fabric_cache, ibnd_node_t * node,
 
 	node->ports[port_cache->port->portnum] = port_cache->port;
 
+	/* achu: needed if user wishes to re-cache a loaded fabric.
+	 * Otherwise, mostly unnecessary to do this.
+	 */
+	add_to_portguid_hash(port_cache->port, fabric_cache->fabric->portstbl);
 	return 0;
 }
 
