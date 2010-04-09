@@ -58,7 +58,7 @@
 typedef struct ibnd_scan {
 	ib_portid_t selfportid;
 	ibnd_fabric_t *fabric;
-	unsigned max_hops;
+	struct ibnd_config *cfg;
 } ibnd_scan_t;
 
 typedef struct ibnd_smp ibnd_smp_t;

@@ -61,13 +61,11 @@ static uint64_t guid = 0;
 static char *guid_str = NULL;
 static char *dr_path = NULL;
 static int all = 0;
-static int hops = 0;
 
 static int down_links_only = 0;
 static int line_mode = 0;
 static int add_sw_settings = 0;
 static int print_port_guids = 0;
-static int outstanding_smps = 0; /* use default from lib */
 
 static unsigned int get_max(unsigned int num)
 {
@@ -242,6 +240,7 @@ void print_switch(ibnd_node_t * node, void *user_data)
 
 static int process_opt(void *context, int ch, char *optarg)
 {
+	struct ibnd_config *cfg = context;
 	switch (ch) {
 	case 1:
 		node_name_map_file = strdup(optarg);
@@ -260,7 +259,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		all = 1;
 		break;
 	case 'n':
-		hops = (int)strtol(optarg, NULL, 0);
+		cfg->max_hops = strtoul(optarg, NULL, 0);
 		break;
 	case 'd':
 		down_links_only = 1;
@@ -277,7 +276,7 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'R':		/* nop */
 		break;
 	case 'o':
-		outstanding_smps = atoi(optarg);
+		cfg->max_smps = strtoul(optarg, NULL, 0);
 		break;
 	default:
 		return -1;
@@ -288,6 +287,7 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
+	struct ibnd_config config = { 0 };
 	int rc = 0;
 	int resolved = -1;
 	ibnd_fabric_t *fabric = NULL;
@@ -324,14 +324,11 @@ int main(int argc, char **argv)
 	};
 	char usage_args[] = "";
 
-	ibdiag_process_opts(argc, argv, NULL, "SDandlpgRGL", opts, process_opt,
-			    usage_args, NULL);
+	ibdiag_process_opts(argc, argv, &config, "SDandlpgRGL", opts,
+			    process_opt, usage_args, NULL);
 
 	argc -= optind;
 	argv += optind;
-
-	if (ibverbose)
-		ibnd_debug(1);
 
 	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!ibmad_port) {
@@ -344,9 +341,6 @@ int main(int argc, char **argv)
 		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 
 	node_name_map = open_node_name_map(node_name_map_file);
-
-	if (outstanding_smps)
-		ibnd_set_max_smps_on_wire(outstanding_smps);
 
 	if (dr_path && load_cache_file) {
 		fprintf(stderr, "Cannot specify cache and direct route path\n");
@@ -377,12 +371,12 @@ int main(int argc, char **argv)
 	} else {
 		if (resolved >= 0 &&
 		    !(fabric =
-		      ibnd_discover_fabric(ibmad_port, &port_id, hops)))
+		      ibnd_discover_fabric(ibmad_port, &port_id, &config)))
 			IBWARN("Single node discover failed;"
 			       " attempting full scan\n");
 
 		if (!fabric &&
-		    !(fabric = ibnd_discover_fabric(ibmad_port, NULL, -1))) {
+		    !(fabric = ibnd_discover_fabric(ibmad_port, NULL, &config))) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
 			goto close_port;

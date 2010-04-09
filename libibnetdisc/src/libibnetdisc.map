@@ -1,7 +1,5 @@
 IBNETDISC_1.0 {
 	global:
-		ibnd_debug;
-		ibnd_show_progress;
 		ibnd_discover_fabric;
 		ibnd_destroy_fabric;
 		ibnd_load_fabric;
@@ -16,6 +14,5 @@ IBNETDISC_1.0 {
 		ibnd_get_chassis_slot_str;
 		ibnd_iter_nodes;
 		ibnd_iter_nodes_type;
-		ibnd_set_max_smps_on_wire;
 	local: *;
 };

@@ -129,6 +129,14 @@ typedef struct ibnd_chassis {
 
 #define HTSZ 137
 
+typedef struct ibnd_config {
+	unsigned max_smps;
+	unsigned show_progress;
+	unsigned max_hops;
+	unsigned debug;
+	uint8_t pad[64];
+} ibnd_config_t;
+
 /** =========================================================================
  * Fabric
  * Main fabric object which is returned and represents the data discovered
@@ -157,12 +165,10 @@ typedef struct ibnd_fabric {
 /** =========================================================================
  * Initialization (fabric operations)
  */
-MAD_EXPORT void ibnd_debug(int i);
-MAD_EXPORT void ibnd_show_progress(int i);
-MAD_EXPORT int ibnd_set_max_smps_on_wire(int i);
 
 MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
-					       ib_portid_t * from, int hops);
+					       ib_portid_t * from,
+					       struct ibnd_config *config);
 	/**
 	 * open: (required) ibmad_port object from libibmad
 	 * from: (optional) specify the node to start scanning from.

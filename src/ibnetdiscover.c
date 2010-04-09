@@ -79,7 +79,6 @@ static char *diff_cache_file = NULL;
 static unsigned diffcheck_flags = DIFF_FLAG_DEFAULT;
 
 static int report_max_hops = 0;
-static int outstanding_smps = 0; /* use default from lib */
 
 /**
  * Define our own conversion functions to maintain compatibility with the old
@@ -859,6 +858,7 @@ static int list, group, ports_report;
 
 static int process_opt(void *context, int ch, char *optarg)
 {
+	struct ibnd_config *cfg = context;
 	char *p;
 
 	switch (ch) {
@@ -899,7 +899,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		}
 		break;
 	case 's':
-		ibnd_show_progress(1);
+		cfg->show_progress = 1;
 		break;
 	case 'l':
 		list = LIST_CA_NODE | LIST_SWITCH_NODE | LIST_ROUTER_NODE;
@@ -923,7 +923,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		report_max_hops = 1;
 		break;
 	case 'o':
-		outstanding_smps = atoi(optarg);
+		cfg->max_smps = strtoul(optarg, NULL, 0);
 		break;
 	default:
 		return -1;
@@ -934,6 +934,7 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
+	struct ibnd_config config = { 0 };
 	ibnd_fabric_t *fabric = NULL;
 	ibnd_fabric_t *diff_fabric = NULL;
 
@@ -966,16 +967,13 @@ int main(int argc, char **argv)
 	};
 	char usage_args[] = "[topology-file]";
 
-	ibdiag_process_opts(argc, argv, NULL, "sGDL", opts, process_opt,
+	ibdiag_process_opts(argc, argv, &config, "sGDL", opts, process_opt,
 			    usage_args, NULL);
 
 	f = stdout;
 
 	argc -= optind;
 	argv += optind;
-
-	if (ibverbose)
-		ibnd_debug(1);
 
 	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 	if (!ibmad_port)
@@ -989,9 +987,6 @@ int main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (outstanding_smps)
-		ibnd_set_max_smps_on_wire(outstanding_smps);
-
 	if (diff_cache_file &&
 	    !(diff_fabric = ibnd_load_fabric(diff_cache_file, 0)))
 		IBERROR("loading cached fabric for diff failed\n");
@@ -1001,7 +996,7 @@ int main(int argc, char **argv)
 			IBERROR("loading cached fabric failed\n");
 	} else {
 		if ((fabric =
-		     ibnd_discover_fabric(ibmad_port, NULL, -1)) == NULL)
+		     ibnd_discover_fabric(ibmad_port, NULL, &config)) == NULL)
 			IBERROR("discover failed\n");
 	}
 

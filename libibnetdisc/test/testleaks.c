@@ -77,6 +77,7 @@ void usage(void)
 
 int main(int argc, char **argv)
 {
+	struct ibnd_config config = { 0 };
 	int rc = 0;
 	char *ca = 0;
 	int ca_port = 0;
@@ -84,7 +85,6 @@ int main(int argc, char **argv)
 	uint64_t guid = 0;
 	char *dr_path = NULL;
 	char *from = NULL;
-	int hops = 0;
 	ib_portid_t port_id;
 	int iters = -1;
 
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 			break;
 		switch (ch) {
 		case 2:
-			ibnd_debug(1);
+			config.debug++;
 			break;
 		case 'f':
 			from = strdup(optarg);
@@ -133,7 +133,7 @@ int main(int argc, char **argv)
 			dr_path = strdup(optarg);
 			break;
 		case 'n':
-			hops = (int)strtol(optarg, NULL, 0);
+			config.max_hops = strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
 			iters = (int)strtol(optarg, NULL, 0);
@@ -161,21 +161,18 @@ int main(int argc, char **argv)
 			/* only scan part of the fabric */
 			str2drpath(&(port_id.drpath), from, 0, 0);
 			if ((fabric = ibnd_discover_fabric(ibmad_port,
-							   &port_id,
-							   hops)) == NULL) {
+							   &port_id, &config))
+			    == NULL) {
 				fprintf(stderr, "discover failed\n");
 				rc = 1;
 				goto close_port;
 			}
 			guid = 0;
-		} else {
-			if ((fabric =
-			     ibnd_discover_fabric(ibmad_port, NULL,
-						  -1)) == NULL) {
-				fprintf(stderr, "discover failed\n");
-				rc = 1;
-				goto close_port;
-			}
+		} else if ((fabric = ibnd_discover_fabric(ibmad_port, NULL,
+							  &config)) == NULL) {
+			fprintf(stderr, "discover failed\n");
+			rc = 1;
+			goto close_port;
 		}
 
 		ibnd_destroy_fabric(fabric);

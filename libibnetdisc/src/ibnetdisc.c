@@ -54,10 +54,6 @@
 #include "internal.h"
 #include "chassis.h"
 
-static int show_progress = 0;
-static int max_smps_on_wire = DEFAULT_MAX_SMP_ON_WIRE;
-int ibdebug;
-
 /* forward declare */
 static int query_node_info(smp_engine_t * engine, ib_portid_t * portid,
 			   ibnd_node_t * node);
@@ -96,7 +92,8 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 	ibnd_scan_t *scan = engine->user_data;
 	ibnd_fabric_t *fabric = scan->fabric;
 
-	if (scan->max_hops && fabric->maxhops_discovered >= scan->max_hops)
+	if (scan->cfg->max_hops &&
+	    fabric->maxhops_discovered >= scan->cfg->max_hops)
 		return 0;
 
 	if (portid->lid) {
@@ -289,7 +286,8 @@ static void dump_endnode(ib_portid_t * path, char *prompt,
 static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			  uint8_t * mad, void *cb_data)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	ibnd_scan_t *scan = engine->user_data;
+	ibnd_fabric_t *fabric = scan->fabric;
 	int i = 0;
 	uint8_t *node_info = mad + IB_SMP_DATA_OFFS;
 	ibnd_node_t *rem_node = cb_data;
@@ -319,7 +317,7 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	}
 	port->guid = port_guid;
 
-	if (show_progress)
+	if (scan->cfg->show_progress)
 		dump_endnode(&smp->path, node_is_new ? "new" : "known",
 			     node, port);
 
@@ -462,16 +460,10 @@ void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 	}
 }
 
-int ibnd_set_max_smps_on_wire(int i)
+ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
+				    ib_portid_t * from, struct ibnd_config *cfg)
 {
-	int rc = max_smps_on_wire;
-	max_smps_on_wire = i;
-	return rc;
-}
-
-ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
-				    ib_portid_t * from, int hops)
-{
+	struct ibnd_config default_config = { 0 };
 	ibnd_fabric_t *fabric = NULL;
 	ib_portid_t my_portid = { 0 };
 	smp_engine_t engine;
@@ -494,10 +486,10 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 
 	memset(&scan.selfportid, 0, sizeof(scan.selfportid));
 	scan.fabric = fabric;
-	if (hops >= 0)
-		scan.max_hops = hops;
+	scan.cfg = cfg ? cfg : &default_config;
 
-	smp_engine_init(&engine, ibmad_port, &scan, max_smps_on_wire);
+	smp_engine_init(&engine, ibmad_port, &scan, cfg->max_smps ?
+			cfg->max_smps : DEFAULT_MAX_SMP_ON_WIRE);
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 
@@ -552,24 +544,6 @@ void ibnd_destroy_fabric(ibnd_fabric_t * fabric)
 		node = next;
 	}
 	free(fabric);
-}
-
-void ibnd_debug(int i)
-{
-	if (i) {
-		ibdebug++;
-		madrpc_show_errors(1);
-		umad_debug(i);
-	} else {
-		ibdebug = 0;
-		madrpc_show_errors(0);
-		umad_debug(0);
-	}
-}
-
-void ibnd_show_progress(int i)
-{
-	show_progress = i;
 }
 
 void ibnd_iter_nodes(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,

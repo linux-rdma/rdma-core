@@ -70,7 +70,6 @@ enum MAD_FIELDS suppressed_fields[SUP_MAX];
 char *dr_path = NULL;
 uint8_t node_type_to_print = 0;
 unsigned clear_errors = 0, clear_counts = 0, details = 0;
-static int outstanding_smps = 0; /* use default from lib */
 
 #define PRINT_SWITCH 0x1
 #define PRINT_CA     0x2
@@ -483,6 +482,7 @@ static void calculate_suppressed_fields(char *str)
 
 static int process_opt(void *context, int ch, char *optarg)
 {
+	struct ibnd_config *cfg = context;
 	switch (ch) {
 	case 's':
 		calculate_suppressed_fields(optarg);
@@ -532,7 +532,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		clear_counts = 1;
 		break;
 	case 'o':
-		outstanding_smps = atoi(optarg);
+		cfg->max_smps = strtoul(optarg, NULL, 0);
 		break;
 	default:
 		return -1;
@@ -543,6 +543,7 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
+	struct ibnd_config config = { 0 };
 	int resolved = -1;
 	ib_portid_t portid = { 0 };
 	int rc = 0;
@@ -586,7 +587,7 @@ int main(int argc, char **argv)
 	char usage_args[] = "";
 
 	memset(suppressed_fields, 0, sizeof suppressed_fields);
-	ibdiag_process_opts(argc, argv, NULL, "scnSrRDGL", opts, process_opt,
+	ibdiag_process_opts(argc, argv, &config, "scnSrRDGL", opts, process_opt,
 			    usage_args, NULL);
 
 	argc -= optind;
@@ -594,9 +595,6 @@ int main(int argc, char **argv)
 
 	if (!node_type_to_print)
 		node_type_to_print = PRINT_ALL;
-
-	if (ibverbose)
-		ibnd_debug(1);
 
 	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 4);
 	if (!ibmad_port)
@@ -606,9 +604,6 @@ int main(int argc, char **argv)
 		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 
 	node_name_map = open_node_name_map(node_name_map_file);
-
-	if (outstanding_smps)
-		ibnd_set_max_smps_on_wire(outstanding_smps);
 
 	if (dr_path && load_cache_file) {
 		fprintf(stderr, "Cannot specify cache and direct route path\n");
@@ -642,8 +637,8 @@ int main(int argc, char **argv)
 			IBWARN("Single node discover failed;"
 			       " attempting full scan");
 
-		if (!fabric &&
-		    !(fabric = ibnd_discover_fabric(ibmad_port, NULL, -1))) {
+		if (!fabric && !(fabric = ibnd_discover_fabric(ibmad_port, NULL,
+							       &config))) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
 			goto close_port;
