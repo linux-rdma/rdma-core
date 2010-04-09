@@ -39,6 +39,8 @@
 #include <search.h>
 #include "acm_mad.h"
 
+#define src_out     reserved[0]
+
 #define MAX_EP_ADDR 4
 #define MAX_EP_MC   2
 
@@ -687,15 +689,23 @@ acm_client_resolve_resp(struct acm_ep *ep, struct acm_client *client,
 	resp_msg->hdr.opcode |= ACM_OP_ACK;
 	resp_msg->hdr.status = status;
 	resp_msg->hdr.length = ACM_MSG_HDR_LENGTH;
+	memset(resp_msg->hdr.reserved, 0, sizeof(resp_msg->hdr.reserved));
+	if (status)
+		goto send_resp;
 
-	if (!status) {
+	resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
+	resp_msg->data[0].flags = IB_PATH_FLAG_GMP |
+		IB_PATH_FLAG_PRIMARY | IB_PATH_FLAG_BIDIRECTIONAL;
+	resp_msg->data[0].type = ACM_EP_INFO_PATH;
+	resp_msg->data[0].info.path = dest->path;
+
+	if (req_msg->hdr.src_out) {
 		resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
-		resp_msg->data[0].flags = IB_PATH_FLAG_GMP |
-			IB_PATH_FLAG_PRIMARY | IB_PATH_FLAG_BIDIRECTIONAL;
-		resp_msg->data[0].type = ACM_EP_INFO_PATH;
-		resp_msg->data[0].info.path = dest->path;
+		memcpy(&resp_msg->data[1], &req_msg->data[req_msg->hdr.src_out],
+			ACM_MSG_EP_LENGTH);
 	}
 
+send_resp:
 	ret = send(client->sock, (char *) resp_msg, resp_msg->hdr.length, 0);
 	if (ret != resp_msg->hdr.length)
 		acm_log(0, "failed to send response\n");
@@ -1510,26 +1520,123 @@ acm_send_resolve(struct acm_ep *ep, struct acm_ep_addr_data *saddr,
 	return 0;
 }
 
-static uint8_t
-acm_svr_verify_resolve(struct acm_resolve_msg *msg)
+static int acm_select_src(struct acm_ep_addr_data *src, struct acm_ep_addr_data *dst)
 {
-	if (msg->hdr.length != ACM_MSG_HDR_LENGTH + 2 * ACM_MSG_EP_LENGTH) {
+	struct sockaddr_in6 addr;
+	socklen_t len;
+	int ret;
+	SOCKET s;
+
+	if (src->type)
+		return 0;
+
+	acm_log(2, "selecting source address\n");
+	memset(&addr, 0, sizeof addr);
+	if (dst->type == ACM_EP_INFO_ADDRESS_IP) {
+		((struct sockaddr_in *) &addr)->sin_family = AF_INET;
+		memcpy(&((struct sockaddr_in *) &addr)->sin_addr, dst->info.addr, 4);
+		len = sizeof(struct sockaddr_in);
+	} else {
+		addr.sin6_family = AF_INET6;
+		memcpy(&addr.sin6_addr, dst->info.addr, 16);
+		len = sizeof(struct sockaddr_in6);
+	}
+
+	s = socket(addr.sin6_family, SOCK_DGRAM, IPPROTO_UDP);
+	if (s == INVALID_SOCKET) {
+		acm_log(0, "ERROR - unable to allocate socket\n");
+		return socket_errno();
+	}
+
+	ret = connect(s, &addr, len);
+	if (ret) {
+		acm_log(0, "ERROR - unable to connect socket\n");
+		ret = socket_errno();
+		goto out;
+	}
+
+	ret = getsockname(s, &addr, &len);
+	if (ret) {
+		acm_log(0, "ERROR - failed to get socket address\n");
+		ret = socket_errno();
+		goto out;
+	}
+
+	src->type = dst->type;
+	src->flags = ACM_EP_FLAG_SOURCE;
+	if (dst->type == ACM_EP_INFO_ADDRESS_IP) {
+		memcpy(&src->info.addr, &((struct sockaddr_in *) &addr)->sin_addr, 4);
+	} else {
+		memcpy(&src->info.addr, &((struct sockaddr_in6 *) &addr)->sin6_addr, 16);
+	}
+out:
+	close(s);
+	return ret;
+}
+
+/*
+ * Verify the resolve message from the client and return
+ * references to the source and destination addresses.
+ * The message buffer contains extra address data buffers.  If a
+ * source address is not given, reference an empty address buffer,
+ * and we'll resolve a source address later.
+ */
+static uint8_t
+acm_svr_verify_resolve(struct acm_resolve_msg *msg,
+	struct acm_ep_addr_data **saddr, struct acm_ep_addr_data **daddr)
+{
+	struct acm_ep_addr_data *src = NULL, *dst = NULL;
+	int i, cnt;
+
+	if (msg->hdr.length < ACM_MSG_HDR_LENGTH) {
 		acm_log(0, "ERROR - invalid msg hdr length %d\n", msg->hdr.length);
 		return ACM_STATUS_EINVAL;
 	}
 
-	if ((msg->data[0].flags != ACM_EP_FLAG_SOURCE) ||
-	    !msg->data[0].type || (msg->data[0].type >= ACM_ADDRESS_RESERVED)) {
-		acm_log(0, "ERROR - source address required first\n");
-		return ACM_STATUS_ESRCTYPE;
+	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
+	for (i = 0; i < cnt; i++) {
+		switch (msg->data[i].flags) {
+		case ACM_EP_FLAG_SOURCE:
+			if (src) {
+				acm_log(0, "ERROR - multiple sources specified\n");
+				return ACM_STATUS_ESRCADDR;
+			}
+			if (!msg->data[i].type || (msg->data[i].type >= ACM_ADDRESS_RESERVED)) {
+				acm_log(0, "ERROR - unsupported source address type\n");
+				return ACM_STATUS_ESRCTYPE;
+			}
+			src = &msg->data[i];
+			break;
+		case ACM_EP_FLAG_DEST:
+			if (dst) {
+				acm_log(0, "ERROR - multiple destinations specified\n");
+				return ACM_STATUS_EDESTADDR;
+			}
+			if (!msg->data[i].type || (msg->data[i].type >= ACM_ADDRESS_RESERVED)) {
+				acm_log(0, "ERROR - unsupported destination address type\n");
+				return ACM_STATUS_EDESTTYPE;
+			}
+			dst = &msg->data[i];
+			break;
+		default:
+			acm_log(0, "ERROR - unexpected endpoint flags 0x%x\n",
+				msg->data[i].flags);
+			return ACM_STATUS_EINVAL;
+		}
 	}
 
-	if ((msg->data[1].flags != ACM_EP_FLAG_DEST) ||
-	    !msg->data[1].type || (msg->data[1].type >= ACM_ADDRESS_RESERVED)) {
-		acm_log(0, "ERROR - destination address required second\n");
+	if (!dst) {
+		acm_log(0, "ERROR - destination address required\n");
 		return ACM_STATUS_EDESTTYPE;
 	}
 
+	if (!src) {
+		msg->hdr.src_out = i;
+		src = &msg->data[i];
+		memset(src, 0, sizeof *src);
+	}
+	*saddr = src;
+	*daddr = dst;
 	return ACM_STATUS_SUCCESS;
 }
 
@@ -1542,14 +1649,17 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 	struct acm_ep_addr_data *saddr, *daddr;
 	uint8_t status;
 
-	status = acm_svr_verify_resolve(msg);
+	status = acm_svr_verify_resolve(msg, &saddr, &daddr);
 	if (status) {
 		acm_log(0, "misformatted or unsupported request\n");
 		goto resp;
 	}
 
-	saddr = &msg->data[0];
-	daddr = &msg->data[1];
+	status = acm_select_src(saddr, daddr);
+	if (status) {
+		acm_log(0, "unable to select suitable source address\n");
+		goto resp;
+	}
 
 	acm_log_ep_addr(2, "acm_svr_resolve: source ", saddr->type, saddr->info.addr);
 	ep = acm_get_ep(saddr);
