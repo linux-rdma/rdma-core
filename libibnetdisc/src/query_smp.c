@@ -36,8 +36,7 @@
 #include <infiniband/umad.h>
 #include "internal.h"
 
-void
-queue_smp(smp_engine_t *engine, ibnd_smp_t *smp)
+static void queue_smp(smp_engine_t * engine, ibnd_smp_t * smp)
 {
 	smp->qnext = NULL;
 	if (!engine->smp_queue_head) {
@@ -49,8 +48,7 @@ queue_smp(smp_engine_t *engine, ibnd_smp_t *smp)
 	}
 }
 
-ibnd_smp_t *
-get_smp(smp_engine_t *engine)
+static ibnd_smp_t *get_smp(smp_engine_t * engine)
 {
 	ibnd_smp_t *head = engine->smp_queue_head;
 	ibnd_smp_t *tail = engine->smp_queue_tail;
@@ -63,7 +61,7 @@ get_smp(smp_engine_t *engine)
 	return rc;
 }
 
-int send_smp(ibnd_smp_t * smp, struct ibmad_port *srcport)
+static int send_smp(ibnd_smp_t * smp, struct ibmad_port *srcport)
 {
 	int rc = 0;
 	uint8_t umad[1024];
@@ -89,7 +87,7 @@ int send_smp(ibnd_smp_t * smp, struct ibmad_port *srcport)
 	return 0;
 }
 
-static int process_smp_queue(smp_engine_t *engine)
+static int process_smp_queue(smp_engine_t * engine)
 {
 	int rc = 0;
 	ibnd_smp_t *smp;
@@ -98,17 +96,16 @@ static int process_smp_queue(smp_engine_t *engine)
 		if (!smp)
 			return 0;
 
-		cl_qmap_insert(&engine->smps_on_wire, (uint32_t)smp->rpc.trid,
-			       (cl_map_item_t *)smp);
+		cl_qmap_insert(&engine->smps_on_wire, (uint32_t) smp->rpc.trid,
+			       (cl_map_item_t *) smp);
 		if ((rc = send_smp(smp, engine->ibmad_port)) != 0)
 			return rc;
 	}
 	return 0;
 }
 
-int issue_smp(smp_engine_t *engine, ib_portid_t * portid,
-	      unsigned attrid, unsigned mod,
-	      smp_comp_cb_t cb, void * cb_data)
+int issue_smp(smp_engine_t * engine, ib_portid_t * portid,
+	      unsigned attrid, unsigned mod, smp_comp_cb_t cb, void *cb_data)
 {
 	ibnd_smp_t *smp = calloc(1, sizeof *smp);
 	if (!smp) {
@@ -127,22 +124,21 @@ int issue_smp(smp_engine_t *engine, ib_portid_t * portid,
 	smp->rpc.dataoffs = IB_SMP_DATA_OFFS;
 	smp->rpc.trid = mad_trid();
 
-	if ((portid->lid <= 0) ||
-	    (portid->drpath.drslid == 0xffff) ||
-	    (portid->drpath.drdlid == 0xffff))
-		smp->rpc.mgtclass = IB_SMI_DIRECT_CLASS; /* direct SMI */
+	if (portid->lid <= 0 || portid->drpath.drslid == 0xffff ||
+	    portid->drpath.drdlid == 0xffff)
+		smp->rpc.mgtclass = IB_SMI_DIRECT_CLASS;	/* direct SMI */
 	else
-		smp->rpc.mgtclass = IB_SMI_CLASS; /* Lid routed SMI */
+		smp->rpc.mgtclass = IB_SMI_CLASS;	/* Lid routed SMI */
 
 	portid->sl = 0;
 	portid->qp = 0;
 
 	engine->num_smps_outstanding++;
 	queue_smp(engine, smp);
-	return (process_smp_queue(engine));
+	return process_smp_queue(engine);
 }
 
-int process_one_recv(smp_engine_t *engine)
+static int process_one_recv(smp_engine_t * engine)
 {
 	int rc = 0;
 	int status = 0;
@@ -166,12 +162,11 @@ int process_one_recv(smp_engine_t *engine)
 	rc = process_smp_queue(engine);
 
 	mad = umad_get_mad(umad);
-	trid = (uint32_t)mad_get_field64(mad, 0, IB_MAD_TRID_F);
+	trid = (uint32_t) mad_get_field64(mad, 0, IB_MAD_TRID_F);
 
-	smp = (ibnd_smp_t *)cl_qmap_remove(&engine->smps_on_wire, trid);
-	if ((cl_map_item_t *)smp == cl_qmap_end(&engine->smps_on_wire)) {
-		IBND_ERROR("Failed to find matching smp for trid (%x)\n",
-			   trid);
+	smp = (ibnd_smp_t *) cl_qmap_remove(&engine->smps_on_wire, trid);
+	if ((cl_map_item_t *) smp == cl_qmap_end(&engine->smps_on_wire)) {
+		IBND_ERROR("Failed to find matching smp for trid (%x)\n", trid);
 		return -1;
 	}
 
@@ -180,27 +175,25 @@ int process_one_recv(smp_engine_t *engine)
 
 	if ((status = umad_status(umad))) {
 		IBND_ERROR("umad (%s Attr 0x%x:%u) bad status %d; %s\n",
-			portid2str(&smp->path),
-			smp->rpc.attr.id, smp->rpc.attr.mod,
-			status, strerror(status));
+			   portid2str(&smp->path), smp->rpc.attr.id,
+			   smp->rpc.attr.mod, status, strerror(status));
 	} else if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F))) {
-			IBND_ERROR("mad (%s Attr 0x%x:%u) bad status 0x%x\n",
-				   portid2str(&smp->path),
-				   smp->rpc.attr.id, smp->rpc.attr.mod,
-				   status);
+		IBND_ERROR("mad (%s Attr 0x%x:%u) bad status 0x%x\n",
+			   portid2str(&smp->path), smp->rpc.attr.id,
+			   smp->rpc.attr.mod, status);
 	} else
 		rc = smp->cb(engine, smp, mad, smp->cb_data);
 
 error:
 	free(smp);
 	engine->num_smps_outstanding--;
-	return (rc);
+	return rc;
 }
 
 void smp_engine_init(smp_engine_t * engine, struct ibmad_port *ibmad_port,
-		     void * user_data, int max_smps_on_wire)
+		     void *user_data, int max_smps_on_wire)
 {
-	memset(engine, '\0', sizeof(*engine));
+	memset(engine, 0, sizeof(*engine));
 	engine->ibmad_port = ibmad_port;
 	engine->user_data = user_data;
 	cl_qmap_init(&engine->smps_on_wire);
@@ -208,7 +201,7 @@ void smp_engine_init(smp_engine_t * engine, struct ibmad_port *ibmad_port,
 	engine->max_smps_on_wire = max_smps_on_wire;
 }
 
-void smp_engine_destroy(smp_engine_t *engine)
+void smp_engine_destroy(smp_engine_t * engine)
 {
 	cl_map_item_t *item;
 	ibnd_smp_t *smp;
@@ -217,15 +210,14 @@ void smp_engine_destroy(smp_engine_t *engine)
 	smp = get_smp(engine);
 	if (smp)
 		IBND_ERROR("outstanding SMP's\n");
-	for (/* */; smp; smp = get_smp(engine)) {
+	for ( /* */ ; smp; smp = get_smp(engine))
 		free(smp);
-	}
 
 	/* remove smps from the wire queue */
 	item = cl_qmap_head(&engine->smps_on_wire);
 	if (item != cl_qmap_end(&engine->smps_on_wire))
 		IBND_ERROR("outstanding SMP's on wire\n");
-	for (/* */; item != cl_qmap_end(&engine->smps_on_wire);
+	for ( /* */ ; item != cl_qmap_end(&engine->smps_on_wire);
 	     item = cl_qmap_head(&engine->smps_on_wire)) {
 		cl_qmap_remove_item(&engine->smps_on_wire, item);
 		free(item);
@@ -234,7 +226,7 @@ void smp_engine_destroy(smp_engine_t *engine)
 	engine->num_smps_outstanding = 0;
 }
 
-int process_mads(smp_engine_t *engine)
+int process_mads(smp_engine_t * engine)
 {
 	int rc = 0;
 	while (engine->num_smps_outstanding > 0) {

@@ -34,7 +34,7 @@
  */
 
 #if HAVE_CONFIG_H
-#  include <config.h>
+#include <config.h>
 #endif				/* HAVE_CONFIG_H */
 
 #define _GNU_SOURCE
@@ -377,8 +377,8 @@ static int _load_node(int fd, ibnd_fabric_cache_t * fabric_cache)
 					  &node_cache->port_cache_keys[i].guid);
 			offset +=
 			    _unmarshall8(buf + offset,
-					 &node_cache->port_cache_keys[i].
-					 portnum);
+					 &node_cache->
+					 port_cache_keys[i].portnum);
 		}
 	}
 
@@ -573,8 +573,7 @@ static int _rebuild_ports(ibnd_fabric_cache_t * fabric_cache)
 
 		if (port_cache->remoteport_flag) {
 			if (!(remoteport_cache = _find_port(fabric_cache,
-							    &port_cache->
-							    remoteport_cache_key)))
+							    &port_cache->remoteport_cache_key)))
 			{
 				IBND_DEBUG
 				    ("Cache invalid: cannot find remote port\n");

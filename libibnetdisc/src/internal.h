@@ -60,36 +60,35 @@ typedef struct ibnd_scan {
 	ibnd_fabric_t *fabric;
 } ibnd_scan_t;
 
-
 typedef struct ibnd_smp ibnd_smp_t;
 typedef struct smp_engine smp_engine_t;
-typedef int (*smp_comp_cb_t)(smp_engine_t *engine, ibnd_smp_t * smp,
-			     uint8_t *mad_resp, void *cb_data);
+typedef int (*smp_comp_cb_t) (smp_engine_t * engine, ibnd_smp_t * smp,
+			      uint8_t * mad_resp, void *cb_data);
 struct ibnd_smp {
 	cl_map_item_t on_wire;
-	struct ibnd_smp * qnext;
+	struct ibnd_smp *qnext;
 	smp_comp_cb_t cb;
-	void * cb_data;
+	void *cb_data;
 	ib_portid_t path;
 	ib_rpc_t rpc;
 };
+
 struct smp_engine {
 	struct ibmad_port *ibmad_port;
 	ibnd_smp_t *smp_queue_head;
 	ibnd_smp_t *smp_queue_tail;
-	void * user_data;
+	void *user_data;
 	cl_qmap_t smps_on_wire;
 	int num_smps_outstanding;
 	int max_smps_on_wire;
 };
 
 void smp_engine_init(smp_engine_t * engine, struct ibmad_port *ibmad_port,
-		     void * user_data, int max_smps_on_wire);
-int issue_smp(smp_engine_t *engine, ib_portid_t * portid,
-	      unsigned attrid, unsigned mod,
-	      smp_comp_cb_t cb, void * cb_data);
-int process_mads(smp_engine_t *engine);
-void smp_engine_destroy(smp_engine_t *engine);
+		     void *user_data, int max_smps_on_wire);
+int issue_smp(smp_engine_t * engine, ib_portid_t * portid,
+	      unsigned attrid, unsigned mod, smp_comp_cb_t cb, void *cb_data);
+int process_mads(smp_engine_t * engine);
+void smp_engine_destroy(smp_engine_t * engine);
 
 void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[]);
 

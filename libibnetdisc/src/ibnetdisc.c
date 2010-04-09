@@ -34,7 +34,7 @@
  */
 
 #if HAVE_CONFIG_H
-#  include <config.h>
+#include <config.h>
 #endif				/* HAVE_CONFIG_H */
 
 #define _GNU_SOURCE
@@ -59,54 +59,41 @@ static int max_smps_on_wire = DEFAULT_MAX_SMP_ON_WIRE;
 int ibdebug;
 
 /* forward declare */
-int query_node_info(smp_engine_t * engine, ib_portid_t * portid,
-		    ibnd_node_t * node);
+static int query_node_info(smp_engine_t * engine, ib_portid_t * portid,
+			   ibnd_node_t * node);
 
-
-static int recv_switch_info(smp_engine_t *engine, ibnd_smp_t * smp,
-			    uint8_t *mad, void *cb_data)
+static int recv_switch_info(smp_engine_t * engine, ibnd_smp_t * smp,
+			    uint8_t * mad, void *cb_data)
 {
 	uint8_t *switch_info = mad + IB_SMP_DATA_OFFS;
-	ibnd_node_t * node = (ibnd_node_t *)cb_data;
+	ibnd_node_t *node = cb_data;
 	memcpy(node->switchinfo, switch_info, sizeof(node->switchinfo));
 	mad_decode_field(node->switchinfo, IB_SW_ENHANCED_PORT0_F,
 			 &node->smaenhsp0);
 	return 0;
 }
+
 static int query_switch_info(smp_engine_t * engine, ib_portid_t * portid,
-		      ibnd_node_t *node)
+			     ibnd_node_t * node)
 {
 	node->smaenhsp0 = 0;	/* assume base SP0 */
-	return (issue_smp(engine, portid, IB_ATTR_SWITCH_INFO, 0, recv_switch_info,
-			  (void *)node));
+	return issue_smp(engine, portid, IB_ATTR_SWITCH_INFO, 0,
+			 recv_switch_info, node);
 }
 
 static int add_port_to_dpath(ib_dr_path_t * path, int nextport)
 {
-	if (path->cnt + 2 >= sizeof(path->p)) {
+	if (path->cnt > sizeof(path->p) - 1)
 		return -1;
-	}
 	++path->cnt;
 	path->p[path->cnt] = (uint8_t) nextport;
 	return path->cnt;
 }
 
-#if 0
-static void retract_dpath(ib_portid_t * path)
+static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
+			int nextport)
 {
-	path->drpath.cnt--;	/* restore path */
-	if (path->drpath.cnt == 0 && path->lid) {
-		/* return to lid based routing on this path */
-		path->drpath.drslid = 0;
-		path->drpath.drdlid = 0;
-	}
-}
-#endif
-
-static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid, int nextport)
-{
-	int rc = 0;
-	ibnd_scan_t *scan = (ibnd_scan_t *)engine->user_data;
+	ibnd_scan_t *scan = engine->user_data;
 	ibnd_fabric_t *fabric = scan->fabric;
 
 	if (portid->lid) {
@@ -117,37 +104,39 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid, int nextpor
 				IBND_ERROR("Failed to resolve self\n");
 				return -1;
 			}
-
 		portid->drpath.drslid = (uint16_t) scan->selfportid.lid;
 		portid->drpath.drdlid = 0xFFFF;
 	}
 
-	rc = add_port_to_dpath(&portid->drpath, nextport);
-	if (rc < 0)
+	if (add_port_to_dpath(&portid->drpath, nextport) < 0) {
 		IBND_ERROR("add port %d to DR path failed; %s\n", nextport,
 			   portid2str(portid));
+		return -1;
+	}
 
-	if (rc != -1 && portid->drpath.cnt > fabric->maxhops_discovered)
+	if (portid->drpath.cnt > fabric->maxhops_discovered)
 		fabric->maxhops_discovered = portid->drpath.cnt;
-	return rc;
+
+	return 1;
 }
 
 static int recv_node_desc(smp_engine_t * engine, ibnd_smp_t * smp,
-			  uint8_t *mad, void *cb_data)
+			  uint8_t * mad, void *cb_data)
 {
 	uint8_t *node_desc = mad + IB_SMP_DATA_OFFS;
-	ibnd_node_t *node = (ibnd_node_t *)cb_data;
+	ibnd_node_t *node = cb_data;
 	memcpy(node->nodedesc, node_desc, sizeof(node->nodedesc));
 	return 0;
 }
 
-int query_node_desc(smp_engine_t * engine, ib_portid_t * portid, ibnd_node_t *node)
+static int query_node_desc(smp_engine_t * engine, ib_portid_t * portid,
+			   ibnd_node_t * node)
 {
-	return (issue_smp(engine, portid, IB_ATTR_NODE_DESC, 0, recv_node_desc,
-			  (void *)node));
+	return issue_smp(engine, portid, IB_ATTR_NODE_DESC, 0,
+			 recv_node_desc, node);
 }
 
-static void debug_port(ib_portid_t *portid, ibnd_port_t * port)
+static void debug_port(ib_portid_t * portid, ibnd_port_t * port)
 {
 	char width[64], speed[64];
 	int iwidth;
@@ -164,11 +153,11 @@ static void debug_port(ib_portid_t *portid, ibnd_port_t * port)
 	     mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64, &ispeed));
 }
 
-static int recv_port_info(smp_engine_t *engine, ibnd_smp_t * smp,
-			  uint8_t *mad, void *cb_data)
+static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
+			  uint8_t * mad, void *cb_data)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *)engine->user_data)->fabric;
-	ibnd_node_t *node = (ibnd_node_t *)cb_data;
+	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	ibnd_node_t *node = cb_data;
 	ibnd_port_t *port;
 	uint8_t *port_info = mad + IB_SMP_DATA_OFFS;
 	uint8_t port_num, local_port;
@@ -205,12 +194,9 @@ static int recv_port_info(smp_engine_t *engine, ibnd_smp_t * smp,
 
 	debug_port(&smp->path, port);
 
-	if (port_num &&
-	    (mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
-	    == IB_PORT_PHYS_STATE_LINKUP)
-		&&
-	    (node->type == IB_NODE_SWITCH || node == fabric->from_node)) {
-
+	if (port_num && mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
+	    == IB_PORT_PHYS_STATE_LINKUP
+	    && (node->type == IB_NODE_SWITCH || node == fabric->from_node)) {
 		ib_portid_t path = smp->path;
 		if (extend_dpath(engine, &path, port_num) != -1)
 			query_node_info(engine, &path, node);
@@ -218,19 +204,20 @@ static int recv_port_info(smp_engine_t *engine, ibnd_smp_t * smp,
 
 	return 0;
 }
-int query_port_info(smp_engine_t * engine, ib_portid_t * portid,
-		    ibnd_node_t *node, int portnum)
+
+static int query_port_info(smp_engine_t * engine, ib_portid_t * portid,
+			   ibnd_node_t * node, int portnum)
 {
 	IBND_DEBUG("Query Port Info; %s (%lx):%d\n", portid2str(portid),
 		   node->guid, portnum);
-	return (issue_smp(engine, portid, IB_ATTR_PORT_INFO, portnum, recv_port_info,
-			  (void *)node));
+	return issue_smp(engine, portid, IB_ATTR_PORT_INFO, portnum,
+			 recv_port_info, node);
 }
 
 static ibnd_node_t *create_node(smp_engine_t * engine, ib_portid_t * path,
-				uint8_t *node_info)
+				uint8_t * node_info)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *)engine->user_data)->fabric;
+	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
 	ibnd_node_t *rc = calloc(1, sizeof(*rc));
 	if (!rc) {
 		IBND_ERROR("OOM: node creation failed\n");
@@ -238,9 +225,9 @@ static ibnd_node_t *create_node(smp_engine_t * engine, ib_portid_t * path,
 	}
 
 	/* decode just a couple of fields for quicker reference. */
-	mad_decode_field(node_info, IB_NODE_GUID_F, &(rc->guid));
-	mad_decode_field(node_info, IB_NODE_TYPE_F, &(rc->type));
-	mad_decode_field(node_info, IB_NODE_NPORTS_F, &(rc->numports));
+	mad_decode_field(node_info, IB_NODE_GUID_F, &rc->guid);
+	mad_decode_field(node_info, IB_NODE_TYPE_F, &rc->type);
+	mad_decode_field(node_info, IB_NODE_NPORTS_F, &rc->numports);
 
 	rc->ports = calloc(rc->numports + 1, sizeof(*rc->ports));
 	if (!rc->ports) {
@@ -265,8 +252,9 @@ static ibnd_node_t *create_node(smp_engine_t * engine, ib_portid_t * path,
 
 static int get_last_port(ib_portid_t * path)
 {
-	return (path->drpath.p[path->drpath.cnt]);
+	return path->drpath.p[path->drpath.cnt];
 }
+
 static void link_ports(ibnd_node_t * node, ibnd_port_t * port,
 		       ibnd_node_t * remotenode, ibnd_port_t * remoteport)
 {
@@ -278,17 +266,17 @@ static void link_ports(ibnd_node_t * node, ibnd_port_t * port,
 		port->remoteport->remoteport = NULL;
 	if (remoteport->remoteport)
 		remoteport->remoteport->remoteport = NULL;
-	port->remoteport = (ibnd_port_t *) remoteport;
-	remoteport->remoteport = (ibnd_port_t *) port;
+	port->remoteport = remoteport;
+	remoteport->remoteport = port;
 }
 
-static int recv_node_info(smp_engine_t *engine, ibnd_smp_t * smp,
-			  uint8_t *mad, void *cb_data)
+static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
+			  uint8_t * mad, void *cb_data)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *)engine->user_data)->fabric;
+	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
 	int i = 0;
 	uint8_t *node_info = mad + IB_SMP_DATA_OFFS;
-	ibnd_node_t * rem_node = (ibnd_node_t *)cb_data;
+	ibnd_node_t *rem_node = cb_data;
 	ibnd_node_t *node;
 	int node_is_new = 0;
 	uint64_t node_guid = mad_get_field64(node_info, 0, IB_NODE_GUID_F);
@@ -303,9 +291,8 @@ static int recv_node_info(smp_engine_t *engine, ibnd_smp_t * smp,
 			return -1;
 		node_is_new = 1;
 	}
-	IBND_DEBUG("Found %s node GUID %lx (%s)\n",
-		   (node_is_new) ? "new": "old", node->guid,
-		   portid2str(&smp->path));
+	IBND_DEBUG("Found %s node GUID %lx (%s)\n", node_is_new ? "new" : "old",
+		   node->guid, portid2str(&smp->path));
 
 	port = node->ports[port_num];
 	if (!port) {
@@ -316,7 +303,7 @@ static int recv_node_info(smp_engine_t *engine, ibnd_smp_t * smp,
 	}
 	port->guid = port_guid;
 
-	if (rem_node == NULL) /* this is the start node */
+	if (rem_node == NULL)	/* this is the start node */
 		fabric->from_node = node;
 	else {
 		/* link ports... */
@@ -326,7 +313,7 @@ static int recv_node_info(smp_engine_t *engine, ibnd_smp_t * smp,
 			IBND_ERROR("Internal Error; "
 				   "Node(%p) %lx Port %d no port created!?!?!?\n\n",
 				   rem_node, rem_node->guid, rem_port_num);
-			return (-1);
+			return -1;
 		}
 
 		link_ports(node, port, rem_node, rem_node->ports[rem_port_num]);
@@ -342,19 +329,19 @@ static int recv_node_info(smp_engine_t *engine, ibnd_smp_t * smp,
 
 	/* process all the ports on this node */
 	for (i = (node->type == IB_NODE_SWITCH) ? 0 : 1;
-		i <= node->numports; i++) {
-			query_port_info(engine, &smp->path, node, i);
+	     i <= node->numports; i++) {
+		query_port_info(engine, &smp->path, node, i);
 	}
 
 	return 0;
 }
 
-int query_node_info(smp_engine_t * engine, ib_portid_t * portid,
-		    ibnd_node_t * node)
+static int query_node_info(smp_engine_t * engine, ib_portid_t * portid,
+			   ibnd_node_t * node)
 {
 	IBND_DEBUG("Query Node Info; %s\n", portid2str(portid));
-	return (issue_smp(engine, portid, IB_ATTR_NODE_INFO, 0, recv_node_info,
-			  (void *)node));
+	return issue_smp(engine, portid, IB_ATTR_NODE_INFO, 0,
+			 recv_node_info, node);
 }
 
 ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric, uint64_t guid)
@@ -402,9 +389,8 @@ ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 
 	rc = fabric->from_node;
 
-	if (str2drpath(&path, dr_str, 0, 0) == -1) {
+	if (str2drpath(&path, dr_str, 0, 0) == -1)
 		return NULL;
-	}
 
 	for (i = 0; i <= path.cnt; i++) {
 		ibnd_port_t *remote_port = NULL;
@@ -464,7 +450,7 @@ int ibnd_set_max_smps_on_wire(int i)
 	return rc;
 }
 
-ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
+ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 				    ib_portid_t * from, int hops)
 {
 	ibnd_fabric_t *fabric = NULL;
@@ -477,9 +463,8 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 		return NULL;
 
 	/* if not everything how much? */
-	if (hops >= 0) {
+	if (hops >= 0)
 		max_hops = hops;
-	}
 
 	/* If not specified start from "my" port */
 	if (!from)
@@ -493,17 +478,16 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 
 	memset(fabric, 0, sizeof(*fabric));
 
-	memset(&(scan.selfportid), 0, sizeof(scan.selfportid));
+	memset(&scan.selfportid, 0, sizeof(scan.selfportid));
 	scan.fabric = fabric;
 
 	smp_engine_init(&engine, ibmad_port, &scan, max_smps_on_wire);
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 
-	if (!query_node_info(&engine, from, NULL)) {
+	if (!query_node_info(&engine, from, NULL))
 		if (process_mads(&engine) != 0)
 			goto error;
-	}
 
 	if (group_nodes(fabric))
 		goto error;
