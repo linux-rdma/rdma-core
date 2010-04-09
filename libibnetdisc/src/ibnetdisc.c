@@ -270,6 +270,18 @@ static void link_ports(ibnd_node_t * node, ibnd_port_t * port,
 	remoteport->remoteport = port;
 }
 
+static void dump_endnode(ib_portid_t * path, char *prompt,
+			 ibnd_node_t * node, ibnd_port_t * port)
+{
+	char type[64];
+	mad_dump_node_type(type, sizeof(type), &node->type, sizeof(int));
+	printf("%s -> %s %s {%016" PRIx64 "} portnum %d lid %d-%d \"%s\"\n",
+	       portid2str(path), prompt, type, node->guid,
+	       node->type == IB_NODE_SWITCH ? 0 : port->portnum,
+	       port->base_lid, port->base_lid + (1 << port->lmc) - 1,
+	       node->nodedesc);
+}
+
 static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			  uint8_t * mad, void *cb_data)
 {
@@ -302,6 +314,10 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 		port->portnum = port_num;
 	}
 	port->guid = port_guid;
+
+	if (show_progress)
+		dump_endnode(&smp->path, node_is_new ? "new" : "known",
+			     node, port);
 
 	if (rem_node == NULL)	/* this is the start node */
 		fabric->from_node = node;
