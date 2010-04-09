@@ -505,6 +505,8 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port * ibmad_port,
 		if (process_mads(&engine) != 0)
 			goto error;
 
+	fabric->total_mads_used = engine.total_smps;
+
 	if (group_nodes(fabric))
 		goto error;
 

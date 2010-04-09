@@ -143,7 +143,8 @@ typedef struct ibnd_fabric {
 	ibnd_node_t *nodes;
 	/* NULL terminated list of all chassis found in the fabric */
 	ibnd_chassis_t *chassis;
-	int maxhops_discovered;
+	unsigned maxhops_discovered;
+	unsigned total_mads_used;
 
 	/* internal use only */
 	ibnd_node_t *nodestbl[HTSZ];

@@ -133,6 +133,7 @@ int issue_smp(smp_engine_t * engine, ib_portid_t * portid,
 	portid->sl = 0;
 	portid->qp = 0;
 
+	engine->total_smps++;
 	engine->num_smps_outstanding++;
 	queue_smp(engine, smp);
 	return process_smp_queue(engine);

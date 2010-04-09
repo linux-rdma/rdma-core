@@ -82,6 +82,7 @@ struct smp_engine {
 	cl_qmap_t smps_on_wire;
 	int num_smps_outstanding;
 	int max_smps_on_wire;
+	unsigned total_smps;
 };
 
 void smp_engine_init(smp_engine_t * engine, struct ibmad_port *ibmad_port,
