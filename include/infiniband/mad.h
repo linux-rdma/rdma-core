@@ -1031,7 +1031,7 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_perfcounters_xmt_disc, mad_dump_perfcounters_rcv_err,
     mad_dump_portsamples_control;
 
-MAD_EXPORT int ibdebug;
+MAD_EXPORT extern int ibdebug;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #ifndef ntohll
