@@ -339,19 +339,18 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 		link_ports(node, port, rem_node, rem_node->ports[rem_port_num]);
 	}
 
-	if (!node_is_new)
-		return 0;
+	if (node_is_new) {
+		query_node_desc(engine, &smp->path, node);
 
-	query_node_desc(engine, &smp->path, node);
-
-	if (node->type == IB_NODE_SWITCH)
-		query_switch_info(engine, &smp->path, node);
-
-	/* process all the ports on this node */
-	for (i = (node->type == IB_NODE_SWITCH) ? 0 : 1;
-	     i <= node->numports; i++) {
-		query_port_info(engine, &smp->path, node, i);
+		if (node->type == IB_NODE_SWITCH) {
+			query_switch_info(engine, &smp->path, node);
+			for (i = 0; i <= node->numports; i++)
+				query_port_info(engine, &smp->path, node, i);
+		}
 	}
+	
+	if (node->type != IB_NODE_SWITCH)
+		query_port_info(engine, &smp->path, node, port_num);
 
 	return 0;
 }
