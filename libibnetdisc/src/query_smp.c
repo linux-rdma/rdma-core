@@ -96,10 +96,12 @@ static int process_smp_queue(smp_engine_t * engine)
 		if (!smp)
 			return 0;
 
-		cl_qmap_insert(&engine->smps_on_wire, (uint32_t) smp->rpc.trid,
-			       (cl_map_item_t *) smp);
 		if ((rc = send_smp(smp, engine->ibmad_port)) != 0)
 			return rc;
+		engine->num_smps_outstanding++;
+		cl_qmap_insert(&engine->smps_on_wire, (uint32_t) smp->rpc.trid,
+			       (cl_map_item_t *) smp);
+		engine->total_smps++;
 	}
 	return 0;
 }
@@ -133,8 +135,6 @@ int issue_smp(smp_engine_t * engine, ib_portid_t * portid,
 	portid->sl = 0;
 	portid->qp = 0;
 
-	engine->total_smps++;
-	engine->num_smps_outstanding++;
 	queue_smp(engine, smp);
 	return process_smp_queue(engine);
 }
