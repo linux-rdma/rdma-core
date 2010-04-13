@@ -378,7 +378,7 @@ static int get_sfb_slot(ibnd_node_t * n, ibnd_port_t * lineport)
 		n->ch_slotnum = spine4_slot_2_slb[lineport->portnum];
 		n->ch_anafanum = anafa_spine4_slot_2_slb[lineport->portnum];
 	} else {
-		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
+		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64 "\n",
 			   n->guid);
 		return -1;
 	}
@@ -419,7 +419,7 @@ static int get_router_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = ipr_slot_2_sfb4_port[spineport->portnum];
 	} else {
-		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
+		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64 "\n",
 			   spineport->node->guid);
 		return -1;
 	}
@@ -446,7 +446,7 @@ static int get_slb_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 		n->ch_slotnum = line_slot_2_sfb4[spineport->portnum];
 		n->ch_anafanum = anafa_line_slot_2_sfb4[spineport->portnum];
 	} else {
-		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64,
+		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64 "\n",
 			   spineport->node->guid);
 		return -1;
 	}

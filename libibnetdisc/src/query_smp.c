@@ -71,7 +71,7 @@ static int send_smp(ibnd_smp_t * smp, struct ibmad_port *srcport)
 
 	if ((rc = mad_build_pkt(umad, &smp->rpc, &smp->path, NULL, NULL))
 	    < 0) {
-		IBND_ERROR("mad_build_pkt failed; %d", rc);
+		IBND_ERROR("mad_build_pkt failed; %d\n", rc);
 		return rc;
 	}
 
@@ -80,7 +80,7 @@ static int send_smp(ibnd_smp_t * smp, struct ibmad_port *srcport)
 			    umad, IB_MAD_SIZE,
 			    mad_get_timeout(srcport, rpc->timeout),
 			    mad_get_retries(srcport))) < 0) {
-		IBND_ERROR("send failed; %d", rc);
+		IBND_ERROR("send failed; %d\n", rc);
 		return rc;
 	}
 
@@ -109,7 +109,7 @@ int issue_smp(smp_engine_t * engine, ib_portid_t * portid,
 {
 	ibnd_smp_t *smp = calloc(1, sizeof *smp);
 	if (!smp) {
-		IBND_ERROR("OOM");
+		IBND_ERROR("OOM\n");
 		return -ENOMEM;
 	}
 
