@@ -505,6 +505,11 @@ static int _fill_port(ibnd_fabric_cache_t * fabric_cache, ibnd_node_t * node,
 		return -1;
 	}
 
+	if (port_cache->port_stored_to_fabric) {
+		IBND_DEBUG("Cache invalid: duplicate port discovered\n");
+		return -1;
+	}
+
 	node->ports[port_cache->port->portnum] = port_cache->port;
 	port_cache->port_stored_to_fabric++;
 
