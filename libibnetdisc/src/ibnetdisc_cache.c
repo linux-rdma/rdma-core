@@ -113,6 +113,7 @@ typedef struct ibnd_node_cache {
 	ibnd_port_cache_key_t *port_cache_keys;
 	struct ibnd_node_cache *next;
 	struct ibnd_node_cache *htnext;
+	int node_stored_to_fabric;
 } ibnd_node_cache_t;
 
 typedef struct ibnd_port_cache {
@@ -122,6 +123,7 @@ typedef struct ibnd_port_cache {
 	ibnd_port_cache_key_t remoteport_cache_key;
 	struct ibnd_port_cache *next;
 	struct ibnd_port_cache *htnext;
+	int port_stored_to_fabric;
 } ibnd_port_cache_t;
 
 typedef struct ibnd_fabric_cache {
@@ -257,6 +259,9 @@ static int _load_header_info(int fd, ibnd_fabric_cache_t * fabric_cache,
 static void _destroy_ibnd_node_cache(ibnd_node_cache_t * node_cache)
 {
 	free(node_cache->port_cache_keys);
+	if (!node_cache->node_stored_to_fabric
+	    && node_cache->node)
+		destroy_node(node_cache->node);
 	free(node_cache);
 }
 
@@ -283,6 +288,9 @@ static void _destroy_ibnd_fabric_cache(ibnd_fabric_cache_t * fabric_cache)
 	while (port_cache) {
 		port_cache_next = port_cache->next;
 
+		if (!port_cache->port_stored_to_fabric
+		    && port_cache->port)
+			free(port_cache->port);
 		free(port_cache);
 
 		port_cache = port_cache_next;
@@ -387,8 +395,6 @@ static int _load_node(int fd, ibnd_fabric_cache_t * fabric_cache)
 	return 0;
 
 cleanup:
-	/* note, no need to destroy node through destroy_node(), nothing else malloced */
-	free(node);
 	_destroy_ibnd_node_cache(node_cache);
 	return -1;
 }
@@ -500,6 +506,7 @@ static int _fill_port(ibnd_fabric_cache_t * fabric_cache, ibnd_node_t * node,
 	}
 
 	node->ports[port_cache->port->portnum] = port_cache->port;
+	port_cache->port_stored_to_fabric++;
 
 	/* achu: needed if user wishes to re-cache a loaded fabric.
 	 * Otherwise, mostly unnecessary to do this.
@@ -531,6 +538,8 @@ static int _rebuild_nodes(ibnd_fabric_cache_t * fabric_cache)
 				     fabric_cache->fabric->nodestbl);
 
 		add_to_type_list(node_cache->node, fabric_cache->fabric);
+
+		node_cache->node_stored_to_fabric++;
 
 		/* Rebuild node ports array */
 

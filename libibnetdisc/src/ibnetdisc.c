@@ -511,7 +511,7 @@ error:
 	return NULL;
 }
 
-static void destroy_node(ibnd_node_t * node)
+void destroy_node(ibnd_node_t * node)
 {
 	int p = 0;
 
