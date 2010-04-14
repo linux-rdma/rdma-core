@@ -173,6 +173,7 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			IBND_ERROR("Failed to allocate port\n");
 			return -1;
 		}
+		port->guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
 	}
 
 	memcpy(port->info, port_info, sizeof(port->info));
