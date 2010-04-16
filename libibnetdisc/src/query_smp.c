@@ -96,8 +96,10 @@ static int process_smp_queue(smp_engine_t * engine)
 		if (!smp)
 			return 0;
 
-		if ((rc = send_smp(smp, engine->ibmad_port)) != 0)
+		if ((rc = send_smp(smp, engine->ibmad_port)) != 0) {
+			free(smp);
 			return rc;
+		}
 		engine->num_smps_outstanding++;
 		cl_qmap_insert(&engine->smps_on_wire, (uint32_t) smp->rpc.trid,
 			       (cl_map_item_t *) smp);
