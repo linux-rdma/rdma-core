@@ -231,12 +231,9 @@ void smp_engine_destroy(smp_engine_t * engine)
 int process_mads(smp_engine_t * engine)
 {
 	int rc = 0;
-	while (engine->num_smps_outstanding > 0) {
-		if ((rc = process_smp_queue(engine)) != 0)
-			return rc;
+	while (engine->num_smps_outstanding > 0)
 		while (!cl_is_qmap_empty(&engine->smps_on_wire))
 			if ((rc = process_one_recv(engine)) != 0)
 				return rc;
-	}
 	return 0;
 }
