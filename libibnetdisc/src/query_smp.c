@@ -162,8 +162,6 @@ static int process_one_recv(smp_engine_t * engine)
 		return -1;
 	}
 
-	rc = process_smp_queue(engine);
-
 	mad = umad_get_mad(umad);
 	trid = (uint32_t) mad_get_field64(mad, 0, IB_MAD_TRID_F);
 
@@ -173,6 +171,8 @@ static int process_one_recv(smp_engine_t * engine)
 		return -1;
 	}
 
+	engine->num_smps_outstanding--;
+	rc = process_smp_queue(engine);
 	if (rc)
 		goto error;
 
@@ -189,7 +189,6 @@ static int process_one_recv(smp_engine_t * engine)
 
 error:
 	free(smp);
-	engine->num_smps_outstanding--;
 	return rc;
 }
 
