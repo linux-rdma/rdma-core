@@ -80,7 +80,6 @@ struct smp_engine {
 	ibnd_smp_t *smp_queue_tail;
 	void *user_data;
 	cl_qmap_t smps_on_wire;
-	int num_smps_outstanding;
 	int max_smps_on_wire;
 	unsigned total_smps;
 };

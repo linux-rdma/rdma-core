@@ -100,7 +100,6 @@ static int process_smp_queue(smp_engine_t * engine)
 			free(smp);
 			return rc;
 		}
-		engine->num_smps_outstanding++;
 		cl_qmap_insert(&engine->smps_on_wire, (uint32_t) smp->rpc.trid,
 			       (cl_map_item_t *) smp);
 		engine->total_smps++;
@@ -171,7 +170,6 @@ static int process_one_recv(smp_engine_t * engine)
 		return -1;
 	}
 
-	engine->num_smps_outstanding--;
 	rc = process_smp_queue(engine);
 	if (rc)
 		goto error;
@@ -199,7 +197,6 @@ void smp_engine_init(smp_engine_t * engine, struct ibmad_port *ibmad_port,
 	engine->ibmad_port = ibmad_port;
 	engine->user_data = user_data;
 	cl_qmap_init(&engine->smps_on_wire);
-	engine->num_smps_outstanding = 0;
 	engine->max_smps_on_wire = max_smps_on_wire;
 }
 
@@ -224,16 +221,13 @@ void smp_engine_destroy(smp_engine_t * engine)
 		cl_qmap_remove_item(&engine->smps_on_wire, item);
 		free(item);
 	}
-
-	engine->num_smps_outstanding = 0;
 }
 
 int process_mads(smp_engine_t * engine)
 {
-	int rc = 0;
-	while (engine->num_smps_outstanding > 0)
-		while (!cl_is_qmap_empty(&engine->smps_on_wire))
-			if ((rc = process_one_recv(engine)) != 0)
-				return rc;
+	int rc;
+	while (!cl_is_qmap_empty(&engine->smps_on_wire))
+		if ((rc = process_one_recv(engine)) != 0)
+			return rc;
 	return 0;
 }
