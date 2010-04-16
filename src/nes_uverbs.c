@@ -1139,7 +1139,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 					cpu_to_le32(ib_wr->sg_list[sge_index].length);
 			wqe->wqe_words[NES_IWARP_RQ_WQE_STAG0_IDX+(sge_index*4)] =
 					cpu_to_le32(ib_wr->sg_list[sge_index].lkey);
-			total_payload_length += ib_wr->sg_list->length;
+			total_payload_length += ib_wr->sg_list[sge_index].length;
 		}
 		wqe->wqe_words[NES_IWARP_RQ_WQE_TOTAL_PAYLOAD_IDX] = cpu_to_le32(total_payload_length);
 
