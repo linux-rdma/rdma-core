@@ -259,8 +259,7 @@ static int _load_header_info(int fd, ibnd_fabric_cache_t * fabric_cache,
 static void _destroy_ibnd_node_cache(ibnd_node_cache_t * node_cache)
 {
 	free(node_cache->port_cache_keys);
-	if (!node_cache->node_stored_to_fabric
-	    && node_cache->node)
+	if (!node_cache->node_stored_to_fabric && node_cache->node)
 		destroy_node(node_cache->node);
 	free(node_cache);
 }
@@ -288,8 +287,7 @@ static void _destroy_ibnd_fabric_cache(ibnd_fabric_cache_t * fabric_cache)
 	while (port_cache) {
 		port_cache_next = port_cache->next;
 
-		if (!port_cache->port_stored_to_fabric
-		    && port_cache->port)
+		if (!port_cache->port_stored_to_fabric && port_cache->port)
 			free(port_cache->port);
 		free(port_cache);
 
