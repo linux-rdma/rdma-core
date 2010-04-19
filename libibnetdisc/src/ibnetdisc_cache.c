@@ -888,10 +888,18 @@ int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 		return -1;
 	}
 
-	if (!stat(file, &statbuf)) {
-		if (unlink(file) < 0) {
-			IBND_DEBUG("error removing '%s': %s\n",
-				   file, strerror(errno));
+	if (!(flags & IBND_CACHE_FABRIC_FLAG_NO_OVERWRITE)) {
+		if (!stat(file, &statbuf)) {
+			if (unlink(file) < 0) {
+				IBND_DEBUG("error removing '%s': %s\n",
+					   file, strerror(errno));
+				return -1;
+			}
+		}
+	}
+	else {
+		if (!stat(file, &statbuf)) {
+			IBND_DEBUG("file '%s' already exists\n", file);
 			return -1;
 		}
 	}

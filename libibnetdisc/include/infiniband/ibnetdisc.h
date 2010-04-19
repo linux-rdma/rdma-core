@@ -187,6 +187,9 @@ IBND_EXPORT ibnd_fabric_t *ibnd_load_fabric(const char *file,
 IBND_EXPORT int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 				 unsigned int flags);
 
+#define IBND_CACHE_FABRIC_FLAG_DEFAULT      0x0000
+#define IBND_CACHE_FABRIC_FLAG_NO_OVERWRITE 0x0001
+
 /** =========================================================================
  * Node operations
  */
