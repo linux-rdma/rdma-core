@@ -889,8 +889,11 @@ int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 	}
 
 	if (!stat(file, &statbuf)) {
-		IBND_DEBUG("file '%s' already exists\n", file);
-		return -1;
+		if (unlink(file) < 0) {
+			IBND_DEBUG("error removing '%s': %s\n",
+				   file, strerror(errno));
+			return -1;
+		}
 	}
 
 	if ((fd = open(file, O_CREAT | O_EXCL | O_WRONLY, 0644)) < 0) {
