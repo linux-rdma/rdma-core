@@ -401,6 +401,8 @@ int diff_switch(ibnd_node_t * node, ibnd_fabric_t * orig_fabric,
 static int process_opt(void *context, int ch, char *optarg)
 {
 	struct ibnd_config *cfg = context;
+	char *p;
+
 	switch (ch) {
 	case 1:
 		node_name_map_file = strdup(optarg);
@@ -410,6 +412,22 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 3:
 		diff_cache_file = strdup(optarg);
+		break;
+	case 4:
+		diffcheck_flags = 0;
+		p = strtok(optarg, ",");
+		while (p) {
+			if (!strcasecmp(p, "port"))
+				diffcheck_flags |= DIFF_FLAG_PORT_CONNECTION;
+			else if (!strcasecmp(p, "state"))
+				diffcheck_flags |= DIFF_FLAG_PORT_STATE;
+			else {
+				fprintf(stderr, "invalid diff check key: %s\n",
+					p);
+				return -1;
+			}
+			p = strtok(NULL, ",");
+		}
 		break;
 	case 'S':
 		guid_str = optarg;
@@ -481,6 +499,8 @@ int main(int argc, char **argv)
 		 "filename of ibnetdiscover cache to load"},
 		{"diff", 3, 1, "<file>",
 		 "filename of ibnetdiscover cache to diff"},
+		{"diffcheck", 4, 1, "<key(s)>",
+		 "specify checks to execute for --diff"},
 		{"outstanding_smps", 'o', 1, NULL,
 		 "specify the number of outstanding SMP's which should be "
 		 "issued during the scan"},
