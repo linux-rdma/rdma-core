@@ -55,14 +55,17 @@ for information on caching ibnetdiscover output.
 Load cached ibnetdiscover data and do a diff comparison to the current
 network or another cache.  A special diff output for iblinkinfo
 output will be displayed showing differences between the old and current
-fabric links.  See
+fabric links.  Be default, the following are compared for differences:
+port connections and port state.  See
 .B ibnetdiscover
 for information on caching ibnetdiscover output.
 .TP
 \fB\-\-diffcheck\fR <key(s)>
 Specify what diff checks should be done in the \fB\-\-diff\fR option above.
 Comma separate multiple diff check key(s).  The available diff checks
-are:\fIport\fR = port connections, \fIstate\fR = port state.
+are:\fIport\fR = port connections, \fIstate\fR = port state, \fIlid\fR = lids,
+\fInodedesc\fR = node descriptions.  If \fIport\fR is specified alongside \fIlid\fR
+or \fInodedesc\fR, remote port lids and node descriptions will also be compared.
 
 .SH AUTHOR
 .TP

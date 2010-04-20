@@ -56,6 +56,8 @@
 
 #define DIFF_FLAG_PORT_CONNECTION  0x01
 #define DIFF_FLAG_PORT_STATE       0x02
+#define DIFF_FLAG_LID              0x04
+#define DIFF_FLAG_NODE_DESCRIPTION 0x08
 
 #define DIFF_FLAG_DEFAULT (DIFF_FLAG_PORT_CONNECTION | DIFF_FLAG_PORT_STATE)
 
@@ -225,7 +227,7 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 
 void print_switch_header(ibnd_node_t *node, int *out_header_flag, char *out_prefix)
 {
-	if (!(*out_header_flag) && !line_mode) {
+	if ((!out_header_flag || !(*out_header_flag)) && !line_mode) {
 		char *remap =
 			remap_node_name(node_name_map, node->guid, node->nodedesc);
 		printf("%sSwitch 0x%016" PRIx64 " %s:\n",
@@ -309,9 +311,25 @@ void diff_switch_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
 				output_diff++;
 		}
 
+		if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION
+		    && data->diff_flags & DIFF_FLAG_LID
+		    && fabric1_port && fabric2_port
+		    && fabric1_port->remoteport && fabric2_port->remoteport
+		    && fabric1_port->remoteport->base_lid != fabric2_port->remoteport->base_lid)
+			output_diff++;
+
+		if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION
+		    && data->diff_flags & DIFF_FLAG_NODE_DESCRIPTION
+		    && fabric1_port && fabric2_port
+		    && fabric1_port->remoteport && fabric2_port->remoteport
+		    && memcmp(fabric1_port->remoteport->node->nodedesc,
+			      fabric2_port->remoteport->node->nodedesc,
+			      IB_SMP_DATA_SIZE))
+			output_diff++;
+
 		if (output_diff && fabric1_port) {
 			print_switch_header(fabric1_node,
-					    &head_print,
+					    head_print,
 					    NULL);
 			print_port(fabric1_node,
 				   fabric1_port,
@@ -320,7 +338,7 @@ void diff_switch_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
 
 		if (output_diff && fabric2_port) {
 			print_switch_header(fabric1_node,
-					    &head_print,
+					    head_print,
 					    NULL);
 			print_port(fabric2_node,
 				   fabric2_port,
@@ -341,7 +359,22 @@ void diff_switch_iter(ibnd_node_t * fabric1_node, void *iter_user_data)
 	if (!fabric2_node)
 		print_switch(fabric1_node, data->fabric1_prefix);
 	else if (data->diff_flags &
-		 (DIFF_FLAG_PORT_CONNECTION | DIFF_FLAG_PORT_STATE)) {
+		 (DIFF_FLAG_PORT_CONNECTION | DIFF_FLAG_PORT_STATE
+		  | DIFF_FLAG_LID | DIFF_FLAG_NODE_DESCRIPTION)) {
+
+		if ((data->diff_flags & DIFF_FLAG_LID
+		     && fabric1_node->smalid != fabric2_node->smalid) ||
+		    (data->diff_flags & DIFF_FLAG_NODE_DESCRIPTION
+		     && memcmp(fabric1_node->nodedesc, fabric2_node->nodedesc,
+			       IB_SMP_DATA_SIZE))) {
+			print_switch_header(fabric1_node,
+					    NULL,
+					    data->fabric1_prefix);
+			print_switch_header(fabric2_node,
+					    NULL,
+					    data->fabric2_prefix);
+			head_print++;
+		}
 
 		if (fabric1_node->numports != fabric2_node->numports) {
 			print_switch_header(fabric1_node,
@@ -378,13 +411,15 @@ int diff_switch(ibnd_node_t * node, ibnd_fabric_t * orig_fabric,
 	/* Do opposite diff to find existence of node types
 	 * in new_fabric but not in orig_fabric.
 	 *
-	 * In this diff, we don't need to check port connections
-	 * or port state since it has already been done (i.e.
-	 * checks are only done when guid exists on both
+	 * In this diff, we don't need to check port connections,
+	 * port state, lids, or node descriptions since it has already
+	 * been done (i.e. checks are only done when guid exists on both
 	 * orig and new).
 	 */
 	iter_diff_data.diff_flags = diffcheck_flags & ~DIFF_FLAG_PORT_CONNECTION;
 	iter_diff_data.diff_flags &= ~DIFF_FLAG_PORT_STATE;
+	iter_diff_data.diff_flags &= ~DIFF_FLAG_LID;
+	iter_diff_data.diff_flags &= ~DIFF_FLAG_NODE_DESCRIPTION;
 	iter_diff_data.fabric1 = new_fabric;
 	iter_diff_data.fabric2 = orig_fabric;
 	iter_diff_data.fabric1_prefix = "> ";
@@ -421,6 +456,10 @@ static int process_opt(void *context, int ch, char *optarg)
 				diffcheck_flags |= DIFF_FLAG_PORT_CONNECTION;
 			else if (!strcasecmp(p, "state"))
 				diffcheck_flags |= DIFF_FLAG_PORT_STATE;
+			else if (!strcasecmp(p, "lid"))
+				diffcheck_flags |= DIFF_FLAG_LID;
+			else if (!strcasecmp(p, "nodedesc"))
+				diffcheck_flags |= DIFF_FLAG_NODE_DESCRIPTION;
 			else {
 				fprintf(stderr, "invalid diff check key: %s\n",
 					p);
