@@ -71,7 +71,10 @@ are: \fIsw\fR = switches, \fIca\fR = channel adapters, \fIrouter\fR = routers,
 \fIport\fR = port connections, \fIlid\fR = lids, \fInodedesc\fR = node
 descriptions.  Note that \fIport\fR, \fIlid\fR, and \fInodedesc\fR are
 checked only for the node types that are specified (e.g. \fIsw\fR,
-\fIca\fR, \fIrouter\fR).
+\fIca\fR, \fIrouter\fR).  If \fIport\fR is specified alongside \fIlid\fR
+or \fInodedesc\fR, remote port lids and node descriptions will also be compared.
+
+
 .TP
 \fB\-p\fR, \fB\-\-ports\fR
 Obtain a ports report which is a

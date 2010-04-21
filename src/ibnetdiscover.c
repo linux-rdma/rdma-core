@@ -725,6 +725,26 @@ static void diff_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
 			fabric2_out++;
 		}
 
+		if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION
+		    && data->diff_flags & DIFF_FLAG_NODE_DESCRIPTION
+		    && fabric1_port && fabric2_port
+		    && fabric1_port->remoteport && fabric2_port->remoteport
+		    && memcmp(fabric1_port->remoteport->node->nodedesc,
+			      fabric2_port->remoteport->node->nodedesc,
+			      IB_SMP_DATA_SIZE)) {
+			fabric1_out++;
+			fabric2_out++;
+		}
+
+		if (data->diff_flags & DIFF_FLAG_PORT_CONNECTION
+		    && data->diff_flags & DIFF_FLAG_LID
+		    && fabric1_port && fabric2_port
+		    && fabric1_port->remoteport && fabric2_port->remoteport
+		    && fabric1_port->remoteport->base_lid != fabric2_port->remoteport->base_lid) {
+			fabric1_out++;
+			fabric2_out++;
+		}
+
 		if (fabric1_out) {
 			diff_iter_out_header(fabric1_node, data,
 					     out_header_flag);
