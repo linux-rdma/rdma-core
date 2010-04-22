@@ -39,30 +39,21 @@
 #define LIB_DESTRUCTOR
 #define CDECL_FUNC __cdecl
 
-static __inline void *zalloc(size_t size)
-{
-	void *buf;
-
-	if ((buf = malloc(size)))
-		memset(buf, 0, size);
-	return buf;
-}
-
 typedef struct { volatile LONG val; } atomic_t;
 #define atomic_inc(v) InterlockedIncrement(&(v)->val)
 #define atomic_dec(v) InterlockedDecrement(&(v)->val)
 #define atomic_get(v) ((v)->val)
 #define atomic_set(v, s) ((v)->val = s)
 
-#define event_t			HANDLE
-#define event_init(e)	*(e) = CreateEvent(NULL, FALSE, FALSE, NULL)
-#define event_signal(e)	SetEvent(*(e))
+#define event_t          HANDLE
+#define event_init(e)    *(e) = CreateEvent(NULL, FALSE, FALSE, NULL)
+#define event_signal(e)  SetEvent(*(e))
 #define event_wait(e, t) WaitForSingleObject(*(e), t)	
 
-#define lock_t			CRITICAL_SECTION
-#define lock_init		InitializeCriticalSection
-#define lock_acquire	EnterCriticalSection
-#define lock_release	LeaveCriticalSection
+#define lock_t       CRITICAL_SECTION
+#define lock_init    InitializeCriticalSection
+#define lock_acquire EnterCriticalSection
+#define lock_release LeaveCriticalSection
 
 static __inline int osd_init()
 {
@@ -75,7 +66,7 @@ static __inline void osd_close()
 	WSACleanup();
 }
 
-#define stricmp _stricmp
+#define stricmp  _stricmp
 #define strnicmp _strnicmp
 
 #define socket_errno WSAGetLastError

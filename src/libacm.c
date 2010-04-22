@@ -104,7 +104,7 @@ static int acm_format_resp(struct acm_resolve_msg *msg,
 	addr_cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) /
 		sizeof(struct acm_ep_addr_data);
 	path_data = (struct ib_path_data *)
-		zalloc(addr_cnt * sizeof(struct ib_path_data));
+		calloc(1, addr_cnt * sizeof(struct ib_path_data));
 	if (!path_data)
 		return -1;
 

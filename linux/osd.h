@@ -60,15 +60,6 @@
 #endif
 #define ntohll(x) htonll(x)
 
-static inline void *zalloc(size_t size)
-{
-	void *buf;
-
-	if ((buf = malloc(size)))
-		memset(buf, 0, size);
-	return buf;
-}
-
 typedef struct { volatile int val; } atomic_t;
 #define atomic_inc(v) (__sync_fetch_and_add(&(v)->val, 1) + 1)
 #define atomic_dec(v) (__sync_fetch_and_sub(&(v)->val, 1) - 1)
@@ -100,19 +91,19 @@ static inline int event_wait(event_t *e, int timeout)
 	return ret;
 }
 
-#define lock_t		pthread_mutex_t
-#define lock_init(x)	pthread_mutex_init(x, NULL)
-#define lock_acquire	pthread_mutex_lock
-#define lock_release	pthread_mutex_unlock
+#define lock_t       pthread_mutex_t
+#define lock_init(x) pthread_mutex_init(x, NULL)
+#define lock_acquire pthread_mutex_lock
+#define lock_release pthread_mutex_unlock
 
-#define osd_init()	0
+#define osd_init()  0
 #define osd_close()
 
-#define SOCKET int
-#define SOCKET_ERROR -1
+#define SOCKET         int
+#define SOCKET_ERROR   -1
 #define INVALID_SOCKET -1
 #define socket_errno() errno
-#define closesocket close
+#define closesocket    close
 
 static inline uint64_t time_stamp_us(void)
 {
