@@ -66,6 +66,8 @@ static nn_map_t *node_name_map = NULL;
 static char *load_cache_file = NULL;
 static char *diff_cache_file = NULL;
 static unsigned diffcheck_flags = DIFF_FLAG_DEFAULT;
+static char *filterdownports_cache_file = NULL;
+static ibnd_fabric_t *filterdownports_fabric = NULL;
 
 static uint64_t guid = 0;
 static char *guid_str = NULL;
@@ -117,6 +119,30 @@ void get_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * port)
 				      buf, 64, &max_speed));
 }
 
+int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
+{
+	ibnd_node_t *fsw;
+	ibnd_port_t *fport;
+	int fistate;
+
+	fsw = ibnd_find_node_guid(filterdownports_fabric, node->guid);
+
+	if (!fsw)
+		return 0;
+
+	if (port->portnum > fsw->numports)
+		return 0;
+
+	fport = fsw->ports[port->portnum];
+
+	if (!fport)
+		return 0;
+
+	fistate = mad_get_field(fport->info, 0, IB_PORT_STATE_F);
+
+	return (fistate == IB_LINK_DOWN) ? 1 : 0;
+}
+
 void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 {
 	char width[64], speed[64], state[64], physstate[64];
@@ -142,6 +168,11 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 	link_str[0] = '\0';
 	width_msg[0] = '\0';
 	speed_msg[0] = '\0';
+
+	if (istate == IB_LINK_DOWN
+	    && filterdownports_fabric
+	    && filterdownport_check(node, port))
+		return;
 
 	/* C14-24.2.1 states that a down port allows for invalid data to be
 	 * returned for all PortInfo components except PortState and
@@ -468,6 +499,9 @@ static int process_opt(void *context, int ch, char *optarg)
 			p = strtok(NULL, ",");
 		}
 		break;
+	case 5:
+		filterdownports_cache_file = strdup(optarg);
+		break;
 	case 'S':
 		guid_str = optarg;
 		guid = (uint64_t) strtoull(guid_str, 0, 0);
@@ -540,6 +574,8 @@ int main(int argc, char **argv)
 		 "filename of ibnetdiscover cache to diff"},
 		{"diffcheck", 4, 1, "<key(s)>",
 		 "specify checks to execute for --diff"},
+		{"filterdownports", 5, 1, "<file>",
+		 "filename of ibnetdiscover cache to filter downports"},
 		{"outstanding_smps", 'o', 1, NULL,
 		 "specify the number of outstanding SMP's which should be "
 		 "issued during the scan"},
@@ -593,6 +629,10 @@ int main(int argc, char **argv)
 	if (diff_cache_file &&
 	    !(diff_fabric = ibnd_load_fabric(diff_cache_file, 0)))
 		IBERROR("loading cached fabric for diff failed\n");
+
+	if (filterdownports_cache_file &&
+	    !(filterdownports_fabric = ibnd_load_fabric(filterdownports_cache_file, 0)))
+		IBERROR("loading cached fabric for filterdownports failed\n");
 
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL) {

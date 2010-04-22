@@ -66,6 +66,15 @@ Comma separate multiple diff check key(s).  The available diff checks
 are:\fIport\fR = port connections, \fIstate\fR = port state, \fIlid\fR = lids,
 \fInodedesc\fR = node descriptions.  If \fIport\fR is specified alongside \fIlid\fR
 or \fInodedesc\fR, remote port lids and node descriptions will also be compared.
+.TP
+\fB\-\-filterdownports\fR <filename>
+Filter downports indicated in a ibnetdiscover cache.  If a port was previously
+indicated as down in the specified cache, and is still down, do not output it in the
+resulting output.  This option may be particularly useful for environments
+where switches are not fully populated, thus much of the default iblinkinfo
+info is considered unuseful.  See
+.B ibnetdiscover
+for information on caching ibnetdiscover output.
 
 .SH AUTHOR
 .TP
