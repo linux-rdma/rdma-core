@@ -64,13 +64,13 @@ enum port_ops {
 };
 
 struct ibmad_port *srcport;
-int speed = 15;
-int width = 255;
+int speed = 0; /* no state change */
+int width = 0; /* no state change */
 int lid;
 int smlid;
 int lmc;
 int mtu;
-int vls;
+int vls = 0; /* no state change */
 
 struct {
 	const char *name;
@@ -394,12 +394,11 @@ int main(int argc, char **argv)
 			mad_set_field(data, 0, IB_PORT_STATE_F, 4);
 			break;
 		}
-		if (port_args[SPEED].set)
-			mad_set_field(data, 0, IB_PORT_LINK_SPEED_ENABLED_F,
-				      speed);
-		if (port_args[WIDTH].set)
-			mad_set_field(data, 0, IB_PORT_LINK_WIDTH_ENABLED_F,
-				      width);
+
+		/* always set enabled speed/width - defaults to NOP */
+		mad_set_field(data, 0, IB_PORT_LINK_SPEED_ENABLED_F, speed);
+		mad_set_field(data, 0, IB_PORT_LINK_WIDTH_ENABLED_F, width);
+
 		if (port_args[VLS].set)
 			mad_set_field(data, 0, IB_PORT_OPER_VLS_F, vls);
 		if (port_args[MTU].set)
