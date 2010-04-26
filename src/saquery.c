@@ -781,6 +781,31 @@ static void dump_one_lft_record(void *data)
 	printf("\n");
 }
 
+static void dump_one_guidinfo_record(void *data)
+{
+	ib_guidinfo_record_t *gir = data;
+	printf("GUIDInfo Record dump:\n"
+	       "\t\tLID........................%u\n"
+	       "\t\tBlock......................%u\n"
+	       "\t\tGUID 0.....................0x%016" PRIx64 "\n"
+	       "\t\tGUID 1.....................0x%016" PRIx64 "\n"
+	       "\t\tGUID 2.....................0x%016" PRIx64 "\n"
+	       "\t\tGUID 3.....................0x%016" PRIx64 "\n"
+	       "\t\tGUID 4.....................0x%016" PRIx64 "\n"
+	       "\t\tGUID 5.....................0x%016" PRIx64 "\n"
+	       "\t\tGUID 6.....................0x%016" PRIx64 "\n"
+	       "\t\tGUID 7.....................0x%016" PRIx64 "\n",
+	       cl_ntoh16(gir->lid), gir->block_num,
+	       cl_ntoh64(gir->guid_info.guid[0]),
+	       cl_ntoh64(gir->guid_info.guid[1]),
+	       cl_ntoh64(gir->guid_info.guid[2]),
+	       cl_ntoh64(gir->guid_info.guid[3]),
+	       cl_ntoh64(gir->guid_info.guid[4]),
+	       cl_ntoh64(gir->guid_info.guid[5]),
+	       cl_ntoh64(gir->guid_info.guid[6]),
+	       cl_ntoh64(gir->guid_info.guid[7]));
+}
+
 static void dump_one_mft_record(void *data)
 {
 	ib_mft_record_t *mftr = data;
@@ -1339,6 +1364,25 @@ static int query_lft_records(const struct query_cmd *q, bind_handle_t h,
 					&lftr, 0, dump_one_lft_record);
 }
 
+static int query_guidinfo_records(const struct query_cmd *q, bind_handle_t h,
+				  struct query_params *p, int argc, char *argv[])
+{
+	ib_guidinfo_record_t gir;
+	ib_net64_t comp_mask = 0;
+	int lid = 0, block = -1;
+
+	if (argc > 0)
+		parse_lid_and_ports(h, argv[0], &lid, &block, NULL);
+
+	memset(&gir, 0, sizeof(gir));
+	CHECK_AND_SET_VAL(lid, 16, 0, gir.lid, GIR, LID);
+	CHECK_AND_SET_VAL(block, 8, -1, gir.block_num, GIR, BLOCKNUM);
+
+	return get_and_dump_any_records(h, IB_SA_ATTR_GUIDINFORECORD, 0,
+					comp_mask, &gir, 0,
+					dump_one_guidinfo_record);
+}
+
 static int query_mft_records(const struct query_cmd *q, bind_handle_t h,
 			     struct query_params *p, int argc, char *argv[])
 {
@@ -1419,6 +1463,8 @@ static const struct query_cmd query_cmds[] = {
 	 "[[lid]/[block]]", query_lft_records},
 	{"MFTRecord", "MFTR", IB_SA_ATTR_MFTRECORD,
 	 "[[mlid]/[position]/[block]]", query_mft_records},
+	{"GUIDInfoRecord", "GIR", IB_SA_ATTR_GUIDINFORECORD,
+	 "[[lid]/[block]]", query_guidinfo_records},
 	{0}
 };
 
