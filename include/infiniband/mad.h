@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
- * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2009-2010 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -580,6 +580,13 @@ enum MAD_FIELDS {
 	 * GUIDInfo fields
 	 */
 	IB_GUID_GUID0_F,
+	IB_GUID_GUID1_F,
+	IB_GUID_GUID2_F,
+	IB_GUID_GUID3_F,
+	IB_GUID_GUID4_F,
+	IB_GUID_GUID5_F,
+	IB_GUID_GUID6_F,
+	IB_GUID_GUID7_F,
 
 	/*
 	 * ClassPortInfo fields
