@@ -511,6 +511,18 @@ static const ib_field_t ib_mad_f[] = {
 	{576, 64, "SamplesOnlyOptionMask", mad_dump_hex},
 	{0, 0},			/* IB_PSC_LAST_F */
 
+	/* GUID Info Record */
+	{BITSOFFS(0, 16), "Lid", mad_dump_uint},
+	{BITSOFFS(16, 8), "BlockNum", mad_dump_uint},
+	{64, 64, "Guid0", mad_dump_hex},
+	{128, 64, "Guid1", mad_dump_hex},
+	{192, 64, "Guid2", mad_dump_hex},
+	{256, 64, "Guid3", mad_dump_hex},
+	{320, 64, "Guid4", mad_dump_hex},
+	{384, 64, "Guid5", mad_dump_hex},
+	{448, 64, "Guid6", mad_dump_hex},
+	{512, 64, "Guid7", mad_dump_hex},
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };
