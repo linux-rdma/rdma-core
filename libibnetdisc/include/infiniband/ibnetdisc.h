@@ -121,7 +121,7 @@ typedef struct ibnd_chassis {
 	ibnd_node_t *nodes;
 
 	/* specific to voltaire type nodes */
-#define SPINES_MAX_NUM 12
+#define SPINES_MAX_NUM 18
 #define LINES_MAX_NUM 36
 	ibnd_node_t *spinenode[SPINES_MAX_NUM + 1];
 	ibnd_node_t *linenode[LINES_MAX_NUM + 1];

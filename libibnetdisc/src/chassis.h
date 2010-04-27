@@ -70,6 +70,9 @@
 #define VTR_DEVID_SFB2004		0x5a40
 #define VTR_DEVID_ISR2004		0x5a41
 #define VTR_DEVID_SRB2004		0x5a42
+#define VTR_DEVID_SLB4018		0x5a5b
+#define VTR_DEVID_SFB4700		0x5a5c
+#define VTR_DEVID_SFB4700X2		0x5a5d
 
 /* Vendor IDs (for chassis based systems) */
 #define VTR_VENDOR_ID			0x8f1	/* Voltaire */
@@ -78,7 +81,8 @@
 #define XS_VENDOR_ID			0x1397	/* Xsigo */
 
 enum ibnd_chassis_type {
-	UNRESOLVED_CT, ISR9288_CT, ISR9096_CT, ISR2012_CT, ISR2004_CT
+	UNRESOLVED_CT, ISR9288_CT, ISR9096_CT, ISR2012_CT, ISR2004_CT,
+	ISR4700_CT
 };
 enum ibnd_chassis_slot_type { UNRESOLVED_CS, LINE_CS, SPINE_CS, SRBD_CS };
 
