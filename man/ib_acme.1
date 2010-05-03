@@ -4,15 +4,16 @@ ib_acme \- test and configuration utility for the IB ACM
 .SH SYNOPSIS
 .sp
 .nf
-\fIib_acm\fR [-f addr_format] -s src_addr -d dest_addr [-v]
+\fIib_acme\fR [-f addr_format] -s src_addr -d dest_addr [-v]
 .fi
 .nf
-\fIib_acm\fR [-G] [-O]
+\fIib_acme\fR [-G] [-O]
 .fi
 .SH "DESCRIPTION"
-ib_acm provides address and route (path) resolution services
-over Infiniband.  It resolves names and IP addresses and returns path
-information needed to communicate with a remote node.
+ib_acme provides assistance configuring and testing the ib_acm service.
+The first usage of the service will test that the ib_acm is running
+and operating correctly.  The second usage model will automatically
+create address and configuration files for the ib_acm service.
 .SH "OPTIONS"
 .TP
 \-f addr_format
