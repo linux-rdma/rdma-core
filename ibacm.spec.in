@@ -49,7 +49,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %{_bindir}/*
 %{_mandir}/man1/*
-%{_mandir}/man3/*
 %{_mandir}/man7/*
 
 %changelog

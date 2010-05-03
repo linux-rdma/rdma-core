@@ -71,7 +71,9 @@ struct acm_mad
 #define ACM_ADDRESS_NAME       0x01
 #define ACM_ADDRESS_IP         0x02
 #define ACM_ADDRESS_IP6        0x03
-#define ACM_ADDRESS_RESERVED   0x04  /* start of reserved range */
+#define ACM_ADDRESS_GID        0x04
+#define ACM_ADDRESS_LID        0x05
+#define ACM_ADDRESS_RESERVED   0x06  /* start of reserved range */
 
 #define ACM_MAX_GID_COUNT        10
 

@@ -13,7 +13,7 @@ path record data using efficient mechanisms, including caching of data.
 .P
 The IB ACM provides information needed to establish a connection, but does
 not implement the communication management protocol.  It provides services
-similar to getaddrinfo, rdma_resolve_addr, and rdma_resolve_route using
+similar to rdma_getaddrinfo, rdma_resolve_addr, and rdma_resolve_route using
 IB multicast.
 The IB ACM does not require IPoIB or use standard naming services, such as
 DNS, and limits network communication, especially with the IB SA.
@@ -22,8 +22,7 @@ not support all cluster configurations.  The ib_acme utility assists in
 verifying what options of the ib_acm service may be usable.
 .P
 Client interactions with the ib_acm service are done over sockets through
-a standard TCP connection.  The libibacm abstracts this interaction with
-a simple set of interfaces.
+a standard TCP connection.  The librdmacm abstracts this interaction.
 .SH "RETURN CODES"
 .IP "== 0"
 success
