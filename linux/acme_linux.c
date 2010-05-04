@@ -40,7 +40,6 @@
 #include <sys/types.h>
 
 #include <infiniband/verbs.h>
-#include <infiniband/ib_acm.h>
 
 extern struct ibv_context **verbs;
 extern int dev_cnt;

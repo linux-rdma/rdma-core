@@ -1094,7 +1094,7 @@ static void acm_process_acm_recv(struct acm_ep *ep, struct ibv_wc *wc, struct ac
 }
 
 static int
-acm_client_query_resp(struct acm_ep *ep, struct acm_client *client,
+acm_client_query_resp(struct acm_client *client,
 	struct acm_resolve_msg *msg, uint8_t status)
 {
 	int ret;
@@ -1138,7 +1138,7 @@ acm_client_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *
 	}
 	acm_log(2, "status 0x%x\n", status);
 
-	acm_client_query_resp(msg->ep, req->client, client_req, status);
+	acm_client_query_resp(req->client, client_req, status);
 	acm_free_req(req);
 }
 
@@ -1726,7 +1726,7 @@ acm_svr_query(struct acm_client *client, struct acm_resolve_msg *msg)
 
 	acm_free_req(req);
 resp:
-	return acm_client_query_resp(ep, client, msg, status);
+	return acm_client_query_resp(client, msg, status);
 }
 
 static uint8_t
