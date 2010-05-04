@@ -1,7 +1,0 @@
-IBACM_1.0 {
-	global:
-		ib_acm_resolve_name;
-		ib_acm_resolve_ip;
-		ib_acm_resolve_path;
-	local: *;
-};

@@ -17,3 +17,5 @@ man_MANS = \
 	man/ib_acm.1 \
 	man/ib_acm.7
 
+EXTRA_DIST = src/acm_mad.h src/acm_msg.h src/libacm.h linux/osd.h linux/dlist.h $(man_MANS)
+
