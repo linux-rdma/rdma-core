@@ -85,7 +85,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# log_file stderr\n");
 	fprintf(f, "# log_file /tmp/acm_\n");
 	fprintf(f, "\n");
-	fprintf(f, "log_file stdout\n");
+	fprintf(f, "log_file acm_\n");
 	fprintf(f, "\n");
 	fprintf(f, "# log_level:\n");
 	fprintf(f, "# Indicates the amount of detailed data written to the log file.  Log levels\n");

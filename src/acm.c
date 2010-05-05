@@ -217,6 +217,7 @@ static void acm_write(int level, const char *format, ...)
 	va_start(args, format);
 	lock_acquire(&log_lock);
 	vfprintf(flog, format, args);
+	fflush(flog);
 	lock_release(&log_lock);
 	va_end(args);
 }
@@ -2597,7 +2598,7 @@ static FILE *acm_open_log(void)
 		return stderr;
 
 	n = strlen(log_file);
-	sprintf(&log_file[n], "%5u.log", getpid());
+	sprintf(&log_file[n], "%05u.log", getpid());
 	if (!(f = fopen(log_file, "w")))
 		f = stdout;
 
