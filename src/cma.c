@@ -342,11 +342,10 @@ static struct cma_id_private *ucma_alloc_id(struct rdma_event_channel *channel,
 {
 	struct cma_id_private *id_priv;
 
-	id_priv = malloc(sizeof *id_priv);
+	id_priv = calloc(1, sizeof *id_priv);
 	if (!id_priv)
 		return NULL;
 
-	memset(id_priv, 0, sizeof *id_priv);
 	id_priv->id.context = context;
 	id_priv->id.ps = ps;
 	id_priv->id.channel = channel;
@@ -1228,11 +1227,10 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 	int ret, size;
 	
 	id_priv = container_of(id, struct cma_id_private, id);
-	mc = malloc(sizeof *mc);
+	mc = calloc(1, sizeof *mc);
 	if (!mc)
 		return ERR(ENOMEM);
 
-	memset(mc, 0, sizeof *mc);
 	mc->context = context;
 	mc->id_priv = id_priv;
 	memcpy(&mc->addr, addr, addrlen);
