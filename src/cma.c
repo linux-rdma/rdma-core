@@ -673,6 +673,28 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	return 0;
 }
 
+static int rdma_bind_addr2(struct rdma_cm_id *id, struct sockaddr *addr,
+			   socklen_t addrlen)
+{
+	struct ucma_abi_bind *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+	
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_BIND, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	cmd->addr_size = addrlen;
+	cmd->reserved = 0;
+	memcpy(&cmd->addr, addr, addrlen);
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		return (ret >= 0) ? ERR(ENODATA) : -1;
+
+	return ucma_query_addr(id);
+}
+
 int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 {
 	struct ucma_abi_bind_ip *cmd;
@@ -683,6 +705,9 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
 		return ERR(EINVAL);
+
+	if (af_ib_support)
+		return rdma_bind_addr2(id, addr, addrlen);
 
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_BIND_IP, size);
 	id_priv = container_of(id, struct cma_id_private, id);
