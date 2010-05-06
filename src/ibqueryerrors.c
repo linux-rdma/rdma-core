@@ -245,9 +245,9 @@ static int query_and_dump(char *buf, size_t size, ib_portid_t * portid,
 	return n;
 }
 
-static void print_results(ib_portid_t * portid, char *node_name,
-			  ibnd_node_t * node, uint8_t * pc, int portnum,
-			  int *header_printed)
+static int print_results(ib_portid_t * portid, char *node_name,
+			 ibnd_node_t * node, uint8_t * pc, int portnum,
+			 int *header_printed)
 {
 	char buf[1024];
 	char *str = buf;
@@ -311,11 +311,16 @@ static void print_results(ib_portid_t * portid, char *node_name,
 			*header_printed = 1;
 		}
 
-		printf("   GUID 0x%" PRIx64 " port %d:%s\n", node->guid,
-		       portnum, str);
-		if (port_config)
+		if (portnum == 0xFF)
+			printf("   GUID 0x%" PRIx64 " port ALL:%s\n",
+			       node->guid, str);
+		else
+			printf("   GUID 0x%" PRIx64 " port %d:%s\n",
+			       node->guid, portnum, str);
+		if (portnum != 0xFF && port_config)
 			print_port_config(node_name, node, portnum);
 	}
+	return (n);
 }
 
 static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
@@ -339,8 +344,8 @@ static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
 	return 0;
 }
 
-static void print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
-		       ibnd_node_t * node, int portnum, int *header_printed)
+static int print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
+		      ibnd_node_t * node, int portnum, int *header_printed)
 {
 	uint8_t pc[1024];
 
@@ -350,14 +355,15 @@ static void print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
 			   IB_GSI_PORT_COUNTERS, ibmad_port)) {
 		IBWARN("IB_GSI_PORT_COUNTERS query failed on %s, %s port %d",
 		       node_name, portid2str(portid), portnum);
-		return;
+		return (0);
 	}
 	if (!(cap_mask & 0x1000)) {
 		/* if PortCounters:PortXmitWait not supported clear this counter */
 		uint32_t foo = 0;
 		mad_encode_field(pc, IB_PC_XMT_WAIT_F, &foo);
 	}
-	print_results(portid, node_name, node, pc, portnum, header_printed);
+	return (print_results(portid, node_name, node, pc, portnum,
+			      header_printed));
 }
 
 static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
@@ -425,6 +431,27 @@ void print_node(ibnd_node_t * node, void *user_data)
 
 	node_name = remap_node_name(node_name_map, node->guid, node->nodedesc);
 
+	if (node->type == IB_NODE_SWITCH) {
+		ib_portid_set(&portid, node->smalid, 0, 0);
+		p = 0;
+	} else {
+		for (p = 1; p <= node->numports; p++) {
+			if (node->ports[p]) {
+				ib_portid_set(&portid,
+					      node->ports[p]->base_lid,
+					      0, 0);
+				break;
+			}
+		}
+	}
+	if ((query_cap_mask(&portid, node_name, p, &cap_mask) == 0) &&
+	    (cap_mask & 0x100)) {
+		all_port_sup = 1;
+		if (!print_port(&portid, cap_mask, node_name, node,
+				0xFF, &header_printed))
+			goto clear;
+	}
+
 	for (p = startport; p <= node->numports; p++) {
 		if (node->ports[p]) {
 			if (node->type == IB_NODE_SWITCH)
@@ -433,13 +460,6 @@ void print_node(ibnd_node_t * node, void *user_data)
 				ib_portid_set(&portid, node->ports[p]->base_lid,
 					      0, 0);
 
-			if (query_cap_mask(&portid, node_name, p, &cap_mask) <
-			    0)
-				continue;
-
-			if (cap_mask & 0x100)
-				all_port_sup = 1;
-
 			print_port(&portid, cap_mask, node_name, node, p,
 				   &header_printed);
 			if (!all_port_sup)
@@ -447,6 +467,7 @@ void print_node(ibnd_node_t * node, void *user_data)
 		}
 	}
 
+clear:
 	if (all_port_sup)
 		clear_port(&portid, cap_mask, node_name, 0xFF);
 
