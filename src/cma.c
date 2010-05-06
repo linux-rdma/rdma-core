@@ -470,6 +470,8 @@ static int ucma_addrlen(struct sockaddr *addr)
 		return sizeof(struct sockaddr_in);
 	case PF_INET6:
 		return sizeof(struct sockaddr_in6);
+	case PF_IB:
+		return sizeof(struct sockaddr_ib);
 	default:
 		return 0;
 	}
