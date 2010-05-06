@@ -114,6 +114,7 @@ struct rdma_cm_id {
 	struct rdma_route	 route;
 	enum rdma_port_space	 ps;
 	uint8_t			 port_num;
+	struct rdma_cm_event	*event;
 };
 
 struct rdma_conn_param {
