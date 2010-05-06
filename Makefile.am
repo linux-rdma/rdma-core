@@ -18,7 +18,7 @@ src_librdmacm_la_LDFLAGS = -version-info 1 -export-dynamic \
 src_librdmacm_la_DEPENDENCIES =  $(srcdir)/src/librdmacm.map
 
 bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy examples/mckey \
-	       examples/rdma_client
+	       examples/rdma_client examples/rdma_server
 examples_ucmatose_SOURCES = examples/cmatose.c
 examples_ucmatose_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rping_SOURCES = examples/rping.c
@@ -29,6 +29,8 @@ examples_mckey_SOURCES = examples/mckey.c
 examples_mckey_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rdma_client_SOURCES = examples/rdma_client.c
 examples_rdma_client_LDADD = $(top_builddir)/src/librdmacm.la
+examples_rdma_server_SOURCES = examples/rdma_server.c
+examples_rdma_server_LDADD = $(top_builddir)/src/librdmacm.la
 
 librdmacmincludedir = $(includedir)/rdma $(includedir)/infiniband
 
