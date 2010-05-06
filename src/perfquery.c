@@ -302,7 +302,10 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		if (aggregate)
 			aggregate_perfcounters();
 		else
-			mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
+			mad_dump_fields(buf, sizeof buf, pc, sizeof pc,
+							IB_PC_FIRST_F,
+							(cap_mask & 0x1000)?IB_PC_LAST_F:(IB_PC_RCV_PKTS_F+1));
+
 	} else {
 		if (!(cap_mask & 0x200))	/* 1.2 errata: bit 9 is extended counter support */
 			IBWARN
