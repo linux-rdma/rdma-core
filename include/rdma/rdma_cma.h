@@ -279,7 +279,7 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms);
 /**
  * rdma_create_qp - Allocate a QP.
  * @id: RDMA identifier.
- * @pd: protection domain for the QP.
+ * @pd: Optional protection domain for the QP.
  * @qp_init_attr: initial QP attributes.
  * Description:
  *  Allocate a QP associated with the specified rdma_cm_id and transition it
@@ -291,6 +291,8 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms);
  *   librdmacm through their states.  After being allocated, the QP will be
  *   ready to handle posting of receives.  If the QP is unconnected, it will
  *   be ready to post sends.
+ *   If pd is NULL, then the QP will be allocated using a default protection
+ *   domain associated with the underlying RDMA device.
  * See also:
  *   rdma_bind_addr, rdma_resolve_addr, rdma_destroy_qp, ibv_create_qp,
  *   ibv_modify_qp

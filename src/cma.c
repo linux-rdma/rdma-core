@@ -95,6 +95,7 @@ do {                                        \
 
 struct cma_device {
 	struct ibv_context *verbs;
+	struct ibv_pd	   *pd;
 	uint64_t	    guid;
 	int		    port_cnt;
 	uint8_t		    max_initiator_depth;
@@ -144,9 +145,11 @@ int af_ib_support;
 static void ucma_cleanup(void)
 {
 	if (cma_dev_cnt) {
-		while (cma_dev_cnt)
-			ibv_close_device(cma_dev_array[--cma_dev_cnt].verbs);
-	
+		while (cma_dev_cnt--) {
+			ibv_dealloc_pd(cma_dev_array[cma_dev_cnt].pd);
+			ibv_close_device(cma_dev_array[cma_dev_cnt].verbs);
+		}
+
 		free(cma_dev_array);
 		cma_dev_cnt = 0;
 	}
@@ -224,6 +227,13 @@ static int ucma_init(void)
 			goto err3;
 		}
 
+		cma_dev->pd = ibv_alloc_pd(cma_dev->verbs);
+		if (!cma_dev->pd) {
+			ibv_close_device(cma_dev->verbs);
+			ret = ERR(ENOMEM);
+			goto err3;
+		}
+
 		i++;
 		ret = ibv_query_device(cma_dev->verbs, &attr);
 		if (ret) {
@@ -242,8 +252,10 @@ static int ucma_init(void)
 	return 0;
 
 err3:
-	while (i--)
+	while (i--) {
+		ibv_dealloc_pd(cma_dev_array[i].pd);
 		ibv_close_device(cma_dev_array[i].verbs);
+	}
 	free(cma_dev_array);
 err2:
 	ibv_free_device_list(dev_list);
@@ -1021,7 +1033,9 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	int ret;
 
 	id_priv = container_of(id, struct cma_id_private, id);
-	if (id->verbs != pd->context)
+	if (!pd)
+		pd = id_priv->cma_dev->pd;
+	else if (id->verbs != pd->context)
 		return ERR(EINVAL);
 
 	qp = ibv_create_qp(pd, qp_init_attr);
