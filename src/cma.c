@@ -106,6 +106,8 @@ struct cma_device {
 struct cma_id_private {
 	struct rdma_cm_id	id;
 	struct cma_device	*cma_dev;
+	void			*connect;
+	size_t			connect_len;
 	int			events_completed;
 	int			connect_error;
 	int			sync;
@@ -363,6 +365,8 @@ static void ucma_free_id(struct cma_id_private *id_priv)
 
 	if (id_priv->sync)
 		rdma_destroy_event_channel(id_priv->id.channel);
+	if (id_priv->connect)
+		free(id_priv->connect);
 	free(id_priv);
 }
 
@@ -1186,15 +1190,20 @@ static void ucma_copy_conn_param_to_kern(struct cma_id_private *id_priv,
 	dst->initiator_depth = id_priv->initiator_depth;
 	dst->valid = 1;
 
+	if (id_priv->connect_len) {
+		memcpy(dst->private_data, id_priv->connect, id_priv->connect_len);
+		dst->private_data_len = id_priv->connect_len;
+	}
+
 	if (src) {
 		dst->flow_control = src->flow_control;
 		dst->retry_count = src->retry_count;
 		dst->rnr_retry_count = src->rnr_retry_count;
 
 		if (src->private_data && src->private_data_len) {
-			memcpy(dst->private_data, src->private_data,
-			       src->private_data_len);
-			dst->private_data_len = src->private_data_len;
+			memcpy(dst->private_data + dst->private_data_len,
+			       src->private_data, src->private_data_len);
+			dst->private_data_len += src->private_data_len;
 		}
 	} else {
 		dst->retry_count = 7;
@@ -1237,6 +1246,11 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
+
+	if (id_priv->connect) {
+		free(id_priv->connect);
+		id_priv->connect_len = 0;
+	}
 
 	return ucma_complete(id_priv);
 }
@@ -2038,6 +2052,7 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 		   struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
 {
 	struct rdma_cm_id *cm_id;
+	struct cma_id_private *id_priv;
 	int ret;
 
 	ret = rdma_create_id2(NULL, &cm_id, NULL, res->ai_port_space, res->ai_qp_type);
@@ -2074,6 +2089,17 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 	ret = rdma_create_qp(cm_id, pd, qp_init_attr);
 	if (ret)
 		goto err;
+
+	if (res->ai_connect_len) {
+		id_priv = container_of(cm_id, struct cma_id_private, id);
+		id_priv->connect = malloc(res->ai_connect_len);
+		if (!id_priv->connect) {
+			ret = ERR(ENOMEM);
+			goto err;
+		}
+		memcpy(id_priv->connect, res->ai_connect, res->ai_connect_len);
+		id_priv->connect_len = res->ai_connect_len;
+	}
 
 out:
 	*id = cm_id;

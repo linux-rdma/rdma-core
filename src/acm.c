@@ -51,6 +51,18 @@ static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock;
 static short server_port = 6125;
 
+struct ib_connect_hdr {
+	uint8_t  cma_version;
+	uint8_t  ip_version; /* IP version: 7:4 */
+	uint16_t port;
+	uint32_t src_addr[4];
+	uint32_t dst_addr[4];
+#define cma_src_ip4 src_addr[3]
+#define cma_src_ip6 src_addr[0]
+#define cma_dst_ip4 dst_addr[3]
+#define cma_dst_ip6 dst_addr[0]
+};
+
 void ucma_ib_init(void)
 {
 	struct sockaddr_in addr;
@@ -100,22 +112,22 @@ static void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 		sib->sib_sid_mask = htonll(RDMA_IB_IP_PS_MASK);
 }
 
-static void ucma_ib_convert_addr(struct rdma_addrinfo *rai,
-				 struct ibv_path_record *path)
+static int ucma_ib_convert_addr(struct rdma_addrinfo *rai,
+				struct ibv_path_record *path)
 {
 	struct sockaddr_ib *src, *dst;
 
 	if (!path)
-		return;
+		return ERR(ENODATA);
 
 	src = calloc(1, sizeof *src);
 	if (!src)
-		return;
+		return ERR(ENOMEM);
 
 	dst = calloc(1, sizeof *dst);
 	if (!dst) {
 		free(src);
-		return;
+		return ERR(ENOMEM);
 	}
 
 	src->sib_family = AF_IB;
@@ -140,6 +152,33 @@ static void ucma_ib_convert_addr(struct rdma_addrinfo *rai,
 
 	rai->ai_family = AF_IB;
 	rai->ai_port_space = RDMA_PS_IB;
+	return 0;
+}
+				 
+static void ucma_ib_format_connect(struct rdma_addrinfo *rai)
+{
+	struct ib_connect_hdr *hdr;
+
+	hdr = calloc(1, sizeof *hdr);
+	if (!hdr)
+		return;
+
+	if (rai->ai_family == AF_INET) {
+		hdr->ip_version = 4 << 4;
+		memcpy(&hdr->cma_src_ip4,
+		       &((struct sockaddr_in *) rai->ai_src_addr)->sin_addr, 4);
+		memcpy(&hdr->cma_dst_ip4,
+		       &((struct sockaddr_in *) rai->ai_dst_addr)->sin_addr, 4);
+	} else {
+		hdr->ip_version = 6 << 4;
+		memcpy(&hdr->cma_src_ip6,
+		       &((struct sockaddr_in6 *) rai->ai_src_addr)->sin6_addr, 16);
+		memcpy(&hdr->cma_dst_ip6,
+		       &((struct sockaddr_in6 *) rai->ai_dst_addr)->sin6_addr, 16);
+	}
+
+	rai->ai_connect = hdr;
+	rai->ai_connect_len = sizeof(*hdr);
 }
 
 static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg *msg)
@@ -195,8 +234,14 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 		rai->ai_route_len = path_cnt * sizeof(*path_data);
 	}
 
-	if (af_ib_support)
-		ucma_ib_convert_addr(rai, pri_path);
+	if (af_ib_support) {
+		ucma_ib_format_connect(rai);
+		if (ucma_ib_convert_addr(rai, pri_path) &&
+		    rai->ai_connect) {
+			free(rai->ai_connect);
+			rai->ai_connect_len = 0;
+		}
+	}
 }
 
 void ucma_ib_resolve(struct rdma_addrinfo *rai)
