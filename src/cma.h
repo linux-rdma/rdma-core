@@ -77,6 +77,8 @@ static inline int ERR(int err)
 int ucma_init();
 extern int af_ib_support;
 
+#define RAI_ROUTEONLY 0x01000000
+
 #ifdef USE_IB_ACM
 void ucma_ib_init();
 void ucma_ib_cleanup();

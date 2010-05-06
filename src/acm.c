@@ -234,7 +234,7 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 		rai->ai_route_len = path_cnt * sizeof(*path_data);
 	}
 
-	if (af_ib_support) {
+	if (af_ib_support && !(rai->ai_flags & RAI_ROUTEONLY)) {
 		ucma_ib_format_connect(rai);
 		if (ucma_ib_convert_addr(rai, pri_path) &&
 		    rai->ai_connect) {

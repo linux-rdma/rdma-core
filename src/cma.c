@@ -858,15 +858,48 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	return ucma_complete(id_priv);
 }
 
+static int ucma_set_ib_route(struct rdma_cm_id *id)
+{
+	struct rdma_addrinfo rai;
+	struct sockaddr_in6 src, dst;
+	int ret;
+
+	memset(&rai, 0, sizeof rai);
+	rai.ai_flags = RAI_ROUTEONLY;
+	rai.ai_family = id->route.addr.src_addr.sa_family;
+	rai.ai_src_len = ucma_addrlen((struct sockaddr *) &id->route.addr.src_addr);
+	rai.ai_dst_len = ucma_addrlen((struct sockaddr *) &id->route.addr.dst_addr);
+
+	memcpy(&src, &id->route.addr.src_addr, rai.ai_src_len);
+	memcpy(&dst, &id->route.addr.dst_addr, rai.ai_dst_len);
+	rai.ai_src_addr = (struct sockaddr *) &src;
+	rai.ai_dst_addr = (struct sockaddr *) &dst;
+
+	ucma_ib_resolve(&rai);
+	if (!rai.ai_route_len)
+		return ERR(ENODATA);
+
+	ret = rdma_set_option(id, RDMA_OPTION_IB, RDMA_OPTION_IB_PATH,
+			      rai.ai_route, rai.ai_route_len);
+	free(rai.ai_route);
+	return ret;
+}
+
 int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms)
 {
 	struct ucma_abi_resolve_route *cmd;
 	struct cma_id_private *id_priv;
 	void *msg;
 	int ret, size;
-	
-	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_RESOLVE_ROUTE, size);
+
 	id_priv = container_of(id, struct cma_id_private, id);
+	if (id->verbs->device->transport_type == IBV_TRANSPORT_IB) {
+		ret = ucma_set_ib_route(id);
+		if (!ret)
+			goto out;
+	}
+
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_RESOLVE_ROUTE, size);
 	cmd->id = id_priv->handle;
 	cmd->timeout_ms = timeout_ms;
 
@@ -874,6 +907,7 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms)
 	if (ret != size)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
+out:
 	return ucma_complete(id_priv);
 }
 
