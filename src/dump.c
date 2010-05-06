@@ -671,6 +671,12 @@ static int _dump_fields(char *buf, int bufsz, void *data, int start, int end)
 	return (int)(s - buf);
 }
 
+void mad_dump_fields(char *buf, int bufsz, void *val, int valsz, int start,
+		     int end)
+{
+	return _dump_fields(buf, bufsz, val, start, end);
+}
+
 void mad_dump_nodedesc(char *buf, int bufsz, void *val, int valsz)
 {
 	strncpy(buf, val, bufsz);

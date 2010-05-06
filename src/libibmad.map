@@ -20,6 +20,7 @@ IBMAD_1.3 {
 		mad_dump_nodedesc;
 		mad_dump_nodeinfo;
 		mad_dump_opervls;
+		mad_dump_fields;
 		mad_dump_perfcounters;
 		mad_dump_perfcounters_ext;
 		mad_dump_perfcounters_xmt_sl;

@@ -1031,6 +1031,9 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_perfcounters_xmt_disc, mad_dump_perfcounters_rcv_err,
     mad_dump_portsamples_control;
 
+MAD_EXPORT void mad_dump_fields(char *buf, int bufsz, void *val, int valsz,
+				int start, int end);
+
 MAD_EXPORT extern int ibdebug;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
