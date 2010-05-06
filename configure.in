@@ -21,6 +21,15 @@ if test "$with_valgrind" != "" && test "$with_valgrind" != "no"; then
 	fi
 fi
 
+AC_ARG_WITH([ib_acm],
+    AC_HELP_STRING([--with-ib_acm],
+		   [Use IB ACM for route resolution - default NO]))
+
+if test "$with_ib_acm" != "" && test "$with_ib_acm" != "no"; then
+	AC_DEFINE([USE_IB_ACM], 1,
+		  [Define to 1 to use IB ACM for endpoint resolution])
+fi
+
 AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
 [       if test "$enableval" = "no"; then
                 disable_libcheck=yes
@@ -49,6 +58,11 @@ AC_CHECK_HEADER(infiniband/verbs.h, [],
 if test "$with_valgrind" != "" && test "$with_valgrind" != "no"; then
 AC_CHECK_HEADER(valgrind/memcheck.h, [],
     AC_MSG_ERROR([valgrind requested but <valgrind/memcheck.h> not found.]))
+fi
+
+if test "$with_ib_acm" != "" && test "$with_ib_acm" != "no"; then
+AC_CHECK_HEADER(infiniband/acm.h, [],
+    AC_MSG_ERROR([IB ACM requested but <infiniband/acm.h> not found.]))
 fi
 
 fi

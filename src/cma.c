@@ -149,6 +149,8 @@ int af_ib_support;
 
 static void ucma_cleanup(void)
 {
+	ucma_ib_cleanup();
+
 	if (cma_dev_cnt) {
 		while (cma_dev_cnt--) {
 			ibv_dealloc_pd(cma_dev_array[cma_dev_cnt].pd);
@@ -196,7 +198,7 @@ int ucma_init(void)
 	struct ibv_device **dev_list = NULL;
 	struct cma_device *cma_dev;
 	struct ibv_device_attr attr;
-	int i, ret, dev_cnt;
+	int i, ret, dev_cnt, ib;
 
 	/* Quick check without lock to see if we're already initialized */
 	if (cma_dev_cnt)
@@ -225,7 +227,7 @@ int ucma_init(void)
 		goto err2;
 	}
 
-	for (i = 0; dev_list[i];) {
+	for (i = 0, ib = 0; dev_list[i];) {
 		cma_dev = &cma_dev_array[i];
 
 		cma_dev->guid = ibv_get_device_guid(dev_list[i]);
@@ -253,8 +255,11 @@ int ucma_init(void)
 		cma_dev->port_cnt = attr.phys_port_cnt;
 		cma_dev->max_initiator_depth = (uint8_t) attr.max_qp_init_rd_atom;
 		cma_dev->max_responder_resources = (uint8_t) attr.max_qp_rd_atom;
+		ib += (cma_dev->verbs->device->transport_type == IBV_TRANSPORT_IB);
 	}
 
+	if (ib)
+		ucma_ib_init();
 	cma_dev_cnt = dev_cnt;
 	pthread_mutex_unlock(&mut);
 	ibv_free_device_list(dev_list);

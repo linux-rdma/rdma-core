@@ -171,6 +171,9 @@ int rdma_getaddrinfo(char *node, char *service,
 		rai->ai_src_len = hints->ai_src_len;
 	}
 
+	if (!(rai->ai_flags & RAI_PASSIVE))
+		ucma_ib_resolve(rai);
+
 	freeaddrinfo(ai);
 	*res = rai;
 	return 0;

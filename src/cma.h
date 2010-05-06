@@ -43,6 +43,8 @@
 #include <endian.h>
 #include <byteswap.h>
 
+#include <rdma/rdma_cma.h>
+
 #ifdef INCLUDE_VALGRIND
 #   include <valgrind/memcheck.h>
 #   ifndef VALGRIND_MAKE_MEM_DEFINED
@@ -74,5 +76,14 @@ static inline int ERR(int err)
 
 int ucma_init();
 
-#endif /* CMA_H */
+#ifdef USE_IB_ACM
+void ucma_ib_init();
+void ucma_ib_cleanup();
+void ucma_ib_resolve(struct rdma_addrinfo *rai);
+#else
+#define ucma_ib_init()
+#define ucma_ib_cleanup()
+#define ucma_ib_resolve(x)
+#endif
 
+#endif /* CMA_H */

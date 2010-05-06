@@ -12,7 +12,7 @@ else
     librdmacm_version_script =
 endif
 
-src_librdmacm_la_SOURCES = src/cma.c src/addrinfo.c
+src_librdmacm_la_SOURCES = src/cma.c src/addrinfo.c src/acm.c
 src_librdmacm_la_LDFLAGS = -version-info 1 -export-dynamic \
 			   $(librdmacm_version_script)
 src_librdmacm_la_DEPENDENCIES =  $(srcdir)/src/librdmacm.map
