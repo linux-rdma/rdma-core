@@ -155,6 +155,14 @@ nodename=`$IBPATH/smpquery $ca_info nodedesc $lid | sed -e "s/^Node Description:
 
 text="`eval $IBPATH/perfquery $ca_info $lid $portnum`"
 rv=$?
+if echo $text | grep -q 'AllPortSelect not supported'; then
+	if [ "$verbose" = "yes" ]; then
+		echo -n "Error check on lid $lid ($nodename) port $portname: "
+		green "AllPortSelect not supported"
+	fi
+	exit 0
+fi
+
 if echo "$text" | awk -v mono=$bw -v brief=$brief -F '[.:]*' '
 function blue(s)
 {
