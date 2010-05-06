@@ -1,0 +1,81 @@
+commit fa997baef88ea8e8c1d58f6063655a9b539df863
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:45:16 2010 -0500
+
+    Spin release 1.0.1.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5b9ebdfbcd6df0f02375717aff20400ac33dc47f
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:34:07 2010 -0500
+
+    Update code with new t4fw interface.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0116d75d8dcc2f4018d0c0074728ca7d127a5065
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:32:10 2010 -0500
+
+    Refresh t4fw-interface.h
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ad7a3f8dea2873a3a600859cfe8eb10ad979ddb1
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:30:42 2010 -0500
+
+    Avoid CQ arm overflows.
+    
+    There are 2 limits that need to be taken into account when arming the CQ.
+    1) the GTS register limits the delta idx to <= M_CIDXINC.
+    2) T4 HW limits it to < cq size.
+    
+    Update t4_arm_cq() to account for these limits.
+
+commit 2905808680aad82b4f295850551bbe15711c2f42
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:30:12 2010 -0500
+
+    Poll fixes.
+    
+    - when synthesizing CQEs for the SWCQ, always use SQ QID.
+    - when flushing, ignore target side read response errors.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 7a7962e856eb606e25a1529bc7f2945e639042b7
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:24:07 2010 -0500
+
+    Fix CQ overflow detection.
+    
+    CQ overflow detection needs to read the gen bit and the timestamp in
+    one read operation.  Otherwise false overflows can result.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5ca340c298c61c9019d8593ee7acdbda93fdd498
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:23:53 2010 -0500
+
+    libcxgb3: create_read_req_cqe() needs to swap read length.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 9bd1e60d3aea10dbe7cb9920363e485b845d85a3
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Apr 14 10:36:41 2010 -0500
+
+    Refresh t4fw_interface.h
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d6e6ae69be5edffc566178e1b7e6402d61a5a786
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Apr 2 16:01:31 2010 -0500
+
+    Add libcxgb4 files.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
