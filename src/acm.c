@@ -83,9 +83,69 @@ void ucma_ib_cleanup(void)
 	}
 }
 
+static void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
+			 struct sockaddr_ib *sib)
+{
+	uint16_t port;
+
+	if (addr->sa_family == AF_INET)
+		port = ((struct sockaddr_in *) addr)->sin_port;
+	else
+		port = ((struct sockaddr_in6 *) addr)->sin6_port;
+
+	sib->sib_sid = htonll(((uint64_t) ps << 16) + ntohs(port));
+	if (port)
+		sib->sib_sid_mask = ~0ULL;
+	else
+		sib->sib_sid_mask = htonll(RDMA_IB_IP_PS_MASK);
+}
+
+static void ucma_ib_convert_addr(struct rdma_addrinfo *rai,
+				 struct ibv_path_record *path)
+{
+	struct sockaddr_ib *src, *dst;
+
+	if (!path)
+		return;
+
+	src = calloc(1, sizeof *src);
+	if (!src)
+		return;
+
+	dst = calloc(1, sizeof *dst);
+	if (!dst) {
+		free(src);
+		return;
+	}
+
+	src->sib_family = AF_IB;
+	src->sib_pkey = path->pkey;
+	src->sib_flowinfo = htonl(ntohl(path->flowlabel_hoplimit) >> 8);
+	memcpy(&src->sib_addr, &path->sgid, 16);
+	ucma_set_sid(rai->ai_port_space, rai->ai_src_addr, src);
+
+	dst->sib_family = AF_IB;
+	dst->sib_pkey = path->pkey;
+	dst->sib_flowinfo = htonl(ntohl(path->flowlabel_hoplimit) >> 8);
+	memcpy(&dst->sib_addr, &path->dgid, 16);
+	ucma_set_sid(rai->ai_port_space, rai->ai_dst_addr, dst);
+
+	free(rai->ai_src_addr);
+	rai->ai_src_addr = (struct sockaddr *) src;
+	rai->ai_src_len = sizeof(*src);
+
+	free(rai->ai_dst_addr);
+	rai->ai_dst_addr = (struct sockaddr *) dst;
+	rai->ai_dst_len = sizeof(*dst);
+
+	rai->ai_family = AF_IB;
+	rai->ai_port_space = RDMA_PS_IB;
+}
+
 static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg *msg)
 {
 	struct ibv_path_data *path_data = NULL;
+	struct ibv_path_record *pri_path = NULL;
 	int i, cnt, path_cnt;
 
 	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
@@ -96,6 +156,9 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 			if (!path_data)
 				path_data = (struct ibv_path_data *) &msg->data[i];
 			path_cnt++;
+			if (msg->data[i].flags |
+			    (IBV_PATH_FLAG_PRIMARY | IBV_PATH_FLAG_OUTBOUND))
+				pri_path = &path_data[i].path;
 			break;
 		case ACM_EP_INFO_ADDRESS_IP:
 			if (!(msg->data[i].flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
@@ -131,6 +194,9 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 		memcpy(rai->ai_route, path_data, path_cnt * sizeof(*path_data));
 		rai->ai_route_len = path_cnt * sizeof(*path_data);
 	}
+
+	if (af_ib_support)
+		ucma_ib_convert_addr(rai, pri_path);
 }
 
 void ucma_ib_resolve(struct rdma_addrinfo *rai)

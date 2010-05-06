@@ -75,6 +75,7 @@ static inline int ERR(int err)
 }
 
 int ucma_init();
+extern int af_ib_support;
 
 #ifdef USE_IB_ACM
 void ucma_ib_init();
