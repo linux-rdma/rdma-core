@@ -35,6 +35,7 @@
 
 #include <infiniband/kern-abi.h>
 #include <infiniband/sa-kern-abi.h>
+#include <infiniband/sa.h>
 
 /*
  * This file must be kept in sync with the kernel's version of rdma_user_cm.h
@@ -114,7 +115,8 @@ struct ucma_abi_resolve_route {
 };
 
 enum {
-	UCMA_QUERY_ADDR
+	UCMA_QUERY_ADDR,
+	UCMA_QUERY_PATH
 };
 
 struct ucma_abi_query {
@@ -142,6 +144,12 @@ struct ucma_abi_query_addr_resp {
 	__u16 dst_size;
 	struct sockaddr_storage src_addr;
 	struct sockaddr_storage dst_addr;
+};
+
+struct ucma_abi_query_path_resp {
+	__u32 num_paths;
+	__u32 reserved;
+	struct ibv_path_data path_data[0];
 };
 
 struct ucma_abi_conn_param {
