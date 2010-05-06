@@ -188,12 +188,16 @@ static int check_abi_version(void)
 	return 0;
 }
 
-static int ucma_init(void)
+int ucma_init(void)
 {
 	struct ibv_device **dev_list = NULL;
 	struct cma_device *cma_dev;
 	struct ibv_device_attr attr;
 	int i, ret, dev_cnt;
+
+	/* Quick check without lock to see if we're already initialized */
+	if (cma_dev_cnt)
+		return 0;
 
 	pthread_mutex_lock(&mut);
 	if (cma_dev_cnt) {
@@ -271,7 +275,7 @@ struct ibv_context **rdma_get_devices(int *num_devices)
 	struct ibv_context **devs = NULL;
 	int i;
 
-	if (!cma_dev_cnt && ucma_init())
+	if (ucma_init())
 		goto out;
 
 	devs = malloc(sizeof *devs * (cma_dev_cnt + 1));
@@ -301,7 +305,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 {
 	struct rdma_event_channel *channel;
 
-	if (!cma_dev_cnt && ucma_init())
+	if (ucma_init())
 		return NULL;
 
 	channel = malloc(sizeof *channel);
@@ -396,7 +400,7 @@ int rdma_create_id(struct rdma_event_channel *channel,
 	void *msg;
 	int ret, size;
 
-	ret = cma_dev_cnt ? 0 : ucma_init();
+	ret = ucma_init();
 	if (ret)
 		return ret;
 
@@ -1712,7 +1716,7 @@ int rdma_get_cm_event(struct rdma_event_channel *channel,
 	void *msg;
 	int ret, size;
 
-	ret = cma_dev_cnt ? 0 : ucma_init();
+	ret = ucma_init();
 	if (ret)
 		return ret;
 

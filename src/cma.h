@@ -72,5 +72,7 @@ static inline int ERR(int err)
 	return -1;
 }
 
+int ucma_init();
+
 #endif /* CMA_H */
 
