@@ -185,7 +185,7 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 {
 	struct ibv_path_data *path_data = NULL;
 	struct ibv_path_record *pri_path = NULL;
-	int i, cnt, path_cnt;
+	int i, cnt, path_cnt = 0;
 
 	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
 	for (i = 0; i < cnt; i++) {
