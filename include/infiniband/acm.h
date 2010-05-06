@@ -80,7 +80,7 @@ union acm_ep_info
 {
 	uint8_t                 addr[ACM_MAX_ADDRESS];
 	uint8_t                 name[ACM_MAX_ADDRESS];
-	struct ib_path_record   path;
+	struct ibv_path_record  path;
 };
 
 #define ACM_EP_FLAG_SOURCE      (1<<0)

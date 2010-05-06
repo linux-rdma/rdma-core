@@ -356,7 +356,7 @@ out1:
 	return ret;
 }
 
-static void show_path(struct ib_path_record *path)
+static void show_path(struct ibv_path_record *path)
 {
 	char gid[sizeof "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"];
 	uint32_t fl_hop;
@@ -380,9 +380,9 @@ static void show_path(struct ib_path_record *path)
 	printf("  packet lifetime: %d\n", path->packetlifetime & 0x1F);
 }
 
-static int resolve_ip(struct ib_path_record *path)
+static int resolve_ip(struct ibv_path_record *path)
 {
-	struct ib_path_data *paths;
+	struct ibv_path_data *paths;
 	struct sockaddr_in src, dest;
 	int ret, count;
 
@@ -412,9 +412,9 @@ static int resolve_ip(struct ib_path_record *path)
 	return 0;
 }
 
-static int resolve_name(struct ib_path_record *path)
+static int resolve_name(struct ibv_path_record *path)
 {
-	struct ib_path_data *paths;
+	struct ibv_path_data *paths;
 	int ret, count;
 
 	ret = ib_acm_resolve_name(src_addr, dest_addr, &paths, &count);
@@ -428,13 +428,13 @@ static int resolve_name(struct ib_path_record *path)
 	return 0;
 }
 
-static int resolve_lid(struct ib_path_record *path)
+static int resolve_lid(struct ibv_path_record *path)
 {
 	int ret;
 
 	path->slid = htons((uint16_t) atoi(src_addr));
 	path->dlid = htons((uint16_t) atoi(dest_addr));
-	path->reversible_numpath = IB_PATH_RECORD_REVERSIBLE | 1;
+	path->reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
 
 	ret = ib_acm_resolve_path(path, 0);
 	if (ret)
@@ -443,7 +443,7 @@ static int resolve_lid(struct ib_path_record *path)
 	return ret;
 }
 
-static int verify_resolve(struct ib_path_record *path)
+static int verify_resolve(struct ibv_path_record *path)
 {
 	int ret;
 
@@ -458,7 +458,7 @@ static int verify_resolve(struct ib_path_record *path)
 
 static int resolve(char *program)
 {
-	struct ib_path_record path;
+	struct ibv_path_record path;
 	int ret;
 
 	ret = libacm_init();

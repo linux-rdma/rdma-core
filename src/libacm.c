@@ -95,16 +95,16 @@ void libacm_cleanup(void)
 }
 
 static int acm_format_resp(struct acm_resolve_msg *msg,
-	struct ib_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count)
 {
-	struct ib_path_data *path_data;
+	struct ibv_path_data *path_data;
 	int i, addr_cnt;
 
 	*count = 0;
 	addr_cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) /
 		sizeof(struct acm_ep_addr_data);
-	path_data = (struct ib_path_data *)
-		calloc(1, addr_cnt * sizeof(struct ib_path_data));
+	path_data = (struct ibv_path_data *)
+		calloc(1, addr_cnt * sizeof(struct ibv_path_data));
 	if (!path_data)
 		return -1;
 
@@ -128,7 +128,7 @@ err:
 }
 
 static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
-	struct ib_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count)
 {
 	struct acm_msg msg;
 	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
@@ -187,14 +187,14 @@ out:
 }
 
 int ib_acm_resolve_name(char *src, char *dest,
-	struct ib_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count)
 {
 	return acm_resolve((uint8_t *) src, (uint8_t *) dest,
 		ACM_EP_INFO_NAME, paths, count);
 }
 
 int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
-	struct ib_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count)
 {
 	if (((struct sockaddr *) dest)->sa_family == AF_INET) {
 		return acm_resolve((uint8_t *) src, (uint8_t *) dest,
@@ -205,7 +205,7 @@ int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
 	}
 }
 
-int ib_acm_resolve_path(struct ib_path_record *path, uint32_t flags)
+int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 {
 	struct acm_msg msg;
 	struct acm_ep_addr_data *data;

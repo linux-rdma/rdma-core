@@ -69,18 +69,18 @@ enum acm_route_prot
  */
 struct acm_dest
 {
-	uint8_t               address[ACM_MAX_ADDRESS]; /* keep first */
-	struct ibv_ah         *ah;
-	struct ibv_ah_attr    av;
-	struct ib_path_record path;
-	union ibv_gid         mgid;
-	uint64_t              req_id;
-	DLIST_ENTRY           req_queue;
-	uint32_t              remote_qpn;
-	lock_t                lock;
-	enum acm_state        state;
-	atomic_t              refcnt;
-	uint8_t               addr_type;
+	uint8_t                address[ACM_MAX_ADDRESS]; /* keep first */
+	struct ibv_ah          *ah;
+	struct ibv_ah_attr     av;
+	struct ibv_path_record path;
+	union ibv_gid          mgid;
+	uint64_t               req_id;
+	DLIST_ENTRY            req_queue;
+	uint32_t               remote_qpn;
+	lock_t                 lock;
+	enum acm_state         state;
+	atomic_t               refcnt;
+	uint8_t                addr_type;
 };
 
 struct acm_port
@@ -224,7 +224,7 @@ static void acm_write(int level, const char *format, ...)
 
 static void acm_log_addr(int level, const char *msg, uint16_t addr_type, uint8_t *addr)
 {
-	struct ib_path_record *path;
+	struct ibv_path_record *path;
 	char ip_addr[ACM_MAX_ADDRESS];
 
 	if (level > log_level)
@@ -245,7 +245,7 @@ static void acm_log_addr(int level, const char *msg, uint16_t addr_type, uint8_t
 		fprintf(flog, "%s\n", ip_addr);
 		break;
 	case ACM_EP_INFO_PATH:
-		path = (struct ib_path_record *) addr;
+		path = (struct ibv_path_record *) addr;
 		fprintf(flog, "path record, SLID 0x%x, DLID 0x%x\n",
 			ntohs(path->slid), ntohs(path->dlid));
 		break;
@@ -605,7 +605,7 @@ acm_record_mc_av(struct acm_port *port, struct ib_mc_member_rec *mc_rec,
 	dest->path.slid = htons(port->lid) | port->sa_dest.av.src_path_bits;
 	dest->path.flowlabel_hoplimit = htonl(sl_flow_hop & 0xFFFFFFF);
 	dest->path.tclass = mc_rec->tclass;
-	dest->path.reversible_numpath = IB_PATH_RECORD_REVERSIBLE | 1;
+	dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
 	dest->path.pkey = mc_rec->pkey;
 	dest->path.qosclass_sl = htons((uint16_t) (sl_flow_hop >> 28));
 	dest->path.mtu = mc_rec->mtu;
@@ -855,8 +855,8 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_resolve_msg *req_m
 
 	if (status == ACM_STATUS_SUCCESS) {
 		resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
-		resp_msg->data[0].flags = IB_PATH_FLAG_GMP |
-			IB_PATH_FLAG_PRIMARY | IB_PATH_FLAG_BIDIRECTIONAL;
+		resp_msg->data[0].flags = IBV_PATH_FLAG_GMP |
+			IBV_PATH_FLAG_PRIMARY | IBV_PATH_FLAG_BIDIRECTIONAL;
 		resp_msg->data[0].type = ACM_EP_INFO_PATH;
 		resp_msg->data[0].info.path = dest->path;
 
@@ -1133,7 +1133,7 @@ acm_client_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *
 	if (mad) {
 		status = (uint8_t) (ntohs(sa_mad->status) >> 8);
 		memcpy(&client_req->data[0].info.path, sa_mad->data,
-			sizeof(struct ib_path_record));
+			sizeof(struct ibv_path_record));
 	} else {
 		status = ACM_STATUS_ETIMEDOUT;
 	}
@@ -1253,7 +1253,7 @@ static void acm_format_mgid(union ibv_gid *mgid, uint16_t pkey, uint8_t tos,
 	mgid->raw[15] = 0;
 }
 
-static uint64_t acm_path_comp_mask(struct ib_path_record *path)
+static uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 {
 	uint32_t fl_hop;
 	uint16_t qos_sl;
@@ -1639,7 +1639,7 @@ static uint8_t acm_svr_query_sa(struct acm_ep *ep, struct acm_request *req)
 	mad = (struct ib_sa_mad *) msg->data;
 	acm_init_path_query(mad);
 
-	memcpy(mad->data, &client_req->data[0].info.path, sizeof(struct ib_path_record));
+	memcpy(mad->data, &client_req->data[0].info.path, sizeof(struct ibv_path_record));
 	mad->comp_mask = acm_path_comp_mask(&client_req->data[0].info.path);
 
 	acm_post_send(&ep->sa_queue, msg);
