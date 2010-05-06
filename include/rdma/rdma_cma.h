@@ -588,12 +588,14 @@ const char *rdma_event_str(enum rdma_cm_event_type event);
 
 /* Option levels */
 enum {
-	RDMA_OPTION_ID		= 0
+	RDMA_OPTION_ID		= 0,
+	RDMA_OPTION_IB		= 1
 };
 
 /* Option details */
 enum {
-	RDMA_OPTION_ID_TOS	= 0	/* uint8_t: RFC 2474 */
+	RDMA_OPTION_ID_TOS	= 0,	/* uint8_t: RFC 2474 */
+	RDMA_OPTION_IB_PATH	= 1	/* struct ibv_path_data[] */
 };
 
 /**
