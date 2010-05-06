@@ -65,7 +65,7 @@ static int build_rdma_send(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 	plen = 0;
 	if (wr->num_sge) {
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			datap = (u8 *)wqe->send.immd_src[0].data;
+			datap = (u8 *)wqe->send.u.immd_src[0].data;
 			for (i = 0; i < wr->num_sge; i++) {
 				if ((plen + wr->sg_list[i].length) >
 				    T4_MAX_SEND_INLINE) {
@@ -77,10 +77,10 @@ static int build_rdma_send(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 				      wr->sg_list[i].length);
 				datap += wr->sg_list[i].length;
 			}
-			wqe->send.immd_src[0].op = FW_RI_DATA_IMMD;
-			wqe->send.immd_src[0].r1 = 0;
-			wqe->send.immd_src[0].r2 = 0;
-			wqe->send.immd_src[0].immdlen = cpu_to_be32(plen);
+			wqe->send.u.immd_src[0].op = FW_RI_DATA_IMMD;
+			wqe->send.u.immd_src[0].r1 = 0;
+			wqe->send.u.immd_src[0].r2 = 0;
+			wqe->send.u.immd_src[0].immdlen = cpu_to_be32(plen);
 			size = sizeof wqe->send + sizeof(struct fw_ri_immd) +
 			       plen;
 		} else {
@@ -89,25 +89,25 @@ static int build_rdma_send(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 					return -EMSGSIZE;
 				}
 				plen += wr->sg_list[i].length;
-				wqe->send.isgl_src[0].sge[i].stag =
+				wqe->send.u.isgl_src[0].sge[i].stag =
 					cpu_to_be32(wr->sg_list[i].lkey);
-				wqe->send.isgl_src[0].sge[i].len =
+				wqe->send.u.isgl_src[0].sge[i].len =
 					cpu_to_be32(wr->sg_list[i].length);
-				wqe->send.isgl_src[0].sge[i].to =
+				wqe->send.u.isgl_src[0].sge[i].to =
 					cpu_to_be64(wr->sg_list[i].addr);
 			}
-			wqe->send.isgl_src[0].op = FW_RI_DATA_ISGL;
-			wqe->send.isgl_src[0].r1 = 0;
-			wqe->send.isgl_src[0].nsge = cpu_to_be16(wr->num_sge);
-			wqe->send.isgl_src[0].r2 = 0;
+			wqe->send.u.isgl_src[0].op = FW_RI_DATA_ISGL;
+			wqe->send.u.isgl_src[0].r1 = 0;
+			wqe->send.u.isgl_src[0].nsge = cpu_to_be16(wr->num_sge);
+			wqe->send.u.isgl_src[0].r2 = 0;
 			size = sizeof wqe->send + sizeof(struct fw_ri_isgl) +
 			       wr->num_sge * sizeof (struct fw_ri_sge);
 		}
 	} else {
-		wqe->send.immd_src[0].op = FW_RI_DATA_IMMD;
-		wqe->send.immd_src[0].r1 = 0;
-		wqe->send.immd_src[0].r2 = 0;
-		wqe->send.immd_src[0].immdlen = 0;
+		wqe->send.u.immd_src[0].op = FW_RI_DATA_IMMD;
+		wqe->send.u.immd_src[0].r1 = 0;
+		wqe->send.u.immd_src[0].r2 = 0;
+		wqe->send.u.immd_src[0].immdlen = 0;
 		size = sizeof wqe->send + sizeof(struct fw_ri_immd);
 	}
 	*len16 = DIV_ROUND_UP(size, 16);
@@ -130,7 +130,7 @@ static int build_rdma_write(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 	plen = 0;
 	if (wr->num_sge) {
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			datap = (u8 *)wqe->write.immd_src[0].data;
+			datap = (u8 *)wqe->write.u.immd_src[0].data;
 			for (i = 0; i < wr->num_sge; i++) {
 				if ((plen + wr->sg_list[i].length) >
 				    T4_MAX_WRITE_INLINE) {
@@ -142,10 +142,10 @@ static int build_rdma_write(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 				      wr->sg_list[i].length);
 				datap += wr->sg_list[i].length;
 			}
-			wqe->write.immd_src[0].op = FW_RI_DATA_IMMD;
-			wqe->write.immd_src[0].r1 = 0;
-			wqe->write.immd_src[0].r2 = 0;
-			wqe->write.immd_src[0].immdlen = cpu_to_be32(plen);
+			wqe->write.u.immd_src[0].op = FW_RI_DATA_IMMD;
+			wqe->write.u.immd_src[0].r1 = 0;
+			wqe->write.u.immd_src[0].r2 = 0;
+			wqe->write.u.immd_src[0].immdlen = cpu_to_be32(plen);
 			size = sizeof wqe->write + sizeof(struct fw_ri_immd) +
 			       plen;
 		} else {
@@ -154,25 +154,25 @@ static int build_rdma_write(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 					return -EMSGSIZE;
 				}
 				plen += wr->sg_list[i].length;
-				wqe->write.isgl_src[0].sge[i].stag =
+				wqe->write.u.isgl_src[0].sge[i].stag =
 					cpu_to_be32(wr->sg_list[i].lkey);
-				wqe->write.isgl_src[0].sge[i].len =
+				wqe->write.u.isgl_src[0].sge[i].len =
 					cpu_to_be32(wr->sg_list[i].length);
-				wqe->write.isgl_src[0].sge[i].to =
+				wqe->write.u.isgl_src[0].sge[i].to =
 					cpu_to_be64(wr->sg_list[i].addr);
 			}
-			wqe->write.isgl_src[0].op = FW_RI_DATA_ISGL;
-			wqe->write.isgl_src[0].r1 = 0;
-			wqe->write.isgl_src[0].nsge = cpu_to_be16(wr->num_sge);
-			wqe->write.isgl_src[0].r2 = 0;
+			wqe->write.u.isgl_src[0].op = FW_RI_DATA_ISGL;
+			wqe->write.u.isgl_src[0].r1 = 0;
+			wqe->write.u.isgl_src[0].nsge = cpu_to_be16(wr->num_sge);
+			wqe->write.u.isgl_src[0].r2 = 0;
 			size = sizeof wqe->write + sizeof(struct fw_ri_isgl) +
 			       wr->num_sge * sizeof (struct fw_ri_sge);
 		}
 	} else {
-		wqe->write.immd_src[0].op = FW_RI_DATA_IMMD;
-		wqe->write.immd_src[0].r1 = 0;
-		wqe->write.immd_src[0].r2 = 0;
-		wqe->write.immd_src[0].immdlen = 0;
+		wqe->write.u.immd_src[0].op = FW_RI_DATA_IMMD;
+		wqe->write.u.immd_src[0].r1 = 0;
+		wqe->write.u.immd_src[0].r2 = 0;
+		wqe->write.u.immd_src[0].immdlen = 0;
 		size = sizeof wqe->write + sizeof(struct fw_ri_immd);
 	}
 	*len16 = DIV_ROUND_UP(size, 16);

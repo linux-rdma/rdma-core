@@ -121,7 +121,7 @@ struct t4_status_page {
 
 union t4_wr {
 	struct fw_ri_res_wr res;
-	struct fw_ri_init_wr init;
+	struct fw_ri_wr init;
 	struct fw_ri_rdma_write_wr write;
 	struct fw_ri_send_wr send;
 	struct fw_ri_rdma_read_wr read;
