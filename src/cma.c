@@ -104,17 +104,19 @@ struct cma_device {
 };
 
 struct cma_id_private {
-	struct rdma_cm_id id;
-	struct cma_device *cma_dev;
-	int		  events_completed;
-	int		  connect_error;
-	int		  sync;
-	pthread_cond_t	  cond;
-	pthread_mutex_t	  mut;
-	uint32_t	  handle;
-	struct cma_multicast *mc_list;
-	uint8_t		  initiator_depth;
-	uint8_t		  responder_resources;
+	struct rdma_cm_id	id;
+	struct cma_device	*cma_dev;
+	int			events_completed;
+	int			connect_error;
+	int			sync;
+	pthread_cond_t		cond;
+	pthread_mutex_t		mut;
+	uint32_t		handle;
+	struct cma_multicast	*mc_list;
+	struct ibv_pd		*pd;
+	struct ibv_qp_init_attr	*qp_init_attr;
+	uint8_t			initiator_depth;
+	uint8_t			responder_resources;
 };
 
 struct cma_multicast {
@@ -1993,6 +1995,34 @@ int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel)
 	return 0;
 }
 
+static int ucma_passive_ep(struct rdma_cm_id *id, struct rdma_addrinfo *res,
+			   struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
+{
+	struct cma_id_private *id_priv;
+	int ret;
+
+	if (af_ib_support)
+		ret = rdma_bind_addr2(id, res->ai_src_addr, res->ai_src_len);
+	else
+		ret = rdma_bind_addr(id, res->ai_src_addr);
+	if (ret)
+		return ret;
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	id_priv->pd = pd;
+
+	if (qp_init_attr) {
+		id_priv->qp_init_attr = malloc(sizeof *qp_init_attr);
+		if (!id_priv->qp_init_attr)
+			return ERR(ENOMEM);
+
+		*id_priv->qp_init_attr = *qp_init_attr;
+		id_priv->qp_init_attr->qp_type = res->ai_qp_type;
+	}
+
+	return 0;
+}
+
 int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 		   struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
 {
@@ -2002,6 +2032,13 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 	ret = rdma_create_id2(NULL, &cm_id, NULL, res->ai_port_space, res->ai_qp_type);
 	if (ret)
 		return ret;
+
+	if (res->ai_flags & RAI_PASSIVE) {
+		ret = ucma_passive_ep(cm_id, res, pd, qp_init_attr);
+		if (ret)
+			goto err;
+		goto out;
+	}
 
 	if (af_ib_support)
 		ret = rdma_resolve_addr2(cm_id, res->ai_src_addr, res->ai_src_len,
@@ -2027,17 +2064,25 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 	if (ret)
 		goto err;
 
+out:
 	*id = cm_id;
 	return 0;
 
 err:
-	rdma_destroy_id(cm_id);
+	rdma_destroy_ep(cm_id);
 	return ret;
 }
 
 void rdma_destroy_ep(struct rdma_cm_id *id)
 {
+	struct cma_id_private *id_priv;
+
 	if (id->qp)
 		rdma_destroy_qp(id);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	if (id_priv->qp_init_attr)
+		free(id_priv->qp_init_attr);
+
 	rdma_destroy_id(id);
 }
