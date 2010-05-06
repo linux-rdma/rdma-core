@@ -195,6 +195,32 @@ static int check_abi_version(void)
 	return 0;
 }
 
+/*
+ * This function is called holding the mutex lock
+ * cma_dev_cnt must be set before calling this function to
+ * ensure that the lock is not acquired recursively.
+ */
+static void ucma_set_af_ib_support(void)
+{
+	struct rdma_cm_id *id;
+	struct sockaddr_ib sib;
+	int ret;
+
+	ret = rdma_create_id(NULL, &id, NULL, RDMA_PS_IB);
+	if (ret)
+		return;
+
+	memset(&sib, 0, sizeof sib);
+	sib.sib_family = AF_IB;
+	sib.sib_sid = htonll(RDMA_IB_IP_PS_TCP);
+	sib.sib_sid_mask = htonll(RDMA_IB_IP_PS_MASK);
+	af_ib_support = 1;
+	ret = rdma_bind_addr(id, (struct sockaddr *) &sib);
+	af_ib_support = !ret;
+
+	rdma_destroy_id(id);
+}
+
 int ucma_init(void)
 {
 	struct ibv_device **dev_list = NULL;
@@ -263,6 +289,7 @@ int ucma_init(void)
 	if (ib)
 		ucma_ib_init();
 	cma_dev_cnt = dev_cnt;
+	ucma_set_af_ib_support();
 	pthread_mutex_unlock(&mut);
 	ibv_free_device_list(dev_list);
 	return 0;
