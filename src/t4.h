@@ -488,15 +488,23 @@ struct t4_cq {
 static inline int t4_arm_cq(struct t4_cq *cq, int se)
 {
 	u32 val;
-
-	val = V_SEINTARM(se) | V_CIDXINC(cq->cidx_inc) | V_TIMERREG(6) |
-	      V_INGRESSQID(cq->cqid & cq->qid_mask);
-#if 0
-	printf("%s val 0x%x, ugts %p\n", __func__, val, (void *)cq->ugts);
-	fflush(stdout);
-#endif
-	cq->cidx_inc = 0;
-	writel(val, cq->ugts);
+	u16 inc;
+	do {
+		/*
+		 * inc must be less the both the max update value -and-
+		 * the size of the CQ.
+		 */
+		inc = cq->cidx_inc <= M_CIDXINC ? cq->cidx_inc : M_CIDXINC;
+		inc = inc <= (cq->size - 1) ? inc : (cq->size - 1);
+		if (inc == cq->cidx_inc)
+			val = V_SEINTARM(se) | V_CIDXINC(inc) | V_TIMERREG(6) |
+			      V_INGRESSQID(cq->cqid & cq->qid_mask);
+		else
+			val = V_SEINTARM(0) | V_CIDXINC(inc) | V_TIMERREG(7) |
+			      V_INGRESSQID(cq->cqid & cq->qid_mask);
+		cq->cidx_inc -= inc;
+		writel(val, cq->ugts);
+	} while (cq->cidx_inc);
 	return 0;
 }
 
