@@ -30,5 +30,6 @@ RDMACM_1.0 {
 		rdma_migrate_id;
 		rdma_getaddrinfo;
 		rdma_freeaddrinfo;
+		rdma_get_request;
 	local: *;
 };

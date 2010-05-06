@@ -381,6 +381,11 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param);
 int rdma_listen(struct rdma_cm_id *id, int backlog);
 
 /**
+ * rdma_get_request
+ */
+int rdma_get_request(struct rdma_cm_id *listen, struct rdma_cm_id **id);
+
+/**
  * rdma_accept - Called to accept a connection request.
  * @id: Connection identifier associated with the request.
  * @conn_param: Optional information needed to establish the connection.

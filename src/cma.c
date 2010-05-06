@@ -1242,6 +1242,44 @@ int rdma_listen(struct rdma_cm_id *id, int backlog)
 		return ucma_query_route(id);
 }
 
+int rdma_get_request(struct rdma_cm_id *listen, struct rdma_cm_id **id)
+{
+	struct cma_id_private *id_priv;
+	struct rdma_cm_event *event;
+	int ret;
+
+	id_priv = container_of(listen, struct cma_id_private, id);
+	if (!id_priv->sync)
+		return ERR(EINVAL);
+
+	if (listen->event) {
+		rdma_ack_cm_event(listen->event);
+		listen->event = NULL;
+	}
+
+	ret = rdma_get_cm_event(listen->channel, &event);
+	if (ret)
+		return ret;
+
+	if (event->status) {
+		ret = event->status;
+		goto err;
+	}
+	
+	if (event->event != RDMA_CM_EVENT_CONNECT_REQUEST) {
+		ret = ERR(EINVAL);
+		goto err;
+	}
+
+	*id = event->id;
+	(*id)->event = event;
+	return 0;
+
+err:
+	listen->event = event;
+	return ret;
+}
+
 int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 {
 	struct ucma_abi_accept *cmd;
