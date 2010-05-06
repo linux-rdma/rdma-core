@@ -115,6 +115,10 @@ struct rdma_cm_id {
 	enum rdma_port_space	 ps;
 	uint8_t			 port_num;
 	struct rdma_cm_event	*event;
+	struct ibv_comp_channel *send_cq_channel;
+	struct ibv_cq		*send_cq;
+	struct ibv_comp_channel *recv_cq_channel;
+	struct ibv_cq		*recv_cq;
 };
 
 struct rdma_conn_param {

@@ -1025,6 +1025,63 @@ static int ucma_init_ud_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 	return ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE | IBV_QP_SQ_PSN);
 }
 
+static void ucma_destroy_cqs(struct rdma_cm_id *id)
+{
+	if (id->recv_cq)
+		ibv_destroy_cq(id->recv_cq);
+
+	if (id->recv_cq_channel)
+		ibv_destroy_comp_channel(id->recv_cq_channel);
+
+	if (id->send_cq)
+		ibv_destroy_cq(id->send_cq);
+
+	if (id->send_cq_channel)
+		ibv_destroy_comp_channel(id->send_cq_channel);
+}
+
+static int ucma_create_cqs(struct rdma_cm_id *id, struct ibv_qp_init_attr *attr)
+{
+	int ret;
+
+	if (!attr->recv_cq) {
+		id->recv_cq_channel = ibv_create_comp_channel(id->verbs);
+		if (!id->recv_cq_channel) {
+			ret = ERR(ENOMEM);
+			goto err;
+		}
+
+		id->recv_cq = ibv_create_cq(id->verbs, attr->cap.max_recv_wr,
+					    id, id->recv_cq_channel, 0);
+		if (!id->recv_cq) {
+			ret = ERR(ENOMEM);
+			goto err;
+		}
+		attr->recv_cq = id->recv_cq;
+	}
+
+	if (!attr->send_cq) {
+		id->send_cq_channel = ibv_create_comp_channel(id->verbs);
+		if (!id->send_cq_channel) {
+			ret = ERR(ENOMEM);
+			goto err;
+		}
+
+		id->send_cq = ibv_create_cq(id->verbs, attr->cap.max_send_wr,
+					    id, id->send_cq_channel, 0);
+		if (!id->send_cq) {
+			ret = ERR(ENOMEM);
+			goto err;
+		}
+		attr->send_cq = id->send_cq;
+	}
+
+	return 0;
+err:
+	ucma_destroy_cqs(id);
+	return ret;
+}
+
 int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 		   struct ibv_qp_init_attr *qp_init_attr)
 {
@@ -1038,27 +1095,36 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	else if (id->verbs != pd->context)
 		return ERR(EINVAL);
 
+	ret = ucma_create_cqs(id, qp_init_attr);
+	if (ret)
+		return ret;
+
 	qp = ibv_create_qp(pd, qp_init_attr);
-	if (!qp)
-		return ERR(ENOMEM);
+	if (!qp) {
+		ret = ERR(ENOMEM);
+		goto err1;
+	}
 
 	if (ucma_is_ud_ps(id->ps))
 		ret = ucma_init_ud_qp(id_priv, qp);
 	else
 		ret = ucma_init_conn_qp(id_priv, qp);
 	if (ret)
-		goto err;
+		goto err2;
 
 	id->qp = qp;
 	return 0;
-err:
+err2:
 	ibv_destroy_qp(qp);
+err1:
+	ucma_destroy_cqs(id);
 	return ret;
 }
 
 void rdma_destroy_qp(struct rdma_cm_id *id)
 {
 	ibv_destroy_qp(id->qp);
+	ucma_destroy_cqs(id);
 }
 
 static int ucma_valid_param(struct cma_id_private *id_priv,
