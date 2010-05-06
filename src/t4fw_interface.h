@@ -44,7 +44,6 @@ enum fw_wr_opcodes {
 	FW_CMD_WR                      = 0x10,
 	FW_ETH_TX_PKT_VM_WR            = 0x11,
 	FW_RI_RES_WR                   = 0x0c,
-	FW_RI_WR                       = 0x0d,
 	FW_RI_RDMA_WRITE_WR            = 0x14,
 	FW_RI_SEND_WR                  = 0x15,
 	FW_RI_RDMA_READ_WR             = 0x16,
@@ -52,6 +51,7 @@ enum fw_wr_opcodes {
 	FW_RI_BIND_MW_WR               = 0x18,
 	FW_RI_FR_NSMR_WR               = 0x19,
 	FW_RI_INV_LSTAG_WR             = 0x1a,
+	FW_RI_WR                       = 0x0d,
 	FW_LASTC2E_WR                  = 0x40
 };
 
@@ -602,23 +602,23 @@ struct fw_eth_tx_pkt_vm_wr {
  **************************************/
 
 enum fw_ri_wr_opcode {
-	FW_RI_RDMA_WRITE,               /* IETF RDMAP v1.0 ... */
-	FW_RI_READ_REQ,
-	FW_RI_READ_RESP,
-	FW_RI_SEND,
-	FW_RI_SEND_WITH_INV,
-	FW_RI_SEND_WITH_SE,
-	FW_RI_SEND_WITH_SE_INV,
-	FW_RI_TERMINATE,
-	FW_RI_RDMA_INIT,                /* CHELSIO RI specific ... */
-	FW_RI_BIND_MW,
-	FW_RI_FAST_REGISTER,
-	FW_RI_LOCAL_INV,
-	FW_RI_QP_MODIFY,
-	FW_RI_BYPASS,
-	FW_RI_RECEIVE,
+	FW_RI_RDMA_WRITE		= 0x0,               /* IETF RDMAP v1.0 ... */
+	FW_RI_READ_REQ			= 0x1,
+	FW_RI_READ_RESP			= 0x2,
+	FW_RI_SEND			= 0x3,
+	FW_RI_SEND_WITH_INV		= 0x4,
+	FW_RI_SEND_WITH_SE		= 0x5,
+	FW_RI_SEND_WITH_SE_INV		= 0x6,
+	FW_RI_TERMINATE			= 0x7,
+	FW_RI_RDMA_INIT			= 0x8,                /* CHELSIO RI specific ... */
+	FW_RI_BIND_MW			= 0x9,
+	FW_RI_FAST_REGISTER		= 0xa,
+	FW_RI_LOCAL_INV			= 0xb,
+	FW_RI_QP_MODIFY			= 0xc,
+	FW_RI_BYPASS			= 0xd,
+	FW_RI_RECEIVE			= 0xe,
 
-	FW_RI_SGE_EC_CR_RETURN = 0xf
+	FW_RI_SGE_EC_CR_RETURN		= 0xf
 };
 
 enum fw_ri_wr_flags {
@@ -1125,65 +1125,6 @@ struct fw_ri_res_wr {
     (((x) >> S_FW_RI_RES_WR_IQRO) & M_FW_RI_RES_WR_IQRO)
 #define F_FW_RI_RES_WR_IQRO	V_FW_RI_RES_WR_IQRO(1U)
 
-enum fw_ri_type {
-	FW_RI_TYPE_INIT,
-	FW_RI_TYPE_FINI,
-	FW_RI_TYPE_TERMINATE
-};
-
-struct fw_ri_wr {
-	__be32 op_compl;
-	__be32 flowid_len16;
-	__u64  cookie;
-	union fw_ri {
-		struct fw_ri_init {
-			__u8   type;
-			__u8   mpareqbit_p2ptype;
-			__u8   r4[2];
-			__u8   mpa_attrs;
-			__u8   qp_caps;
-			__be16 nrqe;
-			__be32 pdid;
-			__be32 qpid;
-			__be32 sq_eqid;
-			__be32 rq_eqid;
-			__be32 scqid;
-			__be32 rcqid;
-			__be32 ord_max;
-			__be32 ird_max;
-			__be32 iss;
-			__be32 irs;
-			__be32 hwrqsize;
-			__be32 hwrqaddr;
-			__be64 r5;
-		} init;
-		struct fw_ri_fini {
-			__u8   type;
-			__u8   r3[7];
-			__be64 r4;
-		} fini;
-		struct fw_ri_terminate {
-			__u8   type;
-			__u8   r3[3];
-			__be32 immdlen;
-			__u8   termmsg[40];
-		} terminate;
-	} u;
-};
-
-#define S_FW_RI_WR_MPAREQBIT	7
-#define M_FW_RI_WR_MPAREQBIT	0x1
-#define V_FW_RI_WR_MPAREQBIT(x)	((x) << S_FW_RI_WR_MPAREQBIT)
-#define G_FW_RI_WR_MPAREQBIT(x)	\
-    (((x) >> S_FW_RI_WR_MPAREQBIT) & M_FW_RI_WR_MPAREQBIT)
-#define F_FW_RI_WR_MPAREQBIT	V_FW_RI_WR_MPAREQBIT(1U)
-
-#define S_FW_RI_WR_P2PTYPE	0
-#define M_FW_RI_WR_P2PTYPE	0xf
-#define V_FW_RI_WR_P2PTYPE(x)	((x) << S_FW_RI_WR_P2PTYPE)
-#define G_FW_RI_WR_P2PTYPE(x)	\
-    (((x) >> S_FW_RI_WR_P2PTYPE) & M_FW_RI_WR_P2PTYPE)
-
 struct fw_ri_rdma_write_wr {
 	__u8   opcode;
 	__u8   flags;
@@ -1195,8 +1136,10 @@ struct fw_ri_rdma_write_wr {
 	__be32 stag_sink;
 	__be64 to_sink;
 #ifndef C99_NOT_SUPPORTED
-	struct fw_ri_immd immd_src[0];
-	struct fw_ri_isgl isgl_src[0];
+	union {
+		struct fw_ri_immd immd_src[0];
+		struct fw_ri_isgl isgl_src[0];
+	} u;
 #endif
 };
 
@@ -1212,8 +1155,10 @@ struct fw_ri_send_wr {
 	__be32 r3;
 	__be64 r4;
 #ifndef C99_NOT_SUPPORTED
-	struct fw_ri_immd immd_src[0];
-	struct fw_ri_isgl isgl_src[0];
+	union {
+		struct fw_ri_immd immd_src[0];
+		struct fw_ri_isgl isgl_src[0];
+	} u;
 #endif
 };
 
@@ -1334,6 +1279,80 @@ struct fw_ri_inv_lstag_wr {
 	__be32 stag_inv;
 };
 
+enum fw_ri_type {
+	FW_RI_TYPE_INIT,
+	FW_RI_TYPE_FINI,
+	FW_RI_TYPE_TERMINATE
+};
+
+enum fw_ri_init_p2ptype {
+	FW_RI_INIT_P2PTYPE_RDMA_WRITE		= FW_RI_RDMA_WRITE,
+	FW_RI_INIT_P2PTYPE_READ_REQ		= FW_RI_READ_REQ,
+	FW_RI_INIT_P2PTYPE_SEND			= FW_RI_SEND,
+	FW_RI_INIT_P2PTYPE_SEND_WITH_INV	= FW_RI_SEND_WITH_INV,
+	FW_RI_INIT_P2PTYPE_SEND_WITH_SE		= FW_RI_SEND_WITH_SE,
+	FW_RI_INIT_P2PTYPE_SEND_WITH_SE_INV	= FW_RI_SEND_WITH_SE_INV,
+	FW_RI_INIT_P2PTYPE_DISABLED		= 0xf,
+};
+
+struct fw_ri_wr {
+	__be32 op_compl;
+	__be32 flowid_len16;
+	__u64  cookie;
+	union fw_ri {
+		struct fw_ri_init {
+			__u8   type;
+			__u8   mpareqbit_p2ptype;
+			__u8   r4[2];
+			__u8   mpa_attrs;
+			__u8   qp_caps;
+			__be16 nrqe;
+			__be32 pdid;
+			__be32 qpid;
+			__be32 sq_eqid;
+			__be32 rq_eqid;
+			__be32 scqid;
+			__be32 rcqid;
+			__be32 ord_max;
+			__be32 ird_max;
+			__be32 iss;
+			__be32 irs;
+			__be32 hwrqsize;
+			__be32 hwrqaddr;
+			__be64 r5;
+			union fw_ri_init_p2p {
+				struct fw_ri_rdma_write_wr write;
+				struct fw_ri_rdma_read_wr read;
+				struct fw_ri_send_wr send;
+			} u;
+		} init;
+		struct fw_ri_fini {
+			__u8   type;
+			__u8   r3[7];
+			__be64 r4;
+		} fini;
+		struct fw_ri_terminate {
+			__u8   type;
+			__u8   r3[3];
+			__be32 immdlen;
+			__u8   termmsg[40];
+		} terminate;
+	} u;
+};
+
+#define S_FW_RI_WR_MPAREQBIT	7
+#define M_FW_RI_WR_MPAREQBIT	0x1
+#define V_FW_RI_WR_MPAREQBIT(x)	((x) << S_FW_RI_WR_MPAREQBIT)
+#define G_FW_RI_WR_MPAREQBIT(x)	\
+    (((x) >> S_FW_RI_WR_MPAREQBIT) & M_FW_RI_WR_MPAREQBIT)
+#define F_FW_RI_WR_MPAREQBIT	V_FW_RI_WR_MPAREQBIT(1U)
+
+#define S_FW_RI_WR_P2PTYPE	0
+#define M_FW_RI_WR_P2PTYPE	0xf
+#define V_FW_RI_WR_P2PTYPE(x)	((x) << S_FW_RI_WR_P2PTYPE)
+#define G_FW_RI_WR_P2PTYPE(x)	\
+    (((x) >> S_FW_RI_WR_P2PTYPE) & M_FW_RI_WR_P2PTYPE)
+
 
 /******************************************************************************
  *  C O M M A N D s
@@ -1445,6 +1464,8 @@ struct fw_cmd_hdr {
 #define M_FW_CMD_LEN16		0xff
 #define V_FW_CMD_LEN16(x)	((x) << S_FW_CMD_LEN16)
 #define G_FW_CMD_LEN16(x)	(((x) >> S_FW_CMD_LEN16) & M_FW_CMD_LEN16)
+
+#define FW_LEN16(fw_struct) V_FW_CMD_LEN16(sizeof(fw_struct) / 16)
 
 /*
  *	address spaces
@@ -4883,7 +4904,7 @@ struct fw_rss_vi_config_cmd {
 		} manual;
 		struct fw_rss_vi_config_basicvirtual {
 			__be32 r6;
-			__be32 defaultq_to_ip4udpen;
+			__be32 defaultq_to_udpen;
 			__be64 r9;
 			__be64 r10;
 		} basicvirtual;
@@ -4944,14 +4965,15 @@ struct fw_rss_vi_config_cmd {
 #define F_FW_RSS_VI_CONFIG_CMD_IP4TWOTUPEN	\
     V_FW_RSS_VI_CONFIG_CMD_IP4TWOTUPEN(1U)
 
-#define S_FW_RSS_VI_CONFIG_CMD_IP4UDPEN		0
-#define M_FW_RSS_VI_CONFIG_CMD_IP4UDPEN		0x1
-#define V_FW_RSS_VI_CONFIG_CMD_IP4UDPEN(x)	\
-    ((x) << S_FW_RSS_VI_CONFIG_CMD_IP4UDPEN)
-#define G_FW_RSS_VI_CONFIG_CMD_IP4UDPEN(x)	\
-    (((x) >> S_FW_RSS_VI_CONFIG_CMD_IP4UDPEN) & \
-     M_FW_RSS_VI_CONFIG_CMD_IP4UDPEN)
-#define F_FW_RSS_VI_CONFIG_CMD_IP4UDPEN	V_FW_RSS_VI_CONFIG_CMD_IP4UDPEN(1U)
+#define S_FW_RSS_VI_CONFIG_CMD_UDPEN		0
+#define M_FW_RSS_VI_CONFIG_CMD_UDPEN		0x1
+#define V_FW_RSS_VI_CONFIG_CMD_UDPEN(x)		\
+    ((x) << S_FW_RSS_VI_CONFIG_CMD_UDPEN)
+#define G_FW_RSS_VI_CONFIG_CMD_UDPEN(x)		\
+    (((x) >> S_FW_RSS_VI_CONFIG_CMD_UDPEN) & \
+     M_FW_RSS_VI_CONFIG_CMD_UDPEN)
+#define F_FW_RSS_VI_CONFIG_CMD_UDPEN		\
+    V_FW_RSS_VI_CONFIG_CMD_UDPEN(1U)
 
 enum fw_sched_sc {
 	FW_SCHED_SC_CONFIG		= 0,
