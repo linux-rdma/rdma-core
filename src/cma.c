@@ -1244,21 +1244,16 @@ int rdma_disconnect(struct rdma_cm_id *id)
 	return 0;
 }
 
-int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
-			void *context)
+static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
+				socklen_t addrlen, void *context)
 {
-	struct ucma_abi_join_ip_mcast *cmd;
 	struct ucma_abi_create_id_resp *resp;
 	struct cma_id_private *id_priv;
 	struct cma_multicast *mc, **pos;
 	void *msg;
-	int ret, size, addrlen;
+	int ret, size;
 	
 	id_priv = container_of(id, struct cma_id_private, id);
-	addrlen = ucma_addrlen(addr);
-	if (!addrlen)
-		return ERR(EINVAL);
-
 	mc = malloc(sizeof *mc);
 	if (!mc)
 		return ERR(ENOMEM);
@@ -1277,10 +1272,23 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 	id_priv->mc_list = mc;
 	pthread_mutex_unlock(&id_priv->mut);
 
-	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_JOIN_IP_MCAST, size);
-	cmd->id = id_priv->handle;
-	memcpy(&cmd->addr, addr, addrlen);
-	cmd->uid = (uintptr_t) mc;
+	if (af_ib_support) {
+		struct ucma_abi_join_mcast *cmd;
+
+		CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_JOIN_MCAST, size);
+		cmd->id = id_priv->handle;
+		memcpy(&cmd->addr, addr, addrlen);
+		cmd->addr_size = addrlen;
+		cmd->uid = (uintptr_t) mc;
+		cmd->reserved = 0;
+	} else {
+		struct ucma_abi_join_ip_mcast *cmd;
+
+		CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_JOIN_IP_MCAST, size);
+		cmd->id = id_priv->handle;
+		memcpy(&cmd->addr, addr, addrlen);
+		cmd->uid = (uintptr_t) mc;
+	}
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size) {
@@ -1301,6 +1309,18 @@ err2:
 err1:
 	free(mc);
 	return ret;
+}
+
+int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
+			void *context)
+{
+	int addrlen;
+	
+	addrlen = ucma_addrlen(addr);
+	if (!addrlen)
+		return ERR(EINVAL);
+
+	return rdma_join_multicast2(id, addr, addrlen, context);
 }
 
 int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
