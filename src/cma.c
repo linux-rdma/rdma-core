@@ -49,6 +49,7 @@
 #include <endian.h>
 #include <byteswap.h>
 #include <stddef.h>
+#include <netdb.h>
 
 #include "cma.h"
 #include <infiniband/driver.h>
@@ -1989,4 +1990,46 @@ int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel)
 	pthread_mutex_unlock(&id_priv->mut);
 
 	return 0;
+}
+
+int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
+		   struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
+{
+	struct rdma_cm_id *cm_id;
+	int ret;
+
+	ret = rdma_create_id2(NULL, &cm_id, NULL, res->ai_port_space, res->ai_qp_type);
+	if (ret)
+		return ret;
+
+	if (af_ib_support)
+		ret = rdma_resolve_addr2(cm_id, res->ai_src_addr, res->ai_src_len,
+					 res->ai_dst_addr, res->ai_dst_len, 2000);
+	else
+		ret = rdma_resolve_addr(cm_id, res->ai_src_addr, res->ai_dst_addr, 2000);
+	if (ret)
+		goto err;
+
+	if (res->ai_route_len) {
+		ret = rdma_set_option(cm_id, RDMA_OPTION_IB, RDMA_OPTION_IB_PATH,
+				      res->ai_route, res->ai_route_len);
+		if (!ret)
+			ret = ucma_complete(container_of(cm_id, struct cma_id_private, id));
+	} else {
+		ret = rdma_resolve_route(cm_id, 2000);
+	}
+	if (ret)
+		goto err;
+
+	qp_init_attr->qp_type = res->ai_qp_type;
+	ret = rdma_create_qp(cm_id, pd, qp_init_attr);
+	if (ret)
+		goto err;
+
+	*id = cm_id;
+	return 0;
+
+err:
+	rdma_destroy_id(cm_id);
+	return ret;
 }

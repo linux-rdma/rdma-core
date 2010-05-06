@@ -232,6 +232,32 @@ int rdma_create_id(struct rdma_event_channel *channel,
 		   enum rdma_port_space ps);
 
 /**
+ * rdma_create_ep - Allocate a communication identifier and qp.
+ * @id: A reference where the allocated communication identifier will be
+ *   returned.
+ * @res: Result from rdma_getaddrinfo, which specifies the source and
+ *   destination addresses, plus optional routing and connection information.
+ * @pd: Optional protection domain.  This parameter is ignored if qp_init_attr
+ *   is NULL.
+ * @qp_init_attr: Optional attributes for a QP created on the rdma_cm_id.
+ * Description:
+ *   Create an identifier and option QP used for communication.
+ * Notes:
+ *   If qp_init_attr is provided, then a queue pair will be allocated and
+ *   associated with the rdma_cm_id.  If a pd is provided, the QP will be
+ *   created on that PD.  Otherwise, the QP will be allocated on a default
+ *   PD.
+ *   The rdma_cm_id will be set to use synchronous operations (connect,
+ *   listen, and get_request).  To convert to asynchronous operation, the
+ *   rdma_cm_id should be migrated to a user allocated event channel.
+ * See also:
+ *   rdma_create_id, rdma_create_qp, rdma_migrate_id, rdma_connect,
+ *   rdma_listen
+ */
+int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
+		   struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr);
+
+/**
  * rdma_destroy_id - Release a communication identifier.
  * @id: The communication identifier to destroy.
  * Description:
