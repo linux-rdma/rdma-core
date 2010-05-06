@@ -121,6 +121,11 @@ struct rdma_cm_id {
 	struct ibv_cq		*recv_cq;
 };
 
+enum {
+	RDMA_MAX_RESP_RES = 0xFF,
+	RDMA_MAX_INIT_DEPTH = 0xFF
+};
+
 struct rdma_conn_param {
 	const void *private_data;
 	uint8_t private_data_len;

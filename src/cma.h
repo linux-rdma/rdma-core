@@ -64,6 +64,8 @@ static inline uint64_t htonll(uint64_t x) { return x; }
 static inline uint64_t ntohll(uint64_t x) { return x; }
 #endif
 
+#define min(a, b) (a < b ? a : b)
+
 static inline int ERR(int err)
 {
 	errno = err;
