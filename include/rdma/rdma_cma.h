@@ -325,7 +325,7 @@ void rdma_destroy_qp(struct rdma_cm_id *id);
 /**
  * rdma_connect - Initiate an active connection request.
  * @id: RDMA identifier.
- * @conn_param: connection parameters.
+ * @conn_param: optional connection parameters.
  * Description:
  *   For a connected rdma_cm_id, this call initiates a connection request
  *   to a remote destination.  For an unconnected rdma_cm_id, it initiates
@@ -333,6 +333,8 @@ void rdma_destroy_qp(struct rdma_cm_id *id);
  * Notes:
  *   Users must have resolved a route to the destination address
  *   by having called rdma_resolve_route before calling this routine.
+ *   A user may override the default connection parameters and exchange
+ *   private data as part of the connection by using the conn_param parameter.
  * See also:
  *   rdma_resolve_route, rdma_disconnect, rdma_listen, rdma_get_cm_event
  */
@@ -361,7 +363,7 @@ int rdma_listen(struct rdma_cm_id *id, int backlog);
 /**
  * rdma_accept - Called to accept a connection request.
  * @id: Connection identifier associated with the request.
- * @conn_param: Information needed to establish the connection.
+ * @conn_param: Optional information needed to establish the connection.
  * Description:
  *   Called from the listening side to accept a connection or datagram
  *   service lookup request.
@@ -372,6 +374,8 @@ int rdma_listen(struct rdma_cm_id *id, int backlog);
  *   events give the user a newly created rdma_cm_id, similar to a new
  *   socket, but the rdma_cm_id is bound to a specific RDMA device.
  *   rdma_accept is called on the new rdma_cm_id.
+ *   A user may override the default connection parameters and exchange
+ *   private data as part of the connection by using the conn_param parameter.
  * See also:
  *   rdma_listen, rdma_reject, rdma_get_cm_event
  */

@@ -1133,6 +1133,12 @@ static int ucma_valid_param(struct cma_id_private *id_priv,
 	if (id_priv->id.ps != RDMA_PS_TCP)
 		return 0;
 
+	if (!id_priv->id.qp && !param)
+		return ERR(EINVAL);
+
+	if (!param)
+		return 0;
+
 	if ((param->responder_resources != RDMA_MAX_RESP_RES) &&
 	    (param->responder_resources > id_priv->cma_dev->max_responder_resources))
 		return ERR(EINVAL);
@@ -1153,15 +1159,21 @@ static void ucma_copy_conn_param_to_kern(struct cma_id_private *id_priv,
 	dst->srq = srq;
 	dst->responder_resources = id_priv->responder_resources;
 	dst->initiator_depth = id_priv->initiator_depth;
-	dst->flow_control = src->flow_control;
-	dst->retry_count = src->retry_count;
-	dst->rnr_retry_count = src->rnr_retry_count;
 	dst->valid = 1;
 
-	if (src->private_data && src->private_data_len) {
-		memcpy(dst->private_data, src->private_data,
-		       src->private_data_len);
-		dst->private_data_len = src->private_data_len;
+	if (src) {
+		dst->flow_control = src->flow_control;
+		dst->retry_count = src->retry_count;
+		dst->rnr_retry_count = src->rnr_retry_count;
+
+		if (src->private_data && src->private_data_len) {
+			memcpy(dst->private_data, src->private_data,
+			       src->private_data_len);
+			dst->private_data_len = src->private_data_len;
+		}
+	} else {
+		dst->retry_count = 7;
+		dst->rnr_retry_count = 7;
 	}
 }
 
@@ -1177,11 +1189,11 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	if (ret)
 		return ret;
 
-	if (conn_param->initiator_depth != RDMA_MAX_INIT_DEPTH)
+	if (conn_param && conn_param->initiator_depth != RDMA_MAX_INIT_DEPTH)
 		id_priv->initiator_depth = conn_param->initiator_depth;
 	else
 		id_priv->initiator_depth = id_priv->cma_dev->max_initiator_depth;
-	if (conn_param->responder_resources != RDMA_MAX_RESP_RES)
+	if (conn_param && conn_param->responder_resources != RDMA_MAX_RESP_RES)
 		id_priv->responder_resources = conn_param->responder_resources;
 	else
 		id_priv->responder_resources = id_priv->cma_dev->max_responder_resources;
@@ -1238,13 +1250,13 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	if (ret)
 		return ret;
 
-	if (conn_param->initiator_depth == RDMA_MAX_INIT_DEPTH) {
+	if (!conn_param || conn_param->initiator_depth == RDMA_MAX_INIT_DEPTH) {
 		id_priv->initiator_depth = min(id_priv->initiator_depth,
 					       id_priv->cma_dev->max_initiator_depth);
 	} else {
 		id_priv->initiator_depth = conn_param->initiator_depth;
 	}
-	if (conn_param->responder_resources == RDMA_MAX_RESP_RES) {
+	if (!conn_param || conn_param->responder_resources == RDMA_MAX_RESP_RES) {
 		id_priv->responder_resources = min(id_priv->responder_resources,
 						   id_priv->cma_dev->max_responder_resources);
 	} else {
