@@ -67,7 +67,8 @@ enum {
  	UCMA_CMD_LEAVE_MCAST,
 	UCMA_CMD_MIGRATE_ID,
 	UCMA_CMD_QUERY,
-	UCMA_CMD_BIND
+	UCMA_CMD_BIND,
+	UCMA_CMD_RESOLVE_ADDR
 };
 
 struct ucma_abi_cmd_hdr {
@@ -115,6 +116,16 @@ struct ucma_abi_resolve_ip {
 	struct sockaddr_in6 dst_addr;
 	__u32 id;
 	__u32 timeout_ms;
+};
+
+struct ucma_abi_resolve_addr {
+	__u32 id;
+	__u32 timeout_ms;
+	__u16 src_size;
+	__u16 dst_size;
+	__u32 reserved;
+	struct sockaddr_storage src_addr;
+	struct sockaddr_storage dst_addr;
 };
 
 struct ucma_abi_resolve_route {

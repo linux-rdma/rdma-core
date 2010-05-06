@@ -721,31 +721,63 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	return ucma_query_route(id);
 }
 
+static int rdma_resolve_addr2(struct rdma_cm_id *id, struct sockaddr *src_addr,
+			      socklen_t src_len, struct sockaddr *dst_addr,
+			      socklen_t dst_len, int timeout_ms)
+{
+	struct ucma_abi_resolve_addr *cmd;
+	struct cma_id_private *id_priv;
+	void *msg;
+	int ret, size;
+	
+	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_RESOLVE_ADDR, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	if ((cmd->src_size = src_len))
+		memcpy(&cmd->src_addr, src_addr, src_len);
+	memcpy(&cmd->dst_addr, dst_addr, dst_len);
+	cmd->dst_size = dst_len;
+	cmd->timeout_ms = timeout_ms;
+	cmd->reserved = 0;
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		return (ret >= 0) ? ERR(ENODATA) : -1;
+
+	memcpy(&id->route.addr.dst_addr, dst_addr, dst_len);
+	return 0;
+}
+
 int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 		      struct sockaddr *dst_addr, int timeout_ms)
 {
 	struct ucma_abi_resolve_ip *cmd;
 	struct cma_id_private *id_priv;
 	void *msg;
-	int ret, size, daddrlen;
+	int ret, size, dst_len, src_len;
 	
-	daddrlen = ucma_addrlen(dst_addr);
-	if (!daddrlen)
+	dst_len = ucma_addrlen(dst_addr);
+	if (!dst_len)
 		return ERR(EINVAL);
+
+	src_len = ucma_addrlen(src_addr);
+	if (af_ib_support)
+		return rdma_resolve_addr2(id, src_addr, src_len, dst_addr,
+					  dst_len, timeout_ms);
 
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_RESOLVE_IP, size);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd->id = id_priv->handle;
 	if (src_addr)
-		memcpy(&cmd->src_addr, src_addr, ucma_addrlen(src_addr));
-	memcpy(&cmd->dst_addr, dst_addr, daddrlen);
+		memcpy(&cmd->src_addr, src_addr, src_len);
+	memcpy(&cmd->dst_addr, dst_addr, dst_len);
 	cmd->timeout_ms = timeout_ms;
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
-	memcpy(&id->route.addr.dst_addr, dst_addr, daddrlen);
+	memcpy(&id->route.addr.dst_addr, dst_addr, dst_len);
 	return 0;
 }
 
