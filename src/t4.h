@@ -531,11 +531,12 @@ static inline int t4_valid_cqe(struct t4_cq *cq, struct t4_cqe *cqe)
 static inline int t4_next_hw_cqe(struct t4_cq *cq, struct t4_cqe **cqe)
 {
 	int ret = 0;
+	u64 bits_type_ts = be64_to_cpu(cq->queue[cq->cidx].bits_type_ts);
 
-	if (t4_valid_cqe(cq, &cq->queue[cq->cidx])) {
+	if (G_CQE_GENBIT(bits_type_ts) == cq->gen) {
 		*cqe = &cq->queue[cq->cidx];
-		cq->timestamp = CQE_TS(*cqe);
-	} else if (CQE_TS(&cq->queue[cq->cidx]) > cq->timestamp)
+		cq->timestamp = G_CQE_TS(bits_type_ts);
+	} else if (G_CQE_TS(bits_type_ts) > cq->timestamp)
 		ret = -EOVERFLOW;
 	else
 		ret = -ENODATA;
