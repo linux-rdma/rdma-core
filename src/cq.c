@@ -221,7 +221,7 @@ static void create_read_req_cqe(struct t4_wq *wq, struct t4_cqe *hw_cqe,
 				struct t4_cqe *read_cqe)
 {
 	read_cqe->u.scqe.cidx = wq->sq.oldest_read->idx;
-	read_cqe->len = wq->sq.oldest_read->read_len;
+	read_cqe->len = ntohl(wq->sq.oldest_read->read_len);
 	read_cqe->header = htonl(V_CQE_QPID(CQE_QPID(hw_cqe)) |
 				 V_CQE_SWCQE(SW_CQE(hw_cqe)) |
 				 V_CQE_OPCODE(FW_RI_READ_REQ) |
