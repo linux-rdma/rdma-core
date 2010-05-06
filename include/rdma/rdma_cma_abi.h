@@ -82,7 +82,8 @@ struct ucma_abi_create_id {
 	__u64 uid;
 	__u64 response;
 	__u16 ps;
-	__u8  reserved[6];
+	__u8  qp_type;
+	__u8  reserved[5];
 };
 
 struct ucma_abi_create_id_resp {

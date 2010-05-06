@@ -390,9 +390,9 @@ err:	ucma_free_id(id_priv);
 	return NULL;
 }
 
-int rdma_create_id(struct rdma_event_channel *channel,
-		   struct rdma_cm_id **id, void *context,
-		   enum rdma_port_space ps)
+static int rdma_create_id2(struct rdma_event_channel *channel,
+			   struct rdma_cm_id **id, void *context,
+			   enum rdma_port_space ps, enum ibv_qp_type qp_type)
 {
 	struct ucma_abi_create_id_resp *resp;
 	struct ucma_abi_create_id *cmd;
@@ -411,6 +411,7 @@ int rdma_create_id(struct rdma_event_channel *channel,
 	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_CREATE_ID, size);
 	cmd->uid = (uintptr_t) id_priv;
 	cmd->ps = ps;
+	cmd->qp_type = qp_type;
 
 	ret = write(id_priv->id.channel->fd, msg, size);
 	if (ret != size)
@@ -424,6 +425,17 @@ int rdma_create_id(struct rdma_event_channel *channel,
 
 err:	ucma_free_id(id_priv);
 	return ret;
+}
+
+int rdma_create_id(struct rdma_event_channel *channel,
+		   struct rdma_cm_id **id, void *context,
+		   enum rdma_port_space ps)
+{
+	enum ibv_qp_type qp_type;
+
+	qp_type = (ps == RDMA_PS_IPOIB || ps == RDMA_PS_UDP) ?
+		  IBV_QPT_UD : IBV_QPT_RC;
+	return rdma_create_id2(channel, id, context, ps, qp_type);
 }
 
 static int ucma_destroy_kern_id(int fd, uint32_t handle)
