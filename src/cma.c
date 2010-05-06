@@ -1142,6 +1142,7 @@ void rdma_destroy_qp(struct rdma_cm_id *id)
 {
 	ibv_destroy_qp(id->qp);
 	ucma_destroy_cqs(id);
+	id->qp = NULL;
 }
 
 static int ucma_valid_param(struct cma_id_private *id_priv,
@@ -2032,4 +2033,11 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 err:
 	rdma_destroy_id(cm_id);
 	return ret;
+}
+
+void rdma_destroy_ep(struct rdma_cm_id *id)
+{
+	if (id->qp)
+		rdma_destroy_qp(id);
+	rdma_destroy_id(id);
 }

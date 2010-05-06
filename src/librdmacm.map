@@ -32,5 +32,6 @@ RDMACM_1.0 {
 		rdma_freeaddrinfo;
 		rdma_get_request;
 		rdma_create_ep;
+		rdma_destroy_ep;
 	local: *;
 };
