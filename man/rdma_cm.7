@@ -8,17 +8,59 @@ Used to establish communication over RDMA transports.
 .SH "NOTES"
 The RDMA CM is a communication manager used to setup reliable, connected
 and unreliable datagram data transfers.  It provides an RDMA transport
-neutral interface for establishing connections.  The API is based on sockets,
-but adapted for queue pair (QP) based semantics: communication must be
-over a specific RDMA device, and data transfers are message based.
+neutral interface for establishing connections.  The API concepts are
+is based on sockets, but adapted for queue pair (QP) based semantics:
+communication must be over a specific RDMA device, and data transfers
+are message based.
 .P
-The RDMA CM only provides the communication management (connection setup /
-teardown) portion of an RDMA API.  It works in conjunction with the verbs
+The RDMA CM can control both the QP and communication management (connection setup /
+teardown) portions of an RDMA API, or only the communication management
+piece.  It works in conjunction with the verbs
 API defined by the libibverbs library.  The libibverbs library provides the
-interfaces needed to send and receive data.
+underlying interfaces needed to send and receive data.
+.P
+The RDMA CM can operate asynchronously or synchronously.  The mode of
+operation is controlled by the user through the use of the rdma_cm event channel
+parameter in specific calls.  If an event channel is provided, an rdma_cm identifier
+will report its event data (results of connecting, for example), on that channel.
+If a channel is not provided, then all rdma_cm operations for the selected
+rdma_cm identifier are will block until they complete.
+.SH "RDMA VERBS"
+The rdma_cm supports the full range of verbs available through the libibverbs
+library and interfaces.  However, it also provides wrapper functions for some
+of the more commonly used verbs funcationality.  The full set of abstracted
+verb calls are:
+.P rdma_reg_msgs  - register an array of buffers for sending and receiving
+.P rdma_reg_read  - registers a buffer for RDMA read operations
+.P rdma_reg_write - registers a buffer for RDMA write operations
+.P rdma_dereg_mr  - deregisters a memory region
+.P
+.P rdma_post_recv  - post a buffer to receive a message
+.P rdma_post_send  - post a buffer to send a message
+.P rdma_post_read  - post an RDMA to read data into a buffer
+.P rdma_post_write - post an RDMA to send data from a buffer
+.P
+.P rdma_post_recvv  - post a vector of buffers to receive a message
+.P rdma_post_sendv  - post a vector of buffers to send a message
+.P rdma_post_readv  - post a vector of buffers to receive an RDMA read
+.P rdma_post_writev - post a vector of buffers to send an RDMA write
+.P
+.P rdma_post_ud_send - post a buffer to send a message on a UD QP
+.P
+.P rdma_get_send_comp - get completion status for a send or RDMA operation
+.P rdma_get_recv_comp - get information about a completed receive
 .SH "CLIENT OPERATION"
 This section provides a general overview of the basic operation for the active,
-or client, side of communication.  A general connection flow would be:
+or client, side of communication.  This flow assume asynchronous operation with
+low level call details shown.  For
+synchronous operation, calls to rdma_create_event_channel, rdma_get_cm_event,
+rdma_ack_cm_event, and rdma_destroy_event_channel
+would be eliminated.  Abstracted calls, such as rdma_create_ep encapsulate
+serveral of these calls under a single API.
+Users may also refer to the example applications for
+code samples.  A general connection flow would be:
+.IP rdma_getaddrinfo
+retrieve address information of the destination
 .IP rdma_create_event_channel
 create channel to receive events
 .IP rdma_create_id

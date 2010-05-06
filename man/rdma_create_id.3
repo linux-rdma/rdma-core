@@ -12,7 +12,7 @@ rdma_create_id \- Allocate a communication identifier.
 .SH ARGUMENTS
 .IP "channel" 12
 The communication channel that events associated with the
-allocated rdma_cm_id will be reported on.
+allocated rdma_cm_id will be reported on.  This may be NULL.
 .IP "id" 12
 A reference where the allocated communication identifier will be
 returned.
@@ -26,9 +26,15 @@ Creates an identifier that is used to track communication information.
 Rdma_cm_id's are conceptually equivalent to a socket for RDMA
 communication.  The difference is that RDMA communication requires
 explicitly binding to a specified RDMA device before communication
-can occur, and most operations are asynchronous in nature.  Communication
-events on an rdma_cm_id are reported through the associated event
-channel.  Users must release the rdma_cm_id by calling rdma_destroy_id.
+can occur, and most operations are asynchronous in nature.  Asynchronous
+communication events on an rdma_cm_id are reported through the associated
+event channel.  If the channel paramet is NULL, the rdma_cm_id will
+be placed into synchronous operation.  While operating synchronously,
+calls that result in an event will block until the operation completes.
+The event will be returned to the user through the rdma_cm_id structure,
+and be available for access until another rdma_cm call is made.
+.P
+Users must release the rdma_cm_id by calling rdma_destroy_id.
 .SH "PORT SPACE"
 Details of the services provided by the different port spaces are outlined
 below.
