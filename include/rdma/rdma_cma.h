@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Voltaire Inc.  All rights reserved.
- * Copyright (c) 2005-2007 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2010 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -156,6 +156,26 @@ struct rdma_cm_event {
 		struct rdma_conn_param conn;
 		struct rdma_ud_param   ud;
 	} param;
+};
+
+#define RAI_PASSIVE		0x00000001
+
+struct rdma_addrinfo {
+	int			ai_flags;
+	int			ai_family;
+	int			ai_qp_type;
+	int			ai_port_space;
+	socklen_t		ai_src_len;
+	socklen_t		ai_dst_len;
+	struct sockaddr		*ai_src_addr;
+	struct sockaddr		*ai_dst_addr;
+	char			*ai_src_canonname;
+	char			*ai_dst_canonname;
+	size_t			ai_route_len;
+	void			*ai_route;
+	size_t			ai_connect_len;
+	void			*ai_connect;
+	struct rdma_addrinfo	*ai_next;
 };
 
 /**
@@ -588,6 +608,15 @@ int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
  * @channel: New event channel for rdma_cm_id events.
  */
 int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel);
+
+/**
+ * rdma_getaddrinfo - RDMA address and route resolution service.
+ */
+int rdma_getaddrinfo(char *node, char *service,
+		     struct rdma_addrinfo *hints,
+		     struct rdma_addrinfo **res);
+
+void rdma_freeaddrinfo(struct rdma_addrinfo *res);
 
 #ifdef __cplusplus
 }
