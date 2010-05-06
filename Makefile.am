@@ -70,7 +70,7 @@ man_MANS = \
 
 EXTRA_DIST = include/rdma/rdma_cma_abi.h include/rdma/rdma_cma.h \
 	     include/infiniband/ib.h \
-	     src/librdmacm.map librdmacm.spec.in $(man_MANS)
+	     src/cma.h src/librdmacm.map librdmacm.spec.in $(man_MANS)
 
 dist-hook: librdmacm.spec
 	cp librdmacm.spec $(distdir)

@@ -50,38 +50,12 @@
 #include <byteswap.h>
 #include <stddef.h>
 
+#include "cma.h"
 #include <infiniband/driver.h>
 #include <infiniband/marshall.h>
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_cma_abi.h>
 #include <infiniband/ib.h>
-
-#ifdef INCLUDE_VALGRIND
-#   include <valgrind/memcheck.h>
-#   ifndef VALGRIND_MAKE_MEM_DEFINED
-#       warning "Valgrind requested, but VALGRIND_MAKE_MEM_DEFINED undefined"
-#   endif
-#endif
-
-#ifndef VALGRIND_MAKE_MEM_DEFINED
-#   define VALGRIND_MAKE_MEM_DEFINED(addr,len)
-#endif
-
-#define PFX "librdmacm: "
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-static inline uint64_t htonll(uint64_t x) { return bswap_64(x); }
-static inline uint64_t ntohll(uint64_t x) { return bswap_64(x); }
-#else
-static inline uint64_t htonll(uint64_t x) { return x; }
-static inline uint64_t ntohll(uint64_t x) { return x; }
-#endif
-
-static inline int ERR(int err)
-{
-	errno = err;
-	return -1;
-}
 
 #define CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, type, size) \
 do {                                        \
