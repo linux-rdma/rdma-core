@@ -46,6 +46,7 @@
 #include <getopt.h>
 
 #include <rdma/rdma_cma.h>
+#include <infiniband/ib.h>
 
 struct cmatest_node {
 	int			id;
@@ -67,9 +68,9 @@ struct cmatest {
 	int			conn_index;
 	int			connects_left;
 
-	struct sockaddr_in6	dst_in;
+	struct sockaddr_storage	dst_in;
 	struct sockaddr		*dst_addr;
-	struct sockaddr_in6	src_in;
+	struct sockaddr_storage	src_in;
 	struct sockaddr		*src_addr;
 };
 
@@ -460,6 +461,20 @@ static int get_addr(char *dst, struct sockaddr *addr)
 	return ret;
 }
 
+static int get_dst_addr(char *dst, struct sockaddr *addr)
+{
+	struct sockaddr_ib *sib;
+
+	if (!unmapped_addr)
+		return get_addr(dst, addr);
+
+	sib = (struct sockaddr_ib *) addr;
+	memset(sib, 0, sizeof *sib);
+	sib->sib_family = AF_IB;
+	inet_pton(AF_INET6, dst, &sib->sib_addr);
+	return 0;
+}
+
 static int run(void)
 {
 	int i, ret;
@@ -471,7 +486,7 @@ static int run(void)
 			return ret;
 	}
 
-	ret = get_addr(dst_addr, (struct sockaddr *) &test.dst_in);
+	ret = get_dst_addr(dst_addr, (struct sockaddr *) &test.dst_in);
 	if (ret)
 		return ret;
 
