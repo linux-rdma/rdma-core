@@ -39,6 +39,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <unistd.h>
 
 #include "cma.h"
 #include <rdma/rdma_cma.h>
@@ -158,6 +159,17 @@ int rdma_getaddrinfo(char *node, char *service,
 	ret = ucma_convert_to_rai(rai, ai);
 	if (ret)
 		goto err2;
+
+	if (!rai->ai_src_len && hints && hints->ai_src_len) {
+		rai->ai_src_addr = calloc(1, hints->ai_src_len);
+		if (!rai->ai_src_addr) {
+			ret = ERR(ENOMEM);
+			goto err2;
+		}
+		memcpy(rai->ai_src_addr, hints->ai_src_addr,
+		       hints->ai_src_len);
+		rai->ai_src_len = hints->ai_src_len;
+	}
 
 	freeaddrinfo(ai);
 	*res = rai;
