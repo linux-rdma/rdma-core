@@ -27,10 +27,11 @@ examples_udaddy_LDADD = $(top_builddir)/src/librdmacm.la
 examples_mckey_SOURCES = examples/mckey.c
 examples_mckey_LDADD = $(top_builddir)/src/librdmacm.la
 
-librdmacmincludedir = $(includedir)/rdma
+librdmacmincludedir = $(includedir)/rdma $(includedir)/infiniband
 
 librdmacminclude_HEADERS = include/rdma/rdma_cma_abi.h \
-			   include/rdma/rdma_cma.h
+			   include/rdma/rdma_cma.h \
+			   include/infiniband/ib.h
 
 man_MANS = \
 	man/rdma_accept.3 \
@@ -68,6 +69,7 @@ man_MANS = \
 	man/rdma_cm.7
 
 EXTRA_DIST = include/rdma/rdma_cma_abi.h include/rdma/rdma_cma.h \
+	     include/infiniband/ib.h \
 	     src/librdmacm.map librdmacm.spec.in $(man_MANS)
 
 dist-hook: librdmacm.spec

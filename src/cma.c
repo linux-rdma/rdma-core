@@ -54,6 +54,7 @@
 #include <infiniband/marshall.h>
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_cma_abi.h>
+#include <infiniband/ib.h>
 
 #ifdef INCLUDE_VALGRIND
 #   include <valgrind/memcheck.h>
@@ -502,6 +503,37 @@ static int ucma_query_addr(struct rdma_cm_id *id)
 		id->port_num = resp->port_num;
 		id->route.addr.addr.ibaddr.pkey = resp->pkey;
 	}
+
+	return 0;
+}
+
+static int ucma_query_gid(struct rdma_cm_id *id)
+{
+	struct ucma_abi_query_addr_resp *resp;
+	struct ucma_abi_query *cmd;
+	struct cma_id_private *id_priv;
+	struct sockaddr_ib *sib;
+	void *msg;
+	int ret, size;
+	
+	CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, UCMA_CMD_QUERY, size);
+	id_priv = container_of(id, struct cma_id_private, id);
+	cmd->id = id_priv->handle;
+	cmd->option = UCMA_QUERY_GID;
+
+	ret = write(id->channel->fd, msg, size);
+	if (ret != size)
+		return (ret >= 0) ? ERR(ENODATA) : -1;
+
+	VALGRIND_MAKE_MEM_DEFINED(resp, sizeof *resp);
+
+	sib = (struct sockaddr_ib *) &resp->src_addr;
+	memcpy(id->route.addr.addr.ibaddr.sgid.raw, sib->sib_addr.sib_raw,
+	       sizeof id->route.addr.addr.ibaddr.sgid);
+
+	sib = (struct sockaddr_ib *) &resp->dst_addr;
+	memcpy(id->route.addr.addr.ibaddr.dgid.raw, sib->sib_addr.sib_raw,
+	       sizeof id->route.addr.addr.ibaddr.dgid);
 
 	return 0;
 }

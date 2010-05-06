@@ -116,7 +116,8 @@ struct ucma_abi_resolve_route {
 
 enum {
 	UCMA_QUERY_ADDR,
-	UCMA_QUERY_PATH
+	UCMA_QUERY_PATH,
+	UCMA_QUERY_GID
 };
 
 struct ucma_abi_query {

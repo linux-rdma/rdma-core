@@ -78,7 +78,7 @@ enum rdma_port_space {
  */
 #define RDMA_UDP_QKEY 0x01234567
 
-struct ib_addr {
+struct rdma_ib_addr {
 	union ibv_gid	sgid;
 	union ibv_gid	dgid;
 	uint16_t	pkey;
@@ -92,7 +92,7 @@ struct rdma_addr {
 	uint8_t			dst_pad[sizeof(struct sockaddr_storage) -
 					sizeof(struct sockaddr)];
 	union {
-		struct ib_addr	ibaddr;
+		struct rdma_ib_addr	ibaddr;
 	} addr;
 };
 
