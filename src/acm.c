@@ -736,6 +736,7 @@ static uint8_t acm_resolve_path(struct acm_ep *ep, struct acm_dest *dest,
 		return ACM_STATUS_ENOMEM;
 	}
 
+	(void) atomic_inc(&dest->refcnt);
 	acm_init_send_req(msg, (void *) dest, resp_handler);
 	mad = (struct ib_sa_mad *) msg->data;
 	acm_init_path_query(mad);
@@ -990,20 +991,27 @@ acm_process_addr_req(struct acm_ep *ep, struct ibv_wc *wc, struct acm_mad *mad)
 
 		ibv_destroy_ah(dest->ah); // TODO: ah could be in use
 		/* fall through */
-	default:
+	case ACM_INIT:
+	case ACM_QUERY_ADDR:
 		status = acm_record_acm_addr(ep, dest, wc, rec);
 		if (status)
 			break;
-
+		/* fall through */
+	case ACM_ADDR_RESOLVED:
 		if (route_prot == ACM_ROUTE_PROT_ACM) {
 			status = acm_record_acm_route(ep, dest);
-		} else if (addr_index >= 0) {
-			status = acm_resolve_path(ep, dest, acm_resolve_sa_resp);
-			if (!status) {
-				lock_release(&dest->lock);
-				return;
-			}
+			break;
 		}
+		if (addr_index >= 0) {
+			status = acm_resolve_path(ep, dest, acm_resolve_sa_resp);
+			if (status)
+				break;
+		}
+		/* fall through */
+	default:
+		lock_release(&dest->lock);
+		acm_put_dest(dest);
+		return;
 	}
 	lock_release(&dest->lock);
 	acm_complete_queued_req(dest, status);
@@ -1033,8 +1041,7 @@ acm_process_addr_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_ma
 	lock_acquire(&dest->lock);
 	if (dest->state != ACM_QUERY_ADDR) {
 		lock_release(&dest->lock);
-		acm_put_dest(dest);
-		return;
+		goto put;
 	}
 
 	if (!status) {
@@ -1046,7 +1053,7 @@ acm_process_addr_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_ma
 				status = acm_resolve_path(msg->ep, dest, acm_dest_sa_resp);
 				if (!status) {
 					lock_release(&dest->lock);
-					return;
+					goto put;
 				}
 			}
 		}
@@ -1056,6 +1063,7 @@ acm_process_addr_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_ma
 	lock_release(&dest->lock);
 
 	acm_complete_queued_req(dest, status);
+put:
 	acm_put_dest(dest);
 }
 
@@ -1957,9 +1965,7 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 		if (status) {
 			break;
 		}
-		ret = 0;
-		lock_release(&dest->lock);
-		goto put;
+		goto queue;
 	case ACM_INIT:
 		acm_log(2, "sending resolve msg to dest\n");
 		status = acm_send_resolve(ep, dest, saddr);
@@ -1969,6 +1975,7 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 		dest->state = ACM_QUERY_ADDR;
 		/* fall through */
 	default:
+queue:
 		status = acm_svr_queue_req(dest, client, msg);
 		if (status) {
 			break;
