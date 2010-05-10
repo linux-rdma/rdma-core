@@ -1,7 +1,7 @@
 %define ver @VERSION@
 
 Name: ib_acm
-Version: 0.0.2
+Version: 1.0.0
 Release: 1%{?dist}
 Summary: InfiniBand Communication Manager Assistant
 
