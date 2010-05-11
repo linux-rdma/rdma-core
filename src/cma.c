@@ -206,6 +206,9 @@ static void ucma_set_af_ib_support(void)
 	struct sockaddr_ib sib;
 	int ret;
 
+	/* Just return - do not enable AF_IB support for now */
+	return;
+
 	ret = rdma_create_id(NULL, &id, NULL, RDMA_PS_IB);
 	if (ret)
 		return;
