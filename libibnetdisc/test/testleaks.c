@@ -54,8 +54,6 @@
 char *argv0 = "iblinkinfotest";
 static FILE *f;
 
-static int timeout_ms = 500;
-
 void usage(void)
 {
 	fprintf(stderr,
@@ -87,9 +85,6 @@ int main(int argc, char **argv)
 	char *from = NULL;
 	ib_portid_t port_id;
 	int iters = -1;
-
-	struct ibmad_port *ibmad_port;
-	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
 	static char const str_opts[] = "S:D:n:C:P:t:shuf:i:";
 	static const struct option long_opts[] = {
@@ -139,7 +134,7 @@ int main(int argc, char **argv)
 			iters = (int)strtol(optarg, NULL, 0);
 			break;
 		case 't':
-			timeout_ms = strtoul(optarg, 0, 0);
+			config.timeout_ms = strtoul(optarg, 0, 0);
 			break;
 		case 'S':
 			guid = (uint64_t) strtoull(optarg, 0, 0);
@@ -152,15 +147,11 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	ibmad_port = mad_rpc_open_port(ca, ca_port, mgmt_classes, 2);
-
-	mad_rpc_set_timeout(ibmad_port, timeout_ms);
-
 	while (iters == -1 || iters-- > 0) {
 		if (from) {
 			/* only scan part of the fabric */
 			str2drpath(&(port_id.drpath), from, 0, 0);
-			if ((fabric = ibnd_discover_fabric(ibmad_port,
+			if ((fabric = ibnd_discover_fabric(ca, ca_port,
 							   &port_id, &config))
 			    == NULL) {
 				fprintf(stderr, "discover failed\n");
@@ -168,7 +159,7 @@ int main(int argc, char **argv)
 				goto close_port;
 			}
 			guid = 0;
-		} else if ((fabric = ibnd_discover_fabric(ibmad_port, NULL,
+		} else if ((fabric = ibnd_discover_fabric(ca, ca_port, NULL,
 							  &config)) == NULL) {
 			fprintf(stderr, "discover failed\n");
 			rc = 1;
@@ -179,6 +170,5 @@ int main(int argc, char **argv)
 	}
 
 close_port:
-	mad_rpc_close_port(ibmad_port);
 	exit(rc);
 }

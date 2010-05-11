@@ -67,8 +67,6 @@
 #define DIFF_FLAG_DEFAULT (DIFF_FLAG_SWITCH | DIFF_FLAG_CA | DIFF_FLAG_ROUTER \
 			   | DIFF_FLAG_PORT_CONNECTION)
 
-struct ibmad_port *srcport;
-
 static FILE *f;
 
 static char *node_name_map_file = NULL;
@@ -938,9 +936,6 @@ int main(int argc, char **argv)
 	ibnd_fabric_t *fabric = NULL;
 	ibnd_fabric_t *diff_fabric = NULL;
 
-	struct ibmad_port *ibmad_port;
-	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
-
 	const struct ibdiag_opt opts[] = {
 		{"show", 's', 0, NULL, "show more information"},
 		{"list", 'l', 0, NULL, "list of connected nodes"},
@@ -975,12 +970,8 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
-	if (!ibmad_port)
-		IBERROR("Failed to open %s port %d", ibd_ca, ibd_ca_port);
-
 	if (ibd_timeout)
-		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
+		config.timeout_ms = ibd_timeout;
 
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
@@ -996,7 +987,7 @@ int main(int argc, char **argv)
 			IBERROR("loading cached fabric failed\n");
 	} else {
 		if ((fabric =
-		     ibnd_discover_fabric(ibmad_port, NULL, &config)) == NULL)
+		     ibnd_discover_fabric(ibd_ca, ibd_ca_port, NULL, &config)) == NULL)
 			IBERROR("discover failed\n");
 	}
 
@@ -1017,6 +1008,5 @@ int main(int argc, char **argv)
 	if (diff_fabric)
 		ibnd_destroy_fabric(diff_fabric);
 	close_node_name_map(node_name_map);
-	mad_rpc_close_port(ibmad_port);
 	exit(0);
 }

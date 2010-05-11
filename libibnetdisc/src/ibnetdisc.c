@@ -380,21 +380,6 @@ ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric, uint64_t guid)
 	return NULL;
 }
 
-static int _check_ibmad_port(struct ibmad_port *ibmad_port)
-{
-	if (!ibmad_port) {
-		IBND_DEBUG("ibmad_port must be specified\n");
-		return -1;
-	}
-	if (mad_rpc_class_agent(ibmad_port, IB_SMI_CLASS) == -1
-	    || mad_rpc_class_agent(ibmad_port, IB_SMI_DIRECT_CLASS) == -1) {
-		IBND_DEBUG("ibmad_port must be opened with "
-			   "IB_SMI_CLASS && IB_SMI_DIRECT_CLASS\n");
-		return -1;
-	}
-	return 0;
-}
-
 ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 {
 	int i = 0;
@@ -462,17 +447,38 @@ void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 	}
 }
 
-ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
-				    ib_portid_t * from, struct ibnd_config *cfg)
+static int set_config(struct ibnd_config *config, struct ibnd_config *cfg)
 {
-	struct ibnd_config default_config = { 0 };
+	if (!config)
+		return (-EINVAL);
+
+	if (cfg)
+		memcpy(config, cfg, sizeof(*config));
+
+	if (!config->max_smps)
+		config->max_smps = DEFAULT_MAX_SMP_ON_WIRE;
+	if (!config->timeout_ms)
+		config->timeout_ms = DEFAULT_TIMEOUT;
+	if (!config->retries)
+		config->retries = DEFAULT_RETRIES;
+
+	return (0);
+}
+
+ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
+				    ib_portid_t * from,
+				    struct ibnd_config *cfg)
+{
+	struct ibnd_config config = { 0 };
 	ibnd_fabric_t *fabric = NULL;
 	ib_portid_t my_portid = { 0 };
 	smp_engine_t engine;
 	ibnd_scan_t scan;
 
-	if (_check_ibmad_port(ibmad_port) < 0)
+	if (set_config(&config, cfg)) {
+		IBND_ERROR("Invalid ibnd_config\n");
 		return NULL;
+	}
 
 	/* If not specified start from "my" port */
 	if (!from)
@@ -488,10 +494,12 @@ ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
 
 	memset(&scan.selfportid, 0, sizeof(scan.selfportid));
 	scan.fabric = fabric;
-	scan.cfg = cfg ? cfg : &default_config;
+	scan.cfg = &config;
 
-	smp_engine_init(&engine, ibmad_port, &scan, cfg->max_smps ?
-			cfg->max_smps : DEFAULT_MAX_SMP_ON_WIRE);
+	if (smp_engine_init(&engine, ca_name, ca_port, &scan, &config)) {
+		free(fabric);
+		return (NULL);
+	}
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 

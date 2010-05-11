@@ -134,7 +134,9 @@ typedef struct ibnd_config {
 	unsigned show_progress;
 	unsigned max_hops;
 	unsigned debug;
-	uint8_t pad[64];
+	unsigned timeout_ms;
+	unsigned retries;
+	uint8_t pad[56];
 } ibnd_config_t;
 
 /** =========================================================================
@@ -166,15 +168,16 @@ typedef struct ibnd_fabric {
  * Initialization (fabric operations)
  */
 
-MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(struct ibmad_port *ibmad_port,
+MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(char * ca_name,
+					       int ca_port,
 					       ib_portid_t * from,
 					       struct ibnd_config *config);
 	/**
-	 * open: (required) ibmad_port object from libibmad
+	 * ca_name: (optional) name of the CA to use
+	 * ca_port: (optional) CA port to use
 	 * from: (optional) specify the node to start scanning from.
-	 *       If NULL start from the node we are running on.
-	 * hops: (optional) Specify how much of the fabric to traverse.
-	 *       negative value == scan entire fabric
+	 *       If NULL start from the CA/CA port specified
+	 * config: (optional) additional config options for the scan
 	 */
 MAD_EXPORT void ibnd_destroy_fabric(ibnd_fabric_t * fabric);
 

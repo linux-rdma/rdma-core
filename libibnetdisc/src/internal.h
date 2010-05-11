@@ -54,6 +54,8 @@
 #define MAXHOPS         63
 
 #define DEFAULT_MAX_SMP_ON_WIRE 2
+#define DEFAULT_TIMEOUT 1000
+#define DEFAULT_RETRIES 3
 
 typedef struct ibnd_scan {
 	ib_portid_t selfportid;
@@ -76,16 +78,19 @@ struct ibnd_smp {
 
 struct smp_engine {
 	struct ibmad_port *ibmad_port;
+	int umad_fd;
+	int smi_agent;
+	int smi_dir_agent;
 	ibnd_smp_t *smp_queue_head;
 	ibnd_smp_t *smp_queue_tail;
 	void *user_data;
 	cl_qmap_t smps_on_wire;
-	int max_smps_on_wire;
+	struct ibnd_config *cfg;
 	unsigned total_smps;
 };
 
-void smp_engine_init(smp_engine_t * engine, struct ibmad_port *ibmad_port,
-		     void *user_data, int max_smps_on_wire);
+int smp_engine_init(smp_engine_t * engine, char * ca_name, int ca_port,
+		    void *user_data, ibnd_config_t *cfg);
 int issue_smp(smp_engine_t * engine, ib_portid_t * portid,
 	      unsigned attrid, unsigned mod, smp_comp_cb_t cb, void *cb_data);
 int process_mads(smp_engine_t * engine);
