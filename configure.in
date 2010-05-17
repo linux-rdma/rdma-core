@@ -49,6 +49,10 @@ AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
     AC_MSG_ERROR([ibv_get_device_list() not found.  librdmacm requires libibverbs.]))
 fi
 
+AC_CHECK_MEMBER(struct ibv_path_record.service_id, [],
+    AC_DEFINE(DEFINE_PATH_RECORD, 1, [adding path record definition]),
+    [#include <infiniband/sa.h>])
+
 dnl Checks for header files.
 AC_HEADER_STDC
 if test "$disable_libcheck" != "yes"; then
