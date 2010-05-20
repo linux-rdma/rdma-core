@@ -80,6 +80,7 @@
 #define NES_DBG_IW_RX       0x00020000
 #define NES_DBG_IW_TX       0x00040000
 #define NES_DBG_SHUTDOWN    0x00080000
+#define NES_DBG_UD          0x00100000
 #define NES_DBG_RSVD1       0x10000000
 #define NES_DBG_RSVD2       0x20000000
 #define NES_DBG_RSVD3       0x40000000
@@ -199,6 +200,33 @@ enum nes_iwarp_sq_wqe_bits {
 	NES_IWARP_SQ_OP_NOP = 12,
 };
 
+enum nes_nic_cqe_word_idx {
+	NES_NIC_CQE_ACCQP_ID_IDX = 0,
+	NES_NIC_CQE_TAG_PKT_TYPE_IDX = 2,
+	NES_NIC_CQE_MISC_IDX = 3,
+};
+
+#define NES_NIC_CQE_ERRV_SHIFT 16
+enum nes_nic_ev_bits {
+	NES_NIC_ERRV_BITS_MODE = (1<<0),
+	NES_NIC_ERRV_BITS_IPV4_CSUM_ERR = (1<<1),
+	NES_NIC_ERRV_BITS_TCPUDP_CSUM_ERR = (1<<2),
+	NES_NIC_ERRV_BITS_WQE_OVERRUN = (1<<3),
+	NES_NIC_ERRV_BITS_IPH_ERR = (1<<4),
+};
+
+enum nes_nic_cqe_bits {
+	NES_NIC_CQE_ERRV_MASK = (0xff<<NES_NIC_CQE_ERRV_SHIFT),
+	NES_NIC_CQE_SQ = (1<<24),
+	NES_NIC_CQE_ACCQP_PORT = (1<<28),
+	NES_NIC_CQE_ACCQP_VALID = (1<<29),
+	NES_NIC_CQE_TAG_VALID = (1<<30),
+	NES_NIC_CQE_VALID = (1<<31),
+};
+struct nes_hw_nic_cqe {
+	uint32_t cqe_words[4];
+};
+
 enum nes_iwarp_cqe_major_code {
 	NES_IWARP_CQE_MAJOR_FLUSH = 1,
 	NES_IWARP_CQE_MAJOR_DRV = 0x8000
@@ -250,6 +278,8 @@ struct nes_uvcontext {
 	uint8_t reserved[3] ;
 };
 
+struct nes_uqp;
+
 struct nes_ucq {
 	struct ibv_cq ibv_cq;
 	struct nes_hw_cqe volatile *cqes;
@@ -263,6 +293,8 @@ struct nes_ucq {
 	uint8_t skip_arm;
 	int arm_sol;
 	int skip_sol;
+	int comp_vector;
+	struct nes_uqp *udqp;
 };
 
 struct nes_uqp {
@@ -287,6 +319,12 @@ struct nes_uqp {
 	uint16_t mapping;
 	uint16_t qperr;
 	uint16_t rsvd;
+	uint32_t pending_rcvs;
+	struct ibv_recv_wr *pend_rx_wr;
+	int nes_ud_sksq_fd;
+	void *sksq_shared_ctxt;
+	uint64_t send_wr_id[512]; /* IMA send wr_id ring content */
+	uint64_t recv_wr_id[512]; /* IMA receive wr_id ring content */
 };
 
 #define to_nes_uxxx(xxx, type)				\
