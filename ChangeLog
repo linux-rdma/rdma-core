@@ -1,6 +1,54 @@
-commit fa997baef88ea8e8c1d58f6063655a9b539df863
+commit 8644da5eded147bedddf7742899ec9a5f9797de3
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Thu May 6 17:45:16 2010 -0500
+Date:   Thu May 20 15:52:19 2010 -0500
+
+    Spin release 1.0.2.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit dc1ea232e8ece4ba53d2496befad14bd433e2e3e
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 20 15:48:37 2010 -0500
+
+    only insert sq qid in lookup tables.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 00c60fd47b71dac42d864662567701e2618ff45d
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 20 15:47:37 2010 -0500
+
+    Update some driver limits.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f25661e19d728a0a33a221c0646a9fce9b160f8b
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 20 15:46:38 2010 -0500
+
+    Fix cq arm overflow.
+    
+    - wrap cq->cqidx_inc based on cq size
+    - optimize t4_arm_cq() logic
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 8c224aca8f1acd219010e46da538ae4c9a4f9d1a
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 20 15:45:54 2010 -0500
+
+    Optimize cq overflow detection.
+    
+    1) save the timestamp flit in the cq when we consume a CQE
+    
+    2) always compare the saved flit with the previous entry flit when reading
+    the next CQE entry.  If the flits don't compare, then we've overflowed.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0c0cfbdbeb32548994d94a6278c74e2a4f11d9ba
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 6 17:57:56 2010 -0500
 
     Spin release 1.0.1.
     
