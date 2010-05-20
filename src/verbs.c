@@ -357,7 +357,6 @@ struct ibv_qp *c4iw_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 	pthread_spin_lock(&dev->lock);
 	dev->qpid2ptr[qhp->wq.sq.qid] = qhp;
-	dev->qpid2ptr[qhp->wq.rq.qid] = qhp;
 	pthread_spin_unlock(&dev->lock);
 
 	return &qhp->ibv_qp;
@@ -429,7 +428,6 @@ int c4iw_destroy_qp(struct ibv_qp *ibqp)
 
 	pthread_spin_lock(&dev->lock);
 	dev->qpid2ptr[qhp->wq.sq.qid] = NULL;
-	dev->qpid2ptr[qhp->wq.rq.qid] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
 	free(qhp->wq.rq.sw_rq);
