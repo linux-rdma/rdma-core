@@ -68,6 +68,9 @@ man_MANS = \
 	man/rdma_resolve_route.3 \
 	man/rdma_event_str.3 \
 	man/rdma_set_option.3 \
+	man/rdma_create_ep.3 \
+	man/rdma_destroy_ep.3 \
+	man/rdma_getaddrinfo.3 \
 	man/ucmatose.1 \
 	man/udaddy.1 \
 	man/mckey.1 \
