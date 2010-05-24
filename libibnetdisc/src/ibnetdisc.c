@@ -211,8 +211,8 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 static int query_port_info(smp_engine_t * engine, ib_portid_t * portid,
 			   ibnd_node_t * node, int portnum)
 {
-	IBND_DEBUG("Query Port Info; %s (%lx):%d\n", portid2str(portid),
-		   node->guid, portnum);
+	IBND_DEBUG("Query Port Info; %s (0x%" PRIx64 "):%d\n",
+		   portid2str(portid), node->guid, portnum);
 	return issue_smp(engine, portid, IB_ATTR_PORT_INFO, portnum,
 			 recv_port_info, node);
 }
@@ -307,8 +307,9 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			return -1;
 		node_is_new = 1;
 	}
-	IBND_DEBUG("Found %s node GUID %lx (%s)\n", node_is_new ? "new" : "old",
-		   node->guid, portid2str(&smp->path));
+	IBND_DEBUG("Found %s node GUID 0x%" PRIx64 " (%s)\n",
+		   node_is_new ? "new" : "old", node->guid,
+		   portid2str(&smp->path));
 
 	port = node->ports[port_num];
 	if (!port) {
@@ -331,7 +332,8 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 
 		if (!rem_node->ports[rem_port_num]) {
 			IBND_ERROR("Internal Error; "
-				   "Node(%p) %lx Port %d no port created!?!?!?\n\n",
+				   "Node(%p) 0x%" PRIx64
+				   " Port %d no port created!?!?!?\n\n",
 				   rem_node, rem_node->guid, rem_port_num);
 			return -1;
 		}
