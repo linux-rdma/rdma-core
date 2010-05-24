@@ -144,6 +144,27 @@ static int do_vendor(ib_portid_t *portid, struct ibmad_port *srcport,
 	return 0;
 }
 
+static unsigned int conf_addr, conf_val, conf_mask;
+
+static void do_config_space_record(ib_portid_t *portid, unsigned set)
+{
+	is3_config_space_t cs;
+
+	memset(&cs, 0, sizeof(cs));
+	cs.record[0].address = htonl(conf_addr);
+	cs.record[0].data = htonl(conf_val);
+	cs.record[0].mask = htonl(conf_mask);
+
+	if (do_vendor(portid, srcport, IB_MLX_VENDOR_CLASS,
+		      set ? IB_MAD_METHOD_SET : IB_MAD_METHOD_GET,
+		      IB_MLX_IS3_CONFIG_SPACE_ACCESS, 2 << 22 | 1 << 16, &cs))
+		IBERROR("cannot %s config space record", set ? "set" : "get");
+
+	printf("Config space record at 0x%x: 0x%x\n",
+	       ntohl(cs.record[0].address),
+	       ntohl(cs.record[0].data & cs.record[0].mask));
+}
+
 static void counter_groups_info(ib_portid_t * portid, int port)
 {
 	char buf[1024];
@@ -203,6 +224,7 @@ static void config_counter_groups(ib_portid_t * portid, int port)
 }
 
 static int general_info, xmit_wait, counter_group_info, config_counter_group;
+static unsigned int config_space_read, config_space_write;
 
 static int process_opt(void *context, int ch, char *optarg)
 {
@@ -222,6 +244,22 @@ static int process_opt(void *context, int ch, char *optarg)
 		ret = sscanf(optarg, "%d,%d", &cg0, &cg1);
 		if (ret != 2)
 			return -1;
+		break;
+	case 'R':
+		config_space_read = 1;
+		ret = sscanf(optarg, "%x,%x", &conf_addr, &conf_mask);
+		if (ret < 1)
+			return -1;
+		else if (ret == 1)
+			conf_mask = 0xffffffff;
+		break;
+	case 'W':
+		config_space_write = 1;
+		ret = sscanf(optarg, "%x,%x,%x", &conf_addr, &conf_val, &conf_mask);
+		if (ret < 2)
+			return -1;
+		else if (ret == 2)
+			conf_mask = 0xffffffff;
 		break;
 	default:
 		return -1;
@@ -244,6 +282,8 @@ int main(int argc, char **argv)
 		{"w", 'w', 0, NULL, "show IS3 port xmit wait counters"},
 		{"i", 'i', 0, NULL, "show IS4 counter group info"},
 		{"c", 'c', 1, "<num,num>", "configure IS4 counter groups"},
+		{"Read", 'R', 1, "<addr,mask>", "Read configuration space record at addr"},
+		{"Write", 'W', 1, "<addr,val,mask>", "Write configuration space record at addr"},
 		{0}
 	};
 
@@ -286,6 +326,11 @@ int main(int argc, char **argv)
 
 	if (config_counter_group) {
 		config_counter_groups(&portid, port);
+		exit(0);
+	}
+
+	if (config_space_read || config_space_write) {
+		do_config_space_record(&portid, config_space_write);
 		exit(0);
 	}
 
