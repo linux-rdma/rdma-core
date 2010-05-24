@@ -32,12 +32,14 @@ examples_rdma_client_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rdma_server_SOURCES = examples/rdma_server.c
 examples_rdma_server_LDADD = $(top_builddir)/src/librdmacm.la
 
-librdmacmincludedir = $(includedir)/rdma $(includedir)/infiniband
+librdmacmincludedir = $(includedir)/rdma
+infinibandincludedir = $(includedir)/infiniband
 
 librdmacminclude_HEADERS = include/rdma/rdma_cma_abi.h \
 			   include/rdma/rdma_cma.h \
-			   include/infiniband/ib.h \
 			   include/rdma/rdma_verbs.h
+
+infinibandinclude_HEADERS = include/infiniband/ib.h
 
 man_MANS = \
 	man/rdma_accept.3 \
