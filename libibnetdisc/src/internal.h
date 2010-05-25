@@ -61,6 +61,7 @@ typedef struct ibnd_scan {
 	ib_portid_t selfportid;
 	ibnd_fabric_t *fabric;
 	struct ibnd_config *cfg;
+	struct ibmad_port *ibmad_port;
 } ibnd_scan_t;
 
 typedef struct ibnd_smp ibnd_smp_t;
@@ -77,7 +78,6 @@ struct ibnd_smp {
 };
 
 struct smp_engine {
-	struct ibmad_port *ibmad_port;
 	int umad_fd;
 	int smi_agent;
 	int smi_dir_agent;

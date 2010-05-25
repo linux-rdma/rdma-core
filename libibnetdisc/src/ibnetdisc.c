@@ -100,7 +100,7 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 		/* If we were LID routed we need to set up the drslid */
 		if (!scan->selfportid.lid)
 			if (ib_resolve_self_via(&scan->selfportid, NULL, NULL,
-						engine->ibmad_port) < 0) {
+						scan->ibmad_port) < 0) {
 				IBND_ERROR("Failed to resolve self\n");
 				return -1;
 			}
@@ -476,6 +476,8 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	ib_portid_t my_portid = { 0 };
 	smp_engine_t engine;
 	ibnd_scan_t scan;
+	int nc = 2;
+	int mc[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
 	if (set_config(&config, cfg)) {
 		IBND_ERROR("Invalid ibnd_config\n");
@@ -503,6 +505,15 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 		return (NULL);
 	}
 
+	scan.ibmad_port = mad_rpc_open_port(ca_name, ca_port, mc, nc);
+	if (!scan.ibmad_port) {
+		IBND_ERROR("can't open MAD port (%s:%d)\n", ca_name, ca_port);
+		smp_engine_destroy(&engine);
+		return (NULL);
+	}
+	mad_rpc_set_timeout(scan.ibmad_port, cfg->timeout_ms);
+	mad_rpc_set_retries(scan.ibmad_port, cfg->retries);
+
 	IBND_DEBUG("from %s\n", portid2str(from));
 
 	if (!query_node_info(&engine, from, NULL))
@@ -515,9 +526,11 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 		goto error;
 
 	smp_engine_destroy(&engine);
+	mad_rpc_close_port(scan.ibmad_port);
 	return fabric;
 error:
 	smp_engine_destroy(&engine);
+	mad_rpc_close_port(scan.ibmad_port);
 	ibnd_destroy_fabric(fabric);
 	return NULL;
 }

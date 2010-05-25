@@ -201,29 +201,16 @@ error:
 int smp_engine_init(smp_engine_t * engine, char * ca_name, int ca_port,
 		    void *user_data, ibnd_config_t *cfg)
 {
-	int nc = 2;
-	int mc[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
-
 	memset(engine, 0, sizeof(*engine));
-
-	engine->ibmad_port = mad_rpc_open_port(ca_name, ca_port, mc, nc);
-	if (!engine->ibmad_port) {
-		IBND_ERROR("can't open MAD port (%s:%d)\n", ca_name, ca_port);
-		return -EIO;
-	}
-	mad_rpc_set_timeout(engine->ibmad_port, cfg->timeout_ms);
-	mad_rpc_set_retries(engine->ibmad_port, cfg->retries);
 
 	if (umad_init() < 0) {
 		IBND_ERROR("umad_init failed\n");
-		mad_rpc_close_port(engine->ibmad_port);
 		return -EIO;
 	}
 
 	engine->umad_fd = umad_open_port(ca_name, ca_port);
 	if (engine->umad_fd < 0) {
 		IBND_ERROR("can't open UMAD port (%s:%d)\n", ca_name, ca_port);
-		mad_rpc_close_port(engine->ibmad_port);
 		return -EIO;
 	}
 
@@ -247,7 +234,6 @@ int smp_engine_init(smp_engine_t * engine, char * ca_name, int ca_port,
 	return (0);
 
 eio_close:
-	mad_rpc_close_port(engine->ibmad_port);
 	umad_close_port(engine->umad_fd);
 	return (-EIO);
 }
@@ -275,7 +261,6 @@ void smp_engine_destroy(smp_engine_t * engine)
 	}
 
 	umad_close_port(engine->umad_fd);
-	mad_rpc_close_port(engine->ibmad_port);
 }
 
 int process_mads(smp_engine_t * engine)
