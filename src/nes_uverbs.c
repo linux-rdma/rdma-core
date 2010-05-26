@@ -478,6 +478,8 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 
 			nesvctx->nesupd->udoorbell->cqe_alloc =
 				cpu_to_le32(nesucq->cq_id | (1 << 16));
+		} else {
+			break;
 		}
 	}
 	nesucq->head = head;
@@ -1179,7 +1181,7 @@ int nes_ima_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	/* so we can store wr_id in the wr_id queue */
 	sq_head = nesuqp->sq_head;
 
-	if (sq_head + new_req_cnt > qsize)
+	if (sq_head + new_req_cnt >= qsize)
 		nesuqp->sq_head = sq_head + new_req_cnt - qsize;
 	else
 		nesuqp->sq_head = sq_head + new_req_cnt;
@@ -1452,7 +1454,7 @@ int nes_ima_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	   place so we can start wr_id storing */
 	rq_head = nesuqp->rq_head;
 
-	if (rq_head + new_req_cnt > qsize)
+	if (rq_head + new_req_cnt >= qsize)
 		nesuqp->rq_head = rq_head + new_req_cnt - qsize;
 	else
 		nesuqp->rq_head = rq_head + new_req_cnt;
