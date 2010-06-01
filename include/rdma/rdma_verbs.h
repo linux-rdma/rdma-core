@@ -151,7 +151,7 @@ rdma_post_recv(struct rdma_cm_id *id, void *context, void *addr,
 	struct ibv_sge sge;
 
 	assert((addr >= mr->addr) && ((addr + length) <= (mr->addr + mr->length)));
-	sge.addr = (uint64_t) addr;
+	sge.addr = (uint64_t) (uintptr_t) addr;
 	sge.length = (uint32_t) length;
 	sge.lkey = mr->lkey;
 
@@ -164,7 +164,7 @@ rdma_post_send(struct rdma_cm_id *id, void *context, void *addr,
 {
 	struct ibv_sge sge;
 
-	sge.addr = (uint64_t) addr;
+	sge.addr = (uint64_t) (uintptr_t) addr;
 	sge.length = (uint32_t) length;
 	sge.lkey = mr ? mr->lkey : 0;
 
@@ -178,7 +178,7 @@ rdma_post_read(struct rdma_cm_id *id, void *context, void *addr,
 {
 	struct ibv_sge sge;
 
-	sge.addr = (uint64_t) addr;
+	sge.addr = (uint64_t) (uintptr_t) addr;
 	sge.length = (uint32_t) length;
 	sge.lkey = mr->lkey;
 
@@ -192,7 +192,7 @@ rdma_post_write(struct rdma_cm_id *id, void *context, void *addr,
 {
 	struct ibv_sge sge;
 
-	sge.addr = (uint64_t) addr;
+	sge.addr = (uint64_t) (uintptr_t) addr;
 	sge.length = (uint32_t) length;
 	sge.lkey = mr ? mr->lkey : 0;
 
@@ -207,7 +207,7 @@ rdma_post_ud_send(struct rdma_cm_id *id, void *context, void *addr,
 	struct ibv_send_wr wr, *bad;
 	struct ibv_sge sge;
 
-	sge.addr = (uint64_t) addr;
+	sge.addr = (uint64_t) (uintptr_t) addr;
 	sge.length = (uint32_t) length;
 	sge.lkey = mr ? mr->lkey : 0;
 
