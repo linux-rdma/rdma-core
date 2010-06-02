@@ -157,7 +157,7 @@ static inline void report_err(int status)
 
 	st = status >> 8;
 	if (st)
-		sprintf(sa_err_str, " SA(%s)", ib_sa_err_str(st));
+		sprintf(sa_err_str, " SA(%s)", ib_sa_err_str((uint8_t) st));
 
 	fprintf(stderr, "ERROR: Query result returned 0x%04x, %s%s\n",
 		status, sm_err_str, sa_err_str);

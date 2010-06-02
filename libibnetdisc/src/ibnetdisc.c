@@ -114,7 +114,7 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 		return -1;
 	}
 
-	if (portid->drpath.cnt > fabric->maxhops_discovered)
+	if ((unsigned) portid->drpath.cnt > fabric->maxhops_discovered)
 		fabric->maxhops_discovered = portid->drpath.cnt;
 
 	return 1;
@@ -162,8 +162,8 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	uint8_t *port_info = mad + IB_SMP_DATA_OFFS;
 	uint8_t port_num, local_port;
 
-	port_num = mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
-	local_port = mad_get_field(port_info, 0, IB_PORT_LOCAL_PORT_F);
+	port_num = (uint8_t) mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
+	local_port = (uint8_t) mad_get_field(port_info, 0, IB_PORT_LOCAL_PORT_F);
 
 	/* this may have been created before */
 	port = node->ports[port_num];

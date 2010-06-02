@@ -31,6 +31,10 @@
  *
  */
 
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif				/* HAVE_CONFIG_H */
+
 #include <errno.h>
 #include <infiniband/ibnetdisc.h>
 #include <infiniband/umad.h>
@@ -155,7 +159,7 @@ static int process_one_recv(smp_engine_t * engine)
 	ibnd_smp_t *smp;
 	uint8_t *mad;
 	uint32_t trid;
-	uint8_t umad[umad_size() + IB_MAD_SIZE];
+	uint8_t umad[sizeof(struct ib_user_mad) + IB_MAD_SIZE];
 	int length = umad_size() + IB_MAD_SIZE;
 
 	memset(umad, 0, sizeof(umad));

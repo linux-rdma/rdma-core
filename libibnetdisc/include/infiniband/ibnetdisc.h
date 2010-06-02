@@ -168,7 +168,7 @@ typedef struct ibnd_fabric {
  * Initialization (fabric operations)
  */
 
-MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(char * ca_name,
+IBND_EXPORT ibnd_fabric_t *ibnd_discover_fabric(char * ca_name,
 					       int ca_port,
 					       ib_portid_t * from,
 					       struct ibnd_config *config);
@@ -179,39 +179,39 @@ MAD_EXPORT ibnd_fabric_t *ibnd_discover_fabric(char * ca_name,
 	 *       If NULL start from the CA/CA port specified
 	 * config: (optional) additional config options for the scan
 	 */
-MAD_EXPORT void ibnd_destroy_fabric(ibnd_fabric_t * fabric);
+IBND_EXPORT void ibnd_destroy_fabric(ibnd_fabric_t * fabric);
 
-MAD_EXPORT ibnd_fabric_t *ibnd_load_fabric(const char *file,
+IBND_EXPORT ibnd_fabric_t *ibnd_load_fabric(const char *file,
 					   unsigned int flags);
 
-MAD_EXPORT int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
+IBND_EXPORT int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 				 unsigned int flags);
 
 /** =========================================================================
  * Node operations
  */
-MAD_EXPORT ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric,
+IBND_EXPORT ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric,
 					    uint64_t guid);
-MAD_EXPORT ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str);
+IBND_EXPORT ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str);
 
 typedef void (*ibnd_iter_node_func_t) (ibnd_node_t * node, void *user_data);
-MAD_EXPORT void ibnd_iter_nodes(ibnd_fabric_t * fabric,
+IBND_EXPORT void ibnd_iter_nodes(ibnd_fabric_t * fabric,
 				ibnd_iter_node_func_t func, void *user_data);
-MAD_EXPORT void ibnd_iter_nodes_type(ibnd_fabric_t * fabric,
+IBND_EXPORT void ibnd_iter_nodes_type(ibnd_fabric_t * fabric,
 				     ibnd_iter_node_func_t func,
 				     int node_type, void *user_data);
 
 /** =========================================================================
  * Chassis queries
  */
-MAD_EXPORT uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric,
+IBND_EXPORT uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric,
 					  unsigned char chassisnum);
-MAD_EXPORT char *ibnd_get_chassis_type(ibnd_node_t * node);
-MAD_EXPORT char *ibnd_get_chassis_slot_str(ibnd_node_t * node,
+IBND_EXPORT char *ibnd_get_chassis_type(ibnd_node_t * node);
+IBND_EXPORT char *ibnd_get_chassis_slot_str(ibnd_node_t * node,
 					   char *str, size_t size);
 
-MAD_EXPORT int ibnd_is_xsigo_guid(uint64_t guid);
-MAD_EXPORT int ibnd_is_xsigo_tca(uint64_t guid);
-MAD_EXPORT int ibnd_is_xsigo_hca(uint64_t guid);
+IBND_EXPORT int ibnd_is_xsigo_guid(uint64_t guid);
+IBND_EXPORT int ibnd_is_xsigo_tca(uint64_t guid);
+IBND_EXPORT int ibnd_is_xsigo_hca(uint64_t guid);
 
 #endif				/* _IBNETDISC_H_ */

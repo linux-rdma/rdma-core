@@ -146,13 +146,13 @@ typedef struct ibnd_fabric_cache {
 #define IBND_PORT_CACHE_KEY_LEN        (8 + 1)
 #define IBND_PORT_CACHE_LEN            (31 + IB_SMP_DATA_SIZE)
 
-static ssize_t _read(int fd, void *buf, size_t count)
+static ssize_t ibnd_read(int fd, void *buf, size_t count)
 {
 	size_t count_done = 0;
 	ssize_t ret;
 
 	while ((count - count_done) > 0) {
-		ret = read(fd, buf + count_done, count - count_done);
+		ret = read(fd, ((char *) buf) + count_done, count - count_done);
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
@@ -229,7 +229,7 @@ static int _load_header_info(int fd, ibnd_fabric_cache_t * fabric_cache,
 	size_t offset = 0;
 	uint32_t tmp32;
 
-	if (_read(fd, buf, IBND_FABRIC_CACHE_HEADER_LEN) < 0)
+	if (ibnd_read(fd, buf, IBND_FABRIC_CACHE_HEADER_LEN) < 0)
 		return -1;
 
 	offset += _unmarshall32(buf + offset, &magic);
@@ -333,7 +333,7 @@ static int _load_node(int fd, ibnd_fabric_cache_t * fabric_cache)
 
 	node_cache->node = node;
 
-	if (_read(fd, buf, IBND_NODE_CACHE_HEADER_LEN) < 0)
+	if (ibnd_read(fd, buf, IBND_NODE_CACHE_HEADER_LEN) < 0)
 		goto cleanup;
 
 	offset += _unmarshall16(buf + offset, &node->smalid);
@@ -372,7 +372,7 @@ static int _load_node(int fd, ibnd_fabric_cache_t * fabric_cache)
 			goto cleanup;
 		}
 
-		if (_read(fd, buf, toread) < 0)
+		if (ibnd_read(fd, buf, toread) < 0)
 			goto cleanup;
 
 		offset = 0;
@@ -433,7 +433,7 @@ static int _load_port(int fd, ibnd_fabric_cache_t * fabric_cache)
 
 	port_cache->port = port;
 
-	if (_read(fd, buf, IBND_PORT_CACHE_LEN) < 0)
+	if (ibnd_read(fd, buf, IBND_PORT_CACHE_LEN) < 0)
 		goto cleanup;
 
 	offset += _unmarshall64(buf + offset, &port->guid);
@@ -684,13 +684,13 @@ cleanup:
 	return NULL;
 }
 
-static ssize_t _write(int fd, const void *buf, size_t count)
+static ssize_t ibnd_write(int fd, const void *buf, size_t count)
 {
 	size_t count_done = 0;
 	ssize_t ret;
 
 	while ((count - count_done) > 0) {
-		ret = write(fd, buf + count_done, count - count_done);
+		ret = write(fd, ((char *) buf) + count_done, count - count_done);
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
@@ -731,14 +731,14 @@ static size_t _marshall32(uint8_t * outbuf, uint32_t num)
 
 static size_t _marshall64(uint8_t * outbuf, uint64_t num)
 {
-	outbuf[0] = num & 0x00000000000000FFULL;
-	outbuf[1] = (num & 0x000000000000FF00ULL) >> 8;
-	outbuf[2] = (num & 0x0000000000FF0000ULL) >> 16;
-	outbuf[3] = (num & 0x00000000FF000000ULL) >> 24;
-	outbuf[4] = (num & 0x000000FF00000000ULL) >> 32;
-	outbuf[5] = (num & 0x0000FF0000000000ULL) >> 40;
-	outbuf[6] = (num & 0x00FF000000000000ULL) >> 48;
-	outbuf[7] = (num & 0xFF00000000000000ULL) >> 56;
+	outbuf[0] = (uint8_t) num;
+	outbuf[1] = (uint8_t) (num >> 8);
+	outbuf[2] = (uint8_t) (num >> 16);
+	outbuf[3] = (uint8_t) (num >> 24);
+	outbuf[4] = (uint8_t) (num >> 32);
+	outbuf[5] = (uint8_t) (num >> 40);
+	outbuf[6] = (uint8_t) (num >> 48);
+	outbuf[7] = (uint8_t) (num >> 56);
 
 	return (sizeof(num));
 }
@@ -767,7 +767,7 @@ static int _cache_header_info(int fd, ibnd_fabric_t * fabric)
 	offset += _marshall64(buf + offset, fabric->from_node->guid);
 	offset += _marshall32(buf + offset, fabric->maxhops_discovered);
 
-	if (_write(fd, buf, offset) < 0)
+	if (ibnd_write(fd, buf, offset) < 0)
 		return -1;
 
 	return 0;
@@ -787,7 +787,7 @@ static int _cache_header_counts(int fd, unsigned int node_count,
 		return -1;
 	}
 
-	if (_write(fd, buf, offset) < 0)
+	if (ibnd_write(fd, buf, offset) < 0)
 		return -1;
 
 	return 0;
@@ -798,17 +798,17 @@ static int _cache_node(int fd, ibnd_node_t * node)
 	uint8_t buf[IBND_FABRIC_CACHE_BUFLEN];
 	size_t offset = 0;
 	size_t ports_stored_offset = 0;
-	unsigned int ports_stored_count = 0;
-	unsigned int i;
+	uint8_t ports_stored_count = 0;
+	int i;
 
 	offset += _marshall16(buf + offset, node->smalid);
 	offset += _marshall8(buf + offset, node->smalmc);
-	offset += _marshall8(buf + offset, node->smaenhsp0);
+	offset += _marshall8(buf + offset, (uint8_t) node->smaenhsp0);
 	offset += _marshall_buf(buf + offset, node->switchinfo,
 				IB_SMP_DATA_SIZE);
 	offset += _marshall64(buf + offset, node->guid);
-	offset += _marshall8(buf + offset, node->type);
-	offset += _marshall8(buf + offset, node->numports);
+	offset += _marshall8(buf + offset, (uint8_t) node->type);
+	offset += _marshall8(buf + offset, (uint8_t) node->numports);
 	offset += _marshall_buf(buf + offset, node->info, IB_SMP_DATA_SIZE);
 	offset += _marshall_buf(buf + offset, node->nodedesc, IB_SMP_DATA_SIZE);
 	/* need to come back later and store number of stored ports
@@ -823,7 +823,7 @@ static int _cache_node(int fd, ibnd_node_t * node)
 			offset += _marshall64(buf + offset,
 					      node->ports[i]->guid);
 			offset += _marshall8(buf + offset,
-					     node->ports[i]->portnum);
+					     (uint8_t) node->ports[i]->portnum);
 			ports_stored_count++;
 		}
 	}
@@ -831,7 +831,7 @@ static int _cache_node(int fd, ibnd_node_t * node)
 	/* go back and store number of port keys stored */
 	_marshall8(buf + ports_stored_offset, ports_stored_count);
 
-	if (_write(fd, buf, offset) < 0)
+	if (ibnd_write(fd, buf, offset) < 0)
 		return -1;
 
 	return 0;
@@ -843,8 +843,8 @@ static int _cache_port(int fd, ibnd_port_t * port)
 	size_t offset = 0;
 
 	offset += _marshall64(buf + offset, port->guid);
-	offset += _marshall8(buf + offset, port->portnum);
-	offset += _marshall8(buf + offset, port->ext_portnum);
+	offset += _marshall8(buf + offset, (uint8_t) port->portnum);
+	offset += _marshall8(buf + offset, (uint8_t) port->ext_portnum);
 	offset += _marshall16(buf + offset, port->base_lid);
 	offset += _marshall8(buf + offset, port->lmc);
 	offset += _marshall_buf(buf + offset, port->info, IB_SMP_DATA_SIZE);
@@ -852,14 +852,14 @@ static int _cache_port(int fd, ibnd_port_t * port)
 	if (port->remoteport) {
 		offset += _marshall8(buf + offset, 1);
 		offset += _marshall64(buf + offset, port->remoteport->guid);
-		offset += _marshall8(buf + offset, port->remoteport->portnum);
+		offset += _marshall8(buf + offset, (uint8_t) port->remoteport->portnum);
 	} else {
 		offset += _marshall8(buf + offset, 0);
 		offset += _marshall64(buf + offset, 0);
 		offset += _marshall8(buf + offset, 0);
 	}
 
-	if (_write(fd, buf, offset) < 0)
+	if (ibnd_write(fd, buf, offset) < 0)
 		return -1;
 
 	return 0;
