@@ -1059,7 +1059,7 @@ int group_nodes(ibnd_fabric_t * fabric)
 
 	/* now make pass on nodes for chassis which are not Voltaire */
 	/* grouped by common SystemImageGUID */
-	for (node = fabric->switches; node; node = node->type_next) {
+	for (node = fabric->nodes; node; node = node->next) {
 		if (mad_get_field(node->info, 0,
 				  IB_NODE_VENDORID_F) == VTR_VENDOR_ID)
 			continue;
