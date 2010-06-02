@@ -80,6 +80,9 @@ int main(int argc, char *argv[])
 	struct ibv_context *context;
 	struct ibv_async_event event;
 
+	/* Force line-buffering in case stdout is redirected */
+	setvbuf(stdout, NULL, _IOLBF, 0);
+
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
 		perror("Failed to get IB devices list");
