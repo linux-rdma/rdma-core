@@ -44,6 +44,7 @@
 #include <arpa/inet.h>
 
 #define MAD_EXPORT
+#define IBND_EXPORT
 #define DEPRECATED __attribute__ ((deprecated))
 
 #endif				/* _MAD_OSD_H_ */

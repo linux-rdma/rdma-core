@@ -1034,7 +1034,7 @@ MAD_EXPORT ib_mad_dump_fn
 MAD_EXPORT void mad_dump_fields(char *buf, int bufsz, void *val, int valsz,
 				int start, int end);
 
-MAD_EXPORT extern int ibdebug;
+extern MAD_EXPORT int ibdebug;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #ifndef ntohll
