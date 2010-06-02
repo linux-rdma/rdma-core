@@ -501,11 +501,7 @@ int dump_topology(int group, ibnd_fabric_t * fabric)
 			if (!ch->chassisnum)
 				continue;
 			chguid = out_chassis(fabric, ch->chassisnum);
-
 			chname = NULL;
-/**
- * Will this work for Xsigo?
- */
 			if (ibnd_is_xsigo_guid(chguid)) {
 				for (node = ch->nodes; node;
 				     node = node->next_chassis_node) {
