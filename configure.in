@@ -4,7 +4,7 @@ AC_PREREQ(2.57)
 AC_INIT(libibverbs, 1.1.3, general@lists.openfabrics.org)
 AC_CONFIG_SRCDIR([src/ibverbs.h])
 AC_CONFIG_AUX_DIR(config)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE(libibverbs, 1.1.3)
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
@@ -13,7 +13,7 @@ AC_PROG_CC
 AC_GNU_SOURCE
 AC_PROG_LN_S
 
-AM_PROG_LIBTOOL
+LT_INIT
 
 AC_ARG_WITH([valgrind],
     AC_HELP_STRING([--with-valgrind],
