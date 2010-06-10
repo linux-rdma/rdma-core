@@ -788,16 +788,18 @@ static void dump_one_mft_record(void *data)
 	unsigned block = cl_ntoh16(mftr->position_block_num) &
 	    IB_MCAST_BLOCK_ID_MASK_HO;
 	int i;
+	unsigned offset;
+
 	printf("MFT Record dump:\n"
 	       "\t\tLID........................%u\n"
 	       "\t\tPosition...................%u\n"
 	       "\t\tBlock......................%u\n"
 	       "\t\tMFT:\n\t\tMLID\tPort Mask\n",
 	       cl_ntoh16(mftr->lid), position, block);
+	offset = IB_LID_MCAST_START_HO + block * 32;
 	for (i = 0; i < IB_MCAST_BLOCK_SIZE; i++)
-		printf("\t\t0x%x\t0x%x\n",
-		       IB_LID_MCAST_START_HO + block * 64 + i,
-		       cl_ntoh16(mftr->mft[i]));
+		printf("\t\t0x%04x\t0x%04x\n",
+		       offset + i, cl_ntoh16(mftr->mft[i]));
 	printf("\n");
 }
 
