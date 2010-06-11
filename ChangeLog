@@ -1,6 +1,37 @@
-commit 8644da5eded147bedddf7742899ec9a5f9797de3
+commit 773be4fdbe09df07cbaaf327a4d892e4963ea4e2
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Thu May 20 15:52:19 2010 -0500
+Date:   Fri Jun 11 10:40:14 2010 -0500
+
+    Spin release 1.0.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a62d7cf38f7b6c731486ff969ee7e3a4238ebc3f
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jun 11 10:37:17 2010 -0500
+
+    Support variable sized work requests.
+    
+    T4 EQ entries are in multiples of 64B.  Currently the RDMA SQ and RQ
+    use fixed sized entries composed of 4 EQ entries for the SQ and 2 EQ
+    entries for the RQ.  For optimial latency with small IO, we need to
+    change this so the HW only needs to DMA the EQ entries actually used by
+    a given work request.
+    
+    Implementation:
+    
+    - add wq_pidx counter to track where we are in the EQ.  cidx/pidx are
+    used for the sw sq/rq tracking and flow control.
+    
+    - the variable part of work requests is the SGL.  Add new functions to
+    build the SGL and/or immediate data directly in the EQ memory wrapping
+    when needed.
+    
+    - adjust the min burst size for the EQ contexts to 64B.
+
+commit 3be829d117a8ca7957370b09b477fe551de0cea5
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu May 20 15:52:59 2010 -0500
 
     Spin release 1.0.2.
     
