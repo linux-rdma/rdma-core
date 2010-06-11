@@ -381,7 +381,8 @@ err1:
 static void reset_qp(struct c4iw_qp *qhp)
 {
 	PDBG("%s enter qp %p\n", __func__, qhp);
-	qhp->wq.sq.cidx = qhp->wq.sq.pidx = qhp->wq.sq.in_use = 0;
+	qhp->wq.sq.cidx = 0;
+	qhp->wq.sq.wq_pidx = qhp->wq.sq.pidx = qhp->wq.sq.in_use = 0;
 	qhp->wq.rq.cidx = qhp->wq.rq.pidx = qhp->wq.rq.in_use = 0;
 	qhp->wq.sq.oldest_read = NULL;
 	memset(qhp->wq.sq.queue, 0, qhp->wq.sq.memsize);

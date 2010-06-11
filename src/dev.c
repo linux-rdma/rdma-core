@@ -176,7 +176,7 @@ static void dump_qp(struct c4iw_qp *qhp, int qid)
 
 	fprintf(stderr,
 		"QP: id %u error %d qid_mask 0x%x\n"
-		"    SQ: id %u va %p cidx %u pidx %u depth %u\n"
+		"    SQ: id %u va %p cidx %u pidx %u wq_pidx %u depth %u\n"
 		"    RQ: id %u va %p cidx %u pidx %u depth %u\n",
 		qhp->wq.sq.qid,
 		qhp->wq.error,
@@ -185,6 +185,7 @@ static void dump_qp(struct c4iw_qp *qhp, int qid)
 		qhp->wq.sq.queue,
 		qhp->wq.sq.cidx,
 		qhp->wq.sq.pidx,
+		qhp->wq.sq.wq_pidx,
 		qhp->wq.sq.size,
 		qhp->wq.rq.qid,
 		qhp->wq.rq.queue,
@@ -216,11 +217,8 @@ static void dump_qp(struct c4iw_qp *qhp, int qid)
 			for (j=0; j < 16; j++) {
 				fprintf(stderr, "%04u %016" PRIx64 " ",
 					i, ntohll(qhp->wq.sq.queue[i].flits[j]));
-				if (j == 0 && i == qhp->wq.sq.pidx)
+				if (j == 0 && i == qhp->wq.sq.wq_pidx)
 					fprintf(stderr, " <-- pidx");
-
-				if (j == 0 && i == qhp->wq.sq.cidx)
-					fprintf(stderr, " <-- cidx");
 				fprintf(stderr, "\n");
 			}
 		}

@@ -40,66 +40,105 @@
 #include <netinet/in.h>
 #include "libcxgb4.h"
 
-static int build_rdma_send(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
+static int build_immd(struct t4_sq *sq, struct fw_ri_immd *immdp,
+		      struct ibv_send_wr *wr, int max, u32 *plenp)
+{
+	u8 *dstp, *srcp;
+	u32 plen = 0;
+	int i;
+	int rem, len;
+
+	dstp = (u8 *)immdp->data;
+	for (i = 0; i < wr->num_sge; i++) {
+		if ((plen + wr->sg_list[i].length) > max)
+			return -EMSGSIZE;
+		srcp = (u8 *)(unsigned long)wr->sg_list[i].addr;
+		plen += wr->sg_list[i].length;
+		rem = wr->sg_list[i].length;
+		while (rem) {
+			if (dstp == (u8 *)&sq->queue[sq->size])
+				dstp = (u8 *)sq->queue;
+			if (rem <= (u8 *)&sq->queue[sq->size] - dstp)
+				len = rem;
+			else
+				len = (u8 *)&sq->queue[sq->size] - dstp;
+			memcpy(dstp, srcp, len);
+			dstp += len;
+			srcp += len;
+			rem -= len;
+		}
+	}
+	immdp->op = FW_RI_DATA_IMMD;
+	immdp->r1 = 0;
+	immdp->r2 = 0;
+	immdp->immdlen = cpu_to_be32(plen);
+	*plenp = plen;
+	return 0;
+}
+
+static int build_isgl(__be64 *queue_start, __be64 *queue_end,
+		      struct fw_ri_isgl *isglp, struct ibv_sge *sg_list,
+		      int num_sge, u32 *plenp)
+
 {
 	int i;
+	u32 plen = 0;
+	__be64 *flitp = (__be64 *)isglp->sge;
+
+	for (i = 0; i < num_sge; i++) {
+		if ((plen + sg_list[i].length) < plen)
+			return -EMSGSIZE;
+		plen += sg_list[i].length;
+		*flitp = cpu_to_be64(((u64)sg_list[i].lkey << 32) |
+				     sg_list[i].length);
+		if (++flitp == queue_end)
+			flitp = queue_start;
+		*flitp = cpu_to_be64(sg_list[i].addr);
+		if (++flitp == queue_end)
+			flitp = queue_start;
+	}
+	isglp->op = FW_RI_DATA_ISGL;
+	isglp->r1 = 0;
+	isglp->nsge = cpu_to_be16(num_sge);
+	isglp->r2 = 0;
+	if (plenp)
+		*plenp = plen;
+	return 0;
+}
+
+static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
+			   struct ibv_send_wr *wr, u8 *len16)
+{
 	u32 plen;
 	int size;
-	u8 *datap;
+	int ret;
 
 	if (wr->num_sge > T4_MAX_SEND_SGE)
 		return -EINVAL;
-	switch (wr->opcode) {
-	case IBV_WR_SEND:
-		if (wr->send_flags & IBV_SEND_SOLICITED)
-			wqe->send.sendop_pkd = cpu_to_be32(
-				V_FW_RI_SEND_WR_SENDOP(FW_RI_SEND_WITH_SE));
-		else
-			wqe->send.sendop_pkd = cpu_to_be32(
-				V_FW_RI_SEND_WR_SENDOP(FW_RI_SEND));
-		wqe->send.stag_inv = 0;
-		break;
-	default:
-		return -EINVAL;
-	}
+	if (wr->send_flags & IBV_SEND_SOLICITED)
+		wqe->send.sendop_pkd = cpu_to_be32(
+			V_FW_RI_SEND_WR_SENDOP(FW_RI_SEND_WITH_SE));
+	else
+		wqe->send.sendop_pkd = cpu_to_be32(
+			V_FW_RI_SEND_WR_SENDOP(FW_RI_SEND));
+	wqe->send.stag_inv = 0;
+
 	plen = 0;
 	if (wr->num_sge) {
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			datap = (u8 *)wqe->send.u.immd_src[0].data;
-			for (i = 0; i < wr->num_sge; i++) {
-				if ((plen + wr->sg_list[i].length) >
-				    T4_MAX_SEND_INLINE) {
-					return -EMSGSIZE;
-				}
-				plen += wr->sg_list[i].length;
-				memcpy(datap,
-				      (void*)(unsigned long)wr->sg_list[i].addr,
-				      wr->sg_list[i].length);
-				datap += wr->sg_list[i].length;
-			}
-			wqe->send.u.immd_src[0].op = FW_RI_DATA_IMMD;
-			wqe->send.u.immd_src[0].r1 = 0;
-			wqe->send.u.immd_src[0].r2 = 0;
-			wqe->send.u.immd_src[0].immdlen = cpu_to_be32(plen);
+			ret = build_immd(sq, wqe->send.u.immd_src, wr,
+					 T4_MAX_SEND_INLINE, &plen);
+			if (ret)
+				return ret;
 			size = sizeof wqe->send + sizeof(struct fw_ri_immd) +
 			       plen;
 		} else {
-			for (i = 0; i < wr->num_sge; i++) {
-				if ((plen + wr->sg_list[i].length) < plen) {
-					return -EMSGSIZE;
-				}
-				plen += wr->sg_list[i].length;
-				wqe->send.u.isgl_src[0].sge[i].stag =
-					cpu_to_be32(wr->sg_list[i].lkey);
-				wqe->send.u.isgl_src[0].sge[i].len =
-					cpu_to_be32(wr->sg_list[i].length);
-				wqe->send.u.isgl_src[0].sge[i].to =
-					cpu_to_be64(wr->sg_list[i].addr);
-			}
-			wqe->send.u.isgl_src[0].op = FW_RI_DATA_ISGL;
-			wqe->send.u.isgl_src[0].r1 = 0;
-			wqe->send.u.isgl_src[0].nsge = cpu_to_be16(wr->num_sge);
-			wqe->send.u.isgl_src[0].r2 = 0;
+			ret = build_isgl((__be64 *)sq->queue,
+					 (__be64 *)&sq->queue[sq->size],
+					 wqe->send.u.isgl_src,
+					 wr->sg_list, wr->num_sge, &plen);
+			if (ret)
+				return ret;
 			size = sizeof wqe->send + sizeof(struct fw_ri_isgl) +
 			       wr->num_sge * sizeof (struct fw_ri_sge);
 		}
@@ -109,62 +148,40 @@ static int build_rdma_send(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 		wqe->send.u.immd_src[0].r2 = 0;
 		wqe->send.u.immd_src[0].immdlen = 0;
 		size = sizeof wqe->send + sizeof(struct fw_ri_immd);
+		plen = 0;
 	}
 	*len16 = DIV_ROUND_UP(size, 16);
 	wqe->send.plen = cpu_to_be32(plen);
 	return 0;
 }
 
-static int build_rdma_write(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
+static int build_rdma_write(struct t4_sq *sq, union t4_wr *wqe,
+			    struct ibv_send_wr *wr, u8 *len16)
 {
-	int i;
 	u32 plen;
 	int size;
-	u8 *datap;
+	int ret;
 
 	if (wr->num_sge > T4_MAX_SEND_SGE)
 		return -EINVAL;
 	wqe->write.r2 = 0;
 	wqe->write.stag_sink = cpu_to_be32(wr->wr.rdma.rkey);
 	wqe->write.to_sink = cpu_to_be64(wr->wr.rdma.remote_addr);
-	plen = 0;
 	if (wr->num_sge) {
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			datap = (u8 *)wqe->write.u.immd_src[0].data;
-			for (i = 0; i < wr->num_sge; i++) {
-				if ((plen + wr->sg_list[i].length) >
-				    T4_MAX_WRITE_INLINE) {
-					return -EMSGSIZE;
-				}
-				plen += wr->sg_list[i].length;
-				memcpy(datap,
-				      (void*)(unsigned long)wr->sg_list[i].addr,
-				      wr->sg_list[i].length);
-				datap += wr->sg_list[i].length;
-			}
-			wqe->write.u.immd_src[0].op = FW_RI_DATA_IMMD;
-			wqe->write.u.immd_src[0].r1 = 0;
-			wqe->write.u.immd_src[0].r2 = 0;
-			wqe->write.u.immd_src[0].immdlen = cpu_to_be32(plen);
+			ret = build_immd(sq, wqe->write.u.immd_src, wr,
+					 T4_MAX_WRITE_INLINE, &plen);
+			if (ret)
+				return ret;
 			size = sizeof wqe->write + sizeof(struct fw_ri_immd) +
 			       plen;
 		} else {
-			for (i = 0; i < wr->num_sge; i++) {
-				if ((plen + wr->sg_list[i].length) < plen) {
-					return -EMSGSIZE;
-				}
-				plen += wr->sg_list[i].length;
-				wqe->write.u.isgl_src[0].sge[i].stag =
-					cpu_to_be32(wr->sg_list[i].lkey);
-				wqe->write.u.isgl_src[0].sge[i].len =
-					cpu_to_be32(wr->sg_list[i].length);
-				wqe->write.u.isgl_src[0].sge[i].to =
-					cpu_to_be64(wr->sg_list[i].addr);
-			}
-			wqe->write.u.isgl_src[0].op = FW_RI_DATA_ISGL;
-			wqe->write.u.isgl_src[0].r1 = 0;
-			wqe->write.u.isgl_src[0].nsge = cpu_to_be16(wr->num_sge);
-			wqe->write.u.isgl_src[0].r2 = 0;
+			ret = build_isgl((__be64 *)sq->queue,
+					 (__be64 *)&sq->queue[sq->size],
+					 wqe->write.u.isgl_src,
+					 wr->sg_list, wr->num_sge, &plen);
+			if (ret)
+				return ret;
 			size = sizeof wqe->write + sizeof(struct fw_ri_isgl) +
 			       wr->num_sge * sizeof (struct fw_ri_sge);
 		}
@@ -174,6 +191,7 @@ static int build_rdma_write(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 		wqe->write.u.immd_src[0].r2 = 0;
 		wqe->write.u.immd_src[0].immdlen = 0;
 		size = sizeof wqe->write + sizeof(struct fw_ri_immd);
+		plen = 0;
 	}
 	*len16 = DIV_ROUND_UP(size, 16);
 	wqe->write.plen = cpu_to_be32(plen);
@@ -210,30 +228,13 @@ static int build_rdma_read(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 static int build_rdma_recv(struct c4iw_qp *qhp, union t4_recv_wr *wqe,
 			   struct ibv_recv_wr *wr, u8 *len16)
 {
-	int i;
-	int plen = 0;
+	int ret;
 
-	for (i = 0; i < wr->num_sge; i++) {
-		if ((plen + wr->sg_list[i].length) < plen) {
-			return -EMSGSIZE;
-		}
-		plen += wr->sg_list[i].length;
-		wqe->recv.isgl.sge[i].stag =
-			cpu_to_be32(wr->sg_list[i].lkey);
-		wqe->recv.isgl.sge[i].len =
-			cpu_to_be32(wr->sg_list[i].length);
-		wqe->recv.isgl.sge[i].to =
-			cpu_to_be64(wr->sg_list[i].addr);
-	}
-	for (; i < T4_MAX_RECV_SGE; i++) {
-		wqe->recv.isgl.sge[i].stag = 0;
-		wqe->recv.isgl.sge[i].len = 0;
-		wqe->recv.isgl.sge[i].to = 0;
-	}
-	wqe->recv.isgl.op = FW_RI_DATA_ISGL;
-	wqe->recv.isgl.r1 = 0;
-	wqe->recv.isgl.nsge = cpu_to_be16(wr->num_sge);
-	wqe->recv.isgl.r2 = 0;
+	ret = build_isgl((__be64 *)qhp->wq.rq.queue,
+			 (__be64 *)&qhp->wq.rq.queue[qhp->wq.rq.size],
+			 &wqe->recv.isgl, wr->sg_list, wr->num_sge, NULL);
+	if (ret)
+		return ret;
 	*len16 = DIV_ROUND_UP(sizeof wqe->recv +
 			      wr->num_sge * sizeof(struct fw_ri_sge), 16);
 	return 0;
@@ -283,7 +284,8 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			*bad_wr = wr;
 			break;
 		}
-		wqe = &qhp->wq.sq.queue[qhp->wq.sq.pidx];
+		wqe = (union t4_wr *)((u8 *)qhp->wq.sq.queue +
+				      qhp->wq.sq.wq_pidx * T4_EQ_ENTRY_SIZE);
 		fw_flags = 0;
 		if (wr->send_flags & IBV_SEND_SOLICITED)
 			fw_flags |= FW_RI_SOLICITED_EVENT_FLAG;
@@ -296,12 +298,12 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				fw_flags |= FW_RI_READ_FENCE_FLAG;
 			fw_opcode = FW_RI_SEND_WR;
 			swsqe->opcode = FW_RI_SEND;
-			err = build_rdma_send(wqe, wr, &len16);
+			err = build_rdma_send(&qhp->wq.sq, wqe, wr, &len16);
 			break;
 		case IBV_WR_RDMA_WRITE:
 			fw_opcode = FW_RI_RDMA_WRITE_WR;
 			swsqe->opcode = FW_RI_RDMA_WRITE;
-			err = build_rdma_write(wqe, wr, &len16);
+			err = build_rdma_write(&qhp->wq.sq, wqe, wr, &len16);
 			break;
 		case IBV_WR_RDMA_READ:
 			fw_opcode = FW_RI_RDMA_READ_WR;
@@ -334,8 +336,8 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		     swsqe->opcode);
 		wr = wr->next;
 		num_wrs--;
-		t4_sq_produce(&qhp->wq);
-		idx++;
+		t4_sq_produce(&qhp->wq, len16);
+		idx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 	}
 	if (t4_wq_db_enabled(&qhp->wq))
 		t4_ring_sq_db(&qhp->wq, idx);
@@ -370,7 +372,9 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			*bad_wr = wr;
 			break;
 		}
-		wqe = &qhp->wq.rq.queue[qhp->wq.rq.pidx];
+		wqe = (union t4_recv_wr *)((u8 *)qhp->wq.rq.queue +
+					   qhp->wq.rq.wq_pidx *
+					   T4_EQ_ENTRY_SIZE);
 		if (num_wrs)
 			err = build_rdma_recv(qhp, wqe, wr, &len16);
 		else
@@ -389,15 +393,12 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		wqe->recv.r2[1] = 0;
 		wqe->recv.r2[2] = 0;
 		wqe->recv.len16 = len16;
-		if (len16 < 5)
-			wqe->flits[8] = 0;
-
 		PDBG("%s cookie 0x%llx pidx %u\n", __func__,
 		     (unsigned long long) wr->wr_id, qhp->wq.rq.pidx);
-		t4_rq_produce(&qhp->wq);
+		t4_rq_produce(&qhp->wq, len16);
+		idx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 		wr = wr->next;
 		num_wrs--;
-		idx++;
 	}
 	if (t4_wq_db_enabled(&qhp->wq))
 		t4_ring_rq_db(&qhp->wq, idx);
