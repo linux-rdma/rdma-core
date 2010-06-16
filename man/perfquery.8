@@ -1,4 +1,4 @@
-.TH PERFQUERY 8 "Dec 31, 2009" "OpenIB" "OpenIB Diagnostics"
+.TH PERFQUERY 8 "Jun 16, 2010" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 perfquery \- query InfiniBand port counters
@@ -14,7 +14,8 @@ perfquery \- query InfiniBand port counters
 .SH DESCRIPTION
 .PP
 perfquery uses PerfMgt GMPs to obtain the PortCounters (basic performance
-and error counters), PortExtendedCounters, PortXmitDataSL, or PortRcvDataSL
+and error counters), PortExtendedCounters, PortXmitDataSL, PortRcvDataSL,
+PortRcvErrorDetails, PortXmitDiscardDetails, or PortSamplesControl
 from the PMA at the node/port specified. Optionally shows aggregated
 counters for all ports of node.
 Also, optionally, reset after read, or only reset counters.
@@ -144,4 +145,4 @@ perfquery -R 32 2 0xf000 # reset only non-error counters of port 2
 .SH AUTHOR
 .TP
 Hal Rosenstock
-.RI < halr@voltaire.com >
+.RI < hal.rosenstock@gmail.com >
