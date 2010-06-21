@@ -1,6 +1,6 @@
 %define ver @VERSION@
 
-Name: ib_acm
+Name: ibacm
 Version: 1.0.0
 Release: 1%{?dist}
 Summary: InfiniBand Communication Manager Assistant
@@ -14,7 +14,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: libibverbs-devel >= 1.1-1
 
 %description
-ib_acm assists with establishing communication over Infiniband.
+ibacm assists with establishing communication over Infiniband.
 
 %package svc
 Summary: IB CM pre-connection service application
@@ -44,11 +44,9 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %doc AUTHORS COPYING README
-
-%files svc
-%defattr(-,root,root,-)
 %{_bindir}/*
 %{_mandir}/man1/*
 %{_mandir}/man7/*
+%{_includedir}/infiniband/acm.h
 
 %changelog

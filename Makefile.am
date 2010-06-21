@@ -8,14 +8,17 @@ util_ib_acme_SOURCES = src/acme.c linux/acme_linux.c src/libacm.c linux/libacm_l
 svc_ib_acm_CFLAGS = $(AM_CFLAGS)
 util_ib_acme_CFLAGS = $(AM_CFLAGS)
 
-ib_acmincludedir = $(includedir)/infiniband
+ibacmincludedir = $(includedir)/infiniband
 
-ib_acminclude_HEADERS = include/infiniband/acm.h
+ibacminclude_HEADERS = include/infiniband/acm.h
 
 man_MANS = \
 	man/ib_acme.1 \
 	man/ib_acm.1 \
 	man/ib_acm.7
 
-EXTRA_DIST = src/acm_mad.h src/acm_msg.h src/libacm.h linux/osd.h linux/dlist.h $(man_MANS)
+EXTRA_DIST = include/infiniband/acm.h src/acm_mad.h src/acm_msg.h src/libacm.h \
+	     linux/osd.h linux/dlist.h ibacm.spec.in $(man_MANS)
 
+dist-hook: ibacm.spec
+	cp ibacm.spec $(distdir)
