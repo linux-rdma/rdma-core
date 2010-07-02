@@ -109,7 +109,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# sa - Query SA for path record data and cache results.\n");
 	fprintf(f, "# acm - Use ACM multicast protocol.\n");
 	fprintf(f, "\n");
-	fprintf(f, "route_prot acm\n");
+	fprintf(f, "route_prot sa\n");
 	fprintf(f, "\n");
 	fprintf(f, "# server_port:\n");
 	fprintf(f, "# TCP port number that the server listens on.\n");
