@@ -44,7 +44,8 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %doc AUTHORS COPYING README
-%{_bindir}/*
+%{_bindir}/ib_acme
+%{_sbindir}/ib_acm
 %{_mandir}/man1/*
 %{_mandir}/man7/*
 %{_includedir}/infiniband/acm.h
