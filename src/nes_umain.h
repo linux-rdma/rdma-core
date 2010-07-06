@@ -55,7 +55,8 @@
 #define  NES_QP_MMAP		1
 #define  NES_QP_VMAP		2
 
-#define NES_DRV_OPT_NO_INLINE_DATA     0x00000080
+#define NES_DRV_OPT_NO_INLINE_DATA	0x00000080
+#define NES_DRV_OPT_NO_DB_READ		0x00001000
 
 #define NES_DEBUG
 /* debug levels */
@@ -275,7 +276,7 @@ struct nes_uvcontext {
 	uint32_t wq_size; /* size of the WQs (sq+rq) allocated to the mmaped area */
 	uint32_t mcrqf;
 	uint8_t virtwq ; /*  flag if to use virt wqs or not */
-	uint8_t reserved[3] ;
+	uint8_t reserved[3];
 };
 
 struct nes_uqp;
@@ -371,6 +372,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *, int, struct ibv_comp_channel
 int nes_uresize_cq(struct ibv_cq *, int);
 int nes_udestroy_cq(struct ibv_cq *);
 int nes_upoll_cq(struct ibv_cq *, int, struct ibv_wc *);
+int nes_upoll_cq_no_db_read(struct ibv_cq *, int, struct ibv_wc *);
 int nes_uarm_cq(struct ibv_cq *, int);
 void nes_cq_event(struct ibv_cq *);
 struct ibv_srq *nes_ucreate_srq(struct ibv_pd *, struct ibv_srq_init_attr *);
