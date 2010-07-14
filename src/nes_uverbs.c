@@ -80,11 +80,22 @@ struct nes_ud_recv_wr {
 int nes_uquery_device(struct ibv_context *context, struct ibv_device_attr *attr)
 {
 	struct ibv_query_device cmd;
-	uint64_t reserved;
+	uint64_t nes_fw_ver;
 	int ret;
+	unsigned int minor, major;
 
-	ret = ibv_cmd_query_device(context, attr, &reserved, &cmd, sizeof cmd);
-	return ret;
+	ret = ibv_cmd_query_device(context, attr, &nes_fw_ver,
+					&cmd, sizeof cmd);
+	if (ret)
+		return ret;
+
+	major = (nes_fw_ver >> 16) & 0xffff;
+	minor = nes_fw_ver & 0xffff;
+
+	snprintf(attr->fw_ver, sizeof attr->fw_ver,
+		"%d.%d", major, minor);
+
+	return 0;
 }
 
 
