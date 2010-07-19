@@ -74,10 +74,27 @@ man_MANS = \
 	man/rdma_create_ep.3 \
 	man/rdma_destroy_ep.3 \
 	man/rdma_getaddrinfo.3 \
+	man/rdma_dereg_mr.3 \
+	man/rdma_get_recv_comp.3 \
+	man/rdma_get_send_comp.3 \
+	man/rdma_post_read.3 \
+	man/rdma_post_readv.3 \
+	man/rdma_post_recv.3 \
+	man/rdma_post_recvv.3 \
+	man/rdma_post_send.3 \
+	man/rdma_post_sendv.3 \
+	man/rdma_post_ud_send.3 \
+	man/rdma_post_write.3 \
+	man/rdma_post_writev.3 \
+	man/rdma_reg_msgs.3 \
+	man/rdma_reg_read.3 \
+	man/rdma_reg_write.3 \
 	man/ucmatose.1 \
 	man/udaddy.1 \
 	man/mckey.1 \
 	man/rping.1 \
+	man/rdma_server.1 \
+	man/rdma_client.1 \
 	man/rdma_cm.7
 
 EXTRA_DIST = include/rdma/rdma_cma_abi.h include/rdma/rdma_cma.h \
