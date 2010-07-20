@@ -56,6 +56,7 @@
 #include <infiniband/marshall.h>
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_cma_abi.h>
+#include <rdma/rdma_verbs.h>
 #include <infiniband/ib.h>
 
 #define CMA_CREATE_MSG_CMD_RESP(msg, cmd, resp, type, size) \
