@@ -16,6 +16,9 @@ connection parameters.  See CONNECTION PROPERTIES below for details.
 For an rdma_cm_id of type RDMA_PS_TCP, this call initiates a connection request
 to a remote destination.  For an rdma_cm_id of type RDMA_PS_UDP, it initiates
 a lookup of the remote QP providing the datagram service.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Users must have resolved a route to the destination address
 by having called rdma_resolve_route before calling this routine.

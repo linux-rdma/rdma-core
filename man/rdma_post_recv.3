@@ -26,6 +26,9 @@ A registered memory region associated with the posted buffer.
 Posts a work request to the receive queue of the queue pair associated
 with the rdma_cm_id.  The posted buffer will be queued to receive an incoming
 message sent by the remote peer.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 The user is responsible for ensuring that a receive buffer is posted
 and large enough to contain all sent data before the peer posts the

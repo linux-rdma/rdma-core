@@ -22,6 +22,9 @@ operation.  Memory buffers registered using rdma_reg_write may be
 targeted in an RDMA write request, allowing the buffer to be
 specified on the remote side of an RDMA connection as the remote_addr
 of rdma_post_write, or similar call.
+.SH "RETURN VALUE"
+Returns a reference to the registered memory region on success, or NULL on
+error.  If an error occurs, errno will be set to indicate the failure reason.
 .SH "NOTES"
 rdma_reg_write is used to register a data buffer that will be the
 target of an RDMA write operation on a queue pair associated with

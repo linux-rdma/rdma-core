@@ -13,6 +13,9 @@ If non-NULL, set to the number of devices returned.
 Return a NULL-terminated array of opened RDMA devices.  Callers can use
 this routine to allocate resources on specific RDMA devices that will be
 shared across multiple rdma_cm_id's.
+.SH "RETURN VALUE"
+Returns an array of available RDMA devices, or NULL if the request
+fails.  On failure, errno will be set to indicate the failure reason.
 .SH "NOTES"
 The returned array must be released by calling rdma_free_devices.  Devices
 remain opened while the librdmacm is loaded.

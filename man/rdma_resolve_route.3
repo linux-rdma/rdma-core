@@ -16,6 +16,9 @@ Time to wait for resolution to complete.
 Resolves an RDMA route to the destination address in order to establish
 a connection.  The destination address must have already been resolved
 by calling rdma_resolve_addr.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 This is called on the client side of a connection after calling
 rdma_resolve_addr, but before calling rdma_connect.

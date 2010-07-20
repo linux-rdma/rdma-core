@@ -22,6 +22,9 @@ Time to wait for resolution to complete.
 Resolve destination and optional source addresses from IP addresses
 to an RDMA address.  If successful, the specified rdma_cm_id will
 be bound to a local device.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 This call is used to map a given destination IP address to a usable RDMA
 address.  The IP to RDMA address mapping is done using the local routing

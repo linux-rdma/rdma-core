@@ -14,6 +14,9 @@ Communication identifier associated with the request.
 Multicast address identifying the group to leave.
 .SH "DESCRIPTION"
 Leaves a multicast group and detaches an associated QP from the group.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Calling this function before a group has been fully joined results in
 canceling the join operation.  Users should be aware that messages

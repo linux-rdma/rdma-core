@@ -15,6 +15,9 @@ Allocated information about the next communication event.
 .SH "DESCRIPTION"
 Retrieves a communication event.  If no events are pending, by default,
 the call will block until an event is received.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 The default synchronous behavior of this routine can be changed by
 modifying the file descriptor associated with the given channel.  All

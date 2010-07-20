@@ -16,6 +16,9 @@ below for details.
 .SH "DESCRIPTION"
 Called from the listening side to accept a connection or datagram
 service lookup request.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Unlike the socket accept routine, rdma_accept is not called on a
 listening rdma_cm_id.  Instead, after calling rdma_listen, the user

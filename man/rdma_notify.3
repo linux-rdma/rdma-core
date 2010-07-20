@@ -15,6 +15,9 @@ Asynchronous event.
 .SH "DESCRIPTION"
 Used to notify the librdmacm of asynchronous events that have occurred
 on a QP associated with the rdma_cm_id.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Asynchronous events that occur on a QP are reported through the user's
 device event handler.  This routine is used to notify the librdmacm of

@@ -17,6 +17,9 @@ Retrieves a completed work request for a send, RDMA read, or RDMA write
 operation.  Information about the completed request is returned through
 the wc parameter, with the wr_id set to the context of the request.  For
 details on the work completion structure, see ibv_poll_cq.
+.SH "RETURN VALUE"
+Returns the number of returned completions (0 or 1) on success, or -1 on error.
+If an error occurs, errno will be set to indicate the failure reason.
 .SH "NOTES"
 This calls polls the send completion queue associated with an rdma_cm_id.
 If a completion is not found, the call blocks until a request completes.

@@ -20,6 +20,9 @@ be larger than that requested.
 .SH "DESCRIPTION"
 Called from the listening side to reject a connection or datagram
 service lookup request.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 After receiving a connection request event, a user may call rdma_reject
 to reject the request.  If the underlying RDMA transport supports

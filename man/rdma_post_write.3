@@ -35,6 +35,9 @@ The registered memory key associated with the remote address.
 Posts a work request to the send queue of the queue pair associated
 with the rdma_cm_id.  The contents of the local data buffer will be
 writen into the remote memory region.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 For a list of supported flags, see ibv_post_send.  Unless inline
 data is specified, the local data buffer must have been registered

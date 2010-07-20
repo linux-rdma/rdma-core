@@ -17,6 +17,9 @@ Multicast address identifying the group to join.
 User-defined context associated with the join request.
 .SH "DESCRIPTION"
 Joins a multicast group and attaches an associated QP to the group.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Before joining a multicast group, the rdma_cm_id must be bound to
 an RDMA device by calling rdma_bind_addr or rdma_resolve_addr.  Use of

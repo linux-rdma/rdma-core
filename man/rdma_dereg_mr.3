@@ -14,6 +14,9 @@ Deregisters a memory buffer that had been registered for RDMA
 or message operations.  A user should call rdma_dereg_mr for all
 registered memory associated with an rdma_cm_id before destroying
 the rdma_cm_id.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 All memory registered with an rdma_cm_id is associated with the
 protection domain associated with the id.  Users must deregister

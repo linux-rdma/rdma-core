@@ -24,6 +24,9 @@ information.
 Resolves the destination node and service address and returns
 information needed to establish communication.  Provides the
 RDMA functional equivalent to getaddrinfo.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Either node or service must be provided.  If hints are provided, the
 operation will be controlled by hints.ai_flags.  If RAI_PASSIVE is

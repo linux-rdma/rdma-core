@@ -15,6 +15,9 @@ The communication channel that events associated with the
 allocated rdma_cm_id will be reported on.  May be NULL.
 .SH "DESCRIPTION"
 Migrates a communication identifier to a different event channel.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 This routine migrates a communication identifier to the specified event
 channel and moves any pending events associated with the rdma_cm_id

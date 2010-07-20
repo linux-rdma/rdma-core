@@ -23,6 +23,9 @@ The number of scatter-gather entries in the sgl array.
 Posts a single work request to the receive queue of the queue pair associated
 with the rdma_cm_id.  The posted buffers will be queued to receive an
 incoming message sent by the remote peer.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 The user is responsible for ensuring that the receive is posted,
 and the total buffer space is large enough to contain all sent data

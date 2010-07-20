@@ -22,6 +22,9 @@ messages or for RDMA operations.  Memory buffers registered using
 rdma_reg_msgs may be posted to an rdma_cm_id using
 rdma_post_send or rdma_post_recv, or specified as the target of an RDMA
 read operation or the source of an RDMA write reqeust.
+.SH "RETURN VALUE"
+Returns a reference to the registered memory region on success, or NULL on
+error.  If an error occurs, errno will be set to indicate the failure reason.
 .SH "NOTES"
 rdma_reg_msgs is used to register an array of data buffers
 that will be used send and/or receive messages on a queue pair associated with

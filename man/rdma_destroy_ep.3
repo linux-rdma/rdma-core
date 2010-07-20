@@ -11,6 +11,9 @@ rdma_destroy_ep \- Release a communication identifier.
 The communication identifier to destroy.
 .SH "DESCRIPTION"
 Destroys the specified rdma_cm_id and all associated resources
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 rdma_destroy_ep will automatically destroy any QP associated with
 the rdma_cm_id.

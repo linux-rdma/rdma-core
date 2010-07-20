@@ -11,6 +11,9 @@ rdma_destroy_qp \- Deallocate a QP.
 RDMA identifier.
 .SH "DESCRIPTION"
 Destroy a QP allocated on the rdma_cm_id.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Users must destroy any QP associated with an rdma_cm_id before
 destroying the ID.

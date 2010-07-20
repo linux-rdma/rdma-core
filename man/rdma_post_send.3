@@ -29,6 +29,9 @@ Optional flags used to control the send operation.
 Posts a work request to the send queue of the queue pair associated
 with the rdma_cm_id.  The contents of the posted buffer will be sent
 to the remote peer of a connection.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 The user is responsible for ensuring that the remote peer has queued a
 receive request before issuing the send operations.  For a list of

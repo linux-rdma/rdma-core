@@ -15,6 +15,9 @@ rdma_cm_id associated with the new connection.
 .SH "DESCRIPTION"
 Retrieves a connection request event.  If no requests are pending,
 the call will block until an event is received.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 This call may only be used on listening rdma_cm_id's operating
 synchronously.  On success, a new rdma_cm_id representing the

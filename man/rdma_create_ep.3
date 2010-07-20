@@ -22,6 +22,9 @@ Optional protection domain if a QP is associated with the rdma_cm_id.
 Optional initial QP attributes.
 .SH "DESCRIPTION"
 Creates an identifier that is used to track communication information.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 After resolving address information using rdma_getaddrinfo, a user
 may use this call to allocate an rdma_cm_id based on the results.

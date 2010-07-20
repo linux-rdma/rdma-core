@@ -22,6 +22,9 @@ User specified context associated with the rdma_cm_id.
 RDMA port space.
 .SH "DESCRIPTION"
 Creates an identifier that is used to track communication information.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 Rdma_cm_id's are conceptually equivalent to a socket for RDMA
 communication.  The difference is that RDMA communication requires

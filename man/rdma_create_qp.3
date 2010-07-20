@@ -18,6 +18,9 @@ Initial QP attributes.
 .SH "DESCRIPTION"
 Allocate a QP associated with the specified rdma_cm_id and transition it
 for sending and receiving.
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
 .SH "NOTES"
 The rdma_cm_id must be bound to a local RDMA device before calling this
 function, and the protection domain must be for that same device.
