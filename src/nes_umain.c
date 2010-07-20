@@ -115,6 +115,8 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 	struct nes_uvcontext *nesvctx;
 	struct nes_get_context cmd;
 	struct nes_ualloc_ucontext_resp resp;
+	char value[16];
+	uint32_t nes_drv_opt = 0;
 
 	page_size = sysconf(_SC_PAGESIZE);
 
@@ -136,7 +138,19 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 		goto err_free;
 	}
 
+	if (ibv_read_sysfs_file("/sys/module/iw_nes", "parameters/nes_drv_opt",
+			value, sizeof(value)) > 0) {
+		sscanf(value, "%d", &nes_drv_opt);
+	} else if (ibv_read_sysfs_file("/sys/module/iw_nes", "nes_drv_opt",
+				value, sizeof(value)) > 0) {
+			sscanf(value, "%d", &nes_drv_opt);
+	}
+
 	nesvctx->ibv_ctx.device = ibdev;
+
+	if (nes_drv_opt & NES_DRV_OPT_NO_DB_READ)
+		nes_uctx_ops.poll_cq = nes_upoll_cq_no_db_read;
+
 	nesvctx->ibv_ctx.ops = nes_uctx_ops;
 	nesvctx->max_pds = resp.max_pds;
 	nesvctx->max_qps = resp.max_qps;
