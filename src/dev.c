@@ -47,6 +47,9 @@
 
 #define PCI_VENDOR_ID_CHELSIO		0x1425
 #define PCI_DEVICE_ID_CHELSIO_PE10K	0xa000
+#define PCI_DEVICE_ID_CHELSIO_T440DBG	0x4400
+#define PCI_DEVICE_ID_CHELSIO_T420CR	0x4401
+#define PCI_DEVICE_ID_CHELSIO_T422CR	0x4402
 
 #define HCA(v, d, t) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
@@ -59,6 +62,9 @@ struct {
 	enum c4iw_hca_type type;
 } hca_table[] = {
 	HCA(CHELSIO, PE10K, T4),
+	HCA(CHELSIO, T440DBG, T4),
+	HCA(CHELSIO, T420CR, T4),
+	HCA(CHELSIO, T422CR, T4),
 };
 
 SLIST_HEAD(devices_struct, c4iw_dev) devices;
