@@ -1,6 +1,32 @@
-commit 773be4fdbe09df07cbaaf327a4d892e4963ea4e2
+commit 52ad12f79479d886c88ee0dc272e9e99bf620476
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Fri Jun 11 10:40:14 2010 -0500
+Date:   Thu Jul 22 14:58:03 2010 -0500
+
+    Spin release 1.0.4
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 07ac253a8a479fd59fe654baf5a94ffc1de13765
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 22 14:57:27 2010 -0500
+
+    Do GTS/CIDX_INC writes in the poll path to avoid drops.
+    
+    With T4 asic, we still see the CIDX_INC overflow/drops.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 3394198639f811c86ab519c43197a9b724435cb0
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 22 14:56:53 2010 -0500
+
+    Support T420 and T440 cards.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 311dd1c8ec3e38287895053dce52dfef5ed5f0b1
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jun 11 10:40:53 2010 -0500
 
     Spin release 1.0.3.
     
