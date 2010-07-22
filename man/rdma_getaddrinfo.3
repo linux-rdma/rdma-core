@@ -1,4 +1,4 @@
-.TH "RDMA_GETADDRINFO" 3 "2007-10-31" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_GETADDRINFO" 3 "2010-07-19" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_getaddrinfo \- Provides transport independent address translation.
 .SH SYNOPSIS
@@ -35,8 +35,8 @@ passive side of a connection.
 .SH "rdma_addrinfo"
 .IP "ai_flags" 12
 Hint flags that control the operation.  Supported flags are:
-.P
-RAI_PASSIVE - indicates that the results will be used on the passive/listening
+.IP "RAI_PASSIVE" 12
+Indicates that the results will be used on the passive/listening
 side of a connection.
 .IP "ai_family" 12
 Address family for the source and destination address.  Supported families
@@ -69,7 +69,7 @@ could be resolved.
 Routing information for RDMA transports that require routing data as part
 of connection establishment.  The format of the routing data depends on
 the underlying transport.  If Infiniband transports are
-used, ai_route will reference an array of struct ib_path_data.
+used, ai_route will reference an array of struct ibv_path_data.
 .IP "ai_connect_len" 12
 Size of connection information referenced by ai_connect.  This will be
 0 if the underlying transport does not require additional connection

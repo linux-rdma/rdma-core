@@ -1,4 +1,4 @@
-.TH "RDMA_DESTROY_ID" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_DESTROY_ID" 3 "2010-07-19" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_destroy_id \- Release a communication identifier.
 .SH SYNOPSIS
@@ -17,6 +17,6 @@ Returns 0 on success, or -1 on error.  If an error occurs, errno will be
 set to indicate the failure reason.
 .SH "NOTES"
 Users must free any associated QP with the rdma_cm_id before
-calling this routine and ack an related events.
+calling this routine and ack all related events.
 .SH "SEE ALSO"
 rdma_create_id(3), rdma_destroy_qp(3), rdma_ack_cm_event(3)

@@ -1,4 +1,4 @@
-.TH "RDMA_CREATE_EP" 3 "2007-08-06" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_CREATE_EP" 3 "2010-07-19" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_create_ep \- Allocate a communication identifier and optional QP.
 .SH SYNOPSIS
@@ -30,7 +30,7 @@ After resolving address information using rdma_getaddrinfo, a user
 may use this call to allocate an rdma_cm_id based on the results.
 .P
 If the rdma_cm_id will be used on the active side of a connection,
-meaning that res->ai_flag is not RAI_PASSIVE set, rdma_create_ep
+meaning that res->ai_flag does not have RAI_PASSIVE set, rdma_create_ep
 will automatically create a QP on the rdma_cm_id if qp_init_attr is
 not NULL.  The QP will be associated with the specified protection
 domain, if provided, or a default protection domain if not.  Users

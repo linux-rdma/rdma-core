@@ -1,4 +1,4 @@
-.TH "RDMA_CONNECT" 3 "2007-10-31" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_CONNECT" 3 "2010-07-19" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_connect \- Initiate an active connection request.
 .SH SYNOPSIS
@@ -21,7 +21,8 @@ Returns 0 on success, or -1 on error.  If an error occurs, errno will be
 set to indicate the failure reason.
 .SH "NOTES"
 Users must have resolved a route to the destination address
-by having called rdma_resolve_route before calling this routine.
+by having called rdma_resolve_route or rdma_create_ep before calling
+this routine.
 .SH "CONNECTION PROPERTIES"
 The following properties are used to configure the communication and specified
 by the conn_param parameter when connecting or establishing datagram

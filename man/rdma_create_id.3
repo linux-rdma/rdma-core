@@ -1,4 +1,4 @@
-.TH "RDMA_CREATE_ID" 3 "2007-08-06" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_CREATE_ID" 3 "2010-07-19" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_create_id \- Allocate a communication identifier.
 .SH SYNOPSIS
@@ -31,7 +31,7 @@ communication.  The difference is that RDMA communication requires
 explicitly binding to a specified RDMA device before communication
 can occur, and most operations are asynchronous in nature.  Asynchronous
 communication events on an rdma_cm_id are reported through the associated
-event channel.  If the channel paramet is NULL, the rdma_cm_id will
+event channel.  If the channel parameter is NULL, the rdma_cm_id will
 be placed into synchronous operation.  While operating synchronously,
 calls that result in an event will block until the operation completes.
 The event will be returned to the user through the rdma_cm_id structure,
