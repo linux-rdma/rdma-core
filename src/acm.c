@@ -32,6 +32,7 @@
 #include <string.h>
 #include <osd.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 #include <infiniband/acm.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
@@ -2611,11 +2612,53 @@ static FILE *acm_open_log(void)
 	return f;
 }
 
+static void daemonize(void)
+{
+	pid_t pid, sid;
+
+	pid = fork();
+	if (pid)
+		exit(pid < 0);
+
+	umask(0);
+
+	sid = setsid();
+	if (sid < 0)
+		exit(1);
+
+	if (chdir("/"))
+		exit(1);
+
+	freopen("/dev/null", "r", stdin);
+	freopen("/dev/null", "w", stdout);
+	freopen("/dev/null", "w", stderr);
+}
+
+static void show_usage(char *program)
+{
+	printf("usage: %s\n", program);
+	printf("   [-D] - run as a daemon\n");
+}
+
 int CDECL_FUNC main(int argc, char **argv)
 {
 	struct ibv_device **ibdev;
 	int dev_cnt;
-	int i;
+	int op, i, daemon = 0;
+
+	while ((op = getopt(argc, argv, "D")) != -1) {
+		switch (op) {
+		case 'D':
+			daemon = 1;
+			break;
+		default:
+			show_usage(argv[0]);
+			exit(1);
+		}
+	}
+
+	if (daemon)
+		daemonize();
 
 	if (osd_init())
 		return -1;
