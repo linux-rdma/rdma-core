@@ -39,10 +39,15 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <malloc.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <netinet/in.h>
+
+#define ACM_DEST_DIR "/etc/ibacm"
+#define ACM_ADDR_FILE "acm_addr.cfg"
+#define ACM_OPTS_FILE "acm_opts.cfg"
 
 #define LIB_DESTRUCTOR __attribute__((destructor))
 #define CDECL_FUNC

@@ -190,6 +190,8 @@ static struct acm_client client[FD_SETSIZE - 1];
 static FILE *flog;
 static lock_t log_lock;
 
+static char *opts_file = "/etc/ibacm/acm_opts.cfg";
+static char *addr_file = "/etc/ibacm/acm_addr.cfg";
 static char log_file[128] = "stdout";
 static int log_level = 0;
 static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
@@ -2197,7 +2199,7 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 	acm_log(1, "device %s, port %d, pkey 0x%x\n",
 		dev_name, ep->port->port_num, ep->pkey);
 
-	if (!(f = fopen("acm_addr.cfg", "r"))) {
+	if (!(f = fopen(addr_file, "r"))) {
 		acm_log(0, "ERROR - unable to open acm_addr.cfg file\n");
 		return ACM_STATUS_ENODATA;
 	}
@@ -2536,7 +2538,7 @@ static void acm_set_options(void)
 	char s[120];
 	char opt[32], value[32];
 
-	if (!(f = fopen("acm_opts.cfg", "r")))
+	if (!(f = fopen(opts_file, "r")))
 		return;
 
 	while (fgets(s, sizeof s, f)) {
@@ -2637,7 +2639,11 @@ static void daemonize(void)
 static void show_usage(char *program)
 {
 	printf("usage: %s\n", program);
-	printf("   [-D] - run as a daemon\n");
+	printf("   [-D]             - run as a daemon\n");
+	printf("   [-A addr_file]   - address configuration file\n");
+	printf("                      (default %s/%s\n", ACM_DEST_DIR, ACM_ADDR_FILE);
+	printf("   [-O option_file] - option configuration file\n");
+	printf("                      (default %s/%s\n", ACM_DEST_DIR, ACM_OPTS_FILE);
 }
 
 int CDECL_FUNC main(int argc, char **argv)
@@ -2646,10 +2652,16 @@ int CDECL_FUNC main(int argc, char **argv)
 	int dev_cnt;
 	int op, i, daemon = 0;
 
-	while ((op = getopt(argc, argv, "D")) != -1) {
+	while ((op = getopt(argc, argv, "DA:O:")) != -1) {
 		switch (op) {
 		case 'D':
 			daemon = 1;
+			break;
+		case 'A':
+			addr_file = optarg;
+			break;
+		case 'O':
+			opts_file = optarg;
 			break;
 		default:
 			show_usage(argv[0]);

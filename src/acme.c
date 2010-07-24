@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2009-2010 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under the OpenIB.org BSD license
  * below:
@@ -39,6 +39,10 @@
 #include <infiniband/acm.h>
 #include "libacm.h"
 
+static char *dest_dir = ACM_DEST_DIR;
+static char *addr_file = ACM_ADDR_FILE;
+static char *opts_file = ACM_OPTS_FILE;
+
 static char *dest_addr;
 static char *src_addr;
 static char addr_type = 'i';
@@ -60,8 +64,12 @@ static void show_usage(char *program)
 	printf("   -d dest_addr     - format defined by -f option\n");
 	printf("   [-v]             - verify ACM response against SA query response\n");
 	printf("usage 2: %s\n", program);
-	printf("   -A               - generate local acm_addr.cfg configuration file\n");
-	printf("   -O               - generate local acm_ops.cfg options file\n");
+	printf("   -A [addr_file]   - generate local address configuration file\n");
+	printf("                      (default is %s)\n", ACM_ADDR_FILE);
+	printf("   -O [opt_file]    - generate local acm_opts.cfg options file\n");
+	printf("                      (default is %s)\n", ACM_OPTS_FILE);
+	printf("   -D dest_dir      - specify destination directory for output files\n");
+	printf("                      (default is %s)\n", ACM_DEST_DIR);
 }
 
 static void gen_opts_temp(FILE *f)
@@ -186,13 +194,23 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 }
 
+static int open_dir(void)
+{
+	mkdir(dest_dir, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (chdir(dest_dir)) {
+		printf("Failed to open directory %s: %s\n", dest_dir, strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+
 static int gen_opts(void)
 {
 	FILE *f;
 
-	printf("Generating acm_opts.cfg\n");
-	if (!(f = fopen("acm_opts.cfg", "w"))) {
-		printf("Failed to open option configuration file\n");
+	printf("Generating %s/%s\n", dest_dir, opts_file);
+	if (open_dir() || !(f = fopen(opts_file, "w"))) {
+		printf("Failed to open option configuration file: %s\n", strerror(errno));
 		return -1;
 	}
 
@@ -325,9 +343,9 @@ static int gen_addr(void)
 	FILE *f;
 	int ret;
 
-	printf("Generating acm_addr.cfg\n");
-	if (!(f = fopen("acm_addr.cfg", "w"))) {
-		printf("Failed to open address configuration file\n");
+	printf("Generating %s/%s\n", dest_dir, addr_file);
+	if (open_dir() || !(f = fopen(addr_file, "w"))) {
+		printf("Failed to open address configuration file: %s\n", strerror(errno));
 		return -1;
 	}
 
@@ -493,6 +511,17 @@ static int resolve(char *program)
 	return ret;
 }
 
+char *opt_arg(int argc, char **argv)
+{
+	if (optarg)
+		return optarg;
+
+	if ((optind < argc) && (argv[optind][0] != '-'))
+		return argv[optind];
+
+	return NULL;
+}
+
 int CDECL_FUNC main(int argc, char **argv)
 {
 	int op, ret;
@@ -501,7 +530,7 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (ret)
 		goto out;
 
-	while ((op = getopt(argc, argv, "f:s:d:vAO")) != -1) {
+	while ((op = getopt(argc, argv, "f:s:d:vA::O::D:")) != -1) {
 		switch (op) {
 		case 'f':
 			addr_type = optarg[0];
@@ -517,9 +546,16 @@ int CDECL_FUNC main(int argc, char **argv)
 			break;
 		case 'A':
 			make_addr = 1;
+			if (opt_arg(argc, argv))
+				addr_file = opt_arg(argc, argv);
 			break;
 		case 'O':
 			make_opts = 1;
+			if (opt_arg(argc, argv))
+				opts_file = opt_arg(argc, argv);
+			break;
+		case 'D':
+			dest_dir = optarg;
 			break;
 		default:
 			show_usage(argv[0]);
