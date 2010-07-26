@@ -183,8 +183,7 @@ static size_t _unmarshall8(uint8_t * inbuf, uint8_t * num)
 
 static size_t _unmarshall16(uint8_t * inbuf, uint16_t * num)
 {
-	(*num) = (uint64_t) inbuf[0];
-	(*num) |= ((uint16_t) inbuf[1] << 8);
+	(*num) = ((uint16_t) inbuf[1] << 8) | inbuf[0];
 
 	return (sizeof(*num));
 }
