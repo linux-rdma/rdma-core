@@ -2598,7 +2598,6 @@ static void acm_log_options(void)
 static FILE *acm_open_log(void)
 {
 	FILE *f;
-	int n;
 
 	if (!stricmp(log_file, "stdout"))
 		return stdout;
@@ -2606,8 +2605,6 @@ static FILE *acm_open_log(void)
 	if (!stricmp(log_file, "stderr"))
 		return stderr;
 
-	n = strlen(log_file);
-	sprintf(&log_file[n], "%05u.log", getpid());
 	if (!(f = fopen(log_file, "w")))
 		f = stdout;
 

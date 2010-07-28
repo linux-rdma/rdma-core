@@ -85,15 +85,13 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# log_file:\n");
 	fprintf(f, "# Specifies the location of the ACM service output.  The log file is used to\n");
 	fprintf(f, "# assist with ACM service debugging and troubleshooting.  The log_file can\n");
-	fprintf(f, "# be set to 'stdout', 'stderr', or the base name of a file.  If a file name\n");
-	fprintf(f, "# is specified, the actual name formed by appending a process ID and '.log'\n");
-	fprintf(f, "# extension to the end of the specified file name.\n");
+	fprintf(f, "# be set to 'stdout', 'stderr', or the name of a file.\n");
 	fprintf(f, "# Examples:\n");
 	fprintf(f, "# log_file stdout\n");
 	fprintf(f, "# log_file stderr\n");
-	fprintf(f, "# log_file /tmp/acm_\n");
+	fprintf(f, "# log_file /var/log/ibacm.log\n");
 	fprintf(f, "\n");
-	fprintf(f, "log_file acm_\n");
+	fprintf(f, "log_file /var/log/ibacm.log\n");
 	fprintf(f, "\n");
 	fprintf(f, "# log_level:\n");
 	fprintf(f, "# Indicates the amount of detailed data written to the log file.  Log levels\n");
