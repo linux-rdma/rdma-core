@@ -372,11 +372,14 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	} else {
-		if (resolved >= 0 &&
-		    !(fabric =
-		      ibnd_discover_fabric(ibd_ca, ibd_ca_port, &port_id, &config)))
-			IBWARN("Single node discover failed;"
-			       " attempting full scan\n");
+		if (resolved >= 0) {
+			if (!config.max_hops)
+				config.max_hops = 1;
+			if (!(fabric =
+			    ibnd_discover_fabric(ibd_ca, ibd_ca_port, &port_id, &config)))
+				IBWARN("Single node discover failed;"
+				       " attempting full scan\n");
+		}
 
 		if (!fabric &&
 		    !(fabric = ibnd_discover_fabric(ibd_ca, ibd_ca_port, NULL, &config))) {

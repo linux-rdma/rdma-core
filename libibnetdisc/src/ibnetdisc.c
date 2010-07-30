@@ -94,7 +94,7 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 	ibnd_fabric_t *fabric = scan->fabric;
 
 	if (scan->cfg->max_hops &&
-	    fabric->maxhops_discovered >= scan->cfg->max_hops)
+	    fabric->maxhops_discovered > scan->cfg->max_hops)
 		return 0;
 
 	if (portid->lid) {
@@ -451,7 +451,8 @@ void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
 	}
 }
 
-static int set_config(struct ibnd_config *config, struct ibnd_config *cfg)
+static int set_config(struct ibnd_config *config, struct ibnd_config *cfg,
+		      int initial_hops)
 {
 	if (!config)
 		return (-EINVAL);
@@ -465,6 +466,8 @@ static int set_config(struct ibnd_config *config, struct ibnd_config *cfg)
 		config->timeout_ms = DEFAULT_TIMEOUT;
 	if (!config->retries)
 		config->retries = DEFAULT_RETRIES;
+	if (config->max_hops)
+		config->max_hops += initial_hops;
 
 	return (0);
 }
@@ -481,14 +484,14 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	int nc = 2;
 	int mc[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
-	if (set_config(&config, cfg)) {
-		IBND_ERROR("Invalid ibnd_config\n");
-		return NULL;
-	}
-
 	/* If not specified start from "my" port */
 	if (!from)
 		from = &my_portid;
+
+	if (set_config(&config, cfg, from->drpath.cnt)) {
+		IBND_ERROR("Invalid ibnd_config\n");
+		return NULL;
+	}
 
 	fabric = calloc(1, sizeof(*fabric));
 	if (!fabric) {
