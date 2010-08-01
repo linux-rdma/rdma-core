@@ -72,10 +72,9 @@ static void ca_dump(umad_ca_t * ca)
 	printf("\tNumber of ports: %d\n", ca->numports);
 	printf("\tFirmware version: %s\n", ca->fw_ver);
 	printf("\tHardware version: %s\n", ca->hw_ver);
-	printf("\tNode GUID: 0x%016llx\n",
-	       (long long unsigned)ntohll(ca->node_guid));
-	printf("\tSystem image GUID: 0x%016llx\n",
-	       (long long unsigned)ntohll(ca->system_guid));
+	printf("\tNode GUID: 0x%016" PRIx64 "\n", ntohll(ca->node_guid));
+	printf("\tSystem image GUID: 0x%016" PRIx64 "\n",
+	       ntohll(ca->system_guid));
 }
 
 static char *port_state_str[] = {
@@ -122,8 +121,7 @@ static int port_dump(umad_port_t * port, int alone)
 	printf("%sLMC: %d\n", pre, port->lmc);
 	printf("%sSM lid: %d\n", pre, port->sm_lid);
 	printf("%sCapability mask: 0x%08x\n", pre, ntohl(port->capmask));
-	printf("%sPort GUID: 0x%016llx\n", pre,
-	       (long long unsigned)ntohll(port->port_guid));
+	printf("%sPort GUID: 0x%016" PRIx64 "\n", pre, ntohll(port->port_guid));
 	printf("%sLink layer: %s\n", pre, port->link_layer);
 	return 0;
 }
@@ -182,8 +180,7 @@ static int ports_list(char names[][UMAD_CA_NAME_LEN], int n)
 
 	for (i = 0; i < found; i++)
 		if (guids[i])
-			printf("0x%016llx\n",
-			       (long long unsigned)ntohll(guids[i]));
+			printf("0x%016" PRIx64 "\n", ntohll(guids[i]));
 	return found;
 }
 
