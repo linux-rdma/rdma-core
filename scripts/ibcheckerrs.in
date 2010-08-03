@@ -30,17 +30,17 @@ function red() {
 }
 
 function show_thresholds() {
-	echo "SymbolErrors=$SymbolErrors"
-	echo "LinkRecovers=$LinkRecovers"
-	echo "LinkDowned=$LinkDowned"
-	echo "RcvErrors=$RcvErrors"
-	echo "RcvRemotePhysErrors=$RcvRemotePhysErrors"
-	echo "RcvSwRelayErrors=$RcvSwRelayErrors"
-	echo "XmtDiscards=$XmtDiscards"
-	echo "XmtConstraintErrors=$XmtConstraintErrors"
-	echo "RcvConstraintErrors=$RcvConstraintErrors"
-	echo "LinkIntegrityErrors=$LinkIntegrityErrors"
-	echo "ExcBufOverrunErrors=$ExcBufOverrunErrors"
+	echo "SymbolErrorCounter=$SymbolErrorCounter"
+	echo "LinkErrorRecoveryCounter=$LinkErrorRecoveryCounter"
+	echo "LinkDownedCounter=$LinkDownedCounter"
+	echo "PortRcvErrors=$PortRcvErrors"
+	echo "PortRcvRemotePhysicalErrors=$PortRcvRemotePhysicalErrors"
+	echo "PortRcvSwitchRelayErrors=$PortRcvSwitchRelayErrors"
+	echo "PortXmitDiscards=$PortXmitDiscards"
+	echo "PortXmitConstraintErrors=$PortXmitConstraintErrors"
+	echo "PortRcvConstraintErrors=$PortRcvConstraintErrors"
+	echo "LocalLinkIntegrityErrors=$LocalLinkIntegrityErrors"
+	echo "ExcessiveBufferOverrunErrors=$ExcessiveBufferOverrunErrors"
 	echo "VL15Dropped=$VL15Dropped"
 }
 
@@ -49,17 +49,17 @@ function get_thresholds() {
 }
 
 # Default thresholds
-SymbolErrors=10
-LinkRecovers=10
-LinkDowned=10
-RcvErrors=10
-RcvRemotePhysErrors=100
-RcvSwRelayErrors=100
-XmtDiscards=100
-XmtConstraintErrors=100
-RcvConstraintErrors=100
-LinkIntegrityErrors=10
-ExcBufOverrunErrors=10
+SymbolErrorCounter=10
+LinkErrorRecoveryCounter=10
+LinkDownedCounter=10
+PortRcvErrors=10
+PortRcvRemotePhysicalErrors=100
+PortRcvSwitchRelayErrors=100
+PortXmitDiscards=100
+PortXmitConstraintErrors=100
+PortRcvConstraintErrors=100
+LocalLinkIntegrityErrors=10
+ExcessiveBufferOverrunErrors=10
 VL15Dropped=100
 
 guid_addr=""
@@ -178,17 +178,17 @@ function blue(s)
 }
 
 BEGIN {
-	th["SymbolErrors"] = '$SymbolErrors'
-	th["LinkRecovers"] = '$LinkRecovers'
-	th["LinkDowned"] = '$LinkDowned'
-	th["RcvErrors"] = '$RcvErrors'
-	th["RcvRemotePhysErrors"] = '$RcvRemotePhysErrors'
-	th["RcvSwRelayErrors"] = '$RcvSwRelayErrors'
-	th["XmtDiscards"] = '$XmtDiscards'
-	th["XmtConstraintErrors"] = '$XmtConstraintErrors'
-	th["RcvConstraintErrors"] = '$RcvConstraintErrors'
-	th["LinkIntegrityErrors"] = '$LinkIntegrityErrors'
-	th["ExcBufOverrunErrors"] = '$ExcBufOverrunErrors'
+	th["SymbolErrorCounter"] = '$SymbolErrorCounter'
+	th["LinkErrorRecoveryCounter"] = '$LinkErrorRecoveryCounter'
+	th["LinkDownedCounter"] = '$LinkDownedCounter'
+	th["PortRcvErrors"] = '$PortRcvErrors'
+	th["PortRcvRemotePhysicalErrors"] = '$PortRcvRemotePhysicalErrors'
+	th["PortRcvSwitchRelayErrors"] = '$PortRcvSwitchRelayErrors'
+	th["PortXmitDiscards"] = '$PortXmitDiscards'
+	th["PortXmitConstraintErrors"] = '$PortXmitConstraintErrors'
+	th["PortRcvConstraintErrors"] = '$PortRcvConstraintErrors'
+	th["LocalLinkIntegrityErrors"] = '$LocalLinkIntegrityErrors'
+	th["ExcessiveBufferOverrunErrors"] = '$ExcessiveBufferOverrunErrors'
 	th["VL15Dropped"] = '$VL15Dropped'
 }
 

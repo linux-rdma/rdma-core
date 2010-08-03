@@ -47,41 +47,41 @@ $IBswcountlimits::cache_dir       = "/var/cache/infiniband-diags";
 
 # all the PerfMgt counters
 @IBswcountlimits::counters = (
-	"SymbolErrors",        "LinkRecovers",
-	"LinkDowned",          "RcvErrors",
-	"RcvRemotePhysErrors", "RcvSwRelayErrors",
-	"XmtDiscards",         "XmtConstraintErrors",
-	"RcvConstraintErrors", "LinkIntegrityErrors",
-	"ExcBufOverrunErrors", "VL15Dropped",
-	"XmtData",             "RcvData",
-	"XmtPkts",             "RcvPkts"
+	"SymbolErrorCounter",        "LinkErrorRecoveryCounter",
+	"LinkDownedCounter",          "PortRcvErrors",
+	"PortRcvRemotePhysicalErrors", "PortRcvSwitchRelayErrors",
+	"PortXmitDiscards",         "PortXmitConstraintErrors",
+	"PortRcvConstraintErrors", "LocalLinkIntegrityErrors",
+	"ExcessiveBufferOverrunErrors", "VL15Dropped",
+	"PortXmitData",             "PortRcvData",
+	"PortXmitPkts",             "PortRcvPkts"
 );
 
 # non-critical counters
 %IBswcountlimits::error_counters = (
-	"SymbolErrors",
-"No action is required except if counter is increasing along with LinkRecovers",
-	"LinkRecovers",
-"If this is increasing along with SymbolErrors this may indicate a bad link, run ibswportwatch.pl on this port",
-	"LinkDowned",
+	"SymbolErrorCounter",
+"No action is required except if counter is increasing along with LinkErrorRecoveryCounter",
+	"LinkErrorRecoveryCounter",
+"If this is increasing along with SymbolErrorCounter this may indicate a bad link, run ibswportwatch.pl on this port",
+	"LinkDownedCounter",
 	"Number of times the port has gone down (Usually for valid reasons)",
-	"RcvErrors",
+	"PortRcvErrors",
 "This is a bad link, if the link is internal to a 288 try setting SDR, otherwise check the cable",
-	"RcvRemotePhysErrors",
+	"PortRcvRemotePhysicalErrors",
 	"This indicates a problem ELSEWHERE in the fabric.",
-	"XmtDiscards",
+	"PortXmitDiscards",
 "This is a symptom of congestion and may require tweaking either HOQ or switch lifetime values",
-	"XmtConstraintErrors",
+	"PortXmitConstraintErrors",
 	"This is a result of bad partitioning, check partition configuration.",
-	"RcvConstraintErrors",
+	"PortRcvConstraintErrors",
 	"This is a result of bad partitioning, check partition configuration.",
-	"LinkIntegrityErrors",
+	"LocalLinkIntegrityErrors",
 	"May indicate a bad link, run ibswportwatch.pl on this port",
-	"ExcBufOverrunErrors",
+	"ExcessiveBufferOverrunErrors",
 "This is a flow control state machine error and can be caused by packets with physical errors",
 	"VL15Dropped",
 	"check with ibswportwatch.pl, if increasing in SMALL increments, OK",
-	"RcvSwRelayErrors",
+	"PortRcvSwitchRelayErrors",
 	"This counter can increase due to a valid network event"
 );
 
@@ -113,13 +113,13 @@ sub check_counters
 
 # Data counters
 %IBswcountlimits::data_counters = (
-	"XmtData",
+	"PortXmitData",
 "Total number of data octets, divided by 4, transmitted on all VLs from the port",
-	"RcvData",
+	"PortRcvData",
 "Total number of data octets, divided by 4, received on all VLs to the port",
-	"XmtPkts",
+	"PortXmitPkts",
 "Total number of packets, excluding link packets, transmitted on all VLs from the port",
-	"RcvPkts",
+	"PortRcvPkts",
 "Total number of packets, excluding link packets, received on all VLs to the port"
 );
 
@@ -167,9 +167,9 @@ sub calculate_rate
 	return ($rate);
 }
 %IBswcountlimits::rate_dep_thresholds = (
-	"SymbolErrors", 10, "LinkRecovers",        10,
-	"RcvErrors",    10, "LinkIntegrityErrors", 10,
-	"XmtDiscards",  10
+	"SymbolErrorCounter", 10, "LinkErrorRecoveryCounter",        10,
+	"PortRcvErrors",    10, "LocalLinkIntegrityErrors", 10,
+	"PortXmitDiscards",  10
 );
 
 sub check_counter_rates
