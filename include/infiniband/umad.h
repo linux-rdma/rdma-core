@@ -44,7 +44,7 @@
 #endif				/* __cplusplus */
 
 BEGIN_C_DECLS
-#define UMAD_MAX_DEVICES 20
+#define UMAD_MAX_DEVICES 32
 #define UMAD_ANY_PORT	0
 typedef struct ib_mad_addr {
 	uint32_t qpn;
