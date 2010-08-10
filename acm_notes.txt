@@ -23,7 +23,7 @@ implementation limits network traffic, SA interactions, and centralized
 services.  ACM supports multiple resolution protocols in order to handle
 different fabric topologies.
 
-This release 1.0.1 is limited in its handling of dynamic changes.
+This release 1.0.2 is limited in its handling of dynamic changes.
 
 The IB ACM package is comprised of two components: the ib_acm service
 and a test/configuration utility - ib_acme.  Both are userspace components
