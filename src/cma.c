@@ -867,28 +867,24 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 
 static int ucma_set_ib_route(struct rdma_cm_id *id)
 {
-	struct rdma_addrinfo rai;
-	struct sockaddr_in6 src, dst;
+	struct rdma_addrinfo hint, *rai;
 	int ret;
 
-	memset(&rai, 0, sizeof rai);
-	rai.ai_flags = RAI_ROUTEONLY;
-	rai.ai_family = id->route.addr.src_addr.sa_family;
-	rai.ai_src_len = ucma_addrlen((struct sockaddr *) &id->route.addr.src_addr);
-	rai.ai_dst_len = ucma_addrlen((struct sockaddr *) &id->route.addr.dst_addr);
+	memset(&hint, 0, sizeof hint);
+	hint.ai_flags = RAI_ROUTEONLY;
+	hint.ai_family = id->route.addr.src_addr.sa_family;
+	hint.ai_src_len = ucma_addrlen((struct sockaddr *) &id->route.addr.src_addr);
+	hint.ai_src_addr = &id->route.addr.src_addr;
+	hint.ai_dst_len = ucma_addrlen((struct sockaddr *) &id->route.addr.dst_addr);
+	hint.ai_dst_addr = &id->route.addr.dst_addr;
 
-	memcpy(&src, &id->route.addr.src_addr, rai.ai_src_len);
-	memcpy(&dst, &id->route.addr.dst_addr, rai.ai_dst_len);
-	rai.ai_src_addr = (struct sockaddr *) &src;
-	rai.ai_dst_addr = (struct sockaddr *) &dst;
-
-	ucma_ib_resolve(&rai);
-	if (!rai.ai_route_len)
-		return ERR(ENODATA);
+	ret = rdma_getaddrinfo(NULL, NULL, &hint, &rai);
+	if (ret)
+		return ret;
 
 	ret = rdma_set_option(id, RDMA_OPTION_IB, RDMA_OPTION_IB_PATH,
-			      rai.ai_route, rai.ai_route_len);
-	free(rai.ai_route);
+			      rai->ai_route, rai->ai_route_len);
+	rdma_freeaddrinfo(rai);
 	return ret;
 }
 

@@ -48,7 +48,7 @@
 static void ucma_convert_to_ai(struct addrinfo *ai, struct rdma_addrinfo *rai)
 {
 	memset(ai, 0, sizeof *ai);
-	ai->ai_flags = rai->ai_flags;
+	ai->ai_flags = (rai->ai_flags & RAI_PASSIVE) ? AI_PASSIVE : 0;
 	ai->ai_family = rai->ai_family;
 
 	switch (rai->ai_qp_type) {
@@ -86,8 +86,6 @@ static int ucma_convert_to_rai(struct rdma_addrinfo *rai, struct addrinfo *ai)
 	struct sockaddr *addr;
 	char *canonname;
 
-	memset(rai, 0, sizeof *rai);
-	rai->ai_flags = ai->ai_flags;
 	rai->ai_family = ai->ai_family;
 
 	switch (ai->ai_socktype) {
@@ -130,21 +128,17 @@ static int ucma_convert_to_rai(struct rdma_addrinfo *rai, struct addrinfo *ai)
 	return 0;
 }
 
-int rdma_getaddrinfo(char *node, char *service,
-		     struct rdma_addrinfo *hints,
-		     struct rdma_addrinfo **res)
+static int ucma_convert_gai(char *node, char *service,
+			    struct rdma_addrinfo *hints,
+			    struct rdma_addrinfo *rai)
 {
-	struct rdma_addrinfo *rai;
 	struct addrinfo ai_hints;
 	struct addrinfo *ai, *aih;
 	int ret;
 
-	ret = ucma_init();
-	if (ret)
-		return ret;
-
 	if (hints) {
 		ucma_convert_to_ai(&ai_hints, hints);
+		rai->ai_flags = hints->ai_flags;
 		aih = &ai_hints;
 	} else {
 		aih = NULL;
@@ -154,38 +148,71 @@ int rdma_getaddrinfo(char *node, char *service,
 	if (ret)
 		return ret;
 
-	rai = malloc(sizeof(*rai));
-	if (!rai) {
-		ret = ERR(ENOMEM);
-		goto err1;
-	}
-
 	ret = ucma_convert_to_rai(rai, ai);
+	freeaddrinfo(ai);
+	return ret;
+}
+
+static int ucma_copy_ai_addr(struct sockaddr **dst, socklen_t *dst_len,
+			     struct sockaddr *src, socklen_t src_len)
+{
+	*dst = calloc(1, src_len);
+	if (!(*dst))
+		return ERR(ENOMEM);
+
+	memcpy(*dst, src, src_len);
+	*dst_len = src_len;
+	return 0;
+}
+
+int rdma_getaddrinfo(char *node, char *service,
+		     struct rdma_addrinfo *hints,
+		     struct rdma_addrinfo **res)
+{
+	struct rdma_addrinfo *rai;
+	int ret;
+
+	if (!service && !node && !hints)
+		return ERR(EINVAL);
+
+	ret = ucma_init();
 	if (ret)
-		goto err2;
+		return ret;
+
+	rai = calloc(1, sizeof(*rai));
+	if (!rai)
+		return ERR(ENOMEM);
+
+	if (node || service) {
+		ret = ucma_convert_gai(node, service, hints, rai);
+	} else {
+		rai->ai_flags = hints->ai_flags;
+		rai->ai_family = hints->ai_family;
+		rai->ai_qp_type = hints->ai_qp_type;
+		rai->ai_port_space = hints->ai_port_space;
+		if (hints->ai_dst_len) {
+			ret = ucma_copy_ai_addr(&rai->ai_dst_addr, &rai->ai_dst_len,
+						hints->ai_dst_addr, hints->ai_dst_len);
+		}
+	}
+	if (ret)
+		goto err;
 
 	if (!rai->ai_src_len && hints && hints->ai_src_len) {
-		rai->ai_src_addr = calloc(1, hints->ai_src_len);
-		if (!rai->ai_src_addr) {
-			ret = ERR(ENOMEM);
-			goto err2;
-		}
-		memcpy(rai->ai_src_addr, hints->ai_src_addr,
-		       hints->ai_src_len);
-		rai->ai_src_len = hints->ai_src_len;
+		ret = ucma_copy_ai_addr(&rai->ai_src_addr, &rai->ai_src_len,
+					hints->ai_src_addr, hints->ai_src_len);
+		if (ret)
+			goto err;
 	}
 
 	if (!(rai->ai_flags & RAI_PASSIVE))
-		ucma_ib_resolve(rai);
+		ucma_ib_resolve(rai, hints);
 
-	freeaddrinfo(ai);
 	*res = rai;
 	return 0;
 
-err2:
+err:
 	rdma_freeaddrinfo(rai);
-err1:
-	freeaddrinfo(ai);
 	return ret;
 }
 

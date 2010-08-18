@@ -244,11 +244,22 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 	}
 }
 
-void ucma_ib_resolve(struct rdma_addrinfo *rai)
+static void ucma_copy_rai_addr(struct acm_ep_addr_data *data, struct sockaddr *addr)
+{
+	if (addr->sa_family == AF_INET) {
+		data->type = ACM_EP_INFO_ADDRESS_IP;
+		memcpy(data->info.addr, &((struct sockaddr_in *) addr)->sin_addr, 4);
+	} else {
+		data->type = ACM_EP_INFO_ADDRESS_IP6;
+		memcpy(data->info.addr, &((struct sockaddr_in6 *) addr)->sin6_addr, 16);
+	}
+}
+
+void ucma_ib_resolve(struct rdma_addrinfo *rai, struct rdma_addrinfo *hints)
 {
 	struct acm_msg msg;
 	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
-	struct acm_ep_addr_data *src_data, *dst_data;
+	struct acm_ep_addr_data *data;
 	int ret;
 
 	if (sock <= 0)
@@ -257,37 +268,30 @@ void ucma_ib_resolve(struct rdma_addrinfo *rai)
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;
+	msg.hdr.length = ACM_MSG_HDR_LENGTH;
 
+	data = &resolve_msg->data[0];
 	if (rai->ai_src_len) {
-		src_data = &resolve_msg->data[0];
-		src_data->flags = ACM_EP_FLAG_SOURCE;
-		if (rai->ai_family == AF_INET) {
-			src_data->type = ACM_EP_INFO_ADDRESS_IP;
-			memcpy(src_data->info.addr,
-			       &((struct sockaddr_in *) rai->ai_src_addr)->sin_addr, 4);
-		} else {
-			src_data->type = ACM_EP_INFO_ADDRESS_IP6;
-			memcpy(src_data->info.addr,
-			       &((struct sockaddr_in6 *) rai->ai_src_addr)->sin6_addr, 16);
-		}
-		dst_data = &resolve_msg->data[1];
-		msg.hdr.length = ACM_MSG_HDR_LENGTH + (2 * ACM_MSG_EP_LENGTH);
-	} else {
-		dst_data = &resolve_msg->data[0];
-		msg.hdr.length = ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH;
+		data->flags = ACM_EP_FLAG_SOURCE;
+		ucma_copy_rai_addr(data, rai->ai_src_addr);
+		data++;
+		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
 
-	dst_data->flags = ACM_EP_FLAG_DEST;
-	if (rai->ai_family == AF_INET) {
-		dst_data->type = ACM_EP_INFO_ADDRESS_IP;
-		memcpy(dst_data->info.addr,
-		       &((struct sockaddr_in *) rai->ai_dst_addr)->sin_addr, 4);
-	} else {
-		dst_data->type = ACM_EP_INFO_ADDRESS_IP6;
-		memcpy(dst_data->info.addr,
-		       &((struct sockaddr_in6 *) rai->ai_dst_addr)->sin6_addr, 16);
+	if (rai->ai_dst_len) {
+		data->flags = ACM_EP_FLAG_DEST;
+		ucma_copy_rai_addr(data, rai->ai_dst_addr);
+		data++;
+		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
-	
+
+	if (hints && hints->ai_route_len) {
+		data->type = ACM_EP_INFO_PATH;
+		memcpy(&data->info.path, hints->ai_route, hints->ai_route_len);
+		data++;
+		msg.hdr.length += ACM_MSG_EP_LENGTH;
+	}
+
 	pthread_mutex_lock(&acm_lock);
 	ret = send(sock, (char *) &msg, msg.hdr.length, 0);
 	if (ret != msg.hdr.length) {
