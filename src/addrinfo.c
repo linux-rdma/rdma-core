@@ -136,17 +136,21 @@ int rdma_getaddrinfo(char *node, char *service,
 {
 	struct rdma_addrinfo *rai;
 	struct addrinfo ai_hints;
-	struct addrinfo *ai;
+	struct addrinfo *ai, *aih;
 	int ret;
 
 	ret = ucma_init();
 	if (ret)
 		return ret;
 
-	if (hints)
+	if (hints) {
 		ucma_convert_to_ai(&ai_hints, hints);
+		aih = &ai_hints;
+	} else {
+		aih = NULL;
+	}
 
-	ret = getaddrinfo(node, service, &ai_hints, &ai);
+	ret = getaddrinfo(node, service, aih, &ai);
 	if (ret)
 		return ret;
 
