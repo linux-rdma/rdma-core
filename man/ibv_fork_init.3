@@ -41,12 +41,22 @@ or
 has the same effect as calling
 .B ibv_fork_init()\fR.
 .PP
+Setting the environment variable
+.BR RDMAV_HUGEPAGES_SAFE
+tells the library to check the underlying page size used by the kernel
+for memory regions.  This is required if an application uses huge
+pages either directly or indirectly via a library such as libhugetlbfs.
+.PP
 Calling
 .B ibv_fork_init()
 will reduce performance due to an extra system call for every memory
 registration, and the additional memory allocated to track memory
 regions.  The precise performance impact depends on the workload and
 usually will not be significant.
+.PP
+Setting
+.BR RDMAV_HUGEPAGES_SAFE
+adds further overhead to all memory registrations.
 .SH "SEE ALSO"
 .BR fork (2),
 .BR wait (2),

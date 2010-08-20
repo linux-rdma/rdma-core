@@ -40,6 +40,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <dirent.h>
+#include <limits.h>
 
 #include "ibverbs.h"
 
@@ -68,12 +72,72 @@ struct ibv_mem_node {
 static struct ibv_mem_node *mm_root;
 static pthread_mutex_t mm_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int page_size;
+static int huge_page_enabled;
 static int too_late;
+
+static unsigned long smaps_page_size(FILE *file)
+{
+	int n;
+	unsigned long size = page_size;
+	char buf[1024];
+
+	while (fgets(buf, sizeof(buf), file) != NULL) {
+		if (!strstr(buf, "KernelPageSize:"))
+			continue;
+
+		n = sscanf(buf, "%*s %lu", &size);
+		if (n < 1)
+			continue;
+
+		/* page size is printed in Kb */
+		size = size * 1024;
+
+		break;
+	}
+
+	return size;
+}
+
+static unsigned long get_page_size(void *base)
+{
+	unsigned long ret = page_size;
+	pid_t pid;
+	FILE *file;
+	char buf[1024];
+
+	pid = getpid();
+	snprintf(buf, sizeof(buf), "/proc/%d/smaps", pid);
+
+	file = fopen(buf, "r");
+	if (!file)
+		goto out;
+
+	while (fgets(buf, sizeof(buf), file) != NULL) {
+		int n;
+		uintptr_t range_start, range_end;
+
+		n = sscanf(buf, "%lx-%lx", &range_start, &range_end);
+
+		if (n < 2)
+			continue;
+
+		if ((uintptr_t) base >= range_start && (uintptr_t) base < range_end) {
+			ret = smaps_page_size(file);
+			break;
+		}
+	}
+
+	fclose(file);
+
+out:
+	return ret;
+}
 
 int ibv_fork_init(void)
 {
-	void *tmp;
+	void *tmp, *tmp_aligned;
 	int ret;
+	unsigned long size;
 
 	if (mm_root)
 		return 0;
@@ -88,8 +152,21 @@ int ibv_fork_init(void)
 	if (posix_memalign(&tmp, page_size, page_size))
 		return ENOMEM;
 
-	ret = madvise(tmp, page_size, MADV_DONTFORK) ||
-	      madvise(tmp, page_size, MADV_DOFORK);
+	if (getenv("RDMAV_HUGEPAGES_SAFE"))
+		huge_page_enabled = 1;
+	else
+		huge_page_enabled = 0;
+
+	if (huge_page_enabled) {
+		size = get_page_size(tmp);
+		tmp_aligned = (void *) ((uintptr_t) tmp & ~(size - 1));
+	} else {
+		size = page_size;
+		tmp_aligned = tmp;
+	}
+
+	ret = madvise(tmp_aligned, size, MADV_DONTFORK) ||
+	      madvise(tmp_aligned, size, MADV_DOFORK);
 
 	free(tmp);
 
@@ -529,13 +606,19 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 	int inc;
 	int rolling_back = 0;
 	int ret = 0;
+	unsigned long range_page_size;
 
 	if (!size)
 		return 0;
 
-	start = (uintptr_t) base & ~(page_size - 1);
-	end   = ((uintptr_t) (base + size + page_size - 1) &
-		 ~(page_size - 1)) - 1;
+	if (huge_page_enabled)
+		range_page_size = get_page_size(base);
+	else
+		range_page_size = page_size;
+
+	start = (uintptr_t) base & ~(range_page_size - 1);
+	end   = ((uintptr_t) (base + size + range_page_size - 1) &
+		 ~(range_page_size - 1)) - 1;
 
 	pthread_mutex_lock(&mm_mutex);
 again:
