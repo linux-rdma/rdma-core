@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2009 Voltaire, Inc. All rights reserved.
  * Copyright (c) 2008 Lawrence Livermore National Lab.  All rights reserved.
+ * Copyright (c) 2010 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -149,6 +150,8 @@ typedef struct ibnd_fabric {
 	 * or by default the node you ar running on
 	 */
 	ibnd_node_t *from_node;
+	int from_portnum;
+
 	/* NULL term list of all nodes in the fabric */
 	ibnd_node_t *nodes;
 	/* NULL terminated list of all chassis found in the fabric */

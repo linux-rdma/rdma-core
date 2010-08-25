@@ -2,6 +2,7 @@
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  * Copyright (c) 2008 Lawrence Livermore National Laboratory
+ * Copyright (c) 2010 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -199,7 +200,7 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	if (port_num && mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
 	    == IB_PORT_PHYS_STATE_LINKUP
 	    && ((node->type == IB_NODE_SWITCH && port_num != local_port) ||
-		(node == fabric->from_node && port_num == local_port))) {
+		(node == fabric->from_node && port_num == fabric->from_portnum))) {
 		ib_portid_t path = smp->path;
 		if (extend_dpath(engine, &path, port_num) > 0)
 			query_node_info(engine, &path, node);
@@ -324,9 +325,10 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 		dump_endnode(&smp->path, node_is_new ? "new" : "known",
 			     node, port);
 
-	if (rem_node == NULL)	/* this is the start node */
+	if (rem_node == NULL) {	/* this is the start node */
 		fabric->from_node = node;
-	else {
+		fabric->from_portnum = port_num;
+	} else {
 		/* link ports... */
 		int rem_port_num = get_last_port(&smp->path);
 
