@@ -44,6 +44,7 @@ typedef struct { volatile LONG val; } atomic_t;
 #define atomic_dec(v) InterlockedDecrement(&(v)->val)
 #define atomic_get(v) ((v)->val)
 #define atomic_set(v, s) ((v)->val = s)
+#define atomic_init(v) ((v)->val = 0)
 
 #define event_t          HANDLE
 #define event_init(e)    *(e) = CreateEvent(NULL, FALSE, FALSE, NULL)

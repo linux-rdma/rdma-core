@@ -65,9 +65,37 @@
 #endif
 #define ntohll(x) htonll(x)
 
+#if DEFINE_ATOMICS
+typedef struct { pthread_mutex_t mut; int val; } atomic_t;
+static inline int atomic_inc(atomic_t *atomic)
+{
+	int v;
+
+	pthread_mutex_lock(&atomic->mut);
+	v = ++(atomic->val);
+	pthread_mutex_unlock(&atomic->mut);
+	return v;
+}
+static inline int atomic_dec(atomic_t *atomic)
+{
+	int v;
+
+	pthread_mutex_lock(&atomic->mut);
+	v = --(atomic->val);
+	pthread_mutex_unlock(&atomic->mut);
+	return v;
+}
+static inline void atomic_init(atomic_t *atomic)
+{
+	pthread_mutex_init(&atomic->mut, NULL);
+	atomic->val = 0;
+}
+#else
 typedef struct { volatile int val; } atomic_t;
-#define atomic_inc(v) (__sync_fetch_and_add(&(v)->val, 1) + 1)
-#define atomic_dec(v) (__sync_fetch_and_sub(&(v)->val, 1) - 1)
+#define atomic_inc(v) (__sync_add_and_fetch(&(v)->val, 1))
+#define atomic_dec(v) (__sync_sub_and_fetch(&(v)->val, 1))
+#define atomic_init(v) ((v)->val = 0)
+#endif
 #define atomic_get(v) ((v)->val)
 #define atomic_set(v, s) ((v)->val = s)
 

@@ -39,6 +39,16 @@ AC_CHECK_HEADER(infiniband/umad.h, [],
     AC_MSG_ERROR([<infiniband/umad.h> not found.  Is libibumad installed?]))
 fi
 
+dnl Check for gcc atomic intrinsics
+AC_MSG_CHECKING(compiler support for atomics)
+AC_TRY_LINK([int i = 0;],
+    [ return __sync_add_and_fetch(&i, 1) != __sync_sub_and_fetch(&i, 1); ],
+    [ AC_MSG_RESULT(yes) ],
+    [
+        AC_MSG_RESULT(no)
+        AC_DEFINE(DEFINE_ATOMICS, 1, [Set to 1 to implement atomics])
+    ])
+
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
         ac_cv_version_script=yes

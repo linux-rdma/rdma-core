@@ -27,6 +27,10 @@
  * SOFTWARE.
  */
 
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -268,6 +272,7 @@ acm_init_dest(struct acm_dest *dest, uint8_t addr_type, uint8_t *addr, size_t si
 	memcpy(dest->address, addr, size);
 	dest->addr_type = addr_type;
 	DListInit(&dest->req_queue);
+	atomic_init(&dest->refcnt);
 	atomic_set(&dest->refcnt, 1);
 	lock_init(&dest->lock);
 }
@@ -1560,6 +1565,7 @@ static void acm_init_server(void)
 		lock_init(&client[i].lock);
 		client[i].index = i;
 		client[i].sock = INVALID_SOCKET;
+		atomic_init(&client[i].refcnt);
 	}
 }
 
@@ -2680,6 +2686,8 @@ int CDECL_FUNC main(int argc, char **argv)
 	acm_log(0, "Assistant to the InfiniBand Communication Manager\n");
 	acm_log_options();
 
+	atomic_init(&tid);
+	atomic_init(&wait_cnt);
 	DListInit(&dev_list);
 	DListInit(&timeout_list);
 	event_init(&timeout_event);

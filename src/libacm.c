@@ -27,6 +27,10 @@
  * SOFTWARE.
  */
 
+#if HAVE_CONFIG_H
+#  include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <osd.h>
 #include "libacm.h"
 #include <infiniband/acm.h>
