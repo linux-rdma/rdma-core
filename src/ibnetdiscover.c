@@ -77,6 +77,7 @@ static char *diff_cache_file = NULL;
 static unsigned diffcheck_flags = DIFF_FLAG_DEFAULT;
 
 static int report_max_hops = 0;
+static int full_info;
 
 /**
  * Define our own conversion functions to maintain compatibility with the old
@@ -364,6 +365,9 @@ void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
 		port->remoteport->base_lid,
 		dump_linkwidth_compat(iwidth), dump_linkspeed_compat(ispeed));
 
+	if (full_info)
+		fprintf(f, " s=%d w=%d", ispeed, iwidth);
+
 	if (ibnd_is_xsigo_tca(port->remoteport->guid))
 		fprintf(f, " slot %d", port->portnum);
 	else if (ibnd_is_xsigo_hca(port->remoteport->guid))
@@ -397,12 +401,16 @@ void out_ca_port(ibnd_port_t * port, int group, char *out_prefix)
 				       port->remoteport->node->guid,
 				       port->remoteport->node->nodedesc);
 
-	fprintf(f, "\t\t# lid %d lmc %d \"%s\" lid %d %s%s\n",
+	fprintf(f, "\t\t# lid %d lmc %d \"%s\" lid %d %s%s",
 		port->base_lid, port->lmc, rem_nodename,
 		port->remoteport->node->type == IB_NODE_SWITCH ?
 		port->remoteport->node->smalid :
 		port->remoteport->base_lid,
 		dump_linkwidth_compat(iwidth), dump_linkspeed_compat(ispeed));
+
+	if (full_info)
+		fprintf(f, " s=%d w=%d", ispeed, iwidth);
+	fprintf(f, "\n");
 
 	free(rem_nodename);
 }
@@ -926,6 +934,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 's':
 		cfg->show_progress = 1;
 		break;
+	case 'f':
+		full_info = 1;
+		break;
 	case 'l':
 		list = LIST_CA_NODE | LIST_SWITCH_NODE | LIST_ROUTER_NODE;
 		break;
@@ -964,6 +975,7 @@ int main(int argc, char **argv)
 	ibnd_fabric_t *diff_fabric = NULL;
 
 	const struct ibdiag_opt opts[] = {
+		{"full", 'f', 0, NULL, "show full information (ports' speed and witdh)"},
 		{"show", 's', 0, NULL, "show more information"},
 		{"list", 'l', 0, NULL, "list of connected nodes"},
 		{"grouping", 'g', 0, NULL, "show grouping"},
