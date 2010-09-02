@@ -6,7 +6,7 @@ Summary: NetEffect Ethernet Server Cluster Adapter Userspace Library
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/nes/libnes-1.0.1.tar.gz
+Source: http://www.openfabrics.org/downloads/nes/libnes-1.1.0.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: libibverbs-devel
@@ -51,6 +51,14 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libnes*.a
 
 %changelog
+* Wed Sep 2 2010 Chien Tung <chien.tin.tung@intel.com> - 1.1.0
+- Update for OFED 1.5.2.
+- Add support for iWarp Multicast Aceleration (IMA).
+- Rearm  CQ event notification only after a poll.
+- Add option to control doorbell read in nes_upoll_cq.
+- Fix total payload calculation in nes_upost_recv.
+- Fix Firmware version in query device.
+
 * Wed Mar 3 2010 Chien Tung <chien.tin.tung@intel.com> - 1.0.1
 - Update for OFED 1.5.1 RC3.
 - Add support for device id 0x0110
