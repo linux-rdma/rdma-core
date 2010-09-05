@@ -457,7 +457,6 @@ static int get_sfb_slot(ibnd_node_t * n, ibnd_port_t * lineport)
 	} else {
 		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64 "\n",
 			   n->guid);
-		return -1;
 	}
 	return 0;
 }
@@ -498,7 +497,6 @@ static int get_router_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 	} else {
 		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64 "\n",
 			   spineport->node->guid);
-		return -1;
 	}
 	return 0;
 }
@@ -533,7 +531,6 @@ static int get_slb_slot(ibnd_node_t * n, ibnd_port_t * spineport)
 	} else {
 		IBND_ERROR("Unexpected node found: guid 0x%016" PRIx64 "\n",
 			   spineport->node->guid);
-		return -1;
 	}
 	return 0;
 }
@@ -588,8 +585,7 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 			}
 			if (!node->ch_type)
 				/* we assume here that remoteport belongs to line */
-				if (get_sfb_slot(node, port->remoteport))
-					return -1;
+				get_sfb_slot(node, port->remoteport);
 
 			/* we could break here, but need to find if more routers connected */
 		}
@@ -607,8 +603,7 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 				continue;
 
 			/* we assume here that remoteport belongs to spine */
-			if (get_slb_slot(node, port->remoteport))
-				return -1;
+			get_slb_slot(node, port->remoteport);
 			break;
 		}
 	}
