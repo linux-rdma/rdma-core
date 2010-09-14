@@ -1,14 +1,14 @@
-.TH IBTRACERT 8 "April 14, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH IBTRACERT 8 "September 14, 2010" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibtracert\- trace InfiniBand path
 
 .SH SYNOPSIS
 .B ibtracert
-[\-d(ebug)] [-v(erbose)] [\-D(irect)] [\-G(uids)] [-n(o_info)] [-m mlid]
+[\-d(ebug)] [-v(erbose)] [\-G(uids)] [-n(o_info)] [-m mlid]
 [-s smlid] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms]
 [\-V(ersion)] [\-\-node\-name\-\-map <node-name-map>] [\-h(elp)]
-[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]
+[<lid|guid> [<startlid> [<endlid>]]]
 
 .SH DESCRIPTION
 .PP
@@ -53,12 +53,6 @@ using the util_name -h syntax.
 \-V      show the version info.
 
 # Addressing flags
-.PP
-\-D      use directed path address arguments. The path
-        is a comma separated list of out ports.
-        Examples:
-        "0"             # self port
-        "0,1,2,1,4"     # out via port 1, then 2, ...
 .PP
 \-G      use GUID address argument. In most cases, it is the Port GUID.
         Example:
@@ -108,7 +102,7 @@ ibtracert -m 0xc000 4 16    # show multicast path of mlid 0xc000 between lids 4 
 .SH AUTHOR
 .TP
 Hal Rosenstock
-.RI < halr@voltaire.com >
+.RI < hal.rosenstock@gmail.com>
 .TP
 Ira Weiny
 .RI < weiny2@llnl.gov >
