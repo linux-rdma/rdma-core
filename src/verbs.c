@@ -288,7 +288,112 @@ int c4iw_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 	return ENOSYS;
 }
 
-struct ibv_qp *c4iw_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
+static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
+				   struct ibv_qp_init_attr *attr)
+{
+	struct ibv_create_qp cmd;
+	struct c4iw_create_qp_resp_v0 resp;
+	struct c4iw_qp *qhp;
+	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
+	int ret;
+	void *dbva;
+
+	PDBG("%s enter qp\n", __func__);
+	qhp = calloc(1, sizeof *qhp);
+	if (!qhp)
+		goto err1;
+
+	ret = ibv_cmd_create_qp(pd, &qhp->ibv_qp, attr, &cmd,
+				sizeof cmd, &resp.ibv_resp, sizeof resp);
+	if (ret)
+		goto err2;
+
+	PDBG("%s sqid 0x%x sq key %" PRIx64 " sq db/gts key %" PRIx64
+	       " rqid 0x%x rq key %" PRIx64 " rq db/gts key %" PRIx64
+	       " qid_mask 0x%x\n",
+		__func__,
+		resp.sqid, resp.sq_key, resp.sq_db_gts_key,
+		resp.rqid, resp.rq_key, resp.rq_db_gts_key, resp.qid_mask);
+
+	qhp->wq.qid_mask = resp.qid_mask;
+	qhp->rhp = dev;
+	qhp->wq.sq.qid = resp.sqid;
+	qhp->wq.sq.size = resp.sq_size;
+	qhp->wq.sq.memsize = resp.sq_memsize;
+	qhp->wq.sq.flags = 0;
+	qhp->wq.rq.msn = 1;
+	qhp->wq.rq.qid = resp.rqid;
+	qhp->wq.rq.size = resp.rq_size;
+	qhp->wq.rq.memsize = resp.rq_memsize;
+	pthread_spin_init(&qhp->lock, PTHREAD_PROCESS_PRIVATE);
+
+	dbva = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
+		    pd->context->cmd_fd, resp.sq_db_gts_key);
+	if (dbva == MAP_FAILED)
+		goto err3;
+	qhp->wq.sq.udb = dbva;
+	qhp->wq.sq.queue = mmap(NULL, qhp->wq.sq.memsize,
+			    PROT_WRITE, MAP_SHARED,
+			    pd->context->cmd_fd, resp.sq_key);
+	if (qhp->wq.sq.queue == MAP_FAILED)
+		goto err4;
+
+	dbva = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
+		    pd->context->cmd_fd, resp.rq_db_gts_key);
+	if (dbva == MAP_FAILED)
+		goto err5;
+	qhp->wq.rq.udb = dbva;
+	qhp->wq.rq.queue = mmap(NULL, qhp->wq.rq.memsize,
+			    PROT_WRITE, MAP_SHARED,
+			    pd->context->cmd_fd, resp.rq_key);
+	if (qhp->wq.rq.queue == MAP_FAILED)
+		goto err6;
+
+	qhp->wq.sq.sw_sq = calloc(qhp->wq.sq.size, sizeof (struct t4_swsqe));
+	if (!qhp->wq.sq.sw_sq)
+		goto err7;
+
+	qhp->wq.rq.sw_rq = calloc(qhp->wq.rq.size, sizeof (uint64_t));
+	if (!qhp->wq.rq.sw_rq)
+		goto err8;
+
+	PDBG("%s sq dbva %p sq qva %p sq depth %u sq memsize %lu "
+	       " rq dbva %p rq qva %p rq depth %u rq memsize %lu\n",
+	     __func__,
+	     qhp->wq.sq.udb, qhp->wq.sq.queue,
+	     qhp->wq.sq.size, qhp->wq.sq.memsize,
+	     qhp->wq.rq.udb, qhp->wq.rq.queue,
+	     qhp->wq.rq.size, qhp->wq.rq.memsize);
+
+	qhp->sq_sig_all = attr->sq_sig_all;
+
+	pthread_spin_lock(&dev->lock);
+	dev->qpid2ptr[qhp->wq.sq.qid] = qhp;
+	pthread_spin_unlock(&dev->lock);
+	INC_STAT(qp);
+	return &qhp->ibv_qp;
+err9:
+	free(qhp->wq.rq.sw_rq);
+err8:
+	free(qhp->wq.sq.sw_sq);
+err7:
+	munmap((void *)qhp->wq.rq.queue, qhp->wq.rq.memsize);
+err6:
+	munmap((void *)qhp->wq.rq.udb, c4iw_page_size);
+err5:
+	munmap((void *)qhp->wq.sq.queue, qhp->wq.sq.memsize);
+err4:
+	munmap((void *)qhp->wq.sq.udb, c4iw_page_size);
+err3:
+	(void)ibv_cmd_destroy_qp(&qhp->ibv_qp);
+err2:
+	free(qhp);
+err1:
+	return NULL;
+}
+
+static struct ibv_qp *create_qp(struct ibv_pd *pd,
+				struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp cmd;
 	struct c4iw_create_qp_resp resp;
@@ -401,6 +506,16 @@ err1:
 	return NULL;
 }
 
+struct ibv_qp *c4iw_create_qp(struct ibv_pd *pd,
+				     struct ibv_qp_init_attr *attr)
+{
+	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
+
+	if (dev->abi_version == 0)
+		return create_qp_v0(pd, attr);
+	return create_qp(pd, attr);
+}
+
 static void reset_qp(struct c4iw_qp *qhp)
 {
 	PDBG("%s enter qp %p\n", __func__, qhp);
@@ -445,8 +560,10 @@ int c4iw_destroy_qp(struct ibv_qp *ibqp)
 	if (ret) {
 		return ret;
 	}
-	qhp->wq.sq.ma_sync -= (A_PCIE_MA_SYNC & (c4iw_page_size - 1));
-	munmap((void *)qhp->wq.sq.ma_sync, c4iw_page_size);
+	if (t4_sq_onchip(&qhp->wq)) {
+		qhp->wq.sq.ma_sync -= (A_PCIE_MA_SYNC & (c4iw_page_size - 1));
+		munmap((void *)qhp->wq.sq.ma_sync, c4iw_page_size);
+	}
 	munmap((void *)qhp->wq.sq.udb, c4iw_page_size);
 	munmap((void *)qhp->wq.rq.udb, c4iw_page_size);
 	munmap(qhp->wq.sq.queue, qhp->wq.sq.memsize);

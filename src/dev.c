@@ -384,6 +384,7 @@ found:
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = c4iw_dev_ops;
 	dev->hca_type = hca_table[i].type;
+	dev->abi_version = abi_version;
 
 	dev->mmid2ptr = calloc(T4_MAX_NUM_STAG, sizeof(void *));
 	if (!dev->mmid2ptr) {

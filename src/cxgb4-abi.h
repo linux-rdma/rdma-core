@@ -57,6 +57,21 @@ enum {
 	C4IW_QPF_ONCHIP = (1<<0),
 };
 
+struct c4iw_create_qp_resp_v0 {
+	struct ibv_create_qp_resp ibv_resp;
+	__u64 sq_key;
+	__u64 rq_key;
+	__u64 sq_db_gts_key;
+	__u64 rq_db_gts_key;
+	__u64 sq_memsize;
+	__u64 rq_memsize;
+	__u32 sqid;
+	__u32 rqid;
+	__u32 sq_size;
+	__u32 rq_size;
+	__u32 qid_mask;
+};
+
 struct c4iw_create_qp_resp {
 	struct ibv_create_qp_resp ibv_resp;
 	__u64 ma_sync_key;

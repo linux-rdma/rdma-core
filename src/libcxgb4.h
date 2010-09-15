@@ -59,6 +59,7 @@ struct c4iw_dev {
 	struct c4iw_cq **cqid2ptr;
 	pthread_spinlock_t lock;
 	SLIST_ENTRY(c4iw_dev) list;
+	int abi_version;
 };
 
 struct c4iw_context {
