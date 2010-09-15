@@ -108,7 +108,7 @@ struct t4_status_page {
 
 #define T4_EQ_ENTRY_SIZE 64
 
-#define T4_SQ_NUM_SLOTS 4
+#define T4_SQ_NUM_SLOTS 5
 #define T4_SQ_NUM_BYTES (T4_EQ_ENTRY_SIZE * T4_SQ_NUM_SLOTS)
 #define T4_MAX_SEND_SGE ((T4_SQ_NUM_BYTES - sizeof(struct fw_ri_send_wr) - sizeof(struct fw_ri_isgl)) / sizeof (struct fw_ri_sge))
 #define T4_MAX_SEND_INLINE ((T4_SQ_NUM_BYTES - sizeof(struct fw_ri_send_wr) - sizeof(struct fw_ri_immd)))
