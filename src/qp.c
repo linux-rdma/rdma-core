@@ -68,6 +68,9 @@ static int build_immd(struct t4_sq *sq, struct fw_ri_immd *immdp,
 			rem -= len;
 		}
 	}
+	len = ROUND_UP(plen + 8, 16) - (plen + 8);
+	if (len)
+		memset(dstp, 0, len);
 	immdp->op = FW_RI_DATA_IMMD;
 	immdp->r1 = 0;
 	immdp->r2 = 0;
@@ -97,6 +100,7 @@ static int build_isgl(__be64 *queue_start, __be64 *queue_end,
 		if (++flitp == queue_end)
 			flitp = queue_start;
 	}
+	*flitp = 0;
 	isglp->op = FW_RI_DATA_ISGL;
 	isglp->r1 = 0;
 	isglp->nsge = cpu_to_be16(num_sge);

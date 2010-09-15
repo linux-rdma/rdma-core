@@ -61,6 +61,7 @@
 #define be64_to_cpu ntohll
 #define BUG_ON(c) assert(!(c))
 #define unlikely
+#define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #  define cpu_to_pci32(val) ((val))
