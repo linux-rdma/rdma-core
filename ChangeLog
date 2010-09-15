@@ -1,6 +1,78 @@
-commit 52ad12f79479d886c88ee0dc272e9e99bf620476
+commit 99bd95029c0f3a2e404e7c6b18a5db66c60239df
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Thu Jul 22 14:58:03 2010 -0500
+Date:   Wed Sep 15 16:56:55 2010 -0500
+
+    Spin release 1.1.0.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ed05d22592bc96987635b2c255a99663f286b812
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 16:56:51 2010 -0500
+
+    Support all T4 device IDs.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit b051a2ea9dc7b6ffa08f955e60b331e42fec8672
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 15:54:35 2010 -0500
+
+    Support ABI 0 and 1 versions of the iwarp driver.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 62f1363bb716e2283f9e2b885e5f02a6d5c692d1
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 14:06:17 2010 -0500
+
+    Bump the slots per SQ to 5 to allow up to 128MB fast registers.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d51e041839254d656cc260dba3f26a7c9d73aa56
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 14:06:16 2010 -0500
+
+    Raw QP implementation
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 8f55539d0b8aea70084edf31687e590cf5a57221
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 14:03:55 2010 -0500
+
+    Add compile-time user mode rdma stats.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 2e3531bbd91d7a6f057b3503132aef5e64adb548
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 13:57:03 2010 -0500
+
+    Support on-chip SQs.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 65bb173b86c2e0a9ff5f877e4d3951cb8daa6e97
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 13:54:44 2010 -0500
+
+    Work around TERM CQE hw bug.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 6bb37d1f72652d4ed0c1972bc673f4418cc7a856
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 13:54:44 2010 -0500
+
+    Zero out padding in iSGLs.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit aad128404c494ec4779055b5e550c2d7de7d5ca9
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 22 14:58:51 2010 -0500
 
     Spin release 1.0.4
     
