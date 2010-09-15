@@ -414,3 +414,15 @@ static __attribute__((constructor)) void cxgb4_register_driver(void)
 	c4iw_page_size = sysconf(_SC_PAGESIZE);
 	ibv_register_driver("cxgb4", cxgb4_driver_init);
 }
+
+#ifdef STATS
+void __attribute__ ((destructor)) cs_fini(void);
+void  __attribute__ ((destructor)) cs_fini(void)
+{
+	syslog(LOG_NOTICE, "cxgb4 stats - sends %lu recv %lu read %lu "
+	       "write %lu arm %lu cqe %lu mr %lu qp %lu cq %lu\n",
+	       c4iw_stats.send, c4iw_stats.recv, c4iw_stats.read,
+	       c4iw_stats.write, c4iw_stats.arm, c4iw_stats.cqe,
+	       c4iw_stats.mr, c4iw_stats.qp, c4iw_stats.cq);
+}
+#endif

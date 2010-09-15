@@ -474,6 +474,7 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 	if (ret)
 		goto out;
 
+	INC_STAT(cqe);
 	wc->wr_id = cookie;
 	wc->qp_num = qhp->wq.sq.qid;
 	wc->vendor_err = CQE_STATUS(&cqe);
@@ -612,6 +613,7 @@ int c4iw_arm_cq(struct ibv_cq *ibcq, int solicited)
 	struct c4iw_cq *chp;
 	int ret;
 
+	INC_STAT(arm);
 	chp = to_c4iw_cq(ibcq);
 	pthread_spin_lock(&chp->lock);
 	ret = t4_arm_cq(&chp->cq, solicited);

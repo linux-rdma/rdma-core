@@ -224,4 +224,24 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 	return (val + align - 1) & ~(align - 1);
 }
 
+#ifdef STATS
+
+#define INC_STAT(a) { c4iw_stats.a++; }
+
+struct c4iw_stats {
+	unsigned long send;
+	unsigned long recv;
+	unsigned long read;
+	unsigned long write;
+	unsigned long arm;
+	unsigned long cqe;
+	unsigned long mr;
+	unsigned long qp;
+	unsigned long cq;
+};
+extern struct c4iw_stats c4iw_stats;
+#else
+#define INC_STAT(a)
+#endif
+
 #endif				/* IWCH_H */

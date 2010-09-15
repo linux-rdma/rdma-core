@@ -135,7 +135,7 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 	pthread_spin_lock(&dev->lock);
 	dev->mmid2ptr[c4iw_mmid(mhp->ibv_mr.lkey)] = mhp;
 	pthread_spin_unlock(&dev->lock);
-
+	INC_STAT(mr);
 	return &mhp->ibv_mr;
 }
 
@@ -214,7 +214,7 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	pthread_spin_lock(&dev->lock);
 	dev->cqid2ptr[chp->cq.cqid] = chp;
 	pthread_spin_unlock(&dev->lock);
-
+	INC_STAT(cq);
 	return &chp->ibv_cq;
 err4:
 	munmap((void *)chp->cq.ugts, c4iw_page_size);
@@ -369,7 +369,7 @@ struct ibv_qp *c4iw_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	pthread_spin_lock(&dev->lock);
 	dev->qpid2ptr[qhp->wq.sq.qid] = qhp;
 	pthread_spin_unlock(&dev->lock);
-
+	INC_STAT(qp);
 	return &qhp->ibv_qp;
 err9:
 	free(qhp->wq.rq.sw_rq);

@@ -40,6 +40,10 @@
 #include <netinet/in.h>
 #include "libcxgb4.h"
 
+#ifdef STATS
+struct c4iw_stats c4iw_stats;
+#endif
+
 static void copy_wr_to_sq(struct t4_wq *wq, union t4_wr *wqe, u8 len16)
 {
 	u64 *src, *dst;
@@ -318,6 +322,7 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		swsqe = &qhp->wq.sq.sw_sq[qhp->wq.sq.pidx];
 		switch (wr->opcode) {
 		case IBV_WR_SEND:
+			INC_STAT(send);
 			if (wr->send_flags & IBV_SEND_FENCE)
 				fw_flags |= FW_RI_READ_FENCE_FLAG;
 			fw_opcode = FW_RI_SEND_WR;
@@ -325,11 +330,13 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			err = build_rdma_send(&qhp->wq.sq, wqe, wr, &len16);
 			break;
 		case IBV_WR_RDMA_WRITE:
+			INC_STAT(write);
 			fw_opcode = FW_RI_RDMA_WRITE_WR;
 			swsqe->opcode = FW_RI_RDMA_WRITE;
 			err = build_rdma_write(&qhp->wq.sq, wqe, wr, &len16);
 			break;
 		case IBV_WR_RDMA_READ:
+			INC_STAT(read);
 			fw_opcode = FW_RI_RDMA_READ_WR;
 			swsqe->opcode = FW_RI_READ_REQ;
 			fw_flags = 0;
@@ -386,6 +393,7 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		pthread_spin_unlock(&qhp->lock);
 		return -EINVAL;
 	}
+	INC_STAT(recv);
 	num_wrs = t4_rq_avail(&qhp->wq);
 	if (num_wrs == 0) {
 		pthread_spin_unlock(&qhp->lock);
