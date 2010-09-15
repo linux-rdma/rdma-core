@@ -67,6 +67,8 @@ struct {
 	HCA(CHELSIO, T422CR, T4),
 };
 
+int c4iw_page_size;
+
 SLIST_HEAD(devices_struct, c4iw_dev) devices;
 
 static struct ibv_context_ops c4iw_ctx_ops = {
@@ -382,7 +384,6 @@ found:
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = c4iw_dev_ops;
 	dev->hca_type = hca_table[i].type;
-	dev->page_size = sysconf(_SC_PAGESIZE);
 
 	dev->mmid2ptr = calloc(T4_MAX_NUM_STAG, sizeof(void *));
 	if (!dev->mmid2ptr) {
@@ -410,5 +411,6 @@ err1:
 
 static __attribute__((constructor)) void cxgb4_register_driver(void)
 {
+	c4iw_page_size = sysconf(_SC_PAGESIZE);
 	ibv_register_driver("cxgb4", cxgb4_driver_init);
 }

@@ -302,6 +302,10 @@ struct t4_swsqe {
 	u16			idx;
 };
 
+enum {
+	T4_SQ_ONCHIP = (1<<0),
+};
+
 struct t4_sq {
 	union t4_wr *queue;
 	struct t4_swsqe *sw_sq;
@@ -309,11 +313,13 @@ struct t4_sq {
 	volatile u32 *udb;
 	size_t memsize;
 	u32 qid;
+	void *ma_sync;
 	u16 in_use;
 	u16 size;
 	u16 cidx;
 	u16 pidx;
 	u16 wq_pidx;
+	u16 flags;
 };
 
 struct t4_swrqe {
@@ -343,6 +349,12 @@ struct t4_wq {
 	u32 qid_mask;
 	int error;
 };
+
+static inline void t4_ma_sync(struct t4_wq *wq, int page_size)
+{
+	wc_wmb();
+	*((volatile u32 *)wq->sq.ma_sync) = 1;
+}
 
 static inline int t4_rqes_posted(struct t4_wq *wq)
 {
@@ -397,6 +409,11 @@ static inline u32 t4_sq_avail(struct t4_wq *wq)
 	return wq->sq.size - 1 - wq->sq.in_use;
 }
 
+static inline int t4_sq_onchip(struct t4_wq *wq)
+{
+	return wq->sq.flags & T4_SQ_ONCHIP;
+}
+
 static inline void t4_sq_produce(struct t4_wq *wq, u8 len16)
 {
 	wq->sq.in_use++;
@@ -440,30 +457,27 @@ static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc)
 
 static inline int t4_wq_in_error(struct t4_wq *wq)
 {
-	return wq->error || wq->sq.queue[wq->sq.size].status.qp_err;
+	return wq->error || wq->rq.queue[wq->rq.size].status.qp_err;
 }
 
 static inline void t4_set_wq_in_error(struct t4_wq *wq)
 {
-	wq->sq.queue[wq->sq.size].status.qp_err = 1;
 	wq->rq.queue[wq->rq.size].status.qp_err = 1;
 }
 
 static inline void t4_disable_wq_db(struct t4_wq *wq)
 {
-	wq->sq.queue[wq->sq.size].status.db_off = 1;
 	wq->rq.queue[wq->rq.size].status.db_off = 1;
 }
 
 static inline void t4_enable_wq_db(struct t4_wq *wq)
 {
-	wq->sq.queue[wq->sq.size].status.db_off = 0;
 	wq->rq.queue[wq->rq.size].status.db_off = 0;
 }
 
 static inline int t4_wq_db_enabled(struct t4_wq *wq)
 {
-	return !wq->sq.queue[wq->sq.size].status.db_off;
+	return !wq->rq.queue[wq->rq.size].status.db_off;
 }
 
 struct t4_cq {

@@ -43,6 +43,8 @@
 #include "queue.h"
 #include "t4.h"
 
+extern int c4iw_page_size;
+
 enum c4iw_hca_type {
 	CHELSIO_T4 = 0,
 };
@@ -52,7 +54,6 @@ struct c4iw_mr;
 struct c4iw_dev {
 	struct ibv_device ibv_dev;
 	enum c4iw_hca_type hca_type;
-	int page_size;
 	struct c4iw_mr **mmid2ptr;
 	struct c4iw_qp **qpid2ptr;
 	struct c4iw_cq **cqid2ptr;
@@ -217,5 +218,10 @@ void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count);
 
 #define FW_MAJ 0
 #define FW_MIN 0
+
+static inline unsigned long align(unsigned long val, unsigned long align)
+{
+	return (val + align - 1) & ~(align - 1);
+}
 
 #endif				/* IWCH_H */

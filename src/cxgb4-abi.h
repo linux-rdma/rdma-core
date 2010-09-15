@@ -53,8 +53,13 @@ struct c4iw_create_cq_resp {
 	__u32 qid_mask;
 };
 
+enum {
+	C4IW_QPF_ONCHIP = (1<<0),
+};
+
 struct c4iw_create_qp_resp {
 	struct ibv_create_qp_resp ibv_resp;
+	__u64 ma_sync_key;
 	__u64 sq_key;
 	__u64 rq_key;
 	__u64 sq_db_gts_key;
@@ -66,5 +71,6 @@ struct c4iw_create_qp_resp {
 	__u32 sq_size;
 	__u32 rq_size;
 	__u32 qid_mask;
+	__u32 flags;
 };
 #endif				/* IWCH_ABI_H */

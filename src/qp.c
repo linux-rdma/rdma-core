@@ -40,13 +40,54 @@
 #include <netinet/in.h>
 #include "libcxgb4.h"
 
+static void copy_wr_to_sq(struct t4_wq *wq, union t4_wr *wqe, u8 len16)
+{
+	u64 *src, *dst;
+
+	src = (u64 *)wqe;
+	dst = (u64 *)((u8 *)wq->sq.queue + wq->sq.wq_pidx * T4_EQ_ENTRY_SIZE);
+	if (t4_sq_onchip(wq)) {
+		len16 = align(len16, 4);
+		wmb();
+	}
+	while (len16) {
+		*dst++ = *src++;
+		if (dst == (u64 *)&wq->sq.queue[wq->sq.size])
+			dst = (u64 *)wq->sq.queue;
+		*dst++ = *src++;
+		if (dst == (u64 *)&wq->sq.queue[wq->sq.size])
+			dst = (u64 *)wq->sq.queue;
+		len16--;
+	}
+	if (t4_sq_onchip(wq)) {
+		t4_ma_sync(wq, c4iw_page_size);
+	}
+}
+
+static void copy_wr_to_rq(struct t4_wq *wq, union t4_recv_wr *wqe, u8 len16)
+{
+	u64 *src, *dst;
+
+	src = (u64 *)wqe;
+	dst = (u64 *)((u8 *)wq->rq.queue + wq->rq.wq_pidx * T4_EQ_ENTRY_SIZE);
+	while (len16) {
+		*dst++ = *src++;
+		if (dst >= (u64 *)&wq->rq.queue[wq->rq.size])
+			dst = (u64 *)wq->rq.queue;
+		*dst++ = *src++;
+		if (dst >= (u64 *)&wq->rq.queue[wq->rq.size])
+			dst = (u64 *)wq->rq.queue;
+		len16--;
+	}
+}
+
 static int build_immd(struct t4_sq *sq, struct fw_ri_immd *immdp,
 		      struct ibv_send_wr *wr, int max, u32 *plenp)
 {
 	u8 *dstp, *srcp;
 	u32 plen = 0;
 	int i;
-	int rem, len;
+	int len;
 
 	dstp = (u8 *)immdp->data;
 	for (i = 0; i < wr->num_sge; i++) {
@@ -54,19 +95,10 @@ static int build_immd(struct t4_sq *sq, struct fw_ri_immd *immdp,
 			return -EMSGSIZE;
 		srcp = (u8 *)(unsigned long)wr->sg_list[i].addr;
 		plen += wr->sg_list[i].length;
-		rem = wr->sg_list[i].length;
-		while (rem) {
-			if (dstp == (u8 *)&sq->queue[sq->size])
-				dstp = (u8 *)sq->queue;
-			if (rem <= (u8 *)&sq->queue[sq->size] - dstp)
-				len = rem;
-			else
-				len = (u8 *)&sq->queue[sq->size] - dstp;
-			memcpy(dstp, srcp, len);
-			dstp += len;
-			srcp += len;
-			rem -= len;
-		}
+		len = wr->sg_list[i].length;
+		memcpy(dstp, srcp, len);
+		dstp += len;
+		srcp += len;
 	}
 	len = ROUND_UP(plen + 8, 16) - (plen + 8);
 	if (len)
@@ -79,10 +111,8 @@ static int build_immd(struct t4_sq *sq, struct fw_ri_immd *immdp,
 	return 0;
 }
 
-static int build_isgl(__be64 *queue_start, __be64 *queue_end,
-		      struct fw_ri_isgl *isglp, struct ibv_sge *sg_list,
+static int build_isgl(struct fw_ri_isgl *isglp, struct ibv_sge *sg_list,
 		      int num_sge, u32 *plenp)
-
 {
 	int i;
 	u32 plen = 0;
@@ -92,13 +122,9 @@ static int build_isgl(__be64 *queue_start, __be64 *queue_end,
 		if ((plen + sg_list[i].length) < plen)
 			return -EMSGSIZE;
 		plen += sg_list[i].length;
-		*flitp = cpu_to_be64(((u64)sg_list[i].lkey << 32) |
+		*flitp++ = cpu_to_be64(((u64)sg_list[i].lkey << 32) |
 				     sg_list[i].length);
-		if (++flitp == queue_end)
-			flitp = queue_start;
-		*flitp = cpu_to_be64(sg_list[i].addr);
-		if (++flitp == queue_end)
-			flitp = queue_start;
+		*flitp++ = cpu_to_be64(sg_list[i].addr);
 	}
 	*flitp = 0;
 	isglp->op = FW_RI_DATA_ISGL;
@@ -137,9 +163,7 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
 			size = sizeof wqe->send + sizeof(struct fw_ri_immd) +
 			       plen;
 		} else {
-			ret = build_isgl((__be64 *)sq->queue,
-					 (__be64 *)&sq->queue[sq->size],
-					 wqe->send.u.isgl_src,
+			ret = build_isgl(wqe->send.u.isgl_src,
 					 wr->sg_list, wr->num_sge, &plen);
 			if (ret)
 				return ret;
@@ -180,9 +204,7 @@ static int build_rdma_write(struct t4_sq *sq, union t4_wr *wqe,
 			size = sizeof wqe->write + sizeof(struct fw_ri_immd) +
 			       plen;
 		} else {
-			ret = build_isgl((__be64 *)sq->queue,
-					 (__be64 *)&sq->queue[sq->size],
-					 wqe->write.u.isgl_src,
+			ret = build_isgl(wqe->write.u.isgl_src,
 					 wr->sg_list, wr->num_sge, &plen);
 			if (ret)
 				return ret;
@@ -234,9 +256,7 @@ static int build_rdma_recv(struct c4iw_qp *qhp, union t4_recv_wr *wqe,
 {
 	int ret;
 
-	ret = build_isgl((__be64 *)qhp->wq.rq.queue,
-			 (__be64 *)&qhp->wq.rq.queue[qhp->wq.rq.size],
-			 &wqe->recv.isgl, wr->sg_list, wr->num_sge, NULL);
+	ret = build_isgl(&wqe->recv.isgl, wr->sg_list, wr->num_sge, NULL);
 	if (ret)
 		return ret;
 	*len16 = DIV_ROUND_UP(sizeof wqe->recv +
@@ -266,7 +286,7 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	enum fw_wr_opcodes fw_opcode;
 	enum fw_ri_wr_flags fw_flags;
 	struct c4iw_qp *qhp;
-	union t4_wr *wqe;
+	union t4_wr *wqe, lwqe;
 	u32 num_wrs;
 	struct t4_swsqe *swsqe;
 	u16 idx = 0;
@@ -288,8 +308,8 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			*bad_wr = wr;
 			break;
 		}
-		wqe = (union t4_wr *)((u8 *)qhp->wq.sq.queue +
-				      qhp->wq.sq.wq_pidx * T4_EQ_ENTRY_SIZE);
+
+		wqe = &lwqe;
 		fw_flags = 0;
 		if (wr->send_flags & IBV_SEND_SOLICITED)
 			fw_flags |= FW_RI_SOLICITED_EVENT_FLAG;
@@ -340,6 +360,7 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		     swsqe->opcode);
 		wr = wr->next;
 		num_wrs--;
+		copy_wr_to_sq(&qhp->wq, wqe, len16);
 		t4_sq_produce(&qhp->wq, len16);
 		idx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 	}
@@ -354,7 +375,7 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 {
 	int err = 0;
 	struct c4iw_qp *qhp;
-	union t4_recv_wr *wqe;
+	union t4_recv_wr *wqe, lwqe;
 	u32 num_wrs;
 	u8 len16 = 0;
 	u16 idx = 0;
@@ -376,9 +397,7 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			*bad_wr = wr;
 			break;
 		}
-		wqe = (union t4_recv_wr *)((u8 *)qhp->wq.rq.queue +
-					   qhp->wq.rq.wq_pidx *
-					   T4_EQ_ENTRY_SIZE);
+		wqe = &lwqe;
 		if (num_wrs)
 			err = build_rdma_recv(qhp, wqe, wr, &len16);
 		else
@@ -399,6 +418,7 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		wqe->recv.len16 = len16;
 		PDBG("%s cookie 0x%llx pidx %u\n", __func__,
 		     (unsigned long long) wr->wr_id, qhp->wq.rq.pidx);
+		copy_wr_to_rq(&qhp->wq, wqe, len16);
 		t4_rq_produce(&qhp->wq, len16);
 		idx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 		wr = wr->next;
