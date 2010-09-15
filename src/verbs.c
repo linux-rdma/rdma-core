@@ -229,7 +229,17 @@ err1:
 
 int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
-	return -ENOSYS;
+#ifdef SIM
+	int ret;
+
+	struct ibv_resize_cq cmd;
+	struct ibv_resize_cq_resp resp;
+	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd, &resp, sizeof resp);
+	PDBG("%s ret %d\n", __func__, ret);
+	return 0;
+#else
+	return ENOSYS;
+#endif
 }
 
 int c4iw_destroy_cq(struct ibv_cq *ibcq)
@@ -264,18 +274,18 @@ struct ibv_srq *c4iw_create_srq(struct ibv_pd *pd,
 int c4iw_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr,
 		    int attr_mask)
 {
-	return -ENOSYS;
+	return ENOSYS;
 }
 
 int c4iw_destroy_srq(struct ibv_srq *srq)
 {
-	return -ENOSYS;
+	return ENOSYS;
 }
 
 int c4iw_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 		       struct ibv_recv_wr **bad_wr)
 {
-	return -ENOSYS;
+	return ENOSYS;
 }
 
 struct ibv_qp *c4iw_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
@@ -455,7 +465,7 @@ int c4iw_destroy_qp(struct ibv_qp *ibqp)
 int c4iw_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
-	return -ENOSYS;
+	return ENOSYS;
 }
 
 struct ibv_ah *c4iw_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
@@ -465,17 +475,49 @@ struct ibv_ah *c4iw_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 
 int c4iw_destroy_ah(struct ibv_ah *ah)
 {
-	return -ENOSYS;
+	return ENOSYS;
 }
 
-int c4iw_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
+int c4iw_attach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
+		      uint16_t lid)
 {
-	return -ENOSYS;
+	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
+	int ret;
+
+	pthread_spin_lock(&qhp->lock);
+	if (t4_wq_in_error(&qhp->wq))
+		c4iw_flush_qp(qhp);
+#ifdef SIM
+{
+	int sim_attach_mcast(struct c4iw_qp *qp, const uint8_t *mcaddr);
+	ret = sim_attach_mcast(qhp, gid->raw);
+}
+#else
+	ret = ibv_cmd_attach_mcast(ibqp, gid, lid);
+#endif
+	pthread_spin_unlock(&qhp->lock);
+	return ret;
 }
 
-int c4iw_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
+int c4iw_detach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
+		      uint16_t lid)
 {
-	return -ENOSYS;
+	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
+	int ret;
+
+	pthread_spin_lock(&qhp->lock);
+	if (t4_wq_in_error(&qhp->wq))
+		c4iw_flush_qp(qhp);
+#ifdef SIM
+{
+	int sim_detach_mcast(struct c4iw_qp *qp, const uint8_t *mcaddr);
+	ret = sim_detach_mcast(qhp, gid->raw);
+}
+#else
+	ret = ibv_cmd_detach_mcast(ibqp, gid, lid);
+#endif
+	pthread_spin_unlock(&qhp->lock);
+	return ret;
 }
 
 void c4iw_async_event(struct ibv_async_event *event)

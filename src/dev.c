@@ -275,7 +275,7 @@ void dump_state(int arg)
 				pthread_spin_unlock(&chp->lock);
 			}
 		}
-		for (i=0; i < T4_MAX_NUM_QP; i++) {
+		for (i=T4_QID_BASE; i < T4_QID_BASE + T4_MAX_NUM_QP; i++) {
 			if (dev->qpid2ptr[i]) {
 				struct c4iw_qp *qhp = dev->qpid2ptr[i];
 				pthread_spin_lock(&qhp->lock);
@@ -389,7 +389,7 @@ found:
 	if (!dev->mmid2ptr) {
 		goto err1;
 	}
-	dev->qpid2ptr = calloc(T4_MAX_NUM_QP, sizeof(void *));
+	dev->qpid2ptr = calloc(T4_QID_BASE + T4_MAX_NUM_QP, sizeof(void *));
 	if (!dev->qpid2ptr) {
 		goto err2;
 	}
@@ -413,6 +413,17 @@ static __attribute__((constructor)) void cxgb4_register_driver(void)
 {
 	c4iw_page_size = sysconf(_SC_PAGESIZE);
 	ibv_register_driver("cxgb4", cxgb4_driver_init);
+#ifdef SIM
+{
+	extern void *sim_thread(void *);
+
+	pthread_t *p = malloc(sizeof *p);
+
+	if (p)
+		pthread_create(p, NULL, sim_thread, NULL);
+	sleep(1);
+}
+#endif
 }
 
 #ifdef STATS

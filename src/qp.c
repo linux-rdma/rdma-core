@@ -282,7 +282,7 @@ void dump_wqe(void *arg)
 	}
 }
 
-int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+static int post_send_rc(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	           struct ibv_send_wr **bad_wr)
 {
 	int err = 0;
@@ -377,8 +377,70 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	return err;
 }
 
-int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
-		      struct ibv_recv_wr **bad_wr)
+static int post_send_raw(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+			 struct ibv_send_wr **bad_wr)
+{
+#ifdef SIM
+	int err = 0;
+	struct c4iw_qp *qhp;
+	u32 num_wrs;
+	struct t4_swsqe *swsqe;
+	int sim_send(struct c4iw_qp *qp, struct ibv_send_wr *wr);
+
+	qhp = to_c4iw_qp(ibqp);
+	pthread_spin_lock(&qhp->lock);
+	if (t4_wq_in_error(&qhp->wq)) {
+		pthread_spin_unlock(&qhp->lock);
+		return -EINVAL;
+	}
+	num_wrs = t4_sq_avail(&qhp->wq);
+	if (num_wrs == 0) {
+		pthread_spin_unlock(&qhp->lock);
+		return ENOMEM;
+	}
+	while (wr) {
+		if (num_wrs == 0) {
+			err = ENOMEM;
+			*bad_wr = wr;
+			break;
+		}
+		swsqe = &qhp->wq.sq.sw_sq[qhp->wq.sq.pidx];
+		swsqe->opcode = FW_RI_SEND;
+		swsqe->idx = qhp->wq.sq.pidx;
+		swsqe->complete = 0;
+		swsqe->signaled = (wr->send_flags & IBV_SEND_SIGNALED);
+		swsqe->wr_id = wr->wr_id;
+		err = sim_send(qhp, wr);
+		if (err) {
+			*bad_wr = wr;
+			break;
+		}
+		wr = wr->next;
+		num_wrs--;
+		t4_sq_produce(&qhp->wq, 1);
+	}
+	pthread_spin_unlock(&qhp->lock);
+	return err;
+#else
+	return ENOSYS;
+#endif
+}
+
+int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+	           struct ibv_send_wr **bad_wr)
+{
+	switch (ibqp->qp_type) {
+	case IBV_QPT_RC:
+		return post_send_rc(ibqp, wr, bad_wr);
+	case IBV_QPT_RAW_ETY:
+		return post_send_raw(ibqp, wr, bad_wr);
+	default:
+		return ENOSYS;
+	}
+}
+
+static int post_receive_rc(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			   struct ibv_recv_wr **bad_wr)
 {
 	int err = 0;
 	struct c4iw_qp *qhp;
@@ -436,6 +498,82 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		t4_ring_rq_db(&qhp->wq, idx);
 	pthread_spin_unlock(&qhp->lock);
 	return err;
+}
+
+static int post_receive_raw(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+			    struct ibv_recv_wr **bad_wr)
+{
+#ifdef SIM
+	int err = 0;
+	struct c4iw_qp *qhp;
+	union t4_recv_wr *wqe;
+	u32 num_wrs;
+	u8 len16 = 0;
+	u16 idx = 0;
+
+	qhp = to_c4iw_qp(ibqp);
+	pthread_spin_lock(&qhp->lock);
+	if (t4_wq_in_error(&qhp->wq)) {
+		pthread_spin_unlock(&qhp->lock);
+		return -EINVAL;
+	}
+	num_wrs = t4_rq_avail(&qhp->wq);
+	if (num_wrs == 0) {
+		pthread_spin_unlock(&qhp->lock);
+		return -ENOMEM;
+	}
+	while (wr) {
+		if (wr->num_sge > T4_MAX_RECV_SGE) {
+			err = -EINVAL;
+			*bad_wr = wr;
+			break;
+		}
+		wqe = &qhp->wq.rq.queue[qhp->wq.rq.pidx];
+		if (num_wrs)
+			err = build_rdma_recv(qhp, wqe, wr, &len16);
+		else
+			err = -ENOMEM;
+		if (err) {
+			*bad_wr = wr;
+			break;
+		}
+
+		qhp->wq.rq.sw_rq[qhp->wq.rq.pidx].wr_id = wr->wr_id;
+
+		wqe->recv.opcode = FW_RI_RECV_WR;
+		wqe->recv.r1 = 0;
+		wqe->recv.wrid = qhp->wq.rq.pidx;
+		wqe->recv.r2[0] = 0;
+		wqe->recv.r2[1] = 0;
+		wqe->recv.r2[2] = 0;
+		wqe->recv.len16 = len16;
+		if (len16 < 5)
+			wqe->flits[8] = 0;
+		t4_rq_produce(&qhp->wq, 2);
+		wr = wr->next;
+		num_wrs--;
+		idx += 2;
+	}
+	if (t4_wq_db_enabled(&qhp->wq))
+		t4_ring_rq_db(&qhp->wq, idx);
+	pthread_spin_unlock(&qhp->lock);
+	return err;
+#else
+	return ENOSYS;
+#endif
+}
+
+int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr)
+{
+	switch (ibqp->qp_type) {
+	case IBV_QPT_RC:
+		return post_receive_rc(ibqp, wr, bad_wr);
+	case IBV_QPT_RAW_ETY:
+		return post_receive_raw(ibqp, wr, bad_wr);
+	default:
+		return ENOSYS;
+	}
 }
 
 /*

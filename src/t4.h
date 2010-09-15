@@ -392,6 +392,7 @@ static inline void t4_rq_consume(struct t4_wq *wq)
 	wq->rq.msn++;
 	if (++wq->rq.cidx == wq->rq.size)
 		wq->rq.cidx = 0;
+	assert((wq->rq.cidx != wq->rq.pidx) || wq->rq.in_use == 0);
 }
 
 static inline int t4_sq_empty(struct t4_wq *wq)
@@ -429,6 +430,7 @@ static inline void t4_sq_consume(struct t4_wq *wq)
 	wq->sq.in_use--;
 	if (++wq->sq.cidx == wq->sq.size)
 		wq->sq.cidx = 0;
+	assert((wq->sq.cidx != wq->sq.pidx) || wq->sq.in_use == 0);
 }
 
 static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc)
@@ -580,6 +582,11 @@ static inline struct t4_cqe *t4_next_sw_cqe(struct t4_cq *cq)
 	if (cq->sw_in_use)
 		return &cq->sw_queue[cq->sw_cidx];
 	return NULL;
+}
+
+static inline int t4_cq_notempty(struct t4_cq *cq)
+{
+	return cq->sw_in_use || t4_valid_cqe(cq, &cq->queue[cq->cidx]);
 }
 
 static inline int t4_next_cqe(struct t4_cq *cq, struct t4_cqe **cqe)

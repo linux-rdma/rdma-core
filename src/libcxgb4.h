@@ -85,6 +85,9 @@ struct c4iw_cq {
 	struct c4iw_dev *rhp;
 	struct t4_cq cq;
 	pthread_spinlock_t lock;
+#ifdef SIM
+	int armed;
+#endif
 };
 
 struct c4iw_qp {
@@ -210,7 +213,7 @@ void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count);
 
 #ifdef DEBUG
 #define DBGLOG(s)
-#define PDBG(fmt, args...) do {syslog(LOG_DEBUG, fmt, args); } while (0)
+#define PDBG(fmt, args...) do {syslog(LOG_DEBUG, fmt, ##args); } while (0)
 #else
 #define DBGLOG(s)
 #define PDBG(fmt, args...) do {} while (0)
@@ -242,6 +245,10 @@ struct c4iw_stats {
 extern struct c4iw_stats c4iw_stats;
 #else
 #define INC_STAT(a)
+#endif
+
+#ifndef IBV_QPT_RAW_ETY
+#define IBV_QPT_RAW_ETY (enum ibv_qp_type)7 /* XXX */
 #endif
 
 #endif				/* IWCH_H */
