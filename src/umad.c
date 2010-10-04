@@ -46,7 +46,6 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <dirent.h>
-#include <stdlib.h>
 #include <ctype.h>
 
 #include "umad.h"

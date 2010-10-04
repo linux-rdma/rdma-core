@@ -34,6 +34,7 @@
 #define _UMAD_H
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
