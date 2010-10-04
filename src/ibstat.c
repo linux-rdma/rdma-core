@@ -114,7 +114,7 @@ static int port_dump(umad_port_t * port, int alone)
 	       (unsigned)port->state <=
 	       4 ? port_state_str[port->state] : "???");
 	printf("%sPhysical state: %s\n", pre,
-	       (unsigned)port->state <=
+	       (unsigned)port->phys_state <=
 	       7 ? port_phy_state_str[port->phys_state] : "???");
 	printf("%sRate: %d\n", pre, port->rate);
 	printf("%sBase lid: %d\n", pre, port->base_lid);
