@@ -2146,10 +2146,12 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 	if (ret)
 		goto err;
 
-	qp_init_attr->qp_type = res->ai_qp_type;
-	ret = rdma_create_qp(cm_id, pd, qp_init_attr);
-	if (ret)
-		goto err;
+	if (qp_init_attr) {
+		qp_init_attr->qp_type = res->ai_qp_type;
+		ret = rdma_create_qp(cm_id, pd, qp_init_attr);
+		if (ret)
+			goto err;
+	}
 
 	if (res->ai_connect_len) {
 		id_priv = container_of(cm_id, struct cma_id_private, id);
