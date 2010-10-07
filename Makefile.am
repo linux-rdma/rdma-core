@@ -1,4 +1,4 @@
-
+ACLOCAL_AMFLAGS = -I config
 SUBDIRS = .
 
 INCLUDES = -I$(srcdir)/include/infiniband -I$(includedir)
