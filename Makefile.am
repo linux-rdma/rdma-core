@@ -1,3 +1,4 @@
+ACLOCAL_AMFLAGS = -I config
 SUBDIRS = libibnetdisc
 
 INCLUDES = -I$(top_builddir)/include/ -I$(srcdir)/include -I$(includedir) \
