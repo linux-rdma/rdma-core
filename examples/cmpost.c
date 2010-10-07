@@ -50,6 +50,7 @@ struct cmtest {
 	struct ib_cm_device	*cm_dev;
 	struct ibv_context	*verbs;
 	struct ibv_pd		*pd;
+	struct ibv_device_attr	dev_attr;
 
 	/* cm info */
 	struct ibv_sa_path_rec	path_rec;
@@ -106,7 +107,8 @@ static int post_recvs(struct cmtest_node *node)
 	return ret;
 }
 
-static int modify_to_rtr(struct cmtest_node *node)
+static int modify_to_rtr(struct cmtest_node *node,
+			 struct ib_cm_rep_param *rep)
 {
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
@@ -129,6 +131,10 @@ static int modify_to_rtr(struct cmtest_node *node)
 		return ret;
 	}
 	qp_attr.rq_psn = node->qp->qp_num;
+	if (rep) {
+		qp_attr.max_dest_rd_atomic = rep->responder_resources;
+		qp_attr.max_rd_atomic = rep->initiator_depth;
+	}
 	ret = ibv_modify_qp(node->qp, &qp_attr, qp_attr_mask);
 	if (ret) {
 		printf("failed to modify QP to RTR: %d\n", ret);
@@ -167,10 +173,35 @@ static void req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *event)
 		goto error1;
 	node = &test.nodes[test.conn_index++];
 
+	req = &event->param.req_rcvd;
+	memset(&rep, 0, sizeof rep);
+
+	/*
+	 * Limit the responder resources requested by the remote
+	 * to our capabilities.  Note that the kernel swaps
+	 * req->responder_resources and req->initiator_depth, so
+	 * that req->responder_resources is actually the active
+	 * side's initiator depth.
+	 */
+	if (req->responder_resources > test.dev_attr.max_qp_rd_atom)
+		rep.responder_resources = test.dev_attr.max_qp_rd_atom;
+	else
+		rep.responder_resources = req->responder_resources;
+
+	/*
+	 * Note: if this side of the connection is never going to
+	 * use RDMA read opreations, then initiator_depth can be set
+	 * to 0 here.
+	 */
+	if (req->initiator_depth > test.dev_attr.max_qp_init_rd_atom)
+		rep.initiator_depth = test.dev_attr.max_qp_init_rd_atom; 
+	else
+		rep.initiator_depth = req->initiator_depth;
+
 	node->cm_id = cm_id;
 	cm_id->context = node;
 
-	ret = modify_to_rtr(node);
+	ret = modify_to_rtr(node, &rep);
 	if (ret)
 		goto error2;
 
@@ -178,13 +209,9 @@ static void req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *event)
 	if (ret)
 		goto error2;
 
-	req = &event->param.req_rcvd;
-	memset(&rep, 0, sizeof rep);
 	rep.qp_num = node->qp->qp_num;
 	rep.srq = (node->qp->srq != NULL);
 	rep.starting_psn = node->qp->qp_num;
-	rep.responder_resources = req->responder_resources;
-	rep.initiator_depth = req->initiator_depth;
 	rep.target_ack_delay = 20;
 	rep.flow_control = req->flow_control;
 	rep.rnr_retry_count = req->rnr_retry_count;
@@ -207,7 +234,7 @@ static void rep_handler(struct cmtest_node *node, struct ib_cm_event *event)
 {
 	int ret;
 
-	ret = modify_to_rtr(node);
+	ret = modify_to_rtr(node, NULL);
 	if (ret)
 		goto error;
 
@@ -426,6 +453,9 @@ static int init(void)
 
 	test.verbs = ibv_open_device(test.device);
 	if (!test.verbs)
+		return -1;
+
+	if (ibv_query_device(test.verbs, &test.dev_attr))
 		return -1;
 
 	test.cm_dev = ib_cm_open_device(test.verbs);
@@ -671,8 +701,20 @@ static void run_client(char *dst)
 	memset(&req, 0, sizeof req);
 	req.primary_path = &test.path_rec;
 	req.service_id = __cpu_to_be64(0x1000);
-	req.responder_resources = 1;
-	req.initiator_depth = 1;
+
+	/*
+	 * When choosing the responder resources for a ULP, it is usually
+	 * best to use the maximum value of the HCA.  If the other side is
+	 * not going to use RDMA read, then it should zero out the
+	 * initiator_depth in the REP, which will zero out the local
+	 * responder_resources when we program the QP.  Generally, the
+	 * initiator_depth should be either set to 0 or
+	 * min(max_qp_rd_atom, max_send_wr).  Use 0 if RDMA read is
+	 * never going to be sent from this side.
+	 */
+	req.responder_resources = test.dev_attr.max_qp_rd_atom;
+	req.initiator_depth = test.dev_attr.max_qp_init_rd_atom;
+
 	req.remote_cm_response_timeout = 20;
 	req.local_cm_response_timeout = 20;
 	req.retry_count = 5;
