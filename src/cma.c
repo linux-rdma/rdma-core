@@ -1368,7 +1368,10 @@ int rdma_get_request(struct rdma_cm_id *listen, struct rdma_cm_id **id)
 	}
 
 	if (id_priv->qp_init_attr) {
-		ret = rdma_create_qp(event->id, id_priv->pd, id_priv->qp_init_attr);
+		struct ibv_qp_init_attr attr;
+
+		attr = *id_priv->qp_init_attr;
+		ret = rdma_create_qp(event->id, id_priv->pd, &attr);
 		if (ret)
 			goto err;
 	}
