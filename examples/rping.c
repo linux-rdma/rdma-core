@@ -280,10 +280,12 @@ static int rping_cq_event_handler(struct rping_cb *cb)
 		ret = 0;
 
 		if (wc.status) {
-			fprintf(stderr, "cq completion failed status %d\n",
-				wc.status);
-			if (wc.status != IBV_WC_WR_FLUSH_ERR)
+			if (wc.status != IBV_WC_WR_FLUSH_ERR) {
+				fprintf(stderr,
+					"cq completion failed status %d\n",
+					wc.status);
 				ret = -1;
+			}
 			goto error;
 		}
 
