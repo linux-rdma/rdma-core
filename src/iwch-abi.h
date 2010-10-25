@@ -53,11 +53,20 @@ struct iwch_reg_mr_resp {
 	uint32_t pbl_addr;
 };
 
-struct iwch_create_cq_resp {
+struct iwch_create_cq_resp_v0 {
 	struct ibv_create_cq_resp ibv_resp;
 	uint64_t physaddr;
 	uint32_t cqid;
 	uint32_t size_log2;
+};
+
+struct iwch_create_cq_resp_v1 {
+	struct ibv_create_cq_resp ibv_resp;
+	uint64_t physaddr;
+	uint32_t cqid;
+	uint32_t size_log2;
+	uint32_t memsize;
+	uint32_t reserved; /* for proper alignment */
 };
 
 struct iwch_create_qp {

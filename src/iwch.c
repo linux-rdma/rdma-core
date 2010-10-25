@@ -232,6 +232,14 @@ found:
 		fflush(stderr);
 	}
 
+	if (abi_version > ABI_VERS) {
+		PDBG("libcxgb3: ABI version mismatch.  "
+			"Kernel driver ABI is %u and libcxgb3 needs <= %u.\n",
+			abi_version, ABI_VERS);	
+		fflush(stderr);
+		return NULL;
+	}
+
 	PDBG("%s found vendor %d device %d type %d\n", 
 	     __FUNCTION__, vendor, device, hca_table[i].type);
 
@@ -243,7 +251,11 @@ found:
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = iwch_dev_ops;
 	dev->hca_type = hca_table[i].type;
-	dev->page_size = sysconf(_SC_PAGESIZE);
+	dev->abi_version = abi_version;
+
+	iwch_page_size = sysconf(_SC_PAGESIZE);
+	iwch_page_shift = long_log2(iwch_page_size);
+	iwch_page_mask = iwch_page_size - 1;
 
 	dev->mmid2ptr = calloc(T3_MAX_NUM_STAG, sizeof(void *));
 	if (!dev->mmid2ptr) {

@@ -48,14 +48,16 @@ enum iwch_hca_type {
 
 struct iwch_mr;
 
+#define ABI_VERS 1
+
 struct iwch_device {
 	struct ibv_device ibv_dev;
 	enum iwch_hca_type hca_type;
-	int page_size;
 	struct iwch_mr **mmid2ptr;
 	struct iwch_qp **qpid2ptr;
 	struct iwch_cq **cqid2ptr;
 	pthread_spinlock_t lock;
+	int abi_version;
 };
 
 static inline int t3b_device(struct iwch_device *dev)
@@ -133,9 +135,9 @@ static inline struct iwch_mr *to_iwch_mr(struct ibv_mr *ibmr)
 	return to_iwch_xxx(mr, mr);
 }
 
-static inline unsigned long_log2(unsigned long x)
+static inline unsigned long long_log2(unsigned long x)
 {
-        unsigned r = 0;
+        unsigned long r = 0;
         for (x >>= 1; x > 0; x >>= 1)
                 r++;
         return r;
@@ -150,7 +152,7 @@ extern struct ibv_pd *iwch_alloc_pd(struct ibv_context *context);
 extern int iwch_free_pd(struct ibv_pd *pd);
 
 extern struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
-				  size_t length, enum ibv_access_flags access);
+				  size_t length, int access);
 extern int iwch_dereg_mr(struct ibv_mr *mr);
 
 struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
@@ -168,7 +170,7 @@ extern struct ibv_srq *iwch_create_srq(struct ibv_pd *pd,
 				       struct ibv_srq_init_attr *attr);
 extern int iwch_modify_srq(struct ibv_srq *srq,
 			   struct ibv_srq_attr *attr,
-			   enum ibv_srq_attr_mask mask);
+			   int mask);
 extern int iwch_destroy_srq(struct ibv_srq *srq);
 extern int iwch_post_srq_recv(struct ibv_srq *ibsrq,
 			      struct ibv_recv_wr *wr,
@@ -177,13 +179,14 @@ extern int iwch_post_srq_recv(struct ibv_srq *ibsrq,
 extern struct ibv_qp *iwch_create_qp(struct ibv_pd *pd,
 				     struct ibv_qp_init_attr *attr);
 extern int iwch_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-			  enum ibv_qp_attr_mask attr_mask);
+			  int attr_mask);
 extern int iwch_destroy_qp(struct ibv_qp *qp);
 extern int iwch_query_qp(struct ibv_qp *qp,
 			 struct ibv_qp_attr *attr,
-			 enum ibv_qp_attr_mask attr_mask,
+			 int attr_mask,
 			 struct ibv_qp_init_attr *init_attr);
 extern void iwch_flush_qp(struct iwch_qp *qhp);
+extern void iwch_flush_qps(struct iwch_device *dev);
 extern int t3a_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr);
 extern int t3b_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
@@ -195,9 +198,9 @@ extern int t3b_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 extern struct ibv_ah *iwch_create_ah(struct ibv_pd *pd,
 			     struct ibv_ah_attr *ah_attr);
 extern int iwch_destroy_ah(struct ibv_ah *ah);
-extern int iwch_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid,
+extern int iwch_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			     uint16_t lid);
-extern int iwch_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid,
+extern int iwch_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			     uint16_t lid);
 extern void t3b_async_event(struct ibv_async_event *event);
 #ifdef DEBUG

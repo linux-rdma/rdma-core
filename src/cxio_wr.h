@@ -614,6 +614,7 @@ struct t3_cq {
 	struct t3_cqe *sw_queue;
 	uint32_t sw_rptr;
 	uint32_t sw_wptr;
+	uint32_t memsize;
 };
 
 static inline unsigned t3_wq_depth(struct t3_wq *wq)
@@ -636,19 +637,47 @@ static inline unsigned t3_cq_depth(struct t3_cq *cq)
 	return (1UL<<cq->size_log2);
 }
 
+unsigned long iwch_page_size;
+unsigned long iwch_page_shift;
+unsigned long iwch_page_mask;
+
+#define PAGE_ALIGN(x) (((x) + iwch_page_mask) & ~iwch_page_mask)
+
 static inline unsigned t3_wq_memsize(struct t3_wq *wq)
 {
-	return ((1UL<<wq->size_log2) * sizeof (union t3_wr));
+	return PAGE_ALIGN((1UL<<wq->size_log2) * sizeof (union t3_wr));
 }
 
 static inline unsigned t3_cq_memsize(struct t3_cq *cq)
 {
-	return ((1UL<<cq->size_log2) * sizeof (struct t3_cqe));
+	return cq->memsize;
 }
 
 static inline unsigned t3_mmid(uint32_t stag)
 {
 	return (stag>>8);
+}
+
+struct t3_cq_status_page {
+	uint32_t cq_err;
+};
+
+static inline int t3_cq_in_error(struct t3_cq *cq)
+{
+	return ((struct t3_cq_status_page *)
+	       &cq->queue[1 << cq->size_log2])->cq_err;
+}
+
+static inline void t3_set_cq_in_error(struct t3_cq *cq)
+{
+	((struct t3_cq_status_page *)
+		&cq->queue[1 << cq->size_log2])->cq_err = 1;
+}
+
+static inline void t3_reset_cq_in_error(struct t3_cq *cq)
+{
+	((struct t3_cq_status_page *)
+		&cq->queue[1 << cq->size_log2])->cq_err = 0;
 }
 
 static inline int t3_wq_in_error(struct t3_wq *wq)

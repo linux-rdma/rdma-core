@@ -403,6 +403,11 @@ int t3b_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 	chp = to_iwch_cq(ibcq);
 	rhp = chp->rhp;
 
+	if (rhp->abi_version > 0 && t3_cq_in_error(&chp->cq)) {
+		t3_reset_cq_in_error(&chp->cq);
+		iwch_flush_qps(rhp);
+	}
+
 	pthread_spin_lock(&chp->lock);
 	for (npolled = 0; npolled < num_entries; ++npolled) {
 

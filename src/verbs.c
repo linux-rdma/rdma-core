@@ -108,7 +108,7 @@ int iwch_free_pd(struct ibv_pd *pd)
 
 static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 				    size_t length, uint64_t hca_va,
-				    enum ibv_access_flags access)
+				    int access)
 {
 	struct iwch_mr *mhp;
 	struct ibv_reg_mr cmd;
@@ -127,7 +127,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 	}
 
 	mhp->va_fbo = hca_va;
-	mhp->page_size = long_log2(dev->page_size) - 12;
+	mhp->page_size = iwch_page_shift - 12;
 	mhp->pbl_addr = resp.pbl_addr;
 	mhp->len = length;
 
@@ -144,7 +144,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 }
 
 struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
-			   size_t length, enum ibv_access_flags access)
+			   size_t length, int access)
 {
 	PDBG("%s addr %p length %ld\n", __FUNCTION__, addr, length);
 	return __iwch_reg_mr(pd, addr, length, (uintptr_t) addr, access);
@@ -172,7 +172,7 @@ struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel, int comp_vector)
 {
 	struct iwch_create_cq cmd;
-	struct iwch_create_cq_resp resp;
+	struct iwch_create_cq_resp_v1 resp;
 	struct iwch_cq *chp;
 	struct iwch_device *dev = to_iwch_dev(context->device);
 	int ret;
@@ -193,8 +193,14 @@ struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 	chp->rhp = dev;
 	chp->cq.cqid = resp.cqid;
 	chp->cq.size_log2 = resp.size_log2;
-	chp->cq.queue = mmap(NULL, t3_cq_memsize(&chp->cq), PROT_READ, 
-			     MAP_SHARED, context->cmd_fd, resp.physaddr);
+	if (dev->abi_version == 0)
+		chp->cq.memsize = PAGE_ALIGN((1UL << chp->cq.size_log2) *
+					     sizeof(struct t3_cqe));
+	else
+		chp->cq.memsize = resp.memsize;
+	chp->cq.queue = mmap(NULL, t3_cq_memsize(&chp->cq),
+			     PROT_READ|PROT_WRITE, MAP_SHARED, context->cmd_fd,
+			     resp.physaddr);
 	if (chp->cq.queue == MAP_FAILED)
 		goto err2;
 
@@ -267,7 +273,7 @@ struct ibv_srq *iwch_create_srq(struct ibv_pd *pd,
 }
 
 int iwch_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr, 
-		    enum ibv_srq_attr_mask attr_mask)
+		    int attr_mask)
 {
 	return -ENOSYS;
 }
@@ -314,12 +320,12 @@ struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	qhp->wq.sq_size_log2 = resp.sq_size_log2;
 	qhp->wq.rq_size_log2 = resp.rq_size_log2;
 	pthread_spin_init(&qhp->lock, PTHREAD_PROCESS_PRIVATE);
-	dbva = mmap(NULL, dev->page_size, PROT_WRITE, MAP_SHARED, 
-		    pd->context->cmd_fd, resp.doorbell & ~(dev->page_size-1));
+	dbva = mmap(NULL, iwch_page_size, PROT_WRITE, MAP_SHARED, 
+		    pd->context->cmd_fd, resp.doorbell & ~(iwch_page_mask));
 	if (dbva == MAP_FAILED)
 		goto err3;
 
-	qhp->wq.doorbell = dbva + (resp.doorbell & (dev->page_size-1));
+	qhp->wq.doorbell = dbva + (resp.doorbell & (iwch_page_mask));
 	qhp->wq.queue = mmap(NULL, t3_wq_memsize(&qhp->wq),
 			    PROT_READ|PROT_WRITE, MAP_SHARED, 
 			    pd->context->cmd_fd, resp.physaddr);
@@ -349,7 +355,7 @@ err6:
 err5:
 	munmap((void *)qhp->wq.queue, t3_wq_memsize(&qhp->wq));
 err4:
-	munmap((void *)dbva, dev->page_size);
+	munmap((void *)dbva, iwch_page_size);
 err3:
 	(void)ibv_cmd_destroy_qp(&qhp->ibv_qp);
 err2:
@@ -370,7 +376,7 @@ static void reset_qp(struct iwch_qp *qhp)
 }
 
 int iwch_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
-		   enum ibv_qp_attr_mask attr_mask)
+		   int attr_mask)
 {
 	struct ibv_modify_qp cmd;
 	struct iwch_qp *qhp = to_iwch_qp(ibqp);
@@ -402,11 +408,11 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 		pthread_spin_unlock(&qhp->lock);
 	}
 
-	dbva = (void *)((unsigned long)qhp->wq.doorbell & ~(dev->page_size-1));
+	dbva = (void *)((unsigned long)qhp->wq.doorbell & ~(iwch_page_mask));
 	wqva = qhp->wq.queue;
 	wqsize = t3_wq_memsize(&qhp->wq);
 
-	munmap(dbva, dev->page_size);
+	munmap(dbva, iwch_page_size);
 	munmap(wqva, wqsize);
 	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret) {
@@ -424,7 +430,7 @@ int iwch_destroy_qp(struct ibv_qp *ibqp)
 }
 
 int iwch_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		  enum ibv_qp_attr_mask attr_mask, struct ibv_qp_init_attr *init_attr)
+		  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
 	return -ENOSYS;
 }
@@ -439,12 +445,12 @@ int iwch_destroy_ah(struct ibv_ah *ah)
 	return -ENOSYS;
 }
 
-int iwch_attach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int iwch_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	return -ENOSYS;
 }
 
-int iwch_detach_mcast(struct ibv_qp *qp, union ibv_gid *gid, uint16_t lid)
+int iwch_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	return -ENOSYS;
 }
