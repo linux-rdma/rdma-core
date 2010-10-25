@@ -1,6 +1,22 @@
-commit c3cc42fffb2d1266cb2c3389a5fa3a8fd4f3f9e9
+commit aa01ae66b6b9d83b570631456bf03b6b42b90931
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Tue Sep 29 14:52:23 2009 -0500
+Date:   Mon Oct 25 10:06:54 2010 -0500
+
+    Spin release 1.3.0.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 240d1124a3cd2bcf1f9440378d0a5f67cad06165
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 25 10:06:53 2010 -0500
+
+    Detect CQs with QPs in error and flush them.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d5ae103822fb5638da204f23fb5cbcb0ea45b6aa
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:52:31 2009 -0500
 
     Spin 1.2.5 release.
     
