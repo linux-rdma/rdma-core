@@ -101,6 +101,7 @@ struct ipath_cq {
 struct ipath_rwqe {
 	uint64_t		wr_id;
 	uint8_t			num_sge;
+	uint8_t			padding[7];
 	struct ibv_sge		sg_list[0];
 };
 
