@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006,2007 The Regents of the University of California.
  * Copyright (c) 2004-2009 Voltaire, Inc. All rights reserved.
- * Copyright (c) 2002-2005 Mellanox Technologies LTD. All rights reserved.
+ * Copyright (c) 2002-2010 Mellanox Technologies LTD. All rights reserved.
  * Copyright (c) 1996-2003 Intel Corporation. All rights reserved.
  * Copyright (c) 2009 HNR Consulting. All rights reserved.
  *
@@ -461,7 +461,7 @@ static void dump_one_mcmember_record(void *data)
 	       inet_ntop(AF_INET6, mr->port_gid.raw, gid, sizeof(gid)),
 	       cl_ntoh32(mr->qkey), cl_ntoh16(mr->mlid), mr->mtu, mr->tclass,
 	       cl_ntoh16(mr->pkey), mr->rate, mr->pkt_life, sl,
-	       cl_ntoh32(flow), hop, scope, join, mr->proxy_join);
+	       flow, hop, scope, join, mr->proxy_join);
 }
 
 static void dump_multicast_group_record(void *data)
