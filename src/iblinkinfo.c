@@ -2,6 +2,7 @@
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  * Copyright (c) 2008 Lawrence Livermore National Lab.  All rights reserved.
+ * Copyright (c) 2010 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -387,7 +388,7 @@ int main(int argc, char **argv)
 
 	if (!all && guid_str) {
 		ibnd_node_t *sw = ibnd_find_node_guid(fabric, guid);
-		if (sw)
+		if (sw && sw->type == IB_NODE_TYPE_SWITCH)
 			print_switch(sw, NULL);
 		else
 			fprintf(stderr, "Failed to find switch: %s\n",
@@ -402,7 +403,7 @@ int main(int argc, char **argv)
 		mad_decode_field(ni, IB_NODE_GUID_F, &(guid));
 
 		sw = ibnd_find_node_guid(fabric, guid);
-		if (sw)
+		if (sw && sw->type == IB_NODE_TYPE_SWITCH)
 			print_switch(sw, NULL);
 		else
 			fprintf(stderr, "Failed to find switch: %s\n", dr_path);
