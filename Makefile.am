@@ -2,6 +2,7 @@ INCLUDES = -I$(srcdir)/include
 
 lib_LTLIBRARIES = src/librdmacm.la
 
+ACLOCAL_AMFLAGS = -I config
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
 src_librdmacm_la_CFLAGS = $(AM_CFLAGS)
