@@ -160,7 +160,8 @@ rdma_post_recv(struct rdma_cm_id *id, void *context, void *addr,
 {
 	struct ibv_sge sge;
 
-	assert((addr >= mr->addr) && ((addr + length) <= (mr->addr + mr->length)));
+	assert((addr >= mr->addr) &&
+		(((uint8_t *) addr + length) <= ((uint8_t *) mr->addr + mr->length)));
 	sge.addr = (uint64_t) (uintptr_t) addr;
 	sge.length = (uint32_t) length;
 	sge.lkey = mr->lkey;
