@@ -1027,7 +1027,7 @@ acm_process_addr_req(struct acm_ep *ep, struct ibv_wc *wc, struct acm_mad *mad)
 			status = acm_record_acm_route(ep, dest);
 			break;
 		}
-		if (addr_index >= 0) {
+		if (addr_index >= 0 || !DListEmpty(&dest->req_queue)) {
 			status = acm_resolve_path(ep, dest, acm_resolve_sa_resp);
 			if (status)
 				break;
