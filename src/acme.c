@@ -121,6 +121,14 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "route_prot sa\n");
 	fprintf(f, "\n");
+	fprintf(f, "# loopback_prot:\n");
+	fprintf(f, "# Address and route resolution protocol to resolve local addresses\n");
+	fprintf(f, "# Supported protocols are:\n");
+	fprintf(f, "# none - Use same protocols defined for addr_prot and route_prot\n");
+	fprintf(f, "# local - Resolve information used locally available data\n");
+	fprintf(f, "\n");
+	fprintf(f, "loopback_prot local\n");
+	fprintf(f, "\n");
 	fprintf(f, "# server_port:\n");
 	fprintf(f, "# TCP port number that the server listens on.\n");
 	fprintf(f, "# If this value is changed, then a corresponding change is required for\n");

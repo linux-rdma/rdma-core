@@ -69,6 +69,12 @@ enum acm_route_prot
 	ACM_ROUTE_PROT_SA
 };
 
+enum acm_loopback_prot
+{
+	ACM_LOOPBACK_PROT_NONE,
+	ACM_LOOPBACK_PROT_LOCAL
+};
+
 /*
  * Nested locking order: dest -> ep, dest -> port
  */
@@ -204,6 +210,7 @@ static char log_file[128] = "stdout";
 static int log_level = 0;
 static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
 static enum acm_route_prot route_prot = ACM_ROUTE_PROT_ACM;
+static enum acm_loopback_prot loopback_prot = ACM_LOOPBACK_PROT_LOCAL;
 static short server_port = 6125;
 static int timeout = 2000;
 static int retries = 15;
@@ -2133,6 +2140,16 @@ static enum acm_route_prot acm_convert_route_prot(char *param)
 	return route_prot;
 }
 
+static enum acm_loopback_prot acm_convert_loopback_prot(char *param)
+{
+	if (!stricmp("none", param))
+		return ACM_LOOPBACK_PROT_NONE;
+	else if (!stricmp("local", param))
+		return ACM_LOOPBACK_PROT_LOCAL;
+
+	return loopback_prot;
+}
+
 static enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed)
 {
 	switch (width) {
@@ -2294,6 +2311,43 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 	return !index;
 }
 
+static int acm_init_ep_loopback(struct acm_ep *ep)
+{
+	struct acm_dest *dest;
+	int i;
+
+	acm_log(2, "\n");
+	if (loopback_prot != ACM_LOOPBACK_PROT_LOCAL)
+		return 0;
+
+	for (i = 0; i < MAX_EP_ADDR && ep->addr_type[i]; i++) {
+		dest = acm_acquire_dest(ep, ep->addr_type[i], ep->addr[i].addr);
+		if (!dest) {
+			acm_format_name(0, log_data, sizeof log_data,
+					ep->addr_type[i], ep->addr[i].addr,
+					sizeof ep->addr[i].addr);
+			acm_log(0, "ERROR - unable to create loopback dest %s\n", log_data);
+			return -1;
+		}
+
+		ibv_query_gid(ep->port->dev->verbs, ep->port->port_num,
+			      0, &dest->path.sgid);
+
+		dest->path.dgid = dest->path.sgid;
+		dest->path.dlid = dest->path.slid = htons(ep->port->lid);
+		dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE;
+		dest->path.pkey = htons(ep->pkey);
+		dest->path.mtu = (uint8_t) ep->port->mtu;
+		dest->path.rate = (uint8_t) ep->port->rate;
+
+		dest->remote_qpn = ep->qp->qp_num;
+		dest->state = ACM_READY;
+		acm_put_dest(dest);
+		acm_log(1, "added loopback dest %s\n", dest->name);
+	}
+	return 0;
+}
+
 static int acm_activate_ep(struct acm_port *port, struct acm_ep *ep, uint16_t pkey_index)
 {
 	struct ibv_qp_init_attr init_attr;
@@ -2383,6 +2437,11 @@ static int acm_activate_ep(struct acm_port *port, struct acm_ep *ep, uint16_t pk
 	if (ret)
 		goto err2;
 
+	ret = acm_init_ep_loopback(ep);
+	if (ret) {
+		acm_log(0, "ERROR - unable to init loopback\n");
+		goto err2;
+	}
 	return 0;
 
 err2:
@@ -2599,6 +2658,8 @@ static void acm_set_options(void)
 			addr_prot = acm_convert_addr_prot(value);
 		else if (!stricmp("route_prot", opt))
 			route_prot = acm_convert_route_prot(value);
+		else if (!stricmp("loopback_prot", opt))
+			loopback_prot = acm_convert_loopback_prot(value);
 		else if (!stricmp("server_port", opt))
 			server_port = (short) atoi(value);
 		else if (!stricmp("timeout", opt))
@@ -2627,6 +2688,7 @@ static void acm_log_options(void)
 	acm_log(0, "log level %d\n", log_level);
 	acm_log(0, "address resolution %d\n", addr_prot);
 	acm_log(0, "route resolution %d\n", route_prot);
+	acm_log(0, "loopback resolution %d\n", loopback_prot);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "timeout %d ms\n", timeout);
 	acm_log(0, "retries %d\n", retries);
