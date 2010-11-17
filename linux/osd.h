@@ -148,6 +148,7 @@ static inline uint64_t time_stamp_us(void)
 
 #define time_stamp_ms() (time_stamp_us() / 1000)
 
+#define PER_THREAD __thread
 static inline int beginthread(void (*func)(void *), void *arg)
 {
 	pthread_t thread;

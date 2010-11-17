@@ -84,6 +84,7 @@ static __inline UINT64 time_stamp_us(void)
 #define time_stamp_ms() (time_stamp_us() * 1000)
 
 #define getpid() ((int) GetCurrentProcessId())
+#define PER_THREAD __declspec(thread)
 #define beginthread(func, arg)	(int) _beginthread(func, 0, arg)
 #define container_of CONTAINING_RECORD
 
