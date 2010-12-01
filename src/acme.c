@@ -101,7 +101,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Indicates the amount of detailed data written to the log file.  Log levels\n");
 	fprintf(f, "# should be one of the following values:\n");
 	fprintf(f, "# 0 - basic configuration & errors\n");
-	fprintf(f, "# 1 - verbose configuation & errors\n");
+	fprintf(f, "# 1 - verbose configuration & errors\n");
 	fprintf(f, "# 2 - verbose operation\n");
 	fprintf(f, "\n");
 	fprintf(f, "log_level 0\n");
@@ -147,7 +147,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Number of times that the ACM service will retry a request.  This affects\n");
 	fprintf(f, "# both ACM multicast messages and and IB SA messages.\n");
 	fprintf(f, "\n");
-	fprintf(f, "retries 15\n");
+	fprintf(f, "retries 2\n");
 	fprintf(f, "\n");
 	fprintf(f, "# resolve_depth:\n");
 	fprintf(f, "# Specifies the maximum number of outstanding requests that can be in\n");
