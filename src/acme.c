@@ -194,7 +194,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "min_mtu 2048\n");
 	fprintf(f, "\n");
-	fprintf(f, "#min_rate:\n");
+	fprintf(f, "# min_rate:\n");
 	fprintf(f, "# Indicates the minimum link rate, in Gbps, supported by the ACM service.\n");
 	fprintf(f, "# The ACM service negotiates to use the highest rate available between both\n");
 	fprintf(f, "# sides of a connection.  It is most efficient and recommended that the\n");
