@@ -34,6 +34,7 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -63,11 +64,22 @@ struct ib_connect_hdr {
 #define cma_dst_ip6 dst_addr[0]
 };
 
+static void ucma_set_server_port(void)
+{
+	FILE *f;
+
+	if ((f = fopen("/var/run/ibacm.port", "r"))) {
+		fscanf(f, "%hu", (unsigned short *) &server_port);
+		fclose(f);
+	}
+}
+
 void ucma_ib_init(void)
 {
 	struct sockaddr_in addr;
 	int ret;
 
+	ucma_set_server_port();
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock < 0)
 		return;
