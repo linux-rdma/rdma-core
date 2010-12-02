@@ -36,8 +36,10 @@
 #include <string.h>
 #include <osd.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <fcntl.h>
 #include <infiniband/acm.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
@@ -208,6 +210,7 @@ static char *opts_file = "/etc/ibacm/acm_opts.cfg";
 static char *addr_file = "/etc/ibacm/acm_addr.cfg";
 static char log_file[128] = "stdout";
 static int log_level = 0;
+static char lock_file[128] = "/var/lock/ibacm.pid";
 static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
 static enum acm_route_prot route_prot = ACM_ROUTE_PROT_ACM;
 static enum acm_loopback_prot loopback_prot = ACM_LOOPBACK_PROT_LOCAL;
@@ -2654,6 +2657,8 @@ static void acm_set_options(void)
 			strcpy(log_file, value);
 		else if (!stricmp("log_level", opt))
 			log_level = atoi(value);
+		else if (!stricmp("lock_file", opt))
+			strcpy(lock_file, value);
 		else if (!stricmp("addr_prot", opt))
 			addr_prot = acm_convert_addr_prot(value);
 		else if (!stricmp("route_prot", opt))
@@ -2686,6 +2691,7 @@ static void acm_set_options(void)
 static void acm_log_options(void)
 {
 	acm_log(0, "log level %d\n", log_level);
+	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "address resolution %d\n", addr_prot);
 	acm_log(0, "route resolution %d\n", route_prot);
 	acm_log(0, "loopback resolution %d\n", loopback_prot);
@@ -2714,6 +2720,25 @@ static FILE *acm_open_log(void)
 		f = stdout;
 
 	return f;
+}
+
+static int acm_open_lock_file(void)
+{
+	int lock_fd;
+	char pid[16];
+
+	lock_fd = open(lock_file, O_RDWR | O_CREAT, 0640);
+	if (lock_fd < 0)
+		return lock_fd;
+
+	if (lockf(lock_fd, F_TLOCK, 0)) {
+		close(lock_fd);
+		return -1;
+	}
+
+	sprintf(pid, "%d\n", getpid());
+	write(lock_fd, pid, strlen(pid));
+	return 0;
 }
 
 static void daemonize(void)
@@ -2778,6 +2803,8 @@ int CDECL_FUNC main(int argc, char **argv)
 		return -1;
 
 	acm_set_options();
+	if (acm_open_lock_file())
+		return -1;
 
 	lock_init(&log_lock);
 	flog = acm_open_log();

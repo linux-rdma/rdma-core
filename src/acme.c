@@ -106,6 +106,12 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "log_level 0\n");
 	fprintf(f, "\n");
+	fprintf(f, "# lock_file:\n");
+	fprintf(f, "# Specifies the location of the ACM lock file used to ensure that only a\n");
+	fprintf(f, "# single instance of ACM is running.\n");
+	fprintf(f, "\n");
+	fprintf(f, "lock_file /var/lock/ibacm.pid\n");
+	fprintf(f, "\n");
 	fprintf(f, "# addr_prot:\n");
 	fprintf(f, "# Default resolution protocol to resolve IP addresses into IB GIDs.\n");
 	fprintf(f, "# Supported protocols are:\n");
