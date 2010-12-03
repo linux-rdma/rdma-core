@@ -34,6 +34,7 @@
 
 extern struct ibv_context **verbs;
 extern int dev_cnt;
+extern int verbose;
 
 int gen_addr_ip(FILE *f)
 {
@@ -77,8 +78,10 @@ int gen_addr_ip(FILE *f)
 
 		for (i = 0; i < dev_cnt; i++) {
 			if (devaddr.DeviceGuid == ibv_get_device_guid(verbs[i]->device)) {
-				printf("%s %s %d 0x%x\n", ip, verbs[i]->device->name,
-					devaddr.PortNumber, ntohs(devaddr.Pkey));
+				if (verbose) {
+					printf("%s %s %d 0x%x\n", ip, verbs[i]->device->name,
+					       devaddr.PortNumber, ntohs(devaddr.Pkey));
+				}
 				fprintf(f, "%s %s %d 0x%x\n", ip, verbs[i]->device->name,
 					devaddr.PortNumber, ntohs(devaddr.Pkey));
 			}

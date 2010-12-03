@@ -43,6 +43,7 @@
 
 extern struct ibv_context **verbs;
 extern int dev_cnt;
+extern int verbose;
 
 
 static int
@@ -202,7 +203,8 @@ int gen_addr_ip(FILE *f)
 		if (ret)
 			continue;
 
-		printf("%s %s %d 0x%x\n", ip, verbs[dev_index]->device->name, port, pkey);
+		if (verbose)
+			printf("%s %s %d 0x%x\n", ip, verbs[dev_index]->device->name, port, pkey);
 		fprintf(f, "%s %s %d 0x%x\n", ip, verbs[dev_index]->device->name, port, pkey);
 	}
 	ret = 0;

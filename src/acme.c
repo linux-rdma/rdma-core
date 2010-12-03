@@ -53,11 +53,14 @@ static char addr_type = 'i';
 static int verify;
 static int make_addr;
 static int make_opts;
+int verbose;
 
 struct ibv_context **verbs;
 int dev_cnt;
 
 extern int gen_addr_ip(FILE *f);
+
+#define VPRINT(format, ...) do { if (verbose) printf(format, ## __VA_ARGS__ ); } while (0)
 
 static void show_usage(char *program)
 {
@@ -74,6 +77,7 @@ static void show_usage(char *program)
 	printf("                      (default is %s)\n", ACM_OPTS_FILE);
 	printf("   -D dest_dir      - specify destination directory for output files\n");
 	printf("                      (default is %s)\n", ACM_DEST_DIR);
+	printf("   -V               - enable verbose output\n");
 }
 
 static void gen_opts_temp(FILE *f)
@@ -224,7 +228,7 @@ static int gen_opts(void)
 {
 	FILE *f;
 
-	printf("Generating %s/%s\n", dest_dir, opts_file);
+	VPRINT("Generating %s/%s\n", dest_dir, opts_file);
 	if (open_dir() || !(f = fopen(opts_file, "w"))) {
 		printf("Failed to open option configuration file: %s\n", strerror(errno));
 		return -1;
@@ -336,7 +340,7 @@ static int gen_addr_names(FILE *f)
 			if (!found_active) {
 				ret = ibv_query_port(verbs[i], p, &port_attr);
 				if (!ret && port_attr.state == IBV_PORT_ACTIVE) {
-					printf("%s %s %d default\n",
+					VPRINT("%s %s %d default\n",
 						host_name, verbs[i]->device->name, p);
 					fprintf(f, "%s %s %d default\n",
 						host_name, verbs[i]->device->name, p);
@@ -344,7 +348,7 @@ static int gen_addr_names(FILE *f)
 				}
 			}
 
-			printf("%s-%d %s %d default\n",
+			VPRINT("%s-%d %s %d default\n",
 				host_name, index, verbs[i]->device->name, p);
 			fprintf(f, "%s-%d %s %d default\n",
 				host_name, index++, verbs[i]->device->name, p);
@@ -359,7 +363,7 @@ static int gen_addr(void)
 	FILE *f;
 	int ret;
 
-	printf("Generating %s/%s\n", dest_dir, addr_file);
+	VPRINT("Generating %s/%s\n", dest_dir, addr_file);
 	if (open_dir() || !(f = fopen(addr_file, "w"))) {
 		printf("Failed to open address configuration file: %s\n", strerror(errno));
 		return -1;
@@ -546,7 +550,7 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (ret)
 		goto out;
 
-	while ((op = getopt(argc, argv, "f:s:d:vA::O::D:")) != -1) {
+	while ((op = getopt(argc, argv, "f:s:d:vA::O::D:V")) != -1) {
 		switch (op) {
 		case 'f':
 			addr_type = optarg[0];
@@ -573,6 +577,9 @@ int CDECL_FUNC main(int argc, char **argv)
 		case 'D':
 			dest_dir = optarg;
 			break;
+		case 'V':
+			verbose = 1;
+			break;
 		default:
 			show_usage(argv[0]);
 			exit(1);
@@ -595,6 +602,7 @@ int CDECL_FUNC main(int argc, char **argv)
 		ret = gen_opts();
 
 out:
-	printf("return status 0x%x\n", ret);
+	if (verbose || !(make_addr || make_opts) || ret)
+		printf("return status 0x%x\n", ret);
 	return ret;
 }

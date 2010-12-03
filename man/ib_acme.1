@@ -1,4 +1,4 @@
-.TH "ib_acme" 7 "2009-09-09" "ib_acme" "ib_acme" ib_acme
+.TH "ib_acme" 7 "2010-12-06" "ib_acme" "ib_acme" ib_acme
 .SH NAME
 ib_acme \- test and configuration utility for the IB ACM
 .SH SYNOPSIS
@@ -47,6 +47,11 @@ assigned to IPoIB device instances.
 With this option, the ib_acme utility automatically generates the option
 configuration file acm_opts.cfg.  The generated file is currently generated
 using static information.
+.TP
+\-V
+Enables verbose output.  When combined with -A or -O options, ib_acme will
+display additional details, such as generated address information saved
+to the acm_addr.cfg file.
 .SH "NOTES"
 The ib_acme utility performs two main functions.  With the -A and -O options,
 it automatically generates address or options configuration files.  The
