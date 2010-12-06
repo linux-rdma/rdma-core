@@ -51,6 +51,7 @@
 #define ACM_STATUS_EDESTTYPE    10
 
 #define ACM_FLAGS_QUERY_SA      (1<<31)
+#define ACM_FLAGS_NODELAY	(1<<30)
 
 #define ACM_MSG_HDR_LENGTH      16
 #define ACM_MAX_ADDRESS         64

@@ -143,7 +143,7 @@ err:
 }
 
 static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
-	struct ibv_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count, uint32_t flags)
 {
 	struct acm_msg msg;
 	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
@@ -162,7 +162,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	src_data->type   = type;
 	src_data->flags  = ACM_EP_FLAG_SOURCE;
 	dest_data->type  = type;
-	dest_data->flags = ACM_EP_FLAG_DEST;
+	dest_data->flags = ACM_EP_FLAG_DEST | flags;
 
 	switch (type) {
 	case ACM_EP_INFO_NAME:
@@ -202,21 +202,21 @@ out:
 }
 
 int ib_acm_resolve_name(char *src, char *dest,
-	struct ibv_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count, uint32_t flags)
 {
 	return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-		ACM_EP_INFO_NAME, paths, count);
+		ACM_EP_INFO_NAME, paths, count, flags);
 }
 
 int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
-	struct ibv_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count, uint32_t flags)
 {
 	if (((struct sockaddr *) dest)->sa_family == AF_INET) {
 		return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-			ACM_EP_INFO_ADDRESS_IP, paths, count);
+			ACM_EP_INFO_ADDRESS_IP, paths, count, flags);
 	} else {
 		return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-			ACM_EP_INFO_ADDRESS_IP6, paths, count);
+			ACM_EP_INFO_ADDRESS_IP6, paths, count, flags);
 	}
 }
 

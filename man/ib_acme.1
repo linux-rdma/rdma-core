@@ -37,6 +37,10 @@ Indicates that the resolved path information should be verified with the
 active IB SA.  Use of the -v option provides a sanity check that
 resolved path information is usable given the current cluster configuration.
 .TP
+\-c
+Instructs the ACM service to only returned information that currently resides
+in its local cache.
+.TP
 \-A
 With this option, the ib_acme utility automatically generates the address
 configuration file acm_addr.cfg.  The generated file is

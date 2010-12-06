@@ -33,8 +33,8 @@ int libacm_init();
 void libacm_cleanup();
 
 int ib_acm_resolve_name(char *src, char *dest,
-	struct ibv_path_data **paths, int *count);
+	struct ibv_path_data **paths, int *count, uint32_t flags);
 int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
-	struct ibv_path_data **paths, int *count);
+	struct ibv_path_data **paths, int *count, uint32_t flags);
 int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags);
 #define ib_acm_free_paths(paths) free(paths)

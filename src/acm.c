@@ -1914,8 +1914,7 @@ acm_svr_verify_resolve(struct acm_resolve_msg *msg,
 
 	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
 	for (i = 0; i < cnt; i++) {
-		switch (msg->data[i].flags) {
-		case ACM_EP_FLAG_SOURCE:
+		if (msg->data[i].flags & ACM_EP_FLAG_SOURCE) {
 			if (src) {
 				acm_log(0, "ERROR - multiple sources specified\n");
 				return ACM_STATUS_ESRCADDR;
@@ -1925,8 +1924,8 @@ acm_svr_verify_resolve(struct acm_resolve_msg *msg,
 				return ACM_STATUS_ESRCTYPE;
 			}
 			src = &msg->data[i];
-			break;
-		case ACM_EP_FLAG_DEST:
+		}
+		if (msg->data[i].flags & ACM_EP_FLAG_DEST) {
 			if (dst) {
 				acm_log(0, "ERROR - multiple destinations specified\n");
 				return ACM_STATUS_EDESTADDR;
@@ -1936,11 +1935,6 @@ acm_svr_verify_resolve(struct acm_resolve_msg *msg,
 				return ACM_STATUS_EDESTTYPE;
 			}
 			dst = &msg->data[i];
-			break;
-		default:
-			acm_log(0, "ERROR - unexpected endpoint flags 0x%x\n",
-				msg->data[i].flags);
-			return ACM_STATUS_EINVAL;
 		}
 	}
 
@@ -2040,6 +2034,11 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 		/* fall through */
 	default:
 queue:
+		if (daddr->flags & ACM_FLAGS_NODELAY) {
+			acm_log(2, "lookup initiated, but client wants no delay\n");
+			status = ACM_STATUS_ENODATA;
+			break;
+		}
 		status = acm_svr_queue_req(dest, client, msg);
 		if (status) {
 			break;

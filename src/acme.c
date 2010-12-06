@@ -51,6 +51,7 @@ static char *dest_addr;
 static char *src_addr;
 static char addr_type = 'i';
 static int verify;
+static int nodelay;
 static int make_addr;
 static int make_opts;
 int verbose;
@@ -70,6 +71,7 @@ static void show_usage(char *program)
 	printf("   -s src_addr      - format defined by -f option\n");
 	printf("   -d dest_addr     - format defined by -f option\n");
 	printf("   [-v]             - verify ACM response against SA query response\n");
+	printf("   [-c]             - read ACM cached data only\n");
 	printf("usage 2: %s\n", program);
 	printf("   -A [addr_file]   - generate local address configuration file\n");
 	printf("                      (default is %s)\n", ACM_ADDR_FILE);
@@ -418,6 +420,16 @@ static void show_path(struct ibv_path_record *path)
 	printf("  packet lifetime: %d\n", path->packetlifetime & 0x1F);
 }
 
+static uint32_t get_resolve_flags()
+{
+	uint32_t flags = 0;
+
+	if (nodelay)
+		flags |= ACM_FLAGS_NODELAY;
+
+	return flags;
+}
+
 static int resolve_ip(struct ibv_path_record *path)
 {
 	struct ibv_path_data *paths;
@@ -439,7 +451,7 @@ static int resolve_ip(struct ibv_path_record *path)
 	}
 
 	ret = ib_acm_resolve_ip((struct sockaddr *) &src, (struct sockaddr *) &dest,
-		&paths, &count);
+		&paths, &count, get_resolve_flags());
 	if (ret) {
 		printf("ib_acm_resolve_ip failed: 0x%x\n", ret);
 		return ret;
@@ -455,7 +467,7 @@ static int resolve_name(struct ibv_path_record *path)
 	struct ibv_path_data *paths;
 	int ret, count;
 
-	ret = ib_acm_resolve_name(src_addr, dest_addr, &paths, &count);
+	ret = ib_acm_resolve_name(src_addr, dest_addr, &paths, &count, get_resolve_flags());
 	if (ret) {
 		printf("ib_acm_resolve_name failed: 0x%x\n", ret);
 		return ret;
@@ -550,7 +562,7 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (ret)
 		goto out;
 
-	while ((op = getopt(argc, argv, "f:s:d:vA::O::D:V")) != -1) {
+	while ((op = getopt(argc, argv, "f:s:d:vcA::O::D:V")) != -1) {
 		switch (op) {
 		case 'f':
 			addr_type = optarg[0];
@@ -563,6 +575,9 @@ int CDECL_FUNC main(int argc, char **argv)
 			break;
 		case 'v':
 			verify = 1;
+			break;
+		case 'c':
+			nodelay = 1;
 			break;
 		case 'A':
 			make_addr = 1;
