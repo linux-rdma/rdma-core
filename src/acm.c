@@ -869,7 +869,7 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_resolve_msg *req_m
 	struct acm_resolve_msg *resp_msg = (struct acm_resolve_msg *) &msg;
 	int ret;
 
-	acm_log(1, "client %d, status 0x%x\n", client->index, status);
+	acm_log(2, "client %d, status 0x%x\n", client->index, status);
 	memset(&msg, 0, sizeof msg);
 
 	lock_acquire(&client->lock);
@@ -901,7 +901,7 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_resolve_msg *req_m
 
 	ret = send(client->sock, (char *) resp_msg, resp_msg->hdr.length, 0);
 	if (ret != resp_msg->hdr.length)
-		acm_log(0, "failed to send response\n");
+		acm_log(0, "ERROR - failed to send response\n");
 	else
 		ret = 0;
 
@@ -950,7 +950,7 @@ acm_dest_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *ma
 
 	lock_acquire(&dest->lock);
 	if (dest->state != ACM_QUERY_ROUTE) {
-		acm_log(2, "discarding SA response\n");
+		acm_log(1, "notice - discarding SA response\n");
 		lock_release(&dest->lock);
 		return;
 	}
@@ -1131,7 +1131,7 @@ static void acm_process_acm_recv(struct acm_ep *ep, struct ibv_wc *wc, struct ac
 		acm_log(2, "received response\n");
 		req = acm_get_request(ep, mad->tid, &free);
 		if (!req) {
-			acm_log(0, "response did not match active request\n");
+			acm_log(1, "notice - response did not match active request\n");
 			return;
 		}
 		acm_log(2, "found matching request\n");
@@ -1150,7 +1150,7 @@ acm_client_query_resp(struct acm_client *client,
 {
 	int ret;
 
-	acm_log(1, "status 0x%x\n", status);
+	acm_log(2, "status 0x%x\n", status);
 	lock_acquire(&client->lock);
 	if (client->sock == INVALID_SOCKET) {
 		acm_log(0, "ERROR - connection lost\n");
@@ -1163,7 +1163,7 @@ acm_client_query_resp(struct acm_client *client,
 
 	ret = send(client->sock, (char *) msg, msg->hdr.length, 0);
 	if (ret != msg->hdr.length)
-		acm_log(0, "failed to send response\n");
+		acm_log(0, "ERROR - failed to send response\n");
 	else
 		ret = 0;
 
@@ -1209,7 +1209,7 @@ static void acm_process_sa_recv(struct acm_ep *ep, struct ibv_wc *wc, struct acm
 	
 	req = acm_get_request(ep, mad->tid, &free);
 	if (!req) {
-		acm_log(0, "response did not match active request\n");
+		acm_log(1, "notice - response did not match active request\n");
 		return;
 	}
 	acm_log(2, "found matching request\n");
@@ -1518,7 +1518,7 @@ static void acm_process_timeouts(void)
 
 		acm_format_name(0, log_data, sizeof log_data,
 				rec->dest_type, rec->dest, sizeof rec->dest);
-		acm_log(0, "dest %s\n", log_data);
+		acm_log(0, "notice - dest %s\n", log_data);
 		msg->resp_handler(msg, NULL, NULL);
 	}
 }
@@ -1536,11 +1536,11 @@ static void acm_process_wait_queue(struct acm_ep *ep, uint64_t *next_expire)
 			DListRemove(entry);
 			(void) atomic_dec(&wait_cnt);
 			if (--msg->tries) {
-				acm_log(2, "retrying request\n");
+				acm_log(1, "notice - retrying request\n");
 				DListInsertTail(&msg->entry, &ep->active_queue);
 				ibv_post_send(ep->qp, &msg->wr, &bad_wr);
 			} else {
-				acm_log(0, "failing request\n");
+				acm_log(0, "notice - failing request\n");
 				acm_send_available(ep, msg->req_queue);
 				DListInsertTail(&msg->entry, &timeout_list);
 			}
@@ -1665,7 +1665,7 @@ static void acm_svr_accept(void)
 	}
 
 	if (i == FD_SETSIZE - 1) {
-		acm_log(0, "all connections busy - rejecting\n");
+		acm_log(0, "ERROR - all connections busy - rejecting\n");
 		closesocket(s);
 		return;
 	}
@@ -1741,7 +1741,7 @@ acm_get_ep(struct acm_ep_addr_data *data)
 
 	acm_format_name(0, log_data, sizeof log_data,
 			data->type, data->info.addr, sizeof data->info.addr);
-	acm_log(0, "could not find %s\n", log_data);
+	acm_log(1, "notice - could not find %s\n", log_data);
 	return NULL;
 }
 
@@ -1767,7 +1767,7 @@ acm_svr_query(struct acm_client *client, struct acm_resolve_msg *msg)
 
 	ep = acm_get_ep(&msg->data[0]);
 	if (!ep) {
-		acm_log(0, "could not find local end point\n");
+		acm_log(1, "notice - could not find local end point\n");
 		status = ACM_STATUS_ESRCADDR;
 		goto resp;
 	}
@@ -1979,13 +1979,13 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 	acm_log(2, "client %d\n", client->index);
 	status = acm_svr_verify_resolve(msg, &saddr, &daddr);
 	if (status) {
-		acm_log(0, "misformatted or unsupported request\n");
+		acm_log(0, "notice - misformatted or unsupported request\n");
 		return acm_client_resolve_resp(client, msg, NULL, status);
 	}
 
 	status = acm_svr_select_src(saddr, daddr);
 	if (status) {
-		acm_log(0, "unable to select suitable source address\n");
+		acm_log(0, "notice - unable to select suitable source address\n");
 		return acm_client_resolve_resp(client, msg, NULL, status);
 	}
 
@@ -1994,7 +1994,7 @@ acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
 	acm_log(2, "src  %s\n", log_data);
 	ep = acm_get_ep(saddr);
 	if (!ep) {
-		acm_log(0, "unknown local end point\n");
+		acm_log(0, "notice - unknown local end point\n");
 		return acm_client_resolve_resp(client, msg, NULL, ACM_STATUS_ESRCADDR);
 	}
 
