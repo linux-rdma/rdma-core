@@ -57,6 +57,16 @@ extern lock_t lock;
 static SOCKET sock = INVALID_SOCKET;
 static short server_port = 6125;
 
+static void acm_set_server_port(void)
+{
+	FILE *f;
+
+	if ((f = fopen("/var/run/ibacm.port", "r"))) {
+		fscanf(f, "%hu", (unsigned short *) &server_port);
+		fclose(f);
+	}
+}
+
 int libacm_init(void)
 {
 	struct sockaddr_in addr;
@@ -66,6 +76,7 @@ int libacm_init(void)
 	if (ret)
 		return ret;
 
+	acm_set_server_port();
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == INVALID_SOCKET) {
 		ret = socket_errno();

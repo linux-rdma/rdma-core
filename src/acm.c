@@ -1597,6 +1597,7 @@ static void CDECL_FUNC acm_retry_handler(void *context)
 
 static void acm_init_server(void)
 {
+	FILE *f;
 	int i;
 
 	for (i = 0; i < FD_SETSIZE - 1; i++) {
@@ -1605,6 +1606,13 @@ static void acm_init_server(void)
 		client[i].sock = INVALID_SOCKET;
 		atomic_init(&client[i].refcnt);
 	}
+
+	if (!(f = fopen("/var/run/ibacm.port", "w"))) {
+		acm_log(0, "notice - cannot publish ibacm port number\n");
+		return;
+	}
+	fprintf(f, "%hu\n", server_port);
+	fclose(f);
 }
 
 static int acm_listen(void)
