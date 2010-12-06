@@ -292,6 +292,8 @@ void ucma_ib_resolve(struct rdma_addrinfo *rai, struct rdma_addrinfo *hints)
 
 	if (rai->ai_dst_len) {
 		data->flags = ACM_EP_FLAG_DEST;
+		if (rai->ai_flags & (RAI_NUMERICHOST | RAI_NOROUTE))
+			data->flags |= ACM_FLAGS_NODELAY;
 		ucma_copy_rai_addr(data, rai->ai_dst_addr);
 		data++;
 		msg.hdr.length += ACM_MSG_EP_LENGTH;
