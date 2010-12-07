@@ -5,7 +5,7 @@ AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 bin_PROGRAMS = util/ib_acme
 sbin_PROGRAMS = svc/ib_acm
 svc_ib_acm_SOURCES = src/acm.c
-util_ib_acme_SOURCES = src/acme.c linux/acme_linux.c src/libacm.c linux/libacm_linux.c
+util_ib_acme_SOURCES = src/acme.c linux/acme_linux.c src/libacm.c linux/libacm_linux.c src/parse.c
 svc_ib_acm_CFLAGS = $(AM_CFLAGS)
 util_ib_acme_CFLAGS = $(AM_CFLAGS)
 

@@ -70,5 +70,11 @@ network names, or IB LIDs into a path record.  It can then compare that
 path record against one obtained by the SA.  When used to test the
 ib_acm service, the ib_acme utility has the side effect of loading the
 ib_acm caches.
+.P
+Multiple, numerical destinations can be specified by adding brackets [] to
+the end of a base destination name or address.  Users may specify a list of
+numerical ranges inside the brackets using the following example as a
+guide: node[1-3,5,7-8].  This will result in testing node1, node2, node3,
+node5, node7, and node8.   
 .SH "SEE ALSO"
 ib_acm(7) ib_acm(1)

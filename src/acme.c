@@ -60,6 +60,7 @@ struct ibv_context **verbs;
 int dev_cnt;
 
 extern int gen_addr_ip(FILE *f);
+extern char **parse(char *args, int *count);
 
 #define VPRINT(format, ...) do { if (verbose) printf(format, ## __VA_ARGS__ ); } while (0)
 
@@ -512,10 +513,11 @@ static int verify_resolve(struct ibv_path_record *path)
 	return ret;
 }
 
-static int resolve(char *program)
+static int resolve(char *program, char *dest_arg)
 {
+	char **dest_list;
 	struct ibv_path_record path;
-	int ret;
+	int ret, i = 0;
 
 	ret = libacm_init();
 	if (ret) {
@@ -523,28 +525,39 @@ static int resolve(char *program)
 		return ret;
 	}
 
-	switch (addr_type) {
-	case 'i':
-		ret = resolve_ip(&path);
-		break;
-	case 'n':
-		ret = resolve_name(&path);
-		break;
-	case 'l':
-		memset(&path, 0, sizeof path);
-		ret = resolve_lid(&path);
-		break;
-	default:
-		show_usage(program);
-		exit(1);
+	dest_list = parse(dest_arg, NULL);
+	if (!dest_list) {
+		printf("Unable to parse destination argument\n");
+		return -1;
 	}
 
-	if (!ret)
-		show_path(&path);
+	for (dest_addr = dest_list[i]; dest_addr; dest_addr = dest_list[++i]) {
+		printf("Destination: %s\n", dest_addr);
+		switch (addr_type) {
+		case 'i':
+			ret = resolve_ip(&path);
+			break;
+		case 'n':
+			ret = resolve_name(&path);
+			break;
+		case 'l':
+			memset(&path, 0, sizeof path);
+			ret = resolve_lid(&path);
+			break;
+		default:
+			show_usage(program);
+			exit(1);
+		}
 
-	if (verify)
-		ret = verify_resolve(&path);
+		if (!ret)
+			show_path(&path);
 
+		if (verify)
+			ret = verify_resolve(&path);
+		printf("\n");
+	}
+
+	free(dest_list);
 	libacm_cleanup();
 	return ret;
 }
@@ -562,6 +575,7 @@ char *opt_arg(int argc, char **argv)
 
 int CDECL_FUNC main(int argc, char **argv)
 {
+	char *dest_arg = NULL;
 	int op, ret;
 
 	ret = osd_init();
@@ -577,7 +591,7 @@ int CDECL_FUNC main(int argc, char **argv)
 			src_addr = optarg;
 			break;
 		case 'd':
-			dest_addr = optarg;
+			dest_arg = optarg;
 			break;
 		case 'v':
 			verify = 1;
@@ -607,14 +621,14 @@ int CDECL_FUNC main(int argc, char **argv)
 		}
 	}
 
-	if ((src_addr && !dest_addr) ||
-	    (!src_addr && !dest_addr && !make_addr && !make_opts)) {
+	if ((src_addr && !dest_arg) ||
+	    (!src_addr && !dest_arg && !make_addr && !make_opts)) {
 		show_usage(argv[0]);
 		exit(1);
 	}
 
-	if (dest_addr)
-		ret = resolve(argv[0]);
+	if (dest_arg)
+		ret = resolve(argv[0], dest_arg);
 
 	if (!ret && make_addr)
 		ret = gen_addr();
