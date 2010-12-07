@@ -35,6 +35,7 @@
 #include "libacm.h"
 #include <infiniband/acm.h>
 #include <stdio.h>
+#include <errno.h>
 
 struct acm_port
 {
@@ -182,6 +183,38 @@ static int acm_format_ep_addr(struct acm_ep_addr_data *data, uint8_t *addr,
 
 	return 0;
 }
+
+static inline int ERR(int err)
+{
+	errno = err;
+	return -1;
+}
+
+static int acm_error(uint8_t status)
+{
+	switch (status) {
+	case ACM_STATUS_SUCCESS:
+		return 0;
+	case ACM_STATUS_ENOMEM:
+		return ERR(ENOMEM);
+	case ACM_STATUS_EINVAL:
+		return ERR(EINVAL);
+	case ACM_STATUS_ENODATA:
+		return ERR(ENODATA);
+	case ACM_STATUS_ENOTCONN:
+		return ERR(ENOTCONN);
+	case ACM_STATUS_ETIMEDOUT:
+		return ERR(ETIMEDOUT);
+	case ACM_STATUS_ESRCADDR:
+	case ACM_STATUS_EDESTADDR:
+		return ERR(EADDRNOTAVAIL);
+	case ACM_STATUS_ESRCTYPE:
+	case ACM_STATUS_EDESTTYPE:
+	default:
+		return ERR(EINVAL);
+	}
+}
+
 static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	struct ibv_path_data **paths, int *count, uint32_t flags)
 {
@@ -217,7 +250,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 		goto out;
 
 	if (msg.hdr.status) {
-		ret = msg.hdr.status;
+		ret = acm_error(msg.hdr.status);
 		goto out;
 	}
 
@@ -271,7 +304,7 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 	if (ret < ACM_MSG_HDR_LENGTH || ret != msg.hdr.length)
 		goto out;
 
-	ret = msg.hdr.status;
+	ret = acm_error(msg.hdr.status);
 	if (!ret)
 		*path = data->info.path;
 

@@ -459,7 +459,7 @@ static int resolve_ip(struct ibv_path_record *path)
 	ret = ib_acm_resolve_ip(saddr, (struct sockaddr *) &dest,
 		&paths, &count, get_resolve_flags());
 	if (ret) {
-		printf("ib_acm_resolve_ip failed: 0x%x\n", ret);
+		printf("ib_acm_resolve_ip failed: %s\n", strerror(errno));
 		return ret;
 	}
 
@@ -475,7 +475,7 @@ static int resolve_name(struct ibv_path_record *path)
 
 	ret = ib_acm_resolve_name(src_addr, dest_addr, &paths, &count, get_resolve_flags());
 	if (ret) {
-		printf("ib_acm_resolve_name failed: 0x%x\n", ret);
+		printf("ib_acm_resolve_name failed: %s\n", strerror(errno));
 		return ret;
 	}
 
@@ -494,7 +494,7 @@ static int resolve_lid(struct ibv_path_record *path)
 
 	ret = ib_acm_resolve_path(path, 0);
 	if (ret)
-		printf("ib_acm_resolve_path failed: 0x%x\n", ret);
+		printf("ib_acm_resolve_path failed: %s\n", strerror(errno));
 
 	return ret;
 }
@@ -505,7 +505,7 @@ static int verify_resolve(struct ibv_path_record *path)
 
 	ret = ib_acm_resolve_path(path, ACM_FLAGS_QUERY_SA);
 	if (ret)
-		printf("SA verification: failed 0x%x\n", ret);
+		printf("SA verification: failed %s\n", strerror(errno));
 	else
 		printf("SA verification: success\n");
 
