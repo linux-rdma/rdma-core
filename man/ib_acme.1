@@ -18,16 +18,18 @@ create address and configuration files for the ib_acm service.
 .TP
 \-f addr_format
 Specifies the format of the src_addr and dest_addr parameters.  Valid
-address formats are: 'i', 'n', and 'p', which indicate that the src_addr
-and dest_addr parameters are ip addresses, system network names, or LIDs,
-respectively.  If the -f option is omitted, ip addressing is assumed.
+address formats are: 'i', 'n', 'p', and 'u', which indicate that the src_addr
+and dest_addr parameters are ip addresses, system network names, LIDs,
+or the format is unspecified, respectively.  If the -f option is omitted,
+an unspecified address format is assumed.  ib_acme will use getaddrinfo or
+other mechanisms to determine which format the address uses.
 .TP
 \-s src_addr
 Specifies the local source address of the path to resolve.  The source
 address can be an IP address, system network name, or LID, as indicated by
 the addr_format option.
 .TP
-\-s dest_addr
+\-d dest_addr
 Specifies the destination address of the path to resolve.  The destination
 address can be an IP address, system network name, or LID, as indicated by
 the addr_format option.

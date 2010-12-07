@@ -49,7 +49,7 @@ static char *opts_file = ACM_OPTS_FILE;
 
 static char *dest_addr;
 static char *src_addr;
-static char addr_type = 'i';
+static char addr_type = 'u';
 static int verify;
 static int nodelay;
 static int make_addr;
@@ -67,10 +67,10 @@ extern char **parse(char *args, int *count);
 static void show_usage(char *program)
 {
 	printf("usage 1: %s\n", program);
-	printf("   [-f addr_format] - i(p), n(ame), or l(id)\n");
-	printf("                      default: 'i'\n");
+	printf("   [-f addr_format] - i(p), n(ame), l(id), or u(nspecified)\n");
+	printf("                      default: 'u'\n");
 	printf("   [-s src_addr]    - format defined by -f option\n");
-	printf("   -d dest_addr     - format defined by -f option\n");
+	printf("   [-d] dest_addr   - format defined by -f option\n");
 	printf("   [-v]             - verify ACM response against SA query response\n");
 	printf("   [-c]             - read ACM cached data only\n");
 	printf("usage 2: %s\n", program);
@@ -513,11 +513,55 @@ static int verify_resolve(struct ibv_path_record *path)
 	return ret;
 }
 
+static char *get_dest(char *arg, char *format)
+{
+	static char addr[64];
+	struct addrinfo hint, *res;
+	const char *ai;
+	int ret;
+
+	if (!arg || addr_type != 'u') {
+		*format = addr_type;
+		return arg;
+	}
+
+	if ((inet_pton(AF_INET, arg, addr) > 0) || (inet_pton(AF_INET6, arg, addr) > 0)) {
+		*format = 'i';
+		return arg;
+	}
+
+	memset(&hint, 0, sizeof hint);
+	hint.ai_protocol = IPPROTO_TCP;
+	ret = getaddrinfo(arg, NULL, &hint, &res);
+	if (ret) {
+		*format = 'l';
+		return arg;
+	}
+
+	if (res->ai_family == AF_INET) {
+		ai = inet_ntop(AF_INET, &((struct sockaddr_in *) res->ai_addr)->sin_addr,
+				addr, sizeof addr);
+	} else {
+		ai = inet_ntop(AF_INET6, &((struct sockaddr_in6 *) res->ai_addr)->sin6_addr,
+				addr, sizeof addr);
+	}
+	freeaddrinfo(res);
+
+	if (ai) {
+		*format = 'i';
+		return addr;
+	} else {
+		*format = 'u';
+		return arg;
+	}
+}
+
 static int resolve(char *program, char *dest_arg)
 {
 	char **dest_list;
 	struct ibv_path_record path;
 	int ret, i = 0;
+	char dest_type;
 
 	ret = libacm_init();
 	if (ret) {
@@ -531,9 +575,10 @@ static int resolve(char *program, char *dest_arg)
 		return -1;
 	}
 
-	for (dest_addr = dest_list[i]; dest_addr; dest_addr = dest_list[++i]) {
+	for (dest_addr = get_dest(dest_list[i], &dest_type); dest_addr;
+	     dest_addr = get_dest(dest_list[++i], &dest_type)) {
 		printf("Destination: %s\n", dest_addr);
-		switch (addr_type) {
+		switch (dest_type) {
 		case 'i':
 			ret = resolve_ip(&path);
 			break;
