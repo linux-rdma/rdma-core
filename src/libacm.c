@@ -113,6 +113,7 @@ static int acm_format_resp(struct acm_resolve_msg *msg,
 	struct ibv_path_data **paths, int *count)
 {
 	struct ibv_path_data *path_data;
+	char addr[ACM_MAX_ADDRESS];
 	int i, addr_cnt;
 
 	*count = 0;
@@ -131,7 +132,24 @@ static int acm_format_resp(struct acm_resolve_msg *msg,
 			(*count)++;
 			break;
 		default:
-			goto err;
+			if (!(msg->data[i].flags & ACM_EP_FLAG_SOURCE))
+				goto err;
+
+			switch (msg->data[i].type) {
+			case ACM_EP_INFO_ADDRESS_IP:
+				inet_ntop(AF_INET, msg->data[i].info.addr, addr, sizeof addr);
+				break;
+			case ACM_EP_INFO_ADDRESS_IP6:
+				inet_ntop(AF_INET6, msg->data[i].info.addr, addr, sizeof addr);
+				break;
+			case ACM_EP_INFO_NAME:
+				memcpy(addr, msg->data[i].info.name, ACM_MAX_ADDRESS);
+				break;
+			default:
+				goto err;
+			}
+			printf("Source: %s\n", addr);
+			break;
 		}
 	}
 
@@ -142,45 +160,53 @@ err:
 	return -1;
 }
 
+static int acm_format_ep_addr(struct acm_ep_addr_data *data, uint8_t *addr,
+	uint8_t type, uint32_t flags)
+{
+	data->type   = type;
+	data->flags  = flags;
+
+	switch (type) {
+	case ACM_EP_INFO_NAME:
+		strncpy((char *) data->info.name,  (char *) addr,  ACM_MAX_ADDRESS);
+		break;
+	case ACM_EP_INFO_ADDRESS_IP:
+		memcpy(data->info.addr, &((struct sockaddr_in *) addr)->sin_addr, 4);
+		break;
+	case ACM_EP_INFO_ADDRESS_IP6:
+		memcpy(data->info.addr, &((struct sockaddr_in6 *) addr)->sin6_addr, 16);
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
 static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	struct ibv_path_data **paths, int *count, uint32_t flags)
 {
 	struct acm_msg msg;
 	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
-	struct acm_ep_addr_data *src_data, *dest_data;
-	int ret;
+	int ret, cnt = 0;
 
 	lock_acquire(&lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;
-	msg.hdr.length = ACM_MSG_HDR_LENGTH + (2 * ACM_MSG_EP_LENGTH);
 
-	src_data  = &resolve_msg->data[0];
-	dest_data = &resolve_msg->data[1];
-
-	src_data->type   = type;
-	src_data->flags  = ACM_EP_FLAG_SOURCE;
-	dest_data->type  = type;
-	dest_data->flags = ACM_EP_FLAG_DEST | flags;
-
-	switch (type) {
-	case ACM_EP_INFO_NAME:
-		strncpy((char *) src_data->info.name,  (char *) src,  ACM_MAX_ADDRESS);
-		strncpy((char *) dest_data->info.name, (char *) dest, ACM_MAX_ADDRESS);
-		break;
-	case ACM_EP_INFO_ADDRESS_IP:
-		memcpy(src_data->info.addr,  &((struct sockaddr_in *) src)->sin_addr,  4);
-		memcpy(dest_data->info.addr, &((struct sockaddr_in *) dest)->sin_addr, 4);
-		break;
-	case ACM_EP_INFO_ADDRESS_IP6:
-		memcpy(src_data->info.addr,  &((struct sockaddr_in6 *) src)->sin6_addr,  16);
-		memcpy(dest_data->info.addr, &((struct sockaddr_in6 *) dest)->sin6_addr, 16);
-		break;
-	default:
-		ret = -1;
-		goto out;
+	if (src) {
+		ret = acm_format_ep_addr(&resolve_msg->data[cnt++], src, type,
+			ACM_EP_FLAG_SOURCE);
+		if (ret)
+			goto out;
 	}
+
+	ret = acm_format_ep_addr(&resolve_msg->data[cnt++], dest, type,
+		ACM_EP_FLAG_DEST | flags);
+	if (ret)
+		goto out;
+
+	msg.hdr.length = ACM_MSG_HDR_LENGTH + (cnt * ACM_MSG_EP_LENGTH);
 	
 	ret = send(sock, (char *) &msg, msg.hdr.length, 0);
 	if (ret != msg.hdr.length)

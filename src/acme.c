@@ -68,7 +68,7 @@ static void show_usage(char *program)
 	printf("usage 1: %s\n", program);
 	printf("   [-f addr_format] - i(p), n(ame), or l(id)\n");
 	printf("                      default: 'i'\n");
-	printf("   -s src_addr      - format defined by -f option\n");
+	printf("   [-s src_addr]    - format defined by -f option\n");
 	printf("   -d dest_addr     - format defined by -f option\n");
 	printf("   [-v]             - verify ACM response against SA query response\n");
 	printf("   [-c]             - read ACM cached data only\n");
@@ -434,13 +434,19 @@ static int resolve_ip(struct ibv_path_record *path)
 {
 	struct ibv_path_data *paths;
 	struct sockaddr_in src, dest;
+	struct sockaddr *saddr;
 	int ret, count;
 
-	src.sin_family = AF_INET;
-	ret = inet_pton(AF_INET, src_addr, &src.sin_addr);
-	if (ret <= 0) {
-		printf("inet_pton error on source address (%s): 0x%x\n", src_addr, ret);
-		return ret;
+	if (src_addr) {
+		src.sin_family = AF_INET;
+		ret = inet_pton(AF_INET, src_addr, &src.sin_addr);
+		if (ret <= 0) {
+			printf("inet_pton error on source address (%s): 0x%x\n", src_addr, ret);
+			return ret;
+		}
+		saddr = (struct sockaddr *) &src;
+	} else {
+		saddr = NULL;
 	}
 
 	dest.sin_family = AF_INET;
@@ -450,7 +456,7 @@ static int resolve_ip(struct ibv_path_record *path)
 		return ret;
 	}
 
-	ret = ib_acm_resolve_ip((struct sockaddr *) &src, (struct sockaddr *) &dest,
+	ret = ib_acm_resolve_ip(saddr, (struct sockaddr *) &dest,
 		&paths, &count, get_resolve_flags());
 	if (ret) {
 		printf("ib_acm_resolve_ip failed: 0x%x\n", ret);
@@ -601,13 +607,13 @@ int CDECL_FUNC main(int argc, char **argv)
 		}
 	}
 
-	if ((src_addr && !dest_addr) || (dest_addr && !src_addr) ||
-		(!src_addr && !dest_addr && !make_addr && !make_opts)) {
+	if ((src_addr && !dest_addr) ||
+	    (!src_addr && !dest_addr && !make_addr && !make_opts)) {
 		show_usage(argv[0]);
 		exit(1);
 	}
 
-	if (src_addr)
+	if (dest_addr)
 		ret = resolve(argv[0]);
 
 	if (!ret && make_addr)
