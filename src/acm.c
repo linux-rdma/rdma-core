@@ -209,7 +209,7 @@ PER_THREAD char log_data[ACM_MAX_ADDRESS];
 
 static char *opts_file = "/etc/ibacm/acm_opts.cfg";
 static char *addr_file = "/etc/ibacm/acm_addr.cfg";
-static char log_file[128] = "stdout";
+static char log_file[128] = "/var/log/ibacm.log";
 static int log_level = 0;
 static char lock_file[128] = "/var/lock/ibacm.pid";
 static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
