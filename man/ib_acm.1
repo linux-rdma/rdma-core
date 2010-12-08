@@ -1,4 +1,4 @@
-.TH "ib_acm" 1 "2009-09-09" "ib_acm" "ib_acm" ib_acm
+.TH "ib_acm" 1 "2010-12-08" "ib_acm" "ib_acm" ib_acm
 .SH NAME
 ib_acm \- address and route resolution services for InfiniBand.
 .SH SYNOPSIS
@@ -7,14 +7,124 @@ ib_acm \- address and route resolution services for InfiniBand.
 \fIib_acm\fR
 .fi
 .SH "DESCRIPTION"
-ib_acm provides address and route (path) resolution services
-over Infiniband.  It resolves names and IP addresses and returns path
-information needed to communicate with a remote node.
+The IB ACM implements and provides a framework for name,
+address, and route (path) resolution services over InfiniBand.
+It is intended to address connection setup scalability issues running
+MPI applications on large clusters.  The IB ACM provides information
+needed to establish a connection, but does not implement the CM protocol.
+.P
+A primary user of the ib_acm service is the librdmacm library.  This
+enables applications to make use of the ib_acm service without code
+changes or needing to be aware that the service is in use. 
+The librdmacm can invoke IB ACM services when built using the --with-ib_acm
+option.  The IB ACM services tie in under the rdma_resolve_addr,
+rdma_resolve_route, and rdma_getaddrinfo routines.  For maximum benefit,
+the rdma_getaddrinfo routine should be used, however existing applications
+should still see significant connection scaling benefits using the calls
+available in librdmacm 1.0.11 and previous releases.
+.P
+The IB ACM is focused on being scalable and efficient.  The current
+implementation limits network traffic, SA interactions, and centralized
+services.  ACM supports multiple resolution protocols in order to handle
+different fabric topologies.
+.P
+The IB ACM package is comprised of two components: the ib_acm service
+and a test/configuration utility - ib_acme.  Both are userspace components
+and are available for Linux and Windows.  Additional details are given below.
+.SH "QUICK START GUIDE"
+1. Prerequisites: libibverbs and libibumad must be installed.
+The IB stack should be running with IPoIB configured.
+These steps assume that the user has administrative privileges.
+.P
+2. Install the IB ACM package.  This installs ib_acm, and ib_acme.
+.P
+3. Run 'ib_acm -D' as administrator to start the ib_acm daemon.
+.P
+4. Optionally, run 'ib_acme -d <dest_ip> -v' to verify that
+the ib_acm service is running.
+.P
+5. Install librdmacm using the build option --with-ib_acm.
+The librdmacm will automatically use the ib_acm service.
+On failures, the librdmacm will fall back to normal resolution.
 .SH "NOTES"
-The ib_acm application should actively run with administrative privileges on
-all nodes in a cluster.  This version of the ib_acm is for evaluation purposes
-only and is intended to assist with MPI application scaling.  See the
-acm_opts.cfg file included with the installation for details on available
-configuration options.
+ib_acme:
+.P
+The ib_acme program serves a dual role.  It acts as a utility to test
+ib_acm operation and help verify if the ib_acm service and selected
+protocol is usable for a given cluster configuration.   Additionally,
+it automatically generates ib_acm configuration files to assist with
+or eliminate manual setup.
+.P
+acm configuration files:
+.P
+The ib_acm service relies on two configuration files.
+.P
+The acm_addr.cfg file contains name and address mappings for each IB
+<device, port, pkey> endpoint.  Although the names in the acm_addr.cfg
+file can be anything, ib_acme maps the host name and IP addresses to
+the IB endpoints.  If the address file cannot be found, the ib_acm
+service will attempt to create one using default values.
+.P
+The acm_opts.cfg file provides a set of configurable options for the
+ib_acm service, such as timeout, number of retries, logging level, etc.
+ib_acme generates the acm_opts.cfg file using static information.  If
+an option file cannot be found, ib_acm will use default values. 
+.P
+ib_acm:
+.P
+The ib_acm service is responsible for resolving names and addresses to
+InfiniBand path information and caching such data.  It
+should execute with administrative privileges.
+.P
+The ib_acm implements a client interface over TCP sockets, which is
+abstracted by the librdmacm library.  One or more back-end protocols are
+used by the ib_acm service to satisfy user requests.  Although the
+ib_acm supports standard SA path record queries on the back-end, it
+also supports a resolution protocol based on multicast traffic.
+The latter is not usable on all fabric topologies, specifically
+ones that may not have reversible paths or fabrics using torus routing.
+Users should use the ib_acme utility to verify that multicast protocol
+is usable before running other applications.
+.P
+Conceptually, the ib_acm service implements an ARP like protocol and either
+uses IB multicast records to construct path record data or queries the
+SA directly, depending on the selected route protocol.  By default, the
+ib_acm services uses and caches SA path record queries.
+.P
+Specifically, all IB endpoints join a number of multicast groups.
+Multicast groups differ based on rates, mtu, sl, etc., and are prioritized.
+All participating endpoints must be able to communicate on the lowest
+priority multicast group.  The ib_acm assigns one or more names/addresses
+to each IB endpoint using the acm_addr.cfg file.  Clients provide source
+and destination names or addresses as input to the service, and receive
+as output path record data.
+.P
+The service maps a client's source name/address to a local IB endpoint.
+If a client does not provide a source address, then the ib_acm service
+will select one based on the destination and local routing tables.  If the
+destination name/address is not cached locally, it sends a multicast
+request out on the lowest priority multicast group on the local endpoint.
+The request carries a list of multicast groups that the sender can use.
+The recipient of the request selects the highest priority multicast group
+that it can use as well and returns that information directly to the sender.
+The request data is cached by all endpoints that receive the multicast
+request message.  The source endpoint also caches the response and uses
+the multicast group that was selected to construct or obtain path record
+data, which is returned to the client.
+.P
+The current implementation of the IB ACM has several additional restrictions:
+.P
+- The ib_acm is limited in its handling of dynamic changes.
+ib_acm must be stopped and restarted if a cluster is reconfigured.
+.P
+- Cached data does not timed out and is only updated if a new resolution
+request is received from a different QPN than a cached request.
+.P
+- Support for IPv6 has not been verified.
+.P
+- The number of addresses that can be assigned to a single endpoint is
+limited to 4.
+.P
+- The number of multicast groups that an endpoint can support is limited to 2.
 .SH "SEE ALSO"
-ib_acm(7) ib_acme(1)
+ib_acm(7) ib_acme(1), rdma_cm(7)
