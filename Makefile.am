@@ -18,7 +18,7 @@ man_MANS = \
 	man/ib_acm.1 \
 	man/ib_acm.7
 
-EXTRA_DIST = include/infiniband/acm.h src/acm_mad.h src/acm_msg.h src/libacm.h \
+EXTRA_DIST = src/acm_mad.h src/libacm.h \
 	     linux/osd.h linux/dlist.h ibacm.spec.in $(man_MANS) acm_opts.cfg \
 	     acm_addr.cfg
 
