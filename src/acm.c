@@ -1851,14 +1851,20 @@ static int acm_svr_select_src(struct acm_ep_addr_data *src, struct acm_ep_addr_d
 
 	acm_log(2, "selecting source address\n");
 	memset(&addr, 0, sizeof addr);
-	if (dst->type == ACM_EP_INFO_ADDRESS_IP) {
+	switch (dst->type) {
+	case ACM_EP_INFO_ADDRESS_IP:
 		((struct sockaddr_in *) &addr)->sin_family = AF_INET;
 		memcpy(&((struct sockaddr_in *) &addr)->sin_addr, dst->info.addr, 4);
 		len = sizeof(struct sockaddr_in);
-	} else {
+		break;
+	case ACM_EP_INFO_ADDRESS_IP6:
 		addr.sin6_family = AF_INET6;
 		memcpy(&addr.sin6_addr, dst->info.addr, 16);
 		len = sizeof(struct sockaddr_in6);
+		break;
+	default:
+		acm_log(1, "notice - bad destination type, cannot lookup source\n");
+		return ACM_STATUS_EDESTTYPE;
 	}
 
 	s = socket(addr.sin6_family, SOCK_DGRAM, IPPROTO_UDP);
