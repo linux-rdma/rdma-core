@@ -493,7 +493,7 @@ static int resolve_lid(struct ibv_path_record *path)
 	path->dlid = htons((uint16_t) atoi(dest_addr));
 	path->reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
 
-	ret = ib_acm_resolve_path(path, 0);
+	ret = ib_acm_resolve_path(path, get_resolve_flags());
 	if (ret)
 		printf("ib_acm_resolve_path failed: %s\n", strerror(errno));
 
