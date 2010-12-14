@@ -56,6 +56,7 @@ extern long int page_size;
 #define STATIC static
 #define INLINE inline
 
+#define NES_WC_WITH_VLAN   1 << 3
 #define NES_UD_RX_BATCH_SZ 64
 #define NES_UD_MAX_SG_LIST_SZ 1
 
@@ -429,6 +430,7 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	volatile struct nes_hw_nic_cqe *cqes;
 
 	struct nes_uqp *nesuqp = nesucq->udqp;
+	uint32_t vlan_tag = 0;
 
 	cqes = (volatile struct nes_hw_nic_cqe *)nesucq->cqes;
 	head = nesucq->head;
@@ -470,6 +472,15 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 
 				entry->wr_id =
 					nesuqp->recv_wr_id[nesuqp->rq_tail];
+				if (cqe_misc & NES_NIC_CQE_TAG_VALID) {
+					vlan_tag = le32_to_cpu(
+				cqe->cqe_words[NES_NIC_CQE_TAG_PKT_TYPE_IDX])
+									>> 16;
+					entry->sl = (vlan_tag >> 12) & 0x0f;
+					entry->pkey_index = vlan_tag & 0x0fff;
+					entry->wc_flags |= NES_WC_WITH_VLAN;
+				}
+
 
 				/* Working on a RQ Completion*/
 				if (++nesuqp->rq_tail >= nesuqp->rq_size)
@@ -1358,7 +1369,7 @@ int nes_ima_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 		nes_ud_wr->sg_list[bc].length = ib_wr->sg_list[0].length;
 		nes_ud_wr->sg_list[bc].lkey = ib_wr->sg_list[0].lkey;
 		nes_ud_wr->flags = ib_wr->send_flags;
-
+		nes_ud_wr->flags = nes_ud_wr->flags | (ib_wr->imm_data << 16);
 		/* store the wr_id in the internal queue */
 		/* the queue is in sync with the queue in kernel */
 		/* the wr_id will be read in poll_cq */
