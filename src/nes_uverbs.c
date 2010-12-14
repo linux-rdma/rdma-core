@@ -438,6 +438,36 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 
 	if (!nesuqp || !nesvctx)
 		exit(0);
+	if (nesuqp->ibv_qp.state == IBV_QPS_ERR) {
+		while (cqe_count < num_entries) {
+			memset(entry, 0, sizeof *entry);
+
+		if (nesuqp->recv_cq == nesucq) {
+			if (nesuqp->rq_tail != nesuqp->rq_head) {
+				/* Working on a RQ Completion*/
+				entry->wr_id =
+					nesuqp->recv_wr_id[nesuqp->rq_tail];
+				if (++nesuqp->rq_tail >= nesuqp->rq_size)
+					nesuqp->rq_tail = 0;
+			} else
+				return cqe_count;
+		} else
+		if (nesuqp->send_cq == nesucq) {
+			if (nesuqp->sq_tail != nesuqp->sq_head) {
+				entry->wr_id =
+					nesuqp->send_wr_id[nesuqp->sq_tail];
+				/* Working on a SQ Completion*/
+				if (++nesuqp->sq_tail >= nesuqp->sq_size)
+					nesuqp->sq_tail = 0;
+			} else
+				return cqe_count;
+		}
+		entry->status = IBV_WC_WR_FLUSH_ERR;
+		entry++;
+		cqe_count++;
+		}
+		return cqe_count;
+	}
 
 	while (cqe_count < num_entries) {
 		entry->opcode = -1;
@@ -1224,10 +1254,6 @@ int nes_uquery_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 int nes_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
 	struct ibv_modify_qp cmd;
-	if (qp->qp_type == IBV_QPT_RAW_ETH) {
-		/* no state changes are available for stateless QP */
-		return 0;
-	}
 	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
 }
 
