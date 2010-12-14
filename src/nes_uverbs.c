@@ -1719,6 +1719,11 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	if (ib_qp->qp_type == IBV_QPT_RAW_ETH)
 		return nes_ima_upost_recv(ib_qp, ib_wr, bad_wr);
 
+	if (unlikely(ib_wr->num_sge > 4)) {
+		*bad_wr = ib_wr;
+		return -EINVAL;
+	}
+
 	pthread_spin_lock(&nesuqp->lock);
 
 	head = nesuqp->rq_head;
