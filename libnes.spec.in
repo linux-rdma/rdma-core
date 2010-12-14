@@ -6,7 +6,7 @@ Summary: NetEffect Ethernet Server Cluster Adapter Userspace Library
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/nes/libnes-1.1.0.tar.gz
+Source: http://www.openfabrics.org/downloads/nes/libnes-1.1.1.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: libibverbs-devel
@@ -51,6 +51,13 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libnes*.a
 
 %changelog
+*Wed Dec 15 2010 Faisal Latif <faisal.latif@intel.com> - 1.1.1
+- Update for OFED 1.5.3
+- Error check when sge > 4 for posting recv buffers
+- too long frame error handling
+- handling of RAQ QP when in ERR state
+- Handing of frames with vlan flag
+
 * Wed Sep 2 2010 Chien Tung <chien.tin.tung@intel.com> - 1.1.0
 - Update for OFED 1.5.2.
 - Add support for iWarp Multicast Aceleration (IMA).
