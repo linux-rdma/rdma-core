@@ -414,6 +414,7 @@ int nes_udestroy_cq(struct ibv_cq *cq)
 	return 0;
 }
 
+#define  NES_CQ_BUF_OV_ERR 0x3
 
 static inline
 int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
@@ -515,6 +516,8 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 				/* Working on a RQ Completion*/
 				if (++nesuqp->rq_tail >= nesuqp->rq_size)
 					nesuqp->rq_tail = 0;
+					if (entry->status == NES_CQ_BUF_OV_ERR)
+						entry->status = IBV_WC_LOC_LEN_ERR;
 			}
 
 			if (++head >= cq_size)
