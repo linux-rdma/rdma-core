@@ -45,6 +45,8 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for libraries
+AC_CHECK_LIB(pthread, pthread_mutex_init, [],
+    AC_MSG_ERROR([pthread_mutex_init() not found.  librdmacm requires libpthread.]))
 if test "$disable_libcheck" != "yes"; then
 AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
     AC_MSG_ERROR([ibv_get_device_list() not found.  librdmacm requires libibverbs.]))
