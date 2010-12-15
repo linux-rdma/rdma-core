@@ -175,9 +175,13 @@ static int process_opt(int ch, char *optarg)
 		ibd_dest_type = IB_DEST_GUID;
 		break;
 	case 't':
-		val = strtoul(optarg, 0, 0);
-		madrpc_set_timeout(val);
-		ibd_timeout = val;
+		val = (int)strtol(optarg, NULL, 0);
+		if (val > 0) {
+			madrpc_set_timeout(val);
+			ibd_timeout = val;
+		} else
+			IBERROR("Invalid timeout \"%s\".  Timeout requires a "
+				"positive integer value.", optarg);
 		break;
 	case 's':
 		/* srcport is not required when resolving via IB_DEST_LID */
