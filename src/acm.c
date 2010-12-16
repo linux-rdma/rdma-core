@@ -112,7 +112,7 @@ struct acm_port
 	int                 gid_cnt;
 	uint16_t            pkey_cnt;
 	uint16_t            lid;
-	uint8_t             lmc;
+	uint16_t            lid_mask;
 	uint8_t             port_num;
 };
 
@@ -2582,11 +2582,11 @@ static void acm_init_port(struct acm_port *port)
 			break;
 	}
 	port->lid = attr.lid;
-	port->lmc = attr.lmc;
+	port->lid_mask = 0xffff - (1 << attr.lmc) - 1;
 
 	acm_init_dest(&port->sa_dest, ACM_ADDRESS_LID,
 		(uint8_t *) &attr.sm_lid, sizeof(attr.sm_lid));
-	port->sa_dest.av.src_path_bits = attr.lid & attr.lmc;
+	port->sa_dest.av.src_path_bits = 0;
 	port->sa_dest.av.dlid = attr.sm_lid;
 	port->sa_dest.av.sl = attr.sm_sl;
 	port->sa_dest.av.port_num = port->port_num;
