@@ -67,7 +67,7 @@ extern char **parse(char *args, int *count);
 static void show_usage(char *program)
 {
 	printf("usage 1: %s\n", program);
-	printf("   [-f addr_format] - i(p), n(ame), l(id), or u(nspecified)\n");
+	printf("   [-f addr_format] - i(p), n(ame), l(id), g(gid), or u(nspecified)\n");
 	printf("                      default: 'u'\n");
 	printf("   [-s src_addr]    - format defined by -f option\n");
 	printf("   [-d] dest_addr   - format defined by -f option\n");
@@ -500,6 +500,30 @@ static int resolve_lid(struct ibv_path_record *path)
 	return ret;
 }
 
+static int resolve_gid(struct ibv_path_record *path)
+{
+	int ret;
+
+	ret = inet_pton(AF_INET6, src_addr, &path->sgid);
+	if (ret <= 0) {
+		printf("inet_pton error on source address (%s): 0x%x\n", src_addr, ret);
+		return ret;
+	}
+
+	ret = inet_pton(AF_INET6, dest_addr, &path->dgid);
+	if (ret <= 0) {
+		printf("inet_pton error on dest address (%s): 0x%x\n", dest_addr, ret);
+		return ret;
+	}
+
+	path->reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
+	ret = ib_acm_resolve_path(path, get_resolve_flags());
+	if (ret)
+		printf("ib_acm_resolve_path failed: %s\n", strerror(errno));
+
+	return ret;
+}
+
 static int verify_resolve(struct ibv_path_record *path)
 {
 	int ret;
@@ -588,6 +612,10 @@ static int resolve(char *program, char *dest_arg)
 		case 'l':
 			memset(&path, 0, sizeof path);
 			ret = resolve_lid(&path);
+			break;
+		case 'g':
+			memset(&path, 0, sizeof path);
+			ret = resolve_gid(&path);
 			break;
 		default:
 			show_usage(program);
