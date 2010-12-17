@@ -277,7 +277,7 @@ acm_format_name(int level, char *name, size_t name_size,
 		}
 		break;
 	case ACM_ADDRESS_LID:
-		sprintf(name, "LID(%d)", *((uint16_t *) addr));
+		sprintf(name, "LID(%d)", ntohs(*((uint16_t *) addr)));
 		break;
 	default:
 		strcpy(name, "Unknown");
