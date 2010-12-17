@@ -1722,30 +1722,6 @@ static void acm_svr_accept(void)
 	acm_log(2, "assigned client %d\n", i);
 }
 
-static uint8_t acm_svr_query_sa(struct acm_ep *ep, struct acm_request *req)
-{
-	struct acm_resolve_msg *client_req = (struct acm_resolve_msg *) &req->msg;
-	struct acm_send_msg *msg;
-	struct ib_sa_mad *mad;
-
-	acm_log(2, "\n");
-	msg = acm_alloc_send(ep, &ep->port->sa_dest, sizeof(*mad));
-	if (!msg) {
-		acm_log(0, "ERROR - cannot allocate send msg\n");
-		return ACM_STATUS_ENOMEM;
-	}
-
-	acm_init_send_req(msg, (void *) req, acm_client_sa_resp);
-	mad = (struct ib_sa_mad *) msg->data;
-	acm_init_path_query(mad);
-
-	memcpy(mad->data, &client_req->data[0].info.path, sizeof(struct ibv_path_record));
-	mad->comp_mask = acm_path_comp_mask(&client_req->data[0].info.path);
-
-	acm_post_send(&ep->sa_queue, msg);
-	return ACM_STATUS_SUCCESS;
-}
-
 static int
 acm_is_path_from_port(struct acm_port *port, struct ibv_path_record *path)
 {
@@ -1804,9 +1780,11 @@ acm_get_ep(struct acm_ep_addr_data *data)
 }
 
 static int
-acm_svr_query(struct acm_client *client, struct acm_resolve_msg *msg)
+acm_svr_query_path(struct acm_client *client, struct acm_resolve_msg *msg)
 {
 	struct acm_request *req;
+	struct acm_send_msg *sa_msg;
+	struct ib_sa_mad *mad;
 	struct acm_ep *ep;
 	uint8_t status;
 
@@ -1830,10 +1808,24 @@ acm_svr_query(struct acm_client *client, struct acm_resolve_msg *msg)
 		goto resp;
 	}
 
-	status = acm_svr_query_sa(ep, req);
-	if (!status)
-		return status;
+	sa_msg = acm_alloc_send(ep, &ep->port->sa_dest, sizeof(*mad));
+	if (!sa_msg) {
+		acm_log(0, "ERROR - cannot allocate send msg\n");
+		status = ACM_STATUS_ENOMEM;
+		goto free;
+	}
 
+	acm_init_send_req(sa_msg, (void *) req, acm_client_sa_resp);
+	mad = (struct ib_sa_mad *) sa_msg->data;
+	acm_init_path_query(mad);
+
+	memcpy(mad->data, &msg->data[0].info.path, sizeof(struct ibv_path_record));
+	mad->comp_mask = acm_path_comp_mask(&msg->data[0].info.path);
+
+	acm_post_send(&ep->sa_queue, sa_msg);
+	return ACM_STATUS_SUCCESS;
+
+free:
 	acm_free_req(req);
 resp:
 	return acm_client_query_resp(client, msg, status);
@@ -2217,7 +2209,7 @@ static void acm_svr_receive(struct acm_client *client)
 
 	if (resolve_msg->data[0].type == ACM_EP_INFO_PATH) {
 		if (resolve_msg->data[0].flags & ACM_FLAGS_QUERY_SA) {
-			ret = acm_svr_query(client, resolve_msg);
+			ret = acm_svr_query_path(client, resolve_msg);
 		} else {
 			ret = acm_svr_resolve_path(client, resolve_msg);
 		}
