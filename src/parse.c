@@ -80,8 +80,15 @@ char **parse(char *args, int *count)
 	cpy = malloc(strlen(args) + 1);
 	strcpy(cpy, args);
 
-	token = strtok(cpy, "[");
-	next = strtok(NULL, "]");
+	if (args[0] == '[') {
+		cpy[0] = '\0';
+		token = cpy;
+		next = strtok(cpy + 1, "]");
+	} else {
+		token = strtok(cpy, "[");
+		next = strtok(NULL, "]");
+	}
+
 	if (!next) {
 		str_size = strlen(token) + 1;
 		str_buf = malloc(str_size);
