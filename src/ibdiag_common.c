@@ -47,6 +47,7 @@
 #include <ctype.h>
 #include <config.h>
 #include <getopt.h>
+#include <limits.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -138,7 +139,8 @@ void ibdiag_show_usage()
 
 static int process_opt(int ch, char *optarg)
 {
-	int val;
+	char *endp;
+	long val;
 
 	switch (ch) {
 	case 'h':
@@ -175,13 +177,16 @@ static int process_opt(int ch, char *optarg)
 		ibd_dest_type = IB_DEST_GUID;
 		break;
 	case 't':
-		val = (int)strtol(optarg, NULL, 0);
-		if (val > 0) {
-			madrpc_set_timeout(val);
-			ibd_timeout = val;
-		} else
+		errno = 0;
+		val = strtol(optarg, &endp, 0);
+		if (errno || (endp && *endp != '\0') || val <= 0 ||
+		    val > INT_MAX)
 			IBERROR("Invalid timeout \"%s\".  Timeout requires a "
-				"positive integer value.", optarg);
+				"positive integer value < %d.", optarg, INT_MAX);
+		else {
+			madrpc_set_timeout((int)val);
+			ibd_timeout = (int)val;
+		}
 		break;
 	case 's':
 		/* srcport is not required when resolving via IB_DEST_LID */
