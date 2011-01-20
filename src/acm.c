@@ -123,7 +123,6 @@ struct acm_device
 	struct ibv_pd           *pd;
 	uint64_t                guid;
 	DLIST_ENTRY             entry;
-	uint8_t                 active;
 	int                     port_cnt;
 	struct acm_port         port[0];
 };
@@ -2646,7 +2645,6 @@ err2:
 	ibv_destroy_ah(port->sa_dest.ah);
 err1:
 	port->state = IBV_PORT_NOP;
-	port->dev->active--;
 }
 
 static int acm_activate_dev(struct acm_device *dev)
@@ -2661,7 +2659,7 @@ static int acm_activate_dev(struct acm_device *dev)
 	dev->channel = ibv_create_comp_channel(dev->verbs);
 	if (!dev->channel) {
 		acm_log(0, "ERROR - unable to create comp channel\n");
-		goto err1;
+		goto err;
 	}
 
 	for (i = 0; i < dev->port_cnt; i++) {
@@ -2670,16 +2668,11 @@ static int acm_activate_dev(struct acm_device *dev)
 			acm_activate_port(&dev->port[i]);
 	}
 
-	if (!dev->active)
-		goto err2;
-
 	acm_log(1, "starting completion thread\n");
 	beginthread(acm_comp_handler, dev);
 	return 0;
 
-err2:
-	ibv_destroy_comp_channel(dev->channel);
-err1:
+err:
 	ibv_dealloc_pd(dev->pd);
 	return -1;
 }
@@ -2723,9 +2716,6 @@ static void acm_init_port(struct acm_port *port)
 	port->sa_dest.av.sl = attr.sm_sl;
 	port->sa_dest.av.port_num = port->port_num;
 	port->sa_dest.remote_qpn = 1;
-
-	if (port->state == IBV_PORT_ACTIVE)
-		port->dev->active++;
 }
 
 static void acm_open_dev(struct ibv_device *ibdev)
@@ -2764,10 +2754,10 @@ static void acm_open_dev(struct ibv_device *ibdev)
 		acm_init_port(&dev->port[i]);
 	}
 
-	if (!dev->active || acm_activate_dev(dev))
+	if (acm_activate_dev(dev))
 		goto err2;
 
-	acm_log(1, "%s now active\n", ibdev->name);
+	acm_log(1, "%s opened\n", ibdev->name);
 	DListInsertHead(&dev->entry, &dev_list);
 	return;
 
@@ -2987,7 +2977,7 @@ int CDECL_FUNC main(int argc, char **argv)
 
 	ibv_free_device_list(ibdev);
 	if (DListEmpty(&dev_list)) {
-		acm_log(0, "ERROR - no active devices\n");
+		acm_log(0, "ERROR - no devices\n");
 		return -1;
 	}
 
