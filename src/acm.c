@@ -203,7 +203,6 @@ static SOCKET listen_socket;
 static struct acm_client client[FD_SETSIZE - 1];
 
 static FILE *flog;
-static FILE *faddr;
 static lock_t log_lock;
 PER_THREAD char log_data[ACM_MAX_ADDRESS];
 
@@ -2389,6 +2388,7 @@ err:
 
 static int acm_assign_ep_names(struct acm_ep *ep)
 {
+	FILE *faddr;
 	char *dev_name;
 	char s[120];
 	char dev[32], addr[32], pkey_str[8];
@@ -2401,7 +2401,11 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 	acm_log(1, "device %s, port %d, pkey 0x%x\n",
 		dev_name, ep->port->port_num, ep->pkey);
 
-	rewind(faddr);
+	if (!(faddr = acm_open_addr_file())) {
+		acm_log(0, "ERROR - address file not found\n");
+		return -1;
+	}
+
 	while (fgets(s, sizeof s, faddr)) {
 		if (s[0] == '#')
 			continue;
@@ -2445,6 +2449,7 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 			}
 		}
 	}
+	fclose(faddr);
 
 	return !index;
 }
@@ -2969,11 +2974,6 @@ int CDECL_FUNC main(int argc, char **argv)
 	DListInit(&timeout_list);
 	event_init(&timeout_event);
 
-	if (!(faddr = acm_open_addr_file())) {
-		acm_log(0, "ERROR - address file not found\n");
-		return -1;
-	}
-
 	umad_init();
 	ibdev = ibv_get_device_list(&dev_cnt);
 	if (!ibdev) {
@@ -2990,7 +2990,6 @@ int CDECL_FUNC main(int argc, char **argv)
 		acm_log(0, "ERROR - no active devices\n");
 		return -1;
 	}
-	fclose(faddr);
 
 	acm_log(1, "initiating multicast joins\n");
 	acm_join_groups();
