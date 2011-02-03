@@ -30,6 +30,6 @@ EXTRA_DIST = libibmad.spec.in libibmad.spec \
 	$(srcdir)/src/libibmad.map libibmad.ver autogen.sh
 
 dist-hook:
-	if [ -x $(top_srcdir)/../gen_chlog.sh ] ; then \
-		$(top_srcdir)/../gen_chlog.sh $(PACKAGE) > $(distdir)/ChangeLog ; \
+	if [ -x $(top_srcdir)/gen_chlog.sh ] ; then \
+		$(top_srcdir)/gen_chlog.sh > $(distdir)/ChangeLog ; \
 	fi
