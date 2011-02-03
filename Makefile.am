@@ -83,10 +83,10 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 
 BUILT_SOURCES = ibdiag_version
 ibdiag_version:
-	if [ -x $(top_srcdir)/../gen_ver.sh ] ; then \
+	if [ -x $(top_srcdir)/gen_ver.sh ] ; then \
 		ver_file=$(top_builddir)/include/ibdiag_version.h ; \
 		ibdiag_ver=`cat $$ver_file | sed -ne '/#define IBDIAG_VERSION /s/^.*\"\(.*\)\"$$/\1/p'` ; \
-		ver=`$(top_srcdir)/../gen_ver.sh $(PACKAGE)` ; \
+		ver=`$(top_srcdir)/gen_ver.sh $(PACKAGE)` ; \
 		if [ $$ver != $$ibdiag_ver ] ; then \
 			cat $$ver_file | sed -e '/#define IBDIAG_VERSION /s/\".*\"/\"'$$ver'\"/' > tmp_new_version ; \
 			cat tmp_new_version > $$ver_file && rm -f tmp_new_version ; \
@@ -97,8 +97,8 @@ EXTRA_DIST = scripts include infiniband-diags.spec.in infiniband-diags.spec \
 	$(man_MANS) autogen.sh
 
 dist-hook:
-	if [ -x $(top_srcdir)/../gen_chlog.sh ] ; then \
-		$(top_srcdir)/../gen_chlog.sh $(PACKAGE) > $(distdir)/ChangeLog ; \
+	if [ -x $(top_srcdir)/gen_chlog.sh ] ; then \
+		$(top_srcdir)/gen_chlog.sh > $(distdir)/ChangeLog ; \
 	fi
 
 # install this to a default location.
