@@ -2637,13 +2637,14 @@ static void acm_port_up(struct acm_port *port)
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
 
-	acm_set_dest_addr(&port->sa_dest, ACM_ADDRESS_LID,
-		(uint8_t *) &attr.sm_lid, sizeof(attr.sm_lid));
 	port->sa_dest.av.src_path_bits = 0;
 	port->sa_dest.av.dlid = attr.sm_lid;
 	port->sa_dest.av.sl = attr.sm_sl;
 	port->sa_dest.av.port_num = port->port_num;
 	port->sa_dest.remote_qpn = 1;
+	attr.sm_lid = htons(attr.sm_lid);
+	acm_set_dest_addr(&port->sa_dest, ACM_ADDRESS_LID,
+		(uint8_t *) &attr.sm_lid, sizeof(attr.sm_lid));
 
 	port->sa_dest.ah = ibv_create_ah(port->dev->pd, &port->sa_dest.av);
 	if (!port->sa_dest.ah)
