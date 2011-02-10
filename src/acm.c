@@ -438,6 +438,7 @@ acm_alloc_send(struct acm_ep *ep, struct acm_dest *dest, size_t size)
 	msg->wr.send_flags = IBV_SEND_SIGNALED;
 	msg->wr.wr_id = (uintptr_t) msg;
 
+	acm_log(2, "get dest %s\n", dest->name);
 	(void) atomic_inc(&dest->refcnt);
 	msg->dest = dest;
 	msg->wr.wr.ud.ah = dest->ah;
