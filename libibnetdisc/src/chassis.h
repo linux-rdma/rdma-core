@@ -75,8 +75,11 @@
 #define VTR_DEVID_SFB4700X2		0x5a5d
 #define VTR_DEVID_SFB4200		0x5a60
 
+#define MLX_DEVID_IS4			0xbd36
+
 /* Vendor IDs (for chassis based systems) */
 #define VTR_VENDOR_ID			0x8f1	/* Voltaire */
+#define MLX_VENDOR_ID			0x2c9	/* Mellanox */
 #define TS_VENDOR_ID			0x5ad	/* Cisco */
 #define SS_VENDOR_ID			0x66a	/* InfiniCon */
 #define XS_VENDOR_ID			0x1397	/* Xsigo */

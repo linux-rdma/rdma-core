@@ -43,6 +43,8 @@
 struct ibnd_chassis;		/* forward declare */
 struct ibnd_port;		/* forward declare */
 
+#define CHASSIS_TYPE_SIZE 20
+
 /** =========================================================================
  * Node
  */
@@ -80,6 +82,7 @@ typedef struct ibnd_node {
 	struct ibnd_node *next_chassis_node;	/* next node in ibnd_chassis_t->nodes */
 	struct ibnd_chassis *chassis;	/* if != NULL the chassis this node belongs to */
 	unsigned char ch_type;
+	char ch_type_str[CHASSIS_TYPE_SIZE];
 	unsigned char ch_anafanum;
 	unsigned char ch_slotnum;
 	unsigned char ch_slot;
