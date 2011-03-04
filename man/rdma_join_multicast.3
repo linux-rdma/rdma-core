@@ -27,9 +27,12 @@ rdma_resolve_addr requires the local routing tables to resolve the
 multicast address to an RDMA device, unless a specific source address
 is provided.  The user must call rdma_leave_multicast to leave the
 multicast group and release any multicast resources.  After the join
-operation completes, any associated QP is automatically attached to the
-multicast group, and the join context is returned to the user through
-the private_data field in the rdma_cm_event.
+operation completes, if a QP is associated with the rdma_cm_id,
+it is automatically attached to the multicast group when the multicast
+event is retrieved by the user.  Otherwise, the user is responsible
+for calling ibv_attach_mcast to bind the QP to the multicast group.
+The join context is returned to the user through the private_data
+field in the rdma_cm_event.
 .SH "SEE ALSO"
 rdma_leave_multicast(3), rdma_bind_addr(3), rdma_resolve_addr(3), rdma_create_qp(3),
 rdma_get_cm_event(3)
