@@ -41,7 +41,8 @@ channels.  Completion channels and CQ data created by the rdma_cm are
 exposed to the user through the rdma_cm_id structure.
 .P
 The actual capabilities and properties of the created QP will be
-returned to the user through the qp_init_attr parameter.
+returned to the user through the qp_init_attr parameter.  An rdma_cm_id
+may only be associated with a single QP.
 .SH "SEE ALSO"
 rdma_bind_addr(3), rdma_resolve_addr(3), rdma_destroy_qp(3), ibv_create_qp(3),
 ibv_modify_qp(3)

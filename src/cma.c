@@ -1176,6 +1176,9 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	struct ibv_qp *qp;
 	int ret;
 
+	if (id->qp)
+		return ERR(EINVAL);
+
 	id_priv = container_of(id, struct cma_id_private, id);
 	if (!pd)
 		pd = id_priv->cma_dev->pd;
