@@ -40,6 +40,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
+#include <errno.h>
 
 #include "mlx4.h"
 #include "doorbell.h"
@@ -206,19 +207,19 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wq_overflow(&qp->sq, nreq, to_mcq(qp->ibv_qp.send_cq))) {
-			ret = -1;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
 
 		if (wr->num_sge > qp->sq.max_gs) {
-			ret = -1;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
 
 		if (wr->opcode >= sizeof mlx4_ib_opcode / sizeof mlx4_ib_opcode[0]) {
-			ret = -1;
+			ret = EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -309,7 +310,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 				if (inl > qp->max_inline_data) {
 					inl = 0;
-					ret = -1;
+					ret = ENOMEM;
 					*bad_wr = wr;
 					goto out;
 				}
@@ -450,13 +451,13 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.recv_cq))) {
-			ret = -1;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
 
 		if (wr->num_sge > qp->rq.max_gs) {
-			ret = -1;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
