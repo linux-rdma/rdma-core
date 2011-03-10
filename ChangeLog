@@ -1,6 +1,34 @@
-commit 99bd95029c0f3a2e404e7c6b18a5db66c60239df
+commit b371f8fa85650b95647e3fec1433067992b8c66a
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Wed Sep 15 16:56:55 2010 -0500
+Date:   Thu Mar 10 09:44:34 2011 -0600
+
+    Spin release 1.1.1.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ace467085deb7327522faeb19e20e13d691f66a2
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Mar 10 09:34:11 2011 -0600
+
+    Flush MA FIFO for on-chip queues.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 7cb87f46c1784c791d29646104ab355ed920747d
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Mar 10 09:27:57 2011 -0600
+
+    increase the frequency of CIDX-INC updates.
+    
+    Heavy IMB loads reveal that my current algorithm of doing CIDX-INC
+    GTS writes every 1/2 the CQ depth was not sufficient.  This patch
+    increases the frequency to 1/16.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 7652d71daadda0c3aba9b96311ea623a1e324d77
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Sep 15 16:57:04 2010 -0500
 
     Spin release 1.1.0.
     

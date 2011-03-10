@@ -1,7 +1,7 @@
 %define ver @VERSION@
 
 Name: libcxgb4
-Version: 1.1.0
+Version: 1.1.1
 Release: 1%{?dist}
 Summary: Chelsio T4 RNIC Open Fabrics Userspace Library
 
