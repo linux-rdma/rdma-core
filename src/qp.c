@@ -63,9 +63,6 @@ static void copy_wr_to_sq(struct t4_wq *wq, union t4_wr *wqe, u8 len16)
 			dst = (u64 *)wq->sq.queue;
 		len16--;
 	}
-	if (t4_sq_onchip(wq)) {
-		t4_ma_sync(wq, c4iw_page_size);
-	}
 }
 
 static void copy_wr_to_rq(struct t4_wq *wq, union t4_recv_wr *wqe, u8 len16)

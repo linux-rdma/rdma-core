@@ -435,25 +435,18 @@ static inline void t4_sq_consume(struct t4_wq *wq)
 
 static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc)
 {
+	if (t4_sq_onchip(wq)) {
+		int i;
+		for (i = 0; i < 16; i++)
+			*(u32 *)&wq->sq.queue[wq->sq.size].flits[2] = i;
+	}
 	wmb();
-#if 0
-	printf("%s inc %u kdb val 0x%x udb val 0x%x\n", __func__, inc,
-		V_QID(wq->sq.qid) | V_PIDX(inc),
-		V_QID(wq->sq.qid & wq->qid_mask) | V_PIDX(inc));
-	fflush(stdout);
-#endif
 	writel(V_QID(wq->sq.qid & wq->qid_mask) | V_PIDX(inc), wq->sq.udb);
 }
 
 static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc)
 {
 	wmb();
-#if 0
-	printf("%s inc %u kdb val 0x%x udb val 0x%x\n", __func__, inc,
-		V_QID(wq->rq.qid) | V_PIDX(inc),
-		V_QID(wq->rq.qid & wq->qid_mask) | V_PIDX(inc));
-	fflush(stdout);
-#endif
 	writel(V_QID(wq->rq.qid & wq->qid_mask) | V_PIDX(inc), wq->rq.udb);
 }
 
