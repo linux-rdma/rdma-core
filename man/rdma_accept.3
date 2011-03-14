@@ -47,8 +47,8 @@ be larger than that requested.
 The maximum number of outstanding RDMA read and atomic operations that the
 local side will accept from the remote side.  Applies only to RDMA_PS_TCP.
 This value must be less than or equal to the local RDMA device attribute
-max_qp_rd_atom and the responder_resources value reported in the connect
-request event.
+max_qp_rd_atom, but preferably greater than or equal to the responder_resources
+value reported in the connect request event.
 .IP initiator_depth
 The maximum number of outstanding RDMA read and atomic operations that the
 local side will have to the remote side.  Applies only to RDMA_PS_TCP.
