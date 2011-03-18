@@ -48,7 +48,6 @@
 #include <ctype.h>
 #include <string.h>
 #include <errno.h>
-#include <assert.h>
 
 #define _GNU_SOURCE
 #include <getopt.h>
@@ -916,6 +915,7 @@ static int get_lid_from_name(bind_handle_t h, const char *name, uint16_t * lid)
 	if (ret)
 		return ret;
 
+	ret = IB_NOT_FOUND;
 	for (i = 0; i < result.result_cnt; i++) {
 		node_record = get_query_rec(result.p_result_madw, i);
 		p_ni = &(node_record->node_info);
@@ -924,11 +924,12 @@ static int get_lid_from_name(bind_handle_t h, const char *name, uint16_t * lid)
 			       sizeof(node_record->node_desc.description)) ==
 		    0) {
 			*lid = cl_ntoh16(node_record->lid);
+			ret = IB_SUCCESS;
 			break;
 		}
 	}
 	return_mad();
-	return 0;
+	return ret;
 }
 
 static uint16_t get_lid(bind_handle_t h, const char *name)
@@ -937,12 +938,22 @@ static uint16_t get_lid(bind_handle_t h, const char *name)
 
 	if (!name)
 		return 0;
-	if (isalpha(name[0]))
-		assert(get_lid_from_name(h, name, &rc_lid) == IB_SUCCESS);
-	else
-		rc_lid = (uint16_t) atoi(name);
-	if (rc_lid == 0)
-		fprintf(stderr, "Failed to find lid for \"%s\"\n", name);
+	if (isalpha(name[0])) {
+		if (get_lid_from_name(h, name, &rc_lid) != IB_SUCCESS) {
+			fprintf(stderr, "Failed to find lid for \"%s\"\n", name);
+			exit(EINVAL);
+		}
+	} else {
+		long val;
+		errno = 0;
+		val = strtol(name, NULL, 0);
+		if (errno != 0 || val <= 0 || val > UINT16_MAX) {
+			fprintf(stderr, "Invalid lid specified: \"%s\"\n", name);
+			exit(EINVAL);
+		}
+		rc_lid = (uint16_t)val;
+	}
+
 	return rc_lid;
 }
 
