@@ -85,7 +85,7 @@ function check_node(lid, port)
 		print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
 		return 1;
 	}
-	return system("'$IBPATH'/ibcheckerrs '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port);
+	return system("'$IBPATH'/ibdatacounts '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port);
 }
 
 /^Ca/ || /^Switch/ || /^Rt/ {
