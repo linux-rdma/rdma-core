@@ -106,7 +106,7 @@ else
 	fi
 fi
 
-nodename=`smpquery $ca_info nodedesc $lid | sed -e "s/^Node Description:\.*\(.*\)/\1/"`
+nodename=`$IBPATH/smpquery $ca_info nodedesc $lid | sed -e "s/^Node Description:\.*\(.*\)/\1/"`
 
 text="`eval $IBPATH/perfquery $ca_info $lid $portnum`"
 rv=$?
