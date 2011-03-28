@@ -79,6 +79,9 @@ Administrator and is part of the resolved route (path record) information.
 The HCA ACK delay is a property of the locally used HCA.
 .P
 Retry count and RNR retry count values are 3-bit values.
+.P
+The length of the private data provided by the user is limited to 56 bytes
+for RDMA_PS_TCP, or 180 bytes for RDMA_PS_UDP.
 .SH "IWARP SPECIFIC"
 Connections established over iWarp RDMA devices currently require that the
 active side of the connection send the first message.

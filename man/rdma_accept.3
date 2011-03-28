@@ -84,5 +84,8 @@ by the active side of the connection.  The HCA ACK delay is a property of
 the locally used HCA.
 .P
 The RNR retry count is a 3-bit value.
+.P
+The length of the private data provided by the user is limited to 160 bytes
+for RDMA_PS_TCP, or 136 bytes for RDMA_PS_UDP.
 .SH "SEE ALSO"
 rdma_listen(3), rdma_reject(3), rdma_get_cm_event(3)
