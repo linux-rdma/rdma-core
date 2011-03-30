@@ -65,7 +65,7 @@ struct bind_handle {
 };
 
 struct query_res {
-	int status;
+	uint32_t status;
 	unsigned result_cnt;
 	void *p_result_madw;
 };
@@ -218,7 +218,7 @@ recv_mad:
 	offset = mad_get_field(mad, 0, IB_SA_ATTROFFS_F);
 	result.status = mad_get_field(mad, 0, IB_MAD_STATUS_F);
 	result.p_result_madw = mad;
-	if (result.status)
+	if (result.status != IB_SA_MAD_STATUS_SUCCESS)
 		result.result_cnt = 0;
 	else if (method != IB_MAD_METHOD_GET_TABLE)
 		result.result_cnt = 1;
@@ -858,9 +858,9 @@ static int get_any_records(bind_handle_t h,
 		return ret;
 	}
 
-	if (result.status != IB_SUCCESS) {
+	if (result.status != IB_SA_MAD_STATUS_SUCCESS) {
 		report_err(result.status);
-		return result.status;
+		return EIO;
 	}
 
 	return ret;
@@ -1084,11 +1084,13 @@ static int get_print_class_port_info(bind_handle_t h)
 			ib_get_err_str(ret));
 		return ret;
 	}
-	if (result.status != IB_SUCCESS) {
+	if (result.status != IB_SA_MAD_STATUS_SUCCESS) {
 		report_err(result.status);
-		return (result.status);
+		ret = EIO;
+		goto Exit;
 	}
 	dump_results(&result, dump_class_port_info);
+Exit:
 	return_mad();
 	return ret;
 }
@@ -1127,29 +1129,29 @@ static int query_path_records(const struct query_cmd *q, bind_handle_t h,
 					&pr, 0, dump_path_record);
 }
 
-static ib_api_status_t print_issm_records(bind_handle_t h)
+static int print_issm_records(bind_handle_t h)
 {
-	ib_api_status_t status;
+	int ret = 0;
 
 	/* First, get IsSM records */
-	status = get_issm_records(h, IB_PORT_CAP_IS_SM);
-	if (status != IB_SUCCESS)
-		return (status);
+	ret = get_issm_records(h, IB_PORT_CAP_IS_SM);
+	if (ret != 0)
+		return (ret);
 
 	printf("IsSM ports\n");
 	dump_results(&result, dump_portinfo_record);
 	return_mad();
 
 	/* Now, get IsSMdisabled records */
-	status = get_issm_records(h, IB_PORT_CAP_SM_DISAB);
-	if (status != IB_SUCCESS)
-		return (status);
+	ret = get_issm_records(h, IB_PORT_CAP_SM_DISAB);
+	if (ret != 0)
+		return (ret);
 
 	printf("\nIsSMdisabled ports\n");
 	dump_results(&result, dump_portinfo_record);
 	return_mad();
 
-	return (status);
+	return (ret);
 }
 
 static int print_multicast_member_records(bind_handle_t h)
@@ -1698,7 +1700,7 @@ int main(int argc, char **argv)
 	bind_handle_t h;
 	struct query_params params;
 	const struct query_cmd *q;
-	ib_api_status_t status;
+	int status;
 	int n;
 
 	const struct ibdiag_opt opts[] = {
