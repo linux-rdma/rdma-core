@@ -724,22 +724,32 @@ static void acm_process_join_resp(struct acm_ep *ep, struct ib_user_mad *umad)
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
 	lock_acquire(&ep->lock);
 	index = acm_mc_index(ep, &mc_rec->mgid);
-	if (index >= 0) {
-		dest = &ep->mc_dest[index];
-		dest->remote_qpn = IB_MC_QPN;
-		dest->mgid = mc_rec->mgid;
-		acm_record_mc_av(ep->port, mc_rec, dest);
+	if (index < 0) {
+		acm_log(0, "ERROR - MGID in join response not found\n");
+		goto out;
+	}
+
+	dest = &ep->mc_dest[index];
+	dest->remote_qpn = IB_MC_QPN;
+	dest->mgid = mc_rec->mgid;
+	acm_record_mc_av(ep->port, mc_rec, dest);
+
+	if (index == 0) {
 		dest->ah = ibv_create_ah(ep->port->dev->pd, &dest->av);
+		if (!dest->ah) {
+			acm_log(0, "ERROR - unable to create ah\n");
+			goto out;
+		}
 		ret = ibv_attach_mcast(ep->qp, &mc_rec->mgid, mc_rec->mlid);
 		if (ret) {
 			acm_log(0, "ERROR - unable to attach QP to multicast group\n");
-		} else {
-			dest->state = ACM_READY;
-			acm_log(1, "join successful\n");
+			goto out;
 		}
-	} else {
-		acm_log(0, "ERROR - MGID in join response not found\n");
 	}
+
+	dest->state = ACM_READY;
+	acm_log(1, "join successful\n");
+out:
 	lock_release(&ep->lock);
 }
 
