@@ -1556,7 +1556,8 @@ static void acm_port_join(struct acm_port *port)
 		if ((ep->state = ep->mc_dest[0].state) != ACM_READY)
 			continue;
 
-		if (port->rate != min_rate || port->mtu != min_mtu)
+		if ((route_prot == ACM_ROUTE_PROT_ACM) &&
+		    (port->rate != min_rate || port->mtu != min_mtu))
 			acm_join_group(ep, &port_gid, 0, 0, 0, port->rate, port->mtu);
 	}
 	acm_log(1, "joins for device %s port %d complete\n", dev->verbs->device->name,
