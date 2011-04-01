@@ -37,7 +37,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_sbindir}/ibdiscover.pl
 %{_sbindir}/ib*
 %{_sbindir}/perfquery
 %{_sbindir}/saquery
