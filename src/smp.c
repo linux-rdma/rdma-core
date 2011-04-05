@@ -102,7 +102,7 @@ uint8_t *smp_query_via(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
 	portid->sl = 0;
 	portid->qp = 0;
 
-	return mad_rpc(srcport, &rpc, portid, 0, rcvbuf);
+	return mad_rpc(srcport, &rpc, portid, rcvbuf, rcvbuf);
 }
 
 uint8_t *smp_query(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
