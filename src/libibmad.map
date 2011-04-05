@@ -101,7 +101,9 @@ IBMAD_1.3 {
 		ib_vendor_call;
 		ib_vendor_call_via;
 		smp_query_via;
+		smp_query_status_via;
 		smp_set_via;
+		smp_set_status_via;
 		ib_path_query_via;
 		ib_resolve_smlid_via;
 		ib_resolve_guid_via;

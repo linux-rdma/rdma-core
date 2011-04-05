@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -242,6 +243,8 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 		} else
 			redirect = 0;
 	}
+
+	rpc->rstatus = status;
 
 	if (status != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -45,11 +46,12 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
-uint8_t *smp_set_via(void *data, ib_portid_t * portid, unsigned attrid,
-		     unsigned mod, unsigned timeout,
-		     const struct ibmad_port *srcport)
+uint8_t *smp_set_status_via(void *data, ib_portid_t * portid, unsigned attrid,
+			    unsigned mod, unsigned timeout, int *rstatus,
+			    const struct ibmad_port *srcport)
 {
 	ib_rpc_t rpc = { 0 };
+	uint8_t *res;
 
 	DEBUG("attr 0x%x mod 0x%x route %s", attrid, mod, portid2str(portid));
 	if ((portid->lid <= 0) ||
@@ -69,7 +71,18 @@ uint8_t *smp_set_via(void *data, ib_portid_t * portid, unsigned attrid,
 	portid->sl = 0;
 	portid->qp = 0;
 
-	return mad_rpc(srcport, &rpc, portid, data, data);
+	res = mad_rpc(srcport, &rpc, portid, data, data);
+	if (rstatus)
+		*rstatus = rpc.rstatus;
+	return res;
+}
+
+uint8_t *smp_set_via(void *data, ib_portid_t * portid, unsigned attrid,
+		     unsigned mod, unsigned timeout,
+		     const struct ibmad_port *srcport)
+{
+	return smp_set_status_via(data, portid, attrid, mod, timeout, NULL,
+				  srcport);
 }
 
 uint8_t *smp_set(void *data, ib_portid_t * portid, unsigned attrid,
@@ -78,11 +91,12 @@ uint8_t *smp_set(void *data, ib_portid_t * portid, unsigned attrid,
 	return smp_set_via(data, portid, attrid, mod, timeout, ibmp);
 }
 
-uint8_t *smp_query_via(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
-		       unsigned mod, unsigned timeout,
-		       const struct ibmad_port * srcport)
+uint8_t *smp_query_status_via(void *rcvbuf, ib_portid_t * portid,
+			      unsigned attrid, unsigned mod, unsigned timeout,
+			      int *rstatus, const struct ibmad_port * srcport)
 {
 	ib_rpc_t rpc = { 0 };
+	uint8_t *res;
 
 	DEBUG("attr 0x%x mod 0x%x route %s", attrid, mod, portid2str(portid));
 	rpc.method = IB_MAD_METHOD_GET;
@@ -102,7 +116,18 @@ uint8_t *smp_query_via(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
 	portid->sl = 0;
 	portid->qp = 0;
 
-	return mad_rpc(srcport, &rpc, portid, rcvbuf, rcvbuf);
+	res = mad_rpc(srcport, &rpc, portid, rcvbuf, rcvbuf);
+	if (rstatus)
+		*rstatus = rpc.rstatus;
+	return res;
+}
+
+uint8_t *smp_query_via(void *rcvbuf, ib_portid_t * portid, unsigned attrid,
+		       unsigned mod, unsigned timeout,
+		       const struct ibmad_port * srcport)
+{
+	return smp_query_status_via(rcvbuf, portid, attrid, mod, timeout, NULL,
+				    srcport);
 }
 
 uint8_t *smp_query(void *rcvbuf, ib_portid_t * portid, unsigned attrid,

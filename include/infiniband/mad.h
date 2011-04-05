@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
- * Copyright (c) 2009-2010 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2009-2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -981,6 +981,14 @@ MAD_EXPORT uint8_t *smp_query_via(void *buf, ib_portid_t * id, unsigned attrid,
 MAD_EXPORT uint8_t *smp_set_via(void *buf, ib_portid_t * id, unsigned attrid,
 				unsigned mod, unsigned timeout,
 				const struct ibmad_port *srcport);
+MAD_EXPORT uint8_t *smp_query_status_via(void *rcvbuf, ib_portid_t * portid,
+					 unsigned attrid, unsigned mod,
+					 unsigned timeout, int *rstatus,
+					 const struct ibmad_port *srcport);
+MAD_EXPORT uint8_t *smp_set_status_via(void *data, ib_portid_t * portid,
+				       unsigned attrid, unsigned mod,
+				       unsigned timeout, int *rstatus,
+				       const struct ibmad_port *srcport);
 
 /* sa.c */
 uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
