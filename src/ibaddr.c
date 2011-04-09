@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -52,8 +53,8 @@ static int ib_resolve_addr(ib_portid_t * portid, int portnum, int show_lid,
 			   int show_gid)
 {
 	char gid_str[INET6_ADDRSTRLEN];
-	uint8_t portinfo[64];
-	uint8_t nodeinfo[64];
+	uint8_t portinfo[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t nodeinfo[IB_SMP_DATA_SIZE] = { 0 };
 	uint64_t guid, prefix;
 	ibmad_gid_t gid;
 	int lmc;

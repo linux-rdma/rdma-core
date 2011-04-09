@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  * Copyright (c) 2008 Lawrence Livermore National Lab.  All rights reserved.
- * Copyright (c) 2010 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2010,2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -670,7 +670,7 @@ int main(int argc, char **argv)
 				guid_str);
 	} else if (!all && dr_path) {
 		ibnd_node_t *sw = NULL;
-		uint8_t ni[IB_SMP_DATA_SIZE];
+		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 
 		if (!smp_query_via(ni, &port_id, IB_ATTR_NODE_INFO, 0,
 				   ibd_timeout, ibmad_port))

@@ -2,6 +2,7 @@
  * Copyright (c) 2008 Lawrence Livermore National Security
  * Copyright (c) 2008-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * Produced at Lawrence Livermore National Laboratory.
  * Written by Ira Weiny <weiny2@llnl.gov>.
@@ -56,7 +57,7 @@ int error_port = 1;
 static uint16_t get_node_type(ib_portid_t * port)
 {
 	uint16_t node_type = IB_NODE_TYPE_CA;
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 
 	if (smp_query_via(data, port, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		node_type = (uint16_t) mad_get_field(data, 0, IB_NODE_TYPE_F);
@@ -65,7 +66,7 @@ static uint16_t get_node_type(ib_portid_t * port)
 
 static uint32_t get_cap_mask(ib_portid_t * port)
 {
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	uint32_t cap_mask = 0;
 
 	if (smp_query_via(data, port, IB_ATTR_PORT_INFO, 0, 0, srcport))

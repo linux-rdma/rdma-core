@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
- * Copyright (c) 2010 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2010,2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -119,9 +119,11 @@ static int get_node(Node * node, Port * port, ib_portid_t * portid)
 	void *pi = port->portinfo, *ni = node->nodeinfo, *nd = node->nodedesc;
 	char *s, *e;
 
+	memset(ni, 0, sizeof(node->nodeinfo));
 	if (!smp_query_via(ni, portid, IB_ATTR_NODE_INFO, 0, timeout, srcport))
 		return -1;
 
+	memset(nd, 0, sizeof(node->nodedesc));
 	if (!smp_query_via(nd, portid, IB_ATTR_NODE_DESC, 0, timeout, srcport))
 		return -1;
 
@@ -132,6 +134,7 @@ static int get_node(Node * node, Port * port, ib_portid_t * portid)
 			*s = ' ';
 	}
 
+	memset(pi, 0, sizeof(port->portinfo));
 	if (!smp_query_via(pi, portid, IB_ATTR_PORT_INFO, 0, timeout, srcport))
 		return -1;
 
@@ -154,6 +157,7 @@ static int switch_lookup(Switch * sw, ib_portid_t * portid, int lid)
 {
 	void *si = sw->switchinfo, *fdb = sw->fdb;
 
+	memset(si, 0, sizeof(sw->switchinfo));
 	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout,
 			   srcport))
 		return -1;
@@ -164,6 +168,7 @@ static int switch_lookup(Switch * sw, ib_portid_t * portid, int lid)
 	if (lid >= sw->linearcap && lid > sw->linearFDBtop)
 		return -1;
 
+	memset(fdb, 0, sizeof(sw->fdb));
 	if (!smp_query_via(fdb, portid, IB_ATTR_LINEARFORWTBL, lid / 64,
 			   timeout, srcport))
 		return -1;
@@ -383,7 +388,7 @@ static int insert_node(Node * new)
 
 static int get_port(Port * port, int portnum, ib_portid_t * portid)
 {
-	char portinfo[64];
+	char portinfo[64] = { 0 };
 	void *pi = portinfo;
 
 	port->portnum = portnum;
@@ -446,6 +451,7 @@ static int switch_mclookup(Node * node, ib_portid_t * portid, int mlid,
 
 	memset(map, 0, 256);
 
+	memset(si, 0, sizeof(sw.switchinfo));
 	if (!smp_query_via(si, portid, IB_ATTR_SWITCH_INFO, 0, timeout,
 			   srcport))
 		return -1;
@@ -461,6 +467,7 @@ static int switch_mclookup(Node * node, ib_portid_t * portid, int mlid,
 	maxsets = (node->numports + 15) / 16;	/* round up */
 
 	for (set = 0; set < maxsets; set++) {
+		memset(mdb, 0, sizeof(mdb));
 		if (!smp_query_via(mdb, portid, IB_ATTR_MULTICASTFORWTBL,
 				   block | (set << 28), timeout, srcport))
 			return -1;
@@ -686,7 +693,7 @@ free_name:
 
 static int resolve_lid(ib_portid_t * portid, const void *srcport)
 {
-	uint8_t portinfo[64];
+	uint8_t portinfo[64] = { 0 };
 	uint16_t lid;
 
 	if (!smp_query_via(portinfo, portid, IB_ATTR_PORT_INFO, 0, 0, srcport))

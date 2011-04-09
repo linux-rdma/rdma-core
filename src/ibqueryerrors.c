@@ -3,6 +3,7 @@
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  * Copyright (c) 2008 Lawrence Livermore National Lab.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -326,7 +327,7 @@ static int print_results(ib_portid_t * portid, char *node_name,
 static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
 			  uint16_t * cap_mask)
 {
-	uint8_t pc[1024];
+	uint8_t pc[1024] = { 0 };
 	uint16_t rc_cap_mask;
 
 	/* PerfMgt ClassPortInfo is a required attribute */
@@ -369,7 +370,7 @@ static int print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
 static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 		       char *node_name, int port)
 {
-	uint8_t pc[1024];
+	uint8_t pc[1024] = { 0 };
 	/* bits defined in Table 228 PortCounters CounterSelect and
 	 * CounterSelect2
 	 */
@@ -391,9 +392,11 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 		IBERROR("Failed to reset errors %s port %d", node_name, port);
 
 	if (details && clear_errors) {
+		memset(pc, 0, 1024);
 		performance_reset_via(pc, portid, port, 0xf, ibd_timeout,
 				      IB_GSI_PORT_XMIT_DISCARD_DETAILS,
 				      ibmad_port);
+		memset(pc, 0, 1024);
 		performance_reset_via(pc, portid, port, 0x3f, ibd_timeout,
 				      IB_GSI_PORT_RCV_ERROR_DETAILS,
 				      ibmad_port);
@@ -685,7 +688,7 @@ int main(int argc, char **argv)
 				node_guid_str);
 	} else if (dr_path) {
 		ibnd_node_t *node = ibnd_find_node_dr(fabric, dr_path);
-		uint8_t ni[IB_SMP_DATA_SIZE];
+		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
 				   ibd_timeout, ibmad_port)) {

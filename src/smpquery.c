@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -84,8 +85,8 @@ static char *node_desc(ib_portid_t * dest, char **argv, int argc)
 {
 	int node_type, l;
 	uint64_t node_guid;
-	char nd[IB_SMP_DATA_SIZE];
-	uint8_t data[IB_SMP_DATA_SIZE];
+	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	char dots[128];
 	char *nodename = NULL;
 
@@ -117,7 +118,7 @@ static char *node_desc(ib_portid_t * dest, char **argv, int argc)
 static char *node_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2048];
-	char data[IB_SMP_DATA_SIZE];
+	char data[IB_SMP_DATA_SIZE] = { 0 };
 
 	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info query failed";
@@ -131,7 +132,7 @@ static char *node_info(ib_portid_t * dest, char **argv, int argc)
 static char *port_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2048];
-	char data[IB_SMP_DATA_SIZE];
+	char data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = 0;
 
 	if (argc > 0)
@@ -149,7 +150,7 @@ static char *port_info(ib_portid_t * dest, char **argv, int argc)
 static char *switch_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2048];
-	char data[IB_SMP_DATA_SIZE];
+	char data[IB_SMP_DATA_SIZE] = { 0 };
 
 	if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0, 0, srcport))
 		return "switch info query failed";
@@ -162,7 +163,7 @@ static char *switch_info(ib_portid_t * dest, char **argv, int argc)
 
 static char *pkey_table(ib_portid_t * dest, char **argv, int argc)
 {
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int i, j, k;
 	uint16_t *p;
 	unsigned mod;
@@ -215,7 +216,7 @@ static char *pkey_table(ib_portid_t * dest, char **argv, int argc)
 static char *sl2vl_dump_table_entry(ib_portid_t * dest, int in, int out)
 {
 	char buf[2048];
-	char data[IB_SMP_DATA_SIZE];
+	char data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = (in << 8) | out;
 
 	if (!smp_query_via(data, dest, IB_ATTR_SLVL_TABLE, portnum, 0, srcport))
@@ -229,7 +230,7 @@ static char *sl2vl_dump_table_entry(ib_portid_t * dest, int in, int out)
 
 static char *sl2vl_table(ib_portid_t * dest, char **argv, int argc)
 {
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int type, num_ports, portnum = 0;
 	int i;
 	char *ret;
@@ -266,7 +267,7 @@ static char *vlarb_dump_table_entry(ib_portid_t * dest, int portnum, int offset,
 				    unsigned cap)
 {
 	char buf[2048];
-	char data[IB_SMP_DATA_SIZE];
+	char data[IB_SMP_DATA_SIZE] = { 0 };
 
 	if (!smp_query_via(data, dest, IB_ATTR_VL_ARBITRATION,
 			   (offset << 16) | portnum, 0, srcport))
@@ -292,7 +293,7 @@ static char *vlarb_dump_table(ib_portid_t * dest, int portnum,
 
 static char *vlarb_table(ib_portid_t * dest, char **argv, int argc)
 {
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = 0;
 	int type, enhsp0, lowcap, highcap;
 	char *ret = 0;
@@ -308,6 +309,7 @@ static char *vlarb_table(ib_portid_t * dest, char **argv, int argc)
 
 		mad_decode_field(data, IB_NODE_TYPE_F, &type);
 		if (type == IB_NODE_SWITCH) {
+			memset(data, 0, sizeof(data));
 			if (!smp_query_via(data, dest, IB_ATTR_SWITCH_INFO, 0,
 					   0, srcport))
 				return "switch info query failed";
@@ -318,6 +320,7 @@ static char *vlarb_table(ib_portid_t * dest, char **argv, int argc)
 				     portid2str(dest), 0);
 				return 0;
 			}
+			memset(data, 0, sizeof(data));
 		}
 	}
 
@@ -341,7 +344,7 @@ static char *vlarb_table(ib_portid_t * dest, char **argv, int argc)
 
 static char *guid_info(ib_portid_t * dest, char **argv, int argc)
 {
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int i, j, k;
 	uint64_t *p;
 	unsigned mod;

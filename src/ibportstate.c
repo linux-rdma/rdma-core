@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -247,7 +248,7 @@ int main(int argc, char **argv)
 	int peerlocalportnum, peerlwe, peerlws, peerlwa, peerlse, peerlss,
 	    peerlsa;
 	int peerwidth, peerspeed;
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	ib_portid_t peerportid = { 0 };
 	int portnum = 0;
 	ib_portid_t selfportid = { 0 };
@@ -356,6 +357,7 @@ int main(int argc, char **argv)
 		printf("Initial %s PortInfo:\n", is_switch ? "Switch" : "CA");
 	else
 		printf("%s PortInfo:\n", is_switch ? "Switch" : "CA");
+	memset(data, 0, sizeof(data));
 	get_port_info(&portid, data, portnum);
 	show_port_info(&portid, data, portnum);
 

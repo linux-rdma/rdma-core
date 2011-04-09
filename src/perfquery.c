@@ -2,6 +2,7 @@
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -288,6 +289,7 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 	char buf[1024];
 
 	if (extended != 1) {
+		memset(pc, 0, sizeof(pc));
 		if (!pma_query_via(pc, portid, port, timeout,
 				   IB_GSI_PORT_COUNTERS, srcport))
 			IBERROR("perfquery");
@@ -312,6 +314,7 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 			    ("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n",
 			     cap_mask);
 
+		memset(pc, 0, sizeof(pc));
 		if (!pma_query_via(pc, portid, port, timeout,
 				   IB_GSI_PORT_COUNTERS_EXT, srcport))
 			IBERROR("perfextquery");
@@ -335,6 +338,7 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 static void reset_counters(int extended, int timeout, int mask,
 			   ib_portid_t * portid, int port)
 {
+	memset(pc, 0, sizeof(pc));
 	if (extended != 1) {
 		if (!performance_reset_via(pc, portid, port, mask, timeout,
 					   IB_GSI_PORT_COUNTERS, srcport))
@@ -357,6 +361,7 @@ static void common_func(ib_portid_t * portid, int port_num, int mask,
 	char buf[1024];
 
 	if (query) {
+		memset(pc, 0, sizeof(pc));
 		if (!pma_query_via(pc, portid, port_num, ibd_timeout, attr,
 				   srcport))
 			IBERROR("cannot query %s", name);
@@ -367,6 +372,7 @@ static void common_func(ib_portid_t * portid, int port_num, int mask,
 		       portid2str(portid), port_num, buf);
 	}
 
+	memset(pc, 0, sizeof(pc));
 	if (reset && !performance_reset_via(pc, portid, port, mask, ibd_timeout,
 					    attr, srcport))
 		IBERROR("cannot reset %s", name);
@@ -404,6 +410,7 @@ void dump_portsamples_control(ib_portid_t * portid, int port)
 {
 	char buf[1024];
 
+	memset(pc, 0, sizeof(pc));
 	if (!pma_query_via(pc, portid, port, ibd_timeout,
 			   IB_GSI_PORT_SAMPLES_CONTROL, srcport))
 		IBERROR("sampctlquery");
@@ -463,7 +470,7 @@ int main(int argc, char **argv)
 	uint16_t cap_mask;
 	int all_ports_loop = 0;
 	int node_type, num_ports = 0;
-	uint8_t data[IB_SMP_DATA_SIZE];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int start_port = 1;
 	int enhancedport0;
 	int i;
@@ -522,6 +529,7 @@ int main(int argc, char **argv)
 	}
 
 	/* PerfMgt ClassPortInfo is a required attribute */
+	memset(pc, 0, sizeof(pc));
 	if (!pma_query_via(pc, &portid, port, ibd_timeout, CLASS_PORT_INFO,
 			   srcport))
 		IBERROR("classportinfo query");

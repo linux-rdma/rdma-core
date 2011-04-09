@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
- * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2009-2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -130,7 +130,7 @@ int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 	return i * 2;
 }
 
-uint16_t mft[16][IB_MLIDS_IN_BLOCK];
+uint16_t mft[16][IB_MLIDS_IN_BLOCK] = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0}, { 0 }, { 0 } };
 
 char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 			    unsigned endlid)
@@ -303,9 +303,9 @@ int dump_lid(char *str, int strlen, int lid, int valid)
 
 char *dump_unicast_tables(ib_portid_t * portid, int startlid, int endlid)
 {
-	char lft[IB_SMP_DATA_SIZE];
-	char nd[IB_SMP_DATA_SIZE];
-	uint8_t sw[IB_SMP_DATA_SIZE];
+	char lft[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t sw[IB_SMP_DATA_SIZE] = { 0 };
 	char str[200], *s;
 	uint64_t nodeguid;
 	int block, i, e, top;
