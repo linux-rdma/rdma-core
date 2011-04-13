@@ -877,7 +877,7 @@ static int get_and_dump_any_records(bind_handle_t h, uint16_t attr_id,
 		return ret;
 
 	dump_results(&result, dump_func);
-
+	return_mad();
 	return 0;
 }
 
