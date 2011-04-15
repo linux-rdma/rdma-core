@@ -639,8 +639,9 @@ enum {
 
 /* Option details */
 enum {
-	RDMA_OPTION_ID_TOS	= 0,	/* uint8_t: RFC 2474 */
-	RDMA_OPTION_IB_PATH	= 1	/* struct ibv_path_data[] */
+	RDMA_OPTION_ID_TOS	 = 0,	/* uint8_t: RFC 2474 */
+	RDMA_OPTION_ID_REUSEADDR = 1,   /* int: ~SO_REUSEADDR */
+	RDMA_OPTION_IB_PATH	 = 1	/* struct ibv_path_data[] */
 };
 
 /**
