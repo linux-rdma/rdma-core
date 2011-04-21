@@ -183,7 +183,7 @@ perform the lookup.
 .TP
 \fBLocal HCA info\fR
 
-	See: ibstat, ibstatus,
+	See: ibstat, ibstatus
 
 .TP
 \fBConnectivity check\fR

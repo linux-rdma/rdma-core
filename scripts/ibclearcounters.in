@@ -101,6 +101,7 @@ function clear_port_counters(lid, port)
 /iberror:/	{print $0}
 
 END {
+	printf "\n*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors -K\"\n"
 	printf "\n## Summary: %d nodes cleared %d errors\n", nnodes, nodeerr
 }
 '

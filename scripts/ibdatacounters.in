@@ -80,12 +80,12 @@ BEGIN {
 }
 function check_node(lid, port)
 {
-	if (system("'$IBPATH'/ibchecknode '"$ca_info"' '$gflags' '$verbose' " lid)) {
+	if (system("'$IBPATH'/ibchecknode -S '"$ca_info"' '$gflags' '$verbose' " lid)) {
 		ne++
 		print "\n# " ntype ": nodeguid 0x" nodeguid " failed"
 		return 1;
 	}
-	return system("'$IBPATH'/ibdatacounts '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port);
+	return system("'$IBPATH'/ibdatacounts -S '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port);
 }
 
 /^Ca/ || /^Switch/ || /^Rt/ {
@@ -112,7 +112,7 @@ function check_node(lid, port)
 			lid = substr(lid, 1, index(lid, " ") - 1)
 			check_node(lid, port)
 		} else if (err)
-			system("'$IBPATH'/ibdatacounts '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port);
+			system("'$IBPATH'/ibdatacounts -S '"$ca_info"' '$gflags' '$verbose' '$brief' " lid " " port);
 }
 
 /^ib/	{print $0; next}
@@ -121,9 +121,11 @@ function check_node(lid, port)
 /iberror:/	{print $0}
 
 END {
+   printf "*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors --counters\n"
 	printf "\n## Summary: %d nodes checked, %d bad nodes found\n", nnodes, ne
 	printf "##          %d ports checked\n", nports
 	exit (ne )
 }
 '
+
 exit $rv

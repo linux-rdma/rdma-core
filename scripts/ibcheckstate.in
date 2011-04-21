@@ -77,12 +77,13 @@ BEGIN {
 function check_node(lid)
 {
 	nodechecked=1
-	if (system("'$IBPATH'/ibchecknode'"$ca_info"' '$gflags' '$verbose' " lid)) {
+	if (system("'$IBPATH'/ibchecknode -S '"$ca_info"' '$gflags' '$verbose' " lid)) {
 		ne++
 		badnode=1
 		return
 	}
 }
+
 
 /^Ca/ || /^Switch/ || /^Rt/ {
 			nnodes++
@@ -113,7 +114,7 @@ function check_node(lid)
 		}
 		sub("\\(.*\\)", "", port)
 		gsub("[\\[\\]]", "", port)
-		if (system("'$IBPATH'/ibcheckportstate'"$ca_info"' '$gflags' '$verbose' " lid " " port)) {
+		if (system("'$IBPATH'/ibcheckportstate -S '"$ca_info"' '$gflags' '$verbose' " lid " " port)) {
 			if (!'$v' && oldlid != lid) {
 				print "# Checked " ntype ": nodeguid 0x" nodeguid " with failure"
 				oldlid = lid
@@ -128,6 +129,7 @@ function check_node(lid)
 /iberror:/	{print $0}
 
 END {
+	printf "\n*** WARNING ***: this command is deprecated\n"
 	printf "\n## Summary: %d nodes checked, %d bad nodes found\n", nnodes, ne
 	printf "##          %d ports checked, %d ports with bad state found\n", nports, pe
 }

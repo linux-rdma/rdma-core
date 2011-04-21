@@ -1,5 +1,9 @@
 #!/usr/bin/perl
 
+printf (STDERR "*** WARNING ***; this command is deprecated;\n");
+printf (STDERR "                 see ibnetdiscover cache features\n");
+printf (STDERR "                 and/or iblinkinfo \"check\" features\n\n");
+
 #
 # Read mapfile
 #
@@ -84,3 +88,8 @@ foreach $el (keys %topo) {
 			$val{$lg}, $val{$rg});
 	}
 }
+
+printf (STDERR "*** WARNING ***; this command is deprecated;\n");
+printf (STDERR "                 see ibnetdiscover cache features\n");
+printf (STDERR "                 and/or iblinkinfo \"check\" features\n\n");
+

@@ -34,6 +34,7 @@ bw=""
 verbose=""
 brief=""
 ca_info=""
+suppress_deprecated="no"
 
 while [ "$1" ]; do
 	case $1 in
@@ -62,6 +63,9 @@ while [ "$1" ]; do
 		fi
 		ca_info="$ca_info $1 $2"
 		shift
+		;;
+	-S)
+		suppress_deprecated="yes"
 		;;
 	-*)
 		usage
@@ -107,6 +111,10 @@ else
 fi
 
 nodename=`$IBPATH/smpquery $ca_info nodedesc $lid | sed -e "s/^Node Description:\.*\(.*\)/\1/"`
+
+if [ "$suppress_deprecated" = "no" ]; then
+echo "*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors --counters\"\n\n" 1>&2
+fi
 
 text="`eval $IBPATH/perfquery $ca_info $lid $portnum`"
 rv=$?

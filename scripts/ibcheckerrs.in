@@ -67,6 +67,7 @@ bw=""
 verbose=""
 brief=""
 ca_info=""
+suppress_deprecated="no"
 
 while [ "$1" ]; do
 	case $1 in
@@ -95,6 +96,9 @@ while [ "$1" ]; do
 	-s)
 		show_thresholds
 		exit 0
+		;;
+	-S)
+		suppress_deprecated="yes"
 		;;
 	-P | -C | -t | -timeout)
 		case $2 in
@@ -133,6 +137,10 @@ if [ "$portnum" = "255" ]; then
 	portname="all"
 else
 	portname=$2
+fi
+
+if [ "$suppress_deprecated" = "no" ]; then
+echo "*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors\"\n\n" 1>&2
 fi
 
 if [ "$guid_addr" ]; then

@@ -40,6 +40,8 @@ use strict;
 use Getopt::Std;
 use IBswcountlimits;
 
+printf (STDERR "*** WARNING ***: this command is deprecated; Please use \"ibrouters\"\n\n");
+
 # =========================================================================
 #
 sub usage_and_exit

@@ -32,6 +32,7 @@ guid_addr=""
 bw=""
 verbose=""
 ca_info=""
+suppress_deprecated="no"
 
 while [ "$1" ]; do
 	case $1 in
@@ -43,6 +44,9 @@ while [ "$1" ]; do
 		;;
 	-v)
 		verbose=yes
+		;;
+	-S)
+		suppress_deprecated="yes"
 		;;
 	-P | -C | -t | -timeout)
 		case $2 in
@@ -71,6 +75,10 @@ if [ $# -lt 2 ]; then
 fi
 
 portnum=$2
+
+if [ "$suppress_deprecated" = "no" ]; then
+echo "*** WARNING ***: this command is deprecated\n\n" 1>&2
+fi
 
 if [ "$guid_addr" ]; then
 	if ! lid=`$IBPATH/ibaddr $ca_info -G -L $1 | awk '/failed/{exit -1} {print $3}'`; then
