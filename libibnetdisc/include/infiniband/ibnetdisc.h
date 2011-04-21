@@ -40,6 +40,8 @@
 #include <infiniband/mad.h>
 #include <iba/ib_types.h>
 
+#include <infiniband/ibnetdisc_osd.h>
+
 struct ibnd_chassis;		/* forward declare */
 struct ibnd_port;		/* forward declare */
 
