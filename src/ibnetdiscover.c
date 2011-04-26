@@ -624,6 +624,8 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 {
 	int p = 0;
 	ibnd_port_t *port = NULL;
+	char *nodename = NULL;
+	char *rem_nodename = NULL;
 
 	/* for each port */
 	for (p = node->numports, port = node->ports[p]; p > 0;
@@ -635,6 +637,9 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 		    mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 		ispeed =
 		    mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
+		nodename = remap_node_name(node_name_map,
+					   port->node->guid,
+					   port->node->nodedesc);
 		fprintf(stdout, "%2s %5d %2d 0x%016" PRIx64 " %s %s",
 			ports_nt_str_compat(node),
 			node->type ==
@@ -642,7 +647,10 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 			port->portnum, port->guid,
 			dump_linkwidth_compat(iwidth),
 			dump_linkspeed_compat(ispeed));
-		if (port->remoteport)
+		if (port->remoteport) {
+			rem_nodename = remap_node_name(node_name_map,
+					      port->remoteport->node->guid,
+					      port->remoteport->node->nodedesc);
 			fprintf(stdout,
 				" - %2s %5d %2d 0x%016" PRIx64
 				" ( '%s' - '%s' )\n",
@@ -651,10 +659,12 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 				port->remoteport->node->smalid :
 				port->remoteport->base_lid,
 				port->remoteport->portnum,
-				port->remoteport->guid, port->node->nodedesc,
-				port->remoteport->node->nodedesc);
-		else
-			fprintf(stdout, "%36s'%s'\n", "", port->node->nodedesc);
+				port->remoteport->guid, nodename, rem_nodename);
+			free(rem_nodename);
+		} else
+			fprintf(stdout, "%36s'%s'\n", "", nodename);
+
+		free(nodename);
 	}
 }
 
