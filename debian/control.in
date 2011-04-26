@@ -10,7 +10,7 @@ Package: libmthca1
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: A userspace driver for Mellanox InfiniBand HCAs
+Description: Userspace driver for Mellanox InfiniBand HCAs
  libmthca is a device-specific driver for Mellanox InfiniBand host
  channel adapters (HCAs) for the libibverbs library.  This allows
  userspace processes to access Mellanox HCA hardware directly with
