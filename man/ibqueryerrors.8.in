@@ -4,16 +4,17 @@
 ibqueryerrors \- query and report non-zero IB port counters
 
 .SH SYNOPSIS
-.B ibqueryerrors
-[-s <err1,err2,...> -c -r -C <ca_name> -P <ca_port> -G <node_guid>
--D <direct_route> -d -k -K \-\-load\-cache <filename>]
+.B ibqueryerrors [options]
 
 .SH DESCRIPTION
 .PP
-ibqueryerrors reports port counters.  This is similar to ibcheckerrors with
-the additional ability to filter out selected errors, include the optional
-transmit and receive data counters, and report full link information for the
-link reported.
+The default behavior is to report the port error counters which exceed a
+threshold for each port in the fabric.  The default threshold is zero (0).
+Error fields can also be suppressed entirely.
+
+In addition to reporting errors on every port.  ibqueryerrors can report the
+port transmit and receive data as well as report full link information to the
+remote port if available.
 
 .SH OPTIONS
 
@@ -42,6 +43,9 @@ applicable), link speed setting, remote GUID, remote port, remote external port
 .TP
 \fB\-\-data\fR
 Include the optional transmit and receive data counters.
+.TP
+\fB\-\-threshold-file\fR
+Specify an alternate threshold file.  The default is @IBDIAG_CONFIG_PATH@/error_thresholds
 .TP
 \fB\-\-switch\fR  print data for switches only
 .TP
@@ -91,6 +95,23 @@ for information on caching ibnetdiscover output.
 \-P <ca_port>    use the specified ca_port.
 .PP
 \-t <timeout_ms> override the default timeout for the solicited mads.
+
+.SH FILES
+
+@IBDIAG_CONFIG_PATH@/error_thresholds
+
+Define threshold values for errors.  File format is simple "name=val".
+Comments begin with '#'
+
+Example:
+
+	# Define thresholds for error counters
+.br
+	SymbolErrorCounter=10
+.br
+	LinkErrorRecoveryCounter=10
+.br
+	VL15Dropped=100
 
 
 .SH AUTHOR

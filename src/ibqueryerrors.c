@@ -77,6 +77,69 @@ unsigned clear_errors = 0, clear_counts = 0, details = 0;
 #define PRINT_ROUTER 0x4
 #define PRINT_ALL 0xFF		/* all nodes default flag */
 
+struct {
+	int nodes_checked;
+	int bad_nodes;
+	int ports_checked;
+	int bad_ports;
+} summary = { 0 };
+
+#define DEF_THRES_FILE IBDIAG_CONFIG_PATH"/error_thresholds"
+static char *threshold_file = DEF_THRES_FILE;
+
+/* define a "packet" with threshold values in it */
+uint8_t thresholds[1204] = { 0 };
+
+static void set_thres(char *name, uint32_t val)
+{
+	int f;
+	for (f = IB_PC_FIRST_F; f <= IB_PC_LAST_F; f++) {
+		if (strcmp(name, mad_field_name(f)) == 0) {
+			mad_encode_field(thresholds, f, &val);
+			printf("[%s = %u]", name, val);
+		}
+	}
+}
+
+static void set_thresholds(char *threshold_file)
+{
+	char buf[1024];
+	int val = 0;
+	FILE *thresf = fopen(threshold_file, "r");
+	char *p_prefix, *p_last;
+	char *name;
+	char *val_str;
+
+	if (!thresf)
+		return;
+
+	printf("Thresholds: ");
+	while (fgets(buf, sizeof buf, thresf) != NULL) {
+		p_prefix = strtok_r(buf, "\n", &p_last);
+		if (!p_prefix)
+			continue; /* ignore blank lines */
+
+		if (*p_prefix == '#')
+			continue; /* ignore comment lines */
+
+		name = strtok_r(p_prefix, "=", &p_last);
+		val_str = strtok_r(NULL, "\n", &p_last);
+
+		val = strtoul(val_str, NULL, 0);
+		set_thres(name, val);
+	}
+	printf("\n");
+
+	fclose(thresf);
+}
+
+static int exceeds_threshold(int field, unsigned val)
+{
+	uint32_t thres = 0;
+	mad_decode_field(thresholds, field, &thres);
+	return (val > thres);
+}
+
 static unsigned int get_max(unsigned int num)
 {
 	unsigned r = 0;		// r will be lg(num)
@@ -264,32 +327,33 @@ static int print_results(ib_portid_t * portid, char *node_name,
 			continue;
 
 		mad_decode_field(pc, i, (void *)&val);
-		if (val)
+		if (exceeds_threshold(i, val)) {
 			n += snprintf(str + n, 1024 - n, " [%s == %u]",
 				      mad_field_name(i), val);
 
-		/* If there are PortXmitDiscards, get details (if supported) */
-		if (i == IB_PC_XMT_DISCARDS_F && details && val) {
-			n += query_and_dump(str + n, sizeof(buf) - n, portid,
-					    node, node_name, portnum,
-					    "PortXmitDiscardDetails",
-					    IB_GSI_PORT_XMIT_DISCARD_DETAILS,
-					    IB_PC_RCV_LOCAL_PHY_ERR_F,
-					    IB_PC_RCV_ERR_LAST_F);
-			/* If there are PortRcvErrors, get details (if supported) */
-		} else if (i == IB_PC_ERR_RCV_F && details && val) {
-			n += query_and_dump(str + n, sizeof(buf) - n, portid,
-					    node, node_name, portnum,
-					    "PortRcvErrorDetails",
-					    IB_GSI_PORT_RCV_ERROR_DETAILS,
-					    IB_PC_XMT_INACT_DISC_F,
-					    IB_PC_XMT_DISC_LAST_F);
+			/* If there are PortXmitDiscards, get details (if supported) */
+			if (i == IB_PC_XMT_DISCARDS_F && details) {
+				n += query_and_dump(str + n, sizeof(buf) - n, portid,
+						    node, node_name, portnum,
+						    "PortXmitDiscardDetails",
+						    IB_GSI_PORT_XMIT_DISCARD_DETAILS,
+						    IB_PC_RCV_LOCAL_PHY_ERR_F,
+						    IB_PC_RCV_ERR_LAST_F);
+				/* If there are PortRcvErrors, get details (if supported) */
+			} else if (i == IB_PC_ERR_RCV_F && details) {
+				n += query_and_dump(str + n, sizeof(buf) - n, portid,
+						    node, node_name, portnum,
+						    "PortRcvErrorDetails",
+						    IB_GSI_PORT_RCV_ERROR_DETAILS,
+						    IB_PC_XMT_INACT_DISC_F,
+						    IB_PC_XMT_DISC_LAST_F);
+			}
 		}
 	}
 
 	if (!suppress(IB_PC_XMT_WAIT_F)) {
 		mad_decode_field(pc, IB_PC_XMT_WAIT_F, (void *)&val);
-		if (val)
+		if (exceeds_threshold(IB_PC_XMT_WAIT_F, val))
 			n += snprintf(str + n, 1024 - n, " [%s == %u]",
 				      mad_field_name(IB_PC_XMT_WAIT_F), val);
 	}
@@ -536,6 +600,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 7:
 		load_cache_file = strdup(optarg);
 		break;
+	case 8:
+		threshold_file = strdup(optarg);
+		break;
 	case 'G':
 	case 'S':
 		node_guid_str = optarg;
@@ -590,6 +657,8 @@ int main(int argc, char **argv)
 		 "query only switch specified by <dr_path>"},
 		{"report-port", 'r', 0, NULL,
 		 "report port configuration information"},
+		{"threshold-file", 8, 1, NULL,
+		 "specify an alternate thresold file, default: " DEF_THRES_FILE},
 		{"GNDN", 'R', 0, NULL,
 		 "(This option is obsolete and does nothing)"},
 		{"data", 2, 0, NULL, "include the data counters in the output"},
@@ -678,6 +747,7 @@ int main(int argc, char **argv)
 	}
 
 	report_suppressed();
+	set_thresholds(threshold_file);
 
 	if (node_guid_str) {
 		ibnd_node_t *node = ibnd_find_node_guid(fabric, node_guid);
