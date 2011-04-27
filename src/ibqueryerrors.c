@@ -437,7 +437,7 @@ static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&rc_cap_mask, pc + 2, sizeof(rc_cap_mask));	/* CapabilityMask */
 
-	*cap_mask = ntohs(rc_cap_mask);
+	*cap_mask = rc_cap_mask;
 	return 0;
 }
 
@@ -454,7 +454,7 @@ static int print_port(ib_portid_t * portid, uint16_t cap_mask, char *node_name,
 		       node_name, portid2str(portid), portnum);
 		return (0);
 	}
-	if (!(cap_mask & 0x1000)) {
+	if (!(cap_mask & IB_PM_PC_XMIT_WAIT_SUP)) {
 		/* if PortCounters:PortXmitWait not supported clear this counter */
 		uint32_t foo = 0;
 		mad_encode_field(pc, IB_PC_XMT_WAIT_F, &foo);
@@ -477,7 +477,7 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 
 	if (clear_errors) {
 		mask |= 0xFFF;
-		if (cap_mask & 0x1000)
+		if (cap_mask & IB_PM_PC_XMIT_WAIT_SUP)
 			mask |= 0x10000;
 	}
 	if (clear_counts)
@@ -544,7 +544,7 @@ void print_node(ibnd_node_t * node, void *user_data)
 		}
 	}
 	if ((query_cap_mask(&portid, node_name, p, &cap_mask) == 0) &&
-	    (cap_mask & 0x100)) {
+	    (cap_mask & IB_PM_ALL_PORT_SELECT)) {
 		all_port_sup = 1;
 		if (!print_port(&portid, cap_mask, node_name, node,
 				0xFF, &header_printed)) {

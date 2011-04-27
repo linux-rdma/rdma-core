@@ -35,6 +35,7 @@
 #ifndef _IBDIAG_COMMON_H_
 #define _IBDIAG_COMMON_H_
 
+#include <infiniband/iba/ib_types.h>
 #include <infiniband/mad.h>
 
 extern int ibverbose;
@@ -56,6 +57,11 @@ extern int ibd_timeout;
 	if (ibverbose) IBVERBOSE(fmt, ## __VA_ARGS__); \
 } while (0)
 #define IBERROR(fmt, ...) iberror(__FUNCTION__, fmt, ## __VA_ARGS__)
+
+/* not all versions of ib_types.h will have this define */
+#ifndef IB_PM_PC_XMIT_WAIT_SUP
+#define IB_PM_PC_XMIT_WAIT_SUP (CL_HTON16(((uint16_t)1)<<12))
+#endif
 
 struct ibdiag_opt {
 	const char *name;
