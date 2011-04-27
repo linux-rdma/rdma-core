@@ -127,7 +127,7 @@ int mad_rpc_class_agent(struct ibmad_port *port, int class)
 
 static int
 _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
-	   int timeout, int max_retries)
+	   int timeout, int max_retries, int *p_error)
 {
 	uint32_t trid;		/* only low 32 bits */
 	int retries;
@@ -182,6 +182,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 			return length;
 	}
 
+	*p_error = ETIMEDOUT;
 	ERRS("timeout after %d retries, %d ms", retries, timeout * retries);
 	return -1;
 }
@@ -213,7 +214,11 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
 	int redirect = 1;
+	ib_rpc_v1_t *rpcv1 = (ib_rpc_v1_t *)rpc;
+	int error = 0;
 
+	if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) == IB_MAD_RPC_VERSION1)
+		rpcv1->error = 0;
 	while (redirect) {
 		len = 0;
 		memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
@@ -222,9 +227,12 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 			return NULL;
 
 		if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
-				      port->class_agents[rpc->mgtclass],
+				      port->class_agents[rpc->mgtclass & 0xff],
 				      len, mad_get_timeout(port, rpc->timeout),
-				      mad_get_retries(port))) < 0) {
+				      mad_get_retries(port), &error)) < 0) {
+			if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) ==
+			    IB_MAD_RPC_VERSION1)
+				rpcv1->error = error;
 			IBWARN("_do_madrpc failed; dport (%s)",
 			       portid2str(dport));
 			return NULL;
@@ -244,6 +252,8 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 			redirect = 0;
 	}
 
+	if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) == IB_MAD_RPC_VERSION1)
+		rpcv1->error = error;
 	rpc->rstatus = status;
 
 	if (status != 0) {
@@ -268,21 +278,30 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc,
 {
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
+	ib_rpc_v1_t *rpcv1 = (ib_rpc_v1_t *)rpc;
+	int error = 0;
 
 	memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
 	DEBUG("rmpp %p data %p", rmpp, data);
 
+	if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) == IB_MAD_RPC_VERSION1)
+		rpcv1->error = 0;
 	if ((len = mad_build_pkt(sndbuf, rpc, dport, rmpp, data)) < 0)
 		return NULL;
 
 	if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,
-			      port->class_agents[rpc->mgtclass],
+			      port->class_agents[rpc->mgtclass & 0xff],
 			      len, mad_get_timeout(port, rpc->timeout),
-			      mad_get_retries(port))) < 0) {
+			      mad_get_retries(port), &error)) < 0) {
+		if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) == IB_MAD_RPC_VERSION1)
+			rpcv1->error = error;
 		IBWARN("_do_madrpc failed; dport (%s)", portid2str(dport));
 		return NULL;
 	}
+
+	if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) == IB_MAD_RPC_VERSION1)
+		rpcv1->error = error;
 
 	mad = umad_get_mad(rcvbuf);
 

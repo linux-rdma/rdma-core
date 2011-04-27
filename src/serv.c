@@ -72,7 +72,7 @@ int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 		      (char *)umad_get_mad(umad) + rpc->dataoffs, rpc->datasz);
 	}
 
-	if (umad_send(srcport->port_id, srcport->class_agents[rpc->mgtclass],
+	if (umad_send(srcport->port_id, srcport->class_agents[rpc->mgtclass & 0xff],
 		      umad, IB_MAD_SIZE, mad_get_timeout(srcport, rpc->timeout),
 		      0) < 0) {
 		IBWARN("send failed; %m");

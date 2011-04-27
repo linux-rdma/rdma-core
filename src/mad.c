@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -83,12 +84,12 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 	mad_set_field(buf, 0, IB_MAD_METHOD_F, rpc->method);
 	mad_set_field(buf, 0, IB_MAD_RESPONSE_F, is_resp ? 1 : 0);
 	mad_set_field(buf, 0, IB_MAD_CLASSVER_F,
-		      rpc->mgtclass == IB_SA_CLASS ? 2 : 1);
-	mad_set_field(buf, 0, IB_MAD_MGMTCLASS_F, rpc->mgtclass);
+		      (rpc->mgtclass & 0xff) == IB_SA_CLASS ? 2 : 1);
+	mad_set_field(buf, 0, IB_MAD_MGMTCLASS_F, rpc->mgtclass & 0xff);
 	mad_set_field(buf, 0, IB_MAD_BASEVER_F, 1);
 
 	/* second word */
-	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
+	if ((rpc->mgtclass & 0xff) == IB_SMI_DIRECT_CLASS) {
 		if (!drpath) {
 			IBWARN("encoding dr mad without drpath (null)");
 			return NULL;
@@ -116,7 +117,7 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 	/* words 7,8 */
 	mad_set_field64(buf, 0, IB_MAD_MKEY_F, rpc->mkey);
 
-	if (rpc->mgtclass == IB_SMI_DIRECT_CLASS) {
+	if ((rpc->mgtclass & 0xff) == IB_SMI_DIRECT_CLASS) {
 		/* word 9 */
 		mad_set_field(buf, 0, IB_DRSMP_DRDLID_F,
 			      drpath->drdlid ? drpath->drdlid : 0xffff);
@@ -130,14 +131,14 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 			mad_set_array(buf, 0, IB_DRSMP_PATH_F, drpath->p);
 	}
 
-	if (rpc->mgtclass == IB_SA_CLASS)
+	if ((rpc->mgtclass & 0xff) == IB_SA_CLASS)
 		mad_set_field64(buf, 0, IB_SA_COMPMASK_F, rpc->mask);
 
 	if (data)
 		memcpy((char *)buf + rpc->dataoffs, data, rpc->datasz);
 
 	/* vendor mads range 2 */
-	if (mad_is_vendor_range2(rpc->mgtclass))
+	if (mad_is_vendor_range2(rpc->mgtclass & 0xff))
 		mad_set_field(buf, 0, IB_VEND2_OUI_F, rpc->oui);
 
 	return (uint8_t *) buf + IB_MAD_SIZE;
@@ -147,9 +148,9 @@ int mad_build_pkt(void *umad, ib_rpc_t * rpc, ib_portid_t * dport,
 		  ib_rmpp_hdr_t * rmpp, void *data)
 {
 	uint8_t *p, *mad;
-	int lid_routed = rpc->mgtclass != IB_SMI_DIRECT_CLASS;
-	int is_smi = (rpc->mgtclass == IB_SMI_CLASS ||
-		      rpc->mgtclass == IB_SMI_DIRECT_CLASS);
+	int lid_routed = (rpc->mgtclass & 0xff) != IB_SMI_DIRECT_CLASS;
+	int is_smi = ((rpc->mgtclass & 0xff) == IB_SMI_CLASS ||
+		      (rpc->mgtclass & 0xff) == IB_SMI_DIRECT_CLASS);
 	struct ib_mad_addr addr;
 
 	if (!is_smi)

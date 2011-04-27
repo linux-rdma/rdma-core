@@ -46,6 +46,9 @@
 #endif				/* __cplusplus */
 
 BEGIN_C_DECLS
+#define IB_MAD_RPC_VERSION_MASK	0x0f00
+#define IB_MAD_RPC_VERSION1	(1<<8)
+
 #define IB_SUBNET_PATH_HOPS_MAX	64
 #define IB_DEFAULT_SUBN_PREFIX	0xfe80000000000000ULL
 #define IB_DEFAULT_QP1_QKEY	0x80010000
@@ -234,6 +237,22 @@ typedef struct {
 	int timeout;
 	uint32_t oui;		/* for vendor range 2 mads */
 } ib_rpc_t;
+
+typedef struct {
+	int mgtclass;
+	int method;
+	ib_attr_t attr;
+	uint32_t rstatus;	/* return status */
+	int dataoffs;
+	int datasz;
+	uint64_t mkey;
+	uint64_t trid;		/* used for out mad if nonzero, return real val */
+	uint64_t mask;		/* for sa mads */
+	unsigned recsz;		/* for sa mads (attribute offset) */
+	int timeout;
+	uint32_t oui;		/* for vendor range 2 mads */
+	int error;		/* errno */
+} ib_rpc_v1_t;
 
 typedef struct portid {
 	int lid;		/* lid or 0 if directed route */
