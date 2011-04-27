@@ -36,7 +36,8 @@ test_testleaks_SOURCES = test/testleaks.c
 test_testleaks_CFLAGS = -Wall $(DBGFLAGS)
 test_testleaks_LDFLAGS = -libnetdisc
 
-libibnetdiscinclude_HEADERS = $(srcdir)/include/infiniband/ibnetdisc.h
+libibnetdiscinclude_HEADERS = $(srcdir)/include/infiniband/ibnetdisc.h \
+				$(srcdir)/include/infiniband/ibnetdisc_osd.h
 
 man_MANS = man/ibnd_debug.3 \
 	man/ibnd_destroy_fabric.3 \
