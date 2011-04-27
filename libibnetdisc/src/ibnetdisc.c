@@ -316,6 +316,8 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	if (!port) {
 		/* If we have not see this port before create a shell for it */
 		port = node->ports[port_num] = calloc(1, sizeof(*port));
+		if (!port)
+			return -1;
 		port->node = node;
 		port->portnum = port_num;
 	}
