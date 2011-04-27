@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -38,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <infiniband/mad.h>
 #include "mad_internal.h"
@@ -61,8 +63,10 @@ uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
 			    ib_vendor_call_t * call,
 			    struct ibmad_port * srcport)
 {
-	ib_rpc_t rpc = { 0 };
+	ib_rpc_v1_t rpc = { 0 };
+	ib_rpc_t *rpcold = (ib_rpc_t *)(void *)&rpc;
 	int range1 = 0, resp_expected;
+	void *p_ret;
 
 	DEBUG("route %s data %p", portid2str(portid), data);
 	if (portid->lid <= 0)
@@ -74,7 +78,7 @@ uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
 
 	resp_expected = response_expected(call->method);
 
-	rpc.mgtclass = call->mgmt_class;
+	rpc.mgtclass = call->mgmt_class | IB_MAD_RPC_VERSION1;
 
 	rpc.method = call->method;
 	rpc.attr.id = call->attrid;
@@ -97,8 +101,11 @@ uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
 	if (!portid->qkey)
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
-	if (resp_expected)
-		return mad_rpc_rmpp(srcport, &rpc, portid, 0, data);	/* FIXME: no RMPP for now */
+	if (resp_expected) {
+		p_ret = mad_rpc_rmpp(srcport, rpcold, portid, 0, data);	/* FIXME: no RMPP for now */
+		errno = rpc.error;
+		return p_ret;
+	}
 
-	return mad_send_via(&rpc, portid, 0, data, srcport) < 0 ? 0 : data;	/* FIXME: no RMPP for now */
+	return mad_send_via(rpcold, portid, 0, data, srcport) < 0 ? 0 : data;	/* FIXME: no RMPP for now */
 }
