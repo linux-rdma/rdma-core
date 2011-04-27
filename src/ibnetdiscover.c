@@ -215,7 +215,9 @@ void out_ids(ibnd_node_t * node, int group, char *chname, char *out_prefix)
 			fprintf(f, " slot %d",
 				node->ports[1]->remoteport->portnum);
 	}
-	fprintf(f, "\n");
+	if (sysimgguid ||
+	    (group && node->chassis && node->chassis->chassisnum))
+		fprintf(f, "\n");
 }
 
 uint64_t out_chassis(ibnd_fabric_t * fabric, unsigned char chassisnum)
