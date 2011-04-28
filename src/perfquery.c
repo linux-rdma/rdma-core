@@ -46,6 +46,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
+#include <infiniband/iba/ib_types.h>
 
 #include "ibdiag_common.h"
 
@@ -293,7 +294,7 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		if (!pma_query_via(pc, portid, port, timeout,
 				   IB_GSI_PORT_COUNTERS, srcport))
 			IBERROR("perfquery");
-		if (!(cap_mask & 0x1000)) {
+		if (!(cap_mask & IB_PM_PC_XMIT_WAIT_SUP)) {
 			/* if PortCounters:PortXmitWait not supported clear this counter */
 			VERBOSE("PortXmitWait not indicated"
 				" so ignore this counter");
@@ -306,10 +307,10 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		else
 			mad_dump_fields(buf, sizeof buf, pc, sizeof pc,
 							IB_PC_FIRST_F,
-							(cap_mask & 0x1000)?IB_PC_LAST_F:(IB_PC_RCV_PKTS_F+1));
+							(cap_mask & IB_PM_PC_XMIT_WAIT_SUP)?IB_PC_LAST_F:(IB_PC_RCV_PKTS_F+1));
 
 	} else {
-		if (!(cap_mask & 0x200))	/* 1.2 errata: bit 9 is extended counter support */
+		if (!(cap_mask & IB_PM_EXT_WIDTH_SUPPORTED))	/* 1.2 errata: bit 9 is extended counter support */
 			IBWARN
 			    ("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n",
 			     cap_mask);
@@ -535,8 +536,7 @@ int main(int argc, char **argv)
 		IBERROR("classportinfo query");
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&cap_mask, pc + 2, sizeof(cap_mask));	/* CapabilityMask */
-	cap_mask = ntohs(cap_mask);
-	if (!(cap_mask & 0x100)) {	/* bit 8 is AllPortSelect */
+	if (!(cap_mask & IB_PM_ALL_PORT_SELECT)) {	/* bit 8 is AllPortSelect */
 		if (!all_ports && port == ALL_PORTS)
 			IBERROR("AllPortSelect not supported");
 		if (all_ports)
@@ -613,7 +613,7 @@ int main(int argc, char **argv)
 		goto done;
 
 do_reset:
-	if (argc <= 2 && !extended && (cap_mask & 0x1000))
+	if (argc <= 2 && !extended && (cap_mask & IB_PM_PC_XMIT_WAIT_SUP))
 		mask |= (1 << 16);	/* reset portxmitwait */
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
