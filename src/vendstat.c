@@ -375,6 +375,7 @@ int main(int argc, char **argv)
 	gi = (is3_general_info_t *) & buf;
 	if (do_vendor(&portid, srcport, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
 		      IB_MLX_IS3_GENERAL_INFO, 0, gi))
+		IBERROR("generalinfo query");
 
 	if (general_info) {
 		/* dump IS3 or IS4 general info here */
