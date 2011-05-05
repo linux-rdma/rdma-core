@@ -1125,12 +1125,16 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	int i = 0;
 
 	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
+
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (attr->qp_type == IBV_QPT_RAW_ETH) {
 		attr->cap.max_send_sge = NES_UD_MAX_SG_LIST_SZ;
 		attr->cap.max_recv_sge = NES_UD_MAX_SG_LIST_SZ;
 		nes_debug(NES_DBG_UD, "%s(%d) patching max_sge for UD\n",
 				__func__, __LINE__);
 	}
+#endif
+
 	/* Sanity check QP size before proceeding */
 	sqdepth = nes_qp_get_qdepth(attr->cap.max_send_wr, attr->cap.max_send_sge);
 	if (!sqdepth) {
@@ -1186,6 +1190,7 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	nesuqp->nes_drv_opt = resp.nes_drv_opt;
 	nesuqp->ibv_qp.qp_num = resp.qp_id;
 
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (attr->qp_type == IBV_QPT_RAW_ETH) {
 		nesuqp->nes_ud_sksq_fd = open("/dev/infiniband/nes_ud_sksq",
 						O_RDWR);
@@ -1233,6 +1238,8 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 		memset(&nesuqp->send_wr_id[0], 0, sizeof(uint64_t) * 512);
 		memset(&nesuqp->recv_wr_id[0], 0, sizeof(uint64_t) * 512);
 	}
+#endif
+
 	return &nesuqp->ibv_qp;
 }
 
@@ -1324,6 +1331,8 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 	}
 
 	pthread_spin_destroy(&nesuqp->lock);
+
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (qp->qp_type == IBV_QPT_RAW_ETH) {
 		if (nesuqp->pend_rx_wr) {
 			for (i = 0; i < NES_UD_RX_BATCH_SZ; i++)
@@ -1340,6 +1349,8 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 		nesuqp->sksq_shared_ctxt = 0;
 		close(nesuqp->nes_ud_sksq_fd);
 	}
+#endif
+
 	/* Clean any pending completions from the cq(s) */
 	if (nesuqp->send_cq)
 		nes_clean_cq(nesuqp, nesuqp->send_cq);
@@ -1447,8 +1458,10 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	uint32_t total_payload_length = 0;
 	int sge_index;
 
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (ib_qp->qp_type == IBV_QPT_RAW_ETH)
 		return nes_ima_upost_send(ib_qp, ib_wr, bad_wr);
+#endif
 
 	pthread_spin_lock(&nesuqp->lock);
 
@@ -1715,9 +1728,10 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	uint32_t total_payload_length;
 	int sge_index;
 
-
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (ib_qp->qp_type == IBV_QPT_RAW_ETH)
 		return nes_ima_upost_recv(ib_qp, ib_wr, bad_wr);
+#endif
 
 	if (unlikely(ib_wr->num_sge > 4)) {
 		*bad_wr = ib_wr;

@@ -38,6 +38,8 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
+AC_CHECK_DECLS([IBV_QPT_RAW_ETH])
+
 dnl Checks for library functions
 AC_CHECK_FUNCS(ibv_read_sysfs_file ibv_register_driver)
 
