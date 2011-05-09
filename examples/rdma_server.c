@@ -97,7 +97,7 @@ static int run(void)
 
 	ret = rdma_accept(id, NULL);
 	if (ret) {
-		printf("rdma_connect %d\n", errno);
+		printf("rdma_accept %d\n", errno);
 		return ret;
 	}
 
