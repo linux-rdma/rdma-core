@@ -227,7 +227,7 @@ static void output_aggregate_perfcounters(ib_portid_t * portid,
 	       portid2str(portid), ALL_PORTS, ntohs(cap_mask), buf);
 }
 
-static void aggregate_perfcounters_ext(void)
+static void aggregate_perfcounters_ext(uint16_t cap_mask)
 {
 	uint32_t val;
 	uint64_t val64;
@@ -244,14 +244,17 @@ static void aggregate_perfcounters_ext(void)
 	aggregate_64bit(&perf_count_ext.portxmitpkts, val64);
 	mad_decode_field(pc, IB_PC_EXT_RCV_PKTS_F, &val64);
 	aggregate_64bit(&perf_count_ext.portrcvpkts, val64);
-	mad_decode_field(pc, IB_PC_EXT_XMT_UPKTS_F, &val64);
-	aggregate_64bit(&perf_count_ext.portunicastxmitpkts, val64);
-	mad_decode_field(pc, IB_PC_EXT_RCV_UPKTS_F, &val64);
-	aggregate_64bit(&perf_count_ext.portunicastrcvpkts, val64);
-	mad_decode_field(pc, IB_PC_EXT_XMT_MPKTS_F, &val64);
-	aggregate_64bit(&perf_count_ext.portmulticastxmitpkits, val64);
-	mad_decode_field(pc, IB_PC_EXT_RCV_MPKTS_F, &val64);
-	aggregate_64bit(&perf_count_ext.portmulticastrcvpkts, val64);
+
+	if (cap_mask & IB_PM_EXT_WIDTH_SUPPORTED) {
+		mad_decode_field(pc, IB_PC_EXT_XMT_UPKTS_F, &val64);
+		aggregate_64bit(&perf_count_ext.portunicastxmitpkts, val64);
+		mad_decode_field(pc, IB_PC_EXT_RCV_UPKTS_F, &val64);
+		aggregate_64bit(&perf_count_ext.portunicastrcvpkts, val64);
+		mad_decode_field(pc, IB_PC_EXT_XMT_MPKTS_F, &val64);
+		aggregate_64bit(&perf_count_ext.portmulticastxmitpkits, val64);
+		mad_decode_field(pc, IB_PC_EXT_RCV_MPKTS_F, &val64);
+		aggregate_64bit(&perf_count_ext.portmulticastrcvpkts, val64);
+	}
 }
 
 static void output_aggregate_perfcounters_ext(ib_portid_t * portid,
@@ -259,6 +262,8 @@ static void output_aggregate_perfcounters_ext(ib_portid_t * portid,
 {
 	char buf[1024];
 	uint32_t val = ALL_PORTS;
+
+	memset(buf, 0, 1024);
 
 	/* set port_select to 255 to emulate AllPortSelect */
 	mad_encode_field(pc, IB_PC_EXT_PORT_SELECT_F, &val);
@@ -271,14 +276,17 @@ static void output_aggregate_perfcounters_ext(ib_portid_t * portid,
 	mad_encode_field(pc, IB_PC_EXT_XMT_PKTS_F,
 			 &perf_count_ext.portxmitpkts);
 	mad_encode_field(pc, IB_PC_EXT_RCV_PKTS_F, &perf_count_ext.portrcvpkts);
-	mad_encode_field(pc, IB_PC_EXT_XMT_UPKTS_F,
-			 &perf_count_ext.portunicastxmitpkts);
-	mad_encode_field(pc, IB_PC_EXT_RCV_UPKTS_F,
-			 &perf_count_ext.portunicastrcvpkts);
-	mad_encode_field(pc, IB_PC_EXT_XMT_MPKTS_F,
-			 &perf_count_ext.portmulticastxmitpkits);
-	mad_encode_field(pc, IB_PC_EXT_RCV_MPKTS_F,
-			 &perf_count_ext.portmulticastrcvpkts);
+
+	if (cap_mask & IB_PM_EXT_WIDTH_SUPPORTED) {
+		mad_encode_field(pc, IB_PC_EXT_XMT_UPKTS_F,
+				 &perf_count_ext.portunicastxmitpkts);
+		mad_encode_field(pc, IB_PC_EXT_RCV_UPKTS_F,
+				 &perf_count_ext.portunicastrcvpkts);
+		mad_encode_field(pc, IB_PC_EXT_XMT_MPKTS_F,
+				 &perf_count_ext.portmulticastxmitpkits);
+		mad_encode_field(pc, IB_PC_EXT_RCV_MPKTS_F,
+				 &perf_count_ext.portmulticastrcvpkts);
+	}
 
 	mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
 
@@ -312,9 +320,13 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 							(cap_mask & IB_PM_PC_XMIT_WAIT_SUP)?IB_PC_LAST_F:(IB_PC_RCV_PKTS_F+1));
 
 	} else {
-		if (!(cap_mask & IB_PM_EXT_WIDTH_SUPPORTED))	/* 1.2 errata: bit 9 is extended counter support */
+		/* 1.2 errata: bit 9 is extended counter support
+		 * bit 10 is extended counter NoIETF
+		 */
+		if (!(cap_mask & IB_PM_EXT_WIDTH_SUPPORTED) &&
+		    !(cap_mask & IB_PM_EXT_WIDTH_NOIETF_SUP))
 			IBWARN
-			    ("PerfMgt ClassPortInfo 0x%x extended counters not indicated\n",
+			    ("PerfMgt ClassPortInfo 0x%x; No extended counter support indicated\n",
 			     ntohs(cap_mask));
 
 		memset(pc, 0, sizeof(pc));
@@ -322,7 +334,7 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 				   IB_GSI_PORT_COUNTERS_EXT, srcport))
 			IBERROR("perfextquery");
 		if (aggregate)
-			aggregate_perfcounters_ext();
+			aggregate_perfcounters_ext(cap_mask);
 		else
 			mad_dump_perfcounters_ext(buf, sizeof buf, pc,
 						  sizeof pc);
