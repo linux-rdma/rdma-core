@@ -171,7 +171,8 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	if (!port) {
 		port = node->ports[port_num] = calloc(1, sizeof(*port));
 		if (!port) {
-			IBND_ERROR("Failed to allocate port\n");
+			IBND_ERROR("Failed to allocate 0x%" PRIx64 " port %u\n",
+				    node->guid, port_num);
 			return -1;
 		}
 		port->guid =
