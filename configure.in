@@ -144,11 +144,17 @@ AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
 
 AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
 
+dnl Define override for IBPATH
+AC_ARG_WITH(ibpath_override,
+[  --with-ibpath_override=<path> define ib binaries path],
+AC_MSG_NOTICE(Using IBPATH : $with_ibpath_override),
+with_ibpath_override=)
+
 dnl Make appropriate substitution for IB script path
 dnl Must expand nested unquoting
 IBSCRIPTPATH_TMP1="`eval echo ${sbindir}`"
 IBSCRIPTPATH_TMP2="`echo $IBSCRIPTPATH_TMP1 | sed 's/^NONE/$ac_default_prefix/'`"
-IBSCRIPTPATH="`eval echo $IBSCRIPTPATH_TMP2`"
+IBSCRIPTPATH="${with_ibpath_override:-`eval echo $IBSCRIPTPATH_TMP2`}"
 AC_SUBST(IBSCRIPTPATH)
 
 dnl Begin libibnetdisc stuff
