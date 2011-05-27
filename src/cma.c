@@ -253,6 +253,12 @@ int ucma_init(void)
 		goto err1;
 	}
 
+	if (!dev_cnt) {
+		printf("CMA: no RDMA devices found\n");
+		ret = ERR(ENODEV);
+		goto err2;
+	}
+		
 	cma_dev_array = malloc(sizeof *cma_dev * dev_cnt);
 	if (!cma_dev_array) {
 		ret = ERR(ENOMEM);
