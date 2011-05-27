@@ -123,9 +123,9 @@ int requested_lid_flag = 0;
 uint64_t requested_guid = 0;
 int requested_guid_flag = 0;
 
-#define SA_ERR_UNKNOWN IB_SA_MAD_STATUS_PRIO_SUGGESTED
+#define ARR_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 
-const char *ib_sa_error_str[] = {
+static const char *ib_sa_error_str[] = {
 	"SA_NO_ERROR",
 	"SA_ERR_NO_RESOURCES",
 	"SA_ERR_REQ_INVALID",
@@ -137,6 +137,8 @@ const char *ib_sa_error_str[] = {
 	"SA_ERR_STATUS_PRIO_SUGGESTED",
 	"SA_ERR_UNKNOWN"
 };
+
+#define SA_ERR_UNKNOWN (ARR_SIZE(ib_sa_error_str) - 1)
 
 static inline const char *ib_sa_err_str(IN uint8_t status)
 {
