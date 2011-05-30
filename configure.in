@@ -46,8 +46,8 @@ AC_CHECK_MEMBER([struct umad_port.link_layer],
 if test "$ac_have_umad_port_link_layer" = "yes"; then
    AC_DEFINE([HAVE_UMAD_PORT_LINK_LAYER], 1, [Define to 1 if struct umad_port has link_layer member])
 fi
-AC_CHECK_LIB(osmcomp, cl_thread_init, [],
-	AC_MSG_ERROR([cl_thread_init() not found. diags require libosmcomp.]))
+AC_CHECK_LIB(osmcomp, cl_qmap_insert, [],
+	AC_MSG_ERROR([cl_qmap_insert() not found. diags require libosmcomp.]))
 fi
 
 dnl Checks for header files.
