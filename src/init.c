@@ -257,7 +257,7 @@ static void read_config_file(const char *path)
 
 		field = strsep(&config, "\n\t ");
 
-		if (strcmp(field, "driver") == 0) {
+		if (strcmp(field, "driver") == 0 && config != NULL) {
 			struct ibv_driver_name *driver_name;
 
 			config += strspn(config, "\t ");
