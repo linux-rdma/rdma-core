@@ -120,7 +120,7 @@ int mad_rpc_portid(struct ibmad_port *srcport)
 
 int mad_rpc_class_agent(struct ibmad_port *port, int class)
 {
-	if (class < 1 || class > MAX_CLASS)
+	if (class < 1 || class >= MAX_CLASS)
 		return -1;
 	return port->class_agents[class];
 }

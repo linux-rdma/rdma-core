@@ -77,7 +77,7 @@ static int mgmt_class_vers(int mgmt_class)
 
 int mad_class_agent(int mgmt)
 {
-	if (mgmt < 1 || mgmt > MAX_CLASS)
+	if (mgmt < 1 || mgmt >= MAX_CLASS)
 		return -1;
 	return ibmp->class_agents[mgmt];
 }
