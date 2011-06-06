@@ -50,9 +50,11 @@ man_MANS = \
 	man/rdma_create_event_channel.3 \
 	man/rdma_create_id.3 \
 	man/rdma_create_qp.3 \
+	man/rdma_create_srq.3 \
 	man/rdma_destroy_event_channel.3 \
 	man/rdma_destroy_id.3 \
 	man/rdma_destroy_qp.3 \
+	man/rdma_destroy_srq.3 \
 	man/rdma_disconnect.3 \
 	man/rdma_free_devices.3 \
 	man/rdma_get_cm_event.3 \

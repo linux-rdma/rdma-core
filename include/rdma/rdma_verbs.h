@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2010-2011 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -52,26 +52,35 @@ static inline int rdma_seterrno(int ret)
 }
 
 /*
+ * Shared receive queues.
+ */
+int rdma_create_srq(struct rdma_cm_id *id, struct ibv_pd *pd,
+		    struct ibv_srq_init_attr *attr);
+
+void rdma_destroy_srq(struct rdma_cm_id *id);
+
+
+/*
  * Memory registration helpers.
  */
 static inline struct ibv_mr *
 rdma_reg_msgs(struct rdma_cm_id *id, void *addr, size_t length)
 {
-	return ibv_reg_mr(id->qp->pd, addr, length, IBV_ACCESS_LOCAL_WRITE);
+	return ibv_reg_mr(id->pd, addr, length, IBV_ACCESS_LOCAL_WRITE);
 }
 
 static inline struct ibv_mr *
 rdma_reg_read(struct rdma_cm_id *id, void *addr, size_t length)
 {
-	return ibv_reg_mr(id->qp->pd, addr, length, IBV_ACCESS_LOCAL_WRITE |
-						    IBV_ACCESS_REMOTE_READ);
+	return ibv_reg_mr(id->pd, addr, length, IBV_ACCESS_LOCAL_WRITE |
+						IBV_ACCESS_REMOTE_READ);
 }
 
 static inline struct ibv_mr *
 rdma_reg_write(struct rdma_cm_id *id, void *addr, size_t length)
 {
-	return ibv_reg_mr(id->qp->pd, addr, length, IBV_ACCESS_LOCAL_WRITE |
-						    IBV_ACCESS_REMOTE_WRITE);
+	return ibv_reg_mr(id->pd, addr, length, IBV_ACCESS_LOCAL_WRITE |
+						IBV_ACCESS_REMOTE_WRITE);
 }
 
 static inline int
@@ -96,7 +105,10 @@ rdma_post_recvv(struct rdma_cm_id *id, void *context, struct ibv_sge *sgl,
 	wr.sg_list = sgl;
 	wr.num_sge = nsge;
 
-	return rdma_seterrno(ibv_post_recv(id->qp, &wr, &bad));
+	if (id->srq)
+		return rdma_seterrno(ibv_post_srq_recv(id->srq, &wr, &bad));
+	else
+		return rdma_seterrno(ibv_post_recv(id->qp, &wr, &bad));
 }
 
 static inline int

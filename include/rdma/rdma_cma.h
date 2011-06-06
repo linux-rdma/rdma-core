@@ -131,6 +131,8 @@ struct rdma_cm_id {
 	struct ibv_cq		*send_cq;
 	struct ibv_comp_channel *recv_cq_channel;
 	struct ibv_cq		*recv_cq;
+	struct ibv_srq		*srq;
+	struct ibv_pd		*pd;
 };
 
 enum {

@@ -33,5 +33,7 @@ RDMACM_1.0 {
 		rdma_get_request;
 		rdma_create_ep;
 		rdma_destroy_ep;
+		rdma_create_srq;
+		rdma_destroy_srq;
 	local: *;
 };

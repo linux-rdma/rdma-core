@@ -1,4 +1,5 @@
-.TH "RDMA_DESTROY_EP" 3 "2007-05-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+
+.TH "RDMA_DESTROY_EP" 3 "2011-06-15" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_destroy_ep \- Release a communication identifier.
 .SH SYNOPSIS
@@ -15,7 +16,7 @@ Destroys the specified rdma_cm_id and all associated resources
 Returns 0 on success, or -1 on error.  If an error occurs, errno will be
 set to indicate the failure reason.
 .SH "NOTES"
-rdma_destroy_ep will automatically destroy any QP associated with
+rdma_destroy_ep will automatically destroy any QP and SRQ associated with
 the rdma_cm_id.
 .SH "SEE ALSO"
 rdma_create_ep(3)
