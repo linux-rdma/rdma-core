@@ -69,6 +69,12 @@ static void ucma_convert_to_ai(struct addrinfo *ai, struct rdma_addrinfo *rai)
 	case RDMA_PS_UDP:
 		ai->ai_protocol = IPPROTO_UDP;
 		break;
+	case RDMA_PS_IB:
+		if (ai->ai_socktype == SOCK_STREAM)
+			ai->ai_protocol = IPPROTO_TCP;
+		else if (ai->ai_socktype == SOCK_DGRAM)
+			ai->ai_protocol = IPPROTO_UDP;
+		break;
 	}
 
 	if (rai->ai_flags & RAI_PASSIVE) {
@@ -82,7 +88,8 @@ static void ucma_convert_to_ai(struct addrinfo *ai, struct rdma_addrinfo *rai)
 	ai->ai_next = NULL;
 }
 
-static int ucma_convert_to_rai(struct rdma_addrinfo *rai, struct addrinfo *ai)
+static int ucma_convert_to_rai(struct rdma_addrinfo *rai,
+			       struct rdma_addrinfo *hints, struct addrinfo *ai)
 {
 	struct sockaddr *addr;
 	char *canonname;
@@ -98,13 +105,17 @@ static int ucma_convert_to_rai(struct rdma_addrinfo *rai, struct addrinfo *ai)
 		break;
 	}
 
-	switch (ai->ai_protocol) {
-	case IPPROTO_TCP:
-		rai->ai_port_space = RDMA_PS_TCP;
-		break;
-	case IPPROTO_UDP:
-		rai->ai_port_space = RDMA_PS_UDP;
-		break;
+	if (hints && hints->ai_port_space) {
+		rai->ai_port_space = hints->ai_port_space;
+	} else {
+		switch (ai->ai_protocol) {
+		case IPPROTO_TCP:
+			rai->ai_port_space = RDMA_PS_TCP;
+			break;
+		case IPPROTO_UDP:
+			rai->ai_port_space = RDMA_PS_UDP;
+			break;
+		}
 	}
 
 	addr = malloc(ai->ai_addrlen);
@@ -149,7 +160,7 @@ static int ucma_convert_gai(char *node, char *service,
 	if (ret)
 		return ret;
 
-	ret = ucma_convert_to_rai(rai, ai);
+	ret = ucma_convert_to_rai(rai, hints, ai);
 	freeaddrinfo(ai);
 	return ret;
 }
