@@ -19,7 +19,8 @@ src_librdmacm_la_LDFLAGS = -version-info 1 -export-dynamic \
 src_librdmacm_la_DEPENDENCIES =  $(srcdir)/src/librdmacm.map
 
 bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy examples/mckey \
-	       examples/rdma_client examples/rdma_server
+	       examples/rdma_client examples/rdma_server examples/rdma_xclient \
+	       examples/rdma_xserver
 examples_ucmatose_SOURCES = examples/cmatose.c
 examples_ucmatose_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rping_SOURCES = examples/rping.c
@@ -32,6 +33,10 @@ examples_rdma_client_SOURCES = examples/rdma_client.c
 examples_rdma_client_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rdma_server_SOURCES = examples/rdma_server.c
 examples_rdma_server_LDADD = $(top_builddir)/src/librdmacm.la
+examples_rdma_xclient_SOURCES = examples/rdma_xclient.c
+examples_rdma_xclient_LDADD = $(top_builddir)/src/librdmacm.la
+examples_rdma_xserver_SOURCES = examples/rdma_xserver.c
+examples_rdma_xserver_LDADD = $(top_builddir)/src/librdmacm.la
 
 librdmacmincludedir = $(includedir)/rdma
 infinibandincludedir = $(includedir)/infiniband
@@ -98,6 +103,8 @@ man_MANS = \
 	man/rping.1 \
 	man/rdma_server.1 \
 	man/rdma_client.1 \
+	man/rdma_xserver.1 \
+	man/rdma_xclient.1 \
 	man/rdma_cm.7
 
 EXTRA_DIST = src/cma.h src/librdmacm.map librdmacm.spec.in $(man_MANS)
