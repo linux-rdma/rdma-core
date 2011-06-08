@@ -326,6 +326,7 @@ static int _load_node(int fd, ibnd_fabric_cache_t * fabric_cache)
 	node = (ibnd_node_t *) malloc(sizeof(ibnd_node_t));
 	if (!node) {
 		IBND_DEBUG("OOM: node\n");
+		free(node_cache);
 		return -1;
 	}
 	memset(node, '\0', sizeof(ibnd_node_t));
@@ -426,6 +427,7 @@ static int _load_port(int fd, ibnd_fabric_cache_t * fabric_cache)
 	port = (ibnd_port_t *) malloc(sizeof(ibnd_port_t));
 	if (!port) {
 		IBND_DEBUG("OOM: port\n");
+		free(port_cache);
 		return -1;
 	}
 	memset(port, '\0', sizeof(ibnd_port_t));
