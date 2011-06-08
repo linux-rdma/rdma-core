@@ -126,7 +126,7 @@ static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum)
 	char buf[2048];
 	char val[64];
 
-	mad_dump_portstates(buf, sizeof buf, data, sizeof data);
+	mad_dump_portstates(buf, sizeof buf, data, sizeof *data);
 	mad_decode_field(data, IB_PORT_LID_F, val);
 	mad_dump_field(IB_PORT_LID_F, buf + strlen(buf),
 		       sizeof buf - strlen(buf), val);
