@@ -80,7 +80,7 @@ static int query_switch_info(smp_engine_t * engine, ib_portid_t * portid,
 
 static int add_port_to_dpath(ib_dr_path_t * path, int nextport)
 {
-	if (path->cnt > sizeof(path->p) - 1)
+	if (path->cnt > sizeof(path->p) - 2)
 		return -1;
 	++path->cnt;
 	path->p[path->cnt] = (uint8_t) nextport;
