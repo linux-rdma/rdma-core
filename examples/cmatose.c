@@ -541,13 +541,13 @@ static int run_server(void)
 		if (ret)
 			goto out;
 		if (test.addr.src_addr.sa_family == AF_INET)
-			((struct sockaddr_in *) &test.addr.src_addr)->sin_port = port;
+			test.addr.src_sin.sin_port = port;
 		else
-			((struct sockaddr_in6 *) &test.addr.src_addr)->sin6_port = port;
+			test.addr.src_sin6.sin6_port = port;
 		
 	} else {
-		test.addr.src_addr.sa_family = PF_INET;
-		((struct sockaddr_in *) &test.addr.src_addr)->sin_port = port;
+		test.addr.src_addr.sa_family = AF_INET;
+		test.addr.src_sin.sin_port = port;
 	}
 
 	ret = rdma_bind_addr(listen_id, &test.addr.src_addr);
@@ -628,9 +628,9 @@ static int run_client(void)
 		return ret;
 
 	if (test.addr.dst_addr.sa_family == AF_INET)
-		((struct sockaddr_in *) &test.addr.dst_addr)->sin_port = port;
+		test.addr.dst_sin.sin_port = port;
 	else
-		((struct sockaddr_in6 *) &test.addr.dst_addr)->sin6_port = port;
+		test.addr.dst_sin6.sin6_port = port;
 
 	printf("cmatose: connecting\n");
 	for (i = 0; i < connections; i++) {

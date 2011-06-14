@@ -91,12 +91,18 @@ struct rdma_ib_addr {
 };
 
 struct rdma_addr {
-	struct sockaddr		src_addr;
-	uint8_t			src_pad[sizeof(struct sockaddr_storage) -
-					sizeof(struct sockaddr)];
-	struct sockaddr		dst_addr;
-	uint8_t			dst_pad[sizeof(struct sockaddr_storage) -
-					sizeof(struct sockaddr)];
+	union {
+		struct sockaddr		src_addr;
+		struct sockaddr_in	src_sin;
+		struct sockaddr_in6	src_sin6;
+		struct sockaddr_storage src_storage;
+	};
+	union {
+		struct sockaddr		dst_addr;
+		struct sockaddr_in	dst_sin;
+		struct sockaddr_in6	dst_sin6;
+		struct sockaddr_storage dst_storage;
+	};
 	union {
 		struct rdma_ib_addr	ibaddr;
 	} addr;
@@ -575,15 +581,15 @@ int rdma_ack_cm_event(struct rdma_cm_event *event);
 static inline uint16_t rdma_get_src_port(struct rdma_cm_id *id)
 {
 	return	id->route.addr.src_addr.sa_family == PF_INET6 ?
-		((struct sockaddr_in6 *) &id->route.addr.src_addr)->sin6_port :
-		((struct sockaddr_in *) &id->route.addr.src_addr)->sin_port;
+		id->route.addr.src_sin6.sin6_port :
+		id->route.addr.src_sin.sin_port;
 }
 
 static inline uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
 {
 	return	id->route.addr.dst_addr.sa_family == PF_INET6 ?
-		((struct sockaddr_in6 *) &id->route.addr.dst_addr)->sin6_port :
-		((struct sockaddr_in *) &id->route.addr.dst_addr)->sin_port;
+		id->route.addr.dst_sin6.sin6_port :
+		id->route.addr.dst_sin.sin_port;
 }
 
 static inline struct sockaddr *rdma_get_local_addr(struct rdma_cm_id *id)
