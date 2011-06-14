@@ -1502,6 +1502,9 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 	}
 
+	if (ucma_is_ud_qp(id->qp_type))
+		return 0;
+
 	return ucma_complete(id_priv);
 }
 
