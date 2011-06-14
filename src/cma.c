@@ -1304,14 +1304,18 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 
 	CMA_CREATE_MSG_CMD(msg, cmd, UCMA_CMD_CONNECT, size);
 	cmd->id = id_priv->handle;
-	if (id->qp)
+	if (id->qp) {
 		ucma_copy_conn_param_to_kern(id_priv, &cmd->conn_param,
 					     conn_param, id->qp->qp_num,
 					     (id->qp->srq != NULL));
-	else
+	} else if (conn_param) {
 		ucma_copy_conn_param_to_kern(id_priv, &cmd->conn_param,
 					     conn_param, conn_param->qp_num,
 					     conn_param->srq);
+	} else {
+		ucma_copy_conn_param_to_kern(id_priv, &cmd->conn_param,
+					     conn_param, 0, 0);
+	}
 
 	ret = write(id->channel->fd, msg, size);
 	if (ret != size)
