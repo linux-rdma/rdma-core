@@ -410,7 +410,8 @@ static void ucma_free_id(struct cma_id_private *id_priv)
 
 static struct cma_id_private *ucma_alloc_id(struct rdma_event_channel *channel,
 					    void *context,
-					    enum rdma_port_space ps)
+					    enum rdma_port_space ps,
+					    enum ibv_qp_type qp_type)
 {
 	struct cma_id_private *id_priv;
 
@@ -420,6 +421,7 @@ static struct cma_id_private *ucma_alloc_id(struct rdma_event_channel *channel,
 
 	id_priv->id.context = context;
 	id_priv->id.ps = ps;
+	id_priv->id.qp_type = qp_type;
 
 	if (!channel) {
 		id_priv->id.channel = rdma_create_event_channel();
@@ -454,7 +456,7 @@ static int rdma_create_id2(struct rdma_event_channel *channel,
 	if (ret)
 		return ret;
 
-	id_priv = ucma_alloc_id(channel, context, ps);
+	id_priv = ucma_alloc_id(channel, context, ps, qp_type);
 	if (!id_priv)
 		return ERR(ENOMEM);
 
@@ -920,9 +922,9 @@ out:
 	return ucma_complete(id_priv);
 }
 
-static int ucma_is_ud_ps(enum rdma_port_space ps)
+static int ucma_is_ud_qp(enum ibv_qp_type qp_type)
 {
-	return (ps == RDMA_PS_UDP || ps == RDMA_PS_IPOIB);
+	return (qp_type == IBV_QPT_UD);
 }
 
 static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
@@ -1249,7 +1251,7 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 		goto err1;
 	}
 
-	if (ucma_is_ud_ps(id->ps))
+	if (ucma_is_ud_qp(id->qp_type))
 		ret = ucma_init_ud_qp(id_priv, qp);
 	else
 		ret = ucma_init_conn_qp(id_priv, qp);
@@ -1472,7 +1474,7 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 		id_priv->responder_resources = conn_param->responder_resources;
 	}
 
-	if (!ucma_is_ud_ps(id->ps)) {
+	if (!ucma_is_ud_qp(id->qp_type)) {
 		ret = ucma_modify_qp_rtr(id, id_priv->responder_resources);
 		if (ret)
 			return ret;
@@ -1801,7 +1803,8 @@ static int ucma_process_conn_req(struct cma_event *evt,
 	int ret;
 
 	id_priv = ucma_alloc_id(evt->id_priv->id.channel,
-				evt->id_priv->id.context, evt->id_priv->id.ps);
+				evt->id_priv->id.context, evt->id_priv->id.ps,
+				evt->id_priv->id.qp_type);
 	if (!id_priv) {
 		ucma_destroy_kern_id(evt->id_priv->id.channel->fd, handle);
 		ret = ERR(ENOMEM);
@@ -1957,7 +1960,7 @@ retry:
 		break;
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
 		evt->id_priv = (void *) (uintptr_t) resp->uid;
-		if (ucma_is_ud_ps(evt->id_priv->id.ps))
+		if (ucma_is_ud_qp(evt->id_priv->id.qp_type))
 			ucma_copy_ud_event(evt, &resp->param.ud);
 		else
 			ucma_copy_conn_event(evt, &resp->param.conn);
@@ -1977,7 +1980,7 @@ retry:
 		}
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
-		if (ucma_is_ud_ps(evt->id_priv->id.ps)) {
+		if (ucma_is_ud_qp(evt->id_priv->id.qp_type)) {
 			ucma_copy_ud_event(evt, &resp->param.ud);
 			break;
 		}
@@ -2019,7 +2022,7 @@ retry:
 		evt->id_priv = (void *) (uintptr_t) resp->uid;
 		evt->event.id = &evt->id_priv->id;
 		evt->event.status = resp->status;
-		if (ucma_is_ud_ps(evt->id_priv->id.ps))
+		if (ucma_is_ud_qp(evt->id_priv->id.qp_type))
 			ucma_copy_ud_event(evt, &resp->param.ud);
 		else
 			ucma_copy_conn_event(evt, &resp->param.conn);
