@@ -858,7 +858,7 @@ int main(int argc, char **argv)
 		{"report-port", 'r', 0, NULL,
 		 "report port configuration information"},
 		{"threshold-file", 8, 1, NULL,
-		 "specify an alternate thresold file, default: " DEF_THRES_FILE},
+		 "specify an alternate threshold file, default: " DEF_THRES_FILE},
 		{"GNDN", 'R', 0, NULL,
 		 "(This option is obsolete and does nothing)"},
 		{"data", 2, 0, NULL, "include data counters for ports with errors"},
