@@ -987,7 +987,7 @@ int main(int argc, char **argv)
 	ibnd_fabric_t *diff_fabric = NULL;
 
 	const struct ibdiag_opt opts[] = {
-		{"full", 'f', 0, NULL, "show full information (ports' speed and witdh)"},
+		{"full", 'f', 0, NULL, "show full information (ports' speed and width)"},
 		{"show", 's', 0, NULL, "show more information"},
 		{"list", 'l', 0, NULL, "list of connected nodes"},
 		{"grouping", 'g', 0, NULL, "show grouping"},
