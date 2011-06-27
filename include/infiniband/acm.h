@@ -37,6 +37,7 @@
 
 #define ACM_OP_MASK             0x0F
 #define ACM_OP_RESOLVE          0x01
+#define ACM_OP_PERF_QUERY       0x02
 #define ACM_OP_ACK              0x80
 
 #define ACM_STATUS_SUCCESS      0
@@ -66,7 +67,7 @@ struct acm_hdr {
 	uint8_t                 version;
 	uint8_t                 opcode;
 	uint8_t                 status;
-	uint8_t		        reserved[3];
+	uint8_t		        data[3];
 	uint16_t                length;
 	uint64_t                tid;
 };
@@ -92,9 +93,34 @@ struct acm_ep_addr_data {
 	union acm_ep_info       info;
 };
 
+/*
+ * Resolve messages with the opcode set to ACM_OP_RESOLVE are only
+ * used to communicate with the local ib_acm service.  Message fields
+ * in this case are not byte swapped, but note that the acm_ep_info
+ * data is in network order.
+ */
 struct acm_resolve_msg {
 	struct acm_hdr          hdr;
 	struct acm_ep_addr_data data[0];
+};
+
+enum {
+	ACM_CNTR_ERROR,
+	ACM_CNTR_RESOLVE,
+	ACM_CNTR_NODATA,
+	ACM_CNTR_ADDR_QUERY,
+	ACM_CNTR_ADDR_CACHE,
+	ACM_CNTR_ROUTE_QUERY,
+	ACM_CNTR_ROUTE_CACHE,
+	ACM_MAX_COUNTER
+};
+
+/*
+ * Performance messages are sent/receive in network byte order.
+ */
+struct acm_perf_msg {
+	struct acm_hdr          hdr;
+	uint64_t                data[0];
 };
 
 struct acm_msg {

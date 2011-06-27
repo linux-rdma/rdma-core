@@ -49,11 +49,13 @@ static char *opts_file = ACM_OPTS_FILE;
 
 static char *dest_addr;
 static char *src_addr;
+static char *svc_arg = "localhost";
+static char *dest_arg;
+static char *src_arg;
 static char addr_type = 'u';
 static int verify;
 static int nodelay;
-static int make_addr;
-static int make_opts;
+static int perf_query;
 int verbose;
 
 struct ibv_context **verbs;
@@ -67,13 +69,17 @@ extern char **parse(char *args, int *count);
 static void show_usage(char *program)
 {
 	printf("usage 1: %s\n", program);
+	printf("Query specified ib_acm service for data\n");
 	printf("   [-f addr_format] - i(p), n(ame), l(id), g(gid), or u(nspecified)\n");
-	printf("                      default: 'u'\n");
-	printf("   [-s src_addr]    - format defined by -f option\n");
-	printf("   [-d] dest_addr   - format defined by -f option\n");
+	printf("                      address format for -s and -d options, default: 'u'\n");
+	printf("   [-s src_addr]    - source address for path queries\n");
+	printf("   [-d dest_addr]   - destination addresses for path queries\n");
 	printf("   [-v]             - verify ACM response against SA query response\n");
 	printf("   [-c]             - read ACM cached data only\n");
+	printf("   [-P]             - query performance data from destination service");
+	printf("   [-S svc_addr]    - address of ACM service, default: local service");
 	printf("usage 2: %s\n", program);
+	printf("Generate default ib_acm service configuration and option files\n");
 	printf("   -A [addr_file]   - generate local address configuration file\n");
 	printf("                      (default is %s)\n", ACM_ADDR_FILE);
 	printf("   -O [opt_file]    - generate local acm_opts.cfg options file\n");
@@ -443,7 +449,7 @@ static int resolve_ip(struct ibv_path_record *path)
 		ret = inet_pton(AF_INET, src_addr, &src.sin_addr);
 		if (ret <= 0) {
 			printf("inet_pton error on source address (%s): 0x%x\n", src_addr, ret);
-			return ret;
+			return -1;
 		}
 		saddr = (struct sockaddr *) &src;
 	} else {
@@ -454,7 +460,7 @@ static int resolve_ip(struct ibv_path_record *path)
 	ret = inet_pton(AF_INET, dest_addr, &dest.sin_addr);
 	if (ret <= 0) {
 		printf("inet_pton error on destination address (%s): 0x%x\n", dest_addr, ret);
-		return ret;
+		return -1;
 	}
 
 	ret = ib_acm_resolve_ip(saddr, (struct sockaddr *) &dest,
@@ -575,63 +581,121 @@ static char *get_dest(char *arg, char *format)
 		*format = 'i';
 		return addr;
 	} else {
-		*format = 'u';
+		*format = 'n';
 		return arg;
 	}
 }
 
-static int resolve(char *program, char *dest_arg)
+static void resolve(char *svc)
 {
-	char **dest_list;
+	char **dest_list, **src_list;
 	struct ibv_path_record path;
-	int ret, i = 0;
+	int ret, d = 0, s = 0;
 	char dest_type;
-
-	ret = libacm_init();
-	if (ret) {
-		printf("Unable to contact ib_acm service\n");
-		return ret;
-	}
 
 	dest_list = parse(dest_arg, NULL);
 	if (!dest_list) {
 		printf("Unable to parse destination argument\n");
-		return -1;
+		return;
 	}
 
-	for (dest_addr = get_dest(dest_list[i], &dest_type); dest_addr;
-	     dest_addr = get_dest(dest_list[++i], &dest_type)) {
-		printf("Destination: %s\n", dest_addr);
-		switch (dest_type) {
-		case 'i':
-			ret = resolve_ip(&path);
-			break;
-		case 'n':
-			ret = resolve_name(&path);
-			break;
-		case 'l':
-			memset(&path, 0, sizeof path);
-			ret = resolve_lid(&path);
-			break;
-		case 'g':
-			memset(&path, 0, sizeof path);
-			ret = resolve_gid(&path);
-			break;
-		default:
-			show_usage(program);
-			exit(1);
-		}
+	src_list = src_arg ? parse(src_arg, NULL) : NULL;
 
-		if (!ret)
-			show_path(&path);
+	printf("Service: %s\n", svc);
+	for (dest_addr = get_dest(dest_list[d], &dest_type); dest_addr;
+	     dest_addr = get_dest(dest_list[++d], &dest_type)) {
+		s = 0;
+		src_addr = src_list ? src_list[s] : NULL;
+		do {
+			printf("Destination: %s\n", dest_addr);
+			if (src_addr)
+				printf("Source: %s\n", src_addr);
+			switch (dest_type) {
+			case 'i':
+				ret = resolve_ip(&path);
+				break;
+			case 'n':
+				ret = resolve_name(&path);
+				break;
+			case 'l':
+				memset(&path, 0, sizeof path);
+				ret = resolve_lid(&path);
+				break;
+			case 'g':
+				memset(&path, 0, sizeof path);
+				ret = resolve_gid(&path);
+				break;
+			default:
+				break;
+			}
 
-		if (verify)
-			ret = verify_resolve(&path);
-		printf("\n");
+			if (!ret)
+				show_path(&path);
+
+			if (verify)
+				ret = verify_resolve(&path);
+			printf("\n");
+
+			if (src_list)
+				src_addr = src_list[++s];
+		} while (src_addr);
 	}
 
 	free(dest_list);
-	libacm_cleanup();
+}
+
+static void query_perf(char *svc)
+{
+	int ret, cnt, i;
+	uint64_t *counters;
+
+	ret = ib_acm_query_perf(&counters, &cnt);
+	if (ret) {
+		printf("%s: Failed to query perf data %s\n", svc, strerror(errno));
+		return;
+	}
+
+	printf("%s,", svc);
+	for (i = 0; i < cnt; i++)
+		printf("%llu,", (unsigned long long) counters[i]);
+	printf("\n");
+	ib_acm_free_perf(counters);
+}
+
+static int query_svcs(void)
+{
+	char **svc_list;
+	int ret, i;
+
+	svc_list = parse(svc_arg, NULL);
+	if (!svc_list) {
+		printf("Unable to parse service list argument\n");
+		return -1;
+	}
+
+	if (perf_query) {
+		printf("Destination,Error Count,Resolve Count,No Data,Addr Query Count,"
+			"Addr Cache Count,Route Query Count,Route Cache Count\n");
+	}
+
+	for (i = 0; svc_list[i]; i++) {
+		ret = ib_acm_connect(svc_list[i]);
+		if (ret) {
+			printf("%s,unable to contact service: %s\n",
+				svc_list[i], strerror(errno));
+			continue;
+		}
+
+		if (dest_arg)
+			resolve(svc_list[i]);
+
+		if (perf_query)
+			query_perf(svc_list[i]);
+
+		ib_acm_disconnect();
+	}
+
+	free(svc_list);
 	return ret;
 }
 
@@ -648,20 +712,24 @@ char *opt_arg(int argc, char **argv)
 
 int CDECL_FUNC main(int argc, char **argv)
 {
-	char *dest_arg = NULL;
 	int op, ret;
+	int make_addr = 0;
+	int make_opts = 0;
 
 	ret = osd_init();
 	if (ret)
 		goto out;
 
-	while ((op = getopt(argc, argv, "f:s:d:vcA::O::D:V")) != -1) {
+	while ((op = getopt(argc, argv, "f:s:d:vcA::O::D:PS:V")) != -1) {
 		switch (op) {
 		case 'f':
 			addr_type = optarg[0];
+			if (addr_type != 'i' && addr_type != 'n' &&
+			    addr_type != 'l' && addr_type != 'g')
+				goto show_use;
 			break;
 		case 's':
-			src_addr = optarg;
+			src_arg = optarg;
 			break;
 		case 'd':
 			dest_arg = optarg;
@@ -685,23 +753,26 @@ int CDECL_FUNC main(int argc, char **argv)
 		case 'D':
 			dest_dir = optarg;
 			break;
+		case 'P':
+			perf_query = 1;
+			break;
+		case 'S':
+			svc_arg = optarg;
+			break;
 		case 'V':
 			verbose = 1;
 			break;
 		default:
-			show_usage(argv[0]);
-			exit(1);
+			goto show_use;
 		}
 	}
 
-	if ((src_addr && !dest_arg) ||
-	    (!src_addr && !dest_arg && !make_addr && !make_opts)) {
-		show_usage(argv[0]);
-		exit(1);
-	}
+	if ((src_arg && !dest_arg) ||
+	    (!src_arg && !dest_arg && !perf_query && !make_addr && !make_opts))
+		goto show_use;
 
-	if (dest_arg)
-		ret = resolve(argv[0], dest_arg);
+	if (dest_arg || perf_query)
+		ret = query_svcs();
 
 	if (!ret && make_addr)
 		ret = gen_addr();
@@ -709,8 +780,13 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (!ret && make_opts)
 		ret = gen_opts();
 
+	osd_close();
 out:
 	if (verbose || !(make_addr || make_opts) || ret)
 		printf("return status 0x%x\n", ret);
 	return ret;
+
+show_use:
+	show_usage(argv[0]);
+	exit(1);
 }

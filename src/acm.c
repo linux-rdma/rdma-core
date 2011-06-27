@@ -47,7 +47,7 @@
 #include <search.h>
 #include "acm_mad.h"
 
-#define src_out     reserved[0]
+#define src_out     data[0]
 
 #define MAX_EP_ADDR 4
 #define MAX_EP_MC   2
@@ -200,7 +200,11 @@ static struct acm_client client[FD_SETSIZE - 1];
 static FILE *flog;
 static lock_t log_lock;
 PER_THREAD char log_data[ACM_MAX_ADDRESS];
+static atomic_t counter[ACM_MAX_COUNTER];
 
+/*
+ * Service options - may be set through acm_opts file.
+ */
 static char *opts_file = "/etc/ibacm/acm_opts.cfg";
 static char *addr_file = "/etc/ibacm/acm_addr.cfg";
 static char log_file[128] = "/var/log/ibacm.log";
@@ -899,6 +903,7 @@ static uint8_t acm_resolve_path(struct acm_ep *ep, struct acm_dest *dest,
 	memcpy(mad->data, &dest->path, sizeof(dest->path));
 	mad->comp_mask = acm_path_comp_mask(&dest->path);
 
+	atomic_inc(&counter[ACM_CNTR_ROUTE_QUERY]);
 	dest->state = ACM_QUERY_ROUTE;
 	acm_post_send(&ep->sa_queue, msg);
 	return ACM_STATUS_SUCCESS;
@@ -1009,6 +1014,11 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_msg *req_msg,
 	acm_log(2, "client %d, status 0x%x\n", client->index, status);
 	memset(&msg, 0, sizeof msg);
 
+	if (status == ACM_STATUS_ENODATA)
+		atomic_inc(&counter[ACM_CNTR_NODATA]);
+	else if (status)
+		atomic_inc(&counter[ACM_CNTR_ERROR]);
+
 	lock_acquire(&client->lock);
 	if (client->sock == INVALID_SOCKET) {
 		acm_log(0, "ERROR - connection lost\n");
@@ -1020,7 +1030,7 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_msg *req_msg,
 	msg.hdr.opcode |= ACM_OP_ACK;
 	msg.hdr.status = status;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH;
-	memset(msg.hdr.reserved, 0, sizeof(msg.hdr.reserved));
+	memset(msg.hdr.data, 0, sizeof(msg.hdr.data));
 
 	if (status == ACM_STATUS_SUCCESS) {
 		msg.hdr.length += ACM_MSG_EP_LENGTH;
@@ -1853,6 +1863,7 @@ acm_svr_query_path(struct acm_client *client, struct acm_msg *msg)
 		sizeof(struct ibv_path_record));
 	mad->comp_mask = acm_path_comp_mask(&msg->resolve_data[0].info.path);
 
+	atomic_inc(&counter[ACM_CNTR_ROUTE_QUERY]);
 	acm_post_send(&ep->sa_queue, sa_msg);
 	return ACM_STATUS_SUCCESS;
 
@@ -1901,6 +1912,7 @@ acm_send_resolve(struct acm_ep *ep, struct acm_dest *dest,
 	for (i = 0; i < ep->mc_cnt; i++)
 		memcpy(&rec->gid[i], ep->mc_dest[i].address, 16);
 	
+	atomic_inc(&counter[ACM_CNTR_ADDR_QUERY]);
 	acm_post_send(&ep->resolve_queue, msg);
 	return 0;
 }
@@ -2089,10 +2101,12 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 	switch (dest->state) {
 	case ACM_READY:
 		acm_log(2, "request satisfied from local cache\n");
+		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
 		break;
 	case ACM_ADDR_RESOLVED:
 		acm_log(2, "have address, resolving route\n");
+		atomic_inc(&counter[ACM_CNTR_ADDR_CACHE]);
 		status = acm_resolve_path(ep, dest, acm_dest_sa_resp);
 		if (status) {
 			break;
@@ -2182,6 +2196,7 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 	switch (dest->state) {
 	case ACM_READY:
 		acm_log(2, "request satisfied from local cache\n");
+		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
 		break;
 	case ACM_INIT:
@@ -2216,6 +2231,51 @@ put:
 	return ret;
 }
 
+static int acm_svr_resolve(struct acm_client *client, struct acm_msg *msg)
+{
+	if (msg->resolve_data[0].type == ACM_EP_INFO_PATH) {
+		if (msg->resolve_data[0].flags & ACM_FLAGS_QUERY_SA) {
+			return acm_svr_query_path(client, msg);
+		} else {
+			return acm_svr_resolve_path(client, msg);
+		}
+	} else {
+		return acm_svr_resolve_dest(client, msg);
+	}
+}
+
+static int acm_svr_perf_query(struct acm_client *client, struct acm_msg *msg)
+{
+	int ret, i;
+	uint16_t len;
+
+	acm_log(2, "client %d\n", client->index);
+	msg->hdr.opcode |= ACM_OP_ACK;
+	msg->hdr.status = ACM_STATUS_SUCCESS;
+	msg->hdr.data[0] = ACM_MAX_COUNTER;
+	msg->hdr.data[1] = 0;
+	msg->hdr.data[2] = 0;
+	len = htons(ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t)));
+	msg->hdr.length = htons(len);
+
+	for (i = 0; i < ACM_MAX_COUNTER; i++)
+		msg->perf_data[i] = htonll((uint64_t) atomic_get(&counter[i]));
+
+	ret = send(client->sock, (char *) msg, len, 0);
+	if (ret != msg->hdr.length)
+		acm_log(0, "ERROR - failed to send response\n");
+	else
+		ret = 0;
+
+	return ret;
+}
+
+static int acm_msg_length(struct acm_msg *msg)
+{
+	return (msg->hdr.opcode == ACM_OP_RESOLVE) ?
+		msg->hdr.length : ntohs(msg->hdr.length);
+}
+
 static void acm_svr_receive(struct acm_client *client)
 {
 	struct acm_msg msg;
@@ -2223,7 +2283,7 @@ static void acm_svr_receive(struct acm_client *client)
 
 	acm_log(2, "client %d\n", client->index);
 	ret = recv(client->sock, (char *) &msg, sizeof msg, 0);
-	if (ret <= 0 || ret != msg.hdr.length) {
+	if (ret <= 0 || ret != acm_msg_length(&msg)) {
 		acm_log(2, "client disconnected\n");
 		ret = ACM_STATUS_ENOTCONN;
 		goto out;
@@ -2234,19 +2294,17 @@ static void acm_svr_receive(struct acm_client *client)
 		goto out;
 	}
 
-	if ((msg.hdr.opcode & ACM_OP_MASK) != ACM_OP_RESOLVE) {
-		acm_log(0, "ERROR - unknown opcode 0x%x\n", msg.hdr.opcode);
-		goto out;
-	}
-
-	if (msg.resolve_data[0].type == ACM_EP_INFO_PATH) {
-		if (msg.resolve_data[0].flags & ACM_FLAGS_QUERY_SA) {
-			ret = acm_svr_query_path(client, &msg);
-		} else {
-			ret = acm_svr_resolve_path(client, &msg);
-		}
-	} else {
+	switch (msg.hdr.opcode & ACM_OP_MASK) {
+	case ACM_OP_RESOLVE:
+		atomic_inc(&counter[ACM_CNTR_RESOLVE]);
 		ret = acm_svr_resolve(client, &msg);
+		break;
+	case ACM_OP_PERF_QUERY:
+		ret = acm_svr_perf_query(client, &msg);
+		break;
+	default:
+		acm_log(0, "ERROR - unknown opcode 0x%x\n", msg.hdr.opcode);
+		break;
 	}
 
 out:
@@ -2563,7 +2621,6 @@ static struct acm_ep *
 acm_alloc_ep(struct acm_port *port, uint16_t pkey, uint16_t pkey_index)
 {
 	struct acm_ep *ep;
-	int i;
 
 	acm_log(1, "\n");
 	ep = calloc(1, sizeof *ep);
@@ -2582,9 +2639,6 @@ acm_alloc_ep(struct acm_port *port, uint16_t pkey, uint16_t pkey_index)
 	DListInit(&ep->active_queue);
 	DListInit(&ep->wait_queue);
 	lock_init(&ep->lock);
-
-	for (i = 0; i < MAX_EP_MC; i++)
-		acm_init_dest(&ep->mc_dest[i], ACM_ADDRESS_GID, NULL, 0);
 
 	return ep;
 }
@@ -3086,7 +3140,7 @@ static void show_usage(char *program)
 
 int CDECL_FUNC main(int argc, char **argv)
 {
-	int op, daemon = 1;
+	int i, op, daemon = 1;
 
 	while ((op = getopt(argc, argv, "DPA:O:")) != -1) {
 		switch (op) {
@@ -3129,6 +3183,9 @@ int CDECL_FUNC main(int argc, char **argv)
 	DListInit(&dev_list);
 	DListInit(&timeout_list);
 	event_init(&timeout_event);
+	for (i = 0; i < ACM_MAX_COUNTER; i++)
+		atomic_init(&counter[i]);
+
 	umad_init();
 	if (acm_open_devices()) {
 		acm_log(0, "ERROR - unable to open any devices\n");

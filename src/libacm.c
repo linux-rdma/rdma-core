@@ -36,6 +36,8 @@
 #include <infiniband/acm.h>
 #include <stdio.h>
 #include <errno.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 struct acm_port {
 	uint8_t           port_num;
@@ -66,45 +68,46 @@ static void acm_set_server_port(void)
 	}
 }
 
-int libacm_init(void)
+int ib_acm_connect(char *dest)
 {
-	struct sockaddr_in addr;
+	struct addrinfo hint, *res;
 	int ret;
 
-	ret = osd_init();
+	acm_set_server_port();
+	memset(&hint, 0, sizeof hint);
+	hint.ai_protocol = IPPROTO_TCP;
+	ret = getaddrinfo(dest, NULL, &hint, &res);
 	if (ret)
 		return ret;
 
-	acm_set_server_port();
-	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (sock == INVALID_SOCKET) {
 		ret = socket_errno();
 		goto err1;
 	}
 
-	memset(&addr, 0, sizeof addr);
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	addr.sin_port = htons(server_port);
-	ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
+	((struct sockaddr_in *) res->ai_addr)->sin_port = htons(server_port);
+	ret = connect(sock, res->ai_addr, res->ai_addrlen);
 	if (ret)
 		goto err2;
 
+	freeaddrinfo(res);
 	return 0;
 
 err2:
 	closesocket(sock);
 	sock = INVALID_SOCKET;
 err1:
-	osd_close();
+	freeaddrinfo(res);
 	return ret;
 }
 
-void libacm_cleanup(void)
+void ib_acm_disconnect(void)
 {
 	if (sock != INVALID_SOCKET) {
 		shutdown(sock, SHUT_RDWR);
 		closesocket(sock);
+		sock = INVALID_SOCKET;
 	}
 }
 
@@ -308,6 +311,45 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 	if (!ret)
 		*path = data->info.path;
 
+out:
+	lock_release(&lock);
+	return ret;
+}
+
+int ib_acm_query_perf(uint64_t **counters, int *count)
+{
+	struct acm_msg msg;
+	int ret, i;
+
+	lock_acquire(&lock);
+	memset(&msg, 0, sizeof msg);
+	msg.hdr.version = ACM_VERSION;
+	msg.hdr.opcode = ACM_OP_PERF_QUERY;
+	msg.hdr.length = htons(ACM_MSG_HDR_LENGTH);
+
+	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
+	if (ret != msg.hdr.length)
+		goto out;
+
+	ret = recv(sock, (char *) &msg, sizeof msg, 0);
+	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length))
+		goto out;
+
+	if (msg.hdr.status) {
+		ret = acm_error(msg.hdr.status);
+		goto out;
+	}
+
+	*counters = malloc(sizeof(uint64_t) * msg.hdr.data[0]);
+	if (!*counters) {
+		ret = ACM_STATUS_ENOMEM;
+		goto out;
+	}
+
+	*count = msg.hdr.data[0];
+	for (i = 0; i < *count; i++)
+		(*counters)[i] = ntohll(msg.perf_data[i]);
+	ret = 0;
 out:
 	lock_release(&lock);
 	return ret;
