@@ -60,19 +60,16 @@ enum acm_state {
 	ACM_READY
 };
 
-enum acm_addr_prot
-{
+enum acm_addr_prot {
 	ACM_ADDR_PROT_ACM
 };
 
-enum acm_route_prot
-{
+enum acm_route_prot {
 	ACM_ROUTE_PROT_ACM,
 	ACM_ROUTE_PROT_SA
 };
 
-enum acm_loopback_prot
-{
+enum acm_loopback_prot {
 	ACM_LOOPBACK_PROT_NONE,
 	ACM_LOOPBACK_PROT_LOCAL
 };
@@ -80,8 +77,7 @@ enum acm_loopback_prot
 /*
  * Nested locking order: dest -> ep, dest -> port
  */
-struct acm_dest
-{
+struct acm_dest {
 	uint8_t                address[ACM_MAX_ADDRESS]; /* keep first */
 	char                   name[ACM_MAX_ADDRESS];
 	struct ibv_ah          *ah;
@@ -97,8 +93,7 @@ struct acm_dest
 	uint8_t                addr_type;
 };
 
-struct acm_port
-{
+struct acm_port {
 	struct acm_device   *dev;
 	DLIST_ENTRY         ep_list;
 	lock_t              lock;
@@ -116,8 +111,7 @@ struct acm_port
 	uint8_t             port_num;
 };
 
-struct acm_device
-{
+struct acm_device {
 	struct ibv_context      *verbs;
 	struct ibv_comp_channel *channel;
 	struct ibv_pd           *pd;
@@ -128,14 +122,12 @@ struct acm_device
 };
 
 /* Maintain separate virtual send queues to avoid deadlock */
-struct acm_send_queue
-{
+struct acm_send_queue {
 	int                   credits;
 	DLIST_ENTRY           pending;
 };
 
-struct acm_ep
-{
+struct acm_ep {
 	struct acm_port       *port;
 	struct ibv_cq         *cq;
 	struct ibv_qp         *qp;
@@ -159,8 +151,7 @@ struct acm_ep
 	enum acm_state        state;
 };
 
-struct acm_send_msg
-{
+struct acm_send_msg {
 	DLIST_ENTRY          entry;
 	struct acm_ep        *ep;
 	struct acm_dest      *dest;
@@ -177,16 +168,14 @@ struct acm_send_msg
 	uint8_t              data[ACM_SEND_SIZE];
 };
 
-struct acm_client
-{
+struct acm_client {
 	lock_t   lock;   /* acquire ep lock first */
 	SOCKET   sock;
 	int      index;
 	atomic_t refcnt;
 };
 
-struct acm_request
-{
+struct acm_request {
 	struct acm_client *client;
 	DLIST_ENTRY       entry;
 	struct acm_msg    msg;

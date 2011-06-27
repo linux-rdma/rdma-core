@@ -49,8 +49,7 @@
 #define ACM_CTRL_ACK     htons(0x8000)
 #define ACM_CTRL_RESOLVE htons(0x0001)
 
-struct acm_mad
-{
+struct acm_mad {
 	uint8_t  base_version;
 	uint8_t  mgmt_class;
 	uint8_t  class_version;
@@ -77,8 +76,7 @@ struct acm_mad
 
 #define ACM_MAX_GID_COUNT        10
 
-struct acm_resolve_rec
-{
+struct acm_resolve_rec {
 	uint8_t       dest_type;
 	uint8_t       dest_length;
 	uint8_t       src_type;
@@ -94,8 +92,7 @@ struct acm_resolve_rec
 
 #define IB_MGMT_CLASS_SA 0x03
 
-struct ib_sa_mad
-{
+struct ib_sa_mad {
 	uint8_t  base_version;
 	uint8_t  mgmt_class;
 	uint8_t  class_version;
@@ -171,8 +168,7 @@ struct ib_sa_mad
 #define IB_COMP_MASK_MC_JOIN_STATE          htonll(1 << 16)
 #define IB_COMP_MASK_MC_PROXY_JOIN          htonll(1 << 17)
 
-struct ib_mc_member_rec
-{
+struct ib_mc_member_rec {
 	union ibv_gid mgid;
 	union ibv_gid port_gid;
 	uint32_t      qkey;

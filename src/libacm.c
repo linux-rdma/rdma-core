@@ -37,8 +37,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-struct acm_port
-{
+struct acm_port {
 	uint8_t           port_num;
 	uint16_t          lid;
 	union ibv_gid     gid;
@@ -46,8 +45,7 @@ struct acm_port
 	uint16_t          pkey[4];
 };
 
-struct acm_device
-{
+struct acm_device {
 	struct ibv_context *verbs;
 	uint64_t           guid;
 	int                port_cnt;

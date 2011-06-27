@@ -62,8 +62,7 @@
  */
 #define ACM_MSG_DATA_LENGTH     (ACM_MSG_EP_LENGTH * 8)
 
-struct acm_hdr
-{
+struct acm_hdr {
 	uint8_t                 version;
 	uint8_t                 opcode;
 	uint8_t                 status;
@@ -77,8 +76,7 @@ struct acm_hdr
 #define ACM_EP_INFO_ADDRESS_IP6 0x0003
 #define ACM_EP_INFO_PATH        0x0010
 
-union acm_ep_info
-{
+union acm_ep_info {
 	uint8_t                 addr[ACM_MAX_ADDRESS];
 	uint8_t                 name[ACM_MAX_ADDRESS];
 	struct ibv_path_record  path;
@@ -87,22 +85,19 @@ union acm_ep_info
 #define ACM_EP_FLAG_SOURCE      (1<<0)
 #define ACM_EP_FLAG_DEST        (1<<1)
 
-struct acm_ep_addr_data
-{
+struct acm_ep_addr_data {
 	uint32_t                flags;
 	uint16_t                type;
 	uint16_t                reserved;
 	union acm_ep_info       info;
 };
 
-struct acm_resolve_msg
-{
+struct acm_resolve_msg {
 	struct acm_hdr          hdr;
 	struct acm_ep_addr_data data[0];
 };
 
-struct acm_msg
-{
+struct acm_msg {
 	struct acm_hdr          hdr;
 	uint8_t                 data[ACM_MSG_DATA_LENGTH];
 };

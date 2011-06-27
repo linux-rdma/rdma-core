@@ -34,8 +34,7 @@
 extern "C" {
 #endif
 
-typedef struct _DLIST_ENTRY
-{
+typedef struct _DLIST_ENTRY {
 	struct _DLIST_ENTRY	*Next;
 	struct _DLIST_ENTRY	*Prev;
 
