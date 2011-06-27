@@ -3081,7 +3081,8 @@ static void daemonize(void)
 static void show_usage(char *program)
 {
 	printf("usage: %s\n", program);
-	printf("   [-D]             - run as a daemon\n");
+	printf("   [-D]             - run as a daemon (default)\n");
+	printf("   [-P]             - run as a standard process\n");
 	printf("   [-A addr_file]   - address configuration file\n");
 	printf("                      (default %s/%s\n", ACM_DEST_DIR, ACM_ADDR_FILE);
 	printf("   [-O option_file] - option configuration file\n");
@@ -3090,12 +3091,15 @@ static void show_usage(char *program)
 
 int CDECL_FUNC main(int argc, char **argv)
 {
-	int op, daemon = 0;
+	int op, daemon = 1;
 
-	while ((op = getopt(argc, argv, "DA:O:")) != -1) {
+	while ((op = getopt(argc, argv, "DPA:O:")) != -1) {
 		switch (op) {
 		case 'D':
-			daemon = 1;
+			/* option no longer required */
+			break;
+		case 'P':
+			daemon = 0;
 			break;
 		case 'A':
 			addr_file = optarg;
