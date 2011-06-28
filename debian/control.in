@@ -1,6 +1,7 @@
 Source: libmlx4
 Priority: extra
-Maintainer: Roland Dreier <rolandd@cisco.com>
+Maintainer: Roland Dreier <roland@digitalvampire.org>
+DM-Upload-Allowed: yes
 Build-Depends: @cdbs@, libibverbs-dev (>= 1.0)
 Standards-Version: 3.8.2
 Section: libs
