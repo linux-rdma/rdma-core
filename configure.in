@@ -35,8 +35,9 @@ then
 dnl Checks for libraries
 AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. diags require libibumad.]))
-AC_CHECK_LIB(ibmad, mad_dump_int, [],
-	AC_MSG_ERROR([mad_dump_int() not found. diags require libibmad.]))
+AC_CHECK_LIB(ibmad, mad_dump_perfcounters_rcv_err, [],
+	AC_MSG_ERROR([mad_dump_perfcounters_rcv_err() not found.
+	diags require libibmad with mad_dump_perfcounters_rcv_err support.]))
 AC_CHECK_LIB(ibmad, pma_query_via, [],
 	AC_MSG_ERROR([pma_query_via() not found. diags require more recent libibmad.]))
 AC_CHECK_MEMBER([struct umad_port.link_layer],
