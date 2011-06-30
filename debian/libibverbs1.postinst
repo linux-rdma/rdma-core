@@ -3,10 +3,8 @@
 
 set -e
 
-if [ "$1" != configure ]; then
-    exit 0
+if [ "$1" = configure ]; then
+    getent group rdma > /dev/null 2>&1 || addgroup --system --quiet rdma
 fi
-
-getent group rdma > /dev/null 2>&1 || addgroup --system --quiet rdma
 
 #DEBHELPER#
