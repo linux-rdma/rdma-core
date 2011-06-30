@@ -8,8 +8,9 @@ libibverbs (1.1.5-1) unstable; urgency=low
     - Fix crash if no devices and ibv_get_device_list() called multiple times
   * Update maintainer and set DM-Upload-Allowed to yes.  (Closes: #632106)
   * Don't ship .la files.
+  * Update to Standards-Version: 3.9.2.
 
- -- Roland Dreier <roland@digitalvampire.org>  Wed, 29 Jun 2011 23:54:34 -0700
+ -- Roland Dreier <roland@digitalvampire.org>  Wed, 29 Jun 2011 23:57:34 -0700
 
 libibverbs (1.1.3-2) unstable; urgency=low
 
