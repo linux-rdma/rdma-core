@@ -181,6 +181,12 @@ struct acm_request {
 	struct acm_msg    msg;
 };
 
+union socket_addr {
+	struct sockaddr     sa;
+	struct sockaddr_in  sin;
+	struct sockaddr_in6 sin6;
+};
+
 static DLIST_ENTRY dev_list;
 
 static atomic_t tid;
@@ -399,7 +405,7 @@ static void acm_release_sa_dest(struct acm_dest *dest)
 //}
 
 static struct acm_request *
-acm_alloc_req(struct acm_client *client, struct acm_resolve_msg *msg)
+acm_alloc_req(struct acm_client *client, struct acm_msg *msg)
 {
 	struct acm_request *req;
 
@@ -994,11 +1000,10 @@ acm_send_addr_resp(struct acm_ep *ep, struct acm_dest *dest)
 }
 
 static int
-acm_client_resolve_resp(struct acm_client *client, struct acm_resolve_msg *req_msg,
+acm_client_resolve_resp(struct acm_client *client, struct acm_msg *req_msg,
 	struct acm_dest *dest, uint8_t status)
 {
 	struct acm_msg msg;
-	struct acm_resolve_msg *resp_msg = (struct acm_resolve_msg *) &msg;
 	int ret;
 
 	acm_log(2, "client %d, status 0x%x\n", client->index, status);
@@ -1011,28 +1016,29 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_resolve_msg *req_m
 		goto release;
 	}
 
-	resp_msg->hdr = req_msg->hdr;
-	resp_msg->hdr.opcode |= ACM_OP_ACK;
-	resp_msg->hdr.status = status;
-	resp_msg->hdr.length = ACM_MSG_HDR_LENGTH;
-	memset(resp_msg->hdr.reserved, 0, sizeof(resp_msg->hdr.reserved));
+	msg.hdr = req_msg->hdr;
+	msg.hdr.opcode |= ACM_OP_ACK;
+	msg.hdr.status = status;
+	msg.hdr.length = ACM_MSG_HDR_LENGTH;
+	memset(msg.hdr.reserved, 0, sizeof(msg.hdr.reserved));
 
 	if (status == ACM_STATUS_SUCCESS) {
-		resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
-		resp_msg->data[0].flags = IBV_PATH_FLAG_GMP |
+		msg.hdr.length += ACM_MSG_EP_LENGTH;
+		msg.resolve_data[0].flags = IBV_PATH_FLAG_GMP |
 			IBV_PATH_FLAG_PRIMARY | IBV_PATH_FLAG_BIDIRECTIONAL;
-		resp_msg->data[0].type = ACM_EP_INFO_PATH;
-		resp_msg->data[0].info.path = dest->path;
+		msg.resolve_data[0].type = ACM_EP_INFO_PATH;
+		msg.resolve_data[0].info.path = dest->path;
 
 		if (req_msg->hdr.src_out) {
-			resp_msg->hdr.length += ACM_MSG_EP_LENGTH;
-			memcpy(&resp_msg->data[1], &req_msg->data[req_msg->hdr.src_out],
+			msg.hdr.length += ACM_MSG_EP_LENGTH;
+			memcpy(&msg.resolve_data[1],
+				&req_msg->resolve_data[req_msg->hdr.src_out],
 				ACM_MSG_EP_LENGTH);
 		}
 	}
 
-	ret = send(client->sock, (char *) resp_msg, resp_msg->hdr.length, 0);
-	if (ret != resp_msg->hdr.length)
+	ret = send(client->sock, (char *) &msg, msg.hdr.length, 0);
+	if (ret != msg.hdr.length)
 		acm_log(0, "ERROR - failed to send response\n");
 	else
 		ret = 0;
@@ -1057,8 +1063,7 @@ acm_complete_queued_req(struct acm_dest *dest, uint8_t status)
 		lock_release(&dest->lock);
 
 		acm_log(2, "completing request, client %d\n", req->client->index);
-		acm_client_resolve_resp(req->client,
-			(struct acm_resolve_msg *) &req->msg, dest, status);
+		acm_client_resolve_resp(req->client, &req->msg, dest, status);
 		acm_free_req(req);
 
 		lock_acquire(&dest->lock);
@@ -1270,7 +1275,7 @@ static void acm_process_acm_recv(struct acm_ep *ep, struct ibv_wc *wc, struct ac
 
 static int
 acm_client_query_resp(struct acm_client *client,
-	struct acm_resolve_msg *msg, uint8_t status)
+	struct acm_msg *msg, uint8_t status)
 {
 	int ret;
 
@@ -1300,20 +1305,19 @@ static void
 acm_client_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *mad)
 {
 	struct acm_request *req = (struct acm_request *) msg->context;
-	struct acm_resolve_msg *client_req = (struct acm_resolve_msg *) &req->msg;
 	struct ib_sa_mad *sa_mad = (struct ib_sa_mad *) mad;
 	uint8_t status;
 
 	if (mad) {
 		status = (uint8_t) (ntohs(sa_mad->status) >> 8);
-		memcpy(&client_req->data[0].info.path, sa_mad->data,
+		memcpy(&req->msg.resolve_data[0].info.path, sa_mad->data,
 			sizeof(struct ibv_path_record));
 	} else {
 		status = ACM_STATUS_ETIMEDOUT;
 	}
 	acm_log(2, "status 0x%x\n", status);
 
-	acm_client_query_resp(req->client, client_req, status);
+	acm_client_query_resp(req->client, &req->msg, status);
 	acm_free_req(req);
 }
 
@@ -1799,7 +1803,7 @@ acm_get_ep(struct acm_ep_addr_data *data)
 }
 
 static int
-acm_svr_query_path(struct acm_client *client, struct acm_resolve_msg *msg)
+acm_svr_query_path(struct acm_client *client, struct acm_msg *msg)
 {
 	struct acm_request *req;
 	struct acm_send_msg *sa_msg;
@@ -1814,7 +1818,7 @@ acm_svr_query_path(struct acm_client *client, struct acm_resolve_msg *msg)
 		goto resp;
 	}
 
-	ep = acm_get_ep(&msg->data[0]);
+	ep = acm_get_ep(&msg->resolve_data[0]);
 	if (!ep) {
 		acm_log(1, "notice - could not find local end point\n");
 		status = ACM_STATUS_ESRCADDR;
@@ -1845,8 +1849,9 @@ acm_svr_query_path(struct acm_client *client, struct acm_resolve_msg *msg)
 	mad = (struct ib_sa_mad *) sa_msg->data;
 	acm_init_path_query(mad);
 
-	memcpy(mad->data, &msg->data[0].info.path, sizeof(struct ibv_path_record));
-	mad->comp_mask = acm_path_comp_mask(&msg->data[0].info.path);
+	memcpy(mad->data, &msg->resolve_data[0].info.path,
+		sizeof(struct ibv_path_record));
+	mad->comp_mask = acm_path_comp_mask(&msg->resolve_data[0].info.path);
 
 	acm_post_send(&ep->sa_queue, sa_msg);
 	return ACM_STATUS_SUCCESS;
@@ -1902,7 +1907,7 @@ acm_send_resolve(struct acm_ep *ep, struct acm_dest *dest,
 
 static int acm_svr_select_src(struct acm_ep_addr_data *src, struct acm_ep_addr_data *dst)
 {
-	struct sockaddr_in6 addr;
+	union socket_addr addr;
 	socklen_t len;
 	int ret;
 	SOCKET s;
@@ -1914,13 +1919,13 @@ static int acm_svr_select_src(struct acm_ep_addr_data *src, struct acm_ep_addr_d
 	memset(&addr, 0, sizeof addr);
 	switch (dst->type) {
 	case ACM_EP_INFO_ADDRESS_IP:
-		((struct sockaddr_in *) &addr)->sin_family = AF_INET;
-		memcpy(&((struct sockaddr_in *) &addr)->sin_addr, dst->info.addr, 4);
+		addr.sin.sin_family = AF_INET;
+		memcpy(&addr.sin.sin_addr, dst->info.addr, 4);
 		len = sizeof(struct sockaddr_in);
 		break;
 	case ACM_EP_INFO_ADDRESS_IP6:
-		addr.sin6_family = AF_INET6;
-		memcpy(&addr.sin6_addr, dst->info.addr, 16);
+		addr.sin6.sin6_family = AF_INET6;
+		memcpy(&addr.sin6.sin6_addr, dst->info.addr, 16);
 		len = sizeof(struct sockaddr_in6);
 		break;
 	default:
@@ -1928,20 +1933,20 @@ static int acm_svr_select_src(struct acm_ep_addr_data *src, struct acm_ep_addr_d
 		return ACM_STATUS_EDESTTYPE;
 	}
 
-	s = socket(addr.sin6_family, SOCK_DGRAM, IPPROTO_UDP);
+	s = socket(addr.sa.sa_family, SOCK_DGRAM, IPPROTO_UDP);
 	if (s == INVALID_SOCKET) {
 		acm_log(0, "ERROR - unable to allocate socket\n");
 		return socket_errno();
 	}
 
-	ret = connect(s, &addr, len);
+	ret = connect(s, &addr.sa, len);
 	if (ret) {
 		acm_log(0, "ERROR - unable to connect socket\n");
 		ret = socket_errno();
 		goto out;
 	}
 
-	ret = getsockname(s, &addr, &len);
+	ret = getsockname(s, &addr.sa, &len);
 	if (ret) {
 		acm_log(0, "ERROR - failed to get socket address\n");
 		ret = socket_errno();
@@ -1951,9 +1956,9 @@ static int acm_svr_select_src(struct acm_ep_addr_data *src, struct acm_ep_addr_d
 	src->type = dst->type;
 	src->flags = ACM_EP_FLAG_SOURCE;
 	if (dst->type == ACM_EP_INFO_ADDRESS_IP) {
-		memcpy(&src->info.addr, &((struct sockaddr_in *) &addr)->sin_addr, 4);
+		memcpy(&src->info.addr, &addr.sin.sin_addr, 4);
 	} else {
-		memcpy(&src->info.addr, &((struct sockaddr_in6 *) &addr)->sin6_addr, 16);
+		memcpy(&src->info.addr, &addr.sin6.sin6_addr, 16);
 	}
 out:
 	close(s);
@@ -1968,7 +1973,7 @@ out:
  * and we'll resolve a source address later.
  */
 static uint8_t
-acm_svr_verify_resolve(struct acm_resolve_msg *msg,
+acm_svr_verify_resolve(struct acm_msg *msg,
 	struct acm_ep_addr_data **saddr, struct acm_ep_addr_data **daddr)
 {
 	struct acm_ep_addr_data *src = NULL, *dst = NULL;
@@ -1981,27 +1986,29 @@ acm_svr_verify_resolve(struct acm_resolve_msg *msg,
 
 	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
 	for (i = 0; i < cnt; i++) {
-		if (msg->data[i].flags & ACM_EP_FLAG_SOURCE) {
+		if (msg->resolve_data[i].flags & ACM_EP_FLAG_SOURCE) {
 			if (src) {
 				acm_log(0, "ERROR - multiple sources specified\n");
 				return ACM_STATUS_ESRCADDR;
 			}
-			if (!msg->data[i].type || (msg->data[i].type >= ACM_ADDRESS_RESERVED)) {
+			if (!msg->resolve_data[i].type ||
+			    (msg->resolve_data[i].type >= ACM_ADDRESS_RESERVED)) {
 				acm_log(0, "ERROR - unsupported source address type\n");
 				return ACM_STATUS_ESRCTYPE;
 			}
-			src = &msg->data[i];
+			src = &msg->resolve_data[i];
 		}
-		if (msg->data[i].flags & ACM_EP_FLAG_DEST) {
+		if (msg->resolve_data[i].flags & ACM_EP_FLAG_DEST) {
 			if (dst) {
 				acm_log(0, "ERROR - multiple destinations specified\n");
 				return ACM_STATUS_EDESTADDR;
 			}
-			if (!msg->data[i].type || (msg->data[i].type >= ACM_ADDRESS_RESERVED)) {
+			if (!msg->resolve_data[i].type ||
+			    (msg->resolve_data[i].type >= ACM_ADDRESS_RESERVED)) {
 				acm_log(0, "ERROR - unsupported destination address type\n");
 				return ACM_STATUS_EDESTTYPE;
 			}
-			dst = &msg->data[i];
+			dst = &msg->resolve_data[i];
 		}
 	}
 
@@ -2012,7 +2019,7 @@ acm_svr_verify_resolve(struct acm_resolve_msg *msg,
 
 	if (!src) {
 		msg->hdr.src_out = i;
-		src = &msg->data[i];
+		src = &msg->resolve_data[i];
 		memset(src, 0, sizeof *src);
 	}
 	*saddr = src;
@@ -2023,7 +2030,7 @@ acm_svr_verify_resolve(struct acm_resolve_msg *msg,
 /* Caller must hold dest lock */
 static uint8_t
 acm_svr_queue_req(struct acm_dest *dest, struct acm_client *client,
-	struct acm_resolve_msg *msg)
+	struct acm_msg *msg)
 {
 	struct acm_request *req;
 
@@ -2038,7 +2045,7 @@ acm_svr_queue_req(struct acm_dest *dest, struct acm_client *client,
 }
 
 static int
-acm_svr_resolve(struct acm_client *client, struct acm_resolve_msg *msg)
+acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 {
 	struct acm_ep *ep;
 	struct acm_dest *dest;
@@ -2127,7 +2134,7 @@ put:
  * lookup the destination by either LID or GID.
  */
 static int
-acm_svr_resolve_path(struct acm_client *client, struct acm_resolve_msg *msg)
+acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 {
 	struct acm_ep *ep;
 	struct acm_dest *dest;
@@ -2142,22 +2149,22 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_resolve_msg *msg)
 		return acm_client_resolve_resp(client, msg, NULL, ACM_STATUS_EINVAL);
 	}
 
-	path = &msg->data[0].info.path;
+	path = &msg->resolve_data[0].info.path;
 	if (!path->dlid && ib_any_gid(&path->dgid)) {
 		acm_log(0, "notice - no destination specified\n");
 		return acm_client_resolve_resp(client, msg, NULL, ACM_STATUS_EDESTADDR);
 	}
 
-	acm_format_name(2, log_data, sizeof log_data,
-			ACM_EP_INFO_PATH, msg->data[0].info.addr, sizeof *path);
+	acm_format_name(2, log_data, sizeof log_data, ACM_EP_INFO_PATH,
+		msg->resolve_data[0].info.addr, sizeof *path);
 	acm_log(2, "path %s\n", log_data);
-	ep = acm_get_ep(&msg->data[0]);
+	ep = acm_get_ep(&msg->resolve_data[0]);
 	if (!ep) {
 		acm_log(0, "notice - unknown local end point\n");
 		return acm_client_resolve_resp(client, msg, NULL, ACM_STATUS_ESRCADDR);
 	}
 
-	addr = msg->data[1].info.addr;
+	addr = msg->resolve_data[1].info.addr;
 	memset(addr, 0, ACM_MAX_ADDRESS);
 	if (path->dlid) {
 		* ((uint16_t *) addr) = path->dlid;
@@ -2189,7 +2196,7 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_resolve_msg *msg)
 		}
 		/* fall through */
 	default:
-		if (msg->data[0].flags & ACM_FLAGS_NODELAY) {
+		if (msg->resolve_data[0].flags & ACM_FLAGS_NODELAY) {
 			acm_log(2, "lookup initiated, but client wants no delay\n");
 			status = ACM_STATUS_ENODATA;
 			break;
@@ -2212,7 +2219,6 @@ put:
 static void acm_svr_receive(struct acm_client *client)
 {
 	struct acm_msg msg;
-	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
 	int ret;
 
 	acm_log(2, "client %d\n", client->index);
@@ -2233,14 +2239,14 @@ static void acm_svr_receive(struct acm_client *client)
 		goto out;
 	}
 
-	if (resolve_msg->data[0].type == ACM_EP_INFO_PATH) {
-		if (resolve_msg->data[0].flags & ACM_FLAGS_QUERY_SA) {
-			ret = acm_svr_query_path(client, resolve_msg);
+	if (msg.resolve_data[0].type == ACM_EP_INFO_PATH) {
+		if (msg.resolve_data[0].flags & ACM_FLAGS_QUERY_SA) {
+			ret = acm_svr_query_path(client, &msg);
 		} else {
-			ret = acm_svr_resolve_path(client, resolve_msg);
+			ret = acm_svr_resolve_path(client, &msg);
 		}
 	} else {
-		ret = acm_svr_resolve(client, resolve_msg);
+		ret = acm_svr_resolve(client, &msg);
 	}
 
 out:

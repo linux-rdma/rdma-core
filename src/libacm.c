@@ -108,7 +108,7 @@ void libacm_cleanup(void)
 	}
 }
 
-static int acm_format_resp(struct acm_resolve_msg *msg,
+static int acm_format_resp(struct acm_msg *msg,
 	struct ibv_path_data **paths, int *count)
 {
 	struct ibv_path_data *path_data;
@@ -124,25 +124,28 @@ static int acm_format_resp(struct acm_resolve_msg *msg,
 		return -1;
 
 	for (i = 0; i < addr_cnt; i++) {
-		switch (msg->data[i].type) {
+		switch (msg->resolve_data[i].type) {
 		case ACM_EP_INFO_PATH:
-			path_data[i].flags = msg->data[i].flags;
-			path_data[i].path  = msg->data[i].info.path;
+			path_data[i].flags = msg->resolve_data[i].flags;
+			path_data[i].path  = msg->resolve_data[i].info.path;
 			(*count)++;
 			break;
 		default:
-			if (!(msg->data[i].flags & ACM_EP_FLAG_SOURCE))
+			if (!(msg->resolve_data[i].flags & ACM_EP_FLAG_SOURCE))
 				goto err;
 
-			switch (msg->data[i].type) {
+			switch (msg->resolve_data[i].type) {
 			case ACM_EP_INFO_ADDRESS_IP:
-				inet_ntop(AF_INET, msg->data[i].info.addr, addr, sizeof addr);
+				inet_ntop(AF_INET, msg->resolve_data[i].info.addr,
+					addr, sizeof addr);
 				break;
 			case ACM_EP_INFO_ADDRESS_IP6:
-				inet_ntop(AF_INET6, msg->data[i].info.addr, addr, sizeof addr);
+				inet_ntop(AF_INET6, msg->resolve_data[i].info.addr,
+					addr, sizeof addr);
 				break;
 			case ACM_EP_INFO_NAME:
-				memcpy(addr, msg->data[i].info.name, ACM_MAX_ADDRESS);
+				memcpy(addr, msg->resolve_data[i].info.name,
+					ACM_MAX_ADDRESS);
 				break;
 			default:
 				goto err;
@@ -217,7 +220,6 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	struct ibv_path_data **paths, int *count, uint32_t flags)
 {
 	struct acm_msg msg;
-	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
 	int ret, cnt = 0;
 
 	lock_acquire(&lock);
@@ -226,13 +228,13 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	msg.hdr.opcode = ACM_OP_RESOLVE;
 
 	if (src) {
-		ret = acm_format_ep_addr(&resolve_msg->data[cnt++], src, type,
+		ret = acm_format_ep_addr(&msg.resolve_data[cnt++], src, type,
 			ACM_EP_FLAG_SOURCE);
 		if (ret)
 			goto out;
 	}
 
-	ret = acm_format_ep_addr(&resolve_msg->data[cnt++], dest, type,
+	ret = acm_format_ep_addr(&msg.resolve_data[cnt++], dest, type,
 		ACM_EP_FLAG_DEST | flags);
 	if (ret)
 		goto out;
@@ -252,7 +254,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 		goto out;
 	}
 
-	ret = acm_format_resp(resolve_msg, paths, count);
+	ret = acm_format_resp(&msg, paths, count);
 out:
 	lock_release(&lock);
 	return ret;
@@ -289,7 +291,7 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 	msg.hdr.opcode = ACM_OP_RESOLVE;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH;
 
-	data = &((struct acm_resolve_msg *) &msg)->data[0];
+	data = &msg.resolve_data[0];
 	data->flags = flags;
 	data->type = ACM_EP_INFO_PATH;
 	data->info.path = *path;
