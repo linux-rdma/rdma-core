@@ -3,7 +3,7 @@ Priority: extra
 Maintainer: Roland Dreier <roland@digitalvampire.org>
 DM-Upload-Allowed: yes
 Build-Depends: debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.1)
-Standards-Version: 3.8.2
+Standards-Version: 3.9.2
 Section: libs
 Homepage: http://www.openfabrics.org/
 
