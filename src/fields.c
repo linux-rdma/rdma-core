@@ -380,13 +380,6 @@ static const ib_field_t ib_mad_f[] = {
 	 * GUIDInfo fields
 	 */
 	{0, 64, "GUID0", mad_dump_hex},
-	{64, 64, "GUID1", mad_dump_hex},
-	{128, 64, "GUID2", mad_dump_hex},
-	{192, 64, "GUID3", mad_dump_hex},
-	{256, 64, "GUID4", mad_dump_hex},
-	{320, 64, "GUID5", mad_dump_hex},
-	{384, 64, "GUID6", mad_dump_hex},
-	{448, 64, "GUID7", mad_dump_hex},
 
 	/*
 	 * ClassPortInfo fields
@@ -510,6 +503,15 @@ static const ib_field_t ib_mad_f[] = {
 	{528, 16, "CounterSelect14", mad_dump_hex},
 	{576, 64, "SamplesOnlyOptionMask", mad_dump_hex},
 	{0, 0},			/* IB_PSC_LAST_F */
+
+	/* More GUIDInfo fields */
+	{64, 64, "GUID1", mad_dump_hex},
+	{128, 64, "GUID2", mad_dump_hex},
+	{192, 64, "GUID3", mad_dump_hex},
+	{256, 64, "GUID4", mad_dump_hex},
+	{320, 64, "GUID5", mad_dump_hex},
+	{384, 64, "GUID6", mad_dump_hex},
+	{448, 64, "GUID7", mad_dump_hex},
 
 	/* GUID Info Record */
 	{BITSOFFS(0, 16), "Lid", mad_dump_uint},

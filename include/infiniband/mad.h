@@ -600,13 +600,6 @@ enum MAD_FIELDS {
 	 * GUIDInfo fields
 	 */
 	IB_GUID_GUID0_F,
-	IB_GUID_GUID1_F,
-	IB_GUID_GUID2_F,
-	IB_GUID_GUID3_F,
-	IB_GUID_GUID4_F,
-	IB_GUID_GUID5_F,
-	IB_GUID_GUID6_F,
-	IB_GUID_GUID7_F,
 
 	/*
 	 * ClassPortInfo fields
@@ -732,6 +725,17 @@ enum MAD_FIELDS {
 	IB_PSC_COUNTER_SEL14_F,
 	IB_PSC_SAMPLES_ONLY_OPT_MASK_F,
 	IB_PSC_LAST_F,
+
+	/*
+	 * More GUIDInfo fields
+	 */
+	IB_GI_GUID1_F,
+	IB_GI_GUID2_F,
+	IB_GI_GUID3_F,
+	IB_GI_GUID4_F,
+	IB_GI_GUID5_F,
+	IB_GI_GUID6_F,
+	IB_GI_GUID7_F,
 
 	/*
 	 * GUID Info Record
