@@ -1,3 +1,9 @@
+libmthca (1.0.5-3) UNRELEASED; urgency=low
+
+  * Switch to dpkg-source 3.0 (quilt) format.
+
+ -- Roland Dreier <roland@digitalvampire.org>  Tue, 05 Jul 2011 14:19:58 -0700
+
 libmthca (1.0.5-2) unstable; urgency=low
 
   * Move -dbg package to section debug.
