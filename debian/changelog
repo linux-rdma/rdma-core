@@ -1,3 +1,10 @@
+libmlx4 (1.0.1-2) UNRELEASED; urgency=low
+
+  * Set DM-Upload-Allowed to yes.
+  * Switch to dpkg-source 3.0 (quilt) format.
+
+ -- Roland Dreier <roland@digitalvampire.org>  Tue, 05 Jul 2011 15:19:17 -0700
+
 libmlx4 (1.0.1-1) unstable; urgency=low
 
   * Add debian/watch file.
