@@ -321,13 +321,13 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 		MTHCA_ERROR_CQE_OPCODE_MASK;
 	is_send  = is_error ? cqe->opcode & 0x01 : cqe->is_send & 0x80;
 
-	if (!*cur_qp || ntohl(cqe->my_qpn) != (*cur_qp)->ibv_qp.qp_num) {
+	if (!*cur_qp || qpn != (*cur_qp)->ibv_qp.qp_num) {
 		/*
 		 * We do not have to take the QP table lock here,
 		 * because CQs will be locked while QPs are removed
 		 * from the table.
 		 */
-		*cur_qp = mthca_find_qp(to_mctx(cq->ibv_cq.context), ntohl(cqe->my_qpn));
+		*cur_qp = mthca_find_qp(to_mctx(cq->ibv_cq.context), qpn);
 		if (!*cur_qp) {
 			err = CQ_POLL_ERR;
 			goto out;
