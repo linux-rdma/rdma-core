@@ -6,7 +6,7 @@ libmlx4 (1.0.2-1) unstable; urgency=low
     - Fix other minor bugs.
   * Update maintainer and set DM-Upload-Allowed to yes.  (Closes: #632108)
   * Switch to dpkg-source 3.0 (quilt) format.
-  * Don't ship .la files.  (Closes: #621664)
+  * Acknowledge NMU (Closes: #621664).
   * Change build system from cdbs to debhelper 7.
   * Use libibverbs 1.1.3 feature to move plugin to /usr/lib/libibverbs
     to fix multiple problems with a not-exactly-shlib in /usr/lib.
@@ -15,6 +15,13 @@ libmlx4 (1.0.2-1) unstable; urgency=low
   * Update to Standards-Version: 3.9.2.
 
  -- Roland Dreier <roland@digitalvampire.org>  Wed, 06 Jul 2011 13:32:18 -0700
+
+libmlx4 (1.0-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Don't ship .la files (Closes: #621664).
+
+ -- Luk Claes <luk@debian.org>  Fri, 01 Jul 2011 19:09:59 +0200
 
 libmlx4 (1.0-1) unstable; urgency=low
 
