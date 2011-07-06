@@ -2,7 +2,7 @@ Source: libmlx4
 Priority: extra
 Maintainer: Roland Dreier <roland@digitalvampire.org>
 DM-Upload-Allowed: yes
-Build-Depends: @cdbs@, libibverbs-dev (>= 1.0)
+Build-Depends: debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.0)
 Standards-Version: 3.8.2
 Section: libs
 Homepage: http://www.openfabrics.org/

@@ -3,8 +3,9 @@ libmlx4 (1.0.1-2) UNRELEASED; urgency=low
   * Update maintainer and set DM-Upload-Allowed to yes.  (Closes: #632108)
   * Switch to dpkg-source 3.0 (quilt) format.
   * Don't ship .la files.  (Closes: #621664)
+  * Change build system from cdbs to debhelper 7.
 
- -- Roland Dreier <roland@localhost>  Wed, 06 Jul 2011 01:17:18 -0700
+ -- Roland Dreier <roland@digitalvampire.org>  Wed, 06 Jul 2011 01:20:43 -0700
 
 libmlx4 (1.0.1-1) unstable; urgency=low
 
