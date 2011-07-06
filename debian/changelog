@@ -1,5 +1,6 @@
-libmthca (1.0.5-2) UNRELEASED; urgency=low
+libmthca (1.0.6-1) unstable; urgency=low
 
+  * New upstream release.
   * Move -dbg package to section debug.
   * Update maintainer and set DM-Upload-Allowed to yes.  (Closes: #632109)
   * Switch to dpkg-source 3.0 (quilt) format.
