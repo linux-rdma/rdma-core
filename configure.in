@@ -75,6 +75,5 @@ else
 fi
 AC_SUBST(MLX4_VERSION_SCRIPT)
 
-SHAVE_INIT([], [enable])
-AC_CONFIG_FILES([Makefile libmlx4.spec shave shave-libtool])
+AC_CONFIG_FILES([Makefile libmlx4.spec])
 AC_OUTPUT
