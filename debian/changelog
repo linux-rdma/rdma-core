@@ -1,5 +1,6 @@
-libmlx4 (1.0.1-2) UNRELEASED; urgency=low
+libmlx4 (1.0.2-1) unstable; urgency=low
 
+  * New upstream release.
   * Update maintainer and set DM-Upload-Allowed to yes.  (Closes: #632108)
   * Switch to dpkg-source 3.0 (quilt) format.
   * Don't ship .la files.  (Closes: #621664)
