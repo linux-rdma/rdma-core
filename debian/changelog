@@ -1,26 +1,20 @@
 libmlx4 (1.0.2-1) unstable; urgency=low
 
   * New upstream release.
+    - Fix potential problems running under Valgrind.
+    - Add support for resize CQ operation.
+    - Fix other minor bugs.
   * Update maintainer and set DM-Upload-Allowed to yes.  (Closes: #632108)
   * Switch to dpkg-source 3.0 (quilt) format.
   * Don't ship .la files.  (Closes: #621664)
   * Change build system from cdbs to debhelper 7.
   * Use libibverbs 1.1.3 feature to move plugin to /usr/lib/libibverbs
     to fix multiple problems with a not-exactly-shlib in /usr/lib.
-
- -- Roland Dreier <roland@digitalvampire.org>  Wed, 06 Jul 2011 01:28:28 -0700
-
-libmlx4 (1.0.1-1) unstable; urgency=low
-
   * Add debian/watch file.
   * Move -dbg package to section debug.
-  * Update to Standards-Version: 3.8.2.
-  * New upstream release.
-    - Fix potential problems running under Valgrind.
-    - Add support for resize CQ operation.
-    - Fix other minor bugs.
+  * Update to Standards-Version: 3.9.2.
 
- -- Roland Dreier <rolandd@cisco.com>  Wed, 17 Jun 2009 10:56:33 -0700
+ -- Roland Dreier <roland@digitalvampire.org>  Wed, 06 Jul 2011 13:32:18 -0700
 
 libmlx4 (1.0-1) unstable; urgency=low
 
