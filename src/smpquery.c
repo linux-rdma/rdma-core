@@ -131,7 +131,7 @@ static char *node_info(ib_portid_t * dest, char **argv, int argc)
 
 static char *port_info(ib_portid_t * dest, char **argv, int argc)
 {
-	char buf[2048];
+	char buf[2300];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = 0;
 

@@ -419,7 +419,7 @@ static void dump_portinfo_record(void *data)
 
 static void dump_one_portinfo_record(void *data)
 {
-	char buf[2048], buf2[4096];
+	char buf[2300], buf2[4096];
 	ib_portinfo_record_t *pir = data;
 	ib_port_info_t *pi = &pir->port_info;
 
