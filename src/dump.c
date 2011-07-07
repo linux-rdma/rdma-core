@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
- * Copyright (c) 2009 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2009-2011 Mellanox Technologies LTD.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -308,6 +308,70 @@ void mad_dump_linkspeeden(char *buf, int bufsz, void *val, int valsz)
 	dump_linkspeed(buf, bufsz, speed);
 }
 
+void mad_dump_linkspeedext(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *)val;
+
+	switch (speed) {
+	case 0:
+		snprintf(buf, bufsz, "No Extended Speed");
+		break;
+	case 1:
+		snprintf(buf, bufsz, "14.0625 Gbps");
+		break;
+	case 2:
+		snprintf(buf, bufsz, "25.78125 Gbps");
+		break;
+	default:
+		snprintf(buf, bufsz, "undefined (%d)", speed);
+		break;
+	}
+}
+
+static void dump_linkspeedext(char *buf, int bufsz, int speed)
+{
+	int n = 0;
+
+	if (speed == 0) {
+		sprintf(buf, "%d", speed);
+		return;
+	}
+
+	if (speed & 0x1)
+		n += snprintf(buf + n, bufsz - n, "14.0625 Gbps or ");
+	if (n < bufsz && speed & 0x2)
+		n += snprintf(buf + n, bufsz - n, "25.78125 Gbps or ");
+	if (n >= bufsz) {
+		if (bufsz > 3)
+			buf[n - 4] = '\0';
+		return;
+	}
+
+	if (speed >> 2) {
+		n += snprintf(buf + n, bufsz - n, "undefined (%d)", speed);
+		return;
+	} else if (bufsz > 3)
+		buf[n - 4] = '\0';
+}
+
+void mad_dump_linkspeedextsup(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *)val;
+
+	dump_linkspeedext(buf, bufsz, speed);
+}
+
+void mad_dump_linkspeedexten(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *)val;
+
+	if (speed == 30) {
+		sprintf(buf, "%s", "Extended link speeds disabled");
+		return;
+	}
+	dump_linkspeedext(buf, bufsz, speed);
+}
+
 void mad_dump_portstate(char *buf, int bufsz, void *val, int valsz)
 {
 	int state = *(int *)val;
@@ -495,6 +559,8 @@ void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 	if (mask & (1 << 12))
 		s += sprintf(s,
 			     "\t\t\t\tIsPkeySwitchExternalPortTrapSupported\n");
+	if (mask & (1 << 14))
+		s += sprintf(s, "\t\t\t\tIsExtendedSpeedsSupported\n");
 	if (mask & (1 << 16))
 		s += sprintf(s, "\t\t\t\tIsCommunicatonManagementSupported\n");
 	if (mask & (1 << 17))
@@ -692,7 +758,12 @@ void mad_dump_nodeinfo(char *buf, int bufsz, void *val, int valsz)
 
 void mad_dump_portinfo(char *buf, int bufsz, void *val, int valsz)
 {
-	_dump_fields(buf, bufsz, val, IB_PORT_FIRST_F, IB_PORT_LAST_F);
+	int cnt;
+
+	cnt = _dump_fields(buf, bufsz, val, IB_PORT_FIRST_F, IB_PORT_LAST_F);
+	_dump_fields(buf + cnt, bufsz - cnt, val,
+		     IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
+		     IB_PORT_LINK_SPEED_EXT_LAST_F);
 }
 
 void mad_dump_portstates(char *buf, int bufsz, void *val, int valsz)

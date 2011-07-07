@@ -751,6 +751,14 @@ enum MAD_FIELDS {
 	IB_SA_GIR_GUID6,
 	IB_SA_GIR_GUID7,
 
+	/*
+	 * More PortInfo fields
+	 */
+	IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
+	IB_PORT_LINK_SPEED_EXT_SUPPORTED_F,
+	IB_PORT_LINK_SPEED_EXT_ENABLED_F,
+	IB_PORT_LINK_SPEED_EXT_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 
@@ -1074,6 +1082,7 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_linkwidth, mad_dump_linkwidthsup, mad_dump_linkwidthen,
     mad_dump_linkdowndefstate,
     mad_dump_linkspeed, mad_dump_linkspeedsup, mad_dump_linkspeeden,
+    mad_dump_linkspeedext, mad_dump_linkspeedextsup, mad_dump_linkspeedexten,
     mad_dump_portstate, mad_dump_portstates,
     mad_dump_physportstate, mad_dump_portcapmask,
     mad_dump_mtu, mad_dump_vlcap, mad_dump_opervls,

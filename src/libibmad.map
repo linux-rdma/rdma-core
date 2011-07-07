@@ -12,6 +12,9 @@ IBMAD_1.3 {
 		mad_dump_linkspeed;
 		mad_dump_linkspeeden;
 		mad_dump_linkspeedsup;
+		mad_dump_linkspeedext;
+		mad_dump_linkspeedexten;
+		mad_dump_linkspeedextsup;
 		mad_dump_linkwidth;
 		mad_dump_linkwidthen;
 		mad_dump_linkwidthsup;

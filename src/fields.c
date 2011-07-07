@@ -525,6 +525,14 @@ static const ib_field_t ib_mad_f[] = {
 	{448, 64, "Guid6", mad_dump_hex},
 	{512, 64, "Guid7", mad_dump_hex},
 
+	/*
+	 * More PortInfo fields
+	 */
+	{BITSOFFS(496, 4), "LinkSpeedExtActive", mad_dump_linkspeedext},
+	{BITSOFFS(500, 4), "LinkSpeedExtSupported", mad_dump_linkspeedextsup},
+	{BITSOFFS(507, 5), "LinkSpeedExtEnabled", mad_dump_linkspeedexten},
+	{0, 0},			/* IB_PORT_LINK_SPEED_EXT_LAST_F */
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };
