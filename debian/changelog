@@ -1,3 +1,10 @@
+libmthca (1.0.6-2) unstable; urgency=low
+
+  * Since we have plugin in /usr/lib/libibverbs, we need to depend on
+    libibverbs (>= 1.1.3).
+
+ -- Roland Dreier <roland@digitalvampire.org>  Wed, 06 Jul 2011 23:56:16 -0700
+
 libmthca (1.0.6-1) unstable; urgency=low
 
   * New upstream release.
