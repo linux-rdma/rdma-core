@@ -311,6 +311,7 @@ static int query_and_dump(char *buf, size_t size, ib_portid_t * portid,
 	return n;
 }
 
+
 static int print_results(ib_portid_t * portid, char *node_name,
 			 ibnd_node_t * node, uint8_t * pc, int portnum,
 			 int *header_printed, uint8_t *pce, uint16_t cap_mask)
@@ -378,11 +379,24 @@ static int print_results(ib_portid_t * portid, char *node_name,
 
 			for (i = start_field; i <= end_field; i++) {
 				uint64_t val64 = 0;
+				float val = 0;
+				char *unit = "";
 				mad_decode_field(pkt, i, (void *)&val64);
-				if (val64)
+				if (val64) {
+					int data = 0;
+					if (i == IB_PC_EXT_XMT_BYTES_F ||
+					    i == IB_PC_EXT_RCV_BYTES_F ||
+					    i == IB_PC_XMT_BYTES_F ||
+					    i == IB_PC_RCV_BYTES_F)
+						data = 1;
+					unit = conv_cnt_human_readable(val64,
+								&val, data);
 					n += snprintf(str + n, 1024 - n,
-						" [%s == %" PRIu64 "]",
-						mad_field_name(i), val64);
+						" [%s == %" PRIu64
+						" (%5.3f%s)]",
+						mad_field_name(i), val64, val,
+						unit);
+				}
 			}
 		}
 
@@ -479,8 +493,16 @@ static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
 
 	for (i = start_field; i <= end_field; i++) {
 		uint64_t val64 = 0;
+		float val = 0;
+		char *unit = "";
+		int data = 0;
 		mad_decode_field(pc, i, (void *)&val64);
-		printf(" [%s == %" PRIu64 "]", mad_field_name(i), val64);
+		if (i == IB_PC_EXT_XMT_BYTES_F || i == IB_PC_EXT_RCV_BYTES_F ||
+		    i == IB_PC_XMT_BYTES_F || i == IB_PC_RCV_BYTES_F)
+			data = 1;
+		unit = conv_cnt_human_readable(val64, &val, data);
+		printf(" [%s == %" PRIu64 " (%5.3f%s)]", mad_field_name(i),
+			val64, val, unit);
 	}
 	printf("\n");
 

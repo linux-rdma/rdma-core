@@ -86,6 +86,13 @@ extern int ibdiag_process_opts(int argc, char *const argv[], void *context,
 extern void ibdiag_show_usage();
 extern void iberror(const char *fn, char *msg, ...);
 
+/* convert counter values to a float with a unit specifier returned (using
+ * binary prefix)
+ * "data" is a flag indicating this counter is a byte counter multiplied by 4
+ * as per PortCounters[Extended]
+ */
+extern char *conv_cnt_human_readable(uint64_t val64, float *val, int data);
+
 /* define an SA query structure to be common
  * This is by no means optimal but it moves the saquery functionality out of
  * the saquery tool and provides it to other utilities.
