@@ -504,7 +504,8 @@ static const ib_field_t ib_mad_f[] = {
 	{576, 64, "SamplesOnlyOptionMask", mad_dump_hex},
 	{0, 0},			/* IB_PSC_LAST_F */
 
-	/* More GUIDInfo fields */
+	/* GUIDInfo fields */
+	{0, 64, "GUID0", mad_dump_hex},
 	{64, 64, "GUID1", mad_dump_hex},
 	{128, 64, "GUID2", mad_dump_hex},
 	{192, 64, "GUID3", mad_dump_hex},

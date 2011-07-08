@@ -600,7 +600,8 @@ enum MAD_FIELDS {
 	/*
 	 * GUIDInfo fields
 	 */
-	IB_GUID_GUID0_F,
+	IB_GUID_GUID0_F, /* Obsolete, kept for compatibility
+			    Use IB_GI_GUID0_F going forward */
 
 	/*
 	 * ClassPortInfo fields
@@ -728,8 +729,10 @@ enum MAD_FIELDS {
 	IB_PSC_LAST_F,
 
 	/*
-	 * More GUIDInfo fields
+	 * GUIDInfo fields
 	 */
+	IB_GI_GUID0_F, /* a duplicate of IB_GUID_GUID0_F for backwards
+			  compatibility */
 	IB_GI_GUID1_F,
 	IB_GI_GUID2_F,
 	IB_GI_GUID3_F,
