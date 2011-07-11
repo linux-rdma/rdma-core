@@ -115,5 +115,6 @@ IBMAD_1.3 {
 		ib_resolve_self_via;
 		mad_field_name;
 		bm_call_via;
+		mad_dump_port_ext_speeds_counters;
 	local: *;
 };
