@@ -132,7 +132,7 @@ AC_SUBST(PERL_INSTALLDIR)
 
 if test $withperlinstalldir = "no"
 then
-    PERL_INSTALLDIR=`$PERL -e 'use Config; $T=$Config{installsitearch}; print $T;'`
+    PERL_INSTALLDIR=`$PERL -e 'use Config; $T=$Config{installvendorlib}; print $T;'`
 fi
 AC_SUBST(PERL_INSTALLDIR)
 

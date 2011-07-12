@@ -50,7 +50,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/*.a
 %{_libdir}/*.so*
 %{_includedir}/infiniband/*.h
-%define _perldir %(perl -e 'use Config; $T=$Config{installsitearch}; $T=~/(.*)\\/site_perl.*/; print $1;')
+%define _perldir %(perl -e 'use Config; $T=$Config{installvendorlib}; print $T;')
 %{_perldir}/*
 %{_mandir}/man8/*
 %{_mandir}/man3/*
