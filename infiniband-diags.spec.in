@@ -54,6 +54,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_perldir}/*
 %{_mandir}/man8/*
 %{_mandir}/man3/*
+%{_sysconfdir}/*
 %doc README COPYING ChangeLog
 
 %changelog
