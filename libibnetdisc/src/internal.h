@@ -62,6 +62,7 @@ typedef struct ibnd_scan {
 	ibnd_fabric_t *fabric;
 	struct ibnd_config *cfg;
 	struct ibmad_port *ibmad_port;
+	unsigned initial_hops;
 } ibnd_scan_t;
 
 typedef struct ibnd_smp ibnd_smp_t;
