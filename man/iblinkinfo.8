@@ -5,34 +5,34 @@ iblinkinfo \- report link info for all links in the fabric
 
 .SH SYNOPSIS
 .B iblinkinfo
-   [-hcdl -C <ca_name> -P <ca_port> -v <lt,hoq,vlstall> -S <guid>
--D <direct_route> \-\-load\-cache <filename>]
+   [-hcdl -C <ca_name> -P <ca_port> -p -S <port_guid> -G <port_guid> -D <direct_route> \-\-load\-cache <filename>]
 
 .SH DESCRIPTION
 .PP
-iblinkinfo reports the link info for each port of each switch active in the
-IB fabric.
+iblinkinfo reports link info for each port in an IB fabric, node by node.
+Optionally, iblinkinfo can do partial scans and limit its output to parts of a
+fabric.
 
 .SH OPTIONS
 
 .PP
 .TP
-\fB\-S <guid>\fR
-Output only the switch specified by <guid> (hex format)
+\fB\-S <port_guid>\fR \fB\-G <port_guid>\fR \fB\-\-port\-guid\fR
+start partial scan at the port specified by <port_guid> (hex format)
 .TP
 \fB\-D <direct_route>\fR
-Output only the switch specified by the direct route path.
+start partial scan at the port specified by the direct route path.
 .TP
 \fB\-l\fR
 Print all information for each link on one line. Default is to print a header
-with the switch information and then a list for each port (useful for
+with the node information and then a list for each port (useful for
 grep\'ing output).
 .TP
 \fB\-d\fR
-Print only switches which have a port in the "Down" state.
+Print only nodes which have a port in the "Down" state.
 .TP
-\fB\-v <lt,hoq,vlstall>\fR
-Verify additional switch settings (<LifeTime>,<HoqLife>,<VLStallCount>)
+\fB\-p\fR
+Print additional port settings (<LifeTime>,<HoqLife>,<VLStallCount>)
 .TP
 \fB\-C <ca_name>\fR    use the specified ca_name for the search.
 .TP
