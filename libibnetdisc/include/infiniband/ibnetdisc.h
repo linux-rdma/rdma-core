@@ -213,6 +213,17 @@ IBND_EXPORT void ibnd_iter_nodes_type(ibnd_fabric_t * fabric,
 				     int node_type, void *user_data);
 
 /** =========================================================================
+ * Port operations
+ */
+IBND_EXPORT ibnd_port_t *ibnd_find_port_guid(ibnd_fabric_t * fabric,
+					uint64_t guid);
+IBND_EXPORT ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric,
+					char *dr_str);
+typedef void (*ibnd_iter_port_func_t) (ibnd_port_t * port, void *user_data);
+IBND_EXPORT void ibnd_iter_ports(ibnd_fabric_t * fabric,
+				ibnd_iter_port_func_t func, void *user_data);
+
+/** =========================================================================
  * Chassis queries
  */
 IBND_EXPORT uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric,

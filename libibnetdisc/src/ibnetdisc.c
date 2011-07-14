@@ -387,37 +387,13 @@ ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric, uint64_t guid)
 	return NULL;
 }
 
+/* forward declare */
+ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric, char *dr_str);
+
 ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 {
-	int i = 0;
-	ibnd_node_t *rc;
-	ib_dr_path_t path;
-
-	if (!fabric) {
-		IBND_DEBUG("fabric parameter NULL\n");
-		return NULL;
-	}
-
-	rc = fabric->from_node;
-
-	if (str2drpath(&path, dr_str, 0, 0) == -1)
-		return NULL;
-
-	for (i = 0; i <= path.cnt; i++) {
-		ibnd_port_t *remote_port = NULL;
-		if (path.p[i] == 0)
-			continue;
-		if (!rc->ports)
-			return NULL;
-
-		remote_port = rc->ports[path.p[i]]->remoteport;
-		if (!remote_port)
-			return NULL;
-
-		rc = remote_port->node;
-	}
-
-	return rc;
+	ibnd_port_t *rc = ibnd_find_port_dr(fabric, dr_str);
+	return rc->node;
 }
 
 void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
@@ -631,4 +607,82 @@ void ibnd_iter_nodes_type(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,
 
 	for (cur = list; cur; cur = cur->type_next)
 		func(cur, user_data);
+}
+
+ibnd_port_t *ibnd_find_port_guid(ibnd_fabric_t * fabric, uint64_t guid)
+{
+	int hash = HASHGUID(guid) % HTSZ;
+	ibnd_port_t *port;
+
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return NULL;
+	}
+
+	for (port = fabric->portstbl[hash]; port; port = port->htnext)
+		if (port->guid == guid)
+			return port;
+
+	return NULL;
+}
+
+ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric, char *dr_str)
+{
+	int i = 0;
+	ibnd_node_t *cur_node;
+	ibnd_port_t *rc;
+	ib_dr_path_t path;
+
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return NULL;
+	}
+
+	if (!dr_str) {
+		IBND_DEBUG("dr_str parameter NULL\n");
+		return NULL;
+	}
+
+	cur_node = fabric->from_node;
+
+	if (str2drpath(&path, dr_str, 0, 0) == -1)
+		return NULL;
+
+	for (i = 0; i <= path.cnt; i++) {
+		ibnd_port_t *remote_port = NULL;
+		if (path.p[i] == 0)
+			continue;
+		if (!cur_node->ports)
+			return NULL;
+
+		remote_port = cur_node->ports[path.p[i]]->remoteport;
+		if (!remote_port)
+			return NULL;
+
+		rc = remote_port;
+		cur_node = remote_port->node;
+	}
+
+	return rc;
+}
+
+void ibnd_iter_ports(ibnd_fabric_t * fabric, ibnd_iter_port_func_t func,
+			void *user_data)
+{
+	int i = 0;
+	ibnd_port_t *cur = NULL;
+
+	if (!fabric) {
+		IBND_DEBUG("fabric parameter NULL\n");
+		return;
+	}
+
+	if (!func) {
+		IBND_DEBUG("func parameter NULL\n");
+		return;
+	}
+
+	for (i = 0; i<HTSZ; i++)
+		for (cur = fabric->portstbl[i]; cur; cur = cur->htnext)
+			func(cur, user_data);
 }

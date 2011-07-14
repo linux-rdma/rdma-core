@@ -14,5 +14,8 @@ IBNETDISC_1.0 {
 		ibnd_get_chassis_slot_str;
 		ibnd_iter_nodes;
 		ibnd_iter_nodes_type;
+		ibnd_find_port_guid;
+		ibnd_find_port_dr;
+		ibnd_iter_ports;
 	local: *;
 };
