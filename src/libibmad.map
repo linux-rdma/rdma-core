@@ -34,6 +34,18 @@ IBMAD_1.3 {
 		mad_dump_portcapmask;
 		mad_dump_portinfo;
 		mad_dump_portsamples_control;
+		mad_dump_perfcounters_port_op_rcv_counters;
+		mad_dump_perfcounters_port_flow_ctl_counters;
+		mad_dump_perfcounters_port_vl_op_packet;
+		mad_dump_perfcounters_port_vl_op_data;
+		mad_dump_perfcounters_port_vl_xmit_flow_ctl_update_errors;
+		mad_dump_perfcounters_port_vl_xmit_wait_counters;
+		mad_dump_perfcounters_sw_port_vl_congestion;
+		mad_dump_perfcounters_rcv_con_ctrl;
+		mad_dump_perfcounters_sl_rcv_fecn;
+		mad_dump_perfcounters_sl_rcv_becn;
+		mad_dump_perfcounters_xmit_con_ctrl;
+		mad_dump_perfcounters_vl_xmit_time_cong;
 		mad_dump_portstates;
 		mad_dump_portstate;
 		mad_dump_rhex;
