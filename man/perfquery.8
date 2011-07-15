@@ -6,10 +6,12 @@ perfquery \- query InfiniBand port counters
 .SH SYNOPSIS
 .B perfquery
 [\-d(ebug)] [\-G(uid)] [\-x|\-\-extended] [\-X|\-\-xmtsl] [\-S|\-\-rcvsl]
-[\-D|\-\-xmtdisc] [\-E|\-\-rcverr] [\-c|\-\-smplctl]
-[-a(ll_ports)] [-l(oop_ports)] [-r(eset_after_read)] [-R(eset_only)]
-[\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms] [\-V(ersion)] [\-h(elp)]
-[<lid|guid> [[port] [reset_mask]]]
+[\-D|\-\-xmtdisc] [\-E|\-\-rcverr] [\-\-oprcvcounters] [\-\-flowctlcounters]
+[\-\-vloppackets] [\-\-vlopdata] [\-\-vlxmitflowctlerrors] [\-\-vlxmitcounters]
+[\-\-swportvlcong] [\-\-rcvcc] [\-\-slrcvfecn] [\-\-slrcvbecn] [\-\-xmitcc]
+[\-\-vlxmittimecc] [\-c|\-\-smplctl] [-a(ll_ports)] [-l(oop_ports)]
+[-r(eset_after_read)] [-R(eset_only)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms]
+[\-V(ersion)] [\-h(elp)] [<lid|guid> [[port] [reset_mask]]]
 
 .SH DESCRIPTION
 .PP
@@ -48,6 +50,42 @@ show receive error details. This is an optional counter.
 .TP
 \fB\-D\fR, \fB\-\-xmtdisc\fR
 show transmit discard details. This is an optional counter.
+.TP
+\fB\-\-oprcvcounters\fR
+show Rcv Counters per Op code. This is an optional counter.
+.TP
+\fB\-\-flowctlcounters\fR
+show flow control counters. This is an optional counter.
+.TP
+\fB\-\-vloppackets\fR
+show packets received per Op code per VL. This is an optional counter.
+.TP
+\fB\-\-vlopdata\fR
+show data received per Op code per VL. This is an optional counter.
+.TP
+\fB\-\-vlxmitflowctlerrors\fR
+show flow control update errors per VL. This is an optional counter.
+.TP
+\fB\-\-vlxmitcounters\fR
+show ticks waiting to transmit counters per VL. This is an optional counter.
+.TP
+\fB\-\-swportvlcong\fR
+show sw port VL congestion. This is an optional counter.
+.TP
+\fB\-\-rcvcc\fR
+show Rcv congestion control counters. This is an optional counter.
+.TP
+\fB\-\-slrcvfecn\fR
+show SL Rcv FECN counters. This is an optional counter.
+.TP
+\fB\-\-slrcvbecn\fR
+show SL Rcv BECN counters. This is an optional counter.
+.TP
+\fB\-\-xmitcc\fR
+show Xmit congestion control counters. This is an optional counter.
+.TP
+\fB\-\-vlxmittimecc\fR
+show VL Xmit Time congestion control counters. This is an optional counter.
 .TP
 \fB\-c\fR, \fB\-\-smplctl\fR
 show port samples control.
