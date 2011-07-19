@@ -633,13 +633,18 @@ static uint16_t get_vlan_id(union ibv_gid *gid)
 
 static int mlx4_resolve_grh_to_l2(struct mlx4_ah *ah, struct ibv_ah_attr *attr)
 {
-	if (get_vlan_id(&attr->grh.dgid) != 0xffff)
-		return 1;
+	uint16_t vid;
 
 	if (link_local_gid(&attr->grh.dgid)) {
 		memcpy(ah->mac, &attr->grh.dgid.raw[8], 3);
 		memcpy(ah->mac + 3, &attr->grh.dgid.raw[13], 3);
 		ah->mac[0] ^= 2;
+
+		vid = get_vlan_id(&attr->grh.dgid);
+		if (vid != 0xffff) {
+			ah->av.port_pd |= htonl(1 << 29);
+			ah->vlan = vid | ((attr->sl & 7) << 13);
+		}
 		return 0;
 	} else
 		return 1;

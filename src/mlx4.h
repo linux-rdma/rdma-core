@@ -241,6 +241,7 @@ struct mlx4_av {
 struct mlx4_ah {
 	struct ibv_ah			ibv_ah;
 	struct mlx4_av			av;
+	uint16_t			vlan;
 	uint8_t				mac[6];
 };
 
