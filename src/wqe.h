@@ -78,7 +78,8 @@ struct mlx4_wqe_datagram_seg {
 	uint32_t		av[8];
 	uint32_t		dqpn;
 	uint32_t		qkey;
-	uint32_t		reserved[2];
+	uint16_t		reserved;
+	uint8_t			mac[6];
 };
 
 struct mlx4_wqe_data_seg {

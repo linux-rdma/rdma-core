@@ -614,9 +614,44 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	return 0;
 }
 
+static int link_local_gid(const union ibv_gid *gid)
+{
+	uint32_t hi = *(uint32_t *)(gid->raw);
+	uint32_t lo = *(uint32_t *)(gid->raw + 4);
+	if (hi == htonl(0xfe800000) && lo == 0)
+		return 1;
+
+	return 0;
+}
+
+static uint16_t get_vlan_id(union ibv_gid *gid)
+{
+	uint16_t vid;
+	vid = gid->raw[11] << 8 | gid->raw[12];
+	return vid < 0x1000 ? vid : 0xffff;
+}
+
+static int mlx4_resolve_grh_to_l2(struct mlx4_ah *ah, struct ibv_ah_attr *attr)
+{
+	if (get_vlan_id(&attr->grh.dgid) != 0xffff)
+		return 1;
+
+	if (link_local_gid(&attr->grh.dgid)) {
+		memcpy(ah->mac, &attr->grh.dgid.raw[8], 3);
+		memcpy(ah->mac + 3, &attr->grh.dgid.raw[13], 3);
+		ah->mac[0] ^= 2;
+		return 0;
+	} else
+		return 1;
+}
+
 struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct mlx4_ah *ah;
+	struct ibv_port_attr port_attr;
+
+	if (ibv_query_port(pd->context, attr->port_num, &port_attr))
+		return NULL;
 
 	ah = malloc(sizeof *ah);
 	if (!ah)
@@ -625,8 +660,12 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	memset(&ah->av, 0, sizeof ah->av);
 
 	ah->av.port_pd   = htonl(to_mpd(pd)->pdn | (attr->port_num << 24));
-	ah->av.g_slid    = attr->src_path_bits;
-	ah->av.dlid      = htons(attr->dlid);
+
+	if (port_attr.link_layer != IBV_LINK_LAYER_ETHERNET) {
+		ah->av.g_slid = attr->src_path_bits;
+		ah->av.dlid   = htons(attr->dlid);
+	}
+
 	if (attr->static_rate) {
 		ah->av.stat_rate = attr->static_rate + MLX4_STAT_RATE_OFFSET;
 		/* XXX check rate cap? */
@@ -641,6 +680,12 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 				    attr->grh.flow_label);
 		memcpy(ah->av.dgid, attr->grh.dgid.raw, 16);
 	}
+
+	if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET)
+		if (mlx4_resolve_grh_to_l2(ah, attr)) {
+			free(ah);
+			return NULL;
+		}
 
 	return &ah->ibv_ah;
 }
