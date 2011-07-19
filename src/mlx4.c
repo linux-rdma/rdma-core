@@ -66,6 +66,28 @@ struct {
 	HCA(MELLANOX, 0x6354),	/* MT25408 "Hermon" QDR */
 	HCA(MELLANOX, 0x6732),	/* MT25408 "Hermon" DDR PCIe gen2 */
 	HCA(MELLANOX, 0x673c),	/* MT25408 "Hermon" QDR PCIe gen2 */
+	HCA(MELLANOX, 0x6368),	/* MT25408 "Hermon" EN 10GigE */
+	HCA(MELLANOX, 0x6750),	/* MT25408 "Hermon" EN 10GigE PCIe gen2 */
+	HCA(MELLANOX, 0x6372),	/* MT25458 ConnectX EN 10GBASE-T 10GigE */
+	HCA(MELLANOX, 0x675a),	/* MT25458 ConnectX EN 10GBASE-T+Gen2 10GigE */
+	HCA(MELLANOX, 0x6764),	/* MT26468 ConnectX EN 10GigE PCIe gen2*/
+	HCA(MELLANOX, 0x6746),	/* MT26438 ConnectX EN 40GigE PCIe gen2 5GT/s */
+	HCA(MELLANOX, 0x676e),	/* MT26478 ConnectX2 40GigE PCIe gen2 */
+	HCA(MELLANOX, 0x1002),	/* MT25400 Family [ConnectX-2 Virtual Function] */
+	HCA(MELLANOX, 0x1003),	/* MT27500 Family [ConnectX-3] */
+	HCA(MELLANOX, 0x1004),	/* MT27500 Family [ConnectX-3 Virtual Function] */
+	HCA(MELLANOX, 0x1005),	/* MT27510 Family */
+	HCA(MELLANOX, 0x1006),	/* MT27511 Family */
+	HCA(MELLANOX, 0x1007),	/* MT27520 Family */
+	HCA(MELLANOX, 0x1008),	/* MT27521 Family */
+	HCA(MELLANOX, 0x1009),	/* MT27530 Family */
+	HCA(MELLANOX, 0x100a),	/* MT27531 Family */
+	HCA(MELLANOX, 0x100b),	/* MT27540 Family */
+	HCA(MELLANOX, 0x100c),	/* MT27541 Family */
+	HCA(MELLANOX, 0x100d),	/* MT27550 Family */
+	HCA(MELLANOX, 0x100e),	/* MT27551 Family */
+	HCA(MELLANOX, 0x100f),	/* MT27560 Family */
+	HCA(MELLANOX, 0x1010),	/* MT27561 Family */
 };
 
 static struct ibv_context_ops mlx4_ctx_ops = {
