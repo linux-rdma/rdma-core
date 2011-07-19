@@ -196,6 +196,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	port_attr->active_width    = resp.active_width;
 	port_attr->active_speed    = resp.active_speed;
 	port_attr->phys_state      = resp.phys_state;
+	port_attr->link_layer      = resp.link_layer;
 
 	return 0;
 }
