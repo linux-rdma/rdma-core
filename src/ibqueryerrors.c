@@ -90,7 +90,7 @@ static char *threshold_file = DEF_THRES_FILE;
 
 /* define a "packet" with threshold values in it */
 uint8_t thresholds[1204] = { 0 };
-char * threshold_str = NULL;
+char * threshold_str = "";
 
 static void set_thres(char *name, uint32_t val)
 {
