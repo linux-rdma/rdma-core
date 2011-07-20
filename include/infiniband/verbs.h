@@ -161,6 +161,12 @@ enum ibv_port_state {
 	IBV_PORT_ACTIVE_DEFER	= 5
 };
 
+enum {
+	IBV_LINK_LAYER_UNSPECIFIED,
+	IBV_LINK_LAYER_INFINIBAND,
+	IBV_LINK_LAYER_ETHERNET,
+};
+
 struct ibv_port_attr {
 	enum ibv_port_state	state;
 	enum ibv_mtu		max_mtu;
@@ -181,6 +187,8 @@ struct ibv_port_attr {
 	uint8_t			active_width;
 	uint8_t			active_speed;
 	uint8_t			phys_state;
+	uint8_t			link_layer;
+	uint8_t			reserved;
 };
 
 enum ibv_event_type {
@@ -767,6 +775,20 @@ int ibv_query_device(struct ibv_context *context,
 int ibv_query_port(struct ibv_context *context, uint8_t port_num,
 		   struct ibv_port_attr *port_attr);
 
+static inline int ___ibv_query_port(struct ibv_context *context,
+				    uint8_t port_num,
+				    struct ibv_port_attr *port_attr)
+{
+	/* For compatability when running with old libibverbs */
+	port_attr->link_layer = IBV_LINK_LAYER_UNSPECIFIED;
+	port_attr->reserved   = 0;
+
+	return ibv_query_port(context, port_num, port_attr);
+}
+
+#define ibv_query_port(context, port_num, port_attr) \
+	___ibv_query_port(context, port_num, port_attr)
+
 /**
  * ibv_query_gid - Get a GID table entry
  */
@@ -1096,5 +1118,6 @@ const char *ibv_event_type_str(enum ibv_event_type event);
 END_C_DECLS
 
 #  undef __attribute_const
+
 
 #endif /* INFINIBAND_VERBS_H */
