@@ -85,9 +85,10 @@ const char *ibv_event_type_str(enum ibv_event_type event)
 		[IBV_EVENT_SRQ_LIMIT_REACHED]	= "SRQ limit reached",
 		[IBV_EVENT_QP_LAST_WQE_REACHED]	= "last WQE reached",
 		[IBV_EVENT_CLIENT_REREGISTER]	= "client reregistration",
+		[IBV_EVENT_GID_CHANGE]		= "GID table change"
 	};
 
-	if (event < IBV_EVENT_CQ_ERR || event > IBV_EVENT_CLIENT_REREGISTER)
+	if (event < IBV_EVENT_CQ_ERR || event > IBV_EVENT_GID_CHANGE)
 		return "unknown";
 
 	return event_type_str[event];
