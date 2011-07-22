@@ -773,6 +773,15 @@ static const ib_field_t ib_mad_f[] = {
 	{480, 32, "PortVLXmitTimeCong14", mad_dump_uint},
 	{0, 0},			/* IB_PC_VL_XMIT_TIME_CONG_LAST_F */
 
+	/*
+	 * Mellanox ExtendedPortInfo fields
+	 */
+	{BITSOFFS(24, 8), "StateChangeEnable", mad_dump_hex},
+	{BITSOFFS(56, 8), "LinkSpeedSupported", mad_dump_hex},
+	{BITSOFFS(88, 8), "LinkSpeedEnabled", mad_dump_hex},
+	{BITSOFFS(120, 8), "LinkSpeedActive", mad_dump_hex},
+	{0, 0},			/* IB_MLNX_EXT_PORT_LAST_F */
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };

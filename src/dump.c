@@ -957,6 +957,12 @@ void mad_dump_perfcounters_vl_xmit_time_cong(char *buf, int bufsz, void *val, in
 		     IB_PC_VL_XMIT_TIME_CONG_LAST_F);
 }
 
+void mad_dump_mlnx_ext_port_info(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_MLNX_EXT_PORT_STATE_CHG_ENABLE_F,
+		     IB_MLNX_EXT_PORT_LAST_F);
+}
+
 void xdump(FILE * file, char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))

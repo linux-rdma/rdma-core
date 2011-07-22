@@ -141,7 +141,9 @@ enum SMI_ATTR_ID {
 	IB_ATTR_VENDORMADSTBL = 0x1d,
 	IB_ATTR_SMINFO = 0x20,
 
-	IB_ATTR_LAST
+	IB_ATTR_LAST,
+
+	IB_ATTR_MLNX_EXT_PORT_INFO = 0xff90,
 };
 
 enum SA_ATTR_ID {
@@ -1026,6 +1028,15 @@ enum MAD_FIELDS {
 	IB_PC_VL_XMIT_TIME_CONG14,
 	IB_PC_VL_XMIT_TIME_CONG_LAST_F,
 
+	/*
+	 * Mellanox ExtendedPortInfo fields
+	 */
+	IB_MLNX_EXT_PORT_STATE_CHG_ENABLE_F,
+	IB_MLNX_EXT_PORT_LINK_SPEED_SUPPORTED_F,
+	IB_MLNX_EXT_PORT_LINK_SPEED_ENABLED_F,
+	IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F,
+	IB_MLNX_EXT_PORT_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 
@@ -1364,7 +1375,8 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_perfcounters_port_vl_xmit_flow_ctl_update_errors, mad_dump_perfcounters_port_vl_xmit_wait_counters,
     mad_dump_perfcounters_sw_port_vl_congestion, mad_dump_perfcounters_rcv_con_ctrl,
     mad_dump_perfcounters_sl_rcv_fecn, mad_dump_perfcounters_sl_rcv_becn,
-    mad_dump_perfcounters_xmit_con_ctrl, mad_dump_perfcounters_vl_xmit_time_cong;
+    mad_dump_perfcounters_xmit_con_ctrl, mad_dump_perfcounters_vl_xmit_time_cong,
+    mad_dump_mlnx_ext_port_info;
 
 MAD_EXPORT void mad_dump_fields(char *buf, int bufsz, void *val, int valsz,
 				int start, int end);

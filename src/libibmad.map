@@ -18,6 +18,7 @@ IBMAD_1.3 {
 		mad_dump_linkwidth;
 		mad_dump_linkwidthen;
 		mad_dump_linkwidthsup;
+		mad_dump_mlnx_ext_port_info;
 		mad_dump_mtu;
 		mad_dump_node_type;
 		mad_dump_nodedesc;
