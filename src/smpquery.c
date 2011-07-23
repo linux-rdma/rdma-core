@@ -63,7 +63,7 @@ typedef struct match_rec {
 } match_rec_t;
 
 static op_fn_t node_desc, node_info, port_info, switch_info, pkey_table,
-    sl2vl_table, vlarb_table, guid_info;
+    sl2vl_table, vlarb_table, guid_info, mlnx_ext_port_info;
 
 static const match_rec_t match_tbl[] = {
 	{"NodeInfo", "NI", node_info},
@@ -74,6 +74,7 @@ static const match_rec_t match_tbl[] = {
 	{"SL2VLTable", "SL2VL", sl2vl_table, 1},
 	{"VLArbitration", "VLArb", vlarb_table, 1},
 	{"GUIDInfo", "GI", guid_info},
+	{"MlnxExtPortInfo", "MEPI", mlnx_ext_port_info, 1},
 	{0}
 };
 
@@ -144,6 +145,24 @@ static char *port_info(ib_portid_t * dest, char **argv, int argc)
 	mad_dump_portinfo(buf, sizeof buf, data, sizeof data);
 
 	printf("# Port info: %s port %d\n%s", portid2str(dest), portnum, buf);
+	return 0;
+}
+
+static char *mlnx_ext_port_info(ib_portid_t * dest, char **argv, int argc)
+{
+	char buf[2300];
+	char data[IB_SMP_DATA_SIZE];
+	int portnum = 0;
+
+	if (argc > 0)
+		portnum = strtol(argv[0], 0, 0);
+
+	if (!smp_query_via(data, dest, IB_ATTR_MLNX_EXT_PORT_INFO, portnum, 0, srcport))
+		return "Mellanox ext port info query failed";
+
+	mad_dump_mlnx_ext_port_info(buf, sizeof buf, data, sizeof data);
+
+	printf("# MLNX ext Port info: %s port %d\n%s", portid2str(dest), portnum, buf);
 	return 0;
 }
 

@@ -1,4 +1,4 @@
-.TH SMPQUERY 8 "March 14, 2007" "OpenIB" "OpenIB Diagnostics"
+.TH SMPQUERY 8 "March 9, 2011" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 smpquery \- query InfiniBand subnet management attributes
@@ -29,6 +29,7 @@ Current supported operations and their parameters:
         sl2vl <addr> [<portnum>]
         vlarb <addr> [<portnum>]
         guids <addr>
+        mlnxextportinfo <addr> [<portnum>]  # default port is zero
 
 .TP
 \fB\-\-node\-name\-map\fR <node-name-map>
@@ -113,4 +114,4 @@ smpquery -c nodeinfo 6 0,12  # nodeinfo by combined route
 .SH AUTHOR
 .TP
 Hal Rosenstock
-.RI < halr@voltaire.com >
+.RI < hal@mellanox.com >
