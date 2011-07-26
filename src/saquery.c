@@ -300,9 +300,9 @@ static void dump_one_portinfo_record(void *data)
 	       "\tRID:\n"
 	       "\t\tEndPortLid..............%u\n"
 	       "\t\tPortNum.................%u\n"
-	       "\t\tReserved................0x%x\n"
+	       "\t\tOptions.................0x%x\n"
 	       "\tPortInfo dump:\n\t\t%s",
-	       cl_ntoh16(pir->lid), pir->port_num, pir->resv, buf2);
+	       cl_ntoh16(pir->lid), pir->port_num, pir->options, buf2);
 }
 
 static void dump_one_mcmember_record(void *data)
