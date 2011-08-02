@@ -783,6 +783,132 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(120, 8), "LinkSpeedActive", mad_dump_hex},
 	{0, 0},			/* IB_MLNX_EXT_PORT_LAST_F */
 
+	/*
+	 * Congestion Control Mad fields
+	 * bytes 24-31 of congestion control mad
+	 */
+	{192, 64, "CC_Key", mad_dump_hex},	/* IB_CC_CCKEY_F */
+
+	/*
+	 * CongestionInfo fields
+	 */
+	{BITSOFFS(0, 16), "CongestionInfo", mad_dump_hex},
+	{BITSOFFS(16, 8), "ControlTableCap", mad_dump_uint},
+	{0, 0},			/* IB_CC_CONGESTION_INFO_LAST_F */
+
+	/*
+	 * CongestionKeyInfo fields
+	 */
+	{0, 64, "CC_Key", mad_dump_hex},
+	{BITSOFFS(64, 1), "CC_KeyProtectBit", mad_dump_uint},
+	{BITSOFFS(80, 16), "CC_KeyLeasePeriod", mad_dump_uint},
+	{BITSOFFS(96, 16), "CC_KeyViolations", mad_dump_uint},
+	{0, 0},			/* IB_CC_CONGESTION_KEY_INFO_LAST_F */
+
+	/*
+	 * CongestionLog (common) fields
+	 */
+	{BITSOFFS(0, 8), "LogType", mad_dump_uint},
+	{BITSOFFS(8, 8), "CongestionFlags", mad_dump_hex},
+	{0, 0},			/* IB_CC_CONGESTION_LOG_LAST_F */
+
+	/*
+	 * CongestionLog (Switch) fields
+	 */
+	{BITSOFFS(16, 16), "LogEventsCounter", mad_dump_uint},
+	{32, 32, "CurrentTimeStamp", mad_dump_uint},
+	{64, 256, "PortMap", mad_dump_array},
+	{0, 0},			/* IB_CC_CONGESTION_LOG_SWITCH_LAST_F */
+
+	/*
+	 * CongestionLogEvent (Switch) fields
+	 */
+	{BITSOFFS(0, 16), "SLID", mad_dump_uint},
+	{BITSOFFS(16, 16), "DLID", mad_dump_uint},
+	{BITSOFFS(32, 4), "SL", mad_dump_uint},
+	{64, 32, "Timestamp", mad_dump_uint},
+	{0, 0},			/* IB_CC_CONGESTION_LOG_ENTRY_SWITCH_LAST_F */
+
+	/*
+	 * CongestionLog (CA) fields
+	 */
+	{BITSOFFS(16, 16), "ThresholdEventCounter", mad_dump_uint},
+	{BITSOFFS(32, 16), "ThresholdCongestionEventMap", mad_dump_hex},
+	/* XXX: Q3/2010 errata lists offset 48, but that means field is not
+	 * world aligned.  Assume will be aligned to offset 64 later.
+	 */
+	{BITSOFFS(64, 32), "CurrentTimeStamp", mad_dump_uint},
+	{0, 0},			/* IB_CC_CONGESTION_LOG_CA_LAST_F */
+
+	/*
+	 * CongestionLogEvent (CA) fields
+	 */
+	{BITSOFFS(0, 24), "Local_QP_CN_Entry", mad_dump_uint},
+	{BITSOFFS(24, 4), "SL_CN_Entry", mad_dump_uint},
+	{BITSOFFS(28, 4), "Service_Type_CN_Entry", mad_dump_hex},
+	{BITSOFFS(32, 24), "Remote_QP_Number_CN_Entry", mad_dump_uint},
+	{BITSOFFS(64, 16), "Local_LID_CN", mad_dump_uint},
+	{BITSOFFS(80, 16), "Remote_LID_CN_Entry", mad_dump_uint},
+	{BITSOFFS(96, 32), "Timestamp_CN_Entry", mad_dump_uint},
+	{0, 0},			/* IB_CC_CONGESTION_LOG_ENTRY_CA_LAST_F */
+
+	/*
+	 * SwitchCongestionSetting fields
+	 */
+	{0, 32, "Control_Map", mad_dump_hex},
+	{32, 256, "Victim_Mask", mad_dump_array},
+	{288, 256, "Credit_Mask", mad_dump_array},
+	{BITSOFFS(544, 4), "Threshold", mad_dump_uint},
+	{BITSOFFS(552, 8), "Packet_Size", mad_dump_uint},
+	{BITSOFFS(560, 4), "CS_Threshold", mad_dump_uint},
+	{BITSOFFS(576, 16), "CS_ReturnDelay", mad_dump_hex}, /* TODO: CCT dump */
+	{BITSOFFS(592, 16), "Marking_Rate", mad_dump_uint},
+	{0, 0},			/* IB_CC_SWITCH_CONGESTION_SETTING_LAST_F */
+
+	/*
+	 * SwitchPortCongestionSettingElement fields
+	 */
+	{BITSOFFS(0, 1), "Valid", mad_dump_uint},
+	{BITSOFFS(1, 1), "Control_Type", mad_dump_uint},
+	{BITSOFFS(4, 4), "Threshold", mad_dump_hex},
+	{BITSOFFS(8, 8), "Packet_Size", mad_dump_uint},
+	{BITSOFFS(16, 16), "Cong_Parm_Marking_Rate", mad_dump_uint},
+	{0, 0},			/* IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_LAST_F */
+
+	/*
+	 * CACongestionSetting fields
+	 */
+	{BITSOFFS(0, 16), "Port_Control", mad_dump_hex},
+	{BITSOFFS(16, 16), "Control_Map", mad_dump_hex},
+	{0, 0},			/* IB_CC_CA_CONGESTION_SETTING_LAST_F */
+
+	/*
+	 * CACongestionEntry fields
+	 */
+	{BITSOFFS(0, 16), "CCTI_Timer", mad_dump_uint},
+	{BITSOFFS(16, 8), "CCTI_Increase", mad_dump_uint},
+	{BITSOFFS(24, 8), "Trigger_Threshold", mad_dump_uint},
+	{BITSOFFS(32, 8), "CCTI_Min", mad_dump_uint},
+	{0, 0},			/* IB_CC_CA_CONGESTION_SETTING_ENTRY_LAST_F */
+
+	/*
+	 * CongestionControlTable fields
+	 */
+	{BITSOFFS(0, 16), "CCTI_Limit", mad_dump_uint},
+	{0, 0},			/* IB_CC_CONGESTION_CONTROL_TABLE_LAST_F */
+
+	/*
+	 * CongestionControlTableEntry fields
+	 */
+	{BITSOFFS(0, 2), "CCT_Shift", mad_dump_uint},
+	{BITSOFFS(2, 14), "CCT_Multipler", mad_dump_uint},
+	{0, 0},			/* IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_LAST_F */
+
+	/*
+	 * Timestamp fields
+	 */
+	{0, 32, "Timestamp", mad_dump_uint},
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };

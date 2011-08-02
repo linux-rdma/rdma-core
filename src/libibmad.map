@@ -47,6 +47,20 @@ IBMAD_1.3 {
 		mad_dump_perfcounters_sl_rcv_becn;
 		mad_dump_perfcounters_xmit_con_ctrl;
 		mad_dump_perfcounters_vl_xmit_time_cong;
+		mad_dump_cc_congestioninfo;
+		mad_dump_cc_congestionkeyinfo;
+		mad_dump_cc_congestionlog;
+		mad_dump_cc_congestionlogswitch;
+		mad_dump_cc_congestionlogentryswitch;
+		mad_dump_cc_congestionlogca;
+		mad_dump_cc_congestionlogentryca;
+		mad_dump_cc_switchcongestionsetting;
+		mad_dump_cc_switchportcongestionsettingelement;
+		mad_dump_cc_cacongestionsetting;
+		mad_dump_cc_cacongestionentry;
+		mad_dump_cc_congestioncontroltable;
+		mad_dump_cc_congestioncontroltableentry;
+		mad_dump_cc_timestamp;
 		mad_dump_portstates;
 		mad_dump_portstate;
 		mad_dump_rhex;
@@ -129,5 +143,6 @@ IBMAD_1.3 {
 		mad_field_name;
 		bm_call_via;
 		mad_dump_port_ext_speeds_counters;
+		cc_query_status_via;
 	local: *;
 };

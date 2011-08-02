@@ -969,6 +969,90 @@ void mad_dump_mlnx_ext_port_info(char *buf, int bufsz, void *val, int valsz)
 		     IB_MLNX_EXT_PORT_LAST_F);
 }
 
+void mad_dump_cc_congestioninfo(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_INFO_FIRST_F,
+		     IB_CC_CONGESTION_INFO_LAST_F);
+}
+
+void mad_dump_cc_congestionkeyinfo(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_KEY_INFO_FIRST_F,
+		     IB_CC_CONGESTION_KEY_INFO_LAST_F);
+}
+
+void mad_dump_cc_congestionlog(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_LOG_FIRST_F,
+		     IB_CC_CONGESTION_LOG_LAST_F);
+}
+
+void mad_dump_cc_congestionlogswitch(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_LOG_SWITCH_FIRST_F,
+		     IB_CC_CONGESTION_LOG_SWITCH_LAST_F);
+}
+
+void mad_dump_cc_congestionlogentryswitch(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_LOG_ENTRY_SWITCH_FIRST_F,
+		     IB_CC_CONGESTION_LOG_ENTRY_SWITCH_LAST_F);
+}
+
+void mad_dump_cc_congestionlogca(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_LOG_CA_FIRST_F,
+		     IB_CC_CONGESTION_LOG_CA_LAST_F);
+}
+
+void mad_dump_cc_congestionlogentryca(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_LOG_ENTRY_CA_FIRST_F,
+		     IB_CC_CONGESTION_LOG_ENTRY_CA_LAST_F);
+}
+
+void mad_dump_cc_switchcongestionsetting(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_SWITCH_CONGESTION_SETTING_FIRST_F,
+		     IB_CC_SWITCH_CONGESTION_SETTING_LAST_F);
+}
+
+void mad_dump_cc_switchportcongestionsettingelement(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_FIRST_F,
+		     IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_LAST_F);
+}
+
+void mad_dump_cc_cacongestionsetting(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CA_CONGESTION_SETTING_FIRST_F,
+		     IB_CC_CA_CONGESTION_SETTING_LAST_F);
+}
+
+void mad_dump_cc_cacongestionentry(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CA_CONGESTION_ENTRY_FIRST_F,
+		     IB_CC_CA_CONGESTION_ENTRY_LAST_F);
+}
+
+void mad_dump_cc_congestioncontroltable(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_CONTROL_TABLE_FIRST_F,
+		     IB_CC_CONGESTION_CONTROL_TABLE_LAST_F);
+}
+
+void mad_dump_cc_congestioncontroltableentry(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_FIRST_F,
+		     IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_LAST_F);
+}
+
+void mad_dump_cc_timestamp(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_CC_TIMESTAMP_FIRST_F,
+		     IB_CC_TIMESTAMP_LAST_F);
+}
+
 void xdump(FILE * file, char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))

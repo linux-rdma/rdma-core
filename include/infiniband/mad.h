@@ -70,6 +70,10 @@ BEGIN_C_DECLS
 #define IB_BM_DATA_SZ		(IB_MAD_SIZE - IB_BM_DATA_OFFS)
 #define IB_BM_BKEY_OFFS		24
 #define IB_BM_BKEY_AND_DATA_SZ	(IB_MAD_SIZE - IB_BM_BKEY_OFFS)
+#define IB_CC_DATA_OFFS         64
+#define IB_CC_DATA_SZ           (IB_MAD_SIZE - IB_CC_DATA_OFFS)
+#define IB_CC_LOG_DATA_OFFS     32 
+#define IB_CC_LOG_DATA_SZ       (IB_MAD_SIZE - IB_CC_LOG_DATA_OFFS)
 
 enum MAD_CLASSES {
 	IB_SMI_CLASS = 0x1,
@@ -217,6 +221,17 @@ enum BM_ATTR_ID {
 	IB_BM_ATTR_LAST
 };
 
+enum CC_ATTRI_ID {
+	IB_CC_ATTR_CONGESTION_INFO = 0x11,
+	IB_CC_ATTR_CONGESTION_KEY_INFO = 0x12,
+	IB_CC_ATTR_CONGESTION_LOG = 0x13,
+	IB_CC_ATTR_SWITCH_CONGESTION_SETTING = 0x14,
+	IB_CC_ATTR_SWITCH_PORT_CONGESTION_SETTING = 0x15,
+	IB_CC_ATTR_CA_CONGESTION_SETTING = 0x16,
+	IB_CC_ATTR_CONGESTION_CONTROL_TABLE = 0x17,
+	IB_CC_ATTR_TIMESTAMP = 0x18,
+};
+
 #define IB_VENDOR_OPENIB_PING_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 2)
 #define IB_VENDOR_OPENIB_SYSSTAT_CLASS	(IB_VENDOR_RANGE2_START_CLASS + 3)
 #define IB_OPENIB_OUI			(0x001405)
@@ -268,6 +283,23 @@ typedef struct {
 	uint32_t oui;		/* for vendor range 2 mads */
 	int error;		/* errno */
 } ib_rpc_v1_t;
+
+typedef struct {
+	int mgtclass;
+	int method;
+	ib_attr_t attr;
+	uint32_t rstatus;       /* return status */
+	int dataoffs;
+	int datasz;
+	uint64_t mkey;
+	uint64_t trid;          /* used for out mad if nonzero, return real val */
+	uint64_t mask;          /* for sa mads */
+	unsigned recsz;         /* for sa mads (attribute offset) */
+	int timeout;
+	uint32_t oui;           /* for vendor range 2 mads */
+	int error;		/* errno */
+	uint64_t cckey;
+} ib_rpc_cc_t;
 
 typedef struct portid {
 	int lid;		/* lid or 0 if directed route */
@@ -1038,6 +1070,144 @@ enum MAD_FIELDS {
 	IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F,
 	IB_MLNX_EXT_PORT_LAST_F,
 
+	/*
+	 * Congestion Control Mad fields
+	 * bytes 24-31 of congestion control mad
+	 */
+	IB_CC_CCKEY_F,
+
+	/*
+	 * CongestionInfo fields
+	 */
+	IB_CC_CONGESTION_INFO_FIRST_F,
+	IB_CC_CONGESTION_INFO_F = IB_CC_CONGESTION_INFO_FIRST_F,
+	IB_CC_CONGESTION_INFO_CONTROL_TABLE_CAP_F,
+	IB_CC_CONGESTION_INFO_LAST_F,
+
+	/*
+	 * CongestionKeyInfo fields
+	 */
+	IB_CC_CONGESTION_KEY_INFO_FIRST_F,
+	IB_CC_CONGESTION_KEY_INFO_CC_KEY_F = IB_CC_CONGESTION_KEY_INFO_FIRST_F,
+	IB_CC_CONGESTION_KEY_INFO_CC_KEY_PROTECT_BIT_F,
+	IB_CC_CONGESTION_KEY_INFO_CC_KEY_LEASE_PERIOD_F,
+	IB_CC_CONGESTION_KEY_INFO_CC_KEY_VIOLATIONS_F,
+	IB_CC_CONGESTION_KEY_INFO_LAST_F,
+
+	/*
+	 * CongestionLog (common) fields
+	 */
+	IB_CC_CONGESTION_LOG_FIRST_F,
+	IB_CC_CONGESTION_LOG_LOGTYPE_F = IB_CC_CONGESTION_LOG_FIRST_F,
+	IB_CC_CONGESTION_LOG_CONGESTION_FLAGS_F,
+	IB_CC_CONGESTION_LOG_LAST_F,
+
+	/*
+	 * CongestionLog (Switch) fields
+	 */
+	IB_CC_CONGESTION_LOG_SWITCH_FIRST_F,
+	IB_CC_CONGESTION_LOG_SWITCH_LOG_EVENTS_COUNTER_F = IB_CC_CONGESTION_LOG_SWITCH_FIRST_F,
+	IB_CC_CONGESTION_LOG_SWITCH_CURRENT_TIME_STAMP_F,
+	IB_CC_CONGESTION_LOG_SWITCH_PORTMAP_F,
+	IB_CC_CONGESTION_LOG_SWITCH_LAST_F,
+
+	/*
+	 * CongestionLogEvent (Switch) fields
+	 */
+	IB_CC_CONGESTION_LOG_ENTRY_SWITCH_FIRST_F,
+	IB_CC_CONGESTION_LOG_ENTRY_SWITCH_SLID_F = IB_CC_CONGESTION_LOG_ENTRY_SWITCH_FIRST_F,
+	IB_CC_CONGESTION_LOG_ENTRY_SWITCH_DLID_F,
+	IB_CC_CONGESTION_LOG_ENTRY_SWITCH_SL_F,
+	IB_CC_CONGESTION_LOG_ENTRY_SWITCH_TIMESTAMP_F,
+	IB_CC_CONGESTION_LOG_ENTRY_SWITCH_LAST_F,
+
+	/*
+	 * CongestionLog (CA) fields
+	 */
+	IB_CC_CONGESTION_LOG_CA_FIRST_F,
+	IB_CC_CONGESTION_LOG_CA_THRESHOLD_EVENT_COUNTER_F = IB_CC_CONGESTION_LOG_CA_FIRST_F,
+	IB_CC_CONGESTION_LOG_CA_THRESHOLD_CONGESTION_EVENT_MAP_F,
+	IB_CC_CONGESTION_LOG_CA_CURRENT_TIMESTAMP_F,
+	IB_CC_CONGESTION_LOG_CA_LAST_F,
+
+	/*
+	 * CongestionLogEvent (CA) fields
+	 */
+	IB_CC_CONGESTION_LOG_ENTRY_CA_FIRST_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_LOCAL_QP_CN_ENTRY_F = IB_CC_CONGESTION_LOG_ENTRY_CA_FIRST_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_SL_CN_ENTRY_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_SERVICE_TYPE_CN_ENTRY_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_REMOTE_QP_NUMBER_CN_ENTRY_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_LOCAL_LID_CN_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_REMOTE_LID_CN_ENTRY_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_TIMESTAMP_CN_ENTRY_F,
+	IB_CC_CONGESTION_LOG_ENTRY_CA_LAST_F,
+
+	/*
+	 * SwitchCongestionSetting fields
+	 */
+	IB_CC_SWITCH_CONGESTION_SETTING_FIRST_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_CONTROL_MAP_F = IB_CC_SWITCH_CONGESTION_SETTING_FIRST_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_VICTIM_MASK_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_CREDIT_MASK_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_THRESHOLD_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_PACKET_SIZE_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_CS_THRESHOLD_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_CS_RETURN_DELAY_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_MARKING_RATE_F,
+	IB_CC_SWITCH_CONGESTION_SETTING_LAST_F,
+
+	/*
+	 * SwitchPortCongestionSettingElement fields
+	 */
+	IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_FIRST_F,
+	IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_VALID_F = IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_FIRST_F,
+	IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_CONTROL_TYPE_F,
+	IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_THRESHOLD_F,
+	IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_PACKET_SIZE_F,
+	IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_CONG_PARM_MARKING_RATE_F,
+	IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_LAST_F,
+
+	/*
+	 * CACongestionSetting fields
+	 */
+	IB_CC_CA_CONGESTION_SETTING_FIRST_F,
+	IB_CC_CA_CONGESTION_SETTING_PORT_CONTROL_F = IB_CC_CA_CONGESTION_SETTING_FIRST_F,
+	IB_CC_CA_CONGESTION_SETTING_CONTROL_MAP_F,
+	IB_CC_CA_CONGESTION_SETTING_LAST_F,
+
+	/*
+	 * CACongestionEntry fields
+	 */
+	IB_CC_CA_CONGESTION_ENTRY_FIRST_F,
+	IB_CC_CA_CONGESTION_ENTRY_CCTI_TIMER_F = IB_CC_CA_CONGESTION_ENTRY_FIRST_F,
+	IB_CC_CA_CONGESTION_ENTRY_CCTI_INCREASE_F,
+	IB_CC_CA_CONGESTION_ENTRY_TRIGGER_THRESHOLD_F,
+	IB_CC_CA_CONGESTION_ENTRY_CCTI_MIN_F,
+	IB_CC_CA_CONGESTION_ENTRY_LAST_F,
+
+	/*
+	 * CongestionControlTable fields
+	 */
+	IB_CC_CONGESTION_CONTROL_TABLE_FIRST_F,
+	IB_CC_CONGESTION_CONTROL_TABLE_CCTI_LIMIT_F = IB_CC_CONGESTION_CONTROL_TABLE_FIRST_F,
+	IB_CC_CONGESTION_CONTROL_TABLE_LAST_F,
+
+	/*
+	 * CongestionControlTableEntry fields
+	 */
+	IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_FIRST_F,
+	IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_CCT_SHIFT_F = IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_FIRST_F,
+	IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_CCT_MULTIPLIER_F,
+	IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_LAST_F,
+
+	/*
+	 * Timestamp fields
+	 */
+	IB_CC_TIMESTAMP_FIRST_F,
+	IB_CC_TIMESTAMP_F = IB_CC_TIMESTAMP_FIRST_F,
+	IB_CC_TIMESTAMP_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 
@@ -1300,6 +1470,12 @@ MAD_EXPORT uint8_t *smp_set_status_via(void *data, ib_portid_t * portid,
 				       unsigned timeout, int *rstatus,
 				       const struct ibmad_port *srcport);
 
+/* cc.c */
+MAD_EXPORT void *cc_query_status_via(void *rcvbuf, ib_portid_t * portid,
+				     unsigned attrid, unsigned mod, unsigned timeout,
+				     int *rstatus, const struct ibmad_port * srcport,
+				     uint64_t cckey);
+
 /* sa.c */
 uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
 		 unsigned timeout) DEPRECATED;
@@ -1377,7 +1553,13 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_perfcounters_sw_port_vl_congestion, mad_dump_perfcounters_rcv_con_ctrl,
     mad_dump_perfcounters_sl_rcv_fecn, mad_dump_perfcounters_sl_rcv_becn,
     mad_dump_perfcounters_xmit_con_ctrl, mad_dump_perfcounters_vl_xmit_time_cong,
-    mad_dump_mlnx_ext_port_info;
+    mad_dump_mlnx_ext_port_info, mad_dump_cc_congestioninfo, mad_dump_cc_congestionkeyinfo,
+    mad_dump_cc_congestionlog, mad_dump_cc_congestionlogswitch,
+    mad_dump_cc_congestionlogentryswitch, mad_dump_cc_congestionlogca,
+    mad_dump_cc_congestionlogentryca, mad_dump_cc_switchcongestionsetting,
+    mad_dump_cc_switchportcongestionsettingelement, mad_dump_cc_cacongestionsetting,
+    mad_dump_cc_cacongestionentry, mad_dump_cc_congestioncontroltable,
+    mad_dump_cc_congestioncontroltableentry, mad_dump_cc_timestamp;
 
 MAD_EXPORT void mad_dump_fields(char *buf, int bufsz, void *val, int valsz,
 				int start, int end);

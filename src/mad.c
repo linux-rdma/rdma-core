@@ -79,12 +79,16 @@ int mad_get_retries(const struct ibmad_port *srcport)
 void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 {
 	int is_resp = rpc->method & IB_MAD_RESPONSE;
+	int mgtclass;
 
 	/* first word */
 	mad_set_field(buf, 0, IB_MAD_METHOD_F, rpc->method);
 	mad_set_field(buf, 0, IB_MAD_RESPONSE_F, is_resp ? 1 : 0);
-	mad_set_field(buf, 0, IB_MAD_CLASSVER_F,
-		      (rpc->mgtclass & 0xff) == IB_SA_CLASS ? 2 : 1);
+	mgtclass = rpc->mgtclass & 0xff;
+	if (mgtclass == IB_SA_CLASS || mgtclass == IB_CC_CLASS)
+		mad_set_field(buf, 0, IB_MAD_CLASSVER_F, 2);
+	else
+		mad_set_field(buf, 0, IB_MAD_CLASSVER_F, 1);
 	mad_set_field(buf, 0, IB_MAD_MGMTCLASS_F, rpc->mgtclass & 0xff);
 	mad_set_field(buf, 0, IB_MAD_BASEVER_F, 1);
 
@@ -133,6 +137,11 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 
 	if ((rpc->mgtclass & 0xff) == IB_SA_CLASS)
 		mad_set_field64(buf, 0, IB_SA_COMPMASK_F, rpc->mask);
+
+	if ((rpc->mgtclass & 0xff) == IB_CC_CLASS) {
+		ib_rpc_cc_t *rpccc = (ib_rpc_cc_t *)rpc;
+		mad_set_field64(buf, 0, IB_CC_CCKEY_F, rpccc->cckey);
+	}
 
 	if (data)
 		memcpy((char *)buf + rpc->dataoffs, data, rpc->datasz);
