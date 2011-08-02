@@ -14,7 +14,7 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 	        src/ibroute src/ibstat src/ibsysstat src/ibtracert \
 	        src/perfquery src/sminfo src/smpdump src/smpquery \
 	        src/saquery src/vendstat src/iblinkinfo \
-		src/ibqueryerrors src/ibcacheedit
+		src/ibqueryerrors src/ibcacheedit src/ibccquery
 
 if ENABLE_TEST_UTILS
 sbin_PROGRAMS += src/ibsendtrap src/mcm_rereg_test
@@ -61,6 +61,7 @@ src_ibsendtrap_SOURCES = src/ibsendtrap.c
 src_vendstat_SOURCES = src/vendstat.c
 src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
 src_iblinkinfo_SOURCES = src/iblinkinfo.c
+src_ibccquery_SOURCES = src/ibccquery.c
 src_iblinkinfo_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibqueryerrors_SOURCES = src/ibqueryerrors.c
 src_ibqueryerrors_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
