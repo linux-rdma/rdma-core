@@ -64,8 +64,8 @@ static char *load_cache_file = NULL;
 int data_counters = 0;
 int data_counters_only = 0;
 int port_config = 0;
-uint64_t node_guid = 0;
-char *node_guid_str = NULL;
+uint64_t port_guid = 0;
+char *port_guid_str = NULL;
 #define SUP_MAX 64
 int sup_total = 0;
 enum MAD_FIELDS suppressed_fields[SUP_MAX];
@@ -259,7 +259,7 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 
 		snprintf(remote_str, 256,
 			 "0x%016" PRIx64 " %6d %4d[%2s] \"%s\" (%s %s)\n",
-			 port->remoteport->node->guid,
+			 port->remoteport->guid,
 			 port->remoteport->base_lid ? port->remoteport->
 			 base_lid : port->remoteport->node->smalid,
 			 port->remoteport->portnum, ext_port_str, rem_node_name,
@@ -415,18 +415,21 @@ static int print_results(ib_portid_t * portid, char *node_name,
 		}
 
 		if (!*header_printed) {
-			printf("Errors for 0x%" PRIx64 " \"%s\"\n", node->guid,
-			       node_name);
+			if (node->type == IB_NODE_SWITCH)
+				printf("Errors for 0x%" PRIx64 " \"%s\"\n",
+					node->ports[0]->guid, node_name);
+			else
+				printf("Errors for \"%s\"\n", node_name);
 			*header_printed = 1;
 			summary.bad_nodes++;
 		}
 
 		if (portnum == 0xFF)
 			printf("   GUID 0x%" PRIx64 " port ALL:%s\n",
-			       node->guid, str);
+			       node->ports[0]->guid, str);
 		else
 			printf("   GUID 0x%" PRIx64 " port %d:%s\n",
-			       node->guid, portnum, str);
+			       node->ports[portnum]->guid, portnum, str);
 		if (portnum != 0xFF && port_config)
 			print_port_config(node_name, node, portnum);
 
@@ -805,8 +808,8 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'G':
 	case 'S':
-		node_guid_str = optarg;
-		node_guid = strtoull(optarg, 0, 0);
+		port_guid_str = optarg;
+		port_guid = strtoull(optarg, 0, 0);
 		break;
 	case 'D':
 		dr_path = strdup(optarg);
@@ -850,13 +853,14 @@ int main(int argc, char **argv)
 		{"suppress-common", 'c', 0, NULL,
 		 "suppress some of the common counters"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
-		{"node-guid", 'G', 1, "<node_guid>", "query only <node_guid>"},
-		{"", 'S', 1, "<node_guid>",
+		{"port-guid", 'G', 1, "<port_guid>",
+		 "report the node containing the port specified by <port_guid>"},
+		{"", 'S', 1, "<port_guid>",
 		 "Same as \"-G\" for backward compatibility"},
 		{"Direct", 'D', 1, "<dr_path>",
-		 "query only switch specified by <dr_path>"},
+		 "report the node containing the port specified by <dr_path>"},
 		{"report-port", 'r', 0, NULL,
-		 "report port configuration information"},
+		 "report port link information"},
 		{"threshold-file", 8, 1, NULL,
 		 "specify an alternate threshold file, default: " DEF_THRES_FILE},
 		{"GNDN", 'R', 0, NULL,
@@ -913,13 +917,13 @@ int main(int argc, char **argv)
 					       NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
 			       dr_path);
-	} else if (node_guid_str) {
+	} else if (port_guid_str) {
 		if ((resolved =
-		     ib_resolve_portid_str_via(&portid, node_guid_str,
+		     ib_resolve_portid_str_via(&portid, port_guid_str,
 					       IB_DEST_GUID, ibd_sm_id,
 					       ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
-			       node_guid_str);
+			       port_guid_str);
 	}
 
 	if (load_cache_file) {
@@ -949,15 +953,15 @@ int main(int argc, char **argv)
 
 	set_thresholds(threshold_file);
 
-	if (node_guid_str) {
-		ibnd_node_t *node = ibnd_find_node_guid(fabric, node_guid);
-		if (node)
-			print_node(node, NULL);
+	if (port_guid_str) {
+		ibnd_port_t *port = ibnd_find_port_guid(fabric, port_guid);
+		if (port)
+			print_node(port->node, NULL);
 		else
 			fprintf(stderr, "Failed to find node: %s\n",
-				node_guid_str);
+				port_guid_str);
 	} else if (dr_path) {
-		ibnd_node_t *node = ibnd_find_node_dr(fabric, dr_path);
+		ibnd_port_t *port = ibnd_find_port_dr(fabric, dr_path);
 		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
@@ -965,12 +969,12 @@ int main(int argc, char **argv)
 			rc = -1;
 			goto destroy_fabric;
 		}
-		mad_decode_field(ni, IB_NODE_GUID_F, &(node_guid));
+		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(port_guid));
 
-		node = ibnd_find_node_guid(fabric, node_guid);
-		if (node)
-			print_node(node, NULL);
-		else
+		port = ibnd_find_port_guid(fabric, port_guid);
+		if (port) {
+			print_node(port->node, NULL);
+		} else
 			fprintf(stderr, "Failed to find node: %s\n", dr_path);
 	} else
 		ibnd_iter_nodes(fabric, print_node, NULL);
