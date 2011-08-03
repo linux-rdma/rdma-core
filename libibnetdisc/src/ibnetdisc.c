@@ -673,7 +673,7 @@ ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric, char *dr_str)
 {
 	int i = 0;
 	ibnd_node_t *cur_node;
-	ibnd_port_t *rc;
+	ibnd_port_t *rc = NULL;
 	ib_dr_path_t path;
 
 	if (!fabric) {
