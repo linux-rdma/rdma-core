@@ -688,7 +688,7 @@ static int fill_mellanox_chassis_record(ibnd_node_t * node)
 	}
 
 	/* set Chip number (node index) */
-	node->ch_anafanum = atoi(&node_index[1]);
+	node->ch_anafanum = (unsigned char) atoi(&node_index[1]);
 	if(node->ch_anafanum != 1){
 		IBND_DEBUG("Unexpected Chip number:%d \n",node->ch_anafanum);
 	}
@@ -707,7 +707,7 @@ static int fill_mellanox_chassis_record(ibnd_node_t * node)
 	/* The switch will be displayed under Line or Spine and not under Chassis switches */
 	node->ch_found = 1;
 
-	node->ch_slotnum = atoi(&system_slot_name[1]);
+	node->ch_slotnum = (unsigned char) atoi(&system_slot_name[1]);
 	if((node->ch_slot == LINE_CS && (node->ch_slotnum >  (LINES_MAX_NUM + 1))) ||
 	   (node->ch_slot == SPINE_CS && (node->ch_slotnum > (SPINES_MAX_NUM + 1)))){
 		IBND_ERROR("fill_mellanox_chassis_record: invalid slot number:%d \n",node->ch_slotnum);
@@ -1242,12 +1242,11 @@ int group_nodes(ibnd_fabric_t * fabric)
 	ibnd_chassis_t *chassis;
 	ibnd_chassis_t *ch, *ch_next;
 	chassis_scan_t chassis_scan;
+	int vendor_id;
 
 	chassis_scan.first_chassis = NULL;
 	chassis_scan.current_chassis = NULL;
 	chassis_scan.last_chassis = NULL;
-
-	int vendor_id;
 
 	/* first pass on switches and build for every Voltaire node */
 	/* an appropriate chassis record (slotnum and position) */
