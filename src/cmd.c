@@ -73,7 +73,7 @@ static int ibv_cmd_get_context_v2(struct ibv_context *context,
 		return errno;
 	}
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	context->async_fd         = resp->async_fd;
 	context->num_comp_vectors = 1;
@@ -97,7 +97,7 @@ int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	context->async_fd         = resp->async_fd;
 	context->num_comp_vectors = resp->num_comp_vectors;
@@ -117,7 +117,7 @@ int ibv_cmd_query_device(struct ibv_context *context,
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	memset(device_attr->fw_ver, 0, sizeof device_attr->fw_ver);
 	*raw_fw_ver			       = resp.fw_ver;
@@ -177,7 +177,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	port_attr->state      	   = resp.state;
 	port_attr->max_mtu         = resp.max_mtu;
@@ -212,7 +212,7 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	pd->handle  = resp->pd_handle;
 	pd->context = context;
@@ -251,7 +251,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	mr->handle  = resp->mr_handle;
 	mr->lkey    = resp->lkey;
@@ -294,7 +294,7 @@ static int ibv_cmd_create_cq_v2(struct ibv_context *context, int cqe,
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	cq->handle  = resp->cq_handle;
 	cq->cqe     = resp->cqe;
@@ -323,7 +323,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	cq->handle  = resp->cq_handle;
 	cq->cqe     = resp->cqe;
@@ -354,7 +354,7 @@ int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 		goto out;
 	}
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, rsize);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, rsize);
 
 	for (i = 0; i < resp->count; i++) {
 		wc[i].wr_id 	     = resp->wc[i].wr_id;
@@ -405,7 +405,7 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 	if (write(cq->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	cq->cqe = resp->cqe;
 
@@ -440,7 +440,7 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 	if (write(cq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	pthread_mutex_lock(&cq->mutex);
 	while (cq->comp_events_completed  != resp.comp_events_reported ||
@@ -466,7 +466,7 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	srq->handle  = resp->srq_handle;
 	srq->context = pd->context;
@@ -548,7 +548,7 @@ int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	srq_attr->max_wr    = resp.max_wr;
 	srq_attr->max_sge   = resp.max_sge;
@@ -585,7 +585,7 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 	if (write(srq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	pthread_mutex_lock(&srq->mutex);
 	while (srq->events_completed != resp.events_reported)
@@ -620,7 +620,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	qp->handle 		  = resp->qp_handle;
 	qp->qp_num 		  = resp->qpn;
@@ -667,7 +667,7 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	attr->qkey                          = resp.qkey;
 	attr->rq_psn                        = resp.rq_psn;
@@ -888,7 +888,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	if (write(ibqp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		ret = errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	wr_count = resp.bad_wr;
 	if (wr_count) {
@@ -949,7 +949,7 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	if (write(ibqp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		ret = errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	wr_count = resp.bad_wr;
 	if (wr_count) {
@@ -1010,7 +1010,7 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		ret = errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	wr_count = resp.bad_wr;
 	if (wr_count) {
@@ -1048,7 +1048,7 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 	if (write(pd->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	ah->handle  = resp.handle;
 	ah->context = pd->context;
@@ -1084,7 +1084,7 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	pthread_mutex_lock(&qp->mutex);
 	while (qp->events_completed != resp.events_reported)

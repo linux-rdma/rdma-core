@@ -226,7 +226,7 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 		return NULL;
 	}
 
-	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	channel->context = context;
 	channel->fd      = resp.fd;
