@@ -1,4 +1,4 @@
-INCLUDES = -I$(srcdir)/include
+AM_CPPFLAGS = -I$(srcdir)/include
 
 lib_LTLIBRARIES = src/libibverbs.la
 
