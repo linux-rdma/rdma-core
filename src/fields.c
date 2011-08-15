@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2009 HNR Consulting.  All rights reserved.
- * Copyright (c) 2009-2010 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2009-2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -529,6 +529,7 @@ static const ib_field_t ib_mad_f[] = {
 	/*
 	 * More PortInfo fields
 	 */
+	{BITSOFFS(480, 16), "CapabilityMask2", mad_dump_hex},
 	{BITSOFFS(496, 4), "LinkSpeedExtActive", mad_dump_linkspeedext},
 	{BITSOFFS(500, 4), "LinkSpeedExtSupported", mad_dump_linkspeedextsup},
 	{BITSOFFS(507, 5), "LinkSpeedExtEnabled", mad_dump_linkspeedexten},

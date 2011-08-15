@@ -566,6 +566,8 @@ void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 			     "\t\t\t\tIsPkeySwitchExternalPortTrapSupported\n");
 	if (mask & (1 << 14))
 		s += sprintf(s, "\t\t\t\tIsExtendedSpeedsSupported\n");
+	if (mask & (1 << 15))
+		s += sprintf(s, "\t\t\t\tIsCapabilityMask2Supported\n");
 	if (mask & (1 << 16))
 		s += sprintf(s, "\t\t\t\tIsCommunicatonManagementSupported\n");
 	if (mask & (1 << 17))
@@ -767,8 +769,7 @@ void mad_dump_portinfo(char *buf, int bufsz, void *val, int valsz)
 
 	cnt = _dump_fields(buf, bufsz, val, IB_PORT_FIRST_F, IB_PORT_LAST_F);
 	_dump_fields(buf + cnt, bufsz - cnt, val,
-		     IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
-		     IB_PORT_LINK_SPEED_EXT_LAST_F);
+		     IB_PORT_CAPMASK2_F, IB_PORT_LINK_SPEED_EXT_LAST_F);
 }
 
 void mad_dump_portstates(char *buf, int bufsz, void *val, int valsz)
