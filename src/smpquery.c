@@ -80,6 +80,7 @@ static const match_rec_t match_tbl[] = {
 
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
+static int extended_speeds = 0;
 
 /*******************************************/
 static char *node_desc(ib_portid_t * dest, char **argv, int argc)
@@ -134,17 +135,20 @@ static char *port_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2300];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
-	int portnum = 0;
+	int portnum = 0, orig_portnum;
 
 	if (argc > 0)
 		portnum = strtol(argv[0], 0, 0);
+	orig_portnum = portnum;
+	if (extended_speeds)
+		portnum |= 1 << 31;
 
 	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return "port info query failed";
 
 	mad_dump_portinfo(buf, sizeof buf, data, sizeof data);
 
-	printf("# Port info: %s port %d\n%s", portid2str(dest), portnum, buf);
+	printf("# Port info: %s port %d\n%s", portid2str(dest), orig_portnum, buf);
 	return 0;
 }
 
@@ -414,6 +418,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'c':
 		ibd_dest_type = IB_DEST_DRSLID;
 		break;
+	case 'x':
+		extended_speeds = 1;
+		break;
 	default:
 		return -1;
 	}
@@ -435,6 +442,7 @@ int main(int argc, char **argv)
 		{"combined", 'c', 0, NULL,
 		 "use Combined route address argument"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
+		{"extended", 'x', 0, NULL, "use extended speeds"},
 		{0}
 	};
 	const char *usage_examples[] = {

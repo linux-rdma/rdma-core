@@ -6,8 +6,8 @@ smpquery \- query InfiniBand subnet management attributes
 .SH SYNOPSIS
 .B smpquery
 [\-d(ebug)] [\-e(rr_show)] [\-v(erbose)] [\-D(irect)] [\-G(uid)]
-[\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms]
-[--node-name-map node-name-map] [\-V(ersion)] [\-h(elp)]
+[\-x|\-\-extended] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms]
+[\-\-node-name-map node-name-map] [\-V(ersion)] [\-h(elp)]
 <op> <dest dr_path|lid|guid> [op params]
 
 .SH DESCRIPTION
@@ -30,6 +30,11 @@ Current supported operations and their parameters:
         vlarb <addr> [<portnum>]
         guids <addr>
         mlnxextportinfo <addr> [<portnum>]  # default port is zero
+
+.TP
+\fB\-x\fR, \fB\-\-extended\fR
+Set SMSupportsExtendedSpeeds bit 31 in AttributeModifier
+(only impacts PortInfo queries).
 
 .TP
 \fB\-\-node\-name\-map\fR <node-name-map>
