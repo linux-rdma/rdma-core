@@ -542,6 +542,8 @@ void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 		s += sprintf(s, "\t\t\t\tIsNoticeSupported\n");
 	if (mask & (1 << 3))
 		s += sprintf(s, "\t\t\t\tIsTrapSupported\n");
+	if (mask & (1 << 4))
+		s += sprintf(s, "\t\t\t\tIsOptionalIPDSupported\n");
 	if (mask & (1 << 5))
 		s += sprintf(s, "\t\t\t\tIsAutomaticMigrationSupported\n");
 	if (mask & (1 << 6))
