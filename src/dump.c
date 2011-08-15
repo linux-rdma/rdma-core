@@ -244,6 +244,9 @@ void mad_dump_linkspeed(char *buf, int bufsz, void *val, int valsz)
 	int speed = *(int *)val;
 
 	switch (speed) {
+	case 0:
+		snprintf(buf, bufsz, "Extended speed");
+		break;
 	case 1:
 		snprintf(buf, bufsz, "2.5 Gbps");
 		break;
