@@ -92,6 +92,8 @@ void get_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * port)
 {
 	char buf[64];
 	uint32_t max_speed = 0;
+	uint32_t cap_mask, rem_cap_mask;
+	uint8_t *info;
 
 	uint32_t max_width = get_max(mad_get_field(port->info, 0,
 						   IB_PORT_LINK_WIDTH_SUPPORTED_F)
@@ -105,6 +107,21 @@ void get_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * port)
 			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F,
 				      buf, 64, &max_width));
 
+	if (port->node->type == IB_NODE_SWITCH)
+		info = (uint8_t *)&port->node->ports[0]->info;
+	else
+		info = (uint8_t *)&port->info;
+	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+
+	if (port->remoteport->node->type == IB_NODE_SWITCH)
+		info = (uint8_t *)&port->remoteport->node->ports[0]->info;
+	else
+		info = (uint8_t *)&port->remoteport->info;
+	rem_cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+	if (cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS &&
+	    rem_cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS)
+		goto check_ext_speed;
+check_speed_supp:
 	max_speed = get_max(mad_get_field(port->info, 0,
 					  IB_PORT_LINK_SPEED_SUPPORTED_F)
 			    & mad_get_field(port->remoteport->info, 0,
@@ -115,6 +132,25 @@ void get_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * port)
 		// print what we could be at.
 		snprintf(speed_msg, msg_size, "Could be %s",
 			 mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F,
+				      buf, 64, &max_speed));
+	return;
+
+check_ext_speed:
+	if (mad_get_field(port->info, 0,
+			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0 ||
+	    mad_get_field(port->remoteport->info, 0,
+			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0)
+		goto check_speed_supp;
+	max_speed = get_max(mad_get_field(port->info, 0,
+					  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F)
+			    & mad_get_field(port->remoteport->info, 0,
+					    IB_PORT_LINK_SPEED_EXT_SUPPORTED_F));
+	if ((max_speed & mad_get_field(port->info, 0,
+				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F)) == 0)
+		// we are not at the max supported extended speed
+		// print what we could be at.
+		snprintf(speed_msg, msg_size, "Could be %s",
+			 mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
 				      buf, 64, &max_speed));
 }
 
@@ -151,14 +187,27 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 	char width_msg[256];
 	char speed_msg[256];
 	char ext_port_str[256];
-	int iwidth, ispeed, istate, iphystate;
+	int iwidth, ispeed, espeed, istate, iphystate, cap_mask;
 	int n = 0;
+	uint8_t *info;
 
 	if (!port)
 		return;
 
 	iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 	ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
+
+	if (port->node->type == IB_NODE_SWITCH)
+		info = (uint8_t *)&port->node->ports[0]->info;
+	else
+		info = (uint8_t *)&port->info;
+	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+	if (cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS)
+		espeed = mad_get_field(port->info, 0,
+				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
+	else
+		espeed = 0;
+
 	istate = mad_get_field(port->info, 0, IB_PORT_STATE_F);
 	iphystate = mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F);
 
@@ -180,8 +229,11 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 		n = snprintf(link_str, 256, "(%3s %9s %6s/%8s)",
 		     mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64,
 				  &iwidth),
-		     mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64,
-				  &ispeed),
+		     (ispeed != 4 || !espeed) ?
+			mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64,
+				     &ispeed) :
+			mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed, 64,
+				     &espeed),
 		     mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
 		     mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64,
 				  &iphystate));
