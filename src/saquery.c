@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006,2007 The Regents of the University of California.
  * Copyright (c) 2004-2009 Voltaire, Inc. All rights reserved.
- * Copyright (c) 2002-2010 Mellanox Technologies LTD. All rights reserved.
+ * Copyright (c) 2002-2011 Mellanox Technologies LTD. All rights reserved.
  * Copyright (c) 1996-2003 Intel Corporation. All rights reserved.
  * Copyright (c) 2009 HNR Consulting. All rights reserved.
  *
@@ -1074,14 +1074,15 @@ static int query_portinfo_records(const struct query_cmd *q,
 {
 	ib_portinfo_record_t pir;
 	ib_net64_t comp_mask = 0;
-	int lid = 0, port = -1;
+	int lid = 0, port = -1, options = -1;
 
 	if (argc > 0)
-		parse_lid_and_ports(h, argv[0], &lid, &port, NULL);
+		parse_lid_and_ports(h, argv[0], &lid, &port, &options);
 
 	memset(&pir, 0, sizeof(pir));
 	CHECK_AND_SET_VAL(lid, 16, 0, pir.lid, PIR, LID);
 	CHECK_AND_SET_VAL(port, 8, -1, pir.port_num, PIR, PORTNUM);
+	CHECK_AND_SET_VAL(options, 8, -1, pir.options, PIR, OPTIONS);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_PORTINFORECORD, 0,
 					comp_mask, &pir, 0,
@@ -1284,7 +1285,7 @@ static const struct query_cmd query_cmds[] = {
 	{"NodeRecord", "NR", IB_SA_ATTR_NODERECORD,
 	 "[lid]", query_node_records},
 	{"PortInfoRecord", "PIR", IB_SA_ATTR_PORTINFORECORD,
-	 "[[lid]/[port]]", query_portinfo_records},
+	 "[[lid]/[port]/[options]]", query_portinfo_records},
 	{"SL2VLTableRecord", "SL2VL", IB_SA_ATTR_SL2VLTABLERECORD,
 	 "[[lid]/[in_port]/[out_port]]", query_sl2vl_records},
 	{"PKeyTableRecord", "PKTR", IB_SA_ATTR_PKEYTABLERECORD,
