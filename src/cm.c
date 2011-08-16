@@ -394,14 +394,14 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 
 int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 {
-	struct ibv_kern_path_rec *p_path;
+	struct ibv_kern_path_rec p_path;
 	struct ibv_kern_path_rec *a_path;
 	struct cm_abi_req *cmd;
 	void *msg;
 	int result;
 	int size;
 
-	if (!param)
+	if (!param || !param->primary_path)
 		return ERR(EINVAL);
 
 	CM_CREATE_MSG_CMD(msg, cmd, IB_USER_CM_CMD_SEND_REQ, size);
@@ -421,14 +421,8 @@ int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
         cmd->max_cm_retries             = param->max_cm_retries;
         cmd->srq                        = param->srq;
 
-	if (param->primary_path) {
-		p_path = alloca(sizeof(*p_path));
-		if (!p_path)
-			return ERR(ENOMEM);
-
-		ibv_copy_path_rec_to_kern(p_path, param->primary_path);
-		cmd->primary_path = (uintptr_t) p_path;
-	}
+	ibv_copy_path_rec_to_kern(&p_path, param->primary_path);
+	cmd->primary_path = (uintptr_t) &p_path;
 		
 	if (param->alternate_path) {
 		a_path = alloca(sizeof(*a_path));
@@ -666,7 +660,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		   void *private_data,
 		   uint8_t private_data_len)
 {
-	struct ibv_kern_path_rec *abi_path;
+	struct ibv_kern_path_rec abi_path;
 	struct cm_abi_lap *cmd;
 	void *msg;
 	int result;
@@ -675,14 +669,8 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 	CM_CREATE_MSG_CMD(msg, cmd, IB_USER_CM_CMD_SEND_LAP, size);
 	cmd->id = cm_id->handle;
 
-	if (alternate_path) {
-		abi_path = alloca(sizeof(*abi_path));
-		if (!abi_path)
-			return ERR(ENOMEM);
-
-		ibv_copy_path_rec_to_kern(abi_path, alternate_path);
-		cmd->path = (uintptr_t) abi_path;
-	}
+	ibv_copy_path_rec_to_kern(&abi_path, alternate_path);
+	cmd->path = (uintptr_t) &abi_path;
 
 	if (private_data && private_data_len) {
 		cmd->data = (uintptr_t) private_data;
@@ -699,13 +687,13 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_req_param *param)
 {
-	struct ibv_kern_path_rec *abi_path;
+	struct ibv_kern_path_rec abi_path;
 	struct cm_abi_sidr_req *cmd;
 	void *msg;
 	int result;
 	int size;
 
-	if (!param)
+	if (!param || !param->path)
 		return ERR(EINVAL);
 
 	CM_CREATE_MSG_CMD(msg, cmd, IB_USER_CM_CMD_SEND_SIDR_REQ, size);
@@ -715,14 +703,8 @@ int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 	cmd->pkey           = param->path->pkey;
 	cmd->max_cm_retries = param->max_cm_retries;
 
-	if (param->path) {
-		abi_path = alloca(sizeof(*abi_path));
-		if (!abi_path)
-			return ERR(ENOMEM);
-
-		ibv_copy_path_rec_to_kern(abi_path, param->path);
-		cmd->path = (uintptr_t) abi_path;
-	}
+	ibv_copy_path_rec_to_kern(&abi_path, param->path);
+	cmd->path = (uintptr_t) &abi_path;
 
 	if (param->private_data && param->private_data_len) {
 		cmd->data = (uintptr_t) param->private_data;
