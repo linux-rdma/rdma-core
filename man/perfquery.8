@@ -1,4 +1,4 @@
-.TH PERFQUERY 8 "Jun 16, 2010" "OpenIB" "OpenIB Diagnostics"
+.TH PERFQUERY 8 "February 19, 2011" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 perfquery \- query InfiniBand port counters
@@ -6,7 +6,7 @@ perfquery \- query InfiniBand port counters
 .SH SYNOPSIS
 .B perfquery
 [\-d(ebug)] [\-G(uid)] [\-x|\-\-extended] [\-X|\-\-xmtsl] [\-S|\-\-rcvsl]
-[\-D|\-\-xmtdisc] [\-E|\-\-rcverr] [\-\-oprcvcounters] [\-\-flowctlcounters]
+[\-D|\-\-xmtdisc] [\-E|\-\-rcverr] [\-T|\-\-extended_speeds][\-\-oprcvcounters] [\-\-flowctlcounters]
 [\-\-vloppackets] [\-\-vlopdata] [\-\-vlxmitflowctlerrors] [\-\-vlxmitcounters]
 [\-\-swportvlcong] [\-\-rcvcc] [\-\-slrcvfecn] [\-\-slrcvbecn] [\-\-xmitcc]
 [\-\-vlxmittimecc] [\-c|\-\-smplctl] [-a(ll_ports)] [-l(oop_ports)]
@@ -17,7 +17,7 @@ perfquery \- query InfiniBand port counters
 .PP
 perfquery uses PerfMgt GMPs to obtain the PortCounters (basic performance
 and error counters), PortExtendedCounters, PortXmitDataSL, PortRcvDataSL,
-PortRcvErrorDetails, PortXmitDiscardDetails, or PortSamplesControl
+PortRcvErrorDetails, PortXmitDiscardDetails, PortExtendedSpeedsCounters, or PortSamplesControl
 from the PMA at the node/port specified. Optionally shows aggregated
 counters for all ports of node.
 Also, optionally, reset after read, or only reset counters.
@@ -50,6 +50,9 @@ show receive error details. This is an optional counter.
 .TP
 \fB\-D\fR, \fB\-\-xmtdisc\fR
 show transmit discard details. This is an optional counter.
+.TP
+\fB\-T\fR, \fB\-\-extended_speeds\fR
+show extended speeds port counters. This is an optional counter.
 .TP
 \fB\-\-oprcvcounters\fR
 show Rcv Counters per Op code. This is an optional counter.

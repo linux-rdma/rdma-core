@@ -368,7 +368,7 @@ static void reset_counters(int extended, int timeout, int mask,
 }
 
 static int reset, reset_only, all_ports, loop_ports, port, extended, xmt_sl,
-    rcv_sl, xmt_disc, rcv_err, smpl_ctl, oprcvcounters, flowctlcounters,
+    rcv_sl, xmt_disc, rcv_err, extended_speeds, smpl_ctl, oprcvcounters, flowctlcounters,
     vloppackets, vlopdata, vlxmitflowctlerrors, vlxmitcounters, swportvlcong,
     rcvcc, slrcvfecn, slrcvbecn, xmitcc, vlxmittimecc;
 
@@ -423,6 +423,14 @@ static void rcv_err_query(ib_portid_t * portid, int port, int mask)
 	common_func(portid, port, mask, !reset_only, (reset_only || reset),
 		    "PortRcvErrorDetails", IB_GSI_PORT_RCV_ERROR_DETAILS,
 		    mad_dump_perfcounters_rcv_err);
+}
+
+static void extended_speeds_query(ib_portid_t * portid, int port, int mask)
+{
+	common_func(portid, port, mask, !reset_only, (reset_only || reset),
+		    "PortExtendedSpeedsCounters",
+		    IB_GSI_PORT_EXT_SPEEDS_COUNTERS,
+		    mad_dump_port_ext_speeds_counters);
 }
 
 static void oprcvcounters_query(ib_portid_t * portid, int port, int mask)
@@ -541,6 +549,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'E':
 		rcv_err = 1;
 		break;
+	case 'T':
+		extended_speeds = 1;
+		break;
 	case 'c':
 		smpl_ctl = 1;
 		break;
@@ -620,6 +631,7 @@ int main(int argc, char **argv)
 		{"rcvsl", 'S', 0, NULL, "show Rcv SL port counters"},
 		{"xmtdisc", 'D', 0, NULL, "show Xmt Discard Details"},
 		{"rcverr", 'E', 0, NULL, "show Rcv Error Details"},
+		{"extended_speeds", 'T', 0, NULL, "show port extended speeds counters"},
 		{"oprcvcounters", 1, 0, NULL, "show Rcv Counters per Op code"},
 		{"flowctlcounters", 2, 0, NULL, "show flow control counters"},
 		{"vloppackets", 3, 0, NULL, "show packets received per Op code per VL"},
@@ -710,6 +722,11 @@ int main(int argc, char **argv)
 
 	if (rcv_err) {
 		rcv_err_query(&portid, port, mask);
+		goto done;
+	}
+
+	if (extended_speeds) {
+		extended_speeds_query(&portid, port, mask);
 		goto done;
 	}
 
