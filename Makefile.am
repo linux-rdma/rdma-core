@@ -80,7 +80,8 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibprintswitch.8 man/ibprintca.8 man/ibfindnodesusing.8 \
 	man/ibdatacounts.8 man/ibdatacounters.8 \
 	man/ibrouters.8 man/ibprintrt.8 man/ibidsverify.8 \
-	man/check_lft_balance.8 man/ibcacheedit.8
+	man/check_lft_balance.8 man/ibcacheedit.8 \
+	man/infiniband-diags.8
 
 BUILT_SOURCES = ibdiag_version
 ibdiag_version:
