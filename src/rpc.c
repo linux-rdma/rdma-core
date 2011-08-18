@@ -213,13 +213,12 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 {
 	int status, len;
 	uint8_t sndbuf[1024], rcvbuf[1024], *mad;
-	int redirect = 1;
 	ib_rpc_v1_t *rpcv1 = (ib_rpc_v1_t *)rpc;
 	int error = 0;
 
 	if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) == IB_MAD_RPC_VERSION1)
 		rpcv1->error = 0;
-	while (redirect) {
+	do {
 		len = 0;
 		memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
@@ -247,10 +246,10 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 			/* update dport for next request and retry */
 			/* bail if redirection fails */
 			if (redirect_port(dport, mad))
-				redirect = 0;
+				break;
 		} else
-			redirect = 0;
-	}
+			break;
+	} while (1);
 
 	if ((rpc->mgtclass & IB_MAD_RPC_VERSION_MASK) == IB_MAD_RPC_VERSION1)
 		rpcv1->error = error;
