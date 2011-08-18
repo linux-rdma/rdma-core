@@ -78,81 +78,6 @@ static int down_links_only = 0;
 static int line_mode = 0;
 static int add_sw_settings = 0;
 
-static unsigned int get_max(unsigned int num)
-{
-	unsigned r = 0;		// r will be lg(num)
-
-	while (num >>= 1)	// unroll for more speed...
-		r++;
-
-	return (1 << r);
-}
-
-void get_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * port)
-{
-	char buf[64];
-	uint32_t max_speed = 0;
-	uint32_t cap_mask, rem_cap_mask;
-	uint8_t *info;
-
-	uint32_t max_width = get_max(mad_get_field(port->info, 0,
-						   IB_PORT_LINK_WIDTH_SUPPORTED_F)
-				     & mad_get_field(port->remoteport->info, 0,
-						     IB_PORT_LINK_WIDTH_SUPPORTED_F));
-	if ((max_width & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_WIDTH_ACTIVE_F)) == 0)
-		// we are not at the max supported width
-		// print what we could be at.
-		snprintf(width_msg, msg_size, "Could be %s",
-			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F,
-				      buf, 64, &max_width));
-
-	if (port->node->type == IB_NODE_SWITCH)
-		info = (uint8_t *)&port->node->ports[0]->info;
-	else
-		info = (uint8_t *)&port->info;
-	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-
-	if (port->remoteport->node->type == IB_NODE_SWITCH)
-		info = (uint8_t *)&port->remoteport->node->ports[0]->info;
-	else
-		info = (uint8_t *)&port->remoteport->info;
-	rem_cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	if (cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS &&
-	    rem_cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS)
-		goto check_ext_speed;
-check_speed_supp:
-	max_speed = get_max(mad_get_field(port->info, 0,
-					  IB_PORT_LINK_SPEED_SUPPORTED_F)
-			    & mad_get_field(port->remoteport->info, 0,
-					    IB_PORT_LINK_SPEED_SUPPORTED_F));
-	if ((max_speed & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_SPEED_ACTIVE_F)) == 0)
-		// we are not at the max supported speed
-		// print what we could be at.
-		snprintf(speed_msg, msg_size, "Could be %s",
-			 mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F,
-				      buf, 64, &max_speed));
-	return;
-
-check_ext_speed:
-	if (mad_get_field(port->info, 0,
-			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0 ||
-	    mad_get_field(port->remoteport->info, 0,
-			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0)
-		goto check_speed_supp;
-	max_speed = get_max(mad_get_field(port->info, 0,
-					  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F)
-			    & mad_get_field(port->remoteport->info, 0,
-					    IB_PORT_LINK_SPEED_EXT_SUPPORTED_F));
-	if ((max_speed & mad_get_field(port->info, 0,
-				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F)) == 0)
-		// we are not at the max supported extended speed
-		// print what we could be at.
-		snprintf(speed_msg, msg_size, "Could be %s",
-			 mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
-				      buf, 64, &max_speed));
-}
 
 int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
 {
@@ -265,7 +190,7 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 		else
 			ext_port_str[0] = '\0';
 
-		get_msg(width_msg, speed_msg, 256, port);
+		get_max_msg(width_msg, speed_msg, 256, port);
 
 		if (line_mode) {
 			snprintf(remote_guid_str, 256,

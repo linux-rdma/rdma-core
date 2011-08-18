@@ -41,6 +41,7 @@
 
 #include <infiniband/iba/ib_types.h>
 #include <infiniband/mad.h>
+#include <infiniband/ibnetdisc.h>
 
 extern int ibverbose;
 extern char *ibd_ca;
@@ -129,5 +130,8 @@ void sa_report_err(int status);
 		comp_mask |= IB_##name##_COMPMASK_##mask##sel; \
 		comp_mask |= IB_##name##_COMPMASK_##mask; \
 	}
+
+void get_max_msg(char *width_msg, char *speed_msg, int msg_size,
+		 ibnd_port_t * port);
 
 #endif				/* _IBDIAG_COMMON_H_ */
