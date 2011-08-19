@@ -1,4 +1,4 @@
-.TH IBPORTSTATE 8 "Jan 13, 2010" "OpenIB" "OpenIB Diagnostics"
+.TH IBPORTSTATE 8 "Mar 9, 2011" "OpenIB" "OpenIB Diagnostics"
 
 .SH NAME
 ibportstate \- handle port (physical) state and link speed of an InfiniBand port
@@ -23,7 +23,7 @@ also allows the link speed/width enabled on any IB port to be adjusted.
 .TP
 op
 Port operations allowed
- supported ops: enable, disable, reset, speed, width, query,
+ supported ops: enable, disable, reset, speed, espeed, width, query,
 		down, arm, active, vls, mtu, lid, smlid, lmc
  Default is query
 .PP
@@ -33,12 +33,16 @@ Port operations allowed
  speed values are legal values for PortInfo:LinkSpeedEnabled
  (An error is indicated if PortInfo:LinkSpeedSupported does not support
   this setting)
+ espeed ops are allowed on any port supporting extended link speeds
+(An error is indicated if port's capability mask indicates extended
+ link speeds are not supported or if PortInfo:LinkSpeedExtSupported
+ does not support this setting)
  width values are legal values for PortInfo:LinkWidthEnabled
  (An error is indicated if PortInfo:LinkWidthSupported does not support
   this setting)
  (NOTE: Speed and width changes are not effected until the port goes through
   link renegotiation)
- query also validates port characteristics (link width and speed)
+ query also validates port characteristics (link width, speed, and espeed)
   based on the peer port. This checking is done when the port
   queried is a switch port as it relies on combined routing
   (an initial LID route with directed routing to the peer) which
