@@ -2063,8 +2063,11 @@ int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel)
 	cmd.fd = id->channel->fd;
 
 	ret = write(channel->fd, &cmd, sizeof cmd);
-	if (ret != sizeof cmd)
+	if (ret != sizeof cmd) {
+		if (sync)
+			rdma_destroy_event_channel(channel);
 		return (ret >= 0) ? ERR(ENODATA) : -1;
+	}
 
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
