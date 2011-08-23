@@ -273,7 +273,7 @@ static void report_suppressed(void)
 	printf("\n");
 }
 
-static void print_summary(void)
+static int print_summary(void)
 {
 	printf("\n## Summary: %d nodes checked, %d bad nodes found\n",
 		summary.nodes_checked, summary.bad_nodes);
@@ -281,6 +281,7 @@ static void print_summary(void)
 		summary.ports_checked, summary.bad_ports);
 	printf("## %s\n", threshold_str);
 	report_suppressed();
+	return (summary.bad_ports);
 }
 
 static int query_and_dump(char *buf, size_t size, ib_portid_t * portid,
@@ -901,7 +902,7 @@ int main(int argc, char **argv)
 
 	if (dr_path && load_cache_file) {
 		fprintf(stderr, "Cannot specify cache and direct route path\n");
-		exit(1);
+		exit(-1);
 	}
 
 	/* limit the scan the fabric around the target */
@@ -923,7 +924,7 @@ int main(int argc, char **argv)
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL) {
 			fprintf(stderr, "loading cached fabric failed\n");
-			exit(1);
+			exit(-1);
 		}
 	} else {
 		if (resolved >= 0) {
@@ -940,7 +941,7 @@ int main(int argc, char **argv)
 							       NULL,
 							       &config))) {
 			fprintf(stderr, "discover failed\n");
-			rc = 1;
+			rc = -1;
 			goto close_port;
 		}
 	}
@@ -973,7 +974,9 @@ int main(int argc, char **argv)
 	} else
 		ibnd_iter_nodes(fabric, print_node, NULL);
 
-	print_summary();
+	rc = print_summary();
+	if (rc)
+		rc = 1;
 
 destroy_fabric:
 	ibnd_destroy_fabric(fabric);

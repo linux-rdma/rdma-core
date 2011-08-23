@@ -97,6 +97,12 @@ for information on caching ibnetdiscover output.
 .PP
 \-t <timeout_ms> override the default timeout for the solicited mads.
 
+.SH EXIT STATUS
+
+If a failure to scan the fabric occurs return -1.  If the scan succeeds without
+errors beyond thresholds return 0.  If errors are found on ports beyond
+thresholds return 1.
+
 .SH FILES
 
 @IBDIAG_CONFIG_PATH@/error_thresholds
