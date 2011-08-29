@@ -76,8 +76,8 @@ static void show_usage(char *program)
 	printf("   [-d dest_addr]   - destination addresses for path queries\n");
 	printf("   [-v]             - verify ACM response against SA query response\n");
 	printf("   [-c]             - read ACM cached data only\n");
-	printf("   [-P]             - query performance data from destination service");
-	printf("   [-S svc_addr]    - address of ACM service, default: local service");
+	printf("   [-P]             - query performance data from destination service\n");
+	printf("   [-S svc_addr]    - address of ACM service, default: local service\n");
 	printf("usage 2: %s\n", program);
 	printf("Generate default ib_acm service configuration and option files\n");
 	printf("   -A [addr_file]   - generate local address configuration file\n");

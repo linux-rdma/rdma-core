@@ -2255,14 +2255,14 @@ static int acm_svr_perf_query(struct acm_client *client, struct acm_msg *msg)
 	msg->hdr.data[0] = ACM_MAX_COUNTER;
 	msg->hdr.data[1] = 0;
 	msg->hdr.data[2] = 0;
-	len = htons(ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t)));
+	len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
 	msg->hdr.length = htons(len);
 
 	for (i = 0; i < ACM_MAX_COUNTER; i++)
 		msg->perf_data[i] = htonll((uint64_t) atomic_get(&counter[i]));
 
 	ret = send(client->sock, (char *) msg, len, 0);
-	if (ret != msg->hdr.length)
+	if (ret != len)
 		acm_log(0, "ERROR - failed to send response\n");
 	else
 		ret = 0;

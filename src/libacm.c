@@ -328,12 +328,14 @@ int ib_acm_query_perf(uint64_t **counters, int *count)
 	msg.hdr.length = htons(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
-	if (ret != msg.hdr.length)
+	if (ret != ACM_MSG_HDR_LENGTH)
 		goto out;
 
 	ret = recv(sock, (char *) &msg, sizeof msg, 0);
-	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length))
+	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length)) {
+		ret = ACM_STATUS_EINVAL;
 		goto out;
+	}
 
 	if (msg.hdr.status) {
 		ret = acm_error(msg.hdr.status);
