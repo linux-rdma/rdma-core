@@ -23,7 +23,7 @@ also allows the link speed/width enabled on any IB port to be adjusted.
 .TP
 op
 Port operations allowed
- supported ops: enable, disable, reset, speed, espeed, width, query,
+ supported ops: enable, disable, reset, speed, espeed, fdr10, width, query,
 		down, arm, active, vls, mtu, lid, smlid, lmc
  Default is query
 .PP
@@ -34,6 +34,7 @@ Port operations allowed
  (An error is indicated if PortInfo:LinkSpeedSupported does not support
   this setting)
  espeed ops are allowed on any port supporting extended link speeds
+ fdr10 ops are allowed on any port supporting fdr10
 (An error is indicated if port's capability mask indicates extended
  link speeds are not supported or if PortInfo:LinkSpeedExtSupported
  does not support this setting)
@@ -42,7 +43,7 @@ Port operations allowed
   this setting)
  (NOTE: Speed and width changes are not effected until the port goes through
   link renegotiation)
- query also validates port characteristics (link width, speed, and espeed)
+ query also validates port characteristics (link width, speed, espeed, and fdr10)
   based on the peer port. This checking is done when the port
   queried is a switch port as it relies on combined routing
   (an initial LID route with directed routing to the peer) which
