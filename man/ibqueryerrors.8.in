@@ -69,7 +69,7 @@ specified the data counters will be cleared without any printed output.
 Load and use the cached ibnetdiscover data stored in the specified
 filename.  May be useful for outputting and learning about other
 fabrics or a previous state of a fabric.  Cannot be used if user
-specifies a directo route path.  See
+specifies a direct route path.  See
 .B ibnetdiscover
 for information on caching ibnetdiscover output.
 .TP
