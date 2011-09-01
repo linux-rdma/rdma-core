@@ -78,7 +78,6 @@ static int down_links_only = 0;
 static int line_mode = 0;
 static int add_sw_settings = 0;
 
-
 int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
 {
 	ibnd_node_t *fsw;
@@ -112,7 +111,7 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 	char width_msg[256];
 	char speed_msg[256];
 	char ext_port_str[256];
-	int iwidth, ispeed, espeed, istate, iphystate, cap_mask;
+	int iwidth, ispeed, fdr10, espeed, istate, iphystate, cap_mask;
 	int n = 0;
 	uint8_t *info;
 
@@ -121,6 +120,8 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 
 	iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 	ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
+	fdr10 = mad_get_field(port->ext_info, 0,
+			      IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F) & FDR10;
 
 	if (port->node->type == IB_NODE_SWITCH)
 		info = (uint8_t *)&port->node->ports[0]->info;
@@ -150,15 +151,21 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 	/* C14-24.2.1 states that a down port allows for invalid data to be
 	 * returned for all PortInfo components except PortState and
 	 * PortPhysicalState */
+	if (!espeed) {
+		if (fdr10)
+			sprintf(speed, "10.0 Gbps (FDR10)");
+		else
+			mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed,
+				     64, &ispeed);
+	} else
+		mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed,
+			     64, &espeed);
+
 	if (istate != IB_LINK_DOWN) {
-		n = snprintf(link_str, 256, "(%3s %9s %6s/%8s)",
+		n = snprintf(link_str, 256, "(%3s %18s %6s/%8s)",
 		     mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64,
 				  &iwidth),
-		     (ispeed != 4 || !espeed) ?
-			mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64,
-				     &ispeed) :
-			mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed, 64,
-				     &espeed),
+		     speed,
 		     mad_dump_val(IB_PORT_STATE_F, state, 64, &istate),
 		     mad_dump_val(IB_PORT_PHYS_STATE_F, physstate, 64,
 				  &iphystate));

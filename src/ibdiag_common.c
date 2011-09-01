@@ -594,7 +594,7 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 {
 	char buf[64];
 	uint32_t max_speed = 0;
-	uint32_t cap_mask, rem_cap_mask;
+	uint32_t cap_mask, rem_cap_mask, fdr10;
 	uint8_t *info;
 
 	uint32_t max_width = get_max(mad_get_field(port->info, 0,
@@ -623,7 +623,14 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 	if (cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS &&
 	    rem_cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS)
 		goto check_ext_speed;
-check_speed_supp:
+check_fdr10_supp:
+	fdr10 = (mad_get_field(port->ext_info, 0,
+			       IB_MLNX_EXT_PORT_LINK_SPEED_SUPPORTED_F) & FDR10)
+		&& (mad_get_field(port->remoteport->ext_info, 0,
+				  IB_MLNX_EXT_PORT_LINK_SPEED_SUPPORTED_F) & FDR10);
+	if (fdr10)
+		goto check_fdr10_active;
+
 	max_speed = get_max(mad_get_field(port->info, 0,
 					  IB_PORT_LINK_SPEED_SUPPORTED_F)
 			    & mad_get_field(port->remoteport->info, 0,
@@ -642,7 +649,7 @@ check_ext_speed:
 			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0 ||
 	    mad_get_field(port->remoteport->info, 0,
 			  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F) == 0)
-		goto check_speed_supp;
+		goto check_fdr10_supp;
 	max_speed = get_max(mad_get_field(port->info, 0,
 					  IB_PORT_LINK_SPEED_EXT_SUPPORTED_F)
 			    & mad_get_field(port->remoteport->info, 0,
@@ -654,4 +661,10 @@ check_ext_speed:
 		snprintf(speed_msg, msg_size, "Could be %s",
 			 mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F,
 				      buf, 64, &max_speed));
+	return;
+
+check_fdr10_active:
+	if ((mad_get_field(port->ext_info, 0,
+			   IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F) & FDR10) == 0)
+		snprintf(speed_msg, msg_size, "Could be FDR10");
 }
