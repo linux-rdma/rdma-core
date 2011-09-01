@@ -100,11 +100,14 @@ char *dump_linkspeed_compat(uint32_t speed)
 	return ("???");
 }
 
-char *dump_linkspeedext_compat(uint32_t espeed, uint32_t speed)
+char *dump_linkspeedext_compat(uint32_t espeed, uint32_t speed, uint32_t fdr10)
 {
 	switch (espeed) {
 	case 0:
-		return dump_linkspeed_compat(speed);
+		if (fdr10 & FDR10)
+			return ("FDR10");
+		else
+			return dump_linkspeed_compat(speed);
 		break;
 	case 1:
 		return ("FDR");
@@ -358,6 +361,8 @@ void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
 					IB_PORT_LINK_WIDTH_ACTIVE_F);
 	uint32_t ispeed = mad_get_field(port->info, 0,
 					IB_PORT_LINK_SPEED_ACTIVE_F);
+	uint32_t fdr10 = mad_get_field(port->ext_info, 0,
+				       IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F);
 	uint32_t cap_mask, espeed;
 
 	DEBUG("port %p:%d remoteport %p\n", port, port->portnum,
@@ -393,7 +398,7 @@ void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
 		dump_linkwidth_compat(iwidth),
 		(ispeed != 4 && !espeed) ?
 			dump_linkspeed_compat(ispeed) :
-			dump_linkspeedext_compat(espeed, ispeed));
+			dump_linkspeedext_compat(espeed, ispeed, fdr10));
 
 	if (full_info)
 		fprintf(f, " s=%d w=%d", ispeed, iwidth);
@@ -415,6 +420,8 @@ void out_ca_port(ibnd_port_t * port, int group, char *out_prefix)
 					IB_PORT_LINK_WIDTH_ACTIVE_F);
 	uint32_t ispeed = mad_get_field(port->info, 0,
 					IB_PORT_LINK_SPEED_ACTIVE_F);
+	uint32_t fdr10 = mad_get_field(port->ext_info, 0,
+				       IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F);
 	uint32_t cap_mask, espeed;
 
 	fprintf(f, "%s[%d]", out_prefix ? out_prefix : "", port->portnum);
@@ -447,7 +454,7 @@ void out_ca_port(ibnd_port_t * port, int group, char *out_prefix)
 		dump_linkwidth_compat(iwidth),
 		(ispeed != 4 && !espeed) ?
 			dump_linkspeed_compat(ispeed) :
-			dump_linkspeedext_compat(espeed, ispeed));
+			dump_linkspeedext_compat(espeed, ispeed, fdr10));
 
 	if (full_info)
 		fprintf(f, " s=%d w=%d", ispeed, iwidth);
@@ -671,7 +678,7 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 	/* for each port */
 	for (p = node->numports, port = node->ports[p]; p > 0;
 	     port = node->ports[--p]) {
-		uint32_t iwidth, ispeed, espeed, cap_mask;
+		uint32_t iwidth, ispeed, fdr10, espeed, cap_mask;
 		uint8_t *info;
 		if (port == NULL)
 			continue;
@@ -689,6 +696,8 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 					       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
 		else
 			espeed = 0;
+		fdr10 = mad_get_field(port->ext_info, 0,
+				      IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F);
 		nodename = remap_node_name(node_name_map,
 					   port->node->guid,
 					   port->node->nodedesc);
@@ -700,7 +709,7 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 			dump_linkwidth_compat(iwidth),
 			(ispeed != 4 && !espeed) ?
 				dump_linkspeed_compat(ispeed) :
-				dump_linkspeedext_compat(espeed, ispeed));
+				dump_linkspeedext_compat(espeed, ispeed, fdr10));
 		if (port->remoteport) {
 			rem_nodename = remap_node_name(node_name_map,
 					      port->remoteport->node->guid,
