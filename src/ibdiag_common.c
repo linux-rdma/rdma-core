@@ -620,8 +620,8 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 	else
 		info = (uint8_t *)&port->remoteport->info;
 	rem_cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	if (cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS &&
-	    rem_cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS)
+	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS) &&
+	    rem_cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
 		goto check_ext_speed;
 check_fdr10_supp:
 	fdr10 = (mad_get_field(port->ext_info, 0,

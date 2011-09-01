@@ -186,7 +186,7 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 	else
 		info = (uint8_t *)&port->info;
 	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	if (cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS)
+	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
 		espeed = mad_get_field(port->info, 0,
 				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
 	else
