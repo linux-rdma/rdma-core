@@ -170,12 +170,14 @@ static void debug_port(ib_portid_t * portid, ibnd_port_t * port)
 {
 	char width[64], speed[64];
 	int iwidth;
-	int ispeed, espeed;
+	int ispeed, fdr10, espeed;
 	uint8_t *info;
 	uint32_t cap_mask;
 
 	iwidth = mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 	ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
+	fdr10 = mad_get_field(port->ext_info, 0,
+			      IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F);
 
 	if (port->node->type == IB_NODE_SWITCH)
 		info = (uint8_t *)&port->node->ports[0]->info;
@@ -187,13 +189,130 @@ static void debug_port(ib_portid_t * portid, ibnd_port_t * port)
 	else
 		espeed = 0;
 	IBND_DEBUG
-	    ("portid %s portnum %d: base lid %d state %d physstate %d %s %s %s\n",
+	    ("portid %s portnum %d: base lid %d state %d physstate %d %s %s %s %s\n",
 	     portid2str(portid), port->portnum, port->base_lid,
 	     mad_get_field(port->info, 0, IB_PORT_STATE_F),
 	     mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F),
 	     mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64, &iwidth),
 	     mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed, 64, &ispeed),
+	     (fdr10 & FDR10) ? "FDR10"  : "",
 	     mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed, 64, &espeed));
+}
+
+static int is_mlnx_ext_port_info_supported(ibnd_port_t * port)
+{
+	uint16_t devid = mad_get_field(port->node->info, 0, IB_NODE_DEVID_F);
+
+	if (devid == 0xc738)
+		return 1;
+	if (devid >= 0x1003 && devid <= 0x1010)
+		return 1;
+	return 0;
+}
+
+int mlnx_ext_port_info_err(smp_engine_t * engine, ibnd_smp_t * smp,
+			   uint8_t * mad, void *cb_data)
+{
+	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	ibnd_node_t *node = cb_data;
+	ibnd_port_t *port;
+	uint8_t port_num, local_port;
+
+	port_num = (uint8_t) mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
+	port = node->ports[port_num];
+	if (!port) {
+		IBND_ERROR("Failed to find 0x%" PRIx64 " port %u\n",
+			   node->guid, port_num);
+		return -1;
+	}
+
+	local_port = (uint8_t) mad_get_field(port->info, 0, IB_PORT_LOCAL_PORT_F);
+	debug_port(&smp->path, port);
+
+	if (port_num && mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
+	    == IB_PORT_PHYS_STATE_LINKUP
+	    && ((node->type == IB_NODE_SWITCH && port_num != local_port) ||
+		(node == fabric->from_node && port_num == fabric->from_portnum))) {
+		int rc = 0;
+		ib_portid_t path = smp->path;
+
+		if (node->type != IB_NODE_SWITCH &&
+		    node == fabric->from_node &&
+		    path.drpath.cnt > 1)
+			rc = retract_dpath(engine, &path);
+		else {
+			/* we can't proceed through an HCA with DR */
+			if (path.lid == 0 || node->type == IB_NODE_SWITCH)
+				rc = extend_dpath(engine, &path, port_num);
+		}
+
+		if (rc > 0) {
+			struct ni_cbdata * cbdata = malloc(sizeof(*cbdata));
+			cbdata->node = node;
+			cbdata->port_num = port_num;
+			query_node_info(engine, &path, cbdata);
+		}
+	}
+
+	return 0;
+}
+
+static int recv_mlnx_ext_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
+				   uint8_t * mad, void *cb_data)
+{
+	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	ibnd_node_t *node = cb_data;
+	ibnd_port_t *port;
+	uint8_t *ext_port_info = mad + IB_SMP_DATA_OFFS;
+	uint8_t port_num, local_port;
+
+	port_num = (uint8_t) mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
+	port = node->ports[port_num];
+	if (!port) {
+		IBND_ERROR("Failed to find 0x%" PRIx64 " port %u\n",
+			   node->guid, port_num);
+		return -1;
+	}
+
+	memcpy(port->ext_info, ext_port_info, sizeof(port->ext_info));
+	local_port = (uint8_t) mad_get_field(port->info, 0, IB_PORT_LOCAL_PORT_F);
+	debug_port(&smp->path, port);
+
+	if (port_num && mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
+	    == IB_PORT_PHYS_STATE_LINKUP
+	    && ((node->type == IB_NODE_SWITCH && port_num != local_port) ||
+		(node == fabric->from_node && port_num == fabric->from_portnum))) {
+		int rc = 0;
+		ib_portid_t path = smp->path;
+
+		if (node->type != IB_NODE_SWITCH &&
+		    node == fabric->from_node &&
+		    path.drpath.cnt > 1)
+			rc = retract_dpath(engine, &path);
+		else {
+			/* we can't proceed through an HCA with DR */
+			if (path.lid == 0 || node->type == IB_NODE_SWITCH)
+				rc = extend_dpath(engine, &path, port_num);
+		}
+
+		if (rc > 0) {
+			struct ni_cbdata * cbdata = malloc(sizeof(*cbdata));
+			cbdata->node = node;
+			cbdata->port_num = port_num;
+			query_node_info(engine, &path, cbdata);
+		}
+	}
+
+	return 0;
+}
+
+static int query_mlnx_ext_port_info(smp_engine_t * engine, ib_portid_t * portid,
+				    ibnd_node_t * node, int portnum)
+{
+	IBND_DEBUG("Query MLNX Extended Port Info; %s (0x%" PRIx64 "):%d\n",
+		   portid2str(portid), node->guid, portnum);
+	return issue_smp(engine, portid, IB_ATTR_MLNX_EXT_PORT_INFO, portnum,
+			 recv_mlnx_ext_port_info, node);
 }
 
 static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
@@ -204,6 +323,9 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	ibnd_port_t *port;
 	uint8_t *port_info = mad + IB_SMP_DATA_OFFS;
 	uint8_t port_num, local_port;
+	int phystate, ispeed, espeed;
+	uint8_t *info;
+	uint32_t cap_mask;
 
 	port_num = (uint8_t) mad_get_field(mad, 0, IB_MAD_ATTRMOD_F);
 	local_port = (uint8_t) mad_get_field(port_info, 0, IB_PORT_LOCAL_PORT_F);
@@ -237,6 +359,28 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	}
 
 	add_to_portguid_hash(port, fabric->portstbl);
+
+	if (is_mlnx_ext_port_info_supported(port)) {
+		phystate = mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F);
+		ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
+		if (port->node->type == IB_NODE_SWITCH)
+			info = (uint8_t *)&port->node->ports[0]->info;
+		else
+			info = (uint8_t *)&port->info;
+		cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+		if (cap_mask & IB_PORT_CAP_HAS_EXT_SPEEDS)
+			espeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
+		else
+			espeed = 0;
+
+		if (phystate == IB_PORT_PHYS_STATE_LINKUP &&
+		    ispeed == IB_LINK_SPEED_ACTIVE_10 &&
+		    espeed == IB_LINK_SPEED_EXT_ACTIVE_NONE) {	/* LinkUp/QDR */
+			query_mlnx_ext_port_info(engine, &smp->path,
+						 node, port_num);
+			return 0;
+		}
+	}
 
 	debug_port(&smp->path, port);
 

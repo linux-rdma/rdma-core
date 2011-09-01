@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2009 Voltaire, Inc. All rights reserved.
  * Copyright (c) 2008 Lawrence Livermore National Lab.  All rights reserved.
- * Copyright (c) 2010 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2010-2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -109,6 +109,7 @@ typedef struct ibnd_port {
 	uint8_t lmc;
 	/* use libibmad decoder functions for info */
 	uint8_t info[IB_SMP_DATA_SIZE];
+	uint8_t ext_info[IB_SMP_DATA_SIZE];
 
 	/* internal use only */
 	struct ibnd_port *htnext;

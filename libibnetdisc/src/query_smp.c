@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2010 Lawrence Livermore National Laboratory
+ * Copyright (c) 2011 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -39,6 +40,9 @@
 #include <infiniband/ibnetdisc.h>
 #include <infiniband/umad.h>
 #include "internal.h"
+
+extern int mlnx_ext_port_info_err(smp_engine_t * engine, ibnd_smp_t * smp,
+				  uint8_t * mad, void *cb_data);
 
 static void queue_smp(smp_engine_t * engine, ibnd_smp_t * smp)
 {
@@ -190,10 +194,16 @@ static int process_one_recv(smp_engine_t * engine)
 		IBND_ERROR("umad (%s Attr 0x%x:%u) bad status %d; %s\n",
 			   portid2str(&smp->path), smp->rpc.attr.id,
 			   smp->rpc.attr.mod, status, strerror(status));
+		if (smp->rpc.attr.id == IB_ATTR_MLNX_EXT_PORT_INFO)
+			rc = mlnx_ext_port_info_err(engine, smp, mad,
+						    smp->cb_data);
 	} else if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F))) {
 		IBND_ERROR("mad (%s Attr 0x%x:%u) bad status 0x%x\n",
 			   portid2str(&smp->path), smp->rpc.attr.id,
 			   smp->rpc.attr.mod, status);
+		if (smp->rpc.attr.id == IB_ATTR_MLNX_EXT_PORT_INFO)
+			rc = mlnx_ext_port_info_err(engine, smp, mad,
+						    smp->cb_data);
 	} else
 		rc = smp->cb(engine, smp, mad, smp->cb_data);
 
