@@ -1053,6 +1053,12 @@ void mad_dump_cc_timestamp(char *buf, int bufsz, void *val, int valsz)
 		     IB_CC_TIMESTAMP_LAST_F);
 }
 
+void mad_dump_classportinfo(char *buf, int bufsz, void *val, int valsz)
+{
+	/* no FIRST_F and LAST_F for CPI field enums, must do a hack */
+	_dump_fields(buf, bufsz, val, IB_CPI_BASEVER_F, IB_CPI_TRAP_QKEY_F + 1);
+}
+
 void xdump(FILE * file, char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))

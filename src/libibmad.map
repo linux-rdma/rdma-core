@@ -61,6 +61,7 @@ IBMAD_1.3 {
 		mad_dump_cc_congestioncontroltable;
 		mad_dump_cc_congestioncontroltableentry;
 		mad_dump_cc_timestamp;
+		mad_dump_classportinfo;
 		mad_dump_portstates;
 		mad_dump_portstate;
 		mad_dump_rhex;

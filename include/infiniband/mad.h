@@ -1559,7 +1559,8 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_cc_congestionlogentryca, mad_dump_cc_switchcongestionsetting,
     mad_dump_cc_switchportcongestionsettingelement, mad_dump_cc_cacongestionsetting,
     mad_dump_cc_cacongestionentry, mad_dump_cc_congestioncontroltable,
-    mad_dump_cc_congestioncontroltableentry, mad_dump_cc_timestamp;
+    mad_dump_cc_congestioncontroltableentry, mad_dump_cc_timestamp,
+    mad_dump_classportinfo;
 
 MAD_EXPORT void mad_dump_fields(char *buf, int bufsz, void *val, int valsz,
 				int start, int end);
