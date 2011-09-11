@@ -88,10 +88,15 @@ else
 	fi
 fi
 
+is_switch=`$IBPATH/smpquery $ca_info nodeinfo $lid $portnum | awk -F '[.:]*' '/^NodeType/{ if ($2 == "Switch") {print 1}}'`
+
+if [ "$is_switch" -a "$portnum" == "0" ]; then
+	ignore_check=true
+fi
 
 text="`eval $IBPATH/smpquery $ca_info portinfo $lid $portnum`"
 rv=$?
-if echo "$text" | awk -v mono=$bw -F '[.:]*' '
+if echo "$text" | awk -v ignore_check=$ignore_check -v mono=$bw -F '[.:]*' '
 function blue(s)
 {
 	if (mono)
@@ -110,9 +115,9 @@ function blue(s)
 
 /^LinkWidthActive/{ if ($2 == "1X") warn = warn "#warn: Link configured as 1X  lid '$lid' port '$portnum'\n"}
 
-/^Lid/{ if ($2 == "0") warn = warn "#warn: Lid is not configured lid '$lid' port '$portnum'\n"}
+/^Lid/{ if (ignore_check == "0" && $2 == "0") warn = warn "#warn: Lid is not configured lid '$lid' port '$portnum'\n"}
 
-/^SMLid/{ if ($2 == "0") warn = warn "#warn: SM Lid is not configured\n"}
+/^SMLid/{ if (ignore_check == "0" && $2 == "0") warn = warn "#warn: SM Lid is not configured\n"}
 
 #/^LocalPort/	{ if ($2 != '$portnum') {err = err "#error: port " $2 " does not match query ('$portnum')\n"; exit -1}}
 
