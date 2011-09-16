@@ -254,23 +254,27 @@ rdma_get_send_comp(struct rdma_cm_id *id, struct ibv_wc *wc)
 	void *context;
 	int ret;
 
-	ret = ibv_poll_cq(id->send_cq, 1, wc);
-	if (ret)
-		goto out;
+	do {
+		ret = ibv_poll_cq(id->send_cq, 1, wc);
+		if (ret)
+			break;
 
-	ret = ibv_req_notify_cq(id->send_cq, 0);
-	if (ret)
-		return rdma_seterrno(ret);
+		ret = ibv_req_notify_cq(id->send_cq, 0);
+		if (ret)
+			return rdma_seterrno(ret);
 
-	while (!(ret = ibv_poll_cq(id->send_cq, 1, wc))) {
+		ret = ibv_poll_cq(id->send_cq, 1, wc);
+		if (ret)
+			break;
+
 		ret = ibv_get_cq_event(id->send_cq_channel, &cq, &context);
 		if (ret)
 			return rdma_seterrno(ret);
 
 		assert(cq == id->send_cq && context == id);
 		ibv_ack_cq_events(id->send_cq, 1);
-	}
-out:
+	} while (1);
+
 	return (ret < 0) ? rdma_seterrno(ret) : ret;
 }
 
@@ -281,23 +285,27 @@ rdma_get_recv_comp(struct rdma_cm_id *id, struct ibv_wc *wc)
 	void *context;
 	int ret;
 
-	ret = ibv_poll_cq(id->recv_cq, 1, wc);
-	if (ret)
-		goto out;
+	do {
+		ret = ibv_poll_cq(id->recv_cq, 1, wc);
+		if (ret)
+			break;
 
-	ret = ibv_req_notify_cq(id->recv_cq, 0);
-	if (ret)
-		return rdma_seterrno(ret);
+		ret = ibv_req_notify_cq(id->recv_cq, 0);
+		if (ret)
+			return rdma_seterrno(ret);
 
-	while (!(ret = ibv_poll_cq(id->recv_cq, 1, wc))) {
+		ret = ibv_poll_cq(id->recv_cq, 1, wc);
+		if (ret)
+			break;
+
 		ret = ibv_get_cq_event(id->recv_cq_channel, &cq, &context);
 		if (ret)
 			return rdma_seterrno(ret);
 
 		assert(cq == id->recv_cq && context == id);
 		ibv_ack_cq_events(id->recv_cq, 1);
-	}
-out:
+	} while (1);
+
 	return (ret < 0) ? rdma_seterrno(ret) : ret;
 }
 
