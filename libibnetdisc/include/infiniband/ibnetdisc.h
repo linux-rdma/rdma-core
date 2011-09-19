@@ -42,6 +42,10 @@
 
 #include <infiniband/ibnetdisc_osd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct ibnd_chassis;		/* forward declare */
 struct ibnd_port;		/* forward declare */
 
@@ -236,5 +240,9 @@ IBND_EXPORT char *ibnd_get_chassis_slot_str(ibnd_node_t * node,
 IBND_EXPORT int ibnd_is_xsigo_guid(uint64_t guid);
 IBND_EXPORT int ibnd_is_xsigo_tca(uint64_t guid);
 IBND_EXPORT int ibnd_is_xsigo_hca(uint64_t guid);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif				/* _IBNETDISC_H_ */

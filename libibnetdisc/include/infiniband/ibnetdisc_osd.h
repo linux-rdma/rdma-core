@@ -34,9 +34,17 @@
 #ifndef _IBNETDISC_OSD_H_
 #define _IBNETDISC_OSD_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Define OS specific bits */
 
 /* Linux */
 #define IBND_EXPORT
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif				/* _IBNETDISC_OSD_H_ */
