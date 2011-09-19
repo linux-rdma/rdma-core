@@ -83,6 +83,7 @@ struct {
 	int bad_nodes;
 	int ports_checked;
 	int bad_ports;
+	int pma_query_failures;
 } summary = { 0 };
 
 #define DEF_THRES_FILE IBDIAG_CONFIG_PATH"/error_thresholds"
@@ -291,6 +292,8 @@ static int print_summary(void)
 	printf("##          %d ports checked, %d ports have errors beyond threshold\n",
 		summary.ports_checked, summary.bad_ports);
 	printf("## %s\n", threshold_str);
+	if (summary.pma_query_failures)
+		printf("##          %d PMA query failures\n", summary.pma_query_failures);
 	report_suppressed();
 	return (summary.bad_ports);
 }
@@ -310,6 +313,7 @@ static int query_and_dump(char *buf, size_t size, ib_portid_t * portid,
 			   ibmad_port)) {
 		IBWARN("%s query failed on %s, %s port %d", attr_name,
 		       node_name, portid2str(portid), portnum);
+		summary.pma_query_failures++;
 		return 0;
 	}
 
@@ -447,6 +451,7 @@ static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
 			   ibmad_port)) {
 		IBWARN("classportinfo query failed on %s, %s port %d",
 		       node_name, portid2str(portid), portnum);
+		summary.pma_query_failures++;
 		return -1;
 	}
 
@@ -473,6 +478,7 @@ static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
 				   IB_GSI_PORT_COUNTERS_EXT, ibmad_port)) {
 			IBWARN("IB_GSI_PORT_COUNTERS_EXT query failed on %s, %s port %d",
 			       node_name, portid2str(portid), portnum);
+			summary.pma_query_failures++;
 			return (1);
 		}
 		start_field = IB_PC_EXT_XMT_BYTES_F;
@@ -485,6 +491,7 @@ static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
 				   IB_GSI_PORT_COUNTERS, ibmad_port)) {
 			IBWARN("IB_GSI_PORT_COUNTERS query failed on %s, %s port %d",
 			       node_name, portid2str(portid), portnum);
+			summary.pma_query_failures++;
 			return (1);
 		}
 		start_field = IB_PC_XMT_BYTES_F;
@@ -539,6 +546,7 @@ static int print_errors(ib_portid_t * portid, uint16_t cap_mask,
 			   IB_GSI_PORT_COUNTERS, ibmad_port)) {
 		IBWARN("IB_GSI_PORT_COUNTERS query failed on %s, %s port %d",
 		       node_name, portid2str(portid), portnum);
+		summary.pma_query_failures++;
 		return (0);
 	}
 
@@ -547,6 +555,7 @@ static int print_errors(ib_portid_t * portid, uint16_t cap_mask,
 		    IB_GSI_PORT_COUNTERS_EXT, ibmad_port)) {
 			IBWARN("IB_GSI_PORT_COUNTERS_EXT query failed on %s, %s port %d",
 			       node_name, portid2str(portid), portnum);
+			summary.pma_query_failures++;
 			return (0);
 		}
 		pc_ext = pce;
