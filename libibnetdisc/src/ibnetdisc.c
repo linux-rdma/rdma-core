@@ -201,7 +201,7 @@ static void debug_port(ib_portid_t * portid, ibnd_port_t * port)
 
 static int is_mlnx_ext_port_info_supported(ibnd_port_t * port)
 {
-	uint16_t devid = mad_get_field(port->node->info, 0, IB_NODE_DEVID_F);
+	uint16_t devid = (uint16_t) mad_get_field(port->node->info, 0, IB_NODE_DEVID_F);
 
 	if (devid == 0xc738)
 		return 1;

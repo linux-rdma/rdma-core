@@ -462,7 +462,7 @@ int main(int argc, char **argv)
 		port_op = QUERY;
 
 	is_switch = get_node_info(&portid, data);
-	devid = mad_get_field(data, 0, IB_NODE_DEVID_F);
+	devid = (uint16_t) mad_get_field(data, 0, IB_NODE_DEVID_F);
 
 	if (port_op != QUERY || changed)
 		printf("Initial %s PortInfo:\n", is_switch ? "Switch" : "CA");
@@ -591,7 +591,7 @@ int main(int argc, char **argv)
 
 			/* Get peer port NodeInfo to obtain peer port number */
 			is_peer_switch = get_node_info(&peerportid, data);
-			rem_devid = mad_get_field(data, 0, IB_NODE_DEVID_F);
+			rem_devid = (uint16_t) mad_get_field(data, 0, IB_NODE_DEVID_F);
 
 			mad_decode_field(data, IB_NODE_LOCAL_PORT_F,
 					 &peerlocalportnum);
