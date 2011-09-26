@@ -20,11 +20,22 @@ Obsoletes: openib-diags
 This package provides IB diagnostic programs and scripts needed to
 diagnose an IB subnet.
 
+%package compat
+Summary: OpenFabrics Alliance InfiniBand Diagnostic Tools
+Group: System Environment/Libraries
+BuildRequires: libibmad-devel, opensm-devel, libibumad-devel
+Requires: libibmad, opensm-libs, libibumad
+
+%description compat
+Deprecated scripts and utilities which provide duplicated functionality, most
+often at a reduced performance.  These are maintained for the time being for
+compatibility reasons.
+
 %prep
 %setup -q
 
 %build
-%configure
+%configure --enable-compat-utils
 make
 
 %install
@@ -36,24 +47,121 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%files compat
+%defattr(-,root,root)
+%{_sbindir}/ibcheckerrs
+%{_mandir}/man8/ibcheckerrs.8.gz
+%{_sbindir}/ibchecknet
+%{_mandir}/man8/ibchecknet.8.gz
+%{_sbindir}/ibchecknode
+%{_mandir}/man8/ibchecknode.8.gz
+%{_sbindir}/ibcheckport
+%{_mandir}/man8/ibcheckport.8.gz
+%{_sbindir}/ibcheckportwidth
+%{_mandir}/man8/ibcheckportwidth.8.gz
+%{_sbindir}/ibcheckportstate
+%{_mandir}/man8/ibcheckportstate.8.gz
+%{_sbindir}/ibcheckwidth
+%{_mandir}/man8/ibcheckwidth.8.gz
+%{_sbindir}/ibcheckstate
+%{_mandir}/man8/ibcheckstate.8.gz
+%{_sbindir}/ibcheckerrors
+%{_mandir}/man8/ibcheckerrors.8.gz
+%{_sbindir}/ibdatacounts
+%{_mandir}/man8/ibdatacounts.8.gz
+%{_sbindir}/ibdatacounters
+%{_mandir}/man8/ibdatacounters.8.gz
+%{_sbindir}/ibdiscover.pl
+%{_mandir}/man8/ibdiscover.8.gz
+%{_sbindir}/ibswportwatch.pl
+%{_mandir}/man8/ibswportwatch.8.gz
+%{_sbindir}/ibqueryerrors.pl
+%{_sbindir}/iblinkinfo.pl
+%{_sbindir}/ibprintca.pl
+%{_mandir}/man8/ibprintca.8.gz
+%{_sbindir}/ibprintswitch.pl
+%{_mandir}/man8/ibprintswitch.8.gz
+%{_sbindir}/ibprintrt.pl
+%{_mandir}/man8/ibprintrt.8.gz
+%{_sbindir}/set_nodedesc.sh
+
+
 %files
 %defattr(-,root,root)
-%{_sbindir}/ib*
+# C programs here
+%{_sbindir}/ibaddr
+%{_mandir}/man8/ibaddr.8.gz
+%{_sbindir}/ibnetdiscover
+%{_mandir}/man8/ibnetdiscover.8.gz
+%{_sbindir}/ibping
+%{_mandir}/man8/ibping.8.gz
+%{_sbindir}/ibportstate
+%{_mandir}/man8/ibportstate.8.gz
+%{_sbindir}/ibroute
+%{_mandir}/man8/ibroute.8.gz
+%{_sbindir}/ibstat
+%{_mandir}/man8/ibstat.8.gz
+%{_sbindir}/ibsysstat
+%{_mandir}/man8/ibsysstat.8.gz
+%{_sbindir}/ibtracert
+%{_mandir}/man8/ibtracert.8.gz
 %{_sbindir}/perfquery
+%{_mandir}/man8/perfquery.8.gz
+%{_sbindir}/sminfo
+%{_mandir}/man8/sminfo.8.gz
+%{_sbindir}/smpdump
+%{_mandir}/man8/smpdump.8.gz
+%{_sbindir}/smpquery
+%{_mandir}/man8/smpquery.8.gz
 %{_sbindir}/saquery
+%{_mandir}/man8/saquery.8.gz
 %{_sbindir}/vendstat
-%{_sbindir}/dump_mfts.sh
-%{_sbindir}/dump_lfts.sh
+%{_mandir}/man8/vendstat.8.gz
+%{_sbindir}/iblinkinfo
+%{_mandir}/man8/iblinkinfo.8.gz
+%{_sbindir}/ibqueryerrors
+%{_mandir}/man8/ibqueryerrors.8.gz
+%{_sbindir}/ibcacheedit
+%{_mandir}/man8/ibcacheedit.8.gz
+%{_sbindir}/ibccquery
+%{_mandir}/man8/ibccquery.8.gz
+%{_sbindir}/ibccconfig
+%{_mandir}/man8/ibccconfig.8.gz
+
+# scripts here
+%{_sbindir}/ibhosts
+%{_mandir}/man8/ibhosts.8.gz
+%{_sbindir}/ibswitches
+%{_mandir}/man8/ibswitches.8.gz
+%{_sbindir}/ibnodes
+%{_mandir}/man8/ibnodes.8.gz
+%{_sbindir}/ibrouters
+%{_mandir}/man8/ibrouters.8.gz
+%{_sbindir}/ibfindnodesusing.pl
+%{_mandir}/man8/ibfindnodesusing.8.gz
+%{_sbindir}/ibidsverify.pl
+%{_mandir}/man8/ibidsverify.8.gz
 %{_sbindir}/check_lft_balance.pl
-%{_sbindir}/set_nodedesc.sh
-%{_sbindir}/sm*
+%{_mandir}/man8/check_lft_balance.8.gz
+%{_sbindir}/dump_lfts.sh
+%{_mandir}/man8/dump_lfts.8.gz
+%{_sbindir}/dump_mfts.sh
+%{_mandir}/man8/dump_mfts.8.gz
+%{_sbindir}/ibclearerrors
+%{_mandir}/man8/ibclearerrors.8.gz
+%{_sbindir}/ibclearcounters
+%{_mandir}/man8/ibclearcounters.8.gz
+%{_sbindir}/ibstatus
+%{_mandir}/man8/ibstatus.8.gz
+
+# and the rest
+%{_mandir}/man8/infiniband-diags.8.gz
 %{_libdir}/*.a
 %{_libdir}/*.so*
+%{_mandir}/man3/*
 %{_includedir}/infiniband/*.h
 %define _perldir %(perl -e 'use Config; $T=$Config{installvendorlib}; print $T;')
 %{_perldir}/*
-%{_mandir}/man8/*
-%{_mandir}/man3/*
 %{_sysconfdir}/*
 %doc README COPYING ChangeLog
 

@@ -79,6 +79,18 @@ esac],[tutils=no])
 AM_CONDITIONAL(ENABLE_TEST_UTILS, test x$tutils = xyes)
 AC_MSG_RESULT(${tutils=no})
 
+dnl Check if we should include compat utils
+AC_MSG_CHECKING(for --enable-compat-utils)
+AC_ARG_ENABLE(compat-utils,
+[  --enable-compat-utils build deprecated compatibility utilities (default=no)],
+[case "${enableval}" in
+  yes) cutils=yes ;;
+  no)  cutils=no ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-compat-utils) ;;
+esac],[cutils=no])
+AM_CONDITIONAL(ENABLE_COMPAT_UTILS, test x$cutils = xyes)
+AC_MSG_RESULT(${cutils=no})
+
 dnl Check for perl and perl install location
 AC_MSG_CHECKING(for --with-perl-path )
 AC_ARG_WITH(perl-path,
