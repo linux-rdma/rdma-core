@@ -379,7 +379,7 @@ static void ucma_free_id(struct cma_id_private *id_priv)
 
 	if (id_priv->sync)
 		rdma_destroy_event_channel(id_priv->id.channel);
-	if (id_priv->connect)
+	if (id_priv->connect_len)
 		free(id_priv->connect);
 	free(id_priv);
 }
@@ -1319,7 +1319,7 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
-	if (id_priv->connect) {
+	if (id_priv->connect_len) {
 		free(id_priv->connect);
 		id_priv->connect_len = 0;
 	}
