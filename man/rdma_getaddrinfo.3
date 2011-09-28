@@ -28,10 +28,15 @@ RDMA functional equivalent to getaddrinfo.
 Returns 0 on success, or -1 on error.  If an error occurs, errno will be
 set to indicate the failure reason.
 .SH "NOTES"
-Either node or service must be provided.  If hints are provided, the
+Either node, service, or hints must be provided.  If hints are provided, the
 operation will be controlled by hints.ai_flags.  If RAI_PASSIVE is
 specified, the call will resolve address information for use on the
 passive side of a connection.
+If node is provided, rdma_getaddrinfo will attempt to resolve the RDMA address,
+route, and connection data to the given node.  The hints parameter, if provided,
+may be used to control the resulting output as indicated below.
+If node is not given, rdma_getaddrinfo will attempt to resolve the RDMA addressing
+information based on the hints.ai_src_addr, hints.ai_dst_addr, or hints.ai_route.
 .SH "rdma_addrinfo"
 .IP "ai_flags" 12
 Hint flags that control the operation.  Supported flags are:
@@ -74,7 +79,11 @@ could be resolved.
 Routing information for RDMA transports that require routing data as part
 of connection establishment.  The format of the routing data depends on
 the underlying transport.  If Infiniband transports are
-used, ai_route will reference an array of struct ibv_path_data.
+used, ai_route will reference an array of struct ibv_path_data on output,
+if routing data is available.  Routing paths may be restricted by setting
+desired routing data fields on input to rdma_getaddrinfo.  For Infiniband,
+hints.ai_route may reference an array of struct ibv_path_record or
+struct ibv_path_data on input.
 .IP "ai_connect_len" 12
 Size of connection information referenced by ai_connect.  This will be
 0 if the underlying transport does not require additional connection

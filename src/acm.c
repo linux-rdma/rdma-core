@@ -300,10 +300,21 @@ void ucma_ib_resolve(struct rdma_addrinfo *rai, struct rdma_addrinfo *hints)
 	}
 
 	if (hints && hints->ai_route_len) {
-		data->type = ACM_EP_INFO_PATH;
-		memcpy(&data->info.path, hints->ai_route, hints->ai_route_len);
-		data++;
-		msg.hdr.length += ACM_MSG_EP_LENGTH;
+		struct ibv_path_record *path;
+
+		if (hints->ai_route_len == sizeof(struct ibv_path_record))
+			path = (struct ibv_path_record *) hints->ai_route;
+		else if (hints->ai_route_len == sizeof(struct ibv_path_data))
+			path = &((struct ibv_path_data *) hints->ai_route)->path;
+		else
+			path = NULL;
+
+		if (path) {
+			data->type = ACM_EP_INFO_PATH;
+			memcpy(&data->info.path, path, sizeof(*path));
+			data++;
+			msg.hdr.length += ACM_MSG_EP_LENGTH;
+		}
 	}
 
 	pthread_mutex_lock(&acm_lock);
