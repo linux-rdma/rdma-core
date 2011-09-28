@@ -426,10 +426,11 @@ static int print_results(ib_portid_t * portid, char *node_name,
 			summary.bad_nodes++;
 		}
 
-		if (portnum == 0xFF)
-			printf("   GUID 0x%" PRIx64 " port ALL:%s\n",
-			       node->ports[0]->guid, str);
-		else
+		if (portnum == 0xFF) {
+			if (node->type == IB_NODE_SWITCH)
+				printf("   GUID 0x%" PRIx64 " port ALL:%s\n",
+				       node->ports[0]->guid, str);
+		} else
 			printf("   GUID 0x%" PRIx64 " port %d:%s\n",
 			       node->ports[portnum]->guid, portnum, str);
 		if (portnum != 0xFF && port_config)
