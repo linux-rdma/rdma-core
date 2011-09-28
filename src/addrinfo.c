@@ -231,7 +231,7 @@ int rdma_getaddrinfo(char *node, char *service,
 	}
 
 	if (!(rai->ai_flags & RAI_PASSIVE))
-		ucma_ib_resolve(rai, hints);
+		ucma_ib_resolve(&rai, hints);
 
 	*res = rai;
 	return 0;

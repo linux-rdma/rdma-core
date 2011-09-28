@@ -82,7 +82,7 @@ extern int af_ib_support;
 #ifdef USE_IB_ACM
 void ucma_ib_init();
 void ucma_ib_cleanup();
-void ucma_ib_resolve(struct rdma_addrinfo *rai, struct rdma_addrinfo *hints);
+void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints);
 #else
 #define ucma_ib_init()
 #define ucma_ib_cleanup()
