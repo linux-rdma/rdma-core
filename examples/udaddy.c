@@ -44,6 +44,7 @@
 #include <getopt.h>
 
 #include <rdma/rdma_cma.h>
+#include "common.h"
 
 struct cmatest_node {
 	int			id;
@@ -64,17 +65,14 @@ struct cmatest {
 	int			conn_index;
 	int			connects_left;
 
-	struct sockaddr_in	dst_in;
-	struct sockaddr		*dst_addr;
-	struct sockaddr_in	src_in;
-	struct sockaddr		*src_addr;
+	struct rdma_addrinfo	*rai;
 };
 
 static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
-static uint16_t port = 7174;
+static char *port = "7174";
 static uint8_t set_tos = 0;
 static uint8_t tos;
 static char *dst_addr;
@@ -274,6 +272,8 @@ static int route_handler(struct cmatest_node *node)
 		goto err;
 
 	memset(&conn_param, 0, sizeof conn_param);
+	conn_param.private_data = test.rai->ai_connect;
+	conn_param.private_data_len = test.rai->ai_connect_len;
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
 		perror("udaddy: failure connecting");
@@ -502,31 +502,10 @@ static int connect_events(void)
 	return ret;
 }
 
-static int get_addr(char *dst, struct sockaddr_in *addr)
-{
-	struct addrinfo *res;
-	int ret;
-
-	ret = getaddrinfo(dst, NULL, NULL, &res);
-	if (ret) {
-		printf("getaddrinfo failed - invalid hostname or IP address\n");
-		return ret;
-	}
-
-	if (res->ai_family != PF_INET) {
-		ret = -1;
-		goto out;
-	}
-
-	*addr = *(struct sockaddr_in *) res->ai_addr;
-out:
-	freeaddrinfo(res);
-	return ret;
-}
-
 static int run_server(void)
 {
 	struct rdma_cm_id *listen_id;
+	struct rdma_addrinfo hints;
 	int i, ret;
 
 	printf("udaddy: starting server\n");
@@ -536,15 +515,16 @@ static int run_server(void)
 		return ret;
 	}
 
-	if (src_addr) {
-		ret = get_addr(src_addr, &test.src_in);
-		if (ret)
-			goto out;
-	} else
-		test.src_in.sin_family = PF_INET;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_flags = RAI_PASSIVE;
+	hints.ai_port_space = port_space;
+	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
+	if (ret) {
+		perror("cmatose: getrdmaaddr error");
+		goto out;
+	}
 
-	test.src_in.sin_port = port;
-	ret = rdma_bind_addr(listen_id, test.src_addr);
+	ret = rdma_bind_addr(listen_id, test.rai->ai_src_addr);
 	if (ret) {
 		perror("udaddy: bind address failed");
 		goto out;
@@ -583,26 +563,23 @@ out:
 
 static int run_client(void)
 {
+	struct rdma_addrinfo hints;
 	int i, ret;
 
 	printf("udaddy: starting client\n");
-	if (src_addr) {
-		ret = get_addr(src_addr, &test.src_in);
-		if (ret)
-			return ret;
-	}
 
-	ret = get_addr(dst_addr, &test.dst_in);
-	if (ret)
+	memset(&hints, 0, sizeof hints);
+	hints.ai_port_space = port_space;
+	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
+	if (ret) {
+		perror("udaddy: getaddrinfo error");
 		return ret;
-
-	test.dst_in.sin_port = port;
+	}
 
 	printf("udaddy: connecting\n");
 	for (i = 0; i < connections; i++) {
-		ret = rdma_resolve_addr(test.nodes[i].cma_id,
-					src_addr ? test.src_addr : NULL,
-					test.dst_addr, 2000);
+		ret = rdma_resolve_addr(test.nodes[i].cma_id, test.rai->ai_src_addr,
+					test.rai->ai_dst_addr, 2000);
 		if (ret) {
 			perror("udaddy: failure getting addr");
 			connect_error();
@@ -674,8 +651,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	test.dst_addr = (struct sockaddr *) &test.dst_in;
-	test.src_addr = (struct sockaddr *) &test.src_in;
 	test.connects_left = connections;
 
 	test.channel = rdma_create_event_channel();
@@ -695,6 +670,8 @@ int main(int argc, char **argv)
 	printf("test complete\n");
 	destroy_nodes();
 	rdma_destroy_event_channel(test.channel);
+	if (test.rai)
+		rdma_freeaddrinfo(test.rai);
 
 	printf("return status %d\n", ret);
 	return ret;
