@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006,2011 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -44,14 +44,7 @@
 #include <getopt.h>
 
 #include <rdma/rdma_cma.h>
-
-#if __BYTE_ORDER == __BIG_ENDIAN
-static inline uint64_t cpu_to_be64(uint64_t x) { return x; }
-static inline uint32_t cpu_to_be32(uint32_t x) { return x; }
-#else
-static inline uint64_t cpu_to_be64(uint64_t x) { return bswap_64(x); }
-static inline uint32_t cpu_to_be32(uint32_t x) { return bswap_32(x); }
-#endif
+#include "common.h"
 
 struct cmatest_node {
 	int			id;
@@ -75,14 +68,14 @@ struct cmatest {
 	int			connects_left;
 	int			disconnects_left;
 
-	struct rdma_addr	addr;
+	struct rdma_addrinfo	*rai;
 };
 
 static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
-static uint16_t port = 7471;
+static char *port = "7471";
 static uint8_t set_tos = 0;
 static uint8_t tos;
 static uint8_t migrate = 0;
@@ -258,6 +251,8 @@ static int route_handler(struct cmatest_node *node)
 	conn_param.responder_resources = 1;
 	conn_param.initiator_depth = 1;
 	conn_param.retry_count = 5;
+	conn_param.private_data = test.rai->ai_connect;
+	conn_param.private_data_len = test.rai->ai_connect_len;
 	ret = rdma_connect(node->cma_id, &conn_param);
 	if (ret) {
 		perror("cmatose: failure connecting");
@@ -502,31 +497,10 @@ static int migrate_channel(struct rdma_cm_id *listen_id)
 	return ret;
 }
 
-static int get_addr(char *dst, struct sockaddr *addr)
-{
-	struct addrinfo *res;
-	int ret;
-
-	ret = getaddrinfo(dst, NULL, NULL, &res);
-	if (ret) {
-		printf("getaddrinfo failed - invalid hostname or IP address\n");
-		return ret;
-	}
-
-	if (res->ai_family == PF_INET)
-		memcpy(addr, res->ai_addr, sizeof(struct sockaddr_in));
-	else if (res->ai_family == PF_INET6)
-		memcpy(addr, res->ai_addr, sizeof(struct sockaddr_in6));
-	else
-		ret = -1;
-
-        freeaddrinfo(res);
-        return ret;
-}
-
 static int run_server(void)
 {
 	struct rdma_cm_id *listen_id;
+	struct rdma_addrinfo hints;
 	int i, ret;
 
 	printf("cmatose: starting server\n");
@@ -536,22 +510,16 @@ static int run_server(void)
 		return ret;
 	}
 
-	if (src_addr) {
-		ret = get_addr(src_addr, &test.addr.src_addr);
-		if (ret)
-			goto out;
-		if (test.addr.src_addr.sa_family == AF_INET)
-			test.addr.src_sin.sin_port = port;
-		else
-			test.addr.src_sin6.sin6_port = port;
-		
-	} else {
-		test.addr.src_addr.sa_family = AF_INET;
-		test.addr.src_sin.sin_port = port;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_flags = RAI_PASSIVE;
+	hints.ai_port_space = RDMA_PS_TCP;
+	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
+	if (ret) {
+		perror("cmatose: getrdmaaddr error");
+		goto out;
 	}
 
-	ret = rdma_bind_addr(listen_id, &test.addr.src_addr);
-
+	ret = rdma_bind_addr(listen_id, test.rai->ai_src_addr);
 	if (ret) {
 		perror("cmatose: bind address failed");
 		goto out;
@@ -614,29 +582,23 @@ out:
 
 static int run_client(void)
 {
+	struct rdma_addrinfo hints;
 	int i, ret, ret2;
 
 	printf("cmatose: starting client\n");
-	if (src_addr) {
-		ret = get_addr(src_addr, &test.addr.src_addr);
-		if (ret)
-			return ret;
-	}
 
-	ret = get_addr(dst_addr, &test.addr.dst_addr);
-	if (ret)
+	memset(&hints, 0, sizeof hints);
+	hints.ai_port_space = RDMA_PS_TCP;
+	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
+	if (ret) {
+		perror("cmatose: getaddrinfo error");
 		return ret;
-
-	if (test.addr.dst_addr.sa_family == AF_INET)
-		test.addr.dst_sin.sin_port = port;
-	else
-		test.addr.dst_sin6.sin6_port = port;
+	}
 
 	printf("cmatose: connecting\n");
 	for (i = 0; i < connections; i++) {
-		ret = rdma_resolve_addr(test.nodes[i].cma_id,
-					src_addr ? &test.addr.src_addr : NULL,
-					&test.addr.dst_addr, 2000);
+		ret = rdma_resolve_addr(test.nodes[i].cma_id, test.rai->ai_src_addr,
+					test.rai->ai_dst_addr, 2000);
 		if (ret) {
 			perror("cmatose: failure getting addr");
 			connect_error();
@@ -705,7 +667,7 @@ int main(int argc, char **argv)
 			tos = (uint8_t) strtoul(optarg, NULL, 0);
 			break;
 		case 'p':
-			port = atoi(optarg);
+			port = optarg;
 			break;
 		case 'm':
 			migrate = 1;
@@ -744,6 +706,8 @@ int main(int argc, char **argv)
 	printf("test complete\n");
 	destroy_nodes();
 	rdma_destroy_event_channel(test.channel);
+	if (test.rai)
+		rdma_freeaddrinfo(test.rai);
 
 	printf("return status %d\n", ret);
 	return ret;
