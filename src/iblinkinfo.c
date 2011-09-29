@@ -77,6 +77,8 @@ static int all = 0;
 static int down_links_only = 0;
 static int line_mode = 0;
 static int add_sw_settings = 0;
+static int only_flag = 0;
+static int only_type = 0;
 
 int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
 {
@@ -443,8 +445,14 @@ int diff_node(ibnd_node_t * node, ibnd_fabric_t * orig_fabric,
 	iter_diff_data.fabric2_prefix = "> ";
 	if (node)
 		diff_node_iter(node, &iter_diff_data);
-	else
-		ibnd_iter_nodes(orig_fabric, diff_node_iter, &iter_diff_data);
+	else {
+		if (only_flag)
+			ibnd_iter_nodes_type(orig_fabric, diff_node_iter,
+					     only_type, &iter_diff_data);
+		else
+			ibnd_iter_nodes(orig_fabric, diff_node_iter,
+					&iter_diff_data);
+	}
 
 	/* Do opposite diff to find existence of node types
 	 * in new_fabric but not in orig_fabric.
@@ -464,8 +472,14 @@ int diff_node(ibnd_node_t * node, ibnd_fabric_t * orig_fabric,
 	iter_diff_data.fabric2_prefix = "< ";
 	if (node)
 		diff_node_iter(node, &iter_diff_data);
-	else
-		ibnd_iter_nodes(new_fabric, diff_node_iter, &iter_diff_data);
+	else {
+		if (only_flag)
+			ibnd_iter_nodes_type(new_fabric, diff_node_iter,
+					     only_type, &iter_diff_data);
+		else
+			ibnd_iter_nodes(new_fabric, diff_node_iter,
+					&iter_diff_data);
+	}
 
 	return 0;
 }
@@ -507,6 +521,14 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 5:
 		filterdownports_cache_file = strdup(optarg);
+		break;
+	case 6:
+		only_flag = 1;
+		only_type = IB_NODE_SWITCH;
+		break;
+	case 7:
+		only_flag = 1;
+		only_type = IB_NODE_CA;
 		break;
 	case 'S':
 	case 'G':
@@ -583,6 +605,10 @@ int main(int argc, char **argv)
 		{"outstanding_smps", 'o', 1, NULL,
 		 "specify the number of outstanding SMP's which should be "
 		 "issued during the scan"},
+		{"switches-only", 6, 0, NULL,
+		 "Output only switches"},
+		{"cas-only", 7, 0, NULL,
+		 "Output only CAs"},
 		{"GNDN", 'R', 0, NULL,
 		 "(This option is obsolete and does nothing)"},
 		{0}
@@ -663,7 +689,7 @@ int main(int argc, char **argv)
 
 	if (!all && guid_str) {
 		ibnd_port_t *p = ibnd_find_port_guid(fabric, guid);
-		if (p) {
+		if (p && (!only_flag || p->node->type == only_type)) {
 			ibnd_node_t *n = p->node;
 			if (diff_fabric)
 				diff_node(n, diff_fabric, fabric);
@@ -682,7 +708,7 @@ int main(int argc, char **argv)
 		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(guid));
 
 		p = ibnd_find_port_guid(fabric, guid);
-		if (p) {
+		if (p && (!only_flag || p->node->type == only_type)) {
 			ibnd_node_t *n = p->node;
 			if (diff_fabric)
 				diff_node(n, diff_fabric, fabric);
@@ -694,8 +720,13 @@ int main(int argc, char **argv)
 	} else {
 		if (diff_fabric)
 			diff_node(NULL, diff_fabric, fabric);
-		else
-			ibnd_iter_nodes(fabric, print_node, NULL);
+		else {
+			if (only_flag)
+				ibnd_iter_nodes_type(fabric, print_node,
+						     only_type, NULL);
+			else
+				ibnd_iter_nodes(fabric, print_node, NULL);
+		}
 	}
 
 	ibnd_destroy_fabric(fabric);
