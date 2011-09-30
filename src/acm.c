@@ -237,26 +237,28 @@ err:
 	rdma_freeaddrinfo(ib_rai);
 }
 
-static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg *msg)
+static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_msg *msg)
 {
+	struct acm_ep_addr_data *ep_data;
 	struct ibv_path_data *path_data = NULL;
 	struct ibv_path_record *pri_path = NULL;
 	int i, cnt, path_cnt = 0;
 
 	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
 	for (i = 0; i < cnt; i++) {
-		switch (msg->data[i].type) {
+		ep_data = &msg->resolve_data[i];
+		switch (ep_data->type) {
 		case ACM_EP_INFO_PATH:
-			msg->data[i].type = 0;
+			ep_data->type = 0;
 			if (!path_data)
-				path_data = (struct ibv_path_data *) &msg->data[i];
+				path_data = (struct ibv_path_data *) ep_data;
 			path_cnt++;
-			if (msg->data[i].flags |
+			if (ep_data->flags |
 			    (IBV_PATH_FLAG_PRIMARY | IBV_PATH_FLAG_OUTBOUND))
 				pri_path = &path_data[i].path;
 			break;
 		case ACM_EP_INFO_ADDRESS_IP:
-			if (!(msg->data[i].flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
+			if (!(ep_data->flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
 				break;
 
 			rai->ai_src_addr = calloc(1, sizeof(struct sockaddr_in));
@@ -265,10 +267,10 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 
 			rai->ai_src_len = sizeof(struct sockaddr_in);
 			memcpy(&((struct sockaddr_in *) rai->ai_src_addr)->sin_addr,
-			       &msg->data[i].info.addr, 4);
+			       &ep_data->info.addr, 4);
 			break;
 		case ACM_EP_INFO_ADDRESS_IP6:
-			if (!(msg->data[i].flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
+			if (!(ep_data->flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
 				break;
 
 			rai->ai_src_addr = calloc(1, sizeof(struct sockaddr_in6));
@@ -277,7 +279,7 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_resolve_msg 
 
 			rai->ai_src_len = sizeof(struct sockaddr_in6);
 			memcpy(&((struct sockaddr_in6 *) rai->ai_src_addr)->sin6_addr,
-			       &msg->data[i].info.addr, 16);
+			       &ep_data->info.addr, 16);
 			break;
 		default:
 			break;
@@ -305,7 +307,6 @@ static void ucma_copy_rai_addr(struct acm_ep_addr_data *data, struct sockaddr *a
 void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 {
 	struct acm_msg msg;
-	struct acm_resolve_msg *resolve_msg = (struct acm_resolve_msg *) &msg;
 	struct acm_ep_addr_data *data;
 	int ret;
 
@@ -317,7 +318,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 	msg.hdr.opcode = ACM_OP_RESOLVE;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH;
 
-	data = &resolve_msg->data[0];
+	data = &msg.resolve_data[0];
 	if ((*rai)->ai_src_len) {
 		data->flags = ACM_EP_FLAG_SOURCE;
 		ucma_copy_rai_addr(data, (*rai)->ai_src_addr);
@@ -364,7 +365,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 	if (ret < ACM_MSG_HDR_LENGTH || ret != msg.hdr.length || msg.hdr.status)
 		return;
 
-	ucma_ib_save_resp(*rai, resolve_msg);
+	ucma_ib_save_resp(*rai, &msg);
 
 	if (af_ib_support && !((*rai)->ai_flags & RAI_ROUTEONLY) &&
 	    (*rai)->ai_route_len)
