@@ -516,7 +516,7 @@ static int ucma_addrlen(struct sockaddr *addr)
 	case PF_INET6:
 		return sizeof(struct sockaddr_in6);
 	case PF_IB:
-		return sizeof(struct sockaddr_ib);
+		return af_ib_support ? sizeof(struct sockaddr_ib) : 0;
 	default:
 		return 0;
 	}
