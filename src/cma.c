@@ -846,8 +846,12 @@ static int ucma_set_ib_route(struct rdma_cm_id *id)
 	if (ret)
 		return ret;
 
-	ret = rdma_set_option(id, RDMA_OPTION_IB, RDMA_OPTION_IB_PATH,
-			      rai->ai_route, rai->ai_route_len);
+	if (rai->ai_route_len)
+		ret = rdma_set_option(id, RDMA_OPTION_IB, RDMA_OPTION_IB_PATH,
+				      rai->ai_route, rai->ai_route_len);
+	else
+		ret = -1;
+
 	rdma_freeaddrinfo(rai);
 	return ret;
 }
