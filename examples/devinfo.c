@@ -139,7 +139,12 @@ static const char *speed_str(uint8_t speed)
 	switch (speed) {
 	case 1:  return "2.5 Gbps";
 	case 2:  return "5.0 Gbps";
-	case 4:  return "10.0 Gbps";
+
+	case 4:  /* fall through */
+	case 8:  return "10.0 Gbps";
+
+	case 16: return "14.0 Gbps";
+	case 32: return "25.0 Gbps";
 	default: return "invalid speed";
 	}
 }
