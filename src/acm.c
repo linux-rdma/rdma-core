@@ -950,9 +950,13 @@ acm_record_path_addr(struct acm_ep *ep, struct acm_dest *dest,
 {
 	acm_log(2, "%s\n", dest->name);
 	dest->path.pkey = htons(ep->pkey);
-	dest->path.sgid = path->sgid;
 	dest->path.dgid = path->dgid;
-	dest->path.slid = path->slid;
+	if (path->slid || !ib_any_gid(&path->sgid)) {
+		dest->path.sgid = path->sgid;
+		dest->path.slid = path->slid;
+	} else {
+		dest->path.slid = ep->port->lid;
+	}
 	dest->path.dlid = path->dlid;
 	dest->state = ACM_ADDR_RESOLVED;
 }
@@ -1746,10 +1750,29 @@ static void acm_svr_accept(void)
 static int
 acm_is_path_from_port(struct acm_port *port, struct ibv_path_record *path)
 {
-	if (ib_any_gid(&path->sgid)) {
+	union ibv_gid gid;
+	uint8_t i;
+
+	if (!ib_any_gid(&path->sgid)) {
+		return (acm_gid_index(port, &path->sgid) < port->gid_cnt);
+	}
+
+	if (path->slid) {
 		return (port->lid == (ntohs(path->slid) & port->lid_mask));
 	}
-	return (acm_gid_index(port, &path->sgid) < port->gid_cnt);
+
+	if (acm_gid_index(port, &path->dgid) < port->gid_cnt) {
+		return 1;
+	}
+
+	for (i = 0; i < port->gid_cnt; i++) {
+		ibv_query_gid(port->dev->verbs, port->port_num, i, &gid);
+		if (gid.global.subnet_prefix == path->dgid.global.subnet_prefix) {
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 static struct acm_ep *
