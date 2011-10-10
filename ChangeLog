@@ -1,6 +1,28 @@
-commit aa01ae66b6b9d83b570631456bf03b6b42b90931
+commit 49507d0a9d75a146be39e5fd89e749aba89fc23d
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Oct 25 10:06:54 2010 -0500
+Date:   Mon Oct 10 09:52:43 2011 -0500
+
+    Spin 1.3.1 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f2aed2ca2ede359f04b43e482c8e0cd6e035aa9d
+Author: Kumar Sanghvi <kumaras@chelsio.com>
+Date:   Mon Oct 10 09:51:43 2011 -0500
+
+    From 20c71f269c2b9abbab9a0b3333dd15aaf8c0de0f Mon Sep 17 00:00:00 2001
+    Subject: [PATCH] qp.c: Track qp flush status
+    
+    Track qp flush status, and don't re-flush a qp if its already
+    flushed once.
+    
+    This resolves segfaults observed with dapltest.
+    
+    Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+
+commit 0bbd607c53059e12d6a020332b0cb6f1a1435350
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 25 10:07:00 2010 -0500
 
     Spin release 1.3.0.
     
