@@ -478,10 +478,14 @@ void iwch_flush_qp(struct iwch_qp *qhp)
 	struct iwch_cq *rchp, *schp;
 	int count;
 
+	if (qhp->wq.flushed)
+		return;
+
 	rchp = qhp->rhp->cqid2ptr[to_iwch_cq(qhp->ibv_qp.recv_cq)->cq.cqid];
 	schp = qhp->rhp->cqid2ptr[to_iwch_cq(qhp->ibv_qp.send_cq)->cq.cqid];
 	
 	PDBG("%s qhp %p rchp %p schp %p\n", __FUNCTION__, qhp, rchp, schp);
+	qhp->wq.flushed = 1;
 
 #ifdef notyet
 	/* take a ref on the qhp since we must release the lock */
@@ -522,10 +526,12 @@ void iwch_flush_qps(struct iwch_device *dev)
 	pthread_spin_lock(&dev->lock);
 	for (i=0; i < T3_MAX_NUM_QP; i++) {
 		struct iwch_qp *qhp = dev->qpid2ptr[i];
-		if (qhp && t3_wq_in_error(&qhp->wq)) {
-			pthread_spin_lock(&qhp->lock);
-			iwch_flush_qp(qhp);
-			pthread_spin_unlock(&qhp->lock);
+		if (qhp) {
+			if (!qhp->wq.flushed && t3_wq_in_error(&qhp->wq)) {
+				pthread_spin_lock(&qhp->lock);
+				iwch_flush_qp(qhp);
+				pthread_spin_unlock(&qhp->lock);
+			}
 		}
 	}
 	pthread_spin_unlock(&dev->lock);

@@ -603,6 +603,7 @@ struct t3_wq {
 	uint32_t rq_rptr;		/* pending wrs */
 	uint32_t rq_size_log2;		/* rq size */
 	volatile uint32_t *doorbell;	/* mapped adapter doorbell register */
+	int flushed;
 };
 
 struct t3_cq {
