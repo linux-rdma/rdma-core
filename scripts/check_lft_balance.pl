@@ -41,10 +41,10 @@
 use strict;
 
 use Getopt::Std;
-use IBswcountlimits;
 
-my $regenerate_cache = 0;
-my $verbose          = 0;
+my $ibnetdiscover_cache = "";
+my $dump_lft_file       = "";
+my $verbose             = 0;
 
 my $switch_lid                            = undef;
 my $switch_guid                           = undef;
@@ -60,18 +60,15 @@ my $lft_line;
 my $lids_per_port;
 my $lids_per_port_calculated;
 
-my $iblinkinfo_regenerate = 0;
-
-my $cache_file;
-
 sub usage
 {
 	my $prog = `basename $0`;
 
 	chomp($prog);
-	print "Usage: $prog [-R -v]\n";
-	print "  -R recalculate all cached information\n";
-	print "  -v verbose output\n";
+	print "Usage: $prog -l lft-output -i ibnetdiscover-cache [-v]\n";
+	print "  Generate lft-output via \"dump_lfts.sh > lft-output\"\n";
+	print "  Generate ibnetdiscover-cache via \"ibnetdiscover --cache ibnetdiscover-cache\"\n";
+	print "  -v verbose output, output all switches\n";
 	exit 2;
 }
 
@@ -93,13 +90,18 @@ sub is_port_up
 
 	@lines = split("\n", $iblinkinfo_output);
 	foreach $line (@lines) {
-		if ($line =~ /$decport\[..\]  ==/) {
+		if ($line =~ /$decport\[..\] ==/) {
 			if ($line =~ /Down/) {
 				return 0;
 			}
+			else {
+				return 1;
+			}
 		}
 	}
-	return 1;
+
+	# return 0 if not found
+	return 0;
 }
 
 sub is_directly_connected
@@ -129,7 +131,7 @@ sub is_directly_connected
 
 	@lines = split("\n", $iblinkinfo_output);
 	foreach $line (@lines) {
-		if ($line =~ /$decport\[..\]  ==/) {
+		if ($line =~ /$decport\[..\] ==/) {
 			$str = $line;
 		}
 	}
@@ -155,21 +157,16 @@ sub output_switch_port_usage
 	my @ports     = (
 		"001", "002", "003", "004", "005", "006", "007", "008",
 		"009", "010", "011", "012", "013", "014", "015", "016",
-		"017", "018", "019", "020", "021", "022", "023", "024"
+		"017", "018", "019", "020", "021", "022", "023", "024",
+		"025", "026", "027", "028", "029", "030", "031", "032",
+		"033", "034", "035", "036"
 	);
 	my @output_ports = ();
 	my $port;
 	my $iblinkinfo_output;
 	my $ret;
 
-	# Run command once to reduce number of calls to iblinkinfo.pl
-        if ($regenerate_cache && !$iblinkinfo_regenerate) {
-            $iblinkinfo_output = `iblinkinfo.pl -R -S $switch_guid`;
-            $iblinkinfo_regenerate++;
-        }
-        else {
-            $iblinkinfo_output = `iblinkinfo.pl -S $switch_guid`;
-        }
+        $iblinkinfo_output = `iblinkinfo --load-cache $ibnetdiscover_cache -S $switch_guid`;
 
 	for $port (@ports) {
 		if (!defined($switch_port_count{$port})) {
@@ -238,7 +235,7 @@ sub process_host_ports
 	}
 }
 
-if (!getopts("hRv")) {
+if (!getopts("hl:i:v")) {
 	usage();
 }
 
@@ -246,24 +243,28 @@ if (defined($main::opt_h)) {
 	usage();
 }
 
-if (defined($main::opt_R)) {
-	$regenerate_cache = 1;
+if (defined($main::opt_l)) {
+	$dump_lft_file = $main::opt_l;
+} else {
+	print STDERR ("Must specify dump lfts file\n");
+	usage();
+	exit 1;
+}
+
+if (defined($main::opt_i)) {
+	$ibnetdiscover_cache = $main::opt_i;
+} else {
+	print STDERR ("Must specify ibnetdiscover cache\n");
+	usage();
+	exit 1;
 }
 
 if (defined($main::opt_v)) {
 	$verbose = 1;
 }
 
-$cache_file = "$IBswcountlimits::cache_dir/dump_lfts.out";
-if ($regenerate_cache || !(-f $cache_file)) {
-	`dump_lfts.sh > $cache_file`;
-	if ($? != 0) {
-		die "Execution of dump_lfts.sh failed with errors\n";
-	}
-}
-
-if (!open(FH, "< $cache_file")) {
-	print STDERR ("Couldn't open cache file: $cache_file: $!\n");
+if (!open(FH, "< $dump_lft_file")) {
+	print STDERR ("Couldn't open dump lfts file: $dump_lft_file: $!\n");
 }
 
 @lft_lines = <FH>;
