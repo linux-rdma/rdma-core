@@ -96,7 +96,7 @@ ibdiag_version:
 	fi
 
 EXTRA_DIST = scripts include infiniband-diags.spec.in infiniband-diags.spec \
-	$(man_MANS) autogen.sh etc/error_thresholds
+	$(man_MANS) autogen.sh etc/*
 
 dist-hook:
 	if [ -x $(top_srcdir)/gen_chlog.sh ] ; then \
@@ -110,3 +110,4 @@ install-data-hook:
 	fi
 	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/scripts/IBswcountlimits.pm $(DESTDIR)/$(PERL_INSTALLDIR)/IBswcountlimits.pm
 	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/etc/error_thresholds $(DESTDIR)/$(sysconfdir)/infiniband-diags
+	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/etc/ibdiag.conf $(DESTDIR)/$(sysconfdir)/infiniband-diags

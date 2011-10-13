@@ -52,6 +52,7 @@
 #include <config.h>
 #include <getopt.h>
 #include <limits.h>
+#include <sys/stat.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -59,13 +60,17 @@
 #include <ibdiag_version.h>
 
 int ibverbose;
-char *ibd_ca;
-int ibd_ca_port;
 enum MAD_DEST ibd_dest_type = IB_DEST_LID;
 ib_portid_t *ibd_sm_id;
-int ibd_timeout;
-
 static ib_portid_t sm_portid = { 0 };
+
+/* general config options */
+#define IBDIAG_CONFIG_GENERAL IBDIAG_CONFIG_PATH"/ibdiag.conf"
+static char *ibdiag_config_general = IBDIAG_CONFIG_GENERAL;
+char *ibd_ca = NULL;
+int ibd_ca_port = 0;
+int ibd_timeout = 0;
+
 
 static const char *prog_name;
 static const char *prog_args;
@@ -281,6 +286,46 @@ static void make_str_opts(const struct option *o, char *p, unsigned size)
 	p[n] = '\0';
 }
 
+void read_ibdiag_config(void)
+{
+	char buf[1024];
+	FILE *config_fd = NULL;
+	char *p_prefix, *p_last;
+	char *name;
+	char *val_str;
+	struct stat statbuf;
+
+	/* silently ignore missing config file */
+	if (stat(ibdiag_config_general, &statbuf))
+		return;
+
+	config_fd = fopen(ibdiag_config_general, "r");
+	if (!config_fd)
+		return;
+
+	while (fgets(buf, sizeof buf, config_fd) != NULL) {
+		p_prefix = strtok_r(buf, "\n", &p_last);
+		if (!p_prefix)
+			continue; /* ignore blank lines */
+
+		if (*p_prefix == '#')
+			continue; /* ignore comment lines */
+
+		name = strtok_r(p_prefix, "=", &p_last);
+		val_str = strtok_r(NULL, "\n", &p_last);
+
+		if (strncmp(name, "CA", strlen("CA")) == 0) {
+			ibd_ca = strdup(val_str);
+		} else if (strncmp(name, "Port", strlen("Port")) == 0) {
+			ibd_ca_port = strtoul(val_str, NULL, 0);
+		} else if (strncmp(name, "timeout", strlen("timeout")) == 0) {
+			ibd_timeout = strtoul(val_str, NULL, 0);
+		}
+	}
+
+	fclose(config_fd);
+}
+
 int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 			const char *exclude_common_str,
 			const struct ibdiag_opt custom_opts[],
@@ -298,6 +343,8 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 	long_opts = make_long_opts(exclude_common_str, custom_opts, opts_map);
 	if (!long_opts)
 		return -1;
+
+	read_ibdiag_config();
 
 	make_str_opts(long_opts, str_opts, sizeof(str_opts));
 

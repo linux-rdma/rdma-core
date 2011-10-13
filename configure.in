@@ -179,6 +179,7 @@ AC_CONFIG_FILES([\
 	scripts/iblinkinfo.pl \
 	scripts/ibqueryerrors.pl \
 	man/ibqueryerrors.8 \
+	man/infiniband-diags.8 \
 	libibnetdisc/Makefile \
 ])
 AC_OUTPUT
