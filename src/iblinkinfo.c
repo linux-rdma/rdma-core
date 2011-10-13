@@ -623,7 +623,7 @@ int main(int argc, char **argv)
 
 	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!ibmad_port) {
-		fprintf(stderr, "Failed to open %s port %d", ibd_ca,
+		fprintf(stderr, "Failed to open %s port %d\n", ibd_ca,
 			ibd_ca_port);
 		exit(1);
 	}
