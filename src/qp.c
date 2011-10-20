@@ -279,6 +279,24 @@ void dump_wqe(void *arg)
 	}
 }
 
+static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
+{
+	struct ibv_modify_qp cmd;
+	struct ibv_qp_attr attr;
+	int mask;
+	int ret;
+
+	if (qid == qhp->wq.sq.qid) {
+		attr.sq_psn = idx;
+		mask = IBV_QP_SQ_PSN;
+	} else  {
+		attr.rq_psn = idx;
+		mask = IBV_QP_RQ_PSN;
+	}
+	ret = ibv_cmd_modify_qp(&qhp->ibv_qp, &attr, mask, &cmd, sizeof cmd);
+	assert(!ret);
+}
+
 static int post_send_rc(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	           struct ibv_send_wr **bad_wr)
 {
@@ -370,6 +388,8 @@ static int post_send_rc(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 	if (t4_wq_db_enabled(&qhp->wq))
 		t4_ring_sq_db(&qhp->wq, idx);
+	else
+		ring_kernel_db(qhp, qhp->wq.sq.qid, idx);
 	pthread_spin_unlock(&qhp->lock);
 	return err;
 }
@@ -493,6 +513,8 @@ static int post_receive_rc(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	}
 	if (t4_wq_db_enabled(&qhp->wq))
 		t4_ring_rq_db(&qhp->wq, idx);
+	else
+		ring_kernel_db(qhp, qhp->wq.rq.qid, idx);
 	pthread_spin_unlock(&qhp->lock);
 	return err;
 }
