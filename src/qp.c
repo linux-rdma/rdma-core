@@ -286,6 +286,7 @@ static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
 	int mask;
 	int ret;
 
+	wmb();
 	if (qid == qhp->wq.sq.qid) {
 		attr.sq_psn = idx;
 		mask = IBV_QP_SQ_PSN;
@@ -390,6 +391,8 @@ static int post_send_rc(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		t4_ring_sq_db(&qhp->wq, idx);
 	else
 		ring_kernel_db(qhp, qhp->wq.sq.qid, idx);
+	qhp->wq.sq.queue[qhp->wq.sq.size].status.host_wq_pidx = \
+			(qhp->wq.sq.wq_pidx);
 	pthread_spin_unlock(&qhp->lock);
 	return err;
 }
@@ -515,6 +518,8 @@ static int post_receive_rc(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		t4_ring_rq_db(&qhp->wq, idx);
 	else
 		ring_kernel_db(qhp, qhp->wq.rq.qid, idx);
+	qhp->wq.rq.queue[qhp->wq.rq.size].status.host_wq_pidx = \
+			(qhp->wq.rq.wq_pidx);
 	pthread_spin_unlock(&qhp->lock);
 	return err;
 }
