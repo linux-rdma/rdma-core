@@ -1,6 +1,6 @@
 lib_LTLIBRARIES = src/libcxgb4.la
 
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+AM_CFLAGS = -g -Wall -D_GNU_SOURCE -DNDEBUG -DOVERFLOW_DETECTION
 
 if HAVE_LD_VERSION_SCRIPT
     cxgb4_version_script = -Wl,--version-script=$(srcdir)/src/cxgb4.map

@@ -544,6 +544,7 @@ static inline void t4_hwcq_consume(struct t4_cq *cq)
 		cq->cidx = 0;
 		cq->gen ^= 1;
 	}
+	((struct t4_status_page *)&cq->queue[cq->size])->host_cidx = cq->cidx;
 }
 
 static inline int t4_valid_cqe(struct t4_cq *cq, struct t4_cqe *cqe)
