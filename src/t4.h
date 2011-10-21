@@ -388,6 +388,8 @@ static inline void t4_rq_produce(struct t4_wq *wq, u8 len16)
 	wq->rq.wq_pidx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 	if (wq->rq.wq_pidx >= wq->rq.size * T4_RQ_NUM_SLOTS)
 		wq->rq.wq_pidx %= wq->rq.size * T4_RQ_NUM_SLOTS;
+	if (!wq->error)
+		wq->rq.queue[wq->rq.size].status.host_pidx = wq->rq.pidx;
 }
 
 static inline void t4_rq_consume(struct t4_wq *wq)
@@ -397,6 +399,8 @@ static inline void t4_rq_consume(struct t4_wq *wq)
 	if (++wq->rq.cidx == wq->rq.size)
 		wq->rq.cidx = 0;
 	assert((wq->rq.cidx != wq->rq.pidx) || wq->rq.in_use == 0);
+	if (!wq->error)
+		wq->rq.queue[wq->rq.size].status.host_cidx = wq->rq.cidx;
 }
 
 static inline int t4_sq_empty(struct t4_wq *wq)
@@ -427,6 +431,8 @@ static inline void t4_sq_produce(struct t4_wq *wq, u8 len16)
 	wq->sq.wq_pidx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 	if (wq->sq.wq_pidx >= wq->sq.size * T4_SQ_NUM_SLOTS)
 		wq->sq.wq_pidx %= wq->sq.size * T4_SQ_NUM_SLOTS;
+	if (!wq->error)
+		wq->sq.queue[wq->sq.size].status.host_pidx = (wq->sq.pidx);
 }
 
 static inline void t4_sq_consume(struct t4_wq *wq)
@@ -435,6 +441,8 @@ static inline void t4_sq_consume(struct t4_wq *wq)
 	if (++wq->sq.cidx == wq->sq.size)
 		wq->sq.cidx = 0;
 	assert((wq->sq.cidx != wq->sq.pidx) || wq->sq.in_use == 0);
+	if (!wq->error)
+		wq->sq.queue[wq->sq.size].status.host_cidx = wq->sq.cidx;
 }
 
 static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc)
