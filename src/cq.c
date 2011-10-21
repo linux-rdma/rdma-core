@@ -222,6 +222,17 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 		if (CQE_OPCODE(hw_cqe) == FW_RI_READ_RESP) {
 
 			/*
+			 * If we have reached here because of async
+			 * event or other error, and have egress error
+			 * then drop
+			 */
+			if (CQE_TYPE(hw_cqe) == 1) {
+				syslog(LOG_CRIT, "%s: got egress error in \
+					read-response, dropping!\n", __func__);
+				goto next_cqe;
+			}
+
+			/*
 			 * drop peer2peer RTR reads.
 			 */
 			if (CQE_WRID_STAG(hw_cqe) == 1)
@@ -376,6 +387,20 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 	 * 	   need to be skipped.
 	 */
 	if (CQE_OPCODE(hw_cqe) == FW_RI_READ_RESP) {
+
+		/*
+		 * If we have reached here because of async
+		 * event or other error, and have egress error
+		 * then drop
+		 */
+		if (CQE_TYPE(hw_cqe) == 1) {
+			syslog(LOG_CRIT, "%s: got egress error in \
+				read-response, dropping!\n", __func__);
+			if (CQE_STATUS(hw_cqe))
+				t4_set_wq_in_error(wq);
+			ret = -EAGAIN;
+			goto skip_cqe;
+		}
 
 		/*
 		 * If this is an unsolicited read response, then the read

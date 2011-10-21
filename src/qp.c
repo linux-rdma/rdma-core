@@ -663,10 +663,12 @@ void c4iw_flush_qps(struct c4iw_dev *dev)
 	pthread_spin_lock(&dev->lock);
 	for (i=0; i < T4_MAX_NUM_QP; i++) {
 		struct c4iw_qp *qhp = dev->qpid2ptr[i];
-		if (qhp && t4_wq_in_error(&qhp->wq)) {
-			pthread_spin_lock(&qhp->lock);
-			c4iw_flush_qp(qhp);
-			pthread_spin_unlock(&qhp->lock);
+		if (qhp) {
+			if (!qhp->wq.flushed && t4_wq_in_error(&qhp->wq)) {
+				pthread_spin_lock(&qhp->lock);
+				c4iw_flush_qp(qhp);
+				pthread_spin_unlock(&qhp->lock);
+			}
 		}
 	}
 	pthread_spin_unlock(&dev->lock);
