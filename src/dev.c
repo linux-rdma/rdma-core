@@ -411,7 +411,6 @@ found:
 	}
 #endif
 	return &dev->ibv_dev;
-
 err3:
 	free(dev->qpid2ptr);
 err2:

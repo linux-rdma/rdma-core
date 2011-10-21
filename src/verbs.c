@@ -41,6 +41,7 @@
 #include <sys/mman.h>
 #include <netinet/in.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
@@ -239,7 +240,7 @@ int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
 	struct ibv_resize_cq_resp resp;
 	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd, &resp, sizeof resp);
 	PDBG("%s ret %d\n", __func__, ret);
-	return 0;
+	return ret;
 #else
 	return ENOSYS;
 #endif

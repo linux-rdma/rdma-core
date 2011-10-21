@@ -33,6 +33,7 @@
 #  include <config.h>
 #endif				/* HAVE_CONFIG_H */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
@@ -600,6 +601,20 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	}
 }
 
+static void update_qp_state(struct c4iw_qp *qhp)
+{
+	struct ibv_query_qp cmd;
+	struct ibv_qp_attr attr;
+	struct ibv_qp_init_attr iattr;
+	int ret;
+
+	ret = ibv_cmd_query_qp(&qhp->ibv_qp, &attr, IBV_QP_STATE, &iattr,
+			       &cmd, sizeof cmd);
+	assert(!ret);
+	if (!ret)
+		qhp->ibv_qp.state = attr.qp_state;
+}
+
 /*
  * Assumes qhp lock is held.
  */
@@ -607,14 +622,17 @@ void c4iw_flush_qp(struct c4iw_qp *qhp)
 {
 	struct c4iw_cq *rchp, *schp;
 	int count;
-	int flushed;
 
+	if (qhp->wq.flushed)
+		return;
 
-	rchp = get_chp(qhp->rhp, to_c4iw_cq(qhp->ibv_qp.recv_cq)->cq.cqid);
-	schp = get_chp(qhp->rhp, to_c4iw_cq(qhp->ibv_qp.send_cq)->cq.cqid);
+	update_qp_state(qhp);
+
+	rchp = to_c4iw_cq(qhp->ibv_qp.recv_cq);
+	schp = to_c4iw_cq(qhp->ibv_qp.send_cq);
 
 	PDBG("%s qhp %p rchp %p schp %p\n", __func__, qhp, rchp, schp);
-	qhp->wq.error = 1;
+	qhp->wq.flushed = 1;
 	pthread_spin_unlock(&qhp->lock);
 
 	/* locking heirarchy: cq lock first, then qp lock. */
@@ -622,16 +640,17 @@ void c4iw_flush_qp(struct c4iw_qp *qhp)
 	pthread_spin_lock(&qhp->lock);
 	c4iw_flush_hw_cq(rchp);
 	c4iw_count_rcqes(&rchp->cq, &qhp->wq, &count);
-	flushed = c4iw_flush_rq(&qhp->wq, &rchp->cq, count);
+	c4iw_flush_rq(&qhp->wq, &rchp->cq, count);
 	pthread_spin_unlock(&qhp->lock);
 	pthread_spin_unlock(&rchp->lock);
 
 	/* locking heirarchy: cq lock first, then qp lock. */
 	pthread_spin_lock(&schp->lock);
 	pthread_spin_lock(&qhp->lock);
-	c4iw_flush_hw_cq(schp);
+	if (schp != rchp)
+		c4iw_flush_hw_cq(schp);
 	c4iw_count_scqes(&schp->cq, &qhp->wq, &count);
-	flushed = c4iw_flush_sq(&qhp->wq, &schp->cq, count);
+	c4iw_flush_sq(qhp, count);
 	pthread_spin_unlock(&qhp->lock);
 	pthread_spin_unlock(&schp->lock);
 	pthread_spin_lock(&qhp->lock);

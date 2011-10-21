@@ -80,9 +80,9 @@
 #define T4_MAX_READ_DEPTH 16
 #define T4_QID_BASE 1024
 #define T4_MAX_QIDS 256
-#define T4_MAX_NUM_QP (1<<16)
-#define T4_MAX_NUM_CQ (1<<15)
-#define T4_MAX_NUM_PD (1<<15)
+#define T4_MAX_NUM_QP 65536
+#define T4_MAX_NUM_CQ 65536
+#define T4_MAX_NUM_PD 65536
 #define T4_EQ_STATUS_ENTRIES (L1_CACHE_BYTES > 64 ? 2 : 1)
 #define T4_MAX_EQ_SIZE (65520 - T4_EQ_STATUS_ENTRIES)
 #define T4_MAX_IQ_SIZE (65520 - 1)
@@ -352,6 +352,7 @@ struct t4_wq {
 	struct c4iw_rdev *rdev;
 	u32 qid_mask;
 	int error;
+	int flushed;
 };
 
 static inline void t4_ma_sync(struct t4_wq *wq, int page_size)
@@ -527,7 +528,11 @@ static inline int t4_arm_cq(struct t4_cq *cq, int se)
 static inline void t4_swcq_produce(struct t4_cq *cq)
 {
 	cq->sw_in_use++;
-	assert(cq->sw_in_use <= cq->size);
+	if (cq->sw_in_use == cq->size) {
+		syslog(LOG_NOTICE, "cxgb4 sw cq overflow cqid %u\n", cq->cqid);
+		cq->error = 1;
+		assert(0);
+	}
 	if (++cq->sw_pidx == cq->size)
 		cq->sw_pidx = 0;
 }
@@ -574,10 +579,10 @@ static inline int t4_next_hw_cqe(struct t4_cq *cq, struct t4_cqe **cqe)
 		prev_cidx = cq->cidx - 1;
 
 	if (cq->queue[prev_cidx].bits_type_ts != cq->bits_type_ts) {
-		assert(0);
 		ret = -EOVERFLOW;
 		syslog(LOG_NOTICE, "cxgb4 cq overflow cqid %u\n", cq->cqid);
 		cq->error = 1;
+		assert(0);
 	} else if (t4_valid_cqe(cq, &cq->queue[cq->cidx])) {
 		*cqe = &cq->queue[cq->cidx];
 		ret = 0;
@@ -588,6 +593,12 @@ static inline int t4_next_hw_cqe(struct t4_cq *cq, struct t4_cqe **cqe)
 
 static inline struct t4_cqe *t4_next_sw_cqe(struct t4_cq *cq)
 {
+	if (cq->sw_in_use == cq->size) {
+		syslog(LOG_NOTICE, "cxgb4 sw cq overflow cqid %u\n", cq->cqid);
+		cq->error = 1;
+		assert(0);
+		return NULL;
+	}
 	if (cq->sw_in_use)
 		return &cq->sw_queue[cq->sw_cidx];
 	return NULL;
