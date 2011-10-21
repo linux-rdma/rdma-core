@@ -233,7 +233,7 @@ err1:
 
 int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
-#ifdef SIM
+#if 0
 	int ret;
 
 	struct ibv_resize_cq cmd;
@@ -242,7 +242,7 @@ int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
 	PDBG("%s ret %d\n", __func__, ret);
 	return ret;
 #else
-	return ENOSYS;
+	return -ENOSYS;
 #endif
 }
 
