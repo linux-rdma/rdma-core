@@ -185,6 +185,9 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 		goto err1;
 
 	pthread_spin_init(&chp->lock, PTHREAD_PROCESS_PRIVATE);
+#ifdef STALL_DETECTION
+	gettimeofday(&chp->time, NULL);
+#endif
 	chp->rhp = dev;
 	chp->cq.qid_mask = resp.qid_mask;
 	chp->cq.cqid = resp.cqid;

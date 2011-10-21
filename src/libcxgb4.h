@@ -38,6 +38,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <sys/errno.h>
+#include <sys/time.h>
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 #include "queue.h"
@@ -88,6 +89,10 @@ struct c4iw_cq {
 	pthread_spinlock_t lock;
 #ifdef SIM
 	int armed;
+#endif
+#ifdef STALL_DETECTION
+	struct timeval time;
+	int dumped;
 #endif
 };
 
@@ -250,6 +255,11 @@ extern struct c4iw_stats c4iw_stats;
 
 #ifndef IBV_QPT_RAW_ETY
 #define IBV_QPT_RAW_ETY (enum ibv_qp_type)7 /* XXX */
+#endif
+
+#ifdef STALL_DETECTION
+void dump_state();
+extern int stall_to;
 #endif
 
 #endif				/* IWCH_H */

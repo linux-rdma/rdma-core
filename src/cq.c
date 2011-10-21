@@ -554,8 +554,24 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 
 	ret = t4_next_cqe(&chp->cq, &rd_cqe);
 
-	if (ret)
+	if (ret) {
+#ifdef STALL_DETECTION
+		if (ret == -ENODATA && stall_to && !chp->dumped) {
+			struct timeval t;
+
+			gettimeofday(&t, NULL);
+			if ((t.tv_sec - chp->time.tv_sec) > stall_to) {
+				dump_state();
+				chp->dumped = 1;
+			}
+		}
+#endif
 		return ret;
+	}
+
+#ifdef STALL_DETECTION
+	gettimeofday(&chp->time, NULL);
+#endif
 
 	qhp = get_qhp(chp->rhp, CQE_QPID(rd_cqe));
 	if (!qhp)

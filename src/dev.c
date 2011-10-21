@@ -172,14 +172,19 @@ static struct ibv_device_ops c4iw_dev_ops = {
 	.free_context = c4iw_free_context
 };
 
+#ifdef STALL_DETECTION
+
+int stall_to;
+
 static void dump_cq(struct c4iw_cq *chp)
 {
 	int i;
 
 	fprintf(stderr,
-		"CQ: id %u queue_va %p cidx 0x%08x depth %u\n",
+		"CQ: id %u queue_va %p cidx 0x%08x depth %u error %u
+		bits_type_ts %016lx\n"
 		chp->cq.cqid, chp->cq.queue, chp->cq.cidx,
-		chp->cq.size);
+		chp->cq.size, chp->cq.error, be64_to_cpu(chp->cq.bits_type_ts));
 	for (i=0; i < chp->cq.size; i++) {
 		u64 *p = (u64 *)(chp->cq.queue + i);
 
@@ -278,51 +283,32 @@ static void dump_qp(struct c4iw_qp *qhp, int qid)
 	}
 }
 
-void dump_state(int arg)
+void dump_state()
 {
 	struct c4iw_dev *dev;
 	int i;
 
-	fprintf(stderr, "%s enter\n", __FUNCTION__);
+	fprintf(stderr, "STALL DETECTED:\n");
 	SLIST_FOREACH(dev, &devices, list) {
-		pthread_spin_lock(&dev->lock);
-		fprintf(stderr, "%s device %p\n", __FUNCTION__, dev);
-		for (i=0; i < T4_MAX_NUM_CQ; i++) {
+		fprintf(stderr, "Device %s\n", dev->ibv_dev.name);
+		for (i = 0; i < T4_MAX_NUM_CQ; i++) {
 			if (dev->cqid2ptr[i]) {
 				struct c4iw_cq *chp = dev->cqid2ptr[i];
-				pthread_spin_lock(&chp->lock);
 				dump_cq(chp);
-				pthread_spin_unlock(&chp->lock);
 			}
 		}
-		for (i=T4_QID_BASE; i < T4_QID_BASE + T4_MAX_NUM_QP; i++) {
+		for (i = 0; i < T4_MAX_NUM_QP; i++) {
 			if (dev->qpid2ptr[i]) {
 				struct c4iw_qp *qhp = dev->qpid2ptr[i];
-				pthread_spin_lock(&qhp->lock);
 				dump_qp(qhp, i);
-				pthread_spin_unlock(&qhp->lock);
 			}
 		}
-		pthread_spin_unlock(&dev->lock);
 	}
-	fprintf(stderr, "%s exit\n", __FUNCTION__);
+	fprintf(stderr, "DUMP COMPLETE:\n");
 	fflush(stderr);
 }
 
-static pthread_t sigthread;
-
-static void *sigthread_handler(void *arg)
-{
-	int sig;
-	sigset_t set;
-
-	sigemptyset(&set);
-	sigaddset(&set, SIGUSR2);
-	while (1) {
-		sigwait(&set, &sig);
-		dump_state(0);
-	}
-}
+#endif /* end of STALL_DETECTION */
 
 static struct ibv_device *cxgb4_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
@@ -381,11 +367,6 @@ found:
 
 	DBGLOG("libcxgb4");
 
-	sigemptyset(&set);
-	sigaddset(&set, SIGUSR2);
-	pthread_sigmask(SIG_BLOCK, &set, NULL);
-	pthread_create(&sigthread, NULL, sigthread_handler, NULL);
-
 	if (fw_min < FW_MIN) {
 		PDBG("libcxgb4: non-fatal firmware version mismatch.  "
 			"Firmware minor number is %u and libcxgb4 needs %u.\n",
@@ -419,6 +400,16 @@ found:
 		goto err3;
 	PDBG("%s device claimed\n", __FUNCTION__);
 	SLIST_INSERT_HEAD(&devices, dev, list);
+#ifdef STALL_DETECTION
+	{
+		char *c = getenv("CXGB4_STALL_TIMEOUT");
+		if (c) {
+			stall_to = strtol(c, NULL, 0);
+			if (errno || stall_to < 0)
+				stall_to = 0;
+		}
+	}
+#endif
 	return &dev->ibv_dev;
 
 err3:
