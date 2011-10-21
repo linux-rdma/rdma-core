@@ -620,7 +620,7 @@ void c4iw_flush_qp(struct c4iw_qp *qhp)
 	/* locking heirarchy: cq lock first, then qp lock. */
 	pthread_spin_lock(&rchp->lock);
 	pthread_spin_lock(&qhp->lock);
-	c4iw_flush_hw_cq(&rchp->cq);
+	c4iw_flush_hw_cq(rchp);
 	c4iw_count_rcqes(&rchp->cq, &qhp->wq, &count);
 	flushed = c4iw_flush_rq(&qhp->wq, &rchp->cq, count);
 	pthread_spin_unlock(&qhp->lock);
@@ -629,7 +629,7 @@ void c4iw_flush_qp(struct c4iw_qp *qhp)
 	/* locking heirarchy: cq lock first, then qp lock. */
 	pthread_spin_lock(&schp->lock);
 	pthread_spin_lock(&qhp->lock);
-	c4iw_flush_hw_cq(&schp->cq);
+	c4iw_flush_hw_cq(schp);
 	c4iw_count_scqes(&schp->cq, &qhp->wq, &count);
 	flushed = c4iw_flush_sq(&qhp->wq, &schp->cq, count);
 	pthread_spin_unlock(&qhp->lock);

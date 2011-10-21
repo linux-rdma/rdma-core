@@ -437,6 +437,7 @@ static inline void t4_sq_produce(struct t4_wq *wq, u8 len16)
 
 static inline void t4_sq_consume(struct t4_wq *wq)
 {
+	assert(wq->sq.in_use >= 1);
 	wq->sq.in_use--;
 	if (++wq->sq.cidx == wq->sq.size)
 		wq->sq.cidx = 0;
@@ -526,12 +527,14 @@ static inline int t4_arm_cq(struct t4_cq *cq, int se)
 static inline void t4_swcq_produce(struct t4_cq *cq)
 {
 	cq->sw_in_use++;
+	assert(cq->sw_in_use <= cq->size);
 	if (++cq->sw_pidx == cq->size)
 		cq->sw_pidx = 0;
 }
 
 static inline void t4_swcq_consume(struct t4_cq *cq)
 {
+	assert(cq->sw_in_use >= 1);
 	cq->sw_in_use--;
 	if (++cq->sw_cidx == cq->size)
 		cq->sw_cidx = 0;

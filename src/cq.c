@@ -111,25 +111,69 @@ int c4iw_flush_sq(struct t4_wq *wq, struct t4_cq *cq, int count)
 	return flushed;
 }
 
+static void flush_completed_wrs(struct t4_wq *wq, struct t4_cq *cq, u16 cidx)
+{
+	struct t4_swsqe *swsqe;
+	int count = wq->sq.in_use;
+	int unsignaled = 0;
+
+	swsqe = &wq->sq.sw_sq[cidx];
+	while (count--)
+		if (!swsqe->signaled) {
+			if (++cidx == wq->sq.size)
+				cidx = 0;
+			swsqe = &wq->sq.sw_sq[cidx];
+			unsignaled++;
+		} else if (swsqe->complete) {
+
+			/*
+			 * Insert this completed cqe into the swcq.
+			 */
+			PDBG("%s moving cqe into swcq sq idx %u cq idx %u\n",
+			     __func__, cidx, cq->sw_pidx);
+			swsqe->cqe.u.rdma.header |= htonl(V_CQE_SWCQE(1));
+			cq->sw_queue[cq->sw_pidx] = swsqe->cqe;
+			t4_swcq_produce(cq);
+			swsqe->signaled = 0;
+			wq->sq.in_use -= unsignaled;
+			break;
+		} else
+			break;
+}
+
 /*
  * Move all CQEs from the HWCQ into the SWCQ.
+ * Deal with out-of-order and/or completions that complete
+ * prior unsignalled WRs.
  */
-void c4iw_flush_hw_cq(struct t4_cq *cq)
+void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 {
 	struct t4_cqe *cqe, *swcqe;
+	struct c4iw_qp *qhp;
+	struct t4_swsqe *swsqe;
 	int ret;
+	int cidx = -1;
 
-	PDBG("%s cq %p cqid 0x%x\n", __func__, cq, cq->cqid);
-	ret = t4_next_hw_cqe(cq, &cqe);
+	PDBG("%s  cqid 0x%x\n", __func__, cq->cqid);
+	ret = t4_next_hw_cqe(&chp->cq, &cqe);
 	while (!ret) {
-		PDBG("%s flushing hwcq cidx 0x%x swcq pidx 0x%x\n",
-		     __func__, cq->cidx, cq->sw_pidx);
-		swcqe = &cq->sw_queue[cq->sw_pidx];
-		*swcqe = *cqe;
-		swcqe->header |= cpu_to_be32(V_CQE_SWCQE(1));
-		t4_swcq_produce(cq);
-		t4_hwcq_consume(cq);
-		ret = t4_next_hw_cqe(cq, &cqe);
+		qhp = get_qhp(chp->rhp, CQE_QPID(cqe));
+		if (qhp && (CQE_WRID_SQ_IDX(cqe) != qhp->wq.sq.cidx)) {
+			swsqe = &qhp->wq.sq.sw_sq[CQE_WRID_SQ_IDX(cqe)];
+			swsqe->cqe = *cqe;
+			swsqe->complete = 1;
+			if (cidx == -1)
+				cidx = qhp->wq.sq.cidx;
+			flush_completed_wrs(&qhp->wq, &chp->cq, cidx);
+			cidx = CQE_WRID_SQ_IDX(cqe) + 1;
+		} else {
+			swcqe = &chp->cq.sw_queue[chp->cq.sw_pidx];
+			*swcqe = *cqe;
+			swcqe->u.rdma.header |= cpu_to_be32(V_CQE_SWCQE(1));
+			t4_swcq_produce(&chp->cq);
+		}
+		t4_hwcq_consume(&chp->cq);
+		ret = t4_next_hw_cqe(&chp->cq, &cqe);
 	}
 }
 
@@ -166,6 +210,7 @@ void c4iw_count_scqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
 		if (++ptr == cq->size)
 			ptr = 0;
 	}
+
 	PDBG("%s cq %p count %d\n", __func__, cq, *count);
 }
 
@@ -185,37 +230,6 @@ void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
 			ptr = 0;
 	}
 	PDBG("%s cq %p count %d\n", __func__, cq, *count);
-}
-
-static void flush_completed_wrs(struct t4_wq *wq, struct t4_cq *cq)
-{
-	struct t4_swsqe *swsqe;
-	u16 ptr = wq->sq.cidx;
-	int count = wq->sq.in_use;
-	int unsignaled = 0;
-
-	swsqe = &wq->sq.sw_sq[ptr];
-	while (count--)
-		if (!swsqe->signaled) {
-			if (++ptr == wq->sq.size)
-				ptr = 0;
-			swsqe = &wq->sq.sw_sq[ptr];
-			unsignaled++;
-		} else if (swsqe->complete) {
-
-			/*
-			 * Insert this completed cqe into the swcq.
-			 */
-			PDBG("%s moving cqe into swcq sq idx %u cq idx %u\n",
-			     __func__, ptr, cq->sw_pidx);
-			swsqe->cqe.header |= htonl(V_CQE_SWCQE(1));
-			cq->sw_queue[cq->sw_pidx] = swsqe->cqe;
-			t4_swcq_produce(cq);
-			swsqe->signaled = 0;
-			wq->sq.in_use -= unsignaled;
-			break;
-		} else
-			break;
 }
 
 static void create_read_req_cqe(struct t4_wq *wq, struct t4_cqe *hw_cqe,
@@ -321,7 +335,7 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 		 * connection setup, or a target read response failure.
 		 * So skip the completion.
 		 */
-		if (!wq->sq.oldest_read) {
+		if (CQE_WRID_STAG(hw_cqe) == 1) {
 			if (CQE_STATUS(hw_cqe))
 				t4_set_wq_in_error(wq);
 			ret = -EAGAIN;
@@ -424,7 +438,7 @@ flush_wq:
 	/*
 	 * Flush any completed cqes that are now in-order.
 	 */
-	flush_completed_wrs(wq, cq);
+	flush_completed_wrs(wq, cq, wq->sq.cidx);
 
 skip_cqe:
 	if (SW_CQE(hw_cqe)) {
