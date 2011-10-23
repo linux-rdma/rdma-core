@@ -104,6 +104,10 @@ struct t4_status_page {
 	__be16 pidx;
 	u8 qp_err;	/* flit 1 - sw owns */
 	u8 db_off;
+	u8 pad;
+	u16 host_wq_pidx;
+	u16 host_cidx;
+	u16 host_pidx;
 };
 
 #define T4_EQ_ENTRY_SIZE 64
