@@ -376,8 +376,6 @@ static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
 	pthread_spin_unlock(&dev->lock);
 	INC_STAT(qp);
 	return &qhp->ibv_qp;
-err9:
-	free(qhp->wq.rq.sw_rq);
 err8:
 	free(qhp->wq.sq.sw_sq);
 err7:

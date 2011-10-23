@@ -181,7 +181,7 @@ static void dump_cq(struct c4iw_cq *chp)
 	int i;
 
 	fprintf(stderr,
-		"CQ: id %u queue_va %p cidx 0x%08x depth %u error %u
+		"CQ: id %u queue_va %p cidx 0x%08x depth %u error %u \
 		bits_type_ts %016lx\n"
 		chp->cq.cqid, chp->cq.queue, chp->cq.cidx,
 		chp->cq.size, chp->cq.error, be64_to_cpu(chp->cq.bits_type_ts));
@@ -317,7 +317,6 @@ static struct ibv_device *cxgb4_driver_init(const char *uverbs_sys_path,
 	struct c4iw_dev *dev;
 	unsigned vendor, device, fw_maj, fw_min;
 	int i;
-	sigset_t set;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof value) < 0)
