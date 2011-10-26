@@ -10,12 +10,6 @@ AM_INIT_AUTOMAKE
 AC_SUBST(RELEASE, ${RELEASE:-unknown})
 AC_SUBST(TARBALL, ${TARBALL:-${PACKAGE}-${VERSION}.tar.gz})
 
-AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
-[       if test x$enableval = xno ; then
-                disable_libcheck=yes
-        fi
-])
-
 dnl support debug mode
 AC_ARG_ENABLE(debug,
 [  --enable-debug Turn on debug mode],
@@ -30,8 +24,6 @@ dnl Checks for programs
 AC_PROG_CC
 AC_PROG_LIBTOOL
 
-if test "$disable_libcheck" != "yes"
-then
 dnl Checks for libraries
 AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. diags require libibumad.]))
@@ -49,20 +41,16 @@ if test "$ac_have_umad_port_link_layer" = "yes"; then
 fi
 AC_CHECK_LIB(osmcomp, cl_qmap_insert, [],
 	AC_MSG_ERROR([cl_qmap_insert() not found. diags require libosmcomp.]))
-fi
 
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stdlib.h string.h unistd.h fcntl.h inttypes.h netinet/in.h sys/ioctl.h])
-if test "$disable_libcheck" != "yes"
-then
 AC_CHECK_HEADER(infiniband/umad.h, [],
 	AC_MSG_ERROR([<infiniband/umad.h> not found. diags require libibumad.])
 )
 AC_CHECK_HEADER(infiniband/mad.h, [],
 	AC_MSG_ERROR([<infiniband/mad.h> not found. diags require libibmad.])
 )
-fi
 
 dnl Checks for library functions
 AC_FUNC_ERROR_AT_LINE
