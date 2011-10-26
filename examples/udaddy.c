@@ -547,7 +547,7 @@ static int run_server(void)
 	ret = rdma_bind_addr(listen_id, test.src_addr);
 	if (ret) {
 		perror("udaddy: bind address failed");
-		return ret;
+		goto out;
 	}
 
 	ret = rdma_listen(listen_id, 0);
