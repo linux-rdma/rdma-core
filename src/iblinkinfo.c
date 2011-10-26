@@ -214,8 +214,12 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 			 port->remoteport->portnum, ext_port_str, remap,
 			 width_msg, speed_msg);
 		free(remap);
-	} else
-		snprintf(remote_str, 256, "           [  ] \"\" ( )\n");
+	} else {
+		if (istate == IB_LINK_DOWN)
+			snprintf(remote_str, 256, "           [  ] \"\" ( )\n");
+		else
+			snprintf(remote_str, 256, "    \"Port not available\"\n");
+	}
 
 	if (port->ext_portnum)
 		snprintf(ext_port_str, 256, "%d", port->ext_portnum);
