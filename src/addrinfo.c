@@ -137,9 +137,7 @@ static int ucma_convert_to_rai(struct rdma_addrinfo *rai,
 	if (!addr)
 		return ERR(ENOMEM);
 
-	canonname = ai->ai_canonname ? malloc(strlen(ai->ai_canonname) + 1) : NULL;
-	if (canonname)
-		strcpy(canonname, ai->ai_canonname);
+	canonname = ai->ai_canonname ? strdup(ai->ai_canonname) : NULL;
 
 	memcpy(addr, ai->ai_addr, ai->ai_addrlen);
 	if (ai->ai_flags & RAI_PASSIVE) {
