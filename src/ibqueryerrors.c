@@ -629,7 +629,7 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 	if (mask)
 		if (!performance_reset_via(pc, portid, port, mask, ibd_timeout,
 					   IB_GSI_PORT_COUNTERS, ibmad_port))
-			IBERROR("Failed to reset errors %s port %d", node_name,
+			fprintf(stderr, "Failed to reset errors %s port %d\n", node_name,
 				port);
 
 	if (clear_errors && details) {
@@ -653,8 +653,8 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask,
 
 		if (!reset_pc_ext(pc, portid, port, mask, ibd_timeout,
 		    ibmad_port))
-			IBERROR("Failed to reset extended data counters %s, "
-				"%s port %d", node_name, portid2str(portid),
+			fprintf(stderr, "Failed to reset extended data counters %s, "
+				"%s port %d\n", node_name, portid2str(portid),
 				port);
 	}
 }
