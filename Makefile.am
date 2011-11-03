@@ -14,7 +14,8 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 	        src/ibroute src/ibstat src/ibsysstat src/ibtracert \
 	        src/perfquery src/sminfo src/smpdump src/smpquery \
 	        src/saquery src/vendstat src/iblinkinfo \
-		src/ibqueryerrors src/ibcacheedit src/ibccquery
+		src/ibqueryerrors src/ibcacheedit src/ibccquery \
+		src/ibccconfig
 
 if ENABLE_TEST_UTILS
 sbin_PROGRAMS += src/ibsendtrap src/mcm_rereg_test
@@ -61,6 +62,7 @@ src_vendstat_SOURCES = src/vendstat.c
 src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
 src_iblinkinfo_SOURCES = src/iblinkinfo.c
 src_ibccquery_SOURCES = src/ibccquery.c
+src_ibccconfig_SOURCES = src/ibccconfig.c
 src_iblinkinfo_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibqueryerrors_SOURCES = src/ibqueryerrors.c
 src_ibqueryerrors_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
@@ -81,7 +83,7 @@ man_MANS = man/ibaddr.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 	man/ibdatacounts.8 man/ibdatacounters.8 \
 	man/ibrouters.8 man/ibprintrt.8 man/ibidsverify.8 \
 	man/check_lft_balance.8 man/ibcacheedit.8 \
-	man/infiniband-diags.8 man/ibccquery.8
+	man/infiniband-diags.8 man/ibccquery.8 man/ibccconfig.8
 
 BUILT_SOURCES = ibdiag_version
 ibdiag_version:

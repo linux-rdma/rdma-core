@@ -1,0 +1,87 @@
+.TH IBCCCONFIG 8 "Dec 1, 2011" "OpenIB" "OpenIB Diagnostics"
+
+.SH NAME
+ibccconfig \- configure congestion control settings
+
+.SH SYNOPSIS
+.B ibccconfig
+[\-d(ebug)] [\-G(uid)] [\-C ca_name] [\-P ca_port] [\-t(imeout) timeout_ms]
+[\-V(ersion)] [\-h(elp)] [\-c cckey] <op> <lid|guid> [port]
+
+.SH DESCRIPTION
+.PP
+.B ibccconfig
+supports the configuration of congestion control settings on switches
+and HCAs.
+
+.B WARNING -- You should understand what you are doing before using this tool.  Misuse of this tool could result in a broken fabric.
+
+.SH OPTIONS
+
+.PP
+.TP
+Current supported operations and their parameters:
+  CongestionKeyInfo (CK) <lid|guid> <cckey> <cckeyprotectbit> <cckeyleaseperiod> <cckeyviolations>
+  SwitchCongestionSetting (SS) <lid|guid> <controlmap> <victimmask> <creditmask> <threshold> <packetsize> <csthreshold> <csreturndelay> <markingrate>
+  SwitchPortCongestionSetting (SP) <lid|guid> <portnum> <valid> <control_type> <threshold> <packet_size> <cong_parm_marking_rate> 
+  CACongestionSetting (CS) <lid|guid> <port_control> <control_map> <sl> <ccti_timer> <ccti_increase> <trigger_threshold> <ccti_min> 
+  CongestionControlTable (CT) <lid|guid> <cctilimit> <index> <cctentry> <cctentry> ...
+
+.TP
+\fB\-c\-fR, \fB\-\-cckey\fR <cckey>
+Specify a congestion control (CC) key.  If none is specified, a key of 0 is used.
+
+.SH COMMON OPTIONS
+
+Most OpenIB diagnostics take the following common flags. The exact list of
+supported flags per utility can be found in the usage message and can be shown
+using the util_name -h syntax.
+
+# Debugging flags
+.PP
+\-d      raise the IB debugging level.
+        May be used several times (-ddd or -d -d -d).
+.PP
+\-e      show send and receive errors (timeouts and others)
+.PP
+\-h      show the usage message
+.PP
+\-v      increase the application verbosity level.
+        May be used several times (-vv or -v -v -v)
+.PP
+\-V      show the version info.
+
+# Addressing flags
+.PP
+\-G      use GUID address argument. In most cases, it is the Port GUID.
+        Example:
+        "0x08f1040023"
+.PP
+\-s <smlid>      use 'smlid' as the target lid for SM/SA queries.
+
+# Other common flags:
+.PP
+\-C <ca_name>    use the specified ca_name.
+.PP
+\-P <ca_port>    use the specified ca_port.
+.PP
+\-t <timeout_ms> override the default timeout for the solicited mads.
+
+If a port and/or CA name is specified, the user request is
+attempted to be fulfilled, and will fail if it is not possible.
+
+.SH EXAMPLES
+
+.PP
+ibccconfig SwitchCongestionSetting 2 0x1F 0x1FFFFFFFFF 0x0 0xF 8 0 0:0 1    # Configure Switch Congestion Settings
+.PP
+ibccconfig CACongestionSetting 1 0 0x3 0 150 1 0 0          # Configure CA Congestion Settings
+.PP
+ibccconfig CongestionControlTable 1 63 0 0:0 0:1 ...        # Configure first block of Congestion Control Table
+.PP
+ibccconfig CongestionControlTable 1 127 0 0:64 0:65 ...     # Configure second block of Congestion Control Table
+
+.SH AUTHOR
+.TP
+Albert Chu
+.RI < chu11@llnl.gov >
