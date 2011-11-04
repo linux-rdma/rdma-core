@@ -6,7 +6,7 @@ Summary: NetEffect Ethernet Server Cluster Adapter Userspace Library
 Group: System Environment/Libraries
 License: GPL/BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/nes/libnes-1.1.1.tar.gz
+Source: http://www.openfabrics.org/downloads/nes/libnes-1.1.2.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: libibverbs-devel
@@ -51,6 +51,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libnes*.a
 
 %changelog
+*Fri Nov 04 2011 Faisal Latif <faisal.latif@intel.com> - 1.1.2
+- Update for OFED 1.5.4
+- Fix build against upstream libibverbs
+
 *Wed Dec 15 2010 Faisal Latif <faisal.latif@intel.com> - 1.1.1
 - Update for OFED 1.5.3
 - Error check when sge > 4 for posting recv buffers
