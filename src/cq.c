@@ -197,7 +197,6 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 	struct c4iw_qp *qhp;
 	struct t4_swsqe *swsqe;
 	int ret;
-	int cidx = -1;
 
 	PDBG("%s  cqid 0x%x\n", __func__, cq->cqid);
 	ret = t4_next_hw_cqe(&chp->cq, &hw_cqe);
@@ -209,7 +208,8 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 	 */
 	while (!ret) {
 		qhp = get_qhp(chp->rhp, CQE_QPID(hw_cqe));
-
+		if (qhp->wq.sq.flush_cidx == -1)
+			qhp->wq.sq.flush_cidx = qhp->wq.sq.cidx;
 		/*
 		 * drop CQEs with no associated QP
 		 */
@@ -254,9 +254,9 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 			swsqe = &qhp->wq.sq.sw_sq[CQE_WRID_SQ_IDX(hw_cqe)];
 			swsqe->cqe = *hw_cqe;
 			swsqe->complete = 1;
-			if (cidx == -1)
-				cidx = qhp->wq.sq.cidx;
-			cidx = flush_completed_wrs(&qhp->wq, &chp->cq, cidx);
+			qhp->wq.sq.flush_cidx =
+				flush_completed_wrs(&qhp->wq, &chp->cq,
+						(uint16_t)qhp->wq.sq.flush_cidx);
 		} else {
 			swcqe = &chp->cq.sw_queue[chp->cq.sw_pidx];
 			*swcqe = *hw_cqe;

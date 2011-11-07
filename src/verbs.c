@@ -427,6 +427,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	qhp->wq.sq.size = resp.sq_size;
 	qhp->wq.sq.memsize = resp.sq_memsize;
 	qhp->wq.sq.flags = resp.flags & C4IW_QPF_ONCHIP ? T4_SQ_ONCHIP : 0;
+	qhp->wq.sq.flush_cidx = -1;
 	qhp->wq.rq.msn = 1;
 	qhp->wq.rq.qid = resp.rqid;
 	qhp->wq.rq.size = resp.rq_size;

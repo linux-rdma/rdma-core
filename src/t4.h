@@ -324,6 +324,7 @@ struct t4_sq {
 	u16 pidx;
 	u16 wq_pidx;
 	u16 flags;
+	short flush_cidx;
 };
 
 struct t4_swrqe {
