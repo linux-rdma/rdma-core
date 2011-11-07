@@ -310,6 +310,12 @@ void dump_state()
 
 #endif /* end of STALL_DETECTION */
 
+/*
+ * c4iw_abi_version is used to store ABI for iw_cxgb4 so the user mode library
+ * can know if the driver supports the kernel mode db ringing. 
+ */
+int c4iw_abi_version = 1;
+
 static struct ibv_device *cxgb4_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
@@ -336,6 +342,7 @@ static struct ibv_device *cxgb4_driver_init(const char *uverbs_sys_path,
 	return NULL;
 
 found:
+	c4iw_abi_version = abi_version;	
 
 	/*
 	 * Verify that the firmware major number matches.  Major number

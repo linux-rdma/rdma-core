@@ -484,9 +484,20 @@ static inline void t4_enable_wq_db(struct t4_wq *wq)
 	wq->rq.queue[wq->rq.size].status.db_off = 0;
 }
 
+extern int c4iw_abi_version;
+
 static inline int t4_wq_db_enabled(struct t4_wq *wq)
 {
-	return !wq->rq.queue[wq->rq.size].status.db_off;
+	/*
+	 * If iw_cxgb4 driver supports door bell drop recovery then its
+	 * c4iw_abi_version would be greater than or equal to 2. In such
+	 * case return the status of db_off flag to ring the kernel mode
+	 * DB from user mode library.
+	 */
+	if ( c4iw_abi_version >= 2 )
+		return !wq->rq.queue[wq->rq.size].status.db_off;
+	else
+		return 1;
 }
 
 struct t4_cq {
