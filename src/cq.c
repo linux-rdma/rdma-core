@@ -513,14 +513,6 @@ flush_wq:
 	 */
 	(void)flush_completed_wrs(wq, cq, wq->sq.cidx);
 
-	/*
-	 * If we're processing a new hw cqe on a qp that
-	 * was flushed via c4iw_flush_hw_cq(), then we must
-	 * reset flush_cidx!
-	 */
-	if (!SW_CQE(hw_cqe) && wq->sq.flush_cidx != -1)
-		wq->sq.flush_cidx = -1;
-
 skip_cqe:
 	if (SW_CQE(hw_cqe)) {
 		PDBG("%s cq %p cqid 0x%x skip sw cqe cidx %u\n",

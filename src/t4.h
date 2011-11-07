@@ -443,6 +443,8 @@ static inline void t4_sq_consume(struct t4_wq *wq)
 	wq->sq.in_use--;
 	if (++wq->sq.cidx == wq->sq.size)
 		wq->sq.cidx = 0;
+	if (wq->sq.cidx == wq->sq.flush_cidx)
+		wq->sq.flush_cidx = -1;
 	assert((wq->sq.cidx != wq->sq.pidx) || wq->sq.in_use == 0);
 	if (!wq->error)
 		wq->sq.queue[wq->sq.size].status.host_cidx = wq->sq.cidx;
