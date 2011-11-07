@@ -172,6 +172,7 @@ sub output_switch_port_usage
 	my $iblinkinfo_output;
 	my $is_unbalanced = 0;
 	my $ports_on_switch = 0;
+	my $all_zero_flag = 1;
 	my $ret;
 
         $iblinkinfo_output = `iblinkinfo --load-cache $ibnetdiscover_cache -S $switch_guid`;
@@ -224,6 +225,9 @@ sub output_switch_port_usage
 	if ($heuristic_flag == 1
 	    && $is_unbalanced == 1
 	    && $ports_on_switch > 12) {
+
+		@double_check_ports = ();
+
 		for $port (@output_ports) {
 			if ($switch_port_count{$port} == $max_usage
 			    || $switch_port_count{$port} == ($max_usage - 1)
@@ -250,6 +254,36 @@ sub output_switch_port_usage
 			if (!($max_usage2 > ($min_usage2 + 1))) {
 				$is_unbalanced = 0;
 			}
+		}
+	}
+
+	# Another special case is when you have a non-fully-populated switch
+	# Many ports will be zero.  So if all active ports != max or max-1 are = 0
+	# we will also consider this balanced.
+	if ($heuristic_flag == 1
+	    && $is_unbalanced == 1
+	    && $ports_on_switch > 12) {
+
+		@double_check_ports = ();
+
+		for $port (@output_ports) {
+			if ($switch_port_count{$port} == $max_usage
+			    || $switch_port_count{$port} == ($max_usage - 1)) {
+				next;
+			}
+
+			push(@double_check_ports, $port);
+		}
+
+		for $port (@double_check_ports) {
+			if ($switch_port_count{$port} != 0) {
+				$all_zero_flag = 0;
+				last;
+			}
+		}
+
+		if ($all_zero_flag == 1) {
+			$is_unbalanced = 0;
 		}
 	}
 
