@@ -1,6 +1,219 @@
-commit b371f8fa85650b95647e3fec1433067992b8c66a
+commit 119aabce5e6722336e9f5a97cea14eebab2376ca
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Thu Mar 10 09:44:34 2011 -0600
+Date:   Wed Nov 9 09:50:22 2011 -0600
+
+    Spin release 1.2.0.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 721cfb11ca5697d017bc60167805aea9bbb13ba0
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Mon Nov 7 15:08:45 2011 +0530
+
+    libcxgb4: Reset flush_cidx before incrementing cidx.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit db4fe38c7ee2b3ad9dc8c33f2b54f0c8cdf8b4d2
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Mon Nov 7 15:06:29 2011 +0530
+
+    libcxgb4: Fix multi-flush logic path....again
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 19198bdc2f7feb05babcc2a544ae8b48e4943c41
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Mon Nov 7 15:02:57 2011 +0530
+
+    libcxgb4: Reset cidx_flush if a active queue starts getting hw cqes
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 98545f3a8cbe1670efad080cf908db42269f76ff
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Mon Nov 7 14:56:44 2011 +0530
+
+    libcxgb4: Support for flushing a CQ bound to multiple QPs
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 86ba968706b3dc8cb232a303201bb03a2d919c88
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Mon Nov 7 13:06:43 2011 +0530
+
+    libcxgb4: Checks iw_cxgb4 ABI version to know door bell drop recovery support
+    
+    Store iw_cxgb4 ABI version in a global state. Read that global state in
+    t4_wq_db_enabled to know if iw_cxgb4 driver supports door bell drop recovery.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 2b6563ed5b377dac56c218b809d387089d70312d
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Sun Oct 23 16:50:16 2011 +0530
+
+    libcxgb4: fixed compilation warnings
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit c5c120969c22a04d34adc566085192afc99d0db9
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Oct 21 19:05:20 2011 +0530
+
+    libcxgb4: Bug Fix#4410 - Fix 3 segfaults
+    
+    This patch fixes 3 segfaults with below signatures:
+    ----
+    1)
+    Program received signal SIGSEGV, Segmentation fault.
+    [Switching to Thread 0x7ffff7fef710 (LWP 22624)]
+    0x00007ffff75613e4 in create_read_req_cqe (wq=0x7fffe800ada0,
+    hw_cqe=0x7ffff7fc7880, read_cqe=0x7ffff7fee860) at src/cq.c:162
+    162             read_cqe->u.rdma.u.scqe.cidx = wq->sq.oldest_read->idx;
+    (gdb) bt
+    hw_cqe=0x7ffff7fc7880, read_cqe=0x7ffff7fee860) at src/cq.c:162
+    attr=0x7ffff7feeae0, attr_mask=1) at src/verbs.c:691
+    src/verbs.c:721
+    
+    2)
+    Program received signal SIGSEGV, Segmentation fault.
+    [Switching to Thread 0x7ffff6e07710 (LWP 22218)]
+    0x00007ffff71563e4 in create_read_req_cqe (wq=0x7fffe800ada0,
+    hw_cqe=0x7ffff7fc7880, read_cqe=0x7ffff6e02b70) at src/cq.c:162
+    162             read_cqe->u.rdma.u.scqe.cidx = wq->sq.oldest_read->idx;
+    (gdb) bt
+    hw_cqe=0x7ffff7fc7880, read_cqe=0x7ffff6e02b70) at src/cq.c:162
+    src/verbs.c:887
+    
+    3)
+    (gdb) bt
+    wc=0x7ffff51378d0) at src/cq.c:776
+    evd_ptr=<value optimized out>, wc_ptr=<value optimized out>)
+        at /usr/include/infiniband/verbs.h:957
+    ----
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 075adec1159606303b40f4b29ef3cea7ab780ac2
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Oct 21 18:59:16 2011 +0530
+
+    libcxgb4: return -ENOSYS in c4iw_resize_cq().
+    
+    I fixed a "bug" in c4iw_resize_cq() in an earlier commit which regressed
+    us.  c4iw_resize_cq() was returning 0 always even though we don't support
+    resizing the CQ.  So I change libcxgb4 to return whatever errno is
+    returned by the kernel driver.   However, because the driver didn't set
+    the uverbs capabilities for resize_cq, uverbs returned EINVAL.  The OMPI
+    code checks for -ENOSYS and handles providers that don't support it.
+    If, however, ibv_resize_cq() returns any other error, OMPI bails out.
+    So we need to return -ENOSYS.
+    
+    I didn't see this error, however, running NP192 OMPI/IMB all night long.
+    So it must only try to resize for small jobs and thus I missed the
+    regression.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 320285a3a3a93a614e24a78f7a68780d7791e3c5
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Oct 21 18:53:47 2011 +0530
+
+    libcxgb4: Don't flush unsignaled WRs if the QP closed normally
+    
+    - add query_qp support in driver to query the qp state before flushing.
+    
+    - fixed flush logic (again).
+    
+    - don't flush unsignaled WRs is QP had a normal close.
+    
+    - support up to 64K QIDs.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 4c98bebe97aeef1c5cda2f071eb9c1d4fa29c37e
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Oct 21 17:58:38 2011 +0530
+
+    libcxgb4: Correctly flush unsignaled WRs followed by a signaled WR.
+    
+    The cq flush logic was not accounting for unsignaled SQ WRs followed by
+    a signaled WR.  The result was too many flushed CQEs causing application
+    faults or assert() failures in libcxgb4 because the SQ state is corrupted.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 8196f85bdefb1511d6d834240a92fdaf815834b8
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Oct 21 17:31:03 2011 +0530
+
+    libcxgb4: Remove auto generated ltmain.sh file.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 230d12f42d143eeb53d8c4935ba27620c13e6165
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Oct 21 17:20:37 2011 +0530
+
+    libcxgb4: Add debug code to dump state on a stall condition.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 2df0677b22aebb7a22d0e8ca11beb90250b363c7
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Oct 21 15:04:46 2011 +0530
+
+    libcxgb4: don't write host idx values when wq is in error.
+    
+    This fixes a regression introduced by the db recovery changes.  The host
+    idx shadow fields at the end of the wq should only be written if the wq
+    is not in error.  Otherwise, a seg fault can occur.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 4eaf4b9added6ca660ef2f9363b24d754185fddf
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Thu Oct 20 19:55:57 2011 +0530
+
+    libcxgb4: cq debug changes
+    
+        - turn on cq overflow detection by default
+    
+        - shadow cq->cidx in the cq status page
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit b15d02248dd1029706d07fa229767d8b68d16c65
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Thu Oct 20 19:43:07 2011 +0530
+
+    libcxgb4: DB Drop Recovery for RDMA and LLD queues.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit b2c7499eab73cf28cbd9cf86f6ea134e2450cdd3
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Sun Oct 23 12:59:24 2011 +0530
+
+    libcxgb4: put queue idx values in status page for debug.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit 60a30673a4072b6727e7266f7782607ddcbc8de7
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Thu Oct 20 18:07:13 2011 +0530
+
+    libcxgb4: DB Overflow Avoidance.
+    
+    - when user dbs are disabled, call into the kernel driver via modify_qp()
+    to ring the dbs.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+
+commit c8651d01a2d69d83caff8c01b32be0b23624d8da
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Mar 10 09:45:00 2011 -0600
 
     Spin release 1.1.1.
     
