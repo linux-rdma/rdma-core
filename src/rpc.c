@@ -166,6 +166,8 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 				return -1;
 			}
 
+			if (ibdebug > 2)
+				umad_addr_dump(umad_get_mad_addr(rcvbuf));
 			if (ibdebug > 1) {
 				IBWARN("rcv buf:");
 				xdump(stderr, "rcv buf\n", umad_get_mad(rcvbuf),
