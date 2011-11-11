@@ -1,3 +1,9 @@
+libibverbs (1.1.5-2) unstable; urgency=low
+
+  * Don't use brace expansion for {a,so} in libibverbs-dev.install
+
+ -- Roland Dreier <roland@digitalvampire.org>  Fri, 11 Nov 2011 15:04:24 -0800
+
 libibverbs (1.1.5-1) unstable; urgency=low
 
   * Switch to dpkg-source 3.0 (quilt) format.
