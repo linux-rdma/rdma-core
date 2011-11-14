@@ -238,7 +238,7 @@ struct ibv_device_1_0 **__ibv_get_device_list_1_0(int *num)
 
 	l = calloc(n + 2, sizeof (struct ibv_device_1_0 *));
 	if (!l)
-		return NULL;
+		goto free_device_list;
 
 	l[0] = (void *) real_list;
 
@@ -258,6 +258,9 @@ fail:
 	for (i = 1; i <= n; ++i)
 		if (l[i])
 			free(l[i]);
+	free(l);
+
+free_device_list:
 	ibv_free_device_list(real_list);
 	return NULL;
 }

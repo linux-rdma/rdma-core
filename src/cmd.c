@@ -68,8 +68,10 @@ static int ibv_cmd_get_context_v2(struct ibv_context *context,
 	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
 	cmd->cq_fd_tab = (uintptr_t) &cq_fd;
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size) {
+		free(t);
 		return errno;
+	}
 
 	VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
