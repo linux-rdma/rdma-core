@@ -71,14 +71,15 @@ static char *expand(char *basename, char *args, int *str_cnt, int *str_size)
 
 char **parse(char *args, int *count)
 {
-	char **ptrs;
+	char **ptrs = NULL;
 	char *str_buf, *cpy, *token, *next;
 	int cnt = 0, str_size = 0;
 	int i;
 
 	/* make a copy that strtok can modify */
-	cpy = malloc(strlen(args) + 1);
-	strcpy(cpy, args);
+	cpy = strdup(args);
+	if (!cpy)
+		return NULL;
 
 	if (args[0] == '[') {
 		cpy[0] = '\0';
@@ -92,6 +93,9 @@ char **parse(char *args, int *count)
 	if (!next) {
 		str_size = strlen(token) + 1;
 		str_buf = malloc(str_size);
+		if (!str_buf)
+			goto out_cpy;
+
 		strcpy(str_buf, token);
 		cnt = 1;
 	} else {
@@ -99,6 +103,9 @@ char **parse(char *args, int *count)
 	}
 
 	ptrs = malloc((sizeof str_buf * (cnt + 1)) + str_size);
+	if (!ptrs)
+		goto out_str_buf;
+
 	memcpy(&ptrs[cnt + 1], str_buf, str_size);
 
 	ptrs[0] = (char*) &ptrs[cnt + 1];
@@ -106,10 +113,12 @@ char **parse(char *args, int *count)
 		ptrs[i] = index(ptrs[i - 1], 0) + 1;
 	ptrs[i] = NULL;
 
-	free(cpy);
-	free(str_buf);
-
 	if (count)
 		*count = cnt;
+
+out_str_buf:
+        free(str_buf);
+out_cpy:
+	free(cpy);
 	return ptrs;
 }
