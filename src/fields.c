@@ -908,6 +908,24 @@ static const ib_field_t ib_mad_f[] = {
 	 * Timestamp fields
 	 */
 	{0, 32, "Timestamp", mad_dump_uint},
+	{0, 0}, /* IB_CC_TIMESTAMP_LAST_F */
+
+	/* Node Record */
+	{BITSOFFS(0, 16), "Lid", mad_dump_uint},
+	{BITSOFFS(32, 8), "BaseVers", mad_dump_uint},
+	{BITSOFFS(40, 8), "ClassVers", mad_dump_uint},
+	{BITSOFFS(48, 8), "NodeType", mad_dump_node_type},
+	{BITSOFFS(56, 8), "NumPorts", mad_dump_uint},
+	{64, 64, "SystemGuid", mad_dump_hex},
+	{128, 64, "Guid", mad_dump_hex},
+	{192, 64, "PortGuid", mad_dump_hex},
+	{BITSOFFS(256, 16), "PartCap", mad_dump_uint},
+	{BITSOFFS(272, 16), "DevId", mad_dump_hex},
+	{288, 32, "Revision", mad_dump_hex},
+	{BITSOFFS(320, 8), "LocalPort", mad_dump_uint},
+	{BITSOFFS(328, 24), "VendorId", mad_dump_hex},
+	{352, 64 * 8, "NodeDesc", mad_dump_string},
+	{0, 0}, /* IB_SA_NR_LAST_F */
 
 	{0, 0}			/* IB_FIELD_LAST_ */
 
