@@ -425,12 +425,56 @@ static void rcv_err_query(ib_portid_t * portid, int port, int mask)
 		    mad_dump_perfcounters_rcv_err);
 }
 
-static void extended_speeds_query(ib_portid_t * portid, int port, int mask)
+static uint8_t *ext_speeds_reset_via(void *rcvbuf, ib_portid_t * dest,
+				     int port, uint64_t mask, unsigned timeout,
+				     const struct ibmad_port * srcport)
 {
-	common_func(portid, port, mask, !reset_only, (reset_only || reset),
-		    "PortExtendedSpeedsCounters",
-		    IB_GSI_PORT_EXT_SPEEDS_COUNTERS,
-		    mad_dump_port_ext_speeds_counters);
+	ib_rpc_t rpc = { 0 };
+	int lid = dest->lid;
+
+	DEBUG("lid %u port %d mask 0x%" PRIx64, lid, port, mask);
+
+	if (lid == -1) {
+		IBWARN("only lid routed is supported");
+		return NULL;
+	}
+
+	if (!mask)
+		mask = ~0;
+
+	rpc.mgtclass = IB_PERFORMANCE_CLASS;
+	rpc.method = IB_MAD_METHOD_SET;
+	rpc.attr.id = IB_GSI_PORT_EXT_SPEEDS_COUNTERS;
+
+	memset(rcvbuf, 0, IB_MAD_SIZE);
+
+	mad_set_field(rcvbuf, 0, IB_PESC_PORT_SELECT_F, port);
+	mad_set_field64(rcvbuf, 0, IB_PESC_COUNTER_SELECT_F, mask);
+	rpc.attr.mod = 0;
+	rpc.timeout = timeout;
+	rpc.datasz = IB_PC_DATA_SZ;
+	rpc.dataoffs = IB_PC_DATA_OFFS;
+	if (!dest->qp)
+		dest->qp = 1;
+	if (!dest->qkey)
+		dest->qkey = IB_DEFAULT_QP1_QKEY;
+
+	return mad_rpc(srcport, &rpc, dest, rcvbuf, rcvbuf);
+}
+
+static void extended_speeds_query(ib_portid_t * portid, int port, uint64_t ext_mask)
+{
+	int mask = ext_mask;
+
+	if (!reset_only)
+		common_func(portid, port, mask, 1, 0,
+			    "PortExtendedSpeedsCounters",
+			    IB_GSI_PORT_EXT_SPEEDS_COUNTERS,
+			    mad_dump_port_ext_speeds_counters);
+
+	if ((reset_only || reset) &&
+	    !ext_speeds_reset_via(pc, portid, port, ext_mask, ibd_timeout, srcport))
+		IBERROR("cannot reset PortExtendedSpeedsCounters");
 }
 
 static void oprcvcounters_query(ib_portid_t * portid, int port, int mask)
@@ -617,6 +661,7 @@ int main(int argc, char **argv)
 	};
 	ib_portid_t portid = { 0 };
 	int mask = 0xffff;
+	uint64_t ext_mask = 0xffffffffffffffff;
 	uint16_t cap_mask;
 	int all_ports_loop = 0;
 	int node_type, num_ports = 0;
@@ -675,8 +720,10 @@ int main(int argc, char **argv)
 
 	if (argc > 1)
 		port = strtoul(argv[1], 0, 0);
-	if (argc > 2)
-		mask = strtoul(argv[2], 0, 0);
+	if (argc > 2) {
+		ext_mask = strtoull(argv[2], 0, 0);
+		mask = ext_mask;
+	}
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 4);
 	if (!srcport)
@@ -726,7 +773,7 @@ int main(int argc, char **argv)
 	}
 
 	if (extended_speeds) {
-		extended_speeds_query(&portid, port, mask);
+		extended_speeds_query(&portid, port, ext_mask);
 		goto done;
 	}
 
