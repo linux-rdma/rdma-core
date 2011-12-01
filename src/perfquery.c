@@ -377,7 +377,7 @@ static void common_func(ib_portid_t * portid, int port_num, int mask,
 			const char *name, uint16_t attr,
 			void dump_func(char *, int, void *, int))
 {
-	char buf[1024];
+	char buf[1536];
 
 	if (query) {
 		memset(pc, 0, sizeof(pc));
