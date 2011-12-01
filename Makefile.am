@@ -21,7 +21,7 @@ src_librdmacm_la_DEPENDENCIES =  $(srcdir)/src/librdmacm.map
 
 bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy examples/mckey \
 	       examples/rdma_client examples/rdma_server examples/rdma_xclient \
-	       examples/rdma_xserver examples/rstream
+	       examples/rdma_xserver examples/rstream examples/rcopy
 examples_ucmatose_SOURCES = examples/cmatose.c examples/common.c
 examples_ucmatose_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rping_SOURCES = examples/rping.c
@@ -40,6 +40,8 @@ examples_rdma_xserver_SOURCES = examples/rdma_xserver.c
 examples_rdma_xserver_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rstream_SOURCES = examples/rstream.c
 examples_rstream_LDADD = $(top_builddir)/src/librdmacm.la
+examples_rcopy_SOURCES = examples/rcopy.c
+examples_rcopy_LDADD = $(top_builddir)/src/librdmacm.la
 
 librdmacmincludedir = $(includedir)/rdma
 infinibandincludedir = $(includedir)/infiniband
@@ -110,6 +112,7 @@ man_MANS = \
 	man/rdma_xserver.1 \
 	man/rdma_xclient.1 \
 	man/rstream.1 \
+	man/rcopy.1 \
 	man/rdma_cm.7
 
 EXTRA_DIST = src/cma.h src/indexer.h src/librdmacm.map \
