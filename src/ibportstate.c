@@ -121,15 +121,6 @@ static int get_node_info(ib_portid_t * dest, uint8_t * data)
 		return 0;
 }
 
-static int is_mlnx_ext_port_info_supported(uint32_t devid)
-{
-	if (devid == 0xc738)
-		return 1;
-	if (devid >= 0x1003 && devid <= 0x1010)
-		return 1;
-	return 0;
-}
-
 static int get_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 			 int is_switch)
 {

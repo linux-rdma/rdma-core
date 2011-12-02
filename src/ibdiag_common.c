@@ -455,6 +455,15 @@ conv_cnt_human_readable(uint64_t val64, float *val, int data)
 	return ("");
 }
 
+int is_mlnx_ext_port_info_supported(uint32_t devid)
+{
+	if (devid == 0xc738)
+		return 1;
+	if (devid >= 0x1003 && devid <= 0x1010)
+		return 1;
+	return 0;
+}
+
 /* define a common SA query structure
  * This is by no means optimal but it moves the saquery functionality out of
  * the saquery tool and provides it to other utilities.

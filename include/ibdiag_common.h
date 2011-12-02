@@ -93,6 +93,8 @@ extern void iberror(const char *fn, char *msg, ...);
  */
 extern char *conv_cnt_human_readable(uint64_t val64, float *val, int data);
 
+int is_mlnx_ext_port_info_supported(uint32_t devid);
+
 /* define an SA query structure to be common
  * This is by no means optimal but it moves the saquery functionality out of
  * the saquery tool and provides it to other utilities.
