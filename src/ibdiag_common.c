@@ -66,11 +66,10 @@ static ib_portid_t sm_portid = { 0 };
 
 /* general config options */
 #define IBDIAG_CONFIG_GENERAL IBDIAG_CONFIG_PATH"/ibdiag.conf"
-static char *ibdiag_config_general = IBDIAG_CONFIG_GENERAL;
 char *ibd_ca = NULL;
 int ibd_ca_port = 0;
 int ibd_timeout = 0;
-
+uint32_t ibd_ibnetdisc_flags = IBND_CONFIG_MLX_EPI;
 
 static const char *prog_name;
 static const char *prog_args;
@@ -107,6 +106,60 @@ static void pretty_print(int start, int width, const char *str)
 		str = e;
 	}
 }
+
+static inline int val_str_true(const char *val_str)
+{
+	return ((strncmp(val_str, "TRUE", strlen("TRUE")) == 0) ||
+		(strncmp(val_str, "true", strlen("true")) == 0));
+}
+
+void read_ibdiag_config(const char *file)
+{
+	char buf[1024];
+	FILE *config_fd = NULL;
+	char *p_prefix, *p_last;
+	char *name;
+	char *val_str;
+	struct stat statbuf;
+
+	/* silently ignore missing config file */
+	if (stat(file, &statbuf))
+		return;
+
+	config_fd = fopen(file, "r");
+	if (!config_fd)
+		return;
+
+	while (fgets(buf, sizeof buf, config_fd) != NULL) {
+		p_prefix = strtok_r(buf, "\n", &p_last);
+		if (!p_prefix)
+			continue; /* ignore blank lines */
+
+		if (*p_prefix == '#')
+			continue; /* ignore comment lines */
+
+		name = strtok_r(p_prefix, "=", &p_last);
+		val_str = strtok_r(NULL, "\n", &p_last);
+
+		if (strncmp(name, "CA", strlen("CA")) == 0) {
+			free(ibd_ca);
+			ibd_ca = strdup(val_str);
+		} else if (strncmp(name, "Port", strlen("Port")) == 0) {
+			ibd_ca_port = strtoul(val_str, NULL, 0);
+		} else if (strncmp(name, "timeout", strlen("timeout")) == 0) {
+			ibd_timeout = strtoul(val_str, NULL, 0);
+		} else if (strncmp(name, "MLX_EPI", strlen("MLX_EPI")) == 0) {
+			if (val_str_true(val_str)) {
+				ibd_ibnetdisc_flags |= IBND_CONFIG_MLX_EPI;
+			} else {
+				ibd_ibnetdisc_flags &= ~IBND_CONFIG_MLX_EPI;
+			}
+		}
+	}
+
+	fclose(config_fd);
+}
+
 
 void ibdiag_show_usage()
 {
@@ -152,6 +205,9 @@ static int process_opt(int ch, char *optarg)
 	long val;
 
 	switch (ch) {
+	case 'z':
+		read_ibdiag_config(optarg);
+		break;
 	case 'h':
 	case 'u':
 		ibdiag_show_usage();
@@ -213,6 +269,7 @@ static int process_opt(int ch, char *optarg)
 }
 
 static const struct ibdiag_opt common_opts[] = {
+	{"config", 'z', 1, "<config>", "use config file, default: " IBDIAG_CONFIG_GENERAL},
 	{"Ca", 'C', 1, "<ca>", "Ca name to use"},
 	{"Port", 'P', 1, "<port>", "Ca port number to use"},
 	{"Direct", 'D', 0, NULL, "use Direct address argument"},
@@ -286,46 +343,6 @@ static void make_str_opts(const struct option *o, char *p, unsigned size)
 	p[n] = '\0';
 }
 
-void read_ibdiag_config(void)
-{
-	char buf[1024];
-	FILE *config_fd = NULL;
-	char *p_prefix, *p_last;
-	char *name;
-	char *val_str;
-	struct stat statbuf;
-
-	/* silently ignore missing config file */
-	if (stat(ibdiag_config_general, &statbuf))
-		return;
-
-	config_fd = fopen(ibdiag_config_general, "r");
-	if (!config_fd)
-		return;
-
-	while (fgets(buf, sizeof buf, config_fd) != NULL) {
-		p_prefix = strtok_r(buf, "\n", &p_last);
-		if (!p_prefix)
-			continue; /* ignore blank lines */
-
-		if (*p_prefix == '#')
-			continue; /* ignore comment lines */
-
-		name = strtok_r(p_prefix, "=", &p_last);
-		val_str = strtok_r(NULL, "\n", &p_last);
-
-		if (strncmp(name, "CA", strlen("CA")) == 0) {
-			ibd_ca = strdup(val_str);
-		} else if (strncmp(name, "Port", strlen("Port")) == 0) {
-			ibd_ca_port = strtoul(val_str, NULL, 0);
-		} else if (strncmp(name, "timeout", strlen("timeout")) == 0) {
-			ibd_timeout = strtoul(val_str, NULL, 0);
-		}
-	}
-
-	fclose(config_fd);
-}
-
 int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 			const char *exclude_common_str,
 			const struct ibdiag_opt custom_opts[],
@@ -344,7 +361,7 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 	if (!long_opts)
 		return -1;
 
-	read_ibdiag_config();
+	read_ibdiag_config(IBDIAG_CONFIG_GENERAL);
 
 	make_str_opts(long_opts, str_opts, sizeof(str_opts));
 
@@ -457,10 +474,12 @@ conv_cnt_human_readable(uint64_t val64, float *val, int data)
 
 int is_mlnx_ext_port_info_supported(uint32_t devid)
 {
-	if (devid == 0xc738)
-		return 1;
-	if (devid >= 0x1003 && devid <= 0x1010)
-		return 1;
+	if (ibd_ibnetdisc_flags & IBND_CONFIG_MLX_EPI) {
+		if (devid == 0xc738)
+			return 1;
+		if (devid >= 0x1003 && devid <= 0x1010)
+			return 1;
+	}
 	return 0;
 }
 

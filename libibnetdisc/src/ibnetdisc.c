@@ -318,7 +318,8 @@ static int query_mlnx_ext_port_info(smp_engine_t * engine, ib_portid_t * portid,
 static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			  uint8_t * mad, void *cb_data)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	ibnd_scan_t *scan = (ibnd_scan_t *)engine->user_data;
+	ibnd_fabric_t *fabric = scan->fabric;
 	ibnd_node_t *node = cb_data;
 	ibnd_port_t *port;
 	uint8_t *port_info = mad + IB_SMP_DATA_OFFS;
@@ -360,7 +361,8 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 
 	add_to_portguid_hash(port, fabric->portstbl);
 
-	if (is_mlnx_ext_port_info_supported(port)) {
+	if ((scan->cfg->flags & IBND_CONFIG_MLX_EPI)
+	    && is_mlnx_ext_port_info_supported(port)) {
 		phystate = mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F);
 		ispeed = mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
 		if (port->node->type == IB_NODE_SWITCH)

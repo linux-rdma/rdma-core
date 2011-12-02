@@ -637,6 +637,8 @@ int main(int argc, char **argv)
 		config.timeout_ms = ibd_timeout;
 	}
 
+	config.flags = ibd_ibnetdisc_flags;
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (dr_path && load_cache_file) {

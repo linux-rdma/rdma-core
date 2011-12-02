@@ -140,6 +140,9 @@ typedef struct ibnd_chassis {
 
 #define HTSZ 137
 
+/* define config flags */
+#define IBND_CONFIG_MLX_EPI (1 << 0)
+
 typedef struct ibnd_config {
 	unsigned max_smps;
 	unsigned show_progress;
@@ -147,7 +150,8 @@ typedef struct ibnd_config {
 	unsigned debug;
 	unsigned timeout_ms;
 	unsigned retries;
-	uint8_t pad[56];
+	uint32_t flags;
+	uint8_t pad[52];
 } ibnd_config_t;
 
 /** =========================================================================

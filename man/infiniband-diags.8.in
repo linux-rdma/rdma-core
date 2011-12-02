@@ -84,12 +84,20 @@ using "<util_name> -h".
 .PP
 \-V      show the version info.
 
+.TP
+\fB# Configuration flags\fR
+.PP
+\-\-config \-z  <config_file>
+        Specify alternate config file.
+        Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
+
 .SH FILES
 
 @IBDIAG_CONFIG_PATH@/ibdiag.conf
 
 A global config file is provided to set some of the common options for all
-tools.
+tools.  See supplied config file for details.
+
 
 .SH NODE NAME MAP FILE FORMAT
 Most utilities use the optional node name map file supported by libosmcomp to
