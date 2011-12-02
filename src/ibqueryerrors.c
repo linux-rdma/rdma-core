@@ -203,17 +203,17 @@ static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
 	/* C14-24.2.1 states that a down port allows for invalid data to be
 	 * returned for all PortInfo components except PortState and
 	 * PortPhysicalState */
-	if (!espeed) {
-		if (fdr10)
-			sprintf(speed, "10.0 Gbps (FDR10)");
-		else
-			mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed,
-				     64, &ispeed);
-	} else
-		mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed,
+	if (istate != IB_LINK_DOWN) {
+		if (!espeed) {
+			if (fdr10)
+				sprintf(speed, "10.0 Gbps (FDR10)");
+			else
+				mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed,
+					     64, &ispeed);
+		} else
+			mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed,
 			     64, &espeed);
 
-	if (istate != IB_LINK_DOWN) {
 		snprintf(link_str, 256, "(%3s %18s %6s/%8s)",
 			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64, &iwidth),
 			 speed,
