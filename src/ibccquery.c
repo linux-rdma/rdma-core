@@ -309,7 +309,7 @@ static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
 	if (!limit)
 		return NULL;
 
-	for (i = 0; i < ((limit - 1)/64) + 1; i++) {
+	for (i = 0; i < (limit/64) + 1; i++) {
 
 		/* first query done */
 		if (i)
@@ -317,7 +317,7 @@ static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
 					  i, 0, NULL, srcport, cckey))
 				return "congestion control table query failed";
 
-		for (j = 0; j < 64 && outputcount < limit; j++) {
+		for (j = 0; j < 64 && outputcount <= limit; j++) {
 			printf("Entry:...........................%u\n", i*64 + j);
 			mad_dump_cc_congestioncontroltableentry(buf, sizeof buf,
 								data + 4 + j * 2,
