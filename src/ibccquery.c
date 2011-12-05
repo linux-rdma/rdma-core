@@ -300,7 +300,7 @@ static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
 				 0, 0, NULL, srcport, cckey))
 		return "congestion control table query failed";
 
-	mad_decode_field((uint8_t *)data, IB_CC_CONGESTION_CONTROL_TABLE_FIRST_F, &limit);
+	mad_decode_field((uint8_t *)data, IB_CC_CONGESTION_CONTROL_TABLE_CCTI_LIMIT_F, &limit);
 
 	mad_dump_cc_congestioncontroltable(buf, sizeof buf, data, sizeof data);
 
