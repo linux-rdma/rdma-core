@@ -79,3 +79,40 @@ void *cc_query_status_via(void *rcvbuf, ib_portid_t * portid,
 
 	return res;
 }
+
+void *cc_config_status_via(void *payload, void *rcvbuf, ib_portid_t * portid,
+                           unsigned attrid, unsigned mod, unsigned timeout,
+                           int *rstatus, const struct ibmad_port * srcport,
+                           uint64_t cckey)
+{
+	ib_rpc_cc_t rpc = { 0 };
+	void *res;
+
+	DEBUG("attr 0x%x mod 0x%x route %s", attrid, mod, portid2str(portid));
+	rpc.method = IB_MAD_METHOD_SET;
+	rpc.attr.id = attrid;
+	rpc.attr.mod = mod;
+	rpc.timeout = timeout;
+	if (attrid == IB_CC_ATTR_CONGESTION_LOG) {
+		rpc.datasz = IB_CC_LOG_DATA_SZ;
+		rpc.dataoffs = IB_CC_LOG_DATA_OFFS;
+	}
+	else {
+		rpc.datasz = IB_CC_DATA_SZ;
+		rpc.dataoffs = IB_CC_DATA_OFFS;
+	}
+	rpc.mgtclass = IB_CC_CLASS;
+	rpc.cckey = cckey;
+
+	portid->qp = 1;
+	if (!portid->qkey)
+		portid->qkey = IB_DEFAULT_QP1_QKEY;
+
+	res = mad_rpc(srcport, (ib_rpc_t *)&rpc, portid, payload, rcvbuf);
+	if (rstatus)
+		*rstatus = rpc.rstatus;
+
+	return res;
+}
+
+

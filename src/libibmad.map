@@ -145,5 +145,6 @@ IBMAD_1.3 {
 		bm_call_via;
 		mad_dump_port_ext_speeds_counters;
 		cc_query_status_via;
+		cc_config_status_via;
 	local: *;
 };

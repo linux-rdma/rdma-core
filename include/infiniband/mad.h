@@ -1496,6 +1496,11 @@ MAD_EXPORT void *cc_query_status_via(void *rcvbuf, ib_portid_t * portid,
 				     int *rstatus, const struct ibmad_port * srcport,
 				     uint64_t cckey);
 
+MAD_EXPORT void *cc_config_status_via(void *payload, void *rcvbuf, ib_portid_t * portid,
+				      unsigned attrid, unsigned mod, unsigned timeout,
+				      int *rstatus, const struct ibmad_port * srcport,
+				      uint64_t cckey);
+
 /* sa.c */
 uint8_t *sa_call(void *rcvbuf, ib_portid_t * portid, ib_sa_call_t * sa,
 		 unsigned timeout) DEPRECATED;
