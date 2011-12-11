@@ -317,12 +317,15 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		}
 
 		wc->slid	   = ntohs(cqe->rlid);
-		wc->sl		   = ntohs(cqe->sl_vid) >> 12;
 		g_mlpath_rqpn	   = ntohl(cqe->g_mlpath_rqpn);
 		wc->src_qp	   = g_mlpath_rqpn & 0xffffff;
 		wc->dlid_path_bits = (g_mlpath_rqpn >> 24) & 0x7f;
 		wc->wc_flags	  |= g_mlpath_rqpn & 0x80000000 ? IBV_WC_GRH : 0;
 		wc->pkey_index     = ntohl(cqe->immed_rss_invalid) & 0x7f;
+		if ((*cur_qp)->link_layer == IBV_LINK_LAYER_ETHERNET)
+			wc->sl	   = ntohs(cqe->sl_vid) >> 13;
+		else
+			wc->sl	   = ntohs(cqe->sl_vid) >> 12;
 	}
 
 	return CQ_OK;

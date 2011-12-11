@@ -677,13 +677,14 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	if (port_attr.link_layer != IBV_LINK_LAYER_ETHERNET) {
 		ah->av.g_slid = attr->src_path_bits;
 		ah->av.dlid   = htons(attr->dlid);
-	}
+		ah->av.sl_tclass_flowlabel = htonl(attr->sl << 28);
+	} else
+		ah->av.sl_tclass_flowlabel = htonl(attr->sl << 29);
 
 	if (attr->static_rate) {
 		ah->av.stat_rate = attr->static_rate + MLX4_STAT_RATE_OFFSET;
 		/* XXX check rate cap? */
 	}
-	ah->av.sl_tclass_flowlabel = htonl(attr->sl << 28);
 	if (attr->is_global) {
 		ah->av.g_slid   |= 0x80;
 		ah->av.gid_index = attr->grh.sgid_index;
