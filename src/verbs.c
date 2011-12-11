@@ -521,7 +521,15 @@ int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    int attr_mask)
 {
 	struct ibv_modify_qp cmd;
+	struct ibv_port_attr port_attr;
+	struct mlx4_qp *mqp = to_mqp(qp);
 	int ret;
+
+	if (attr_mask & IBV_QP_PORT) {
+		if (ibv_query_port(qp->pd->context, attr->port_num, &port_attr))
+			return -1;
+		mqp->link_layer = port_attr.link_layer;
+	}
 
 	if (qp->state == IBV_QPS_RESET &&
 	    attr_mask & IBV_QP_STATE   &&

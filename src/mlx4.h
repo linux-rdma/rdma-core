@@ -223,6 +223,8 @@ struct mlx4_qp {
 
 	uint32_t		       *db;
 	struct mlx4_wq			rq;
+
+	uint8_t				link_layer;
 };
 
 struct mlx4_av {
