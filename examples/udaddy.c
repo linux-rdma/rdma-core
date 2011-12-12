@@ -655,7 +655,7 @@ int main(int argc, char **argv)
 			break;
 		case 't':
 			set_tos = 1;
-			tos = (uint8_t) atoi(optarg);
+			tos = (uint8_t) strtoul(optarg, NULL, 0);
 			break;
 		case 'p':
 			port_space = strtol(optarg, NULL, 0);
