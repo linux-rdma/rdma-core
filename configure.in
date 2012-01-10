@@ -65,7 +65,7 @@ IBDIAG_CONFIG_PATH_TMP1="`eval echo ${sysconfdir}`"
 IBDIAG_CONFIG_PATH_TMP2="`echo $IBDIAG_CONFIG_PATH_TMP1 | sed 's/^NONE/$ac_default_prefix/'`"
 IBDIAG_CONFIG_PATH="`eval echo $IBDIAG_CONFIG_PATH_TMP2`/infiniband-diags"
 AC_SUBST(IBDIAG_CONFIG_PATH)
-AC_DEFINE_UNQUOTED([IBDIAG_CONFIG_PATH], "$IBDIAG_CONFIG_PATH", [Define the path to configuratios])
+AC_DEFINE_UNQUOTED([IBDIAG_CONFIG_PATH], "$IBDIAG_CONFIG_PATH", [Define the path to configurations])
 
 dnl Check if we should include test utilities
 AC_MSG_CHECKING(for --enable-test-utils)
