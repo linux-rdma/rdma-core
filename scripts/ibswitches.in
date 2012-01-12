@@ -56,10 +56,10 @@ echo "$text" | awk '
 			pi=match(desc, "port 0.*")
 			pinfo=substr(desc, pi)
 			desc=substr(desc, 1, pi-2)
-			type="base"
+			type="base port 0"
 			ti=match(desc, type)
 			if (ti==0) {
-				type="enhanced"
+				type="enhanced port 0"
 				ti=match(desc, type)
 				if (ti!=0)
 					desc=substr(desc, 1, ti-2)
