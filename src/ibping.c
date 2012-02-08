@@ -84,16 +84,18 @@ static char *ibping_serv(void)
 
 	while ((umad = mad_receive_via(0, -1, srcport))) {
 
-		mad = umad_get_mad(umad);
-		data = (char *)mad + IB_VENDOR_RANGE2_DATA_OFFS;
+		if (umad_status(umad) == 0) {
+			mad = umad_get_mad(umad);
+			data = (char *)mad + IB_VENDOR_RANGE2_DATA_OFFS;
 
-		memcpy(data, host_and_domain, IB_VENDOR_RANGE2_DATA_SIZE);
+			memcpy(data, host_and_domain, IB_VENDOR_RANGE2_DATA_SIZE);
 
-		DEBUG("Pong: %s", data);
+			DEBUG("Pong: %s", data);
 
-		if (mad_respond_via(umad, 0, 0, srcport) < 0)
-			DEBUG("respond failed");
+			if (mad_respond_via(umad, 0, 0, srcport) < 0)
+				DEBUG("respond failed");
 
+		}
 		mad_free(umad);
 	}
 
