@@ -732,7 +732,7 @@ static int get_any_records(bind_handle_t h,
 	int ret = sa_query(h, IB_MAD_METHOD_GET_TABLE, attr_id, attr_mod,
 			   cl_ntoh64(comp_mask), sm_key, attr, result);
 	if (ret) {
-		fprintf(stderr, "Query SA failed: %s\n", ib_get_err_str(ret));
+		fprintf(stderr, "Query SA failed: %s\n", strerror(ret));
 		return ret;
 	}
 
@@ -822,7 +822,7 @@ static uint16_t get_lid(bind_handle_t h, const char *name)
 	if (!name)
 		return 0;
 	if (isalpha(name[0])) {
-		if (get_lid_from_name(h, name, &rc_lid) != IB_SUCCESS) {
+		if (get_lid_from_name(h, name, &rc_lid) != 0) {
 			fprintf(stderr, "Failed to find lid for \"%s\"\n", name);
 			exit(EINVAL);
 		}
@@ -946,8 +946,7 @@ static int get_print_class_port_info(bind_handle_t h)
 	int ret = sa_query(h, IB_MAD_METHOD_GET, CLASS_PORT_INFO, 0, 0,
 			   0, NULL, &result);
 	if (ret) {
-		fprintf(stderr, "ERROR: Query SA failed: %s\n",
-			ib_get_err_str(ret));
+		fprintf(stderr, "ERROR: Query SA failed: %s\n", strerror(ret));
 		return ret;
 	}
 	if (result.status != IB_SA_MAD_STATUS_SUCCESS) {
@@ -1719,7 +1718,7 @@ int main(int argc, char **argv)
 		    || !q->handler) {
 			fprintf(stderr, "Unknown query type %d\n",
 				ntohs(query_type));
-			status = IB_UNKNOWN_ERROR;
+			status = EINVAL;
 		} else
 			status = q->handler(q, h, &params, argc, argv);
 		break;

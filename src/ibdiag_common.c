@@ -561,7 +561,7 @@ int sa_query(bind_handle_t h, uint8_t method,
 		IBWARN("umad_send failed: attr %u: %s\n",
 			attr, strerror(errno));
 		free(umad);
-		return (IB_ERROR);
+		return (-ret);
 	}
 
 recv_mad:
@@ -574,7 +574,7 @@ recv_mad:
 		IBWARN("umad_recv failed: attr 0x%x: %s\n", attr,
 			strerror(errno));
 		free(umad);
-		return (IB_ERROR);
+		return (-ret);
 	}
 
 	if ((ret = umad_status(umad)))
