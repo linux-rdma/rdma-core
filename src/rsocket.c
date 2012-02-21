@@ -1637,6 +1637,8 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = rdma_set_option(rs->cm_id, RDMA_OPTION_ID,
 					      RDMA_OPTION_ID_REUSEADDR,
 					      (void *) optval, optlen);
+			if (ret && errno == ENOSYS)
+				ret = 0;
 			break;
 		case SO_RCVBUF:
 			if (!rs->rbuf)
