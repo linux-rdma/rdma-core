@@ -632,6 +632,11 @@ static int link_local_gid(const union ibv_gid *gid)
 	return 0;
 }
 
+static int is_multicast_gid(const union ibv_gid *gid)
+{
+	return gid->raw[0] == 0xff;
+}
+
 static uint16_t get_vlan_id(union ibv_gid *gid)
 {
 	uint16_t vid;
@@ -639,9 +644,12 @@ static uint16_t get_vlan_id(union ibv_gid *gid)
 	return vid < 0x1000 ? vid : 0xffff;
 }
 
-static int mlx4_resolve_grh_to_l2(struct mlx4_ah *ah, struct ibv_ah_attr *attr)
+static int mlx4_resolve_grh_to_l2(struct ibv_pd *pd, struct mlx4_ah *ah,
+				  struct ibv_ah_attr *attr)
 {
+	int err, i;
 	uint16_t vid;
+	union ibv_gid sgid;
 
 	if (link_local_gid(&attr->grh.dgid)) {
 		memcpy(ah->mac, &attr->grh.dgid.raw[8], 3);
@@ -649,13 +657,30 @@ static int mlx4_resolve_grh_to_l2(struct mlx4_ah *ah, struct ibv_ah_attr *attr)
 		ah->mac[0] ^= 2;
 
 		vid = get_vlan_id(&attr->grh.dgid);
-		if (vid != 0xffff) {
-			ah->av.port_pd |= htonl(1 << 29);
-			ah->vlan = vid | ((attr->sl & 7) << 13);
-		}
-		return 0;
+	} else if (is_multicast_gid(&attr->grh.dgid)) {
+		ah->mac[0] = 0x33;
+		ah->mac[1] = 0x33;
+		for (i = 2; i < 6; ++i)
+			ah->mac[i] = attr->grh.dgid.raw[i + 10];
+
+		err = ibv_query_gid(pd->context, attr->port_num,
+				    attr->grh.sgid_index, &sgid);
+		if (err)
+			return err;
+
+		ah->av.dlid = htons(0xc000);
+		ah->av.port_pd |= htonl(1 << 31);
+
+		vid = get_vlan_id(&sgid);
 	} else
 		return 1;
+
+	if (vid != 0xffff) {
+		ah->av.port_pd |= htonl(1 << 29);
+		ah->vlan = vid | ((attr->sl & 7) << 13);
+	}
+
+	return 0;
 }
 
 struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
@@ -696,7 +721,7 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	}
 
 	if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET)
-		if (mlx4_resolve_grh_to_l2(ah, attr)) {
+		if (mlx4_resolve_grh_to_l2(pd, ah, attr)) {
 			free(ah);
 			return NULL;
 		}
