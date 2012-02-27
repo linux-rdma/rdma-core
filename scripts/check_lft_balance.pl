@@ -45,7 +45,6 @@ use Getopt::Std;
 my $ibnetdiscover_cache = "";
 my $dump_lft_file       = "";
 my $verbose             = 0;
-my $query_opt           = "";
 
 my $switch_lid                            = undef;
 my $switch_guid                           = undef;
@@ -73,8 +72,6 @@ sub usage
 	print "  Generate ibnetdiscover-cache via \"ibnetdiscover --cache ibnetdiscover-cache\"\n";
 	print "  -e turn on heuristic(s) to look at switch balances deeper\n";
 	print "  -v verbose output, output all switches\n";
-	print "  -C <ca_name> use selected Channel Adaptor name for queries\n";
-	print "  -P <ca_port> use selected channel adaptor port for queries\n";
 	exit 2;
 }
 
@@ -178,7 +175,7 @@ sub output_switch_port_usage
 	my $all_zero_flag = 1;
 	my $ret;
 
-        $iblinkinfo_output = `iblinkinfo $query_opt --load-cache $ibnetdiscover_cache -S $switch_guid`;
+        $iblinkinfo_output = `iblinkinfo --load-cache $ibnetdiscover_cache -S $switch_guid`;
 
 	for $port (@ports) {
 		if (!defined($switch_port_count{$port})) {
@@ -357,14 +354,6 @@ if (defined($main::opt_v)) {
 
 if (defined($main::opt_e)) {
 	$heuristic_flag = 1;
-}
-
-if (defined $Getopt::Std::opt_C) {
-	$query_opt = "$query_opt -C $Getopt::Std::opt_C";
-}
-
-if (defined $Getopt::Std::opt_P) {
-	$query_opt = "$query_opt -P $Getopt::Std::opt_P";
 }
 
 if (!open(FH, "< $dump_lft_file")) {
