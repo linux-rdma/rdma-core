@@ -764,8 +764,10 @@ static int ucma_complete(struct cma_id_private *id_priv)
 	if (id_priv->id.event->status) {
 		if (id_priv->id.event->event == RDMA_CM_EVENT_REJECTED)
 			ret = ERR(ECONNREFUSED);
+		else if (id_priv->id.event->status < 0)
+			ret = ERR(-id_priv->id.event->status);
 		else
-			ret = ERR(id_priv->id.event->status);
+			ret = ERR(-id_priv->id.event->status);
 	}
 	return ret;
 }
