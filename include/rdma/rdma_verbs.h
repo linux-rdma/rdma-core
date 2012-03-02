@@ -269,7 +269,7 @@ rdma_get_send_comp(struct rdma_cm_id *id, struct ibv_wc *wc)
 
 		ret = ibv_get_cq_event(id->send_cq_channel, &cq, &context);
 		if (ret)
-			return rdma_seterrno(ret);
+			return ret;
 
 		assert(cq == id->send_cq && context == id);
 		ibv_ack_cq_events(id->send_cq, 1);
@@ -300,7 +300,7 @@ rdma_get_recv_comp(struct rdma_cm_id *id, struct ibv_wc *wc)
 
 		ret = ibv_get_cq_event(id->recv_cq_channel, &cq, &context);
 		if (ret)
-			return rdma_seterrno(ret);
+			return ret;
 
 		assert(cq == id->recv_cq && context == id);
 		ibv_ack_cq_events(id->recv_cq, 1);
