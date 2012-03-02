@@ -12,7 +12,7 @@ RDMA identifier.
 .SH "DESCRIPTION"
 Disconnects a connection and transitions any associated QP to the error state,
 which will flush any posted work requests to the completion queue.  This
-routine may be called by both the client and server side of a connection.
+routine should be called by both the client and server side of a connection.
 After successfully disconnecting, an RDMA_CM_EVENT_DISCONNECTED event will be
 generated on both sides of the connection.
 .SH "RETURN VALUE"
