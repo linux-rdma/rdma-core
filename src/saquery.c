@@ -798,7 +798,7 @@ static int get_lid_from_name(bind_handle_t h, const char *name, uint16_t * lid)
 	if (ret)
 		return ret;
 
-	ret = IB_NOT_FOUND;
+	ret = ENONET;
 	for (i = 0; i < result.result_cnt; i++) {
 		node_record = sa_get_query_rec(result.p_result_madw, i);
 		p_ni = &(node_record->node_info);
@@ -807,7 +807,7 @@ static int get_lid_from_name(bind_handle_t h, const char *name, uint16_t * lid)
 			       sizeof(node_record->node_desc.description)) ==
 		    0) {
 			*lid = cl_ntoh16(node_record->lid);
-			ret = IB_SUCCESS;
+			ret = 0;
 			break;
 		}
 	}
@@ -817,14 +817,16 @@ static int get_lid_from_name(bind_handle_t h, const char *name, uint16_t * lid)
 
 static uint16_t get_lid(bind_handle_t h, const char *name)
 {
+	int rc = 0;
 	uint16_t rc_lid = 0;
 
 	if (!name)
 		return 0;
 	if (isalpha(name[0])) {
-		if (get_lid_from_name(h, name, &rc_lid) != 0) {
-			fprintf(stderr, "Failed to find lid for \"%s\"\n", name);
-			exit(EINVAL);
+		if ((rc = get_lid_from_name(h, name, &rc_lid)) != 0) {
+			fprintf(stderr, "Failed to find lid for \"%s\": %s\n",
+				name, strerror(rc));
+			exit(rc);
 		}
 	} else {
 		long val;
