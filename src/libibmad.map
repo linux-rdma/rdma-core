@@ -146,5 +146,7 @@ IBMAD_1.3 {
 		mad_dump_port_ext_speeds_counters;
 		cc_query_status_via;
 		cc_config_status_via;
+		smp_mkey_get;
+		smp_mkey_set;
 	local: *;
 };

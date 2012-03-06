@@ -40,6 +40,7 @@ struct ibmad_port {
 	int port_id;		/* file descriptor returned by umad_open() */
 	int class_agents[MAX_CLASS];	/* class2agent mapper */
 	int timeout, retries;
+	uint64_t smp_mkey;
 };
 
 extern struct ibmad_port *ibmp;

@@ -46,6 +46,16 @@
 #undef DEBUG
 #define DEBUG 	if (ibdebug)	IBWARN
 
+void smp_mkey_set(struct ibmad_port *srcport, uint64_t mkey)
+{
+	srcport->smp_mkey = mkey;
+}
+
+uint64_t smp_mkey_get(const struct ibmad_port *srcport)
+{
+	return srcport->smp_mkey;
+}
+
 uint8_t *smp_set_status_via(void *data, ib_portid_t * portid, unsigned attrid,
 			    unsigned mod, unsigned timeout, int *rstatus,
 			    const struct ibmad_port *srcport)
@@ -67,6 +77,7 @@ uint8_t *smp_set_status_via(void *data, ib_portid_t * portid, unsigned attrid,
 	rpc.timeout = timeout;
 	rpc.datasz = IB_SMP_DATA_SIZE;
 	rpc.dataoffs = IB_SMP_DATA_OFFS;
+	rpc.mkey = srcport->smp_mkey;
 
 	portid->sl = 0;
 	portid->qp = 0;
@@ -105,6 +116,7 @@ uint8_t *smp_query_status_via(void *rcvbuf, ib_portid_t * portid,
 	rpc.timeout = timeout;
 	rpc.datasz = IB_SMP_DATA_SIZE;
 	rpc.dataoffs = IB_SMP_DATA_OFFS;
+	rpc.mkey = srcport->smp_mkey;
 
 	if ((portid->lid <= 0) ||
 	    (portid->drpath.drslid == 0xffff) ||
