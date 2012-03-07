@@ -340,7 +340,7 @@ int mlx4_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 			break;
 	}
 
-	if (npolled)
+	if (npolled || err == CQ_POLL_ERR)
 		update_cons_index(cq);
 
 	pthread_spin_unlock(&cq->lock);
