@@ -1,10 +1,10 @@
-libmlx4 (1.0.4-1) UNRELEASED; urgency=low
+libmlx4 (1.0.4-1) unstable; urgency=low
 
   * New upstream release.
     - IBoE multicast support.
   * Update maintainer and remove DM-Upload-Allowed now that I'm a DD.
 
- -- Roland Dreier <rbd@debian.org>  Wed, 28 Mar 2012 10:29:44 -0700
+ -- Roland Dreier <rbd@debian.org>  Wed, 28 Mar 2012 10:31:52 -0700
 
 libmlx4 (1.0.3-1) unstable; urgency=low
 
