@@ -205,11 +205,12 @@ static atomic_t counter[ACM_MAX_COUNTER];
 /*
  * Service options - may be set through acm_opts file.
  */
-static char *opts_file = "/etc/ibacm/acm_opts.cfg";
-static char *addr_file = "/etc/ibacm/acm_addr.cfg";
+static char *acme = BINDIR "/ib_acme -A";
+static char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
+static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
 static char log_file[128] = "/var/log/ibacm.log";
 static int log_level = 0;
-static char lock_file[128] = "/var/lock/ibacm.pid";
+static char lock_file[128] = "/var/run/ibacm.pid";
 static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
 static enum acm_route_prot route_prot = ACM_ROUTE_PROT_SA;
 static enum acm_loopback_prot loopback_prot = ACM_LOOPBACK_PROT_LOCAL;
@@ -2508,9 +2509,9 @@ static FILE *acm_open_addr_file(void)
 	if ((f = fopen(addr_file, "r")))
 		return f;
 
-	acm_log(0, "notice - generating acm_addr.cfg file\n");
-	if (!(f = popen("ib_acme -A", "r"))) {
-		acm_log(0, "ERROR - cannot generate acm_addr.cfg\n");
+	acm_log(0, "notice - generating %s file\n", addr_file);
+	if (!(f = popen(acme, "r"))) {
+		acm_log(0, "ERROR - cannot generate %s\n", addr_file);
 		return NULL;
 	}
 	pclose(f);
@@ -3157,9 +3158,9 @@ static void show_usage(char *program)
 	printf("   [-D]             - run as a daemon (default)\n");
 	printf("   [-P]             - run as a standard process\n");
 	printf("   [-A addr_file]   - address configuration file\n");
-	printf("                      (default %s/%s\n", ACM_DEST_DIR, ACM_ADDR_FILE);
+	printf("                      (default %s/%s\n", ACM_CONF_DIR, ACM_ADDR_FILE);
 	printf("   [-O option_file] - option configuration file\n");
-	printf("                      (default %s/%s\n", ACM_DEST_DIR, ACM_OPTS_FILE);
+	printf("                      (default %s/%s\n", ACM_CONF_DIR, ACM_OPTS_FILE);
 }
 
 int CDECL_FUNC main(int argc, char **argv)

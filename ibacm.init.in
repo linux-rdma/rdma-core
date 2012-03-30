@@ -1,0 +1,99 @@
+#!/bin/bash
+#
+# Bring up/down the ibacm daemon
+#
+# chkconfig: 2345 25 75
+# description: Starts/Stops InfiniBand ACM service
+#
+### BEGIN INIT INFO
+# Provides:       ibacm
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Required-Start: rdma $network
+# Required-Stop: rdma $network
+# Should-Start:
+# Should-Stop:
+# Short-Description: Starts and stops the InfiniBand ACM service
+# Description: The InfiniBand ACM service provides a user space implementation
+#	of someting resembling an ARP cache for InfiniBand SA queries and
+#	host route lookups.
+### END INIT INFO
+
+pidfile=/var/run/ibacm.pid
+subsys=/var/lock/subsys/ibacm
+
+. /etc/rc.d/init.d/functions
+
+start()
+{
+    echo -n "Starting ibacm daemon:"
+
+    daemon @prefix@/sbin/ibacm
+    RC=$?
+    [ $RC -eq 0 ] && touch $subsys
+    echo
+    return $RC
+}
+
+stop()
+{
+    echo -n "Stopping ibacm daemon:"
+
+    killproc -p $pidfile ibacm
+    RC=$?
+    rm -f $subsys
+    echo
+    return $RC
+}
+
+status()
+{
+    if [ ! -f $subsys -a ! -f $pidfile ]; then
+    	return 3
+    fi
+    if [ -f $pidfile ]; then
+	checkpid `cat $pidfile`
+	return $?
+    fi
+    if [ -f $subsys ]; then
+	return 2
+    fi
+}
+
+restart ()
+{
+    stop
+    start
+}
+
+condrestart ()
+{
+    [ -e $subsys ] && restart || return 0
+}
+
+usage ()
+{
+    echo
+    echo "Usage: `basename $0` {start|stop|restart|condrestart|try-restart|force-reload|status}"
+    echo
+    return 2
+}
+
+case $1 in
+    start|stop|restart|condrestart|try-restart|force-reload)
+	[ `id -u` != "0" ] && exit 4 ;;
+esac
+
+case $1 in
+    start) start; RC=$? ;;
+    stop) stop; RC=$? ;;
+    restart) restart; RC=$? ;;
+    reload) RC=3 ;;
+    condrestart) condrestart; RC=$? ;;
+    try-restart) condrestart; RC=$? ;;
+    force-reload) condrestart; RC=$? ;;
+    status) status; RC=$? ;;
+    *) usage; RC=$? ;;
+esac
+
+exit $RC

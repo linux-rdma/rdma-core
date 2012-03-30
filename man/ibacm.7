@@ -1,6 +1,6 @@
-.TH "IB_ACM" 7 "2009-09-09" "IB_ACM" "IB ACM User Guide" IB_ACM
+.TH "IBACM" 7 "2012-03-01" "IBACM" "IB ACM User Guide" IBACM
 .SH NAME
-ib_acm \- InfiniBand communication management assistant
+ibacm \- InfiniBand communication management assistant
 .SH SYNOPSIS
 .B "#include <infiniband/ib_acm.h>"
 .SH "DESCRIPTION"
@@ -17,11 +17,10 @@ similar to rdma_getaddrinfo, rdma_resolve_addr, and rdma_resolve_route using
 IB multicast.
 The IB ACM does not require IPoIB or use standard naming services, such as
 DNS, and limits network communication, especially with the IB SA.
-Because it uses multicast traffic and limits SA interaction, it may
-not support all cluster configurations.  The ib_acme utility assists in
-verifying what options of the ib_acm service may be usable.
+The ib_acme utility assists in verifying what options of the ibacm service
+may be usable for the current fabric topology.
 .P
-Client interactions with the ib_acm service are done over sockets through
+Client interactions with the ibacm service are done over sockets through
 a standard TCP connection.  The librdmacm abstracts this interaction.
 .SH "RETURN CODES"
 .IP "== 0"
@@ -29,5 +28,4 @@ success
 .IP "!= 0"
 error
 .SH "SEE ALSO"
-ib_acm_resolve_name(3), ib_acm_resolve_ip(3), ib_acm_resolve_path(3)
-ib_acme(1), ib_acm(1)
+ib_acme(1), ibacm(1)

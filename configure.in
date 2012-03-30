@@ -59,5 +59,11 @@ AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
 
 AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$ac_cv_version_script" = "yes")
 
-AC_CONFIG_FILES([Makefile ibacm.spec])
+AC_ARG_VAR(rdmadir, [Directory for configuration files])
+if test "x$rdmadir" = "x"; then
+   AC_SUBST(rdmadir, rdma)
+fi
+AC_SUBST(sbindir)
+
+AC_CONFIG_FILES([Makefile ibacm.spec ibacm.init])
 AC_OUTPUT

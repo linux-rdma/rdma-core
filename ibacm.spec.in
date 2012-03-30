@@ -1,53 +1,89 @@
-%define ver @VERSION@
-
 Name: ibacm
 Version: 1.0.5
 Release: 1%{?dist}
 Summary: InfiniBand Communication Manager Assistant
 
-Group: System Environment/Libraries
+Group: System Environment/Daemons
 License: GPLv2 or BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/rdmacm/%{name}-%{version}.tar.gz
+Source0: http://www.openfabrics.org/downloads/rdmacm/%{name}-%{version}.tar.gz
+Source1: ibacm.init
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires: libibverbs-devel >= 1.1-1
+BuildRequires: libibverbs-devel >= 1.1-1, autoconf, libtool, libibumad-devel
+Requires(post): chkconfig
+Requires(preun): chkconfig
+ExcludeArch: s390, s390x
 
 %description
-ibacm assists with establishing communication over Infiniband.
+The %{name} daemon helps reduce the load of managing path record lookups on
+large InfiniBand fabrics by providing a user space implementation of what
+is functionally similar to an ARP cache.  The use of %{name}, when properly
+configured, can reduce the SA packet load of a large IB cluster from O(n^2)
+to O(n).  The %{name} daemon is started and normally runs in the background,
+user applications need not know about this daemon as long as their app
+uses librdmacm to handle connection bring up/tear down.  The librdmacm
+library knows how to talk directly to the %{name} daemon to retrieve data.
 
-%package svc
-Summary: IB CM pre-connection service application
-Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release} %{_includedir}/infiniband/verbs.h
+%package devel
+Summary: Headers file needed when building apps to talk directly to ibacm.
+Requires: %{name} = %{version}-%{release}
 
-%description svc
-Application daemon for IB CM pre-connection services.
+%description devel
+Most applications do not need to know how to talk directly to the ibacm
+daemon, but it does have a socket that it listens on, and it has a
+specific protocol for incoming/outgoing data.  So if you wish to build
+the ability to communicate directly with %{name} into your own application,
+the protocol used to communicate with it, and the data structures
+involved, are in this header file.  Please note that this is an unsupported
+method of using this daemon.  The only supported means of using this is
+via librdmacm.  As such, even though this header file is provided, no
+further documentation is available.  One must read the source if they
+wish to make use of this header file.
 
 %prep
-%setup -q -n %{name}-%{ver}
+%setup -q -n %{name}-%{version}
 
 %build
-%configure
+aclocal -I config && libtoolize --force --copy && autoheader && \
+	automake --foreign --add-missing --copy && autoconf
+%configure CFLAGS="$CXXFLAGS -fno-strict-aliasing" LDFLAGS=-lpthread
 make %{?_smp_mflags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
+make DESTDIR=%{buildroot} install
+install -D -m 755 %{SOURCE1} %{buildroot}%{_initrddir}/%{name}
 %makeinstall
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
+%post
+if [ $1 = 1 ]; then
+	chkconfig --add %{name}
+fi
+%preun
+if [ $1 = 1 ]; then
+	chkconfig --del %{name}
+fi
 
 %files
 %defattr(-,root,root,-)
 %doc AUTHORS COPYING README
 %{_bindir}/ib_acme
-%{_sbindir}/ib_acm
+%{_sbindir}/ibacm
 %{_mandir}/man1/*
 %{_mandir}/man7/*
+%config(noreplace) %{_sysconfdir}/rdma/*
+%{_initrddir}/ibacm
+
+%files devel
+%defattr(-,root,root,-)
 %{_includedir}/infiniband/acm.h
 
 %changelog
+* Tue Feb 28 2012 Doug Ledford <dledford@redhat.com> - 1.0.5-1
+- Ininital version for rhel6
+- Related: bz700285
+

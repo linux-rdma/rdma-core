@@ -10,10 +10,10 @@ ib_acme \- test and configuration utility for the IB ACM
 \fIib_acme\fR [-G] [-O]
 .fi
 .SH "DESCRIPTION"
-ib_acme provides assistance configuring and testing the ib_acm service.
-The first usage of the service will test that the ib_acm is running
+ib_acme provides assistance configuring and testing the ibacm service.
+The first usage of the service will test that the ibacm is running
 and operating correctly.  The second usage model will automatically
-create address and configuration files for the ib_acm service.
+create address and configuration files for the ibacm service.
 .SH "OPTIONS"
 .TP
 \-f addr_format
@@ -44,19 +44,19 @@ in its local cache.
 .TP
 \-A
 With this option, the ib_acme utility automatically generates the address
-configuration file acm_addr.cfg.  The generated file is
+configuration file ibacm_addr.cfg.  The generated file is
 constructed using the system host name and any IP addresses that are
 assigned to IPoIB device instances.
 .TP
 \-O
 With this option, the ib_acme utility automatically generates the option
-configuration file acm_opts.cfg.  The generated file is currently generated
+configuration file ibacm_opts.cfg.  The generated file is currently generated
 using static information.
 .TP
 \-V
 Enables verbose output.  When combined with -A or -O options, ib_acme will
 display additional details, such as generated address information saved
-to the acm_addr.cfg file.
+to the ibacm_addr.cfg file.
 .SH "NOTES"
 The ib_acme utility performs two main functions.  With the -A and -O options,
 it automatically generates address or options configuration files.  The
@@ -64,13 +64,13 @@ generated files are text based and may be edited.  These options are intended
 to provide a simple way to configure address and option information on all
 nodes on a cluster.
 .P
-The other function of the ib_acme utility is to test the ib_acm service,
+The other function of the ib_acme utility is to test the ibacm service,
 including helping to verify that the service is usable given the current
 cluster configuration.  The ib_acme utility can resolve IP addresses,
 network names, or IB LIDs into a path record.  It can then compare that
 path record against one obtained by the SA.  When used to test the
-ib_acm service, the ib_acme utility has the side effect of loading the
-ib_acm caches.
+ibacm service, the ib_acme utility has the side effect of loading the
+ibacm caches.
 .P
 Multiple, numerical destinations can be specified by adding brackets [] to
 the end of a base destination name or address.  Users may specify a list of
@@ -78,4 +78,4 @@ numerical ranges inside the brackets using the following example as a
 guide: node[1-3,5,7-8].  This will result in testing node1, node2, node3,
 node5, node7, and node8.   
 .SH "SEE ALSO"
-ib_acm(7) ib_acm(1)
+ibacm(7) ibacm(1)

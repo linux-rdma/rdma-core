@@ -43,7 +43,7 @@
 #include <infiniband/acm.h>
 #include "libacm.h"
 
-static char *dest_dir = ACM_DEST_DIR;
+static char *dest_dir = ACM_CONF_DIR;
 static char *addr_file = ACM_ADDR_FILE;
 static char *opts_file = ACM_OPTS_FILE;
 
@@ -69,7 +69,7 @@ extern char **parse(char *args, int *count);
 static void show_usage(char *program)
 {
 	printf("usage 1: %s\n", program);
-	printf("Query specified ib_acm service for data\n");
+	printf("Query specified ibacm service for data\n");
 	printf("   [-f addr_format] - i(p), n(ame), l(id), g(gid), or u(nspecified)\n");
 	printf("                      address format for -s and -d options, default: 'u'\n");
 	printf("   [-s src_addr]    - source address for path queries\n");
@@ -79,13 +79,13 @@ static void show_usage(char *program)
 	printf("   [-P]             - query performance data from destination service\n");
 	printf("   [-S svc_addr]    - address of ACM service, default: local service\n");
 	printf("usage 2: %s\n", program);
-	printf("Generate default ib_acm service configuration and option files\n");
+	printf("Generate default ibacm service configuration and option files\n");
 	printf("   -A [addr_file]   - generate local address configuration file\n");
 	printf("                      (default is %s)\n", ACM_ADDR_FILE);
-	printf("   -O [opt_file]    - generate local acm_opts.cfg options file\n");
+	printf("   -O [opt_file]    - generate local ibacm_opts.cfg options file\n");
 	printf("                      (default is %s)\n", ACM_OPTS_FILE);
 	printf("   -D dest_dir      - specify destination directory for output files\n");
-	printf("                      (default is %s)\n", ACM_DEST_DIR);
+	printf("                      (default is %s)\n", ACM_CONF_DIR);
 	printf("   -V               - enable verbose output\n");
 }
 
@@ -94,7 +94,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# InfiniBand Multicast Communication Manager for clusters configuration file\n");
 	fprintf(f, "#\n");
 	fprintf(f, "# Use ib_acme utility with -O option to automatically generate a sample\n");
-	fprintf(f, "# acm_opts.cfg file for the current system.\n");
+	fprintf(f, "# ibacm_opts.cfg file for the current system.\n");
 	fprintf(f, "#\n");
 	fprintf(f, "# Entry format is:\n");
 	fprintf(f, "# name value\n");
@@ -123,7 +123,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Specifies the location of the ACM lock file used to ensure that only a\n");
 	fprintf(f, "# single instance of ACM is running.\n");
 	fprintf(f, "\n");
-	fprintf(f, "lock_file /var/lock/ibacm.pid\n");
+	fprintf(f, "lock_file /var/run/ibacm.pid\n");
 	fprintf(f, "\n");
 	fprintf(f, "# addr_prot:\n");
 	fprintf(f, "# Default resolution protocol to resolve IP addresses into IB GIDs.\n");
@@ -253,7 +253,7 @@ static void gen_addr_temp(FILE *f)
 	fprintf(f, "# InfiniBand Communication Management Assistant for clusters address file\n");
 	fprintf(f, "#\n");
 	fprintf(f, "# Use ib_acme utility with -G option to automatically generate a sample\n");
-	fprintf(f, "# acm_addr.cfg file for the current system.\n");
+	fprintf(f, "# ibacm_addr.cfg file for the current system.\n");
 	fprintf(f, "#\n");
 	fprintf(f, "# Entry format is:\n");
 	fprintf(f, "# address device port pkey\n");

@@ -45,9 +45,18 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
-#define ACM_DEST_DIR "/etc/ibacm"
-#define ACM_ADDR_FILE "acm_addr.cfg"
-#define ACM_OPTS_FILE "acm_opts.cfg"
+#ifndef SYSCONFDIR
+#define SYSCONFDIR "/etc"
+#endif
+#ifndef BINDIR
+#define BINDIR "/usr/bin"
+#endif
+#ifndef RDMADIR
+#define RDMADIR "rdma"
+#endif
+#define ACM_CONF_DIR  SYSCONFDIR "/" RDMADIR
+#define ACM_ADDR_FILE "ibacm_addr.cfg"
+#define ACM_OPTS_FILE "ibacm_opts.cfg"
 
 #define LIB_DESTRUCTOR __attribute__((destructor))
 #define CDECL_FUNC
