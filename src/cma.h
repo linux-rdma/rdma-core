@@ -68,6 +68,7 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 
 #define min(a, b) (a < b ? a : b)
 
+int ucma_complete(struct rdma_cm_id *id);
 static inline int ERR(int err)
 {
 	errno = err;

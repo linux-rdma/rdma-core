@@ -745,10 +745,12 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	return ucma_query_route(id);
 }
 
-static int ucma_complete(struct cma_id_private *id_priv)
+int ucma_complete(struct rdma_cm_id *id)
 {
+	struct cma_id_private *id_priv;
 	int ret;
 
+	id_priv = container_of(id, struct cma_id_private, id);
 	if (!id_priv->sync)
 		return 0;
 
@@ -794,7 +796,7 @@ static int rdma_resolve_addr2(struct rdma_cm_id *id, struct sockaddr *src_addr,
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	memcpy(&id->route.addr.dst_addr, dst_addr, dst_len);
-	return ucma_complete(id_priv);
+	return ucma_complete(id);
 }
 
 int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
@@ -826,7 +828,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	memcpy(&id->route.addr.dst_addr, dst_addr, dst_len);
-	return ucma_complete(id_priv);
+	return ucma_complete(id);
 }
 
 static int ucma_set_ib_route(struct rdma_cm_id *id)
@@ -878,7 +880,7 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 out:
-	return ucma_complete(id_priv);
+	return ucma_complete(id);
 }
 
 static int ucma_is_ud_qp(enum ibv_qp_type qp_type)
@@ -1334,7 +1336,7 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 		id_priv->connect_len = 0;
 	}
 
-	return ucma_complete(id_priv);
+	return ucma_complete(id);
 }
 
 int rdma_listen(struct rdma_cm_id *id, int backlog)
@@ -1460,7 +1462,7 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	if (ucma_is_ud_qp(id->qp_type))
 		return 0;
 
-	return ucma_complete(id_priv);
+	return ucma_complete(id);
 }
 
 int rdma_reject(struct rdma_cm_id *id, const void *private_data,
@@ -1531,7 +1533,7 @@ int rdma_disconnect(struct rdma_cm_id *id)
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
-	return ucma_complete(id_priv);
+	return ucma_complete(id);
 }
 
 static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
@@ -1593,7 +1595,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	mc->handle = resp.id;
-	return ucma_complete(id_priv);
+	return ucma_complete(id);
 
 err2:
 	pthread_mutex_lock(&id_priv->mut);
@@ -2165,7 +2167,7 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 		ret = rdma_set_option(cm_id, RDMA_OPTION_IB, RDMA_OPTION_IB_PATH,
 				      res->ai_route, res->ai_route_len);
 		if (!ret)
-			ret = ucma_complete(container_of(cm_id, struct cma_id_private, id));
+			ret = ucma_complete(cm_id);
 	} else {
 		ret = rdma_resolve_route(cm_id, 2000);
 	}

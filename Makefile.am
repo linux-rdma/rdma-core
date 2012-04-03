@@ -13,7 +13,8 @@ else
     librdmacm_version_script =
 endif
 
-src_librdmacm_la_SOURCES = src/cma.c src/addrinfo.c src/acm.c
+src_librdmacm_la_SOURCES = src/cma.c src/addrinfo.c src/acm.c \
+		src/rsocket.c src/indexer.c
 src_librdmacm_la_LDFLAGS = -version-info 1 -export-dynamic \
 			   $(librdmacm_version_script)
 src_librdmacm_la_DEPENDENCIES =  $(srcdir)/src/librdmacm.map
@@ -43,7 +44,8 @@ infinibandincludedir = $(includedir)/infiniband
 
 librdmacminclude_HEADERS = $(top_srcdir)/include/rdma/rdma_cma_abi.h \
 			   $(top_srcdir)/include/rdma/rdma_cma.h \
-			   $(top_srcdir)/include/rdma/rdma_verbs.h
+			   $(top_srcdir)/include/rdma/rdma_verbs.h \
+			   $(top_srcdir)/include/rdma/rsocket.h
 
 infinibandinclude_HEADERS = $(top_srcdir)/include/infiniband/ib.h
 
@@ -107,7 +109,8 @@ man_MANS = \
 	man/rdma_xclient.1 \
 	man/rdma_cm.7
 
-EXTRA_DIST = src/cma.h src/librdmacm.map librdmacm.spec.in $(man_MANS)
+EXTRA_DIST = src/cma.h src/indexer.h src/librdmacm.map \
+	librdmacm.spec.in $(man_MANS)
 
 dist-hook: librdmacm.spec
 	cp librdmacm.spec $(distdir)
