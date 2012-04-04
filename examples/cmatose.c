@@ -332,6 +332,7 @@ static int cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 		printf("cmatose: event: %s, error: %d\n",
 		       rdma_event_str(event->event), event->status);
 		connect_error();
+		ret = event->status;
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
 		rdma_disconnect(cma_id);
@@ -433,12 +434,12 @@ static int poll_cqs(enum CQ_INDEX index)
 static int connect_events(void)
 {
 	struct rdma_cm_event *event;
-	int err = 0, ret = 0;
+	int ret = 0;
 
-	while (test.connects_left && !err) {
-		err = rdma_get_cm_event(test.channel, &event);
-		if (!err) {
-			cma_handler(event->id, event);
+	while (test.connects_left && !ret) {
+		ret = rdma_get_cm_event(test.channel, &event);
+		if (!ret) {
+			ret = cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
 		} else {
 			perror("cmatose: failure in rdma_get_cm_event in connect events");
@@ -452,12 +453,12 @@ static int connect_events(void)
 static int disconnect_events(void)
 {
 	struct rdma_cm_event *event;
-	int err = 0, ret = 0;
+	int ret = 0;
 
-	while (test.disconnects_left && !err) {
-		err = rdma_get_cm_event(test.channel, &event);
-		if (!err) {
-			cma_handler(event->id, event);
+	while (test.disconnects_left && !ret) {
+		ret = rdma_get_cm_event(test.channel, &event);
+		if (!ret) {
+			ret = cma_handler(event->id, event);
 			rdma_ack_cm_event(event);
 		} else {
 			perror("cmatose: failure in rdma_get_cm_event in disconnect events");
