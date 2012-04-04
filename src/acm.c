@@ -762,6 +762,7 @@ static void acm_process_join_resp(struct acm_ep *ep, struct ib_user_mad *umad)
 		}
 	}
 
+	atomic_set(&dest->refcnt, 1);
 	dest->state = ACM_READY;
 	acm_log(1, "join successful\n");
 out:
