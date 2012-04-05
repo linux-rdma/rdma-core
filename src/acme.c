@@ -419,7 +419,7 @@ static void show_path(struct ibv_path_record *path)
 	printf("  flow label: 0x%x\n", fl_hop >> 8);
 	printf("  hop limit: %d\n", (uint8_t) fl_hop);
 	printf("  tclass: %d\n", path->tclass);
-	printf("  reverisible: %d\n", path->reversible_numpath >> 7);
+	printf("  reversible: %d\n", path->reversible_numpath >> 7);
 	printf("  pkey: 0x%x\n", ntohs(path->pkey));
 	printf("  sl: %d\n", ntohs(path->qosclass_sl) & 0xF);
 	printf("  mtu: %d\n", path->mtu & 0x1F);
