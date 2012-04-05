@@ -513,13 +513,13 @@ static int resolve_gid(struct ibv_path_record *path)
 	ret = inet_pton(AF_INET6, src_addr, &path->sgid);
 	if (ret <= 0) {
 		printf("inet_pton error on source address (%s): 0x%x\n", src_addr, ret);
-		return ret;
+		return ret ? ret : -1;
 	}
 
 	ret = inet_pton(AF_INET6, dest_addr, &path->dgid);
 	if (ret <= 0) {
 		printf("inet_pton error on dest address (%s): 0x%x\n", dest_addr, ret);
-		return ret;
+		return ret ? ret : -1;
 	}
 
 	path->reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
