@@ -75,6 +75,7 @@ int ib_acm_connect(char *dest)
 
 	acm_set_server_port();
 	memset(&hint, 0, sizeof hint);
+	hint.ai_family = AF_INET;
 	hint.ai_protocol = IPPROTO_TCP;
 	ret = getaddrinfo(dest, NULL, &hint, &res);
 	if (ret)
