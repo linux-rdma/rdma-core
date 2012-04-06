@@ -1656,6 +1656,11 @@ int rsetsockopt(int socket, int level, int optname,
 				rs->sbuf_size = (*(uint32_t *) optval) << 1;
 			ret = 0;
 			break;
+		case SO_LINGER:
+			/* Invert value so default so_opt = 0 is on */
+			opt_on =  !((struct linger *) optval)->l_onoff;
+			ret = 0;
+			break;
 		default:
 			break;
 		}
@@ -1706,6 +1711,13 @@ int rgetsockopt(int socket, int level, int optname,
 		case SO_SNDBUF:
 			*((int *) optval) = rs->sbuf_size;
 			*optlen = sizeof(int);
+			break;
+		case SO_LINGER:
+			/* Value is inverted so default so_opt = 0 is on */
+			((struct linger *) optval)->l_onoff =
+					!(rs->so_opts & (1 << optname));
+			((struct linger *) optval)->l_linger = 0;
+			*optlen = sizeof(struct linger);
 			break;
 		case SO_ERROR:
 			*((int *) optval) = rs->err;
