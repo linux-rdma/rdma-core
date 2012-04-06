@@ -413,8 +413,8 @@ static void show_path(struct ibv_path_record *path)
 	printf("  dgid: %s\n", gid);
 	inet_ntop(AF_INET6, path->sgid.raw, gid, sizeof gid);
 	printf("  sgid: %s\n", gid);
-	printf("  dlid: 0x%x\n", ntohs(path->dlid));
-	printf("  slid: 0x%x\n", ntohs(path->slid));
+	printf("  dlid: %u\n", ntohs(path->dlid));
+	printf("  slid: %u\n", ntohs(path->slid));
 	fl_hop = ntohl(path->flowlabel_hoplimit);
 	printf("  flow label: 0x%x\n", fl_hop >> 8);
 	printf("  hop limit: %d\n", (uint8_t) fl_hop);

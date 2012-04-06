@@ -267,7 +267,7 @@ acm_format_name(int level, char *name, size_t name_size,
 	case ACM_EP_INFO_PATH:
 		path = (struct ibv_path_record *) addr;
 		if (path->dlid) {
-			sprintf(name, "SLID(%d) DLID(%d)",
+			sprintf(name, "SLID(%u) DLID(%u)",
 				ntohs(path->slid), ntohs(path->dlid));
 		} else {
 			acm_format_name(level, name, name_size, ACM_ADDRESS_GID,
@@ -275,7 +275,7 @@ acm_format_name(int level, char *name, size_t name_size,
 		}
 		break;
 	case ACM_ADDRESS_LID:
-		sprintf(name, "LID(%d)", ntohs(*((uint16_t *) addr)));
+		sprintf(name, "LID(%u)", ntohs(*((uint16_t *) addr)));
 		break;
 	default:
 		strcpy(name, "Unknown");
