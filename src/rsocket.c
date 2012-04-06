@@ -774,8 +774,11 @@ static int rs_poll_cq(struct rsocket *rs)
 				rs->sseq_comp = (uint16_t) rs_msg_data(imm_data);
 				break;
 			case RS_OP_CTRL:
-				rs->state = rs_disconnected;
-				return ERR(ECONNRESET);
+				if (rs_msg_data(imm_data) == RS_CTRL_DISCONNECT) {
+					rs->state = rs_disconnected;
+					return ERR(ECONNRESET);
+				}
+				break;
 			default:
 				rs->rmsg[rs->rmsg_tail].op = rs_msg_op(imm_data);
 				rs->rmsg[rs->rmsg_tail].data = rs_msg_data(imm_data);
