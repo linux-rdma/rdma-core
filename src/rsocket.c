@@ -1629,12 +1629,14 @@ int rsetsockopt(int socket, int level, int optname,
 		const void *optval, socklen_t optlen)
 {
 	struct rsocket *rs;
-	int ret;
+	int ret, opt_on = 0;
+	uint64_t *opts = NULL;
 
 	ret = ERR(ENOTSUP);
 	rs = idm_at(&idm, socket);
 	switch (level) {
 	case SOL_SOCKET:
+		opts = &rs->so_opts;
 		switch (optname) {
 		case SO_REUSEADDR:
 			ret = rdma_set_option(rs->cm_id, RDMA_OPTION_ID,
@@ -1642,6 +1644,7 @@ int rsetsockopt(int socket, int level, int optname,
 					      (void *) optval, optlen);
 			if (ret && errno == ENOSYS)
 				ret = 0;
+			opt_on = *(int *) optval;
 			break;
 		case SO_RCVBUF:
 			if (!rs->rbuf)
@@ -1656,22 +1659,27 @@ int rsetsockopt(int socket, int level, int optname,
 		default:
 			break;
 		}
-		if (!ret)
-			rs->so_opts |= (1 << optname);
 		break;
 	case IPPROTO_TCP:
+		opts = &rs->tcp_opts;
 		switch (optname) {
 		case TCP_NODELAY:
+			opt_on = *(int *) optval;
 			ret = 0;
 			break;
 		default:
 			break;
 		}
-		if (!ret)
-			rs->tcp_opts |= (1 << optname);
 		break;
 	default:
 		break;
+	}
+
+	if (!ret) {
+		if (opt_on)
+			*opts |= (1 << optname);
+		else
+			*opts &= ~(1 << optname);
 	}
 
 	return ret;
