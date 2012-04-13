@@ -636,8 +636,8 @@ int main(int argc, char **argv)
 	if (!srcport)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
-	if (ib_resolve_portid_str_via(&portid, argv[1], ibd_dest_type,
-				      ibd_sm_id, srcport) < 0)
+	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[1],
+			       ibd_dest_type, ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination %s", argv[1]);
 	if ((err = fn(&portid, argv + 2, argc - 2)))
 		IBERROR("operation %s: %s", argv[0], err);

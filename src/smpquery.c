@@ -483,8 +483,8 @@ int main(int argc, char **argv)
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (ibd_dest_type != IB_DEST_DRSLID) {
-		if (ib_resolve_portid_str_via(&portid, argv[1], ibd_dest_type,
-					      ibd_sm_id, srcport) < 0)
+		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[1],
+				       ibd_dest_type, ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[1]);
 		if ((err = fn(&portid, argv + 2, argc - 2)))
 			IBERROR("operation %s: %s", argv[0], err);
@@ -493,8 +493,8 @@ int main(int argc, char **argv)
 
 		memset(concat, 0, 64);
 		snprintf(concat, sizeof(concat), "%s %s", argv[1], argv[2]);
-		if (ib_resolve_portid_str_via(&portid, concat, ibd_dest_type,
-					      ibd_sm_id, srcport) < 0)
+		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, concat,
+				       ibd_dest_type, ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", concat);
 		if ((err = fn(&portid, argv + 3, argc - 3)))
 			IBERROR("operation %s: %s", argv[0], err);

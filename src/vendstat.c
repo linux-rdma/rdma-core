@@ -327,8 +327,8 @@ int main(int argc, char **argv)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (argc) {
-		if (ib_resolve_portid_str_via(&portid, argv[0], ibd_dest_type,
-					      ibd_sm_id, srcport) < 0)
+		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
+				       ibd_dest_type, ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
 		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &port, 0) < 0)

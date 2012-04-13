@@ -649,15 +649,15 @@ int main(int argc, char **argv)
 	if (dr_path) {
 		/* only scan part of the fabric */
 		if ((resolved =
-		     ib_resolve_portid_str_via(&port_id, dr_path,
-					       IB_DEST_DRPATH, NULL,
-					       ibmad_port)) < 0)
+		     resolve_portid_str(ibd_ca, ibd_ca_port, &port_id, dr_path,
+					IB_DEST_DRPATH, NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
 			       dr_path);
 	} else if (guid_str) {
 		if ((resolved =
-		     ib_resolve_portid_str_via(&port_id, guid_str, IB_DEST_GUID,
-					       NULL, ibmad_port)) < 0)
+		     resolve_portid_str(ibd_ca, ibd_ca_port, &port_id,
+				        guid_str, IB_DEST_GUID, NULL,
+					ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
 			       guid_str);
 	}

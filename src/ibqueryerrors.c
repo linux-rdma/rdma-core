@@ -931,14 +931,14 @@ int main(int argc, char **argv)
 	/* limit the scan the fabric around the target */
 	if (dr_path) {
 		if ((resolved =
-		     ib_resolve_portid_str_via(&portid, dr_path, IB_DEST_DRPATH,
-					       NULL, ibmad_port)) < 0)
+		     resolve_portid_str(ibd_ca, ibd_ca_port, &portid, dr_path,
+					IB_DEST_DRPATH, NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
 			       dr_path);
 	} else if (port_guid_str) {
 		if ((resolved =
-		     ib_resolve_portid_str_via(&portid, port_guid_str,
-					       IB_DEST_GUID, ibd_sm_id,
+		     resolve_portid_str(ibd_ca, ibd_ca_port, &portid,
+					port_guid_str, IB_DEST_GUID, ibd_sm_id,
 					       ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
 			       port_guid_str);

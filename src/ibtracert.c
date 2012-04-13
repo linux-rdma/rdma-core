@@ -776,12 +776,12 @@ int main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (ib_resolve_portid_str_via(&src_portid, argv[0], ibd_dest_type,
-				      ibd_sm_id, srcport) < 0)
+	if (resolve_portid_str(ibd_ca, ibd_ca_port, &src_portid, argv[0],
+			       ibd_dest_type, ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve source port %s", argv[0]);
 
-	if (ib_resolve_portid_str_via(&dest_portid, argv[1], ibd_dest_type,
-				      ibd_sm_id, srcport) < 0)
+	if (resolve_portid_str(ibd_ca, ibd_ca_port, &dest_portid, argv[1],
+			       ibd_dest_type, ibd_sm_id, srcport) < 0)
 		IBERROR("can't resolve destination port %s", argv[1]);
 
 	if (ibd_dest_type == IB_DEST_DRPATH) {
