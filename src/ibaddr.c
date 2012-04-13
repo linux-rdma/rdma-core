@@ -154,7 +154,7 @@ int main(int argc, char **argv)
 					      ibd_sm_id, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
-		if (ib_resolve_self_via(&portid, &port, 0, srcport) < 0)
+		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &port, NULL) < 0)
 			IBERROR("can't resolve self port %s", argv[0]);
 	}
 

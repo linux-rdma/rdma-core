@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 					      0, srcport) < 0)
 			IBERROR("can't resolve destination port %s", argv[0]);
 	} else {
-		if (ib_resolve_smlid_via(&portid, ibd_timeout, srcport) < 0)
+		if (resolve_sm_portid(ibd_ca, ibd_ca_port, &portid) < 0)
 			IBERROR("can't resolve sm port %s", argv[0]);
 	}
 

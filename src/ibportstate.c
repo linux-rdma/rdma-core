@@ -574,8 +574,8 @@ int main(int argc, char **argv)
 			peerportid.drpath.p[1] = (uint8_t) portnum;
 
 			/* Set DrSLID to local lid */
-			if (ib_resolve_self_via(&selfportid,
-						&selfport, 0, srcport) < 0)
+			if (resolve_self(ibd_ca, ibd_ca_port, &selfportid,
+						&selfport, 0) < 0)
 				IBERROR("could not resolve self");
 			peerportid.drpath.drslid = (uint16_t) selfportid.lid;
 			peerportid.drpath.drdlid = 0xffff;

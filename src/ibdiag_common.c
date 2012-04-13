@@ -507,6 +507,43 @@ int resolve_sm_portid(char *ca_name, uint8_t portnum, ib_portid_t *sm_id)
 	return 0;
 }
 
+/** =========================================================================
+ * Resolve local CA characteristics using the umad layer rather than using
+ * ib_resolve_self_via which requires SMP queries on the local port.
+ */
+int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
+		 int *portnum, ibmad_gid_t *gid)
+{
+	umad_port_t port;
+	uint64_t prefix, guid;
+	int rc;
+
+	if (!(portid || portnum || gid))
+		return (-1);
+
+	if ((rc = umad_get_port(ca_name, ca_port, &port)) < 0)
+		return rc;
+
+	if (portid) {
+		memset(portid, 0, sizeof(*portid));
+		portid->lid = port.base_lid;
+		portid->sl = port.sm_sl;
+	}
+	if (portnum)
+		*portnum = port.portnum;
+	if (gid) {
+		memset(gid, 0, sizeof(*gid));
+		prefix = cl_hton64(port.gid_prefix);
+		guid = cl_hton64(port.port_guid);
+		mad_encode_field(*gid, IB_GID_PREFIX_F, &prefix);
+		mad_encode_field(*gid, IB_GID_GUID_F, &guid);
+	}
+
+	umad_release_port(&port);
+
+	return 0;
+}
+
 /* define a common SA query structure
  * This is by no means optimal but it moves the saquery functionality out of
  * the saquery tool and provides it to other utilities.

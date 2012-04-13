@@ -130,10 +130,10 @@ static int send_trap(const char *name,
 	ib_rpc_t trap_rpc;
 	ib_mad_notice_attr_t notice;
 
-	if (ib_resolve_self_via(&selfportid, &selfport, NULL, srcport))
+	if (resolve_self(ibd_ca, ibd_ca_port, &selfportid, &selfport, NULL))
 		IBERROR("can't resolve self");
 
-	if (ib_resolve_smlid_via(&sm_port, 0, srcport))
+	if (resolve_sm_portid(ibd_ca, ibd_ca_port, &sm_port))
 		IBERROR("can't resolve SM destination port");
 
 	memset(&trap_rpc, 0, sizeof(trap_rpc));

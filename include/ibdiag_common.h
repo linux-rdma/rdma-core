@@ -144,4 +144,7 @@ void sa_report_err(int status);
 void get_max_msg(char *width_msg, char *speed_msg, int msg_size,
 		 ibnd_port_t * port);
 
+int resolve_sm_portid(char *ca_name, uint8_t portnum, ib_portid_t *sm_id);
+int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
+                 int *port, ibmad_gid_t *gid);
 #endif				/* _IBDIAG_COMMON_H_ */

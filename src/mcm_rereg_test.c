@@ -44,6 +44,8 @@
 #include <infiniband/mad.h>
 #include <infiniband/iba/ib_types.h>
 
+#include "ibdiag_common.h"
+
 #define info(fmt, ...) fprintf(stderr, "INFO: " fmt, ## __VA_ARGS__ )
 #define err(fmt, ...) fprintf(stderr, "ERR: " fmt, ## __VA_ARGS__ )
 #ifdef NOISY_DEBUG
@@ -368,7 +370,7 @@ int main(int argc, char **argv)
 	if (!srcport)
 		err("Failed to open port");
 
-	ib_resolve_smlid_via(&dport_id, TMO, srcport);
+	resolve_sm_portid(NULL, 0, &dport_id);
 	dport_id.qp = 1;
 	if (!dport_id.qkey)
 		dport_id.qkey = IB_DEFAULT_QP1_QKEY;
