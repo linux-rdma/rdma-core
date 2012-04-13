@@ -42,6 +42,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
+#include <infiniband/iba/ib_types.h>
 
 #define info(fmt, ...) fprintf(stderr, "INFO: " fmt, ## __VA_ARGS__ )
 #define err(fmt, ...) fprintf(stderr, "ERR: " fmt, ## __VA_ARGS__ )
@@ -52,26 +53,6 @@
 #endif
 
 #define TMO 100
-
-/* Multicast Member Record Component Masks */
-#define IB_MCR_COMPMASK_MGID        (1ULL<<0)
-#define IB_MCR_COMPMASK_PORT_GID    (1ULL<<1)
-#define IB_MCR_COMPMASK_QKEY        (1ULL<<2)
-#define IB_MCR_COMPMASK_MLID        (1ULL<<3)
-#define IB_MCR_COMPMASK_MTU_SEL     (1ULL<<4)
-#define IB_MCR_COMPMASK_MTU         (1ULL<<5)
-#define IB_MCR_COMPMASK_TCLASS      (1ULL<<6)
-#define IB_MCR_COMPMASK_PKEY        (1ULL<<7)
-#define IB_MCR_COMPMASK_RATE_SEL    (1ULL<<8)
-#define IB_MCR_COMPMASK_RATE        (1ULL<<9)
-#define IB_MCR_COMPMASK_LIFE_SEL    (1ULL<<10)
-#define IB_MCR_COMPMASK_LIFE        (1ULL<<11)
-#define IB_MCR_COMPMASK_SL          (1ULL<<12)
-#define IB_MCR_COMPMASK_FLOW        (1ULL<<13)
-#define IB_MCR_COMPMASK_HOP         (1ULL<<14)
-#define IB_MCR_COMPMASK_SCOPE       (1ULL<<15)
-#define IB_MCR_COMPMASK_JOIN_STATE  (1ULL<<16)
-#define IB_MCR_COMPMASK_PROXY       (1ULL<<17)
 
 static ibmad_gid_t mgid_ipoib = {
 	0xff, 0x12, 0x40, 0x1b, 0xff, 0xff, 0x00, 0x00,
