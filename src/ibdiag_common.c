@@ -74,7 +74,7 @@ uint32_t ibd_ibnetdisc_flags = IBND_CONFIG_MLX_EPI;
 static const char *prog_name;
 static const char *prog_args;
 static const char **prog_examples;
-static struct option *long_opts;
+static struct option *long_opts = NULL;
 static const struct ibdiag_opt *opts_map[256];
 
 const static char *get_build_version(void)
@@ -357,6 +357,9 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 	prog_args = usage_args;
 	prog_examples = usage_examples;
 
+	if (long_opts)
+		free(long_opts);
+
 	long_opts = make_long_opts(exclude_common_str, custom_opts, opts_map);
 	if (!long_opts)
 		return -1;
@@ -379,8 +382,6 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 		} else if (process_opt(ch, optarg))
 			ibdiag_show_usage();
 	}
-
-	free(long_opts);
 
 	return 0;
 }
