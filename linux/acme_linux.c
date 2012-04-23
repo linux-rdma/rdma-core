@@ -53,7 +53,7 @@ get_pkey(struct ifreq *ifreq, uint16_t *pkey)
 	FILE *f;
 	int ret;
 
-	sprintf(buf, "//sys//class//net//%s//pkey", ifreq->ifr_name);
+	snprintf(buf, sizeof buf, "//sys//class//net//%s//pkey", ifreq->ifr_name);
 	f = fopen(buf, "r");
 	if (!f) {
 		printf("failed to open %s\n", buf);
@@ -79,7 +79,7 @@ get_sgid(struct ifreq *ifr, union ibv_gid *sgid)
 	FILE *f;
 	int i, p, ret;
 
-	sprintf(buf, "//sys//class//net//%s//address", ifr->ifr_name);
+	snprintf(buf, sizeof buf, "//sys//class//net//%s//address", ifr->ifr_name);
 	f = fopen(buf, "r");
 	if (!f) {
 		printf("failed to open %s\n", buf);

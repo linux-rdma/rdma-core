@@ -52,7 +52,7 @@ static char *expand(char *basename, char *args, int *str_cnt, int *str_size)
 		}
 
 		while (from <= to) {
-			sprintf(buf, "%s%0*d", basename, width, from);
+			snprintf(buf, sizeof buf, "%s%0*d", basename, width, from);
 			str_buf = realloc(str_buf, size + strlen(buf)+1);
 			strcpy(&str_buf[size], buf);
 
