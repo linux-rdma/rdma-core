@@ -909,7 +909,7 @@ static int rping_test_client(struct rping_cb *cb)
 		cb->state = RDMA_READ_ADV;
 
 		/* Put some ascii text in the buffer. */
-		cc = sprintf(cb->start_buf, RPING_MSG_FMT, ping);
+		cc = snprintf(cb->start_buf, cb->size, RPING_MSG_FMT, ping);
 		for (i = cc, c = start; i < cb->size; i++) {
 			cb->start_buf[i] = c;
 			c++;
