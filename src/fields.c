@@ -901,7 +901,7 @@ static const ib_field_t ib_mad_f[] = {
 	 * CongestionControlTableEntry fields
 	 */
 	{BITSOFFS(0, 2), "CCT_Shift", mad_dump_uint},
-	{BITSOFFS(2, 14), "CCT_Multipler", mad_dump_uint},
+	{BITSOFFS(2, 14), "CCT_Multiplier", mad_dump_uint},
 	{0, 0},			/* IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_LAST_F */
 
 	/*
