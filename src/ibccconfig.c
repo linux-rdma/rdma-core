@@ -80,7 +80,7 @@ static const match_rec_t match_tbl[] = {
 	{"SwitchPortCongestionSetting", "SP", switch_port_congestion_setting, 1,
 	 "<valid> <control_type> <threshold> <packet_size> <cong_parm_marking_rate>"},
 	{"CACongestionSetting", "CS", ca_congestion_setting, 0,
-	 "<port_control> <control_map> <sl> <ccti_timer> <ccti_increase> "
+	 "<port_control> <control_map> <ccti_timer> <ccti_increase> "
 	 "<trigger_threshold> <ccti_min>"},
 	{"CongestionControlTable", "CT", congestion_control_table, 0,
 	 "<cctilimit> <index> <cctentry> <cctentry> ..."},
@@ -436,15 +436,14 @@ static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
 	uint8_t payload[IB_CC_DATA_SZ] = { 0 };
 	uint32_t port_control;
 	uint32_t control_map;
-	uint32_t sl;
 	uint32_t ccti_timer;
 	uint32_t ccti_increase;
 	uint32_t trigger_threshold;
 	uint32_t ccti_min;
-	uint8_t *ptr;
 	char *errstr;
+	int i;
 
-	if (argc != 7)
+	if (argc != 6)
 		return "invalid number of parameters for CACongestionSetting";
 
 	if ((errstr = parseint(argv[0], &port_control, 0)))
@@ -453,28 +452,17 @@ static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
 	if ((errstr = parseint(argv[1], &control_map, 0)))
 		return errstr;
 
-	if ((errstr = parseint(argv[2], &sl, 0)))
-		return errstr;
-			
-	if ((errstr = parseint(argv[3], &ccti_timer, 0)))
+	if ((errstr = parseint(argv[2], &ccti_timer, 0)))
 		return errstr;
 
-	if ((errstr = parseint(argv[4], &ccti_increase, 0)))
+	if ((errstr = parseint(argv[3], &ccti_increase, 0)))
 		return errstr;
 
-	if ((errstr = parseint(argv[5], &trigger_threshold, 0)))
+	if ((errstr = parseint(argv[4], &trigger_threshold, 0)))
 		return errstr;
 
-	if ((errstr = parseint(argv[6], &ccti_min, 0)))
+	if ((errstr = parseint(argv[5], &ccti_min, 0)))
 		return errstr;
-
-	if (sl > 15)
-		return "invalid SL specified";
-
-	/* We are modifying only 1 SL at a time, so get the current config */
-	if (!cc_query_status_via(payload, dest, IB_CC_ATTR_CA_CONGESTION_SETTING,
-				 0, 0, NULL, srcport, cckey))
-		return "ca congestion setting query failed";
 
 	mad_encode_field(payload,
 			 IB_CC_CA_CONGESTION_SETTING_PORT_CONTROL_F,
@@ -484,23 +472,30 @@ static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
 			 IB_CC_CA_CONGESTION_SETTING_CONTROL_MAP_F,
 			 &control_map);
 
-	ptr = payload + 2 + 2 + sl * 8;
+	for (i = 0; i < 16; i++) {
+		uint8_t *ptr;
 
-	mad_encode_field(ptr,
-			 IB_CC_CA_CONGESTION_ENTRY_CCTI_TIMER_F,
-			 &ccti_timer);
+		if (!(control_map & (0x1 << i)))
+			continue;
 
-	mad_encode_field(ptr,
-			 IB_CC_CA_CONGESTION_ENTRY_CCTI_INCREASE_F,
-			 &ccti_increase);
+		ptr = payload + 2 + 2 + i * 8;
 
-	mad_encode_field(ptr,
-			 IB_CC_CA_CONGESTION_ENTRY_TRIGGER_THRESHOLD_F,
-			 &trigger_threshold);
+		mad_encode_field(ptr,
+				 IB_CC_CA_CONGESTION_ENTRY_CCTI_TIMER_F,
+				 &ccti_timer);
 
-	mad_encode_field(ptr,
-			 IB_CC_CA_CONGESTION_ENTRY_CCTI_MIN_F,
-			 &ccti_min);
+		mad_encode_field(ptr,
+				 IB_CC_CA_CONGESTION_ENTRY_CCTI_INCREASE_F,
+				 &ccti_increase);
+
+		mad_encode_field(ptr,
+				 IB_CC_CA_CONGESTION_ENTRY_TRIGGER_THRESHOLD_F,
+				 &trigger_threshold);
+
+		mad_encode_field(ptr,
+				 IB_CC_CA_CONGESTION_ENTRY_CCTI_MIN_F,
+				 &ccti_min);
+	}
 			 
 	if (!cc_config_status_via(payload, rcv, dest, IB_CC_ATTR_CA_CONGESTION_SETTING,
 				  0, 0, NULL, srcport, cckey))
@@ -598,7 +593,7 @@ int main(int argc, char **argv)
 	};
 	const char *usage_examples[] = {
 		"SwitchCongestionSetting 2 0x1F 0x1FFFFFFFFF 0x0 0xF 8 0 0:0 1\t# Configure Switch Congestion Settings",
-		"CACongestionSetting 1 0 0x3 0 150 1 0 0\t\t# Configure CA Congestion Settings",
+		"CACongestionSetting 1 0 0x3 150 1 0 0\t\t# Configure CA Congestion Settings",
 		"CongestionControlTable 1 63 0 0:0 0:1 ...\t# Configure first block of Congestion Control Table",
 		"CongestionControlTable 1 127 0 0:64 0:65 ...\t# Configure second block of Congestion Control Table",
 		NULL

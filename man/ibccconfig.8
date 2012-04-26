@@ -24,7 +24,7 @@ Current supported operations and their parameters:
   CongestionKeyInfo (CK) <lid|guid> <cckey> <cckeyprotectbit> <cckeyleaseperiod> <cckeyviolations>
   SwitchCongestionSetting (SS) <lid|guid> <controlmap> <victimmask> <creditmask> <threshold> <packetsize> <csthreshold> <csreturndelay> <markingrate>
   SwitchPortCongestionSetting (SP) <lid|guid> <portnum> <valid> <control_type> <threshold> <packet_size> <cong_parm_marking_rate> 
-  CACongestionSetting (CS) <lid|guid> <port_control> <control_map> <sl> <ccti_timer> <ccti_increase> <trigger_threshold> <ccti_min> 
+  CACongestionSetting (CS) <lid|guid> <port_control> <control_map> <ccti_timer> <ccti_increase> <trigger_threshold> <ccti_min>
   CongestionControlTable (CT) <lid|guid> <cctilimit> <index> <cctentry> <cctentry> ...
 
 .TP
@@ -75,7 +75,7 @@ attempted to be fulfilled, and will fail if it is not possible.
 .PP
 ibccconfig SwitchCongestionSetting 2 0x1F 0x1FFFFFFFFF 0x0 0xF 8 0 0:0 1    # Configure Switch Congestion Settings
 .PP
-ibccconfig CACongestionSetting 1 0 0x3 0 150 1 0 0          # Configure CA Congestion Settings
+ibccconfig CACongestionSetting 1 0 0x3 150 1 0 0          # Configure CA Congestion Settings
 .PP
 ibccconfig CongestionControlTable 1 63 0 0:0 0:1 ...        # Configure first block of Congestion Control Table
 .PP
