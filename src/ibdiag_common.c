@@ -598,6 +598,10 @@ int resolve_guid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 	return 0;
 }
 
+/*
+ * Callers of this function should ensure their ibmad_port has been opened with
+ * IB_SA_CLASS as this function may require the SA to resolve addresses.
+ */
 int resolve_portid_str(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 		       char *addr_str, enum MAD_DEST dest_type,
 		       ib_portid_t *sm_id, const struct ibmad_port *srcport)

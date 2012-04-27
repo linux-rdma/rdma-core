@@ -579,8 +579,7 @@ static int process_opt(void *context, int ch, char *optarg)
 int main(int argc, char **argv)
 {
 	char usage_args[1024];
-	int mgmt_classes[4] =
-	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS, IB_CC_CLASS };
+	int mgmt_classes[3] = { IB_SMI_CLASS, IB_SA_CLASS, IB_CC_CLASS };
 	ib_portid_t portid = { 0 };
 	char *err;
 	op_fn_t *fn;
@@ -628,7 +627,7 @@ int main(int argc, char **argv)
 	if (!(fn = match_op(argv[0])))
 		IBERROR("operation '%s' not supported", argv[0]);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 4);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!srcport)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 

@@ -303,9 +303,7 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[4] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS,
-		IB_MLX_VENDOR_CLASS
-	};
+	int mgmt_classes[2] = { IB_SA_CLASS, IB_MLX_VENDOR_CLASS };
 	ib_portid_t portid = { 0 };
 	int port = 0;
 	char buf[1024];
@@ -343,7 +341,7 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		port = strtoul(argv[1], 0, 0);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 4);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 	if (!srcport)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 

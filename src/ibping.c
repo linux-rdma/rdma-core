@@ -188,8 +188,7 @@ static int process_opt(void *context, int ch, char *optarg)
 
 int main(int argc, char **argv)
 {
-	int mgmt_classes[3] =
-	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
+	int mgmt_classes[1] = { IB_SA_CLASS };
 	int ping_class = IB_VENDOR_OPENIB_PING_CLASS;
 	uint64_t rtt;
 	char *err;
@@ -212,7 +211,7 @@ int main(int argc, char **argv)
 	if (!argc && !server)
 		ibdiag_show_usage();
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 1);
 	if (!srcport)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
