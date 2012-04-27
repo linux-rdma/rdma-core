@@ -50,7 +50,6 @@
 #include <errno.h>
 
 #include <infiniband/umad.h>
-#include <infiniband/mad.h>
 
 #include <ibdiag_common.h>
 

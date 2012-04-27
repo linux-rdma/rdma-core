@@ -39,8 +39,8 @@
 #ifndef _IBDIAG_COMMON_H_
 #define _IBDIAG_COMMON_H_
 
-#include <infiniband/iba/ib_types.h>
 #include <infiniband/mad.h>
+#include <infiniband/iba/ib_types.h>
 #include <infiniband/ibnetdisc.h>
 
 extern int ibverbose;
