@@ -75,7 +75,9 @@ attempted to be fulfilled, and will fail if it is not possible.
 .PP
 ibccconfig SwitchCongestionSetting 2 0x1F 0x1FFFFFFFFF 0x0 0xF 8 0 0:0 1    # Configure Switch Congestion Settings
 .PP
-ibccconfig CACongestionSetting 1 0 0x3 150 1 0 0          # Configure CA Congestion Settings
+ibccconfig CACongestionSetting 1 0 0x3 150 1 0 0          # Configure CA Congestion Settings to SL 0 and SL 1
+.PP
+ibccconfig CACongestionSetting 1 0 0x4 200 1 0 0          # Configure CA Congestion Settings to SL 2
 .PP
 ibccconfig CongestionControlTable 1 63 0 0:0 0:1 ...        # Configure first block of Congestion Control Table
 .PP

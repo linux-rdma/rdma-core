@@ -593,7 +593,8 @@ int main(int argc, char **argv)
 	};
 	const char *usage_examples[] = {
 		"SwitchCongestionSetting 2 0x1F 0x1FFFFFFFFF 0x0 0xF 8 0 0:0 1\t# Configure Switch Congestion Settings",
-		"CACongestionSetting 1 0 0x3 150 1 0 0\t\t# Configure CA Congestion Settings",
+		"CACongestionSetting 1 0 0x3 150 1 0 0\t\t# Configure CA Congestion Settings to SL 0 and SL 1",
+		"CACongestionSetting 1 0 0x4 200 1 0 0\t\t# Configure CA Congestion Settings to SL 2",
 		"CongestionControlTable 1 63 0 0:0 0:1 ...\t# Configure first block of Congestion Control Table",
 		"CongestionControlTable 1 127 0 0:64 0:65 ...\t# Configure second block of Congestion Control Table",
 		NULL
