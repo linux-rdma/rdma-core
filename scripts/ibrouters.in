@@ -4,7 +4,7 @@ IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
 function usage() {
 	echo Usage: `basename $0` "[-h] [<topology-file> | -C ca_name" \
-	    "-P ca_port -t(imeout) timeout_ms]"
+	    "-P ca_port -t timeout_ms]"
 	exit -1
 }
 
@@ -13,10 +13,10 @@ ca_info=""
 
 while [ "$1" ]; do
 	case $1 in
-	-h)
+	-h | --help)
 		usage
 		;;
-	-P | -C | -t | -timeout)
+	-P | --Port | -C | --Ca | -t | --timeout)
 		case $2 in
 		-*)
 			usage
