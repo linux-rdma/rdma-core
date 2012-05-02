@@ -211,9 +211,14 @@ AC_CONFIG_FILES([\
 	doc/man/ibccquery.8 \
 	doc/man/dump_lfts.8 \
 	doc/man/dump_mfts.8 \
+	doc/man/ibhosts.8 \
 	doc/man/iblinkinfo.8 \
 	doc/man/ibnetdiscover.8 \
+	doc/man/ibnodes.8 \
+	doc/man/ibping.8 \
 	doc/man/ibqueryerrors.8 \
+	doc/man/ibrouters.8 \
+	doc/man/ibswitches.8 \
 	doc/man/infiniband-diags.8 \
 	libibnetdisc/Makefile \
 ])
