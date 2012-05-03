@@ -209,7 +209,6 @@ static int process_opt(int ch, char *optarg)
 		read_ibdiag_config(optarg);
 		break;
 	case 'h':
-	case 'u':
 		ibdiag_show_usage();
 		break;
 	case 'V':
@@ -280,7 +279,6 @@ static const struct ibdiag_opt common_opts[] = {
 	{"errors", 'e', 0, NULL, "show send and receive errors"},
 	{"verbose", 'v', 0, NULL, "increase verbosity level"},
 	{"debug", 'd', 0, NULL, "raise debug level"},
-	{"usage", 'u', 0, NULL, "usage message"},
 	{"help", 'h', 0, NULL, "help message"},
 	{"version", 'V', 0, NULL, "show version"},
 	{0}
