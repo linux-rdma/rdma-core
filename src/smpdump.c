@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
 	int length;
 
 	const struct ibdiag_opt opts[] = {
-		{"sring", 's', 0, NULL, ""},
+		{"string", 's', 0, NULL, ""},
 		{0}
 	};
 	char usage_args[] = "<dlid|dr_path> <attr> [mod]";
