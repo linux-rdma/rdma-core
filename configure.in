@@ -213,6 +213,7 @@ AC_CONFIG_FILES([\
 	doc/man/dump_mfts.8 \
 	doc/man/ibhosts.8 \
 	doc/man/iblinkinfo.8 \
+	doc/man/ibfindnodesusing.8 \
 	doc/man/ibnetdiscover.8 \
 	doc/man/ibnodes.8 \
 	doc/man/ibping.8 \
@@ -222,11 +223,14 @@ AC_CONFIG_FILES([\
 	doc/man/ibrouters.8 \
 	doc/man/ibstat.8 \
 	doc/man/ibswitches.8 \
+	doc/man/ibsysstat.8 \
 	doc/man/ibtracert.8 \
 	doc/man/perfquery.8 \
+	doc/man/saquery.8 \
 	doc/man/sminfo.8 \
 	doc/man/smpdump.8 \
 	doc/man/smpquery.8 \
+	doc/man/vendstat.8 \
 	doc/man/infiniband-diags.8 \
 	libibnetdisc/Makefile \
 ])

@@ -40,10 +40,7 @@ sbin_SCRIPTS += scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 		scripts/set_nodedesc.sh scripts/ibclearerrors scripts/ibclearcounters
 endif
 
-man_MANS = man/saquery.8 man/vendstat.8 \
-		man/ibsysstat.8 \
-		man/ibfindnodesusing.8 \
-		man/check_lft_balance.8 man/ibcacheedit.8 \
+man_MANS = man/check_lft_balance.8 man/ibcacheedit.8 \
 		man/ibstatus.8 \
 		doc/man/ibaddr.8 \
 		doc/man/ibccconfig.8 \
@@ -51,6 +48,7 @@ man_MANS = man/saquery.8 man/vendstat.8 \
 		doc/man/dump_lfts.8 \
 		doc/man/dump_mfts.8 \
 		doc/man/iblinkinfo.8 \
+		doc/man/ibfindnodesusing.8 \
 		doc/man/ibhosts.8 \
 		doc/man/ibnetdiscover.8 \
 		doc/man/ibnodes.8 \
@@ -61,11 +59,14 @@ man_MANS = man/saquery.8 man/vendstat.8 \
 		doc/man/ibrouters.8 \
 		doc/man/ibstat.8 \
 		doc/man/ibswitches.8 \
+		doc/man/ibsysstat.8 \
 		doc/man/ibtracert.8 \
 		doc/man/perfquery.8 \
+		doc/man/saquery.8 \
 		doc/man/sminfo.8 \
 		doc/man/smpdump.8 \
 		doc/man/smpquery.8 \
+		doc/man/vendstat.8 \
 		doc/man/infiniband-diags.8 \
 		man/ibidsverify.8
 
