@@ -223,6 +223,10 @@ AC_CONFIG_FILES([\
 	doc/man/ibstat.8 \
 	doc/man/ibswitches.8 \
 	doc/man/ibtracert.8 \
+	doc/man/perfquery.8 \
+	doc/man/sminfo.8 \
+	doc/man/smpdump.8 \
+	doc/man/smpquery.8 \
 	doc/man/infiniband-diags.8 \
 	libibnetdisc/Makefile \
 ])
