@@ -207,11 +207,14 @@ AC_CONFIG_FILES([\
 	scripts/iblinkinfo.pl \
 	scripts/ibqueryerrors.pl \
 	doc/man/ibaddr.8 \
+	doc/man/check_lft_balance.8 \
+	doc/man/ibcacheedit.8 \
 	doc/man/ibccconfig.8 \
 	doc/man/ibccquery.8 \
 	doc/man/dump_lfts.8 \
 	doc/man/dump_mfts.8 \
 	doc/man/ibhosts.8 \
+	doc/man/ibidsverify.8 \
 	doc/man/iblinkinfo.8 \
 	doc/man/ibfindnodesusing.8 \
 	doc/man/ibnetdiscover.8 \
@@ -222,6 +225,7 @@ AC_CONFIG_FILES([\
 	doc/man/ibroute.8 \
 	doc/man/ibrouters.8 \
 	doc/man/ibstat.8 \
+	doc/man/ibstatus.8 \
 	doc/man/ibswitches.8 \
 	doc/man/ibsysstat.8 \
 	doc/man/ibtracert.8 \
