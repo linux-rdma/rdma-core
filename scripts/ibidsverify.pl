@@ -37,6 +37,8 @@ use strict;
 use Getopt::Std;
 use IBswcountlimits;
 
+my $return_code = 0;
+
 sub usage_and_exit
 {
 	my $prog = $_[0];
@@ -106,10 +108,13 @@ sub insert_lid
 		if (defined($insert_lid::lids{$lid})) {
 			print
 "LID $lid already defined for NodeGUID $insert_lid::lids{$lid}->{nodeguid}\n";
+			$return_code = 1;
 		} else {
 			$rec = {lid => $lid, nodeguid => $nodeguid};
 			$insert_lid::lids{$lid} = $rec;
 		}
+	} else {
+		$return_code = $status;
 	}
 }
 
@@ -126,10 +131,13 @@ sub insert_nodeguid
 		if (defined($insert_nodeguid::nodeguids{$nodeguid})) {
 			print
 "NodeGUID $nodeguid already defined for LID $insert_nodeguid::nodeguids{$nodeguid}->{lid}\n";
+			$return_code = 1;
 		} else {
 			$rec = {lid => $lid, nodeguid => $nodeguid};
 			$insert_nodeguid::nodeguids{$nodeguid} = $rec;
 		}
+	} else {
+		$return_code = $status;
 	}
 }
 
@@ -141,6 +149,7 @@ sub validate_portguid
 	if (($nodeguid ne $portguid)
 		&& defined($insert_nodeguid::nodeguids{$portguid})) {
 		print "PortGUID $portguid is an invalid duplicate of a NodeGUID\n";
+		$return_code = 1;
 	}
 }
 
@@ -158,11 +167,14 @@ sub insert_portguid
 		if (defined($insert_portguid::portguids{$portguid})) {
 			print
 "PortGUID $portguid already defined for LID $insert_portguid::portguids{$portguid}->{lid}\n";
+			$return_code = 1;
 		} else {
 			$rec = {lid => $lid, portguid => $portguid};
 			$insert_portguid::portguids{$portguid} = $rec;
 			validate_portguid($portguid, $nodeguid);
 		}
+	} else {
+		$return_code = $status;
 	}
 }
 
@@ -255,4 +267,6 @@ sub main
 	close IBNET_TOPO;
 }
 main;
+
+exit ($return_code);
 
