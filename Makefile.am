@@ -26,7 +26,7 @@ sbin_SCRIPTS = scripts/ibhosts \
 		scripts/ibfindnodesusing.pl scripts/ibidsverify.pl \
 		scripts/check_lft_balance.pl \
 		scripts/dump_lfts.sh scripts/dump_mfts.sh \
-		scripts/ibclearerrors scripts/ibclearcounters scripts/ibstatus
+		scripts/ibstatus
 
 if ENABLE_COMPAT_UTILS
 sbin_SCRIPTS += scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
@@ -37,7 +37,7 @@ sbin_SCRIPTS += scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 		scripts/ibswportwatch.pl \
 		scripts/ibqueryerrors.pl scripts/iblinkinfo.pl \
 		scripts/ibprintca.pl scripts/ibprintswitch.pl scripts/ibprintrt.pl \
-		scripts/set_nodedesc.sh
+		scripts/set_nodedesc.sh scripts/ibclearerrors scripts/ibclearcounters
 endif
 
 man_MANS = man/ibaddr.8 man/ibping.8 \
@@ -48,7 +48,7 @@ man_MANS = man/ibaddr.8 man/ibping.8 \
 		man/dump_lfts.8 man/dump_mfts.8 man/ibsysstat.8 \
 		man/iblinkinfo.8 man/ibqueryerrors.8 man/ibfindnodesusing.8 \
 		man/ibrouters.8 man/check_lft_balance.8 man/ibcacheedit.8 \
-		man/infiniband-diags.8 man/ibclearcounters.8 man/ibclearerrors.8 \
+		man/infiniband-diags.8 \
 		man/ibstatus.8 man/ibccquery.8 man/ibccconfig.8
 
 # define this for the dist target
@@ -58,7 +58,8 @@ compat_man_pages = man/ibdiscover.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 		man/ibcheckstate.8 man/ibcheckwidth.8 \
 		man/ibswportwatch.8 \
 		man/ibprintswitch.8 man/ibprintca.8 man/ibdatacounts.8 \
-		man/ibdatacounters.8 man/ibprintrt.8 man/ibidsverify.8
+		man/ibdatacounters.8 man/ibprintrt.8 man/ibidsverify.8 \
+		man/ibclearcounters.8 man/ibclearerrors.8
 
 # but only actually install them if specified
 if ENABLE_COMPAT_UTILS
