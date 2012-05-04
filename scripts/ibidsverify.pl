@@ -136,12 +136,11 @@ sub insert_nodeguid
 sub validate_portguid
 {
 	my ($portguid)  = shift(@_);
-	my ($firstport) = shift(@_);
+	my ($nodeguid)  = shift(@_);
 
-	if (defined($insert_nodeguid::nodeguids{$portguid})
-		&& ($firstport ne "yes"))
-	{
-		print "PortGUID $portguid is invalid duplicate of a NodeGUID\n";
+	if (($nodeguid ne $portguid)
+		&& defined($insert_nodeguid::nodeguids{$portguid})) {
+		print "PortGUID $portguid is an invalid duplicate of a NodeGUID\n";
 	}
 }
 
@@ -150,7 +149,7 @@ sub insert_portguid
 	my ($lid)       = shift(@_);
 	my ($portguid)  = shift(@_);
 	my ($nodetype)  = shift(@_);
-	my ($firstport) = shift(@_);
+	my ($nodeguid)  = shift(@_);
 	my $rec         = undef;
 	my $status      = "";
 
@@ -162,7 +161,7 @@ sub insert_portguid
 		} else {
 			$rec = {lid => $lid, portguid => $portguid};
 			$insert_portguid::portguids{$portguid} = $rec;
-			validate_portguid($portguid, $firstport);
+			validate_portguid($portguid, $nodeguid);
 		}
 	}
 }
@@ -208,7 +207,7 @@ sub main
 			insert_lid($lid, $nodeguid, $nodetype);
 			insert_nodeguid($lid, $nodeguid, $nodetype);
 			if ($portguid ne "") {
-				insert_portguid($lid, $portguid, $nodetype, $firstport);
+				insert_portguid($lid, $portguid, $nodetype, $nodeguid);
 			}
 		}
 		if ($line =~ /^Ca.*/) {
@@ -247,7 +246,7 @@ sub main
 			}
 			if ($line =~ /^\[(\d+)\]\((.*)\)/) {
 				$portguid = "0x" . $2;
-				insert_portguid($lid, $portguid, $nodetype, $firstport);
+				insert_portguid($lid, $portguid, $nodetype, $nodeguid);
 			}
 		}
 
