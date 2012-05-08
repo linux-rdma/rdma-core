@@ -48,6 +48,16 @@ AC_CHECK_MEMBER(struct ibv_path_record.service_id, [],
     AC_DEFINE(DEFINE_PATH_RECORD, 1, [adding path record definition]),
     [#include <infiniband/sa.h>])
 
+dnl Check for gcc atomic intrinsics
+AC_MSG_CHECKING(compiler support for atomics)
+AC_TRY_LINK([int i = 0;],
+    [ return __sync_add_and_fetch(&i, 1) != __sync_sub_and_fetch(&i, 1); ],
+    [ AC_MSG_RESULT(yes) ],
+    [
+        AC_MSG_RESULT(no)
+        AC_DEFINE(DEFINE_ATOMICS, 1, [Set to 1 to implement atomics])
+    ])
+
 dnl Checks for header files.
 AC_HEADER_STDC
 if test "$disable_libcheck" != "yes"; then
