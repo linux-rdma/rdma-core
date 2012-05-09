@@ -324,7 +324,7 @@ sub process_host_ports
 	}
 }
 
-if (!getopts("hl:i:evC:P:")) {
+if (!getopts("hl:i:ve")) {
 	usage();
 }
 
