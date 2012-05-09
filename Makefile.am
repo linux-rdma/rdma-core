@@ -45,11 +45,13 @@ man_MANS = man/ibping.8 \
 		man/ibportstate.8 man/ibroute.8 man/ibstat.8 \
 		man/ibswitches.8 man/ibtracert.8 man/perfquery.8 man/sminfo.8 \
 		man/smpdump.8 man/smpquery.8 man/saquery.8 man/vendstat.8 \
-		man/dump_lfts.8 man/dump_mfts.8 man/ibsysstat.8 \
+		man/ibsysstat.8 \
 		man/ibfindnodesusing.8 \
 		man/ibrouters.8 man/check_lft_balance.8 man/ibcacheedit.8 \
 		man/ibstatus.8 man/ibccquery.8 man/ibccconfig.8 \
 		doc/man/ibaddr.8 \
+		doc/man/dump_lfts.8 \
+		doc/man/dump_mfts.8 \
 		doc/man/iblinkinfo.8 \
 		doc/man/ibnetdiscover.8 \
 		doc/man/ibqueryerrors.8 \
