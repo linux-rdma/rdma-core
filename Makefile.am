@@ -48,8 +48,10 @@ man_MANS = man/ibping.8 \
 		man/ibsysstat.8 \
 		man/ibfindnodesusing.8 \
 		man/ibrouters.8 man/check_lft_balance.8 man/ibcacheedit.8 \
-		man/ibstatus.8 man/ibccquery.8 man/ibccconfig.8 \
+		man/ibstatus.8 \
 		doc/man/ibaddr.8 \
+		doc/man/ibccconfig.8 \
+		doc/man/ibccquery.8 \
 		doc/man/dump_lfts.8 \
 		doc/man/dump_mfts.8 \
 		doc/man/iblinkinfo.8 \

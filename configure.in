@@ -207,6 +207,8 @@ AC_CONFIG_FILES([\
 	scripts/iblinkinfo.pl \
 	scripts/ibqueryerrors.pl \
 	doc/man/ibaddr.8 \
+	doc/man/ibccconfig.8 \
+	doc/man/ibccquery.8 \
 	doc/man/dump_lfts.8 \
 	doc/man/dump_mfts.8 \
 	doc/man/iblinkinfo.8 \
