@@ -40,16 +40,20 @@ sbin_SCRIPTS += scripts/ibcheckerrs scripts/ibchecknet scripts/ibchecknode \
 		scripts/set_nodedesc.sh scripts/ibclearerrors scripts/ibclearcounters
 endif
 
-man_MANS = man/ibaddr.8 man/ibping.8 \
-		man/ibnodes.8 man/ibhosts.8 man/ibnetdiscover.8 \
+man_MANS = man/ibping.8 \
+		man/ibnodes.8 man/ibhosts.8 \
 		man/ibportstate.8 man/ibroute.8 man/ibstat.8 \
 		man/ibswitches.8 man/ibtracert.8 man/perfquery.8 man/sminfo.8 \
 		man/smpdump.8 man/smpquery.8 man/saquery.8 man/vendstat.8 \
 		man/dump_lfts.8 man/dump_mfts.8 man/ibsysstat.8 \
-		man/iblinkinfo.8 man/ibqueryerrors.8 man/ibfindnodesusing.8 \
+		man/ibfindnodesusing.8 \
 		man/ibrouters.8 man/check_lft_balance.8 man/ibcacheedit.8 \
-		man/infiniband-diags.8 \
 		man/ibstatus.8 man/ibccquery.8 man/ibccconfig.8 \
+		doc/man/ibaddr.8 \
+		doc/man/iblinkinfo.8 \
+		doc/man/ibnetdiscover.8 \
+		doc/man/ibqueryerrors.8 \
+		doc/man/infiniband-diags.8 \
 		man/ibidsverify.8
 
 # define this for the dist target
@@ -111,8 +115,11 @@ ibdiag_version:
 		fi ; \
 	fi
 
-EXTRA_DIST = scripts include infiniband-diags.spec.in infiniband-diags.spec \
+EXTRA_DIST = doc scripts include infiniband-diags.spec.in infiniband-diags.spec \
 	$(man_MANS) $(compat_man_pages) autogen.sh etc/*
+
+distclean-local:
+	$(top_srcdir)/doc/generate clean
 
 dist-hook:
 	if [ -x $(top_srcdir)/gen_chlog.sh ] ; then \
