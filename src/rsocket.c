@@ -1621,7 +1621,9 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = rdma_set_option(rs->cm_id, RDMA_OPTION_ID,
 					      RDMA_OPTION_ID_REUSEADDR,
 					      (void *) optval, optlen);
-			if (ret && errno == ENOSYS)
+			if (ret && ((errno == ENOSYS) || ((rs->state != rs_init) &&
+			    rs->cm_id->context &&
+			    (rs->cm_id->verbs->device->transport_type == IBV_TRANSPORT_IB))))
 				ret = 0;
 			opt_on = *(int *) optval;
 			break;
