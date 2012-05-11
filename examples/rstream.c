@@ -554,7 +554,7 @@ int main(int argc, char **argv)
 			printf("\t[-p port_number]\n");
 			printf("\t[-T test_option]\n");
 			printf("\t    s|sockets - use standard tcp/ip sockets\n");
-			printf("\t    a|async - asynchronous operation\n");
+			printf("\t    a|async - asynchronous operation (use poll)\n");
 			printf("\t    b|blocking - use blocking calls\n");
 			printf("\t    n|nonblocking - use nonblocking calls\n");
 			printf("\t    v|verify - verify data\n");
