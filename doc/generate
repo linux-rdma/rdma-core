@@ -6,6 +6,9 @@ mode=$1
 cd $docdir
 
 if [ "$mode" == "" ]; then
+	if [ ! -d man ]; then
+		mkdir man
+	fi
 	for file in rst/*.rst; do
 		file=`basename $file`
 		target=`echo $file | sed -e 's/\(.*\).rst/\1/'`
