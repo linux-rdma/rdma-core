@@ -57,7 +57,6 @@ static int use_rs = 1;
 static int use_async;
 static int verify;
 static int flags;
-static int no_delay;
 static int custom;
 static int iterations = 1;
 static int transfer_size = 1000;
@@ -151,7 +150,6 @@ static void init_latency_test(int size)
 {
 	size_str(test_name, size);
 	sprintf(test_name, "%s_lat", test_name);
-	no_delay = 1;
 	flags |= MSG_DONTWAIT;
 	transfer_count = 1;
 	transfer_size = size;
@@ -162,7 +160,6 @@ static void init_bandwidth_test(int size)
 {
 	size_str(test_name, size);
 	sprintf(test_name, "%s_bw", test_name);
-	no_delay = 1;
 	flags |= MSG_DONTWAIT;
 	iterations = 1;
 	transfer_size = size;
@@ -328,10 +325,8 @@ static void set_options(int rs)
 			break;
 	}
 
-	if (no_delay) {
-		rs_setsockopt(rs, IPPROTO_TCP, TCP_NODELAY,
-			      (void *) &no_delay, sizeof(no_delay));
-	}
+	val = 1;
+	rs_setsockopt(rs, IPPROTO_TCP, TCP_NODELAY, (void *) &val, sizeof(val));
 
 	if (flags & MSG_DONTWAIT) {
 		rs_fcntl(rs, F_SETFL, O_NONBLOCK);
@@ -492,7 +487,6 @@ static int set_test_opt(char *optarg)
 			break;
 		case 'n':
 			flags |= MSG_DONTWAIT;
-			no_delay = 1;
 			break;
 		case 'v':
 			verify = 1;
@@ -507,7 +501,6 @@ static int set_test_opt(char *optarg)
 			use_async = 1;
 		} else if (!strncasecmp("nonblock", optarg, 8)) {
 			flags |= MSG_DONTWAIT;
-			no_delay = 1;
 		} else if (!strncasecmp("verify", optarg, 6)) {
 			verify = 1;
 		} else {
