@@ -474,6 +474,8 @@ static int run(void)
 		for (i = 0; i < TEST_CNT; i++) {
 			init_latency_test(test_size[i]);
 			run_test(rs);
+		}
+		for (i = 0; i < TEST_CNT; i++) {
 			init_bandwidth_test(test_size[i]);
 			run_test(rs);
 		}
