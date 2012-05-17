@@ -45,11 +45,29 @@
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
 
-static int test_size[] = {
-	64,
-	4096,
-	65536,
-	1048576
+struct test_size_param {
+	int size;
+	int option;
+};
+
+static struct test_size_param test_size[] = {
+	{ 1 <<  6, 0 },
+	{ 1 <<  7, 1 }, { (1 <<  7) + (1 <<  6), 1},
+	{ 1 <<  8, 1 }, { (1 <<  8) + (1 <<  7), 1},
+	{ 1 <<  9, 1 }, { (1 <<  9) + (1 <<  8), 1},
+	{ 1 << 10, 1 }, { (1 << 10) + (1 <<  9), 1},
+	{ 1 << 11, 1 }, { (1 << 11) + (1 << 10), 1},
+	{ 1 << 12, 0 }, { (1 << 12) + (1 << 11), 1},
+	{ 1 << 13, 1 }, { (1 << 13) + (1 << 12), 1},
+	{ 1 << 14, 1 }, { (1 << 14) + (1 << 13), 1},
+	{ 1 << 15, 1 }, { (1 << 15) + (1 << 14), 1},
+	{ 1 << 16, 0 }, { (1 << 16) + (1 << 15), 1},
+	{ 1 << 17, 1 }, { (1 << 17) + (1 << 16), 1},
+	{ 1 << 18, 1 }, { (1 << 18) + (1 << 17), 1},
+	{ 1 << 19, 1 }, { (1 << 19) + (1 << 18), 1},
+	{ 1 << 20, 0 }, { (1 << 20) + (1 << 19), 1},
+	{ 1 << 21, 1 }, { (1 << 21) + (1 << 20), 1},
+	{ 1 << 22, 1 }, { (1 << 22) + (1 << 21), 1},
 };
 #define TEST_CNT (sizeof test_size / sizeof test_size[0])
 
@@ -59,6 +77,7 @@ static int verify;
 static int flags = MSG_DONTWAIT;
 static int poll_timeout = 0;
 static int custom;
+static int size_option;
 static int iterations = 1;
 static int transfer_size = 1000;
 static int transfer_count = 1000;
@@ -87,14 +106,30 @@ static void *buf;
 
 static void size_str(char *str, long long size)
 {
-	if (size >= (1 << 30))
-		sprintf(str, "%lldg", size / (1 << 30));
-	else if (size >= (1 << 20))
-		sprintf(str, "%lldm", size / (1 << 20));
-	else if (size >= (1 << 10))
-		sprintf(str, "%lldk", size / (1 << 10));
-	else
-		sprintf(str, "%lld", size);
+	long long base, fraction = 0;
+	char mag;
+
+	if (size >= (1 << 30)) {
+		base = 1 << 30;
+		mag = 'g';
+	} else if (size >= (1 << 20)) {
+		base = 1 << 20;
+		mag = 'm';
+	} else if (size >= (1 << 10)) {
+		base = 1 << 10;
+		mag = 'k';
+	} else {
+		base = 1;
+		mag = '\0';
+	}
+
+	if (size / base < 10)
+		fraction = (size % base) * 10 / base;
+	if (fraction) {
+		sprintf(str, "%lld.%lld%c", size / base, fraction, mag);
+	} else {
+		sprintf(str, "%lld%c", size / base, mag);
+	}
 }
 
 static void cnt_str(char *str, long long cnt)
@@ -119,16 +154,16 @@ static void show_perf(void)
 	bytes = (long long) iterations * transfer_count * transfer_size * 2;
 
 	/* name size transfers iterations bytes seconds Gb/sec usec/xfer */
-	printf("%s\t", test_name);
+	printf("%-10s", test_name);
 	size_str(str, transfer_size);
-	printf("%s\t", str);
+	printf("%-8s", str);
 	cnt_str(str, transfer_count);
-	printf("%s\t", str);
+	printf("%-8s", str);
 	cnt_str(str, iterations);
-	printf("%s\t", str);
+	printf("%-8s", str);
 	size_str(str, bytes);
-	printf("%s\t", str);
-	printf("%.2fs \t%.2f \t%.2f\n",
+	printf("%-8s", str);
+	printf("%8.2fs%10.2f%11.2f\n",
 		usec / 1000000., (bytes * 8) / (1000. * usec),
 		(usec / iterations) / (transfer_count * 2));
 }
@@ -457,7 +492,7 @@ static int run(void)
 {
 	int i, rs, ret = 0;
 
-	buf = malloc(!custom ? test_size[TEST_CNT - 1] : transfer_size);
+	buf = malloc(!custom ? test_size[TEST_CNT - 1].size : transfer_size);
 	if (!buf) {
 		perror("malloc");
 		return -1;
@@ -469,14 +504,19 @@ static int run(void)
 		goto free;
 	}
 
-	printf("name \tbytes \txfers \titers \ttotal \ttime \tGb/sec \tusec/xfer\n");
+	printf("%-10s%-8s%-8s%-8s%-8s%8s %10s%13s\n",
+	       "name", "bytes", "xfers", "iters", "total", "time", "Gb/sec", "usec/xfer");
 	if (!custom) {
 		for (i = 0; i < TEST_CNT; i++) {
-			init_latency_test(test_size[i]);
+			if (test_size[i].option > size_option)
+				continue;
+			init_latency_test(test_size[i].size);
 			run_test(rs);
 		}
 		for (i = 0; i < TEST_CNT; i++) {
-			init_bandwidth_test(test_size[i]);
+			if (test_size[i].option > size_option)
+				continue;
+			init_bandwidth_test(test_size[i].size);
 			run_test(rs);
 		}
 	} else {
@@ -551,8 +591,12 @@ int main(int argc, char **argv)
 			transfer_count = atoi(optarg);
 			break;
 		case 'S':
-			custom = 1;
-			transfer_size = atoi(optarg);
+			if (!strncasecmp("all", optarg, 3)) {
+				size_option = 1;
+			} else {
+				custom = 1;
+				transfer_size = atoi(optarg);
+			}
 			break;
 		case 'p':
 			port = optarg;
@@ -567,7 +611,7 @@ int main(int argc, char **argv)
 			printf("\t[-b bind_address]\n");
 			printf("\t[-I iterations]\n");
 			printf("\t[-C transfer_count]\n");
-			printf("\t[-S transfer_size]\n");
+			printf("\t[-S transfer_size or all]\n");
 			printf("\t[-p port_number]\n");
 			printf("\t[-T test_option]\n");
 			printf("\t    s|sockets - use standard tcp/ip sockets\n");
