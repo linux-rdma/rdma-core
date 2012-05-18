@@ -48,6 +48,18 @@
 #ifdef USE_IB_ACM
 #include <infiniband/acm.h>
 
+#if DEFINE_ACM_MSG
+typedef struct cma_acm_msg {
+	struct acm_hdr                  hdr;
+	union{
+		uint8_t                 data[ACM_MSG_DATA_LENGTH];
+		struct acm_ep_addr_data resolve_data[0];
+	};
+} cma_acm_msg_t;
+#else
+typedef struct acm_msg cma_acm_msg_t;
+#endif
+
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock;
 static short server_port = 6125;
@@ -237,7 +249,7 @@ err:
 	rdma_freeaddrinfo(ib_rai);
 }
 
-static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_msg *msg)
+static void ucma_ib_save_resp(struct rdma_addrinfo *rai, cma_acm_msg_t *msg)
 {
 	struct acm_ep_addr_data *ep_data;
 	struct ibv_path_data *path_data = NULL;
@@ -306,7 +318,7 @@ static void ucma_copy_rai_addr(struct acm_ep_addr_data *data, struct sockaddr *a
 
 void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 {
-	struct acm_msg msg;
+	cma_acm_msg_t msg;
 	struct acm_ep_addr_data *data;
 	int ret;
 
