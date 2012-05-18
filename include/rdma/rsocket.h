@@ -72,6 +72,8 @@ int rselect(int nfds, fd_set *readfds, fd_set *writefds,
 int rgetpeername(int socket, struct sockaddr *addr, socklen_t *addrlen);
 int rgetsockname(int socket, struct sockaddr *addr, socklen_t *addrlen);
 
+#define SOL_RDMA 0x10000
+
 int rsetsockopt(int socket, int level, int optname,
 		const void *optval, socklen_t optlen);
 int rgetsockopt(int socket, int level, int optname,

@@ -1710,6 +1710,8 @@ int rsetsockopt(int socket, int level, int optname,
 			break;
 		}
 		break;
+	case SOL_RDMA:
+		break;
 	default:
 		break;
 	}
@@ -1774,6 +1776,9 @@ int rgetsockopt(int socket, int level, int optname,
 			ret = ENOTSUP;
 			break;
 		}
+		break;
+	case SOL_RDMA:
+		ret = ENOTSUP;
 		break;
 	default:
 		ret = ENOTSUP;
