@@ -73,6 +73,10 @@ int rgetpeername(int socket, struct sockaddr *addr, socklen_t *addrlen);
 int rgetsockname(int socket, struct sockaddr *addr, socklen_t *addrlen);
 
 #define SOL_RDMA 0x10000
+enum {
+	RDMA_SQSIZE,
+	RDMA_RQSIZE
+};
 
 int rsetsockopt(int socket, int level, int optname,
 		const void *optval, socklen_t optlen);
