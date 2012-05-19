@@ -67,7 +67,7 @@ static inline uint64_t htonll(uint64_t x) { return x; }
 static inline uint64_t ntohll(uint64_t x) { return x; }
 #endif
 
-#define min(a, b) (a < b ? a : b)
+#define min(a, b) ((a) < (b) ? a : b)
 
 /*
  * Fast synchronization for low contention locking.
@@ -104,6 +104,7 @@ static inline void fastlock_release(fastlock_t *lock)
 }
 #endif /* DEFINE_ATOMICS */
 
+int ucma_max_qpsize(struct rdma_cm_id *id);
 int ucma_complete(struct rdma_cm_id *id);
 static inline int ERR(int err)
 {

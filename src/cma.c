@@ -76,6 +76,7 @@ struct cma_device {
 	struct ibv_pd	   *pd;
 	uint64_t	    guid;
 	int		    port_cnt;
+	int		    max_qpsize;
 	uint8_t		    max_initiator_depth;
 	uint8_t		    max_responder_resources;
 };
@@ -267,6 +268,7 @@ int ucma_init(void)
 		}
 
 		cma_dev->port_cnt = attr.phys_port_cnt;
+		cma_dev->max_qpsize = attr.max_qp_wr;
 		cma_dev->max_initiator_depth = (uint8_t) attr.max_qp_init_rd_atom;
 		cma_dev->max_responder_resources = (uint8_t) attr.max_qp_rd_atom;
 		ib += (cma_dev->verbs->device->transport_type == IBV_TRANSPORT_IB);
@@ -2214,4 +2216,12 @@ void rdma_destroy_ep(struct rdma_cm_id *id)
 		free(id_priv->qp_init_attr);
 
 	rdma_destroy_id(id);
+}
+
+int ucma_max_qpsize(struct rdma_cm_id *id)
+{
+	struct cma_id_private *id_priv;
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	return id_priv->cma_dev->max_qpsize;
 }
