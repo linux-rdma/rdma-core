@@ -1096,10 +1096,10 @@ static void ucma_destroy_cqs(struct rdma_cm_id *id)
 	if (id->recv_cq_channel)
 		ibv_destroy_comp_channel(id->recv_cq_channel);
 
-	if (id->send_cq)
+	if (id->send_cq && (id->send_cq != id->recv_cq))
 		ibv_destroy_cq(id->send_cq);
 
-	if (id->send_cq_channel)
+	if (id->send_cq_channel && (id->send_cq_channel != id->recv_cq_channel))
 		ibv_destroy_comp_channel(id->send_cq_channel);
 }
 

@@ -366,11 +366,8 @@ static void rs_free(struct rsocket *rs)
 		rdma_dereg_mr(rs->target_mr);
 
 	if (rs->cm_id) {
-		if (rs->cm_id->qp) {
-			rs->cm_id->send_cq_channel = NULL;
-			rs->cm_id->send_cq = NULL;
+		if (rs->cm_id->qp)
 			rdma_destroy_qp(rs->cm_id);
-		}
 		rdma_destroy_id(rs->cm_id);
 	}
 
