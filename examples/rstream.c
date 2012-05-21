@@ -448,7 +448,8 @@ static int client_connect(void)
 {
 	struct addrinfo *res;
 	struct pollfd fds;
-	int ret, rs;
+	int ret, rs, err;
+	socklen_t len;
 
  	ret = getaddrinfo(dst_addr, port, NULL, &res);
 	if (ret) {
@@ -477,6 +478,17 @@ static int client_connect(void)
 		ret = do_poll(&fds);
 		if (ret)
 			goto err;
+
+		len = sizeof err;
+		ret = rs_getsockopt(rs, SOL_SOCKET, SO_ERROR, &err, &len);
+		if (ret)
+			goto err;
+		if (err) {
+			ret = -1;
+			errno = err;
+			perror("async rconnect");
+			goto err;
+		}
 	}
 
 free:
