@@ -4,7 +4,7 @@ rstream \- streaming over RDMA ping-pong test.
 .SH SYNOPSIS
 .sp
 .nf
-\fIrstream\fR [-s server_address] [-b bind_address]
+\fIrstream\fR [-s server_address] [-b bind_address] [-B buffer_size]
 			[-I iterations] [-C transfer_count]
 			[-S transfer_size] [-p server_port] [-T test_option]
 .fi
@@ -20,6 +20,9 @@ This option must be specified by the client.
 .TP
 \-b bind_address
 The local network address to bind to.
+.TP
+\-B buffer_size
+Indicates the size of the send and receive network buffers.
 .TP
 \-I iterations
 The number of times that the specified number of messages will be
