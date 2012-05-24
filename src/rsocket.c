@@ -54,7 +54,7 @@
 #define RS_INLINE 64
 #define RS_OLAP_START_SIZE 2048
 #define RS_MAX_TRANSFER 65536
-#define RS_QP_SIZE 512
+#define RS_QP_SIZE 384
 #define RS_QP_MAX_SIZE 0xFFFE
 #define RS_QP_MIN_SIZE 8
 #define RS_QP_CTRL_SIZE 4
