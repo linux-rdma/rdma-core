@@ -350,8 +350,8 @@ int main(int argc, char **argv)
 	uint16_t devid, rem_devid;
 	long val;
 	char usage_args[] = "<dest dr_path|lid|guid> <portnum> [<op>]\n"
-	    "\nSupported ops: enable, disable, reset, speed, width, query,\n"
-	    "\tdown, arm, active, vls, mtu, lid, smlid, lmc\n";
+	    "\nSupported ops: enable, disable, reset, speed, espeed, fdr10,\n"
+	    "\twidth, query, down, arm, active, vls, mtu, lid, smlid, lmc\n";
 	const char *usage_examples[] = {
 		"3 1 disable\t\t\t# by lid",
 		"-G 0x2C9000100D051 1 enable\t# by guid",
