@@ -287,21 +287,27 @@ err:
 
 int socket(int domain, int type, int protocol)
 {
+	static __thread int recursive;
 	int index, ret;
+
+	if (recursive)
+		goto real;
 
 	init_preload();
 	index = fd_open();
 	if (index < 0)
 		return index;
 
+	recursive = 1;
 	ret = rsocket(domain, type, protocol);
+	recursive = 0;
 	if (ret >= 0) {
 		fd_store(index, ret, fd_rsocket);
 		return index;
-	} else {
-		fd_close(index, &ret);
-		return real_socket(domain, type, protocol);
 	}
+	fd_close(index, &ret);
+real:
+	return real_socket(domain, type, protocol);
 }
 
 int bind(int socket, const struct sockaddr *addr, socklen_t addrlen)
