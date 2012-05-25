@@ -89,26 +89,30 @@ static void ucma_set_server_port(void)
 void ucma_ib_init(void)
 {
 	struct sockaddr_in addr;
+	static int init;
 	int ret;
 
+	if (init)
+		return;
+
+	pthread_mutex_lock(&acm_lock);
 	ucma_set_server_port();
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock < 0)
-		return;
+		goto out;
 
 	memset(&addr, 0, sizeof addr);
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	addr.sin_port = htons(server_port);
 	ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
-	if (ret)
-		goto err;
-
-	return;
-
-err:
-	close(sock);
-	sock = -1;
+	if (ret) {
+		close(sock);
+		sock = -1;
+	}
+out:
+	init = 1;
+	pthread_mutex_unlock(&acm_lock);
 }
 
 void ucma_ib_cleanup(void)
