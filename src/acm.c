@@ -61,7 +61,7 @@ typedef struct acm_msg cma_acm_msg_t;
 #endif
 
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
-static int sock;
+static int sock = -1;
 static short server_port = 6125;
 
 struct ib_connect_hdr {
@@ -108,12 +108,12 @@ void ucma_ib_init(void)
 
 err:
 	close(sock);
-	sock = 0;
+	sock = -1;
 }
 
 void ucma_ib_cleanup(void)
 {
-	if (sock > 0) {
+	if (sock >= 0) {
 		shutdown(sock, SHUT_RDWR);
 		close(sock);
 	}
@@ -322,7 +322,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 	struct acm_ep_addr_data *data;
 	int ret;
 
-	if (sock <= 0)
+	if (sock < 0)
 		return;
 
 	memset(&msg, 0, sizeof msg);
