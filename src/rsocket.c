@@ -908,6 +908,11 @@ static int rs_can_send(struct rsocket *rs)
 	       (rs->target_sgl[rs->target_sge].length != 0);
 }
 
+static int rs_conn_can_send(struct rsocket *rs)
+{
+	return rs_can_send(rs) || (rs->state != rs_connected);
+}
+
 static int rs_can_send_ctrl(struct rsocket *rs)
 {
 	return rs->ctrl_avail;
@@ -916,6 +921,11 @@ static int rs_can_send_ctrl(struct rsocket *rs)
 static int rs_have_rdata(struct rsocket *rs)
 {
 	return (rs->rmsg_head != rs->rmsg_tail);
+}
+
+static int rs_conn_have_rdata(struct rsocket *rs)
+{
+	return rs_have_rdata(rs) || (rs->state != rs_connected);
 }
 
 static int rs_all_sends_done(struct rsocket *rs)
@@ -980,7 +990,7 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	}
 	fastlock_acquire(&rs->rlock);
 	if (!rs_have_rdata(rs)) {
-		ret = rs_process_cq(rs, rs_nonblocking(rs, flags), rs_have_rdata);
+		ret = rs_process_cq(rs, rs_nonblocking(rs, flags), rs_conn_have_rdata);
 		if (ret && errno != ECONNRESET)
 			goto out;
 	}
@@ -1084,9 +1094,14 @@ ssize_t rsend(int socket, const void *buf, size_t len, int flags)
 	fastlock_acquire(&rs->slock);
 	for (left = len; left; left -= xfer_size, buf += xfer_size) {
 		if (!rs_can_send(rs)) {
-			ret = rs_process_cq(rs, rs_nonblocking(rs, flags), rs_can_send);
+			ret = rs_process_cq(rs, rs_nonblocking(rs, flags),
+					    rs_conn_can_send);
 			if (ret)
 				break;
+			if (rs->state != rs_connected) {
+				ret = ERR(ECONNRESET);
+				break;
+			}
 		}
 
 		if (olen < left) {
@@ -1193,9 +1208,14 @@ static ssize_t rsendv(int socket, const struct iovec *iov, int iovcnt, int flags
 	fastlock_acquire(&rs->slock);
 	for (left = len; left; left -= xfer_size) {
 		if (!rs_can_send(rs)) {
-			ret = rs_process_cq(rs, rs_nonblocking(rs, flags), rs_can_send);
+			ret = rs_process_cq(rs, rs_nonblocking(rs, flags),
+					    rs_conn_can_send);
 			if (ret)
 				break;
+			if (rs->state != rs_connected) {
+				ret = ERR(ECONNRESET);
+				break;
+			}
 		}
 
 		if (olen < left) {
