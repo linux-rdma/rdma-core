@@ -71,12 +71,20 @@ static struct test_size_param test_size[] = {
 };
 #define TEST_CNT (sizeof test_size / sizeof test_size[0])
 
+enum rs_optimization {
+	opt_mixed,
+	opt_latency,
+	opt_bandwidth
+};
+
+static int rs, lrs;
 static int use_rs = 1;
 static int use_async;
 static int verify;
 static int flags = MSG_DONTWAIT;
 static int poll_timeout = 0;
 static int custom;
+static enum rs_optimization optimization;
 static int size_option;
 static int iterations = 1;
 static int transfer_size = 1000;
@@ -242,7 +250,7 @@ static int do_poll(struct pollfd *fds)
 	return ret == 1 ? 0 : ret;
 }
 
-static int send_xfer(int rs, int size)
+static int send_xfer(int size)
 {
 	struct pollfd fds;
 	int offset, ret;
@@ -274,7 +282,7 @@ static int send_xfer(int rs, int size)
 	return 0;
 }
 
-static int recv_xfer(int rs, int size)
+static int recv_xfer(int size)
 {
 	struct pollfd fds;
 	int offset, ret;
@@ -309,37 +317,37 @@ static int recv_xfer(int rs, int size)
 	return 0;
 }
 
-static int sync_test(int rs)
+static int sync_test(void)
 {
 	int ret;
 
-	ret = dst_addr ? send_xfer(rs, 4) : recv_xfer(rs, 4);
+	ret = dst_addr ? send_xfer(16) : recv_xfer(16);
 	if (ret)
 		return ret;
 
-	return dst_addr ? recv_xfer(rs, 4) : send_xfer(rs, 4);
+	return dst_addr ? recv_xfer(16) : send_xfer(16);
 }
 
-static int run_test(int rs)
+static int run_test(void)
 {
 	int ret, i, t;
 
-	ret = sync_test(rs);
+	ret = sync_test();
 	if (ret)
 		goto out;
 
 	gettimeofday(&start, NULL);
 	for (i = 0; i < iterations; i++) {
 		for (t = 0; t < transfer_count; t++) {
-			ret = dst_addr ? send_xfer(rs, transfer_size) :
-					 recv_xfer(rs, transfer_size);
+			ret = dst_addr ? send_xfer(transfer_size) :
+					 recv_xfer(transfer_size);
 			if (ret)
 				goto out;
 		}
 
 		for (t = 0; t < transfer_count; t++) {
-			ret = dst_addr ? recv_xfer(rs, transfer_size) :
-					 send_xfer(rs, transfer_size);
+			ret = dst_addr ? recv_xfer(transfer_size) :
+					 send_xfer(transfer_size);
 			if (ret)
 				goto out;
 		}
@@ -361,6 +369,10 @@ static void set_options(int rs)
 			      sizeof buffer_size);
 		rs_setsockopt(rs, SOL_SOCKET, SO_RCVBUF, (void *) &buffer_size,
 			      sizeof buffer_size);
+	} else {
+		val = 1 << 19;
+		rs_setsockopt(rs, SOL_SOCKET, SO_SNDBUF, (void *) &val, sizeof val);
+		rs_setsockopt(rs, SOL_SOCKET, SO_RCVBUF, (void *) &val, sizeof val);
 	}
 
 	val = 1;
@@ -368,13 +380,23 @@ static void set_options(int rs)
 
 	if (flags & MSG_DONTWAIT)
 		rs_fcntl(rs, F_SETFL, O_NONBLOCK);
+
+	if (use_rs) {
+		/* Inline size based on experimental data */
+		if (optimization == opt_latency) {
+			val = 384;
+			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &val, sizeof val);
+		} else if (optimization == opt_bandwidth) {
+			val = 0;
+			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &val, sizeof val);
+		}
+	}
 }
 
-static int server_connect(void)
+static int server_listen(void)
 {
-	struct pollfd fds;
 	struct addrinfo hints, *res;
-	int rs, lrs, ret;
+	int val, ret;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_flags = RAI_PASSIVE;
@@ -387,30 +409,41 @@ static int server_connect(void)
 	lrs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (lrs < 0) {
 		perror("rsocket");
-		rs = lrs;
+		ret = lrs;
 		goto free;
 	}
 
-	set_options(lrs);
-	rs = 1;
-	rs = rs_setsockopt(lrs, SOL_SOCKET, SO_REUSEADDR, &rs, sizeof rs);
-	if (rs) {
+	val = 1;
+	ret = rs_setsockopt(lrs, SOL_SOCKET, SO_REUSEADDR, &val, sizeof val);
+	if (ret) {
 		perror("rsetsockopt SO_REUSEADDR");
 		goto close;
 	}
 
-	rs = rs_bind(lrs, res->ai_addr, res->ai_addrlen);
-	if (rs) {
+	ret = rs_bind(lrs, res->ai_addr, res->ai_addrlen);
+	if (ret) {
 		perror("rbind");
 		goto close;
 	}
 
-	rs = rs_listen(lrs, 1);
-	if (rs) {
+	ret = rs_listen(lrs, 1);
+	if (ret)
 		perror("rlisten");
-		goto close;
-	}
 
+close:
+	if (ret)
+		rs_close(lrs);
+free:
+	freeaddrinfo(res);
+	return ret;
+}
+
+static int server_connect(void)
+{
+	struct pollfd fds;
+	int ret;
+
+	set_options(lrs);
 	do {
 		if (use_async) {
 			fds.fd = lrs;
@@ -419,28 +452,26 @@ static int server_connect(void)
 			ret = do_poll(&fds);
 			if (ret) {
 				perror("rpoll");
-				goto close;
+				return ret;
 			}
 		}
 
 		rs = rs_accept(lrs, NULL, 0);
 	} while (rs < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
-	if (rs < 0)
+	if (rs < 0) {
+		ret = rs;
 		perror("raccept");
+	}
 
 	set_options(rs);
-close:
-	rs_close(lrs);
-free:
-	freeaddrinfo(res);
-	return rs;
+	return ret;
 }
 
 static int client_connect(void)
 {
 	struct addrinfo *res;
 	struct pollfd fds;
-	int ret, rs, err;
+	int ret, err;
 	socklen_t len;
 
  	ret = getaddrinfo(dst_addr, port, NULL, &res);
@@ -452,6 +483,7 @@ static int client_connect(void)
 	rs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (rs < 0) {
 		perror("rsocket");
+		ret = rs;
 		goto free;
 	}
 
@@ -461,40 +493,38 @@ static int client_connect(void)
 	ret = rs_connect(rs, res->ai_addr, res->ai_addrlen);
 	if (ret && (errno != EINPROGRESS)) {
 		perror("rconnect");
-		goto err;
+		goto close;
 	}
 
-	if (errno == EINPROGRESS) {
+	if (ret && (errno == EINPROGRESS)) {
 		fds.fd = rs;
 		fds.events = POLLOUT;
 		ret = do_poll(&fds);
 		if (ret)
-			goto err;
+			goto close;
 
 		len = sizeof err;
 		ret = rs_getsockopt(rs, SOL_SOCKET, SO_ERROR, &err, &len);
 		if (ret)
-			goto err;
+			goto close;
 		if (err) {
 			ret = -1;
 			errno = err;
 			perror("async rconnect");
-			goto err;
 		}
 	}
 
+close:
+	if (ret)
+		rs_close(rs);
 free:
 	freeaddrinfo(res);
-	return rs;
-err:
-	freeaddrinfo(res);
-	rs_close(rs);
 	return ret;
 }
 
 static int run(void)
 {
-	int i, rs, ret = 0;
+	int i, ret = 0;
 
 	buf = malloc(!custom ? test_size[TEST_CNT - 1].size : transfer_size);
 	if (!buf) {
@@ -502,29 +532,45 @@ static int run(void)
 		return -1;
 	}
 
-	rs = dst_addr ? client_connect() : server_connect();
-	if (rs < 0) {
-		ret = rs;
-		goto free;
+	if (!dst_addr) {
+		ret = server_listen();
+		if (ret)
+			goto free;
 	}
 
 	printf("%-10s%-8s%-8s%-8s%-8s%8s %10s%13s\n",
 	       "name", "bytes", "xfers", "iters", "total", "time", "Gb/sec", "usec/xfer");
 	if (!custom) {
+		optimization = opt_latency;
+		ret = dst_addr ? client_connect() : server_connect();
+		if (ret)
+			goto free;
+
 		for (i = 0; i < TEST_CNT; i++) {
 			if (test_size[i].option > size_option)
 				continue;
 			init_latency_test(test_size[i].size);
-			run_test(rs);
+			run_test();
 		}
+		rs_shutdown(rs, SHUT_RDWR);
+		rs_close(rs);
+
+		optimization = opt_bandwidth;
+		ret = dst_addr ? client_connect() : server_connect();
+		if (ret)
+			goto free;
 		for (i = 0; i < TEST_CNT; i++) {
 			if (test_size[i].option > size_option)
 				continue;
 			init_bandwidth_test(test_size[i].size);
-			run_test(rs);
+			run_test();
 		}
 	} else {
-		ret = run_test(rs);
+		ret = dst_addr ? client_connect() : server_connect();
+		if (ret)
+			goto free;
+
+		ret = run_test();
 	}
 
 	rs_shutdown(rs, SHUT_RDWR);
