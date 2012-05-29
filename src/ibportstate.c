@@ -654,7 +654,7 @@ int main(int argc, char **argv)
 			} else {
 				if (fdr10e & FDR10 && peerfdr10e & FDR10) {
 					if (!(fdr10a & FDR10))
-						IBWARN("Peer ports operating at  active speed %d rather than FDR10", lsa);
+						IBWARN("Peer ports operating at active speed %d rather than FDR10", lsa);
 				}
 			}
 		}
