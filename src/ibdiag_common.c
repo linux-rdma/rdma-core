@@ -72,6 +72,7 @@ int ibd_ca_port = 0;
 int ibd_timeout = 0;
 uint32_t ibd_ibnetdisc_flags = IBND_CONFIG_MLX_EPI;
 uint64_t ibd_mkey;
+uint64_t ibd_sakey = 0;
 int show_keys = 0;
 
 static const char *prog_name;

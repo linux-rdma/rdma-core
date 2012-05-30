@@ -52,6 +52,7 @@ extern ib_portid_t *ibd_sm_id;
 extern int ibd_timeout;
 extern uint32_t ibd_ibnetdisc_flags;
 extern uint64_t ibd_mkey;
+extern uint64_t ibd_sakey;
 extern int show_keys;
 
 /*========================================================*/
