@@ -7,12 +7,11 @@ Group: System Environment/Daemons
 License: GPLv2 or BSD
 Url: http://www.openfabrics.org/
 Source0: http://www.openfabrics.org/downloads/rdmacm/%{name}-%{version}.tar.gz
-Source1: ibacm.init
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires: libibverbs-devel >= 1.1-1, autoconf, libtool, libibumad-devel
-Requires(post): chkconfig
-Requires(preun): chkconfig
+Requires(post): /sbin/chkconfig
+Requires(preun): /sbin/chkconfig
 ExcludeArch: s390, s390x
 
 %description
@@ -28,6 +27,7 @@ library knows how to talk directly to the %{name} daemon to retrieve data.
 %package devel
 Summary: Headers file needed when building apps to talk directly to ibacm.
 Requires: %{name} = %{version}-%{release}
+Group: System Environment/Daemons
 
 %description devel
 Most applications do not need to know how to talk directly to the ibacm
@@ -52,8 +52,8 @@ make %{?_smp_mflags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make DESTDIR=%{buildroot} install
-install -D -m 755 %{SOURCE1} %{buildroot}%{_initrddir}/%{name}
+make install DESTDIR=$RPM_BUILD_ROOT
+install -D -m 755 ibacm.init $RPM_BUILD_ROOT%{_sysconfdir}/init.d/%{name}
 %makeinstall
 
 %clean
@@ -61,11 +61,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 if [ $1 = 1 ]; then
-	chkconfig --add %{name}
+	/sbin/chkconfig --add %{name}
 fi
 %preun
 if [ $1 = 1 ]; then
-	chkconfig --del %{name}
+	/sbin/chkconfig --del %{name}
 fi
 
 %files
@@ -75,8 +75,7 @@ fi
 %{_sbindir}/ibacm
 %{_mandir}/man1/*
 %{_mandir}/man7/*
-%config(noreplace) %{_sysconfdir}/rdma/*
-%{_initrddir}/ibacm
+%{_sysconfdir}/init.d/ibacm
 
 %files devel
 %defattr(-,root,root,-)
