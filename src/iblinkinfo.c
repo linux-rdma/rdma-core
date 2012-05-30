@@ -619,7 +619,7 @@ int main(int argc, char **argv)
 	};
 	char usage_args[] = "";
 
-	ibdiag_process_opts(argc, argv, &config, "SDandlpgRGL", opts,
+	ibdiag_process_opts(argc, argv, &config, "aDdGgLlnpRS", opts,
 			    process_opt, usage_args, NULL);
 
 	argc -= optind;

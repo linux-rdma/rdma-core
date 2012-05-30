@@ -292,7 +292,7 @@ int main(int argc, char *argv[])
 		NULL
 	};
 
-	ibdiag_process_opts(argc, argv, NULL, "sDGLCPte", opts, process_opt,
+	ibdiag_process_opts(argc, argv, NULL, "CDeGLPst", opts, process_opt,
 			    usage_args, usage_examples);
 
 	argc -= optind;
