@@ -157,6 +157,8 @@ void read_ibdiag_config(const char *file)
 			} else {
 				ibd_ibnetdisc_flags &= ~IBND_CONFIG_MLX_EPI;
 			}
+		} else if (strncmp(name, "m_key", strlen("m_key")) == 0) {
+			ibd_mkey = strtoull(val_str, 0, 0);
 		}
 	}
 
