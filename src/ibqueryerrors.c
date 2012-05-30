@@ -901,7 +901,7 @@ int main(int argc, char **argv)
 	char usage_args[] = "";
 
 	memset(suppressed_fields, 0, sizeof suppressed_fields);
-	ibdiag_process_opts(argc, argv, &config, "cDGLnRrSs", opts, process_opt,
+	ibdiag_process_opts(argc, argv, &config, "cDGKLnRrSs", opts, process_opt,
 			    usage_args, NULL);
 
 	argc -= optind;

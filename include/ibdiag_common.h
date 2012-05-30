@@ -39,6 +39,7 @@
 #ifndef _IBDIAG_COMMON_H_
 #define _IBDIAG_COMMON_H_
 
+#include <stdarg.h>
 #include <infiniband/mad.h>
 #include <infiniband/iba/ib_types.h>
 #include <infiniband/ibnetdisc.h>
@@ -50,6 +51,7 @@ extern enum MAD_DEST ibd_dest_type;
 extern ib_portid_t *ibd_sm_id;
 extern int ibd_timeout;
 extern uint32_t ibd_ibnetdisc_flags;
+extern int show_keys;
 
 /*========================================================*/
 /*                External interface                      */
@@ -63,6 +65,8 @@ extern uint32_t ibd_ibnetdisc_flags;
 	if (ibverbose) IBVERBOSE(fmt, ## __VA_ARGS__); \
 } while (0)
 #define IBERROR(fmt, ...) iberror(__FUNCTION__, fmt, ## __VA_ARGS__)
+
+#define NOT_DISPLAYED_STR "<not displayed>"
 
 /* not all versions of ib_types.h will have this define */
 #ifndef IB_PM_PC_XMIT_WAIT_SUP
@@ -150,4 +154,9 @@ int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 int resolve_portid_str(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 		       char *addr_str, enum MAD_DEST dest_type,
 		       ib_portid_t *sm_id, const struct ibmad_port *srcport);
+int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
+		   const char *format, va_list va_args);
+int snprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
+		  const char *format, ...);
+void dump_portinfo(void *pi, int pisize, int tabs);
 #endif				/* _IBDIAG_COMMON_H_ */

@@ -133,7 +133,6 @@ static char *node_info(ib_portid_t * dest, char **argv, int argc)
 
 static char *port_info(ib_portid_t * dest, char **argv, int argc)
 {
-	char buf[2300];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = 0, orig_portnum;
 
@@ -146,9 +145,8 @@ static char *port_info(ib_portid_t * dest, char **argv, int argc)
 	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return "port info query failed";
 
-	mad_dump_portinfo(buf, sizeof buf, data, sizeof data);
-
-	printf("# Port info: %s port %d\n%s", portid2str(dest), orig_portnum, buf);
+	printf("# Port info: %s port %d\n", portid2str(dest), orig_portnum);
+	dump_portinfo(data, sizeof data, 0);
 	return 0;
 }
 

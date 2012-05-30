@@ -46,6 +46,8 @@ Current supported operations and their parameters:
         Set SMSupportsExtendedSpeeds bit 31 in AttributeModifier
         (only impacts PortInfo queries).
 
+.. include:: common/opt_K.rst
+
 
 Addressing Flags
 ----------------

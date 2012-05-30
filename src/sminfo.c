@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	};
 	char usage_args[] = "<sm_lid|sm_dr_path> [modifier]";
 
-	ibdiag_process_opts(argc, argv, NULL, "s", opts, process_opt,
+	ibdiag_process_opts(argc, argv, NULL, "sK", opts, process_opt,
 			    usage_args, NULL);
 
 	argc -= optind;

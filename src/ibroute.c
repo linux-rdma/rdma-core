@@ -414,7 +414,7 @@ int main(int argc, char **argv)
 		NULL,
 	};
 
-	ibdiag_process_opts(argc, argv, NULL, NULL, opts, process_opt,
+	ibdiag_process_opts(argc, argv, NULL, "K", opts, process_opt,
 			    usage_args, usage_examples);
 
 	argc -= optind;

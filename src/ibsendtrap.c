@@ -192,7 +192,7 @@ int main(int argc, char **argv)
 	snprintf(usage_args + n, sizeof(usage_args) - n,
 		 "\n  default behavior is to send \"%s\"", traps[0].trap_name);
 
-	ibdiag_process_opts(argc, argv, NULL, "DGL", NULL, NULL,
+	ibdiag_process_opts(argc, argv, NULL, "DGKL", NULL, NULL,
 			    usage_args, NULL);
 
 	argc -= optind;

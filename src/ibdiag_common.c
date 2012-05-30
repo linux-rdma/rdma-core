@@ -53,6 +53,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <stdarg.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -70,6 +71,7 @@ char *ibd_ca = NULL;
 int ibd_ca_port = 0;
 int ibd_timeout = 0;
 uint32_t ibd_ibnetdisc_flags = IBND_CONFIG_MLX_EPI;
+int show_keys = 0;
 
 static const char *prog_name;
 static const char *prog_args;
@@ -260,6 +262,9 @@ static int process_opt(int ch, char *optarg)
 				optarg);
 		ibd_sm_id = &sm_portid;
 		break;
+	case 'K':
+		show_keys = 1;
+		break;
 	default:
 		return -1;
 	}
@@ -276,6 +281,7 @@ static const struct ibdiag_opt common_opts[] = {
 	{"Guid", 'G', 0, NULL, "use GUID address argument"},
 	{"timeout", 't', 1, "<ms>", "timeout in ms"},
 	{"sm_port", 's', 1, "<lid>", "SM port lid"},
+	{"show_keys", 'K', 0, NULL, "display security keys in output"},
 	{"errors", 'e', 0, NULL, "show send and receive errors"},
 	{"verbose", 'v', 0, NULL, "increase verbosity level"},
 	{"debug", 'd', 0, NULL, "raise debug level"},
@@ -912,4 +918,69 @@ check_fdr10_active:
 	if ((mad_get_field(port->ext_info, 0,
 			   IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F) & FDR10) == 0)
 		snprintf(speed_msg, msg_size, "Could be FDR10");
+}
+
+int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
+		   const char *format, va_list va_args)
+{
+	int len, i, ret;
+
+	len = strlen(mad_field_name(f));
+        if (len + 2 > n || spacing + 1 > n)
+		return 0;
+
+	strncpy(buf, mad_field_name(f), n);
+	buf[len] = ':';
+	for (i = len+1; i < spacing+1; i++) {
+		buf[i] = '.';
+	}
+
+	ret = vsnprintf(&buf[spacing+1], n - spacing, format, va_args);
+	if (ret >= n - spacing)
+		buf[n] = '\0';
+
+	return ret + spacing;
+}
+
+int snprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
+		  const char *format, ...)
+{
+	va_list val;
+	int ret;
+
+	va_start(val, format);
+	ret = vsnprint_field(buf, n, f, spacing, format, val);
+	va_end(val);
+
+	return ret;
+}
+
+void dump_portinfo(void *pi, int pisize, int tabs)
+{
+	int field, i;
+	char val[64];
+	char buf[1024];
+
+	for (field = IB_PORT_FIRST_F; field < IB_PORT_LAST_F; field++) {
+		for (i=0;i<tabs;i++)
+			printf("\t");
+		if (field == IB_PORT_MKEY_F && show_keys == 0) {
+			snprint_field(buf, 1024, field, 32, NOT_DISPLAYED_STR);
+		} else {
+			mad_decode_field(pi, field, val);
+			if (!mad_dump_field(field, buf, 1024, val))
+				return;
+		}
+		printf("%s\n", buf);
+	}
+
+	for (field = IB_PORT_CAPMASK2_F;
+	     field < IB_PORT_LINK_SPEED_EXT_LAST_F; field++) {
+		for (i=0;i<tabs;i++)
+			printf("\t");
+		mad_decode_field(pi, field, val);
+		if (!mad_dump_field(field, buf, 1024, val))
+			return;
+		printf("%s\n", buf);
+	}
 }

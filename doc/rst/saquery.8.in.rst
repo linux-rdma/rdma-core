@@ -84,6 +84,8 @@ OPTIONS
         queries.  If non-numeric value (like 'x') is specified then saquery
         will prompt for a value.
 
+.. include:: common/opt_K.rst
+
 **--slid <lid>** Source LID (PathRecord)
 
 **--dlid <lid>** Destination LID (PathRecord)

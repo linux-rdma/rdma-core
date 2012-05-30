@@ -116,20 +116,6 @@ static unsigned valid_gid(ib_gid_t * gid)
 	return memcmp(&zero_gid, gid, sizeof(*gid));
 }
 
-static void format_buf(char *in, char *out, unsigned size)
-{
-	unsigned i;
-
-	for (i = 0; i < size - 3 && *in; i++) {
-		*out++ = *in;
-		if (*in++ == '\n' && *in) {
-			*out++ = '\t';
-			*out++ = '\t';
-		}
-	}
-	*out = '\0';
-}
-
 static void print_node_desc(ib_node_record_t * node_record)
 {
 	ib_node_info_t *p_ni = &(node_record->node_info);
@@ -300,19 +286,17 @@ static void dump_portinfo_record(void *data)
 
 static void dump_one_portinfo_record(void *data)
 {
-	char buf[2300], buf2[4096];
 	ib_portinfo_record_t *pir = data;
 	ib_port_info_t *pi = &pir->port_info;
 
-	mad_dump_portinfo(buf, sizeof(buf), pi, sizeof(*pi));
-	format_buf(buf, buf2, sizeof(buf2));
 	printf("PortInfoRecord dump:\n"
 	       "\tRID:\n"
 	       "\t\tEndPortLid..............%u\n"
 	       "\t\tPortNum.................%u\n"
 	       "\t\tOptions.................0x%x\n"
-	       "\tPortInfo dump:\n\t\t%s",
-	       cl_ntoh16(pir->lid), pir->port_num, pir->options, buf2);
+	       "\tPortInfo dump:\n",
+	       cl_ntoh16(pir->lid), pir->port_num, pir->options);
+	dump_portinfo(pi, sizeof(*pi), 2);
 }
 
 static void dump_one_mcmember_record(void *data)
@@ -471,7 +455,8 @@ static void dump_service_record(void *data)
 	       cl_ntoh64(p_sr->service_id),
 	       inet_ntop(AF_INET6, p_sr->service_gid.raw, gid, sizeof gid),
 	       cl_ntoh16(p_sr->service_pkey), cl_ntoh32(p_sr->service_lease),
-	       buf_service_key, buf_service_name,
+	       (show_keys ? buf_service_key : NOT_DISPLAYED_STR),
+               buf_service_name,
 	       p_sr->service_data8[0], p_sr->service_data8[1],
 	       p_sr->service_data8[2], p_sr->service_data8[3],
 	       p_sr->service_data8[4], p_sr->service_data8[5],
@@ -507,7 +492,7 @@ static void dump_inform_info_record(void *data)
 	ib_inform_info_get_qpn_resp_time(p_iir->inform_info.g_or_v.
 					 generic.qpn_resp_time_val, &qpn,
 					 &resp_time_val);
-	if (p_iir->inform_info.is_generic)
+	if (p_iir->inform_info.is_generic) {
 		printf("InformInfoRecord dump:\n"
 		       "\t\tRID\n"
 		       "\t\tSubscriberGID...........%s\n"
@@ -519,10 +504,7 @@ static void dump_inform_info_record(void *data)
 		       "\t\tis_generic..............0x%X\n"
 		       "\t\tsubscribe...............0x%X\n"
 		       "\t\ttrap_type...............0x%X\n"
-		       "\t\ttrap_num................%u\n"
-		       "\t\tqpn.....................0x%06X\n"
-		       "\t\tresp_time_val...........0x%X\n"
-		       "\t\tnode_type...............0x%06X\n",
+		       "\t\ttrap_num................%u\n",
 		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
 				 sizeof gid_str),
 		       cl_ntoh16(p_iir->subscriber_enum),
@@ -533,11 +515,20 @@ static void dump_inform_info_record(void *data)
 		       p_iir->inform_info.is_generic,
 		       p_iir->inform_info.subscribe,
 		       cl_ntoh16(p_iir->inform_info.trap_type),
-		       cl_ntoh16(p_iir->inform_info.g_or_v.generic.trap_num),
-		       cl_ntoh32(qpn), resp_time_val,
+		       cl_ntoh16(p_iir->inform_info.g_or_v.generic.trap_num));
+		if (show_keys) {
+			printf("\t\tqpn.....................0x%06X\n",
+			       cl_ntoh32(qpn));
+		} else {
+			printf("\t\tqpn....................."
+			       NOT_DISPLAYED_STR "\n");
+		}
+		printf("\t\tresp_time_val...........0x%X\n"
+		       "\t\tnode_type...............0x%06X\n",
+		       resp_time_val,
 		       cl_ntoh32(ib_inform_info_get_prod_type
 				 (&p_iir->inform_info)));
-	else
+	} else {
 		printf("InformInfoRecord dump:\n"
 		       "\t\tRID\n"
 		       "\t\tSubscriberGID...........%s\n"
@@ -549,10 +540,7 @@ static void dump_inform_info_record(void *data)
 		       "\t\tis_generic..............0x%X\n"
 		       "\t\tsubscribe...............0x%X\n"
 		       "\t\ttrap_type...............0x%X\n"
-		       "\t\tdev_id..................0x%X\n"
-		       "\t\tqpn.....................0x%06X\n"
-		       "\t\tresp_time_val...........0x%X\n"
-		       "\t\tvendor_id...............0x%06X\n",
+		       "\t\tdev_id..................0x%X\n",
 		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
 				 sizeof gid_str),
 		       cl_ntoh16(p_iir->subscriber_enum),
@@ -563,10 +551,20 @@ static void dump_inform_info_record(void *data)
 		       p_iir->inform_info.is_generic,
 		       p_iir->inform_info.subscribe,
 		       cl_ntoh16(p_iir->inform_info.trap_type),
-		       cl_ntoh16(p_iir->inform_info.g_or_v.vend.dev_id),
-		       cl_ntoh32(qpn), resp_time_val,
+		       cl_ntoh16(p_iir->inform_info.g_or_v.vend.dev_id));
+		if (show_keys) {
+			printf("\t\tqpn.....................0x%06X\n",
+			       cl_ntoh32(qpn));
+		} else {
+			printf("\t\tqpn....................."
+			       NOT_DISPLAYED_STR "\n");
+		}
+		printf("\t\tresp_time_val...........0x%X\n"
+		       "\t\tvendor_id...............0x%06X\n",
+		       resp_time_val,
 		       cl_ntoh32(ib_inform_info_get_prod_type
 				 (&p_iir->inform_info)));
+	}
 }
 
 static void dump_one_link_record(void *data)

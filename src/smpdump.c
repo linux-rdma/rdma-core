@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 
 	ibd_timeout = 1000;
 
-	ibdiag_process_opts(argc, argv, NULL, "Gs", opts, process_opt,
+	ibdiag_process_opts(argc, argv, NULL, "GKs", opts, process_opt,
 			    usage_args, usage_examples);
 
 	argc -= optind;
