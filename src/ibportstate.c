@@ -142,7 +142,7 @@ static int get_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 }
 
 static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
-			   int espeed_cap)
+			   int espeed_cap, int is_switch)
 {
 	char buf[2300];
 	char val[64];
@@ -201,18 +201,36 @@ static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 			       val);
 		sprintf(buf + strlen(buf), "%s", "\n");
 	}
+	if (!is_switch || portnum == 0) {
+		if (show_keys) {
+			mad_decode_field(data, IB_PORT_MKEY_F, val);
+			mad_dump_field(IB_PORT_MKEY_F, buf + strlen(buf),
+				       sizeof buf - strlen(buf), val);
+		} else
+			snprint_field(buf+strlen(buf), sizeof(buf)-strlen(buf),
+				      IB_PORT_MKEY_F, 32, NOT_DISPLAYED_STR);
+		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_MKEY_LEASE_F, val);
+		mad_dump_field(IB_PORT_MKEY_LEASE_F, buf + strlen(buf),
+			       sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");
+		mad_decode_field(data, IB_PORT_MKEY_PROT_BITS_F, val);
+		mad_dump_field(IB_PORT_MKEY_PROT_BITS_F, buf + strlen(buf),
+			       sizeof buf - strlen(buf), val);
+		sprintf(buf+strlen(buf), "%s", "\n");
+	}
 
 	printf("# Port info: %s port %d\n%s", portid2str(dest), portnum, buf);
 }
 
 static void set_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
-			  int espeed_cap)
+			  int espeed_cap, int is_switch)
 {
 	if (!smp_set_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		IBERROR("smp set portinfo failed");
 
 	printf("\nAfter PortInfo set:\n");
-	show_port_info(dest, data, portnum, espeed_cap);
+	show_port_info(dest, data, portnum, espeed_cap, is_switch);
 }
 
 static void get_ext_port_info(ib_portid_t * dest, uint8_t * data, int portnum)
@@ -460,7 +478,7 @@ int main(int argc, char **argv)
 	else
 		printf("%s PortInfo:\n", is_switch ? "Switch" : "CA");
 	espeed_cap = get_port_info(&portid, data, portnum, is_switch);
-	show_port_info(&portid, data, portnum, espeed_cap);
+	show_port_info(&portid, data, portnum, espeed_cap, is_switch);
 	if (is_mlnx_ext_port_info_supported(devid)) {
 		get_ext_port_info(&portid, data2, portnum);
 		show_ext_port_info(&portid, data2, portnum);
@@ -527,7 +545,7 @@ int main(int argc, char **argv)
 				      fdr10);
 			set_ext_port_info(&portid, data2, portnum);
 		}
-		set_port_info(&portid, data, portnum, is_switch);
+		set_port_info(&portid, data, portnum, espeed_cap, is_switch);
 
 	} else if (is_switch && portnum) {
 		/* Now, make sure PortState is Active */
@@ -596,7 +614,7 @@ int main(int argc, char **argv)
 				get_ext_port_info(&peerportid, data2,
 						  peerlocalportnum);
 			show_port_info(&peerportid, data, peerlocalportnum,
-				       peer_espeed_cap);
+				       peer_espeed_cap, is_peer_switch);
 			if (is_mlnx_ext_port_info_supported(rem_devid))
 				show_ext_port_info(&peerportid, data2,
 						   peerlocalportnum);
