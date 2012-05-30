@@ -160,6 +160,9 @@ void read_ibdiag_config(const char *file)
 			}
 		} else if (strncmp(name, "m_key", strlen("m_key")) == 0) {
 			ibd_mkey = strtoull(val_str, 0, 0);
+		} else if (strncmp(name, "sa_key",
+				   strlen("sa_key")) == 0) {
+			ibd_sakey = strtoull(val_str, 0, 0);
 		}
 	}
 
