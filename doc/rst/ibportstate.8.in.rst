@@ -30,8 +30,9 @@ OPTIONS
 
 **<op>**
         Supported ops: enable, disable, reset, speed, espeed, fdr10, width, query,
-                        down, arm, active, vls, mtu, lid, smlid, lmc (Default
-                        is query)
+                        down, arm, active, vls, mtu, lid, smlid, lmc,
+                        mkey, mkeylease, mkeyprot
+			(Default is query)
 
         **enable, disable, and reset** are only allowed on switch ports (An
         error is indicated if attempted on CA or router ports)
@@ -60,6 +61,12 @@ OPTIONS
         initial LID route with directed routing to the peer) which can only be
         done on a switch. This peer port validation feature of query op
         requires LID routing to be functioning in the subnet.
+
+        **mkey, mkeylease, and mkeyprot** are only allowed on CAs, routers, or
+        switch port 0 (An error is generated if attempted on external switch
+        ports).  Hexadecimal and octal mkeys may be specified by prepending the
+        key with '0x' or '0', respectively.  If a non-numeric value (like 'x')
+        is specified for the mkey, then ibportstate will prompt for a value.
 
 
 Addressing Flags
