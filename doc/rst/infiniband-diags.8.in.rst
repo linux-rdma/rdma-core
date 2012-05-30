@@ -23,6 +23,18 @@ may therefore work even in unconfigured subnets.  Other, higher level
 utilities, require LID routed MAD's and to some extent SA/SM access.
 
 
+THE USE OF SMP's (QP0)
+======================
+
+Many of the tools in this package rely on the use of SMP's via QP0 to acquire
+data directly from hardware.  While this mode of operation is not technically
+in compliance with the InfiniBand specification, practical experience has found
+that this level of diagnostics is valuable when working with a fabric which is
+broken or only partially configured.  For this reason many of these tools may
+require the use of an MKey or operation from Virtual Machines may be restricted
+for security reasons.
+
+
 COMMON OPTIONS
 ==============
 
