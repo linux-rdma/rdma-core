@@ -71,6 +71,7 @@ char *ibd_ca = NULL;
 int ibd_ca_port = 0;
 int ibd_timeout = 0;
 uint32_t ibd_ibnetdisc_flags = IBND_CONFIG_MLX_EPI;
+uint64_t ibd_mkey;
 int show_keys = 0;
 
 static const char *prog_name;
@@ -265,6 +266,17 @@ static int process_opt(int ch, char *optarg)
 	case 'K':
 		show_keys = 1;
 		break;
+	case 'y':
+		errno = 0;
+		ibd_mkey = strtoull(optarg, &endp, 0);
+		if (errno || *endp != '\0') {
+			errno = 0;
+			ibd_mkey = strtoull(getpass("M_Key: "), &endp, 0);
+			if (errno || *endp != '\0') {
+				IBERROR("Bad M_Key");
+			}
+                }
+                break;
 	default:
 		return -1;
 	}
@@ -282,6 +294,7 @@ static const struct ibdiag_opt common_opts[] = {
 	{"timeout", 't', 1, "<ms>", "timeout in ms"},
 	{"sm_port", 's', 1, "<lid>", "SM port lid"},
 	{"show_keys", 'K', 0, NULL, "display security keys in output"},
+	{"m_key", 'y', 1, "<key>", "M_Key to use in request"},
 	{"errors", 'e', 0, NULL, "show send and receive errors"},
 	{"verbose", 'v', 0, NULL, "increase verbosity level"},
 	{"debug", 'd', 0, NULL, "raise debug level"},

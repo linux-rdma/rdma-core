@@ -1636,7 +1636,7 @@ int main(int argc, char **argv)
 	q = NULL;
 	ibd_timeout = DEFAULT_SA_TIMEOUT_MS;
 
-	ibdiag_process_opts(argc, argv, &params, "DGLs", opts, process_opt,
+	ibdiag_process_opts(argc, argv, &params, "DGLsy", opts, process_opt,
 			    usage_args, NULL);
 
 	argc -= optind;

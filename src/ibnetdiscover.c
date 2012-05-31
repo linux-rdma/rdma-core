@@ -1088,6 +1088,8 @@ int main(int argc, char **argv)
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
 
+	config.mkey = ibd_mkey;
+
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (diff_cache_file &&

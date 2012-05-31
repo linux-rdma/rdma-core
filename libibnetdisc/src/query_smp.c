@@ -142,6 +142,7 @@ int issue_smp(smp_engine_t * engine, ib_portid_t * portid,
 	smp->rpc.datasz = IB_SMP_DATA_SIZE;
 	smp->rpc.dataoffs = IB_SMP_DATA_OFFS;
 	smp->rpc.trid = mad_trid();
+	smp->rpc.mkey = engine->cfg->mkey;
 
 	if (portid->lid <= 0 || portid->drpath.drslid == 0xffff ||
 	    portid->drpath.drdlid == 0xffff)

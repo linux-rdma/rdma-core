@@ -202,7 +202,7 @@ int main(int argc, char **argv)
 	};
 	char usage_args[] = "<dest lid|guid>";
 
-	ibdiag_process_opts(argc, argv, NULL, "DK", opts, process_opt,
+	ibdiag_process_opts(argc, argv, NULL, "DKy", opts, process_opt,
 			    usage_args, NULL);
 
 	argc -= optind;

@@ -711,6 +711,7 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	}
 	mad_rpc_set_timeout(scan.ibmad_port, cfg->timeout_ms);
 	mad_rpc_set_retries(scan.ibmad_port, cfg->retries);
+	smp_mkey_set(scan.ibmad_port, cfg->mkey);
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 

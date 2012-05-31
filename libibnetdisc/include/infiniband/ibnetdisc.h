@@ -151,7 +151,8 @@ typedef struct ibnd_config {
 	unsigned timeout_ms;
 	unsigned retries;
 	uint32_t flags;
-	uint8_t pad[52];
+	uint64_t mkey;
+	uint8_t pad[44];
 } ibnd_config_t;
 
 /** =========================================================================

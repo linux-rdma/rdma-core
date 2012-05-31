@@ -269,7 +269,7 @@ int main(int argc, char **argv)
 	};
 	char *usage_args = "<orig.cache> <new.cache>";
 
-	ibdiag_process_opts(argc, argv, NULL, "CDdeGKLPstv",
+	ibdiag_process_opts(argc, argv, NULL, "CDdeGKLPstvy",
 			    opts, process_opt, usage_args,
 			    NULL);
 

@@ -82,6 +82,7 @@ Configuration flags
 
 .. include:: common/opt_z-config.rst
 .. include:: common/opt_t.rst
+.. include:: common/opt_y.rst
 
 Debugging flags
 ---------------

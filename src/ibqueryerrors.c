@@ -914,12 +914,15 @@ int main(int argc, char **argv)
 	if (!ibmad_port)
 		IBERROR("Failed to open port; %s:%d\n", ibd_ca, ibd_ca_port);
 
+	smp_mkey_set(ibmad_port, ibd_mkey);
+
 	if (ibd_timeout) {
 		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 		config.timeout_ms = ibd_timeout;
 	}
 
 	config.flags = ibd_ibnetdisc_flags;
+	config.mkey = ibd_mkey;
 
 	node_name_map = open_node_name_map(node_name_map_file);
 

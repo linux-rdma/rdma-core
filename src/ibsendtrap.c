@@ -209,6 +209,8 @@ int main(int argc, char **argv)
 	if (!srcport)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
+	smp_mkey_set(srcport, ibd_mkey);
+
 	rc = process_send_trap(trap_name);
 	mad_rpc_close_port(srcport);
 	return rc;
