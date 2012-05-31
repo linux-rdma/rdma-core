@@ -10,17 +10,16 @@ Dependencies:
 	2) opensm-libs >= 3.3.10
 	3) ib_umad kernel module
 
-Release notes for 1.3.7 to 1.3.8 are:
+Release notes for 1.3.8 to 1.3.9 are:
 
-   1) minor bug fixes
-   2) Add SM/SA GUIDInfo support
-   3) new smp_query_status_via functions
-   4) Add new ib_rpc_v1_t with error field
-   5) Add Extended Link Speed support as specified by published IBTA errata
-   6) Support Additional Optional Performance Counters
-   7) Support Mellanox vendor specific ExtendedPortInfo SM class MAD
-   8) Add support for PortInfo CapabilityMask2
+   1) bug fixes
+   2) Add support for Congestion Control MAD's
+   3) Add SA NodeRecord
+   4) Add MKey support to ibmad_port object
+   5) Update counter offsets for PortExtendedSpeedsCounters
+   6) Additional print functions
+        classportinfo dump function
+	additional debugging
 
-
-   These changes increment the soname to 7 but the library is backwards
+   These changes increment the soname to 8 but the library is backwards
    compatible to soname 5.
