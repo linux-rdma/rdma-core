@@ -2795,7 +2795,8 @@ static void acm_port_up(struct acm_port *port)
 
 	port->mtu = attr.active_mtu;
 	port->rate = acm_get_rate(attr.active_width, attr.active_speed);
-	port->subnet_timeout = 1 << (attr.subnet_timeout - 8);
+	if (attr.subnet_timeout >= 8)
+		port->subnet_timeout = 1 << (attr.subnet_timeout - 8);
 	for (port->gid_cnt = 0;; port->gid_cnt++) {
 		ret = ibv_query_gid(port->dev->verbs, port->port_num, port->gid_cnt, &gid);
 		if (ret || !gid.global.interface_id)
