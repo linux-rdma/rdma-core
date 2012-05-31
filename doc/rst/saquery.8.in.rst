@@ -82,7 +82,10 @@ OPTIONS
 **--smkey <val>**
         use SM_Key value for the query. Will be used only with "trusted"
         queries.  If non-numeric value (like 'x') is specified then saquery
-        will prompt for a value.
+	will prompt for a value.
+	Default (when not specified here or in
+	@IBDIAG_CONFIG_PATH@/ibdiag.conf) is to use SM_Key == 0 (or
+	\"untrusted\")
 
 .. include:: common/opt_K.rst
 

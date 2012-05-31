@@ -1571,7 +1571,9 @@ int main(int argc, char **argv)
 		{"smkey", 4, 1, "<val>",
 		 "SA SM_Key value for the query."
 		 " If non-numeric value (like 'x') is specified then"
-		 " saquery will prompt for a value"},
+		 " saquery will prompt for a value. "
+		 " Default (when not specified here or in ibdiag.conf) is to "
+		 " use SM_Key == 0 (or \"untrusted\")"},
 		{"slid", 5, 1, "<lid>", "Source LID (PathRecord)"},
 		{"dlid", 6, 1, "<lid>", "Destination LID (PathRecord)"},
 		{"mlid", 7, 1, "<lid>", "Multicast LID (MCMemberRecord)"},
