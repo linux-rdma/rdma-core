@@ -495,7 +495,8 @@ static int resolve_lid(struct ibv_path_record *path)
 {
 	int ret;
 
-	path->slid = htons((uint16_t) atoi(src_addr));
+	if (src_addr)
+		path->slid = htons((uint16_t) atoi(src_addr));
 	path->dlid = htons((uint16_t) atoi(dest_addr));
 	path->reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
 
@@ -510,10 +511,13 @@ static int resolve_gid(struct ibv_path_record *path)
 {
 	int ret;
 
-	ret = inet_pton(AF_INET6, src_addr, &path->sgid);
-	if (ret <= 0) {
-		printf("inet_pton error on source address (%s): 0x%x\n", src_addr, ret);
-		return ret ? ret : -1;
+	if (src_addr) {
+		ret = inet_pton(AF_INET6, src_addr, &path->sgid);
+		if (ret <= 0) {
+			printf("inet_pton error on source address (%s): 0x%x\n",
+			       src_addr, ret);
+			return ret ? ret : -1;
+		}
 	}
 
 	ret = inet_pton(AF_INET6, dest_addr, &path->dgid);
