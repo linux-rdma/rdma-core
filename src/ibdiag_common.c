@@ -725,7 +725,8 @@ void sa_free_bind_handle(bind_handle_t h)
 
 int sa_query(bind_handle_t h, uint8_t method,
 		    uint16_t attr, uint32_t mod, uint64_t comp_mask,
-		    uint64_t sm_key, void *data, struct sa_query_result *result)
+		    uint64_t sm_key, void *data, size_t datasz,
+		    struct sa_query_result *result)
 {
 	ib_rpc_t rpc;
 	void *umad, *mad;
@@ -737,7 +738,7 @@ int sa_query(bind_handle_t h, uint8_t method,
 	rpc.attr.id = attr;
 	rpc.attr.mod = mod;
 	rpc.mask = comp_mask;
-	rpc.datasz = IB_SA_DATA_SIZE;
+	rpc.datasz = datasz;
 	rpc.dataoffs = IB_SA_DATA_OFFS;
 
 	umad = calloc(1, len + umad_size());

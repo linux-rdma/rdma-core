@@ -122,7 +122,7 @@ struct sa_query_result {
 };
 int sa_query(struct bind_handle *h, uint8_t method,
 	     uint16_t attr, uint32_t mod, uint64_t comp_mask, uint64_t sm_key,
-	     void *data, struct sa_query_result *result);
+	     void *data, size_t datasz, struct sa_query_result *result);
 void sa_free_result_mad(struct sa_query_result *result);
 void *sa_get_query_rec(void *mad, unsigned i);
 void sa_report_err(int status);

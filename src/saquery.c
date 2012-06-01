@@ -724,10 +724,11 @@ static void dump_results(struct sa_query_result *r, void (*dump_func) (void *))
 static int get_any_records(bind_handle_t h,
 			   uint16_t attr_id, uint32_t attr_mod,
 			   ib_net64_t comp_mask, void *attr,
+			   size_t attr_size,
 			   struct sa_query_result *result)
 {
 	int ret = sa_query(h, IB_MAD_METHOD_GET_TABLE, attr_id, attr_mod,
-			   cl_ntoh64(comp_mask), ibd_sakey, attr, result);
+			   cl_ntoh64(comp_mask), ibd_sakey, attr, attr_size, result);
 	if (ret) {
 		fprintf(stderr, "Query SA failed: %s\n", strerror(ret));
 		return ret;
@@ -744,11 +745,12 @@ static int get_any_records(bind_handle_t h,
 static int get_and_dump_any_records(bind_handle_t h, uint16_t attr_id,
 				    uint32_t attr_mod, ib_net64_t comp_mask,
 				    void *attr,
+				    size_t attr_size,
 				    void (*dump_func) (void *))
 {
 	struct sa_query_result result;
 	int ret = get_any_records(h, attr_id, attr_mod, comp_mask, attr,
-				  &result);
+				  attr_size, &result);
 	if (ret)
 		return ret;
 
@@ -763,7 +765,7 @@ static int get_and_dump_any_records(bind_handle_t h, uint16_t attr_id,
 static int get_all_records(bind_handle_t h, uint16_t attr_id,
 			   struct sa_query_result *result)
 {
-	return get_any_records(h, attr_id, 0, 0, NULL, result);
+	return get_any_records(h, attr_id, 0, 0, NULL, 0, result);
 }
 
 static int get_and_dump_all_records(bind_handle_t h, uint16_t attr_id,
@@ -890,7 +892,7 @@ static int get_issm_records(bind_handle_t h, ib_net32_t capability_mask,
 	attr.port_info.capability_mask = capability_mask;
 
 	return get_any_records(h, IB_SA_ATTR_PORTINFORECORD, 1 << 31,
-			       IB_PIR_COMPMASK_CAPMASK, &attr, result);
+			       IB_PIR_COMPMASK_CAPMASK, &attr, sizeof(attr), result);
 }
 
 static int print_node_records(bind_handle_t h)
@@ -942,7 +944,7 @@ static int get_print_class_port_info(bind_handle_t h)
 {
 	struct sa_query_result result;
 	int ret = sa_query(h, IB_MAD_METHOD_GET, CLASS_PORT_INFO, 0, 0,
-			   ibd_sakey, NULL, &result);
+			   ibd_sakey, NULL, 0, &result);
 	if (ret) {
 		fprintf(stderr, "ERROR: Query SA failed: %s\n", strerror(ret));
 		return ret;
@@ -989,7 +991,7 @@ static int query_path_records(const struct query_cmd *q, bind_handle_t h,
 				  SELEC);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_PATHRECORD, 0, comp_mask,
-					&pr, dump_path_record);
+					&pr, sizeof(pr), dump_path_record);
 }
 
 static int print_issm_records(bind_handle_t h)
@@ -1074,7 +1076,7 @@ static int query_node_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(lid, 16, 0, nr.lid, NR, LID);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_NODERECORD, 0, comp_mask,
-					&nr, dump_node_record);
+					&nr, sizeof(nr), dump_node_record);
 }
 
 static int query_portinfo_records(const struct query_cmd *q,
@@ -1094,7 +1096,7 @@ static int query_portinfo_records(const struct query_cmd *q,
 	CHECK_AND_SET_VAL(options, 8, -1, pir.options, PIR, OPTIONS);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_PORTINFORECORD, 0,
-					comp_mask, &pir,
+					comp_mask, &pir, sizeof(pir),
 					dump_one_portinfo_record);
 }
 
@@ -1127,7 +1129,7 @@ static int query_mcmember_records(const struct query_cmd *q,
 	CHECK_AND_SET_VAL(p->proxy_join, 8, -1, mr.proxy_join, MCR, PROXY);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_MCRECORD, 0, comp_mask,
-					&mr, dump_one_mcmember_record);
+					&mr, sizeof(mr), dump_one_mcmember_record);
 }
 
 static int query_service_records(const struct query_cmd *q, bind_handle_t h,
@@ -1165,7 +1167,7 @@ static int query_link_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(to_port, 8, -1, lr.to_port_num, LR, TO_PORT);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_LINKRECORD, 0, comp_mask,
-					&lr, dump_one_link_record);
+					&lr, sizeof(lr), dump_one_link_record);
 }
 
 static int query_sl2vl_records(const struct query_cmd *q, bind_handle_t h,
@@ -1184,7 +1186,7 @@ static int query_sl2vl_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(out_port, 8, -1, slvl.out_port_num, SLVL, OUT_PORT);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_SL2VLTABLERECORD, 0,
-					comp_mask, &slvl,
+					comp_mask, &slvl, sizeof(slvl),
 					dump_one_slvl_record);
 }
 
@@ -1204,7 +1206,7 @@ static int query_vlarb_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(block, 8, -1, vlarb.block_num, VLA, BLOCK);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_VLARBTABLERECORD, 0,
-					comp_mask, &vlarb,
+					comp_mask, &vlarb, sizeof(vlarb),
 					dump_one_vlarb_record);
 }
 
@@ -1225,7 +1227,7 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 	CHECK_AND_SET_VAL(block, 16, -1, pktr.block_num, PKEY, BLOCK);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_PKEYTABLERECORD, 0,
-					comp_mask, &pktr,
+					comp_mask, &pktr, sizeof(pktr),
 					dump_one_pkey_tbl_record);
 }
 
@@ -1244,7 +1246,7 @@ static int query_lft_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(block, 16, -1, lftr.block_num, LFTR, BLOCK);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_LFTRECORD, 0, comp_mask,
-					&lftr, dump_one_lft_record);
+					&lftr, sizeof(lftr), dump_one_lft_record);
 }
 
 static int query_guidinfo_records(const struct query_cmd *q, bind_handle_t h,
@@ -1262,7 +1264,7 @@ static int query_guidinfo_records(const struct query_cmd *q, bind_handle_t h,
 	CHECK_AND_SET_VAL(block, 8, -1, gir.block_num, GIR, BLOCKNUM);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_GUIDINFORECORD, 0,
-					comp_mask, &gir,
+					comp_mask, &gir, sizeof(gir),
 					dump_one_guidinfo_record);
 }
 
@@ -1285,7 +1287,7 @@ static int query_mft_records(const struct query_cmd *q, bind_handle_t h,
 	mftr.position_block_num |= cl_hton16(pos << 12);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_MFTRECORD, 0, comp_mask,
-					&mftr, dump_one_mft_record);
+					&mftr, sizeof(mftr), dump_one_mft_record);
 }
 
 static const struct query_cmd query_cmds[] = {
