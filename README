@@ -10,26 +10,43 @@ interface to this library is _not_ guaranteed to be stable (though we try.)
 
 Dependencies:
 
-	1) libibmad >= 1.3.8
+	1) libibmad >= 1.3.9
 	2) libibumad >= 1.3.7
 	3) opensm-libs >= 3.3.10
 	4) ib_umad kernel module
 
 
-Release notes v1.5.8 => v1.5.9
+Release notes v1.5.13 => v1.6.0
 
-   1)  minor bug fixes
-   2)  libibnetdisc -- add Mellanox switch grouping
-   3)  saquery -- add GUIDInfoRecord support
-   4)  ibqueryerrors -- add error thresholds w/ config file
-   5)  ibqueryerrors -- add error summary
-   6)  ibqueryerrors -- add "--data" & "--counters" option
-   7)  perfquery -- add PortCountersExtendedNoIETF support
-   8)  convert iblinkinfo/ibqueryerrors to PortGUID's from NodeGUID's
-   9)  iblinkinfo/ibqueryerrors -- Add CA support
-   10) perfquery -- add optional performance counters
-   11) smpquery -- add Mellanox Vendor PortInfo query
-   12) Add Extended Link Speed support as specified by published IBTA errata
-   13) Add FDR10 support for Mellanox Specific devices
-   14) Add easier to read data counters to ibqueryerrors
+   1) Fixed "sa_key" (SA smkey) in saquery.  Along with this the default smkey
+      has been changed to 0.  This means the default queries are "untrusted".
+      A different default (for example to match OpenSM) can be configured in
+      the ibdiags.conf to have "trusted" queries by default.
+
+   2) Some older tools have been deprecated and are no longer in the default
+      build.
+
+	ibcheckerrs ibchecknet ibchecknode ibcheckport ibcheckportwidth
+	ibcheckportstate ibcheckwidth ibcheckstate ibcheckerrors ibdatacounts
+	ibdatacounters ibdiscover.pl ibswportwatch.pl ibqueryerrors.pl
+	iblinkinfo.pl ibprintca.pl ibprintswitch.pl ibprintrt.pl
+	set_nodedesc.sh ibclearerrors ibclearcounters
+
+      Building these tools can be enabled through configure with the
+      --enable-compat-utils option.
+
+      infinband-diags-1.6.x.tar.gz includes this option and will generate the
+      *-compat rpm by default.
+
+   3) mkey support
+
+   4) Additional tools ibccquery ibccconfig
+
+   5) "-u" option is no longer supported (use "-h" instead)
+
+   6) New updated man pages
+
+   7) support for new hardware in vendstat
+
+   8) bug fixes and code clean up
 
