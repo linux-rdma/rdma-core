@@ -55,7 +55,8 @@ are: AF_INET, AF_INET6, and AF_IB.
 Indicates the type of RDMA QP used for communication.  Supported types are:
 IBV_UD (unreliable datagram) and IBV_RC (reliable connected).
 .IP "ai_port_space" 12
-RDMA port space in use.  Supported values are: RDMA_PS_UDP and RDMA_PS_TCP.
+RDMA port space in use.  Supported values are: RDMA_PS_UDP, RDMA_PS_TCP,
+and RDMA_PS_IB.
 .IP "ai_src_len" 12
 The length of the source address referenced by ai_src_addr.  This will be 0
 if an appropriate source address could not be discovered for a given
