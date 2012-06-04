@@ -37,10 +37,12 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <stdarg.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -63,6 +65,8 @@
 #define RS_BUF_SIZE (1 << 17)
 static struct index_map idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+
+static uint32_t polling_time = 10;
 
 /*
  * Immediate data format is determined by the upper bits
@@ -195,6 +199,27 @@ struct rsocket {
 	struct ibv_sge	  ssgl[2];
 	uint8_t		  *sbuf;
 };
+
+void rs_configure(void)
+{
+	FILE *f;
+	static int init;
+
+	if (init)
+		return;
+
+	pthread_mutex_lock(&mut);
+	if (init)
+		goto out;
+
+	if ((f = fopen(RS_CONF_DIR "/polling_time", "r"))) {
+		fscanf(f, "%u", &polling_time);
+		fclose(f);
+	}
+	init = 1;
+out:
+	pthread_mutex_unlock(&mut);
+}
 
 /*
  * We currently generate a completion per send.  sqe_count = 1
@@ -470,6 +495,7 @@ int rsocket(int domain, int type, int protocol)
 	    (type != SOCK_STREAM) || (protocol && protocol != IPPROTO_TCP))
 		return ERR(ENOTSUP);
 
+	rs_configure();
 	rs = rs_alloc(NULL);
 	if (!rs)
 		return ERR(ENOMEM);
@@ -923,6 +949,29 @@ static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rs
 	return ret;
 }
 
+static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
+{
+	struct timeval s, e;
+	uint32_t poll_time = 0;
+	int ret;
+
+	do {
+		ret = rs_process_cq(rs, 1, test);
+		if (!ret || nonblock || errno != EWOULDBLOCK)
+			return ret;
+
+		if (!poll_time)
+			gettimeofday(&s, NULL);
+
+		gettimeofday(&e, NULL);
+		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
+			    (e.tv_usec - s.tv_usec) + 1;
+	} while (poll_time <= polling_time);
+
+	ret = rs_process_cq(rs, 0, test);
+	return ret;
+}
+
 static int rs_nonblocking(struct rsocket *rs, int flags)
 {
 	return (rs->fd_flags & O_NONBLOCK) || (flags & MSG_DONTWAIT);
@@ -1034,7 +1083,7 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	}
 	fastlock_acquire(&rs->rlock);
 	if (!rs_have_rdata(rs)) {
-		ret = rs_process_cq(rs, rs_nonblocking(rs, flags), rs_conn_have_rdata);
+		ret = rs_get_comp(rs, rs_nonblocking(rs, flags), rs_conn_have_rdata);
 		if (ret && errno != ECONNRESET)
 			goto out;
 	}
@@ -1138,8 +1187,8 @@ ssize_t rsend(int socket, const void *buf, size_t len, int flags)
 	fastlock_acquire(&rs->slock);
 	for (left = len; left; left -= xfer_size, buf += xfer_size) {
 		if (!rs_can_send(rs)) {
-			ret = rs_process_cq(rs, rs_nonblocking(rs, flags),
-					    rs_conn_can_send);
+			ret = rs_get_comp(rs, rs_nonblocking(rs, flags),
+					  rs_conn_can_send);
 			if (ret)
 				break;
 			if (rs->state != rs_connected) {
@@ -1252,8 +1301,8 @@ static ssize_t rsendv(int socket, const struct iovec *iov, int iovcnt, int flags
 	fastlock_acquire(&rs->slock);
 	for (left = len; left; left -= xfer_size) {
 		if (!rs_can_send(rs)) {
-			ret = rs_process_cq(rs, rs_nonblocking(rs, flags),
-					    rs_conn_can_send);
+			ret = rs_get_comp(rs, rs_nonblocking(rs, flags),
+					  rs_conn_can_send);
 			if (ret)
 				break;
 			if (rs->state != rs_connected) {
@@ -1468,12 +1517,23 @@ static int rs_poll_events(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
  */
 int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
+	struct timeval s, e;
 	struct pollfd *rfds;
+	uint32_t poll_time = 0;
 	int ret;
 
-	ret = rs_poll_check(fds, nfds);
-	if (ret || !timeout)
-		return ret;
+	do {
+		ret = rs_poll_check(fds, nfds);
+		if (ret || !timeout)
+			return ret;
+
+		if (!poll_time)
+			gettimeofday(&s, NULL);
+
+		gettimeofday(&e, NULL);
+		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
+			    (e.tv_usec - s.tv_usec) + 1;
+	} while (poll_time <= polling_time);
 
 	rfds = rs_fds_alloc(nfds);
 	if (!rfds)

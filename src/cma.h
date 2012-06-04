@@ -166,4 +166,13 @@ struct ibv_path_data
 };
 #endif
 
+#ifndef SYSCONFDIR
+#define SYSCONFDIR "/etc"
+#endif
+#ifndef RDMADIR
+#define RDMADIR "rdma"
+#endif
+#define RDMA_CONF_DIR  SYSCONFDIR "/" RDMADIR
+#define RS_CONF_DIR RDMA_CONF_DIR "/rsocket"
+
 #endif /* CMA_H */
