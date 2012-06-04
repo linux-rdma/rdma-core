@@ -1713,6 +1713,9 @@ int rsetsockopt(int socket, int level, int optname,
 			opt_on = *(int *) optval;
 			ret = 0;
 			break;
+		case TCP_MAXSEG:
+			ret = 0;
+			break;
 		default:
 			break;
 		}
@@ -1797,6 +1800,12 @@ int rgetsockopt(int socket, int level, int optname,
 		switch (optname) {
 		case TCP_NODELAY:
 			*((int *) optval) = !!(rs->tcp_opts & (1 << optname));
+			*optlen = sizeof(int);
+			break;
+		case TCP_MAXSEG:
+			*((int *) optval) = (rs->cm_id && rs->cm_id->route.num_paths) ?
+					    1 << (7 + rs->cm_id->route.path_rec->mtu) :
+					    2048;
 			*optlen = sizeof(int);
 			break;
 		default:
