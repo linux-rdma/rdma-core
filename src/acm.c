@@ -956,7 +956,7 @@ acm_record_path_addr(struct acm_ep *ep, struct acm_dest *dest,
 		dest->path.sgid = path->sgid;
 		dest->path.slid = path->slid;
 	} else {
-		dest->path.slid = ep->port->lid;
+		dest->path.slid = htons(ep->port->lid);
 	}
 	dest->path.dlid = path->dlid;
 	dest->state = ACM_ADDR_RESOLVED;
@@ -1760,6 +1760,10 @@ acm_is_path_from_port(struct acm_port *port, struct ibv_path_record *path)
 
 	if (path->slid) {
 		return (port->lid == (ntohs(path->slid) & port->lid_mask));
+	}
+
+	if (ib_any_gid(&path->dgid)) {
+		return 1;
 	}
 
 	if (acm_gid_index(port, &path->dgid) < port->gid_cnt) {
