@@ -65,5 +65,14 @@ if test "x$rdmadir" = "x"; then
 fi
 AC_SUBST(sbindir)
 
+AC_ARG_VAR(rdmascript, [Required dependency script name])
+if test "x$rdmascript" = "x"; then
+   if test -n "`grep -q 'release 6' /etc/redhat-release`"; then
+      AC_SUBST(rdmascript, rdma)
+   else
+      AC_SUBST(rdmascript, openibd)
+   fi
+fi
+
 AC_CONFIG_FILES([Makefile ibacm.spec ibacm.init])
 AC_OUTPUT
