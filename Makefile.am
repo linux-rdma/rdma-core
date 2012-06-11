@@ -113,7 +113,8 @@ man_MANS = \
 	man/rdma_xclient.1 \
 	man/rstream.1 \
 	man/rcopy.1 \
-	man/rdma_cm.7
+	man/rdma_cm.7 \
+	man/rsocket.7
 
 EXTRA_DIST = src/cma.h src/indexer.h src/librdmacm.map \
 	librdmacm.spec.in $(man_MANS)
