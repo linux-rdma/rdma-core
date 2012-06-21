@@ -309,7 +309,7 @@ static int add_non_exist_target(struct target_details *target)
 	uint8_t dgid_val[16];
 	const int MAX_TARGET_CONFIG_STR_STRING = 255;
 	char target_config_str[MAX_TARGET_CONFIG_STR_STRING];
-	int len, len_left;
+	int len;
 	int not_connected = 1;
 
 	pr_debug("Found an SRP target with id_ext %s - check if it is already connected\n", target->id_ext);
@@ -421,7 +421,6 @@ static int add_non_exist_target(struct target_details *target)
 	}
 
 	if (target->ioc_prof.io_class != htons(SRP_REV16A_IB_IO_CLASS)) {
-		len_left = MAX_TARGET_CONFIG_STR_STRING - len;
 		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",io_class=%04hx", ntohs(target->ioc_prof.io_class));
@@ -434,7 +433,6 @@ static int add_non_exist_target(struct target_details *target)
 	}
 
 	if (config->print_initiator_ext) {
-		len_left = MAX_TARGET_CONFIG_STR_STRING - len;
 		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",initiator_ext=%016llx",
