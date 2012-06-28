@@ -1131,43 +1131,48 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 		}
 	}
 	fastlock_acquire(&rs->rlock);
-	if (!rs_have_rdata(rs)) {
-		ret = rs_get_comp(rs, rs_nonblocking(rs, flags), rs_conn_have_rdata);
-		if (ret)
-			goto out;
-	}
-
-	ret = 0;
-	if (flags & MSG_PEEK) {
-		left = len - rs_peek(rs, buf, len);
-		goto out;
-	}
-
-	for (; left && rs_have_rdata(rs); left -= rsize) {
-		if (left < rs->rmsg[rs->rmsg_head].data) {
-			rsize = left;
-			rs->rmsg[rs->rmsg_head].data -= left;
-		} else {
-			rs->rseq_no++;
-			rsize = rs->rmsg[rs->rmsg_head].data;
-			if (++rs->rmsg_head == rs->rq_size + 1)
-				rs->rmsg_head = 0;
+	do {
+		if (!rs_have_rdata(rs)) {
+			ret = rs_get_comp(rs, rs_nonblocking(rs, flags),
+					  rs_conn_have_rdata);
+			if (ret)
+				break;
 		}
 
-		end_size = rs->rbuf_size - rs->rbuf_offset;
-		if (rsize > end_size) {
-			memcpy(buf, &rs->rbuf[rs->rbuf_offset], end_size);
-			rs->rbuf_offset = 0;
-			buf += end_size;
-			rsize -= end_size;
-			left -= end_size;
+		ret = 0;
+		if (flags & MSG_PEEK) {
+			left = len - rs_peek(rs, buf, left);
+			break;
 		}
-		memcpy(buf, &rs->rbuf[rs->rbuf_offset], rsize);
-		rs->rbuf_offset += rsize;
-		buf += rsize;
-	}
-	rs->rbuf_bytes_avail += len - left;
-out:
+
+		for (; left && rs_have_rdata(rs); left -= rsize) {
+			if (left < rs->rmsg[rs->rmsg_head].data) {
+				rsize = left;
+				rs->rmsg[rs->rmsg_head].data -= left;
+			} else {
+				rs->rseq_no++;
+				rsize = rs->rmsg[rs->rmsg_head].data;
+				if (++rs->rmsg_head == rs->rq_size + 1)
+					rs->rmsg_head = 0;
+			}
+
+			end_size = rs->rbuf_size - rs->rbuf_offset;
+			if (rsize > end_size) {
+				memcpy(buf, &rs->rbuf[rs->rbuf_offset], end_size);
+				rs->rbuf_offset = 0;
+				buf += end_size;
+				rsize -= end_size;
+				left -= end_size;
+				rs->rbuf_bytes_avail += end_size;
+			}
+			memcpy(buf, &rs->rbuf[rs->rbuf_offset], rsize);
+			rs->rbuf_offset += rsize;
+			buf += rsize;
+			rs->rbuf_bytes_avail += rsize;
+		}
+
+	} while (left && (flags & MSG_WAITALL) && (rs->state & rs_connect_rd));
+
 	fastlock_release(&rs->rlock);
 	return ret ? ret : len - left;
 }
