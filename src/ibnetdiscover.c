@@ -378,13 +378,20 @@ void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
 				       port->remoteport->node->nodedesc);
 
 	ext_port_str = out_ext_port(port->remoteport, group);
-	cap_mask = mad_get_field(port->node->ports[0]->info, 0,
-				 IB_PORT_CAPMASK_F);
-	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
-		espeed = mad_get_field(port->info, 0,
-				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
-	else
+
+	if (!port->node->ports[0]) {
+		cap_mask = 0;
+		ispeed = 0;
 		espeed = 0;
+	} else {
+		cap_mask = mad_get_field(port->node->ports[0]->info, 0,
+					 IB_PORT_CAPMASK_F);
+		if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+			espeed = mad_get_field(port->info, 0,
+					       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
+		else
+			espeed = 0;
+	}
 	fprintf(f, "\t%s[%d]%s",
 		node_name(port->remoteport->node), port->remoteport->portnum,
 		ext_port_str ? ext_port_str : "");
@@ -679,23 +686,31 @@ void dump_ports_report(ibnd_node_t * node, void *user_data)
 	for (p = node->numports, port = node->ports[p]; p > 0;
 	     port = node->ports[--p]) {
 		uint32_t iwidth, ispeed, fdr10, espeed, cap_mask;
-		uint8_t *info;
+		uint8_t *info = NULL;
 		if (port == NULL)
 			continue;
 		iwidth =
 		    mad_get_field(port->info, 0, IB_PORT_LINK_WIDTH_ACTIVE_F);
 		ispeed =
 		    mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F);
-		if (port->node->type == IB_NODE_SWITCH)
-			info = (uint8_t *)&port->node->ports[0]->info;
+		if (port->node->type == IB_NODE_SWITCH) {
+			if (port->node->ports[0])
+				info = (uint8_t *)&port->node->ports[0]->info;
+		}
 		else
 			info = (uint8_t *)&port->info;
-		cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-		if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
-			espeed = mad_get_field(port->info, 0,
-					       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
-		else
+		if (info) {
+			cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+			if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+				espeed = mad_get_field(port->info, 0,
+						       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
+			else
+				espeed = 0;
+		} else {
+			ispeed = 0;
+			iwidth = 0;
 			espeed = 0;
+		}
 		fdr10 = mad_get_field(port->ext_info, 0,
 				      IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F);
 		nodename = remap_node_name(node_name_map,
