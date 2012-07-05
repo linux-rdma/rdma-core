@@ -115,7 +115,7 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 	char ext_port_str[256];
 	int iwidth, ispeed, fdr10, espeed, istate, iphystate, cap_mask;
 	int n = 0;
-	uint8_t *info;
+	uint8_t *info = NULL;
 
 	if (!port)
 		return;
@@ -125,16 +125,25 @@ void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
 	fdr10 = mad_get_field(port->ext_info, 0,
 			      IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F) & FDR10;
 
-	if (port->node->type == IB_NODE_SWITCH)
-		info = (uint8_t *)&port->node->ports[0]->info;
+	if (port->node->type == IB_NODE_SWITCH) {
+		if (port->node->ports[0])
+			info = (uint8_t *)&port->node->ports[0]->info;
+	}
 	else
 		info = (uint8_t *)&port->info;
-	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
-		espeed = mad_get_field(port->info, 0,
-				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
-	else
+
+	if (info) {
+		cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+		if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+			espeed = mad_get_field(port->info, 0,
+					       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
+		else
+			espeed = 0;
+	} else {
+		ispeed = 0;
+		iwidth = 0;
 		espeed = 0;
+	}
 
 	istate = mad_get_field(port->info, 0, IB_PORT_STATE_F);
 	iphystate = mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F);
@@ -265,15 +274,22 @@ static inline const char *nodetype_str(ibnd_node_t * node)
 void print_node_header(ibnd_node_t *node, int *out_header_flag,
 			char *out_prefix)
 {
+	uint64_t guid = 0;
 	if ((!out_header_flag || !(*out_header_flag)) && !line_mode) {
 		char *remap =
 			remap_node_name(node_name_map, node->guid, node->nodedesc);
-		if (node->type == IB_NODE_SWITCH)
+		if (node->type == IB_NODE_SWITCH) {
+			if (node->ports[0])
+				guid = node->ports[0]->guid;
+			else if (node->info)
+				guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
+
 			printf("%s%s: 0x%016" PRIx64 " %s:\n",
 				out_prefix ? out_prefix : "",
 				nodetype_str(node),
-				node->ports[0]->guid, remap);
-		else
+				guid,
+				remap);
+		} else
 			printf("%s%s: %s:\n",
 				out_prefix ? out_prefix : "",
 				nodetype_str(node), remap);

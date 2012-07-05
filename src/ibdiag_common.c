@@ -866,7 +866,7 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 	char buf[64];
 	uint32_t max_speed = 0;
 	uint32_t cap_mask, rem_cap_mask, fdr10;
-	uint8_t *info;
+	uint8_t *info = NULL;
 
 	uint32_t max_width = get_max(mad_get_field(port->info, 0,
 						   IB_PORT_LINK_WIDTH_SUPPORTED_F)
@@ -880,17 +880,29 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 			 mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F,
 				      buf, 64, &max_width));
 
-	if (port->node->type == IB_NODE_SWITCH)
-		info = (uint8_t *)&port->node->ports[0]->info;
+	if (port->node->type == IB_NODE_SWITCH) {
+		if (port->node->ports[0])
+			info = (uint8_t *)&port->node->ports[0]->info;
+	}
 	else
 		info = (uint8_t *)&port->info;
-	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
 
-	if (port->remoteport->node->type == IB_NODE_SWITCH)
-		info = (uint8_t *)&port->remoteport->node->ports[0]->info;
+	if (info)
+		cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
 	else
+		cap_mask = 0;
+
+	info = NULL;
+	if (port->remoteport->node->type == IB_NODE_SWITCH) {
+		if (port->remoteport->node->ports[0])
+			info = (uint8_t *)&port->remoteport->node->ports[0]->info;
+	} else
 		info = (uint8_t *)&port->remoteport->info;
-	rem_cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+
+	if (info)
+		rem_cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
+	else
+		rem_cap_mask = 0;
 	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS) &&
 	    rem_cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
 		goto check_ext_speed;
