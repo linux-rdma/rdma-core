@@ -1100,6 +1100,8 @@ int main(int argc, char **argv)
 	if (ibd_timeout)
 		config.timeout_ms = ibd_timeout;
 
+	config.flags = ibd_ibnetdisc_flags;
+
 	if (argc && !(f = fopen(argv[0], "w")))
 		IBERROR("can't open file %s for writing", argv[0]);
 
