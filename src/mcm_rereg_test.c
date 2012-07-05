@@ -101,7 +101,9 @@ static int rereg_send(int port, int agent, ib_portid_t * dport,
 
 	build_mcm_rec_umad(umad, dport, method, comp_mask, data);
 	if (umad_send(port, agent, umad, len, TMO, 0) < 0) {
-		err("umad_send leave failed: %s\n", strerror(errno));
+		err("umad_send %s failed: %s\n",
+		    (method == IB_MAD_METHOD_GET) ? "query" : "non query",
+		    strerror(errno));
 		return -1;
 	}
 	dbg("umad_send %d: tid = 0x%016" PRIx64 "\n", method,
@@ -164,7 +166,7 @@ static int rereg_send_all(int port, int agent, ib_portid_t * dport,
 		    rereg_port_gid(port, agent, dport, umad, len, list[i].gid);
 		if (ret < 0) {
 			err("rereg_send_all: rereg_port_gid 0x%016" PRIx64
-			    " failed\n", list[i].guid);
+			    " failed\n", ntohll(list[i].guid));
 			continue;
 		}
 		list[i].trid = mad_get_field64(umad_get_mad(umad), 0,
