@@ -27,10 +27,26 @@ A negative
 makes the function block until a packet is received. A
 .I timeout_ms\fR
 parameter of zero indicates a non blocking read.
+
+.B Note
+.I length
+is a pointer to the length of the
+.B data
+portion of the umad buffer.  This means that
+.I umad
+must point to a buffer at least umad_size() +
+.I *length
+bytes long.
+
+.B Note also
+that
+.I *length\fR
+must be >= 256 bytes.
+
 .SH "RETURN VALUE"
 .B umad_recv()
 returns non negative receiving agentid on success, and a negative value on error as follows:
- -EINVAL      invalid port handle or agentid
+ -EINVAL      invalid port handle or agentid or *length is less than the minimum supported
  -EIO         receive operation failed
  -EWOULDBLOCK non blocking read can't be fulfilled
 .SH "SEE ALSO"
