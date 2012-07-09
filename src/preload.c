@@ -31,14 +31,6 @@
  *
  */
 
-/*
- * Build:
- * gcc -lrdmacm -Wall -shared -fPIC -o preload.so -D_GNU_SOURCE preload.c indexer.c
- *
- * Use:
- * LD_PRELOAD=preload.so binary --plus_args
- */
-
 #if HAVE_CONFIG_H
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */

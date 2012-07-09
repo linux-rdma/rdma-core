@@ -1,11 +1,14 @@
 INCLUDES = -I$(srcdir)/include
 
+rslibdir = $(libdir)/rsocket
 lib_LTLIBRARIES = src/librdmacm.la
+rslib_LTLIBRARIES = src/librspreload.la
 
 ACLOCAL_AMFLAGS = -I config
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE -DSYSCONFDIR=\"$(sysconfdir)\" -DRDMADIR=\"@rdmadir@\"
 
 src_librdmacm_la_CFLAGS = $(AM_CFLAGS)
+src_librspreload_la_CFLAGS = $(AM_CFLAGS)
 
 if HAVE_LD_VERSION_SCRIPT
     librdmacm_version_script = -Wl,--version-script=$(srcdir)/src/librdmacm.map
@@ -18,6 +21,10 @@ src_librdmacm_la_SOURCES = src/cma.c src/addrinfo.c src/acm.c \
 src_librdmacm_la_LDFLAGS = -version-info 1 -export-dynamic \
 			   $(librdmacm_version_script)
 src_librdmacm_la_DEPENDENCIES =  $(srcdir)/src/librdmacm.map
+
+src_librspreload_la_SOURCES = src/preload.c src/indexer.c
+src_librspreload_la_LDFLAGS = -version-info 1 -export-dynamic
+src_librspreload_la_LIBADD = $(top_builddir)/src/librdmacm.la
 
 bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy examples/mckey \
 	       examples/rdma_client examples/rdma_server examples/rdma_xclient \

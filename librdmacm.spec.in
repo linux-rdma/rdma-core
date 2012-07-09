@@ -44,6 +44,7 @@ rm -rf $RPM_BUILD_ROOT
 %makeinstall
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
+rm -f $RPM_BUILD_ROOT%{_libdir}/rsocket/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -53,13 +54,16 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/librdmacm*.so.*
+%{_libdir}/lib*.so.*
+%{_libdir}/rsocket/lib*.so.*
 %doc AUTHORS COPYING README
 
 %files devel
 %defattr(-,root,root)
-%{_libdir}/lib*.so
+%{_libdir}/librdmacm*.so
+%{_libdir}/rsocket/librspreload*.so
 %{_libdir}/*.a
+%{_libdir}/rsocket/*.a
 %{_includedir}/*
 %{_mandir}/man3/*
 %{_mandir}/man7/*
