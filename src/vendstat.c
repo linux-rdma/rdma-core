@@ -58,8 +58,6 @@
 /* Config space addresses */
 #define IB_MLX_IS3_PORT_XMIT_WAIT	0x10013C
 
-#define IS4_DEV_ID 0x01b3
-#define SX_DEV_ID 0x0245
 
 struct ibmad_port *srcport;
 
@@ -142,6 +140,22 @@ typedef struct {
 	uint8_t reserved[4];
 	is4_group_select_t group_selects[COUNTER_GROUPS_NUM];
 } is4_config_counter_groups_t;
+
+static uint16_t ext_fw_info_device[][2] = {
+	{0x0245, 0x0245},
+	{0xc738, 0xc738},
+	{0x01b3, 0x01b3},
+	{0x1003, 0x1011},
+	{0x0000, 0x0000}};
+
+static int is_ext_fw_info_supported(uint16_t device_id) {
+	int i;
+	for (i = 0; ext_fw_info_device[i][0]; i++)
+		if (ext_fw_info_device[i][0] <= device_id &&
+		    device_id <= ext_fw_info_device[i][1])
+			return 1;
+	return 0;
+}
 
 static int do_vendor(ib_portid_t *portid, struct ibmad_port *srcport,
 		     uint8_t class, uint8_t method, uint16_t attr_id,
@@ -396,8 +410,7 @@ int main(int argc, char **argv)
 		      IB_MLX_IS3_GENERAL_INFO, 0, gi_is3))
 		IBERROR("generalinfo query");
 
-	if (IS4_DEV_ID == ntohs(gi_is3->hw_info.device_id) ||
-	    SX_DEV_ID == ntohs(gi_is3->hw_info.device_id)) {
+	if (is_ext_fw_info_supported(ntohs(gi_is3->hw_info.device_id))) {
 		gi_is4 = (is4_general_info_t *) &buf;
 		fw_ver_major = ntohl(gi_is4->ext_fw_info.ext_major);
 		fw_ver_minor = ntohl(gi_is4->ext_fw_info.ext_minor);
