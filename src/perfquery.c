@@ -659,7 +659,7 @@ int main(int argc, char **argv)
 	int mgmt_classes[2] = { IB_SA_CLASS, IB_PERFORMANCE_CLASS };
 	ib_portid_t portid = { 0 };
 	int mask = 0xffff;
-	uint64_t ext_mask = 0xffffffffffffffff;
+	uint64_t ext_mask = 0xffffffffffffffffULL;
 	uint16_t cap_mask;
 	int all_ports_loop = 0;
 	int node_type, num_ports = 0;
