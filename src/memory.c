@@ -44,6 +44,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <limits.h>
+#include <inttypes.h>
 
 #include "ibverbs.h"
 
@@ -116,7 +117,7 @@ static unsigned long get_page_size(void *base)
 		int n;
 		uintptr_t range_start, range_end;
 
-		n = sscanf(buf, "%lx-%lx", &range_start, &range_end);
+		n = sscanf(buf, "%" SCNxPTR "-%" SCNxPTR, &range_start, &range_end);
 
 		if (n < 2)
 			continue;
