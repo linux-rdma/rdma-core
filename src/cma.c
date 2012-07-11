@@ -811,6 +811,9 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 		return ERR(EINVAL);
 
 	src_len = ucma_addrlen(src_addr);
+	if (src_addr && !src_len)
+		return ERR(EINVAL);
+
 	if (af_ib_support)
 		return rdma_resolve_addr2(id, src_addr, src_len, dst_addr,
 					  dst_len, timeout_ms);
