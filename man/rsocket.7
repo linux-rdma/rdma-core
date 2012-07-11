@@ -59,8 +59,15 @@ normal fd's.
 Existing applications can make use of rsockets through the use of a
 preload library.  Because rsockets implements an end-to-end protocol,
 both sides of a connection must use rsockets.  The rdma_cm library
-provides such a preload library.  See the librdmacm documentation for
-more details.
+provides such a preload library, librspreload.  To reduce the chance
+of the preload library intercepting calls without the user's explicit
+knowledge, the librspreload library is installed into %libdir%/rsocket
+subdirectory.
+.P
+The preload library can be used by setting LD_PRELOAD when running.
+Note that not all applications will work with rsockets.  Support is
+limited based on the socket options used by the application.
+Additionally, applications which call fork are not supported.
 .P
 rsockets uses configuration files that give an administrator control
 over the default settings used by rsockets.  Use files under
