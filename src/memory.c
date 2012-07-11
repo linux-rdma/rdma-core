@@ -269,6 +269,7 @@ static void __mm_rotate_left(struct ibv_mem_node *node)
 	node->parent = tmp;
 }
 
+#if 0
 static int verify(struct ibv_mem_node *node)
 {
 	int hl, hr;
@@ -294,6 +295,7 @@ static int verify(struct ibv_mem_node *node)
 
 	return hl + 1;
 }
+#endif
 
 static void __mm_add_rebalance(struct ibv_mem_node *node)
 {
