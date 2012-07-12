@@ -347,7 +347,7 @@ int bind(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	int fd, ret;
 
 	if (fd_get(socket, &fd) == fd_rsocket) {
-		sin = (struct sockaddr_sin *) addr;
+		sin = (struct sockaddr_in *) addr;
 		if (!sin->sin_port || ntohs(sin->sin_port) > 1024)
 			return rbind(fd, addr, addrlen);
 
@@ -394,7 +394,7 @@ int connect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	int fd, ret;
 
 	if (fd_get(socket, &fd) == fd_rsocket) {
-		sin = (struct sockaddr_sin *) addr;
+		sin = (struct sockaddr_in *) addr;
 		if (ntohs(sin->sin_port) > 1024) {
 			ret = rconnect(fd, addr, addrlen);
 			if (!ret || errno == EINPROGRESS)
