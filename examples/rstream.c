@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -84,6 +85,8 @@ static int verify;
 static int flags = MSG_DONTWAIT;
 static int poll_timeout = 0;
 static int custom;
+static int use_fork;
+static pid_t fork_pid;
 static enum rs_optimization optimization;
 static int size_option;
 static int iterations = 1;
@@ -463,7 +466,10 @@ static int server_connect(void)
 		perror("raccept");
 	}
 
-	set_options(rs);
+	if (use_fork)
+		fork_pid = fork();
+	if (!fork_pid)
+		set_options(rs);
 	return ret;
 }
 
@@ -546,20 +552,26 @@ static int run(void)
 		if (ret)
 			goto free;
 
-		for (i = 0; i < TEST_CNT; i++) {
+		for (i = 0; i < TEST_CNT && !fork_pid; i++) {
 			if (test_size[i].option > size_option)
 				continue;
 			init_latency_test(test_size[i].size);
 			run_test();
 		}
-		rs_shutdown(rs, SHUT_RDWR);
+		if (fork_pid)
+			wait(NULL);
+		else
+			rs_shutdown(rs, SHUT_RDWR);
 		rs_close(rs);
+
+		if (!dst_addr && use_fork && !fork_pid)
+			goto free;
 
 		optimization = opt_bandwidth;
 		ret = dst_addr ? client_connect() : server_connect();
 		if (ret)
 			goto free;
-		for (i = 0; i < TEST_CNT; i++) {
+		for (i = 0; i < TEST_CNT && !fork_pid; i++) {
 			if (test_size[i].option > size_option)
 				continue;
 			init_bandwidth_test(test_size[i].size);
@@ -570,10 +582,14 @@ static int run(void)
 		if (ret)
 			goto free;
 
-		ret = run_test();
+		if (!fork_pid)
+			ret = run_test();
 	}
 
-	rs_shutdown(rs, SHUT_RDWR);
+	if (fork_pid)
+		wait(NULL);
+	else
+		rs_shutdown(rs, SHUT_RDWR);
 	rs_close(rs);
 free:
 	free(buf);
@@ -592,6 +608,10 @@ static int set_test_opt(char *optarg)
 			break;
 		case 'b':
 			flags &= ~MSG_DONTWAIT;
+			break;
+		case 'f':
+			use_fork = 1;
+			use_rs = 0;
 			break;
 		case 'n':
 			flags |= MSG_DONTWAIT;
@@ -613,6 +633,9 @@ static int set_test_opt(char *optarg)
 			flags |= MSG_DONTWAIT;
 		} else if (!strncasecmp("verify", optarg, 6)) {
 			verify = 1;
+		} else if (!strncasecmp("fork", optarg, 4)) {
+			use_fork = 1;
+			use_rs = 0;
 		} else {
 			return -1;
 		}
@@ -671,6 +694,7 @@ int main(int argc, char **argv)
 			printf("\t    s|sockets - use standard tcp/ip sockets\n");
 			printf("\t    a|async - asynchronous operation (use poll)\n");
 			printf("\t    b|blocking - use blocking calls\n");
+			printf("\t    f|fork - fork server processing\n");
 			printf("\t    n|nonblocking - use nonblocking calls\n");
 			printf("\t    v|verify - verify data\n");
 			exit(1);
