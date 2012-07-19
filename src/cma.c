@@ -76,6 +76,7 @@ struct cma_device {
 	struct ibv_pd	   *pd;
 	uint64_t	    guid;
 	int		    port_cnt;
+	int		    refcnt;
 	int		    max_qpsize;
 	uint8_t		    max_initiator_depth;
 	uint8_t		    max_responder_resources;
@@ -132,7 +133,8 @@ static void ucma_cleanup(void)
 
 	if (cma_dev_cnt) {
 		while (cma_dev_cnt--) {
-			ibv_dealloc_pd(cma_dev_array[cma_dev_cnt].pd);
+			if (cma_dev_array[cma_dev_cnt].refcnt)
+				ibv_dealloc_pd(cma_dev_array[cma_dev_cnt].pd);
 			ibv_close_device(cma_dev_array[cma_dev_cnt].verbs);
 		}
 
@@ -235,7 +237,7 @@ int ucma_init(void)
 		goto err2;
 	}
 		
-	cma_dev_array = malloc(sizeof *cma_dev * dev_cnt);
+	cma_dev_array = calloc(dev_cnt, sizeof *cma_dev);
 	if (!cma_dev_array) {
 		ret = ERR(ENOMEM);
 		goto err2;
@@ -249,13 +251,6 @@ int ucma_init(void)
 		if (!cma_dev->verbs) {
 			printf("CMA: unable to open RDMA device\n");
 			ret = ERR(ENODEV);
-			goto err3;
-		}
-
-		cma_dev->pd = ibv_alloc_pd(cma_dev->verbs);
-		if (!cma_dev->pd) {
-			ibv_close_device(cma_dev->verbs);
-			ret = ERR(ENOMEM);
 			goto err3;
 		}
 
@@ -280,10 +275,8 @@ int ucma_init(void)
 	return 0;
 
 err3:
-	while (i--) {
-		ibv_dealloc_pd(cma_dev_array[i].pd);
+	while (i--)
 		ibv_close_device(cma_dev_array[i].verbs);
-	}
 	free(cma_dev_array);
 err2:
 	ibv_free_device_list(dev_list);
@@ -354,23 +347,45 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 static int ucma_get_device(struct cma_id_private *id_priv, uint64_t guid)
 {
 	struct cma_device *cma_dev;
-	int i;
+	int i, ret = 0;
 
 	for (i = 0; i < cma_dev_cnt; i++) {
 		cma_dev = &cma_dev_array[i];
-		if (cma_dev->guid == guid) {
-			id_priv->cma_dev = cma_dev;
-			id_priv->id.verbs = cma_dev->verbs;
-			id_priv->id.pd = cma_dev->pd;
-			return 0;
-		}
+		if (cma_dev->guid == guid)
+			goto match;
 	}
 
 	return ERR(ENODEV);
+match:
+	pthread_mutex_lock(&mut);
+	if (!cma_dev->refcnt++) {
+		cma_dev->pd = ibv_alloc_pd(cma_dev_array[i].verbs);
+		if (!cma_dev->pd) {
+			cma_dev->refcnt--;
+			ret = ERR(ENOMEM);
+			goto out;
+		}
+	}
+	id_priv->cma_dev = cma_dev;
+	id_priv->id.verbs = cma_dev->verbs;
+	id_priv->id.pd = cma_dev->pd;
+out:
+	pthread_mutex_unlock(&mut);
+	return ret;
+}
+
+static void ucma_put_device(struct cma_device *cma_dev)
+{
+	pthread_mutex_lock(&mut);
+	if (!--cma_dev->refcnt)
+		ibv_dealloc_pd(cma_dev->pd);
+	pthread_mutex_unlock(&mut);
 }
 
 static void ucma_free_id(struct cma_id_private *id_priv)
 {
+	if (id_priv->cma_dev)
+		ucma_put_device(id_priv->cma_dev);
 	pthread_cond_destroy(&id_priv->cond);
 	pthread_mutex_destroy(&id_priv->mut);
 	if (id_priv->id.route.path_rec)
