@@ -206,7 +206,7 @@ int ucma_init(void)
 	struct ibv_device **dev_list = NULL;
 	struct cma_device *cma_dev;
 	struct ibv_device_attr attr;
-	int i, ret, dev_cnt, ib;
+	int i, ret, dev_cnt;
 
 	/* Quick check without lock to see if we're already initialized */
 	if (cma_dev_cnt)
@@ -241,7 +241,7 @@ int ucma_init(void)
 		goto err2;
 	}
 
-	for (i = 0, ib = 0; dev_list[i];) {
+	for (i = 0; dev_list[i];) {
 		cma_dev = &cma_dev_array[i];
 
 		cma_dev->guid = ibv_get_device_guid(dev_list[i]);
@@ -271,7 +271,6 @@ int ucma_init(void)
 		cma_dev->max_qpsize = attr.max_qp_wr;
 		cma_dev->max_initiator_depth = (uint8_t) attr.max_qp_init_rd_atom;
 		cma_dev->max_responder_resources = (uint8_t) attr.max_qp_rd_atom;
-		ib += (cma_dev->verbs->device->transport_type == IBV_TRANSPORT_IB);
 	}
 
 	cma_dev_cnt = dev_cnt;
