@@ -556,10 +556,9 @@ static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
 static op_fn_t *match_op(char *name)
 {
 	const match_rec_t *r;
-	unsigned len = strlen(name);
 	for (r = match_tbl; r->name; r++)
-		if (!strncasecmp(r->name, name, len) ||
-		    (r->alias && !strncasecmp(r->alias, name, len)))
+		if (!strcasecmp(r->name, name) ||
+		    (r->alias && !strcasecmp(r->alias, name)))
 			return r->fn;
 	return NULL;
 }

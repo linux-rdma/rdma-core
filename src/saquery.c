@@ -1325,11 +1325,10 @@ static const struct query_cmd query_cmds[] = {
 static const struct query_cmd *find_query(const char *name)
 {
 	const struct query_cmd *q;
-	unsigned len = strlen(name);
 
 	for (q = query_cmds; q->name; q++)
-		if (!strncasecmp(name, q->name, len) ||
-		    (q->alias && !strncasecmp(name, q->alias, len)))
+		if (!strcasecmp(name, q->name) ||
+		    (q->alias && !strcasecmp(name, q->alias)))
 			return q;
 
 	return NULL;
