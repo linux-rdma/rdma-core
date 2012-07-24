@@ -161,4 +161,20 @@ int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 int snprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 		  const char *format, ...);
 void dump_portinfo(void *pi, int pisize, int tabs);
+
+
+/**
+ * Some common command line parsing
+ */
+typedef char *(op_fn_t) (ib_portid_t * dest, char **argv, int argc);
+
+typedef struct match_rec {
+	const char *name, *alias;
+	op_fn_t *fn;
+	unsigned opt_portnum;
+	char *ops_extra;
+} match_rec_t;
+
+op_fn_t *match_op(const match_rec_t match_tbl[], char *name);
+
 #endif				/* _IBDIAG_COMMON_H_ */

@@ -56,15 +56,6 @@
 
 struct ibmad_port *srcport;
 
-typedef char *(op_fn_t) (ib_portid_t * dest, char **argv, int argc);
-
-typedef struct match_rec {
-	const char *name, *alias;
-	op_fn_t *fn;
-	unsigned opt_portnum;
-	char *ops_extra;
-} match_rec_t;
-
 static op_fn_t congestion_key_info;
 static op_fn_t switch_congestion_setting;
 static op_fn_t switch_port_congestion_setting;
@@ -553,16 +544,6 @@ static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static op_fn_t *match_op(char *name)
-{
-	const match_rec_t *r;
-	for (r = match_tbl; r->name; r++)
-		if (!strcasecmp(r->name, name) ||
-		    (r->alias && !strcasecmp(r->alias, name)))
-			return r->fn;
-	return NULL;
-}
-
 static int process_opt(void *context, int ch, char *optarg)
 {
 	switch (ch) {
@@ -623,7 +604,7 @@ int main(int argc, char **argv)
 	if (argc < 2)
 		ibdiag_show_usage();
 
-	if (!(fn = match_op(argv[0])))
+	if (!(fn = match_op(match_tbl, argv[0])))
 		IBERROR("operation '%s' not supported", argv[0]);
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);

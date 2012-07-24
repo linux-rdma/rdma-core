@@ -1016,3 +1016,13 @@ void dump_portinfo(void *pi, int pisize, int tabs)
 		printf("%s\n", buf);
 	}
 }
+
+op_fn_t *match_op(const match_rec_t match_tbl[], char *name)
+{
+	const match_rec_t *r;
+	for (r = match_tbl; r->name; r++)
+		if (!strcasecmp(r->name, name) ||
+		    (r->alias && !strcasecmp(r->alias, name)))
+			return r->fn;
+	return NULL;
+}
