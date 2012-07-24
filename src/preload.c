@@ -841,6 +841,7 @@ int getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
 int getsockname(int socket, struct sockaddr *addr, socklen_t *addrlen)
 {
 	int fd;
+	init_preload();
 	return (fd_get(socket, &fd) == fd_rsocket) ?
 		rgetsockname(fd, addr, addrlen) :
 		real.getsockname(fd, addr, addrlen);
