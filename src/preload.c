@@ -405,23 +405,9 @@ real:
 
 int bind(int socket, const struct sockaddr *addr, socklen_t addrlen)
 {
-	struct sockaddr_in *sin;
-	int fd, ret;
-
-	if (fd_get(socket, &fd) == fd_rsocket) {
-		sin = (struct sockaddr_in *) addr;
-		if (!sin->sin_port || ntohs(sin->sin_port) > 1024)
-			return rbind(fd, addr, addrlen);
-
-		ret = transpose_socket(socket, fd_normal);
-		if (ret < 0)
-			return ret;
-
-		rclose(fd);
-		fd = ret;
-	}
-
-	return real.bind(fd, addr, addrlen);
+	int fd;
+	return (fd_get(socket, &fd) == fd_rsocket) ?
+		rbind(fd, addr, addrlen) : real.bind(fd, addr, addrlen);
 }
 
 int listen(int socket, int backlog)
@@ -582,19 +568,15 @@ static inline enum fd_type fd_fork_get(int index, int *fd)
 
 int connect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 {
-	struct sockaddr_in *sin;
 	int fd, ret;
 
 	switch (fd_get(socket, &fd)) {
 	case fd_fork:
 		return fork_active(socket, addr, addrlen);
 	case fd_rsocket:
-		sin = (struct sockaddr_in *) addr;
-		if (ntohs(sin->sin_port) > 1024) {
-			ret = rconnect(fd, addr, addrlen);
-			if (!ret || errno == EINPROGRESS)
-				return ret;
-		}
+		ret = rconnect(fd, addr, addrlen);
+		if (!ret || errno == EINPROGRESS)
+			return ret;
 
 		ret = transpose_socket(socket, fd_normal);
 		if (ret < 0)
