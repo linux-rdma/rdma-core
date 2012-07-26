@@ -132,6 +132,8 @@ union rs_wr_id {
 	};
 };
 
+#define RS_RECV_WR_ID (~((uint64_t) 0))
+
 /*
  * rsocket states are ordered as passive, connecting, connected, disconnected.
  */
@@ -418,6 +420,19 @@ err1:
 	return -1;
 }
 
+static inline int
+rs_post_recv(struct rsocket *rs)
+{
+	struct ibv_recv_wr wr, *bad;
+
+	wr.wr_id = RS_RECV_WR_ID;
+	wr.next = NULL;
+	wr.sg_list = NULL;
+	wr.num_sge = 0;
+
+	return rdma_seterrno(ibv_post_recv(rs->cm_id->qp, &wr, &bad));
+}
+
 static int rs_create_ep(struct rsocket *rs)
 {
 	struct ibv_qp_init_attr qp_attr;
@@ -449,7 +464,7 @@ static int rs_create_ep(struct rsocket *rs)
 		return ret;
 
 	for (i = 0; i < rs->rq_size; i++) {
-		ret = rdma_post_recvv(rs->cm_id, NULL, NULL, 0);
+		ret = rs_post_recv(rs);
 		if (ret)
 			return ret;
 	}
@@ -881,7 +896,7 @@ static int rs_poll_cq(struct rsocket *rs)
 	int ret, rcnt = 0;
 
 	while ((ret = ibv_poll_cq(rs->cm_id->recv_cq, 1, &wc)) > 0) {
-		if (wc.opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
+		if (wc.wr_id == RS_RECV_WR_ID) {
 			if (wc.status != IBV_WC_SUCCESS)
 				continue;
 			rcnt++;
@@ -923,7 +938,7 @@ static int rs_poll_cq(struct rsocket *rs)
 
 	if (rs->state & rs_connected) {
 		while (!ret && rcnt--)
-			ret = rdma_post_recvv(rs->cm_id, NULL, NULL, 0);
+			ret = rs_post_recv(rs);
 
 		if (ret) {
 			rs->state = rs_error;
