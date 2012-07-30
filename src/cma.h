@@ -79,6 +79,31 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 #define fastlock_destroy(lock) pthread_mutex_destroy(lock)
 #define fastlock_acquire(lock) pthread_mutex_lock(lock)
 #define fastlock_release(lock) pthread_mutex_unlock(lock)
+
+typedef struct { pthread_mutex_t mut; int val; } atomic_t;
+static inline int atomic_inc(atomic_t *atomic)
+{
+	int v;
+
+	pthread_mutex_lock(&atomic->mut);
+	v = ++(atomic->val);
+	pthread_mutex_unlock(&atomic->mut);
+	return v;
+}
+static inline int atomic_dec(atomic_t *atomic)
+{
+	int v;
+
+	pthread_mutex_lock(&atomic->mut);
+	v = --(atomic->val);
+	pthread_mutex_unlock(&atomic->mut);
+	return v;
+}
+static inline void atomic_init(atomic_t *atomic)
+{
+	pthread_mutex_init(&atomic->mut, NULL);
+	atomic->val = 0;
+}
 #else
 typedef struct {
 	sem_t sem;
@@ -103,7 +128,14 @@ static inline void fastlock_release(fastlock_t *lock)
 	if (__sync_sub_and_fetch(&lock->cnt, 1) > 0)
 		sem_post(&lock->sem);
 }
+
+typedef struct { volatile int val; } atomic_t;
+#define atomic_inc(v) (__sync_add_and_fetch(&(v)->val, 1))
+#define atomic_dec(v) (__sync_sub_and_fetch(&(v)->val, 1))
+#define atomic_init(v) ((v)->val = 0)
 #endif /* DEFINE_ATOMICS */
+#define atomic_get(v) ((v)->val)
+#define atomic_set(v, s) ((v)->val = s)
 
 int ucma_max_qpsize(struct rdma_cm_id *id);
 int ucma_complete(struct rdma_cm_id *id);

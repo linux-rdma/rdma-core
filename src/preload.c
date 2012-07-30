@@ -83,6 +83,7 @@ struct socket_calls {
 	int (*getsockopt)(int socket, int level, int optname,
 			  void *optval, socklen_t *optlen);
 	int (*fcntl)(int socket, int cmd, ... /* arg */);
+	int (*dup2)(int oldfd, int newfd);
 };
 
 static struct socket_calls real;
@@ -105,6 +106,8 @@ enum fd_type {
 struct fd_info {
 	enum fd_type type;
 	int fd;
+	int dupfd;
+	atomic_t refcnt;
 };
 
 static int fd_open(void)
@@ -122,6 +125,9 @@ static int fd_open(void)
 		goto err1;
 	}
 
+	fdi->dupfd = -1;
+	atomic_init(&fdi->refcnt);
+	atomic_set(&fdi->refcnt, 1);
 	pthread_mutex_lock(&mut);
 	ret = idm_set(&idm, index, fdi);
 	pthread_mutex_unlock(&mut);
@@ -252,6 +258,7 @@ static void init_preload(void)
 	real.setsockopt = dlsym(RTLD_NEXT, "setsockopt");
 	real.getsockopt = dlsym(RTLD_NEXT, "getsockopt");
 	real.fcntl = dlsym(RTLD_NEXT, "fcntl");
+	real.dup2 = dlsym(RTLD_NEXT, "dup2");
 
 	rs.socket = dlsym(RTLD_DEFAULT, "rsocket");
 	rs.bind = dlsym(RTLD_DEFAULT, "rbind");
@@ -807,9 +814,28 @@ int shutdown(int socket, int how)
 
 int close(int socket)
 {
-	int fd;
+	struct fd_info *fdi;
+	int ret;
+
 	init_preload();
-	return (fd_close(socket, &fd) == fd_rsocket) ? rclose(fd) : real.close(fd);
+	fdi = idm_lookup(&idm, socket);
+	if (!fdi)
+		return real.close(socket);
+
+	if (fdi->dupfd != -1) {
+		ret = close(fdi->dupfd);
+		if (ret)
+			return ret;
+	}
+
+	if (atomic_dec(&fdi->refcnt))
+		return 0;
+
+	idm_clear(&idm, socket);
+	real.close(socket);
+	ret = (fdi->type == fd_rsocket) ? rclose(fdi->fd) : real.close(fdi->fd);
+	free(fdi);
+	return ret;
 }
 
 int getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
@@ -885,4 +911,53 @@ int fcntl(int socket, int cmd, ... /* arg */)
 	}
 	va_end(args);
 	return ret;
+}
+
+/*
+ * dup2 is not thread safe
+ */
+int dup2(int oldfd, int newfd)
+{
+	struct fd_info *oldfdi, *newfdi;
+	int ret;
+
+	init_preload();
+	oldfdi = idm_lookup(&idm, oldfd);
+	if (oldfdi && oldfdi->type == fd_fork)
+		fork_passive(oldfd);
+
+	newfdi = idm_lookup(&idm, newfd);
+	if (newfdi) {
+		 /* newfd cannot have been dup'ed directly */
+		if (atomic_get(&newfdi->refcnt) > 1)
+			return ERR(EBUSY);
+		close(newfd);
+	}
+
+	ret = real.dup2(oldfd, newfd);
+	if (!oldfdi || ret != newfd)
+		return ret;
+
+	newfdi = calloc(1, sizeof *newfdi);
+	if (!newfdi) {
+		close(newfd);
+		return ERR(ENOMEM);
+	}
+
+	pthread_mutex_lock(&mut);
+	idm_set(&idm, newfd, newfdi);
+	pthread_mutex_unlock(&mut);
+
+	newfdi->fd = oldfdi->fd;
+	newfdi->type = oldfdi->type;
+	if (oldfdi->dupfd != -1) {
+		newfdi->dupfd = oldfdi->dupfd;
+		oldfdi = idm_lookup(&idm, oldfdi->dupfd);
+	} else {
+		newfdi->dupfd = oldfd;
+	}
+	atomic_init(&newfdi->refcnt);
+	atomic_set(&newfdi->refcnt, 1);
+	atomic_inc(&oldfdi->refcnt);
+	return newfd;
 }
