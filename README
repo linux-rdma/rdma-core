@@ -16,37 +16,7 @@ Dependencies:
 	4) ib_umad kernel module
 
 
-Release notes v1.5.13 => v1.6.0
+Release notes v1.6.0 => 1.6.1
 
-   1) Fixed "sa_key" (SA smkey) in saquery.  Along with this the default smkey
-      has been changed to 0.  This means the default queries are "untrusted".
-      A different default (for example to match OpenSM) can be configured in
-      the ibdiags.conf to have "trusted" queries by default.
-
-   2) Some older tools have been deprecated and are no longer in the default
-      build.
-
-	ibcheckerrs ibchecknet ibchecknode ibcheckport ibcheckportwidth
-	ibcheckportstate ibcheckwidth ibcheckstate ibcheckerrors ibdatacounts
-	ibdatacounters ibdiscover.pl ibswportwatch.pl ibqueryerrors.pl
-	iblinkinfo.pl ibprintca.pl ibprintswitch.pl ibprintrt.pl
-	set_nodedesc.sh ibclearerrors ibclearcounters
-
-      Building these tools can be enabled through configure with the
-      --enable-compat-utils option.
-
-      infinband-diags-1.6.x.tar.gz includes this option and will generate the
-      *-compat rpm by default.
-
-   3) mkey support
-
-   4) Additional tools ibccquery ibccconfig
-
-   5) "-u" option is no longer supported (use "-h" instead)
-
-   6) New updated man pages
-
-   7) support for new hardware in vendstat
-
-   8) bug fixes and code clean up
+   1) bug fixes and code clean up
 
