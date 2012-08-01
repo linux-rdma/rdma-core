@@ -131,7 +131,7 @@ static int fd_open(void)
 	return index;
 
 err2:
-	close(index);
+	real.close(index);
 err1:
 	free(fdi);
 	return ret;
@@ -187,7 +187,7 @@ static enum fd_type fd_close(int index, int *fd)
 		idm_clear(&idm, index);
 		*fd = fdi->fd;
 		type = fdi->type;
-		close(index);
+		real.close(index);
 		free(fdi);
 	} else {
 		*fd = index;
