@@ -1820,6 +1820,10 @@ int rsetsockopt(int socket, int level, int optname,
 			opt_on = *(int *) optval;
 			ret = 0;
 			break;
+		case SO_OOBINLINE:
+			opt_on = *(int *) optval;
+			ret = 0;
+			break;
 		default:
 			break;
 		}
@@ -1898,6 +1902,7 @@ int rgetsockopt(int socket, int level, int optname,
 		switch (optname) {
 		case SO_REUSEADDR:
 		case SO_KEEPALIVE:
+		case SO_OOBINLINE:
 			*((int *) optval) = !!(rs->so_opts & (1 << optname));
 			*optlen = sizeof(int);
 			break;
