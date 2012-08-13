@@ -492,7 +492,7 @@ static void fork_passive(int socket)
 	socklen_t len;
 	uint32_t msg;
 
-	fd_get(socket, &sfd);
+	sfd = fd_getd(socket);
 
 	len = sizeof sin6;
 	ret = real.getsockname(sfd, (struct sockaddr *) &sin6, &len);
@@ -510,7 +510,7 @@ static void fork_passive(int socket)
 
 	lfd = rsocket(sin6.sin6_family, SOCK_STREAM, 0);
 	if (lfd < 0) {
-		ret  = lfd;
+		ret = lfd;
 		goto sclose;
 	}
 
@@ -537,10 +537,7 @@ static void fork_passive(int socket)
 		goto lclose;
 	}
 
-	param = 1;
-	rsetsockopt(dfd, IPPROTO_TCP, TCP_NODELAY, &param, sizeof param);
 	set_rsocket_options(dfd);
-
 	copysockopts(dfd, sfd, &rs, &real);
 	real.shutdown(sfd, SHUT_RDWR);
 	real.close(sfd);
