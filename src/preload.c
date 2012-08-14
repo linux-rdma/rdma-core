@@ -38,6 +38,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sendfile.h>
 #include <stdarg.h>
 #include <dlfcn.h>
 #include <netdb.h>
@@ -84,6 +86,7 @@ struct socket_calls {
 			  void *optval, socklen_t *optlen);
 	int (*fcntl)(int socket, int cmd, ... /* arg */);
 	int (*dup2)(int oldfd, int newfd);
+	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
 };
 
 static struct socket_calls real;
@@ -276,6 +279,7 @@ static void init_preload(void)
 	real.getsockopt = dlsym(RTLD_NEXT, "getsockopt");
 	real.fcntl = dlsym(RTLD_NEXT, "fcntl");
 	real.dup2 = dlsym(RTLD_NEXT, "dup2");
+	real.sendfile = dlsym(RTLD_NEXT, "sendfile");
 
 	rs.socket = dlsym(RTLD_DEFAULT, "rsocket");
 	rs.bind = dlsym(RTLD_DEFAULT, "rbind");
@@ -1008,4 +1012,24 @@ int dup2(int oldfd, int newfd)
 	atomic_set(&newfdi->refcnt, 1);
 	atomic_inc(&oldfdi->refcnt);
 	return newfd;
+}
+
+ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
+{
+	void *file_addr;
+	int fd;
+	size_t ret;
+
+	if (fd_get(out_fd, &fd) != fd_rsocket)
+		return real.sendfile(fd, in_fd, offset, count);
+
+	file_addr = mmap(NULL, count, PROT_READ, 0, in_fd, offset ? *offset : 0);
+	if (file_addr == (void *) -1)
+		return -1;
+
+	ret = rwrite(fd, file_addr, count);
+	if ((ret > 0) && offset)
+		lseek(in_fd, ret, SEEK_CUR);
+	munmap(file_addr, count);
+	return ret;
 }
