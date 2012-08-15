@@ -9,6 +9,11 @@ if [ "$mode" == "" ]; then
 	if [ ! -d man ]; then
 		mkdir man
 	fi
+	rc=`which rst2man &> /dev/null`
+	if [ "$?" != "0" ]; then
+		echo "could not generate man pages; 'rst2man not found'"
+		exit 1
+	fi
 	for file in rst/*.rst; do
 		file=`basename $file`
 		target=`echo $file | sed -e 's/\(.*\).rst/\1/'`
