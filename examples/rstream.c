@@ -607,7 +607,7 @@ static int set_test_opt(char *optarg)
 			use_async = 1;
 			break;
 		case 'b':
-			flags &= ~MSG_DONTWAIT;
+			flags = (flags & ~MSG_DONTWAIT) | MSG_WAITALL;
 			break;
 		case 'f':
 			use_fork = 1;
@@ -628,7 +628,7 @@ static int set_test_opt(char *optarg)
 		} else if (!strncasecmp("async", optarg, 5)) {
 			use_async = 1;
 		} else if (!strncasecmp("block", optarg, 5)) {
-			flags &= ~MSG_DONTWAIT;
+			flags = (flags & ~MSG_DONTWAIT) | MSG_WAITALL;
 		} else if (!strncasecmp("nonblock", optarg, 8)) {
 			flags |= MSG_DONTWAIT;
 		} else if (!strncasecmp("verify", optarg, 6)) {
