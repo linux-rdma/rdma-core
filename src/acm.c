@@ -326,6 +326,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 	struct acm_ep_addr_data *data;
 	int ret;
 
+	ucma_ib_init();
 	if (sock < 0)
 		return;
 
