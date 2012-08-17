@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Voltaire Inc.  All rights reserved.
- * Copyright (c) 2005-2010 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2012 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -581,19 +581,8 @@ int rdma_get_cm_event(struct rdma_event_channel *channel,
  */
 int rdma_ack_cm_event(struct rdma_cm_event *event);
 
-static inline uint16_t rdma_get_src_port(struct rdma_cm_id *id)
-{
-	return	id->route.addr.src_addr.sa_family == PF_INET6 ?
-		id->route.addr.src_sin6.sin6_port :
-		id->route.addr.src_sin.sin_port;
-}
-
-static inline uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
-{
-	return	id->route.addr.dst_addr.sa_family == PF_INET6 ?
-		id->route.addr.dst_sin6.sin6_port :
-		id->route.addr.dst_sin.sin_port;
-}
+uint16_t rdma_get_src_port(struct rdma_cm_id *id);
+uint16_t rdma_get_dst_port(struct rdma_cm_id *id);
 
 static inline struct sockaddr *rdma_get_local_addr(struct rdma_cm_id *id)
 {

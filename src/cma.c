@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2011 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2012 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -184,9 +184,6 @@ static void ucma_set_af_ib_support(void)
 	struct rdma_cm_id *id;
 	struct sockaddr_ib sib;
 	int ret;
-
-	/* Just return - do not enable AF_IB support for now */
-	return;
 
 	ret = rdma_create_id(NULL, &id, NULL, RDMA_PS_IB);
 	if (ret)
@@ -2242,3 +2239,28 @@ int ucma_max_qpsize(struct rdma_cm_id *id)
 	id_priv = container_of(id, struct cma_id_private, id);
 	return id_priv->cma_dev->max_qpsize;
 }
+
+static uint16_t ucma_get_port(struct sockaddr *addr)
+{
+	switch (addr->sa_family) {
+	case AF_INET:
+		return ((struct sockaddr_in *) addr)->sin_port;
+	case AF_INET6:
+		return ((struct sockaddr_in6 *) addr)->sin6_port;
+	case AF_IB:
+		return htons((uint16_t) ntohll(((struct sockaddr_ib *) addr)->sib_sid));
+	default:
+		return 0;
+	}
+}
+
+uint16_t rdma_get_src_port(struct rdma_cm_id *id)
+{
+	return ucma_get_port(&id->route.addr.src_addr);
+}
+
+uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
+{
+	return ucma_get_port(&id->route.addr.dst_addr);
+}
+

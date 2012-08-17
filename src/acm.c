@@ -324,6 +324,17 @@ static void ucma_copy_rai_addr(struct acm_ep_addr_data *data, struct sockaddr *a
 	}
 }
 
+static int ucma_inet_addr(struct sockaddr *addr, socklen_t len)
+{
+	return len && addr && (addr->sa_family == AF_INET ||
+			       addr->sa_family == AF_INET6);
+}
+
+static int ucma_ib_addr(struct sockaddr *addr, socklen_t len)
+{
+	return len && addr && (addr->sa_family == AF_IB);
+}
+
 void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 {
 	cma_acm_msg_t msg;
@@ -340,14 +351,14 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 	msg.hdr.length = ACM_MSG_HDR_LENGTH;
 
 	data = &msg.resolve_data[0];
-	if ((*rai)->ai_src_len) {
+	if (ucma_inet_addr((*rai)->ai_src_addr, (*rai)->ai_src_len)) {
 		data->flags = ACM_EP_FLAG_SOURCE;
 		ucma_copy_rai_addr(data, (*rai)->ai_src_addr);
 		data++;
 		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
 
-	if ((*rai)->ai_dst_len) {
+	if (ucma_inet_addr((*rai)->ai_dst_addr, (*rai)->ai_dst_len)) {
 		data->flags = ACM_EP_FLAG_DEST;
 		if ((*rai)->ai_flags & (RAI_NUMERICHOST | RAI_NOROUTE))
 			data->flags |= ACM_FLAGS_NODELAY;
@@ -356,7 +367,9 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
 
-	if (hints && hints->ai_route_len) {
+	if (hints && (hints->ai_route_len ||
+	    ucma_ib_addr((*rai)->ai_src_addr, (*rai)->ai_src_len) ||
+	    ucma_ib_addr((*rai)->ai_dst_addr, (*rai)->ai_dst_len))) {
 		struct ibv_path_record *path;
 
 		if (hints->ai_route_len == sizeof(struct ibv_path_record))
@@ -366,12 +379,20 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 		else
 			path = NULL;
 
-		if (path) {
-			data->type = ACM_EP_INFO_PATH;
+		if (path)
 			memcpy(&data->info.path, path, sizeof(*path));
-			data++;
-			msg.hdr.length += ACM_MSG_EP_LENGTH;
+
+		if (ucma_ib_addr((*rai)->ai_src_addr, (*rai)->ai_src_len)) {
+			memcpy(&data->info.path.sgid,
+			       &((struct sockaddr_ib *) (*rai)->ai_src_addr)->sib_addr, 16);
 		}
+		if (ucma_ib_addr((*rai)->ai_dst_addr, (*rai)->ai_dst_len)) {
+			memcpy(&data->info.path.dgid,
+			       &((struct sockaddr_ib *) (*rai)->ai_dst_addr)->sib_addr, 16);
+		}
+		data->type = ACM_EP_INFO_PATH;
+		data++;
+		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
 
 	pthread_mutex_lock(&acm_lock);
@@ -389,7 +410,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 	ucma_ib_save_resp(*rai, &msg);
 
 	if (af_ib_support && !((*rai)->ai_flags & RAI_ROUTEONLY) &&
-	    (*rai)->ai_route_len)
+	    (*rai)->ai_route_len && ((*rai)->ai_family != AF_IB))
 		ucma_resolve_af_ib(rai);
 }
 

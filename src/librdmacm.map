@@ -61,5 +61,7 @@ RDMACM_1.0 {
 		rfcntl;
 		rpoll;
 		rselect;
+		rdma_get_src_port;
+		rdma_get_dst_port;
 	local: *;
 };
