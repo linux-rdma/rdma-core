@@ -504,6 +504,13 @@ static void fork_active(int socket)
 
 	sfd = fd_getd(socket);
 
+	flags = real.fcntl(sfd, F_GETFL);
+	real.fcntl(sfd, F_SETFL, 0);
+	ret = real.recv(sfd, &msg, sizeof msg, MSG_PEEK);
+	real.fcntl(sfd, F_SETFL, flags);
+	if ((ret != sizeof msg) || msg)
+		goto err1;
+
 	len = sizeof addr;
 	ret = real.getpeername(sfd, (struct sockaddr *) &addr, &len);
 	if (ret)
@@ -513,14 +520,7 @@ static void fork_active(int socket)
 	if (dfd < 0)
 		goto err1;
 
-	flags = real.fcntl(sfd, F_GETFL);
-	real.fcntl(sfd, F_SETFL, 0);
-	ret = real.recv(sfd, &msg, sizeof msg, MSG_PEEK);
-	real.fcntl(sfd, F_SETFL, flags);
-	if ((ret != sizeof msg) || msg)
-		goto err2;
-
-	ret = rconnect(ret, (struct sockaddr *) &addr, len);
+	ret = rconnect(dfd, (struct sockaddr *) &addr, len);
 	if (ret)
 		goto err2;
 
@@ -618,9 +618,9 @@ static inline enum fd_type fd_fork_get(int index, int *fd)
 
 	fdi = idm_lookup(&idm, index);
 	if (fdi) {
-		if (fdi->type == fd_fork_passive)
+		if (fdi->state == fd_fork_passive)
 			fork_passive(index);
-		else if (fdi->type == fd_fork_active)
+		else if (fdi->state == fd_fork_active)
 			fork_active(index);
 		*fd = fdi->fd;
 		return fdi->type;
