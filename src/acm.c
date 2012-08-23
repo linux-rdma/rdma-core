@@ -258,6 +258,8 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, cma_acm_msg_t *msg)
 	struct acm_ep_addr_data *ep_data;
 	struct ibv_path_data *path_data = NULL;
 	struct ibv_path_record *pri_path = NULL;
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
 	int i, cnt, path_cnt = 0;
 
 	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
@@ -277,25 +279,27 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, cma_acm_msg_t *msg)
 			if (!(ep_data->flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
 				break;
 
-			rai->ai_src_addr = calloc(1, sizeof(struct sockaddr_in));
-			if (!rai->ai_src_addr)
+			sin = calloc(1, sizeof(*sin));
+			if (!sin)
 				break;
 
-			rai->ai_src_len = sizeof(struct sockaddr_in);
-			memcpy(&((struct sockaddr_in *) rai->ai_src_addr)->sin_addr,
-			       &ep_data->info.addr, 4);
+			sin->sin_family = AF_INET;
+			memcpy(&sin->sin_addr, &ep_data->info.addr, 4);
+			rai->ai_src_len = sizeof(*sin);
+			rai->ai_src_addr = (struct sockaddr *) sin;
 			break;
 		case ACM_EP_INFO_ADDRESS_IP6:
 			if (!(ep_data->flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
 				break;
 
-			rai->ai_src_addr = calloc(1, sizeof(struct sockaddr_in6));
-			if (!rai->ai_src_addr)
+			sin6 = calloc(1, sizeof(*sin6));
+			if (!sin6)
 				break;
 
-			rai->ai_src_len = sizeof(struct sockaddr_in6);
-			memcpy(&((struct sockaddr_in6 *) rai->ai_src_addr)->sin6_addr,
-			       &ep_data->info.addr, 16);
+			sin6->sin6_family = AF_INET6;
+			memcpy(&sin6->sin6_addr, &ep_data->info.addr, 16);
+			rai->ai_src_len = sizeof(*sin6);
+			rai->ai_src_addr = (struct sockaddr *) sin6;
 			break;
 		default:
 			break;
