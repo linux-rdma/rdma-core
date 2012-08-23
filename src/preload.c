@@ -412,20 +412,21 @@ int socket(int domain, int type, int protocol)
 	if (index < 0)
 		return index;
 
+	if (fork_support && (domain == PF_INET || domain == PF_INET6) &&
+	    (type == SOCK_STREAM) && (!protocol || protocol == IPPROTO_TCP)) {
+		ret = real.socket(domain, type, protocol);
+		if (ret < 0)
+			return ret;
+		fd_store(index, ret, fd_normal, fd_fork);
+		return index;
+	}
+
 	recursive = 1;
 	ret = rsocket(domain, type, protocol);
 	recursive = 0;
 	if (ret >= 0) {
-		if (fork_support) {
-			rclose(ret);
-			ret = real.socket(domain, type, protocol);
-			if (ret < 0)
-				return ret;
-			fd_store(index, ret, fd_normal, fd_fork);
-		} else {
-			fd_store(index, ret, fd_rsocket, fd_ready);
-			set_rsocket_options(ret);
-		}
+		fd_store(index, ret, fd_rsocket, fd_ready);
+		set_rsocket_options(ret);
 		return index;
 	}
 	fd_close(index, &ret);
