@@ -158,15 +158,15 @@ static int check_abi_version(void)
 		 * backports, assume the most recent version of the ABI.  If
 		 * we're wrong, we'll simply fail later when calling the ABI.
 		 */
-		fprintf(stderr, "librdmacm: couldn't read ABI version.\n");
-		fprintf(stderr, "librdmacm: assuming: %d\n", abi_ver);
+		fprintf(stderr, PFX "couldn't read ABI version.\n");
+		fprintf(stderr, PFX "assuming: %d\n", abi_ver);
 		return 0;
 	}
 
 	abi_ver = strtol(value, NULL, 10);
 	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
 	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION) {
-		fprintf(stderr, "librdmacm: kernel ABI version %d "
+		fprintf(stderr, PFX "kernel ABI version %d "
 				"doesn't match library version %d.\n",
 				abi_ver, RDMA_USER_CM_MAX_ABI_VERSION);
 		return -1;
@@ -226,13 +226,13 @@ int ucma_init(void)
 
 	dev_list = ibv_get_device_list(&dev_cnt);
 	if (!dev_list) {
-		fprintf(stderr, "CMA: unable to get RDMA device list\n");
+		fprintf(stderr, PFX "unable to get RDMA device list\n");
 		ret = ERR(ENODEV);
 		goto err1;
 	}
 
 	if (!dev_cnt) {
-		fprintf(stderr, "CMA: no RDMA devices found\n");
+		fprintf(stderr, PFX "no RDMA devices found\n");
 		ret = ERR(ENODEV);
 		goto err2;
 	}
@@ -249,7 +249,7 @@ int ucma_init(void)
 		cma_dev->guid = ibv_get_device_guid(dev_list[i]);
 		cma_dev->verbs = ibv_open_device(dev_list[i]);
 		if (!cma_dev->verbs) {
-			fprintf(stderr, "CMA: unable to open RDMA device\n");
+			fprintf(stderr, PFX "unable to open RDMA device\n");
 			ret = ERR(ENODEV);
 			goto err3;
 		}
@@ -257,7 +257,7 @@ int ucma_init(void)
 		i++;
 		ret = ibv_query_device(cma_dev->verbs, &attr);
 		if (ret) {
-			fprintf(stderr, "CMA: unable to query RDMA device\n");
+			fprintf(stderr, PFX "unable to query RDMA device\n");
 			ret = ERR(ret);
 			goto err3;
 		}
@@ -329,7 +329,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 
 	channel->fd = open("/dev/infiniband/rdma_cm", O_RDWR);
 	if (channel->fd < 0) {
-		fprintf(stderr, "CMA: unable to open /dev/infiniband/rdma_cm\n");
+		fprintf(stderr, PFX "unable to open /dev/infiniband/rdma_cm\n");
 		goto err;
 	}
 	return channel;
