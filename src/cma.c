@@ -226,13 +226,13 @@ int ucma_init(void)
 
 	dev_list = ibv_get_device_list(&dev_cnt);
 	if (!dev_list) {
-		printf("CMA: unable to get RDMA device list\n");
+		fprintf(stderr, "CMA: unable to get RDMA device list\n");
 		ret = ERR(ENODEV);
 		goto err1;
 	}
 
 	if (!dev_cnt) {
-		printf("CMA: no RDMA devices found\n");
+		fprintf(stderr, "CMA: no RDMA devices found\n");
 		ret = ERR(ENODEV);
 		goto err2;
 	}
@@ -249,7 +249,7 @@ int ucma_init(void)
 		cma_dev->guid = ibv_get_device_guid(dev_list[i]);
 		cma_dev->verbs = ibv_open_device(dev_list[i]);
 		if (!cma_dev->verbs) {
-			printf("CMA: unable to open RDMA device\n");
+			fprintf(stderr, "CMA: unable to open RDMA device\n");
 			ret = ERR(ENODEV);
 			goto err3;
 		}
@@ -257,7 +257,7 @@ int ucma_init(void)
 		i++;
 		ret = ibv_query_device(cma_dev->verbs, &attr);
 		if (ret) {
-			printf("CMA: unable to query RDMA device\n");
+			fprintf(stderr, "CMA: unable to query RDMA device\n");
 			ret = ERR(ret);
 			goto err3;
 		}
@@ -329,7 +329,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 
 	channel->fd = open("/dev/infiniband/rdma_cm", O_RDWR);
 	if (channel->fd < 0) {
-		printf("CMA: unable to open /dev/infiniband/rdma_cm\n");
+		fprintf(stderr, "CMA: unable to open /dev/infiniband/rdma_cm\n");
 		goto err;
 	}
 	return channel;
