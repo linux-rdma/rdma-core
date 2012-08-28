@@ -480,8 +480,7 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 	for (i = 0; i < config->mad_retries; ++i) {
 		((uint32_t *) &out_dm_mad->tid)[1] = ++tid;
 
-		ret = umad_send(portid, agent,
-			        (struct ib_user_mad *) out_mad, MAD_BLOCK_SIZE,
+		ret = umad_send(portid, agent, out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
 		if (ret < 0) {
 			pr_err("umad_send to %u failed\n",
@@ -504,7 +503,7 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 				continue;
 			}
 
-			ret = umad_status((struct ib_user_mad *) in_mad);
+			ret = umad_status(in_mad);
 			if (ret) {
 				pr_err(
 					"bad MAD status (%u) from lid %d\n",
@@ -980,8 +979,8 @@ static int do_dm_port_list(struct resources *res)
 		if (get_node(umad_res, ntohs(port_info->endport_lid), &guid))
 			continue;
 
-		(void) do_port(res, ntohs(port_info->endport_lid),
-			       ntohll(port_info->subnet_prefix), guid);
+		do_port(res, ntohs(port_info->endport_lid),
+			ntohll(port_info->subnet_prefix), guid);
 	}
 
 	return 0;
@@ -1000,7 +999,7 @@ void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid)
 	if (!isdm)
 		return;
 
-	(void) do_port(res, lid, subnet_prefix, h_guid);
+	do_port(res, lid, subnet_prefix, h_guid);
 }
 
 
@@ -1549,21 +1548,21 @@ int main(int argc, char *argv[])
 		goto clean_all;
 
 	if (!config->once) {
-		thread_id[0] = pthread_create(&thread[0], NULL, run_thread_get_trap_notices, (void *) &res);
+		thread_id[0] = pthread_create(&thread[0], NULL, run_thread_get_trap_notices, &res);
 		if (thread_id[0] < 0) {
 			ret=thread_id[0];
 			goto clean_all;
 		}
 	}
 
-	thread_id[1] = pthread_create(&thread[1], NULL, run_thread_listen_to_events, (void *) &res);
+	thread_id[1] = pthread_create(&thread[1], NULL, run_thread_listen_to_events, &res);
 	if (thread_id[1] < 0) {
 		ret=thread_id[1];
 		goto kill_threads;
 	}
 
 	if (config->recalc_time && !config->once) {
-		thread_id[2] = pthread_create(&thread[2], NULL, run_thread_wait_till_timeout, (void *) &res);
+		thread_id[2] = pthread_create(&thread[2], NULL, run_thread_wait_till_timeout, &res);
 		if (thread_id[2] < 0) {
 			ret=thread_id[2];
 			goto kill_threads;
@@ -1573,7 +1572,7 @@ int main(int argc, char *argv[])
 	if (config->retry_timeout && !config->once) {
 		thread_id[3] = pthread_create(&thread[3], NULL,
 					      run_thread_retry_to_connect,
-					      (void *) &res);
+					      &res);
 		if (thread_id[3] < 0) {
 			ret=thread_id[3];
 			goto kill_threads;

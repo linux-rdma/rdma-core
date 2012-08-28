@@ -624,9 +624,7 @@ static int response_to_trap(struct ud_resources *res, ib_sa_mad_t *mad_buffer)
 
 	ib_sa_mad_t *response_buffer = (ib_sa_mad_t *) (res->send_buf);
 
-	memcpy((void *) response_buffer,
-	       (void *) mad_buffer,
-	       sizeof(ib_sa_mad_t));
+	memcpy(response_buffer, mad_buffer, sizeof(ib_sa_mad_t));
 	response_buffer->method = SRP_SA_METHOD_REPORT_RESP;
 
 	fill_send_request(res, &sr, &sg, (ib_mad_t *) response_buffer);
