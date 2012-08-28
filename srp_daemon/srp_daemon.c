@@ -1465,7 +1465,7 @@ int main(int argc, char *argv[])
 	pthread_t 		thread[4];
 	int			ret;
 	struct resources	res;
-	int                     thread_id[4];
+	int                     num_threads = 0;
 	uint16_t 		lid;
 	ib_gid_t 		gid;
 	struct target_details  *target;
@@ -1479,9 +1479,6 @@ int main(int argc, char *argv[])
 	STATIC_ASSERT(sizeof(struct srp_class_port_info) == 72);
 	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
-
-	for (i = 0; i < 4; ++i)
-		thread_id[i] = -1;
 
 	res.umad_res = malloc(sizeof(struct umad_resources));
 	if (!res.umad_res) {
@@ -1549,35 +1546,33 @@ int main(int argc, char *argv[])
 		goto clean_all;
 
 	if (!config->once) {
-		thread_id[0] = pthread_create(&thread[0], NULL, run_thread_get_trap_notices, &res);
-		if (thread_id[0] < 0) {
-			ret=thread_id[0];
+		ret = pthread_create(&thread[num_threads], NULL,
+				     run_thread_get_trap_notices, &res);
+		if (ret)
 			goto clean_all;
-		}
+		num_threads++;
 	}
 
-	thread_id[1] = pthread_create(&thread[1], NULL, run_thread_listen_to_events, &res);
-	if (thread_id[1] < 0) {
-		ret=thread_id[1];
+	ret = pthread_create(&thread[num_threads], NULL,
+				      run_thread_listen_to_events, &res);
+	if (ret)
 		goto kill_threads;
-	}
+	num_threads++;
 
 	if (config->recalc_time && !config->once) {
-		thread_id[2] = pthread_create(&thread[2], NULL, run_thread_wait_till_timeout, &res);
-		if (thread_id[2] < 0) {
-			ret=thread_id[2];
+		ret = pthread_create(&thread[num_threads], NULL,
+				     run_thread_wait_till_timeout, &res);
+		if (ret)
 			goto kill_threads;
-		}
+		num_threads++;
 	}
 
 	if (config->retry_timeout && !config->once) {
-		thread_id[3] = pthread_create(&thread[3], NULL,
-					      run_thread_retry_to_connect,
-					      &res);
-		if (thread_id[3] < 0) {
-			ret=thread_id[3];
+		ret = pthread_create(&thread[num_threads], NULL,
+				     run_thread_retry_to_connect, &res);
+		if (ret)
 			goto kill_threads;
-		}
+		num_threads++;
 	}
 
 	while (1) {
@@ -1664,9 +1659,8 @@ kill_threads:
 	 * can end.
 	 */
 	pthread_cond_signal(&res.sync_res->retry_cond);
-	for (i = 0; i < 4; ++i)
-		if (thread_id[i] >= 0)
-			pthread_join(thread_id[i], &status);
+	for (i = 0; i < num_threads; ++i)
+		pthread_join(thread[i], &status);
 clean_all:
 	ud_resources_destroy(res.ud_res);
 clean_umad:
