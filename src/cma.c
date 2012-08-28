@@ -2240,7 +2240,7 @@ int ucma_max_qpsize(struct rdma_cm_id *id)
 	return id_priv->cma_dev->max_qpsize;
 }
 
-static uint16_t ucma_get_port(struct sockaddr *addr)
+uint16_t ucma_get_port(struct sockaddr *addr)
 {
 	switch (addr->sa_family) {
 	case AF_INET:

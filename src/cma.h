@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2010 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2012 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -45,6 +45,7 @@
 #include <semaphore.h>
 
 #include <rdma/rdma_cma.h>
+#include <infiniband/ib.h>
 
 #ifdef INCLUDE_VALGRIND
 #   include <valgrind/memcheck.h>
@@ -137,6 +138,9 @@ typedef struct { volatile int val; } atomic_t;
 #define atomic_get(v) ((v)->val)
 #define atomic_set(v, s) ((v)->val = s)
 
+uint16_t ucma_get_port(struct sockaddr *addr);
+void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
+		  struct sockaddr_ib *sib);
 int ucma_max_qpsize(struct rdma_cm_id *id);
 int ucma_complete(struct rdma_cm_id *id);
 static inline int ERR(int err)

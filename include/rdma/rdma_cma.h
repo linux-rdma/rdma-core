@@ -77,6 +77,7 @@ enum rdma_port_space {
 #define RDMA_IB_IP_PORT_MASK 0x000000000000FFFFULL
 #define RDMA_IB_IP_PS_TCP    0x0000000001060000ULL
 #define RDMA_IB_IP_PS_UDP    0x0000000001110000ULL
+#define RDMA_IB_PS_IB        0x00000000013F0000ULL
 
 /*
  * Global qkey value for UDP QPs and multicast groups created via the 
@@ -176,6 +177,7 @@ struct rdma_cm_event {
 #define RAI_PASSIVE		0x00000001
 #define RAI_NUMERICHOST		0x00000002
 #define RAI_NOROUTE		0x00000004
+#define RAI_FAMILY		0x00000008
 
 struct rdma_addrinfo {
 	int			ai_flags;

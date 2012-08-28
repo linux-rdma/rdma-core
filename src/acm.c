@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2010-2012 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -123,23 +123,6 @@ void ucma_ib_cleanup(void)
 	}
 }
 
-static void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
-			 struct sockaddr_ib *sib)
-{
-	uint16_t port;
-
-	if (addr->sa_family == AF_INET)
-		port = ((struct sockaddr_in *) addr)->sin_port;
-	else
-		port = ((struct sockaddr_in6 *) addr)->sin6_port;
-
-	sib->sib_sid = htonll(((uint64_t) ps << 16) + ntohs(port));
-	if (port)
-		sib->sib_sid_mask = ~0ULL;
-	else
-		sib->sib_sid_mask = htonll(RDMA_IB_IP_PS_MASK);
-}
-
 static int ucma_ib_set_addr(struct rdma_addrinfo *ib_rai,
 			    struct rdma_addrinfo *rai)
 {
@@ -183,6 +166,9 @@ static int ucma_ib_set_connect(struct rdma_addrinfo *ib_rai,
 			       struct rdma_addrinfo *rai)
 {
 	struct ib_connect_hdr *hdr;
+
+	if (rai->ai_family == AF_IB)
+		return 0;
 
 	hdr = calloc(1, sizeof *hdr);
 	if (!hdr)
@@ -360,16 +346,16 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 
 	if (ucma_inet_addr((*rai)->ai_dst_addr, (*rai)->ai_dst_len)) {
 		data->flags = ACM_EP_FLAG_DEST;
-		if ((*rai)->ai_flags & (RAI_NUMERICHOST | RAI_NOROUTE))
+		if (hints->ai_flags & (RAI_NUMERICHOST | RAI_NOROUTE))
 			data->flags |= ACM_FLAGS_NODELAY;
 		ucma_set_ep_addr(data, (*rai)->ai_dst_addr);
 		data++;
 		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
 
-	if (hints && (hints->ai_route_len ||
+	if (hints->ai_route_len ||
 	    ucma_ib_addr((*rai)->ai_src_addr, (*rai)->ai_src_len) ||
-	    ucma_ib_addr((*rai)->ai_dst_addr, (*rai)->ai_dst_len))) {
+	    ucma_ib_addr((*rai)->ai_dst_addr, (*rai)->ai_dst_len)) {
 		struct ibv_path_record *path;
 
 		if (hints->ai_route_len == sizeof(struct ibv_path_record))
@@ -409,8 +395,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 
 	ucma_ib_save_resp(*rai, &msg);
 
-	if (af_ib_support && !((*rai)->ai_flags & RAI_ROUTEONLY) &&
-	    (*rai)->ai_route_len && ((*rai)->ai_family != AF_IB))
+	if (af_ib_support && !(hints->ai_flags & RAI_ROUTEONLY) && (*rai)->ai_route_len)
 		ucma_resolve_af_ib(rai);
 }
 
