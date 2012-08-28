@@ -1598,8 +1598,10 @@ int main(int argc, char *argv[])
 				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
 
 			clear_traps_list(res.sync_res);
+			pthread_mutex_lock(&res.sync_res->mutex);
 			res.sync_res->next_recalc_time = time(NULL) + config->recalc_time;
 			res.sync_res->recalc = 0;
+			pthread_mutex_unlock(&res.sync_res->mutex);
 
 			/* empty retry_list */
 			pthread_mutex_lock(&res.sync_res->retry_mutex);
