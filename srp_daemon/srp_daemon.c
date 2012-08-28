@@ -1119,6 +1119,7 @@ static int get_rules_file(struct config_t *conf)
 
 	if (fseek(infile, 0L, SEEK_SET) != 0) {
 		pr_err("internal error while seeking %s\n", conf->rules_file);
+		fclose(infile);
 		return -1;
 	}
 
@@ -1145,6 +1146,7 @@ static int get_rules_file(struct config_t *conf)
 			pr_err("Bad syntax in rules file %s line %d:"
 			       " line should start with 'a' or 'd'\n",
 			       conf->rules_file, line_number_for_output);
+			fclose(infile);
 			return -1;
 		}
 
@@ -1203,6 +1205,7 @@ static int get_rules_file(struct config_t *conf)
 			if (ptr2 == NULL) {
 				pr_err("Bad syntax in rules file %s line %d\n",
 				       conf->rules_file, line_number_for_output);
+				fclose(infile);
 				return -1;
 			}
 			ptr = ptr2;
@@ -1218,6 +1221,8 @@ static int get_rules_file(struct config_t *conf)
 	conf->rules[line_number].service_id[0]='\0';
 	conf->rules[line_number].options[0]='\0';
 	conf->rules[line_number].allow = 1;
+
+	fclose(infile);
 
 	return 0;
 }
