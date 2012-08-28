@@ -161,7 +161,7 @@ int srpd_sys_read_uint64(char *dir_name, char *file_name, uint64_t *u)
 
 static void usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vVcaeon] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timoeout (ms)>] [-r <retries>] [-R <rescan time>] [-f <rules file>\n", argv0);
+	fprintf(stderr, "Usage: %s [-vVcaeon] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timeout (ms)>] [-r <retries>] [-R <rescan time>] [-f <rules file>\n", argv0);
 	fprintf(stderr, "-v 			Verbose\n");
 	fprintf(stderr, "-V 			debug Verbose\n");
 	fprintf(stderr, "-c 			prints connection Commands\n");
@@ -169,14 +169,14 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-e 			Executes connection commands\n");
 	fprintf(stderr, "-o 			runs only Once and stop\n");
 	fprintf(stderr, "-d <umad device>	use umad Device \n");
-	fprintf(stderr, "-i <infiniband device>	use Infiniband device \n");
+	fprintf(stderr, "-i <infiniband device>	use InfiniBand device \n");
 	fprintf(stderr, "-p <port_num>		use Port num \n");
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
 	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after Timeout of <retry timeout> seconds\n");
 	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect (default: /etc/srp_daemon.conf\n");
-	fprintf(stderr, "-t <timoeout>		Timeout for mad response in milisec \n");
+	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
-	fprintf(stderr, "-n 			New connection command format - use also initiator extention\n");
+	fprintf(stderr, "-n 			New connection command format - use also initiator extension\n");
 	fprintf(stderr, "\nExample: srp_daemon -e -n -i mthca0 -p 1 -R 60\n");
 }
 
@@ -346,7 +346,7 @@ static int add_non_exist_target(struct target_details *target)
 			continue;
 		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
 			/*
-			 * In case this is an old kernel taht does not have
+			 * In case this is an old kernel that does not have
 			 * orig_dgid in sysfs, use dgid instead (this is
 			 * problematic when there is a dgid redirection
 			 * by the CM)
@@ -369,16 +369,16 @@ static int add_non_exist_target(struct target_details *target)
 
 		/* there is a match - this target is already connected */
 
-		/* There is a rare possability of a race in the following
-		   scnario:
+		/* There is a rare possibility of a race in the following
+		   scenario:
 			a. A link goes down,
 			b. ib_srp decide to remove the corresponding scsi_host.
 			c. Before removing it, the link returns
 			d. srp_daemon gets trap 64.
 			e. srp_daemon thinks that this target is still
-			   connected (ib_srp have not removed it yet) so it
+			   connected (ib_srp has not removed it yet) so it
 			   does not connect to it.
-			f. ib_srp continue to removes the scsi_host.
+			f. ib_srp continue to remove the scsi_host.
 		    As a result there is no connection to a target in the fabric
 		    and there will not be a new trap.
 
@@ -415,7 +415,7 @@ static int add_non_exist_target(struct target_details *target)
 		(unsigned long long) target->h_guid,
 		(unsigned long long) target->h_service_id);
 	if (len >= MAX_TARGET_CONFIG_STR_STRING) {
-		pr_err("Target conifg string is too long, ignoring target\n");
+		pr_err("Target config string is too long, ignoring target\n");
 		closedir(dir);
 		return -1;
 	}
@@ -426,7 +426,7 @@ static int add_non_exist_target(struct target_details *target)
 				",io_class=%04hx", ntohs(target->ioc_prof.io_class));
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
-			pr_err("Target conifg string is too long, ignoring target\n");
+			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
 		}
@@ -439,7 +439,7 @@ static int add_non_exist_target(struct target_details *target)
 				(unsigned long long) ntohll(target->h_guid));
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
-			pr_err("Target conifg string is too long, ignoring target\n");
+			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
 		}
@@ -452,7 +452,7 @@ static int add_non_exist_target(struct target_details *target)
 				target->options);
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
-			pr_err("Target conifg string is too long, ignoring target\n");
+			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
 		}

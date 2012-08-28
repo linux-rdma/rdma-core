@@ -21,12 +21,12 @@ AC_PROG_CC
 if test "$disable_libcheck" != "yes"
 then
 AC_CHECK_LIB([ibumad], [umad_init], [],
-	AC_MSG_ERROR([srptools require libibumad.]))
+	AC_MSG_ERROR([srptools requires libibumad.]))
 AC_CHECK_LIB([ibverbs], [ibv_get_device_list], [],
-	AC_MSG_ERROR([srptools require libibverbs.]))
+	AC_MSG_ERROR([srptools requires libibverbs.]))
 fi
 AC_CHECK_LIB([pthread], [pthread_self], [],
-	AC_MSG_ERROR([srptools require pthread.]))
+	AC_MSG_ERROR([srptools requires libpthread.]))
 
 
 # Checks for header files.
