@@ -475,10 +475,14 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 	int i, len;
 	int in_agent;
 	int ret;
-	static uint32_t tid = 1;
+	static uint32_t tid;
+	uint32_t received_tid;
 
 	for (i = 0; i < config->mad_retries; ++i) {
-		((uint32_t *) &out_dm_mad->tid)[1] = ++tid;
+		/* Skip tid 0 because OpenSM ignores it. */
+		if (++tid == 0)
+			++tid;
+		out_dm_mad->tid = htonll(tid);
 
 		ret = umad_send(portid, agent, out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
@@ -489,6 +493,7 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 		}
 
 		do {
+recv:
 			len = in_mad_size ? in_mad_size : MAD_BLOCK_SIZE;
 			in_agent = umad_recv(portid, (struct ib_user_mad *) in_mad,
 					     &len, config->timeout);
@@ -500,7 +505,7 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 			}
 			if (in_agent != agent) {
 				pr_debug("umad_recv returned different agent\n");
-				continue;
+				goto recv;
 			}
 
 			ret = umad_status(in_mad);
@@ -511,11 +516,12 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 				return -ret;
 			}
 
-			if (tid != ((uint32_t *) &in_dm_mad->tid)[1])
+			received_tid = ntohll(in_dm_mad->tid);
+			if (tid != received_tid)
 				pr_debug("umad_recv returned different transaction id sent %d got %d\n",
-					 tid, ((uint32_t *) &in_dm_mad->tid)[1]);
+					 tid, received_tid);
 
-		} while (tid > ((uint32_t *) &in_dm_mad->tid)[1]);
+		} while ((int32_t)(tid - received_tid) > 0);
 
 		if (len > 0)
 			return len;
