@@ -1456,7 +1456,7 @@ void *run_thread_retry_to_connect(void *res_in)
 
 	pr_debug("retry_to_connect thread ended\n");
 
-	pthread_exit((void *)0);
+	pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[])

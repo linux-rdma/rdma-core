@@ -748,7 +748,7 @@ void *run_thread_wait_till_timeout(void *res_in)
 	}
 	pr_debug("wait_till_timeout thread ended\n");
 
-	pthread_exit((void *)0);
+	pthread_exit(NULL);
 }
 
 void *run_thread_listen_to_events(void *res_in)
