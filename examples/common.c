@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2006,2012 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -58,7 +58,7 @@ int get_rdma_addr(char *src, char *dst, char *port,
 
 	rai_hints = *hints;
 	if (src) {
-		rai_hints.ai_flags = RAI_PASSIVE;
+		rai_hints.ai_flags |= RAI_PASSIVE;
 		ret = rdma_getaddrinfo(src, NULL, &rai_hints, &res);
 		if (ret)
 			return ret;
