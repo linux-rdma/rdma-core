@@ -1393,11 +1393,11 @@ static void umad_resources_destroy(struct umad_resources *umad_res)
 	if (umad_res->port_sysfs_path)
 		free(umad_res->port_sysfs_path);
 
-	if (umad_res->agent != -1)
-		umad_unregister(umad_res->portid, umad_res->agent);
-
-	if (umad_res->agent != -1)
-		umad_unregister(umad_res->portid, umad_res->agent);
+	if (umad_res->portid >= 0) {
+		if (umad_res->agent >= 0)
+			umad_unregister(umad_res->portid, umad_res->agent);
+		umad_close_port(umad_res->portid);
+	}
 
 	umad_done();
 }
