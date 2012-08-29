@@ -1233,7 +1233,6 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	char* umad_dev   = "/dev/infiniband/umad0";
 	char *ibport;
 	int ret;
-	int len;
 
 	conf->port_num			= 1;
 	conf->num_of_oust		= 10;
@@ -1265,13 +1264,11 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			umad_dev = optarg;
 			break;
 		case 'i':
-			len = strlen(optarg)+1;
-			conf->dev_name = malloc(len);
+			conf->dev_name = strdup(optarg);
 			if (!conf->dev_name) {
 				pr_err("Fail to alloc space for dev_name\n");
 				return -ENOMEM;
 			}
-			strncpy(conf->dev_name, optarg, len);
 			break;
 		case 'p':
 			conf->port_num = atoi(optarg);
