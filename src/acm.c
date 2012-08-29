@@ -313,7 +313,7 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, cma_acm_msg_t *msg)
 	}
 }
 
-static void ucma_copy_rai_addr(struct acm_ep_addr_data *data, struct sockaddr *addr)
+static void ucma_set_ep_addr(struct acm_ep_addr_data *data, struct sockaddr *addr)
 {
 	if (addr->sa_family == AF_INET) {
 		data->type = ACM_EP_INFO_ADDRESS_IP;
@@ -353,7 +353,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 	data = &msg.resolve_data[0];
 	if (ucma_inet_addr((*rai)->ai_src_addr, (*rai)->ai_src_len)) {
 		data->flags = ACM_EP_FLAG_SOURCE;
-		ucma_copy_rai_addr(data, (*rai)->ai_src_addr);
+		ucma_set_ep_addr(data, (*rai)->ai_src_addr);
 		data++;
 		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
@@ -362,7 +362,7 @@ void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 		data->flags = ACM_EP_FLAG_DEST;
 		if ((*rai)->ai_flags & (RAI_NUMERICHOST | RAI_NOROUTE))
 			data->flags |= ACM_FLAGS_NODELAY;
-		ucma_copy_rai_addr(data, (*rai)->ai_dst_addr);
+		ucma_set_ep_addr(data, (*rai)->ai_dst_addr);
 		data++;
 		msg.hdr.length += ACM_MSG_EP_LENGTH;
 	}
