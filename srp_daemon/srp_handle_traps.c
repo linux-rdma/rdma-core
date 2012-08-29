@@ -51,7 +51,6 @@
 
 void srp_sleep(time_t sec, time_t usec)
 {
-	int nanosleep(const struct timespec *req, struct timespec *rem);
 	struct timespec req, rem;
 
 	if (usec > 1000) {
@@ -61,11 +60,7 @@ void srp_sleep(time_t sec, time_t usec)
 	req.tv_sec = sec;
 	req.tv_nsec = usec * 1000000;
 
-	while (nanosleep(&req, &rem) < 0) {
-		if (errno != EINTR)
-			return;
-		req = rem;
-	}
+	nanosleep(&req, &rem);
 }
 
 /*****************************************************************************
