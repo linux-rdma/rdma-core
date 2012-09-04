@@ -1666,7 +1666,10 @@ kill_threads:
 	 * retry_cond. So we send here a signal to end the wait, so the thread
 	 * can end.
 	 */
+	pthread_mutex_lock(&res.sync_res->retry_mutex);
 	pthread_cond_signal(&res.sync_res->retry_cond);
+	pthread_mutex_unlock(&res.sync_res->retry_mutex);
+
 	for (i = 0; i < num_threads; ++i)
 		pthread_join(thread[i], &status);
 clean_all:
