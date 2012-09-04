@@ -164,12 +164,12 @@ struct srp_dm_rmpp_sa_mad {
 	uint8_t		rmpp_status;
 	uint32_t	seg_num;
 	uint32_t	paylen_newwin;
-	uint64_t	sm_key;
+	uint64_t	sm_key __attribute__((packed));
 	uint16_t	attr_offset;
 	uint16_t	reserved3;
 	uint64_t	comp_mask;
 	uint8_t		data[200];
-} __attribute__((packed));
+};
 
 struct srp_sa_node_rec {
 	uint16_t	lid;
@@ -192,11 +192,11 @@ struct srp_sa_port_info_rec {
 	uint16_t	endport_lid;
 	uint8_t		port_num;
 	uint8_t		reserved;
-	uint64_t	m_key;
-	uint64_t	subnet_prefix;
+	uint64_t	m_key __attribute__((packed));
+	uint64_t	subnet_prefix __attribute__((packed));
 	uint16_t	base_lid;
 	uint16_t	master_sm_base_lid;
-	uint32_t	capability_mask;
+	uint32_t	capability_mask __attribute__((packed));
 	uint16_t	diag_code;
 	uint16_t	m_key_lease_period;
 	uint8_t		local_port_num;
@@ -222,7 +222,7 @@ struct srp_sa_port_info_rec {
 	uint8_t		subnet_timeout;
 	uint8_t		resp_time_value;
 	uint8_t		error_threshold;
-} __attribute__((packed));
+};
 
 struct srp_class_port_info {
 	uint8_t		base_version;
