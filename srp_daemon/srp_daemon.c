@@ -1704,9 +1704,7 @@ int main(int argc, char *argv[])
 				free(target);
 			pthread_mutex_unlock(&res->sync_res->retry_mutex);
 
-			ret = recalc(res);
-			if (ret)
-				goto kill_threads;
+			recalc(res);
 		} else if (pop_from_list(res->sync_res, &lid, &gid)) {
 			pthread_mutex_unlock(&res->sync_res->mutex);
 			if (lid) {
