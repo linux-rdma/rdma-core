@@ -978,8 +978,12 @@ int dup2(int oldfd, int newfd)
 
 	init_preload();
 	oldfdi = idm_lookup(&idm, oldfd);
-	if (oldfdi && oldfdi->type == fd_fork)
-		fork_passive(oldfd);
+	if (oldfdi) {
+		if (oldfdi->state == fd_fork_passive)
+			fork_passive(oldfd);
+		else if (oldfdi->state == fd_fork_active)
+			fork_active(oldfd);
+	}
 
 	newfdi = idm_lookup(&idm, newfd);
 	if (newfdi) {
