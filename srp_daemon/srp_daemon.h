@@ -404,11 +404,12 @@ static const int   node_table_response_size = 1 << 18;
 	do {								\
 		char str[1000];						\
 		time_t tt = time(NULL);					\
-		struct tm *t = localtime(&tt);				\
+		struct tm t;						\
+		localtime_r(&tt, &t);					\
 		sprintf(str, arg);					\
 		fprintf(stderr, "%02d/%02d/%02d %02d:%02d:%02d : %s", 	\
-			t->tm_mday, t->tm_mon+1, t->tm_year%100,	\
-			t->tm_hour, t->tm_min, t->tm_sec, str);		\
+			t.tm_mday, t.tm_mon+1, t.tm_year % 100,		\
+			t.tm_hour, t.tm_min, t.tm_sec, str);		\
 	} while (0)
 
 
