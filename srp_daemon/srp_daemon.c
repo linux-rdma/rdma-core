@@ -1470,7 +1470,7 @@ int main(int argc, char *argv[])
 {
 	pthread_t 		thread[4];
 	int			ret;
-	struct resources	res;
+	struct resources       *res;
 	int                     num_threads = 0;
 	uint16_t 		lid;
 	ib_gid_t 		gid;
@@ -1486,23 +1486,29 @@ int main(int argc, char *argv[])
 	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
-	res.umad_res = malloc(sizeof(struct umad_resources));
-	if (!res.umad_res) {
+	res = malloc(sizeof(*res));
+	if (!res) {
  		pr_err("out of memory\n");
 		return ENOMEM;
 	}
-	res.ud_res = malloc(sizeof(struct ud_resources));
-	if (!res.ud_res) {
+
+	res->umad_res = malloc(sizeof(struct umad_resources));
+	if (!res->umad_res) {
+ 		pr_err("out of memory\n");
+		goto free_res;
+	}
+	res->ud_res = malloc(sizeof(struct ud_resources));
+	if (!res->ud_res) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
 		goto free_umad;
 	}
 
-	res.sync_res = malloc(sizeof(struct sync_resources));
-	if (!res.sync_res) {
+	res->sync_res = malloc(sizeof(struct sync_resources));
+	if (!res->sync_res) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
-		goto free_res;
+		goto free_ud_res;
 	}
 
 	config = malloc(sizeof(*config));
@@ -1532,42 +1538,42 @@ int main(int argc, char *argv[])
 		goto clean_config;
 	}
 
-	umad_resources_init(res.umad_res);
-	ret = umad_resources_create(res.umad_res);
+	umad_resources_init(res->umad_res);
+	ret = umad_resources_create(res->umad_res);
 	if (ret)
 		goto clean_umad;
 
 	if (config->once) {
-		ret = recalc(&res);
+		ret = recalc(res);
 		goto clean_umad;
 	}
 
-	ud_resources_init(res.ud_res);
-	ret = ud_resources_create(res.ud_res);
+	ud_resources_init(res->ud_res);
+	ret = ud_resources_create(res->ud_res);
 	if (ret)
 		goto clean_all;
 
-	ret = sync_resources_init(res.sync_res);
+	ret = sync_resources_init(res->sync_res);
 	if (ret)
 		goto clean_all;
 
 	if (!config->once) {
 		ret = pthread_create(&thread[num_threads], NULL,
-				     run_thread_get_trap_notices, &res);
+				     run_thread_get_trap_notices, res);
 		if (ret)
 			goto clean_all;
 		num_threads++;
 	}
 
 	ret = pthread_create(&thread[num_threads], NULL,
-				      run_thread_listen_to_events, &res);
+				      run_thread_listen_to_events, res);
 	if (ret)
 		goto kill_threads;
 	num_threads++;
 
 	if (config->recalc_time && !config->once) {
 		ret = pthread_create(&thread[num_threads], NULL,
-				     run_thread_wait_till_timeout, &res);
+				     run_thread_wait_till_timeout, res);
 		if (ret)
 			goto kill_threads;
 		num_threads++;
@@ -1575,75 +1581,75 @@ int main(int argc, char *argv[])
 
 	if (config->retry_timeout && !config->once) {
 		ret = pthread_create(&thread[num_threads], NULL,
-				     run_thread_retry_to_connect, &res);
+				     run_thread_retry_to_connect, res);
 		if (ret)
 			goto kill_threads;
 		num_threads++;
 	}
 
 	while (1) {
-		pthread_mutex_lock(&res.sync_res->mutex);
-		if (res.sync_res->recalc) {
+		pthread_mutex_lock(&res->sync_res->mutex);
+		if (res->sync_res->recalc) {
 			uint16_t port_lid;
 
-			pthread_mutex_unlock(&res.sync_res->mutex);
+			pthread_mutex_unlock(&res->sync_res->mutex);
 			pr_debug("Starting a recalculation\n");
-			port_lid = get_port_lid(res.ud_res->ib_ctx,
+			port_lid = get_port_lid(res->ud_res->ib_ctx,
 					   config->port_num);
-			if (port_lid != res.ud_res->port_attr.lid) {
-				if (res.ud_res->ah) {
-					ibv_destroy_ah(res.ud_res->ah);
-					res.ud_res->ah = NULL;
+			if (port_lid != res->ud_res->port_attr.lid) {
+				if (res->ud_res->ah) {
+					ibv_destroy_ah(res->ud_res->ah);
+					res->ud_res->ah = NULL;
 				}
-				ret = create_ah(res.ud_res);
+				ret = create_ah(res->ud_res);
 				if (ret)
 					goto kill_threads;
 			}
 
-			if (res.ud_res->ah && register_to_traps(res.ud_res))
+			if (res->ud_res->ah && register_to_traps(res->ud_res))
 				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
 
-			clear_traps_list(res.sync_res);
-			pthread_mutex_lock(&res.sync_res->mutex);
-			res.sync_res->next_recalc_time = time(NULL) + config->recalc_time;
-			res.sync_res->recalc = 0;
-			pthread_mutex_unlock(&res.sync_res->mutex);
+			clear_traps_list(res->sync_res);
+			pthread_mutex_lock(&res->sync_res->mutex);
+			res->sync_res->next_recalc_time = time(NULL) + config->recalc_time;
+			res->sync_res->recalc = 0;
+			pthread_mutex_unlock(&res->sync_res->mutex);
 
 			/* empty retry_list */
-			pthread_mutex_lock(&res.sync_res->retry_mutex);
-			while ((target = pop_from_retry_list(res.sync_res)))
+			pthread_mutex_lock(&res->sync_res->retry_mutex);
+			while ((target = pop_from_retry_list(res->sync_res)))
 				free(target);
-			pthread_mutex_unlock(&res.sync_res->retry_mutex);
+			pthread_mutex_unlock(&res->sync_res->retry_mutex);
 
-			ret = recalc(&res);
+			ret = recalc(res);
 			if (ret)
 				goto kill_threads;
-		} else if (pop_from_list(res.sync_res, &lid, &gid)) {
-			pthread_mutex_unlock(&res.sync_res->mutex);
+		} else if (pop_from_list(res->sync_res, &lid, &gid)) {
+			pthread_mutex_unlock(&res->sync_res->mutex);
 			if (lid) {
 				uint64_t guid;
-				ret = get_node(res.umad_res, lid, &guid);
+				ret = get_node(res->umad_res, lid, &guid);
 				if (ret)
 					/* unexpected error - do a full rescan */
-					res.sync_res->recalc = 1;
+					res->sync_res->recalc = 1;
 				else
-					handle_port(&res, lid, guid);
+					handle_port(res, lid, guid);
 			} else {
-				ret = get_lid(res.umad_res, &gid, &lid);
+				ret = get_lid(res->umad_res, &gid, &lid);
 				if (ret < 0)
 					/* unexpected error - do a full rescan */
-					res.sync_res->recalc = 1;
+					res->sync_res->recalc = 1;
 				else {
 					pr_debug("lid is %d\n", lid);
 
 					srp_sleep(0, 100);
-					handle_port(&res, lid,
+					handle_port(res, lid,
 						    ntohll(ib_gid_get_guid(&gid)));
 				}
 			}
 		} else {
-			pthread_cond_wait(&res.sync_res->cond, &res.sync_res->mutex);
-			pthread_mutex_unlock(&res.sync_res->mutex);
+			pthread_cond_wait(&res->sync_res->cond, &res->sync_res->mutex);
+			pthread_mutex_unlock(&res->sync_res->mutex);
 		}
 	}
 
@@ -1660,34 +1666,35 @@ kill_threads:
 
 	exit(ret ? 1 : 0);
 
-	res.sync_res->stop_threads = 1;
+	res->sync_res->stop_threads = 1;
 	/*
 	 * There is a chance that retry_to_connect thread is on a wait for
 	 * retry_cond. So we send here a signal to end the wait, so the thread
 	 * can end.
 	 */
-	pthread_mutex_lock(&res.sync_res->retry_mutex);
-	pthread_cond_signal(&res.sync_res->retry_cond);
-	pthread_mutex_unlock(&res.sync_res->retry_mutex);
+	pthread_mutex_lock(&res->sync_res->retry_mutex);
+	pthread_cond_signal(&res->sync_res->retry_cond);
+	pthread_mutex_unlock(&res->sync_res->retry_mutex);
 
 	for (i = 0; i < num_threads; ++i)
 		pthread_join(thread[i], &status);
 clean_all:
-	ud_resources_destroy(res.ud_res);
+	ud_resources_destroy(res->ud_res);
 clean_umad:
-	umad_resources_destroy(res.umad_res);
+	umad_resources_destroy(res->umad_res);
 	umad_done();
 clean_config:
 	config_destroy(config);
 free_all:
 	free(config);
 free_sync:
-	free(res.sync_res);
-free_res:
-	free(res.ud_res);
+	free(res->sync_res);
+free_ud_res:
+	free(res->ud_res);
 free_umad:
-	free(res.umad_res);
-
+	free(res->umad_res);
+free_res:
+	free(res);
 	exit(ret ? 1 : 0);
 }
 
