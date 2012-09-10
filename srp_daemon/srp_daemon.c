@@ -1524,7 +1524,6 @@ int main(int argc, char *argv[])
 	ret = umad_init();
 	if (ret < 0) {
 		pr_err("umad_init failed\n");
-		ret = -ret;
 		goto clean_config;
 	}
 
@@ -1654,7 +1653,7 @@ kill_threads:
 	 * Therefore for now we just exit.
 	 */
 
-	exit(-ret);
+	exit(ret ? 1 : 0);
 
 	res.sync_res->stop_threads = 1;
 	/*
@@ -1681,7 +1680,7 @@ free_res:
 free_umad:
 	free(res.umad_res);
 
-	exit(-ret);
+	exit(ret ? 1 : 0);
 }
 
 static int recalc(struct resources *res)
