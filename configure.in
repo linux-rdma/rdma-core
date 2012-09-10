@@ -18,6 +18,21 @@ AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of i
 conf_dir_tmp1="`eval echo ${sysconfdir} | sed 's/^NONE/$ac_default_prefix/'`"
 SYS_CONFIG_DIR="`eval echo $conf_dir_tmp1`"
 
+AC_ARG_WITH([rdma_service],
+    AC_HELP_STRING([--with-rdma-service=name],
+                   [name of the RDMA service: "rdma" when using /etc/init.d/rdma to start RDMA services; "openibd" when using /etc/init.d/openibd to start RDMA services [default=openibd]]))
+AC_SUBST(RDMA_SERVICE, ${with_rdma_service:-openibd})
+
+if { rpm -q sles-release || rpm -q openSUSE-release; } >/dev/null 2>&1; then
+   default_start="2 3 5"
+   default_stop="0 1 4 6"
+else
+   default_start="2 3 4 5"
+   default_stop="0 1 6"
+fi
+AC_SUBST(DEFAULT_START, $default_start)
+AC_SUBST(DEFAULT_STOP, $default_stop)
+
 # Checks for programs.
 AC_PROG_CC
 
@@ -54,4 +69,4 @@ AC_FUNC_MEMCMP
 AC_CHECK_FUNCS([memset strdup strndup strtol strtoull])
 
 AC_CONFIG_FILES(Makefile)
-AC_OUTPUT(srptools.spec)
+AC_OUTPUT(srptools.spec srp_daemon/srpd)

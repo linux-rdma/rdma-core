@@ -21,6 +21,7 @@ EXTRA_DIST = \
     srp_daemon/srp_daemon.h \
     srp_daemon/srp_ib_types.h \
     srp_daemon/srp_daemon.sh \
+    srp_daemon/srpd.in \
     src/srp-dm.h \
     src/ib_user_mad.h \
     srp_daemon/srp_daemon.conf \
@@ -28,6 +29,10 @@ EXTRA_DIST = \
 
 dist-hook: srptools.spec
 	cp srptools.spec $(distdir)
+
+install-exec-hook:
+	mkdir -p $(DESTDIR)$(sysconfdir)/init.d
+	@INSTALL_PROGRAM@ srp_daemon/srpd $(DESTDIR)$(sysconfdir)/init.d/srpd
 
 install-data-hook:
 	if test -e $(DESTDIR)$(sysconfdir)/srp_daemon.conf; then	\

@@ -1,0 +1,139 @@
+#!/bin/bash
+#
+# Manage the SRP client daemon (srp_daemon)
+#
+# chkconfig: - 25 75
+# description: Starts/Stops InfiniBand SRP client service
+# config:	/etc/srp_daemon.conf
+#
+### BEGIN INIT INFO
+# Provides:       srpd
+# Required-Start: $syslog @RDMA_SERVICE@
+# Required-Stop: $syslog @RDMA_SERVICE@
+# Default-Stop: @DEFAULT_STOP@
+# Should-Start:
+# Should-Stop:
+# Short-Description: Starts and stops the InfiniBand SRP client service
+# Description: The InfiniBand SRP client service attaches to SRP devices
+#	on the InfiniBand fabric and makes them appear as local disks to
+#	to the system.  This service starts the client daemon that's
+#	responsible for initiating and maintaining the connections to
+#	remote devices.
+### END INIT INFO
+
+if [ -e /etc/rdma/rdma.conf ]; then
+    # RHEL / Fedora.
+    RDMA_CONFIG=/etc/rdma/rdma.conf
+else
+    # OFED
+    RDMA_CONFIG=/etc/infiniband/openib.conf
+fi
+pidfile=/var/run/srp_daemon.sh.pid
+prog=/usr/sbin/srp_daemon.sh
+
+for f in /etc/init.d/functions /lib/lsb/init-functions; do
+  if [ -e "$f" ]; then
+    . "$f"
+    break
+  fi
+done
+
+if ! type checkpid >/dev/null 2>&1; then
+checkpid() {
+    kill -0 "$1" >/dev/null 2>&1
+}
+fi
+
+if [ -f $RDMA_CONFIG ]; then
+    . $RDMA_CONFIG
+fi
+
+running() {
+    [ -f $pidfile ] && checkpid "$(cat $pidfile)"
+}
+
+start() {
+    if [ "$SRP_LOAD" != yes ]; then
+	echo "SRP kernel services not configured, unable to start SRP daemon"
+	return 6
+    fi
+    if running; then
+	echo "Already started"
+	return 1
+    fi
+
+    echo -n "Starting SRP daemon service:"
+
+    setsid $prog </dev/null >&/dev/null &
+    RC=$?
+    echo
+    return $RC
+}
+
+stop() {
+    echo -n "Stopping SRP daemon service:"
+
+    killproc -p $pidfile srp_daemon.sh
+    RC=$?
+    for ((i=0;i<5;i++)); do
+	if ! running; then
+	    rm -f $pidfile
+	    break
+	fi
+	sleep 1
+    done
+    echo
+    return $RC
+}
+
+status() {
+    local ret
+
+    if [ ! -f $pidfile ]; then
+	ret=3 # program not running
+    else
+	checkpid "$(cat $pidfile)"
+	ret=$? # 1: pid file exists and not running / 0: running
+    fi
+    if [ $ret -eq 0 ] ; then
+	echo "$prog is running... pid=$(cat $pidfile)"
+    else
+	echo "$prog is not running."
+    fi
+    return $ret
+}
+
+restart() {
+    stop
+    start
+}
+
+condrestart() {
+    [ -f $pidfile ] && restart || return 0
+}
+
+usage() {
+    echo
+    echo "Usage: `basename $0` {start|stop|restart|condrestart|try-restart|force-reload|status}"
+    echo
+    return 2
+}
+
+case $1 in
+    start|stop|restart|condrestart|try-restart|force-reload)
+	[ `id -u` != "0" ] && exit 4 ;;
+esac
+
+case $1 in
+    start) start; RC=$? ;;
+    stop) stop; RC=$? ;;
+    restart) restart; RC=$? ;;
+    reload) RC=3 ;;
+    condrestart) condrestart; RC=$? ;;
+    try-restart) condrestart; RC=$? ;;
+    force-reload) condrestart; RC=$? ;;
+    status) status; RC=$? ;;
+    *) usage; RC=$? ;;
+esac
+
+exit $RC
