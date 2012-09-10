@@ -46,7 +46,6 @@ fi
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon
 %{_sbindir}/srp_daemon.sh
-%{_sbindir}/run_srp_daemon
 %{_mandir}/man1/ibsrpdm.1*
 %{_mandir}/man1/srp_daemon.1*
 %doc README NEWS ChangeLog COPYING

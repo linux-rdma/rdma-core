@@ -15,14 +15,12 @@ srp_daemon_srp_daemon_SOURCES = srp_daemon/srp_daemon.c srp_daemon/srp_handle_tr
 
 
 sbin_SCRIPTS = \
-    srp_daemon/srp_daemon.sh \
-    srp_daemon/run_srp_daemon 
+    srp_daemon/srp_daemon.sh
 
 EXTRA_DIST = \
     srp_daemon/srp_daemon.h \
     srp_daemon/srp_ib_types.h \
     srp_daemon/srp_daemon.sh \
-    srp_daemon/run_srp_daemon \
     src/srp-dm.h \
     src/ib_user_mad.h \
     srp_daemon/srp_daemon.conf \

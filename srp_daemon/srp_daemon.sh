@@ -29,7 +29,7 @@
 #
 
 
-prog=run_srp_daemon
+prog=/usr/sbin/srp_daemon
 params=$@
 ibdir="/sys/class/infiniband"
 log="/var/log/srp_daemon.log"
@@ -108,7 +108,7 @@ for hca_id in `/bin/ls -1 ${ibdir}`
 do
     for port in `/bin/ls -1 ${ibdir}/${hca_id}/ports/`
     do
-        ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${retries} ${params}&
+        ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${retries} ${params} >>${log} 2>&1 &
         pids="$pids $!"
     done
 done
