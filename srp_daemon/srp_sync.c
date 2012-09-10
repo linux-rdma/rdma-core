@@ -40,6 +40,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "srp_daemon.h"
 
@@ -55,9 +57,6 @@ int sync_resources_init(struct sync_resources *res)
 		pr_err("could not initialize mutex\n");
 		return ret;
 	}
-	ret = pthread_cond_init(&res->cond, NULL);
-	if (ret < 0)
-		pr_err("could not initialize cond\n");
 
 	res->retry_tasks_head = NULL;
 	ret = pthread_mutex_init(&res->retry_mutex, NULL);
@@ -76,7 +75,6 @@ void sync_resources_cleanup(struct sync_resources *res)
 {
 	pthread_cond_destroy(&res->retry_cond);
 	pthread_mutex_destroy(&res->retry_mutex);
-	pthread_cond_destroy(&res->cond);
 	pthread_mutex_destroy(&res->mutex);
 }
 
@@ -112,7 +110,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 		++res->next_task;
 	}
 
-	pthread_cond_signal(&res->cond);
+	wake_up_main_loop();
 	pthread_mutex_unlock(&res->mutex);
 }
 
@@ -149,7 +147,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid)
 		++res->next_task;
 	}
 
-	pthread_cond_signal(&res->cond);
+	wake_up_main_loop();
 	pthread_mutex_unlock(&res->mutex);
 }
 

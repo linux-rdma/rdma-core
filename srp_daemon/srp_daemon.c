@@ -66,6 +66,7 @@
 
 #define IBDEV_STR_SIZE 16
 #define IBPORT_STR_SIZE 16
+#define IGNORE(value) do { if (value) { } } while (0)
 
 typedef struct {
 	struct ib_user_mad hdr;
@@ -77,6 +78,23 @@ typedef struct {
 static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
 
 static char *sysfs_path = "/sys";
+static int received_signal, wakeup_pipe[2] = { -1, -1 };
+
+
+void wake_up_main_loop(void)
+{
+	int res;
+
+	assert(wakeup_pipe[1] >= 0);
+	res = write(wakeup_pipe[1], ".", 1);
+	IGNORE(res);
+}
+
+static void signal_handler(int signo)
+{
+	received_signal = signo;
+	wake_up_main_loop();
+}
 
 static int check_process_uniqueness(struct config_t *conf)
 {
@@ -1482,6 +1500,9 @@ static void free_res(struct resources *res)
 		pthread_mutex_unlock(&res->sync_res->retry_mutex);
 	}
 
+	if (res->ud_res)
+		modify_qp_to_err(res->ud_res->qp);
+
 	if (res->timer_thread) {
 		pthread_kill(res->timer_thread, SIGINT);
 		pthread_join(res->timer_thread, &status);
@@ -1575,11 +1596,12 @@ err:
 
 int main(int argc, char *argv[])
 {
-	int			ret;
+	int			ret, i, flags;
 	struct resources       *res;
 	uint16_t 		lid;
 	ib_gid_t 		gid;
 	struct target_details  *target;
+	struct sigaction	sa;
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
@@ -1589,11 +1611,34 @@ int main(int argc, char *argv[])
 	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
+	ret = pipe(wakeup_pipe);
+	if (ret < 0) {
+		pr_err("could not create pipe\n");
+		goto out;
+	}
+	for (i = 0; i < 2; i++) {
+		flags = fcntl(wakeup_pipe[i], F_GETFL);
+		fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK);
+	}
+
+	/*
+	 * signal_handler() may be invoked on the context of any thread.
+	 * Avoid that data race detection tools complain about this.
+	 */
+	ANNOTATE_BENIGN_RACE_SIZED(&received_signal, sizeof(received_signal),
+				   "");
+
+	memset(&sa, 0, sizeof(sa));
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = signal_handler;
+	sigaction(SIGINT, &sa, 0);
+	sigaction(SIGTERM, &sa, 0);
+
 	config = malloc(sizeof(*config));
 	if (!config) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
-		goto out;
+		goto close_pipe;
 	}
 
 	if (get_config(config, argc, argv)) {
@@ -1625,7 +1670,7 @@ int main(int argc, char *argv[])
 		goto free_res;
 	}
 
-	while (1) {
+	while (received_signal == 0) {
 		pthread_mutex_lock(&res->sync_res->mutex);
 		if (res->sync_res->recalc) {
 			uint16_t port_lid;
@@ -1644,7 +1689,7 @@ int main(int argc, char *argv[])
 					goto kill_threads;
 			}
 
-			if (res->ud_res->ah && register_to_traps(res->ud_res))
+			if (res->ud_res->ah && register_to_traps(res))
 				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
 
 			clear_traps_list(res->sync_res);
@@ -1686,23 +1731,39 @@ int main(int argc, char *argv[])
 				}
 			}
 		} else {
-			pthread_cond_wait(&res->sync_res->cond, &res->sync_res->mutex);
+			int fd;
+			fd_set rset;
+			char buf[16];
+
 			pthread_mutex_unlock(&res->sync_res->mutex);
+
+			fd = wakeup_pipe[0];
+			FD_ZERO(&rset);
+			FD_SET(fd, &rset);
+			ret = select(fd + 1, &rset, NULL, NULL, NULL);
+			if (ret < 0)
+				assert(errno == EINTR);
+			while (read(fd, buf, sizeof(buf)) > 0)
+				;
 		}
 	}
 
 	ret = 0;
 
 kill_threads:
-	/*
-	 * Currently there is a known bug with the termination:
-	 * 1) The threads are sleeping on poll_cq or on events
-	 * 2) It is impossible to destroy the resources without waiting for
-	 *    the threads to finish.
-	 * Therefore for now we just exit.
-	 */
-
-	exit(ret ? 1 : 0);
+	switch (received_signal) {
+	case SIGINT:
+		pr_err("Got SIGINT\n");
+		break;
+	case SIGTERM:
+		pr_err("Got SIGTERM\n");
+		break;
+	case 0:
+		break;
+	default:
+		pr_err("Got SIG???\n");
+		break;
+	}
 
 free_res:
 	free_res(res);
@@ -1712,6 +1773,14 @@ clean_config:
 	config_destroy(config);
 free_config:
 	free(config);
+close_pipe:
+	sa.sa_handler = SIG_DFL;
+	sigaction(SIGINT, &sa, 0);
+	sigaction(SIGTERM, &sa, 0);
+	close(wakeup_pipe[1]);
+	close(wakeup_pipe[0]);
+	wakeup_pipe[0] = -1;
+	wakeup_pipe[1] = -1;
 out:
 	exit(ret ? 1 : 0);
 }

@@ -41,6 +41,7 @@
 #include <byteswap.h>
 #include <infiniband/verbs.h>
 
+#include "config.h"
 #include "srp_ib_types.h"
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -373,7 +374,6 @@ struct sync_resources {
 		ib_gid_t gid;
 	} tasks[SIZE_OF_TASKS_LIST];
 	pthread_mutex_t mutex;
-	pthread_cond_t cond;
 	struct target_details *retry_tasks_head;
 	struct target_details *retry_tasks_tail;
 	pthread_mutex_t retry_mutex;
@@ -391,6 +391,13 @@ struct resources {
 };
 
 static const int   node_table_response_size = 1 << 18;
+
+#ifdef HAVE_VALGRIND_DRD_H
+#include <valgrind/drd.h>
+#endif
+#ifndef ANNOTATE_BENIGN_RACE_SIZED
+#define ANNOTATE_BENIGN_RACE_SIZED(a, b, c) do { } while(0)
+#endif
 
 #define pr_human(arg...)				\
 	do {						\
@@ -428,7 +435,7 @@ void *run_thread_listen_to_events(void *res_in);
 void *run_thread_wait_till_timeout(void *res_in);
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid);
 int create_trap_resources(struct ud_resources *ud_res);
-int register_to_traps(struct ud_resources *ud_res);
+int register_to_traps(struct resources *res);
 uint16_t get_port_lid(struct ibv_context *ib_ctx, int port_num);
 int create_ah(struct ud_resources *ud_res);
 void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid);
@@ -441,6 +448,8 @@ void clear_traps_list(struct sync_resources *res);
 int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid);
 int sync_resources_init(struct sync_resources *res);
 void sync_resources_cleanup(struct sync_resources *res);
+int modify_qp_to_err(struct ibv_qp *qp);
 void srp_sleep(time_t sec, time_t usec);
+void wake_up_main_loop(void);
 
 #endif /* SRP_DM_H */

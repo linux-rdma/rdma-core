@@ -138,6 +138,15 @@ static int modify_qp_to_rts(struct ibv_qp *qp)
 	return 0;
 }
 
+int modify_qp_to_err(struct ibv_qp *qp)
+{
+	static struct ibv_qp_attr attr = {
+		.qp_state = IBV_QPS_ERR,
+	};
+
+	return ibv_modify_qp(qp, &attr, IBV_QP_STATE);
+}
+
 /*****************************************************************************
 * Function: fill_rq_entry
 *****************************************************************************/
@@ -473,7 +482,19 @@ static void fill_send_request(struct ud_resources *res, struct ibv_send_wr *psr,
 	psg->lkey = res->mr->lkey;
 }
 
-static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel *channel)
+static int stop_threads(struct sync_resources *sync_res)
+{
+	int result;
+
+	pthread_mutex_lock(&sync_res->retry_mutex);
+	result = sync_res->stop_threads;
+	pthread_mutex_unlock(&sync_res->retry_mutex);
+
+	return result;
+}
+
+static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
+		   struct ibv_wc *wc, struct ibv_comp_channel *channel)
 {
 	int ret;
 	struct ibv_cq *ev_cq;
@@ -506,7 +527,8 @@ static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel
 			return ret;
 		}
 
-		if (ret > 0 && wc->status != IBV_WC_SUCCESS) {
+		if (ret > 0 && wc->status != IBV_WC_SUCCESS &&
+		    !stop_threads(sync_res)) {
 			pr_err("got bad completion with status: 0x%x\n", wc->status);
 			return -ret;
 		}
@@ -523,7 +545,9 @@ static int poll_cq(struct ibv_cq *cq, struct ibv_wc *wc, struct ibv_comp_channel
 /*****************************************************************************
 * Function: register_to_trap
 *****************************************************************************/
-static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num)
+static int register_to_trap(struct sync_resources *sync_res,
+			    struct ud_resources *res, int dest_lid,
+			    int trap_num)
 {
 	struct ibv_send_wr sr;
 	struct ibv_wc wc;
@@ -575,7 +599,7 @@ static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num
 			return ret;
 		}
 
-		ret = poll_cq(res->send_cq, &wc, NULL);
+		ret = poll_cq(sync_res, res->send_cq, &wc, NULL);
 		if (ret < 0)
 			return ret;
 
@@ -608,7 +632,8 @@ static int register_to_trap(struct ud_resources *res, int dest_lid, int trap_num
 /*****************************************************************************
 * Function: response_to_trap
 *****************************************************************************/
-static int response_to_trap(struct ud_resources *res, ib_sa_mad_t *mad_buffer)
+static int response_to_trap(struct sync_resources *sync_res,
+			    struct ud_resources *res, ib_sa_mad_t *mad_buffer)
 {
 	struct ibv_send_wr sr;
 	struct ibv_sge sg;
@@ -628,7 +653,7 @@ static int response_to_trap(struct ud_resources *res, ib_sa_mad_t *mad_buffer)
 		pr_err("failed to post response\n");
 		return ret;
 	}
-	ret = poll_cq(res->send_cq, &wc, NULL);
+	ret = poll_cq(sync_res, res->send_cq, &wc, NULL);
 
 	return ret;
 }
@@ -641,17 +666,18 @@ static int get_trap_notices(struct resources *res)
 {
 	struct ibv_wc wc;
 	int cur_receive = 0;
-	int ret;
+	int ret = 0;
 	char *buffer;
 	ib_sa_mad_t *mad_buffer;
 	ib_mad_notice_attr_t *notice_buffer;
 	int trap_num;
 
-	while (!res->sync_res->stop_threads) {
+	while (!stop_threads(res->sync_res)) {
 
-		ret = poll_cq(res->ud_res->recv_cq, &wc, res->ud_res->channel);
+		ret = poll_cq(res->sync_res, res->ud_res->recv_cq, &wc,
+			      res->ud_res->channel);
 		if (ret < 0)
-			exit(-ret);
+			break;
 
 		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", (long long int) wc.wr_id);
 		cur_receive = wc.wr_id;
@@ -671,7 +697,7 @@ static int get_trap_notices(struct resources *res)
 		{ /* this is a trap notice */
 			notice_buffer = (ib_mad_notice_attr_t *) (mad_buffer->data);
 			trap_num = ntohs(notice_buffer->g_or_v.generic.trap_num);
-			response_to_trap(res->ud_res, mad_buffer);
+			response_to_trap(res->sync_res, res->ud_res, mad_buffer);
 			if (trap_num == SRP_TRAP_JOIN)
 				push_gid_to_list(res->sync_res, &notice_buffer->data_details.ntc_64_67.gid);
 			else if (trap_num == SRP_TRAP_CHANGE_CAP) {
@@ -683,11 +709,12 @@ static int get_trap_notices(struct resources *res)
 		}
 
 		ret = fill_rq_entry(res->ud_res, cur_receive);
-		if (ret < 0)
-			exit(-ret);
-
+		if (ret < 0) {
+			wake_up_main_loop();
+			break;
+		}
 	}
-	return 0;
+	return ret;
 }
 
 void *run_thread_get_trap_notices(void *res_in)
@@ -705,14 +732,16 @@ void *run_thread_get_trap_notices(void *res_in)
 /*****************************************************************************
 * Function: register_to_traps
 *****************************************************************************/
-int register_to_traps(struct ud_resources *ud_res)
+int register_to_traps(struct resources *res)
 {
 	int rc;
 	int trap_numbers[] = {SRP_TRAP_JOIN, SRP_TRAP_CHANGE_CAP};
 	int i;
 
 	for (i=0; i < sizeof(trap_numbers) / sizeof(*trap_numbers); ++i) {
-		rc = register_to_trap(ud_res, ud_res->port_attr.sm_lid, trap_numbers[i]);
+		rc = register_to_trap(res->sync_res, res->ud_res,
+				      res->ud_res->port_attr.sm_lid,
+				      trap_numbers[i]);
 		if (rc != 0)
 			return rc;
 	}
@@ -737,7 +766,7 @@ void *run_thread_wait_till_timeout(void *res_in)
 		if (sleep_time < 0) {
 			res->sync_res->recalc = 1;
 			res->sync_res->next_recalc_time = time(NULL) + config->recalc_time;
-			pthread_cond_signal(&res->sync_res->cond);
+			wake_up_main_loop();
 			pthread_mutex_unlock(&res->sync_res->mutex);
 		} else {
 			pthread_mutex_unlock(&res->sync_res->mutex);
@@ -755,12 +784,12 @@ void *run_thread_listen_to_events(void *res_in)
 	struct resources *res = (struct resources *)res_in;
 	struct ibv_async_event event;
 
-	while (1) {
+	while (!stop_threads(res->sync_res)) {
 		if (ibv_get_async_event(res->ud_res->ib_ctx, &event)) {
-			if (errno == EINTR)
-				continue;
-			pr_err("ibv_get_async_event failed\n");
-			exit(-errno);
+			if (errno != EINTR)
+				pr_err("ibv_get_async_event failed (errno = %d)\n",
+				       errno);
+			break;
 		}
 
 		pr_debug("event_type %d, port %d\n",
@@ -774,7 +803,7 @@ void *run_thread_listen_to_events(void *res_in)
 			if (event.element.port_num == config->port_num) {
 				pthread_mutex_lock(&res->sync_res->mutex);
 		    		res->sync_res->recalc = 1;
-				pthread_cond_signal(&res->sync_res->cond);
+				wake_up_main_loop();
 				pthread_mutex_unlock(&res->sync_res->mutex);
 			}
 		  	break;
@@ -811,5 +840,7 @@ void *run_thread_listen_to_events(void *res_in)
 		ibv_ack_async_event(&event);
 
 	}
+
+	return NULL;
 }
 

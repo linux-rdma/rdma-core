@@ -32,7 +32,8 @@ AC_CHECK_LIB([pthread], [pthread_self], [],
 # Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h netinet/in.h stdint.h stdlib.h string.h sys/ioctl.h sys/time.h unistd.h)
+AC_CHECK_HEADERS(fcntl.h netinet/in.h stdint.h stdlib.h string.h sys/ioctl.h dnl
+                 sys/time.h unistd.h valgrind/drd.h)
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
