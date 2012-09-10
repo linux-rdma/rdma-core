@@ -1467,7 +1467,7 @@ int main(int argc, char *argv[])
 	uint16_t 		lid;
 	ib_gid_t 		gid;
 	struct target_details  *target;
-	int		       *status;
+	void		       *status;
 	int 			i;
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
@@ -1665,7 +1665,7 @@ kill_threads:
 	pthread_cond_signal(&res.sync_res->retry_cond);
 	for (i = 0; i < 4; ++i)
 		if (thread_id[i] >= 0)
-			pthread_join(thread_id[i], (void **)&status);
+			pthread_join(thread_id[i], &status);
 clean_all:
 	ud_resources_destroy(res.ud_res);
 clean_umad:
