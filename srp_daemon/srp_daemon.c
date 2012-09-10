@@ -39,6 +39,7 @@
 
 #define _GNU_SOURCE
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,6 +58,7 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <string.h>
+#include <signal.h>
 #include <infiniband/umad.h>
 #include "srp_ib_types.h"
 
@@ -1466,17 +1468,118 @@ void *run_thread_retry_to_connect(void *res_in)
 	pthread_exit(NULL);
 }
 
+static void free_res(struct resources *res)
+{
+	void *status;
+
+	if (!res)
+		return;
+
+	if (res->sync_res) {
+		pthread_mutex_lock(&res->sync_res->retry_mutex);
+		res->sync_res->stop_threads = 1;
+		pthread_cond_signal(&res->sync_res->retry_cond);
+		pthread_mutex_unlock(&res->sync_res->retry_mutex);
+	}
+
+	if (res->timer_thread) {
+		pthread_kill(res->timer_thread, SIGINT);
+		pthread_join(res->timer_thread, &status);
+	}
+	if (res->reconnect_thread) {
+		pthread_kill(res->reconnect_thread, SIGINT);
+		pthread_join(res->reconnect_thread, &status);
+	}
+	if (res->async_ev_thread) {
+		pthread_kill(res->async_ev_thread, SIGINT);
+		pthread_join(res->async_ev_thread, &status);
+	}
+	if (res->trap_thread) {
+		pthread_kill(res->trap_thread, SIGINT);
+		pthread_join(res->trap_thread, &status);
+	}
+	if (res->sync_res)
+		sync_resources_cleanup(res->sync_res);
+	if (res->ud_res)
+		ud_resources_destroy(res->ud_res);
+	if (res->umad_res)
+		umad_resources_destroy(res->umad_res);
+	free(res);
+}
+
+static struct resources *alloc_res(void)
+{
+	struct all_resources {
+		struct resources	res;
+		struct ud_resources	ud_res;
+		struct umad_resources	umad_res;
+		struct sync_resources	sync_res;
+	};
+
+	struct all_resources *res;
+	int ret;
+
+	res = calloc(1, sizeof(*res));
+	if (!res)
+		goto err;
+
+	umad_resources_init(&res->umad_res);
+	ret = umad_resources_create(&res->umad_res);
+	if (ret)
+		goto err;
+	res->res.umad_res = &res->umad_res;
+
+	ud_resources_init(&res->ud_res);
+	ret = ud_resources_create(&res->ud_res);
+	if (ret)
+		goto err;
+	res->res.ud_res = &res->ud_res;
+
+	ret = sync_resources_init(&res->sync_res);
+	if (ret)
+		goto err;
+	res->res.sync_res = &res->sync_res;
+
+	if (!config->once) {
+		ret = pthread_create(&res->res.trap_thread, NULL,
+				     run_thread_get_trap_notices, &res->res);
+		if (ret)
+			goto err;
+	}
+
+	ret = pthread_create(&res->res.async_ev_thread, NULL,
+			     run_thread_listen_to_events, &res->res);
+	if (ret)
+		goto err;
+
+	if (config->recalc_time && !config->once) {
+		ret = pthread_create(&res->res.timer_thread, NULL,
+				     run_thread_wait_till_timeout, &res->res);
+		if (ret)
+			goto err;
+	}
+
+	if (config->retry_timeout && !config->once) {
+		ret = pthread_create(&res->res.reconnect_thread, NULL,
+				     run_thread_retry_to_connect, &res->res);
+		if (ret)
+			goto err;
+	}
+
+	return &res->res;
+err:
+	if (res)
+		free_res(&res->res);
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
-	pthread_t 		thread[4];
 	int			ret;
 	struct resources       *res;
-	int                     num_threads = 0;
 	uint16_t 		lid;
 	ib_gid_t 		gid;
 	struct target_details  *target;
-	void		       *status;
-	int 			i;
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
@@ -1486,41 +1589,16 @@ int main(int argc, char *argv[])
 	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
-	res = malloc(sizeof(*res));
-	if (!res) {
- 		pr_err("out of memory\n");
-		return ENOMEM;
-	}
-
-	res->umad_res = malloc(sizeof(struct umad_resources));
-	if (!res->umad_res) {
- 		pr_err("out of memory\n");
-		goto free_res;
-	}
-	res->ud_res = malloc(sizeof(struct ud_resources));
-	if (!res->ud_res) {
- 		pr_err("out of memory\n");
-		ret = ENOMEM;
-		goto free_umad;
-	}
-
-	res->sync_res = malloc(sizeof(struct sync_resources));
-	if (!res->sync_res) {
- 		pr_err("out of memory\n");
-		ret = ENOMEM;
-		goto free_ud_res;
-	}
-
 	config = malloc(sizeof(*config));
 	if (!config) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
-		goto free_sync;
+		goto out;
 	}
 
 	if (get_config(config, argc, argv)) {
 		ret = EINVAL;
-		goto free_all;
+		goto free_config;
 	}
 
 	if (check_process_uniqueness(config))
@@ -1538,53 +1616,13 @@ int main(int argc, char *argv[])
 		goto clean_config;
 	}
 
-	umad_resources_init(res->umad_res);
-	ret = umad_resources_create(res->umad_res);
-	if (ret)
+	res = alloc_res();
+	if (!res)
 		goto clean_umad;
 
 	if (config->once) {
 		ret = recalc(res);
-		goto clean_umad;
-	}
-
-	ud_resources_init(res->ud_res);
-	ret = ud_resources_create(res->ud_res);
-	if (ret)
-		goto clean_all;
-
-	ret = sync_resources_init(res->sync_res);
-	if (ret)
-		goto clean_all;
-
-	if (!config->once) {
-		ret = pthread_create(&thread[num_threads], NULL,
-				     run_thread_get_trap_notices, res);
-		if (ret)
-			goto clean_all;
-		num_threads++;
-	}
-
-	ret = pthread_create(&thread[num_threads], NULL,
-				      run_thread_listen_to_events, res);
-	if (ret)
-		goto kill_threads;
-	num_threads++;
-
-	if (config->recalc_time && !config->once) {
-		ret = pthread_create(&thread[num_threads], NULL,
-				     run_thread_wait_till_timeout, res);
-		if (ret)
-			goto kill_threads;
-		num_threads++;
-	}
-
-	if (config->retry_timeout && !config->once) {
-		ret = pthread_create(&thread[num_threads], NULL,
-				     run_thread_retry_to_connect, res);
-		if (ret)
-			goto kill_threads;
-		num_threads++;
+		goto free_res;
 	}
 
 	while (1) {
@@ -1666,35 +1704,15 @@ kill_threads:
 
 	exit(ret ? 1 : 0);
 
-	res->sync_res->stop_threads = 1;
-	/*
-	 * There is a chance that retry_to_connect thread is on a wait for
-	 * retry_cond. So we send here a signal to end the wait, so the thread
-	 * can end.
-	 */
-	pthread_mutex_lock(&res->sync_res->retry_mutex);
-	pthread_cond_signal(&res->sync_res->retry_cond);
-	pthread_mutex_unlock(&res->sync_res->retry_mutex);
-
-	for (i = 0; i < num_threads; ++i)
-		pthread_join(thread[i], &status);
-clean_all:
-	ud_resources_destroy(res->ud_res);
+free_res:
+	free_res(res);
 clean_umad:
-	umad_resources_destroy(res->umad_res);
 	umad_done();
 clean_config:
 	config_destroy(config);
-free_all:
+free_config:
 	free(config);
-free_sync:
-	free(res->sync_res);
-free_ud_res:
-	free(res->ud_res);
-free_umad:
-	free(res->umad_res);
-free_res:
-	free(res);
+out:
 	exit(ret ? 1 : 0);
 }
 

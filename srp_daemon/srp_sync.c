@@ -72,6 +72,14 @@ int sync_resources_init(struct sync_resources *res)
 	return ret;
 }
 
+void sync_resources_cleanup(struct sync_resources *res)
+{
+	pthread_cond_destroy(&res->retry_cond);
+	pthread_mutex_destroy(&res->retry_mutex);
+	pthread_cond_destroy(&res->cond);
+	pthread_mutex_destroy(&res->mutex);
+}
+
 void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 {
 	int i;

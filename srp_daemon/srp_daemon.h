@@ -384,6 +384,10 @@ struct resources {
 	struct ud_resources   *ud_res;
 	struct umad_resources *umad_res;
 	struct sync_resources *sync_res;
+	pthread_t trap_thread;
+	pthread_t async_ev_thread;
+	pthread_t reconnect_thread;
+	pthread_t timer_thread;
 };
 
 static const int   node_table_response_size = 1 << 18;
@@ -436,6 +440,7 @@ int retry_list_is_empty(struct sync_resources *res);
 void clear_traps_list(struct sync_resources *res);
 int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid);
 int sync_resources_init(struct sync_resources *res);
+void sync_resources_cleanup(struct sync_resources *res);
 void srp_sleep(time_t sec, time_t usec);
 
 #endif /* SRP_DM_H */
