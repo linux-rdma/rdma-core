@@ -1665,6 +1665,7 @@ clean_all:
 	ud_resources_destroy(res.ud_res);
 clean_umad:
 	umad_resources_destroy(res.umad_res);
+	umad_done();
 clean_config:
 	config_destroy(config);
 free_all:
