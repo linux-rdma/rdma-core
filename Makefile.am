@@ -35,7 +35,7 @@ install-data-hook:
 	        $(DESTDIR)$(sysconfdir)/srp_daemon.conf 1>/dev/null;	\
 	    if test $$? == 1; then					\
 		t=$(shell date +'%Y%m%d%H%M%S');			\
-		install -m 644 $(srcdir)/srp_daemon/srp_daemon.conf	\
+		@INSTALL_DATA@ $(srcdir)/srp_daemon/srp_daemon.conf	\
 		      $(DESTDIR)$(sysconfdir)/srp_daemon.conf.$$t;	\
 		echo "NOTE: existing srp_daemon.conf was not updated.";	\
 		echo "      srp_daemon.conf installed as"		\
@@ -43,6 +43,6 @@ install-data-hook:
 	    fi;								\
 	else								\
 	    mkdir -p $(DESTDIR)$(sysconfdir);				\
-	    install -m 644 $(srcdir)/srp_daemon/srp_daemon.conf		\
+	    @INSTALL_DATA@ $(srcdir)/srp_daemon/srp_daemon.conf		\
 		  $(DESTDIR)$(sysconfdir);				\
 	fi
