@@ -30,19 +30,19 @@ dist-hook: srptools.spec
 	cp srptools.spec $(distdir)
 
 install-data-hook:
-	if test -e $(DESTDIR)/etc/srp_daemon.conf; then \
-		diff -q $(srcdir)/srp_daemon/srp_daemon.conf \
-			$(DESTDIR)/etc/srp_daemon.conf 1> /dev/null; \
-		if test $$? == 1; then \
-			t=$(shell date +'%Y%m%d%H%M%S'); \
-			cp -p $(srcdir)/srp_daemon/srp_daemon.conf \
-			      $(DESTDIR)/etc/srp_daemon.conf.$$t; \
-			echo "NOTE: existing srp_daemon.conf was not updated."; \
-			echo "      srp_daemon.conf installed as srp_daemon.conf.$$t instead."; \
-		fi; \
-	else \
-		if test ! -d $(DESTDIR)/etc; then \
-			mkdir -p $(DESTDIR)/etc; \
-		fi; \
-		cp -p $(srcdir)/srp_daemon/srp_daemon.conf $(DESTDIR)/etc; \
+	if test -e $(DESTDIR)$(sysconfdir)/srp_daemon.conf; then	\
+	    diff -q $(srcdir)/srp_daemon/srp_daemon.conf		\
+	        $(DESTDIR)$(sysconfdir)/srp_daemon.conf 1>/dev/null;	\
+	    if test $$? == 1; then					\
+		t=$(shell date +'%Y%m%d%H%M%S');			\
+		install -m 644 $(srcdir)/srp_daemon/srp_daemon.conf	\
+		      $(DESTDIR)$(sysconfdir)/srp_daemon.conf.$$t;	\
+		echo "NOTE: existing srp_daemon.conf was not updated.";	\
+		echo "      srp_daemon.conf installed as"		\
+		     "srp_daemon.conf.$$t instead.";			\
+	    fi;								\
+	else								\
+	    mkdir -p $(DESTDIR)$(sysconfdir);				\
+	    install -m 644 $(srcdir)/srp_daemon/srp_daemon.conf		\
+		  $(DESTDIR)$(sysconfdir);				\
 	fi
