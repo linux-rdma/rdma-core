@@ -58,39 +58,18 @@ rotate_log()
         touch ${log}
 }
 
-# Check if there is another copy of running srp_daemon.sh
-if [ -s $pidfile ]; then
-    read line < $pidfile
-    for p in $line
-    do
-        if [ -z "${p//[0-9]/}" -a -d "/proc/$p" ]; then
-            if [ "$p" != "$mypid" ]; then
-                echo "$(basename $0) is already running. Exiting."
-                exit 1
-            fi
-        else
-            # pid file exist but no process running
-            echo $mypid > $pidfile
-        fi
-    done
-else
-    echo $mypid > $pidfile
+# Check if there is another copy running of srp_daemon.sh
+if [ -f $pidfile -a ! -e /proc/$(cat $pidfile 2>/dev/null)/status ]; then
+    rm -f $pidfile
 fi
-
-# Check once more to prevent race condition
-if [ -s $pidfile ]; then
-    read line < $pidfile
-    for p in $line
-    do
-        if [ -z "${p//[0-9]/}" -a -d "/proc/$p" ]; then
-            if [ "$p" != "$mypid" ]; then
-                echo "$(basename $0) is already running. Race detected. Exiting."
-                exit 1
-            fi
-        fi
-    done
-else
-    echo "Failed to create $pidfile. Exiting."
+if ! echo $mypid > $pidfile.$mypid; then
+    echo "Creating $pidfile.$mypid failed"
+    exit 1
+fi
+mv -n $pidfile.$mypid $pidfile
+if [ -e $pidfile.$mypid ]; then
+    rm -f $pidfile.$mypid
+    echo "$(basename $0) is already running. Exiting."
     exit 1
 fi
 
