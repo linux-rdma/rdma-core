@@ -55,3 +55,13 @@ install-data-hook:
 	mkdir -p $(DESTDIR)$(sysconfdir)/rsyslog.d
 	@INSTALL_DATA@ $(srcdir)/srp_daemon/rsyslog-srp_daemon.conf	\
 	$(DESTDIR)$(sysconfdir)/rsyslog.d/srp_daemon.conf
+
+rpm:
+	name=@PACKAGE@ && \
+	version=@VERSION@ && \
+	rpmtopdir="$$(if [ $$(id -u) = 0 ]; then echo /usr/src/packages; else echo $$PWD/rpmbuilddir; fi)" && \
+	make dist-gzip && \
+	rm -rf $${rpmtopdir} && \
+	mkdir -p $${rpmtopdir}/{BUILD,RPMS,SOURCES,SPECS,SRPMS} && \
+	cp $${name}-$${version}.tar.gz $${rpmtopdir}/SOURCES && \
+	rpmbuild --define="%_topdir $${rpmtopdir}" -ba $${name}.spec
