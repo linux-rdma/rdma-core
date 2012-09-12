@@ -6,6 +6,7 @@ sbin_PROGRAMS = src/ibsrpdm srp_daemon/srp_daemon
 man_MANS = man/ibsrpdm.1 man/srp_daemon.1
 
 src_ibsrpdm_SOURCES = src/srp-dm.c
+src_ibsrpdm_CFLAGS = $(AM_CFLAGS) -fno-strict-aliasing
 
 srp_daemon_srp_daemon_LDADD = -libumad -libverbs -lpthread
 srp_daemon_srp_daemon_CFLAGS = $(AM_CFLAGS) -I $(DESTDIR)$(includedir) \
