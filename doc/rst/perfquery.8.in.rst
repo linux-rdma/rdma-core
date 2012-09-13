@@ -14,7 +14,7 @@ query InfiniBand port counters on a single port
 SYNOPSIS
 ========
 
-perfquery [options] [<lid|guid> [[port] [reset_mask]]]
+perfquery [options] [<lid|guid> [[port(s)] [reset_mask]]]
 
 DESCRIPTION
 ===========
@@ -31,6 +31,9 @@ components that represent Data (e.g. PortXmitData and PortRcvData) indicate
 octets divided by 4 rather than just octets.
 
 Note: Inputting a port of 255 indicates an operation be performed on all ports.
+
+Note: For PortCounters, ExtendedCounters, and resets, multiple ports can be
+specified by either a comma separated list or a port range.  See examples below.
 
 
 OPTIONS
@@ -98,15 +101,16 @@ OPTIONS
 	show port samples control.
 
 **-a, --all_ports**
-	show aggregated counters for all ports of the destination lid or reset
-	all counters for all ports.  If the destination lid does not support
+	show aggregated counters for all ports of the destination lid, reset
+	all counters for all ports, or if multiple ports are specified, aggregate
+	the counters of the specified ports.  If the destination lid does not support
 	the AllPortSelect flag, all ports will be iterated through to emulate
 	AllPortSelect behavior.
 
 **-l, --loop_ports**
 	If all ports are selected by the user (either through the **-a** option
-	or port 255) iterate through each port rather than doing than aggregate
-	operation.
+	or port 255) or multiple ports are specified iterate through each port rather
+	than doing than aggregate operation.
 
 **-r, --reset_after_read**
 	reset counters after read
@@ -158,6 +162,7 @@ EXAMPLES
 ========
 
 ::
+
 	perfquery                # read local port performance counters
 	perfquery 32 1           # read performance counters from lid 32, port 1
 	perfquery -x 32 1        # read extended performance counters from lid 32, port 1
@@ -169,6 +174,10 @@ EXAMPLES
 	perfquery -R -a 32       # reset performance counters of all ports
 	perfquery -R 32 2 0x0fff # reset only error counters of port 2
 	perfquery -R 32 2 0xf000 # reset only non-error counters of port 2
+	perfquery -a 32 1-10     # read performance counters from lid 32, port 1-10, aggregate output
+	perfquery -l 32 1-10     # read performance counters from lid 32, port 1-10, output each port
+	perfquery -a 32 1,4,8    # read performance counters from lid 32, port 1, 4, and 8, aggregate output
+	perfquery -l 32 1,4,8    # read performance counters from lid 32, port 1, 4, and 8, output each port
 
 AUTHOR
 ======

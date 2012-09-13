@@ -33,7 +33,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .SH query InfiniBand port counters on a single port
 .SS SYNOPSIS
 .sp
-perfquery [options] [<lid|guid> [[port] [reset_mask]]]
+perfquery [options] [<lid|guid> [[port(s)] [reset_mask]]]
 .SS DESCRIPTION
 .sp
 perfquery uses PerfMgt GMPs to obtain the PortCounters (basic performance and
@@ -48,6 +48,9 @@ components that represent Data (e.g. PortXmitData and PortRcvData) indicate
 octets divided by 4 rather than just octets.
 .sp
 Note: Inputting a port of 255 indicates an operation be performed on all ports.
+.sp
+Note: For PortCounters, ExtendedCounters, and resets, multiple ports can be
+specified by either a comma separated list or a port range.  See examples below.
 .SS OPTIONS
 .INDENT 0.0
 .TP
@@ -134,16 +137,17 @@ show port samples control.
 .TP
 .B \fB\-a, \-\-all_ports\fP
 .sp
-show aggregated counters for all ports of the destination lid or reset
-all counters for all ports.  If the destination lid does not support
+show aggregated counters for all ports of the destination lid, reset
+all counters for all ports, or if multiple ports are specified, aggregate
+the counters of the specified ports.  If the destination lid does not support
 the AllPortSelect flag, all ports will be iterated through to emulate
 AllPortSelect behavior.
 .TP
 .B \fB\-l, \-\-loop_ports\fP
 .sp
 If all ports are selected by the user (either through the \fB\-a\fP option
-or port 255) iterate through each port rather than doing than aggregate
-operation.
+or port 255) or multiple ports are specified iterate through each port rather
+than doing than aggregate operation.
 .TP
 .B \fB\-r, \-\-reset_after_read\fP
 .sp
@@ -277,10 +281,9 @@ Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 A global config file is provided to set some of the common options for all
 tools.  See supplied config file for details.
 .SS EXAMPLES
-.INDENT 0.0
-.TP
-.B ::
-.
+.sp
+.nf
+.ft C
 perfquery                # read local port performance counters
 perfquery 32 1           # read performance counters from lid 32, port 1
 perfquery \-x 32 1        # read extended performance counters from lid 32, port 1
@@ -292,7 +295,12 @@ perfquery \-x \-R 0x20 1   # reset extended performance counters of port 1 only
 perfquery \-R \-a 32       # reset performance counters of all ports
 perfquery \-R 32 2 0x0fff # reset only error counters of port 2
 perfquery \-R 32 2 0xf000 # reset only non\-error counters of port 2
-.UNINDENT
+perfquery \-a 32 1\-10     # read performance counters from lid 32, port 1\-10, aggregate output
+perfquery \-l 32 1\-10     # read performance counters from lid 32, port 1\-10, output each port
+perfquery \-a 32 1,4,8    # read performance counters from lid 32, port 1, 4, and 8, aggregate output
+perfquery \-l 32 1,4,8    # read performance counters from lid 32, port 1, 4, and 8, output each port
+.ft P
+.fi
 .SS AUTHOR
 .INDENT 0.0
 .TP
