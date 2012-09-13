@@ -783,7 +783,7 @@ int main(int argc, char **argv)
 	if (!(cap_mask & IB_PM_ALL_PORT_SELECT)) {	/* bit 8 is AllPortSelect */
 		if (!all_ports && port == ALL_PORTS)
 			IBERROR("AllPortSelect not supported");
-		if (all_ports)
+		if (all_ports && port == ALL_PORTS)
 			all_ports_loop = 1;
 	}
 
