@@ -37,6 +37,7 @@
 
 #include <pthread.h>
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,12 +46,50 @@
 
 #include "srp_daemon.h"
 
+/*
+ * Schedule a rescan at now + when if when >= 0 or disable rescanning if
+ * when < 0.
+ */
+void __schedule_rescan(struct sync_resources *res, int when)
+{
+	struct timespec *ts = &res->next_recalc_time;
+
+	clock_gettime(CLOCK_MONOTONIC, ts);
+	ts->tv_sec = when >= 0 ? ts->tv_sec + when : LONG_MAX;
+}
+
+void schedule_rescan(struct sync_resources *res, int when)
+{
+	pthread_mutex_lock(&res->mutex);
+	__schedule_rescan(res, when);
+	pthread_mutex_unlock(&res->mutex);
+}
+
+int __rescan_scheduled(struct sync_resources *res)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return ts_cmp(&res->next_recalc_time, &now, <=);
+}
+
+int rescan_scheduled(struct sync_resources *res)
+{
+	int ret;
+
+	pthread_mutex_lock(&res->mutex);
+	ret = __rescan_scheduled(res);
+	pthread_mutex_unlock(&res->mutex);
+
+	return ret;
+}
+
 int sync_resources_init(struct sync_resources *res)
 {
 	int ret;
 
 	res->stop_threads = 0;
-	res->recalc = 1;
+	__schedule_rescan(res, 0);
 	res->next_task = 0;
 	ret = pthread_mutex_init(&res->mutex, NULL);
 	if (ret < 0) {
@@ -83,7 +122,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 	int i;
 
 	/* If there is going to be a recalc soon - do nothing */
-	if (res->recalc)
+	if (rescan_scheduled(res))
 		return;
 
 	pthread_mutex_lock(&res->mutex);
@@ -100,7 +139,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 	if (res->next_task == SIZE_OF_TASKS_LIST) {
 		/* if the list is full, lets do a full rescan */
 
-		res->recalc = 1;
+		schedule_rescan(res, 0);
 		res->next_task = 0;
 	} else {
 		/* otherwise enter to the next entry */
@@ -119,7 +158,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid)
 	int i;
 
 	/* If there is going to be a recalc soon - do nothing */
-	if (res->recalc)
+	if (rescan_scheduled(res))
 		return;
 
 	pthread_mutex_lock(&res->mutex);
@@ -137,7 +176,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid)
 	if (res->next_task == SIZE_OF_TASKS_LIST) {
 		/* if the list is full, lets do a full rescan */
 
-		res->recalc = 1;
+		schedule_rescan(res, 0);
 		res->next_task = 0;
 	} else {
 		/* otherwise enter to the next entry */
@@ -198,7 +237,7 @@ void push_to_retry_list(struct sync_resources *res,
 	struct target_details *target;
 
 	/* If there is going to be a recalc soon - do nothing */
-	if (res->recalc)
+	if (rescan_scheduled(res))
 		return;
 
 	target = malloc(sizeof(struct target_details));

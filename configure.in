@@ -27,6 +27,8 @@ AC_CHECK_LIB([ibverbs], [ibv_get_device_list], [],
 fi
 AC_CHECK_LIB([pthread], [pthread_self], [],
 	AC_MSG_ERROR([srptools requires libpthread.]))
+AC_CHECK_LIB([rt], [clock_gettime], [],
+	AC_MSG_ERROR([srptools requires librt.]))
 
 
 # Checks for header files.

@@ -1503,10 +1503,6 @@ static void free_res(struct resources *res)
 	if (res->ud_res)
 		modify_qp_to_err(res->ud_res->qp);
 
-	if (res->timer_thread) {
-		pthread_kill(res->timer_thread, SIGINT);
-		pthread_join(res->timer_thread, &status);
-	}
 	if (res->reconnect_thread) {
 		pthread_kill(res->reconnect_thread, SIGINT);
 		pthread_join(res->reconnect_thread, &status);
@@ -1573,13 +1569,6 @@ static struct resources *alloc_res(void)
 	if (ret)
 		goto err;
 
-	if (config->recalc_time && !config->once) {
-		ret = pthread_create(&res->res.timer_thread, NULL,
-				     run_thread_wait_till_timeout, &res->res);
-		if (ret)
-			goto err;
-	}
-
 	if (config->retry_timeout && !config->once) {
 		ret = pthread_create(&res->res.reconnect_thread, NULL,
 				     run_thread_retry_to_connect, &res->res);
@@ -1592,6 +1581,18 @@ err:
 	if (res)
 		free_res(&res->res);
 	return NULL;
+}
+
+/* *c = *a - *b. See also the BSD macro timersub(). */
+static void ts_sub(const struct timespec *a, const struct timespec *b,
+		   struct timespec *res)
+{
+	res->tv_sec = a->tv_sec - b->tv_sec;
+	res->tv_nsec = a->tv_nsec - b->tv_nsec;
+	if (res->tv_nsec < 0) {
+		res->tv_sec--;
+		res->tv_nsec += 1000 * 1000 * 1000;
+	}
 }
 
 int main(int argc, char *argv[])
@@ -1672,10 +1673,11 @@ int main(int argc, char *argv[])
 
 	while (received_signal == 0) {
 		pthread_mutex_lock(&res->sync_res->mutex);
-		if (res->sync_res->recalc) {
+		if (__rescan_scheduled(res->sync_res)) {
 			uint16_t port_lid;
 
 			pthread_mutex_unlock(&res->sync_res->mutex);
+
 			pr_debug("Starting a recalculation\n");
 			port_lid = get_port_lid(res->ud_res->ib_ctx,
 					   config->port_num);
@@ -1693,10 +1695,8 @@ int main(int argc, char *argv[])
 				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
 
 			clear_traps_list(res->sync_res);
-			pthread_mutex_lock(&res->sync_res->mutex);
-			res->sync_res->next_recalc_time = time(NULL) + config->recalc_time;
-			res->sync_res->recalc = 0;
-			pthread_mutex_unlock(&res->sync_res->mutex);
+			schedule_rescan(res->sync_res, config->recalc_time ?
+					config->recalc_time : -1);
 
 			/* empty retry_list */
 			pthread_mutex_lock(&res->sync_res->retry_mutex);
@@ -1712,14 +1712,14 @@ int main(int argc, char *argv[])
 				ret = get_node(res->umad_res, lid, &guid);
 				if (ret)
 					/* unexpected error - do a full rescan */
-					res->sync_res->recalc = 1;
+					schedule_rescan(res->sync_res, 0);
 				else
 					handle_port(res, lid, guid);
 			} else {
 				ret = get_lid(res->umad_res, &gid, &lid);
 				if (ret < 0)
 					/* unexpected error - do a full rescan */
-					res->sync_res->recalc = 1;
+					schedule_rescan(res->sync_res, 0);
 				else {
 					pr_debug("lid is %d\n", lid);
 
@@ -1732,13 +1732,25 @@ int main(int argc, char *argv[])
 			int fd;
 			fd_set rset;
 			char buf[16];
+			struct timespec now, delta;
+			struct timeval timeout;
 
+			clock_gettime(CLOCK_MONOTONIC, &now);
+			ts_sub(&res->sync_res->next_recalc_time, &now, &delta);
 			pthread_mutex_unlock(&res->sync_res->mutex);
 
+			if (delta.tv_sec > 0 ||
+			    (delta.tv_sec == 0 && delta.tv_nsec > 0)) {
+				timeout.tv_sec = delta.tv_sec;
+				timeout.tv_usec = delta.tv_nsec / 1000 + 1;
+			} else {
+				timeout.tv_sec = 0;
+				timeout.tv_usec = 0;
+			}
 			fd = wakeup_pipe[0];
 			FD_ZERO(&rset);
 			FD_SET(fd, &rset);
-			ret = select(fd + 1, &rset, NULL, NULL, NULL);
+			ret = select(fd + 1, &rset, NULL, NULL, &timeout);
 			if (ret < 0)
 				assert(errno == EINTR);
 			while (read(fd, buf, sizeof(buf)) > 0)

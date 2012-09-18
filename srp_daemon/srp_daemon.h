@@ -68,6 +68,13 @@ template <bool b> struct vki_static_assert { int m_bitfield:(2*b-1); };
 #define STATIC_ASSERT(expr) (void)(sizeof(struct { int:-!(expr); }))
 #endif
 
+/* a CMP b. See also the BSD macro timercmp(). */
+#define ts_cmp(a, b, CMP)			\
+	(((a)->tv_sec == (b)->tv_sec) ?		\
+	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
+	 ((a)->tv_sec CMP (b)->tv_sec))
+
+
 enum {
 	SRP_MGMT_CLASS_SA = 3,
 	SRP_MGMT_CLASS_DM = 6
@@ -366,9 +373,8 @@ enum {
 
 struct sync_resources {
 	int stop_threads;
-	int recalc;
 	int next_task;
-	time_t next_recalc_time;
+	struct timespec next_recalc_time;
 	struct {
 		uint16_t lid;
 		ib_gid_t gid;
@@ -432,7 +438,6 @@ int wait_for_recalc(struct resources *res_in);
 int trap_main(struct resources *res);
 void *run_thread_get_trap_notices(void *res_in);
 void *run_thread_listen_to_events(void *res_in);
-void *run_thread_wait_till_timeout(void *res_in);
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid);
 int create_trap_resources(struct ud_resources *ud_res);
 int register_to_traps(struct resources *res);
@@ -451,5 +456,9 @@ void sync_resources_cleanup(struct sync_resources *res);
 int modify_qp_to_err(struct ibv_qp *qp);
 void srp_sleep(time_t sec, time_t usec);
 void wake_up_main_loop(void);
+void __schedule_rescan(struct sync_resources *res, int when);
+void schedule_rescan(struct sync_resources *res, int when);
+int __rescan_scheduled(struct sync_resources *res);
+int rescan_scheduled(struct sync_resources *res);
 
 #endif /* SRP_DM_H */

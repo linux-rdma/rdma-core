@@ -750,35 +750,6 @@ int register_to_traps(struct resources *res)
 
 }
 
-void *run_thread_wait_till_timeout(void *res_in)
-{
-	struct resources *res = (struct resources *)res_in;
-	time_t cur_time, sleep_time;
-
-	pthread_mutex_lock(&res->sync_res->mutex);
-	res->sync_res->next_recalc_time = time(NULL) + config->recalc_time;
-	pthread_mutex_unlock(&res->sync_res->mutex);
-
-	while (!res->sync_res->stop_threads) {
-		cur_time = time(NULL);
-		pthread_mutex_lock(&res->sync_res->mutex);
-		sleep_time = res->sync_res->next_recalc_time - cur_time;
-		if (sleep_time < 0) {
-			res->sync_res->recalc = 1;
-			res->sync_res->next_recalc_time = time(NULL) + config->recalc_time;
-			wake_up_main_loop();
-			pthread_mutex_unlock(&res->sync_res->mutex);
-		} else {
-			pthread_mutex_unlock(&res->sync_res->mutex);
-			srp_sleep(sleep_time, 0);
-		}
-	}
-
-	pr_debug("wait_till_timeout thread ended\n");
-
-	pthread_exit(NULL);
-}
-
 void *run_thread_listen_to_events(void *res_in)
 {
 	struct resources *res = (struct resources *)res_in;
@@ -802,7 +773,7 @@ void *run_thread_listen_to_events(void *res_in)
 		case IBV_EVENT_CLIENT_REREGISTER:
 			if (event.element.port_num == config->port_num) {
 				pthread_mutex_lock(&res->sync_res->mutex);
-		    		res->sync_res->recalc = 1;
+				__schedule_rescan(res->sync_res, 0);
 				wake_up_main_loop();
 				pthread_mutex_unlock(&res->sync_res->mutex);
 			}
