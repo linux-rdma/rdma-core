@@ -267,6 +267,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				/* fall through */
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
+				if (!wr->num_sge)
+					inl = 1;
 				set_raddr_seg(wqe, wr->wr.rdma.remote_addr,
 					      wr->wr.rdma.rkey);
 				wqe  += sizeof (struct mlx4_wqe_raddr_seg);
