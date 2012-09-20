@@ -189,7 +189,7 @@ struct target_details *pop_from_retry_list(struct sync_resources *res)
 void push_to_retry_list(struct sync_resources *res,
 			struct target_details *orig_target)
 {
-       struct target_details *target;
+	struct target_details *target;
 
 	/* If there is going to be a recalc soon - do nothing */
 	if (res->recalc)
