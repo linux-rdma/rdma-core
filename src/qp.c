@@ -394,7 +394,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 out:
 	ctx = to_mctx(ibqp->context);
 
-	if (nreq == 1 && inl && size > 1 && size < ctx->bf_buf_size / 16) {
+	if (nreq == 1 && inl && size > 1 && size <= ctx->bf_buf_size / 16) {
 		ctrl->owner_opcode |= htonl((qp->sq.head & 0xffff) << 8);
 		*(uint32_t *) ctrl->reserved |= qp->doorbell_qpn;
 		/*
