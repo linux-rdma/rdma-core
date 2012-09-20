@@ -399,7 +399,8 @@ struct ibv_srq_init_attr {
 enum ibv_qp_type {
 	IBV_QPT_RC = 2,
 	IBV_QPT_UC,
-	IBV_QPT_UD
+	IBV_QPT_UD,
+	IBV_QPT_RAW_PACKET = 8
 };
 
 struct ibv_qp_cap {

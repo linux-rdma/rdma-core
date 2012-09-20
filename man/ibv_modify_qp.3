@@ -159,6 +159,16 @@ RTR  \fB          IBV_QP_STATE, IBV_QP_AV, IBV_QP_PATH_MTU, \fR
 RTS  \fB          IBV_QP_STATE, IBV_QP_SQ_PSN, IBV_QP_MAX_QP_RD_ATOMIC, \fR
      \fB          IBV_QP_RETRY_CNT, IBV_QP_RNR_RETRY, IBV_QP_TIMEOUT \fR
 .fi
+.PP
+.nf
+For QP Transport Service Type \fB IBV_QPT_RAW_PACKET\fR:
+.sp
+Next state     Required attributes
+\-\-\-\-\-\-\-\-\-\-     \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+Init \fB          IBV_QP_STATE, IBV_QP_PORT\fR
+RTR  \fB          IBV_QP_STATE\fR
+RTS  \fB          IBV_QP_STATE\fR
+.fi
 .SH "SEE ALSO"
 .BR ibv_create_qp (3),
 .BR ibv_destroy_qp (3),
