@@ -32,7 +32,6 @@
 prog=/usr/sbin/srp_daemon
 params=$@
 ibdir="/sys/class/infiniband"
-log="/var/log/srp_daemon.log"
 retries=60
 pids=""
 pidfile=/var/run/srp_daemon.sh.pid
@@ -46,16 +45,6 @@ trap_handler()
     logger -i -t "$(basename $0)" "killing $prog."
     /bin/rm -f $pidfile
     exit 0
-}
-
-rotate_log()
-{
-        local log=$1
-        if [ -s ${log} ]; then
-                cat ${log} >> ${log}.$(date +%Y-%m-%d)
-                /bin/rm -f ${log}
-        fi
-        touch ${log}
 }
 
 # Check if there is another copy running of srp_daemon.sh
@@ -73,7 +62,6 @@ if [ -e $pidfile.$mypid ]; then
     exit 1
 fi
 
-rotate_log ${log}
 
 trap 'trap_handler' 2 15
 
@@ -82,12 +70,11 @@ do
     sleep 30
 done
 
-
 for hca_id in `/bin/ls -1 ${ibdir}`
 do
     for port in `/bin/ls -1 ${ibdir}/${hca_id}/ports/`
     do
-        ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${retries} ${params} >>${log} 2>&1 &
+        ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${retries} ${params} >/dev/null 2>&1 &
         pids="$pids $!"
     done
 done

@@ -1,0 +1,7 @@
+/var/log/srp_daemon {
+	missingok
+	notifempty
+	copytruncate
+	weekly
+	compress
+}

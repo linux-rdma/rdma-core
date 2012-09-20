@@ -24,6 +24,8 @@ EXTRA_DIST = \
     srp_daemon/srpd.in \
     src/srp-dm.h \
     src/ib_user_mad.h \
+    srp_daemon/logrotate-srp_daemon \
+    srp_daemon/rsyslog-srp_daemon.conf \
     srp_daemon/srp_daemon.conf \
     srptools.spec.in $(man_MANS)
 
@@ -51,3 +53,9 @@ install-data-hook:
 	    @INSTALL_DATA@ $(srcdir)/srp_daemon/srp_daemon.conf		\
 		  $(DESTDIR)$(sysconfdir);				\
 	fi
+	mkdir -p $(DESTDIR)$(sysconfdir)/logrotate.d
+	@INSTALL_DATA@ $(srcdir)/srp_daemon/logrotate-srp_daemon	\
+	$(DESTDIR)$(sysconfdir)/logrotate.d/srp_daemon
+	mkdir -p $(DESTDIR)$(sysconfdir)/rsyslog.d
+	@INSTALL_DATA@ $(srcdir)/srp_daemon/rsyslog-srp_daemon.conf	\
+	$(DESTDIR)$(sysconfdir)/rsyslog.d/srp_daemon.conf

@@ -43,6 +43,8 @@ fi
 %files
 %defattr(-,root,root)
 %config(noreplace) /etc/srp_daemon.conf
+%config(noreplace) %{_sysconfdir}/logrotate.d/srp_daemon
+%config(noreplace) %{_sysconfdir}/rsyslog.d/srp_daemon.conf
 %{_sysconfdir}/init.d/srpd
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon

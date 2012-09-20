@@ -40,6 +40,7 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +60,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/syslog.h>
 #include <infiniband/umad.h>
 #include "srp_ib_types.h"
 
@@ -234,6 +236,19 @@ void pr_cmd(char *target_str, int not_connected)
 	}
 }
 
+void pr_err(const char *fmt, ...)
+{
+	va_list args;
+	int pos;
+	char str[1000];
+
+	va_start(args, fmt);
+	pos = vsnprintf(str, sizeof(str), fmt, args);
+	va_end(args);
+	if (pos >= sizeof(str))
+		str[sizeof(str) - 1] = '\0';
+	syslog(LOG_DAEMON | LOG_ERR, "%s", str);
+}
 
 static int check_not_equal_str(char *dir_name, char *attr, char *value)
 {
@@ -1653,11 +1668,13 @@ int main(int argc, char *argv[])
 	sigaction(SIGINT, &sa, 0);
 	sigaction(SIGTERM, &sa, 0);
 
+	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
+
 	config = malloc(sizeof(*config));
 	if (!config) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
-		goto close_pipe;
+		goto close_log;
 	}
 
 	if (get_config(config, argc, argv)) {
@@ -1801,7 +1818,8 @@ clean_config:
 	config_destroy(config);
 free_config:
 	free(config);
-close_pipe:
+close_log:
+	closelog();
 	sa.sa_handler = SIG_DFL;
 	sigaction(SIGINT, &sa, 0);
 	sigaction(SIGTERM, &sa, 0);

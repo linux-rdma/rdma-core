@@ -415,17 +415,7 @@ struct resources {
 			printf(arg);		\
 	} while (0)
 
-#define pr_err(arg...) 							\
-	do {								\
-		char str[1000];						\
-		time_t tt = time(NULL);					\
-		struct tm t;						\
-		localtime_r(&tt, &t);					\
-		sprintf(str, arg);					\
-		fprintf(stderr, "%02d/%02d/%02d %02d:%02d:%02d : %s", 	\
-			t.tm_mday, t.tm_mon+1, t.tm_year % 100,		\
-			t.tm_hour, t.tm_min, t.tm_sec, str);		\
-	} while (0)
+void pr_err(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 
 void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid);
