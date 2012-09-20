@@ -353,7 +353,15 @@ enum ibv_rate {
 	IBV_RATE_40_GBPS  = 7,
 	IBV_RATE_60_GBPS  = 8,
 	IBV_RATE_80_GBPS  = 9,
-	IBV_RATE_120_GBPS = 10
+	IBV_RATE_120_GBPS = 10,
+	IBV_RATE_14_GBPS  = 11,
+	IBV_RATE_56_GBPS  = 12,
+	IBV_RATE_112_GBPS = 13,
+	IBV_RATE_168_GBPS = 14,
+	IBV_RATE_25_GBPS  = 15,
+	IBV_RATE_100_GBPS = 16,
+	IBV_RATE_200_GBPS = 17,
+	IBV_RATE_300_GBPS = 18
 };
 
 /**
@@ -369,6 +377,19 @@ int ibv_rate_to_mult(enum ibv_rate rate) __attribute_const;
  * @mult: multiple to convert.
  */
 enum ibv_rate mult_to_ibv_rate(int mult) __attribute_const;
+
+/**
+ * ibv_rate_to_mbps - Convert the IB rate enum to Mbit/sec.
+ * For example, IBV_RATE_5_GBPS will return the value 5000.
+ * @rate: rate to convert.
+ */
+int ibv_rate_to_mbps(enum ibv_rate rate) __attribute_const;
+
+/**
+ * mbps_to_ibv_rate - Convert a Mbit/sec value to an IB rate enum.
+ * @mbps: value to convert.
+ */
+enum ibv_rate mbps_to_ibv_rate(int mbps) __attribute_const;
 
 struct ibv_ah_attr {
 	struct ibv_global_route	grh;

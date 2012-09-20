@@ -76,6 +76,54 @@ enum ibv_rate mult_to_ibv_rate(int mult)
 	}
 }
 
+int ibv_rate_to_mbps(enum ibv_rate rate)
+{
+	switch (rate) {
+	case IBV_RATE_2_5_GBPS: return 2500;
+	case IBV_RATE_5_GBPS:   return 5000;
+	case IBV_RATE_10_GBPS:  return 10000;
+	case IBV_RATE_20_GBPS:  return 20000;
+	case IBV_RATE_30_GBPS:  return 30000;
+	case IBV_RATE_40_GBPS:  return 40000;
+	case IBV_RATE_60_GBPS:  return 60000;
+	case IBV_RATE_80_GBPS:  return 80000;
+	case IBV_RATE_120_GBPS: return 120000;
+	case IBV_RATE_14_GBPS:  return 14062;
+	case IBV_RATE_56_GBPS:  return 56250;
+	case IBV_RATE_112_GBPS: return 112500;
+	case IBV_RATE_168_GBPS: return 168750;
+	case IBV_RATE_25_GBPS:  return 25781;
+	case IBV_RATE_100_GBPS: return 103125;
+	case IBV_RATE_200_GBPS: return 206250;
+	case IBV_RATE_300_GBPS: return 309375;
+	default:               return -1;
+	}
+}
+
+enum ibv_rate mbps_to_ibv_rate(int mbps)
+{
+	switch (mbps) {
+	case 2500:   return IBV_RATE_2_5_GBPS;
+	case 5000:   return IBV_RATE_5_GBPS;
+	case 10000:  return IBV_RATE_10_GBPS;
+	case 20000:  return IBV_RATE_20_GBPS;
+	case 30000:  return IBV_RATE_30_GBPS;
+	case 40000:  return IBV_RATE_40_GBPS;
+	case 60000:  return IBV_RATE_60_GBPS;
+	case 80000:  return IBV_RATE_80_GBPS;
+	case 120000: return IBV_RATE_120_GBPS;
+	case 14062:  return IBV_RATE_14_GBPS;
+	case 56250:  return IBV_RATE_56_GBPS;
+	case 112500: return IBV_RATE_112_GBPS;
+	case 168750: return IBV_RATE_168_GBPS;
+	case 25781:  return IBV_RATE_25_GBPS;
+	case 103125: return IBV_RATE_100_GBPS;
+	case 206250: return IBV_RATE_200_GBPS;
+	case 309375: return IBV_RATE_300_GBPS;
+	default:     return IBV_RATE_MAX;
+	}
+}
+
 int __ibv_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *device_attr)
 {

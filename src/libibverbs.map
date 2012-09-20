@@ -96,4 +96,7 @@ IBVERBS_1.1 {
 		ibv_port_state_str;
 		ibv_event_type_str;
 		ibv_wc_status_str;
+
+		ibv_rate_to_mbps;
+		mbps_to_ibv_rate;
 } IBVERBS_1.0;
