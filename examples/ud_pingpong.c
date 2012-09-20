@@ -311,7 +311,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	ctx->buf = memalign(page_size, size + 40);
 	if (!ctx->buf) {
 		fprintf(stderr, "Couldn't allocate work buf.\n");
-		return NULL;
+		goto clean_ctx;
 	}
 
 	/* FIXME memset(ctx->buf, 0, size + 40); */
@@ -321,14 +321,14 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	if (!ctx->context) {
 		fprintf(stderr, "Couldn't get context for %s\n",
 			ibv_get_device_name(ib_dev));
-		return NULL;
+		goto clean_buffer;
 	}
 
 	if (use_event) {
 		ctx->channel = ibv_create_comp_channel(ctx->context);
 		if (!ctx->channel) {
 			fprintf(stderr, "Couldn't create completion channel\n");
-			return NULL;
+			goto clean_device;
 		}
 	} else
 		ctx->channel = NULL;
@@ -336,20 +336,20 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	ctx->pd = ibv_alloc_pd(ctx->context);
 	if (!ctx->pd) {
 		fprintf(stderr, "Couldn't allocate PD\n");
-		return NULL;
+		goto clean_comp_channel;
 	}
 
 	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size + 40, IBV_ACCESS_LOCAL_WRITE);
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't register MR\n");
-		return NULL;
+		goto clean_pd;
 	}
 
 	ctx->cq = ibv_create_cq(ctx->context, rx_depth + 1, NULL,
 				ctx->channel, 0);
 	if (!ctx->cq) {
 		fprintf(stderr, "Couldn't create CQ\n");
-		return NULL;
+		goto clean_mr;
 	}
 
 	{
@@ -368,7 +368,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		ctx->qp = ibv_create_qp(ctx->pd, &attr);
 		if (!ctx->qp)  {
 			fprintf(stderr, "Couldn't create QP\n");
-			return NULL;
+			goto clean_cq;
 		}
 	}
 
@@ -386,11 +386,38 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 				  IBV_QP_PORT               |
 				  IBV_QP_QKEY)) {
 			fprintf(stderr, "Failed to modify QP to INIT\n");
-			return NULL;
+			goto clean_qp;
 		}
 	}
 
 	return ctx;
+
+clean_qp:
+	ibv_destroy_qp(ctx->qp);
+
+clean_cq:
+	ibv_destroy_cq(ctx->cq);
+
+clean_mr:
+	ibv_dereg_mr(ctx->mr);
+
+clean_pd:
+	ibv_dealloc_pd(ctx->pd);
+
+clean_comp_channel:
+	if (ctx->channel)
+		ibv_destroy_comp_channel(ctx->channel);
+
+clean_device:
+	ibv_close_device(ctx->context);
+
+clean_buffer:
+	free(ctx->buf);
+
+clean_ctx:
+	free(ctx);
+
+	return NULL;
 }
 
 int pp_close_ctx(struct pingpong_context *ctx)
