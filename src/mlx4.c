@@ -229,12 +229,12 @@ static struct ibv_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof value) < 0)
 		return NULL;
-	sscanf(value, "%i", &vendor);
+	vendor = strtol(value, NULL, 16);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
 				value, sizeof value) < 0)
 		return NULL;
-	sscanf(value, "%i", &device);
+	device = strtol(value, NULL, 16);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
