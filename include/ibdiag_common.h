@@ -102,51 +102,6 @@ extern char *conv_cnt_human_readable(uint64_t val64, float *val, int data);
 
 int is_mlnx_ext_port_info_supported(uint32_t devid);
 
-/* define an SA query structure to be common
- * This is by no means optimal but it moves the saquery functionality out of
- * the saquery tool and provides it to other utilities.
- */
-struct bind_handle {
-	int fd, agent;
-	ib_portid_t dport;
-	struct ibmad_port *srcport;
-};
-typedef struct bind_handle * bind_handle_t;
-bind_handle_t sa_get_bind_handle(void);
-void sa_free_bind_handle(bind_handle_t h);
-
-struct sa_query_result {
-	uint32_t status;
-	unsigned result_cnt;
-	void *p_result_madw;
-};
-int sa_query(struct bind_handle *h, uint8_t method,
-	     uint16_t attr, uint32_t mod, uint64_t comp_mask, uint64_t sm_key,
-	     void *data, size_t datasz, struct sa_query_result *result);
-void sa_free_result_mad(struct sa_query_result *result);
-void *sa_get_query_rec(void *mad, unsigned i);
-void sa_report_err(int status);
-
-#define cl_hton8(x) (x)
-#define CHECK_AND_SET_VAL(val, size, comp_with, target, name, mask) \
-	if ((int##size##_t) val != (int##size##_t) comp_with) { \
-		target = cl_hton##size((uint##size##_t) val); \
-		comp_mask |= IB_##name##_COMPMASK_##mask; \
-	}
-
-#define CHECK_AND_SET_GID(val, target, name, mask) \
-	if (valid_gid(&(val))) { \
-		memcpy(&(target), &(val), sizeof(val)); \
-		comp_mask |= IB_##name##_COMPMASK_##mask; \
-	}
-
-#define CHECK_AND_SET_VAL_AND_SEL(val, target, name, mask, sel) \
-	if (val) { \
-		target = val; \
-		comp_mask |= IB_##name##_COMPMASK_##mask##sel; \
-		comp_mask |= IB_##name##_COMPMASK_##mask; \
-	}
-
 void get_max_msg(char *width_msg, char *speed_msg, int msg_size,
 		 ibnd_port_t * port);
 
@@ -161,7 +116,6 @@ int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 int snprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 		  const char *format, ...);
 void dump_portinfo(void *pi, int pisize, int tabs);
-
 
 /**
  * Some common command line parsing

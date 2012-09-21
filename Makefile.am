@@ -91,7 +91,7 @@ noinst_LIBRARIES = libcommon.a
 AM_CFLAGS = -Wall $(DBGFLAGS)
 LDADD = libcommon.a
 
-libcommon_a_SOURCES = src/ibdiag_common.c
+libcommon_a_SOURCES = src/ibdiag_common.c src/ibdiag_sa.c
 src_ibaddr_SOURCES = src/ibaddr.c
 src_ibnetdiscover_SOURCES = src/ibnetdiscover.c
 src_ibnetdiscover_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
