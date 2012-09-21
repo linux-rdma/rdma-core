@@ -192,19 +192,43 @@ static inline const char *ib_sa_err_str(IN uint8_t status)
 	return (ib_sa_error_str[status]);
 }
 
+static const char *ib_mad_inv_field_str[] = {
+	"MAD No invalid fields",
+	"MAD Bad version",
+	"MAD Method specified is not supported",
+	"MAD Method/Attribute combination is not supported",
+	"MAD Reserved",
+	"MAD Reserved",
+	"MAD Reserved",
+	"MAD Invalid value in Attribute field(s) or Attribute Modifier"
+	"MAD UNKNOWN ERROR"
+};
+#define MAD_ERR_UNKNOWN (ARR_SIZE(ib_mad_inv_field_str) - 1)
+
+static inline const char *ib_mad_inv_field_err_str(IN uint8_t f)
+{
+	if (f > MAD_ERR_UNKNOWN)
+		f = MAD_ERR_UNKNOWN;
+	return (ib_mad_inv_field_str[f]);
+}
+
 void sa_report_err(int status)
 {
 	int st = status & 0xff;
-	char sm_err_str[64] = { 0 };
+	char mad_err_str[64] = { 0 };
 	char sa_err_str[64] = { 0 };
 
 	if (st)
-		sprintf(sm_err_str, " SM(%s)", ib_get_err_str(st));
+		sprintf(mad_err_str, " (%s; %s; %s)",
+			(st & 0x1) ? "BUSY" : "",
+			(st & 0x2) ? "Redirection Required" : "",
+			ib_mad_inv_field_err_str(st>>2));
+
 
 	st = status >> 8;
 	if (st)
 		sprintf(sa_err_str, " SA(%s)", ib_sa_err_str((uint8_t) st));
 
 	fprintf(stderr, "ERROR: Query result returned 0x%04x, %s%s\n",
-		status, sm_err_str, sa_err_str);
+		status, mad_err_str, sa_err_str);
 }
