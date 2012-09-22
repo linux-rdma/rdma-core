@@ -124,8 +124,10 @@ static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static int abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
 int af_ib_support;
 
+#ifndef container_of
 #define container_of(ptr, type, field) \
 	((type *) ((void *)ptr - offsetof(type, field)))
+#endif
 
 static void ucma_cleanup(void)
 {
