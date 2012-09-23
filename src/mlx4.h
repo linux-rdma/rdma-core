@@ -83,6 +83,10 @@
 
 #define PFX		"mlx4: "
 
+#ifndef HAVE_IBV_QPT_RAW_PACKET
+#define IBV_QPT_RAW_PACKET		8
+#endif
+
 enum {
 	MLX4_STAT_RATE_OFFSET		= 5
 };
