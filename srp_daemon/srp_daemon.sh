@@ -28,6 +28,7 @@
 #  $Id$
 #
 
+shopt -s nullglob
 
 prog=/usr/sbin/srp_daemon
 params=$@
@@ -70,13 +71,14 @@ do
     sleep 30
 done
 
-for hca_id in `/bin/ls -1 ${ibdir}`
-do
-    for port in `/bin/ls -1 ${ibdir}/${hca_id}/ports/`
-    do
+for d in ${ibdir}_mad/umad*; do
+    hca_id="$(<$d/ibdev)"
+    port="$(<$d/port)"
+    add_target="${ibdir}_srp/srp-${hca_id}-${port}/add_target"
+    if [ -e "${add_target}" ]; then
         ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${retries} ${params} >/dev/null 2>&1 &
         pids="$pids $!"
-    done
+    fi
 done
 
 wait
