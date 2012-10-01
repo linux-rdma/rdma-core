@@ -77,6 +77,7 @@ typedef struct {
 
 static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
 
+static const int   node_table_response_size = 1 << 18;
 static char *sysfs_path = "/sys";
 static int received_signal, wakeup_pipe[2] = { -1, -1 };
 

@@ -396,8 +396,6 @@ struct resources {
 	pthread_t timer_thread;
 };
 
-static const int   node_table_response_size = 1 << 18;
-
 #ifdef HAVE_VALGRIND_DRD_H
 #include <valgrind/drd.h>
 #endif
