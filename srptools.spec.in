@@ -42,6 +42,24 @@ EOF
 	fi
     done
 fi
+if type systemctl >/dev/null 2>&1; then
+    systemctl --system daemon-reload
+fi
+if [ $1 != 1 ]; then
+    /etc/init.d/srpd condrestart
+fi
+
+%preun
+if [ $1 = 0 ]; then
+    /etc/init.d/srpd stop
+    if [ -e /sbin/chkconfig ]; then
+        /sbin/chkconfig --del srpd
+    elif [ -e /usr/sbin/update-rc.d ]; then
+        /usr/sbin/update-rc.d -f srpd remove
+    else
+        /usr/lib/lsb/remove_initd /etc/init.d/srpd
+    fi
+fi
 
 %files
 %defattr(-,root,root)
