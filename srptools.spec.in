@@ -10,8 +10,6 @@ Url: http://www.openfabrics.org/
 Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-%{!?IB_CONF_DIR: %define IB_CONF_DIR /etc/infiniband}
-
 %description
 In conjunction with the kernel ib_srp driver, srptools allows you to
 discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
@@ -32,12 +30,17 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 if [ $1 = 1 ]; then # 1 : This package is being installed for the first time
-    if [ -e %{IB_CONF_DIR}/openib.conf ]; then
-       echo >> %{IB_CONF_DIR}/openib.conf
-       echo "# Enable SRP High Availability daemon" >> %{IB_CONF_DIR}/openib.conf
-       echo "SRPHA_ENABLE=no" >> %{IB_CONF_DIR}/openib.conf
-       echo "SRP_DAEMON_ENABLE=no" >> %{IB_CONF_DIR}/openib.conf
-    fi
+    for ib_conf_file in /etc/infiniband/openib.conf /etc/rdma/rdma.conf; do
+	if [ -e $ib_conf_file ] &&
+	    ! grep -q '^SRPHA_ENABLE=' $ib_conf_file; then
+	    cat <<EOF >>$ib_conf_file
+
+# Enable SRP High Availability daemon
+SRPHA_ENABLE=no
+SRP_DAEMON_ENABLE=no
+EOF
+	fi
+    done
 fi
 
 %files
@@ -58,5 +61,5 @@ fi
 - Added srp_daemon.conf
 * Tue Sep  5 2006 Vladimir Sokolovsky <vlad@mellanox.co.il>
 - Added srp_daemon and scripts to execute this daemon
-* Tue Mar 21 2006 Roland Dreier <rdreier@cisco.com> - @VERSION@-1
+* Tue Mar 21 2006 Roland Dreier <rdreier@cisco.com> - 0.0.4-1
 - Initial attempt at a working spec file
