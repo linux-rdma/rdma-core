@@ -342,16 +342,11 @@ error:
 
 static int rping_accept(struct rping_cb *cb)
 {
-	struct rdma_conn_param conn_param;
 	int ret;
 
 	DEBUG_LOG("accepting client connection request\n");
 
-	memset(&conn_param, 0, sizeof conn_param);
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
-
-	ret = rdma_accept(cb->child_cm_id, &conn_param);
+	ret = rdma_accept(cb->child_cm_id, NULL);
 	if (ret) {
 		perror("rdma_accept");
 		return ret;
@@ -975,7 +970,7 @@ static int rping_connect_client(struct rping_cb *cb)
 	memset(&conn_param, 0, sizeof conn_param);
 	conn_param.responder_resources = 1;
 	conn_param.initiator_depth = 1;
-	conn_param.retry_count = 10;
+	conn_param.retry_count = 7;
 
 	ret = rdma_connect(cb->cm_id, &conn_param);
 	if (ret) {
