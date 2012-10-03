@@ -136,7 +136,6 @@ static int ucma_convert_in6(int ps, struct sockaddr_ib **dst, socklen_t *dst_len
 	*dst = calloc(1, sizeof(struct sockaddr_ib));
 	if (!(*dst))
 		return ERR(ENOMEM);
-printf("converting ipv6 to ib\n");
 
 	(*dst)->sib_family = AF_IB;
 	(*dst)->sib_pkey = 0xFFFF;
@@ -145,7 +144,6 @@ printf("converting ipv6 to ib\n");
 		    src->sin6_addr.s6_addr32[1], src->sin6_addr.s6_addr32[2],
 		    src->sin6_addr.s6_addr32[3]);
 	ucma_set_sid(ps, (struct sockaddr *) src, *dst);
-printf("sid %llx %llx\n", (*dst)->sib_sid, (*dst)->sib_sid_mask);
 	(*dst)->sib_scope_id = src->sin6_scope_id;
 
 	*dst_len = sizeof(struct sockaddr_ib);
@@ -169,7 +167,6 @@ static int ucma_convert_to_rai(struct rdma_addrinfo *rai,
 			break;
 		}
 	}
-printf("qp type %d\n", rai->ai_qp_type);
 
 	if (hints->ai_port_space) {
 		rai->ai_port_space = hints->ai_port_space;
@@ -183,7 +180,6 @@ printf("qp type %d\n", rai->ai_qp_type);
 			break;
 		}
 	}
-printf("port space %d\n", rai->ai_port_space);
 
 	if (ai->ai_flags & AI_PASSIVE) {
 		rai->ai_flags = RAI_PASSIVE;
@@ -198,10 +194,8 @@ printf("port space %d\n", rai->ai_port_space);
 					       &rai->ai_src_len,
 					       (struct sockaddr_in6 *) ai->ai_addr,
 					       ai->ai_addrlen);
-printf("using af ib \n");
 		} else {
 			rai->ai_family = ai->ai_family;
-printf("af %d\n", rai->ai_family);
 			ret = ucma_copy_addr(&rai->ai_src_addr, &rai->ai_src_len,
 					     ai->ai_addr, ai->ai_addrlen);
 		}
