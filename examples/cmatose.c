@@ -266,7 +266,6 @@ err:
 static int connect_handler(struct rdma_cm_id *cma_id)
 {
 	struct cmatest_node *node;
-	struct rdma_conn_param conn_param;
 	int ret;
 
 	if (test.conn_index == connections) {
@@ -286,10 +285,7 @@ static int connect_handler(struct rdma_cm_id *cma_id)
 	if (ret)
 		goto err2;
 
-	memset(&conn_param, 0, sizeof conn_param);
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
-	ret = rdma_accept(node->cma_id, &conn_param);
+	ret = rdma_accept(node->cma_id, NULL);
 	if (ret) {
 		perror("cmatose: failure accepting");
 		goto err2;
