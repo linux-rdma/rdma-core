@@ -62,7 +62,7 @@ typedef struct acm_msg cma_acm_msg_t;
 
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
-static short server_port = 6125;
+static short server_port;
 
 struct ib_connect_hdr {
 	uint8_t  cma_version;
@@ -76,7 +76,7 @@ struct ib_connect_hdr {
 #define cma_dst_ip6 dst_addr[0]
 };
 
-static void ucma_set_server_port(void)
+static int ucma_set_server_port(void)
 {
 	FILE *f;
 
@@ -84,6 +84,7 @@ static void ucma_set_server_port(void)
 		fscanf(f, "%hu", (unsigned short *) &server_port);
 		fclose(f);
 	}
+	return server_port;
 }
 
 void ucma_ib_init(void)
@@ -96,7 +97,9 @@ void ucma_ib_init(void)
 		return;
 
 	pthread_mutex_lock(&acm_lock);
-	ucma_set_server_port();
+	if (!ucma_set_server_port())
+		goto out;
+
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock < 0)
 		goto out;
