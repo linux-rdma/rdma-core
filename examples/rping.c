@@ -881,7 +881,14 @@ static int rping_run_server(struct rping_cb *cb)
 		goto err2;
 	}
 
-	rping_test_server(cb);
+	ret = rping_test_server(cb);
+	if (ret) {
+		fprintf(stderr, "rping server failed: %d\n", ret);
+		goto err3;
+	}
+
+	ret = 0;
+err3:
 	rdma_disconnect(cb->child_cm_id);
 	pthread_join(cb->cqthread, NULL);
 	rdma_destroy_id(cb->child_cm_id);
@@ -1049,7 +1056,14 @@ static int rping_run_client(struct rping_cb *cb)
 		goto err2;
 	}
 
-	rping_test_client(cb);
+	ret = rping_test_client(cb);
+	if (ret) {
+		fprintf(stderr, "rping client failed: %d\n", ret);
+		goto err3;
+	}
+
+	ret = 0;
+err3:
 	rdma_disconnect(cb->cm_id);
 	pthread_join(cb->cqthread, NULL);
 err2:
@@ -1189,6 +1203,7 @@ int main(int argc, char *argv[])
 	cb->cm_channel = rdma_create_event_channel();
 	if (!cb->cm_channel) {
 		perror("rdma_create_event_channel");
+		ret = ENOMEM;
 		goto out;
 	}
 
@@ -1206,8 +1221,9 @@ int main(int argc, char *argv[])
 			ret = rping_run_persistent_server(cb);
 		else
 			ret = rping_run_server(cb);
-	} else
+	} else {
 		ret = rping_run_client(cb);
+	}
 
 	DEBUG_LOG("destroy cm_id %p\n", cb->cm_id);
 	rdma_destroy_id(cb->cm_id);
