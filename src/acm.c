@@ -3182,8 +3182,6 @@ static void daemonize(void)
 	if (pid)
 		exit(pid < 0);
 
-	umask(0);
-
 	sid = setsid();
 	if (sid < 0)
 		exit(1);
