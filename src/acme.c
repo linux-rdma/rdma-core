@@ -55,7 +55,13 @@ static char *src_arg;
 static char addr_type = 'u';
 static int verify;
 static int nodelay;
-static int perf_query;
+
+enum perf_query_output {
+	PERF_QUERY_NONE,
+	PERF_QUERY_ROW,
+	PERF_QUERY_COL
+};
+static enum perf_query_output perf_query;
 int verbose;
 
 struct ibv_context **verbs;
@@ -667,6 +673,7 @@ static void resolve(char *svc)
 
 static void query_perf(char *svc)
 {
+	static int lables;
 	int ret, cnt, i;
 	uint64_t *counters;
 
@@ -676,10 +683,24 @@ static void query_perf(char *svc)
 		return;
 	}
 
-	printf("%s,", svc);
-	for (i = 0; i < cnt - 1; i++)
-		printf("%llu,", (unsigned long long) counters[i]);
-	printf("%llu\n", (unsigned long long) counters[i]);
+	if (perf_query == PERF_QUERY_ROW) {
+		if (!lables) {
+			for (i = 0; i < cnt - 1; i++)
+				printf("%s,", ib_acm_cntr_name(i));
+			printf("%s\n", ib_acm_cntr_name(i));
+			lables = 1;
+		}
+		printf("%s,", svc);
+		for (i = 0; i < cnt - 1; i++)
+			printf("%llu,", (unsigned long long) counters[i]);
+		printf("%llu\n", (unsigned long long) counters[i]);
+	} else {
+		printf("%s\n", svc);
+		for (i = 0; i < cnt; i++) {
+			printf("%s : ", ib_acm_cntr_name(i));
+			printf("%llu\n", (unsigned long long) counters[i]);
+		}
+	}
 	ib_acm_free_perf(counters);
 }
 
@@ -692,11 +713,6 @@ static int query_svcs(void)
 	if (!svc_list) {
 		printf("Unable to parse service list argument\n");
 		return -1;
-	}
-
-	if (perf_query) {
-		printf("Destination,Error Count,Resolve Count,No Data,Addr Query Count,"
-			"Addr Cache Count,Route Query Count,Route Cache Count\n");
 	}
 
 	for (i = 0; svc_list[i]; i++) {
@@ -741,7 +757,7 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (ret)
 		goto out;
 
-	while ((op = getopt(argc, argv, "f:s:d:vcA::O::D:PS:V")) != -1) {
+	while ((op = getopt(argc, argv, "f:s:d:vcA::O::D:P::S:V")) != -1) {
 		switch (op) {
 		case 'f':
 			addr_type = optarg[0];
@@ -775,7 +791,10 @@ int CDECL_FUNC main(int argc, char **argv)
 			dest_dir = optarg;
 			break;
 		case 'P':
-			perf_query = 1;
+			if (opt_arg(argc, argv) && !strnicmp("col", opt_arg(argc, argv), 3))
+				perf_query = PERF_QUERY_COL;
+			else
+				perf_query = PERF_QUERY_ROW;
 			break;
 		case 'S':
 			svc_arg = optarg;

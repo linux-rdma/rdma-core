@@ -357,3 +357,21 @@ out:
 	lock_release(&lock);
 	return ret;
 }
+
+const char *ib_acm_cntr_name(int index)
+{
+	static const char *const cntr_name[] = {
+		[ACM_CNTR_ERROR]	= "Error Count",
+		[ACM_CNTR_RESOLVE]	= "Resolve Count",
+		[ACM_CNTR_NODATA]	= "No Data",
+		[ACM_CNTR_ADDR_QUERY]	= "Addr Query Count",
+		[ACM_CNTR_ADDR_CACHE]	= "Addr Cache Count",
+		[ACM_CNTR_ROUTE_QUERY]	= "Route Query Count",
+		[ACM_CNTR_ROUTE_CACHE]	= "Route Cache Count",
+	};
+
+	if (index < ACM_CNTR_ERROR || index > ACM_MAX_COUNTER)
+		return "Unknown";
+
+	return cntr_name[index];
+}
