@@ -1859,6 +1859,7 @@ int rsetsockopt(int socket, int level, int optname,
 		default:
 			break;
 		}
+		break;
 	case SOL_RDMA:
 		if (rs->state >= rs_opening) {
 			ret = ERR(EINVAL);
