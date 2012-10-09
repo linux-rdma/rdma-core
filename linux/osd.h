@@ -155,7 +155,9 @@ static inline uint64_t time_stamp_us(void)
 	return (uint64_t) curtime.tv_sec * 1000000 + (uint64_t) curtime.tv_usec;
 }
 
-#define time_stamp_ms() (time_stamp_us() / 1000)
+#define time_stamp_ms()  (time_stamp_us() / (uint64_t) 1000)
+#define time_stamp_sec() (time_stamp_ms() / (uint64_t) 1000)
+#define time_stamp_min() (time_stamp_sec() / (uint64_t) 60)
 
 #define PER_THREAD __thread
 static inline int beginthread(void (*func)(void *), void *arg)

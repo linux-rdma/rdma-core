@@ -132,6 +132,14 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "addr_prot acm\n");
 	fprintf(f, "\n");
+	fprintf(f, "# addr_timeout:\n");
+	fprintf(f, "# Number of minutes to maintain IP address to GID mapping before\n");
+	fprintf(f, "# repeating address resolution.  A value of -1 indicates that the\n");
+	fprintf(f, "# mapping will not time out.\n");
+	fprintf(f, "# 1 hour = 60, 1 day = 1440, 1 week = 10080, 1 month ~ 43200");
+	fprintf(f, "\n");
+	fprintf(f, "addr_timeout 1440\n");
+	fprintf(f, "\n");
 	fprintf(f, "# route_prot:\n");
 	fprintf(f, "# Default resolution protocol to resolve IB routing information.\n");
 	fprintf(f, "# Supported protocols are:\n");
@@ -139,6 +147,15 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# acm - Use ACM multicast protocol.\n");
 	fprintf(f, "\n");
 	fprintf(f, "route_prot sa\n");
+	fprintf(f, "\n");
+	fprintf(f, "# route_timeout:\n");
+	fprintf(f, "# Number of minutes to maintain IB routing information before\n");
+	fprintf(f, "# repeating route resolution.  A value of -1 indicates that the\n");
+	fprintf(f, "# mapping will not time out.  However, the route will\n");
+	fprintf(f, "# automatically time out when the address times out.\n");
+	fprintf(f, "# 1 hour = 60, 1 day = 1440, 1 week = 10080, 1 month ~ 43200");
+	fprintf(f, "\n");
+	fprintf(f, "route_timeout -1\n");
 	fprintf(f, "\n");
 	fprintf(f, "# loopback_prot:\n");
 	fprintf(f, "# Address and route resolution protocol to resolve local addresses\n");
@@ -660,9 +677,9 @@ static void query_perf(char *svc)
 	}
 
 	printf("%s,", svc);
-	for (i = 0; i < cnt; i++)
+	for (i = 0; i < cnt - 1; i++)
 		printf("%llu,", (unsigned long long) counters[i]);
-	printf("\n");
+	printf("%llu\n", (unsigned long long) counters[i]);
 	ib_acm_free_perf(counters);
 }
 

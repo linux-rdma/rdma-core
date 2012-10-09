@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Intel Corporation. All rights reserved.
+ * Copyright (c) 2009-2012 Intel Corporation. All rights reserved.
  *
  * This software is available to you under the OpenIB.org BSD license
  * below:
@@ -90,6 +90,8 @@ struct acm_dest {
 	lock_t                 lock;
 	enum acm_state         state;
 	atomic_t               refcnt;
+	uint64_t	       addr_timeout;
+	uint64_t	       route_timeout;
 	uint8_t                addr_type;
 };
 
@@ -212,7 +214,9 @@ static char log_file[128] = "/var/log/ibacm.log";
 static int log_level = 0;
 static char lock_file[128] = "/var/run/ibacm.pid";
 static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
+static int addr_timeout = 1440;
 static enum acm_route_prot route_prot = ACM_ROUTE_PROT_SA;
+static int route_timeout = -1;
 static enum acm_loopback_prot loopback_prot = ACM_LOOPBACK_PROT_LOCAL;
 static short server_port = 6125;
 static int timeout = 2000;
@@ -805,6 +809,8 @@ acm_record_acm_route(struct acm_ep *ep, struct acm_dest *dest)
 	dest->path = ep->mc_dest[i].path;
 	dest->path.dgid = dest->av.grh.dgid;
 	dest->path.dlid = htons(dest->av.dlid);
+	dest->addr_timeout = time_stamp_min() + (unsigned) addr_timeout;
+	dest->route_timeout = time_stamp_min() + (unsigned) route_timeout;
 	dest->state = ACM_READY;
 	return ACM_STATUS_SUCCESS;
 }
@@ -1111,6 +1117,9 @@ acm_dest_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *ma
 	if (!status) {
 		memcpy(&dest->path, sa_mad->data, sizeof(dest->path));
 		acm_init_path_av(msg->ep->port, dest);
+		dest->addr_timeout = time_stamp_min() + (unsigned) addr_timeout;
+		dest->route_timeout = time_stamp_min() + (unsigned) route_timeout;
+		acm_log(2, "timeout addr %llu route %llu\n", dest->addr_timeout, dest->route_timeout);
 		dest->state = ACM_READY;
 	} else {
 		dest->state = ACM_INIT;
@@ -2085,6 +2094,22 @@ acm_svr_queue_req(struct acm_dest *dest, struct acm_client *client,
 	return ACM_STATUS_SUCCESS;
 }
 
+static int acm_dest_timeout(struct acm_dest *dest)
+{
+	uint64_t timestamp = time_stamp_min();
+
+	if (timestamp > dest->addr_timeout) {
+		acm_log(2, "%s address timed out\n", dest->name);
+		dest->state = ACM_INIT;
+		return 1;
+	} else if (timestamp > dest->route_timeout) {
+		acm_log(2, "%s route timed out\n", dest->name);
+		dest->state = ACM_ADDR_RESOLVED;
+		return 1;
+	}
+	return 0;
+}
+
 static int
 acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 {
@@ -2127,8 +2152,11 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 	}
 
 	lock_acquire(&dest->lock);
+test:
 	switch (dest->state) {
 	case ACM_READY:
+		if (acm_dest_timeout(dest))
+			goto test;
 		acm_log(2, "request satisfied from local cache\n");
 		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
@@ -2222,8 +2250,11 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 	}
 
 	lock_acquire(&dest->lock);
+test:
 	switch (dest->state) {
 	case ACM_READY:
+		if (acm_dest_timeout(dest))
+			goto test;
 		acm_log(2, "request satisfied from local cache\n");
 		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
@@ -2620,6 +2651,8 @@ static int acm_init_ep_loopback(struct acm_ep *ep)
 		dest->path.rate = (uint8_t) ep->port->rate;
 
 		dest->remote_qpn = ep->qp->qp_num;
+		dest->addr_timeout = (uint64_t) ~0ULL;
+		dest->route_timeout = (uint64_t) ~0ULL;
 		dest->state = ACM_READY;
 		acm_put_dest(dest);
 		acm_log(1, "added loopback dest %s\n", dest->name);
@@ -3055,8 +3088,12 @@ static void acm_set_options(void)
 			strcpy(lock_file, value);
 		else if (!stricmp("addr_prot", opt))
 			addr_prot = acm_convert_addr_prot(value);
+		else if (!stricmp("addr_timeout", opt))
+			addr_timeout = atoi(value);
 		else if (!stricmp("route_prot", opt))
 			route_prot = acm_convert_route_prot(value);
+		else if (!strcmp("route_timeout", opt))
+			route_timeout = atoi(value);
 		else if (!stricmp("loopback_prot", opt))
 			loopback_prot = acm_convert_loopback_prot(value);
 		else if (!stricmp("server_port", opt))
@@ -3087,7 +3124,9 @@ static void acm_log_options(void)
 	acm_log(0, "log level %d\n", log_level);
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "address resolution %d\n", addr_prot);
+	acm_log(0, "address timeout %d\n", addr_timeout);
 	acm_log(0, "route resolution %d\n", route_prot);
+	acm_log(0, "route timeout %d\n", route_timeout);
 	acm_log(0, "loopback resolution %d\n", loopback_prot);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "timeout %d ms\n", timeout);
