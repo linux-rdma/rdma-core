@@ -444,7 +444,7 @@ free:
 static int server_connect(void)
 {
 	struct pollfd fds;
-	int ret;
+	int ret = 0;
 
 	set_options(lrs);
 	do {
