@@ -462,8 +462,8 @@ static int server_connect(void)
 		rs = rs_accept(lrs, NULL, 0);
 	} while (rs < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
 	if (rs < 0) {
-		ret = rs;
 		perror("raccept");
+		return rs;
 	}
 
 	if (use_fork)
