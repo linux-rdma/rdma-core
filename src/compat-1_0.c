@@ -353,8 +353,46 @@ static int post_send_wrapper_1_0(struct ibv_qp_1_0 *qp, struct ibv_send_wr_1_0 *
 		real_wr->wr_id = w->wr_id;
 		real_wr->next  = NULL;
 
-		memcpy(&real_wr->sg_list, &w->sg_list,
-		       sizeof *w - offsetof(struct ibv_send_wr, sg_list));
+#define TEST_SIZE_2_POINT(f1, f2)					\
+		((offsetof(struct ibv_send_wr, f1) - offsetof(struct ibv_send_wr, f2)) \
+		 == offsetof(struct ibv_send_wr_1_0, f1) - offsetof(struct ibv_send_wr_1_0, f2))
+#define TEST_SIZE_TO_END(f1)					    \
+		((sizeof(struct ibv_send_wr) - offsetof(struct ibv_send_wr, f1)) == \
+		 (sizeof(struct ibv_send_wr_1_0) - offsetof(struct ibv_send_wr_1_0, f1)))
+
+		if (TEST_SIZE_TO_END (sg_list))
+			memcpy(&real_wr->sg_list, &w->sg_list, sizeof *real_wr
+			       - offsetof(struct ibv_send_wr, sg_list));
+		else if (TEST_SIZE_2_POINT (imm_data, sg_list) &&
+			 TEST_SIZE_TO_END (wr)) {
+			/* we have alignment up to wr, but padding between
+			 * imm_data and wr, and we know wr itself is the
+			 * same size */
+			memcpy(&real_wr->sg_list, &w->sg_list,
+			       offsetof(struct ibv_send_wr, imm_data) -
+			       offsetof(struct ibv_send_wr, sg_list) +
+			       sizeof real_wr->imm_data);
+			memcpy(&real_wr->wr, &w->wr, sizeof real_wr->wr);
+		} else {
+			real_wr->sg_list = w->sg_list;
+			real_wr->num_sge = w->num_sge;
+			real_wr->opcode = w->opcode;
+			real_wr->send_flags = w->send_flags;
+			real_wr->imm_data = w->imm_data;
+			if (TEST_SIZE_TO_END (wr))
+				memcpy(&real_wr->wr, &w->wr,
+				       sizeof real_wr->wr);
+			else {
+				real_wr->wr.atomic.remote_addr =
+					w->wr.atomic.remote_addr;
+				real_wr->wr.atomic.compare_add =
+					w->wr.atomic.compare_add;
+				real_wr->wr.atomic.swap =
+					w->wr.atomic.swap;
+				real_wr->wr.atomic.rkey =
+					w->wr.atomic.rkey;
+			}
+		}
 
 		if (is_ud)
 			real_wr->wr.ud.ah = w->wr.ud.ah->real_ah;
