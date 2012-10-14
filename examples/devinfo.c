@@ -218,8 +218,14 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		goto cleanup;
 	}
 	if (ibv_query_device(ctx, &device_attr)) {
-		fprintf(stderr, "Failed to query device props");
+		fprintf(stderr, "Failed to query device props\n");
 		rc = 2;
+		goto cleanup;
+	}
+	if (ib_port && ib_port > device_attr.phys_port_cnt) {
+		fprintf(stderr, "Invalid port requested for device\n");
+		/* rc = 3 is taken by failure to clean up */
+		rc = 4;
 		goto cleanup;
 	}
 
