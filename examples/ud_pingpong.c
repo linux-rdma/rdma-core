@@ -324,6 +324,21 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		goto clean_buffer;
 	}
 
+	{
+		struct ibv_port_attr port_info = { 0 };
+		int mtu;
+
+		if (ibv_query_port(ctx->context, port, &port_info)) {
+			fprintf(stderr, "Unable to query port info for port %d\n", port);
+			goto clean_device;
+		}
+		mtu = 1 << (port_info.active_mtu + 7);
+		if (size > mtu) {
+			fprintf(stderr, "Requested size larger than port MTU (%d)\n", mtu);
+			goto clean_device;
+		}
+	}
+
 	if (use_event) {
 		ctx->channel = ibv_create_comp_channel(ctx->context);
 		if (!ctx->channel) {
