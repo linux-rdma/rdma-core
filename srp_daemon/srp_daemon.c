@@ -74,6 +74,30 @@ typedef struct {
 
 static char *sysfs_path = "/sys";
 
+static int check_process_uniqueness(struct config_t *conf)
+{
+	char path[256];
+	int fd;
+
+	sprintf(path, "/var/tmp/srp_daemon_%s_%d", conf->dev_name, conf->port_num);
+
+	if ((fd = open(path, O_CREAT|O_RDWR, S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR)) < 0)
+	{
+		pr_err("cannot open file \"%s\" (errno: %d).\n", path, errno);
+		return -1;
+	}
+
+	fchmod(fd, S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR|S_IWGRP|S_IWOTH);
+	
+	if (0 != lockf(fd, F_TLOCK, 0))
+	{
+		pr_err("failed to lock %s (errno: %d). possibly another srp_daemon is locking it\n", path, errno);
+		return -1;
+	}
+	
+	return 0;
+}
+
 int srpd_sys_read_string(char *dir_name, char *file_name, char *str, int max_len)
 {
 	char path[256], *s;
@@ -1481,6 +1505,12 @@ int main(int argc, char *argv[])
 	if (get_config(config, argc, argv)) {
 		ret = EINVAL;
 		goto free_all;
+	}
+
+	if (check_process_uniqueness(config))
+	{
+		ret = EPERM;
+		goto clean_config;
 	}
 
 	if (config->verbose)
