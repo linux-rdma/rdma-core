@@ -126,6 +126,9 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 	struct ibv_get_context		cmd;
 	struct mlx4_alloc_ucontext_resp resp;
 	int				i;
+	struct mlx4_alloc_ucontext_resp_v3 resp_v3;
+	__u16				bf_reg_size;
+	struct mlx4_device		*dev = to_mdev(ibdev);
 
 	context = calloc(1, sizeof *context);
 	if (!context)
@@ -133,11 +136,27 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 
 	context->ibv_ctx.cmd_fd = cmd_fd;
 
-	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp))
-		goto err_free;
+	if (dev->abi_version <= MLX4_UVERBS_NO_DEV_CAPS_ABI_VERSION) {
+		if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
+					&resp_v3.ibv_resp, sizeof resp_v3))
+			goto err_free;
 
-	context->num_qps	= resp.qp_tab_size;
+		context->num_qps  = resp_v3.qp_tab_size;
+		bf_reg_size	  = resp_v3.bf_reg_size;
+		context->cqe_size = sizeof (struct mlx4_cqe);
+	} else  {
+		if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
+					&resp.ibv_resp, sizeof resp))
+			goto err_free;
+
+		context->num_qps  = resp.qp_tab_size;
+		bf_reg_size	  = resp.bf_reg_size;
+		if (resp.dev_caps & MLX4_USER_DEV_CAP_64B_CQE)
+			context->cqe_size = resp.cqe_size;
+		else
+			context->cqe_size = sizeof (struct mlx4_cqe);
+	}
+
 	context->qp_table_shift = ffs(context->num_qps) - 1 - MLX4_QP_TABLE_BITS;
 	context->qp_table_mask	= (1 << context->qp_table_shift) - 1;
 
@@ -155,7 +174,7 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 	if (context->uar == MAP_FAILED)
 		goto err_free;
 
-	if (resp.bf_reg_size) {
+	if (bf_reg_size) {
 		context->bf_page = mmap(NULL, to_mdev(ibdev)->page_size,
 					PROT_WRITE, MAP_SHARED, cmd_fd,
 					to_mdev(ibdev)->page_size);
@@ -165,7 +184,7 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 				context->bf_page     = NULL;
 				context->bf_buf_size = 0;
 		} else {
-			context->bf_buf_size = resp.bf_reg_size / 2;
+			context->bf_buf_size = bf_reg_size / 2;
 			context->bf_offset   = 0;
 			pthread_spin_init(&context->bf_lock, PTHREAD_PROCESS_PRIVATE);
 		}
@@ -200,8 +219,7 @@ static struct ibv_device_ops mlx4_dev_ops = {
 	.free_context  = mlx4_free_context
 };
 
-static struct ibv_device *mlx4_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static struct ibv_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
 {
 	char			value[8];
 	struct mlx4_device    *dev;
@@ -245,6 +263,7 @@ found:
 
 	dev->ibv_dev.ops = mlx4_dev_ops;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
+	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;
 }
@@ -261,13 +280,13 @@ static __attribute__((constructor)) void mlx4_register_driver(void)
  */
 struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
 {
-	int abi_ver = 0;
+	int abi_version = 0;
 	char value[8];
 
 	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
 				value, sizeof value) > 0)
 		abi_ver = strtol(value, NULL, 10);
 
-	return mlx4_driver_init(sysdev->path, abi_ver);
+	return mlx4_driver_init(sysdev->path, abi_version);
 }
 #endif /* HAVE_IBV_REGISTER_DRIVER */

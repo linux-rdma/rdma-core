@@ -87,20 +87,6 @@ enum {
 	MLX4_CQE_SYNDROME_REMOTE_ABORTED_ERR		= 0x22,
 };
 
-struct mlx4_cqe {
-	uint32_t	vlan_my_qpn;
-	uint32_t	immed_rss_invalid;
-	uint32_t	g_mlpath_rqpn;
-	uint16_t	sl_vid;
-	uint16_t	rlid;
-	uint32_t	reserved2;
-	uint32_t	byte_cnt;
-	uint16_t	wqe_index;
-	uint16_t	checksum;
-	uint8_t		reserved3[3];
-	uint8_t		owner_sr_opcode;
-};
-
 struct mlx4_err_cqe {
 	uint32_t	vlan_my_qpn;
 	uint32_t	reserved1[5];
@@ -113,14 +99,15 @@ struct mlx4_err_cqe {
 
 static struct mlx4_cqe *get_cqe(struct mlx4_cq *cq, int entry)
 {
-	return cq->buf.buf + entry * MLX4_CQ_ENTRY_SIZE;
+	return cq->buf.buf + entry * cq->cqe_size;
 }
 
 static void *get_sw_cqe(struct mlx4_cq *cq, int n)
 {
 	struct mlx4_cqe *cqe = get_cqe(cq, n & cq->ibv_cq.cqe);
+	struct mlx4_cqe *tcqe = cq->cqe_size == 64 ? cqe + 1 : cqe;
 
-	return (!!(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK) ^
+	return (!!(tcqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK) ^
 		!!(n & (cq->ibv_cq.cqe + 1))) ? NULL : cqe;
 }
 
@@ -208,6 +195,9 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 	cqe = next_cqe_sw(cq);
 	if (!cqe)
 		return CQ_EMPTY;
+
+	if (cq->cqe_size == 64)
+		++cqe;
 
 	++cq->cons_index;
 
@@ -393,6 +383,7 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	uint32_t prod_index;
 	uint8_t owner_bit;
 	int nfreed = 0;
+	int cqe_inc = cq->cqe_size == 64 ? 1 : 0;
 
 	/*
 	 * First we need to find the current producer index, so we
@@ -411,12 +402,14 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	 */
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
+		cqe += cqe_inc;
 		if ((ntohl(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK) == qpn) {
 			if (srq && !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK))
 				mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe);
+			dest += cqe_inc;
 			owner_bit = dest->owner_sr_opcode & MLX4_CQE_OWNER_MASK;
 			memcpy(dest, cqe, sizeof *cqe);
 			dest->owner_sr_opcode = owner_bit |
@@ -456,28 +449,32 @@ void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int old_cqe)
 {
 	struct mlx4_cqe *cqe;
 	int i;
+	int cqe_inc = cq->cqe_size == 64 ? 1 : 0;
 
 	i = cq->cons_index;
 	cqe = get_cqe(cq, (i & old_cqe));
+	cqe += cqe_inc;
 
 	while ((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) != MLX4_CQE_OPCODE_RESIZE) {
 		cqe->owner_sr_opcode = (cqe->owner_sr_opcode & ~MLX4_CQE_OWNER_MASK) |
 			(((i + 1) & (cq->ibv_cq.cqe + 1)) ? MLX4_CQE_OWNER_MASK : 0);
-		memcpy(buf + ((i + 1) & cq->ibv_cq.cqe) * MLX4_CQ_ENTRY_SIZE,
-		       cqe, MLX4_CQ_ENTRY_SIZE);
+		memcpy(buf + ((i + 1) & cq->ibv_cq.cqe) * cq->cqe_size,
+		       cqe - cqe_inc, cq->cqe_size);
 		++i;
 		cqe = get_cqe(cq, (i & old_cqe));
+		cqe += cqe_inc;
 	}
 
 	++cq->cons_index;
 }
 
-int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent)
+int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
+		      int entry_size)
 {
-	if (mlx4_alloc_buf(buf, align(nent * MLX4_CQ_ENTRY_SIZE, dev->page_size),
+	if (mlx4_alloc_buf(buf, align(nent * entry_size, dev->page_size),
 			   dev->page_size))
 		return -1;
-	memset(buf->buf, 0, nent * MLX4_CQ_ENTRY_SIZE);
+	memset(buf->buf, 0, nent * entry_size);
 
 	return 0;
 }
