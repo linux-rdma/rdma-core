@@ -380,7 +380,7 @@ static int get_ca(const char *ca_name, umad_ca_t * ca)
 
 	ca->numports = 0;
 	memset(ca->ports, 0, sizeof ca->ports);
-	strncpy(ca->ca_name, ca_name, sizeof ca->ca_name);
+	strncpy(ca->ca_name, ca_name, sizeof(ca->ca_name) - 1);
 
 	snprintf(dir_name, sizeof(dir_name), "%s/%s", SYS_INFINIBAND,
 		 ca->ca_name);
