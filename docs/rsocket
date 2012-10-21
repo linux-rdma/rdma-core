@@ -110,11 +110,11 @@ Bits    Message             Meaning of
 31:29    Type               Bits 28:0
 000    Data Transfer     bytes transfered
 001    reserved
-010    reserved
+010    reserved - used internally, available for future use
 011    reserved
 100    Credit Update     received credits granted
 101    reserved
-110    reserved
+110    Iomap Updated     index of updated entry
 111    Control           control message type
 
 Data Transfer
@@ -133,6 +133,12 @@ care not to modify a remote target SGL while it may be in use.  This is done
 by tracking when a receive buffer referenced by a remote target SGL has been
 filled.
 
+Iomap Updated
+Used to indicate that a remote iomap entry was updated.  The updated entry
+contains the offset value associated with an address, length, and rkey.  Once
+an iomap has been updated, the local application can issue directed IO
+transfers against the corresponding remote buffer.
+
 Control Message - DISCONNECT
 Indicates that the rsocket connection has been fully disconnected and will no
 longer send or receive data.  Data received before the disconnect message was
@@ -142,3 +148,44 @@ Control Message - SHUTDOWN
 Indicates that the remote rsocket has shutdown the send side of its
 connection.  The recipient of a shutdown message will no longer accept
 incoming data, but may still transfer outbound data.
+
+
+Iomapped Buffers
+----------------
+Rsockets allows for zero-copy transfers using what it refers to as iomapped
+buffers.  Iomapping and direct data placement (zero-copy) transfers are done
+using rsocket specific extensions.  The general operation is similar to
+that used for normal data transfers described above.
+
+   host A                   host B
+                          remote iomap                      
+  target iomap  <-----------  [  ]
+     [  ] ------
+     [  ] --    ------  iomapped buffer(s)         
+            --        ----->  +--+
+              --              |  |
+                --            |  |
+                  --          |  |
+                    --        +--+
+                      --       
+                        --->  +--+
+                              |  |
+                              |  |
+                              +--+
+
+The remote iomap contains the address, size, and rkey of the target iomap.  As
+the applicaton maps buffers host B to a given rsocket, rsockets will issue an RDMA
+write against one of the entries in the target iomap on host A.  The
+updated entry will reference an available iomapped buffer.  Immediate data
+included with the RDMA write will indicate to host A that a target iomap
+has been updated.
+
+When host A wishes to transfer directly into an iomapped buffer, it will check
+its target iomap for an offset corresponding to a remotely mapped buffer.  A
+matching iomap entry will contain the address, size, and rkey of the target
+buffer on host B.  Host A will then issue an RDMA operation against the
+registered remote data buffer.
+
+From host A's perspective, the transfer appears as a normal send/write
+operation, with the data stream redirected directly into the receiving
+application's buffer.

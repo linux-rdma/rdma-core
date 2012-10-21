@@ -6,9 +6,9 @@ rsocket \- RDMA socket API
 .SH "DESCRIPTION"
 RDMA socket API and protocol
 .SH "NOTES"
-rsockets is a protocol over RDMA that supports a socket-level API
-for applications.  rsocket APIs are intended to match the behavior
-of corresponding socket calls, except where noted.  rsocket
+Rsockets is a protocol over RDMA that supports a socket-level API
+for applications.  Rsocket APIs are intended to match the behavior
+of corresponding socket calls, except where noted.  Rsocket
 functions match the name and function signature of socket calls,
 with the exception that all function calls are prefixed with an 'r'.
 .P
@@ -30,7 +30,7 @@ rgetpeername, rgetsockname
 .P
 rsetsockopt, rgetsockopt, rfcntl
 .P
-Functions take the same parameters as that use for sockets.  The
+Functions take the same parameters as that used for sockets.  The
 follow capabilities and flags are supported at this time:
 .P
 PF_INET, PF_INET6, SOCK_STREAM, IPPROTO_TCP, TCP_MAXSEG
@@ -41,6 +41,47 @@ SO_REUSEADDR, TCP_NODELAY, SO_ERROR, SO_SNDBUF, SO_RCVBUF
 .P
 O_NONBLOCK
 .P
+Rsockets provides extensions beyond normal socket routines that
+allow for direct placement of data into an application's buffer.
+This is also known as zero-copy support, since data is sent and
+received directly, bypassing copies into network controlled buffers.
+The following calls and options support direct data placement.
+.P
+riomap, riounmap, riowrite
+.TP
+off_t riomap(int socket, void *buf, size_t len, int prot, int flags, off_t offset)
+.TP
+Riomap registers an application buffer with the RDMA hardware
+associated with an rsocket.  The buffer is registered either for
+local only access (PROT_NONE) or for remote write access (PROT_WRITE).
+When registered for remote access, the buffer is mapped to a given
+offset.  The offset is either provided by the user, or if the user
+selects -1 for the offset, rsockets selects one.  The remote peer may
+access an iomapped buffer directly by specifying the correct offset.
+The mapping is not guaranteed to be available until after the remote
+peer receives a data transfer initiated after riomap has completed.
+.P
+riounmap
+.TP
+int riounmap(int socket, void *buf, size_t len)
+.TP
+Riounmap removes the mapping between a buffer and an rsocket.
+.P
+riowrite
+.TP
+size_t riowrite(int socket, const void *buf, size_t count, off_t offset, int flags)
+.TP
+Riowrite allows an application to transfer data over an rsocket
+directly into a remotely iomapped buffer.  The remote buffer is specified
+through an offset parameter, which corresponds to a remote iomapped buffer.
+From the sender's perspective, riowrite behaves similar to rwrite.  From
+a receiver's view, riowrite transfers are silently redirected into a pre-
+determined data buffer.  Data is received automatically, and the receiver
+is not informed of the transfer.  However, iowrite data is still considered
+part of the data stream, such that iowrite data will be written before a
+subsequent transfer is received.  A message sent immediately after initiating
+an iowrite may be used to notify the receiver of the iowrite.
+.P
 In addition to standard socket options, rsockets supports options
 specific to RDMA devices and protocols.  These options are accessible
 through rsetsockopt using SOL_RDMA option level.
@@ -50,6 +91,8 @@ RDMA_SQSIZE - Integer size of the underlying send queue.
 RDMA_RQSIZE - Integer size of the underlying receive queue.
 .TP
 RDMA_INLINE - Integer size of inline data.
+.TP
+RDMA_IOMAPSIZE - Integer number of remote IO mappings supported
 .P
 Note that rsockets fd's cannot be passed into non-rsocket calls.  For
 applications which must mix rsocket fd's with standard socket fd's or
@@ -83,6 +126,8 @@ sqsize_default - default size of send queue
 rqsize_default - default size of receive queue
 .P
 inline_default - default size of inline data
+.P
+iomap_size - default size of remote iomapping table
 .P
 If configuration files are not available, rsockets uses internal defaults.
 .SH "SEE ALSO"

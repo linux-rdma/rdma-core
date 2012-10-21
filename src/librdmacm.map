@@ -63,5 +63,8 @@ RDMACM_1.0 {
 		rselect;
 		rdma_get_src_port;
 		rdma_get_dst_port;
+		riomap;
+		riounmap;
+		riowrite;
 	local: *;
 };
