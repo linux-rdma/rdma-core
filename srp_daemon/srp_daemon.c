@@ -1673,7 +1673,7 @@ int recalc(struct resources *res)
 {
 	struct umad_resources *umad_res = res->umad_res;
 	int  mask_match;
-	char val[6];
+	char val[7];
 	int ret;
 
 	ret = srpd_sys_read_string(umad_res->port_sysfs_path, "sm_lid", val, sizeof val); 
