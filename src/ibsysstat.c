@@ -63,6 +63,7 @@ typedef struct cpu_info {
 
 static cpu_info cpus[MAX_CPUS];
 static int host_ncpu;
+static int server = 0, oui = IB_OPENIB_OUI;
 
 static int server_respond(void *umad, int size)
 {
@@ -222,7 +223,7 @@ static char *ibsystat(ib_portid_t * portid, int attr)
 	rpc.method = IB_MAD_METHOD_GET;
 	rpc.attr.id = attr;
 	rpc.attr.mod = 0;
-	rpc.oui = IB_OPENIB_OUI;
+	rpc.oui = oui;
 	rpc.timeout = 0;
 	rpc.datasz = IB_VENDOR_RANGE2_DATA_SIZE;
 	rpc.dataoffs = IB_VENDOR_RANGE2_DATA_OFFS;
@@ -292,8 +293,6 @@ int build_cpuinfo(void)
 
 	return ncpu;
 }
-
-static int server = 0, oui = IB_OPENIB_OUI;
 
 static int process_opt(void *context, int ch, char *optarg)
 {
