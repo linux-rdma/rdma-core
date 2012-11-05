@@ -29,6 +29,7 @@ OPTIONS
 Current supported operations:
 
 ::
+
         ping \- verify connectivity to server (default)
         host \- obtain host information from server
         cpu  \- obtain cpu information from server

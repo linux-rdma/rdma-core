@@ -42,13 +42,15 @@ client/server. Default is to run as client.
 .SS OPTIONS
 .sp
 Current supported operations:
+.sp
+.nf
+.ft C
+ping \e\- verify connectivity to server (default)
+host \e\- obtain host information from server
+cpu  \e\- obtain cpu information from server
+.ft P
+.fi
 .INDENT 0.0
-.TP
-.B ::
-.
-ping \- verify connectivity to server (default)
-host \- obtain host information from server
-cpu  \- obtain cpu information from server
 .TP
 .B \fB\-o, \-\-oui\fP
 .sp
