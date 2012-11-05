@@ -256,12 +256,12 @@ void rs_configure(void)
 		goto out;
 
 	if ((f = fopen(RS_CONF_DIR "/polling_time", "r"))) {
-		fscanf(f, "%u", &polling_time);
+		(void) fscanf(f, "%u", &polling_time);
 		fclose(f);
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/inline_default", "r"))) {
-		fscanf(f, "%hu", &def_inline);
+		(void) fscanf(f, "%hu", &def_inline);
 		fclose(f);
 
 		if (def_inline < RS_MIN_INLINE)
@@ -269,17 +269,17 @@ void rs_configure(void)
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/sqsize_default", "r"))) {
-		fscanf(f, "%hu", &def_sqsize);
+		(void) fscanf(f, "%hu", &def_sqsize);
 		fclose(f);
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/rqsize_default", "r"))) {
-		fscanf(f, "%hu", &def_rqsize);
+		(void) fscanf(f, "%hu", &def_rqsize);
 		fclose(f);
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/mem_default", "r"))) {
-		fscanf(f, "%u", &def_mem);
+		(void) fscanf(f, "%u", &def_mem);
 		fclose(f);
 
 		if (def_mem < 1)
@@ -287,14 +287,14 @@ void rs_configure(void)
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/wmem_default", "r"))) {
-		fscanf(f, "%u", &def_wmem);
+		(void) fscanf(f, "%u", &def_wmem);
 		fclose(f);
 		if (def_wmem < RS_SNDLOWAT)
 			def_wmem = RS_SNDLOWAT << 1;
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/iomap_size", "r"))) {
-		fscanf(f, "%hu", &def_iomap_size);
+		(void) fscanf(f, "%hu", &def_iomap_size);
 		fclose(f);
 
 		/* round to supported values */
