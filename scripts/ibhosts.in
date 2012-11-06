@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
-function usage() {
+usage() {
 	echo Usage: `basename $0` "[-h] [<topology-file> | -C ca_name" \
 	    "-P ca_port -t timeout_ms]"
 	exit -1

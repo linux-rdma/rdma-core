@@ -1,14 +1,14 @@
-#!/bin/bash
+#!/bin/sh
 
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
-function usage() {
+usage() {
 	echo Usage: `basename $0` "[-h] [-v] [-N | -nocolor]" \
 	    "[<topology-file> \| -C ca_name -P ca_port -t(imeout) timeout_ms]"
 	exit -1
 }
 
-function user_abort() {
+user_abort() {
 	echo "Aborted"
 	exit 1
 }

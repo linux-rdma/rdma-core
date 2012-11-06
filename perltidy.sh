@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Copyright (c) 2009 Voltaire, Inc. All rights reserved.
 # Copyright (c) 2006 The Regents of the University of California.

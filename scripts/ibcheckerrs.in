@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/bin/sh
 
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
-function usage() {
+usage() {
 	echo Usage: `basename $0` "[-h] [-b] [-v] [-G] [-T <threshold_file>]" \
 	    "[-s(how_thresholds)] [-N \| -nocolor] [-C ca_name] [-P ca_port]" \
 	    "[-t(imeout) timeout_ms] <lid|guid> [<port>]"
 	exit -1
 }
 
-function green() {
+green() {
 	if [ "$bw" = "yes" ]; then
 		if [ "$verbose" = "yes" ]; then
 			echo $1
@@ -21,7 +21,7 @@ function green() {
 	fi
 }
 
-function red() {
+red() {
 	if [ "$bw" = "yes" ]; then
 		echo $1
 		return
@@ -29,7 +29,7 @@ function red() {
 	echo -e "\\033[1;031m" $1 "\\033[0;39m"
 }
 
-function show_thresholds() {
+show_thresholds() {
 	echo "SymbolErrorCounter=$SymbolErrorCounter"
 	echo "LinkErrorRecoveryCounter=$LinkErrorRecoveryCounter"
 	echo "LinkDownedCounter=$LinkDownedCounter"
@@ -44,7 +44,7 @@ function show_thresholds() {
 	echo "VL15Dropped=$VL15Dropped"
 }
 
-function get_thresholds() {
+get_thresholds() {
 	. $1
 }
 

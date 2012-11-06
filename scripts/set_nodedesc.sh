@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 if [ -f /etc/sysconfig/network ]; then
 . /etc/sysconfig/network
