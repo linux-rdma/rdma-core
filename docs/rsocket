@@ -1,7 +1,7 @@
-rsocket Protocol and Design Guide               9/10/2012
+rsocket Protocol and Design Guide               11/11/2012
 
-Overview
---------
+Data Streaming (TCP) Overview
+-----------------------------
 Rsockets is a protocol over RDMA that supports a socket-level API
 for applications.  For details on the current state of the
 implementation, readers should refer to the rsocket man page.  This
@@ -189,3 +189,91 @@ registered remote data buffer.
 From host A's perspective, the transfer appears as a normal send/write
 operation, with the data stream redirected directly into the receiving
 application's buffer.
+
+
+
+Datagram Overview
+-----------------
+The rsocket API supports datagram sockets.  Datagram support is handled through an
+entirely different protocol and internal implementation.  Unlike connected rsockets,
+datagram rsockets are not necessarily bound to a network (IP) address.  A datagram
+socket may use any number of network (IP) addresses, including those which map to
+different RDMA devices.  As a result, a single datagram rsocket must support
+using multiple RDMA devices and ports, and a datagram rsocket references a single
+UDP socket, plus zero or more UD QPs.
+
+Rsockets uses headers inserted before user data sent over UDP sockets to resolve
+remote UD QP numbers.  When a user first attempts to send a datagram to a remote
+address (IP and UDP port), rsockets will take the following steps:
+
+1. Store the destination address into a lookup table.
+2. Resolve which local network address should be used when sending
+   to the specified destination.
+3. Allocate a UD QP on the RDMA device associated with the local address.
+4. Send the user's datagram to the remote UDP socket.
+
+A header is inserted before the user's datagram.  The header specifies the
+UD QP number associated with the local network address (IP and UDP port) of
+the send.
+
+A service thread is used to process messages received on the UDP socket.  This
+thread updates the rsocket lookup tables with the remote QPN and path record
+data.  The service thread forwards data received on the UDP socket to an
+rsocket QP.  After the remote QPN and path records have been resolved, datagram
+communication between two nodes are done over the UD QP.
+
+UDP Message Format
+------------------
+Rsockets uses messages exchanged over UDP sockets to resolve remote QP numbers.
+If a user sends a datagram to a remote service and the local rsocket is not
+yet configured to send directly to a remote UD QP, the user data is sent over
+a UDP socket with the following header inserted before the user data. 
+
+struct ds_udp_header {
+	uint32_t	  tag;
+	uint8_t		  version;
+	uint8_t		  op;
+	uint8_t		  length;
+	uint8_t		  reserved;
+	uint32_t	  qpn;  /* lower 8-bits reserved */
+	union {
+		uint32_t  ipv4;
+		uint8_t   ipv6[16];
+	} addr;
+};
+
+Tag - Marker used to help identify that the UDP header is present.
+#define DS_UDP_TAG 0x55555555
+
+Version - IP address version, either 4 or 6
+Op - Indicates message type, used to control the receiver's operation.
+     Valid operations are RS_OP_DATA and RS_OP_CTRL.  Data messages
+     carry user data, while control messages are used to reply with the
+     local QP number.
+Length - Size of the UDP header.
+QPN - UD QP number associated with sender's IP address and port.
+      The sender's address and port is extracted from the received UDP
+      datagram.
+Addr - Target IP address of the sent datagram.
+
+Once the remote QP information has been resolved, data is sent directly
+between UD QPs.  The following header is inserted before any user data that
+is transferred over a UD QP.
+
+struct ds_header {
+	uint8_t		     version;
+	uint8_t		     length;
+	uint16_t	     port;
+	union {
+		uint32_t     ipv4;
+		struct {
+			uint32_t flowinfo;
+			uint8_t  addr[16];
+		} ipv6;
+	} addr;
+};
+
+Verion - IP address version
+Length - Size of the header
+Port - Associated source address UDP port
+Addr - Associated source IP address 
