@@ -176,6 +176,16 @@ May be used several times (\-vv or \-v \-v \-v)
 use the specified M_key for requests. If non\-numeric value (like \(aqx\(aq)
 is specified then a value will be prompted for.
 .UNINDENT
+.\" Define the common option --node-name-map
+.
+.sp
+\fB\-\-node\-name\-map <node\-name\-map>\fP Specify a node name map.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+This file maps GUIDs to more user friendly names.  See FILES section.
+.UNINDENT
+.UNINDENT
 .\" Define the common option -z
 .
 .sp
@@ -195,6 +205,51 @@ Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .sp
 A global config file is provided to set some of the common options for all
 tools.  See supplied config file for details.
+.\" Common text to describe the node name map file.
+.
+.SS NODE NAME MAP FILE FORMAT
+.sp
+The node name map is used to specify user friendly names for nodes in the
+output.  GUIDs are used to perform the lookup.
+.sp
+This functionality is provided by the opensm\-libs package.  See \fBopensm(8)\fP
+for the file location for your installation.
+.sp
+\fBGenerically:\fP
+.sp
+.nf
+.ft C
+# comment
+<guid> "<name>"
+.ft P
+.fi
+.sp
+\fBExample:\fP
+.sp
+.nf
+.ft C
+# IB1
+# Line cards
+0x0008f104003f125c "IB1 (Rack 11 slot 1   ) ISR9288/ISR9096 Voltaire sLB\-24D"
+0x0008f104003f125d "IB1 (Rack 11 slot 1   ) ISR9288/ISR9096 Voltaire sLB\-24D"
+0x0008f104003f10d2 "IB1 (Rack 11 slot 2   ) ISR9288/ISR9096 Voltaire sLB\-24D"
+0x0008f104003f10d3 "IB1 (Rack 11 slot 2   ) ISR9288/ISR9096 Voltaire sLB\-24D"
+0x0008f104003f10bf "IB1 (Rack 11 slot 12  ) ISR9288/ISR9096 Voltaire sLB\-24D"
+
+# Spines
+0x0008f10400400e2d "IB1 (Rack 11 spine 1   ) ISR9288 Voltaire sFB\-12D"
+0x0008f10400400e2e "IB1 (Rack 11 spine 1   ) ISR9288 Voltaire sFB\-12D"
+0x0008f10400400e2f "IB1 (Rack 11 spine 1   ) ISR9288 Voltaire sFB\-12D"
+0x0008f10400400e31 "IB1 (Rack 11 spine 2   ) ISR9288 Voltaire sFB\-12D"
+0x0008f10400400e32 "IB1 (Rack 11 spine 2   ) ISR9288 Voltaire sFB\-12D"
+
+# GUID   Node Name
+0x0008f10400411a08 "SW1  (Rack  3) ISR9024 Voltaire 9024D"
+0x0008f10400411a28 "SW2  (Rack  3) ISR9024 Voltaire 9024D"
+0x0008f10400411a34 "SW3  (Rack  3) ISR9024 Voltaire 9024D"
+0x0008f104004119d0 "SW4  (Rack  3) ISR9024 Voltaire 9024D"
+.ft P
+.fi
 .SS EXAMPLES
 .sp
 Unicast examples

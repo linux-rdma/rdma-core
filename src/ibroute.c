@@ -54,6 +54,9 @@ struct ibmad_port *srcport;
 
 static int brief, dump_all, multicast;
 
+static char *node_name_map_file = NULL;
+static nn_map_t *node_name_map = NULL;
+
 /*******************************************/
 
 char *check_switch(ib_portid_t * portid, unsigned int *nports, uint64_t * guid,
@@ -143,6 +146,7 @@ char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 	uint32_t mod;
 	unsigned block, i, j, e, nports, cap, chunks, startblock, lastblock,
 	    top;
+	char *mapnd = NULL;
 	int n = 0;
 
 	if ((s = check_switch(portid, &nports, &nodeguid, sw, nd)))
@@ -174,9 +178,11 @@ char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 		endlid = IB_MAX_MCAST_LID;
 	}
 
+	mapnd = remap_node_name(node_name_map, nodeguid, clean_nodedesc(nd));
+
 	printf("Multicast mlids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
 	       " (%s):\n", startlid, endlid, portid2str(portid), nodeguid,
-	       clean_nodedesc(nd));
+	       mapnd);
 
 	if (brief)
 		printf(" MLid       Port Mask\n");
@@ -231,6 +237,8 @@ char *dump_multicast_tables(ib_portid_t * portid, unsigned startlid,
 	}
 
 	printf("%d %smlids dumped \n", n, dump_all ? "" : "valid ");
+
+	free(mapnd);
 	return 0;
 }
 
@@ -241,9 +249,12 @@ int dump_lid(char *str, int strlen, int lid, int valid)
 	uint8_t pi[IB_SMP_DATA_SIZE] = { 0 };
 	ib_portid_t lidport = { 0 };
 	static int last_port_lid, base_port_lid;
-	char ntype[50], sguid[30], desc[64];
+	char ntype[50], sguid[30];
 	static uint64_t portguid;
+	uint64_t nodeguid;
 	int baselid, lmc, type;
+	char *mapnd = NULL;
+	int rc;
 
 	if (brief) {
 		str[0] = 0;
@@ -281,6 +292,7 @@ int dump_lid(char *str, int strlen, int lid, int valid)
 	    !smp_query_via(ni, &lidport, IB_ATTR_NODE_INFO, 0, 100, srcport))
 		return snprintf(str, strlen, ": (unknown node and type)");
 
+	mad_decode_field(ni, IB_NODE_GUID_F, &nodeguid);
 	mad_decode_field(ni, IB_NODE_PORT_GUID_F, &portguid);
 	mad_decode_field(ni, IB_NODE_TYPE_F, &type);
 
@@ -292,13 +304,17 @@ int dump_lid(char *str, int strlen, int lid, int valid)
 		last_port_lid = baselid + (1 << lmc) - 1;
 	}
 
-	return snprintf(str, strlen, ": (%s portguid %s: %s)",
-			mad_dump_val(IB_NODE_TYPE_F, ntype, sizeof ntype,
-				     &type), mad_dump_val(IB_NODE_PORT_GUID_F,
-							  sguid, sizeof sguid,
-							  &portguid),
-			mad_dump_val(IB_NODE_DESC_F, desc, sizeof desc,
-				     clean_nodedesc(nd)));
+	mapnd = remap_node_name(node_name_map, nodeguid, clean_nodedesc(nd));
+ 
+	rc = snprintf(str, strlen, ": (%s portguid %s: '%s')",
+		      mad_dump_val(IB_NODE_TYPE_F, ntype, sizeof ntype,
+				   &type), mad_dump_val(IB_NODE_PORT_GUID_F,
+							sguid, sizeof sguid,
+							&portguid),
+		      mapnd);
+
+	free(mapnd);
+	return rc;
 }
 
 char *dump_unicast_tables(ib_portid_t * portid, int startlid, int endlid)
@@ -311,6 +327,7 @@ char *dump_unicast_tables(ib_portid_t * portid, int startlid, int endlid)
 	int block, i, e, top;
 	unsigned nports;
 	int n = 0, startblock, endblock;
+	char *mapnd = NULL;
 
 	if ((s = check_switch(portid, &nports, &nodeguid, sw, nd)))
 		return s;
@@ -326,9 +343,11 @@ char *dump_unicast_tables(ib_portid_t * portid, int startlid, int endlid)
 		endlid = IB_MAX_UCAST_LID;
 	}
 
+	mapnd = remap_node_name(node_name_map, nodeguid, clean_nodedesc(nd));
+
 	printf("Unicast lids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
 	       " (%s):\n", startlid, endlid, portid2str(portid), nodeguid,
-	       clean_nodedesc(nd));
+	       mapnd);
 
 	DEBUG("Switch top is 0x%x\n", top);
 
@@ -361,6 +380,7 @@ char *dump_unicast_tables(ib_portid_t * portid, int startlid, int endlid)
 	}
 
 	printf("%d %slids dumped \n", n, dump_all ? "" : "valid ");
+	free(mapnd);
 	return 0;
 }
 
@@ -375,6 +395,9 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'n':
 		brief++;
+		break;
+	case 1:
+		node_name_map_file = strdup(optarg);
 		break;
 	default:
 		return -1;
@@ -395,6 +418,7 @@ int main(int argc, char **argv)
 		{"no_dests", 'n', 0, NULL,
 		 "do not try to resolve destinations"},
 		{"Multicast", 'M', 0, NULL, "show multicast forwarding tables"},
+		{"node-name-map", 1, 1, "<file>", "node name map file"},
 		{0}
 	};
 	char usage_args[] = "[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]";
@@ -428,6 +452,8 @@ int main(int argc, char **argv)
 	if (argc > 2)
 		endlid = strtoul(argv[2], 0, 0);
 
+	node_name_map = open_node_name_map(node_name_map_file);
+
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!srcport)
 		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
@@ -447,5 +473,6 @@ int main(int argc, char **argv)
 		IBERROR("dump tables: %s", err);
 
 	mad_rpc_close_port(srcport);
+	close_node_name_map(node_name_map);
 	exit(0);
 }
