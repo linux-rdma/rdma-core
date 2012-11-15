@@ -130,6 +130,10 @@ ibdiag_version:
 		fi ; \
 	fi
 
+if HAVE_DASH
+TESTS = tests/check_shells.sh
+endif
+
 EXTRA_DIST = doc scripts include infiniband-diags.spec.in infiniband-diags.spec \
 	$(man_MANS) $(compat_man_pages) autogen.sh etc/*
 

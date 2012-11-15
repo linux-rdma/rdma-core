@@ -24,6 +24,9 @@ dnl Checks for programs
 AC_PROG_CC
 AC_PROG_LIBTOOL
 
+AC_CHECK_PROG(have_dash, [dash], true, false)
+AM_CONDITIONAL(HAVE_DASH, test x$have_dash = xtrue)
+
 dnl Checks for libraries
 AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. diags require libibumad.]))
