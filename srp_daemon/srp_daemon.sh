@@ -33,7 +33,7 @@ shopt -s nullglob
 prog=/usr/sbin/srp_daemon
 params=$@
 ibdir="/sys/class/infiniband"
-retries=60
+rescan_interval=60
 pids=""
 pidfile=/var/run/srp_daemon.sh.pid
 mypid=$$
@@ -76,7 +76,7 @@ for d in ${ibdir}_mad/umad*; do
     port="$(<$d/port)"
     add_target="${ibdir}_srp/srp-${hca_id}-${port}/add_target"
     if [ -e "${add_target}" ]; then
-        ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${retries} ${params} >/dev/null 2>&1 &
+        ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${rescan_interval} ${params} >/dev/null 2>&1 &
         pids="$pids $!"
     fi
 done
