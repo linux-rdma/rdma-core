@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>

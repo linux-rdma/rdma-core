@@ -71,6 +71,12 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 #define max(a, b) ((a) > (b) ? a : b)
 #define min(a, b) ((a) < (b) ? a : b)
 
+#ifndef container_of
+#define container_of(ptr, type, field) \
+	((type *) ((void *)ptr - offsetof(type, field)))
+#endif
+
+
 /*
  * Fast synchronization for low contention locking.
  */
