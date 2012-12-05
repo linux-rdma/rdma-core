@@ -476,7 +476,6 @@ void mad_dump_mtu(char *buf, int bufsz, void *val, int valsz)
 		break;
 	default:
 		snprintf(buf, bufsz, "?(%d)", mtu);
-		buf[0] = 0;
 	}
 }
 
