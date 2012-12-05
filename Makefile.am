@@ -29,7 +29,7 @@ src_librspreload_la_LIBADD = $(top_builddir)/src/librdmacm.la
 bin_PROGRAMS = examples/ucmatose examples/rping examples/udaddy examples/mckey \
 	       examples/rdma_client examples/rdma_server examples/rdma_xclient \
 	       examples/rdma_xserver examples/rstream examples/rcopy \
-	       examples/riostream
+	       examples/riostream examples/udpong
 examples_ucmatose_SOURCES = examples/cmatose.c examples/common.c
 examples_ucmatose_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rping_SOURCES = examples/rping.c
@@ -46,12 +46,14 @@ examples_rdma_xclient_SOURCES = examples/rdma_xclient.c
 examples_rdma_xclient_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rdma_xserver_SOURCES = examples/rdma_xserver.c
 examples_rdma_xserver_LDADD = $(top_builddir)/src/librdmacm.la
-examples_rstream_SOURCES = examples/rstream.c
+examples_rstream_SOURCES = examples/rstream.c examples/common.c
 examples_rstream_LDADD = $(top_builddir)/src/librdmacm.la
-examples_riostream_SOURCES = examples/riostream.c
+examples_riostream_SOURCES = examples/riostream.c examples/common.c
 examples_riostream_LDADD = $(top_builddir)/src/librdmacm.la
 examples_rcopy_SOURCES = examples/rcopy.c
 examples_rcopy_LDADD = $(top_builddir)/src/librdmacm.la
+examples_udpong_SOURCES = examples/udpong.c examples/common.c
+examples_udpong_LDADD = $(top_builddir)/src/librdmacm.la
 
 librdmacmincludedir = $(includedir)/rdma
 infinibandincludedir = $(includedir)/infiniband

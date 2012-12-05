@@ -45,6 +45,8 @@
 #include <rdma/rdma_cma.h>
 #include "common.h"
 
+int use_rs = 1;
+
 int get_rdma_addr(char *src, char *dst, char *port,
 		  struct rdma_addrinfo *hints, struct rdma_addrinfo **rai)
 {
@@ -71,4 +73,95 @@ int get_rdma_addr(char *src, char *dst, char *port,
 		rdma_freeaddrinfo(res);
 
 	return ret;
+}
+
+void size_str(char *str, size_t ssize, long long size)
+{
+	long long base, fraction = 0;
+	char mag;
+
+	if (size >= (1 << 30)) {
+		base = 1 << 30;
+		mag = 'g';
+	} else if (size >= (1 << 20)) {
+		base = 1 << 20;
+		mag = 'm';
+	} else if (size >= (1 << 10)) {
+		base = 1 << 10;
+		mag = 'k';
+	} else {
+		base = 1;
+		mag = '\0';
+	}
+
+	if (size / base < 10)
+		fraction = (size % base) * 10 / base;
+	if (fraction) {
+		snprintf(str, ssize, "%lld.%lld%c", size / base, fraction, mag);
+	} else {
+		snprintf(str, ssize, "%lld%c", size / base, mag);
+	}
+}
+
+void cnt_str(char *str, size_t ssize, long long cnt)
+{
+	if (cnt >= 1000000000)
+		snprintf(str, ssize, "%lldb", cnt / 1000000000);
+	else if (cnt >= 1000000)
+		snprintf(str, ssize, "%lldm", cnt / 1000000);
+	else if (cnt >= 1000)
+		snprintf(str, ssize, "%lldk", cnt / 1000);
+	else
+		snprintf(str, ssize, "%lld", cnt);
+}
+
+int size_to_count(int size)
+{
+	if (size >= 1000000)
+		return 100;
+	else if (size >= 100000)
+		return 1000;
+	else if (size >= 10000)
+		return 10000;
+	else if (size >= 1000)
+		return 100000;
+	else
+		return 1000000;
+}
+
+void format_buf(void *buf, int size)
+{
+	uint8_t *array = buf;
+	static uint8_t data;
+	int i;
+
+	for (i = 0; i < size; i++)
+		array[i] = data++;
+}
+
+int verify_buf(void *buf, int size)
+{
+	static long long total_bytes;
+	uint8_t *array = buf;
+	static uint8_t data;
+	int i;
+
+	for (i = 0; i < size; i++, total_bytes++) {
+		if (array[i] != data++) {
+			printf("data verification failed byte %lld\n", total_bytes);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int do_poll(struct pollfd *fds, int timeout)
+{
+	int ret;
+
+	do {
+		ret = rs_poll(fds, 1, timeout);
+	} while (!ret);
+
+	return ret == 1 ? 0 : ret;
 }
