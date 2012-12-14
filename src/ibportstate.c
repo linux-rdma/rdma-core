@@ -236,7 +236,12 @@ static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 static void set_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 			  int espeed_cap, int is_switch)
 {
-	if (!smp_set_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
+	unsigned mod;
+
+	mod = portnum;
+	if (espeed_cap)
+		mod |= 1<<31;
+	if (!smp_set_via(data, dest, IB_ATTR_PORT_INFO, mod, 0, srcport))
 		IBERROR("smp set portinfo failed");
 
 	printf("\nAfter PortInfo set:\n");
