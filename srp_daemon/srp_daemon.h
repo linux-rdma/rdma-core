@@ -417,7 +417,6 @@ void ud_resources_init(struct ud_resources *res);
 int ud_resources_create(struct ud_resources *res);
 int ud_resources_destroy(struct ud_resources *res);
 int wait_for_recalc(struct resources *res_in);
-int recalc(struct resources *res);
 int trap_main(struct resources *res);
 void *run_thread_get_trap_notices(void *res_in);
 void *run_thread_listen_to_events(void *res_in);

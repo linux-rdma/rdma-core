@@ -189,7 +189,7 @@ uint64_t attr_value;
 }
 
 
-int recalc(struct resources *res);
+static int recalc(struct resources *res);
 
 void pr_cmd(char *target_str, int not_connected)
 {
@@ -1676,7 +1676,7 @@ free_umad:
 	exit(-ret);
 }
 
-int recalc(struct resources *res)
+static int recalc(struct resources *res)
 {
 	struct umad_resources *umad_res = res->umad_res;
 	int  mask_match;
