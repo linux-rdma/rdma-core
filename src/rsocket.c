@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2008-2013 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -451,6 +451,10 @@ void rs_configure(void)
 	pthread_mutex_lock(&mut);
 	if (init)
 		goto out;
+
+	if (ucma_init())
+		goto out;
+	ucma_ib_init();
 
 	if ((f = fopen(RS_CONF_DIR "/polling_time", "r"))) {
 		(void) fscanf(f, "%u", &polling_time);
