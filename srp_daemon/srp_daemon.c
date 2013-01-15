@@ -99,7 +99,8 @@ static int check_process_uniqueness(struct config_t *conf)
 	return 0;
 }
 
-int srpd_sys_read_string(char *dir_name, char *file_name, char *str, int max_len)
+int srpd_sys_read_string(const char *dir_name, const char *file_name,
+			 char *str, int max_len)
 {
 	char path[256], *s;
 	int fd, r;
