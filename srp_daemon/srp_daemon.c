@@ -963,7 +963,7 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 static int do_dm_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
-	uint8_t                         in_mad_buf[node_table_response_size];
+	uint8_t                        *in_mad_buf;
 	srp_ib_user_mad_t		out_mad;
 	struct ib_user_mad	       *in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
@@ -972,6 +972,11 @@ static int do_dm_port_list(struct resources *res)
 	int size;
 	int i;
 	uint64_t guid;
+
+	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
+			    node_table_response_size);
+	if (!in_mad_buf)
+		return -ENOMEM;
 
 	in_mad     = (void *) in_mad_buf;
 	in_sa_mad  = (void *) in_mad->data;
@@ -988,8 +993,10 @@ static int do_dm_port_list(struct resources *res)
 	port_info->capability_mask = htonl(SRP_IS_DM); /* IsDM */
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad, (srp_ib_user_mad_t *) in_mad, node_table_response_size);
-	if (len < 0)
+	if (len < 0) {
+		free(in_mad_buf);
 		return len;
+	}
 
 	size = ib_get_attr_size(in_sa_mad->attr_offset);
 
@@ -997,6 +1004,7 @@ static int do_dm_port_list(struct resources *res)
 		if (config->verbose) {
 			printf("Query did not find any targets\n");
 		}
+		free(in_mad_buf);
 		return 0;
 	}
 
@@ -1010,6 +1018,7 @@ static int do_dm_port_list(struct resources *res)
 			ntohll(port_info->subnet_prefix), guid);
 	}
 
+	free(in_mad_buf);
 	return 0;
 }
 
@@ -1033,7 +1042,7 @@ void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid)
 static int do_full_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
-	uint8_t                         in_mad_buf[node_table_response_size];
+	uint8_t                        *in_mad_buf;
 	srp_ib_user_mad_t		out_mad;
 	struct ib_user_mad	       *in_mad;
 	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
@@ -1041,6 +1050,11 @@ static int do_full_port_list(struct resources *res)
 	ssize_t len;
 	int size;
 	int i;
+
+	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
+			    node_table_response_size);
+	if (!in_mad_buf)
+		return -ENOMEM;
 
 	in_mad     = (void *) in_mad_buf;
 	in_sa_mad  = (void *) in_mad->data;
@@ -1055,8 +1069,10 @@ static int do_full_port_list(struct resources *res)
 	out_sa_mad->rmpp_type     = 1;
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad, (srp_ib_user_mad_t *) in_mad, node_table_response_size);
-	if (len < 0)
+	if (len < 0) {
+		free(in_mad_buf);
 		return len;
+	}
 
 	size = ntohs(in_sa_mad->attr_offset) * 8;
 
@@ -1067,6 +1083,7 @@ static int do_full_port_list(struct resources *res)
 			    ntohll(node->port_guid));
 	}
 
+	free(in_mad_buf);
 	return 0;
 }
 
