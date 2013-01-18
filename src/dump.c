@@ -851,6 +851,11 @@ void mad_dump_portsamples_control(char *buf, int bufsz, void *val, int valsz)
 	_dump_fields(buf, bufsz, val, IB_PSC_OPCODE_F, IB_PSC_LAST_F);
 }
 
+void mad_dump_portsamples_result(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PSR_TAG_F, IB_PSR_LAST_F);
+}
+
 void mad_dump_port_ext_speeds_counters(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_PESC_PORT_SELECT_F, IB_PESC_LAST_F);

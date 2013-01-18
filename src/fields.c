@@ -927,6 +927,28 @@ static const ib_field_t ib_mad_f[] = {
 	{352, 64 * 8, "NodeDesc", mad_dump_string},
 	{0, 0}, /* IB_SA_NR_LAST_F */
 
+	/*
+	 * PortSamplesResult fields
+	 */
+	{BITSOFFS(0, 16), "Tag", mad_dump_hex},
+	{BITSOFFS(30, 2), "SampleStatus", mad_dump_hex},
+	{32, 32, "Counter0", mad_dump_uint},
+	{64, 32, "Counter1", mad_dump_uint},
+	{96, 32, "Counter2", mad_dump_uint},
+	{128, 32, "Counter3", mad_dump_uint},
+	{160, 32, "Counter4", mad_dump_uint},
+	{192, 32, "Counter5", mad_dump_uint},
+	{224, 32, "Counter6", mad_dump_uint},
+	{256, 32, "Counter7", mad_dump_uint},
+	{288, 32, "Counter8", mad_dump_uint},
+	{320, 32, "Counter9", mad_dump_uint},
+	{352, 32, "Counter10", mad_dump_uint},
+	{384, 32, "Counter11", mad_dump_uint},
+	{416, 32, "Counter12", mad_dump_uint},
+	{448, 32, "Counter13", mad_dump_uint},
+	{480, 32, "Counter14", mad_dump_uint},
+	{0, 0},			/* IB_PSR_LAST_F */
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 
 };

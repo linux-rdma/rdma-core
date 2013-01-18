@@ -35,6 +35,7 @@ IBMAD_1.3 {
 		mad_dump_portcapmask;
 		mad_dump_portinfo;
 		mad_dump_portsamples_control;
+		mad_dump_portsamples_result;
 		mad_dump_perfcounters_port_op_rcv_counters;
 		mad_dump_perfcounters_port_flow_ctl_counters;
 		mad_dump_perfcounters_port_vl_op_packet;

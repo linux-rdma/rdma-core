@@ -1231,6 +1231,28 @@ enum MAD_FIELDS {
 	IB_SA_NR_NODEDESC_F,
 	IB_SA_NR_LAST_F,
 
+	/*
+	 * PortSamplesResult fields
+	 */
+	IB_PSR_TAG_F,
+	IB_PSR_SAMPLE_STATUS_F,
+	IB_PSR_COUNTER0_F,
+	IB_PSR_COUNTER1_F,
+	IB_PSR_COUNTER2_F,
+	IB_PSR_COUNTER3_F,
+	IB_PSR_COUNTER4_F,
+	IB_PSR_COUNTER5_F,
+	IB_PSR_COUNTER6_F,
+	IB_PSR_COUNTER7_F,
+	IB_PSR_COUNTER8_F,
+	IB_PSR_COUNTER9_F,
+	IB_PSR_COUNTER10_F,
+	IB_PSR_COUNTER11_F,
+	IB_PSR_COUNTER12_F,
+	IB_PSR_COUNTER13_F,
+	IB_PSR_COUNTER14_F,
+	IB_PSR_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 
@@ -1593,7 +1615,7 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_cc_switchportcongestionsettingelement, mad_dump_cc_cacongestionsetting,
     mad_dump_cc_cacongestionentry, mad_dump_cc_congestioncontroltable,
     mad_dump_cc_congestioncontroltableentry, mad_dump_cc_timestamp,
-    mad_dump_classportinfo;
+    mad_dump_classportinfo, mad_dump_portsamples_result;
 
 MAD_EXPORT void mad_dump_fields(char *buf, int bufsz, void *val, int valsz,
 				int start, int end);
