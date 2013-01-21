@@ -1,4 +1,4 @@
-.TH "RSOCKET" 7 "2010-07-19" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RSOCKET" 7 "2013-01-21" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rsocket \- RDMA socket API
 .SH SYNOPSIS
@@ -33,13 +33,16 @@ rsetsockopt, rgetsockopt, rfcntl
 Functions take the same parameters as that used for sockets.  The
 follow capabilities and flags are supported at this time:
 .P
-PF_INET, PF_INET6, SOCK_STREAM, IPPROTO_TCP, TCP_MAXSEG
+PF_INET, PF_INET6, SOCK_STREAM, SOCK_DGRAM
 .P
-MSG_DONTWAIT, MSG_PEEK
+SOL_SOCKET - SO_ERROR, SO_KEEPALIVE (flag supported, but ignored),
+SO_LINGER, SO_OOBINLINE, SO_RCVBUF, SO_REUSEADDR, SO_SNDBUF
+.P 
+IPPROTO_TCP - TCP_NODELAY, TCP_MAXSEG
 .P
-SO_REUSEADDR, TCP_NODELAY, SO_ERROR, SO_SNDBUF, SO_RCVBUF
+IPPROTO_IPV6 - IPV6_V6ONLY
 .P
-O_NONBLOCK
+MSG_DONTWAIT, MSG_PEEK, O_NONBLOCK
 .P
 Rsockets provides extensions beyond normal socket routines that
 allow for direct placement of data into an application's buffer.
@@ -129,6 +132,15 @@ inline_default - default size of inline data
 .P
 iomap_size - default size of remote iomapping table
 .P
+polling_time - default number of microseconds to poll for data before waiting
+.P
+All configuration files should contain a single integer value.  Values may
+be set by issuing a command similar to the following example.
+.P
+echo 1000000 > /etc/rdma/rsocket/mem_default
+.P
 If configuration files are not available, rsockets uses internal defaults.
+Applications can override default values programmatically through the
+rsetsockopt routine.
 .SH "SEE ALSO"
 rdma_cm(7)
