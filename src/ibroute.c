@@ -462,7 +462,7 @@ int main(int argc, char **argv)
 
 	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
 			       ibd_dest_type, ibd_sm_id, srcport) < 0)
-		IBERROR("can't resolve destination port %s", argv[1]);
+		IBERROR("can't resolve destination port %s", argv[0]);
 
 	if (multicast)
 		err = dump_multicast_tables(&portid, startlid, endlid);
