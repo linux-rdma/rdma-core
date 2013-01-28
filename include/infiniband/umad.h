@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <byteswap.h>
+#include <arpa/inet.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -193,8 +195,6 @@ int umad_debug(int level);
 void umad_addr_dump(ib_mad_addr_t * addr);
 void umad_dump(void *umad);
 
-#include <stdlib.h>
-
 static inline void *umad_alloc(int num, size_t size)
 {				/* alloc array of umad buffers */
 	return calloc(num, size);
@@ -204,6 +204,17 @@ static inline void umad_free(void *umad)
 {
 	free(umad);
 }
+
+#ifndef ntohll
+  #if __BYTE_ORDER == __LITTLE_ENDIAN
+    #define ntohll(x) bswap_64(x)
+  #elif __BYTE_ORDER == __BIG_ENDIAN
+    #define ntohll(x) x
+  #endif
+#endif
+#ifndef htonll
+  #define htonll ntohll
+#endif
 
 END_C_DECLS
 #endif				/* _UMAD_H */
