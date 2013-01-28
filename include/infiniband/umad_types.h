@@ -108,6 +108,9 @@ enum {
 
 /* RMPP information */
 #define UMAD_RMPP_VERSION		1
+enum {
+	UMAD_RMPP_FLAG_ACTIVE		= 1,
+};
 
 enum {
 	UMAD_LEN_DATA			= 232,
