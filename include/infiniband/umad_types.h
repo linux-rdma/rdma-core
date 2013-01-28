@@ -38,6 +38,7 @@
 #define _UMAD_TYPES_H
 
 #include <stdint.h>
+#include <infiniband/umad.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -120,11 +121,11 @@ struct umad_hdr {
 	uint8_t	 class_version;
 	uint8_t	 method;
 	uint16_t status;
-	uint16_t class_specific;
-	uint64_t tid;
-	uint16_t attr_id;
-	uint16_t resv;
-	uint32_t attr_mod;
+	be16_t   class_specific;
+	be64_t   tid;
+	be16_t   attr_id;
+	be16_t   resv;
+	be32_t   attr_mod;
 };
 
 struct umad_rmpp_hdr {
@@ -132,27 +133,27 @@ struct umad_rmpp_hdr {
 	uint8_t	 rmpp_type;
 	uint8_t	 rmpp_rtime_flags;
 	uint8_t	 rmpp_status;
-	uint32_t seg_num;
-	uint32_t paylen_newwin;
+	be32_t   seg_num;
+	be32_t   paylen_newwin;
 };
 
 struct umad_packet {
 	struct umad_hdr		mad_hdr;
-	uint8_t			data[UMAD_LEN_DATA];
+	uint8_t			data[UMAD_LEN_DATA]; /* network-byte order */
 };
 
 struct umad_rmpp_packet {
 	struct umad_hdr		mad_hdr;
 	struct umad_rmpp_hdr	rmpp_hdr;
-	uint8_t			data[UMAD_LEN_RMPP_DATA];
+	uint8_t			data[UMAD_LEN_RMPP_DATA]; /* network-byte order */
 };
 
 struct umad_vendor_packet {
 	struct umad_hdr		mad_hdr;
 	struct umad_rmpp_hdr	rmpp_hdr;
 	uint8_t			reserved;
-	uint8_t			oui[3];
-	uint8_t			data[UMAD_LEN_VENDOR_DATA];
+	uint8_t			oui[3];	/* network-byte order */
+	uint8_t			data[UMAD_LEN_VENDOR_DATA]; /* network-byte order */
 };
 
 enum {

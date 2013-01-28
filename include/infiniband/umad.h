@@ -47,21 +47,26 @@
 #endif				/* __cplusplus */
 
 BEGIN_C_DECLS
+
+typedef uint16_t be16_t;
+typedef uint32_t be32_t;
+typedef uint64_t be64_t;
+
 #define UMAD_MAX_DEVICES 32
 #define UMAD_ANY_PORT	0
 typedef struct ib_mad_addr {
-	uint32_t qpn;
-	uint32_t qkey;
-	uint16_t lid;
+	be32_t qpn;
+	be32_t qkey;
+	be16_t lid;
 	uint8_t sl;
 	uint8_t path_bits;
 	uint8_t grh_present;
 	uint8_t gid_index;
 	uint8_t hop_limit;
 	uint8_t traffic_class;
-	uint8_t gid[16];
-	uint32_t flow_label;
-	uint16_t pkey_index;
+	uint8_t gid[16]; /* network-byte order */
+	be32_t flow_label;
+	be16_t pkey_index;
 	uint8_t reserved[6];
 } ib_mad_addr_t;
 

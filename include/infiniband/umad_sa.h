@@ -87,14 +87,17 @@ enum {
 	UMAD_LEN_SA_DATA		= 200
 };
 
+/*
+ *  sm_key is not aligned on an 8-byte boundary, so is defined as a byte array
+ */
 struct umad_sa_packet {
 	struct umad_hdr		mad_hdr;
 	struct umad_rmpp_hdr	rmpp_hdr;
-	uint8_t			sm_key[8];
-	uint16_t		attr_offset;
-	uint16_t		reserved;
-	uint64_t		comp_mask;
-	uint8_t 		data[UMAD_LEN_SA_DATA];
+	uint8_t			sm_key[8]; /* network-byte order */
+	be16_t			attr_offset;
+	be16_t			reserved;
+	be64_t			comp_mask;
+	uint8_t 		data[UMAD_LEN_SA_DATA]; /* network-byte order */
 };
 
 END_C_DECLS
