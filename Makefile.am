@@ -34,7 +34,11 @@ libibumad_la_DEPENDENCIES = $(srcdir)/src/libibumad.map
 
 libibumadincludedir = $(includedir)/infiniband
 
-libibumadinclude_HEADERS = $(srcdir)/include/infiniband/umad.h
+libibumadinclude_HEADERS = $(srcdir)/include/infiniband/umad.h \
+	$(srcdir)/include/infiniband/umad_types.h \
+	$(srcdir)/include/infiniband/umad_sa.h \
+	$(srcdir)/include/infiniband/umad_sm.h \
+	$(srcdir)/include/infiniband/umad_cm.h
 
 EXTRA_DIST = $(srcdir)/include/infiniband/umad.h \
 	libibumad.spec.in libibumad.spec \
