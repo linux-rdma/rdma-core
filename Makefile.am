@@ -15,7 +15,8 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 	        src/perfquery src/sminfo src/smpdump src/smpquery \
 	        src/saquery src/vendstat src/iblinkinfo \
 		src/ibqueryerrors src/ibcacheedit src/ibccquery \
-		src/ibccconfig
+		src/ibccconfig \
+		src/dump_fts
 
 if ENABLE_TEST_UTILS
 sbin_PROGRAMS += src/ibsendtrap src/mcm_rereg_test
@@ -45,6 +46,7 @@ man_MANS = doc/man/ibaddr.8 \
 		doc/man/ibcacheedit.8 \
 		doc/man/ibccconfig.8 \
 		doc/man/ibccquery.8 \
+		doc/man/dump_fts.8 \
 		doc/man/dump_lfts.8 \
 		doc/man/dump_mfts.8 \
 		doc/man/iblinkinfo.8 \
@@ -117,6 +119,9 @@ src_ibqueryerrors_SOURCES = src/ibqueryerrors.c
 src_ibqueryerrors_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibcacheedit_SOURCES = src/ibcacheedit.c
 src_ibcacheedit_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
+
+src_dump_fts_SOURCES = src/dump_fts.c
+src_dump_fts_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 
 BUILT_SOURCES = ibdiag_version
 ibdiag_version:

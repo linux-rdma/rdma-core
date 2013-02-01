@@ -127,6 +127,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man8/ibccquery.8.gz
 %{_sbindir}/ibccconfig
 %{_mandir}/man8/ibccconfig.8.gz
+%{_sbindir}/dump_fts
+%{_mandir}/man8/dump_fts.8.gz
 
 # scripts here
 %{_sbindir}/ibhosts
