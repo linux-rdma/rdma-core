@@ -231,6 +231,9 @@ IBND_EXPORT ibnd_port_t *ibnd_find_port_guid(ibnd_fabric_t * fabric,
 					uint64_t guid);
 IBND_EXPORT ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric,
 					char *dr_str);
+IBND_EXPORT ibnd_port_t *ibnd_find_port_lid(ibnd_fabric_t * fabric,
+					    uint16_t lid);
+
 typedef void (*ibnd_iter_port_func_t) (ibnd_port_t * port, void *user_data);
 IBND_EXPORT void ibnd_iter_ports(ibnd_fabric_t * fabric,
 				ibnd_iter_port_func_t func, void *user_data);

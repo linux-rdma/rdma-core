@@ -98,10 +98,10 @@ static int add_port_to_dpath(ib_dr_path_t * path, int nextport)
 static int retract_dpath(smp_engine_t * engine, ib_portid_t * portid)
 {
 	ibnd_scan_t *scan = engine->user_data;
-	ibnd_fabric_t *fabric = scan->fabric;
+	f_internal_t *f_int = scan->f_int;
 
 	if (scan->cfg->max_hops &&
-	    fabric->maxhops_discovered > scan->cfg->max_hops)
+	    f_int->fabric.maxhops_discovered > scan->cfg->max_hops)
 		return 0;
 
 	/* this may seem wrong but the only time we would retract the path is
@@ -109,7 +109,7 @@ static int retract_dpath(smp_engine_t * engine, ib_portid_t * portid)
 	 * from that to find the node it is connected to.  This counts as a
 	 * positive hop discovered
 	 */
-	fabric->maxhops_discovered++;
+	f_int->fabric.maxhops_discovered++;
 	portid->drpath.p[portid->drpath.cnt] = 0;
 	portid->drpath.cnt--;
 	return 1;
@@ -119,10 +119,10 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 			int nextport)
 {
 	ibnd_scan_t *scan = engine->user_data;
-	ibnd_fabric_t *fabric = scan->fabric;
+	f_internal_t *f_int = scan->f_int;
 
 	if (scan->cfg->max_hops &&
-	    fabric->maxhops_discovered > scan->cfg->max_hops)
+	    f_int->fabric.maxhops_discovered > scan->cfg->max_hops)
 		return 0;
 
 	if (portid->lid) {
@@ -144,8 +144,8 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 	}
 
 	if (((unsigned) portid->drpath.cnt - scan->initial_hops) >
-	    fabric->maxhops_discovered)
-		fabric->maxhops_discovered++;
+	    f_int->fabric.maxhops_discovered)
+		f_int->fabric.maxhops_discovered++;
 
 	return 1;
 }
@@ -213,7 +213,7 @@ static int is_mlnx_ext_port_info_supported(ibnd_port_t * port)
 int mlnx_ext_port_info_err(smp_engine_t * engine, ibnd_smp_t * smp,
 			   uint8_t * mad, void *cb_data)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	f_internal_t *f_int = ((ibnd_scan_t *) engine->user_data)->f_int;
 	ibnd_node_t *node = cb_data;
 	ibnd_port_t *port;
 	uint8_t port_num, local_port;
@@ -232,12 +232,12 @@ int mlnx_ext_port_info_err(smp_engine_t * engine, ibnd_smp_t * smp,
 	if (port_num && mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
 	    == IB_PORT_PHYS_STATE_LINKUP
 	    && ((node->type == IB_NODE_SWITCH && port_num != local_port) ||
-		(node == fabric->from_node && port_num == fabric->from_portnum))) {
+		(node == f_int->fabric.from_node && port_num == f_int->fabric.from_portnum))) {
 		int rc = 0;
 		ib_portid_t path = smp->path;
 
 		if (node->type != IB_NODE_SWITCH &&
-		    node == fabric->from_node &&
+		    node == f_int->fabric.from_node &&
 		    path.drpath.cnt > 1)
 			rc = retract_dpath(engine, &path);
 		else {
@@ -260,7 +260,7 @@ int mlnx_ext_port_info_err(smp_engine_t * engine, ibnd_smp_t * smp,
 static int recv_mlnx_ext_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 				   uint8_t * mad, void *cb_data)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	f_internal_t *f_int = ((ibnd_scan_t *) engine->user_data)->f_int;
 	ibnd_node_t *node = cb_data;
 	ibnd_port_t *port;
 	uint8_t *ext_port_info = mad + IB_SMP_DATA_OFFS;
@@ -281,12 +281,12 @@ static int recv_mlnx_ext_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	if (port_num && mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
 	    == IB_PORT_PHYS_STATE_LINKUP
 	    && ((node->type == IB_NODE_SWITCH && port_num != local_port) ||
-		(node == fabric->from_node && port_num == fabric->from_portnum))) {
+		(node == f_int->fabric.from_node && port_num == f_int->fabric.from_portnum))) {
 		int rc = 0;
 		ib_portid_t path = smp->path;
 
 		if (node->type != IB_NODE_SWITCH &&
-		    node == fabric->from_node &&
+		    node == f_int->fabric.from_node &&
 		    path.drpath.cnt > 1)
 			rc = retract_dpath(engine, &path);
 		else {
@@ -319,7 +319,7 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			  uint8_t * mad, void *cb_data)
 {
 	ibnd_scan_t *scan = (ibnd_scan_t *)engine->user_data;
-	ibnd_fabric_t *fabric = scan->fabric;
+	f_internal_t *f_int = scan->f_int;
 	ibnd_node_t *node = cb_data;
 	ibnd_port_t *port;
 	uint8_t *port_info = mad + IB_SMP_DATA_OFFS;
@@ -359,7 +359,8 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 		port->lmc = node->smalmc;
 	}
 
-	add_to_portguid_hash(port, fabric->portstbl);
+	add_to_portguid_hash(port, f_int->fabric.portstbl);
+	add_to_portlid_hash(port, f_int->lid2guid);
 
 	if ((scan->cfg->flags & IBND_CONFIG_MLX_EPI)
 	    && is_mlnx_ext_port_info_supported(port)) {
@@ -389,13 +390,13 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 	if (port_num && mad_get_field(port->info, 0, IB_PORT_PHYS_STATE_F)
 	    == IB_PORT_PHYS_STATE_LINKUP
 	    && ((node->type == IB_NODE_SWITCH && port_num != local_port) ||
-		(node == fabric->from_node && port_num == fabric->from_portnum))) {
+		(node == f_int->fabric.from_node && port_num == f_int->fabric.from_portnum))) {
 
 		int rc = 0;
 		ib_portid_t path = smp->path;
 
 		if (node->type != IB_NODE_SWITCH &&
-		    node == fabric->from_node &&
+		    node == f_int->fabric.from_node &&
 		    path.drpath.cnt > 1)
 			rc = retract_dpath(engine, &path);
 		else {
@@ -441,7 +442,7 @@ static int query_port_info(smp_engine_t * engine, ib_portid_t * portid,
 static ibnd_node_t *create_node(smp_engine_t * engine, ib_portid_t * path,
 				uint8_t * node_info)
 {
-	ibnd_fabric_t *fabric = ((ibnd_scan_t *) engine->user_data)->fabric;
+	f_internal_t *f_int = ((ibnd_scan_t *) engine->user_data)->f_int;
 	ibnd_node_t *rc = calloc(1, sizeof(*rc));
 	if (!rc) {
 		IBND_ERROR("OOM: node creation failed\n");
@@ -463,13 +464,13 @@ static ibnd_node_t *create_node(smp_engine_t * engine, ib_portid_t * path,
 	rc->path_portid = *path;
 	memcpy(rc->info, node_info, sizeof(rc->info));
 
-	add_to_nodeguid_hash(rc, fabric->nodestbl);
+	add_to_nodeguid_hash(rc, f_int->fabric.nodestbl);
 
 	/* add this to the all nodes list */
-	rc->next = fabric->nodes;
-	fabric->nodes = rc;
+	rc->next = f_int->fabric.nodes;
+	f_int->fabric.nodes = rc;
 
-	add_to_type_list(rc, fabric);
+	add_to_type_list(rc, f_int);
 
 	return rc;
 }
@@ -505,7 +506,7 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			  uint8_t * mad, void *cb_data)
 {
 	ibnd_scan_t *scan = engine->user_data;
-	ibnd_fabric_t *fabric = scan->fabric;
+	f_internal_t *f_int = scan->f_int;
 	uint8_t *node_info = mad + IB_SMP_DATA_OFFS;
 	struct ni_cbdata *ni_cbdata = (struct ni_cbdata *)cb_data;
 	ibnd_node_t *rem_node = NULL;
@@ -523,7 +524,7 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 		free(ni_cbdata);
 	}
 
-	node = ibnd_find_node_guid(fabric, node_guid);
+	node = ibnd_find_node_guid(&f_int->fabric, node_guid);
 	if (!node) {
 		node = create_node(engine, &smp->path, node_info);
 		if (!node)
@@ -550,8 +551,8 @@ static int recv_node_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			     node, port);
 
 	if (rem_node == NULL) {	/* this is the start node */
-		fabric->from_node = node;
-		fabric->from_portnum = port_num;
+		f_int->fabric.from_node = node;
+		f_int->fabric.from_portnum = port_num;
 	} else {
 		/* link ports... */
 		if (!rem_node->ports[rem_port_num]) {
@@ -628,8 +629,35 @@ void add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[])
 	hash[hash_idx] = port;
 }
 
-void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric)
+void create_lid2guid(f_internal_t *f_int)
 {
+	f_int->lid2guid = g_hash_table_new_full(g_direct_hash, g_direct_equal,
+				NULL, NULL);
+}
+
+void destroy_lid2guid(f_internal_t *f_int)
+{
+	if (f_int->lid2guid) {
+		g_hash_table_destroy(f_int->lid2guid);
+	}
+}
+
+void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable)
+{
+	uint16_t base_lid = port->base_lid;
+	uint16_t lid_mask = ((1 << port->lmc) -1);
+	uint16_t lid = 0;
+
+	/* We add the port for all lids
+	 * so it is easier to find any "random" lid specified */
+	for (lid = base_lid; lid <= (base_lid + lid_mask); lid++) {
+		g_hash_table_insert(htable, GINT_TO_POINTER(lid), port);
+	}
+}
+
+void add_to_type_list(ibnd_node_t * node, f_internal_t * f_int)
+{
+	ibnd_fabric_t *fabric = &f_int->fabric;
 	switch (node->type) {
 	case IB_NODE_CA:
 		node->type_next = fabric->ch_adapters;
@@ -664,12 +692,21 @@ static int set_config(struct ibnd_config *config, struct ibnd_config *cfg)
 	return (0);
 }
 
+f_internal_t *allocate_fabric_internal(void)
+{
+	f_internal_t *f = calloc(1, sizeof(*f));
+	if (f)
+		create_lid2guid(f);
+
+	return (f);
+}
+
 ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 				    ib_portid_t * from,
 				    struct ibnd_config *cfg)
 {
 	struct ibnd_config config = { 0 };
-	ibnd_fabric_t *fabric = NULL;
+	f_internal_t *f_int = NULL;
 	ib_portid_t my_portid = { 0 };
 	smp_engine_t engine;
 	ibnd_scan_t scan;
@@ -685,21 +722,19 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 		return NULL;
 	}
 
-	fabric = calloc(1, sizeof(*fabric));
-	if (!fabric) {
+	f_int = allocate_fabric_internal();
+	if (!f_int) {
 		IBND_ERROR("OOM: failed to calloc ibnd_fabric_t\n");
 		return NULL;
 	}
 
-	memset(fabric, 0, sizeof(*fabric));
-
 	memset(&scan.selfportid, 0, sizeof(scan.selfportid));
-	scan.fabric = fabric;
+	scan.f_int = f_int;
 	scan.cfg = &config;
 	scan.initial_hops = from->drpath.cnt;
 
 	if (smp_engine_init(&engine, ca_name, ca_port, &scan, &config)) {
-		free(fabric);
+		free(f_int);
 		return (NULL);
 	}
 
@@ -719,19 +754,19 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 		if (process_mads(&engine) != 0)
 			goto error;
 
-	fabric->total_mads_used = engine.total_smps;
-	fabric->maxhops_discovered += scan.initial_hops;
+	f_int->fabric.total_mads_used = engine.total_smps;
+	f_int->fabric.maxhops_discovered += scan.initial_hops;
 
-	if (group_nodes(fabric))
+	if (group_nodes(&f_int->fabric))
 		goto error;
 
 	smp_engine_destroy(&engine);
 	mad_rpc_close_port(scan.ibmad_port);
-	return fabric;
+	return (ibnd_fabric_t *)f_int;
 error:
 	smp_engine_destroy(&engine);
 	mad_rpc_close_port(scan.ibmad_port);
-	ibnd_destroy_fabric(fabric);
+	ibnd_destroy_fabric(&f_int->fabric);
 	return NULL;
 }
 
@@ -768,6 +803,7 @@ void ibnd_destroy_fabric(ibnd_fabric_t * fabric)
 		destroy_node(node);
 		node = next;
 	}
+	destroy_lid2guid((f_internal_t *)fabric);
 	free(fabric);
 }
 
@@ -823,6 +859,18 @@ void ibnd_iter_nodes_type(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,
 
 	for (cur = list; cur; cur = cur->type_next)
 		func(cur, user_data);
+}
+
+ibnd_port_t *ibnd_find_port_lid(ibnd_fabric_t * fabric,
+				uint16_t lid)
+{
+	ibnd_port_t *port;
+	f_internal_t *f = (f_internal_t *)fabric;
+
+	port = (ibnd_port_t *)g_hash_table_lookup(f->lid2guid,
+					GINT_TO_POINTER(lid));
+
+	return port;
 }
 
 ibnd_port_t *ibnd_find_port_guid(ibnd_fabric_t * fabric, uint64_t guid)

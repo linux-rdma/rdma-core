@@ -16,6 +16,7 @@ IBNETDISC_1.0 {
 		ibnd_iter_nodes_type;
 		ibnd_find_port_guid;
 		ibnd_find_port_dr;
+		ibnd_find_port_lid;
 		ibnd_iter_ports;
 	local: *;
 };

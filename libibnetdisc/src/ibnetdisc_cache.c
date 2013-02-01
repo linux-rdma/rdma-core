@@ -127,7 +127,7 @@ typedef struct ibnd_port_cache {
 } ibnd_port_cache_t;
 
 typedef struct ibnd_fabric_cache {
-	ibnd_fabric_t *fabric;
+	f_internal_t *f_int;
 	uint64_t from_node_guid;
 	ibnd_node_cache_t *nodes_cache;
 	ibnd_port_cache_t *ports_cache;
@@ -250,7 +250,7 @@ static int _load_header_info(int fd, ibnd_fabric_cache_t * fabric_cache,
 
 	offset += _unmarshall64(buf + offset, &fabric_cache->from_node_guid);
 	offset += _unmarshall32(buf + offset, &tmp32);
-	fabric_cache->fabric->maxhops_discovered = tmp32;
+	fabric_cache->f_int->fabric.maxhops_discovered = tmp32;
 
 	return 0;
 }
@@ -515,7 +515,7 @@ static int _fill_port(ibnd_fabric_cache_t * fabric_cache, ibnd_node_t * node,
 	/* achu: needed if user wishes to re-cache a loaded fabric.
 	 * Otherwise, mostly unnecessary to do this.
 	 */
-	add_to_portguid_hash(port_cache->port, fabric_cache->fabric->portstbl);
+	add_to_portguid_hash(port_cache->port, fabric_cache->f_int->fabric.portstbl);
 	return 0;
 }
 
@@ -535,13 +535,13 @@ static int _rebuild_nodes(ibnd_fabric_cache_t * fabric_cache)
 
 		/* Insert node into appropriate data structures */
 
-		node->next = fabric_cache->fabric->nodes;
-		fabric_cache->fabric->nodes = node;
+		node->next = fabric_cache->f_int->fabric.nodes;
+		fabric_cache->f_int->fabric.nodes = node;
 
 		add_to_nodeguid_hash(node_cache->node,
-				     fabric_cache->fabric->nodestbl);
+				     fabric_cache->f_int->fabric.nodestbl);
 
-		add_to_type_list(node_cache->node, fabric_cache->fabric);
+		add_to_type_list(node_cache->node, fabric_cache->f_int);
 
 		node_cache->node_stored_to_fabric++;
 
@@ -601,6 +601,7 @@ static int _rebuild_ports(ibnd_fabric_cache_t * fabric_cache)
 		} else
 			port->remoteport = NULL;
 
+		add_to_portlid_hash(port, fabric_cache->f_int->lid2guid);
 		port_cache = port_cache_next;
 	}
 
@@ -612,7 +613,7 @@ ibnd_fabric_t *ibnd_load_fabric(const char *file, unsigned int flags)
 	unsigned int node_count = 0;
 	unsigned int port_count = 0;
 	ibnd_fabric_cache_t *fabric_cache = NULL;
-	ibnd_fabric_t *fabric = NULL;
+	f_internal_t *f_int = NULL;
 	ibnd_node_cache_t *node_cache = NULL;
 	int fd = -1;
 	unsigned int i;
@@ -635,14 +636,13 @@ ibnd_fabric_t *ibnd_load_fabric(const char *file, unsigned int flags)
 	}
 	memset(fabric_cache, '\0', sizeof(ibnd_fabric_cache_t));
 
-	fabric = (ibnd_fabric_t *) malloc(sizeof(ibnd_fabric_t));
-	if (!fabric) {
+	f_int = allocate_fabric_internal();
+	if (!f_int) {
 		IBND_DEBUG("OOM: fabric\n");
 		goto cleanup;
 	}
-	memset(fabric, '\0', sizeof(ibnd_fabric_t));
 
-	fabric_cache->fabric = fabric;
+	fabric_cache->f_int = f_int;
 
 	if (_load_header_info(fd, fabric_cache, &node_count, &port_count) < 0)
 		goto cleanup;
@@ -663,7 +663,7 @@ ibnd_fabric_t *ibnd_load_fabric(const char *file, unsigned int flags)
 		IBND_DEBUG("Cache invalid: cannot find from node\n");
 		goto cleanup;
 	}
-	fabric->from_node = node_cache->node;
+	f_int->fabric.from_node = node_cache->node;
 
 	if (_rebuild_nodes(fabric_cache) < 0)
 		goto cleanup;
@@ -671,15 +671,15 @@ ibnd_fabric_t *ibnd_load_fabric(const char *file, unsigned int flags)
 	if (_rebuild_ports(fabric_cache) < 0)
 		goto cleanup;
 
-	if (group_nodes(fabric))
+	if (group_nodes(&f_int->fabric))
 		goto cleanup;
 
 	_destroy_ibnd_fabric_cache(fabric_cache);
 	close(fd);
-	return fabric;
+	return (ibnd_fabric_t *)&f_int->fabric;
 
 cleanup:
-	ibnd_destroy_fabric(fabric);
+	ibnd_destroy_fabric((ibnd_fabric_t *)f_int);
 	_destroy_ibnd_fabric_cache(fabric_cache);
 	close(fd);
 	return NULL;

@@ -161,6 +161,13 @@ IBSCRIPTPATH_TMP2="`echo $IBSCRIPTPATH_TMP1 | sed 's/^NONE/$ac_default_prefix/'`
 IBSCRIPTPATH="${with_ibpath_override:-`eval echo $IBSCRIPTPATH_TMP2`}"
 AC_SUBST(IBSCRIPTPATH)
 
+dnl check for glib
+PKG_CHECK_MODULES([GLIB], [glib-2.0], ac_glib=yes, ac_glib=no)
+AM_CONDITIONAL([HAVE_GLIB], test "$ac_glib" = "yes")
+if test "$ac_glib" = "yes"; then
+   AC_DEFINE([HAVE_GLIB], 1, [Define to 1 to indicate GLIB support])
+fi
+
 dnl Begin libibnetdisc stuff
 ibnetdisc_api_version=`grep LIBVERSION $srcdir/libibnetdisc/libibnetdisc.ver | sed 's/LIBVERSION=//'`
 if test -z $ibnetdisc_api_version; then

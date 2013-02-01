@@ -24,10 +24,10 @@ endif
 
 libibnetdisc_la_SOURCES = src/ibnetdisc.c src/ibnetdisc_cache.c src/chassis.c \
 			  src/chassis.h src/internal.h src/query_smp.c
-libibnetdisc_la_CFLAGS = -Wall $(DBGFLAGS)
+libibnetdisc_la_CFLAGS = -Wall $(DBGFLAGS) $(GLIB_CFLAGS)
 libibnetdisc_la_LDFLAGS = -version-info $(ibnetdisc_api_version) \
 	-export-dynamic $(libibnetdisc_version_script) \
-	-libmad
+	-libmad $(GLIB_LIBS)
 libibnetdisc_la_DEPENDENCIES = $(srcdir)/src/libibnetdisc.map
 
 libibnetdiscincludedir = $(includedir)/infiniband

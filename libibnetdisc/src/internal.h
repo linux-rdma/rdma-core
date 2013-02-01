@@ -40,6 +40,7 @@
 
 #include <infiniband/ibnetdisc.h>
 #include <complib/cl_qmap.h>
+#include <glib.h>
 
 #define	IBND_DEBUG(fmt, ...) \
 	if (ibdebug) { \
@@ -57,9 +58,18 @@
 #define DEFAULT_TIMEOUT 1000
 #define DEFAULT_RETRIES 3
 
+typedef struct f_internal {
+	ibnd_fabric_t fabric;
+	GHashTable *lid2guid;
+} f_internal_t;
+f_internal_t *allocate_fabric_internal(void);
+void create_lid2guid(f_internal_t *f_int);
+void destroy_lid2guid(f_internal_t *f_int);
+void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable);
+
 typedef struct ibnd_scan {
 	ib_portid_t selfportid;
-	ibnd_fabric_t *fabric;
+	f_internal_t *f_int;
 	struct ibnd_config *cfg;
 	struct ibmad_port *ibmad_port;
 	unsigned initial_hops;
@@ -100,8 +110,9 @@ void smp_engine_destroy(smp_engine_t * engine);
 void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[]);
 
 void add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[]);
+void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable);
 
-void add_to_type_list(ibnd_node_t * node, ibnd_fabric_t * fabric);
+void add_to_type_list(ibnd_node_t * node, f_internal_t * fabric);
 
 void destroy_node(ibnd_node_t * node);
 
