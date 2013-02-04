@@ -216,14 +216,14 @@ AC_CONFIG_FILES([\
 	scripts/ibrouters \
 	scripts/iblinkinfo.pl \
 	scripts/ibqueryerrors.pl \
+	scripts/dump_lfts.sh \
+	scripts/dump_mfts.sh \
 	doc/man/ibaddr.8 \
 	doc/man/check_lft_balance.8 \
 	doc/man/ibcacheedit.8 \
 	doc/man/ibccconfig.8 \
 	doc/man/ibccquery.8 \
 	doc/man/dump_fts.8 \
-	doc/man/dump_lfts.8 \
-	doc/man/dump_mfts.8 \
 	doc/man/ibhosts.8 \
 	doc/man/ibidsverify.8 \
 	doc/man/iblinkinfo.8 \

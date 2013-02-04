@@ -47,8 +47,6 @@ man_MANS = doc/man/ibaddr.8 \
 		doc/man/ibccconfig.8 \
 		doc/man/ibccquery.8 \
 		doc/man/dump_fts.8 \
-		doc/man/dump_lfts.8 \
-		doc/man/dump_mfts.8 \
 		doc/man/iblinkinfo.8 \
 		doc/man/ibfindnodesusing.8 \
 		doc/man/ibhosts.8 \
@@ -71,7 +69,9 @@ man_MANS = doc/man/ibaddr.8 \
 		doc/man/smpdump.8 \
 		doc/man/smpquery.8 \
 		doc/man/vendstat.8 \
-		doc/man/infiniband-diags.8
+		doc/man/infiniband-diags.8 \
+		man/dump_lfts.8 \
+		man/dump_mfts.8
 
 # define this for the dist target
 compat_man_pages = man/ibdiscover.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
