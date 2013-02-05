@@ -117,16 +117,14 @@ void cnt_str(char *str, size_t ssize, long long cnt)
 
 int size_to_count(int size)
 {
-	if (size >= 1000000)
+	if (size >= (1 << 20))
 		return 100;
-	else if (size >= 100000)
+	else if (size >= (1 << 16))
 		return 1000;
-	else if (size >= 10000)
+	else if (size >= (1 << 10))
 		return 10000;
-	else if (size >= 1000)
-		return 100000;
 	else
-		return 1000000;
+		return 100000;
 }
 
 void format_buf(void *buf, int size)
