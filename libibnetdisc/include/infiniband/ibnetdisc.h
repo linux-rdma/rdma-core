@@ -58,6 +58,8 @@ typedef struct ibnd_node {
 	struct ibnd_node *next;	/* all node list in fabric */
 
 	ib_portid_t path_portid;	/* path from "from_node" */
+					/* NOTE: this is not valid on a fabric
+					 * read from a cache file */
 	uint16_t smalid;
 	uint8_t smalmc;
 
