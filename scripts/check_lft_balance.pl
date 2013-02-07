@@ -290,10 +290,10 @@ sub output_switch_port_usage
 	if ($verbose || $is_unbalanced == 1) {
 		if ($is_unbalanced == 1) {
 			print "Unbalanced Switch Port Usage: ";
-			print "$switch_name, $switch_guid, $switch_lid\n";
+			print "$switch_name, $switch_guid\n";
 		} else {
 			print
-			  "Switch Port Usage: $switch_name, $switch_guid, $switch_lid\n";
+			  "Switch Port Usage: $switch_name, $switch_guid\n";
 		}
 		for $port (@output_ports) {
 			print "Port $port: $switch_port_count{$port}\n";
@@ -365,16 +365,20 @@ if (!open(FH, "< $dump_lft_file")) {
 foreach $lft_line (@lft_lines) {
 	chomp($lft_line);
 	if ($lft_line =~ /Unicast/) {
-		$lft_line =~ /Unicast lids .+ of switch Lid (.+) guid (.+) \((.+)\)/;
 		if (@host_ports) {
 			process_host_ports();
 		}
 		if (defined($switch_name)) {
 			output_switch_port_usage();
 		}
-		$switch_lid                            = $1;
-		$switch_guid                           = $2;
-		$switch_name                           = $3;
+		if ($lft_line =~ /Unicast lids .+ of switch DR path slid .+ guid (.+) \((.+)\)/) {
+			$switch_guid                           = $1;
+			$switch_name                           = $2;
+		}
+		if ($lft_line =~ /Unicast lids .+ of switch Lid .+ guid (.+) \((.+)\)/) {
+			$switch_guid                           = $1;
+			$switch_name                           = $2;
+		}
 		@switch_maybe_directly_connected_hosts = ();
 		%switch_port_count                     = ();
 		@host_ports                            = ();
