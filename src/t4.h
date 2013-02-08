@@ -51,7 +51,6 @@
 #define __be64 uint64_t
 #define u64 uint64_t
 #define DECLARE_PCI_UNMAP_ADDR(a)
-#define dma_addr_t uint64_t
 #define __iomem
 #define cpu_to_be16 htons
 #define cpu_to_be32 htonl
