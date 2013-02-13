@@ -140,7 +140,7 @@ static void dump_node_record(void *data)
 				       (char *)nr->node_desc.description);
 
 	printf("NodeRecord dump:\n"
-	       "\t\tlid.....................0x%X\n"
+	       "\t\tlid.....................%u\n"
 	       "\t\treserved................0x%X\n"
 	       "\t\tbase_version............0x%X\n"
 	       "\t\tclass_version...........0x%X\n"
