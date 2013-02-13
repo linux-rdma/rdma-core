@@ -183,10 +183,9 @@ then saquery will prompt for a value
 \fB\-\-proxy_join\fP Proxy join (MCMemberRecord)
 .sp
 Supported query names (and aliases):
-.INDENT 0.0
-.TP
-.B ::
-.
+.sp
+.nf
+.ft C
 ClassPortInfo (CPI)
 NodeRecord (NR) [lid]
 PortInfoRecord (PIR) [[lid]/[port]/[options]]
@@ -201,7 +200,8 @@ MCMemberRecord (MCMR)
 LFTRecord (LFTR) [[lid]/[block]]
 MFTRecord (MFTR) [[mlid]/[position]/[block]]
 GUIDInfoRecord (GIR) [[lid]/[block]]
-.UNINDENT
+.ft P
+.fi
 .SS Port Selection flags
 .\" Define the common option -C
 .

@@ -138,6 +138,7 @@ OPTIONS
 Supported query names (and aliases):
 
 ::
+
         ClassPortInfo (CPI)
         NodeRecord (NR) [lid]
         PortInfoRecord (PIR) [[lid]/[port]/[options]]
