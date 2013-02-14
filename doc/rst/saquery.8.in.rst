@@ -135,6 +135,8 @@ OPTIONS
 
 **--proxy_join** Proxy join (MCMemberRecord)
 
+**--service_id** ServiceID (PathRecord)
+
 Supported query names (and aliases):
 
 ::
@@ -205,4 +207,4 @@ Ira Weiny
         < weiny2@llnl.gov >
 
 Hal Rosenstock
-        < halr@voltaire.com >
+        < halr@mellanox.com >

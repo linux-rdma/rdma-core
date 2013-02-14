@@ -60,7 +60,13 @@
 #include "ibdiag_common.h"
 #include "ibdiag_sa.h"
 
+#ifndef IB_PR_COMPMASK_SERVICEID
+#define IB_PR_COMPMASK_SERVICEID (IB_PR_COMPMASK_SERVICEID_MSB | \
+				  IB_PR_COMPMASK_SERVICEID_LSB)
+#endif
+
 struct query_params {
+	uint64_t service_id;
 	ib_gid_t sgid, dgid, gid, mgid;
 	uint16_t slid, dlid, mlid;
 	uint32_t flow_label;
@@ -981,6 +987,7 @@ static int query_path_records(const struct query_cmd *q, struct sa_handle * h,
 	uint8_t reversible = 0;
 
 	memset(&pr, 0, sizeof(pr));
+	CHECK_AND_SET_VAL(p->service_id, 64, 0, pr.service_id, PR, SERVICEID);
 	CHECK_AND_SET_GID(p->sgid, pr.sgid, PR, SGID);
 	CHECK_AND_SET_GID(p->dgid, pr.dgid, PR, DGID);
 	CHECK_AND_SET_VAL(p->slid, 16, 0, pr.slid, PR, SLID);
@@ -1551,6 +1558,9 @@ static int process_opt(void *context, int ch, char *optarg)
 	case 'X':
 		p->proxy_join = strtoul(optarg, NULL, 0);
 		break;
+	case 22:
+		p->service_id = strtoull(optarg, NULL, 0);
+		break;
 	default:
 		return -1;
 	}
@@ -1633,6 +1643,7 @@ int main(int argc, char **argv)
 		{"scope", 21, 1, NULL, "Scope (MCMemberRecord)"},
 		{"join_state", 'J', 1, NULL, "Join state (MCMemberRecord)"},
 		{"proxy_join", 'X', 1, NULL, "Proxy join (MCMemberRecord)"},
+		{"service_id", 22, 1, NULL, "ServiceID (PathRecord)"},
 		{0}
 	};
 
