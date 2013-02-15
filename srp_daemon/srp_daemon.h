@@ -216,13 +216,6 @@ struct srp_sa_port_info_rec {
 	uint8_t		error_threshold;
 } __attribute__((packed));
 
-struct srp_sa_guid_info_rec {
-	uint16_t	lid;
-	uint8_t		block_num;
-	uint8_t		reserverd[5];
-	uint64_t	guid[8];
-};
-
 struct srp_class_port_info {
 	uint8_t		base_version;
 	uint8_t		class_version;
