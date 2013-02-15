@@ -145,3 +145,47 @@ int ib_path_query(ibmad_gid_t srcgid, ibmad_gid_t destgid, ib_portid_t * sm_id,
 {
 	return ib_path_query_via(ibmp, srcgid, destgid, sm_id, buf);
 }
+
+/* NodeRecord */
+#define IB_NR_COMPMASK_LID				(1ull<<0)
+#define IB_NR_COMPMASK_RESERVED1			(1ull<<1)
+#define IB_NR_COMPMASK_BASEVERSION			(1ull<<2)
+#define IB_NR_COMPMASK_CLASSVERSION			(1ull<<3)
+#define IB_NR_COMPMASK_NODETYPE				(1ull<<4)
+#define IB_NR_COMPMASK_NUMPORTS				(1ull<<5)
+#define IB_NR_COMPMASK_SYSIMAGEGUID			(1ull<<6)
+#define IB_NR_COMPMASK_NODEGUID				(1ull<<7)
+#define IB_NR_COMPMASK_PORTGUID				(1ull<<8)
+#define IB_NR_COMPMASK_PARTCAP				(1ull<<9)
+#define IB_NR_COMPMASK_DEVID				(1ull<<10)
+#define IB_NR_COMPMASK_REV				(1ull<<11)
+#define IB_NR_COMPMASK_PORTNUM				(1ull<<12)
+#define IB_NR_COMPMASK_VENDID				(1ull<<13)
+#define IB_NR_COMPMASK_NODEDESC				(1ull<<14)
+
+#define IB_NR_DEF_MASK IB_NR_COMPMASK_PORTGUID
+
+int ib_node_query_via(const struct ibmad_port *srcport, uint64_t guid,
+		      ib_portid_t * sm_id, void *buf)
+{
+	ib_sa_call_t sa = { 0 };
+	uint8_t *p;
+
+	memset(&sa, 0, sizeof sa);
+	sa.method = IB_MAD_METHOD_GET;
+	sa.attrid = IB_SA_ATTR_NODERECORD;
+	sa.mask = IB_NR_DEF_MASK;
+	sa.trid = mad_trid();
+
+	memset(buf, 0, IB_SA_NR_RECSZ);
+
+	mad_encode_field(buf, IB_SA_NR_PORT_GUID_F, &guid);
+
+	p = sa_rpc_call(srcport, buf, sm_id, &sa, 0);
+	if (!p) {
+		IBWARN("sa call node_query failed");
+		return -1;
+	}
+
+	return 0;
+}

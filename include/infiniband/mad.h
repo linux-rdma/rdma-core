@@ -65,6 +65,7 @@ BEGIN_C_DECLS
 #define IB_PC_DATA_SZ		(IB_MAD_SIZE - IB_PC_DATA_OFFS)
 #define IB_SA_MCM_RECSZ		53
 #define IB_SA_PR_RECSZ		64
+#define IB_SA_NR_RECSZ		108
 #define IB_SA_GIR_RECSZ		72
 #define IB_BM_DATA_OFFS		64
 #define IB_BM_DATA_SZ		(IB_MAD_SIZE - IB_BM_DATA_OFFS)
@@ -1519,6 +1520,9 @@ MAD_EXPORT int ib_path_query_via(const struct ibmad_port *srcport,
 				 ibmad_gid_t srcgid, ibmad_gid_t destgid,
 				 ib_portid_t * sm_id, void *buf);
 	/* returns lid */
+MAD_EXPORT int ib_node_query_via(const struct ibmad_port *srcport,
+				 uint64_t guid, ib_portid_t * sm_id,
+				 void *buf);
 
 /* resolve.c */
 MAD_EXPORT int ib_resolve_smlid(ib_portid_t * sm_id, int timeout) DEPRECATED;
