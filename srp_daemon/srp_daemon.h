@@ -59,6 +59,14 @@
 #endif
 #endif
 
+#ifdef __cplusplus
+template <bool b> struct vki_static_assert { int m_bitfield:(2*b-1); };
+#define STATIC_ASSERT(expr) \
+	(void)(sizeof(vki_static_assert<(expr)>) - sizeof(int))
+#else
+#define STATIC_ASSERT(expr) (void)(sizeof(struct { int:-!(expr); }))
+#endif
+
 enum {
 	SRP_MGMT_CLASS_SA = 3,
 	SRP_MGMT_CLASS_DM = 6
