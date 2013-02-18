@@ -178,9 +178,9 @@ struct srp_sa_node_rec {
 	uint8_t		class_version;
 	uint8_t		type;
 	uint8_t		num_ports;
-	uint64_t	sys_guid;
-	uint64_t	node_guid;
-	uint64_t	port_guid;
+	uint64_t	sys_guid __attribute__((packed));
+	uint64_t	node_guid __attribute__((packed));
+	uint64_t	port_guid __attribute__((packed));
 	uint16_t	partition_cap;
 	uint16_t	device_id;
 	uint32_t	revision;

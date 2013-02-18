@@ -1473,6 +1473,7 @@ int main(int argc, char *argv[])
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
+	STATIC_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	STATIC_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
 	STATIC_ASSERT(sizeof(struct srp_class_port_info) == 72);
 	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
