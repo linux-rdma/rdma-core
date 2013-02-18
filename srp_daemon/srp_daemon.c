@@ -1471,6 +1471,13 @@ int main(int argc, char *argv[])
 	int		       *status;
 	int 			i;
 
+	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
+	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
+	STATIC_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
+	STATIC_ASSERT(sizeof(struct srp_class_port_info) == 72);
+	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
+	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
+
 	for (i = 0; i < 4; ++i)
 		thread_id[i] = -1;
 
