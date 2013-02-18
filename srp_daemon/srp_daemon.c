@@ -72,6 +72,8 @@ typedef struct {
 
 #define get_data_ptr(mad) ((void *) ((mad).hdr.data))
 
+static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
+
 static char *sysfs_path = "/sys";
 
 static int check_process_uniqueness(struct config_t *conf)
@@ -1710,7 +1712,7 @@ static int recalc(struct resources *res)
 	return ret;
 }
 
-int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid)
+static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid)
 {
 	srp_ib_user_mad_t		out_mad, in_mad;
 	struct srp_dm_rmpp_sa_mad 	*in_sa_mad  = get_data_ptr(in_mad);

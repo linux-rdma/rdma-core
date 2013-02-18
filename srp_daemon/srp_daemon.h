@@ -411,7 +411,6 @@ static const int   node_table_response_size = 1 << 18;
 	} while (0)
 
 
-int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
 void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid);
 void ud_resources_init(struct ud_resources *res);
 int ud_resources_create(struct ud_resources *res);
