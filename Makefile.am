@@ -2,11 +2,8 @@
 
 AM_CFLAGS = -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter
 
-sbin_PROGRAMS = src/ibsrpdm srp_daemon/srp_daemon 
+sbin_PROGRAMS = srp_daemon/srp_daemon 
 man_MANS = man/ibsrpdm.1 man/srp_daemon.1
-
-src_ibsrpdm_SOURCES = src/srp-dm.c
-src_ibsrpdm_CFLAGS = $(AM_CFLAGS) -fno-strict-aliasing
 
 srp_daemon_srp_daemon_LDADD = -libumad -libverbs -lpthread
 srp_daemon_srp_daemon_CFLAGS = $(AM_CFLAGS) -I $(DESTDIR)$(includedir) \
@@ -22,8 +19,6 @@ EXTRA_DIST = \
     srp_daemon/srp_ib_types.h \
     srp_daemon/srp_daemon.sh \
     srp_daemon/srpd.in \
-    src/srp-dm.h \
-    src/ib_user_mad.h \
     srp_daemon/logrotate-srp_daemon \
     srp_daemon/rsyslog-srp_daemon.conf \
     srp_daemon/srp_daemon.conf \
@@ -35,6 +30,7 @@ dist-hook: srptools.spec
 install-exec-hook:
 	mkdir -p $(DESTDIR)$(sysconfdir)/init.d
 	@INSTALL_PROGRAM@ srp_daemon/srpd $(DESTDIR)$(sysconfdir)/init.d/srpd
+	(cd $(DESTDIR)$(sbindir) && ln -s srp_daemon ibsrpdm)
 
 install-data-hook:
 	if test -e $(DESTDIR)$(sysconfdir)/srp_daemon.conf; then	\

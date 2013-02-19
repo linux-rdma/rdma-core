@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(srptools, 0.0.4, openib-general@openib.org)
-AC_CONFIG_SRCDIR(src/srp-dm.c)
+AC_INIT(srptools, 1.0.0, users@lists.openfabrics.org)
+AC_CONFIG_SRCDIR(srp_daemon/srp_daemon.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE(srptools, 0.0.4)

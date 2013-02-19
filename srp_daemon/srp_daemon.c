@@ -69,13 +69,20 @@
 #define IBDEV_STR_SIZE 16
 #define IBPORT_STR_SIZE 16
 #define IGNORE(value) do { if (value) { } } while (0)
+#define max_t(type, x, y) ({                    \
+	type __max1 = (x);	\
+	type __max2 = (y);	\
+	__max1 > __max2 ? __max1: __max2; })
 
 #define get_data_ptr(mad) ((void *) ((mad).hdr.data))
+
+enum log_dest { log_to_syslog, log_to_stderr };
 
 static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
 
 static const int   node_table_response_size = 1 << 18;
 static char *sysfs_path = "/sys";
+static enum log_dest s_log_dest = log_to_syslog;
 static int received_signal, wakeup_pipe[2] = { -1, -1 };
 
 
@@ -252,7 +259,14 @@ void pr_err(const char *fmt, ...)
 	va_end(args);
 	if (pos >= sizeof(str))
 		str[sizeof(str) - 1] = '\0';
-	syslog(LOG_DAEMON | LOG_ERR, "%s", str);
+	switch (s_log_dest) {
+	case log_to_syslog:
+		syslog(LOG_DAEMON | LOG_ERR, "%s", str);
+		break;
+	case log_to_stderr:
+		fprintf(stderr, "%s", str);
+		break;
+	}
 }
 
 static int check_not_equal_str(char *dir_name, char *attr, char *value)
@@ -1678,6 +1692,83 @@ static void ts_sub(const struct timespec *a, const struct timespec *b,
 	}
 }
 
+static int ibsrpdm(int argc, char *argv[])
+{
+	char* umad_dev = "/dev/infiniband/umad0";
+	char* ibport;
+	struct resources *res;
+	int ret;
+
+	s_log_dest = log_to_stderr;
+
+	config = calloc(1, sizeof(*config));
+	config->num_of_oust = 10;
+	config->timeout = 5000;
+	config->mad_retries = 3;
+	config->all = 1;
+
+	while (1) {
+		int c;
+
+		c = getopt(argc, argv, "cd:h:v");
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 'c':
+			++config->cmd;
+			break;
+		case 'd':
+			umad_dev = optarg;
+			break;
+		case 'v':
+			++config->debug_verbose;
+			break;
+		case 'h':
+		default:
+			fprintf(stderr,
+				"Usage: %s [-vc] [-d <umad device>]\n",
+				argv[0]);
+			return 1;
+		}
+	}
+
+	initialize_sysfs();
+
+	if (translate_umad_to_ibdev_and_port(umad_dev, &config->dev_name,
+					     &ibport)) {
+		pr_err("Fail to translate umad to ibdev and port\n");
+		return 1;
+	}
+	config->port_num = atoi(ibport);
+	free(ibport);
+
+	umad_init();
+	res = alloc_res();
+	if (!res) {
+		ret = 1;
+		pr_err("Resource allocation failed\n");
+		goto umad_done;
+	}
+	ret = recalc(res);
+	if (ret)
+		pr_err("Querying SRP targets failed\n");
+
+	assert(res->sync_res);
+	pthread_mutex_lock(&res->sync_res->retry_mutex);
+	res->sync_res->stop_threads = 1;
+	pthread_cond_signal(&res->sync_res->retry_cond);
+	pthread_mutex_unlock(&res->sync_res->retry_mutex);
+
+	free_res(res);
+umad_done:
+	umad_done();
+
+	free(config);
+
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	int			ret, i, flags;
@@ -1718,6 +1809,12 @@ int main(int argc, char *argv[])
 	sa.sa_handler = signal_handler;
 	sigaction(SIGINT, &sa, 0);
 	sigaction(SIGTERM, &sa, 0);
+
+	if (strcmp(argv[0] + max_t(int, 0, strlen(argv[0]) - strlen("ibsrpdm")),
+		   "ibsrpdm") == 0) {
+		ret = ibsrpdm(argc, argv);
+		goto close_pipe;
+	}
 
 	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
 
@@ -1871,6 +1968,7 @@ free_config:
 	free(config);
 close_log:
 	closelog();
+close_pipe:
 	sa.sa_handler = SIG_DFL;
 	sigaction(SIGINT, &sa, 0);
 	sigaction(SIGTERM, &sa, 0);
