@@ -41,6 +41,13 @@ SRP_DAEMON_ENABLE=no
 EOF
 	fi
     done
+    if [ -e /sbin/chkconfig ]; then
+        /sbin/chkconfig --add srpd
+    elif [ -e /usr/sbin/update-rc.d ]; then
+        /usr/sbin/update-rc.d srpd defaults
+    else
+        /usr/lib/lsb/install_initd /etc/init.d/srpd
+    fi
 fi
 if type systemctl >/dev/null 2>&1; then
     systemctl --system daemon-reload
