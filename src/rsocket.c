@@ -3023,7 +3023,7 @@ int rshutdown(int socket, int how)
 		rs_process_cq(rs, 0, rs_conn_all_sends_done);
 
 	if ((rs->fd_flags & O_NONBLOCK) && (rs->state & rs_connected))
-		rs_set_nonblocking(rs, 1);
+		rs_set_nonblocking(rs, rs->fd_flags);
 
 	return 0;
 }
@@ -3040,7 +3040,7 @@ static void ds_shutdown(struct rsocket *rs)
 	ds_process_cqs(rs, 0, ds_all_sends_done);
 
 	if (rs->fd_flags & O_NONBLOCK)
-		rs_set_nonblocking(rs, 1);
+		rs_set_nonblocking(rs, rs->fd_flags);
 }
 
 int rclose(int socket)
