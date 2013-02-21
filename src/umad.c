@@ -256,6 +256,11 @@ static int resolve_ca_port(char *ca_name, int *port)
 			ret = -1;
 			goto Exit;
 		}
+		if (strcmp(ca.ports[*port]->link_layer, "InfiniBand") &&
+		    strcmp(ca.ports[*port]->link_layer, "IB")) {
+			ret = -1;
+			goto Exit;
+		}
 		if (ca.ports[*port]->state == 4) {
 			ret = 1;
 			goto Exit;
@@ -269,6 +274,9 @@ static int resolve_ca_port(char *ca_name, int *port)
 	for (i = 0; i <= ca.numports; i++) {
 		DEBUG("checking port %d", i);
 		if (!ca.ports[i])
+			continue;
+		if (strcmp(ca.ports[i]->link_layer, "InfiniBand") &&
+		    strcmp(ca.ports[i]->link_layer, "IB"))
 			continue;
 		if (up < 0 && ca.ports[i]->phys_state == 5)
 			up = *port = i;
