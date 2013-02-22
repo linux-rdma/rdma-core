@@ -13,9 +13,18 @@ umad_recv \- receive umad
 .B umad_recv()
 waits up to
 .I timeout_ms\fR
-milliseconds for a packet to be received from the port specified by
+milliseconds for an incoming MAD message to be received from the port specified by
 .I portid\fR.
-The packet is copied to the
+
+A MAD "message" consists of a single MAD packet
+.I or
+a coalesced multipacket RMPP transmission.  In the RMPP case the header of the
+first RMPP packet is returned as the header of the buffer and the buffer data
+contains the coalesced data section of each subsequent RMPP MAD packet within
+the transmission.  Thus all the RMPP headers except the first are not copied to
+user space from the kernel.
+
+The message is copied to the
 .I umad\fR
 buffer if there is sufficient room and the received
 .I length\fR is indicated.
@@ -41,7 +50,8 @@ bytes long.
 .B Note also
 that
 .I *length\fR
-must be >= 256 bytes.
+must be >= 256 bytes.  This length allows for at least a single MAD packet to
+be returned.
 
 .SH "RETURN VALUE"
 .B umad_recv()
@@ -49,6 +59,7 @@ returns non negative receiving agentid on success, and a negative value on error
  -EINVAL      invalid port handle or agentid or *length is less than the minimum supported
  -EIO         receive operation failed
  -EWOULDBLOCK non blocking read can't be fulfilled
+ -ENOSPC      The provided buffer is not long enough for the complete message.
 .SH "SEE ALSO"
 .BR umad_poll (3)
 .SH "AUTHOR"

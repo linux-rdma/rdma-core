@@ -19,6 +19,14 @@ buffer from the port specified by
 .I portid\fR,
 and using the agent specified by
 .I agentid\fR.
+
+The buffer can contain a RMPP transmission which is larger than a single MAD
+packet when the agentid specifies a class which utilizes RMPP and the header
+flags indicate RMPP is active.  NOTE currently only RMPPFlags.Active is
+meaningful in the header in user space.  All other RMPP fields are ignored.
+The data section of the buffer will be sent in multiple RMPP MAD packets with
+headers built for the user.
+
 .I timeout_ms\fR
 controls the solicited MADs behavior as follows:
 zero value means not solicited. Positive value makes kernel indicate timeout
