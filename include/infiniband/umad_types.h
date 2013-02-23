@@ -51,6 +51,7 @@
 BEGIN_C_DECLS
 
 #define UMAD_BASE_VERSION		1
+#define UMAD_QKEY			0x80010000
 
 /* Management classes */
 enum {
