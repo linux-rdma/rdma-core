@@ -1,7 +1,9 @@
 ACLOCAL_AMFLAGS = -I config
 SUBDIRS = .
 
-INCLUDES = -I$(srcdir)/include/infiniband -I$(includedir)
+INCLUDES = -I$(srcdir)/include/infiniband \
+	   -I$(srcdir)/include \
+	   -I$(includedir)
 
 man_MANS = man/umad_debug.3 man/umad_get_ca.3 \
 	   man/umad_get_ca_portguids.3 man/umad_get_cas_names.3 \
@@ -15,7 +17,12 @@ man_MANS = man/umad_debug.3 man/umad_get_ca.3 \
 	   man/umad_get_pkey.3 \
 	   man/umad_register.3 man/umad_register_oui.3 man/umad_unregister.3 \
 	   man/umad_send.3 man/umad_recv.3 man/umad_poll.3 \
-	   man/umad_get_issm_path.3
+	   man/umad_get_issm_path.3 \
+	   man/umad_attribute_str.3 \
+	   man/umad_class_str.3 \
+	   man/umad_mad_status_str.3 \
+	   man/umad_method_str.3
+
 
 lib_LTLIBRARIES = libibumad.la
 
@@ -27,7 +34,7 @@ else
 libibumad_version_script =
 endif
 
-libibumad_la_SOURCES = src/umad.c src/sysfs.c
+libibumad_la_SOURCES = src/umad.c src/sysfs.c src/umad_str.c
 libibumad_la_LDFLAGS = -version-info $(ibumad_api_version) \
     -export-dynamic $(libibumad_version_script)
 libibumad_la_DEPENDENCIES = $(srcdir)/src/libibumad.map
@@ -38,7 +45,8 @@ libibumadinclude_HEADERS = $(srcdir)/include/infiniband/umad.h \
 	$(srcdir)/include/infiniband/umad_types.h \
 	$(srcdir)/include/infiniband/umad_sa.h \
 	$(srcdir)/include/infiniband/umad_sm.h \
-	$(srcdir)/include/infiniband/umad_cm.h
+	$(srcdir)/include/infiniband/umad_cm.h \
+	$(srcdir)/include/infiniband/umad_str.h
 
 EXTRA_DIST = $(srcdir)/include/infiniband/umad.h \
 	libibumad.spec.in libibumad.spec \
