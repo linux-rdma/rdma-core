@@ -239,6 +239,14 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 				goto next_cqe;
 
 			/*
+			 * Eat completions for unsignaled read WRs.
+			 */
+			if (!qhp->wq.sq.oldest_read->signaled) {
+				advance_oldest_read(&qhp->wq);
+				goto next_cqe;
+			}
+
+			/*
 			 * Don't write to the HWCQ, create a new read req CQE
 			 * in local memory and move it into the swcq.
 			 */
@@ -411,6 +419,15 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 		if (CQE_WRID_STAG(hw_cqe) == 1) {
 			if (CQE_STATUS(hw_cqe))
 				t4_set_wq_in_error(wq);
+			ret = -EAGAIN;
+			goto skip_cqe;
+		}
+
+		/*
+		 * Eat completions for unsignaled read WRs.
+		 */
+		if (!wq->sq.oldest_read->signaled) {
+			advance_oldest_read(wq);
 			ret = -EAGAIN;
 			goto skip_cqe;
 		}
