@@ -98,12 +98,19 @@ void c4iw_flush_sq(struct c4iw_qp *qhp, int count)
 	struct t4_wq *wq = &qhp->wq;
 	struct c4iw_cq *chp = to_c4iw_cq(qhp->ibv_qp.send_cq);
 	struct t4_cq *cq = &chp->cq;
-	struct t4_swsqe *swsqe = &wq->sq.sw_sq[wq->sq.cidx + count];
+	int idx;
+	struct t4_swsqe *swsqe;
 	int in_use = wq->sq.in_use - count;
 	int error = (qhp->ibv_qp.state != IBV_QPS_SQD &&
 		     qhp->ibv_qp.state != IBV_QPS_INIT);
 
 	BUG_ON(in_use < 0);
+	BUG_ON(in_use > wq->sq.size);
+
+	idx = wq->sq.cidx + count;
+	if (idx >= wq->sq.size)
+		idx = idx - wq->sq.size;
+	swsqe = &wq->sq.sw_sq[idx];
 
 	while (in_use--) {
 		if (error) {
@@ -124,6 +131,10 @@ static int flush_completed_wrs(struct t4_wq *wq, struct t4_cq *cq, u16 cidx)
 	int count = wq->sq.in_use;
 	int unsignaled = 0;
 	int ret_cidx = cidx;
+
+	BUG_ON(count < 0);
+	BUG_ON(count > wq->sq.size);
+	BUG_ON(cidx >= wq->sq.size);
 
 	swsqe = &wq->sq.sw_sq[cidx];
 	while (count--) {
@@ -259,7 +270,10 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 		 * unsignaled and now in-order completions into the swcq.
 		 */
 		if (SQ_TYPE(hw_cqe)) {
-			swsqe = &qhp->wq.sq.sw_sq[CQE_WRID_SQ_IDX(hw_cqe)];
+			int idx = CQE_WRID_SQ_IDX(hw_cqe);
+
+			BUG_ON(idx >= qhp->wq.sq.size);
+			swsqe = &qhp->wq.sq.sw_sq[idx];
 			swsqe->cqe = *hw_cqe;
 			swsqe->complete = 1;
 			qhp->wq.sq.flush_cidx =
@@ -300,6 +314,7 @@ void c4iw_count_scqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
 
 	*count = 0;
 	ptr = cq->sw_cidx;
+	BUG_ON(ptr >= cq->size);
 	while (ptr != cq->sw_pidx) {
 		cqe = &cq->sw_queue[ptr];
 		if (((SQ_TYPE(cqe) && (CQE_OPCODE(cqe) != FW_RI_READ_RESP)) ||
@@ -321,6 +336,7 @@ void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
 
 	*count = 0;
 	ptr = cq->sw_cidx;
+	BUG_ON(ptr >= cq->size);
 	while (ptr != cq->sw_pidx) {
 		cqe = &cq->sw_queue[ptr];
 		if (RQ_TYPE(cqe) && (CQE_OPCODE(cqe) != FW_RI_READ_RESP) &&
@@ -495,10 +511,12 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 	 */
 	if (!SW_CQE(hw_cqe) && (CQE_WRID_SQ_IDX(hw_cqe) != wq->sq.cidx)) {
 		struct t4_swsqe *swsqe;
+		int idx =  CQE_WRID_SQ_IDX(hw_cqe);
 
 		PDBG("%s out of order completion going in sw_sq at idx %u\n",
-		     __func__, CQE_WRID_SQ_IDX(hw_cqe));
-		swsqe = &wq->sq.sw_sq[CQE_WRID_SQ_IDX(hw_cqe)];
+		     __func__, idx);
+		BUG_ON(idx >= wq->sq.size);
+		swsqe = &wq->sq.sw_sq[idx];
 		swsqe->cqe = *hw_cqe;
 		swsqe->complete = 1;
 		ret = -EAGAIN;
@@ -513,12 +531,16 @@ proc_cqe:
 	 * completion.
 	 */
 	if (SQ_TYPE(hw_cqe)) {
-		wq->sq.cidx = CQE_WRID_SQ_IDX(hw_cqe);
+		int idx = CQE_WRID_SQ_IDX(hw_cqe);
+
+		BUG_ON(idx >= wq->sq.size);
+		wq->sq.cidx = (u16)idx;
 		PDBG("%s completing sq idx %u\n", __func__, wq->sq.cidx);
 		*cookie = wq->sq.sw_sq[wq->sq.cidx].wr_id;
 		t4_sq_consume(wq);
 	} else {
 		PDBG("%s completing rq idx %u\n", __func__, wq->rq.cidx);
+		BUG_ON(wq->rq.cidx >= wq->rq.size);
 		*cookie = wq->rq.sw_rq[wq->rq.cidx].wr_id;
 		BUG_ON(t4_rq_empty(wq));
 		t4_rq_consume(wq);
