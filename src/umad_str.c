@@ -83,7 +83,7 @@ const char * umad_class_str(uint8_t mgmt_class)
 	return ("<unknown>");
 }
 
-static char * umad_common_method_str(uint8_t method)
+static const char * umad_common_method_str(uint8_t method)
 {
 	switch(method) {
 		case UMAD_METHOD_GET:
@@ -107,7 +107,7 @@ static char * umad_common_method_str(uint8_t method)
 	}
 }
 
-static char * umad_sa_method_str(uint8_t method)
+static const char * umad_sa_method_str(uint8_t method)
 {
 	switch(method) {
 		case UMAD_SA_METHOD_GET_TABLE:
@@ -186,7 +186,7 @@ const char * umad_sa_mad_status_str(be16_t status)
 	return ("Undefined Error");
 }
 
-static char *umad_common_attr_str(be16_t attr_id)
+static const char *umad_common_attr_str(be16_t attr_id)
 {
 	switch(ntohs(attr_id)) {
 		case UMAD_ATTR_CLASS_PORT_INFO:
@@ -200,7 +200,7 @@ static char *umad_common_attr_str(be16_t attr_id)
 	}
 }
 
-static char * umad_sm_attr_str(be16_t attr_id)
+static const char * umad_sm_attr_str(be16_t attr_id)
 {
 	switch(ntohs(attr_id)) {
 		case UMAD_SMP_ATTR_NODE_DESC:
@@ -239,7 +239,7 @@ static char * umad_sm_attr_str(be16_t attr_id)
 	return ("<unknown>");
 }
 
-static char * umad_sa_attr_str(be16_t attr_id)
+static const char * umad_sa_attr_str(be16_t attr_id)
 {
 	switch(ntohs(attr_id)) {
 		case UMAD_SA_ATTR_NODE_REC:
@@ -286,7 +286,7 @@ static char * umad_sa_attr_str(be16_t attr_id)
 	return ("<unknown>");
 }
 
-static char * umad_cm_attr_str(be16_t attr_id)
+static const char * umad_cm_attr_str(be16_t attr_id)
 {
 	switch(ntohs(attr_id)) {
 		case UMAD_CM_ATTR_REQ:

@@ -32,7 +32,8 @@ IBUMAD_1.0 {
 		umad_dump;
 		umad_class_str;
 		umad_method_str;
-		umad_mad_status_str;
+		umad_common_mad_status_str;
+		umad_sa_status_str;
 		umad_attribute_str;
 	local: *;
 };
