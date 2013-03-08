@@ -23,10 +23,9 @@ man_MANS = man/umad_debug.3 man/umad_get_ca.3 \
 	   man/umad_mad_status_str.3 \
 	   man/umad_method_str.3
 
-
 lib_LTLIBRARIES = libibumad.la
 
-libibumad_la_CFLAGS = -Wall
+libibumad_la_CFLAGS = -Wall -Wwrite-strings
 
 if HAVE_LD_VERSION_SCRIPT
 libibumad_version_script = -Wl,--version-script=$(srcdir)/src/libibumad.map

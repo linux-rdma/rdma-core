@@ -160,16 +160,16 @@ int umad_init(void);
 int umad_done(void);
 
 int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max);
-int umad_get_ca_portguids(char *ca_name, uint64_t * portguids, int max);
+int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max);
 
-int umad_get_ca(char *ca_name, umad_ca_t * ca);
+int umad_get_ca(const char *ca_name, umad_ca_t * ca);
 int umad_release_ca(umad_ca_t * ca);
-int umad_get_port(char *ca_name, int portnum, umad_port_t * port);
+int umad_get_port(const char *ca_name, int portnum, umad_port_t * port);
 int umad_release_port(umad_port_t * port);
 
-int umad_get_issm_path(char *ca_name, int portnum, char path[], int max);
+int umad_get_issm_path(const char *ca_name, int portnum, char path[], int max);
 
-int umad_open_port(char *ca_name, int portnum);
+int umad_open_port(const char *ca_name, int portnum);
 int umad_close_port(int portid);
 
 void *umad_get_mad(void *umad);

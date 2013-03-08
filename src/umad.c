@@ -76,11 +76,11 @@ typedef struct ib_user_mad_reg_req {
 	uint8_t rmpp_version;
 } ib_user_mad_reg_req_t;
 
-extern int sys_read_string(char *dir_name, char *file_name, char *str, int len);
-extern int sys_read_guid(char *dir_name, char *file_name, uint64_t * net_guid);
-extern int sys_read_gid(char *dir_name, char *file_name, uint8_t * gid);
-extern int sys_read_uint64(char *dir_name, char *file_name, uint64_t * u);
-extern int sys_read_uint(char *dir_name, char *file_name, unsigned *u);
+extern int sys_read_string(const char *dir_name, const char *file_name, char *str, int len);
+extern int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_guid);
+extern int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid);
+extern int sys_read_uint64(const char *dir_name, const char *file_name, uint64_t * u);
+extern int sys_read_uint(const char *dir_name, const char *file_name, unsigned *u);
 
 #define IBWARN(fmt, args...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
 
@@ -91,7 +91,7 @@ int umaddebug = 0;
 
 #define UMAD_DEV_FILE_SZ	256
 
-static char *def_ca_name = "mthca0";
+static const char *def_ca_name = "mthca0";
 static int def_ca_port = 1;
 
 static unsigned abi_version;
@@ -100,7 +100,7 @@ static unsigned new_user_mad_api;
 /*************************************
  * Port
  */
-static int find_cached_ca(char *ca_name, umad_ca_t * ca)
+static int find_cached_ca(const char *ca_name, umad_ca_t * ca)
 {
 	return 0;		/* caching not implemented yet */
 }
@@ -126,7 +126,7 @@ static int check_for_digit_name(const struct dirent *dent)
 	return *p ? 0 : 1;
 }
 
-static int get_port(char *ca_name, char *dir, int portnum, umad_port_t * port)
+static int get_port(const char *ca_name, const char *dir, int portnum, umad_port_t * port)
 {
 	char port_dir[256];
 	uint8_t gid[16];
@@ -230,7 +230,7 @@ static int release_ca(umad_ca_t * ca)
  * the first port that is link up and if none are linkup, then
  * the first port that is not disabled.  Otherwise return -1.
  */
-static int resolve_ca_port(char *ca_name, int *port)
+static int resolve_ca_port(const char *ca_name, int *port)
 {
 	umad_ca_t ca;
 	int active = -1, up = -1;
@@ -313,7 +313,7 @@ Exit:
 	return ret;
 }
 
-static char *resolve_ca_name(char *ca_name, int *best_port)
+static const char *resolve_ca_name(const char *ca_name, int *best_port)
 {
 	static char names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN];
 	int phys_found = -1, port_found = 0, port, port_type;
@@ -370,7 +370,7 @@ static char *resolve_ca_name(char *ca_name, int *best_port)
 	return def_ca_name;
 }
 
-static int get_ca(char *ca_name, umad_ca_t * ca)
+static int get_ca(const char *ca_name, umad_ca_t * ca)
 {
 	DIR *dir;
 	char dir_name[256];
@@ -477,7 +477,7 @@ static int umad_id_to_dev(int umad_id, char *dev, unsigned *port)
 	return 0;
 }
 
-static int dev_to_umad_id(char *dev, unsigned port)
+static int dev_to_umad_id(const char *dev, unsigned port)
 {
 	char umad_dev[UMAD_CA_NAME_LEN];
 	unsigned umad_port;
@@ -528,7 +528,7 @@ int umad_done(void)
 	return 0;
 }
 
-static unsigned is_ib_type(char *ca_name)
+static unsigned is_ib_type(const char *ca_name)
 {
 	char dir_name[256];
 	unsigned type;
@@ -571,7 +571,7 @@ int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 	return j;
 }
 
-int umad_get_ca_portguids(char *ca_name, uint64_t * portguids, int max)
+int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max)
 {
 	umad_ca_t ca;
 	int ports = 0, i;
@@ -600,7 +600,7 @@ int umad_get_ca_portguids(char *ca_name, uint64_t * portguids, int max)
 	return ports;
 }
 
-int umad_get_issm_path(char *ca_name, int portnum, char path[], int max)
+int umad_get_issm_path(const char *ca_name, int portnum, char path[], int max)
 {
 	int umad_id;
 
@@ -617,7 +617,7 @@ int umad_get_issm_path(char *ca_name, int portnum, char path[], int max)
 	return 0;
 }
 
-int umad_open_port(char *ca_name, int portnum)
+int umad_open_port(const char *ca_name, int portnum)
 {
 	char dev_file[UMAD_DEV_FILE_SZ];
 	int umad_id, fd;
@@ -649,7 +649,7 @@ int umad_open_port(char *ca_name, int portnum)
 	return fd;
 }
 
-int umad_get_ca(char *ca_name, umad_ca_t * ca)
+int umad_get_ca(const char *ca_name, umad_ca_t * ca)
 {
 	int r;
 
@@ -682,7 +682,7 @@ int umad_release_ca(umad_ca_t * ca)
 	return 0;
 }
 
-int umad_get_port(char *ca_name, int portnum, umad_port_t * port)
+int umad_get_port(const char *ca_name, int portnum, umad_port_t * port)
 {
 	char dir_name[256];
 

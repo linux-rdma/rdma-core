@@ -65,7 +65,7 @@ static int ret_code(void)
 	return e;
 }
 
-int sys_read_string(char *dir_name, char *file_name, char *str, int max_len)
+int sys_read_string(const char *dir_name, const char *file_name, char *str, int max_len)
 {
 	char path[256], *s;
 	int fd, r;
@@ -75,7 +75,7 @@ int sys_read_string(char *dir_name, char *file_name, char *str, int max_len)
 	if ((fd = open(path, O_RDONLY)) < 0)
 		return ret_code();
 
-	if ((r = read(fd, str, max_len)) < 0) {
+	if ((r = read(fd, (void *)str, max_len)) < 0) {
 		int e = errno;
 		close(fd);
 		errno = e;
@@ -91,7 +91,7 @@ int sys_read_string(char *dir_name, char *file_name, char *str, int max_len)
 	return 0;
 }
 
-int sys_read_guid(char *dir_name, char *file_name, uint64_t * net_guid)
+int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_guid)
 {
 	char buf[32], *str, *s;
 	uint64_t guid;
@@ -113,7 +113,7 @@ int sys_read_guid(char *dir_name, char *file_name, uint64_t * net_guid)
 	return 0;
 }
 
-int sys_read_gid(char *dir_name, char *file_name, uint8_t * gid)
+int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid)
 {
 	char buf[64], *str, *s;
 	uint16_t *ugid = (uint16_t *) gid;
@@ -131,7 +131,7 @@ int sys_read_gid(char *dir_name, char *file_name, uint8_t * gid)
 	return 0;
 }
 
-int sys_read_uint64(char *dir_name, char *file_name, uint64_t * u)
+int sys_read_uint64(const char *dir_name, const char *file_name, uint64_t * u)
 {
 	char buf[32];
 	int r;
@@ -144,7 +144,7 @@ int sys_read_uint64(char *dir_name, char *file_name, uint64_t * u)
 	return 0;
 }
 
-int sys_read_uint(char *dir_name, char *file_name, unsigned *u)
+int sys_read_uint(const char *dir_name, const char *file_name, unsigned *u)
 {
 	char buf[32];
 	int r;
