@@ -233,6 +233,12 @@ static const char * umad_sm_attr_str(be16_t attr_id)
 			return ("LedInfo");
 		case UMAD_SMP_ATTR_LINK_SPD_WIDTH_TABLE:
 			return ("LinkSpeedWidthPairsTable");
+		case UMAD_SMP_ATTR_VENDOR_MADS_TABLE:
+			return ("VendorSpecificMadsTable");
+		case UMAD_SMP_ATTR_HIERARCHY_INFO:
+			return ("HierarchyInfo");
+		case UMAD_SMP_ATTR_CABLE_INFO:
+			return ("CableInfo");
 		default:
 			return (umad_common_attr_str(attr_id));
 	}
@@ -280,6 +286,12 @@ static const char * umad_sa_attr_str(be16_t attr_id)
 			return ("MultiPathRecord");
 		case UMAD_SA_ATTR_SERVICE_ASSOC_REC:
 			return ("ServiceAssociationRecord");
+		case UMAD_SA_ATTR_LINK_SPD_WIDTH_TABLE_REC:
+			return ("LinkSpeedWidthPairsTableRecord");
+		case UMAD_SA_ATTR_HIERARCHY_INFO_REC:
+			return ("HierarchyInfoRecord");
+		case UMAD_SA_ATTR_CABLE_INFO_REC:
+			return ("CableInfoRecord");
 		default:
 			return (umad_common_attr_str(attr_id));
 	}
