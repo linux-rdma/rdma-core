@@ -181,6 +181,9 @@ dnl Generate doc/man/*.in files if possible
 DOC_DATE="`date +%Y-%m-%d`"
 AC_SUBST(BUILD_DATE)
 AC_CHECK_PROG(have_rst2man, rst2man, "yes")
+if test x$have_rst2man != xyes; then
+AC_CHECK_PROG(have_rst2man, rst2man.py, "yes")
+fi
 if test x$have_rst2man == xyes; then
 	doc/generate
 else

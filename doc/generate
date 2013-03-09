@@ -5,12 +5,22 @@ mode=$1
 
 cd $docdir
 
+rst2man=""
+
+rc=`which rst2man &> /dev/null`
+if [ "$?" == "0" ]; then
+	rst2man="rst2man"
+fi
+rc=`which rst2man.py &> /dev/null`
+if [ "$?" == "0" ]; then
+	rst2man="rst2man.py"
+fi
+
 if [ "$mode" == "" ]; then
 	if [ ! -d man ]; then
 		mkdir man
 	fi
-	rc=`which rst2man &> /dev/null`
-	if [ "$?" != "0" ]; then
+	if [ "$rst2man" == "" ]; then
 		echo "could not generate man pages; 'rst2man not found'"
 		exit 1
 	fi
@@ -18,7 +28,7 @@ if [ "$mode" == "" ]; then
 		file=`basename $file`
 		target=`echo $file | sed -e 's/\(.*\).rst/\1/'`
 		echo "   creating man/$target ..."
-		rst2man rst/$file > man/$target
+		$rst2man rst/$file > man/$target
 	done
 elif [ "$mode" == "clean" ]; then
 	rm -f man/*
