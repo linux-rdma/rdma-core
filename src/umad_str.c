@@ -203,41 +203,41 @@ static const char *umad_common_attr_str(be16_t attr_id)
 static const char * umad_sm_attr_str(be16_t attr_id)
 {
 	switch(ntohs(attr_id)) {
-		case UMAD_SMP_ATTR_NODE_DESC:
+		case UMAD_SM_ATTR_NODE_DESC:
 			return ("NodeDescription");
-		case UMAD_SMP_ATTR_NODE_INFO:
+		case UMAD_SM_ATTR_NODE_INFO:
 			return ("NodeInfo");
-		case UMAD_SMP_ATTR_SWITCH_INFO:
+		case UMAD_SM_ATTR_SWITCH_INFO:
 			return ("SwitchInfo");
-		case UMAD_SMP_ATTR_GUID_INFO:
+		case UMAD_SM_ATTR_GUID_INFO:
 			return ("GUIDInfo");
-		case UMAD_SMP_ATTR_PORT_INFO:
+		case UMAD_SM_ATTR_PORT_INFO:
 			return ("PortInfo");
-		case UMAD_SMP_ATTR_PKEY_TABLE:
+		case UMAD_SM_ATTR_PKEY_TABLE:
 			return ("P_KeyTable");
-		case UMAD_SMP_ATTR_SLVL_TABLE:
+		case UMAD_SM_ATTR_SLVL_TABLE:
 			return ("SLtoVLMappingTable");
-		case UMAD_SMP_ATTR_VL_ARB_TABLE:
+		case UMAD_SM_ATTR_VL_ARB_TABLE:
 			return ("VLArbitrationTable");
-		case UMAD_SMP_ATTR_LINEAR_FT:
+		case UMAD_SM_ATTR_LINEAR_FT:
 			return ("LinearForwardingTable");
-		case UMAD_SMP_ATTR_RANDOM_FT:
+		case UMAD_SM_ATTR_RANDOM_FT:
 			return ("RandomForwardingTable");
-		case UMAD_SMP_ATTR_MCAST_FT:
+		case UMAD_SM_ATTR_MCAST_FT:
 			return ("MulticastForwardingTable");
-		case UMAD_SMP_ATTR_SM_INFO:
+		case UMAD_SM_ATTR_SM_INFO:
 			return ("SMInfo");
-		case UMAD_SMP_ATTR_VENDOR_DIAG:
+		case UMAD_SM_ATTR_VENDOR_DIAG:
 			return ("VendorDiag");
-		case UMAD_SMP_ATTR_LED_INFO:
+		case UMAD_SM_ATTR_LED_INFO:
 			return ("LedInfo");
-		case UMAD_SMP_ATTR_LINK_SPD_WIDTH_TABLE:
+		case UMAD_SM_ATTR_LINK_SPD_WIDTH_TABLE:
 			return ("LinkSpeedWidthPairsTable");
-		case UMAD_SMP_ATTR_VENDOR_MADS_TABLE:
+		case UMAD_SM_ATTR_VENDOR_MADS_TABLE:
 			return ("VendorSpecificMadsTable");
-		case UMAD_SMP_ATTR_HIERARCHY_INFO:
+		case UMAD_SM_ATTR_HIERARCHY_INFO:
 			return ("HierarchyInfo");
-		case UMAD_SMP_ATTR_CABLE_INFO:
+		case UMAD_SM_ATTR_CABLE_INFO:
 			return ("CableInfo");
 		default:
 			return (umad_common_attr_str(attr_id));
