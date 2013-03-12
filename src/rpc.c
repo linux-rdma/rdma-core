@@ -184,6 +184,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 			return length;
 	}
 
+	errno = status;
 	*p_error = ETIMEDOUT;
 	ERRS("timeout after %d retries, %d ms", retries, timeout * retries);
 	return -1;
@@ -260,6 +261,7 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 	if (status != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",
 		     status, portid2str(dport));
+		errno = EIO;
 		return NULL;
 	}
 
@@ -309,6 +311,7 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc,
 	if ((status = mad_get_field(mad, 0, IB_MAD_STATUS_F)) != 0) {
 		ERRS("MAD completed with error status 0x%x; dport (%s)",
 		     status, portid2str(dport));
+		errno = EIO;
 		return NULL;
 	}
 

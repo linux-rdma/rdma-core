@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -61,6 +62,10 @@ int ib_resolve_smlid_via(ib_portid_t * sm_id, int timeout,
 		return -1;
 
 	mad_decode_field(portinfo, IB_PORT_SMLID_F, &lid);
+	if (!IB_LID_VALID(lid)) {
+		errno = ENXIO;
+		return -1;
+	}
 	mad_decode_field(portinfo, IB_PORT_SMSL_F, &sm_id->sl);
 
 	return ib_portid_set(sm_id, lid, 0, 0);
@@ -75,11 +80,13 @@ int ib_resolve_gid_via(ib_portid_t * portid, ibmad_gid_t gid,
 		       ib_portid_t * sm_id, int timeout,
 		       const struct ibmad_port *srcport)
 {
-	ib_portid_t sm_portid;
+	ib_portid_t sm_portid = { 0 };
 	char buf[IB_SA_DATA_SIZE] = { 0 };
 
-	if (!sm_id) {
+	if (!sm_id)
 		sm_id = &sm_portid;
+
+	if (!IB_LID_VALID(sm_id->lid)) {
 		if (ib_resolve_smlid_via(sm_id, timeout, srcport) < 0)
 			return -1;
 	}
@@ -95,15 +102,17 @@ int ib_resolve_guid_via(ib_portid_t * portid, uint64_t * guid,
 			ib_portid_t * sm_id, int timeout,
 			const struct ibmad_port *srcport)
 {
-	ib_portid_t sm_portid;
+	ib_portid_t sm_portid = { 0 };
 	uint8_t buf[IB_SA_DATA_SIZE] = { 0 };
 	ib_portid_t self = { 0 };
 	uint64_t selfguid, prefix;
 	ibmad_gid_t selfgid;
 	uint8_t nodeinfo[64];
 
-	if (!sm_id) {
+	if (!sm_id)
 		sm_id = &sm_portid;
+
+	if (!IB_LID_VALID(sm_id->lid)) {
 		if (ib_resolve_smlid_via(sm_id, timeout, srcport) < 0)
 			return -1;
 	}
@@ -145,18 +154,24 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 	switch (dest_type) {
 	case IB_DEST_LID:
 		lid = strtol(addr_str, 0, 0);
-		if (!IB_LID_VALID(lid))
+		if (!IB_LID_VALID(lid)) {
+			errno = EINVAL;
 			return -1;
+		}
 		return ib_portid_set(portid, lid, 0, 0);
 
 	case IB_DEST_DRPATH:
-		if (str2drpath(&portid->drpath, addr_str, 0, 0) < 0)
+		if (str2drpath(&portid->drpath, addr_str, 0, 0) < 0) {
+			errno = EINVAL;
 			return -1;
+		}
 		return 0;
 
 	case IB_DEST_GUID:
-		if (!(guid = strtoull(addr_str, 0, 0)))
+		if (!(guid = strtoull(addr_str, 0, 0))) {
+			errno = EINVAL;
 			return -1;
+		}
 
 		/* keep guid in portid? */
 		return ib_resolve_guid_via(portid, &guid, sm_id, 0, srcport);
@@ -164,16 +179,20 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 	case IB_DEST_DRSLID:
 		lid = strtol(addr_str, &routepath, 0);
 		routepath++;
-		if (!IB_LID_VALID(lid))
+		if (!IB_LID_VALID(lid)) {
+			errno = EINVAL;
 			return -1;
+		}
 		ib_portid_set(portid, lid, 0, 0);
 
 		/* handle DR parsing and set DrSLID to local lid */
 		if (ib_resolve_self_via(&selfportid, &selfport, 0, srcport) < 0)
 			return -1;
 		if (str2drpath(&portid->drpath, routepath, selfportid.lid, 0) <
-		    0)
+		    0) {
+			errno = EINVAL;
 			return -1;
+		}
 		return 0;
 
 	case IB_DEST_GID:
@@ -182,6 +201,7 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 		return ib_resolve_gid_via(portid, gid, sm_id, 0, srcport);
 	default:
 		IBWARN("bad dest_type %d", dest_type);
+		errno = EINVAL;
 	}
 
 	return -1;

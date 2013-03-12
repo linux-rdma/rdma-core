@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <errno.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -102,10 +103,12 @@ void *mad_encode(void *buf, ib_rpc_t * rpc, ib_dr_path_t * drpath, void *data)
 	if ((rpc->mgtclass & 0xff) == IB_SMI_DIRECT_CLASS) {
 		if (!drpath) {
 			IBWARN("encoding dr mad without drpath (null)");
+			errno = EINVAL;
 			return NULL;
 		}
 		if (drpath->cnt >= IB_SUBNET_PATH_HOPS_MAX) {
 			IBWARN("dr path with hop count %d", drpath->cnt);
+			errno = EINVAL;
 			return NULL;
 		}
 		mad_set_field(buf, 0, IB_DRSMP_HOPCNT_F, drpath->cnt);

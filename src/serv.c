@@ -98,8 +98,10 @@ int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
 	int is_smi;
 
 	if (!portid) {
-		if (!(mad_addr = umad_get_mad_addr(umad)))
+		if (!(mad_addr = umad_get_mad_addr(umad))) {
+			errno = EINVAL;
 			return -1;
+		}
 
 		memset(&rport, 0, sizeof(rport));
 
