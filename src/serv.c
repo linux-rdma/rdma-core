@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -75,7 +76,7 @@ int mad_send_via(ib_rpc_t * rpc, ib_portid_t * dport, ib_rmpp_hdr_t * rmpp,
 	if (umad_send(srcport->port_id, srcport->class_agents[rpc->mgtclass & 0xff],
 		      umad, IB_MAD_SIZE, mad_get_timeout(srcport, rpc->timeout),
 		      0) < 0) {
-		IBWARN("send failed; %m");
+		IBWARN("send failed; %s", strerror(errno));
 		return -1;
 	}
 
@@ -157,7 +158,7 @@ int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
 	if (umad_send
 	    (srcport->port_id, srcport->class_agents[rpc.mgtclass], umad,
 	     IB_MAD_SIZE, mad_get_timeout(srcport, rpc.timeout), 0) < 0) {
-		DEBUG("send failed; %m");
+		DEBUG("send failed; %s", strerror(errno));
 		return -1;
 	}
 
@@ -179,7 +180,7 @@ void *mad_receive_via(void *umad, int timeout, struct ibmad_port *srcport)
 			       mad_get_timeout(srcport, timeout))) < 0) {
 		if (!umad)
 			umad_free(mad);
-		DEBUG("recv failed: %m");
+		DEBUG("recv failed: %s", strerror(errno));
 		return 0;
 	}
 
