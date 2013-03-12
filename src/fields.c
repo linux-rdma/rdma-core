@@ -959,15 +959,15 @@ static void _set_field64(void *buf, int base_offs, const ib_field_t * f,
 	uint64_t nval;
 
 	nval = htonll(val);
-	memcpy((char *)buf + base_offs + f->bitoffs / 8, &nval,
-	       sizeof(uint64_t));
+	memcpy(((void *)(char *)buf + base_offs + f->bitoffs / 8),
+		(void *)&nval, sizeof(uint64_t));
 }
 
 static uint64_t _get_field64(void *buf, int base_offs, const ib_field_t * f)
 {
 	uint64_t val;
-	memcpy(&val, ((char *)buf + base_offs + f->bitoffs / 8),
-	       sizeof(uint64_t));
+	memcpy((void *)&val, (void *)((char *)buf + base_offs + f->bitoffs / 8),
+		sizeof(uint64_t));
 	return ntohll(val);
 }
 
