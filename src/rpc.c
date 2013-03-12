@@ -360,7 +360,8 @@ madrpc_init(char *dev_name, int dev_port, int *mgmt_classes, int num_classes)
 		IBPANIC("can't init UMAD library");
 
 	if ((fd = umad_open_port(dev_name, dev_port)) < 0)
-		IBPANIC("can't open UMAD port (%s:%d)", dev_name, dev_port);
+		IBPANIC("can't open UMAD port (%s:%d)",
+		dev_name ? dev_name : "(nil)", dev_port);
 
 	if (num_classes >= MAX_CLASS)
 		IBPANIC("too many classes %d requested", num_classes);
