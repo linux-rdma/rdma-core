@@ -129,7 +129,7 @@ static int
 _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	   int timeout, int max_retries, int *p_error)
 {
-	uint32_t trid;		/* only low 32 bits */
+	uint32_t trid;		/* only low 32 bits - see mad_trid() */
 	int retries;
 	int length, status;
 
