@@ -1,4 +1,4 @@
-.\" Man page generated from reStructeredText.
+.\" Man page generated from reStructuredText.
 .
 .TH INFINIBAND-DIAGS 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
@@ -30,7 +30,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH Diagnostics for InfiniBand Fabrics
+.SH DIAGNOSTICS FOR INFINIBAND FABRICS
 .SS DESCRIPTION
 .sp
 infiniband\-diags is a set of utilities designed to help configure, debug, and
@@ -61,6 +61,8 @@ The \-D and \-G option have two forms:
 .
 .sp
 \fB\-D, \-\-Direct\fP     The address specified is a directed route
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -73,10 +75,14 @@ Examples:
    port found through the automatic selection process.)
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .\" Define the common option -D for Directed routes
 .
 .sp
 \fB\-D, \-\-Direct <dr_path>\fP     The address specified is a directed route
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -89,6 +95,8 @@ Examples:
    port found through the automatic selection process.)
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .\" Define the common option -G
 .
 .sp
@@ -125,10 +133,8 @@ selects the port to use by the following criteria:
 .INDENT 3.5
 .INDENT 0.0
 .IP 1. 3
-.
 the first port that is ACTIVE.
 .IP 2. 3
-.
 if not found, the first port that is UP (physical link up).
 .UNINDENT
 .sp
@@ -136,6 +142,8 @@ If a port and/or CA name is specified, the libibumad library attempts
 to fulfill the user request, and will fail if it is not possible.
 .sp
 For example:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -147,13 +155,14 @@ ibaddr \-C mthca0 \-P 2  # use the specified port only.
 .fi
 .UNINDENT
 .UNINDENT
+.UNINDENT
+.UNINDENT
 .SS Debugging flags
 .\" Define the common option -d
 .
 .INDENT 0.0
 .TP
 .B \-d
-.
 raise the IB debugging level.
 May be used several times (\-ddd or \-d \-d \-d).
 .UNINDENT
@@ -162,7 +171,6 @@ May be used several times (\-ddd or \-d \-d \-d).
 .INDENT 0.0
 .TP
 .B \-e
-.
 show send and receive errors (timeouts and others)
 .UNINDENT
 .\" Define the common option -h
@@ -174,7 +182,6 @@ show send and receive errors (timeouts and others)
 .INDENT 0.0
 .TP
 .B \fB\-v, \-\-verbose\fP
-.sp
 increase the application verbosity level.
 May be used several times (\-vv or \-v \-v \-v)
 .UNINDENT
@@ -192,7 +199,6 @@ May be used several times (\-vv or \-v \-v \-v)
 .INDENT 0.0
 .TP
 .B \fB\-\-outstanding_smps, \-o <val>\fP
-.sp
 Specify the number of outstanding SMP\(aqs which should be issued during the scan
 .sp
 Default: 2
@@ -203,7 +209,6 @@ Default: 2
 \fB\-\-node\-name\-map <node\-name\-map>\fP Specify a node name map.
 .INDENT 0.0
 .INDENT 3.5
-.sp
 This file maps GUIDs to more user friendly names.  See FILES section.
 .UNINDENT
 .UNINDENT
@@ -213,7 +218,6 @@ This file maps GUIDs to more user friendly names.  See FILES section.
 \fB\-\-config, \-z  <config_file>\fP Specify alternate config file.
 .INDENT 0.0
 .INDENT 3.5
-.sp
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
@@ -239,6 +243,8 @@ This functionality is provided by the opensm\-libs package.  See \fBopensm(8)\fP
 for the file location for your installation.
 .sp
 \fBGenerically:\fP
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -246,8 +252,12 @@ for the file location for your installation.
 <guid> "<name>"
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
 \fBExample:\fP
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -273,6 +283,8 @@ for the file location for your installation.
 0x0008f104004119d0 "SW4  (Rack  3) ISR9024 Voltaire 9024D"
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .\" Common text to describe the Topology file.
 .
 .SS TOPOLOGY FILE FORMAT
@@ -299,6 +311,8 @@ The active link width and speed are then appended to the end of this
 output line.
 .sp
 An example of this is:
+.INDENT 0.0
+.INDENT 3.5
 .sp
 .nf
 .ft C
@@ -356,6 +370,8 @@ Ca      2 "H\-0008f10403960558"          # "MT23108 InfiniHost Mellanox Technolo
 [1](8f10403960559)     "S\-005442ba00003080"[12]                # lid 10 lmc 1 "ISR9024 Voltaire" lid 6 1xSDR
 .ft P
 .fi
+.UNINDENT
+.UNINDENT
 .sp
 When grouping is used, IB nodes are organized into chassis which are
 numbered. Nodes which cannot be determined to be in a chassis are
@@ -365,63 +381,54 @@ connectivity lines.
 .SS Basic fabric conectivity
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibnetdiscover, iblinkinfo
 .UNINDENT
 .UNINDENT
 .SS Node information
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibnodes, ibswitches, ibhosts, ibrouters
 .UNINDENT
 .UNINDENT
 .SS Port information
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibportstate, ibaddr
 .UNINDENT
 .UNINDENT
 .SS Switch Forwarding Table info
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibtracert, ibroute, dump_lfts, dump_mfts, check_lft_balance, ibfindnodesusing
 .UNINDENT
 .UNINDENT
 .SS Peformance counters
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibqueryerrors, perfquery
 .UNINDENT
 .UNINDENT
 .SS Local HCA info
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibstat, ibstatus
 .UNINDENT
 .UNINDENT
 .SS Connectivity check
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibping, ibsysstat
 .UNINDENT
 .UNINDENT
 .SS Low level query tools
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: smpquery, smpdump, saquery, sminfo
 .UNINDENT
 .UNINDENT
 .SS Fabric verification tools
 .INDENT 0.0
 .INDENT 3.5
-.sp
 See: ibidsverify
 .UNINDENT
 .UNINDENT
@@ -439,9 +446,7 @@ ibprintca, ibprintrt, ibprintswitch, set_nodedesc.sh
 .INDENT 0.0
 .TP
 .B Ira Weiny
-.
-<\fI\%weiny2@llnl.gov\fP>
+< \fI\%ira.weiny@intel.com\fP >
 .UNINDENT
 .\" Generated by docutils manpage writer.
-.\" 
 .
