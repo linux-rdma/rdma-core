@@ -52,6 +52,9 @@ Specify an alternate threshold file.  The default is @IBDIAG_CONFIG_PATH@/error_
 
 **--ca**  print data for CA's only
 
+**--skip-sl**  Use the default sl for queries. This is not recommended when
+using a QoS aware routing engine as it can cause a credit deadlock.
+
 **--router**  print data for routers only
 
 **--clear-errors -k** Clear error counters after read.
