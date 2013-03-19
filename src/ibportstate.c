@@ -68,6 +68,8 @@ enum port_ops {
 	MKEY,
 	MKEYLEASE,
 	MKEYPROT,
+	ON,
+	OFF
 };
 
 struct ibmad_port *srcport;
@@ -108,6 +110,8 @@ struct {
 	{"mkey", &mkey, 0},	/* MKEY */
 	{"mkeylease", &mkeylease, 0},	/* MKEY LEASE */
 	{"mkeyprot", &mkeyprot, 0},	/* MKEY PROTECT BITS */
+	{"on", NULL, 0},	/* ON */
+	{"off", NULL, 0},	/* OFF */
 };
 
 #define NPORT_ARGS (sizeof(port_args) / sizeof(port_args[0]))
@@ -534,6 +538,8 @@ int main(int argc, char **argv)
 		 * the SMA command will fail due to an invalid LID.
 		 * Set it to something unlikely but valid.
 		 */
+		physstate = mad_get_field(data, 0, IB_PORT_PHYS_STATE_F);
+
 		val = mad_get_field(data, 0, IB_PORT_LID_F);
 		if (!port_args[LID].set && (!val || val == 0xFFFF))
 			mad_set_field(data, 0, IB_PORT_LID_F, 0x1234);
@@ -544,11 +550,18 @@ int main(int argc, char **argv)
 		mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 0);	/* NOP */
 
 		switch (port_op) {
+		case ON:
+			/* Enable only if state is Disable */
+			if(physstate != 3) {
+				printf("Port is already in enable state\n");
+				goto close_port;
+			}
 		case ENABLE:
 		case RESET:
 			/* Polling */
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 2);
 			break;
+		case OFF:
 		case DISABLE:
 			printf("Disable may be irreversible\n");
 			mad_set_field(data, 0, IB_PORT_PHYS_STATE_F, 3);
@@ -732,6 +745,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+close_port:
 	mad_rpc_close_port(srcport);
 	exit(0);
 }

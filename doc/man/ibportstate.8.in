@@ -47,13 +47,17 @@ also allows the link speed/width enabled on any IB port to be adjusted.
 .INDENT 7.0
 .TP
 .B Supported ops: enable, disable, reset, speed, espeed, fdr10, width, query,
-down, arm, active, vls, mtu, lid, smlid, lmc,
+on, off, down, arm, active, vls, mtu, lid, smlid, lmc,
 mkey, mkeylease, mkeyprot
 (Default is query)
 .UNINDENT
 .sp
 \fBenable, disable, and reset\fP are only allowed on switch ports (An
 error is indicated if attempted on CA or router ports)
+.sp
+\fBoff\fP change the port state to disable.
+.sp
+\fBon\fP change the port state to enable(only when the current state is disable).
 .sp
 \fBspeed and width\fP are allowed on any port
 .sp

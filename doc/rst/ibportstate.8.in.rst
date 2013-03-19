@@ -30,12 +30,16 @@ OPTIONS
 
 **<op>**
         Supported ops: enable, disable, reset, speed, espeed, fdr10, width, query,
-                        down, arm, active, vls, mtu, lid, smlid, lmc,
+                        on, off, down, arm, active, vls, mtu, lid, smlid, lmc,
                         mkey, mkeylease, mkeyprot
 			(Default is query)
 
         **enable, disable, and reset** are only allowed on switch ports (An
         error is indicated if attempted on CA or router ports)
+
+        **off** change the port state to disable.
+
+        **on** change the port state to enable(only when the current state is disable).
 
         **speed and width** are allowed on any port
 
