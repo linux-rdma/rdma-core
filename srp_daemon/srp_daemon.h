@@ -406,7 +406,7 @@ static const int   node_table_response_size = 1 << 18;
 		struct tm *t = localtime(&tt);				\
 		sprintf(str, arg);					\
 		fprintf(stderr, "%02d/%02d/%02d %02d:%02d:%02d : %s", 	\
-			t->tm_mday, t->tm_mon, t->tm_year%100, 		\
+			t->tm_mday, t->tm_mon+1, t->tm_year%100,	\
 			t->tm_hour, t->tm_min, t->tm_sec, str);		\
 	} while (0)
 
