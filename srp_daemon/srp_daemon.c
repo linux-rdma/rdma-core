@@ -1368,11 +1368,9 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 
 static void config_destroy(struct config_t *conf)
 {
-	if (conf->dev_name)
-		free(conf->dev_name);
-
-	if (conf->add_target_file)
-		free(conf->add_target_file);
+	free(conf->dev_name);
+	free(conf->add_target_file);
+	free(conf->rules);
 }
 
 static void umad_resources_init(struct umad_resources *umad_res)
