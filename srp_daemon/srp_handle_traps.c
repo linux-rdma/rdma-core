@@ -32,6 +32,7 @@
  * $Author: ishai Rabinovitz [ishai@mellanox.co.il]$
  * 
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -340,9 +341,19 @@ int ud_resources_create(struct ud_resources *res)
 	return 0;
 }
 
+uint16_t get_port_lid(struct ibv_context *ib_ctx, int port_num)
+{
+	struct ibv_port_attr port_attr;
+
+	return ibv_query_port(ib_ctx, port_num, &port_attr) == 0 ?
+		port_attr.lid : 0;
+}
+
 int create_ah(struct ud_resources *ud_res)
 {
 	struct ibv_ah_attr ah_attr;
+
+	assert(!ud_res->ah);
 
 	/* create the UD AV */
 	memset(&ah_attr, 0, sizeof(ah_attr));
@@ -446,6 +457,9 @@ static void fill_send_request(struct ud_resources *res, struct ibv_send_wr *psr,
        			      struct ibv_sge *psg, ib_mad_t *mad_hdr)
 {
 	static int wr_id=0;
+
+	assert(res->ah);
+
 	memset(psr, 0, sizeof(*psr));
 
 	psr->next = NULL;

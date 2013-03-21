@@ -1577,12 +1577,22 @@ int main(int argc, char *argv[])
 	while (1) {
 		pthread_mutex_lock(&res.sync_res->mutex);
 		if (res.sync_res->recalc) {
-			pthread_mutex_unlock(&res.sync_res->mutex);		  
+			uint16_t port_lid;
+
+			pthread_mutex_unlock(&res.sync_res->mutex);
 			pr_debug("Starting a recalculation\n");
-			ret = create_ah(res.ud_res);
-			if (ret) 
-				goto kill_threads;
-			
+			port_lid = get_port_lid(res.ud_res->ib_ctx,
+					   config->port_num);
+			if (port_lid != res.ud_res->port_attr.lid) {
+				if (res.ud_res->ah) {
+					ibv_destroy_ah(res.ud_res->ah);
+					res.ud_res->ah = NULL;
+				}
+				ret = create_ah(res.ud_res);
+				if (ret)
+					goto kill_threads;
+			}
+
 			if (register_to_traps(res.ud_res))
 				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
 

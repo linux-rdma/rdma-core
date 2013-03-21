@@ -425,6 +425,7 @@ void *run_thread_wait_till_timeout(void *res_in);
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid);
 int create_trap_resources(struct ud_resources *ud_res);
 int register_to_traps(struct ud_resources *ud_res);
+uint16_t get_port_lid(struct ibv_context *ib_ctx, int port_num);
 int create_ah(struct ud_resources *ud_res);
 void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid);
 void push_lid_to_list(struct sync_resources *res, uint16_t lid);
