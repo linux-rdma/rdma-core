@@ -3068,7 +3068,7 @@ static void acm_set_options(void)
 {
 	FILE *f;
 	char s[120];
-	char opt[32], value[32];
+	char opt[32], value[256];
 
 	if (!(f = fopen(opts_file, "r")))
 		return;
@@ -3077,7 +3077,7 @@ static void acm_set_options(void)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%32s%32s", opt, value) != 2)
+		if (sscanf(s, "%32s%256s", opt, value) != 2)
 			continue;
 
 		if (!stricmp("log_file", opt))
