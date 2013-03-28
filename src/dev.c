@@ -179,6 +179,9 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	struct ibv_get_context cmd;
 	struct c4iw_alloc_ucontext_resp resp;
 	struct c4iw_dev *rhp = to_c4iw_dev(ibdev);
+	struct ibv_query_device qcmd;
+	uint64_t raw_fw_ver;
+	struct ibv_device_attr attr;
 
 	context = malloc(sizeof *context);
 	if (!context)
@@ -211,9 +214,35 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		break;
 	}
 
+	if (!rhp->mmid2ptr) {
+		int ret;
+
+		ret = ibv_cmd_query_device(&context->ibv_ctx, &attr, &raw_fw_ver, &qcmd,
+					   sizeof qcmd);
+		if (ret)
+			goto err_free;
+		rhp->mmid2ptr = calloc(attr.max_mr, sizeof(void *));
+		if (!rhp->mmid2ptr) {
+			goto err_free;
+		}
+		rhp->qpid2ptr = calloc(T4_QID_BASE + attr.max_qp, sizeof(void *));
+		if (!rhp->qpid2ptr) {
+			goto err_free;
+		}
+		rhp->cqid2ptr = calloc(T4_QID_BASE + attr.max_cq, sizeof(void *));
+		if (!rhp->cqid2ptr)
+			goto err_free;
+	}
+
 	return &context->ibv_ctx;
 
 err_free:
+	if (rhp->cqid2ptr)
+		free(rhp->cqid2ptr);
+	if (rhp->qpid2ptr)
+		free(rhp->cqid2ptr);
+	if (rhp->mmid2ptr)
+		free(rhp->cqid2ptr);
 	free(context);
 	return NULL;
 }
@@ -441,7 +470,7 @@ found:
 	PDBG("%s found vendor %d device %d type %d\n",
 	     __FUNCTION__, vendor, device, hca_table[i].type);
 
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof *dev);
 	if (!dev) {
 		return NULL;
 	}
@@ -451,17 +480,6 @@ found:
 	dev->hca_type = hca_table[i].type;
 	dev->abi_version = abi_version;
 
-	dev->mmid2ptr = calloc(T4_MAX_NUM_STAG, sizeof(void *));
-	if (!dev->mmid2ptr) {
-		goto err1;
-	}
-	dev->qpid2ptr = calloc(T4_QID_BASE + T4_MAX_NUM_QP, sizeof(void *));
-	if (!dev->qpid2ptr) {
-		goto err2;
-	}
-	dev->cqid2ptr = calloc(T4_MAX_NUM_CQ, sizeof(void *));
-	if (!dev->cqid2ptr)
-		goto err3;
 	PDBG("%s device claimed\n", __FUNCTION__);
 	SLIST_INSERT_HEAD(&devices, dev, list);
 #ifdef STALL_DETECTION
@@ -485,13 +503,6 @@ found:
 	}
 
 	return &dev->ibv_dev;
-err3:
-	free(dev->qpid2ptr);
-err2:
-	free(dev->mmid2ptr);
-err1:
-	free(dev);
-	return NULL;
 }
 
 static __attribute__((constructor)) void cxgb4_register_driver(void)
