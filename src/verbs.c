@@ -46,6 +46,8 @@
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
 
+#define MASKED(x) (void *)((unsigned long)(x) & c4iw_page_mask)
+
 int c4iw_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 {
 	struct ibv_query_device cmd;
@@ -224,7 +226,7 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	INC_STAT(cq);
 	return &chp->ibv_cq;
 err4:
-	munmap((void *)chp->cq.ugts, c4iw_page_size);
+	munmap(MASKED(chp->cq.ugts), c4iw_page_size);
 err3:
 	munmap(chp->cq.queue, chp->cq.memsize);
 err2:
@@ -260,7 +262,7 @@ int c4iw_destroy_cq(struct ibv_cq *ibcq)
 	if (ret) {
 		return ret;
 	}
-	munmap((void *)chp->cq.ugts, c4iw_page_size);
+	munmap(MASKED(chp->cq.ugts), c4iw_page_size);
 	munmap(chp->cq.queue, chp->cq.memsize);
 
 	pthread_spin_lock(&dev->lock);
@@ -385,11 +387,11 @@ err8:
 err7:
 	munmap((void *)qhp->wq.rq.queue, qhp->wq.rq.memsize);
 err6:
-	munmap((void *)qhp->wq.rq.udb, c4iw_page_size);
+	munmap(MASKED(qhp->wq.rq.udb), c4iw_page_size);
 err5:
 	munmap((void *)qhp->wq.sq.queue, qhp->wq.sq.memsize);
 err4:
-	munmap((void *)qhp->wq.sq.udb, c4iw_page_size);
+	munmap(MASKED(qhp->wq.sq.udb), c4iw_page_size);
 err3:
 	(void)ibv_cmd_destroy_qp(&qhp->ibv_qp);
 err2:
@@ -509,11 +511,11 @@ err8:
 err7:
 	munmap((void *)qhp->wq.rq.queue, qhp->wq.rq.memsize);
 err6:
-	munmap((void *)qhp->wq.rq.udb, c4iw_page_size);
+	munmap(MASKED(qhp->wq.rq.udb), c4iw_page_size);
 err5:
 	munmap((void *)qhp->wq.sq.queue, qhp->wq.sq.memsize);
 err4:
-	munmap((void *)qhp->wq.sq.udb, c4iw_page_size);
+	munmap(MASKED(qhp->wq.sq.udb), c4iw_page_size);
 err3:
 	(void)ibv_cmd_destroy_qp(&qhp->ibv_qp);
 err2:
@@ -580,8 +582,8 @@ int c4iw_destroy_qp(struct ibv_qp *ibqp)
 		qhp->wq.sq.ma_sync -= (A_PCIE_MA_SYNC & (c4iw_page_size - 1));
 		munmap((void *)qhp->wq.sq.ma_sync, c4iw_page_size);
 	}
-	munmap((void *)qhp->wq.sq.udb, c4iw_page_size);
-	munmap((void *)qhp->wq.rq.udb, c4iw_page_size);
+	munmap(MASKED(qhp->wq.sq.udb), c4iw_page_size);
+	munmap(MASKED(qhp->wq.rq.udb), c4iw_page_size);
 	munmap(qhp->wq.sq.queue, qhp->wq.sq.memsize);
 	munmap(qhp->wq.rq.queue, qhp->wq.rq.memsize);
 

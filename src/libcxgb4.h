@@ -44,7 +44,9 @@
 #include "queue.h"
 #include "t4.h"
 
-extern int c4iw_page_size;
+extern unsigned long c4iw_page_size;
+extern unsigned long c4iw_page_shift;
+extern unsigned long c4iw_page_mask;
 
 enum c4iw_hca_type {
 	CHELSIO_T4 = 0,
