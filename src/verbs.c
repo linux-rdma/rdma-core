@@ -205,7 +205,10 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	if (chp->cq.ugts == MAP_FAILED)
 		goto err3;
 
-	chp->cq.ugts += 1;
+	if (chp->rhp->hca_type == CHELSIO_T5)
+		chp->cq.ugts += 3;
+	else
+		chp->cq.ugts += 1;
 	chp->cq.sw_queue = calloc(chp->cq.size, sizeof *chp->cq.queue);
 	if (!chp->cq.sw_queue)
 		goto err4;
@@ -335,6 +338,7 @@ static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
 		    pd->context->cmd_fd, resp.sq_db_gts_key);
 	if (dbva == MAP_FAILED)
 		goto err3;
+
 	qhp->wq.sq.udb = dbva;
 	qhp->wq.sq.queue = mmap(NULL, qhp->wq.sq.memsize,
 			    PROT_WRITE, MAP_SHARED,
@@ -439,6 +443,11 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	if (dbva == MAP_FAILED)
 		goto err3;
 	qhp->wq.sq.udb = dbva;
+	if (qhp->rhp->hca_type == CHELSIO_T5) {
+		qhp->wq.sq.udb += (128*(qhp->wq.sq.qid & qhp->wq.qid_mask))/4;
+		qhp->wq.sq.udb += 2;
+	}
+
 	qhp->wq.sq.queue = mmap(NULL, qhp->wq.sq.memsize,
 			    PROT_WRITE, MAP_SHARED,
 			    pd->context->cmd_fd, resp.sq_key);
@@ -450,6 +459,10 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	if (dbva == MAP_FAILED)
 		goto err5;
 	qhp->wq.rq.udb = dbva;
+	if (qhp->rhp->hca_type == CHELSIO_T5) {
+		qhp->wq.rq.udb += (128*(qhp->wq.rq.qid & qhp->wq.qid_mask))/4;
+		qhp->wq.rq.udb += 2;
+	}
 	qhp->wq.rq.queue = mmap(NULL, qhp->wq.rq.memsize,
 			    PROT_WRITE, MAP_SHARED,
 			    pd->context->cmd_fd, resp.rq_key);

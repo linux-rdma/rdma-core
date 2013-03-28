@@ -48,6 +48,7 @@ extern int c4iw_page_size;
 
 enum c4iw_hca_type {
 	CHELSIO_T4 = 0,
+	CHELSIO_T5 = 1
 };
 
 struct c4iw_mr;
@@ -216,14 +217,6 @@ int c4iw_flush_rq(struct t4_wq *wq, struct t4_cq *cq, int count);
 void c4iw_flush_sq(struct c4iw_qp *qhp, int count);
 void c4iw_count_scqes(struct t4_cq *cq, struct t4_wq *wq, int *count);
 void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count);
-
-#ifdef DEBUG
-#define DBGLOG(s)
-#define PDBG(fmt, args...) do {syslog(LOG_DEBUG, fmt, ##args); } while (0)
-#else
-#define DBGLOG(s)
-#define PDBG(fmt, args...) do {} while (0)
-#endif
 
 #define FW_MAJ 0
 #define FW_MIN 0

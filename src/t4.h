@@ -76,6 +76,14 @@
 #include "t4_regs.h"
 #include "t4fw_interface.h"
 
+#ifdef DEBUG
+#define DBGLOG(s)
+#define PDBG(fmt, args...) do {syslog(LOG_DEBUG, fmt, ##args); } while (0)
+#else
+#define DBGLOG(s)
+#define PDBG(fmt, args...) do {} while (0)
+#endif
+
 #define T4_MAX_READ_DEPTH 16
 #define T4_QID_BASE 1024
 #define T4_MAX_QIDS 256
@@ -449,20 +457,65 @@ static inline void t4_sq_consume(struct t4_wq *wq)
 		wq->sq.queue[wq->sq.size].status.host_cidx = wq->sq.cidx;
 }
 
-static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc)
+static void copy_wqe_to_udb(volatile u32 *udb_offset, void *wqe)
 {
+	u64 *src, *dst;
+	int len16 = 4;
+
+	src = (u64 *)wqe;
+	dst = (u64 *)udb_offset;
+
+	while (len16) {
+		*dst++ = *src++;
+		*dst++ = *src++;
+		len16--;
+	}
+}
+
+extern int t5_en_wc;
+
+static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
+				 union t4_wr *wqe)
+{
+	wmb();
+	if (t5) {
+		if (t5_en_wc && inc == 1) {
+			PDBG("%s: WC wq->sq.pidx = %d; len16=%d\n",
+			     __func__, wq->sq.pidx, len16);
+			copy_wqe_to_udb(wq->sq.udb + 14, wqe);
+			wc_wmb();
+		} else {
+			PDBG("%s: DB wq->sq.pidx = %d; len16=%d\n",
+			     __func__, wq->sq.pidx, len16);
+			writel(V_PIDX(inc), wq->sq.udb);
+		}
+		return;
+	}
 	if (t4_sq_onchip(wq)) {
 		int i;
 		for (i = 0; i < 16; i++)
 			*(u32 *)&wq->sq.queue[wq->sq.size].flits[2] = i;
 	}
-	wmb();
 	writel(V_QID(wq->sq.qid & wq->qid_mask) | V_PIDX(inc), wq->sq.udb);
 }
 
-static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc)
+static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
+				 union t4_recv_wr *wqe)
 {
 	wmb();
+	if (t5) {
+		if (t5_en_wc && inc == 1) {
+			PDBG("%s: WC wq->rq.pidx = %d; len16=%d\n",
+			     __func__, wq->rq.pidx, len16);
+			copy_wqe_to_udb(wq->rq.udb + 14, wqe);
+			wc_wmb();
+		} else {
+			PDBG("%s: DB wq->rq.pidx = %d; len16=%d\n",
+			     __func__, wq->rq.pidx, len16);
+			writel(V_PIDX(inc), wq->rq.udb);
+		}
+		return;
+	}
 	writel(V_QID(wq->rq.qid & wq->qid_mask) | V_PIDX(inc), wq->rq.udb);
 }
 
