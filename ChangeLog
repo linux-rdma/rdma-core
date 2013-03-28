@@ -1,6 +1,120 @@
-commit 119aabce5e6722336e9f5a97cea14eebab2376ca
+commit 7989b1d9a3362aea1b8289ef2891c3e12ba13f72
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Wed Nov 9 09:50:22 2011 -0600
+Date:   Mon Mar 4 11:03:49 2013 -0600
+
+    Spin release 1.3.0
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f6daaf56c10094274d79e5d1cf1d59287d48caef
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 11:03:44 2013 -0600
+
+    Remove aclocal.m4.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c3dde6d9578cfe560e08e019fa6c81d1ecb8c0b5
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 10:58:41 2013 -0600
+
+    libcxgb4: unmap the correct udb/ugts address.
+    
+        The various db and gts variables holding the mapped bar2 pointer
+        get incremented at creation time as a normal part of object creation.
+        However this causes the wrong address to get unmapped when the object is
+        destroyed.  The result is a mapping leak because the munmap() fails.
+        So align them back to their proper page boundary when calling munmap().
+    
+    Singed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5d788d1fcdea3886a2b43fa02e0c7ad1af1c82b3
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 10:58:41 2013 -0600
+
+    Query device to get the max supported stags, qps, and cqs.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 9fc4800624944cceb92448e3a640f922346b122f
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 10:28:34 2013 -0600
+
+    Add T5 support.
+    
+    This commit is composed of a series of patches to enable T5 support.  I
+    folded them into one commit for simplicity.  Plus intermittent patches
+    caused problems/regressions/etc, so its cleaner to have 1 commit to enable
+    the new device.
+    
+    Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 7cb73aba54eb47d6902c9a3f952c0e37500cac8f
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 10:28:32 2013 -0600
+
+    zero out r3 and r4 fields of fw_ri_send_wr messages.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f61c762e82b3e6e1c27496eecaf2bf8d00f009e3
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 10:21:39 2013 -0600
+
+    Add new T4 device IDs.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c66a627e1e964bad794e9dc40e9a39dc6977aa1e
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 10:08:59 2013 -0600
+
+    flush bug can cause application crash
+    
+    This fixes a problem in the flush logic that could occur if the
+    current position is near the end of the queue and the 'count' being
+    retired plus this position was greater than the queue size. In this
+    case the index wasn't being wrapped and the associated swcqe pointer
+    would point past the end of the CQ.
+    
+    Asserts were added to check other possible wrap-error paths.
+    
+    This bug was causing mbw to occasionally crash when flushing the qp.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c5cdab8ad79cecc996d735011b210729fcc95ecd
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Mar 4 10:08:58 2013 -0600
+
+    Silently eat unsignaled read response cqes.
+    
+    Terminator HW always generates read response cqes.  We need to silently
+    eat them vs returning them to the user.  The perftest benchmark ib_read_bw
+    relies on unsignaled work requests and will crash with this fix.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 1eefdaae19110deae2c20a08ea53cab451fc00bb
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Feb 8 13:51:37 2013 -0600
+
+    Remove useless dma_addr_t define.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c551f4632cfcd284ad82d1d9b36d1449d109a5de
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Feb 8 13:51:00 2013 -0600
+
+    Disable strict aliasing warnings.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 695a5a4be21f44d49999c83e6ac0699ce90d97c7
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Nov 9 09:50:32 2011 -0600
 
     Spin release 1.2.0.
     
