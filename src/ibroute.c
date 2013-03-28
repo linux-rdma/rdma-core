@@ -360,7 +360,7 @@ char *dump_unicast_tables(ib_portid_t * portid, int startlid, int endlid)
 	printf("       Port     Info \n");
 	startblock = startlid / IB_SMP_DATA_SIZE;
 	endblock = ALIGN(endlid, IB_SMP_DATA_SIZE) / IB_SMP_DATA_SIZE;
-	for (block = startblock; block <= endblock; block++) {
+	for (block = startblock; block < endblock; block++) {
 		int status;
 		DEBUG("reading block %d", block);
 		if (!smp_query_status_via(lft, portid, IB_ATTR_LINEARFORWTBL, block,
