@@ -55,7 +55,8 @@ be returned.
 
 .SH "RETURN VALUE"
 .B umad_recv()
-returns non negative receiving agentid on success, and a negative value on error as follows:
+on success return the agentid; on error, errno is set and a negative value is
+returned as follows:
  -EINVAL      invalid port handle or agentid or *length is less than the minimum supported
  -EIO         receive operation failed
  -EWOULDBLOCK non blocking read can't be fulfilled

@@ -39,7 +39,8 @@ makes kernel wait forever for the reply.
 indicates the number of times the MAD will be retried before giving up.
 .SH "RETURN VALUE"
 .B umad_send()
-returns 0 on success, and a negative value on error as follows:
+returns 0 on success; on error, errno is set and a negative value is returned
+as follows:
  -EINVAL invalid port handle or agentid
  -EIO    send operation failed
 .SH "AUTHOR"
