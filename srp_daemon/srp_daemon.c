@@ -94,7 +94,6 @@ static int check_process_uniqueness(struct config_t *conf)
 		pr_err("failed to lock %s (errno: %d). possibly another srp_daemon is locking it\n", path, errno);
 		return -1;
 	}
-	
 	return 0;
 }
 
@@ -1591,7 +1590,7 @@ int main(int argc, char *argv[])
 					goto kill_threads;
 			}
 
-			if (register_to_traps(res.ud_res))
+			if (res.ud_res->ah && register_to_traps(res.ud_res))
 				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
 
 			clear_traps_list(res.sync_res);
