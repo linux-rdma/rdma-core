@@ -356,7 +356,7 @@ struct umad_resources {
 	int		agent;
 	char	       *port_sysfs_path;
 	uint16_t	sm_lid;
-};	
+};
 
 enum {
 	SIZE_OF_TASKS_LIST = 5,
@@ -382,7 +382,7 @@ struct sync_resources {
 struct resources {
 	struct ud_resources   *ud_res;
 	struct umad_resources *umad_res;
-	struct sync_resources *sync_res;  
+	struct sync_resources *sync_res;
 };
 
 static const int   node_table_response_size = 1 << 18;

@@ -174,7 +174,7 @@ int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid)
 
 
 /* assumes that res->retry_mutex is locked !!! */
-struct target_details *pop_from_retry_list(struct sync_resources *res) 
+struct target_details *pop_from_retry_list(struct sync_resources *res)
 {
 	struct target_details *ret = res->retry_tasks_head;
 

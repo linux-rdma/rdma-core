@@ -88,7 +88,7 @@ static int check_process_uniqueness(struct config_t *conf)
 	}
 
 	fchmod(fd, S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR|S_IWGRP|S_IWOTH);
-	
+
 	if (0 != lockf(fd, F_TLOCK, 0))
 	{
 		pr_err("failed to lock %s (errno: %d). possibly another srp_daemon is locking it\n", path, errno);
@@ -177,7 +177,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "\nExample: srp_daemon -e -n -i mthca0 -p 1 -R 60\n");
 }
 
-static int 
+static int
 check_equal_uint64(char *dir_name, char *attr, uint64_t val)
 {
 uint64_t attr_value;
@@ -250,7 +250,7 @@ int is_enabled_by_rules_file(struct target_details *target)
 	int rule;
 	struct config_t *conf = config;
 
-	if (NULL == conf->rules) 
+	if (NULL == conf->rules)
 		return 1;
 
 	pr_debug("Found an SRP target with id_ext %s - check if it allowed by rules file\n", target->id_ext);
@@ -258,26 +258,26 @@ int is_enabled_by_rules_file(struct target_details *target)
 	do {
 		rule++;
 		if (conf->rules[rule].id_ext[0] != '\0' &&
-		    strtoull(target->id_ext, 0, 16) != 
+		    strtoull(target->id_ext, 0, 16) !=
 		    strtoull(conf->rules[rule].id_ext, 0, 16))
 				continue;
 
 		if (conf->rules[rule].ioc_guid[0] != '\0' &&
-		    ntohll(target->ioc_prof.guid) != 
+		    ntohll(target->ioc_prof.guid) !=
 		    strtoull(conf->rules[rule].ioc_guid, 0, 16))
 				continue;
 
 		if (conf->rules[rule].dgid[0] != '\0') {
 			char tmp = conf->rules[rule].dgid[16];
 			conf->rules[rule].dgid[16] = '\0';
-			if (strtoull(conf->rules[rule].dgid, 0, 16) != 
+			if (strtoull(conf->rules[rule].dgid, 0, 16) !=
 			    target->subnet_prefix) {
 				conf->rules[rule].dgid[16] = tmp;
 				continue;
 			}
 			conf->rules[rule].dgid[16] = tmp;
-			if (strtoull(&conf->rules[rule].dgid[16], 0, 16) != 
-			    target->h_guid) 
+			if (strtoull(&conf->rules[rule].dgid[16], 0, 16) !=
+			    target->h_guid)
 				continue;
 		}
 
@@ -323,7 +323,7 @@ static int add_non_exist_target(struct target_details *target)
 	subdir = (void *) 1; /* Dummy value to enter the loop */
 	while (subdir) {
 	        subdir = readdir(dir);
-		
+
 		if (!subdir)
 			continue;
 
@@ -332,7 +332,7 @@ static int add_non_exist_target(struct target_details *target)
 
 		strncpy(subdir_name_ptr, subdir->d_name,
 			MAX_SCSI_HOST_DIR_NAME_LENGTH - prefix_len);
-		if (!check_equal_uint64(scsi_host_dir, "id_ext", 
+		if (!check_equal_uint64(scsi_host_dir, "id_ext",
 				        strtoull(target->id_ext, 0, 16)))
 			continue;
 		if (!check_equal_uint64(scsi_host_dir, "service_id",
@@ -342,10 +342,10 @@ static int add_non_exist_target(struct target_details *target)
 					ntohll(target->ioc_prof.guid)))
 			continue;
 		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
-			/* 
-			 * In case this is an old kernel taht does not have 
-			 * orig_dgid in sysfs, use dgid instead (this is 
-			 * problematic when there is a dgid redirection 
+			/*
+			 * In case this is an old kernel taht does not have
+			 * orig_dgid in sysfs, use dgid instead (this is
+			 * problematic when there is a dgid redirection
 			 * by the CM)
 			 */
 			if (srpd_sys_read_gid(scsi_host_dir, "dgid", dgid_val))
@@ -366,13 +366,13 @@ static int add_non_exist_target(struct target_details *target)
 
 		/* there is a match - this target is already connected */
 
-		/* There is a rare possability of a race in the following 
-		   scnario: 
-			a. A link goes down, 
+		/* There is a rare possability of a race in the following
+		   scnario:
+			a. A link goes down,
 			b. ib_srp decide to remove the corresponding scsi_host.
 			c. Before removing it, the link returns
 			d. srp_daemon gets trap 64.
-			e. srp_daemon thinks that this target is still 
+			e. srp_daemon thinks that this target is still
 			   connected (ib_srp have not removed it yet) so it
 			   does not connect to it.
 			f. ib_srp continue to removes the scsi_host.
@@ -383,9 +383,9 @@ static int add_non_exist_target(struct target_details *target)
 		   if this target exist in the near future.
 		*/
 
-		
 
-		/* If there is a need to print all we will continue to pr_cmd. 
+
+		/* If there is a need to print all we will continue to pr_cmd.
 		   not_connected is set to zero to make sure that this target
 		   will be printed but not connected.
 		*/
@@ -419,7 +419,7 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (target->ioc_prof.io_class != htons(SRP_REV16A_IB_IO_CLASS)) {
 		len_left = MAX_TARGET_CONFIG_STR_STRING - len;
-		len += snprintf(target_config_str+len, 
+		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",io_class=%04hx", ntohs(target->ioc_prof.io_class));
 
@@ -432,7 +432,7 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (config->print_initiator_ext) {
 		len_left = MAX_TARGET_CONFIG_STR_STRING - len;
-		len += snprintf(target_config_str+len, 
+		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",initiator_ext=%016llx",
 				(unsigned long long) ntohll(target->h_guid));
@@ -445,7 +445,7 @@ static int add_non_exist_target(struct target_details *target)
 	}
 
 	if (target->options) {
-		len += snprintf(target_config_str+len, 
+		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				"%s",
 				target->options);
@@ -462,7 +462,7 @@ static int add_non_exist_target(struct target_details *target)
 	pr_cmd(target_config_str, not_connected);
 
 	closedir(dir);
-	
+
 	return 1;
 }
 
@@ -483,18 +483,18 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 			        (struct ib_user_mad *) out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
 		if (ret < 0) {
-			pr_err("umad_send to %u failed\n", 
+			pr_err("umad_send to %u failed\n",
 				(uint16_t) ntohs(out_mad->hdr.addr.lid));
 			return ret;
 		}
 
 		do {
 			len = in_mad_size ? in_mad_size : MAD_BLOCK_SIZE;
-			in_agent = umad_recv(portid, (struct ib_user_mad *) in_mad, 
+			in_agent = umad_recv(portid, (struct ib_user_mad *) in_mad,
 					     &len, config->timeout);
 			if (in_agent < 0) {
-				pr_err("umad_recv from %u failed - %d\n", 
-					(uint16_t) ntohs(out_mad->hdr.addr.lid), 
+				pr_err("umad_recv from %u failed - %d\n",
+					(uint16_t) ntohs(out_mad->hdr.addr.lid),
 					in_agent);
 				return in_agent;
 			}
@@ -506,13 +506,13 @@ int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 			ret = umad_status((struct ib_user_mad *) in_mad);
 			if (ret) {
 				pr_err(
-					"bad MAD status (%u) from lid %d\n", 
+					"bad MAD status (%u) from lid %d\n",
 					ret, (uint16_t) ntohs(out_mad->hdr.addr.lid));
 				return -ret;
-			} 
+			}
 
 			if (tid != ((uint32_t *) &in_dm_mad->tid)[1])
-				pr_debug("umad_recv returned different transaction id sent %d got %d\n", 
+				pr_debug("umad_recv returned different transaction id sent %d got %d\n",
 					 tid, ((uint32_t *) &in_dm_mad->tid)[1]);
 
 		} while (tid > ((uint32_t *) &in_dm_mad->tid)[1]);
@@ -542,7 +542,7 @@ static void initialize_sysfs()
 }
 
 static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
-					    char **ibport) 
+					    char **ibport)
 {
 	char *class_dev_path;
 	char *umad_dev_name;
@@ -557,7 +557,7 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 
 	ret = asprintf(&class_dev_path, "%s/class/infiniband_mad/%s", sysfs_path,
 		       umad_dev_name);
-	
+
 	if (ret < 0) {
  		pr_err("out of memory\n");
 		return -ENOMEM;
@@ -570,7 +570,7 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 		goto end;
 	}
 
-	if (srpd_sys_read_string(class_dev_path, "ibdev", *ibdev, 
+	if (srpd_sys_read_string(class_dev_path, "ibdev", *ibdev,
 			    IBDEV_STR_SIZE) < 0) {
 		pr_err("Couldn't read ibdev attribute\n");
 		ret = -1;
@@ -592,11 +592,11 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 	ret = 0;
 
 end:
-	free(class_dev_path);		
+	free(class_dev_path);
 	return ret;
 }
 
-static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent, 
+static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent,
 			 uint16_t h_dlid, uint16_t h_attr_id, uint32_t h_attr_mod)
 {
 	struct srp_dm_mad *out_mad;
@@ -785,9 +785,9 @@ static int do_port(struct resources *res, uint16_t dlid,
 	static const uint64_t topspin_oui = 0x0005ad0000000000ull;
 	static const uint64_t oui_mask    = 0xffffff0000000000ull;
 
-	struct target_details *target = (struct target_details *) 
+	struct target_details *target = (struct target_details *)
 		malloc(sizeof(struct target_details));
-	
+
 	target->subnet_prefix = subnet_prefix;
 	target->h_guid = h_guid;
 	target->options = NULL;
@@ -804,7 +804,7 @@ static int do_port(struct resources *res, uint16_t dlid,
 	pr_human("IO Unit Info:\n");
 	pr_human("    port LID:        %04x\n", dlid);
 	pr_human("    port GID:        %016llx%016llx\n",
-		 (unsigned long long) target->subnet_prefix, 
+		 (unsigned long long) target->subnet_prefix,
 		 (unsigned long long) target->h_guid);
 	pr_human("    change ID:       %04x\n", ntohs(iou_info.change_id));
 	pr_human("    max controllers: 0x%02x\n", iou_info.max_controllers);
@@ -865,7 +865,7 @@ static int do_port(struct resources *res, uint16_t dlid,
 					target->h_service_id = ntohll(svc_entries.service[k].id);
 					if (is_enabled_by_rules_file(target)) {
 						if (!add_non_exist_target(target) && !config->once) {
-							target->retry_time = 
+							target->retry_time =
 								time(NULL) + config->retry_timeout;
 							push_to_retry_list(res->sync_res, target);
 						}
@@ -1036,7 +1036,7 @@ static int do_full_port_list(struct resources *res)
 	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
 		node = (void *) in_sa_mad->data + i * size;
 
-		(void) handle_port(res, ntohs(node->lid), 
+		(void) handle_port(res, ntohs(node->lid),
 			    ntohll(node->port_guid));
 	}
 
@@ -1074,7 +1074,7 @@ static void print_config(struct config_t *conf)
 	else
 		printf(" Do not retry to connect to existing targets\n");
 	printf(" ------------------------------------------------\n");
-}		
+}
 
 static char *copy_till_comma(char *d, char *s, int len, int base)
 {
@@ -1111,7 +1111,7 @@ static int get_rules_file(struct config_t *conf)
 		pr_err("Could not find rules file %s\n", conf->rules_file);
 		return -1;
 	}
-	
+
 	while (fgets(line, sizeof(line), infile) != NULL) {
 		if (line[0] != '#' && line[0] != '\n')
 			line_number++;
@@ -1143,7 +1143,7 @@ static int get_rules_file(struct config_t *conf)
 			break;
 		default:
 			pr_err("Bad syntax in rules file %s line %d:"
-			       " line should start with 'a' or 'd'\n", 
+			       " line should start with 'a' or 'd'\n",
 			       conf->rules_file, line_number_for_output);
 			return -1;
 		}
@@ -1163,28 +1163,28 @@ static int get_rules_file(struct config_t *conf)
 			ptr2 = NULL;
 			if (strncmp(ptr, "id_ext=", 7) == 0)
 				ptr2 = copy_till_comma(
-					conf->rules[line_number].id_ext, 
-					ptr+7, 16, 16); 
+					conf->rules[line_number].id_ext,
+					ptr+7, 16, 16);
 
 			else if (strncmp(ptr, "ioc_guid=", 9) == 0)
 				ptr2 = copy_till_comma(
-					conf->rules[line_number].ioc_guid, 
-					ptr+9, 16, 16); 
-				
+					conf->rules[line_number].ioc_guid,
+					ptr+9, 16, 16);
+
 			else if (strncmp(ptr, "dgid=", 5) == 0)
 				ptr2 = copy_till_comma(
-					conf->rules[line_number].dgid, 
-					ptr+5, 32, 16); 
+					conf->rules[line_number].dgid,
+					ptr+5, 32, 16);
 
 			else if (strncmp(ptr, "service_id=", 11) == 0)
 				ptr2 = copy_till_comma(
-					conf->rules[line_number].service_id, 
-					ptr+11, 16, 16); 
+					conf->rules[line_number].service_id,
+					ptr+11, 16, 16);
 
 			else if (conf->rules[line_number].allow) {
 
 				if (strncmp(ptr, "max_sect=", 9) == 0) {
-					ptr2 = copy_till_comma(option, ptr+9, 16, 10); 
+					ptr2 = copy_till_comma(option, ptr+9, 16, 10);
 					if (ptr2) {
 						len = sprintf(optr, ",max_sect=%s", option);
 						optr += len;
@@ -1192,7 +1192,7 @@ static int get_rules_file(struct config_t *conf)
 				}
 
 				else if (strncmp(ptr, "max_cmd_per_lun=", 16) == 0) {
-					ptr2 = copy_till_comma(option, ptr+16, 16, 10); 
+					ptr2 = copy_till_comma(option, ptr+16, 16, 10);
 					if (ptr2) {
 						len = sprintf(optr, ",max_cmd_per_lun=%s", option);
 						optr += len;
@@ -1218,7 +1218,7 @@ static int get_rules_file(struct config_t *conf)
 	conf->rules[line_number].service_id[0]='\0';
 	conf->rules[line_number].options[0]='\0';
 	conf->rules[line_number].allow = 1;
-	
+
 	return 0;
 }
 
@@ -1259,7 +1259,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 		case 'd':
 			umad_dev = optarg;
 			break;
-		case 'i':		  
+		case 'i':
 			len = strlen(optarg)+1;
 			conf->dev_name = malloc(len);
 			if (!conf->dev_name) {
@@ -1358,7 +1358,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 		pr_err("error while allocating add_target\n");
 		return ret;
 	}
-		 
+
 	if (get_rules_file(conf))
 		return -1;
 
@@ -1409,14 +1409,14 @@ static int umad_resources_create(struct umad_resources *umad_res)
 
 	umad_res->portid = umad_open_port(config->dev_name, config->port_num);
 	if (umad_res->portid < 0) {
-		pr_err("umad_open_port failed for device %s port %d\n", 
+		pr_err("umad_open_port failed for device %s port %d\n",
 		       config->dev_name, config->port_num);
 		return -ENXIO;
 	}
 
-	umad_res->agent = umad_register(umad_res->portid, SRP_MGMT_CLASS_SA, 
-					   SRP_MGMT_CLASS_SA_VERSION, 
-					   SRP_SA_RMPP_VERSION, 0); 
+	umad_res->agent = umad_register(umad_res->portid, SRP_MGMT_CLASS_SA,
+					   SRP_MGMT_CLASS_SA_VERSION,
+					   SRP_SA_RMPP_VERSION, 0);
 	if (umad_res->agent < 0) {
 		pr_err("umad_register failed\n");
 		return umad_res->agent;
@@ -1464,8 +1464,8 @@ int main(int argc, char *argv[])
 	int			ret;
 	struct resources	res;
 	int                     thread_id[4];
-	uint16_t 		lid; 
-	ib_gid_t 		gid; 
+	uint16_t 		lid;
+	ib_gid_t 		gid;
 	struct target_details  *target;
 	int		       *status;
 	int 			i;
@@ -1477,20 +1477,20 @@ int main(int argc, char *argv[])
 	if (!res.umad_res) {
  		pr_err("out of memory\n");
 		return ENOMEM;
-	}	  
+	}
 	res.ud_res = malloc(sizeof(struct ud_resources));
 	if (!res.ud_res) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
 		goto free_umad;
-	}	  
+	}
 
 	res.sync_res = malloc(sizeof(struct sync_resources));
 	if (!res.sync_res) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
 		goto free_res;
-	}	  
+	}
 
 	config = malloc(sizeof(*config));
 	if (!config) {
@@ -1529,14 +1529,14 @@ int main(int argc, char *argv[])
 		ret = recalc(&res);
 		goto clean_umad;
 	}
-	  
+
 	ud_resources_init(res.ud_res);
 	ret = ud_resources_create(res.ud_res);
-	if (ret) 
+	if (ret)
 		goto clean_all;
 
 	ret = sync_resources_init(res.sync_res);
-	if (ret) 
+	if (ret)
 		goto clean_all;
 
 	if (!config->once) {
@@ -1562,8 +1562,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (config->retry_timeout && !config->once) {
-		thread_id[3] = pthread_create(&thread[3], NULL, 
-					      run_thread_retry_to_connect, 
+		thread_id[3] = pthread_create(&thread[3], NULL,
+					      run_thread_retry_to_connect,
 					      (void *) &res);
 		if (thread_id[3] < 0) {
 			ret=thread_id[3];
@@ -1604,7 +1604,7 @@ int main(int argc, char *argv[])
 			pthread_mutex_unlock(&res.sync_res->retry_mutex);
 
 			ret = recalc(&res);
-			if (ret) 
+			if (ret)
 				goto kill_threads;
 		} else if (pop_from_list(res.sync_res, &lid, &gid)) {
 			pthread_mutex_unlock(&res.sync_res->mutex);
@@ -1638,7 +1638,7 @@ int main(int argc, char *argv[])
 	ret = 0;
 
 kill_threads:
-	/* 
+	/*
 	 * Currently there is a known bug with the termination:
 	 * 1) The threads are sleeping on poll_cq or on events
 	 * 2) It is impossible to destroy the resources without waiting for
@@ -1649,8 +1649,8 @@ kill_threads:
 	exit(-ret);
 
 	res.sync_res->stop_threads = 1;
-	/* 
-	 * There is a chance that retry_to_connect thread is on a wait for 
+	/*
+	 * There is a chance that retry_to_connect thread is on a wait for
 	 * retry_cond. So we send here a signal to end the wait, so the thread
 	 * can end.
 	 */
@@ -1683,7 +1683,7 @@ int recalc(struct resources *res)
 	char val[7];
 	int ret;
 
-	ret = srpd_sys_read_string(umad_res->port_sysfs_path, "sm_lid", val, sizeof val); 
+	ret = srpd_sys_read_string(umad_res->port_sysfs_path, "sm_lid", val, sizeof val);
 	if (ret < 0) {
 		pr_err("Couldn't read SM LID\n");
 		return ret;

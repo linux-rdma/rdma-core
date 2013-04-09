@@ -70,11 +70,11 @@ if [ -s $pidfile ]; then
             fi
         else
             # pid file exist but no process running
-            echo $mypid > $pidfile 
+            echo $mypid > $pidfile
         fi
     done
 else
-    echo $mypid > $pidfile 
+    echo $mypid > $pidfile
 fi
 
 # Check once more to prevent race condition
