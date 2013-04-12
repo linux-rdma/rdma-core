@@ -123,14 +123,12 @@ enum {
 #define rs_msg_set(op, data)  ((op << 29) | (uint32_t) (data))
 #define rs_msg_op(imm_data)   (imm_data >> 29)
 #define rs_msg_data(imm_data) (imm_data & 0x1FFFFFFF)
-#define RS_RECV_WR_ID (~((uint64_t) 0))
 
-#define DS_WR_RECV 0xFFFFFFFF
-#define ds_send_wr_id(offset, length) (((uint64_t) (offset)) << 32 | (uint64_t) length)
-#define ds_recv_wr_id(offset) (((uint64_t) (offset)) << 32 | (uint64_t) DS_WR_RECV)
-#define ds_wr_offset(wr_id) ((uint32_t) (wr_id >> 32))
-#define ds_wr_length(wr_id) ((uint32_t) wr_id)
-#define ds_wr_is_recv(wr_id) (ds_wr_length(wr_id) == DS_WR_RECV)
+#define RS_WR_ID_FLAG_RECV (((uint64_t) 1) << 63)
+#define rs_send_wr_id(data) ((uint64_t) data)
+#define rs_recv_wr_id(data) (RS_WR_ID_FLAG_RECV | (uint64_t) data)
+#define rs_wr_is_recv(wr_id) (wr_id & RS_WR_ID_FLAG_RECV)
+#define rs_wr_data(wr_id) ((uint32_t) wr_id)
 
 enum {
 	RS_CTRL_DISCONNECT,
@@ -743,7 +741,7 @@ static inline int rs_post_recv(struct rsocket *rs)
 {
 	struct ibv_recv_wr wr, *bad;
 
-	wr.wr_id = RS_RECV_WR_ID;
+	wr.wr_id = rs_recv_wr_id(0);
 	wr.next = NULL;
 	wr.sg_list = NULL;
 	wr.num_sge = 0;
@@ -763,7 +761,7 @@ static inline int ds_post_recv(struct rsocket *rs, struct ds_qp *qp, uint32_t of
 	sge[1].length = RS_SNDLOWAT;
 	sge[1].lkey = qp->rmr->lkey;
 
-	wr.wr_id = ds_recv_wr_id(offset);
+	wr.wr_id = rs_recv_wr_id(offset);
 	wr.next = NULL;
 	wr.sg_list = sge;
 	wr.num_sge = 2;
@@ -1517,7 +1515,7 @@ static int rs_post_write_msg(struct rsocket *rs,
 {
 	struct ibv_send_wr wr, *bad;
 
-	wr.wr_id = (uint64_t) imm_data;
+	wr.wr_id = rs_send_wr_id(imm_data);
 	wr.next = NULL;
 	wr.sg_list = sgl;
 	wr.num_sge = nsge;
@@ -1532,12 +1530,12 @@ static int rs_post_write_msg(struct rsocket *rs,
 
 static int rs_post_write(struct rsocket *rs,
 			 struct ibv_sge *sgl, int nsge,
-			 uint64_t wr_id, int flags,
+			 uint32_t wr_data, int flags,
 			 uint64_t addr, uint32_t rkey)
 {
 	struct ibv_send_wr wr, *bad;
 
-	wr.wr_id = wr_id;
+	wr.wr_id = rs_send_wr_id(wr_data);
 	wr.next = NULL;
 	wr.sg_list = sgl;
 	wr.num_sge = nsge;
@@ -1550,11 +1548,11 @@ static int rs_post_write(struct rsocket *rs,
 }
 
 static int ds_post_send(struct rsocket *rs, struct ibv_sge *sge,
-			uint64_t wr_id)
+			uint32_t wr_data)
 {
 	struct ibv_send_wr wr, *bad;
 
-	wr.wr_id = wr_id;
+	wr.wr_id = rs_send_wr_id(wr_data);
 	wr.next = NULL;
 	wr.sg_list = sge;
 	wr.num_sge = 1;
@@ -1692,7 +1690,7 @@ static int rs_poll_cq(struct rsocket *rs)
 	int ret, rcnt = 0;
 
 	while ((ret = ibv_poll_cq(rs->cm_id->recv_cq, 1, &wc)) > 0) {
-		if (wc.wr_id == RS_RECV_WR_ID) {
+		if (rs_wr_is_recv(wc.wr_id)) {
 			if (wc.status != IBV_WC_SUCCESS)
 				continue;
 			rcnt++;
@@ -1724,13 +1722,13 @@ static int rs_poll_cq(struct rsocket *rs)
 				break;
 			}
 		} else {
-			switch  (rs_msg_op((uint32_t) wc.wr_id)) {
+			switch  (rs_msg_op(rs_wr_data(wc.wr_id))) {
 			case RS_OP_SGL:
 				rs->ctrl_avail++;
 				break;
 			case RS_OP_CTRL:
 				rs->ctrl_avail++;
-				if (rs_msg_data((uint32_t) wc.wr_id) == RS_CTRL_DISCONNECT)
+				if (rs_msg_data(rs_wr_data(wc.wr_id)) == RS_CTRL_DISCONNECT)
 					rs->state = rs_disconnected;
 				break;
 			case RS_OP_IOMAP_SGL:
@@ -1739,7 +1737,7 @@ static int rs_poll_cq(struct rsocket *rs)
 				break;
 			default:
 				rs->sqe_avail++;
-				rs->sbuf_bytes_avail += rs_msg_data((uint32_t) wc.wr_id);
+				rs->sbuf_bytes_avail += rs_msg_data(rs_wr_data(wc.wr_id));
 				break;
 			}
 			if (wc.status != IBV_WC_SUCCESS && (rs->state & rs_connected)) {
@@ -1856,7 +1854,7 @@ static int ds_valid_recv(struct ds_qp *qp, struct ibv_wc *wc)
 {
 	struct ds_header *hdr;
 
-	hdr = (struct ds_header *) (qp->rbuf + ds_wr_offset(wc->wr_id));
+	hdr = (struct ds_header *) (qp->rbuf + rs_wr_data(wc->wr_id));
 	return ((wc->byte_len >= sizeof(struct ibv_grh) + DS_IPV4_HDR_LEN) &&
 		((hdr->version == 4 && hdr->length == DS_IPV4_HDR_LEN) ||
 		 (hdr->version == 6 && hdr->length == DS_IPV6_HDR_LEN)));
@@ -1889,22 +1887,21 @@ static void ds_poll_cqs(struct rsocket *rs)
 				continue;
 			}
 
-			if (ds_wr_is_recv(wc.wr_id)) {
+			if (rs_wr_is_recv(wc.wr_id)) {
 				if (rs->rqe_avail && wc.status == IBV_WC_SUCCESS &&
 				    ds_valid_recv(qp, &wc)) {
 					rs->rqe_avail--;
 					rmsg = &rs->dmsg[rs->rmsg_tail];
 					rmsg->qp = qp;
-					rmsg->offset = ds_wr_offset(wc.wr_id);
+					rmsg->offset = rs_wr_data(wc.wr_id);
 					rmsg->length = wc.byte_len - sizeof(struct ibv_grh);
 					if (++rs->rmsg_tail == rs->rq_size + 1)
 						rs->rmsg_tail = 0;
 				} else {
-					ds_post_recv(rs, qp, ds_wr_offset(wc.wr_id));
+					ds_post_recv(rs, qp, rs_wr_data(wc.wr_id));
 				}
 			} else {
-				smsg = (struct ds_smsg *)
-				       (rs->sbuf + ds_wr_offset(wc.wr_id));
+				smsg = (struct ds_smsg *) (rs->sbuf + rs_wr_data(wc.wr_id));
 				smsg->next = rs->smsg_free;
 				rs->smsg_free = smsg;
 				rs->sqe_avail++;
@@ -2442,7 +2439,7 @@ static ssize_t dsend(struct rsocket *rs, const void *buf, size_t len, int flags)
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
 	offset = (uint8_t *) msg - rs->sbuf;
 
-	ret = ds_post_send(rs, &sge, ds_send_wr_id(offset, sge.length));
+	ret = ds_post_send(rs, &sge, offset);
 	return ret ? ret : len;
 }
 
@@ -3745,7 +3742,7 @@ static void rs_svc_forward(struct rsocket *rs, void *buf, size_t len,
 	sge.lkey = rs->conn_dest->qp->smr->lkey;
 	offset = (uint8_t *) msg - rs->sbuf;
 
-	ds_post_send(rs, &sge, ds_send_wr_id(offset, sge.length));
+	ds_post_send(rs, &sge, offset);
 }
 
 static void rs_svc_process_rs(struct rsocket *rs)
