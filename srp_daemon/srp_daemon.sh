@@ -42,6 +42,7 @@ trap_handler()
 {
     if [ -n "$pids" ]; then
         kill -15 $pids > /dev/null 2>&1
+        wait $pids
     fi
     logger -i -t "$(basename $0)" "killing $prog."
     /bin/rm -f $pidfile

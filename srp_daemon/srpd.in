@@ -73,7 +73,7 @@ start() {
 stop() {
     echo -n "Stopping SRP daemon service:"
 
-    killproc -p $pidfile srp_daemon.sh
+    killproc -p $pidfile -d 20 srp_daemon.sh
     RC=$?
     for ((i=0;i<5;i++)); do
 	if ! running; then
