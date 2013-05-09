@@ -46,7 +46,7 @@ Quick Start Guide
    interfaces, it should be run with administrative privileges.
 5. Optionally, run ib_acme -s <source_ip> -d <dest_ip> -v
    This will verify that the ib_acm service is running.
-5. Install librdmacm using the build option --with-ib_acm.
+5. Install librdmacm.
    The librdmacm will automatically use the ib_acm service.
    On failures, the librdmacm will fall back to normal resolution.
 
