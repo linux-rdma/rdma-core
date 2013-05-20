@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.57)
-AC_INIT(libibverbs, 1.1.6, linux-rdma@vger.kernel.org)
+AC_PREREQ([2.67])
+AC_INIT([libibverbs],[1.1.6],[linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/ibverbs.h])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -11,14 +11,12 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 dnl Checks for programs
 AC_PROG_CC
-AC_GNU_SOURCE
+AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_LN_S
-AC_PROG_LIBTOOL
-
 LT_INIT
 
 AC_ARG_WITH([valgrind],
-    AC_HELP_STRING([--with-valgrind],
+    AS_HELP_STRING([--with-valgrind],
         [Enable Valgrind annotations (small runtime overhead, default NO)]))
 if test x$with_valgrind = x || test x$with_valgrind = xno; then
     want_valgrind=no
@@ -84,9 +82,10 @@ fi
 AC_SUBST(LIBIBVERBS_VERSION_SCRIPT)
 
 AC_CACHE_CHECK(for .symver assembler support, ac_cv_asm_symver_support,
-    [AC_TRY_COMPILE(, [asm("symbol:\n.symver symbol, api@ABI\n");],
-        ac_cv_asm_symver_support=yes,
-        ac_cv_asm_symver_support=no)])
+    [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],
+        [[asm("symbol:\n.symver symbol, api@ABI\n");]])],
+        [ac_cv_asm_symver_support=yes],
+        [ac_cv_asm_symver_support=no])])
 if test $ac_cv_asm_symver_support = yes; then
     AC_DEFINE([HAVE_SYMVER_SUPPORT], 1, [assembler has .symver support])
 fi
