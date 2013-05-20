@@ -243,7 +243,7 @@ static void read_config_file(const char *path)
 	size_t buflen = 0;
 	ssize_t len;
 
-	conf = fopen(path, "r");
+	conf = fopen(path, "r" STREAM_CLOEXEC);
 	if (!conf) {
 		fprintf(stderr, PFX "Warning: couldn't read config file %s.\n",
 			path);

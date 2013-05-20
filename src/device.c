@@ -135,7 +135,7 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 	 * We'll only be doing writes, but we need O_RDWR in case the
 	 * provider needs to mmap() the file.
 	 */
-	cmd_fd = open(devpath, O_RDWR);
+	cmd_fd = open(devpath, O_RDWR | O_CLOEXEC);
 	free(devpath);
 
 	if (cmd_fd < 0)

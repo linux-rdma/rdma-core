@@ -109,7 +109,7 @@ static unsigned long get_page_size(void *base)
 	pid = getpid();
 	snprintf(buf, sizeof(buf), "/proc/%d/smaps", pid);
 
-	file = fopen(buf, "r");
+	file = fopen(buf, "r" STREAM_CLOEXEC);
 	if (!file)
 		goto out;
 
