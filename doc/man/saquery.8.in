@@ -183,6 +183,7 @@ MCMemberRecord (MCMR)
 LFTRecord (LFTR) [[lid]/[block]]
 MFTRecord (MFTR) [[mlid]/[position]/[block]]
 GUIDInfoRecord (GIR) [[lid]/[block]]
+SwitchInfoRecord (SWIR) [lid]
 .ft P
 .fi
 .UNINDENT

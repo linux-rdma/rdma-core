@@ -296,7 +296,7 @@ static void dump_one_portinfo_record(void *data)
 	ib_port_info_t *pi = &pir->port_info;
 
 	printf("PortInfoRecord dump:\n"
-	       "\tRID:\n"
+	       "\tRID\n"
 	       "\t\tEndPortLid..............%u\n"
 	       "\t\tPortNum.................%u\n"
 	       "\t\tOptions.................0x%x\n"
@@ -485,6 +485,41 @@ static void dump_service_record(void *data)
 	       cl_ntoh32(p_sr->service_data32[3]),
 	       cl_ntoh64(p_sr->service_data64[0]),
 	       cl_ntoh64(p_sr->service_data64[1]));
+}
+
+static void dump_switch_info_record(void *data)
+{
+	ib_switch_info_record_t *p_sir = data;
+
+	printf("SwitchInfoRecord dump:\n"
+		"\t\tRID\n"
+		"\t\tLID.....................................%u\n"
+		"\t\tSwitchInfo dump:\n"
+		"\t\tLinearFDBCap............................0x%X\n"
+		"\t\tRandomFDBCap............................0x%X\n"
+		"\t\tMulticastFDBCap.........................0x%X\n"
+		"\t\tLinearFDBTop............................0x%X\n"
+		"\t\tDefaultPort.............................%u\n"
+		"\t\tDefaultMulticastPrimaryPort.............%u\n"
+		"\t\tDefaultMulticastNotPrimaryPort..........%u\n"
+		"\t\tLifeTimeValue/PortStateChange/OpSL2VL...0x%X\n"
+		"\t\tLIDsPerPort.............................0x%X\n"
+		"\t\tPartitionEnforcementCap.................0x%X\n"
+		"\t\tflags...................................0x%X\n"
+		"\t\tMulticastFDBTop.........................0x%X\n",
+		cl_ntoh16(p_sir->lid),
+		cl_ntoh16(p_sir->switch_info.lin_cap),
+		cl_ntoh16(p_sir->switch_info.rand_cap),
+		cl_ntoh16(p_sir->switch_info.mcast_cap),
+		cl_ntoh16(p_sir->switch_info.lin_top),
+		p_sir->switch_info.def_port,
+		p_sir->switch_info.def_mcast_pri_port,
+		p_sir->switch_info.def_mcast_not_port,
+		p_sir->switch_info.life_state,
+		cl_ntoh16(p_sir->switch_info.lids_per_port),
+		cl_ntoh16(p_sir->switch_info.enforce_cap),
+		p_sir->switch_info.flags,
+		cl_ntoh16(p_sir->switch_info.mcast_top));
 }
 
 static void dump_inform_info_record(void *data)
@@ -1157,6 +1192,24 @@ static int query_service_records(const struct query_cmd *q, struct sa_handle * h
 					dump_service_record);
 }
 
+static int query_switchinfo_records(const struct query_cmd *q,
+				struct sa_handle * h, struct query_params *p,
+				int argc, char *argv[])
+{
+	ib_switch_info_record_t swir;
+	ib_net64_t comp_mask = 0;
+	int lid = 0;
+
+	if (argc > 0)
+		parse_lid_and_ports(h, argv[0], &lid, NULL, NULL);
+
+	memset(&swir, 0, sizeof(swir));
+	CHECK_AND_SET_VAL(lid, 16, 0, swir.lid, SWIR, LID);
+
+	return get_and_dump_any_records(h, IB_SA_ATTR_SWITCHINFORECORD, 0, comp_mask,
+					&swir, sizeof(swir), dump_switch_info_record);
+}
+
 static int query_inform_info_records(const struct query_cmd *q,
 				    struct sa_handle * h, struct query_params *p,
 				    int argc, char *argv[])
@@ -1349,6 +1402,8 @@ static const struct query_cmd query_cmds[] = {
 	 "[[mlid]/[position]/[block]]", query_mft_records},
 	{"GUIDInfoRecord", "GIR", IB_SA_ATTR_GUIDINFORECORD,
 	 "[[lid]/[block]]", query_guidinfo_records},
+	{"SwitchInfoRecord", "SWIR", IB_SA_ATTR_SWITCHINFORECORD,
+	 "[lid]", query_switchinfo_records},
 	{0}
 };
 

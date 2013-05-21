@@ -155,6 +155,7 @@ Supported query names (and aliases):
         LFTRecord (LFTR) [[lid]/[block]]
         MFTRecord (MFTR) [[mlid]/[position]/[block]]
         GUIDInfoRecord (GIR) [[lid]/[block]]
+        SwitchInfoRecord (SWIR) [lid]
 
 
 
