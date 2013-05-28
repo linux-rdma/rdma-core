@@ -1,19 +1,17 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.57)
-AC_INIT(libmlx4, 1.0.4, linux-rdma@vger.kernel.org)
+AC_PREREQ([2.67])
+AC_INIT([libmlx4],[1.0.4],[linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/mlx4.h])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE([foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_PROG_LIBTOOL
 LT_INIT
 
 AC_ARG_WITH([valgrind],
-    AC_HELP_STRING([--with-valgrind],
-        [Enable Valgrind annotations (small runtime overhead, default NO)]))
+    AS_HELP_STRING([--with-valgrind],[Enable Valgrind annotations (small runtime overhead, default NO)]))
 if test x$with_valgrind = x || test x$with_valgrind = xno; then
     want_valgrind=no
     AC_DEFINE([NVALGRIND], 1, [Define to 1 to disable Valgrind annotations.])
