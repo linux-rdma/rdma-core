@@ -16,7 +16,7 @@ usage()
 cd `dirname $0`
 
 packege=`basename \`pwd\``
-conf_file=configure.in
+conf_file=configure.ac
 version=`cat $conf_file | sed -ne '/AC_INIT.*.*/s/^AC_INIT.*, \(.*\),.*$/\1/p'`
 
 git diff --quiet $packege-$version..HEAD -- ./ > /dev/null 2>&1
