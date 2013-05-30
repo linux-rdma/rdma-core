@@ -1,3 +1,11 @@
+libmlx4 (1.0.5-1) unstable; urgency=low
+
+  * New upstream release.
+    - Raw (ethernet) QP support.
+    - 64-byte completion queue entry support.
+
+ -- Roland Dreier <rbd@debian.org>  Thu, 30 May 2013 10:39:15 -0700
+
 libmlx4 (1.0.4-1) unstable; urgency=low
 
   * New upstream release.
