@@ -4,6 +4,7 @@
  * Copyright (c) 2004 Intel Corporation.  All rights reserved.
  * Copyright (c) 2004 Topspin Corporation.  All rights reserved.
  * Copyright (c) 2004 Voltaire Corporation.  All rights reserved.
+ * Copyright (c) 2013 Oracle and/or its affiliates. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -74,6 +75,25 @@ enum {
 	UMAD_SM_ATTR_LED_INFO			= 0x0031,
 	UMAD_SM_ATTR_CABLE_INFO			= 0x0032,
 	UMAD_SM_ATTR_VENDOR_MASK		= 0xFF00
+};
+
+enum {
+	UMAD_SM_GID_IN_SERVICE_TRAP		= 64,
+	UMAD_SM_GID_OUT_OF_SERVICE_TRAP		= 65,
+	UMAD_SM_MGID_CREATED_TRAP		= 66,
+	UMAD_SM_MGID_DESTROYED_TRAP		= 67,
+	UMAD_SM_UNPATH_TRAP			= 68,
+	UMAD_SM_REPATH_TRAP			= 69,
+	UMAD_SM_LINK_STATE_CHANGED_TRAP		= 128,
+	UMAD_SM_LINK_INTEGRITY_THRESHOLD_TRAP	= 129,
+	UMAD_SM_BUFFER_OVERRUN_THRESHOLD_TRAP	= 130,
+	UMAD_SM_WATCHDOG_TIMER_EXPIRED_TRAP	= 131,
+	UMAD_SM_LOCAL_CHANGES_TRAP		= 144,
+	UMAD_SM_SYS_IMG_GUID_CHANGED_TRAP	= 145,
+	UMAD_SM_BAD_MKEY_TRAP			= 256,
+	UMAD_SM_BAD_PKEY_TRAP			= 257,
+	UMAD_SM_BAD_QKEY_TRAP			= 258,
+	UMAD_SM_BAD_SWITCH_PKEY_TRAP		= 259
 };
 
 enum {
