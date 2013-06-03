@@ -40,6 +40,7 @@
 #include <endian.h>
 #include <byteswap.h>
 #include <infiniband/verbs.h>
+#include <infiniband/umad.h>
 
 #include "config.h"
 #include "srp_ib_types.h"
@@ -309,6 +310,7 @@ struct rule {
 #define  MAX_ID_EXT_STRING_LENGTH 17
 
 struct target_details {
+	uint16_t                pkey;
 	char 			id_ext[MAX_ID_EXT_STRING_LENGTH];
 	struct 			srp_dm_ioc_prof ioc_prof;
 	uint64_t	 	subnet_prefix;
@@ -377,6 +379,7 @@ struct sync_resources {
 	struct timespec next_recalc_time;
 	struct {
 		uint16_t lid;
+		uint16_t pkey;
 		ib_gid_t gid;
 	} tasks[SIZE_OF_TASKS_LIST];
 	pthread_mutex_t mutex;
@@ -395,6 +398,11 @@ struct resources {
 	pthread_t reconnect_thread;
 	pthread_t timer_thread;
 };
+
+typedef struct {
+	struct ib_user_mad hdr;
+	char filler[MAD_BLOCK_SIZE];
+} srp_ib_user_mad_t;
 
 #ifdef HAVE_VALGRIND_DRD_H
 #include <valgrind/drd.h>
@@ -417,8 +425,9 @@ struct resources {
 
 void pr_err(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
-
-void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid);
+int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
+		       uint16_t *pkey);
+void handle_port(struct resources *res, uint16_t pkey, uint16_t lid, uint64_t h_guid);
 void ud_resources_init(struct ud_resources *res);
 int ud_resources_create(struct ud_resources *res);
 int ud_resources_destroy(struct ud_resources *res);
@@ -431,14 +440,15 @@ int create_trap_resources(struct ud_resources *ud_res);
 int register_to_traps(struct resources *res);
 uint16_t get_port_lid(struct ibv_context *ib_ctx, int port_num);
 int create_ah(struct ud_resources *ud_res);
-void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid);
-void push_lid_to_list(struct sync_resources *res, uint16_t lid);
+void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid, uint16_t pkey);
+void push_lid_to_list(struct sync_resources *res, uint16_t lid, uint16_t pkey);
 struct target_details *pop_from_retry_list(struct sync_resources *res);
 void push_to_retry_list(struct sync_resources *res,
 			struct target_details *target);
 int retry_list_is_empty(struct sync_resources *res);
 void clear_traps_list(struct sync_resources *res);
-int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid);
+int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid,
+		  uint16_t *pkey);
 int sync_resources_init(struct sync_resources *res);
 void sync_resources_cleanup(struct sync_resources *res);
 int modify_qp_to_err(struct ibv_qp *qp);

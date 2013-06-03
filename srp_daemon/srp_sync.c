@@ -117,7 +117,7 @@ void sync_resources_cleanup(struct sync_resources *res)
 	pthread_mutex_destroy(&res->mutex);
 }
 
-void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
+void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid, uint16_t pkey)
 {
 	int i;
 
@@ -130,7 +130,8 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 	/* check if the gid is already in the list */
 
 	for (i=0; i < res->next_task; ++i)
-		if (!memcmp(&res->tasks[i].gid, gid, 16)) {
+		if (!memcmp(&res->tasks[i].gid, gid, 16) &&
+		    res->tasks[i].pkey == pkey) {
 			pr_debug("gid is already in task list\n");
 			pthread_mutex_unlock(&res->mutex);
 			return;
@@ -146,6 +147,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 
 		res->tasks[res->next_task].gid = *gid;
 		res->tasks[res->next_task].lid = 0;
+		res->tasks[res->next_task].pkey = pkey;
 		++res->next_task;
 	}
 
@@ -153,7 +155,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid)
 	pthread_mutex_unlock(&res->mutex);
 }
 
-void push_lid_to_list(struct sync_resources *res, uint16_t lid)
+void push_lid_to_list(struct sync_resources *res, uint16_t lid, uint16_t pkey)
 {
 	int i;
 
@@ -167,7 +169,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid)
 	/* check if the lid is already in the list */
 
 	for (i=0; i < res->next_task; ++i)
-		if (res->tasks[i].lid == lid) {
+		if (res->tasks[i].lid == lid && res->tasks[i].pkey == pkey) {
 			pr_debug("lid %d is already in task list\n", lid);
 			pthread_mutex_unlock(&res->mutex);
 			return;
@@ -182,6 +184,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid)
 		/* otherwise enter to the next entry */
 
 		res->tasks[res->next_task].lid = lid;
+		res->tasks[res->next_task].pkey = pkey;
 		memset(&res->tasks[res->next_task].gid, 0, 16);
 		++res->next_task;
 	}
@@ -199,13 +202,15 @@ void clear_traps_list(struct sync_resources *res)
 
 
 /* assumes that res->mutex is locked !!! */
-int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid)
+int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid,
+		  uint16_t *pkey)
 {
 	int ret=0;
 	int i;
 
 	if (res->next_task) {
 		*lid = res->tasks[0].lid;
+		*pkey = res->tasks[0].pkey;
 		*gid = res->tasks[0].gid;
 		/* push the rest down */
 		for (i=1; i < res->next_task; ++i)

@@ -70,11 +70,6 @@
 #define IBPORT_STR_SIZE 16
 #define IGNORE(value) do { if (value) { } } while (0)
 
-typedef struct {
-	struct ib_user_mad hdr;
-	char filler[MAD_BLOCK_SIZE];
-} srp_ib_user_mad_t;
-
 #define get_data_ptr(mad) ((void *) ((mad).hdr.data))
 
 static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
@@ -214,6 +209,16 @@ uint64_t attr_value;
 	return attr_value == val;
 }
 
+static int
+check_equal_uint16(char *dir_name, char *attr, uint16_t val)
+{
+uint64_t attr_value;
+
+	if (srpd_sys_read_uint64(dir_name, attr, &attr_value))
+		return 0;
+
+	return val == (attr_value & 0xffff);
+}
 
 static int recalc(struct resources *res);
 
@@ -374,6 +379,9 @@ static int add_non_exist_target(struct target_details *target)
 		if (!check_equal_uint64(scsi_host_dir, "id_ext",
 				        strtoull(target->id_ext, 0, 16)))
 			continue;
+		if (!check_equal_uint16(scsi_host_dir, "pkey", target->pkey))
+			continue;
+
 		if (!check_equal_uint64(scsi_host_dir, "service_id",
 					target->h_service_id))
 			continue;
@@ -443,12 +451,13 @@ static int add_non_exist_target(struct target_details *target)
 	len = snprintf(target_config_str, MAX_TARGET_CONFIG_STR_STRING, "id_ext=%s,"
 		"ioc_guid=%016llx,"
 		"dgid=%016llx%016llx,"
-		"pkey=ffff,"
+		"pkey=%04x,"
 		"service_id=%016llx",
 		target->id_ext,
 		(unsigned long long) ntohll(target->ioc_prof.guid),
 		(unsigned long long) target->subnet_prefix,
 		(unsigned long long) target->h_guid,
+		target->pkey,
 		(unsigned long long) target->h_service_id);
 	if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 		pr_err("Target config string is too long, ignoring target\n");
@@ -816,7 +825,7 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 	return 0;
 }
 
-static int do_port(struct resources *res, uint16_t dlid,
+static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 		   uint64_t subnet_prefix, uint64_t h_guid)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
@@ -905,6 +914,7 @@ static int do_port(struct resources *res, uint16_t dlid,
 						 svc_entries.service[k].name);
 
 					target->h_service_id = ntohll(svc_entries.service[k].id);
+					target->pkey = pkey;
 					if (is_enabled_by_rules_file(target)) {
 						if (!add_non_exist_target(target) && !config->once) {
 							target->retry_time =
@@ -974,7 +984,23 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 
 	return 0;
 }
+int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
+		       uint16_t *pkey)
+{
+	char pkey_file[16], pkey_str[16];
 
+	/* Read pkey */
+	snprintf(pkey_file, sizeof(pkey_file), "pkeys/%d", pkey_index);
+	if (srpd_sys_read_string(umad_res->port_sysfs_path, pkey_file,
+				 pkey_str, sizeof(pkey_str)) < 0)
+		return -1;
+
+	*pkey = strtoul(pkey_str, NULL, 0);
+	if (*pkey)
+		pr_debug("discover Targets for P_key %04x (index %d)\n",
+			 *pkey, pkey_index);
+	return 0;
+}
 static int do_dm_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
@@ -985,7 +1011,8 @@ static int do_dm_port_list(struct resources *res)
 	struct srp_sa_port_info_rec    *port_info;
 	ssize_t len;
 	int size;
-	int i;
+	int i, j;
+	uint16_t pkey_val;
 	uint64_t guid;
 
 	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
@@ -1007,37 +1034,48 @@ static int do_dm_port_list(struct resources *res)
 	port_info		   = (void *) out_sa_mad->data;
 	port_info->capability_mask = htonl(SRP_IS_DM); /* IsDM */
 
-	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad, (srp_ib_user_mad_t *) in_mad, node_table_response_size);
-	if (len < 0) {
-		free(in_mad_buf);
-		return len;
-	}
-
-	size = ib_get_attr_size(in_sa_mad->attr_offset);
-
-	if (!size) {
-		if (config->verbose) {
-			printf("Query did not find any targets\n");
-		}
-		free(in_mad_buf);
-		return 0;
-	}
-
-	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
-		port_info = (void *) in_sa_mad->data + i * size;
-
-		if (get_node(umad_res, ntohs(port_info->endport_lid), &guid))
+	/* Loop on all pkeys in pkey-table */
+	for (j = 0; ; j++) {
+		if (pkey_index_to_pkey(umad_res, j, &pkey_val))
+			break;
+		if (!pkey_val)
 			continue;
 
-		do_port(res, ntohs(port_info->endport_lid),
-			ntohll(port_info->subnet_prefix), guid);
+		out_mad.hdr.addr.pkey_index = j;
+		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
+				   (srp_ib_user_mad_t *) in_mad,
+				   node_table_response_size);
+		if (len < 0) {
+			free(in_mad_buf);
+			return len;
+		}
+
+		size = ib_get_attr_size(in_sa_mad->attr_offset);
+
+		if (!size) {
+			if (config->verbose) {
+				printf("Query did not find any targets\n");
+			}
+			free(in_mad_buf);
+			return 0;
+		}
+
+		for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
+			port_info = (void *) in_sa_mad->data + i * size;
+
+			if (get_node(umad_res, ntohs(port_info->endport_lid), &guid))
+				continue;
+
+			do_port(res, pkey_val, ntohs(port_info->endport_lid),
+				ntohll(port_info->subnet_prefix), guid);
+		}
 	}
 
 	free(in_mad_buf);
 	return 0;
 }
 
-void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid)
+void handle_port(struct resources *res, uint16_t pkey, uint16_t lid, uint64_t h_guid)
 {
 	struct umad_resources *umad_res = res->umad_res;
 	uint64_t subnet_prefix;
@@ -1050,7 +1088,7 @@ void handle_port(struct resources *res, uint16_t lid, uint64_t h_guid)
 	if (!isdm)
 		return;
 
-	do_port(res, lid, subnet_prefix, h_guid);
+	do_port(res, pkey, lid, subnet_prefix, h_guid);
 }
 
 
@@ -1064,7 +1102,8 @@ static int do_full_port_list(struct resources *res)
 	struct srp_sa_node_rec	       *node;
 	ssize_t len;
 	int size;
-	int i;
+	int i, j;
+	uint16_t pkey_val;
 
 	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
 			    node_table_response_size);
@@ -1083,19 +1122,30 @@ static int do_full_port_list(struct resources *res)
 	out_sa_mad->rmpp_version  = 1;
 	out_sa_mad->rmpp_type     = 1;
 
-	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad, (srp_ib_user_mad_t *) in_mad, node_table_response_size);
-	if (len < 0) {
-		free(in_mad_buf);
-		return len;
-	}
+	/* Loop on all pkeys in pkey-table */
+	for (j = 0; ; j++) {
+		if (pkey_index_to_pkey(umad_res, j, &pkey_val))
+			break;
+		if (!pkey_val)
+			continue;
 
-	size = ntohs(in_sa_mad->attr_offset) * 8;
+		out_mad.hdr.addr.pkey_index = j;
+		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
+				   (srp_ib_user_mad_t *) in_mad,
+				   node_table_response_size);
+		if (len < 0) {
+			free(in_mad_buf);
+			return len;
+		}
 
-	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
-		node = (void *) in_sa_mad->data + i * size;
+		size = ntohs(in_sa_mad->attr_offset) * 8;
 
-		(void) handle_port(res, ntohs(node->lid),
-			    ntohll(node->port_guid));
+		for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
+			node = (void *) in_sa_mad->data + i * size;
+
+			(void) handle_port(res, pkey_val, ntohs(node->lid),
+					   ntohll(node->port_guid));
+		}
 	}
 
 	free(in_mad_buf);
@@ -1633,6 +1683,7 @@ int main(int argc, char *argv[])
 	int			ret, i, flags;
 	struct resources       *res;
 	uint16_t 		lid;
+	uint16_t 		pkey;
 	ib_gid_t 		gid;
 	struct target_details  *target;
 	struct sigaction	sa;
@@ -1740,7 +1791,7 @@ int main(int argc, char *argv[])
 			pthread_mutex_unlock(&res->sync_res->retry_mutex);
 
 			recalc(res);
-		} else if (pop_from_list(res->sync_res, &lid, &gid)) {
+		} else if (pop_from_list(res->sync_res, &lid, &gid, &pkey)) {
 			pthread_mutex_unlock(&res->sync_res->mutex);
 			if (lid) {
 				uint64_t guid;
@@ -1749,7 +1800,7 @@ int main(int argc, char *argv[])
 					/* unexpected error - do a full rescan */
 					schedule_rescan(res->sync_res, 0);
 				else
-					handle_port(res, lid, guid);
+					handle_port(res, pkey, lid, guid);
 			} else {
 				ret = get_lid(res->umad_res, &gid, &lid);
 				if (ret < 0)
@@ -1759,7 +1810,7 @@ int main(int argc, char *argv[])
 					pr_debug("lid is %d\n", lid);
 
 					srp_sleep(0, 100);
-					handle_port(res, lid,
+					handle_port(res, pkey, lid,
 						    ntohll(ib_gid_get_guid(&gid)));
 				}
 			}

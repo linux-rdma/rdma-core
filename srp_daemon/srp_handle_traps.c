@@ -667,6 +667,8 @@ static int get_trap_notices(struct resources *res)
 	struct ibv_wc wc;
 	int cur_receive = 0;
 	int ret = 0;
+	int pkey_index;
+	uint16_t pkey;
 	char *buffer;
 	ib_sa_mad_t *mad_buffer;
 	ib_mad_notice_attr_t *notice_buffer;
@@ -683,6 +685,14 @@ static int get_trap_notices(struct resources *res)
 		cur_receive = wc.wr_id;
 		buffer = (void *)(((unsigned long)res->ud_res->recv_buf) + RECV_BUF_SIZE * cur_receive);
 		mad_buffer = (ib_sa_mad_t *) (buffer + GRH_SIZE);
+		pkey_index = ((srp_ib_user_mad_t *)buffer)->hdr.addr.pkey_index;
+		ret = pkey_index_to_pkey(res->umad_res, pkey_index, &pkey);
+		if (ret) {
+			pr_err("get_trap_notices: Got Bad pkey_index (%d)\n",
+			       pkey_index);
+			wake_up_main_loop();
+			break;
+		}
 
 		if ((mad_buffer->mgmt_class == SRP_MGMT_CLASS_SA) &&
 		    (mad_buffer->method == SRP_SA_METHOD_GET_RESP) &&
@@ -699,10 +709,14 @@ static int get_trap_notices(struct resources *res)
 			trap_num = ntohs(notice_buffer->g_or_v.generic.trap_num);
 			response_to_trap(res->sync_res, res->ud_res, mad_buffer);
 			if (trap_num == SRP_TRAP_JOIN)
-				push_gid_to_list(res->sync_res, &notice_buffer->data_details.ntc_64_67.gid);
+				push_gid_to_list(res->sync_res,
+						 &notice_buffer->data_details.ntc_64_67.gid,
+						 pkey);
 			else if (trap_num == SRP_TRAP_CHANGE_CAP) {
 				if (ntohl(notice_buffer->data_details.ntc_144.new_cap_mask) & SRP_IS_DM)
-					push_lid_to_list(res->sync_res, ntohs(notice_buffer->data_details.ntc_144.lid));
+					push_lid_to_list(res->sync_res,
+							 ntohs(notice_buffer->data_details.ntc_144.lid),
+							 pkey);
 			} else {
 				pr_err("Unhandled trap_num %d\n", trap_num);
 			}
@@ -771,6 +785,7 @@ void *run_thread_listen_to_events(void *res_in)
 		case IBV_EVENT_SM_CHANGE:
 		case IBV_EVENT_LID_CHANGE:
 		case IBV_EVENT_CLIENT_REREGISTER:
+		case IBV_EVENT_PKEY_CHANGE:
 			if (event.element.port_num == config->port_num) {
 				pthread_mutex_lock(&res->sync_res->mutex);
 				__schedule_rescan(res->sync_res, 0);
@@ -779,7 +794,6 @@ void *run_thread_listen_to_events(void *res_in)
 			}
 		  	break;
 
-		case IBV_EVENT_PKEY_CHANGE:
 		case IBV_EVENT_DEVICE_FATAL:
 		case IBV_EVENT_CQ_ERR:
 		case IBV_EVENT_QP_FATAL:
