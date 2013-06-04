@@ -311,6 +311,7 @@ struct t4_swsqe {
 	int			complete;
 	int			signaled;
 	u16			idx;
+	int			flushed;
 };
 
 enum {

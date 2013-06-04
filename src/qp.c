@@ -378,6 +378,7 @@ static int post_send_rc(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		swsqe->idx = qhp->wq.sq.pidx;
 		swsqe->complete = 0;
 		swsqe->signaled = (wr->send_flags & IBV_SEND_SIGNALED);
+		swsqe->flushed = 0;
 		swsqe->wr_id = wr->wr_id;
 
 		init_wr_hdr(wqe, qhp->wq.sq.pidx, fw_opcode, fw_flags, len16);
