@@ -671,7 +671,7 @@ proc_cqe:
 static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 {
 	struct c4iw_qp *qhp = NULL;
-	struct t4_cqe cqe = {0,0}, *rd_cqe;
+	struct t4_cqe uninitialized_var(cqe), *rd_cqe;
 	struct t4_wq *wq;
 	u32 credit = 0;
 	u8 cqe_flushed;
