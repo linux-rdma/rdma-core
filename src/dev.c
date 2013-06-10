@@ -270,104 +270,127 @@ static void dump_cq(struct c4iw_cq *chp)
 	int i;
 
 	fprintf(stderr,
-		"CQ: id %u queue_va %p cidx 0x%08x depth %u error %u \
-		bits_type_ts %016lx\n"
-		chp->cq.cqid, chp->cq.queue, chp->cq.cidx,
-		chp->cq.size, chp->cq.error, be64_to_cpu(chp->cq.bits_type_ts));
+ 		"CQ: %p id %u queue %p cidx 0x%08x sw_queue %p sw_cidx %d sw_pidx %d sw_in_use %d depth %u error %u gen %d "
+		"cidx_inc %d bits_type_ts %016" PRIx64 " notempty %d\n", chp,
+                chp->cq.cqid, chp->cq.queue, chp->cq.cidx,
+	 	chp->cq.sw_queue, chp->cq.sw_cidx, chp->cq.sw_pidx, chp->cq.sw_in_use,
+                chp->cq.size, chp->cq.error, chp->cq.gen, chp->cq.cidx_inc, be64_to_cpu(chp->cq.bits_type_ts),
+		t4_cq_notempty(&chp->cq) || (chp->iq ? t4_iq_notempty(chp->iq) : 0));
+
 	for (i=0; i < chp->cq.size; i++) {
 		u64 *p = (u64 *)(chp->cq.queue + i);
 
-		fprintf(stderr, "%02x: %016lx", i, be64_to_cpu(*p++));
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64, i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
 		if (i == chp->cq.cidx)
 			fprintf(stderr, " <-- cidx\n");
 		else
 			fprintf(stderr, "\n");
-		fprintf(stderr, "%02x: %016lx\n", i, be64_to_cpu(*p++));
-		fprintf(stderr, "%02x: %016lx\n", i, be64_to_cpu(*p++));
-		fprintf(stderr, "%02x: %016lx\n", i, be64_to_cpu(*p++));
+		p+= 2;
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
+		p+= 2;
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
+		p+= 2;
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
+		p+= 2;
 	}
 }
 
-static void dump_qp(struct c4iw_qp *qhp, int qid)
+static void dump_qp(struct c4iw_qp *qhp)
 {
 	int i;
 	int j;
 	struct t4_swsqe *swsqe;
 	struct t4_swrqe *swrqe;
 	u16 cidx, pidx;
+	u64 *p;
 
 	fprintf(stderr,
-		"QP: id %u error %d qid_mask 0x%x\n"
-		"    SQ: id %u va %p cidx %u pidx %u wq_pidx %u depth %u\n"
-		"    RQ: id %u va %p cidx %u pidx %u depth %u\n",
+		"QP: %p id %u error %d flushed %d qid_mask 0x%x\n"
+		"    SQ: id %u queue %p sw_queue %p cidx %u pidx %u in_use %u wq_pidx %u depth %u flags 0x%x flush_cidx %d\n"
+		"    RQ: id %u queue %p sw_queue %p cidx %u pidx %u in_use %u depth %u\n",
+		qhp,
 		qhp->wq.sq.qid,
 		qhp->wq.error,
+		qhp->wq.flushed,
 		qhp->wq.qid_mask,
 		qhp->wq.sq.qid,
 		qhp->wq.sq.queue,
+		qhp->wq.sq.sw_sq,
 		qhp->wq.sq.cidx,
 		qhp->wq.sq.pidx,
+		qhp->wq.sq.in_use,
 		qhp->wq.sq.wq_pidx,
 		qhp->wq.sq.size,
+		qhp->wq.sq.flags,
+		qhp->wq.sq.flush_cidx,
 		qhp->wq.rq.qid,
 		qhp->wq.rq.queue,
+		qhp->wq.rq.sw_rq,
 		qhp->wq.rq.cidx,
 		qhp->wq.rq.pidx,
+		qhp->wq.rq.in_use,
 		qhp->wq.rq.size);
-	if (qid == qhp->wq.sq.qid) {
+	cidx = qhp->wq.sq.cidx;
+	pidx = qhp->wq.sq.pidx;
+	if (cidx != pidx)
 		fprintf(stderr, "SQ: \n");
-		cidx = qhp->wq.sq.cidx;
-		pidx = qhp->wq.sq.pidx;
-		while (cidx != pidx) {
-			swsqe = &qhp->wq.sq.sw_sq[cidx];
-			fprintf(stderr, "%04u: wr_id %016" PRIx64
-				" sq_wptr %08x read_len %u opcode 0x%x "
-				"complete %u signaled %u\n",
-				cidx,
-				swsqe->wr_id,
-				swsqe->idx,
-				swsqe->read_len,
-				swsqe->opcode,
-				swsqe->complete,
-				swsqe->signaled);
-			if (++cidx == qhp->wq.sq.size)
-				cidx = 0;
-		}
+	while (cidx != pidx) {
+		swsqe = &qhp->wq.sq.sw_sq[cidx];
+		fprintf(stderr, "%04u: wr_id %016" PRIx64
+			" sq_wptr %08x read_len %u opcode 0x%x "
+			"complete %u signaled %u cqe %016" PRIx64 " %016" PRIx64 " %016" PRIx64 " %016" PRIx64 "\n",
+			cidx,
+			swsqe->wr_id,
+			swsqe->idx,
+			swsqe->read_len,
+			swsqe->opcode,
+			swsqe->complete,
+			swsqe->signaled,
+			cpu_to_be64(swsqe->cqe.u.flits[0]),
+			cpu_to_be64(swsqe->cqe.u.flits[1]),
+			cpu_to_be64((u64)swsqe->cqe.reserved),
+			cpu_to_be64(swsqe->cqe.bits_type_ts));
+		if (++cidx == qhp->wq.sq.size)
+			cidx = 0;
+	}
 
-		fprintf(stderr, "SQ WQ: \n");
-		for (i=0; i < qhp->wq.sq.size; i++) {
-			for (j=0; j < 16; j++) {
-				fprintf(stderr, "%04u %016" PRIx64 " ",
-					i, ntohll(qhp->wq.sq.queue[i].flits[j]));
-				if (j == 0 && i == qhp->wq.sq.wq_pidx)
-					fprintf(stderr, " <-- pidx");
-				fprintf(stderr, "\n");
-			}
+	fprintf(stderr, "SQ WQ: \n");
+	p = (u64 *)qhp->wq.sq.queue;
+	for (i=0; i < qhp->wq.sq.size * T4_SQ_NUM_SLOTS; i++) {
+		for (j=0; j < T4_EQ_ENTRY_SIZE / 16; j++) {
+			fprintf(stderr, "%04u %016" PRIx64 " %016" PRIx64 " ",
+				i, ntohll(p[0]), ntohll(p[1]));
+			if (j == 0 && i == qhp->wq.sq.wq_pidx)
+				fprintf(stderr, " <-- pidx");
+			fprintf(stderr, "\n");
+			p += 2;
 		}
-	} else if (qid == qhp->wq.rq.qid) {
+	}
+	cidx = qhp->wq.rq.cidx;
+	pidx = qhp->wq.rq.pidx;
+	if (cidx != pidx)
 		fprintf(stderr, "RQ: \n");
-		cidx = qhp->wq.rq.cidx;
-		pidx = qhp->wq.rq.pidx;
-		while (cidx != pidx) {
-			swrqe = &qhp->wq.rq.sw_rq[cidx];
-			fprintf(stderr, "%04u: wr_id %016" PRIx64 "\n",
-				cidx,
-				swrqe->wr_id );
-			if (++cidx == qhp->wq.rq.size)
-				cidx = 0;
-		}
+	while (cidx != pidx) {
+		swrqe = &qhp->wq.rq.sw_rq[cidx];
+		fprintf(stderr, "%04u: wr_id %016" PRIx64 "\n",
+			cidx,
+			swrqe->wr_id );
+		if (++cidx == qhp->wq.rq.size)
+			cidx = 0;
+	}
 
-		fprintf(stderr, "RQ WQ: \n");
-		for (i=0; i < qhp->wq.rq.size; i++) {
-			for (j=0; j < 16; j++) {
-				fprintf(stderr, "%04u %016" PRIx64 " ",
-					i, ntohll(qhp->wq.rq.queue[i].flits[j]));
-				if (j == 0 && i == qhp->wq.rq.pidx)
-					fprintf(stderr, " <-- pidx");
-				if (j == 0 && i == qhp->wq.rq.cidx)
-					fprintf(stderr, " <-- cidx");
-				fprintf(stderr, "\n");
-			}
+	fprintf(stderr, "RQ WQ: \n");
+	p = (u64 *)qhp->wq.rq.queue;
+	for (i=0; i < qhp->wq.rq.size * T4_RQ_NUM_SLOTS; i++) {
+		for (j=0; j < T4_EQ_ENTRY_SIZE / 16; j++) {
+			fprintf(stderr, "%04u %016" PRIx64 " %016" PRIx64 " ",
+				i, ntohll(p[0]), ntohll(p[1]));
+			if (j == 0 && i == qhp->wq.rq.pidx)
+				fprintf(stderr, " <-- pidx");
+			if (j == 0 && i == qhp->wq.rq.cidx)
+				fprintf(stderr, " <-- cidx");
+			fprintf(stderr, "\n");
+			p+=2;
 		}
 	}
 }
@@ -379,24 +402,29 @@ void dump_state()
 
 	fprintf(stderr, "STALL DETECTED:\n");
 	SLIST_FOREACH(dev, &devices, list) {
+		//pthread_spin_lock(&dev->lock);
 		fprintf(stderr, "Device %s\n", dev->ibv_dev.name);
-		for (i = 0; i < T4_MAX_NUM_CQ; i++) {
+		for (i=0; i < T4_MAX_NUM_CQ; i++) {
 			if (dev->cqid2ptr[i]) {
 				struct c4iw_cq *chp = dev->cqid2ptr[i];
+				//pthread_spin_lock(&chp->lock);
 				dump_cq(chp);
+				//pthread_spin_unlock(&chp->lock);
 			}
 		}
-		for (i = 0; i < T4_MAX_NUM_QP; i++) {
+		for (i=0; i < T4_MAX_NUM_QP; i++) {
 			if (dev->qpid2ptr[i]) {
 				struct c4iw_qp *qhp = dev->qpid2ptr[i];
-				dump_qp(qhp, i);
+				//pthread_spin_lock(&qhp->lock);
+				dump_qp(qhp);
+				//pthread_spin_unlock(&qhp->lock);
 			}
 		}
+		//pthread_spin_unlock(&dev->lock);
 	}
 	fprintf(stderr, "DUMP COMPLETE:\n");
 	fflush(stderr);
 }
-
 #endif /* end of STALL_DETECTION */
 
 /*
