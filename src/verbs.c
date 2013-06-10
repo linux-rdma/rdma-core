@@ -486,7 +486,6 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 		if (qhp->wq.sq.ma_sync == MAP_FAILED)
 			goto err9;
 		qhp->wq.sq.ma_sync += (A_PCIE_MA_SYNC & (c4iw_page_size - 1));
-		qhp->wq.sq.udb = dbva;
 	}
 
 	PDBG("%s sq dbva %p sq qva %p sq depth %u sq memsize %lu "
