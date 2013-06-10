@@ -4,7 +4,7 @@ AC_PREREQ(2.57)
 AC_INIT(libcxgb4, 1.3.0, linux-rdma@vger.kernel.org)
 AC_CONFIG_SRCDIR([src/libcxgb4.h])
 AC_CONFIG_AUX_DIR(config)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS(config.h)
 AM_INIT_AUTOMAKE(libcxgb4, 1.3.0)
 AM_PROG_LIBTOOL
 
