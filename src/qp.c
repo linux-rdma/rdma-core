@@ -654,8 +654,7 @@ void c4iw_flush_qp(struct c4iw_qp *qhp)
 	pthread_spin_lock(&qhp->lock);
 	if (schp != rchp)
 		c4iw_flush_hw_cq(schp);
-	c4iw_count_scqes(&schp->cq, &qhp->wq, &count);
-	c4iw_flush_sq(qhp, count);
+	c4iw_flush_sq(qhp);
 	pthread_spin_unlock(&qhp->lock);
 	pthread_spin_unlock(&schp->lock);
 	pthread_spin_lock(&qhp->lock);

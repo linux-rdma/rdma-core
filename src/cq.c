@@ -95,7 +95,7 @@ static void insert_sq_cqe(struct t4_wq *wq, struct t4_cq *cq,
 
 static void advance_oldest_read(struct t4_wq *wq);
 
-void c4iw_flush_sq(struct c4iw_qp *qhp, int count)
+void c4iw_flush_sq(struct c4iw_qp *qhp)
 {
 	unsigned short flushed = 0;
 	struct t4_wq *wq = &qhp->wq;
@@ -103,19 +103,16 @@ void c4iw_flush_sq(struct c4iw_qp *qhp, int count)
 	struct t4_cq *cq = &chp->cq;
 	int idx;
 	struct t4_swsqe *swsqe;
-	int in_use = wq->sq.in_use - count;
 	int error = (qhp->ibv_qp.state != IBV_QPS_SQD &&
 		     qhp->ibv_qp.state != IBV_QPS_INIT);
-
-	BUG_ON(in_use < 0);
-	BUG_ON(in_use > wq->sq.size);
-	idx = wq->sq.cidx + count;
-	if (idx >= wq->sq.size)
-		idx = idx - wq->sq.size;
-	swsqe = &wq->sq.sw_sq[idx];
-
-	while (in_use--) {
+	
+	if (wq->sq.flush_cidx == -1)
+		wq->sq.flush_cidx = wq->sq.cidx;
+	idx = wq->sq.flush_cidx;
+	BUG_ON(idx >= wq->sq.size);
+	while (idx != wq->sq.pidx) {
 		if (error) {
+			swsqe = &wq->sq.sw_sq[idx];
 			BUG_ON(swsqe->flushed);
 			swsqe->flushed = 1;
 			insert_sq_cqe(wq, cq, swsqe);
@@ -123,13 +120,12 @@ void c4iw_flush_sq(struct c4iw_qp *qhp, int count)
 				BUG_ON(swsqe->opcode != FW_RI_READ_REQ);
 				advance_oldest_read(wq);
 			}
-			swsqe++;
-			if (swsqe == (wq->sq.sw_sq + wq->sq.size))
-				swsqe = wq->sq.sw_sq;
 			flushed++;
 		} else {
 			t4_sq_consume(wq);
 		}
+		if (++idx == wq->sq.size)
+			idx = 0;
 	}
 	wq->sq.flush_cidx += flushed;
 	if (wq->sq.flush_cidx >= wq->sq.size)
@@ -308,28 +304,6 @@ static int cqe_completes_wr(struct t4_cqe *cqe, struct t4_wq *wq)
 	if (CQE_SEND_OPCODE(cqe) && RQ_TYPE(cqe) && t4_rq_empty(wq))
 		return 0;
 	return 1;
-}
-
-void c4iw_count_scqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
-{
-	struct t4_cqe *cqe;
-	u32 ptr;
-
-	*count = 0;
-	ptr = cq->sw_cidx;
-	BUG_ON(ptr >= cq->size);
-	while (ptr != cq->sw_pidx) {
-		cqe = &cq->sw_queue[ptr];
-		if (((SQ_TYPE(cqe) && (CQE_OPCODE(cqe) != FW_RI_READ_RESP)) ||
-		     (RQ_TYPE(cqe) && (CQE_OPCODE(cqe) == FW_RI_READ_RESP) &&
-		      wq->sq.oldest_read)) &&
-		    (CQE_QPID(cqe) == wq->sq.qid))
-			(*count)++;
-		if (++ptr == cq->size)
-			ptr = 0;
-	}
-
-	PDBG("%s cq %p count %d\n", __func__, cq, *count);
 }
 
 void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
