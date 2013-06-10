@@ -223,14 +223,17 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 					   sizeof qcmd);
 		if (ret)
 			goto err_free;
+		rhp->max_mr = attr.max_mr;
 		rhp->mmid2ptr = calloc(attr.max_mr, sizeof(void *));
 		if (!rhp->mmid2ptr) {
 			goto err_free;
 		}
+		rhp->max_qp = T4_QID_BASE + attr.max_qp;
 		rhp->qpid2ptr = calloc(T4_QID_BASE + attr.max_qp, sizeof(void *));
 		if (!rhp->qpid2ptr) {
 			goto err_free;
 		}
+		rhp->max_cq = T4_QID_BASE + attr.max_cq;
 		rhp->cqid2ptr = calloc(T4_QID_BASE + attr.max_cq, sizeof(void *));
 		if (!rhp->cqid2ptr)
 			goto err_free;
@@ -404,7 +407,7 @@ void dump_state()
 	SLIST_FOREACH(dev, &devices, list) {
 		//pthread_spin_lock(&dev->lock);
 		fprintf(stderr, "Device %s\n", dev->ibv_dev.name);
-		for (i=0; i < T4_MAX_NUM_CQ; i++) {
+		for (i=0; i < dev->max_cq; i++) {
 			if (dev->cqid2ptr[i]) {
 				struct c4iw_cq *chp = dev->cqid2ptr[i];
 				//pthread_spin_lock(&chp->lock);
@@ -412,7 +415,7 @@ void dump_state()
 				//pthread_spin_unlock(&chp->lock);
 			}
 		}
-		for (i=0; i < T4_MAX_NUM_QP; i++) {
+		for (i=0; i < dev->max_qp; i++) {
 			if (dev->qpid2ptr[i]) {
 				struct c4iw_qp *qhp = dev->qpid2ptr[i];
 				//pthread_spin_lock(&qhp->lock);

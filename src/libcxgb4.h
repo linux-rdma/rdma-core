@@ -58,8 +58,11 @@ struct c4iw_mr;
 struct c4iw_dev {
 	struct ibv_device ibv_dev;
 	enum c4iw_hca_type hca_type;
+	int max_mr;
 	struct c4iw_mr **mmid2ptr;
+	int max_qp;
 	struct c4iw_qp **qpid2ptr;
+	int max_cq;
 	struct c4iw_cq **cqid2ptr;
 	pthread_spinlock_t lock;
 	SLIST_ENTRY(c4iw_dev) list;
