@@ -46,19 +46,71 @@
 #include <infiniband/sa.h>
 
 #ifdef USE_IB_ACM
-#include <infiniband/acm.h>
+#define ACM_VERSION             1
 
-#if DEFINE_ACM_MSG
-typedef struct cma_acm_msg {
+#define ACM_OP_RESOLVE          0x01
+#define ACM_OP_ACK              0x80
+
+#define ACM_STATUS_SUCCESS      0
+#define ACM_STATUS_ENOMEM       1
+#define ACM_STATUS_EINVAL       2
+#define ACM_STATUS_ENODATA      3
+#define ACM_STATUS_ENOTCONN     5
+#define ACM_STATUS_ETIMEDOUT    6
+#define ACM_STATUS_ESRCADDR     7
+#define ACM_STATUS_ESRCTYPE     8
+#define ACM_STATUS_EDESTADDR    9
+#define ACM_STATUS_EDESTTYPE    10
+
+#define ACM_FLAGS_NODELAY	(1<<30)
+
+#define ACM_MSG_HDR_LENGTH      16
+#define ACM_MAX_ADDRESS         64
+#define ACM_MSG_EP_LENGTH       72
+#define ACM_MSG_DATA_LENGTH     (ACM_MSG_EP_LENGTH * 8)
+
+struct acm_hdr {
+	uint8_t                 version;
+	uint8_t                 opcode;
+	uint8_t                 status;
+	uint8_t		        data[3];
+	uint16_t                length;
+	uint64_t                tid;
+};
+
+#define ACM_EP_INFO_NAME        0x0001
+#define ACM_EP_INFO_ADDRESS_IP  0x0002
+#define ACM_EP_INFO_ADDRESS_IP6 0x0003
+#define ACM_EP_INFO_PATH        0x0010
+
+union acm_ep_info {
+	uint8_t                 addr[ACM_MAX_ADDRESS];
+	uint8_t                 name[ACM_MAX_ADDRESS];
+	struct ibv_path_record  path;
+};
+
+#define ACM_EP_FLAG_SOURCE      (1<<0)
+#define ACM_EP_FLAG_DEST        (1<<1)
+
+struct acm_ep_addr_data {
+	uint32_t                flags;
+	uint16_t                type;
+	uint16_t                reserved;
+	union acm_ep_info       info;
+};
+
+struct acm_resolve_msg {
+	struct acm_hdr          hdr;
+	struct acm_ep_addr_data data[0];
+};
+
+struct acm_msg {
 	struct acm_hdr                  hdr;
 	union{
 		uint8_t                 data[ACM_MSG_DATA_LENGTH];
 		struct acm_ep_addr_data resolve_data[0];
 	};
-} cma_acm_msg_t;
-#else
-typedef struct acm_msg cma_acm_msg_t;
-#endif
+};
 
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
@@ -242,7 +294,7 @@ err:
 	rdma_freeaddrinfo(ib_rai);
 }
 
-static void ucma_ib_save_resp(struct rdma_addrinfo *rai, cma_acm_msg_t *msg)
+static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_msg *msg)
 {
 	struct acm_ep_addr_data *ep_data;
 	struct ibv_path_data *path_data = NULL;
@@ -326,7 +378,7 @@ static int ucma_ib_addr(struct sockaddr *addr, socklen_t len)
 
 void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
 {
-	cma_acm_msg_t msg;
+	struct acm_msg msg;
 	struct acm_ep_addr_data *data;
 	int ret;
 
