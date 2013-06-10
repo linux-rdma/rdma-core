@@ -336,7 +336,7 @@ static int post_send_rc(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		fw_flags = 0;
 		if (wr->send_flags & IBV_SEND_SOLICITED)
 			fw_flags |= FW_RI_SOLICITED_EVENT_FLAG;
-		if (wr->send_flags & IBV_SEND_SIGNALED)
+		if (wr->send_flags & IBV_SEND_SIGNALED || qhp->sq_sig_all)
 			fw_flags |= FW_RI_COMPLETION_FLAG;
 		swsqe = &qhp->wq.sq.sw_sq[qhp->wq.sq.pidx];
 		switch (wr->opcode) {
