@@ -35,6 +35,7 @@ libibnetdiscincludedir = $(includedir)/infiniband
 test_testleaks_SOURCES = test/testleaks.c
 test_testleaks_CFLAGS = -Wall $(DBGFLAGS)
 test_testleaks_LDFLAGS = -libnetdisc
+test_testleaks_DEPENDENCIES = libibnetdisc.la
 
 libibnetdiscinclude_HEADERS = $(srcdir)/include/infiniband/ibnetdisc.h \
 				$(srcdir)/include/infiniband/ibnetdisc_osd.h
