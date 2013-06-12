@@ -574,6 +574,7 @@ static Node *find_mcpath(ib_portid_t * from, int mlid)
 						IBWARN
 						    ("can't reach node %s port %d",
 						     portid2str(path), i);
+						free(port);
 						return 0;
 					}
 
@@ -585,8 +586,10 @@ static Node *find_mcpath(ib_portid_t * from, int mlid)
 					link_port(port, node);
 #endif
 
-					if (extend_dpath(&path->drpath, i) < 0)
+					if (extend_dpath(&path->drpath, i) < 0) {
+						free(port);
 						return 0;
+					}
 				}
 
 				if (!(remotenode = calloc(1, sizeof(Node))))
