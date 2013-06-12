@@ -371,6 +371,8 @@ static void dump_multicast_member_record(ib_member_rec_t *p_mcmr,
 		ib_node_record_t *nr = sa_get_query_rec(nr_result->p_result_madw, i);
 		if (nr->node_info.port_guid ==
 		    p_mcmr->port_gid.unicast.interface_id) {
+			if(node_name != NULL)
+				free(node_name);
 			node_name = remap_node_name(node_name_map,
 						nr->node_info.node_guid,
 						(char *)nr->node_desc.description);
