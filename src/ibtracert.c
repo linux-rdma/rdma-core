@@ -250,6 +250,13 @@ static int find_route(ib_portid_t * from, ib_portid_t * to, int dump)
 	int maxhops = MAXHOPS;
 	int portnum, outport;
 
+	memset(&fromnode,0,sizeof(Node));
+	memset(&tonode,0,sizeof(Node));
+	memset(&nextnode,0,sizeof(Node));
+	memset(&fromport,0,sizeof(Port));
+	memset(&toport,0,sizeof(Port));
+	memset(&nextport,0,sizeof(Port));
+
 	DEBUG("from %s", portid2str(from));
 
 	if (get_node(&fromnode, &fromport, from) < 0 ||
