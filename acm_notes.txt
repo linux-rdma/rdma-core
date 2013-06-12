@@ -73,7 +73,7 @@ The acm_opts.cfg file provides a set of configurable options for the
 ib_acm service, such as timeout, number of retries, logging level, etc.
 ib_acme generates the acm_opts.cfg file using static information.  A
 future enhancement would adjust options based on the current system
-and cluster size. 
+and cluster size.
 
 
 ib_acm:
@@ -127,4 +127,3 @@ The current implementation of the IB ACM has several additional restrictions:
 - The number of addresses that can be assigned to a single endpoint is
   limited to 4.
 - The number of multicast groups that an endpoint can support is limited to 2.
-
