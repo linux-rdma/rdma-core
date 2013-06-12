@@ -271,8 +271,10 @@ int build_cpuinfo(void)
 	while (fgets(line, sizeof(line) - 1, f)) {
 		if (!strncmp(line, "processor\t", 10)) {
 			ncpu++;
-			if (ncpu > MAX_CPUS)
+			if (ncpu > MAX_CPUS) {
+				fclose(f);
 				return MAX_CPUS;
+			}
 			continue;
 		}
 
