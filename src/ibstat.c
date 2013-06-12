@@ -314,7 +314,8 @@ int main(int argc, char *argv[])
 		if (i >= n)
 			IBPANIC("'%s' IB device can't be found", argv[0]);
 
-		strncpy(names[i], argv[0], sizeof names[i]);
+		strncpy(names[0], argv[0], sizeof(names[0])-1);
+		names[0][sizeof(names[0])-1] = '\0';
 		n = 1;
 	}
 
@@ -324,16 +325,10 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	if (!list_only && argc) {
-		if (ca_stat(argv[0], dev_port, short_format) < 0)
-			IBPANIC("stat of IB device '%s' failed", argv[0]);
-		return 0;
-	}
-
 	for (i = 0; i < n; i++) {
 		if (list_only)
 			printf("%s\n", names[i]);
-		else if (ca_stat(names[i], -1, short_format) < 0)
+		else if (ca_stat(names[i], dev_port, short_format) < 0)
 			IBPANIC("stat of IB device '%s' failed", names[i]);
 	}
 
