@@ -63,7 +63,7 @@ List of connected routers
 Show progress information during discovery.
 .sp
 \fB\-f, \-\-full\fP
-Show full information (ports\(aq speed and width)
+Show full information (ports\(aq speed and width, vlcap)
 .sp
 \fB\-p, \-\-ports\fP
 Obtain a ports report which is a

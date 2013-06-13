@@ -50,7 +50,7 @@ List of connected routers
 Show progress information during discovery.
 
 **-f, --full**
-Show full information (ports' speed and width)
+Show full information (ports' speed and width, vlcap)
 
 **-p, --ports**
 Obtain a ports report which is a

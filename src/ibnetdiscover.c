@@ -361,6 +361,8 @@ void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
 					IB_PORT_LINK_WIDTH_ACTIVE_F);
 	uint32_t ispeed = mad_get_field(port->info, 0,
 					IB_PORT_LINK_SPEED_ACTIVE_F);
+	uint32_t vlcap = mad_get_field(port->info, 0,
+				       IB_PORT_VL_CAP_F);
 	uint32_t fdr10 = mad_get_field(port->ext_info, 0,
 				       IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F);
 	uint32_t cap_mask, espeed;
@@ -408,7 +410,7 @@ void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
 			dump_linkspeedext_compat(espeed, ispeed, fdr10));
 
 	if (full_info)
-		fprintf(f, " s=%d w=%d", ispeed, iwidth);
+		fprintf(f, " s=%d w=%d v=%d", ispeed, iwidth, vlcap);
 
 	if (ibnd_is_xsigo_tca(port->remoteport->guid))
 		fprintf(f, " slot %d", port->portnum);
@@ -427,6 +429,8 @@ void out_ca_port(ibnd_port_t * port, int group, char *out_prefix)
 					IB_PORT_LINK_WIDTH_ACTIVE_F);
 	uint32_t ispeed = mad_get_field(port->info, 0,
 					IB_PORT_LINK_SPEED_ACTIVE_F);
+	uint32_t vlcap = mad_get_field(port->info, 0,
+				       IB_PORT_VL_CAP_F);
 	uint32_t fdr10 = mad_get_field(port->ext_info, 0,
 				       IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F);
 	uint32_t cap_mask, espeed;
@@ -464,7 +468,7 @@ void out_ca_port(ibnd_port_t * port, int group, char *out_prefix)
 			dump_linkspeedext_compat(espeed, ispeed, fdr10));
 
 	if (full_info)
-		fprintf(f, " s=%d w=%d", ispeed, iwidth);
+		fprintf(f, " s=%d w=%d v=%d", ispeed, iwidth, vlcap);
 	fprintf(f, "\n");
 
 	free(rem_nodename);
@@ -1063,7 +1067,7 @@ int main(int argc, char **argv)
 	ibnd_fabric_t *diff_fabric = NULL;
 
 	const struct ibdiag_opt opts[] = {
-		{"full", 'f', 0, NULL, "show full information (ports' speed and width)"},
+		{"full", 'f', 0, NULL, "show full information (ports' speed and width, vlcap)"},
 		{"show", 's', 0, NULL, "show more information"},
 		{"list", 'l', 0, NULL, "list of connected nodes"},
 		{"grouping", 'g', 0, NULL, "show grouping"},
