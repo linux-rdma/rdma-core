@@ -49,6 +49,9 @@ List of connected routers
 **-s, --show**
 Show progress information during discovery.
 
+**-f, --full**
+Show full information (ports' speed and width)
+
 **-p, --ports**
 Obtain a ports report which is a
 list of connected ports with relevant information (like LID, portnum,

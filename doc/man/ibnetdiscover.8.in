@@ -62,6 +62,9 @@ List of connected routers
 \fB\-s, \-\-show\fP
 Show progress information during discovery.
 .sp
+\fB\-f, \-\-full\fP
+Show full information (ports\(aq speed and width)
+.sp
 \fB\-p, \-\-ports\fP
 Obtain a ports report which is a
 list of connected ports with relevant information (like LID, portnum,
