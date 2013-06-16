@@ -1,13 +1,13 @@
-.TH "ib_acme" 7 "2010-12-06" "ib_acme" "ib_acme" ib_acme
+.TH "ib_acme" 7 "2013-06-15" "ib_acme" "ib_acme" ib_acme
 .SH NAME
 ib_acme \- test and configuration utility for the IB ACM
 .SH SYNOPSIS
 .sp
 .nf
-\fIib_acme\fR [-f addr_format] [-s src_addr] -d dest_addr [-v]
+\fIib_acme\fR [-f addr_format] [-s src_addr] -d dest_addr [-v] [-c] [-P] [-S svc_addr]
 .fi
 .nf
-\fIib_acme\fR [-G] [-O]
+\fIib_acme\fR [-A [addr_file]] [-O [opt_file]] [-D dest_dir] [-V]
 .fi
 .SH "DESCRIPTION"
 ib_acme provides assistance configuring and testing the ibacm service.
@@ -42,16 +42,25 @@ resolved path information is usable given the current cluster configuration.
 Instructs the ACM service to only returned information that currently resides
 in its local cache.
 .TP
-\-A
+\-P
+Queries performance data from the destination service
+.TP
+\-S svc_addr
+address of ACM service, default: local service
+.TP
+\-A [addr_file]
 With this option, the ib_acme utility automatically generates the address
 configuration file ibacm_addr.cfg.  The generated file is
 constructed using the system host name and any IP addresses that are
 assigned to IPoIB device instances.
 .TP
-\-O
+\-O [opt_file]
 With this option, the ib_acme utility automatically generates the option
 configuration file ibacm_opts.cfg.  The generated file is currently generated
 using static information.
+.TP
+\-D dest_dir
+Specify the destination directory for the output files.
 .TP
 \-V
 Enables verbose output.  When combined with -A or -O options, ib_acme will
@@ -78,4 +87,4 @@ numerical ranges inside the brackets using the following example as a
 guide: node[1-3,5,7-8].  This will result in testing node1, node2, node3,
 node5, node7, and node8.
 .SH "SEE ALSO"
-ibacm(7) ibacm(1)
+ibacm(7), ibacm(1)

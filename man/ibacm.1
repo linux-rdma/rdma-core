@@ -1,10 +1,10 @@
-.TH "ibacm" 1 "2012-03-01" "ibacm" "ibacm" ibacm
+.TH "ibacm" 1 "2013-06-15" "ibacm" "ibacm" ibacm
 .SH NAME
 ibacm \- address and route resolution services for InfiniBand.
 .SH SYNOPSIS
 .sp
 .nf
-\fIibacm\fR
+\fIibacm\fR [-D] [-P] [-A addr_file] [-O option_file]
 .fi
 .SH "DESCRIPTION"
 The IB ACM implements and provides a framework for name,
@@ -33,6 +33,19 @@ different fabric topologies.
 The IB ACM package is comprised of two components: the ibacm service
 and a test/configuration utility - ib_acme.  Both are userspace components
 and are available for Linux and Windows.  Additional details are given below.
+.SH "OPTIONS"
+.TP
+\-D
+run in daemon mode (default)
+.TP
+\-P
+run as standard process
+.TP
+\-A addr_file
+address configuration file
+.TP
+\-O option_file
+option configuration file
 .SH "QUICK START GUIDE"
 1. Prerequisites: libibverbs and libibumad must be installed.
 The IB stack should be running with IPoIB configured.
@@ -46,6 +59,7 @@ These steps assume that the user has administrative privileges.
 the ibacm service is running.
 .P
 5. Install librdmacm, using the build option --with-ib_acm if needed.
+This build option is not needed with librdmacm 1.0.17 or newer.
 The librdmacm will automatically use the ibacm service.
 On failures, the librdmacm will fall back to normal resolution.
 .P
@@ -132,4 +146,4 @@ limited to 4.
 .P
 - The number of multicast groups that an endpoint can support is limited to 2.
 .SH "SEE ALSO"
-ibacm(7) ib_acme(1), rdma_cm(7)
+ibacm(7), ib_acme(1), rdma_cm(7)
