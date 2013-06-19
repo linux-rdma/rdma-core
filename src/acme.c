@@ -476,29 +476,50 @@ static uint32_t get_resolve_flags()
 	return flags;
 }
 
+static int inet_any_pton(char *addr, struct sockaddr *sa)
+{
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	int ret;
+
+	sin = (struct sockaddr_in *) sa;
+	sa->sa_family = AF_INET;
+	ret = inet_pton(AF_INET, addr, &sin->sin_addr);
+	if (ret <= 0) {
+		sin6 = (struct sockaddr_in6 *) sa;
+		sa->sa_family = AF_INET6;
+		ret = inet_pton(AF_INET6, src_addr, &sin6->sin6_addr);
+	}
+
+	return ret;
+}
+
 static int resolve_ip(struct ibv_path_record *path)
 {
 	struct ibv_path_data *paths;
-	struct sockaddr_in src, dest;
+	struct sockaddr_storage src, dest;
 	struct sockaddr *saddr;
 	int ret, count;
 
 	if (src_addr) {
-		src.sin_family = AF_INET;
-		ret = inet_pton(AF_INET, src_addr, &src.sin_addr);
+		saddr = (struct sockaddr *) &src;
+		ret = inet_any_pton(src_addr, saddr);
 		if (ret <= 0) {
 			printf("inet_pton error on source address (%s): 0x%x\n", src_addr, ret);
 			return -1;
 		}
-		saddr = (struct sockaddr *) &src;
 	} else {
 		saddr = NULL;
 	}
 
-	dest.sin_family = AF_INET;
-	ret = inet_pton(AF_INET, dest_addr, &dest.sin_addr);
+	ret = inet_any_pton(dest_addr, (struct sockaddr *) &dest);
 	if (ret <= 0) {
 		printf("inet_pton error on destination address (%s): 0x%x\n", dest_addr, ret);
+		return -1;
+	}
+
+	if (src_addr && src.ss_family != dest.ss_family) {
+		printf("source and destination address families don't match\n");
 		return -1;
 	}
 
