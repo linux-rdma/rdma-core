@@ -1,10 +1,10 @@
-.TH "ib_acme" 7 "2013-06-15" "ib_acme" "ib_acme" ib_acme
+.TH "ib_acme" 7 "2013-06-21" "ib_acme" "ib_acme" ib_acme
 .SH NAME
 ib_acme \- test and configuration utility for the IB ACM
 .SH SYNOPSIS
 .sp
 .nf
-\fIib_acme\fR [-f addr_format] [-s src_addr] -d dest_addr [-v] [-c] [-P] [-S svc_addr]
+\fIib_acme\fR [-f addr_format] [-s src_addr] -d dest_addr [-v] [-c] [-P] [-S svc_addr] [-C repetitions]
 .fi
 .nf
 \fIib_acme\fR [-A [addr_file]] [-O [opt_file]] [-D dest_dir] [-V]
@@ -47,6 +47,10 @@ Queries performance data from the destination service
 .TP
 \-S svc_addr
 address of ACM service, default: local service
+.TP
+\-C repetitions
+number of repetitions to perform resolution.  Used to measure
+performance of ACM cache lookups.  Defaults to 1.
 .TP
 \-A [addr_file]
 With this option, the ib_acme utility automatically generates the address

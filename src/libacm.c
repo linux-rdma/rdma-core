@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2013 Mellanox Technologies LTD. All rights reserved.
  *
  * This software is available to you under the OpenIB.org BSD license
  * below:
@@ -113,7 +114,7 @@ void ib_acm_disconnect(void)
 }
 
 static int acm_format_resp(struct acm_msg *msg,
-	struct ibv_path_data **paths, int *count)
+	struct ibv_path_data **paths, int *count, int print)
 {
 	struct ibv_path_data *path_data;
 	char addr[ACM_MAX_ADDRESS];
@@ -154,7 +155,8 @@ static int acm_format_resp(struct acm_msg *msg,
 			default:
 				goto err;
 			}
-			printf("Source: %s\n", addr);
+			if (print)
+				printf("Source: %s\n", addr);
 			break;
 		}
 	}
@@ -221,7 +223,7 @@ static int acm_error(uint8_t status)
 }
 
 static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
-	struct ibv_path_data **paths, int *count, uint32_t flags)
+	struct ibv_path_data **paths, int *count, uint32_t flags, int print)
 {
 	struct acm_msg msg;
 	int ret, cnt = 0;
@@ -258,28 +260,28 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 		goto out;
 	}
 
-	ret = acm_format_resp(&msg, paths, count);
+	ret = acm_format_resp(&msg, paths, count, print);
 out:
 	lock_release(&lock);
 	return ret;
 }
 
 int ib_acm_resolve_name(char *src, char *dest,
-	struct ibv_path_data **paths, int *count, uint32_t flags)
+	struct ibv_path_data **paths, int *count, uint32_t flags, int print)
 {
 	return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-		ACM_EP_INFO_NAME, paths, count, flags);
+		ACM_EP_INFO_NAME, paths, count, flags, print);
 }
 
 int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
-	struct ibv_path_data **paths, int *count, uint32_t flags)
+	struct ibv_path_data **paths, int *count, uint32_t flags, int print)
 {
 	if (((struct sockaddr *) dest)->sa_family == AF_INET) {
 		return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-			ACM_EP_INFO_ADDRESS_IP, paths, count, flags);
+			ACM_EP_INFO_ADDRESS_IP, paths, count, flags, print);
 	} else {
 		return acm_resolve((uint8_t *) src, (uint8_t *) dest,
-			ACM_EP_INFO_ADDRESS_IP6, paths, count, flags);
+			ACM_EP_INFO_ADDRESS_IP6, paths, count, flags, print);
 	}
 }
 
