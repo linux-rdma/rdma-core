@@ -492,6 +492,30 @@ static void dump_service_record(void *data, struct query_params *p)
 	       cl_ntoh64(p_sr->service_data64[1]));
 }
 
+static void dump_sm_info_record(void *data, struct query_params *p)
+{
+	ib_sminfo_record_t *p_smr = data;
+	const ib_sm_info_t *const p_smi = &p_smr->sm_info;
+	uint8_t priority, state;
+	priority = ib_sminfo_get_priority(p_smi);
+	state = ib_sminfo_get_state(p_smi);
+
+	printf("SMInfoRecord dump:\n"
+	       "\t\tRID\n"
+	       "\t\tLID...................%u\n"
+	       "\t\tSMInfo dump:\n"
+	       "\t\tGUID..................0x%016" PRIx64 "\n"
+	       "\t\tSM_Key................0x%016" PRIx64 "\n"
+	       "\t\tActCount..............%u\n"
+	       "\t\tPriority..............%u\n"
+	       "\t\tSMState...............%u\n",
+	       cl_ntoh16(p_smr->lid),
+	       cl_ntoh64(p_smr->sm_info.guid),
+	       cl_ntoh64(p_smr->sm_info.sm_key),
+	       cl_ntoh32(p_smr->sm_info.act_count),
+	       priority, state);
+}
+
 static void dump_switch_info_record(void *data, struct query_params *p)
 {
 	ib_switch_info_record_t *p_sir = data;
@@ -1188,6 +1212,25 @@ static int query_service_records(const struct query_cmd *q, struct sa_handle * h
 					dump_service_record, p);
 }
 
+static int query_sm_info_records(const struct query_cmd *q,
+				 struct sa_handle * h, struct query_params *p,
+				 int argc, char *argv[])
+{
+	ib_sminfo_record_t smir;
+	ib_net64_t comp_mask = 0;
+	int lid = 0;
+
+	if (argc > 0)
+		parse_lid_and_ports(h, argv[0], &lid, NULL, NULL);
+
+	memset(&smir, 0, sizeof(smir));
+	CHECK_AND_SET_VAL(lid, 16, 0, smir.lid, SMIR, LID);
+
+	return get_and_dump_any_records(h, IB_SA_ATTR_SMINFORECORD, 0,
+					comp_mask, &smir, sizeof(smir),
+					dump_sm_info_record, p);
+}
+
 static int query_switchinfo_records(const struct query_cmd *q,
 				struct sa_handle * h, struct query_params *p,
 				int argc, char *argv[])
@@ -1424,6 +1467,8 @@ static const struct query_cmd query_cmds[] = {
 	 "[[lid]/[block]]", query_guidinfo_records},
 	{"SwitchInfoRecord", "SWIR", IB_SA_ATTR_SWITCHINFORECORD,
 	 "[lid]", query_switchinfo_records},
+	{"SMInfoRecord", "SMIR", IB_SA_ATTR_SMINFORECORD,
+	 "[lid]", query_sm_info_records},
 	{0}
 };
 

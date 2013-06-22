@@ -156,6 +156,7 @@ Supported query names (and aliases):
         MFTRecord (MFTR) [[mlid]/[position]/[block]]
         GUIDInfoRecord (GIR) [[lid]/[block]]
         SwitchInfoRecord (SWIR) [lid]
+        SMInfoRecord (SMIR) [lid]
 
 
 
