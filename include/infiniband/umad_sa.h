@@ -102,6 +102,30 @@ enum {
 	UMAD_LEN_SA_DATA		= 200
 };
 
+/* CM bits */
+enum {
+	UMAD_SA_CAP_MASK_IS_SUBNET_OPT_REC_SUP              = (1 << 8),
+	UMAD_SA_CAP_MASK_IS_UD_MCAST_SUP                    = (1 << 9),
+	UMAD_SA_CAP_MASK_IS_MULTIPATH_SUP                   = (1 << 10),
+	UMAD_SA_CAP_MASK_IS_REINIT_SUP                      = (1 << 11),
+	UMAD_SA_CAP_MASK_IS_GID_SCOPED_MULTIPATH_SUP        = (1 << 12),
+	UMAD_SA_CAP_MASK_IS_PORTINFO_CAP_MASK_MATCH_SUP     = (1 << 13),
+	UMAD_SA_CAP_MASK_IS_LINK_SPEED_WIDTH_PAIRS_REC_SUP  = (1 << 14),
+	UMAD_SA_CAP_MASK_IS_PA_SERVICES_SUP                 = (1 << 15)
+};
+/* CM2 bits */
+enum {
+	UMAD_SA_CAP_MASK2_IS_UNPATH_REPATH_SUP              = (1 << 0),
+	UMAD_SA_CAP_MASK2_IS_QOS_SUP                        = (1 << 1),
+	UMAD_SA_CAP_MASK2_IS_REV_PATH_PKEY_MEM_BIT_SUP      = (1 << 2),
+	UMAD_SA_CAP_MASK2_IS_MCAST_TOP_SUP                  = (1 << 3),
+	UMAD_SA_CAP_MASK2_IS_HIERARCHY_INFO_SUP             = (1 << 4),
+	UMAD_SA_CAP_MASK2_IS_ADDITIONAL_GUID_SUP            = (1 << 5),
+	UMAD_SA_CAP_MASK2_IS_FULL_PORTINFO_REC_SUP          = (1 << 6),
+	UMAD_SA_CAP_MASK2_IS_EXT_SPEEDS_SUP                 = (1 << 7),
+	UMAD_SA_CAP_MASK2_IS_MCAST_SERVICE_REC_SUP          = (1 << 8)
+};
+
 /*
  *  sm_key is not aligned on an 8-byte boundary, so is defined as a byte array
  */
