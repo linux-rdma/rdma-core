@@ -260,6 +260,22 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Default is ACM_CONF_DIR/ibacm_route.data\n");
 	fprintf(f, "# route_data_file /etc/rdma/ibacm_route.data\n");
 	fprintf(f, "\n");
+	fprintf(f, "# addr_preload:\n");
+	fprintf(f, "# Specifies if the ACM address cache should be preloaded, or built on demand.\n");
+	fprintf(f, "# If preloaded, indicates the method used to build the cache.\n");
+	fprintf(f, "# Supported preload values are:\n");
+	fprintf(f, "# none - The address cache is not pre-built (default)\n");
+	fprintf(f, "# acm_hosts - ACM address to GID file format\n");
+	fprintf(f, "\n");
+	fprintf(f, "addr_preload none\n");
+	fprintf(f, "\n");
+	fprintf(f, "# addr_data_file:\n");
+	fprintf(f, "# Specifies the location of the address data file to use when preloading\n");
+	fprintf(f, "# the ACM cache.  This option is only valid if addr_preload\n");
+	fprintf(f, "# indicates that address data should be read from a file.\n");
+	fprintf(f, "# Default is ACM_CONF_DIR/ibacm_hosts.data\n");
+	fprintf(f, "# addr_data_file /etc/rdma/ibacm_hosts.data\n");
+	fprintf(f, "\n");
 }
 
 static int open_dir(void)

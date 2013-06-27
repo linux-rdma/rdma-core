@@ -82,6 +82,11 @@ enum acm_route_preload {
 	ACM_ROUTE_PRELOAD_OSM_FULL_V1
 };
 
+enum acm_addr_preload {
+	ACM_ADDR_PRELOAD_NONE,
+	ACM_ADDR_PRELOAD_HOSTS
+};
+
 /*
  * Nested locking order: dest -> ep, dest -> port
  */
@@ -219,6 +224,7 @@ static char *acme = BINDIR "/ib_acme -A";
 static char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
 static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
 static char route_data_file[128] = ACM_CONF_DIR "/ibacm_route.data";
+static char addr_data_file[128] = ACM_CONF_DIR "/ibacm_hosts.data";
 static char log_file[128] = "/var/log/ibacm.log";
 static int log_level = 0;
 static char lock_file[128] = "/var/run/ibacm.pid";
@@ -237,6 +243,7 @@ static int recv_depth = 1024;
 static uint8_t min_mtu = IBV_MTU_2048;
 static uint8_t min_rate = IBV_RATE_10_GBPS;
 static enum acm_route_preload route_preload;
+static enum acm_addr_preload addr_preload;
 
 #define acm_log(level, format, ...) \
 	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
@@ -2464,6 +2471,16 @@ static enum acm_route_preload acm_convert_route_preload(char *param)
 	return route_preload;
 }
 
+static enum acm_route_preload acm_convert_addr_preload(char *param)
+{
+	if (!stricmp("none", param) || !stricmp("no", param))
+		return ACM_ADDR_PRELOAD_NONE;
+	else if (!stricmp("acm_hosts", param))
+		return ACM_ADDR_PRELOAD_HOSTS;
+
+	return addr_preload;
+}
+
 static enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed)
 {
 	switch (width) {
@@ -2788,6 +2805,74 @@ err:
 	return ret;
 }
 
+static void acm_parse_hosts_file(struct acm_ep *ep)
+{
+	FILE *f;
+	char s[120];
+	char addr[INET6_ADDRSTRLEN], gid[INET6_ADDRSTRLEN];
+	uint8_t name[ACM_MAX_ADDRESS];
+	struct in6_addr ip_addr, ib_addr;
+	struct acm_dest *dest, *new_dest;
+	uint8_t addr_type;
+
+	if (!(f = fopen(addr_data_file, "r"))) {
+		acm_log(0, "ERROR - couldn't open %s\n", addr_data_file);
+		return;
+        }
+
+	while (fgets(s, sizeof s, f)) {
+		if (s[0] == '#')
+			continue;
+
+		if (sscanf(s, "%46s%46s", addr, gid) != 2)
+			continue;
+
+		acm_log(2, "%s", s);
+		if (inet_pton(AF_INET6, gid, &ib_addr) <= 0) {
+			acm_log(0, "ERROR - %s is not IB GID\n", gid);
+			continue;
+		}
+		if (inet_pton(AF_INET, addr, &ip_addr) > 0)
+			addr_type = ACM_ADDRESS_IP;
+		else if (inet_pton(AF_INET6, addr, &ip_addr) > 0)
+			addr_type = ACM_ADDRESS_IP6;
+		else {
+			acm_log(0, "ERROR - %s is not IP address\n", addr);
+			continue;
+		}
+
+		memset(name, 0, ACM_MAX_ADDRESS);
+		memcpy(name, &ib_addr, sizeof(ib_addr));
+		dest = acm_get_dest(ep, ACM_ADDRESS_GID, name);
+		if (!dest) {
+			acm_log(0, "ERROR - IB GID %s not found in cache\n", gid);
+			continue;
+		}
+
+		memset(name, 0, ACM_MAX_ADDRESS);
+		if (addr_type == ACM_ADDRESS_IP)
+			memcpy(name, &ip_addr, 4);
+		else
+			memcpy(name, &ip_addr, sizeof(ip_addr));
+		new_dest = acm_acquire_dest(ep, addr_type, name);
+		if (!new_dest) {
+			acm_log(0, "ERROR - unable to create dest %s\n", addr);
+			continue;
+		}
+		new_dest->path = dest->path;
+		new_dest->remote_qpn = dest->remote_qpn;
+		new_dest->addr_timeout = dest->addr_timeout;
+		new_dest->route_timeout = dest->route_timeout;
+		new_dest->state = dest->state;
+		acm_put_dest(new_dest);
+		acm_put_dest(dest);
+		acm_log(1, "added host %s address type %d IB GID %s\n",
+			addr, addr_type, gid);
+	}
+
+	fclose(f);
+}
+
 static int acm_assign_ep_names(struct acm_ep *ep)
 {
 	FILE *faddr;
@@ -2856,12 +2941,25 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 	return !index;
 }
 
+/*
+ * We currently require that the routing data be preloaded in order to
+ * load the address data.  This is backwards from normal operation, which
+ * usually resolves the address before the route.
+ */
 static void acm_ep_preload(struct acm_ep *ep)
 {
 	switch (route_preload) {
 	case ACM_ROUTE_PRELOAD_OSM_FULL_V1:
 		if (acm_parse_osm_fullv1(ep))
 			acm_log(0, "ERROR - failed to preload EP\n");
+		break;
+	default:
+		return;
+	}
+
+	switch (addr_preload) {
+	case ACM_ADDR_PRELOAD_HOSTS:
+		acm_parse_hosts_file(ep);
 		break;
 	default:
 		break;
@@ -3366,6 +3464,10 @@ static void acm_set_options(void)
 			route_preload = acm_convert_route_preload(value);
 		else if (!stricmp("route_data_file", opt))
 			strcpy(route_data_file, value);
+		else if (!stricmp("addr_preload", opt))
+			addr_preload = acm_convert_addr_preload(value);
+		else if (!stricmp("addr_data_file", opt))
+			strcpy(addr_data_file, value);
 	}
 
 	fclose(f);
@@ -3391,6 +3493,8 @@ static void acm_log_options(void)
 	acm_log(0, "minimum rate %d\n", min_rate);
 	acm_log(0, "route preload %d\n", route_preload);
 	acm_log(0, "route data file %s\n", route_data_file);
+	acm_log(0, "address preload %d\n", addr_preload);
+	acm_log(0, "address data file %s\n", addr_data_file);
 }
 
 static FILE *acm_open_log(void)
