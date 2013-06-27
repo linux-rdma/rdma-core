@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2013 Mellanox Technologies LTD. All rights reserved.
  *
  * This software is available to you under the OpenFabrics.org BSD license
  * below:

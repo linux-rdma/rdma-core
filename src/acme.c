@@ -244,6 +244,22 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "min_rate 10\n");
 	fprintf(f, "\n");
+	fprintf(f, "# route_preload:\n");
+	fprintf(f, "# Specifies if the ACM routing cache should be preloaded, or built on demand.\n");
+	fprintf(f, "# If preloaded, indicates the method used to build the cache.\n");
+	fprintf(f, "# Supported preload values are:\n");
+	fprintf(f, "# none - The routing cache is not pre-built (default)\n");
+	fprintf(f, "# opensm_full_v1 - OpenSM 'full' path records dump file format (version 1)\n");
+	fprintf(f, "\n");
+	fprintf(f, "route_preload none\n");
+	fprintf(f, "\n");
+	fprintf(f, "# route_data_file:\n");
+	fprintf(f, "# Specifies the location of the route data file to use when preloading\n");
+	fprintf(f, "# the ACM cache.  This option is only valid if route_preload\n");
+	fprintf(f, "# indicates that routing data should be read from a file.\n");
+	fprintf(f, "# Default is ACM_CONF_DIR/ibacm_route.data\n");
+	fprintf(f, "# route_data_file /etc/rdma/ibacm_route.data\n");
+	fprintf(f, "\n");
 }
 
 static int open_dir(void)
