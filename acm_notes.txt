@@ -119,11 +119,19 @@ the multicast group that was selected to construct or obtain path record
 data, which is returned to the client.
 
 The current implementation of the IB ACM has several additional restrictions:
-- The ib_acm is limited in its handling of dynamic changes;
-  the ib_acm must be stopped and restarted if a cluster is reconfigured.
-- Cached data does not timed out and is only updated if a new resolution
-  request is received from a different QPN than a cached request.
+- The ibacm is limited in its handling of dynamic changes;
+  the ibacm should be stopped and restarted if a cluster is reconfigured.
 - Support for IPv6 has not been verified.
 - The number of addresses that can be assigned to a single endpoint is
   limited to 4.
 - The number of multicast groups that an endpoint can support is limited to 2.
+
+The ibacm contains several internal caches.  These include  caches  for
+GID  and  LID  destination  addresses.   These caches can be optionally
+preloaded.  ibacm supports the OpenSM dump_pr plugin "full" PathRecord
+format which is used to preload these caches.  The file format is specified
+in the ibacm_opts.cfg file via the route_preload setting which should
+be set to opensm_full_v1 for this file format.  Default format is
+none which does not preload these caches.  See dump_pr.notes.txt in dump_pr
+for more information on the opensm_full_v1 file format and how to configure
+OpenSM to generate this file.
