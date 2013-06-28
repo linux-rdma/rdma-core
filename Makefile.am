@@ -19,8 +19,7 @@ man_MANS = \
 	man/ibacm.7
 
 EXTRA_DIST = src/acm_mad.h src/libacm.h ibacm.init.in \
-	     linux/osd.h linux/dlist.h ibacm.spec.in $(man_MANS) ibacm_opts.cfg \
-	     ibacm_addr.cfg
+	     linux/osd.h linux/dlist.h ibacm.spec.in $(man_MANS)
 
 install-exec-hook:
 	install -D -m 755 ibacm.init $(DESTDIR)$(sysconfdir)/init.d/ibacm;
