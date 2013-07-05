@@ -1842,6 +1842,9 @@ int main(int argc, char **argv)
 		ibdiag_show_usage();
 	}
 
+	if (umad_init())
+		IBERROR("Failed to initialized umad library");
+
 	h = sa_get_handle();
 	if (!h)
 		IBPANIC("Failed to bind to the SA");
@@ -1894,6 +1897,7 @@ error:
 	if (src_lid)
 		free(src_lid);
 	sa_free_handle(h);
+	umad_done();
 	close_node_name_map(node_name_map);
 	return (status);
 }

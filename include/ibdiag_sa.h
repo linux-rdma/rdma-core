@@ -58,6 +58,7 @@ struct sa_query_result {
 	void *p_result_madw;
 };
 
+/* NOTE: umad_init must be called prior to sa_get_handle */
 struct sa_handle * sa_get_handle(void);
 void sa_free_handle(struct sa_handle * h);
 
