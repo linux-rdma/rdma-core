@@ -466,13 +466,13 @@ int main(int argc, char **argv)
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!srcport)
-		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	smp_mkey_set(srcport, ibd_mkey);
 
 	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
 			       ibd_dest_type, ibd_sm_id, srcport) < 0)
-		IBERROR("can't resolve destination port %s", argv[0]);
+		IBEXIT("can't resolve destination port %s", argv[0]);
 
 	if (multicast)
 		err = dump_multicast_tables(&portid, startlid, endlid);
@@ -480,7 +480,7 @@ int main(int argc, char **argv)
 		err = dump_unicast_tables(&portid, startlid, endlid);
 
 	if (err)
-		IBERROR("dump tables: %s", err);
+		IBEXIT("dump tables: %s", err);
 
 	mad_rpc_close_port(srcport);
 	close_node_name_map(node_name_map);

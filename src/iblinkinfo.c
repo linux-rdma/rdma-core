@@ -683,11 +683,11 @@ int main(int argc, char **argv)
 
 	if (diff_cache_file &&
 	    !(diff_fabric = ibnd_load_fabric(diff_cache_file, 0)))
-		IBERROR("loading cached fabric for diff failed\n");
+		IBEXIT("loading cached fabric for diff failed\n");
 
 	if (filterdownports_cache_file &&
 	    !(filterdownports_fabric = ibnd_load_fabric(filterdownports_cache_file, 0)))
-		IBERROR("loading cached fabric for filterdownports failed\n");
+		IBEXIT("loading cached fabric for filterdownports failed\n");
 
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL) {

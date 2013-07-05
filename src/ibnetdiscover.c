@@ -1107,7 +1107,7 @@ int main(int argc, char **argv)
 	config.flags = ibd_ibnetdisc_flags;
 
 	if (argc && !(f = fopen(argv[0], "w")))
-		IBERROR("can't open file %s for writing", argv[0]);
+		IBEXIT("can't open file %s for writing", argv[0]);
 
 	config.mkey = ibd_mkey;
 
@@ -1115,15 +1115,15 @@ int main(int argc, char **argv)
 
 	if (diff_cache_file &&
 	    !(diff_fabric = ibnd_load_fabric(diff_cache_file, 0)))
-		IBERROR("loading cached fabric for diff failed\n");
+		IBEXIT("loading cached fabric for diff failed\n");
 
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL)
-			IBERROR("loading cached fabric failed\n");
+			IBEXIT("loading cached fabric failed\n");
 	} else {
 		if ((fabric =
 		     ibnd_discover_fabric(ibd_ca, ibd_ca_port, NULL, &config)) == NULL)
-			IBERROR("discover failed\n");
+			IBEXIT("discover failed\n");
 	}
 
 	if (ports_report)
@@ -1137,7 +1137,7 @@ int main(int argc, char **argv)
 
 	if (cache_file)
 		if (ibnd_cache_fabric(fabric, cache_file, 0) < 0)
-			IBERROR("caching ibnetdiscover data failed\n");
+			IBEXIT("caching ibnetdiscover data failed\n");
 
 	ibnd_destroy_fabric(fabric);
 	if (diff_fabric)

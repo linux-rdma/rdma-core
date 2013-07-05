@@ -131,10 +131,10 @@ static int send_trap(const char *name,
 	ib_mad_notice_attr_t notice;
 
 	if (resolve_self(ibd_ca, ibd_ca_port, &selfportid, &selfport, NULL))
-		IBERROR("can't resolve self");
+		IBEXIT("can't resolve self");
 
 	if (resolve_sm_portid(ibd_ca, ibd_ca_port, &sm_port))
-		IBERROR("can't resolve SM destination port");
+		IBEXIT("can't resolve SM destination port");
 
 	memset(&trap_rpc, 0, sizeof(trap_rpc));
 	trap_rpc.mgtclass = IB_SMI_CLASS;
@@ -207,7 +207,7 @@ int main(int argc, char **argv)
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 	if (!srcport)
-		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	smp_mkey_set(srcport, ibd_mkey);
 

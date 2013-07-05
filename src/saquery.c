@@ -1843,7 +1843,7 @@ int main(int argc, char **argv)
 	}
 
 	if (umad_init())
-		IBERROR("Failed to initialized umad library");
+		IBEXIT("Failed to initialized umad library");
 
 	h = sa_get_handle();
 	if (!h)

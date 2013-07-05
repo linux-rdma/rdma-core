@@ -66,7 +66,7 @@ extern int show_keys;
 #define VERBOSE(fmt, ...) do { \
 	if (ibverbose) IBVERBOSE(fmt, ## __VA_ARGS__); \
 } while (0)
-#define IBERROR(fmt, ...) iberror(__FUNCTION__, fmt, ## __VA_ARGS__)
+#define IBEXIT(fmt, ...) ibexit(__FUNCTION__, fmt, ## __VA_ARGS__)
 
 #define NOT_DISPLAYED_STR "<not displayed>"
 
@@ -91,7 +91,7 @@ extern int ibdiag_process_opts(int argc, char *const argv[], void *context,
 			       const char *usage_args,
 			       const char *usage_examples[]);
 extern void ibdiag_show_usage();
-extern void iberror(const char *fn, char *msg, ...);
+extern void ibexit(const char *fn, char *msg, ...);
 
 /* convert counter values to a float with a unit specifier returned (using
  * binary prefix)

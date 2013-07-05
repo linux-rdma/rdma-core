@@ -126,7 +126,7 @@ static int get_node_info(ib_portid_t * dest, uint8_t * data)
 	int node_type;
 
 	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
-		IBERROR("smp query nodeinfo failed");
+		IBEXIT("smp query nodeinfo failed");
 
 	node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
 	if (node_type == IB_NODE_SWITCH)	/* Switch NodeType ? */
@@ -144,13 +144,13 @@ static int get_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 
 	if (is_switch) {
 		if (!smp_query_via(smp, dest, IB_ATTR_PORT_INFO, 0, 0, srcport))
-			IBERROR("smp query port 0 portinfo failed");
+			IBEXIT("smp query port 0 portinfo failed");
 		info = smp;
 	} else
 		info = data;
 
 	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
-		IBERROR("smp query portinfo failed");
+		IBEXIT("smp query portinfo failed");
 	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
 	return (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS));
 }
@@ -246,7 +246,7 @@ static void set_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 	if (espeed_cap)
 		mod |= 1<<31;
 	if (!smp_set_via(data, dest, IB_ATTR_PORT_INFO, mod, 0, srcport))
-		IBERROR("smp set portinfo failed");
+		IBEXIT("smp set portinfo failed");
 
 	printf("\nAfter PortInfo set:\n");
 	show_port_info(dest, data, portnum, espeed_cap, is_switch);
@@ -256,7 +256,7 @@ static void get_ext_port_info(ib_portid_t * dest, uint8_t * data, int portnum)
 {
 	if (!smp_query_via(data, dest, IB_ATTR_MLNX_EXT_PORT_INFO,
 			   portnum, 0, srcport))
-		IBERROR("smp query ext portinfo failed");
+		IBEXIT("smp query ext portinfo failed");
 }
 
 static void show_ext_port_info(ib_portid_t * dest, uint8_t * data, int portnum)
@@ -273,7 +273,7 @@ static void set_ext_port_info(ib_portid_t * dest, uint8_t * data, int portnum)
 {
 	if (!smp_set_via(data, dest, IB_ATTR_MLNX_EXT_PORT_INFO,
 			 portnum, 0, srcport))
-		IBERROR("smp set ext portinfo failed");
+		IBEXIT("smp set ext portinfo failed");
 
 	printf("\nAfter ExtendedPortInfo set:\n");
 	show_ext_port_info(dest, data, portnum);
@@ -413,13 +413,13 @@ int main(int argc, char **argv)
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!srcport)
-		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	smp_mkey_set(srcport, ibd_mkey);
 
 	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
 			       ibd_dest_type, ibd_sm_id, srcport) < 0)
-		IBERROR("can't resolve destination port %s", argv[0]);
+		IBEXIT("can't resolve destination port %s", argv[0]);
 
 	if (argc > 1)
 		portnum = strtol(argv[1], 0, 0);
@@ -433,7 +433,7 @@ int main(int argc, char **argv)
 			port_args[j].set = 1;
 			if (!port_args[j].val) {
 				if (port_op >= 0)
-					IBERROR("%s only one of: ",
+					IBEXIT("%s only one of: ",
 						"query, enable, disable, "
 						"reset, down, arm, active, "
 						"can be specified",
@@ -442,46 +442,46 @@ int main(int argc, char **argv)
 				break;
 			}
 			if (++i >= argc)
-				IBERROR("%s requires an additional parameter",
+				IBEXIT("%s requires an additional parameter",
 					port_args[j].name);
 			val = strtoull(argv[i], 0, 0);
 			switch (j) {
 			case SPEED:
 				if (val < 0 || val > 15)
-					IBERROR("invalid speed value %ld", val);
+					IBEXIT("invalid speed value %ld", val);
 				break;
 			case ESPEED:
 				if (val < 0 || val > 31)
-					IBERROR("invalid extended speed value %ld", val);
+					IBEXIT("invalid extended speed value %ld", val);
 				break;
 			case FDR10SPEED:
 				if (val < 0 || val > 1)
-					IBERROR("invalid fdr10 speed value %ld", val);
+					IBEXIT("invalid fdr10 speed value %ld", val);
 				break;
 			case WIDTH:
 				if (val < 0 || (val > 15 && val != 255))
-					IBERROR("invalid width value %ld", val);
+					IBEXIT("invalid width value %ld", val);
 				break;
 			case VLS:
 				if (val <= 0 || val > 5)
-					IBERROR("invalid vls value %ld", val);
+					IBEXIT("invalid vls value %ld", val);
 				break;
 			case MTU:
 				if (val <= 0 || val > 5)
-					IBERROR("invalid mtu value %ld", val);
+					IBEXIT("invalid mtu value %ld", val);
 				break;
 			case LID:
 				if (val <= 0 || val >= 0xC000)
-					IBERROR("invalid lid value 0x%lx", val);
+					IBEXIT("invalid lid value 0x%lx", val);
 				break;
 			case SMLID:
 				if (val <= 0 || val >= 0xC000)
-					IBERROR("invalid smlid value 0x%lx",
+					IBEXIT("invalid smlid value 0x%lx",
 						val);
 				break;
 			case LMC:
 				if (val < 0 || val > 7)
-					IBERROR("invalid lmc value %ld", val);
+					IBEXIT("invalid lmc value %ld", val);
 				break;
 			case MKEY:
 				errno = 0;
@@ -491,25 +491,25 @@ int main(int argc, char **argv)
 					val = strtoull(getpass("New M_Key: "),
 						       &endp, 0);
 					if (errno || *endp != '\0') {
-						IBERROR("Bad new M_Key\n");
+						IBEXIT("Bad new M_Key\n");
 					}
 				}
 				/* All 64-bit values are legal */
 				break;
 			case MKEYLEASE:
 				if (val < 0 || val > 0xFFFF)
-					IBERROR("invalid mkey lease time %ld", val);
+					IBEXIT("invalid mkey lease time %ld", val);
 				break;
 			case MKEYPROT:
 				if (val < 0 || val > 3)
-					IBERROR("invalid mkey protection bit setting %ld", val);
+					IBEXIT("invalid mkey protection bit setting %ld", val);
 			}
 			*port_args[j].val = val;
 			changed = 1;
 			break;
 		}
 		if (j == NPORT_ARGS)
-			IBERROR("invalid operation: %s", argv[i]);
+			IBEXIT("invalid operation: %s", argv[i]);
 	}
 	if (port_op < 0)
 		port_op = QUERY;
@@ -519,7 +519,7 @@ int main(int argc, char **argv)
 
 	if ((port_args[MKEY].set || port_args[MKEYLEASE].set ||
 	     port_args[MKEYPROT].set) && is_switch && portnum != 0)
-		IBERROR("Can't set M_Key fields on switch port != 0");
+		IBEXIT("Can't set M_Key fields on switch port != 0");
 
 	if (port_op != QUERY || changed)
 		printf("Initial %s PortInfo:\n", is_switch ? "Switch" : "CA");
@@ -661,7 +661,7 @@ int main(int argc, char **argv)
 			/* Set DrSLID to local lid */
 			if (resolve_self(ibd_ca, ibd_ca_port, &selfportid,
 						&selfport, 0) < 0)
-				IBERROR("could not resolve self");
+				IBEXIT("could not resolve self");
 			peerportid.drpath.drslid = (uint16_t) selfportid.lid;
 			peerportid.drpath.drdlid = 0xffff;
 

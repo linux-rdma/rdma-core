@@ -459,7 +459,7 @@ int main(int argc, char **argv)
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!srcport)
-		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	node_name_map = open_node_name_map(node_name_map_file);
 

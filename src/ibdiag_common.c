@@ -254,7 +254,7 @@ static int process_opt(int ch, char *optarg)
 		val = strtol(optarg, &endp, 0);
 		if (errno || (endp && *endp != '\0') || val <= 0 ||
 		    val > INT_MAX)
-			IBERROR("Invalid timeout \"%s\".  Timeout requires a "
+			IBEXIT("Invalid timeout \"%s\".  Timeout requires a "
 				"positive integer value < %d.", optarg, INT_MAX);
 		else {
 			madrpc_set_timeout((int)val);
@@ -265,7 +265,7 @@ static int process_opt(int ch, char *optarg)
 		/* srcport is not required when resolving via IB_DEST_LID */
 		if (resolve_portid_str(ibd_ca, ibd_ca_port, &sm_portid, optarg,
 				IB_DEST_LID, 0, NULL) < 0)
-			IBERROR("cannot resolve SM destination port %s",
+			IBEXIT("cannot resolve SM destination port %s",
 				optarg);
 		ibd_sm_id = &sm_portid;
 		break;
@@ -279,7 +279,7 @@ static int process_opt(int ch, char *optarg)
 			errno = 0;
 			ibd_mkey = strtoull(getpass("M_Key: "), &endp, 0);
 			if (errno || *endp != '\0') {
-				IBERROR("Bad M_Key");
+				IBEXIT("Bad M_Key");
 			}
                 }
                 break;
@@ -409,7 +409,7 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 	return 0;
 }
 
-void iberror(const char *fn, char *msg, ...)
+void ibexit(const char *fn, char *msg, ...)
 {
 	char buf[512];
 	va_list va;

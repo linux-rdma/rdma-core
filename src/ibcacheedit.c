@@ -280,13 +280,13 @@ int main(int argc, char **argv)
 	new_cache_file = argv[1];
 
 	if (!orig_cache_file)
-		IBERROR("original cache file not specified");
+		IBEXIT("original cache file not specified");
 
 	if (!new_cache_file)
-		IBERROR("new cache file not specified");
+		IBEXIT("new cache file not specified");
 
 	if ((fabric = ibnd_load_fabric(orig_cache_file, 0)) == NULL)
-		IBERROR("loading original cached fabric failed");
+		IBEXIT("loading original cached fabric failed");
 
 	if (switchguid_flag) {
 		guids.before = switchguid_before;
@@ -298,7 +298,7 @@ int main(int argc, char **argv)
 				     &guids);
 
 		if (!guids.found)
-			IBERROR("switchguid = %" PRIx64 " not found",
+			IBEXIT("switchguid = %" PRIx64 " not found",
 				switchguid_before);
 	}
 
@@ -312,7 +312,7 @@ int main(int argc, char **argv)
 				     &guids);
 
 		if (!guids.found)
-			IBERROR("caguid = %" PRIx64 " not found",
+			IBEXIT("caguid = %" PRIx64 " not found",
 				caguid_before);
 	}
 
@@ -325,7 +325,7 @@ int main(int argc, char **argv)
 				&guids);
 
 		if (!guids.found)
-			IBERROR("sysimgguid = %" PRIx64 " not found",
+			IBEXIT("sysimgguid = %" PRIx64 " not found",
 				sysimgguid_before);
 	}
 
@@ -340,16 +340,16 @@ int main(int argc, char **argv)
 				&guids);
 
 		if (!guids.searchguid_found)
-			IBERROR("nodeguid = %" PRIx64 " not found",
+			IBEXIT("nodeguid = %" PRIx64 " not found",
 				portguid_nodeguid);
 
 		if (!guids.found)
-			IBERROR("portguid = %" PRIx64 " not found",
+			IBEXIT("portguid = %" PRIx64 " not found",
 				portguid_before);
 	}
 
 	if (ibnd_cache_fabric(fabric, new_cache_file, 0) < 0)
-		IBERROR("caching new cache data failed");
+		IBEXIT("caching new cache data failed");
 
 	ibnd_destroy_fabric(fabric);
 	exit(0);

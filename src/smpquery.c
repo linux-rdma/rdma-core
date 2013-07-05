@@ -453,11 +453,11 @@ int main(int argc, char **argv)
 		ibdiag_show_usage();
 
 	if (!(fn = match_op(match_tbl, argv[0])))
-		IBERROR("operation '%s' not supported", argv[0]);
+		IBEXIT("operation '%s' not supported", argv[0]);
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
 	if (!srcport)
-		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	smp_mkey_set(srcport, ibd_mkey);
 
@@ -466,9 +466,9 @@ int main(int argc, char **argv)
 	if (ibd_dest_type != IB_DEST_DRSLID) {
 		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[1],
 				       ibd_dest_type, ibd_sm_id, srcport) < 0)
-			IBERROR("can't resolve destination port %s", argv[1]);
+			IBEXIT("can't resolve destination port %s", argv[1]);
 		if ((err = fn(&portid, argv + 2, argc - 2)))
-			IBERROR("operation %s: %s", argv[0], err);
+			IBEXIT("operation %s: %s", argv[0], err);
 	} else {
 		char concat[64];
 
@@ -476,9 +476,9 @@ int main(int argc, char **argv)
 		snprintf(concat, sizeof(concat), "%s %s", argv[1], argv[2]);
 		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, concat,
 				       ibd_dest_type, ibd_sm_id, srcport) < 0)
-			IBERROR("can't resolve destination port %s", concat);
+			IBEXIT("can't resolve destination port %s", concat);
 		if ((err = fn(&portid, argv + 3, argc - 3)))
-			IBERROR("operation %s: %s", argv[0], err);
+			IBEXIT("operation %s: %s", argv[0], err);
 	}
 	close_node_name_map(node_name_map);
 	mad_rpc_close_port(srcport);

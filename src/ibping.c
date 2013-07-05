@@ -213,27 +213,27 @@ int main(int argc, char **argv)
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 1);
 	if (!srcport)
-		IBERROR("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (server) {
 		if (mad_register_server_via(ping_class, 0, 0, oui, srcport) < 0)
-			IBERROR("can't serve class %d on this port",
+			IBEXIT("can't serve class %d on this port",
 				ping_class);
 
 		get_host_and_domain(host_and_domain, sizeof host_and_domain);
 
 		if ((err = ibping_serv()))
-			IBERROR("ibping to %s: %s", portid2str(&portid), err);
+			IBEXIT("ibping to %s: %s", portid2str(&portid), err);
 		exit(0);
 	}
 
 	if (mad_register_client_via(ping_class, 0, srcport) < 0)
-		IBERROR("can't register ping class %d on this port",
+		IBEXIT("can't register ping class %d on this port",
 			ping_class);
 
 	if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
 			       ibd_dest_type, ibd_sm_id, srcport) < 0)
-		IBERROR("can't resolve destination port %s", argv[0]);
+		IBEXIT("can't resolve destination port %s", argv[0]);
 
 	signal(SIGINT, report);
 	signal(SIGTERM, report);

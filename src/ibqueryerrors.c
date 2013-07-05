@@ -986,7 +986,7 @@ int main(int argc, char **argv)
 
 	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 4);
 	if (!ibmad_port)
-		IBERROR("Failed to open port; %s:%d\n", ibd_ca, ibd_ca_port);
+		IBEXIT("Failed to open port; %s:%d\n", ibd_ca, ibd_ca_port);
 
 	smp_mkey_set(ibmad_port, ibd_mkey);
 
@@ -1006,7 +1006,7 @@ int main(int argc, char **argv)
 	}
 
 	if (resolve_self(ibd_ca, ibd_ca_port, &self_portid, &port, &self_gid.raw) < 0) {
-		IBERROR("can't resolve self port %s", argv[0]);
+		IBEXIT("can't resolve self port %s", argv[0]);
 		goto close_port;
 	}
 
