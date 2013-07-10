@@ -65,6 +65,7 @@ struct pingpong_context {
 	struct ibv_qp		*qp;
 	void			*buf;
 	int			 size;
+	int			 send_flags;
 	int			 rx_depth;
 	int			 pending;
 	struct ibv_port_attr     portinfo;
@@ -319,8 +320,9 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	if (!ctx)
 		return NULL;
 
-	ctx->size     = size;
-	ctx->rx_depth = rx_depth;
+	ctx->size       = size;
+	ctx->send_flags = IBV_SEND_SIGNALED;
+	ctx->rx_depth   = rx_depth;
 
 	ctx->buf = memalign(page_size, size);
 	if (!ctx->buf) {
@@ -367,7 +369,8 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	}
 
 	{
-		struct ibv_qp_init_attr attr = {
+		struct ibv_qp_attr attr;
+		struct ibv_qp_init_attr init_attr = {
 			.send_cq = ctx->cq,
 			.recv_cq = ctx->cq,
 			.cap     = {
@@ -379,10 +382,15 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			.qp_type = IBV_QPT_RC
 		};
 
-		ctx->qp = ibv_create_qp(ctx->pd, &attr);
+		ctx->qp = ibv_create_qp(ctx->pd, &init_attr);
 		if (!ctx->qp)  {
 			fprintf(stderr, "Couldn't create QP\n");
 			goto clean_cq;
+		}
+
+		ibv_query_qp(ctx->qp, &attr, IBV_QP_CAP, &init_attr);
+		if (init_attr.cap.max_inline_data >= size) {
+			ctx->send_flags |= IBV_SEND_INLINE;
 		}
 	}
 
@@ -508,7 +516,7 @@ static int pp_post_send(struct pingpong_context *ctx)
 		.sg_list    = &list,
 		.num_sge    = 1,
 		.opcode     = IBV_WR_SEND,
-		.send_flags = IBV_SEND_SIGNALED,
+		.send_flags = ctx->send_flags,
 	};
 	struct ibv_send_wr *bad_wr;
 
