@@ -30,7 +30,10 @@ dist-hook: srptools.spec
 install-exec-hook:
 	mkdir -p $(DESTDIR)$(sysconfdir)/init.d
 	@INSTALL_PROGRAM@ srp_daemon/srpd $(DESTDIR)$(sysconfdir)/init.d/srpd
-	(cd $(DESTDIR)$(sbindir) && ln -s srp_daemon ibsrpdm)
+	if test -e $(DESTDIR)$(sbindir)/ibsrpdm; then	\
+	    rm -f $(DESTDIR)$(sbindir)/ibsrpdm;		\
+	fi;						\
+	cd $(DESTDIR)$(sbindir) && ln -s srp_daemon ibsrpdm
 
 install-data-hook:
 	if test -e $(DESTDIR)$(sysconfdir)/srp_daemon.conf; then	\
