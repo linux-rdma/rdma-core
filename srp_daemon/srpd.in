@@ -64,7 +64,11 @@ start() {
 
     echo -n "Starting SRP daemon service:"
 
-    setsid $prog </dev/null >&/dev/null &
+    if [ "$SRP_DEFAULT_TL_RETRY_COUNT" ]; then
+        params=$params"-l $SRP_DEFAULT_TL_RETRY_COUNT "
+    fi
+
+    setsid $prog $params </dev/null >&/dev/null &
     RC=$?
     echo
     return $RC

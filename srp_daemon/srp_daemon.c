@@ -198,6 +198,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-p <port_num>		use Port num \n");
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
 	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after Timeout of <retry timeout> seconds\n");
+	fprintf(stderr, "-l <tl_retry timeout>	Transport retry count before failing IO. should be in range [2..7], (default 2)\n");
 	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect (default: /etc/srp_daemon.conf\n");
 	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
@@ -501,6 +502,18 @@ static int add_non_exist_target(struct target_details *target)
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",initiator_ext=%016llx",
 				(unsigned long long) ntohll(target->h_guid));
+
+		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+			pr_err("Target config string is too long, ignoring target\n");
+			closedir(dir);
+			return -1;
+		}
+	}
+
+	if (config->execute) {
+		len += snprintf(target_config_str + len,
+				MAX_TARGET_CONFIG_STR_STRING - len,
+				",tl_retry_count=%d", config->tl_retry_count);
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 			pr_err("Target config string is too long, ignoring target\n");
@@ -1386,11 +1399,12 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->print_initiator_ext	= 0;
 	conf->rules_file		= "/etc/srp_daemon.conf";
 	conf->rules			= NULL;
+	conf->tl_retry_count		= 2;
 
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:p:t:r:R:T:Vhnf:");
+		c = getopt(argc, argv, "caveod:i:p:t:r:R:T:l:Vhnf:");
 		if (c == -1)
 			break;
 
@@ -1463,6 +1477,16 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			break;
 		case 'f':
 			conf->rules_file = optarg;
+			break;
+		case 'l':
+			conf->tl_retry_count = atoi(optarg);
+			if (conf->tl_retry_count < 2 ||
+			    conf->tl_retry_count > 7) {
+				pr_err("Bad tl_retry_count argument (%d), "
+				       "must be 2 <= tl_retry_count <= 7\n",
+				       conf->tl_retry_count);
+				return -1;
+			}
 			break;
 		case 'h':
 		default:

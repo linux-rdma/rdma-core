@@ -339,6 +339,7 @@ struct config_t {
 	char	       *rules_file;
 	struct rule    *rules;
 	int 		retry_timeout;
+	int		tl_retry_count;
 };
 
 extern struct config_t *config;
