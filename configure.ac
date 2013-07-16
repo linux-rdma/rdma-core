@@ -1,18 +1,18 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.57)
-AC_INIT(librdmacm, 1.0.17, linux-rdma@vger.kernel.org)
+AC_PREREQ([2.63])
+AC_INIT([librdmacm],[1.0.17],[linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/cma.c])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
-AC_CONFIG_HEADERS(config.h)
+AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AM_PROG_LIBTOOL
+LT_INIT
 
 AC_ARG_WITH([valgrind],
-    AC_HELP_STRING([--with-valgrind],
+    AS_HELP_STRING([--with-valgrind],
 		   [Enable valgrind annotations - default NO]))
 
 if test "$with_valgrind" != "" && test "$with_valgrind" != "no"; then
@@ -50,8 +50,8 @@ AC_CHECK_MEMBER(struct ibv_path_record.service_id, [],
 
 dnl Check for gcc atomic intrinsics
 AC_MSG_CHECKING(compiler support for atomics)
-AC_TRY_LINK([int i = 0;],
-    [ return __sync_add_and_fetch(&i, 1) != __sync_sub_and_fetch(&i, 1); ],
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[int i = 0;]],
+				[[ return __sync_add_and_fetch(&i, 1) != __sync_sub_and_fetch(&i, 1); ]])],
     [ AC_MSG_RESULT(yes) ],
     [
         AC_MSG_RESULT(no)
