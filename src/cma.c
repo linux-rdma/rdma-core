@@ -328,7 +328,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 	if (!channel)
 		return NULL;
 
-	channel->fd = open("/dev/infiniband/rdma_cm", O_RDWR);
+	channel->fd = open("/dev/infiniband/rdma_cm", O_RDWR | O_CLOEXEC);
 	if (channel->fd < 0) {
 		fprintf(stderr, PFX "Fatal: unable to open /dev/infiniband/rdma_cm\n");
 		goto err;

@@ -80,7 +80,7 @@ static int ucma_set_server_port(void)
 {
 	FILE *f;
 
-	if ((f = fopen("/var/run/ibacm.port", "r"))) {
+	if ((f = fopen("/var/run/ibacm.port", "r" STREAM_CLOEXEC))) {
 		fscanf(f, "%hu", (unsigned short *) &server_port);
 		fclose(f);
 	}
@@ -100,7 +100,7 @@ void ucma_ib_init(void)
 	if (!ucma_set_server_port())
 		goto out;
 
-	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 	if (sock < 0)
 		goto out;
 

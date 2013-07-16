@@ -78,6 +78,30 @@ AC_CHECK_HEADER(infiniband/acm.h,
 		AC_DEFINE(DEFINE_ACM_MSG, 1, [adding ACM message definition]),
 			[#include <infiniband/acm.h>]), [])
 
+dnl Checks close on exec support
+AC_CHECK_HEADERS([fcntl.h sys/socket.h])
+
+AC_CHECK_DECLS([O_CLOEXEC],,[AC_DEFINE([O_CLOEXEC],[0], [Defined to 0 if not provided])],
+[[
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#endif
+]])
+AC_CHECK_DECLS([SOCK_CLOEXEC],,[AC_DEFINE([SOCK_CLOEXEC],[0],[Defined to 0 if not provided])],
+[[
+#ifdef HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+#endif
+]])
+
+AC_CACHE_CHECK(for close on exec modifier for fopen(), ac_cv_feature_stream_cloexec_flag,
+   [if test $ac_cv_have_decl_O_CLOEXEC = yes ; then
+        if test $ac_cv_have_decl_SOCK_CLOEXEC = yes ; then
+            ac_cv_feature_stream_cloexec_flag="e"
+        fi
+    fi])
+AC_DEFINE_UNQUOTED([STREAM_CLOEXEC], "$ac_cv_feature_stream_cloexec_flag", [fopen() modifier for setting close on exec flag])
+
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
         ac_cv_version_script=yes
