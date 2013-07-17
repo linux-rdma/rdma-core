@@ -344,6 +344,11 @@ int is_enabled_by_rules_file(struct target_details *target)
 	            target->h_service_id)
 				continue;
 
+		if (conf->rules[rule].pkey[0] != '\0' &&
+		    (uint16_t)strtoul(conf->rules[rule].pkey, 0, 16) !=
+	            target->pkey)
+				continue;
+
 		target->options = conf->rules[rule].options;
 
 		return conf->rules[rule].allow;
@@ -1277,6 +1282,7 @@ static int get_rules_file(struct config_t *conf)
 		conf->rules[line_number].ioc_guid[0]='\0';
 		conf->rules[line_number].dgid[0]='\0';
 		conf->rules[line_number].service_id[0]='\0';
+		conf->rules[line_number].pkey[0]='\0';
 		conf->rules[line_number].options[0]='\0';
 
 		ptr = &line[1];
@@ -1305,6 +1311,11 @@ static int get_rules_file(struct config_t *conf)
 				ptr2 = copy_till_comma(
 					conf->rules[line_number].service_id,
 					ptr+11, 16, 16);
+
+			else if (strncmp(ptr, "pkey=", 5) == 0)
+				ptr2 = copy_till_comma(
+					conf->rules[line_number].pkey,
+					ptr+5, 9, 16);
 
 			else if (conf->rules[line_number].allow) {
 
@@ -1342,6 +1353,7 @@ static int get_rules_file(struct config_t *conf)
 	conf->rules[line_number].ioc_guid[0]='\0';
 	conf->rules[line_number].dgid[0]='\0';
 	conf->rules[line_number].service_id[0]='\0';
+	conf->rules[line_number].pkey[0]='\0';
 	conf->rules[line_number].options[0]='\0';
 	conf->rules[line_number].allow = 1;
 
