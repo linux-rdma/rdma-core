@@ -685,14 +685,6 @@ static int get_trap_notices(struct resources *res)
 		cur_receive = wc.wr_id;
 		buffer = (void *)(((unsigned long)res->ud_res->recv_buf) + RECV_BUF_SIZE * cur_receive);
 		mad_buffer = (ib_sa_mad_t *) (buffer + GRH_SIZE);
-		pkey_index = ((srp_ib_user_mad_t *)buffer)->hdr.addr.pkey_index;
-		ret = pkey_index_to_pkey(res->umad_res, pkey_index, &pkey);
-		if (ret) {
-			pr_err("get_trap_notices: Got Bad pkey_index (%d)\n",
-			       pkey_index);
-			wake_up_main_loop();
-			break;
-		}
 
 		if ((mad_buffer->mgmt_class == SRP_MGMT_CLASS_SA) &&
 		    (mad_buffer->method == SRP_SA_METHOD_GET_RESP) &&
@@ -705,6 +697,15 @@ static int get_trap_notices(struct resources *res)
 		    (mad_buffer->method == SRP_SA_METHOD_REPORT) &&
 		    (ntohs(mad_buffer->attr_id) == SRP_MAD_ATTR_NOTICE))
 		{ /* this is a trap notice */
+			pkey_index = ((srp_ib_user_mad_t *)buffer)->hdr.addr.pkey_index;
+			ret = pkey_index_to_pkey(res->umad_res, pkey_index, &pkey);
+			if (ret) {
+				pr_err("get_trap_notices: Got Bad pkey_index (%d)\n",
+				       pkey_index);
+				wake_up_main_loop();
+				break;
+			}
+
 			notice_buffer = (ib_mad_notice_attr_t *) (mad_buffer->data);
 			trap_num = ntohs(notice_buffer->g_or_v.generic.trap_num);
 			response_to_trap(res->sync_res, res->ud_res, mad_buffer);
