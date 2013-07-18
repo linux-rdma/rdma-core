@@ -116,18 +116,6 @@ static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
 static uint16_t server_port;
 
-struct ib_connect_hdr {
-	uint8_t  cma_version;
-	uint8_t  ip_version; /* IP version: 7:4 */
-	uint16_t port;
-	uint32_t src_addr[4];
-	uint32_t dst_addr[4];
-#define cma_src_ip4 src_addr[3]
-#define cma_src_ip6 src_addr[0]
-#define cma_dst_ip4 dst_addr[3]
-#define cma_dst_ip6 dst_addr[0]
-};
-
 static int ucma_set_server_port(void)
 {
 	FILE *f;
