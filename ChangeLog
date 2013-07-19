@@ -1,22 +1,147 @@
-commit 7989b1d9a3362aea1b8289ef2891c3e12ba13f72
+commit 81be421aa9b540cb28c25873d8d66336b74fa6d6
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Mar 4 11:03:49 2013 -0600
+Date:   Fri Jul 19 09:36:52 2013 -0500
+
+    Spin release 1.3.1.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 272fcac194318e13f563b46463726cc03ae83dbe
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jul 19 09:36:35 2013 -0500
+
+    Update copyright.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ba3183d18168f764700ded52651033a79d2a9a86
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 10 14:10:02 2013 -0500
+
+    get rid of hard coded queue iqs.
+    
+    Since we now get the number of queues available from the driver,
+    we shouldn't be using the hard coded defines anymore.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 2095e0a04bc5357da1b9d346e00d52cf7c236cf6
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 10 14:09:35 2013 -0500
+
+    update configure.in
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a7a4de4f37a60ffbd8addd8f9ab5505adb86c63f
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 10 14:09:34 2013 -0500
+
+    Mind the sq_sig_all/sq_sig_type QP attributes.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 4a485c8dc1c7c70ab85c708bb4c530eef385424d
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 10 14:09:34 2013 -0500
+
+    always do GTS write if cidx_inc == M_CIDXINC.
+    
+    When polling, we do a GTS update if the accumulated cidx_inc == the cq
+    depth / 16.  This works around a T4 bug.  However, if the cq is large
+    enough, cq depth / 16 exceeds the size of the field in the GTS word.
+    So we also need to update if cidx_inc hits M_CIDXINC to avoid overflowing
+    the field.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a276f65add45933cf8b16bb09361786cf1932c4b
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 10 14:09:34 2013 -0500
+
+    fixed bug where sq.udb was getting overwritten.
+    
+    There was an erroneous statement in create_rc_qp() which caused the
+    sq.udb va to be overwritten with the rq.udb va only for on-chip queues.
+    This error only affected unmapping of that mapped va when destroying
+    a qp.  In the presence of multiple threads creating/destroying qps, the
+    erroneously unmapped va could have been assigned to another qp mapping.
+    This causes intermittent seg faults as libcxgb4 tries to access memory
+    that has been unmapped in error.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 1cb6249cf722e265d8e2364de0ee5b0d59a8e4cd
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 10 14:09:34 2013 -0500
+
+    flush problem with unsignaled wrs.
+    
+    c4iw_flush_sq() should only flush wrs that have not already been
+    flushed. Since we already track where in the sq we've flushed via
+    sq.cidx_flush, just start at that point and flush any remaining.  This bug
+    only caused a problem in the presence of unsignaled work requests.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 4132e3434d8ffc2b92055649f42c56be77111216
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 10 14:09:31 2013 -0500
+
+    clean up queue dump logic.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a5e390613548f1dc62d9fe142b6a30a943fc56cf
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Jun 4 12:09:21 2013 -0500
+
+    accounting for unsignled sq wrs fails to deal with wrap.
+    
+    When determining how many wrs are completed with a signaled cqe,
+    correctly deal with queue wraps.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0c1906cec82443e2323dc69dd5c23ae4314087c0
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Jun 4 12:09:19 2013 -0500
+
+    Handle qp flushes with pending sw cqes.
+    
+    The flush and out of order completion logic has a bug:  If out of order
+    completions are flushed but not yet polled by the consumer and the qp
+    is then flushed, we end up inserting duplicate completions.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 26a19bf6d020dbaab8c6cf13396b39a64f952dba
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Jun 4 11:57:00 2013 -0500
+
+    fixed false uninitialized var warning.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 119e11e72d20a07a806c3385b8cfa6de93f7d114
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Mar 28 15:15:39 2013 -0500
 
     Spin release 1.3.0
     
     Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 
-commit f6daaf56c10094274d79e5d1cf1d59287d48caef
+commit a4a0d3fe768ffa33a75ab3df4bd8c678e7f7180b
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Mar 4 11:03:44 2013 -0600
+Date:   Thu Mar 28 15:15:38 2013 -0500
 
     Remove aclocal.m4.
     
     Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 
-commit c3dde6d9578cfe560e08e019fa6c81d1ecb8c0b5
+commit 3c22ddca7cf627d62d06b0ff374fa04192a8cc4c
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Mar 4 10:58:41 2013 -0600
+Date:   Thu Mar 28 15:15:37 2013 -0500
 
     libcxgb4: unmap the correct udb/ugts address.
     
@@ -28,17 +153,17 @@ Date:   Mon Mar 4 10:58:41 2013 -0600
     
     Singed-off-by: Steve Wise <swise@opengridcomputing.com>
 
-commit 5d788d1fcdea3886a2b43fa02e0c7ad1af1c82b3
+commit 9b2d3af5735e4067b83cde79e08a37142e8fb895
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Mar 4 10:58:41 2013 -0600
+Date:   Thu Mar 28 15:15:35 2013 -0500
 
     Query device to get the max supported stags, qps, and cqs.
     
     Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 
-commit 9fc4800624944cceb92448e3a640f922346b122f
+commit e8a595da9129d650caf162b7103368af03e07fcc
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Mon Mar 4 10:28:34 2013 -0600
+Date:   Thu Mar 28 15:15:33 2013 -0500
 
     Add T5 support.
     
