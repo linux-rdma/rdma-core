@@ -3,10 +3,13 @@
 # Entry format is:
 # address IB GID
 #
+# The address may be one of the following:
+# host_name - ascii character string, up to 31 characters
 # address - IPv4 or IPv6 formatted address
 #
 # There can be multiple entries for a single IB GID
 #
 # Samples:
+# luna3 fe80::8:f104:39a:169
 # 192.168.1.3 fe80::8:f104:39a:169
 # fe80::208:f104:39a:169 fe80::8:f104:39a:169

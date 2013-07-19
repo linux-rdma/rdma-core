@@ -2832,20 +2832,18 @@ static void acm_parse_hosts_file(struct acm_ep *ep)
 			acm_log(0, "ERROR - %s is not IB GID\n", gid);
 			continue;
 		}
+		memset(name, 0, ACM_MAX_ADDRESS);
 		if (inet_pton(AF_INET, addr, &ip_addr) > 0) {
 			addr_type = ACM_ADDRESS_IP;
+			memcpy(name, &ip_addr, 4);
 		} else if (inet_pton(AF_INET6, addr, &ip_addr) > 0) {
 			addr_type = ACM_ADDRESS_IP6;
+			memcpy(name, &ip_addr, sizeof(ip_addr));
 		} else {
-			acm_log(0, "ERROR - %s is not IP address\n", addr);
-			continue;
+			addr_type = ACM_ADDRESS_NAME;
+			strncpy((char *)name, addr, ACM_MAX_ADDRESS);
 		}
 
-		memset(name, 0, ACM_MAX_ADDRESS);
-		if (addr_type == ACM_ADDRESS_IP)
-			memcpy(name, &ip_addr, 4);
-		else
-			memcpy(name, &ip_addr, sizeof(ip_addr));
 		dest = acm_acquire_dest(ep, addr_type, name);
 		if (!dest) {
 			acm_log(0, "ERROR - unable to create dest %s\n", addr);
