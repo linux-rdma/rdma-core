@@ -93,6 +93,8 @@ static char *dst_addr;
 static char *src_addr;
 static struct timeval start, end;
 static void *buf;
+static struct rdma_addrinfo rai_hints;
+static struct addrinfo ai_hints;
 
 static void show_perf(void)
 {
@@ -285,18 +287,25 @@ static void set_options(int rs)
 
 static int server_listen(void)
 {
-	struct addrinfo hints, *res;
+	struct rdma_addrinfo *rai;
+	struct addrinfo *ai;
 	int val, ret;
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_flags = AI_PASSIVE;
- 	ret = getaddrinfo(src_addr, port, &hints, &res);
+	if (rai_hints.ai_flags) {
+		rai_hints.ai_flags |= RAI_PASSIVE;
+		ret = rdma_getaddrinfo(src_addr, port, &rai_hints, &rai);
+	} else {
+		ai_hints.ai_flags |= AI_PASSIVE;
+		ret = getaddrinfo(src_addr, port, &ai_hints, &ai);
+	}
 	if (ret) {
 		perror("getaddrinfo");
 		return ret;
 	}
 
-	lrs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	lrs = rai_hints.ai_flags ?
+	      rs_socket(rai->ai_family, SOCK_STREAM, 0) :
+	      rs_socket(ai->ai_family, SOCK_STREAM, 0);
 	if (lrs < 0) {
 		perror("rsocket");
 		ret = lrs;
@@ -310,7 +319,9 @@ static int server_listen(void)
 		goto close;
 	}
 
-	ret = rs_bind(lrs, res->ai_addr, res->ai_addrlen);
+	ret = rai_hints.ai_flags ?
+	      rs_bind(lrs, rai->ai_src_addr, rai->ai_src_len) :
+	      rs_bind(lrs, ai->ai_addr, ai->ai_addrlen);
 	if (ret) {
 		perror("rbind");
 		goto close;
@@ -324,7 +335,10 @@ close:
 	if (ret)
 		rs_close(lrs);
 free:
-	freeaddrinfo(res);
+	if (rai_hints.ai_flags)
+		rdma_freeaddrinfo(rai);
+	else
+		freeaddrinfo(ai);
 	return ret;
 }
 
@@ -362,18 +376,23 @@ static int server_connect(void)
 
 static int client_connect(void)
 {
-	struct addrinfo *res;
+	struct rdma_addrinfo *rai;
+	struct addrinfo *ai;
 	struct pollfd fds;
 	int ret, err;
 	socklen_t len;
 
- 	ret = getaddrinfo(dst_addr, port, NULL, &res);
+ 	ret = rai_hints.ai_flags ?
+ 	      rdma_getaddrinfo(dst_addr, port, &rai_hints, &rai) :
+ 	      getaddrinfo(dst_addr, port, &ai_hints, &ai);
 	if (ret) {
 		perror("getaddrinfo");
 		return ret;
 	}
 
-	rs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	rs = rai_hints.ai_flags ?
+	     rs_socket(rai->ai_family, SOCK_STREAM, 0) :
+	     rs_socket(ai->ai_family, SOCK_STREAM, 0);
 	if (rs < 0) {
 		perror("rsocket");
 		ret = rs;
@@ -383,7 +402,9 @@ static int client_connect(void)
 	set_options(rs);
 	/* TODO: bind client to src_addr */
 
-	ret = rs_connect(rs, res->ai_addr, res->ai_addrlen);
+	ret = rai_hints.ai_flags ?
+	      rs_connect(rs, rai->ai_dst_addr, rai->ai_dst_len) :
+	      rs_connect(rs, ai->ai_addr, ai->ai_addrlen);
 	if (ret && (errno != EINPROGRESS)) {
 		perror("rconnect");
 		goto close;
@@ -411,7 +432,10 @@ close:
 	if (ret)
 		rs_close(rs);
 free:
-	freeaddrinfo(res);
+	if (rai_hints.ai_flags)
+		rdma_freeaddrinfo(rai);
+	else
+		freeaddrinfo(ai);
 	return ret;
 }
 
@@ -534,13 +558,23 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "s:b:B:I:C:S:p:T:")) != -1) {
+	ai_hints.ai_socktype = SOCK_STREAM;
+	rai_hints.ai_port_space = RDMA_PS_TCP;
+	while ((op = getopt(argc, argv, "s:b:f:B:I:C:S:p:T:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
 			break;
 		case 'b':
 			src_addr = optarg;
+			break;
+		case 'f':
+			if (!strncasecmp("ip", optarg, 2)) {
+				ai_hints.ai_flags = AI_NUMERICHOST;
+			} else if (!strncasecmp("gid", optarg, 3)) {
+				rai_hints.ai_flags = RAI_NUMERICHOST | RAI_FAMILY;
+				rai_hints.ai_family = AF_IB;
+			}
 			break;
 		case 'B':
 			buffer_size = atoi(optarg);
@@ -572,6 +606,8 @@ int main(int argc, char **argv)
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");
 			printf("\t[-b bind_address]\n");
+			printf("\t[-f address_format]\n");
+			printf("\t    name, ip, ipv6, or gid\n");
 			printf("\t[-B buffer_size]\n");
 			printf("\t[-I iterations]\n");
 			printf("\t[-C transfer_count]\n");

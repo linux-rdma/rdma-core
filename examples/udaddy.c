@@ -77,7 +77,7 @@ static uint8_t set_tos = 0;
 static uint8_t tos;
 static char *dst_addr;
 static char *src_addr;
-static enum rdma_port_space port_space = RDMA_PS_UDP;
+static struct rdma_addrinfo hints;
 
 static int create_message(struct cmatest_node *node)
 {
@@ -429,7 +429,7 @@ static int alloc_nodes(void)
 		if (dst_addr) {
 			ret = rdma_create_id(test.channel,
 					     &test.nodes[i].cma_id,
-					     &test.nodes[i], port_space);
+					     &test.nodes[i], hints.ai_port_space);
 			if (ret)
 				goto err;
 		}
@@ -505,19 +505,15 @@ static int connect_events(void)
 static int run_server(void)
 {
 	struct rdma_cm_id *listen_id;
-	struct rdma_addrinfo hints;
 	int i, ret;
 
 	printf("udaddy: starting server\n");
-	ret = rdma_create_id(test.channel, &listen_id, &test, port_space);
+	ret = rdma_create_id(test.channel, &listen_id, &test, hints.ai_port_space);
 	if (ret) {
 		perror("udaddy: listen request failed");
 		return ret;
 	}
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_flags = RAI_PASSIVE;
-	hints.ai_port_space = port_space;
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
 	if (ret) {
 		perror("cmatose: getrdmaaddr error");
@@ -563,13 +559,10 @@ out:
 
 static int run_client(void)
 {
-	struct rdma_addrinfo hints;
 	int i, ret;
 
 	printf("udaddy: starting client\n");
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_port_space = port_space;
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
 	if (ret) {
 		perror("udaddy: getaddrinfo error");
@@ -613,7 +606,8 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "s:b:c:C:S:t:p:")) != -1) {
+	hints.ai_port_space = RDMA_PS_UDP;
+	while ((op = getopt(argc, argv, "s:b:c:C:S:t:p:P:f:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -634,13 +628,36 @@ int main(int argc, char **argv)
 			set_tos = 1;
 			tos = (uint8_t) strtoul(optarg, NULL, 0);
 			break;
-		case 'p':
-			port_space = strtol(optarg, NULL, 0);
+		case 'p': /* for backwards compatibility - use -P */
+			hints.ai_port_space = strtol(optarg, NULL, 0);
+			break;
+		case 'f':
+			if (!strncasecmp("ip", optarg, 2)) {
+				hints.ai_flags = RAI_NUMERICHOST;
+			} else if (!strncasecmp("gid", optarg, 3)) {
+				hints.ai_flags = RAI_NUMERICHOST | RAI_FAMILY;
+				hints.ai_family = AF_IB;
+			} else if (strncasecmp("name", optarg, 4)) {
+				fprintf(stderr, "Warning: unknown address format\n");
+			}
+			break;
+		case 'P':
+			if (!strncasecmp("ib", optarg, 2)) {
+				hints.ai_port_space = RDMA_PS_IB;
+			} else if (!strncasecmp("ipoib", optarg, 5)) {
+				hints.ai_port_space = RDMA_PS_IPOIB;
+			} else if (strncasecmp("udp", optarg, 3)) {
+				fprintf(stderr, "Warning: unknown port space format\n");
+			}
 			break;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");
 			printf("\t[-b bind_address]\n");
+			printf("\t[-f address_format]\n");
+			printf("\t    name, ip, ipv6, or gid\n");
+			printf("\t[-P port_space]\n");
+			printf("\t    udp, ipoib, or ib\n");
 			printf("\t[-c connections]\n");
 			printf("\t[-C message_count]\n");
 			printf("\t[-S message_size]\n");
@@ -662,10 +679,12 @@ int main(int argc, char **argv)
 	if (alloc_nodes())
 		exit(1);
 
-	if (dst_addr)
+	if (dst_addr) {
 		ret = run_client();
-	else
+	} else {
+		hints.ai_flags |= RAI_PASSIVE;
 		ret = run_server();
+	}
 
 	printf("test complete\n");
 	destroy_nodes();
