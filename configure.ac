@@ -5,7 +5,7 @@ AC_INIT([ibacm], [1.0.7], [linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/acm.c])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 LT_INIT
