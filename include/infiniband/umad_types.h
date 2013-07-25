@@ -127,7 +127,7 @@ struct umad_hdr {
 	uint8_t	 mgmt_class;
 	uint8_t	 class_version;
 	uint8_t	 method;
-	uint16_t status;
+	be16_t   status;
 	be16_t   class_specific;
 	be64_t   tid;
 	be16_t   attr_id;
