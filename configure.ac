@@ -1,14 +1,14 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.57)
-AC_INIT(ibacm, 1.0.7, linux-rdma@vger.kernel.org)
+AC_PREREQ([2.63])
+AC_INIT([ibacm], [1.0.7], [linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/acm.c])
 AC_CONFIG_AUX_DIR(config)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AM_PROG_LIBTOOL
+LT_INIT
 
 AC_ARG_ENABLE(libcheck, [  --disable-libcheck  do not test for presence of ib libraries],
 [       if test "$enableval" = "no"; then
