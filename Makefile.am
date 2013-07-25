@@ -1,4 +1,4 @@
-INCLUDES = -I$(srcdir)/include -I$(srcdir)/linux
+AM_CPPFLAGS = -I$(srcdir)/include -I$(srcdir)/linux
 
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE -DSYSCONFDIR=\"$(sysconfdir)\" -DBINDIR=\"$(bindir)\" -DRDMADIR=\"@rdmadir@\"
 
