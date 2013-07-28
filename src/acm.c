@@ -297,7 +297,6 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_msg *msg)
 {
 	struct acm_ep_addr_data *ep_data;
 	struct ibv_path_data *path_data = NULL;
-	struct ibv_path_record *pri_path = NULL;
 	struct sockaddr_in *sin;
 	struct sockaddr_in6 *sin6;
 	int i, cnt, path_cnt = 0;
@@ -311,9 +310,6 @@ static void ucma_ib_save_resp(struct rdma_addrinfo *rai, struct acm_msg *msg)
 			if (!path_data)
 				path_data = (struct ibv_path_data *) ep_data;
 			path_cnt++;
-			if (ep_data->flags |
-			    (IBV_PATH_FLAG_PRIMARY | IBV_PATH_FLAG_OUTBOUND))
-				pri_path = &path_data[i].path;
 			break;
 		case ACM_EP_INFO_ADDRESS_IP:
 			if (!(ep_data->flags & ACM_EP_FLAG_SOURCE) || rai->ai_src_len)
