@@ -3717,11 +3717,11 @@ static void rs_svc_process_sock(void)
 static uint8_t rs_svc_sgid_index(struct ds_dest *dest, union ibv_gid *sgid)
 {
 	union ibv_gid gid;
-	int i, ret;
+	int i;
 
 	for (i = 0; i < 16; i++) {
-		ret = ibv_query_gid(dest->qp->cm_id->verbs, dest->qp->cm_id->port_num,
-				    i, &gid);
+		ibv_query_gid(dest->qp->cm_id->verbs, dest->qp->cm_id->port_num,
+			      i, &gid);
 		if (!memcmp(sgid, &gid, sizeof gid))
 			return i;
 	}
