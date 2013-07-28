@@ -35,6 +35,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -113,7 +114,7 @@ struct acm_msg {
 
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
-static short server_port;
+static uint16_t server_port;
 
 struct ib_connect_hdr {
 	uint8_t  cma_version;
@@ -132,7 +133,7 @@ static int ucma_set_server_port(void)
 	FILE *f;
 
 	if ((f = fopen("/var/run/ibacm.port", "r" STREAM_CLOEXEC))) {
-		fscanf(f, "%hu", (unsigned short *) &server_port);
+		fscanf(f, "%" SCNu16, &server_port);
 		fclose(f);
 	}
 	return server_port;
