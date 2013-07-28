@@ -1175,11 +1175,9 @@ err:
 int rdma_create_srq(struct rdma_cm_id *id, struct ibv_pd *pd,
 		    struct ibv_srq_init_attr *attr)
 {
-	struct cma_id_private *id_priv;
 	struct ibv_srq *srq;
 	int ret;
 
-	id_priv = container_of(id, struct cma_id_private, id);
 	if (!pd)
 		pd = id->pd;
 
