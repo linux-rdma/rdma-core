@@ -275,7 +275,7 @@ int ud_resources_create(struct ud_resources *res)
 	pr_debug("CQ was created with %u CQEs\n", 1);
 
 	size = cq_size * RECV_BUF_SIZE + SEND_SIZE;
-	res->recv_buf = (void *) malloc(size);
+	res->recv_buf = malloc(size);
 	if (!res->recv_buf) {
 		pr_err("failed to malloc %Zu bytes to memory buffer\n", size);
 		return -ENOMEM;
@@ -706,7 +706,7 @@ static int get_trap_notices(struct resources *res)
 
 		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", (long long int) wc.wr_id);
 		cur_receive = wc.wr_id;
-		buffer = (void *)(((unsigned long)res->ud_res->recv_buf) + RECV_BUF_SIZE * cur_receive);
+		buffer = res->ud_res->recv_buf + RECV_BUF_SIZE * cur_receive;
 		mad_buffer = (ib_sa_mad_t *) (buffer + GRH_SIZE);
 
 		if ((mad_buffer->mgmt_class == SRP_MGMT_CLASS_SA) &&
