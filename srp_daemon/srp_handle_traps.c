@@ -697,7 +697,7 @@ static int get_trap_notices(struct resources *res)
 		    (mad_buffer->method == SRP_SA_METHOD_REPORT) &&
 		    (ntohs(mad_buffer->attr_id) == SRP_MAD_ATTR_NOTICE))
 		{ /* this is a trap notice */
-			pkey_index = ((srp_ib_user_mad_t *)buffer)->hdr.addr.pkey_index;
+			pkey_index = wc.pkey_index;
 			ret = pkey_index_to_pkey(res->umad_res, pkey_index, &pkey);
 			if (ret) {
 				pr_err("get_trap_notices: Got Bad pkey_index (%d)\n",
