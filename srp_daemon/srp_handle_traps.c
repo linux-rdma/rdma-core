@@ -527,9 +527,10 @@ static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
 			return ret;
 		}
 
-		if (ret > 0 && wc->status != IBV_WC_SUCCESS &&
-		    !stop_threads(sync_res)) {
-			pr_err("got bad completion with status: 0x%x\n", wc->status);
+		if (ret > 0 && wc->status != IBV_WC_SUCCESS) {
+			if (!stop_threads(sync_res))
+				pr_err("got bad completion with status: 0x%x\n",
+				       wc->status);
 			return -ret;
 		}
 
