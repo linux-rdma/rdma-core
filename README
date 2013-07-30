@@ -1,0 +1,19 @@
+Introduction
+============
+
+libocrdma is a userspace driver for Emulex OneConnect RDMA Adapters.
+It is a plug-in module for libibverbs that allows programs to use
+Emulex RDMA hardware directly from userspace. See the libibverbs
+package for more information.
+
+Using libocrdma
+===============
+
+libocrdma will be loaded and used automatically by programs linked
+with libibverbs. The ocrdma kernel modules must be loaded for RDMA
+devices to be detected and used.
+
+Supported Hardware
+==================
+
+libocrdma supports all RDMA capable  Emulex adapters.

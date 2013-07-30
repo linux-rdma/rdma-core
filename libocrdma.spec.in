@@ -1,0 +1,54 @@
+%define ver @VERSION@
+
+Name: libocrdma
+Version: 0.0.1
+Release: 1%{?dist}
+Summary: Emulex OneConnect SLI4 Compliant RDMA Open Fabrics Userspace Library
+
+Group: System Environment/Libraries
+License: GPL/BSD
+Url: http://www.openfabrics.org/
+Source: http://www.openfabrics.org/downloads/ocrdma/%{name}-%{ver}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+BuildRequires: libibverbs-devel
+
+%description
+libocrdma provides a device-specific userspace driver for Emulex OneConnect RDMAAdapters for use with the libibverbs library.
+
+%package devel
+Summary: Development files for the libocrdma driver
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
+
+%description devel
+Static version of libocrdma that may be linked directly to an
+application, which may be useful for debugging.
+
+%prep
+%setup -q -n %{name}-%{ver}
+
+%build
+%configure
+make %{?_smp_mflags}
+
+%install
+rm -rf $RPM_BUILD_ROOT
+%makeinstall
+# remove unpackaged files from the buildroot
+rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%defattr(-,root,root,-)
+%{_libdir}/libocrdma*.so
+%doc AUTHORS COPYING README
+%config %{_sysconfdir}/libibverbs.d/ocrdma.driver
+
+%files devel
+%defattr(-,root,root,-)
+%{_libdir}/libocrdma*.a
+
+%changelog
