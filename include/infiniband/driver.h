@@ -81,6 +81,16 @@ struct verbs_srq {
 	uint32_t		srq_num;
 };
 
+enum verbs_qp_mask {
+	VERBS_QP_XRCD		= 1 << 0,
+	VERBS_QP_RESERVED	= 1 << 1
+};
+
+struct verbs_qp {
+	struct ibv_qp		qp;
+	uint32_t		comp_mask;
+	struct verbs_xrcd       *xrcd;
+};
 typedef struct ibv_device *(*ibv_driver_init_func)(const char *uverbs_sys_path,
 						   int abi_version);
 typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_path,
@@ -154,6 +164,11 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
 		      struct ibv_create_qp *cmd, size_t cmd_size,
 		      struct ibv_create_qp_resp *resp, size_t resp_size);
+int ibv_cmd_create_qp_ex(struct ibv_context *context,
+			 struct verbs_qp *qp, int vqp_sz,
+			 struct ibv_qp_init_attr_ex *attr_ex,
+			 struct ibv_create_qp *cmd, size_t cmd_size,
+			 struct ibv_create_qp_resp *resp, size_t resp_size);
 int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr,
 		     int attr_mask,
 		     struct ibv_qp_init_attr *qp_init_attr,

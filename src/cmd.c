@@ -610,6 +610,100 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
+int ibv_cmd_create_qp_ex(struct ibv_context *context,
+			 struct verbs_qp *qp, int vqp_sz,
+			 struct ibv_qp_init_attr_ex *attr_ex,
+			 struct ibv_create_qp *cmd, size_t cmd_size,
+			 struct ibv_create_qp_resp *resp, size_t resp_size)
+{
+	struct verbs_xrcd *vxrcd = NULL;
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
+
+	if (attr_ex->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
+		return ENOSYS;
+
+	cmd->user_handle     = (uintptr_t) qp;
+
+	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_XRCD) {
+		vxrcd = container_of(attr_ex->xrcd, struct verbs_xrcd, xrcd);
+		cmd->pd_handle	= vxrcd->handle;
+	} else {
+		if (!(attr_ex->comp_mask & IBV_QP_INIT_ATTR_PD))
+			return EINVAL;
+
+		cmd->pd_handle	= attr_ex->pd->handle;
+		cmd->send_cq_handle = attr_ex->send_cq->handle;
+
+		if (attr_ex->qp_type != IBV_QPT_XRC_SEND) {
+			cmd->recv_cq_handle = attr_ex->recv_cq->handle;
+			cmd->srq_handle = attr_ex->srq ? attr_ex->srq->handle : 0;
+		}
+	}
+
+	cmd->max_send_wr     = attr_ex->cap.max_send_wr;
+	cmd->max_recv_wr     = attr_ex->cap.max_recv_wr;
+	cmd->max_send_sge    = attr_ex->cap.max_send_sge;
+	cmd->max_recv_sge    = attr_ex->cap.max_recv_sge;
+	cmd->max_inline_data = attr_ex->cap.max_inline_data;
+	cmd->sq_sig_all	     = attr_ex->sq_sig_all;
+	cmd->qp_type         = attr_ex->qp_type;
+	cmd->is_srq	     = !!attr_ex->srq;
+	cmd->reserved	     = 0;
+
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	if (abi_ver > 3) {
+		attr_ex->cap.max_recv_sge    = resp->max_recv_sge;
+		attr_ex->cap.max_send_sge    = resp->max_send_sge;
+		attr_ex->cap.max_recv_wr     = resp->max_recv_wr;
+		attr_ex->cap.max_send_wr     = resp->max_send_wr;
+		attr_ex->cap.max_inline_data = resp->max_inline_data;
+	}
+
+	if (abi_ver == 4) {
+		struct ibv_create_qp_resp_v4 *resp_v4 =
+			(struct ibv_create_qp_resp_v4 *)resp;
+
+		memmove((void *)resp + sizeof *resp,
+			(void *)resp_v4 + sizeof *resp_v4,
+			resp_size - sizeof *resp);
+	} else if (abi_ver <= 3) {
+		struct ibv_create_qp_resp_v3 *resp_v3 =
+			(struct ibv_create_qp_resp_v3 *)resp;
+
+		memmove((void *)resp + sizeof *resp,
+			(void *)resp_v3 + sizeof *resp_v3,
+			resp_size - sizeof *resp);
+	}
+
+	qp->qp.handle		= resp->qp_handle;
+	qp->qp.qp_num		= resp->qpn;
+	qp->qp.context		= context;
+	qp->qp.qp_context	= attr_ex->qp_context;
+	qp->qp.pd		= attr_ex->pd;
+	qp->qp.send_cq		= attr_ex->send_cq;
+	qp->qp.recv_cq		= attr_ex->recv_cq;
+	qp->qp.srq		= attr_ex->srq;
+	qp->qp.qp_type		= attr_ex->qp_type;
+	qp->qp.state		= IBV_QPS_RESET;
+	qp->qp.events_completed = 0;
+	pthread_mutex_init(&qp->qp.mutex, NULL);
+	pthread_cond_init(&qp->qp.cond, NULL);
+
+	qp->comp_mask = 0;
+	if (vext_field_avail(struct verbs_qp, xrcd, vqp_sz) &&
+			    (attr_ex->comp_mask & IBV_QP_INIT_ATTR_XRCD)) {
+		qp->comp_mask |= VERBS_QP_XRCD;
+		qp->xrcd = vxrcd;
+	}
+
+	return 0;
+}
+
 int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
 		      struct ibv_create_qp *cmd, size_t cmd_size,
@@ -618,7 +712,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
 
 	cmd->user_handle     = (uintptr_t) qp;
-	cmd->pd_handle 	     = pd->handle;
+	cmd->pd_handle       = pd->handle;
 	cmd->send_cq_handle  = attr->send_cq->handle;
 	cmd->recv_cq_handle  = attr->recv_cq->handle;
 	cmd->srq_handle      = attr->srq ? attr->srq->handle : 0;

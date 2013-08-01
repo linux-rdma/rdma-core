@@ -110,7 +110,8 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_SYS_IMAGE_GUID	= 1 << 11,
 	IBV_DEVICE_RC_RNR_NAK_GEN	= 1 << 12,
 	IBV_DEVICE_SRQ_RESIZE		= 1 << 13,
-	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14
+	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14,
+	IBV_DEVICE_XRC			= 1 << 20
 };
 
 enum ibv_atomic_cap {
@@ -479,7 +480,9 @@ enum ibv_qp_type {
 	IBV_QPT_RC = 2,
 	IBV_QPT_UC,
 	IBV_QPT_UD,
-	IBV_QPT_RAW_PACKET = 8
+	IBV_QPT_RAW_PACKET = 8,
+	IBV_QPT_XRC_SEND = 9,
+	IBV_QPT_XRC_RECV
 };
 
 struct ibv_qp_cap {
@@ -498,6 +501,26 @@ struct ibv_qp_init_attr {
 	struct ibv_qp_cap	cap;
 	enum ibv_qp_type	qp_type;
 	int			sq_sig_all;
+};
+
+enum ibv_qp_init_attr_mask {
+	IBV_QP_INIT_ATTR_PD		= 1 << 0,
+	IBV_QP_INIT_ATTR_XRCD		= 1 << 1,
+	IBV_QP_INIT_ATTR_RESERVED	= 1 << 2
+};
+
+struct ibv_qp_init_attr_ex {
+	void		       *qp_context;
+	struct ibv_cq	       *send_cq;
+	struct ibv_cq	       *recv_cq;
+	struct ibv_srq	       *srq;
+	struct ibv_qp_cap	cap;
+	enum ibv_qp_type	qp_type;
+	int			sq_sig_all;
+
+	uint32_t		comp_mask;
+	struct ibv_pd	       *pd;
+	struct ibv_xrcd	       *xrcd;
 };
 
 enum ibv_qp_attr_mask {
@@ -616,6 +639,11 @@ struct ibv_send_wr {
 			uint32_t	remote_qkey;
 		} ud;
 	} wr;
+	union {
+		struct {
+			uint32_t    remote_srqn;
+		} xrc;
+	} qp_type;
 };
 
 struct ibv_recv_wr {
@@ -796,11 +824,14 @@ struct ibv_context {
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
-	VERBS_CONTEXT_RESERVED	= 1 << 2
+	VERBS_CONTEXT_QP	= 1 << 2,
+	VERBS_CONTEXT_RESERVED	= 1 << 3
 };
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_qp *(*create_qp_ex)(struct ibv_context *context,
+			struct ibv_qp_init_attr_ex *qp_init_attr_ex);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
 	struct ibv_srq *	(*create_srq_ex)(struct ibv_context *context,
 						 struct ibv_srq_init_attr_ex *srq_init_attr_ex);
@@ -1172,6 +1203,24 @@ static inline int ibv_post_srq_recv(struct ibv_srq *srq,
  */
 struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 			     struct ibv_qp_init_attr *qp_init_attr);
+
+static inline struct ibv_qp *
+ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_init_attr_ex)
+{
+	struct verbs_context *vctx;
+	uint32_t mask = qp_init_attr_ex->comp_mask;
+
+	if (mask == IBV_QP_INIT_ATTR_PD)
+		return ibv_create_qp(qp_init_attr_ex->pd,
+				     (struct ibv_qp_init_attr *)qp_init_attr_ex);
+
+	vctx = verbs_get_ctx_op(context, create_qp_ex);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
 
 /**
  * ibv_modify_qp - Modify a queue pair.

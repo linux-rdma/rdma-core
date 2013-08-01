@@ -618,6 +618,11 @@ struct ibv_kern_send_wr {
 			__u32 reserved;
 		} ud;
 	} wr;
+	union {
+		struct {
+			__u32 remote_srqn;
+		} xrc;
+	} qp_type;
 };
 
 struct ibv_post_send {
