@@ -124,9 +124,11 @@ default_symver(__ibv_get_device_guid, ibv_get_device_guid);
 
 struct ibv_context *__ibv_open_device(struct ibv_device *device)
 {
+	struct verbs_device *verbs_device = verbs_get_device(device);
 	char *devpath;
-	int cmd_fd;
+	int cmd_fd, ret;
 	struct ibv_context *context;
+	struct verbs_context *context_ex;
 
 	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev_name) < 0)
 		return NULL;
@@ -141,9 +143,33 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 	if (cmd_fd < 0)
 		return NULL;
 
-	context = device->ops.alloc_context(device, cmd_fd);
-	if (!context)
-		goto err;
+	if (!verbs_device) {
+		context = device->ops.alloc_context(device, cmd_fd);
+		if (!context)
+			goto err;
+	} else {
+		/* Library now allocates the context */
+		context_ex = calloc(1, sizeof(*context_ex) +
+				       verbs_device->size_of_context);
+		if (!context_ex) {
+			errno = ENOMEM;
+			goto err;
+		}
+
+		context_ex->context.abi_compat  = __VERBS_ABI_IS_EXTENDED;
+		context_ex->sz = sizeof(*context_ex);
+
+		context = &context_ex->context;
+		ret = verbs_device->init_context(verbs_device, context, cmd_fd);
+		if (ret)
+			goto verbs_err;
+
+		/* initialize *all* library ops to either lib calls or
+		 * directly to provider calls.
+		 * context_ex->lib_new_func1 = __verbs_new_func1;
+		 * context_ex->lib_new_func2 = __verbs_new_func2;
+		 */
+	}
 
 	context->device = device;
 	context->cmd_fd = cmd_fd;
@@ -151,9 +177,10 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 
 	return context;
 
+verbs_err:
+	free(context_ex);
 err:
 	close(cmd_fd);
-
 	return NULL;
 }
 default_symver(__ibv_open_device, ibv_open_device);
@@ -163,14 +190,16 @@ int __ibv_close_device(struct ibv_context *context)
 	int async_fd = context->async_fd;
 	int cmd_fd   = context->cmd_fd;
 	int cq_fd    = -1;
+	struct verbs_context *context_ex;
 
-	if (abi_ver <= 2) {
-		struct ibv_abi_compat_v2 *t = context->abi_compat;
-		cq_fd = t->channel.fd;
-		free(context->abi_compat);
+	context_ex = verbs_get_ctx(context);
+	if (context_ex) {
+		struct verbs_device *verbs_device = verbs_get_device(context->device);
+		verbs_device->uninit_context(verbs_device, context);
+		free(context_ex);
+	} else {
+		context->device->ops.free_context(context);
 	}
-
-	context->device->ops.free_context(context);
 
 	close(async_fd);
 	close(cmd_fd);

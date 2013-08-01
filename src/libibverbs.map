@@ -91,6 +91,7 @@ IBVERBS_1.1 {
 		ibv_dontfork_range;
 		ibv_dofork_range;
 		ibv_register_driver;
+		verbs_register_driver;
 
 		ibv_node_type_str;
 		ibv_port_state_str;

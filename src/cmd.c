@@ -45,52 +45,13 @@
 
 #include "ibverbs.h"
 
-static int ibv_cmd_get_context_v2(struct ibv_context *context,
-				  struct ibv_get_context *new_cmd,
-				  size_t new_cmd_size,
-				  struct ibv_get_context_resp *resp,
-				  size_t resp_size)
-{
-	struct ibv_abi_compat_v2 *t;
-	struct ibv_get_context_v2 *cmd;
-	size_t cmd_size;
-	uint32_t cq_fd;
-
-	t = malloc(sizeof *t);
-	if (!t)
-		return ENOMEM;
-	pthread_mutex_init(&t->in_use, NULL);
-
-	cmd_size = sizeof *cmd + new_cmd_size - sizeof *new_cmd;
-	cmd      = alloca(cmd_size);
-	memcpy(cmd->driver_data, new_cmd->driver_data, new_cmd_size - sizeof *new_cmd);
-
-	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
-	cmd->cq_fd_tab = (uintptr_t) &cq_fd;
-
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size) {
-		free(t);
-		return errno;
-	}
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	context->async_fd         = resp->async_fd;
-	context->num_comp_vectors = 1;
-	t->channel.context        = context;
-	t->channel.fd		  = cq_fd;
-	t->channel.refcnt	  = 0;
-	context->abi_compat       = t;
-
-	return 0;
-}
 
 int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
 			size_t cmd_size, struct ibv_get_context_resp *resp,
 			size_t resp_size)
 {
-	if (abi_ver <= 2)
-		return ibv_cmd_get_context_v2(context, cmd, cmd_size, resp, resp_size);
+	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION)
+		return ENOSYS;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
 
@@ -274,45 +235,12 @@ int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
-static int ibv_cmd_create_cq_v2(struct ibv_context *context, int cqe,
-				struct ibv_cq *cq,
-				struct ibv_create_cq *new_cmd, size_t new_cmd_size,
-				struct ibv_create_cq_resp *resp, size_t resp_size)
-{
-	struct ibv_create_cq_v2 *cmd;
-	size_t cmd_size;
-
-	cmd_size = sizeof *cmd + new_cmd_size - sizeof *new_cmd;
-	cmd      = alloca(cmd_size);
-	memcpy(cmd->driver_data, new_cmd->driver_data, new_cmd_size - sizeof *new_cmd);
-
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
-	cmd->user_handle   = (uintptr_t) cq;
-	cmd->cqe           = cqe;
-	cmd->event_handler = 0;
-
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	cq->handle  = resp->cq_handle;
-	cq->cqe     = resp->cqe;
-	cq->context = context;
-
-	return 0;
-}
-
 int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_comp_channel *channel,
 		      int comp_vector, struct ibv_cq *cq,
 		      struct ibv_create_cq *cmd, size_t cmd_size,
 		      struct ibv_create_cq_resp *resp, size_t resp_size)
 {
-	if (abi_ver <= 2)
-		return ibv_cmd_create_cq_v2(context, cqe, cq,
-					    cmd, cmd_size, resp, resp_size);
-
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
 	cmd->user_handle   = (uintptr_t) cq;
 	cmd->cqe           = cqe;
@@ -397,7 +325,6 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 		      struct ibv_resize_cq *cmd, size_t cmd_size,
 		      struct ibv_resize_cq_resp *resp, size_t resp_size)
 {
-
 	IBV_INIT_CMD_RESP(cmd, cmd_size, RESIZE_CQ, resp, resp_size);
 	cmd->cq_handle = cq->handle;
 	cmd->cqe       = cqe;
@@ -412,26 +339,10 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 	return 0;
 }
 
-static int ibv_cmd_destroy_cq_v1(struct ibv_cq *cq)
-{
-	struct ibv_destroy_cq_v1 cmd;
-
-	IBV_INIT_CMD(&cmd, sizeof cmd, DESTROY_CQ);
-	cmd.cq_handle = cq->handle;
-
-	if (write(cq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	return 0;
-}
-
 int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 {
 	struct ibv_destroy_cq      cmd;
 	struct ibv_destroy_cq_resp resp;
-
-	if (abi_ver == 1)
-		return ibv_cmd_destroy_cq_v1(cq);
 
 	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_CQ, &resp, sizeof resp);
 	cmd.cq_handle = cq->handle;
@@ -557,26 +468,10 @@ int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 	return 0;
 }
 
-static int ibv_cmd_destroy_srq_v1(struct ibv_srq *srq)
-{
-	struct ibv_destroy_srq_v1 cmd;
-
-	IBV_INIT_CMD(&cmd, sizeof cmd, DESTROY_SRQ);
-	cmd.srq_handle = srq->handle;
-
-	if (write(srq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	return 0;
-}
-
 int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 {
 	struct ibv_destroy_srq      cmd;
 	struct ibv_destroy_srq_resp resp;
-
-	if (abi_ver == 1)
-		return ibv_cmd_destroy_srq_v1(srq);
 
 	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_SRQ, &resp, sizeof resp);
 	cmd.srq_handle = srq->handle;
@@ -794,19 +689,6 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	cmd->reserved[0] = cmd->reserved[1] = 0;
 
 	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	return 0;
-}
-
-static int ibv_cmd_destroy_qp_v1(struct ibv_qp *qp)
-{
-	struct ibv_destroy_qp_v1 cmd;
-
-	IBV_INIT_CMD(&cmd, sizeof cmd, DESTROY_QP);
-	cmd.qp_handle = qp->handle;
-
-	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
 
 	return 0;
@@ -1073,9 +955,6 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 {
 	struct ibv_destroy_qp      cmd;
 	struct ibv_destroy_qp_resp resp;
-
-	if (abi_ver == 1)
-		return ibv_cmd_destroy_qp_v1(qp);
 
 	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_QP, &resp, sizeof resp);
 	cmd.qp_handle = qp->handle;

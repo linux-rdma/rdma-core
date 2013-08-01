@@ -45,7 +45,7 @@
 /*
  * The minimum and maximum kernel ABI that we can handle.
  */
-#define IB_USER_VERBS_MIN_ABI_VERSION	1
+#define IB_USER_VERBS_MIN_ABI_VERSION	3
 #define IB_USER_VERBS_MAX_ABI_VERSION	6
 
 enum {
@@ -804,47 +804,6 @@ enum {
 	 * trick opcodes in IBV_INIT_CMD() doesn't break.
 	 */
 	IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL_V2 = -1,
-};
-
-struct ibv_destroy_cq_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 cq_handle;
-};
-
-struct ibv_destroy_qp_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 qp_handle;
-};
-
-struct ibv_destroy_srq_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 srq_handle;
-};
-
-struct ibv_get_context_v2 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u64 response;
-	__u64 cq_fd_tab;
-	__u64 driver_data[0];
-};
-
-struct ibv_create_cq_v2 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u64 response;
-	__u64 user_handle;
-	__u32 cqe;
-	__u32 event_handler;
-	__u64 driver_data[0];
 };
 
 struct ibv_modify_srq_v3 {

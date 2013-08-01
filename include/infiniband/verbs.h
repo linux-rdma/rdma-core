@@ -38,6 +38,7 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -62,6 +63,22 @@ union ibv_gid {
 		uint64_t	interface_id;
 	} global;
 };
+
+#ifndef container_of
+/**
+  * container_of - cast a member of a structure out to the containing structure
+  * @ptr:        the pointer to the member.
+  * @type:       the type of the container struct this is embedded in.
+  * @member:     the name of the member within the struct.
+  *
+ */
+#define container_of(ptr, type, member) \
+	((type *) ((uint8_t *)(ptr) - offsetof(type, member)))
+#endif
+
+#define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
+
+static void *__VERBS_ABI_IS_EXTENDED = ((uint8_t *) NULL) - 1;
 
 enum ibv_node_type {
 	IBV_NODE_UNKNOWN	= -1,
@@ -656,6 +673,17 @@ struct ibv_device {
 	char			ibdev_path[IBV_SYSFS_PATH_MAX];
 };
 
+struct verbs_device {
+	struct ibv_device device; /* Must be first */
+	size_t	sz;
+	size_t	size_of_context;
+	int	(*init_context)(struct verbs_device *device,
+				struct ibv_context *ctx, int cmd_fd);
+	void	(*uninit_context)(struct verbs_device *device,
+				struct ibv_context *ctx);
+	/* future fields added here */
+};
+
 struct ibv_context_ops {
 	int			(*query_device)(struct ibv_context *context,
 					      struct ibv_device_attr *device_attr);
@@ -723,6 +751,40 @@ struct ibv_context {
 	pthread_mutex_t		mutex;
 	void		       *abi_compat;
 };
+
+enum verbs_context_mask {
+	VERBS_CONTEXT_RESERVED = 1 << 0
+};
+
+struct verbs_context {
+	/*  "grows up" - new fields go here */
+	uint64_t has_comp_mask;
+	size_t   sz;			/* Must be immediately before struct ibv_context */
+	struct ibv_context context;	/* Must be last field in the struct */
+};
+
+static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
+{
+	return (ctx->abi_compat != __VERBS_ABI_IS_EXTENDED) ?
+		NULL : container_of(ctx, struct verbs_context, context);
+}
+
+#define verbs_get_ctx_op(ctx, op) ({ \
+	struct verbs_context *vctx = verbs_get_ctx(ctx); \
+	(!vctx || (vctx->sz < sizeof(*vctx) - offsetof(struct verbs_context, op)) || \
+	 !vctx->op) ? NULL : vctx; })
+
+#define verbs_set_ctx_op(_vctx, op, ptr) ({ \
+	struct verbs_context *vctx = _vctx; \
+	if (vctx && (vctx->sz >= sizeof(*vctx) - offsetof(struct verbs_context, op))) \
+		vctx->op = ptr; })
+
+static inline struct verbs_device *verbs_get_device(
+					const struct ibv_device *dev)
+{
+	return (dev->ops.alloc_context) ?
+		NULL : container_of(dev, struct verbs_device, device);
+}
 
 /**
  * ibv_get_device_list - Get list of IB devices currently available
