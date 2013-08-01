@@ -64,6 +64,23 @@ struct verbs_xrcd {
 	uint32_t		handle;
 };
 
+enum verbs_srq_mask {
+	VERBS_SRQ_TYPE		= 1 << 0,
+	VERBS_SRQ_XRCD		= 1 << 1,
+	VERBS_SRQ_CQ		= 1 << 2,
+	VERBS_SRQ_NUM		= 1 << 3,
+	VERBS_SRQ_RESERVED	= 1 << 4
+};
+
+struct verbs_srq {
+	struct ibv_srq		srq;
+	uint32_t		comp_mask;
+	enum ibv_srq_type	srq_type;
+	struct verbs_xrcd      *xrcd;
+	struct ibv_cq	       *cq;
+	uint32_t		srq_num;
+};
+
 typedef struct ibv_device *(*ibv_driver_init_func)(const char *uverbs_sys_path,
 						   int abi_version);
 typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_path,
@@ -119,6 +136,11 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_srq *srq, struct ibv_srq_init_attr *attr,
 		       struct ibv_create_srq *cmd, size_t cmd_size,
 		       struct ibv_create_srq_resp *resp, size_t resp_size);
+int ibv_cmd_create_srq_ex(struct ibv_context *context,
+			  struct verbs_srq *srq, int vsrq_sz,
+			  struct ibv_srq_init_attr_ex *attr_ex,
+			  struct ibv_create_xsrq *cmd, size_t cmd_size,
+			  struct ibv_create_srq_resp *resp, size_t resp_size);
 int ibv_cmd_modify_srq(struct ibv_srq *srq,
 		       struct ibv_srq_attr *srq_attr,
 		       int srq_attr_mask,
@@ -162,5 +184,15 @@ const char *ibv_get_sysfs_path(void);
 
 int ibv_read_sysfs_file(const char *dir, const char *file,
 			char *buf, size_t size);
+
+static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
+{
+	struct verbs_srq *vsrq = container_of(srq, struct verbs_srq, srq);
+	if (vsrq->comp_mask & VERBS_SRQ_NUM) {
+		*srq_num = vsrq->srq_num;
+		return 0;
+	}
+	return ENOSYS;
+}
 
 #endif /* INFINIBAND_DRIVER_H */

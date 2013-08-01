@@ -442,6 +442,81 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 	return 0;
 }
 
+int ibv_cmd_create_srq_ex(struct ibv_context *context,
+			  struct verbs_srq *srq, int vsrq_sz,
+			  struct ibv_srq_init_attr_ex *attr_ex,
+			  struct ibv_create_xsrq *cmd, size_t cmd_size,
+			  struct ibv_create_srq_resp *resp, size_t resp_size)
+{
+	struct verbs_xrcd *vxrcd = NULL;
+
+	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_XSRQ, resp, resp_size);
+
+	if (attr_ex->comp_mask >= IBV_SRQ_INIT_ATTR_RESERVED)
+		return ENOSYS;
+
+	if (!(attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_PD))
+		return EINVAL;
+
+	cmd->user_handle = (uintptr_t) srq;
+	cmd->pd_handle   = attr_ex->pd->handle;
+	cmd->max_wr      = attr_ex->attr.max_wr;
+	cmd->max_sge     = attr_ex->attr.max_sge;
+	cmd->srq_limit   = attr_ex->attr.srq_limit;
+
+	cmd->srq_type = (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ?
+			attr_ex->srq_type : IBV_SRQT_BASIC;
+	if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_XRCD) {
+		if (!(attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_CQ))
+			return EINVAL;
+
+		vxrcd = container_of(attr_ex->xrcd, struct verbs_xrcd, xrcd);
+		cmd->xrcd_handle = vxrcd->handle;
+		cmd->cq_handle   = attr_ex->cq->handle;
+	}
+
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	srq->srq.handle           = resp->srq_handle;
+	srq->srq.context          = context;
+	srq->srq.srq_context      = attr_ex->srq_context;
+	srq->srq.pd               = attr_ex->pd;
+	srq->srq.events_completed = 0;
+	pthread_mutex_init(&srq->srq.mutex, NULL);
+	pthread_cond_init(&srq->srq.cond, NULL);
+
+	/*
+	 * check that the last field is available.
+	 * If it is than all the others exist as well
+	 */
+	if (vext_field_avail(struct verbs_srq, srq_num, vsrq_sz)) {
+		srq->comp_mask = IBV_SRQ_INIT_ATTR_TYPE;
+		srq->srq_type = (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ?
+				attr_ex->srq_type : IBV_SRQT_BASIC;
+		if (srq->srq_type == IBV_SRQT_XRC) {
+			srq->comp_mask |= VERBS_SRQ_NUM;
+			srq->srq_num = resp->srqn;
+		}
+		if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_XRCD) {
+			srq->comp_mask |= VERBS_SRQ_XRCD;
+			srq->xrcd = vxrcd;
+		}
+		if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_CQ) {
+			srq->comp_mask |= VERBS_SRQ_CQ;
+			srq->cq = attr_ex->cq;
+		}
+	}
+
+	attr_ex->attr.max_wr = resp->max_wr;
+	attr_ex->attr.max_sge = resp->max_sge;
+
+	return 0;
+}
+
+
 static int ibv_cmd_modify_srq_v3(struct ibv_srq *srq,
 				 struct ibv_srq_attr *srq_attr,
 				 int srq_attr_mask,

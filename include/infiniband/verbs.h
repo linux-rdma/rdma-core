@@ -451,6 +451,30 @@ struct ibv_srq_init_attr {
 	struct ibv_srq_attr	attr;
 };
 
+enum ibv_srq_type {
+	IBV_SRQT_BASIC,
+	IBV_SRQT_XRC
+};
+
+enum ibv_srq_init_attr_mask {
+	IBV_SRQ_INIT_ATTR_TYPE		= 1 << 0,
+	IBV_SRQ_INIT_ATTR_PD		= 1 << 1,
+	IBV_SRQ_INIT_ATTR_XRCD		= 1 << 2,
+	IBV_SRQ_INIT_ATTR_CQ		= 1 << 3,
+	IBV_SRQ_INIT_ATTR_RESERVED	= 1 << 4
+};
+
+struct ibv_srq_init_attr_ex {
+	void		       *srq_context;
+	struct ibv_srq_attr	attr;
+
+	uint32_t		comp_mask;
+	enum ibv_srq_type	srq_type;
+	struct ibv_pd	       *pd;
+	struct ibv_xrcd	       *xrcd;
+	struct ibv_cq	       *cq;
+};
+
 enum ibv_qp_type {
 	IBV_QPT_RC = 2,
 	IBV_QPT_UC,
@@ -771,11 +795,15 @@ struct ibv_context {
 
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
-	VERBS_CONTEXT_RESERVED	= 1 << 1
+	VERBS_CONTEXT_SRQ	= 1 << 1,
+	VERBS_CONTEXT_RESERVED	= 1 << 2
 };
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
+	struct ibv_srq *	(*create_srq_ex)(struct ibv_context *context,
+						 struct ibv_srq_init_attr_ex *srq_init_attr_ex);
 	struct ibv_xrcd *	(*open_xrcd)(struct ibv_context *context,
 					     struct ibv_xrcd_init_attr *xrcd_init_attr);
 	int			(*close_xrcd)(struct ibv_xrcd *xrcd);
@@ -1063,6 +1091,28 @@ static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
 struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
 			       struct ibv_srq_init_attr *srq_init_attr);
 
+static inline struct ibv_srq *
+ibv_create_srq_ex(struct ibv_context *context,
+		  struct ibv_srq_init_attr_ex *srq_init_attr_ex)
+{
+	struct verbs_context *vctx;
+	uint32_t mask = srq_init_attr_ex->comp_mask;
+
+	if (!(mask & ~(IBV_SRQ_INIT_ATTR_PD | IBV_SRQ_INIT_ATTR_TYPE)) &&
+	    (mask & IBV_SRQ_INIT_ATTR_PD) &&
+	    (!(mask & IBV_SRQ_INIT_ATTR_TYPE) ||
+	     (srq_init_attr_ex->srq_type == IBV_SRQT_BASIC)))
+		return ibv_create_srq(srq_init_attr_ex->pd,
+				      (struct ibv_srq_init_attr *)srq_init_attr_ex);
+
+	vctx = verbs_get_ctx_op(context, create_srq_ex);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->create_srq_ex(context, srq_init_attr_ex);
+}
+
 /**
  * ibv_modify_srq - Modifies the attributes for the specified SRQ.
  * @srq: The SRQ to modify.
@@ -1086,6 +1136,16 @@ int ibv_modify_srq(struct ibv_srq *srq,
  * @srq_attr: The attributes of the specified SRQ.
  */
 int ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+
+static inline int ibv_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(srq->context, get_srq_num);
+
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->get_srq_num(srq, srq_num);
+}
 
 /**
  * ibv_destroy_srq - Destroys the specified SRQ.
