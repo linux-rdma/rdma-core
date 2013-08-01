@@ -523,6 +523,22 @@ struct ibv_qp_init_attr_ex {
 	struct ibv_xrcd	       *xrcd;
 };
 
+enum ibv_qp_open_attr_mask {
+	IBV_QP_OPEN_ATTR_NUM		= 1 << 0,
+	IBV_QP_OPEN_ATTR_XRCD	        = 1 << 1,
+	IBV_QP_OPEN_ATTR_CONTEXT	= 1 << 2,
+	IBV_QP_OPEN_ATTR_TYPE		= 1 << 3,
+	IBV_QP_OPEN_ATTR_RESERVED	= 1 << 4
+};
+
+struct ibv_qp_open_attr {
+	uint32_t		comp_mask;
+	uint32_t		qp_num;
+	struct ibv_xrcd        *xrcd;
+	void		       *qp_context;
+	enum ibv_qp_type	qp_type;
+};
+
 enum ibv_qp_attr_mask {
 	IBV_QP_STATE			= 1 << 	0,
 	IBV_QP_CUR_STATE		= 1 << 	1,
@@ -554,7 +570,8 @@ enum ibv_qp_state {
 	IBV_QPS_RTS,
 	IBV_QPS_SQD,
 	IBV_QPS_SQE,
-	IBV_QPS_ERR
+	IBV_QPS_ERR,
+	IBV_QPS_UNKNOWN
 };
 
 enum ibv_mig_state {
@@ -830,6 +847,8 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_qp *(*open_qp)(struct ibv_context *context,
+			struct ibv_qp_open_attr *attr);
 	struct ibv_qp *(*create_qp_ex)(struct ibv_context *context,
 			struct ibv_qp_init_attr_ex *qp_init_attr_ex);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
@@ -1220,6 +1239,20 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_open_qp - Open a shareable queue pair.
+ */
+static inline struct ibv_qp *
+ibv_open_qp(struct ibv_context *context, struct ibv_qp_open_attr *qp_open_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, open_qp);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->open_qp(context, qp_open_attr);
 }
 
 /**

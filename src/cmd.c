@@ -762,6 +762,56 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	return 0;
 }
 
+int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
+		    int vqp_sz,
+		    struct ibv_qp_open_attr *attr,
+		    struct ibv_open_qp *cmd, size_t cmd_size,
+		    struct ibv_create_qp_resp *resp, size_t resp_size)
+{
+	struct verbs_xrcd *xrcd;
+	IBV_INIT_CMD_RESP(cmd, cmd_size, OPEN_QP, resp, resp_size);
+
+	if (attr->comp_mask >= IBV_QP_OPEN_ATTR_RESERVED)
+		return ENOSYS;
+
+	if (!(attr->comp_mask & IBV_QP_OPEN_ATTR_XRCD) ||
+	    !(attr->comp_mask & IBV_QP_OPEN_ATTR_NUM) ||
+	    !(attr->comp_mask & IBV_QP_OPEN_ATTR_TYPE))
+		return EINVAL;
+
+	xrcd = container_of(attr->xrcd, struct verbs_xrcd, xrcd);
+	cmd->user_handle = (uintptr_t) qp;
+	cmd->pd_handle   = xrcd->handle;
+	cmd->qpn         = attr->qp_num;
+	cmd->qp_type     = attr->qp_type;
+
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	qp->qp.handle     = resp->qp_handle;
+	qp->qp.context    = context;
+	qp->qp.qp_context = attr->qp_context;
+	qp->qp.pd	  = NULL;
+	qp->qp.send_cq	  = NULL;
+	qp->qp.recv_cq    = NULL;
+	qp->qp.srq	  = NULL;
+	qp->qp.qp_num	  = attr->qp_num;
+	qp->qp.qp_type	  = attr->qp_type;
+	qp->qp.state	  = IBV_QPS_UNKNOWN;
+	qp->qp.events_completed = 0;
+	pthread_mutex_init(&qp->qp.mutex, NULL);
+	pthread_cond_init(&qp->qp.cond, NULL);
+	qp->comp_mask = 0;
+	if (vext_field_avail(struct verbs_qp, xrcd, vqp_sz)) {
+		qp->comp_mask = VERBS_QP_XRCD;
+		qp->xrcd	 = xrcd;
+	}
+
+	return 0;
+}
+
 int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		     int attr_mask,
 		     struct ibv_qp_init_attr *init_attr,
