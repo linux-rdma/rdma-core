@@ -3068,6 +3068,7 @@ static void acm_ep_up(struct acm_port *port, uint16_t pkey_index)
 	if (ret)
 		return;
 
+	pkey = ntohs(pkey);	/* ibv_query_pkey returns pkey in network order */
 	if (acm_find_ep(port, pkey)) {
 		acm_log(2, "endpoint for pkey 0x%x already exists\n", pkey);
 		return;
