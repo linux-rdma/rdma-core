@@ -59,6 +59,8 @@ int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size)
 
 void mlx4_free_buf(struct mlx4_buf *buf)
 {
-	ibv_dofork_range(buf->buf, buf->length);
-	munmap(buf->buf, buf->length);
+	if (buf->length) {
+		ibv_dofork_range(buf->buf, buf->length);
+		munmap(buf->buf, buf->length);
+	}
 }

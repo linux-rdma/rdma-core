@@ -126,10 +126,7 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	struct mlx4_alloc_ucontext_resp_v3 resp_v3;
 	__u16				bf_reg_size;
 	struct mlx4_device              *dev = to_mdev(&v_device->device);
-	/* verbs_context should be used for new verbs
-	* struct verbs_context *verbs_ctx = verbs_get_ctx(ibv_ctx);
-	*/
-
+	struct verbs_context *verbs_ctx = verbs_get_ctx(ibv_ctx);
 
 	/* memory footprint of mlx4_context and verbs_context share
 	* struct ibv_context.
@@ -168,6 +165,7 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	for (i = 0; i < MLX4_NUM_DB_TYPE; ++i)
 		context->db_list[i] = NULL;
 
+	mlx4_init_xsrq_table(&context->xsrq_table, context->num_qps);
 	pthread_mutex_init(&context->db_list_mutex, NULL);
 
 	context->uar = mmap(NULL, dev->page_size, PROT_WRITE,
@@ -196,7 +194,15 @@ static int mlx4_init_context(struct verbs_device *v_device,
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 	ibv_ctx->ops = mlx4_ctx_ops;
-	/* New verbs should be added by using verbs_set_ctx_op */
+
+	verbs_ctx->has_comp_mask = VERBS_CONTEXT_XRCD | VERBS_CONTEXT_SRQ |
+					VERBS_CONTEXT_QP;
+	verbs_set_ctx_op(verbs_ctx, close_xrcd, mlx4_close_xrcd);
+	verbs_set_ctx_op(verbs_ctx, open_xrcd, mlx4_open_xrcd);
+	verbs_set_ctx_op(verbs_ctx, create_srq_ex, mlx4_create_srq_ex);
+	verbs_set_ctx_op(verbs_ctx, get_srq_num, verbs_get_srq_num);
+	verbs_set_ctx_op(verbs_ctx, create_qp_ex, mlx4_create_qp_ex);
+	verbs_set_ctx_op(verbs_ctx, open_qp, mlx4_open_qp);
 
 	return 0;
 

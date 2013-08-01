@@ -210,24 +210,35 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 	rmb();
 
 	qpn = ntohl(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
+	wc->qp_num = qpn;
 
 	is_send  = cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK;
 	is_error = (cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
 		MLX4_CQE_OPCODE_ERROR;
 
-	if (!*cur_qp ||
-	    (qpn != (*cur_qp)->ibv_qp.qp_num)) {
+	if ((qpn & MLX4_XRC_QPN_BIT) && !is_send) {
 		/*
-		 * We do not have to take the QP table lock here,
-		 * because CQs will be locked while QPs are removed
+		 * We do not have to take the XSRQ table lock here,
+		 * because CQs will be locked while SRQs are removed
 		 * from the table.
 		 */
-		*cur_qp = mlx4_find_qp(to_mctx(cq->ibv_cq.context), qpn);
-		if (!*cur_qp)
+		srq = mlx4_find_xsrq(&to_mctx(cq->ibv_cq.context)->xsrq_table,
+				     ntohl(cqe->g_mlpath_rqpn) & MLX4_CQE_QPN_MASK);
+		if (!srq)
 			return CQ_POLL_ERR;
+	} else {
+		if (!*cur_qp || (qpn != (*cur_qp)->verbs_qp.qp.qp_num)) {
+			/*
+			 * We do not have to take the QP table lock here,
+			 * because CQs will be locked while QPs are removed
+			 * from the table.
+			 */
+			*cur_qp = mlx4_find_qp(to_mctx(cq->ibv_cq.context), qpn);
+			if (!*cur_qp)
+				return CQ_POLL_ERR;
+		}
+		srq = ((*cur_qp)->verbs_qp.qp.srq) ? to_msrq((*cur_qp)->verbs_qp.qp.srq) : NULL;
 	}
-
-	wc->qp_num = (*cur_qp)->ibv_qp.qp_num;
 
 	if (is_send) {
 		wq = &(*cur_qp)->sq;
@@ -235,8 +246,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		wq->tail += (uint16_t) (wqe_index - (uint16_t) wq->tail);
 		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
-	} else if ((*cur_qp)->ibv_qp.srq) {
-		srq = to_msrq((*cur_qp)->ibv_qp.srq);
+	} else if (srq) {
 		wqe_index = htons(cqe->wqe_index);
 		wc->wr_id = srq->wrid[wqe_index];
 		mlx4_free_srq_wqe(srq, wqe_index);
@@ -312,7 +322,10 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		wc->dlid_path_bits = (g_mlpath_rqpn >> 24) & 0x7f;
 		wc->wc_flags	  |= g_mlpath_rqpn & 0x80000000 ? IBV_WC_GRH : 0;
 		wc->pkey_index     = ntohl(cqe->immed_rss_invalid) & 0x7f;
-		if ((*cur_qp)->link_layer == IBV_LINK_LAYER_ETHERNET)
+		/* When working with xrc srqs, don't have qp to check link layer.
+		  * Using IB SL, should consider Roce. (TBD)
+		*/
+		if ((*cur_qp) && (*cur_qp)->link_layer == IBV_LINK_LAYER_ETHERNET)
 			wc->sl	   = ntohs(cqe->sl_vid) >> 13;
 		else
 			wc->sl	   = ntohs(cqe->sl_vid) >> 12;
@@ -403,7 +416,12 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
 		cqe += cqe_inc;
-		if ((ntohl(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK) == qpn) {
+		if (srq && srq->ext_srq &&
+		    ntohl(cqe->g_mlpath_rqpn & MLX4_CQE_QPN_MASK) == srq->verbs_srq.srq_num &&
+		    !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK)) {
+			mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
+			++nfreed;
+		} else if ((ntohl(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK) == qpn) {
 			if (srq && !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK))
 				mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
 			++nfreed;

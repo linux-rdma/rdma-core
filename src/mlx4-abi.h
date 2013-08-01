@@ -89,6 +89,12 @@ struct mlx4_create_srq {
 	__u64				db_addr;
 };
 
+struct mlx4_create_xsrq {
+	struct ibv_create_xsrq		ibv_cmd;
+	__u64				buf_addr;
+	__u64				db_addr;
+};
+
 struct mlx4_create_srq_resp {
 	struct ibv_create_srq_resp	ibv_resp;
 	__u32				srqn;

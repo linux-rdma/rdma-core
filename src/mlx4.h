@@ -38,6 +38,7 @@
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
+#include <infiniband/verbs.h>
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
 
@@ -91,6 +92,36 @@ enum {
 	MLX4_QP_TABLE_BITS		= 8,
 	MLX4_QP_TABLE_SIZE		= 1 << MLX4_QP_TABLE_BITS,
 	MLX4_QP_TABLE_MASK		= MLX4_QP_TABLE_SIZE - 1
+};
+
+#define MLX4_REMOTE_SRQN_FLAGS(wr) htonl(wr->qp_type.xrc.remote_srqn << 8)
+
+enum {
+	MLX4_XSRQ_TABLE_BITS = 8,
+	MLX4_XSRQ_TABLE_SIZE = 1 << MLX4_XSRQ_TABLE_BITS,
+	MLX4_XSRQ_TABLE_MASK = MLX4_XSRQ_TABLE_SIZE - 1
+};
+
+struct mlx4_xsrq_table {
+	struct {
+		struct mlx4_srq **table;
+		int		  refcnt;
+	} xsrq_table[MLX4_XSRQ_TABLE_SIZE];
+
+	pthread_mutex_t		  mutex;
+	int			  num_xsrq;
+	int			  shift;
+	int			  mask;
+};
+
+void mlx4_init_xsrq_table(struct mlx4_xsrq_table *xsrq_table, int size);
+struct mlx4_srq *mlx4_find_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn);
+int mlx4_store_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn,
+		    struct mlx4_srq *srq);
+void mlx4_clear_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn);
+
+enum {
+	MLX4_XRC_QPN_BIT     = (1 << 23)
 };
 
 enum mlx4_db_type {
@@ -157,6 +188,7 @@ struct mlx4_context {
 	struct mlx4_db_page	       *db_list[MLX4_NUM_DB_TYPE];
 	pthread_mutex_t			db_list_mutex;
 	int				cqe_size;
+	struct mlx4_xsrq_table		xsrq_table;
 };
 
 struct mlx4_buf {
@@ -183,7 +215,7 @@ struct mlx4_cq {
 };
 
 struct mlx4_srq {
-	struct ibv_srq			ibv_srq;
+	struct verbs_srq		verbs_srq;
 	struct mlx4_buf			buf;
 	pthread_spinlock_t		lock;
 	uint64_t		       *wrid;
@@ -195,6 +227,7 @@ struct mlx4_srq {
 	int				tail;
 	uint32_t		       *db;
 	uint16_t			counter;
+	uint8_t				ext_srq;
 };
 
 struct mlx4_wq {
@@ -210,7 +243,7 @@ struct mlx4_wq {
 };
 
 struct mlx4_qp {
-	struct ibv_qp			ibv_qp;
+	struct verbs_qp			verbs_qp;
 	struct mlx4_buf			buf;
 	int				max_inline_data;
 	int				buf_size;
@@ -265,6 +298,7 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 {
 	return (val + align - 1) & ~(align - 1);
 }
+int align_queue_size(int req);
 
 #define to_mxxx(xxx, type)						\
 	((struct mlx4_##type *)					\
@@ -295,12 +329,14 @@ static inline struct mlx4_cq *to_mcq(struct ibv_cq *ibcq)
 
 static inline struct mlx4_srq *to_msrq(struct ibv_srq *ibsrq)
 {
-	return to_mxxx(srq, srq);
+	return container_of(container_of(ibsrq, struct verbs_srq, srq),
+			    struct mlx4_srq, verbs_srq);
 }
 
 static inline struct mlx4_qp *to_mqp(struct ibv_qp *ibqp)
 {
-	return to_mxxx(qp, qp);
+	return container_of(container_of(ibqp, struct verbs_qp, qp),
+			    struct mlx4_qp, verbs_qp);
 }
 
 static inline struct mlx4_ah *to_mah(struct ibv_ah *ibah)
@@ -321,6 +357,9 @@ int mlx4_query_port(struct ibv_context *context, uint8_t port,
 
 struct ibv_pd *mlx4_alloc_pd(struct ibv_context *context);
 int mlx4_free_pd(struct ibv_pd *pd);
+struct ibv_xrcd *mlx4_open_xrcd(struct ibv_context *context,
+				struct ibv_xrcd_init_attr *attr);
+int mlx4_close_xrcd(struct ibv_xrcd *xrcd);
 
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access);
@@ -343,20 +382,33 @@ void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int new_cqe);
 
 struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);
+struct ibv_srq *mlx4_create_srq_ex(struct ibv_context *context,
+				   struct ibv_srq_init_attr_ex *attr_ex);
+struct ibv_srq *mlx4_create_xrc_srq(struct ibv_context *context,
+				    struct ibv_srq_init_attr_ex *attr_ex);
 int mlx4_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr,
 		     int mask);
 int mlx4_query_srq(struct ibv_srq *srq,
 			   struct ibv_srq_attr *attr);
 int mlx4_destroy_srq(struct ibv_srq *srq);
+int mlx4_destroy_xrc_srq(struct ibv_srq *srq);
 int mlx4_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 			struct mlx4_srq *srq);
+void mlx4_init_xsrq_table(struct mlx4_xsrq_table *xsrq_table, int size);
+struct mlx4_srq *mlx4_find_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn);
+int mlx4_store_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn,
+		    struct mlx4_srq *srq);
+void mlx4_clear_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn);
 void mlx4_free_srq_wqe(struct mlx4_srq *srq, int ind);
 int mlx4_post_srq_recv(struct ibv_srq *ibsrq,
 		       struct ibv_recv_wr *wr,
 		       struct ibv_recv_wr **bad_wr);
 
 struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
+struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attr);
+struct ibv_qp *mlx4_open_qp(struct ibv_context *context, struct ibv_qp_open_attr *attr);
 int mlx4_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr);
@@ -371,7 +423,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
 void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 			   struct mlx4_qp *qp);
-int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type, struct mlx4_qp *qp);
 void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type);

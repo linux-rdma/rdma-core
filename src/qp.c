@@ -208,7 +208,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	ind = qp->sq.head;
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wq_overflow(&qp->sq, nreq, to_mcq(qp->ibv_qp.send_cq))) {
+		if (wq_overflow(&qp->sq, nreq, to_mcq(ibqp->send_cq))) {
 			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
@@ -246,6 +246,9 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		size = sizeof *ctrl / 16;
 
 		switch (ibqp->qp_type) {
+		case IBV_QPT_XRC_SEND:
+			ctrl->srcrb_flags |= MLX4_REMOTE_SRQN_FLAGS(wr);
+			/* fall through */
 		case IBV_QPT_RC:
 		case IBV_QPT_UC:
 			switch (wr->opcode) {
@@ -460,7 +463,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wq_overflow(&qp->rq, nreq, to_mcq(qp->ibv_qp.recv_cq))) {
+		if (wq_overflow(&qp->rq, nreq, to_mcq(ibqp->recv_cq))) {
 			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
@@ -554,6 +557,7 @@ void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 		size += sizeof (struct mlx4_wqe_raddr_seg);
 		break;
 
+	case IBV_QPT_XRC_SEND:
 	case IBV_QPT_RC:
 		size += sizeof (struct mlx4_wqe_raddr_seg);
 		/*
@@ -583,14 +587,16 @@ void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 		; /* nothing */
 }
 
-int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type, struct mlx4_qp *qp)
 {
 	qp->rq.max_gs	 = cap->max_recv_sge;
 
-	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof (uint64_t));
-	if (!qp->sq.wrid)
-		return -1;
+	if (qp->sq.wqe_cnt) {
+		qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof (uint64_t));
+		if (!qp->sq.wrid)
+			return -1;
+	}
 
 	if (qp->rq.wqe_cnt) {
 		qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof (uint64_t));
@@ -615,15 +621,19 @@ int mlx4_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		qp->sq.offset = 0;
 	}
 
-	if (mlx4_alloc_buf(&qp->buf,
-			    align(qp->buf_size, to_mdev(pd->context->device)->page_size),
-			    to_mdev(pd->context->device)->page_size)) {
-		free(qp->sq.wrid);
-		free(qp->rq.wrid);
-		return -1;
-	}
+	if (qp->buf_size) {
+		if (mlx4_alloc_buf(&qp->buf,
+				   align(qp->buf_size, to_mdev(context->device)->page_size),
+				   to_mdev(context->device)->page_size)) {
+			free(qp->sq.wrid);
+			free(qp->rq.wrid);
+			return -1;
+		}
 
-	memset(qp->buf.buf, 0, qp->buf_size);
+		memset(qp->buf.buf, 0, qp->buf_size);
+	} else {
+		qp->buf.buf = NULL;
+	}
 
 	return 0;
 }
@@ -639,6 +649,7 @@ void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 		wqe_size -= sizeof (struct mlx4_wqe_datagram_seg);
 		break;
 
+	case IBV_QPT_XRC_SEND:
 	case IBV_QPT_UC:
 	case IBV_QPT_RC:
 		wqe_size -= sizeof (struct mlx4_wqe_raddr_seg);
