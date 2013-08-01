@@ -116,7 +116,8 @@ static struct ibv_context_ops mlx4_ctx_ops = {
 	.detach_mcast  = ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_fd)
+static int mlx4_init_context(struct verbs_device *v_device,
+				struct ibv_context *ibv_ctx, int cmd_fd)
 {
 	struct mlx4_context	       *context;
 	struct ibv_get_context		cmd;
@@ -124,26 +125,30 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 	int				i;
 	struct mlx4_alloc_ucontext_resp_v3 resp_v3;
 	__u16				bf_reg_size;
-	struct mlx4_device		*dev = to_mdev(ibdev);
+	struct mlx4_device              *dev = to_mdev(&v_device->device);
+	/* verbs_context should be used for new verbs
+	* struct verbs_context *verbs_ctx = verbs_get_ctx(ibv_ctx);
+	*/
 
-	context = calloc(1, sizeof *context);
-	if (!context)
-		return NULL;
 
-	context->ibv_ctx.cmd_fd = cmd_fd;
+	/* memory footprint of mlx4_context and verbs_context share
+	* struct ibv_context.
+	*/
+	context = to_mctx(ibv_ctx);
+	ibv_ctx->cmd_fd = cmd_fd;
 
 	if (dev->abi_version <= MLX4_UVERBS_NO_DEV_CAPS_ABI_VERSION) {
-		if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
+		if (ibv_cmd_get_context(ibv_ctx, &cmd, sizeof cmd,
 					&resp_v3.ibv_resp, sizeof resp_v3))
-			goto err_free;
+			return errno;
 
 		context->num_qps  = resp_v3.qp_tab_size;
 		bf_reg_size	  = resp_v3.bf_reg_size;
 		context->cqe_size = sizeof (struct mlx4_cqe);
 	} else  {
-		if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
+		if (ibv_cmd_get_context(ibv_ctx, &cmd, sizeof cmd,
 					&resp.ibv_resp, sizeof resp))
-			goto err_free;
+			return errno;
 
 		context->num_qps  = resp.qp_tab_size;
 		bf_reg_size	  = resp.bf_reg_size;
@@ -165,15 +170,15 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 
 	pthread_mutex_init(&context->db_list_mutex, NULL);
 
-	context->uar = mmap(NULL, to_mdev(ibdev)->page_size, PROT_WRITE,
+	context->uar = mmap(NULL, dev->page_size, PROT_WRITE,
 			    MAP_SHARED, cmd_fd, 0);
 	if (context->uar == MAP_FAILED)
-		goto err_free;
+		return errno;
 
 	if (bf_reg_size) {
-		context->bf_page = mmap(NULL, to_mdev(ibdev)->page_size,
+		context->bf_page = mmap(NULL, dev->page_size,
 					PROT_WRITE, MAP_SHARED, cmd_fd,
-					to_mdev(ibdev)->page_size);
+					dev->page_size);
 		if (context->bf_page == MAP_FAILED) {
 			fprintf(stderr, PFX "Warning: BlueFlame available, "
 				"but failed to mmap() BlueFlame page.\n");
@@ -190,32 +195,25 @@ static struct ibv_context *mlx4_alloc_context(struct ibv_device *ibdev, int cmd_
 	}
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
+	ibv_ctx->ops = mlx4_ctx_ops;
+	/* New verbs should be added by using verbs_set_ctx_op */
 
-	context->ibv_ctx.ops = mlx4_ctx_ops;
+	return 0;
 
-	return &context->ibv_ctx;
-
-err_free:
-	free(context);
-	return NULL;
 }
 
-static void mlx4_free_context(struct ibv_context *ibctx)
+static void mlx4_uninit_context(struct verbs_device *v_device,
+					struct ibv_context *ibv_ctx)
 {
-	struct mlx4_context *context = to_mctx(ibctx);
+	struct mlx4_context *context = to_mctx(ibv_ctx);
 
-	munmap(context->uar, to_mdev(ibctx->device)->page_size);
+	munmap(context->uar, to_mdev(&v_device->device)->page_size);
 	if (context->bf_page)
-		munmap(context->bf_page, to_mdev(ibctx->device)->page_size);
-	free(context);
+		munmap(context->bf_page, to_mdev(&v_device->device)->page_size);
+
 }
 
-static struct ibv_device_ops mlx4_dev_ops = {
-	.alloc_context = mlx4_alloc_context,
-	.free_context  = mlx4_free_context
-};
-
-static struct ibv_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
+static struct verbs_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
 {
 	char			value[8];
 	struct mlx4_device    *dev;
@@ -250,21 +248,27 @@ found:
 		return NULL;
 	}
 
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof *dev);
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
 			uverbs_sys_path);
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = mlx4_dev_ops;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	dev->abi_version = abi_version;
 
-	return &dev->ibv_dev;
+	dev->verbs_dev.sz = sizeof(*dev);
+	dev->verbs_dev.size_of_context =
+		sizeof(struct mlx4_context) - sizeof(struct ibv_context);
+	/* mlx4_init_context will initialize provider calls */
+	dev->verbs_dev.init_context = mlx4_init_context;
+	dev->verbs_dev.uninit_context = mlx4_uninit_context;
+
+	return &dev->verbs_dev;
 }
 
 static __attribute__((constructor)) void mlx4_register_driver(void)
 {
-	ibv_register_driver("mlx4", mlx4_driver_init);
+	verbs_register_driver("mlx4", mlx4_driver_init);
 }

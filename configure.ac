@@ -46,8 +46,8 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for library functions
-AC_CHECK_FUNC(ibv_register_driver, [],
-    AC_MSG_ERROR([ibv_register_driver() not found.  libmlx4 requires libibverbs >= 1.1.7.]))
+AC_CHECK_FUNC(verbs_register_driver, [],
+    AC_MSG_ERROR([verbs_register_driver() not found.  libmlx4 requires libibverbs >= 1.1.8.]))
 
 AC_CACHE_CHECK([for IBV_QPT_RAW_PACKET],
                [ac_cv_ibv_qpt_raw_packet],
@@ -56,7 +56,7 @@ AC_CACHE_CHECK([for IBV_QPT_RAW_PACKET],
                                    [ac_cv_ibv_qpt_raw_packet=yes],
                                    [ac_cv_ibv_qpt_raw_packet=no])])
 if test $ac_cv_ibv_qpt_raw_packet = no; then
-    AC_MSG_ERROR([IBV_QPT_RAW_PACKET not found.  libmlx4 requires libibverbs >= 1.1.7.])
+    AC_MSG_ERROR([IBV_QPT_RAW_PACKET not found.  libmlx4 requires libibverbs >= 1.1.8.])
 fi
 
 dnl Now check if for libibverbs 1.0 vs 1.1

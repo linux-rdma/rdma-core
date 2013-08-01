@@ -9,7 +9,7 @@ Url: http://openfabrics.org/
 Source: http://openfabrics.org/downloads/mlx4/libmlx4-1.0.5.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: libibverbs-devel >= 1.1.7
+BuildRequires: libibverbs-devel >= 1.1.8
 
 %description
 libmlx4 provides a device-specific userspace driver for Mellanox

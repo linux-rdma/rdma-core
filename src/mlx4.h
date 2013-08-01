@@ -127,7 +127,7 @@ enum {
 };
 
 struct mlx4_device {
-	struct ibv_device		ibv_dev;
+	struct verbs_device		verbs_dev;
 	int				page_size;
 	int				abi_version;
 };
@@ -272,7 +272,10 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 
 static inline struct mlx4_device *to_mdev(struct ibv_device *ibdev)
 {
-	return to_mxxx(dev, device);
+	/* ibv_device is first field of verbs_device
+	 * see try_driver() in libibverbs.
+	 */
+	return container_of(ibdev, struct mlx4_device, verbs_dev);
 }
 
 static inline struct mlx4_context *to_mctx(struct ibv_context *ibctx)
