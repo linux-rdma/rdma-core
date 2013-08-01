@@ -18,7 +18,7 @@ src_libibverbs_la_DEPENDENCIES = $(srcdir)/src/libibverbs.map
 
 bin_PROGRAMS = examples/ibv_devices examples/ibv_devinfo \
     examples/ibv_asyncwatch examples/ibv_rc_pingpong examples/ibv_uc_pingpong \
-    examples/ibv_ud_pingpong examples/ibv_srq_pingpong
+    examples/ibv_ud_pingpong examples/ibv_srq_pingpong examples/ibv_xsrq_pingpong
 examples_ibv_devices_SOURCES = examples/device_list.c
 examples_ibv_devices_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_devinfo_SOURCES = examples/devinfo.c
@@ -31,6 +31,8 @@ examples_ibv_ud_pingpong_SOURCES = examples/ud_pingpong.c examples/pingpong.c
 examples_ibv_ud_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_srq_pingpong_SOURCES = examples/srq_pingpong.c examples/pingpong.c
 examples_ibv_srq_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
+examples_ibv_xsrq_pingpong_SOURCES = examples/xsrq_pingpong.c examples/pingpong.c
+examples_ibv_xsrq_pingpong_LDADD = $(top_builddir)/src/libibverbs.la
 examples_ibv_asyncwatch_SOURCES = examples/asyncwatch.c
 examples_ibv_asyncwatch_LDADD = $(top_builddir)/src/libibverbs.la
 
