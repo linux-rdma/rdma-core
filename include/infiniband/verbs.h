@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2004 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2004, 2011-2012 Intel Corporation.  All rights reserved.
  * Copyright (c) 2005, 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
@@ -39,6 +39,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <errno.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -313,6 +314,22 @@ enum ibv_access_flags {
 struct ibv_pd {
 	struct ibv_context     *context;
 	uint32_t		handle;
+};
+
+enum ibv_xrcd_init_attr_mask {
+	IBV_XRCD_INIT_ATTR_FD	    = 1 << 0,
+	IBV_XRCD_INIT_ATTR_OFLAGS   = 1 << 1,
+	IBV_XRCD_INIT_ATTR_RESERVED = 1 << 2
+};
+
+struct ibv_xrcd_init_attr {
+	uint32_t comp_mask;
+	int	 fd;
+	int	 oflags;
+};
+
+struct ibv_xrcd {
+	struct ibv_context     *context;
 };
 
 enum ibv_rereg_mr_flags {
@@ -753,11 +770,15 @@ struct ibv_context {
 };
 
 enum verbs_context_mask {
-	VERBS_CONTEXT_RESERVED = 1 << 0
+	VERBS_CONTEXT_XRCD	= 1 << 0,
+	VERBS_CONTEXT_RESERVED	= 1 << 1
 };
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_xrcd *	(*open_xrcd)(struct ibv_context *context,
+					     struct ibv_xrcd_init_attr *xrcd_init_attr);
+	int			(*close_xrcd)(struct ibv_xrcd *xrcd);
 	uint64_t has_comp_mask;
 	size_t   sz;			/* Must be immediately before struct ibv_context */
 	struct ibv_context context;	/* Must be last field in the struct */
@@ -864,7 +885,7 @@ static inline int ___ibv_query_port(struct ibv_context *context,
 				    uint8_t port_num,
 				    struct ibv_port_attr *port_attr)
 {
-	/* For compatability when running with old libibverbs */
+	/* For compatibility when running with old libibverbs */
 	port_attr->link_layer = IBV_LINK_LAYER_UNSPECIFIED;
 	port_attr->reserved   = 0;
 
@@ -895,6 +916,29 @@ struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
  * ibv_dealloc_pd - Free a protection domain
  */
 int ibv_dealloc_pd(struct ibv_pd *pd);
+
+/**
+ * ibv_open_xrcd - Open an extended connection domain
+ */
+static inline struct ibv_xrcd *
+ibv_open_xrcd(struct ibv_context *context, struct ibv_xrcd_init_attr *xrcd_init_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, open_xrcd);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->open_xrcd(context, xrcd_init_attr);
+}
+
+/**
+ * ibv_close_xrcd - Close an extended connection domain
+ */
+static inline int ibv_close_xrcd(struct ibv_xrcd *xrcd)
+{
+	struct verbs_context *vctx = verbs_get_ctx(xrcd->context);
+	return vctx->close_xrcd(xrcd);
+}
 
 /**
  * ibv_reg_mr - Register a memory region

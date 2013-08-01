@@ -53,6 +53,17 @@
  */
 #define IBV_DEVICE_LIBRARY_EXTENSION rdmav2
 
+enum verbs_xrcd_mask {
+	VERBS_XRCD_HANDLE	= 1 << 0,
+	VERBS_XRCD_RESERVED	= 1 << 1
+};
+
+struct verbs_xrcd {
+	struct ibv_xrcd		xrcd;
+	uint32_t		comp_mask;
+	uint32_t		handle;
+};
+
 typedef struct ibv_device *(*ibv_driver_init_func)(const char *uverbs_sys_path,
 						   int abi_version);
 typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_path,
@@ -78,6 +89,12 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
 		     struct ibv_alloc_pd_resp *resp, size_t resp_size);
 int ibv_cmd_dealloc_pd(struct ibv_pd *pd);
+int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
+		      int vxrcd_size,
+		      struct ibv_xrcd_init_attr *attr,
+		      struct ibv_open_xrcd *cmd, size_t cmd_size,
+		      struct ibv_open_xrcd_resp *resp, size_t resp_size);
+int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd);
 #define IBV_CMD_REG_MR_HAS_RESP_PARAMS
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, int access,

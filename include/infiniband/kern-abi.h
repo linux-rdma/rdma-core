@@ -85,7 +85,9 @@ enum {
 	IB_USER_VERBS_CMD_MODIFY_SRQ,
 	IB_USER_VERBS_CMD_QUERY_SRQ,
 	IB_USER_VERBS_CMD_DESTROY_SRQ,
-	IB_USER_VERBS_CMD_POST_SRQ_RECV
+	IB_USER_VERBS_CMD_POST_SRQ_RECV,
+	IB_USER_VERBS_CMD_OPEN_XRCD,
+	IB_USER_VERBS_CMD_CLOSE_XRCD,
 };
 
 /*
@@ -244,6 +246,27 @@ struct ibv_dealloc_pd {
 	__u16 in_words;
 	__u16 out_words;
 	__u32 pd_handle;
+};
+
+struct ibv_open_xrcd {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 fd;
+	__u32 oflags;
+	__u64 driver_data[0];
+};
+
+struct ibv_open_xrcd_resp {
+	__u32 xrcd_handle;
+};
+
+struct ibv_close_xrcd {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 xrcd_handle;
 };
 
 struct ibv_reg_mr {
@@ -804,6 +827,8 @@ enum {
 	 * trick opcodes in IBV_INIT_CMD() doesn't break.
 	 */
 	IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL_V2 = -1,
+	IB_USER_VERBS_CMD_OPEN_XRCD_V2 = -1,
+	IB_USER_VERBS_CMD_CLOSE_XRCD_V2 = -1,
 };
 
 struct ibv_modify_srq_v3 {

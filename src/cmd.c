@@ -194,6 +194,51 @@ int ibv_cmd_dealloc_pd(struct ibv_pd *pd)
 	return 0;
 }
 
+int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
+		      int vxrcd_size,
+		      struct ibv_xrcd_init_attr *attr,
+		      struct ibv_open_xrcd *cmd, size_t cmd_size,
+		      struct ibv_open_xrcd_resp *resp, size_t resp_size)
+{
+	IBV_INIT_CMD_RESP(cmd, cmd_size, OPEN_XRCD, resp, resp_size);
+
+	if (attr->comp_mask >= IBV_XRCD_INIT_ATTR_RESERVED)
+		return ENOSYS;
+
+	if (!(attr->comp_mask & IBV_XRCD_INIT_ATTR_FD) ||
+	    !(attr->comp_mask & IBV_XRCD_INIT_ATTR_OFLAGS))
+		return EINVAL;
+
+	cmd->fd = attr->fd;
+	cmd->oflags = attr->oflags;
+	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	xrcd->xrcd.context = context;
+	xrcd->comp_mask = 0;
+	if (vext_field_avail(struct verbs_xrcd, handle, vxrcd_size)) {
+		xrcd->comp_mask = VERBS_XRCD_HANDLE;
+		xrcd->handle  = resp->xrcd_handle;
+	}
+
+	return 0;
+}
+
+int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd)
+{
+	struct ibv_close_xrcd cmd;
+
+	IBV_INIT_CMD(&cmd, sizeof cmd, CLOSE_XRCD);
+	cmd.xrcd_handle = xrcd->handle;
+
+	if (write(xrcd->xrcd.context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	return 0;
+}
+
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, int access,
 		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,

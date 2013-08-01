@@ -100,4 +100,7 @@ IBVERBS_1.1 {
 
 		ibv_rate_to_mbps;
 		mbps_to_ibv_rate;
+
+		ibv_cmd_open_xrcd;
+		ibv_cmd_close_xrcd;
 } IBVERBS_1.0;
