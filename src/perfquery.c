@@ -566,7 +566,7 @@ static void vlxmittimecc_query(ib_portid_t * portid, int port, int mask)
 
 void dump_portsamples_control(ib_portid_t * portid, int port)
 {
-	char buf[1024];
+	char buf[1280];
 
 	memset(pc, 0, sizeof(pc));
 	if (!pma_query_via(pc, portid, port, ibd_timeout,
