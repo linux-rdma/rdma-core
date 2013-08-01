@@ -3080,7 +3080,7 @@ static void acm_ep_up(struct acm_port *port, uint16_t pkey_index)
 
 	ret = acm_assign_ep_names(ep);
 	if (ret) {
-		acm_log(0, "ERROR - unable to assign EP name\n");
+		acm_log(0, "ERROR - unable to assign EP name for pkey 0x%x\n", pkey);
 		goto err0;
 	}
 
