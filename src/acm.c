@@ -3282,6 +3282,13 @@ static void CDECL_FUNC acm_event_handler(void *context)
 			if (dev->port[i].state == IBV_PORT_ACTIVE)
 				acm_port_down(&dev->port[i]);
 			break;
+		case IBV_EVENT_CLIENT_REREGISTER:
+			if (dev->port[i].state == IBV_PORT_ACTIVE) {
+				acm_port_join(&dev->port[i]);
+				acm_log(1, "%s %d has reregistered\n",
+					dev->verbs->device->name, i + 1);
+			}
+			break;
 		default:
 			break;
 		}
