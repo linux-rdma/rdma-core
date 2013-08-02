@@ -3314,18 +3314,22 @@ int rsetsockopt(int socket, int level, int optname,
 		switch (optname) {
 		case RDMA_SQSIZE:
 			rs->sq_size = min((*(uint32_t *) optval), RS_QP_MAX_SIZE);
+			ret = 0;
 			break;
 		case RDMA_RQSIZE:
 			rs->rq_size = min((*(uint32_t *) optval), RS_QP_MAX_SIZE);
+			ret = 0;
 			break;
 		case RDMA_INLINE:
 			rs->sq_inline = min(*(uint32_t *) optval, RS_QP_MAX_SIZE);
 			if (rs->sq_inline < RS_MIN_INLINE)
 				rs->sq_inline = RS_MIN_INLINE;
+			ret = 0;
 			break;
 		case RDMA_IOMAPSIZE:
 			rs->target_iomap_size = (uint16_t) rs_scale_to_value(
 				(uint8_t) rs_value_to_scale(*(int *) optval, 8), 8);
+			ret = 0;
 			break;
 		case RDMA_ROUTE:
 			if ((rs->optval = calloc(optlen, 1))) {
