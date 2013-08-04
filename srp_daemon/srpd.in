@@ -48,13 +48,24 @@ if [ -f $RDMA_CONFIG ]; then
     . $RDMA_CONFIG
 fi
 
+# if ib_srp module is loaded return - 0 else - 1
+is_srp_mod_loaded()
+{
+local rc
+
+    /sbin/lsmod | grep -w "ib_srp" > /dev/null 2>&1
+    rc=$?
+
+return $rc
+}
+
 running() {
     [ -f $pidfile ] && checkpid "$(cat $pidfile)"
 }
 
 start() {
-    if [ "$SRP_LOAD" != yes ]; then
-	echo "SRP kernel services not configured, unable to start SRP daemon"
+    if ! is_srp_mod_loaded; then
+	echo "SRP kernel module is not loaded, unable to start SRP daemon"
 	return 6
     fi
     if running; then
