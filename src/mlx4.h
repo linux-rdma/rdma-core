@@ -40,6 +40,8 @@
 #include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 
+#define MLX4_PORTS_NUM 2
+
 #ifdef HAVE_VALGRIND_MEMCHECK_H
 
 #  include <valgrind/memcheck.h>
@@ -189,6 +191,11 @@ struct mlx4_context {
 	pthread_mutex_t			db_list_mutex;
 	int				cqe_size;
 	struct mlx4_xsrq_table		xsrq_table;
+	struct {
+		uint8_t                 valid;
+		uint8_t                 link_layer;
+		enum ibv_port_cap_flags caps;
+	} port_query_cache[MLX4_PORTS_NUM];
 };
 
 struct mlx4_buf {

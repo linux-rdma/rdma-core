@@ -70,8 +70,44 @@ int mlx4_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr)
 {
 	struct ibv_query_port cmd;
+	int err;
 
-	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof cmd);
+	err = ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
+	if (!err && port <= MLX4_PORTS_NUM && port > 0) {
+		struct mlx4_context *mctx = to_mctx(context);
+		if (!mctx->port_query_cache[port - 1].valid) {
+			mctx->port_query_cache[port - 1].link_layer =
+				attr->link_layer;
+			mctx->port_query_cache[port - 1].caps =
+				attr->port_cap_flags;
+			mctx->port_query_cache[port - 1].valid = 1;
+		}
+	}
+
+	return err;
+}
+
+/* Only the fields in the port cache will be valid */
+static int query_port_cache(struct ibv_context *context, uint8_t port_num,
+			    struct ibv_port_attr *port_attr)
+{
+	struct mlx4_context *mctx = to_mctx(context);
+	if (port_num <= 0 || port_num > MLX4_PORTS_NUM)
+		return -EINVAL;
+	if (mctx->port_query_cache[port_num - 1].valid) {
+		port_attr->link_layer =
+			mctx->
+			port_query_cache[port_num - 1].
+			link_layer;
+		port_attr->port_cap_flags =
+			mctx->
+			port_query_cache[port_num - 1].
+			caps;
+		return 0;
+	}
+	return mlx4_query_port(context, port_num,
+			       (struct ibv_port_attr *)port_attr);
+
 }
 
 struct ibv_pd *mlx4_alloc_pd(struct ibv_context *context)
@@ -788,7 +824,7 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct mlx4_ah *ah;
 	struct ibv_port_attr port_attr;
 
-	if (ibv_query_port(pd->context, attr->port_num, &port_attr))
+	if (query_port_cache(pd->context, attr->port_num, &port_attr))
 		return NULL;
 
 	ah = malloc(sizeof *ah);

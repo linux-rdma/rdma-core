@@ -157,6 +157,8 @@ static int mlx4_init_context(struct verbs_device *v_device,
 
 	context->qp_table_shift = ffs(context->num_qps) - 1 - MLX4_QP_TABLE_BITS;
 	context->qp_table_mask	= (1 << context->qp_table_shift) - 1;
+	for (i = 0; i < MLX4_PORTS_NUM; ++i)
+		context->port_query_cache[i].valid = 0;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	for (i = 0; i < MLX4_QP_TABLE_SIZE; ++i)
