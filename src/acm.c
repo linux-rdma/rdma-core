@@ -1523,7 +1523,6 @@ static void acm_join_group(struct acm_ep *ep, union ibv_gid *port_gid,
 
 	port = ep->port;
 	umad->addr.qpn = htonl(port->sa_dest.remote_qpn);
-	umad->addr.qkey = htonl(ACM_QKEY);
 	umad->addr.pkey_index = port->default_pkey_ix;
 	umad->addr.lid = htons(port->sa_dest.av.dlid);
 	umad->addr.sl = port->sa_dest.av.sl;
