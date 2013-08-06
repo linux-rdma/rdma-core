@@ -120,6 +120,7 @@ struct acm_port {
 	enum ibv_rate       rate;
 	int                 subnet_timeout;
 	int                 gid_cnt;
+	uint16_t            default_pkey_ix;
 	uint16_t            lid;
 	uint16_t            lid_mask;
 	uint8_t             port_num;
@@ -1523,7 +1524,7 @@ static void acm_join_group(struct acm_ep *ep, union ibv_gid *port_gid,
 	port = ep->port;
 	umad->addr.qpn = htonl(port->sa_dest.remote_qpn);
 	umad->addr.qkey = htonl(ACM_QKEY);
-	umad->addr.pkey_index = ep->pkey_index;
+	umad->addr.pkey_index = port->default_pkey_ix;
 	umad->addr.lid = htons(port->sa_dest.av.dlid);
 	umad->addr.sl = port->sa_dest.av.sl;
 	umad->addr.path_bits = port->sa_dest.av.src_path_bits;
@@ -3169,6 +3170,7 @@ static void acm_port_up(struct acm_port *port)
 	union ibv_gid gid;
 	uint16_t pkey;
 	int i, ret;
+	int is_full_default_pkey_set = 0;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -3210,8 +3212,18 @@ static void acm_port_up(struct acm_port *port)
 	atomic_set(&port->sa_dest.refcnt, 1);
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
-		if (ret || !(ntohs(pkey) & 0x7fff))
+		if (ret)
 			continue;
+		pkey = ntohs(pkey);
+		if (!(pkey & 0x7fff))
+			continue;
+		
+		/* Determine pkey index for default partition with preference for full membership */
+		if (!is_full_default_pkey_set && (pkey & 0x7fff) == 0x7fff) {
+			port->default_pkey_ix = i;
+			if (pkey & 0x8000)
+				is_full_default_pkey_set = 1;
+		}
 		acm_ep_up(port, (uint16_t) i);
 	}
 
