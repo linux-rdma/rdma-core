@@ -1492,7 +1492,7 @@ static void acm_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 		IB_COMP_MASK_MC_SCOPE | IB_COMP_MASK_MC_JOIN_STATE;
 
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
-	acm_format_mgid(&mc_rec->mgid, pkey, tos, rate, mtu);
+	acm_format_mgid(&mc_rec->mgid, pkey | 0x8000, tos, rate, mtu);
 	mc_rec->port_gid = *port_gid;
 	mc_rec->qkey = ACM_QKEY;
 	mc_rec->mtu = 0x80 | mtu;
