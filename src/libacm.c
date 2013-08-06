@@ -40,21 +40,6 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-struct acm_port {
-	uint8_t           port_num;
-	uint16_t          lid;
-	union ibv_gid     gid;
-	int               pkey_cnt;
-	uint16_t          pkey[4];
-};
-
-struct acm_device {
-	struct ibv_context *verbs;
-	uint64_t           guid;
-	int                port_cnt;
-	struct acm_port    *ports;
-};
-
 extern lock_t lock;
 static SOCKET sock = INVALID_SOCKET;
 static short server_port = 6125;
