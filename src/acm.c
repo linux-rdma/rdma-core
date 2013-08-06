@@ -3210,7 +3210,7 @@ static void acm_port_up(struct acm_port *port)
 	atomic_set(&port->sa_dest.refcnt, 1);
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
-		if (ret || !pkey)
+		if (ret || !(ntohs(pkey) & 0x7fff))
 			continue;
 		acm_ep_up(port, (uint16_t) i);
 	}
