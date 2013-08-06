@@ -120,7 +120,6 @@ struct acm_port {
 	enum ibv_rate       rate;
 	int                 subnet_timeout;
 	int                 gid_cnt;
-	uint16_t            pkey_cnt;
 	uint16_t            lid;
 	uint16_t            lid_mask;
 	uint8_t             port_num;
@@ -3192,11 +3191,6 @@ static void acm_port_up(struct acm_port *port)
 			break;
 	}
 
-	for (port->pkey_cnt = 0;; port->pkey_cnt++) {
-		ret = ibv_query_pkey(port->dev->verbs, port->port_num, port->pkey_cnt, &pkey);
-		if (ret || !pkey)
-			break;
-	}
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
 
@@ -3214,8 +3208,12 @@ static void acm_port_up(struct acm_port *port)
 		return;
 
 	atomic_set(&port->sa_dest.refcnt, 1);
-	for (i = 0; i < port->pkey_cnt; i++)
-		 acm_ep_up(port, (uint16_t) i);
+	for (i = 0; i < attr.pkey_tbl_len; i++) {
+		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
+		if (ret || !pkey)
+			continue;
+		acm_ep_up(port, (uint16_t) i);
+	}
 
 	acm_port_join(port);
 	port->state = IBV_PORT_ACTIVE;
