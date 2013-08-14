@@ -10,6 +10,7 @@
 # Provides:       srpd
 # Required-Start: $syslog @RDMA_SERVICE@
 # Required-Stop: $syslog @RDMA_SERVICE@
+# Default-Start: @DEFAULT_START@
 # Default-Stop: @DEFAULT_STOP@
 # Should-Start:
 # Should-Stop:

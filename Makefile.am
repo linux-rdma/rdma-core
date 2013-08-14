@@ -68,3 +68,6 @@ rpm:
 	mkdir -p $${rpmtopdir}/{BUILD,RPMS,SOURCES,SPECS,SRPMS} && \
 	cp $${name}-$${version}.tar.gz $${rpmtopdir}/SOURCES && \
 	rpmbuild --define="%_topdir $${rpmtopdir}" -ba $${name}.spec
+
+deb:
+	./build-deb.sh ${TARGET}

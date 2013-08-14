@@ -1,0 +1,14 @@
+Source: srptools
+Maintainer: Sagi Grimberg <sagig@mellanox.com>
+Section: net
+Priority: optional
+Standards-Version: 3.9.1
+Build-Depends: debhelper (>= 8), dpkg-dev (>= 1.13.19),
+    librdmacm-dev, libibverbs-dev, libibumad-devel
+Homepage: http://www.openfabrics.org/
+
+Package: srptools
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, librdmacm1, libibumad, libibverbs1
+Description: In conjunction with the kernel ib_srp driver, srptools allows you to
+ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.

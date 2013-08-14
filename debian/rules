@@ -1,0 +1,14 @@
+#!/usr/bin/make -f
+
+DEB_CONFIGURE_EXTRA_FLAGS="--prefix=/usr"
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	./autogen.sh
+	dh_auto_configure
+	dh_auto_build -- $(DEB_MAKE_ENVVARS)
+
+override_dh_auto_install:
+	dh_auto_install -- $(DEB_MAKE_ENVVARS)
