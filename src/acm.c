@@ -3216,7 +3216,7 @@ static void acm_port_up(struct acm_port *port)
 		pkey = ntohs(pkey);
 		if (!(pkey & 0x7fff))
 			continue;
-		
+
 		/* Determine pkey index for default partition with preference for full membership */
 		if (!is_full_default_pkey_set && (pkey & 0x7fff) == 0x7fff) {
 			port->default_pkey_ix = i;
