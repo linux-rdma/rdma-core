@@ -1543,22 +1543,25 @@ int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event)
 	return 0;
 }
 
+int ucma_shutdown(struct rdma_cm_id *id)
+{
+	switch (id->verbs->device->transport_type) {
+	case IBV_TRANSPORT_IB:
+		return ucma_modify_qp_err(id);
+	case IBV_TRANSPORT_IWARP:
+		return ucma_modify_qp_sqd(id);
+	default:
+		return ERR(EINVAL);
+	}
+}
+
 int rdma_disconnect(struct rdma_cm_id *id)
 {
 	struct ucma_abi_disconnect cmd;
 	struct cma_id_private *id_priv;
 	int ret;
 
-	switch (id->verbs->device->transport_type) {
-	case IBV_TRANSPORT_IB:
-		ret = ucma_modify_qp_err(id);
-		break;
-	case IBV_TRANSPORT_IWARP:
-		ret = ucma_modify_qp_sqd(id);
-		break;
-	default:
-		ret = ERR(EINVAL);
-	}
+	ret = ucma_shutdown(id);
 	if (ret)
 		return ret;
 

@@ -150,6 +150,7 @@ void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 		  struct sockaddr_ib *sib);
 int ucma_max_qpsize(struct rdma_cm_id *id);
 int ucma_complete(struct rdma_cm_id *id);
+int ucma_shutdown(struct rdma_cm_id *id);
 
 static inline int ERR(int err)
 {
