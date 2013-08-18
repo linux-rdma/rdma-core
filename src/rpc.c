@@ -144,6 +144,13 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 		save_mad = 0;
 	}
 
+	if (max_retries <= 0) {
+		errno = EINVAL;
+		*p_error = EINVAL;
+		ERRS("max_retries %d <= 0", max_retries);
+		return -1;
+	}
+
 	trid =
 	    (uint32_t) mad_get_field64(umad_get_mad(sndbuf), 0, IB_MAD_TRID_F);
 
