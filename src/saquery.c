@@ -866,7 +866,6 @@ static int get_and_dump_all_records(struct sa_handle * h, uint16_t attr_id,
 static int get_lid_from_name(struct sa_handle * h, const char *name, uint16_t * lid)
 {
 	ib_node_record_t *node_record = NULL;
-	ib_node_info_t *p_ni = NULL;
 	unsigned i;
 	int ret;
 	struct sa_query_result result;
@@ -878,7 +877,6 @@ static int get_lid_from_name(struct sa_handle * h, const char *name, uint16_t * 
 	ret = ENONET;
 	for (i = 0; i < result.result_cnt; i++) {
 		node_record = sa_get_query_rec(result.p_result_madw, i);
-		p_ni = &(node_record->node_info);
 		if (name
 		    && strncmp(name, (char *)node_record->node_desc.description,
 			       sizeof(node_record->node_desc.description)) ==
