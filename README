@@ -10,13 +10,24 @@ interface to this library is _not_ guaranteed to be stable (though we try.)
 
 Dependencies:
 
-	1) libibmad >= 1.3.9
+	1) libibmad >= 1.3.10
 	2) libibumad >= 1.3.7
 	3) opensm-libs >= 3.3.10
 	4) ib_umad kernel module
 
 
-Release notes v1.6.0 => 1.6.1
+Release notes v1.6.1 => 1.6.2
 
    1) bug fixes and code clean up
+   2) add multiple port to perfquery
+   3) saquery enhancements
+	a) InformInfoRecord
+	b) Add to error messages
+	c) Add ServiceID support for PathRecord query
+	d) SwitchInfoRecord
+	e) SMInfoRecord
+   4) Add new dump_fts tool
+	a) modify dump_[m|l]fts.sh to use new tool
+   5) Add sl support to ibqueryerrors
+   6) Add ON/OFF options to ibportstate
 
