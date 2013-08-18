@@ -5,7 +5,7 @@ AC_INIT(infiniband-diags, 1.6.2, linux-rdma@vger.kernel.org)
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
 
 AC_SUBST(RELEASE, ${RELEASE:-unknown})
 AC_SUBST(TARBALL, ${TARBALL:-${PACKAGE}-${VERSION}.tar.gz})
@@ -22,6 +22,7 @@ AM_CONDITIONAL(DEBUG, test x$debug = xtrue)
 
 dnl Checks for programs
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 AC_CHECK_PROG(have_dash, [dash], true, false)
