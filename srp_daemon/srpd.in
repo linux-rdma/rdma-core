@@ -29,25 +29,36 @@ else
     # OFED
     RDMA_CONFIG=/etc/infiniband/openib.conf
 fi
-pidfile=/var/run/srp_daemon.sh.pid
-prog=/usr/sbin/srp_daemon.sh
-
-for f in /etc/init.d/functions /lib/lsb/init-functions; do
-  if [ -e "$f" ]; then
-    . "$f"
-    break
-  fi
-done
-
-if ! type checkpid >/dev/null 2>&1; then
-checkpid() {
-    kill -0 "$1" >/dev/null 2>&1
-}
-fi
-
 if [ -f $RDMA_CONFIG ]; then
     . $RDMA_CONFIG
 fi
+pidfile=/var/run/srp_daemon.sh.pid
+prog=/usr/sbin/srp_daemon.sh
+
+checkpid() {
+    if [ -e "/proc/$1" ]; then
+        return 0
+    fi
+    return 1
+}
+
+stop_srp_daemon() {
+    if ! running; then
+        return 1
+    fi
+
+    local pid=`cat $pidfile`
+    kill $pid
+    # timeout 30 seconds for termination
+    for i in `seq 300`; do
+        if ! checkpid $pid; then
+            return 0
+        fi
+        sleep 0.1
+    done
+    kill -9 $pid
+    return 0
+}
 
 # if ib_srp module is loaded return - 0 else - 1
 is_srp_mod_loaded()
@@ -74,7 +85,7 @@ start() {
 	return 1
     fi
 
-    echo -n "Starting SRP daemon service:"
+    echo -n "Starting SRP daemon service"
 
     if [ "$SRP_DEFAULT_TL_RETRY_COUNT" ]; then
         params=$params"-l $SRP_DEFAULT_TL_RETRY_COUNT "
@@ -82,14 +93,14 @@ start() {
 
     setsid $prog $params </dev/null >&/dev/null &
     RC=$?
-    echo
+    [ $RC -eq 0 ] && echo || echo " ...failed"
     return $RC
 }
 
 stop() {
-    echo -n "Stopping SRP daemon service:"
+    echo -n "Stopping SRP daemon service"
 
-    killproc -p $pidfile -d 20 srp_daemon.sh
+    stop_srp_daemon
     RC=$?
     for ((i=0;i<5;i++)); do
 	if ! running; then
@@ -98,7 +109,7 @@ stop() {
 	fi
 	sleep 1
     done
-    echo
+    [ $RC -eq 0 ] && echo || echo " ...failed"
     return $RC
 }
 
