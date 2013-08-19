@@ -38,6 +38,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
+#include <strings.h>
 
 #include "mthca.h"
 
