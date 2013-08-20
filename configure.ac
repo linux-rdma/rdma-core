@@ -167,6 +167,8 @@ PKG_CHECK_MODULES([GLIB], [glib-2.0], ac_glib=yes, ac_glib=no)
 AM_CONDITIONAL([HAVE_GLIB], test "$ac_glib" = "yes")
 if test "$ac_glib" = "yes"; then
    AC_DEFINE([HAVE_GLIB], 1, [Define to 1 to indicate GLIB support])
+else
+   AC_MSG_ERROR(glib not found; glib2 is required)
 fi
 
 dnl Begin libibnetdisc stuff

@@ -14,6 +14,7 @@ Dependencies:
 	2) libibumad >= 1.3.7
 	3) opensm-libs >= 3.3.10
 	4) ib_umad kernel module
+	5) glib2
 
 
 Release notes v1.6.1 => 1.6.2
