@@ -57,6 +57,9 @@
 #define MSG_SSCAN  "%x:%x:%x:%x:%x"
 #define ADDR_FORMAT \
 	"%8s: LID %04x, QPN RECV %06x SEND %06x, PSN %06x, SRQN %04x\n"
+#define TERMINATION_FORMAT "%s"
+#define TERMINATION_MSG_SIZE 4
+#define TERMINATION_MSG "END"
 static int page_size;
 
 struct pingpong_dest {
@@ -67,6 +70,7 @@ struct pingpong_dest {
 	int send_psn;
 	int srqn;
 	int pp_cnt;
+	int sockfd;
 };
 
 struct pingpong_context {
@@ -303,6 +307,74 @@ static int pp_init_ctx(char *ib_devname)
 	return 0;
 }
 
+static int recv_termination_ack(int index)
+{
+	char msg[TERMINATION_MSG_SIZE];
+	int n = 0, r;
+	int sockfd = ctx.rem_dest[index].sockfd;
+
+	while (n < TERMINATION_MSG_SIZE) {
+		r = read(sockfd, msg + n, TERMINATION_MSG_SIZE - n);
+		if (r < 0) {
+			perror("client read");
+			fprintf(stderr,
+				"%d/%d: Couldn't read remote termination ack\n",
+				n, TERMINATION_MSG_SIZE);
+			return 1;
+		}
+		n += r;
+	}
+
+	if (strcmp(msg, TERMINATION_MSG)) {
+		fprintf(stderr, "Invalid termination ack was accepted\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int send_termination_ack(int index)
+{
+	char msg[TERMINATION_MSG_SIZE];
+	int sockfd = ctx.rem_dest[index].sockfd;
+
+	sprintf(msg, TERMINATION_FORMAT, TERMINATION_MSG);
+
+	if (write(sockfd, msg, TERMINATION_MSG_SIZE) != TERMINATION_MSG_SIZE) {
+		fprintf(stderr, "Couldn't send termination ack\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int pp_client_termination()
+{
+	if (send_termination_ack(0))
+		return 1;
+	if (recv_termination_ack(0))
+		return 1;
+
+	return 0;
+}
+
+static int pp_server_termination()
+{
+	int i;
+
+	for (i = 0; i < ctx.num_clients; i++) {
+		if (recv_termination_ack(i))
+			return 1;
+	}
+
+	for (i = 0; i < ctx.num_clients; i++) {
+		if (send_termination_ack(i))
+			return 1;
+	}
+
+	return 0;
+}
+
 static int send_local_dest(int sockfd, int index)
 {
 	char msg[MSG_SIZE];
@@ -355,6 +427,7 @@ static int recv_remote_dest(int sockfd, int index)
 	printf(ADDR_FORMAT, "remote", rem_dest->lid, rem_dest->recv_qpn,
 	       rem_dest->send_qpn, rem_dest->send_psn, rem_dest->srqn);
 
+	rem_dest->sockfd = sockfd;
 	return 0;
 }
 
@@ -376,7 +449,7 @@ static int connect_qps(int index)
 			  IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU |
 			  IBV_QP_DEST_QPN | IBV_QP_RQ_PSN |
 			  IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER)) {
-		fprintf(stderr, "Failed to modify send QP[%d] to RTR\n", index);
+		fprintf(stderr, "Failed to modify recv QP[%d] to RTR\n", index);
 		return 1;
 	}
 
@@ -472,8 +545,6 @@ static int pp_client_connect(const char *servername, int port)
 	if (connect_qps(0))
 		return 1;
 
-	shutdown(sockfd, SHUT_RDWR);
-	close(sockfd);
 	return 0;
 }
 
@@ -536,9 +607,6 @@ static int pp_server_connect(int port)
 
 		if (connect_qps(i))
 			return 1;
-
-		shutdown(connfd, SHUT_RDWR);
-		close(connfd);
 	}
 
 	close(sockfd);
@@ -561,6 +629,9 @@ static int pp_close_ctx(void)
 			fprintf(stderr, "Couldn't destroy TGT QP[%d]\n", i);
 			return 1;
 		}
+
+		if (ctx.rem_dest[i].sockfd)
+			close(ctx.rem_dest[i].sockfd);
 	}
 
 	if (ibv_destroy_srq(ctx.srq)) {
@@ -883,6 +954,19 @@ int main(int argc, char *argv[])
 
 	if (ctx.use_event)
 		ibv_ack_cq_events(ctx.recv_cq, num_cq_events);
+
+	/* Process should get an ack from the daemon to close its resources to
+	  * make sure latest daemon's response sent via its target QP destined
+	  * to an XSRQ created by another client won't be lost.
+	  * Failure to do so may cause the other client to wait for that sent
+	  * message forever. See comment on pp_post_send.
+	*/
+	if (servername) {
+		if (pp_client_termination())
+			return 1;
+	} else if (pp_server_termination()) {
+		return 1;
+	}
 
 	if (pp_close_ctx())
 		return 1;
