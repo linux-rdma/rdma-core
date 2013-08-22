@@ -52,6 +52,7 @@ static char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
 static int timeout = 2000;
+static int retries = 2;
 
 enum step {
 	STEP_CREATE_ID,
@@ -80,6 +81,7 @@ struct node {
 	struct rdma_cm_id *id;
 	struct timeval times[STEP_CNT][2];
 	int error;
+	int retries;
 };
 
 static struct node *nodes;
@@ -205,11 +207,20 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 			conn_handler(n);
 		break;
 	case RDMA_CM_EVENT_ADDR_ERROR:
+		if (n->retries--) {
+			if (!rdma_resolve_addr(n->id, rai->ai_src_addr,
+					       rai->ai_dst_addr, timeout))
+				break;
+		}
 		printf("RDMA_CM_EVENT_ADDR_ERROR, error: %d\n", event->status);
 		addr_handler(n);
 		n->error = 1;
 		break;
 	case RDMA_CM_EVENT_ROUTE_ERROR:
+		if (n->retries--) {
+			if (!rdma_resolve_route(n->id, timeout))
+				break;
+		}
 		printf("RDMA_CM_EVENT_ROUTE_ERROR, error: %d\n", event->status);
 		route_handler(n);
 		n->error = 1;
@@ -350,7 +361,7 @@ static int run_client(void)
 
 	conn_param.responder_resources = 1;
 	conn_param.initiator_depth = 1;
-	conn_param.retry_count = 5;
+	conn_param.retry_count = retries;
 	conn_param.private_data = rai->ai_connect;
 	conn_param.private_data_len = rai->ai_connect_len;
 
@@ -375,6 +386,7 @@ static int run_client(void)
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
 			continue;
+		nodes[i].retries = retries;
 		start_perf(&nodes[i], STEP_RESOLVE_ADDR);
 		ret = rdma_resolve_addr(nodes[i].id, rai->ai_src_addr,
 					rai->ai_dst_addr, timeout);
@@ -395,6 +407,7 @@ static int run_client(void)
 	for (i = 0; i < connections; i++) {
 		if (nodes[i].error)
 			continue;
+		nodes[i].retries = retries;
 		start_perf(&nodes[i], STEP_RESOLVE_ROUTE);
 		ret = rdma_resolve_route(nodes[i].id, timeout);
 		if (ret) {
@@ -467,7 +480,7 @@ int main(int argc, char **argv)
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:p:t:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:p:r:t:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -480,6 +493,9 @@ int main(int argc, char **argv)
 			break;
 		case 'p':
 			port = optarg;
+			break;
+		case 'r':
+			retries = atoi(optarg);
 			break;
 		case 't':
 			timeout = atoi(optarg);
