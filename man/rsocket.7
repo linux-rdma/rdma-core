@@ -96,6 +96,8 @@ RDMA_RQSIZE - Integer size of the underlying receive queue.
 RDMA_INLINE - Integer size of inline data.
 .TP
 RDMA_IOMAPSIZE - Integer number of remote IO mappings supported
+.TP
+RDMA_ROUTE - struct ibv_path_data of path record for connection.
 .P
 Note that rsockets fd's cannot be passed into non-rsocket calls.  For
 applications which must mix rsocket fd's with standard socket fd's or
@@ -113,7 +115,12 @@ subdirectory.
 The preload library can be used by setting LD_PRELOAD when running.
 Note that not all applications will work with rsockets.  Support is
 limited based on the socket options used by the application.
-Additionally, applications which call fork are not supported.
+Support for fork() is limited, but available.  To use rsockets with
+the preload library for applications that call fork, users must
+set the environment variable RDMAV_FORK_SAFE=1 on both the client
+and server side of the connection.  In general, fork is
+supportable for server applications that accept a connection, then
+fork off a process to handle the new connection.
 .P
 rsockets uses configuration files that give an administrator control
 over the default settings used by rsockets.  Use files under
