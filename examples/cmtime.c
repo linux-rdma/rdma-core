@@ -51,6 +51,7 @@ static struct rdma_event_channel *channel;
 static char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
+static int timeout = 2000;
 
 enum step {
 	STEP_CREATE_ID,
@@ -376,7 +377,7 @@ static int run_client(void)
 			continue;
 		start_perf(&nodes[i], STEP_RESOLVE_ADDR);
 		ret = rdma_resolve_addr(nodes[i].id, rai->ai_src_addr,
-					rai->ai_dst_addr, 2000);
+					rai->ai_dst_addr, timeout);
 		if (ret) {
 			perror("failure getting addr");
 			nodes[i].error = 1;
@@ -395,7 +396,7 @@ static int run_client(void)
 		if (nodes[i].error)
 			continue;
 		start_perf(&nodes[i], STEP_RESOLVE_ROUTE);
-		ret = rdma_resolve_route(nodes[i].id, 2000);
+		ret = rdma_resolve_route(nodes[i].id, timeout);
 		if (ret) {
 			perror("failure resolving route");
 			nodes[i].error = 1;
@@ -466,7 +467,7 @@ int main(int argc, char **argv)
 
 	hints.ai_port_space = RDMA_PS_TCP;
 	hints.ai_qp_type = IBV_QPT_RC;
-	while ((op = getopt(argc, argv, "s:b:c:p:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:c:p:t:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -480,12 +481,16 @@ int main(int argc, char **argv)
 		case 'p':
 			port = optarg;
 			break;
+		case 't':
+			timeout = atoi(optarg);
+			break;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");
 			printf("\t[-b bind_address]\n");
 			printf("\t[-c connections]\n");
 			printf("\t[-p port_number]\n");
+			printf("\t[-t timeout_ms]\n");
 			exit(1);
 		}
 	}
