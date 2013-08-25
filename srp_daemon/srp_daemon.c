@@ -1249,8 +1249,9 @@ static int get_rules_file(struct config_t *conf)
 	FILE *infile=fopen(conf->rules_file, "r");
 
 	if (infile == NULL) {
-		pr_err("Could not find rules file %s\n", conf->rules_file);
-		return -1;
+		pr_debug("Could not find rules file %s, going with default\n",
+			 conf->rules_file);
+		return 0;
 	}
 
 	while (fgets(line, sizeof(line), infile) != NULL) {
