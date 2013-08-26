@@ -1,0 +1,79 @@
+#!/bin/bash
+# Start the IWPMD daemon
+#
+# chkconfig: 1235 90 15
+# description: iWarp Port Mapper Daemon for opening sockets to reserve ports from userspace
+# processname: iwpmd
+# pidfile: /var/run/iwpmd.pid
+### BEGIN INIT INFO
+# Provides: iwpmd
+# Required-Start: $syslog $local_fs
+# Required-Stop: $syslog $local_fs
+# Default-Stop: 0 6
+# Default-Start: 1 2 3 5
+# Short-Description: iWarp Port Mapper Daemon
+# Description: iWarp Port Mapper Daemon for opening sockets to reserve ports from userspace
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+IWPMD_BIN="/usr/bin/iwpmd"
+LOCK="/var/lock/subsys/iwpmd"
+RETVAL=0
+
+check() {
+
+	# Check if iwpm is executable
+	test -x "$IWPMD_BIN" || exit 5
+}
+
+start() {
+	check
+
+	echo -n $"Starting iwpm daemon: "
+	# Check if it is already running
+	if [ ! -f "$LOCK" ]; then
+		daemon "$IWPMD_BIN"
+		RETVAL=$?
+		[ $RETVAL -eq 0 ] && touch $LOCK
+		echo
+	fi
+	return $RETVAL
+}
+
+stop() {
+	check
+
+	echo -n $"Stopping iwpm daemon: "
+	killproc "$IWPMD_BIN"
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && rm -f "$LOCK"
+	echo
+	return $RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+start)
+	start
+	;;
+stop)
+	stop
+	;;
+restart)
+	restart
+	;;
+status)
+	status iwpmd
+	RETVAL=$?
+	;;
+*)
+	echo $"Usage: $0 {start|stop|status|restart}"
+	RETVAL=2
+esac
+
+exit $RETVAL
