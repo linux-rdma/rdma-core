@@ -457,7 +457,7 @@ void copy_iwpm_sockaddr(__u16 addr_family, struct sockaddr_storage *src_sockaddr
 		return;
 	}
 
-	memcpy(dst, src, sizeof(IWPM_IPADDR_SIZE));
+	memcpy(dst, src, IWPM_IPADDR_SIZE);
 }
 
 /**

@@ -447,7 +447,7 @@ int check_same_sockaddr(struct sockaddr_storage *sockaddr_a, struct sockaddr_sto
 			struct sockaddr_in6 *in6addr_a = (struct sockaddr_in6 *)sockaddr_a;
 			struct sockaddr_in6 *in6addr_b = (struct sockaddr_in6 *)sockaddr_b;
 
-			if ((memcmp(in6addr_a->sin6_addr.s6_addr, 
+			if ((!memcmp(in6addr_a->sin6_addr.s6_addr, 
 					in6addr_b->sin6_addr.s6_addr, IWPM_IPADDR_SIZE)) &&
 					(in6addr_a->sin6_port == in6addr_b->sin6_port)) 
 				ret = 1;
