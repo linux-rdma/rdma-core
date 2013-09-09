@@ -1,0 +1,2 @@
+usr/lib/libmlx5-rdmav2.so		/usr/lib/libibverbs/
+etc/libibverbs.d/mlx5.driver

@@ -1,0 +1,5 @@
+libmlx5 (1.0.0-1) unstable; urgency=low
+
+  * libmlx5 first release.
+
+ -- Eli Cohen <eli@mellanox.com>  Mon, 7 Jan 2013 13:38:10 +0200

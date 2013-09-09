@@ -1,0 +1,47 @@
+Source: libmlx5
+Priority: extra
+Maintainer: Eli Cohen <eli@mellanox.com>
+Build-Depends: debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.1.3)
+Standards-Version: 3.9.2
+Section: libs
+Homepage: http://www.openfabrics.org/
+
+Package: libmlx5-1
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libibverbs1 (>= 1.1.3)
+Description: Userspace driver for Mellanox ConnectX InfiniBand HCAs
+ libmlx5 is a device-specific driver for Mellanox Connect-IB InfiniBand
+ host channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains the loadable plug-in.
+
+Package: libmlx5-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends}, libmlx5-1 (= ${binary:Version})
+Description: Development files for the libmlx5 driver
+ libmlx5 is a device-specific driver for Mellanox Connect-IB InfiniBand
+ host channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains static versions of libmlx5 that may be linked
+ directly to an application, which may be useful for debugging.
+
+Package: libmlx5-1-dbg
+Section: debug
+Priority: extra
+Architecture: any
+Depends: ${misc:Depends}, libmlx5-1 (= ${binary:Version})
+Description: Debugging symbols for the libmlx5 driver
+ libmlx5 is a device-specific driver for Mellanox Connect-IB InfiniBand
+ host channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains the debugging symbols associated with
+ libmlx5-1. They will automatically be used by gdb for debugging
+ libmlx5-related issues.
