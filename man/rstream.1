@@ -4,8 +4,8 @@ rstream \- streaming over RDMA ping-pong test.
 .SH SYNOPSIS
 .sp
 .nf
-\fIrstream\fR [-s server_address] [-b bind_address] [-B buffer_size]
-			[-I iterations] [-C transfer_count]
+\fIrstream\fR [-s server_address] [-b bind_address] [-f address_format]
+			[-B buffer_size] [-I iterations] [-C transfer_count]
 			[-S transfer_size] [-p server_port] [-T test_option]
 .fi
 .SH "DESCRIPTION"
@@ -20,6 +20,9 @@ This option must be specified by the client.
 .TP
 \-b bind_address
 The local network address to bind to.
+.TP
+\-f address_format
+Supported address formats are ip, ipv6, gid, or name.
 .TP
 \-B buffer_size
 Indicates the size of the send and receive network buffers.
@@ -51,6 +54,8 @@ b | blocking - uses blocking calls
 f | fork - fork server processing (forces -T s option)
 .P
 n | nonblocking - uses non-blocking calls
+.P
+r | resolve - use rdma cm to resolve address
 .P
 v | verify - verifies data transfers
 .SH "NOTES"
