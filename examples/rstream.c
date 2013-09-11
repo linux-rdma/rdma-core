@@ -586,6 +586,8 @@ int main(int argc, char **argv)
 				rai_hints.ai_flags = RAI_NUMERICHOST | RAI_FAMILY;
 				rai_hints.ai_family = AF_IB;
 				use_rgai = 1;
+			} else {
+				fprintf(stderr, "Warning: unknown address format\n");
 			}
 			break;
 		case 'B':
