@@ -112,7 +112,7 @@ int sa_query(struct sa_handle * h, uint8_t method,
 
 	ret = umad_send(h->fd, h->agent, umad, len, ibd_timeout, 0);
 	if (ret < 0) {
-		IBWARN("umad_send failed: attr %u: %s\n",
+		IBWARN("umad_send failed: attr 0x%x: %s\n",
 			attr, strerror(errno));
 		free(umad);
 		return (-ret);
