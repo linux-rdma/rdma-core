@@ -75,6 +75,7 @@ fi
 %config(noreplace) %{_sysconfdir}/rsyslog.d/srp_daemon.conf
 %{_sysconfdir}/init.d/srpd
 %{_sbindir}/ibsrpdm
+%{_sbindir}/run_srp_daemon
 %{_sbindir}/srp_daemon
 %{_sbindir}/srp_daemon.sh
 %{_mandir}/man1/ibsrpdm.1*
