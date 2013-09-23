@@ -34,6 +34,11 @@ install-exec-hook:
 	    rm -f $(DESTDIR)$(sbindir)/ibsrpdm;		\
 	fi;						\
 	cd $(DESTDIR)$(sbindir) && ln -s srp_daemon ibsrpdm
+# Backward compatability for DDN supplied srptools package
+	if test -e $(DESTDIR)$(sbindir)/run_srp_daemon; then	\
+	    rm -f $(DESTDIR)$(sbindir)/run_srp_daemon;		\
+	fi;							\
+	cd $(DESTDIR)$(sbindir) && ln -s srp_daemon run_srp_daemon
 
 install-data-hook:
 	if test -e $(DESTDIR)$(sysconfdir)/srp_daemon.conf; then	\
