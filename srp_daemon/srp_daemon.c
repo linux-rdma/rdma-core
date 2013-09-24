@@ -1034,6 +1034,70 @@ int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
 			 *pkey, pkey_index);
 	return 0;
 }
+
+static int get_shared_pkeys(struct resources *res,
+			    uint16_t dest_port_lid,
+			    uint16_t *pkeys)
+{
+	struct umad_resources          *umad_res = res->umad_res;
+	uint8_t                        *in_mad_buf;
+	srp_ib_user_mad_t		out_mad;
+	struct ib_user_mad	       *in_mad;
+	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	ib_path_rec_t		       *path_rec;
+	ssize_t len;
+	int size;
+	int i, num_pkeys = 0;
+	uint16_t local_port_lid = get_port_lid(res->ud_res->ib_ctx,
+					       config->port_num);
+
+	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
+			    node_table_response_size);
+	if (!in_mad_buf)
+		return -ENOMEM;
+
+	in_mad = (void *)in_mad_buf;
+	in_sa_mad = (void *)in_mad->data;
+	out_sa_mad = get_data_ptr(out_mad);
+
+	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
+		        SRP_SA_ATTR_PATH_REC, 0);
+
+	out_sa_mad->method = SRP_SA_METHOD_GET_TABLE;
+	/* Mark components: DLID, SLID, NUM_PATH */
+	out_sa_mad->comp_mask = htonll(1 << 4 | 1 << 5 | 1 << 12);
+	out_sa_mad->rmpp_version = 1;
+	out_sa_mad->rmpp_type = 1;
+	path_rec = (ib_path_rec_t *)out_sa_mad->data;
+	path_rec->slid = htons(local_port_lid);
+	path_rec->dlid = htons(dest_port_lid);
+	path_rec->num_path = SRP_MAX_SHARED_PKEYS;
+
+	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
+			   (srp_ib_user_mad_t *)in_mad,
+			   node_table_response_size);
+	if (len < 0)
+		goto err;
+
+	size = ib_get_attr_size(in_sa_mad->attr_offset);
+	if (!size) {
+		if (config->verbose)
+			printf("Query did not find any targets\n");
+		goto err;
+	}
+	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
+		path_rec = (void *)in_sa_mad->data + i * size;
+		pkeys[i] = ntohs(path_rec->pkey);
+		num_pkeys++;
+	}
+
+	free(in_mad_buf);
+	return num_pkeys;
+err:
+	free(in_mad_buf);
+	return -1;
+}
+
 static int do_dm_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
@@ -1044,8 +1108,8 @@ static int do_dm_port_list(struct resources *res)
 	struct srp_sa_port_info_rec    *port_info;
 	ssize_t len;
 	int size;
-	int i, j;
-	uint16_t pkey_val;
+	int i, j,num_pkeys;
+	uint16_t pkeys[SRP_MAX_SHARED_PKEYS];
 	uint64_t guid;
 
 	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
@@ -1067,41 +1131,40 @@ static int do_dm_port_list(struct resources *res)
 	port_info		   = (void *) out_sa_mad->data;
 	port_info->capability_mask = htonl(SRP_IS_DM); /* IsDM */
 
-	/* Loop on all pkeys in pkey-table */
-	for (j = 0; ; j++) {
-		if (pkey_index_to_pkey(umad_res, j, &pkey_val))
-			break;
-		if (!pkey_val)
+	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
+			   (srp_ib_user_mad_t *) in_mad,
+			   node_table_response_size);
+	if (len < 0) {
+		free(in_mad_buf);
+		return len;
+	}
+
+	size = ib_get_attr_size(in_sa_mad->attr_offset);
+	if (!size) {
+		if (config->verbose) {
+			printf("Query did not find any targets\n");
+		}
+		free(in_mad_buf);
+		return 0;
+	}
+
+	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
+		port_info = (void *) in_sa_mad->data + i * size;
+		if (get_node(umad_res, ntohs(port_info->endport_lid), &guid))
 			continue;
 
-		out_mad.hdr.addr.pkey_index = j;
-		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-				   (srp_ib_user_mad_t *) in_mad,
-				   node_table_response_size);
-		if (len < 0) {
+		num_pkeys = get_shared_pkeys(res, ntohs(port_info->endport_lid),
+					     pkeys);
+		if (num_pkeys < 0) {
+			pr_err("failed to get shared P_Keys with LID %x\n",
+			       ntohs(port_info->endport_lid));
 			free(in_mad_buf);
-			return len;
+			return num_pkeys;
 		}
 
-		size = ib_get_attr_size(in_sa_mad->attr_offset);
-
-		if (!size) {
-			if (config->verbose) {
-				printf("Query did not find any targets\n");
-			}
-			free(in_mad_buf);
-			return 0;
-		}
-
-		for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
-			port_info = (void *) in_sa_mad->data + i * size;
-
-			if (get_node(umad_res, ntohs(port_info->endport_lid), &guid))
-				continue;
-
-			do_port(res, pkey_val, ntohs(port_info->endport_lid),
+		for (j = 0; j < num_pkeys; ++j)
+			do_port(res, pkeys[j], ntohs(port_info->endport_lid),
 				ntohll(port_info->subnet_prefix), guid);
-		}
 	}
 
 	free(in_mad_buf);
@@ -1135,8 +1198,8 @@ static int do_full_port_list(struct resources *res)
 	struct srp_sa_node_rec	       *node;
 	ssize_t len;
 	int size;
-	int i, j;
-	uint16_t pkey_val;
+	int i, j, num_pkeys;
+	uint16_t pkeys[SRP_MAX_SHARED_PKEYS];
 
 	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
 			    node_table_response_size);
@@ -1155,30 +1218,31 @@ static int do_full_port_list(struct resources *res)
 	out_sa_mad->rmpp_version  = 1;
 	out_sa_mad->rmpp_type     = 1;
 
-	/* Loop on all pkeys in pkey-table */
-	for (j = 0; ; j++) {
-		if (pkey_index_to_pkey(umad_res, j, &pkey_val))
-			break;
-		if (!pkey_val)
-			continue;
+	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
+			   (srp_ib_user_mad_t *) in_mad,
+			   node_table_response_size);
+	if (len < 0) {
+		free(in_mad_buf);
+		return len;
+	}
 
-		out_mad.hdr.addr.pkey_index = j;
-		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-				   (srp_ib_user_mad_t *) in_mad,
-				   node_table_response_size);
-		if (len < 0) {
+	size = ntohs(in_sa_mad->attr_offset) * 8;
+
+	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
+		node = (void *) in_sa_mad->data + i * size;
+
+		num_pkeys = get_shared_pkeys(res, ntohs(node->lid),
+					     pkeys);
+		if (num_pkeys < 0) {
+			pr_err("failed to get shared P_Keys with LID %x\n",
+			       ntohs(node->lid));
 			free(in_mad_buf);
-			return len;
+			return num_pkeys;
 		}
 
-		size = ntohs(in_sa_mad->attr_offset) * 8;
-
-		for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
-			node = (void *) in_sa_mad->data + i * size;
-
-			(void) handle_port(res, pkey_val, ntohs(node->lid),
+		for (j = 0; j < num_pkeys; ++j)
+			(void) handle_port(res, pkeys[j], ntohs(node->lid),
 					   ntohll(node->port_guid));
-		}
 	}
 
 	free(in_mad_buf);
