@@ -57,6 +57,10 @@ stop_srp_daemon() {
         sleep 0.1
     done
     kill -9 $pid
+    # If srp_daemon executables didn't finish by now
+    # force kill
+    pkill -9 srp_daemon
+
     return 0
 }
 
