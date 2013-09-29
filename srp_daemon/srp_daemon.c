@@ -399,7 +399,8 @@ static int add_non_exist_target(struct target_details *target)
 		if (!check_equal_uint64(scsi_host_dir, "id_ext",
 				        strtoull(target->id_ext, 0, 16)))
 			continue;
-		if (!check_equal_uint16(scsi_host_dir, "pkey", target->pkey))
+		if (!check_equal_uint16(scsi_host_dir, "pkey", target->pkey) &&
+		    !config->execute)
 			continue;
 
 		if (!check_equal_uint64(scsi_host_dir, "service_id",
