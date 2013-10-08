@@ -1048,6 +1048,7 @@ static int get_shared_pkeys(struct resources *res,
 	ssize_t len;
 	int size;
 	int i, num_pkeys = 0;
+	uint16_t pkey;
 	uint16_t local_port_lid = get_port_lid(res->ud_res->ib_ctx,
 					       config->port_num);
 
@@ -1063,32 +1064,44 @@ static int get_shared_pkeys(struct resources *res,
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
 		        SRP_SA_ATTR_PATH_REC, 0);
 
-	out_sa_mad->method = SRP_SA_METHOD_GET_TABLE;
-	/* Mark components: DLID, SLID, NUM_PATH */
-	out_sa_mad->comp_mask = htonll(1 << 4 | 1 << 5 | 1 << 12);
-	out_sa_mad->rmpp_version = 1;
-	out_sa_mad->rmpp_type = 1;
-	path_rec = (ib_path_rec_t *)out_sa_mad->data;
-	path_rec->slid = htons(local_port_lid);
-	path_rec->dlid = htons(dest_port_lid);
-	path_rec->num_path = SRP_MAX_SHARED_PKEYS;
+	/**
+	 * Due to OpenSM bug (issue #335016) SM won't return
+	 * table of all shared P_Keys, it will return only the first
+	 * shared P_Key, So we send path_rec over each P_Key in the P_Key
+	 * table. SM will return path record if P_Key is shared or else None.
+	 * Once SM bug will be fixed, this loop should be removed.
+	 **/
+	for (i = 0; ; i++) {
+		if (pkey_index_to_pkey(umad_res, i, &pkey))
+			break;
+		if (!pkey)
+			continue;
 
-	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-			   (srp_ib_user_mad_t *)in_mad,
-			   node_table_response_size);
-	if (len < 0)
-		goto err;
+		/* Mark components: DLID, SLID, PKEY */
+		out_sa_mad->comp_mask = htonll(1 << 4 | 1 << 5 | 1 << 13);
+		out_sa_mad->rmpp_version = 1;
+		out_sa_mad->rmpp_type = 1;
+		path_rec = (ib_path_rec_t *)out_sa_mad->data;
+		path_rec->slid = htons(local_port_lid);
+		path_rec->dlid = htons(dest_port_lid);
+		path_rec->pkey = htons(pkey);
 
-	size = ib_get_attr_size(in_sa_mad->attr_offset);
-	if (!size) {
-		if (config->verbose)
-			printf("Query did not find any targets\n");
-		goto err;
-	}
-	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
-		path_rec = (void *)in_sa_mad->data + i * size;
-		pkeys[i] = ntohs(path_rec->pkey);
-		num_pkeys++;
+		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
+				   (srp_ib_user_mad_t *)in_mad,
+				   node_table_response_size);
+		if (len < 0)
+			goto err;
+
+		size = ib_get_attr_size(in_sa_mad->attr_offset);
+		if (!size) {
+			if (config->verbose)
+				printf("PathRec Query did not find any targets "
+				       "over P_Key %x\n", pkey);
+			continue;
+		}
+
+		path_rec = (ib_path_rec_t *)in_sa_mad->data;
+		pkeys[num_pkeys++] = ntohs(path_rec->pkey);
 	}
 
 	free(in_mad_buf);
