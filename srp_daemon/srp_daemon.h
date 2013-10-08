@@ -307,7 +307,6 @@ struct rule {
 	char id_ext[17], ioc_guid[17], dgid[33], service_id[17], pkey[10], options[128];
 };
 
-#define  SRP_MAX_SHARED_PKEYS 127
 #define  MAX_ID_EXT_STRING_LENGTH 17
 
 struct target_details {
