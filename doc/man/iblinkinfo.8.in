@@ -243,8 +243,6 @@ May be used several times (\-vv or \-v \-v \-v)
 .
 .sp
 \fB\-V, \-\-version\fP     show the version info.
-.sp
-\fB\-R\fP (This option is obsolete and does nothing)
 .SH EXIT STATUS
 .sp
 0 on success, \-1 on failure to scan the fabric, 1 if check mode is used and

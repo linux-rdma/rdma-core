@@ -629,8 +629,6 @@ int main(int argc, char **argv)
 		 "Output only switches"},
 		{"cas-only", 7, 0, NULL,
 		 "Output only CAs"},
-		{"GNDN", 'R', 0, NULL,
-		 "(This option is obsolete and does nothing)"},
 		{0}
 	};
 	char usage_args[] = "";

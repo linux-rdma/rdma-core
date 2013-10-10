@@ -109,8 +109,6 @@ Debugging flags
 .. include:: common/opt_v.rst
 .. include:: common/opt_V.rst
 
-**-R** (This option is obsolete and does nothing)
-
 EXIT STATUS
 ===========
 
