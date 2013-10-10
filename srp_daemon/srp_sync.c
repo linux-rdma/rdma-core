@@ -140,7 +140,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid, uint16_t pkey)
 	if (res->next_task == SIZE_OF_TASKS_LIST) {
 		/* if the list is full, lets do a full rescan */
 
-		schedule_rescan(res, 0);
+		__schedule_rescan(res, 0);
 		res->next_task = 0;
 	} else {
 		/* otherwise enter to the next entry */
@@ -178,7 +178,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid, uint16_t pkey)
 	if (res->next_task == SIZE_OF_TASKS_LIST) {
 		/* if the list is full, lets do a full rescan */
 
-		schedule_rescan(res, 0);
+		__schedule_rescan(res, 0);
 		res->next_task = 0;
 	} else {
 		/* otherwise enter to the next entry */
