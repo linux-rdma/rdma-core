@@ -34,6 +34,8 @@ OPTIONS
 **-m**
         show the multicast trace of the specified mlid
 
+**-f, --force**
+        force route to destination port
 
 
 Addressing Flags

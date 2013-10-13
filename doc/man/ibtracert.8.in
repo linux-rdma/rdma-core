@@ -108,6 +108,13 @@ ibaddr \-C mthca0 \-P 2  # use the specified port only.
 .UNINDENT
 .UNINDENT
 .SS Debugging flags
+.\" Define the common option -f
+.
+.INDENT 0.0
+.TP
+.B \-f
+force route to destination port.
+.UNINDENT
 .\" Define the common option -d
 .
 .INDENT 0.0
