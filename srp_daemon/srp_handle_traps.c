@@ -577,15 +577,22 @@ static int register_to_trap(struct sync_resources *sync_res,
 			0 );                       /* Attribute Modifier */
 
 
-	data->lid_range_begin                  = 0xFFFF;
-	data->is_generic                       = 1;
-	data->subscribe                        = 1;
-	data->trap_type                        = htons(3); /* SM */
-	data->g_or_v.generic.trap_num          = htons(trap_num);
-        data->g_or_v.generic.node_type_msb     = 0;
-        data->g_or_v.generic.node_type_lsb     = htons(4); /* Class Manager */
-
-        p_sa_mad->comp_mask = htonll( 2 | 16 | 32 | 64 | 128 | 4096 );
+	data->lid_range_begin = 0xFFFF;
+	data->is_generic = 1;
+	data->subscribe = 1;
+	if (trap_num == SRP_TRAP_JOIN)
+		data->trap_type = htons(3); /* SM */
+	else if (trap_num == SRP_TRAP_CHANGE_CAP)
+		data->trap_type = htons(4); /* Informational */
+	data->g_or_v.generic.trap_num = htons(trap_num);
+        data->g_or_v.generic.node_type_msb = 0;
+	if (trap_num == SRP_TRAP_JOIN)
+		/* Class Manager */
+		data->g_or_v.generic.node_type_lsb = htons(4);
+	else if (trap_num == SRP_TRAP_CHANGE_CAP)
+		/* Channel Adapter */
+		data->g_or_v.generic.node_type_lsb = htons(1);
+	p_sa_mad->comp_mask = htonll( 2 | 16 | 32 | 64 | 128 | 4096);
 
 	do {
 		pthread_mutex_lock(res->mad_buffer_mutex);
