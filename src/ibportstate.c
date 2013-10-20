@@ -388,7 +388,7 @@ int main(int argc, char **argv)
 	uint64_t val;
 	char *endp;
 	char usage_args[] = "<dest dr_path|lid|guid> <portnum> [<op>]\n"
-	    "\nSupported ops: enable, disable, reset, speed, espeed, fdr10,\n"
+	    "\nSupported ops: enable, disable, on, off, reset, speed, espeed, fdr10,\n"
 	    "\twidth, query, down, arm, active, vls, mtu, lid, smlid, lmc,\n"
 	    "\tmkey, mkeylease, mkeyprot\n";
 	const char *usage_examples[] = {
