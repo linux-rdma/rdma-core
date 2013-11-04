@@ -125,6 +125,7 @@ man_MANS = \
 	man/rdma_client.1 \
 	man/rdma_xserver.1 \
 	man/rdma_xclient.1 \
+	man/riostream.1 \
 	man/rstream.1 \
 	man/rcopy.1 \
 	man/rdma_cm.7 \
