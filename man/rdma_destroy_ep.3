@@ -5,16 +5,13 @@ rdma_destroy_ep \- Release a communication identifier.
 .SH SYNOPSIS
 .B "#include <rdma/rdma_cma.h>"
 .P
-.B "int" rdma_destroy_ep
+.B "void" rdma_destroy_ep
 .BI "(struct rdma_cm_id *" id ");"
 .SH ARGUMENTS
 .IP "id" 12
 The communication identifier to destroy.
 .SH "DESCRIPTION"
 Destroys the specified rdma_cm_id and all associated resources
-.SH "RETURN VALUE"
-Returns 0 on success, or -1 on error.  If an error occurs, errno will be
-set to indicate the failure reason.
 .SH "NOTES"
 rdma_destroy_ep will automatically destroy any QP and SRQ associated with
 the rdma_cm_id.
