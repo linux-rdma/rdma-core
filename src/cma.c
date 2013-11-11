@@ -753,7 +753,10 @@ static int rdma_bind_addr2(struct rdma_cm_id *id, struct sockaddr *addr,
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
-	return ucma_query_addr(id);
+	ret = ucma_query_addr(id);
+	if (!ret)
+		ret = ucma_query_gid(id);
+	return ret;
 }
 
 int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
