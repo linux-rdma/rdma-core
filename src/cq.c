@@ -439,7 +439,7 @@ int mlx4_get_outstanding_cqes(struct mlx4_cq *cq)
 {
 	uint32_t i;
 
-	for (i = cq->cons_index; get_sw_cqe(cq, (i & cq->ibv_cq.cqe)); ++i)
+	for (i = cq->cons_index; get_sw_cqe(cq, i); ++i)
 		;
 
 	return i - cq->cons_index;
