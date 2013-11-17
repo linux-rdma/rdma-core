@@ -856,11 +856,29 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		memcpy(ah->av.dgid, attr->grh.dgid.raw, 16);
 	}
 
-	if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET)
-		if (mlx4_resolve_grh_to_l2(pd, ah, attr)) {
-			free(ah);
-			return NULL;
+	if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET) {
+		if (port_attr.port_cap_flags & IBV_PORT_IP_BASED_GIDS) {
+			uint16_t vid;
+
+			if (ibv_resolve_eth_l2_from_gid(pd->context, attr,
+							ah->mac, &vid)) {
+				free(ah);
+				return NULL;
+			}
+
+			if (vid <= 0xfff) {
+				ah->av.port_pd |= htonl(1 << 29);
+				ah->vlan = vid |
+					((attr->sl & 7) << 13);
+			}
+
+		} else {
+			if (mlx4_resolve_grh_to_l2(pd, ah, attr)) {
+				free(ah);
+				return NULL;
+			}
 		}
+	}
 
 	return &ah->ibv_ah;
 }
