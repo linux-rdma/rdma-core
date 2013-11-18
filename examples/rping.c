@@ -82,6 +82,7 @@ enum test_state {
 	RDMA_READ_COMPLETE,
 	RDMA_WRITE_ADV,
 	RDMA_WRITE_COMPLETE,
+	DISCONNECTED,
 	ERROR
 };
 
@@ -217,6 +218,7 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 	case RDMA_CM_EVENT_DISCONNECTED:
 		fprintf(stderr, "%s DISCONNECT EVENT...\n",
 			cb->server ? "server" : "client");
+		cb->state = DISCONNECTED;
 		sem_post(&cb->sem);
 		break;
 
@@ -718,7 +720,7 @@ static int rping_test_server(struct rping_cb *cb)
 		DEBUG_LOG("server posted go ahead\n");
 	}
 
-	return ret;
+	return (cb->state == DISCONNECTED) ? 0 : ret;
 }
 
 static int rping_bind_server(struct rping_cb *cb)
@@ -966,7 +968,7 @@ static int rping_test_client(struct rping_cb *cb)
 			printf("ping data: %s\n", cb->rdma_buf);
 	}
 
-	return ret;
+	return (cb->state == DISCONNECTED) ? 0 : ret;
 }
 
 static int rping_connect_client(struct rping_cb *cb)
@@ -1203,7 +1205,7 @@ int main(int argc, char *argv[])
 	cb->cm_channel = rdma_create_event_channel();
 	if (!cb->cm_channel) {
 		perror("rdma_create_event_channel");
-		ret = ENOMEM;
+		ret = errno;
 		goto out;
 	}
 
