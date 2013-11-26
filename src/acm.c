@@ -137,6 +137,9 @@ void ucma_ib_init(void)
 		return;
 
 	pthread_mutex_lock(&acm_lock);
+	if (init)
+		goto unlock;
+
 	if (!ucma_set_server_port())
 		goto out;
 
@@ -155,6 +158,7 @@ void ucma_ib_init(void)
 	}
 out:
 	init = 1;
+unlock:
 	pthread_mutex_unlock(&acm_lock);
 }
 
