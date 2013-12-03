@@ -50,20 +50,19 @@ trap_handler()
 }
 
 # Check if there is another copy running of srp_daemon.sh
-if [ -f $pidfile -a ! -e /proc/$(cat $pidfile 2>/dev/null)/status ]; then
-    rm -f $pidfile
-fi
-if ! echo $mypid > $pidfile.$mypid; then
-    echo "Creating $pidfile.$mypid failed"
-    exit 1
-fi
-mv -n $pidfile.$mypid $pidfile
-if [ -e $pidfile.$mypid ]; then
-    rm -f $pidfile.$mypid
-    echo "$(basename $0) is already running. Exiting."
-    exit 1
+if [ -f $pidfile ]; then
+    if [ -e /proc/$(cat $pidfile 2>/dev/null)/status ]; then
+        echo "$(basename $0) is already running. Exiting."
+        exit 1
+    else
+        /bin/rm -f $pidfile
+    fi
 fi
 
+if ! echo $mypid > $pidfile; then
+    echo "Creating $pidfile for pid $mypid failed"
+    exit 1
+fi
 
 trap 'trap_handler' 2 15
 
