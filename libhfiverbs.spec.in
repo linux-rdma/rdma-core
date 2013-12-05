@@ -37,7 +37,7 @@
 %define RELEASE 1
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Name: libipathverbs
+Name: libhfiverbs
 Version: %ver
 Release: %rel%{?dist}
 Summary: QLogic InfiniPath HCA Userspace Driver
@@ -51,16 +51,17 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-root
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
 
 %description
-libipathverbs provides a device-specific userspace driver for QLogic HCAs
-for use with the libibverbs library.
+libhfiverbs provides a device-specific userspace driver for Intel Host
+Fabric interface cards.  This driver is designed for use with the
+libibverbs library.
 
 %package devel
-Summary: Development files for the libipathverbs driver
+Summary: Development files for the libhfiverbs driver
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
 
 %description devel
-Static version of libipathverbs that may be linked directly to an
+Static version of libhfiverbs that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep
@@ -81,10 +82,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_libdir}/libipathverbs*.so
+%{_libdir}/libhfiverbs*.so
 %doc AUTHORS COPYING README
-%config %{_sysconfdir}/libibverbs.d/ipath.driver
+%config %{_sysconfdir}/libibverbs.d/hfi.driver
 
 %files devel
 %defattr(-,root,root,-)
-%{_libdir}/libipathverbs*.a
+%{_libdir}/libhfiverbs*.a

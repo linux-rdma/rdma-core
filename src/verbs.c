@@ -47,8 +47,8 @@
 #include <sys/mman.h>
 #include <errno.h>
 
-#include "ipathverbs.h"
-#include "ipath-abi.h"
+#include "hfiverbs.h"
+#include "hfi-abi.h"
 
 int ipath_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr)

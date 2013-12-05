@@ -44,50 +44,26 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "ipathverbs.h"
-#include "ipath-abi.h"
+#include "hfiverbs.h"
+#include "hfi-abi.h"
 
-#ifndef PCI_VENDOR_ID_PATHSCALE
-#define PCI_VENDOR_ID_PATHSCALE			0x1fc1
+#ifndef PCI_VENDOR_ID_INTEL
+#define PCI_VENDOR_ID_INTEL			0x8086
 #endif
 
-#ifndef PCI_VENDOR_ID_QLOGIC
-#define PCI_VENDOR_ID_QLOGIC			0x1077
-#endif
-
-#ifndef PCI_DEVICE_ID_INFINIPATH_HT
-#define PCI_DEVICE_ID_INFINIPATH_HT		0x000d
-#endif
-
-#ifndef PCI_DEVICE_ID_INFINIPATH_PE800
-#define PCI_DEVICE_ID_INFINIPATH_PE800		0x0010
-#endif
-
-#ifndef PCI_DEVICE_ID_INFINIPATH_6220
-#define PCI_DEVICE_ID_INFINIPATH_6220		0x6220
-#endif
-
-#ifndef PCI_DEVICE_ID_INFINIPATH_7220
-#define PCI_DEVICE_ID_INFINIPATH_7220		0x7220
-#endif
-
-#ifndef PCI_DEVICE_ID_INFINIPATH_7322
-#define PCI_DEVICE_ID_INFINIPATH_7322		0x7322
+#ifndef PCI_DEVICE_ID_HFI_GEN1
+#define PCI_DEVICE_ID_HFI_GEN1			0x24f0
 #endif
 
 #define HCA(v, d) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_INFINIPATH_##d }
+	  .device = PCI_DEVICE_ID_HFI_##d }
 
 struct {
 	unsigned		vendor;
 	unsigned		device;
 } hca_table[] = {
-	HCA(PATHSCALE,	HT),
-	HCA(PATHSCALE,	PE800),
-	HCA(QLOGIC,	6220),
-	HCA(QLOGIC,	7220),
-	HCA(QLOGIC,	7322),
+	HCA(INTEL,	GEN1),
 };
 
 static struct ibv_context_ops ipath_ctx_ops = {

@@ -35,29 +35,29 @@
 
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 
-ipathverbs_version_script = @IPATHVERBS_VERSION_SCRIPT@
+hfiverbs_version_script = @HFIVERBS_VERSION_SCRIPT@
 
-IPATHVERBS_SOURCES = src/ipathverbs.c src/verbs.c
+HFIVERBS_SOURCES = src/hfiverbs.c src/verbs.c
 
 if HAVE_IBV_DEVICE_LIBRARY_EXTENSION
-    lib_LTLIBRARIES = src/libipathverbs.la
-    src_libipathverbs_la_SOURCES = $(IPATHVERBS_SOURCES)
-    src_libipathverbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
-        $(ipathverbs_version_script)
-    ipathverbsconfdir = $(sysconfdir)/libibverbs.d
-    ipathverbsconf_DATA = ipath.driver
+    lib_LTLIBRARIES = src/libhfiverbs.la
+    src_libhfiverbs_la_SOURCES = $(HFIVERBS_SOURCES)
+    src_libhfiverbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
+        $(hfiverbs_version_script)
+    hfiverbsconfdir = $(sysconfdir)/libibverbs.d
+    hfiverbsconf_DATA = hfi.driver
 else
-    ipathverbslibdir = $(libdir)/infiniband
-    ipathverbslib_LTLIBRARIES = src/ipathverbs.la
-    src_ipathverbs_la_SOURCES = $(IPATHVERBS_SOURCES)
-    src_ipathverbs_la_LDFLAGS = -avoid-version -module $(ipathverbs_version_script)
+    hfiverbslibdir = $(libdir)/infiniband
+    hfiverbslib_LTLIBRARIES = src/hfiverbs.la
+    src_hfiverbs_la_SOURCES = $(HFIVERBS_SOURCES)
+    src_hfiverbs_la_LDFLAGS = -avoid-version -module $(hfiverbs_version_script)
 endif
 
-EXTRA_DIST = src/ipathverbs.h \
-    src/ipath-abi.h \
-    src/ipathverbs.map \
-    libipathverbs.spec.in \
-    ipath.driver
+EXTRA_DIST = src/hfiverbs.h \
+    src/hfi-abi.h \
+    src/hfiverbs.map \
+    libhfiverbs.spec.in \
+    hfi.driver
 
-dist-hook: libipathverbs.spec
-	cp libipathverbs.spec $(distdir)
+dist-hook: libhfiverbs.spec
+	cp libhfiverbs.spec $(distdir)

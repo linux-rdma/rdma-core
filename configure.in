@@ -36,11 +36,11 @@ dnl combinations of this program with other software, or any other
 dnl product whatsoever.
 
 AC_PREREQ(2.57)
-AC_INIT(libipathverbs, 1.2, support@qlogic.com)
-AC_CONFIG_SRCDIR([src/ipathverbs.h])
+AC_INIT(libhfiverbs, 1.2, ibsupport@intel.com)
+AC_CONFIG_SRCDIR([src/hfiverbs.h])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libipathverbs, 1.2)
+AM_INIT_AUTOMAKE(libhfiverbs, 1.2)
 AM_PROG_LIBTOOL
 
 AC_ARG_WITH([valgrind],
@@ -61,11 +61,11 @@ AC_PROG_CC
 
 dnl Checks for libraries
 AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
-    AC_MSG_ERROR([ibv_get_device_list() not found.  libipathverbs requires libibverbs.]))
+    AC_MSG_ERROR([ibv_get_device_list() not found.  libhfiverbs requires libibverbs.]))
 
 dnl Checks for header files.
 AC_CHECK_HEADER(infiniband/driver.h, [],
-    AC_MSG_ERROR([<infiniband/driver.h> not found.  libipathverbs requires libibverbs.]))
+    AC_MSG_ERROR([<infiniband/driver.h> not found.  libhfiverbs requires libibverbs.]))
 AC_HEADER_STDC
 AC_CHECK_HEADER(valgrind/memcheck.h, memcheck_ok=yes, memcheck_ok=no)
 
@@ -95,11 +95,11 @@ AC_SUBST(IBV_DEVICE_LIBRARY_EXTENSION)
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     [if test -n "`$LD --help < /dev/null 2>/dev/null | grep version-script`"; then
-        IPATHVERBS_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/ipathverbs.map'
+        HFIVERBS_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/hfiverbs.map'
     else
-        IPATHVERBS_VERSION_SCRIPT=
+        HFIVERBS_VERSION_SCRIPT=
     fi])
-AC_SUBST(IPATHVERBS_VERSION_SCRIPT)
+AC_SUBST(HFIVERBS_VERSION_SCRIPT)
 
-AC_CONFIG_FILES([Makefile libipathverbs.spec])
+AC_CONFIG_FILES([Makefile libhfiverbs.spec])
 AC_OUTPUT
