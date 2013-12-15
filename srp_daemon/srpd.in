@@ -86,7 +86,7 @@ start() {
     fi
     if running; then
 	echo "Already started"
-	return 1
+	return 0
     fi
 
     echo -n "Starting SRP daemon service"
