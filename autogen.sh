@@ -1,6 +1,5 @@
-#! /bin/sh
+#!/bin/sh -exE
 
-set -x
 aclocal -I config
 libtoolize --force --copy
 autoheader
