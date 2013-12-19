@@ -1893,6 +1893,7 @@ int main(int argc, char *argv[])
 	ib_gid_t 		gid;
 	struct target_details  *target;
 	struct sigaction	sa;
+	int			subscribed = 0;
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
@@ -1989,8 +1990,13 @@ int main(int argc, char *argv[])
 					goto kill_threads;
 			}
 
-			if (res->ud_res->ah && register_to_traps(res))
-				pr_err("Fail to register to traps, maybe there is no opensm running on fabric\n");
+			if (res->ud_res->ah) {
+			    if (register_to_traps(res, 1))
+				    pr_err("Fail to register to traps, maybe there "
+					   "is no opensm running on fabric or IB port is down\n");
+			    else
+				    subscribed = 1;
+			}
 
 			clear_traps_list(res->sync_res);
 			schedule_rescan(res->sync_res, config->recalc_time ?
@@ -2073,6 +2079,9 @@ kill_threads:
 		break;
 	}
 
+	if (subscribed)
+		/* Traps deregistration before exiting */
+		register_to_traps(res, 0);
 free_res:
 	free_res(res);
 clean_umad:

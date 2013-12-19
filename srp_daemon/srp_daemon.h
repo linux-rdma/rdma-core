@@ -439,7 +439,7 @@ void *run_thread_get_trap_notices(void *res_in);
 void *run_thread_listen_to_events(void *res_in);
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid);
 int create_trap_resources(struct ud_resources *ud_res);
-int register_to_traps(struct resources *res);
+int register_to_traps(struct resources *res, int subscribe);
 uint16_t get_port_lid(struct ibv_context *ib_ctx, int port_num);
 int create_ah(struct ud_resources *ud_res);
 void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid, uint16_t pkey);

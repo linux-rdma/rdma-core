@@ -38,6 +38,14 @@
 
 #include <netinet/in.h>
 
+#define SRP_INFORMINFO_LID_COMP		(1 << 1)
+#define SRP_INFORMINFO_ISGENERIC_COMP	(1 << 4)
+#define SRP_INFORMINFO_SUBSCRIBE_COMP	(1 << 5)
+#define SRP_INFORMINFO_TRAPTYPE_COMP	(1 << 6)
+#define SRP_INFORMINFO_TRAPNUM_COMP	(1 << 7)
+#define SRP_INFORMINFO_QPN_COMP		(1 << 8)
+#define SRP_INFORMINFO_PRODUCER_COMP	(1 << 12)
+
 #ifndef PACK_SUFFIX
 #define PACK_SUFFIX __attribute__((packed))
 #endif

@@ -548,7 +548,7 @@ static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
 *****************************************************************************/
 static int register_to_trap(struct sync_resources *sync_res,
 			    struct ud_resources *res, int dest_lid,
-			    int trap_num)
+			    int trap_num, int subscribe)
 {
 	struct ibv_send_wr sr;
 	struct ibv_wc wc;
@@ -558,12 +558,18 @@ static int register_to_trap(struct sync_resources *sync_res,
 	int counter = 0;
 	int rc = 0;
 	int ret;
+	long long unsigned comp_mask = 0;
 
 	ib_mad_t *mad_hdr = (ib_mad_t *) (res->send_buf);
         ib_sa_mad_t* p_sa_mad = (ib_sa_mad_t *) (res->send_buf);
 	ib_inform_info_t *data = (ib_inform_info_t *) (p_sa_mad->data);
 	static uint64_t trans_id = 0x0000FFFF;
-	pr_debug("Registering to trap:%d (sm in %d)\n", trap_num, dest_lid);
+
+	if (subscribe)
+		pr_debug("Registering to trap:%d (sm in %d)\n", trap_num, dest_lid);
+	else
+		pr_debug("Deregistering from trap:%d (sm in %d)\n", trap_num, dest_lid);
+
 	memset(res->send_buf, 0, SEND_SIZE);
 
 	fill_send_request(res, &sr, &sg, mad_hdr);
@@ -592,7 +598,16 @@ static int register_to_trap(struct sync_resources *sync_res,
 	else if (trap_num == SRP_TRAP_CHANGE_CAP)
 		/* Channel Adapter */
 		data->g_or_v.generic.node_type_lsb = htons(1);
-	p_sa_mad->comp_mask = htonll( 2 | 16 | 32 | 64 | 128 | 4096);
+
+	comp_mask |= SRP_INFORMINFO_LID_COMP	    |
+		     SRP_INFORMINFO_ISGENERIC_COMP  |
+		     SRP_INFORMINFO_SUBSCRIBE_COMP  |
+		     SRP_INFORMINFO_TRAPTYPE_COMP   |
+		     SRP_INFORMINFO_TRAPNUM_COMP    |
+		     SRP_INFORMINFO_PRODUCER_COMP;
+
+	p_sa_mad->comp_mask = htonll(comp_mask);
+	pr_debug("comp_mask: %llx\n", comp_mask);
 
 	do {
 		pthread_mutex_lock(res->mad_buffer_mutex);
@@ -755,7 +770,7 @@ void *run_thread_get_trap_notices(void *res_in)
 /*****************************************************************************
 * Function: register_to_traps
 *****************************************************************************/
-int register_to_traps(struct resources *res)
+int register_to_traps(struct resources *res, int subscribe)
 {
 	int rc;
 	int trap_numbers[] = {SRP_TRAP_JOIN, SRP_TRAP_CHANGE_CAP};
@@ -764,7 +779,7 @@ int register_to_traps(struct resources *res)
 	for (i=0; i < sizeof(trap_numbers) / sizeof(*trap_numbers); ++i) {
 		rc = register_to_trap(res->sync_res, res->ud_res,
 				      res->ud_res->port_attr.sm_lid,
-				      trap_numbers[i]);
+				      trap_numbers[i], subscribe);
 		if (rc != 0)
 			return rc;
 	}
