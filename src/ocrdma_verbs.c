@@ -271,9 +271,9 @@ static struct ibv_cq *ocrdma_create_cq_common(struct ibv_context *context,
 	void *map_addr;
 
 	cq = malloc(sizeof *cq);
-	if (!cq)
+	if (!cq) {
 		return NULL;
-
+	}
 	bzero(cq, sizeof *cq);
 	cmd.dpp_cq = dpp_cq;
 	status = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
@@ -523,7 +523,7 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 #ifdef DPP_CQ_SUPPORT
 	if (attrs->cap.max_inline_data) {
 		qp->dpp_cq = ocrdma_create_dpp_cq(pd->context,
-				OCRDMA_CREATE_QP_REQ_DPP_CREDIT_LIMIT);
+						  OCRDMA_CREATE_QP_REQ_DPP_CREDIT_LIMIT);
 		if (qp->dpp_cq) {
 			cmd.enable_dpp_cq = 1;
 			cmd.dpp_cq_id = qp->dpp_cq->cq_id;
@@ -548,7 +548,7 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 
 	qp->sq.max_sges = attrs->cap.max_send_sge;
 	qp->max_inline_data = attrs->cap.max_inline_data;
-
+	
 	qp->signaled = attrs->sq_sig_all;
 
 	qp->sq.max_cnt = resp.num_wqe_allocated;
@@ -877,6 +877,7 @@ int ocrdma_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	struct ibv_modify_qp cmd;
 	struct ocrdma_qp *qp = get_ocrdma_qp(ibqp);
 	int status;
+
 	status = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof cmd);
 	if ((!status) && (attr_mask & IBV_QP_STATE))
 		ocrdma_qp_state_machine(qp, attr->qp_state);
@@ -887,17 +888,19 @@ static void ocrdma_srq_toggle_bit(struct ocrdma_srq *srq, int idx)
 {
 	int i = idx / 32;
 	unsigned int mask = (1 << (idx % 32));
-	if (srq->idx_bit_fields[i] & mask)
-		srq->idx_bit_fields[i] &= ~mask;
-	else
-		srq->idx_bit_fields[i] |= mask;
 
+	if (srq->idx_bit_fields[i] & mask) {
+		srq->idx_bit_fields[i] &= ~mask;
+	} else {
+		srq->idx_bit_fields[i] |= mask;
+	}
 }
 
 static int ocrdma_srq_get_idx(struct ocrdma_srq *srq)
 {
 	int row = 0;
 	int indx = 0;
+
 	for (row = 0; row < srq->bit_fields_len; row++) {
 		if (srq->idx_bit_fields[row]) {
 			indx = ffs(srq->idx_bit_fields[row]);
@@ -910,7 +913,7 @@ static int ocrdma_srq_get_idx(struct ocrdma_srq *srq)
 	}
 	if (row == srq->bit_fields_len)
 		assert(0);
-	return indx;
+	return indx + 1; /* Use the index from 1 */
 }
 
 static int ocrdma_dppq_credits(struct ocrdma_qp_hwq_info *q)
@@ -935,18 +938,18 @@ static inline int is_hw_rq_empty(struct ocrdma_qp *qp)
 
 static inline void *ocrdma_hwq_head(struct ocrdma_qp_hwq_info *q)
 {
-	return q->va + (q->head * q->entry_size);
+	return (q->va + (q->head * q->entry_size));
 }
 
 static inline void *ocrdma_wq_tail(struct ocrdma_qp_hwq_info *q)
 {
-	return q->va + (q->tail * q->entry_size);
+	return (q->va + (q->tail * q->entry_size));
 }
 
 static inline void *ocrdma_hwq_head_from_idx(struct ocrdma_qp_hwq_info *q,
 					     uint32_t idx)
 {
-	return q->va + (idx * q->entry_size);
+	return (q->va + (idx * q->entry_size));
 }
 
 static void ocrdma_hwq_inc_head(struct ocrdma_qp_hwq_info *q)
@@ -995,11 +998,16 @@ static inline void ocrdma_srq_inc_tail(struct ocrdma_qp *qp,
 				       struct ocrdma_cqe *cqe)
 {
 	int wqe_idx;
+
 	wqe_idx = (ocrdma_le_to_cpu(cqe->rq.buftag_qpn) >>
 	    OCRDMA_CQE_BUFTAG_SHIFT) & qp->srq->rq.max_wqe_idx;
+
+	if (wqe_idx < 1)
+		assert(0);
+
 	pthread_spin_lock(&qp->srq->q_lock);
 	ocrdma_hwq_inc_tail(&qp->srq->rq);
-	ocrdma_srq_toggle_bit(qp->srq, wqe_idx);
+	ocrdma_srq_toggle_bit(qp->srq, wqe_idx - 1);
 	pthread_spin_unlock(&qp->srq->q_lock);
 }
 
@@ -1014,10 +1022,10 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 	pthread_spin_lock(&cq->cq_lock);
 
 	/* traverse through the CQEs in the hw CQ,
-	 * find the matching CQE for a given qp,
+	 * find the matching CQE for a given qp, 
 	 * mark the matching one discarded=1.
 	 * discard the cqe.
-	 * ring the doorbell in the poll_cq() as
+	 * ring the doorbell in the poll_cq() as 
 	 * we don't complete out of order cqe.
 	 */
 	cur_getp = cq->getp;
@@ -1028,7 +1036,7 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 			break;
 
 		cqe = cq->va + cur_getp;
-		/* if (a) no valid cqe, or (b) done reading full hw cq, or
+		/* if (a) no valid cqe, or (b) done reading full hw cq, or 
 		 *    (c) qp_xq becomes empty.
 		 * then exit
 		 */
@@ -1041,9 +1049,6 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 		/* mark cqe discarded so that it is not picked up later
 		 * in the poll_cq().
 		 */
-		discard_cnt += 1;
-		/* discard by marking qp_id = 0 */
-		cqe->cmn.qpn = 0;
 		if (is_cqe_for_sq(cqe)) {
 			wqe_idx = (ocrdma_le_to_cpu(cqe->wq.wqeidx) &
 			    OCRDMA_CQE_WQEIDX_MASK) & qp->sq.max_wqe_idx;
@@ -1054,6 +1059,10 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 			else
 				ocrdma_hwq_inc_tail(&qp->rq);
 		}
+
+		discard_cnt += 1;
+		/* discard by marking qp_id = 0 */
+		cqe->cmn.qpn = 0;
 skip_cqe:
 		cur_getp = (cur_getp + 1) % cq->max_hw_cqe;
 
@@ -1073,7 +1082,7 @@ int ocrdma_destroy_qp(struct ibv_qp *ibqp)
 	qp = get_ocrdma_qp(ibqp);
 	dev = qp->dev;
 	id = dev->id;
-	/*
+	/* 
 	 * acquire CQ lock while destroy is in progress, in order to
 	 * protect against proessing in-flight CQEs for this QP.
 	 */
@@ -1096,7 +1105,7 @@ int ocrdma_destroy_qp(struct ibv_qp *ibqp)
 	if (qp->sq.va)
 		munmap(qp->sq.va, qp->sq.len);
 
-	/* ensure that CQEs for newly created QP (whose id may be same with
+	/* ensure that CQEs for newly created QP (whose id may be same with 
 	 * one which just getting destroyed are same), dont get
 	 * discarded until the old CQEs are discarded.
 	 */
@@ -1191,10 +1200,10 @@ static void ocrdma_build_sges(struct ocrdma_hdr_wqe *hdr,
 static inline uint32_t ocrdma_sglist_len(struct ibv_sge *sg_list, int num_sge)
 {
 	uint32_t total_len = 0, i;
-
+	
 	for (i = 0; i < num_sge; i++)
 		total_len += sg_list[i].length;
-	return total_len;
+	return total_len;	
 }
 
 static inline int ocrdma_build_inline_sges(struct ocrdma_qp *qp,
@@ -1204,9 +1213,10 @@ static inline int ocrdma_build_inline_sges(struct ocrdma_qp *qp,
 					   uint32_t wqe_size)
 {
 	int i;
+	char *dpp_addr;
 
 	if (wr->send_flags & IBV_SEND_INLINE && qp->qp_type != IBV_QPT_UD) {
-
+	
 		hdr->total_len = ocrdma_sglist_len(wr->sg_list, wr->num_sge);
 		if (hdr->total_len > qp->max_inline_data) {
 			ocrdma_err
@@ -1215,11 +1225,12 @@ static inline int ocrdma_build_inline_sges(struct ocrdma_qp *qp,
 			return -EINVAL;
 		}
 
+		dpp_addr = (char *)sge;
 		for (i = 0; i < wr->num_sge; i++) {
-			memcpy(sge,
+			memcpy(dpp_addr,
 				(void *)(unsigned long)wr->sg_list[i].addr,
 				wr->sg_list[i].length);
-			sge += wr->sg_list[i].length;
+			dpp_addr += wr->sg_list[i].length;
 		}
 
 		wqe_size += ROUND_UP_X(hdr->total_len, OCRDMA_WQE_ALIGN_BYTES);
@@ -1322,7 +1333,7 @@ static uint32_t ocrdma_get_hdr_len(struct ocrdma_qp *qp,
 		hdr_sz += sizeof(struct ocrdma_ewqe_ud_hdr);
 	if (hdr->cw & (OCRDMA_WRITE << OCRDMA_WQE_OPCODE_SHIFT))
 		hdr_sz += sizeof(struct ocrdma_sge);
-	return hdr_sz / sizeof(uint32_t);
+	return (hdr_sz / sizeof(uint32_t));
 }
 
 static void ocrdma_build_dpp_wqe(void *va, struct ocrdma_hdr_wqe *wqe,
@@ -1351,7 +1362,7 @@ static void ocrdma_post_dpp_wqe(struct ocrdma_qp *qp,
 		qp->wqe_wr_id_tbl[qp->sq.head].dpp_wqe = 1;
 		qp->wqe_wr_id_tbl[qp->sq.head].dpp_wqe_idx = qp->dpp_q.head;
 		/* if dpp cq is not enabled, we can post
-		 * wqe as soon as we receive and adapter
+		 * wqe as soon as we receive and adapter 
 		 * takes care of flow control.
 		 */
 		if (qp->dpp_cq)
@@ -1795,10 +1806,14 @@ static void ocrdma_update_free_srq_cqe(struct ibv_wc *ibwc,
 #else
 	wqe_idx = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn)) & 0xFFFF;
 #endif
+	if (wqe_idx < 1)
+		assert(0);
 	ibwc->wr_id = srq->rqe_wr_id_tbl[wqe_idx];
+
 	pthread_spin_lock(&srq->q_lock);
-	ocrdma_srq_toggle_bit(srq, wqe_idx);
+	ocrdma_srq_toggle_bit(srq, wqe_idx - 1);
 	pthread_spin_unlock(&srq->q_lock);
+
 	ocrdma_hwq_inc_tail(&srq->rq);
 }
 
@@ -1866,7 +1881,7 @@ static int ocrdma_poll_rcqe(struct ocrdma_qp *qp, struct ocrdma_cqe *cqe,
 	ibwc->wc_flags = 0;
 	if (qp->qp_type == IBV_QPT_UD)
 		status = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
-		 OCRDMA_CQE_UD_STATUS_MASK) >> OCRDMA_CQE_UD_STATUS_SHIFT;
+			  OCRDMA_CQE_UD_STATUS_MASK) >> OCRDMA_CQE_UD_STATUS_SHIFT;
 	else
 		status = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
 			  OCRDMA_CQE_STATUS_MASK) >> OCRDMA_CQE_STATUS_SHIFT;
@@ -2030,8 +2045,8 @@ int ocrdma_arm_cq(struct ibv_cq *ibcq, int solicited)
 
 	cq->armed = 1;
 	cq->solicited = solicited;
-	/* check whether any valid cqe exist or not, if not then safe to
-	 * arm. If cqe is not yet consumed, then let it get consumed and then
+	/* check whether any valid cqe exist or not, if not then safe to 
+	 * arm. If cqe is not yet consumed, then let it get consumed and then 
 	 * we arm it to avoid 0 interrupts.
 	 */
 	if (!is_cqe_valid(cq, cqe) || cq->arm_needed) {

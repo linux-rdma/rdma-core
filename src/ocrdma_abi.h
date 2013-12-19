@@ -49,8 +49,8 @@ enum {
 };
 
 #define OCRDMA_DB_CQ_RING_ID_MASK		0x3FF	/* bits 0 - 9 */
-#define OCRDMA_DB_CQ_RING_ID_EXT_MASK		0x0C00	/* bits 10-11 */
-#define OCRDMA_DB_CQ_RING_ID_EXT_MASK_SHIFT  	0x1	/* bits 12-11 */
+#define OCRDMA_DB_CQ_RING_ID_EXT_MASK  0x0C00	/* bits 10-11 of qid placing at 12-11 */
+#define OCRDMA_DB_CQ_RING_ID_EXT_MASK_SHIFT  0x1	/* qid #2 msbits placing at 12-11 */
 #define OCRDMA_DB_CQ_NUM_POPPED_SHIFT		(16)	/* bits 16 - 28 */
 /* Rearm bit */
 #define OCRDMA_DB_CQ_REARM_SHIFT		(29)	/* bit 29 */
