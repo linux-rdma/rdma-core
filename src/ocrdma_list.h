@@ -56,7 +56,7 @@ struct ocrdma_list_head {
 
 #define INIT_DBLY_LIST_HEAD(ptr) INIT_DBLY_LIST_NODE(ptr.node)
 
-static __inline__ void __list_add_node(struct ocrdma_list_node *new,
+static inline void __list_add_node(struct ocrdma_list_node *new,
 				       struct ocrdma_list_node *prev,
 				       struct ocrdma_list_node *next)
 {
@@ -66,20 +66,20 @@ static __inline__ void __list_add_node(struct ocrdma_list_node *new,
 	prev->next = new;
 }
 
-static __inline__ void list_add_node_tail(struct ocrdma_list_node *new,
+static inline void list_add_node_tail(struct ocrdma_list_node *new,
 					  struct ocrdma_list_head *head)
 {
 	__list_add_node(new, head->node.prev, &head->node);
 }
 
-static __inline__ void __list_del_node(struct ocrdma_list_node *prev,
+static inline void __list_del_node(struct ocrdma_list_node *prev,
 				       struct ocrdma_list_node *next)
 {
 	next->prev = prev;
 	prev->next = next;
 }
 
-static __inline__ void list_del_node(struct ocrdma_list_node *entry)
+static inline void list_del_node(struct ocrdma_list_node *entry)
 {
 	__list_del_node(entry->prev, entry->next);
 	entry->next = entry->prev = 0;

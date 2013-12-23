@@ -254,12 +254,12 @@ void ocrdma_unregister_driver(void)
 		pthread_mutex_destroy(&dev->dev_lock);
 		pthread_spin_destroy(&dev->flush_q_lock);
 		list_del_node(&dev->entry);
-		/* 
-		 * Avoid freeing the dev here since MPI get SIGSEGV 
+		/*
+		 * Avoid freeing the dev here since MPI get SIGSEGV
 		 * in few error cases because of reference to ib_dev
 		 * after free.
 		 * TODO Bug 135437 fix it properly to avoid mem leak
-		 */  
+		 */
 		/* free(dev); */
 	}
 	list_unlock(&ocrdma_dev_list);
