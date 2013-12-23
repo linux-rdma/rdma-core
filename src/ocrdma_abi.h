@@ -37,6 +37,8 @@
 
 #include <infiniband/kern-abi.h>
 
+#define OCRDMA_ABI_VERSION	1
+
 #define Bit(_b) (1 << (_b))
 
 #define OCRDMA_MAX_QP    2048
