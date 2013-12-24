@@ -406,7 +406,7 @@ typedef struct {
 	char filler[MAD_BLOCK_SIZE];
 } srp_ib_user_mad_t;
 
-#ifdef HAVE_VALGRIND_DRD_H
+#if defined(HAVE_VALGRIND_DRD_H) && defined(ENABLE_VALGRIND)
 #include <valgrind/drd.h>
 #endif
 #ifndef ANNOTATE_BENIGN_RACE_SIZED
