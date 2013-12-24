@@ -104,24 +104,25 @@ static void signal_handler(int signo)
 static int check_process_uniqueness(struct config_t *conf)
 {
 	char path[256];
-	int fd;
+	int fd, ret = 0;
 
 	sprintf(path, "/var/tmp/srp_daemon_%s_%d", conf->dev_name, conf->port_num);
 
-	if ((fd = open(path, O_CREAT|O_RDWR, S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR)) < 0)
-	{
+	if ((fd = open(path, O_CREAT|O_RDWR,
+		       S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR)) < 0) {
 		pr_err("cannot open file \"%s\" (errno: %d).\n", path, errno);
 		return -1;
 	}
 
 	fchmod(fd, S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR|S_IWGRP|S_IWOTH);
-
-	if (0 != lockf(fd, F_TLOCK, 0))
-	{
-		pr_err("failed to lock %s (errno: %d). possibly another srp_daemon is locking it\n", path, errno);
-		return -1;
+	if (0 != lockf(fd, F_TLOCK, 0)) {
+		pr_err("failed to lock %s (errno: %d). possibly another "
+		       "srp_daemon is locking it\n", path, errno);
+		ret = -1;
 	}
-	return 0;
+
+	close(fd);
+	return ret;
 }
 
 int srpd_sys_read_string(const char *dir_name, const char *file_name,
@@ -882,8 +883,10 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 		pr_err("Warning: set of ClassPortInfo failed\n");
 
 	ret = get_iou_info(umad_res, dlid, &iou_info);
-	if (ret < 0)
-		return ret;
+	if (ret < 0) {
+		pr_err("failed to get iou info for dlid %x\n", dlid);
+		goto out;
+	}
 
 	pr_human("IO Unit Info:\n");
 	pr_human("    port LID:        %04x\n", dlid);
@@ -962,8 +965,9 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 
 	pr_human("\n");
 
+out:
 	free(target);
-	return 0;
+	return ret;
 }
 
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
