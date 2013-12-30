@@ -647,11 +647,13 @@ void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable)
 	uint16_t base_lid = port->base_lid;
 	uint16_t lid_mask = ((1 << port->lmc) -1);
 	uint16_t lid = 0;
-
-	/* We add the port for all lids
-	 * so it is easier to find any "random" lid specified */
-	for (lid = base_lid; lid <= (base_lid + lid_mask); lid++) {
-		g_hash_table_insert(htable, GINT_TO_POINTER(lid), port);
+	/* 0 < valid lid <= 0xbfff */
+	if (base_lid > 0 && base_lid <= 0xbfff) {
+		/* We add the port for all lids
+		 * so it is easier to find any "random" lid specified */
+		for (lid = base_lid; lid <= (base_lid + lid_mask); lid++) {
+			g_hash_table_insert(htable, GINT_TO_POINTER(lid), port);
+		}
 	}
 }
 
