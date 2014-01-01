@@ -1,7 +1,7 @@
 Source: libmlx4
 Priority: extra
 Maintainer: Roland Dreier <rbd@debian.org>
-Build-Depends: debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.1.3)
+Build-Depends: debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.1.7)
 Standards-Version: 3.9.2
 Section: libs
 Homepage: http://www.openfabrics.org/
@@ -9,7 +9,7 @@ Homepage: http://www.openfabrics.org/
 Package: libmlx4-1
 Section: libs
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libibverbs1 (>= 1.1.3)
+Depends: ${shlibs:Depends}, ${misc:Depends}, libibverbs1 (>= 1.1.7)
 Description: Userspace driver for Mellanox ConnectX InfiniBand HCAs
  libmlx4 is a device-specific driver for Mellanox ConnectX InfiniBand
  host channel adapters (HCAs) for the libibverbs library.  This allows

@@ -42,10 +42,6 @@
 #include <pthread.h>
 #include <string.h>
 
-#ifndef HAVE_IBV_REGISTER_DRIVER
-#include <sysfs/libsysfs.h>
-#endif
-
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
@@ -268,25 +264,7 @@ found:
 	return &dev->ibv_dev;
 }
 
-#ifdef HAVE_IBV_REGISTER_DRIVER
 static __attribute__((constructor)) void mlx4_register_driver(void)
 {
 	ibv_register_driver("mlx4", mlx4_driver_init);
 }
-#else
-/*
- * Export the old libsysfs sysfs_class_device-based driver entry point
- * if libibverbs does not export an ibv_register_driver() function.
- */
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
-{
-	int abi_version = 0;
-	char value[8];
-
-	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
-				value, sizeof value) > 0)
-		abi_ver = strtol(value, NULL, 10);
-
-	return mlx4_driver_init(sysdev->path, abi_version);
-}
-#endif /* HAVE_IBV_REGISTER_DRIVER */

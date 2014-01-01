@@ -45,20 +45,19 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
+dnl Checks for library functions
+AC_CHECK_FUNC(ibv_register_driver, [],
+    AC_MSG_ERROR([ibv_register_driver() not found.  libmlx4 requires libibverbs >= 1.1.7.]))
+
 AC_CACHE_CHECK([for IBV_QPT_RAW_PACKET],
                [ac_cv_ibv_qpt_raw_packet],
-               [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+               [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <infiniband/verbs.h>],
                                                    [enum ibv_qp_type qpt = IBV_QPT_RAW_PACKET;])],
                                    [ac_cv_ibv_qpt_raw_packet=yes],
                                    [ac_cv_ibv_qpt_raw_packet=no])])
-if test $ac_cv_ibv_qpt_raw_packet = yes; then
-    AC_DEFINE([HAVE_IBV_QPT_RAW_PACKET], 1, [libibverbs has raw packet QP support])
+if test $ac_cv_ibv_qpt_raw_packet = no; then
+    AC_MSG_ERROR([IBV_QPT_RAW_PACKET not found.  libmlx4 requires libibverbs >= 1.1.7.])
 fi
-
-dnl Checks for library functions
-AC_CHECK_FUNC(ibv_read_sysfs_file, [],
-    AC_MSG_ERROR([ibv_read_sysfs_file() not found.  libmlx4 requires libibverbs >= 1.0.3.]))
-AC_CHECK_FUNCS(ibv_dontfork_range ibv_dofork_range ibv_register_driver)
 
 dnl Now check if for libibverbs 1.0 vs 1.1
 dummy=if$$
@@ -68,8 +67,9 @@ IBV_DEVICE_LIBRARY_EXTENSION
 IBV_VERSION
 IBV_DEVICE_LIBRARY_EXTENSION=`$CC $CPPFLAGS -E $dummy.c 2> /dev/null | tail -1`
 rm -f $dummy.c
-AM_CONDITIONAL(HAVE_IBV_DEVICE_LIBRARY_EXTENSION,
-    test $IBV_DEVICE_LIBRARY_EXTENSION != IBV_DEVICE_LIBRARY_EXTENSION)
+if test $IBV_DEVICE_LIBRARY_EXTENSION = IBV_DEVICE_LIBRARY_EXTENSION; then
+    AC_MSG_ERROR([libibverbs does not define IBV_DEVICE_LIBRARY_EXTENSION.])
+fi
 AC_SUBST(IBV_DEVICE_LIBRARY_EXTENSION)
 
 AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
