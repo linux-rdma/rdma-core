@@ -192,6 +192,9 @@ static int process_one_recv(smp_engine_t * engine)
 		goto error;
 
 	if ((status = umad_status(umad))) {
+		IBND_INFO("umad (%s Attr 0x%x:%u) bad status %d; %s\n",
+			   portid2str(&smp->path), smp->rpc.attr.id,
+			   smp->rpc.attr.mod, status, strerror(status));
 		IBND_ERROR("umad (%s Attr 0x%x:%u) bad status %d; %s\n",
 			   portid2str(&smp->path), smp->rpc.attr.id,
 			   smp->rpc.attr.mod, status, strerror(status));
@@ -199,6 +202,9 @@ static int process_one_recv(smp_engine_t * engine)
 			rc = mlnx_ext_port_info_err(engine, smp, mad,
 						    smp->cb_data);
 	} else if ((status = mad_get_field(mad, 0, IB_DRSMP_STATUS_F))) {
+		IBND_INFO("mad (%s Attr 0x%x:%u) bad status 0x%x\n",
+			   portid2str(&smp->path), smp->rpc.attr.id,
+			   smp->rpc.attr.mod, status);
 		IBND_ERROR("mad (%s Attr 0x%x:%u) bad status 0x%x\n",
 			   portid2str(&smp->path), smp->rpc.attr.id,
 			   smp->rpc.attr.mod, status);
