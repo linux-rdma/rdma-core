@@ -121,7 +121,6 @@ static int check_process_uniqueness(struct config_t *conf)
 		ret = -1;
 	}
 
-	close(fd);
 	return ret;
 }
 
