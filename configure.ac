@@ -6,7 +6,7 @@ AC_INIT(srptools, 1.0.0, users@lists.openfabrics.org)
 AC_CONFIG_SRCDIR(srp_daemon/srp_daemon.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(srptools, 1.0.0)
+AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
 [       if test x$enableval = xno ; then
@@ -35,6 +35,7 @@ AC_SUBST(DEFAULT_STOP, $default_stop)
 
 # Checks for programs.
 AC_PROG_CC
+AM_PROG_CC_C_O
 
 # Checks for libraries.
 if test "$disable_libcheck" != "yes"
