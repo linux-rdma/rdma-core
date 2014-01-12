@@ -44,16 +44,18 @@ enum {
 };
 
 enum {
-	MLX5_NUM_UUARS_PER_PAGE = 4,
+	MLX5_NUM_UUARS_PER_PAGE = 2,
 	MLX5_MAX_UAR_PAGES	= 1 << 8,
 	MLX5_MAX_UUARS		= MLX5_MAX_UAR_PAGES * MLX5_NUM_UUARS_PER_PAGE,
-	MLX5_DEF_TOT_UUARS	= 4 * MLX5_NUM_UUARS_PER_PAGE,
+	MLX5_DEF_TOT_UUARS	= 8 * MLX5_NUM_UUARS_PER_PAGE,
 };
 
 struct mlx5_alloc_ucontext {
 	struct ibv_get_context		ibv_req;
 	__u32				total_num_uuars;
 	__u32				num_low_latency_uuars;
+	__u32				flags;
+	__u32				reserved;
 };
 
 struct mlx5_alloc_ucontext_resp {

@@ -431,7 +431,10 @@ static int get_num_low_lat_uuars(void)
 
 static int need_uuar_lock(struct mlx5_context *ctx, int uuarn)
 {
-	if (uuarn == 0 || uuarn >= ctx->tot_uuars - ctx->low_lat_uuars)
+	if (uuarn == 0)
+		return 0;
+
+	if (uuarn >= (ctx->tot_uuars - ctx->low_lat_uuars) * 2)
 		return 0;
 
 	return 1;
@@ -459,6 +462,7 @@ static struct ibv_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	int				page_size = to_mdev(ibdev)->page_size;
 	int				tot_uuars;
 	int				low_lat_uuars;
+	int				gross_uuars;
 	int				j;
 	off_t				offset;
 
@@ -485,7 +489,8 @@ static struct ibv_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		goto err_free;
 	}
 
-	context->bfs = calloc(tot_uuars, sizeof *context->bfs);
+	gross_uuars = tot_uuars / MLX5_NUM_UUARS_PER_PAGE * 4;
+	context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
 	if (!context->bfs) {
 		errno = ENOMEM;
 		goto err_free;
@@ -502,6 +507,7 @@ static struct ibv_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		goto err_free_bf;
 	}
 
+	memset(&req, 0, sizeof(req));
 	req.total_num_uuars = tot_uuars;
 	req.num_low_latency_uuars = low_lat_uuars;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &req.ibv_req, sizeof req,
@@ -543,9 +549,9 @@ static struct ibv_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		}
 	}
 
-	for (j = 0; j < resp.tot_uuars; ++j) {
-		context->bfs[j].reg = context->uar[j / MLX5_NUM_UUARS_PER_PAGE] +
-			MLX5_BF_OFFSET + (j % MLX5_NUM_UUARS_PER_PAGE) * context->bf_reg_size;
+	for (j = 0; j < gross_uuars; ++j) {
+		context->bfs[j].reg = context->uar[j / 4] +
+			MLX5_BF_OFFSET + (j % 4) * context->bf_reg_size;
 		context->bfs[j].need_lock = need_uuar_lock(context, j);
 		mlx5_spinlock_init(&context->bfs[j].lock);
 		context->bfs[j].offset = 0;
