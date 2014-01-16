@@ -211,6 +211,8 @@ start)
 		fi
 	fi
 
+	umount /ipathfs >/dev/null 2>&1
+	rm -rf /ipathfs
 	mkdir -p -m 755 /ipathfs 2>&1
 	mount -t ipathfs none /ipathfs
 
