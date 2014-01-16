@@ -36,6 +36,7 @@
 
 # base name in /sys/class
 qb=/sys/class/infiniband/qib
+ir=/proc/irq
 serdes_parm=txselect
 
 warn_and_log()
@@ -199,35 +200,84 @@ setup_qme()
     esac
 }
 
+get_localcpus()
+{
+    local filename=${1} cpulist= perl= cpus=
+
+    perl=$(which perl 2>/dev/null)
+    [ ! ${perl} ] && return
+    
+    if [ -f ${filename} ]; then
+	cpus=$(cat ${filename} | sed -e 's/,//g')
+	cpulist=$(${perl} -e '$a=0x'${cpus}';$b=0;while($a){if($a&0x1){print "$b ";}$b++;$a>>=1;}')
+	echo "${cpulist}"
+    fi
+}
+
 set_irq_affinity()
 {
-    local irq irqs core cores core_index mask ncores siblings index
+    local -a irqs cpulist
+    local -i nunits=0 idx=1 unit=0 firstcore=1 irq=0 balance=0 \
+	minor=0 is_el6=0
+    local cpus= mask= pcibus= irqtype= kver=
 
-    # Check if irqbalance is on...
-    irqbalance=$(ps -C irqbalance -o pid=)
-    [ -n "${irqbalance}" ] && return
+    kver=$(uname -r | sed -re 's/([0-9]*\.[0-9]*\.[0-9]*).*/\1/g')
+    minor=$(echo ${kver} | cut -d. -f3)
+    [ -n "$(uname -r | grep ${kver}'.*el6.*')" ] && is_el6=1
+    [ -n "$(ps aux | grep irqbalance | grep -v grep | awk '{print $2}')" ] && \
+	balance=1
 
-    irqs=$(grep 'ib_qib (kctx)' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
-    
-    if [ -f /sys/devices/system/cpu/cpu0/topology/core_siblings ]; then
-	siblings=$(cat /sys/devices/system/cpu/cpu0/topology/core_siblings | sed -e 's/,//g')
-	ncores=$(perl -e '$a=0x'${siblings}';$b=0;while($a){if($a&0x1){$b++;};$a>>=1;};print $b;')
-	cores="$(perl -e '$a=0x'${siblings}';$b=0;while($a){if($a&0x1){print "$b ";}$b++;$a>>=1;}')"
+    if [[ ${balance} -eq 0 ]] && \
+	[[ ${minor} -ge 36 || ${is_el6} -eq 1 ]]; then
+	# irqbalance is off and we are running on a kernel which
+	# supports the irq affinity hint
+	irqs=$(grep 'ib_qib' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
+	for irq in ${irqs}; do
+	    if [ -e ${ir}/${irq}/affinity_hint ]; then
+		mask=$(cat ${ir}/${irq}/affinity_hint)
+		echo ${mask} > ${ir}/${irq}/smp_affinity
+	    fi
+	done
     else
-	echo "WARNING: Did not find core topology information."
-	ncores=$(cat /proc/cpuinfo | grep processor | wc -l)
-	cores=$(perl -e 'print ((1<<'${ncores}')-1)')
+	nunits=$(ls -1d ${qb}* | wc -l)
+	for ((unit=0 ; ${unit}<${nunits} ; unit++ )); do
+	    pcibus=$(readlink -m ${qb}${unit}/device)
+	    if [ -f ${pcibus}/local_cpulist ]; then
+		cpulist=( $(seq $(cat ${pcibus}/local_cpulist | \
+		    sed -e 's/-/\ /g')) )
+	    elif [ -f ${pcibus}/local_cpus ]; then
+		cpulist=( $(get_localcpus ${pcibus}/local_cpus) )
+	    else
+		cpulist=( $(get_localcpus $(dirname ${pcibus})/local_cpus) )
+	    fi
+	    if [ ${#cpulist[*]} -eq 0 -o ${#cpulist[*]} -eq $(grep -c processor /proc/cpuinfo) ]; then
+		cpulist=( $(get_localcpus /sys/devices/system/cpu/cpu0/topology/core_siblings) )
+		if [ ${#cpulist[*]} -eq 0 ]; then
+		    warn_and_log Could not find local CPUs for Unit${unit}.
+		    continue
+		fi
+	    fi
+
+	    idx=${firstcore}
+	    irqs=$(grep 'ib_qib'${unit} /proc/interrupts)
+	    echo "${irqs}" | while read L; do
+		irq=$(echo ${L} | sed -re 's/([0-9]*):.*/\1/g')
+		irqtype=$(echo ${L} | \
+		    sed -re 's/.*ib_qib[0-9]*\ ?\(?([A-Za-z0-9]*)?.*?\)?.*?/\1/g')
+		if [ X${irqtype} == Xkctx ]; then
+		    mask=$(( 2 ** ${cpulist[${idx}]} ))
+		    (( idx++ ))
+		    [ ${idx} -gt $(( ${#cpulist[*]}-${firstcore} )) ] && \
+			idx=${firstcore}
+		else
+		    mask=$(( 2 ** ${cpulist[0]} ))
+		fi
+		printf "%x" ${mask} > ${ir}/${irq}/smp_affinity	    
+	    done
+	done
     fi
     
-    index=1
-    for irq in ${irqs}; do
-	core_index=$((${index} % ${ncores}))
-	[ ${core_index} -eq 0 ] && core_index=${ncores}
-	core=$(echo "${cores}"|cut -d' ' -f${core_index})
-	mask=$(perl -e 'print 1<<'${core}';')
-	printf "%x" ${mask} > /proc/irq/${irq}/smp_affinity
-	(( index++ ))
-    done
+    return
 }
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:$PATH
