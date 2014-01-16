@@ -125,7 +125,7 @@ setup_qmh()
     if [ ${bl2xB} -ne 0 ]; then
 	pbase="${pbase} 0,1=${bl2xB},${m2_bay_h1[$bay]}"
     elif [ $nunit -eq 1 ]; then
-	if [ -a -e ${qb}0/device/driver/${pciprefix}${mez1bus}:* \
+	if [ -e ${qb}0/device/driver/${pciprefix}${mez1bus}:* \
 	    -o -e ${qb}0/driver/${pciprefix}${mez1bus}:* ]; then
 	    pbase="${pbase} 0,1=${mez1_idx[$bay]},${m1_bay_h1[$bay]}"
 	elif [ -e ${qb}0/device/driver/${pciprefix}${mez2bus}:* \
