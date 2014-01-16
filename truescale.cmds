@@ -131,6 +131,7 @@ setup_qmh()
 	elif [ -e ${qb}0/device/driver/${pciprefix}${mez2bus}:* \
 	    -o -e ${qb}0/driver/${pciprefix}${mez2bus}:* ]; then
 	    pbase="${pbase} 0,1=${mez2p1_idx[$bay]},${m2_bay_h1[$bay]}"
+	    pbase="${pbase} 0,2=${mez2p2_idx[$bay]},${m2_bay_h1[$bay]}"
 	else
 	    warn_and_log Mismatch on mezbus ${mez1_bus},${mez2_bus} and \
 		unit 0, no serdes setup
