@@ -38,6 +38,8 @@
 qb=/sys/class/infiniband/qib
 ir=/proc/irq
 serdes_parm=txselect
+service="/etc/init.d/irqbalance"
+irqbalance_conf=/etc/sysconfig/irqbalance
 
 warn_and_log()
 {
@@ -225,19 +227,38 @@ set_irq_affinity()
     local -a irqs cpulist
     local -i nunits=0 idx=1 unit=0 firstcore=1 irq=0 balance=0 \
 	minor=0 is_el6=0
-    local cpus= mask= pcibus= irqtype= kver=
+    local cpus= mask= pcibus= irqtype= kver= banned= prevbanned= tbanned=
 
     kver=$(uname -r | sed -re 's/([0-9]*\.[0-9]*\.[0-9]*).*/\1/g')
     minor=$(echo ${kver} | cut -d. -f3)
     [ -n "$(uname -r | grep ${kver}'.*el6.*')" ] && is_el6=1
     [ -n "$(ps aux | grep irqbalance | grep -v grep | awk '{print $2}')" ] && \
 	balance=1
-
-    if [[ ${balance} -eq 0 ]] && \
-	[[ ${minor} -ge 36 || ${is_el6} -eq 1 ]]; then
+    
+    if [ ${balance} -eq 1 ]; then
+	# stop irqbalance
+	if [ ! -f ${service} ]; then
+	    if [ -f /usr/sbin/irqbalance ]; then
+		# Deal with different names for the irqbalance service on
+		# different distros
+		service=$(rpm -ql $(rpm -qf /usr/sbin/irqbalance) 2>/dev/null | \
+		    grep /etc/init.d)
+	    fi
+	fi
+	
+	if [ -n "${service}" ]; then
+	    ${service} stop 2>/dev/null
+	    [ ${?} -ne 0 ] && balance=0
+	else
+	    balance=0
+	fi
+    fi
+    
+    if [[ ${minor} -ge 36 || ${is_el6} -eq 1 ]]; then
 	# irqbalance is off and we are running on a kernel which
 	# supports the irq affinity hint
 	irqs=$(grep 'ib_qib' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
+	banned=$(echo $irqs)
 	for irq in ${irqs}; do
 	    if [ -e ${ir}/${irq}/affinity_hint ]; then
 		mask=$(cat ${ir}/${irq}/affinity_hint)
@@ -256,7 +277,8 @@ set_irq_affinity()
 	    else
 		cpulist=( $(get_localcpus $(dirname ${pcibus})/local_cpus) )
 	    fi
-	    if [ ${#cpulist[*]} -eq 0 -o ${#cpulist[*]} -eq $(grep -c processor /proc/cpuinfo) ]; then
+	    if [ ${#cpulist[*]} -eq 0 -o \
+		${#cpulist[*]} -eq $(grep -c processor /proc/cpuinfo) ]; then
 		cpulist=( $(get_localcpus /sys/devices/system/cpu/cpu0/topology/core_siblings) )
 		if [ ${#cpulist[*]} -eq 0 ]; then
 		    warn_and_log Could not find local CPUs for Unit${unit}.
@@ -266,24 +288,91 @@ set_irq_affinity()
 
 	    idx=${firstcore}
 	    irqs=$(grep 'ib_qib'${unit} /proc/interrupts)
-	    echo "${irqs}" | while read L; do
-		irq=$(echo ${L} | sed -re 's/([0-9]*):.*/\1/g')
-		irqtype=$(echo ${L} | \
-		    sed -re 's/.*ib_qib[0-9]*\ ?\(?([A-Za-z0-9]*)?.*?\)?.*?/\1/g')
-		if [ X${irqtype} == Xkctx ]; then
-		    mask=$(( 2 ** ${cpulist[${idx}]} ))
-		    (( idx++ ))
-		    [ ${idx} -gt $(( ${#cpulist[*]}-${firstcore} )) ] && \
-			idx=${firstcore}
-		else
-		    mask=$(( 2 ** ${cpulist[0]} ))
-		fi
-		printf "%x" ${mask} > ${ir}/${irq}/smp_affinity	    
-	    done
+	    banned=$(echo "${irqs}" | (b= ; while read L; do
+			irq=$(echo ${L} | sed -re 's/([0-9]*):.*/\1/g')
+			[ -z "${b}" ] && b="${irq}" || b="${b} ${irq}"
+			irqtype=$(echo ${L} | \
+			    sed -re 's/.*ib_qib[0-9]*\ ?\(?([A-Za-z0-9]*)?.*?\)?.*?/\1/g')
+			if [ X${irqtype} == Xkctx ]; then
+			    mask=$(( 2 ** ${cpulist[${idx}]} ))
+			    (( idx++ ))
+			    [ ${idx} -gt $(( ${#cpulist[*]}-${firstcore} )) ] && \
+				idx=${firstcore}
+			else
+			    mask=$(( 2 ** ${cpulist[0]} ))
+			fi
+			printf "%x" ${mask} > ${ir}/${irq}/smp_affinity	    
+		    done; echo ${b}))
 	done
     fi
+
     
+    if [ ${balance} -eq 1 ]; then
+	if [ -f ${irqbalance_conf} ]; then
+	    prevbanned="$(grep IRQBALANCE_BANNED_INTERRUPTS ${irqbalance_conf})"
+	    prevbanned=$( (eval "${prevbanned}"; echo $IRQBALANCE_BANNED_INTERRUPTS) )
+	    [ -n "${prevbanned}" ] && banned="${prevbanned} ${banned}"
+	fi
+	
+	sed -ie '/^IRQBALANCE_BANNED_INTERRUPTS=/d' ${irqbalance_conf}
+	tbanned=$(for i in $banned; do
+	    echo $i
+	done | sort | uniq)
+	banned=$(echo $tbanned)
+	echo "IRQBALANCE_BANNED_INTERRUPTS=\"${banned}\"" >> \
+	    ${irqbalance_conf}
+
+	${service} start
+    fi
     return
+}
+
+clean_irq_affinity()
+{
+    local irqs= banned= prevbanned=
+    local -i balance=0
+    
+    [ -n "$(ps aux | grep irqbalance | grep -v grep | awk '{print $2}')" ] && \
+	balance=1
+    
+    if [ ${balance} -eq 1 ]; then
+	# stop irqbalance
+	if [ ! -f ${service} ]; then
+	    if [ -f /usr/sbin/irqbalance ]; then
+		# Deal with different names for the irqbalance service on
+		# different distros
+		service=$(rpm -ql $(rpm -qf /usr/sbin/irqbalance) 2>/dev/null | \
+		    grep /etc/init.d)
+	    fi
+	fi
+	
+	if [ -n "${service}" ]; then
+	    ${service} stop 2>/dev/null
+	    [ ${?} -ne 0 ] && balance=0
+	else
+	    balance=0
+	fi
+    fi
+
+    irqs=$(grep 'ib_qib' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
+    
+    if [ -f ${irqbalance_conf} ]; then
+	banned="$(grep IRQBALANCE_BANNED_INTERRUPTS ${irqbalance_conf})"
+	banned=$( (eval "${banned}"; echo $IRQBALANCE_BANNED_INTERRUPTS) )
+	for irq in ${irqs}; do
+	    banned="$(echo "${banned}" | sed -e 's/'$irq'//g')"
+	done
+	banned="$(echo ${banned} | sed -e 's/\ */\ /g')"
+	sed -ie '/^IRQBALANCE_BANNED_INTERRUPTS=/d' ${irqbalance_conf}
+	if [ -n "${banned}" -a "X${banned}" != "X " ]; then
+	    echo "IRQBALANCE_BANNED_INTERRUPTS=${banned}" >> \
+		${irqbalance_conf}
+	fi
+    fi
+
+    if [ ${balance} -eq 1 ]; then
+	${service} start
+    fi
 }
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:$PATH
@@ -321,6 +410,7 @@ start)
 	set_irq_affinity
 	;;
 stop)
+	clean_irq_affinity
 	if [ -d /ipathfs ]; then
 		umount /ipathfs
 		rmdir /ipathfs
