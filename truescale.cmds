@@ -110,6 +110,7 @@ setup_qmh()
 	esac
 	;;
     *BL460[cC]*) mez1bus=6 mez2bus=9 bay=$tbay ;;
+    *BL465[cC]*) mez1bus=5 mez2bus=8 bay=$tbay ;;
     *BL490[cC]*) mez1bus=6 mez2bus=7 bay=$tbay ;;
     *) warn_and_log Unknown blade type "$sysinfo"
 	return ;;
