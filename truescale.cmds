@@ -201,7 +201,7 @@ setup_qme()
     sn="$(dmidecode -t 2 | grep -i serial | tail -1)"
     case ${sn} in
 	*[sS]erial\ [nN]umber*)
-	    bay="$(echo $sn | sed -e 's/\.$//' -e 's/.*\.0*//')"
+	    bay="$(echo $sn | sed -e 's/\.$//' -e 's/.*\.0*//' -e 's/[abcd]$//')"
 	    if [ ${bay} -gt ${#set[@]} ]; then
 		warn_and_log Unexpected QME7342 bay info: ${sn}, no Tx params
 		return
