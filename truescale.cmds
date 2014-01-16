@@ -198,6 +198,37 @@ setup_qme()
     esac
 }
 
+set_irq_affinity()
+{
+    local irq irqs core cores core_index mask ncores siblings index
+
+    # Check if irqbalance is on...
+    irqbalance=$(ps -C irqbalance -o pid=)
+    [ -n "${irqbalance}" ] && return
+
+    irqs=$(grep 'ib_qib (kctx)' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
+    
+    if [ -f /sys/devices/system/cpu/cpu0/topology/core_siblings ]; then
+	siblings=$(cat /sys/devices/system/cpu/cpu0/topology/core_siblings | sed -e 's/,//g')
+	ncores=$(perl -e '$a=0x'${siblings}';$b=0;while($a){if($a&0x1){$b++;};$a>>=1;};print $b;')
+	cores="$(perl -e '$a=0x'${siblings}';$b=0;while($a){if($a&0x1){print "$b ";}$b++;$a>>=1;}')"
+    else
+	echo "WARNING: Did not find core topology information."
+	ncores=$(cat /proc/cpuinfo | grep processor | wc -l)
+	cores=$(perl -e 'print ((1<<'${ncores}')-1)')
+    fi
+    
+    index=1
+    for irq in ${irqs}; do
+	core_index=$((${index} % ${ncores}))
+	[ ${core_index} -eq 0 ] && core_index=${ncores}
+	core=$(echo "${cores}"|cut -d' ' -f${core_index})
+	mask=$(perl -e 'print 1<<'${core}';')
+	printf "%x" ${mask} > /proc/irq/${irq}/smp_affinity
+	(( index++ ))
+    done
+}
+
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:$PATH
 
 case "$1" in
@@ -221,6 +252,8 @@ start)
 	if [ ! -c /dev/ipath ]; then sleep 2; fi
 	if [ ! -c /dev/ipath ]; then sleep 3; fi
 	chmod 666 /dev/ipath /dev/ipath[0-9]* >/dev/null 2>&1
+	
+	set_irq_affinity
 	;;
 stop)
 	if [ -d /ipathfs ]; then
