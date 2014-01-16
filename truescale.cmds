@@ -164,7 +164,14 @@ setup_qmh()
 setup_qme()
 {
     local parm parmf sn pbase
-    local -i nunit=0 bay idx
+    local -i nunit=0 bay idx bpver=1
+    local -a bp0_idx bp1_idx set
+
+    # tx settings for Dell Backplane v1.0
+    bp0_idx=( 0 22 23 24 25 26 24 27 28 22 23 24 25 26 24 27 28 )
+    # tx settings for Dell Backplane v1.1
+    bp1_idx=( 0 29 29 30 31 32 33 30 29 29 29 30 31 32 33 30 29 )
+    
     for parm in parameters/${serdes_parm} ${serdes_parm}; do
 	if [ -e /sys/module/ib_qib/$parm ]; then
 		parmf=/sys/module/ib_qib/$parm
@@ -180,31 +187,34 @@ setup_qme()
     parm=( $(echo ${qb}*) )
     nunit=${#parm[*]}
 
+    if [ -e /sys/module/ib_qib/parameters/qme_bp ]; then
+	read bpver < /sys/module/ib_qib/parameters/qme_bp
+	if [ ${bpver} -ne 0 -a ${bpver} -ne 1 ]; then
+	    warn_and_log Invalid Dell backplane version (${bpver}). Defaulting to 1.
+	    bpver=1
+	fi
+    fi
+    eval 'set=( ${bp'${bpver}'_idx[@]} )'
+
     # we get two serial numbers normally, use 2nd if present, else first
     sn="$(dmidecode -t 2 | grep -i serial | tail -1)"
     case ${sn} in
-    *[sS]erial\ [nN]umber*)
-      bay="$(echo $sn | sed -e 's/\.$//' -e 's/.*\.0*//')"
-      case $bay in
-      1) idx=22 ;;
-      2|10|15) idx=20 ;;
-      3|7|11|12|13|14) idx=26 ;;
-      4) idx=25 ;;
-      5|6) idx=24 ;;
-      8) idx=21 ;;
-      9|16) idx=23 ;;
-      *) warn_and_log Unexpected QME7342 bay info: ${sn}, no Tx params
-	return;;
-      esac
-      # H1 is same for all QME bays, so no need to specify.
-      while [ $nunit -ne 0 ]; do
-	    (( nunit-- ))
-	    pbase="${pbase} ${nunit},1=${idx} ${nunit},2=${idx}"
-      done
-      echo -n ${pbase} > $parmf
-      ;;
-    *) warn_and_log No QME7342 bay information, no Tx params
-      return;;
+	*[sS]erial\ [nN]umber*)
+	    bay="$(echo $sn | sed -e 's/\.$//' -e 's/.*\.0*//')"
+	    if [ ${bay} -gt ${#set[@]} ]; then
+		warn_and_log Unexpected QME7342 bay info: ${sn}, no Tx params
+		return
+	    fi
+	    idx=${set[bay]}
+	    # H1 is same for all QME bays, so no need to specify.
+	    while [ $nunit -ne 0 ]; do
+		(( nunit-- ))
+		pbase="${pbase} ${nunit},1=${idx} ${nunit},2=${idx}"
+	    done
+	    echo -n ${pbase} > $parmf
+	    ;;
+	*) warn_and_log No QME7342 bay information, no Tx params
+	    return;;
     esac
 }
 
