@@ -37,6 +37,7 @@
 %define ver @VERSION@
 %define RELEASE 1
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%define with_dracut %(if rpm -qa | grep -q dracut; then echo 1; else echo 0; fi)
 
 Name: libipathverbs
 Version: %ver
@@ -50,6 +51,9 @@ Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
+%if %{with_dracut}
+Requires: dracut
+%endif
 
 %description
 libipathverbs provides a device-specific userspace driver for Intel HCAs
@@ -83,9 +87,31 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{_libdir}/libipathverbs*.so
+%{_sbindir}/truescale.cmds
 %doc AUTHORS COPYING README
 %config %{_sysconfdir}/libibverbs.d/ipath.driver
+%config %{_sysconfdir}/modprobe.d/truescale.conf
+%if %{with_dracut}
+%{_datarootdir}/dracut/modules.d/90qib/install
+%{_datarootdir}/dracut/modules.d/90qib/check
+%endif
 
 %files devel
 %defattr(-,root,root,-)
 %{_libdir}/libipathverbs*.a
+
+%post
+mkdir -p /ipathfs
+if [ -d /etc/rdma ]
+then
+	rdma_conf_dir=/etc/rdma	
+	rdma_conf_file=rdma.conf
+else
+	rdma_conf_dir=/etc/infiniband	
+	rdma_conf_file=openib.conf
+fi
+if ! grep -q QIB_QME_BPVER $rdma_conf_dir/$rdma_conf_file
+then
+	echo "# QIB_QME_BPVER" >> $rdma_conf_dir/$rdma_conf_file
+	echo "QIB_QME_BPVER=1" >> $rdma_conf_dir/$rdma_conf_file
+fi

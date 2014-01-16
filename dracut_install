@@ -1,0 +1,3 @@
+#!/bin/bash
+dracut_install /etc/modprobe.d/truescale.conf
+dracut_install /usr/sbin/truescale.cmds
