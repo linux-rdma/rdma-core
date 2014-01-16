@@ -41,6 +41,13 @@ ir=/proc/irq
 serdes_parm=txselect
 service="/etc/init.d/irqbalance"
 irqbalance_conf=/etc/sysconfig/irqbalance
+OPENIBD_CONFIG=${OPENIBD_CONFIG:-"/etc/infiniband/openib.conf"}
+CONFIG=$OPENIBD_CONFIG
+
+if [ -f $CONFIG ]
+then
+	. $CONFIG
+fi
 
 warn_and_log()
 {
@@ -165,7 +172,7 @@ setup_qmh()
 setup_qme()
 {
     local parm parmf sn pbase
-    local -i nunit=0 bay idx bpver=1
+    local -i nunit=0 bay idx bpver=${QIB_QME_BPVER:1}
     local -a bp0_idx bp1_idx set
 
     # tx settings for Dell Backplane v1.0
