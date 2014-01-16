@@ -47,8 +47,8 @@ warn_and_log()
 
 setup_qmh()
 {
-    local -i nunit=0 bay bl2xB=0
-    local parmf sysinfo bayinfo mez1bus mez2bus tbay
+    local -i nunit=0 bay bl2xB=0 full=0
+    local parmf sysinfo bayinfo mez1bus mez2bus mez3bus=0 tbay
     local -a parm bay_h1
     for parm in parameters/${serdes_parm} ${serdes_parm}; do
 	if [ -e /sys/module/ib_qib/$parm ]; then
@@ -87,13 +87,20 @@ setup_qmh()
     # H1 value, per bay (same for both ports)
     m1_bay_h1=(0 8 7 7 7 7 6 6 6 8 7 7 7 7 6 6 7)
     m2_bay_h1=(0 11 11 11 11 11 11 10 11 11 11 11 11 10 10 10 10)
+    m3_bay_h1=(0 11 11 11 11 10 10 10 10)
 
     # tx serdes index per bay for mez1 (either port)
-    mez1_idx=(0 2 2 17 17 17 1 1 1 2 1 17 17 16 2 18 16)
+    mez1p1_idx=(0 2 2 17 17 17 1 1 1 2 1 17 17 16 2 18 16)
+    # tx serdes setting for mez1 p2 (only used on full-height blades)
+    mez1p2_idx=(0 4 4 3 3 3 2 4 4)
     # tx serdes index per bay for mez2 port 1
     mez2p1_idx=(0 2 2 17 17 17 1 1 1 2 1 17 17 16 2 18 1)
     # tx serdes index per bay for mez2 port 2
     mez2p2_idx=(0 2 2 19 1 1 1 1 1 2 1 18 17 1 19 1 1)
+    # tx serdes index per bay for mez3 port 1 (mez3 only on full-height blades)
+    mez3p1_idx=(0 2 1 18 17 1 19 1 1)
+    # tx serdes index per bay for mez3 port 2 (mez3 only on full-height blades)
+    mez3p2_idx=(0 2 1 17 17 16 2 18 1)
 
     case "${sysinfo}" in
     *BL280[cC]*) mez1bus=3 mez2bus=6 bay=$tbay ;;
@@ -113,6 +120,7 @@ setup_qmh()
     *BL460[cC]*) mez1bus=6 mez2bus=9 bay=$tbay ;;
     *BL465[cC]*) mez1bus=5 mez2bus=8 bay=$tbay ;;
     *BL490[cC]*) mez1bus=6 mez2bus=7 bay=$tbay ;;
+    *BL685[cC]*) mez1bus=41 mez2bus=6 mez3bus=44 full=1 bay=$(($tbay % 9)) ;;
     *) warn_and_log Unknown blade type "$sysinfo"
 	return ;;
     esac
@@ -123,28 +131,26 @@ setup_qmh()
     # mez we are plugged into.
     # On RHEL4U8, we look in the driver subdir, all others
     # in the device/driver subdir for the pcie bus.
-    pciprefix="[0-9a-fA-f][0-9a-fA-f][0-9a-fA-f][0-9a-fA-f]:0"
+    pciprefix="[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]:"
     if [ ${bl2xB} -ne 0 ]; then
 	pbase="${pbase} 0,1=${bl2xB},${m2_bay_h1[$bay]}"
-    elif [ $nunit -eq 1 ]; then
-	if [ -e ${qb}0/device/driver/${pciprefix}${mez1bus}:* \
-	    -o -e ${qb}0/driver/${pciprefix}${mez1bus}:* ]; then
-	    pbase="${pbase} 0,1=${mez1_idx[$bay]},${m1_bay_h1[$bay]}"
-	elif [ -e ${qb}0/device/driver/${pciprefix}${mez2bus}:* \
-	    -o -e ${qb}0/driver/${pciprefix}${mez2bus}:* ]; then
-	    pbase="${pbase} 0,1=${mez2p1_idx[$bay]},${m2_bay_h1[$bay]}"
-	    pbase="${pbase} 0,2=${mez2p2_idx[$bay]},${m2_bay_h1[$bay]}"
-	else
-	    warn_and_log Mismatch on mezbus ${mez1_bus},${mez2_bus} and \
-		unit 0, no serdes setup
-	fi
     else while [ $nunit -ne 0 ]; do
 	(( nunit-- ))
-	if [ $nunit == 1 -o $nunit == 2 ]; then
+	buspath=$(readlink -m ${qb}${nunit}/device)
+	if [ -n "$(echo ${buspath} | grep "${pciprefix}$(printf "%02d" ${mez1bus}):")" ]; then
+	    pbase="${pbase} ${nunit},1=${mez1p1_idx[$bay]},${m1_bay_h1[$bay]}"
+	    if [ ${full} -eq 1 ]; then
+		pbase="${pbase} ${nunit},2=${mez1p2_idx[$bay]},${m1_bay_h1[$bay]}"
+	    fi
+	elif [ -n "$(echo ${buspath} | grep "${pciprefix}$(printf "%02d" ${mez2bus}):")" ]; then
 	    pbase="${pbase} ${nunit},1=${mez2p1_idx[$bay]},${m2_bay_h1[$bay]}"
 	    pbase="${pbase} ${nunit},2=${mez2p2_idx[$bay]},${m2_bay_h1[$bay]}"
+	elif [ -n "$(echo ${buspath} | grep "${pciprefix}$(printf "%02d" ${mez3bus}):")" ]; then
+	    pbase="${pbase} ${nunit},1=${mez3p1_idx[$bay]},${m3_bay_h1[$bay]}"
+	    pbase="${pbase} ${nunit},2=${mez3p2_idx[$bay]},${m3_bay_h1[$bay]}"
 	else
-	    pbase="${pbase} 0,1=${mez1_idx[$bay]},${m1_bay_h1[$bay]}"
+	    warn_and_log Mismatch on mezbus ${mez1_bus},${mez2_bus},${mez3_bus} \
+		and unit ${nunit}, no serdes setup
 	fi
 	done
     fi
