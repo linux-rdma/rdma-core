@@ -1,3 +1,4 @@
+# Copyright (c) 2013. Intel Corporation. All rights reserved.
 # Copyright (c) 2007, 2008, 2009. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
@@ -40,7 +41,7 @@
 Name: libipathverbs
 Version: %ver
 Release: %rel%{?dist}
-Summary: QLogic InfiniPath HCA Userspace Driver
+Summary: Intel InfiniPath HCA Userspace Driver
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
@@ -51,7 +52,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-root
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
 
 %description
-libipathverbs provides a device-specific userspace driver for QLogic HCAs
+libipathverbs provides a device-specific userspace driver for Intel HCAs
 for use with the libibverbs library.
 
 %package devel
