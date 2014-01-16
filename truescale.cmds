@@ -1,0 +1,228 @@
+# Copyright (c) 2010 QLogic Corporation.
+# All rights reserved.
+#
+# This software is available to you under a choice of one of two
+# licenses.  You may choose to be licensed under the terms of the GNU
+# General Public License (GPL) Version 2, available from the file
+# COPYING in the main directory of this source tree, or the
+# OpenIB.org BSD license below:
+#
+#     Redistribution and use in source and binary forms, with or
+#     without modification, are permitted provided that the following
+#     conditions are met:
+#
+#      - Redistributions of source code must retain the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer.
+#
+#      - Redistributions in binary form must reproduce the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer in the documentation and/or other materials
+#        provided with the distribution.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# This script does truescale (qib) adapter-specific actions, and is
+# sourced from the /etc/init.d/openibd script after the ib_qib module
+# is loaded, and before it is unloaded, and is passed the corresponding
+# start and stop arguments.  It isn't intended for standalone use.
+
+# base name in /sys/class
+qb=/sys/class/infiniband/qib
+serdes_parm=txselect
+
+warn_and_log()
+{
+    echo "$0: $@"
+    logger -t infinipath "$@"
+}
+
+setup_qmh()
+{
+    local -i nunit=0 bay bl2xB=0
+    local parmf sysinfo bayinfo mez1bus mez2bus tbay
+    local -a parm bay_h1
+    for parm in parameters/${serdes_parm} ${serdes_parm}; do
+	if [ -e /sys/module/ib_qib/$parm ]; then
+		parmf=/sys/module/ib_qib/$parm
+		break;
+	fi
+    done
+    if [ ! "$parmf" ]; then
+	warn_and_log Unable to find ${serdes_parm} parameter
+	return
+    fi
+    sysinfo="$(PATH=/sbin:/usr/sbin:$PATH; dmidecode -t system | \
+	    sed -e '/^Handle/d' -e '/^[ \t]*$/d' -e 's/[ \t]*$//' )"
+    if [ ! "$sysinfo" ]; then
+	warn_and_log Unable to determine system type
+	return
+    fi
+    bayinfo="$(PATH=/sbin:/usr/sbin:$PATH; dmidecode -t 204)"
+    if [ ! "$bayinfo" ]; then
+	warn_and_log Unable to determine bay
+	return
+    fi
+    case "${bayinfo}" in
+    *Server*Bay:*) tbay=$(PATH=/sbin:/usr/sbin:$PATH; dmidecode -t 204 | \
+	    sed -n -e 's/[ \t]*$//' -e 's/[ \t]*Server Bay:[ \t]*//p') ;;
+    *) tbay=$(PATH=/sbin:/usr/sbin:$PATH; dmidecode -t 204 | \
+	    sed -n -e '1,/BladeSystem/d' -e 's/  *$//' -e 's/^\t\t*//' \
+	    -e '/^[0-9][AB]*$/p' -e '/^[0-9][0-9][AB]*$/p') ;;
+    esac
+
+    read pbase < $parmf
+    parm=($(echo ${qb}*))
+    nunit=${#parm[*]}
+
+    # [0] is a dummy in these arrays, bay #'ing starts at 1
+    # H1 value, per bay (same for both ports)
+    m1_bay_h1=(0 8 7 7 7 7 6 6 6 8 7 7 7 7 6 6 7)
+    m2_bay_h1=(0 11 11 11 11 11 11 10 11 11 11 11 11 10 10 10 10)
+
+    # tx serdes index per bay for mez1 (either port)
+    mez1_idx=(0 2 2 17 17 17 1 1 1 2 1 17 17 16 2 18 16)
+    # tx serdes index per bay for mez2 port 1
+    mez2p1_idx=(0 2 2 17 17 17 1 1 1 2 1 17 17 16 2 18 1)
+    # tx serdes index per bay for mez2 port 2
+    mez2p2_idx=(0 2 2 19 1 1 1 1 1 2 1 18 17 1 19 1 1)
+
+    case "${sysinfo}" in
+    *BL280[cC]*) mez1bus=3 mez2bus=6 bay=$tbay ;;
+    # both nodes on the 2x220 blade have bus 3, only one mez, but
+    # they connect to different switches through different paths
+    # so A and B have different parameters.  They connect to
+    # the switch as if they were the mez2 on other blade types,
+    # with port 1 on mez2 for A node and port 2 on mez2
+    # for the B node
+    *BL2x220[cC]*)
+	mez1bus=3 mez2bus=3 bay=${tbay%[AB]}
+	case "${tbay}" in
+	*A) bl2xB=${mez2p1_idx[$bay]} ;;
+	*B) bl2xB=${mez2p2_idx[$bay]} ;;
+	esac
+	;;
+    *BL460[cC]*) mez1bus=6 mez2bus=9 bay=$tbay ;;
+    *BL490[cC]*) mez1bus=6 mez2bus=7 bay=$tbay ;;
+    *) warn_and_log Unknown blade type "$sysinfo"
+	return ;;
+    esac
+
+    # mez1 only has port1 connected, mez2, mez3 can have both ports
+
+    # If only one card, and two mez possible, we have to figure out which
+    # mez we are plugged into.
+    # On RHEL4U8, we look in the driver subdir, all others
+    # in the device/driver subdir for the pcie bus.
+    pciprefix="[0-9a-fA-f][0-9a-fA-f][0-9a-fA-f][0-9a-fA-f]:0"
+    if [ ${bl2xB} -ne 0 ]; then
+	pbase="${pbase} 0,1=${bl2xB},${m2_bay_h1[$bay]}"
+    elif [ $nunit -eq 1 ]; then
+	if [ -a -e ${qb}0/device/driver/${pciprefix}${mez1bus}:* \
+	    -o -e ${qb}0/driver/${pciprefix}${mez1bus}:* ]; then
+	    pbase="${pbase} 0,1=${mez1_idx[$bay]},${m1_bay_h1[$bay]}"
+	elif [ -e ${qb}0/device/driver/${pciprefix}${mez2bus}:* \
+	    -o -e ${qb}0/driver/${pciprefix}${mez2bus}:* ]; then
+	    pbase="${pbase} 0,1=${mez2p1_idx[$bay]},${m2_bay_h1[$bay]}"
+	else
+	    warn_and_log Mismatch on mezbus ${mez1_bus},${mez2_bus} and \
+		unit 0, no serdes setup
+	fi
+    else while [ $nunit -ne 0 ]; do
+	(( nunit-- ))
+	if [ $nunit == 1 -o $nunit == 2 ]; then
+	    pbase="${pbase} ${nunit},1=${mez2p1_idx[$bay]},${m2_bay_h1[$bay]}"
+	    pbase="${pbase} ${nunit},2=${mez2p2_idx[$bay]},${m2_bay_h1[$bay]}"
+	else
+	    pbase="${pbase} 0,1=${mez1_idx[$bay]},${m1_bay_h1[$bay]}"
+	fi
+	done
+    fi
+    echo -n ${pbase} > $parmf
+}
+
+
+
+setup_qme()
+{
+    local parm parmf sn pbase
+    local -i nunit=0 bay idx
+    for parm in parameters/${serdes_parm} ${serdes_parm}; do
+	if [ -e /sys/module/ib_qib/$parm ]; then
+		parmf=/sys/module/ib_qib/$parm
+		break;
+	fi
+    done
+    if [ ! "$parmf" ]; then
+	warn_and_log Unable to find ${serdes_parm} parameter
+	return
+    fi
+
+    read pbase < $parmf
+    parm=( $(echo ${qb}*) )
+    nunit=${#parm[*]}
+
+    # we get two serial numbers normally, use 2nd if present, else first
+    sn="$(dmidecode -t 2 | grep -i serial | tail -1)"
+    case ${sn} in
+    *[sS]erial\ [nN]umber*)
+      bay="$(echo $sn | sed -e 's/\.$//' -e 's/.*\.0*//')"
+      case $bay in
+      1) idx=22 ;;
+      2|10|15) idx=20 ;;
+      3|7|11|12|13|14) idx=26 ;;
+      4) idx=25 ;;
+      5|6) idx=24 ;;
+      8) idx=21 ;;
+      9|16) idx=23 ;;
+      *) warn_and_log Unexpected QME7342 bay info: ${sn}, no Tx params
+	return;;
+      esac
+      # H1 is same for all QME bays, so no need to specify.
+      while [ $nunit -ne 0 ]; do
+	    (( nunit-- ))
+	    pbase="${pbase} ${nunit},1=${idx} ${nunit},2=${idx}"
+      done
+      echo -n ${pbase} > $parmf
+      ;;
+    *) warn_and_log No QME7342 bay information, no Tx params
+      return;;
+    esac
+}
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:$PATH
+
+case "$1" in
+start)
+	has_qmh7342=$(grep QMH7342 ${qb}*/hca_type) 2>/dev/null
+	if [ "${has_qmh7342}" ]; then
+		setup_qmh
+	else
+		has_qme7342=$(grep QME7342 ${qb}*/hca_type) 2>/dev/null
+		if [ "${has_qme7342}" ]; then
+		    setup_qme
+		fi
+	fi
+
+	mkdir -p -m 755 /ipathfs 2>&1
+	mount -t ipathfs none /ipathfs
+
+	# make sure /dev/ipath files get created with correct permissions
+	if [ ! -c /dev/ipath ]; then sleep 2; fi
+	if [ ! -c /dev/ipath ]; then sleep 3; fi
+	chmod 666 /dev/ipath /dev/ipath[0-9]* >/dev/null 2>&1
+	;;
+stop)
+	if [ -d /ipathfs ]; then
+		umount /ipathfs
+		rmdir /ipathfs
+	fi
+	;;
+esac
