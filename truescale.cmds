@@ -190,7 +190,7 @@ setup_qme()
     if [ -e /sys/module/ib_qib/parameters/qme_bp ]; then
 	read bpver < /sys/module/ib_qib/parameters/qme_bp
 	if [ ${bpver} -ne 0 -a ${bpver} -ne 1 ]; then
-	    warn_and_log Invalid Dell backplane version (${bpver}). Defaulting to 1.
+	    warn_and_log "Invalid Dell backplane version (${bpver}). Defaulting to 1."
 	    bpver=1
 	fi
     fi
