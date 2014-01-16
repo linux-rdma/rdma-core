@@ -1,3 +1,4 @@
+#!/bin/sh
 # Copyright (c) 2013 Intel Corporation. All rights reserved.
 # Copyright (c) 2010 QLogic Corporation.
 # All rights reserved.
@@ -36,17 +37,26 @@
 # start and stop arguments.  It isn't intended for standalone use.
 
 # base name in /sys/class
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:$PATH
+export PATH
 qb=/sys/class/infiniband/qib
 ir=/proc/irq
 serdes_parm=txselect
-service="/etc/init.d/irqbalance"
 irqbalance_conf=/etc/sysconfig/irqbalance
-OPENIBD_CONFIG=${OPENIBD_CONFIG:-"/etc/infiniband/openib.conf"}
-CONFIG=$OPENIBD_CONFIG
-
-if [ -f $CONFIG ]
-then
-	. $CONFIG
+irqbalance_bin=/usr/sbin/irqbalance
+if [ -f $irqbalance_bin ]; then
+    # Deal with different names for the irqbalance service on
+    # different distros
+    service=$(rpm -ql $(rpm -qf $irqbalance_bin) 2>/dev/null | grep init.d)
+    service=$(basename $service)
+fi
+if [ -r /etc/rdma/rdma.conf ]; then
+    OPENIBD_CONFIG=/etc/rdma/rdma.conf
+else
+    OPENIBD_CONFIG=/etc/infiniband/openib.conf
+fi
+if [ -f $OPENIBD_CONFIG ]; then
+   . $OPENIBD_CONFIG
 fi
 
 warn_and_log()
@@ -240,39 +250,134 @@ get_localcpus()
     fi
 }
 
+irq_ban_configurable()
+{
+    if [ -z "$irqbalance_bin" -o -z "$irqbalance_conf" ];then
+	return 1
+    fi
+    if [ ! -r $irqbalance_bin ]; then
+	return 1
+    fi
+    if [ ! -w $irqbalance_conf ]; then
+	return 1
+    fi
+    if strings $irqbalance_bin | grep -q IRQBALANCE_BANNED_INTERRUPTS; then
+	return 0
+    fi
+    # new style irqbalance banning
+    if grep -q IRQBALANCE_ARGS $irqbalance_conf; then
+	return 0
+    fi
+    return 1
+}
+
+new_irq_ban_syntax()
+{
+    if strings $irqbalance_bin | grep -q IRQBALANCE_BANNED_INTERRUPTS; then
+	return 1
+    fi
+    return 0
+}
+
+get_irqs_banned()
+{
+    local banned=
+    if new_irq_ban_syntax; then
+	local -a arr
+	local irq= arg= args=
+	args=$(grep '^IRQBALANCE_ARGS' ${irqbalance_conf} | sed s/IRQBALANCE_ARGS=// | sed s/\"//g)
+	arr=($(echo ${args}))
+	for arg in "${arr[@]}"; do
+	    case $arg in 
+		--banirq*)
+		    irq=${arg#--banirq=}
+		    if [ -n "$irq" ]; then
+			banned="$banned $irq"
+		    fi
+		    ;;
+	    esac
+	done
+    else
+	banned="$(grep '^IRQBALANCE_BANNED_INTERRUPTS' ${irqbalance_conf} | sed s/IRQBALANCE_BANNED_INTERRUPTS=// | sed s/\"//g)"
+    fi
+    echo $banned
+}
+
+set_irqs_banned()
+# $1 - list of irqs
+{
+    local banned="$1" irq=
+    local newformat
+   
+    new_irq_ban_syntax
+    newformat=$?
+    sed -ie '/^IRQBALANCE_BANNED_INTERRUPTS=/d' ${irqbalance_conf}
+    sed -ie '/^export IRQBALANCE_BANNED_INTERRUPTS/d' ${irqbalance_conf}
+    if [ $newformat -eq 0 ]; then
+	local args= old=
+	# delete old format
+	for irq in $banned; do
+	    if [ -z "$args" ]; then
+		args="--banirq=$irq"
+	    else
+		args="$args --banirq=$irq"
+	    fi
+	done
+	old=$(grep '^IRQBALANCE_ARGS' ${irqbalance_conf} | sed -e s/^IRQBALANCE_ARGS=// | sed s/--banirq=[0-9][0-9]*//g | sed s/\"//g)
+	old=$(echo $old)
+	sed -ie '/^IRQBALANCE_ARGS=/d' ${irqbalance_conf}
+	if [ -z "$old" -a -z "$args" ]; then
+	    return
+	fi
+	if [ -n "$old" ]; then
+	    echo "IRQBALANCE_ARGS=\"${old} ${args}\"" >> ${irqbalance_conf}
+        else
+	    echo "IRQBALANCE_ARGS=\"${args}\"" >> ${irqbalance_conf}
+	fi
+    else
+	if [ -n "$banned" ]; then
+	    echo "IRQBALANCE_BANNED_INTERRUPTS=\"${banned}\"" >> ${irqbalance_conf}
+	    echo "export IRQBALANCE_BANNED_INTERRUPTS" >> ${irqbalance_conf}
+	fi
+    fi
+}
+
+has_affinity_hint()
+{
+    local irqs irq
+    local -a arr
+
+    irqs=$(grep 'ib_qib' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
+    arr=($(echo ${irqs}))
+    irq=${arr[0]}
+    if [ -e ${ir}/${irq}/affinity_hint ]; then
+	return 0
+    fi
+    return 1
+}
+
+
 set_irq_affinity()
 {
     local -a irqs cpulist
     local -i nunits=0 idx=1 unit=0 firstcore=1 irq=0 balance=0 \
-	minor=0 is_el6=0
-    local cpus= mask= pcibus= irqtype= kver= banned= prevbanned= tbanned=
+	minor=0
+    local cpus= mask= pcibus= irqtype= banned= prevbanned= tbanned=
 
-    kver=$(uname -r | sed -re 's/([0-9]*\.[0-9]*\.[0-9]*).*/\1/g')
-    minor=$(echo ${kver} | cut -d. -f3)
-    [ -n "$(uname -r | grep ${kver}'.*el6.*')" ] && is_el6=1
     [ -n "$(ps aux | grep irqbalance | grep -v grep | awk '{print $2}')" ] && \
 	balance=1
     
     if [ ${balance} -eq 1 ]; then
 	# stop irqbalance
-	if [ ! -f ${service} ]; then
-	    if [ -f /usr/sbin/irqbalance ]; then
-		# Deal with different names for the irqbalance service on
-		# different distros
-		service=$(rpm -ql $(rpm -qf /usr/sbin/irqbalance) 2>/dev/null | \
-		    grep /etc/init.d)
-	    fi
-	fi
-	
 	if [ -n "${service}" ]; then
-	    ${service} stop 2>/dev/null
+	    service ${service} stop 2>/dev/null
 	    [ ${?} -ne 0 ] && balance=0
 	else
 	    balance=0
 	fi
     fi
     
-    if [[ ${minor} -ge 36 || ${is_el6} -eq 1 ]]; then
+    if has_affinity_hint; then
 	# irqbalance is off and we are running on a kernel which
 	# supports the irq affinity hint
 	irqs=$(grep 'ib_qib' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
@@ -323,24 +428,20 @@ set_irq_affinity()
 		    done; echo ${b}))
 	done
     fi
-
     
-    if [ ${balance} -eq 1 ]; then
-	if [ -f ${irqbalance_conf} ]; then
-	    prevbanned="$(grep IRQBALANCE_BANNED_INTERRUPTS ${irqbalance_conf})"
-	    prevbanned=$( (eval "${prevbanned}"; echo $IRQBALANCE_BANNED_INTERRUPTS) )
+    if irq_ban_configurable; then
+	if [ -r ${irqbalance_conf} ]; then
+	    prevbanned=`get_irqs_banned`
 	    [ -n "${prevbanned}" ] && banned="${prevbanned} ${banned}"
 	fi
-	
-	sed -ie '/^IRQBALANCE_BANNED_INTERRUPTS=/d' ${irqbalance_conf}
 	tbanned=$(for i in $banned; do
 	    echo $i
 	done | sort | uniq)
 	banned=$(echo $tbanned)
-	echo "IRQBALANCE_BANNED_INTERRUPTS=\"${banned}\"" >> \
-	    ${irqbalance_conf}
-
-	${service} start
+	set_irqs_banned "$banned"
+	if [ ${balance} -eq 1 -a -n "$service" ]; then
+	    service ${service} start
+	fi
     fi
     return
 }
@@ -350,22 +451,16 @@ clean_irq_affinity()
     local irqs= banned= prevbanned=
     local -i balance=0
     
+    if ! irq_ban_configurable; then
+	return
+    fi
     [ -n "$(ps aux | grep irqbalance | grep -v grep | awk '{print $2}')" ] && \
 	balance=1
     
     if [ ${balance} -eq 1 ]; then
 	# stop irqbalance
-	if [ ! -f ${service} ]; then
-	    if [ -f /usr/sbin/irqbalance ]; then
-		# Deal with different names for the irqbalance service on
-		# different distros
-		service=$(rpm -ql $(rpm -qf /usr/sbin/irqbalance) 2>/dev/null | \
-		    grep /etc/init.d)
-	    fi
-	fi
-	
 	if [ -n "${service}" ]; then
-	    ${service} stop 2>/dev/null
+	    service ${service} stop 2>/dev/null
 	    [ ${?} -ne 0 ] && balance=0
 	else
 	    balance=0
@@ -375,25 +470,46 @@ clean_irq_affinity()
     irqs=$(grep 'ib_qib' /proc/interrupts | sed -re 's/([0-9]*):.*/\1/g')
     
     if [ -f ${irqbalance_conf} ]; then
-	banned="$(grep IRQBALANCE_BANNED_INTERRUPTS ${irqbalance_conf})"
-	banned=$( (eval "${banned}"; echo $IRQBALANCE_BANNED_INTERRUPTS) )
-	for irq in ${irqs}; do
-	    banned="$(echo "${banned}" | sed -e 's/'$irq'//g')"
-	done
-	banned="$( (eval b='${banned}'; echo $b) )"
-	sed -ie '/^IRQBALANCE_BANNED_INTERRUPTS=/d' ${irqbalance_conf}
-	if [ -n "${banned}" -a "X${banned}" != "X " ]; then
-	    echo -e "IRQBALANCE_BANNED_INTERRUPTS=\"${banned}\"" >> \
-		${irqbalance_conf}
-	fi
+	local i
+	banned=`get_irqs_banned`
+	for i in ${irqs}; do
+	    echo $irq
+	done | sort | uniq > /tmp/qib_interrupts$$
+	if [ -s /tmp/qib_interrupts$$ ]; then
+	    for i in $banned; do
+	        echo $i
+	    done | sort | uniq > /tmp/banned_interrupts$$
+	    banned=$(grep -v -f /tmp/qib_interrupts$$ /tmp/banned_interrupts$$)
+	    banned=$(echo ${banned})
+	    set_irqs_banned "$banned"
+ 	fi
+	rm -f /tmp/qib_interrupts$$ /tmp/banned_interrupts$$
     fi
 
     if [ ${balance} -eq 1 ]; then
-	${service} start
+	service ${service} start
     fi
 }
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin:$PATH
+start_fs()
+{
+    if grep -q ipathfs /proc/filesystems; then
+	grep -q ipathfs /proc/mounts && umount /ipathfs
+	rm -rf /ipathfs > /dev/null 2>&1
+	mkdir -p -m 755 /ipathfs > /dev/null 2>&1
+	if [ -d /ipathfs ]; then
+	    mount -t ipathfs none /ipathfs
+	fi
+    fi
+}
+
+stop_fs()
+{
+    if [ -d /ipathfs ]; then
+	grep -q ipathfs /proc/mounts && umount /ipathfs
+    fi
+}
+
 has_qib=$(lspci -n 2>/dev/null | grep -i "1077\|1fc1")
 
 case "$1" in
@@ -408,11 +524,8 @@ start)
 		    setup_qme
 		fi
 	    fi
-	    
-	    umount /ipathfs >/dev/null 2>&1
-	    rm -rf /ipathfs
-	    mkdir -p -m 755 /ipathfs 2>&1
-	    mount -t ipathfs none /ipathfs
+
+	    start_fs
 
             # make sure /dev/ipath files get created with correct permissions
 	    typeset -i timeout=30 count=0
@@ -433,10 +546,7 @@ start)
 stop)
 	if [ "${has_qib}" ]; then
 	    clean_irq_affinity
-	    if [ -d /ipathfs ]; then
-		umount /ipathfs
-		rmdir /ipathfs
-	    fi
+	    stop_fs
 	fi
 	;;
 esac
