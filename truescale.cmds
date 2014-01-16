@@ -201,11 +201,11 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:$PATH
 
 case "$1" in
 start)
-	has_qmh7342=$(grep QMH7342 ${qb}*/hca_type) 2>/dev/null
+	has_qmh7342=$(grep QMH7342 ${qb}*/hca_type 2>/dev/null)
 	if [ "${has_qmh7342}" ]; then
 		setup_qmh
 	else
-		has_qme7342=$(grep QME7342 ${qb}*/hca_type) 2>/dev/null
+		has_qme7342=$(grep QME7342 ${qb}*/hca_type 2>/dev/null)
 		if [ "${has_qme7342}" ]; then
 		    setup_qme
 		fi
