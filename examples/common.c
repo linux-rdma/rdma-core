@@ -161,5 +161,5 @@ int do_poll(struct pollfd *fds, int timeout)
 		ret = rs_poll(fds, 1, timeout);
 	} while (!ret);
 
-	return ret == 1 ? 0 : ret;
+	return ret == 1 ? (fds->revents & (POLLERR | POLLHUP)) : ret;
 }

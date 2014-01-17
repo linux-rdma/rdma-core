@@ -90,6 +90,7 @@ static int transfer_count = 1000;
 static int buffer_size;
 static char test_name[10] = "custom";
 static char *port = "7471";
+static int keepalive;
 static char *dst_addr;
 static char *src_addr;
 static struct timeval start, end;
@@ -253,6 +254,28 @@ out:
 	return ret;
 }
 
+static void set_keepalive(int rs)
+{
+	int optval;
+	socklen_t optlen = sizeof(optlen);
+
+	optval = 1;
+	if (rs_setsockopt(rs, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen)) {
+		perror("rsetsockopt SO_KEEPALIVE");
+		return;
+	}
+
+	optval = keepalive;
+	if (rs_setsockopt(rs, IPPROTO_TCP, TCP_KEEPIDLE, &optval, optlen))
+		perror("rsetsockopt TCP_KEEPIDLE");
+
+	if (!(rs_getsockopt(rs, SOL_SOCKET, SO_KEEPALIVE, &optval, &optlen)))
+		printf("Keepalive: %s\n", (optval ? "ON" : "OFF"));
+
+	if (!(rs_getsockopt(rs, IPPROTO_TCP, TCP_KEEPIDLE, &optval, &optlen)))
+		printf("  time: %i\n", optval);
+}
+
 static void set_options(int rs)
 {
 	int val;
@@ -284,6 +307,9 @@ static void set_options(int rs)
 			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &val, sizeof val);
 		}
 	}
+
+	if (keepalive)
+		set_keepalive(rs);
 }
 
 static int server_listen(void)
@@ -571,7 +597,7 @@ int main(int argc, char **argv)
 
 	ai_hints.ai_socktype = SOCK_STREAM;
 	rai_hints.ai_port_space = RDMA_PS_TCP;
-	while ((op = getopt(argc, argv, "s:b:f:B:I:C:S:p:T:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:f:B:I:C:S:p:k:T:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -612,6 +638,9 @@ int main(int argc, char **argv)
 		case 'p':
 			port = optarg;
 			break;
+		case 'k':
+			keepalive = atoi(optarg);
+			break;
 		case 'T':
 			if (!set_test_opt(optarg))
 				break;
@@ -627,6 +656,7 @@ int main(int argc, char **argv)
 			printf("\t[-C transfer_count]\n");
 			printf("\t[-S transfer_size or all]\n");
 			printf("\t[-p port_number]\n");
+			printf("\t[-k keepalive_time]\n");
 			printf("\t[-T test_option]\n");
 			printf("\t    s|sockets - use standard tcp/ip sockets\n");
 			printf("\t    a|async - asynchronous operation (use poll)\n");
