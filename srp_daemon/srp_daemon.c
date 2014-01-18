@@ -209,7 +209,7 @@ static void usage(const char *argv0)
 static int
 check_equal_uint64(char *dir_name, char *attr, uint64_t val)
 {
-uint64_t attr_value;
+	uint64_t attr_value;
 
 	if (srpd_sys_read_uint64(dir_name, attr, &attr_value))
 		return 0;
@@ -220,7 +220,7 @@ uint64_t attr_value;
 static int
 check_equal_uint16(char *dir_name, char *attr, uint16_t val)
 {
-uint64_t attr_value;
+	uint64_t attr_value;
 
 	if (srpd_sys_read_uint64(dir_name, attr, &attr_value))
 		return 0;
@@ -319,12 +319,12 @@ int is_enabled_by_rules_file(struct target_details *target)
 		if (conf->rules[rule].id_ext[0] != '\0' &&
 		    strtoull(target->id_ext, 0, 16) !=
 		    strtoull(conf->rules[rule].id_ext, 0, 16))
-				continue;
+			continue;
 
 		if (conf->rules[rule].ioc_guid[0] != '\0' &&
 		    ntohll(target->ioc_prof.guid) !=
 		    strtoull(conf->rules[rule].ioc_guid, 0, 16))
-				continue;
+			continue;
 
 		if (conf->rules[rule].dgid[0] != '\0') {
 			char tmp = conf->rules[rule].dgid[16];
@@ -343,12 +343,12 @@ int is_enabled_by_rules_file(struct target_details *target)
 		if (conf->rules[rule].service_id[0] != '\0' &&
 		    strtoull(conf->rules[rule].service_id, 0, 16) !=
 	            target->h_service_id)
-				continue;
+			continue;
 
 		if (conf->rules[rule].pkey[0] != '\0' &&
 		    (uint16_t)strtoul(conf->rules[rule].pkey, 0, 16) !=
 	            target->pkey)
-				continue;
+			continue;
 
 		target->options = conf->rules[rule].options;
 
@@ -1020,6 +1020,7 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 
 	return 0;
 }
+
 int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
 		       uint16_t *pkey)
 {
@@ -1994,11 +1995,11 @@ int main(int argc, char *argv[])
 			}
 
 			if (res->ud_res->ah) {
-			    if (register_to_traps(res, 1))
-				    pr_err("Fail to register to traps, maybe there "
-					   "is no opensm running on fabric or IB port is down\n");
-			    else
-				    subscribed = 1;
+				if (register_to_traps(res, 1))
+					pr_err("Fail to register to traps, maybe there "
+					       "is no opensm running on fabric or IB port is down\n");
+				else
+					subscribed = 1;
 			}
 
 			clear_traps_list(res->sync_res);
