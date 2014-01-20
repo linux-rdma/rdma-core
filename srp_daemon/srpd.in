@@ -64,15 +64,10 @@ stop_srp_daemon() {
     return 0
 }
 
-# if ib_srp module is loaded return - 0 else - 1
-is_srp_mod_loaded()
-{
-local rc
-
-    /sbin/lsmod | grep -w "ib_srp" > /dev/null 2>&1
-    rc=$?
-
-return $rc
+# if the ib_srp module is loaded or built into the kernel return 0 otherwise
+# return 1.
+is_srp_mod_loaded() {
+    [ -e /sys/module/ib_srp ]
 }
 
 running() {
