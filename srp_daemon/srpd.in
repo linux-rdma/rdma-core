@@ -36,10 +36,7 @@ pidfile=/var/run/srp_daemon.sh.pid
 prog=/usr/sbin/srp_daemon.sh
 
 checkpid() {
-    if [ -e "/proc/$1" ]; then
-        return 0
-    fi
-    return 1
+    [ -e "/proc/$1" ]
 }
 
 stop_srp_daemon() {
