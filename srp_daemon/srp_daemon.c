@@ -1950,12 +1950,6 @@ int main(int argc, char *argv[])
 		goto free_config;
 	}
 
-	if (check_process_uniqueness(config))
-	{
-		ret = EPERM;
-		goto clean_config;
-	}
-
 	if (config->verbose)
 		print_config(config);
 
@@ -1971,6 +1965,11 @@ int main(int argc, char *argv[])
 
 	if (config->once) {
 		ret = recalc(res);
+		goto free_res;
+	}
+
+	if (check_process_uniqueness(config)) {
+		ret = EPERM;
 		goto free_res;
 	}
 
