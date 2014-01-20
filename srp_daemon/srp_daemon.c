@@ -41,6 +41,7 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1323,12 +1324,86 @@ static char *copy_till_comma(char *d, char *s, int len, int base)
 	return s;
 }
 
+static char *parse_main_option(struct rule *rule, char *ptr)
+{
+	struct option_info {
+		const char *name;
+		size_t offset;
+		size_t len;
+		int base;
+	};
+#define OPTION_INFO(n, base) { #n "=", offsetof(struct rule, n),	\
+			sizeof(((struct rule *)NULL)->n), base}
+	static const struct option_info opt_info[] = {
+		OPTION_INFO(id_ext, 16),
+		OPTION_INFO(ioc_guid, 16),
+		OPTION_INFO(dgid, 16),
+		OPTION_INFO(service_id, 16),
+		OPTION_INFO(pkey, 16),
+	};
+	int i, optnamelen;
+	char *ptr2 = NULL;
+
+	for (i = 0; i < sizeof(opt_info) / sizeof(opt_info[0]); i++) {
+		optnamelen = strlen(opt_info[i].name);
+		if (strncmp(ptr, opt_info[i].name, optnamelen) == 0) {
+			ptr2 = copy_till_comma((char *)rule
+					       + opt_info[i].offset,
+					       ptr + optnamelen,
+					       opt_info[i].len - 1,
+					       opt_info[i].base);
+			break;
+		}
+	}
+
+	return ptr2;
+}
+
+/*
+ * Return values:
+ *  -1 if the output buffer is not large enough.
+ *   0 if an unsupported option has been encountered.
+ * > 0 if parsing succeeded.
+ */
+static int parse_other_option(struct rule *rule, char *ptr)
+{
+	static const char *const opt[] = {
+		"max_sect=", "max_cmd_per_lun=", "comp_vector=", "queue_size=",
+	};
+
+	char *ptr2 = NULL, *optr, option[17];
+	int i, optnamelen, len, left;
+
+	optr = rule->options;
+	left = sizeof(rule->options);
+	len = strlen(optr);
+	optr += len;
+	left -= len;
+	for (i = 0; i < sizeof(opt)/sizeof(opt[0]); ++i) {
+		optnamelen = strlen(opt[i]);
+		if (strncmp(ptr, opt[i], optnamelen) != 0)
+			continue;
+		ptr2 = copy_till_comma(option, ptr + optnamelen,
+				       sizeof(option) - 1, 10);
+		if (!ptr2)
+			return -1;
+		len = snprintf(optr, left, ",%s%s", opt[i], option);
+		optr += len;
+		left -= len;
+		if (left <= 0)
+			return -1;
+		break;
+	}
+	return ptr2 ? ptr2 - ptr : 0;
+}
+
 static int get_rules_file(struct config_t *conf)
 {
 	int line_number = 1, len, line_number_for_output, ret = -1;
-	char line[255], option[17];
-	char *ptr, *ptr2, *optr;
-	FILE *infile=fopen(conf->rules_file, "r");
+	char line[255];
+	char *ptr, *ptr2;
+	struct rule *rule;
+	FILE *infile = fopen(conf->rules_file, "r");
 
 	if (infile == NULL) {
 		pr_debug("Could not find rules file %s, going with default\n",
@@ -1348,22 +1423,22 @@ static int get_rules_file(struct config_t *conf)
 
 	conf->rules = malloc(sizeof(struct rule) * line_number);
 
-	line_number = -1;
+	rule = &conf->rules[0] - 1;
 	line_number_for_output = 0;
 	while (fgets(line, sizeof(line), infile) != NULL) {
 		line_number_for_output++;
 		if (line[0] == '#' || line[0] == '\n')
 			continue;
 
-		line_number++;
+		rule++;
 		switch (line[0]) {
 		case 'a':
 		case 'A':
-			conf->rules[line_number].allow = 1;
+			rule->allow = 1;
 			break;
 		case 'd':
 		case 'D':
-			conf->rules[line_number].allow = 0;
+			rule->allow = 0;
 			break;
 		default:
 			pr_err("Bad syntax in rules file %s line %d:"
@@ -1372,62 +1447,29 @@ static int get_rules_file(struct config_t *conf)
 			goto out;
 		}
 
-		conf->rules[line_number].id_ext[0]='\0';
-		conf->rules[line_number].ioc_guid[0]='\0';
-		conf->rules[line_number].dgid[0]='\0';
-		conf->rules[line_number].service_id[0]='\0';
-		conf->rules[line_number].pkey[0]='\0';
-		conf->rules[line_number].options[0]='\0';
+		rule->id_ext[0] = '\0';
+		rule->ioc_guid[0] = '\0';
+		rule->dgid[0] = '\0';
+		rule->service_id[0] = '\0';
+		rule->pkey[0] = '\0';
+		rule->options[0] = '\0';
 
 		ptr = &line[1];
 		while (*ptr == ' ' || *ptr == '\t')
 			ptr++;
 
-		optr = conf->rules[line_number].options;
 		while (*ptr != '\n') {
-			ptr2 = NULL;
-			if (strncmp(ptr, "id_ext=", 7) == 0)
-				ptr2 = copy_till_comma(
-					conf->rules[line_number].id_ext,
-					ptr+7, 16, 16);
-
-			else if (strncmp(ptr, "ioc_guid=", 9) == 0)
-				ptr2 = copy_till_comma(
-					conf->rules[line_number].ioc_guid,
-					ptr+9, 16, 16);
-
-			else if (strncmp(ptr, "dgid=", 5) == 0)
-				ptr2 = copy_till_comma(
-					conf->rules[line_number].dgid,
-					ptr+5, 32, 16);
-
-			else if (strncmp(ptr, "service_id=", 11) == 0)
-				ptr2 = copy_till_comma(
-					conf->rules[line_number].service_id,
-					ptr+11, 16, 16);
-
-			else if (strncmp(ptr, "pkey=", 5) == 0)
-				ptr2 = copy_till_comma(
-					conf->rules[line_number].pkey,
-					ptr+5, 9, 16);
-
-			else if (conf->rules[line_number].allow) {
-
-				if (strncmp(ptr, "max_sect=", 9) == 0) {
-					ptr2 = copy_till_comma(option, ptr+9, 16, 10);
-					if (ptr2) {
-						len = sprintf(optr, ",max_sect=%s", option);
-						optr += len;
-					}
+			ptr2 = parse_main_option(rule, ptr);
+			if (!ptr2 && rule->allow) {
+				len = parse_other_option(rule, ptr);
+				if (len < 0) {
+					pr_err("Buffer overflow triggered by"
+					       " rules file %s line %d\n",
+					       conf->rules_file,
+					       line_number_for_output);
+					goto out;
 				}
-
-				else if (strncmp(ptr, "max_cmd_per_lun=", 16) == 0) {
-					ptr2 = copy_till_comma(option, ptr+16, 16, 10);
-					if (ptr2) {
-						len = sprintf(optr, ",max_cmd_per_lun=%s", option);
-						optr += len;
-					}
-				}
+				ptr2 = len ? ptr + len : NULL;
 			}
 
 			if (ptr2 == NULL) {
@@ -1441,14 +1483,14 @@ static int get_rules_file(struct config_t *conf)
 				ptr++;
 		}
 	}
-	line_number++;
-	conf->rules[line_number].id_ext[0]='\0';
-	conf->rules[line_number].ioc_guid[0]='\0';
-	conf->rules[line_number].dgid[0]='\0';
-	conf->rules[line_number].service_id[0]='\0';
-	conf->rules[line_number].pkey[0]='\0';
-	conf->rules[line_number].options[0]='\0';
-	conf->rules[line_number].allow = 1;
+	rule++;
+	rule->id_ext[0] = '\0';
+	rule->ioc_guid[0] = '\0';
+	rule->dgid[0] = '\0';
+	rule->service_id[0] = '\0';
+	rule->pkey[0] = '\0';
+	rule->options[0] = '\0';
+	rule->allow = 1;
 	ret = 0;
 
 out:
