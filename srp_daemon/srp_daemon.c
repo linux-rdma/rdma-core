@@ -1325,7 +1325,7 @@ static char *copy_till_comma(char *d, char *s, int len, int base)
 
 static int get_rules_file(struct config_t *conf)
 {
-	int line_number = 1, len, line_number_for_output;
+	int line_number = 1, len, line_number_for_output, ret = -1;
 	char line[255], option[17];
 	char *ptr, *ptr2, *optr;
 	FILE *infile=fopen(conf->rules_file, "r");
@@ -1343,8 +1343,7 @@ static int get_rules_file(struct config_t *conf)
 
 	if (fseek(infile, 0L, SEEK_SET) != 0) {
 		pr_err("internal error while seeking %s\n", conf->rules_file);
-		fclose(infile);
-		return -1;
+		goto out;
 	}
 
 	conf->rules = malloc(sizeof(struct rule) * line_number);
@@ -1370,8 +1369,7 @@ static int get_rules_file(struct config_t *conf)
 			pr_err("Bad syntax in rules file %s line %d:"
 			       " line should start with 'a' or 'd'\n",
 			       conf->rules_file, line_number_for_output);
-			fclose(infile);
-			return -1;
+			goto out;
 		}
 
 		conf->rules[line_number].id_ext[0]='\0';
@@ -1435,8 +1433,7 @@ static int get_rules_file(struct config_t *conf)
 			if (ptr2 == NULL) {
 				pr_err("Bad syntax in rules file %s line %d\n",
 				       conf->rules_file, line_number_for_output);
-				fclose(infile);
-				return -1;
+				goto out;
 			}
 			ptr = ptr2;
 
@@ -1452,10 +1449,12 @@ static int get_rules_file(struct config_t *conf)
 	conf->rules[line_number].pkey[0]='\0';
 	conf->rules[line_number].options[0]='\0';
 	conf->rules[line_number].allow = 1;
+	ret = 0;
 
+out:
 	fclose(infile);
 
-	return 0;
+	return ret;
 }
 
 static int get_config(struct config_t *conf, int argc, char *argv[])
