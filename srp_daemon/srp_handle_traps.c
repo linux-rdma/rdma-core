@@ -585,7 +585,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 
 	data->lid_range_begin = 0xFFFF;
 	data->is_generic = 1;
-	data->subscribe = 1;
+	data->subscribe = subscribe;
 	if (trap_num == SRP_TRAP_JOIN)
 		data->trap_type = htons(3); /* SM */
 	else if (trap_num == SRP_TRAP_CHANGE_CAP)
@@ -598,6 +598,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 	else if (trap_num == SRP_TRAP_CHANGE_CAP)
 		/* Channel Adapter */
 		data->g_or_v.generic.node_type_lsb = htons(1);
+	data->g_or_v.generic.qpn_resp_time_val = htonl(res->qp->qp_num << 8);
 
 	comp_mask |= SRP_INFORMINFO_LID_COMP	    |
 		     SRP_INFORMINFO_ISGENERIC_COMP  |
