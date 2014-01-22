@@ -1010,9 +1010,21 @@ static int print_node_records(struct sa_handle * h, struct query_params *p)
 			if (requested_guid == cl_ntoh64(p_ni->port_guid))
 				print_node_record(node_record);
 		} else {
+			ib_node_info_t *p_ni = &(node_record->node_info);
+			ib_node_desc_t *p_nd = &(node_record->node_desc);
+			char *name;
+
+			name = remap_node_name (node_name_map,
+						cl_ntoh64(p_ni->node_guid),
+						(char *)p_nd->description);
+
 			if (!requested_name ||
 			    (strncmp(requested_name,
 				     (char *)node_record->node_desc.description,
+				     sizeof(node_record->
+					    node_desc.description)) == 0) ||
+			    (strncmp(requested_name,
+				     name,
 				     sizeof(node_record->
 					    node_desc.description)) == 0)) {
 				print_node_record(node_record);
@@ -1021,6 +1033,8 @@ static int print_node_records(struct sa_handle * h, struct query_params *p)
 					exit(0);
 				}
 			}
+
+			free(name);
 		}
 	}
 	sa_free_result_mad(&result);
