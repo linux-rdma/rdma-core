@@ -38,10 +38,12 @@ const char *ibv_node_type_str(enum ibv_node_type node_type)
 		[IBV_NODE_CA]		= "InfiniBand channel adapter",
 		[IBV_NODE_SWITCH]	= "InfiniBand switch",
 		[IBV_NODE_ROUTER]	= "InfiniBand router",
-		[IBV_NODE_RNIC]		= "iWARP NIC"
+		[IBV_NODE_RNIC]		= "iWARP NIC",
+		[IBV_NODE_USNIC]	= "usNIC",
+		[IBV_NODE_USNIC_UDP]	= "usNIC UDP",
 	};
 
-	if (node_type < IBV_NODE_CA || node_type > IBV_NODE_RNIC)
+	if (node_type < IBV_NODE_CA || node_type > IBV_NODE_USNIC_UDP)
 		return "unknown";
 
 	return node_type_str[node_type];

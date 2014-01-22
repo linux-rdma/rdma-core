@@ -373,7 +373,7 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 			dev->node_type = IBV_NODE_UNKNOWN;
 	} else {
 		dev->node_type = strtol(value, NULL, 10);
-		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_RNIC)
+		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_USNIC_UDP)
 			dev->node_type = IBV_NODE_UNKNOWN;
 	}
 
@@ -385,6 +385,12 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 		break;
 	case IBV_NODE_RNIC:
 		dev->transport_type = IBV_TRANSPORT_IWARP;
+		break;
+	case IBV_NODE_USNIC:
+		dev->transport_type = IBV_TRANSPORT_USNIC;
+		break;
+	case IBV_NODE_USNIC_UDP:
+		dev->transport_type = IBV_TRANSPORT_USNIC_UDP;
 		break;
 	default:
 		dev->transport_type = IBV_TRANSPORT_UNKNOWN;

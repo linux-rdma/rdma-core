@@ -70,9 +70,11 @@ static const char *guid_str(uint64_t node_guid, char *str)
 static const char *transport_str(enum ibv_transport_type transport)
 {
 	switch (transport) {
-	case IBV_TRANSPORT_IB:    return "InfiniBand";
-	case IBV_TRANSPORT_IWARP: return "iWARP";
-	default:		  return "invalid transport";
+	case IBV_TRANSPORT_IB:		return "InfiniBand";
+	case IBV_TRANSPORT_IWARP:	return "iWARP";
+	case IBV_TRANSPORT_USNIC:	return "usNIC";
+	case IBV_TRANSPORT_USNIC_UDP:	return "usNIC UDP";
+	default:			return "invalid transport";
 	}
 }
 
