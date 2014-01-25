@@ -17,18 +17,31 @@ Dependencies:
 	5) glib2
 
 
-Release notes v1.6.1 => 1.6.2
+Release notes v1.6.2 => 1.6.3
 
-   1) bug fixes and code clean up
-   2) add multiple port to perfquery
-   3) saquery enhancements
-	a) InformInfoRecord
-	b) Add to error messages
-	c) Add ServiceID support for PathRecord query
-	d) SwitchInfoRecord
-	e) SMInfoRecord
-   4) Add new dump_fts tool
-	a) modify dump_[m|l]fts.sh to use new tool
-   5) Add sl support to ibqueryerrors
-   6) Add ON/OFF options to ibportstate
+   1) bug fixes
+
+Authors since 1.6.2
+
+Al Chu <chu11@llnl.gov>
+	infiniband-diags: Check node-name-map strings when querying by name
+
+Dan Ben Yosef <danby@mellanox.com>
+	libibnetdisc/ibnetdisc.c: improve log information to stdout
+	libibnetdisc/ibnetdisc.c: fix insert of invalid lid 0xFFFF into lid_port hash_table
+	ibtracert.c: Add 'force' flag to man page
+	infiniband-diags/vendstat: Fix GeneralInfo SW version
+	ibportstate: on/off option is missing in help
+	iblinkinfo: Remove "-R" option from man page
+	ibaddr: Add missing -t option to manpage
+
+Hal Rosenstock <hal@dev.mellanox.co.il>
+	ibdiag_sa.c: Output attribute ID in hex rather than decimal
+
+Ira Weiny <ira.weiny@intel.com>
+	infiniband-diags: fail configure if glib2 is not found
+
+Bart Van Assche <bvanassche@acm.org>
+	Fix errors triggered by autoregen.sh
+	get_lid_from_name(): Remove an unused variable
 
