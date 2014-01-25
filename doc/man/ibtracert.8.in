@@ -49,6 +49,9 @@ simple format; don\(aqt show additional information
 .TP
 .B \fB\-m\fP
 show the multicast trace of the specified mlid
+.TP
+.B \fB\-f, \-\-force\fP
+force route to destination port
 .UNINDENT
 .SS Addressing Flags
 .\" Define the common option -G
@@ -108,13 +111,6 @@ ibaddr \-C mthca0 \-P 2  # use the specified port only.
 .UNINDENT
 .UNINDENT
 .SS Debugging flags
-.\" Define the common option -f
-.
-.INDENT 0.0
-.TP
-.B \-f
-force route to destination port.
-.UNINDENT
 .\" Define the common option -d
 .
 .INDENT 0.0
