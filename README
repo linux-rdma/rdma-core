@@ -17,7 +17,7 @@ Dependencies:
 	5) glib2
 
 
-Release notes v1.6.2 => 1.6.3
+Release notes v1.6.2 => 1.6.4
 
    1) bug fixes
 
@@ -27,7 +27,6 @@ Al Chu <chu11@llnl.gov>
 	infiniband-diags: Check node-name-map strings when querying by name
 
 Dan Ben Yosef <danby@mellanox.com>
-	libibnetdisc/ibnetdisc.c: improve log information to stdout
 	libibnetdisc/ibnetdisc.c: fix insert of invalid lid 0xFFFF into lid_port hash_table
 	ibtracert.c: Add 'force' flag to man page
 	infiniband-diags/vendstat: Fix GeneralInfo SW version
