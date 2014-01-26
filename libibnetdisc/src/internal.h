@@ -42,16 +42,12 @@
 #include <complib/cl_qmap.h>
 #include <glib.h>
 
-#define	IBND_ERROR(fmt, ...) \
-		fprintf(stderr, "%s:%u; " fmt, __FILE__, __LINE__, ## __VA_ARGS__)
-
-#define	IBND_INFO(fmt, ...) \
-		printf("%s:%u; " fmt, __FILE__, __LINE__, ## __VA_ARGS__);
-
 #define	IBND_DEBUG(fmt, ...) \
 	if (ibdebug) { \
-		IBND_INFO(fmt,## __VA_ARGS__); \
+		printf("%s:%u; " fmt, __FILE__, __LINE__, ## __VA_ARGS__); \
 	}
+#define	IBND_ERROR(fmt, ...) \
+		fprintf(stderr, "%s:%u; " fmt, __FILE__, __LINE__, ## __VA_ARGS__)
 
 /* HASH table defines */
 #define HASHGUID(guid) ((uint32_t)(((uint32_t)(guid) * 101) ^ ((uint32_t)((guid) >> 32) * 103)))
