@@ -642,9 +642,7 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'P':
-			if (!strncasecmp("ib", optarg, 2)) {
-				hints.ai_port_space = RDMA_PS_IB;
-			} else if (!strncasecmp("ipoib", optarg, 5)) {
+			if (!strncasecmp("ipoib", optarg, 5)) {
 				hints.ai_port_space = RDMA_PS_IPOIB;
 			} else if (strncasecmp("udp", optarg, 3)) {
 				fprintf(stderr, "Warning: unknown port space format\n");
@@ -657,7 +655,7 @@ int main(int argc, char **argv)
 			printf("\t[-f address_format]\n");
 			printf("\t    name, ip, ipv6, or gid\n");
 			printf("\t[-P port_space]\n");
-			printf("\t    udp, ipoib, or ib\n");
+			printf("\t    udp or ipoib\n");
 			printf("\t[-c connections]\n");
 			printf("\t[-C message_count]\n");
 			printf("\t[-S message_size]\n");
