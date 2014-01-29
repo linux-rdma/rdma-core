@@ -4,8 +4,9 @@ libibverbs (1.1.7-1) unstable; urgency=low
     - Add raw QP support
     - Further support for new IB link speeds
     - Other miscellaneous fixes
+  * Update maintainer and remove DM-Upload-Allowed now that I'm a DD.
 
- -- Roland Dreier <rbd@debian.org>  Tue, 28 May 2013 09:31:54 -0700
+ -- Roland Dreier <rbd@debian.org>  Wed, 29 Jan 2014 13:02:21 -0800
 
 libibverbs (1.1.6-1) unstable; urgency=low
 
