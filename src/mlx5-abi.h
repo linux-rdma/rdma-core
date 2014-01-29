@@ -118,4 +118,16 @@ struct mlx5_create_qp_resp {
 	__u32				uuar_index;
 };
 
+struct mlx5_resize_cq {
+	struct ibv_resize_cq		ibv_cmd;
+	__u64				buf_addr;
+	__u16				cqe_size;
+	__u16				reserved0;
+	__u32				reserved1;
+};
+
+struct mlx5_resize_cq_resp {
+	struct ibv_resize_cq_resp	ibv_resp;
+};
+
 #endif /* MLX4_ABI_H */

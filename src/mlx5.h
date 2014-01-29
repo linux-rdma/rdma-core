@@ -320,14 +320,19 @@ enum {
 
 struct mlx5_cq {
 	struct ibv_cq			ibv_cq;
-	struct mlx5_buf			buf;
-	struct mlx5_buf			resize_buf;
+	struct mlx5_buf			buf_a;
+	struct mlx5_buf			buf_b;
+	struct mlx5_buf		       *active_buf;
+	struct mlx5_buf		       *resize_buf;
+	int				resize_cqes;
+	int				active_cqes;
 	struct mlx5_spinlock		lock;
 	uint32_t			cqn;
 	uint32_t			cons_index;
 	uint32_t		       *dbrec;
 	int				arm_sn;
 	int				cqe_sz;
+	int				resize_cqe_sz;
 	int				stall_next_poll;
 	int				stall_enable;
 	uint64_t			stall_last_count;
@@ -539,8 +544,8 @@ int mlx5_dereg_mr(struct ibv_mr *mr);
 struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
-int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
-		      int nent, int cqe_sz);
+int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
+		      struct mlx5_buf *buf, int nent, int cqe_sz);
 int mlx5_free_cq_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 int mlx5_resize_cq(struct ibv_cq *cq, int cqe);
 int mlx5_destroy_cq(struct ibv_cq *cq);
@@ -549,8 +554,7 @@ int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
 void mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
-int mlx5_get_outstanding_cqes(struct mlx5_cq *cq);
-void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq, void *buf, int new_cqe);
+void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq);
 
 struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);

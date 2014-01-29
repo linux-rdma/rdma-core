@@ -85,9 +85,10 @@ enum {
 	MLX5_CQE_RESP_SEND	= 2,
 	MLX5_CQE_RESP_SEND_IMM	= 3,
 	MLX5_CQE_RESP_SEND_INV	= 4,
-	MLX5_CQE_RESIZE_CQ	= 0xff, // TBD
+	MLX5_CQE_RESIZE_CQ	= 5,
 	MLX5_CQE_REQ_ERR	= 13,
 	MLX5_CQE_RESP_ERR	= 14,
+	MLX5_CQE_INVALID	= 15,
 };
 
 enum {
@@ -132,9 +133,14 @@ int mlx5_stall_cq_poll_max = 100000;
 int mlx5_stall_cq_inc_step = 100;
 int mlx5_stall_cq_dec_step = 10;
 
+static void *get_buf_cqe(struct mlx5_buf *buf, int n, int cqe_sz)
+{
+	return buf->buf + n * cqe_sz;
+}
+
 static void *get_cqe(struct mlx5_cq *cq, int n)
 {
-	return cq->buf.buf + n * cq->cqe_sz;
+	return cq->active_buf->buf + n * cq->cqe_sz;
 }
 
 static void *get_sw_cqe(struct mlx5_cq *cq, int n)
@@ -143,8 +149,13 @@ static void *get_sw_cqe(struct mlx5_cq *cq, int n)
 	struct mlx5_cqe64 *cqe64;
 
 	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
-	return ((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^
-		!!(n & (cq->ibv_cq.cqe + 1))) ? NULL : cqe;
+
+	if (likely((cqe64->op_own) >> 4 != MLX5_CQE_INVALID) &&
+	    !((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^ !!(n & (cq->ibv_cq.cqe + 1)))) {
+		return cqe;
+	} else {
+		return NULL;
+	}
 }
 
 static void *next_cqe_sw(struct mlx5_cq *cq)
@@ -391,8 +402,6 @@ static int mlx5_poll_one(struct mlx5_cq *cq,
 		dump_cqe(fp, cqe64);
 	}
 #endif
-
-	/* TBD: resize CQ */
 
 	srqn = ntohl(cqe64->srqn) & 0xffffff;
 	qpn = ntohl(cqe64->sop_drop_qpn) & 0xffffff;
@@ -644,22 +653,65 @@ void mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq)
 	mlx5_spin_unlock(&cq->lock);
 }
 
-int mlx5_get_outstanding_cqes(struct mlx5_cq *cq)
+static uint8_t sw_ownership_bit(int n, int nent)
 {
-	uint32_t i;
-
-	for (i = cq->cons_index; get_sw_cqe(cq, (i & cq->ibv_cq.cqe)); ++i)
-		;
-
-	return i - cq->cons_index;
+	return (n & nent) ? 1 : 0;
 }
 
-void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq, void *buf, int old_cqe)
+static int is_hw(uint8_t own, int n, int mask)
 {
+	return (own & MLX5_CQE_OWNER_MASK) ^ !!(n & (mask + 1));
 }
 
-int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_buf *buf, int nent,
-		      int cqe_sz)
+void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq)
+{
+	struct mlx5_cqe64 *scqe64;
+	struct mlx5_cqe64 *dcqe64;
+	void *start_cqe;
+	void *scqe;
+	void *dcqe;
+	int ssize;
+	int dsize;
+	int i;
+	uint8_t sw_own;
+
+	ssize = cq->cqe_sz;
+	dsize = cq->resize_cqe_sz;
+
+	i = cq->cons_index;
+	scqe = get_buf_cqe(cq->active_buf, i & cq->active_cqes, ssize);
+	scqe64 = ssize == 64 ? scqe : scqe + 64;
+	start_cqe = scqe;
+	if (is_hw(scqe64->op_own, i, cq->active_cqes)) {
+		fprintf(stderr, "expected cqe in sw ownership\n");
+		return;
+	}
+
+	while ((scqe64->op_own >> 4) != MLX5_CQE_RESIZE_CQ) {
+		dcqe = get_buf_cqe(cq->resize_buf, (i + 1) & (cq->resize_cqes - 1), dsize);
+		dcqe64 = dsize == 64 ? dcqe : dcqe + 64;
+		sw_own = sw_ownership_bit(i + 1, cq->resize_cqes);
+		memcpy(dcqe, scqe, ssize);
+		dcqe64->op_own = (dcqe64->op_own & ~MLX5_CQE_OWNER_MASK) | sw_own;
+
+		++i;
+		scqe = get_buf_cqe(cq->active_buf, i & cq->active_cqes, ssize);
+		scqe64 = ssize == 64 ? scqe : scqe + 64;
+		if (is_hw(scqe64->op_own, i, cq->active_cqes)) {
+			fprintf(stderr, "expected cqe in sw ownership\n");
+			return;
+		}
+
+		if (scqe == start_cqe) {
+			fprintf(stderr, "resize CQ failed to get resize CQE\n");
+			return;
+		}
+	}
+	++cq->cons_index;
+}
+
+int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
+		      struct mlx5_buf *buf, int nent, int cqe_sz)
 {
 	struct mlx5_cqe64 *cqe;
 	int i;
@@ -687,7 +739,7 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_buf *buf, int nent,
 	for (i = 0; i < nent; ++i) {
 		cqe = buf->buf + i * cqe_sz;
 		cqe += cqe_sz == 128 ? 1 : 0;
-		cqe->op_own = 0xf1;
+		cqe->op_own = MLX5_CQE_INVALID << 4;
 	}
 
 	return 0;

@@ -288,7 +288,7 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 		goto err_spl;
 	}
 
-	if (mlx5_alloc_cq_buf(to_mctx(context), &cq->buf, ncqe, cqe_sz)) {
+	if (mlx5_alloc_cq_buf(to_mctx(context), cq, &cq->buf_a, ncqe, cqe_sz)) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
 		goto err_spl;
 	}
@@ -304,7 +304,7 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 	cq->arm_sn			= 0;
 	cq->cqe_sz			= cqe_sz;
 
-	cmd.buf_addr = (uintptr_t) cq->buf.buf;
+	cmd.buf_addr = (uintptr_t) cq->buf_a.buf;
 	cmd.db_addr  = (uintptr_t) cq->dbrec;
 	cmd.cqe_size = cqe_sz;
 
@@ -316,6 +316,8 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 		goto err_db;
 	}
 
+	cq->active_buf = &cq->buf_a;
+	cq->resize_buf = NULL;
 	cq->cqn = resp.cqn;
 	cq->stall_enable = to_mctx(context)->stall_enable;
 	cq->stall_adaptive_enable = to_mctx(context)->stall_adaptive_enable;
@@ -327,7 +329,7 @@ err_db:
 	mlx5_free_db(to_mctx(context), cq->dbrec);
 
 err_buf:
-	mlx5_free_cq_buf(to_mctx(context), &cq->buf);
+	mlx5_free_cq_buf(to_mctx(context), &cq->buf_a);
 
 err_spl:
 	mlx5_spinlock_destroy(&cq->lock);
@@ -340,8 +342,70 @@ err:
 
 int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
-	errno = ENOSYS;
-	return errno;
+	struct mlx5_cq *cq = to_mcq(ibcq);
+	struct mlx5_resize_cq_resp resp;
+	struct mlx5_resize_cq cmd;
+	struct mlx5_context *mctx = to_mctx(ibcq->context);
+	int err;
+
+	if (cqe < 0) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	memset(&cmd, 0, sizeof(cmd));
+	memset(&resp, 0, sizeof(resp));
+
+	if (((long long)cqe * 64) > INT_MAX)
+		return EINVAL;
+
+	mlx5_spin_lock(&cq->lock);
+	cq->active_cqes = cq->ibv_cq.cqe;
+	if (cq->active_buf == &cq->buf_a)
+		cq->resize_buf = &cq->buf_b;
+	else
+		cq->resize_buf = &cq->buf_a;
+
+	cqe = align_queue_size(cqe + 1);
+	if (cqe == ibcq->cqe + 1) {
+		cq->resize_buf = NULL;
+		err = 0;
+		goto out;
+	}
+
+	/* currently we don't change cqe size */
+	cq->resize_cqe_sz = cq->cqe_sz;
+	cq->resize_cqes = cqe;
+	err = mlx5_alloc_cq_buf(mctx, cq, cq->resize_buf, cq->resize_cqes, cq->resize_cqe_sz);
+	if (err) {
+		cq->resize_buf = NULL;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	cmd.buf_addr = (uintptr_t)cq->resize_buf->buf;
+	cmd.cqe_size = cq->resize_cqe_sz;
+
+	err = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
+	if (err)
+		goto out_buf;
+
+	mlx5_cq_resize_copy_cqes(cq);
+	mlx5_free_cq_buf(mctx, cq->active_buf);
+	cq->active_buf = cq->resize_buf;
+	cq->ibv_cq.cqe = cqe - 1;
+	mlx5_spin_unlock(&cq->lock);
+	cq->resize_buf = NULL;
+	return 0;
+
+out_buf:
+	mlx5_free_cq_buf(mctx, cq->resize_buf);
+	cq->resize_buf = NULL;
+
+out:
+	mlx5_spin_unlock(&cq->lock);
+	return err;
 }
 
 int mlx5_destroy_cq(struct ibv_cq *cq)
@@ -353,7 +417,7 @@ int mlx5_destroy_cq(struct ibv_cq *cq)
 		return ret;
 
 	mlx5_free_db(to_mctx(cq->context), to_mcq(cq)->dbrec);
-	mlx5_free_cq_buf(to_mctx(cq->context), &to_mcq(cq)->buf);
+	mlx5_free_cq_buf(to_mctx(cq->context), to_mcq(cq)->active_buf);
 	free(to_mcq(cq));
 
 	return 0;
