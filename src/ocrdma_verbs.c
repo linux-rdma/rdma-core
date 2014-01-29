@@ -356,9 +356,13 @@ int ocrdma_resize_cq(struct ibv_cq *ibcq, int new_entries)
 int ocrdma_destroy_cq(struct ibv_cq *ibv_cq)
 {
 	struct ocrdma_cq *cq = get_ocrdma_cq(ibv_cq);
+
 	ibv_cmd_destroy_cq(ibv_cq);
 	if (cq->db_va)
 		munmap((void *)cq->db_va, cq->db_size);
+	if (cq->va)
+		munmap((void*)cq->va, cq->cq_mem_size);
+
 	free(cq);
 	return 0;
 }
