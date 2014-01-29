@@ -301,8 +301,8 @@ static struct ibv_cq *ocrdma_create_cq_common(struct ibv_context *context,
 	cq->db_va = map_addr;
 	cq->db_size = resp.db_page_size;
 	cq->phase = OCRDMA_CQE_VALID;
+	cq->first_arm = 1;
 	if (!dpp_cq) {
-		cq->arm_needed = 1;
 		ocrdma_ring_cq_db(cq, 0, 0, 0);
 	}
 	cq->ibv_cq.cqe = cqe;
@@ -1965,8 +1965,16 @@ expand_cqe:
 	}
 stop_cqe:
 	cq->getp = cur_getp;
-	if (polled_hw_cqes || expand || stop)
-		ocrdma_ring_cq_db(cq, cq->armed, cq->solicited, polled_hw_cqes);
+	if (cq->deferred_arm) {
+		ocrdma_ring_cq_db(cq, 1, cq->deferred_sol, polled_hw_cqes);
+		cq->deferred_arm = 0;
+		cq->deferred_sol = 0;
+	} else {
+		/* We need to pop the CQE. No need to arm */
+		ocrdma_ring_cq_db(cq, 0, cq->deferred_sol, polled_hw_cqes);
+		cq->deferred_sol = 0;
+	}
+
 	return i;
 }
 
@@ -2035,41 +2043,24 @@ int ocrdma_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 int ocrdma_arm_cq(struct ibv_cq *ibcq, int solicited)
 {
 	struct ocrdma_cq *cq;
-	uint16_t cur_getp;
-	struct ocrdma_cqe *cqe;
 
 	cq = get_ocrdma_cq(ibcq);
 	pthread_spin_lock(&cq->cq_lock);
 
-	cur_getp = cq->getp;
-	cqe = cq->va + cur_getp;
-
-	cq->armed = 1;
-	cq->solicited = solicited;
-	/* check whether any valid cqe exist or not, if not then safe to
-	 * arm. If cqe is not yet consumed, then let it get consumed and then
-	 * we arm it to avoid 0 interrupts.
-	 */
-	if (!is_cqe_valid(cq, cqe) || cq->arm_needed) {
-		cq->arm_needed = 0;
-		ocrdma_ring_cq_db(cq, cq->armed, cq->solicited, 0);
+	if (cq->first_arm) {
+		ocrdma_ring_cq_db(cq, 1, solicited, 0);
+		cq->first_arm = 0;
+		goto skip_defer;
 	}
+
+	cq->deferred_arm = 1;
+
+skip_defer:
+	cq->deferred_sol = solicited;
+
 	pthread_spin_unlock(&cq->cq_lock);
 
 	return 0;
-}
-
-void ocrdma_cq_handler(struct ibv_cq *ibcq)
-{
-	struct ocrdma_cq *cq;
-
-	cq = get_ocrdma_cq(ibcq);
-	pthread_spin_lock(&cq->cq_lock);
-	cq->armed = 0;
-	cq->solicited = 0;
-	ocrdma_ring_cq_db(cq, cq->armed, cq->solicited, 0);
-	pthread_spin_unlock(&cq->cq_lock);
-
 }
 
 /*

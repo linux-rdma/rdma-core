@@ -83,7 +83,6 @@ static struct ibv_context_ops ocrdma_ctx_ops = {
 	.create_cq = ocrdma_create_cq,
 	.poll_cq = ocrdma_poll_cq,
 	.req_notify_cq = ocrdma_arm_cq,
-	.cq_event = ocrdma_cq_handler,
 	.resize_cq = ocrdma_resize_cq,
 	.destroy_cq = ocrdma_destroy_cq,
 

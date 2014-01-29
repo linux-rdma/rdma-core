@@ -103,9 +103,9 @@ struct ocrdma_cq {
 	uint32_t phase;
 	int phase_change;
 
-	int armed;
-	int solicited;
-	int arm_needed;
+	uint8_t deferred_arm;
+	uint8_t deferred_sol;
+	uint8_t first_arm;
 	struct ocrdma_list_head sq_head;
 	struct ocrdma_list_head rq_head;
 };
@@ -273,7 +273,6 @@ int ocrdma_resize_cq(struct ibv_cq *, int);
 int ocrdma_destroy_cq(struct ibv_cq *);
 int ocrdma_poll_cq(struct ibv_cq *, int, struct ibv_wc *);
 int ocrdma_arm_cq(struct ibv_cq *, int);
-void ocrdma_cq_handler(struct ibv_cq *);
 
 struct ibv_qp *ocrdma_create_qp(struct ibv_pd *, struct ibv_qp_init_attr *);
 int ocrdma_modify_qp(struct ibv_qp *, struct ibv_qp_attr *,
