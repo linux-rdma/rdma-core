@@ -37,7 +37,7 @@
 
 #include <infiniband/kern-abi.h>
 
-#define OCRDMA_ABI_VERSION	1
+#define OCRDMA_ABI_VERSION	2
 
 #define Bit(_b) (1 << (_b))
 
