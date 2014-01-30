@@ -105,9 +105,10 @@ static void signal_handler(int signo)
 static int check_process_uniqueness(struct config_t *conf)
 {
 	char path[256];
-	int fd, ret = 0;
+	int fd;
 
-	sprintf(path, "/var/tmp/srp_daemon_%s_%d", conf->dev_name, conf->port_num);
+	snprintf(path, sizeof(path), "/var/tmp/srp_daemon_%s_%d",
+		 conf->dev_name, conf->port_num);
 
 	if ((fd = open(path, O_CREAT|O_RDWR,
 		       S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR)) < 0) {
@@ -119,10 +120,11 @@ static int check_process_uniqueness(struct config_t *conf)
 	if (0 != lockf(fd, F_TLOCK, 0)) {
 		pr_err("failed to lock %s (errno: %d). possibly another "
 		       "srp_daemon is locking it\n", path, errno);
-		ret = -1;
+		close(fd);
+		fd = -1;
 	}
 
-	return ret;
+	return fd;
 }
 
 int srpd_sys_read_string(const char *dir_name, const char *file_name,
@@ -1939,6 +1941,7 @@ int main(int argc, char *argv[])
 	struct target_details  *target;
 	struct sigaction	sa;
 	int			subscribed = 0;
+	int			lockfd;
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
@@ -2009,7 +2012,8 @@ int main(int argc, char *argv[])
 		goto free_res;
 	}
 
-	if (check_process_uniqueness(config)) {
+	lockfd = check_process_uniqueness(config);
+	if (lockfd < 0) {
 		ret = EPERM;
 		goto free_res;
 	}
@@ -2126,6 +2130,7 @@ kill_threads:
 	if (subscribed)
 		/* Traps deregistration before exiting */
 		register_to_traps(res, 0);
+	close(lockfd);
 free_res:
 	free_res(res);
 clean_umad:
