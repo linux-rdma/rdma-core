@@ -83,6 +83,34 @@ fi
 %doc README NEWS ChangeLog COPYING
 
 %changelog
+* Mon Feb 03 2014 Bart Van Assche <bvanassche@acm.org> - 1.0.1
+- Make process uniqueness check work.
+- Unsubscribe from subnet manager for traps before exiting.
+- Added support for the comp_vector and queue_size configuration file options.
+* Tue Dec 24 2013 Sagi Grimberg and Bart Van Assche - 1.0.0
+- srp_daemon keeps working even if the LID changes of the port it is using to
+  scan the fabric or if a P_Key change occurs.
+- Added P_Key support to srp_daemon and ibsrpdm.
+- Fixed month in srp_daemon.log (OFED bug \#2281). srp_daemon now uses syslog
+  and logrotate for logging.
+- srp_daemon is now only started for InfiniBand ports. It is no longer
+  attempted to start srp_daemon on Ethernet ports.
+- Added support for specifying the tl_retry_count parameter. By default use
+  tl_retry_count=2.
+- Allow srp_daemon to be started without configuration file.
+- Fixed a memory leak in srp_daemon that was triggered once during every fabric
+  rescan.
+- Reduced memory consumption of the srp_daemon process.
+- MAD transaction ID 0 is skipped after 2**32 rescans.
+- Installation: SRPHA_ENABLE=no / SRP_DAEMON_ENABLE=no is only added to
+  /etc/infiniband/openibd.conf if these variables did not yet exist in that
+  file.
+- Changed range of the srp_daemon and ibsrpdm exit codes from 0..127 into 0..1.
+- Changed ibsrpdm such that it uses the new umad P_Key ABI. Running ibsrpdm
+  does no longer cause a warning to be logged ("user_mad: process ibsrpdm did
+  not enable P_Key index support / user_mad:
+  Documentation/infiniband/user_mad.txt has info on the new ABI").
+- Fixed spelling of several help texts and diagnostic messages.
 * Wed Aug 22 2007 Vladimir Sokolovsky <vlad@mellanox.co.il>
 - Added srp_daemon.conf
 * Tue Sep  5 2006 Vladimir Sokolovsky <vlad@mellanox.co.il>

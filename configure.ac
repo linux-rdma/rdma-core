@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(srptools, 1.0.0, users@lists.openfabrics.org)
+AC_INIT(srptools, 1.0.1, users@lists.openfabrics.org)
 AC_CONFIG_SRCDIR(srp_daemon/srp_daemon.c)
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
