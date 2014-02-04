@@ -22,41 +22,71 @@
 pidfile=/var/run/ibacm.pid
 subsys=/var/lock/subsys/ibacm
 
-. /etc/rc.d/init.d/functions
+daemon() { /sbin/daemon   ${1+"$@"}; }
+
+if [ -s /etc/init.d/functions ]; then
+	# RHEL / CentOS / SL / Fedora
+	. /etc/init.d/functions
+        _daemon()   { daemon ${1+"$@"}; }
+        _checkpid() { checkpid `cat $pidfile`; }
+        _success()  { success; echo; }
+        _failure()  { failure; echo; }
+elif [ -s /lib/lsb/init-functions ]; then
+	# SLES / OpenSuSE / Debian
+	. /lib/lsb/init-functions
+	_daemon()   { /sbin/start_daemon ${1+"$@"}; }
+        _checkpid() { checkproc -p $pidfile @prefix@/sbin/ibacm; }
+	_success()  { log_success_msg; }
+	_failure()  { log_failure_msg; }
+elif [ -s /etc/rc.status ]; then
+	# Older SuSE
+	. /etc/rc.status
+	_daemon()   { /sbin/start_daemon ${1+"$@"}; }
+        _checkpid() { checkproc -p $pidfile @prefix@/sbin/ibacm; }
+	_success()  { rc_status -v; }
+	_failure()  { rc_status -v; }
+fi	
 
 start()
 {
     echo -n "Starting ibacm daemon:"
-
-    daemon @prefix@/sbin/ibacm
-    RC=$?
-    [ $RC -eq 0 ] && touch $subsys
-    echo
-    return $RC
+    _daemon @prefix@/sbin/ibacm
+    if [[ $RETVAL -eq 0 ]]; then
+        _success
+    else
+        _failure
+    fi
 }
 
 stop()
 {
     echo -n "Stopping ibacm daemon:"
-
     killproc -p $pidfile ibacm
-    RC=$?
+    if [[ $RETVAL -eq 0 ]]; then
+        _success
+    else
+        _failure
+    fi
     rm -f $subsys
-    echo
-    return $RC
 }
 
 status()
 {
+    echo -n "Checking for ibacm service "
     if [ ! -f $subsys -a ! -f $pidfile ]; then
-    	return 3
+        RETVAL=3
+    elif [ -f $pidfile ]; then
+        _checkpid
+        RETVAL=$?
+    elif [ -f $subsys ]; then
+        RETVAL=2
+    else
+        RETVAL=0
     fi
-    if [ -f $pidfile ]; then
-	checkpid `cat $pidfile`
-	return $?
-    fi
-    if [ -f $subsys ]; then
-	return 2
+    if [[ $RETVAL -eq 0 ]]; then
+        _success
+    else
+        _failure
     fi
 }
 
@@ -85,15 +115,24 @@ case $1 in
 esac
 
 case $1 in
-    start) start; RC=$? ;;
-    stop) stop; RC=$? ;;
-    restart) restart; RC=$? ;;
-    reload) RC=3 ;;
-    condrestart) condrestart; RC=$? ;;
-    try-restart) condrestart; RC=$? ;;
-    force-reload) condrestart; RC=$? ;;
-    status) status; RC=$? ;;
-    *) usage; RC=$? ;;
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart | reload)
+        restart
+        ;;
+    condrestart | try-restart | force-reload)
+        condrestart
+        ;;
+    status)
+        status
+        ;;
+    *)
+        usage
+        ;;
 esac
 
-exit $RC
+exit $RETVAL
