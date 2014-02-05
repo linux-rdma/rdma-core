@@ -598,7 +598,6 @@ static int register_to_trap(struct sync_resources *sync_res,
 	else if (trap_num == SRP_TRAP_CHANGE_CAP)
 		/* Channel Adapter */
 		data->g_or_v.generic.node_type_lsb = htons(1);
-	data->g_or_v.generic.qpn_resp_time_val = htonl(res->qp->qp_num << 8);
 
 	comp_mask |= SRP_INFORMINFO_LID_COMP	    |
 		     SRP_INFORMINFO_ISGENERIC_COMP  |
@@ -606,6 +605,11 @@ static int register_to_trap(struct sync_resources *sync_res,
 		     SRP_INFORMINFO_TRAPTYPE_COMP   |
 		     SRP_INFORMINFO_TRAPNUM_COMP    |
 		     SRP_INFORMINFO_PRODUCER_COMP;
+
+	if (!data->subscribe) {
+	    data->g_or_v.generic.qpn_resp_time_val = htonl(res->qp->qp_num << 8);
+	    comp_mask |= SRP_INFORMINFO_QPN_COMP;
+	}
 
 	p_sa_mad->comp_mask = htonll(comp_mask);
 	pr_debug("comp_mask: %llx\n", comp_mask);
