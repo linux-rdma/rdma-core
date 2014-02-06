@@ -48,6 +48,8 @@
 #define IB_USER_VERBS_MIN_ABI_VERSION	3
 #define IB_USER_VERBS_MAX_ABI_VERSION	6
 
+#define IB_USER_VERBS_CMD_THRESHOLD    50
+
 enum {
 	IB_USER_VERBS_CMD_GET_CONTEXT,
 	IB_USER_VERBS_CMD_QUERY_DEVICE,
@@ -92,6 +94,14 @@ enum {
 	IB_USER_VERBS_CMD_OPEN_QP
 };
 
+#define IB_USER_VERBS_CMD_COMMAND_MASK		0xff
+#define IB_USER_VERBS_CMD_FLAGS_MASK		0xff000000u
+#define IB_USER_VERBS_CMD_FLAGS_SHIFT		24
+
+
+#define IB_USER_VERBS_CMD_FLAG_EXTENDED		0x80ul
+
+
 /*
  * Make sure that all structs defined in this file remain laid out so
  * that they pack the same way on 32-bit and 64-bit architectures (to
@@ -102,6 +112,32 @@ enum {
  *    multiple of 8 bytes.  Otherwise the structure size will be
  *    different between 32-bit and 64-bit architectures.
  */
+
+struct hdr {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+};
+
+struct response_hdr {
+	__u64 response;
+};
+
+struct ex_hdr {
+	struct {
+		__u32 command;
+		__u16 in_words;
+		__u16 out_words;
+	};
+	struct {
+		__u64 response;
+	};
+	struct {
+		__u16 provider_in_words;
+		__u16 provider_out_words;
+		__u32 reserved;
+	};
+};
 
 struct ibv_kern_async_event {
 	__u64 element;
