@@ -36,11 +36,11 @@ dnl combinations of this program with other software, or any other
 dnl product whatsoever.
 
 AC_PREREQ(2.57)
-AC_INIT(libipathverbs, 1.2, support@qlogic.com)
+AC_INIT(libipathverbs, 1.2.1, support@qlogic.com)
 AC_CONFIG_SRCDIR([src/ipathverbs.h])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libipathverbs, 1.2)
+AM_INIT_AUTOMAKE(libipathverbs, 1.2.1)
 AM_PROG_LIBTOOL
 
 AC_ARG_WITH([valgrind],
