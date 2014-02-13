@@ -15,7 +15,7 @@
 # Should-Stop:
 # Short-Description: Starts and stops the InfiniBand ACM service
 # Description: The InfiniBand ACM service provides a user space implementation
-#	of someting resembling an ARP cache for InfiniBand SA queries and
+#	of something resembling an ARP cache for InfiniBand SA queries and
 #	host route lookups.
 ### END INIT INFO
 
