@@ -592,13 +592,24 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 				entry->status = IBV_WC_SUCCESS;
 			} else {
 				err_code = le32_to_cpu(cqe.cqe_words[NES_CQE_ERROR_CODE_IDX]);
-				if (NES_IWARP_CQE_MAJOR_DRV == (err_code >> 16))
+				if (NES_IWARP_CQE_MAJOR_DRV == (err_code >> 16)) {
 					entry->status = err_code & 0x0000ffff;
-				else
+				} else {
 					entry->status = IBV_WC_WR_FLUSH_ERR;
+					if (le32_to_cpu(cqe.cqe_words[NES_CQE_OPCODE_IDX]) & NES_CQE_SQ) {
+						if (wqe_index == 0 && nesuqp->rdma0_msg) {
+							nesuqp->sq_tail = (wqe_index+1)&(nesuqp->sq_size - 1);
+							move_cq_head = 0;
+							wq_tail = nesuqp->sq_tail;
+							nesuqp->rdma0_msg = 0;
+							goto nes_upoll_cq_update;
+						}
+					}
+				}
 			}
 			entry->qp_num = nesuqp->qp_id;
 			entry->src_qp = nesuqp->qp_id;
+			nesuqp->rdma0_msg = 0;
 
 			if (le32_to_cpu(cqe.cqe_words[NES_CQE_OPCODE_IDX]) & NES_CQE_SQ) {
 				/* Working on a SQ Completion*/
@@ -653,7 +664,7 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 			entry++;
 			cqe_count++;
 		}
-
+nes_upoll_cq_update:
 		if (move_cq_head) {
 			nesucq->cqes[head].cqe_words[NES_CQE_OPCODE_IDX] = 0;
 			if (++head >= cq_size)
@@ -718,6 +729,9 @@ int nes_upoll_cq_no_db_read(struct ibv_cq *cq, int num_entries, struct ibv_wc *e
 
 	nesucq = to_nes_ucq(cq);
 	nesvctx = to_nes_uctx(cq->context);
+
+	if (nesucq->cq_id < 64)
+		return nes_ima_upoll_cq(cq, num_entries, entry);
 
 	pthread_spin_lock(&nesucq->lock);
 
@@ -980,6 +994,7 @@ static int nes_mmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 	int ret;
 
 	memset (&cmd, 0, sizeof(cmd) );
+	cmd.user_qp_buffer = (__u64) ((uintptr_t) nesuqp);
 
 	/* fprintf(stderr, PFX "%s entering==>\n",__FUNCTION__); */
 	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
@@ -1067,6 +1082,7 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 	// So now the memory has been registered..
 	memset (&cmd, 0, sizeof(cmd) );
 	cmd.user_sq_buffer = (__u64) ((uintptr_t) nesuqp->sq_vbase);
+	cmd.user_qp_buffer = (__u64) ((uintptr_t) nesuqp);
 	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );
 	if (ret) {
@@ -1189,6 +1205,7 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	nesuqp->qp_id = resp.qp_id;
 	nesuqp->nes_drv_opt = resp.nes_drv_opt;
 	nesuqp->ibv_qp.qp_num = resp.qp_id;
+	nesuqp->rdma0_msg = 1;
 
 #if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (attr->qp_type == IBV_QPT_RAW_ETH) {

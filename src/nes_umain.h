@@ -317,6 +317,7 @@ struct nes_uqp {
 	uint16_t rq_head;
 	uint16_t rq_tail;
 	uint16_t rq_size;
+	uint16_t rdma0_msg;
 	uint16_t mapping;
 	uint16_t qperr;
 	uint16_t rsvd;

@@ -36,8 +36,8 @@
 
 #include <infiniband/kern-abi.h>
 
-#define NES_ABI_USERSPACE_VER 1
-#define NES_ABI_KERNEL_VER 1
+#define NES_ABI_USERSPACE_VER 2
+#define NES_ABI_KERNEL_VER 2
 
 struct nes_get_context {
 	struct ibv_get_context cmd;
@@ -93,6 +93,7 @@ struct nes_ureg_mr {
 struct nes_ucreate_qp {
 	struct ibv_create_qp ibv_cmd;
 	__u64	user_sq_buffer;
+	__u64   user_qp_buffer;
 };
 
 struct nes_ucreate_qp_resp {
