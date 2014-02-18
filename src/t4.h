@@ -485,12 +485,12 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
 			PDBG("%s: WC wq->sq.pidx = %d; len16=%d\n",
 			     __func__, wq->sq.pidx, len16);
 			copy_wqe_to_udb(wq->sq.udb + 14, wqe);
-			wc_wmb();
 		} else {
 			PDBG("%s: DB wq->sq.pidx = %d; len16=%d\n",
 			     __func__, wq->sq.pidx, len16);
-			writel(V_PIDX(inc), wq->sq.udb);
+			writel(V_PIDX_T5(inc), wq->sq.udb);
 		}
+		wc_wmb();
 		return;
 	}
 	if (ma_wr) {
@@ -518,12 +518,12 @@ static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
 			PDBG("%s: WC wq->rq.pidx = %d; len16=%d\n",
 			     __func__, wq->rq.pidx, len16);
 			copy_wqe_to_udb(wq->rq.udb + 14, wqe);
-			wc_wmb();
 		} else {
 			PDBG("%s: DB wq->rq.pidx = %d; len16=%d\n",
 			     __func__, wq->rq.pidx, len16);
-			writel(V_PIDX(inc), wq->rq.udb);
+			writel(V_PIDX_T5(inc), wq->rq.udb);
 		}
+		wc_wmb();
 		return;
 	}
 	writel(V_QID(wq->rq.qid & wq->qid_mask) | V_PIDX(inc), wq->rq.udb);
