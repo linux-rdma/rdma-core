@@ -211,7 +211,7 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 	struct t4_swsqe *swsqe;
 	int ret;
 
-	PDBG("%s  cqid 0x%x\n", __func__, cq->cqid);
+	PDBG("%s  cqid 0x%x\n", __func__, chp->cq.cqid);
 	ret = t4_next_hw_cqe(&chp->cq, &hw_cqe);
 
 	/*
