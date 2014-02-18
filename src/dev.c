@@ -448,7 +448,7 @@ found:
 	}
 
 	PDBG("%s found vendor %d device %d type %d\n",
-	     __FUNCTION__, vendor, device, hca_table[i].type);
+	     __FUNCTION__, vendor, device, hca_table[i].chip_version);
 
 	dev = calloc(1, sizeof *dev);
 	if (!dev) {
