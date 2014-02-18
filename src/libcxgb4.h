@@ -71,6 +71,8 @@ struct c4iw_dev {
 
 struct c4iw_context {
 	struct ibv_context ibv_ctx;
+	struct t4_dev_status_page *status_page;
+	int status_page_size;
 };
 
 struct c4iw_pd {
@@ -119,7 +121,7 @@ static inline struct c4iw_dev *to_c4iw_dev(struct ibv_device *ibdev)
 	return to_c4iw_xxx(dev, dev);
 }
 
-static inline struct c4iw_context *to_c4iw_ctx(struct ibv_context *ibctx)
+static inline struct c4iw_context *to_c4iw_context(struct ibv_context *ibctx)
 {
 	return to_c4iw_xxx(ctx, context);
 }

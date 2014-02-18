@@ -407,6 +407,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	struct c4iw_create_qp_resp resp;
 	struct c4iw_qp *qhp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
+	struct c4iw_context *ctx = to_c4iw_context(pd->context);
 	int ret;
 	void *dbva;
 
@@ -492,6 +493,13 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 		if (qhp->wq.sq.ma_sync == MAP_FAILED)
 			goto err9;
 		qhp->wq.sq.ma_sync += (A_PCIE_MA_SYNC & (c4iw_page_size - 1));
+	}
+
+	if (ctx->status_page_size) {
+		qhp->wq.db_offp = &ctx->status_page->db_off;
+	} else {
+		qhp->wq.db_offp = 
+			&qhp->wq.rq.queue[qhp->wq.rq.size].status.db_off;
 	}
 
 	PDBG("%s sq dbva %p sq qva %p sq depth %u sq memsize %lu "

@@ -36,6 +36,8 @@
 
 struct c4iw_alloc_ucontext_resp {
 	struct ibv_get_context_resp ibv_resp;
+	__u64 status_page_key;
+	__u32 status_page_size;
 };
 
 struct c4iw_alloc_pd_resp {

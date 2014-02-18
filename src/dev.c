@@ -197,6 +197,16 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 				&resp.ibv_resp, sizeof resp))
 		goto err_free;
 
+	resp.status_page_size = 0;
+	context->status_page_size = resp.status_page_size;
+	if (resp.status_page_size) {
+		context->status_page = mmap(NULL, resp.status_page_size,
+					    PROT_READ, MAP_SHARED, cmd_fd,
+					    resp.status_page_key);
+		if (context->status_page == MAP_FAILED)
+			goto err_free;
+	} 
+
 	context->ibv_ctx.device = ibdev;
 	context->ibv_ctx.ops = c4iw_ctx_ops;
 
@@ -213,7 +223,7 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		break;
 	default:
 		PDBG("%s unknown hca type %d\n", __FUNCTION__, rhp->hca_type);
-		goto err_free;
+		goto err_unmap;
 		break;
 	}
 
@@ -223,25 +233,27 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		ret = ibv_cmd_query_device(&context->ibv_ctx, &attr, &raw_fw_ver, &qcmd,
 					   sizeof qcmd);
 		if (ret)
-			goto err_free;
+			goto err_unmap;
 		rhp->max_mr = attr.max_mr;
 		rhp->mmid2ptr = calloc(attr.max_mr, sizeof(void *));
 		if (!rhp->mmid2ptr) {
-			goto err_free;
+			goto err_unmap;
 		}
 		rhp->max_qp = T4_QID_BASE + attr.max_qp;
 		rhp->qpid2ptr = calloc(T4_QID_BASE + attr.max_qp, sizeof(void *));
 		if (!rhp->qpid2ptr) {
-			goto err_free;
+			goto err_unmap;
 		}
 		rhp->max_cq = T4_QID_BASE + attr.max_cq;
 		rhp->cqid2ptr = calloc(T4_QID_BASE + attr.max_cq, sizeof(void *));
 		if (!rhp->cqid2ptr)
-			goto err_free;
+			goto err_unmap;
 	}
 
 	return &context->ibv_ctx;
 
+err_unmap:
+	munmap(context->status_page, context->status_page_size);
 err_free:
 	if (rhp->cqid2ptr)
 		free(rhp->cqid2ptr);
@@ -255,7 +267,7 @@ err_free:
 
 static void c4iw_free_context(struct ibv_context *ibctx)
 {
-	struct c4iw_context *context = to_c4iw_ctx(ibctx);
+	struct c4iw_context *context = to_c4iw_context(ibctx);
 
 	free(context);
 }

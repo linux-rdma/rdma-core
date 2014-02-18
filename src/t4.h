@@ -360,6 +360,7 @@ struct t4_wq {
 	u32 qid_mask;
 	int error;
 	int flushed;
+	u8 *db_offp;
 };
 
 static inline void t4_ma_sync(struct t4_wq *wq, int page_size)
@@ -537,16 +538,6 @@ static inline void t4_set_wq_in_error(struct t4_wq *wq)
 	wq->rq.queue[wq->rq.size].status.qp_err = 1;
 }
 
-static inline void t4_disable_wq_db(struct t4_wq *wq)
-{
-	wq->rq.queue[wq->rq.size].status.db_off = 1;
-}
-
-static inline void t4_enable_wq_db(struct t4_wq *wq)
-{
-	wq->rq.queue[wq->rq.size].status.db_off = 0;
-}
-
 extern int c4iw_abi_version;
 
 static inline int t4_wq_db_enabled(struct t4_wq *wq)
@@ -558,7 +549,7 @@ static inline int t4_wq_db_enabled(struct t4_wq *wq)
 	 * DB from user mode library.
 	 */
 	if ( c4iw_abi_version >= 2 )
-		return !wq->rq.queue[wq->rq.size].status.db_off;
+		return ! *wq->db_offp;
 	else
 		return 1;
 }
@@ -709,4 +700,10 @@ static inline void t4_reset_cq_in_error(struct t4_cq *cq)
 {
 	((struct t4_status_page *)&cq->queue[cq->size])->qp_err = 0;
 }
+
+struct t4_dev_status_page 
+{
+	u8 db_off;
+};
+
 #endif
