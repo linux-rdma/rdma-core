@@ -252,10 +252,6 @@ extern struct c4iw_stats c4iw_stats;
 #define INC_STAT(a)
 #endif
 
-#ifndef IBV_QPT_RAW_ETY
-#define IBV_QPT_RAW_ETY (enum ibv_qp_type)7 /* XXX */
-#endif
-
 #ifdef STALL_DETECTION
 void dump_state();
 extern int stall_to;

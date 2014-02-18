@@ -552,100 +552,6 @@ skip_cqe:
 }
 
 /*
- * poll_raw_cq
- *
- * Caller must:
- *     check the validity of the first CQE,
- *     supply the wq assicated with the qpid.
- *
- * credit: cq credit to return to sge.
- * cqe_flushed: 1 iff the CQE is flushed.
- * cqe: copy of the polled CQE.
- *
- * return value:
- *    0		    CQE returned ok.
- *    -EAGAIN       CQE skipped, try again.
- *    -EOVERFLOW    CQ overflow detected.
- */
-static int poll_raw_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
-	           u8 *cqe_flushed, u64 *cookie, u32 *credit)
-{
-	int ret = 0;
-	struct t4_cqe *hw_cqe;
-
-	*cqe_flushed = 0;
-	*credit = 0;
-
-	ret = t4_next_cqe(cq, &hw_cqe);
-	if (ret)
-		return ret;
-
-	PDBG("%s CQE OVF %u qpid 0x%0x genbit %u type %u status 0x%0x"
-	     " opcode 0x%0x len 0x%0x wrid_hi_stag 0x%x wrid_low_msn 0x%x\n",
-	     __func__, CQE_OVFBIT(hw_cqe), CQE_QPID(hw_cqe),
-	     CQE_GENBIT(hw_cqe), CQE_TYPE(hw_cqe), CQE_STATUS(hw_cqe),
-	     CQE_OPCODE(hw_cqe), CQE_LEN(hw_cqe), CQE_WRID_HI(hw_cqe),
-	     CQE_WRID_LOW(hw_cqe));
-
-	if (CQE_STATUS(hw_cqe) || t4_wq_in_error(wq)) {
-		*cqe_flushed = t4_wq_in_error(wq);
-		wq->error = 1;
-
-		if (!*cqe_flushed) {
-			dump_cqe(hw_cqe);
-		}
-		BUG_ON((cqe_flushed == 0) && !SW_CQE(hw_cqe));
-		goto proc_cqe;
-	}
-
-	/*
-	 * RECV completion.
-	 */
-	if (RQ_TYPE(hw_cqe)) {
-		goto proc_cqe;
-	}
-
-	/*
-	 * If we get here its a send completion.
-	 */
-
-proc_cqe:
-	*cqe = *hw_cqe;
-
-	/*
-	 * Reap the associated WR(s) that are freed up with this
-	 * completion.
-	 */
-	if (SQ_TYPE(hw_cqe)) {
-		wq->sq.cidx = CQE_WRID_SQ_IDX(hw_cqe);
-		PDBG("%s completing sq idx %u\n", __func__, wq->sq.cidx);
-		*cookie = wq->sq.sw_sq[wq->sq.cidx].wr_id;
-		t4_sq_consume(wq);
-	} else {
-		PDBG("%s completing rq idx %u\n", __func__, wq->rq.cidx);
-		*cookie = wq->rq.sw_rq[wq->rq.cidx].wr_id;
-		BUG_ON(t4_rq_empty(wq));
-		t4_rq_consume(wq);
-	}
-
-	/*
-	 * Flush any completed cqes that are now in-order.
-	 */
-	flush_completed_wrs(wq, cq);
-
-	if (SW_CQE(hw_cqe)) {
-		PDBG("%s cq %p cqid 0x%x skip sw cqe cidx %u\n",
-		     __func__, cq, cq->cqid, cq->sw_cidx);
-		t4_swcq_consume(cq);
-	} else {
-		PDBG("%s cq %p cqid 0x%x skip hw cqe cidx %u\n",
-		     __func__, cq, cq->cqid, cq->cidx);
-		t4_hwcq_consume(cq);
-	}
-	return ret;
-}
-
-/*
  * Get one cq entry from c4iw and map it to openib.
  *
  * Returns:
@@ -692,10 +598,7 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 		pthread_spin_lock(&qhp->lock);
 		wq = &(qhp->wq);
 	}
-	if (qhp && qhp->ibv_qp.qp_type == IBV_QPT_RAW_ETY)
-		ret = poll_raw_cq(wq, &(chp->cq), &cqe, &cqe_flushed, &cookie, &credit);
-	else
-		ret = poll_cq(wq, &(chp->cq), &cqe, &cqe_flushed, &cookie, &credit);
+	ret = poll_cq(wq, &(chp->cq), &cqe, &cqe_flushed, &cookie, &credit);
 	if (ret)
 		goto out;
 
