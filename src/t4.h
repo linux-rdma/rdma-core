@@ -471,6 +471,7 @@ static void copy_wqe_to_udb(volatile u32 *udb_offset, void *wqe)
 	}
 }
 
+extern int ma_wr;
 extern int t5_en_wc;
 
 static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
@@ -490,10 +491,18 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
 		}
 		return;
 	}
-	if (t4_sq_onchip(wq)) {
-		int i;
-		for (i = 0; i < 16; i++)
-			*(u32 *)&wq->sq.queue[wq->sq.size].flits[2] = i;
+	if (ma_wr) {
+		if (t4_sq_onchip(wq)) {
+			int i;
+			for (i = 0; i < 16; i++)
+				*(volatile u32 *)&wq->sq.queue[wq->sq.size].flits[2+i] = i;
+		}
+	} else {
+		if (t4_sq_onchip(wq)) {
+			int i;
+			for (i = 0; i < 16; i++)
+				*(u32 *)&wq->sq.queue[wq->sq.size].flits[2] = i;
+		}
 	}
 	writel(V_QID(wq->sq.qid & wq->qid_mask) | V_PIDX(inc), wq->sq.udb);
 }

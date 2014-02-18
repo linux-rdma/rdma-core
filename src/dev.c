@@ -145,6 +145,7 @@ struct {
 unsigned long c4iw_page_size;
 unsigned long c4iw_page_shift;
 unsigned long c4iw_page_mask;
+int ma_wr;
 int t5_en_wc = 1;
 
 SLIST_HEAD(devices_struct, c4iw_dev) devices;
@@ -516,24 +517,31 @@ found:
 	PDBG("%s device claimed\n", __FUNCTION__);
 	SLIST_INSERT_HEAD(&devices, dev, list);
 #ifdef STALL_DETECTION
-	{
-		char *c = getenv("CXGB4_STALL_TIMEOUT");
-		if (c) {
-			stall_to = strtol(c, NULL, 0);
-			if (errno || stall_to < 0)
-				stall_to = 0;
-		}
+{
+	char *c = getenv("CXGB4_STALL_TIMEOUT");
+	if (c) {
+		stall_to = strtol(c, NULL, 0);
+		if (errno || stall_to < 0)
+			stall_to = 0;
 	}
+}
 #endif
-
-	{
-		char *c = getenv("T5_ENABLE_WC");
-		if (c) {
-			t5_en_wc = strtol(c, NULL, 0);
-			if (t5_en_wc != 1)
-				t5_en_wc = 0;
-		}
+{
+	char *c = getenv("CXGB4_MA_WR");
+	if (c) {
+		ma_wr = strtol(c, NULL, 0);
+		if (ma_wr != 1)
+			ma_wr = 0;
 	}
+}
+{
+	char *c = getenv("T5_ENABLE_WC");
+	if (c) {
+		t5_en_wc = strtol(c, NULL, 0);
+		if (t5_en_wc != 1)
+			t5_en_wc = 0;
+	}
+}
 
 	return &dev->ibv_dev;
 }

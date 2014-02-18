@@ -438,6 +438,12 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	qhp->wq.rq.qid = resp.rqid;
 	qhp->wq.rq.size = resp.rq_size;
 	qhp->wq.rq.memsize = resp.rq_memsize;
+	if (ma_wr && resp.sq_memsize < (resp.sq_size + 1) *
+	    sizeof *qhp->wq.sq.queue + 16*sizeof(__be64) ) {
+		ma_wr = 0;
+		fprintf(stderr, "libcxgb4 warning - downlevel iw_cxgb4 driver. "
+			"MA workaround disabled.\n");
+	}
 	pthread_spin_init(&qhp->lock, PTHREAD_PROCESS_PRIVATE);
 
 	dbva = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
