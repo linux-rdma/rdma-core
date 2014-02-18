@@ -1,7 +1,7 @@
 /*
  * Chelsio Terminator 4 (T4) Firmware interface header file.
  *
- * Copyright (C) 2009-2012 Chelsio Communications.  All rights reserved.
+ * Copyright (C) 2009-2014 Chelsio Communications.  All rights reserved.
  *
  * Written by felix marti (felix@chelsio.com)
  *
