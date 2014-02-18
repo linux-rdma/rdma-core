@@ -1,6 +1,169 @@
-commit 81be421aa9b540cb28c25873d8d66336b74fa6d6
+commit bf6aa431b9658f4c788245159cf12c1f27ea9581
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Fri Jul 19 09:36:52 2013 -0500
+Date:   Tue Feb 18 12:05:16 2014 -0600
+
+    Spin release 1.3.2.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a2f25730971e8b76033e283f03e79ef4c5dbc4bc
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 11:29:50 2014 -0600
+
+    Fixed compilation error with debug enabled.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f484e0f4c5a4cb249f86a050efd659be37a51204
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 11:24:06 2014 -0600
+
+    Use V_PIDX_T5() for T5 devices in ring_db funcs.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 32b74074808da51e5918295bfc63d347548478a0
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 11:24:05 2014 -0600
+
+    Call wc_wmb() needed after DB writes.
+    
+    Need to do an sfence after botht he WC and regular PIDX DB write.
+    Otherwise the host might reorder things and cause work request corruption
+    (seen with NFSRDMA).
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c078eed091a32b930f5bbdf0a12a3be0d0a79cf0
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 11:23:57 2014 -0600
+
+    Call rmb() after reading valid gen bit.
+    
+    Some HW platforms can reorder read operations, so we must rmb() after
+    we see a valid gen bit in a CQE but before we read any other fields
+    from the CQE.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 7b482dcdbbd187fd8372f744157ac2b323d32f45
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 11:12:06 2014 -0600
+
+    Update copyrights.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f74316373c0b2a2bd2872ae38f7be516a10503c9
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 11:12:06 2014 -0600
+
+    Refresh t4 fw/hw reg files.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 1b8434f22deb30f700246dd2f474eaa2512e4867
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 11:12:03 2014 -0600
+
+    Add common device id table and chip types.
+    
+    This will make it easier to merge in new devices.
+
+commit 18e5bc32bbe7e19eb9ea5a34d8b2f7d1e6355105
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 10:25:33 2014 -0600
+
+    Remove dead SIM code.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c8c793385de1d3e9c1edeb7b13cbc964049b8362
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 10:23:05 2014 -0600
+
+    Remove dead raw qp code.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 9302c092d46e4c40cbf6b2189aeda08e5ca3fea4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 10:17:52 2014 -0600
+
+    iw_cxgb4/libcxgb4: swsq "signaled" state needs to mind sq_sig_all.
+    
+    When a qp is created, the ULP can request that all sq wrs be signaled.
+    The swsqe entries need to take this into account when marking the entry
+    as signaled.
+    
+    This bug will cause read request CQEs to be silently discarded, and can
+    cause flush problems because the swsqe entry will be mismarked for qps
+    created with sq_sig_all set in the qp init attributes.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 48c6633d4a6510a8c1832ac800f45c2099eb28b4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 10:17:52 2014 -0600
+
+    never consume a pending wr in sq flush.
+    
+    There is a race when moving a QP from RTS->CLOSING where a SQ work
+    request could be posted after the FW receives the RDMA_RI/FINI WR.
+    The SQ work request will never get processed, and should be completed
+    with FLUSHED status.  Function c4iw_flush_sq(), however was dropping
+    the oldest SQ work request when in CLOSING or IDLE states, instead of
+    completing the pending work request. If that oldest pending work request
+    was actually complete and has a CQE in the CQ, then when that CQE is
+    proceessed in poll_cq, we'll BUG_ON() due to the inconsistent SQ/CQ state.
+    
+    This is a very small timing hole and has only been hit once so far.
+    
+    c4iw_flush_sq() MUST always flush all non-completed WRs with FLUSHED
+    status regardless of the QP state.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 1a3a3e8e8da7463e59b74d5c5396e7bd5e303cd4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 10:11:35 2014 -0600
+
+    unmap status page when freeing the context.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 81e83780e44af2ff25c2572b15fe7e8b8cc6e134
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 10:05:54 2014 -0600
+
+    DB Drop Avoidance, Version 2.
+    
+    Add support for the device status page mapped per device that is used
+    to enable/disable user db usage.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5830447cef866432c4d3e65f7e58c51a0c687798
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 09:40:39 2014 -0600
+
+    Fix DEBUG code in c4iw_flush_hw_cq().
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 127bc437797ca34e14b261fa653c1d0524d07272
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 09:40:38 2014 -0600
+
+    T4 onchip workaround: do the 16 4B MA writes just before DB ring.
+    
+    This is a merge of sw repo changesets 1576, 2149, and 2246.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ac38281728d12a91725aa67e0273dc26976598fb
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jul 19 09:37:10 2013 -0500
 
     Spin release 1.3.1.
     

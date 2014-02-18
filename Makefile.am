@@ -21,7 +21,7 @@ cxgb4conf_DATA = cxgb4.driver
 
 EXTRA_DIST = src/queue.h src/t4.h src/t4fw_interface.h src/t4_regs.h\
 	     src/libcxgb4.h src/cxgb4-abi.h src/cxgb4.map libcxgb4.spec.in\
-	     cxgb4.driver
+	     cxgb4.driver src/t4_chip_type.h src/t4_pci_id_tbl.h
 
 dist-hook: libcxgb4.spec
 	cp libcxgb4.spec $(distdir)

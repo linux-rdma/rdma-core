@@ -1,7 +1,7 @@
 Introduction
 ============
 
-libcxgb4 is a userspace driver for the Chelsio T4 iWARP RNIC.  It works
+libcxgb4 is a userspace driver for the Chelsio T4/T5 iWARP RNICs.  It works
 as a plug-in module for libibverbs that allows programs to use Chelsio
 RNICs directly from userspace.  See the libibverbs package for more
 information.
@@ -16,4 +16,4 @@ devices to be detected and used.
 Supported Hardware
 ==================
 
-libcxgb4 supports the Chelsio T4 family of adapters.
+libcxgb4 supports the Chelsio T4/T5 family of adapters.
