@@ -74,6 +74,7 @@
 
 #include <arpa/inet.h> 			/* For htonl() and friends */
 #include "t4_regs.h"
+#include "t4_chip_type.h"
 #include "t4fw_interface.h"
 
 #ifdef DEBUG

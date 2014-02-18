@@ -393,7 +393,7 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		idx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 	}
 	if (t4_wq_db_enabled(&qhp->wq)) {
-		t4_ring_sq_db(&qhp->wq, idx, qhp->rhp->hca_type == CHELSIO_T5,
+		t4_ring_sq_db(&qhp->wq, idx, dev_is_t5(qhp->rhp),
 			      len16, wqe);
 	} else
 		ring_kernel_db(qhp, qhp->wq.sq.qid, idx);
@@ -459,7 +459,7 @@ int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		num_wrs--;
 	}
 	if (t4_wq_db_enabled(&qhp->wq))
-		t4_ring_rq_db(&qhp->wq, idx, qhp->rhp->hca_type == CHELSIO_T5,
+		t4_ring_rq_db(&qhp->wq, idx, dev_is_t5(qhp->rhp),
 			      len16, wqe);
 	else
 		ring_kernel_db(qhp, qhp->wq.rq.qid, idx);

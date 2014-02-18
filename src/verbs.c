@@ -207,7 +207,7 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	if (chp->cq.ugts == MAP_FAILED)
 		goto err3;
 
-	if (chp->rhp->hca_type == CHELSIO_T5)
+	if (dev_is_t5(chp->rhp))
 		chp->cq.ugts += 3;
 	else
 		chp->cq.ugts += 1;
@@ -452,7 +452,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	if (dbva == MAP_FAILED)
 		goto err3;
 	qhp->wq.sq.udb = dbva;
-	if (qhp->rhp->hca_type == CHELSIO_T5) {
+	if (dev_is_t5(qhp->rhp)) {
 		qhp->wq.sq.udb += (128*(qhp->wq.sq.qid & qhp->wq.qid_mask))/4;
 		qhp->wq.sq.udb += 2;
 	}
@@ -468,7 +468,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	if (dbva == MAP_FAILED)
 		goto err5;
 	qhp->wq.rq.udb = dbva;
-	if (qhp->rhp->hca_type == CHELSIO_T5) {
+	if (dev_is_t5(qhp->rhp)) {
 		qhp->wq.rq.udb += (128*(qhp->wq.rq.qid & qhp->wq.qid_mask))/4;
 		qhp->wq.rq.udb += 2;
 	}

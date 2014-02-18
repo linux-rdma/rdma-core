@@ -48,16 +48,11 @@ extern unsigned long c4iw_page_size;
 extern unsigned long c4iw_page_shift;
 extern unsigned long c4iw_page_mask;
 
-enum c4iw_hca_type {
-	CHELSIO_T4 = 0,
-	CHELSIO_T5 = 1
-};
-
 struct c4iw_mr;
 
 struct c4iw_dev {
 	struct ibv_device ibv_dev;
-	enum c4iw_hca_type hca_type;
+	unsigned chip_version;
 	int max_mr;
 	struct c4iw_mr **mmid2ptr;
 	int max_qp;
@@ -68,6 +63,11 @@ struct c4iw_dev {
 	SLIST_ENTRY(c4iw_dev) list;
 	int abi_version;
 };
+
+static inline int dev_is_t5(struct c4iw_dev *dev)
+{
+	return dev->chip_version == CHELSIO_T5;
+}
 
 struct c4iw_context {
 	struct ibv_context ibv_ctx;

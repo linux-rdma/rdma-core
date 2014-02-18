@@ -46,101 +46,32 @@
 #include "cxgb4-abi.h"
 
 #define PCI_VENDOR_ID_CHELSIO		0x1425
-#define PCI_DEVICE_ID_CHELSIO_PE10K	0xa000
-#define PCI_DEVICE_ID_CHELSIO_PE10K5_T5 0xb000
-#define PCI_DEVICE_ID_CHELSIO_PE10K_T5	0xb001
-#define PCI_DEVICE_ID_CHELSIO_T440DBG	0x4400
-#define PCI_DEVICE_ID_CHELSIO_T420CR	0x4401
-#define PCI_DEVICE_ID_CHELSIO_T422CR	0x4402
-#define PCI_DEVICE_ID_CHELSIO_T440CR	0x4403
-#define PCI_DEVICE_ID_CHELSIO_T420BCH	0x4404
-#define PCI_DEVICE_ID_CHELSIO_T440BCH	0x4405
-#define PCI_DEVICE_ID_CHELSIO_T440CH	0x4406
-#define PCI_DEVICE_ID_CHELSIO_T420SO	0x4407
-#define PCI_DEVICE_ID_CHELSIO_T420CX	0x4408
-#define PCI_DEVICE_ID_CHELSIO_T420BT	0x4409
-#define PCI_DEVICE_ID_CHELSIO_T404BT	0x440a
-#define PCI_DEVICE_ID_CHELSIO_B420	0x440b
-#define PCI_DEVICE_ID_CHELSIO_B404	0x440c
-#define PCI_DEVICE_ID_CHELSIO_T480CR	0x440d
-#define PCI_DEVICE_ID_CHELSIO_T440LPCR	0x440e
-#define PCI_DEVICE_ID_CHELSIO_T480DC	0x4480
-#define PCI_DEVICE_ID_CHELSIO_T440DC	0x4481
-#define PCI_DEVICE_ID_CHELSIO_T420QM	0x4485
-#define PCI_DEVICE_ID_CHELSIO_T580DBG	0x5400
-#define PCI_DEVICE_ID_CHELSIO_T520CR	0x5401
-#define PCI_DEVICE_ID_CHELSIO_T522CR	0x5402
-#define PCI_DEVICE_ID_CHELSIO_T540CR	0x5403
-#define PCI_DEVICE_ID_CHELSIO_T520BCH	0x5404
-#define PCI_DEVICE_ID_CHELSIO_T540BCH	0x5405
-#define PCI_DEVICE_ID_CHELSIO_T540CH	0x5406
-#define PCI_DEVICE_ID_CHELSIO_T520SO	0x5407
-#define PCI_DEVICE_ID_CHELSIO_T520CX	0x5408
-#define PCI_DEVICE_ID_CHELSIO_T520BT	0x5409
-#define PCI_DEVICE_ID_CHELSIO_T504BT	0x540a
-#define PCI_DEVICE_ID_CHELSIO_B520SR	0x540b
-#define PCI_DEVICE_ID_CHELSIO_B504BT	0x540c
-#define PCI_DEVICE_ID_CHELSIO_T580CR_1	0x540d
-#define PCI_DEVICE_ID_CHELSIO_T540LPCR	0x540e
-#define PCI_DEVICE_ID_CHELSIO_AMSTDM	0x540f
-#define PCI_DEVICE_ID_CHELSIO_T580LPCR	0x5410
-#define PCI_DEVICE_ID_CHELSIO_T520LLCR	0x5411
-#define PCI_DEVICE_ID_CHELSIO_T560CR	0x5412
-#define PCI_DEVICE_ID_CHELSIO_T580CR_2	0x5413
 
+/*
+ * Macros needed to support the PCI Device ID Table ...
+ */
+#define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN \
+	struct { \
+		unsigned vendor; \
+		unsigned device; \
+		unsigned chip_version; \
+	} hca_table[] = {
 
-#define HCA(v, d, t) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_CHELSIO_##d,		\
-	  .type = CHELSIO_##t }
+#define CH_PCI_DEVICE_ID_FUNCTION \
+		0x4
 
-struct {
-	unsigned vendor;
-	unsigned device;
-	enum c4iw_hca_type type;
-} hca_table[] = {
-	HCA(CHELSIO, PE10K, T4),
-	HCA(CHELSIO, PE10K5_T5, T5),
-	HCA(CHELSIO, PE10K_T5, T5),
-	HCA(CHELSIO, T440DBG, T4),
-	HCA(CHELSIO, T420CR, T4),
-	HCA(CHELSIO, T422CR, T4),
-	HCA(CHELSIO, T440CR, T4),
-	HCA(CHELSIO, T420BCH, T4),
-	HCA(CHELSIO, T440BCH, T4),
-	HCA(CHELSIO, T440CH, T4),
-	HCA(CHELSIO, T420SO, T4),
-	HCA(CHELSIO, T420CX, T4),
-	HCA(CHELSIO, T420BT, T4),
-	HCA(CHELSIO, T404BT, T4),
-	HCA(CHELSIO, B420, T4),
-	HCA(CHELSIO, B404, T4),
-	HCA(CHELSIO, T480CR, T4),
-	HCA(CHELSIO, T440LPCR, T4),
-	HCA(CHELSIO, T480DC, T4),
-	HCA(CHELSIO, T440DC, T4),
-	HCA(CHELSIO, T420QM, T4),
-	HCA(CHELSIO, T580DBG, T5),
-	HCA(CHELSIO, T520CR, T5),
-	HCA(CHELSIO, T522CR, T5),
-	HCA(CHELSIO, T540CR, T5),
-	HCA(CHELSIO, T520BCH, T5),
-	HCA(CHELSIO, T540BCH, T5),
-	HCA(CHELSIO, T540CH, T5),
-	HCA(CHELSIO, T520SO, T5),
-	HCA(CHELSIO, T520CX, T5),
-	HCA(CHELSIO, T520BT, T5),
-	HCA(CHELSIO, T504BT, T5),
-	HCA(CHELSIO, B520SR, T5),
-	HCA(CHELSIO, B504BT, T5),
-	HCA(CHELSIO, T580CR_1, T5),
-	HCA(CHELSIO, T540LPCR, T5),
-	HCA(CHELSIO, AMSTDM, T5),
-	HCA(CHELSIO, T580LPCR, T5),
-	HCA(CHELSIO, T520LLCR, T5),
-	HCA(CHELSIO, T560CR, T5),
-	HCA(CHELSIO, T580CR_2, T5),
-};
+#define CH_PCI_ID_TABLE_ENTRY(__DeviceID) \
+		{ \
+			.vendor = PCI_VENDOR_ID_CHELSIO, \
+			.device = (__DeviceID), \
+			.chip_version = CHELSIO_PCI_ID_CHIP_VERSION(__DeviceID), \
+		}
+
+#define CH_PCI_DEVICE_ID_TABLE_DEFINE_END \
+	}
+
+#include "t4_chip_type.h"
+#include "t4_pci_id_tbl.h"
 
 unsigned long c4iw_page_size;
 unsigned long c4iw_page_shift;
@@ -210,7 +141,7 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	context->ibv_ctx.device = ibdev;
 	context->ibv_ctx.ops = c4iw_ctx_ops;
 
-	switch (rhp->hca_type) {
+	switch (rhp->chip_version) {
 	case CHELSIO_T5:
 		PDBG("%s T5/T4 device\n", __FUNCTION__);
 	case CHELSIO_T4:
@@ -222,7 +153,8 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		context->ibv_ctx.ops.req_notify_cq = c4iw_arm_cq;
 		break;
 	default:
-		PDBG("%s unknown hca type %d\n", __FUNCTION__, rhp->hca_type);
+		PDBG("%s unknown hca type %d\n", __FUNCTION__,
+		     rhp->chip_version);
 		goto err_unmap;
 		break;
 	}
@@ -525,7 +457,7 @@ found:
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = c4iw_dev_ops;
-	dev->hca_type = hca_table[i].type;
+	dev->chip_version = hca_table[i].chip_version;
 	dev->abi_version = abi_version;
 
 	PDBG("%s device claimed\n", __FUNCTION__);
