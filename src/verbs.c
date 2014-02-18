@@ -635,14 +635,7 @@ int c4iw_attach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 	pthread_spin_lock(&qhp->lock);
 	if (t4_wq_in_error(&qhp->wq))
 		c4iw_flush_qp(qhp);
-#ifdef SIM
-{
-	int sim_attach_mcast(struct c4iw_qp *qp, const uint8_t *mcaddr);
-	ret = sim_attach_mcast(qhp, gid->raw);
-}
-#else
 	ret = ibv_cmd_attach_mcast(ibqp, gid, lid);
-#endif
 	pthread_spin_unlock(&qhp->lock);
 	return ret;
 }
@@ -656,14 +649,7 @@ int c4iw_detach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 	pthread_spin_lock(&qhp->lock);
 	if (t4_wq_in_error(&qhp->wq))
 		c4iw_flush_qp(qhp);
-#ifdef SIM
-{
-	int sim_detach_mcast(struct c4iw_qp *qp, const uint8_t *mcaddr);
-	ret = sim_detach_mcast(qhp, gid->raw);
-}
-#else
 	ret = ibv_cmd_detach_mcast(ibqp, gid, lid);
-#endif
 	pthread_spin_unlock(&qhp->lock);
 	return ret;
 }

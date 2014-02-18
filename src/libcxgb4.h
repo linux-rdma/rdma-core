@@ -95,9 +95,6 @@ struct c4iw_cq {
 	struct c4iw_dev *rhp;
 	struct t4_cq cq;
 	pthread_spinlock_t lock;
-#ifdef SIM
-	int armed;
-#endif
 #ifdef STALL_DETECTION
 	struct timeval time;
 	int dumped;

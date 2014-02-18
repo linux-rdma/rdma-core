@@ -8,7 +8,7 @@ else
     cxgb4_version_script =
 endif
 
-src_libcxgb4_la_SOURCES = src/cq.c src/dev.c src/qp.c src/verbs.c src/sim.c
+src_libcxgb4_la_SOURCES = src/cq.c src/dev.c src/qp.c src/verbs.c 
 src_libcxgb4_la_LDFLAGS = -avoid-version \
 			  -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
 			  $(cxgb4_version_script)

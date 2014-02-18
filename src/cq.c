@@ -747,12 +747,7 @@ int c4iw_arm_cq(struct ibv_cq *ibcq, int solicited)
 	INC_STAT(arm);
 	chp = to_c4iw_cq(ibcq);
 	pthread_spin_lock(&chp->lock);
-#ifdef SIM
-	chp->armed = 1;
-	ret = 0;
-#else
 	ret = t4_arm_cq(&chp->cq, solicited);
-#endif
 	pthread_spin_unlock(&chp->lock);
 	return ret;
 }

@@ -566,17 +566,6 @@ static __attribute__((constructor)) void cxgb4_register_driver(void)
 	c4iw_page_shift = long_log2(c4iw_page_size);
 	c4iw_page_mask = ~(c4iw_page_size - 1);
 	ibv_register_driver("cxgb4", cxgb4_driver_init);
-#ifdef SIM
-{
-	extern void *sim_thread(void *);
-
-	pthread_t *p = malloc(sizeof *p);
-
-	if (p)
-		pthread_create(p, NULL, sim_thread, NULL);
-	sleep(1);
-}
-#endif
 }
 
 #ifdef STATS
