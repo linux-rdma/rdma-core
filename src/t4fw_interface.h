@@ -1,7 +1,7 @@
 /*
  * Chelsio Terminator 4 (T4) Firmware interface header file.
  *
- * Copyright (C) 2009-2010 Chelsio Communications.  All rights reserved.
+ * Copyright (C) 2009-2012 Chelsio Communications.  All rights reserved.
  *
  * Written by felix marti (felix@chelsio.com)
  *
@@ -10,6 +10,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
  * release for licensing terms and conditions.
  */
+
 #ifndef _T4FW_INTERFACE_H_
 #define _T4FW_INTERFACE_H_
 
@@ -17,17 +18,58 @@
  *   R E T U R N   V A L U E S
  ********************************/
 
-enum fw_retval{
-	FW_SUCCESS	= 0,		/* completed sucessfully */
-	FW_EPERM	= 1,		/* operation not permitted */
-	FW_EIO		= 5,		/* input/output error; hw bad */
-	FW_ENOEXEC	= 8,		/* Exec format error; inv microcode */
-	FW_EAGAIN	= 11,		/* try again */
-	FW_ENOMEM	= 12,		/* out of memory */
-	FW_EBUSY	= 16,		/* resource busy */
-	FW_EINVAL	= 22,		/* invalid argument */
-	FW_ENOSYS	= 38,		/* functionality not implemented */
-	FW_EPROTO	= 71,		/* protocol error */
+enum fw_retval {
+	FW_SUCCESS		= 0,	/* completed sucessfully */
+	FW_EPERM		= 1,	/* operation not permitted */
+	FW_ENOENT		= 2,	/* no such file or directory */
+	FW_EIO			= 5,	/* input/output error; hw bad */
+	FW_ENOEXEC		= 8,	/* exec format error; inv microcode */
+	FW_EAGAIN		= 11,	/* try again */
+	FW_ENOMEM		= 12,	/* out of memory */
+	FW_EFAULT		= 14,	/* bad address; fw bad */
+	FW_EBUSY		= 16,	/* resource busy */
+	FW_EEXIST		= 17,	/* file exists */
+	FW_ENODEV		= 19,	/* no such device */
+	FW_EINVAL		= 22,	/* invalid argument */
+	FW_ENOSPC		= 28,	/* no space left on device */
+	FW_ENOSYS		= 38,	/* functionality not implemented */
+	FW_ENODATA		= 61,	/* no data available */
+	FW_EPROTO		= 71,	/* protocol error */
+	FW_EADDRINUSE		= 98,	/* address already in use */
+	FW_EADDRNOTAVAIL	= 99,	/* cannot assigned requested address */
+	FW_ENETDOWN		= 100,	/* network is down */
+	FW_ENETUNREACH		= 101,	/* network is unreachable */
+	FW_ENOBUFS		= 105,	/* no buffer space available */
+	FW_ETIMEDOUT		= 110,	/* timeout */
+	FW_EINPROGRESS		= 115,	/* fw internal */
+	FW_SCSI_ABORT_REQUESTED	= 128,	/* */
+	FW_SCSI_ABORT_TIMEDOUT	= 129,	/* */
+	FW_SCSI_ABORTED		= 130,	/* */
+	FW_SCSI_CLOSE_REQUESTED	= 131,	/* */
+	FW_ERR_LINK_DOWN	= 132,	/* */
+	FW_RDEV_NOT_READY	= 133,	/* */
+	FW_ERR_RDEV_LOST	= 134,	/* */
+	FW_ERR_RDEV_LOGO	= 135,	/* */
+	FW_FCOE_NO_XCHG		= 136,	/* */
+	FW_SCSI_RSP_ERR		= 137,	/* */
+	FW_ERR_RDEV_IMPL_LOGO	= 138,	/* */
+	FW_SCSI_UNDER_FLOW_ERR  = 139,	/* */
+	FW_SCSI_OVER_FLOW_ERR   = 140,	/* */
+	FW_SCSI_DDP_ERR		= 141,	/* DDP error*/
+	FW_SCSI_TASK_ERR	= 142,	/* No SCSI tasks available */
+};
+
+/******************************************************************************
+ *   M E M O R Y   T Y P E s
+ ******************************/
+
+enum fw_memtype {
+	FW_MEMTYPE_EDC0		= 0x0,
+	FW_MEMTYPE_EDC1		= 0x1,
+	FW_MEMTYPE_EXTMEM	= 0x2,
+	FW_MEMTYPE_FLASH	= 0x4,
+	FW_MEMTYPE_INTERNAL	= 0x5,
+	FW_MEMTYPE_EXTMEM1	= 0x6,
 };
 
 /******************************************************************************
@@ -35,24 +77,47 @@ enum fw_retval{
  ********************************/
 
 enum fw_wr_opcodes {
-	FW_FILTER_WR                   = 0x02,
-	FW_ULPTX_WR                    = 0x04,
-	FW_TP_WR                       = 0x05,
-	FW_ETH_TX_PKT_WR               = 0x08,
-	FW_FLOWC_WR                    = 0x0a,
-	FW_OFLD_TX_DATA_WR             = 0x0b,
-	FW_CMD_WR                      = 0x10,
-	FW_ETH_TX_PKT_VM_WR            = 0x11,
-	FW_RI_RES_WR                   = 0x0c,
-	FW_RI_RDMA_WRITE_WR            = 0x14,
-	FW_RI_SEND_WR                  = 0x15,
-	FW_RI_RDMA_READ_WR             = 0x16,
-	FW_RI_RECV_WR                  = 0x17,
-	FW_RI_BIND_MW_WR               = 0x18,
-	FW_RI_FR_NSMR_WR               = 0x19,
-	FW_RI_INV_LSTAG_WR             = 0x1a,
-	FW_RI_WR                       = 0x0d,
-	FW_LASTC2E_WR                  = 0x40
+	FW_FRAG_WR		= 0x1d,
+	FW_FILTER_WR		= 0x02,
+	FW_ULPTX_WR		= 0x04,
+	FW_TP_WR		= 0x05,
+	FW_ETH_TX_PKT_WR	= 0x08,
+	FW_ETH_TX_PKT2_WR	= 0x44,
+	FW_ETH_TX_PKTS_WR	= 0x09,
+	FW_ETH_TX_UO_WR		= 0x1c,
+	FW_EQ_FLUSH_WR		= 0x1b,
+	FW_OFLD_CONNECTION_WR	= 0x2f,
+	FW_FLOWC_WR		= 0x0a,
+	FW_OFLD_TX_DATA_WR	= 0x0b,
+	FW_CMD_WR		= 0x10,
+	FW_ETH_TX_PKT_VM_WR	= 0x11,
+	FW_RI_RES_WR		= 0x0c,
+	FW_RI_RDMA_WRITE_WR	= 0x14,
+	FW_RI_SEND_WR		= 0x15,
+	FW_RI_RDMA_READ_WR	= 0x16,
+	FW_RI_RECV_WR		= 0x17,
+	FW_RI_BIND_MW_WR	= 0x18,
+	FW_RI_FR_NSMR_WR	= 0x19,
+	FW_RI_INV_LSTAG_WR	= 0x1a,
+	FW_RI_SEND_IMMEDIATE_WR	= 0x15,
+	FW_RI_ATOMIC_WR		= 0x16,
+	FW_RI_WR		= 0x0d,
+	FW_CHNET_IFCONF_WR	= 0x6b,
+	FW_RDEV_WR		= 0x38,
+	FW_FOISCSI_NODE_WR	= 0x60,
+	FW_FOISCSI_CTRL_WR	= 0x6a,
+	FW_FOISCSI_CHAP_WR	= 0x6c,
+	FW_FCOE_ELS_CT_WR	= 0x30,
+	FW_SCSI_WRITE_WR	= 0x31,
+	FW_SCSI_READ_WR		= 0x32,
+	FW_SCSI_CMD_WR		= 0x33,
+	FW_SCSI_ABRT_CLS_WR	= 0x34,
+	FW_SCSI_TGT_ACC_WR	= 0x35,
+	FW_SCSI_TGT_XMIT_WR	= 0x36,
+	FW_SCSI_TGT_RSP_WR	= 0x37,
+	FW_POFCOE_TCB_WR	= 0x42,
+	FW_POFCOE_ULPTX_WR	= 0x43,
+	FW_LASTC2E_WR		= 0x70
 };
 
 /*
@@ -137,6 +202,24 @@ struct fw_wr_hdr {
 #define V_FW_WR_LEN16(x)	((x) << S_FW_WR_LEN16)
 #define G_FW_WR_LEN16(x)	(((x) >> S_FW_WR_LEN16) & M_FW_WR_LEN16)
 
+struct fw_frag_wr {
+	__be32 op_to_fragoff16;
+	__be32 flowid_len16;
+	__be64 r4;
+};
+
+#define S_FW_FRAG_WR_EOF	15
+#define M_FW_FRAG_WR_EOF	0x1
+#define V_FW_FRAG_WR_EOF(x)	((x) << S_FW_FRAG_WR_EOF)
+#define G_FW_FRAG_WR_EOF(x)	(((x) >> S_FW_FRAG_WR_EOF) & M_FW_FRAG_WR_EOF)
+#define F_FW_FRAG_WR_EOF	V_FW_FRAG_WR_EOF(1U)
+
+#define S_FW_FRAG_WR_FRAGOFF16		8
+#define M_FW_FRAG_WR_FRAGOFF16		0x7f
+#define V_FW_FRAG_WR_FRAGOFF16(x)	((x) << S_FW_FRAG_WR_FRAGOFF16)
+#define G_FW_FRAG_WR_FRAGOFF16(x)	\
+    (((x) >> S_FW_FRAG_WR_FRAGOFF16) & M_FW_FRAG_WR_FRAGOFF16)
+
 /* valid filter configurations for compressed tuple
  * Encodings: TPL - Compressed TUPLE for filter in addition to 4-tuple
  * FR - FRAGMENT, FC - FCoE, MT - MPS MATCH TYPE, M - MPS MATCH,
@@ -187,7 +270,8 @@ enum fw_filter_wr_cookie {
 	FW_FILTER_WR_SUCCESS,
 	FW_FILTER_WR_FLT_ADDED,
 	FW_FILTER_WR_FLT_DELETED,
-	FW_FILTER_WR_SMT_TBL_FULL
+	FW_FILTER_WR_SMT_TBL_FULL,
+	FW_FILTER_WR_EINVAL,
 };
 
 struct fw_filter_wr {
@@ -474,15 +558,251 @@ struct fw_eth_tx_pkt_wr {
 	__be64 r3;
 };
 
+#define S_FW_ETH_TX_PKT_WR_IMMDLEN	0
+#define M_FW_ETH_TX_PKT_WR_IMMDLEN	0x1ff
+#define V_FW_ETH_TX_PKT_WR_IMMDLEN(x)	((x) << S_FW_ETH_TX_PKT_WR_IMMDLEN)
+#define G_FW_ETH_TX_PKT_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_ETH_TX_PKT_WR_IMMDLEN) & M_FW_ETH_TX_PKT_WR_IMMDLEN)
+
+struct fw_eth_tx_pkt2_wr {
+	__be32 op_immdlen;
+	__be32 equiq_to_len16;
+	__be32 r3;
+	__be32 L4ChkDisable_to_IpHdrLen;
+};
+
+#define S_FW_ETH_TX_PKT2_WR_IMMDLEN	0
+#define M_FW_ETH_TX_PKT2_WR_IMMDLEN	0x1ff
+#define V_FW_ETH_TX_PKT2_WR_IMMDLEN(x)	((x) << S_FW_ETH_TX_PKT2_WR_IMMDLEN)
+#define G_FW_ETH_TX_PKT2_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_ETH_TX_PKT2_WR_IMMDLEN) & M_FW_ETH_TX_PKT2_WR_IMMDLEN)
+
+#define S_FW_ETH_TX_PKT2_WR_L4CHKDISABLE	31
+#define M_FW_ETH_TX_PKT2_WR_L4CHKDISABLE	0x1
+#define V_FW_ETH_TX_PKT2_WR_L4CHKDISABLE(x)	\
+    ((x) << S_FW_ETH_TX_PKT2_WR_L4CHKDISABLE)
+#define G_FW_ETH_TX_PKT2_WR_L4CHKDISABLE(x)	\
+    (((x) >> S_FW_ETH_TX_PKT2_WR_L4CHKDISABLE) & \
+     M_FW_ETH_TX_PKT2_WR_L4CHKDISABLE)
+#define F_FW_ETH_TX_PKT2_WR_L4CHKDISABLE	\
+    V_FW_ETH_TX_PKT2_WR_L4CHKDISABLE(1U)
+
+#define S_FW_ETH_TX_PKT2_WR_L3CHKDISABLE	30
+#define M_FW_ETH_TX_PKT2_WR_L3CHKDISABLE	0x1
+#define V_FW_ETH_TX_PKT2_WR_L3CHKDISABLE(x)	\
+    ((x) << S_FW_ETH_TX_PKT2_WR_L3CHKDISABLE)
+#define G_FW_ETH_TX_PKT2_WR_L3CHKDISABLE(x)	\
+    (((x) >> S_FW_ETH_TX_PKT2_WR_L3CHKDISABLE) & \
+     M_FW_ETH_TX_PKT2_WR_L3CHKDISABLE)
+#define F_FW_ETH_TX_PKT2_WR_L3CHKDISABLE	\
+    V_FW_ETH_TX_PKT2_WR_L3CHKDISABLE(1U)
+
+#define S_FW_ETH_TX_PKT2_WR_IVLAN	28
+#define M_FW_ETH_TX_PKT2_WR_IVLAN	0x1
+#define V_FW_ETH_TX_PKT2_WR_IVLAN(x)	((x) << S_FW_ETH_TX_PKT2_WR_IVLAN)
+#define G_FW_ETH_TX_PKT2_WR_IVLAN(x)	\
+    (((x) >> S_FW_ETH_TX_PKT2_WR_IVLAN) & M_FW_ETH_TX_PKT2_WR_IVLAN)
+#define F_FW_ETH_TX_PKT2_WR_IVLAN	V_FW_ETH_TX_PKT2_WR_IVLAN(1U)
+
+#define S_FW_ETH_TX_PKT2_WR_IVLANTAG	12
+#define M_FW_ETH_TX_PKT2_WR_IVLANTAG	0xffff
+#define V_FW_ETH_TX_PKT2_WR_IVLANTAG(x)	((x) << S_FW_ETH_TX_PKT2_WR_IVLANTAG)
+#define G_FW_ETH_TX_PKT2_WR_IVLANTAG(x)	\
+    (((x) >> S_FW_ETH_TX_PKT2_WR_IVLANTAG) & M_FW_ETH_TX_PKT2_WR_IVLANTAG)
+
+#define S_FW_ETH_TX_PKT2_WR_CHKTYPE	8
+#define M_FW_ETH_TX_PKT2_WR_CHKTYPE	0xf
+#define V_FW_ETH_TX_PKT2_WR_CHKTYPE(x)	((x) << S_FW_ETH_TX_PKT2_WR_CHKTYPE)
+#define G_FW_ETH_TX_PKT2_WR_CHKTYPE(x)	\
+    (((x) >> S_FW_ETH_TX_PKT2_WR_CHKTYPE) & M_FW_ETH_TX_PKT2_WR_CHKTYPE)
+
+#define S_FW_ETH_TX_PKT2_WR_IPHDRLEN	0
+#define M_FW_ETH_TX_PKT2_WR_IPHDRLEN	0xff
+#define V_FW_ETH_TX_PKT2_WR_IPHDRLEN(x)	((x) << S_FW_ETH_TX_PKT2_WR_IPHDRLEN)
+#define G_FW_ETH_TX_PKT2_WR_IPHDRLEN(x)	\
+    (((x) >> S_FW_ETH_TX_PKT2_WR_IPHDRLEN) & M_FW_ETH_TX_PKT2_WR_IPHDRLEN)
+
+struct fw_eth_tx_pkts_wr {
+	__be32 op_pkd;
+	__be32 equiq_to_len16;
+	__be32 r3;
+	__be16 plen;
+	__u8   npkt;
+	__u8   type;
+};
+
+struct fw_eth_tx_uo_wr {
+	__be32 op_immdlen;
+	__be32 equiq_to_len16;
+	__be64 r3;
+	__u8   r4;
+	__u8   ethlen;
+	__be16 iplen;
+	__u8   udplen;
+	__u8   rtplen;
+	__be16 r5;
+	__be16 mss;
+	__be16 schedpktsize;
+	__be32 length;
+};
+
+struct fw_eq_flush_wr {
+	__u8   opcode;
+	__u8   r1[3];
+	__be32 equiq_to_len16;
+	__be64 r3;
+};
+
+struct fw_ofld_connection_wr {
+	__be32 op_compl;
+	__be32 len16_pkd;
+	__u64  cookie;
+	__be64 r2;
+	__be64 r3;
+	struct fw_ofld_connection_le {
+		__be32 version_cpl;
+		__be32 filter;
+		__be32 r1;
+		__be16 lport;
+		__be16 pport;
+		union fw_ofld_connection_leip {
+			struct fw_ofld_connection_le_ipv4 {
+				__be32 pip;
+				__be32 lip;
+				__be64 r0;
+				__be64 r1;
+				__be64 r2;
+			} ipv4;
+			struct fw_ofld_connection_le_ipv6 {
+				__be64 pip_hi;
+				__be64 pip_lo;
+				__be64 lip_hi;
+				__be64 lip_lo;
+			} ipv6;
+		} u;
+	} le;
+	struct fw_ofld_connection_tcb {
+		__be32 t_state_to_astid;
+		__be16 cplrxdataack_cplpassacceptrpl;
+		__be16 rcv_adv;
+		__be32 rcv_nxt;
+		__be32 tx_max;
+		__be64 opt0;
+		__be32 opt2;
+		__be32 r1;
+		__be64 r2;
+		__be64 r3;
+	} tcb;
+};
+
+#define S_FW_OFLD_CONNECTION_WR_VERSION		31
+#define M_FW_OFLD_CONNECTION_WR_VERSION		0x1
+#define V_FW_OFLD_CONNECTION_WR_VERSION(x)	\
+    ((x) << S_FW_OFLD_CONNECTION_WR_VERSION)
+#define G_FW_OFLD_CONNECTION_WR_VERSION(x)	\
+    (((x) >> S_FW_OFLD_CONNECTION_WR_VERSION) & \
+     M_FW_OFLD_CONNECTION_WR_VERSION)
+#define F_FW_OFLD_CONNECTION_WR_VERSION	V_FW_OFLD_CONNECTION_WR_VERSION(1U)
+
+#define S_FW_OFLD_CONNECTION_WR_CPL	30
+#define M_FW_OFLD_CONNECTION_WR_CPL	0x1
+#define V_FW_OFLD_CONNECTION_WR_CPL(x)	((x) << S_FW_OFLD_CONNECTION_WR_CPL)
+#define G_FW_OFLD_CONNECTION_WR_CPL(x)	\
+    (((x) >> S_FW_OFLD_CONNECTION_WR_CPL) & M_FW_OFLD_CONNECTION_WR_CPL)
+#define F_FW_OFLD_CONNECTION_WR_CPL	V_FW_OFLD_CONNECTION_WR_CPL(1U)
+
+#define S_FW_OFLD_CONNECTION_WR_T_STATE		28
+#define M_FW_OFLD_CONNECTION_WR_T_STATE		0xf
+#define V_FW_OFLD_CONNECTION_WR_T_STATE(x)	\
+    ((x) << S_FW_OFLD_CONNECTION_WR_T_STATE)
+#define G_FW_OFLD_CONNECTION_WR_T_STATE(x)	\
+    (((x) >> S_FW_OFLD_CONNECTION_WR_T_STATE) & \
+     M_FW_OFLD_CONNECTION_WR_T_STATE)
+
+#define S_FW_OFLD_CONNECTION_WR_RCV_SCALE	24
+#define M_FW_OFLD_CONNECTION_WR_RCV_SCALE	0xf
+#define V_FW_OFLD_CONNECTION_WR_RCV_SCALE(x)	\
+    ((x) << S_FW_OFLD_CONNECTION_WR_RCV_SCALE)
+#define G_FW_OFLD_CONNECTION_WR_RCV_SCALE(x)	\
+    (((x) >> S_FW_OFLD_CONNECTION_WR_RCV_SCALE) & \
+     M_FW_OFLD_CONNECTION_WR_RCV_SCALE)
+
+#define S_FW_OFLD_CONNECTION_WR_ASTID		0
+#define M_FW_OFLD_CONNECTION_WR_ASTID		0xffffff
+#define V_FW_OFLD_CONNECTION_WR_ASTID(x)	\
+    ((x) << S_FW_OFLD_CONNECTION_WR_ASTID)
+#define G_FW_OFLD_CONNECTION_WR_ASTID(x)	\
+    (((x) >> S_FW_OFLD_CONNECTION_WR_ASTID) & M_FW_OFLD_CONNECTION_WR_ASTID)
+
+#define S_FW_OFLD_CONNECTION_WR_CPLRXDATAACK	15
+#define M_FW_OFLD_CONNECTION_WR_CPLRXDATAACK	0x1
+#define V_FW_OFLD_CONNECTION_WR_CPLRXDATAACK(x)	\
+    ((x) << S_FW_OFLD_CONNECTION_WR_CPLRXDATAACK)
+#define G_FW_OFLD_CONNECTION_WR_CPLRXDATAACK(x)	\
+    (((x) >> S_FW_OFLD_CONNECTION_WR_CPLRXDATAACK) & \
+     M_FW_OFLD_CONNECTION_WR_CPLRXDATAACK)
+#define F_FW_OFLD_CONNECTION_WR_CPLRXDATAACK	\
+    V_FW_OFLD_CONNECTION_WR_CPLRXDATAACK(1U)
+
+#define S_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL	14
+#define M_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL	0x1
+#define V_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL(x)	\
+    ((x) << S_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL)
+#define G_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL(x)	\
+    (((x) >> S_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL) & \
+     M_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL)
+#define F_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL	\
+    V_FW_OFLD_CONNECTION_WR_CPLPASSACCEPTRPL(1U)
+
+enum fw_flowc_mnem_tcpstate {
+	FW_FLOWC_MNEM_TCPSTATE_CLOSED	= 0, /* illegal */
+	FW_FLOWC_MNEM_TCPSTATE_LISTEN	= 1, /* illegal */
+	FW_FLOWC_MNEM_TCPSTATE_SYNSENT	= 2, /* illegal */
+	FW_FLOWC_MNEM_TCPSTATE_SYNRECEIVED = 3, /* illegal */
+	FW_FLOWC_MNEM_TCPSTATE_ESTABLISHED = 4, /* default */
+	FW_FLOWC_MNEM_TCPSTATE_CLOSEWAIT = 5, /* got peer close already */
+	FW_FLOWC_MNEM_TCPSTATE_FINWAIT1	= 6, /* haven't gotten ACK for FIN and
+					      * will resend FIN - equiv ESTAB
+					      */
+	FW_FLOWC_MNEM_TCPSTATE_CLOSING	= 7, /* haven't gotten ACK for FIN and
+					      * will resend FIN but have
+					      * received FIN
+					      */
+	FW_FLOWC_MNEM_TCPSTATE_LASTACK	= 8, /* haven't gotten ACK for FIN and
+					      * will resend FIN but have
+					      * received FIN
+					      */
+	FW_FLOWC_MNEM_TCPSTATE_FINWAIT2	= 9, /* sent FIN and got FIN + ACK,
+					      * waiting for FIN
+					      */
+	FW_FLOWC_MNEM_TCPSTATE_TIMEWAIT	= 10, /* not expected */
+};
+
+enum fw_flowc_mnem_uostate {
+	FW_FLOWC_MNEM_UOSTATE_CLOSED	= 0, /* illegal */
+	FW_FLOWC_MNEM_UOSTATE_ESTABLISHED = 1, /* default */
+	FW_FLOWC_MNEM_UOSTATE_CLOSING	= 2, /* graceful close, after sending
+					      * outstanding payload
+					      */
+	FW_FLOWC_MNEM_UOSTATE_ABORTING	= 3, /* immediate close, after
+					      * discarding outstanding payload
+					      */
+};
+
 enum fw_flowc_mnem {
-	FW_FLOWC_MNEM_PFNVFN,		/* PFN [15:8] VFN [7:0] */
-	FW_FLOWC_MNEM_CH,
-	FW_FLOWC_MNEM_PORT,
-	FW_FLOWC_MNEM_IQID,
-	FW_FLOWC_MNEM_SNDNXT,
-	FW_FLOWC_MNEM_RCVNXT,
-	FW_FLOWC_MNEM_SNDBUF,
-	FW_FLOWC_MNEM_MSS,
+	FW_FLOWC_MNEM_PFNVFN		= 0, /* PFN [15:8] VFN [7:0] */
+	FW_FLOWC_MNEM_CH		= 1,
+	FW_FLOWC_MNEM_PORT		= 2,
+	FW_FLOWC_MNEM_IQID		= 3,
+	FW_FLOWC_MNEM_SNDNXT		= 4,
+	FW_FLOWC_MNEM_RCVNXT		= 5,
+	FW_FLOWC_MNEM_SNDBUF		= 6,
+	FW_FLOWC_MNEM_MSS		= 7,
+	FW_FLOWC_MNEM_TXDATAPLEN_MAX	= 8,
+	FW_FLOWC_MNEM_TCPSTATE		= 9,
+	FW_FLOWC_MNEM_UOSTATE		= 10,
+	FW_FLOWC_MNEM_SCHEDCLASS	= 11,
+	FW_FLOWC_MNEM_DCBPRIO		= 12,
 };
 
 struct fw_flowc_mnemval {
@@ -509,8 +829,35 @@ struct fw_ofld_tx_data_wr {
 	__be32 op_to_immdlen;
 	__be32 flowid_len16;
 	__be32 plen;
-	__be32 tunnel_to_proxy;
+	__be32 lsodisable_to_proxy;
 };
+
+#define S_FW_OFLD_TX_DATA_WR_LSODISABLE		31
+#define M_FW_OFLD_TX_DATA_WR_LSODISABLE		0x1
+#define V_FW_OFLD_TX_DATA_WR_LSODISABLE(x)	\
+    ((x) << S_FW_OFLD_TX_DATA_WR_LSODISABLE)
+#define G_FW_OFLD_TX_DATA_WR_LSODISABLE(x)	\
+    (((x) >> S_FW_OFLD_TX_DATA_WR_LSODISABLE) & \
+     M_FW_OFLD_TX_DATA_WR_LSODISABLE)
+#define F_FW_OFLD_TX_DATA_WR_LSODISABLE	V_FW_OFLD_TX_DATA_WR_LSODISABLE(1U)
+
+#define S_FW_OFLD_TX_DATA_WR_ALIGNPLD		30
+#define M_FW_OFLD_TX_DATA_WR_ALIGNPLD		0x1
+#define V_FW_OFLD_TX_DATA_WR_ALIGNPLD(x)	\
+    ((x) << S_FW_OFLD_TX_DATA_WR_ALIGNPLD)
+#define G_FW_OFLD_TX_DATA_WR_ALIGNPLD(x)	\
+    (((x) >> S_FW_OFLD_TX_DATA_WR_ALIGNPLD) & M_FW_OFLD_TX_DATA_WR_ALIGNPLD)
+#define F_FW_OFLD_TX_DATA_WR_ALIGNPLD	V_FW_OFLD_TX_DATA_WR_ALIGNPLD(1U)
+
+#define S_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE	29
+#define M_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE	0x1
+#define V_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE(x)	\
+    ((x) << S_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE)
+#define G_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE(x)	\
+    (((x) >> S_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE) & \
+     M_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE)
+#define F_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE	\
+    V_FW_OFLD_TX_DATA_WR_ALIGNPLDSHOVE(1U)
 
 #define S_FW_OFLD_TX_DATA_WR_TUNNEL	19
 #define M_FW_OFLD_TX_DATA_WR_TUNNEL	0x1
@@ -602,7 +949,7 @@ struct fw_eth_tx_pkt_vm_wr {
  **************************************/
 
 enum fw_ri_wr_opcode {
-	FW_RI_RDMA_WRITE		= 0x0,               /* IETF RDMAP v1.0 ... */
+	FW_RI_RDMA_WRITE		= 0x0,	/* IETF RDMAP v1.0 ... */
 	FW_RI_READ_REQ			= 0x1,
 	FW_RI_READ_RESP			= 0x2,
 	FW_RI_SEND			= 0x3,
@@ -610,14 +957,23 @@ enum fw_ri_wr_opcode {
 	FW_RI_SEND_WITH_SE		= 0x5,
 	FW_RI_SEND_WITH_SE_INV		= 0x6,
 	FW_RI_TERMINATE			= 0x7,
-	FW_RI_RDMA_INIT			= 0x8,                /* CHELSIO RI specific ... */
+	FW_RI_RDMA_INIT			= 0x8,	/* CHELSIO RI specific ... */
 	FW_RI_BIND_MW			= 0x9,
 	FW_RI_FAST_REGISTER		= 0xa,
 	FW_RI_LOCAL_INV			= 0xb,
 	FW_RI_QP_MODIFY			= 0xc,
 	FW_RI_BYPASS			= 0xd,
 	FW_RI_RECEIVE			= 0xe,
+#if 0
+	FW_RI_SEND_IMMEDIATE		= 0x8,
+	FW_RI_SEND_IMMEDIATE_WITH_SE	= 0x9,
+	FW_RI_ATOMIC_REQUEST		= 0xa,
+	FW_RI_ATOMIC_RESPONSE		= 0xb,
 
+	FW_RI_BIND_MW			= 0xc, /* CHELSIO RI specific ... */
+	FW_RI_FAST_REGISTER		= 0xd,
+	FW_RI_LOCAL_INV			= 0xe,
+#endif
 	FW_RI_SGE_EC_CR_RETURN		= 0xf
 };
 
@@ -642,7 +998,8 @@ enum fw_ri_qp_caps {
 	FW_RI_QP_RDMA_WRITE_ENABLE	= 0x02,
 	FW_RI_QP_BIND_ENABLE		= 0x04,
 	FW_RI_QP_FAST_REGISTER_ENABLE	= 0x08,
-	FW_RI_QP_STAG0_ENABLE		= 0x10
+	FW_RI_QP_STAG0_ENABLE		= 0x10,
+	FW_RI_QP_RDMA_READ_REQ_0B_ENABLE= 0x80,
 };
 
 enum fw_ri_addr_type {
@@ -689,7 +1046,7 @@ enum fw_ri_cqe_err {
 	FW_RI_CQE_ERR_INVALIDATE_MR_WITH_MW_BOUND = 0x08, /* attempt to invalidate a MR w MW */
 	FW_RI_CQE_ERR_ECC		= 0x09,	/* ECC error detected */
 	FW_RI_CQE_ERR_ECC_PSTAG		= 0x0A, /* ECC error detected when reading the PSTAG for a MW Invalidate */
-	FW_RI_CQE_ERR_PBL_ADDR_BOUND	= 0x0B, // pbl address out of bound : software error
+	FW_RI_CQE_ERR_PBL_ADDR_BOUND	= 0x0B, /* pbl address out of bound : software error */
 	FW_RI_CQE_ERR_CRC		= 0x10,	/* CRC error */
 	FW_RI_CQE_ERR_MARKER		= 0x11,	/* Marker error */
 	FW_RI_CQE_ERR_PDU_LEN_ERR	= 0x12,	/* invalid PDU length */
@@ -833,7 +1190,7 @@ struct fw_ri_tpte {
 #define G_FW_RI_TPTE_QPID(x)		\
     (((x) >> S_FW_RI_TPTE_QPID) & M_FW_RI_TPTE_QPID)
 
-#define S_FW_RI_TPTE_NOSNOOP		30
+#define S_FW_RI_TPTE_NOSNOOP		31
 #define M_FW_RI_TPTE_NOSNOOP		0x1
 #define V_FW_RI_TPTE_NOSNOOP(x)		((x) << S_FW_RI_TPTE_NOSNOOP)
 #define G_FW_RI_TPTE_NOSNOOP(x)		\
@@ -858,6 +1215,59 @@ struct fw_ri_tpte {
     ((x) << S_FW_RI_TPTE_MWBCNT_PSTAG)
 #define G_FW_RI_TPTE_MWBCNT_PSTAG(x)	\
     (((x) >> S_FW_RI_TPTE_MWBCNT_PSTAG) & M_FW_RI_TPTE_MWBCNT_PSTAG)
+
+enum fw_ri_cqe_rxtx {
+	FW_RI_CQE_RXTX_RX = 0x0,
+	FW_RI_CQE_RXTX_TX = 0x1,
+};
+
+struct fw_ri_cqe {
+	union fw_ri_rxtx {
+		struct fw_ri_scqe {
+		__be32	qpid_n_stat_rxtx_type;
+		__be32	plen;
+		__be32	reserved;
+		__be32	wrid;
+		} scqe;
+		struct fw_ri_rcqe {
+		__be32	qpid_n_stat_rxtx_type;
+		__be32	plen;
+		__be32	stag;
+		__be32	msn;
+		} rcqe;
+	} u;
+};
+
+#define S_FW_RI_CQE_QPID      12
+#define M_FW_RI_CQE_QPID      0xfffff
+#define V_FW_RI_CQE_QPID(x)   ((x) << S_FW_RI_CQE_QPID)
+#define G_FW_RI_CQE_QPID(x)   \
+    (((x) >> S_FW_RI_CQE_QPID) &  M_FW_RI_CQE_QPID)
+
+#define S_FW_RI_CQE_NOTIFY    10
+#define M_FW_RI_CQE_NOTIFY    0x1
+#define V_FW_RI_CQE_NOTIFY(x) ((x) << S_FW_RI_CQE_NOTIFY)
+#define G_FW_RI_CQE_NOTIFY(x) \
+    (((x) >> S_FW_RI_CQE_NOTIFY) &  M_FW_RI_CQE_NOTIFY)
+
+#define S_FW_RI_CQE_STATUS    5
+#define M_FW_RI_CQE_STATUS    0x1f
+#define V_FW_RI_CQE_STATUS(x) ((x) << S_FW_RI_CQE_STATUS)
+#define G_FW_RI_CQE_STATUS(x) \
+    (((x) >> S_FW_RI_CQE_STATUS) &  M_FW_RI_CQE_STATUS)
+
+
+#define S_FW_RI_CQE_RXTX      4
+#define M_FW_RI_CQE_RXTX      0x1
+#define V_FW_RI_CQE_RXTX(x)   ((x) << S_FW_RI_CQE_RXTX)
+#define G_FW_RI_CQE_RXTX(x)   \
+    (((x) >> S_FW_RI_CQE_RXTX) &  M_FW_RI_CQE_RXTX)
+
+#define S_FW_RI_CQE_TYPE      0
+#define M_FW_RI_CQE_TYPE      0xf
+#define V_FW_RI_CQE_TYPE(x)   ((x) << S_FW_RI_CQE_TYPE)
+#define G_FW_RI_CQE_TYPE(x)   \
+    (((x) >> S_FW_RI_CQE_TYPE) &  M_FW_RI_CQE_TYPE)
 
 enum fw_ri_res_type {
 	FW_RI_RES_TYPE_SQ,
@@ -1279,6 +1689,72 @@ struct fw_ri_inv_lstag_wr {
 	__be32 stag_inv;
 };
 
+struct fw_ri_send_immediate_wr {
+	__u8   opcode;
+	__u8   flags;
+	__u16  wrid;
+	__u8   r1[3];
+	__u8   len16;
+	__be32 sendimmop_pkd;
+	__be32 r3;
+	__be32 plen;
+	__be32 r4;
+	__be64 r5;
+#ifndef C99_NOT_SUPPORTED
+	struct fw_ri_immd immd_src[0];
+#endif
+};
+
+#define S_FW_RI_SEND_IMMEDIATE_WR_SENDIMMOP	0
+#define M_FW_RI_SEND_IMMEDIATE_WR_SENDIMMOP	0xf
+#define V_FW_RI_SEND_IMMEDIATE_WR_SENDIMMOP(x)	\
+    ((x) << S_FW_RI_SEND_IMMEDIATE_WR_SENDIMMOP)
+#define G_FW_RI_SEND_IMMEDIATE_WR_SENDIMMOP(x)	\
+    (((x) >> S_FW_RI_SEND_IMMEDIATE_WR_SENDIMMOP) & \
+     M_FW_RI_SEND_IMMEDIATE_WR_SENDIMMOP)
+
+enum fw_ri_atomic_op {
+	FW_RI_ATOMIC_OP_FETCHADD,
+	FW_RI_ATOMIC_OP_SWAP,
+	FW_RI_ATOMIC_OP_CMDSWAP,
+};
+
+struct fw_ri_atomic_wr {
+	__u8   opcode;
+	__u8   flags;
+	__u16  wrid;
+	__u8   r1[3];
+	__u8   len16;
+	__be32 atomicop_pkd;
+	__be64 r3;
+	__be32 aopcode_pkd;
+	__be32 reqid;
+	__be32 stag;
+	__be32 to_hi;
+	__be32 to_lo;
+	__be32 addswap_data_hi;
+	__be32 addswap_data_lo;
+	__be32 addswap_mask_hi;
+	__be32 addswap_mask_lo;
+	__be32 compare_data_hi;
+	__be32 compare_data_lo;
+	__be32 compare_mask_hi;
+	__be32 compare_mask_lo;
+	__be32 r5;
+};
+
+#define S_FW_RI_ATOMIC_WR_ATOMICOP	0
+#define M_FW_RI_ATOMIC_WR_ATOMICOP	0xf
+#define V_FW_RI_ATOMIC_WR_ATOMICOP(x)	((x) << S_FW_RI_ATOMIC_WR_ATOMICOP)
+#define G_FW_RI_ATOMIC_WR_ATOMICOP(x)	\
+    (((x) >> S_FW_RI_ATOMIC_WR_ATOMICOP) & M_FW_RI_ATOMIC_WR_ATOMICOP)
+
+#define S_FW_RI_ATOMIC_WR_AOPCODE	0
+#define M_FW_RI_ATOMIC_WR_AOPCODE	0xf
+#define V_FW_RI_ATOMIC_WR_AOPCODE(x)	((x) << S_FW_RI_ATOMIC_WR_AOPCODE)
+#define G_FW_RI_ATOMIC_WR_AOPCODE(x)	\
+    (((x) >> S_FW_RI_ATOMIC_WR_AOPCODE) & M_FW_RI_ATOMIC_WR_AOPCODE)
+
 enum fw_ri_type {
 	FW_RI_TYPE_INIT,
 	FW_RI_TYPE_FINI,
@@ -1347,11 +1823,1128 @@ struct fw_ri_wr {
     (((x) >> S_FW_RI_WR_MPAREQBIT) & M_FW_RI_WR_MPAREQBIT)
 #define F_FW_RI_WR_MPAREQBIT	V_FW_RI_WR_MPAREQBIT(1U)
 
+#define S_FW_RI_WR_0BRRBIT	6
+#define M_FW_RI_WR_0BRRBIT	0x1
+#define V_FW_RI_WR_0BRRBIT(x)	((x) << S_FW_RI_WR_0BRRBIT)
+#define G_FW_RI_WR_0BRRBIT(x)	\
+    (((x) >> S_FW_RI_WR_0BRRBIT) & M_FW_RI_WR_0BRRBIT)
+#define F_FW_RI_WR_0BRRBIT	V_FW_RI_WR_0BRRBIT(1U)
+
 #define S_FW_RI_WR_P2PTYPE	0
 #define M_FW_RI_WR_P2PTYPE	0xf
 #define V_FW_RI_WR_P2PTYPE(x)	((x) << S_FW_RI_WR_P2PTYPE)
 #define G_FW_RI_WR_P2PTYPE(x)	\
     (((x) >> S_FW_RI_WR_P2PTYPE) & M_FW_RI_WR_P2PTYPE)
+
+/******************************************************************************
+ *  F O i S C S I   W O R K R E Q U E S T s
+ *********************************************/
+
+#define	FW_FOISCSI_NAME_MAX_LEN		224
+#define	FW_FOISCSI_ALIAS_MAX_LEN	224
+#define FW_FOISCSI_CHAP_SEC_MAX_LEN	128
+#define	FW_FOISCSI_INIT_NODE_MAX	8
+
+enum fw_chnet_ifconf_wr_subop {
+	FW_CHNET_IFCONF_WR_SUBOP_NONE = 0,
+	
+	FW_CHNET_IFCONF_WR_SUBOP_IPV4_SET,
+	FW_CHNET_IFCONF_WR_SUBOP_IPV4_GET,
+	
+	FW_CHNET_IFCONF_WR_SUBOP_VLAN_IPV4_SET,
+	FW_CHNET_IFCONF_WR_SUBOP_VLAN_IPV4_GET,
+
+	FW_CHNET_IFCONF_WR_SUBOP_IPV6_SET,
+	FW_CHNET_IFCONF_WR_SUBOP_IPV6_GET,
+
+	FW_CHNET_IFCONF_WR_SUBOP_VLAN_SET,
+	FW_CHNET_IFCONF_WR_SUBOP_VLAN_GET,
+
+	FW_CHNET_IFCONF_WR_SUBOP_MTU_SET,
+	FW_CHNET_IFCONF_WR_SUBOP_MTU_GET,
+
+	FW_CHNET_IFCONF_WR_SUBOP_DHCP_SET,
+	FW_CHNET_IFCONF_WR_SUBOP_DHCP_GET,
+
+	FW_CHNET_IFCONF_WR_SUBOP_MAX,
+};
+
+struct fw_chnet_ifconf_wr {
+	__be32 op_compl;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be32 if_flowid;
+	__u8   idx;
+	__u8   subop;
+	__u8   retval;
+	__u8   r2;
+	__be64 r3;
+	struct fw_chnet_ifconf_params {
+		__be32 r0;
+		__be16 vlanid;
+		__be16 mtu;
+		union fw_chnet_ifconf_addr_type {
+			struct fw_chnet_ifconf_ipv4 {
+				__be32 addr;
+				__be32 mask;
+				__be32 router;
+				__be32 r0;
+				__be64 r1;
+			} ipv4;
+			struct fw_chnet_ifconf_ipv6 {
+				__be64 linklocal_lo;
+				__be64 linklocal_hi;
+				__be64 router_hi;
+				__be64 router_lo;
+				__be64 aconf_hi;
+				__be64 aconf_lo;
+				__be64 linklocal_aconf_hi;
+				__be64 linklocal_aconf_lo;
+				__be64 router_aconf_hi;
+				__be64 router_aconf_lo;
+				__be64 r0;
+			} ipv6;
+		} in_attr;
+	} param;
+};
+
+enum fw_foiscsi_node_type {
+	FW_FOISCSI_NODE_TYPE_INITIATOR = 0,
+	FW_FOISCSI_NODE_TYPE_TARGET,
+};
+
+enum fw_foiscsi_session_type {
+	FW_FOISCSI_SESSION_TYPE_DISCOVERY = 0,
+	FW_FOISCSI_SESSION_TYPE_NORMAL,
+};
+
+enum fw_foiscsi_auth_policy {
+	FW_FOISCSI_AUTH_POLICY_ONEWAY = 0,
+	FW_FOISCSI_AUTH_POLICY_MUTUAL,
+};
+
+enum fw_foiscsi_auth_method {
+	FW_FOISCSI_AUTH_METHOD_NONE = 0,
+	FW_FOISCSI_AUTH_METHOD_CHAP,
+	FW_FOISCSI_AUTH_METHOD_CHAP_FST,
+	FW_FOISCSI_AUTH_METHOD_CHAP_SEC,
+};
+
+enum fw_foiscsi_digest_type {
+	FW_FOISCSI_DIGEST_TYPE_NONE = 0,
+	FW_FOISCSI_DIGEST_TYPE_CRC32,
+	FW_FOISCSI_DIGEST_TYPE_CRC32_FST,
+	FW_FOISCSI_DIGEST_TYPE_CRC32_SEC,
+};
+
+enum fw_foiscsi_wr_subop {
+	FW_FOISCSI_WR_SUBOP_ADD = 1,
+	FW_FOISCSI_WR_SUBOP_DEL = 2,
+	FW_FOISCSI_WR_SUBOP_MOD = 4,
+};
+
+enum fw_foiscsi_ctrl_state {
+	FW_FOISCSI_CTRL_STATE_FREE = 0,
+	FW_FOISCSI_CTRL_STATE_ONLINE = 1,
+	FW_FOISCSI_CTRL_STATE_FAILED,
+	FW_FOISCSI_CTRL_STATE_IN_RECOVERY,
+	FW_FOISCSI_CTRL_STATE_REDIRECT,
+};
+
+struct fw_rdev_wr {
+	__be32 op_to_immdlen;
+	__be32 alloc_to_len16;
+	__be64 cookie;
+	__u8   protocol;
+	__u8   event_cause;
+	__u8   cur_state;
+	__u8   prev_state;
+	__be32 flags_to_assoc_flowid;
+	union rdev_entry {
+		struct fcoe_rdev_entry {
+			__be32 flowid;
+			__u8   protocol;
+			__u8   event_cause;
+			__u8   flags;
+			__u8   rjt_reason;
+			__u8   cur_login_st;
+			__u8   prev_login_st;
+			__be16 rcv_fr_sz;
+			__u8   rd_xfer_rdy_to_rport_type;
+			__u8   vft_to_qos;
+			__u8   org_proc_assoc_to_acc_rsp_code;
+			__u8   enh_disc_to_tgt;
+			__u8   wwnn[8];
+			__u8   wwpn[8];
+			__be16 iqid;
+			__u8   fc_oui[3];
+			__u8   r_id[3];
+		} fcoe_rdev;
+		struct iscsi_rdev_entry {
+			__be32 flowid;
+			__u8   protocol;
+			__u8   event_cause;
+			__u8   flags;
+			__u8   r3;
+			__be16 iscsi_opts;
+			__be16 tcp_opts;
+			__be16 ip_opts;
+			__be16 max_rcv_len;
+			__be16 max_snd_len;
+			__be16 first_brst_len;
+			__be16 max_brst_len;
+			__be16 r4;
+			__be16 def_time2wait;
+			__be16 def_time2ret;
+			__be16 nop_out_intrvl;
+			__be16 non_scsi_to;
+			__be16 isid;
+			__be16 tsid;
+			__be16 port;
+			__be16 tpgt;
+			__u8   r5[6];
+			__be16 iqid;
+		} iscsi_rdev;
+	} u;
+};
+
+#define S_FW_RDEV_WR_IMMDLEN	0
+#define M_FW_RDEV_WR_IMMDLEN	0xff
+#define V_FW_RDEV_WR_IMMDLEN(x)	((x) << S_FW_RDEV_WR_IMMDLEN)
+#define G_FW_RDEV_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_RDEV_WR_IMMDLEN) & M_FW_RDEV_WR_IMMDLEN)
+
+#define S_FW_RDEV_WR_ALLOC	31
+#define M_FW_RDEV_WR_ALLOC	0x1
+#define V_FW_RDEV_WR_ALLOC(x)	((x) << S_FW_RDEV_WR_ALLOC)
+#define G_FW_RDEV_WR_ALLOC(x)	\
+    (((x) >> S_FW_RDEV_WR_ALLOC) & M_FW_RDEV_WR_ALLOC)
+#define F_FW_RDEV_WR_ALLOC	V_FW_RDEV_WR_ALLOC(1U)
+
+#define S_FW_RDEV_WR_FREE	30
+#define M_FW_RDEV_WR_FREE	0x1
+#define V_FW_RDEV_WR_FREE(x)	((x) << S_FW_RDEV_WR_FREE)
+#define G_FW_RDEV_WR_FREE(x)	\
+    (((x) >> S_FW_RDEV_WR_FREE) & M_FW_RDEV_WR_FREE)
+#define F_FW_RDEV_WR_FREE	V_FW_RDEV_WR_FREE(1U)
+
+#define S_FW_RDEV_WR_MODIFY	29
+#define M_FW_RDEV_WR_MODIFY	0x1
+#define V_FW_RDEV_WR_MODIFY(x)	((x) << S_FW_RDEV_WR_MODIFY)
+#define G_FW_RDEV_WR_MODIFY(x)	\
+    (((x) >> S_FW_RDEV_WR_MODIFY) & M_FW_RDEV_WR_MODIFY)
+#define F_FW_RDEV_WR_MODIFY	V_FW_RDEV_WR_MODIFY(1U)
+
+#define S_FW_RDEV_WR_FLOWID	8
+#define M_FW_RDEV_WR_FLOWID	0xfffff
+#define V_FW_RDEV_WR_FLOWID(x)	((x) << S_FW_RDEV_WR_FLOWID)
+#define G_FW_RDEV_WR_FLOWID(x)	\
+    (((x) >> S_FW_RDEV_WR_FLOWID) & M_FW_RDEV_WR_FLOWID)
+
+#define S_FW_RDEV_WR_LEN16	0
+#define M_FW_RDEV_WR_LEN16	0xff
+#define V_FW_RDEV_WR_LEN16(x)	((x) << S_FW_RDEV_WR_LEN16)
+#define G_FW_RDEV_WR_LEN16(x)	\
+    (((x) >> S_FW_RDEV_WR_LEN16) & M_FW_RDEV_WR_LEN16)
+
+#define S_FW_RDEV_WR_FLAGS	24
+#define M_FW_RDEV_WR_FLAGS	0xff
+#define V_FW_RDEV_WR_FLAGS(x)	((x) << S_FW_RDEV_WR_FLAGS)
+#define G_FW_RDEV_WR_FLAGS(x)	\
+    (((x) >> S_FW_RDEV_WR_FLAGS) & M_FW_RDEV_WR_FLAGS)
+
+#define S_FW_RDEV_WR_GET_NEXT		20
+#define M_FW_RDEV_WR_GET_NEXT		0xf
+#define V_FW_RDEV_WR_GET_NEXT(x)	((x) << S_FW_RDEV_WR_GET_NEXT)
+#define G_FW_RDEV_WR_GET_NEXT(x)	\
+    (((x) >> S_FW_RDEV_WR_GET_NEXT) & M_FW_RDEV_WR_GET_NEXT)
+
+#define S_FW_RDEV_WR_ASSOC_FLOWID	0
+#define M_FW_RDEV_WR_ASSOC_FLOWID	0xfffff
+#define V_FW_RDEV_WR_ASSOC_FLOWID(x)	((x) << S_FW_RDEV_WR_ASSOC_FLOWID)
+#define G_FW_RDEV_WR_ASSOC_FLOWID(x)	\
+    (((x) >> S_FW_RDEV_WR_ASSOC_FLOWID) & M_FW_RDEV_WR_ASSOC_FLOWID)
+
+#define S_FW_RDEV_WR_RJT	7
+#define M_FW_RDEV_WR_RJT	0x1
+#define V_FW_RDEV_WR_RJT(x)	((x) << S_FW_RDEV_WR_RJT)
+#define G_FW_RDEV_WR_RJT(x)	(((x) >> S_FW_RDEV_WR_RJT) & M_FW_RDEV_WR_RJT)
+#define F_FW_RDEV_WR_RJT	V_FW_RDEV_WR_RJT(1U)
+
+#define S_FW_RDEV_WR_REASON	0
+#define M_FW_RDEV_WR_REASON	0x7f
+#define V_FW_RDEV_WR_REASON(x)	((x) << S_FW_RDEV_WR_REASON)
+#define G_FW_RDEV_WR_REASON(x)	\
+    (((x) >> S_FW_RDEV_WR_REASON) & M_FW_RDEV_WR_REASON)
+
+#define S_FW_RDEV_WR_RD_XFER_RDY	7
+#define M_FW_RDEV_WR_RD_XFER_RDY	0x1
+#define V_FW_RDEV_WR_RD_XFER_RDY(x)	((x) << S_FW_RDEV_WR_RD_XFER_RDY)
+#define G_FW_RDEV_WR_RD_XFER_RDY(x)	\
+    (((x) >> S_FW_RDEV_WR_RD_XFER_RDY) & M_FW_RDEV_WR_RD_XFER_RDY)
+#define F_FW_RDEV_WR_RD_XFER_RDY	V_FW_RDEV_WR_RD_XFER_RDY(1U)
+
+#define S_FW_RDEV_WR_WR_XFER_RDY	6
+#define M_FW_RDEV_WR_WR_XFER_RDY	0x1
+#define V_FW_RDEV_WR_WR_XFER_RDY(x)	((x) << S_FW_RDEV_WR_WR_XFER_RDY)
+#define G_FW_RDEV_WR_WR_XFER_RDY(x)	\
+    (((x) >> S_FW_RDEV_WR_WR_XFER_RDY) & M_FW_RDEV_WR_WR_XFER_RDY)
+#define F_FW_RDEV_WR_WR_XFER_RDY	V_FW_RDEV_WR_WR_XFER_RDY(1U)
+
+#define S_FW_RDEV_WR_FC_SP	5
+#define M_FW_RDEV_WR_FC_SP	0x1
+#define V_FW_RDEV_WR_FC_SP(x)	((x) << S_FW_RDEV_WR_FC_SP)
+#define G_FW_RDEV_WR_FC_SP(x)	\
+    (((x) >> S_FW_RDEV_WR_FC_SP) & M_FW_RDEV_WR_FC_SP)
+#define F_FW_RDEV_WR_FC_SP	V_FW_RDEV_WR_FC_SP(1U)
+
+#define S_FW_RDEV_WR_RPORT_TYPE		0
+#define M_FW_RDEV_WR_RPORT_TYPE		0x1f
+#define V_FW_RDEV_WR_RPORT_TYPE(x)	((x) << S_FW_RDEV_WR_RPORT_TYPE)
+#define G_FW_RDEV_WR_RPORT_TYPE(x)	\
+    (((x) >> S_FW_RDEV_WR_RPORT_TYPE) & M_FW_RDEV_WR_RPORT_TYPE)
+
+#define S_FW_RDEV_WR_VFT	7
+#define M_FW_RDEV_WR_VFT	0x1
+#define V_FW_RDEV_WR_VFT(x)	((x) << S_FW_RDEV_WR_VFT)
+#define G_FW_RDEV_WR_VFT(x)	(((x) >> S_FW_RDEV_WR_VFT) & M_FW_RDEV_WR_VFT)
+#define F_FW_RDEV_WR_VFT	V_FW_RDEV_WR_VFT(1U)
+
+#define S_FW_RDEV_WR_NPIV	6
+#define M_FW_RDEV_WR_NPIV	0x1
+#define V_FW_RDEV_WR_NPIV(x)	((x) << S_FW_RDEV_WR_NPIV)
+#define G_FW_RDEV_WR_NPIV(x)	\
+    (((x) >> S_FW_RDEV_WR_NPIV) & M_FW_RDEV_WR_NPIV)
+#define F_FW_RDEV_WR_NPIV	V_FW_RDEV_WR_NPIV(1U)
+
+#define S_FW_RDEV_WR_CLASS	4
+#define M_FW_RDEV_WR_CLASS	0x3
+#define V_FW_RDEV_WR_CLASS(x)	((x) << S_FW_RDEV_WR_CLASS)
+#define G_FW_RDEV_WR_CLASS(x)	\
+    (((x) >> S_FW_RDEV_WR_CLASS) & M_FW_RDEV_WR_CLASS)
+
+#define S_FW_RDEV_WR_SEQ_DEL	3
+#define M_FW_RDEV_WR_SEQ_DEL	0x1
+#define V_FW_RDEV_WR_SEQ_DEL(x)	((x) << S_FW_RDEV_WR_SEQ_DEL)
+#define G_FW_RDEV_WR_SEQ_DEL(x)	\
+    (((x) >> S_FW_RDEV_WR_SEQ_DEL) & M_FW_RDEV_WR_SEQ_DEL)
+#define F_FW_RDEV_WR_SEQ_DEL	V_FW_RDEV_WR_SEQ_DEL(1U)
+
+#define S_FW_RDEV_WR_PRIO_PREEMP	2
+#define M_FW_RDEV_WR_PRIO_PREEMP	0x1
+#define V_FW_RDEV_WR_PRIO_PREEMP(x)	((x) << S_FW_RDEV_WR_PRIO_PREEMP)
+#define G_FW_RDEV_WR_PRIO_PREEMP(x)	\
+    (((x) >> S_FW_RDEV_WR_PRIO_PREEMP) & M_FW_RDEV_WR_PRIO_PREEMP)
+#define F_FW_RDEV_WR_PRIO_PREEMP	V_FW_RDEV_WR_PRIO_PREEMP(1U)
+
+#define S_FW_RDEV_WR_PREF	1
+#define M_FW_RDEV_WR_PREF	0x1
+#define V_FW_RDEV_WR_PREF(x)	((x) << S_FW_RDEV_WR_PREF)
+#define G_FW_RDEV_WR_PREF(x)	\
+    (((x) >> S_FW_RDEV_WR_PREF) & M_FW_RDEV_WR_PREF)
+#define F_FW_RDEV_WR_PREF	V_FW_RDEV_WR_PREF(1U)
+
+#define S_FW_RDEV_WR_QOS	0
+#define M_FW_RDEV_WR_QOS	0x1
+#define V_FW_RDEV_WR_QOS(x)	((x) << S_FW_RDEV_WR_QOS)
+#define G_FW_RDEV_WR_QOS(x)	(((x) >> S_FW_RDEV_WR_QOS) & M_FW_RDEV_WR_QOS)
+#define F_FW_RDEV_WR_QOS	V_FW_RDEV_WR_QOS(1U)
+
+#define S_FW_RDEV_WR_ORG_PROC_ASSOC	7
+#define M_FW_RDEV_WR_ORG_PROC_ASSOC	0x1
+#define V_FW_RDEV_WR_ORG_PROC_ASSOC(x)	((x) << S_FW_RDEV_WR_ORG_PROC_ASSOC)
+#define G_FW_RDEV_WR_ORG_PROC_ASSOC(x)	\
+    (((x) >> S_FW_RDEV_WR_ORG_PROC_ASSOC) & M_FW_RDEV_WR_ORG_PROC_ASSOC)
+#define F_FW_RDEV_WR_ORG_PROC_ASSOC	V_FW_RDEV_WR_ORG_PROC_ASSOC(1U)
+
+#define S_FW_RDEV_WR_RSP_PROC_ASSOC	6
+#define M_FW_RDEV_WR_RSP_PROC_ASSOC	0x1
+#define V_FW_RDEV_WR_RSP_PROC_ASSOC(x)	((x) << S_FW_RDEV_WR_RSP_PROC_ASSOC)
+#define G_FW_RDEV_WR_RSP_PROC_ASSOC(x)	\
+    (((x) >> S_FW_RDEV_WR_RSP_PROC_ASSOC) & M_FW_RDEV_WR_RSP_PROC_ASSOC)
+#define F_FW_RDEV_WR_RSP_PROC_ASSOC	V_FW_RDEV_WR_RSP_PROC_ASSOC(1U)
+
+#define S_FW_RDEV_WR_IMAGE_PAIR		5
+#define M_FW_RDEV_WR_IMAGE_PAIR		0x1
+#define V_FW_RDEV_WR_IMAGE_PAIR(x)	((x) << S_FW_RDEV_WR_IMAGE_PAIR)
+#define G_FW_RDEV_WR_IMAGE_PAIR(x)	\
+    (((x) >> S_FW_RDEV_WR_IMAGE_PAIR) & M_FW_RDEV_WR_IMAGE_PAIR)
+#define F_FW_RDEV_WR_IMAGE_PAIR	V_FW_RDEV_WR_IMAGE_PAIR(1U)
+
+#define S_FW_RDEV_WR_ACC_RSP_CODE	0
+#define M_FW_RDEV_WR_ACC_RSP_CODE	0x1f
+#define V_FW_RDEV_WR_ACC_RSP_CODE(x)	((x) << S_FW_RDEV_WR_ACC_RSP_CODE)
+#define G_FW_RDEV_WR_ACC_RSP_CODE(x)	\
+    (((x) >> S_FW_RDEV_WR_ACC_RSP_CODE) & M_FW_RDEV_WR_ACC_RSP_CODE)
+
+#define S_FW_RDEV_WR_ENH_DISC		7
+#define M_FW_RDEV_WR_ENH_DISC		0x1
+#define V_FW_RDEV_WR_ENH_DISC(x)	((x) << S_FW_RDEV_WR_ENH_DISC)
+#define G_FW_RDEV_WR_ENH_DISC(x)	\
+    (((x) >> S_FW_RDEV_WR_ENH_DISC) & M_FW_RDEV_WR_ENH_DISC)
+#define F_FW_RDEV_WR_ENH_DISC	V_FW_RDEV_WR_ENH_DISC(1U)
+
+#define S_FW_RDEV_WR_REC	6
+#define M_FW_RDEV_WR_REC	0x1
+#define V_FW_RDEV_WR_REC(x)	((x) << S_FW_RDEV_WR_REC)
+#define G_FW_RDEV_WR_REC(x)	(((x) >> S_FW_RDEV_WR_REC) & M_FW_RDEV_WR_REC)
+#define F_FW_RDEV_WR_REC	V_FW_RDEV_WR_REC(1U)
+
+#define S_FW_RDEV_WR_TASK_RETRY_ID	5
+#define M_FW_RDEV_WR_TASK_RETRY_ID	0x1
+#define V_FW_RDEV_WR_TASK_RETRY_ID(x)	((x) << S_FW_RDEV_WR_TASK_RETRY_ID)
+#define G_FW_RDEV_WR_TASK_RETRY_ID(x)	\
+    (((x) >> S_FW_RDEV_WR_TASK_RETRY_ID) & M_FW_RDEV_WR_TASK_RETRY_ID)
+#define F_FW_RDEV_WR_TASK_RETRY_ID	V_FW_RDEV_WR_TASK_RETRY_ID(1U)
+
+#define S_FW_RDEV_WR_RETRY	4
+#define M_FW_RDEV_WR_RETRY	0x1
+#define V_FW_RDEV_WR_RETRY(x)	((x) << S_FW_RDEV_WR_RETRY)
+#define G_FW_RDEV_WR_RETRY(x)	\
+    (((x) >> S_FW_RDEV_WR_RETRY) & M_FW_RDEV_WR_RETRY)
+#define F_FW_RDEV_WR_RETRY	V_FW_RDEV_WR_RETRY(1U)
+
+#define S_FW_RDEV_WR_CONF_CMPL		3
+#define M_FW_RDEV_WR_CONF_CMPL		0x1
+#define V_FW_RDEV_WR_CONF_CMPL(x)	((x) << S_FW_RDEV_WR_CONF_CMPL)
+#define G_FW_RDEV_WR_CONF_CMPL(x)	\
+    (((x) >> S_FW_RDEV_WR_CONF_CMPL) & M_FW_RDEV_WR_CONF_CMPL)
+#define F_FW_RDEV_WR_CONF_CMPL	V_FW_RDEV_WR_CONF_CMPL(1U)
+
+#define S_FW_RDEV_WR_DATA_OVLY		2
+#define M_FW_RDEV_WR_DATA_OVLY		0x1
+#define V_FW_RDEV_WR_DATA_OVLY(x)	((x) << S_FW_RDEV_WR_DATA_OVLY)
+#define G_FW_RDEV_WR_DATA_OVLY(x)	\
+    (((x) >> S_FW_RDEV_WR_DATA_OVLY) & M_FW_RDEV_WR_DATA_OVLY)
+#define F_FW_RDEV_WR_DATA_OVLY	V_FW_RDEV_WR_DATA_OVLY(1U)
+
+#define S_FW_RDEV_WR_INI	1
+#define M_FW_RDEV_WR_INI	0x1
+#define V_FW_RDEV_WR_INI(x)	((x) << S_FW_RDEV_WR_INI)
+#define G_FW_RDEV_WR_INI(x)	(((x) >> S_FW_RDEV_WR_INI) & M_FW_RDEV_WR_INI)
+#define F_FW_RDEV_WR_INI	V_FW_RDEV_WR_INI(1U)
+
+#define S_FW_RDEV_WR_TGT	0
+#define M_FW_RDEV_WR_TGT	0x1
+#define V_FW_RDEV_WR_TGT(x)	((x) << S_FW_RDEV_WR_TGT)
+#define G_FW_RDEV_WR_TGT(x)	(((x) >> S_FW_RDEV_WR_TGT) & M_FW_RDEV_WR_TGT)
+#define F_FW_RDEV_WR_TGT	V_FW_RDEV_WR_TGT(1U)
+
+struct fw_foiscsi_node_wr {
+	__be32 op_to_immdlen;
+	__be32 flowid_len16;
+	__u64  cookie;
+	__u8   subop;
+	__u8   status;
+	__u8   alias_len;
+	__u8   iqn_len;
+	__be32 node_flowid;
+	__be16 nodeid;
+	__be16 login_retry;
+	__be16 retry_timeout;
+	__be16 r3;
+	__u8   iqn[224];
+	__u8   alias[224];
+};
+
+#define S_FW_FOISCSI_NODE_WR_IMMDLEN	0
+#define M_FW_FOISCSI_NODE_WR_IMMDLEN	0xffff
+#define V_FW_FOISCSI_NODE_WR_IMMDLEN(x)	((x) << S_FW_FOISCSI_NODE_WR_IMMDLEN)
+#define G_FW_FOISCSI_NODE_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_FOISCSI_NODE_WR_IMMDLEN) & M_FW_FOISCSI_NODE_WR_IMMDLEN)
+
+struct fw_foiscsi_ctrl_wr {
+	__be32 op_compl;
+	__be32 flowid_len16;
+	__u64  cookie;
+	__u8   subop;
+	__u8   status;
+	__u8   ctrl_state;
+	__u8   io_state;
+	__be32 node_id;
+	__be32 ctrl_id;
+	__be32 io_id;
+	struct fw_foiscsi_sess_attr {
+		__be32 sess_type_to_erl;
+		__be16 max_conn;
+		__be16 max_r2t;
+		__be16 time2wait;
+		__be16 time2retain;
+		__be32 max_burst;
+		__be32 first_burst;
+		__be32 r1;
+	} sess_attr;
+	struct fw_foiscsi_conn_attr {
+		__be32 hdigest_to_ddp_pgsz;
+		__be32 max_rcv_dsl;
+		__be32 ping_tmo;
+		__be16 dst_port;
+		__be16 src_port;
+		union fw_foiscsi_conn_attr_addr {
+			struct fw_foiscsi_conn_attr_ipv6 {
+				__be64 dst_addr[2];
+				__be64 src_addr[2];
+			} ipv6_addr;
+			struct fw_foiscsi_conn_attr_ipv4 {
+				__be32 dst_addr;
+				__be32 src_addr;
+			} ipv4_addr;
+		} u;
+	} conn_attr;
+	__u8   tgt_name_len;
+	__u8   r3[7];
+	__u8   tgt_name[FW_FOISCSI_NAME_MAX_LEN];
+};
+
+#define S_FW_FOISCSI_CTRL_WR_SESS_TYPE		30
+#define M_FW_FOISCSI_CTRL_WR_SESS_TYPE		0x3
+#define V_FW_FOISCSI_CTRL_WR_SESS_TYPE(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_SESS_TYPE)
+#define G_FW_FOISCSI_CTRL_WR_SESS_TYPE(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_SESS_TYPE) & M_FW_FOISCSI_CTRL_WR_SESS_TYPE)
+
+#define S_FW_FOISCSI_CTRL_WR_SEQ_INORDER	29
+#define M_FW_FOISCSI_CTRL_WR_SEQ_INORDER	0x1
+#define V_FW_FOISCSI_CTRL_WR_SEQ_INORDER(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_SEQ_INORDER)
+#define G_FW_FOISCSI_CTRL_WR_SEQ_INORDER(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_SEQ_INORDER) & \
+     M_FW_FOISCSI_CTRL_WR_SEQ_INORDER)
+#define F_FW_FOISCSI_CTRL_WR_SEQ_INORDER	\
+    V_FW_FOISCSI_CTRL_WR_SEQ_INORDER(1U)
+
+#define S_FW_FOISCSI_CTRL_WR_PDU_INORDER	28
+#define M_FW_FOISCSI_CTRL_WR_PDU_INORDER	0x1
+#define V_FW_FOISCSI_CTRL_WR_PDU_INORDER(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_PDU_INORDER)
+#define G_FW_FOISCSI_CTRL_WR_PDU_INORDER(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_PDU_INORDER) & \
+     M_FW_FOISCSI_CTRL_WR_PDU_INORDER)
+#define F_FW_FOISCSI_CTRL_WR_PDU_INORDER	\
+    V_FW_FOISCSI_CTRL_WR_PDU_INORDER(1U)
+
+#define S_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN	27
+#define M_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN	0x1
+#define V_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN)
+#define G_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN) & \
+     M_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN)
+#define F_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN	\
+    V_FW_FOISCSI_CTRL_WR_IMMD_DATA_EN(1U)
+
+#define S_FW_FOISCSI_CTRL_WR_INIT_R2T_EN	26
+#define M_FW_FOISCSI_CTRL_WR_INIT_R2T_EN	0x1
+#define V_FW_FOISCSI_CTRL_WR_INIT_R2T_EN(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_INIT_R2T_EN)
+#define G_FW_FOISCSI_CTRL_WR_INIT_R2T_EN(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_INIT_R2T_EN) & \
+     M_FW_FOISCSI_CTRL_WR_INIT_R2T_EN)
+#define F_FW_FOISCSI_CTRL_WR_INIT_R2T_EN	\
+    V_FW_FOISCSI_CTRL_WR_INIT_R2T_EN(1U)
+
+#define S_FW_FOISCSI_CTRL_WR_ERL	24
+#define M_FW_FOISCSI_CTRL_WR_ERL	0x3
+#define V_FW_FOISCSI_CTRL_WR_ERL(x)	((x) << S_FW_FOISCSI_CTRL_WR_ERL)
+#define G_FW_FOISCSI_CTRL_WR_ERL(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_ERL) & M_FW_FOISCSI_CTRL_WR_ERL)
+
+#define S_FW_FOISCSI_CTRL_WR_HDIGEST	30
+#define M_FW_FOISCSI_CTRL_WR_HDIGEST	0x3
+#define V_FW_FOISCSI_CTRL_WR_HDIGEST(x)	((x) << S_FW_FOISCSI_CTRL_WR_HDIGEST)
+#define G_FW_FOISCSI_CTRL_WR_HDIGEST(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_HDIGEST) & M_FW_FOISCSI_CTRL_WR_HDIGEST)
+
+#define S_FW_FOISCSI_CTRL_WR_DDIGEST	28
+#define M_FW_FOISCSI_CTRL_WR_DDIGEST	0x3
+#define V_FW_FOISCSI_CTRL_WR_DDIGEST(x)	((x) << S_FW_FOISCSI_CTRL_WR_DDIGEST)
+#define G_FW_FOISCSI_CTRL_WR_DDIGEST(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_DDIGEST) & M_FW_FOISCSI_CTRL_WR_DDIGEST)
+
+#define S_FW_FOISCSI_CTRL_WR_AUTH_METHOD	25
+#define M_FW_FOISCSI_CTRL_WR_AUTH_METHOD	0x7
+#define V_FW_FOISCSI_CTRL_WR_AUTH_METHOD(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_AUTH_METHOD)
+#define G_FW_FOISCSI_CTRL_WR_AUTH_METHOD(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_AUTH_METHOD) & \
+     M_FW_FOISCSI_CTRL_WR_AUTH_METHOD)
+
+#define S_FW_FOISCSI_CTRL_WR_AUTH_POLICY	23
+#define M_FW_FOISCSI_CTRL_WR_AUTH_POLICY	0x3
+#define V_FW_FOISCSI_CTRL_WR_AUTH_POLICY(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_AUTH_POLICY)
+#define G_FW_FOISCSI_CTRL_WR_AUTH_POLICY(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_AUTH_POLICY) & \
+     M_FW_FOISCSI_CTRL_WR_AUTH_POLICY)
+
+#define S_FW_FOISCSI_CTRL_WR_DDP_PGSZ		21
+#define M_FW_FOISCSI_CTRL_WR_DDP_PGSZ		0x3
+#define V_FW_FOISCSI_CTRL_WR_DDP_PGSZ(x)	\
+    ((x) << S_FW_FOISCSI_CTRL_WR_DDP_PGSZ)
+#define G_FW_FOISCSI_CTRL_WR_DDP_PGSZ(x)	\
+    (((x) >> S_FW_FOISCSI_CTRL_WR_DDP_PGSZ) & M_FW_FOISCSI_CTRL_WR_DDP_PGSZ)
+
+struct fw_foiscsi_chap_wr {
+	__be32 op_compl;
+	__be32 flowid_len16;
+	__u64  cookie;
+	__u8   status;
+	__u8   id_len;
+	__u8   sec_len;
+	__u8   node_type;
+	__be16 node_id;
+	__u8   r3[2];
+	__u8   chap_id[FW_FOISCSI_NAME_MAX_LEN];
+	__u8   chap_sec[FW_FOISCSI_CHAP_SEC_MAX_LEN];
+};
+
+/******************************************************************************
+ *  F O F C O E   W O R K R E Q U E S T s
+ *******************************************/
+
+struct fw_fcoe_els_ct_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   tmo_val;
+	__u8   els_ct_type;
+	__u8   ctl_pri;
+	__u8   cp_en_class;
+	__be16 xfer_cnt;
+	__u8   fl_to_sp;
+	__u8   l_id[3];
+	__u8   r5;
+	__u8   r_id[3];
+	__be64 rsp_dmaaddr;
+	__be32 rsp_dmalen;
+	__be32 r6;
+};
+
+#define S_FW_FCOE_ELS_CT_WR_OPCODE	24
+#define M_FW_FCOE_ELS_CT_WR_OPCODE	0xff
+#define V_FW_FCOE_ELS_CT_WR_OPCODE(x)	((x) << S_FW_FCOE_ELS_CT_WR_OPCODE)
+#define G_FW_FCOE_ELS_CT_WR_OPCODE(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_OPCODE) & M_FW_FCOE_ELS_CT_WR_OPCODE)
+
+#define S_FW_FCOE_ELS_CT_WR_IMMDLEN	0
+#define M_FW_FCOE_ELS_CT_WR_IMMDLEN	0xff
+#define V_FW_FCOE_ELS_CT_WR_IMMDLEN(x)	((x) << S_FW_FCOE_ELS_CT_WR_IMMDLEN)
+#define G_FW_FCOE_ELS_CT_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_IMMDLEN) & M_FW_FCOE_ELS_CT_WR_IMMDLEN)
+
+#define S_FW_FCOE_ELS_CT_WR_FLOWID	8
+#define M_FW_FCOE_ELS_CT_WR_FLOWID	0xfffff
+#define V_FW_FCOE_ELS_CT_WR_FLOWID(x)	((x) << S_FW_FCOE_ELS_CT_WR_FLOWID)
+#define G_FW_FCOE_ELS_CT_WR_FLOWID(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_FLOWID) & M_FW_FCOE_ELS_CT_WR_FLOWID)
+
+#define S_FW_FCOE_ELS_CT_WR_LEN16	0
+#define M_FW_FCOE_ELS_CT_WR_LEN16	0xff
+#define V_FW_FCOE_ELS_CT_WR_LEN16(x)	((x) << S_FW_FCOE_ELS_CT_WR_LEN16)
+#define G_FW_FCOE_ELS_CT_WR_LEN16(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_LEN16) & M_FW_FCOE_ELS_CT_WR_LEN16)
+
+#define S_FW_FCOE_ELS_CT_WR_CP_EN	6
+#define M_FW_FCOE_ELS_CT_WR_CP_EN	0x3
+#define V_FW_FCOE_ELS_CT_WR_CP_EN(x)	((x) << S_FW_FCOE_ELS_CT_WR_CP_EN)
+#define G_FW_FCOE_ELS_CT_WR_CP_EN(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_CP_EN) & M_FW_FCOE_ELS_CT_WR_CP_EN)
+
+#define S_FW_FCOE_ELS_CT_WR_CLASS	4
+#define M_FW_FCOE_ELS_CT_WR_CLASS	0x3
+#define V_FW_FCOE_ELS_CT_WR_CLASS(x)	((x) << S_FW_FCOE_ELS_CT_WR_CLASS)
+#define G_FW_FCOE_ELS_CT_WR_CLASS(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_CLASS) & M_FW_FCOE_ELS_CT_WR_CLASS)
+
+#define S_FW_FCOE_ELS_CT_WR_FL		2
+#define M_FW_FCOE_ELS_CT_WR_FL		0x1
+#define V_FW_FCOE_ELS_CT_WR_FL(x)	((x) << S_FW_FCOE_ELS_CT_WR_FL)
+#define G_FW_FCOE_ELS_CT_WR_FL(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_FL) & M_FW_FCOE_ELS_CT_WR_FL)
+#define F_FW_FCOE_ELS_CT_WR_FL	V_FW_FCOE_ELS_CT_WR_FL(1U)
+
+#define S_FW_FCOE_ELS_CT_WR_NPIV	1
+#define M_FW_FCOE_ELS_CT_WR_NPIV	0x1
+#define V_FW_FCOE_ELS_CT_WR_NPIV(x)	((x) << S_FW_FCOE_ELS_CT_WR_NPIV)
+#define G_FW_FCOE_ELS_CT_WR_NPIV(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_NPIV) & M_FW_FCOE_ELS_CT_WR_NPIV)
+#define F_FW_FCOE_ELS_CT_WR_NPIV	V_FW_FCOE_ELS_CT_WR_NPIV(1U)
+
+#define S_FW_FCOE_ELS_CT_WR_SP		0
+#define M_FW_FCOE_ELS_CT_WR_SP		0x1
+#define V_FW_FCOE_ELS_CT_WR_SP(x)	((x) << S_FW_FCOE_ELS_CT_WR_SP)
+#define G_FW_FCOE_ELS_CT_WR_SP(x)	\
+    (((x) >> S_FW_FCOE_ELS_CT_WR_SP) & M_FW_FCOE_ELS_CT_WR_SP)
+#define F_FW_FCOE_ELS_CT_WR_SP	V_FW_FCOE_ELS_CT_WR_SP(1U)
+
+/******************************************************************************
+ *  S C S I   W O R K R E Q U E S T s   (FOiSCSI and FCOE unified data path)
+ *****************************************************************************/
+
+struct fw_scsi_write_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   tmo_val;
+	__u8   use_xfer_cnt;
+	union fw_scsi_write_priv {
+		struct fcoe_write_priv {
+			__u8   ctl_pri;
+			__u8   cp_en_class;
+			__u8   r3_lo[2];
+		} fcoe;
+		struct iscsi_write_priv {
+			__u8   r3[4];
+		} iscsi;
+	} u;
+	__be32 xfer_cnt;
+	__be32 ini_xfer_cnt;
+	__be64 rsp_dmaaddr;
+	__be32 rsp_dmalen;
+	__be32 r4;
+};
+
+#define S_FW_SCSI_WRITE_WR_OPCODE	24
+#define M_FW_SCSI_WRITE_WR_OPCODE	0xff
+#define V_FW_SCSI_WRITE_WR_OPCODE(x)	((x) << S_FW_SCSI_WRITE_WR_OPCODE)
+#define G_FW_SCSI_WRITE_WR_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_WRITE_WR_OPCODE) & M_FW_SCSI_WRITE_WR_OPCODE)
+
+#define S_FW_SCSI_WRITE_WR_IMMDLEN	0
+#define M_FW_SCSI_WRITE_WR_IMMDLEN	0xff
+#define V_FW_SCSI_WRITE_WR_IMMDLEN(x)	((x) << S_FW_SCSI_WRITE_WR_IMMDLEN)
+#define G_FW_SCSI_WRITE_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_SCSI_WRITE_WR_IMMDLEN) & M_FW_SCSI_WRITE_WR_IMMDLEN)
+
+#define S_FW_SCSI_WRITE_WR_FLOWID	8
+#define M_FW_SCSI_WRITE_WR_FLOWID	0xfffff
+#define V_FW_SCSI_WRITE_WR_FLOWID(x)	((x) << S_FW_SCSI_WRITE_WR_FLOWID)
+#define G_FW_SCSI_WRITE_WR_FLOWID(x)	\
+    (((x) >> S_FW_SCSI_WRITE_WR_FLOWID) & M_FW_SCSI_WRITE_WR_FLOWID)
+
+#define S_FW_SCSI_WRITE_WR_LEN16	0
+#define M_FW_SCSI_WRITE_WR_LEN16	0xff
+#define V_FW_SCSI_WRITE_WR_LEN16(x)	((x) << S_FW_SCSI_WRITE_WR_LEN16)
+#define G_FW_SCSI_WRITE_WR_LEN16(x)	\
+    (((x) >> S_FW_SCSI_WRITE_WR_LEN16) & M_FW_SCSI_WRITE_WR_LEN16)
+
+#define S_FW_SCSI_WRITE_WR_CP_EN	6
+#define M_FW_SCSI_WRITE_WR_CP_EN	0x3
+#define V_FW_SCSI_WRITE_WR_CP_EN(x)	((x) << S_FW_SCSI_WRITE_WR_CP_EN)
+#define G_FW_SCSI_WRITE_WR_CP_EN(x)	\
+    (((x) >> S_FW_SCSI_WRITE_WR_CP_EN) & M_FW_SCSI_WRITE_WR_CP_EN)
+
+#define S_FW_SCSI_WRITE_WR_CLASS	4
+#define M_FW_SCSI_WRITE_WR_CLASS	0x3
+#define V_FW_SCSI_WRITE_WR_CLASS(x)	((x) << S_FW_SCSI_WRITE_WR_CLASS)
+#define G_FW_SCSI_WRITE_WR_CLASS(x)	\
+    (((x) >> S_FW_SCSI_WRITE_WR_CLASS) & M_FW_SCSI_WRITE_WR_CLASS)
+
+struct fw_scsi_read_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   tmo_val;
+	__u8   use_xfer_cnt;
+	union fw_scsi_read_priv {
+		struct fcoe_read_priv {
+			__u8   ctl_pri;
+			__u8   cp_en_class;
+			__u8   r3_lo[2];
+		} fcoe;
+		struct iscsi_read_priv {
+			__u8   r3[4];
+		} iscsi;
+	} u;
+	__be32 xfer_cnt;
+	__be32 ini_xfer_cnt;
+	__be64 rsp_dmaaddr;
+	__be32 rsp_dmalen;
+	__be32 r4;
+};
+
+#define S_FW_SCSI_READ_WR_OPCODE	24
+#define M_FW_SCSI_READ_WR_OPCODE	0xff
+#define V_FW_SCSI_READ_WR_OPCODE(x)	((x) << S_FW_SCSI_READ_WR_OPCODE)
+#define G_FW_SCSI_READ_WR_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_READ_WR_OPCODE) & M_FW_SCSI_READ_WR_OPCODE)
+
+#define S_FW_SCSI_READ_WR_IMMDLEN	0
+#define M_FW_SCSI_READ_WR_IMMDLEN	0xff
+#define V_FW_SCSI_READ_WR_IMMDLEN(x)	((x) << S_FW_SCSI_READ_WR_IMMDLEN)
+#define G_FW_SCSI_READ_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_SCSI_READ_WR_IMMDLEN) & M_FW_SCSI_READ_WR_IMMDLEN)
+
+#define S_FW_SCSI_READ_WR_FLOWID	8
+#define M_FW_SCSI_READ_WR_FLOWID	0xfffff
+#define V_FW_SCSI_READ_WR_FLOWID(x)	((x) << S_FW_SCSI_READ_WR_FLOWID)
+#define G_FW_SCSI_READ_WR_FLOWID(x)	\
+    (((x) >> S_FW_SCSI_READ_WR_FLOWID) & M_FW_SCSI_READ_WR_FLOWID)
+
+#define S_FW_SCSI_READ_WR_LEN16		0
+#define M_FW_SCSI_READ_WR_LEN16		0xff
+#define V_FW_SCSI_READ_WR_LEN16(x)	((x) << S_FW_SCSI_READ_WR_LEN16)
+#define G_FW_SCSI_READ_WR_LEN16(x)	\
+    (((x) >> S_FW_SCSI_READ_WR_LEN16) & M_FW_SCSI_READ_WR_LEN16)
+
+#define S_FW_SCSI_READ_WR_CP_EN		6
+#define M_FW_SCSI_READ_WR_CP_EN		0x3
+#define V_FW_SCSI_READ_WR_CP_EN(x)	((x) << S_FW_SCSI_READ_WR_CP_EN)
+#define G_FW_SCSI_READ_WR_CP_EN(x)	\
+    (((x) >> S_FW_SCSI_READ_WR_CP_EN) & M_FW_SCSI_READ_WR_CP_EN)
+
+#define S_FW_SCSI_READ_WR_CLASS		4
+#define M_FW_SCSI_READ_WR_CLASS		0x3
+#define V_FW_SCSI_READ_WR_CLASS(x)	((x) << S_FW_SCSI_READ_WR_CLASS)
+#define G_FW_SCSI_READ_WR_CLASS(x)	\
+    (((x) >> S_FW_SCSI_READ_WR_CLASS) & M_FW_SCSI_READ_WR_CLASS)
+
+struct fw_scsi_cmd_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   tmo_val;
+	__u8   r3;
+	union fw_scsi_cmd_priv {
+		struct fcoe_cmd_priv {
+			__u8   ctl_pri;
+			__u8   cp_en_class;
+			__u8   r4_lo[2];
+		} fcoe;
+		struct iscsi_cmd_priv {
+			__u8   r4[4];
+		} iscsi;
+	} u;
+	__u8   r5[8];
+	__be64 rsp_dmaaddr;
+	__be32 rsp_dmalen;
+	__be32 r6;
+};
+
+#define S_FW_SCSI_CMD_WR_OPCODE		24
+#define M_FW_SCSI_CMD_WR_OPCODE		0xff
+#define V_FW_SCSI_CMD_WR_OPCODE(x)	((x) << S_FW_SCSI_CMD_WR_OPCODE)
+#define G_FW_SCSI_CMD_WR_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_CMD_WR_OPCODE) & M_FW_SCSI_CMD_WR_OPCODE)
+
+#define S_FW_SCSI_CMD_WR_IMMDLEN	0
+#define M_FW_SCSI_CMD_WR_IMMDLEN	0xff
+#define V_FW_SCSI_CMD_WR_IMMDLEN(x)	((x) << S_FW_SCSI_CMD_WR_IMMDLEN)
+#define G_FW_SCSI_CMD_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_SCSI_CMD_WR_IMMDLEN) & M_FW_SCSI_CMD_WR_IMMDLEN)
+
+#define S_FW_SCSI_CMD_WR_FLOWID		8
+#define M_FW_SCSI_CMD_WR_FLOWID		0xfffff
+#define V_FW_SCSI_CMD_WR_FLOWID(x)	((x) << S_FW_SCSI_CMD_WR_FLOWID)
+#define G_FW_SCSI_CMD_WR_FLOWID(x)	\
+    (((x) >> S_FW_SCSI_CMD_WR_FLOWID) & M_FW_SCSI_CMD_WR_FLOWID)
+
+#define S_FW_SCSI_CMD_WR_LEN16		0
+#define M_FW_SCSI_CMD_WR_LEN16		0xff
+#define V_FW_SCSI_CMD_WR_LEN16(x)	((x) << S_FW_SCSI_CMD_WR_LEN16)
+#define G_FW_SCSI_CMD_WR_LEN16(x)	\
+    (((x) >> S_FW_SCSI_CMD_WR_LEN16) & M_FW_SCSI_CMD_WR_LEN16)
+
+#define S_FW_SCSI_CMD_WR_CP_EN		6
+#define M_FW_SCSI_CMD_WR_CP_EN		0x3
+#define V_FW_SCSI_CMD_WR_CP_EN(x)	((x) << S_FW_SCSI_CMD_WR_CP_EN)
+#define G_FW_SCSI_CMD_WR_CP_EN(x)	\
+    (((x) >> S_FW_SCSI_CMD_WR_CP_EN) & M_FW_SCSI_CMD_WR_CP_EN)
+
+#define S_FW_SCSI_CMD_WR_CLASS		4
+#define M_FW_SCSI_CMD_WR_CLASS		0x3
+#define V_FW_SCSI_CMD_WR_CLASS(x)	((x) << S_FW_SCSI_CMD_WR_CLASS)
+#define G_FW_SCSI_CMD_WR_CLASS(x)	\
+    (((x) >> S_FW_SCSI_CMD_WR_CLASS) & M_FW_SCSI_CMD_WR_CLASS)
+
+struct fw_scsi_abrt_cls_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   tmo_val;
+	__u8   sub_opcode_to_chk_all_io;
+	__u8   r3[4];
+	__be64 t_cookie;
+};
+
+#define S_FW_SCSI_ABRT_CLS_WR_OPCODE	24
+#define M_FW_SCSI_ABRT_CLS_WR_OPCODE	0xff
+#define V_FW_SCSI_ABRT_CLS_WR_OPCODE(x)	((x) << S_FW_SCSI_ABRT_CLS_WR_OPCODE)
+#define G_FW_SCSI_ABRT_CLS_WR_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_ABRT_CLS_WR_OPCODE) & M_FW_SCSI_ABRT_CLS_WR_OPCODE)
+
+#define S_FW_SCSI_ABRT_CLS_WR_IMMDLEN		0
+#define M_FW_SCSI_ABRT_CLS_WR_IMMDLEN		0xff
+#define V_FW_SCSI_ABRT_CLS_WR_IMMDLEN(x)	\
+    ((x) << S_FW_SCSI_ABRT_CLS_WR_IMMDLEN)
+#define G_FW_SCSI_ABRT_CLS_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_SCSI_ABRT_CLS_WR_IMMDLEN) & M_FW_SCSI_ABRT_CLS_WR_IMMDLEN)
+
+#define S_FW_SCSI_ABRT_CLS_WR_FLOWID	8
+#define M_FW_SCSI_ABRT_CLS_WR_FLOWID	0xfffff
+#define V_FW_SCSI_ABRT_CLS_WR_FLOWID(x)	((x) << S_FW_SCSI_ABRT_CLS_WR_FLOWID)
+#define G_FW_SCSI_ABRT_CLS_WR_FLOWID(x)	\
+    (((x) >> S_FW_SCSI_ABRT_CLS_WR_FLOWID) & M_FW_SCSI_ABRT_CLS_WR_FLOWID)
+
+#define S_FW_SCSI_ABRT_CLS_WR_LEN16	0
+#define M_FW_SCSI_ABRT_CLS_WR_LEN16	0xff
+#define V_FW_SCSI_ABRT_CLS_WR_LEN16(x)	((x) << S_FW_SCSI_ABRT_CLS_WR_LEN16)
+#define G_FW_SCSI_ABRT_CLS_WR_LEN16(x)	\
+    (((x) >> S_FW_SCSI_ABRT_CLS_WR_LEN16) & M_FW_SCSI_ABRT_CLS_WR_LEN16)
+
+#define S_FW_SCSI_ABRT_CLS_WR_SUB_OPCODE	2
+#define M_FW_SCSI_ABRT_CLS_WR_SUB_OPCODE	0x3f
+#define V_FW_SCSI_ABRT_CLS_WR_SUB_OPCODE(x)	\
+    ((x) << S_FW_SCSI_ABRT_CLS_WR_SUB_OPCODE)
+#define G_FW_SCSI_ABRT_CLS_WR_SUB_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_ABRT_CLS_WR_SUB_OPCODE) & \
+     M_FW_SCSI_ABRT_CLS_WR_SUB_OPCODE)
+
+#define S_FW_SCSI_ABRT_CLS_WR_UNSOL	1
+#define M_FW_SCSI_ABRT_CLS_WR_UNSOL	0x1
+#define V_FW_SCSI_ABRT_CLS_WR_UNSOL(x)	((x) << S_FW_SCSI_ABRT_CLS_WR_UNSOL)
+#define G_FW_SCSI_ABRT_CLS_WR_UNSOL(x)	\
+    (((x) >> S_FW_SCSI_ABRT_CLS_WR_UNSOL) & M_FW_SCSI_ABRT_CLS_WR_UNSOL)
+#define F_FW_SCSI_ABRT_CLS_WR_UNSOL	V_FW_SCSI_ABRT_CLS_WR_UNSOL(1U)
+
+#define S_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO	0
+#define M_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO	0x1
+#define V_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO(x)	\
+    ((x) << S_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO)
+#define G_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO(x)	\
+    (((x) >> S_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO) & \
+     M_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO)
+#define F_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO	\
+    V_FW_SCSI_ABRT_CLS_WR_CHK_ALL_IO(1U)
+
+struct fw_scsi_tgt_acc_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   r3;
+	__u8   use_burst_len;
+	union fw_scsi_tgt_acc_priv {
+		struct fcoe_tgt_acc_priv {
+			__u8   ctl_pri;
+			__u8   cp_en_class;
+			__u8   r4_lo[2];
+		} fcoe;
+		struct iscsi_tgt_acc_priv {
+			__u8   r4[4];
+		} iscsi;
+	} u;
+	__be32 burst_len;
+	__be32 rel_off;
+	__be64 r5;
+	__be32 r6;
+	__be32 tot_xfer_len;
+};
+
+#define S_FW_SCSI_TGT_ACC_WR_OPCODE	24
+#define M_FW_SCSI_TGT_ACC_WR_OPCODE	0xff
+#define V_FW_SCSI_TGT_ACC_WR_OPCODE(x)	((x) << S_FW_SCSI_TGT_ACC_WR_OPCODE)
+#define G_FW_SCSI_TGT_ACC_WR_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_TGT_ACC_WR_OPCODE) & M_FW_SCSI_TGT_ACC_WR_OPCODE)
+
+#define S_FW_SCSI_TGT_ACC_WR_IMMDLEN	0
+#define M_FW_SCSI_TGT_ACC_WR_IMMDLEN	0xff
+#define V_FW_SCSI_TGT_ACC_WR_IMMDLEN(x)	((x) << S_FW_SCSI_TGT_ACC_WR_IMMDLEN)
+#define G_FW_SCSI_TGT_ACC_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_SCSI_TGT_ACC_WR_IMMDLEN) & M_FW_SCSI_TGT_ACC_WR_IMMDLEN)
+
+#define S_FW_SCSI_TGT_ACC_WR_FLOWID	8
+#define M_FW_SCSI_TGT_ACC_WR_FLOWID	0xfffff
+#define V_FW_SCSI_TGT_ACC_WR_FLOWID(x)	((x) << S_FW_SCSI_TGT_ACC_WR_FLOWID)
+#define G_FW_SCSI_TGT_ACC_WR_FLOWID(x)	\
+    (((x) >> S_FW_SCSI_TGT_ACC_WR_FLOWID) & M_FW_SCSI_TGT_ACC_WR_FLOWID)
+
+#define S_FW_SCSI_TGT_ACC_WR_LEN16	0
+#define M_FW_SCSI_TGT_ACC_WR_LEN16	0xff
+#define V_FW_SCSI_TGT_ACC_WR_LEN16(x)	((x) << S_FW_SCSI_TGT_ACC_WR_LEN16)
+#define G_FW_SCSI_TGT_ACC_WR_LEN16(x)	\
+    (((x) >> S_FW_SCSI_TGT_ACC_WR_LEN16) & M_FW_SCSI_TGT_ACC_WR_LEN16)
+
+#define S_FW_SCSI_TGT_ACC_WR_CP_EN	6
+#define M_FW_SCSI_TGT_ACC_WR_CP_EN	0x3
+#define V_FW_SCSI_TGT_ACC_WR_CP_EN(x)	((x) << S_FW_SCSI_TGT_ACC_WR_CP_EN)
+#define G_FW_SCSI_TGT_ACC_WR_CP_EN(x)	\
+    (((x) >> S_FW_SCSI_TGT_ACC_WR_CP_EN) & M_FW_SCSI_TGT_ACC_WR_CP_EN)
+
+#define S_FW_SCSI_TGT_ACC_WR_CLASS	4
+#define M_FW_SCSI_TGT_ACC_WR_CLASS	0x3
+#define V_FW_SCSI_TGT_ACC_WR_CLASS(x)	((x) << S_FW_SCSI_TGT_ACC_WR_CLASS)
+#define G_FW_SCSI_TGT_ACC_WR_CLASS(x)	\
+    (((x) >> S_FW_SCSI_TGT_ACC_WR_CLASS) & M_FW_SCSI_TGT_ACC_WR_CLASS)
+
+struct fw_scsi_tgt_xmit_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   auto_rsp;
+	__u8   use_xfer_cnt;
+	union fw_scsi_tgt_xmit_priv {
+		struct fcoe_tgt_xmit_priv {
+			__u8   ctl_pri;
+			__u8   cp_en_class;
+			__u8   r3_lo[2];
+		} fcoe;
+		struct iscsi_tgt_xmit_priv {
+			__u8   r3[4];
+		} iscsi;
+	} u;
+	__be32 xfer_cnt;
+	__be32 r4;
+	__be64 r5;
+	__be32 r6;
+	__be32 tot_xfer_len;
+};
+
+#define S_FW_SCSI_TGT_XMIT_WR_OPCODE	24
+#define M_FW_SCSI_TGT_XMIT_WR_OPCODE	0xff
+#define V_FW_SCSI_TGT_XMIT_WR_OPCODE(x)	((x) << S_FW_SCSI_TGT_XMIT_WR_OPCODE)
+#define G_FW_SCSI_TGT_XMIT_WR_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_TGT_XMIT_WR_OPCODE) & M_FW_SCSI_TGT_XMIT_WR_OPCODE)
+
+#define S_FW_SCSI_TGT_XMIT_WR_IMMDLEN		0
+#define M_FW_SCSI_TGT_XMIT_WR_IMMDLEN		0xff
+#define V_FW_SCSI_TGT_XMIT_WR_IMMDLEN(x)	\
+    ((x) << S_FW_SCSI_TGT_XMIT_WR_IMMDLEN)
+#define G_FW_SCSI_TGT_XMIT_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_SCSI_TGT_XMIT_WR_IMMDLEN) & M_FW_SCSI_TGT_XMIT_WR_IMMDLEN)
+
+#define S_FW_SCSI_TGT_XMIT_WR_FLOWID	8
+#define M_FW_SCSI_TGT_XMIT_WR_FLOWID	0xfffff
+#define V_FW_SCSI_TGT_XMIT_WR_FLOWID(x)	((x) << S_FW_SCSI_TGT_XMIT_WR_FLOWID)
+#define G_FW_SCSI_TGT_XMIT_WR_FLOWID(x)	\
+    (((x) >> S_FW_SCSI_TGT_XMIT_WR_FLOWID) & M_FW_SCSI_TGT_XMIT_WR_FLOWID)
+
+#define S_FW_SCSI_TGT_XMIT_WR_LEN16	0
+#define M_FW_SCSI_TGT_XMIT_WR_LEN16	0xff
+#define V_FW_SCSI_TGT_XMIT_WR_LEN16(x)	((x) << S_FW_SCSI_TGT_XMIT_WR_LEN16)
+#define G_FW_SCSI_TGT_XMIT_WR_LEN16(x)	\
+    (((x) >> S_FW_SCSI_TGT_XMIT_WR_LEN16) & M_FW_SCSI_TGT_XMIT_WR_LEN16)
+
+#define S_FW_SCSI_TGT_XMIT_WR_CP_EN	6
+#define M_FW_SCSI_TGT_XMIT_WR_CP_EN	0x3
+#define V_FW_SCSI_TGT_XMIT_WR_CP_EN(x)	((x) << S_FW_SCSI_TGT_XMIT_WR_CP_EN)
+#define G_FW_SCSI_TGT_XMIT_WR_CP_EN(x)	\
+    (((x) >> S_FW_SCSI_TGT_XMIT_WR_CP_EN) & M_FW_SCSI_TGT_XMIT_WR_CP_EN)
+
+#define S_FW_SCSI_TGT_XMIT_WR_CLASS	4
+#define M_FW_SCSI_TGT_XMIT_WR_CLASS	0x3
+#define V_FW_SCSI_TGT_XMIT_WR_CLASS(x)	((x) << S_FW_SCSI_TGT_XMIT_WR_CLASS)
+#define G_FW_SCSI_TGT_XMIT_WR_CLASS(x)	\
+    (((x) >> S_FW_SCSI_TGT_XMIT_WR_CLASS) & M_FW_SCSI_TGT_XMIT_WR_CLASS)
+
+struct fw_scsi_tgt_rsp_wr {
+	__be32 op_immdlen;
+	__be32 flowid_len16;
+	__be64 cookie;
+	__be16 iqid;
+	__u8   r3[2];
+	union fw_scsi_tgt_rsp_priv {
+		struct fcoe_tgt_rsp_priv {
+			__u8   ctl_pri;
+			__u8   cp_en_class;
+			__u8   r4_lo[2];
+		} fcoe;
+		struct iscsi_tgt_rsp_priv {
+			__u8   r4[4];
+		} iscsi;
+	} u;
+	__u8   r5[8];
+};
+
+#define S_FW_SCSI_TGT_RSP_WR_OPCODE	24
+#define M_FW_SCSI_TGT_RSP_WR_OPCODE	0xff
+#define V_FW_SCSI_TGT_RSP_WR_OPCODE(x)	((x) << S_FW_SCSI_TGT_RSP_WR_OPCODE)
+#define G_FW_SCSI_TGT_RSP_WR_OPCODE(x)	\
+    (((x) >> S_FW_SCSI_TGT_RSP_WR_OPCODE) & M_FW_SCSI_TGT_RSP_WR_OPCODE)
+
+#define S_FW_SCSI_TGT_RSP_WR_IMMDLEN	0
+#define M_FW_SCSI_TGT_RSP_WR_IMMDLEN	0xff
+#define V_FW_SCSI_TGT_RSP_WR_IMMDLEN(x)	((x) << S_FW_SCSI_TGT_RSP_WR_IMMDLEN)
+#define G_FW_SCSI_TGT_RSP_WR_IMMDLEN(x)	\
+    (((x) >> S_FW_SCSI_TGT_RSP_WR_IMMDLEN) & M_FW_SCSI_TGT_RSP_WR_IMMDLEN)
+
+#define S_FW_SCSI_TGT_RSP_WR_FLOWID	8
+#define M_FW_SCSI_TGT_RSP_WR_FLOWID	0xfffff
+#define V_FW_SCSI_TGT_RSP_WR_FLOWID(x)	((x) << S_FW_SCSI_TGT_RSP_WR_FLOWID)
+#define G_FW_SCSI_TGT_RSP_WR_FLOWID(x)	\
+    (((x) >> S_FW_SCSI_TGT_RSP_WR_FLOWID) & M_FW_SCSI_TGT_RSP_WR_FLOWID)
+
+#define S_FW_SCSI_TGT_RSP_WR_LEN16	0
+#define M_FW_SCSI_TGT_RSP_WR_LEN16	0xff
+#define V_FW_SCSI_TGT_RSP_WR_LEN16(x)	((x) << S_FW_SCSI_TGT_RSP_WR_LEN16)
+#define G_FW_SCSI_TGT_RSP_WR_LEN16(x)	\
+    (((x) >> S_FW_SCSI_TGT_RSP_WR_LEN16) & M_FW_SCSI_TGT_RSP_WR_LEN16)
+
+#define S_FW_SCSI_TGT_RSP_WR_CP_EN	6
+#define M_FW_SCSI_TGT_RSP_WR_CP_EN	0x3
+#define V_FW_SCSI_TGT_RSP_WR_CP_EN(x)	((x) << S_FW_SCSI_TGT_RSP_WR_CP_EN)
+#define G_FW_SCSI_TGT_RSP_WR_CP_EN(x)	\
+    (((x) >> S_FW_SCSI_TGT_RSP_WR_CP_EN) & M_FW_SCSI_TGT_RSP_WR_CP_EN)
+
+#define S_FW_SCSI_TGT_RSP_WR_CLASS	4
+#define M_FW_SCSI_TGT_RSP_WR_CLASS	0x3
+#define V_FW_SCSI_TGT_RSP_WR_CLASS(x)	((x) << S_FW_SCSI_TGT_RSP_WR_CLASS)
+#define G_FW_SCSI_TGT_RSP_WR_CLASS(x)	\
+    (((x) >> S_FW_SCSI_TGT_RSP_WR_CLASS) & M_FW_SCSI_TGT_RSP_WR_CLASS)
+
+struct fw_pofcoe_tcb_wr {
+	__be32 op_compl;
+	__be32 equiq_to_len16;
+	__be64 cookie;
+	__be32 tid_to_port;
+	__be16 x_id;
+	__be16 vlan_id;
+	__be32 s_id;
+	__be32 d_id;
+	__be32 tag;
+	__be32 xfer_len;
+	__be32 r4;
+	__be16 r5;
+	__be16 iqid;
+};
+
+#define S_FW_POFCOE_TCB_WR_TID		12
+#define M_FW_POFCOE_TCB_WR_TID		0xfffff
+#define V_FW_POFCOE_TCB_WR_TID(x)	((x) << S_FW_POFCOE_TCB_WR_TID)
+#define G_FW_POFCOE_TCB_WR_TID(x)	\
+    (((x) >> S_FW_POFCOE_TCB_WR_TID) & M_FW_POFCOE_TCB_WR_TID)
+
+#define S_FW_POFCOE_TCB_WR_ALLOC	4
+#define M_FW_POFCOE_TCB_WR_ALLOC	0x1
+#define V_FW_POFCOE_TCB_WR_ALLOC(x)	((x) << S_FW_POFCOE_TCB_WR_ALLOC)
+#define G_FW_POFCOE_TCB_WR_ALLOC(x)	\
+    (((x) >> S_FW_POFCOE_TCB_WR_ALLOC) & M_FW_POFCOE_TCB_WR_ALLOC)
+#define F_FW_POFCOE_TCB_WR_ALLOC	V_FW_POFCOE_TCB_WR_ALLOC(1U)
+
+#define S_FW_POFCOE_TCB_WR_FREE		3
+#define M_FW_POFCOE_TCB_WR_FREE		0x1
+#define V_FW_POFCOE_TCB_WR_FREE(x)	((x) << S_FW_POFCOE_TCB_WR_FREE)
+#define G_FW_POFCOE_TCB_WR_FREE(x)	\
+    (((x) >> S_FW_POFCOE_TCB_WR_FREE) & M_FW_POFCOE_TCB_WR_FREE)
+#define F_FW_POFCOE_TCB_WR_FREE	V_FW_POFCOE_TCB_WR_FREE(1U)
+
+#define S_FW_POFCOE_TCB_WR_PORT		0
+#define M_FW_POFCOE_TCB_WR_PORT		0x7
+#define V_FW_POFCOE_TCB_WR_PORT(x)	((x) << S_FW_POFCOE_TCB_WR_PORT)
+#define G_FW_POFCOE_TCB_WR_PORT(x)	\
+    (((x) >> S_FW_POFCOE_TCB_WR_PORT) & M_FW_POFCOE_TCB_WR_PORT)
+
+struct fw_pofcoe_ulptx_wr {
+	__be32 op_pkd;
+	__be32 equiq_to_len16;
+	__u64  cookie;
+};
 
 
 /******************************************************************************
@@ -1366,7 +2959,17 @@ struct fw_ri_wr {
  * by host software to determine how long to wait for a firmware command
  * reply before declaring the firmware as dead/unreachable ...
  */
-#define FW_CMD_MAX_TIMEOUT	3000
+#define FW_CMD_MAX_TIMEOUT	10000
+
+/*
+ * If a host driver does a HELLO and discovers that there's already a MASTER
+ * selected, we may have to wait for that MASTER to finish issuing RESET,
+ * configuration and INITIALIZE commands.  Also, there's a possibility that
+ * our own HELLO may get lost if it happens right as the MASTER is issuign a
+ * RESET command, so we need to be willing to make a few retries of our HELLO.
+ */
+#define FW_CMD_HELLO_TIMEOUT	(3 * FW_CMD_MAX_TIMEOUT)
+#define FW_CMD_HELLO_RETRIES	3
 
 enum fw_cmd_opcodes {
 	FW_LDST_CMD                    = 0x01,
@@ -1398,10 +3001,19 @@ enum fw_cmd_opcodes {
 	FW_RSS_GLB_CONFIG_CMD          = 0x22,
 	FW_RSS_VI_CONFIG_CMD           = 0x23,
 	FW_SCHED_CMD                   = 0x24,
+	FW_DEVLOG_CMD                  = 0x25,
+	FW_WATCHDOG_CMD                = 0x27,
+	FW_CLIP_CMD                    = 0x28,
+	FW_CHNET_IFACE_CMD             = 0x26,
+	FW_FCOE_RES_INFO_CMD           = 0x31,
+	FW_FCOE_LINK_CMD               = 0x32,
+	FW_FCOE_VNP_CMD                = 0x33,
+	FW_FCOE_SPARAMS_CMD            = 0x35,
+	FW_FCOE_STATS_CMD              = 0x37,
+	FW_FCOE_FCF_CMD                = 0x38,
 	FW_LASTC2E_CMD                 = 0x40,
 	FW_ERROR_CMD                   = 0x80,
 	FW_DEBUG_CMD                   = 0x81,
-
 };
 
 enum fw_cmd_cap {
@@ -1482,7 +3094,13 @@ enum fw_ldst_addrspc {
 	FW_LDST_ADDRSPC_MDIO      = 0x0018,
 	FW_LDST_ADDRSPC_MPS       = 0x0020,
 	FW_LDST_ADDRSPC_FUNC      = 0x0028,
-	FW_LDST_ADDRSPC_FUNC_PCIE = 0x0029
+	FW_LDST_ADDRSPC_FUNC_PCIE = 0x0029,
+	FW_LDST_ADDRSPC_FUNC_I2C  = 0x002A, /* legacy */
+	FW_LDST_ADDRSPC_LE	  = 0x0030,
+	FW_LDST_ADDRSPC_I2C       = 0x0038,
+	FW_LDST_ADDRSPC_PCIE_CFGS = 0x0040,
+	FW_LDST_ADDRSPC_PCIE_DBG  = 0x0041,
+	FW_LDST_ADDRSPC_PCIE_PHY  = 0x0042,
 };
 
 /*
@@ -1518,7 +3136,7 @@ struct fw_ldst_cmd {
 		} addrval;
 		struct fw_ldst_idctxt {
 			__be32 physid;
-			__be32 msg_pkd;
+			__be32 msg_ctxtflush;
 			__be32 ctxt_data7;
 			__be32 ctxt_data6;
 			__be32 ctxt_data5;
@@ -1562,6 +3180,27 @@ struct fw_ldst_cmd {
 			__be16 nset_pkd;
 			__be32 data[12];
 		} pcie;
+		struct fw_ldst_i2c_deprecated {
+			__u8   pid_pkd;
+			__u8   base;
+			__u8   boffset;
+			__u8   data;
+			__be32 r9;
+		} i2c_deprecated;
+		struct fw_ldst_i2c {
+			__u8   pid;
+			__u8   did;
+			__u8   boffset;
+			__u8   blen;
+			__be32 r9;
+			__u8   data[48];
+		} i2c;
+		struct fw_ldst_le {
+			__be32 index;
+			__be32 r9;
+			__u8   val[33];
+			__u8   r11[7];
+		} le;
 	} u;
 };
 
@@ -1583,6 +3222,13 @@ struct fw_ldst_cmd {
 #define G_FW_LDST_CMD_MSG(x)	\
     (((x) >> S_FW_LDST_CMD_MSG) & M_FW_LDST_CMD_MSG)
 #define F_FW_LDST_CMD_MSG	V_FW_LDST_CMD_MSG(1U)
+
+#define S_FW_LDST_CMD_CTXTFLUSH		30
+#define M_FW_LDST_CMD_CTXTFLUSH		0x1
+#define V_FW_LDST_CMD_CTXTFLUSH(x)	((x) << S_FW_LDST_CMD_CTXTFLUSH)
+#define G_FW_LDST_CMD_CTXTFLUSH(x)	\
+    (((x) >> S_FW_LDST_CMD_CTXTFLUSH) & M_FW_LDST_CMD_CTXTFLUSH)
+#define F_FW_LDST_CMD_CTXTFLUSH	V_FW_LDST_CMD_CTXTFLUSH(1U)
 
 #define S_FW_LDST_CMD_PADDR	8
 #define M_FW_LDST_CMD_PADDR	0x1f
@@ -1657,17 +3303,37 @@ struct fw_ldst_cmd {
 #define G_FW_LDST_CMD_NSET(x)	\
     (((x) >> S_FW_LDST_CMD_NSET) & M_FW_LDST_CMD_NSET)
 
+#define S_FW_LDST_CMD_PID	6
+#define M_FW_LDST_CMD_PID	0x3
+#define V_FW_LDST_CMD_PID(x)	((x) << S_FW_LDST_CMD_PID)
+#define G_FW_LDST_CMD_PID(x)	\
+    (((x) >> S_FW_LDST_CMD_PID) & M_FW_LDST_CMD_PID)
+
 struct fw_reset_cmd {
 	__be32 op_to_write;
 	__be32 retval_len16;
 	__be32 val;
-	__be32 r3;
+	__be32 halt_pkd;
+};
+
+#define S_FW_RESET_CMD_HALT	31
+#define M_FW_RESET_CMD_HALT	0x1
+#define V_FW_RESET_CMD_HALT(x)	((x) << S_FW_RESET_CMD_HALT)
+#define G_FW_RESET_CMD_HALT(x)	\
+    (((x) >> S_FW_RESET_CMD_HALT) & M_FW_RESET_CMD_HALT)
+#define F_FW_RESET_CMD_HALT	V_FW_RESET_CMD_HALT(1U)
+
+enum {
+	FW_HELLO_CMD_STAGE_OS		= 0,
+	FW_HELLO_CMD_STAGE_PREOS0	= 1,
+	FW_HELLO_CMD_STAGE_PREOS1	= 2,
+	FW_HELLO_CMD_STAGE_POSTOS	= 3,
 };
 
 struct fw_hello_cmd {
 	__be32 op_to_write;
 	__be32 retval_len16;
-	__be32 err_to_mbasyncnot;
+	__be32 err_to_clearinit;
 	__be32 fwrev;
 };
 
@@ -1705,11 +3371,31 @@ struct fw_hello_cmd {
 #define G_FW_HELLO_CMD_MBMASTER(x)	\
     (((x) >> S_FW_HELLO_CMD_MBMASTER) & M_FW_HELLO_CMD_MBMASTER)
 
+#define S_FW_HELLO_CMD_MBASYNCNOTINT	23
+#define M_FW_HELLO_CMD_MBASYNCNOTINT	0x1
+#define V_FW_HELLO_CMD_MBASYNCNOTINT(x)	((x) << S_FW_HELLO_CMD_MBASYNCNOTINT)
+#define G_FW_HELLO_CMD_MBASYNCNOTINT(x)	\
+    (((x) >> S_FW_HELLO_CMD_MBASYNCNOTINT) & M_FW_HELLO_CMD_MBASYNCNOTINT)
+#define F_FW_HELLO_CMD_MBASYNCNOTINT	V_FW_HELLO_CMD_MBASYNCNOTINT(1U)
+
 #define S_FW_HELLO_CMD_MBASYNCNOT	20
-#define M_FW_HELLO_CMD_MBASYNCNOT	0xf
+#define M_FW_HELLO_CMD_MBASYNCNOT	0x7
 #define V_FW_HELLO_CMD_MBASYNCNOT(x)	((x) << S_FW_HELLO_CMD_MBASYNCNOT)
 #define G_FW_HELLO_CMD_MBASYNCNOT(x)	\
     (((x) >> S_FW_HELLO_CMD_MBASYNCNOT) & M_FW_HELLO_CMD_MBASYNCNOT)
+
+#define S_FW_HELLO_CMD_STAGE	17
+#define M_FW_HELLO_CMD_STAGE	0x7
+#define V_FW_HELLO_CMD_STAGE(x)	((x) << S_FW_HELLO_CMD_STAGE)
+#define G_FW_HELLO_CMD_STAGE(x)	\
+    (((x) >> S_FW_HELLO_CMD_STAGE) & M_FW_HELLO_CMD_STAGE)
+
+#define S_FW_HELLO_CMD_CLEARINIT	16
+#define M_FW_HELLO_CMD_CLEARINIT	0x1
+#define V_FW_HELLO_CMD_CLEARINIT(x)	((x) << S_FW_HELLO_CMD_CLEARINIT)
+#define G_FW_HELLO_CMD_CLEARINIT(x)	\
+    (((x) >> S_FW_HELLO_CMD_CLEARINIT) & M_FW_HELLO_CMD_CLEARINIT)
+#define F_FW_HELLO_CMD_CLEARINIT	V_FW_HELLO_CMD_CLEARINIT(1U)
 
 struct fw_bye_cmd {
 	__be32 op_to_write;
@@ -1790,6 +3476,11 @@ enum fw_caps_config_switch {
 enum fw_caps_config_nic {
 	FW_CAPS_CONFIG_NIC		= 0x00000001,
 	FW_CAPS_CONFIG_NIC_VM		= 0x00000002,
+	FW_CAPS_CONFIG_NIC_IDS		= 0x00000004,
+	FW_CAPS_CONFIG_NIC_UM		= 0x00000008,
+	FW_CAPS_CONFIG_NIC_UM_ISGL	= 0x00000010,
+	FW_CAPS_CONFIG_NIC_HASHFILTER	= 0x00000020,
+	FW_CAPS_CONFIG_NIC_ETHOFLD	= 0x00000040,
 };
 
 enum fw_caps_config_toe {
@@ -1806,16 +3497,30 @@ enum fw_caps_config_iscsi {
 	FW_CAPS_CONFIG_ISCSI_TARGET_PDU = 0x00000002,
 	FW_CAPS_CONFIG_ISCSI_INITIATOR_CNXOFLD = 0x00000004,
 	FW_CAPS_CONFIG_ISCSI_TARGET_CNXOFLD = 0x00000008,
+	FW_CAPS_CONFIG_ISCSI_INITIATOR_SSNOFLD = 0x00000010,
+	FW_CAPS_CONFIG_ISCSI_TARGET_SSNOFLD = 0x00000020,
 };
 
 enum fw_caps_config_fcoe {
 	FW_CAPS_CONFIG_FCOE_INITIATOR	= 0x00000001,
 	FW_CAPS_CONFIG_FCOE_TARGET	= 0x00000002,
+	FW_CAPS_CONFIG_FCOE_CTRL_OFLD   = 0x00000004,
+	FW_CAPS_CONFIG_POFCOE_INITIATOR = 0x00000008,
+	FW_CAPS_CONFIG_POFCOE_TARGET    = 0x00000010,
+};
+
+enum fw_memtype_cf {
+	FW_MEMTYPE_CF_EDC0		= FW_MEMTYPE_EDC0,
+	FW_MEMTYPE_CF_EDC1		= FW_MEMTYPE_EDC1,
+	FW_MEMTYPE_CF_EXTMEM		= FW_MEMTYPE_EXTMEM,
+	FW_MEMTYPE_CF_FLASH		= FW_MEMTYPE_FLASH,
+	FW_MEMTYPE_CF_INTERNAL		= FW_MEMTYPE_INTERNAL,
+	FW_MEMTYPE_CF_EXTMEM1		= FW_MEMTYPE_EXTMEM1,
 };
 
 struct fw_caps_config_cmd {
 	__be32 op_to_write;
-	__be32 retval_len16;
+	__be32 cfvalid_to_len16;
 	__be32 r2;
 	__be32 hwmbitmap;
 	__be16 nbmcaps;
@@ -1828,9 +3533,33 @@ struct fw_caps_config_cmd {
 	__be16 r4;
 	__be16 iscsicaps;
 	__be16 fcoecaps;
-	__be32 r5;
-	__be64 r6;
+	__be32 cfcsum;
+	__be32 finiver;
+	__be32 finicsum;
 };
+
+#define S_FW_CAPS_CONFIG_CMD_CFVALID	27
+#define M_FW_CAPS_CONFIG_CMD_CFVALID	0x1
+#define V_FW_CAPS_CONFIG_CMD_CFVALID(x)	((x) << S_FW_CAPS_CONFIG_CMD_CFVALID)
+#define G_FW_CAPS_CONFIG_CMD_CFVALID(x)	\
+    (((x) >> S_FW_CAPS_CONFIG_CMD_CFVALID) & M_FW_CAPS_CONFIG_CMD_CFVALID)
+#define F_FW_CAPS_CONFIG_CMD_CFVALID	V_FW_CAPS_CONFIG_CMD_CFVALID(1U)
+
+#define S_FW_CAPS_CONFIG_CMD_MEMTYPE_CF		24
+#define M_FW_CAPS_CONFIG_CMD_MEMTYPE_CF		0x7
+#define V_FW_CAPS_CONFIG_CMD_MEMTYPE_CF(x)	\
+    ((x) << S_FW_CAPS_CONFIG_CMD_MEMTYPE_CF)
+#define G_FW_CAPS_CONFIG_CMD_MEMTYPE_CF(x)	\
+    (((x) >> S_FW_CAPS_CONFIG_CMD_MEMTYPE_CF) & \
+     M_FW_CAPS_CONFIG_CMD_MEMTYPE_CF)
+
+#define S_FW_CAPS_CONFIG_CMD_MEMADDR64K_CF	16
+#define M_FW_CAPS_CONFIG_CMD_MEMADDR64K_CF	0xff
+#define V_FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(x)	\
+    ((x) << S_FW_CAPS_CONFIG_CMD_MEMADDR64K_CF)
+#define G_FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(x)	\
+    (((x) >> S_FW_CAPS_CONFIG_CMD_MEMADDR64K_CF) & \
+     M_FW_CAPS_CONFIG_CMD_MEMADDR64K_CF)
 
 /*
  * params command mnemonics
@@ -1854,13 +3583,28 @@ enum fw_params_param_dev {
 						 * Lookup Engine
 						 */
 	FW_PARAMS_PARAM_DEV_FLOWC_BUFFIFO_SZ = 0x03,
-	FW_PARAMS_PARAM_DEV_INTVER_NIC	= 0x04,
-	FW_PARAMS_PARAM_DEV_INTVER_VNIC = 0x05,
-	FW_PARAMS_PARAM_DEV_INTVER_OFLD = 0x06,
-	FW_PARAMS_PARAM_DEV_INTVER_RI	= 0x07,
-	FW_PARAMS_PARAM_DEV_INTVER_ISCSIPDU = 0x08,
-	FW_PARAMS_PARAM_DEV_INTVER_ISCSI = 0x09,
-	FW_PARAMS_PARAM_DEV_INTVER_FCOE = 0x0A
+	FW_PARAMS_PARAM_DEV_INTFVER_NIC	= 0x04,
+	FW_PARAMS_PARAM_DEV_INTFVER_VNIC = 0x05,
+	FW_PARAMS_PARAM_DEV_INTFVER_OFLD = 0x06,
+	FW_PARAMS_PARAM_DEV_INTFVER_RI	= 0x07,
+	FW_PARAMS_PARAM_DEV_INTFVER_ISCSIPDU = 0x08,
+	FW_PARAMS_PARAM_DEV_INTFVER_ISCSI = 0x09,
+	FW_PARAMS_PARAM_DEV_INTFVER_FCOE = 0x0A,
+	FW_PARAMS_PARAM_DEV_FWREV	= 0x0B,
+	FW_PARAMS_PARAM_DEV_TPREV	= 0x0C,
+	FW_PARAMS_PARAM_DEV_CF		= 0x0D,
+	FW_PARAMS_PARAM_DEV_BYPASS	= 0x0E,
+	FW_PARAMS_PARAM_DEV_PHYFW	= 0x0F,
+	FW_PARAMS_PARAM_DEV_LOAD	= 0x10,
+	FW_PARAMS_PARAM_DEV_DIAG	= 0x11,
+	FW_PARAMS_PARAM_DEV_UCLK	= 0x12, /* uP clock in khz */
+	FW_PARAMS_PARAM_DEV_MAXORDIRD_QP = 0x13, /* max supported QP IRD/ORD
+						 */
+	FW_PARAMS_PARAM_DEV_MAXIRD_ADAPTER= 0x14,/* max supported ADAPTER IRD
+						 */
+	FW_PARAMS_PARAM_DEV_INTFVER_FCOEPDU = 0x15,
+	FW_PARAMS_PARAM_DEV_MCINIT	= 0x16,
+	FW_PARAMS_PARAM_DEV_ULPTX_MEMWRITE_DSGL = 0x17,
 };
 
 /*
@@ -1888,9 +3632,25 @@ enum fw_params_param_pfvf {
 	FW_PARAMS_PARAM_PFVF_PBL_END	= 0x12,
 	FW_PARAMS_PARAM_PFVF_L2T_START = 0x13,
 	FW_PARAMS_PARAM_PFVF_L2T_END = 0x14,
+	FW_PARAMS_PARAM_PFVF_SQRQ_START = 0x15,
+	FW_PARAMS_PARAM_PFVF_SQRQ_END	= 0x16,
+	FW_PARAMS_PARAM_PFVF_CQ_START	= 0x17,
+	FW_PARAMS_PARAM_PFVF_CQ_END	= 0x18,
 	FW_PARAMS_PARAM_PFVF_SCHEDCLASS_ETH = 0x20,
 	FW_PARAMS_PARAM_PFVF_VIID	= 0x24,
 	FW_PARAMS_PARAM_PFVF_CPMASK	= 0x25,
+	FW_PARAMS_PARAM_PFVF_OCQ_START	= 0x26,
+	FW_PARAMS_PARAM_PFVF_OCQ_END	= 0x27,
+	FW_PARAMS_PARAM_PFVF_CONM_MAP   = 0x28,
+	FW_PARAMS_PARAM_PFVF_IQFLINT_START = 0x29,
+	FW_PARAMS_PARAM_PFVF_IQFLINT_END = 0x2A,
+	FW_PARAMS_PARAM_PFVF_EQ_START	= 0x2B,
+	FW_PARAMS_PARAM_PFVF_EQ_END	= 0x2C,
+	FW_PARAMS_PARAM_PFVF_ACTIVE_FILTER_START = 0x2D,
+	FW_PARAMS_PARAM_PFVF_ACTIVE_FILTER_END = 0x2E,
+	FW_PARAMS_PARAM_PFVF_ETHOFLD_START = 0x2F,
+	FW_PARAMS_PARAM_PFVF_ETHOFLD_END = 0x30,
+	FW_PARAMS_PARAM_PFVF_CPLFW4MSG_ENCAP = 0x31
 };
 
 /*
@@ -1899,9 +3659,39 @@ enum fw_params_param_pfvf {
 enum fw_params_param_dmaq {
 	FW_PARAMS_PARAM_DMAQ_IQ_DCAEN_DCACPU = 0x00,
 	FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH = 0x01,
+	FW_PARAMS_PARAM_DMAQ_IQ_INTIDX	= 0x02,
 	FW_PARAMS_PARAM_DMAQ_EQ_CMPLIQID_MNGT = 0x10,
 	FW_PARAMS_PARAM_DMAQ_EQ_CMPLIQID_CTRL = 0x11,
 	FW_PARAMS_PARAM_DMAQ_EQ_SCHEDCLASS_ETH = 0x12,
+	FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH = 0x13,
+	FW_PARAMS_PARAM_DMAQ_CONM_CTXT = 0x20,
+};
+
+/*
+ * dev bypass parameters; actions and modes
+ */
+enum fw_params_param_dev_bypass {
+
+	/* actions
+	 */
+	FW_PARAMS_PARAM_DEV_BYPASS_PFAIL = 0x00,
+	FW_PARAMS_PARAM_DEV_BYPASS_CURRENT = 0x01,
+
+	/* modes
+	 */
+	FW_PARAMS_PARAM_DEV_BYPASS_NORMAL = 0x00,
+	FW_PARAMS_PARAM_DEV_BYPASS_DROP	= 0x1,
+	FW_PARAMS_PARAM_DEV_BYPASS_BYPASS = 0x2,
+};
+
+enum fw_params_phyfw_actions {
+	FW_PARAMS_PARAM_PHYFW_DOWNLOAD	= 0x00,
+	FW_PARAMS_PARAM_PHYFW_VERSION	= 0x01,
+};
+
+enum fw_params_param_dev_diag {
+	FW_PARAM_DEV_DIAG_TMP = 0x00,
+	FW_PARAM_DEV_DIAG_VDD = 0x01,
 };
 
 #define S_FW_PARAMS_MNEM	24
@@ -1965,7 +3755,7 @@ struct fw_pfvf_cmd {
 	__be32 op_to_vfn;
 	__be32 retval_len16;
 	__be32 niqflint_niq;
-	__be32 cmask_to_neq;
+	__be32 type_to_neq;
 	__be32 tc_to_nexactf;
 	__be32 r_caps_to_nethctrl;
 	__be16 nricq;
@@ -1996,6 +3786,13 @@ struct fw_pfvf_cmd {
 #define V_FW_PFVF_CMD_NIQ(x)	((x) << S_FW_PFVF_CMD_NIQ)
 #define G_FW_PFVF_CMD_NIQ(x)	\
     (((x) >> S_FW_PFVF_CMD_NIQ) & M_FW_PFVF_CMD_NIQ)
+
+#define S_FW_PFVF_CMD_TYPE	31
+#define M_FW_PFVF_CMD_TYPE	0x1
+#define V_FW_PFVF_CMD_TYPE(x)	((x) << S_FW_PFVF_CMD_TYPE)
+#define G_FW_PFVF_CMD_TYPE(x)	\
+    (((x) >> S_FW_PFVF_CMD_TYPE) & M_FW_PFVF_CMD_TYPE)
+#define F_FW_PFVF_CMD_TYPE	V_FW_PFVF_CMD_TYPE(1U)
 
 #define S_FW_PFVF_CMD_CMASK	24
 #define M_FW_PFVF_CMD_CMASK	0xf
@@ -2049,6 +3846,7 @@ struct fw_pfvf_cmd {
 #define V_FW_PFVF_CMD_NETHCTRL(x)	((x) << S_FW_PFVF_CMD_NETHCTRL)
 #define G_FW_PFVF_CMD_NETHCTRL(x)	\
     (((x) >> S_FW_PFVF_CMD_NETHCTRL) & M_FW_PFVF_CMD_NETHCTRL)
+
 /*
  *	ingress queue type; the first 1K ingress queues can have associated 0,
  *	1 or 2 free lists and an interrupt, all other ingress queues lack these
@@ -2258,7 +4056,7 @@ struct fw_iq_cmd {
 #define F_FW_IQ_CMD_IQFLINTISCSIC	V_FW_IQ_CMD_IQFLINTISCSIC(1U)
 
 #define S_FW_IQ_CMD_FL0CNGCHMAP		20
-#define M_FW_IQ_CMD_FL0CNGCHMAP		0x7
+#define M_FW_IQ_CMD_FL0CNGCHMAP		0xf
 #define V_FW_IQ_CMD_FL0CNGCHMAP(x)	((x) << S_FW_IQ_CMD_FL0CNGCHMAP)
 #define G_FW_IQ_CMD_FL0CNGCHMAP(x)	\
     (((x) >> S_FW_IQ_CMD_FL0CNGCHMAP) & M_FW_IQ_CMD_FL0CNGCHMAP)
@@ -2406,7 +4204,7 @@ struct fw_iq_cmd {
     (((x) >> S_FW_IQ_CMD_FL0CIDXFTHRESH) & M_FW_IQ_CMD_FL0CIDXFTHRESH)
 
 #define S_FW_IQ_CMD_FL1CNGCHMAP		20
-#define M_FW_IQ_CMD_FL1CNGCHMAP		0x7
+#define M_FW_IQ_CMD_FL1CNGCHMAP		0xf
 #define V_FW_IQ_CMD_FL1CNGCHMAP(x)	((x) << S_FW_IQ_CMD_FL1CNGCHMAP)
 #define G_FW_IQ_CMD_FL1CNGCHMAP(x)	\
     (((x) >> S_FW_IQ_CMD_FL1CNGCHMAP) & M_FW_IQ_CMD_FL1CNGCHMAP)
@@ -3296,6 +5094,7 @@ struct fw_eq_ofld_cmd {
 #define V_FW_EQ_OFLD_CMD_EQSIZE(x)	((x) << S_FW_EQ_OFLD_CMD_EQSIZE)
 #define G_FW_EQ_OFLD_CMD_EQSIZE(x)	\
     (((x) >> S_FW_EQ_OFLD_CMD_EQSIZE) & M_FW_EQ_OFLD_CMD_EQSIZE)
+
 /* Macros for VIID parsing:
    VIID - [10:8] PFN, [7] VI Valid, [6:0] VI number */
 #define S_FW_VIID_PFN		8
@@ -3313,19 +5112,30 @@ struct fw_eq_ofld_cmd {
 #define V_FW_VIID_VIN(x)	((x) << S_FW_VIID_VIN)
 #define G_FW_VIID_VIN(x)	(((x) >> S_FW_VIID_VIN) & M_FW_VIID_VIN)
 
+enum fw_vi_func {
+	FW_VI_FUNC_ETH,
+	FW_VI_FUNC_OFLD,
+	FW_VI_FUNC_IWARP,
+	FW_VI_FUNC_OPENISCSI,
+	FW_VI_FUNC_OPENFCOE,
+	FW_VI_FUNC_FOISCSI,
+	FW_VI_FUNC_FOFCOE,
+	FW_VI_FUNC_FW,
+};
+
 struct fw_vi_cmd {
 	__be32 op_to_vfn;
 	__be32 alloc_to_len16;
-	__be16 viid_pkd;
+	__be16 type_to_viid;
 	__u8   mac[6];
 	__u8   portid_pkd;
 	__u8   nmac;
 	__u8   nmac0[6];
-	__be16 rsssize_pkd;
+	__be16 norss_rsssize;
 	__u8   nmac1[6];
-	__be16 r7;
+	__be16 idsiiq_pkd;
 	__u8   nmac2[6];
-	__be16 r8;
+	__be16 idseiq_pkd;
 	__u8   nmac3[6];
 	__be64 r9;
 	__be64 r10;
@@ -3354,6 +5164,17 @@ struct fw_vi_cmd {
 #define G_FW_VI_CMD_FREE(x)	(((x) >> S_FW_VI_CMD_FREE) & M_FW_VI_CMD_FREE)
 #define F_FW_VI_CMD_FREE	V_FW_VI_CMD_FREE(1U)
 
+#define S_FW_VI_CMD_TYPE	15
+#define M_FW_VI_CMD_TYPE	0x1
+#define V_FW_VI_CMD_TYPE(x)	((x) << S_FW_VI_CMD_TYPE)
+#define G_FW_VI_CMD_TYPE(x)	(((x) >> S_FW_VI_CMD_TYPE) & M_FW_VI_CMD_TYPE)
+#define F_FW_VI_CMD_TYPE	V_FW_VI_CMD_TYPE(1U)
+
+#define S_FW_VI_CMD_FUNC	12
+#define M_FW_VI_CMD_FUNC	0x7
+#define V_FW_VI_CMD_FUNC(x)	((x) << S_FW_VI_CMD_FUNC)
+#define G_FW_VI_CMD_FUNC(x)	(((x) >> S_FW_VI_CMD_FUNC) & M_FW_VI_CMD_FUNC)
+
 #define S_FW_VI_CMD_VIID	0
 #define M_FW_VI_CMD_VIID	0xfff
 #define V_FW_VI_CMD_VIID(x)	((x) << S_FW_VI_CMD_VIID)
@@ -3365,17 +5186,35 @@ struct fw_vi_cmd {
 #define G_FW_VI_CMD_PORTID(x)	\
     (((x) >> S_FW_VI_CMD_PORTID) & M_FW_VI_CMD_PORTID)
 
+#define S_FW_VI_CMD_NORSS	11
+#define M_FW_VI_CMD_NORSS	0x1
+#define V_FW_VI_CMD_NORSS(x)	((x) << S_FW_VI_CMD_NORSS)
+#define G_FW_VI_CMD_NORSS(x)	\
+    (((x) >> S_FW_VI_CMD_NORSS) & M_FW_VI_CMD_NORSS)
+#define F_FW_VI_CMD_NORSS	V_FW_VI_CMD_NORSS(1U)
+
 #define S_FW_VI_CMD_RSSSIZE	0
 #define M_FW_VI_CMD_RSSSIZE	0x7ff
 #define V_FW_VI_CMD_RSSSIZE(x)	((x) << S_FW_VI_CMD_RSSSIZE)
 #define G_FW_VI_CMD_RSSSIZE(x)	\
     (((x) >> S_FW_VI_CMD_RSSSIZE) & M_FW_VI_CMD_RSSSIZE)
 
+#define S_FW_VI_CMD_IDSIIQ	0
+#define M_FW_VI_CMD_IDSIIQ	0x3ff
+#define V_FW_VI_CMD_IDSIIQ(x)	((x) << S_FW_VI_CMD_IDSIIQ)
+#define G_FW_VI_CMD_IDSIIQ(x)	\
+    (((x) >> S_FW_VI_CMD_IDSIIQ) & M_FW_VI_CMD_IDSIIQ)
+
+#define S_FW_VI_CMD_IDSEIQ	0
+#define M_FW_VI_CMD_IDSEIQ	0x3ff
+#define V_FW_VI_CMD_IDSEIQ(x)	((x) << S_FW_VI_CMD_IDSEIQ)
+#define G_FW_VI_CMD_IDSEIQ(x)	\
+    (((x) >> S_FW_VI_CMD_IDSEIQ) & M_FW_VI_CMD_IDSEIQ)
+
 /* Special VI_MAC command index ids */
 #define FW_VI_MAC_ADD_MAC		0x3FF
 #define FW_VI_MAC_ADD_PERSIST_MAC	0x3FE
 #define FW_VI_MAC_MAC_BASED_FREE	0x3FD
-#define FW_CLS_TCAM_NUM_ENTRIES		336
 
 enum fw_vi_mac_smac {
 	FW_VI_MAC_MPS_TCAM_ENTRY,
@@ -3445,11 +5284,11 @@ struct fw_vi_mac_cmd {
 #define G_FW_VI_MAC_CMD_PRIO(x)	\
     (((x) >> S_FW_VI_MAC_CMD_PRIO) & M_FW_VI_MAC_CMD_PRIO)
 
-#define S_FW_VI_MAC_CMD_SMAC_RESULT   10
-#define M_FW_VI_MAC_CMD_SMAC_RESULT   0x3
-#define V_FW_VI_MAC_CMD_SMAC_RESULT(x) ((x) << S_FW_VI_MAC_CMD_SMAC_RESULT)
-#define G_FW_VI_MAC_CMD_SMAC_RESULT(x)        \
-	(((x) >> S_FW_VI_MAC_CMD_SMAC_RESULT) & M_FW_VI_MAC_CMD_SMAC_RESULT)
+#define S_FW_VI_MAC_CMD_SMAC_RESULT	10
+#define M_FW_VI_MAC_CMD_SMAC_RESULT	0x3
+#define V_FW_VI_MAC_CMD_SMAC_RESULT(x)	((x) << S_FW_VI_MAC_CMD_SMAC_RESULT)
+#define G_FW_VI_MAC_CMD_SMAC_RESULT(x)	\
+    (((x) >> S_FW_VI_MAC_CMD_SMAC_RESULT) & M_FW_VI_MAC_CMD_SMAC_RESULT)
 
 #define S_FW_VI_MAC_CMD_IDX	0
 #define M_FW_VI_MAC_CMD_IDX	0x3ff
@@ -3540,6 +5379,13 @@ struct fw_vi_enable_cmd {
 #define G_FW_VI_ENABLE_CMD_LED(x)	\
     (((x) >> S_FW_VI_ENABLE_CMD_LED) & M_FW_VI_ENABLE_CMD_LED)
 #define F_FW_VI_ENABLE_CMD_LED	V_FW_VI_ENABLE_CMD_LED(1U)
+
+#define S_FW_VI_ENABLE_CMD_DCB_INFO	28
+#define M_FW_VI_ENABLE_CMD_DCB_INFO	0x1
+#define V_FW_VI_ENABLE_CMD_DCB_INFO(x)	((x) << S_FW_VI_ENABLE_CMD_DCB_INFO)
+#define G_FW_VI_ENABLE_CMD_DCB_INFO(x)	\
+    (((x) >> S_FW_VI_ENABLE_CMD_DCB_INFO) & M_FW_VI_ENABLE_CMD_DCB_INFO)
+#define F_FW_VI_ENABLE_CMD_DCB_INFO	V_FW_VI_ENABLE_CMD_DCB_INFO(1U)
 
 /* VI VF stats offset definitions */
 #define VI_VF_NUM_STATS	16
@@ -3744,26 +5590,75 @@ enum fw_port_cap {
 	FW_PORT_CAP_FC_RX		= 0x0040,
 	FW_PORT_CAP_FC_TX		= 0x0080,
 	FW_PORT_CAP_ANEG		= 0x0100,
-	FW_PORT_CAP_MDI_0		= 0x0200,
-	FW_PORT_CAP_MDI_1		= 0x0400,
-	FW_PORT_CAP_BEAN		= 0x0800,
-	FW_PORT_CAP_PMA_LPBK		= 0x1000,
-	FW_PORT_CAP_PCS_LPBK		= 0x2000,
-	FW_PORT_CAP_PHYXS_LPBK		= 0x4000,
-	FW_PORT_CAP_FAR_END_LPBK	= 0x8000,
+	FW_PORT_CAP_MDIX		= 0x0200,
+	FW_PORT_CAP_MDIAUTO		= 0x0400,
+	FW_PORT_CAP_FEC			= 0x0800,
+	FW_PORT_CAP_TECHKR		= 0x1000,
+	FW_PORT_CAP_TECHKX4		= 0x2000,
 };
+
+#define S_FW_PORT_AUXLINFO_MDI		3
+#define M_FW_PORT_AUXLINFO_MDI		0x3
+#define V_FW_PORT_AUXLINFO_MDI(x)	((x) << S_FW_PORT_AUXLINFO_MDI)
+#define G_FW_PORT_AUXLINFO_MDI(x) \
+    (((x) >> S_FW_PORT_AUXLINFO_MDI) & M_FW_PORT_AUXLINFO_MDI)
+
+#define S_FW_PORT_AUXLINFO_KX4		2
+#define M_FW_PORT_AUXLINFO_KX4		0x1
+#define V_FW_PORT_AUXLINFO_KX4(x)	((x) << S_FW_PORT_AUXLINFO_KX4)
+#define G_FW_PORT_AUXLINFO_KX4(x) \
+    (((x) >> S_FW_PORT_AUXLINFO_KX4) & M_FW_PORT_AUXLINFO_KX4)
+#define F_FW_PORT_AUXLINFO_KX4		V_FW_PORT_AUXLINFO_KX4(1U)
+
+#define S_FW_PORT_AUXLINFO_KR		1
+#define M_FW_PORT_AUXLINFO_KR		0x1
+#define V_FW_PORT_AUXLINFO_KR(x)	((x) << S_FW_PORT_AUXLINFO_KR)
+#define G_FW_PORT_AUXLINFO_KR(x) \
+    (((x) >> S_FW_PORT_AUXLINFO_KR) & M_FW_PORT_AUXLINFO_KR)
+#define F_FW_PORT_AUXLINFO_KR		V_FW_PORT_AUXLINFO_KR(1U)
+
+#define S_FW_PORT_AUXLINFO_FEC		0
+#define M_FW_PORT_AUXLINFO_FEC		0x1
+#define V_FW_PORT_AUXLINFO_FEC(x)	((x) << S_FW_PORT_AUXLINFO_FEC)
+#define G_FW_PORT_AUXLINFO_FEC(x) \
+    (((x) >> S_FW_PORT_AUXLINFO_FEC) & M_FW_PORT_AUXLINFO_FEC) 
+#define F_FW_PORT_AUXLINFO_FEC		V_FW_PORT_AUXLINFO_FEC(1U)
+
+#define S_FW_PORT_RCAP_AUX	11
+#define M_FW_PORT_RCAP_AUX	0x7
+#define V_FW_PORT_RCAP_AUX(x)	((x) << S_FW_PORT_RCAP_AUX)
+#define G_FW_PORT_RCAP_AUX(x) \
+    (((x) >> S_FW_PORT_RCAP_AUX) & M_FW_PORT_RCAP_AUX)
+
+#define S_FW_PORT_CAP_SPEED	0
+#define M_FW_PORT_CAP_SPEED	0x3f
+#define V_FW_PORT_CAP_SPEED(x)	((x) << S_FW_PORT_CAP_SPEED)
+#define G_FW_PORT_CAP_SPEED(x) \
+    (((x) >> S_FW_PORT_CAP_SPEED) & M_FW_PORT_CAP_SPEED)
+
+#define S_FW_PORT_CAP_FC	6
+#define M_FW_PORT_CAP_FC	0x3
+#define V_FW_PORT_CAP_FC(x)	((x) << S_FW_PORT_CAP_FC)
+#define G_FW_PORT_CAP_FC(x) \
+    (((x) >> S_FW_PORT_CAP_FC) & M_FW_PORT_CAP_FC)
+
+#define S_FW_PORT_CAP_ANEG	8
+#define M_FW_PORT_CAP_ANEG	0x1
+#define V_FW_PORT_CAP_ANEG(x)	((x) << S_FW_PORT_CAP_ANEG)
+#define G_FW_PORT_CAP_ANEG(x) \
+    (((x) >> S_FW_PORT_CAP_ANEG) & M_FW_PORT_CAP_ANEG)
 
 enum fw_port_mdi {
-	FW_PORT_MDI_UNCHANGED,
-	FW_PORT_MDI_AUTO,
-	FW_PORT_MDI_F_STRAIGHT,
-	FW_PORT_MDI_F_CROSSOVER
+	FW_PORT_CAP_MDI_UNCHANGED,
+	FW_PORT_CAP_MDI_AUTO,
+	FW_PORT_CAP_MDI_F_STRAIGHT,
+	FW_PORT_CAP_MDI_F_CROSSOVER
 };
 
-#define S_FW_PORT_MDI 9
-#define M_FW_PORT_MDI 3
-#define V_FW_PORT_MDI(x) ((x & M_FW_PORT_MDI) << S_FW_PORT_MDI)
-#define G_FW_PORT_MDI(x) ((x >> S_FW_PORT_MDI) & M_FW_PORT_MDI)
+#define S_FW_PORT_CAP_MDI 9
+#define M_FW_PORT_CAP_MDI 3
+#define V_FW_PORT_CAP_MDI(x) ((x) << S_FW_PORT_CAP_MDI)
+#define G_FW_PORT_CAP_MDI(x) (((x) >> S_FW_PORT_CAP_MDI) & M_FW_PORT_CAP_MDI)
 
 enum fw_port_action {
 	FW_PORT_ACTION_L1_CFG		= 0x0001,
@@ -3771,21 +5666,26 @@ enum fw_port_action {
 	FW_PORT_ACTION_GET_PORT_INFO	= 0x0003,
 	FW_PORT_ACTION_L2_PPP_CFG	= 0x0004,
 	FW_PORT_ACTION_L2_DCB_CFG	= 0x0005,
+	FW_PORT_ACTION_DCB_READ_TRANS	= 0x0006,
+	FW_PORT_ACTION_DCB_READ_RECV	= 0x0007,
+	FW_PORT_ACTION_DCB_READ_DET	= 0x0008,
 	FW_PORT_ACTION_LOW_PWR_TO_NORMAL = 0x0010,
 	FW_PORT_ACTION_L1_LOW_PWR_EN	= 0x0011,
 	FW_PORT_ACTION_L2_WOL_MODE_EN	= 0x0012,
 	FW_PORT_ACTION_LPBK_TO_NORMAL	= 0x0020,
-	FW_PORT_ACTION_L1_LPBK		= 0x0021,
-	FW_PORT_ACTION_L1_PMA_LPBK	= 0x0022,
-	FW_PORT_ACTION_L1_PCS_LPBK	= 0x0023,
-	FW_PORT_ACTION_L1_PHYXS_CSIDE_LPBK = 0x0024,
-	FW_PORT_ACTION_L1_PHYXS_ESIDE_LPBK = 0x0025,
+	FW_PORT_ACTION_LPBK_SS_ASIC	= 0x0022,
+	FW_PORT_ACTION_LPBK_WS_ASIC	= 0x0023,
+	FW_PORT_ACTION_LPBK_WS_EXT_PHY	= 0x0025,
+	FW_PORT_ACTION_LPBK_SS_EXT	= 0x0026,
+	FW_PORT_ACTION_DIAGNOSTICS	= 0x0027,
+	FW_PORT_ACTION_LPBK_SS_EXT_PHY	= 0x0028,
 	FW_PORT_ACTION_PHY_RESET	= 0x0040,
 	FW_PORT_ACTION_PMA_RESET	= 0x0041,
 	FW_PORT_ACTION_PCS_RESET	= 0x0042,
 	FW_PORT_ACTION_PHYXS_RESET	= 0x0043,
 	FW_PORT_ACTION_DTEXS_REEST	= 0x0044,
-	FW_PORT_ACTION_AN_RESET		= 0x0045
+	FW_PORT_ACTION_AN_RESET		= 0x0045,
+
 };
 
 enum fw_port_l2cfg_ctlbf {
@@ -3798,6 +5698,20 @@ enum fw_port_l2cfg_ctlbf {
 	FW_PORT_L2_CTLBF_MTU	= 0x40
 };
 
+enum fw_dcb_app_tlv_sf {
+	FW_DCB_APP_SF_ETHERTYPE,
+	FW_DCB_APP_SF_SOCKET_TCP,
+	FW_DCB_APP_SF_SOCKET_UDP,
+	FW_DCB_APP_SF_SOCKET_ALL,
+};
+
+enum fw_port_dcb_versions {
+	FW_PORT_DCB_VER_CEE1D0,
+	FW_PORT_DCB_VER_CEE1D01,
+	FW_PORT_DCB_VER_IEEE,
+	FW_PORT_DCB_VER_UNKNOWN=7
+};
+
 enum fw_port_dcb_cfg {
 	FW_PORT_DCB_CFG_PG	= 0x01,
 	FW_PORT_DCB_CFG_PFC	= 0x02,
@@ -3807,6 +5721,28 @@ enum fw_port_dcb_cfg {
 enum fw_port_dcb_cfg_rc {
 	FW_PORT_DCB_CFG_SUCCESS	= 0x0,
 	FW_PORT_DCB_CFG_ERROR	= 0x1
+};
+
+enum fw_port_dcb_type {
+	FW_PORT_DCB_TYPE_PGID		= 0x00,
+	FW_PORT_DCB_TYPE_PGRATE		= 0x01,
+	FW_PORT_DCB_TYPE_PRIORATE	= 0x02,
+	FW_PORT_DCB_TYPE_PFC		= 0x03,
+	FW_PORT_DCB_TYPE_APP_ID		= 0x04,
+	FW_PORT_DCB_TYPE_CONTROL	= 0x05,
+};
+
+enum fw_port_dcb_feature_state {
+	FW_PORT_DCB_FEATURE_STATE_PENDING = 0x0,
+	FW_PORT_DCB_FEATURE_STATE_SUCCESS = 0x1,
+	FW_PORT_DCB_FEATURE_STATE_ERROR	= 0x2,
+	FW_PORT_DCB_FEATURE_STATE_TIMEOUT = 0x3,
+};
+
+enum fw_port_diag_ops {
+	FW_PORT_DIAGS_TEMP		= 0x00,
+	FW_PORT_DIAGS_TX_POWER		= 0x01,
+	FW_PORT_DIAGS_RX_POWER		= 0x02,
 };
 
 struct fw_port_cmd {
@@ -3837,24 +5773,60 @@ struct fw_port_cmd {
 			__be16 pcap;
 			__be16 acap;
 			__be16 mtu;
-			__be16 r9;
-			__be32 r10;
-			__be64 r11;
+			__u8   cbllen;
+			__u8   auxlinfo;
+			__u8   dcbxdis_pkd;
+			__u8   r8_lo[3];
+			__be64 r9;
 		} info;
-		struct fw_port_ppp {
-			__be32 pppen_to_ncsich;
-			__be32 r11;
-		} ppp;
-		struct fw_port_dcb {
-			__be16 cfg;
-			__u8   up_map;
-			__u8   sf_cfgrc;
-			__be16 prot_ix;
-			__u8   pe7_to_pe0;
-			__u8   numTCPFCs;
-			__be32 pgid0_to_pgid7;
-			__be32 numTCs_oui;
-			__u8   pgpc[8];
+		struct fw_port_diags {
+			__u8   diagop;
+			__u8   r[3];
+			__be32 diagval;
+		} diags;
+		union fw_port_dcb {
+			struct fw_port_dcb_pgid {
+				__u8   type;
+				__u8   apply_pkd;
+				__u8   r10_lo[2];
+				__be32 pgid;
+				__be64 r11;
+			} pgid;
+			struct fw_port_dcb_pgrate {
+				__u8   type;
+				__u8   apply_pkd;
+				__u8   r10_lo[5];
+				__u8   num_tcs_supported;
+				__u8   pgrate[8];
+			} pgrate;
+			struct fw_port_dcb_priorate {
+				__u8   type;
+				__u8   apply_pkd;
+				__u8   r10_lo[6];
+				__u8   strict_priorate[8];
+			} priorate;
+			struct fw_port_dcb_pfc {
+				__u8   type;
+				__u8   pfcen;
+				__be16 r10[3];
+				__be64 r11;
+			} pfc;
+			struct fw_port_app_priority {
+				__u8   type;
+				__u8   r10[2];
+				__u8   idx;
+				__u8   user_prio_map;
+				__u8   sel_field;
+				__be16 protocolid;
+				__be64 r12;
+			} app_priority;
+			struct fw_port_dcb_control {
+				__u8   type;
+				__u8   all_syncd_pkd;
+				__be16 pfc_state_to_app_state;
+				__be32 r11;
+				__be64 r12;
+			} control;
 		} dcb;
 	} u;
 };
@@ -3986,208 +5958,134 @@ struct fw_port_cmd {
 #define G_FW_PORT_CMD_PTYPE(x)	\
     (((x) >> S_FW_PORT_CMD_PTYPE) & M_FW_PORT_CMD_PTYPE)
 
+#define S_FW_PORT_CMD_LINKDNRC		5
+#define M_FW_PORT_CMD_LINKDNRC		0x7
+#define V_FW_PORT_CMD_LINKDNRC(x)	((x) << S_FW_PORT_CMD_LINKDNRC)
+#define G_FW_PORT_CMD_LINKDNRC(x)	\
+    (((x) >> S_FW_PORT_CMD_LINKDNRC) & M_FW_PORT_CMD_LINKDNRC)
+
 #define S_FW_PORT_CMD_MODTYPE		0
 #define M_FW_PORT_CMD_MODTYPE		0x1f
 #define V_FW_PORT_CMD_MODTYPE(x)	((x) << S_FW_PORT_CMD_MODTYPE)
 #define G_FW_PORT_CMD_MODTYPE(x)	\
     (((x) >> S_FW_PORT_CMD_MODTYPE) & M_FW_PORT_CMD_MODTYPE)
 
-#define S_FW_PORT_CMD_PPPEN	31
-#define M_FW_PORT_CMD_PPPEN	0x1
-#define V_FW_PORT_CMD_PPPEN(x)	((x) << S_FW_PORT_CMD_PPPEN)
-#define G_FW_PORT_CMD_PPPEN(x)	\
-    (((x) >> S_FW_PORT_CMD_PPPEN) & M_FW_PORT_CMD_PPPEN)
-#define F_FW_PORT_CMD_PPPEN	V_FW_PORT_CMD_PPPEN(1U)
+#define S_FW_PORT_CMD_DCBXDIS		7
+#define M_FW_PORT_CMD_DCBXDIS		0x1
+#define V_FW_PORT_CMD_DCBXDIS(x)	((x) << S_FW_PORT_CMD_DCBXDIS)
+#define G_FW_PORT_CMD_DCBXDIS(x)	\
+    (((x) >> S_FW_PORT_CMD_DCBXDIS) & M_FW_PORT_CMD_DCBXDIS)
+#define F_FW_PORT_CMD_DCBXDIS	V_FW_PORT_CMD_DCBXDIS(1U)
 
-#define S_FW_PORT_CMD_TPSRC	28
-#define M_FW_PORT_CMD_TPSRC	0x3
-#define V_FW_PORT_CMD_TPSRC(x)	((x) << S_FW_PORT_CMD_TPSRC)
-#define G_FW_PORT_CMD_TPSRC(x)	\
-    (((x) >> S_FW_PORT_CMD_TPSRC) & M_FW_PORT_CMD_TPSRC)
+#define S_FW_PORT_CMD_APPLY	7
+#define M_FW_PORT_CMD_APPLY	0x1
+#define V_FW_PORT_CMD_APPLY(x)	((x) << S_FW_PORT_CMD_APPLY)
+#define G_FW_PORT_CMD_APPLY(x)	\
+    (((x) >> S_FW_PORT_CMD_APPLY) & M_FW_PORT_CMD_APPLY)
+#define F_FW_PORT_CMD_APPLY	V_FW_PORT_CMD_APPLY(1U)
 
-#define S_FW_PORT_CMD_NCSISRC		24
-#define M_FW_PORT_CMD_NCSISRC		0x3
-#define V_FW_PORT_CMD_NCSISRC(x)	((x) << S_FW_PORT_CMD_NCSISRC)
-#define G_FW_PORT_CMD_NCSISRC(x)	\
-    (((x) >> S_FW_PORT_CMD_NCSISRC) & M_FW_PORT_CMD_NCSISRC)
+#define S_FW_PORT_CMD_ALL_SYNCD		7
+#define M_FW_PORT_CMD_ALL_SYNCD		0x1
+#define V_FW_PORT_CMD_ALL_SYNCD(x)	((x) << S_FW_PORT_CMD_ALL_SYNCD)
+#define G_FW_PORT_CMD_ALL_SYNCD(x)	\
+    (((x) >> S_FW_PORT_CMD_ALL_SYNCD) & M_FW_PORT_CMD_ALL_SYNCD)
+#define F_FW_PORT_CMD_ALL_SYNCD	V_FW_PORT_CMD_ALL_SYNCD(1U)
 
-#define S_FW_PORT_CMD_CH0	20
-#define M_FW_PORT_CMD_CH0	0x7
-#define V_FW_PORT_CMD_CH0(x)	((x) << S_FW_PORT_CMD_CH0)
-#define G_FW_PORT_CMD_CH0(x)	\
-    (((x) >> S_FW_PORT_CMD_CH0) & M_FW_PORT_CMD_CH0)
+#define S_FW_PORT_CMD_PFC_STATE		8
+#define M_FW_PORT_CMD_PFC_STATE		0xf
+#define V_FW_PORT_CMD_PFC_STATE(x)	((x) << S_FW_PORT_CMD_PFC_STATE)
+#define G_FW_PORT_CMD_PFC_STATE(x)	\
+    (((x) >> S_FW_PORT_CMD_PFC_STATE) & M_FW_PORT_CMD_PFC_STATE)
 
-#define S_FW_PORT_CMD_CH1	16
-#define M_FW_PORT_CMD_CH1	0x7
-#define V_FW_PORT_CMD_CH1(x)	((x) << S_FW_PORT_CMD_CH1)
-#define G_FW_PORT_CMD_CH1(x)	\
-    (((x) >> S_FW_PORT_CMD_CH1) & M_FW_PORT_CMD_CH1)
+#define S_FW_PORT_CMD_ETS_STATE		4
+#define M_FW_PORT_CMD_ETS_STATE		0xf
+#define V_FW_PORT_CMD_ETS_STATE(x)	((x) << S_FW_PORT_CMD_ETS_STATE)
+#define G_FW_PORT_CMD_ETS_STATE(x)	\
+    (((x) >> S_FW_PORT_CMD_ETS_STATE) & M_FW_PORT_CMD_ETS_STATE)
 
-#define S_FW_PORT_CMD_CH2	12
-#define M_FW_PORT_CMD_CH2	0x7
-#define V_FW_PORT_CMD_CH2(x)	((x) << S_FW_PORT_CMD_CH2)
-#define G_FW_PORT_CMD_CH2(x)	\
-    (((x) >> S_FW_PORT_CMD_CH2) & M_FW_PORT_CMD_CH2)
+#define S_FW_PORT_CMD_APP_STATE		0
+#define M_FW_PORT_CMD_APP_STATE		0xf
+#define V_FW_PORT_CMD_APP_STATE(x)	((x) << S_FW_PORT_CMD_APP_STATE)
+#define G_FW_PORT_CMD_APP_STATE(x)	\
+    (((x) >> S_FW_PORT_CMD_APP_STATE) & M_FW_PORT_CMD_APP_STATE)
 
-#define S_FW_PORT_CMD_CH3	8
-#define M_FW_PORT_CMD_CH3	0x7
-#define V_FW_PORT_CMD_CH3(x)	((x) << S_FW_PORT_CMD_CH3)
-#define G_FW_PORT_CMD_CH3(x)	\
-    (((x) >> S_FW_PORT_CMD_CH3) & M_FW_PORT_CMD_CH3)
-
-#define S_FW_PORT_CMD_NCSICH	4
-#define M_FW_PORT_CMD_NCSICH	0x7
-#define V_FW_PORT_CMD_NCSICH(x)	((x) << S_FW_PORT_CMD_NCSICH)
-#define G_FW_PORT_CMD_NCSICH(x)	\
-    (((x) >> S_FW_PORT_CMD_NCSICH) & M_FW_PORT_CMD_NCSICH)
-
-#define S_FW_PORT_CMD_SF	6
-#define M_FW_PORT_CMD_SF	0x3
-#define V_FW_PORT_CMD_SF(x)	((x) << S_FW_PORT_CMD_SF)
-#define G_FW_PORT_CMD_SF(x)	(((x) >> S_FW_PORT_CMD_SF) & M_FW_PORT_CMD_SF)
-
-#define S_FW_PORT_CMD_CFGRC	0
-#define M_FW_PORT_CMD_CFGRC	0x3f
-#define V_FW_PORT_CMD_CFGRC(x)	((x) << S_FW_PORT_CMD_CFGRC)
-#define G_FW_PORT_CMD_CFGRC(x)	\
-    (((x) >> S_FW_PORT_CMD_CFGRC) & M_FW_PORT_CMD_CFGRC)
-
-#define S_FW_PORT_CMD_PE7	7
-#define M_FW_PORT_CMD_PE7	0x1
-#define V_FW_PORT_CMD_PE7(x)	((x) << S_FW_PORT_CMD_PE7)
-#define G_FW_PORT_CMD_PE7(x)	\
-    (((x) >> S_FW_PORT_CMD_PE7) & M_FW_PORT_CMD_PE7)
-#define F_FW_PORT_CMD_PE7	V_FW_PORT_CMD_PE7(1U)
-
-#define S_FW_PORT_CMD_PE6	6
-#define M_FW_PORT_CMD_PE6	0x1
-#define V_FW_PORT_CMD_PE6(x)	((x) << S_FW_PORT_CMD_PE6)
-#define G_FW_PORT_CMD_PE6(x)	\
-    (((x) >> S_FW_PORT_CMD_PE6) & M_FW_PORT_CMD_PE6)
-#define F_FW_PORT_CMD_PE6	V_FW_PORT_CMD_PE6(1U)
-
-#define S_FW_PORT_CMD_PE5	5
-#define M_FW_PORT_CMD_PE5	0x1
-#define V_FW_PORT_CMD_PE5(x)	((x) << S_FW_PORT_CMD_PE5)
-#define G_FW_PORT_CMD_PE5(x)	\
-    (((x) >> S_FW_PORT_CMD_PE5) & M_FW_PORT_CMD_PE5)
-#define F_FW_PORT_CMD_PE5	V_FW_PORT_CMD_PE5(1U)
-
-#define S_FW_PORT_CMD_PE4	4
-#define M_FW_PORT_CMD_PE4	0x1
-#define V_FW_PORT_CMD_PE4(x)	((x) << S_FW_PORT_CMD_PE4)
-#define G_FW_PORT_CMD_PE4(x)	\
-    (((x) >> S_FW_PORT_CMD_PE4) & M_FW_PORT_CMD_PE4)
-#define F_FW_PORT_CMD_PE4	V_FW_PORT_CMD_PE4(1U)
-
-#define S_FW_PORT_CMD_PE3	3
-#define M_FW_PORT_CMD_PE3	0x1
-#define V_FW_PORT_CMD_PE3(x)	((x) << S_FW_PORT_CMD_PE3)
-#define G_FW_PORT_CMD_PE3(x)	\
-    (((x) >> S_FW_PORT_CMD_PE3) & M_FW_PORT_CMD_PE3)
-#define F_FW_PORT_CMD_PE3	V_FW_PORT_CMD_PE3(1U)
-
-#define S_FW_PORT_CMD_PE2	2
-#define M_FW_PORT_CMD_PE2	0x1
-#define V_FW_PORT_CMD_PE2(x)	((x) << S_FW_PORT_CMD_PE2)
-#define G_FW_PORT_CMD_PE2(x)	\
-    (((x) >> S_FW_PORT_CMD_PE2) & M_FW_PORT_CMD_PE2)
-#define F_FW_PORT_CMD_PE2	V_FW_PORT_CMD_PE2(1U)
-
-#define S_FW_PORT_CMD_PE1	1
-#define M_FW_PORT_CMD_PE1	0x1
-#define V_FW_PORT_CMD_PE1(x)	((x) << S_FW_PORT_CMD_PE1)
-#define G_FW_PORT_CMD_PE1(x)	\
-    (((x) >> S_FW_PORT_CMD_PE1) & M_FW_PORT_CMD_PE1)
-#define F_FW_PORT_CMD_PE1	V_FW_PORT_CMD_PE1(1U)
-
-#define S_FW_PORT_CMD_PE0	0
-#define M_FW_PORT_CMD_PE0	0x1
-#define V_FW_PORT_CMD_PE0(x)	((x) << S_FW_PORT_CMD_PE0)
-#define G_FW_PORT_CMD_PE0(x)	\
-    (((x) >> S_FW_PORT_CMD_PE0) & M_FW_PORT_CMD_PE0)
-#define F_FW_PORT_CMD_PE0	V_FW_PORT_CMD_PE0(1U)
-
-#define S_FW_PORT_CMD_PGID0	28
-#define M_FW_PORT_CMD_PGID0	0xf
-#define V_FW_PORT_CMD_PGID0(x)	((x) << S_FW_PORT_CMD_PGID0)
-#define G_FW_PORT_CMD_PGID0(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID0) & M_FW_PORT_CMD_PGID0)
-
-#define S_FW_PORT_CMD_PGID1	24
-#define M_FW_PORT_CMD_PGID1	0xf
-#define V_FW_PORT_CMD_PGID1(x)	((x) << S_FW_PORT_CMD_PGID1)
-#define G_FW_PORT_CMD_PGID1(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID1) & M_FW_PORT_CMD_PGID1)
-
-#define S_FW_PORT_CMD_PGID2	20
-#define M_FW_PORT_CMD_PGID2	0xf
-#define V_FW_PORT_CMD_PGID2(x)	((x) << S_FW_PORT_CMD_PGID2)
-#define G_FW_PORT_CMD_PGID2(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID2) & M_FW_PORT_CMD_PGID2)
-
-#define S_FW_PORT_CMD_PGID3	16
-#define M_FW_PORT_CMD_PGID3	0xf
-#define V_FW_PORT_CMD_PGID3(x)	((x) << S_FW_PORT_CMD_PGID3)
-#define G_FW_PORT_CMD_PGID3(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID3) & M_FW_PORT_CMD_PGID3)
-
-#define S_FW_PORT_CMD_PGID4	12
-#define M_FW_PORT_CMD_PGID4	0xf
-#define V_FW_PORT_CMD_PGID4(x)	((x) << S_FW_PORT_CMD_PGID4)
-#define G_FW_PORT_CMD_PGID4(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID4) & M_FW_PORT_CMD_PGID4)
-
-#define S_FW_PORT_CMD_PGID5	8
-#define M_FW_PORT_CMD_PGID5	0xf
-#define V_FW_PORT_CMD_PGID5(x)	((x) << S_FW_PORT_CMD_PGID5)
-#define G_FW_PORT_CMD_PGID5(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID5) & M_FW_PORT_CMD_PGID5)
-
-#define S_FW_PORT_CMD_PGID6	4
-#define M_FW_PORT_CMD_PGID6	0xf
-#define V_FW_PORT_CMD_PGID6(x)	((x) << S_FW_PORT_CMD_PGID6)
-#define G_FW_PORT_CMD_PGID6(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID6) & M_FW_PORT_CMD_PGID6)
-
-#define S_FW_PORT_CMD_PGID7	0
-#define M_FW_PORT_CMD_PGID7	0xf
-#define V_FW_PORT_CMD_PGID7(x)	((x) << S_FW_PORT_CMD_PGID7)
-#define G_FW_PORT_CMD_PGID7(x)	\
-    (((x) >> S_FW_PORT_CMD_PGID7) & M_FW_PORT_CMD_PGID7)
-
-#define S_FW_PORT_CMD_NUMTCS	24
-#define M_FW_PORT_CMD_NUMTCS	0xff
-#define V_FW_PORT_CMD_NUMTCS(x)	((x) << S_FW_PORT_CMD_NUMTCS)
-#define G_FW_PORT_CMD_NUMTCS(x)	\
-    (((x) >> S_FW_PORT_CMD_NUMTCS) & M_FW_PORT_CMD_NUMTCS)
-
-#define S_FW_PORT_CMD_OUI	0
-#define M_FW_PORT_CMD_OUI	0xffffff
-#define V_FW_PORT_CMD_OUI(x)	((x) << S_FW_PORT_CMD_OUI)
-#define G_FW_PORT_CMD_OUI(x)	\
-    (((x) >> S_FW_PORT_CMD_OUI) & M_FW_PORT_CMD_OUI)
-
+/*
+ *	These are configured into the VPD and hence tools that generate
+ *	VPD may use this enumeration.
+ *	extPHY	#lanes	T4_I2C	extI2C	BP_Eq	BP_ANEG	Speed
+ *
+ *	REMEMBER:
+ *	    Update the Common Code t4_hw.c:t4_get_port_type_description()
+ *	    with any new Firmware Port Technology Types!
+ */
 enum fw_port_type {
-	FW_PORT_TYPE_FIBER,
-	FW_PORT_TYPE_KX4,
-	FW_PORT_TYPE_BT_SGMII,
-	FW_PORT_TYPE_KX,
-	FW_PORT_TYPE_BT_XAUI,
-	FW_PORT_TYPE_KR,
-	FW_PORT_TYPE_CX4,
-	FW_PORT_TYPE_TWINAX,
+	FW_PORT_TYPE_FIBER_XFI	=  0,	/* Y, 1, N, Y, N, N, 10G */
+	FW_PORT_TYPE_FIBER_XAUI	=  1,	/* Y, 4, N, Y, N, N, 10G */
+	FW_PORT_TYPE_BT_SGMII	=  2,	/* Y, 1, No, No, No, No, 1G/100M */
+	FW_PORT_TYPE_BT_XFI	=  3,	/* Y, 1, No, No, No, No, 10G */
+	FW_PORT_TYPE_BT_XAUI	=  4,	/* Y, 4, No, No, No, No, 10G/1G/100M? */
+	FW_PORT_TYPE_KX4	=  5,	/* No, 4, No, No, Yes, Yes, 10G */
+	FW_PORT_TYPE_CX4	=  6,	/* No, 4, No, No, No, No, 10G */
+	FW_PORT_TYPE_KX		=  7,	/* No, 1, No, No, Yes, No, 1G */
+	FW_PORT_TYPE_KR		=  8,	/* No, 1, No, No, Yes, Yes, 10G */
+	FW_PORT_TYPE_SFP	=  9,	/* No, 1, Yes, No, No, No, 10G */
+	FW_PORT_TYPE_BP_AP	= 10,	/* No, 1, No, No, Yes, Yes, 10G, BP ANGE */
+	FW_PORT_TYPE_BP4_AP	= 11,	/* No, 4, No, No, Yes, Yes, 10G, BP ANGE */
+	FW_PORT_TYPE_QSFP_10G	= 12,	/* No, 1, Yes, No, No, No, 10G */
+	FW_PORT_TYPE_QSFP	= 14,	/* No, 4, Yes, No, No, No, 40G */
+	FW_PORT_TYPE_BP40_BA	= 15,	/* No, 4, No, No, Yes, Yes, 40G/10G/1G, BP ANGE */
 
 	FW_PORT_TYPE_NONE = M_FW_PORT_CMD_PTYPE
 };
 
+/* These are read from module's EEPROM and determined once the
+   module is inserted. */
 enum fw_port_module_type {
-	FW_PORT_MOD_TYPE_NA,
-	FW_PORT_MOD_TYPE_LR,
-	FW_PORT_MOD_TYPE_SR,
-	FW_PORT_MOD_TYPE_ER,
+	FW_PORT_MOD_TYPE_NA		= 0x0,
+	FW_PORT_MOD_TYPE_LR		= 0x1,
+	FW_PORT_MOD_TYPE_SR		= 0x2,
+	FW_PORT_MOD_TYPE_ER		= 0x3,
+	FW_PORT_MOD_TYPE_TWINAX_PASSIVE	= 0x4,
+	FW_PORT_MOD_TYPE_TWINAX_ACTIVE	= 0x5,
+	FW_PORT_MOD_TYPE_LRM		= 0x6,
+	FW_PORT_MOD_TYPE_ERROR		= M_FW_PORT_CMD_MODTYPE - 3,
+	FW_PORT_MOD_TYPE_UNKNOWN	= M_FW_PORT_CMD_MODTYPE - 2,
+	FW_PORT_MOD_TYPE_NOTSUPPORTED	= M_FW_PORT_CMD_MODTYPE - 1,
+	FW_PORT_MOD_TYPE_NONE		= M_FW_PORT_CMD_MODTYPE
+};
 
-	FW_PORT_MOD_TYPE_NONE = M_FW_PORT_CMD_MODTYPE
+/* used by FW and tools may use this to generate VPD */
+enum fw_port_mod_sub_type {
+	FW_PORT_MOD_SUB_TYPE_NA,
+	FW_PORT_MOD_SUB_TYPE_MV88E114X=0x1,
+	FW_PORT_MOD_SUB_TYPE_TN8022=0x2,
+	FW_PORT_MOD_SUB_TYPE_AQ1202=0x3,
+	FW_PORT_MOD_SUB_TYPE_88x3120=0x4,
+	FW_PORT_MOD_SUB_TYPE_BCM84834=0x5,
+	FW_PORT_MOD_SUB_TYPE_BCM5482=0x6,
+	FW_PORT_MOD_SUB_TYPE_BT_VSC8634=0x8,
+
+	/*
+	 * The following will never been in the VPD.  They are TWINAX cable
+	 * lengths decoded from SFP+ module i2c PROMs.  These should almost
+	 * certainly go somewhere else ...
+	 */
+	FW_PORT_MOD_SUB_TYPE_TWINAX_1=0x9,
+	FW_PORT_MOD_SUB_TYPE_TWINAX_3=0xA,
+	FW_PORT_MOD_SUB_TYPE_TWINAX_5=0xB,
+	FW_PORT_MOD_SUB_TYPE_TWINAX_7=0xC,
+};
+
+/* link down reason codes (3b) */
+enum fw_port_link_dn_rc {
+	FW_PORT_LINK_DN_RC_NONE,
+	FW_PORT_LINK_DN_RC_REMFLT,	/* Remote fault detected */
+	FW_PORT_LINK_DN_ANEG_F,		/* Auto-negotiation fault */
+	FW_PORT_LINK_DN_RESERVED3,
+	FW_PORT_LINK_DN_OVERHEAT,	/* Port overheated */
+	FW_PORT_LINK_DN_UNKNOWN,	/* Unable to determine reason */
+	FW_PORT_LINK_DN_RX_LOS,		/* No RX signal detected */
+	FW_PORT_LINK_DN_RESERVED7
 };
 
 /* port stats */
@@ -4965,15 +6863,12 @@ struct fw_rss_vi_config_cmd {
 #define F_FW_RSS_VI_CONFIG_CMD_IP4TWOTUPEN	\
     V_FW_RSS_VI_CONFIG_CMD_IP4TWOTUPEN(1U)
 
-#define S_FW_RSS_VI_CONFIG_CMD_UDPEN		0
-#define M_FW_RSS_VI_CONFIG_CMD_UDPEN		0x1
-#define V_FW_RSS_VI_CONFIG_CMD_UDPEN(x)		\
-    ((x) << S_FW_RSS_VI_CONFIG_CMD_UDPEN)
-#define G_FW_RSS_VI_CONFIG_CMD_UDPEN(x)		\
-    (((x) >> S_FW_RSS_VI_CONFIG_CMD_UDPEN) & \
-     M_FW_RSS_VI_CONFIG_CMD_UDPEN)
-#define F_FW_RSS_VI_CONFIG_CMD_UDPEN		\
-    V_FW_RSS_VI_CONFIG_CMD_UDPEN(1U)
+#define S_FW_RSS_VI_CONFIG_CMD_UDPEN	0
+#define M_FW_RSS_VI_CONFIG_CMD_UDPEN	0x1
+#define V_FW_RSS_VI_CONFIG_CMD_UDPEN(x)	((x) << S_FW_RSS_VI_CONFIG_CMD_UDPEN)
+#define G_FW_RSS_VI_CONFIG_CMD_UDPEN(x)	\
+    (((x) >> S_FW_RSS_VI_CONFIG_CMD_UDPEN) & M_FW_RSS_VI_CONFIG_CMD_UDPEN)
+#define F_FW_RSS_VI_CONFIG_CMD_UDPEN	V_FW_RSS_VI_CONFIG_CMD_UDPEN(1U)
 
 enum fw_sched_sc {
 	FW_SCHED_SC_CONFIG		= 0,
@@ -4989,7 +6884,6 @@ enum fw_sched_params_level {
 	FW_SCHED_PARAMS_LEVEL_CL_RL	= 0,
 	FW_SCHED_PARAMS_LEVEL_CL_WRR	= 1,
 	FW_SCHED_PARAMS_LEVEL_CH_RL	= 2,
-	FW_SCHED_PARAMS_LEVEL_CH_WRR	= 3,
 };
 
 enum fw_sched_params_mode {
@@ -5016,6 +6910,8 @@ struct fw_sched_cmd {
 			__u8   type;
 			__u8   minmaxen;
 			__u8   r3[5];
+			__u8   nclasses[4];
+			__be32 r4;
 		} config;
 		struct fw_sched_params {
 			__u8   sc;
@@ -5030,10 +6926,571 @@ struct fw_sched_cmd {
 			__be32 max;
 			__be16 weight;
 			__be16 pktsize;
-			__be32 r4;
+			__be16 burstsize;
+			__be16 r4;
 		} params;
 	} u;
 };
+
+/*
+ *	length of the formatting string
+ */
+#define FW_DEVLOG_FMT_LEN	192
+
+/*
+ *	maximum number of the formatting string parameters
+ */
+#define FW_DEVLOG_FMT_PARAMS_NUM 8
+
+/*
+ *	priority levels
+ */
+enum fw_devlog_level {
+	FW_DEVLOG_LEVEL_EMERG	= 0x0,
+	FW_DEVLOG_LEVEL_CRIT	= 0x1,
+	FW_DEVLOG_LEVEL_ERR	= 0x2,
+	FW_DEVLOG_LEVEL_NOTICE	= 0x3,
+	FW_DEVLOG_LEVEL_INFO	= 0x4,
+	FW_DEVLOG_LEVEL_DEBUG	= 0x5,
+	FW_DEVLOG_LEVEL_MAX	= 0x5,
+};
+
+/*
+ *	facilities that may send a log message
+ */
+enum fw_devlog_facility {
+	FW_DEVLOG_FACILITY_CORE		= 0x00,
+	FW_DEVLOG_FACILITY_CF		= 0x01,
+	FW_DEVLOG_FACILITY_SCHED	= 0x02,
+	FW_DEVLOG_FACILITY_TIMER	= 0x04,
+	FW_DEVLOG_FACILITY_RES		= 0x06,
+	FW_DEVLOG_FACILITY_HW		= 0x08,
+	FW_DEVLOG_FACILITY_FLR		= 0x10,
+	FW_DEVLOG_FACILITY_DMAQ		= 0x12,
+	FW_DEVLOG_FACILITY_PHY		= 0x14,
+	FW_DEVLOG_FACILITY_MAC		= 0x16,
+	FW_DEVLOG_FACILITY_PORT		= 0x18,
+	FW_DEVLOG_FACILITY_VI		= 0x1A,
+	FW_DEVLOG_FACILITY_FILTER	= 0x1C,
+	FW_DEVLOG_FACILITY_ACL		= 0x1E,
+	FW_DEVLOG_FACILITY_TM		= 0x20,
+	FW_DEVLOG_FACILITY_QFC		= 0x22,
+	FW_DEVLOG_FACILITY_DCB		= 0x24,
+	FW_DEVLOG_FACILITY_ETH		= 0x26,
+	FW_DEVLOG_FACILITY_OFLD		= 0x28,
+	FW_DEVLOG_FACILITY_RI		= 0x2A,
+	FW_DEVLOG_FACILITY_ISCSI	= 0x2C,
+	FW_DEVLOG_FACILITY_FCOE		= 0x2E,
+	FW_DEVLOG_FACILITY_FOISCSI	= 0x30,
+	FW_DEVLOG_FACILITY_FOFCOE	= 0x32,
+	FW_DEVLOG_FACILITY_MAX		= 0x32,
+};
+
+/*
+ *	log message format
+ */
+struct fw_devlog_e {
+	__be64	timestamp;
+	__be32	seqno;
+	__be16	reserved1;
+	__u8	level;
+	__u8	facility;
+	__u8	fmt[FW_DEVLOG_FMT_LEN];
+	__be32	params[FW_DEVLOG_FMT_PARAMS_NUM];
+	__be32	reserved3[4];
+};
+
+struct fw_devlog_cmd {
+	__be32 op_to_write;
+	__be32 retval_len16;
+	__u8   level;
+	__u8   r2[7];
+	__be32 memtype_devlog_memaddr16_devlog;
+	__be32 memsize_devlog;
+	__be32 r3[2];
+};
+
+#define S_FW_DEVLOG_CMD_MEMTYPE_DEVLOG		28
+#define M_FW_DEVLOG_CMD_MEMTYPE_DEVLOG		0xf
+#define V_FW_DEVLOG_CMD_MEMTYPE_DEVLOG(x)	\
+    ((x) << S_FW_DEVLOG_CMD_MEMTYPE_DEVLOG)
+#define G_FW_DEVLOG_CMD_MEMTYPE_DEVLOG(x)	\
+    (((x) >> S_FW_DEVLOG_CMD_MEMTYPE_DEVLOG) & M_FW_DEVLOG_CMD_MEMTYPE_DEVLOG)
+
+#define S_FW_DEVLOG_CMD_MEMADDR16_DEVLOG	0
+#define M_FW_DEVLOG_CMD_MEMADDR16_DEVLOG	0xfffffff
+#define V_FW_DEVLOG_CMD_MEMADDR16_DEVLOG(x)	\
+    ((x) << S_FW_DEVLOG_CMD_MEMADDR16_DEVLOG)
+#define G_FW_DEVLOG_CMD_MEMADDR16_DEVLOG(x)	\
+    (((x) >> S_FW_DEVLOG_CMD_MEMADDR16_DEVLOG) & \
+     M_FW_DEVLOG_CMD_MEMADDR16_DEVLOG)
+
+enum fw_watchdog_actions {
+	FW_WATCHDOG_ACTION_SHUTDOWN = 0,
+	FW_WATCHDOG_ACTION_FLR = 1,
+	FW_WATCHDOG_ACTION_BYPASS = 2,
+	FW_WATCHDOG_ACTION_TMPCHK = 3,
+
+	FW_WATCHDOG_ACTION_MAX = 4,
+};
+
+#define FW_WATCHDOG_MAX_TIMEOUT_SECS	60
+
+struct fw_watchdog_cmd {
+	__be32 op_to_vfn;
+	__be32 retval_len16;
+	__be32 timeout;
+	__be32 action;
+};
+
+#define S_FW_WATCHDOG_CMD_PFN		8
+#define M_FW_WATCHDOG_CMD_PFN		0x7
+#define V_FW_WATCHDOG_CMD_PFN(x)	((x) << S_FW_WATCHDOG_CMD_PFN)
+#define G_FW_WATCHDOG_CMD_PFN(x)	\
+    (((x) >> S_FW_WATCHDOG_CMD_PFN) & M_FW_WATCHDOG_CMD_PFN)
+
+#define S_FW_WATCHDOG_CMD_VFN		0
+#define M_FW_WATCHDOG_CMD_VFN		0xff
+#define V_FW_WATCHDOG_CMD_VFN(x)	((x) << S_FW_WATCHDOG_CMD_VFN)
+#define G_FW_WATCHDOG_CMD_VFN(x)	\
+    (((x) >> S_FW_WATCHDOG_CMD_VFN) & M_FW_WATCHDOG_CMD_VFN)
+
+struct fw_clip_cmd {
+	__be32 op_to_write;
+	__be32 alloc_to_len16;
+	__be64 ip_hi;
+	__be64 ip_lo;
+	__be32 r4[2];
+};
+
+#define S_FW_CLIP_CMD_ALLOC	31
+#define M_FW_CLIP_CMD_ALLOC	0x1
+#define V_FW_CLIP_CMD_ALLOC(x)	((x) << S_FW_CLIP_CMD_ALLOC)
+#define G_FW_CLIP_CMD_ALLOC(x)	\
+    (((x) >> S_FW_CLIP_CMD_ALLOC) & M_FW_CLIP_CMD_ALLOC)
+#define F_FW_CLIP_CMD_ALLOC	V_FW_CLIP_CMD_ALLOC(1U)
+
+#define S_FW_CLIP_CMD_FREE	30
+#define M_FW_CLIP_CMD_FREE	0x1
+#define V_FW_CLIP_CMD_FREE(x)	((x) << S_FW_CLIP_CMD_FREE)
+#define G_FW_CLIP_CMD_FREE(x)	\
+    (((x) >> S_FW_CLIP_CMD_FREE) & M_FW_CLIP_CMD_FREE)
+#define F_FW_CLIP_CMD_FREE	V_FW_CLIP_CMD_FREE(1U)
+
+/******************************************************************************
+ *   F O i S C S I   C O M M A N D s
+ **************************************/
+
+#define	FW_CHNET_IFACE_ADDR_MAX	3
+
+enum fw_chnet_iface_cmd_subop {
+	FW_CHNET_IFACE_CMD_SUBOP_NOOP = 0,
+	
+	FW_CHNET_IFACE_CMD_SUBOP_LINK_UP,
+	FW_CHNET_IFACE_CMD_SUBOP_LINK_DOWN,
+	
+	FW_CHNET_IFACE_CMD_SUBOP_MTU_SET,
+	FW_CHNET_IFACE_CMD_SUBOP_MTU_GET,
+
+	FW_CHNET_IFACE_CMD_SUBOP_MAX,
+};
+
+struct fw_chnet_iface_cmd {
+	__be32 op_to_portid;
+	__be32 retval_len16;
+	__u8   subop;
+	__u8   r2[3];
+	__be32 ifid_ifstate;
+	__be16 mtu;
+	__be16 vlanid;
+	__be32 r3;
+	__be16 r4;
+	__u8   mac[6];
+};
+
+#define S_FW_CHNET_IFACE_CMD_PORTID	0
+#define M_FW_CHNET_IFACE_CMD_PORTID	0xf
+#define V_FW_CHNET_IFACE_CMD_PORTID(x)	((x) << S_FW_CHNET_IFACE_CMD_PORTID)
+#define G_FW_CHNET_IFACE_CMD_PORTID(x)	\
+    (((x) >> S_FW_CHNET_IFACE_CMD_PORTID) & M_FW_CHNET_IFACE_CMD_PORTID)
+
+#define S_FW_CHNET_IFACE_CMD_IFID	8
+#define M_FW_CHNET_IFACE_CMD_IFID	0xffffff
+#define V_FW_CHNET_IFACE_CMD_IFID(x)	((x) << S_FW_CHNET_IFACE_CMD_IFID)
+#define G_FW_CHNET_IFACE_CMD_IFID(x)	\
+    (((x) >> S_FW_CHNET_IFACE_CMD_IFID) & M_FW_CHNET_IFACE_CMD_IFID)
+
+#define S_FW_CHNET_IFACE_CMD_IFSTATE	0
+#define M_FW_CHNET_IFACE_CMD_IFSTATE	0xff
+#define V_FW_CHNET_IFACE_CMD_IFSTATE(x)	((x) << S_FW_CHNET_IFACE_CMD_IFSTATE)
+#define G_FW_CHNET_IFACE_CMD_IFSTATE(x)	\
+    (((x) >> S_FW_CHNET_IFACE_CMD_IFSTATE) & M_FW_CHNET_IFACE_CMD_IFSTATE)
+
+/******************************************************************************
+ *   F O F C O E   C O M M A N D s
+ ************************************/
+
+struct fw_fcoe_res_info_cmd {
+	__be32 op_to_read;
+	__be32 retval_len16;
+	__be16 e_d_tov;
+	__be16 r_a_tov_seq;
+	__be16 r_a_tov_els;
+	__be16 r_r_tov;
+	__be32 max_xchgs;
+	__be32 max_ssns;
+	__be32 used_xchgs;
+	__be32 used_ssns;
+	__be32 max_fcfs;
+	__be32 max_vnps;
+	__be32 used_fcfs;
+	__be32 used_vnps;
+};
+
+struct fw_fcoe_link_cmd {
+	__be32 op_to_portid;
+	__be32 retval_len16;
+	__be32 sub_opcode_fcfi;
+	__u8   r3;
+	__u8   lstatus;
+	__be16 flags;
+	__u8   r4;
+	__u8   set_vlan;
+	__be16 vlan_id;
+	__be32 vnpi_pkd;
+	__be16 r6;
+	__u8   phy_mac[6];
+	__u8   vnport_wwnn[8];
+	__u8   vnport_wwpn[8];
+};
+
+#define S_FW_FCOE_LINK_CMD_PORTID	0
+#define M_FW_FCOE_LINK_CMD_PORTID	0xf
+#define V_FW_FCOE_LINK_CMD_PORTID(x)	((x) << S_FW_FCOE_LINK_CMD_PORTID)
+#define G_FW_FCOE_LINK_CMD_PORTID(x)	\
+    (((x) >> S_FW_FCOE_LINK_CMD_PORTID) & M_FW_FCOE_LINK_CMD_PORTID)
+
+#define S_FW_FCOE_LINK_CMD_SUB_OPCODE		24
+#define M_FW_FCOE_LINK_CMD_SUB_OPCODE		0xff
+#define V_FW_FCOE_LINK_CMD_SUB_OPCODE(x)	\
+    ((x) << S_FW_FCOE_LINK_CMD_SUB_OPCODE)
+#define G_FW_FCOE_LINK_CMD_SUB_OPCODE(x)	\
+    (((x) >> S_FW_FCOE_LINK_CMD_SUB_OPCODE) & M_FW_FCOE_LINK_CMD_SUB_OPCODE)
+
+#define S_FW_FCOE_LINK_CMD_FCFI		0
+#define M_FW_FCOE_LINK_CMD_FCFI		0xffffff
+#define V_FW_FCOE_LINK_CMD_FCFI(x)	((x) << S_FW_FCOE_LINK_CMD_FCFI)
+#define G_FW_FCOE_LINK_CMD_FCFI(x)	\
+    (((x) >> S_FW_FCOE_LINK_CMD_FCFI) & M_FW_FCOE_LINK_CMD_FCFI)
+
+#define S_FW_FCOE_LINK_CMD_VNPI		0
+#define M_FW_FCOE_LINK_CMD_VNPI		0xfffff
+#define V_FW_FCOE_LINK_CMD_VNPI(x)	((x) << S_FW_FCOE_LINK_CMD_VNPI)
+#define G_FW_FCOE_LINK_CMD_VNPI(x)	\
+    (((x) >> S_FW_FCOE_LINK_CMD_VNPI) & M_FW_FCOE_LINK_CMD_VNPI)
+
+struct fw_fcoe_vnp_cmd {
+	__be32 op_to_fcfi;
+	__be32 alloc_to_len16;
+	__be32 gen_wwn_to_vnpi;
+	__be32 vf_id;
+	__be16 iqid;
+	__u8   vnport_mac[6];
+	__u8   vnport_wwnn[8];
+	__u8   vnport_wwpn[8];
+	__u8   cmn_srv_parms[16];
+	__u8   clsp_word_0_1[8];
+};
+
+#define S_FW_FCOE_VNP_CMD_FCFI		0
+#define M_FW_FCOE_VNP_CMD_FCFI		0xfffff
+#define V_FW_FCOE_VNP_CMD_FCFI(x)	((x) << S_FW_FCOE_VNP_CMD_FCFI)
+#define G_FW_FCOE_VNP_CMD_FCFI(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_FCFI) & M_FW_FCOE_VNP_CMD_FCFI)
+
+#define S_FW_FCOE_VNP_CMD_ALLOC		31
+#define M_FW_FCOE_VNP_CMD_ALLOC		0x1
+#define V_FW_FCOE_VNP_CMD_ALLOC(x)	((x) << S_FW_FCOE_VNP_CMD_ALLOC)
+#define G_FW_FCOE_VNP_CMD_ALLOC(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_ALLOC) & M_FW_FCOE_VNP_CMD_ALLOC)
+#define F_FW_FCOE_VNP_CMD_ALLOC	V_FW_FCOE_VNP_CMD_ALLOC(1U)
+
+#define S_FW_FCOE_VNP_CMD_FREE		30
+#define M_FW_FCOE_VNP_CMD_FREE		0x1
+#define V_FW_FCOE_VNP_CMD_FREE(x)	((x) << S_FW_FCOE_VNP_CMD_FREE)
+#define G_FW_FCOE_VNP_CMD_FREE(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_FREE) & M_FW_FCOE_VNP_CMD_FREE)
+#define F_FW_FCOE_VNP_CMD_FREE	V_FW_FCOE_VNP_CMD_FREE(1U)
+
+#define S_FW_FCOE_VNP_CMD_MODIFY	29
+#define M_FW_FCOE_VNP_CMD_MODIFY	0x1
+#define V_FW_FCOE_VNP_CMD_MODIFY(x)	((x) << S_FW_FCOE_VNP_CMD_MODIFY)
+#define G_FW_FCOE_VNP_CMD_MODIFY(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_MODIFY) & M_FW_FCOE_VNP_CMD_MODIFY)
+#define F_FW_FCOE_VNP_CMD_MODIFY	V_FW_FCOE_VNP_CMD_MODIFY(1U)
+
+#define S_FW_FCOE_VNP_CMD_GEN_WWN	22
+#define M_FW_FCOE_VNP_CMD_GEN_WWN	0x1
+#define V_FW_FCOE_VNP_CMD_GEN_WWN(x)	((x) << S_FW_FCOE_VNP_CMD_GEN_WWN)
+#define G_FW_FCOE_VNP_CMD_GEN_WWN(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_GEN_WWN) & M_FW_FCOE_VNP_CMD_GEN_WWN)
+#define F_FW_FCOE_VNP_CMD_GEN_WWN	V_FW_FCOE_VNP_CMD_GEN_WWN(1U)
+
+#define S_FW_FCOE_VNP_CMD_PERSIST	21
+#define M_FW_FCOE_VNP_CMD_PERSIST	0x1
+#define V_FW_FCOE_VNP_CMD_PERSIST(x)	((x) << S_FW_FCOE_VNP_CMD_PERSIST)
+#define G_FW_FCOE_VNP_CMD_PERSIST(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_PERSIST) & M_FW_FCOE_VNP_CMD_PERSIST)
+#define F_FW_FCOE_VNP_CMD_PERSIST	V_FW_FCOE_VNP_CMD_PERSIST(1U)
+
+#define S_FW_FCOE_VNP_CMD_VFID_EN	20
+#define M_FW_FCOE_VNP_CMD_VFID_EN	0x1
+#define V_FW_FCOE_VNP_CMD_VFID_EN(x)	((x) << S_FW_FCOE_VNP_CMD_VFID_EN)
+#define G_FW_FCOE_VNP_CMD_VFID_EN(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_VFID_EN) & M_FW_FCOE_VNP_CMD_VFID_EN)
+#define F_FW_FCOE_VNP_CMD_VFID_EN	V_FW_FCOE_VNP_CMD_VFID_EN(1U)
+
+#define S_FW_FCOE_VNP_CMD_VNPI		0
+#define M_FW_FCOE_VNP_CMD_VNPI		0xfffff
+#define V_FW_FCOE_VNP_CMD_VNPI(x)	((x) << S_FW_FCOE_VNP_CMD_VNPI)
+#define G_FW_FCOE_VNP_CMD_VNPI(x)	\
+    (((x) >> S_FW_FCOE_VNP_CMD_VNPI) & M_FW_FCOE_VNP_CMD_VNPI)
+
+struct fw_fcoe_sparams_cmd {
+	__be32 op_to_portid;
+	__be32 retval_len16;
+	__u8   r3[7];
+	__u8   cos;
+	__u8   lport_wwnn[8];
+	__u8   lport_wwpn[8];
+	__u8   cmn_srv_parms[16];
+	__u8   cls_srv_parms[16];
+};
+
+#define S_FW_FCOE_SPARAMS_CMD_PORTID	0
+#define M_FW_FCOE_SPARAMS_CMD_PORTID	0xf
+#define V_FW_FCOE_SPARAMS_CMD_PORTID(x)	((x) << S_FW_FCOE_SPARAMS_CMD_PORTID)
+#define G_FW_FCOE_SPARAMS_CMD_PORTID(x)	\
+    (((x) >> S_FW_FCOE_SPARAMS_CMD_PORTID) & M_FW_FCOE_SPARAMS_CMD_PORTID)
+
+struct fw_fcoe_stats_cmd {
+	__be32 op_to_flowid;
+	__be32 free_to_len16;
+	union fw_fcoe_stats {
+		struct fw_fcoe_stats_ctl {
+			__u8   nstats_port;
+			__u8   port_valid_ix;
+			__be16 r6;
+			__be32 r7;
+			__be64 stat0;
+			__be64 stat1;
+			__be64 stat2;
+			__be64 stat3;
+			__be64 stat4;
+			__be64 stat5;
+		} ctl;
+		struct fw_fcoe_port_stats {
+			__be64 tx_bcast_bytes;
+			__be64 tx_bcast_frames;
+			__be64 tx_mcast_bytes;
+			__be64 tx_mcast_frames;
+			__be64 tx_ucast_bytes;
+			__be64 tx_ucast_frames;
+			__be64 tx_drop_frames;
+			__be64 tx_offload_bytes;
+			__be64 tx_offload_frames;
+			__be64 rx_bcast_bytes;
+			__be64 rx_bcast_frames;
+			__be64 rx_mcast_bytes;
+			__be64 rx_mcast_frames;
+			__be64 rx_ucast_bytes;
+			__be64 rx_ucast_frames;
+			__be64 rx_err_frames;
+		} port_stats;
+		struct fw_fcoe_fcf_stats {
+			__be32 fip_tx_bytes;
+			__be32 fip_tx_fr;
+			__be64 fcf_ka;
+			__be64 mcast_adv_rcvd;
+			__be16 ucast_adv_rcvd;
+			__be16 sol_sent;
+			__be16 vlan_req;
+			__be16 vlan_rpl;
+			__be16 clr_vlink;
+			__be16 link_down;
+			__be16 link_up;
+			__be16 logo;
+			__be16 flogi_req;
+			__be16 flogi_rpl;
+			__be16 fdisc_req;
+			__be16 fdisc_rpl;
+			__be16 fka_prd_chg;
+			__be16 fc_map_chg;
+			__be16 vfid_chg;
+			__u8   no_fka_req;
+			__u8   no_vnp;
+		} fcf_stats;
+		struct fw_fcoe_pcb_stats {
+			__be64 tx_bytes;
+			__be64 tx_frames;
+			__be64 rx_bytes;
+			__be64 rx_frames;
+			__be32 vnp_ka;
+			__be32 unsol_els_rcvd;
+			__be64 unsol_cmd_rcvd;
+			__be16 implicit_logo;
+			__be16 flogi_inv_sparm;
+			__be16 fdisc_inv_sparm;
+			__be16 flogi_rjt;
+			__be16 fdisc_rjt;
+			__be16 no_ssn;
+			__be16 mac_flt_fail;
+			__be16 inv_fr_rcvd;
+		} pcb_stats;
+		struct fw_fcoe_scb_stats {
+			__be64 tx_bytes;
+			__be64 tx_frames;
+			__be64 rx_bytes;
+			__be64 rx_frames;
+			__be32 host_abrt_req;
+			__be32 adap_auto_abrt;
+			__be32 adap_abrt_rsp;
+			__be32 host_ios_req;
+			__be16 ssn_offl_ios;
+			__be16 ssn_not_rdy_ios;
+			__u8   rx_data_ddp_err;
+			__u8   ddp_flt_set_err;
+			__be16 rx_data_fr_err;
+			__u8   bad_st_abrt_req;
+			__u8   no_io_abrt_req;
+			__u8   abort_tmo;
+			__u8   abort_tmo_2;
+			__be32 abort_req;
+			__u8   no_ppod_res_tmo;
+			__u8   bp_tmo;
+			__u8   adap_auto_cls;
+			__u8   no_io_cls_req;
+			__be32 host_cls_req;
+			__be64 unsol_cmd_rcvd;
+			__be32 plogi_req_rcvd;
+			__be32 prli_req_rcvd;
+			__be16 logo_req_rcvd;
+			__be16 prlo_req_rcvd;
+			__be16 plogi_rjt_rcvd;
+			__be16 prli_rjt_rcvd;
+			__be32 adisc_req_rcvd;
+			__be32 rscn_rcvd;
+			__be32 rrq_req_rcvd;
+			__be32 unsol_els_rcvd;
+			__u8   adisc_rjt_rcvd;
+			__u8   scr_rjt;
+			__u8   ct_rjt;
+			__u8   inval_bls_rcvd;
+			__be32 ba_rjt_rcvd;
+		} scb_stats;
+	} u;
+};
+
+#define S_FW_FCOE_STATS_CMD_FLOWID	0
+#define M_FW_FCOE_STATS_CMD_FLOWID	0xfffff
+#define V_FW_FCOE_STATS_CMD_FLOWID(x)	((x) << S_FW_FCOE_STATS_CMD_FLOWID)
+#define G_FW_FCOE_STATS_CMD_FLOWID(x)	\
+    (((x) >> S_FW_FCOE_STATS_CMD_FLOWID) & M_FW_FCOE_STATS_CMD_FLOWID)
+
+#define S_FW_FCOE_STATS_CMD_FREE	30
+#define M_FW_FCOE_STATS_CMD_FREE	0x1
+#define V_FW_FCOE_STATS_CMD_FREE(x)	((x) << S_FW_FCOE_STATS_CMD_FREE)
+#define G_FW_FCOE_STATS_CMD_FREE(x)	\
+    (((x) >> S_FW_FCOE_STATS_CMD_FREE) & M_FW_FCOE_STATS_CMD_FREE)
+#define F_FW_FCOE_STATS_CMD_FREE	V_FW_FCOE_STATS_CMD_FREE(1U)
+
+#define S_FW_FCOE_STATS_CMD_NSTATS	4
+#define M_FW_FCOE_STATS_CMD_NSTATS	0x7
+#define V_FW_FCOE_STATS_CMD_NSTATS(x)	((x) << S_FW_FCOE_STATS_CMD_NSTATS)
+#define G_FW_FCOE_STATS_CMD_NSTATS(x)	\
+    (((x) >> S_FW_FCOE_STATS_CMD_NSTATS) & M_FW_FCOE_STATS_CMD_NSTATS)
+
+#define S_FW_FCOE_STATS_CMD_PORT	0
+#define M_FW_FCOE_STATS_CMD_PORT	0x3
+#define V_FW_FCOE_STATS_CMD_PORT(x)	((x) << S_FW_FCOE_STATS_CMD_PORT)
+#define G_FW_FCOE_STATS_CMD_PORT(x)	\
+    (((x) >> S_FW_FCOE_STATS_CMD_PORT) & M_FW_FCOE_STATS_CMD_PORT)
+
+#define S_FW_FCOE_STATS_CMD_PORT_VALID		7
+#define M_FW_FCOE_STATS_CMD_PORT_VALID		0x1
+#define V_FW_FCOE_STATS_CMD_PORT_VALID(x)	\
+    ((x) << S_FW_FCOE_STATS_CMD_PORT_VALID)
+#define G_FW_FCOE_STATS_CMD_PORT_VALID(x)	\
+    (((x) >> S_FW_FCOE_STATS_CMD_PORT_VALID) & M_FW_FCOE_STATS_CMD_PORT_VALID)
+#define F_FW_FCOE_STATS_CMD_PORT_VALID	V_FW_FCOE_STATS_CMD_PORT_VALID(1U)
+
+#define S_FW_FCOE_STATS_CMD_IX		0
+#define M_FW_FCOE_STATS_CMD_IX		0x3f
+#define V_FW_FCOE_STATS_CMD_IX(x)	((x) << S_FW_FCOE_STATS_CMD_IX)
+#define G_FW_FCOE_STATS_CMD_IX(x)	\
+    (((x) >> S_FW_FCOE_STATS_CMD_IX) & M_FW_FCOE_STATS_CMD_IX)
+
+struct fw_fcoe_fcf_cmd {
+	__be32 op_to_fcfi;
+	__be32 retval_len16;
+	__be16 priority_pkd;
+	__u8   mac[6];
+	__u8   name_id[8];
+	__u8   fabric[8];
+	__be16 vf_id;
+	__be16 max_fcoe_size;
+	__u8   vlan_id;
+	__u8   fc_map[3];
+	__be32 fka_adv;
+	__be32 r6;
+	__u8   r7_hi;
+	__u8   fpma_to_portid;
+	__u8   spma_mac[6];
+	__be64 r8;
+};
+
+#define S_FW_FCOE_FCF_CMD_FCFI		0
+#define M_FW_FCOE_FCF_CMD_FCFI		0xfffff
+#define V_FW_FCOE_FCF_CMD_FCFI(x)	((x) << S_FW_FCOE_FCF_CMD_FCFI)
+#define G_FW_FCOE_FCF_CMD_FCFI(x)	\
+    (((x) >> S_FW_FCOE_FCF_CMD_FCFI) & M_FW_FCOE_FCF_CMD_FCFI)
+
+#define S_FW_FCOE_FCF_CMD_PRIORITY	0
+#define M_FW_FCOE_FCF_CMD_PRIORITY	0xff
+#define V_FW_FCOE_FCF_CMD_PRIORITY(x)	((x) << S_FW_FCOE_FCF_CMD_PRIORITY)
+#define G_FW_FCOE_FCF_CMD_PRIORITY(x)	\
+    (((x) >> S_FW_FCOE_FCF_CMD_PRIORITY) & M_FW_FCOE_FCF_CMD_PRIORITY)
+
+#define S_FW_FCOE_FCF_CMD_FPMA		6
+#define M_FW_FCOE_FCF_CMD_FPMA		0x1
+#define V_FW_FCOE_FCF_CMD_FPMA(x)	((x) << S_FW_FCOE_FCF_CMD_FPMA)
+#define G_FW_FCOE_FCF_CMD_FPMA(x)	\
+    (((x) >> S_FW_FCOE_FCF_CMD_FPMA) & M_FW_FCOE_FCF_CMD_FPMA)
+#define F_FW_FCOE_FCF_CMD_FPMA	V_FW_FCOE_FCF_CMD_FPMA(1U)
+
+#define S_FW_FCOE_FCF_CMD_SPMA		5
+#define M_FW_FCOE_FCF_CMD_SPMA		0x1
+#define V_FW_FCOE_FCF_CMD_SPMA(x)	((x) << S_FW_FCOE_FCF_CMD_SPMA)
+#define G_FW_FCOE_FCF_CMD_SPMA(x)	\
+    (((x) >> S_FW_FCOE_FCF_CMD_SPMA) & M_FW_FCOE_FCF_CMD_SPMA)
+#define F_FW_FCOE_FCF_CMD_SPMA	V_FW_FCOE_FCF_CMD_SPMA(1U)
+
+#define S_FW_FCOE_FCF_CMD_LOGIN		4
+#define M_FW_FCOE_FCF_CMD_LOGIN		0x1
+#define V_FW_FCOE_FCF_CMD_LOGIN(x)	((x) << S_FW_FCOE_FCF_CMD_LOGIN)
+#define G_FW_FCOE_FCF_CMD_LOGIN(x)	\
+    (((x) >> S_FW_FCOE_FCF_CMD_LOGIN) & M_FW_FCOE_FCF_CMD_LOGIN)
+#define F_FW_FCOE_FCF_CMD_LOGIN	V_FW_FCOE_FCF_CMD_LOGIN(1U)
+
+#define S_FW_FCOE_FCF_CMD_PORTID	0
+#define M_FW_FCOE_FCF_CMD_PORTID	0xf
+#define V_FW_FCOE_FCF_CMD_PORTID(x)	((x) << S_FW_FCOE_FCF_CMD_PORTID)
+#define G_FW_FCOE_FCF_CMD_PORTID(x)	\
+    (((x) >> S_FW_FCOE_FCF_CMD_PORTID) & M_FW_FCOE_FCF_CMD_PORTID)
+
+/******************************************************************************
+ *   E R R O R   a n d   D E B U G   C O M M A N D s
+ ******************************************************/
 
 enum fw_error_type {
 	FW_ERROR_TYPE_EXCEPTION		= 0x0,
@@ -5145,6 +7602,119 @@ struct fw_debug_cmd {
     (((x) >> S_FW_DEBUG_CMD_TYPE) & M_FW_DEBUG_CMD_TYPE)
 
 /******************************************************************************
+ *   P C I E   F W   R E G I S T E R
+ **************************************/
+
+enum pcie_fw_eval {
+	PCIE_FW_EVAL_CRASH		= 0,
+	PCIE_FW_EVAL_PREP		= 1,
+	PCIE_FW_EVAL_CONF		= 2,
+	PCIE_FW_EVAL_INIT		= 3,
+	PCIE_FW_EVAL_UNEXPECTEDEVENT	= 4,
+	PCIE_FW_EVAL_OVERHEAT		= 5,
+	PCIE_FW_EVAL_DEVICESHUTDOWN	= 6,
+};
+
+/**
+ *	Register definitions for the PCIE_FW register which the firmware uses
+ *	to retain status across RESETs.  This register should be considered
+ *	as a READ-ONLY register for Host Software and only to be used to
+ *	track firmware initialization/error state, etc.
+ */
+#define S_PCIE_FW_ERR		31
+#define M_PCIE_FW_ERR		0x1
+#define V_PCIE_FW_ERR(x)	((x) << S_PCIE_FW_ERR)
+#define G_PCIE_FW_ERR(x)	(((x) >> S_PCIE_FW_ERR) & M_PCIE_FW_ERR)
+#define F_PCIE_FW_ERR		V_PCIE_FW_ERR(1U)
+
+#define S_PCIE_FW_INIT		30
+#define M_PCIE_FW_INIT		0x1
+#define V_PCIE_FW_INIT(x)	((x) << S_PCIE_FW_INIT)
+#define G_PCIE_FW_INIT(x)	(((x) >> S_PCIE_FW_INIT) & M_PCIE_FW_INIT)
+#define F_PCIE_FW_INIT		V_PCIE_FW_INIT(1U)
+
+#define S_PCIE_FW_HALT          29
+#define M_PCIE_FW_HALT          0x1
+#define V_PCIE_FW_HALT(x)       ((x) << S_PCIE_FW_HALT)
+#define G_PCIE_FW_HALT(x)       (((x) >> S_PCIE_FW_HALT) & M_PCIE_FW_HALT)
+#define F_PCIE_FW_HALT          V_PCIE_FW_HALT(1U)
+
+#define S_PCIE_FW_EVAL		24
+#define M_PCIE_FW_EVAL		0x7
+#define V_PCIE_FW_EVAL(x)	((x) << S_PCIE_FW_EVAL)
+#define G_PCIE_FW_EVAL(x)	(((x) >> S_PCIE_FW_EVAL) & M_PCIE_FW_EVAL)
+
+#define S_PCIE_FW_STAGE		21
+#define M_PCIE_FW_STAGE		0x7
+#define V_PCIE_FW_STAGE(x)	((x) << S_PCIE_FW_STAGE)
+#define G_PCIE_FW_STAGE(x)	(((x) >> S_PCIE_FW_STAGE) & M_PCIE_FW_STAGE)
+
+#define S_PCIE_FW_ASYNCNOT_VLD	20
+#define M_PCIE_FW_ASYNCNOT_VLD	0x1
+#define V_PCIE_FW_ASYNCNOT_VLD(x) \
+    ((x) << S_PCIE_FW_ASYNCNOT_VLD)
+#define G_PCIE_FW_ASYNCNOT_VLD(x) \
+    (((x) >> S_PCIE_FW_ASYNCNOT_VLD) & M_PCIE_FW_ASYNCNOT_VLD)
+#define F_PCIE_FW_ASYNCNOT_VLD	V_PCIE_FW_ASYNCNOT_VLD(1U)
+
+#define S_PCIE_FW_ASYNCNOTINT	19
+#define M_PCIE_FW_ASYNCNOTINT	0x1
+#define V_PCIE_FW_ASYNCNOTINT(x) \
+    ((x) << S_PCIE_FW_ASYNCNOTINT)
+#define G_PCIE_FW_ASYNCNOTINT(x) \
+    (((x) >> S_PCIE_FW_ASYNCNOTINT) & M_PCIE_FW_ASYNCNOTINT)
+#define F_PCIE_FW_ASYNCNOTINT	V_PCIE_FW_ASYNCNOTINT(1U)
+
+#define S_PCIE_FW_ASYNCNOT	16
+#define M_PCIE_FW_ASYNCNOT	0x7
+#define V_PCIE_FW_ASYNCNOT(x)	((x) << S_PCIE_FW_ASYNCNOT)
+#define G_PCIE_FW_ASYNCNOT(x)	\
+    (((x) >> S_PCIE_FW_ASYNCNOT) & M_PCIE_FW_ASYNCNOT)
+
+#define S_PCIE_FW_MASTER_VLD	15
+#define M_PCIE_FW_MASTER_VLD	0x1
+#define V_PCIE_FW_MASTER_VLD(x)	((x) << S_PCIE_FW_MASTER_VLD)
+#define G_PCIE_FW_MASTER_VLD(x)	\
+    (((x) >> S_PCIE_FW_MASTER_VLD) & M_PCIE_FW_MASTER_VLD)
+#define F_PCIE_FW_MASTER_VLD	V_PCIE_FW_MASTER_VLD(1U)
+
+#define S_PCIE_FW_MASTER	12
+#define M_PCIE_FW_MASTER	0x7
+#define V_PCIE_FW_MASTER(x)	((x) << S_PCIE_FW_MASTER)
+#define G_PCIE_FW_MASTER(x)	(((x) >> S_PCIE_FW_MASTER) & M_PCIE_FW_MASTER)
+
+#define S_PCIE_FW_RESET_VLD		11
+#define M_PCIE_FW_RESET_VLD		0x1
+#define V_PCIE_FW_RESET_VLD(x)	((x) << S_PCIE_FW_RESET_VLD)
+#define G_PCIE_FW_RESET_VLD(x)	\
+    (((x) >> S_PCIE_FW_RESET_VLD) & M_PCIE_FW_RESET_VLD)
+#define F_PCIE_FW_RESET_VLD	V_PCIE_FW_RESET_VLD(1U)
+
+#define S_PCIE_FW_RESET		8
+#define M_PCIE_FW_RESET		0x7
+#define V_PCIE_FW_RESET(x)	((x) << S_PCIE_FW_RESET)
+#define G_PCIE_FW_RESET(x)	\
+    (((x) >> S_PCIE_FW_RESET) & M_PCIE_FW_RESET)
+
+#define S_PCIE_FW_REGISTERED	0
+#define M_PCIE_FW_REGISTERED	0xff
+#define V_PCIE_FW_REGISTERED(x)	((x) << S_PCIE_FW_REGISTERED)
+#define G_PCIE_FW_REGISTERED(x)	\
+    (((x) >> S_PCIE_FW_REGISTERED) & M_PCIE_FW_REGISTERED)
+
+
+/******************************************************************************
+ *   P C I E   F W   P F 0   R E G I S T E R
+ **********************************************/
+
+/*
+ *	this register is available as 32-bit of persistent storage (accross
+ *	PL_RST based chip-reset) for boot drivers (i.e. firmware and driver
+ *	will not write it)
+ */
+
+
+/******************************************************************************
  *   B I N A R Y   H E A D E R   F O R M A T
  **********************************************/
 
@@ -5153,7 +7723,7 @@ struct fw_debug_cmd {
  */
 struct fw_hdr {
 	__u8	ver;
-	__u8	reserved1;
+	__u8	chip;			/* terminator chip family */
 	__be16	len512;			/* bin length in units of 512-bytes */
 	__be32	fw_ver;			/* firmware version */
 	__be32	tp_microcode_ver;	/* tcp processor microcode version */
@@ -5163,9 +7733,18 @@ struct fw_hdr {
 	__u8	intfver_ri;
 	__u8	intfver_iscsipdu;
 	__u8	intfver_iscsi;
+	__u8	intfver_fcoepdu;
 	__u8	intfver_fcoe;
-	__u8	reserved2;
-	__be32	reserved3[27];
+	__u32	reserved2;
+	__u32	reserved3;
+	__u32	magic;			/* runtime or bootstrap fw */
+	__be32	flags;
+	__be32	reserved6[23];
+};
+
+enum fw_hdr_chip {
+	FW_HDR_CHIP_T4,
+	FW_HDR_CHIP_T5
 };
 
 #define S_FW_HDR_FW_VER_MAJOR	24
@@ -5195,5 +7774,38 @@ struct fw_hdr {
     ((x) << S_FW_HDR_FW_VER_BUILD)
 #define G_FW_HDR_FW_VER_BUILD(x) \
     (((x) >> S_FW_HDR_FW_VER_BUILD) & M_FW_HDR_FW_VER_BUILD)
+
+enum {
+	/* T4
+	 */
+	FW_HDR_INTFVER_NIC	= 0x00,
+	FW_HDR_INTFVER_VNIC	= 0x00,
+	FW_HDR_INTFVER_OFLD	= 0x00,
+	FW_HDR_INTFVER_RI	= 0x00,
+	FW_HDR_INTFVER_ISCSIPDU	= 0x00,
+	FW_HDR_INTFVER_ISCSI	= 0x00,
+	FW_HDR_INTFVER_FCOEPDU  = 0x00,
+	FW_HDR_INTFVER_FCOE	= 0x00,
+
+	/* T5
+	 */
+	T5FW_HDR_INTFVER_NIC	= 0x00,
+	T5FW_HDR_INTFVER_VNIC	= 0x00,
+	T5FW_HDR_INTFVER_OFLD	= 0x00,
+	T5FW_HDR_INTFVER_RI	= 0x00,
+	T5FW_HDR_INTFVER_ISCSIPDU= 0x00,
+	T5FW_HDR_INTFVER_ISCSI	= 0x00,
+	T5FW_HDR_INTFVER_FCOEPDU= 0x00,
+	T5FW_HDR_INTFVER_FCOE	= 0x00,
+};
+
+enum {
+	FW_HDR_MAGIC_RUNTIME	= 0x00000000,
+	FW_HDR_MAGIC_BOOTSTRAP	= 0x626f6f74,
+};
+
+enum fw_hdr_flags {
+	FW_HDR_FLAGS_RESET_HALT	= 0x00000001,
+};
 
 #endif /* _T4FW_INTERFACE_H_ */
