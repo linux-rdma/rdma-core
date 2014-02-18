@@ -269,6 +269,8 @@ static void c4iw_free_context(struct ibv_context *ibctx)
 {
 	struct c4iw_context *context = to_c4iw_context(ibctx);
 
+	if (context->status_page_size)
+		munmap(context->status_page, context->status_page_size);
 	free(context);
 }
 
