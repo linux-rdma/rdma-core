@@ -514,7 +514,7 @@ static int add_non_exist_target(struct target_details *target)
 		}
 	}
 
-	if (config->execute) {
+	if (config->execute && config->tl_retry_count) {
 		len += snprintf(target_config_str + len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",tl_retry_count=%d", config->tl_retry_count);
@@ -1370,7 +1370,11 @@ static char *parse_main_option(struct rule *rule, char *ptr)
 static int parse_other_option(struct rule *rule, char *ptr)
 {
 	static const char *const opt[] = {
-		"max_sect=", "max_cmd_per_lun=", "comp_vector=", "queue_size=",
+		"comp_vector=",
+		"max_cmd_per_lun=",
+		"max_sect=",
+		"queue_size=",
+		"tl_retry_count=",
 	};
 
 	char *ptr2 = NULL, *optr, option[17];
@@ -1525,7 +1529,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->print_initiator_ext	= 0;
 	conf->rules_file		= "/etc/srp_daemon.conf";
 	conf->rules			= NULL;
-	conf->tl_retry_count		= 2;
+	conf->tl_retry_count		= 0;
 
 	while (1) {
 		int c;
