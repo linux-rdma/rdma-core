@@ -1445,10 +1445,8 @@ int ocrdma_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 		else
 			qp->wqe_wr_id_tbl[qp->sq.head].signaled = 0;
 
-		if (qp->dpp_enabled && (wr->send_flags & IBV_SEND_INLINE
-			|| wr->opcode == IBV_WR_RDMA_READ)) {
+		if (qp->dpp_enabled && (wr->send_flags & IBV_SEND_INLINE))
 			ocrdma_post_dpp_wqe(qp, hdr);
-		}
 
 		ocrdma_swap_cpu_to_le(hdr, ((hdr->cw >> OCRDMA_WQE_SIZE_SHIFT) &
 				      OCRDMA_WQE_SIZE_MASK) *
