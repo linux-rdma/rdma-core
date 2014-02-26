@@ -186,7 +186,7 @@ static void print_node_record(ib_node_record_t * node_record)
 	switch (node_print_desc) {
 	case LID_ONLY:
 	case UNIQUE_LID_ONLY:
-		printf("%d\n", cl_ntoh16(node_record->lid));
+		printf("%u\n", cl_ntoh16(node_record->lid));
 		return;
 	case GUID_ONLY:
 		printf("0x%016" PRIx64 "\n", cl_ntoh64(p_ni->port_guid));
