@@ -1432,7 +1432,7 @@ static int query_sa_cpi(struct sa_handle *h, struct query_params *query_params)
 	int ret = sa_query(h, IB_MAD_METHOD_GET, CLASS_PORT_INFO, 0, 0,
 		       ibd_sakey, NULL, 0, &result);
 	if (ret) {
-		fprintf(stderr, "ERROR: Query SA failed: %s\n", strerror(ret));
+		fprintf(stderr, "Query SA failed: %s\n", strerror(ret));
 		return ret;
 	}
 
