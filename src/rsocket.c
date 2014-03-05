@@ -1140,7 +1140,9 @@ int rbind(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	struct rsocket *rs;
 	int ret;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
 		ret = rdma_bind_addr(rs->cm_id, (struct sockaddr *) addr);
 		if (!ret)
@@ -1161,7 +1163,9 @@ int rlisten(int socket, int backlog)
 	struct rsocket *rs;
 	int ret;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	ret = rdma_listen(rs->cm_id, backlog);
 	if (!ret)
 		rs->state = rs_listening;
@@ -1187,7 +1191,9 @@ int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 	struct rs_conn_data *creq, cresp;
 	int ret;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	new_rs = rs_alloc(rs, rs->type);
 	if (!new_rs)
 		return ERR(ENOMEM);
@@ -1572,7 +1578,9 @@ int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	struct rsocket *rs;
 	int ret;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
 		memcpy(&rs->cm_id->route.addr.dst_addr, addr, addrlen);
 		ret = rs_do_connect(rs);
@@ -3134,7 +3142,9 @@ int rshutdown(int socket, int how)
 	struct rsocket *rs;
 	int ctrl, ret = 0;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->opts & RS_OPT_SVC_ACTIVE)
 		rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
 
@@ -3202,7 +3212,9 @@ int rclose(int socket)
 {
 	struct rsocket *rs;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return EBADF;
 	if (rs->type == SOCK_STREAM) {
 		if (rs->state & rs_connected)
 			rshutdown(socket, SHUT_RDWR);
@@ -3232,7 +3244,9 @@ int rgetpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
 {
 	struct rsocket *rs;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
 		rs_copy_addr(addr, rdma_get_peer_addr(rs->cm_id), addrlen);
 		return 0;
@@ -3245,7 +3259,9 @@ int rgetsockname(int socket, struct sockaddr *addr, socklen_t *addrlen)
 {
 	struct rsocket *rs;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
 		rs_copy_addr(addr, rdma_get_local_addr(rs->cm_id), addrlen);
 		return 0;
@@ -3288,7 +3304,9 @@ int rsetsockopt(int socket, int level, int optname,
 	uint64_t *opts = NULL;
 
 	ret = ERR(ENOTSUP);
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_DGRAM && level != SOL_RDMA) {
 		ret = setsockopt(rs->udp_sock, level, optname, optval, optlen);
 		if (ret)
@@ -3442,7 +3460,9 @@ int rgetsockopt(int socket, int level, int optname,
 	struct rsocket *rs;
 	int ret = 0;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	switch (level) {
 	case SOL_SOCKET:
 		switch (optname) {
@@ -3551,7 +3571,9 @@ int rfcntl(int socket, int cmd, ... /* arg */ )
 	long param;
 	int ret = 0;
 
-	rs = idm_at(&idm, socket);
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	va_start(args, cmd);
 	switch (cmd) {
 	case F_GETFL:
