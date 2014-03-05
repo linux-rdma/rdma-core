@@ -63,7 +63,12 @@ selects -1 for the offset, rsockets selects one.  The remote peer may
 access an iomapped buffer directly by specifying the correct offset.
 The mapping is not guaranteed to be available until after the remote
 peer receives a data transfer initiated after riomap has completed.
-.P
+.PP
+In order to enable the use of remote IO mapping calls on an rsocket,
+an application must set the number of IO mappings that are available
+to the remote peer.  This may be done using the rsetsockopt
+RDMA_IOMAPSIZE option.  By default, an rsocket does not support
+remote IO mappings.
 riounmap
 .TP
 int riounmap(int socket, void *buf, size_t len)
