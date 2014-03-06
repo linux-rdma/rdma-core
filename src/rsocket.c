@@ -146,9 +146,11 @@ enum {
 #define RS_MSG_SIZE	      sizeof(uint32_t)
 
 #define RS_WR_ID_FLAG_RECV (((uint64_t) 1) << 63)
+#define RS_WR_ID_FLAG_MSG_SEND (((uint64_t) 1) << 62) /* See RS_OPT_MSG_SEND */
 #define rs_send_wr_id(data) ((uint64_t) data)
 #define rs_recv_wr_id(data) (RS_WR_ID_FLAG_RECV | (uint64_t) data)
 #define rs_wr_is_recv(wr_id) (wr_id & RS_WR_ID_FLAG_RECV)
+#define rs_wr_is_msg_send(wr_id) (wr_id & RS_WR_ID_FLAG_MSG_SEND)
 #define rs_wr_data(wr_id) ((uint32_t) wr_id)
 
 enum {
@@ -1651,11 +1653,12 @@ static int rs_post_write_msg(struct rsocket *rs,
 			 uint64_t addr, uint32_t rkey)
 {
 	struct ibv_send_wr wr, *bad;
+	struct ibv_sge sge;
 	int ret;
 
+	wr.next = NULL;
 	if (!(rs->opts & RS_OPT_MSG_SEND)) {
 		wr.wr_id = rs_send_wr_id(msg);
-		wr.next = NULL;
 		wr.sg_list = sgl;
 		wr.num_sge = nsge;
 		wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
@@ -1667,8 +1670,19 @@ static int rs_post_write_msg(struct rsocket *rs,
 		return rdma_seterrno(ibv_post_send(rs->cm_id->qp, &wr, &bad));
 	} else {
 		ret = rs_post_write(rs, sgl, nsge, msg, flags, addr, rkey);
-		if (!ret)
-			ret = rs_post_msg(rs, msg);
+		if (!ret) {
+			wr.wr_id = rs_send_wr_id(rs_msg_set(rs_msg_op(msg), 0)) |
+				   RS_WR_ID_FLAG_MSG_SEND;
+			sge.addr = (uintptr_t) &msg;
+			sge.lkey = 0;
+			sge.length = sizeof msg;
+			wr.sg_list = &sge;
+			wr.num_sge = 1;
+			wr.opcode = IBV_WR_SEND;
+			wr.send_flags = IBV_SEND_INLINE;
+
+			ret = rdma_seterrno(ibv_post_send(rs->cm_id->qp, &wr, &bad));
+		}
 		return ret;
 	}
 }
@@ -1881,7 +1895,8 @@ static int rs_poll_cq(struct rsocket *rs)
 				break;
 			case RS_OP_IOMAP_SGL:
 				rs->sqe_avail++;
-				rs->sbuf_bytes_avail += sizeof(struct rs_iomap);
+				if (!rs_wr_is_msg_send(wc.wr_id))
+					rs->sbuf_bytes_avail += sizeof(struct rs_iomap);
 				break;
 			default:
 				rs->sqe_avail++;
