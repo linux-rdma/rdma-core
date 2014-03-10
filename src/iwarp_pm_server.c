@@ -497,9 +497,9 @@ query_mapping_error:
 static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx, int nl_sock)
 {
 	iwpm_mapped_port *iwpm_port = NULL;
-	struct sockaddr_storage *local_mapped_addr;
+	struct sockaddr_storage *local_addr;
 	struct nlattr *nltb [IWPM_NLA_MANAGE_MAPPING_MAX];
-	int not_mapped = 0;
+	int not_mapped = 1;
 	const char *msg_type = "Remove Mapping Request";
 	int ret = 0;
 
@@ -510,14 +510,14 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 		ret = -EINVAL;
 		goto remove_mapping_exit;
 	}
-	local_mapped_addr = (struct sockaddr_storage *)nla_data(nltb[IWPM_NLA_MANAGE_ADDR]);
+	local_addr = (struct sockaddr_storage *)nla_data(nltb[IWPM_NLA_MANAGE_ADDR]);
 	iwpm_debug(IWARP_PM_NETLINK_DBG, "process_remove_mapping: Going to remove mapping"
 			" (client idx = %d)\n", client_idx);
 
-	iwpm_port = find_iwpm_mapped_port(mapped_ports, local_mapped_addr, not_mapped);
+	iwpm_port = find_iwpm_mapped_port(mapped_ports, local_addr, not_mapped);
 	if (!iwpm_port) {
 		iwpm_debug(IWARP_PM_NETLINK_DBG, "process_remove_mapping: Unable to find mapped port object\n");
-		print_iwpm_sockaddr(local_mapped_addr, "process_remove_mapping: local mapped address");
+		print_iwpm_sockaddr(local_addr, "process_remove_mapping: Local address");
 		/* the client sends a remove mapping request when terminating a connection
  		   and it is possible that there isn't a successful mapping for this connection */
 		goto remove_mapping_exit;
@@ -556,6 +556,7 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms,
 		/* could not find mapping for the requested address */
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_request: "
 				"Sending Reject to port mapper peer.\n");
+		print_iwpm_sockaddr(&local_addr, "process_wire_request: Local address");
 		return send_iwpm_msg(form_iwpm_reject, msg_parms, recv_addr, pm_sock);
 	}
 	/* check if there is already a request */
@@ -720,6 +721,10 @@ static int process_iwpm_wire_reject(iwpm_msg_parms *msg_parms, int nl_sock)
 				&msg_parms->cpipaddr[0], NULL, &msg_parms->cpport);
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &remote_addr,
 				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
+
+	print_iwpm_sockaddr(&local_mapped_addr, "process_wire_reject: Local mapped address");
+	print_iwpm_sockaddr(&remote_addr, "process_wire_reject: Remote address");
+
 	ret = -EINVAL;
 	iwpm_port = find_iwpm_mapped_port(mapped_ports, &local_mapped_addr, not_mapped); 
 	if (!iwpm_port) {
@@ -868,9 +873,9 @@ process_mapinfo_error:
 }
 
 /* Mapping info message count - nlmsg attributes */
-static struct nla_policy mapinfo_count_policy[IWPM_NLA_MAPINFO_COUNT_MAX] = {
-        [IWPM_NLA_MAPINFO_SEQ]     =  { .type = NLA_U32 },
-        [IWPM_NLA_MAPINFO_NUMBER]  =  { .type = NLA_U32 }
+static struct nla_policy mapinfo_count_policy[IWPM_NLA_MAPINFO_SEND_MAX] = {
+        [IWPM_NLA_MAPINFO_SEQ]       =  { .type = NLA_U32 },
+        [IWPM_NLA_MAPINFO_SEND_NUM]  =  { .type = NLA_U32 }
 };
 
 /**
@@ -884,7 +889,7 @@ static struct nla_policy mapinfo_count_policy[IWPM_NLA_MAPINFO_COUNT_MAX] = {
  */
 static int process_iwpm_mapinfo_count(struct nlmsghdr *req_nlh, int client_idx, int nl_sock) 
 {
-	struct nlattr *nltb [IWPM_NLA_MAPINFO_COUNT_MAX];
+	struct nlattr *nltb [IWPM_NLA_MAPINFO_SEND_MAX];
 	struct nl_msg *resp_nlmsg = NULL;
 	const char *msg_type = "Number of Mappings Msg";
 	__u32 map_count;
@@ -892,13 +897,13 @@ static int process_iwpm_mapinfo_count(struct nlmsghdr *req_nlh, int client_idx, 
 	const char *str_err = "";
 	int ret = -EINVAL;
 
-	if (parse_iwpm_nlmsg(req_nlh, IWPM_NLA_MAPINFO_COUNT_MAX, 
+	if (parse_iwpm_nlmsg(req_nlh, IWPM_NLA_MAPINFO_SEND_MAX, 
 					mapinfo_count_policy, nltb, msg_type)) {
 		str_err = "Received Invalid nlmsg";
 		err_code = IWPM_INVALID_NLMSG_ERR;
 		goto mapinfo_count_error;
 	}
-	map_count = nla_get_u32(nltb[IWPM_NLA_MAPINFO_NUMBER]);
+	map_count = nla_get_u32(nltb[IWPM_NLA_MAPINFO_SEND_NUM]);
 	if (map_count != mapinfo_num_list[client_idx])
 		iwpm_debug(IWARP_PM_NETLINK_DBG, "get_mapinfo_count: Client (idx = %d) "
 				"send mapinfo count = %u processed mapinfo count = %u.\n",
@@ -913,7 +918,10 @@ static int process_iwpm_mapinfo_count(struct nlmsghdr *req_nlh, int client_idx, 
 	str_err = "Invalid nlmsg attribute";
 	if ((ret = nla_put_u32(resp_nlmsg, IWPM_NLA_MAPINFO_SEQ, req_nlh->nlmsg_seq)))
 		goto mapinfo_count_free_error;
-	if ((ret = nla_put_u32(resp_nlmsg, IWPM_NLA_MAPINFO_NUMBER, mapinfo_num_list[client_idx])))
+	if ((ret = nla_put_u32(resp_nlmsg, IWPM_NLA_MAPINFO_SEND_NUM, map_count)))
+		goto mapinfo_count_free_error;
+	if ((ret = nla_put_u32(resp_nlmsg, IWPM_NLA_MAPINFO_ACK_NUM,
+						mapinfo_num_list[client_idx])))
 		goto mapinfo_count_free_error;
 
 	if ((ret = send_iwpm_nlmsg(nl_sock, resp_nlmsg, req_nlh->nlmsg_pid))) {
@@ -1058,20 +1066,10 @@ static int process_iwpm_netlink_msg(int nl_sock)
 			}
 			ret = process_iwpm_remove_mapping(nlh, client_idx, nl_sock);
 			break;
-		case RDMA_NL_IWPM_MAP_INFO:
-			str_err = "Mapping Info message";
-			if (!client_list[client_idx].valid) {
-				ret = -EINVAL;
-				goto process_netlink_msg_exit;
-			}
+		case RDMA_NL_IWPM_MAPINFO:
 			ret = process_iwpm_mapinfo(nlh, client_idx, nl_sock);
 			break;
-		case RDMA_NL_IWPM_MAP_INFO_NUM:
-			str_err = "Mapping Info count";
-			if (!client_list[client_idx].valid) {
-				ret = -EINVAL;
-				goto process_netlink_msg_exit;
-			}
+		case RDMA_NL_IWPM_MAPINFO_NUM:
 			ret = process_iwpm_mapinfo_count(nlh, client_idx, nl_sock);
 			break;
 		default:
@@ -1151,7 +1149,7 @@ static int init_iwpm_clients(__u32 iwarp_clients[])
 	int client_num = 2;
 
 	iwarp_clients[0] = RDMA_NL_NES;
-	iwarp_clients[1] = RDMA_NL_CHELSIO;
+	iwarp_clients[1] = RDMA_NL_C4IW;
 
 	return client_num;
 }
@@ -1171,7 +1169,7 @@ static int send_iwpm_mapinfo_request(int nl_sock, __u32 *iwarp_clients, int leng
 	int ret;
 
 	for (i = 0; i < length; i++) {
-		nlmsg_type = RDMA_NL_GET_TYPE(iwarp_clients[i], RDMA_NL_IWPM_MAP_INFO);
+		nlmsg_type = RDMA_NL_GET_TYPE(iwarp_clients[i], RDMA_NL_IWPM_MAPINFO);
 		req_nlmsg = create_iwpm_nlmsg(nlmsg_type, iwarp_clients[i]);
 		if (!req_nlmsg) {
 			ret = -ENOMEM;
