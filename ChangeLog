@@ -1,6 +1,22 @@
-commit bf6aa431b9658f4c788245159cf12c1f27ea9581
+commit 51cd89ff2cc2fe9f2d7c3459ef2d54c42c0e3228
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Tue Feb 18 12:05:16 2014 -0600
+Date:   Tue Mar 11 11:45:26 2014 -0500
+
+    Spin release 1.3.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 98cea522707232b99ff5c07dd9f57937aa8a7d91
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Mar 11 11:44:16 2014 -0500
+
+    Zero the status_page_size before calling get_context.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomuting.com>
+
+commit a373e16a94524e20492301b0e97f53930133739b
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 18 12:07:19 2014 -0600
 
     Spin release 1.3.2.
     
