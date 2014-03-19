@@ -56,6 +56,8 @@
 #include "acm_util.h"
 
 #define src_out     data[0]
+#define src_index   data[1]
+#define dst_index   data[2]
 
 #define IB_LID_MCAST_START 0xc000
 
@@ -1096,7 +1098,7 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_msg *req_msg,
 		if (req_msg->hdr.src_out) {
 			msg.hdr.length += ACM_MSG_EP_LENGTH;
 			memcpy(&msg.resolve_data[1],
-				&req_msg->resolve_data[req_msg->hdr.src_out],
+				&req_msg->resolve_data[req_msg->hdr.src_index],
 				ACM_MSG_EP_LENGTH);
 		}
 	}
@@ -2007,9 +2009,6 @@ static int acm_svr_select_src(struct acm_ep_addr_data *src, struct acm_ep_addr_d
 	int ret;
 	SOCKET s;
 
-	if (src->type)
-		return 0;
-
 	acm_log(2, "selecting source address\n");
 	memset(&addr, 0, sizeof addr);
 	switch (dst->type) {
@@ -2065,24 +2064,24 @@ out:
  * references to the source and destination addresses.
  * The message buffer contains extra address data buffers.  If a
  * source address is not given, reference an empty address buffer,
- * and we'll resolve a source address later.
+ * and we'll resolve a source address later.  Record the location of
+ * the source and destination addresses in the message header data
+ * to avoid further searches.
  */
-static uint8_t
-acm_svr_verify_resolve(struct acm_msg *msg,
-	struct acm_ep_addr_data **saddr, struct acm_ep_addr_data **daddr)
+static uint8_t acm_svr_verify_resolve(struct acm_msg *msg)
 {
-	struct acm_ep_addr_data *src = NULL, *dst = NULL;
-	int i, cnt;
+	int i, cnt, have_dst = 0;
 
 	if (msg->hdr.length < ACM_MSG_HDR_LENGTH) {
 		acm_log(0, "ERROR - invalid msg hdr length %d\n", msg->hdr.length);
 		return ACM_STATUS_EINVAL;
 	}
 
+	msg->hdr.src_out = 1;
 	cnt = (msg->hdr.length - ACM_MSG_HDR_LENGTH) / ACM_MSG_EP_LENGTH;
 	for (i = 0; i < cnt; i++) {
 		if (msg->resolve_data[i].flags & ACM_EP_FLAG_SOURCE) {
-			if (src) {
+			if (!msg->hdr.src_out) {
 				acm_log(0, "ERROR - multiple sources specified\n");
 				return ACM_STATUS_ESRCADDR;
 			}
@@ -2091,10 +2090,11 @@ acm_svr_verify_resolve(struct acm_msg *msg,
 				acm_log(0, "ERROR - unsupported source address type\n");
 				return ACM_STATUS_ESRCTYPE;
 			}
-			src = &msg->resolve_data[i];
+			msg->hdr.src_out = 0;
+			msg->hdr.src_index = i;
 		}
 		if (msg->resolve_data[i].flags & ACM_EP_FLAG_DEST) {
-			if (dst) {
+			if (have_dst) {
 				acm_log(0, "ERROR - multiple destinations specified\n");
 				return ACM_STATUS_EDESTADDR;
 			}
@@ -2103,22 +2103,20 @@ acm_svr_verify_resolve(struct acm_msg *msg,
 				acm_log(0, "ERROR - unsupported destination address type\n");
 				return ACM_STATUS_EDESTTYPE;
 			}
-			dst = &msg->resolve_data[i];
+			have_dst = 1;
+			msg->hdr.dst_index = i;
 		}
 	}
 
-	if (!dst) {
+	if (!have_dst) {
 		acm_log(0, "ERROR - destination address required\n");
 		return ACM_STATUS_EDESTTYPE;
 	}
 
-	if (!src) {
-		msg->hdr.src_out = i;
-		src = &msg->resolve_data[i];
-		memset(src, 0, sizeof *src);
+	if (msg->hdr.src_out) {
+		msg->hdr.src_index = i;
+		memset(&msg->resolve_data[i], 0, sizeof(struct acm_ep_addr_data));
 	}
-	*saddr = src;
-	*daddr = dst;
 	return ACM_STATUS_SUCCESS;
 }
 
@@ -2165,16 +2163,20 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 	int ret;
 
 	acm_log(2, "client %d\n", client->index);
-	status = acm_svr_verify_resolve(msg, &saddr, &daddr);
+	status = acm_svr_verify_resolve(msg);
 	if (status) {
 		acm_log(0, "notice - misformatted or unsupported request\n");
 		return acm_client_resolve_resp(client, msg, NULL, status);
 	}
 
-	status = acm_svr_select_src(saddr, daddr);
-	if (status) {
-		acm_log(0, "notice - unable to select suitable source address\n");
-		return acm_client_resolve_resp(client, msg, NULL, status);
+	saddr = &msg->resolve_data[msg->hdr.src_index];
+	daddr = &msg->resolve_data[msg->hdr.dst_index];
+	if (msg->hdr.src_out) {
+		status = acm_svr_select_src(saddr, daddr);
+		if (status) {
+			acm_log(0, "notice - unable to select suitable source address\n");
+			return acm_client_resolve_resp(client, msg, NULL, status);
+		}
 	}
 
 	acm_format_name(2, log_data, sizeof log_data,
