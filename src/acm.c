@@ -218,7 +218,7 @@ static atomic_t wait_cnt;
 
 static SOCKET listen_socket;
 static SOCKET ip_mon_socket;
-static struct acm_client client[FD_SETSIZE - 1];
+static struct acm_client client_array[FD_SETSIZE - 1];
 
 static FILE *flog;
 static lock_t log_lock;
@@ -1717,10 +1717,10 @@ static void acm_init_server(void)
 	int i;
 
 	for (i = 0; i < FD_SETSIZE - 1; i++) {
-		lock_init(&client[i].lock);
-		client[i].index = i;
-		client[i].sock = INVALID_SOCKET;
-		atomic_init(&client[i].refcnt);
+		lock_init(&client_array[i].lock);
+		client_array[i].index = i;
+		client_array[i].sock = INVALID_SOCKET;
+		atomic_init(&client_array[i].refcnt);
 	}
 
 	if (!(f = fopen("/var/run/ibacm.port", "w"))) {
@@ -1785,7 +1785,7 @@ static void acm_svr_accept(void)
 	}
 
 	for (i = 0; i < FD_SETSIZE - 1; i++) {
-		if (!atomic_get(&client[i].refcnt))
+		if (!atomic_get(&client_array[i].refcnt))
 			break;
 	}
 
@@ -1795,8 +1795,8 @@ static void acm_svr_accept(void)
 		return;
 	}
 
-	client[i].sock = s;
-	atomic_set(&client[i].refcnt, 1);
+	client_array[i].sock = s;
+	atomic_set(&client_array[i].refcnt, 1);
 	acm_log(2, "assigned client %d\n", i);
 }
 
@@ -2682,9 +2682,9 @@ static void acm_server(void)
 		FD_SET(ip_mon_socket, &readfds);
 
 		for (i = 0; i < FD_SETSIZE - 1; i++) {
-			if (client[i].sock != INVALID_SOCKET) {
-				FD_SET(client[i].sock, &readfds);
-				n = max(n, (int) client[i].sock);
+			if (client_array[i].sock != INVALID_SOCKET) {
+				FD_SET(client_array[i].sock, &readfds);
+				n = max(n, (int) client_array[i].sock);
 			}
 		}
 
@@ -2701,10 +2701,10 @@ static void acm_server(void)
 			acm_ipnl_handler();
 
 		for (i = 0; i < FD_SETSIZE - 1; i++) {
-			if (client[i].sock != INVALID_SOCKET &&
-				FD_ISSET(client[i].sock, &readfds)) {
+			if (client_array[i].sock != INVALID_SOCKET &&
+				FD_ISSET(client_array[i].sock, &readfds)) {
 				acm_log(2, "receiving from client %d\n", i);
-				acm_svr_receive(&client[i]);
+				acm_svr_receive(&client_array[i]);
 			}
 		}
 	}
