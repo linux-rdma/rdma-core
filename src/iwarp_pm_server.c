@@ -553,11 +553,16 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms,
 				 &msg_parms->apipaddr[0], NULL, &msg_parms->apport);
 	iwpm_port = find_iwpm_mapped_port(mapped_ports, &local_addr, not_mapped);	
 	if (!iwpm_port) {
-		/* could not find mapping for the requested address */
-		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_request: "
-				"Sending Reject to port mapper peer.\n");
 		print_iwpm_sockaddr(&local_addr, "process_wire_request: Local address");
-		return send_iwpm_msg(form_iwpm_reject, msg_parms, recv_addr, pm_sock);
+
+		get_iwpm_wcard(&local_addr); /* change local addr with wild card addr */	
+		iwpm_port = find_iwpm_mapped_port(mapped_ports, &local_addr, not_mapped);	
+		if (!iwpm_port) {	
+			/* could not find mapping for the requested address */
+			iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_request: "
+				"Sending Reject to port mapper peer.\n");
+			return send_iwpm_msg(form_iwpm_reject, msg_parms, recv_addr, pm_sock);
+		}
 	}
 	/* check if there is already a request */
 	ret = update_iwpm_map_request(msg_parms->assochandle, &iwpm_port->local_addr,

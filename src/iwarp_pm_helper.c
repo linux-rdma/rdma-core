@@ -425,6 +425,28 @@ void add_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iwpm_
 }
 
 /**
+ * get_iwpm_wcard - Record a wild card IP address
+ * @wcard_addr: to store the wild card address
+ */
+void get_iwpm_wcard(struct sockaddr_storage *wcard_addr)
+{
+	switch (wcard_addr->ss_family) {
+	case AF_INET: {
+		struct sockaddr_in *in4addr = (struct sockaddr_in *)wcard_addr;
+		inet_pton(AF_INET, "0.0.0.0", &in4addr->sin_addr);
+		break;
+	}
+	case AF_INET6: {
+		struct sockaddr_in6 *in6addr = (struct sockaddr_in6 *)wcard_addr;
+		inet_pton(AF_INET6, "::", &in6addr->sin6_addr);
+		break;
+	}
+	default: 
+		break;
+	}
+}
+
+/**
  * check_same_sockaddr - Compare two sock addresses;
  *                       return true if they are same, false otherwise
  */
