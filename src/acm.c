@@ -447,7 +447,6 @@ acm_alloc_req(struct acm_client *client, struct acm_msg *msg)
 		return NULL;
 	}
 
-	(void) atomic_inc(&client->refcnt);
 	req->client = client;
 	memcpy(&req->msg, msg, sizeof(req->msg));
 	acm_log(2, "client %d, req %p\n", client->index, req);
@@ -458,7 +457,6 @@ static void
 acm_free_req(struct acm_request *req)
 {
 	acm_log(2, "%p\n", req);
-	(void) atomic_dec(&req->client->refcnt);
 	free(req);
 }
 
@@ -1111,6 +1109,7 @@ acm_client_resolve_resp(struct acm_client *client, struct acm_msg *req_msg,
 
 release:
 	lock_release(&client->lock);
+	(void) atomic_dec(&client->refcnt);
 	return ret;
 }
 
@@ -1367,6 +1366,7 @@ acm_client_query_resp(struct acm_client *client,
 
 release:
 	lock_release(&client->lock);
+	(void) atomic_dec(&client->refcnt);
 	return ret;
 }
 
@@ -2338,6 +2338,8 @@ put:
 
 static int acm_svr_resolve(struct acm_client *client, struct acm_msg *msg)
 {
+	(void) atomic_inc(&client->refcnt);
+
 	if (msg->resolve_data[0].type == ACM_EP_INFO_PATH) {
 		if (msg->resolve_data[0].flags & ACM_FLAGS_QUERY_SA) {
 			return acm_svr_query_path(client, msg);
