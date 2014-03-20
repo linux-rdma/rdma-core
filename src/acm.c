@@ -458,7 +458,7 @@ static void
 acm_free_req(struct acm_request *req)
 {
 	acm_log(2, "%p\n", req);
-	(void) atomic_dec(&client->refcnt);
+	(void) atomic_dec(&req->client->refcnt);
 	free(req);
 }
 
