@@ -160,6 +160,7 @@ struct acm_ep {
 	DLIST_ENTRY           entry;
 	union acm_ep_info     addr[MAX_EP_ADDR];
 	char                  name[MAX_EP_ADDR][ACM_MAX_ADDRESS];
+	char		      id_string[ACM_MAX_ADDRESS];
 	uint8_t               addr_type[MAX_EP_ADDR];
 	void                  *dest_map[ACM_ADDRESS_RESERVED - 1];
 	struct acm_dest       mc_dest[MAX_EP_MC];
@@ -1421,7 +1422,7 @@ static void acm_process_recv(struct acm_ep *ep, struct ibv_wc *wc)
 {
 	struct acm_mad *mad;
 
-	acm_log(2, "base endpoint name %s\n", ep->name[0]);
+	acm_log(2, "base endpoint name %s\n", ep->id_string);
 	mad = (struct acm_mad *) (uintptr_t) (wc->wr_id + sizeof(struct ibv_grh));
 	switch (mad->mgmt_class) {
 	case IB_MGMT_CLASS_SA:
@@ -3449,6 +3450,8 @@ acm_alloc_ep(struct acm_port *port, uint16_t pkey, uint16_t pkey_index)
 	DListInit(&ep->active_queue);
 	DListInit(&ep->wait_queue);
 	lock_init(&ep->lock);
+	sprintf(ep->id_string, "%s-%d-0x%x", port->dev->verbs->device->name,
+		port->port_num, pkey);
 
 	return ep;
 }
