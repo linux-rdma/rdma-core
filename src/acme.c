@@ -353,7 +353,7 @@ static int open_verbs(void)
 
 	for (i = 0; i < dev_cnt; i++) {
 		verbs[i] = ibv_open_device(dev_array[i]);
-		if (!verbs) {
+		if (!verbs[i]) {
 			printf("ibv_open_device - failed to open device\n");
 			ret = -1;
 			goto err2;
