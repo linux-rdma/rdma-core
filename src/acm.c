@@ -160,6 +160,12 @@ struct acm_addr {
 	char		      string_buf[ACM_MAX_ADDRESS];
 };
 
+struct acm_ep {
+	struct acmp_port      *port;
+	struct acm_endpoint   endpoint;
+	struct acm_addr	      addr_info[MAX_EP_ADDR];
+};
+
 struct acmp_ep {
 	struct acmp_port      *port;
 	struct ibv_cq         *cq;
@@ -167,14 +173,13 @@ struct acmp_ep {
 	struct ibv_mr         *mr;
 	uint8_t               *recv_bufs;
 	DLIST_ENTRY           entry;
-	struct acm_addr	      addr_info[MAX_EP_ADDR];
 	char		      id_string[ACM_MAX_ADDRESS];
 	void                  *dest_map[ACM_ADDRESS_RESERVED - 1];
 	struct acm_dest       mc_dest[MAX_EP_MC];
 	int                   mc_cnt;
 	uint16_t              pkey_index;
 	uint16_t	      pkey;
-	struct acm_endpoint   endpoint;
+	struct acm_endpoint   *endpoint;
 	lock_t                lock;
 	struct acm_send_queue resolve_queue;
 	struct acm_send_queue sa_queue;
@@ -182,6 +187,7 @@ struct acmp_ep {
 	DLIST_ENTRY           active_queue;
 	DLIST_ENTRY           wait_queue;
 	enum acm_state        state;
+	struct acm_ep	      *ep;
 };
 
 struct acm_send_msg {
@@ -831,15 +837,15 @@ static void acm_mark_addr_invalid(struct acmp_ep *ep,
 
 	lock_acquire(&ep->lock);
 	for (i = 0; i < MAX_EP_ADDR; i++) {
-		if (ep->addr_info[i].addr.type != data->type)
+		if (ep->ep->addr_info[i].addr.type != data->type)
 			continue;
 
 		if ((data->type == ACM_ADDRESS_NAME &&
-		    !strnicmp((char *) ep->addr_info[i].addr.info.name,
+		    !strnicmp((char *) ep->ep->addr_info[i].addr.info.name,
 			      (char *) data->info.addr, ACM_MAX_ADDRESS)) ||
-		     !memcmp(ep->addr_info[i].addr.info.addr, data->info.addr,
+		     !memcmp(ep->ep->addr_info[i].addr.info.addr, data->info.addr,
 			     ACM_MAX_ADDRESS)) {
-			ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
+			ep->ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
 			break;
 		}
 	}
@@ -851,13 +857,13 @@ static int acm_addr_index(struct acmp_ep *ep, uint8_t *addr, uint8_t addr_type)
 	int i;
 
 	for (i = 0; i < MAX_EP_ADDR; i++) {
-		if (ep->addr_info[i].addr.type != addr_type)
+		if (ep->ep->addr_info[i].addr.type != addr_type)
 			continue;
 
 		if ((addr_type == ACM_ADDRESS_NAME &&
-			!strnicmp((char *) ep->addr_info[i].addr.info.name,
+			!strnicmp((char *) ep->ep->addr_info[i].addr.info.name,
 				(char *) addr, ACM_MAX_ADDRESS)) ||
-			!memcmp(ep->addr_info[i].addr.info.addr, addr, ACM_MAX_ADDRESS))
+			!memcmp(ep->ep->addr_info[i].addr.info.addr, addr, ACM_MAX_ADDRESS))
 			return i;
 	}
 	return -1;
@@ -1941,7 +1947,7 @@ acm_svr_query_path(struct acm_client *client, struct acm_msg *msg)
 		return acm_query_response(client->index, msg, ACM_STATUS_ESRCADDR);
 	}
 
-	return ep->port->prov->query(&ep->endpoint, msg, client->index);
+	return ep->port->prov->query(ep->endpoint, msg, client->index);
 }
 
 static int
@@ -2223,7 +2229,7 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 					    ACM_STATUS_ESRCADDR);
 	}
 
-	return ep->port->prov->resolve(&ep->endpoint, msg, client->index);
+	return ep->port->prov->resolve(ep->endpoint, msg, client->index);
 }
 
 static int
@@ -2328,7 +2334,7 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 					    ACM_STATUS_ESRCADDR);
 	}
 
-	return ep->port->prov->resolve(&ep->endpoint, msg, client->index);
+	return ep->port->prov->resolve(ep->endpoint, msg, client->index);
 }
 
 static int
@@ -2637,9 +2643,9 @@ static int resync_system_ips(void)
 				ep = container_of(entry, struct acmp_ep, entry);
 
 				for (i = 0; i < MAX_EP_ADDR; i++) {
-					if (ep->addr_info[i].addr.type == ACM_ADDRESS_IP ||
-					    ep->addr_info[i].addr.type == ACM_ADDRESS_IP6)
-						ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
+					if (ep->ep->addr_info[i].addr.type == ACM_ADDRESS_IP ||
+					    ep->ep->addr_info[i].addr.type == ACM_ADDRESS_IP6)
+						ep->ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
 				}
 			}
 		}
@@ -3232,16 +3238,16 @@ acm_ep_insert_addr(struct acmp_ep *ep, const char *name, uint8_t *addr,
 	lock_acquire(&ep->lock);
 	if (acm_addr_index(ep, tmp, addr_type) < 0) {
 		for (i = 0; (i < MAX_EP_ADDR) &&
-			    (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID); i++)
+			    (ep->ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID); i++)
 			;
 		if (i == MAX_EP_ADDR) {
 			ret = ENOMEM;
 			goto out;
 		}
 
-		ep->addr_info[i].addr.type = addr_type;
-		strncpy(ep->addr_info[i].string_buf, name, ACM_MAX_ADDRESS);
-		memcpy(ep->addr_info[i].addr.info.addr, tmp, ACM_MAX_ADDRESS);
+		ep->ep->addr_info[i].addr.type = addr_type;
+		strncpy(ep->ep->addr_info[i].string_buf, name, ACM_MAX_ADDRESS);
+		memcpy(ep->ep->addr_info[i].addr.info.addr, tmp, ACM_MAX_ADDRESS);
 	}
 	ret = 0;
 out:
@@ -3418,14 +3424,14 @@ static int acmp_init_ep_loopback(struct acmp_ep *ep)
 	if (loopback_prot != ACM_LOOPBACK_PROT_LOCAL)
 		return 0;
 
-	for (i = 0; i < MAX_EP_ADDR && ep->addr_info[i].addr.type; i++) {
-		dest = acmp_acquire_dest(ep, ep->addr_info[i].addr.type,
-					ep->addr_info[i].addr.info.addr);
+	for (i = 0; i < MAX_EP_ADDR && ep->ep->addr_info[i].addr.type; i++) {
+		dest = acmp_acquire_dest(ep, ep->ep->addr_info[i].addr.type,
+					 ep->ep->addr_info[i].addr.info.addr);
 		if (!dest) {
 			acm_format_name(0, log_data, sizeof log_data,
-					ep->addr_info[i].addr.type,
-					ep->addr_info[i].addr.info.addr,
-					sizeof ep->addr_info[i].addr.info.addr);
+					ep->ep->addr_info[i].addr.type,
+					ep->ep->addr_info[i].addr.info.addr,
+					sizeof ep->ep->addr_info[i].addr.info.addr);
 			acm_log(0, "ERROR - unable to create loopback dest %s\n", log_data);
 			return -1;
 		}
@@ -3480,6 +3486,12 @@ acmp_alloc_ep(struct acmp_port *port, uint16_t pkey, uint16_t pkey_index)
 	if (!ep)
 		return NULL;
 
+	ep->ep = calloc(1, sizeof *ep->ep);
+	if (!ep->ep) {
+		free(ep);
+		return NULL;
+	}
+
 	ep->port = port;
 	ep->pkey = pkey;
 	ep->pkey_index = pkey_index;
@@ -3495,14 +3507,16 @@ acmp_alloc_ep(struct acmp_port *port, uint16_t pkey, uint16_t pkey_index)
 	sprintf(ep->id_string, "%s-%d-0x%x", port->dev->verbs->device->name,
 		port->port_num, pkey);
 
-	ep->endpoint.prov_context = ep;
-	ep->endpoint.dev_guid = port->dev->guid;
-	ep->endpoint.port_num = port->port_num;
-	ep->endpoint.pkey = pkey;
+	ep->ep->port = port;
+	ep->endpoint = &ep->ep->endpoint;
+	ep->endpoint->prov_context = ep;
+	ep->endpoint->dev_guid = port->dev->guid;
+	ep->endpoint->port_num = port->port_num;
+	ep->endpoint->pkey = pkey;
 
 	for (i = 0; i < MAX_EP_ADDR; i++) {
-		ep->addr_info[i].addr.endpoint = &ep->endpoint;
-		ep->addr_info[i].addr.id_string = ep->addr_info[i].string_buf;
+		ep->ep->addr_info[i].addr.endpoint = ep->endpoint;
+		ep->ep->addr_info[i].addr.id_string = ep->ep->addr_info[i].string_buf;
 	}
 
 	return ep;
