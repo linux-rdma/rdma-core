@@ -50,7 +50,7 @@ int acm_if_get_sgid(char *ifname, union ibv_gid *sgid);
 
 typedef void (*acm_if_iter_cb)(char *ifname, union ibv_gid *gid, uint16_t pkey,
 				uint8_t addr_type, uint8_t *addr, size_t addr_len,
-				char *addr_name, void *ctx);
+				char *ip_str, void *ctx);
 int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx);
 
 #endif /* ACM_IF_H */

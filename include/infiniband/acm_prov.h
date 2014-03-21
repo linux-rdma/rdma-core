@@ -39,6 +39,14 @@ struct acm_endpoint {
 	uint16_t		pkey;
 };
 
+struct acm_address {
+	struct acm_endpoint	*endpoint;
+	void			*prov_context;
+	union acm_ep_info	info;
+	char			*id_string;
+	uint16_t		type;
+};
+
 struct acm_provider {
 	int	(*resolve)(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
 	int	(*query)(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
