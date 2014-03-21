@@ -756,21 +756,21 @@ static void acm_process_join_resp(struct acm_ep *ep, struct ib_user_mad *umad)
 	mad = (struct ib_sa_mad *) umad->data;
 	acm_log(1, "response status: 0x%x, mad status: 0x%x\n",
 		umad->status, mad->status);
+	lock_acquire(&ep->lock);
 	if (umad->status) {
 		acm_log(0, "ERROR - send join failed 0x%x\n", umad->status);
-		return;
+		goto err1;
 	}
 	if (mad->status) {
 		acm_log(0, "ERROR - join response status 0x%x\n", mad->status);
-		return;
+		goto err1;
 	}
 
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
-	lock_acquire(&ep->lock);
 	index = acm_mc_index(ep, &mc_rec->mgid);
 	if (index < 0) {
 		acm_log(0, "ERROR - MGID in join response not found\n");
-		goto out;
+		goto err1;
 	}
 
 	dest = &ep->mc_dest[index];
@@ -782,19 +782,25 @@ static void acm_process_join_resp(struct acm_ep *ep, struct ib_user_mad *umad)
 		dest->ah = ibv_create_ah(ep->port->dev->pd, &dest->av);
 		if (!dest->ah) {
 			acm_log(0, "ERROR - unable to create ah\n");
-			goto out;
+			goto err1;
 		}
 		ret = ibv_attach_mcast(ep->qp, &mc_rec->mgid, mc_rec->mlid);
 		if (ret) {
 			acm_log(0, "ERROR - unable to attach QP to multicast group\n");
-			goto out;
+			goto err2;
 		}
 	}
 
 	atomic_set(&dest->refcnt, 1);
 	dest->state = ACM_READY;
 	acm_log(1, "join successful\n");
-out:
+	lock_release(&ep->lock);
+	return;
+err2:
+	ibv_destroy_ah(dest->ah);
+	dest->ah = NULL;
+err1:
+	dest->state = ACM_INIT;
 	lock_release(&ep->lock);
 }
 
