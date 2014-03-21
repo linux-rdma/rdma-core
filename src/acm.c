@@ -1883,9 +1883,6 @@ acm_get_port_ep(struct acmp_port *port, struct acm_ep_addr_data *data)
 		 ep_entry = ep_entry->Next) {
 
 		ep = container_of(ep_entry, struct acmp_ep, entry);
-		if (ep->state != ACM_READY)
-			continue;
-
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey || (ntohs(data->info.path.pkey) == ep->pkey)))
 			return ep;
@@ -1955,6 +1952,11 @@ acmp_query(struct acm_endpoint *endpoint, struct acm_msg *msg, uint64_t id)
 	struct ib_sa_mad *mad;
 	struct acmp_ep *ep = endpoint->prov_context;
 	uint8_t status;
+
+	if (ep->state != ACM_READY) {
+		status = ACM_STATUS_ENODATA;
+		goto resp;
+	}
 
 	req = acmp_alloc_req(id, msg);
 	if (!req) {
@@ -2399,6 +2401,9 @@ static int
 acmp_resolve(struct acm_endpoint *endpoint, struct acm_msg *msg, uint64_t id)
 {
 	struct acmp_ep *ep = endpoint->prov_context;
+
+	if (ep->state != ACM_READY)
+		return acm_resolve_response(id, msg, NULL, ACM_STATUS_ENODATA);
 
 	if (msg->resolve_data[0].type == ACM_EP_INFO_PATH)
 		return acmp_resolve_path(ep, msg, id);
