@@ -40,6 +40,8 @@
 #include <sys/types.h>
 #include <errno.h>
 
+#include <infiniband/acm.h>
+#include "acm_mad.h"
 #include "acm_util.h"
 
 int acm_if_is_ib(char *ifname)
@@ -129,6 +131,9 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	int s, ret, i, len;
 	uint16_t pkey;
 	union ibv_gid sgid;
+	uint8_t addr_type;
+	uint8_t addr[ACM_MAX_ADDRESS];
+	size_t addr_len;
 
 	s = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (!s)
@@ -155,10 +160,16 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	for (i = 0; i < ifc->ifc_len / sizeof(struct ifreq); i++) {
 		switch (ifr[i].ifr_addr.sa_family) {
 		case AF_INET:
+			addr_type = ACM_ADDRESS_IP;
+			memcpy(&addr, &((struct sockaddr_in *) &ifr[i].ifr_addr)->sin_addr, sizeof addr);
+			addr_len = 4;
 			inet_ntop(ifr[i].ifr_addr.sa_family,
 				&((struct sockaddr_in *) &ifr[i].ifr_addr)->sin_addr, ip, sizeof ip);
 			break;
 		case AF_INET6:
+			addr_type = ACM_ADDRESS_IP6;
+			memcpy(&addr, &((struct sockaddr_in6 *) &ifr[i].ifr_addr)->sin6_addr, sizeof addr);
+			addr_len = ACM_MAX_ADDRESS;
 			inet_ntop(ifr[i].ifr_addr.sa_family,
 				&((struct sockaddr_in6 *) &ifr[i].ifr_addr)->sin6_addr, ip, sizeof ip);
 			break;
@@ -177,7 +188,7 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 		if (ret)
 			continue;
 
-		cb(ifr[i].ifr_name, &sgid, pkey, 0, NULL, 0, ip, ctx);
+		cb(ifr[i].ifr_name, &sgid, pkey, addr_type, addr, addr_len, ip, ctx);
 	}
 	ret = 0;
 

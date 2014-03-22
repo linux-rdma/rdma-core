@@ -46,6 +46,9 @@
 #include <infiniband/verbs.h>
 #include <dlist.h>
 #include <search.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <net/if_arp.h>
 #include "acm_mad.h"
 #include "acm_util.h"
 
@@ -2922,6 +2925,67 @@ acm_ep_insert_addr(struct acm_ep *ep, uint8_t *addr, size_t addr_len, uint8_t ad
 	return ret;
 }
 
+static struct acm_device *
+acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port)
+{
+	DLIST_ENTRY *dev_entry;
+	struct acm_device *dev;
+	struct ibv_device_attr dev_attr;
+	struct ibv_port_attr port_attr;
+	union ibv_gid gid;
+	int ret, i;
+
+	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
+		 dev_entry = dev_entry->Next) {
+
+		dev = container_of(dev_entry, struct acm_device, entry);
+
+		ret = ibv_query_device(dev->verbs, &dev_attr);
+		if (ret)
+			continue;
+
+		for (*port = 1; *port <= dev_attr.phys_port_cnt; (*port)++) {
+			ret = ibv_query_port(dev->verbs, *port, &port_attr);
+			if (ret)
+				continue;
+
+			for (i = 0; i < port_attr.gid_tbl_len; i++) {
+				ret = ibv_query_gid(dev->verbs, *port, i, &gid);
+				if (ret || !gid.global.interface_id)
+					break;
+
+				if (!memcmp(sgid->raw, gid.raw, sizeof gid))
+					return dev;
+			}
+		}
+	}
+	return NULL;
+}
+
+static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
+		uint8_t addr_type, uint8_t *addr, size_t addr_len,
+		char *addr_name, void *ctx)
+{
+	uint8_t port_num;
+	struct acm_device *dev;
+	struct acm_ep *ep = (struct acm_ep *)ctx;
+
+	dev = acm_get_device_from_gid(gid, &port_num);
+	if (dev && ep->port->dev == dev
+	    && ep->port->port_num == port_num && ep->pkey == pkey) {
+		if (!acm_ep_insert_addr(ep, addr, addr_len, addr_type)) {
+			acm_log(0, "Added %s %s %d 0x%x from %s\n", addr_name,
+				dev->verbs->device->name, port_num, pkey,
+				ifname);
+		}
+	}
+}
+
+static int acm_get_system_ips(struct acm_ep *ep)
+{
+	return acm_if_iter_sys(acm_ep_ip_iter_cb, (void *)ep);
+}
+
 static int acm_assign_ep_names(struct acm_ep *ep)
 {
 	FILE *faddr;
@@ -2937,6 +3001,8 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 	dev_name = ep->port->dev->verbs->device->name;
 	acm_log(1, "device %s, port %d, pkey 0x%x\n",
 		dev_name, ep->port->port_num, ep->pkey);
+
+	acm_get_system_ips(ep);
 
 	if (!(faddr = acm_open_addr_file())) {
 		acm_log(0, "ERROR - address file not found\n");
