@@ -124,6 +124,7 @@ struct acm_port {
 	int                 mad_portid;
 	int                 mad_agentid;
 	struct acm_dest     sa_dest;
+	union ibv_gid	    base_gid;
 	enum ibv_port_state state;
 	enum ibv_mtu        mtu;
 	enum ibv_rate       rate;
@@ -1596,34 +1597,25 @@ static void acm_port_join(struct acm_port *port)
 {
 	struct acm_device *dev;
 	struct acm_ep *ep;
-	union ibv_gid port_gid;
 	DLIST_ENTRY *ep_entry;
-	int ret;
 
 	dev = port->dev;
 	acm_log(1, "device %s port %d\n", dev->verbs->device->name,
 		port->port_num);
-
-	ret = ibv_query_gid(dev->verbs, port->port_num, 0, &port_gid);
-	if (ret) {
-		acm_log(0, "ERROR - ibv_query_gid %d device %s port %d\n",
-			ret, dev->verbs->device->name, port->port_num);
-		return;
-	}
 
 	for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
 		 ep_entry = ep_entry->Next) {
 
 		ep = container_of(ep_entry, struct acm_ep, entry);
 		ep->mc_cnt = 0;
-		acm_join_group(ep, &port_gid, 0, 0, 0, min_rate, min_mtu);
+		acm_join_group(ep, &port->base_gid, 0, 0, 0, min_rate, min_mtu);
 
 		if ((ep->state = ep->mc_dest[0].state) != ACM_READY)
 			continue;
 
 		if ((route_prot == ACM_ROUTE_PROT_ACM) &&
 		    (port->rate != min_rate || port->mtu != min_mtu))
-			acm_join_group(ep, &port_gid, 0, 0, 0, port->rate, port->mtu);
+			acm_join_group(ep, &port->base_gid, 0, 0, 0, port->rate, port->mtu);
 	}
 	acm_log(1, "joins for device %s port %d complete\n", dev->verbs->device->name,
 		port->port_num);
@@ -3598,6 +3590,9 @@ static void acm_port_up(struct acm_port *port)
 		ret = ibv_query_gid(port->dev->verbs, port->port_num, port->gid_cnt, &gid);
 		if (ret || !gid.global.interface_id)
 			break;
+
+		if (port->gid_cnt == 0)
+			port->base_gid = gid;
 	}
 
 	port->lid = attr.lid;
