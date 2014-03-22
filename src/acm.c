@@ -1593,32 +1593,42 @@ out:
 	free(umad);
 }
 
+static void acm_ep_join(struct acm_ep *ep)
+{
+	struct acm_port *port;
+
+	port = ep->port;
+	acm_log(1, "%s\n", ep->id_string);
+
+	ep->mc_cnt = 0;
+	acm_join_group(ep, &port->base_gid, 0, 0, 0, min_rate, min_mtu);
+
+	if ((ep->state = ep->mc_dest[0].state) != ACM_READY)
+		return;
+
+	if ((route_prot == ACM_ROUTE_PROT_ACM) &&
+	    (port->rate != min_rate || port->mtu != min_mtu))
+		acm_join_group(ep, &port->base_gid, 0, 0, 0, port->rate, port->mtu);
+
+	acm_log(1, "join for %s complete\n", ep->id_string);
+}
+
 static void acm_port_join(struct acm_port *port)
 {
-	struct acm_device *dev;
 	struct acm_ep *ep;
 	DLIST_ENTRY *ep_entry;
 
-	dev = port->dev;
-	acm_log(1, "device %s port %d\n", dev->verbs->device->name,
+	acm_log(1, "device %s port %d\n", port->dev->verbs->device->name,
 		port->port_num);
 
 	for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
 		 ep_entry = ep_entry->Next) {
 
 		ep = container_of(ep_entry, struct acm_ep, entry);
-		ep->mc_cnt = 0;
-		acm_join_group(ep, &port->base_gid, 0, 0, 0, min_rate, min_mtu);
-
-		if ((ep->state = ep->mc_dest[0].state) != ACM_READY)
-			continue;
-
-		if ((route_prot == ACM_ROUTE_PROT_ACM) &&
-		    (port->rate != min_rate || port->mtu != min_mtu))
-			acm_join_group(ep, &port->base_gid, 0, 0, 0, port->rate, port->mtu);
+		acm_ep_join(ep);
 	}
-	acm_log(1, "joins for device %s port %d complete\n", dev->verbs->device->name,
-		port->port_num);
+	acm_log(1, "joins for device %s port %d complete\n",
+		port->dev->verbs->device->name, port->port_num);
 }
 
 static void acm_process_timeouts(void)
