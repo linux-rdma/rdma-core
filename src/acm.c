@@ -852,21 +852,24 @@ static void acm_mark_addr_invalid(struct acmp_ep *ep,
 	lock_release(&ep->lock);
 }
 
-static int acm_addr_index(struct acmp_ep *ep, uint8_t *addr, uint8_t addr_type)
+static struct acm_address *
+acm_addr_lookup(struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr_type)
 {
+	struct acm_ep *ep;
 	int i;
 
+	ep = container_of(endpoint, struct acm_ep, endpoint);
 	for (i = 0; i < MAX_EP_ADDR; i++) {
-		if (ep->ep->addr_info[i].addr.type != addr_type)
+		if (ep->addr_info[i].addr.type != addr_type)
 			continue;
 
 		if ((addr_type == ACM_ADDRESS_NAME &&
-			!strnicmp((char *) ep->ep->addr_info[i].addr.info.name,
+			!strnicmp((char *) ep->addr_info[i].addr.info.name,
 				(char *) addr, ACM_MAX_ADDRESS)) ||
-			!memcmp(ep->ep->addr_info[i].addr.info.addr, addr, ACM_MAX_ADDRESS))
-			return i;
+			!memcmp(ep->addr_info[i].addr.info.addr, addr, ACM_MAX_ADDRESS))
+			return &ep->addr_info[i].addr;
 	}
-	return -1;
+	return NULL;
 }
 
 static uint8_t
@@ -1232,7 +1235,7 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 	struct acm_resolve_rec *rec;
 	struct acm_dest *dest;
 	uint8_t status;
-	int addr_index;
+	struct acm_address *addr;
 
 	acm_log(2, "\n");
 	if ((status = acmp_validate_addr_req(mad))) {
@@ -1247,8 +1250,8 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 		return;
 	}
 	
-	addr_index = acm_addr_index(ep, rec->dest, rec->dest_type);
-	if (addr_index >= 0)
+	addr = acm_addr_lookup(&ep->ep->endpoint, rec->dest, rec->dest_type);
+	if (addr)
 		dest->req_id = mad->tid;
 
 	lock_acquire(&dest->lock);
@@ -1271,7 +1274,7 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 			status = acmp_record_acm_route(ep, dest);
 			break;
 		}
-		if (addr_index >= 0 || !DListEmpty(&dest->req_queue)) {
+		if (addr || !DListEmpty(&dest->req_queue)) {
 			status = acm_resolve_path(ep, dest, acmp_resolve_sa_resp);
 			if (status)
 				break;
@@ -1285,7 +1288,7 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 	lock_release(&dest->lock);
 	acmp_complete_queued_req(dest, status);
 
-	if (addr_index >= 0 && !status) {
+	if (addr && !status) {
 		acmp_send_addr_resp(ep, dest);
 	}
 	acmp_put_dest(dest);
@@ -1893,7 +1896,8 @@ acm_get_port_ep(struct acmp_port *port, struct acm_ep_addr_data *data)
 		    (!data->info.path.pkey || (ntohs(data->info.path.pkey) == ep->pkey)))
 			return ep;
 
-		if (acm_addr_index(ep, data->info.addr, (uint8_t) data->type) >= 0)
+		if (acm_addr_lookup(&ep->ep->endpoint, data->info.addr,
+				    (uint8_t) data->type))
 			return ep;
 	}
 
@@ -3236,7 +3240,7 @@ acm_ep_insert_addr(struct acmp_ep *ep, const char *name, uint8_t *addr,
 	memcpy(tmp, addr, addr_len);
 
 	lock_acquire(&ep->lock);
-	if (acm_addr_index(ep, tmp, addr_type) < 0) {
+	if (!acm_addr_lookup(&ep->ep->endpoint, addr, addr_type)) {
 		for (i = 0; (i < MAX_EP_ADDR) &&
 			    (ep->ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID); i++)
 			;
