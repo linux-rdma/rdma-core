@@ -39,4 +39,9 @@ struct acm_endpoint {
 	uint16_t		pkey;
 };
 
+struct acm_provider {
+	int	(*resolve)(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
+	int	(*query)(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
+};
+
 #endif /* ACM_PROV_H */
