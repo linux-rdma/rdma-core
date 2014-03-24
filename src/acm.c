@@ -42,6 +42,7 @@
 #include <sys/time.h>
 #include <fcntl.h>
 #include <infiniband/acm.h>
+#include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
 #include <dlist.h>
@@ -167,7 +168,8 @@ struct acmp_ep {
 	struct acm_dest       mc_dest[MAX_EP_MC];
 	int                   mc_cnt;
 	uint16_t              pkey_index;
-	uint16_t              pkey;
+	uint16_t	      pkey;
+	struct acm_endpoint   endpoint;
 	lock_t                lock;
 	struct acm_send_queue resolve_queue;
 	struct acm_send_queue sa_queue;
@@ -3340,7 +3342,7 @@ static int acm_assign_ep_names(struct acmp_ep *ep)
 		}
 
 		if (!stricmp(dev_name, dev) && (ep->port->port_num == (uint8_t) port) &&
-			(ep->pkey == pkey)) {
+		    (ep->pkey == pkey)) {
 
 			acm_log(1, "assigning %s\n", addr);
 			if ((ret = acm_ep_insert_addr(ep, (uint8_t *)&ip_addr, addr_len, type)) != 0) {
@@ -3461,6 +3463,10 @@ acmp_alloc_ep(struct acmp_port *port, uint16_t pkey, uint16_t pkey_index)
 	lock_init(&ep->lock);
 	sprintf(ep->id_string, "%s-%d-0x%x", port->dev->verbs->device->name,
 		port->port_num, pkey);
+
+	ep->endpoint.dev_guid = port->dev->guid;
+	ep->endpoint.port_num = port->port_num;
+	ep->endpoint.pkey = pkey;
 
 	return ep;
 }

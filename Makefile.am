@@ -11,7 +11,7 @@ util_ib_acme_CFLAGS = $(AM_CFLAGS) -DACME_PRINTS
 
 ibacmincludedir = $(includedir)/infiniband
 
-ibacminclude_HEADERS = include/infiniband/acm.h
+ibacminclude_HEADERS = include/infiniband/acm.h include/infiniband/acm_prov.h
 
 man_MANS = \
 	man/ib_acme.1 \
