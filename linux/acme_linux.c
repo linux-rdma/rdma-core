@@ -47,13 +47,13 @@ extern int verbose;
 
 
 static int
-get_pkey(struct ifreq *ifreq, uint16_t *pkey)
+get_pkey(char *ifname, uint16_t *pkey)
 {
 	char buf[128], *end;
 	FILE *f;
 	int ret;
 
-	snprintf(buf, sizeof buf, "//sys//class//net//%s//pkey", ifreq->ifr_name);
+	snprintf(buf, sizeof buf, "//sys//class//net//%s//pkey", ifname);
 	f = fopen(buf, "r");
 	if (!f) {
 		printf("failed to open %s\n", buf);
@@ -73,13 +73,13 @@ get_pkey(struct ifreq *ifreq, uint16_t *pkey)
 }
 
 static int
-get_sgid(struct ifreq *ifr, union ibv_gid *sgid)
+get_sgid(char *ifname, union ibv_gid *sgid)
 {
 	char buf[128], *end;
 	FILE *f;
 	int i, p, ret;
 
-	snprintf(buf, sizeof buf, "//sys//class//net//%s//address", ifr->ifr_name);
+	snprintf(buf, sizeof buf, "//sys//class//net//%s//address", ifname);
 	f = fopen(buf, "r");
 	if (!f) {
 		printf("failed to open %s\n", buf);
@@ -102,21 +102,20 @@ get_sgid(struct ifreq *ifr, union ibv_gid *sgid)
 }
 
 static int
-get_devaddr(struct ifreq *ifr,
-	int *dev_index, uint8_t *port, uint16_t *pkey)
+get_devaddr(char *ifname, int *dev_index, uint8_t *port, uint16_t *pkey)
 {
 	struct ibv_device_attr dev_attr;
 	struct ibv_port_attr port_attr;
 	union ibv_gid sgid, gid;
 	int ret, i;
 
-	ret = get_sgid(ifr, &sgid);
+	ret = get_sgid(ifname, &sgid);
 	if (ret) {
 		printf("unable to get sgid\n");
 		return ret;
 	}
 
-	ret = get_pkey(ifr, pkey);
+	ret = get_pkey(ifname, pkey);
 	if (ret) {
 		printf("unable to get pkey\n");
 		return ret;
@@ -199,7 +198,7 @@ int gen_addr_ip(FILE *f)
 		if (ifr[i].ifr_hwaddr.sa_family != ARPHRD_INFINIBAND)
 			continue;
 
-		ret = get_devaddr(&ifr[i], &dev_index, &port, &pkey);
+		ret = get_devaddr(ifr[i].ifr_name, &dev_index, &port, &pkey);
 		if (ret)
 			continue;
 
