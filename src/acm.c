@@ -202,9 +202,9 @@ struct acm_client {
 };
 
 struct acm_request {
-	struct acm_client *client;
-	DLIST_ENTRY       entry;
-	struct acm_msg    msg;
+	uint64_t	id;
+	DLIST_ENTRY	entry;
+	struct acm_msg	msg;
 };
 
 union socket_addr {
@@ -446,8 +446,7 @@ static void acmp_release_sa_dest(struct acm_dest *dest)
 //	acmp_put_dest(dest);
 //}
 
-static struct acm_request *
-acmp_alloc_req(struct acm_client *client, struct acm_msg *msg)
+static struct acm_request *acmp_alloc_req(uint64_t id, struct acm_msg *msg)
 {
 	struct acm_request *req;
 
@@ -457,9 +456,9 @@ acmp_alloc_req(struct acm_client *client, struct acm_msg *msg)
 		return NULL;
 	}
 
-	req->client = client;
+	req->id = id;
 	memcpy(&req->msg, msg, sizeof(req->msg));
-	acm_log(2, "client %d, req %p\n", client->index, req);
+	acm_log(2, "id %llu, req %p\n", id, req);
 	return req;
 }
 
@@ -1074,9 +1073,10 @@ acmp_send_addr_resp(struct acmp_ep *ep, struct acm_dest *dest)
 }
 
 static int
-acm_resolve_response(struct acm_client *client, struct acm_msg *req_msg,
+acm_resolve_response(uint64_t id, struct acm_msg *req_msg,
 	struct acm_dest *dest, uint8_t status)
 {
+	struct acm_client *client = &client_array[id];
 	struct acm_msg msg;
 	int ret;
 
@@ -1142,8 +1142,8 @@ acmp_complete_queued_req(struct acm_dest *dest, uint8_t status)
 		req = container_of(entry, struct acm_request, entry);
 		lock_release(&dest->lock);
 
-		acm_log(2, "completing request, client %d\n", req->client->index);
-		acm_resolve_response(req->client, &req->msg, dest, status);
+		acm_log(2, "completing request, client %d\n", req->id);
+		acm_resolve_response(req->id, &req->msg, dest, status);
 		acmp_free_req(req);
 
 		lock_acquire(&dest->lock);
@@ -1356,9 +1356,9 @@ static void acmp_process_acm_recv(struct acmp_ep *ep, struct ibv_wc *wc, struct 
 	}
 }
 
-static int
-acm_query_response(struct acm_client *client, struct acm_msg *msg, uint8_t status)
+static int acm_query_response(uint64_t id, struct acm_msg *msg, uint8_t status)
 {
+	struct acm_client *client = &client_array[id];
 	int ret;
 
 	acm_log(2, "status 0x%x\n", status);
@@ -1400,7 +1400,7 @@ acmp_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *mad)
 	}
 	acm_log(2, "status 0x%x\n", status);
 
-	acm_query_response(req->client, &req->msg, status);
+	acm_query_response(req->id, &req->msg, status);
 	acmp_free_req(req);
 }
 
@@ -1934,7 +1934,7 @@ acm_svr_query_path(struct acm_client *client, struct acm_msg *msg)
 		goto resp;
 	}
 
-	req = acmp_alloc_req(client, msg);
+	req = acmp_alloc_req(client->index, msg);
 	if (!req) {
 		status = ACM_STATUS_ENOMEM;
 		goto resp;
@@ -1969,7 +1969,7 @@ acm_svr_query_path(struct acm_client *client, struct acm_msg *msg)
 free:
 	acmp_free_req(req);
 resp:
-	return acm_query_response(client, msg, status);
+	return acm_query_response(client->index, msg, status);
 }
 
 static uint8_t
@@ -2135,14 +2135,12 @@ static uint8_t acm_svr_verify_resolve(struct acm_msg *msg)
 }
 
 /* Caller must hold dest lock */
-static uint8_t
-acmp_queue_req(struct acm_dest *dest, struct acm_client *client,
-	struct acm_msg *msg)
+static uint8_t acmp_queue_req(struct acm_dest *dest, uint64_t id, struct acm_msg *msg)
 {
 	struct acm_request *req;
 
-	acm_log(2, "client %d\n", client->index);
-	req = acmp_alloc_req(client, msg);
+	acm_log(2, "id %llu\n", id);
+	req = acmp_alloc_req(id, msg);
 	if (!req) {
 		return ACM_STATUS_ENOMEM;
 	}
@@ -2180,7 +2178,7 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 	status = acm_svr_verify_resolve(msg);
 	if (status) {
 		acm_log(0, "notice - misformatted or unsupported request\n");
-		return acm_resolve_response(client, msg, NULL, status);
+		return acm_resolve_response(client->index, msg, NULL, status);
 	}
 
 	saddr = &msg->resolve_data[msg->hdr.src_index];
@@ -2189,7 +2187,7 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 		status = acm_svr_select_src(saddr, daddr);
 		if (status) {
 			acm_log(0, "notice - unable to select suitable source address\n");
-			return acm_resolve_response(client, msg, NULL, status);
+			return acm_resolve_response(client->index, msg, NULL, status);
 		}
 	}
 
@@ -2199,7 +2197,8 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 	ep = acm_get_ep(saddr);
 	if (!ep) {
 		acm_log(0, "notice - unknown local end point\n");
-		return acm_resolve_response(client, msg, NULL, ACM_STATUS_ESRCADDR);
+		return acm_resolve_response(client->index, msg, NULL,
+					    ACM_STATUS_ESRCADDR);
 	}
 
 	acm_format_name(2, log_data, sizeof log_data,
@@ -2209,7 +2208,7 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 	dest = acmp_acquire_dest(ep, daddr->type, daddr->info.addr);
 	if (!dest) {
 		acm_log(0, "ERROR - unable to allocate destination in request\n");
-		return acm_resolve_response(client, msg, NULL, ACM_STATUS_ENOMEM);
+		return acm_resolve_response(client->index, msg, NULL, ACM_STATUS_ENOMEM);
 	}
 
 	lock_acquire(&dest->lock);
@@ -2245,7 +2244,7 @@ queue:
 			status = ACM_STATUS_ENODATA;
 			break;
 		}
-		status = acmp_queue_req(dest, client, msg);
+		status = acmp_queue_req(dest, client->index, msg);
 		if (status) {
 			break;
 		}
@@ -2254,7 +2253,7 @@ queue:
 		goto put;
 	}
 	lock_release(&dest->lock);
-	ret = acm_resolve_response(client, msg, dest, status);
+	ret = acm_resolve_response(client->index, msg, dest, status);
 put:
 	acmp_put_dest(dest);
 	return ret;
@@ -2278,13 +2277,14 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 	acm_log(2, "client %d\n", client->index);
 	if (msg->hdr.length < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)) {
 		acm_log(0, "notice - invalid msg hdr length %d\n", msg->hdr.length);
-		return acm_resolve_response(client, msg, NULL, ACM_STATUS_EINVAL);
+		return acm_resolve_response(client->index, msg, NULL, ACM_STATUS_EINVAL);
 	}
 
 	path = &msg->resolve_data[0].info.path;
 	if (!path->dlid && ib_any_gid(&path->dgid)) {
 		acm_log(0, "notice - no destination specified\n");
-		return acm_resolve_response(client, msg, NULL, ACM_STATUS_EDESTADDR);
+		return acm_resolve_response(client->index, msg, NULL,
+					    ACM_STATUS_EDESTADDR);
 	}
 
 	acm_format_name(2, log_data, sizeof log_data, ACM_EP_INFO_PATH,
@@ -2293,7 +2293,8 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 	ep = acm_get_ep(&msg->resolve_data[0]);
 	if (!ep) {
 		acm_log(0, "notice - unknown local end point\n");
-		return acm_resolve_response(client, msg, NULL, ACM_STATUS_ESRCADDR);
+		return acm_resolve_response(client->index, msg, NULL,
+					    ACM_STATUS_ESRCADDR);
 	}
 
 	addr = msg->resolve_data[1].info.addr;
@@ -2307,7 +2308,8 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 	}
 	if (!dest) {
 		acm_log(0, "ERROR - unable to allocate destination in request\n");
-		return acm_resolve_response(client, msg, NULL, ACM_STATUS_ENOMEM);
+		return acm_resolve_response(client->index, msg, NULL,
+					    ACM_STATUS_ENOMEM);
 	}
 
 	lock_acquire(&dest->lock);
@@ -2337,7 +2339,7 @@ test:
 			status = ACM_STATUS_ENODATA;
 			break;
 		}
-		status = acmp_queue_req(dest, client, msg);
+		status = acmp_queue_req(dest, client->index, msg);
 		if (status) {
 			break;
 		}
@@ -2346,7 +2348,7 @@ test:
 		goto put;
 	}
 	lock_release(&dest->lock);
-	ret = acm_resolve_response(client, msg, dest, status);
+	ret = acm_resolve_response(client->index, msg, dest, status);
 put:
 	acmp_put_dest(dest);
 	return ret;
