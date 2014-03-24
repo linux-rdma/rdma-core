@@ -102,7 +102,7 @@ get_sgid(struct ifreq *ifr, union ibv_gid *sgid)
 }
 
 static int
-get_devaddr(int s, struct ifreq *ifr,
+get_devaddr(struct ifreq *ifr,
 	int *dev_index, uint8_t *port, uint16_t *pkey)
 {
 	struct ibv_device_attr dev_attr;
@@ -199,7 +199,7 @@ int gen_addr_ip(FILE *f)
 		if (ifr[i].ifr_hwaddr.sa_family != ARPHRD_INFINIBAND)
 			continue;
 
-		ret = get_devaddr(s, &ifr[i], &dev_index, &port, &pkey);
+		ret = get_devaddr(&ifr[i], &dev_index, &port, &pkey);
 		if (ret)
 			continue;
 
