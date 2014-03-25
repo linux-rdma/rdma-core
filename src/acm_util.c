@@ -52,7 +52,7 @@ int acm_if_is_ib(char *ifname)
 	snprintf(buf, sizeof buf, "//sys//class//net//%s//type", ifname);
 	f = fopen(buf, "r");
 	if (!f) {
-		printf("failed to open %s\n", buf);
+		acm_log(0, "failed to open %s\n", buf);
 		return 0;
 	}
 
@@ -60,6 +60,7 @@ int acm_if_is_ib(char *ifname)
 		type = strtol(buf, NULL, 0);
 		ret = (type == ARPHRD_INFINIBAND);
 	} else {
+		acm_log(0, "failed to read interface type\n");
 		ret = 0;
 	}
 
@@ -76,7 +77,7 @@ int acm_if_get_pkey(char *ifname, uint16_t *pkey)
 	snprintf(buf, sizeof buf, "//sys//class//net//%s//pkey", ifname);
 	f = fopen(buf, "r");
 	if (!f) {
-		printf("failed to open %s\n", buf);
+		acm_log(0, "failed to open %s\n", buf);
 		return -1;
 	}
 
@@ -84,7 +85,7 @@ int acm_if_get_pkey(char *ifname, uint16_t *pkey)
 		*pkey = strtol(buf, &end, 16);
 		ret = 0;
 	} else {
-		printf("failed to read pkey\n");
+		acm_log(0, "failed to read pkey\n");
 		ret = -1;
 	}
 
@@ -101,7 +102,7 @@ int acm_if_get_sgid(char *ifname, union ibv_gid *sgid)
 	snprintf(buf, sizeof buf, "//sys//class//net//%s//address", ifname);
 	f = fopen(buf, "r");
 	if (!f) {
-		printf("failed to open %s\n", buf);
+		acm_log(0, "failed to open %s\n", buf);
 		return -1;
 	}
 
@@ -112,7 +113,7 @@ int acm_if_get_sgid(char *ifname, union ibv_gid *sgid)
 		}
 		ret = 0;
 	} else {
-		printf("failed to read sgid\n");
+		acm_log(0, "failed to read sgid\n");
 		ret = -1;
 	}
 
@@ -146,7 +147,7 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 
 	ret = ioctl(s, SIOCGIFCONF, ifc);
 	if (ret < 0) {
-		printf("ioctl ifconf error %d\n", ret);
+		acm_log(0, "ioctl ifconf error %d\n", ret);
 		goto out2;
 	}
 
@@ -169,16 +170,12 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 			continue;
 
 		ret = acm_if_get_sgid(ifr[i].ifr_name, &sgid);
-		if (ret) {
-			printf("unable to get sgid\n");
+		if (ret)
 			continue;
-		}
 
 		ret = acm_if_get_pkey(ifr[i].ifr_name, &pkey);
-		if (ret) {
-			printf("unable to get pkey\n");
+		if (ret)
 			continue;
-		}
 
 		cb(ifr[i].ifr_name, &sgid, pkey, 0, NULL, 0, ip, ctx);
 	}

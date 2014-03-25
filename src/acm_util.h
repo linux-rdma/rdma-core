@@ -32,6 +32,18 @@
 
 #include <infiniband/verbs.h>
 
+#ifdef ACME_PRINTS
+
+#define acm_log(level, format, ...) \
+	printf(format, ## __VA_ARGS__)
+
+#else /* !ACME_PRINTS */
+#define acm_log(level, format, ...) \
+	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
+
+void acm_write(int level, const char *format, ...);
+#endif /* ACME_PRINTS */
+
 int acm_if_is_ib(char *ifname);
 int acm_if_get_pkey(char *ifname, uint16_t *pkey);
 int acm_if_get_sgid(char *ifname, union ibv_gid *sgid);

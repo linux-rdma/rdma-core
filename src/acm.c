@@ -47,6 +47,7 @@
 #include <dlist.h>
 #include <search.h>
 #include "acm_mad.h"
+#include "acm_util.h"
 
 #define src_out     data[0]
 
@@ -245,10 +246,7 @@ static uint8_t min_rate = IBV_RATE_10_GBPS;
 static enum acm_route_preload route_preload;
 static enum acm_addr_preload addr_preload;
 
-#define acm_log(level, format, ...) \
-	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
-
-static void acm_write(int level, const char *format, ...)
+void acm_write(int level, const char *format, ...)
 {
 	va_list args;
 	struct timeval tv;
