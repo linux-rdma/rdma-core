@@ -134,6 +134,7 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	uint8_t addr_type;
 	uint8_t addr[ACM_MAX_ADDRESS];
 	size_t addr_len;
+	char *alias_sep;
 
 	s = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (!s)
@@ -176,6 +177,12 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 		default:
 			continue;
 		}
+
+		acm_log(2, "%s\n", ifr[i].ifr_name);
+
+		alias_sep = strchr(ifr[i].ifr_name, ':');
+		if (alias_sep)
+			*alias_sep = '\0';
 
 		if (!acm_if_is_ib(ifr[i].ifr_name))
 			continue;
