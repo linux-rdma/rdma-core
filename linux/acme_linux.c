@@ -38,6 +38,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <errno.h>
 
 #include <infiniband/verbs.h>
 
@@ -95,6 +96,31 @@ get_sgid(char *ifname, union ibv_gid *sgid)
 	} else {
 		printf("failed to read sgid\n");
 		ret = -1;
+	}
+
+	fclose(f);
+	return ret;
+}
+
+static int acm_if_is_ib(char *ifname)
+{
+	unsigned type;
+	char buf[128];
+	FILE *f;
+	int ret;
+
+	snprintf(buf, sizeof buf, "//sys//class//net//%s//type", ifname);
+	f = fopen(buf, "r");
+	if (!f) {
+		printf("failed to open %s\n", buf);
+		return 0;
+	}
+
+	if (fgets(buf, sizeof buf, f)) {
+		type = strtol(buf, NULL, 0);
+		ret = (type == ARPHRD_INFINIBAND);
+	} else {
+		ret = 0;
 	}
 
 	fclose(f);
@@ -189,13 +215,7 @@ int gen_addr_ip(FILE *f)
 			continue;
 		}
 
-		ret = ioctl(s, SIOCGIFHWADDR, &ifr[i]);
-		if (ret) {
-			printf("failed to get hw address %d\n", ret);
-			continue;
-		}
-
-		if (ifr[i].ifr_hwaddr.sa_family != ARPHRD_INFINIBAND)
+		if (!acm_if_is_ib(ifr[i].ifr_name))
 			continue;
 
 		ret = get_devaddr(ifr[i].ifr_name, &dev_index, &port, &pkey);
