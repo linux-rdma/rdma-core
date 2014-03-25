@@ -43,6 +43,7 @@
 #include <infiniband/verbs.h>
 #include <infiniband/acm.h>
 #include "libacm.h"
+#include "acm_util.h"
 
 static char *dest_dir = ACM_CONF_DIR;
 static char *addr_file = ACM_ADDR_FILE;

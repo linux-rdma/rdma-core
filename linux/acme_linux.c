@@ -34,98 +34,17 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
-#include <net/if_arp.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <errno.h>
 
 #include <infiniband/verbs.h>
+#include "acm_util.h"
 
 extern struct ibv_context **verbs;
 extern int dev_cnt;
 extern int verbose;
-
-
-static int
-get_pkey(char *ifname, uint16_t *pkey)
-{
-	char buf[128], *end;
-	FILE *f;
-	int ret;
-
-	snprintf(buf, sizeof buf, "//sys//class//net//%s//pkey", ifname);
-	f = fopen(buf, "r");
-	if (!f) {
-		printf("failed to open %s\n", buf);
-		return -1;
-	}
-
-	if (fgets(buf, sizeof buf, f)) {
-		*pkey = strtol(buf, &end, 16);
-		ret = 0;
-	} else {
-		printf("failed to read pkey\n");
-		ret = -1;
-	}	
-
-	fclose(f);
-	return ret;
-}
-
-static int
-get_sgid(char *ifname, union ibv_gid *sgid)
-{
-	char buf[128], *end;
-	FILE *f;
-	int i, p, ret;
-
-	snprintf(buf, sizeof buf, "//sys//class//net//%s//address", ifname);
-	f = fopen(buf, "r");
-	if (!f) {
-		printf("failed to open %s\n", buf);
-		return -1;
-	}
-
-	if (fgets(buf, sizeof buf, f)) {
-		for (i = 0, p = 12; i < 16; i++, p += 3) {
-			buf[p + 2] = '\0';
-			sgid->raw[i] = (uint8_t) strtol(buf + p, &end, 16);
-		}
- 		ret = 0;
-	} else {
-		printf("failed to read sgid\n");
-		ret = -1;
-	}
-
-	fclose(f);
-	return ret;
-}
-
-static int acm_if_is_ib(char *ifname)
-{
-	unsigned type;
-	char buf[128];
-	FILE *f;
-	int ret;
-
-	snprintf(buf, sizeof buf, "//sys//class//net//%s//type", ifname);
-	f = fopen(buf, "r");
-	if (!f) {
-		printf("failed to open %s\n", buf);
-		return 0;
-	}
-
-	if (fgets(buf, sizeof buf, f)) {
-		type = strtol(buf, NULL, 0);
-		ret = (type == ARPHRD_INFINIBAND);
-	} else {
-		ret = 0;
-	}
-
-	fclose(f);
-	return ret;
-}
 
 static int
 get_devaddr(char *ifname, int *dev_index, uint8_t *port, uint16_t *pkey)
@@ -135,13 +54,13 @@ get_devaddr(char *ifname, int *dev_index, uint8_t *port, uint16_t *pkey)
 	union ibv_gid sgid, gid;
 	int ret, i;
 
-	ret = get_sgid(ifname, &sgid);
+	ret = acm_if_get_sgid(ifname, &sgid);
 	if (ret) {
 		printf("unable to get sgid\n");
 		return ret;
 	}
 
-	ret = get_pkey(ifname, pkey);
+	ret = acm_if_get_pkey(ifname, pkey);
 	if (ret) {
 		printf("unable to get pkey\n");
 		return ret;
