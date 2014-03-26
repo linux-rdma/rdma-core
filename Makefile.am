@@ -5,8 +5,7 @@ AM_CFLAGS = -g -Wall -D_GNU_SOURCE -DSYSCONFDIR=\"$(sysconfdir)\" -DBINDIR=\"$(b
 bin_PROGRAMS = util/ib_acme
 sbin_PROGRAMS = svc/ibacm
 svc_ibacm_SOURCES = src/acm.c src/acm_util.c
-util_ib_acme_SOURCES = src/acme.c linux/acme_linux.c src/libacm.c linux/libacm_linux.c \
-			src/parse.c src/acm_util.c
+util_ib_acme_SOURCES = src/acme.c src/libacm.c linux/libacm_linux.c src/parse.c
 svc_ibacm_CFLAGS = $(AM_CFLAGS)
 util_ib_acme_CFLAGS = $(AM_CFLAGS) -DACME_PRINTS
 

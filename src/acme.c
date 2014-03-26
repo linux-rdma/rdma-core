@@ -317,9 +317,11 @@ static void gen_addr_temp(FILE *f)
 	fprintf(f, "# Entry format is:\n");
 	fprintf(f, "# address device port pkey\n");
 	fprintf(f, "#\n");
+	fprintf(f, "# NOTE: IP addresses are now automatically read and monitored on the system.\n");
+	fprintf(f, "#       Therefore they are no longer required in this file.\n");
+	fprintf(f, "#\n");
 	fprintf(f, "# The address may be one of the following:\n");
 	fprintf(f, "# host_name - ascii character string, up to 31 characters\n");
-	fprintf(f, "# address - IPv4 or IPv6 formatted address\n");
 	fprintf(f, "#\n");
 	fprintf(f, "# device name - struct ibv_device name\n");
 	fprintf(f, "# port number - valid port number on device (numbering starts at 1)\n");
@@ -331,8 +333,6 @@ static void gen_addr_temp(FILE *f)
 	fprintf(f, "# node31      ibv_device0 1 default\n");
 	fprintf(f, "# node31-1    ibv_device0 1 0x00FF\n");
 	fprintf(f, "# node31-2    ibv_device0 2 0x00FF\n");
-	fprintf(f, "# 192.168.0.1 ibv_device0 1 0xFFFF\n");
-	fprintf(f, "# 192.168.0.2 ibv_device0 2 default\n");
 }
 
 static int open_verbs(void)
@@ -446,12 +446,6 @@ static int gen_addr(void)
 	ret = gen_addr_names(f);
 	if (ret) {
 		printf("Failed to auto generate host names in config file\n");
-		goto out2;
-	}
-
-	ret = gen_addr_ip(f);
-	if (ret) {
-		printf("Failed to auto generate IP addresses in config file\n");
 		goto out2;
 	}
 
