@@ -190,7 +190,7 @@ fi
 if test x$have_rst2man == xyes; then
 	doc/generate
 else
-	if test -f doc/man/infiniband-diags.8.in; then
+	if test -f $srcdir/doc/man/infiniband-diags.8.in; then
 		echo "WARNING: 'rst2man' not found; using premade man pages"
 	else
 		echo "FAILED to find 'rst2man' required to build man pages"
