@@ -252,6 +252,7 @@ static uint8_t min_mtu = IBV_MTU_2048;
 static uint8_t min_rate = IBV_RATE_10_GBPS;
 static enum acm_route_preload route_preload;
 static enum acm_addr_preload addr_preload;
+static int support_ips_in_addr_cfg = 0;
 
 void acm_write(int level, const char *format, ...)
 {
@@ -3294,9 +3295,17 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 
 		acm_log(2, "%s", s);
 		if (inet_pton(AF_INET, addr, &ip_addr) > 0) {
+			if (!support_ips_in_addr_cfg) {
+				acm_log(0, "ERROR - IP's are not configured to be read from ibacm_addr.cfg\n");
+				continue;
+			}
 			type = ACM_ADDRESS_IP;
 			addr_len = 4;
 		} else if (inet_pton(AF_INET6, addr, &ip_addr) > 0) {
+			if (!support_ips_in_addr_cfg) {
+				acm_log(0, "ERROR - IP's are not configured to be read from ibacm_addr.cfg\n");
+				continue;
+			}
 			type = ACM_ADDRESS_IP6;
 			addr_len = ACM_MAX_ADDRESS;
 		} else {
@@ -3873,6 +3882,8 @@ static void acm_set_options(void)
 			addr_preload = acm_convert_addr_preload(value);
 		else if (!stricmp("addr_data_file", opt))
 			strcpy(addr_data_file, value);
+		else if (!stricmp("support_ips_in_addr_cfg", opt))
+			support_ips_in_addr_cfg = atoi(value);
 	}
 
 	fclose(f);
@@ -3900,6 +3911,7 @@ static void acm_log_options(void)
 	acm_log(0, "route data file %s\n", route_data_file);
 	acm_log(0, "address preload %d\n", addr_preload);
 	acm_log(0, "address data file %s\n", addr_data_file);
+	acm_log(0, "support IP's in ibacm_addr.cfg %d\n", support_ips_in_addr_cfg);
 }
 
 static FILE *acm_open_log(void)

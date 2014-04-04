@@ -280,6 +280,10 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Default is ACM_CONF_DIR/ibacm_hosts.data\n");
 	fprintf(f, "# addr_data_file /etc/rdma/ibacm_hosts.data\n");
 	fprintf(f, "\n");
+	fprintf(f, "# support_ips_in_addr_cfg:\n");
+	fprintf(f, "# If 1 continue to read IP addresses from ibacm_addr.cfg\n");
+	fprintf(f, "# Default is 0 \"no\"\n");
+	fprintf(f, "# support_ips_in_addr_cfg 0\n");
 }
 
 static int open_dir(void)
