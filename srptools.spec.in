@@ -58,7 +58,10 @@ fi
 
 %preun
 if [ $1 = 0 ]; then
-    /etc/init.d/srpd stop
+    pidfile=/var/run/srp_daemon.sh.pid
+    if [[ -f "$pidfile" && -e "/proc/$(cat $pidfile)" ]]; then
+        /etc/init.d/srpd stop
+    fi
     if [ -e /sbin/chkconfig ]; then
         /sbin/chkconfig --del srpd
     elif [ -e /usr/sbin/update-rc.d ]; then
