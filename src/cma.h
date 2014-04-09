@@ -158,7 +158,7 @@ static inline int ERR(int err)
 	return -1;
 }
 
-int ucma_init();
+int ucma_init(void);
 extern int af_ib_support;
 
 #define RAI_ROUTEONLY		0x01000000
