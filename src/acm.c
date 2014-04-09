@@ -801,7 +801,6 @@ err2:
 	ibv_destroy_ah(dest->ah);
 	dest->ah = NULL;
 err1:
-	dest->state = ACM_INIT;
 	lock_release(&ep->lock);
 }
 
@@ -1568,6 +1567,7 @@ static void acm_join_group(struct acm_ep *ep, union ibv_gid *port_gid,
 	acm_log(0, "%s %d pkey 0x%x, sl 0x%x, rate 0x%x, mtu 0x%x\n",
 		ep->port->dev->verbs->device->name, ep->port->port_num,
 		ep->pkey, sl, rate, mtu);
+	ep->mc_dest[ep->mc_cnt].state = ACM_INIT;
 	mad = (struct ib_sa_mad *) umad->data;
 	acm_init_join(mad, port_gid, ep->pkey, tos, tclass, sl, rate, mtu);
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
