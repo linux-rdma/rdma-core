@@ -3376,7 +3376,7 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 				continue;
 			}
 			type = ACM_ADDRESS_IP6;
-			addr_len = ACM_MAX_ADDRESS;
+			addr_len = 16;
 		} else {
 			type = ACM_ADDRESS_NAME;
 			addr_len = strlen(name);
