@@ -185,7 +185,8 @@ void mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 		break;
 	default:
 		IBWARN("bad width %d", width);
-		buf[0] = 0;
+		snprintf(buf, bufsz, "undefined (%d)", width);
+		break;
 	}
 }
 
