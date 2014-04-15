@@ -119,6 +119,8 @@ struct acm_dest {
 	uint8_t                addr_type;
 };
 
+struct acm_device;
+
 struct acm_port {
 	struct acm_device   *dev;
 	struct acm_provider *prov; /* limit to 1 provider per port for now */
@@ -131,8 +133,10 @@ struct acm_port {
 	uint8_t             port_num;
 };
 
+struct acmp_device; 
+
 struct acmp_port {
-	struct acm_device   *dev;
+	struct acmp_device   *dev;
 	DLIST_ENTRY         ep_list;
 	lock_t              lock;
 	int                 mad_portid;
@@ -148,10 +152,17 @@ struct acmp_port {
 	uint16_t            lid;
 	uint16_t            lid_mask;
 	uint8_t             port_num;
-	struct acm_port	    port;
 };
 
 struct acm_device {
+	struct ibv_context      *verbs;
+	uint64_t                guid;
+	DLIST_ENTRY             entry;
+	int                     port_cnt;
+	struct acm_port         port[0];
+};
+
+struct acmp_device {
 	struct ibv_context      *verbs;
 	struct ibv_comp_channel *channel;
 	struct ibv_pd           *pd;
@@ -248,6 +259,7 @@ union socket_addr {
 };
 
 static DLIST_ENTRY dev_list;
+static DLIST_ENTRY acmp_dev_list;
 
 static atomic_t tid;
 static DLIST_ENTRY timeout_list;
@@ -693,13 +705,14 @@ unlock:
 	return req;
 }
 
-static uint8_t acm_gid_index(struct acm_port *port, union ibv_gid *gid)
+static uint8_t acm_gid_index(struct ibv_context *verbs, int port_num, 
+	int gid_cnt, union ibv_gid *gid)
 {
 	union ibv_gid cmp_gid;
 	uint8_t i;
 
-	for (i = 0; i < port->gid_cnt; i++) {
-		ibv_query_gid(port->dev->verbs, port->port_num, i, &cmp_gid);
+	for (i = 0; i < gid_cnt; i++) {
+		ibv_query_gid(verbs, port_num, i, &cmp_gid);
 		if (!memcmp(&cmp_gid, gid, sizeof cmp_gid))
 			break;
 	}
@@ -748,7 +761,8 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 	dest->av.is_global = 1;
 	dest->av.grh.dgid = mc_rec->mgid;
 	dest->av.grh.flow_label = (sl_flow_hop >> 8) & 0xFFFFF;
-	dest->av.grh.sgid_index = acm_gid_index(&port->port, &mc_rec->port_gid);
+	dest->av.grh.sgid_index = acm_gid_index(port->dev->verbs, 
+		port->port_num, port->gid_cnt, &mc_rec->port_gid);
 	dest->av.grh.hop_limit = (uint8_t) sl_flow_hop;
 	dest->av.grh.traffic_class = mc_rec->tclass;
 
@@ -781,7 +795,8 @@ acm_init_path_av(struct acmp_port *port, struct acm_dest *dest)
 	flow_hop = ntohl(dest->path.flowlabel_hoplimit);
 	dest->av.is_global = 1;
 	dest->av.grh.flow_label = (flow_hop >> 8) & 0xFFFFF;
-	dest->av.grh.sgid_index = acm_gid_index(&port->port, &dest->path.sgid);
+	dest->av.grh.sgid_index = acm_gid_index(port->dev->verbs,
+		port->port_num, port->gid_cnt, &dest->path.sgid);
 	dest->av.grh.hop_limit = (uint8_t) flow_hop;
 	dest->av.grh.traffic_class = dest->path.tclass;
 }
@@ -1505,7 +1520,7 @@ static void acmp_process_comp(struct acmp_ep *ep, struct ibv_wc *wc)
 
 static void CDECL_FUNC acmp_comp_handler(void *context)
 {
-	struct acm_device *dev = (struct acm_device *) context;
+	struct acmp_device *dev = (struct acmp_device *) context;
 	struct acmp_ep *ep;
 	struct ibv_cq *cq;
 	struct ibv_wc wc;
@@ -1726,7 +1741,7 @@ static void acmp_process_wait_queue(struct acmp_ep *ep, uint64_t *next_expire)
 
 static void CDECL_FUNC acmp_retry_handler(void *context)
 {
-	struct acm_device *dev;
+	struct acmp_device *dev;
 	struct acmp_port *port;
 	struct acmp_ep *ep;
 	DLIST_ENTRY *dev_entry, *ep_entry;
@@ -1739,10 +1754,10 @@ static void CDECL_FUNC acmp_retry_handler(void *context)
 			event_wait(&timeout_event, -1);
 
 		next_expire = -1;
-		for (dev_entry = dev_list.Next; dev_entry != &dev_list;
+		for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
 			 dev_entry = dev_entry->Next) {
 
-			dev = container_of(dev_entry, struct acm_device, entry);
+			dev = container_of(dev_entry, struct acmp_device, entry);
 
 			for (i = 0; i < dev->port_cnt; i++) {
 				port = &dev->port[i];
@@ -1863,7 +1878,8 @@ acm_is_path_from_port(struct acm_port *port, struct ibv_path_record *path)
 	uint8_t i;
 
 	if (!ib_any_gid(&path->sgid)) {
-		return (acm_gid_index(port, &path->sgid) < port->gid_cnt);
+		return (acm_gid_index(port->dev->verbs, port->port_num,
+			port->gid_cnt, &path->sgid) < port->gid_cnt);
 	}
 
 	if (path->slid) {
@@ -1874,7 +1890,8 @@ acm_is_path_from_port(struct acm_port *port, struct ibv_path_record *path)
 		return 1;
 	}
 
-	if (acm_gid_index(port, &path->dgid) < port->gid_cnt) {
+	if (acm_gid_index(port->dev->verbs, port->port_num, port->gid_cnt,
+		 &path->dgid) < port->gid_cnt) {
 		return 1;
 	}
 
@@ -1933,9 +1950,9 @@ static struct acm_ep *acm_get_ep(struct acm_ep_addr_data *data)
 
 		dev = container_of(dev_entry, struct acm_device, entry);
 		for (i = 0; i < dev->port_cnt; i++) {
-			lock_acquire(&dev->port[i].port.lock);
-			ep = acm_get_port_ep(&dev->port[i].port, data);
-			lock_release(&dev->port[i].port.lock);
+			lock_acquire(&dev->port[i].lock);
+			ep = acm_get_port_ep(&dev->port[i], data);
+			lock_release(&dev->port[i].lock);
 			if (ep)
 				return ep;
 		}
@@ -2564,7 +2581,7 @@ static void acm_add_ep_ip(char *ifname, struct acm_ep_addr_data *data, char *ip_
 
 	acm_log(0, " %s\n", ip_str);
 
-	ep = acm_find_ep(&dev->port[port_num - 1].port, pkey);
+	ep = acm_find_ep(&dev->port[port_num - 1], pkey);
 	if (ep) {
 		if (acm_ep_insert_addr(ep, ip_str, data->info.addr,
 				       sizeof data->info.addr, data->type))
@@ -2620,7 +2637,7 @@ static void acm_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 
 	dev = acm_get_device_from_gid(gid, &port_num);
 	if (dev) {
-		ep = acm_find_ep(&dev->port[port_num - 1].port, pkey);
+		ep = acm_find_ep(&dev->port[port_num - 1], pkey);
 		if (ep)
 			ret = acm_ep_insert_addr(ep, ip_str, addr, addr_len, addr_type);
 	}
@@ -2653,7 +2670,7 @@ static int resync_system_ips(void)
 		dev = container_of(dev_entry, struct acm_device, entry);
 
 		for (cnt = 0; cnt < dev->port_cnt; cnt++) {
-			port = &dev->port[cnt].port;
+			port = &dev->port[cnt];
 
 			for (entry = port->ep_list.Next; entry != &port->ep_list;
 			     entry = entry->Next) {
@@ -3472,15 +3489,15 @@ static int acmp_add_addr(struct acm_endpoint *endpoint, struct acm_address *addr
 
 static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
 {
-	struct acm_device *dev;
+	struct acmp_device *dev;
 	DLIST_ENTRY *dev_entry;
 
 	acm_log(1, "dev 0xllx port %d pkey 0x%x\n",
 		endpoint->dev_guid, endpoint->port_num, endpoint->pkey);
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
+	for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
 	     dev_entry = dev_entry->Next) {
 
-		dev = container_of(dev_entry, struct acm_device, entry);
+		dev = container_of(dev_entry, struct acmp_device, entry);
 		if (dev->guid == endpoint->dev_guid)
 			return &dev->port[endpoint->port_num - 1];
 	}
@@ -3720,6 +3737,17 @@ err:
 	free(ep);
 }
 
+static struct acmp_port * acmp_get_port_by_guid(uint64_t guid, int port_num)
+{
+	struct acm_endpoint ep;
+
+	memset(&ep, 0, sizeof(ep));
+	ep.dev_guid = guid;
+	ep.port_num = port_num;
+
+	return acmp_get_port(&ep);
+}
+
 static void acmp_port_up(struct acmp_port *port, struct ibv_port_attr *attr)
 {
 	union ibv_gid gid;
@@ -3784,6 +3812,7 @@ static void acm_port_up(struct acm_port *port)
 	union ibv_gid gid;
 	uint16_t pkey;
 	int i, ret;
+	struct acmp_port *prov_port;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -3804,7 +3833,12 @@ static void acm_port_up(struct acm_port *port)
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
 	port->state = IBV_PORT_ACTIVE;
-	acmp_port_up(&port->dev->port[port->port_num - 1], &attr);
+	if ((prov_port = acmp_get_port_by_guid(port->dev->guid, port->port_num))) {
+		acmp_port_up(prov_port, &attr);
+	} else {
+		acm_log(0, "Error -- failed to find prov port\n");
+		return;
+	}
 
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
@@ -3842,6 +3876,7 @@ static void acm_port_down(struct acm_port *port)
 {
 	struct ibv_port_attr attr;
 	int ret;
+	struct acmp_port *prov_port;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -3851,7 +3886,12 @@ static void acm_port_down(struct acm_port *port)
 	}
 
 	port->state = attr.state;
-	acmp_port_down(&port->dev->port[port->port_num - 1]);
+	if ((prov_port = acmp_get_port_by_guid(port->dev->guid, port->port_num))) {
+		acmp_port_down(prov_port);
+	} else {
+		acm_log(0, "Error -- failed to find prov port\n");
+		return;
+	}
 	acm_log(1, "%s %d is down\n", port->dev->verbs->device->name, port->port_num);
 }
 
@@ -3866,10 +3906,11 @@ static void CDECL_FUNC acm_event_handler(void *context)
 	struct acm_device *dev = (struct acm_device *) context;
 	struct ibv_async_event event;
 	int i, ret;
+	struct acmp_port *prov_port;
 
 	acm_log(1, "started\n");
 	for (i = 0; i < dev->port_cnt; i++) {
-		acm_port_up(&dev->port[i].port);
+		acm_port_up(&dev->port[i]);
 	}
 
 	for (;;) {
@@ -3883,17 +3924,20 @@ static void CDECL_FUNC acm_event_handler(void *context)
 		switch (event.event_type) {
 		case IBV_EVENT_PORT_ACTIVE:
 			if (dev->port[i].state != IBV_PORT_ACTIVE)
-				acm_port_up(&dev->port[i].port);
+				acm_port_up(&dev->port[i]);
 			break;
 		case IBV_EVENT_PORT_ERR:
 			if (dev->port[i].state == IBV_PORT_ACTIVE)
-				acm_port_down(&dev->port[i].port);
+				acm_port_down(&dev->port[i]);
 			break;
 		case IBV_EVENT_CLIENT_REREGISTER:
 			if (dev->port[i].state == IBV_PORT_ACTIVE) {
-				acmp_port_join(&dev->port[i]);
-				acm_log(1, "%s %d has reregistered\n",
-					dev->verbs->device->name, i + 1);
+				if ((prov_port = acmp_get_port_by_guid(dev->guid, dev->port[i].port_num)) != NULL)  {
+					acmp_port_join(prov_port);
+					acm_log(1, "%s %d has reregistered\n",
+							dev->verbs->device->name, i + 1);
+				}
+				
 			}
 			break;
 		default:
@@ -3908,6 +3952,7 @@ static void acm_activate_devices()
 {
 	struct acm_device *dev;
 	DLIST_ENTRY *dev_entry;
+	struct acmp_device *pdev;
 
 	acm_log(1, "\n");
 	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
@@ -3915,11 +3960,18 @@ static void acm_activate_devices()
 
 		dev = container_of(dev_entry, struct acm_device, entry);
 		beginthread(acm_event_handler, dev);
-		beginthread(acmp_comp_handler, dev);
+	}
+
+	for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
+		dev_entry = dev_entry->Next) {
+
+		pdev = container_of(dev_entry, struct acmp_device, entry);
+		beginthread(acmp_comp_handler, pdev);
 	}
 }
 
-static void acmp_open_port(struct acmp_port *port, struct acm_device *dev, uint8_t port_num)
+static void
+acmp_open_port(struct acmp_port *port, struct acmp_device *dev, uint8_t port_num)
 {
 	acm_log(1, "%s %d\n", dev->verbs->device->name, port_num);
 	port->dev = dev;
@@ -3947,7 +3999,8 @@ err:
 	umad_close_port(port->mad_portid);
 }
 
-static void acm_open_port(struct acm_port *port, struct acm_device *dev, uint8_t port_num)
+static void
+acm_open_port(struct acm_port *port, struct acm_device *dev, uint8_t port_num)
 {
 	acm_log(1, "%s %d\n", dev->verbs->device->name, port_num);
 	port->dev = dev;
@@ -3956,6 +4009,51 @@ static void acm_open_port(struct acm_port *port, struct acm_device *dev, uint8_t
 	DListInit(&port->ep_list);
 	port->prov = &def_prov;
 	port->state = IBV_PORT_DOWN;
+}
+
+static void acmp_open_dev(struct ibv_device *ibdev, struct ibv_context *verbs,
+	struct ibv_device_attr *attr)
+{
+	struct acmp_device *dev;
+	size_t size;
+	int i;
+
+	acm_log(1, "%s\n", ibdev->name);
+	
+	size = sizeof(*dev) + sizeof(struct acmp_port) * attr->phys_port_cnt;
+	dev = (struct acmp_device *) calloc(1, size);
+	if (!dev)
+		return;
+
+	dev->verbs = verbs;
+	dev->guid = ibv_get_device_guid(ibdev);
+	dev->port_cnt = attr->phys_port_cnt;
+
+	dev->pd = ibv_alloc_pd(dev->verbs);
+	if (!dev->pd) {
+		acm_log(0, "ERROR - unable to allocate PD\n");
+		goto err1;
+	}
+
+	dev->channel = ibv_create_comp_channel(dev->verbs);
+	if (!dev->channel) {
+		acm_log(0, "ERROR - unable to create comp channel\n");
+		goto err2;
+	}
+
+	for (i = 0; i < dev->port_cnt; i++) {
+		acmp_open_port(&dev->port[i], dev, i + 1);
+	}
+
+	DListInsertHead(&dev->entry, &acmp_dev_list);
+
+	acm_log(1, "%s opened\n", ibdev->name);
+	return;
+
+err2:
+	ibv_dealloc_pd(dev->pd);
+err1:
+	free(dev);
 }
 
 static void acm_open_dev(struct ibv_device *ibdev)
@@ -3979,7 +4077,7 @@ static void acm_open_dev(struct ibv_device *ibdev)
 		goto err1;
 	}
 
-	size = sizeof(*dev) + sizeof(struct acmp_port) * attr.phys_port_cnt;
+	size = sizeof(*dev) + sizeof(struct acm_port) * attr.phys_port_cnt;
 	dev = (struct acm_device *) calloc(1, size);
 	if (!dev)
 		goto err1;
@@ -3988,32 +4086,17 @@ static void acm_open_dev(struct ibv_device *ibdev)
 	dev->guid = ibv_get_device_guid(ibdev);
 	dev->port_cnt = attr.phys_port_cnt;
 
-	dev->pd = ibv_alloc_pd(dev->verbs);
-	if (!dev->pd) {
-		acm_log(0, "ERROR - unable to allocate PD\n");
-		goto err2;
-	}
-
-	dev->channel = ibv_create_comp_channel(dev->verbs);
-	if (!dev->channel) {
-		acm_log(0, "ERROR - unable to create comp channel\n");
-		goto err3;
-	}
-
 	for (i = 0; i < dev->port_cnt; i++) {
-		acm_open_port(&dev->port[i].port, dev, i + 1);
-		acmp_open_port(&dev->port[i], dev, i + 1);
+		acm_open_port(&dev->port[i], dev, i + 1);
 	}
 
 	DListInsertHead(&dev->entry, &dev_list);
 
+	acmp_open_dev(ibdev, verbs, &attr);
+
 	acm_log(1, "%s opened\n", ibdev->name);
 	return;
 
-err3:
-	ibv_dealloc_pd(dev->pd);
-err2:
-	free(dev);
 err1:
 	ibv_close_device(verbs);
 }
@@ -4037,6 +4120,10 @@ static int acm_open_devices(void)
 	ibv_free_device_list(ibdev);
 	if (DListEmpty(&dev_list)) {
 		acm_log(0, "ERROR - no devices\n");
+		return -1;
+	}
+	if (DListEmpty(&acmp_dev_list)) {
+		acm_log(0, "ERROR - no provider devices\n");
 		return -1;
 	}
 
@@ -4249,6 +4336,7 @@ int CDECL_FUNC main(int argc, char **argv)
 	atomic_init(&tid);
 	atomic_init(&wait_cnt);
 	DListInit(&dev_list);
+	DListInit(&acmp_dev_list);
 	DListInit(&timeout_list);
 	event_init(&timeout_event);
 	for (i = 0; i < ACM_MAX_COUNTER; i++)
