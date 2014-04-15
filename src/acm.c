@@ -4164,7 +4164,11 @@ static int acm_open_lock_file(void)
 	}
 
 	snprintf(pid, sizeof pid, "%d\n", getpid());
-	write(lock_fd, pid, strlen(pid));
+	if (write(lock_fd, pid, strlen(pid)) != strlen(pid)){
+		lockf(lock_fd, F_ULOCK, 0);
+		close(lock_fd);
+		return -1;
+	}
 	return 0;
 }
 
@@ -4183,9 +4187,12 @@ static void daemonize(void)
 	if (chdir("/"))
 		exit(1);
 
-	freopen("/dev/null", "r", stdin);
-	freopen("/dev/null", "w", stdout);
-	freopen("/dev/null", "w", stderr);
+	if(!freopen("/dev/null", "r", stdin))
+		exit(1);
+	if(!freopen("/dev/null", "w", stdout))
+		exit(1);
+	if(!freopen("/dev/null", "w", stderr))
+		exit(1);
 }
 
 static void show_usage(char *program)

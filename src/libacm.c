@@ -49,7 +49,8 @@ static void acm_set_server_port(void)
 	FILE *f;
 
 	if ((f = fopen("/var/run/ibacm.port", "r"))) {
-		fscanf(f, "%hu", (unsigned short *) &server_port);
+		if (fscanf(f, "%hu", (unsigned short *) &server_port) != 1) 
+			printf("Failed to read server port\n"); 
 		fclose(f);
 	}
 }
