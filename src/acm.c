@@ -783,7 +783,7 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 
 /* Always send the GRH to transfer GID data to remote side */
 static void
-acm_init_path_av(struct acmp_port *port, struct acmp_dest *dest)
+acmp_init_path_av(struct acmp_port *port, struct acmp_dest *dest)
 {
 	uint32_t flow_hop;
 
@@ -925,7 +925,7 @@ acmp_record_acm_route(struct acmp_ep *ep, struct acmp_dest *dest)
 	return ACM_STATUS_SUCCESS;
 }
 
-static void acm_init_path_query(struct ib_sa_mad *mad)
+static void acmp_init_path_query(struct ib_sa_mad *mad)
 {
 	acm_log(2, "\n");
 	mad->base_version = 1;
@@ -990,7 +990,7 @@ static uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 }
 
 /* Caller must hold dest lock */
-static uint8_t acm_resolve_path(struct acmp_ep *ep, struct acmp_dest *dest,
+static uint8_t acmp_resolve_path_sa(struct acmp_ep *ep, struct acmp_dest *dest,
 	void (*resp_handler)(struct acm_send_msg *req,
 		struct ibv_wc *wc, struct acm_mad *resp))
 {
@@ -1016,7 +1016,7 @@ static uint8_t acm_resolve_path(struct acmp_ep *ep, struct acmp_dest *dest,
 	(void) atomic_inc(&dest->refcnt);
 	acmp_init_send_req(msg, (void *) dest, resp_handler);
 	mad = (struct ib_sa_mad *) msg->data;
-	acm_init_path_query(mad);
+	acmp_init_path_query(mad);
 
 	memcpy(mad->data, &dest->path, sizeof(dest->path));
 	mad->comp_mask = acm_path_comp_mask(&dest->path);
@@ -1228,7 +1228,7 @@ acmp_dest_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *m
 
 	if (!status) {
 		memcpy(&dest->path, sa_mad->data, sizeof(dest->path));
-		acm_init_path_av(msg->ep->port, dest);
+		acmp_init_path_av(msg->ep->port, dest);
 		dest->addr_timeout = time_stamp_min() + (unsigned) addr_timeout;
 		dest->route_timeout = time_stamp_min() + (unsigned) route_timeout;
 		acm_log(2, "timeout addr %llu route %llu\n", dest->addr_timeout, dest->route_timeout);
@@ -1304,7 +1304,7 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 			break;
 		}
 		if (addr || !DListEmpty(&dest->req_queue)) {
-			status = acm_resolve_path(ep, dest, acmp_resolve_sa_resp);
+			status = acmp_resolve_path_sa(ep, dest, acmp_resolve_sa_resp);
 			if (status)
 				break;
 		}
@@ -1351,7 +1351,7 @@ acmp_process_addr_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_m
 			if (route_prot == ACM_ROUTE_PROT_ACM) {
 				status = acmp_record_acm_route(msg->ep, dest);
 			} else {
-				status = acm_resolve_path(msg->ep, dest, acmp_dest_sa_resp);
+				status = acmp_resolve_path_sa(msg->ep, dest, acmp_dest_sa_resp);
 				if (!status) {
 					lock_release(&dest->lock);
 					goto put;
@@ -2021,7 +2021,7 @@ acmp_query(struct acm_endpoint *endpoint, struct acm_msg *msg, uint64_t id)
 
 	acmp_init_send_req(sa_msg, (void *) req, acmp_sa_resp);
 	mad = (struct ib_sa_mad *) sa_msg->data;
-	acm_init_path_query(mad);
+	acmp_init_path_query(mad);
 
 	memcpy(mad->data, &msg->resolve_data[0].info.path,
 		sizeof(struct ibv_path_record));
@@ -2214,7 +2214,7 @@ static uint8_t acmp_queue_req(struct acmp_dest *dest, uint64_t id, struct acm_ms
 	return ACM_STATUS_SUCCESS;
 }
 
-static int acm_dest_timeout(struct acmp_dest *dest)
+static int acmp_dest_timeout(struct acmp_dest *dest)
 {
 	uint64_t timestamp = time_stamp_min();
 
@@ -2291,7 +2291,7 @@ acmp_resolve_dest(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 test:
 	switch (dest->state) {
 	case ACM_READY:
-		if (acm_dest_timeout(dest))
+		if (acmp_dest_timeout(dest))
 			goto test;
 		acm_log(2, "request satisfied from local cache\n");
 		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
@@ -2300,7 +2300,7 @@ test:
 	case ACM_ADDR_RESOLVED:
 		acm_log(2, "have address, resolving route\n");
 		atomic_inc(&counter[ACM_CNTR_ADDR_CACHE]);
-		status = acm_resolve_path(ep, dest, acmp_dest_sa_resp);
+		status = acmp_resolve_path_sa(ep, dest, acmp_dest_sa_resp);
 		if (status) {
 			break;
 		}
@@ -2400,7 +2400,7 @@ acmp_resolve_path(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 test:
 	switch (dest->state) {
 	case ACM_READY:
-		if (acm_dest_timeout(dest))
+		if (acmp_dest_timeout(dest))
 			goto test;
 		acm_log(2, "request satisfied from local cache\n");
 		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
@@ -2412,7 +2412,7 @@ test:
 		/* fall through */
 	case ACM_ADDR_RESOLVED:
 		acm_log(2, "have address, resolving route\n");
-		status = acm_resolve_path(ep, dest, acmp_dest_sa_resp);
+		status = acmp_resolve_path_sa(ep, dest, acmp_dest_sa_resp);
 		if (status) {
 			break;
 		}
