@@ -4161,7 +4161,30 @@ static void acm_set_options(void)
 			log_level = atoi(value);
 		else if (!stricmp("lock_file", opt))
 			strcpy(lock_file, value);
-		else if (!stricmp("addr_prot", opt))
+		else if (!stricmp("server_port", opt))
+			server_port = (short) atoi(value);
+	}
+
+	fclose(f);
+}
+
+static void acmp_set_options(void)
+{
+	FILE *f;
+	char s[120];
+	char opt[32], value[256];
+
+	if (!(f = fopen(opts_file, "r")))
+		return;
+
+	while (fgets(s, sizeof s, f)) {
+		if (s[0] == '#')
+			continue;
+
+		if (sscanf(s, "%32s%256s", opt, value) != 2)
+			continue;
+
+		if (!stricmp("addr_prot", opt))
 			addr_prot = acm_convert_addr_prot(value);
 		else if (!stricmp("addr_timeout", opt))
 			addr_timeout = atoi(value);
@@ -4171,8 +4194,6 @@ static void acm_set_options(void)
 			route_timeout = atoi(value);
 		else if (!stricmp("loopback_prot", opt))
 			loopback_prot = acm_convert_loopback_prot(value);
-		else if (!stricmp("server_port", opt))
-			server_port = (short) atoi(value);
 		else if (!stricmp("timeout", opt))
 			timeout = atoi(value);
 		else if (!stricmp("retries", opt))
@@ -4206,14 +4227,19 @@ static void acm_set_options(void)
 
 static void acm_log_options(void)
 {
+	acm_log(0, "log file %s\n", opts_file);
 	acm_log(0, "log level %d\n", log_level);
 	acm_log(0, "lock file %s\n", lock_file);
+	acm_log(0, "server_port %d\n", server_port);
+}
+
+static void acmp_log_options(void)
+{
 	acm_log(0, "address resolution %d\n", addr_prot);
 	acm_log(0, "address timeout %d\n", addr_timeout);
 	acm_log(0, "route resolution %d\n", route_prot);
 	acm_log(0, "route timeout %d\n", route_timeout);
 	acm_log(0, "loopback resolution %d\n", loopback_prot);
-	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "timeout %d ms\n", timeout);
 	acm_log(0, "retries %d\n", retries);
 	acm_log(0, "resolve depth %d\n", resolve_depth);
@@ -4333,6 +4359,7 @@ int CDECL_FUNC main(int argc, char **argv)
 		return -1;
 
 	acm_set_options();
+	acmp_set_options();
 	if (acm_open_lock_file())
 		return -1;
 
@@ -4341,6 +4368,7 @@ int CDECL_FUNC main(int argc, char **argv)
 
 	acm_log(0, "Assistant to the InfiniBand Communication Manager\n");
 	acm_log_options();
+	acmp_log_options();
 
 	atomic_init(&tid);
 	atomic_init(&wait_cnt);
