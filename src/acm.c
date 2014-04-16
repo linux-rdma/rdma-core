@@ -2867,7 +2867,7 @@ static enum acm_route_preload acm_convert_route_preload(char *param)
 	return route_preload;
 }
 
-static enum acm_route_preload acm_convert_addr_preload(char *param)
+static enum acm_addr_preload acm_convert_addr_preload(char *param)
 {
 	if (!stricmp("none", param) || !stricmp("no", param))
 		return ACM_ADDR_PRELOAD_NONE;
