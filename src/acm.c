@@ -101,7 +101,7 @@ enum acm_addr_preload {
 /*
  * Nested locking order: dest -> ep, dest -> port
  */
-struct acm_dest {
+struct acmp_dest {
 	uint8_t                address[ACM_MAX_ADDRESS]; /* keep first */
 	char                   name[ACM_MAX_ADDRESS];
 	struct ibv_ah          *ah;
@@ -141,7 +141,7 @@ struct acmp_port {
 	lock_t              lock;
 	int                 mad_portid;
 	int                 mad_agentid;
-	struct acm_dest     sa_dest;
+	struct acmp_dest    sa_dest;
 	union ibv_gid	    base_gid;
 	enum ibv_port_state state;
 	enum ibv_mtu        mtu;
@@ -200,7 +200,7 @@ struct acmp_ep {
 	DLIST_ENTRY           entry;
 	char		      id_string[ACM_MAX_ADDRESS];
 	void                  *dest_map[ACM_ADDRESS_RESERVED - 1];
-	struct acm_dest       mc_dest[MAX_EP_MC];
+	struct acmp_dest      mc_dest[MAX_EP_MC];
 	int                   mc_cnt;
 	uint16_t              pkey_index;
 	uint16_t	      pkey;
@@ -217,7 +217,7 @@ struct acmp_ep {
 struct acm_send_msg {
 	DLIST_ENTRY          entry;
 	struct acmp_ep       *ep;
-	struct acm_dest      *dest;
+	struct acmp_dest     *dest;
 	struct ibv_ah        *ah;
 	void                 *context;
 	void                 (*resp_handler)(struct acm_send_msg *req,
@@ -379,7 +379,7 @@ static int acmp_compare_dest(const void *dest1, const void *dest2)
 }
 
 static void
-acmp_set_dest_addr(struct acm_dest *dest, uint8_t addr_type, uint8_t *addr, size_t size)
+acmp_set_dest_addr(struct acmp_dest *dest, uint8_t addr_type, uint8_t *addr, size_t size)
 {
 	memcpy(dest->address, addr, size);
 	dest->addr_type = addr_type;
@@ -387,7 +387,7 @@ acmp_set_dest_addr(struct acm_dest *dest, uint8_t addr_type, uint8_t *addr, size
 }
 
 static void
-acmp_init_dest(struct acm_dest *dest, uint8_t addr_type, uint8_t *addr, size_t size)
+acmp_init_dest(struct acmp_dest *dest, uint8_t addr_type, uint8_t *addr, size_t size)
 {
 	DListInit(&dest->req_queue);
 	atomic_init(&dest->refcnt);
@@ -397,10 +397,10 @@ acmp_init_dest(struct acm_dest *dest, uint8_t addr_type, uint8_t *addr, size_t s
 		acmp_set_dest_addr(dest, addr_type, addr, size);
 }
 
-static struct acm_dest *
+static struct acmp_dest *
 acmp_alloc_dest(uint8_t addr_type, uint8_t *addr)
 {
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 
 	dest = calloc(1, sizeof *dest);
 	if (!dest) {
@@ -414,10 +414,10 @@ acmp_alloc_dest(uint8_t addr_type, uint8_t *addr)
 }
 
 /* Caller must hold ep lock. */
-static struct acm_dest *
+static struct acmp_dest *
 acmp_get_dest(struct acmp_ep *ep, uint8_t addr_type, uint8_t *addr)
 {
-	struct acm_dest *dest, **tdest;
+	struct acmp_dest *dest, **tdest;
 
 	tdest = tfind(addr, &ep->dest_map[addr_type - 1], acmp_compare_dest);
 	if (tdest) {
@@ -434,7 +434,7 @@ acmp_get_dest(struct acmp_ep *ep, uint8_t addr_type, uint8_t *addr)
 }
 
 static void
-acmp_put_dest(struct acm_dest *dest)
+acmp_put_dest(struct acmp_dest *dest)
 {
 	acm_log(2, "%s\n", dest->name);
 	if (atomic_dec(&dest->refcnt) == 0) {
@@ -442,10 +442,10 @@ acmp_put_dest(struct acm_dest *dest)
 	}
 }
 
-static struct acm_dest *
+static struct acmp_dest *
 acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, uint8_t *addr)
 {
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 
 	acm_format_name(2, log_data, sizeof log_data,
 			addr_type, addr, ACM_MAX_ADDRESS);
@@ -463,10 +463,10 @@ acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, uint8_t *addr)
 	return dest;
 }
 
-static struct acm_dest *
+static struct acmp_dest *
 acmp_acquire_sa_dest(struct acmp_port *port)
 {
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 
 	lock_acquire(&port->lock);
 	if (port->state == IBV_PORT_ACTIVE) {
@@ -479,14 +479,14 @@ acmp_acquire_sa_dest(struct acmp_port *port)
 	return dest;
 }
 
-static void acmp_release_sa_dest(struct acm_dest *dest)
+static void acmp_release_sa_dest(struct acmp_dest *dest)
 {
 	atomic_dec(&dest->refcnt);
 }
 
 /* Caller must hold ep lock. */
 //static void
-//acm_remove_dest(struct acmp_ep *ep, struct acm_dest *dest)
+//acm_remove_dest(struct acmp_ep *ep, struct acmp_dest *dest)
 //{
 //	acm_log(2, "%s\n", dest->name);
 //	tdelete(dest->address, &ep->dest_map[dest->addr_type - 1], acmp_compare_dest);
@@ -517,7 +517,7 @@ acmp_free_req(struct acm_request *req)
 }
 
 static struct acm_send_msg *
-acmp_alloc_send(struct acmp_ep *ep, struct acm_dest *dest, size_t size)
+acmp_alloc_send(struct acmp_ep *ep, struct acmp_dest *dest, size_t size)
 {
 	struct acm_send_msg *msg;
 
@@ -747,7 +747,7 @@ static int acmp_best_mc_index(struct acmp_ep *ep, struct acm_resolve_rec *rec)
 
 static void
 acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
-	struct acm_dest *dest)
+	struct acmp_dest *dest)
 {
 	uint32_t sl_flow_hop;
 
@@ -783,7 +783,7 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 
 /* Always send the GRH to transfer GID data to remote side */
 static void
-acm_init_path_av(struct acmp_port *port, struct acm_dest *dest)
+acm_init_path_av(struct acmp_port *port, struct acmp_dest *dest)
 {
 	uint32_t flow_hop;
 
@@ -804,7 +804,7 @@ acm_init_path_av(struct acmp_port *port, struct acm_dest *dest)
 
 static void acmp_process_join_resp(struct acmp_ep *ep, struct ib_user_mad *umad)
 {
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 	struct ib_mc_member_rec *mc_rec;
 	struct ib_sa_mad *mad;
 	int index, ret;
@@ -902,7 +902,7 @@ acm_addr_lookup(struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr_type)
 }
 
 static uint8_t
-acmp_record_acm_route(struct acmp_ep *ep, struct acm_dest *dest)
+acmp_record_acm_route(struct acmp_ep *ep, struct acmp_dest *dest)
 {
 	int i;
 
@@ -990,7 +990,7 @@ static uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 }
 
 /* Caller must hold dest lock */
-static uint8_t acm_resolve_path(struct acmp_ep *ep, struct acm_dest *dest,
+static uint8_t acm_resolve_path(struct acmp_ep *ep, struct acmp_dest *dest,
 	void (*resp_handler)(struct acm_send_msg *req,
 		struct ibv_wc *wc, struct acm_mad *resp))
 {
@@ -1031,7 +1031,7 @@ err:
 }
 
 static uint8_t
-acmp_record_acm_addr(struct acmp_ep *ep, struct acm_dest *dest, struct ibv_wc *wc,
+acmp_record_acm_addr(struct acmp_ep *ep, struct acmp_dest *dest, struct ibv_wc *wc,
 	struct acm_resolve_rec *rec)
 {
 	int index;
@@ -1062,7 +1062,7 @@ acmp_record_acm_addr(struct acmp_ep *ep, struct acm_dest *dest, struct ibv_wc *w
 }
 
 static void
-acmp_record_path_addr(struct acmp_ep *ep, struct acm_dest *dest,
+acmp_record_path_addr(struct acmp_ep *ep, struct acmp_dest *dest,
 	struct ibv_path_record *path)
 {
 	acm_log(2, "%s\n", dest->name);
@@ -1097,7 +1097,7 @@ static uint8_t acmp_validate_addr_req(struct acm_mad *mad)
 }
 
 static void
-acmp_send_addr_resp(struct acmp_ep *ep, struct acm_dest *dest)
+acmp_send_addr_resp(struct acmp_ep *ep, struct acmp_dest *dest)
 {
 	struct acm_resolve_rec *rec;
 	struct acm_send_msg *msg;
@@ -1128,7 +1128,7 @@ acmp_send_addr_resp(struct acmp_ep *ep, struct acm_dest *dest)
 
 static int
 acm_resolve_response(uint64_t id, struct acm_msg *req_msg,
-	struct acm_dest *dest, uint8_t status)
+	struct acmp_dest *dest, uint8_t status)
 {
 	struct acm_client *client = &client_array[id];
 	struct acm_msg msg;
@@ -1183,7 +1183,7 @@ release:
 }
 
 static void
-acmp_complete_queued_req(struct acm_dest *dest, uint8_t status)
+acmp_complete_queued_req(struct acmp_dest *dest, uint8_t status)
 {
 	struct acm_request *req;
 	DLIST_ENTRY *entry;
@@ -1208,7 +1208,7 @@ acmp_complete_queued_req(struct acm_dest *dest, uint8_t status)
 static void
 acmp_dest_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *mad)
 {
-	struct acm_dest *dest = (struct acm_dest *) msg->context;
+	struct acmp_dest *dest = (struct acmp_dest *) msg->context;
 	struct ib_sa_mad *sa_mad = (struct ib_sa_mad *) mad;
 	uint8_t status;
 
@@ -1244,7 +1244,7 @@ acmp_dest_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *m
 static void
 acmp_resolve_sa_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *mad)
 {
-	struct acm_dest *dest = (struct acm_dest *) msg->context;
+	struct acmp_dest *dest = (struct acmp_dest *) msg->context;
 	int send_resp;
 
 	acm_log(2, "\n");
@@ -1262,7 +1262,7 @@ static void
 acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad)
 {
 	struct acm_resolve_rec *rec;
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 	uint8_t status;
 	struct acm_address *addr;
 
@@ -1327,7 +1327,7 @@ static void
 acmp_process_addr_resp(struct acm_send_msg *msg, struct ibv_wc *wc, struct acm_mad *mad)
 {
 	struct acm_resolve_rec *resp_rec;
-	struct acm_dest *dest = (struct acm_dest *) msg->context;
+	struct acmp_dest *dest = (struct acmp_dest *) msg->context;
 	uint8_t status;
 
 	if (mad) {
@@ -2038,7 +2038,7 @@ resp:
 }
 
 static uint8_t
-acmp_send_resolve(struct acmp_ep *ep, struct acm_dest *dest,
+acmp_send_resolve(struct acmp_ep *ep, struct acmp_dest *dest,
 	struct acm_ep_addr_data *saddr)
 {
 	struct acm_send_msg *msg;
@@ -2200,7 +2200,7 @@ static uint8_t acm_svr_verify_resolve(struct acm_msg *msg)
 }
 
 /* Caller must hold dest lock */
-static uint8_t acmp_queue_req(struct acm_dest *dest, uint64_t id, struct acm_msg *msg)
+static uint8_t acmp_queue_req(struct acmp_dest *dest, uint64_t id, struct acm_msg *msg)
 {
 	struct acm_request *req;
 
@@ -2214,7 +2214,7 @@ static uint8_t acmp_queue_req(struct acm_dest *dest, uint64_t id, struct acm_msg
 	return ACM_STATUS_SUCCESS;
 }
 
-static int acm_dest_timeout(struct acm_dest *dest)
+static int acm_dest_timeout(struct acmp_dest *dest)
 {
 	uint64_t timestamp = time_stamp_min();
 
@@ -2270,7 +2270,7 @@ acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 static int
 acmp_resolve_dest(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 {
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 	struct acm_ep_addr_data *saddr, *daddr;
 	uint8_t status;
 	int ret;
@@ -2375,7 +2375,7 @@ acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 static int
 acmp_resolve_path(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 {
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 	struct ibv_path_record *path;
 	uint8_t *addr;
 	uint8_t status;
@@ -3041,7 +3041,7 @@ static int acm_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_e
 {
 	union ibv_gid sgid, dgid;
 	struct ibv_port_attr attr = { 0 };
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 	char s[128];
 	char *p, *ptr, *p_guid, *p_lid;
 	uint64_t guid;
@@ -3210,7 +3210,7 @@ static void acm_parse_hosts_file(struct acmp_ep *ep)
 	char addr[INET6_ADDRSTRLEN], gid[INET6_ADDRSTRLEN];
 	uint8_t name[ACM_MAX_ADDRESS];
 	struct in6_addr ip_addr, ib_addr;
-	struct acm_dest *dest, *gid_dest;
+	struct acmp_dest *dest, *gid_dest;
 	uint8_t addr_type;
 
 	if (!(f = fopen(addr_data_file, "r"))) {
@@ -3472,7 +3472,7 @@ static void acm_ep_preload(struct acmp_ep *ep)
 static int acmp_add_addr(struct acm_endpoint *endpoint, struct acm_address *addr)
 {
 	struct acmp_ep *ep = endpoint->prov_context;
-	struct acm_dest *dest;
+	struct acmp_dest *dest;
 
 	acm_log(2, "\n");
 	addr->prov_context = ep;
