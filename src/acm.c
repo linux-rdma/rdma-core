@@ -74,28 +74,28 @@ enum acmp_state {
 	ACMP_READY
 };
 
-enum acm_addr_prot {
-	ACM_ADDR_PROT_ACM
+enum acmp_addr_prot {
+	ACMP_ADDR_PROT_ACM
 };
 
-enum acm_route_prot {
-	ACM_ROUTE_PROT_ACM,
-	ACM_ROUTE_PROT_SA
+enum acmp_route_prot {
+	ACMP_ROUTE_PROT_ACM,
+	ACMP_ROUTE_PROT_SA
 };
 
-enum acm_loopback_prot {
-	ACM_LOOPBACK_PROT_NONE,
-	ACM_LOOPBACK_PROT_LOCAL
+enum acmp_loopback_prot {
+	ACMP_LOOPBACK_PROT_NONE,
+	ACMP_LOOPBACK_PROT_LOCAL
 };
 
-enum acm_route_preload {
-	ACM_ROUTE_PRELOAD_NONE,
-	ACM_ROUTE_PRELOAD_OSM_FULL_V1
+enum acmp_route_preload {
+	ACMP_ROUTE_PRELOAD_NONE,
+	ACMP_ROUTE_PRELOAD_OSM_FULL_V1
 };
 
-enum acm_addr_preload {
-	ACM_ADDR_PRELOAD_NONE,
-	ACM_ADDR_PRELOAD_HOSTS
+enum acmp_addr_preload {
+	ACMP_ADDR_PRELOAD_NONE,
+	ACMP_ADDR_PRELOAD_HOSTS
 };
 
 /*
@@ -293,11 +293,11 @@ static char addr_data_file[128] = ACM_CONF_DIR "/ibacm_hosts.data";
 static char log_file[128] = "/var/log/ibacm.log";
 static int log_level = 0;
 static char lock_file[128] = "/var/run/ibacm.pid";
-static enum acm_addr_prot addr_prot = ACM_ADDR_PROT_ACM;
+static enum acmp_addr_prot addr_prot = ACMP_ADDR_PROT_ACM;
 static int addr_timeout = 1440;
-static enum acm_route_prot route_prot = ACM_ROUTE_PROT_SA;
+static enum acmp_route_prot route_prot = ACMP_ROUTE_PROT_SA;
 static int route_timeout = -1;
-static enum acm_loopback_prot loopback_prot = ACM_LOOPBACK_PROT_LOCAL;
+static enum acmp_loopback_prot loopback_prot = ACMP_LOOPBACK_PROT_LOCAL;
 static short server_port = 6125;
 static int timeout = 2000;
 static int retries = 2;
@@ -307,8 +307,8 @@ static int send_depth = 1;
 static int recv_depth = 1024;
 static uint8_t min_mtu = IBV_MTU_2048;
 static uint8_t min_rate = IBV_RATE_10_GBPS;
-static enum acm_route_preload route_preload;
-static enum acm_addr_preload addr_preload;
+static enum acmp_route_preload route_preload;
+static enum acmp_addr_preload addr_preload;
 static int support_ips_in_addr_cfg = 0;
 
 void acm_write(int level, const char *format, ...)
@@ -1298,7 +1298,7 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 			break;
 		/* fall through */
 	case ACMP_ADDR_RESOLVED:
-		if (route_prot == ACM_ROUTE_PROT_ACM) {
+		if (route_prot == ACMP_ROUTE_PROT_ACM) {
 			status = acmp_record_acm_route(ep, dest);
 			break;
 		}
@@ -1347,7 +1347,7 @@ acmp_process_addr_resp(struct acmp_send_msg *msg, struct ibv_wc *wc, struct acm_
 	if (!status) {
 		status = acmp_record_acm_addr(msg->ep, dest, wc, resp_rec);
 		if (!status) {
-			if (route_prot == ACM_ROUTE_PROT_ACM) {
+			if (route_prot == ACMP_ROUTE_PROT_ACM) {
 				status = acmp_record_acm_route(msg->ep, dest);
 			} else {
 				status = acmp_resolve_path_sa(msg->ep, dest, acmp_dest_sa_resp);
@@ -1664,7 +1664,7 @@ static void acmp_ep_join(struct acmp_ep *ep)
 	if ((ep->state = ep->mc_dest[0].state) != ACMP_READY)
 		return;
 
-	if ((route_prot == ACM_ROUTE_PROT_ACM) &&
+	if ((route_prot == ACMP_ROUTE_PROT_ACM) &&
 	    (port->rate != min_rate || port->mtu != min_mtu))
 		acmp_join_group(ep, &port->base_gid, 0, 0, 0, port->rate, port->mtu);
 
@@ -2829,50 +2829,50 @@ static void acm_server(void)
 	}
 }
 
-static enum acm_addr_prot acm_convert_addr_prot(char *param)
+static enum acmp_addr_prot acmp_convert_addr_prot(char *param)
 {
 	if (!stricmp("acm", param))
-		return ACM_ADDR_PROT_ACM;
+		return ACMP_ADDR_PROT_ACM;
 
 	return addr_prot;
 }
 
-static enum acm_route_prot acm_convert_route_prot(char *param)
+static enum acmp_route_prot acmp_convert_route_prot(char *param)
 {
 	if (!stricmp("acm", param))
-		return ACM_ROUTE_PROT_ACM;
+		return ACMP_ROUTE_PROT_ACM;
 	else if (!stricmp("sa", param))
-		return ACM_ROUTE_PROT_SA;
+		return ACMP_ROUTE_PROT_SA;
 
 	return route_prot;
 }
 
-static enum acm_loopback_prot acm_convert_loopback_prot(char *param)
+static enum acmp_loopback_prot acmp_convert_loopback_prot(char *param)
 {
 	if (!stricmp("none", param))
-		return ACM_LOOPBACK_PROT_NONE;
+		return ACMP_LOOPBACK_PROT_NONE;
 	else if (!stricmp("local", param))
-		return ACM_LOOPBACK_PROT_LOCAL;
+		return ACMP_LOOPBACK_PROT_LOCAL;
 
 	return loopback_prot;
 }
 
-static enum acm_route_preload acm_convert_route_preload(char *param)
+static enum acmp_route_preload acmp_convert_route_preload(char *param)
 {
 	if (!stricmp("none", param) || !stricmp("no", param))
-		return ACM_ROUTE_PRELOAD_NONE;
+		return ACMP_ROUTE_PRELOAD_NONE;
 	else if (!stricmp("opensm_full_v1", param))
-		return ACM_ROUTE_PRELOAD_OSM_FULL_V1;
+		return ACMP_ROUTE_PRELOAD_OSM_FULL_V1;
 
 	return route_preload;
 }
 
-static enum acm_addr_preload acm_convert_addr_preload(char *param)
+static enum acmp_addr_preload acmp_convert_addr_preload(char *param)
 {
 	if (!stricmp("none", param) || !stricmp("no", param))
-		return ACM_ADDR_PRELOAD_NONE;
+		return ACMP_ADDR_PRELOAD_NONE;
 	else if (!stricmp("acm_hosts", param))
-		return ACM_ADDR_PRELOAD_HOSTS;
+		return ACMP_ADDR_PRELOAD_HOSTS;
 
 	return addr_preload;
 }
@@ -2987,7 +2987,7 @@ static FILE *acm_open_addr_file(void)
 }
 
 /* Parse "opensm full v1" file to build LID to GUID table */
-static void acm_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
+static void acmp_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
 {
 	char s[128];
 	char *p, *ptr, *p_guid, *p_lid;
@@ -3036,7 +3036,7 @@ static void acm_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
 }
 
 /* Parse 'opensm full v1' file to populate PR cache */
-static int acm_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_ep *ep)
+static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_ep *ep)
 {
 	union ibv_gid sgid, dgid;
 	struct ibv_port_attr attr = { 0 };
@@ -3176,7 +3176,7 @@ static int acm_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_e
 	return ret;
 }
 
-static int acm_parse_osm_fullv1(struct acmp_ep *ep)
+static int acmp_parse_osm_fullv1(struct acmp_ep *ep)
 {
 	FILE *f;
 	uint64_t *lid2guid;
@@ -3193,16 +3193,16 @@ static int acm_parse_osm_fullv1(struct acmp_ep *ep)
 		goto err;
 	}
 
-	acm_parse_osm_fullv1_lid2guid(f, lid2guid);
+	acmp_parse_osm_fullv1_lid2guid(f, lid2guid);
 	rewind(f);
-	ret = acm_parse_osm_fullv1_paths(f, lid2guid, ep);
+	ret = acmp_parse_osm_fullv1_paths(f, lid2guid, ep);
 	free(lid2guid);
 err:
 	fclose(f);
 	return ret;
 }
 
-static void acm_parse_hosts_file(struct acmp_ep *ep)
+static void acmp_parse_hosts_file(struct acmp_ep *ep)
 {
 	FILE *f;
 	char s[120];
@@ -3448,11 +3448,11 @@ static int acm_assign_ep_names(struct acm_ep *ep)
  * load the address data.  This is backwards from normal operation, which
  * usually resolves the address before the route.
  */
-static void acm_ep_preload(struct acmp_ep *ep)
+static void acmp_ep_preload(struct acmp_ep *ep)
 {
 	switch (route_preload) {
-	case ACM_ROUTE_PRELOAD_OSM_FULL_V1:
-		if (acm_parse_osm_fullv1(ep))
+	case ACMP_ROUTE_PRELOAD_OSM_FULL_V1:
+		if (acmp_parse_osm_fullv1(ep))
 			acm_log(0, "ERROR - failed to preload EP\n");
 		break;
 	default:
@@ -3460,8 +3460,8 @@ static void acm_ep_preload(struct acmp_ep *ep)
 	}
 
 	switch (addr_preload) {
-	case ACM_ADDR_PRELOAD_HOSTS:
-		acm_parse_hosts_file(ep);
+	case ACMP_ADDR_PRELOAD_HOSTS:
+		acmp_parse_hosts_file(ep);
 		break;
 	default:
 		break;
@@ -3476,7 +3476,7 @@ static int acmp_add_addr(struct acm_endpoint *endpoint, struct acm_address *addr
 	acm_log(2, "\n");
 	addr->prov_context = ep;
 
-	if (loopback_prot != ACM_LOOPBACK_PROT_LOCAL)
+	if (loopback_prot != ACMP_LOOPBACK_PROT_LOCAL)
 		return 0;
 
 	dest = acmp_acquire_dest(ep, addr->type, addr->info.addr);
@@ -3707,7 +3707,7 @@ static void acmp_ep_up(struct acm_endpoint *endpoint)
 	lock_acquire(&port->lock);
 	DListInsertHead(&ep->entry, &port->ep_list);
 	lock_release(&port->lock);
-	acm_ep_preload(ep);
+	acmp_ep_preload(ep);
 	acmp_ep_join(ep);
 	return;
 
@@ -4184,15 +4184,15 @@ static void acmp_set_options(void)
 			continue;
 
 		if (!stricmp("addr_prot", opt))
-			addr_prot = acm_convert_addr_prot(value);
+			addr_prot = acmp_convert_addr_prot(value);
 		else if (!stricmp("addr_timeout", opt))
 			addr_timeout = atoi(value);
 		else if (!stricmp("route_prot", opt))
-			route_prot = acm_convert_route_prot(value);
+			route_prot = acmp_convert_route_prot(value);
 		else if (!strcmp("route_timeout", opt))
 			route_timeout = atoi(value);
 		else if (!stricmp("loopback_prot", opt))
-			loopback_prot = acm_convert_loopback_prot(value);
+			loopback_prot = acmp_convert_loopback_prot(value);
 		else if (!stricmp("timeout", opt))
 			timeout = atoi(value);
 		else if (!stricmp("retries", opt))
@@ -4210,11 +4210,11 @@ static void acmp_set_options(void)
 		else if (!stricmp("min_rate", opt))
 			min_rate = acm_convert_rate(atoi(value));
 		else if (!stricmp("route_preload", opt))
-			route_preload = acm_convert_route_preload(value);
+			route_preload = acmp_convert_route_preload(value);
 		else if (!stricmp("route_data_file", opt))
 			strcpy(route_data_file, value);
 		else if (!stricmp("addr_preload", opt))
-			addr_preload = acm_convert_addr_preload(value);
+			addr_preload = acmp_convert_addr_preload(value);
 		else if (!stricmp("addr_data_file", opt))
 			strcpy(addr_data_file, value);
 		else if (!stricmp("support_ips_in_addr_cfg", opt))
