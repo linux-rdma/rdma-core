@@ -59,6 +59,7 @@
 #define RS_OLAP_START_SIZE 2048
 #define RS_MAX_TRANSFER 65536
 #define RS_SNDLOWAT 2048
+#define RS_QP_MIN_SIZE 16
 #define RS_QP_MAX_SIZE 0xFFFE
 #define RS_QP_CTRL_SIZE 4
 #define RS_CONN_RETRIES 6
@@ -642,15 +643,13 @@ static void rs_set_qp_size(struct rsocket *rs)
 
 	if (rs->sq_size > max_size)
 		rs->sq_size = max_size;
-	else if (rs->sq_size < 4)
-		rs->sq_size = 4;
-	if (rs->sq_size <= (RS_QP_CTRL_SIZE << 2))
-		rs->ctrl_avail = 2;
+	else if (rs->sq_size < RS_QP_MIN_SIZE)
+		rs->sq_size = RS_QP_MIN_SIZE;
 
 	if (rs->rq_size > max_size)
 		rs->rq_size = max_size;
-	else if (rs->rq_size < 4)
-		rs->rq_size = 4;
+	else if (rs->rq_size < RS_QP_MIN_SIZE)
+		rs->rq_size = RS_QP_MIN_SIZE;
 }
 
 static void ds_set_qp_size(struct rsocket *rs)
