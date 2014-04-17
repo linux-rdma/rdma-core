@@ -860,6 +860,10 @@ static int rs_create_ep(struct rsocket *rs)
 	if (ret)
 		return ret;
 
+	rs->sq_inline = qp_attr.cap.max_inline_data;
+	if (rs->sq_inline < RS_MIN_INLINE)
+		return ERR(EINVAL);
+
 	for (i = 0; i < rs->rq_size; i++) {
 		ret = rs_post_recv(rs);
 		if (ret)
@@ -1490,6 +1494,12 @@ static int ds_create_qp(struct rsocket *rs, union socket_addr *src_addr,
 	ret = rdma_create_qp(qp->cm_id, NULL, &qp_attr);
 	if (ret)
 		goto err;
+
+	rs->sq_inline = qp_attr.cap.max_inline_data;
+	if (rs->sq_inline < RS_MIN_INLINE) {
+		ret = ERR(ENOMEM);
+		goto err;
+	}
 
 	ret = ds_add_qp_dest(qp, src_addr, addrlen);
 	if (ret)
