@@ -188,7 +188,7 @@ if test x$have_rst2man != xyes; then
 AC_CHECK_PROG(have_rst2man, rst2man.py, "yes")
 fi
 if test x$have_rst2man == xyes; then
-	doc/generate
+	$srcdir/doc/generate
 else
 	if test -f $srcdir/doc/man/infiniband-diags.8.in; then
 		echo "WARNING: 'rst2man' not found; using premade man pages"
