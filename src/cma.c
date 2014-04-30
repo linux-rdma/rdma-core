@@ -416,10 +416,10 @@ static int ucma_get_device(struct cma_id_private *id_priv, uint64_t guid)
 
 	return ERR(ENODEV);
 match:
-	if ((ret = ucma_init_device(cma_dev)))
-		return ret;
-
 	pthread_mutex_lock(&mut);
+	if ((ret = ucma_init_device(cma_dev)))
+		goto out;
+
 	if (!cma_dev->refcnt++) {
 		cma_dev->pd = ibv_alloc_pd(cma_dev->verbs);
 		if (!cma_dev->pd) {
