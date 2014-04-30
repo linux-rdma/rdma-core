@@ -321,7 +321,7 @@ err:
 	return ret;
 }
 
-int ucma_init_all(void)
+static int ucma_init_all(void)
 {
 	int i, ret = 0;
 
