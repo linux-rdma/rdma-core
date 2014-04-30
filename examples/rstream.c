@@ -577,7 +577,7 @@ static int set_test_opt(char *optarg)
 			flags = (flags & ~MSG_DONTWAIT) | MSG_WAITALL;
 		} else if (!strncasecmp("nonblock", optarg, 8)) {
 			flags |= MSG_DONTWAIT;
-		} else if (strncasecmp("resolve", optarg, 7)) {
+		} else if (!strncasecmp("resolve", optarg, 7)) {
 			use_rgai = 1;
 		} else if (!strncasecmp("verify", optarg, 6)) {
 			verify = 1;
