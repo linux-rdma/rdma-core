@@ -327,7 +327,7 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		if (!(cap_mask & IB_PM_EXT_WIDTH_SUPPORTED) &&
 		    !(cap_mask & IB_PM_EXT_WIDTH_NOIETF_SUP))
 			IBWARN
-			    ("PerfMgt ClassPortInfo 0x%x; No extended counter support indicated\n",
+			    ("PerfMgt ClassPortInfo CapMask 0x%02X; No extended counter support indicated\n",
 			     ntohs(cap_mask));
 
 		memset(pc, 0, sizeof(pc));
