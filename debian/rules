@@ -2,7 +2,7 @@
 # -*- mode: makefile; coding: utf-8 -*-
 
 %:
-	dh $@
+	dh $@ --with autoreconf
 
 override_dh_strip:
 	dh_strip --dbg-package=libmlx4-1-dbg
