@@ -102,6 +102,13 @@ enum {
 #define IB_USER_VERBS_CMD_FLAG_EXTENDED		0x80ul
 
 
+enum {
+	IB_USER_VERBS_CMD_CREATE_FLOW = (IB_USER_VERBS_CMD_FLAG_EXTENDED <<
+					 IB_USER_VERBS_CMD_FLAGS_SHIFT) +
+					IB_USER_VERBS_CMD_THRESHOLD,
+	IB_USER_VERBS_CMD_DESTROY_FLOW
+};
+
 /*
  * Make sure that all structs defined in this file remain laid out so
  * that they pack the same way on 32-bit and 64-bit architectures (to
@@ -676,6 +683,76 @@ struct ibv_kern_send_wr {
 	} qp_type;
 };
 
+struct ibv_kern_eth_filter {
+	__u8  dst_mac[6];
+	__u8  src_mac[6];
+	__u16  ether_type;
+	__u16  vlan_tag;
+};
+
+struct ibv_kern_spec_eth {
+	__u32 type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_eth_filter val;
+	struct ibv_kern_eth_filter mask;
+};
+
+struct ibv_kern_ipv4_filter {
+	__u32 src_ip;
+	__u32 dst_ip;
+};
+
+struct ibv_kern_spec_ipv4 {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_ipv4_filter val;
+	struct ibv_kern_ipv4_filter mask;
+};
+
+struct ibv_kern_tcp_udp_filter {
+	__u16 dst_port;
+	__u16 src_port;
+};
+
+struct ibv_kern_spec_tcp_udp {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_tcp_udp_filter val;
+	struct ibv_kern_tcp_udp_filter mask;
+};
+
+
+struct ibv_kern_spec {
+	union {
+		struct {
+			__u32 type;
+			__u16 size;
+			__u16 reserved;
+		} hdr;
+		struct ibv_kern_spec_eth eth;
+		struct ibv_kern_spec_ipv4 ipv4;
+		struct ibv_kern_spec_tcp_udp tcp_udp;
+	};
+
+};
+
+struct ibv_kern_flow_attr {
+	__u32 type;
+	__u16 size;
+	__u16 priority;
+	__u8 num_of_specs;
+	__u8 reserved[2];
+	__u8 port;
+	__u32 flags;
+	/* Following are the optional layers according to user request
+	 * struct ibv_kern_flow_spec_xxx
+	 * struct ibv_kern_flow_spec_yyy
+	 */
+};
+
 struct ibv_post_send {
 	__u32 command;
 	__u16 in_words;
@@ -761,6 +838,24 @@ struct ibv_attach_mcast {
 	__u16 mlid;
 	__u16 reserved;
 	__u64 driver_data[0];
+};
+
+struct ibv_create_flow  {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 qp_handle;
+	struct ibv_kern_flow_attr flow_attr;
+};
+
+struct ibv_create_flow_resp {
+	__u32 comp_mask;
+	__u32 flow_handle;
+};
+
+struct ibv_destroy_flow  {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 flow_handle;
 };
 
 struct ibv_detach_mcast {
@@ -904,7 +999,9 @@ enum {
 	IB_USER_VERBS_CMD_OPEN_XRCD_V2 = -1,
 	IB_USER_VERBS_CMD_CLOSE_XRCD_V2 = -1,
 	IB_USER_VERBS_CMD_CREATE_XSRQ_V2 = -1,
-	IB_USER_VERBS_CMD_OPEN_QP_V2 = -1
+	IB_USER_VERBS_CMD_OPEN_QP_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_FLOW_V2 = -1,
+	IB_USER_VERBS_CMD_DESTROY_FLOW_V2 = -1
 };
 
 struct ibv_modify_srq_v3 {

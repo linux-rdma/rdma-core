@@ -1268,3 +1268,108 @@ int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t l
 
 	return 0;
 }
+
+static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
+				struct ibv_kern_spec *kern_spec)
+{
+	kern_spec->hdr.type = ib_spec->hdr.type;
+
+	switch (ib_spec->hdr.type) {
+	case IBV_FLOW_SPEC_ETH:
+		kern_spec->eth.size = sizeof(struct ibv_kern_spec_eth);
+		memcpy(&kern_spec->eth.val, &ib_spec->eth.val,
+		       sizeof(struct ibv_flow_eth_filter));
+		memcpy(&kern_spec->eth.mask, &ib_spec->eth.mask,
+		       sizeof(struct ibv_flow_eth_filter));
+		break;
+	case IBV_FLOW_SPEC_IPV4:
+		kern_spec->ipv4.size = sizeof(struct ibv_kern_spec_ipv4);
+		memcpy(&kern_spec->ipv4.val, &ib_spec->ipv4.val,
+		       sizeof(struct ibv_flow_ipv4_filter));
+		memcpy(&kern_spec->ipv4.mask, &ib_spec->ipv4.mask,
+		       sizeof(struct ibv_flow_ipv4_filter));
+		break;
+	case IBV_FLOW_SPEC_TCP:
+	case IBV_FLOW_SPEC_UDP:
+		kern_spec->tcp_udp.size = sizeof(struct ibv_kern_spec_tcp_udp);
+		memcpy(&kern_spec->tcp_udp.val, &ib_spec->tcp_udp.val,
+		       sizeof(struct ibv_flow_ipv4_filter));
+		memcpy(&kern_spec->tcp_udp.mask, &ib_spec->tcp_udp.mask,
+		       sizeof(struct ibv_flow_tcp_udp_filter));
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
+				     struct ibv_flow_attr *flow_attr)
+{
+	struct ibv_create_flow *cmd;
+	struct ibv_create_flow_resp resp;
+	struct ibv_flow *flow_id;
+	size_t cmd_size;
+	size_t written_size;
+	int i, err;
+	void *kern_spec;
+	void *ib_spec;
+
+	cmd_size = sizeof(*cmd) + (flow_attr->num_of_specs *
+				  sizeof(struct ibv_kern_spec));
+	cmd = alloca(cmd_size);
+	flow_id = malloc(sizeof(*flow_id));
+	if (!flow_id)
+		return NULL;
+	memset(cmd, 0, cmd_size);
+
+	cmd->qp_handle = qp->handle;
+
+	cmd->flow_attr.type = flow_attr->type;
+	cmd->flow_attr.priority = flow_attr->priority;
+	cmd->flow_attr.num_of_specs = flow_attr->num_of_specs;
+	cmd->flow_attr.port = flow_attr->port;
+	cmd->flow_attr.flags = flow_attr->flags;
+
+	kern_spec = cmd + 1;
+	ib_spec = flow_attr + 1;
+	for (i = 0; i < flow_attr->num_of_specs; i++) {
+		err = ib_spec_to_kern_spec(ib_spec, kern_spec);
+		if (err)
+			goto err;
+		cmd->flow_attr.size +=
+			((struct ibv_kern_spec *)kern_spec)->hdr.size;
+		kern_spec += ((struct ibv_kern_spec *)kern_spec)->hdr.size;
+		ib_spec += ((struct ibv_flow_spec *)ib_spec)->hdr.size;
+	}
+
+	written_size = sizeof(*cmd) + cmd->flow_attr.size;
+	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size, written_size, CREATE_FLOW,
+				  &resp, sizeof(resp));
+	if (write(qp->context->cmd_fd, cmd, written_size) != written_size)
+		goto err;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof(resp));
+
+	flow_id->context = qp->context;
+	flow_id->handle = resp.flow_handle;
+	return flow_id;
+err:
+	free(flow_id);
+	return NULL;
+}
+
+int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
+{
+	struct ibv_destroy_flow cmd;
+	int ret = 0;
+
+	memset(&cmd, 0, sizeof(cmd));
+	IBV_INIT_CMD_EX(&cmd, sizeof(cmd), DESTROY_FLOW);
+	cmd.flow_handle = flow_id->handle;
+
+	if (write(flow_id->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
+		ret = errno;
+	free(flow_id);
+	return ret;
+}

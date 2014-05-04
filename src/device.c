@@ -169,6 +169,10 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 		 * context_ex->lib_new_func1 = __verbs_new_func1;
 		 * context_ex->lib_new_func2 = __verbs_new_func2;
 		 */
+		 context_ex->lib_ibv_create_flow =
+			 context_ex->drv_ibv_create_flow;
+		 context_ex->lib_ibv_destroy_flow =
+			 context_ex->drv_ibv_destroy_flow;
 	}
 
 	context->device = device;

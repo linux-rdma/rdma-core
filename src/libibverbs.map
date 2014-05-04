@@ -64,6 +64,8 @@ IBVERBS_1.0 {
 		ibv_cmd_destroy_ah;
 		ibv_cmd_attach_mcast;
 		ibv_cmd_detach_mcast;
+		ibv_cmd_create_flow;
+		ibv_cmd_destroy_flow;
 		ibv_copy_qp_attr_from_kern;
 		ibv_copy_path_rec_from_kern;
 		ibv_copy_path_rec_to_kern;

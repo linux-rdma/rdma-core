@@ -115,7 +115,8 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_RC_RNR_NAK_GEN	= 1 << 12,
 	IBV_DEVICE_SRQ_RESIZE		= 1 << 13,
 	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14,
-	IBV_DEVICE_XRC			= 1 << 20
+	IBV_DEVICE_XRC			= 1 << 20,
+	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
 };
 
 enum ibv_atomic_cap {
@@ -736,6 +737,103 @@ struct ibv_ah {
 	uint32_t		handle;
 };
 
+enum ibv_flow_flags {
+	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1,
+};
+
+enum ibv_flow_attr_type {
+	/* steering according to rule specifications */
+	IBV_FLOW_ATTR_NORMAL		= 0x0,
+	/* default unicast and multicast rule -
+	 * receive all Eth traffic which isn't steered to any QP
+	 */
+	IBV_FLOW_ATTR_ALL_DEFAULT	= 0x1,
+	/* default multicast rule -
+	 * receive all Eth multicast traffic which isn't steered to any QP
+	 */
+	IBV_FLOW_ATTR_MC_DEFAULT	= 0x2,
+};
+
+enum ibv_flow_spec_type {
+	IBV_FLOW_SPEC_ETH	= 0x20,
+	IBV_FLOW_SPEC_IPV4	= 0x30,
+	IBV_FLOW_SPEC_TCP	= 0x40,
+	IBV_FLOW_SPEC_UDP	= 0x41,
+};
+
+struct ibv_flow_eth_filter {
+	uint8_t		dst_mac[6];
+	uint8_t		src_mac[6];
+	uint16_t	ether_type;
+	/*
+	 * same layout as 802.1q: prio 3, cfi 1, vlan id 12
+	 */
+	uint16_t	vlan_tag;
+};
+
+struct ibv_flow_spec_eth {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_eth_filter val;
+	struct ibv_flow_eth_filter mask;
+};
+
+struct ibv_flow_ipv4_filter {
+	uint32_t src_ip;
+	uint32_t dst_ip;
+};
+
+struct ibv_flow_spec_ipv4 {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_ipv4_filter val;
+	struct ibv_flow_ipv4_filter mask;
+};
+
+struct ibv_flow_tcp_udp_filter {
+	uint16_t dst_port;
+	uint16_t src_port;
+};
+
+struct ibv_flow_spec_tcp_udp {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_tcp_udp_filter val;
+	struct ibv_flow_tcp_udp_filter mask;
+};
+
+struct ibv_flow_spec {
+	union {
+		struct {
+			enum ibv_flow_spec_type	type;
+			uint16_t		size;
+		} hdr;
+		struct ibv_flow_spec_eth eth;
+		struct ibv_flow_spec_ipv4 ipv4;
+		struct ibv_flow_spec_tcp_udp tcp_udp;
+	};
+};
+
+struct ibv_flow_attr {
+	uint32_t comp_mask;
+	enum ibv_flow_attr_type type;
+	uint16_t size;
+	uint16_t priority;
+	uint8_t num_of_specs;
+	uint8_t port;
+	uint32_t flags;
+	/* Following are the optional layers according to user request
+	 * struct ibv_flow_spec_xxx [L2]
+	 * struct ibv_flow_spec_yyy [L3/L4]
+	 */
+};
+
+struct ibv_flow {
+	uint32_t	   comp_mask;
+	struct ibv_context *context;
+	uint32_t	   handle;
+};
+
 struct ibv_device;
 struct ibv_context;
 
@@ -846,11 +944,21 @@ enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
 	VERBS_CONTEXT_QP	= 1 << 2,
-	VERBS_CONTEXT_RESERVED	= 1 << 3
+	VERBS_CONTEXT_CREATE_FLOW = 1 << 3,
+	VERBS_CONTEXT_DESTROY_FLOW = 1 << 4,
+	VERBS_CONTEXT_RESERVED	= 1 << 5
 };
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*drv_ibv_destroy_flow) (struct ibv_flow *flow);
+	int (*lib_ibv_destroy_flow) (struct ibv_flow *flow);
+	struct ibv_flow * (*drv_ibv_create_flow) (struct ibv_qp *qp,
+						  struct ibv_flow_attr
+						  *flow_attr);
+	struct ibv_flow * (*lib_ibv_create_flow) (struct ibv_qp *qp,
+						  struct ibv_flow_attr
+						  *flow_attr);
 	struct ibv_qp *(*open_qp)(struct ibv_context *context,
 			struct ibv_qp_open_attr *attr);
 	struct ibv_qp *(*create_qp_ex)(struct ibv_context *context,
@@ -998,6 +1106,26 @@ struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
  * ibv_dealloc_pd - Free a protection domain
  */
 int ibv_dealloc_pd(struct ibv_pd *pd);
+
+static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
+					       struct ibv_flow_attr *flow)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
+						      lib_ibv_create_flow);
+	if (!vctx || !vctx->lib_ibv_create_flow)
+		return NULL;
+
+	return vctx->lib_ibv_create_flow(qp, flow);
+}
+
+static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
+						      lib_ibv_destroy_flow);
+	if (!vctx || !vctx->lib_ibv_destroy_flow)
+		return -ENOSYS;
+	return vctx->lib_ibv_destroy_flow(flow_id);
+}
 
 /**
  * ibv_open_xrcd - Open an extended connection domain
