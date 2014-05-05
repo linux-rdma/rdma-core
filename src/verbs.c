@@ -181,11 +181,16 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
+	resp.reserved = 0;
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 				&chp->ibv_cq, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);
 	if (ret)
 		goto err1;
+
+	if (resp.reserved)
+		PDBG("%s c4iw_create_cq_resp reserved field modified by kernel\n",
+		     __FUNCTION__);
 
 	pthread_spin_init(&chp->lock, PTHREAD_PROCESS_PRIVATE);
 #ifdef STALL_DETECTION
