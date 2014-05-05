@@ -1,3 +1,13 @@
+libibverbs (1.1.8-1) unstable; urgency=low
+
+  * New upstream release.
+    - XRC support
+    - Flow steering support
+    - Generic infrastructure for further "verbs extensions"
+  * Update to Standards-Version: 3.9.5.
+
+ -- Roland Dreier <rbd@debian.org>  Mon, 05 May 2014 09:50:44 -0700
+
 libibverbs (1.1.7-1) unstable; urgency=low
 
   * New upstream release.
