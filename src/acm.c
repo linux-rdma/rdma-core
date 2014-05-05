@@ -1658,6 +1658,12 @@ static void acmp_ep_join(struct acmp_ep *ep)
 	port = ep->port;
 	acm_log(1, "%s\n", ep->id_string);
 
+	if (ep->mc_dest[0].state == ACMP_READY && ep->mc_dest[0].ah) {
+		ibv_detach_mcast(ep->qp, &ep->mc_dest[0].mgid,
+				 ntohs(ep->mc_dest[0].av.dlid));
+		ibv_destroy_ah(ep->mc_dest[0].ah);
+		ep->mc_dest[0].ah = NULL;
+	}
 	ep->mc_cnt = 0;
 	acmp_join_group(ep, &port->base_gid, 0, 0, 0, min_rate, min_mtu);
 
