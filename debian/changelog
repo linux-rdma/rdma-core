@@ -1,11 +1,12 @@
-libmlx4 (1.0.6-1) UNRELEASED; urgency=medium
+libmlx4 (1.0.6-1) unstable; urgency=low
 
   * New upstream release.
     - Depend on libibverbs 1.1.8 for new verbs extensions API.
     - Flow steering support.
   * Use dh-autoreconf to fix FTBFS on ppc64el (Closes: #733843).
+  * Update to Standards-Version: 3.9.5.
 
- -- Roland Dreier <rbd@debian.org>  Sat, 03 May 2014 16:01:47 -0700
+ -- Roland Dreier <rbd@debian.org>  Tue, 06 May 2014 10:11:20 -0700
 
 libmlx4 (1.0.5-1) unstable; urgency=low
 
