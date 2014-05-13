@@ -3383,7 +3383,7 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 	char dev[32], name[ACM_MAX_ADDRESS], pkey_str[8];
 	uint16_t pkey;
 	uint8_t addr[ACM_MAX_ADDRESS], type;
-	int port, ret = 0;
+	int port;
 	size_t addr_len;
 
 	dev_name = ep->port->dev->verbs->device->name;
@@ -3394,7 +3394,7 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 
 	if (!(faddr = acm_open_addr_file())) {
 		acm_log(0, "ERROR - address file not found\n");
-		return -1;
+		goto out;
 	}
 
 	while (fgets(s, sizeof s, faddr)) {
@@ -3437,8 +3437,7 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 		if (!stricmp(dev_name, dev) && (ep->port->port_num == (uint8_t) port) &&
 		    (ep->endpoint.pkey == pkey)) {
 			acm_log(1, "assigning %s\n", name);
-			if ((ret = acm_ep_insert_addr(ep, name, addr,
-						      addr_len, type)) != 0) {
+			if (acm_ep_insert_addr(ep, name, addr, addr_len, type)) {
 				acm_log(1, "maximum number of names assigned to EP\n");
 				break;
 			}
@@ -3446,7 +3445,8 @@ static int acm_assign_ep_names(struct acm_ep *ep)
 	}
 	fclose(faddr);
 
-	return ret;
+out:
+	return (ep->addr_info[0].addr.type == ACM_ADDRESS_INVALID);
 }
 
 /*
