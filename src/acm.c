@@ -119,10 +119,10 @@ struct acmp_dest {
 	uint8_t                addr_type;
 };
 
-struct acm_device;
+struct acmc_device;
 
 struct acm_port {
-	struct acm_device   *dev;
+	struct acmc_device  *dev;
 	struct acm_provider *prov; /* limit to 1 provider per port for now */
 	lock_t              lock;
 	DLIST_ENTRY         ep_list;
@@ -154,7 +154,7 @@ struct acmp_port {
 	uint8_t             port_num;
 };
 
-struct acm_device {
+struct acmc_device {
 	struct ibv_context      *verbs;
 	uint64_t                guid;
 	DLIST_ENTRY             entry;
@@ -246,7 +246,7 @@ struct acmp_request {
 
 static int acmp_resolve(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
 static int acmp_query(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
-static void acm_event_handler(struct acm_device *dev);
+static void acm_event_handler(struct acmc_device *dev);
 
 static struct acm_provider def_prov = {
 	.resolve = acmp_resolve,
@@ -276,7 +276,7 @@ static lock_t log_lock;
 PER_THREAD char log_data[ACM_MAX_ADDRESS];
 static atomic_t counter[ACM_MAX_COUNTER];
 
-static struct acm_device *
+static struct acmc_device *
 acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port);
 static struct acm_ep *acm_find_ep(struct acm_port *port, uint16_t pkey);
 static int acm_ep_insert_addr(struct acm_ep *ep, const char *name, uint8_t *addr,
@@ -1951,7 +1951,7 @@ acm_get_port_ep(struct acm_port *port, struct acm_ep_addr_data *data)
 
 static struct acm_ep *acm_get_ep(struct acm_ep_addr_data *data)
 {
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	struct acm_ep *ep;
 	DLIST_ENTRY *dev_entry;
 	int i;
@@ -1962,7 +1962,7 @@ static struct acm_ep *acm_get_ep(struct acm_ep_addr_data *data)
 	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
 		 dev_entry = dev_entry->Next) {
 
-		dev = container_of(dev_entry, struct acm_device, entry);
+		dev = container_of(dev_entry, struct acmc_device, entry);
 		for (i = 0; i < dev->port_cnt; i++) {
 			lock_acquire(&dev->port[i].lock);
 			ep = acm_get_port_ep(&dev->port[i], data);
@@ -2572,7 +2572,7 @@ static int acm_nl_to_addr_data(struct acm_ep_addr_data *ad,
 static void acm_add_ep_ip(char *ifname, struct acm_ep_addr_data *data, char *ip_str)
 {
 	struct acm_ep *ep;
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	uint8_t port_num;
 	uint16_t pkey;
 	union ibv_gid sgid;
@@ -2644,7 +2644,7 @@ static void acm_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 		char *ip_str, void *ctx)
 {
 	int ret = EINVAL;
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	struct acm_ep *ep;
 	uint8_t port_num;
 	char gid_str[INET6_ADDRSTRLEN];
@@ -2670,7 +2670,7 @@ static void acm_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 static int resync_system_ips(void)
 {
 	DLIST_ENTRY *dev_entry;
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	struct acm_port *port;
 	struct acm_ep *ep;
 	DLIST_ENTRY *entry;
@@ -2681,7 +2681,7 @@ static int resync_system_ips(void)
 	/* mark all IP's invalid */
 	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
 	     dev_entry = dev_entry->Next) {
-		dev = container_of(dev_entry, struct acm_device, entry);
+		dev = container_of(dev_entry, struct acmc_device, entry);
 
 		for (cnt = 0; cnt < dev->port_cnt; cnt++) {
 			port = &dev->port[cnt];
@@ -2778,7 +2778,7 @@ static void acm_server(void)
 {
 	fd_set readfds;
 	int i, n, ret;
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	DLIST_ENTRY *dev_entry;
 
 	acm_log(0, "started\n");
@@ -2806,7 +2806,7 @@ static void acm_server(void)
 
 		for (dev_entry = dev_list.Next; dev_entry != &dev_list;
 		     dev_entry = dev_entry->Next) {
-			dev = container_of(dev_entry, struct acm_device, entry);
+			dev = container_of(dev_entry, struct acmc_device, entry);
 			FD_SET(dev->verbs->async_fd, &readfds);
 			n = max(n, (int) dev->verbs->async_fd);
 		}
@@ -2833,7 +2833,7 @@ static void acm_server(void)
 
 		for (dev_entry = dev_list.Next; dev_entry != &dev_list;
 		     dev_entry = dev_entry->Next) {
-			dev = container_of(dev_entry, struct acm_device, entry);
+			dev = container_of(dev_entry, struct acmc_device, entry);
 			if (FD_ISSET(dev->verbs->async_fd, &readfds)) {
 				acm_log(2, "handling event from %s\n", 
 					dev->verbs->device->name);
@@ -3322,11 +3322,11 @@ out:
 	return ret;
 }
 
-static struct acm_device *
+static struct acmc_device *
 acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port)
 {
 	DLIST_ENTRY *dev_entry;
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	struct ibv_device_attr dev_attr;
 	struct ibv_port_attr port_attr;
 	union ibv_gid gid;
@@ -3335,7 +3335,7 @@ acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port)
 	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
 		 dev_entry = dev_entry->Next) {
 
-		dev = container_of(dev_entry, struct acm_device, entry);
+		dev = container_of(dev_entry, struct acmc_device, entry);
 
 		ret = ibv_query_device(dev->verbs, &dev_attr);
 		if (ret)
@@ -3364,7 +3364,7 @@ static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 		char *ip_str, void *ctx)
 {
 	uint8_t port_num;
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	struct acm_ep *ep = ctx;
 
 	dev = acm_get_device_from_gid(gid, &port_num);
@@ -3995,7 +3995,7 @@ static void acm_port_down(struct acm_port *port)
 	acm_log(1, "%s %d is down\n", port->dev->verbs->device->name, port->port_num);
 }
 
-static void acm_event_handler(struct acm_device *dev)
+static void acm_event_handler(struct acmc_device *dev)
 {
 	struct ibv_async_event event;
 	int i, ret;
@@ -4036,7 +4036,7 @@ static void acm_event_handler(struct acm_device *dev)
 
 static void acm_activate_devices()
 {
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	DLIST_ENTRY *dev_entry;
 	struct acmp_device *pdev;
 	int i;
@@ -4045,7 +4045,7 @@ static void acm_activate_devices()
 	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
 		dev_entry = dev_entry->Next) {
 
-		dev = container_of(dev_entry, struct acm_device, entry);
+		dev = container_of(dev_entry, struct acmc_device, entry);
 		for (i = 0; i < dev->port_cnt; i++) {
 			acm_port_up(&dev->port[i]);
 		}
@@ -4089,7 +4089,7 @@ err:
 }
 
 static void
-acm_open_port(struct acm_port *port, struct acm_device *dev, uint8_t port_num)
+acm_open_port(struct acm_port *port, struct acmc_device *dev, uint8_t port_num)
 {
 	acm_log(1, "%s %d\n", dev->verbs->device->name, port_num);
 	port->dev = dev;
@@ -4147,7 +4147,7 @@ err1:
 
 static void acm_open_dev(struct ibv_device *ibdev)
 {
-	struct acm_device *dev;
+	struct acmc_device *dev;
 	struct ibv_device_attr attr;
 	struct ibv_context *verbs;
 	size_t size;
@@ -4167,7 +4167,7 @@ static void acm_open_dev(struct ibv_device *ibdev)
 	}
 
 	size = sizeof(*dev) + sizeof(struct acm_port) * attr.phys_port_cnt;
-	dev = (struct acm_device *) calloc(1, size);
+	dev = (struct acmc_device *) calloc(1, size);
 	if (!dev)
 		goto err1;
 
