@@ -178,7 +178,7 @@ struct acmp_send_queue {
 	DLIST_ENTRY           pending;
 };
 
-struct acm_addr {
+struct acmc_addr {
 	struct acm_address    addr;
 	char		      string_buf[ACM_MAX_ADDRESS];
 };
@@ -186,7 +186,7 @@ struct acm_addr {
 struct acmc_ep {
 	struct acmc_port      *port;
 	struct acm_endpoint   endpoint;
-	struct acm_addr	      addr_info[MAX_EP_ADDR];
+	struct acmc_addr      addr_info[MAX_EP_ADDR];
 	lock_t                lock;
 	DLIST_ENTRY	      entry;
 };
