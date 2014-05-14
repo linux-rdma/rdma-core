@@ -183,7 +183,7 @@ struct acm_addr {
 	char		      string_buf[ACM_MAX_ADDRESS];
 };
 
-struct acm_ep {
+struct acmc_ep {
 	struct acmc_port      *port;
 	struct acm_endpoint   endpoint;
 	struct acm_addr	      addr_info[MAX_EP_ADDR];
@@ -278,8 +278,8 @@ static atomic_t counter[ACM_MAX_COUNTER];
 
 static struct acmc_device *
 acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port);
-static struct acm_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey);
-static int acm_ep_insert_addr(struct acm_ep *ep, const char *name, uint8_t *addr,
+static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey);
+static int acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 			      size_t addr_len, uint8_t addr_type);
 
 /*
@@ -859,7 +859,7 @@ err1:
 	lock_release(&ep->lock);
 }
 
-static void acm_mark_addr_invalid(struct acm_ep *ep,
+static void acm_mark_addr_invalid(struct acmc_ep *ep,
 				  struct acm_ep_addr_data *data)
 {
 	int i;
@@ -884,10 +884,10 @@ static void acm_mark_addr_invalid(struct acm_ep *ep,
 static struct acm_address *
 acm_addr_lookup(struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr_type)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	int i;
 
-	ep = container_of(endpoint, struct acm_ep, endpoint);
+	ep = container_of(endpoint, struct acmc_ep, endpoint);
 	for (i = 0; i < MAX_EP_ADDR; i++) {
 		if (ep->addr_info[i].addr.type != addr_type)
 			continue;
@@ -1919,10 +1919,10 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 	return 0;
 }
 
-static struct acm_ep *
+static struct acmc_ep *
 acm_get_port_ep(struct acmc_port *port, struct acm_ep_addr_data *data)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	DLIST_ENTRY *ep_entry;
 
 	if (port->state != IBV_PORT_ACTIVE)
@@ -1935,7 +1935,7 @@ acm_get_port_ep(struct acmc_port *port, struct acm_ep_addr_data *data)
 	for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
 	     ep_entry = ep_entry->Next) {
 
-		ep = container_of(ep_entry, struct acm_ep, entry);
+		ep = container_of(ep_entry, struct acmc_ep, entry);
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
 		     (ntohs(data->info.path.pkey) == ep->endpoint.pkey)))
@@ -1949,10 +1949,10 @@ acm_get_port_ep(struct acmc_port *port, struct acm_ep_addr_data *data)
 	return NULL;
 }
 
-static struct acm_ep *acm_get_ep(struct acm_ep_addr_data *data)
+static struct acmc_ep *acm_get_ep(struct acm_ep_addr_data *data)
 {
 	struct acmc_device *dev;
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	DLIST_ENTRY *dev_entry;
 	int i;
 
@@ -1981,7 +1981,7 @@ static struct acm_ep *acm_get_ep(struct acm_ep_addr_data *data)
 static int
 acm_svr_query_path(struct acm_client *client, struct acm_msg *msg)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 
 	acm_log(2, "client %d\n", client->index);
 	if (msg->hdr.length != ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH) {
@@ -2246,7 +2246,7 @@ static int acmp_dest_timeout(struct acmp_dest *dest)
 static int
 acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	struct acm_ep_addr_data *saddr, *daddr;
 	uint8_t status;
 
@@ -2356,7 +2356,7 @@ put:
 static int
 acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	struct ibv_path_record *path;
 
 	acm_log(2, "client %d\n", client->index);
@@ -2571,7 +2571,7 @@ static int acm_nl_to_addr_data(struct acm_ep_addr_data *ad,
 
 static void acm_add_ep_ip(char *ifname, struct acm_ep_addr_data *data, char *ip_str)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	struct acmc_device *dev;
 	uint8_t port_num;
 	uint16_t pkey;
@@ -2607,7 +2607,7 @@ static void acm_add_ep_ip(char *ifname, struct acm_ep_addr_data *data, char *ip_
 
 static void acm_rm_ep_ip(struct acm_ep_addr_data *data)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 
 	ep = acm_get_ep(data);
 	if (ep) {
@@ -2645,7 +2645,7 @@ static void acm_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 {
 	int ret = EINVAL;
 	struct acmc_device *dev;
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	uint8_t port_num;
 	char gid_str[INET6_ADDRSTRLEN];
 
@@ -2672,7 +2672,7 @@ static int resync_system_ips(void)
 	DLIST_ENTRY *dev_entry;
 	struct acmc_device *dev;
 	struct acmc_port *port;
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	DLIST_ENTRY *entry;
 	int i, cnt;
 
@@ -2688,7 +2688,7 @@ static int resync_system_ips(void)
 
 			for (entry = port->ep_list.Next; entry != &port->ep_list;
 			     entry = entry->Next) {
-				ep = container_of(entry, struct acm_ep, entry);
+				ep = container_of(entry, struct acmc_ep, entry);
 
 				for (i = 0; i < MAX_EP_ADDR; i++) {
 					if (ep->addr_info[i].addr.type == ACM_ADDRESS_IP ||
@@ -3290,7 +3290,7 @@ static void acmp_parse_hosts_file(struct acmp_ep *ep)
 }
 
 static int
-acm_ep_insert_addr(struct acm_ep *ep, const char *name, uint8_t *addr,
+acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		   size_t addr_len, uint8_t addr_type)
 {
 	int i, ret;
@@ -3365,7 +3365,7 @@ static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 {
 	uint8_t port_num;
 	struct acmc_device *dev;
-	struct acm_ep *ep = ctx;
+	struct acmc_ep *ep = ctx;
 
 	dev = acm_get_device_from_gid(gid, &port_num);
 	if (dev && ep->port->dev == dev
@@ -3378,12 +3378,12 @@ static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 	}
 }
 
-static int acm_get_system_ips(struct acm_ep *ep)
+static int acm_get_system_ips(struct acmc_ep *ep)
 {
 	return acm_if_iter_sys(acm_ep_ip_iter_cb, ep);
 }
 
-static int acm_assign_ep_names(struct acm_ep *ep)
+static int acm_assign_ep_names(struct acmc_ep *ep)
 {
 	FILE *faddr;
 	char *dev_name;
@@ -3574,16 +3574,16 @@ static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 	return 0;
 }
 
-static struct acm_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
+static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
 {
-	struct acm_ep *ep, *res = NULL;
+	struct acmc_ep *ep, *res = NULL;
 	DLIST_ENTRY *entry;
 
 	acm_log(2, "pkey 0x%x\n", pkey);
 
 	lock_acquire(&port->lock);
 	for (entry = port->ep_list.Next; entry != &port->ep_list; entry = entry->Next) {
-		ep = container_of(entry, struct acm_ep, entry);
+		ep = container_of(entry, struct acmc_ep, entry);
 		if (ep->endpoint.pkey == pkey) {
 			res = ep;
 			break;
@@ -3605,7 +3605,7 @@ static void acmp_ep_down(struct acm_endpoint *endpoint)
 	lock_release(&ep->lock);
 }
 
-static void acm_ep_down(struct acm_ep *ep)
+static void acm_ep_down(struct acmc_ep *ep)
 {
 	acm_log(1, "%s %d pkey 0x%04x\n", ep->port->dev->verbs->device->name, 
 		ep->port->port_num, ep->endpoint.pkey);
@@ -3641,10 +3641,10 @@ acmp_alloc_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	return ep;
 }
 
-static struct acm_ep *
+static struct acmc_ep *
 acm_alloc_ep(struct acmc_port *port, uint16_t pkey)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	int i;
 
 	acm_log(1, "\n");
@@ -3783,7 +3783,7 @@ err0:
 
 static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 {
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 	int i, ret;
 
 	acm_log(1, "\n");
@@ -3964,7 +3964,7 @@ static void acm_port_down(struct acmc_port *port)
 	int ret;
 	struct acmp_port *prov_port;
 	DLIST_ENTRY *entry;
-	struct acm_ep *ep;
+	struct acmc_ep *ep;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -3980,7 +3980,7 @@ static void acm_port_down(struct acmc_port *port)
 	     entry = port->ep_list.Next) {
 		DListRemove(entry);
 		lock_release(&port->lock);
-		ep = container_of(entry, struct acm_ep, entry);
+		ep = container_of(entry, struct acmc_ep, entry);
 		acm_ep_down(ep);
 		lock_acquire(&port->lock);
 	}
