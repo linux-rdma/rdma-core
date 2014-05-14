@@ -231,7 +231,7 @@ struct acmp_send_msg {
 	uint8_t              data[ACM_SEND_SIZE];
 };
 
-struct acm_client {
+struct acmc_client {
 	lock_t   lock;   /* acquire ep lock first */
 	SOCKET   sock;
 	int      index;
@@ -269,7 +269,7 @@ static atomic_t wait_cnt;
 
 static SOCKET listen_socket;
 static SOCKET ip_mon_socket;
-static struct acm_client client_array[FD_SETSIZE - 1];
+static struct acmc_client client_array[FD_SETSIZE - 1];
 
 static FILE *flog;
 static lock_t log_lock;
@@ -1130,7 +1130,7 @@ static int
 acm_resolve_response(uint64_t id, struct acm_msg *req_msg,
 	struct acmp_dest *dest, uint8_t status)
 {
-	struct acm_client *client = &client_array[id];
+	struct acmc_client *client = &client_array[id];
 	struct acm_msg msg;
 	int ret;
 
@@ -1419,7 +1419,7 @@ static void acmp_process_acm_recv(struct acmp_ep *ep, struct ibv_wc *wc, struct 
 
 static int acm_query_response(uint64_t id, struct acm_msg *msg, uint8_t status)
 {
-	struct acm_client *client = &client_array[id];
+	struct acmc_client *client = &client_array[id];
 	int ret;
 
 	acm_log(2, "status 0x%x\n", status);
@@ -1847,7 +1847,7 @@ static int acm_listen(void)
 	return 0;
 }
 
-static void acm_disconnect_client(struct acm_client *client)
+static void acm_disconnect_client(struct acmc_client *client)
 {
 	lock_acquire(&client->lock);
 	shutdown(client->sock, SHUT_RDWR);
@@ -1979,7 +1979,7 @@ static struct acmc_ep *acm_get_ep(struct acm_ep_addr_data *data)
 }
 
 static int
-acm_svr_query_path(struct acm_client *client, struct acm_msg *msg)
+acm_svr_query_path(struct acmc_client *client, struct acm_msg *msg)
 {
 	struct acmc_ep *ep;
 
@@ -2244,7 +2244,7 @@ static int acmp_dest_timeout(struct acmp_dest *dest)
 }
 
 static int
-acm_svr_resolve_dest(struct acm_client *client, struct acm_msg *msg)
+acm_svr_resolve_dest(struct acmc_client *client, struct acm_msg *msg)
 {
 	struct acmc_ep *ep;
 	struct acm_ep_addr_data *saddr, *daddr;
@@ -2354,7 +2354,7 @@ put:
  * lookup the destination by either LID or GID.
  */
 static int
-acm_svr_resolve_path(struct acm_client *client, struct acm_msg *msg)
+acm_svr_resolve_path(struct acmc_client *client, struct acm_msg *msg)
 {
 	struct acmc_ep *ep;
 	struct ibv_path_record *path;
@@ -2465,7 +2465,7 @@ acmp_resolve(struct acm_endpoint *endpoint, struct acm_msg *msg, uint64_t id)
 		return acmp_resolve_dest(ep, msg, id);
 }
 
-static int acm_svr_resolve(struct acm_client *client, struct acm_msg *msg)
+static int acm_svr_resolve(struct acmc_client *client, struct acm_msg *msg)
 {
 	(void) atomic_inc(&client->refcnt);
 
@@ -2480,7 +2480,7 @@ static int acm_svr_resolve(struct acm_client *client, struct acm_msg *msg)
 	}
 }
 
-static int acm_svr_perf_query(struct acm_client *client, struct acm_msg *msg)
+static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 {
 	int ret, i;
 	uint16_t len;
@@ -2512,7 +2512,7 @@ static int acm_msg_length(struct acm_msg *msg)
 		msg->hdr.length : ntohs(msg->hdr.length);
 }
 
-static void acm_svr_receive(struct acm_client *client)
+static void acm_svr_receive(struct acmc_client *client)
 {
 	struct acm_msg msg;
 	int ret;
