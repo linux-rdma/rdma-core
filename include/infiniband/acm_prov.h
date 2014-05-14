@@ -32,24 +32,42 @@
 
 #include <infiniband/acm.h>
 
-struct acm_endpoint {
-	void			*prov_context;
+struct acm_device {
+	struct ibv_context 	*verbs;
 	uint64_t		dev_guid;
+};
+
+struct acm_port {
+	struct acm_device 	*dev;
 	uint8_t			port_num;
+};
+
+struct acm_endpoint {
+	struct acm_port 	*port;
 	uint16_t		pkey;
 };
 
 struct acm_address {
 	struct acm_endpoint	*endpoint;
-	void			*prov_context;
+	void			*prov_addr;
 	union acm_ep_info	info;
 	char			*id_string;
 	uint16_t		type;
 };
 
 struct acm_provider {
-	int	(*resolve)(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
-	int	(*query)(struct acm_endpoint *ep, struct acm_msg *msg, uint64_t id);
+	int	(*open_device)(const struct acm_device *device, 
+			void **dev_context);
+	void	(*close_device)(void *dev_context);
+	int	(*open_port)(const struct acm_port *port, 
+			void *dev_context, void **port_context);
+	void	(*close_port)(void *port_context);
+	int	(*open_endpoint)(const struct acm_endpoint *endpoint, 
+			void *port_context, void **ep_context);
+	void	(*close_endpoint)(void *ep_context);
+	int	(*resolve)(void *ep_context, struct acm_msg *msg, uint64_t id);
+	int	(*query)(void *ep_context, struct acm_msg *msg, uint64_t id);
+	int	(*handle_event)(void *port_context, enum ibv_event_type type);
 };
 
 #endif /* ACM_PROV_H */
