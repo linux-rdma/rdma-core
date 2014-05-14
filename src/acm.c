@@ -395,6 +395,7 @@ acmp_init_dest(struct acmp_dest *dest, uint8_t addr_type, uint8_t *addr, size_t 
 	lock_init(&dest->lock);
 	if (size)
 		acmp_set_dest_addr(dest, addr_type, addr, size);
+	dest->state = ACMP_INIT;
 }
 
 static struct acmp_dest *
@@ -468,14 +469,14 @@ acmp_acquire_sa_dest(struct acmp_port *port)
 {
 	struct acmp_dest *dest;
 
-	lock_acquire(&port->lock);
-	if (port->state == IBV_PORT_ACTIVE) {
+	lock_acquire(&port->sa_dest.lock);
+	if (port->sa_dest.state == ACMP_READY) {
 		dest = &port->sa_dest;
 		atomic_inc(&port->sa_dest.refcnt);
 	} else {
 		dest = NULL;
 	}
-	lock_release(&port->lock);
+	lock_release(&port->sa_dest.lock);
 	return dest;
 }
 
@@ -3810,6 +3811,7 @@ static void acmp_port_up(struct acmp_port *port, struct ibv_port_attr *attr)
 		return;
 
 	atomic_set(&port->sa_dest.refcnt, 1);
+	port->sa_dest.state = ACMP_READY;
 	for (i = 0; i < attr->pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
 		if (ret)
@@ -3893,6 +3895,9 @@ static void acmp_port_down(struct acmp_port *port)
 	atomic_dec(&port->sa_dest.refcnt);
 	while (atomic_get(&port->sa_dest.refcnt))
 		sleep(0);
+	lock_acquire(&port->sa_dest.lock);
+	port->sa_dest.state = ACMP_INIT;
+	lock_release(&port->sa_dest.lock);
 	ibv_destroy_ah(port->sa_dest.ah);
 	acm_log(1, "%s %d is down\n", port->dev->verbs->device->name, port->port_num);
 }
