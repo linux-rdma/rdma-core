@@ -1279,7 +1279,14 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 		return;
 	}
 	
+	lock_acquire(&ep->lock);
+	if (!ep->endpoint) {
+		acm_log(2, "Endpoint already closed\n");
+		lock_release(&ep->lock);
+		return;
+	}
 	addr = acm_addr_lookup(ep->endpoint, rec->dest, rec->dest_type);
+	lock_release(&ep->lock);
 	if (addr)
 		dest->req_id = mad->tid;
 
@@ -3531,6 +3538,24 @@ static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
 	return NULL;
 }
 
+static struct acmp_ep *
+acmp_get_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
+{
+	struct acmp_ep *ep;
+	DLIST_ENTRY *entry;
+
+	acm_log(1, "dev 0xllx port %d pkey 0x%x\n",
+		endpoint->dev_guid, endpoint->port_num, endpoint->pkey);
+	for (entry = port->ep_list.Next; entry != &port->ep_list;
+	     entry = entry->Next) {
+		ep = container_of(entry, struct acmp_ep, entry);
+		if (ep->pkey == endpoint->pkey)
+			return ep;
+	}
+
+	return NULL;
+}
+
 static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 {
 	struct acmp_port *port;
@@ -3566,6 +3591,26 @@ static struct acm_ep *acm_find_ep(struct acm_port *port, uint16_t pkey)
 	}
 	lock_release(&port->lock);
 	return res;
+}
+
+static void acmp_ep_down(struct acm_endpoint *endpoint)
+{
+	struct acmp_ep *ep = endpoint->prov_context;
+
+	acm_log(1, "%s %d pkey 0x%04x\n", ep->port->dev->verbs->device->name, 
+		endpoint->port_num, endpoint->pkey);
+
+	lock_acquire(&ep->lock);
+	ep->endpoint = NULL;
+	lock_release(&ep->lock);
+}
+
+static void acm_ep_down(struct acm_ep *ep)
+{
+	acm_log(1, "%s %d pkey 0x%04x\n", ep->port->dev->verbs->device->name, 
+		ep->port->port_num, ep->endpoint.pkey);
+	acmp_ep_down(&ep->endpoint);
+	free(ep);
 }
 
 static struct acmp_ep *
@@ -3639,6 +3684,16 @@ static void acmp_ep_up(struct acm_endpoint *endpoint)
 	if (!port) {
 		acm_log(0, "ERROR - failed to acquire dev 0xllx port %d pkey 0x%x\n",
 			endpoint->dev_guid, endpoint->port_num, endpoint->pkey);
+		return;
+	}
+
+	ep = acmp_get_ep(port, endpoint);
+	if (ep) {
+		acm_log(2, "endpoint for pkey 0x%x already exists\n", endpoint->pkey);
+		lock_acquire(&ep->lock);
+		ep->endpoint = endpoint;
+		lock_release(&ep->lock);
+		endpoint->prov_context = ep;
 		return;
 	}
 
@@ -3883,6 +3938,7 @@ static void acm_port_up(struct acm_port *port)
 
 static void acmp_port_down(struct acmp_port *port)
 {
+	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	lock_acquire(&port->lock);
 	port->state = IBV_PORT_DOWN;
 	lock_release(&port->lock);
@@ -3907,6 +3963,8 @@ static void acm_port_down(struct acm_port *port)
 	struct ibv_port_attr attr;
 	int ret;
 	struct acmp_port *prov_port;
+	DLIST_ENTRY *entry;
+	struct acm_ep *ep;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -3916,6 +3974,18 @@ static void acm_port_down(struct acm_port *port)
 	}
 
 	port->state = attr.state;
+
+	lock_acquire(&port->lock);
+	for (entry = port->ep_list.Next; entry != &port->ep_list; 
+	     entry = port->ep_list.Next) {
+		DListRemove(entry);
+		lock_release(&port->lock);
+		ep = container_of(entry, struct acm_ep, entry);
+		acm_ep_down(ep);
+		lock_acquire(&port->lock);
+	}
+	lock_release(&port->lock);
+
 	if ((prov_port = acmp_get_port_by_guid(port->dev->guid, port->port_num))) {
 		acmp_port_down(prov_port);
 	} else {
