@@ -1560,21 +1560,18 @@ static void acmp_process_acm_recv(struct acmp_ep *ep, struct ibv_wc *wc, struct 
 	}
 }
 
-static int acm_query_response(uint64_t id, struct acm_msg *msg, uint8_t status)
+static int acm_query_response(uint64_t id, struct acm_msg *msg)
 {
 	struct acmc_client *client = &client_array[id];
 	int ret;
 
-	acm_log(2, "status 0x%x\n", status);
+	acm_log(2, "status 0x%x\n", msg->hdr.status);
 	lock_acquire(&client->lock);
 	if (client->sock == INVALID_SOCKET) {
 		acm_log(0, "ERROR - connection lost\n");
 		ret = ACM_STATUS_ENOTCONN;
 		goto release;
 	}
-
-	msg->hdr.opcode |= ACM_OP_ACK;
-	msg->hdr.status = status;
 
 	ret = send(client->sock, (char *) msg, msg->hdr.length, 0);
 	if (ret != msg->hdr.length)
@@ -1588,23 +1585,31 @@ release:
 	return ret;
 }
 
+static int acmc_query_response(uint64_t id, struct acm_msg *msg, uint8_t status)
+{
+	acm_log(2, "status 0x%x\n", status);
+	msg->hdr.opcode |= ACM_OP_ACK;
+	msg->hdr.status = status;
+	return acm_query_response(id, msg);
+}
+
 static void
 acmp_sa_resp(struct acmp_send_msg *msg, struct ibv_wc *wc, struct acm_mad *mad)
 {
 	struct acmp_request *req = (struct acmp_request *) msg->context;
 	struct ib_sa_mad *sa_mad = (struct ib_sa_mad *) mad;
-	uint8_t status;
 
+	req->msg.hdr.opcode |= ACM_OP_ACK;
 	if (mad) {
-		status = (uint8_t) (ntohs(sa_mad->status) >> 8);
+		req->msg.hdr.status = (uint8_t) (ntohs(sa_mad->status) >> 8);
 		memcpy(&req->msg.resolve_data[0].info.path, sa_mad->data,
 			sizeof(struct ibv_path_record));
 	} else {
-		status = ACM_STATUS_ETIMEDOUT;
+		req->msg.hdr.status = ACM_STATUS_ETIMEDOUT;
 	}
-	acm_log(2, "status 0x%x\n", status);
+	acm_log(2, "status 0x%x\n", req->msg.hdr.status);
 
-	acm_query_response(req->id, &req->msg, status);
+	acm_query_response(req->id, &req->msg);
 	acmp_free_req(req);
 }
 
@@ -2201,13 +2206,13 @@ acm_svr_query_path(struct acmc_client *client, struct acm_msg *msg)
 	acm_log(2, "client %d\n", client->index);
 	if (msg->hdr.length != ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH) {
 		acm_log(0, "ERROR - invalid length: 0x%x\n", msg->hdr.length);
-		return acm_query_response(client->index, msg, ACM_STATUS_EINVAL);
+		return acmc_query_response(client->index, msg, ACM_STATUS_EINVAL);
 	}
 
 	addr = acm_get_ep_address(&msg->resolve_data[0]);
 	if (!addr) {
 		acm_log(1, "notice - could not find local end point address\n");
-		return acm_query_response(client->index, msg, ACM_STATUS_ESRCADDR);
+		return acmc_query_response(client->index, msg, ACM_STATUS_ESRCADDR);
 	}
 
 	ep = container_of(addr->addr.endpoint, struct acmc_ep, endpoint);
@@ -2263,7 +2268,9 @@ acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
 free:
 	acmp_free_req(req);
 resp:
-	return acm_query_response(id, msg, status);
+	msg->hdr.opcode |= ACM_OP_ACK;
+	msg->hdr.status = status;
+	return acm_query_response(id, msg);
 }
 
 static uint8_t
