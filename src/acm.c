@@ -310,6 +310,8 @@ static atomic_t tid;
 static DLIST_ENTRY timeout_list;
 static event_t timeout_event;
 static atomic_t wait_cnt;
+static pthread_t retry_thread_id;
+static int retry_thread_started = 0;
 
 static SOCKET listen_socket;
 static SOCKET ip_mon_socket;
@@ -1931,7 +1933,7 @@ static void acmp_process_wait_queue(struct acmp_ep *ep, uint64_t *next_expire)
  * their addition while walking the link lists. Therefore, we need to acquire
  * the appropriate locks.
  */
-static void CDECL_FUNC acmp_retry_handler(void *context)
+static void *acmp_retry_handler(void *context)
 {
 	struct acmp_device *dev;
 	struct acmp_port *port;
@@ -1941,9 +1943,21 @@ static void CDECL_FUNC acmp_retry_handler(void *context)
 	int i, wait;
 
 	acm_log(0, "started\n");
+	if (pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL)) {
+		acm_log(0, "Error: failed to set cancel type \n");
+		pthread_exit(NULL);
+	}
+	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {
+		acm_log(0, "Error: failed to set cancel state\n");
+		pthread_exit(NULL);
+	}
+	retry_thread_started = 1;
+
 	while (1) {
-		while (!atomic_get(&wait_cnt))
+		while (!atomic_get(&wait_cnt)) {
+			pthread_testcancel();
 			event_wait(&timeout_event, -1);
+		}
 
 		next_expire = -1;
 		lock_acquire(&acmp_dev_lock);
@@ -1977,9 +1991,14 @@ static void CDECL_FUNC acmp_retry_handler(void *context)
 
 		acmp_process_timeouts();
 		wait = (int) (next_expire - time_stamp_ms());
-		if (wait > 0 && atomic_get(&wait_cnt))
+		if (wait > 0 && atomic_get(&wait_cnt)) {
+			pthread_testcancel();
 			event_wait(&timeout_event, wait);
+		}
 	}
+
+	retry_thread_started = 0;
+	return NULL;
 }
 
 static void acm_init_server(void)
@@ -4816,11 +4835,23 @@ int CDECL_FUNC main(int argc, char **argv)
 
 	acm_activate_devices();
 	acm_log(1, "starting timeout/retry thread\n");
-	beginthread(acmp_retry_handler, NULL);
+	if (pthread_create(&retry_thread_id, NULL, acmp_retry_handler, NULL)) {
+		acm_log(0, "Error: failed to create the retry thread");
+		retry_thread_started = 0;
+		return -1;
+	}
 	acm_log(1, "starting server\n");
 	acm_server();
 
 	acm_log(0, "shutting down\n");
+	if (retry_thread_started) {
+		if (pthread_cancel(retry_thread_id))
+			acm_log(0, "Error: failed to cancel the retry thread \n");
+
+		if (pthread_join(retry_thread_id, NULL))
+			acm_log(0, "Error: failed to join the retry thread\n");
+		retry_thread_started = 0;
+	}
 	fclose(flog);
 	return 0;
 }
