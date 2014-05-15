@@ -278,8 +278,8 @@ static void acmp_close_endpoint(void *ep_context);
 static int acmp_add_addr(const struct acm_address *addr, void *ep_context, 
 			 void **addr_context);
 static void acmp_remove_addr(void *addr_context, struct acm_address *addr);
-static int acmp_resolve(void *ep_context, struct acm_msg *msg, uint64_t id);
-static int acmp_query(void *ep_context, struct acm_msg *msg, uint64_t id);
+static int acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id);
+static int acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id);
 static int acmp_handle_event(void *port_context, enum ibv_event_type type);
 
 static struct acm_provider def_prov = {
@@ -2088,11 +2088,13 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 	return 0;
 }
 
-static struct acmc_ep *
-acm_get_port_ep(struct acmc_port *port, struct acm_ep_addr_data *data)
+static struct acmc_addr *
+acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 {
 	struct acmc_ep *ep;
+	struct acm_address *addr;
 	DLIST_ENTRY *ep_entry;
+	int i;
 
 	if (port->state != IBV_PORT_ACTIVE)
 		return NULL;
@@ -2107,21 +2109,26 @@ acm_get_port_ep(struct acmc_port *port, struct acm_ep_addr_data *data)
 		ep = container_of(ep_entry, struct acmc_ep, entry);
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
-		     (ntohs(data->info.path.pkey) == ep->endpoint.pkey)))
-			return ep;
+		     (ntohs(data->info.path.pkey) == ep->endpoint.pkey))) {
+			for (i = 0; i < MAX_EP_ADDR; i++) {
+				if (ep->addr_info[i].addr.type)
+					return &ep->addr_info[i];
+			}
+			return NULL;
+		}
 
-		if (acm_addr_lookup(&ep->endpoint, data->info.addr,
-				    (uint8_t) data->type))
-			return ep;
+		if ((addr = acm_addr_lookup(&ep->endpoint, data->info.addr,
+					    (uint8_t) data->type)))
+			return container_of(addr, struct acmc_addr, addr);
 	}
 
 	return NULL;
 }
 
-static struct acmc_ep *acm_get_ep(struct acm_ep_addr_data *data)
+static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 {
 	struct acmc_device *dev;
-	struct acmc_ep *ep;
+	struct acmc_addr *addr;
 	DLIST_ENTRY *dev_entry;
 	int i;
 
@@ -2134,10 +2141,10 @@ static struct acmc_ep *acm_get_ep(struct acm_ep_addr_data *data)
 		dev = container_of(dev_entry, struct acmc_device, entry);
 		for (i = 0; i < dev->port_cnt; i++) {
 			lock_acquire(&dev->port[i].lock);
-			ep = acm_get_port_ep(&dev->port[i], data);
+			addr = acm_get_port_ep_address(&dev->port[i], data);
 			lock_release(&dev->port[i].lock);
-			if (ep)
-				return ep;
+			if (addr)
+				return addr;
 		}
 	}
 
@@ -2150,6 +2157,7 @@ static struct acmc_ep *acm_get_ep(struct acm_ep_addr_data *data)
 static int
 acm_svr_query_path(struct acmc_client *client, struct acm_msg *msg)
 {
+	struct acmc_addr *addr;
 	struct acmc_ep *ep;
 
 	acm_log(2, "client %d\n", client->index);
@@ -2158,22 +2166,23 @@ acm_svr_query_path(struct acmc_client *client, struct acm_msg *msg)
 		return acm_query_response(client->index, msg, ACM_STATUS_EINVAL);
 	}
 
-	ep = acm_get_ep(&msg->resolve_data[0]);
-	if (!ep) {
-		acm_log(1, "notice - could not find local end point\n");
+	addr = acm_get_ep_address(&msg->resolve_data[0]);
+	if (!addr) {
+		acm_log(1, "notice - could not find local end point address\n");
 		return acm_query_response(client->index, msg, ACM_STATUS_ESRCADDR);
 	}
 
-	return ep->port->prov->query(ep->prov_ep_context, msg, client->index);
+	ep = container_of(addr->addr.endpoint, struct acmc_ep, endpoint);
+	return ep->port->prov->query(addr->prov_addr_context, msg, client->index);
 }
 
 static int
-acmp_query(void *ep_context, struct acm_msg *msg, uint64_t id)
+acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
 {
 	struct acmp_request *req;
 	struct acmp_send_msg *sa_msg;
 	struct ib_sa_mad *mad;
-	struct acmp_ep *ep = ep_context;
+	struct acmp_ep *ep = addr_context;
 	uint8_t status;
 
 	if (ep->state != ACMP_READY) {
@@ -2415,6 +2424,7 @@ static int acmp_dest_timeout(struct acmp_dest *dest)
 static int
 acm_svr_resolve_dest(struct acmc_client *client, struct acm_msg *msg)
 {
+	struct acmc_addr *addr;
 	struct acmc_ep *ep;
 	struct acm_ep_addr_data *saddr, *daddr;
 	uint8_t status;
@@ -2439,14 +2449,15 @@ acm_svr_resolve_dest(struct acmc_client *client, struct acm_msg *msg)
 	acm_format_name(2, log_data, sizeof log_data,
 			saddr->type, saddr->info.addr, sizeof saddr->info.addr);
 	acm_log(2, "src  %s\n", log_data);
-	ep = acm_get_ep(saddr);
-	if (!ep) {
-		acm_log(0, "notice - unknown local end point\n");
+	addr = acm_get_ep_address(saddr);
+	if (!addr) {
+		acm_log(0, "notice - unknown local end point address\n");
 		return acm_resolve_response(client->index, msg, NULL,
 					    ACM_STATUS_ESRCADDR);
 	}
 
-	return ep->port->prov->resolve(ep->prov_ep_context, msg, client->index);
+	ep = container_of(addr->addr.endpoint, struct acmc_ep, endpoint);
+	return ep->port->prov->resolve(addr->prov_addr_context, msg, client->index);
 }
 
 static int
@@ -2525,6 +2536,7 @@ put:
 static int
 acm_svr_resolve_path(struct acmc_client *client, struct acm_msg *msg)
 {
+	struct acmc_addr *addr;
 	struct acmc_ep *ep;
 	struct ibv_path_record *path;
 
@@ -2544,14 +2556,16 @@ acm_svr_resolve_path(struct acmc_client *client, struct acm_msg *msg)
 	acm_format_name(2, log_data, sizeof log_data, ACM_EP_INFO_PATH,
 		msg->resolve_data[0].info.addr, sizeof *path);
 	acm_log(2, "path %s\n", log_data);
-	ep = acm_get_ep(&msg->resolve_data[0]);
+	addr = acm_get_ep_address(&msg->resolve_data[0]);
 	if (!ep) {
-		acm_log(0, "notice - unknown local end point\n");
+		acm_log(0, "notice - unknown local end point address\n");
 		return acm_resolve_response(client->index, msg, NULL,
 					    ACM_STATUS_ESRCADDR);
 	}
 
-	return ep->port->prov->resolve(ep->prov_ep_context, msg, client->index);
+	ep = container_of(addr->addr.endpoint, struct acmc_ep, endpoint);
+	return ep->port->prov->resolve(addr->prov_addr_context, msg, 
+				       client->index);
 }
 
 static int
@@ -2621,9 +2635,9 @@ put:
 }
 
 static int
-acmp_resolve(void *ep_context, struct acm_msg *msg, uint64_t id)
+acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id)
 {
-	struct acmp_ep *ep = ep_context;
+	struct acmp_ep *ep = addr_context;
 
 	if (ep->state != ACMP_READY)
 		return acm_resolve_response(id, msg, NULL, ACM_STATUS_ENODATA);
@@ -2745,9 +2759,10 @@ static void acm_add_ep_ip(char *ifname, struct acm_ep_addr_data *data, char *ip_
 	uint8_t port_num;
 	uint16_t pkey;
 	union ibv_gid sgid;
+	struct acmc_addr *addr;
 
-	ep = acm_get_ep(data);
-	if (ep) {
+	addr = acm_get_ep_address(data);
+	if (addr) {
 		acm_log(1, "Address '%s' already available\n", ip_str);
 		return;
 	}
@@ -2777,9 +2792,11 @@ static void acm_add_ep_ip(char *ifname, struct acm_ep_addr_data *data, char *ip_
 static void acm_rm_ep_ip(struct acm_ep_addr_data *data)
 {
 	struct acmc_ep *ep;
+	struct acmc_addr *addr;
 
-	ep = acm_get_ep(data);
-	if (ep) {
+	addr = acm_get_ep_address(data);
+	if (addr) {
+		ep = container_of(addr->addr.endpoint, struct acmc_ep, endpoint);
 		acm_format_name(0, log_data, sizeof log_data,
 				data->type, data->info.addr, sizeof data->info.addr);
 		acm_log(0, " %s\n", log_data);
