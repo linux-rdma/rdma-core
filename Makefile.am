@@ -18,7 +18,7 @@ man_MANS = \
 	man/ibacm.1 \
 	man/ibacm.7
 
-EXTRA_DIST = src/acm_util.h src/acm_mad.h src/libacm.h ibacm.init.in \
+EXTRA_DIST = src/acm_util.h include/acm_mad.h src/libacm.h ibacm.init.in \
 	     linux/osd.h linux/dlist.h ibacm.spec.in $(man_MANS) ibacm_hosts.data
 
 install-exec-hook:
