@@ -49,7 +49,6 @@ struct acm_endpoint {
 
 struct acm_address {
 	struct acm_endpoint	*endpoint;
-	void			*prov_addr;
 	union acm_ep_info	info;
 	char			*id_string;
 	uint16_t		type;
@@ -65,6 +64,9 @@ struct acm_provider {
 	int	(*open_endpoint)(const struct acm_endpoint *endpoint, 
 			void *port_context, void **ep_context);
 	void	(*close_endpoint)(void *ep_context);
+	int	(*add_address)(const struct acm_address *addr, void *ep_context, 
+			       void **addr_context);
+	void	(*remove_address)(void *addr_context, struct acm_address *addr);
 	int	(*resolve)(void *ep_context, struct acm_msg *msg, uint64_t id);
 	int	(*query)(void *ep_context, struct acm_msg *msg, uint64_t id);
 	int	(*handle_event)(void *port_context, enum ibv_event_type type);

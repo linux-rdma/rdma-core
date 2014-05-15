@@ -101,6 +101,8 @@ enum acmp_addr_preload {
 /*
  * Nested locking order: dest -> ep, dest -> port
  */
+struct acmp_ep;
+
 struct acmp_dest {
 	uint8_t                address[ACM_MAX_ADDRESS]; /* keep first */
 	char                   name[ACM_MAX_ADDRESS];
@@ -117,6 +119,7 @@ struct acmp_dest {
 	uint64_t	       addr_timeout;
 	uint64_t	       route_timeout;
 	uint8_t                addr_type;
+	struct acmp_ep         *ep;
 };
 
 struct acmc_prov_context {
@@ -191,6 +194,7 @@ struct acmp_send_queue {
 
 struct acmc_addr {
 	struct acm_address    addr;
+	void                  *prov_addr_context;
 	char		      string_buf[ACM_MAX_ADDRESS];
 };
 
@@ -201,6 +205,12 @@ struct acmc_ep {
 	struct acmc_addr      addr_info[MAX_EP_ADDR];
 	lock_t                lock;
 	DLIST_ENTRY	      entry;
+};
+
+struct acmp_addr {
+	uint16_t              type;
+	union acm_ep_info     info;
+	struct acm_address    *addr;
 };
 
 struct acmp_ep {
@@ -224,6 +234,7 @@ struct acmp_ep {
 	DLIST_ENTRY           active_queue;
 	DLIST_ENTRY           wait_queue;
 	enum acmp_state       state;
+	struct acmp_addr      addr_info[MAX_EP_ADDR];
 };
 
 struct acmp_send_msg {
@@ -264,6 +275,9 @@ static void acmp_close_port(void *port_context);
 static int acmp_open_endpoint(const struct acm_endpoint *endpoint, 
 			      void *port_context, void **ep_context);
 static void acmp_close_endpoint(void *ep_context);
+static int acmp_add_addr(const struct acm_address *addr, void *ep_context, 
+			 void **addr_context);
+static void acmp_remove_addr(void *addr_context, struct acm_address *addr);
 static int acmp_resolve(void *ep_context, struct acm_msg *msg, uint64_t id);
 static int acmp_query(void *ep_context, struct acm_msg *msg, uint64_t id);
 static int acmp_handle_event(void *port_context, enum ibv_event_type type);
@@ -275,6 +289,8 @@ static struct acm_provider def_prov = {
 	.close_port = acmp_close_port,
 	.open_endpoint = acmp_open_endpoint,
 	.close_endpoint = acmp_close_endpoint,
+	.add_address = acmp_add_addr,
+	.remove_address = acmp_remove_addr,
 	.resolve = acmp_resolve,
 	.query = acmp_query,
 	.handle_event = acmp_handle_event,
@@ -360,7 +376,7 @@ void acm_write(int level, const char *format, ...)
 
 static void
 acm_format_name(int level, char *name, size_t name_size,
-		uint8_t addr_type, uint8_t *addr, size_t addr_size)
+		uint8_t addr_type, const uint8_t *addr, size_t addr_size)
 {
 	struct ibv_path_record *path;
 
@@ -468,7 +484,8 @@ static int acmp_compare_dest(const void *dest1, const void *dest2)
 }
 
 static void
-acmp_set_dest_addr(struct acmp_dest *dest, uint8_t addr_type, uint8_t *addr, size_t size)
+acmp_set_dest_addr(struct acmp_dest *dest, uint8_t addr_type,
+		   const uint8_t *addr, size_t size)
 {
 	memcpy(dest->address, addr, size);
 	dest->addr_type = addr_type;
@@ -476,7 +493,8 @@ acmp_set_dest_addr(struct acmp_dest *dest, uint8_t addr_type, uint8_t *addr, siz
 }
 
 static void
-acmp_init_dest(struct acmp_dest *dest, uint8_t addr_type, uint8_t *addr, size_t size)
+acmp_init_dest(struct acmp_dest *dest, uint8_t addr_type,
+	       const uint8_t *addr, size_t size)
 {
 	DListInit(&dest->req_queue);
 	atomic_init(&dest->refcnt);
@@ -488,7 +506,7 @@ acmp_init_dest(struct acmp_dest *dest, uint8_t addr_type, uint8_t *addr, size_t 
 }
 
 static struct acmp_dest *
-acmp_alloc_dest(uint8_t addr_type, uint8_t *addr)
+acmp_alloc_dest(uint8_t addr_type, const uint8_t *addr)
 {
 	struct acmp_dest *dest;
 
@@ -505,7 +523,7 @@ acmp_alloc_dest(uint8_t addr_type, uint8_t *addr)
 
 /* Caller must hold ep lock. */
 static struct acmp_dest *
-acmp_get_dest(struct acmp_ep *ep, uint8_t addr_type, uint8_t *addr)
+acmp_get_dest(struct acmp_ep *ep, uint8_t addr_type, const uint8_t *addr)
 {
 	struct acmp_dest *dest, **tdest;
 
@@ -533,7 +551,7 @@ acmp_put_dest(struct acmp_dest *dest)
 }
 
 static struct acmp_dest *
-acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, uint8_t *addr)
+acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, const uint8_t *addr)
 {
 	struct acmp_dest *dest;
 
@@ -545,6 +563,7 @@ acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, uint8_t *addr)
 	if (!dest) {
 		dest = acmp_alloc_dest(addr_type, addr);
 		if (dest) {
+			dest->ep = ep;
 			tsearch(dest, &ep->dest_map[addr_type - 1], acmp_compare_dest);
 			(void) atomic_inc(&dest->refcnt);
 		}
@@ -1347,13 +1366,34 @@ acmp_resolve_sa_resp(struct acmp_send_msg *msg, struct ibv_wc *wc, struct acm_ma
 		acmp_send_addr_resp(msg->ep, dest);
 }
 
+static struct acmp_addr * 
+acmp_addr_lookup(struct acmp_ep *ep, uint8_t *addr, uint16_t type)
+{
+	int i;
+
+	for (i = 0; i < MAX_EP_ADDR; i++) {
+		if (ep->addr_info[i].type != type)
+			continue;
+
+		if ((type == ACM_ADDRESS_NAME &&
+		    !strnicmp((char *) ep->addr_info[i].info.name,
+			      (char *) addr, ACM_MAX_ADDRESS)) ||
+		    !memcmp(ep->addr_info[i].info.addr, addr, 
+			    ACM_MAX_ADDRESS)) {
+			return &ep->addr_info[i];
+		}
+	}
+
+	return NULL;
+}
+
 static void
 acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad)
 {
 	struct acm_resolve_rec *rec;
 	struct acmp_dest *dest;
 	uint8_t status;
-	struct acm_address *addr;
+	struct acmp_addr *addr;
 
 	acm_log(2, "\n");
 	if ((status = acmp_validate_addr_req(mad))) {
@@ -1367,15 +1407,8 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 		acm_log(0, "ERROR - unable to add source\n");
 		return;
 	}
-	
-	lock_acquire(&ep->lock);
-	if (!ep->endpoint) {
-		acm_log(2, "Endpoint already closed\n");
-		lock_release(&ep->lock);
-		return;
-	}
-	addr = acm_addr_lookup(ep->endpoint, rec->dest, rec->dest_type);
-	lock_release(&ep->lock);
+
+	addr = acmp_addr_lookup(ep, rec->dest, rec->dest_type);
 	if (addr)
 		dest->req_id = mad->tid;
 
@@ -3429,7 +3462,7 @@ static int
 acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		   size_t addr_len, uint8_t addr_type)
 {
-	int i, ret;
+	int i, ret = -1;
 	uint8_t tmp[ACM_MAX_ADDRESS];
 
 	if (addr_len > ACM_MAX_ADDRESS)
@@ -3451,6 +3484,14 @@ acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		ep->addr_info[i].addr.type = addr_type;
 		strncpy(ep->addr_info[i].string_buf, name, ACM_MAX_ADDRESS);
 		memcpy(ep->addr_info[i].addr.info.addr, tmp, ACM_MAX_ADDRESS);
+		ret = ep->port->prov->add_address(&ep->addr_info[i].addr,
+						  ep->prov_ep_context,
+						  &ep->addr_info[i].prov_addr_context);
+		if (ret) {
+			acm_log(0, "Error: failed to add addr to provider\n");
+			ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
+			goto out;
+		}
 	}
 	ret = 0;
 out:
@@ -3619,21 +3660,37 @@ static void acmp_ep_preload(struct acmp_ep *ep)
 	}
 }
 
-static int acmp_add_addr(void *ep_context, struct acm_address *addr)
+static int acmp_add_addr(const struct acm_address *addr, void *ep_context, 
+			 void **addr_context)
 {
 	struct acmp_ep *ep = ep_context;
 	struct acmp_dest *dest;
+	int i;
 
 	acm_log(2, "\n");
-	addr->prov_addr = ep;
 
-	if (loopback_prot != ACMP_LOOPBACK_PROT_LOCAL)
+	for (i = 0; (i < MAX_EP_ADDR) &&
+	     (ep->addr_info[i].type != ACM_ADDRESS_INVALID); i++)
+		;
+
+	if (i == MAX_EP_ADDR) {
+		acm_log(0, "ERROR - no more space for local address\n");
+		return -1;
+	}
+	ep->addr_info[i].type = addr->type;
+	memcpy(&ep->addr_info[i].info, &addr->info, sizeof(addr->info));
+	ep->addr_info[i].addr = (struct acm_address *) addr;
+
+	if (loopback_prot != ACMP_LOOPBACK_PROT_LOCAL) {
+		*addr_context = (void *) ep;
 		return 0;
+	}
 
-	dest = acmp_acquire_dest(ep, addr->type, addr->info.addr);
+	dest = acmp_acquire_dest(ep, addr->type, (uint8_t *) addr->info.addr);
 	if (!dest) {
 		acm_log(0, "ERROR - unable to create loopback dest %s\n",
 			addr->id_string);
+		memset(&ep->addr_info[i], 0, sizeof(ep->addr_info[i]));
 		return -1;
 	}
 
@@ -3652,9 +3709,21 @@ static int acmp_add_addr(void *ep_context, struct acm_address *addr)
 	dest->route_timeout = (uint64_t) ~0ULL;
 	dest->state = ACMP_READY;
 	acmp_put_dest(dest);
+	*addr_context = ep;
 	acm_log(1, "added loopback dest %s\n", dest->name);
 
 	return 0;
+}
+
+static void acmp_remove_addr(void *addr_context, struct acm_address *addr)
+{
+	struct acmp_ep *ep = addr_context;
+	struct acmp_addr *address;
+
+	acm_log(2, "\n");
+	address = acmp_addr_lookup(ep, addr->info.addr, addr->type);
+	if (address) 
+		memset(address, 0, sizeof(*address));
 }
 
 static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
@@ -3740,18 +3809,26 @@ static void acmp_close_endpoint(void *ep_context)
 		ep->port->dev->verbs->device->name, 
 		ep->port->port_num, ep->pkey);
 
-	lock_acquire(&ep->lock);
 	ep->endpoint = NULL;
-	lock_release(&ep->lock);
 }
 
 static void acm_ep_down(struct acmc_ep *ep)
 {
+	int i;
+
 	acm_log(1, "%s %d pkey 0x%04x\n", 
 		ep->port->dev->device.verbs->device->name, 
 		ep->port->port.port_num, ep->endpoint.pkey);
+	for (i = 0; i < MAX_EP_ADDR; i++) {
+		if (ep->addr_info[i].addr.type && 
+		    ep->addr_info[i].prov_addr_context) 
+			ep->port->prov->remove_address(ep->addr_info[i].prov_addr_context,
+						       &ep->addr_info[i].addr);
+	}
+
 	if (ep->prov_ep_context) 
 		ep->port->prov->close_endpoint(ep->prov_ep_context);
+
 	free(ep);
 }
 
@@ -3915,7 +3992,7 @@ err0:
 static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 {
 	struct acmc_ep *ep;
-	int i, ret;
+	int ret;
 
 	acm_log(1, "\n");
 	if (acm_find_ep(port, pkey)) {
@@ -3928,26 +4005,21 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 	if (!ep)
 		return;
 
-	ret = acm_assign_ep_names(ep);
-	if (ret) {
-		acm_log(0, "ERROR - unable to assign EP name for pkey 0x%x\n", pkey);
-		goto err;
-	}
-
 	if (port->prov->open_endpoint(&ep->endpoint, port->prov_port_context, 
 				      &ep->prov_ep_context)) {
 		acm_log(0, "Error -- failed to open prov endpoint\n");
 		goto err;
 	}
 
+	ret = acm_assign_ep_names(ep);
+	if (ret) {
+		acm_log(0, "ERROR - unable to assign EP name for pkey 0x%x\n", pkey);
+		goto err;
+	}
+
 	lock_acquire(&port->lock);
 	DListInsertHead(&ep->entry, &port->ep_list);
 	lock_release(&port->lock);
-
-	for (i = 0; i < MAX_EP_ADDR; i++) {
-		if (ep->addr_info[i].addr.type)
-			acmp_add_addr(ep->prov_ep_context, &ep->addr_info[i].addr);
-	}
 	return;
 
 err:
