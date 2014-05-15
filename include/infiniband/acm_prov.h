@@ -72,4 +72,27 @@ struct acm_provider {
 	int	(*handle_event)(void *port_context, enum ibv_event_type type);
 };
 
+/* Variables exported from core */
+extern atomic_t counter[ACM_MAX_COUNTER];
+extern char *opts_file;
+
+/* Functions exported from core */
+#define acm_log(level, format, ...) \
+	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
+extern void acm_write(int level, const char *format, ...);
+extern void acm_format_name(int level, char *name, size_t name_size,
+	uint8_t addr_type, const uint8_t *addr, size_t addr_size);
+
+extern int ib_any_gid(union ibv_gid *gid);
+extern uint8_t acm_gid_index(struct ibv_context *verbs, int port_num, 
+	int gid_cnt, union ibv_gid *gid);
+extern uint64_t acm_path_comp_mask(struct ibv_path_record *path);
+
+extern int acm_resolve_response(uint64_t id, struct acm_msg *msg);
+extern int acm_query_response(uint64_t id, struct acm_msg *msg);
+
+extern enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed);
+extern enum ibv_mtu acm_convert_mtu(int mtu);
+extern enum ibv_rate acm_convert_rate(int rate);
+
 #endif /* ACM_PROV_H */

@@ -320,7 +320,7 @@ static struct acmc_client client_array[FD_SETSIZE - 1];
 static FILE *flog;
 static lock_t log_lock;
 PER_THREAD char log_data[ACM_MAX_ADDRESS];
-static atomic_t counter[ACM_MAX_COUNTER];
+atomic_t counter[ACM_MAX_COUNTER];
 
 static struct acmc_device *
 acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port);
@@ -333,7 +333,7 @@ static void acm_event_handler(struct acmc_device *dev);
  * Service options - may be set through ibacm_opts.cfg file.
  */
 static char *acme = BINDIR "/ib_acme -A";
-static char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
+char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
 static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
 static char route_data_file[128] = ACM_CONF_DIR "/ibacm_route.data";
 static char addr_data_file[128] = ACM_CONF_DIR "/ibacm_hosts.data";
@@ -376,9 +376,8 @@ void acm_write(int level, const char *format, ...)
 	va_end(args);
 }
 
-static void
-acm_format_name(int level, char *name, size_t name_size,
-		uint8_t addr_type, const uint8_t *addr, size_t addr_size)
+void acm_format_name(int level, char *name, size_t name_size,
+		     uint8_t addr_type, const uint8_t *addr, size_t addr_size)
 {
 	struct ibv_path_record *path;
 
@@ -415,7 +414,7 @@ acm_format_name(int level, char *name, size_t name_size,
 	}
 }
 
-static int ib_any_gid(union ibv_gid *gid)
+int ib_any_gid(union ibv_gid *gid)
 {
 	return ((gid->global.subnet_prefix | gid->global.interface_id) == 0);
 }
@@ -816,7 +815,7 @@ unlock:
 	return req;
 }
 
-static uint8_t acm_gid_index(struct ibv_context *verbs, int port_num, 
+uint8_t acm_gid_index(struct ibv_context *verbs, int port_num, 
 	int gid_cnt, union ibv_gid *gid)
 {
 	union ibv_gid cmp_gid;
@@ -1046,7 +1045,7 @@ static void acmp_init_path_query(struct ib_sa_mad *mad)
 	mad->attr_id = IB_SA_ATTR_PATH_REC;
 }
 
-static uint64_t acm_path_comp_mask(struct ibv_path_record *path)
+uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 {
 	uint32_t fl_hop;
 	uint16_t qos_sl;
@@ -1236,7 +1235,7 @@ acmp_send_addr_resp(struct acmp_ep *ep, struct acmp_dest *dest)
 	acmp_post_send(&ep->resp_queue, msg);
 }
 
-static int acm_resolve_response(uint64_t id, struct acm_msg *msg)
+int acm_resolve_response(uint64_t id, struct acm_msg *msg)
 {
 	struct acmc_client *client = &client_array[id];
 	int ret;
@@ -1560,7 +1559,7 @@ static void acmp_process_acm_recv(struct acmp_ep *ep, struct ibv_wc *wc, struct 
 	}
 }
 
-static int acm_query_response(uint64_t id, struct acm_msg *msg)
+int acm_query_response(uint64_t id, struct acm_msg *msg)
 {
 	struct acmc_client *client = &client_array[id];
 	int ret;
@@ -3121,7 +3120,7 @@ static enum acmp_addr_preload acmp_convert_addr_preload(char *param)
 	return addr_preload;
 }
 
-static enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed)
+enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed)
 {
 	switch (width) {
 	case 1:
@@ -3158,7 +3157,7 @@ static enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed)
 	}
 }
 
-static enum ibv_mtu acm_convert_mtu(int mtu)
+enum ibv_mtu acm_convert_mtu(int mtu)
 {
 	switch (mtu) {
 	case 256:  return IBV_MTU_256;
@@ -3170,7 +3169,7 @@ static enum ibv_mtu acm_convert_mtu(int mtu)
 	}
 }
 
-static enum ibv_rate acm_convert_rate(int rate)
+enum ibv_rate acm_convert_rate(int rate)
 {
 	switch (rate) {
 	case 2:   return IBV_RATE_2_5_GBPS;

@@ -7,6 +7,7 @@ sbin_PROGRAMS = svc/ibacm
 svc_ibacm_SOURCES = src/acm.c src/acm_util.c
 util_ib_acme_SOURCES = src/acme.c src/libacm.c linux/libacm_linux.c src/parse.c
 svc_ibacm_CFLAGS = $(AM_CFLAGS)
+svc_ibacm_LDFLAGS = -rdynamic
 util_ib_acme_CFLAGS = $(AM_CFLAGS) -DACME_PRINTS
 
 ibacmincludedir = $(includedir)/infiniband
