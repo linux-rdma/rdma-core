@@ -41,11 +41,13 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include <infiniband/acm.h>
 #include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
 #include <dlist.h>
+#include <dlfcn.h> 
 #include <search.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -96,6 +98,12 @@ enum acmp_route_preload {
 enum acmp_addr_preload {
 	ACMP_ADDR_PRELOAD_NONE,
 	ACMP_ADDR_PRELOAD_HOSTS
+};
+
+struct acmc_prov {
+	struct acm_provider    *prov;
+	void                   *handle; 
+	DLIST_ENTRY            entry;   
 };
 
 /*
@@ -283,6 +291,9 @@ static int acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id);
 static int acmp_handle_event(void *port_context, enum ibv_event_type type);
 
 static struct acm_provider def_prov = {
+	.size = sizeof(struct acm_provider),
+	.version = ACM_PROV_VERSION,
+	.name = "ibacmp",
 	.open_device = acmp_open_dev,
 	.close_device = acmp_close_dev,
 	.open_port = acmp_open_port,
@@ -301,6 +312,10 @@ union socket_addr {
 	struct sockaddr_in  sin;
 	struct sockaddr_in6 sin6;
 };
+
+static char *def_prov_name = "ibacmp";
+static DLIST_ENTRY provider_list;
+static struct acmc_prov *def_provider = NULL;
 
 static DLIST_ENTRY dev_list;
 static DLIST_ENTRY acmp_dev_list;
@@ -357,6 +372,7 @@ static uint8_t min_rate = IBV_RATE_10_GBPS;
 static enum acmp_route_preload route_preload;
 static enum acmp_addr_preload addr_preload;
 static int support_ips_in_addr_cfg = 0;
+static char *prov_lib_path = LIBDIR "/ibacm";
 
 void acm_write(int level, const char *format, ...)
 {
@@ -4589,6 +4605,106 @@ static int acm_open_devices(void)
 	return 0;
 }
 
+static int acm_open_providers(void)
+{
+	DIR *shlib_dir;
+	struct dirent *dent;
+	char file_name[256];
+	struct stat buf;
+	void *handle;
+	struct acmc_prov *prov;
+	struct acm_provider *provider;
+	uint32_t version;
+	char *err_str;
+	int (*query)(struct acm_provider **, uint32_t *);
+
+	acm_log(1, "\n");
+	shlib_dir = opendir(prov_lib_path);
+	if (!shlib_dir) {
+		acm_log(0, "ERROR - could not open provider lib dir: %s\n",
+			prov_lib_path);
+		return -1;
+	}
+
+	while ((dent = readdir(shlib_dir))) {
+		if (!strstr(dent->d_name, ".so"))  
+			continue;
+
+		snprintf(file_name, sizeof(file_name), "%s/%s", prov_lib_path,
+			 dent->d_name);
+		if (lstat(file_name, &buf)) {
+			acm_log(0, "Error - could not stat: %s\n", file_name);
+			continue;
+		}
+		if (!S_ISREG(buf.st_mode))
+			continue;
+
+		acm_log(2, "Loading provider %s...\n", file_name);
+		if (!(handle = dlopen(file_name, RTLD_LAZY))) {
+			acm_log(0, "Error - could not load provider %s (%s)\n",
+				file_name, dlerror());
+			continue;
+		}
+
+		query = dlsym(handle, "provider_query");
+		if ((err_str = dlerror()) != NULL) {
+			acm_log(0, "Error -provider_query not found in %s (%s)\n",
+				file_name, err_str);
+			dlclose(handle);
+			continue;
+		}
+
+		if (query(&provider, &version)) {
+			acm_log(0, "Error - provider_query failed to %s\n", file_name);
+			dlclose(handle);
+			continue;
+		}
+
+		if (version != ACM_PROV_VERSION ||
+		    provider->size != sizeof(struct acm_provider)) {
+			acm_log(0, "Error -unmatched provider version 0x%08x (size %d)"
+				" core 0x%08x (size %d)\n", version, provider->size,
+				ACM_PROV_VERSION, sizeof(struct acm_provider));
+			dlclose(handle);
+			continue;
+		}
+
+		acm_log(1, "Provider %s (%s) loaded\n", provider->name, file_name);
+
+		prov = calloc(1, sizeof(*prov));
+		if (!prov) {
+			acm_log(0, "Error -failed to allocate provider %s\n", file_name);
+			dlclose(handle);
+			continue;
+		}
+
+		prov->prov = provider;
+		prov->handle = handle;
+		DListInsertTail(&prov->entry, &provider_list);
+		if (!strcasecmp(provider->name, def_prov_name)) 
+			def_provider = prov;
+	}
+
+	closedir(shlib_dir);
+	return 0;
+}
+
+static void acm_close_providers(void)
+{
+	struct acmc_prov *prov;
+	DLIST_ENTRY *entry;
+
+	acm_log(1, "\n");
+	def_provider = NULL;
+	while (!DListEmpty(&provider_list)) {
+		entry = provider_list.Next;
+		DListRemove(entry);
+		prov = container_of(entry, struct acmc_prov, entry);
+		dlclose(prov->handle);
+		free(prov);
+	}
+}
+
 static void acm_set_options(void)
 {
 	FILE *f;
@@ -4613,6 +4729,8 @@ static void acm_set_options(void)
 			strcpy(lock_file, value);
 		else if (!stricmp("server_port", opt))
 			server_port = (short) atoi(value);
+		else if (!stricmp("provider_lib_path", opt))
+			strcpy(prov_lib_path, value);
 	}
 
 	fclose(f);
@@ -4681,6 +4799,7 @@ static void acm_log_options(void)
 	acm_log(0, "log level %d\n", log_level);
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
+	acm_log(0, "provider lib path %s\n", prov_lib_path);
 }
 
 static void acmp_log_options(void)
@@ -4822,6 +4941,7 @@ int CDECL_FUNC main(int argc, char **argv)
 
 	atomic_init(&tid);
 	atomic_init(&wait_cnt);
+	DListInit(&provider_list);
 	DListInit(&dev_list);
 	DListInit(&acmp_dev_list);
 	lock_init(&acmp_dev_lock);
@@ -4831,6 +4951,12 @@ int CDECL_FUNC main(int argc, char **argv)
 		atomic_init(&counter[i]);
 
 	umad_init();
+
+	if (acm_open_providers()) {
+		acm_log(0, "ERROR - unable to open any providers\n");
+		return -1;
+	}
+
 	if (acm_open_devices()) {
 		acm_log(0, "ERROR - unable to open any devices\n");
 		return -1;
@@ -4858,6 +4984,7 @@ int CDECL_FUNC main(int argc, char **argv)
 			acm_log(0, "Error: failed to join the retry thread\n");
 		retry_thread_started = 0;
 	}
+	acm_close_providers();
 	fclose(flog);
 	return 0;
 }

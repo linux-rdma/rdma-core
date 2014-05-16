@@ -32,6 +32,8 @@
 
 #include <infiniband/acm.h>
 
+#define ACM_PROV_VERSION          1
+
 struct acm_device {
 	struct ibv_context 	*verbs;
 	uint64_t		dev_guid;
@@ -55,6 +57,9 @@ struct acm_address {
 };
 
 struct acm_provider {
+	size_t    size; 
+	uint32_t  version;
+	char      *name;
 	int	(*open_device)(const struct acm_device *device, 
 			void **dev_context);
 	void	(*close_device)(void *dev_context);
@@ -75,6 +80,8 @@ struct acm_provider {
 /* Variables exported from core */
 extern atomic_t counter[ACM_MAX_COUNTER];
 extern char *opts_file;
+
+int provider_query(struct acm_provider **info, uint32_t *version);
 
 /* Functions exported from core */
 #define acm_log(level, format, ...) \
