@@ -4731,6 +4731,8 @@ static void acm_set_options(void)
 			server_port = (short) atoi(value);
 		else if (!stricmp("provider_lib_path", opt))
 			strcpy(prov_lib_path, value);
+		else if (!stricmp("support_ips_in_addr_cfg", opt))
+			support_ips_in_addr_cfg = atoi(value);
 	}
 
 	fclose(f);
@@ -4786,8 +4788,6 @@ static void acmp_set_options(void)
 			addr_preload = acmp_convert_addr_preload(value);
 		else if (!stricmp("addr_data_file", opt))
 			strcpy(addr_data_file, value);
-		else if (!stricmp("support_ips_in_addr_cfg", opt))
-			support_ips_in_addr_cfg = atoi(value);
 	}
 
 	fclose(f);
@@ -4800,6 +4800,7 @@ static void acm_log_options(void)
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "provider lib path %s\n", prov_lib_path);
+	acm_log(0, "support IP's in ibacm_addr.cfg %d\n", support_ips_in_addr_cfg);
 }
 
 static void acmp_log_options(void)
@@ -4821,7 +4822,6 @@ static void acmp_log_options(void)
 	acm_log(0, "route data file %s\n", route_data_file);
 	acm_log(0, "address preload %d\n", addr_preload);
 	acm_log(0, "address data file %s\n", addr_data_file);
-	acm_log(0, "support IP's in ibacm_addr.cfg %d\n", support_ips_in_addr_cfg);
 }
 
 static FILE *acm_open_log(void)
