@@ -1370,10 +1370,13 @@ static char *parse_main_option(struct rule *rule, char *ptr)
 static int parse_other_option(struct rule *rule, char *ptr)
 {
 	static const char *const opt[] = {
+		"allow_ext_sg=",
+		"cmd_sg_entries=",
 		"comp_vector=",
 		"max_cmd_per_lun=",
 		"max_sect=",
 		"queue_size=",
+		"sg_tablesize=",
 		"tl_retry_count=",
 	};
 
