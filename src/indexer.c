@@ -151,6 +151,7 @@ int idm_set(struct index_map *idm, int index, void *item)
 
 	entry = idm->array[idx_array_index(index)];
 	entry[idx_entry_index(index)] = item;
+	idm->count[idx_array_index(index)]++;
 	return index;
 }
 
@@ -162,5 +163,9 @@ void *idm_clear(struct index_map *idm, int index)
 	entry = idm->array[idx_array_index(index)];
 	item = entry[idx_entry_index(index)];
 	entry[idx_entry_index(index)] = NULL;
+	if (--idm->count[idx_array_index(index)] == 0) {
+		free(idm->array[idx_array_index(index)]);
+		idm->array[idx_array_index(index)] = NULL;
+	}
 	return item;
 }

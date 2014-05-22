@@ -85,6 +85,7 @@ static inline void *idx_at(struct indexer *idx, int index)
 struct index_map
 {
 	void **array[IDX_ARRAY_SIZE];
+	int count[IDX_ARRAY_SIZE];
 };
 
 int idm_set(struct index_map *idm, int index, void *item);
