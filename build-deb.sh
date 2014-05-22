@@ -9,7 +9,7 @@ BASE=`cd $DIR ; pwd`
 _TOP="$BASE/pkg"
 
 
-ver=`grep -E "^AC_INIT\(srptools," configure.in | cut -d, -f 2`
+ver=`grep -E "^AC_INIT\(srptools," configure.ac | cut -d, -f 2`
 version=`echo $ver`
 if [ "$TARGET" = "rel" ]; then
     release="1"
@@ -24,7 +24,7 @@ cp_src() {
     local dest=$1
     cp -a man $dest
     cp -a autogen.sh $dest
-    cp -a configure.in $dest
+    cp -a configure.ac $dest
     cp -a Makefile.am $dest
     cp -a srptools.spec.in $dest
     cp -a srp_daemon $dest
