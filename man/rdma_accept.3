@@ -1,4 +1,4 @@
-.TH "RDMA_ACCEPT" 3 "2007-10-31" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RDMA_ACCEPT" 3 "2014-05-27" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rdma_accept \- Called to accept a connection request.
 .SH SYNOPSIS
@@ -35,6 +35,9 @@ fields when accepting.  Users may reference the rdma_conn_param structure in
 the connection event directly, or can reference their own structure.  If the
 rdma_conn_param structure from an event is referenced, the event must not be
 acked until after this call returns.
+.P
+If the conn_param parameter is NULL, the values reported in the connection
+request event are used, adjusted down based on local hardware restrictions.
 .IP private_data
 References a user-controlled data buffer.  The contents of the buffer are
 copied and transparently passed to the remote side as part of the
