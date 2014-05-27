@@ -60,11 +60,11 @@ EXTRA_DIST = src/ipathverbs.h \
     src/ipathverbs.map \
     libipathverbs.spec.in \
     ipath.driver \
-    truescale.cmds \
+    truescale-serdes.cmds \
     truescale.conf
 
 
-sbin_SCRIPTS = truescale.cmds
+sbin_SCRIPTS = truescale-serdes.cmds
 if HAS_DRACUT
 EXTRA_DIST += dracut_check dracut_install
 dracutdir = $(DESTDIR)$(datarootdir)/dracut/modules.d/90qib
