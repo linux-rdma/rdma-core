@@ -342,11 +342,17 @@ static iwpm_mapped_port *get_iwpm_port(int client_idx, struct sockaddr_storage *
 		syslog(LOG_WARNING, "get_iwpm_port: Unable to allocate a mapped port.\n");
 		return NULL;
 	}
+	memset(iwpm_port, 0, sizeof(*iwpm_port));
+
 	/* record local and mapped address in the mapped port object */
 	memcpy(&iwpm_port->local_addr, local_addr, sizeof(struct sockaddr_storage));
 	memcpy(&iwpm_port->mapped_addr, mapped_addr, sizeof(struct sockaddr_storage));
 	iwpm_port->owner_client = client_idx;
 	iwpm_port->sd = sd;
+        if (is_wcard_ipaddr(local_addr)) {
+		iwpm_port->wcard = 1;
+		iwpm_port->ref_cnt = 1;
+	}
 	return iwpm_port;	
 }
 
@@ -419,31 +425,13 @@ void add_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iwpm_
 {
 	static int dbg_idx = 1;
 	iwpm_debug(IWARP_PM_ALL_DBG, "add_iwpm_mapped_port: Adding a new mapping #%d\n", dbg_idx++);
-
+	/* only one mapping per wild card ip address */
+	if (iwpm_port->wcard) {
+		if (iwpm_port->ref_cnt > 1)
+			return;
+	}
 	add_list_element((iwpm_list **)iwpm_ports, (iwpm_list **)&iwpm_port, 
 				IWPM_LIST_MAPPED_PORTS);
-}
-
-/**
- * get_iwpm_wcard - Record a wild card IP address
- * @wcard_addr: to store the wild card address
- */
-void get_iwpm_wcard(struct sockaddr_storage *wcard_addr)
-{
-	switch (wcard_addr->ss_family) {
-	case AF_INET: {
-		struct sockaddr_in *in4addr = (struct sockaddr_in *)wcard_addr;
-		inet_pton(AF_INET, "0.0.0.0", &in4addr->sin_addr);
-		break;
-	}
-	case AF_INET6: {
-		struct sockaddr_in6 *in6addr = (struct sockaddr_in6 *)wcard_addr;
-		inet_pton(AF_INET6, "::", &in6addr->sin6_addr);
-		break;
-	}
-	default: 
-		break;
-	}
 }
 
 /**
@@ -486,13 +474,47 @@ int check_same_sockaddr(struct sockaddr_storage *sockaddr_a, struct sockaddr_sto
 }
 
 /**
- * find_iwpm_mapped_port - Find saved mapped port object 
+ * find_iwpm_mapping - Find saved mapped port object 
  * @iwpm_ports: list of mapped port object
  * @search_addr: IP address and port to search for in the list
  * @not_mapped: if set, compare local addresses, otherwise compare mapped addresses
+ *
+ * Compares the search_sockaddr to the addresses in the list,
+ * to find a saved port object with the sockaddr or
+ * a wild card address with the same tcp port
  */ 
-iwpm_mapped_port *find_iwpm_mapped_port(iwpm_mapped_port *iwpm_ports, 
-						struct sockaddr_storage *search_addr, int not_mapped)
+iwpm_mapped_port *find_iwpm_mapping(iwpm_mapped_port *iwpm_ports,
+				struct sockaddr_storage *search_addr, int not_mapped)
+{
+	iwpm_mapped_port *iwpm_port, *saved_iwpm_port = NULL;
+	struct sockaddr_storage *current_addr;
+
+	for (iwpm_port = iwpm_ports; iwpm_port != NULL; iwpm_port = iwpm_port->next) {
+		current_addr = (not_mapped)? &iwpm_port->local_addr : &iwpm_port->mapped_addr;
+
+		if (get_sockaddr_port(search_addr) == get_sockaddr_port(current_addr)) {
+			if (check_same_sockaddr(search_addr, current_addr) ||
+					iwpm_port->wcard || is_wcard_ipaddr(search_addr)) {
+				saved_iwpm_port = iwpm_port;
+				goto find_mapping_exit;
+			}
+		}
+	}
+find_mapping_exit:
+	return saved_iwpm_port;
+}
+
+/**
+ * find_iwpm_same_mapping - Find saved mapped port object 
+ * @iwpm_ports: list of mapped port object
+ * @search_addr: IP address and port to search for in the list
+ * @not_mapped: if set, compare local addresses, otherwise compare mapped addresses
+ *
+ * Compares the search_sockaddr to the addresses in the list,
+ * to find a saved port object with the same sockaddr
+ */ 
+iwpm_mapped_port *find_iwpm_same_mapping(iwpm_mapped_port *iwpm_ports,
+				struct sockaddr_storage *search_addr, int not_mapped)
 {
 	iwpm_mapped_port *iwpm_port, *saved_iwpm_port = NULL;
 	struct sockaddr_storage *current_addr;
@@ -501,15 +523,30 @@ iwpm_mapped_port *find_iwpm_mapped_port(iwpm_mapped_port *iwpm_ports,
 		current_addr = (not_mapped)? &iwpm_port->local_addr : &iwpm_port->mapped_addr;
 		if (check_same_sockaddr(search_addr, current_addr)) {
 			saved_iwpm_port = iwpm_port;
-			goto find_mapped_port_exit;
+			goto find_same_mapping_exit;
 		}
 	}
-find_mapped_port_exit:
+find_same_mapping_exit:
 	return saved_iwpm_port;
 }
 
 /** 
- * free_iwpm_port - Free existing mapping
+ * free_iwpm_wcard_port - Free wild card mapping object
+ * @iwpm_port: mapped port object to be freed
+ *
+ * Mappings with wild card IP addresses can't be freed
+ * while their reference count > 0
+ */
+int free_iwpm_wcard_mapping(iwpm_mapped_port *iwpm_port)
+{
+	if (iwpm_port->ref_cnt > 0)
+		iwpm_port->ref_cnt--;
+
+	return iwpm_port->ref_cnt;
+}
+
+/** 
+ * free_iwpm_port - Free mapping object
  * @iwpm_port: mapped port object to be freed
  */
 void free_iwpm_port(iwpm_mapped_port *iwpm_port) 

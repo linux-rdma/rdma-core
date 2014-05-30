@@ -410,6 +410,32 @@ void form_iwpm_reject(struct iwpm_wire_msg *pm_msg,
 }
 
 /**
+ * get_sockaddr_port - Report the tcp port number, contained in the sockaddr
+ * @sockaddr: sockaddr storage to get the tcp port from
+ */
+__be16 get_sockaddr_port(struct sockaddr_storage *sockaddr)
+{
+	struct sockaddr_in *sockaddr_v4;
+	struct sockaddr_in6 *sockaddr_v6;
+	__be16 port = 0;
+	
+	switch (sockaddr->ss_family) {
+	case AF_INET:
+		sockaddr_v4 = (struct sockaddr_in *)sockaddr;
+		port = sockaddr_v4->sin_port;
+		break;
+	case AF_INET6:
+		sockaddr_v6 = (struct sockaddr_in6 *)sockaddr;
+		port = sockaddr_v6->sin6_port;
+		break;
+	default:
+		syslog(LOG_WARNING, "get_sockaddr_port: Invalid sockaddr family.\n");
+		break;
+	}
+	return port;
+}
+
+/**
  * copy_iwpm_sockaddr - Copy (IP address and Port) from src to dst 
  * @address_family: Internet address family
  * @src_sockaddr: socket address to copy (if NULL, use src_addr) 
@@ -458,6 +484,41 @@ void copy_iwpm_sockaddr(__u16 addr_family, struct sockaddr_storage *src_sockaddr
 	}
 
 	memcpy(dst, src, IWPM_IPADDR_SIZE);
+}
+
+/**
+ * is_wcard_ipaddr - Check if the search_addr has a wild card ip address
+ */
+int is_wcard_ipaddr(struct sockaddr_storage *search_addr)
+{
+	int ret = 0;
+
+	switch (search_addr->ss_family) {
+	case AF_INET: {
+		struct sockaddr_in wcard_addr;
+		struct sockaddr_in *in4addr = (struct sockaddr_in *)search_addr;
+		inet_pton(AF_INET, "0.0.0.0", &wcard_addr.sin_addr);
+
+		if (in4addr->sin_addr.s_addr == wcard_addr.sin_addr.s_addr)
+			ret = 1;
+		break;
+	}
+	case AF_INET6: {
+		struct sockaddr_in6 wcard_addr;
+		struct sockaddr_in6 *in6addr = (struct sockaddr_in6 *)&search_addr;
+		inet_pton(AF_INET6, "::", &wcard_addr.sin6_addr);
+
+		if (!memcmp(in6addr->sin6_addr.s6_addr, 
+			wcard_addr.sin6_addr.s6_addr, IWPM_IPADDR_SIZE))
+			ret = 1;
+		break;
+	}
+	default:
+		syslog(LOG_WARNING, "check_same_sockaddr: Invalid addr family 0x%02X\n",
+			search_addr->ss_family);
+		break;
+	}
+	return ret;	
 }
 
 /**
