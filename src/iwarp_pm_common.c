@@ -333,9 +333,9 @@ int parse_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 	msg_parms->apport = pm_msg->apport; /* accepting peer port */
 	msg_parms->cpport = pm_msg->cpport; /* connecting peer port */
 	/* copy accepting peer IP address */
-	memcpy(&msg_parms->apipaddr, &pm_msg->apipaddr, IWARP_PM_IPADDR_LENGTH);
+	memcpy(&msg_parms->apipaddr, &pm_msg->apipaddr, IWPM_IPADDR_SIZE);
 	/* copy connecting peer IP address */
-	memcpy(&msg_parms->cpipaddr, &pm_msg->cpipaddr, IWARP_PM_IPADDR_LENGTH);
+	memcpy(&msg_parms->cpipaddr, &pm_msg->cpipaddr, IWPM_IPADDR_SIZE);
 
 	return ret_value;
 }
@@ -357,8 +357,8 @@ static void form_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 
 	pm_msg->apport = msg_parms->apport;
 	pm_msg->cpport = msg_parms->cpport;
-	memcpy(&pm_msg->apipaddr, &msg_parms->apipaddr, IWARP_PM_IPADDR_LENGTH);
-	memcpy(&pm_msg->cpipaddr, &msg_parms->cpipaddr, IWARP_PM_IPADDR_LENGTH);
+	memcpy(&pm_msg->apipaddr, &msg_parms->apipaddr, IWPM_IPADDR_SIZE);
+	memcpy(&pm_msg->cpipaddr, &msg_parms->cpipaddr, IWPM_IPADDR_SIZE);
 }
 
 /**

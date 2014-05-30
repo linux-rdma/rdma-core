@@ -62,7 +62,6 @@
 #define IWARP_PM_IPVER_SHIFT   0
 #define IWARP_PM_IPVER_MASK    0x0F
 #define IWARP_PM_MESSAGE_SIZE  48 /* bytes */
-#define IWARP_PM_IPADDR_LENGTH 16
 #define IWARP_PM_ASSOC_OFFSET  0x10 /* different assochandles for passive/active side map requests */
 #define IWARP_PM_IPV4_ADDR     4
 
@@ -152,8 +151,8 @@ typedef struct iwpm_wire_msg {
 	__be16	cpport;
 	__be64	assochandle;
 	/* big endian IP addresses and ports */
-	__u8	cpipaddr[IWARP_PM_IPADDR_LENGTH];
-	__u8	apipaddr[IWARP_PM_IPADDR_LENGTH];
+	__u8	cpipaddr[IWPM_IPADDR_SIZE];
+	__u8	apipaddr[IWPM_IPADDR_SIZE];
 } iwpm_wire_msg;
 
 typedef struct iwpm_send_msg {
@@ -186,9 +185,9 @@ typedef struct iwpm_pending_msg {
 typedef struct iwpm_msg_parms {
 	__u32		ip_ver;
 	__u16		address_family;
-	char		apipaddr[IWARP_PM_IPADDR_LENGTH];
+	char		apipaddr[IWPM_IPADDR_SIZE];
 	__be16		apport;
-	char		cpipaddr[IWARP_PM_IPADDR_LENGTH];
+	char		cpipaddr[IWPM_IPADDR_SIZE];
 	__be16		cpport;
 	unsigned char	ver;
 	unsigned char	mt;
