@@ -55,26 +55,33 @@ pthread_cond_t cond_pending_msg;
 pthread_mutex_t pending_msg_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void iwpm_cleanup(void);
+int print_mappings = 0;
 
 /**
- * iwpm_terminate_sig_handler - Handle terminate signals which iwarp port mapper receives
+ * iwpm_signal_handler - Handle signals which iwarp port mapper receives
  * @signum: the number of the caught signal
  */
-void iwpm_terminate_sig_handler(int signum)
+void iwpm_signal_handler(int signum)
 {
 	switch(signum) {
 		case SIGHUP:
-			syslog(LOG_WARNING, "iwpm_terminate_sig_handler: Received SIGHUP signal\n");
+			syslog(LOG_WARNING, "iwpm_signal_handler: Received SIGHUP signal\n");
+			iwpm_cleanup();
+			exit(signum);
 			break;
 		case SIGTERM:
-			syslog(LOG_WARNING, "iwpm_terminate_sig_handler: Received SIGTERM signal\n");
+			syslog(LOG_WARNING, "iwpm_signal_handler: Received SIGTERM signal\n");
+			iwpm_cleanup();
+			exit(signum);
+			break;
+		case SIGUSR1:
+			syslog(LOG_WARNING, "iwpm_signal_handler: Received SIGUSR1 signal\n");
+			print_mappings = 1;
 			break;
 		default:
-			syslog(LOG_WARNING, "iwpm_terminate_sig_handler: Unhandled signal %d\n", signum);
+			syslog(LOG_WARNING, "iwpm_signal_handler: Unhandled signal %d\n", signum);
 			break;
 	}
-	iwpm_cleanup();
-	exit(signum);
 }
 
 /**
@@ -534,7 +541,7 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 	iwpm_port = find_iwpm_same_mapping(mapped_ports, local_addr, not_mapped);
 	if (!iwpm_port) {
 		iwpm_debug(IWARP_PM_NETLINK_DBG, "process_remove_mapping: Unable to find mapped port object\n");
-		print_iwpm_sockaddr(local_addr, "process_remove_mapping: Local address");
+		print_iwpm_sockaddr(local_addr, "process_remove_mapping: Local address", IWARP_PM_ALL_DBG);
 		/* the client sends a remove mapping request when terminating a connection
  		   and it is possible that there isn't a successful mapping for this connection */
 		goto remove_mapping_exit;
@@ -578,7 +585,8 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms,
 		/* could not find mapping for the requested address */
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_request: "
 				"Sending Reject to port mapper peer.\n");
-		print_iwpm_sockaddr(&local_addr, "process_wire_request: Local address");
+		print_iwpm_sockaddr(&local_addr, "process_wire_request: Local address",
+					IWARP_PM_ALL_DBG);
 		return send_iwpm_msg(form_iwpm_reject, msg_parms, recv_addr, pm_sock);
 	}
 	/* record mapping in the accept message */
@@ -748,9 +756,10 @@ static int process_iwpm_wire_reject(iwpm_msg_parms *msg_parms, int nl_sock)
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &remote_addr,
 				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
 
-	print_iwpm_sockaddr(&local_mapped_addr, "process_wire_reject: Local mapped address");
-	print_iwpm_sockaddr(&remote_addr, "process_wire_reject: Remote address");
-
+	print_iwpm_sockaddr(&local_mapped_addr, "process_wire_reject: Local mapped address",
+					IWARP_PM_ALL_DBG);
+	print_iwpm_sockaddr(&remote_addr, "process_wire_reject: Remote address",
+					IWARP_PM_ALL_DBG);
 	ret = -EINVAL;
 	iwpm_port = find_iwpm_same_mapping(mapped_ports, &local_mapped_addr, not_mapped); 
 	if (!iwpm_port) {
@@ -1268,6 +1277,10 @@ static int iwarp_port_mapper()
 	/* poll a set of sockets */
 	do {
 		do {
+			if (print_mappings) {
+				print_iwpm_mapped_ports(mapped_ports);
+				print_mappings = 0;
+			}
 			/* initialize the file sets for select */
 			FD_ZERO(&select_fdset);
 			/* add the UDP and Netlink sockets to the file set */
@@ -1286,6 +1299,8 @@ static int iwarp_port_mapper()
 		/* select_rc is the number of fds ready for IO ( IO won't block) */
 
 		if (select_rc == -1) {
+			if (errno == EINTR)
+				continue;
 			syslog(LOG_WARNING, "iwarp_port_mapper: Select failed (%s).\n", strerror(errno));
 			ret = -errno;
 			goto iwarp_port_mapper_exit;
@@ -1310,7 +1325,6 @@ static int iwarp_port_mapper()
 		if (FD_ISSET(netlink_sock, &select_fdset)) {
 			ret = process_iwpm_netlink_msg(netlink_sock);
 		}
-		
 	} while (1);
 
 iwarp_port_mapper_exit:
@@ -1389,8 +1403,9 @@ int main(int argc, char *argv[])
 	if (netlink_sock < 0)
 		goto error_exit_nl;
 
-	signal(SIGHUP, iwpm_terminate_sig_handler);
-	signal(SIGTERM, iwpm_terminate_sig_handler);
+	signal(SIGHUP, iwpm_signal_handler);
+	signal(SIGTERM, iwpm_signal_handler);
+	signal(SIGUSR1, iwpm_signal_handler);
 
 	pthread_cond_init(&cond_req_complete, NULL);
 	pthread_cond_init(&cond_pending_msg, NULL);

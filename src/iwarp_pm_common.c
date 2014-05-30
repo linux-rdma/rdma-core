@@ -526,7 +526,7 @@ int is_wcard_ipaddr(struct sockaddr_storage *search_addr)
  * @sockaddr: socket address to print
  * @msg: message to print
  */ 
-void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, char *msg)
+void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, char *msg, __u32 dbg_flag)
 {
 	struct sockaddr_in6 *sockaddr_v6;
 	struct sockaddr_in *sockaddr_v4;
@@ -535,13 +535,13 @@ void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, char *msg)
 	switch (sockaddr->ss_family) {
 	case AF_INET:
 		sockaddr_v4 = (struct sockaddr_in *)sockaddr;
-		iwpm_debug(IWARP_PM_ALL_DBG, "%s IPV4 %s:%u(0x%04X)\n", msg,
+		iwpm_debug(dbg_flag, "%s IPV4 %s:%u(0x%04X)\n", msg,
 			inet_ntop(AF_INET, &sockaddr_v4->sin_addr, ip_address_text, INET6_ADDRSTRLEN),
 			ntohs(sockaddr_v4->sin_port), ntohs(sockaddr_v4->sin_port));
 		break;
 	case AF_INET6:
 		sockaddr_v6 = (struct sockaddr_in6 *)sockaddr;
-		iwpm_debug(IWARP_PM_ALL_DBG, "%s IPV6 %s:%u(0x%04X)\n", msg,
+		iwpm_debug(dbg_flag, "%s IPV6 %s:%u(0x%04X)\n", msg,
 			inet_ntop(AF_INET6, &sockaddr_v6->sin6_addr, ip_address_text, INET6_ADDRSTRLEN),
 			ntohs(sockaddr_v6->sin6_port), ntohs(sockaddr_v6->sin6_port));
 		break;

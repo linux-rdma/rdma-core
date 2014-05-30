@@ -89,7 +89,7 @@
 #define IWARP_PM_WIRE_DBG     0x02
 #define IWARP_PM_RETRY_DBG    0x04
 #define IWARP_PM_ALL_DBG      0x07 
-#define IWARP_PM_DEBUG        0
+#define IWARP_PM_DEBUG        0x08
 
 #define iwpm_debug(dbg_level, str, args...) \
 	do { if (dbg_level &  IWARP_PM_DEBUG) { \
@@ -225,7 +225,7 @@ int send_iwpm_nlmsg(int, struct nl_msg *, int);
 
 struct nl_msg *create_iwpm_nlmsg(__u16, int);
 
-void print_iwpm_sockaddr(struct sockaddr_storage *, char *);
+void print_iwpm_sockaddr(struct sockaddr_storage *, char *, __u32);
 
 __be16 get_sockaddr_port(struct sockaddr_storage *sockaddr);
 
@@ -247,6 +247,8 @@ iwpm_mapped_port *find_iwpm_mapping(iwpm_mapped_port *, struct sockaddr_storage 
 iwpm_mapped_port *find_iwpm_same_mapping(iwpm_mapped_port *, struct sockaddr_storage *, int);
 
 void remove_iwpm_mapped_port(iwpm_mapped_port **, iwpm_mapped_port *);
+
+void print_iwpm_mapped_ports(iwpm_mapped_port *);
 
 void free_iwpm_port(iwpm_mapped_port *);
  

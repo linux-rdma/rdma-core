@@ -571,6 +571,20 @@ void remove_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iw
 				IWPM_LIST_MAPPED_PORTS);
 }
 
+void print_iwpm_mapped_ports(iwpm_mapped_port *iwpm_ports)
+{
+	iwpm_mapped_port *iwpm_port;
+	int i;
+
+	syslog(LOG_WARNING, "print_iwpm_mapped_ports:\n");
+
+	for (iwpm_port = iwpm_ports, i = 0; iwpm_port != NULL; iwpm_port = iwpm_port->next, i++) {
+		syslog(LOG_WARNING, "Mapping #%d\n", i);
+		print_iwpm_sockaddr(&iwpm_port->local_addr, "Local address", IWARP_PM_DEBUG);
+		print_iwpm_sockaddr(&iwpm_port->mapped_addr, "Mapped address", IWARP_PM_DEBUG);
+	}
+}
+
 /**
  * form_iwpm_send_msg - Form a message to send on the wire
  */
