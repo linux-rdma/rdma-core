@@ -94,6 +94,7 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with_dracut}
 %{_datarootdir}/dracut/modules.d/90qib/install
 %{_datarootdir}/dracut/modules.d/90qib/check
+%{_datarootdir}/dracut/modules.d/90qib/installkernel
 %endif
 
 %files devel

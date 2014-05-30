@@ -66,11 +66,12 @@ EXTRA_DIST = src/ipathverbs.h \
 
 sbin_SCRIPTS = truescale-serdes.cmds
 if HAS_DRACUT
-EXTRA_DIST += dracut_check dracut_install
+EXTRA_DIST += dracut_check dracut_install dracut_kmod
 dracutdir = $(DESTDIR)$(datarootdir)/dracut/modules.d/90qib
-install-data-local: dracut_check dracut_install
+install-data-local: dracut_check dracut_install dracut_kmod
 	$(INSTALL) -D -m 755 dracut_check $(dracutdir)/check
 	$(INSTALL) -D -m 755 dracut_install $(dracutdir)/install
+	$(INSTALL) -D -m 755 dracut_kmod $(dracutdir)/installkernel
 endif
 
 dist-hook: libipathverbs.spec
