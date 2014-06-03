@@ -261,7 +261,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Specifies the location of the route data file to use when preloading\n");
 	fprintf(f, "# the ACM cache.  This option is only valid if route_preload\n");
 	fprintf(f, "# indicates that routing data should be read from a file.\n");
-	fprintf(f, "# Default is ACM_CONF_DIR/ibacm_route.data\n");
+	fprintf(f, "# Default is %s/ibacm_route.data\n", ACM_CONF_DIR);
 	fprintf(f, "# route_data_file /etc/rdma/ibacm_route.data\n");
 	fprintf(f, "\n");
 	fprintf(f, "# addr_preload:\n");
@@ -277,7 +277,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Specifies the location of the address data file to use when preloading\n");
 	fprintf(f, "# the ACM cache.  This option is only valid if addr_preload\n");
 	fprintf(f, "# indicates that address data should be read from a file.\n");
-	fprintf(f, "# Default is ACM_CONF_DIR/ibacm_hosts.data\n");
+	fprintf(f, "# Default is %s/ibacm_hosts.data\n", ACM_CONF_DIR);
 	fprintf(f, "# addr_data_file /etc/rdma/ibacm_hosts.data\n");
 	fprintf(f, "\n");
 	fprintf(f, "# support_ips_in_addr_cfg:\n");
