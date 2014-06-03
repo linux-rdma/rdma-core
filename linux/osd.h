@@ -46,16 +46,7 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
-#ifndef SYSCONFDIR
-#define SYSCONFDIR "/etc"
-#endif
-#ifndef BINDIR
-#define BINDIR "/usr/bin"
-#endif
-#ifndef RDMADIR
-#define RDMADIR "rdma"
-#endif
-#define ACM_CONF_DIR  SYSCONFDIR "/" RDMADIR
+#define ACM_CONF_DIR  IBACM_CONFIG_PATH
 #define ACM_ADDR_FILE "ibacm_addr.cfg"
 #define ACM_OPTS_FILE "ibacm_opts.cfg"
 

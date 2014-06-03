@@ -347,7 +347,7 @@ static void acm_event_handler(struct acmc_device *dev);
 /*
  * Service options - may be set through ibacm_opts.cfg file.
  */
-static char *acme = BINDIR "/ib_acme -A";
+static char *acme = IBACM_BIN_PATH "/ib_acme -A";
 char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
 static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
 static char route_data_file[128] = ACM_CONF_DIR "/ibacm_route.data";
@@ -372,7 +372,7 @@ static uint8_t min_rate = IBV_RATE_10_GBPS;
 static enum acmp_route_preload route_preload;
 static enum acmp_addr_preload addr_preload;
 static int support_ips_in_addr_cfg = 0;
-static char *prov_lib_path = LIBDIR "/ibacm";
+static char *prov_lib_path = IBACM_LIB_PATH;
 
 void acm_write(int level, const char *format, ...)
 {
