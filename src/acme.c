@@ -284,6 +284,21 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# If 1 continue to read IP addresses from ibacm_addr.cfg\n");
 	fprintf(f, "# Default is 0 \"no\"\n");
 	fprintf(f, "# support_ips_in_addr_cfg 0\n");
+	fprintf(f, "\n");
+	fprintf(f, "# provider_lib_path:\n");
+	fprintf(f, "# Specifies the directory of the provider libraries\n");
+	fprintf(f, "\n");
+	fprintf(f, "# provider_lib_path %s\n", IBACM_LIB_PATH);
+	fprintf(f, "\n");
+	fprintf(f, "# provider:\n");
+	fprintf(f, "# Specifies the provider to assign to each subnet\n");
+	fprintf(f, "# ACM providers may override the address and route resolution\n");
+	fprintf(f, "# protocols with provider specific protocols.\n");
+	fprintf(f, "# provider name (prefix | default)\n");
+	fprintf(f, "# Example:\n");
+	fprintf(f, "# provider ibacmp 0xFE80000000000000\n");
+	fprintf(f, "# provider ibacmp default\n");
+	fprintf(f, "\n");
 }
 
 static int open_dir(void)

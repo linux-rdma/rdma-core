@@ -64,12 +64,13 @@
 
 #define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
-
+#define ACM_PROV_NAME_SIZE 64
 
 struct acmc_prov {
 	struct acm_provider    *prov;
 	void                   *handle; 
 	DLIST_ENTRY            entry;   
+	uint64_t               subnet_prefix;
 };
 
 struct acmc_prov_context {
@@ -89,6 +90,7 @@ struct acmc_port {
 	lock_t              lock;
 	DLIST_ENTRY         ep_list;
 	enum ibv_port_state state;
+	union ibv_gid       base_gid;
 	int                 gid_cnt;
 	uint16_t            lid;
 	uint16_t            lid_mask;
@@ -130,7 +132,7 @@ union socket_addr {
 	struct sockaddr_in6 sin6;
 };
 
-static char *def_prov_name = "ibacmp";
+static char def_prov_name[ACM_PROV_NAME_SIZE] = "ibacmp";
 static DLIST_ENTRY provider_list;
 static struct acmc_prov *def_provider = NULL;
 
@@ -1619,6 +1621,37 @@ err:
 	free(ep);
 }
 
+static void acm_assign_provider(struct acmc_port *port)
+{
+	DLIST_ENTRY *entry;
+	struct acmc_prov *prov;
+
+	acm_log(2, "port %s/%d\n", port->port.dev->verbs->device->name, 
+		port->port.port_num);
+	for (entry = provider_list.Next; entry != &provider_list; 
+	     entry = entry->Next) {
+		prov = container_of(entry, struct acmc_prov, entry);
+
+		if (prov->subnet_prefix == port->base_gid.global.subnet_prefix) {
+			acm_log(2, "Found provider %s for port %s/%d\n",
+				prov->prov->name, 
+				port->port.dev->verbs->device->name, 
+				port->port.port_num);
+			port->prov = prov->prov;
+			break;
+		}
+	}
+
+	/* If no provider is found, assign the default provider*/
+	if (!port->prov) {
+		acm_log(2, "No prov found, assign default prov %s to %s/%d\n",
+			def_provider ? def_provider->prov->name: "NULL", 
+			port->port.dev->verbs->device->name, 
+			port->port.port_num);
+		port->prov = def_provider->prov;
+	} 
+}
+
 static void acm_port_up(struct acmc_port *port)
 {
 	struct ibv_port_attr attr;
@@ -1645,10 +1678,13 @@ static void acm_port_up(struct acmc_port *port)
 				    port->gid_cnt, &gid);
 		if (ret || !gid.global.interface_id)
 			break;
+		if (port->gid_cnt == 0)
+			port->base_gid = gid;
 	}
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
 	port->state = IBV_PORT_ACTIVE;
+	acm_assign_provider(port);
 	dev_ctx = acm_acquire_prov_context(&port->dev->prov_dev_context_list, 
 					   port->prov);
 	if (!dev_ctx) {
@@ -1794,7 +1830,7 @@ acm_open_port(struct acmc_port *port, struct acmc_device *dev, uint8_t port_num)
 	port->port.port_num = port_num;
 	lock_init(&port->lock);
 	DListInit(&port->ep_list);
-	port->prov = def_provider->prov;
+	port->prov = NULL;
 	port->state = IBV_PORT_DOWN;
 }
 
@@ -1865,6 +1901,66 @@ static int acm_open_devices(void)
 	}
 
 	return 0;
+}
+
+static void acm_load_prov_config(void)
+{
+	FILE *fd;
+	char s[128];
+	char *p, *ptr;
+	char prov_name[ACM_PROV_NAME_SIZE], subnet[32];
+	uint64_t prefix;
+	struct acmc_prov *prov;
+	DLIST_ENTRY *entry;
+
+	if (!(fd = fopen(opts_file, "r")))
+		return;
+
+	while (fgets(s, sizeof s, fd)) {
+		if (s[0] == '#')
+			continue;
+
+		/* Ignore blank lines */
+		if (!(p = strtok_r(s, " \n", &ptr)))
+			continue;
+
+		if (strncasecmp(p, "provider", sizeof("provider") - 1))
+			continue;
+
+		p = strtok_r(NULL, " ", &ptr);
+		if (!p)
+			continue;
+
+		if (sscanf(s, "%64s%32s", prov_name, subnet) != 2)
+			continue;
+
+		acm_log(2, "provider %s subnet_prefix %s\n", prov_name, subnet);
+		if (!strncasecmp(subnet, "default", sizeof("default") - 1)) {
+			strncpy(def_prov_name, prov_name, sizeof(def_prov_name));
+			def_prov_name[sizeof(def_prov_name) -1] = '\0';
+			acm_log(2, "default provider: %s\n", def_prov_name);
+			continue;
+		}
+
+		prefix = htonll(strtoull(subnet, NULL, 0));
+		for (entry = provider_list.Next; entry != &provider_list; 
+		     entry = entry->Next) {
+			prov = container_of(entry, struct acmc_prov, entry);
+			if (!strcasecmp(prov->prov->name, prov_name))
+				prov->subnet_prefix = prefix;
+		}
+	}
+
+	fclose(fd);
+
+	for (entry = provider_list.Next; entry != &provider_list; 
+	     entry = entry->Next) {
+		prov = container_of(entry, struct acmc_prov, entry);
+		if (!strcasecmp(prov->prov->name, def_prov_name)) {
+			def_provider = prov;
+			break;
+		}
+	}
 }
 
 static int acm_open_providers(void)
@@ -1948,6 +2044,7 @@ static int acm_open_providers(void)
 	}
 
 	closedir(shlib_dir);
+	acm_load_prov_config();
 	return 0;
 }
 
