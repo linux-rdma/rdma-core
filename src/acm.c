@@ -4985,6 +4985,7 @@ int CDECL_FUNC main(int argc, char **argv)
 		retry_thread_started = 0;
 	}
 	acm_close_providers();
+	umad_done();
 	fclose(flog);
 	return 0;
 }
