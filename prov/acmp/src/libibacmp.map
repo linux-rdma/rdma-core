@@ -1,0 +1,5 @@
+ACMP_1.0 {
+	global:
+		provider_query;
+	local: *;
+};

@@ -76,10 +76,12 @@ fi
 %{_mandir}/man1/*
 %{_mandir}/man7/*
 %{_sysconfdir}/init.d/ibacm
+%{_libdir}/ibacm/lib*.*
 
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}/infiniband/acm.h
+%{_includedir}/infiniband/acm_prov.h
 
 %changelog
 * Tue Feb 28 2012 Doug Ledford <dledford@redhat.com> - 1.0.5-1

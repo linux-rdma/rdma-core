@@ -8,7 +8,7 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-LT_INIT
+LT_INIT(disable-static)
 
 AC_ARG_ENABLE(libcheck, [  --disable-libcheck  do not test for presence of ib libraries],
 [       if test "$enableval" = "no"; then
