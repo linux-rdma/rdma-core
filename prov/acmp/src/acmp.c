@@ -1521,6 +1521,7 @@ static void acmp_process_timeouts(void)
 				rec->dest_type, rec->dest, sizeof rec->dest);
 		acm_log(0, "notice - dest %s\n", log_data);
 		msg->resp_handler(msg, NULL, NULL);
+		acmp_free_send(msg);
 	}
 }
 
