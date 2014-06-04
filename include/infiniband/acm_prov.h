@@ -31,6 +31,8 @@
 #define ACM_PROV_H
 
 #include <infiniband/acm.h>
+#include <infiniband/umad.h>
+#include <infiniband/umad_sa.h>
 
 #define ACM_PROV_VERSION          1
 
@@ -70,7 +72,7 @@ struct acm_provider {
 			void *port_context, void **ep_context);
 	void	(*close_endpoint)(void *ep_context);
 	int	(*add_address)(const struct acm_address *addr, void *ep_context, 
-			       void **addr_context);
+			void **addr_context);
 	void	(*remove_address)(void *addr_context, struct acm_address *addr);
 	int	(*resolve)(void *addr_context, struct acm_msg *msg, uint64_t id);
 	int	(*query)(void *addr_context, struct acm_msg *msg, uint64_t id);
@@ -101,5 +103,17 @@ extern int acm_query_response(uint64_t id, struct acm_msg *msg);
 extern enum ibv_rate acm_get_rate(uint8_t width, uint8_t speed);
 extern enum ibv_mtu acm_convert_mtu(int mtu);
 extern enum ibv_rate acm_convert_rate(int rate);
+
+struct acm_sa_mad {
+	void			*context;
+	struct ib_user_mad	umad;
+	struct umad_sa_packet	sa_mad; /* must follow umad and be 64-bit aligned */
+};
+
+extern struct acm_sa_mad *
+acm_alloc_sa_mad(struct acm_endpoint *endpoint, void *context,
+		 void (*handler)(struct acm_sa_mad *));
+extern void acm_free_sa_mad(struct acm_sa_mad *mad);
+extern int acm_send_sa_mad(struct acm_sa_mad *mad);
 
 #endif /* ACM_PROV_H */
