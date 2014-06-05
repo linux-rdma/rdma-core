@@ -36,11 +36,11 @@ dnl combinations of this program with other software, or any other
 dnl product whatsoever.
 
 AC_PREREQ(2.57)
-AC_INIT(libhfiverbs, 1.2, ibsupport@intel.com)
+AC_INIT(libhfiverbs, 1.3, ibsupport@intel.com)
 AC_CONFIG_SRCDIR([src/hfiverbs.h])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libhfiverbs, 1.2)
+AM_INIT_AUTOMAKE(libhfiverbs, 1.3)
 AM_PROG_LIBTOOL
 
 AC_ARG_WITH([valgrind],
@@ -101,5 +101,5 @@ AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     fi])
 AC_SUBST(HFIVERBS_VERSION_SCRIPT)
 
-AC_CONFIG_FILES([Makefile libhfiverbs.spec])
+AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

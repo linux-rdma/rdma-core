@@ -1,4 +1,4 @@
-# Copyright (c) 2013, 2014. Intel Corporation. All rights reserved.
+# Copyright (c) 2014. Intel Corporation. All rights reserved.
 # Copyright (c) 2007, 2008, 2009. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
@@ -33,60 +33,43 @@
 # Patent licenses, if any, provided herein do not apply to
 # combinations of this program with other software, or any other
 # product whatsoever.
+#
+# The desired version number comes from the most recent tag starting with "v"
+#
+NAME = libhfiverbs
+BASEVERSION=0.2
+VERSION = $(shell if [ -d .git ] ; then  git describe --tags --abbrev=0 --match='v*' | sed -e 's/^v//' -e 's/-/_/'; else echo "version" ; fi)
 
-%define ver @VERSION@
-%define RELEASE @RELEASE@
-%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+# The desired release number comes the git describe following the version which
+# is the number of commits since the version tag was planted suffixed by the g<commitid>
+RELEASE = $(shell if [ -d .git ] ; then git describe --tags --long --match='v*' | sed -e 's/v[0-9.]*-\([0-9]*\)/\1/' | sed 's/-g.*$$//'; else echo "release" ; fi)
 
-Name: @NAME@
-Version: %ver
-Release: %rel%{?dist}
-Summary: QLogic InfiniPath HCA Userspace Driver
+EXCLUDES = --exclude-vcs --exclude-backups --exclude='*.patch' --exclude='*.swp' --exclude='series' --exclude='*.orig' --exclude=makefile --exclude=${NAME}.spec.in
 
-Group: System Environment/Libraries
-License: GPLv2 or BSD
-Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
+distclean:
+	if [ -f Makefile ] ; then \
+		${MAKE} -f Makefile clean ; \
+	fi
+	rm -f ${NAME}.spec
+	rm -f *.tar.gz *.tgz
 
-BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
+${NAME}.spec: ${NAME}.spec.in
+	sed \
+		-e 's/@VERSION@/'${VERSION}'/g' \
+		-e 's/@RELEASE@/'${RELEASE}'/g' \
+		-e 's/@NAME@/'${NAME}'/g' ${NAME}.spec.in > ${NAME}.spec
+	if [ -d .git ]; then \
+		echo '%changelog' >> ${NAME}.spec; \
+		git log --no-merges v$(BASEVERSION)..HEAD --format="* %cd <%ae>%n- %s%n" \
+		| sed 's/-[0-9][0-9][0-9][0-9] //' \
+		| sed 's/ [0-9][0-9]:[0-9][0-9]:[0-9][0-9]//' \
+		>> ${NAME}.spec ; \
+	fi
 
-%description
-libhfiverbs provides a device-specific userspace driver for Intel Host
-Fabric interface cards.  This driver is designed for use with the
-libibverbs library.
+dist: distclean ${NAME}.spec
+	rm -rf /tmp/${NAME}-$(VERSION)
+	mkdir -p /tmp/${NAME}-$(VERSION)
+	cp -r . /tmp/${NAME}-$(VERSION)
+	tar $(EXCLUDES) -C /tmp -zcvf $(PWD)/${NAME}-$(VERSION).tar.gz ./${NAME}-$(VERSION)
+	rm -rf /tmp/${NAME}-$(VERSION)
 
-%package devel
-Summary: Development files for the libhfiverbs driver
-Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release}
-
-%description devel
-Static version of libhfiverbs that may be linked directly to an
-application, which may be useful for debugging.
-
-%prep
-%setup -q -n %{name}-%{ver}
-
-%build
-%configure
-make %{?_smp_flags}
-
-%install
-rm -rf $RPM_BUILD_ROOT
-make DESTDIR=$RPM_BUILD_ROOT install
-# remove unpackaged files from the buildroot
-rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
-
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-%files
-%defattr(-,root,root)
-%{_libdir}/libhfiverbs*.so
-%doc AUTHORS COPYING README
-%config %{_sysconfdir}/libibverbs.d/hfi.driver
-
-%files devel
-%defattr(-,root,root,-)
-%{_libdir}/libhfiverbs*.a

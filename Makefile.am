@@ -56,6 +56,8 @@ endif
 EXTRA_DIST = src/hfiverbs.h \
     src/hfi-abi.h \
     src/hfiverbs.map \
+    config \
+    autom4te.cache \
     libhfiverbs.spec.in \
     hfi.driver
 
