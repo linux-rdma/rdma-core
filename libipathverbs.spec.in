@@ -92,10 +92,11 @@ rm -rf $RPM_BUILD_ROOT
 %config %{_sysconfdir}/libibverbs.d/ipath.driver
 %config %{_sysconfdir}/modprobe.d/truescale.conf
 %if %{with_dracut}
-%{_datarootdir}/dracut/modules.d/90qib/install
-%{_datarootdir}/dracut/modules.d/90qib/check
-%{_datarootdir}/dracut/modules.d/90qib/installkernel
-%{_datarootdir}/dracut/modules.d/90qib
+%define dracutdir %(rpm -ql dracut | grep dracut-functions$ | sed 's/dracut-functions//')
+%{dracutdir}modules.d/90qib/install
+%{dracutdir}modules.d/90qib/check
+%{dracutdir}modules.d/90qib/installkernel
+%{dracutdir}modules.d/90qib
 %endif
 
 %files devel

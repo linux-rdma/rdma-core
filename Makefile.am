@@ -67,7 +67,8 @@ EXTRA_DIST = src/ipathverbs.h \
 sbin_SCRIPTS = truescale-serdes.cmds
 if HAS_DRACUT
 EXTRA_DIST += dracut_check dracut_install dracut_kmod
-dracutdir = $(DESTDIR)$(datarootdir)/dracut/modules.d/90qib
+dracutdir = $(DESTDIR)$(shell rpm -ql dracut | grep dracut-functions$$ | sed 's/dracut-functions//')modules.d/90qib
+
 install-data-local: dracut_check dracut_install dracut_kmod
 	$(INSTALL) -D -m 755 dracut_check $(dracutdir)/check
 	$(INSTALL) -D -m 755 dracut_install $(dracutdir)/install
