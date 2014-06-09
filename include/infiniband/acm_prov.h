@@ -111,7 +111,7 @@ struct acm_sa_mad {
 };
 
 extern struct acm_sa_mad *
-acm_alloc_sa_mad(struct acm_endpoint *endpoint, void *context,
+acm_alloc_sa_mad(const struct acm_endpoint *endpoint, void *context,
 		 void (*handler)(struct acm_sa_mad *));
 extern void acm_free_sa_mad(struct acm_sa_mad *mad);
 extern int acm_send_sa_mad(struct acm_sa_mad *mad);

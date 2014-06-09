@@ -2131,7 +2131,7 @@ static int acmc_init_sa_fds(void)
 			sa.fds[i].events = POLLIN;
 			ret = fcntl(sa.fds[i].fd, F_SETFL, O_NONBLOCK);
 			if (ret)
-				acm_log(0, "WARNDING - umad fd is blocking\n");
+				acm_log(0, "WARNING - umad fd is blocking\n");
 
 			sa.ports[i++] = &dev->port[p];
 		}
@@ -2141,7 +2141,7 @@ static int acmc_init_sa_fds(void)
 }
 
 struct acm_sa_mad *
-acm_alloc_sa_mad(struct acm_endpoint *endpoint, void *context,
+acm_alloc_sa_mad(const struct acm_endpoint *endpoint, void *context,
 		 void (*handler)(struct acm_sa_mad *))
 {
 	struct acmc_sa_req *req;
@@ -2180,7 +2180,7 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 	port = req->ep->port;
 	mad->umad.addr.qpn = port->sa_addr.qpn;
 	mad->umad.addr.qkey = port->sa_addr.qkey;
-	mad->umad.addr.lid = port->sa_addr.lid;
+	mad->umad.addr.lid = htons(port->sa_addr.lid);
 	mad->umad.addr.sl = port->sa_addr.sl;
 	// TODO: mad->umad.addr.pkey_index = req->ep->?;
 
