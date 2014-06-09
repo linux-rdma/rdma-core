@@ -1748,27 +1748,15 @@ err1:
 	acm_release_prov_context(dev_ctx);
 }
 
-static void acm_port_down(struct acmc_port *port)
+static void acm_shutdown_port(struct acmc_port *port)
 {
-	struct ibv_port_attr attr;
-	int ret;
 	DLIST_ENTRY *entry;
 	struct acmc_ep *ep;
 	struct acmc_prov_context *dev_ctx;
 
-	acm_log(1, "%s %d\n", port->dev->device.verbs->device->name, 
-		port->port.port_num);
-	ret = ibv_query_port(port->dev->device.verbs, port->port.port_num, &attr);
-	if (!ret && attr.state == IBV_PORT_ACTIVE) {
-		acm_log(1, "port active\n");
-		return;
-	}
-
-	port->state = attr.state;
-
 	lock_acquire(&port->lock);
-	for (entry = port->ep_list.Next; entry != &port->ep_list; 
-	     entry = port->ep_list.Next) {
+	while (!DListEmpty(&port->ep_list)) {
+		entry = port->ep_list.Next;
 		DListRemove(entry);
 		lock_release(&port->lock);
 		ep = container_of(entry, struct acmc_ep, entry);
@@ -1783,13 +1771,48 @@ static void acm_port_down(struct acmc_port *port)
 		dev_ctx = acm_get_prov_context(&port->dev->prov_dev_context_list, 
 					       port->prov);
 		if (dev_ctx) {
-			port->prov->close_device(dev_ctx->context);
+			if (atomic_get(&dev_ctx->refcnt) == 1)
+				port->prov->close_device(dev_ctx->context);
 			acm_release_prov_context(dev_ctx);
 		}
 	}
+	port->prov = NULL;
+}
+
+static void acm_port_down(struct acmc_port *port)
+{
+	struct ibv_port_attr attr;
+	int ret;
+
+	acm_log(1, "%s %d\n", port->port.dev->verbs->device->name, port->port.port_num);
+	ret = ibv_query_port(port->port.dev->verbs, port->port.port_num, &attr);
+	if (!ret && attr.state == IBV_PORT_ACTIVE) {
+		acm_log(1, "port active\n");
+		return;
+	}
+
+	port->state = attr.state;
+	acm_shutdown_port(port);
 
 	acm_log(1, "%s %d is down\n", port->dev->device.verbs->device->name, 
 		port->port.port_num);
+}
+
+static void acm_port_change(struct acmc_port *port)
+{
+	struct ibv_port_attr attr;
+	int ret;
+
+	acm_log(1, "%s %d\n", port->port.dev->verbs->device->name, port->port.port_num);
+	ret = ibv_query_port(port->port.dev->verbs, port->port.port_num, &attr);
+	if (ret || attr.state != IBV_PORT_ACTIVE) {
+		acm_log(1, "port not active: don't care\n");
+		return;
+	}
+
+	port->state = attr.state;
+	acm_shutdown_port(port);
+	acm_port_up(port);
 }
 
 static void acm_event_handler(struct acmc_device *dev)
@@ -1823,6 +1846,11 @@ static void acm_event_handler(struct acmc_device *dev)
 			acm_log(1, "%s %d has reregistered\n",
 				dev->device.verbs->device->name, i + 1);
 		}
+		break;
+	case IBV_EVENT_LID_CHANGE:
+	case IBV_EVENT_GID_CHANGE:
+	case IBV_EVENT_PKEY_CHANGE:
+		acm_port_change(&dev->port[i]);
 		break;
 	default:
 		break;
