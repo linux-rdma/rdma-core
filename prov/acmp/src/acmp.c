@@ -228,6 +228,7 @@ static void acmp_remove_addr(void *addr_context, struct acm_address *addr);
 static int acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id);
 static int acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id);
 static int acmp_handle_event(void *port_context, enum ibv_event_type type);
+static void acmp_query_perf(void *ep_context, uint64_t *values, uint8_t *cnt);
 
 static struct acm_provider def_prov = {
 	.size = sizeof(struct acm_provider),
@@ -244,6 +245,7 @@ static struct acm_provider def_prov = {
 	.resolve = acmp_resolve,
 	.query = acmp_query,
 	.handle_event = acmp_handle_event,
+	.query_perf = acmp_query_perf,
 };
 
 static DLIST_ENTRY acmp_dev_list;
@@ -1875,6 +1877,16 @@ acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id)
 		return acmp_resolve_path(ep, msg, id);
 	else
 		return acmp_resolve_dest(ep, msg, id);
+}
+
+static void acmp_query_perf(void *ep_context, uint64_t *values, uint8_t *cnt)
+{
+	struct acmp_ep *ep = ep_context;
+	int i;
+
+	for (i = 0; i < ACM_MAX_COUNTER; i++)
+		values[i] = htonll((uint64_t) atomic_get(&ep->counters[i]));
+	*cnt = ACM_MAX_COUNTER;
 }
 
 static enum acmp_addr_prot acmp_convert_addr_prot(char *param)

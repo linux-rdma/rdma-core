@@ -77,6 +77,7 @@ struct acm_provider {
 	int	(*resolve)(void *addr_context, struct acm_msg *msg, uint64_t id);
 	int	(*query)(void *addr_context, struct acm_msg *msg, uint64_t id);
 	int	(*handle_event)(void *port_context, enum ibv_event_type type);
+	void	(*query_perf)(void *ep_context, uint64_t *values, uint8_t *cnt);
 };
 
 /* Variables exported from core */
