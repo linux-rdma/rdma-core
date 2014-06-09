@@ -176,8 +176,8 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		if (!rhp->mmid2ptr) {
 			goto err_unmap;
 		}
-		rhp->max_qp = T4_QID_BASE + attr.max_qp;
-		rhp->qpid2ptr = calloc(T4_QID_BASE + attr.max_qp, sizeof(void *));
+		rhp->max_qp = T4_QID_BASE + attr.max_cq;
+		rhp->qpid2ptr = calloc(T4_QID_BASE + attr.max_cq, sizeof(void *));
 		if (!rhp->qpid2ptr) {
 			goto err_unmap;
 		}
