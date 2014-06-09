@@ -187,6 +187,7 @@ struct acmp_ep {
 	DLIST_ENTRY           wait_queue;
 	enum acmp_state       state;
 	struct acmp_addr      addr_info[MAX_EP_ADDR];
+	atomic_t              counters[ACM_MAX_COUNTER];
 };
 
 struct acmp_send_msg {
@@ -210,6 +211,7 @@ struct acmp_request {
 	uint64_t	id;
 	DLIST_ENTRY	entry;
 	struct acm_msg	msg;
+	struct acmp_ep	*ep;
 };
 
 static int acmp_open_dev(const struct acm_device *device, void **dev_context);
@@ -791,6 +793,7 @@ static uint8_t acmp_resolve_path_sa(struct acmp_ep *ep, struct acmp_dest *dest,
 	mad->comp_mask = acm_path_comp_mask(&dest->path);
 
 	atomic_inc(&counter[ACM_CNTR_ROUTE_QUERY]);
+	atomic_inc(&ep->counters[ACM_CNTR_ROUTE_QUERY]);
 	dest->state = ACMP_QUERY_ROUTE;
 	if (acm_send_sa_mad(sa_mad)) {
 		acm_log(0, "Error - Failed to send sa mad\n");
@@ -910,6 +913,12 @@ acmp_resolve_response(uint64_t id, struct acm_msg *req_msg,
 	acm_log(2, "client %lld, status 0x%x\n", id, status);
 	memset(&msg, 0, sizeof msg);
 
+	if (dest) {
+		if (status == ACM_STATUS_ENODATA)
+			atomic_inc(&dest->ep->counters[ACM_CNTR_NODATA]);
+		else if (status)
+			atomic_inc(&dest->ep->counters[ACM_CNTR_ERROR]);
+	}
 	msg.hdr = req_msg->hdr;
 	msg.hdr.status = status;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH;
@@ -1200,6 +1209,8 @@ acmp_sa_resp(struct acm_sa_mad *mad)
 	}
 	acm_log(2, "status 0x%x\n", req->msg.hdr.status);
 
+	if (req->msg.hdr.status)
+		atomic_inc(&req->ep->counters[ACM_CNTR_ERROR]);
 	acm_query_response(req->id, &req->msg);
 	acm_free_sa_mad(mad);
 	acmp_free_req(req);
@@ -1594,6 +1605,7 @@ acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
 		status = ACM_STATUS_ENOMEM;
 		goto resp;
 	}
+	req->ep = ep;
 
 	sa_mad = acm_alloc_sa_mad(ep->endpoint, req, acmp_sa_resp);
 	if (!sa_mad) {
@@ -1610,6 +1622,7 @@ acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
 	mad->comp_mask = acm_path_comp_mask(&msg->resolve_data[0].info.path);
 
 	atomic_inc(&counter[ACM_CNTR_ROUTE_QUERY]);
+	atomic_inc(&ep->counters[ACM_CNTR_ROUTE_QUERY]);
 	if (acm_send_sa_mad(sa_mad)) {
 		acm_log(0, "Error - Failed to send sa mad\n");
 		status = ACM_STATUS_ENODATA;
@@ -1624,6 +1637,10 @@ free_req:
 resp:
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.status = status;
+	if (status == ACM_STATUS_ENODATA)
+		atomic_inc(&ep->counters[ACM_CNTR_NODATA]);
+	else
+		atomic_inc(&ep->counters[ACM_CNTR_ERROR]);
 	return acm_query_response(id, msg);
 }
 
@@ -1667,6 +1684,7 @@ acmp_send_resolve(struct acmp_ep *ep, struct acmp_dest *dest,
 		memcpy(&rec->gid[i], ep->mc_dest[i].address, 16);
 	
 	atomic_inc(&counter[ACM_CNTR_ADDR_QUERY]);
+	atomic_inc(&ep->counters[ACM_CNTR_ADDR_QUERY]);
 	acmp_post_send(&ep->resolve_queue, msg);
 	return 0;
 }
@@ -1681,6 +1699,7 @@ static uint8_t acmp_queue_req(struct acmp_dest *dest, uint64_t id, struct acm_ms
 	if (!req) {
 		return ACM_STATUS_ENOMEM;
 	}
+	req->ep = dest->ep;
 
 	DListInsertTail(&req->entry, &dest->req_queue);
 	return ACM_STATUS_SUCCESS;
@@ -1719,6 +1738,7 @@ acmp_resolve_dest(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 	dest = acmp_acquire_dest(ep, daddr->type, daddr->info.addr);
 	if (!dest) {
 		acm_log(0, "ERROR - unable to allocate destination in request\n");
+		atomic_inc(&ep->counters[ACM_CNTR_ERROR]);
 		return acmp_resolve_response(id, msg, NULL, ACM_STATUS_ENOMEM);
 	}
 
@@ -1730,11 +1750,13 @@ test:
 			goto test;
 		acm_log(2, "request satisfied from local cache\n");
 		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
+		atomic_inc(&ep->counters[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
 		break;
 	case ACMP_ADDR_RESOLVED:
 		acm_log(2, "have address, resolving route\n");
 		atomic_inc(&counter[ACM_CNTR_ADDR_CACHE]);
+		atomic_inc(&ep->counters[ACM_CNTR_ADDR_CACHE]);
 		status = acmp_resolve_path_sa(ep, dest, acmp_dest_sa_resp);
 		if (status) {
 			break;
@@ -1791,6 +1813,7 @@ acmp_resolve_path(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 	}
 	if (!dest) {
 		acm_log(0, "ERROR - unable to allocate destination in request\n");
+		atomic_inc(&ep->counters[ACM_CNTR_ERROR]);
 		return acmp_resolve_response(id, msg, NULL, ACM_STATUS_ENOMEM);
 	}
 
@@ -1802,6 +1825,7 @@ test:
 			goto test;
 		acm_log(2, "request satisfied from local cache\n");
 		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
+		atomic_inc(&ep->counters[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
 		break;
 	case ACMP_INIT:
@@ -1841,9 +1865,12 @@ acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id)
 {
 	struct acmp_ep *ep = addr_context;
 
-	if (ep->state != ACMP_READY)
+	if (ep->state != ACMP_READY) {
+		atomic_inc(&ep->counters[ACM_CNTR_NODATA]);
 		return acmp_resolve_response(id, msg, NULL, ACM_STATUS_ENODATA);
+	}
 
+	atomic_inc(&ep->counters[ACM_CNTR_RESOLVE]);
 	if (msg->resolve_data[0].type == ACM_EP_INFO_PATH)
 		return acmp_resolve_path(ep, msg, id);
 	else
@@ -2377,6 +2404,7 @@ static struct acmp_ep *
 acmp_alloc_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 {
 	struct acmp_ep *ep;
+	int i;
 
 	acm_log(1, "\n");
 	ep = calloc(1, sizeof *ep);
@@ -2395,6 +2423,8 @@ acmp_alloc_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	lock_init(&ep->lock);
 	sprintf(ep->id_string, "%s-%d-0x%x", port->dev->verbs->device->name,
 		port->port_num, endpoint->pkey);
+	for (i = 0; i < ACM_MAX_COUNTER; i++) 
+		atomic_init(&ep->counters[i]);
 
 	return ep;
 }
