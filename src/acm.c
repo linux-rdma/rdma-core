@@ -2410,13 +2410,15 @@ static void acm_set_options(void)
 
 static void acm_log_options(void)
 {
-	acm_log(0, "log file %s\n", opts_file);
+	acm_log(0, "log file %s\n", log_file);
 	acm_log(0, "log level %d\n", log_level);
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "timeout %d ms\n", sa.timeout);
 	acm_log(0, "retries %d\n", sa.retries);
 	acm_log(0, "sa depth %d\n", sa.depth);
+	acm_log(0, "options file %s\n", opts_file);
+	acm_log(0, "addr file %s\n", addr_file);
 	acm_log(0, "provider lib path %s\n", prov_lib_path);
 	acm_log(0, "support IP's in ibacm_addr.cfg %d\n", support_ips_in_addr_cfg);
 }
