@@ -71,9 +71,9 @@ struct acm_provider {
 	int	(*open_endpoint)(const struct acm_endpoint *endpoint, 
 			void *port_context, void **ep_context);
 	void	(*close_endpoint)(void *ep_context);
-	int	(*add_address)(const struct acm_address *addr, void *ep_context, 
+	int	(*add_address)(const struct acm_address *addr, void *ep_context,
 			void **addr_context);
-	void	(*remove_address)(void *addr_context, struct acm_address *addr);
+	void	(*remove_address)(void *addr_context);
 	int	(*resolve)(void *addr_context, struct acm_msg *msg, uint64_t id);
 	int	(*query)(void *addr_context, struct acm_msg *msg, uint64_t id);
 	int	(*handle_event)(void *port_context, enum ibv_event_type type);

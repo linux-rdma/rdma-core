@@ -1591,8 +1591,8 @@ static void acm_ep_down(struct acmc_ep *ep)
 	for (i = 0; i < MAX_EP_ADDR; i++) {
 		if (ep->addr_info[i].addr.type && 
 		    ep->addr_info[i].prov_addr_context) 
-			ep->port->prov->remove_address(ep->addr_info[i].prov_addr_context,
-						       &ep->addr_info[i].addr);
+			ep->port->prov->remove_address(ep->addr_info[i].
+						       prov_addr_context);
 	}
 
 	if (ep->prov_ep_context) 

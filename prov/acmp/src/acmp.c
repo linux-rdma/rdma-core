@@ -164,6 +164,7 @@ struct acmp_addr {
 	uint16_t              type;
 	union acm_ep_info     info;
 	struct acm_address    *addr;
+	struct acmp_ep        *ep;
 };
 
 struct acmp_ep {
@@ -224,7 +225,7 @@ static int acmp_open_endpoint(const struct acm_endpoint *endpoint,
 static void acmp_close_endpoint(void *ep_context);
 static int acmp_add_addr(const struct acm_address *addr, void *ep_context, 
 			 void **addr_context);
-static void acmp_remove_addr(void *addr_context, struct acm_address *addr);
+static void acmp_remove_addr(void *addr_context);
 static int acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id);
 static int acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id);
 static int acmp_handle_event(void *port_context, enum ibv_event_type type);
@@ -1593,7 +1594,8 @@ acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
 {
 	struct acmp_request *req;
 	struct ib_sa_mad *mad;
-	struct acmp_ep *ep = addr_context;
+	struct acmp_addr *address = addr_context;
+	struct acmp_ep *ep = address->ep;
 	uint8_t status;
 	struct acm_sa_mad *sa_mad;
 
@@ -1865,7 +1867,8 @@ put:
 static int
 acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id)
 {
-	struct acmp_ep *ep = addr_context;
+	struct acmp_addr *address = addr_context;
+	struct acmp_ep *ep = address->ep;
 
 	if (ep->state != ACMP_READY) {
 		atomic_inc(&ep->counters[ACM_CNTR_NODATA]);
@@ -2299,9 +2302,10 @@ static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
 	ep->addr_info[i].type = addr->type;
 	memcpy(&ep->addr_info[i].info, &addr->info, sizeof(addr->info));
 	ep->addr_info[i].addr = (struct acm_address *) addr;
+	ep->addr_info[i].ep = ep;
 
 	if (loopback_prot != ACMP_LOOPBACK_PROT_LOCAL) {
-		*addr_context = (void *) ep;
+		*addr_context = &ep->addr_info[i];
 		return 0;
 	}
 
@@ -2328,21 +2332,18 @@ static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
 	dest->route_timeout = (uint64_t) ~0ULL;
 	dest->state = ACMP_READY;
 	acmp_put_dest(dest);
-	*addr_context = ep;
+	*addr_context = &ep->addr_info[i];
 	acm_log(1, "added loopback dest %s\n", dest->name);
 
 	return 0;
 }
 
-static void acmp_remove_addr(void *addr_context, struct acm_address *addr)
+static void acmp_remove_addr(void *addr_context)
 {
-	struct acmp_ep *ep = addr_context;
-	struct acmp_addr *address;
+	struct acmp_addr *address = addr_context;
 
 	acm_log(2, "\n");
-	address = acmp_addr_lookup(ep, addr->info.addr, addr->type);
-	if (address) 
-		memset(address, 0, sizeof(*address));
+	memset(address, 0, sizeof(*address));
 }
 
 static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
