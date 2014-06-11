@@ -67,11 +67,16 @@
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
 
+struct acmc_subnet {
+	DLIST_ENTRY            entry;
+	uint64_t               subnet_prefix;
+};
+
 struct acmc_prov {
 	struct acm_provider    *prov;
 	void                   *handle; 
 	DLIST_ENTRY            entry;   
-	uint64_t               subnet_prefix;
+	DLIST_ENTRY            subnet_list;
 };
 
 struct acmc_prov_context {
@@ -1663,6 +1668,8 @@ static void acm_assign_provider(struct acmc_port *port)
 {
 	DLIST_ENTRY *entry;
 	struct acmc_prov *prov;
+	DLIST_ENTRY *sub_entry;
+	struct acmc_subnet *subnet;
 
 	acm_log(2, "port %s/%d\n", port->port.dev->verbs->device->name, 
 		port->port.port_num);
@@ -1670,14 +1677,20 @@ static void acm_assign_provider(struct acmc_port *port)
 	     entry = entry->Next) {
 		prov = container_of(entry, struct acmc_prov, entry);
 
-		if (prov->subnet_prefix == 
-		    port->gid_tbl[0].global.subnet_prefix) {
-			acm_log(2, "Found provider %s for port %s/%d\n",
-				prov->prov->name, 
-				port->port.dev->verbs->device->name, 
-				port->port.port_num);
-			port->prov = prov->prov;
-			break;
+		for (sub_entry = prov->subnet_list.Next; 
+		     sub_entry != &prov->subnet_list; 
+		     sub_entry = sub_entry->Next) {
+			subnet = container_of(sub_entry, struct acmc_subnet,
+					      entry);
+			if (subnet->subnet_prefix == 
+			    port->gid_tbl[0].global.subnet_prefix) {
+				acm_log(2, "Found provider %s for port %s/%d\n",
+					prov->prov->name, 
+					port->port.dev->verbs->device->name, 
+					port->port.port_num);
+				port->prov = prov->prov;
+				return;
+			}
 		}
 	}
 
@@ -1687,7 +1700,7 @@ static void acm_assign_provider(struct acmc_port *port)
 			def_provider ? def_provider->prov->name: "NULL", 
 			port->port.dev->verbs->device->name, 
 			port->port.port_num);
-		port->prov = def_provider->prov;
+		port->prov = def_provider ? def_provider->prov : NULL;
 	} 
 }
 
@@ -1754,6 +1767,10 @@ static void acm_port_up(struct acmc_port *port)
 	port->sa_addr.sl = attr.sm_sl;
 	port->state = IBV_PORT_ACTIVE;
 	acm_assign_provider(port);
+	if (!port->prov) {
+		acm_log(1, "no provider assigned to port\n");
+		return;
+	}
 	dev_ctx = acm_acquire_prov_context(&port->dev->prov_dev_context_list, 
 					   port->prov);
 	if (!dev_ctx) {
@@ -2025,10 +2042,11 @@ static void acm_load_prov_config(void)
 	FILE *fd;
 	char s[128];
 	char *p, *ptr;
-	char prov_name[ACM_PROV_NAME_SIZE], subnet[32];
+	char prov_name[ACM_PROV_NAME_SIZE];
 	uint64_t prefix;
 	struct acmc_prov *prov;
 	DLIST_ENTRY *entry;
+	struct acmc_subnet *subnet;
 
 	if (!(fd = fopen(opts_file, "r")))
 		return;
@@ -2048,23 +2066,37 @@ static void acm_load_prov_config(void)
 		if (!p)
 			continue;
 
-		if (sscanf(s, "%64s%32s", prov_name, subnet) != 2)
-			continue;
+		strncpy(prov_name, p, sizeof(prov_name));
+		prov_name[sizeof(prov_name) -1] = '\0';
 
-		acm_log(2, "provider %s subnet_prefix %s\n", prov_name, subnet);
-		if (!strncasecmp(subnet, "default", sizeof("default") - 1)) {
+		p = strtok_r(NULL, " ", &ptr);
+		if (!p)
+			continue;
+		if (!strncasecmp(p, "default", sizeof("default") - 1)) {
 			strncpy(def_prov_name, prov_name, sizeof(def_prov_name));
 			def_prov_name[sizeof(def_prov_name) -1] = '\0';
 			acm_log(2, "default provider: %s\n", def_prov_name);
 			continue;
 		}
+		prefix = strtoull(p, NULL, 0);
+		acm_log(2, "provider %s subnet_prefix 0x%llx\n", prov_name, 
+			prefix);
+		/* Convert it into network byte order */
+		prefix = htonll(prefix);
 
-		prefix = htonll(strtoull(subnet, NULL, 0));
 		for (entry = provider_list.Next; entry != &provider_list; 
 		     entry = entry->Next) {
 			prov = container_of(entry, struct acmc_prov, entry);
-			if (!strcasecmp(prov->prov->name, prov_name))
-				prov->subnet_prefix = prefix;
+			if (!strcasecmp(prov->prov->name, prov_name)) {
+				subnet = calloc(1, sizeof (*subnet));
+				if (!subnet) {
+					acm_log(0, "Error: out of memory\n");
+					return;
+				}
+				subnet->subnet_prefix = prefix;
+				DListInsertTail(&subnet->entry, 
+						&prov->subnet_list);
+			}
 		}
 	}
 
@@ -2155,6 +2187,7 @@ static int acm_open_providers(void)
 
 		prov->prov = provider;
 		prov->handle = handle;
+		DListInit(&prov->subnet_list);
 		DListInsertTail(&prov->entry, &provider_list);
 		if (!strcasecmp(provider->name, def_prov_name)) 
 			def_provider = prov;
@@ -2169,6 +2202,8 @@ static void acm_close_providers(void)
 {
 	struct acmc_prov *prov;
 	DLIST_ENTRY *entry;
+	DLIST_ENTRY *sub_entry;
+	struct acmc_subnet *subnet;
 
 	acm_log(1, "\n");
 	def_provider = NULL;
@@ -2176,6 +2211,13 @@ static void acm_close_providers(void)
 		entry = provider_list.Next;
 		DListRemove(entry);
 		prov = container_of(entry, struct acmc_prov, entry);
+		while (!DListEmpty(&prov->subnet_list)) {
+			sub_entry = prov->subnet_list.Next;
+			DListRemove(sub_entry);
+			subnet = container_of(sub_entry, struct acmc_subnet,
+					      entry);
+			free(subnet);
+		}
 		dlclose(prov->handle);
 		free(prov);
 	}
