@@ -94,8 +94,8 @@ extern void acm_format_name(int level, char *name, size_t name_size,
 	uint8_t addr_type, const uint8_t *addr, size_t addr_size);
 
 extern int ib_any_gid(union ibv_gid *gid);
-extern uint8_t acm_gid_index(struct ibv_context *verbs, int port_num, 
-	int gid_cnt, union ibv_gid *gid);
+extern uint8_t acm_gid_index(struct acm_port *port, union ibv_gid *gid);
+extern int acm_get_gid(struct acm_port *port, int index, union ibv_gid *gid);
 extern uint64_t acm_path_comp_mask(struct ibv_path_record *path);
 
 extern int acm_resolve_response(uint64_t id, struct acm_msg *msg);

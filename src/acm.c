@@ -97,8 +97,8 @@ struct acmc_port {
 	lock_t              lock;
 	DLIST_ENTRY         ep_list;
 	enum ibv_port_state state;
-	union ibv_gid       base_gid;
 	int                 gid_cnt;
+	union ibv_gid       *gid_tbl;
 	uint16_t            lid;
 	uint16_t            lid_mask;
 };
@@ -312,18 +312,30 @@ acm_release_prov_context(struct acmc_prov_context *ctx)
 	}
 }
 
-uint8_t acm_gid_index(struct ibv_context *verbs, int port_num, 
-	int gid_cnt, union ibv_gid *gid)
+uint8_t acm_gid_index(struct acm_port *port, union ibv_gid *gid)
 {
-	union ibv_gid cmp_gid;
 	uint8_t i;
+	struct acmc_port *cport;
 
-	for (i = 0; i < gid_cnt; i++) {
-		ibv_query_gid(verbs, port_num, i, &cmp_gid);
-		if (!memcmp(&cmp_gid, gid, sizeof cmp_gid))
+	cport = container_of(port, struct acmc_port, port);
+	for (i = 0; i < cport->gid_cnt; i++) {
+		if (!memcmp(&cport->gid_tbl[i], gid, sizeof (*gid)))
 			break;
 	}
 	return i;
+}
+
+int acm_get_gid(struct acm_port *port, int index, union ibv_gid *gid)
+{
+	struct acmc_port *cport;
+
+	cport = container_of(port, struct acmc_port, port);
+	if (index >= 0 && index < cport->gid_cnt) {
+		*gid = cport->gid_tbl[index];
+		return 0;
+	} else {
+		return -1;
+	}
 }
 
 static void acm_mark_addr_invalid(struct acmc_ep *ep,
@@ -589,13 +601,11 @@ static void acm_svr_accept(void)
 static int
 acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 {
-	union ibv_gid gid;
 	uint8_t i;
 
 	if (!ib_any_gid(&path->sgid)) {
-		return (acm_gid_index(port->dev->device.verbs, 
-				      port->port.port_num, port->gid_cnt,
-				      &path->sgid) < port->gid_cnt);
+		return (acm_gid_index(&port->port, &path->sgid) <
+			port->gid_cnt);
 	}
 
 	if (path->slid) {
@@ -606,15 +616,13 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 		return 1;
 	}
 
-	if (acm_gid_index(port->dev->device.verbs, port->port.port_num, 
-			  port->gid_cnt, &path->dgid) < port->gid_cnt) {
+	if (acm_gid_index(&port->port, &path->dgid) < port->gid_cnt) {
 		return 1;
 	}
 
 	for (i = 0; i < port->gid_cnt; i++) {
-		ibv_query_gid(port->dev->device.verbs, port->port.port_num, 
-			      i, &gid);
-		if (gid.global.subnet_prefix == path->dgid.global.subnet_prefix) {
+		if (port->gid_tbl[i].global.subnet_prefix == 
+		    path->dgid.global.subnet_prefix) {
 			return 1;
 		}
 	}
@@ -1431,31 +1439,20 @@ acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port)
 {
 	DLIST_ENTRY *dev_entry;
 	struct acmc_device *dev;
-	struct ibv_device_attr dev_attr;
-	struct ibv_port_attr port_attr;
-	union ibv_gid gid;
-	int ret, i;
+	int i;
 
 	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
 		 dev_entry = dev_entry->Next) {
 
 		dev = container_of(dev_entry, struct acmc_device, entry);
 
-		ret = ibv_query_device(dev->device.verbs, &dev_attr);
-		if (ret)
-			continue;
+		for (*port = 1; *port <= dev->port_cnt; (*port)++) {
 
-		for (*port = 1; *port <= dev_attr.phys_port_cnt; (*port)++) {
-			ret = ibv_query_port(dev->device.verbs, *port, &port_attr);
-			if (ret)
-				continue;
+			for (i = 0; i < dev->port[*port - 1].gid_cnt; i++) {
 
-			for (i = 0; i < port_attr.gid_tbl_len; i++) {
-				ret = ibv_query_gid(dev->device.verbs, *port, i, &gid);
-				if (ret || !gid.global.interface_id)
-					break;
-
-				if (!memcmp(sgid->raw, gid.raw, sizeof gid))
+				if (!memcmp(sgid->raw, 
+					    dev->port[*port - 1].gid_tbl[i].raw, 
+					    sizeof(*sgid)))
 					return dev;
 			}
 		}
@@ -1673,7 +1670,8 @@ static void acm_assign_provider(struct acmc_port *port)
 	     entry = entry->Next) {
 		prov = container_of(entry, struct acmc_prov, entry);
 
-		if (prov->subnet_prefix == port->base_gid.global.subnet_prefix) {
+		if (prov->subnet_prefix == 
+		    port->gid_tbl[0].global.subnet_prefix) {
 			acm_log(2, "Found provider %s for port %s/%d\n",
 				prov->prov->name, 
 				port->port.dev->verbs->device->name, 
@@ -1693,10 +1691,45 @@ static void acm_assign_provider(struct acmc_port *port)
 	} 
 }
 
+static void acm_port_get_gid_tbl(struct acmc_port *port)
+{
+	union ibv_gid gid;
+	int i, j, ret;
+
+	for (i = 0;; i++) {
+		ret = ibv_query_gid(port->port.dev->verbs, port->port.port_num, 
+				    i, &gid);
+		if (ret || !gid.global.interface_id)
+			break;
+	}
+
+	if (i > 0) {
+		port->gid_tbl = calloc(i, sizeof(union ibv_gid));
+		if (!port->gid_tbl) {
+			acm_log(0, "Error: failed to allocate gid table\n");
+			port->gid_cnt = 0;
+			return;
+		}
+
+		for (j = 0; j < i; j++) {
+			ret = ibv_query_gid(port->port.dev->verbs, 
+					    port->port.port_num, j, 
+					    &port->gid_tbl[j]);
+			if (ret || !port->gid_tbl[j].global.interface_id)
+				break;
+			acm_log(2, "guid %d: 0x%llx %llx\n", j,
+				port->gid_tbl[j].global.subnet_prefix, 
+				port->gid_tbl[j].global.interface_id);
+		}
+		port->gid_cnt = j;
+	}
+	acm_log(2, "port %d gid_cnt %d\n", port->port.port_num, 
+		port->gid_cnt);
+}
+
 static void acm_port_up(struct acmc_port *port)
 {
 	struct ibv_port_attr attr;
-	union ibv_gid gid;
 	uint16_t pkey;
 	int i, ret;
 	struct acmc_prov_context *dev_ctx;
@@ -1714,15 +1747,7 @@ static void acm_port_up(struct acmc_port *port)
 		return;
 	}
 
-	for (port->gid_cnt = 0;; port->gid_cnt++) {
-		ret = ibv_query_gid(port->dev->device.verbs, port->port.port_num, 
-				    port->gid_cnt, &gid);
-		if (ret || !gid.global.interface_id)
-			break;
-		if (port->gid_cnt == 0)
-			port->base_gid = gid;
-	}
-
+	acm_port_get_gid_tbl(port);
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
 	port->sa_addr.lid = attr.sm_lid;
@@ -1794,6 +1819,11 @@ static void acm_shutdown_port(struct acmc_port *port)
 		}
 	}
 	port->prov = NULL;
+	if (port->gid_tbl) {
+		free(port->gid_tbl);
+		port->gid_tbl = NULL;
+	}
+	port->gid_cnt = 0;
 }
 
 static void acm_port_down(struct acmc_port *port)

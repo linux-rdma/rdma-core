@@ -130,12 +130,10 @@ struct acmp_port {
 	DLIST_ENTRY         ep_list;
 	lock_t              lock;
 	struct acmp_dest    sa_dest;
-	union ibv_gid	    base_gid;
 	enum ibv_port_state state;
 	enum ibv_mtu        mtu;
 	enum ibv_rate       rate;
 	int                 subnet_timeout;
-	int                 gid_cnt;
 	uint16_t            default_pkey_ix;
 	uint16_t            lid;
 	uint16_t            lid_mask;
@@ -640,8 +638,8 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 	dest->av.is_global = 1;
 	dest->av.grh.dgid = mc_rec->mgid;
 	dest->av.grh.flow_label = (sl_flow_hop >> 8) & 0xFFFFF;
-	dest->av.grh.sgid_index = acm_gid_index(port->dev->verbs, 
-		port->port_num, port->gid_cnt, &mc_rec->port_gid);
+	dest->av.grh.sgid_index = acm_gid_index((struct acm_port *) port->port,
+						&mc_rec->port_gid);
 	dest->av.grh.hop_limit = (uint8_t) sl_flow_hop;
 	dest->av.grh.traffic_class = mc_rec->tclass;
 
@@ -674,8 +672,13 @@ acmp_init_path_av(struct acmp_port *port, struct acmp_dest *dest)
 	flow_hop = ntohl(dest->path.flowlabel_hoplimit);
 	dest->av.is_global = 1;
 	dest->av.grh.flow_label = (flow_hop >> 8) & 0xFFFFF;
-	dest->av.grh.sgid_index = acm_gid_index(port->dev->verbs,
-		port->port_num, port->gid_cnt, &dest->path.sgid);
+	lock_acquire(&port->lock);
+	if (port->port) 
+		dest->av.grh.sgid_index = acm_gid_index(
+		   (struct acm_port *) port->port, &dest->path.sgid);
+	else
+		dest->av.grh.sgid_index = 0;
+	lock_release(&port->lock);
 	dest->av.grh.hop_limit = (uint8_t) flow_hop;
 	dest->av.grh.traffic_class = dest->path.tclass;
 }
@@ -1408,6 +1411,7 @@ static void acmp_join_group(struct acmp_ep *ep, union ibv_gid *port_gid,
 static void acmp_ep_join(struct acmp_ep *ep)
 {
 	struct acmp_port *port;
+	union ibv_gid gid;
 
 	port = ep->port;
 	acm_log(1, "%s\n", ep->id_string);
@@ -1420,11 +1424,12 @@ static void acmp_ep_join(struct acmp_ep *ep)
 	}
 	ep->mc_cnt = 0;
 	ep->state = ACMP_INIT;
-	acmp_join_group(ep, &port->base_gid, 0, 0, 0, min_rate, min_mtu);
+	acm_get_gid((struct acm_port *)ep->port->port, 0, &gid);
+	acmp_join_group(ep, &gid, 0, 0, 0, min_rate, min_mtu);
 
 	if ((route_prot == ACMP_ROUTE_PROT_ACM) &&
 	    (port->rate != min_rate || port->mtu != min_mtu))
-		acmp_join_group(ep, &port->base_gid, 0, 0, 0, port->rate, port->mtu);
+		acmp_join_group(ep, &gid, 0, 0, 0, port->rate, port->mtu);
 
 	acm_log(1, "join for %s complete\n", ep->id_string);
 }
@@ -2032,7 +2037,7 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 	uint8_t addr[ACM_MAX_ADDRESS];
 	uint8_t addr_type;
 
-	ibv_query_gid(ep->port->dev->verbs, ep->port->port_num, 0, &sgid);
+	acm_get_gid((struct acm_port *)ep->port->port, 0, &sgid);
 
 	/* Search for endpoint's SLID */
 	while (fgets(s, sizeof s, f)) {
@@ -2317,9 +2322,7 @@ static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
 		return -1;
 	}
 
-	ibv_query_gid(ep->port->dev->verbs, ep->port->port_num,
-		      0, &dest->path.sgid);
-
+	acm_get_gid((struct acm_port *) ep->port->port, 0, &dest->path.sgid);
 	dest->path.dgid = dest->path.sgid;
 	dest->path.dlid = dest->path.slid = htons(ep->port->lid);
 	dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE;
@@ -2550,7 +2553,6 @@ err0:
 static void acmp_port_up(struct acmp_port *port)
 {
 	struct ibv_port_attr attr;
-	union ibv_gid gid;
 	uint16_t pkey, sm_lid;
 	int i, ret;
 
@@ -2565,15 +2567,6 @@ static void acmp_port_up(struct acmp_port *port)
 	port->rate = acm_get_rate(attr.active_width, attr.active_speed);
 	if (attr.subnet_timeout >= 8)
 		port->subnet_timeout = 1 << (attr.subnet_timeout - 8);
-	for (port->gid_cnt = 0;; port->gid_cnt++) {
-		ret = ibv_query_gid(port->dev->verbs, port->port_num,
-				    port->gid_cnt, &gid);
-		if (ret || !gid.global.interface_id)
-			break;
-
-		if (port->gid_cnt == 0)
-			port->base_gid = gid;
-	}
 
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
@@ -2644,8 +2637,10 @@ static int acmp_open_port(const struct acm_port *cport, void *dev_context,
 	}
 
 	port = &dev->port[cport->port_num - 1];
+	lock_acquire(&port->lock);
 	port->port = cport;
 	port->state = IBV_PORT_DOWN;
+	lock_release(&port->lock);
 	acmp_port_up(port);
 	*port_context = port;
 	return 0;
@@ -2656,8 +2651,9 @@ static void acmp_close_port(void *port_context)
 	struct acmp_port *port = port_context;
 
 	acmp_port_down(port);
+	lock_acquire(&port->lock);
 	port->port = NULL;
-	port->state = IBV_PORT_DOWN;
+	lock_release(&port->lock);
 }
 
 static void acmp_init_port(struct acmp_port *port, struct acmp_device *dev, 
