@@ -127,7 +127,6 @@ struct acmc_ep {
 	struct acm_endpoint   endpoint;
 	void                  *prov_ep_context;
 	struct acmc_addr      addr_info[MAX_EP_ADDR];
-	lock_t                lock;
 	DLIST_ENTRY	      entry;
 };
 
@@ -348,7 +347,6 @@ static void acm_mark_addr_invalid(struct acmc_ep *ep,
 {
 	int i;
 
-	lock_acquire(&ep->lock);
 	for (i = 0; i < MAX_EP_ADDR; i++) {
 		if (ep->addr_info[i].addr.type != data->type)
 			continue;
@@ -362,7 +360,6 @@ static void acm_mark_addr_invalid(struct acmc_ep *ep,
 			break;
 		}
 	}
-	lock_release(&ep->lock);
 }
 
 static struct acm_address *
@@ -687,9 +684,7 @@ static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 
 		dev = container_of(dev_entry, struct acmc_device, entry);
 		for (i = 0; i < dev->port_cnt; i++) {
-			lock_acquire(&dev->port[i].lock);
 			addr = acm_get_port_ep_address(&dev->port[i], data);
-			lock_release(&dev->port[i].lock);
 			if (addr)
 				return addr;
 		}
@@ -1411,7 +1406,6 @@ acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 	memset(tmp, 0, sizeof tmp);
 	memcpy(tmp, addr, addr_len);
 
-	lock_acquire(&ep->lock);
 	if (!acm_addr_lookup(&ep->endpoint, addr, addr_type)) {
 		for (i = 0; (i < MAX_EP_ADDR) &&
 			    (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID); i++)
@@ -1435,7 +1429,6 @@ acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 	}
 	ret = 0;
 out:
-	lock_release(&ep->lock);
 	return ret;
 }
 
@@ -1571,7 +1564,6 @@ static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
 
 	acm_log(2, "pkey 0x%x\n", pkey);
 
-	lock_acquire(&port->lock);
 	for (entry = port->ep_list.Next; entry != &port->ep_list; entry = entry->Next) {
 		ep = container_of(entry, struct acmc_ep, entry);
 		if (ep->endpoint.pkey == pkey) {
@@ -1579,7 +1571,6 @@ static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
 			break;
 		}
 	}
-	lock_release(&port->lock);
 	return res;
 }
 
@@ -1617,7 +1608,6 @@ acm_alloc_ep(struct acmc_port *port, uint16_t pkey)
 	ep->port = port;
 	ep->endpoint.port = &port->port;
 	ep->endpoint.pkey = pkey;
-	lock_init(&ep->lock);
 
 	for (i = 0; i < MAX_EP_ADDR; i++) {
 		ep->addr_info[i].addr.endpoint = &ep->endpoint;
@@ -1655,9 +1645,7 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 		goto err;
 	}
 
-	lock_acquire(&port->lock);
 	DListInsertHead(&ep->entry, &port->ep_list);
-	lock_release(&port->lock);
 	return;
 
 err:
@@ -1813,16 +1801,12 @@ static void acm_shutdown_port(struct acmc_port *port)
 	struct acmc_ep *ep;
 	struct acmc_prov_context *dev_ctx;
 
-	lock_acquire(&port->lock);
 	while (!DListEmpty(&port->ep_list)) {
 		entry = port->ep_list.Next;
 		DListRemove(entry);
-		lock_release(&port->lock);
 		ep = container_of(entry, struct acmc_ep, entry);
 		acm_ep_down(ep);
-		lock_acquire(&port->lock);
 	}
-	lock_release(&port->lock);
 
 	if (port->prov_port_context) {
 		port->prov->close_port(port->prov_port_context);
