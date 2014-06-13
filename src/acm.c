@@ -966,25 +966,35 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	int ret, i;
 	uint16_t len;
 	struct acmc_addr *addr;
-	struct acmc_ep *ep;
+	struct acmc_ep *ep = NULL;
+	int index;
 
 	acm_log(2, "client %d\n", client->index);
+	index = msg->hdr.data[1];
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.status = ACM_STATUS_SUCCESS;
-	msg->hdr.data[1] = 0;
 	msg->hdr.data[2] = 0;
 
-	if (ntohs(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH) ||
-	    !(msg->resolve_data[0].flags & ACM_EP_FLAG_SOURCE)) {
+	if ((ntohs(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
+	    && index < 1) || 
+	    ((ntohs(msg->hdr.length) >= (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
+	    && !(msg->resolve_data[0].flags & ACM_EP_FLAG_SOURCE)))) {
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
 			msg->perf_data[i] = htonll((uint64_t) atomic_get(&counter[i]));
 
 		msg->hdr.data[0] = ACM_MAX_COUNTER;
 		len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
 	} else {
-		addr = acm_get_ep_address(&msg->resolve_data[0]);
-		if (addr) {
-			ep = container_of(addr->addr.endpoint, struct acmc_ep, endpoint);
+		if (index >= 1) {
+			ep = acm_get_ep(index - 1);
+		} else {
+			addr = acm_get_ep_address(&msg->resolve_data[0]);
+			if (addr) 
+				ep = container_of(addr->addr.endpoint, 
+						  struct acmc_ep, endpoint);
+		}
+
+		if (ep) {
 			ep->port->prov->query_perf(ep->prov_ep_context,
 						   msg->perf_data, &msg->hdr.data[0]);
 			len = ACM_MSG_HDR_LENGTH + (msg->hdr.data[0] * sizeof(uint64_t));
