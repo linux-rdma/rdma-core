@@ -64,7 +64,10 @@ static int enum_ep;
 enum perf_query_output {
 	PERF_QUERY_NONE,
 	PERF_QUERY_ROW,
-	PERF_QUERY_COL
+	PERF_QUERY_COL,
+	PERF_QUERY_EP_INDEX,
+	PERF_QUERY_EP_ALL,
+	PERF_QUERY_EP_ADDR
 };
 static enum perf_query_output perf_query;
 int verbose;
@@ -90,7 +93,13 @@ static void show_usage(char *program)
 	printf("   [-d dest_addr]   - destination addresses for path queries\n");
 	printf("   [-v]             - verify ACM response against SA query response\n");
 	printf("   [-c]             - read ACM cached data only\n");
-	printf("   [-P]             - query performance data from destination service\n");
+	printf("   [-P [opt]]       - query performance data from destination service:\n");
+	printf("                        No option: output combined data in row format.\n");
+	printf("                        col: output combined data in colum format.\n");
+	printf("                        N: output data for endpoint N (N = 1, 2,...)\n");
+	printf("                        all: output data for all endpoints\n");
+	printf("                        s: output data for the endpoint with the\n");
+	printf("                           address specified in -s option\n");
 	printf("   [-S svc_addr]    - address of ACM service, default: local service\n");
 	printf("   [-C repetitions] - repeat count for resolution\n");
 	printf("usage 2: %s\n", program);
@@ -748,24 +757,107 @@ static void resolve(char *svc)
 	free(dest_list);
 }
 
-static void query_perf(char *svc)
+static int query_perf_ip(uint64_t **counters, int *cnt)
 {
-	static int lables;
+	union _sockaddr {
+		struct sockaddr_storage src;
+		struct sockaddr saddr;
+	} addr;
+	uint8_t type;
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	int ret;
+
+	VPRINT("%s: src_addr %s\n", __FUNCTION__, src_addr);
+	addr.saddr.sa_family = AF_INET;
+	sin = (struct sockaddr_in *) &addr.saddr;
+	ret = inet_pton(AF_INET, src_addr, &sin->sin_addr);
+	if (ret <= 0) {
+		addr.saddr.sa_family = AF_INET6;
+		sin6 = (struct sockaddr_in6 *)&addr.saddr;
+		ret = inet_pton(AF_INET6, src_addr, &sin6->sin6_addr);
+		if (ret <= 0) {
+			printf("inet_pton error on src address (%s): 0x%x\n",
+			       src_addr, ret);
+			return -1;
+		}
+		type = ACM_EP_INFO_ADDRESS_IP6;
+	} else {
+		type = ACM_EP_INFO_ADDRESS_IP;
+	}
+
+	ret = ib_acm_query_perf_ep_addr((uint8_t *)&addr.src, type, counters,
+					 cnt);
+	if (ret) {
+		printf("ib_acm_query_perf failed: %s\n", strerror(errno));
+		return ret;
+	}
+
+	return 0;
+}
+
+static int query_perf_name(uint64_t **counters, int *cnt)
+{
+	int ret;
+
+	VPRINT("%s: src_addr %s\n", __FUNCTION__, src_addr);
+	ret = ib_acm_query_perf_ep_addr((uint8_t *)src_addr, ACM_EP_INFO_NAME,
+					 counters, cnt);
+	if (ret) {
+		printf("ib_acm_query_perf failed: %s\n", strerror(errno));
+		return ret;
+	}
+
+	return 0;
+}
+
+static int query_perf_ep_addr(uint64_t **counters, int *cnt)
+{
+	int ret;
+	char src_type;
+
+	src_addr = get_dest(src_arg, &src_type);
+	switch (src_type) {
+	case 'i':
+		ret = query_perf_ip(counters, cnt);
+		break;
+	case 'n':
+		ret = query_perf_name(counters, cnt);
+		break;
+	default:
+		printf("Unsupported src_type %d\n", src_type);
+		return -1;
+	}
+
+	return ret;
+}
+
+static int query_perf_one(char *svc, int index)
+{
+	static int labels;
 	int ret, cnt, i;
 	uint64_t *counters;
 
-	ret = ib_acm_query_perf(&counters, &cnt);
+	if (perf_query == PERF_QUERY_EP_ADDR)
+		ret = query_perf_ep_addr(&counters, &cnt);
+	else
+		ret = ib_acm_query_perf(index, &counters, &cnt);
+
 	if (ret) {
-		printf("%s: Failed to query perf data %s\n", svc, strerror(errno));
-		return;
+		if (perf_query != PERF_QUERY_EP_ALL) {
+			printf("%s: Failed to query perf data: %s\n", svc,
+			       strerror(errno));
+		}
+		return ret;
 	}
 
-	if (perf_query == PERF_QUERY_ROW) {
-		if (!lables) {
+	if (perf_query != PERF_QUERY_COL) {
+		if (!labels) {
+			printf("svc,");
 			for (i = 0; i < cnt - 1; i++)
 				printf("%s,", ib_acm_cntr_name(i));
 			printf("%s\n", ib_acm_cntr_name(i));
-			lables = 1;
+			labels = 1;
 		}
 		printf("%s,", svc);
 		for (i = 0; i < cnt - 1; i++)
@@ -779,6 +871,20 @@ static void query_perf(char *svc)
 		}
 	}
 	ib_acm_free_perf(counters);
+
+	return 0;
+}
+
+static void query_perf(char *svc)
+{
+	int index = 1;
+
+	if (perf_query != PERF_QUERY_EP_ALL) {
+		query_perf_one(svc, ep_index);
+	}
+	else {
+		while (!query_perf_one(svc, index++));
+	}
 }
 
 static int enumerate_ep(char *svc, int index)
@@ -864,6 +970,23 @@ char *opt_arg(int argc, char **argv)
 	return NULL;
 }
 
+void parse_perf_arg(char *arg)
+{
+	if (!strnicmp("col", arg, 3)) {
+		perf_query = PERF_QUERY_COL;
+	} else if (!strnicmp("all", arg, 3)) {
+		perf_query = PERF_QUERY_EP_ALL;
+	} else if (!strcmp("s", arg)) {
+		perf_query = PERF_QUERY_EP_ADDR;
+	} else {
+		ep_index = atoi(arg);
+		if (ep_index > 0) 
+			perf_query = PERF_QUERY_EP_INDEX;
+		else
+			perf_query = PERF_QUERY_ROW;
+	}
+}
+
 int CDECL_FUNC main(int argc, char **argv)
 {
 	int op, ret;
@@ -913,8 +1036,8 @@ int CDECL_FUNC main(int argc, char **argv)
 			dest_dir = optarg;
 			break;
 		case 'P':
-			if (opt_arg(argc, argv) && !strnicmp("col", opt_arg(argc, argv), 3))
-				perf_query = PERF_QUERY_COL;
+			if (opt_arg(argc, argv))
+				parse_perf_arg(opt_arg(argc, argv));
 			else
 				perf_query = PERF_QUERY_ROW;
 			break;
@@ -934,7 +1057,8 @@ int CDECL_FUNC main(int argc, char **argv)
 		}
 	}
 
-	if ((src_arg && !dest_arg) ||
+	if ((src_arg && (!dest_arg && perf_query != PERF_QUERY_EP_ADDR)) ||
+	    (perf_query == PERF_QUERY_EP_ADDR && !src_arg) || 
 	    (!src_arg && !dest_arg && !perf_query && !make_addr && !make_opts &&
 	     !enum_ep))
 		goto show_use;

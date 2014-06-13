@@ -45,7 +45,9 @@ int ib_acm_resolve_ip(struct sockaddr *src, struct sockaddr *dest,
 int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags);
 #define ib_acm_free_paths(paths) free(paths)
 
-int ib_acm_query_perf(uint64_t **counters, int *count);
+int ib_acm_query_perf(int index, uint64_t **counters, int *count);
+int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
+			      uint64_t **counters, int *count);
 #define ib_acm_free_perf(counters) free(counters)
 
 const char *ib_acm_cntr_name(int index);

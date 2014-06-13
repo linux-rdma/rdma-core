@@ -305,7 +305,7 @@ out:
 	return ret;
 }
 
-int ib_acm_query_perf(uint64_t **counters, int *count)
+int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 {
 	struct acm_msg msg;
 	int ret, i;
@@ -314,6 +314,7 @@ int ib_acm_query_perf(uint64_t **counters, int *count)
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
+	msg.hdr.data[1] = index;
 	msg.hdr.length = htons(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
@@ -395,6 +396,60 @@ out:
 	lock_release(&lock);
 	return ret;
 }
+
+int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type, 
+			     uint64_t **counters, int *count)
+{
+	struct acm_msg msg;
+	int ret, i, len;
+
+	if (!src) 
+		return -1;
+
+	lock_acquire(&lock);
+	memset(&msg, 0, sizeof msg);
+	msg.hdr.version = ACM_VERSION;
+	msg.hdr.opcode = ACM_OP_PERF_QUERY;
+
+	ret = acm_format_ep_addr(&msg.resolve_data[0], src, type,
+		ACM_EP_FLAG_SOURCE);
+	if (ret)
+		goto out;
+
+	len = ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH;
+	msg.hdr.length = htons(len);
+
+	ret = send(sock, (char *) &msg, len, 0);
+	if (ret != len)
+		goto out;
+
+	ret = recv(sock, (char *) &msg, sizeof msg, 0);
+	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length)) {
+		ret = ACM_STATUS_EINVAL;
+		goto out;
+	}
+
+	if (msg.hdr.status) {
+		ret = acm_error(msg.hdr.status);
+		goto out;
+	}
+
+	*counters = malloc(sizeof(uint64_t) * msg.hdr.data[0]);
+	if (!*counters) {
+		ret = ACM_STATUS_ENOMEM;
+		goto out;
+	}
+
+	*count = msg.hdr.data[0];
+	for (i = 0; i < *count; i++)
+		(*counters)[i] = ntohll(msg.perf_data[i]);
+
+	ret = 0;
+out:
+	lock_release(&lock);
+	return ret;
+}
+
 
 const char *ib_acm_cntr_name(int index)
 {
