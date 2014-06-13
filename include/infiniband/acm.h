@@ -38,6 +38,7 @@
 #define ACM_OP_MASK             0x0F
 #define ACM_OP_RESOLVE          0x01
 #define ACM_OP_PERF_QUERY       0x02
+#define ACM_OP_EP_QUERY         0x03
 #define ACM_OP_ACK              0x80
 
 #define ACM_STATUS_SUCCESS      0
@@ -57,6 +58,7 @@
 #define ACM_MSG_HDR_LENGTH      16
 #define ACM_MAX_ADDRESS         64
 #define ACM_MSG_EP_LENGTH       72
+#define ACM_MAX_PROV_NAME       64
 /*
  * Support up to 6 path records (primary and alternate CM paths,
  * inbound and outbound primary and alternate data paths), plus CM data.
@@ -116,11 +118,29 @@ enum {
 };
 
 /*
- * Performance messages are sent/receive in network byte order.
+ * Performance messages are sent/received in network byte order.
  */
 struct acm_perf_msg {
 	struct acm_hdr          hdr;
 	uint64_t                data[0];
+};
+
+/*
+ * Endpoint query messages are sent/received in network byte order. 
+ */
+struct acm_ep_config_data {
+	uint64_t                dev_guid;
+	uint8_t                 port_num;
+	uint8_t                 rsvd[3];
+	uint16_t                pkey;
+	uint16_t                addr_cnt;
+	uint8_t                 prov_name[ACM_MAX_PROV_NAME];
+	union acm_ep_info       addrs[0];
+};
+
+struct acm_ep_query_msg {
+	struct acm_hdr             hdr;
+	struct acm_ep_config_data  data[0];
 };
 
 struct acm_msg {
@@ -129,6 +149,7 @@ struct acm_msg {
 		uint8_t                 data[ACM_MSG_DATA_LENGTH];
 		struct acm_ep_addr_data resolve_data[0];
 		uint64_t                perf_data[0];
+		struct acm_ep_config_data ep_data[0];
 	};
 };
 

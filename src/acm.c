@@ -696,6 +696,38 @@ static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 	return NULL;
 }
 
+static struct acmc_ep *acm_get_ep(int index)
+{
+	struct acmc_device *dev;
+	DLIST_ENTRY *dev_entry;
+	struct acmc_ep *ep;
+	DLIST_ENTRY *ep_entry;
+	int i, inx = 0;
+
+	acm_log(2, "ep index %d\n", index);
+	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
+	     dev_entry = dev_entry->Next) {
+		dev = container_of(dev_entry, struct acmc_device, entry);
+		for (i = 0; i < dev->port_cnt; i++) {
+			if (dev->port[i].state != IBV_PORT_ACTIVE)
+				continue;
+			for (ep_entry = dev->port[i].ep_list.Next; 
+			     ep_entry != &dev->port[i].ep_list;
+			     ep_entry = ep_entry->Next, inx++) {
+				if (index == inx) {
+					ep = container_of(ep_entry, 
+							  struct acmc_ep, 
+							  entry);
+					return ep;
+				}
+			}
+		}
+	}
+
+	acm_log(1, "notice - could not find ep %d\n", index);
+	return NULL;
+}
+
 static int
 acm_svr_query_path(struct acmc_client *client, struct acm_msg *msg)
 {
@@ -972,6 +1004,52 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	return ret;
 }
 
+static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
+{
+	int ret, i;
+	uint16_t len;
+	struct acmc_ep *ep;
+	int index, cnt = 0;
+
+	acm_log(2, "client %d\n", client->index);
+	index = msg->hdr.data[0];
+	ep = acm_get_ep(index - 1);
+	if (ep) {
+		msg->hdr.status = ACM_STATUS_SUCCESS;
+		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
+		msg->ep_data[0].port_num = ep->port->port.port_num;
+		msg->ep_data[0].pkey = htons(ep->endpoint.pkey);
+		strncpy((char *)msg->ep_data[0].prov_name, ep->port->prov->name,
+			ACM_MAX_PROV_NAME - 1);
+		msg->ep_data[0].prov_name[ACM_MAX_PROV_NAME - 1] = '\0';
+		len = ACM_MSG_HDR_LENGTH + sizeof(struct acm_ep_config_data);
+		for (i = 0; i < MAX_EP_ADDR; i++) {
+			if (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID) {
+				memcpy(msg->ep_data[0].addrs[cnt++].name, 
+				       ep->addr_info[i].string_buf,
+				       ACM_MAX_ADDRESS);
+			}
+		}
+		msg->ep_data[0].addr_cnt = htons(cnt);
+		len += cnt * ACM_MAX_ADDRESS;
+	} else {
+		msg->hdr.status = ACM_STATUS_EINVAL;
+		len = ACM_MSG_HDR_LENGTH;
+	}
+	msg->hdr.opcode |= ACM_OP_ACK;
+	msg->hdr.data[1] = 0;
+	msg->hdr.data[2] = 0;
+	msg->hdr.length = htons(len);
+
+	ret = send(client->sock, (char *) msg, len, 0);
+	if (ret != len)
+		acm_log(0, "ERROR - failed to send response\n");
+	else
+		ret = 0;
+
+	return ret;
+}
+
 static int acm_msg_length(struct acm_msg *msg)
 {
 	return (msg->hdr.opcode == ACM_OP_RESOLVE) ?
@@ -1003,6 +1081,9 @@ static void acm_svr_receive(struct acmc_client *client)
 		break;
 	case ACM_OP_PERF_QUERY:
 		ret = acm_svr_perf_query(client, &msg);
+		break;
+	case ACM_OP_EP_QUERY:
+		ret = acm_svr_ep_query(client, &msg);
 		break;
 	default:
 		acm_log(0, "ERROR - unknown opcode 0x%x\n", msg.hdr.opcode);
