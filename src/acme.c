@@ -58,6 +58,8 @@ static char addr_type = 'u';
 static int verify;
 static int nodelay;
 static int repetitions = 1;
+static int ep_index;
+static int enum_ep;
 
 enum perf_query_output {
 	PERF_QUERY_NONE,
@@ -79,6 +81,9 @@ static void show_usage(char *program)
 {
 	printf("usage 1: %s\n", program);
 	printf("Query specified ibacm service for data\n");
+	printf("   [-e [N]]         - display one or all endpoints:\n");
+	printf("                        No index: all endpoints\n");
+	printf("                        N: endpoint N (N = 1, 2, ...)\n");
 	printf("   [-f addr_format] - i(p), n(ame), l(id), g(gid), or u(nspecified)\n");
 	printf("                      address format for -s and -d options, default: 'u'\n");
 	printf("   [-s src_addr]    - source address for path queries\n");
@@ -776,6 +781,43 @@ static void query_perf(char *svc)
 	ib_acm_free_perf(counters);
 }
 
+static int enumerate_ep(char *svc, int index)
+{
+	static int labels;
+	int ret, i;
+	struct acm_ep_config_data *ep_data;
+
+	ret = ib_acm_enum_ep(index, &ep_data);
+	if (ret) 
+		return ret;
+
+	if (!labels) {
+		printf("svc,guid,port,pkey,ep_index,prov,addr_0,addresses\n");
+		labels = 1;
+	}
+
+	printf("%s,0x%016lx,%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
+	       ep_data->port_num, ep_data->pkey, index, ep_data->prov_name);
+	for (i = 0; i < ep_data->addr_cnt; i++) 
+		printf(",%s", ep_data->addrs[i].name);
+	printf("\n");
+	ib_acm_free_ep_data(ep_data);
+
+	return 0;
+}
+
+static void enumerate_eps(char *svc)
+{
+	int index = 1;
+
+	if (ep_index > 0) {
+		if (enumerate_ep(svc, ep_index))
+			printf(" Endpoint %d is not available\n", ep_index);
+	} else {
+		while (!enumerate_ep(svc, index++));
+	}
+}
+
 static int query_svcs(void)
 {
 	char **svc_list;
@@ -800,6 +842,9 @@ static int query_svcs(void)
 
 		if (perf_query)
 			query_perf(svc_list[i]);
+
+		if (enum_ep) 
+			enumerate_eps(svc_list[i]);
 
 		ib_acm_disconnect();
 	}
@@ -829,8 +874,13 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (ret)
 		goto out;
 
-	while ((op = getopt(argc, argv, "f:s:d:vcA::O::D:P::S:C:V")) != -1) {
+	while ((op = getopt(argc, argv, "e::f:s:d:vcA::O::D:P::S:C:V")) != -1) {
 		switch (op) {
+		case 'e':
+			enum_ep = 1;
+			if (opt_arg(argc, argv))
+				ep_index = atoi(opt_arg(argc, argv));
+			break;
 		case 'f':
 			addr_type = optarg[0];
 			if (addr_type != 'i' && addr_type != 'n' &&
@@ -885,10 +935,11 @@ int CDECL_FUNC main(int argc, char **argv)
 	}
 
 	if ((src_arg && !dest_arg) ||
-	    (!src_arg && !dest_arg && !perf_query && !make_addr && !make_opts))
+	    (!src_arg && !dest_arg && !perf_query && !make_addr && !make_opts &&
+	     !enum_ep))
 		goto show_use;
 
-	if (dest_arg || perf_query)
+	if (dest_arg || perf_query || enum_ep)
 		ret = query_svcs();
 
 	if (!ret && make_addr)

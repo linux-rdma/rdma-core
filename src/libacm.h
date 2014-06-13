@@ -50,4 +50,7 @@ int ib_acm_query_perf(uint64_t **counters, int *count);
 
 const char *ib_acm_cntr_name(int index);
 
+int ib_acm_enum_ep(int index, struct acm_ep_config_data **data);
+#define ib_acm_free_ep_data(data) free(data)
+
 #endif /* LIBACM_H */

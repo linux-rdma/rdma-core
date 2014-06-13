@@ -346,6 +346,56 @@ out:
 	return ret;
 }
 
+int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
+{
+	struct acm_msg msg;
+	int ret;
+	int len;
+	int cnt;
+	struct acm_ep_config_data *edata;
+
+	lock_acquire(&lock);
+	memset(&msg, 0, sizeof msg);
+	msg.hdr.version = ACM_VERSION;
+	msg.hdr.opcode = ACM_OP_EP_QUERY;
+	msg.hdr.data[0] = index;
+	msg.hdr.length = htons(ACM_MSG_HDR_LENGTH);
+
+	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
+	if (ret != ACM_MSG_HDR_LENGTH)
+		goto out;
+
+	ret = recv(sock, (char *) &msg, sizeof msg, 0);
+	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length)) {
+		ret = ACM_STATUS_EINVAL;
+		goto out;
+	}
+
+	if (msg.hdr.status) {
+		ret = acm_error(msg.hdr.status);
+		goto out;
+	}
+
+	cnt = ntohs(msg.ep_data[0].addr_cnt);
+	len = sizeof(struct acm_ep_config_data) + 
+		ACM_MAX_ADDRESS * cnt;
+	edata = malloc(len);
+	if (!edata) {
+		ret = ACM_STATUS_ENOMEM;
+		goto out;
+	}
+
+	memcpy(edata, &msg.ep_data[0], len);
+	edata->dev_guid = ntohll(msg.ep_data[0].dev_guid);
+	edata->pkey = ntohs(msg.ep_data[0].pkey);
+	edata->addr_cnt = cnt;
+	*data = edata;
+	ret = 0;
+out:
+	lock_release(&lock);
+	return ret;
+}
+
 const char *ib_acm_cntr_name(int index)
 {
 	static const char *const cntr_name[] = {
