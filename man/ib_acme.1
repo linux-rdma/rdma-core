@@ -1,10 +1,10 @@
-.TH "ib_acme" 7 "2013-06-21" "ib_acme" "ib_acme" ib_acme
+.TH "ib_acme" 1 "2014-06-16" "ib_acme" "ib_acme" ib_acme
 .SH NAME
 ib_acme \- test and configuration utility for the IB ACM
 .SH SYNOPSIS
 .sp
 .nf
-\fIib_acme\fR [-f addr_format] [-s src_addr] -d dest_addr [-v] [-c] [-P] [-S svc_addr] [-C repetitions]
+\fIib_acme\fR [-f addr_format] [-s src_addr] -d dest_addr [-v] [-c] [-e] [-P] [-S svc_addr] [-C repetitions]
 .fi
 .nf
 \fIib_acme\fR [-A [addr_file]] [-O [opt_file]] [-D dest_dir] [-V]
@@ -42,8 +42,15 @@ resolved path information is usable given the current cluster configuration.
 Instructs the ACM service to only returned information that currently resides
 in its local cache.
 .TP
-\-P
-Queries performance data from the destination service
+\-e [N]
+Displays one (N = 1, 2, ...) or all endpoints (N = 0 or not present).
+.TP
+\-P [opt]
+Queries performance data from the destination service.  Valid options are:
+"col" for outputting combined data in column format,  "N" (N = 1, 2, ...) for
+outputing data for a specific endpoint N,  "all" for outputting data for all
+endpoints,  and "s" for outputting data for a specific endpoint with the address
+given by the -s option.
 .TP
 \-S svc_addr
 address of ACM service, default: local service
