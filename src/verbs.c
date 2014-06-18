@@ -615,10 +615,19 @@ int c4iw_destroy_qp(struct ibv_qp *ibqp)
 	return 0;
 }
 
-int c4iw_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+int c4iw_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
-	return ENOSYS;
+	struct ibv_query_qp cmd;
+	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
+	int ret;
+
+	pthread_spin_lock(&qhp->lock);
+	if (t4_wq_in_error(&qhp->wq))
+		c4iw_flush_qp(qhp);
+	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof cmd);
+	pthread_spin_unlock(&qhp->lock);
+	return ret;
 }
 
 struct ibv_ah *c4iw_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
