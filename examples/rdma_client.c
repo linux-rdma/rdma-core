@@ -54,8 +54,8 @@ static int run(void)
 	hints.ai_port_space = RDMA_PS_TCP;
 	ret = rdma_getaddrinfo(server, port, &hints, &res);
 	if (ret) {
-		printf("rdma_getaddrinfo %d\n", errno);
-		return ret;
+		perror("rdma_getaddrinfo");
+		goto out;
 	}
 
 	memset(&attr, 0, sizeof attr);
@@ -65,46 +65,58 @@ static int run(void)
 	attr.qp_context = id;
 	attr.sq_sig_all = 1;
 	ret = rdma_create_ep(&id, res, NULL, &attr);
-	rdma_freeaddrinfo(res);
 	if (ret) {
-		printf("rdma_create_ep %d\n", errno);
-		return ret;
+		perror("rdma_create_ep");
+		goto out_free_addrinfo;
 	}
 
 	mr = rdma_reg_msgs(id, recv_msg, 16);
 	if (!mr) {
-		printf("rdma_reg_msgs %d\n", errno);
-		return ret;
+		perror("rdma_reg_msgs for recv_msg");
+		ret = -1;
+		goto out_destroy_ep;
 	}
 
 	ret = rdma_post_recv(id, NULL, recv_msg, 16, mr);
 	if (ret) {
-		printf("rdma_post_recv %d\n", errno);
-		return ret;
+		perror("rdma_post_recv");
+		goto out_dereg;
 	}
 
 	ret = rdma_connect(id, NULL);
 	if (ret) {
-		printf("rdma_connect %d\n", errno);
-		return ret;
+		perror("rdma_connect");
+		goto out_dereg;
 	}
 
 	ret = rdma_post_send(id, NULL, send_msg, 16, NULL, IBV_SEND_INLINE);
 	if (ret) {
-		printf("rdma_post_send %d\n", errno);
-		return ret;
+		perror("rdma_post_send");
+		goto out_disconnect;
 	}
 
-	ret = rdma_get_recv_comp(id, &wc);
-	if (ret <= 0) {
-		printf("rdma_get_recv_comp %d\n", ret);
-		return ret;
+	while ((ret = rdma_get_send_comp(id, &wc)) == 0);
+	if (ret < 0) {
+		perror("rdma_get_send_comp");
+		goto out_disconnect;
 	}
 
+	while ((ret = rdma_get_recv_comp(id, &wc)) == 0);
+	if (ret < 0)
+		perror("rdma_get_recv_comp");
+	else
+		ret = 0;
+
+out_disconnect:
 	rdma_disconnect(id);
+out_dereg:
 	rdma_dereg_mr(mr);
+out_destroy_ep:
 	rdma_destroy_ep(id);
-	return 0;
+out_free_addrinfo:
+	rdma_freeaddrinfo(res);
+out:
+	return ret;
 }
 
 int main(int argc, char **argv)
