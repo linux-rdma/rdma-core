@@ -3473,7 +3473,7 @@ int rsetsockopt(int socket, int level, int optname,
 			ret = 0;
 			break;
 		case RDMA_ROUTE:
-			if ((rs->optval = calloc(optlen, 1))) {
+			if ((rs->optval = malloc(optlen))) {
 				memcpy(rs->optval, optval, optlen);
 				rs->optlen = optlen;
 				ret = 0;
