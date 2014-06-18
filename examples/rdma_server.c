@@ -55,7 +55,7 @@ static int run(void)
 	hints.ai_port_space = RDMA_PS_TCP;
 	ret = rdma_getaddrinfo(NULL, port, &hints, &res);
 	if (ret) {
-		printf("rdma_getaddrinfo %d\n", errno);
+		perror("rdma_getaddrinfo");
 		return ret;
 	}
 
@@ -65,65 +65,71 @@ static int run(void)
 	attr.cap.max_inline_data = 16;
 	attr.sq_sig_all = 1;
 	ret = rdma_create_ep(&listen_id, res, NULL, &attr);
-	rdma_freeaddrinfo(res);
 	if (ret) {
-		printf("rdma_create_ep %d\n", errno);
-		return ret;
+		perror("rdma_create_ep");
+		goto out_free_addrinfo;
 	}
 
 	ret = rdma_listen(listen_id, 0);
 	if (ret) {
-		printf("rdma_listen %d\n", errno);
-		return ret;
+		perror("rdma_listen");
+		goto out_destroy_listen_ep;
 	}
 
 	ret = rdma_get_request(listen_id, &id);
 	if (ret) {
-		printf("rdma_get_request %d\n", errno);
-		return ret;
+		perror("rdma_get_request");
+		goto out_destroy_listen_ep;
 	}
 
 	mr = rdma_reg_msgs(id, recv_msg, 16);
 	if (!mr) {
-		printf("rdma_reg_msgs %d\n", errno);
-		return ret;
+		ret = -1;
+		perror("rdma_reg_msgs");
+		goto out_destroy_accept_ep;
 	}
 
 	ret = rdma_post_recv(id, NULL, recv_msg, 16, mr);
 	if (ret) {
-		printf("rdma_post_recv %d\n", errno);
-		return ret;
+		perror("rdma_post_recv");
+		goto out_dereg;
 	}
 
 	ret = rdma_accept(id, NULL);
 	if (ret) {
-		printf("rdma_accept %d\n", errno);
-		return ret;
+		perror("rdma_accept");
+		goto out_dereg;
 	}
 
-	ret = rdma_get_recv_comp(id, &wc);
-	if (ret <= 0) {
-		printf("rdma_get_recv_comp %d\n", ret);
-		return ret;
+	while ((ret = rdma_get_recv_comp(id, &wc)) == 0);
+	if (ret < 0) {
+		perror("rdma_get_recv_comp");
+		goto out_disconnect;
 	}
 
 	ret = rdma_post_send(id, NULL, send_msg, 16, NULL, IBV_SEND_INLINE);
 	if (ret) {
-		printf("rdma_post_send %d\n", errno);
-		return ret;
+		perror("rdma_post_send");
+		goto out_disconnect;
 	}
 
-	ret = rdma_get_send_comp(id, &wc);
-	if (ret <= 0) {
-		printf("rdma_get_send_comp %d\n", ret);
-		return ret;
-	}
+	while ((ret = rdma_get_send_comp(id, &wc)) == 0);
+	if (ret < 0)
+		perror("rdma_get_send_comp");
+	else
+		ret = 0;
 
+out_disconnect:
 	rdma_disconnect(id);
+out_dereg:
 	rdma_dereg_mr(mr);
+out_destroy_accept_ep:
 	rdma_destroy_ep(id);
+out_destroy_listen_ep:
 	rdma_destroy_ep(listen_id);
-	return 0;
+out_free_addrinfo:
+	rdma_freeaddrinfo(res);
+	return ret;
 }
 
 int main(int argc, char **argv)
