@@ -1,6 +1,119 @@
-commit 51cd89ff2cc2fe9f2d7c3459ef2d54c42c0e3228
+commit e19fff770d0d31b4594ee11cb0ae1e4e42029cb6
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Tue Mar 11 11:45:26 2014 -0500
+Date:   Wed Jun 18 10:16:54 2014 -0500
+
+    Spin release 1.3.4
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 2d54f4c5604cae24caac493aaf6d8b0907ac2ed2
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Jun 18 10:16:52 2014 -0500
+
+    Support the query_qp() verb
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f80159d12148774646ad65d03cd070f6d5f86eb4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Jun 9 15:20:47 2014 -0500
+
+    Account for the full qid range.
+    
+    The total qid range is should really be based on the max_cq attribute.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5aaf5e7277a1c12964aac11a4cff94520717e805
+Author: Yann Droneaud <ydroneaud@opteya.com>
+Date:   Mon May 5 12:59:23 2014 -0500
+
+    kernel abi: adds explicit padding in struct c4iw_alloc_ucontext_resp
+    
+    i386 ABI disagree with most other ABIs regarding alignment
+    of data type larger than 4 bytes: on most ABIs a padding must
+    be added at end of the structures, while it is not
+    required on i386.
+    
+    Such ABI disagreement will make an x86_64 kernel try to write past
+    the struct c4iw_alloc_ucontext_resp buffer provided by an i386
+    userspace binary. As struct c4iw_alloc_ucontext_resp is likely
+    on stack, see function c4iw_alloc_context(), side effects are
+    expected.
+    
+    On kernel side, this structure was modified for kernel v3.15-rc1
+    by following commit:
+    
+      Commit 05eb23893c2cf9502a9cec0c32e7f1d1ed2895c8
+      Author: Steve Wise <swise@opengridcomputing.com>
+      Date:   Fri Mar 14 21:52:08 2014 +0530
+    
+          cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes
+    
+    If boundary check is implemented on kernel side, the x86_64
+    kernel will instead refuse to write past the i386 userspace
+    provided buffer and the uverbs will fail.
+    
+    To fix these issues, this patch adds an explicit padding at end
+    of structure so that i386 and others ABI share the same structure
+    layout. This patch makes c4iw_alloc_context() check for a value
+    in the padding field to detect newer kernel using the field for
+    a future purpose (only activated in debug).
+    
+    With this patch, libcxgb4 will work against older kernel and
+    newer patched kernel.
+    
+    Link: http://marc.info/?i=cover.1399216475.git.ydroneaud@opteya.com
+    Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5c65bf17913949368db8802656dc7dbc291271ed
+Author: Yann Droneaud <ydroneaud@opteya.com>
+Date:   Mon May 5 12:59:23 2014 -0500
+
+    kernel abi: adds explicit padding in struct c4iw_create_cq_resp
+    
+    i386 ABI disagree with most other ABIs regarding alignment
+    of data type larger than 4 bytes: on most ABIs a padding must
+    be added at end of the structures, while it is not required
+    on i386.
+    
+    Such ABI disagreement will make an x86_64 kernel try to write past
+    the struct c4iw_create_cq_resp buffer provided by an i386
+    userspace binary. As struct c4iw_create_cq_resp is likely
+    on stack, see function c4iw_create_cq(), side effects are
+    expected.
+    
+    On kernel side, this structure was added for kernel v2.6.35-rc1
+    by following commit.
+    
+      Commit cfdda9d764362ab77b11a410bb928400e6520d57
+      Author: Steve Wise <swise@opengridcomputing.com>
+      Date:   Wed Apr 21 15:30:06 2010 -0700
+    
+          RDMA/cxgb4: Add driver for Chelsio T4 RNIC
+    
+    If boundary check is implemented on kernel side, the x86_64 kernel
+    will refuse to write past the i386 userspace provided buffer and the
+    uverbs will fail.
+    
+    To fix these issues, this patch adds an explicit padding at end
+    of structure so that i386 and others ABI share the same structure
+    layout. This patch makes c4iw_create_cq() check for a value in the
+    padding field to detect newer kernel using the field for a future
+    purpose (only activated in debug).
+    
+    With this patch, libcxgb4 will work against older kernel and
+    newer patched kernel.
+    
+    Link: http://marc.info/?i=cover.1399216475.git.ydroneaud@opteya.com
+    
+    Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 4f334446f63e3a34006f504f7c89075423c412b4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Mar 11 11:47:19 2014 -0500
 
     Spin release 1.3.3.
     
