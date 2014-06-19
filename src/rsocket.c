@@ -3500,11 +3500,38 @@ int rsetsockopt(int socket, int level, int optname,
 	return ret;
 }
 
+static void rs_convert_sa_path(struct ibv_sa_path_rec *sa_path,
+			       struct ibv_path_data *path_data)
+{
+	uint32_t fl_hop;
+
+	memset(path_data, 0, sizeof(*path_data));
+	path_data->path.dgid = sa_path->dgid;
+	path_data->path.sgid = sa_path->sgid;
+	path_data->path.dlid = sa_path->dlid;
+	path_data->path.slid = sa_path->slid;
+	fl_hop = ntohl(sa_path->flow_label) << 8;
+	path_data->path.flowlabel_hoplimit = htonl(fl_hop) | sa_path->hop_limit;
+	path_data->path.tclass = sa_path->traffic_class;
+	path_data->path.reversible_numpath = sa_path->reversible << 7 | 1;
+	path_data->path.pkey = sa_path->pkey;
+	path_data->path.qosclass_sl = sa_path->sl;
+	path_data->path.mtu = sa_path->mtu | 2 << 6;	/* exactly */
+	path_data->path.rate = sa_path->rate | 2 << 6;
+	path_data->path.packetlifetime = sa_path->packet_life_time | 2 << 6;
+	path_data->flags= sa_path->preference;
+}
+
 int rgetsockopt(int socket, int level, int optname,
 		void *optval, socklen_t *optlen)
 {
 	struct rsocket *rs;
+	void *opt;
+	struct ibv_sa_path_rec *path_rec;
+	struct ibv_path_data path_data;
+	socklen_t len;
 	int ret = 0;
+	int num_paths;
 
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
@@ -3596,6 +3623,36 @@ int rgetsockopt(int socket, int level, int optname,
 		case RDMA_IOMAPSIZE:
 			*((int *) optval) = rs->target_iomap_size;
 			*optlen = sizeof(int);
+			break;
+		case RDMA_ROUTE:
+			if (rs->optval) {
+				if (*optlen < rs->optlen) {
+					ret = EINVAL;
+				} else {
+					memcpy(rs->optval, optval, rs->optlen);
+					*optlen = rs->optlen;
+				}
+			} else {
+				if (*optlen < sizeof(path_data)) {
+					ret = EINVAL;
+				} else {
+					len = 0;
+					opt = optval;
+					path_rec = rs->cm_id->route.path_rec;
+					num_paths = 0;
+					while (len + sizeof(path_data) <= *optlen &&
+					       num_paths < rs->cm_id->route.num_paths) {
+						rs_convert_sa_path(path_rec, &path_data);
+						memcpy(opt, &path_data, sizeof(path_data));
+						len += sizeof(path_data);
+						opt += sizeof(path_data);
+						path_rec++;
+						num_paths++;
+					}
+					*optlen = len;
+					ret = 0;
+				}
+			}
 			break;
 		default:
 			ret = ENOTSUP;
