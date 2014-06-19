@@ -701,11 +701,11 @@ static void ucma_convert_path(struct ibv_path_data *path_data,
 	sa_path->numb_path = 1;
 	sa_path->pkey = path_data->path.pkey;
 	sa_path->sl = ntohs(path_data->path.qosclass_sl) & 0xF;
-	sa_path->mtu_selector = 1;
+	sa_path->mtu_selector = 2;	/* exactly */
 	sa_path->mtu = path_data->path.mtu & 0x1F;
-	sa_path->rate_selector = 1;
+	sa_path->rate_selector = 2;
 	sa_path->rate = path_data->path.rate & 0x1F;
-	sa_path->packet_life_time_selector = 1;
+	sa_path->packet_life_time_selector = 2;
 	sa_path->packet_life_time = path_data->path.packetlifetime & 0x1F;
 
 	sa_path->preference = (uint8_t) path_data->flags;
