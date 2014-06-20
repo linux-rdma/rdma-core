@@ -798,7 +798,7 @@ static uint8_t acmp_resolve_path_sa(struct acmp_ep *ep, struct acmp_dest *dest,
 	memcpy(mad->data, &dest->path, sizeof(dest->path));
 	mad->comp_mask = acm_path_comp_mask(&dest->path);
 
-	atomic_inc(&counter[ACM_CNTR_ROUTE_QUERY]);
+	acm_increment_counter(ACM_CNTR_ROUTE_QUERY);
 	atomic_inc(&ep->counters[ACM_CNTR_ROUTE_QUERY]);
 	dest->state = ACMP_QUERY_ROUTE;
 	if (acm_send_sa_mad(sa_mad)) {
@@ -1630,7 +1630,7 @@ acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
 		sizeof(struct ibv_path_record));
 	mad->comp_mask = acm_path_comp_mask(&msg->resolve_data[0].info.path);
 
-	atomic_inc(&counter[ACM_CNTR_ROUTE_QUERY]);
+	acm_increment_counter(ACM_CNTR_ROUTE_QUERY);
 	atomic_inc(&ep->counters[ACM_CNTR_ROUTE_QUERY]);
 	if (acm_send_sa_mad(sa_mad)) {
 		acm_log(0, "Error - Failed to send sa mad\n");
@@ -1691,8 +1691,8 @@ acmp_send_resolve(struct acmp_ep *ep, struct acmp_dest *dest,
 	rec->gid_cnt = (uint8_t) ep->mc_cnt;
 	for (i = 0; i < ep->mc_cnt; i++)
 		memcpy(&rec->gid[i], ep->mc_dest[i].address, 16);
-	
-	atomic_inc(&counter[ACM_CNTR_ADDR_QUERY]);
+
+	acm_increment_counter(ACM_CNTR_ADDR_QUERY);
 	atomic_inc(&ep->counters[ACM_CNTR_ADDR_QUERY]);
 	acmp_post_send(&ep->resolve_queue, msg);
 	return 0;
@@ -1758,13 +1758,13 @@ test:
 		if (acmp_dest_timeout(dest))
 			goto test;
 		acm_log(2, "request satisfied from local cache\n");
-		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
+		acm_increment_counter(ACM_CNTR_ROUTE_CACHE);
 		atomic_inc(&ep->counters[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
 		break;
 	case ACMP_ADDR_RESOLVED:
 		acm_log(2, "have address, resolving route\n");
-		atomic_inc(&counter[ACM_CNTR_ADDR_CACHE]);
+		acm_increment_counter(ACM_CNTR_ADDR_CACHE);
 		atomic_inc(&ep->counters[ACM_CNTR_ADDR_CACHE]);
 		status = acmp_resolve_path_sa(ep, dest, acmp_dest_sa_resp);
 		if (status) {
@@ -1833,7 +1833,7 @@ test:
 		if (acmp_dest_timeout(dest))
 			goto test;
 		acm_log(2, "request satisfied from local cache\n");
-		atomic_inc(&counter[ACM_CNTR_ROUTE_CACHE]);
+		acm_increment_counter(ACM_CNTR_ROUTE_CACHE);
 		atomic_inc(&ep->counters[ACM_CNTR_ROUTE_CACHE]);
 		status = ACM_STATUS_SUCCESS;
 		break;

@@ -80,9 +80,6 @@ struct acm_provider {
 	void	(*query_perf)(void *ep_context, uint64_t *values, uint8_t *cnt);
 };
 
-/* Variables exported from core */
-extern atomic_t counter[ACM_MAX_COUNTER];
-
 int provider_query(struct acm_provider **info, uint32_t *version);
 
 /* Functions exported from core */
@@ -117,5 +114,6 @@ extern void acm_free_sa_mad(struct acm_sa_mad *mad);
 extern int acm_send_sa_mad(struct acm_sa_mad *mad);
 
 extern char * acm_get_opts_file(void);
+extern void acm_increment_counter(int type);
 
 #endif /* ACM_PROV_H */

@@ -163,7 +163,7 @@ static struct acmc_client client_array[FD_SETSIZE - 1];
 static FILE *flog;
 static lock_t log_lock;
 PER_THREAD char log_data[ACM_MAX_ADDRESS];
-atomic_t counter[ACM_MAX_COUNTER];
+static atomic_t counter[ACM_MAX_COUNTER];
 
 static struct acmc_device *
 acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port);
@@ -259,6 +259,12 @@ int ib_any_gid(union ibv_gid *gid)
 char * acm_get_opts_file(void)
 {
 	return opts_file;
+}
+
+void acm_increment_counter(int type)
+{
+	if (type >= 0 && type < ACM_MAX_COUNTER)
+		atomic_inc(&counter[type]);
 }
 
 static struct acmc_prov_context *
