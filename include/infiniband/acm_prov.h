@@ -82,7 +82,6 @@ struct acm_provider {
 
 /* Variables exported from core */
 extern atomic_t counter[ACM_MAX_COUNTER];
-extern char *opts_file;
 
 int provider_query(struct acm_provider **info, uint32_t *version);
 
@@ -116,5 +115,7 @@ acm_alloc_sa_mad(const struct acm_endpoint *endpoint, void *context,
 		 void (*handler)(struct acm_sa_mad *));
 extern void acm_free_sa_mad(struct acm_sa_mad *mad);
 extern int acm_send_sa_mad(struct acm_sa_mad *mad);
+
+extern char * acm_get_opts_file(void);
 
 #endif /* ACM_PROV_H */
