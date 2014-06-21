@@ -156,7 +156,6 @@ enum {
 
 enum {
 	RS_CTRL_DISCONNECT,
-	RS_CTRL_KEEPALIVE,
 	RS_CTRL_SHUTDOWN
 };
 
@@ -4227,17 +4226,18 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 }
 
 /*
- * Send a 0 byte RDMA write with immediate as keep-alive message.
- * This avoids the need for the receive side to do any acknowledgment.
+ * Send a credit update as the keep-alive message.  We may or may not have
+ * any credits, but if we do, then we require a minimum of 2 control credits
+ * for protocols that do not support RDMA write with immediate data.  There's
+ * no need to send a keep-alive message if we have any messages outstanding,
+ * and we start with a minimum of 2 credits.  For simplicity, we just check
+ * that both credits are available before sending the keep-alive.
  */
 static void tcp_svc_send_keepalive(struct rsocket *rs)
 {
 	fastlock_acquire(&rs->cq_lock);
-	if (rs_ctrl_avail(rs) && (rs->state & rs_connected)) {
-		rs->ctrl_seqno++;
-		rs_post_write(rs, NULL, 0, rs_msg_set(RS_OP_CTRL, RS_CTRL_KEEPALIVE),
-			      0, (uint64_t) NULL, (uint64_t) NULL);
-	}
+	if (rs_2ctrl_avail(rs) && (rs->state & rs_connected))
+		rs_send_credits(rs);
 	fastlock_release(&rs->cq_lock);
 }	
 
