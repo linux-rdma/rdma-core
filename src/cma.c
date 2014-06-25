@@ -720,9 +720,6 @@ static int ucma_query_path(struct rdma_cm_id *id)
 
 	size = sizeof(*resp) + sizeof(struct ibv_path_data) * 6;
 	resp = alloca(size);
-	if (!resp)
-		return ERR(ENOMEM);
-
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY, resp, size);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
