@@ -2054,12 +2054,9 @@ int ocrdma_arm_cq(struct ibv_cq *ibcq, int solicited)
 	if (cq->first_arm) {
 		ocrdma_ring_cq_db(cq, 1, solicited, 0);
 		cq->first_arm = 0;
-		goto skip_defer;
 	}
 
 	cq->deferred_arm = 1;
-
-skip_defer:
 	cq->deferred_sol = solicited;
 
 	pthread_spin_unlock(&cq->cq_lock);
