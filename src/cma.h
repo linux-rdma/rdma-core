@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2012 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2014 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -166,46 +166,6 @@ extern int af_ib_support;
 void ucma_ib_init();
 void ucma_ib_cleanup();
 void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints);
-
-/* Define path record definition if using older version of libibverbs */
-#ifdef DEFINE_PATH_RECORD
-#define IBV_PATH_RECORD_REVERSIBLE 0x80
-
-struct ibv_path_record
-{
-	uint64_t        service_id;
-	union ibv_gid   dgid;
-	union ibv_gid   sgid;
-	uint16_t        dlid;
-	uint16_t        slid;
-	uint32_t        flowlabel_hoplimit; /* resv-31:28 flow label-27:8 hop limit-7:0*/
-	uint8_t         tclass;
-	uint8_t         reversible_numpath; /* reversible-7:7 num path-6:0 */
-	uint16_t        pkey;
-	uint16_t        qosclass_sl;        /* qos class-15:4 sl-3:0 */
-	uint8_t         mtu;                /* mtu selector-7:6 mtu-5:0 */
-	uint8_t         rate;               /* rate selector-7:6 rate-5:0 */
-	uint8_t         packetlifetime;     /* lifetime selector-7:6 lifetime-5:0 */
-	uint8_t         preference;
-	uint8_t         reserved[6];
-};
-
-#define IBV_PATH_FLAG_GMP             (1<<0)
-#define IBV_PATH_FLAG_PRIMARY         (1<<1)
-#define IBV_PATH_FLAG_ALTERNATE       (1<<2)
-#define IBV_PATH_FLAG_OUTBOUND        (1<<3)
-#define IBV_PATH_FLAG_INBOUND         (1<<4)
-#define IBV_PATH_FLAG_INBOUND_REVERSE (1<<5)
-#define IBV_PATH_FLAG_BIDIRECTIONAL   (IBV_PATH_FLAG_OUTBOUND |     \
-                                       IBV_PATH_FLAG_INBOUND_REVERSE)
-
-struct ibv_path_data
-{
-	uint32_t               flags;
-	uint32_t               reserved;
-	struct ibv_path_record path;
-};
-#endif
 
 struct ib_connect_hdr {
 	uint8_t  cma_version;

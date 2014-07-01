@@ -40,13 +40,9 @@ dnl Checks for libraries
 AC_CHECK_LIB(pthread, pthread_mutex_init, [],
     AC_MSG_ERROR([pthread_mutex_init() not found.  librdmacm requires libpthread.]))
 if test "$disable_libcheck" != "yes"; then
-AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
-    AC_MSG_ERROR([ibv_get_device_list() not found.  librdmacm requires libibverbs.]))
+AC_CHECK_LIB(ibverbs, ibv_cmd_open_xrcd, [],
+    AC_MSG_ERROR([ibv_cmd_open_xrcd() not found.  librdmacm requires libibverbs 1.1.8 or later.]))
 fi
-
-AC_CHECK_MEMBER(struct ibv_path_record.service_id, [],
-    AC_DEFINE(DEFINE_PATH_RECORD, 1, [adding path record definition]),
-    [#include <infiniband/sa.h>])
 
 dnl Check for gcc atomic intrinsics
 AC_MSG_CHECKING(compiler support for atomics)
