@@ -1739,6 +1739,11 @@ static int ocrdma_poll_err_scqe(struct ocrdma_qp *qp,
 			*stop = 1;
 			expand = 0;
 		}
+	} else if (is_hw_sq_empty(qp)) {
+		/* Do nothing */
+		expand = 0;
+		*polled = 0;
+		*stop = 0;
 	} else {
 		*polled = 1;
 		expand = ocrdma_update_err_scqe(ibwc, cqe, qp, status);
@@ -1848,6 +1853,11 @@ static int ocrdma_poll_err_rcqe(struct ocrdma_qp *qp, struct ocrdma_cqe *cqe,
 			*stop = 1;
 			expand = 0;
 		}
+	} else if (is_hw_rq_empty(qp)) {
+		/* Do nothing */
+		expand = 0;
+		*polled = 0;
+		*stop = 0;
 	} else {
 		*polled = 1;
 		expand = ocrdma_update_err_rcqe(ibwc, cqe, qp, status);
