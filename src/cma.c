@@ -1303,6 +1303,8 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 		qp_init_attr->send_cq = id->send_cq;
 	if (!qp_init_attr->recv_cq)
 		qp_init_attr->recv_cq = id->recv_cq;
+	if (id->srq && !qp_init_attr->srq)
+		qp_init_attr->srq = id->srq;
 	qp = ibv_create_qp(pd, qp_init_attr);
 	if (!qp) {
 		ret = ERR(ENOMEM);
