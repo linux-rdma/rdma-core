@@ -76,6 +76,7 @@ do {						\
 struct cma_device {
 	struct ibv_context *verbs;
 	struct ibv_pd	   *pd;
+	struct ibv_xrcd    *xrcd;
 	uint64_t	    guid;
 	int		    port_cnt;
 	int		    refcnt;
@@ -439,9 +440,28 @@ out:
 static void ucma_put_device(struct cma_device *cma_dev)
 {
 	pthread_mutex_lock(&mut);
-	if (!--cma_dev->refcnt)
+	if (!--cma_dev->refcnt) {
 		ibv_dealloc_pd(cma_dev->pd);
+		if (cma_dev->xrcd)
+			ibv_close_xrcd(cma_dev->xrcd);
+	}
 	pthread_mutex_unlock(&mut);
+}
+
+static struct ibv_xrcd *ucma_get_xrcd(struct cma_device *cma_dev)
+{
+	struct ibv_xrcd_init_attr attr;
+
+	pthread_mutex_lock(&mut);
+	if (!cma_dev->xrcd) {
+		memset(&attr, 0, sizeof attr);
+		attr.comp_mask = IBV_XRCD_INIT_ATTR_FD | IBV_XRCD_INIT_ATTR_OFLAGS;
+		attr.fd = -1;
+		attr.oflags = O_CREAT;
+		cma_dev->xrcd = ibv_open_xrcd(cma_dev->verbs, &attr);
+	}
+	pthread_mutex_unlock(&mut);
+	return cma_dev->xrcd;
 }
 
 static void ucma_insert_id(struct cma_id_private *id_priv)
