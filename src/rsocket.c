@@ -3265,6 +3265,8 @@ int rclose(int socket)
 	if (rs->type == SOCK_STREAM) {
 		if (rs->state & rs_connected)
 			rshutdown(socket, SHUT_RDWR);
+		else if (rs->opts & RS_OPT_SVC_ACTIVE)
+			rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
 	} else {
 		ds_shutdown(rs);
 	}
