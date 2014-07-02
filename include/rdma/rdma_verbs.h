@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2010-2014 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -56,6 +56,7 @@ static inline int rdma_seterrno(int ret)
  */
 int rdma_create_srq(struct rdma_cm_id *id, struct ibv_pd *pd,
 		    struct ibv_srq_init_attr *attr);
+int rdma_create_srq_ex(struct rdma_cm_id *id, struct ibv_srq_init_attr_ex *attr);
 
 void rdma_destroy_srq(struct rdma_cm_id *id);
 

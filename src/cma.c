@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2012 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2014 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -1210,17 +1210,26 @@ static int ucma_init_ud_qp(struct cma_id_private *id_priv, struct ibv_qp *qp)
 
 static void ucma_destroy_cqs(struct rdma_cm_id *id)
 {
-	if (id->recv_cq)
+	if (id->qp_type == IBV_QPT_XRC_RECV && id->srq)
+		return;
+
+	if (id->recv_cq) {
 		ibv_destroy_cq(id->recv_cq);
+		if (id->send_cq && (id->send_cq != id->recv_cq)) {
+			ibv_destroy_cq(id->send_cq);
+			id->send_cq = NULL;
+		}
+		id->recv_cq = NULL;
+	}
 
-	if (id->recv_cq_channel)
+	if (id->recv_cq_channel) {
 		ibv_destroy_comp_channel(id->recv_cq_channel);
-
-	if (id->send_cq && (id->send_cq != id->recv_cq))
-		ibv_destroy_cq(id->send_cq);
-
-	if (id->send_cq_channel && (id->send_cq_channel != id->recv_cq_channel))
-		ibv_destroy_comp_channel(id->send_cq_channel);
+		if (id->send_cq_channel && (id->send_cq_channel != id->recv_cq_channel)) {
+			ibv_destroy_comp_channel(id->send_cq_channel);
+			id->send_cq_channel = NULL;
+		}
+		id->recv_cq_channel = NULL;
+	}
 }
 
 static int ucma_create_cqs(struct rdma_cm_id *id, uint32_t send_size, uint32_t recv_size)
@@ -1253,36 +1262,44 @@ err:
 	return ERR(ENOMEM);
 }
 
-int rdma_create_srq(struct rdma_cm_id *id, struct ibv_pd *pd,
-		    struct ibv_srq_init_attr *attr)
+int rdma_create_srq_ex(struct rdma_cm_id *id, struct ibv_srq_init_attr_ex *attr)
 {
+	struct cma_id_private *id_priv;
 	struct ibv_srq *srq;
 	int ret;
 
-	if (!pd)
-		pd = id->pd;
+	id_priv = container_of(id, struct cma_id_private, id);
+	if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_TYPE))
+		return ERR(EINVAL);
 
-#ifdef IBV_XRC_OPS
+	if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_PD) || !attr->pd) {
+		attr->pd = id->pd;
+		attr->comp_mask |= IBV_SRQ_INIT_ATTR_PD;
+	}
+
 	if (attr->srq_type == IBV_SRQT_XRC) {
-		if (!attr->ext.xrc.cq) {
+		if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_XRCD) || !attr->xrcd) {
+			attr->xrcd = ucma_get_xrcd(id_priv->cma_dev);
+			if (!attr->xrcd)
+				return -1;
+		}
+		if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_CQ) || !attr->cq) {
 			ret = ucma_create_cqs(id, 0, attr->attr.max_wr);
 			if (ret)
 				return ret;
-
-			attr->ext.xrc.cq = id->recv_cq;
+			attr->cq = id->recv_cq;
 		}
+		attr->comp_mask |= IBV_SRQ_INIT_ATTR_XRCD | IBV_SRQ_INIT_ATTR_CQ;
 	}
 
-	srq = ibv_create_xsrq(pd, attr);
-#else
-	srq = ibv_create_srq(pd, attr);
-#endif
+	srq = ibv_create_srq_ex(id->verbs, attr);
 	if (!srq) {
 		ret = -1;
 		goto err;
 	}
 
-	id->pd = pd;
+	if (!id->pd)
+		id->pd = attr->pd;
 	id->srq = srq;
 	return 0;
 err:
@@ -1290,12 +1307,30 @@ err:
 	return ret;
 }
 
+int rdma_create_srq(struct rdma_cm_id *id, struct ibv_pd *pd,
+		    struct ibv_srq_init_attr *attr)
+{
+	struct ibv_srq_init_attr_ex attr_ex;
+	int ret;
+
+	memcpy(&attr_ex, attr, sizeof *attr);
+	attr_ex.comp_mask = IBV_SRQ_INIT_ATTR_TYPE | IBV_SRQ_INIT_ATTR_PD;
+	if (id->qp_type == IBV_QPT_XRC_RECV) {
+		attr_ex.srq_type = IBV_SRQT_XRC;
+	} else {
+		attr_ex.srq_type = IBV_SRQT_BASIC;
+	}
+	attr_ex.pd = pd;
+	ret = rdma_create_srq_ex(id, &attr_ex);
+	memcpy(attr, &attr_ex, sizeof *attr);
+	return ret;
+}
+
 void rdma_destroy_srq(struct rdma_cm_id *id)
 {
 	ibv_destroy_srq(id->srq);
-	if (!id->qp)
-		ucma_destroy_cqs(id);
 	id->srq = NULL;
+	ucma_destroy_cqs(id);
 }
 
 int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
@@ -1351,8 +1386,8 @@ err1:
 void rdma_destroy_qp(struct rdma_cm_id *id)
 {
 	ibv_destroy_qp(id->qp);
-	ucma_destroy_cqs(id);
 	id->qp = NULL;
+	ucma_destroy_cqs(id);
 }
 
 static int ucma_valid_param(struct cma_id_private *id_priv,
