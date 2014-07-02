@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005 Voltaire Inc.  All rights reserved.
- * Copyright (c) 2005-2012 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2005-2014 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -384,6 +384,8 @@ int rdma_resolve_route(struct rdma_cm_id *id, int timeout_ms);
  */
 int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 		   struct ibv_qp_init_attr *qp_init_attr);
+int rdma_create_qp_ex(struct rdma_cm_id *id,
+		      struct ibv_qp_init_attr_ex *qp_init_attr);
 
 /**
  * rdma_destroy_qp - Deallocate a QP.

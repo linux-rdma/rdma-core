@@ -67,5 +67,6 @@ RDMACM_1.0 {
 		riounmap;
 		riowrite;
 		rdma_create_srq_ex;
+		rdma_create_qp_ex;
 	local: *;
 };

@@ -1333,8 +1333,8 @@ void rdma_destroy_srq(struct rdma_cm_id *id)
 	ucma_destroy_cqs(id);
 }
 
-int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
-		   struct ibv_qp_init_attr *qp_init_attr)
+int rdma_create_qp_ex(struct rdma_cm_id *id,
+		      struct ibv_qp_init_attr_ex *attr)
 {
 	struct cma_id_private *id_priv;
 	struct ibv_qp *qp;
@@ -1344,23 +1344,37 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 		return ERR(EINVAL);
 
 	id_priv = container_of(id, struct cma_id_private, id);
-	if (!pd)
-		pd = id->pd;
-	else if (id->verbs != pd->context)
+	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD) || !attr->pd) {
+		attr->comp_mask |= IBV_QP_INIT_ATTR_PD;
+		attr->pd = id->pd;
+	} else if (id->verbs != attr->pd->context)
 		return ERR(EINVAL);
 
-	ret = ucma_create_cqs(id, qp_init_attr->send_cq ? 0 : qp_init_attr->cap.max_send_wr,
-			      qp_init_attr->recv_cq ? 0 : qp_init_attr->cap.max_recv_wr);
+	if ((id->recv_cq && attr->recv_cq && id->recv_cq != attr->recv_cq) ||
+	    (id->send_cq && attr->send_cq && id->send_cq != attr->send_cq))
+		return ERR(EINVAL);
+
+	if (id->qp_type == IBV_QPT_XRC_RECV) {
+		if (!(attr->comp_mask & IBV_QP_INIT_ATTR_XRCD) || !attr->xrcd) {
+			attr->xrcd = ucma_get_xrcd(id_priv->cma_dev);
+			if (!attr->xrcd)
+				return -1;
+			attr->comp_mask |= IBV_QP_INIT_ATTR_XRCD;
+		}
+	}
+
+	ret = ucma_create_cqs(id, attr->send_cq || id->send_cq ? 0 : attr->cap.max_send_wr,
+				  attr->recv_cq || id->recv_cq ? 0 : attr->cap.max_recv_wr);
 	if (ret)
 		return ret;
 
-	if (!qp_init_attr->send_cq)
-		qp_init_attr->send_cq = id->send_cq;
-	if (!qp_init_attr->recv_cq)
-		qp_init_attr->recv_cq = id->recv_cq;
-	if (id->srq && !qp_init_attr->srq)
-		qp_init_attr->srq = id->srq;
-	qp = ibv_create_qp(pd, qp_init_attr);
+	if (!attr->send_cq)
+		attr->send_cq = id->send_cq;
+	if (!attr->recv_cq)
+		attr->recv_cq = id->recv_cq;
+	if (id->srq && !attr->srq)
+		attr->srq = id->srq;
+	qp = ibv_create_qp_ex(id->verbs, attr);
 	if (!qp) {
 		ret = ERR(ENOMEM);
 		goto err1;
@@ -1373,13 +1387,27 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	if (ret)
 		goto err2;
 
-	id->pd = pd;
+	id->pd = qp->pd;
 	id->qp = qp;
 	return 0;
 err2:
 	ibv_destroy_qp(qp);
 err1:
 	ucma_destroy_cqs(id);
+	return ret;
+}
+
+int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
+		   struct ibv_qp_init_attr *qp_init_attr)
+{
+	struct ibv_qp_init_attr_ex attr_ex;
+	int ret;
+
+	memcpy(&attr_ex, qp_init_attr, sizeof *qp_init_attr);
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attr_ex.pd = pd ? pd : id->pd;
+	ret = rdma_create_qp_ex(id, &attr_ex);
+	memcpy(qp_init_attr, &attr_ex, sizeof *qp_init_attr);
 	return ret;
 }
 
