@@ -3947,11 +3947,11 @@ static int rs_svc_rm_rs(struct rs_svc *svc, struct rsocket *rs)
 
 	for (i = 1; i <= svc->cnt; i++) {
 		if (svc->rss[i] == rs) {
-			svc->cnt--;
 			svc->rss[i] = svc->rss[svc->cnt];
 			memcpy(svc->contexts + i * svc->context_size,
 			       svc->contexts + svc->cnt * svc->context_size,
 			       svc->context_size);
+			svc->cnt--;
 			return 0;
 		}
 	}
