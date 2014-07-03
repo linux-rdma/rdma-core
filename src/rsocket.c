@@ -3941,19 +3941,28 @@ static int rs_svc_add_rs(struct rs_svc *svc, struct rsocket *rs)
 	return 0;
 }
 
-static int rs_svc_rm_rs(struct rs_svc *svc, struct rsocket *rs)
+static int rs_svc_index(struct rs_svc *svc, struct rsocket *rs)
 {
 	int i;
 
 	for (i = 1; i <= svc->cnt; i++) {
-		if (svc->rss[i] == rs) {
-			svc->rss[i] = svc->rss[svc->cnt];
-			memcpy(svc->contexts + i * svc->context_size,
-			       svc->contexts + svc->cnt * svc->context_size,
-			       svc->context_size);
-			svc->cnt--;
-			return 0;
-		}
+		if (svc->rss[i] == rs)
+			return i;
+	}
+	return -1;
+}
+
+static int rs_svc_rm_rs(struct rs_svc *svc, struct rsocket *rs)
+{
+	int i;
+
+	if ((i = rs_svc_index(svc, rs)) >= 0) {
+		svc->rss[i] = svc->rss[svc->cnt];
+		memcpy(svc->contexts + i * svc->context_size,
+		       svc->contexts + svc->cnt * svc->context_size,
+		       svc->context_size);
+		svc->cnt--;
+		return 0;
 	}
 	return EBADF;
 }
@@ -4197,6 +4206,7 @@ static uint32_t rs_get_time(void)
 static void tcp_svc_process_sock(struct rs_svc *svc)
 {
 	struct rs_svc_msg msg;
+	int i;
 
 	read(svc->sock[1], &msg, sizeof msg);
 	switch (msg.cmd) {
@@ -4215,8 +4225,13 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 			msg.rs->opts &= ~RS_OPT_SVC_ACTIVE;
 		break;
 	case RS_SVC_MOD_KEEPALIVE:
-		tcp_svc_timeouts[svc->cnt] = rs_get_time() + msg.rs->keepalive_time;
-		msg.status = 0;
+		i = rs_svc_index(svc, msg.rs);
+		if (i >= 0) {
+			tcp_svc_timeouts[i] = rs_get_time() + msg.rs->keepalive_time;
+			msg.status = 0;
+		} else {
+			msg.status = EBADF;
+		}
 		break;
 	case RS_SVC_NOOP:
 		msg.status = 0;
