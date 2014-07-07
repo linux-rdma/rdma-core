@@ -193,7 +193,7 @@ static int log_level = 0;
 static char lock_file[128] = "/var/run/ibacm.pid";
 static short server_port = 6125;
 static int support_ips_in_addr_cfg = 0;
-static char *prov_lib_path = IBACM_LIB_PATH;
+static char prov_lib_path[256] = IBACM_LIB_PATH;
 
 void acm_write(int level, const char *format, ...)
 {
