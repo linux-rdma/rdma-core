@@ -403,6 +403,8 @@ int mlx4_close_xrcd(struct ibv_xrcd *xrcd);
 
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access);
+int mlx4_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+		  void *addr, size_t length, int access);
 int mlx4_dereg_mr(struct ibv_mr *mr);
 
 struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,

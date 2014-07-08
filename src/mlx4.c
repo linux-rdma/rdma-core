@@ -92,6 +92,7 @@ static struct ibv_context_ops mlx4_ctx_ops = {
 	.alloc_pd      = mlx4_alloc_pd,
 	.dealloc_pd    = mlx4_free_pd,
 	.reg_mr	       = mlx4_reg_mr,
+	.rereg_mr      = mlx4_rereg_mr,
 	.dereg_mr      = mlx4_dereg_mr,
 	.create_cq     = mlx4_create_cq,
 	.poll_cq       = mlx4_poll_cq,
