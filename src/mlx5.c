@@ -452,26 +452,26 @@ static int single_threaded_app(void)
 	return 0;
 }
 
-static struct ibv_context *mlx5_alloc_context(struct ibv_device *ibdev,
-					      int cmd_fd)
+static int mlx5_init_context(struct verbs_device *vdev,
+			     struct ibv_context *ctx, int cmd_fd)
 {
 	struct mlx5_context	       *context;
 	struct mlx5_alloc_ucontext	req;
 	struct mlx5_alloc_ucontext_resp resp;
 	int				i;
-	int				page_size = to_mdev(ibdev)->page_size;
+	int				page_size;
 	int				tot_uuars;
 	int				low_lat_uuars;
 	int				gross_uuars;
 	int				j;
 	off_t				offset;
+	struct mlx5_device	       *mdev;
 
+	mdev = to_mdev(&vdev->device);
+	page_size = mdev->page_size;
 	mlx5_single_threaded = single_threaded_app();
 
-	context = calloc(1, sizeof *context);
-	if (!context)
-		return NULL;
-
+	context = to_mctx(ctx);
 	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	open_debug_file(context);
@@ -540,9 +540,8 @@ static struct ibv_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		offset = 0;
 		set_command(MLX5_MMAP_GET_REGULAR_PAGES_CMD, &offset);
 		set_index(i, &offset);
-		context->uar[i] = mmap(NULL, to_mdev(ibdev)->page_size, PROT_WRITE,
-				       MAP_SHARED, cmd_fd,
-				       page_size * offset);
+		context->uar[i] = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
+				       cmd_fd, page_size * offset);
 		if (context->uar[i] == MAP_FAILED) {
 			context->uar[i] = NULL;
 			goto err_free_bf;
@@ -565,14 +564,14 @@ static struct ibv_context *mlx5_alloc_context(struct ibv_device *ibdev,
 
 	context->prefer_bf = get_always_bf();
 	context->shut_up_bf = get_shut_up_bf();
-	mlx5_read_env(ibdev, context);
+	mlx5_read_env(&vdev->device, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
 	INIT_LIST_HEAD(&context->hugetlb_list);
 
 	context->ibv_ctx.ops = mlx5_ctx_ops;
 
-	return &context->ibv_ctx;
+	return 0;
 
 err_free_bf:
 	free(context->bfs);
@@ -584,10 +583,11 @@ err_free:
 	}
 	close_debug_file(context);
 	free(context);
-	return NULL;
+	return errno;
 }
 
-static void mlx5_free_context(struct ibv_context *ibctx)
+static void mlx5_cleanup_context(struct verbs_device *device,
+				 struct ibv_context *ibctx)
 {
 	struct mlx5_context *context = to_mctx(ibctx);
 	int page_size = to_mdev(ibctx->device)->page_size;
@@ -599,16 +599,10 @@ static void mlx5_free_context(struct ibv_context *ibctx)
 			munmap(context->uar[i], page_size);
 	}
 	close_debug_file(context);
-	free(context);
 }
 
-static struct ibv_device_ops mlx5_dev_ops = {
-	.alloc_context = mlx5_alloc_context,
-	.free_context  = mlx5_free_context
-};
-
-static struct ibv_device *mlx5_driver_init(const char *uverbs_sys_path,
-					   int abi_version)
+static struct verbs_device *mlx5_driver_init(const char *uverbs_sys_path,
+					     int abi_version)
 {
 	char			value[8];
 	struct mlx5_device     *dev;
@@ -650,30 +644,18 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = mlx5_dev_ops;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	return &dev->ibv_dev;
+	dev->driver_abi_ver = abi_version;
+	dev->verbs_dev.sz = sizeof(*dev);
+	dev->verbs_dev.size_of_context = sizeof(struct mlx5_context) -
+		sizeof(struct ibv_context);
+	dev->verbs_dev.init_context = mlx5_init_context;
+	dev->verbs_dev.uninit_context = mlx5_cleanup_context;
+
+	return &dev->verbs_dev;
 }
 
-#ifdef HAVE_IBV_REGISTER_DRIVER
 static __attribute__((constructor)) void mlx5_register_driver(void)
 {
-	ibv_register_driver("mlx5", mlx5_driver_init);
+	verbs_register_driver("mlx5", mlx5_driver_init);
 }
-#else
-/*
- * Export the old libsysfs sysfs_class_device-based driver entry point
- * if libibverbs does not export an ibv_register_driver() function.
- */
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
-{
-	int abi_ver = 0;
-	char value[8];
-
-	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
-				value, sizeof value) > 0)
-		abi_ver = strtol(value, NULL, 10);
-
-	return mlx5_driver_init(sysdev->path, abi_ver);
-}
-#endif /* HAVE_IBV_REGISTER_DRIVER */

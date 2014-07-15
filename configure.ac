@@ -59,6 +59,8 @@ AC_C_CONST
 AC_CHECK_SIZEOF(long)
 
 dnl Checks for library functions
+AC_CHECK_FUNC(verbs_register_driver, [],
+	AC_MSG_ERROR([verbs_register_driver() not found.  libmlx5 requires libibverbs >= 1.1.8.]))
 AC_CHECK_FUNC(ibv_read_sysfs_file, [],
     AC_MSG_ERROR([ibv_read_sysfs_file() not found.  libmlx5 requires libibverbs >= 1.0.3.]))
 AC_CHECK_FUNCS(ibv_dontfork_range ibv_dofork_range ibv_register_driver)

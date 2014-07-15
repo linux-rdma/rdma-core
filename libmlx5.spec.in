@@ -9,7 +9,7 @@ Url: http://openfabrics.org/
 Source: http://openfabrics.org/downloads/mlx5/libmlx5-%{version}.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: libibverbs-devel >= 1.1-0.1.rc2
+BuildRequires: libibverbs-devel >= 1.1.8
 
 %description
 libmlx5 provides a device-specific userspace driver for Mellanox

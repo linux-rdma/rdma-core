@@ -229,7 +229,7 @@ enum mlx5_alloc_type {
 };
 
 struct mlx5_device {
-	struct ibv_device	ibv_dev;
+	struct verbs_device	verbs_dev;
 	int			page_size;
 	int			driver_abi_ver;
 };
@@ -467,7 +467,10 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 
 static inline struct mlx5_device *to_mdev(struct ibv_device *ibdev)
 {
-	return to_mxxx(dev, device);
+	struct mlx5_device *ret;
+
+	ret = (void *)ibdev - offsetof(struct mlx5_device, verbs_dev);
+	return ret;
 }
 
 static inline struct mlx5_context *to_mctx(struct ibv_context *ibctx)
