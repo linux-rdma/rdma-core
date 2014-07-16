@@ -148,9 +148,6 @@ static int send_msg(int size)
 	struct pollfd fds;
 	int offset, ret;
 
-	if (verify)
-		format_buf(buf, size);
-
 	if (use_async) {
 		fds.fd = rs;
 		fds.events = POLLOUT;
@@ -179,9 +176,6 @@ static int send_xfer(int size)
 {
 	struct pollfd fds;
 	int offset, ret;
-
-	if (verify)
-		format_buf(buf, size - 1);
 
 	if (use_async) {
 		fds.fd = rs;
@@ -231,12 +225,6 @@ static int recv_msg(int size)
 			perror("rrecv");
 			return ret;
 		}
-	}
-
-	if (verify) {
-		ret = verify_buf(buf, size);
-		if (ret)
-			return ret;
 	}
 
 	return 0;
@@ -296,6 +284,8 @@ static int run_test(void)
 					goto out;
 			}
 			*poll_byte = (uint8_t) marker++;
+			if (verify)
+				format_buf(buf, transfer_size - 1);
 			ret = send_xfer(transfer_size);
 			if (ret)
 				goto out;
@@ -312,6 +302,8 @@ static int run_test(void)
 					goto out;
 			}
 			*poll_byte = (uint8_t) marker++;
+			if (verify)
+				format_buf(buf, transfer_size - 1);
 			ret = send_xfer(transfer_size);
 		}
 		if (ret)
