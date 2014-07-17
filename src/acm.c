@@ -946,7 +946,7 @@ acm_svr_resolve_path(struct acmc_client *client, struct acm_msg *msg)
 		msg->resolve_data[0].info.addr, sizeof *path);
 	acm_log(2, "path %s\n", log_data);
 	addr = acm_get_ep_address(&msg->resolve_data[0]);
-	if (!ep) {
+	if (!addr) {
 		acm_log(0, "notice - unknown local end point address\n");
 		return acmc_resolve_response(client->index, msg,
 					     ACM_STATUS_ESRCADDR);
