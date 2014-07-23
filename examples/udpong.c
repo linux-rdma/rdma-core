@@ -347,7 +347,7 @@ static ssize_t client_recv(struct message *msg, size_t size, int timeout)
 	}
 
 	ret = rs_recv(rs, msg, size, flags | MSG_DONTWAIT);
-	if (ret < 0 && (errno == EWOULDBLOCK || errno == EAGAIN))
+	if (ret < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
 		perror("rrecv");
 
 	return ret;
