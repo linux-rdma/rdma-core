@@ -1,3 +1,4 @@
+# Copyright (c) 2013. Intel Corporation. All rights reserved.
 # Copyright (c) 2007, 2008, 2009. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
@@ -36,11 +37,12 @@
 %define ver @VERSION@
 %define RELEASE 1
 %define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%define with_dracut %(if rpm -qa | grep -q dracut; then echo 1; else echo 0; fi)
 
 Name: libipathverbs
 Version: %ver
 Release: %rel%{?dist}
-Summary: QLogic InfiniPath HCA Userspace Driver
+Summary: Intel InfiniPath HCA Userspace Driver
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
@@ -49,9 +51,12 @@ Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
+%if %{with_dracut}
+Requires: dracut
+%endif
 
 %description
-libipathverbs provides a device-specific userspace driver for QLogic HCAs
+libipathverbs provides a device-specific userspace driver for Intel HCAs
 for use with the libibverbs library.
 
 %package devel
@@ -82,8 +87,17 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{_libdir}/libipathverbs*.so
+%{_sbindir}/truescale-serdes.cmds
 %doc AUTHORS COPYING README
 %config %{_sysconfdir}/libibverbs.d/ipath.driver
+%config %{_sysconfdir}/modprobe.d/truescale.conf
+%if %{with_dracut}
+%define dracutdir %(rpm -ql dracut | grep dracut-functions$ | sed 's/dracut-functions//')
+%{dracutdir}modules.d/90qib/install
+%{dracutdir}modules.d/90qib/check
+%{dracutdir}modules.d/90qib/installkernel
+%{dracutdir}modules.d/90qib
+%endif
 
 %files devel
 %defattr(-,root,root,-)

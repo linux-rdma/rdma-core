@@ -52,12 +52,28 @@ else
     src_ipathverbs_la_SOURCES = $(IPATHVERBS_SOURCES)
     src_ipathverbs_la_LDFLAGS = -avoid-version -module $(ipathverbs_version_script)
 endif
+ipathverbsmodprobedir = $(sysconfdir)/modprobe.d
+ipathverbsmodprobe_DATA = truescale.conf
 
 EXTRA_DIST = src/ipathverbs.h \
     src/ipath-abi.h \
     src/ipathverbs.map \
     libipathverbs.spec.in \
-    ipath.driver
+    ipath.driver \
+    truescale-serdes.cmds \
+    truescale.conf
+
+
+sbin_SCRIPTS = truescale-serdes.cmds
+if HAS_DRACUT
+EXTRA_DIST += dracut_check dracut_install dracut_kmod
+dracutdir = $(DESTDIR)$(shell rpm -ql dracut | grep dracut-functions$$ | sed 's/dracut-functions//')modules.d/90qib
+
+install-data-local: dracut_check dracut_install dracut_kmod
+	$(INSTALL) -D -m 755 dracut_check $(dracutdir)/check
+	$(INSTALL) -D -m 755 dracut_install $(dracutdir)/install
+	$(INSTALL) -D -m 755 dracut_kmod $(dracutdir)/installkernel
+endif
 
 dist-hook: libipathverbs.spec
 	cp libipathverbs.spec $(distdir)

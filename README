@@ -1,22 +1,22 @@
 Introduction
 ============
 
-libipathverbs is a userspace driver for the QLogic InfiniBand HCAs.
+libipathverbs is a userspace driver for the Intel InfiniBand HCAs.
 It works as a plug-in module for libibverbs that allows programs to use
-QLogic HCAs directly from userspace.  See the libibverbs package for
+Intel HCAs directly from userspace.  See the libibverbs package for
 more information.
 
 Using libipathverbs
 ===================
 
 libipathverbs will be loaded and used automatically by programs linked
-with libibverbs.  The ib_ipath kernel module must be loaded for QLogic
+with libibverbs.  The ib_ipath kernel module must be loaded for Intel
 HCA devices to be detected and used.
 
 Supported Hardware
 ==================
 
-libipathverbs currently supports the following QLogic HCAs:
+libipathverbs currently supports the following Intel HCAs:
 
 	InfiniPath QLE7140 PCIe Adapter
 	InfiniPath QMI7140 PCIe Adapter
