@@ -3915,8 +3915,8 @@ static int rs_svc_grow_sets(struct rs_svc *svc, int grow_size)
 	rss = set;
 	contexts = set + sizeof(*rss) * svc->size;
 	if (svc->cnt) {
-		memcpy(rss, svc->rss, sizeof(*rss) * svc->cnt);
-		memcpy(contexts, svc->contexts, svc->context_size * svc->cnt);
+		memcpy(rss, svc->rss, sizeof(*rss) * (svc->cnt + 1));
+		memcpy(contexts, svc->contexts, svc->context_size * (svc->cnt + 1));
 	}
 
 	free(svc->rss);
