@@ -1,6 +1,30 @@
-commit e19fff770d0d31b4594ee11cb0ae1e4e42029cb6
+commit 6a417d903b9add7c8ab2b71ac11c85c46671e020
 Author: Steve Wise <swise@opengridcomputing.com>
-Date:   Wed Jun 18 10:16:54 2014 -0500
+Date:   Thu Jul 31 11:25:22 2014 -0500
+
+    Spin release 1.3.5.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 52ecbea1b908d3b449022e2d75ebe0ca3885bcf2
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 31 11:14:05 2014 -0500
+
+    libcxb4: use wc_wmb() instead of wmb().
+    
+    The user mode RDMA macro for wmb() is not sufficient to provide the
+    fencing needed.  This was causing corrupted packets when running multiple
+    WD-UDP sockperf processes.  The correct "sfence" instruction is provided
+    with the wc_wmb() macro.  See /usr/include/infiniband/arch.h.
+    
+    Note:  The kernel implementation of wmb() is sufficient.  This is a
+    libcxgb4 issue only...
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 242c29715372bf6999aa343a5aad5654da3ecf3a
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Jun 18 10:17:00 2014 -0500
 
     Spin release 1.3.4
     
