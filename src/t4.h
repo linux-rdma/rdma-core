@@ -479,7 +479,7 @@ extern int t5_en_wc;
 static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
 				 union t4_wr *wqe)
 {
-	wmb();
+	wc_wmb();
 	if (t5) {
 		if (t5_en_wc && inc == 1) {
 			PDBG("%s: WC wq->sq.pidx = %d; len16=%d\n",
@@ -512,7 +512,7 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
 static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t5, u8 len16,
 				 union t4_recv_wr *wqe)
 {
-	wmb();
+	wc_wmb();
 	if (t5) {
 		if (t5_en_wc && inc == 1) {
 			PDBG("%s: WC wq->rq.pidx = %d; len16=%d\n",

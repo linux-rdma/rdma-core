@@ -53,7 +53,7 @@ static void copy_wr_to_sq(struct t4_wq *wq, union t4_wr *wqe, u8 len16)
 	dst = (u64 *)((u8 *)wq->sq.queue + wq->sq.wq_pidx * T4_EQ_ENTRY_SIZE);
 	if (t4_sq_onchip(wq)) {
 		len16 = align(len16, 4);
-		wmb();
+		wc_wmb();
 	}
 	while (len16) {
 		*dst++ = *src++;
@@ -289,7 +289,7 @@ static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
 	int mask;
 	int ret;
 
-	wmb();
+	wc_wmb();
 	if (qid == qhp->wq.sq.qid) {
 		attr.sq_psn = idx;
 		mask = IBV_QP_SQ_PSN;
