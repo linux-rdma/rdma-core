@@ -35,11 +35,11 @@
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <errno.h>
 #include <sys/types.h>
 #include <stdlib.h>
 
 #include "indexer.h"
-#include "cma.h"
 
 /*
  * Indexer - to find a structure given an index
