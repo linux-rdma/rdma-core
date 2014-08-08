@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([librdmacm],[1.0.19],[linux-rdma@vger.kernel.org])
+AC_INIT([librdmacm],[1.0.19-1],[linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/cma.c])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
