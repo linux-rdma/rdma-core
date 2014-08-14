@@ -1875,6 +1875,7 @@ static int ibsrpdm(int argc, char *argv[])
 	config->timeout = 5000;
 	config->mad_retries = 3;
 	config->all = 1;
+	config->once = 1;
 
 	while (1) {
 		int c;
