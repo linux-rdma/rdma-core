@@ -33,6 +33,11 @@
 
 #include "iwarp_pm.h"
 
+/* Necessary only for SLES11 */
+#if !defined (NETLINK_RDMA)
+	#define NETLINK_RDMA	        20
+#endif
+
 extern iwpm_client client_list[IWARP_PM_MAX_CLIENTS];
 
 /**

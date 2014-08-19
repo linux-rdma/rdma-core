@@ -17,11 +17,13 @@ AC_PROG_INSTALL
 # Checks for libraries.
 AC_CHECK_LIB(pthread, pthread_cond_init, [],
 	AC_MSG_ERROR([pthread_cond_init() not found. libiwpm requires libpthread.]))
-AC_CHECK_LIB(nl-3, nlmsg_alloc, [],
-	AC_MSG_ERROR([nlmsg_alloc() not found. libiwpm requires libnl-3.]))
+AC_CHECK_LIB(nl, nlmsg_alloc, [], AC_CHECK_LIB(nl-3, nlmsg_alloc, [],
+	AC_MSG_ERROR([nlmsg_alloc() not found. libiwpm requires libnl or libnl-3 to be installed])))
+
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h netinet/in.h stdlib.h string.h sys/socket.h syslog.h unistd.h])
+AC_CHECK_HEADERS([netlink/attr.h netlink/addr.h netlink/data.h netlink/msg.h netlink/types.h netlink/utils.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_PID_T
