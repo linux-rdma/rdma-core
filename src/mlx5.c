@@ -466,8 +466,10 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	int				j;
 	off_t				offset;
 	struct mlx5_device	       *mdev;
+	struct verbs_context	       *v_ctx;
 
 	mdev = to_mdev(&vdev->device);
+	v_ctx = verbs_get_ctx(ctx);
 	page_size = mdev->page_size;
 	mlx5_single_threaded = single_threaded_app();
 
@@ -570,6 +572,12 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	INIT_LIST_HEAD(&context->hugetlb_list);
 
 	context->ibv_ctx.ops = mlx5_ctx_ops;
+
+	verbs_set_ctx_op(v_ctx, create_qp_ex, mlx5_create_qp_ex);
+	verbs_set_ctx_op(v_ctx, open_xrcd, mlx5_open_xrcd);
+	verbs_set_ctx_op(v_ctx, close_xrcd, mlx5_close_xrcd);
+	verbs_set_ctx_op(v_ctx, create_srq_ex, mlx5_create_srq_ex);
+	verbs_set_ctx_op(v_ctx, get_srq_num, mlx5_get_srq_num);
 
 	return 0;
 

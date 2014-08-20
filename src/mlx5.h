@@ -341,7 +341,7 @@ struct mlx5_cq {
 };
 
 struct mlx5_srq {
-	struct ibv_srq			srq;
+	struct verbs_srq		vsrq;
 	struct mlx5_buf			buf;
 	struct mlx5_spinlock		lock;
 	uint64_t		       *wrid;
@@ -392,6 +392,7 @@ struct mlx5_mr {
 };
 
 struct mlx5_qp {
+	struct verbs_qp			verbs_qp;
 	struct ibv_qp			ibv_qp;
 	struct mlx5_buf                 buf;
 	int                             max_inline_data;
@@ -495,7 +496,9 @@ static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
 
 static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
 {
-	return to_mxxx(qp, qp);
+	struct verbs_qp *vqp = (struct verbs_qp *)ibqp;
+
+	return container_of(vqp, struct mlx5_qp, verbs_qp);
 }
 
 static inline struct mlx5_mr *to_mmr(struct ibv_mr *ibmr)
@@ -534,6 +537,8 @@ void mlx5_free_db(struct mlx5_context *context, uint32_t *db);
 
 int mlx5_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr);
+struct ibv_qp *mlx5_create_qp_ex(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attr);
 int mlx5_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr);
 
@@ -608,6 +613,13 @@ void *mlx5_get_send_wqe(struct mlx5_qp *qp, int n);
 int mlx5_copy_to_recv_wqe(struct mlx5_qp *qp, int idx, void *buf, int size);
 int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size);
 int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size);
+struct ibv_xrcd *mlx5_open_xrcd(struct ibv_context *context,
+				struct ibv_xrcd_init_attr *xrcd_init_attr);
+int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
+int mlx5_close_xrcd(struct ibv_xrcd *ib_xrcd);
+struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
+				   struct ibv_srq_init_attr_ex *attr);
+
 static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 {
 	if (!mlx5_single_threaded)

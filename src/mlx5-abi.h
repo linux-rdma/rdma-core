@@ -103,6 +103,13 @@ struct mlx5_create_srq_resp {
 	__u32				reserved;
 };
 
+struct mlx5_create_srq_ex {
+	struct ibv_create_xsrq		ibv_cmd;
+	__u64				buf_addr;
+	__u64				db_addr;
+	__u32				flags;
+};
+
 struct mlx5_create_qp {
 	struct ibv_create_qp		ibv_cmd;
 	__u64				buf_addr;

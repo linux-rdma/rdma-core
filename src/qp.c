@@ -335,6 +335,7 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	struct mlx5_bf *bf = qp->bf;
 	void *qend = qp->sq.qend;
 	uint32_t mlx5_opcode;
+	struct mlx5_wqe_xrc_seg *xrc;
 #ifdef MLX5_DEBUG
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp;
 #endif
@@ -385,6 +386,12 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		size = sizeof *ctrl / 16;
 
 		switch (ibqp->qp_type) {
+		case IBV_QPT_XRC_SEND:
+			xrc = seg;
+			xrc->xrc_srqn = htonl(wr->qp_type.xrc.remote_srqn);
+			seg += sizeof(*xrc);
+			size += sizeof(*xrc) / 16;
+			/* fall through */
 		case IBV_QPT_RC:
 			switch (wr->opcode) {
 			case IBV_WR_RDMA_READ:
