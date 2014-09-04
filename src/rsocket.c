@@ -1174,9 +1174,14 @@ int rlisten(int socket, int backlog)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	ret = rdma_listen(rs->cm_id, backlog);
-	if (!ret)
-		rs->state = rs_listening;
+
+	if (rs->state != rs_listening) {
+		ret = rdma_listen(rs->cm_id, backlog);
+		if (!ret)
+			rs->state = rs_listening;
+	} else {
+		ret = 0;
+	}
 	return ret;
 }
 
