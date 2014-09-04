@@ -967,9 +967,6 @@ static void rs_free(struct rsocket *rs)
 		return;
 	}
 
-	if (rs->index >= 0)
-		rs_remove(rs);
-
 	if (rs->rmsg)
 		free(rs->rmsg);
 
@@ -997,6 +994,9 @@ static void rs_free(struct rsocket *rs)
 			rdma_destroy_qp(rs->cm_id);
 		rdma_destroy_id(rs->cm_id);
 	}
+
+	if (rs->index >= 0)
+		rs_remove(rs);
 
 	fastlock_destroy(&rs->map_lock);
 	fastlock_destroy(&rs->cq_wait_lock);
