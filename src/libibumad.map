@@ -23,6 +23,7 @@ IBUMAD_1.0 {
 		umad_poll;
 		umad_get_fd;
 		umad_register;
+		umad_register2;
 		umad_register_oui;
 		umad_unregister;
 		umad_status;

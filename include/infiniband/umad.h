@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2014 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -90,6 +91,8 @@ typedef struct ib_user_mad {
 					      struct ib_user_mad_reg_req)
 #define IB_USER_MAD_UNREGISTER_AGENT	_IOW(IB_IOCTL_MAGIC, 2, uint32_t)
 #define IB_USER_MAD_ENABLE_PKEY		_IO(IB_IOCTL_MAGIC, 3)
+#define IB_USER_MAD_REGISTER_AGENT2     _IOWR(IB_IOCTL_MAGIC, 4, \
+					      struct ib_user_mad_reg_req2)
 
 #define UMAD_CA_NAME_LEN	20
 #define UMAD_CA_MAX_PORTS	10	/* 0 - 9 */
@@ -195,6 +198,22 @@ int umad_register(int portid, int mgmt_class, int mgmt_version,
 int umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 		      uint8_t oui[3], long method_mask[16 / sizeof(long)]);
 int umad_unregister(int portid, int agentid);
+
+enum {
+	UMAD_USER_RMPP = (1 << 0)
+} umad_reg_flags;
+
+struct umad_reg_attr {
+	uint8_t    mgmt_class;
+	uint8_t    mgmt_class_version;
+	uint32_t   flags;
+	uint64_t   method_mask[2];
+	uint32_t   oui;
+	uint8_t    rmpp_version;
+};
+
+int umad_register2(int port_fd, struct umad_reg_attr *attr,
+		   uint32_t *agent_id);
 
 int umad_debug(int level);
 void umad_addr_dump(ib_mad_addr_t * addr);

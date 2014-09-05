@@ -1,0 +1,80 @@
+.\" -*- nroff -*-
+.\"
+.TH UMAD_REGISTER2 3  "March 25, 2014" "OpenIB" "OpenIB Programmer\'s Manual"
+.SH "NAME"
+umad_register2 \- register the specified management class and version for port
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/umad.h>
+.sp
+.BI "int umad_register2(int " "port_fd" ", struct umad_reg_attr *" "attr" ", uint32_t *" "agent_id");
+.fi
+.SH "DESCRIPTION"
+.B umad_register2()
+registers for a MAD agent using the provided registration attributes
+
+.I port_fd\fR
+the port on which to register the agent
+
+.I attr\fR
+The registration attributes as defined by the structure passed.  See below for details of this structure.
+
+.I agent_id\fR
+returned on success.  agent_id identifies the kernel MAD agent a MAD is received by or to be sent by.  agent_id is returned in the umad header "struct ib_user_mad" on recv and specified in umad_send when sending.
+
+
+.SH "REGISTRATION ATTRIBUTE STRUCTURE"
+.nf
+struct umad_reg_attr {
+.in +8
+uint8_t    mgmt_class;
+uint8_t    mgmt_class_version;
+uint32_t   flags;
+uint64_t   method_mask[2];
+uint32_t   oui;
+uint8_t    rmpp_version;
+.in -8
+};
+
+.I mgmt_class\fR
+Management class to register for.
+
+.I mgmt_class_version\fR
+Management class version to register for.
+
+.I flags\fR
+Registration flags.  If a flag specified is not supported by the kernel,
+an error is returned, and the supported flags are returned in this field.
+
+.P
+Current flags are:
+.in +8
+UMAD_USER_RMPP -- flag to indicate the kernel should not process
+RMPP packets.  All RMPP packets will be treated like individual
+MADs.  The user is responsible for implementing the RMPP
+protocol.
+.in -8
+
+.I method_mask\fR
+A bit mask which indicates which unsolicited methods this agent should
+receive.  Setting this array to 0 will result in the agent only
+receiving response MADs for which a request was sent.
+
+.I oui\fR
+The oui (in host order) to use for vendor classes 0x30 - 0x4f.
+Otherwise ignored.
+
+.I rmpp_version\fR
+If the class supports RMPP and kernel RMPP is enabled (the default)
+indicate which rmpp_version to use.
+
+
+.SH "RETURN VALUE"
+.B umad_register2()
+returns 0 on success and +ERRNO on failure.
+
+.SH "SEE ALSO"
+.BR umad_unregister (3)
+.SH "AUTHOR"
+.TP
+Ira Weiny <ira.weiny@intel.com>

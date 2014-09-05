@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
+ * Copyright (c) 2014 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -47,6 +48,7 @@
 #include <netinet/in.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "umad.h"
 
@@ -75,6 +77,19 @@ typedef struct ib_user_mad_reg_req {
 	uint8_t oui[3];
 	uint8_t rmpp_version;
 } ib_user_mad_reg_req_t;
+
+struct ib_user_mad_reg_req2 {
+	uint32_t id;
+	uint32_t qpn;
+	uint8_t  mgmt_class;
+	uint8_t  mgmt_class_version;
+	uint16_t res;
+	uint32_t flags;
+	uint64_t method_mask[2];
+	uint32_t oui;
+	uint8_t  rmpp_version;
+	uint8_t  reserved[3];
+};
 
 extern int sys_read_string(const char *dir_name, const char *file_name, char *str, int len);
 extern int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_guid);
@@ -971,6 +986,89 @@ int umad_register(int fd, int mgmt_class, int mgmt_version,
 	DEBUG("fd %d registering qp %d class 0x%x version %d failed: %m",
 	      fd, qp, mgmt_class, mgmt_version);
 	return -EPERM;
+}
+
+int umad_register2(int port_fd, struct umad_reg_attr *attr, uint32_t *agent_id)
+{
+	struct ib_user_mad_reg_req2 req;
+	int rc;
+
+	if (!attr || !agent_id)
+		return EINVAL;
+
+	TRACE("fd %d mgmt_class %u mgmt_class_version %u flags 0x%08x "
+	      "method_mask 0x%016" PRIx64 " %016" PRIx64
+	      "oui 0x%06x rmpp_version %u ",
+	      port_fd, attr->mgmt_class, attr->mgmt_class_version,
+	      attr->flags, attr->method_mask[0], attr->method_mask[1],
+	      attr->oui, attr->rmpp_version);
+
+	if (attr->mgmt_class >= 0x30 && attr->mgmt_class <= 0x4f &&
+	    ((attr->oui & 0x00ffffff) == 0 || (attr->oui & 0xff000000) != 0)) {
+		DEBUG("mgmt class %d is in vendor range 2 but oui (0x%08x) is invalid",
+		      attr->mgmt_class, attr->oui);
+		return EINVAL;
+	}
+
+	memset(&req, 0, sizeof(req));
+
+	req.mgmt_class = attr->mgmt_class;
+	req.mgmt_class_version = attr->mgmt_class_version;
+	req.qpn = (attr->mgmt_class == 0x1 || attr->mgmt_class == 0x81) ? 0 : 1;
+	req.flags = attr->flags;
+	memcpy(req.method_mask, attr->method_mask, sizeof req.method_mask);
+	req.oui = attr->oui;
+	req.rmpp_version = attr->rmpp_version;
+
+	VALGRIND_MAKE_MEM_DEFINED(&req, sizeof req);
+
+	if ((rc = ioctl(port_fd, IB_USER_MAD_REGISTER_AGENT2, (void *)&req)) == 0) {
+		DEBUG("fd %d registered to use agent %d qp %d class 0x%x oui 0x%06x",
+		      port_fd, req.id, req.qpn, req.mgmt_class, attr->oui);
+		*agent_id = req.id;
+		return 0;
+	}
+
+	if (errno == ENOTTY || errno == EINVAL) {
+
+		TRACE("no kernel support for registration flags");
+		req.flags = 0;
+
+		if (attr->flags == 0) {
+			struct ib_user_mad_reg_req req_v1;
+
+			TRACE("attempting original register ioctl");
+
+			memset(&req_v1, 0, sizeof(req_v1));
+			req_v1.mgmt_class = req.mgmt_class;
+			req_v1.mgmt_class_version = req.mgmt_class_version;
+			req_v1.qpn = req.qpn;
+			req_v1.rmpp_version = req.rmpp_version;
+			req_v1.oui[0] = (req.oui & 0xff0000) >> 16;
+			req_v1.oui[1] = (req.oui & 0x00ff00) >> 8;
+			req_v1.oui[2] =  req.oui & 0x0000ff;
+
+			memcpy(req_v1.method_mask, req.method_mask, sizeof req_v1.method_mask);
+
+			if ((rc = ioctl(port_fd, IB_USER_MAD_REGISTER_AGENT,
+					(void *)&req_v1)) == 0) {
+				DEBUG("fd %d registered to use agent %d qp %d class 0x%x oui 0x%06x",
+				      port_fd, req_v1.id, req_v1.qpn, req_v1.mgmt_class, attr->oui);
+				*agent_id = req_v1.id;
+				return 0;
+			}
+		}
+	}
+
+	rc = errno;
+	attr->flags = req.flags;
+
+	DEBUG("fd %d registering qp %d class 0x%x version %d "
+	      "oui 0x%06x failed flags returned 0x%x : %m",
+	      port_fd, req.qpn, req.mgmt_class, req.mgmt_class_version,
+	      attr->oui, req.flags);
+
+	return rc;
 }
 
 int umad_unregister(int fd, int agentid)
