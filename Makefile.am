@@ -41,6 +41,13 @@ libibumad_la_DEPENDENCIES = $(srcdir)/src/libibumad.map
 
 libibumadincludedir = $(includedir)/infiniband
 
+TESTS = tests/umad_register2 tests/umad_reg2_compat
+check_PROGRAMS = tests/umad_register2 tests/umad_reg2_compat
+tests_umad_register2_SOURCES = tests/umad_register2.c
+tests_umad_register2_LDFLAGS = libibumad.la
+tests_umad_reg2_compat_SOURCES = tests/umad_reg2_compat.c
+tests_umad_reg2_compat_LDFLAGS = libibumad.la
+
 libibumadinclude_HEADERS = $(srcdir)/include/infiniband/umad.h \
 	$(srcdir)/include/infiniband/umad_types.h \
 	$(srcdir)/include/infiniband/umad_sa.h \
