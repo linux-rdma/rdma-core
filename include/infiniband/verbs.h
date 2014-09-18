@@ -191,6 +191,32 @@ enum {
 	IBV_LINK_LAYER_ETHERNET,
 };
 
+enum ibv_port_cap_flags {
+	IBV_PORT_SM				= 1 <<  1,
+	IBV_PORT_NOTICE_SUP			= 1 <<  2,
+	IBV_PORT_TRAP_SUP			= 1 <<  3,
+	IBV_PORT_OPT_IPD_SUP			= 1 <<  4,
+	IBV_PORT_AUTO_MIGR_SUP			= 1 <<  5,
+	IBV_PORT_SL_MAP_SUP			= 1 <<  6,
+	IBV_PORT_MKEY_NVRAM			= 1 <<  7,
+	IBV_PORT_PKEY_NVRAM			= 1 <<  8,
+	IBV_PORT_LED_INFO_SUP			= 1 <<  9,
+	IBV_PORT_SYS_IMAGE_GUID_SUP		= 1 << 11,
+	IBV_PORT_PKEY_SW_EXT_PORT_TRAP_SUP	= 1 << 12,
+	IBV_PORT_EXTENDED_SPEEDS_SUP		= 1 << 14,
+	IBV_PORT_CM_SUP				= 1 << 16,
+	IBV_PORT_SNMP_TUNNEL_SUP		= 1 << 17,
+	IBV_PORT_REINIT_SUP			= 1 << 18,
+	IBV_PORT_DEVICE_MGMT_SUP		= 1 << 19,
+	IBV_PORT_VENDOR_CLASS_SUP		= 1 << 20,
+	IBV_PORT_DR_NOTICE_SUP			= 1 << 21,
+	IBV_PORT_CAP_MASK_NOTICE_SUP		= 1 << 22,
+	IBV_PORT_BOOT_MGMT_SUP			= 1 << 23,
+	IBV_PORT_LINK_LATENCY_SUP		= 1 << 24,
+	IBV_PORT_CLIENT_REG_SUP			= 1 << 25,
+	IBV_PORT_IP_BASED_GIDS			= 1 << 26
+};
+
 struct ibv_port_attr {
 	enum ibv_port_state	state;
 	enum ibv_mtu		max_mtu;
