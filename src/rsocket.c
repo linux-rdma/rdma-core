@@ -381,6 +381,7 @@ struct rsocket {
 	dlist_entry	  iomap_list;
 	dlist_entry	  iomap_queue;
 	int		  iomap_pending;
+	int		  unack_cqe;
 };
 
 #define DS_UDP_TAG 0x55555555
@@ -990,8 +991,10 @@ static void rs_free(struct rsocket *rs)
 
 	if (rs->cm_id) {
 		rs_free_iomappings(rs);
-		if (rs->cm_id->qp)
+		if (rs->cm_id->qp) {
+			ibv_ack_cq_events(rs->cm_id->recv_cq, rs->unack_cqe);
 			rdma_destroy_qp(rs->cm_id);
+		}
 		rdma_destroy_id(rs->cm_id);
 	}
 
@@ -1970,7 +1973,10 @@ static int rs_get_cq_event(struct rsocket *rs)
 
 	ret = ibv_get_cq_event(rs->cm_id->recv_cq_channel, &cq, &context);
 	if (!ret) {
-		ibv_ack_cq_events(rs->cm_id->recv_cq, 1);
+		if (++rs->unack_cqe >= rs->sq_size + rs->rq_size) {
+			ibv_ack_cq_events(rs->cm_id->recv_cq, rs->unack_cqe);
+			rs->unack_cqe = 0;
+		}
 		rs->cq_armed = 0;
 	} else if (errno != EAGAIN) {
 		rs->state = rs_error;
