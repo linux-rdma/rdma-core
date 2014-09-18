@@ -1978,7 +1978,7 @@ static int rs_get_cq_event(struct rsocket *rs)
 			rs->unack_cqe = 0;
 		}
 		rs->cq_armed = 0;
-	} else if (errno != EAGAIN) {
+	} else if (!(errno == EAGAIN || errno == EINTR)) {
 		rs->state = rs_error;
 	}
 
