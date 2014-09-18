@@ -50,6 +50,9 @@
 #include <netinet/tcp.h>
 #include <unistd.h>
 #include <semaphore.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
@@ -121,6 +124,136 @@ struct fd_info {
 	int dupfd;
 	atomic_t refcnt;
 };
+
+struct config_entry {
+	char *name;
+	int domain;
+	int type;
+	int protocol;
+};
+
+static struct config_entry *config;
+static int config_cnt;
+extern char *program_invocation_short_name;
+
+
+static void free_config(void)
+{
+	while (config_cnt)
+		free(config[--config_cnt].name);
+
+	free(config);
+}
+
+/*
+ * Config file format:
+ * # Starting '#' indicates comment
+ * # wild card values are supported using '*'
+ * # domain - *, INET, INET6, IB
+ * # type - *, STREAM, DGRAM
+ * # protocol - *, TCP, UDP
+ * program_name domain type protocol
+ */
+static void scan_config(void)
+{
+	struct config_entry *new_config;
+	FILE *fp;
+	char line[120], prog[64], dom[16], type[16], proto[16];
+
+	fp = fopen(RS_CONF_DIR "/preload_config", "r");
+	if (!fp)
+		return;
+
+	while (fgets(line, sizeof(line), fp)) {
+		if (line[0] == '#')
+			continue;
+
+		if (sscanf(line, "%64s%16s%16s%16s", prog, dom, type, proto) != 4)
+			continue;
+
+		new_config = realloc(config, (config_cnt + 1) *
+					     sizeof(struct config_entry));
+		if (!new_config)
+			break;
+
+		config = new_config;
+		memset(&config[config_cnt], 0, sizeof(struct config_entry));
+
+		if (!strcasecmp(dom, "INET") ||
+		    !strcasecmp(dom, "AF_INET") ||
+		    !strcasecmp(dom, "PF_INET")) {
+			config[config_cnt].domain = AF_INET;
+		} else if (!strcasecmp(dom, "INET6") ||
+			   !strcasecmp(dom, "AF_INET6") ||
+			   !strcasecmp(dom, "PF_INET6")) {
+			config[config_cnt].domain = AF_INET6;
+		} else if (!strcasecmp(dom, "IB") ||
+			   !strcasecmp(dom, "AF_IB") ||
+			   !strcasecmp(dom, "PF_IB")) {
+			config[config_cnt].domain = AF_IB;
+		} else if (strcmp(dom, "*")) {
+			continue;
+		}
+
+		if (!strcasecmp(type, "STREAM") ||
+		    !strcasecmp(type, "SOCK_STREAM")) {
+			config[config_cnt].type = SOCK_STREAM;
+		} else if (!strcasecmp(type, "DGRAM") ||
+			   !strcasecmp(type, "SOCK_DGRAM")) {
+			config[config_cnt].type = SOCK_DGRAM;
+		} else if (strcmp(type, "*")) {
+			continue;
+		}
+
+		if (!strcasecmp(proto, "TCP") ||
+		    !strcasecmp(proto, "IPPROTO_TCP")) {
+			config[config_cnt].protocol = IPPROTO_TCP;
+		} else if (!strcasecmp(proto, "UDP") ||
+			   !strcasecmp(proto, "IPPROTO_UDP")) {
+			config[config_cnt].protocol = IPPROTO_UDP;
+		} else if (strcmp(proto, "*")) {
+			continue;
+		}
+
+		if (strcmp(prog, "*")) {
+		    if (!(config[config_cnt].name = strdup(prog)))
+			    continue;
+		}
+
+		config_cnt++;
+	}
+
+	fclose(fp);
+	if (config_cnt)
+		atexit(free_config);
+}
+
+static int intercept_socket(int domain, int type, int protocol)
+{
+	int i;
+
+	if (!config_cnt)
+		return 1;
+
+	if (!protocol) {
+		if (type == SOCK_STREAM)
+			protocol = IPPROTO_TCP;
+		else if (type == SOCK_DGRAM)
+			protocol = IPPROTO_UDP;
+	}
+
+	for (i = 0; i < config_cnt; i++) {
+		if ((!config[i].name ||
+		     !strncasecmp(config[i].name, program_invocation_short_name,
+				  strlen(config[i].name))) &&
+		    (!config[i].domain || config[i].domain == domain) &&
+		    (!config[i].type || config[i].type == type) &&
+		    (!config[i].protocol || config[i].protocol == protocol))
+			return 1;
+	}
+
+	return 0;
+}
 
 static int fd_open(void)
 {
@@ -308,6 +441,7 @@ static void init_preload(void)
 	rs.fcntl = dlsym(RTLD_DEFAULT, "rfcntl");
 
 	getenv_options();
+	scan_config();
 	init = 1;
 out:
 	pthread_mutex_unlock(&mut);
@@ -404,10 +538,11 @@ int socket(int domain, int type, int protocol)
 	static __thread int recursive;
 	int index, ret;
 
-	if (recursive)
+	init_preload();
+
+	if (recursive || !intercept_socket(domain, type, protocol))
 		goto real;
 
-	init_preload();
 	index = fd_open();
 	if (index < 0)
 		return index;
