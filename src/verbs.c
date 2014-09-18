@@ -43,6 +43,11 @@
 #include <string.h>
 
 #include "ibverbs.h"
+#ifndef NRESOLVE_NEIGH
+#include <net/if.h>
+#include <net/if_arp.h>
+#include "neigh.h"
+#endif
 
 int ibv_rate_to_mult(enum ibv_rate rate)
 {
@@ -591,3 +596,125 @@ int __ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid
 	return qp->context->ops.detach_mcast(qp, gid, lid);
 }
 default_symver(__ibv_detach_mcast, ibv_detach_mcast);
+
+static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+{
+	return IN6_IS_ADDR_V4MAPPED(&a->s6_addr32) ||
+		/* IPv4 encoded multicast addresses */
+		(a->s6_addr32[0]  == htonl(0xff0e0000) &&
+		((a->s6_addr32[1] |
+		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL));
+}
+
+struct peer_address {
+	void *address;
+	uint32_t size;
+};
+
+static inline int create_peer_from_gid(int family, void *raw_gid,
+				       struct peer_address *peer_address)
+{
+	switch (family) {
+	case AF_INET:
+		peer_address->address = raw_gid + 12;
+		peer_address->size = 4;
+		break;
+	case AF_INET6:
+		peer_address->address = raw_gid;
+		peer_address->size = 16;
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+
+#define NEIGH_GET_DEFAULT_TIMEOUT_MS 3000
+int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
+				struct ibv_ah_attr *attr,
+				uint8_t eth_mac[ETHERNET_LL_SIZE],
+				uint16_t *vid)
+{
+#ifndef NRESOLVE_NEIGH
+	int dst_family;
+	int src_family;
+	int oif;
+	struct get_neigh_handler neigh_handler;
+	union ibv_gid sgid;
+	int ether_len;
+	struct peer_address src;
+	struct peer_address dst;
+	uint16_t ret_vid;
+	int ret = -EINVAL;
+	int err;
+
+	err = ibv_query_gid(context, attr->port_num,
+			    attr->grh.sgid_index, &sgid);
+
+	if (err)
+		return err;
+
+	err = neigh_init_resources(&neigh_handler,
+				   NEIGH_GET_DEFAULT_TIMEOUT_MS);
+
+	if (err)
+		return err;
+
+	dst_family = ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
+			AF_INET : AF_INET6;
+	src_family = ipv6_addr_v4mapped((struct in6_addr *)sgid.raw) ?
+			AF_INET : AF_INET6;
+
+	if (create_peer_from_gid(dst_family, attr->grh.dgid.raw, &dst))
+		goto free_resources;
+
+	if (create_peer_from_gid(src_family, &sgid.raw, &src))
+		goto free_resources;
+
+	if (neigh_set_dst(&neigh_handler, dst_family, dst.address,
+			  dst.size))
+		goto free_resources;
+
+	if (neigh_set_src(&neigh_handler, src_family, src.address,
+			  src.size))
+		goto free_resources;
+
+	oif = neigh_get_oif_from_src(&neigh_handler);
+
+	if (oif > 0)
+		neigh_set_oif(&neigh_handler, oif);
+	else
+		goto free_resources;
+
+	ret = -EHOSTUNREACH;
+
+	/* blocking call */
+	if (process_get_neigh(&neigh_handler))
+		goto free_resources;
+
+	ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
+
+	if (ret_vid <= 0xfff)
+		neigh_set_vlan_id(&neigh_handler, ret_vid);
+
+	/* We are using only Ethernet here */
+	ether_len = neigh_get_ll(&neigh_handler,
+				 eth_mac,
+				 sizeof(uint8_t) * ETHERNET_LL_SIZE);
+
+	if (ether_len <= 0)
+		goto free_resources;
+
+	*vid = ret_vid;
+
+	ret = 0;
+
+free_resources:
+	neigh_free_resources(&neigh_handler);
+
+	return ret;
+#else
+	return -ENOSYS;
+#endif
+}

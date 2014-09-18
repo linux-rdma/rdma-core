@@ -103,6 +103,8 @@ IBVERBS_1.1 {
 		ibv_rate_to_mbps;
 		mbps_to_ibv_rate;
 
+		ibv_resolve_eth_l2_from_gid;
+
 		ibv_cmd_open_xrcd;
 		ibv_cmd_close_xrcd;
 		ibv_cmd_create_srq_ex;

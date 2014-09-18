@@ -1544,6 +1544,11 @@ const char *ibv_port_state_str(enum ibv_port_state port_state);
  */
 const char *ibv_event_type_str(enum ibv_event_type event);
 
+#define ETHERNET_LL_SIZE 6
+int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
+				struct ibv_ah_attr *attr,
+				uint8_t eth_mac[ETHERNET_LL_SIZE],
+				uint16_t *vid);
 END_C_DECLS
 
 #  undef __attribute_const
