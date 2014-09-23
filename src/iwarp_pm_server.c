@@ -166,9 +166,11 @@ void *iwpm_pending_msgs_handler()
 			while (retries) {
 				send_msg = &pending_msg->send_msg;
 				/* send out the message */
-				int bytes_sent = sendto(send_msg->pm_sock, (char *)&send_msg->data, IWARP_PM_MESSAGE_SIZE,
-							0, (struct sockaddr *)&send_msg->dest_addr, sizeof(send_msg->dest_addr));
-				if (bytes_sent != IWARP_PM_MESSAGE_SIZE) {
+				int bytes_sent = sendto(send_msg->pm_sock, (char *)&send_msg->data,
+							send_msg->length, 0,
+							(struct sockaddr *)&send_msg->dest_addr,
+							sizeof(send_msg->dest_addr));
+				if (bytes_sent != send_msg->length) {
 					retries--;
 					syslog(LOG_WARNING, "pending_msgs_handler: "
 						"Could not send to PM Socket send_msg = %p, retries = %d\n",
@@ -469,8 +471,10 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	/* fill in the remote peer address and the local mapped address */
 	copy_iwpm_sockaddr(dest_addr.s_sockaddr.ss_family, remote_addr, NULL, NULL, 
 				&msg_parms.apipaddr[0], &msg_parms.apport);
-	copy_iwpm_sockaddr(dest_addr.s_sockaddr.ss_family, &iwpm_port->mapped_addr, NULL, NULL, 
+	copy_iwpm_sockaddr(dest_addr.s_sockaddr.ss_family, local_addr, NULL, NULL, 
 				&msg_parms.cpipaddr[0], &msg_parms.cpport);
+	copy_iwpm_sockaddr(dest_addr.s_sockaddr.ss_family, &iwpm_port->mapped_addr, NULL, NULL, 
+				&msg_parms.mapped_cpipaddr[0], &msg_parms.mapped_cpport);
 	msg_parms.pmtime = 0;
 	msg_parms.ver = 0;
 	iwpm_debug(IWARP_PM_WIRE_DBG, "process_query_mapping: Local port = 0x%04X, "
@@ -490,7 +494,7 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	}
 	msg_parms.assochandle = iwpm_map_req->assochandle;
 	form_iwpm_request(&send_msg->data, &msg_parms);
-	form_iwpm_send_msg(pm_client_sock, &dest_addr.s_sockaddr, send_msg);
+	form_iwpm_send_msg(pm_client_sock, &dest_addr.s_sockaddr, msg_parms.msize, send_msg);
 
 	add_iwpm_map_request(iwpm_map_req);
 	add_iwpm_mapped_port(&mapped_ports, iwpm_port);
@@ -529,8 +533,8 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 
 	if (parse_iwpm_nlmsg(req_nlh, IWPM_NLA_MANAGE_MAPPING_MAX, manage_map_policy, nltb, msg_type)) {
 		send_iwpm_error_msg(req_nlh->nlmsg_seq, IWPM_INVALID_NLMSG_ERR, client_idx, nl_sock);
-		syslog(LOG_WARNING, "process_remove_mapping: Received Invalid nlmsg from client = %s\n",
-				client_list[client_idx].ibdevname);
+		syslog(LOG_WARNING, "process_remove_mapping: Received Invalid nlmsg from client = %d\n",
+				client_idx);
 		ret = -EINVAL;
 		goto remove_mapping_exit;
 	}
@@ -546,6 +550,11 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
  		   and it is possible that there isn't a successful mapping for this connection */
 		goto remove_mapping_exit;
 	}
+	if (iwpm_port->owner_client != client_idx) {
+		syslog(LOG_WARNING, "process_remove_mapping: Invalid request from client = %d\n",
+				client_idx);
+		goto remove_mapping_exit;
+	}
 	if (iwpm_port->wcard) {
 		ref_cnt = free_iwpm_wcard_mapping(iwpm_port);
 		if (ref_cnt)
@@ -554,6 +563,55 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 	remove_iwpm_mapped_port(&mapped_ports, iwpm_port);
 	free_iwpm_port(iwpm_port);
 remove_mapping_exit:
+	return ret;
+}
+
+static int send_conn_info_nlmsg(struct sockaddr_storage *local_addr,
+				struct sockaddr_storage *remote_addr,
+				struct sockaddr_storage *mapped_loc_addr,
+				struct sockaddr_storage *mapped_rem_addr,
+				int owner_client, __u16 nlmsg_type, __u32 nlmsg_seq,
+				__u32 nlmsg_pid, __u16 nlmsg_err, int nl_sock)
+			
+{
+	struct nl_msg *resp_nlmsg = NULL;
+	const char *str_err;
+	int ret;
+
+	resp_nlmsg = create_iwpm_nlmsg(nlmsg_type, owner_client);
+	if (!resp_nlmsg) {
+		str_err = "Unable to create nlmsg response";
+		ret = -ENOMEM;
+		goto nlmsg_error;
+	}
+	str_err = "Invalid nlmsg attribute";
+	if ((ret = nla_put_u32(resp_nlmsg, IWPM_NLA_QUERY_MAPPING_SEQ, nlmsg_seq)))
+		goto nlmsg_free_error;
+	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_QUERY_LOCAL_ADDR,
+				sizeof(struct sockaddr_storage), local_addr)))
+		goto nlmsg_free_error;
+	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_QUERY_REMOTE_ADDR,
+				sizeof(struct sockaddr_storage), remote_addr)))
+		goto nlmsg_free_error;
+	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_RQUERY_MAPPED_LOC_ADDR,
+				sizeof(struct sockaddr_storage), mapped_loc_addr)))
+		goto nlmsg_free_error;
+	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_RQUERY_MAPPED_REM_ADDR,
+				sizeof(struct sockaddr_storage), mapped_rem_addr)))
+		goto nlmsg_free_error;
+	if ((ret = nla_put_u16(resp_nlmsg, IWPM_NLA_RQUERY_MAPPING_ERR, nlmsg_err)))
+		goto nlmsg_free_error;
+
+	if ((ret = send_iwpm_nlmsg(nl_sock, resp_nlmsg, nlmsg_pid))) {
+		str_err = "Unable to send nlmsg response";
+		goto nlmsg_free_error;
+	}
+	return 0;
+nlmsg_free_error:
+	if (resp_nlmsg)
+		nlmsg_free(resp_nlmsg);
+nlmsg_error:
+	syslog(LOG_WARNING, "send_conn_info_nlmsg: %s.\n", str_err);
 	return ret;
 }
 
@@ -567,14 +625,16 @@ remove_mapping_exit:
  * send reject message to the remote connecting peer, if no mapping is found,
  * otherwise, send accept message with the accepting peer mapping info 
  */
-static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms, 
+static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms, int nl_sock,
 				struct sockaddr_storage *recv_addr, int pm_sock)
 {
 	iwpm_mapped_port *iwpm_port;
 	iwpm_mapping_request *iwpm_map_req = NULL;
 	iwpm_mapping_request iwpm_copy_req;
 	iwpm_send_msg *send_msg = NULL;
-	struct sockaddr_storage local_addr, remote_addr;
+	struct sockaddr_storage local_addr, mapped_loc_addr;
+	struct sockaddr_storage remote_addr, mapped_rem_addr;
+	__u16 nlmsg_type;
 	int not_mapped = 1;
 	int ret = 0;
 
@@ -596,8 +656,11 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms,
 		copy_iwpm_sockaddr(msg_parms->address_family, &iwpm_port->mapped_addr,
 			NULL, NULL, &msg_parms->apipaddr[0], &msg_parms->apport);
 
+	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &mapped_loc_addr,
+				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
+
 	/* check if there is already a request */
-	ret = update_iwpm_map_request(msg_parms->assochandle, &local_addr,
+	ret = update_iwpm_map_request(msg_parms->assochandle, &mapped_loc_addr,
 					IWARP_PM_REQ_ACCEPT, &iwpm_copy_req, 0);
 	if (!ret) { /* found request */
 		iwpm_debug(IWARP_PM_WIRE_DBG,"process_wire_request: Detected retransmission "
@@ -613,11 +676,14 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms,
 		return -ENOMEM;
 	}
 	form_iwpm_accept(&send_msg->data, msg_parms);
-	form_iwpm_send_msg(pm_sock, recv_addr, send_msg);
+	form_iwpm_send_msg(pm_sock, recv_addr, msg_parms->msize, send_msg);
 
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &remote_addr,
 				 &msg_parms->cpipaddr[0], NULL, &msg_parms->cpport);
-	iwpm_map_req = create_iwpm_map_request(NULL, &local_addr, &remote_addr,
+	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &mapped_rem_addr,
+				 &msg_parms->mapped_cpipaddr[0], NULL, &msg_parms->mapped_cpport);
+
+	iwpm_map_req = create_iwpm_map_request(NULL, &mapped_loc_addr, &remote_addr,
 					msg_parms->assochandle, IWARP_PM_REQ_ACCEPT, send_msg);
  	if (!iwpm_map_req) {
 		syslog(LOG_WARNING, "process_wire_request: Unable to allocate mapping request.\n");
@@ -625,7 +691,16 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms,
 		return -ENOMEM;
 	}
 	add_iwpm_map_request(iwpm_map_req);
-	return send_iwpm_msg(form_iwpm_accept, msg_parms, recv_addr, pm_sock);
+	ret = send_iwpm_msg(form_iwpm_accept, msg_parms, recv_addr, pm_sock);
+	if (ret) {
+		syslog(LOG_WARNING, "process_wire_request: Unable to allocate accept message.\n");
+		return ret;
+	}
+	nlmsg_type = RDMA_NL_GET_TYPE(iwpm_port->owner_client, RDMA_NL_IWPM_REMOTE_INFO);
+	ret = send_conn_info_nlmsg(&iwpm_port->local_addr, &remote_addr,
+				&iwpm_port->mapped_addr, &mapped_rem_addr,
+				iwpm_port->owner_client, nlmsg_type, 0, 0, 0, nl_sock);
+	return ret;
 }
 
 /**
@@ -651,19 +726,17 @@ static int process_iwpm_wire_accept(iwpm_msg_parms *msg_parms, int nl_sock,
 	iwpm_mapping_request iwpm_map_req;
 	iwpm_mapping_request *iwpm_retry_req = NULL;
 	iwpm_mapped_port *iwpm_port;
-	struct nl_msg *resp_nlmsg = NULL;
-	struct sockaddr_storage local_mapped_addr, remote_mapped_addr;
-	int not_mapped = 0;
-	__u16 err_code = 0;
+	struct sockaddr_storage local_addr, remote_mapped_addr;
+	int not_mapped = 1;
 	const char *str_err;
 	int ret;
 
-	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_mapped_addr,
+	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_addr,
 				&msg_parms->cpipaddr[0], NULL, &msg_parms->cpport);
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &remote_mapped_addr,
 				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
 	ret = -EINVAL;
-	iwpm_port = find_iwpm_same_mapping(mapped_ports, &local_mapped_addr, not_mapped); 
+	iwpm_port = find_iwpm_same_mapping(mapped_ports, &local_addr, not_mapped); 
 	if (!iwpm_port) {
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_accept: "
 			"Received accept for unknown mapping.\n");
@@ -686,32 +759,13 @@ static int process_iwpm_wire_accept(iwpm_msg_parms *msg_parms, int nl_sock,
 				"(map request assochandle = %llu)\n", iwpm_map_req.assochandle);
 		goto wire_accept_send_ack;
 	}
-	resp_nlmsg = create_iwpm_nlmsg(iwpm_map_req.nlmsg_type, iwpm_port->owner_client);
-	if (!resp_nlmsg) {
-		str_err = "Unable to create nlmsg response";
-		goto wire_accept_error;
-	}
-	str_err = "Invalid nlmsg attribute";
-	if ((ret = nla_put_u32(resp_nlmsg, IWPM_NLA_QUERY_MAPPING_SEQ, iwpm_map_req.nlmsg_seq)))
-		goto wire_accept_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_QUERY_LOCAL_ADDR, 
-				sizeof(struct sockaddr_storage), &iwpm_port->local_addr)))
-		goto wire_accept_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_QUERY_REMOTE_ADDR, 
-				sizeof(struct sockaddr_storage), &iwpm_map_req.remote_addr)))
-		goto wire_accept_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_RQUERY_MAPPED_LOC_ADDR, 
-				sizeof(struct sockaddr_storage), &iwpm_port->mapped_addr)))
-		goto wire_accept_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_RQUERY_MAPPED_REM_ADDR, 
-				sizeof(struct sockaddr_storage), &remote_mapped_addr)))
-		goto wire_accept_free_error;
-	if ((ret = nla_put_u16(resp_nlmsg, IWPM_NLA_RQUERY_MAPPING_ERR, err_code)))
-		goto wire_accept_free_error;
-
-	if ((ret = send_iwpm_nlmsg(nl_sock, resp_nlmsg, iwpm_map_req.nlmsg_pid))) {
+	ret = send_conn_info_nlmsg(&iwpm_port->local_addr, &iwpm_map_req.remote_addr,
+				&iwpm_port->mapped_addr, &remote_mapped_addr,
+				iwpm_port->owner_client, iwpm_map_req.nlmsg_type,
+				iwpm_map_req.nlmsg_seq, iwpm_map_req.nlmsg_pid, 0, nl_sock);
+	if (ret) {
 		str_err = "Unable to send nlmsg response";
-		goto wire_accept_free_error;	
+		goto wire_accept_error;
 	}
 	/* object to detect retransmission */
 	iwpm_retry_req = create_iwpm_map_request(NULL, &iwpm_map_req.src_addr, &iwpm_map_req.remote_addr, 
@@ -724,9 +778,6 @@ static int process_iwpm_wire_accept(iwpm_msg_parms *msg_parms, int nl_sock,
 	add_iwpm_map_request(iwpm_retry_req);
 wire_accept_send_ack:
 	return send_iwpm_msg(form_iwpm_ack, msg_parms, recv_addr, pm_sock);
-wire_accept_free_error:
-	if (resp_nlmsg)
-		nlmsg_free(resp_nlmsg);	
 wire_accept_error:
 	syslog(LOG_WARNING, "process_iwpm_wire_accept: %s.\n", str_err);
 	return ret;
@@ -744,24 +795,23 @@ static int process_iwpm_wire_reject(iwpm_msg_parms *msg_parms, int nl_sock)
 {	
 	iwpm_mapping_request iwpm_map_req;
 	iwpm_mapped_port *iwpm_port;
-	struct nl_msg *resp_nlmsg = NULL;
-	struct sockaddr_storage local_mapped_addr, remote_addr;
-	int not_mapped = 0;
+	struct sockaddr_storage local_addr, remote_addr;
+	int not_mapped = 1;
 	__u16 err_code = IWPM_REMOTE_QUERY_REJECT;
 	const char *str_err;
 	int ret = -EINVAL;
 
-	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_mapped_addr,
+	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_addr,
 				&msg_parms->cpipaddr[0], NULL, &msg_parms->cpport);
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &remote_addr,
 				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
 
-	print_iwpm_sockaddr(&local_mapped_addr, "process_wire_reject: Local mapped address",
+	print_iwpm_sockaddr(&local_addr, "process_wire_reject: Local address",
 					IWARP_PM_ALL_DBG);
 	print_iwpm_sockaddr(&remote_addr, "process_wire_reject: Remote address",
 					IWARP_PM_ALL_DBG);
 	ret = -EINVAL;
-	iwpm_port = find_iwpm_same_mapping(mapped_ports, &local_mapped_addr, not_mapped); 
+	iwpm_port = find_iwpm_same_mapping(mapped_ports, &local_addr, not_mapped); 
 	if (!iwpm_port) {
 		syslog(LOG_WARNING, "process_wire_reject: Received reject for unknown mapping.\n");
 		return 0;
@@ -777,37 +827,16 @@ static int process_iwpm_wire_reject(iwpm_msg_parms *msg_parms, int nl_sock)
 	} 
 	if (iwpm_map_req.complete)
 		return 0;
-	resp_nlmsg = create_iwpm_nlmsg(iwpm_map_req.nlmsg_type, iwpm_port->owner_client);
-	if (!resp_nlmsg) {
-		str_err = "Unable to create nlmsg response";
+
+	ret = send_conn_info_nlmsg(&iwpm_port->local_addr, &iwpm_map_req.remote_addr,
+				&iwpm_port->mapped_addr, &iwpm_map_req.remote_addr, 
+				iwpm_port->owner_client, iwpm_map_req.nlmsg_type,
+				iwpm_map_req.nlmsg_seq, iwpm_map_req.nlmsg_pid, err_code, nl_sock);
+	if (ret) {
+		str_err = "Unable to send nlmsg response";
 		goto wire_reject_error;
 	}
-	str_err = "Invalid nlmsg attribute";
-	if ((ret = nla_put_u32(resp_nlmsg, IWPM_NLA_QUERY_MAPPING_SEQ, iwpm_map_req.nlmsg_seq)))
-		goto wire_reject_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_QUERY_LOCAL_ADDR, 
-				sizeof(struct sockaddr_storage), &iwpm_port->local_addr)))
-		goto wire_reject_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_QUERY_REMOTE_ADDR, 
-				sizeof(struct sockaddr_storage), &iwpm_map_req.remote_addr)))
-		goto wire_reject_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_RQUERY_MAPPED_LOC_ADDR, 
-				sizeof(struct sockaddr_storage), &iwpm_port->mapped_addr)))
-		goto wire_reject_free_error;
-	if ((ret = nla_put(resp_nlmsg, IWPM_NLA_RQUERY_MAPPED_REM_ADDR, 
-				sizeof(struct sockaddr_storage), &iwpm_map_req.remote_addr)))
-		goto wire_reject_free_error;
-	if ((ret = nla_put_u16(resp_nlmsg, IWPM_NLA_RQUERY_MAPPING_ERR, err_code)))
-		goto wire_reject_free_error;
-
-	if ((ret = send_iwpm_nlmsg(nl_sock, resp_nlmsg, iwpm_map_req.nlmsg_pid))) {
-		str_err = "Unable to send nlmsg response";
-		goto wire_reject_free_error;	
-	}
 	return 0;
-wire_reject_free_error:
-	if (resp_nlmsg)
-		nlmsg_free(resp_nlmsg);	
 wire_reject_error:
 	syslog(LOG_WARNING, "process_wire_reject: %s.\n", str_err);
 	return ret;
@@ -822,26 +851,18 @@ static int process_iwpm_wire_ack(iwpm_msg_parms *msg_parms)
 	iwpm_mapped_port *iwpm_port;
 	iwpm_mapping_request iwpm_map_req;
 	struct sockaddr_storage local_mapped_addr, local_addr;
-	struct sockaddr_storage *req_addr;
 	int not_mapped = 0;
 	int ret;
 
-	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_mapped_addr, 
+	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_mapped_addr,
 				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
 	iwpm_port = find_iwpm_mapping(mapped_ports, &local_mapped_addr, not_mapped);
 	if (!iwpm_port) {
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_ack: Received ack for unknown mapping.\n");
 		return 0;
 	}
-	req_addr = &iwpm_port->local_addr;
-	if (iwpm_port->wcard) {
-		__be16 loc_apport = get_sockaddr_port(&iwpm_port->local_addr);
-		copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_addr, 
-				&msg_parms->apipaddr[0], NULL, &loc_apport);
-		req_addr = &local_addr;
-	}
 	/* make sure there is accept for the ack */
-	ret = update_iwpm_map_request(msg_parms->assochandle, req_addr,
+	ret = update_iwpm_map_request(msg_parms->assochandle, &local_mapped_addr,
 					IWARP_PM_REQ_ACCEPT, &iwpm_map_req, 1);
 	if (ret)
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_ack: No matching mapping request\n");
@@ -1105,10 +1126,6 @@ static int process_iwpm_netlink_msg(int nl_sock)
 			break;
 		case RDMA_NL_IWPM_REMOVE_MAPPING:
 			str_err = "Remove Mapping request";
-			if (!client_list[client_idx].valid) {
-				ret = -EINVAL;
-				goto process_netlink_msg_exit;
-			}
 			ret = process_iwpm_remove_mapping(nlh, client_idx, nl_sock);
 			break;
 		case RDMA_NL_IWPM_MAPINFO:
@@ -1145,13 +1162,15 @@ static int process_iwpm_msg(int pm_sock)
 	struct sockaddr_storage recv_addr;
 	iwpm_wire_msg recv_buffer; /* received message */
 	int bytes_recv, ret = 0;
+	int max_bytes_send = IWARP_PM_MESSAGE_SIZE + IWPM_IPADDR_SIZE;
 	socklen_t recv_addr_len = sizeof(recv_addr);
 
-	bytes_recv = recvfrom(pm_sock, &recv_buffer, IWARP_PM_MESSAGE_SIZE, 0,
+	bytes_recv = recvfrom(pm_sock, &recv_buffer, max_bytes_send, 0,
 			      (struct sockaddr *)&recv_addr, &recv_addr_len);
 
-	if (bytes_recv != IWARP_PM_MESSAGE_SIZE) {
-		syslog(LOG_WARNING, "process_iwpm_msg: Unable to receive data from PM socket. %s.\n", 
+	if (bytes_recv != IWARP_PM_MESSAGE_SIZE && bytes_recv != max_bytes_send) {
+		syslog(LOG_WARNING,
+			"process_iwpm_msg: Unable to receive data from PM socket. %s.\n",
 					strerror(errno));
 		ret = -errno;
 		goto process_iwpm_msg_exit;
@@ -1161,7 +1180,7 @@ static int process_iwpm_msg(int pm_sock)
 	switch (msg_parms.mt) {
 	case IWARP_PM_MT_REQ:
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_iwpm_msg: Received Request message.\n");
-		ret = process_iwpm_wire_request(&msg_parms, &recv_addr, pm_sock);
+		ret = process_iwpm_wire_request(&msg_parms, netlink_sock, &recv_addr, pm_sock);
 		break;
 	case IWARP_PM_MT_ACK:
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_iwpm_msg: Received Acknowledgement.\n");

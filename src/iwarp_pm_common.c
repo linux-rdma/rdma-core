@@ -341,7 +341,10 @@ int parse_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 	memcpy(&msg_parms->apipaddr, &pm_msg->apipaddr, IWPM_IPADDR_SIZE);
 	/* copy connecting peer IP address */
 	memcpy(&msg_parms->cpipaddr, &pm_msg->cpipaddr, IWPM_IPADDR_SIZE);
-
+	if (msg_parms->mt == IWARP_PM_MT_REQ) {
+		msg_parms->mapped_cpport = pm_msg->reserved;
+		memcpy(&msg_parms->mapped_cpipaddr, &pm_msg->mapped_cpipaddr, IWPM_IPADDR_SIZE);
+	}
 	return ret_value;
 }
 
@@ -364,6 +367,10 @@ static void form_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 	pm_msg->cpport = msg_parms->cpport;
 	memcpy(&pm_msg->apipaddr, &msg_parms->apipaddr, IWPM_IPADDR_SIZE);
 	memcpy(&pm_msg->cpipaddr, &msg_parms->cpipaddr, IWPM_IPADDR_SIZE);
+	if (msg_parms->mt == IWARP_PM_MT_REQ) {
+		pm_msg->reserved = msg_parms->mapped_cpport;
+		memcpy(&pm_msg->mapped_cpipaddr, &msg_parms->mapped_cpipaddr, IWPM_IPADDR_SIZE);
+	}
 }
 
 /**
@@ -375,6 +382,7 @@ void form_iwpm_request(struct iwpm_wire_msg *pm_msg,
 		      struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_REQ;
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE + IWPM_IPADDR_SIZE; 
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 
@@ -387,6 +395,7 @@ void form_iwpm_accept(struct iwpm_wire_msg *pm_msg,
 		     struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_ACC;
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE; 
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 
@@ -399,6 +408,7 @@ void form_iwpm_ack(struct iwpm_wire_msg *pm_msg,
 		  struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_ACK;
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE; 
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 
@@ -411,6 +421,7 @@ void form_iwpm_reject(struct iwpm_wire_msg *pm_msg,
 		     struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_REJ;
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE; 
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 

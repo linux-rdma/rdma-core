@@ -179,7 +179,7 @@ int send_iwpm_msg(void (*form_msg_type)(iwpm_wire_msg *, iwpm_msg_parms *),
 	iwpm_send_msg send_msg;
 
 	form_msg_type(&send_msg.data, msg_parms);
-	form_iwpm_send_msg(send_sock, recv_addr, &send_msg);
+	form_iwpm_send_msg(send_sock, recv_addr, msg_parms->msize, &send_msg);
 	return add_iwpm_pending_msg(&send_msg); 
 }
 
@@ -588,9 +588,11 @@ void print_iwpm_mapped_ports(iwpm_mapped_port *iwpm_ports)
 /**
  * form_iwpm_send_msg - Form a message to send on the wire
  */
-void form_iwpm_send_msg(int pm_sock, struct sockaddr_storage *dest, iwpm_send_msg *send_msg)
+void form_iwpm_send_msg(int pm_sock, struct sockaddr_storage *dest,
+			int length, iwpm_send_msg *send_msg)
 {
         send_msg->pm_sock = pm_sock;
+        send_msg->length = length;
         memcpy(&send_msg->dest_addr, dest, sizeof(send_msg->dest_addr));
 }
 

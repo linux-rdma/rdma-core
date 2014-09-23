@@ -155,12 +155,14 @@ typedef struct iwpm_wire_msg {
 	/* big endian IP addresses and ports */
 	__u8	cpipaddr[IWPM_IPADDR_SIZE];
 	__u8	apipaddr[IWPM_IPADDR_SIZE];
+	__u8	mapped_cpipaddr[IWPM_IPADDR_SIZE];
 } iwpm_wire_msg;
 
 typedef struct iwpm_send_msg {
 	int			pm_sock;
 	struct sockaddr_storage dest_addr;
-	iwpm_wire_msg		data;
+	iwpm_wire_msg    	data;
+	int 			length;
 } iwpm_send_msg;
 
 typedef struct iwpm_mapping_request {
@@ -191,10 +193,13 @@ typedef struct iwpm_msg_parms {
 	__be16		apport;
 	char		cpipaddr[IWPM_IPADDR_SIZE];
 	__be16		cpport;
+	char		mapped_cpipaddr[IWPM_IPADDR_SIZE];
+	__be16		mapped_cpport;
 	unsigned char	ver;
 	unsigned char	mt;
 	unsigned char	pmtime;
 	__u64		assochandle;
+	int             msize;
 } iwpm_msg_parms;
 
 /* iwarp_pm_common.c */
@@ -263,7 +268,7 @@ int update_iwpm_map_request(__u64, struct sockaddr_storage *, int, iwpm_mapping_
 
 void remove_iwpm_map_request(iwpm_mapping_request *);
 
-void form_iwpm_send_msg(int, struct sockaddr_storage *, iwpm_send_msg *);
+void form_iwpm_send_msg(int, struct sockaddr_storage *, int, iwpm_send_msg *);
 
 int send_iwpm_msg(void (*form_msg_type)(iwpm_wire_msg *, iwpm_msg_parms *),
 			iwpm_msg_parms *, struct sockaddr_storage *, int);
