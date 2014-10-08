@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2008-2014 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -2394,7 +2394,7 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	struct rsocket *rs;
 	size_t left = len;
 	uint32_t end_size, rsize;
-	int ret;
+	int ret = 0;
 
 	rs = idm_at(&idm, socket);
 	if (rs->type == SOCK_DGRAM) {
@@ -2421,7 +2421,6 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 				break;
 		}
 
-		ret = 0;
 		if (flags & MSG_PEEK) {
 			left = len - rs_peek(rs, buf, left);
 			break;
@@ -2456,7 +2455,7 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	} while (left && (flags & MSG_WAITALL) && (rs->state & rs_readable));
 
 	fastlock_release(&rs->rlock);
-	return ret ? ret : len - left;
+	return (ret && left == len) ? ret : len - left;
 }
 
 ssize_t rrecvfrom(int socket, void *buf, size_t len, int flags,
