@@ -84,7 +84,7 @@ static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid
 static const int   node_table_response_size = 1 << 18;
 static char *sysfs_path = "/sys";
 static enum log_dest s_log_dest = log_to_syslog;
-static int received_signal, wakeup_pipe[2] = { -1, -1 };
+static int received_signal, catas_signal, wakeup_pipe[2] = { -1, -1 };
 
 
 void wake_up_main_loop(void)
@@ -99,6 +99,8 @@ void wake_up_main_loop(void)
 static void signal_handler(int signo)
 {
 	received_signal = signo;
+	if (signo == SRP_CATAS_ERR)
+		catas_signal = 1;
 	wake_up_main_loop();
 }
 
@@ -1939,6 +1941,43 @@ umad_done:
 	return ret;
 }
 
+/**
+ * probe_device() - probe device heartbeat
+ *
+ * Device got a catastrophic error, let's wait a grace
+ * period and try to probe the device by attempting to
+ * allocate IB resources. Once it recovers, we will
+ * start all over again.
+ */
+static int probe_device()
+{
+	struct resources *res;
+	int ret;
+
+	while (1) {
+		ret = sleep(10);
+		if (ret) {
+			pr_err("Sleep interrupted exiting...\n");
+			break;
+		}
+
+		umad_init();
+		res = alloc_res();
+		if (!res) {
+			umad_done();
+			pr_err("Device still didn't recover catas error\n");
+		} else {
+			pr_err("Device recovered catas error! start over...\n");
+			received_signal = 0;
+			catas_signal = 0;
+			ret = 0;
+			break;
+		}
+	}
+
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	int			ret, i, flags;
@@ -1948,7 +1987,7 @@ int main(int argc, char *argv[])
 	ib_gid_t 		gid;
 	struct target_details  *target;
 	struct sigaction	sa;
-	int			subscribed = 0;
+	int			subscribed;
 	int			lockfd;
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
@@ -1975,12 +2014,15 @@ int main(int argc, char *argv[])
 	 */
 	ANNOTATE_BENIGN_RACE_SIZED(&received_signal, sizeof(received_signal),
 				   "");
+	ANNOTATE_BENIGN_RACE_SIZED(&catas_signal, sizeof(catas_signal),
+				   "");
 
 	memset(&sa, 0, sizeof(sa));
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = signal_handler;
 	sigaction(SIGINT, &sa, 0);
 	sigaction(SIGTERM, &sa, 0);
+	sigaction(SRP_CATAS_ERR, &sa, 0);
 
 	if (strcmp(argv[0] + max_t(int, 0, strlen(argv[0]) - strlen("ibsrpdm")),
 		   "ibsrpdm") == 0) {
@@ -2014,6 +2056,9 @@ int main(int argc, char *argv[])
 	res = alloc_res();
 	if (!res)
 		goto clean_umad;
+
+catas_start:
+	subscribed = 0;
 
 	if (config->once) {
 		ret = recalc(res);
@@ -2128,6 +2173,9 @@ kill_threads:
 	case SIGTERM:
 		pr_err("Got SIGTERM\n");
 		break;
+	case SRP_CATAS_ERR:
+		pr_err("Got SIG SRP_CATAS_ERR\n");
+		break;
 	case 0:
 		break;
 	default:
@@ -2135,7 +2183,7 @@ kill_threads:
 		break;
 	}
 
-	if (subscribed)
+	if (subscribed && received_signal != SRP_CATAS_ERR)
 		/* Traps deregistration before exiting */
 		register_to_traps(res, 0);
 	close(lockfd);
@@ -2143,6 +2191,9 @@ free_res:
 	free_res(res);
 clean_umad:
 	umad_done();
+	if (catas_signal)
+		if (!probe_device())
+			goto catas_start;
 clean_config:
 	config_destroy(config);
 free_config:
@@ -2153,6 +2204,7 @@ close_pipe:
 	sa.sa_handler = SIG_DFL;
 	sigaction(SIGINT, &sa, 0);
 	sigaction(SIGTERM, &sa, 0);
+	sigaction(SRP_CATAS_ERR, &sa, 0);
 	close(wakeup_pipe[1]);
 	close(wakeup_pipe[0]);
 	wakeup_pipe[0] = -1;

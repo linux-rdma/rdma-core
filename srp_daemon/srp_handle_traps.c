@@ -822,9 +822,10 @@ void *run_thread_listen_to_events(void *res_in)
 		case IBV_EVENT_CQ_ERR:
 		case IBV_EVENT_QP_FATAL:
 		  /* clean and restart */
-			pr_err("Critical event %d, ending\n", event.event_type);
-			exit(EAGAIN);
-
+			pr_err("Critical event %d, raising catastrophic "
+			       "error signal\n", event.event_type);
+			raise(SRP_CATAS_ERR);
+			break;
 
  	      	 /*
 

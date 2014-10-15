@@ -37,6 +37,7 @@
 #define SRP_DM_H
 
 #include <stdint.h>
+#include <signal.h>
 #include <endian.h>
 #include <byteswap.h>
 #include <infiniband/verbs.h>
@@ -75,6 +76,7 @@ template <bool b> struct vki_static_assert { int m_bitfield:(2*b-1); };
 	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
 	 ((a)->tv_sec CMP (b)->tv_sec))
 
+#define SRP_CATAS_ERR SIGUSR1
 
 enum {
 	SRP_MGMT_CLASS_SA = 3,
