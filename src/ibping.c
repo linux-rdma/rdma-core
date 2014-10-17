@@ -103,6 +103,8 @@ static char *ibping_serv(void)
 	return 0;
 }
 
+static int oui = IB_OPENIB_OUI;
+
 static uint64_t ibping(ib_portid_t * portid, int quiet)
 {
 	char data[IB_VENDOR_RANGE2_DATA_SIZE] = { 0 };
@@ -117,7 +119,7 @@ static uint64_t ibping(ib_portid_t * portid, int quiet)
 	call.mgmt_class = IB_VENDOR_OPENIB_PING_CLASS;
 	call.attrid = 0;
 	call.mod = 0;
-	call.oui = IB_OPENIB_OUI;
+	call.oui = oui;
 	call.timeout = 0;
 	memset(&call.rmpp, 0, sizeof call.rmpp);
 
@@ -162,7 +164,7 @@ void report(int sig)
 	exit(0);
 }
 
-static int server = 0, flood = 0, oui = IB_OPENIB_OUI;
+static int server = 0, flood = 0;
 static unsigned count = ~0;
 
 static int process_opt(void *context, int ch, char *optarg)
