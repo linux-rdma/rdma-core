@@ -54,6 +54,7 @@ extern uint32_t ibd_ibnetdisc_flags;
 extern uint64_t ibd_mkey;
 extern uint64_t ibd_sakey;
 extern int show_keys;
+extern char *ibd_nd_format;
 
 /*========================================================*/
 /*                External interface                      */

@@ -16,7 +16,8 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 	        src/saquery src/vendstat src/iblinkinfo \
 		src/ibqueryerrors src/ibcacheedit src/ibccquery \
 		src/ibccconfig \
-		src/dump_fts
+		src/dump_fts \
+		src/rdma-ndd
 
 if ENABLE_TEST_UTILS
 sbin_PROGRAMS += src/ibsendtrap src/mcm_rereg_test
@@ -70,6 +71,7 @@ man_MANS = doc/man/ibaddr.8 \
 		doc/man/smpquery.8 \
 		doc/man/vendstat.8 \
 		doc/man/infiniband-diags.8 \
+		doc/man/rdma-ndd.8 \
 		man/dump_lfts.8 \
 		man/dump_mfts.8
 
@@ -158,3 +160,7 @@ install-data-hook:
 	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/scripts/IBswcountlimits.pm $(DESTDIR)/$(PERL_INSTALLDIR)/IBswcountlimits.pm
 	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/etc/error_thresholds $(DESTDIR)/$(sysconfdir)/infiniband-diags
 	$(top_srcdir)/config/install-sh -c -m 400 $(top_srcdir)/etc/ibdiag.conf $(DESTDIR)/$(sysconfdir)/infiniband-diags
+
+install-exec-hook:
+	$(top_srcdir)/config/install-sh -m 755 -d $(DESTDIR)/$(sysconfdir)/init.d
+	$(top_srcdir)/config/install-sh -m 755 $(top_srcdir)/etc/rdma-ndd.init $(DESTDIR)/$(sysconfdir)/init.d/rdma-ndd

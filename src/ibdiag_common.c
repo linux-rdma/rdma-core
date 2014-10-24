@@ -74,6 +74,7 @@ uint32_t ibd_ibnetdisc_flags = IBND_CONFIG_MLX_EPI;
 uint64_t ibd_mkey;
 uint64_t ibd_sakey = 0;
 int show_keys = 0;
+char *ibd_nd_format = NULL;
 
 static const char *prog_name;
 static const char *prog_args;
@@ -163,6 +164,9 @@ void read_ibdiag_config(const char *file)
 		} else if (strncmp(name, "sa_key",
 				   strlen("sa_key")) == 0) {
 			ibd_sakey = strtoull(val_str, 0, 0);
+		} else if (strncmp(name, "nd_format",
+				   strlen("nd_format")) == 0) {
+			ibd_nd_format = strdup(val_str);
 		}
 	}
 

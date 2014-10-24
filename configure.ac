@@ -180,6 +180,27 @@ fi
 AC_SUBST(ibnetdisc_api_version)
 dnl End libibnetdisc stuff
 
+dnl configures for rdma-ndd startup script
+default_rdma_service=openibd
+AC_ARG_WITH([rdma_service],
+    AC_HELP_STRING([--with-rdma-service=name],
+                       [name of the RDMA service: "rdma" when using /etc/init.d/rdma to start RDMA services; "openibd" when using /etc/init.d/openibd to start RDMA services [default=${default_rdma_service}]]))
+AC_SUBST(RDMA_SERVICE, ${with_rdma_service:-${default_rdma_service}})
+
+if { rpm -q sles-release || rpm -q openSUSE-release; } >/dev/null 2>&1; then
+	default_stop="0 1 4 6"
+else
+	default_stop="0 1 6"
+fi
+
+default_start="null"
+
+AC_SUBST(DEFAULT_START, $default_start)
+AC_SUBST(DEFAULT_STOP, $default_stop)
+
+AC_CHECK_HEADER(libudev.h, with_udev="yes", with_udev="no")
+AC_CHECK_LIB(udev, udev_monitor_ref, [], AC_MSG_ERROR(libudev is required for rdma-ndd...))
+
 dnl Generate doc/man/*.in files if possible
 DOC_DATE="`date +%Y-%m-%d`"
 AC_SUBST(BUILD_DATE)
@@ -253,6 +274,8 @@ AC_CONFIG_FILES([\
 	doc/man/smpquery.8 \
 	doc/man/vendstat.8 \
 	doc/man/infiniband-diags.8 \
+	doc/man/rdma-ndd.8 \
+	etc/rdma-ndd.init \
 	libibnetdisc/Makefile \
 ])
 AC_OUTPUT

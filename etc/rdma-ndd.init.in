@@ -1,0 +1,137 @@
+#!/bin/bash
+#
+# rdma-ndd:		Manage RDMA Node Description Daemon
+#
+# chkconfig: - 09 91
+# description:  Manage RDMA Node Description Daemon
+#
+### BEGIN INIT INFO
+# Provides: rdma-ndd
+# Required-Start: $syslog @RDMA_SERVICE@
+# Required-Stop: $syslog @RDMA_SERVICE@
+# Default-Start: @DEFAULT_START@
+# Default-Stop: @DEFAULT_STOP@
+# Description:  Manage RDMA Node Description Daemon
+### END INIT INFO
+#
+# Copyright (c) 2014 Intel Corporation. All Rights Reserved
+# Copyright (c) 2008 Voltaire, Inc. All rights reserved.
+# Copyright 2006 PathScale, Inc.  All Rights Reserved.
+#
+# This Software is licensed under one of the following licenses:
+#
+# 1) under the terms of the "Common Public License 1.0" a copy of which is
+#    available from the Open Source Initiative, see
+#    http://www.opensource.org/licenses/cpl.php.
+#
+# 2) under the terms of the "The BSD License" a copy of which is
+#    available from the Open Source Initiative, see
+#    http://www.opensource.org/licenses/bsd-license.php.
+#
+# 3) under the terms of the "GNU General Public License (GPL) Version 2" a
+#    copy of which is available from the Open Source Initiative, see
+#    http://www.opensource.org/licenses/gpl-license.php.
+#
+# Licensee has the right to choose one of the above licenses.
+#
+# Redistributions of source code must retain the above copyright
+# notice and one of the license notices.
+#
+# Redistributions in binary form must reproduce both the above copyright
+# notice, one of the license notices in the documentation
+# and/or other materials provided with the distribution.
+
+pidfile=/var/run/rdma-ndd.pid
+
+# Source function library.
+if [[ -s /etc/init.d/functions ]]; then
+    # RHEL / CentOS / SL / Fedora.
+    . /etc/init.d/functions
+    rc_status() { :; }
+    rc_exit() { exit $RETVAL; }
+elif [[ -s /lib/lsb/init-functions ]]; then
+    # SLES / openSuSE / Debian.
+    . /lib/lsb/init-functions
+    rc_exit() { exit $RETVAL; }
+    success() { log_success_msg; }
+    failure() { log_failure_msg; }
+elif [[ -s /etc/rc.status ]]; then
+    # Older SuSE systems.
+    . /etc/rc.status
+    failure() { rc_status -v; }
+    success() { rc_status -v; }
+fi
+
+running () {
+    [ -e $pidfile ] &&
+        [ "$(readlink "/proc/$(<$pidfile)/exe")" = "@sbindir@/rdma-ndd" ]
+}
+
+start () {
+    if running; then
+	echo Already started
+	return 1
+    fi
+    echo -n "Starting RDMA Node Description Daemon: "
+    @sbindir@/rdma-ndd > /dev/null
+    RETVAL=$?
+    if [[ $RETVAL -eq 0 ]]; then
+        success
+    else
+        failure
+    fi
+    echo
+}
+
+stop () {
+    echo -n "Shutting down RDMA Node Description Daemon (rdma-ndd): "
+    killproc rdma-ndd
+    RETVAL=$?
+    if [[ $RETVAL -eq 0 ]]; then
+        success
+    else
+        failure
+    fi
+    echo
+}
+
+Xstatus () {
+	pid="`pidof rdma-ndd`"
+	ret=$?
+	if [ $ret -eq 0 ] ; then
+		echo "RDMA Node Description Daemon (rdma-ndd) is running... pid=$pid"
+	else
+		echo "RDMA Node Description Daemon (rdma-ndd) is not running."
+	fi
+}
+
+restart() {
+    stop
+    start
+}
+
+# See how we were called.
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    status)
+        Xstatus
+	;;
+    restart | force-reload | reload)
+	restart
+	;;
+    try-restart | condrestart)
+	[ -e $pidfile ] && restart
+	;;
+    *)
+	echo $"Usage: $0 {start|stop|status|restart|reload|condrestart}"
+	RETVAL=1
+	;;
+esac
+
+_rc_status_all=$RETVAL
+rc_exit
