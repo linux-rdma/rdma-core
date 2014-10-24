@@ -83,6 +83,11 @@ fi
 %doc README NEWS ChangeLog COPYING
 
 %changelog
+* Thu Feb 20 2014 Bart Van Assche <bvanassche@acm.org> - 1.0.2
+- Added support for specifying tl_retry_count in srp_daemon.conf. Changed
+  default behavior for tl_retry_timeout parameter from setting it to 2 into
+  leaving it at its default value (7). This makes srp_daemon again compatible
+  with the SRP initiator driver from kernel 3.12 and before.
 * Mon Feb 03 2014 Bart Van Assche <bvanassche@acm.org> - 1.0.1
 - Make process uniqueness check work.
 - Unsubscribe from subnet manager for traps before exiting.
