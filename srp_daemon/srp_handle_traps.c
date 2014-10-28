@@ -152,25 +152,20 @@ int modify_qp_to_err(struct ibv_qp *qp)
 *****************************************************************************/
 static int fill_rq_entry(struct ud_resources *res, int cur_receive)
 {
-	static struct ibv_recv_wr rr;
-	static struct ibv_sge sg;
-	static int first = 1;
+	struct ibv_recv_wr rr;
+	struct ibv_sge sg;
 	struct ibv_recv_wr *_bad_wr = NULL;
 	struct ibv_recv_wr **bad_wr = &_bad_wr;
 	int ret;
 
-	/* prepare the RR */
-	if (first) {
-		first = 0;
-		memset(&rr, 0, sizeof(rr));
+	memset(&rr, 0, sizeof(rr));
 
-		sg.length = RECV_BUF_SIZE;
-		sg.lkey = res->mr->lkey;
+	sg.length = RECV_BUF_SIZE;
+	sg.lkey = res->mr->lkey;
 
-		rr.next = NULL;
-		rr.sg_list = &sg;
-		rr.num_sge = 1;
-	}
+	rr.next = NULL;
+	rr.sg_list = &sg;
+	rr.num_sge = 1;
 
 	sg.addr = (((unsigned long)res->recv_buf) + RECV_BUF_SIZE * cur_receive);
 	rr.wr_id = cur_receive;
