@@ -151,7 +151,7 @@ void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid, uint16_t pkey)
 		++res->next_task;
 	}
 
-	wake_up_main_loop();
+	wake_up_main_loop(0);
 	pthread_mutex_unlock(&res->mutex);
 }
 
@@ -189,7 +189,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid, uint16_t pkey)
 		++res->next_task;
 	}
 
-	wake_up_main_loop();
+	wake_up_main_loop(0);
 	pthread_mutex_unlock(&res->mutex);
 }
 

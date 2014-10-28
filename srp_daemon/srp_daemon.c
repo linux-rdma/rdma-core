@@ -84,24 +84,46 @@ static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid
 static const int   node_table_response_size = 1 << 18;
 static char *sysfs_path = "/sys";
 static enum log_dest s_log_dest = log_to_syslog;
-static int received_signal, catas_signal, wakeup_pipe[2] = { -1, -1 };
+static int wakeup_pipe[2] = { -1, -1 };
 
 
-void wake_up_main_loop(void)
+void wake_up_main_loop(char ch)
 {
 	int res;
 
 	assert(wakeup_pipe[1] >= 0);
-	res = write(wakeup_pipe[1], ".", 1);
+	res = write(wakeup_pipe[1], &ch, 1);
 	IGNORE(res);
 }
 
 static void signal_handler(int signo)
 {
-	received_signal = signo;
-	if (signo == SRP_CATAS_ERR)
-		catas_signal = 1;
-	wake_up_main_loop();
+	wake_up_main_loop(signo);
+}
+
+/*
+ * Return either the received signal (SIGINT, SIGTERM, ...) or 0 if no signal
+ * has been received before the timeout has expired.
+ */
+static int get_received_signal(time_t tv_sec, suseconds_t tv_usec)
+{
+	int fd, ret, received_signal = 0;
+	fd_set rset;
+	struct timeval timeout;
+	char buf[16];
+
+	fd = wakeup_pipe[0];
+	FD_ZERO(&rset);
+	FD_SET(fd, &rset);
+	timeout.tv_sec = tv_sec;
+	timeout.tv_usec = tv_usec;
+	ret = select(fd + 1, &rset, NULL, NULL, &timeout);
+	if (ret < 0)
+		assert(errno == EINTR);
+	while ((ret = read(fd, buf, sizeof(buf))) > 0)
+		received_signal = buf[ret - 1];
+
+	return received_signal;
 }
 
 static int check_process_uniqueness(struct config_t *conf)
@@ -1941,43 +1963,6 @@ umad_done:
 	return ret;
 }
 
-/**
- * probe_device() - probe device heartbeat
- *
- * Device got a catastrophic error, let's wait a grace
- * period and try to probe the device by attempting to
- * allocate IB resources. Once it recovers, we will
- * start all over again.
- */
-static int probe_device()
-{
-	struct resources *res;
-	int ret;
-
-	while (1) {
-		ret = sleep(10);
-		if (ret) {
-			pr_err("Sleep interrupted exiting...\n");
-			break;
-		}
-
-		umad_init();
-		res = alloc_res();
-		if (!res) {
-			umad_done();
-			pr_err("Device still didn't recover catas error\n");
-		} else {
-			pr_err("Device recovered catas error! start over...\n");
-			received_signal = 0;
-			catas_signal = 0;
-			ret = 0;
-			break;
-		}
-	}
-
-	return ret;
-}
-
 int main(int argc, char *argv[])
 {
 	int			ret, i, flags;
@@ -1988,7 +1973,8 @@ int main(int argc, char *argv[])
 	struct target_details  *target;
 	struct sigaction	sa;
 	int			subscribed;
-	int			lockfd;
+	int			lockfd = -1;
+	int			received_signal = 0;
 
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
@@ -2007,15 +1993,6 @@ int main(int argc, char *argv[])
 		flags = fcntl(wakeup_pipe[i], F_GETFL);
 		fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK);
 	}
-
-	/*
-	 * signal_handler() may be invoked on the context of any thread.
-	 * Avoid that data race detection tools complain about this.
-	 */
-	ANNOTATE_BENIGN_RACE_SIZED(&received_signal, sizeof(received_signal),
-				   "");
-	ANNOTATE_BENIGN_RACE_SIZED(&catas_signal, sizeof(catas_signal),
-				   "");
 
 	memset(&sa, 0, sizeof(sa));
 	sigemptyset(&sa.sa_mask);
@@ -2047,27 +2024,41 @@ int main(int argc, char *argv[])
 	if (config->verbose)
 		print_config(config);
 
-	ret = umad_init();
-	if (ret < 0) {
-		pr_err("umad_init failed\n");
-		goto clean_config;
+	if (!config->once) {
+		lockfd = check_process_uniqueness(config);
+		if (lockfd < 0) {
+			ret = EPERM;
+			goto clean_config;
+		}
 	}
-
-	res = alloc_res();
-	if (!res)
-		goto clean_umad;
 
 catas_start:
 	subscribed = 0;
 
-	if (config->once) {
-		ret = recalc(res);
-		goto free_res;
+	ret = umad_init();
+	if (ret < 0) {
+		pr_err("umad_init failed\n");
+		goto close_lockfd;
 	}
 
-	lockfd = check_process_uniqueness(config);
-	if (lockfd < 0) {
-		ret = EPERM;
+	res = alloc_res();
+	if (!res && received_signal == SRP_CATAS_ERR)
+		pr_err("Device has not yet recovered from catas error\n");
+	if (!res)
+		goto clean_umad;
+
+	/*
+	 * alloc_res() fails while the HCA is recovering from a catastrophic
+	 * error. Clear 'received_signal' after alloc_res() has succeeded to
+	 * finish the alloc_res() retry loop.
+	 */
+	if (received_signal == SRP_CATAS_ERR) {
+		pr_err("Device recovered from catastrophic error\n");
+		received_signal = 0;
+	}
+
+	if (config->once) {
+		ret = recalc(res);
 		goto free_res;
 	}
 
@@ -2134,9 +2125,6 @@ catas_start:
 				}
 			}
 		} else {
-			int fd;
-			fd_set rset;
-			char buf[16];
 			struct timespec now, delta;
 			struct timeval timeout;
 
@@ -2152,14 +2140,10 @@ catas_start:
 				timeout.tv_sec = 0;
 				timeout.tv_usec = 0;
 			}
-			fd = wakeup_pipe[0];
-			FD_ZERO(&rset);
-			FD_SET(fd, &rset);
-			ret = select(fd + 1, &rset, NULL, NULL, &timeout);
-			if (ret < 0)
-				assert(errno == EINTR);
-			while (read(fd, buf, sizeof(buf)) > 0)
-				;
+
+			received_signal = get_received_signal(timeout.tv_sec,
+							timeout.tv_usec) ? :
+				received_signal;
 		}
 	}
 
@@ -2186,14 +2170,27 @@ kill_threads:
 	if (subscribed && received_signal != SRP_CATAS_ERR)
 		/* Traps deregistration before exiting */
 		register_to_traps(res, 0);
-	close(lockfd);
 free_res:
 	free_res(res);
+	/* Discard the SIGINT triggered by the free_res() implementation. */
+	get_received_signal(0, 0);
 clean_umad:
 	umad_done();
-	if (catas_signal)
-		if (!probe_device())
+	if (received_signal == SRP_CATAS_ERR) {
+		/*
+		 * Device got a catastrophic error. Let's wait a grace
+		 * period and try to probe the device by attempting to
+		 * allocate IB resources. Once it recovers, we will
+		 * start all over again.
+		 */
+		received_signal = get_received_signal(10, 0) ? :
+			received_signal;
+		if (received_signal == SRP_CATAS_ERR)
 			goto catas_start;
+	}
+close_lockfd:
+	if (lockfd >= 0)
+		close(lockfd);
 clean_config:
 	config_destroy(config);
 free_config:

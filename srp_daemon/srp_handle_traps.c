@@ -725,7 +725,7 @@ static int get_trap_notices(struct resources *res)
 			if (ret) {
 				pr_err("get_trap_notices: Got Bad pkey_index (%d)\n",
 				       pkey_index);
-				wake_up_main_loop();
+				wake_up_main_loop(0);
 				break;
 			}
 
@@ -748,7 +748,7 @@ static int get_trap_notices(struct resources *res)
 
 		ret = fill_rq_entry(res->ud_res, cur_receive);
 		if (ret < 0) {
-			wake_up_main_loop();
+			wake_up_main_loop(0);
 			break;
 		}
 	}
@@ -813,7 +813,7 @@ void *run_thread_listen_to_events(void *res_in)
 			if (event.element.port_num == config->port_num) {
 				pthread_mutex_lock(&res->sync_res->mutex);
 				__schedule_rescan(res->sync_res, 0);
-				wake_up_main_loop();
+				wake_up_main_loop(0);
 				pthread_mutex_unlock(&res->sync_res->mutex);
 			}
 		  	break;

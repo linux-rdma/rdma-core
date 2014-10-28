@@ -457,7 +457,7 @@ int sync_resources_init(struct sync_resources *res);
 void sync_resources_cleanup(struct sync_resources *res);
 int modify_qp_to_err(struct ibv_qp *qp);
 void srp_sleep(time_t sec, time_t usec);
-void wake_up_main_loop(void);
+void wake_up_main_loop(char ch);
 void __schedule_rescan(struct sync_resources *res, int when);
 void schedule_rescan(struct sync_resources *res, int when);
 int __rescan_scheduled(struct sync_resources *res);
