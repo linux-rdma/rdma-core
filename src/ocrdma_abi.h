@@ -74,7 +74,7 @@ struct ocrdma_alloc_ucontext_resp {
 	uint32_t ah_tbl_len;
 	uint32_t rqe_size;
 	uint8_t fw_ver[32];
-	uint32_t rsvd1;
+	uint64_t rsvd1;
 	uint64_t rsvd2;
 };
 
@@ -153,8 +153,7 @@ struct ocrdma_create_qp_uresp {
 	uint32_t db_sq_offset;
 	uint32_t db_rq_offset;
 	uint32_t db_shift;
-	uint64_t rsvd2;
-	uint64_t rsvd3;
+	uint64_t rsvd[11]; /* 8*8 + 4*4 + 8 */
 };
 
 struct ocrdma_create_srq_cmd {
