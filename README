@@ -1,0 +1,25 @@
+iWarp Port Mapper Library - libiwpm
+
+DESCRIPTION
+
+libiwpm provides a user space service for the iWarp drivers Intel nes and Chelsio cxgb4
+to claim tcp ports through the standard socket interface.
+
+PREREQUISITES
+
+libiwpm requires libnl-1 or higher version and the corresponding libnl-devel
+to be installed.
+
+The kernel space support for libiwpm is currently included in the ib_core module, which
+needs to be loaded in order for the libiwpm service to start successfully.
+If the libiwpm is installed, but the ib_core isn't loaded, then you need to load the
+ib_core and then start the libiwpm service.
+
+STARTING THE SERVICE
+
+After installing the OFED package, the libiwpm service should have started automatically after reboot.
+(Assuming the libiwpm has been installed successfully and the ib_core module has been loaded)
+
+You can also start/stop the libiwpm service using:
+service iwpmd start
+service iwpmd stop
