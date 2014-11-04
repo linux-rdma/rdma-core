@@ -1754,7 +1754,8 @@ void *run_thread_retry_to_connect(void *res_in)
 		if (retry_list_is_empty(res->sync_res))
 			pthread_cond_wait(&res->sync_res->retry_cond,
 					  &res->sync_res->retry_mutex);
-		while ((target = pop_from_retry_list(res->sync_res))) {
+		while (!res->sync_res->stop_threads &&
+		       (target = pop_from_retry_list(res->sync_res)) != NULL) {
 			pthread_mutex_unlock(&res->sync_res->retry_mutex);
 			sleep_time = target->retry_time - time(NULL);
 
