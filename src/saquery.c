@@ -1445,7 +1445,7 @@ static int query_sa_cpi(struct sa_handle *h, struct query_params *query_params)
 	memcpy(&query_params->cpi, cpi, sizeof(query_params->cpi));
 Exit:
 	sa_free_result_mad(&result);
-	return (0);
+	return ret;
 }
 
 static const struct query_cmd query_cmds[] = {
