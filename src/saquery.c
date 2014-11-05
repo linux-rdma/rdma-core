@@ -1869,6 +1869,7 @@ int main(int argc, char **argv)
 		params.dlid = get_lid(h, dst_lid);
 
 	if (command == SAQUERY_CMD_CLASS_PORT_INFO ||
+	    query_type == CLASS_PORT_INFO ||
 	    query_type == IB_SA_ATTR_SWITCHINFORECORD)
 		sa_cpi_required = 1;
 
