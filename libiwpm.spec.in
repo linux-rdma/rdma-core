@@ -58,8 +58,7 @@ fi
 
 
 %changelog
-*Fri Jun 11 2013 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.0
-- Releasing iWarp Port Mapper Version 1.0.0 
 *Fri Oct 31 2014 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.1
 - Releasing libiwpm-1.0.1 to be included in OFED-3.18
-
+*Fri Jun 11 2013 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.0
+- Releasing iWarp Port Mapper Version 1.0.0 
