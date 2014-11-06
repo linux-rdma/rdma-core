@@ -277,15 +277,20 @@ static int rping_cq_event_handler(struct rping_cb *cb)
 	struct ibv_wc wc;
 	struct ibv_recv_wr *bad_wr;
 	int ret;
+	int flushed = 0;
 
 	while ((ret = ibv_poll_cq(cb->cq, 1, &wc)) == 1) {
 		ret = 0;
 
 		if (wc.status) {
-			if (wc.status != IBV_WC_WR_FLUSH_ERR)
-				fprintf(stderr,
-					"cq completion failed status %d\n",
-					wc.status);
+			if (wc.status == IBV_WC_WR_FLUSH_ERR) {
+				flushed = 1;
+				continue;
+
+			}
+			fprintf(stderr,
+				"cq completion failed status %d\n",
+				wc.status);
 			ret = -1;
 			goto error;
 		}
@@ -334,7 +339,7 @@ static int rping_cq_event_handler(struct rping_cb *cb)
 		fprintf(stderr, "poll error %d\n", ret);
 		goto error;
 	}
-	return 0;
+	return flushed;
 
 error:
 	cb->state = ERROR;
