@@ -2180,9 +2180,11 @@ kill_threads:
 		break;
 	}
 
-	if (subscribed && received_signal != SRP_CATAS_ERR)
-		/* Traps deregistration before exiting */
+	if (subscribed && received_signal != SRP_CATAS_ERR) {
+		pr_err("Deregistering traps ...\n");
 		register_to_traps(res, 0);
+		pr_err("Finished trap deregistration.\n");
+	}
 free_res:
 	free_res(res);
 	/* Discard the SIGINT triggered by the free_res() implementation. */
