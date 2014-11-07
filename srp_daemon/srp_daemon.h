@@ -421,12 +421,7 @@ typedef struct {
 			printf(arg);			\
 	} while (0)
 
-#define pr_debug(arg...)		       	\
-	do {				       	\
-		if (config->debug_verbose)	\
-			printf(arg);		\
-	} while (0)
-
+void pr_debug(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void pr_err(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,

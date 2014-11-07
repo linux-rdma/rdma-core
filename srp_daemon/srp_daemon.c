@@ -276,6 +276,18 @@ void pr_cmd(char *target_str, int not_connected)
 	}
 }
 
+void pr_debug(const char *fmt, ...)
+{
+	va_list args;
+
+	if (!config->debug_verbose)
+		return;
+
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+}
+
 void pr_err(const char *fmt, ...)
 {
 	va_list args;
