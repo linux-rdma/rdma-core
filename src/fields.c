@@ -949,8 +949,42 @@ static const ib_field_t ib_mad_f[] = {
 	{480, 32, "Counter14", mad_dump_uint},
 	{0, 0},			/* IB_PSR_LAST_F */
 
-	{0, 0}			/* IB_FIELD_LAST_ */
+	/*
+	 * PortInfoExtended fields
+	 */
+	{0, 32, "CapMask", mad_dump_hex},
+	{BITSOFFS(32, 16), "FECModeActive", mad_dump_uint},
+	{BITSOFFS(48, 16), "FDRFECModeSupported", mad_dump_hex},
+	{BITSOFFS(64, 16), "FDRFECModeEnabled", mad_dump_hex},
+	{BITSOFFS(80, 16), "EDRFECModeSupported", mad_dump_hex},
+	{BITSOFFS(96, 16), "EDRFECModeEnabled", mad_dump_hex},
+	{0, 0},			/* IB_PORT_EXT_LAST_F */
 
+	/*
+	 * PortExtendedSpeedsCounters RSFEC Active fields
+	 */
+	{BITSOFFS(8, 8), "PortSelect", mad_dump_uint},
+	{64, 64, "CounterSelect", mad_dump_hex},
+	{BITSOFFS(128, 16), "SyncHeaderErrorCounter", mad_dump_uint},
+	{BITSOFFS(144, 16), "UnknownBlockCounter", mad_dump_uint},
+	{352, 32, "FECCorrectableSymbolCtrLane0", mad_dump_uint},
+	{384, 32, "FECCorrectableSymbolCtrLane1", mad_dump_uint},
+	{416, 32, "FECCorrectableSymbolCtrLane2", mad_dump_uint},
+	{448, 32, "FECCorrectableSymbolCtrLane3", mad_dump_uint},
+	{480, 32, "FECCorrectableSymbolCtrLane4", mad_dump_uint},
+	{512, 32, "FECCorrectableSymbolCtrLane5", mad_dump_uint},
+	{544, 32, "FECCorrectableSymbolCtrLane6", mad_dump_uint},
+	{576, 32, "FECCorrectableSymbolCtrLane7", mad_dump_uint},
+	{608, 32, "FECCorrectableSymbolCtrLane8", mad_dump_uint},
+	{640, 32, "FECCorrectableSymbolCtrLane9", mad_dump_uint},
+	{672, 32, "FECCorrectableSymbolCtrLane10", mad_dump_uint},
+	{704, 32, "FECCorrectableSymbolCtrLane11", mad_dump_uint},
+	{1120, 32, "PortFECCorrectableBlockCtr", mad_dump_uint},
+	{1152, 32, "PortFECUncorrectableBlockCtr", mad_dump_uint},
+	{1184, 32, "PortFECCorrectedSymbolCtr", mad_dump_uint},
+	{0, 0},			/* IB_PESC_RSFEC_LAST_F */
+
+	{0, 0}			/* IB_FIELD_LAST_ */
 };
 
 static void _set_field64(void *buf, int base_offs, const ib_field_t * f,

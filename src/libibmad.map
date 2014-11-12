@@ -19,6 +19,7 @@ IBMAD_1.3 {
 		mad_dump_linkwidthen;
 		mad_dump_linkwidthsup;
 		mad_dump_mlnx_ext_port_info;
+		mad_dump_portinfo_ext;
 		mad_dump_mtu;
 		mad_dump_node_type;
 		mad_dump_nodedesc;
@@ -145,6 +146,7 @@ IBMAD_1.3 {
 		mad_field_name;
 		bm_call_via;
 		mad_dump_port_ext_speeds_counters;
+		mad_dump_port_ext_speeds_counters_rsfec_active;
 		cc_query_status_via;
 		cc_config_status_via;
 		smp_mkey_get;

@@ -145,7 +145,7 @@ enum SMI_ATTR_ID {
 	IB_ATTR_LINKSPEEDWIDTHPAIRSTBL = 0x1c,
 	IB_ATTR_VENDORMADSTBL = 0x1d,
 	IB_ATTR_SMINFO = 0x20,
-
+	IB_ATTR_PORT_INFO_EXT = 0x33,
 	IB_ATTR_LAST,
 
 	IB_ATTR_MLNX_EXT_PORT_INFO = 0xff90,
@@ -1253,6 +1253,43 @@ enum MAD_FIELDS {
 	IB_PSR_COUNTER14_F,
 	IB_PSR_LAST_F,
 
+	/*
+	 * PortInfoExtended fields
+	 */
+	IB_PORT_EXT_FIRST_F,
+	IB_PORT_EXT_CAPMASK_F = IB_PORT_EXT_FIRST_F,
+	IB_PORT_EXT_FEC_MODE_ACTIVE_F,
+	IB_PORT_EXT_FDR_FEC_MODE_SUPPORTED_F,
+	IB_PORT_EXT_FDR_FEC_MODE_ENABLED_F,
+	IB_PORT_EXT_EDR_FEC_MODE_SUPPORTED_F,
+	IB_PORT_EXT_EDR_FEC_MODE_ENABLED_F,
+	IB_PORT_EXT_LAST_F,
+
+	/*
+	 * PortExtendedSpeedsCounters RSFEC active fields
+	 */
+	IB_PESC_RSFEC_FIRST_F,
+	IB_PESC_RSFEC_PORT_SELECT_F = IB_PESC_RSFEC_FIRST_F,
+	IB_PESC_RSFEC_COUNTER_SELECT_F,
+	IB_PESC_RSFEC_SYNC_HDR_ERR_CTR_F,
+	IB_PESC_RSFEC_UNK_BLOCK_CTR_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE0_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE1_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE2_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE3_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE4_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE5_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE6_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE7_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE8_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE9_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE10_F,
+	IB_PESC_RSFEC_FEC_CORR_SYMBOL_CTR_LANE11_F,
+	IB_PESC_PORT_FEC_CORR_BLOCK_CTR_F,
+	IB_PESC_PORT_FEC_UNCORR_BLOCK_CTR_F,
+	IB_PESC_PORT_FEC_CORR_SYMBOL_CTR_F,
+	IB_PESC_RSFEC_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 
@@ -1615,7 +1652,8 @@ MAD_EXPORT ib_mad_dump_fn
     mad_dump_cc_switchportcongestionsettingelement, mad_dump_cc_cacongestionsetting,
     mad_dump_cc_cacongestionentry, mad_dump_cc_congestioncontroltable,
     mad_dump_cc_congestioncontroltableentry, mad_dump_cc_timestamp,
-    mad_dump_classportinfo, mad_dump_portsamples_result;
+    mad_dump_classportinfo, mad_dump_portsamples_result,
+    mad_dump_portinfo_ext, mad_dump_port_ext_speeds_counters_rsfec_active;
 
 MAD_EXPORT void mad_dump_fields(char *buf, int bufsz, void *val, int valsz,
 				int start, int end);

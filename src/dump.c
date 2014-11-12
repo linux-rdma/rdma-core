@@ -857,6 +857,13 @@ void mad_dump_portsamples_result(char *buf, int bufsz, void *val, int valsz)
 	_dump_fields(buf, bufsz, val, IB_PSR_TAG_F, IB_PSR_LAST_F);
 }
 
+void mad_dump_port_ext_speeds_counters_rsfec_active(char *buf, int bufsz,
+						    void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PESC_RSFEC_FIRST_F,
+		     IB_PESC_RSFEC_LAST_F);
+}
+
 void mad_dump_port_ext_speeds_counters(char *buf, int bufsz, void *val, int valsz)
 {
 	_dump_fields(buf, bufsz, val, IB_PESC_PORT_SELECT_F, IB_PESC_LAST_F);
@@ -1113,6 +1120,12 @@ void mad_dump_classportinfo(char *buf, int bufsz, void *val, int valsz)
 {
 	/* no FIRST_F and LAST_F for CPI field enums, must do a hack */
 	_dump_fields(buf, bufsz, val, IB_CPI_BASEVER_F, IB_CPI_TRAP_QKEY_F + 1);
+}
+
+void mad_dump_portinfo_ext(char *buf, int bufsz, void *val, int valsz)
+{
+	_dump_fields(buf, bufsz, val, IB_PORT_EXT_FIRST_F,
+		     IB_PORT_EXT_LAST_F);
 }
 
 void xdump(FILE * file, char *msg, void *p, int size)
