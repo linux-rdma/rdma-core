@@ -2374,7 +2374,7 @@ acmp_get_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	struct acmp_ep *ep;
 	DLIST_ENTRY *entry;
 
-	acm_log(1, "dev 0xllx port %d pkey 0x%x\n",
+	acm_log(1, "dev 0x%llx port %d pkey 0x%x\n",
 		endpoint->port->dev->dev_guid, endpoint->port->port_num, endpoint->pkey);
 	for (entry = port->ep_list.Next; entry != &port->ep_list;
 	     entry = entry->Next) {
