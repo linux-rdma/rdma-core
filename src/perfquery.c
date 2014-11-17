@@ -465,15 +465,51 @@ static uint8_t *ext_speeds_reset_via(void *rcvbuf, ib_portid_t * dest,
 	return mad_rpc(srcport, &rpc, dest, rcvbuf, rcvbuf);
 }
 
-static void extended_speeds_query(ib_portid_t * portid, int port, uint64_t ext_mask)
+static uint8_t is_rsfec_mode_active(ib_portid_t * portid, int port,
+				  uint16_t cap_mask)
+{
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
+	uint16_t fec_mode_active = 0;
+	uint32_t pie_capmask = 0;
+	if (cap_mask & IS_PM_RSFEC_COUNTERS_SUP) {
+		if (!is_port_info_extended_supported(portid, port, srcport)) {
+			IBWARN("Port Info Extended not supported");
+			return 0;
+		}
+
+		if (smp_query_via(data, portid, IB_ATTR_PORT_INFO_EXT, port, 0,
+				  srcport) < 0)
+			IBEXIT("smp query portinfo extended failed");
+
+		mad_decode_field(data, IB_PORT_EXT_CAPMASK_F, &pie_capmask);
+		mad_decode_field(data, IB_PORT_EXT_FEC_MODE_ACTIVE_F,
+				 &fec_mode_active);
+		if((pie_capmask &
+		    CL_NTOH32(IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED)) &&
+		   (CL_NTOH16(IB_PORT_EXT_RS_FEC_MODE_ACTIVE) == fec_mode_active))
+			return 1;
+	}
+
+	return 0;
+}
+
+static void extended_speeds_query(ib_portid_t * portid, int port,
+				  uint64_t ext_mask, uint16_t cap_mask)
 {
 	int mask = ext_mask;
 
-	if (!reset_only)
-		common_func(portid, port, mask, 1, 0,
+	if (!reset_only) {
+		if (is_rsfec_mode_active(portid, port, cap_mask))
+			common_func(portid, port, mask, 1, 0,
+				    "PortExtendedSpeedsCounters with RS-FEC Active",
+				    IB_GSI_PORT_EXT_SPEEDS_COUNTERS,
+				    mad_dump_port_ext_speeds_counters_rsfec_active);
+		else
+			common_func(portid, port, mask, 1, 0,
 			    "PortExtendedSpeedsCounters",
 			    IB_GSI_PORT_EXT_SPEEDS_COUNTERS,
 			    mad_dump_port_ext_speeds_counters);
+	}
 
 	if ((reset_only || reset) &&
 	    !ext_speeds_reset_via(pc, portid, port, ext_mask, ibd_timeout, srcport))
@@ -808,7 +844,7 @@ int main(int argc, char **argv)
 	}
 
 	if (extended_speeds) {
-		extended_speeds_query(&portid, port, ext_mask);
+		extended_speeds_query(&portid, port, ext_mask, cap_mask);
 		goto done;
 	}
 

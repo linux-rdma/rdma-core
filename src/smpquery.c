@@ -55,12 +55,13 @@
 struct ibmad_port *srcport;
 
 static op_fn_t node_desc, node_info, port_info, switch_info, pkey_table,
-    sl2vl_table, vlarb_table, guid_info, mlnx_ext_port_info;
+    sl2vl_table, vlarb_table, guid_info, mlnx_ext_port_info, port_info_extended;
 
 static const match_rec_t match_tbl[] = {
 	{"NodeInfo", "NI", node_info, 0, ""},
 	{"NodeDesc", "ND", node_desc, 0, ""},
 	{"PortInfo", "PI", port_info, 1, ""},
+	{"PortInfoExtended", "PIE", port_info_extended, 1, ""},
 	{"SwitchInfo", "SI", switch_info, 0, ""},
 	{"PKeyTable", "PKeys", pkey_table, 1, ""},
 	{"SL2VLTable", "SL2VL", sl2vl_table, 1, ""},
@@ -120,6 +121,28 @@ static char *node_info(ib_portid_t * dest, char **argv, int argc)
 	mad_dump_nodeinfo(buf, sizeof buf, data, sizeof data);
 
 	printf("# Node info: %s\n%s", portid2str(dest), buf);
+	return 0;
+}
+
+static char *port_info_extended(ib_portid_t * dest, char **argv, int argc)
+{
+	char buf[2048];
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
+	int portnum = 0;
+
+	if (argc > 0)
+		portnum = strtol(argv[0], 0, 0);
+
+	if (!is_port_info_extended_supported(dest, portnum, srcport))
+		return "port info extended not supported";
+
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO_EXT, portnum, 0,
+			   srcport))
+		return "port info extended query failed";
+
+	mad_dump_portinfo_ext(buf, sizeof buf, data, sizeof data);
+	printf("# Port info Extended: %s port %d\n%s", portid2str(dest),
+	       portnum, buf);
 	return 0;
 }
 

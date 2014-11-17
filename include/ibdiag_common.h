@@ -75,6 +75,38 @@ extern int show_keys;
 #define IB_PM_PC_XMIT_WAIT_SUP (CL_HTON16(((uint16_t)1)<<12))
 #endif
 
+/* PM ClassPortInfo CapabilityMask Bits */
+#ifndef IS_PM_RSFEC_COUNTERS_SUP
+#define IS_PM_RSFEC_COUNTERS_SUP (CL_HTON16(((uint16_t)1)<<14))
+#endif
+
+/* SM PortInfo CapabilityMask2 Bits */
+#ifndef IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED
+#define IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED (CL_HTON16(0x0002))
+#endif
+
+/* SM PortInfoExtended Fec Mode Bits */
+#ifndef IB_PORT_EXT_NO_FEC_MODE_ACTIVE
+#define IB_PORT_EXT_NO_FEC_MODE_ACTIVE 0
+#endif
+
+#ifndef IB_PORT_EXT_FIRE_CODE_FEC_MODE_ACTIVE
+#define IB_PORT_EXT_FIRE_CODE_FEC_MODE_ACTIVE (CL_HTON16(0x0001))
+#endif
+
+#ifndef IB_PORT_EXT_RS_FEC_MODE_ACTIVE
+#define IB_PORT_EXT_RS_FEC_MODE_ACTIVE (CL_HTON16(0x0002))
+#endif
+
+#ifndef IB_PORT_EXT_LOW_LATENCY_RS_FEC_MODE_ACTIVE
+#define IB_PORT_EXT_LOW_LATENCY_RS_FEC_MODE_ACTIVE (CL_HTON16(0x0003))
+#endif
+
+/* SM PortInfoExtended CapabilityMask Bits */
+#ifndef IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED
+#define IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED (CL_HTON32(0x00000001))
+#endif
+
 struct ibdiag_opt {
 	const char *name;
 	char letter;
@@ -102,6 +134,8 @@ extern char *conv_cnt_human_readable(uint64_t val64, float *val, int data);
 
 int is_mlnx_ext_port_info_supported(uint32_t devid);
 
+int is_port_info_extended_supported(ib_portid_t * dest, int port,
+				    struct ibmad_port *srcport);
 void get_max_msg(char *width_msg, char *speed_msg, int msg_size,
 		 ibnd_port_t * port);
 

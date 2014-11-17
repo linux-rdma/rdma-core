@@ -496,6 +496,33 @@ conv_cnt_human_readable(uint64_t val64, float *val, int data)
 	return ("");
 }
 
+int is_port_info_extended_supported(ib_portid_t * dest, int port,
+				    struct ibmad_port *srcport)
+{
+	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
+	uint32_t cap_mask;
+	uint16_t cap_mask2;
+
+	if (smp_query_via(data, dest, IB_ATTR_PORT_INFO, port, 0, srcport) < 0)
+		IBEXIT("port info query failed");
+
+	mad_decode_field(data, IB_PORT_CAPMASK_F, &cap_mask);
+	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_CAP_MASK2)) {
+		mad_decode_field(data, IB_PORT_CAPMASK2_F, &cap_mask2);
+		if (!(cap_mask2 &
+		      CL_NTOH16(IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED))) {
+			IBWARN("port info capability mask2 = 0x%x doesn't"
+			       " indicate PortInfoExtended support", cap_mask2);
+			return 0;
+		}
+	} else {
+		IBWARN("port info capability mask2 not supported");
+		return 0;
+	}
+
+	return 1;
+}
+
 int is_mlnx_ext_port_info_supported(uint32_t devid)
 {
 	if (ibd_ibnetdisc_flags & IBND_CONFIG_MLX_EPI) {
