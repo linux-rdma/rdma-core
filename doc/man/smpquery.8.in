@@ -41,19 +41,36 @@ node info, node description, switch info, port info. Fields are displayed in
 human readable format.
 .SS OPTIONS
 .sp
-Current supported operations and their parameters:
+Current supported operations (case insensitive) and their parameters:
 .INDENT 0.0
-.TP
-.B ::
-nodeinfo <addr>
-nodedesc <addr>
-portinfo <addr> [<portnum>]     # default port is zero
-switchinfo <addr>
-pkeys <addr> [<portnum>]
-sl2vl <addr> [<portnum>]
-vlarb <addr> [<portnum>]
-guids <addr>
-mlnxextportinfo <addr> [<portnum>]  # default port is zero
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Nodeinfo (NI) <addr>
+
+Nodedesc (ND) <addr>
+
+Portinfo (PI) <addr> [<portnum>]     # default port is zero
+
+PortInfoExtended (PIE) <addr> [<portnum>]
+
+Switchinfo (SI) <addr>
+
+PKeyTable (PKeys) <addr> [<portnum>]
+
+SL2VLTable (SL2VL) <addr> [<portnum>]
+
+VLArbitration (VLArb) <addr> [<portnum>]
+
+GUIDInfo (GI) <addr>
+
+MlnxExtPortInfo (MEPI) <addr> [<portnum>]  # default port is zero
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
 .TP
 .B \fB\-c, \-\-combined\fP
 Use Combined route address argument \fB<lid> <DR_Path>\fP

@@ -26,18 +26,31 @@ human readable format.
 OPTIONS
 =======
 
-Current supported operations and their parameters:
+Current supported operations (case insensitive) and their parameters:
+
 
 ::
-        nodeinfo <addr>
-        nodedesc <addr>
-        portinfo <addr> [<portnum>]     # default port is zero
-        switchinfo <addr>
-        pkeys <addr> [<portnum>]
-        sl2vl <addr> [<portnum>]
-        vlarb <addr> [<portnum>]
-        guids <addr>
-        mlnxextportinfo <addr> [<portnum>]  # default port is zero
+
+        Nodeinfo (NI) <addr>
+
+        Nodedesc (ND) <addr>
+
+        Portinfo (PI) <addr> [<portnum>]     # default port is zero
+
+        PortInfoExtended (PIE) <addr> [<portnum>]
+
+        Switchinfo (SI) <addr>
+
+        PKeyTable (PKeys) <addr> [<portnum>]
+
+        SL2VLTable (SL2VL) <addr> [<portnum>]
+
+        VLArbitration (VLArb) <addr> [<portnum>]
+
+        GUIDInfo (GI) <addr>
+
+        MlnxExtPortInfo (MEPI) <addr> [<portnum>]  # default port is zero
+
 
 **-c, --combined**
         Use Combined route address argument ``<lid> <DR_Path>``
