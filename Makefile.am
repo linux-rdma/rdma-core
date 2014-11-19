@@ -12,7 +12,7 @@ src_libmlx4_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ 
 mlx4confdir = $(sysconfdir)/libibverbs.d
 mlx4conf_DATA = mlx4.driver
 
-EXTRA_DIST = src/doorbell.h src/mlx4.h src/mlx4-abi.h src/wqe.h \
+EXTRA_DIST = src/doorbell.h src/mlx4.h src/mlx4-abi.h src/wqe.h src/mmio.h \
     src/mlx4.map libmlx4.spec.in mlx4.driver
 
 dist-hook: libmlx4.spec

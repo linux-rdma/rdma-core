@@ -76,6 +76,8 @@
 #define wc_wmb() asm volatile("sfence" ::: "memory")
 #elif defined(__ia64__)
 #define wc_wmb() asm volatile("fwb" ::: "memory")
+#elif defined(__s390x__)
+#define wc_wmb { asm volatile("" : : : "memory") }
 #else
 #define wc_wmb() wmb()
 #endif
