@@ -115,6 +115,13 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 #define wmb()	 mb()
 #define wc_wmb() wmb()
 
+#elif defined(__s390x__)
+
+#define mb()	{ asm volatile("" : : : "memory"); }	/* for s390x */
+#define rmb()	mb()					/* for s390x */
+#define wmb()	mb()					/* for s390x */
+#define wc_wmb() wmb()					/* for s390x */
+
 #else
 
 #warning No architecture specific defines found.  Using generic implementation.
