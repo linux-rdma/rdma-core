@@ -272,7 +272,7 @@ int ud_resources_create(struct ud_resources *res)
 	size = cq_size * RECV_BUF_SIZE + SEND_SIZE;
 	res->recv_buf = malloc(size);
 	if (!res->recv_buf) {
-		pr_err("failed to malloc %Zu bytes to memory buffer\n", size);
+		pr_err("failed to malloc %zu bytes to memory buffer\n", size);
 		return -ENOMEM;
 	}
 
