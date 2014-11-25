@@ -2004,7 +2004,15 @@ int main(int argc, char *argv[])
 	}
 	for (i = 0; i < 2; i++) {
 		flags = fcntl(wakeup_pipe[i], F_GETFL);
-		fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK);
+		if (flags < 0) {
+			pr_err("fcntl F_GETFL failed for %d\n", wakeup_pipe[i]);
+			goto close_pipe;
+		}
+		if (fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK) < 0) {
+			pr_err("fcntl F_SETFL failed for %d\n", wakeup_pipe[i]);
+			goto close_pipe;
+		}
+
 	}
 
 	memset(&sa, 0, sizeof(sa));
