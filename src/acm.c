@@ -2352,6 +2352,10 @@ acm_alloc_sa_mad(const struct acm_endpoint *endpoint, void *context,
 {
 	struct acmc_sa_req *req;
 
+	if (!endpoint) {
+		acm_log(0, "Error: NULL endpoint\n");
+		return NULL;
+	}
 	req = calloc(1, sizeof (*req));
 	if (!req) {
 		acm_log(0, "Error: failed to allocate sa request\n");

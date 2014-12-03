@@ -1446,6 +1446,10 @@ static int acmp_port_join(void *port_context)
 	for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
 		 ep_entry = ep_entry->Next) {
 		ep = container_of(ep_entry, struct acmp_ep, entry);
+		if (!ep->endpoint) {
+			/* Stale endpoint */
+			continue;
+		}
 		acmp_ep_join(ep);
 	}
 	acm_log(1, "joins for device %s port %d complete\n",
