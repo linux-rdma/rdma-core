@@ -148,7 +148,7 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	}
 
 	memset(ifc, 0, len);
-	ifc->ifc_len = len;
+	ifc->ifc_len = len - sizeof(*ifc);
 	ifc->ifc_req = (struct ifreq *) (ifc + 1);
 
 	ret = ioctl(s, SIOCGIFCONF, ifc);
