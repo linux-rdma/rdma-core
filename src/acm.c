@@ -1744,11 +1744,14 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 	ret = acm_assign_ep_names(ep);
 	if (ret) {
 		acm_log(0, "ERROR - unable to assign EP name for pkey 0x%x\n", pkey);
-		goto err;
+		goto ep_close;
 	}
 
 	DListInsertHead(&ep->entry, &port->ep_list);
 	return;
+
+ep_close:
+	port->prov->close_endpoint(ep->prov_ep_context);
 
 err:
 	free(ep);
