@@ -1,0 +1,96 @@
+.\" -*- nroff -*-
+.\"
+.TH RXE_CFG 8 2011-06-29 1.0.0
+.SH "NAME"
+rxe_cfg \- rxe configuration tool for RXE (Soft RoCE)
+.SH "SYNOPSIS"
+\fBrxe_cfg [status]\fR
+.br
+\fBrxe_cfg start\fR [\fB\-p\fR \fIproto\fR]
+.br
+\fBrxe_cfg stop\fR
+.br
+\fBrxe_cfg persistent\fR
+.br
+\fBrxe_cfg add\fR [\fB\-n\fR] \fIethN\fR
+.br
+\fBrxe_cfg remove\fR [\fB\-n\fR] \fIethN\fR|\fIrxeN\fR
+.br
+\fBrxe_cfg crc enable\fR|\fBdisable\fR
+.br
+\fBrxe_cfg\fR \fBmtu\fR [\fB\-f\fR] [\fIrxeN\fR] \fImtu_size\fR
+.br
+.SH "DESCRIPTION"
+rxe_cfg is the configuration tool for the RXE software implementation of the RoCE protocol.  
+
+The RXE kernel modules are loaded, configured, reconfigured and unloaded via the various rxe_cfg command options, documented below.
+
+.SH "PARAMETERS"
+.TP
+\fIproto\fR
+Ethertype field. Default value is 0x8915. This value must be changed to use RXE on Mellanox ConnectX adapters.
+
+.TP
+\fIethN\fR
+Network device name as listed in /sys/class/net. Only Ethernet devices are supported; ie. eth0 or eth0.1234 for VLANs.
+
+.TP
+\fIrxeN\fR
+RXE device name as listed in /sys/class/infiniband/. Examples are rxe0 or rxe1.
+
+.TP
+\fImtu_size\fR
+RoCE mtu. For RoCE the mtu represents the payload excluding headers and has the possible values: 256, 512, 1024, 2048 and 4096.
+
+.SH "COMMANDS"
+.TP
+[\fBstatus\fR]
+The \fBstatus\fR command prints a table of information on available Ethernet devices and configured RXE instances.  The status display is the default if no options are provided.
+
+.TP
+\fBstart\fR [\fB\-p\fR \fIproto\fR]
+The \fBstart\fR command loads the RXE modules and configures any persistent instances.  If the \fB-p\fR \fIproto\fR option is included, the RXE modules will be configured to use Ethertype = \fIproto\fR.  (This allows testing RXE on devices, like Mellanox ConnectX, that already support the default RoCE Ethertype in hardware.)
+
+.TP
+\fBstop\fR
+The \fBstop\fR command unconfigures all RXE instances and attempts to unload the kernel modules.
+
+.TP
+\fBpersistent\fR
+The \fBpersistent\fR command prints the list of Ethernet devices for which a RXE instance is persistently configured.
+
+.TP
+\fBadd\fR [\fB\-n\fR] \fIethN\fR
+The \fBadd\fR command will configure a RXE instance on Ethernet device \fIethN\fR (e.g. eth0).  The RXE modules must have already been loaded via \fBrxe_cfg start\fR.
+
+The default behavior is to add \fIethN\fR to a file of persistent configurations and the same RXE device will be configured the next time that \fBrxe_cfg start\fR is run.  If the \fB-n\fR option is included the device is not added to the persistence file.
+
+.TP
+\fBremove\fR [\fB\-n\fR] \fIethN\fR|\fIrxeN\fR
+The \fBremove\fR command will remove the specified RXE instance.  The parameter must match a currently active ethN or rxeN name.
+
+If the \fB-n\fR option is included the RXE device will be removed but not removed from the persistent state. So it will be recreated the next time that \fBrxe_cfg start\fR is run.
+
+.TP
+\fBmtu\fR [\fB\-f\fR] [\fIrxeN\fR] \fImtu_size\fR
+The \fBmtu\fR command will set the RoCE MTU of all RXE devices to \fImtu_size\fR, provided that the underlying Ethernet MTU is sufficiently large.  If the Ethernet MTU is not large enough, RXE will use the largest MTU that fits; the driver remembers the requested RoCE MTU and will increase the currently active MTU if the Ethernet MTU is later changed up to the requested MTU.
+
+If the \fB-f\fR option is included the underlying Ethernet MTUs will be increased if necessary to the minimum size to accommodate a RoCE MTU of \fIsize\fR.
+
+If a \fIrxeN\fR instance is specified then only that instance will be affected by the command.
+
+.TP
+\fBcrc\fR \fBenable\fR|\fBdisable\fR
+The \fBcrc\fR command will enable or disable RoCE ICRC calculation.  Valid ICRCs are be required to communicate hardware RoCE NICs, but when a RXE instance is communicating with another RXE instance the performance will be better with the CRC disabled.
+
+This option is global to all RXE instances.
+
+.SH "FILES"
+.TP
+\fB[PREFIX]/etc/rxe.conf\fR
+RXE configuration file. Contains the list of persistent RXE instances.  All persistent RXE instances can be removed by deleting this file (note this will take effect on the next "rxe_cfg start" -- to remove actively configured instances, you must "rxe_cfg stop").
+
+.SH "SEE ALSO"
+.BR rxe (7),
+.SH "AUTHORS"
+Written by John Groves, Frank Zago and Bob Pearson at System Fabric Works.
