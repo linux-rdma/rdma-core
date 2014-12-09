@@ -239,6 +239,8 @@ static const char * umad_sm_attr_str(be16_t attr_id)
 			return ("HierarchyInfo");
 		case UMAD_SM_ATTR_CABLE_INFO:
 			return ("CableInfo");
+		case UMAD_SM_ATTR_PORT_INFO_EXT:
+			return ("PortInfoExtended");
 		default:
 			return (umad_common_attr_str(attr_id));
 	}
@@ -292,6 +294,8 @@ static const char * umad_sa_attr_str(be16_t attr_id)
 			return ("HierarchyInfoRecord");
 		case UMAD_SA_ATTR_CABLE_INFO_REC:
 			return ("CableInfoRecord");
+		case UMAD_SA_ATTR_PORT_INFO_EXT_REC:
+			return ("PortInfoExtendedRecord");
 		default:
 			return (umad_common_attr_str(attr_id));
 	}
@@ -323,6 +327,10 @@ static const char * umad_cm_attr_str(be16_t attr_id)
 			return "LoadAlternatePath";
 		case UMAD_CM_ATTR_APR:
 			return "AlternatePathResponse";
+		case UMAD_CM_ATTR_SAP:
+			return "SuggestAlternatePath";
+		case UMAD_CM_ATTR_SPR:
+			return "SuggestPathResponse";
 		default:
 			return (umad_common_attr_str(attr_id));
 	}
