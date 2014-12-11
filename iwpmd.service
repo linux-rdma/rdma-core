@@ -1,0 +1,10 @@
+[Unit]
+Description=iWarp Port Mapper
+After=syslog.target network.target
+
+[Service]
+ExecStart=/usr/bin/iwpmd
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
