@@ -72,7 +72,7 @@ void iwpm_signal_handler(int signum)
 		case SIGTERM:
 			syslog(LOG_WARNING, "iwpm_signal_handler: Received SIGTERM signal\n");
 			iwpm_cleanup();
-			exit(signum);
+			exit(EXIT_SUCCESS);
 			break;
 		case SIGUSR1:
 			syslog(LOG_WARNING, "iwpm_signal_handler: Received SIGUSR1 signal\n");
@@ -850,7 +850,7 @@ static int process_iwpm_wire_ack(iwpm_msg_parms *msg_parms)
 {
 	iwpm_mapped_port *iwpm_port;
 	iwpm_mapping_request iwpm_map_req;
-	struct sockaddr_storage local_mapped_addr, local_addr;
+	struct sockaddr_storage local_mapped_addr;
 	int not_mapped = 0;
 	int ret;
 
