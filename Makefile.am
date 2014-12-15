@@ -1,6 +1,7 @@
 AM_CPPFLAGS = -I$(srcdir)/include -I$(srcdir)/linux -I$(srcdir)/src
 
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE 
+AM_LDFLAGS = -lpthread -ldl
 
 if HAVE_LD_VERSION_SCRIPT
     libibacmp_version_script = -Wl,--version-script=$(srcdir)/prov/acmp/src/libibacmp.map
@@ -13,14 +14,14 @@ sbin_PROGRAMS = svc/ibacm
 svc_ibacm_SOURCES = src/acm.c src/acm_util.c
 util_ib_acme_SOURCES = src/acme.c src/libacm.c linux/libacm_linux.c src/parse.c
 svc_ibacm_CFLAGS = $(AM_CFLAGS)
-svc_ibacm_LDFLAGS = -rdynamic
+svc_ibacm_LDFLAGS = -rdynamic $(AM_LDFLAGS)
 util_ib_acme_CFLAGS = $(AM_CFLAGS) -DACME_PRINTS
 
 pkglib_LTLIBRARIES = lib/libibacmp.la
 lib_libibacmp_la_CFLAGS = $(AM_CFLAGS) 
 lib_libibacmp_la_SOURCES = prov/acmp/src/acmp.c  
 lib_libibacmp_la_LDFLAGS = -version-info 1 -export-dynamic \
-			   $(libibacmp_version_script)
+			   $(libibacmp_version_script) $(AM_LDFLAGS)
 lib_libibacmp_la_DEPENDENCIES =  $(srcdir)/prov/acmp/src/libibacmp.map
 
 ibacmincludedir = $(includedir)/infiniband
