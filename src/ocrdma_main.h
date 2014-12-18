@@ -211,10 +211,17 @@ struct ocrdma_qp {
 	int	signaled;	/* signaled QP */
 };
 
+enum {
+	OCRDMA_AH_ID_MASK               = 0x3FF,
+	OCRDMA_AH_VLAN_VALID_MASK       = 0x01,
+	OCRDMA_AH_VLAN_VALID_SHIFT      = 0x1F
+};
+
 struct ocrdma_ah {
 	struct ibv_ah ibv_ah;
 	struct ocrdma_pd *pd;
 	uint16_t id;
+	uint8_t isvlan;
 };
 
 #define get_ocrdma_xxx(xxx, type)				\

@@ -51,14 +51,14 @@ enum {
 };
 
 #define OCRDMA_DB_CQ_RING_ID_MASK		0x3FF	/* bits 0 - 9 */
-#define OCRDMA_DB_CQ_RING_ID_EXT_MASK  0x0C00	/* bits 10-11 of qid placing at 12-11 */
-#define OCRDMA_DB_CQ_RING_ID_EXT_MASK_SHIFT  0x1	/* qid #2 msbits placing at 12-11 */
+#define OCRDMA_DB_CQ_RING_ID_EXT_MASK		0x0C00	/* bits 10-11 of qid placing at 12-11 */
+#define OCRDMA_DB_CQ_RING_ID_EXT_MASK_SHIFT	0x1	/* qid #2 msbits placing at 12-11 */
 #define OCRDMA_DB_CQ_NUM_POPPED_SHIFT		(16)	/* bits 16 - 28 */
 /* Rearm bit */
 #define OCRDMA_DB_CQ_REARM_SHIFT		(29)	/* bit 29 */
 
 /* solicited bit */
-#define OCRDMA_DB_CQ_SOLICIT_SHIFT   (31)	/* bit 31 */
+#define OCRDMA_DB_CQ_SOLICIT_SHIFT		(31)	/* bit 31 */
 
 struct ocrdma_get_context {
 	struct ibv_get_context cmd;
@@ -291,6 +291,7 @@ enum {
 	OCRDMA_FLAG_FENCE_R 	= 0x8,
 	OCRDMA_FLAG_SOLICIT	= 0x10,
 	OCRDMA_FLAG_IMM 	= 0x20,
+	OCRDMA_FLAG_AH_VLAN_PR	= 0x40,
 
 	/* Stag flags */
 	OCRDMA_LKEY_FLAG_LOCAL_WR 	= 0x1,

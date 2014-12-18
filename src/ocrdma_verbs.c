@@ -1196,6 +1196,9 @@ static void ocrdma_build_ud_hdr(struct ocrdma_qp *qp,
 	ud_hdr->rsvd_dest_qpn = wr->wr.ud.remote_qpn;
 	ud_hdr->qkey = wr->wr.ud.remote_qkey;
 	ud_hdr->rsvd_ahid = ah->id;
+	if (ah->isvlan)
+		hdr->cw |= (OCRDMA_FLAG_AH_VLAN_PR <<
+			    OCRDMA_WQE_FLAGS_SHIFT);
 }
 
 static void ocrdma_build_sges(struct ocrdma_hdr_wqe *hdr,
@@ -2156,9 +2159,10 @@ struct ibv_ah *ocrdma_create_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 	if (status)
 		goto cmd_err;
 
-	ah->id = pd->uctx->ah_tbl[ahtbl_idx];
+	ah->id = pd->uctx->ah_tbl[ahtbl_idx] & OCRDMA_AH_ID_MASK;
+	ah->isvlan = (pd->uctx->ah_tbl[ahtbl_idx] >>
+			OCRDMA_AH_VLAN_VALID_SHIFT);
 	return &ah->ibv_ah;
-
 cmd_err:
 	ocrdma_free_ah_tbl_id(pd->uctx, ahtbl_idx);
 tbl_err:
