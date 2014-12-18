@@ -651,20 +651,6 @@ mbx_err:
 	return NULL;
 }
 
-/*
- * ocrdma_query_qp
- */
-int ocrdma_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    int attr_mask, struct ibv_qp_init_attr *init_attr)
-{
-	struct ibv_query_qp cmd;
-	int status;
-
-	status =
-	    ibv_cmd_query_qp(qp, attr, attr_mask, init_attr, &cmd, sizeof(cmd));
-	return status;
-}
-
 enum ocrdma_qp_state get_ocrdma_qp_state(enum ibv_qp_state qps)
 {
 	switch (qps) {
@@ -893,6 +879,25 @@ int ocrdma_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	status = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof cmd);
 	if ((!status) && (attr_mask & IBV_QP_STATE))
 		ocrdma_qp_state_machine(qp, attr->qp_state);
+	return status;
+}
+
+/*
+ * ocrdma_query_qp
+ */
+int ocrdma_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
+		    int attr_mask, struct ibv_qp_init_attr *init_attr)
+{
+	struct ibv_query_qp cmd;
+	struct ocrdma_qp *qp = get_ocrdma_qp(ibqp);
+	int status;
+
+	status = ibv_cmd_query_qp(ibqp, attr, attr_mask,
+				  init_attr, &cmd, sizeof(cmd));
+
+	if (!status)
+		ocrdma_qp_state_machine(qp, attr->qp_state);
+
 	return status;
 }
 
