@@ -2025,7 +2025,7 @@ int main(int argc, char *argv[])
 	if (strcmp(argv[0] + max_t(int, 0, strlen(argv[0]) - strlen("ibsrpdm")),
 		   "ibsrpdm") == 0) {
 		ret = ibsrpdm(argc, argv);
-		goto close_pipe;
+		goto restore_sig;
 	}
 
 	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
@@ -2220,11 +2220,12 @@ free_config:
 	free(config);
 close_log:
 	closelog();
-close_pipe:
+restore_sig:
 	sa.sa_handler = SIG_DFL;
 	sigaction(SIGINT, &sa, 0);
 	sigaction(SIGTERM, &sa, 0);
 	sigaction(SRP_CATAS_ERR, &sa, 0);
+close_pipe:
 	close(wakeup_pipe[1]);
 	close(wakeup_pipe[0]);
 	wakeup_pipe[0] = -1;
