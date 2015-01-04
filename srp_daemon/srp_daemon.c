@@ -671,6 +671,9 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 	char *umad_dev_name;
 	int ret;
 
+	*ibdev = NULL;
+	*ibport = NULL;
+
 	umad_dev_name = rindex(umad_dev, '/');
 	if (!umad_dev_name) {
 		pr_err("Couldn't find device name in '%s'\n",
@@ -715,7 +718,12 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 	ret = 0;
 
 end:
+	if (ret) {
+		free(*ibport);
+		free(*ibdev);
+	}
 	free(class_dev_path);
+
 	return ret;
 }
 
@@ -1695,11 +1703,12 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	return 0;
 }
 
-static void config_destroy(struct config_t *conf)
+static void free_config(struct config_t *conf)
 {
 	free(conf->dev_name);
 	free(conf->add_target_file);
 	free(conf->rules);
+	free(conf);
 }
 
 static void umad_resources_init(struct umad_resources *umad_res)
@@ -1971,7 +1980,7 @@ static int ibsrpdm(int argc, char *argv[])
 umad_done:
 	umad_done();
 
-	free(config);
+	free_config(config);
 
 	return ret;
 }
@@ -2030,7 +2039,7 @@ int main(int argc, char *argv[])
 
 	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
 
-	config = malloc(sizeof(*config));
+	config = calloc(1, sizeof(*config));
 	if (!config) {
  		pr_err("out of memory\n");
 		ret = ENOMEM;
@@ -2049,7 +2058,7 @@ int main(int argc, char *argv[])
 		lockfd = check_process_uniqueness(config);
 		if (lockfd < 0) {
 			ret = EPERM;
-			goto clean_config;
+			goto free_config;
 		}
 	}
 
@@ -2214,10 +2223,8 @@ clean_umad:
 close_lockfd:
 	if (lockfd >= 0)
 		close(lockfd);
-clean_config:
-	config_destroy(config);
 free_config:
-	free(config);
+	free_config(config);
 close_log:
 	closelog();
 restore_sig:
