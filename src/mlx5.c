@@ -73,7 +73,12 @@ struct {
 	unsigned		vendor;
 	unsigned		device;
 } hca_table[] = {
-	HCA(MELLANOX, 4113),	/* MT27600 Connect-IB */
+	HCA(MELLANOX, 4113),	/* MT4113 Connect-IB */
+	HCA(MELLANOX, 4114),	/* Connect-IB Virtual Function */
+	HCA(MELLANOX, 4115),	/* ConnectX-4 */
+	HCA(MELLANOX, 4116),	/* ConnectX-4 Virtual Function */
+	HCA(MELLANOX, 4117),	/* ConnectX-4LX */
+	HCA(MELLANOX, 4118),	/* ConnectX-4LX Virtual Function */
 };
 
 uint32_t mlx5_debug_mask = 0;
