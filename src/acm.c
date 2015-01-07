@@ -1517,6 +1517,17 @@ acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 			goto out;
 		}
 
+		/* Open the provider endpoint only if at least a name or
+		   address is found */
+		if (!ep->prov_ep_context) {
+			ret = ep->port->prov->open_endpoint(&ep->endpoint,
+				ep->port->prov_port_context, 
+				&ep->prov_ep_context);
+			if (ret) {
+				acm_log(0, "Error: failed to open prov ep\n");
+				goto out;
+			}
+		}
 		ep->addr_info[i].addr.type = addr_type;
 		strncpy(ep->addr_info[i].string_buf, name, ACM_MAX_ADDRESS);
 		memcpy(ep->addr_info[i].addr.info.addr, tmp, ACM_MAX_ADDRESS);
@@ -1735,12 +1746,6 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 	if (!ep)
 		return;
 
-	if (port->prov->open_endpoint(&ep->endpoint, port->prov_port_context, 
-				      &ep->prov_ep_context)) {
-		acm_log(0, "Error -- failed to open prov endpoint\n");
-		goto err;
-	}
-
 	ret = acm_assign_ep_names(ep);
 	if (ret) {
 		acm_log(0, "ERROR - unable to assign EP name for pkey 0x%x\n", pkey);
@@ -1751,9 +1756,9 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 	return;
 
 ep_close:
-	port->prov->close_endpoint(ep->prov_ep_context);
+	if (ep->prov_ep_context) 
+		port->prov->close_endpoint(ep->prov_ep_context);
 
-err:
 	free(ep);
 }
 
