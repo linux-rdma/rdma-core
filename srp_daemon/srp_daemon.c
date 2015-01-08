@@ -1552,11 +1552,59 @@ out:
 	return ret;
 }
 
+static int set_conf_dev_and_port(char *umad_dev, struct config_t *conf)
+{
+	int ret;
+
+	if (umad_dev) {
+		char *ibport;
+
+		ret = translate_umad_to_ibdev_and_port(umad_dev,
+						       &conf->dev_name,
+						       &ibport);
+		if (ret) {
+			pr_err("Fail to translate umad to ibdev and port\n");
+			goto out;
+		}
+		conf->port_num = atoi(ibport);
+		if (conf->port_num == 0) {
+			pr_err("Bad port number %s\n", ibport);
+			ret = -1;
+		}
+		free(ibport);
+	} else {
+		umad_ca_t ca;
+		umad_port_t port;
+
+		ret = umad_get_ca(NULL, &ca);
+		if (ret) {
+			pr_err("Failed to get default CA\n");
+			goto out;
+		}
+
+		ret = umad_get_port(ca.ca_name, 0, &port);
+		if (ret) {
+			pr_err("Failed to get default port for CA %s\n",
+			       ca.ca_name);
+			umad_release_ca(&ca);
+			goto out;
+		}
+		conf->dev_name = strdup(ca.ca_name);
+		conf->port_num = port.portnum;
+		umad_release_port(&port);
+		umad_release_ca(&ca);
+		pr_debug("Using device %s port %d\n", conf->dev_name,
+			 conf->port_num);
+	}
+out:
+	return ret;
+}
+
+
 static int get_config(struct config_t *conf, int argc, char *argv[])
 {
 	/* set defaults */
-	char* umad_dev   = "/dev/infiniband/umad0";
-	char *ibport;
+	char* umad_dev = NULL;
 	int ret;
 
 	conf->port_num			= 1;
@@ -1675,19 +1723,11 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	initialize_sysfs();
 
 	if (conf->dev_name == NULL) {
-		if (translate_umad_to_ibdev_and_port(umad_dev, &conf->dev_name, &ibport)) {
-			pr_err(
-				"Fail to translate umad to ibdev and port\n");
-			return -1;
-		}
-		conf->port_num = atoi(ibport);
-		if (conf->port_num == 0) {
-			pr_err("Bad port number %s\n", ibport);
-			free(conf->dev_name);
-			free(ibport);
-			return -1;
-		}
-		free(ibport);
+		ret = set_conf_dev_and_port(umad_dev, conf);
+	        if (ret) {
+	                pr_err("Failed to build config\n");
+	                return ret;
+	        }
 	}
 	ret = asprintf(&conf->add_target_file,
 		       "%s/class/infiniband_srp/srp-%s-%d/add_target", sysfs_path,
@@ -1909,8 +1949,7 @@ static void ts_sub(const struct timespec *a, const struct timespec *b,
 
 static int ibsrpdm(int argc, char *argv[])
 {
-	char* umad_dev = "/dev/infiniband/umad0";
-	char* ibport;
+	char* umad_dev = NULL;
 	struct resources *res;
 	int ret;
 
@@ -1951,13 +1990,11 @@ static int ibsrpdm(int argc, char *argv[])
 
 	initialize_sysfs();
 
-	if (translate_umad_to_ibdev_and_port(umad_dev, &config->dev_name,
-					     &ibport)) {
-		pr_err("Fail to translate umad to ibdev and port\n");
+	ret = set_conf_dev_and_port(umad_dev, config);
+	if (ret) {
+		pr_err("Failed to build config\n");
 		return 1;
 	}
-	config->port_num = atoi(ibport);
-	free(ibport);
 
 	umad_init();
 	res = alloc_res();
