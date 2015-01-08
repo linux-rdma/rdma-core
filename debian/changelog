@@ -1,4 +1,4 @@
-libmlx5 (1.0.1-1) unstable; urgency=low
+libmlx5 (1.0.2-1) unstable; urgency=low
 
   * Fix micro UAR allocator
   * Add support for resize CQ
