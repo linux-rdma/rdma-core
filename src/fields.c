@@ -858,9 +858,9 @@ static const ib_field_t ib_mad_f[] = {
 	{0, 32, "Control_Map", mad_dump_hex},
 	{32, 256, "Victim_Mask", mad_dump_array},
 	{288, 256, "Credit_Mask", mad_dump_array},
-	{BITSOFFS(544, 4), "Threshold", mad_dump_uint},
+	{BITSOFFS(544, 4), "Threshold", mad_dump_hex},
 	{BITSOFFS(552, 8), "Packet_Size", mad_dump_uint},
-	{BITSOFFS(560, 4), "CS_Threshold", mad_dump_uint},
+	{BITSOFFS(560, 4), "CS_Threshold", mad_dump_hex},
 	{BITSOFFS(576, 16), "CS_ReturnDelay", mad_dump_hex}, /* TODO: CCT dump */
 	{BITSOFFS(592, 16), "Marking_Rate", mad_dump_uint},
 	{0, 0},			/* IB_CC_SWITCH_CONGESTION_SETTING_LAST_F */
