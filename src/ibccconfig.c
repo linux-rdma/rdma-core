@@ -371,9 +371,6 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 	if ((errstr = parseint(argv[5], &cong_parm_marking_rate, 0)))
 		return errstr;
 
-	if (!portnum)
-		return "invalid port number specified";
-
 	/* Figure out number of ports first */
 	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info config failed";
@@ -389,10 +386,10 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 
 	/* We are modifying only 1 port, so get the current config */
 	if (!cc_query_status_via(payload, dest, IB_CC_ATTR_SWITCH_PORT_CONGESTION_SETTING,
-				 (portnum - 1) / 32, 0, NULL, srcport, cckey))
-		return "switch congestion setting query failed";
+				 portnum / 32, 0, NULL, srcport, cckey))
+		return "switch port congestion setting query failed";
 
-	ptr = payload + (((portnum % 32 - 1) * 4));
+	ptr = payload + (((portnum % 32) * 4));
 
 	mad_encode_field(ptr,
 			 IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_VALID_F,
@@ -415,8 +412,8 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 			 &cong_parm_marking_rate);
 
 	if (!cc_config_status_via(payload, rcv, dest, IB_CC_ATTR_SWITCH_PORT_CONGESTION_SETTING,
-				  (portnum - 1) / 32, 0, NULL, srcport, cckey))
-		return "switch congestion setting config failed";
+				  portnum / 32, 0, NULL, srcport, cckey))
+		return "switch port congestion setting config failed";
 
 	return NULL;
 }
