@@ -272,11 +272,6 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 		return NULL;
 	}
 
-	if (ibdebug) {
-		IBWARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
-		xdump(stderr, "mad data\n", mad + rpc->dataoffs, rpc->datasz);
-	}
-
 	if (rcvdata)
 		memcpy(rcvdata, mad + rpc->dataoffs, rpc->datasz);
 
@@ -320,12 +315,6 @@ void *mad_rpc_rmpp(const struct ibmad_port *port, ib_rpc_t * rpc,
 		     status, portid2str(dport));
 		errno = EIO;
 		return NULL;
-	}
-
-	if (ibdebug) {
-		IBWARN("data offs %d sz %d", rpc->dataoffs, rpc->datasz);
-		xdump(stderr, "rmpp mad data\n", mad + rpc->dataoffs,
-		      rpc->datasz);
 	}
 
 	if (rmpp) {
