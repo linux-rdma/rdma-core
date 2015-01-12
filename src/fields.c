@@ -835,7 +835,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(16, 16), "ThresholdEventCounter", mad_dump_uint},
 	{BITSOFFS(32, 16), "ThresholdCongestionEventMap", mad_dump_hex},
 	/* XXX: Q3/2010 errata lists offset 48, but that means field is not
-	 * world aligned.  Assume will be aligned to offset 64 later.
+	 * word aligned.  Assume will be aligned to offset 64 later.
 	 */
 	{BITSOFFS(64, 32), "CurrentTimeStamp", mad_dump_uint},
 	{0, 0},			/* IB_CC_CONGESTION_LOG_CA_LAST_F */
