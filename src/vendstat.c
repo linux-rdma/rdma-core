@@ -145,8 +145,9 @@ typedef struct {
 static uint16_t ext_fw_info_device[][2] = {
 	{0x0245, 0x0245},	/* Switch-X */
 	{0xc738, 0xc738},	/* Switch-X */
+	{0xcb84, 0xcb84},	/* Switch-IB */
 	{0x01b3, 0x01b3},	/* IS-4 */
-	{0x1003, 0x1011},	/* Connect-X */
+	{0x1003, 0x1016},	/* Connect-X */
 	{0x0000, 0x0000}};
 
 static int is_ext_fw_info_supported(uint16_t device_id) {
