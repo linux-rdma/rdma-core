@@ -209,10 +209,11 @@ int ocrdma_free_pd(struct ibv_pd *ibpd)
 	struct ocrdma_pd *pd = get_ocrdma_pd(ibpd);
 
 	status = ibv_cmd_dealloc_pd(ibpd);
-	if (pd->dpp_va)
-		munmap((void *)pd->dpp_va, OCRDMA_DPP_PAGE_SIZE);
 	if (status)
 		return status;
+
+	if (pd->dpp_va)
+		munmap((void *)pd->dpp_va, OCRDMA_DPP_PAGE_SIZE);
 	free(pd);
 	return 0;
 }
@@ -356,8 +357,12 @@ int ocrdma_resize_cq(struct ibv_cq *ibcq, int new_entries)
 int ocrdma_destroy_cq(struct ibv_cq *ibv_cq)
 {
 	struct ocrdma_cq *cq = get_ocrdma_cq(ibv_cq);
+	int status;
 
-	ibv_cmd_destroy_cq(ibv_cq);
+	status = ibv_cmd_destroy_cq(ibv_cq);
+	if (status)
+		return status;
+
 	if (cq->db_va)
 		munmap((void *)cq->db_va, cq->db_size);
 	if (cq->va)
@@ -484,6 +489,9 @@ int ocrdma_destroy_srq(struct ibv_srq *ibsrq)
 
 	id = dev->id;
 	status = ibv_cmd_destroy_srq(ibsrq);
+	if (status)
+		return status;
+
 	if (srq->idx_bit_fields)
 		free(srq->idx_bit_fields);
 	if (srq->rqe_wr_id_tbl)
