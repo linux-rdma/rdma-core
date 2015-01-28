@@ -203,7 +203,7 @@ static int is_mlnx_ext_port_info_supported(ibnd_port_t * port)
 {
 	uint16_t devid = (uint16_t) mad_get_field(port->node->info, 0, IB_NODE_DEVID_F);
 
-	if (devid == 0xc738 || devid == 0xcb84)
+	if ((devid >= 0xc738 && devid <= 0xc73b) || devid == 0xcb20)
 		return 1;
 	if (devid >= 0x1003 && devid <= 0x1016)
 		return 1;

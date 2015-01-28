@@ -530,7 +530,7 @@ int is_port_info_extended_supported(ib_portid_t * dest, int port,
 int is_mlnx_ext_port_info_supported(uint32_t devid)
 {
 	if (ibd_ibnetdisc_flags & IBND_CONFIG_MLX_EPI) {
-		if (devid == 0xc738 || devid == 0xcb84)
+		if ((devid >= 0xc738 && devid <= 0xc73b) || devid == 0xcb20)
 			return 1;
 		if (devid >= 0x1003 && devid <= 0x1016)
 			return 1;
