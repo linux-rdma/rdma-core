@@ -362,7 +362,7 @@ int main(int argc, char **argv)
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 	ib_portid_t dport_id;
 	int port, agent;
-	uint8_t *umad, *mad;
+	uint8_t *umad;
 	int len;
 
 	if (argc > 1)
@@ -388,7 +388,6 @@ int main(int argc, char **argv)
 	agent = umad_register(port, IB_SA_CLASS, 2, 0, NULL);
 
 	rereg_and_test_port(guid_file, port, agent, &dport_id, TMO);
-	mad = umad_get_mad(umad);
 
 	free(umad);
 	umad_unregister(port, agent);

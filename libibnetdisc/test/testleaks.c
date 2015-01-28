@@ -57,12 +57,10 @@ static FILE *f;
 void usage(void)
 {
 	fprintf(stderr,
-		"Usage: %s [-hclp -S <guid> -D <direct route> -C <ca_name> -P <ca_port>]\n"
+		"Usage: %s [-hclp -D <direct route> -C <ca_name> -P <ca_port>]\n"
 		"   Report link speed and connection for each port of each switch which is active\n"
 		"   -h This help message\n"
 		"   -i <iters> Number of iterations to run (default -1 == infinate)\n"
-		"   -S <guid> output only the node specified by guid\n"
-		"   -D <direct route> print only node specified by <direct route>\n"
 		"   -f <dr_path> specify node to start \"from\"\n"
 		"   -n <hops> Number of hops to include away from specified node\n"
 		"   -t <timeout_ms> timeout for any single fabric query\n"
@@ -80,8 +78,6 @@ int main(int argc, char **argv)
 	char *ca = 0;
 	int ca_port = 0;
 	ibnd_fabric_t *fabric = NULL;
-	uint64_t guid = 0;
-	char *dr_path = NULL;
 	char *from = NULL;
 	ib_portid_t port_id;
 	int iters = -1;
@@ -124,9 +120,6 @@ int main(int argc, char **argv)
 		case 'P':
 			ca_port = strtoul(optarg, 0, 0);
 			break;
-		case 'D':
-			dr_path = strdup(optarg);
-			break;
 		case 'n':
 			config.max_hops = strtoul(optarg, NULL, 0);
 			break;
@@ -135,9 +128,6 @@ int main(int argc, char **argv)
 			break;
 		case 't':
 			config.timeout_ms = strtoul(optarg, 0, 0);
-			break;
-		case 'S':
-			guid = (uint64_t) strtoull(optarg, 0, 0);
 			break;
 		default:
 			usage();
@@ -158,7 +148,6 @@ int main(int argc, char **argv)
 				rc = 1;
 				goto close_port;
 			}
-			guid = 0;
 		} else if ((fabric = ibnd_discover_fabric(ca, ca_port, NULL,
 							  &config)) == NULL) {
 			fprintf(stderr, "discover failed\n");
