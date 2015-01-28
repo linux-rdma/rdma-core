@@ -200,6 +200,7 @@ AC_SUBST(DEFAULT_STOP, $default_stop)
 
 AC_CHECK_HEADER(libudev.h, with_udev="yes", with_udev="no")
 AC_CHECK_LIB(udev, udev_monitor_ref, [], AC_MSG_ERROR(libudev is required for rdma-ndd...))
+AC_CHECK_FUNCS_ONCE(udev_get_sys_path)
 
 dnl Generate doc/man/*.in files if possible
 DOC_DATE="`date +%Y-%m-%d`"

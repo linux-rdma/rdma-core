@@ -257,7 +257,9 @@ static void setup_udev(void)
 
 	udev_set_log_fn(udev, udev_log_fn);
 	udev_set_log_priority(udev, LOG_INFO);
+#if HAVE_UDEV_GET_SYS_PATH
 	sys_dir = (char *)udev_get_sys_path(udev);
+#endif
 }
 
 static int get_udev_fd(void)
