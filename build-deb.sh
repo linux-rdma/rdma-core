@@ -47,6 +47,11 @@ build_deb() {
     name=srptools_$version
     TARBALL=$name.orig.tar.gz
 
+    # fix dependency with libibumad-devel instead of libibumad-dev
+    if dpkg-query -s libibumad-devel >/dev/null 2>&1 ; then
+        sed -i "s/\blibibumad-dev\b/libibumad-devel/g" debian/control
+    fi
+
     echo "Building under $_TOP/$name"
     mkdir -p $_TOP/$name
     cp_src $_TOP/$name
