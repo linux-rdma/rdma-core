@@ -332,6 +332,7 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 
 	mlx4_free_buf(&cq->buf);
 	cq->buf = buf;
+	mlx4_update_cons_index(cq);
 
 out:
 	pthread_spin_unlock(&cq->lock);

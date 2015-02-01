@@ -35,6 +35,7 @@
 #define MLX4_H
 
 #include <stddef.h>
+#include <netinet/in.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -376,6 +377,11 @@ static inline struct mlx4_qp *to_mqp(struct ibv_qp *ibqp)
 static inline struct mlx4_ah *to_mah(struct ibv_ah *ibah)
 {
 	return to_mxxx(ah, ah);
+}
+
+static inline void mlx4_update_cons_index(struct mlx4_cq *cq)
+{
+	*cq->set_ci_db = htonl(cq->cons_index & 0xffffff);
 }
 
 int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size);

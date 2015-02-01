@@ -116,11 +116,6 @@ static struct mlx4_cqe *next_cqe_sw(struct mlx4_cq *cq)
 	return get_sw_cqe(cq, cq->cons_index);
 }
 
-static void update_cons_index(struct mlx4_cq *cq)
-{
-	*cq->set_ci_db = htonl(cq->cons_index & 0xffffff);
-}
-
 static void mlx4_handle_error_cqe(struct mlx4_err_cqe *cqe, struct ibv_wc *wc)
 {
 	if (cqe->syndrome == MLX4_CQE_SYNDROME_LOCAL_QP_OP_ERR)
@@ -356,7 +351,7 @@ int mlx4_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	}
 
 	if (npolled || err == CQ_POLL_ERR)
-		update_cons_index(cq);
+		mlx4_update_cons_index(cq);
 
 	pthread_spin_unlock(&cq->lock);
 
@@ -448,7 +443,7 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 		 * updating consumer index.
 		 */
 		wmb();
-		update_cons_index(cq);
+		mlx4_update_cons_index(cq);
 	}
 }
 
