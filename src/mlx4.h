@@ -43,6 +43,10 @@
 
 #define MLX4_PORTS_NUM 2
 
+#ifndef uninitialized_var
+#define uninitialized_var(x) x = x
+#endif
+
 #ifdef HAVE_VALGRIND_MEMCHECK_H
 
 #  include <valgrind/memcheck.h>

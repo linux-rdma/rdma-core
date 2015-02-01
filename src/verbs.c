@@ -846,8 +846,10 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 
 static int link_local_gid(const union ibv_gid *gid)
 {
-	uint32_t hi = *(uint32_t *)(gid->raw);
-	uint32_t lo = *(uint32_t *)(gid->raw + 4);
+	uint32_t *tmp = (uint32_t *)gid->raw;
+	uint32_t hi = tmp[0];
+	uint32_t lo = tmp[1];
+
 	if (hi == htonl(0xfe800000) && lo == 0)
 		return 1;
 

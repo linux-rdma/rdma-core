@@ -182,12 +182,12 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	struct mlx4_context *ctx;
 	struct mlx4_qp *qp = to_mqp(ibqp);
 	void *wqe;
-	struct mlx4_wqe_ctrl_seg *ctrl;
+	struct mlx4_wqe_ctrl_seg *uninitialized_var(ctrl);
 	int ind;
 	int nreq;
 	int inl = 0;
 	int ret = 0;
-	int size;
+	int size = 0;
 	int i;
 
 	pthread_spin_lock(&qp->sq.lock);
@@ -415,7 +415,8 @@ out:
 
 	if (nreq == 1 && inl && size > 1 && size <= ctx->bf_buf_size / 16) {
 		ctrl->owner_opcode |= htonl((qp->sq.head & 0xffff) << 8);
-		*(uint32_t *) ctrl->reserved |= qp->doorbell_qpn;
+
+		ctrl->bf_qpn |= qp->doorbell_qpn;
 		/*
 		 * Make sure that descriptor is written to memory
 		 * before writing to BlueFlame page.
