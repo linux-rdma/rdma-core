@@ -180,6 +180,18 @@ fi
 AC_SUBST(ibnetdisc_api_version)
 dnl End libibnetdisc stuff
 
+dnl with or with rdma-ndd
+AC_MSG_CHECKING(for --enable-rdma-ndd)
+AC_ARG_ENABLE(rdma-ndd,
+[  --enable-rdma-ndd build rdma-ndd (default=yes)],
+[case "${enableval}" in
+  yes) rdmandd=yes ;;
+  no)  rdmandd=no ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-rdma-ndd) ;;
+esac],[rdmandd=yes])
+AM_CONDITIONAL(ENABLE_RDMA_NDD, test x$rdmandd = xyes)
+AC_MSG_RESULT(${rdmandd=no})
+
 dnl configures for rdma-ndd startup script
 default_rdma_service=openibd
 AC_ARG_WITH([rdma_service],
@@ -198,9 +210,12 @@ default_start="null"
 AC_SUBST(DEFAULT_START, $default_start)
 AC_SUBST(DEFAULT_STOP, $default_stop)
 
-AC_CHECK_HEADER(libudev.h, with_udev="yes", with_udev="no")
-AC_CHECK_LIB(udev, udev_monitor_ref, [], AC_MSG_ERROR(libudev is required for rdma-ndd...))
-AC_CHECK_FUNCS_ONCE(udev_get_sys_path)
+if test x$rdmandd = xyes; then
+    AC_CHECK_HEADER(libudev.h, with_udev="yes", with_udev="no")
+    AC_CHECK_LIB(udev, udev_monitor_ref, [], AC_MSG_ERROR(libudev is required for rdma-ndd...))
+    AC_CONFIG_FILES([doc/man/rdma-ndd.8 etc/rdma-ndd.init])
+    AC_CHECK_FUNCS_ONCE(udev_get_sys_path)
+fi
 
 dnl Generate doc/man/*.in files if possible
 DOC_DATE="`date +%Y-%m-%d`"
@@ -275,8 +290,6 @@ AC_CONFIG_FILES([\
 	doc/man/smpquery.8 \
 	doc/man/vendstat.8 \
 	doc/man/infiniband-diags.8 \
-	doc/man/rdma-ndd.8 \
-	etc/rdma-ndd.init \
 	libibnetdisc/Makefile \
 ])
 AC_OUTPUT
