@@ -289,6 +289,9 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		case MLX4_OPCODE_BIND_MW:
 			wc->opcode    = IBV_WC_BIND_MW;
 			break;
+		case MLX4_OPCODE_SEND_INVAL:
+			wc->opcode    = IBV_WC_SEND;
+			break;
 		default:
 			/* assume it's a send completion */
 			wc->opcode    = IBV_WC_SEND;
@@ -302,6 +305,11 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 			wc->opcode   = IBV_WC_RECV_RDMA_WITH_IMM;
 			wc->wc_flags = IBV_WC_WITH_IMM;
 			wc->imm_data = cqe->immed_rss_invalid;
+			break;
+		case MLX4_RECV_OPCODE_SEND_INVAL:
+			wc->opcode   = IBV_WC_RECV;
+			wc->wc_flags |= IBV_WC_WITH_INV;
+			wc->imm_data = ntohl(cqe->immed_rss_invalid);
 			break;
 		case MLX4_RECV_OPCODE_SEND:
 			wc->opcode   = IBV_WC_RECV;

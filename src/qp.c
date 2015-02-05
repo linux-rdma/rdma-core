@@ -56,6 +56,7 @@ static const uint32_t mlx4_ib_opcode[] = {
 	[IBV_WR_ATOMIC_FETCH_AND_ADD]	= MLX4_OPCODE_ATOMIC_FA,
 	[IBV_WR_LOCAL_INV]		= MLX4_OPCODE_LOCAL_INVAL,
 	[IBV_WR_BIND_MW]		= MLX4_OPCODE_BIND_MW,
+	[IBV_WR_SEND_WITH_INV]		= MLX4_OPCODE_SEND_INVAL,
 };
 
 static void *get_recv_wqe(struct mlx4_qp *qp, int n)
@@ -320,6 +321,9 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					(struct mlx4_wqe_bind_seg);
 				size += sizeof
 					(struct mlx4_wqe_bind_seg) / 16;
+				break;
+			case IBV_WR_SEND_WITH_INV:
+				ctrl->imm = htonl(wr->imm_data);
 				break;
 
 			default:
