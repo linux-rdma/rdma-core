@@ -3696,11 +3696,11 @@ int rfcntl(int socket, int cmd, ... /* arg */ )
 		break;
 	case F_SETFL:
 		param = va_arg(args, long);
-		if (param & O_NONBLOCK)
-			ret = rs_set_nonblocking(rs, O_NONBLOCK);
+		if ((rs->fd_flags & O_NONBLOCK) != (param & O_NONBLOCK))
+			ret = rs_set_nonblocking(rs, param & O_NONBLOCK);
 
 		if (!ret)
-			rs->fd_flags |= param;
+			rs->fd_flags = param;
 		break;
 	default:
 		ret = ERR(ENOTSUP);
