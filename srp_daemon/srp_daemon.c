@@ -2108,8 +2108,10 @@ catas_start:
 					res->ud_res->ah = NULL;
 				}
 				ret = create_ah(res->ud_res);
-				if (ret)
+				if (ret) {
+					received_signal = get_received_signal(10, 0);
 					goto kill_threads;
+				}
 			}
 
 			if (res->ud_res->ah) {
