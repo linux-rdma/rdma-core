@@ -10,10 +10,18 @@ Dependencies:
 	2) opensm-libs >= 3.3.10
 	3) ib_umad kernel module
 
-Release notes for 1.3.10 to 1.3.11 are:
+Release notes for 1.3.11 to 1.3.12 are:
 
    1) bug fixes
+   2) new Fields for Port Extended Speeds
 
-Authors:
 
-Bart Van Assche <bvanassche@acm.org> mad_rpc(): Fail with EINVAL if max_retries <= 0
+Updates since 1.3.11
+
+
+  Hal Rosenstock  :  fields.c: Fix commentary typo
+  Al Chu  :  libibmad/src/rpc.c: Remove superfluous packet dump
+  Hal Rosenstock  :  fields.c: Print SwitchCongestionSetting threshold fields in hex rather than decimal
+  Dan Ben Yosef  :  libibmad: Add new fields for SM:PortInfoExtended and for PM:PortExtendedSpeedsCounters
+  Hal Rosenstock  :  dump.c: In mad_dump_linkwidth, output undefined widths
+
