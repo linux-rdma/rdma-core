@@ -352,7 +352,7 @@ struct rsocket {
 	};
 
 	int		  opts;
-	long		  fd_flags;
+	int		  fd_flags;
 	uint64_t	  so_opts;
 	uint64_t	  ipv6_opts;
 	void		  *optval;
@@ -610,7 +610,7 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 	return rs;
 }
 
-static int rs_set_nonblocking(struct rsocket *rs, long arg)
+static int rs_set_nonblocking(struct rsocket *rs, int arg)
 {
 	struct ds_qp *qp;
 	int ret = 0;
@@ -3683,7 +3683,7 @@ int rfcntl(int socket, int cmd, ... /* arg */ )
 {
 	struct rsocket *rs;
 	va_list args;
-	long param;
+	int param;
 	int ret = 0;
 
 	rs = idm_lookup(&idm, socket);
@@ -3692,10 +3692,10 @@ int rfcntl(int socket, int cmd, ... /* arg */ )
 	va_start(args, cmd);
 	switch (cmd) {
 	case F_GETFL:
-		ret = (int) rs->fd_flags;
+		ret = rs->fd_flags;
 		break;
 	case F_SETFL:
-		param = va_arg(args, long);
+		param = va_arg(args, int);
 		if ((rs->fd_flags & O_NONBLOCK) != (param & O_NONBLOCK))
 			ret = rs_set_nonblocking(rs, param & O_NONBLOCK);
 
