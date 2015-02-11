@@ -11,11 +11,7 @@ _TOP="$BASE/pkg"
 
 ver=`grep -E "^AC_INIT\(srptools," configure.ac | cut -d, -f 2`
 version=`echo $ver`
-if [ "$TARGET" = "rel" ]; then
-    release="1"
-else
-    release=`git rev-parse HEAD | cut -c 1-6`
-fi
+release="1"
 
 echo "Building version: $version-$release"
 

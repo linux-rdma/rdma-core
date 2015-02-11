@@ -15,6 +15,7 @@ sbin_SCRIPTS = \
     srp_daemon/srp_daemon.sh
 
 EXTRA_DIST = \
+    autogen.sh build-deb.sh debian \
     srp_daemon/srp_daemon.h \
     srp_daemon/srp_ib_types.h \
     srp_daemon/srp_daemon.sh \
