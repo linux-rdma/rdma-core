@@ -86,6 +86,20 @@ fi
 %doc README NEWS ChangeLog COPYING
 
 %changelog
+* Wed Feb 11 2015 Bart Van Assche <bart.vanassche@sandisk.com> - 1.0.3
+- srp_daemon: Survive catastrophic HCA errors.
+- srp_daemon: Fix ib_dev name and port assignments for non-default umad devices.
+- srp_daemon: Add support for allow_ext_sg, cmd_sg_entries and sg_tablesize
+  in /etc/srp_daemon.conf.
+- srp_daemon: Reduce time needed to stop.
+- srp_daemon: Log start and end of trap deregistration.
+- srp_daemon: Avoid that clang complains about an invalid conversion specifier.
+- srp_daemon: Fix memory leaks in error paths.
+- ibsrpdm: Do not start trap threads in ibsrpdm.
+- configure.ac: Add subdir-objects to AM_INIT_AUTOMAKE.
+- srptools.spec: Avoid redundant stop in pre-uninstall.
+- Debian: Fix build-deb.sh to read version from configure.ac.
+- Debian: Fix package build.
 * Thu Feb 20 2014 Bart Van Assche <bvanassche@acm.org> - 1.0.2
 - Added support for specifying tl_retry_count in srp_daemon.conf. Changed
   default behavior for tl_retry_timeout parameter from setting it to 2 into
