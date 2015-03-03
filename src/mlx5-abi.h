@@ -137,4 +137,12 @@ struct mlx5_resize_cq_resp {
 	struct ibv_resize_cq_resp	ibv_resp;
 };
 
+struct mlx5_query_device_ex {
+	struct ibv_query_device_ex	ibv_cmd;
+};
+
+struct mlx5_query_device_ex_resp {
+	struct ibv_query_device_resp_ex ibv_resp;
+};
+
 #endif /* MLX4_ABI_H */

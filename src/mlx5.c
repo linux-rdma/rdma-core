@@ -583,6 +583,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, close_xrcd, mlx5_close_xrcd);
 	verbs_set_ctx_op(v_ctx, create_srq_ex, mlx5_create_srq_ex);
 	verbs_set_ctx_op(v_ctx, get_srq_num, mlx5_get_srq_num);
+	verbs_set_ctx_op(v_ctx, query_device_ex, mlx5_query_device_ex);
 
 	return 0;
 

@@ -1342,3 +1342,36 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 
 	return NULL;
 }
+
+int mlx5_query_device_ex(struct ibv_context *context,
+			 const struct ibv_query_device_ex_input *input,
+			 struct ibv_device_attr_ex *attr,
+			 size_t attr_size)
+{
+	struct mlx5_query_device_ex_resp resp;
+	struct mlx5_query_device_ex cmd;
+	struct ibv_device_attr *a;
+	uint64_t raw_fw_ver;
+	unsigned sub_minor;
+	unsigned major;
+	unsigned minor;
+	int err;
+
+	memset(&cmd, 0, sizeof(cmd));
+	memset(&resp, 0, sizeof(resp));
+	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
+				      &raw_fw_ver, &cmd.ibv_cmd, sizeof(cmd.ibv_cmd),
+				      sizeof(cmd), &resp.ibv_resp, sizeof(resp),
+				      sizeof(resp.ibv_resp));
+	if (err)
+		return err;
+
+	major     = (raw_fw_ver >> 32) & 0xffff;
+	minor     = (raw_fw_ver >> 16) & 0xffff;
+	sub_minor = raw_fw_ver & 0xffff;
+	a = &attr->orig_attr;
+	snprintf(a->fw_ver, sizeof(a->fw_ver), "%d.%d.%04d",
+		 major, minor, sub_minor);
+
+	return 0;
+}
