@@ -201,7 +201,7 @@ int umad_unregister(int portid, int agentid);
 
 enum {
 	UMAD_USER_RMPP = (1 << 0)
-} umad_reg_flags;
+};
 
 struct umad_reg_attr {
 	uint8_t    mgmt_class;
