@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011-2012 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2014-2015 Mellanox Technologies LTD. All rights reserved.
  *
  * This software is available to you under the OpenIB.org BSD license
  * below:
@@ -401,8 +402,8 @@ static int server_connect(void)
 
 static int client_connect(void)
 {
-	struct rdma_addrinfo *rai = NULL;
-	struct addrinfo *ai;
+	struct rdma_addrinfo *rai = NULL, *rai_src = NULL;
+	struct addrinfo *ai, *ai_src;
 	struct pollfd fds;
 	int ret, err;
 	socklen_t len;
@@ -415,6 +416,20 @@ static int client_connect(void)
 		return ret;
 	}
 
+	if (src_addr) {
+		if (use_rgai) {
+			rai_hints.ai_flags |= RAI_PASSIVE;
+			ret = rdma_getaddrinfo(src_addr, port, &rai_hints, &rai_src);
+		} else {
+			ai_hints.ai_flags |= RAI_PASSIVE;
+			ret = getaddrinfo(src_addr, port, &ai_hints, &ai_src);
+		}
+		if (ret) {
+			perror("getaddrinfo src_addr");
+			return ret;
+		}
+	}
+
 	rs = rai ? rs_socket(rai->ai_family, SOCK_STREAM, 0) :
 		   rs_socket(ai->ai_family, SOCK_STREAM, 0);
 	if (rs < 0) {
@@ -424,7 +439,15 @@ static int client_connect(void)
 	}
 
 	set_options(rs);
-	/* TODO: bind client to src_addr */
+
+	if (src_addr) {
+		ret = rai ? rs_bind(rs, rai_src->ai_src_addr, rai_src->ai_src_len) :
+			    rs_bind(rs, ai_src->ai_addr, ai_src->ai_addrlen);
+		if (ret) {
+			perror("rbind");
+			goto close;
+		}
+	}
 
 	if (rai && rai->ai_route) {
 		ret = rs_setsockopt(rs, SOL_RDMA, RDMA_ROUTE, rai->ai_route,
