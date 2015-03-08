@@ -70,6 +70,6 @@ dist: distclean ${NAME}.spec
 	rm -rf /tmp/${NAME}-$(VERSION)
 	mkdir -p /tmp/${NAME}-$(VERSION)
 	cp -r . /tmp/${NAME}-$(VERSION)
-	tar $(EXCLUDES) -C /tmp -zcvf $(PWD)/${NAME}-$(VERSION).tar.gz ./${NAME}-$(VERSION)
+	tar $(EXCLUDES) -C /tmp -zcvf $(PWD)/${NAME}-$(VERSION).tar.gz ${NAME}-$(VERSION)
 	rm -rf /tmp/${NAME}-$(VERSION)
 
