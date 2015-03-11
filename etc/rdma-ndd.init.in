@@ -41,7 +41,9 @@
 # notice, one of the license notices in the documentation
 # and/or other materials provided with the distribution.
 
-pidfile=/var/run/rdma-ndd.pid
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+pidfile=@localstatedir@/run/rdma-ndd.pid
 
 # Source function library.
 if [[ -s /etc/init.d/functions ]]; then
