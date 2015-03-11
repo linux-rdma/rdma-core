@@ -68,6 +68,7 @@ char *sys_dir = DEF_SYS_DIR;
 int failure_retry_rate = DEFAULT_RETRY_RATE;
 int set_retry_cnt = DEFAULT_RETRY_COUNT;
 int foreground = 0;
+char *pidfile = NULL;
 
 static void newline_to_null(char *str)
 {
@@ -205,6 +206,9 @@ static int process_opts(void *context, int ch, char *optarg)
 {
 	unsigned long tmp;
 	switch (ch) {
+	case 0:
+		pidfile = optarg;
+		break;
 	case 'f':
 		foreground = 1;
 		break;
@@ -352,6 +356,29 @@ static void monitor(void)
 	}
 }
 
+static void remove_pidfile(void)
+{
+        if (pidfile)
+		unlink(pidfile);
+}
+
+static void write_pidfile(void)
+{
+	FILE *f;
+	if (pidfile) {
+		remove_pidfile();
+		f = fopen(pidfile, "w");
+		if (f) {
+			fprintf(f, "%d\n", getpid());
+			fclose(f);
+		} else {
+			syslog(LOG_ERR, "Failed to write pidfile : %s\n",
+				pidfile);
+			exit(errno);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int fd;
@@ -368,6 +395,7 @@ int main(int argc, char *argv[])
 			"Number of times to attempt to retry setting "
 			"of the node description on failure\n"},
 		{"foreground", 'f', 0, NULL, "run in the foreground instead of as a daemon\n"},
+		{"pidfile", 0, 1, "<pidfile>", "specify a pid file (daemon mode only)\n"},
 		{0}
 	};
 
@@ -377,8 +405,6 @@ int main(int argc, char *argv[])
 	if (!ibd_nd_format)
 		ibd_nd_format = DEFAULT_ND_FORMAT;
 
-	setup_udev();
-
 	if (!foreground) {
 		closelog();
 		openlog("rdma-ndd", LOG_PID, LOG_DAEMON);
@@ -386,7 +412,10 @@ int main(int argc, char *argv[])
 			syslog(LOG_ERR, "Failed to daemonize\n");
 			exit(errno);
 		}
+		write_pidfile();
 	}
+
+	setup_udev();
 
 	syslog(LOG_INFO, "Node Descriptor format (%s)\n", ibd_nd_format);
 
@@ -397,6 +426,8 @@ int main(int argc, char *argv[])
 	close(fd);
 
 	monitor();
+
+	remove_pidfile();
 
 	return 0;
 }

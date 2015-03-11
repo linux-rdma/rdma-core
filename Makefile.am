@@ -162,6 +162,9 @@ install-data-hook:
 	if test ! -d $(DESTDIR)/$(sysconfdir)/infiniband-diags; then \
 		$(top_srcdir)/config/install-sh -m 755 -d $(DESTDIR)/$(sysconfdir)/infiniband-diags; \
 	fi
+	if test ! -d $(DESTDIR)/$(localstatedir)/run; then \
+		mkdir -p $(DESTDIR)/$(localstatedir)/run; \
+	fi
 	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/scripts/IBswcountlimits.pm $(DESTDIR)/$(PERL_INSTALLDIR)/IBswcountlimits.pm
 	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/etc/error_thresholds $(DESTDIR)/$(sysconfdir)/infiniband-diags
 	$(top_srcdir)/config/install-sh -c -m 400 $(top_srcdir)/etc/ibdiag.conf $(DESTDIR)/$(sysconfdir)/infiniband-diags

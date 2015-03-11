@@ -75,7 +75,7 @@ start () {
 	return 1
     fi
     echo -n "Starting RDMA Node Description Daemon: "
-    @sbindir@/rdma-ndd > /dev/null
+    @sbindir@/rdma-ndd --pidfile $pidfile > /dev/null
     RETVAL=$?
     if [[ $RETVAL -eq 0 ]]; then
         success

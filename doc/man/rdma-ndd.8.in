@@ -64,6 +64,9 @@ Number of times to attempt to retry setting of the node description on failure. 
 .sp
 \fB\-\-foreground, \-f\fP
 Run in the foreground instead of as a daemon
+.sp
+\fB\-\-pidfile <pidfile>\fP
+specify a pid file (daemon mode only)
 .SS Configuration flags
 .\" Define the common option -z
 .

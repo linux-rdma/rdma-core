@@ -58,6 +58,9 @@ Number of times to attempt to retry setting of the node description on failure. 
 **--foreground, -f**
 Run in the foreground instead of as a daemon
 
+**--pidfile <pidfile>**
+specify a pid file (daemon mode only)
+
 
 Configuration flags
 -------------------
