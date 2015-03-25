@@ -2964,19 +2964,22 @@ check_cq:
 
 	if (rs->state & rs_opening) {
 		ret = rs_do_connect(rs);
-		if (ret) {
-			if (errno == EINPROGRESS) {
-				errno = 0;
-				return 0;
-			} else {
-				return POLLOUT;
-			}
+		if (ret && (errno == EINPROGRESS)) {
+			errno = 0;
+		} else {
+			goto check_cq;
 		}
-		goto check_cq;
 	}
 
-	if (rs->state == rs_connect_error)
-		return (rs->err && events & POLLOUT) ? POLLOUT : 0;
+	if (rs->state == rs_connect_error) {
+		revents = 0;
+		if (events & POLLOUT)
+			revents |= POLLOUT;
+		if (events & POLLIN)
+			revents |= POLLIN;
+		revents |= POLLERR;
+		return revents;
+	}
 
 	return 0;
 }
