@@ -49,6 +49,7 @@
 #include <stddef.h>
 #include <netdb.h>
 #include <syslog.h>
+#include <limits.h>
 
 #include "cma.h"
 #include "indexer.h"
@@ -73,10 +74,15 @@ do {						\
 	(req)->response = (uintptr_t) (resp);	\
 } while (0)
 
+struct cma_port {
+	uint8_t			link_layer;
+};
+
 struct cma_device {
 	struct ibv_context *verbs;
 	struct ibv_pd	   *pd;
 	struct ibv_xrcd    *xrcd;
+	struct cma_port    *port;
 	uint64_t	    guid;
 	int		    port_cnt;
 	int		    refcnt;
@@ -142,6 +148,7 @@ static void ucma_cleanup(void)
 			if (cma_dev_array[cma_dev_cnt].refcnt)
 				ibv_dealloc_pd(cma_dev_array[cma_dev_cnt].pd);
 			ibv_close_device(cma_dev_array[cma_dev_cnt].verbs);
+			free(cma_dev_array[cma_dev_cnt].port);
 			cma_init_cnt--;
 		}
 
@@ -292,8 +299,9 @@ static struct ibv_context *ucma_open_device(uint64_t guid)
 
 static int ucma_init_device(struct cma_device *cma_dev)
 {
+	struct ibv_port_attr port_attr;
 	struct ibv_device_attr attr;
-	int ret;
+	int i, ret;
 
 	if (cma_dev->verbs)
 		return 0;
@@ -307,6 +315,19 @@ static int ucma_init_device(struct cma_device *cma_dev)
 		fprintf(stderr, PFX "Fatal: unable to query RDMA device\n");
 		ret = ERR(ret);
 		goto err;
+	}
+
+	cma_dev->port = malloc(sizeof *cma_dev->port * attr.phys_port_cnt);
+	if (!cma_dev->port) {
+		ret = ERR(ENOMEM);
+		goto err;
+	}
+
+	for (i = 1; i <= attr.phys_port_cnt; i++) {
+		if (ibv_query_port(cma_dev->verbs, i, &port_attr))
+			cma_dev->port[i - 1].link_layer = IBV_LINK_LAYER_UNSPECIFIED;
+		else
+			cma_dev->port[i - 1].link_layer = port_attr.link_layer;
 	}
 
 	cma_dev->port_cnt = attr.phys_port_cnt;
@@ -1034,8 +1055,10 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 
 static int ucma_modify_qp_rtr(struct rdma_cm_id *id, uint8_t resp_res)
 {
+	struct cma_id_private *id_priv;
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
+	uint8_t link_layer;
 
 	if (!id->qp)
 		return ERR(EINVAL);
@@ -1054,6 +1077,16 @@ static int ucma_modify_qp_rtr(struct rdma_cm_id *id, uint8_t resp_res)
 	ret = rdma_init_qp_attr(id, &qp_attr, &qp_attr_mask);
 	if (ret)
 		return ret;
+
+	/*
+	 * Workaround for rdma_ucm kernel bug:
+	 * mask off qp_attr_mask bits 21-24 which are used for RoCE
+	 */
+	id_priv = container_of(id, struct cma_id_private, id);
+	link_layer = id_priv->cma_dev->port[id->port_num - 1].link_layer;
+
+	if (link_layer == IBV_LINK_LAYER_INFINIBAND)
+		qp_attr_mask &= UINT_MAX ^ 0xe00000;
 
 	if (resp_res != RDMA_MAX_RESP_RES)
 		qp_attr.max_dest_rd_atomic = resp_res;
