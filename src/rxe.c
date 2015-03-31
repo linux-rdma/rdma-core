@@ -706,6 +706,7 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 			 struct ibv_send_wr *wr_list,
 			 struct ibv_send_wr **bad_wr)
 {
+#if 0
 #ifdef RXE_USER_SEND_QUEUE
 	int rc = 0;
 	int err;
@@ -739,6 +740,8 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 #else
 	return ibv_cmd_post_send(ibqp, wr_list, bad_wr);
 #endif
+#endif
+	return ibv_cmd_post_send(ibqp, wr_list, bad_wr);
 }
 
 static int rxe_post_recv(struct ibv_qp *ibqp,
