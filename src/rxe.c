@@ -821,6 +821,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	av = &ah->av;
 	av->attr = *attr;
 
+#if 0
 	if (rdma_link_local_addr(in6))
 		rdma_get_ll_mac(in6, av->ll_addr);
 	else if (rdma_is_multicast_addr(in6))
@@ -829,7 +830,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		free(ah);
 		return NULL;
 	}
-
+#endif
 	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr)) {
 		free(ah);
 		return NULL;
