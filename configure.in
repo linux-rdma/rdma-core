@@ -36,11 +36,11 @@ dnl combinations of this program with other software, or any other
 dnl product whatsoever.
 
 AC_PREREQ(2.57)
-AC_INIT(libhfiverbs, 1.3, ibsupport@intel.com)
+AC_INIT(libhfi1verbs, 1.3, ibsupport@intel.com)
 AC_CONFIG_SRCDIR([src/hfiverbs.h])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libhfiverbs, 1.3)
+AM_INIT_AUTOMAKE(libhfi1verbs, 1.3)
 AM_PROG_LIBTOOL
 
 AC_ARG_WITH([valgrind],
@@ -61,11 +61,11 @@ AC_PROG_CC
 
 dnl Checks for libraries
 AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
-    AC_MSG_ERROR([ibv_get_device_list() not found.  libhfiverbs requires libibverbs.]))
+    AC_MSG_ERROR([ibv_get_device_list() not found.  libhfi1verbs requires libibverbs.]))
 
 dnl Checks for header files.
 AC_CHECK_HEADER(infiniband/driver.h, [],
-    AC_MSG_ERROR([<infiniband/driver.h> not found.  libhfiverbs requires libibverbs.]))
+    AC_MSG_ERROR([<infiniband/driver.h> not found.  libhfi1verbs requires libibverbs.]))
 AC_HEADER_STDC
 AC_CHECK_HEADER(valgrind/memcheck.h, memcheck_ok=yes, memcheck_ok=no)
 

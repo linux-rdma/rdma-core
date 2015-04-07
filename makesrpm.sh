@@ -1,5 +1,5 @@
 #!/bin/bash
-NAME=libhfiverbs
+NAME=libhfi1verbs
 
 make distclean
 rm -rf *.tar.gz

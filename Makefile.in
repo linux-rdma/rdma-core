@@ -123,15 +123,15 @@ src_hfiverbs_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_FALSE@	-rpath \
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_FALSE@	$(hfiverbslibdir)
 am__dirstamp = $(am__leading_dot)dirstamp
-src_libhfiverbs_la_LIBADD =
-am__src_libhfiverbs_la_SOURCES_DIST = src/hfiverbs.c src/verbs.c
-@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@am_src_libhfiverbs_la_OBJECTS =  \
+src_libhfi1verbs_la_LIBADD =
+am__src_libhfi1verbs_la_SOURCES_DIST = src/hfiverbs.c src/verbs.c
+@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@am_src_libhfi1verbs_la_OBJECTS =  \
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@	$(am__objects_1)
-src_libhfiverbs_la_OBJECTS = $(am_src_libhfiverbs_la_OBJECTS)
-src_libhfiverbs_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+src_libhfi1verbs_la_OBJECTS = $(am_src_libhfi1verbs_la_OBJECTS)
+src_libhfi1verbs_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(src_libhfiverbs_la_LDFLAGS) $(LDFLAGS) -o $@
-@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@am_src_libhfiverbs_la_rpath =  \
+	$(src_libhfi1verbs_la_LDFLAGS) $(LDFLAGS) -o $@
+@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@am_src_libhfi1verbs_la_rpath =  \
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@	-rpath $(libdir)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
@@ -146,9 +146,9 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(src_hfiverbs_la_SOURCES) $(src_libhfiverbs_la_SOURCES)
+SOURCES = $(src_hfiverbs_la_SOURCES) $(src_libhfi1verbs_la_SOURCES)
 DIST_SOURCES = $(am__src_hfiverbs_la_SOURCES_DIST) \
-	$(am__src_libhfiverbs_la_SOURCES_DIST)
+	$(am__src_libhfi1verbs_la_SOURCES_DIST)
 DATA = $(hfiverbsconf_DATA)
 ETAGS = etags
 CTAGS = ctags
@@ -278,13 +278,13 @@ top_srcdir = @top_srcdir@
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE
 hfiverbs_version_script = @HFIVERBS_VERSION_SCRIPT@
 HFIVERBS_SOURCES = src/hfiverbs.c src/verbs.c
-@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@lib_LTLIBRARIES = src/libhfiverbs.la
-@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@src_libhfiverbs_la_SOURCES = $(HFIVERBS_SOURCES)
-@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@src_libhfiverbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
+@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@lib_LTLIBRARIES = src/libhfi1verbs.la
+@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@src_libhfi1verbs_la_SOURCES = $(HFIVERBS_SOURCES)
+@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@src_libhfi1verbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@        $(hfiverbs_version_script)
 
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@hfiverbsconfdir = $(sysconfdir)/libibverbs.d
-@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@hfiverbsconf_DATA = hfi.driver
+@HAVE_IBV_DEVICE_LIBRARY_EXTENSION_TRUE@hfiverbsconf_DATA = hfi1.driver
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_FALSE@hfiverbslibdir = $(libdir)/infiniband
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_FALSE@hfiverbslib_LTLIBRARIES = src/hfiverbs.la
 @HAVE_IBV_DEVICE_LIBRARY_EXTENSION_FALSE@src_hfiverbs_la_SOURCES = $(HFIVERBS_SOURCES)
@@ -294,8 +294,8 @@ EXTRA_DIST = src/hfiverbs.h \
     src/hfiverbs.map \
     config \
     autom4te.cache \
-    libhfiverbs.spec.in \
-    hfi.driver
+    libhfi1verbs.spec.in \
+    hfi1.driver
 
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -420,8 +420,8 @@ src/$(am__dirstamp):
 	@: > src/$(am__dirstamp)
 src/hfiverbs.la: $(src_hfiverbs_la_OBJECTS) $(src_hfiverbs_la_DEPENDENCIES) src/$(am__dirstamp)
 	$(src_hfiverbs_la_LINK) $(am_src_hfiverbs_la_rpath) $(src_hfiverbs_la_OBJECTS) $(src_hfiverbs_la_LIBADD) $(LIBS)
-src/libhfiverbs.la: $(src_libhfiverbs_la_OBJECTS) $(src_libhfiverbs_la_DEPENDENCIES) src/$(am__dirstamp)
-	$(src_libhfiverbs_la_LINK) $(am_src_libhfiverbs_la_rpath) $(src_libhfiverbs_la_OBJECTS) $(src_libhfiverbs_la_LIBADD) $(LIBS)
+src/libhfi1verbs.la: $(src_libhfi1verbs_la_OBJECTS) $(src_libhfi1verbs_la_DEPENDENCIES) src/$(am__dirstamp)
+	$(src_libhfi1verbs_la_LINK) $(am_src_libhfi1verbs_la_rpath) $(src_libhfi1verbs_la_OBJECTS) $(src_libhfi1verbs_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -831,8 +831,8 @@ uninstall-am: uninstall-hfiverbsconfDATA \
 	uninstall-hfiverbslibLTLIBRARIES uninstall-libLTLIBRARIES
 
 
-dist-hook: libhfiverbs.spec
-	cp libhfiverbs.spec $(distdir)
+dist-hook: libhfi1verbs.spec
+	cp libhfi1verbs.spec $(distdir)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

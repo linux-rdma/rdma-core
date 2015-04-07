@@ -40,12 +40,12 @@ hfiverbs_version_script = @HFIVERBS_VERSION_SCRIPT@
 HFIVERBS_SOURCES = src/hfiverbs.c src/verbs.c
 
 if HAVE_IBV_DEVICE_LIBRARY_EXTENSION
-    lib_LTLIBRARIES = src/libhfiverbs.la
-    src_libhfiverbs_la_SOURCES = $(HFIVERBS_SOURCES)
-    src_libhfiverbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
+    lib_LTLIBRARIES = src/libhfi1verbs.la
+    src_libhfi1verbs_la_SOURCES = $(HFIVERBS_SOURCES)
+    src_libhfi1verbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
         $(hfiverbs_version_script)
     hfiverbsconfdir = $(sysconfdir)/libibverbs.d
-    hfiverbsconf_DATA = hfi.driver
+    hfiverbsconf_DATA = hfi1.driver
 else
     hfiverbslibdir = $(libdir)/infiniband
     hfiverbslib_LTLIBRARIES = src/hfiverbs.la
@@ -58,8 +58,8 @@ EXTRA_DIST = src/hfiverbs.h \
     src/hfiverbs.map \
     config \
     autom4te.cache \
-    libhfiverbs.spec.in \
-    hfi.driver
+    libhfi1verbs.spec.in \
+    hfi1.driver
 
-dist-hook: libhfiverbs.spec
-	cp libhfiverbs.spec $(distdir)
+dist-hook: libhfi1verbs.spec
+	cp libhfi1verbs.spec $(distdir)

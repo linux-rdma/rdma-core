@@ -41,7 +41,7 @@
 Name: @NAME@
 Version: %ver
 Release: %rel%{?dist}
-Summary: QLogic InfiniPath HCA Userspace Driver
+Summary: Intel Omni-Path HFI Userspace Driver
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
@@ -50,19 +50,21 @@ Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
+Obsoletes: libhfiverbs
 
 %description
-libhfiverbs provides a device-specific userspace driver for Intel Host
+libhfi1verbs provides a device-specific userspace driver for Intel Host
 Fabric interface cards.  This driver is designed for use with the
 libibverbs library.
 
 %package devel
-Summary: Development files for the libhfiverbs driver
+Summary: Development files for the libhfi1verbs driver
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
+Obsoletes: libhfiverbs-devel
 
 %description devel
-Static version of libhfiverbs that may be linked directly to an
+Static version of libhfi1verbs that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep
@@ -83,10 +85,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_libdir}/libhfiverbs*.so
+%{_libdir}/libhfi1verbs*.so
 %doc AUTHORS COPYING README
-%config %{_sysconfdir}/libibverbs.d/hfi.driver
+%config %{_sysconfdir}/libibverbs.d/hfi1.driver
 
 %files devel
 %defattr(-,root,root,-)
-%{_libdir}/libhfiverbs*.a
+%{_libdir}/libhfi1verbs*.a
