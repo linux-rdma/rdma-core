@@ -526,6 +526,13 @@ sub modprobe {
     system("modprobe $modprobe_opt $module $opts");
 }
 
+sub do_set_roce_mode {
+    my $rxed = $_[0];
+    system("mkdir -p /sys/kernel/config/rdma_cm/$rxed");
+    system("echo RoCE V2 | tee /sys/kernel/config/rdma_cm/$rxed/default_roce_mode");
+    rmdir "/sys/kernel/config/rdma_cm/$rxed";
+}
+
 # bring up rxe
 sub do_start {
     my $proto_str = "";
@@ -535,6 +542,7 @@ sub do_start {
 
     modprobe("ib_core");
     modprobe("ib_uverbs");
+    modprobe("rdma_ucm");
     modprobe("ib_rxe");
 
     populate_persistence();
@@ -551,6 +559,10 @@ sub do_start {
 	    my $cmd = "ifconfig $eth_names{$rxe} up";
 	    system($cmd);
 	}
+    }
+
+    foreach my $rxe (@rxe_array) {
+        do_set_roce_mode($rxe);
     }
 }
 
