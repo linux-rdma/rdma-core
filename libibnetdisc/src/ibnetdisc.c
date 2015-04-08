@@ -127,12 +127,6 @@ static int extend_dpath(smp_engine_t * engine, ib_portid_t * portid,
 
 	if (portid->lid) {
 		/* If we were LID routed we need to set up the drslid */
-		if (!scan->selfportid.lid)
-			if (ib_resolve_self_via(&scan->selfportid, NULL, NULL,
-						scan->ibmad_port) < 0) {
-				IBND_ERROR("Failed to resolve self\n");
-				return -1;
-			}
 		portid->drpath.drslid = (uint16_t) scan->selfportid.lid;
 		portid->drpath.drdlid = 0xFFFF;
 	}
@@ -712,6 +706,7 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	ib_portid_t my_portid = { 0 };
 	smp_engine_t engine;
 	ibnd_scan_t scan;
+	struct ibmad_port *ibmad_port;
 	int nc = 2;
 	int mc[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 
@@ -735,20 +730,27 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	scan.cfg = &config;
 	scan.initial_hops = from->drpath.cnt;
 
+	ibmad_port = mad_rpc_open_port(ca_name, ca_port, mc, nc);
+	if (!ibmad_port) {
+		IBND_ERROR("can't open MAD port (%s:%d)\n", ca_name, ca_port);
+		return (NULL);
+	}
+	mad_rpc_set_timeout(ibmad_port, cfg->timeout_ms);
+	mad_rpc_set_retries(ibmad_port, cfg->retries);
+	smp_mkey_set(ibmad_port, cfg->mkey);
+
+	if (ib_resolve_self_via(&scan.selfportid,
+				NULL, NULL, ibmad_port) < 0) {
+		IBND_ERROR("Failed to resolve self\n");
+		mad_rpc_close_port(ibmad_port);
+		return NULL;
+	}
+	mad_rpc_close_port(ibmad_port);
+
 	if (smp_engine_init(&engine, ca_name, ca_port, &scan, &config)) {
 		free(f_int);
 		return (NULL);
 	}
-
-	scan.ibmad_port = mad_rpc_open_port(ca_name, ca_port, mc, nc);
-	if (!scan.ibmad_port) {
-		IBND_ERROR("can't open MAD port (%s:%d)\n", ca_name, ca_port);
-		smp_engine_destroy(&engine);
-		return (NULL);
-	}
-	mad_rpc_set_timeout(scan.ibmad_port, cfg->timeout_ms);
-	mad_rpc_set_retries(scan.ibmad_port, cfg->retries);
-	smp_mkey_set(scan.ibmad_port, cfg->mkey);
 
 	IBND_DEBUG("from %s\n", portid2str(from));
 
@@ -763,11 +765,9 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 		goto error;
 
 	smp_engine_destroy(&engine);
-	mad_rpc_close_port(scan.ibmad_port);
 	return (ibnd_fabric_t *)f_int;
 error:
 	smp_engine_destroy(&engine);
-	mad_rpc_close_port(scan.ibmad_port);
 	ibnd_destroy_fabric(&f_int->fabric);
 	return NULL;
 }

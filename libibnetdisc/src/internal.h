@@ -71,7 +71,6 @@ typedef struct ibnd_scan {
 	ib_portid_t selfportid;
 	f_internal_t *f_int;
 	struct ibnd_config *cfg;
-	struct ibmad_port *ibmad_port;
 	unsigned initial_hops;
 } ibnd_scan_t;
 
