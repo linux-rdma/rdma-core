@@ -344,6 +344,7 @@ static int path_record_query(ib_gid_t sgid,uint64_t dguid)
                         (uint16_t)IB_SA_ATTR_PATHRECORD,0,cl_ntoh64(comp_mask),ibd_sakey,
                         &pr, sizeof(pr), &result);
      if (ret) {
+             sa_free_handle(h);
              fprintf(stderr, "Query SA failed: %s; sa call path_query failed\n", strerror(ret));
              return ret;
      }
@@ -355,6 +356,7 @@ static int path_record_query(ib_gid_t sgid,uint64_t dguid)
 
      insert_lid2sl_table(&result);
 Exit:
+     sa_free_handle(h);
      sa_free_result_mad(&result);
      return ret;
 }
