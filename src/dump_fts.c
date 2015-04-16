@@ -457,33 +457,41 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		endlid = strtoul(argv[1], 0, 0);
 
-	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
-	if (!srcport)
-		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
-
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	smp_mkey_set(srcport, ibd_mkey);
-
-	if (ibd_timeout) {
-		mad_rpc_set_timeout(srcport, ibd_timeout);
+	if (ibd_timeout)
 		config.timeout_ms = ibd_timeout;
-	}
 
 	config.flags = ibd_ibnetdisc_flags;
 	config.mkey = ibd_mkey;
 
 	if ((fabric = ibnd_discover_fabric(ibd_ca, ibd_ca_port, NULL,
 						&config)) != NULL) {
+
+		srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 3);
+		if (!srcport) {
+			fprintf(stderr,
+				"Failed to open '%s' port '%d'\n", ibd_ca, ibd_ca_port);
+			rc = -1;
+			goto Exit;
+		}
+		smp_mkey_set(srcport, ibd_mkey);
+
+		if (ibd_timeout) {
+			mad_rpc_set_timeout(srcport, ibd_timeout);
+		}
+
 		ibnd_iter_nodes_type(fabric, process_switch, IB_NODE_SWITCH, fabric);
+
+		mad_rpc_close_port(srcport);
+
 	} else {
 		fprintf(stderr, "Failed to discover fabric\n");
 		rc = -1;
 	}
-
+Exit:
 	ibnd_destroy_fabric(fabric);
 
-	mad_rpc_close_port(srcport);
 	close_node_name_map(node_name_map);
 	exit(rc);
 }
