@@ -171,9 +171,7 @@ static int process_one_recv(smp_engine_t * engine)
 
 	/* wait for the next message */
 	if ((rc = umad_recv(engine->umad_fd, umad, &length,
-			    0)) < 0) {
-		if (rc == -EWOULDBLOCK)
-			return 0;
+			    -1)) < 0) {
 		IBND_ERROR("umad_recv failed: %d\n", rc);
 		return -1;
 	}
