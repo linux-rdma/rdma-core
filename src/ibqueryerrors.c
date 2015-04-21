@@ -326,7 +326,9 @@ static int path_record_query(ib_gid_t sgid,uint64_t dguid)
      uint8_t reversible = 0;
      struct sa_handle * h;
 
-     h = sa_get_handle();
+     if (!(h = sa_get_handle()))
+	return -1;
+
      ibd_timeout = DEFAULT_HALF_WORLD_PR_TIMEOUT;
      memset(&pr, 0, sizeof(pr));
 
