@@ -1086,7 +1086,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "Failed to find node: %s\n",
 				port_guid_str);
 	} else if (dr_path) {
-		ibnd_port_t *port = ibnd_find_port_dr(fabric, dr_path);
+		ibnd_port_t *port;
 		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
 			   ibd_timeout, ibmad_port)) {
