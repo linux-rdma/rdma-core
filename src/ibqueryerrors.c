@@ -1009,7 +1009,6 @@ int main(int argc, char **argv)
 
 	if (resolve_self(ibd_ca, ibd_ca_port, &self_portid, &port, &self_gid.raw) < 0) {
 		IBEXIT("can't resolve self port %s", argv[0]);
-		goto close_port;
 	}
 
 	/* limit the scan the fabric around the target */
