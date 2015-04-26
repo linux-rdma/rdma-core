@@ -1002,16 +1002,18 @@ int main(int argc, char **argv)
 	config.flags = ibd_ibnetdisc_flags;
 	config.mkey = ibd_mkey;
 
-	node_name_map = open_node_name_map(node_name_map_file);
-
 	if (dr_path && load_cache_file) {
+		mad_rpc_close_port(ibmad_port);
 		fprintf(stderr, "Cannot specify cache and direct route path\n");
 		exit(-1);
 	}
 
 	if (resolve_self(ibd_ca, ibd_ca_port, &self_portid, &port, &self_gid.raw) < 0) {
+		mad_rpc_close_port(ibmad_port);
 		IBEXIT("can't resolve self port %s", argv[0]);
 	}
+
+	node_name_map = open_node_name_map(node_name_map_file);
 
 	/* limit the scan the fabric around the target */
 	if (dr_path) {
@@ -1031,10 +1033,13 @@ int main(int argc, char **argv)
 			lid2sl_table[portid.lid] = portid.sl;
 	}
 
+	mad_rpc_close_port(ibmad_port);
+
 	if (load_cache_file) {
 		if ((fabric = ibnd_load_fabric(load_cache_file, 0)) == NULL) {
 			fprintf(stderr, "loading cached fabric failed\n");
-			exit(-1);
+			rc = -1;
+			goto close_name_map;
 		}
 	} else {
 		if (resolved >= 0) {
@@ -1052,11 +1057,26 @@ int main(int argc, char **argv)
 							       &config))) {
 			fprintf(stderr, "discover failed\n");
 			rc = -1;
-			goto close_port;
+			goto close_name_map;
 		}
 	}
 
 	set_thresholds(threshold_file);
+
+	/* reopen the global ibmad_port */
+	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port,
+				       mgmt_classes, 4);
+	if (!ibmad_port) {
+		ibnd_destroy_fabric(fabric);
+		close_node_name_map(node_name_map);
+		IBEXIT("Failed to reopen port: %s:%d\n",
+			ibd_ca, ibd_ca_port);
+	}
+
+	smp_mkey_set(ibmad_port, ibd_mkey);
+
+	if (ibd_timeout)
+		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 
 	if (port_guid_str) {
 		ibnd_port_t *port = ibnd_find_port_guid(fabric, port_guid);
@@ -1068,26 +1088,27 @@ int main(int argc, char **argv)
 	} else if (dr_path) {
 		ibnd_port_t *port = ibnd_find_port_dr(fabric, dr_path);
 		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
-
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
-				   ibd_timeout, ibmad_port)) {
-			rc = -1;
-			goto destroy_fabric;
+			   ibd_timeout, ibmad_port)) {
+				fprintf(stderr, "Failed to query local Node Info\n");
+				goto close_port;
 		}
+
 		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(port_guid));
 
 		port = ibnd_find_port_guid(fabric, port_guid);
 		if (port) {
 			if(obtain_sl)
 				if(path_record_query(self_gid,port->guid))
-					goto destroy_fabric;
+					goto close_port;
 			print_node(port->node, NULL);
 		} else
 			fprintf(stderr, "Failed to find node: %s\n", dr_path);
 	} else {
 		if(obtain_sl)
 			if(path_record_query(self_gid,0))
-				goto destroy_fabric;
+				goto close_port;
+
 		ibnd_iter_nodes(fabric, print_node, NULL);
 	}
 
@@ -1095,11 +1116,11 @@ int main(int argc, char **argv)
 	if (rc)
 		rc = 1;
 
-destroy_fabric:
-	ibnd_destroy_fabric(fabric);
-
 close_port:
 	mad_rpc_close_port(ibmad_port);
+	ibnd_destroy_fabric(fabric);
+
+close_name_map:
 	close_node_name_map(node_name_map);
 	exit(rc);
 }
