@@ -173,17 +173,12 @@ static int check_abi_version(void)
 		 * backports, assume the most recent version of the ABI.  If
 		 * we're wrong, we'll simply fail later when calling the ABI.
 		 */
-		fprintf(stderr, PFX "Warning: couldn't read ABI version.\n");
-		fprintf(stderr, PFX "Warning: assuming: %d\n", abi_ver);
 		return 0;
 	}
 
 	abi_ver = strtol(value, NULL, 10);
 	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
 	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: kernel ABI version %d "
-				"doesn't match library version %d.\n",
-				abi_ver, RDMA_USER_CM_MAX_ABI_VERSION);
 		return -1;
 	}
 	return 0;
@@ -237,13 +232,11 @@ int ucma_init(void)
 
 	dev_list = ibv_get_device_list(&dev_cnt);
 	if (!dev_list) {
-		fprintf(stderr, PFX "Fatal: unable to get RDMA device list\n");
 		ret = ERR(ENODEV);
 		goto err1;
 	}
 
 	if (!dev_cnt) {
-		fprintf(stderr, PFX "Fatal: no RDMA devices found\n");
 		ret = ERR(ENODEV);
 		goto err2;
 	}
@@ -279,7 +272,6 @@ static struct ibv_context *ucma_open_device(uint64_t guid)
 
 	dev_list = ibv_get_device_list(NULL);
 	if (!dev_list) {
-		fprintf(stderr, PFX "Fatal: unable to get RDMA device list\n");
 		return NULL;
 	}
 
@@ -289,9 +281,6 @@ static struct ibv_context *ucma_open_device(uint64_t guid)
 			break;
 		}
 	}
-
-	if (!verbs)
-		fprintf(stderr, PFX "Fatal: unable to open RDMA device\n");
 
 	ibv_free_device_list(dev_list);
 	return verbs;
@@ -312,7 +301,6 @@ static int ucma_init_device(struct cma_device *cma_dev)
 
 	ret = ibv_query_device(cma_dev->verbs, &attr);
 	if (ret) {
-		fprintf(stderr, PFX "Fatal: unable to query RDMA device\n");
 		ret = ERR(ret);
 		goto err;
 	}
@@ -410,7 +398,6 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 
 	channel->fd = open("/dev/infiniband/rdma_cm", O_RDWR | O_CLOEXEC);
 	if (channel->fd < 0) {
-		fprintf(stderr, PFX "Fatal: unable to open /dev/infiniband/rdma_cm\n");
 		goto err;
 	}
 	return channel;
