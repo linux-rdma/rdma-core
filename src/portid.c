@@ -82,11 +82,18 @@ char *portid2str(ib_portid_t * portid)
 
 int str2drpath(ib_dr_path_t * path, char *routepath, int drslid, int drdlid)
 {
-	char *s, *str = routepath;
+	char *s, *str;
+	char *tmp;
 
 	path->cnt = -1;
 
+	if (!routepath || !(tmp = strdup(routepath)))
+		goto Exit;
+
 	DEBUG("DR str: %s", routepath);
+
+	str = tmp;
+
 	while (str && *str) {
 		if ((s = strchr(str, ',')))
 			*s = 0;
@@ -95,7 +102,9 @@ int str2drpath(ib_dr_path_t * path, char *routepath, int drslid, int drdlid)
 			break;
 		str = s + 1;
 	}
+	free(tmp);
 
+Exit:
 	path->drdlid = drdlid ? drdlid : 0xffff;
 	path->drslid = drslid ? drslid : 0xffff;
 
