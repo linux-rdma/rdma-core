@@ -529,7 +529,7 @@ sub modprobe {
 sub do_set_roce_mode {
     my $rxed = $_[0];
     system("mkdir -p /sys/kernel/config/rdma_cm/$rxed");
-    system("echo RoCE V2 | tee /sys/kernel/config/rdma_cm/$rxed/default_roce_mode");
+    system("echo IBOE V2 | tee /sys/kernel/config/rdma_cm/$rxed/default_roce_mode");
     rmdir "/sys/kernel/config/rdma_cm/$rxed";
 }
 
