@@ -1,4 +1,4 @@
-INCLUDES = -I$(srcdir)/include -I$(includedir)/libnl3 -I/usr/include/libnl3
+AM_CPPFLAGS = -I$(srcdir)/include -I$(includedir)/libnl3 -I/usr/include/libnl3
 AM_CFLAGS = -g -O2 -Wall -D_GNU_SOURCE
 ACLOCAL_AMFLAGS = -I m4
 
