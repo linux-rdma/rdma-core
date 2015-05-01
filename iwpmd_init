@@ -48,6 +48,7 @@ start() {
 
 	echo -n $"Starting iwpm daemon: "
 	if [ ! -f "$LOCK" ]; then
+		ulimit -n 102400
 		$STARTD $IWPMD_BIN &> /dev/null
 		RETVAL=$?
 		[ $RETVAL -eq 0 ] && ( touch $LOCK; echo "OK" ) || echo "NO"
