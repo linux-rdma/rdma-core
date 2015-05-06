@@ -9,7 +9,7 @@ src_iwpmd_SOURCES = src/iwarp_pm_server.c src/iwarp_pm_common.c src/iwarp_pm_hel
 libiwpmdir = $(includedir)/rdma/
 libiwpm_HEADERS = $(srcdir)/include/iwpm_netlink.h $(srcdir)/include/iwarp_pm.h
 
-EXTRA_DIST = iwpmd_init
+EXTRA_DIST = iwpmd_init iwpmd.service
 
 dist-hook: libiwpm.spec
 	cp libiwpm.spec $(distdir)
