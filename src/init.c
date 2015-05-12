@@ -561,7 +561,7 @@ out:
 		     next_dev = sysfs_dev ? sysfs_dev->next : NULL;
 	     sysfs_dev;
 	     sysfs_dev = next_dev, next_dev = sysfs_dev ? sysfs_dev->next : NULL) {
-		if (!sysfs_dev->have_driver) {
+		if (!sysfs_dev->have_driver && getenv("IBV_SHOW_WARNINGS")) {
 			fprintf(stderr, PFX "Warning: no userspace device-specific "
 				"driver found for %s\n", sysfs_dev->sysfs_path);
 			if (statically_linked)
