@@ -839,10 +839,6 @@ static int rs_create_ep(struct rsocket *rs)
 	rs_set_qp_size(rs);
 	if (rs->cm_id->verbs->device->transport_type == IBV_TRANSPORT_IWARP)
 		rs->opts |= RS_OPT_MSG_SEND;
-	ret = rs_init_bufs(rs);
-	if (ret)
-		return ret;
-
 	ret = rs_create_cq(rs, rs->cm_id);
 	if (ret)
 		return ret;
@@ -866,6 +862,10 @@ static int rs_create_ep(struct rsocket *rs)
 	rs->sq_inline = qp_attr.cap.max_inline_data;
 	if ((rs->opts & RS_OPT_MSG_SEND) && (rs->sq_inline < RS_MSG_SIZE))
 		return ERR(ENOTSUP);
+
+	ret = rs_init_bufs(rs);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < rs->rq_size; i++) {
 		ret = rs_post_recv(rs);
