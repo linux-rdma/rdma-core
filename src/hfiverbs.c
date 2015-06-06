@@ -51,11 +51,19 @@
 #define PCI_VENDOR_ID_INTEL			0x8086
 #endif
 
-#ifndef PCI_DEVICE_ID_HFI_GEN1
-#define PCI_DEVICE_ID_HFI_GEN1			0x24f0
+#ifndef PCI_DEVICE_ID_INTEL0
+#define PCI_DEVICE_ID_HFI_INTEL0		0x24f0
 #endif
 
-#define HCA(v, d) \
+#ifndef PCI_DEVICE_ID_INTEL1
+#define PCI_DEVICE_ID_HFI_INTEL1		0x24f1
+#endif
+
+#ifndef PCI_DEVICE_ID_INTEL2
+#define PCI_DEVICE_ID_HFI_INTEL2		0x24f2
+#endif
+
+#define HFI(v, d) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
 	  .device = PCI_DEVICE_ID_HFI_##d }
 
@@ -63,7 +71,9 @@ struct {
 	unsigned		vendor;
 	unsigned		device;
 } hca_table[] = {
-	HCA(INTEL,	GEN1),
+	HFI(INTEL, INTEL0),
+	HFI(INTEL, INTEL1),
+	HFI(INTEL, INTEL2),
 };
 
 static struct ibv_context_ops ipath_ctx_ops = {
