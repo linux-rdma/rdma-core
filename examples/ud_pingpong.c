@@ -563,11 +563,11 @@ int main(int argc, char *argv[])
 	struct timeval           start, end;
 	char                    *ib_devname = NULL;
 	char                    *servername = NULL;
-	int                      port = 18515;
+	unsigned int             port = 18515;
 	int                      ib_port = 1;
-	int                      size = 2048;
-	int                      rx_depth = 500;
-	int                      iters = 1000;
+	unsigned int             size = 2048;
+	unsigned int             rx_depth = 500;
+	unsigned int             iters = 1000;
 	int                      use_event = 0;
 	int                      routs;
 	int                      rcnt, scnt;
@@ -602,7 +602,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'p':
 			port = strtol(optarg, NULL, 0);
-			if (port < 0 || port > 65535) {
+			if (port > 65535) {
 				usage(argv[0]);
 				return 1;
 			}
@@ -614,22 +614,22 @@ int main(int argc, char *argv[])
 
 		case 'i':
 			ib_port = strtol(optarg, NULL, 0);
-			if (ib_port < 0) {
+			if (ib_port < 1) {
 				usage(argv[0]);
 				return 1;
 			}
 			break;
 
 		case 's':
-			size = strtol(optarg, NULL, 0);
+			size = strtoul(optarg, NULL, 0);
 			break;
 
 		case 'r':
-			rx_depth = strtol(optarg, NULL, 0);
+			rx_depth = strtoul(optarg, NULL, 0);
 			break;
 
 		case 'n':
-			iters = strtol(optarg, NULL, 0);
+			iters = strtoul(optarg, NULL, 0);
 			break;
 
 		case 'l':
