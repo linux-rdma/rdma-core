@@ -82,14 +82,4 @@ struct rxe_modify_srq_cmd {
 	__u64 mmap_info_addr;
 };
 
-#if 0
-struct rxe_create_xrc_srq {
-        struct ibv_create_xrc_srq ibv_cmd;
-};
-
-struct rxe_open_xrc_domain_resp {
-        struct ibv_open_xrc_domain_resp ibv_resp;
-};
-#endif
-
 #endif /* RXE_ABI_H */

@@ -131,9 +131,6 @@ struct ib_send_wr {
 			uint8_t		port_num;   /* valid for DR SMPs on switch only */
 		} ud;
 	} wr;
-#if 0
-	uint32_t			xrc_remote_srq_num; /* valid for XRC sends only */
-#endif
 };
 
 #define RXE_LL_ADDR_LEN		(16)
@@ -190,12 +187,6 @@ struct rxe_srq {
 	struct rxe_wq		rq;
 	uint32_t		srq_num;
 };
-
-#if 0
-struct rxe_xrc_domain {
-	struct ibv_xrc_domain	ibv_xrcd;
-};
-#endif
 
 #define to_rxxx(xxx, type)						\
 	((struct rxe_##type *)					      \

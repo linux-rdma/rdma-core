@@ -852,128 +852,6 @@ static int rxe_destroy_ah(struct ibv_ah *ibah)
 	return 0;
 }
 
-#if 0
-static struct ibv_srq *rxe_create_xrc_srq(struct ibv_pd *pd,
-					  struct ibv_xrc_domain *xrc_domain,
-					  struct ibv_cq *xrc_cq,
-					  struct ibv_srq_init_attr *attr)
-{
-	struct rxe_srq *srq;
-	struct rxe_create_xrc_srq cmd;
-	struct rxe_create_srq_resp resp;
-	int ret;
-
-	srq = malloc(sizeof *srq);
-	if (srq == NULL) {
-		return NULL;
-	}
-
-	ret = ibv_cmd_create_xrc_srq(pd, &srq->ibv_srq, attr,
-				     xrc_domain->handle,
-				     xrc_cq->handle,
-				     &cmd.ibv_cmd, sizeof cmd,
-				     &resp.ibv_resp, sizeof resp);
-	if (ret)
-		goto err1;
-
-	srq->rq.queue = mmap(NULL, resp.mi.size,
-			     PROT_READ | PROT_WRITE, MAP_SHARED,
-			     pd->context->cmd_fd, resp.mi.offset);
-	if ((void *)srq->rq.queue == MAP_FAILED) {
-		ibv_cmd_destroy_srq(&srq->ibv_srq);
-		goto err1;
-	}
-
-	srq->mmap_info = resp.mi;
-	srq->rq.max_sge = attr->attr.max_sge;
-	srq->ibv_srq.xrc_srq_num = srq->srq_num = resp.srq_num;
-	pthread_spin_init(&srq->rq.lock, PTHREAD_PROCESS_PRIVATE);
-
-	return &srq->ibv_srq;
-
-err1:
-	free(srq);
-	return NULL;
-}
-
-static struct ibv_xrc_domain *rxe_open_xrc_domain(struct ibv_context *context,
-						  int fd, int oflag)
-{
-	int ret;
-	struct rxe_open_xrc_domain_resp resp;
-	struct rxe_xrc_domain *xrcd;
-
-	xrcd = malloc(sizeof *xrcd);
-	if (!xrcd)
-		return NULL;
-
-	ret = ibv_cmd_open_xrc_domain(context, fd, oflag, &xrcd->ibv_xrcd,
-				      &resp.ibv_resp, sizeof resp);
-	if (ret) {
-		free(xrcd);
-		return NULL;
-	}
-
-	return &xrcd->ibv_xrcd;
-}
-
-static int rxe_close_xrc_domain(struct ibv_xrc_domain *d)
-{
-	int ret;
-	ret = ibv_cmd_close_xrc_domain(d);
-	if (!ret)
-		free(d);
-	return ret;
-}
-
-static int rxe_create_xrc_rcv_qp(struct ibv_qp_init_attr *init_attr,
-				 uint32_t *xrc_qp_num)
-{
-	return ibv_cmd_create_xrc_rcv_qp(init_attr, xrc_qp_num);
-}
-
-static int rxe_modify_xrc_rcv_qp(struct ibv_xrc_domain *xrc_domain,
-				 uint32_t xrc_qp_num,
-				 struct ibv_qp_attr *attr,
-				 int attr_mask)
-{
-	return ibv_cmd_modify_xrc_rcv_qp(xrc_domain, xrc_qp_num,
-					 attr, attr_mask);
-}
-
-static int rxe_query_xrc_rcv_qp(struct ibv_xrc_domain *xrc_domain,
-				uint32_t xrc_qp_num,
-				struct ibv_qp_attr *attr,
-				int attr_mask,
-				struct ibv_qp_init_attr *init_attr)
-{
-	return -EINVAL;
-}
-
-static int rxe_reg_xrc_rcv_qp(struct ibv_xrc_domain *xrc_domain,
-			      uint32_t xrc_qp_num)
-{
-	return ibv_cmd_reg_xrc_rcv_qp(xrc_domain, xrc_qp_num);
-}
-
-static int rxe_unreg_xrc_rcv_qp(struct ibv_xrc_domain *xrc_domain,
-				uint32_t xrc_qp_num)
-{
-	return ibv_cmd_unreg_xrc_rcv_qp(xrc_domain, xrc_qp_num);
-}
-
-static struct ibv_more_ops rxe_more_ops = {
-	.create_xrc_srq = rxe_create_xrc_srq,
-	.open_xrc_domain = rxe_open_xrc_domain,
-	.close_xrc_domain = rxe_close_xrc_domain,
-	.create_xrc_rcv_qp = rxe_create_xrc_rcv_qp,
-	.modify_xrc_rcv_qp = rxe_modify_xrc_rcv_qp,
-	.query_xrc_rcv_qp = rxe_query_xrc_rcv_qp,
-	.reg_xrc_rcv_qp = rxe_reg_xrc_rcv_qp,
-	.unreg_xrc_rcv_qp = rxe_unreg_xrc_rcv_qp,
-};
-#endif
-
 static struct ibv_context_ops rxe_ctx_ops = {
 	.query_device = rxe_query_device,
 	.query_port = rxe_query_port,
@@ -1023,9 +901,6 @@ static struct ibv_context *rxe_alloc_context(struct ibv_device *ibdev,
 		goto out;
 
 	context->ibv_ctx.ops = rxe_ctx_ops;
-#if 0
-	context->ibv_ctx.more_ops = &rxe_more_ops;
-#endif
 
 	return &context->ibv_ctx;
 
