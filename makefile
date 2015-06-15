@@ -38,11 +38,11 @@
 #
 NAME = libhfi1verbs
 BASEVERSION=0.2
-VERSION = $(shell if [ -d .git ] ; then  git describe --tags --abbrev=0 --match='v*' | sed -e 's/^v//' -e 's/-/_/'; else echo "version" ; fi)
+VERSION = $(shell if [ -e .git ] ; then  git describe --tags --abbrev=0 --match='v*' | sed -e 's/^v//' -e 's/-/_/'; else echo "version" ; fi)
 
 # The desired release number comes the git describe following the version which
 # is the number of commits since the version tag was planted suffixed by the g<commitid>
-RELEASE = $(shell if [ -d .git ] ; then git describe --tags --long --match='v*' | sed -e 's/v[0-9.]*-\([0-9]*\)/\1/' | sed 's/-g.*$$//'; else echo "release" ; fi)
+RELEASE = $(shell if [ -e .git ] ; then git describe --tags --long --match='v*' | sed -e 's/v[0-9.]*-\([0-9]*\)/\1/' | sed 's/-g.*$$//'; else echo "release" ; fi)
 
 EXCLUDES = --exclude-vcs --exclude-backups --exclude='*.patch' --exclude='*.swp' --exclude='series' --exclude='*.orig' --exclude=makefile --exclude=${NAME}.spec.in
 
@@ -58,7 +58,7 @@ ${NAME}.spec: ${NAME}.spec.in
 		-e 's/@VERSION@/'${VERSION}'/g' \
 		-e 's/@RELEASE@/'${RELEASE}'/g' \
 		-e 's/@NAME@/'${NAME}'/g' ${NAME}.spec.in > ${NAME}.spec
-	if [ -d .git ]; then \
+	if [ -e .git ]; then \
 		echo '%changelog' >> ${NAME}.spec; \
 		git log --no-merges v$(BASEVERSION)..HEAD --format="* %cd <%ae>%n- %s%n" \
 		| sed 's/-[0-9][0-9][0-9][0-9] //' \
