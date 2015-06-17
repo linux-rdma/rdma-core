@@ -76,51 +76,51 @@ struct {
 	HFI(INTEL, INTEL2),
 };
 
-static struct ibv_context_ops ipath_ctx_ops = {
-	.query_device	= ipath_query_device,
-	.query_port	= ipath_query_port,
+static struct ibv_context_ops hfi1_ctx_ops = {
+	.query_device	= hfi1_query_device,
+	.query_port	= hfi1_query_port,
 
-	.alloc_pd	= ipath_alloc_pd,
-	.dealloc_pd	= ipath_free_pd,
+	.alloc_pd	= hfi1_alloc_pd,
+	.dealloc_pd	= hfi1_free_pd,
 
-	.reg_mr		= ipath_reg_mr,
-	.dereg_mr	= ipath_dereg_mr,
+	.reg_mr		= hfi1_reg_mr,
+	.dereg_mr	= hfi1_dereg_mr,
 
-	.create_cq	= ipath_create_cq,
-	.poll_cq	= ipath_poll_cq,
+	.create_cq	= hfi1_create_cq,
+	.poll_cq	= hfi1_poll_cq,
 	.req_notify_cq	= ibv_cmd_req_notify_cq,
 	.cq_event	= NULL,
-	.resize_cq	= ipath_resize_cq,
-	.destroy_cq	= ipath_destroy_cq,
+	.resize_cq	= hfi1_resize_cq,
+	.destroy_cq	= hfi1_destroy_cq,
 
-	.create_srq	= ipath_create_srq,
-	.modify_srq	= ipath_modify_srq,
-	.query_srq	= ipath_query_srq,
-	.destroy_srq	= ipath_destroy_srq,
-	.post_srq_recv	= ipath_post_srq_recv,
+	.create_srq	= hfi1_create_srq,
+	.modify_srq	= hfi1_modify_srq,
+	.query_srq	= hfi1_query_srq,
+	.destroy_srq	= hfi1_destroy_srq,
+	.post_srq_recv	= hfi1_post_srq_recv,
 
-	.create_qp	= ipath_create_qp,
-	.query_qp	= ipath_query_qp,
-	.modify_qp	= ipath_modify_qp,
-	.destroy_qp	= ipath_destroy_qp,
+	.create_qp	= hfi1_create_qp,
+	.query_qp	= hfi1_query_qp,
+	.modify_qp	= hfi1_modify_qp,
+	.destroy_qp	= hfi1_destroy_qp,
 
-	.post_send	= ipath_post_send,
-	.post_recv	= ipath_post_recv,
+	.post_send	= hfi1_post_send,
+	.post_recv	= hfi1_post_recv,
 
-	.create_ah	= ipath_create_ah,
-	.destroy_ah	= ipath_destroy_ah,
+	.create_ah	= hfi1_create_ah,
+	.destroy_ah	= hfi1_destroy_ah,
 
 	.attach_mcast	= ibv_cmd_attach_mcast,
 	.detach_mcast	= ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *ipath_alloc_context(struct ibv_device *ibdev,
+static struct ibv_context *hfi1_alloc_context(struct ibv_device *ibdev,
 					       int cmd_fd)
 {
-	struct ipath_context	    *context;
+	struct hfi1_context	    *context;
 	struct ibv_get_context       cmd;
 	struct ibv_get_context_resp  resp;
-	struct ipath_device         *dev;
+	struct hfi1_device         *dev;
 
 	context = malloc(sizeof *context);
 	if (!context)
@@ -131,19 +131,19 @@ static struct ibv_context *ipath_alloc_context(struct ibv_device *ibdev,
 				sizeof cmd, &resp, sizeof resp))
 		goto err_free;
 
-	context->ibv_ctx.ops = ipath_ctx_ops;
+	context->ibv_ctx.ops = hfi1_ctx_ops;
 	dev = to_idev(ibdev);
 	if (dev->abi_version == 1) {
-		context->ibv_ctx.ops.create_cq     = ipath_create_cq_v1;
+		context->ibv_ctx.ops.create_cq     = hfi1_create_cq_v1;
 		context->ibv_ctx.ops.poll_cq       = ibv_cmd_poll_cq;
-		context->ibv_ctx.ops.resize_cq     = ipath_resize_cq_v1;
-		context->ibv_ctx.ops.destroy_cq    = ipath_destroy_cq_v1;
-		context->ibv_ctx.ops.create_srq    = ipath_create_srq_v1;
-		context->ibv_ctx.ops.destroy_srq   = ipath_destroy_srq_v1;
-		context->ibv_ctx.ops.modify_srq    = ipath_modify_srq_v1;
+		context->ibv_ctx.ops.resize_cq     = hfi1_resize_cq_v1;
+		context->ibv_ctx.ops.destroy_cq    = hfi1_destroy_cq_v1;
+		context->ibv_ctx.ops.create_srq    = hfi1_create_srq_v1;
+		context->ibv_ctx.ops.destroy_srq   = hfi1_destroy_srq_v1;
+		context->ibv_ctx.ops.modify_srq    = hfi1_modify_srq_v1;
 		context->ibv_ctx.ops.post_srq_recv = ibv_cmd_post_srq_recv;
-		context->ibv_ctx.ops.create_qp     = ipath_create_qp_v1;
-		context->ibv_ctx.ops.destroy_qp    = ipath_destroy_qp_v1;
+		context->ibv_ctx.ops.create_qp     = hfi1_create_qp_v1;
+		context->ibv_ctx.ops.destroy_qp    = hfi1_destroy_qp_v1;
 		context->ibv_ctx.ops.post_recv     = ibv_cmd_post_recv;
 	}
 	return &context->ibv_ctx;
@@ -153,23 +153,23 @@ err_free:
 	return NULL;
 }
 
-static void ipath_free_context(struct ibv_context *ibctx)
+static void hfi1_free_context(struct ibv_context *ibctx)
 {
-	struct ipath_context *context = to_ictx(ibctx);
+	struct hfi1_context *context = to_ictx(ibctx);
 
 	free(context);
 }
 
-static struct ibv_device_ops ipath_dev_ops = {
-	.alloc_context	= ipath_alloc_context,
-	.free_context	= ipath_free_context
+static struct ibv_device_ops hfi1_dev_ops = {
+	.alloc_context	= hfi1_alloc_context,
+	.free_context	= hfi1_free_context
 };
 
-static struct ibv_device *ipath_driver_init(const char *uverbs_sys_path,
+static struct ibv_device *hfi1_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
 	char			value[8];
-	struct ipath_device    *dev;
+	struct hfi1_device    *dev;
 	unsigned                vendor, device;
 	int                     i;
 
@@ -198,16 +198,16 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = ipath_dev_ops;
+	dev->ibv_dev.ops = hfi1_dev_ops;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;
 }
 
 #ifdef HAVE_IBV_REGISTER_DRIVER
-static __attribute__((constructor)) void ipath_register_driver(void)
+static __attribute__((constructor)) void hfi1_register_driver(void)
 {
-	ibv_register_driver("ipathverbs", ipath_driver_init);
+	ibv_register_driver("hfi1verbs", hfi1_driver_init);
 }
 #else
 /*
@@ -223,6 +223,6 @@ struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
                                 value, sizeof value) > 0)
                 abi_ver = strtol(value, NULL, 10);
 
-        return ipath_driver_init(sysdev->path, abi_ver);
+        return hfi1_driver_init(sysdev->path, abi_ver);
 }
 #endif /* HAVE_IBV_REGISTER_DRIVER */

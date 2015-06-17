@@ -50,7 +50,7 @@
 #include "hfiverbs.h"
 #include "hfi-abi.h"
 
-int ipath_query_device(struct ibv_context *context,
+int hfi1_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr)
 {
 	struct ibv_query_device cmd;
@@ -73,7 +73,7 @@ int ipath_query_device(struct ibv_context *context,
 	return 0;
 }
 
-int ipath_query_port(struct ibv_context *context, uint8_t port,
+int hfi1_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr)
 {
 	struct ibv_query_port cmd;
@@ -81,7 +81,7 @@ int ipath_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof cmd);
 }
 
-struct ibv_pd *ipath_alloc_pd(struct ibv_context *context)
+struct ibv_pd *hfi1_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd	  cmd;
 	struct ibv_alloc_pd_resp  resp;
@@ -100,7 +100,7 @@ struct ibv_pd *ipath_alloc_pd(struct ibv_context *context)
 	return pd;
 }
 
-int ipath_free_pd(struct ibv_pd *pd)
+int hfi1_free_pd(struct ibv_pd *pd)
 {
 	int ret;
 
@@ -112,7 +112,7 @@ int ipath_free_pd(struct ibv_pd *pd)
 	return 0;
 }
 
-struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
+struct ibv_mr *hfi1_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access)
 {
 	struct ibv_mr *mr;
@@ -144,7 +144,7 @@ struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
 	return mr;
 }
 
-int ipath_dereg_mr(struct ibv_mr *mr)
+int hfi1_dereg_mr(struct ibv_mr *mr)
 {
 	int ret;
 
@@ -156,13 +156,13 @@ int ipath_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
-struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
+struct ibv_cq *hfi1_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector)
 {
-	struct ipath_cq		   *cq;
+	struct hfi1_cq		   *cq;
 	struct ibv_create_cq	    cmd;
-	struct ipath_create_cq_resp resp;
+	struct hfi1_create_cq_resp resp;
 	int			    ret;
 	size_t			    size;
 
@@ -178,7 +178,7 @@ struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
-	size = sizeof(struct ipath_cq_wc) + sizeof(struct ipath_wc) * cqe;
+	size = sizeof(struct hfi1_cq_wc) + sizeof(struct hfi1_wc) * cqe;
 	cq->queue = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			 context->cmd_fd, resp.offset);
 	if ((void *) cq->queue == MAP_FAILED) {
@@ -191,7 +191,7 @@ struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
 	return &cq->ibv_cq;
 }
 
-struct ibv_cq *ipath_create_cq_v1(struct ibv_context *context, int cqe,
+struct ibv_cq *hfi1_create_cq_v1(struct ibv_context *context, int cqe,
 				  struct ibv_comp_channel *channel,
 				  int comp_vector)
 {
@@ -214,18 +214,18 @@ struct ibv_cq *ipath_create_cq_v1(struct ibv_context *context, int cqe,
 	return cq;
 }
 
-int ipath_resize_cq(struct ibv_cq *ibcq, int cqe)
+int hfi1_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
-	struct ipath_cq		       *cq = to_icq(ibcq);
+	struct hfi1_cq		       *cq = to_icq(ibcq);
 	struct ibv_resize_cq		cmd;
-	struct ipath_resize_cq_resp	resp;
+	struct hfi1_resize_cq_resp	resp;
 	size_t				size;
 	int				ret;
 
 	pthread_spin_lock(&cq->lock);
 	/* Save the old size so we can unmmap the queue. */
-	size = sizeof(struct ipath_cq_wc) +
-		(sizeof(struct ipath_wc) * cq->ibv_cq.cqe);
+	size = sizeof(struct hfi1_cq_wc) +
+		(sizeof(struct hfi1_wc) * cq->ibv_cq.cqe);
 	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);
 	if (ret) {
@@ -233,8 +233,8 @@ int ipath_resize_cq(struct ibv_cq *ibcq, int cqe)
 		return ret;
 	}
 	(void) munmap(cq->queue, size);
-	size = sizeof(struct ipath_cq_wc) +
-		(sizeof(struct ipath_wc) * cq->ibv_cq.cqe);
+	size = sizeof(struct hfi1_cq_wc) +
+		(sizeof(struct hfi1_wc) * cq->ibv_cq.cqe);
 	cq->queue = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			 ibcq->context->cmd_fd, resp.offset);
 	ret = errno;
@@ -244,7 +244,7 @@ int ipath_resize_cq(struct ibv_cq *ibcq, int cqe)
 	return 0;
 }
 
-int ipath_resize_cq_v1(struct ibv_cq *ibcq, int cqe)
+int hfi1_resize_cq_v1(struct ibv_cq *ibcq, int cqe)
 {
 	struct ibv_resize_cq		cmd;
 	struct ibv_resize_cq_resp	resp;
@@ -253,22 +253,22 @@ int ipath_resize_cq_v1(struct ibv_cq *ibcq, int cqe)
 				 &resp, sizeof resp);
 }
 
-int ipath_destroy_cq(struct ibv_cq *ibcq)
+int hfi1_destroy_cq(struct ibv_cq *ibcq)
 {
-	struct ipath_cq *cq = to_icq(ibcq);
+	struct hfi1_cq *cq = to_icq(ibcq);
 	int ret;
 
 	ret = ibv_cmd_destroy_cq(ibcq);
 	if (ret)
 		return ret;
 
-	(void) munmap(cq->queue, sizeof(struct ipath_cq_wc) +
-				 (sizeof(struct ipath_wc) * cq->ibv_cq.cqe));
+	(void) munmap(cq->queue, sizeof(struct hfi1_cq_wc) +
+				 (sizeof(struct hfi1_wc) * cq->ibv_cq.cqe));
 	free(cq);
 	return 0;
 }
 
-int ipath_destroy_cq_v1(struct ibv_cq *ibcq)
+int hfi1_destroy_cq_v1(struct ibv_cq *ibcq)
 {
 	int ret;
 
@@ -278,10 +278,10 @@ int ipath_destroy_cq_v1(struct ibv_cq *ibcq)
 	return ret;
 }
 
-int ipath_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
+int hfi1_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 {
-	struct ipath_cq *cq = to_icq(ibcq);
-	struct ipath_cq_wc *q;
+	struct hfi1_cq *cq = to_icq(ibcq);
+	struct hfi1_cq_wc *q;
 	int npolled;
 	uint32_t tail;
 
@@ -305,11 +305,11 @@ int ipath_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	return npolled;
 }
 
-struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
+struct ibv_qp *hfi1_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp	     cmd;
-	struct ipath_create_qp_resp  resp;
-	struct ipath_qp		    *qp;
+	struct hfi1_create_qp_resp  resp;
+	struct hfi1_qp		    *qp;
 	int			     ret;
 	size_t			     size;
 
@@ -331,8 +331,8 @@ struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	} else {
 		qp->rq.size = attr->cap.max_recv_wr + 1;
 		qp->rq.max_sge = attr->cap.max_recv_sge;
-		size = sizeof(struct ipath_rwq) +
-			(sizeof(struct ipath_rwqe) +
+		size = sizeof(struct hfi1_rwq) +
+			(sizeof(struct hfi1_rwqe) +
 			 (sizeof(struct ibv_sge) * qp->rq.max_sge)) *
 			qp->rq.size;
 		qp->rq.rwq = mmap(NULL, size,
@@ -349,7 +349,7 @@ struct ibv_qp *ipath_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	return &qp->ibv_qp;
 }
 
-struct ibv_qp *ipath_create_qp_v1(struct ibv_pd *pd,
+struct ibv_qp *hfi1_create_qp_v1(struct ibv_pd *pd,
 				  struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp	     cmd;
@@ -371,7 +371,7 @@ struct ibv_qp *ipath_create_qp_v1(struct ibv_pd *pd,
 	return qp;
 }
 
-int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+int hfi1_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
@@ -381,7 +381,7 @@ int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 				&cmd, sizeof cmd);
 }
 
-int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+int hfi1_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    int attr_mask)
 {
 	struct ibv_modify_qp cmd;
@@ -389,9 +389,9 @@ int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
 }
 
-int ipath_destroy_qp(struct ibv_qp *ibqp)
+int hfi1_destroy_qp(struct ibv_qp *ibqp)
 {
-	struct ipath_qp	*qp = to_iqp(ibqp);
+	struct hfi1_qp	*qp = to_iqp(ibqp);
 	int ret;
 
 	ret = ibv_cmd_destroy_qp(ibqp);
@@ -401,8 +401,8 @@ int ipath_destroy_qp(struct ibv_qp *ibqp)
 	if (qp->rq.rwq) {
 		size_t size;
 
-		size = sizeof(struct ipath_rwq) +
-			(sizeof(struct ipath_rwqe) +
+		size = sizeof(struct hfi1_rwq) +
+			(sizeof(struct hfi1_rwqe) +
 			 (sizeof(struct ibv_sge) * qp->rq.max_sge)) *
 			qp->rq.size;
 		(void) munmap(qp->rq.rwq, size);
@@ -411,7 +411,7 @@ int ipath_destroy_qp(struct ibv_qp *ibqp)
 	return 0;
 }
 
-int ipath_destroy_qp_v1(struct ibv_qp *ibqp)
+int hfi1_destroy_qp_v1(struct ibv_qp *ibqp)
 {
 	int ret;
 
@@ -421,7 +421,7 @@ int ipath_destroy_qp_v1(struct ibv_qp *ibqp)
 	return ret;
 }
 
-int ipath_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr,
+int hfi1_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr,
 		    struct ibv_send_wr **bad_wr)
 {
 	unsigned wr_count;
@@ -455,12 +455,12 @@ iter:
 	return 0;
 }
 
-static int post_recv(struct ipath_rq *rq, struct ibv_recv_wr *wr,
+static int post_recv(struct hfi1_rq *rq, struct ibv_recv_wr *wr,
 		     struct ibv_recv_wr **bad_wr)
 {
 	struct ibv_recv_wr *i;
-	struct ipath_rwq *rwq;
-	struct ipath_rwqe *wqe;
+	struct hfi1_rwq *rwq;
+	struct hfi1_rwqe *wqe;
 	uint32_t head;
 	int n, ret;
 
@@ -498,20 +498,20 @@ done:
 	return ret;
 }
 
-int ipath_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+int hfi1_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		    struct ibv_recv_wr **bad_wr)
 {
-	struct ipath_qp *qp = to_iqp(ibqp);
+	struct hfi1_qp *qp = to_iqp(ibqp);
 
 	return post_recv(&qp->rq, wr, bad_wr);
 }
 
-struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
+struct ibv_srq *hfi1_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr)
 {
-	struct ipath_srq *srq;
+	struct hfi1_srq *srq;
 	struct ibv_create_srq cmd;
-	struct ipath_create_srq_resp resp;
+	struct hfi1_create_srq_resp resp;
 	int ret;
 	size_t size;
 
@@ -528,8 +528,8 @@ struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
 
 	srq->rq.size = attr->attr.max_wr + 1;
 	srq->rq.max_sge = attr->attr.max_sge;
-	size = sizeof(struct ipath_rwq) +
-		(sizeof(struct ipath_rwqe) +
+	size = sizeof(struct hfi1_rwq) +
+		(sizeof(struct hfi1_rwqe) +
 		 (sizeof(struct ibv_sge) * srq->rq.max_sge)) * srq->rq.size;
 	srq->rq.rwq = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			   pd->context->cmd_fd, resp.offset);
@@ -543,7 +543,7 @@ struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
 	return &srq->ibv_srq;
 }
 
-struct ibv_srq *ipath_create_srq_v1(struct ibv_pd *pd,
+struct ibv_srq *hfi1_create_srq_v1(struct ibv_pd *pd,
 				    struct ibv_srq_init_attr *attr)
 {
 	struct ibv_srq *srq;
@@ -565,12 +565,12 @@ struct ibv_srq *ipath_create_srq_v1(struct ibv_pd *pd,
 	return srq;
 }
 
-int ipath_modify_srq(struct ibv_srq *ibsrq,
+int hfi1_modify_srq(struct ibv_srq *ibsrq,
 		     struct ibv_srq_attr *attr, 
 		     int attr_mask)
 {
-	struct ipath_srq            *srq = to_isrq(ibsrq);
-	struct ipath_modify_srq_cmd  cmd;
+	struct hfi1_srq            *srq = to_isrq(ibsrq);
+	struct hfi1_modify_srq_cmd  cmd;
 	__u64                        offset;
 	size_t                       size = 0; /* Shut up gcc */
 	int                          ret;
@@ -578,8 +578,8 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 	if (attr_mask & IBV_SRQ_MAX_WR) {
 		pthread_spin_lock(&srq->rq.lock);
 		/* Save the old size so we can unmmap the queue. */
-		size = sizeof(struct ipath_rwq) +
-			(sizeof(struct ipath_rwqe) +
+		size = sizeof(struct hfi1_rwq) +
+			(sizeof(struct hfi1_rwqe) +
 			 (sizeof(struct ibv_sge) * srq->rq.max_sge)) *
 			srq->rq.size;
 	}
@@ -594,8 +594,8 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 	if (attr_mask & IBV_SRQ_MAX_WR) {
 		(void) munmap(srq->rq.rwq, size);
 		srq->rq.size = attr->max_wr + 1;
-		size = sizeof(struct ipath_rwq) +
-			(sizeof(struct ipath_rwqe) +
+		size = sizeof(struct hfi1_rwq) +
+			(sizeof(struct hfi1_rwqe) +
 			 (sizeof(struct ibv_sge) * srq->rq.max_sge)) *
 			srq->rq.size;
 		srq->rq.rwq = mmap(NULL, size,
@@ -609,7 +609,7 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 	return 0;
 }
 
-int ipath_modify_srq_v1(struct ibv_srq *ibsrq,
+int hfi1_modify_srq_v1(struct ibv_srq *ibsrq,
 			struct ibv_srq_attr *attr, 
 			int attr_mask)
 {
@@ -619,16 +619,16 @@ int ipath_modify_srq_v1(struct ibv_srq *ibsrq,
 				  &cmd, sizeof cmd);
 }
 
-int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr)
+int hfi1_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr)
 {
 	struct ibv_query_srq cmd;
 
 	return ibv_cmd_query_srq(srq, attr, &cmd, sizeof cmd);
 }
 
-int ipath_destroy_srq(struct ibv_srq *ibsrq)
+int hfi1_destroy_srq(struct ibv_srq *ibsrq)
 {
-	struct ipath_srq *srq = to_isrq(ibsrq);
+	struct hfi1_srq *srq = to_isrq(ibsrq);
 	size_t size;
 	int ret;
 
@@ -636,15 +636,15 @@ int ipath_destroy_srq(struct ibv_srq *ibsrq)
 	if (ret)
 		return ret;
 
-	size = sizeof(struct ipath_rwq) +
-		(sizeof(struct ipath_rwqe) +
+	size = sizeof(struct hfi1_rwq) +
+		(sizeof(struct hfi1_rwqe) +
 		 (sizeof(struct ibv_sge) * srq->rq.max_sge)) * srq->rq.size;
 	(void) munmap(srq->rq.rwq, size);
 	free(srq);
 	return 0;
 }
 
-int ipath_destroy_srq_v1(struct ibv_srq *ibsrq)
+int hfi1_destroy_srq_v1(struct ibv_srq *ibsrq)
 {
 	int ret;
 
@@ -654,15 +654,15 @@ int ipath_destroy_srq_v1(struct ibv_srq *ibsrq)
 	return ret;
 }
 
-int ipath_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
+int hfi1_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 			struct ibv_recv_wr **bad_wr)
 {
-	struct ipath_srq *srq = to_isrq(ibsrq);
+	struct hfi1_srq *srq = to_isrq(ibsrq);
 
 	return post_recv(&srq->rq, wr, bad_wr); 
 }
 
-struct ibv_ah *ipath_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+struct ibv_ah *hfi1_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct ibv_ah *ah;
 
@@ -678,7 +678,7 @@ struct ibv_ah *ipath_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	return ah;
 }
 
-int ipath_destroy_ah(struct ibv_ah *ah)
+int hfi1_destroy_ah(struct ibv_ah *ah)
 {
 	int ret;
 

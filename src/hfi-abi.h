@@ -34,39 +34,39 @@
  * product whatsoever.
  */
 
-#ifndef IPATH_ABI_H
-#define IPATH_ABI_H
+#ifndef HFI1_ABI_H
+#define HFI1_ABI_H
 
 #include <infiniband/kern-abi.h>
 
-struct ipath_get_context_resp {
+struct hfi1_get_context_resp {
 	struct ibv_get_context_resp	ibv_resp;
 	__u32				version;
 };
 
-struct ipath_create_cq_resp {
+struct hfi1_create_cq_resp {
 	struct ibv_create_cq_resp	ibv_resp;
 	__u64				offset;
 };
 
-struct ipath_resize_cq_resp {
+struct hfi1_resize_cq_resp {
 	struct ibv_resize_cq_resp	ibv_resp;
 	__u64				offset;
 };
 
-struct ipath_create_qp_resp {
+struct hfi1_create_qp_resp {
 	struct ibv_create_qp_resp	ibv_resp;
 	__u64				offset;
 };
 
-struct ipath_create_srq_resp {
+struct hfi1_create_srq_resp {
 	struct ibv_create_srq_resp	ibv_resp;
 	__u64				offset;
 };
 
-struct ipath_modify_srq_cmd {
+struct hfi1_modify_srq_cmd {
 	struct ibv_modify_srq		ibv_cmd;
 	__u64				offset_addr;
 };
 
-#endif /* IPATH_ABI_H */
+#endif /* HFI1_ABI_H */
