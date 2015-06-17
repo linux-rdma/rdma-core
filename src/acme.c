@@ -535,7 +535,7 @@ static int inet_any_pton(char *addr, struct sockaddr *sa)
 	if (ret <= 0) {
 		sin6 = (struct sockaddr_in6 *) sa;
 		sa->sa_family = AF_INET6;
-		ret = inet_pton(AF_INET6, src_addr, &sin6->sin6_addr);
+		ret = inet_pton(AF_INET6, addr, &sin6->sin6_addr);
 	}
 
 	return ret;
