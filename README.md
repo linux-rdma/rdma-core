@@ -7,6 +7,8 @@ Source
 
 Kernel Space Driver
 
+This repository contains a full kernel source tree, with the RoCE driver code located in the directory drivers/infiniband/hw/rxe.
+
 Github: https://github.com/SoftRoCE/rxe-dev.git 
 Active Branch: master-next
 User Space Library
