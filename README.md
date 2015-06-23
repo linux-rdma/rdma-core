@@ -1,7 +1,6 @@
 # librxe-dev
 Development repository for RXE user space code.
 Soft RDMA over Ethernet (RoCE) Driver
-This repository contains a full kernel source tree, with the RoCE driver code located in the directory drivers/infiniband/hw/rxe.
 
 Source
 
