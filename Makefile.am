@@ -130,6 +130,12 @@ src_ibcacheedit_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_dump_fts_SOURCES = src/dump_fts.c
 src_dump_fts_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 
+if ENABLE_RDMA_NDD
+src_rdma_ndd_SOURCES = src/rdma-ndd.c
+src_rdma_ndd_CFLAGS = $(AM_CFLAGS) $(UDEV_CFLAGS)
+src_rdma_ndd_LDADD = libcommon.a $(UDEV_LIBS)
+endif
+
 BUILT_SOURCES = ibdiag_version
 ibdiag_version:
 	if [ -x $(top_srcdir)/gen_ver.sh ] ; then \

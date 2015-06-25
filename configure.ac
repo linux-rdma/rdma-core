@@ -210,11 +210,12 @@ default_start="null"
 AC_SUBST(DEFAULT_START, $default_start)
 AC_SUBST(DEFAULT_STOP, $default_stop)
 
-if test x$rdmandd = xyes; then
-    AC_CHECK_HEADER(libudev.h, with_udev="yes", with_udev="no")
-    AC_CHECK_LIB(udev, udev_monitor_ref, [], AC_MSG_ERROR(libudev is required for rdma-ndd...))
+AS_IF([test x$rdmandd = xyes], [
+    PKG_CHECK_MODULES([UDEV], [libudev])
     AC_CONFIG_FILES([doc/man/rdma-ndd.8 etc/rdma-ndd.init])
-fi
+    AC_SUBST([UDEV_CFLAGS])
+    AC_SUBST([UDEV_LIBS])
+])
 
 dnl Generate doc/man/*.in files if possible
 DOC_DATE="`date +%Y-%m-%d`"
