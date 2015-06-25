@@ -214,7 +214,6 @@ if test x$rdmandd = xyes; then
     AC_CHECK_HEADER(libudev.h, with_udev="yes", with_udev="no")
     AC_CHECK_LIB(udev, udev_monitor_ref, [], AC_MSG_ERROR(libudev is required for rdma-ndd...))
     AC_CONFIG_FILES([doc/man/rdma-ndd.8 etc/rdma-ndd.init])
-    AC_CHECK_FUNCS_ONCE(udev_get_sys_path)
 fi
 
 dnl Generate doc/man/*.in files if possible

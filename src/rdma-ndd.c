@@ -58,9 +58,7 @@ struct udev_monitor *mon;
 #include "ibdiag_common.h"
 
 #define SYS_HOSTNAME "/proc/sys/kernel/hostname"
-#define DEF_SYS_DIR "/sys"
-char *sys_dir = DEF_SYS_DIR;
-#define SYS_INFINIBAND "class/infiniband"
+#define SYS_INFINIBAND "/sys/class/infiniband"
 #define DEFAULT_RETRY_RATE 60
 #define DEFAULT_RETRY_COUNT 0
 #define DEFAULT_ND_FORMAT "%h %d"
@@ -122,8 +120,8 @@ static int update_node_desc(const char *device, const char *hostname, int force)
 	char nd_file[PATH_MAX];
 	FILE *f;
 
-	snprintf(nd_file, sizeof(nd_file), "%s/%s/%s/node_desc",
-			sys_dir, SYS_INFINIBAND, device);
+	snprintf(nd_file, sizeof(nd_file), SYS_INFINIBAND "/%s/node_desc",
+			device);
 	nd_file[sizeof(nd_file)-1] = '\0';
 
 	f = fopen(nd_file, "r+");
@@ -160,14 +158,10 @@ static int set_rdma_node_desc(const char *hostname, int force)
 {
 	DIR *class_dir;
 	struct dirent *dent;
-	char dev_dir[PATH_MAX];
 
-	snprintf(dev_dir, sizeof(dev_dir), "%s/%s", sys_dir, SYS_INFINIBAND);
-	dev_dir[sizeof(dev_dir)-1] = '\0';
-
-	class_dir = opendir(dev_dir);
+	class_dir = opendir(SYS_INFINIBAND);
 	if (!class_dir) {
-		syslog(LOG_INFO, "Failed to open %s", dev_dir);
+		syslog(LOG_INFO, "Failed to open " SYS_INFINIBAND);
 		return -ENOSYS;
 	}
 
@@ -261,9 +255,6 @@ static void setup_udev(void)
 
 	udev_set_log_fn(udev, udev_log_fn);
 	udev_set_log_priority(udev, LOG_INFO);
-#if HAVE_UDEV_GET_SYS_PATH
-	sys_dir = (char *)udev_get_sys_path(udev);
-#endif
 }
 
 static int get_udev_fd(void)
