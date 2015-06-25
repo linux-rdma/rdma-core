@@ -35,8 +35,8 @@
  * product whatsoever.
  */
 
-#ifndef IPATH_H
-#define IPATH_H
+#ifndef HFI1_H
+#define HFI1_H
 
 #include <endian.h>
 #include <byteswap.h>
@@ -49,14 +49,14 @@
 
 #define HIDDEN		__attribute__((visibility ("hidden")))
 
-#define PFX		"ipath: "
+#define PFX		"hfi1: "
 
-struct ipath_device {
+struct hfi1_device {
 	struct ibv_device	ibv_dev;
 	int			abi_version;
 };
 
-struct ipath_context {
+struct hfi1_context {
 	struct ibv_context	ibv_ctx;
 };
 
@@ -64,7 +64,7 @@ struct ipath_context {
  * This structure needs to have the same size and offsets as
  * the kernel's ib_wc structure since it is memory mapped.
  */
-struct ipath_wc {
+struct hfi1_wc {
 	uint64_t		wr_id;
 	enum ibv_wc_status	status;
 	enum ibv_wc_opcode	opcode;
@@ -81,15 +81,15 @@ struct ipath_wc {
 	uint8_t			port_num;
 };
 
-struct ipath_cq_wc {
+struct hfi1_cq_wc {
 	uint32_t		head;
 	uint32_t		tail;
-	struct ipath_wc		queue[1];
+	struct hfi1_wc		queue[1];
 };
 
-struct ipath_cq {
+struct hfi1_cq {
 	struct ibv_cq		ibv_cq;
-	struct ipath_cq_wc	*queue;
+	struct hfi1_cq_wc	*queue;
 	pthread_spinlock_t	lock;
 };
 
@@ -98,7 +98,7 @@ struct ipath_cq {
  * The size of the sg_list is determined when the QP is created and stored
  * in qp->r_max_sge.
  */
-struct ipath_rwqe {
+struct hfi1_rwqe {
 	uint64_t		wr_id;
 	uint8_t			num_sge;
 	uint8_t			padding[7];
@@ -113,152 +113,152 @@ struct ipath_rwqe {
  * just index into the array to get the N'th element;
  * use get_rwqe_ptr() instead.
  */
-struct ipath_rwq {
+struct hfi1_rwq {
 	uint32_t		head;	/* new requests posted to the head */
 	uint32_t		tail;	/* receives pull requests from here. */
-	struct ipath_rwqe	wq[0];
+	struct hfi1_rwqe	wq[0];
 };
 
-struct ipath_rq {
-	struct ipath_rwq       *rwq;
+struct hfi1_rq {
+	struct hfi1_rwq       *rwq;
 	pthread_spinlock_t	lock;
 	uint32_t		size;
 	uint32_t		max_sge;
 };
 
-struct ipath_qp {
+struct hfi1_qp {
 	struct ibv_qp		ibv_qp;
-	struct ipath_rq		rq;
+	struct hfi1_rq		rq;
 };
 
-struct ipath_srq {
+struct hfi1_srq {
 	struct ibv_srq		ibv_srq;
-	struct ipath_rq		rq;
+	struct hfi1_rq		rq;
 };
 
 #define to_ixxx(xxx, type)						\
-	((struct ipath_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct ipath_##type, ibv_##xxx)))
+	((struct hfi1_##type *)					\
+	 ((void *) ib##xxx - offsetof(struct hfi1_##type, ibv_##xxx)))
 
-static inline struct ipath_context *to_ictx(struct ibv_context *ibctx)
+static inline struct hfi1_context *to_ictx(struct ibv_context *ibctx)
 {
 	return to_ixxx(ctx, context);
 }
 
-static inline struct ipath_device *to_idev(struct ibv_device *ibdev)
+static inline struct hfi1_device *to_idev(struct ibv_device *ibdev)
 {
 	return to_ixxx(dev, device);
 }
 
-static inline struct ipath_cq *to_icq(struct ibv_cq *ibcq)
+static inline struct hfi1_cq *to_icq(struct ibv_cq *ibcq)
 {
 	return to_ixxx(cq, cq);
 }
 
-static inline struct ipath_qp *to_iqp(struct ibv_qp *ibqp)
+static inline struct hfi1_qp *to_iqp(struct ibv_qp *ibqp)
 {
 	return to_ixxx(qp, qp);
 }
 
-static inline struct ipath_srq *to_isrq(struct ibv_srq *ibsrq)
+static inline struct hfi1_srq *to_isrq(struct ibv_srq *ibsrq)
 {
 	return to_ixxx(srq, srq);
 }
 
 /*
- * Since struct ipath_rwqe is not a fixed size, we can't simply index into
- * struct ipath_rq.wq.  This function does the array index computation.
+ * Since struct hfi1_rwqe is not a fixed size, we can't simply index into
+ * struct hfi1_rq.wq.  This function does the array index computation.
  */
-static inline struct ipath_rwqe *get_rwqe_ptr(struct ipath_rq *rq,
+static inline struct hfi1_rwqe *get_rwqe_ptr(struct hfi1_rq *rq,
 					      unsigned n)
 {
-	return (struct ipath_rwqe *)
+	return (struct hfi1_rwqe *)
 		((char *) rq->rwq->wq +
-		 (sizeof(struct ipath_rwqe) +
+		 (sizeof(struct hfi1_rwqe) +
 		  rq->max_sge * sizeof(struct ibv_sge)) * n);
 }
 
-extern int ipath_query_device(struct ibv_context *context,
+extern int hfi1_query_device(struct ibv_context *context,
 			      struct ibv_device_attr *attr);
 
-extern int ipath_query_port(struct ibv_context *context, uint8_t port,
+extern int hfi1_query_port(struct ibv_context *context, uint8_t port,
 			    struct ibv_port_attr *attr);
 
-struct ibv_pd *ipath_alloc_pd(struct ibv_context *pd);
+struct ibv_pd *hfi1_alloc_pd(struct ibv_context *pd);
 
-int ipath_free_pd(struct ibv_pd *pd);
+int hfi1_free_pd(struct ibv_pd *pd);
 
-struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
+struct ibv_mr *hfi1_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access);
 
-int ipath_dereg_mr(struct ibv_mr *mr);
+int hfi1_dereg_mr(struct ibv_mr *mr);
 
-struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
+struct ibv_cq *hfi1_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
 
-struct ibv_cq *ipath_create_cq_v1(struct ibv_context *context, int cqe,
+struct ibv_cq *hfi1_create_cq_v1(struct ibv_context *context, int cqe,
 				  struct ibv_comp_channel *channel,
 				  int comp_vector);
 
-int ipath_resize_cq(struct ibv_cq *cq, int cqe);
+int hfi1_resize_cq(struct ibv_cq *cq, int cqe);
 
-int ipath_resize_cq_v1(struct ibv_cq *cq, int cqe);
+int hfi1_resize_cq_v1(struct ibv_cq *cq, int cqe);
 
-int ipath_destroy_cq(struct ibv_cq *cq);
+int hfi1_destroy_cq(struct ibv_cq *cq);
 
-int ipath_destroy_cq_v1(struct ibv_cq *cq);
+int hfi1_destroy_cq_v1(struct ibv_cq *cq);
 
-int ipath_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+int hfi1_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 
-struct ibv_qp *ipath_create_qp(struct ibv_pd *pd,
+struct ibv_qp *hfi1_create_qp(struct ibv_pd *pd,
 			       struct ibv_qp_init_attr *attr);
 
-struct ibv_qp *ipath_create_qp_v1(struct ibv_pd *pd,
+struct ibv_qp *hfi1_create_qp_v1(struct ibv_pd *pd,
 				  struct ibv_qp_init_attr *attr);
 
-int ipath_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+int hfi1_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr);
 
-int ipath_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+int hfi1_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    int attr_mask);
 
-int ipath_destroy_qp(struct ibv_qp *qp);
+int hfi1_destroy_qp(struct ibv_qp *qp);
 
-int ipath_destroy_qp_v1(struct ibv_qp *qp);
+int hfi1_destroy_qp_v1(struct ibv_qp *qp);
 
-int ipath_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+int hfi1_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		    struct ibv_send_wr **bad_wr);
 
-int ipath_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+int hfi1_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		    struct ibv_recv_wr **bad_wr);
 
-struct ibv_srq *ipath_create_srq(struct ibv_pd *pd,
+struct ibv_srq *hfi1_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);
 
-struct ibv_srq *ipath_create_srq_v1(struct ibv_pd *pd,
+struct ibv_srq *hfi1_create_srq_v1(struct ibv_pd *pd,
 				    struct ibv_srq_init_attr *attr);
 
-int ipath_modify_srq(struct ibv_srq *srq,
+int hfi1_modify_srq(struct ibv_srq *srq,
 		     struct ibv_srq_attr *attr, 
 		     int attr_mask);
 
-int ipath_modify_srq_v1(struct ibv_srq *srq,
+int hfi1_modify_srq_v1(struct ibv_srq *srq,
 			struct ibv_srq_attr *attr, 
 			int attr_mask);
 
-int ipath_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr);
+int hfi1_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr);
 
-int ipath_destroy_srq(struct ibv_srq *srq);
+int hfi1_destroy_srq(struct ibv_srq *srq);
 
-int ipath_destroy_srq_v1(struct ibv_srq *srq);
+int hfi1_destroy_srq_v1(struct ibv_srq *srq);
 
-int ipath_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
+int hfi1_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 			struct ibv_recv_wr **bad_wr);
 
-struct ibv_ah *ipath_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
+struct ibv_ah *hfi1_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 
-int ipath_destroy_ah(struct ibv_ah *ah);
+int hfi1_destroy_ah(struct ibv_ah *ah);
 
-#endif /* IPATH_H */
+#endif /* HFI1_H */
