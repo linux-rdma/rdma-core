@@ -71,6 +71,7 @@ application, which may be useful for debugging.
 %setup -q -n %{name}-%{ver}
 
 %build
+./autogen.sh
 %configure
 make %{?_smp_flags}
 
