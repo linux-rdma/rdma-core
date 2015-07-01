@@ -167,7 +167,7 @@ sub get_dev_info {
 		$drv = $fields[1];
 		$eth_driver{$eth} = $drv;
 
-		if ($drv =~ /mlx4_en/) {
+		if ($drv =~ /mlx4_en/ && scalar(@roce_list) > 0 ) {
 		    $eth_names{$roce_list[$j++]} = $eth;
 		}
 	    }
