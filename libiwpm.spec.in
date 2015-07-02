@@ -1,5 +1,5 @@
 Name:     libiwpm
-Version:  1.0.1
+Version:  1.0.2
 Release:  1
 Summary:  iWarp Port Mapper userspace daemon
 Requires: libnl-devel
@@ -94,6 +94,10 @@ fi
 
 
 %changelog
+*Thu Jul 2 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.2
+- Fixes for the iwpmd start-up scripts with systemd
+- A change to enable multi devices per port mapper client
+- Releasing libiwpm-1.0.2 to be included in OFED-3.18
 *Fri Oct 31 2014 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.1
 - Releasing libiwpm-1.0.1 to be included in OFED-3.18
 *Mon Jun 10 2013 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.0
