@@ -248,10 +248,9 @@ static int process_iwpm_register_pid(struct nlmsghdr *req_nlh, int client_idx, i
 		memcpy(client->ulibname, libname, IWPM_ULIBNAME_SIZE);
 		client->valid = 1;
 	} else { /* check client info */
-		if (strcmp(client->ibdevname, devname) || strcmp(client->ulibname, libname) ||
-				strcmp(client->ifname, ifname)) {
-			str_err = "Incorrect device info";
-			err_code = IWPM_CLIENT_DEV_INFO_ERR;
+		if (strcmp(client->ulibname, libname)) {
+			str_err = "Incorrect library version";
+			err_code = IWPM_USER_LIB_INFO_ERR;
                 	goto register_pid_error;
         	}
 	}
