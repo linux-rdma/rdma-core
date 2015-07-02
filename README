@@ -2,24 +2,37 @@ iWarp Port Mapper Library - libiwpm
 
 DESCRIPTION
 
-libiwpm provides a user space service for the iWarp drivers Intel nes and Chelsio cxgb4
+libiwpm provides a user space service (iwpmd) for the iWarp drivers
 to claim tcp ports through the standard socket interface.
+The drivers currently using the service are Intel nes and Chelsio cxgb4.
 
 PREREQUISITES
 
 libiwpm requires libnl-1 or higher version and the corresponding libnl-devel
 to be installed.
 
-The kernel space support for libiwpm is currently included in the ib_core module, which
-needs to be loaded in order for the libiwpm service to start successfully.
-If the libiwpm is installed, but the ib_core isn't loaded, then you need to load the
-ib_core and then start the libiwpm service.
+The kernel space support for the port mapper is part of the iw_cm module.
+The ib_core module includes netlink support, which is used by the port mapper 
+clients to exchange messages with iwpmd. Both modules iw_cm and ib_core need to 
+be loaded in order for the libiwpm service to start successfully.
+
+If the libiwpm is installed, but the required modules aren't loaded, you need to
+load the modules and then restart the libiwpm service.
+
+OFED-3.18 is the first OFED package to include libiwpm.
 
 STARTING THE SERVICE
 
-After installing the OFED package, the libiwpm service should have started automatically after reboot.
-(Assuming the libiwpm has been installed successfully and the ib_core module has been loaded)
+After installing an OFED package which includes libiwpm, the service should start 
+automatically after reboot.
 
-You can also start/stop the libiwpm service using:
+To check if the service is running:
+ps aux | grep iwpmd
+
+To start/stop the libiwpm service use:
 service iwpmd start
 service iwpmd stop
+
+With systemd, to start/stop the libiwpm service use:
+systemctl start iwpmd
+systemctl stop iwpmd
