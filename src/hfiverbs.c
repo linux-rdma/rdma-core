@@ -79,10 +79,6 @@
 #define PCI_DEVICE_ID_HFI_INTEL1		0x24f1
 #endif
 
-#ifndef PCI_DEVICE_ID_INTEL2
-#define PCI_DEVICE_ID_HFI_INTEL2		0x24f2
-#endif
-
 #define HFI(v, d) \
 	{ .vendor = PCI_VENDOR_ID_##v,			\
 	  .device = PCI_DEVICE_ID_HFI_##d }
@@ -93,7 +89,6 @@ struct {
 } hca_table[] = {
 	HFI(INTEL, INTEL0),
 	HFI(INTEL, INTEL1),
-	HFI(INTEL, INTEL2),
 };
 
 static struct ibv_context_ops hfi1_ctx_ops = {
