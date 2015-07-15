@@ -594,6 +594,7 @@ int main(int argc, char **argv)
 	ibnd_fabric_t *diff_fabric = NULL;
 	struct ibmad_port *ibmad_port;
 	ib_portid_t port_id = { 0 };
+	uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 	int mgmt_classes[3] =
 	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
 
@@ -659,6 +660,7 @@ int main(int argc, char **argv)
 	node_name_map = open_node_name_map(node_name_map_file);
 
 	if (dr_path && load_cache_file) {
+		mad_rpc_close_port(ibmad_port);
 		fprintf(stderr, "Cannot specify cache and direct route path\n");
 		exit(1);
 	}
@@ -678,6 +680,16 @@ int main(int argc, char **argv)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
 			       guid_str);
 	}
+
+	if (!all && dr_path) {
+		if (!smp_query_via(ni, &port_id, IB_ATTR_NODE_INFO, 0,
+				   ibd_timeout, ibmad_port)){
+			mad_rpc_close_port(ibmad_port);
+			fprintf(stderr, "Failed to get local Node Info\n");
+			exit(1);
+		}
+	}
+	mad_rpc_close_port(ibmad_port);
 
 	if (diff_cache_file &&
 	    !(diff_fabric = ibnd_load_fabric(diff_cache_file, 0)))
@@ -723,11 +735,6 @@ int main(int argc, char **argv)
 			fprintf(stderr, "Failed to find port: %s\n", guid_str);
 	} else if (!all && dr_path) {
 		ibnd_port_t *p = NULL;
-		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
-
-		if (!smp_query_via(ni, &port_id, IB_ATTR_NODE_INFO, 0,
-				   ibd_timeout, ibmad_port))
-			return -1;
 		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(guid));
 
 		p = ibnd_find_port_guid(fabric, guid);
@@ -758,6 +765,5 @@ int main(int argc, char **argv)
 
 close_port:
 	close_node_name_map(node_name_map);
-	mad_rpc_close_port(ibmad_port);
 	exit(rc);
 }
