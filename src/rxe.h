@@ -62,14 +62,10 @@ struct rxe_cq {
 	pthread_spinlock_t	lock;
 };
 
-#ifdef RXE_USER_SEND_QUEUE
-
 struct rxe_ah {
 	struct ibv_ah		ibv_ah;
 	struct rxe_av		av;
 };
-
-#endif
 
 struct rxe_wq {
 	struct rxe_queue	*queue;
@@ -82,11 +78,9 @@ struct rxe_qp {
 	struct ibv_qp		ibv_qp;
 	struct mmap_info	rq_mmap_info;
 	struct rxe_wq		rq;
-#ifdef RXE_USER_SEND_QUEUE
 	struct mmap_info	sq_mmap_info;
 	struct rxe_wq		sq;
 	unsigned int		ssn;
-#endif
 };
 
 #define qp_type(qp)		((qp)->ibv_qp.qp_type)

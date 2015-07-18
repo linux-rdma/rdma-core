@@ -40,8 +40,6 @@
 
 #include <infiniband/kern-abi.h>
 
-#define RXE_USER_SEND_QUEUE		(1)
-
 struct mmap_info {
 	__u64 offset;
 	__u32 size;
@@ -66,9 +64,7 @@ struct rxe_resize_cq_resp {
 struct rxe_create_qp_resp {
 	struct ibv_create_qp_resp ibv_resp;
 	struct mmap_info rq_mi;
-#ifdef RXE_USER_SEND_QUEUE
 	struct mmap_info sq_mi;
-#endif
 };
 
 struct rxe_create_srq_resp {

@@ -489,7 +489,6 @@ static struct ibv_qp *rxe_create_qp(struct ibv_pd *pd,
 		pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE);
 	}
 
-#ifdef RXE_USER_SEND_QUEUE
 	qp->sq.max_sge = attr->cap.max_send_sge;
 	qp->sq.max_inline = attr->cap.max_inline_data;
 	qp->sq.queue = mmap(NULL, resp.sq_mi.size, PROT_READ | PROT_WRITE,
@@ -505,7 +504,6 @@ static struct ibv_qp *rxe_create_qp(struct ibv_pd *pd,
 
 	qp->sq_mmap_info = resp.sq_mi;
 	pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE);
-#endif
 
 	return &qp->ibv_qp;
 }
@@ -538,10 +536,8 @@ static int rxe_destroy_qp(struct ibv_qp *ibv_qp)
 	if (!ret) {
 		if (qp->rq_mmap_info.size)
 			munmap(qp->rq.queue, qp->rq_mmap_info.size);
-#ifdef RXE_USER_SEND_QUEUE
 		if (qp->sq_mmap_info.size)
 			munmap(qp->sq.queue, qp->sq_mmap_info.size);
-#endif
 
 		free(qp);
 	}
@@ -549,7 +545,6 @@ static int rxe_destroy_qp(struct ibv_qp *ibv_qp)
 	return ret;
 }
 
-#ifdef RXE_USER_SEND_QUEUE
 /* basic sanity checks for send work request */
 static int validate_send_wr(struct rxe_wq *sq, struct ibv_send_wr *ibwr,
 			    unsigned int length)
@@ -699,15 +694,12 @@ int post_send_db(struct ibv_qp *ibqp)
 	return 0;
 }
 
-#endif
-
 /* this API does not make a distinction between
    restartable and non-restartable errors */
 static int rxe_post_send(struct ibv_qp *ibqp,
 			 struct ibv_send_wr *wr_list,
 			 struct ibv_send_wr **bad_wr)
 {
-#ifdef RXE_USER_SEND_QUEUE
 	int rc = 0;
 	int err;
 	struct rxe_qp *qp = to_rqp(ibqp);
@@ -737,9 +729,6 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 
 	err =  post_send_db(ibqp);
 	return err ? err : rc;
-#else
-	return ibv_cmd_post_send(ibqp, wr_list, bad_wr);
-#endif
 }
 
 static int rxe_post_recv(struct ibv_qp *ibqp,
