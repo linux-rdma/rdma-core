@@ -777,42 +777,10 @@ static int rxe_post_recv(struct ibv_qp *ibqp,
 	return rc;
 }
 
-static inline int rdma_link_local_addr(struct in6_addr *addr)
-{
-       if (addr->s6_addr32[0] == htonl(0xfe800000) &&
-	   addr->s6_addr32[1] == 0)
-	       return 1;
-
-       return 0;
-}
-
-static inline void rdma_get_ll_mac(struct in6_addr *addr, uint8_t *mac)
-{
-       memcpy(mac, &addr->s6_addr[8], 3);
-       memcpy(mac + 3, &addr->s6_addr[13], 3);
-       mac[0] ^= 2;
-}
-
-static inline int rdma_is_multicast_addr(struct in6_addr *addr)
-{
-       return addr->s6_addr[0] == 0xff ? 1 : 0;
-}
-
-static inline void rdma_get_mcast_mac(struct in6_addr *addr, uint8_t *mac)
-{
-       int i;
-
-       mac[0] = 0x33;
-       mac[1] = 0x33;
-       for (i = 2; i < 6; ++i)
-	       mac[i] = addr->s6_addr[i + 10];
-}
-
 static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct rxe_ah *ah;
 	struct rxe_av *av;
-	struct in6_addr *in6 = (struct in6_addr *)attr->grh.dgid.raw;
 
 	ah = malloc(sizeof *ah);
 	if (ah == NULL)
@@ -821,16 +789,6 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	av = &ah->av;
 	av->attr = *attr;
 
-#if 0
-	if (rdma_link_local_addr(in6))
-		rdma_get_ll_mac(in6, av->ll_addr);
-	else if (rdma_is_multicast_addr(in6))
-		rdma_get_mcast_mac(in6, av->ll_addr);
-	else {
-		free(ah);
-		return NULL;
-	}
-#endif
 	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr)) {
 		free(ah);
 		return NULL;
