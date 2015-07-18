@@ -58,6 +58,7 @@
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 #include <infiniband/verbs.h>
+#include <rdma/ib_rxe.h>
 
 #include "rxe_queue.h"
 #include "rxe-abi.h"
@@ -569,7 +570,7 @@ static int validate_send_wr(struct rxe_wq *sq, struct ibv_send_wr *ibwr,
 	return 0;
 }
 
-void convert_send_wr(struct ib_send_wr *kwr, struct ibv_send_wr *uwr)
+void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 {
 	memset(kwr, 0, sizeof(*kwr));
 
@@ -577,7 +578,7 @@ void convert_send_wr(struct ib_send_wr *kwr, struct ibv_send_wr *uwr)
 	kwr->num_sge		= uwr->num_sge;
 	kwr->opcode		= uwr->opcode;
 	kwr->send_flags		= uwr->send_flags;
-	kwr->imm_data		= uwr->imm_data;
+	kwr->ex.imm_data	= uwr->imm_data;
 
 	switch(uwr->opcode) {
 	case IBV_WR_RDMA_WRITE:
@@ -611,14 +612,14 @@ int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
 	int i;
 	unsigned int opcode = ibwr->opcode;
 
-	convert_send_wr(&wqe->ibwr, ibwr);
+	convert_send_wr(&wqe->wr, ibwr);
 
 	if (qp_type(qp) == IBV_QPT_UD)
 		memcpy(&wqe->av, &to_rah(ibwr->wr.ud.ah)->av,
 		       sizeof(struct rxe_av));
 
 	if (ibwr->send_flags & IBV_SEND_INLINE) {
-		uint8_t *inline_data = wqe->dma.msg;
+		uint8_t *inline_data = wqe->dma.inline_data;
 
 		for (i = 0; i < num_sge; i++) {
 			memcpy(inline_data,
@@ -777,17 +778,54 @@ static int rxe_post_recv(struct ibv_qp *ibqp,
 	return rc;
 }
 
+static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+{
+	 return ((unsigned long)(a->s6_addr32[0] | a->s6_addr32[1]) |
+		 (unsigned long)(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
+}
+
+static inline int rdma_gid2ip(struct sockaddr *out, union ibv_gid *gid)
+{
+	if (ipv6_addr_v4mapped((struct in6_addr *)gid)) {
+		struct sockaddr_in *out_in = (struct sockaddr_in *)out;
+		memset(out_in, 0, sizeof(*out_in));
+		memcpy(&out_in->sin_addr.s_addr, gid->raw + 12, 4);
+	} else {
+		struct sockaddr_in6 *out_in = (struct sockaddr_in6 *)out;
+		memset(out_in, 0, sizeof(*out_in));
+		out_in->sin6_family = AF_INET6;
+		memcpy(&out_in->sin6_addr.s6_addr, gid->raw, 16);
+	}
+	return 0;
+}
+
 static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
+	int err;
 	struct rxe_ah *ah;
 	struct rxe_av *av;
+	union ibv_gid sgid;
+
+	err = ibv_query_gid(pd->context, attr->port_num, attr->grh.sgid_index,
+			    &sgid);
+	if (err) {
+		fprintf(stderr, "rxe: Failed to query sgid.\n");
+		return NULL;
+	}
 
 	ah = malloc(sizeof *ah);
 	if (ah == NULL)
 		return NULL;
 
 	av = &ah->av;
-	av->attr = *attr;
+	av->port_num = attr->port_num;
+	memcpy(&av->grh, &attr->grh, sizeof(attr->grh));
+	av->network_type =
+		ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
+		RDMA_NETWORK_IPV4 : RDMA_NETWORK_IPV6;
+
+	rdma_gid2ip(&av->sgid_addr._sockaddr, &sgid);
+	rdma_gid2ip(&av->dgid_addr._sockaddr, &attr->grh.dgid);
 
 	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr)) {
 		free(ah);
