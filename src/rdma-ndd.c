@@ -145,7 +145,7 @@ static int update_node_desc(const char *device, const char *hostname, int force)
 		syslog(LOG_INFO, "%s: change (%s) -> (%s)\n",
 			device, nd, new_nd);
 		rewind(f);
-		fprintf(f, new_nd);
+		fprintf(f, "%s", new_nd);
 	}
 
 	rc = 0;
@@ -242,7 +242,7 @@ static void udev_log_fn(struct udev *ud, int priority, const char *file, int lin
 			file, line, fn);
 	if (off < MSG_MAX-1)
 		vsnprintf(msg+off, MSG_MAX-off, format, args);
-	syslog(LOG_ERR, msg);
+	syslog(LOG_ERR, "%s", msg);
 }
 
 static void setup_udev(void)
