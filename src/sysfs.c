@@ -96,8 +96,19 @@ int ibv_read_sysfs_file(const char *dir, const char *file,
 	close(fd);
 	free(path);
 
-	if (len > 0 && buf[len - 1] == '\n')
-		buf[--len] = '\0';
+	if (len > 0) {
+		if (buf[len - 1] == '\n')
+			buf[--len] = '\0';
+		else if (len < size)
+			buf[len] = '\0';
+		else
+			/* We would have to truncate the contents to NULL
+			 * terminate, so we are going to fail no matter
+			 * what we do, either right now or later when
+			 * we pass around an unterminated string.  Fail now.
+			 */
+			return -1;
+	}
 
 	return len;
 }
