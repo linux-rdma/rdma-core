@@ -852,11 +852,15 @@ acmp_record_path_addr(struct acmp_ep *ep, struct acmp_dest *dest,
 	acm_log(2, "%s\n", dest->name);
 	dest->path.pkey = htons(ep->pkey);
 	dest->path.dgid = path->dgid;
-	if (path->slid || !ib_any_gid(&path->sgid)) {
-		dest->path.sgid = path->sgid;
+	if (path->slid) {
 		dest->path.slid = path->slid;
 	} else {
 		dest->path.slid = htons(ep->port->lid);
+	}
+	if (!ib_any_gid(&path->sgid)) {
+		dest->path.sgid = path->sgid;
+	} else {
+		dest->path.sgid = ep->mc_dest[0].path.sgid;
 	}
 	dest->path.dlid = path->dlid;
 	dest->state = ACMP_ADDR_RESOLVED;
