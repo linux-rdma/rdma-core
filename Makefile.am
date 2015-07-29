@@ -34,10 +34,13 @@ libibacmpinclude_HEADERS = include/infiniband/acm.h include/infiniband/acm_prov.
 man_MANS = \
 	man/ib_acme.1 \
 	man/ibacm.1 \
-	man/ibacm.7
+	man/ibacm.7 \
+	man/ibacm_prov.7
 
-EXTRA_DIST = src/acm_util.h prov/acmp/src/libibacmp.map include/acm_mad.h src/libacm.h ibacm.init.in \
-	     linux/osd.h linux/dlist.h ibacm.spec.in $(man_MANS) ibacm_hosts.data
+EXTRA_DIST = src/acm_util.h prov/acmp/src/libibacmp.map \
+		include/acm_mad.h src/libacm.h ibacm.init.in \
+		linux/osd.h linux/dlist.h ibacm.spec.in \
+		$(man_MANS) ibacm_hosts.data
 
 install-exec-hook:
 	install -D -m 755 ibacm.init $(DESTDIR)$(sysconfdir)/init.d/ibacm;
