@@ -38,7 +38,58 @@
 	#define NETLINK_RDMA	        20
 #endif
 
+/* iwpm config params */
+char * iwpm_param_names[IWPM_PARAM_NUM] = 
+	{ "nl_sock_rbuf_size" };
+int iwpm_param_vals[IWPM_PARAM_NUM] = 
+	{ 0 };
+
 extern iwpm_client client_list[IWARP_PM_MAX_CLIENTS];
+
+/**
+ * get_iwpm_param()
+ */
+static int get_iwpm_param(char *param_name, int val)
+{
+	int i, ret;
+	for (i = 0; i < IWPM_PARAM_NUM; i++) {
+		ret = strcmp(param_name, iwpm_param_names[i]);
+		if (!ret && val > 0) {
+			syslog(LOG_WARNING, "get_iwpm_param: Got param (name = %s val = %d)\n", param_name, val);
+			iwpm_param_vals[i] = val;
+			return ret;
+		}
+	}
+	return ret;
+}
+
+/**
+ * parse_iwpm_config()
+ */
+void parse_iwpm_config(FILE *fp)
+{
+	char line_buf[128];
+	char param_name[IWPM_PARAM_NAME_LEN];
+	int n, val, ret;
+	char *str;
+	
+	str = fgets(line_buf, 128, fp);
+	while (str) {
+		syslog(LOG_WARNING, "parse_iwpm_config:\n");
+		if (line_buf[0] == '#' || line_buf[0] == '\n')
+			goto parse_next_line;
+		n = sscanf(line_buf, "%64[^= ] %*[=]%d", param_name, &val);	 
+		if (n != 2) {
+			syslog(LOG_WARNING, "parse_iwpm_config: Couldn't parse a line (n = %d, name = %s, val = %d\n", n, param_name, val);
+			goto parse_next_line;
+		}
+		ret = get_iwpm_param(param_name, val);
+		if (ret)
+			syslog(LOG_WARNING, "parse_iwpm_config: Couldn't find param (ret = %d)\n", ret);
+parse_next_line:
+		str = fgets(line_buf, 128, fp);
+	}
+}
 
 /**
  * create_iwpm_socket_v4 - Create an ipv4 socket for the iwarp port mapper
@@ -167,6 +218,7 @@ int create_netlink_socket()
 	sockaddr_union bind_addr;
 	struct sockaddr_nl *bind_nl;
 	int nl_sock;
+	__u32 rbuf_size, opt_len;
 
 	/* create a socket */
 	nl_sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_RDMA);
@@ -189,7 +241,26 @@ int create_netlink_socket()
 				strerror(errno));
 		close(nl_sock);
 		nl_sock = -errno;
+		goto create_nl_socket_exit;
 	}
+	if (iwpm_param_vals[NL_SOCK_RBUF_SIZE] > 0) {
+		rbuf_size = iwpm_param_vals[NL_SOCK_RBUF_SIZE];
+
+		if (setsockopt(nl_sock, SOL_SOCKET, SO_RCVBUFFORCE, &rbuf_size, sizeof rbuf_size)) {
+			syslog(LOG_WARNING, "create_netlink_socket: Unable to set sock option "
+				"(rbuf_size = %u). %s.\n", rbuf_size, strerror(errno));
+			if (setsockopt(nl_sock, SOL_SOCKET, SO_RCVBUF,
+					&rbuf_size, sizeof rbuf_size)) {
+				syslog(LOG_WARNING, "create_netlink_socket: "
+					"Unable to set sock option %s. Closing socket\n", strerror(errno));
+				close(nl_sock);
+				nl_sock = -errno;
+				goto create_nl_socket_exit;
+               		}
+		}
+	}
+	getsockopt(nl_sock, SOL_SOCKET, SO_RCVBUF, &rbuf_size, &opt_len);
+	syslog(LOG_WARNING, "create_netlink_socket: Setting a sock option (rbuf_size = %u).\n", rbuf_size);
 
 create_nl_socket_exit:
 	return nl_sock;

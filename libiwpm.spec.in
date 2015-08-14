@@ -43,6 +43,9 @@ touch %iwpmscript
 	echo "%{_initrddir}/iwpmd" >> %iwpmscript
  %endif
 
+mkdir -p %{buildroot}%{_sysconfdir}
+cp %{_builddir}/%{name}-%{version}/iwpmd.conf %{buildroot}%{_sysconfdir}/iwpmd.conf
+
 %clean
 rm -rf %{buildroot}
 
@@ -91,7 +94,7 @@ fi
 %_includedir/rdma/iwarp_pm.h
 %_bindir/iwpmd
 %doc AUTHORS COPYING README
-
+%config %_sysconfdir/iwpmd.conf
 
 %changelog
 *Thu Jul 2 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.2

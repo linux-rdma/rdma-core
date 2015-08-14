@@ -85,6 +85,10 @@
 #define IWPM_IFNAME_SIZE   16
 #define IWPM_IPADDR_SIZE   16
 
+#define IWPM_CONFIG_FILE "/etc/iwpmd.conf"
+#define IWPM_PARAM_NUM 1
+#define IWPM_PARAM_NAME_LEN 64
+
 #define IWARP_PM_NETLINK_DBG  0x01
 #define IWARP_PM_WIRE_DBG     0x02
 #define IWARP_PM_RETRY_DBG    0x04
@@ -106,6 +110,11 @@ enum {
         IWPM_USER_LIB_INFO_ERR,                                                  
         IWPM_REMOTE_QUERY_REJECT   
 };      
+
+/* iwpm param indexes */
+enum {
+	NL_SOCK_RBUF_SIZE
+};
 
 typedef struct iwpm_client {
 	char	ifname[IWPM_IFNAME_SIZE];       /* netdev interface name */
@@ -203,6 +212,8 @@ typedef struct iwpm_msg_parms {
 } iwpm_msg_parms;
 
 /* iwarp_pm_common.c */
+
+void parse_iwpm_config(FILE *);
 
 int create_iwpm_socket_v4(__u16);
 

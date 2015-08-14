@@ -1391,16 +1391,22 @@ static void daemonize_iwpm_server()
 
 int main(int argc, char *argv[])
 {
-	int ret = EXIT_FAILURE;
 	__u32 iwarp_clients[IWARP_PM_MAX_CLIENTS];
 	int known_clients;
+	FILE *fp;
+	int ret = EXIT_FAILURE;
 
 	openlog("iWarpPortMapper", LOG_CONS | LOG_PID, LOG_DAEMON);
 
 	daemonize_iwpm_server();
-
+	
+	fp = fopen(IWPM_CONFIG_FILE, "r");
+	if (fp) {
+		parse_iwpm_config(fp);
+		fclose(fp);
+	}
 	memset(client_list, 0, sizeof(client_list));
-
+	
 	pmv4_sock = create_iwpm_socket_v4(IWARP_PM_PORT);
 	if (pmv4_sock < 0)
 		goto error_exit_v4;
