@@ -75,7 +75,6 @@ void parse_iwpm_config(FILE *fp)
 	
 	str = fgets(line_buf, 128, fp);
 	while (str) {
-		syslog(LOG_WARNING, "parse_iwpm_config:\n");
 		if (line_buf[0] == '#' || line_buf[0] == '\n')
 			goto parse_next_line;
 		n = sscanf(line_buf, "%64[^= ] %*[=]%d", param_name, &val);	 
@@ -260,7 +259,7 @@ int create_netlink_socket()
 		}
 	}
 	getsockopt(nl_sock, SOL_SOCKET, SO_RCVBUF, &rbuf_size, &opt_len);
-	syslog(LOG_WARNING, "create_netlink_socket: Setting a sock option (rbuf_size = %u).\n", rbuf_size);
+	iwpm_debug(IWARP_PM_NETLINK_DBG, "create_netlink_socket: Setting a sock option (rbuf_size = %u).\n", rbuf_size);
 
 create_nl_socket_exit:
 	return nl_sock;
