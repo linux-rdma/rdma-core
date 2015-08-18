@@ -1,0 +1,209 @@
+commit 5f5be6fe1a0723764a1a7df5880d197a4ccd5d47
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Mon Aug 17 12:54:09 2015 -0700
+
+    Adding a sample iwpmd.conf file
+    
+    Printing the size of the netlink socket receive
+    buffer only if debug is enabled
+    
+    Removing the dash from the verison number
+    
+    Releasing libiwpm-1.0.3rc1
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit bb38d6528e11141914baaa711606e28c9e1a31f0
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri Aug 14 14:47:08 2015 -0700
+
+    Updating libiwpm version to 1.0.3-rc1
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 095bb4bf58518a6b3783662baab4a4d7042427be
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri Aug 14 14:27:58 2015 -0700
+
+    Adding iwpmd.conf file, which allows for changing the size
+    of the netlink socket receive buffer
+    
+    Including a fix submitted by Steve Wise
+    for Bug 2559 in openfabrics bugzilla, reproduced by Chelsio
+    about failing to send a netlink message to iwpmd
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 4f34c76c396d7a5d9d33449145000e1ed46fc630
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri Aug 14 12:22:11 2015 -0700
+
+    Changing libiwpm version in configure.ac
+    to 1.0.2
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 1f436ed6271cc5af8456fa0a372b803553d92b10
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Thu Jul 2 14:01:55 2015 -0700
+
+    Updating the README
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 713b27328aed37d00badabb9492bfe91a7ec20ee
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Thu Jul 2 13:16:57 2015 -0700
+
+    Changes to allow multi devices per netlink client
+    to register with the port mapper
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 672d76b13639da5a35fad6be2c578dc78623605f
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Thu Jul 2 13:06:51 2015 -0700
+
+    Updating libiwpm version to 1.0.2
+    for OFED-3.18 release
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit c42cad0c4b6f84cdb873f093f941dac785a07de1
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Wed May 6 13:30:32 2015 -0700
+
+    From: Steve Wise <swise@opengridcomputing.com>
+    
+    Fix for make dist to include systemd service file
+    
+    Signed-off-by: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+
+commit b9d08c0e595ba4b1d3e1db40dd26448386fc571e
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri May 1 14:49:53 2015 -0700
+
+    Changes to the port mapper spec and start-up script files
+    1) Fixes to enable the iwpmd install and start when systemd is available
+    2) Adding "ulimit -n 102400" to the start up scripts to allow testing
+    with high number of connections
+    
+    Signed-off-by: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 7bdb4da6ef40504a36545d2d116ef43a4d694e38
+Merge: 21ef408 ac69af0
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri May 1 14:44:36 2015 -0700
+
+    Merge branch 'for-next'
+
+commit ac69af064d32b222afd1e155a1d2ccc5305a12aa
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri May 1 14:26:22 2015 -0700
+
+    Replacing INCLUDES with AM_CPPFLAGS in the makefile
+    Removing autoscan.log
+    
+    Signed-off-by: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 21ef408eb146d2eff8016d8a7c1410350254a55e
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Thu Dec 11 13:52:29 2014 -0800
+
+    New iwpmd service file for systemd on RHEL 7
+
+commit 36c76c19943ab0fda6de7cb33fec009a444a8a11
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Thu Dec 11 13:40:58 2014 -0800
+
+    Returning success after handling SIGTERM (for systemd status)
+    Removing unused variable
+
+commit 0d8ecc23f90a0469ac795c66381cf6edf99a2664
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Thu Dec 11 13:35:55 2014 -0800
+
+    Changes to the spec file for iwpmd init script on RHEL 7
+
+commit a0f27ae68cab1e4d9ecb6f02afa999938eee3e7b
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Wed Nov 5 11:26:44 2014 -0800
+
+    Fix for %changelog to be in descending chronological order
+
+commit 5f6245d7b8a4b1506da42b18e23bee5d9cb9b290
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri Oct 31 11:15:00 2014 -0700
+
+    Releasing libiwpm-1.0.1 to be included in OFED-3.18
+
+commit 0054fee6a3adb238f4a13a6a9d8f975cbd93aa0f
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri Oct 31 10:47:47 2014 -0700
+
+    Updated the README file
+
+commit eee8aef9737fe9a47cda3fdefbde1df6157403ed
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Mon Sep 22 22:24:56 2014 -0700
+
+    Add functionality to enable libiwpm to provide the remote connecting
+    peer address information to its clients
+
+commit f5de47f0c11eddee1b31b31a47b359f311387f68
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Tue Aug 19 13:03:29 2014 -0700
+
+    Changes and fixes for the build/configure files to enable libiwpm
+    to compile and install on RedHat 6 and SLES11
+
+commit 0d5e5c6dc14dc996231eb8cab3db1aaa05217bd4
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri May 30 10:41:01 2014 -0700
+
+    Add SIGUSR1 handler to print all port mapper mappings which are in use
+
+commit 039a6956e1886fd9ef75dcb5dfbd5e9418bccfc7
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri May 30 10:39:40 2014 -0700
+
+    Add support for handling wild card IP addresses
+    
+    Note: The previous fix is incomplete
+
+commit 3bfc815862e6422abfdd75b3d7f1eee6bf02f58e
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri May 30 10:38:06 2014 -0700
+
+    Remove an extra define variable
+
+commit 44dd24aa7725ae3c0141a64a55cf4df9e9700d09
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Fri May 30 10:35:28 2014 -0700
+
+    Cleaning up files from the git tree, which shouldn't be tracked
+
+commit 21a3991ee3178f410137939145474fb973cdcdf2
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Thu Mar 20 13:49:41 2014 -0700
+
+    Fix to enable the use of wild card IP addresses
+
+commit f48e7ead93070de1771a2976d9fc0a40289dfc2a
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Mon Mar 10 10:04:14 2014 -0700
+
+    Add changes related to the IWPM V2
+    kernel space functionality modifications
+
+commit 247642585488f6e208fcb67735c574c846a151bf
+Author: Vipul Pandya <vipul@chelsio.com>
+Date:   Fri Sep 6 11:58:53 2013 -0700
+
+    Fixes to IPv6 functionality
+
+commit 3af5665ecaf64140b5f481d101e54a6b5ea70497
+Author: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Mon Aug 26 14:27:29 2013 -0700
+
+    iWarp Port Mapper (userspace library) project files
