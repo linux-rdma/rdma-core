@@ -568,7 +568,7 @@ static struct rsocket *rs_alloc(struct rsocket *inherited_rs, int type)
 {
 	struct rsocket *rs;
 
-	rs = calloc(1, sizeof *rs);
+	rs = calloc(1, sizeof(*rs));
 	if (!rs)
 		return NULL;
 
@@ -1396,7 +1396,7 @@ static int ds_get_src_addr(struct rsocket *rs,
 	int sock, ret;
 	uint16_t port;
 
-	*src_len = sizeof *src_addr;
+	*src_len = sizeof(*src_addr);
 	ret = getsockname(rs->udp_sock, &src_addr->sa, src_len);
 	if (ret || !rs_any_addr(src_addr))
 		return ret;
@@ -1410,7 +1410,7 @@ static int ds_get_src_addr(struct rsocket *rs,
 	if (ret)
 		goto out;
 
-	*src_len = sizeof *src_addr;
+	*src_len = sizeof(*src_addr);
 	ret = getsockname(sock, &src_addr->sa, src_len);
 	src_addr->sin.sin_port = port;
 out:
@@ -2600,7 +2600,7 @@ static ssize_t ds_sendv_udp(struct rsocket *rs, const struct iovec *iov,
 	miov[0].iov_base = &hdr;
 	miov[0].iov_len = hdr.length;
 	if (iov && iovcnt)
-		memcpy(&miov[1], iov, sizeof *iov * iovcnt);
+		memcpy(&miov[1], iov, sizeof(*iov) * iovcnt);
 
 	memset(&msg, 0, sizeof msg);
 	msg.msg_name = &rs->conn_dest->addr;
@@ -2910,7 +2910,7 @@ static struct pollfd *rs_fds_alloc(nfds_t nfds)
 		if (rfds)
 			free(rfds);
 
-		rfds = malloc(sizeof *rfds * nfds);
+		rfds = malloc(sizeof(*rfds) * nfds);
 		rnfds = rfds ? nfds : 0;
 	}
 
@@ -3110,7 +3110,7 @@ rs_select_to_poll(int *nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfd
 	struct pollfd *fds;
 	int fd, i = 0;
 
-	fds = calloc(*nfds, sizeof *fds);
+	fds = calloc(*nfds, sizeof(*fds));
 	if (!fds)
 		return NULL;
 
@@ -3754,7 +3754,7 @@ off_t riomap(int socket, void *buf, size_t len, int prot, int flags, off_t offse
 		iomr = rs_get_iomap_mr(rs);
 		access |= IBV_ACCESS_REMOTE_WRITE;
 	} else {
-		iomr = calloc(1, sizeof *iomr);
+		iomr = calloc(1, sizeof(*iomr));
 		iomr->index = -1;
 	}
 	if (!iomr) {

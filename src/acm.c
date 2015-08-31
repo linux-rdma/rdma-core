@@ -176,11 +176,11 @@ static int ucma_ib_set_addr(struct rdma_addrinfo *ib_rai,
 	struct sockaddr_ib *src, *dst;
 	struct ibv_path_record *path;
 
-	src = calloc(1, sizeof *src);
+	src = calloc(1, sizeof(*src));
 	if (!src)
 		return ERR(ENOMEM);
 
-	dst = calloc(1, sizeof *dst);
+	dst = calloc(1, sizeof(*dst));
 	if (!dst) {
 		free(src);
 		return ERR(ENOMEM);
@@ -217,7 +217,7 @@ static int ucma_ib_set_connect(struct rdma_addrinfo *ib_rai,
 	if (rai->ai_family == AF_IB)
 		return 0;
 
-	hdr = calloc(1, sizeof *hdr);
+	hdr = calloc(1, sizeof(*hdr));
 	if (!hdr)
 		return ERR(ENOMEM);
 

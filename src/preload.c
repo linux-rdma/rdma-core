@@ -260,7 +260,7 @@ static int fd_open(void)
 	struct fd_info *fdi;
 	int ret, index;
 
-	fdi = calloc(1, sizeof *fdi);
+	fdi = calloc(1, sizeof(*fdi));
 	if (!fdi)
 		return ERR(ENOMEM);
 
@@ -876,7 +876,7 @@ static struct pollfd *fds_alloc(nfds_t nfds)
 		if (rfds)
 			free(rfds);
 
-		rfds = malloc(sizeof *rfds * nfds);
+		rfds = malloc(sizeof(*rfds) * nfds);
 		rnfds = rfds ? nfds : 0;
 	}
 
@@ -1132,7 +1132,7 @@ int dup2(int oldfd, int newfd)
 	if (!oldfdi || ret != newfd)
 		return ret;
 
-	newfdi = calloc(1, sizeof *newfdi);
+	newfdi = calloc(1, sizeof(*newfdi));
 	if (!newfdi) {
 		close(newfd);
 		return ERR(ENOMEM);

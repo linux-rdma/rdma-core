@@ -241,7 +241,7 @@ int ucma_init(void)
 		goto err2;
 	}
 
-	cma_dev_array = calloc(dev_cnt, sizeof *cma_dev_array);
+	cma_dev_array = calloc(dev_cnt, sizeof(*cma_dev_array));
 	if (!cma_dev_array) {
 		ret = ERR(ENOMEM);
 		goto err2;
@@ -305,7 +305,7 @@ static int ucma_init_device(struct cma_device *cma_dev)
 		goto err;
 	}
 
-	cma_dev->port = malloc(sizeof *cma_dev->port * attr.phys_port_cnt);
+	cma_dev->port = malloc(sizeof(*cma_dev->port) * attr.phys_port_cnt);
 	if (!cma_dev->port) {
 		ret = ERR(ENOMEM);
 		goto err;
@@ -362,7 +362,7 @@ struct ibv_context **rdma_get_devices(int *num_devices)
 	if (ucma_init_all())
 		goto out;
 
-	devs = malloc(sizeof *devs * (cma_dev_cnt + 1));
+	devs = malloc(sizeof(*devs) * (cma_dev_cnt + 1));
 	if (!devs)
 		goto out;
 
@@ -392,7 +392,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 	if (ucma_init())
 		return NULL;
 
-	channel = malloc(sizeof *channel);
+	channel = malloc(sizeof(*channel));
 	if (!channel)
 		return NULL;
 
@@ -514,7 +514,7 @@ static struct cma_id_private *ucma_alloc_id(struct rdma_event_channel *channel,
 {
 	struct cma_id_private *id_priv;
 
-	id_priv = calloc(1, sizeof *id_priv);
+	id_priv = calloc(1, sizeof(*id_priv));
 	if (!id_priv)
 		return NULL;
 
@@ -791,7 +791,7 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	if (resp.num_paths) {
-		id->route.path_rec = malloc(sizeof *id->route.path_rec *
+		id->route.path_rec = malloc(sizeof(*id->route.path_rec) *
 					    resp.num_paths);
 		if (!id->route.path_rec)
 			return ERR(ENOMEM);
@@ -1333,7 +1333,7 @@ int rdma_create_srq(struct rdma_cm_id *id, struct ibv_pd *pd,
 	struct ibv_srq_init_attr_ex attr_ex;
 	int ret;
 
-	memcpy(&attr_ex, attr, sizeof *attr);
+	memcpy(&attr_ex, attr, sizeof(*attr));
 	attr_ex.comp_mask = IBV_SRQ_INIT_ATTR_TYPE | IBV_SRQ_INIT_ATTR_PD;
 	if (id->qp_type == IBV_QPT_XRC_RECV) {
 		attr_ex.srq_type = IBV_SRQT_XRC;
@@ -1342,7 +1342,7 @@ int rdma_create_srq(struct rdma_cm_id *id, struct ibv_pd *pd,
 	}
 	attr_ex.pd = pd;
 	ret = rdma_create_srq_ex(id, &attr_ex);
-	memcpy(attr, &attr_ex, sizeof *attr);
+	memcpy(attr, &attr_ex, sizeof(*attr));
 	return ret;
 }
 
@@ -1423,11 +1423,11 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 	struct ibv_qp_init_attr_ex attr_ex;
 	int ret;
 
-	memcpy(&attr_ex, qp_init_attr, sizeof *qp_init_attr);
+	memcpy(&attr_ex, qp_init_attr, sizeof(*qp_init_attr));
 	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attr_ex.pd = pd ? pd : id->pd;
 	ret = rdma_create_qp_ex(id, &attr_ex);
-	memcpy(qp_init_attr, &attr_ex, sizeof *qp_init_attr);
+	memcpy(qp_init_attr, &attr_ex, sizeof(*qp_init_attr));
 	return ret;
 }
 
@@ -1751,7 +1751,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 	int ret;
 	
 	id_priv = container_of(id, struct cma_id_private, id);
-	mc = calloc(1, sizeof *mc);
+	mc = calloc(1, sizeof(*mc));
 	if (!mc)
 		return ERR(ENOMEM);
 
@@ -2096,12 +2096,12 @@ int rdma_get_cm_event(struct rdma_event_channel *channel,
 	if (!event)
 		return ERR(EINVAL);
 
-	evt = malloc(sizeof *evt);
+	evt = malloc(sizeof(*evt));
 	if (!evt)
 		return ERR(ENOMEM);
 
 retry:
-	memset(evt, 0, sizeof *evt);
+	memset(evt, 0, sizeof(*evt));
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, GET_EVENT, &resp, sizeof resp);
 	ret = write(channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd) {
@@ -2354,7 +2354,7 @@ static int ucma_passive_ep(struct rdma_cm_id *id, struct rdma_addrinfo *res,
 		id->pd = pd;
 
 	if (qp_init_attr) {
-		id_priv->qp_init_attr = malloc(sizeof *qp_init_attr);
+		id_priv->qp_init_attr = malloc(sizeof(*qp_init_attr));
 		if (!id_priv->qp_init_attr)
 			return ERR(ENOMEM);
 

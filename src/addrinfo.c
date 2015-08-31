@@ -49,7 +49,7 @@ struct rdma_addrinfo nohints;
 
 static void ucma_convert_to_ai(struct addrinfo *ai, struct rdma_addrinfo *rai)
 {
-	memset(ai, 0, sizeof *ai);
+	memset(ai, 0, sizeof(*ai));
 	if (rai->ai_flags & RAI_PASSIVE)
 		ai->ai_flags = AI_PASSIVE;
 	if (rai->ai_flags & RAI_NUMERICHOST)
