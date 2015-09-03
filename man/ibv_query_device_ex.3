@@ -23,8 +23,31 @@ struct ibv_device_attr_ex {
 .in +8
 struct ibv_device_attr orig_attr;
 uint32_t               comp_mask;              /* Compatibility mask that defines which of the following variables are valid */
+struct ibv_odp_caps    odp_caps;               /* On-Demand Paging capabilities */
 .in -8
 };
+
+struct ibv_exp_odp_caps {
+	uint64_t	general_odp_caps;  /* Mask with enum ibv_odp_general_cap_bits */
+	struct {
+		uint32_t	rc_odp_caps;      /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
+		uint32_t	uc_odp_caps;      /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
+		uint32_t	ud_odp_caps;      /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
+	} per_transport_caps;
+};
+
+enum ibv_odp_general_cap_bits {
+        IBV_ODP_SUPPORT = 1 << 0, /* On demand paging is supported */
+};
+
+enum ibv_odp_transport_cap_bits {
+        IBV_ODP_SUPPORT_SEND     = 1 << 0, /* Send operations support on-demand paging */
+        IBV_ODP_SUPPORT_RECV     = 1 << 1, /* Receive operations support on-demand paging */
+        IBV_ODP_SUPPORT_WRITE    = 1 << 2, /* RDMA-Write operations support on-demand paging */
+        IBV_ODP_SUPPORT_READ     = 1 << 3, /* RDMA-Read operations support on-demand paging */
+        IBV_ODP_SUPPORT_ATOMIC   = 1 << 4, /* RDMA-Atomic operations support on-demand paging */
+};
+
 .fi
 .SH "RETURN VALUE"
 .B ibv_query_device_ex()

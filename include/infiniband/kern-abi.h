@@ -252,10 +252,21 @@ struct ibv_query_device_ex {
 	__u32		reserved;
 };
 
+struct ibv_odp_caps_resp {
+	__u64 general_caps;
+	struct {
+		__u32 rc_odp_caps;
+		__u32 uc_odp_caps;
+		__u32 ud_odp_caps;
+	} per_transport_caps;
+	__u32 reserved;
+};
+
 struct ibv_query_device_resp_ex {
 	struct ibv_query_device_resp base;
 	__u32 comp_mask;
 	__u32 response_length;
+	struct ibv_odp_caps_resp odp_caps;
 };
 
 struct ibv_query_port {

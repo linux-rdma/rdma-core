@@ -43,6 +43,7 @@
 #include <netinet/in.h>
 #include <endian.h>
 #include <byteswap.h>
+#include <inttypes.h>
 
 #include <infiniband/verbs.h>
 #include <infiniband/driver.h>
@@ -204,6 +205,54 @@ static const char *link_layer_str(uint8_t link_layer)
 	}
 }
 
+void print_odp_trans_caps(uint32_t trans)
+{
+	uint32_t unknown_transport_caps = ~(IBV_ODP_SUPPORT_SEND |
+					    IBV_ODP_SUPPORT_RECV |
+					    IBV_ODP_SUPPORT_WRITE |
+					    IBV_ODP_SUPPORT_READ |
+					    IBV_ODP_SUPPORT_ATOMIC);
+
+	if (!trans) {
+		printf("\t\t\t\t\tNO SUPPORT\n");
+	} else {
+		if (trans & IBV_ODP_SUPPORT_SEND)
+			printf("\t\t\t\t\tSUPPORT_SEND\n");
+		if (trans & IBV_ODP_SUPPORT_RECV)
+			printf("\t\t\t\t\tSUPPORT_RECV\n");
+		if (trans & IBV_ODP_SUPPORT_WRITE)
+			printf("\t\t\t\t\tSUPPORT_WRITE\n");
+		if (trans & IBV_ODP_SUPPORT_READ)
+			printf("\t\t\t\t\tSUPPORT_READ\n");
+		if (trans & IBV_ODP_SUPPORT_ATOMIC)
+			printf("\t\t\t\t\tSUPPORT_ATOMIC\n");
+		if (trans & unknown_transport_caps)
+			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
+			       trans & unknown_transport_caps);
+	}
+}
+
+void print_odp_caps(const struct ibv_odp_caps *caps)
+{
+	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT);
+
+	/* general odp caps */
+	printf("\tgeneral_odp_caps:\n");
+	if (caps->general_caps & IBV_ODP_SUPPORT)
+		printf("\t\t\t\t\tODP_SUPPORT\n");
+	if (caps->general_caps & unknown_general_caps)
+		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
+		       caps->general_caps & unknown_general_caps);
+
+	/* RC transport */
+	printf("\trc_odp_caps:\n");
+	print_odp_trans_caps(caps->per_transport_caps.rc_odp_caps);
+	printf("\tuc_odp_caps:\n");
+	print_odp_trans_caps(caps->per_transport_caps.uc_odp_caps);
+	printf("\tud_odp_caps:\n");
+	print_odp_trans_caps(caps->per_transport_caps.ud_odp_caps);
+}
+
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
@@ -288,6 +337,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		}
 		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.orig_attr.max_pkeys);
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
+
+		print_odp_caps(&device_attr.odp_caps);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {

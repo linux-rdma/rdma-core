@@ -172,6 +172,22 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	/* Report back supported comp_mask bits. For now no comp_mask bit is
 	 * defined */
 	attr->comp_mask = resp->comp_mask & 0;
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, odp_caps) +
+			 sizeof(attr->odp_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, odp_caps) +
+		    sizeof(resp->odp_caps)) {
+			attr->odp_caps.general_caps = resp->odp_caps.general_caps;
+			attr->odp_caps.per_transport_caps.rc_odp_caps =
+				resp->odp_caps.per_transport_caps.rc_odp_caps;
+			attr->odp_caps.per_transport_caps.uc_odp_caps =
+				resp->odp_caps.per_transport_caps.uc_odp_caps;
+			attr->odp_caps.per_transport_caps.ud_odp_caps =
+				resp->odp_caps.per_transport_caps.ud_odp_caps;
+		} else {
+			memset(&attr->odp_caps, 0, sizeof(attr->odp_caps));
+		}
+	}
 
 	return 0;
 }

@@ -175,9 +175,31 @@ struct ibv_query_device_ex_input {
 	uint32_t		comp_mask;
 };
 
+enum ibv_odp_transport_cap_bits {
+	IBV_ODP_SUPPORT_SEND     = 1 << 0,
+	IBV_ODP_SUPPORT_RECV     = 1 << 1,
+	IBV_ODP_SUPPORT_WRITE    = 1 << 2,
+	IBV_ODP_SUPPORT_READ     = 1 << 3,
+	IBV_ODP_SUPPORT_ATOMIC   = 1 << 4,
+};
+
+struct ibv_odp_caps {
+	uint64_t general_caps;
+	struct {
+		uint32_t rc_odp_caps;
+		uint32_t uc_odp_caps;
+		uint32_t ud_odp_caps;
+	} per_transport_caps;
+};
+
+enum ibv_odp_general_caps {
+	IBV_ODP_SUPPORT = 1 << 0,
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
+	struct ibv_odp_caps	odp_caps;
 };
 
 enum ibv_mtu {
@@ -352,7 +374,8 @@ enum ibv_access_flags {
 	IBV_ACCESS_REMOTE_WRITE		= (1<<1),
 	IBV_ACCESS_REMOTE_READ		= (1<<2),
 	IBV_ACCESS_REMOTE_ATOMIC	= (1<<3),
-	IBV_ACCESS_MW_BIND		= (1<<4)
+	IBV_ACCESS_MW_BIND		= (1<<4),
+	IBV_ACCESS_ON_DEMAND		= (1<<6),
 };
 
 struct ibv_pd {
