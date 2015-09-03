@@ -55,6 +55,7 @@ enum {
 };
 
 static int page_size;
+static int use_odp;
 
 struct pingpong_context {
 	struct ibv_context	*context;
@@ -315,6 +316,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 					    int use_event)
 {
 	struct pingpong_context *ctx;
+	int access_flags = IBV_ACCESS_LOCAL_WRITE;
 
 	ctx = calloc(1, sizeof *ctx);
 	if (!ctx)
@@ -355,7 +357,25 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		goto clean_comp_channel;
 	}
 
-	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size, IBV_ACCESS_LOCAL_WRITE);
+	if (use_odp) {
+		const uint32_t rc_caps_mask = IBV_ODP_SUPPORT_SEND |
+					      IBV_ODP_SUPPORT_RECV;
+		struct ibv_device_attr_ex attrx;
+
+		if (ibv_query_device_ex(ctx->context, NULL, &attrx)) {
+			fprintf(stderr, "Couldn't query device for its features\n");
+			goto clean_comp_channel;
+		}
+
+		if (!(attrx.odp_caps.general_caps & IBV_ODP_SUPPORT) ||
+		    (attrx.odp_caps.per_transport_caps.rc_odp_caps & rc_caps_mask) != rc_caps_mask) {
+			fprintf(stderr, "The device isn't ODP capable or does not support RC send and receive with ODP\n");
+			goto clean_comp_channel;
+		}
+		access_flags |= IBV_ACCESS_ON_DEMAND;
+	}
+	ctx->mr = ibv_reg_mr(ctx->pd, ctx->buf, size, access_flags);
+
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't register MR\n");
 		goto clean_pd;
@@ -540,6 +560,7 @@ static void usage(const char *argv0)
 	printf("  -l, --sl=<sl>          service level value\n");
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
+	printf("  -o, --odp		    use on demand paging\n");
 }
 
 int main(int argc, char *argv[])
@@ -582,11 +603,13 @@ int main(int argc, char *argv[])
 			{ .name = "sl",       .has_arg = 1, .val = 'l' },
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
+			{ .name = "odp",      .has_arg = 0, .val = 'o' },
 			{ 0 }
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:",
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:o",
 							long_options, NULL);
+
 		if (c == -1)
 			break;
 
@@ -641,6 +664,10 @@ int main(int argc, char *argv[])
 
 		case 'g':
 			gidx = strtol(optarg, NULL, 0);
+			break;
+
+		case 'o':
+			use_odp = 1;
 			break;
 
 		default:
