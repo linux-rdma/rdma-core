@@ -40,6 +40,7 @@
 #include <pthread.h>
 #include <stddef.h>
 #include <errno.h>
+#include <string.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -166,6 +167,17 @@ struct ibv_device_attr {
 	uint16_t		max_pkeys;
 	uint8_t			local_ca_ack_delay;
 	uint8_t			phys_port_cnt;
+};
+
+/* An extensible input struct for possible future extensions of the
+ * ibv_query_device_ex verb. */
+struct ibv_query_device_ex_input {
+	uint32_t		comp_mask;
+};
+
+struct ibv_device_attr_ex {
+	struct ibv_device_attr	orig_attr;
+	uint32_t		comp_mask;
 };
 
 enum ibv_mtu {
@@ -977,6 +989,10 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_device_ex)(struct ibv_context *context,
+			       const struct ibv_query_device_ex_input *input,
+			       struct ibv_device_attr_ex *attr,
+			       size_t attr_size);
 	int (*ibv_destroy_flow) (struct ibv_flow *flow);
 	void (*ABI_placeholder2) (void); /* DO NOT COPY THIS GARBAGE */
 	struct ibv_flow * (*ibv_create_flow) (struct ibv_qp *qp,
@@ -1394,6 +1410,33 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_query_device_ex - Get extended device properties
+ */
+static inline int
+ibv_query_device_ex(struct ibv_context *context,
+		    const struct ibv_query_device_ex_input *input,
+		    struct ibv_device_attr_ex *attr)
+{
+	struct verbs_context *vctx;
+	int ret;
+
+	vctx = verbs_get_ctx_op(context, query_device_ex);
+	if (!vctx)
+		goto legacy;
+
+	ret = vctx->query_device_ex(context, input, attr, sizeof(*attr));
+	if (ret == ENOSYS)
+		goto legacy;
+
+	return ret;
+
+legacy:
+	memset(attr, 0, sizeof(*attr));
+	ret = ibv_query_device(context, &attr->orig_attr);
+	return ret;
 }
 
 /**

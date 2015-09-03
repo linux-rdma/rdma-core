@@ -1,0 +1,47 @@
+.\" -*- nroff -*-
+.\"
+.TH IBV_QUERY_DEVICE_EX 3 2014-12-17 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_query_device_ex \- query an RDMA device's attributes
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "int ibv_query_device_ex(struct ibv_context " "*context",
+.BI "                        struct ibv_device_attr_ex " "*attr" );
+.fi
+.SH "DESCRIPTION"
+.B ibv_query_device_ex()
+returns the attributes of the device with context
+.I context\fR.
+The argument
+.I attr
+is a pointer to an ibv_device_attr_ex struct, as defined in <infiniband/verbs.h>.
+.PP
+.nf
+struct ibv_device_attr_ex {
+.in +8
+struct ibv_device_attr orig_attr;
+uint32_t               comp_mask;              /* Compatibility mask that defines which of the following variables are valid */
+.in -8
+};
+.fi
+.SH "RETURN VALUE"
+.B ibv_query_device_ex()
+returns 0 on success, or the value of errno on failure (which indicates the failure reason).
+.SH "NOTES"
+The maximum values returned by this function are the upper limits of
+supported resources by the device.  However, it may not be possible to
+use these maximum values, since the actual number of any resource that
+can be created may be limited by the machine configuration, the amount
+of host memory, user permissions, and the amount of resources already
+in use by other users/processes.
+.SH "SEE ALSO"
+.BR ibv_query_device (3),
+.BR ibv_open_device (3),
+.BR ibv_query_port (3),
+.BR ibv_query_pkey (3),
+.BR ibv_query_gid (3)
+.SH "AUTHORS"
+.TP
+Majd Dibbiny <majd@mellanox.com>

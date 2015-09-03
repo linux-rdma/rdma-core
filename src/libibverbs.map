@@ -9,6 +9,7 @@ IBVERBS_1.0 {
 		ibv_get_async_event;
 		ibv_ack_async_event;
 		ibv_query_device;
+		ibv_query_device_ex;
 		ibv_query_port;
 		ibv_query_gid;
 		ibv_query_pkey;
@@ -37,6 +38,7 @@ IBVERBS_1.0 {
 		ibv_detach_mcast;
 		ibv_cmd_get_context;
 		ibv_cmd_query_device;
+		ibv_cmd_query_device_ex;
 		ibv_cmd_query_port;
 		ibv_cmd_query_gid;
 		ibv_cmd_query_pkey;

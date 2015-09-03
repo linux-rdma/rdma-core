@@ -207,7 +207,7 @@ static const char *link_layer_str(uint8_t link_layer)
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
-	struct ibv_device_attr device_attr;
+	struct ibv_device_attr_ex device_attr;
 	struct ibv_port_attr port_attr;
 	int rc = 0;
 	uint8_t port;
@@ -219,12 +219,12 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		rc = 1;
 		goto cleanup;
 	}
-	if (ibv_query_device(ctx, &device_attr)) {
+	if (ibv_query_device_ex(ctx, NULL, &device_attr)) {
 		fprintf(stderr, "Failed to query device props\n");
 		rc = 2;
 		goto cleanup;
 	}
-	if (ib_port && ib_port > device_attr.phys_port_cnt) {
+	if (ib_port && ib_port > device_attr.orig_attr.phys_port_cnt) {
 		fprintf(stderr, "Invalid port requested for device\n");
 		/* rc = 3 is taken by failure to clean up */
 		rc = 4;
@@ -234,63 +234,63 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 	printf("hca_id:\t%s\n", ibv_get_device_name(ib_dev));
 	printf("\ttransport:\t\t\t%s (%d)\n",
 	       transport_str(ib_dev->transport_type), ib_dev->transport_type);
-	if (strlen(device_attr.fw_ver))
-		printf("\tfw_ver:\t\t\t\t%s\n", device_attr.fw_ver);
-	printf("\tnode_guid:\t\t\t%s\n", guid_str(device_attr.node_guid, buf));
-	printf("\tsys_image_guid:\t\t\t%s\n", guid_str(device_attr.sys_image_guid, buf));
-	printf("\tvendor_id:\t\t\t0x%04x\n", device_attr.vendor_id);
-	printf("\tvendor_part_id:\t\t\t%d\n", device_attr.vendor_part_id);
-	printf("\thw_ver:\t\t\t\t0x%X\n", device_attr.hw_ver);
+	if (strlen(device_attr.orig_attr.fw_ver))
+		printf("\tfw_ver:\t\t\t\t%s\n", device_attr.orig_attr.fw_ver);
+	printf("\tnode_guid:\t\t\t%s\n", guid_str(device_attr.orig_attr.node_guid, buf));
+	printf("\tsys_image_guid:\t\t\t%s\n", guid_str(device_attr.orig_attr.sys_image_guid, buf));
+	printf("\tvendor_id:\t\t\t0x%04x\n", device_attr.orig_attr.vendor_id);
+	printf("\tvendor_part_id:\t\t\t%d\n", device_attr.orig_attr.vendor_part_id);
+	printf("\thw_ver:\t\t\t\t0x%X\n", device_attr.orig_attr.hw_ver);
 
 	if (ibv_read_sysfs_file(ib_dev->ibdev_path, "board_id", buf, sizeof buf) > 0)
 		printf("\tboard_id:\t\t\t%s\n", buf);
 
-	printf("\tphys_port_cnt:\t\t\t%d\n", device_attr.phys_port_cnt);
+	printf("\tphys_port_cnt:\t\t\t%d\n", device_attr.orig_attr.phys_port_cnt);
 
 	if (verbose) {
 		printf("\tmax_mr_size:\t\t\t0x%llx\n",
-		       (unsigned long long) device_attr.max_mr_size);
+		       (unsigned long long) device_attr.orig_attr.max_mr_size);
 		printf("\tpage_size_cap:\t\t\t0x%llx\n",
-		       (unsigned long long) device_attr.page_size_cap);
-		printf("\tmax_qp:\t\t\t\t%d\n", device_attr.max_qp);
-		printf("\tmax_qp_wr:\t\t\t%d\n", device_attr.max_qp_wr);
-		printf("\tdevice_cap_flags:\t\t0x%08x\n", device_attr.device_cap_flags);
-		printf("\tmax_sge:\t\t\t%d\n", device_attr.max_sge);
-		printf("\tmax_sge_rd:\t\t\t%d\n", device_attr.max_sge_rd);
-		printf("\tmax_cq:\t\t\t\t%d\n", device_attr.max_cq);
-		printf("\tmax_cqe:\t\t\t%d\n", device_attr.max_cqe);
-		printf("\tmax_mr:\t\t\t\t%d\n", device_attr.max_mr);
-		printf("\tmax_pd:\t\t\t\t%d\n", device_attr.max_pd);
-		printf("\tmax_qp_rd_atom:\t\t\t%d\n", device_attr.max_qp_rd_atom);
-		printf("\tmax_ee_rd_atom:\t\t\t%d\n", device_attr.max_ee_rd_atom);
-		printf("\tmax_res_rd_atom:\t\t%d\n", device_attr.max_res_rd_atom);
-		printf("\tmax_qp_init_rd_atom:\t\t%d\n", device_attr.max_qp_init_rd_atom);
-		printf("\tmax_ee_init_rd_atom:\t\t%d\n", device_attr.max_ee_init_rd_atom);
+		       (unsigned long long) device_attr.orig_attr.page_size_cap);
+		printf("\tmax_qp:\t\t\t\t%d\n", device_attr.orig_attr.max_qp);
+		printf("\tmax_qp_wr:\t\t\t%d\n", device_attr.orig_attr.max_qp_wr);
+		printf("\tdevice_cap_flags:\t\t0x%08x\n", device_attr.orig_attr.device_cap_flags);
+		printf("\tmax_sge:\t\t\t%d\n", device_attr.orig_attr.max_sge);
+		printf("\tmax_sge_rd:\t\t\t%d\n", device_attr.orig_attr.max_sge_rd);
+		printf("\tmax_cq:\t\t\t\t%d\n", device_attr.orig_attr.max_cq);
+		printf("\tmax_cqe:\t\t\t%d\n", device_attr.orig_attr.max_cqe);
+		printf("\tmax_mr:\t\t\t\t%d\n", device_attr.orig_attr.max_mr);
+		printf("\tmax_pd:\t\t\t\t%d\n", device_attr.orig_attr.max_pd);
+		printf("\tmax_qp_rd_atom:\t\t\t%d\n", device_attr.orig_attr.max_qp_rd_atom);
+		printf("\tmax_ee_rd_atom:\t\t\t%d\n", device_attr.orig_attr.max_ee_rd_atom);
+		printf("\tmax_res_rd_atom:\t\t%d\n", device_attr.orig_attr.max_res_rd_atom);
+		printf("\tmax_qp_init_rd_atom:\t\t%d\n", device_attr.orig_attr.max_qp_init_rd_atom);
+		printf("\tmax_ee_init_rd_atom:\t\t%d\n", device_attr.orig_attr.max_ee_init_rd_atom);
 		printf("\tatomic_cap:\t\t\t%s (%d)\n",
-		       atomic_cap_str(device_attr.atomic_cap), device_attr.atomic_cap);
-		printf("\tmax_ee:\t\t\t\t%d\n", device_attr.max_ee);
-		printf("\tmax_rdd:\t\t\t%d\n", device_attr.max_rdd);
-		printf("\tmax_mw:\t\t\t\t%d\n", device_attr.max_mw);
-		printf("\tmax_raw_ipv6_qp:\t\t%d\n", device_attr.max_raw_ipv6_qp);
-		printf("\tmax_raw_ethy_qp:\t\t%d\n", device_attr.max_raw_ethy_qp);
-		printf("\tmax_mcast_grp:\t\t\t%d\n", device_attr.max_mcast_grp);
-		printf("\tmax_mcast_qp_attach:\t\t%d\n", device_attr.max_mcast_qp_attach);
+		       atomic_cap_str(device_attr.orig_attr.atomic_cap), device_attr.orig_attr.atomic_cap);
+		printf("\tmax_ee:\t\t\t\t%d\n", device_attr.orig_attr.max_ee);
+		printf("\tmax_rdd:\t\t\t%d\n", device_attr.orig_attr.max_rdd);
+		printf("\tmax_mw:\t\t\t\t%d\n", device_attr.orig_attr.max_mw);
+		printf("\tmax_raw_ipv6_qp:\t\t%d\n", device_attr.orig_attr.max_raw_ipv6_qp);
+		printf("\tmax_raw_ethy_qp:\t\t%d\n", device_attr.orig_attr.max_raw_ethy_qp);
+		printf("\tmax_mcast_grp:\t\t\t%d\n", device_attr.orig_attr.max_mcast_grp);
+		printf("\tmax_mcast_qp_attach:\t\t%d\n", device_attr.orig_attr.max_mcast_qp_attach);
 		printf("\tmax_total_mcast_qp_attach:\t%d\n",
-		       device_attr.max_total_mcast_qp_attach);
-		printf("\tmax_ah:\t\t\t\t%d\n", device_attr.max_ah);
-		printf("\tmax_fmr:\t\t\t%d\n", device_attr.max_fmr);
-		if (device_attr.max_fmr)
-			printf("\tmax_map_per_fmr:\t\t%d\n", device_attr.max_map_per_fmr);
-		printf("\tmax_srq:\t\t\t%d\n", device_attr.max_srq);
-		if (device_attr.max_srq) {
-			printf("\tmax_srq_wr:\t\t\t%d\n", device_attr.max_srq_wr);
-			printf("\tmax_srq_sge:\t\t\t%d\n", device_attr.max_srq_sge);
+		       device_attr.orig_attr.max_total_mcast_qp_attach);
+		printf("\tmax_ah:\t\t\t\t%d\n", device_attr.orig_attr.max_ah);
+		printf("\tmax_fmr:\t\t\t%d\n", device_attr.orig_attr.max_fmr);
+		if (device_attr.orig_attr.max_fmr)
+			printf("\tmax_map_per_fmr:\t\t%d\n", device_attr.orig_attr.max_map_per_fmr);
+		printf("\tmax_srq:\t\t\t%d\n", device_attr.orig_attr.max_srq);
+		if (device_attr.orig_attr.max_srq) {
+			printf("\tmax_srq_wr:\t\t\t%d\n", device_attr.orig_attr.max_srq_wr);
+			printf("\tmax_srq_sge:\t\t\t%d\n", device_attr.orig_attr.max_srq_sge);
 		}
-		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.max_pkeys);
-		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.local_ca_ack_delay);
+		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.orig_attr.max_pkeys);
+		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 	}
 
-	for (port = 1; port <= device_attr.phys_port_cnt; ++port) {
+	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
 		/* if in the command line the user didn't ask for info about this port */
 		if ((ib_port) && (port != ib_port))
 			continue;

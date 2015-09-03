@@ -105,6 +105,16 @@ int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
 			 uint64_t *raw_fw_ver,
 			 struct ibv_query_device *cmd, size_t cmd_size);
+int ibv_cmd_query_device_ex(struct ibv_context *context,
+			    const struct ibv_query_device_ex_input *input,
+			    struct ibv_device_attr_ex *attr, size_t attr_size,
+			    uint64_t *raw_fw_ver,
+			    struct ibv_query_device_ex *cmd,
+			    size_t cmd_core_size,
+			    size_t cmd_size,
+			    struct ibv_query_device_resp_ex *resp,
+			    size_t resp_core_size,
+			    size_t resp_size);
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
 		       struct ibv_query_port *cmd, size_t cmd_size);
