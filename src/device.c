@@ -163,16 +163,20 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 		ret = verbs_device->init_context(verbs_device, context, cmd_fd);
 		if (ret)
 			goto verbs_err;
-
-		/* initialize *all* library ops to either lib calls or
-		 * directly to provider calls.
-		 * context_ex->lib_new_func1 = __verbs_new_func1;
-		 * context_ex->lib_new_func2 = __verbs_new_func2;
+		/*
+		 * In order to maintain backward/forward binary compatibility
+		 * with apps compiled against libibverbs-1.1.8 that use the
+		 * flow steering addition, we need to set the two
+		 * ABI_placeholder entries to match the driver set flow
+		 * entries.  This is because apps compiled against
+		 * libibverbs-1.1.8 use an inline ibv_create_flow and
+		 * ibv_destroy_flow function that looks in the placeholder
+		 * spots for the proper entry points.  For apps compiled
+		 * against libibverbs-1.1.9 and later, the inline functions
+		 * will be looking in the right place.
 		 */
-		 context_ex->lib_ibv_create_flow =
-			 context_ex->drv_ibv_create_flow;
-		 context_ex->lib_ibv_destroy_flow =
-			 context_ex->drv_ibv_destroy_flow;
+		context_ex->ABI_placeholder1 = (void (*)(void)) context_ex->ibv_create_flow;
+		context_ex->ABI_placeholder2 = (void (*)(void)) context_ex->ibv_destroy_flow;
 	}
 
 	context->device = device;

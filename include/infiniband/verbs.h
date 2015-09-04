@@ -977,14 +977,11 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
-	int (*drv_ibv_destroy_flow) (struct ibv_flow *flow);
-	int (*lib_ibv_destroy_flow) (struct ibv_flow *flow);
-	struct ibv_flow * (*drv_ibv_create_flow) (struct ibv_qp *qp,
-						  struct ibv_flow_attr
-						  *flow_attr);
-	struct ibv_flow * (*lib_ibv_create_flow) (struct ibv_qp *qp,
-						  struct ibv_flow_attr
-						  *flow_attr);
+	int (*ibv_destroy_flow) (struct ibv_flow *flow);
+	void (*ABI_placeholder2) (void); /* DO NOT COPY THIS GARBAGE */
+	struct ibv_flow * (*ibv_create_flow) (struct ibv_qp *qp,
+					      struct ibv_flow_attr *flow_attr);
+	void (*ABI_placeholder1) (void); /* DO NOT COPY THIS GARBAGE */
 	struct ibv_qp *(*open_qp)(struct ibv_context *context,
 			struct ibv_qp_open_attr *attr);
 	struct ibv_qp *(*create_qp_ex)(struct ibv_context *context,
@@ -1137,20 +1134,20 @@ static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
 					       struct ibv_flow_attr *flow)
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
-						      lib_ibv_create_flow);
-	if (!vctx || !vctx->lib_ibv_create_flow)
+						      ibv_create_flow);
+	if (!vctx || !vctx->ibv_create_flow)
 		return NULL;
 
-	return vctx->lib_ibv_create_flow(qp, flow);
+	return vctx->ibv_create_flow(qp, flow);
 }
 
 static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
-						      lib_ibv_destroy_flow);
-	if (!vctx || !vctx->lib_ibv_destroy_flow)
+						      ibv_destroy_flow);
+	if (!vctx || !vctx->ibv_destroy_flow)
 		return -ENOSYS;
-	return vctx->lib_ibv_destroy_flow(flow_id);
+	return vctx->ibv_destroy_flow(flow_id);
 }
 
 /**
