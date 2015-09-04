@@ -6,4 +6,5 @@ ibv_rc_pingpong
 ibv_srq_pingpong
 ibv_uc_pingpong
 ibv_ud_pingpong
+ibv_xsrq_pingpong
 .libs
