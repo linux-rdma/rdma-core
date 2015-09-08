@@ -62,6 +62,10 @@ struct mlx5_alloc_ucontext {
 	__u32				reserved2;
 };
 
+enum mlx5_ib_alloc_ucontext_resp_mask {
+	MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET = 1UL << 0,
+};
+
 struct mlx5_alloc_ucontext_resp {
 	struct ibv_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
@@ -80,6 +84,7 @@ struct mlx5_alloc_ucontext_resp {
 	__u8				cqe_version;
 	__u8				reserved2;
 	__u16				reserved3;
+	__u64				hca_core_clock_offset;
 };
 
 struct mlx5_alloc_pd_resp {
