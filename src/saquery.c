@@ -1567,6 +1567,7 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'D':
 		node_print_desc = ALL_DESC;
+		command = SAQUERY_CMD_NODE_RECORD;
 		break;
 	case 'c':
 		command = SAQUERY_CMD_CLASS_PORT_INFO;
