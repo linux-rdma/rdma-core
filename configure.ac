@@ -215,6 +215,14 @@ AS_IF([test x$rdmandd = xyes], [
     AC_CONFIG_FILES([doc/man/rdma-ndd.8 etc/rdma-ndd.init])
     AC_SUBST([UDEV_CFLAGS])
     AC_SUBST([UDEV_LIBS])
+    if test "$with_udev" = "yes"; then
+	PKG_CHECK_EXISTS(libudev >= 218, [with_dev_logging=no],
+			[with_udev_logging=yes])
+	if test "$with_udev_logging" = "yes"; then
+		AC_DEFINE_UNQUOTED([HAVE_UDEV_LOGGING], 1,
+				[whether libudev logging can be used])
+	fi
+    fi
 ])
 
 dnl Generate doc/man/*.in files if possible

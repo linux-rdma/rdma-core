@@ -232,6 +232,7 @@ static int process_opts(void *context, int ch, char *optarg)
 	return 0;
 }
 
+#if HAVE_UDEV_LOGGING
 #define MSG_MAX 2048
 static void udev_log_fn(struct udev *ud, int priority, const char *file, int line,
 		const char *fn, const char *format, va_list args)
@@ -244,6 +245,7 @@ static void udev_log_fn(struct udev *ud, int priority, const char *file, int lin
 		vsnprintf(msg+off, MSG_MAX-off, format, args);
 	syslog(LOG_ERR, "%s", msg);
 }
+#endif
 
 static void setup_udev(void)
 {
@@ -253,8 +255,10 @@ static void setup_udev(void)
 		return;
 	}
 
+#if HAVE_UDEV_LOGGING
 	udev_set_log_fn(udev, udev_log_fn);
 	udev_set_log_priority(udev, LOG_INFO);
+#endif
 }
 
 static int get_udev_fd(void)
