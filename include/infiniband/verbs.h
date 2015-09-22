@@ -116,7 +116,10 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_RC_RNR_NAK_GEN	= 1 << 12,
 	IBV_DEVICE_SRQ_RESIZE		= 1 << 13,
 	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14,
+	IBV_DEVICE_UD_IP_CSUM		= 1 << 18,
 	IBV_DEVICE_XRC			= 1 << 20,
+	IBV_DEVICE_RC_IP_CSUM		= 1 << 25,
+	IBV_DEVICE_RAW_IP_CSUM		= 1 << 26,
 	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
 };
 
@@ -348,9 +351,14 @@ enum ibv_wc_opcode {
 	IBV_WC_RECV_RDMA_WITH_IMM
 };
 
+enum {
+	IBV_WC_IP_CSUM_OK_SHIFT	= 2
+};
+
 enum ibv_wc_flags {
 	IBV_WC_GRH		= 1 << 0,
-	IBV_WC_WITH_IMM		= 1 << 1
+	IBV_WC_WITH_IMM		= 1 << 1,
+	IBV_WC_IP_CSUM_OK	= 1 << IBV_WC_IP_CSUM_OK_SHIFT
 };
 
 struct ibv_wc {
@@ -688,7 +696,8 @@ enum ibv_send_flags {
 	IBV_SEND_FENCE		= 1 << 0,
 	IBV_SEND_SIGNALED	= 1 << 1,
 	IBV_SEND_SOLICITED	= 1 << 2,
-	IBV_SEND_INLINE		= 1 << 3
+	IBV_SEND_INLINE		= 1 << 3,
+	IBV_SEND_IP_CSUM	= 1 << 4
 };
 
 struct ibv_sge {
@@ -1459,6 +1468,7 @@ ibv_query_device_ex(struct ibv_context *context,
 legacy:
 	memset(attr, 0, sizeof(*attr));
 	ret = ibv_query_device(context, &attr->orig_attr);
+
 	return ret;
 }
 

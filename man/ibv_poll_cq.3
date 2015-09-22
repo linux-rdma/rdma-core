@@ -50,6 +50,11 @@ It is either 0 or the bitwise OR of one or more of the following flags:
 .B IBV_WC_GRH \fR      GRH is present (valid only for UD QPs)
 .TP
 .B IBV_WC_WITH_IMM \fR Immediate data value is valid
+.TP
+.B IBV_WC_IP_CSUM_OK \fR TCP/UDP checksum over IPv4 and IPv4 header checksum are
+verified.
+Valid only when \fBdevice_cap_flags\fR in device_attr indicates current QP is
+supported by checksum offload.
 .PP
 Not all
 .I wc
