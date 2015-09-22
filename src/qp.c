@@ -275,12 +275,31 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			set_datagram_seg(wqe, wr);
 			wqe  += sizeof (struct mlx4_wqe_datagram_seg);
 			size += sizeof (struct mlx4_wqe_datagram_seg) / 16;
+
+			if (wr->send_flags & IBV_SEND_IP_CSUM) {
+				if (!(qp->qp_cap_cache & MLX4_CSUM_SUPPORT_UD_OVER_IB)) {
+					ret = EINVAL;
+					*bad_wr = wr;
+					goto out;
+				}
+				ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_IP_HDR_CSUM |
+							   MLX4_WQE_CTRL_TCP_UDP_CSUM);
+			}
 			break;
 
 		case IBV_QPT_RAW_PACKET:
 			/* For raw eth, the MLX4_WQE_CTRL_SOLICIT flag is used
 			 * to indicate that no icrc should be calculated */
 			ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_SOLICIT);
+			if (wr->send_flags & IBV_SEND_IP_CSUM) {
+				if (!(qp->qp_cap_cache & MLX4_CSUM_SUPPORT_RAW_OVER_ETH)) {
+					ret = EINVAL;
+					*bad_wr = wr;
+					goto out;
+				}
+				ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_IP_HDR_CSUM |
+							   MLX4_WQE_CTRL_TCP_UDP_CSUM);
+			}
 			break;
 
 		default:

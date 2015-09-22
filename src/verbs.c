@@ -642,14 +642,38 @@ int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct ibv_modify_qp cmd;
 	struct ibv_port_attr port_attr;
 	struct mlx4_qp *mqp = to_mqp(qp);
+	struct ibv_device_attr device_attr;
 	int ret;
 
+	memset(&device_attr, 0, sizeof(device_attr));
 	if (attr_mask & IBV_QP_PORT) {
 		ret = ibv_query_port(qp->context, attr->port_num,
 				     &port_attr);
 		if (ret)
 			return ret;
 		mqp->link_layer = port_attr.link_layer;
+
+		ret = ibv_query_device(qp->context, &device_attr);
+		if (ret)
+			return ret;
+
+		switch(qp->qp_type) {
+		case IBV_QPT_UD:
+			if ((mqp->link_layer == IBV_LINK_LAYER_INFINIBAND) &&
+			    (device_attr.device_cap_flags & IBV_DEVICE_UD_IP_CSUM))
+				mqp->qp_cap_cache |= MLX4_CSUM_SUPPORT_UD_OVER_IB |
+						MLX4_RX_CSUM_VALID;
+			break;
+		case IBV_QPT_RAW_PACKET:
+			if ((mqp->link_layer == IBV_LINK_LAYER_ETHERNET) &&
+			    (device_attr.device_cap_flags & IBV_DEVICE_RAW_IP_CSUM))
+				mqp->qp_cap_cache |= MLX4_CSUM_SUPPORT_RAW_OVER_ETH |
+						MLX4_RX_CSUM_VALID;
+			break;
+		default:
+			break;
+		}
+
 	}
 
 	if (qp->state == IBV_QPS_RESET &&

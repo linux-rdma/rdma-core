@@ -266,6 +266,7 @@ struct mlx4_qp {
 	struct mlx4_wq			rq;
 
 	uint8_t				link_layer;
+	uint32_t			qp_cap_cache;
 };
 
 struct mlx4_av {
@@ -288,6 +289,22 @@ struct mlx4_ah {
 	uint8_t				mac[6];
 };
 
+enum {
+	MLX4_CSUM_SUPPORT_UD_OVER_IB	= (1 <<  0),
+	MLX4_CSUM_SUPPORT_RAW_OVER_ETH	= (1 <<  1),
+	/* Only report rx checksum when the validation is valid */
+	MLX4_RX_CSUM_VALID		= (1 <<  16),
+};
+
+enum mlx4_cqe_status {
+	MLX4_CQE_STATUS_TCP_UDP_CSUM_OK	= (1 <<  2),
+	MLX4_CQE_STATUS_IPV4_PKT	= (1 << 22),
+	MLX4_CQE_STATUS_IP_HDR_CSUM_OK	= (1 << 28),
+	MLX4_CQE_STATUS_IPV4_CSUM_OK	= MLX4_CQE_STATUS_IPV4_PKT |
+					MLX4_CQE_STATUS_IP_HDR_CSUM_OK |
+					MLX4_CQE_STATUS_TCP_UDP_CSUM_OK
+};
+
 struct mlx4_cqe {
 	uint32_t	vlan_my_qpn;
 	uint32_t	immed_rss_invalid;
@@ -295,7 +312,7 @@ struct mlx4_cqe {
 	uint8_t		sl_vid;
 	uint8_t		reserved1;
 	uint16_t	rlid;
-	uint32_t	reserved2;
+	uint32_t	status;
 	uint32_t	byte_cnt;
 	uint16_t	wqe_index;
 	uint16_t	checksum;

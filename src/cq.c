@@ -329,6 +329,12 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 			wc->sl	   = ntohs(cqe->sl_vid) >> 13;
 		else
 			wc->sl	   = ntohs(cqe->sl_vid) >> 12;
+
+		if ((*cur_qp) && ((*cur_qp)->qp_cap_cache & MLX4_RX_CSUM_VALID)) {
+			wc->wc_flags |= ((cqe->status & htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) ==
+					 htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) <<
+					IBV_WC_IP_CSUM_OK_SHIFT;
+		}
 	}
 
 	return CQ_OK;
