@@ -469,8 +469,10 @@ static int client_connect(void)
 		fds.fd = rs;
 		fds.events = POLLOUT;
 		ret = do_poll(&fds, poll_timeout);
-		if (ret)
+		if (ret) {
+			perror("rpoll");
 			goto close;
+		}
 
 		len = sizeof err;
 		ret = rs_getsockopt(rs, SOL_SOCKET, SO_ERROR, &err, &len);
