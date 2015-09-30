@@ -515,7 +515,13 @@ static int _fill_port(ibnd_fabric_cache_t * fabric_cache, ibnd_node_t * node,
 	/* achu: needed if user wishes to re-cache a loaded fabric.
 	 * Otherwise, mostly unnecessary to do this.
 	 */
-	add_to_portguid_hash(port_cache->port, fabric_cache->f_int->fabric.portstbl);
+	int rc = add_to_portguid_hash(port_cache->port,
+				      fabric_cache->f_int->fabric.portstbl);
+	if (rc) {
+		IBND_DEBUG("Error Occurred when trying"
+			   " to insert new port guid 0x%016" PRIx64 " to DB\n",
+			   port_cache->port->guid);
+	}
 	return 0;
 }
 
@@ -538,8 +544,15 @@ static int _rebuild_nodes(ibnd_fabric_cache_t * fabric_cache)
 		node->next = fabric_cache->f_int->fabric.nodes;
 		fabric_cache->f_int->fabric.nodes = node;
 
-		add_to_nodeguid_hash(node_cache->node,
-				     fabric_cache->f_int->fabric.nodestbl);
+		int rc = add_to_nodeguid_hash(node_cache->node,
+					      fabric_cache->
+					      f_int->
+					      fabric.nodestbl);
+		if (rc) {
+			IBND_DEBUG("Error Occurred when trying"
+				   " to insert new node guid 0x%016" PRIx64 " to DB\n",
+				   node_cache->node->guid);
+		}
 
 		add_to_type_list(node_cache->node, fabric_cache->f_int);
 

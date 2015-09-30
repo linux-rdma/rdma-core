@@ -353,7 +353,12 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 		port->lmc = node->smalmc;
 	}
 
-	add_to_portguid_hash(port, f_int->fabric.portstbl);
+	int rc1 = add_to_portguid_hash(port, f_int->fabric.portstbl);
+	if (rc1)
+		IBND_ERROR("Error Occurred when trying"
+			   " to insert new port guid 0x%016" PRIx64 " to DB\n",
+			   port->guid);
+
 	add_to_portlid_hash(port, f_int->lid2guid);
 
 	if ((scan->cfg->flags & IBND_CONFIG_MLX_EPI)
@@ -458,7 +463,11 @@ static ibnd_node_t *create_node(smp_engine_t * engine, ib_portid_t * path,
 	rc->path_portid = *path;
 	memcpy(rc->info, node_info, sizeof(rc->info));
 
-	add_to_nodeguid_hash(rc, f_int->fabric.nodestbl);
+	int rc1 = add_to_nodeguid_hash(rc, f_int->fabric.nodestbl);
+	if (rc1)
+		IBND_ERROR("Error Occurred when trying"
+			   " to insert new node guid 0x%016" PRIx64 " to DB\n",
+			   rc->guid);
 
 	/* add this to the all nodes list */
 	rc->next = f_int->fabric.nodes;
@@ -607,20 +616,42 @@ ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str)
 	return rc->node;
 }
 
-void add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
+int add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[])
 {
+	int rc = 0;
+	ibnd_node_t *tblnode;
 	int hash_idx = HASHGUID(node->guid) % HTSZ;
 
+	for (tblnode = hash[hash_idx]; tblnode; tblnode = tblnode->htnext) {
+		if (tblnode == node) {
+			IBND_ERROR("Duplicate Node: Node with guid 0x%016"
+				   PRIx64 " already exists in nodes DB\n",
+				   node->guid);
+			return 1;
+		}
+	}
 	node->htnext = hash[hash_idx];
 	hash[hash_idx] = node;
+	return rc;
 }
 
-void add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[])
+int add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[])
 {
+	int rc = 0;
+	ibnd_port_t *tblport;
 	int hash_idx = HASHGUID(port->guid) % HTSZ;
 
+	for (tblport = hash[hash_idx]; tblport; tblport = tblport->htnext) {
+		if (tblport == port) {
+			IBND_ERROR("Duplicate Port: Port with guid 0x%016"
+				   PRIx64 " already exists in ports DB\n",
+				   port->guid);
+			return 1;
+		}
+	}
 	port->htnext = hash[hash_idx];
 	hash[hash_idx] = port;
+	return rc;
 }
 
 void create_lid2guid(f_internal_t *f_int)
