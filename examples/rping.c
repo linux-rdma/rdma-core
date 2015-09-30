@@ -1122,7 +1122,7 @@ static int get_addr(char *dst, struct sockaddr *addr)
 
 	ret = getaddrinfo(dst, NULL, NULL, &res);
 	if (ret) {
-		printf("getaddrinfo failed - invalid hostname or IP address\n");
+		printf("getaddrinfo failed (%s) - invalid hostname or IP address\n", gai_strerror(ret));
 		return ret;
 	}
 

@@ -327,7 +327,7 @@ static int server_listen(void)
 		ret = getaddrinfo(src_addr, port, &ai_hints, &ai);
 	}
 	if (ret) {
-		perror("getaddrinfo");
+		printf("getaddrinfo: %s\n", gai_strerror(ret));
 		return ret;
 	}
 
@@ -412,7 +412,7 @@ static int client_connect(void)
 			 getaddrinfo(dst_addr, port, &ai_hints, &ai);
 
 	if (ret) {
-		perror("getaddrinfo");
+		printf("getaddrinfo: %s\n", gai_strerror(ret));
 		return ret;
 	}
 
@@ -425,7 +425,7 @@ static int client_connect(void)
 			ret = getaddrinfo(src_addr, port, &ai_hints, &ai_src);
 		}
 		if (ret) {
-			perror("getaddrinfo src_addr");
+			printf("getaddrinfo src_addr: %s\n", gai_strerror(ret));
 			return ret;
 		}
 	}

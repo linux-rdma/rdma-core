@@ -186,7 +186,7 @@ static int server_listen(void)
 	hints.ai_flags = RAI_PASSIVE;
  	ret = getaddrinfo(NULL, port, &hints, &res);
 	if (ret) {
-		perror("getaddrinfo failed\n");
+		printf("getaddrinfo failed: %s\n", gai_strerror(ret));
 		return ret;
 	}
 
@@ -396,7 +396,7 @@ static int client_connect(void)
 
  	ret = getaddrinfo(dst_addr, port, NULL, &res);
 	if (ret) {
-		perror("getaddrinfo failed\n");
+		printf("getaddrinfo failed: %s\n", gai_strerror(ret));
 		return ret;
 	}
 

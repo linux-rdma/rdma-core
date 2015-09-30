@@ -78,7 +78,7 @@ static int test(void)
 
 	ret = rdma_getaddrinfo(NULL, port, &hints, &res);
 	if (ret) {
-		perror("rdma_getaddrinfo");
+		printf("rdma_getaddrinfo: %s\n", gai_strerror(ret));
 		return ret;
 	}
 

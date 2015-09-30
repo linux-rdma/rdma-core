@@ -266,7 +266,7 @@ static int svr_bind(void)
 	hints.ai_socktype = SOCK_DGRAM;
  	ret = getaddrinfo(src_addr, port, &hints, &res);
 	if (ret) {
-		perror("getaddrinfo");
+		printf("getaddrinfo: %s\n", gai_strerror(ret));
 		return ret;
 	}
 
@@ -411,7 +411,7 @@ static int client_connect(void)
 	hints.ai_socktype = SOCK_DGRAM;
  	ret = getaddrinfo(dst_addr, port, &hints, &res);
 	if (ret) {
-		perror("getaddrinfo");
+		printf("getaddrinfo: %s\n", gai_strerror(ret));
 		return ret;
 	}
 

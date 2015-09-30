@@ -363,7 +363,7 @@ static int server_listen(void)
 		ret = getaddrinfo(src_addr, port, &ai_hints, &ai);
 	}
 	if (ret) {
-		perror("getaddrinfo");
+		printf("getaddrinfo: %s\n", gai_strerror(ret));
 		return ret;
 	}
 
@@ -444,7 +444,7 @@ static int client_connect(void)
 	ret = use_rgai ? rdma_getaddrinfo(dst_addr, port, &rai_hints, &rai) :
 			 getaddrinfo(dst_addr, port, &ai_hints, &ai);
 	if (ret) {
-		perror("getaddrinfo");
+		printf("getaddrinfo: %s\n", gai_strerror(ret));
 		return ret;
 	}
 

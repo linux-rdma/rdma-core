@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netdb.h>
 #include <errno.h>
 #include <getopt.h>
 #include <rdma/rdma_cma.h>
@@ -55,7 +56,7 @@ static int run(void)
 	hints.ai_port_space = RDMA_PS_TCP;
 	ret = rdma_getaddrinfo(server, port, &hints, &res);
 	if (ret) {
-		perror("rdma_getaddrinfo");
+		printf("rdma_getaddrinfo: %s\n", gai_strerror(ret));
 		goto out;
 	}
 

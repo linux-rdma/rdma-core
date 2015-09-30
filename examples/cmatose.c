@@ -509,7 +509,7 @@ static int run_server(void)
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
 	if (ret) {
-		perror("cmatose: getrdmaaddr error");
+		printf("cmatose: getrdmaaddr error: %s\n", gai_strerror(ret));
 		goto out;
 	}
 
@@ -582,7 +582,7 @@ static int run_client(void)
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
 	if (ret) {
-		perror("cmatose: getaddrinfo error");
+		printf("cmatose: getaddrinfo error: %s\n", gai_strerror(ret));
 		return ret;
 	}
 

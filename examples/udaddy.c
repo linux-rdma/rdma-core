@@ -516,7 +516,7 @@ static int run_server(void)
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
 	if (ret) {
-		perror("cmatose: getrdmaaddr error");
+		printf("udaddy: getrdmaaddr error: %s\n", gai_strerror(ret));
 		goto out;
 	}
 
@@ -565,7 +565,7 @@ static int run_client(void)
 
 	ret = get_rdma_addr(src_addr, dst_addr, port, &hints, &test.rai);
 	if (ret) {
-		perror("udaddy: getaddrinfo error");
+		printf("udaddy: getaddrinfo error: %s\n", gai_strerror(ret));
 		return ret;
 	}
 
