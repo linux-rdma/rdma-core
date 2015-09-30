@@ -421,7 +421,7 @@ static int client_connect(void)
 			rai_hints.ai_flags |= RAI_PASSIVE;
 			ret = rdma_getaddrinfo(src_addr, port, &rai_hints, &rai_src);
 		} else {
-			ai_hints.ai_flags |= RAI_PASSIVE;
+			ai_hints.ai_flags |= AI_PASSIVE;
 			ret = getaddrinfo(src_addr, port, &ai_hints, &ai_src);
 		}
 		if (ret) {
