@@ -41,6 +41,10 @@ AC_CHECK_HEADER(valgrind/memcheck.h,
         AC_MSG_ERROR([Valgrind memcheck support requested, but <valgrind/memcheck.h> not found.])
     fi])
 
+AC_CHECK_MEMBER([struct verbs_context.ibv_create_flow], [],
+    [AC_MSG_ERROR([libmlx4 requires libibverbs >= 1.2.0])],
+    [[#include <infiniband/verbs.h>]])
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_CHECK_SIZEOF(long)
