@@ -186,6 +186,7 @@ struct ibv_cq *hfi1_create_cq(struct ibv_context *context, int cqe,
 	int			    ret;
 	size_t			    size;
 
+	memset(&resp, 0, sizeof(resp));
 	cq = malloc(sizeof *cq);
 	if (!cq)
 		return NULL;
@@ -242,6 +243,7 @@ int hfi1_resize_cq(struct ibv_cq *ibcq, int cqe)
 	size_t				size;
 	int				ret;
 
+	memset(&resp, 0, sizeof(resp));
 	pthread_spin_lock(&cq->lock);
 	/* Save the old size so we can unmmap the queue. */
 	size = sizeof(struct hfi1_cq_wc) +
@@ -333,6 +335,7 @@ struct ibv_qp *hfi1_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	int			     ret;
 	size_t			     size;
 
+	memset(&resp, 0, sizeof(resp));
 	qp = malloc(sizeof *qp);
 	if (!qp)
 		return NULL;
@@ -535,6 +538,7 @@ struct ibv_srq *hfi1_create_srq(struct ibv_pd *pd,
 	int ret;
 	size_t size;
 
+	memset(&resp, 0, sizeof(resp));
 	srq = malloc(sizeof *srq);
 	if (srq == NULL)
 		return NULL;
