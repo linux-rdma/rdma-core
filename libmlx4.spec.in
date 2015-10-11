@@ -1,6 +1,6 @@
 Name: libmlx4
-Version: 1.0.6
-Release: 1%{?dist}
+Version: 1.2.0
+Release: 0.1%{?dist}
 Summary: Mellanox ConnectX InfiniBand HCA Userspace Driver
 
 Group: System Environment/Libraries
