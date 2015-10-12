@@ -477,8 +477,8 @@ static uint8_t is_rsfec_mode_active(ib_portid_t * portid, int port,
 			return 0;
 		}
 
-		if (smp_query_via(data, portid, IB_ATTR_PORT_INFO_EXT, port, 0,
-				  srcport) < 0)
+		if (!smp_query_via(data, portid, IB_ATTR_PORT_INFO_EXT, port, 0,
+				   srcport))
 			IBEXIT("smp query portinfo extended failed");
 
 		mad_decode_field(data, IB_PORT_EXT_CAPMASK_F, &pie_capmask);
@@ -915,8 +915,8 @@ int main(int argc, char **argv)
 
 
 	if (all_ports_loop || (loop_ports && (all_ports || port == ALL_PORTS))) {
-		if (smp_query_via(data, &portid, IB_ATTR_NODE_INFO, 0, 0,
-				  srcport) < 0)
+		if (!smp_query_via(data, &portid, IB_ATTR_NODE_INFO, 0, 0,
+				   srcport))
 			IBEXIT("smp query nodeinfo failed");
 		node_type = mad_get_field(data, 0, IB_NODE_TYPE_F);
 		mad_decode_field(data, IB_NODE_NPORTS_F, &num_ports);
@@ -924,8 +924,8 @@ int main(int argc, char **argv)
 			IBEXIT("smp query nodeinfo: num ports invalid");
 
 		if (node_type == IB_NODE_SWITCH) {
-			if (smp_query_via(data, &portid, IB_ATTR_SWITCH_INFO,
-					  0, 0, srcport) < 0)
+			if (!smp_query_via(data, &portid, IB_ATTR_SWITCH_INFO,
+					   0, 0, srcport))
 				IBEXIT("smp query nodeinfo failed");
 			enhancedport0 =
 			    mad_get_field(data, 0, IB_SW_ENHANCED_PORT0_F);

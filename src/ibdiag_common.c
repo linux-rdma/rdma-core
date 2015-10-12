@@ -507,7 +507,7 @@ int is_port_info_extended_supported(ib_portid_t * dest, int port,
 	uint32_t cap_mask;
 	uint16_t cap_mask2;
 
-	if (smp_query_via(data, dest, IB_ATTR_PORT_INFO, port, 0, srcport) < 0)
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, port, 0, srcport))
 		IBEXIT("port info query failed");
 
 	mad_decode_field(data, IB_PORT_CAPMASK_F, &cap_mask);
