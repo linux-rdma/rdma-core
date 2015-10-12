@@ -82,7 +82,7 @@ static const char **prog_examples;
 static struct option *long_opts = NULL;
 static const struct ibdiag_opt *opts_map[256];
 
-const static char *get_build_version(void)
+static const char *get_build_version(void)
 {
 	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " "
 	    __TIME__;
