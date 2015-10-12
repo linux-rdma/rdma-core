@@ -596,7 +596,6 @@ err_free:
 			munmap(context->uar[i], page_size);
 	}
 	close_debug_file(context);
-	free(context);
 	return errno;
 }
 
