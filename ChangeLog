@@ -1,3 +1,22 @@
+commit 0ca269259f87243aeec8bd5fcfc7721ada6224fa
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Tue Oct 13 14:26:58 2015 -0700
+
+    libiwpm: Make sure the iwpmd starts after the network service
+    
+    Fix for the port mapper service not starting
+    after boot on SLES11 SP4
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit c8a4ce71741dbaa3407e96ec0b1ca82337a35e3d
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Tue Aug 18 12:55:38 2015 -0700
+
+    Adding ChangeLog
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
 commit 5f5be6fe1a0723764a1a7df5880d197a4ccd5d47
 Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
 Date:   Mon Aug 17 12:54:09 2015 -0700
