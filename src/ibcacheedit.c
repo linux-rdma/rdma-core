@@ -165,7 +165,7 @@ static int process_opt(void *context, int ch, char *optarg)
 	return 0;
 }
 
-static void update_switchportguids(ibnd_node_t *node, uint64_t guid)
+static void update_switchportguids(ibnd_node_t *node)
 {
 	ibnd_port_t *port;
 	int p;
@@ -191,7 +191,7 @@ static void replace_node_guid(ibnd_node_t *node, void *user_data)
 		 * switches, so update port guids too
 		 */
 		if (node->type == IB_NODE_SWITCH)
-			update_switchportguids(node, guids->after);
+			update_switchportguids(node);
 
 		guids->found++;
 	}
@@ -229,7 +229,7 @@ static void replace_portguid(ibnd_node_t *node, void *user_data)
 		 */
 		if (node->guid == guids->before) {
 			node->guid = guids->after;
-			update_switchportguids(node, guids->after);
+			update_switchportguids(node);
 			guids->found++;
 		}
 	}
