@@ -173,7 +173,7 @@ static int exceeds_threshold(int field, unsigned val)
 	return (val > thres);
 }
 
-static void print_port_config(char *node_name, ibnd_node_t * node, int portnum)
+static void print_port_config(ibnd_node_t * node, int portnum)
 {
 	char width[64], speed[64], state[64], physstate[64];
 	char remote_str[256];
@@ -364,7 +364,7 @@ Exit:
 }
 
 static int query_and_dump(char *buf, size_t size, ib_portid_t * portid,
-			  ibnd_node_t * node, char *node_name, int portnum,
+			  char *node_name, int portnum,
 			  const char *attr_name, uint16_t attr_id,
 			  int start_field, int end_field)
 {
@@ -418,7 +418,7 @@ static int print_results(ib_portid_t * portid, char *node_name,
 			/* If there are PortXmitDiscards, get details (if supported) */
 			if (i == IB_PC_XMT_DISCARDS_F && details) {
 				n += query_and_dump(str + n, sizeof(buf) - n, portid,
-						    node, node_name, portnum,
+						    node_name, portnum,
 						    "PortXmitDiscardDetails",
 						    IB_GSI_PORT_XMIT_DISCARD_DETAILS,
 						    IB_PC_RCV_LOCAL_PHY_ERR_F,
@@ -426,7 +426,7 @@ static int print_results(ib_portid_t * portid, char *node_name,
 				/* If there are PortRcvErrors, get details (if supported) */
 			} else if (i == IB_PC_ERR_RCV_F && details) {
 				n += query_and_dump(str + n, sizeof(buf) - n, portid,
-						    node, node_name, portnum,
+						    node_name, portnum,
 						    "PortRcvErrorDetails",
 						    IB_GSI_PORT_RCV_ERROR_DETAILS,
 						    IB_PC_XMT_INACT_DISC_F,
@@ -499,7 +499,7 @@ static int print_results(ib_portid_t * portid, char *node_name,
 			printf("   GUID 0x%" PRIx64 " port %d:%s\n",
 			       node->ports[portnum]->guid, portnum, str);
 			if (port_config)
-				print_port_config(node_name, node, portnum);
+				print_port_config(node, portnum);
 			summary.bad_ports++;
 		}
 	}
@@ -596,7 +596,7 @@ static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
 	printf("\n");
 
 	if (portnum != 0xFF && port_config)
-		print_port_config(node_name, node, portnum);
+		print_port_config(node, portnum);
 
 	return (0);
 }
