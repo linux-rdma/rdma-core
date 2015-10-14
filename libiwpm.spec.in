@@ -1,5 +1,5 @@
 Name:     libiwpm
-Version:  1.0.3rc1
+Version:  1.0.3
 Release:  1
 Summary:  iWarp Port Mapper userspace daemon
 Requires: libnl-devel
@@ -97,6 +97,10 @@ fi
 %config %_sysconfdir/iwpmd.conf
 
 %changelog
+*Wed Oct 14 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.3
+- Fix for the init script to enable the service to start automatically
+  after boot on SLES11 SP4
+- Releasing libiwpm-1.0.3 to be included in OFED-3.18-1
 *Fri Aug 14 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.3rc1
 - Adding iwpmd.conf file to enable changing the size
   of the netlink socket receive buffer
