@@ -111,4 +111,22 @@ struct mlx4_create_qp {
 	__u8				reserved[5];
 };
 
+struct mlx4_create_qp_drv_ex {
+	__u64		buf_addr;
+	__u64		db_addr;
+	__u8		log_sq_bb_count;
+	__u8		log_sq_stride;
+	__u8		sq_no_prefetch;	/* was reserved in ABI 2 */
+	__u8		reserved[5];
+};
+
+struct mlx4_create_qp_ex {
+	struct ibv_create_qp_ex		ibv_cmd;
+	struct mlx4_create_qp_drv_ex	drv_ex;
+};
+
+struct mlx4_create_qp_resp_ex {
+	struct ibv_create_qp_resp_ex	ibv_resp;
+};
+
 #endif /* MLX4_ABI_H */

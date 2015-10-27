@@ -458,6 +458,43 @@ int mlx4_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
+static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attr,
+				 struct mlx4_create_qp *cmd,
+				 struct mlx4_qp *qp)
+{
+	struct mlx4_create_qp_ex cmd_ex;
+	struct mlx4_create_qp_resp_ex resp;
+	int ret;
+
+	memset(&cmd_ex, 0, sizeof(cmd_ex));
+	memcpy(&cmd_ex.ibv_cmd.base, &cmd->ibv_cmd.user_handle,
+	       offsetof(typeof(cmd->ibv_cmd), is_srq) +
+	       sizeof(cmd->ibv_cmd.is_srq) -
+	       offsetof(typeof(cmd->ibv_cmd), user_handle));
+
+	memcpy(&cmd_ex.drv_ex, &cmd->buf_addr,
+	       offsetof(typeof(*cmd), sq_no_prefetch) +
+	       sizeof(cmd->sq_no_prefetch) - sizeof(cmd->ibv_cmd));
+
+	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
+				    sizeof(qp->verbs_qp), attr,
+				    &cmd_ex.ibv_cmd, sizeof(cmd_ex.ibv_cmd),
+				    sizeof(cmd_ex), &resp.ibv_resp,
+				    sizeof(resp.ibv_resp), sizeof(resp));
+	return ret;
+}
+
+enum {
+	MLX4_CREATE_QP_SUP_COMP_MASK = (IBV_QP_INIT_ATTR_PD |
+					IBV_QP_INIT_ATTR_XRCD |
+					IBV_QP_INIT_ATTR_CREATE_FLAGS),
+};
+
+enum {
+	MLX4_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS),
+};
+
 struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr)
 {
@@ -472,6 +509,9 @@ struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 	    attr->cap.max_send_sge    > 64    ||
 	    attr->cap.max_recv_sge    > 64    ||
 	    attr->cap.max_inline_data > 1024)
+		return NULL;
+
+	if (attr->comp_mask & ~MLX4_CREATE_QP_SUP_COMP_MASK)
 		return NULL;
 
 	qp = calloc(1, sizeof *qp);
@@ -529,12 +569,15 @@ struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 		; /* nothing */
 	cmd.sq_no_prefetch = 0;	/* OK for ABI 2: just a reserved field */
 	memset(cmd.reserved, 0, sizeof cmd.reserved);
-
 	pthread_mutex_lock(&to_mctx(context)->qp_table_mutex);
 
-	ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
-				   sizeof(qp->verbs_qp), attr,
-				   &cmd.ibv_cmd, sizeof cmd, &resp, sizeof resp);
+	if (attr->comp_mask & MLX4_CREATE_QP_EX2_COMP_MASK)
+		ret = mlx4_cmd_create_qp_ex(context, attr, &cmd, qp);
+	else
+		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
+					   sizeof(qp->verbs_qp), attr,
+					   &cmd.ibv_cmd, sizeof(cmd), &resp,
+					   sizeof(resp));
 	if (ret)
 		goto err_rq_db;
 
