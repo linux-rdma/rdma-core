@@ -15,6 +15,7 @@ src_libibverbs_la_SOURCES = src/cmd.c src/compat-1_0.c src/device.c src/init.c \
 			    src/enum_strs.c
 if ! NO_RESOLVE_NEIGH
 src_libibverbs_la_SOURCES += src/neigh.c
+noinst_HEADERS = src/neigh.h src/nl1_compat.h
 endif
 src_libibverbs_la_LDFLAGS = -version-info 1 -export-dynamic \
     $(libibverbs_version_script)
