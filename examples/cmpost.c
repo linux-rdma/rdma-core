@@ -447,6 +447,8 @@ static int init(void)
 	test.disconnects_left = connections;
 
 	dev_list = ibv_get_device_list(NULL);
+	if (!dev_list)
+		return -1;
 	test.device = dev_list[0];
 	if (!test.device)
 		return -1;
@@ -756,8 +758,10 @@ int main(int argc, char **argv)
 	}
 
 	is_server = (argc == 1);
-	if (init())
+	if (init()) {
+		printf("init failed\n");
 		exit(1);
+	}
 
 	if (is_server)
 		run_server();
