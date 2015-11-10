@@ -40,7 +40,7 @@ man_MANS = \
 EXTRA_DIST = src/acm_util.h prov/acmp/src/libibacmp.map \
 		include/acm_mad.h src/libacm.h ibacm.init.in \
 		linux/osd.h linux/dlist.h ibacm.spec.in \
-		$(man_MANS) ibacm_hosts.data
+		$(man_MANS) ibacm_hosts.data src/acm_netlink.h
 
 install-exec-hook:
 	install -D -m 755 ibacm.init $(DESTDIR)$(sysconfdir)/init.d/ibacm;
