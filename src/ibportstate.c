@@ -447,40 +447,40 @@ int main(int argc, char **argv)
 			val = strtoull(argv[i], 0, 0);
 			switch (j) {
 			case SPEED:
-				if (val < 0 || val > 15)
+				if (val > 15)
 					IBEXIT("invalid speed value %ld", val);
 				break;
 			case ESPEED:
-				if (val < 0 || val > 31)
+				if (val > 31)
 					IBEXIT("invalid extended speed value %ld", val);
 				break;
 			case FDR10SPEED:
-				if (val < 0 || val > 1)
+				if (val > 1)
 					IBEXIT("invalid fdr10 speed value %ld", val);
 				break;
 			case WIDTH:
-				if (val < 0 || (val > 15 && val != 255))
+				if ((val > 15 && val != 255))
 					IBEXIT("invalid width value %ld", val);
 				break;
 			case VLS:
-				if (val <= 0 || val > 5)
+				if (val == 0 || val > 5)
 					IBEXIT("invalid vls value %ld", val);
 				break;
 			case MTU:
-				if (val <= 0 || val > 5)
+				if (val == 0 || val > 5)
 					IBEXIT("invalid mtu value %ld", val);
 				break;
 			case LID:
-				if (val <= 0 || val >= 0xC000)
+				if (val == 0 || val >= 0xC000)
 					IBEXIT("invalid lid value 0x%lx", val);
 				break;
 			case SMLID:
-				if (val <= 0 || val >= 0xC000)
+				if (val == 0 || val >= 0xC000)
 					IBEXIT("invalid smlid value 0x%lx",
 						val);
 				break;
 			case LMC:
-				if (val < 0 || val > 7)
+				if (val > 7)
 					IBEXIT("invalid lmc value %ld", val);
 				break;
 			case MKEY:
@@ -497,11 +497,11 @@ int main(int argc, char **argv)
 				/* All 64-bit values are legal */
 				break;
 			case MKEYLEASE:
-				if (val < 0 || val > 0xFFFF)
+				if (val > 0xFFFF)
 					IBEXIT("invalid mkey lease time %ld", val);
 				break;
 			case MKEYPROT:
-				if (val < 0 || val > 3)
+				if (val > 3)
 					IBEXIT("invalid mkey protection bit setting %ld", val);
 			}
 			*port_args[j].val = val;
