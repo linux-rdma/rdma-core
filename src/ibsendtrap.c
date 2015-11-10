@@ -121,8 +121,7 @@ static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t * port)
 	n->data_details.ntc_129_131.port_num = (uint8_t) error_port;
 }
 
-static int send_trap(const char *name,
-		     void (*build) (ib_mad_notice_attr_t *, ib_portid_t *))
+static int send_trap(void (*build) (ib_mad_notice_attr_t *, ib_portid_t *))
 {
 	ib_portid_t sm_port;
 	ib_portid_t selfportid;
@@ -169,7 +168,7 @@ int process_send_trap(char *trap_name)
 
 	for (i = 0; traps[i].trap_name; i++)
 		if (strcmp(traps[i].trap_name, trap_name) == 0)
-			return send_trap(trap_name, traps[i].build_func);
+			return send_trap(traps[i].build_func);
 	ibdiag_show_usage();
 	return 1;
 }
