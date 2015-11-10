@@ -304,7 +304,7 @@ static void dump_one_portinfo_record(void *data, struct query_params *p)
 	       "\t\tOptions.................0x%x\n"
 	       "\tPortInfo dump:\n",
 	       cl_ntoh16(pir->lid), pir->port_num, pir->options);
-	dump_portinfo(pi, sizeof(*pi), 2);
+	dump_portinfo(pi, 2);
 }
 
 static void dump_one_mcmember_record(void *data, struct query_params *p)

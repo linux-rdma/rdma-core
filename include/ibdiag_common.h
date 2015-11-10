@@ -150,7 +150,7 @@ int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 		   const char *format, va_list va_args);
 int snprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 		  const char *format, ...);
-void dump_portinfo(void *pi, int pisize, int tabs);
+void dump_portinfo(void *pi, int tabs);
 
 /**
  * Some common command line parsing

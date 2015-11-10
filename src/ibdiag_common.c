@@ -853,7 +853,7 @@ int snprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 	return ret;
 }
 
-void dump_portinfo(void *pi, int pisize, int tabs)
+void dump_portinfo(void *pi, int tabs)
 {
 	int field, i;
 	char val[64];

@@ -161,7 +161,7 @@ static char *port_info(ib_portid_t * dest, char **argv, int argc)
 		return "port info query failed";
 
 	printf("# Port info: %s port %d\n", portid2str(dest), orig_portnum);
-	dump_portinfo(data, sizeof data, 0);
+	dump_portinfo(data, 0);
 	return 0;
 }
 
