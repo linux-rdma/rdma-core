@@ -70,29 +70,6 @@ struct mlx5_eqe_qp_srq {
 	uint32_t	qp_srq_n;
 };
 
-
-struct mlx5_wqe_fmr_seg {
-	uint32_t	flags;
-	uint32_t	mem_key;
-	uint64_t	buf_list;
-	uint64_t	start_addr;
-	uint64_t	reg_len;
-	uint32_t	offset;
-	uint32_t	page_size;
-	uint32_t	reserved[2];
-};
-
-struct mlx4_wqe_fmr_seg {
-	uint32_t	flags;
-	uint32_t	mem_key;
-	uint64_t	buf_list;
-	uint64_t	start_addr;
-	uint64_t	reg_len;
-	uint32_t	offset;
-	uint32_t	page_size;
-	uint32_t	reserved[2];
-};
-
 struct mlx5_wqe_ctrl_seg {
 	uint32_t	opmod_idx_opcode;
 	uint32_t	qpn_ds;
