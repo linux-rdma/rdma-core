@@ -145,4 +145,4 @@ struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 };
 
-#endif /* MLX4_ABI_H */
+#endif /* MLX5_ABI_H */
