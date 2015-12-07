@@ -428,6 +428,11 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 		advance_oldest_read(wq);
 	}
 
+	if (CQE_OPCODE(hw_cqe) == FW_RI_TERMINATE) {
+		ret = -EAGAIN;
+		goto skip_cqe;
+	}
+
 	if (CQE_STATUS(hw_cqe) || t4_wq_in_error(wq)) {
 		*cqe_flushed = (CQE_STATUS(hw_cqe) == T4_ERR_SWFLUSH);
 		wq->error = 1;
@@ -437,11 +442,6 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 
 		BUG_ON((cqe_flushed == 0) && !SW_CQE(hw_cqe));
 		goto proc_cqe;
-	}
-
-	if (CQE_OPCODE(hw_cqe) == FW_RI_TERMINATE) {
-		ret = -EAGAIN;
-		goto skip_cqe;
 	}
 
 	/*
