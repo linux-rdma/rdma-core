@@ -322,11 +322,11 @@ void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
 static void dump_cqe(void *arg)
 {
 	u64 *p = arg;
-	syslog(LOG_NOTICE, "cxgb4 err cqe %016lx %016lx %016lx %016lx\n",
-	       be64_to_cpu(p[0]),
-	       be64_to_cpu(p[1]),
-	       be64_to_cpu(p[2]),
-	       be64_to_cpu(p[3]));
+	syslog(LOG_NOTICE, "cxgb4 err cqe %016llx %016llx %016llx %016llx\n",
+	       (long long)be64_to_cpu(p[0]),
+	       (long long)be64_to_cpu(p[1]),
+	       (long long)be64_to_cpu(p[2]),
+	       (long long)be64_to_cpu(p[3]));
 }
 
 /*

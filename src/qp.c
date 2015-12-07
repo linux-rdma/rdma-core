@@ -275,9 +275,9 @@ void dump_wqe(void *arg)
 
 	len16 = be64_to_cpu(*p) & 0xff;
 	while (len16--) {
-		printf("%02x: %016lx ", (u8)(unsigned long)p, be64_to_cpu(*p));
+		printf("%02x: %016llx ", (u8)(unsigned long)p, (long long)be64_to_cpu(*p));
 		p++;
-		printf("%016lx\n", be64_to_cpu(*p));
+		printf("%016llx\n", (long long)be64_to_cpu(*p));
 		p++;
 	}
 }
@@ -287,7 +287,7 @@ static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
 	struct ibv_modify_qp cmd;
 	struct ibv_qp_attr attr;
 	int mask;
-	int ret;
+	int __attribute__((unused)) ret;
 
 	wc_wmb();
 	if (qid == qhp->wq.sq.qid) {
