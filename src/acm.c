@@ -114,7 +114,8 @@ struct acmc_port {
 	union ibv_gid       *gid_tbl;
 	uint16_t            lid;
 	uint16_t            lid_mask;
-	int                 default_pkey_index;
+	int                 sa_pkey_index;
+	uint16_t            def_acm_pkey;
 };
 
 struct acmc_device {
@@ -2009,7 +2010,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 				continue;
 			}
 		} else {
-			pkey = 0xFFFF;
+			pkey = ep->port->def_acm_pkey;
 		}
 
 		if (!stricmp(dev_name, dev) &&
@@ -2203,6 +2204,7 @@ static void acm_port_up(struct acmc_port *port)
 	int i, ret;
 	struct acmc_prov_context *dev_ctx;
 	int index = -1;
+	uint16_t first_pkey = 0;
 
 	acm_log(1, "%s %d\n", port->dev->device.verbs->device->name, 
 		port->port.port_num);
@@ -2248,15 +2250,18 @@ static void acm_port_up(struct acmc_port *port)
 		goto err1;
 	}
 
-	/* Determine the default pkey first.
-	   Order of preference: 0xffff, 0x7fff, first pkey
-	*/
+	/* Determine the default pkey for SA access first.
+	 *     Order of preference: 0xffff, 0x7fff
+	 * Use the first pkey as the default pkey for parsing address file.
+	 */
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->device.verbs, 
 				     port->port.port_num, i, &pkey);
 		if (ret)
 			continue;
 		pkey = ntohs(pkey);
+		if (i == 0)
+			first_pkey = pkey;
 		if (pkey == 0xffff) {
 			index = i;
 			break;
@@ -2265,7 +2270,8 @@ static void acm_port_up(struct acmc_port *port)
 			index = i;
 		}
 	}
-	port->default_pkey_index = index < 0 ? 0: index;
+	port->sa_pkey_index = index < 0 ? 0 : index;
+	port->def_acm_pkey = first_pkey;
 
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->device.verbs, 
@@ -2775,7 +2781,7 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 	mad->umad.addr.qkey = port->sa_addr.qkey;
 	mad->umad.addr.lid = htons(port->sa_addr.lid);
 	mad->umad.addr.sl = port->sa_addr.sl;
-	mad->umad.addr.pkey_index = req->ep->port->default_pkey_index;
+	mad->umad.addr.pkey_index = req->ep->port->sa_pkey_index;
 
 	lock_acquire(&port->lock);
 	if (port->sa_credits && DListEmpty(&port->sa_wait)) {
