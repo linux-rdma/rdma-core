@@ -104,7 +104,7 @@ int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 
 	idx &= (qp->sq.wqe_cnt - 1);
 	ctrl = mlx5_get_send_wqe(qp, idx);
-	if (qp->ibv_qp.qp_type != IBV_QPT_RC) {
+	if (qp->ibv_qp->qp_type != IBV_QPT_RC) {
 		fprintf(stderr, "scatter to CQE is supported only for RC QPs\n");
 		return IBV_WC_GENERAL_ERR;
 	}
@@ -353,7 +353,7 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		}
 
 		if (unlikely(mlx5_wq_overflow(&qp->sq, nreq,
-					      to_mcq(qp->ibv_qp.send_cq)))) {
+					      to_mcq(qp->ibv_qp->send_cq)))) {
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "work queue overflow\n");
 			errno = ENOMEM;
 			err = -1;
@@ -537,7 +537,7 @@ static void set_sig_seg(struct mlx5_qp *qp, struct mlx5_rwqe_sig *sig,
 			int size, uint16_t idx)
 {
 	uint8_t  sign;
-	uint32_t qpn = qp->ibv_qp.qp_num;
+	uint32_t qpn = qp->ibv_qp->qp_num;
 
 	sign = calc_sig(sig, size);
 	sign ^= calc_sig(&qpn, 4);
@@ -562,7 +562,7 @@ int mlx5_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (unlikely(mlx5_wq_overflow(&qp->rq, nreq,
-					      to_mcq(qp->ibv_qp.recv_cq)))) {
+					      to_mcq(qp->ibv_qp->recv_cq)))) {
 			errno = ENOMEM;
 			*bad_wr = wr;
 			err = -1;

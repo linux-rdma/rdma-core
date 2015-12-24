@@ -822,7 +822,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	}
 
 	/* compatability support */
-	qp_huge_key  = qptype2key(qp->ibv_qp.qp_type);
+	qp_huge_key  = qptype2key(qp->ibv_qp->qp_type);
 	if (mlx5_use_huge(qp_huge_key))
 		default_alloc_type = MLX5_ALLOC_TYPE_HUGE;
 
@@ -860,7 +860,7 @@ ex_wrid:
 
 static void mlx5_free_qp_buf(struct mlx5_qp *qp)
 {
-	struct mlx5_context *ctx = to_mctx(qp->ibv_qp.context);
+	struct mlx5_context *ctx = to_mctx(qp->ibv_qp->context);
 
 	mlx5_free_actual_buf(ctx, &qp->buf);
 	if (qp->rq.wrid)
@@ -892,6 +892,7 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 		return NULL;
 	}
 	ibqp = (struct ibv_qp *)&qp->verbs_qp;
+	qp->ibv_qp = ibqp;
 
 	memset(&cmd, 0, sizeof(cmd));
 

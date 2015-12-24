@@ -393,7 +393,7 @@ struct mlx5_mr {
 
 struct mlx5_qp {
 	struct verbs_qp			verbs_qp;
-	struct ibv_qp			ibv_qp;
+	struct ibv_qp		       *ibv_qp;
 	struct mlx5_buf                 buf;
 	int                             max_inline_data;
 	int                             buf_size;

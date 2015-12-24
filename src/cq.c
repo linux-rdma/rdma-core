@@ -413,7 +413,7 @@ static int mlx5_poll_one(struct mlx5_cq *cq,
 				return CQ_POLL_ERR;
 		}
 	} else {
-		if (!*cur_qp || (qpn != (*cur_qp)->ibv_qp.qp_num)) {
+		if (!*cur_qp || (qpn != (*cur_qp)->ibv_qp->qp_num)) {
 			/*
 			 * We do not have to take the QP table lock here,
 			 * because CQs will be locked while QPs are removed
