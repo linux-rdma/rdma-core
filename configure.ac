@@ -61,6 +61,13 @@ AC_CHECK_HEADER(infiniband/umad.h, [],
     AC_MSG_ERROR([<infiniband/umad.h> not found.  Is libibumad installed?]))
 fi
 
+dnl Check netlink header files
+AC_CHECK_HEADER(rdma/rdma_netlink.h,
+    AC_CHECK_HEADER(rdma/ib_user_sa.h,
+        AC_DEFINE(HAVE_NETLINK, 1, [Have netlink header files]),
+        AC_MSG_WARN([Missing rdma/ib_user_sa.h])),
+    AC_MSG_WARN([Missing rdma/rdma_netlink.h]))
+
 dnl Check for gcc atomic intrinsics
 AC_MSG_CHECKING(compiler support for atomics)
 AC_TRY_LINK([int i = 0;],
