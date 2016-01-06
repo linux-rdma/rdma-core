@@ -617,6 +617,8 @@ int mlx5_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,
 			   size_t length, int access);
+int mlx5_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
+		  size_t length, int access);
 int mlx5_dereg_mr(struct ibv_mr *mr);
 
 struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,

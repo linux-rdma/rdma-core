@@ -90,6 +90,7 @@ static struct ibv_context_ops mlx5_ctx_ops = {
 	.alloc_pd      = mlx5_alloc_pd,
 	.dealloc_pd    = mlx5_free_pd,
 	.reg_mr	       = mlx5_reg_mr,
+	.rereg_mr      = mlx5_rereg_mr,
 	.dereg_mr      = mlx5_dereg_mr,
 	.create_cq     = mlx5_create_cq,
 	.poll_cq       = mlx5_poll_cq,
