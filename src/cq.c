@@ -283,6 +283,9 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 			wc->opcode    = IBV_WC_FETCH_ADD;
 			wc->byte_len  = 8;
 			break;
+		case MLX4_OPCODE_LOCAL_INVAL:
+			wc->opcode    = IBV_WC_LOCAL_INV;
+			break;
 		case MLX4_OPCODE_BIND_MW:
 			wc->opcode    = IBV_WC_BIND_MW;
 			break;

@@ -232,6 +232,70 @@ int mlx4_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
+struct ibv_mw *mlx4_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
+{
+	struct ibv_mw *mw;
+	struct ibv_alloc_mw cmd;
+	struct ibv_alloc_mw_resp resp;
+	int ret;
+
+	mw = calloc(1, sizeof(*mw));
+	if (!mw)
+		return NULL;
+
+	ret = ibv_cmd_alloc_mw(pd, type, mw, &cmd, sizeof(cmd),
+			     &resp, sizeof(resp));
+
+	if (ret) {
+		free(mw);
+		return NULL;
+	}
+
+	return mw;
+}
+
+int mlx4_dealloc_mw(struct ibv_mw *mw)
+{
+	int ret;
+	struct ibv_dealloc_mw cmd;
+
+	ret = ibv_cmd_dealloc_mw(mw, &cmd, sizeof(cmd));
+	if (ret)
+		return ret;
+
+	free(mw);
+	return 0;
+}
+
+int mlx4_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
+		 struct ibv_mw_bind *mw_bind)
+{
+	struct ibv_send_wr *bad_wr = NULL;
+	struct ibv_send_wr wr = { };
+	int ret;
+
+
+	wr.opcode = IBV_WR_BIND_MW;
+	wr.next = NULL;
+
+	wr.wr_id = mw_bind->wr_id;
+	wr.send_flags = mw_bind->send_flags;
+
+	wr.bind_mw.mw = mw;
+	wr.bind_mw.rkey = ibv_inc_rkey(mw->rkey);
+	wr.bind_mw.bind_info = mw_bind->bind_info;
+
+	ret = mlx4_post_send(qp, &wr, &bad_wr);
+
+	if (ret)
+		return ret;
+
+	/* updating the mw with the latest rkey. */
+	mw->rkey = wr.bind_mw.rkey;
+
+	return 0;
+}
+
 int align_queue_size(int req)
 {
 	int nent;
