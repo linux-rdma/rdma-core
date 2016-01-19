@@ -209,7 +209,7 @@ enum {
 	MLX5_OPCODE_RDMA_WRITE_IMM	= 0x09,
 	MLX5_OPCODE_SEND		= 0x0a,
 	MLX5_OPCODE_SEND_IMM		= 0x0b,
-	MLX5_OPCODE_LSO			= 0x0e,
+	MLX5_OPCODE_TSO			= 0x0e,
 	MLX5_OPCODE_RDMA_READ		= 0x10,
 	MLX5_OPCODE_ATOMIC_CS		= 0x11,
 	MLX5_OPCODE_ATOMIC_FA		= 0x12,
@@ -264,6 +264,10 @@ enum mlx5_rsc_type {
 	MLX5_RSC_TYPE_XSRQ,
 	MLX5_RSC_TYPE_SRQ,
 	MLX5_RSC_TYPE_INVAL,
+};
+
+enum {
+	MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE = 1 << 0,
 };
 
 struct mlx5_resource {
@@ -340,6 +344,8 @@ struct mlx5_context {
 		uint64_t                mask;
 	} core_clock;
 	void			       *hca_core_clock;
+	struct ibv_tso_caps		cached_tso_caps;
+	int				cmds_supp_uhw;
 };
 
 struct mlx5_bitmap {
@@ -487,6 +493,8 @@ struct mlx5_qp {
 	int                             wq_sig;
 	uint32_t			qp_cap_cache;
 	int				atomics_enabled;
+	uint32_t			max_tso;
+	uint16_t			max_tso_header;
 };
 
 struct mlx5_av {

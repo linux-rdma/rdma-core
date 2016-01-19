@@ -216,6 +216,9 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 	case MLX5_OPCODE_UMR:
 		wc->opcode = wq->wr_data[idx];
 		break;
+	case MLX5_OPCODE_TSO:
+		wc->opcode    = IBV_WC_TSO;
+		break;
 	}
 }
 
@@ -1133,6 +1136,8 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 			return IBV_WC_FETCH_ADD;
 		case MLX5_OPCODE_UMR:
 			return cq->umr_opcode;
+		case MLX5_OPCODE_TSO:
+			return IBV_WC_TSO;
 		}
 	}
 

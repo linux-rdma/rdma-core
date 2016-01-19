@@ -78,6 +78,7 @@ struct mlx5_eqe_qp_srq {
 
 enum {
 	MLX5_ETH_L2_INLINE_HEADER_SIZE	= 18,
+	MLX5_ETH_L2_MIN_HEADER_SIZE	= 14,
 };
 
 enum {

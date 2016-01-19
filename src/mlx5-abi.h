@@ -82,8 +82,8 @@ struct mlx5_alloc_ucontext_resp {
 	__u32				comp_mask;
 	__u32				response_length;
 	__u8				cqe_version;
-	__u8				reserved2;
-	__u16				reserved3;
+	__u8				cmds_supp_uhw;
+	__u16				reserved2;
 	__u64				hca_core_clock_offset;
 };
 
@@ -188,6 +188,9 @@ struct mlx5_query_device_ex {
 
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
+	__u32				comp_mask;
+	__u32				response_length;
+	struct ibv_tso_caps		tso_caps;
 };
 
 #endif /* MLX5_ABI_H */

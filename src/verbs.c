@@ -792,7 +792,12 @@ static int mlx5_calc_send_wqe(struct mlx5_context *ctx,
 			attr->cap.max_inline_data, 16);
 	}
 
-	max_gather = (ctx->max_sq_desc_sz -  sq_overhead(attr->qp_type)) /
+	if (attr->comp_mask & IBV_QP_INIT_ATTR_MAX_TSO_HEADER) {
+		size += align(attr->max_tso_header, 16);
+		qp->max_tso_header = attr->max_tso_header;
+	}
+
+	max_gather = (ctx->max_sq_desc_sz - size) /
 		sizeof(struct mlx5_wqe_data_seg);
 	if (attr->cap.max_send_sge > max_gather)
 		return -EINVAL;
@@ -1120,11 +1125,13 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 enum {
 	MLX5_CREATE_QP_SUP_COMP_MASK = (IBV_QP_INIT_ATTR_PD |
 					IBV_QP_INIT_ATTR_XRCD |
-					IBV_QP_INIT_ATTR_CREATE_FLAGS),
+					IBV_QP_INIT_ATTR_CREATE_FLAGS |
+					IBV_QP_INIT_ATTR_MAX_TSO_HEADER),
 };
 
 enum {
-	MLX5_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS),
+	MLX5_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS |
+					IBV_QP_INIT_ATTR_MAX_TSO_HEADER),
 };
 
 struct ibv_qp *create_qp(struct ibv_context *context,
@@ -1144,6 +1151,10 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 #endif
 
 	if (attr->comp_mask & ~MLX5_CREATE_QP_SUP_COMP_MASK)
+		return NULL;
+
+	if ((attr->comp_mask & IBV_QP_INIT_ATTR_MAX_TSO_HEADER) &&
+	    (attr->qp_type != IBV_QPT_RAW_PACKET))
 		return NULL;
 
 	qp = calloc(1, sizeof(*qp));
@@ -1432,12 +1443,20 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (attr_mask & IBV_QP_PORT) {
 		switch (qp->qp_type) {
 		case IBV_QPT_RAW_PACKET:
-			if ((context->cached_link_layer[attr->port_num - 1] ==
-			     IBV_LINK_LAYER_ETHERNET) &&
-			    (context->cached_device_cap_flags &
-			     IBV_DEVICE_RAW_IP_CSUM))
-				mqp->qp_cap_cache |= MLX5_CSUM_SUPPORT_RAW_OVER_ETH |
-						     MLX5_RX_CSUM_VALID;
+			if (context->cached_link_layer[attr->port_num - 1] ==
+			     IBV_LINK_LAYER_ETHERNET) {
+				if (context->cached_device_cap_flags &
+				    IBV_DEVICE_RAW_IP_CSUM)
+					mqp->qp_cap_cache |=
+						MLX5_CSUM_SUPPORT_RAW_OVER_ETH |
+						MLX5_RX_CSUM_VALID;
+
+				if (ibv_is_qpt_supported(
+				 context->cached_tso_caps.supported_qpts,
+				 IBV_QPT_RAW_PACKET))
+					mqp->max_tso =
+					     context->cached_tso_caps.max_tso;
+			}
 			break;
 		default:
 			break;
@@ -1727,6 +1746,7 @@ int mlx5_query_device_ex(struct ibv_context *context,
 			 struct ibv_device_attr_ex *attr,
 			 size_t attr_size)
 {
+	struct mlx5_context *mctx = to_mctx(context);
 	struct mlx5_query_device_ex_resp resp;
 	struct mlx5_query_device_ex cmd;
 	struct ibv_device_attr *a;
@@ -1735,15 +1755,20 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	unsigned major;
 	unsigned minor;
 	int err;
+	int cmd_supp_uhw = mctx->cmds_supp_uhw &
+		MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE;
 
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
 	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
-				      &raw_fw_ver, &cmd.ibv_cmd, sizeof(cmd.ibv_cmd),
-				      sizeof(cmd), &resp.ibv_resp, sizeof(resp),
-				      sizeof(resp.ibv_resp));
+				      &raw_fw_ver,
+				      &cmd.ibv_cmd, sizeof(cmd.ibv_cmd), sizeof(cmd),
+				      &resp.ibv_resp, sizeof(resp.ibv_resp),
+				      cmd_supp_uhw ? sizeof(resp) : sizeof(resp.ibv_resp));
 	if (err)
 		return err;
+
+	attr->tso_caps = resp.tso_caps;
 
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;

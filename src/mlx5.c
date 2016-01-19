@@ -601,7 +601,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	struct mlx5_device	       *mdev;
 	struct verbs_context	       *v_ctx;
 	struct ibv_port_attr		port_attr;
-	struct ibv_device_attr		device_attr;
+	struct ibv_device_attr_ex	device_attr;
 
 	mdev = to_mdev(&vdev->device);
 	v_ctx = verbs_get_ctx(ctx);
@@ -675,6 +675,8 @@ static int mlx5_init_context(struct verbs_device *vdev,
 			 goto err_free_bf;
 	}
 
+	context->cmds_supp_uhw = resp.cmds_supp_uhw;
+
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
@@ -745,9 +747,12 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, create_cq_ex, mlx5_create_cq_ex);
 
 	memset(&device_attr, 0, sizeof(device_attr));
-	if (!mlx5_query_device(ctx, &device_attr)) {
-		context->cached_device_cap_flags = device_attr.device_cap_flags;
-		context->atomic_cap = device_attr.atomic_cap;
+	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,
+				  sizeof(struct ibv_device_attr_ex))) {
+		context->cached_device_cap_flags =
+			device_attr.orig_attr.device_cap_flags;
+		context->atomic_cap = device_attr.orig_attr.atomic_cap;
+		context->cached_tso_caps = device_attr.tso_caps;
 	}
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {

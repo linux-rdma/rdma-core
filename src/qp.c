@@ -58,7 +58,8 @@ static const uint32_t mlx5_ib_opcode[] = {
 	[IBV_WR_ATOMIC_CMP_AND_SWP]	= MLX5_OPCODE_ATOMIC_CS,
 	[IBV_WR_ATOMIC_FETCH_AND_ADD]	= MLX5_OPCODE_ATOMIC_FA,
 	[IBV_WR_BIND_MW]		= MLX5_OPCODE_UMR,
-	[IBV_WR_LOCAL_INV]		= MLX5_OPCODE_UMR
+	[IBV_WR_LOCAL_INV]		= MLX5_OPCODE_UMR,
+	[IBV_WR_TSO]			= MLX5_OPCODE_TSO,
 };
 
 static void *get_recv_wqe(struct mlx5_qp *qp, int n)
@@ -549,12 +550,68 @@ static inline int set_bind_wr(struct mlx5_qp *qp, enum ibv_mw_type type,
 	return 0;
 }
 
+/* Copy tso header to eth segment with considering padding and WQE
+ * wrap around in WQ buffer.
+ */
+static inline int set_tso_eth_seg(void **seg, struct ibv_send_wr *wr,
+				   void *qend, struct mlx5_qp *qp, int *size)
+{
+	struct mlx5_wqe_eth_seg *eseg = *seg;
+	int size_of_inl_hdr_start = sizeof(eseg->inline_hdr_start);
+	uint64_t left, left_len, copy_sz;
+	void *pdata = wr->tso.hdr;
+#ifdef MLX5_DEBUG
+	FILE *fp = to_mctx(qp->ibv_qp->context)->dbg_fp;
+#endif
+
+	if (unlikely(wr->tso.hdr_sz < MLX5_ETH_L2_MIN_HEADER_SIZE ||
+		     wr->tso.hdr_sz > qp->max_tso_header)) {
+		mlx5_dbg(fp, MLX5_DBG_QP_SEND,
+			 "TSO header size should be at least %d and at most %d\n",
+			 MLX5_ETH_L2_MIN_HEADER_SIZE,
+			 qp->max_tso_header);
+		return EINVAL;
+	}
+
+	left = wr->tso.hdr_sz;
+	eseg->mss = htons(wr->tso.mss);
+	eseg->inline_hdr_sz = htons(wr->tso.hdr_sz);
+
+	/* Check if there is space till the end of queue, if yes,
+	 * copy all in one shot, otherwise copy till the end of queue,
+	 * rollback and then copy the left
+	 */
+	left_len = qend - (void *)eseg->inline_hdr_start;
+	copy_sz = min(left_len, left);
+
+	memcpy(eseg->inline_hdr_start, pdata, copy_sz);
+
+	/* The -1 is because there are already 16 bytes included in
+	 * eseg->inline_hdr[16]
+	 */
+	*seg += align(copy_sz - size_of_inl_hdr_start, 16) - 16;
+	*size += align(copy_sz - size_of_inl_hdr_start, 16) / 16 - 1;
+
+	/* The last wqe in the queue */
+	if (unlikely(copy_sz < left)) {
+		*seg = mlx5_get_send_wqe(qp, 0);
+		left -= copy_sz;
+		pdata += copy_sz;
+		memcpy(*seg, pdata, left);
+		*seg += align(left, 16);
+		*size += align(left, 16) / 16;
+	}
+
+	return 0;
+}
+
 static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				  struct ibv_send_wr **bad_wr)
 {
 	struct mlx5_context *ctx;
 	struct mlx5_qp *qp = to_mqp(ibqp);
 	void *seg;
+	struct mlx5_wqe_eth_seg *eseg;
 	struct mlx5_wqe_ctrl_seg *ctrl = NULL;
 	struct mlx5_wqe_data_seg *dpseg;
 	struct mlx5_sg_copy_ptr sg_copy_ptr = {.index = 0, .offset = 0};
@@ -571,6 +628,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	struct mlx5_wqe_xrc_seg *xrc;
 	uint8_t fence;
 	uint8_t next_fence;
+	uint32_t max_tso = 0;
+
 #ifdef MLX5_DEBUG
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp;
 #endif
@@ -755,15 +814,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		case IBV_QPT_RAW_PACKET:
 			memset(seg, 0, sizeof(struct mlx5_wqe_eth_seg));
-
-			err = copy_eth_inline_headers(ibqp, wr, seg, &sg_copy_ptr);
-			if (unlikely(err)) {
-				*bad_wr = wr;
-				mlx5_dbg(fp, MLX5_DBG_QP_SEND,
-					 "copy_eth_inline_headers failed, err: %d\n",
-					 err);
-				goto out;
-			}
+			eseg = seg;
 
 			if (wr->send_flags & IBV_SEND_IP_CSUM) {
 				if (!(qp->qp_cap_cache & MLX5_CSUM_SUPPORT_RAW_OVER_ETH)) {
@@ -772,8 +823,25 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					goto out;
 				}
 
-				((struct mlx5_wqe_eth_seg *)seg)->cs_flags |=
-					MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
+				eseg->cs_flags |= MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
+			}
+
+			if (wr->opcode == IBV_WR_TSO) {
+				max_tso = qp->max_tso;
+				err = set_tso_eth_seg(&seg, wr, qend, qp, &size);
+				if (unlikely(err)) {
+					*bad_wr = wr;
+					goto out;
+				}
+			} else {
+				err = copy_eth_inline_headers(ibqp, wr, seg, &sg_copy_ptr);
+				if (unlikely(err)) {
+					*bad_wr = wr;
+					mlx5_dbg(fp, MLX5_DBG_QP_SEND,
+						 "copy_eth_inline_headers failed, err: %d\n",
+						 err);
+					goto out;
+				}
 			}
 
 			seg += sizeof(struct mlx5_wqe_eth_seg);
@@ -809,9 +877,18 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 						   wr->opcode ==
 						   IBV_WR_ATOMIC_FETCH_AND_ADD))
 						set_data_ptr_seg_atomic(dpseg, wr->sg_list + i);
-					else
+					else {
+						if (unlikely(wr->opcode == IBV_WR_TSO)) {
+							if (max_tso < wr->sg_list[i].length) {
+								err = EINVAL;
+								*bad_wr = wr;
+								goto out;
+							}
+							max_tso -= wr->sg_list[i].length;
+						}
 						set_data_ptr_seg(dpseg, wr->sg_list + i,
 								 sg_copy_ptr.offset);
+					}
 					sg_copy_ptr.offset = 0;
 					++dpseg;
 					size += sizeof(struct mlx5_wqe_data_seg) / 16;
