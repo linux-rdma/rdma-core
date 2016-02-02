@@ -53,6 +53,11 @@
 
 int mlx5_single_threaded = 0;
 
+static inline int is_xrc_tgt(int type)
+{
+	return type == IBV_QPT_XRC_RECV;
+}
+
 int mlx5_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 {
 	struct ibv_query_device cmd;
@@ -505,6 +510,8 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	pthread_mutex_unlock(&ctx->srq_table_mutex);
 
 	srq->srqn = resp.srqn;
+	srq->rsc.rsn = resp.srqn;
+	srq->rsc.type = MLX5_RSC_TYPE_SRQ;
 
 	return ibsrq;
 
@@ -545,16 +552,22 @@ int mlx5_query_srq(struct ibv_srq *srq,
 int mlx5_destroy_srq(struct ibv_srq *srq)
 {
 	int ret;
+	struct mlx5_srq *msrq = to_msrq(srq);
+	struct mlx5_context *ctx = to_mctx(srq->context);
 
 	ret = ibv_cmd_destroy_srq(srq);
 	if (ret)
 		return ret;
 
-	mlx5_clear_srq(to_mctx(srq->context), to_msrq(srq)->srqn);
-	mlx5_free_db(to_mctx(srq->context), to_msrq(srq)->db);
-	mlx5_free_buf(&to_msrq(srq)->buf);
-	free(to_msrq(srq)->wrid);
-	free(to_msrq(srq));
+	if (ctx->cqe_version && msrq->rsc.type == MLX5_RSC_TYPE_XSRQ)
+		mlx5_clear_uidx(ctx, msrq->rsc.rsn);
+	else
+		mlx5_clear_srq(ctx, msrq->srqn);
+
+	mlx5_free_db(ctx, msrq->db);
+	mlx5_free_buf(&msrq->buf);
+	free(msrq->wrid);
+	free(msrq);
 
 	return 0;
 }
@@ -882,6 +895,7 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	int				ret;
 	struct mlx5_context	       *ctx = to_mctx(context);
 	struct ibv_qp		       *ibqp;
+	uint32_t			usr_idx = 0;
 #ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
 #endif
@@ -938,24 +952,38 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	cmd.rq_wqe_count = qp->rq.wqe_cnt;
 	cmd.rq_wqe_shift = qp->rq.wqe_shift;
 
-	pthread_mutex_lock(&ctx->qp_table_mutex);
+	if (!ctx->cqe_version) {
+		cmd.uidx = 0xffffff;
+		pthread_mutex_lock(&ctx->qp_table_mutex);
+	} else if (!is_xrc_tgt(attr->qp_type)) {
+		usr_idx = mlx5_store_uidx(ctx, qp);
+		if (usr_idx < 0) {
+			mlx5_dbg(fp, MLX5_DBG_QP, "Couldn't find free user index\n");
+			goto err_rq_db;
+		}
+
+		cmd.uidx = usr_idx;
+	}
 
 	ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
 				   attr, &cmd.ibv_cmd, sizeof(cmd),
 				   &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
-		goto err_rq_db;
+		goto err_free_uidx;
 	}
 
-	if (qp->sq.wqe_cnt || qp->rq.wqe_cnt) {
-		ret = mlx5_store_qp(ctx, ibqp->qp_num, qp);
-		if (ret) {
-			mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
-			goto err_destroy;
+	if (!ctx->cqe_version) {
+		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt) {
+			ret = mlx5_store_qp(ctx, ibqp->qp_num, qp);
+			if (ret) {
+				mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
+				goto err_destroy;
+			}
 		}
+
+		pthread_mutex_unlock(&ctx->qp_table_mutex);
 	}
-	pthread_mutex_unlock(&ctx->qp_table_mutex);
 
 	map_uuar(context, qp, resp.uuar_index);
 
@@ -969,13 +997,22 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	attr->cap.max_recv_wr = qp->rq.max_post;
 	attr->cap.max_recv_sge = qp->rq.max_gs;
 
+	qp->rsc.type = MLX5_RSC_TYPE_QP;
+	qp->rsc.rsn = (ctx->cqe_version && !is_xrc_tgt(attr->qp_type)) ?
+		      usr_idx : ibqp->qp_num;
+
 	return ibqp;
 
 err_destroy:
 	ibv_cmd_destroy_qp(ibqp);
 
+err_free_uidx:
+	if (!ctx->cqe_version)
+		pthread_mutex_unlock(&to_mctx(context)->qp_table_mutex);
+	else if (!is_xrc_tgt(attr->qp_type))
+		mlx5_clear_uidx(ctx, usr_idx);
+
 err_rq_db:
-	pthread_mutex_unlock(&to_mctx(context)->qp_table_mutex);
 	mlx5_free_db(to_mctx(context), qp->db);
 
 err_free_qp_buf:
@@ -1046,29 +1083,38 @@ static void mlx5_unlock_cqs(struct ibv_qp *qp)
 int mlx5_destroy_qp(struct ibv_qp *ibqp)
 {
 	struct mlx5_qp *qp = to_mqp(ibqp);
+	struct mlx5_context *ctx = to_mctx(ibqp->context);
 	int ret;
 
-	pthread_mutex_lock(&to_mctx(ibqp->context)->qp_table_mutex);
+	if (!ctx->cqe_version)
+		pthread_mutex_lock(&ctx->qp_table_mutex);
+
 	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret) {
-		pthread_mutex_unlock(&to_mctx(ibqp->context)->qp_table_mutex);
+		if (!ctx->cqe_version)
+			pthread_mutex_unlock(&ctx->qp_table_mutex);
 		return ret;
 	}
 
 	mlx5_lock_cqs(ibqp);
 
-	__mlx5_cq_clean(to_mcq(ibqp->recv_cq), ibqp->qp_num,
+	__mlx5_cq_clean(to_mcq(ibqp->recv_cq), qp->rsc.rsn,
 			ibqp->srq ? to_msrq(ibqp->srq) : NULL);
 	if (ibqp->send_cq != ibqp->recv_cq)
-		__mlx5_cq_clean(to_mcq(ibqp->send_cq), ibqp->qp_num, NULL);
+		__mlx5_cq_clean(to_mcq(ibqp->send_cq), qp->rsc.rsn, NULL);
 
-	if (qp->sq.wqe_cnt || qp->rq.wqe_cnt)
-		mlx5_clear_qp(to_mctx(ibqp->context), ibqp->qp_num);
+	if (!ctx->cqe_version) {
+		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt)
+			mlx5_clear_qp(ctx, ibqp->qp_num);
+	}
 
 	mlx5_unlock_cqs(ibqp);
-	pthread_mutex_unlock(&to_mctx(ibqp->context)->qp_table_mutex);
+	if (!ctx->cqe_version)
+		pthread_mutex_unlock(&ctx->qp_table_mutex);
+	else if (!is_xrc_tgt(ibqp->qp_type))
+		mlx5_clear_uidx(ctx, qp->rsc.rsn);
 
-	mlx5_free_db(to_mctx(ibqp->context), qp->db);
+	mlx5_free_db(ctx, qp->db);
 	mlx5_free_qp_buf(qp);
 	free(qp);
 
@@ -1108,11 +1154,12 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	    (attr_mask & IBV_QP_STATE) &&
 	    attr->qp_state == IBV_QPS_RESET) {
 		if (qp->recv_cq) {
-			mlx5_cq_clean(to_mcq(qp->recv_cq), qp->qp_num,
+			mlx5_cq_clean(to_mcq(qp->recv_cq), to_mqp(qp)->rsc.rsn,
 				      qp->srq ? to_msrq(qp->srq) : NULL);
 		}
 		if (qp->send_cq != qp->recv_cq && qp->send_cq)
-			mlx5_cq_clean(to_mcq(qp->send_cq), qp->qp_num, NULL);
+			mlx5_cq_clean(to_mcq(qp->send_cq),
+				      to_mqp(qp)->rsc.rsn, NULL);
 
 		mlx5_init_qp_indices(to_mqp(qp));
 		db = to_mqp(qp)->db;
@@ -1231,9 +1278,13 @@ mlx5_create_xrc_srq(struct ibv_context *context,
 	struct mlx5_create_srq_ex cmd;
 	struct mlx5_create_srq_resp resp;
 	struct mlx5_srq *msrq;
-	struct mlx5_context *ctx;
+	struct mlx5_context *ctx = to_mctx(context);
 	int max_sge;
 	struct ibv_srq *ibsrq;
+	int uidx;
+#ifdef MLX5_DEBUG
+	FILE *fp = ctx->dbg_fp;
+#endif
 
 	msrq = calloc(1, sizeof(*msrq));
 	if (!msrq)
@@ -1243,8 +1294,6 @@ mlx5_create_xrc_srq(struct ibv_context *context,
 
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
-
-	ctx = to_mctx(context);
 
 	if (mlx5_spinlock_init(&msrq->lock)) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
@@ -1297,28 +1346,48 @@ mlx5_create_xrc_srq(struct ibv_context *context,
 		cmd.flags = MLX5_SRQ_FLAG_SIGNATURE;
 
 	attr->attr.max_sge = msrq->max_gs;
-	pthread_mutex_lock(&ctx->srq_table_mutex);
+	if (ctx->cqe_version) {
+		uidx = mlx5_store_uidx(ctx, msrq);
+		if (uidx < 0) {
+			mlx5_dbg(fp, MLX5_DBG_QP, "Couldn't find free user index\n");
+			goto err_free_db;
+		}
+		cmd.uidx = uidx;
+	} else {
+		cmd.uidx = 0xffffff;
+		pthread_mutex_lock(&ctx->srq_table_mutex);
+	}
+
 	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq, sizeof(msrq->vsrq),
 				    attr, &cmd.ibv_cmd, sizeof(cmd),
 				    &resp.ibv_resp, sizeof(resp));
 	if (err)
-		goto err_free_db;
+		goto err_free_uidx;
 
-	err = mlx5_store_srq(to_mctx(context), resp.srqn, msrq);
-	if (err)
-		goto err_destroy;
+	if (!ctx->cqe_version) {
+		err = mlx5_store_srq(to_mctx(context), resp.srqn, msrq);
+		if (err)
+			goto err_destroy;
 
-	pthread_mutex_unlock(&ctx->srq_table_mutex);
+		pthread_mutex_unlock(&ctx->srq_table_mutex);
+	}
 
 	msrq->srqn = resp.srqn;
+	msrq->rsc.type = MLX5_RSC_TYPE_XSRQ;
+	msrq->rsc.rsn = ctx->cqe_version ? cmd.uidx : resp.srqn;
 
 	return ibsrq;
 
 err_destroy:
 	ibv_cmd_destroy_srq(ibsrq);
 
+err_free_uidx:
+	if (ctx->cqe_version)
+		mlx5_clear_uidx(ctx, cmd.uidx);
+	else
+		pthread_mutex_unlock(&ctx->srq_table_mutex);
+
 err_free_db:
-	pthread_mutex_unlock(&ctx->srq_table_mutex);
 	mlx5_free_db(ctx, msrq->db);
 
 err_free:

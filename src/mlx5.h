@@ -306,6 +306,7 @@ struct mlx5_context {
 	char				hostname[40];
 	struct mlx5_spinlock            hugetlb_lock;
 	struct list_head                hugetlb_list;
+	int				cqe_version;
 };
 
 struct mlx5_bitmap {

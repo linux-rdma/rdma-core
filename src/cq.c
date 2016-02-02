@@ -732,6 +732,47 @@ static int is_equal_rsn(struct mlx5_cqe64 *cqe64, uint32_t rsn)
 	return rsn == (ntohl(cqe64->sop_drop_qpn) & 0xffffff);
 }
 
+static inline int is_equal_uidx(struct mlx5_cqe64 *cqe64, uint32_t uidx)
+{
+	return uidx == (ntohl(cqe64->srqn_uidx) & 0xffffff);
+}
+
+static inline int is_responder(uint8_t opcode)
+{
+	switch (opcode) {
+	case MLX5_CQE_RESP_WR_IMM:
+	case MLX5_CQE_RESP_SEND:
+	case MLX5_CQE_RESP_SEND_IMM:
+	case MLX5_CQE_RESP_SEND_INV:
+	case MLX5_CQE_RESP_ERR:
+		return 1;
+	}
+
+	return 0;
+}
+
+static inline int free_res_cqe(struct mlx5_cqe64 *cqe64, uint32_t rsn,
+			       struct mlx5_srq *srq, int cqe_version)
+{
+	if (cqe_version) {
+		if (is_equal_uidx(cqe64, rsn)) {
+			if (srq && is_responder(cqe64->op_own >> 4))
+				mlx5_free_srq_wqe(srq,
+						  ntohs(cqe64->wqe_counter));
+			return 1;
+		}
+	} else {
+		if (is_equal_rsn(cqe64, rsn)) {
+			if (srq && (ntohl(cqe64->srqn_uidx) & 0xffffff))
+				mlx5_free_srq_wqe(srq,
+						  ntohs(cqe64->wqe_counter));
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 {
 	uint32_t prod_index;
@@ -739,6 +780,7 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	struct mlx5_cqe64 *cqe64, *dest64;
 	void *cqe, *dest;
 	uint8_t owner_bit;
+	int cqe_version;
 
 	if (!cq)
 		return;
@@ -758,12 +800,11 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	 * Now sweep backwards through the CQ, removing CQ entries
 	 * that match our QP by copying older entries on top of them.
 	 */
+	cqe_version = (to_mctx(cq->ibv_cq.context))->cqe_version;
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
 		cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
-		if (is_equal_rsn(cqe64, rsn)) {
-			if (srq && (ntohl(cqe64->srqn_uidx) & 0xffffff))
-				mlx5_free_srq_wqe(srq, ntohs(cqe64->wqe_counter));
+		if (free_res_cqe(cqe64, rsn, srq, cqe_version)) {
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe);
