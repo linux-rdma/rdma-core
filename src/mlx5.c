@@ -590,8 +590,11 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	}
 
 	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
 	req.total_num_uuars = tot_uuars;
 	req.num_low_latency_uuars = low_lat_uuars;
+	req.cqe_version = MLX5_CQE_VERSION_V1;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &req.ibv_req, sizeof req,
 				&resp.ibv_resp, sizeof resp))
 		goto err_free_bf;
@@ -608,6 +611,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	context->max_recv_wr	= resp.max_recv_wr;
 	context->max_srq_recv_wr = resp.max_srq_recv_wr;
 
+	context->cqe_version = resp.cqe_version;
 	if (context->cqe_version) {
 		if (context->cqe_version == 1)
 			mlx5_ctx_ops.poll_cq = mlx5_poll_cq_v1;

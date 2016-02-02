@@ -55,7 +55,11 @@ struct mlx5_alloc_ucontext {
 	__u32				total_num_uuars;
 	__u32				num_low_latency_uuars;
 	__u32				flags;
-	__u32				reserved;
+	__u32				comp_mask;
+	__u8				cqe_version;
+	__u8				reserved0;
+	__u16				reserved1;
+	__u32				reserved2;
 };
 
 struct mlx5_alloc_ucontext_resp {
@@ -70,7 +74,12 @@ struct mlx5_alloc_ucontext_resp {
 	__u32				max_recv_wr;
 	__u32				max_srq_recv_wr;
 	__u16				num_ports;
-	__u16				reserved;
+	__u16				reserved1;
+	__u32				comp_mask;
+	__u32				response_length;
+	__u8				cqe_version;
+	__u8				reserved2;
+	__u16				reserved3;
 };
 
 struct mlx5_alloc_pd_resp {
