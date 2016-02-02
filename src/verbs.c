@@ -228,6 +228,42 @@ int mlx5_dereg_mr(struct ibv_mr *ibmr)
 	return 0;
 }
 
+struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
+{
+	struct ibv_mw *mw;
+	struct ibv_alloc_mw cmd;
+	struct ibv_alloc_mw_resp resp;
+	int ret;
+
+	mw = malloc(sizeof(*mw));
+	if (!mw)
+		return NULL;
+
+	memset(mw, 0, sizeof(*mw));
+
+	ret = ibv_cmd_alloc_mw(pd, type, mw, &cmd, sizeof(cmd), &resp,
+			       sizeof(resp));
+	if (ret) {
+		free(mw);
+		return NULL;
+	}
+
+	return mw;
+}
+
+int mlx5_dealloc_mw(struct ibv_mw *mw)
+{
+	int ret;
+	struct ibv_dealloc_mw cmd;
+
+	ret = ibv_cmd_dealloc_mw(mw, &cmd, sizeof(cmd));
+	if (ret)
+		return ret;
+
+	free(mw);
+	return 0;
+}
+
 int mlx5_round_up_power_of_two(long long sz)
 {
 	long long ret;

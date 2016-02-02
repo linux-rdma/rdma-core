@@ -647,6 +647,8 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,
 int mlx5_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access);
 int mlx5_dereg_mr(struct ibv_mr *mr);
+struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type);
+int mlx5_dealloc_mw(struct ibv_mw *mw);
 
 struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
