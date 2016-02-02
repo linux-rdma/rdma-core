@@ -544,6 +544,16 @@ static inline int max_int(int a, int b)
 	return a > b ? a : b;
 }
 
+static inline struct mlx5_qp *rsc_to_mqp(struct mlx5_resource *rsc)
+{
+	return (struct mlx5_qp *)rsc;
+}
+
+static inline struct mlx5_srq *rsc_to_msrq(struct mlx5_resource *rsc)
+{
+	return (struct mlx5_srq *)rsc;
+}
+
 int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
 void mlx5_free_buf(struct mlx5_buf *buf);
 int mlx5_alloc_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf,
@@ -590,6 +600,7 @@ int mlx5_free_cq_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 int mlx5_resize_cq(struct ibv_cq *cq, int cqe);
 int mlx5_destroy_cq(struct ibv_cq *cq);
 int mlx5_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
+int mlx5_poll_cq_v1(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
