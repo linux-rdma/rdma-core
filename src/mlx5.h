@@ -228,6 +228,18 @@ enum mlx5_alloc_type {
 	MLX5_ALLOC_TYPE_ALL
 };
 
+enum mlx5_rsc_type {
+	MLX5_RSC_TYPE_QP,
+	MLX5_RSC_TYPE_XSRQ,
+	MLX5_RSC_TYPE_SRQ,
+	MLX5_RSC_TYPE_INVAL,
+};
+
+struct mlx5_resource {
+	enum mlx5_rsc_type	type;
+	uint32_t		rsn;
+};
+
 struct mlx5_device {
 	struct verbs_device	verbs_dev;
 	int			page_size;
@@ -341,6 +353,7 @@ struct mlx5_cq {
 };
 
 struct mlx5_srq {
+	struct mlx5_resource            rsc;  /* This struct must be first */
 	struct verbs_srq		vsrq;
 	struct mlx5_buf			buf;
 	struct mlx5_spinlock		lock;
@@ -392,6 +405,7 @@ struct mlx5_mr {
 };
 
 struct mlx5_qp {
+	struct mlx5_resource            rsc; /* This struct must be first */
 	struct verbs_qp			verbs_qp;
 	struct ibv_qp		       *ibv_qp;
 	struct mlx5_buf                 buf;
@@ -491,7 +505,9 @@ static inline struct mlx5_cq *to_mcq(struct ibv_cq *ibcq)
 
 static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
 {
-	return (struct mlx5_srq *)ibsrq;
+	struct verbs_srq *vsrq = (struct verbs_srq *)ibsrq;
+
+	return container_of(vsrq, struct mlx5_srq, vsrq);
 }
 
 static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
