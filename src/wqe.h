@@ -60,6 +60,11 @@ struct mlx5_wqe_data_seg {
 	uint64_t		addr;
 };
 
+struct mlx5_sg_copy_ptr {
+	int	index;
+	int	offset;
+};
+
 struct mlx5_eqe_comp {
 	uint32_t	reserved[6];
 	uint32_t	cqn;
@@ -68,6 +73,10 @@ struct mlx5_eqe_comp {
 struct mlx5_eqe_qp_srq {
 	uint32_t	reserved[6];
 	uint32_t	qp_srq_n;
+};
+
+enum {
+	MLX5_ETH_L2_INLINE_HEADER_SIZE	= 18,
 };
 
 struct mlx5_wqe_eth_seg {
