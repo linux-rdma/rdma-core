@@ -145,7 +145,7 @@ int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 
 void *mlx5_get_send_wqe(struct mlx5_qp *qp, int n)
 {
-	return qp->buf.buf + qp->sq.offset + (n << MLX5_SEND_WQE_SHIFT);
+	return qp->sq_start + (n << MLX5_SEND_WQE_SHIFT);
 }
 
 void mlx5_init_qp_indices(struct mlx5_qp *qp)
@@ -214,7 +214,7 @@ static void mlx5_bf_copy(unsigned long long *dst, unsigned long long *src,
 		*dst++ = *src++;
 		bytecnt -= 8 * sizeof(unsigned long long);
 		if (unlikely(src == qp->sq.qend))
-			src = qp->buf.buf + qp->sq.offset;
+			src = qp->sq_start;
 	}
 }
 

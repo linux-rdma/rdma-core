@@ -70,6 +70,17 @@ struct mlx5_eqe_qp_srq {
 	uint32_t	qp_srq_n;
 };
 
+struct mlx5_wqe_eth_seg {
+	uint32_t	rsvd0;
+	uint8_t		cs_flags;
+	uint8_t		rsvd1;
+	uint16_t	mss;
+	uint32_t	rsvd2;
+	uint16_t	inline_hdr_sz;
+	uint8_t		inline_hdr_start[2];
+	uint8_t		inline_hdr[16];
+};
+
 struct mlx5_wqe_ctrl_seg {
 	uint32_t	opmod_idx_opcode;
 	uint32_t	qpn_ds;

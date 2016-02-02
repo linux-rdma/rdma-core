@@ -600,6 +600,11 @@ static int sq_overhead(enum ibv_qp_type	qp_type)
 			sizeof(struct mlx5_wqe_raddr_seg);
 		break;
 
+	case IBV_QPT_RAW_PACKET:
+		size = sizeof(struct mlx5_wqe_ctrl_seg) +
+			sizeof(struct mlx5_wqe_eth_seg);
+		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -802,7 +807,8 @@ static const char *qptype2key(enum ibv_qp_type type)
 }
 
 static int mlx5_alloc_qp_buf(struct ibv_context *context,
-			     struct ibv_qp_cap *cap, struct mlx5_qp *qp,
+			     struct ibv_qp_init_attr_ex *attr,
+			     struct mlx5_qp *qp,
 			     int size)
 {
 	int err;
@@ -856,8 +862,26 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 
 	memset(qp->buf.buf, 0, qp->buf_size);
 
-	return 0;
+	if (attr->qp_type == IBV_QPT_RAW_PACKET) {
+		size_t aligned_sq_buf_size = align(qp->sq_buf_size,
+						   to_mdev(context->device)->page_size);
+		/* For Raw Packet QP, allocate a separate buffer for the SQ */
+		err = mlx5_alloc_prefered_buf(to_mctx(context), &qp->sq_buf,
+					      aligned_sq_buf_size,
+					      to_mdev(context->device)->page_size,
+					      alloc_type,
+					      MLX5_QP_PREFIX);
+		if (err) {
+			err = -ENOMEM;
+			goto rq_buf;
+		}
 
+		memset(qp->sq_buf.buf, 0, aligned_sq_buf_size);
+	}
+
+	return 0;
+rq_buf:
+	mlx5_free_actual_buf(to_mctx(qp->verbs_qp.qp.context), &qp->buf);
 ex_wrid:
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
@@ -876,6 +900,10 @@ static void mlx5_free_qp_buf(struct mlx5_qp *qp)
 	struct mlx5_context *ctx = to_mctx(qp->ibv_qp->context);
 
 	mlx5_free_actual_buf(ctx, &qp->buf);
+
+	if (qp->sq_buf.buf)
+		mlx5_free_actual_buf(ctx, &qp->sq_buf);
+
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
 
@@ -922,15 +950,31 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 		errno = -ret;
 		goto err;
 	}
-	qp->buf_size = ret;
 
-	if (mlx5_alloc_qp_buf(context, &attr->cap, qp, ret)) {
+	if (attr->qp_type == IBV_QPT_RAW_PACKET) {
+		qp->buf_size = qp->sq.offset;
+		qp->sq_buf_size = ret - qp->buf_size;
+		qp->sq.offset = 0;
+	} else {
+		qp->buf_size = ret;
+		qp->sq_buf_size = 0;
+	}
+
+	if (mlx5_alloc_qp_buf(context, attr, qp, ret)) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
 		goto err;
 	}
 
-	qp->sq.qend = qp->buf.buf + qp->sq.offset +
-		(qp->sq.wqe_cnt << qp->sq.wqe_shift);
+	if (attr->qp_type == IBV_QPT_RAW_PACKET) {
+		qp->sq_start = qp->sq_buf.buf;
+		qp->sq.qend = qp->sq_buf.buf +
+				(qp->sq.wqe_cnt << qp->sq.wqe_shift);
+	} else {
+		qp->sq_start = qp->buf.buf + qp->sq.offset;
+		qp->sq.qend = qp->buf.buf + qp->sq.offset +
+				(qp->sq.wqe_cnt << qp->sq.wqe_shift);
+	}
+
 	mlx5_init_qp_indices(qp);
 
 	if (mlx5_spinlock_init(&qp->sq.lock) ||
@@ -947,6 +991,8 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	qp->db[MLX5_SND_DBR] = 0;
 
 	cmd.buf_addr = (uintptr_t) qp->buf.buf;
+	cmd.sq_buf_addr = (attr->qp_type == IBV_QPT_RAW_PACKET) ?
+			  (uintptr_t) qp->sq_buf.buf : 0;
 	cmd.db_addr  = (uintptr_t) qp->db;
 	cmd.sq_wqe_count = qp->sq.wqe_cnt;
 	cmd.rq_wqe_count = qp->rq.wqe_cnt;
@@ -1145,6 +1191,7 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
 	struct ibv_modify_qp cmd;
+	struct mlx5_qp *mqp = to_mqp(qp);
 	int ret;
 	uint32_t *db;
 
@@ -1154,17 +1201,34 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	    (attr_mask & IBV_QP_STATE) &&
 	    attr->qp_state == IBV_QPS_RESET) {
 		if (qp->recv_cq) {
-			mlx5_cq_clean(to_mcq(qp->recv_cq), to_mqp(qp)->rsc.rsn,
+			mlx5_cq_clean(to_mcq(qp->recv_cq), mqp->rsc.rsn,
 				      qp->srq ? to_msrq(qp->srq) : NULL);
 		}
 		if (qp->send_cq != qp->recv_cq && qp->send_cq)
 			mlx5_cq_clean(to_mcq(qp->send_cq),
 				      to_mqp(qp)->rsc.rsn, NULL);
 
-		mlx5_init_qp_indices(to_mqp(qp));
-		db = to_mqp(qp)->db;
+		mlx5_init_qp_indices(mqp);
+		db = mqp->db;
 		db[MLX5_RCV_DBR] = 0;
 		db[MLX5_SND_DBR] = 0;
+	}
+
+	/*
+	 * When the Raw Packet QP is in INIT state, its RQ
+	 * underneath is already in RDY, which means it can
+	 * receive packets. According to the IB spec, a QP can't
+	 * receive packets until moved to RTR state. To achieve this,
+	 * for Raw Packet QPs, we update the doorbell record
+	 * once the QP is moved to RTR.
+	 */
+	if (!ret &&
+	    (attr_mask & IBV_QP_STATE) &&
+	    attr->qp_state == IBV_QPS_RTR &&
+	    qp->qp_type == IBV_QPT_RAW_PACKET) {
+		mlx5_spin_lock(&mqp->rq.lock);
+		mqp->db[MLX5_RCV_DBR] = htonl(mqp->rq.head & 0xffff);
+		mlx5_spin_unlock(&mqp->rq.lock);
 	}
 
 	return ret;

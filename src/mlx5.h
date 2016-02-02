@@ -427,8 +427,12 @@ struct mlx5_qp {
 	struct verbs_qp			verbs_qp;
 	struct ibv_qp		       *ibv_qp;
 	struct mlx5_buf                 buf;
+	void				*sq_start;
 	int                             max_inline_data;
 	int                             buf_size;
+	/* For Raw Packet QP, use different buffers for the SQ and RQ */
+	struct mlx5_buf                 sq_buf;
+	int				sq_buf_size;
 	struct mlx5_bf		       *bf;
 
 	uint8_t	                        sq_signal_bits;

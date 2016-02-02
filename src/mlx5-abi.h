@@ -132,6 +132,8 @@ struct mlx5_create_qp {
 	__u32				flags;
 	__u32                           uidx;
 	__u32                           reserved;
+	/* SQ buffer address - used for Raw Packet QP */
+	__u64                           sq_buf_addr;
 };
 
 struct mlx5_create_qp_resp {
