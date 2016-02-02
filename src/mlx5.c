@@ -127,6 +127,81 @@ static int read_number_from_line(const char *line, int *value)
 	*value = atoi(ptr);
 	return 0;
 }
+/**
+ * The function looks for the first free user-index in all the
+ * user-index tables. If all are used, returns -1, otherwise
+ * a valid user-index.
+ * In case the reference count of the table is zero, it means the
+ * table is not in use and wasn't allocated yet, therefore the
+ * mlx5_store_uidx allocates the table, and increment the reference
+ * count on the table.
+ */
+static int32_t get_free_uidx(struct mlx5_context *ctx)
+{
+	int32_t tind;
+	int32_t i;
+
+	for (tind = 0; tind < MLX5_UIDX_TABLE_SIZE; tind++) {
+		if (ctx->uidx_table[tind].refcnt < MLX5_UIDX_TABLE_MASK)
+			break;
+	}
+
+	if (tind == MLX5_UIDX_TABLE_SIZE)
+		return -1;
+
+	if (!ctx->uidx_table[tind].refcnt)
+		return tind << MLX5_UIDX_TABLE_SHIFT;
+
+	for (i = 0; i < MLX5_UIDX_TABLE_MASK + 1; i++) {
+		if (!ctx->uidx_table[tind].table[i])
+			break;
+	}
+
+	return (tind << MLX5_UIDX_TABLE_SHIFT) | i;
+}
+
+int32_t mlx5_store_uidx(struct mlx5_context *ctx, void *rsc)
+{
+	int32_t tind;
+	int32_t ret = -1;
+	int32_t uidx;
+
+	pthread_mutex_lock(&ctx->uidx_table_mutex);
+	uidx = get_free_uidx(ctx);
+	if (uidx < 0)
+		goto out;
+
+	tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
+
+	if (!ctx->uidx_table[tind].refcnt) {
+		ctx->uidx_table[tind].table = calloc(MLX5_UIDX_TABLE_MASK + 1,
+						     sizeof(void *));
+		if (!ctx->uidx_table[tind].table)
+			goto out;
+	}
+
+	++ctx->uidx_table[tind].refcnt;
+	ctx->uidx_table[tind].table[uidx & MLX5_UIDX_TABLE_MASK] = rsc;
+	ret = uidx;
+
+out:
+	pthread_mutex_unlock(&ctx->uidx_table_mutex);
+	return ret;
+}
+
+void mlx5_clear_uidx(struct mlx5_context *ctx, uint32_t uidx)
+{
+	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
+
+	pthread_mutex_lock(&ctx->uidx_table_mutex);
+
+	if (!--ctx->uidx_table[tind].refcnt)
+		free(ctx->uidx_table[tind].table);
+	else
+		ctx->uidx_table[tind].table[uidx & MLX5_UIDX_TABLE_MASK] = NULL;
+
+	pthread_mutex_unlock(&ctx->uidx_table_mutex);
+}
 
 static int mlx5_is_sandy_bridge(int *num_cores)
 {
@@ -535,6 +610,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
+	pthread_mutex_init(&context->uidx_table_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 

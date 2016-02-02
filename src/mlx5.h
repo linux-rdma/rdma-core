@@ -165,6 +165,12 @@ enum {
 };
 
 enum {
+	MLX5_UIDX_TABLE_SHIFT		= 12,
+	MLX5_UIDX_TABLE_MASK		= (1 << MLX5_UIDX_TABLE_SHIFT) - 1,
+	MLX5_UIDX_TABLE_SIZE		= 1 << (24 - MLX5_UIDX_TABLE_SHIFT),
+};
+
+enum {
 	MLX5_SRQ_TABLE_SHIFT		= 12,
 	MLX5_SRQ_TABLE_MASK		= (1 << MLX5_SRQ_TABLE_SHIFT) - 1,
 	MLX5_SRQ_TABLE_SIZE		= 1 << (24 - MLX5_SRQ_TABLE_SHIFT),
@@ -274,6 +280,12 @@ struct mlx5_context {
 		int			refcnt;
 	}				srq_table[MLX5_SRQ_TABLE_SIZE];
 	pthread_mutex_t			srq_table_mutex;
+
+	struct {
+		struct mlx5_resource  **table;
+		int                     refcnt;
+	}				uidx_table[MLX5_UIDX_TABLE_SIZE];
+	pthread_mutex_t                 uidx_table_mutex;
 
 	void			       *uar[MLX5_MAX_UAR_PAGES];
 	struct mlx5_spinlock		lock32;
@@ -616,6 +628,8 @@ void mlx5_set_sq_sizes(struct mlx5_qp *qp, struct ibv_qp_cap *cap,
 struct mlx5_qp *mlx5_find_qp(struct mlx5_context *ctx, uint32_t qpn);
 int mlx5_store_qp(struct mlx5_context *ctx, uint32_t qpn, struct mlx5_qp *qp);
 void mlx5_clear_qp(struct mlx5_context *ctx, uint32_t qpn);
+int32_t mlx5_store_uidx(struct mlx5_context *ctx, void *rsc);
+void mlx5_clear_uidx(struct mlx5_context *ctx, uint32_t uidx);
 struct mlx5_srq *mlx5_find_srq(struct mlx5_context *ctx, uint32_t srqn);
 int mlx5_store_srq(struct mlx5_context *ctx, uint32_t srqn,
 		   struct mlx5_srq *srq);
@@ -639,6 +653,16 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
 int mlx5_close_xrcd(struct ibv_xrcd *ib_xrcd);
 struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 				   struct ibv_srq_init_attr_ex *attr);
+
+static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
+{
+	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
+
+	if (likely(ctx->uidx_table[tind].refcnt))
+		return ctx->uidx_table[tind].table[uidx & MLX5_UIDX_TABLE_MASK];
+
+	return NULL;
+}
 
 static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 {
