@@ -140,6 +140,9 @@ int ibv_fork_init(void)
 	int ret;
 	unsigned long size;
 
+	if (getenv("RDMAV_HUGEPAGES_SAFE"))
+		huge_page_enabled = 1;
+
 	if (mm_root)
 		return 0;
 
@@ -152,11 +155,6 @@ int ibv_fork_init(void)
 
 	if (posix_memalign(&tmp, page_size, page_size))
 		return ENOMEM;
-
-	if (getenv("RDMAV_HUGEPAGES_SAFE"))
-		huge_page_enabled = 1;
-	else
-		huge_page_enabled = 0;
 
 	if (huge_page_enabled) {
 		size = get_page_size(tmp);
