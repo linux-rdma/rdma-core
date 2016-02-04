@@ -998,6 +998,9 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	cmd.rq_wqe_count = qp->rq.wqe_cnt;
 	cmd.rq_wqe_shift = qp->rq.wqe_shift;
 
+	if (ctx->atomic_cap == IBV_ATOMIC_HCA)
+		qp->atomics_enabled = 1;
+
 	if (!ctx->cqe_version) {
 		cmd.uidx = 0xffffff;
 		pthread_mutex_lock(&ctx->qp_table_mutex);

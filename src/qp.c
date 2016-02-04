@@ -46,6 +46,8 @@
 #include "doorbell.h"
 #include "wqe.h"
 
+#define MLX5_ATOMIC_SIZE 8
+
 static const uint32_t mlx5_ib_opcode[] = {
 	[IBV_WR_SEND]			= MLX5_OPCODE_SEND,
 	[IBV_WR_SEND_WITH_IMM]		= MLX5_OPCODE_SEND_IMM,
@@ -180,6 +182,19 @@ static inline void set_raddr_seg(struct mlx5_wqe_raddr_seg *rseg,
 	rseg->reserved = 0;
 }
 
+static void set_atomic_seg(struct mlx5_wqe_atomic_seg *aseg,
+			   enum ibv_wr_opcode   opcode,
+			   uint64_t swap,
+			   uint64_t compare_add)
+{
+	if (opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+		aseg->swap_add = htonll(swap);
+		aseg->compare  = htonll(compare_add);
+	} else {
+		aseg->swap_add = htonll(compare_add);
+	}
+}
+
 static void set_datagram_seg(struct mlx5_wqe_datagram_seg *dseg,
 			     struct ibv_send_wr *wr)
 {
@@ -194,6 +209,14 @@ static void set_data_ptr_seg(struct mlx5_wqe_data_seg *dseg, struct ibv_sge *sg,
 	dseg->byte_count = htonl(sg->length - offset);
 	dseg->lkey       = htonl(sg->lkey);
 	dseg->addr       = htonll(sg->addr + offset);
+}
+
+static void set_data_ptr_seg_atomic(struct mlx5_wqe_data_seg *dseg,
+				    struct ibv_sge *sg)
+{
+	dseg->byte_count = htonl(MLX5_ATOMIC_SIZE);
+	dseg->lkey       = htonl(sg->lkey);
+	dseg->addr       = htonll(sg->addr);
 }
 
 /*
@@ -467,10 +490,24 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
-				fprintf(stderr, "atomic operations are not supported yet\n");
-				err = ENOSYS;
-				*bad_wr = wr;
-				goto out;
+				if (unlikely(!qp->atomics_enabled)) {
+					mlx5_dbg(fp, MLX5_DBG_QP_SEND, "atomic operations are not supported\n");
+					err = ENOSYS;
+					*bad_wr = wr;
+					goto out;
+				}
+				set_raddr_seg(seg, wr->wr.atomic.remote_addr,
+					      wr->wr.atomic.rkey);
+				seg  += sizeof(struct mlx5_wqe_raddr_seg);
+
+				set_atomic_seg(seg, wr->opcode,
+					       wr->wr.atomic.swap,
+					       wr->wr.atomic.compare_add);
+				seg  += sizeof(struct mlx5_wqe_atomic_seg);
+
+				size += (sizeof(struct mlx5_wqe_raddr_seg) +
+				sizeof(struct mlx5_wqe_atomic_seg)) / 16;
+				break;
 
 			default:
 				break;
@@ -551,8 +588,14 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					dpseg = seg;
 				}
 				if (likely(wr->sg_list[i].length)) {
-					set_data_ptr_seg(dpseg, wr->sg_list + i,
-							 sg_copy_ptr.offset);
+					if (unlikely(wr->opcode ==
+						   IBV_WR_ATOMIC_CMP_AND_SWP ||
+						   wr->opcode ==
+						   IBV_WR_ATOMIC_FETCH_AND_ADD))
+						set_data_ptr_seg_atomic(dpseg, wr->sg_list + i);
+					else
+						set_data_ptr_seg(dpseg, wr->sg_list + i,
+								 sg_copy_ptr.offset);
 					sg_copy_ptr.offset = 0;
 					++dpseg;
 					size += sizeof(struct mlx5_wqe_data_seg) / 16;

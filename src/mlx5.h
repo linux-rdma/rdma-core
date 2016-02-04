@@ -327,6 +327,7 @@ struct mlx5_context {
 	int				cqe_version;
 	uint8_t				cached_link_layer[MLX5_MAX_PORTS_NUM];
 	int				cached_device_cap_flags;
+	enum ibv_atomic_cap		atomic_cap;
 };
 
 struct mlx5_bitmap {
@@ -457,6 +458,7 @@ struct mlx5_qp {
 	struct mlx5_wq                  rq;
 	int                             wq_sig;
 	uint32_t			qp_cap_cache;
+	int				atomics_enabled;
 };
 
 struct mlx5_av {

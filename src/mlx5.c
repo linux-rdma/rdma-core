@@ -680,8 +680,10 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, ibv_cmd_destroy_flow);
 
 	memset(&device_attr, 0, sizeof(device_attr));
-	if (!mlx5_query_device(ctx, &device_attr))
+	if (!mlx5_query_device(ctx, &device_attr)) {
 		context->cached_device_cap_flags = device_attr.device_cap_flags;
+		context->atomic_cap = device_attr.atomic_cap;
+	}
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {
 		memset(&port_attr, 0, sizeof(port_attr));
