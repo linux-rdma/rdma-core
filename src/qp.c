@@ -512,6 +512,17 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				goto out;
 			}
 
+			if (wr->send_flags & IBV_SEND_IP_CSUM) {
+				if (!(qp->qp_cap_cache & MLX5_CSUM_SUPPORT_RAW_OVER_ETH)) {
+					err = EINVAL;
+					*bad_wr = wr;
+					goto out;
+				}
+
+				((struct mlx5_wqe_eth_seg *)seg)->cs_flags |=
+					MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
+			}
+
 			seg += sizeof(struct mlx5_wqe_eth_seg);
 			size += sizeof(struct mlx5_wqe_eth_seg) / 16;
 			break;

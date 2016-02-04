@@ -230,6 +230,19 @@ enum {
 	MLX5_INLINE_SEG	= 0x80000000,
 };
 
+enum {
+	MLX5_MAX_PORTS_NUM = 2,
+};
+
+enum {
+	MLX5_CSUM_SUPPORT_RAW_OVER_ETH  = (1 <<  0),
+	/*
+	 * Only report rx checksum when the validation
+	 * is valid.
+	 */
+	MLX5_RX_CSUM_VALID              = (1 << 16),
+};
+
 enum mlx5_alloc_type {
 	MLX5_ALLOC_TYPE_ANON,
 	MLX5_ALLOC_TYPE_HUGE,
@@ -312,6 +325,8 @@ struct mlx5_context {
 	struct mlx5_spinlock            hugetlb_lock;
 	struct list_head                hugetlb_list;
 	int				cqe_version;
+	uint8_t				cached_link_layer[MLX5_MAX_PORTS_NUM];
+	int				cached_device_cap_flags;
 };
 
 struct mlx5_bitmap {
@@ -441,6 +456,7 @@ struct mlx5_qp {
 	uint32_t                       *db;
 	struct mlx5_wq                  rq;
 	int                             wq_sig;
+	uint32_t			qp_cap_cache;
 };
 
 struct mlx5_av {

@@ -1192,8 +1192,24 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 {
 	struct ibv_modify_qp cmd;
 	struct mlx5_qp *mqp = to_mqp(qp);
+	struct mlx5_context *context = to_mctx(qp->context);
 	int ret;
 	uint32_t *db;
+
+	if (attr_mask & IBV_QP_PORT) {
+		switch (qp->qp_type) {
+		case IBV_QPT_RAW_PACKET:
+			if ((context->cached_link_layer[attr->port_num - 1] ==
+			     IBV_LINK_LAYER_ETHERNET) &&
+			    (context->cached_device_cap_flags &
+			     IBV_DEVICE_RAW_IP_CSUM))
+				mqp->qp_cap_cache |= MLX5_CSUM_SUPPORT_RAW_OVER_ETH |
+						     MLX5_RX_CSUM_VALID;
+			break;
+		default:
+			break;
+		}
+	}
 
 	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
 

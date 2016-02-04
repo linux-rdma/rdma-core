@@ -547,6 +547,8 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	off_t				offset;
 	struct mlx5_device	       *mdev;
 	struct verbs_context	       *v_ctx;
+	struct ibv_port_attr		port_attr;
+	struct ibv_device_attr		device_attr;
 
 	mdev = to_mdev(&vdev->device);
 	v_ctx = verbs_get_ctx(ctx);
@@ -676,6 +678,16 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, query_device_ex, mlx5_query_device_ex);
 	verbs_set_ctx_op(v_ctx, ibv_create_flow, ibv_cmd_create_flow);
 	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, ibv_cmd_destroy_flow);
+
+	memset(&device_attr, 0, sizeof(device_attr));
+	if (!mlx5_query_device(ctx, &device_attr))
+		context->cached_device_cap_flags = device_attr.device_cap_flags;
+
+	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {
+		memset(&port_attr, 0, sizeof(port_attr));
+		if (!mlx5_query_port(ctx, j + 1, &port_attr))
+			context->cached_link_layer[j] = port_attr.link_layer;
+	}
 
 	return 0;
 

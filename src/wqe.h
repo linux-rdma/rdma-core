@@ -79,6 +79,11 @@ enum {
 	MLX5_ETH_L2_INLINE_HEADER_SIZE	= 18,
 };
 
+enum {
+	MLX5_ETH_WQE_L3_CSUM = (1 << 6),
+	MLX5_ETH_WQE_L4_CSUM = (1 << 7),
+};
+
 struct mlx5_wqe_eth_seg {
 	uint32_t	rsvd0;
 	uint8_t		cs_flags;

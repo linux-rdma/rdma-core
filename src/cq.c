@@ -97,6 +97,18 @@ enum {
 	MLX5_CQ_MODIFY_MAPPING = 2,
 };
 
+enum {
+	MLX5_CQE_L2_OK = 1 << 0,
+	MLX5_CQE_L3_OK = 1 << 1,
+	MLX5_CQE_L4_OK = 1 << 2,
+};
+
+enum {
+	MLX5_CQE_L3_HDR_TYPE_NONE = 0x0,
+	MLX5_CQE_L3_HDR_TYPE_IPV6 = 0x1,
+	MLX5_CQE_L3_HDR_TYPE_IPV4 = 0x2,
+};
+
 struct mlx5_err_cqe {
 	uint8_t		rsvd0[32];
 	uint32_t	srqn;
@@ -115,7 +127,9 @@ struct mlx5_cqe64 {
 	uint8_t		rsvd20[4];
 	uint16_t	slid;
 	uint32_t	flags_rqpn;
-	uint8_t		rsvd28[4];
+	uint8_t		hds_ip_ext;
+	uint8_t		l4_hdr_type_etc;
+	uint16_t	vlan_info;
 	uint32_t	srqn_uidx;
 	uint32_t	imm_inval_pkey;
 	uint8_t		rsvd40[4];
@@ -132,6 +146,11 @@ int mlx5_stall_cq_poll_min = 60;
 int mlx5_stall_cq_poll_max = 100000;
 int mlx5_stall_cq_inc_step = 100;
 int mlx5_stall_cq_dec_step = 10;
+
+static inline uint8_t get_cqe_l3_hdr_type(struct mlx5_cqe64 *cqe)
+{
+	return (cqe->l4_hdr_type_etc >> 2) & 0x3;
+}
 
 static void *get_buf_cqe(struct mlx5_buf *buf, int n, int cqe_sz)
 {
@@ -230,6 +249,12 @@ static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe - 1,
 						    wc->byte_len);
+		if (qp->qp_cap_cache & MLX5_RX_CSUM_VALID)
+			wc->wc_flags |= (!!(cqe->hds_ip_ext & MLX5_CQE_L4_OK) &
+					 !!(cqe->hds_ip_ext & MLX5_CQE_L3_OK) &
+					(get_cqe_l3_hdr_type(cqe) ==
+					MLX5_CQE_L3_HDR_TYPE_IPV4)) <<
+					IBV_WC_IP_CSUM_OK_SHIFT;
 	}
 	if (err)
 		return err;
@@ -239,7 +264,7 @@ static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 	switch (cqe->op_own >> 4) {
 	case MLX5_CQE_RESP_WR_IMM:
 		wc->opcode	= IBV_WC_RECV_RDMA_WITH_IMM;
-		wc->wc_flags	= IBV_WC_WITH_IMM;
+		wc->wc_flags	|= IBV_WC_WITH_IMM;
 		wc->imm_data = cqe->imm_inval_pkey;
 		break;
 	case MLX5_CQE_RESP_SEND:
@@ -247,7 +272,7 @@ static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 		break;
 	case MLX5_CQE_RESP_SEND_IMM:
 		wc->opcode	= IBV_WC_RECV;
-		wc->wc_flags	= IBV_WC_WITH_IMM;
+		wc->wc_flags	|= IBV_WC_WITH_IMM;
 		wc->imm_data = cqe->imm_inval_pkey;
 		break;
 	}
