@@ -69,6 +69,24 @@ uint32_t remote_srqn;            /* Number of the remote SRQ */
 } xrc;
 .in -8
 } qp_type;
+struct {
+.in +8
+struct ibv_mw            *mw;             /* Memory window (MW) of type 2 to bind */
+uint32_t                 rkey;            /* The desired new rkey of the MW */
+struct ibv_mw_bind_info  bind_info;       /* MW additional bind information */
+.in -8
+} bind_mw;
+.in -8
+};
+.fi
+.sp
+.nf
+struct ibv_mw_bind_info {
+.in +8
+struct ibv_mr            *mr;             /* The Memory region (MR) to bind the MW to */
+uint64_t                 addr;           /* The address the MW should start at */
+uint64_t                 length;          /* The length (in bytes) the MW should span */
+int                      mw_access_flags; /* Access flags to the MW. Use ibv_access_flags */
 .in -8
 };
 .fi
@@ -95,6 +113,9 @@ IBV_WR_RDMA_WRITE_WITH_IMM  |            |     X      |     X     |     X
 IBV_WR_RDMA_READ            |            |            |     X     |     X
 IBV_WR_ATOMIC_CMP_AND_SWP   |            |            |     X     |     X
 IBV_WR_ATOMIC_FETCH_AND_ADD |            |            |     X     |     X
+IBV_WR_LOCAL_INV            |            |     X      |     X     |     X
+IBV_WR_BIND_MW              |            |     X      |     X     |     X
+IBV_WR_SEND_WITH_INV        |            |     X      |     X     |     X
 .fi
 .PP
 The attribute send_flags describes the properties of the \s-1WR\s0. It is either 0 or the bitwise \s-1OR\s0 of one or more of the following flags:
@@ -135,3 +156,7 @@ after the call returns.
 .SH "AUTHORS"
 .TP
 Dotan Barak <dotanba@gmail.com>
+.TP
+Majd Dibbiny <majd@mellanox.com>
+.TP
+Yishai Hadas <yishaih@mellanox.com>
