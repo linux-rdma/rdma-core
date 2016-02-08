@@ -197,6 +197,7 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		free(mr);
 		return NULL;
 	}
+	mr->alloc_flags = acc;
 
 	return &mr->ibv_mr;
 }
@@ -730,17 +731,22 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 static int sq_overhead(enum ibv_qp_type	qp_type)
 {
 	int size = 0;
+	size_t mw_bind_size = sizeof(struct mlx5_wqe_umr_ctrl_seg) +
+			      sizeof(struct mlx5_wqe_mkey_context_seg) +
+			      max(sizeof(struct mlx5_wqe_umr_klm_seg), 64);
 
 	switch (qp_type) {
 	case IBV_QPT_RC:
 		size += sizeof(struct mlx5_wqe_ctrl_seg) +
-			sizeof(struct mlx5_wqe_atomic_seg) +
-			sizeof(struct mlx5_wqe_raddr_seg);
+			max(sizeof(struct mlx5_wqe_atomic_seg) +
+			    sizeof(struct mlx5_wqe_raddr_seg),
+			    mw_bind_size);
 		break;
 
 	case IBV_QPT_UC:
 		size = sizeof(struct mlx5_wqe_ctrl_seg) +
-			sizeof(struct mlx5_wqe_raddr_seg);
+			max(sizeof(struct mlx5_wqe_raddr_seg),
+			    mw_bind_size);
 		break;
 
 	case IBV_QPT_UD:
@@ -749,10 +755,11 @@ static int sq_overhead(enum ibv_qp_type	qp_type)
 		break;
 
 	case IBV_QPT_XRC_SEND:
+		size = sizeof(struct mlx5_wqe_ctrl_seg) + mw_bind_size;
 	case IBV_QPT_XRC_RECV:
-		size = sizeof(struct mlx5_wqe_ctrl_seg) +
-			sizeof(struct mlx5_wqe_xrc_seg) +
-			sizeof(struct mlx5_wqe_raddr_seg);
+		size = max(size, sizeof(struct mlx5_wqe_ctrl_seg) +
+			   sizeof(struct mlx5_wqe_xrc_seg) +
+			   sizeof(struct mlx5_wqe_raddr_seg));
 		break;
 
 	case IBV_QPT_RAW_PACKET:

@@ -96,6 +96,7 @@ static struct ibv_context_ops mlx5_ctx_ops = {
 	.dereg_mr      = mlx5_dereg_mr,
 	.alloc_mw      = mlx5_alloc_mw,
 	.dealloc_mw    = mlx5_dealloc_mw,
+	.bind_mw       = mlx5_bind_mw,
 	.create_cq     = mlx5_create_cq,
 	.poll_cq       = mlx5_poll_cq,
 	.req_notify_cq = mlx5_arm_cq,

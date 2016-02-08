@@ -32,6 +32,13 @@ if test x$with_mlx5_debug = xyes; then
 	CFLAGS="$CFLAGS -DMLX5_DEBUG"
 fi
 
+AC_ARG_WITH([mw_debug],
+    AC_HELP_STRING([--with-mw_debug],
+        [Enable memory windows extra checks (default NO)]))
+if test x$with_mw_debug = xyes; then
+	CFLAGS="$CFLAGS -DMW_DEBUG"
+fi
+
 CFLAGS="$CFLAGS -Werror"
 
 dnl Checks for programs

@@ -227,6 +227,7 @@ enum {
 
 	MLX5_CQE_OPCODE_ERROR		= 0x1e,
 	MLX5_CQE_OPCODE_RESIZE		= 0x16,
+	MLX5_OPCODE_UMR			= 0x25,
 };
 
 enum {
@@ -476,6 +477,7 @@ struct mlx5_qp {
 	int				sq_buf_size;
 	struct mlx5_bf		       *bf;
 
+	uint8_t				fm_cache;
 	uint8_t	                        sq_signal_bits;
 	struct mlx5_wq                  sq;
 
@@ -649,6 +651,8 @@ int mlx5_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 int mlx5_dereg_mr(struct ibv_mr *mr);
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type);
 int mlx5_dealloc_mw(struct ibv_mw *mw);
+int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
+		 struct ibv_mw_bind *mw_bind);
 
 struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,

@@ -56,6 +56,7 @@ static const uint32_t mlx5_ib_opcode[] = {
 	[IBV_WR_RDMA_READ]		= MLX5_OPCODE_RDMA_READ,
 	[IBV_WR_ATOMIC_CMP_AND_SWP]	= MLX5_OPCODE_ATOMIC_CS,
 	[IBV_WR_ATOMIC_FETCH_AND_ADD]	= MLX5_OPCODE_ATOMIC_FA,
+	[IBV_WR_BIND_MW]		= MLX5_OPCODE_UMR
 };
 
 static void *get_recv_wqe(struct mlx5_qp *qp, int n)
@@ -401,8 +402,151 @@ static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
 	return 0;
 }
 
-int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
-			  struct ibv_send_wr **bad_wr)
+#define ALIGN(x, log_a) ((((x) + (1 << (log_a)) - 1)) & ~((1 << (log_a)) - 1))
+
+static inline uint16_t get_klm_octo(int nentries)
+{
+	return htons(ALIGN(nentries, 3) / 2);
+}
+
+static void set_umr_data_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
+			     int32_t rkey, struct ibv_mw_bind_info *bind_info,
+			     uint32_t qpn, void **seg, int *size)
+{
+	union {
+		struct mlx5_wqe_umr_klm_seg	klm;
+		uint8_t				reserved[64];
+	} *data = *seg;
+
+	data->klm.byte_count = htonl(bind_info->length);
+	data->klm.mkey = htonl(bind_info->mr->lkey);
+	data->klm.address = htonll(bind_info->addr);
+
+	memset(&data->klm + 1, 0, sizeof(data->reserved) -
+	       sizeof(data->klm));
+
+	*seg += sizeof(*data);
+	*size += (sizeof(*data) / 16);
+}
+
+static void set_umr_mkey_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
+			     int32_t rkey, struct ibv_mw_bind_info *bind_info,
+			     uint32_t qpn, void **seg, int *size)
+{
+	struct mlx5_wqe_mkey_context_seg	*mkey = *seg;
+
+	mkey->qpn_mkey = htonl((rkey & 0xFF) |
+				   ((type == IBV_MW_TYPE_1 || !bind_info->length) ?
+				    0xFFFFFF00 : qpn << 8));
+	if (bind_info->length) {
+		/* Local read is set in kernel */
+		mkey->access_flags = 0;
+		mkey->free = 0;
+		if (bind_info->mw_access_flags & IBV_ACCESS_LOCAL_WRITE)
+			mkey->access_flags |=
+				MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_LOCAL_WRITE;
+		if (bind_info->mw_access_flags & IBV_ACCESS_REMOTE_WRITE)
+			mkey->access_flags |=
+				MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_REMOTE_WRITE;
+		if (bind_info->mw_access_flags & IBV_ACCESS_REMOTE_READ)
+			mkey->access_flags |=
+				MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_REMOTE_READ;
+		if (bind_info->mw_access_flags & IBV_ACCESS_REMOTE_ATOMIC)
+			mkey->access_flags |=
+				MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_ATOMIC;
+		if (bind_info->mw_access_flags & IBV_ACCESS_ZERO_BASED)
+			mkey->start_addr = 0;
+		else
+			mkey->start_addr = htonll(bind_info->addr);
+		mkey->len = htonll(bind_info->length);
+	} else {
+		mkey->free = MLX5_WQE_MKEY_CONTEXT_FREE;
+	}
+
+	*seg += sizeof(struct mlx5_wqe_mkey_context_seg);
+	*size += (sizeof(struct mlx5_wqe_mkey_context_seg) / 16);
+}
+
+static inline void set_umr_control_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
+				       int32_t rkey, struct ibv_mw_bind_info *bind_info,
+				       uint32_t qpn, void **seg, int *size)
+{
+	struct mlx5_wqe_umr_ctrl_seg		*ctrl = *seg;
+
+	ctrl->flags = MLX5_WQE_UMR_CTRL_FLAG_TRNSLATION_OFFSET |
+		MLX5_WQE_UMR_CTRL_FLAG_INLINE;
+	ctrl->mkey_mask = htonll(MLX5_WQE_UMR_CTRL_MKEY_MASK_FREE |
+				     MLX5_WQE_UMR_CTRL_MKEY_MASK_MKEY);
+	ctrl->translation_offset = 0;
+	memset(ctrl->rsvd0, 0, sizeof(ctrl->rsvd0));
+	memset(ctrl->rsvd1, 0, sizeof(ctrl->rsvd1));
+
+	if (bind_info->length) {
+		ctrl->klm_octowords = get_klm_octo(1);
+		ctrl->mkey_mask |= htonll(MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN	|
+					      MLX5_WQE_UMR_CTRL_MKEY_MASK_START_ADDR |
+					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_LOCAL_WRITE |
+					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_REMOTE_READ |
+					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_REMOTE_WRITE |
+					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_ATOMIC);
+	} else {
+		ctrl->klm_octowords = get_klm_octo(0);
+	}
+
+	*seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
+	*size += sizeof(struct mlx5_wqe_umr_ctrl_seg) / 16;
+}
+
+static inline int set_bind_wr(struct mlx5_qp *qp, enum ibv_mw_type type,
+			      int32_t rkey, struct ibv_mw_bind_info *bind_info,
+			      uint32_t qpn, void **seg, int *size)
+{
+	void *qend = qp->sq.qend;
+
+#ifdef MW_DEBUG
+	if (bind_info->mw_access_flags &
+	    ~(IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_REMOTE_READ |
+	     IBV_ACCESS_REMOTE_WRITE)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (bind_info->mr &&
+	    (bind_info->mr->addr > (void *)bind_info->addr ||
+	     bind_info->mr->addr + bind_info->mr->length <
+	     (void *)bind_info->addr + bind_info->length ||
+	     !(to_mmr(bind_info->mr)->alloc_flags &  IBV_ACCESS_MW_BIND) ||
+	     (bind_info->mw_access_flags &
+	      (IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_REMOTE_WRITE) &&
+	      !(to_mmr(bind_info->mr)->alloc_flags & IBV_ACCESS_LOCAL_WRITE)))) {
+		errno = EINVAL;
+		return errno;
+	}
+#endif
+
+	/* check that len > 2GB because KLM support only 2GB */
+	if (bind_info->length > 1UL << 31) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	set_umr_control_seg(qp, type, rkey, bind_info, qpn, seg, size);
+	if (unlikely((*seg == qend)))
+		*seg = mlx5_get_send_wqe(qp, 0);
+
+	set_umr_mkey_seg(qp, type, rkey, bind_info, qpn, seg, size);
+	if (!bind_info->length)
+		return 0;
+
+	if (unlikely((seg == qend)))
+		*seg = mlx5_get_send_wqe(qp, 0);
+
+	set_umr_data_seg(qp, type, rkey, bind_info, qpn, seg, size);
+	return 0;
+}
+
+static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+				  struct ibv_send_wr **bad_wr)
 {
 	struct mlx5_context *ctx;
 	struct mlx5_qp *qp = to_mqp(ibqp);
@@ -421,11 +565,15 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	void *qend = qp->sq.qend;
 	uint32_t mlx5_opcode;
 	struct mlx5_wqe_xrc_seg *xrc;
+	uint8_t fence;
+	uint8_t next_fence;
 #ifdef MLX5_DEBUG
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp;
 #endif
 
 	mlx5_spin_lock(&qp->sq.lock);
+
+	next_fence = qp->fm_cache;
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (unlikely(wr->opcode < 0 ||
@@ -455,27 +603,32 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
+		if (wr->send_flags & IBV_SEND_FENCE)
+			fence = MLX5_WQE_CTRL_FENCE;
+		else
+			fence = next_fence;
+		next_fence = 0;
 		idx = qp->sq.cur_post & (qp->sq.wqe_cnt - 1);
 		ctrl = seg = mlx5_get_send_wqe(qp, idx);
 		*(uint32_t *)(seg + 8) = 0;
 		ctrl->imm = send_ieth(wr);
-		ctrl->fm_ce_se = qp->sq_signal_bits |
+		ctrl->fm_ce_se = qp->sq_signal_bits | fence |
 			(wr->send_flags & IBV_SEND_SIGNALED ?
 			 MLX5_WQE_CTRL_CQ_UPDATE : 0) |
 			(wr->send_flags & IBV_SEND_SOLICITED ?
-			 MLX5_WQE_CTRL_SOLICITED : 0) |
-			(wr->send_flags & IBV_SEND_FENCE ?
-			 MLX5_WQE_CTRL_FENCE : 0);
+			 MLX5_WQE_CTRL_SOLICITED : 0);
 
 		seg += sizeof *ctrl;
 		size = sizeof *ctrl / 16;
 
 		switch (ibqp->qp_type) {
 		case IBV_QPT_XRC_SEND:
-			xrc = seg;
-			xrc->xrc_srqn = htonl(wr->qp_type.xrc.remote_srqn);
-			seg += sizeof(*xrc);
-			size += sizeof(*xrc) / 16;
+			if (unlikely(wr->opcode != IBV_WR_BIND_MW)) {
+				xrc = seg;
+				xrc->xrc_srqn = htonl(wr->qp_type.xrc.remote_srqn);
+				seg += sizeof(*xrc);
+				size += sizeof(*xrc) / 16;
+			}
 			/* fall through */
 		case IBV_QPT_RC:
 			switch (wr->opcode) {
@@ -509,6 +662,19 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				sizeof(struct mlx5_wqe_atomic_seg)) / 16;
 				break;
 
+			case IBV_WR_BIND_MW:
+				next_fence = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
+				ctrl->imm = htonl(wr->bind_mw.mw->rkey);
+				err = set_bind_wr(qp, wr->bind_mw.mw->type,
+						  wr->bind_mw.rkey,
+						  &wr->bind_mw.bind_info,
+						  ibqp->qp_num, &seg, &size);
+				if (err) {
+					*bad_wr = wr;
+					goto out;
+				}
+				break;
+
 			default:
 				break;
 			}
@@ -522,6 +688,18 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					      wr->wr.rdma.rkey);
 				seg  += sizeof(struct mlx5_wqe_raddr_seg);
 				size += sizeof(struct mlx5_wqe_raddr_seg) / 16;
+				break;
+			case IBV_WR_BIND_MW:
+				next_fence = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
+				ctrl->imm = htonl(wr->bind_mw.mw->rkey);
+				err = set_bind_wr(qp, wr->bind_mw.mw->type,
+						  wr->bind_mw.rkey,
+						  &wr->bind_mw.bind_info,
+						  ibqp->qp_num, &seg, &size);
+				if (err) {
+					*bad_wr = wr;
+					goto out;
+				}
 				break;
 
 			default:
@@ -625,6 +803,7 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 out:
 	if (likely(nreq)) {
 		qp->sq.head += nreq;
+		qp->fm_cache = next_fence;
 
 		/*
 		 * Make sure that descriptors are written before
@@ -665,6 +844,68 @@ out:
 	mlx5_spin_unlock(&qp->sq.lock);
 
 	return err;
+}
+
+int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+		   struct ibv_send_wr **bad_wr)
+{
+#ifdef MW_DEBUG
+	if (wr->opcode == IBV_WR_BIND_MW) {
+		if (wr->bind_mw.mw->type == IBV_MW_TYPE_1) {
+			errno = EINVAL;
+			return errno;
+		}
+	}
+#endif
+
+	return _mlx5_post_send(ibqp, wr, bad_wr);
+}
+
+int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
+		 struct ibv_mw_bind *mw_bind)
+{
+	struct ibv_mw_bind_info	*bind_info = &mw_bind->bind_info;
+	struct ibv_send_wr wr = {};
+	struct ibv_send_wr *bad_wr = NULL;
+	int ret;
+
+	if (!bind_info->mr && (bind_info->addr || bind_info->length)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (bind_info->mw_access_flags & IBV_ACCESS_ZERO_BASED) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (bind_info->mr) {
+		if (to_mmr(bind_info->mr)->alloc_flags & IBV_ACCESS_ZERO_BASED) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		if (mw->pd != bind_info->mr->pd) {
+			errno = EPERM;
+			return errno;
+		}
+	}
+
+	wr.opcode = IBV_WR_BIND_MW;
+	wr.next = NULL;
+	wr.wr_id = mw_bind->wr_id;
+	wr.send_flags = mw_bind->send_flags;
+	wr.bind_mw.bind_info = mw_bind->bind_info;
+	wr.bind_mw.mw = mw;
+	wr.bind_mw.rkey = ibv_inc_rkey(mw->rkey);
+
+	ret = _mlx5_post_send(qp, &wr, &bad_wr);
+	if (ret)
+		return ret;
+
+	mw->rkey = wr.bind_mw.rkey;
+
+	return 0;
 }
 
 static void set_sig_seg(struct mlx5_qp *qp, struct mlx5_rwqe_sig *sig,
