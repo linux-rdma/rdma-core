@@ -344,6 +344,7 @@ enum ibv_wc_opcode {
 	IBV_WC_COMP_SWAP,
 	IBV_WC_FETCH_ADD,
 	IBV_WC_BIND_MW,
+	IBV_WC_LOCAL_INV,
 /*
  * Set value of IBV_WC_RECV so consumers can test if a completion is a
  * receive by testing (opcode & IBV_WC_RECV).
@@ -359,7 +360,8 @@ enum {
 enum ibv_wc_flags {
 	IBV_WC_GRH		= 1 << 0,
 	IBV_WC_WITH_IMM		= 1 << 1,
-	IBV_WC_IP_CSUM_OK	= 1 << IBV_WC_IP_CSUM_OK_SHIFT
+	IBV_WC_IP_CSUM_OK	= 1 << IBV_WC_IP_CSUM_OK_SHIFT,
+	IBV_WC_WITH_INV         = 1 << 3
 };
 
 struct ibv_wc {
@@ -368,7 +370,10 @@ struct ibv_wc {
 	enum ibv_wc_opcode	opcode;
 	uint32_t		vendor_err;
 	uint32_t		byte_len;
-	uint32_t		imm_data;	/* in network byte order */
+	/* When (wc_flags & IBV_WC_WITH_IMM): Immediate data in network byte order.
+	 * When (wc_flags & IBV_WC_WITH_INV): Stores the invalidated rkey.
+	 */
+	uint32_t		imm_data;
 	uint32_t		qp_num;
 	uint32_t		src_qp;
 	int			wc_flags;
@@ -707,7 +712,10 @@ enum ibv_wr_opcode {
 	IBV_WR_SEND_WITH_IMM,
 	IBV_WR_RDMA_READ,
 	IBV_WR_ATOMIC_CMP_AND_SWP,
-	IBV_WR_ATOMIC_FETCH_AND_ADD
+	IBV_WR_ATOMIC_FETCH_AND_ADD,
+	IBV_WR_LOCAL_INV,
+	IBV_WR_BIND_MW,
+	IBV_WR_SEND_WITH_INV,
 };
 
 enum ibv_send_flags {
@@ -754,6 +762,12 @@ struct ibv_send_wr {
 			uint32_t    remote_srqn;
 		} xrc;
 	} qp_type;
+	struct {
+		struct ibv_mw	*mw;
+		uint32_t		rkey;
+		struct ibv_mw_bind_info	bind_info;
+	} bind_mw;
+
 };
 
 struct ibv_recv_wr {
