@@ -116,6 +116,7 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_RC_RNR_NAK_GEN	= 1 << 12,
 	IBV_DEVICE_SRQ_RESIZE		= 1 << 13,
 	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14,
+	IBV_DEVICE_MEM_WINDOW           = 1 << 17,
 	IBV_DEVICE_UD_IP_CSUM		= 1 << 18,
 	IBV_DEVICE_XRC			= 1 << 20,
 	IBV_DEVICE_RC_IP_CSUM		= 1 << 25,
