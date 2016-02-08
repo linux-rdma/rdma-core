@@ -139,6 +139,12 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   size_t cmd_size,
 		   struct ibv_reg_mr_resp *resp, size_t resp_size);
 int ibv_cmd_dereg_mr(struct ibv_mr *mr);
+int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
+		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
+		     size_t cmd_size,
+		     struct ibv_alloc_mw_resp *resp, size_t resp_size);
+int ibv_cmd_dealloc_mw(struct ibv_mw *mw,
+		       struct ibv_dealloc_mw *cmd, size_t cmd_size);
 int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_comp_channel *channel,
 		      int comp_vector, struct ibv_cq *cq,

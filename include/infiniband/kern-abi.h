@@ -371,6 +371,29 @@ struct ibv_dereg_mr {
 	__u32 mr_handle;
 };
 
+struct ibv_alloc_mw {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 pd_handle;
+	__u8  mw_type;
+	__u8  reserved[3];
+};
+
+struct ibv_alloc_mw_resp {
+	__u32 mw_handle;
+	__u32 rkey;
+};
+
+struct ibv_dealloc_mw {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 mw_handle;
+	__u32 reserved;
+};
+
 struct ibv_create_comp_channel {
 	__u32 command;
 	__u16 in_words;
