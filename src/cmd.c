@@ -347,6 +347,43 @@ int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
+int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
+		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
+		     size_t cmd_size,
+		     struct ibv_alloc_mw_resp *resp, size_t resp_size)
+{
+	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_MW, resp, resp_size);
+	cmd->pd_handle	= pd->handle;
+	cmd->mw_type	= type;
+	memset(cmd->reserved, 0, sizeof(cmd->reserved));
+
+	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	mw->context = pd->context;
+	mw->pd      = pd;
+	mw->rkey    = resp->rkey;
+	mw->handle  = resp->mw_handle;
+	mw->type    = type;
+
+	return 0;
+}
+
+int ibv_cmd_dealloc_mw(struct ibv_mw *mw,
+		       struct ibv_dealloc_mw *cmd, size_t cmd_size)
+{
+	IBV_INIT_CMD(cmd, cmd_size, DEALLOC_MW);
+	cmd->mw_handle = mw->handle;
+	cmd->reserved = 0;
+
+	if (write(mw->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	return 0;
+}
+
 int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_comp_channel *channel,
 		      int comp_vector, struct ibv_cq *cq,

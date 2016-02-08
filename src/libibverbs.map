@@ -102,6 +102,9 @@ IBVERBS_1.1 {
 		ibv_event_type_str;
 		ibv_wc_status_str;
 
+		ibv_cmd_alloc_mw;
+		ibv_cmd_dealloc_mw;
+
 		ibv_rate_to_mbps;
 		mbps_to_ibv_rate;
 
