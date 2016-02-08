@@ -383,7 +383,15 @@ enum ibv_access_flags {
 	IBV_ACCESS_REMOTE_READ		= (1<<2),
 	IBV_ACCESS_REMOTE_ATOMIC	= (1<<3),
 	IBV_ACCESS_MW_BIND		= (1<<4),
+	IBV_ACCESS_ZERO_BASED		= (1<<5),
 	IBV_ACCESS_ON_DEMAND		= (1<<6),
+};
+
+struct ibv_mw_bind_info {
+	struct ibv_mr	*mr;
+	uint64_t	 addr;
+	uint64_t	 length;
+	int		 mw_access_flags; /* use ibv_access_flags */
 };
 
 struct ibv_pd {
@@ -756,11 +764,8 @@ struct ibv_recv_wr {
 
 struct ibv_mw_bind {
 	uint64_t		wr_id;
-	struct ibv_mr	       *mr;
-	void		       *addr;
-	size_t			length;
 	int			send_flags;
-	int			mw_access_flags;
+	struct ibv_mw_bind_info bind_info;
 };
 
 struct ibv_srq {
@@ -1264,6 +1269,29 @@ static inline struct ibv_mw *ibv_alloc_mw(struct ibv_pd *pd,
 static inline int ibv_dealloc_mw(struct ibv_mw *mw)
 {
 	return mw->context->ops.dealloc_mw(mw);
+}
+
+/**
+ * ibv_inc_rkey - Increase the 8 lsb in the given rkey
+ */
+static inline uint32_t ibv_inc_rkey(uint32_t rkey)
+{
+	const uint32_t mask = 0x000000ff;
+	uint8_t newtag = (uint8_t)((rkey + 1) & mask);
+
+	return (rkey & ~mask) | newtag;
+}
+
+/**
+ * ibv_bind_mw - Bind a memory window to a region
+ */
+static inline int ibv_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
+			      struct ibv_mw_bind *mw_bind)
+{
+	if (mw->type != IBV_MW_TYPE_1)
+		return EINVAL;
+
+	return mw->context->ops.bind_mw(qp, mw, mw_bind);
 }
 
 /**
