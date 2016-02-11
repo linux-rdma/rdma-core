@@ -580,7 +580,12 @@ struct ibv_qp_init_attr {
 enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_PD		= 1 << 0,
 	IBV_QP_INIT_ATTR_XRCD		= 1 << 1,
-	IBV_QP_INIT_ATTR_RESERVED	= 1 << 2
+	IBV_QP_INIT_ATTR_CREATE_FLAGS  = 1 << 2,
+	IBV_QP_INIT_ATTR_RESERVED	= 1 << 3
+};
+
+enum ibv_qp_create_flags {
+	IBV_QP_CREATE_BLOCK_SELF_MCAST_LB       = 1 << 1,
 };
 
 struct ibv_qp_init_attr_ex {
@@ -595,6 +600,8 @@ struct ibv_qp_init_attr_ex {
 	uint32_t		comp_mask;
 	struct ibv_pd	       *pd;
 	struct ibv_xrcd	       *xrcd;
+	uint32_t                create_flags;
+
 };
 
 enum ibv_qp_open_attr_mask {
