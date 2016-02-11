@@ -677,6 +677,135 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
+static int create_qp_ex_common(struct verbs_qp *qp,
+			       struct ibv_qp_init_attr_ex *qp_attr,
+			       struct verbs_xrcd *vxrcd,
+			       struct ibv_create_qp_common *cmd)
+{
+	cmd->user_handle = (uintptr_t)qp;
+
+	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_XRCD) {
+		vxrcd = container_of(qp_attr->xrcd, struct verbs_xrcd, xrcd);
+		cmd->pd_handle	= vxrcd->handle;
+	} else {
+		if (!(qp_attr->comp_mask & IBV_QP_INIT_ATTR_PD))
+			return EINVAL;
+
+		cmd->pd_handle	= qp_attr->pd->handle;
+		cmd->send_cq_handle = qp_attr->send_cq->handle;
+
+		if (qp_attr->qp_type != IBV_QPT_XRC_SEND) {
+			cmd->recv_cq_handle = qp_attr->recv_cq->handle;
+			cmd->srq_handle = qp_attr->srq ? qp_attr->srq->handle :
+							 0;
+		}
+	}
+
+	cmd->max_send_wr     = qp_attr->cap.max_send_wr;
+	cmd->max_recv_wr     = qp_attr->cap.max_recv_wr;
+	cmd->max_send_sge    = qp_attr->cap.max_send_sge;
+	cmd->max_recv_sge    = qp_attr->cap.max_recv_sge;
+	cmd->max_inline_data = qp_attr->cap.max_inline_data;
+	cmd->sq_sig_all	     = qp_attr->sq_sig_all;
+	cmd->qp_type         = qp_attr->qp_type;
+	cmd->is_srq	     = !!qp_attr->srq;
+	cmd->reserved	     = 0;
+
+	return 0;
+}
+
+static void create_qp_handle_resp_common(struct ibv_context *context,
+					 struct verbs_qp *qp,
+					 struct ibv_qp_init_attr_ex *qp_attr,
+					 struct ibv_create_qp_resp *resp,
+					 struct verbs_xrcd *vxrcd,
+					 int vqp_sz)
+{
+	if (abi_ver > 3) {
+		qp_attr->cap.max_recv_sge    = resp->max_recv_sge;
+		qp_attr->cap.max_send_sge    = resp->max_send_sge;
+		qp_attr->cap.max_recv_wr     = resp->max_recv_wr;
+		qp_attr->cap.max_send_wr     = resp->max_send_wr;
+		qp_attr->cap.max_inline_data = resp->max_inline_data;
+	}
+
+	qp->qp.handle		= resp->qp_handle;
+	qp->qp.qp_num		= resp->qpn;
+	qp->qp.context		= context;
+	qp->qp.qp_context	= qp_attr->qp_context;
+	qp->qp.pd		= qp_attr->pd;
+	qp->qp.send_cq		= qp_attr->send_cq;
+	qp->qp.recv_cq		= qp_attr->recv_cq;
+	qp->qp.srq		= qp_attr->srq;
+	qp->qp.qp_type		= qp_attr->qp_type;
+	qp->qp.state		= IBV_QPS_RESET;
+	qp->qp.events_completed = 0;
+	pthread_mutex_init(&qp->qp.mutex, NULL);
+	pthread_cond_init(&qp->qp.cond, NULL);
+
+	qp->comp_mask = 0;
+	if (vext_field_avail(struct verbs_qp, xrcd, vqp_sz) &&
+	    (qp_attr->comp_mask & IBV_QP_INIT_ATTR_XRCD)) {
+		qp->comp_mask |= VERBS_QP_XRCD;
+		qp->xrcd = vxrcd;
+	}
+}
+
+enum {
+	CREATE_QP_EX2_SUP_CREATE_FLAGS = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB,
+};
+
+int ibv_cmd_create_qp_ex2(struct ibv_context *context,
+			  struct verbs_qp *qp, int vqp_sz,
+			  struct ibv_qp_init_attr_ex *qp_attr,
+			  struct ibv_create_qp_ex *cmd,
+			  size_t cmd_core_size,
+			  size_t cmd_size,
+			  struct ibv_create_qp_resp_ex *resp,
+			  size_t resp_core_size,
+			  size_t resp_size)
+{
+	struct verbs_xrcd *vxrcd = NULL;
+	int err;
+
+	if (qp_attr->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
+		return EINVAL;
+
+	if (resp_core_size <
+	    offsetof(struct ibv_create_qp_resp_ex, response_length) +
+	    sizeof(resp->response_length))
+		return EINVAL;
+
+	memset(cmd, 0, cmd_core_size);
+
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_QP_EX, resp,
+			       resp_core_size, resp_size);
+
+	err = create_qp_ex_common(qp, qp_attr, vxrcd, &cmd->base);
+	if (err)
+		return err;
+
+	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_CREATE_FLAGS) {
+		if (qp_attr->create_flags & ~CREATE_QP_EX2_SUP_CREATE_FLAGS)
+			return EINVAL;
+		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, create_flags) +
+				    sizeof(qp_attr->create_flags))
+			return EINVAL;
+		cmd->create_flags = qp_attr->create_flags;
+	}
+
+	err = write(context->cmd_fd, cmd, cmd_size);
+	if (err != cmd_size)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	create_qp_handle_resp_common(context, qp, qp_attr, &resp->base, vxrcd,
+				     vqp_sz);
+
+	return 0;
+}
+
 int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			 struct verbs_qp *qp, int vqp_sz,
 			 struct ibv_qp_init_attr_ex *attr_ex,
@@ -684,52 +813,22 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			 struct ibv_create_qp_resp *resp, size_t resp_size)
 {
 	struct verbs_xrcd *vxrcd = NULL;
+	int err;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
 
-	if (attr_ex->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
+	if (attr_ex->comp_mask > (IBV_QP_INIT_ATTR_XRCD | IBV_QP_INIT_ATTR_PD))
 		return ENOSYS;
 
-	cmd->user_handle     = (uintptr_t) qp;
-
-	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_XRCD) {
-		vxrcd = container_of(attr_ex->xrcd, struct verbs_xrcd, xrcd);
-		cmd->pd_handle	= vxrcd->handle;
-	} else {
-		if (!(attr_ex->comp_mask & IBV_QP_INIT_ATTR_PD))
-			return EINVAL;
-
-		cmd->pd_handle	= attr_ex->pd->handle;
-		cmd->send_cq_handle = attr_ex->send_cq->handle;
-
-		if (attr_ex->qp_type != IBV_QPT_XRC_SEND) {
-			cmd->recv_cq_handle = attr_ex->recv_cq->handle;
-			cmd->srq_handle = attr_ex->srq ? attr_ex->srq->handle : 0;
-		}
-	}
-
-	cmd->max_send_wr     = attr_ex->cap.max_send_wr;
-	cmd->max_recv_wr     = attr_ex->cap.max_recv_wr;
-	cmd->max_send_sge    = attr_ex->cap.max_send_sge;
-	cmd->max_recv_sge    = attr_ex->cap.max_recv_sge;
-	cmd->max_inline_data = attr_ex->cap.max_inline_data;
-	cmd->sq_sig_all	     = attr_ex->sq_sig_all;
-	cmd->qp_type         = attr_ex->qp_type;
-	cmd->is_srq	     = !!attr_ex->srq;
-	cmd->reserved	     = 0;
+	err = create_qp_ex_common(qp, attr_ex, vxrcd,
+				  (struct ibv_create_qp_common *)&cmd->user_handle);
+	if (err)
+		return err;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	if (abi_ver > 3) {
-		attr_ex->cap.max_recv_sge    = resp->max_recv_sge;
-		attr_ex->cap.max_send_sge    = resp->max_send_sge;
-		attr_ex->cap.max_recv_wr     = resp->max_recv_wr;
-		attr_ex->cap.max_send_wr     = resp->max_send_wr;
-		attr_ex->cap.max_inline_data = resp->max_inline_data;
-	}
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	if (abi_ver == 4) {
 		struct ibv_create_qp_resp_v4 *resp_v4 =
@@ -747,26 +846,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			resp_size - sizeof *resp);
 	}
 
-	qp->qp.handle		= resp->qp_handle;
-	qp->qp.qp_num		= resp->qpn;
-	qp->qp.context		= context;
-	qp->qp.qp_context	= attr_ex->qp_context;
-	qp->qp.pd		= attr_ex->pd;
-	qp->qp.send_cq		= attr_ex->send_cq;
-	qp->qp.recv_cq		= attr_ex->recv_cq;
-	qp->qp.srq		= attr_ex->srq;
-	qp->qp.qp_type		= attr_ex->qp_type;
-	qp->qp.state		= IBV_QPS_RESET;
-	qp->qp.events_completed = 0;
-	pthread_mutex_init(&qp->qp.mutex, NULL);
-	pthread_cond_init(&qp->qp.cond, NULL);
-
-	qp->comp_mask = 0;
-	if (vext_field_avail(struct verbs_qp, xrcd, vqp_sz) &&
-			    (attr_ex->comp_mask & IBV_QP_INIT_ATTR_XRCD)) {
-		qp->comp_mask |= VERBS_QP_XRCD;
-		qp->xrcd = vxrcd;
-	}
+	create_qp_handle_resp_common(context, qp, attr_ex, resp, vxrcd, vqp_sz);
 
 	return 0;
 }

@@ -110,6 +110,8 @@ enum {
 enum {
 	IB_USER_VERBS_CMD_QUERY_DEVICE_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
 					    IB_USER_VERBS_CMD_QUERY_DEVICE,
+	IB_USER_VERBS_CMD_CREATE_QP_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
+					 IB_USER_VERBS_CMD_CREATE_QP,
 	IB_USER_VERBS_CMD_CREATE_FLOW = IB_USER_VERBS_CMD_EXTENDED_MASK +
 					IB_USER_VERBS_CMD_THRESHOLD,
 	IB_USER_VERBS_CMD_DESTROY_FLOW
@@ -527,26 +529,33 @@ struct ibv_kern_qp_attr {
 	__u8	reserved[5];
 };
 
+#define IBV_CREATE_QP_COMMON	\
+	__u64 user_handle;	\
+	__u32 pd_handle;	\
+	__u32 send_cq_handle;	\
+	__u32 recv_cq_handle;	\
+	__u32 srq_handle;	\
+	__u32 max_send_wr;	\
+	__u32 max_recv_wr;	\
+	__u32 max_send_sge;	\
+	__u32 max_recv_sge;	\
+	__u32 max_inline_data;	\
+	__u8  sq_sig_all;	\
+	__u8  qp_type;		\
+	__u8  is_srq;		\
+	__u8  reserved
+
 struct ibv_create_qp {
 	__u32 command;
 	__u16 in_words;
 	__u16 out_words;
 	__u64 response;
-	__u64 user_handle;
-	__u32 pd_handle;
-	__u32 send_cq_handle;
-	__u32 recv_cq_handle;
-	__u32 srq_handle;
-	__u32 max_send_wr;
-	__u32 max_recv_wr;
-	__u32 max_send_sge;
-	__u32 max_recv_sge;
-	__u32 max_inline_data;
-	__u8  sq_sig_all;
-	__u8  qp_type;
-	__u8  is_srq;
-	__u8  reserved;
+	IBV_CREATE_QP_COMMON;
 	__u64 driver_data[0];
+};
+
+struct ibv_create_qp_common {
+	IBV_CREATE_QP_COMMON;
 };
 
 struct ibv_open_qp {
@@ -572,6 +581,19 @@ struct ibv_create_qp_resp {
 	__u32 max_recv_sge;
 	__u32 max_inline_data;
 	__u32 reserved;
+};
+
+struct ibv_create_qp_ex {
+	struct ex_hdr	hdr;
+	struct ibv_create_qp_common base;
+	__u32 comp_mask;
+	__u32 create_flags;
+};
+
+struct ibv_create_qp_resp_ex {
+	struct ibv_create_qp_resp base;
+	__u32 comp_mask;
+	__u32 response_length;
 };
 
 struct ibv_qp_dest {
@@ -1031,7 +1053,8 @@ enum {
 	IB_USER_VERBS_CMD_OPEN_QP_V2 = -1,
 	IB_USER_VERBS_CMD_CREATE_FLOW_V2 = -1,
 	IB_USER_VERBS_CMD_DESTROY_FLOW_V2 = -1,
-	IB_USER_VERBS_CMD_QUERY_DEVICE_EX_V2 = -1
+	IB_USER_VERBS_CMD_QUERY_DEVICE_EX_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_QP_EX_V2 = -1,
 };
 
 struct ibv_modify_srq_v3 {
