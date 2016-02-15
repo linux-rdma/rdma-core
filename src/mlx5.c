@@ -533,6 +533,28 @@ static int single_threaded_app(void)
 	return 0;
 }
 
+static int mlx5_cmd_get_context(struct mlx5_context *context,
+				struct mlx5_alloc_ucontext *req,
+				size_t req_len,
+				struct mlx5_alloc_ucontext_resp *resp,
+				size_t resp_len)
+{
+	if (!ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+				 req_len, &resp->ibv_resp, resp_len))
+		return 0;
+
+	/* The ibv_cmd_get_context fails in older kernels when passing
+	 * a request length that the kernel doesn't know.
+	 * To avoid breaking compatibility of new libmlx5 and older
+	 * kernels, when ibv_cmd_get_context fails with the full
+	 * request length, we try once again with the legacy length.
+	 */
+	return ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+				   offsetof(struct mlx5_alloc_ucontext,
+					    cqe_version),
+				   &resp->ibv_resp, resp_len);
+}
+
 static int mlx5_init_context(struct verbs_device *vdev,
 			     struct ibv_context *ctx, int cmd_fd)
 {
@@ -598,8 +620,9 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	req.total_num_uuars = tot_uuars;
 	req.num_low_latency_uuars = low_lat_uuars;
 	req.cqe_version = MLX5_CQE_VERSION_V1;
-	if (ibv_cmd_get_context(&context->ibv_ctx, &req.ibv_req, sizeof req,
-				&resp.ibv_resp, sizeof resp))
+
+	if (mlx5_cmd_get_context(context, &req, sizeof(req), &resp,
+				 sizeof(resp)))
 		goto err_free_bf;
 
 	context->max_num_qps		= resp.qp_tab_size;
