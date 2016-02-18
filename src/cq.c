@@ -326,6 +326,11 @@ static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 		wc->wc_flags	|= IBV_WC_WITH_IMM;
 		wc->imm_data = cqe->imm_inval_pkey;
 		break;
+	case MLX5_CQE_RESP_SEND_INV:
+		wc->opcode = IBV_WC_RECV;
+		wc->wc_flags |= IBV_WC_WITH_INV;
+		wc->imm_data = ntohl(cqe->imm_inval_pkey);
+		break;
 	}
 	wc->slid	   = ntohs(cqe->slid);
 	wc->sl		   = (ntohl(cqe->flags_rqpn) >> 24) & 0xf;

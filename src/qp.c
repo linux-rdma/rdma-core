@@ -50,6 +50,7 @@
 
 static const uint32_t mlx5_ib_opcode[] = {
 	[IBV_WR_SEND]			= MLX5_OPCODE_SEND,
+	[IBV_WR_SEND_WITH_INV]		= MLX5_OPCODE_SEND_INVAL,
 	[IBV_WR_SEND_WITH_IMM]		= MLX5_OPCODE_SEND_IMM,
 	[IBV_WR_RDMA_WRITE]		= MLX5_OPCODE_RDMA_WRITE,
 	[IBV_WR_RDMA_WRITE_WITH_IMM]	= MLX5_OPCODE_RDMA_WRITE_IMM,
@@ -250,6 +251,8 @@ static uint32_t send_ieth(struct ibv_send_wr *wr)
 	case IBV_WR_SEND_WITH_IMM:
 	case IBV_WR_RDMA_WRITE_WITH_IMM:
 		return wr->imm_data;
+	case IBV_WR_SEND_WITH_INV:
+		return htonl(wr->imm_data);
 	default:
 		return 0;
 	}
