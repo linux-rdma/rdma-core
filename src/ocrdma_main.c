@@ -94,7 +94,6 @@ static struct ibv_context_ops ocrdma_ctx_ops = {
 	.post_recv = ocrdma_post_recv,
 	.create_ah = ocrdma_create_ah,
 	.destroy_ah = ocrdma_destroy_ah,
-	.async_event = ocrdma_async_event,
 
 	.create_srq = ocrdma_create_srq,
 	.modify_srq = ocrdma_modify_srq,

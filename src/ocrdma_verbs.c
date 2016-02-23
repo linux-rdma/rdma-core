@@ -2190,31 +2190,3 @@ int ocrdma_detach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 {
 	return ibv_cmd_detach_mcast(ibqp, gid, lid);
 }
-
-void ocrdma_async_event(struct ibv_async_event *event)
-{
-	struct ocrdma_cq *cq;
-	struct ocrdma_qp *qp;
-	switch (event->event_type) {
-	case IBV_EVENT_CQ_ERR:
-		cq = get_ocrdma_cq(event->element.cq);
-		break;
-	case IBV_EVENT_QP_FATAL:
-	case IBV_EVENT_QP_REQ_ERR:
-	case IBV_EVENT_QP_ACCESS_ERR:
-	case IBV_EVENT_PATH_MIG_ERR:{
-			qp = get_ocrdma_qp(event->element.qp);
-			break;
-		}
-	case IBV_EVENT_SQ_DRAINED:
-	case IBV_EVENT_PATH_MIG:
-	case IBV_EVENT_COMM_EST:
-	case IBV_EVENT_QP_LAST_WQE_REACHED:
-		break;
-	case IBV_EVENT_PORT_ACTIVE:
-	case IBV_EVENT_PORT_ERR:
-		break;
-	default:
-		break;
-	}
-}
