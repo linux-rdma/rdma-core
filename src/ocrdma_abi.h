@@ -350,7 +350,7 @@ struct ocrdma_ewqe_ud_hdr {
 	uint32_t rsvd_dest_qpn;
 	uint32_t qkey;
 	uint32_t rsvd_ahid;
-	uint32_t rsvd;
+	uint32_t hdr_type;
 } __attribute__ ((packed));
 
 #endif				/* __OCRDMA_ABI_H__ */

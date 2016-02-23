@@ -214,7 +214,9 @@ struct ocrdma_qp {
 enum {
 	OCRDMA_AH_ID_MASK               = 0x3FF,
 	OCRDMA_AH_VLAN_VALID_MASK       = 0x01,
-	OCRDMA_AH_VLAN_VALID_SHIFT      = 0x1F
+	OCRDMA_AH_VLAN_VALID_SHIFT      = 0x1F,
+	OCRDMA_AH_L3_TYPE_MASK		= 0x03,
+	OCRDMA_AH_L3_TYPE_SHIFT		= 0x1D
 };
 
 struct ocrdma_ah {
@@ -222,6 +224,7 @@ struct ocrdma_ah {
 	struct ocrdma_pd *pd;
 	uint16_t id;
 	uint8_t isvlan;
+	uint8_t hdr_type;
 };
 
 #define get_ocrdma_xxx(xxx, type)				\

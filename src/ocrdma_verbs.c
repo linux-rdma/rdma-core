@@ -1199,6 +1199,7 @@ static void ocrdma_build_ud_hdr(struct ocrdma_qp *qp,
 	if (ah->isvlan)
 		hdr->cw |= (OCRDMA_FLAG_AH_VLAN_PR <<
 			    OCRDMA_WQE_FLAGS_SHIFT);
+	ud_hdr->hdr_type = ah->hdr_type;
 }
 
 static void ocrdma_build_sges(struct ocrdma_hdr_wqe *hdr,
@@ -2159,6 +2160,9 @@ struct ibv_ah *ocrdma_create_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 	ah->id = pd->uctx->ah_tbl[ahtbl_idx] & OCRDMA_AH_ID_MASK;
 	ah->isvlan = (pd->uctx->ah_tbl[ahtbl_idx] >>
 			OCRDMA_AH_VLAN_VALID_SHIFT);
+	ah->hdr_type = ((pd->uctx->ah_tbl[ahtbl_idx] >> OCRDMA_AH_L3_TYPE_SHIFT)
+			& OCRDMA_AH_L3_TYPE_MASK);
+
 	return &ah->ibv_ah;
 cmd_err:
 	ocrdma_free_ah_tbl_id(pd->uctx, ahtbl_idx);
