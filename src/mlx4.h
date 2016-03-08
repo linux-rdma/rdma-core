@@ -92,6 +92,14 @@ enum {
 	MLX4_STAT_RATE_OFFSET		= 5
 };
 
+#ifndef likely
+#ifdef __GNUC__
+#define likely(x)       __builtin_expect(!!(x),1)
+#else
+#define likely(x)      (x)
+#endif
+#endif
+
 enum {
 	MLX4_QP_TABLE_BITS		= 8,
 	MLX4_QP_TABLE_SIZE		= 1 << MLX4_QP_TABLE_BITS,

@@ -170,7 +170,10 @@ static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 	 */
 	wmb();
 
-	dseg->byte_count = htonl(sg->length);
+	if (likely(sg->length))
+		dseg->byte_count = htonl(sg->length);
+	else
+		dseg->byte_count = htonl(0x80000000);
 }
 
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
