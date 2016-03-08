@@ -3,8 +3,6 @@
 #
 # GPL LICENSE SUMMARY
 #
-# Copyright(c) 2015 Intel Corporation.
-#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
 # published by the Free Software Foundation.
@@ -19,8 +17,6 @@
 # www.intel.com
 #
 # BSD LICENSE
-#
-# Copyright(c) 2015 Intel Corporation.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -48,7 +44,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# Copyright (c) 2013, 2014. Intel Corporation. All rights reserved.
+# Copyright (c) 2013, 2014-2016. Intel Corporation. All rights reserved.
 # Copyright (c) 2007, 2008, 2009. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 
@@ -63,11 +59,13 @@ Summary: Intel Omni-Path HFI Userspace Driver
 
 Group: System Environment/Libraries
 License: GPLv2 or BSD
-Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
+Url: http://www.github.com/01org/opa-libhfi1verbs/
+Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
+BuildRequires: autoconf automake libtool
+ExclusiveArch: x86_64
 Obsoletes: libhfiverbs
 
 %description
