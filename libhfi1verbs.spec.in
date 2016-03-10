@@ -61,10 +61,10 @@ Group: System Environment/Libraries
 License: GPLv2 or BSD
 Url: http://www.github.com/01org/opa-libhfi1verbs/
 Source: %{name}-%{version}.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
 BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
 BuildRequires: autoconf automake libtool
+BuildRequires: valgrind-devel
 ExclusiveArch: x86_64
 Obsoletes: libhfiverbs
 
@@ -84,28 +84,24 @@ Static version of libhfi1verbs that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep
-%setup -q -n %{name}-%{ver}
+%setup -q
 
 %build
 ./autogen.sh
-%configure
+%configure --with-valgrind
 make %{?_smp_flags}
 
 %install
-rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT install
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
 %files
-%defattr(-,root,root)
 %{_libdir}/libhfi1verbs*.so
-%doc AUTHORS COPYING README
+%doc AUTHORS README
+%license COPYING
 %config %{_sysconfdir}/libibverbs.d/hfi1.driver
 
 %files devel
-%defattr(-,root,root,-)
 %{_libdir}/libhfi1verbs*.a
+
