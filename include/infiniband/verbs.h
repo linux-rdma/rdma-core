@@ -428,7 +428,8 @@ enum ibv_rereg_mr_flags {
 	IBV_REREG_MR_CHANGE_TRANSLATION	= (1 << 0),
 	IBV_REREG_MR_CHANGE_PD		= (1 << 1),
 	IBV_REREG_MR_CHANGE_ACCESS	= (1 << 2),
-	IBV_REREG_MR_KEEP_VALID		= (1 << 3)
+	IBV_REREG_MR_KEEP_VALID		= (1 << 3),
+	IBV_REREG_MR_FLAGS_SUPPORTED	= ((IBV_REREG_MR_KEEP_VALID << 1) - 1)
 };
 
 struct ibv_mr {
@@ -1259,6 +1260,26 @@ static inline int ibv_close_xrcd(struct ibv_xrcd *xrcd)
 struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 			  size_t length, int access);
 
+
+enum ibv_rereg_mr_err_code {
+	/* Old MR is valid, invalid input */
+	IBV_REREG_MR_ERR_INPUT = -1,
+	/* Old MR is valid, failed via dont fork on new address range */
+	IBV_REREG_MR_ERR_DONT_FORK_NEW = -2,
+	/* New MR is valid, failed via do fork on old address range */
+	IBV_REREG_MR_ERR_DO_FORK_OLD = -3,
+	/* MR shouldn't be used, command error */
+	IBV_REREG_MR_ERR_CMD = -4,
+	/* MR shouldn't be used, command error, invalid fork state on new address range */
+	IBV_REREG_MR_ERR_CMD_AND_DO_FORK_NEW = -5,
+};
+
+/**
+ * ibv_rereg_mr - Re-Register a memory region
+ */
+int ibv_rereg_mr(struct ibv_mr *mr, int flags,
+		 struct ibv_pd *pd, void *addr,
+		 size_t length, int access);
 /**
  * ibv_dereg_mr - Deregister a memory region
  */

@@ -116,5 +116,6 @@ IBVERBS_1.1 {
 		ibv_cmd_create_qp_ex;
 		ibv_cmd_create_qp_ex2;
 		ibv_cmd_open_qp;
+		ibv_cmd_rereg_mr;
 
 } IBVERBS_1.0;
