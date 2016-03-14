@@ -334,6 +334,35 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return 0;
 }
 
+int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
+		     size_t length, uint64_t hca_va, int access,
+		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
+		     size_t cmd_sz, struct ibv_rereg_mr_resp *resp,
+		     size_t resp_sz)
+{
+	IBV_INIT_CMD_RESP(cmd, cmd_sz, REREG_MR, resp, resp_sz);
+
+	cmd->mr_handle	  = mr->handle;
+	cmd->flags	  = flags;
+	cmd->start	  = (uintptr_t)addr;
+	cmd->length	  = length;
+	cmd->hca_va	  = hca_va;
+	cmd->pd_handle	  = (flags & IBV_REREG_MR_CHANGE_PD) ? pd->handle : 0;
+	cmd->access_flags = access;
+
+	if (write(mr->context->cmd_fd, cmd, cmd_sz) != cmd_sz)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_sz);
+
+	mr->lkey    = resp->lkey;
+	mr->rkey    = resp->rkey;
+	if (flags & IBV_REREG_MR_CHANGE_PD)
+		mr->context = pd->context;
+
+	return 0;
+}
+
 int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 {
 	struct ibv_dereg_mr cmd;
