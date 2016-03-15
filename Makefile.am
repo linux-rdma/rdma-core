@@ -53,7 +53,7 @@ man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1	\
     man/ibv_create_ah.3 man/ibv_create_ah_from_wc.3			\
     man/ibv_create_comp_channel.3 man/ibv_create_cq.3			\
     man/ibv_create_qp.3 man/ibv_create_srq.3 man/ibv_event_type_str.3	\
-    man/ibv_fork_init.3 man/ibv_get_async_event.3			\
+    man/ibv_fork_init.3 man/ibv_get_async_event.3 man/ibv_create_flow.3 \
     man/ibv_get_cq_event.3 man/ibv_get_device_guid.3			\
     man/ibv_get_device_list.3 man/ibv_get_device_name.3			\
     man/ibv_modify_qp.3 man/ibv_modify_srq.3 man/ibv_open_device.3	\
@@ -102,6 +102,7 @@ install-data-hook:
 	$(RM) mbps_to_ibv_rate.3 && \
 	$(RM) ibv_close_xrcd.3 && \
 	$(RM) ibv_dealloc_mw.3 && \
+	$(RM) ibv_destroy_flow.3 && \
 	$(LN_S) ibv_get_async_event.3 ibv_ack_async_event.3 && \
 	$(LN_S) ibv_get_cq_event.3 ibv_ack_cq_events.3 && \
 	$(LN_S) ibv_open_device.3 ibv_close_device.3 && \
@@ -120,4 +121,5 @@ install-data-hook:
 	$(LN_S) ibv_event_type_str.3 ibv_port_state_str.3 && \
 	$(LN_S) ibv_rate_to_mbps.3 mbps_to_ibv_rate.3 && \
 	$(LN_S) ibv_open_xrcd.3 ibv_close_xrcd.3 && \
-	$(LN_S) ibv_alloc_mw.3 ibv_dealloc_mw.3
+	$(LN_S) ibv_alloc_mw.3 ibv_dealloc_mw.3 && \
+	$(LN_S) ibv_create_flow.3 ibv_destroy_flow.3
