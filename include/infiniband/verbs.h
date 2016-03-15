@@ -841,7 +841,8 @@ struct ibv_ah {
 };
 
 enum ibv_flow_flags {
-	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1,
+	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0,
+	IBV_FLOW_ATTR_FLAGS_DONT_TRAP = 1 << 1,
 };
 
 enum ibv_flow_attr_type {
