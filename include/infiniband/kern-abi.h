@@ -269,6 +269,8 @@ struct ibv_query_device_resp_ex {
 	__u32 comp_mask;
 	__u32 response_length;
 	struct ibv_odp_caps_resp odp_caps;
+	__u64 reserved[2];
+	__u64 device_cap_flags_ex;
 };
 
 struct ibv_query_port {

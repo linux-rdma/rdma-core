@@ -24,6 +24,7 @@ struct ibv_device_attr_ex {
 struct ibv_device_attr orig_attr;
 uint32_t               comp_mask;              /* Compatibility mask that defines which of the following variables are valid */
 struct ibv_odp_caps    odp_caps;               /* On-Demand Paging capabilities */
+uint64_t               device_cap_flags_ex;    /* Extended device capability flags */
 .in -8
 };
 

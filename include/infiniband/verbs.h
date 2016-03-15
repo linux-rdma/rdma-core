@@ -127,6 +127,12 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
 };
 
+/*
+ * Can't extended above ibv_device_cap_flags enum as in some systems/compilers
+ * enum range is limited to 4 bytes.
+ */
+#define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
+
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
 	IBV_ATOMIC_HCA,
@@ -207,6 +213,7 @@ struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
 	struct ibv_odp_caps	odp_caps;
+	uint64_t		device_cap_flags_ex;
 };
 
 enum ibv_mtu {

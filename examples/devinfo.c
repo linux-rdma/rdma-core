@@ -333,6 +333,18 @@ void print_odp_caps(const struct ibv_odp_caps *caps)
 	print_odp_trans_caps(caps->per_transport_caps.ud_odp_caps);
 }
 
+static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
+{
+	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000;
+	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS);
+
+	if (ex_flags & IBV_DEVICE_RAW_SCATTER_FCS)
+		printf("\t\t\t\t\tRAW_SCATTER_FCS\n");
+	if (ex_flags & unknown_flags)
+		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
+		       ex_flags & unknown_flags);
+}
+
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
@@ -420,6 +432,9 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 
 		print_odp_caps(&device_attr.odp_caps);
+
+		printf("\tdevice_cap_flags_ex:\t\t0x%" PRIX64 "\n", device_attr.device_cap_flags_ex);
+		print_device_cap_flags_ex(device_attr.device_cap_flags_ex);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
