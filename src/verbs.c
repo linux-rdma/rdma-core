@@ -1076,13 +1076,18 @@ err:
 struct ibv_qp *mlx5_create_qp(struct ibv_pd *pd,
 			      struct ibv_qp_init_attr *attr)
 {
+	struct ibv_qp *qp;
 	struct ibv_qp_init_attr_ex attrx;
 
 	memset(&attrx, 0, sizeof(attrx));
 	memcpy(&attrx, attr, sizeof(*attr));
 	attrx.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attrx.pd = pd;
-	return create_qp(pd->context, &attrx);
+	qp = create_qp(pd->context, &attrx);
+	if (qp)
+		memcpy(attr, &attrx, sizeof(*attr));
+
+	return qp;
 }
 
 static void mlx5_lock_cqs(struct ibv_qp *qp)
@@ -1302,11 +1307,7 @@ int mlx5_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 struct ibv_qp *mlx5_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr)
 {
-	struct ibv_qp_init_attr_ex attrx;
-
-	memset(&attrx, 0, sizeof(attrx));
-	memcpy(&attrx, attr, sizeof(*attr));
-	return create_qp(context, &attrx);
+	return create_qp(context, attr);
 }
 
 int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
