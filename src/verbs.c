@@ -914,19 +914,63 @@ static void mlx5_free_qp_buf(struct mlx5_qp *qp)
 		free(qp->sq.wrid);
 }
 
+static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attr,
+				 struct mlx5_create_qp *cmd,
+				 struct mlx5_qp *qp,
+				 struct mlx5_create_qp_resp_ex *resp)
+{
+	struct mlx5_create_qp_ex cmd_ex;
+	int ret;
+
+	memset(resp, 0, sizeof(*resp));
+	memset(&cmd_ex, 0, sizeof(cmd_ex));
+	memcpy(&cmd_ex.ibv_cmd.base, &cmd->ibv_cmd.user_handle,
+	       offsetof(typeof(cmd->ibv_cmd), is_srq) +
+	       sizeof(cmd->ibv_cmd.is_srq) -
+	       offsetof(typeof(cmd->ibv_cmd), user_handle));
+
+	memcpy(&cmd_ex.drv_ex, &cmd->buf_addr,
+	       offsetof(typeof(*cmd), sq_buf_addr) +
+	       sizeof(cmd->sq_buf_addr) - sizeof(cmd->ibv_cmd));
+
+	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
+				    sizeof(qp->verbs_qp), attr,
+				    &cmd_ex.ibv_cmd, sizeof(cmd_ex.ibv_cmd),
+				    sizeof(cmd_ex), &resp->ibv_resp,
+				    sizeof(resp->ibv_resp), sizeof(*resp));
+
+	return ret;
+}
+
+enum {
+	MLX5_CREATE_QP_SUP_COMP_MASK = (IBV_QP_INIT_ATTR_PD |
+					IBV_QP_INIT_ATTR_XRCD |
+					IBV_QP_INIT_ATTR_CREATE_FLAGS),
+};
+
+enum {
+	MLX5_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS),
+};
+
 struct ibv_qp *create_qp(struct ibv_context *context,
 			 struct ibv_qp_init_attr_ex *attr)
 {
 	struct mlx5_create_qp		cmd;
 	struct mlx5_create_qp_resp	resp;
+	struct mlx5_create_qp_resp_ex resp_ex;
 	struct mlx5_qp		       *qp;
 	int				ret;
 	struct mlx5_context	       *ctx = to_mctx(context);
 	struct ibv_qp		       *ibqp;
 	uint32_t			usr_idx = 0;
+	uint32_t			uuar_index;
 #ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
 #endif
+
+	if (attr->comp_mask & ~MLX5_CREATE_QP_SUP_COMP_MASK)
+		return NULL;
 
 	qp = calloc(1, sizeof(*qp));
 	if (!qp) {
@@ -1014,14 +1058,19 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 		cmd.uidx = usr_idx;
 	}
 
-	ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
-				   attr, &cmd.ibv_cmd, sizeof(cmd),
-				   &resp.ibv_resp, sizeof(resp));
+	if (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK)
+		ret = mlx5_cmd_create_qp_ex(context, attr, &cmd, qp, &resp_ex);
+	else
+		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
+					   attr, &cmd.ibv_cmd, sizeof(cmd),
+					   &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
 		goto err_free_uidx;
 	}
 
+	uuar_index = (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK) ?
+			resp_ex.uuar_index : resp.uuar_index;
 	if (!ctx->cqe_version) {
 		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt) {
 			ret = mlx5_store_qp(ctx, ibqp->qp_num, qp);
@@ -1034,7 +1083,7 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 		pthread_mutex_unlock(&ctx->qp_table_mutex);
 	}
 
-	map_uuar(context, qp, resp.uuar_index);
+	map_uuar(context, qp, uuar_index);
 
 	qp->rq.max_post = qp->rq.wqe_cnt;
 	if (attr->sq_sig_all)

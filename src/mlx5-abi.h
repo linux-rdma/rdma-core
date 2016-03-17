@@ -122,6 +122,30 @@ struct mlx5_create_srq_ex {
 	__u32                           reserved1;
 };
 
+struct mlx5_create_qp_drv_ex {
+	__u64			buf_addr;
+	__u64			db_addr;
+	__u32			sq_wqe_count;
+	__u32			rq_wqe_count;
+	__u32			rq_wqe_shift;
+	__u32			flags;
+	__u32			uidx;
+	__u32			reserved;
+	/* SQ buffer address - used for Raw Packet QP */
+	__u64			sq_buf_addr;
+};
+
+struct mlx5_create_qp_ex {
+	struct ibv_create_qp_ex	ibv_cmd;
+	struct mlx5_create_qp_drv_ex drv_ex;
+};
+
+struct mlx5_create_qp_resp_ex {
+	struct ibv_create_qp_resp_ex	ibv_resp;
+	__u32				uuar_index;
+	__u32				reserved;
+};
+
 struct mlx5_create_qp {
 	struct ibv_create_qp		ibv_cmd;
 	__u64				buf_addr;
