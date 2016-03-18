@@ -46,15 +46,18 @@
 #include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
+#include <ifaddrs.h>
 #include <dlist.h>
 #include <dlfcn.h> 
 #include <search.h>
+#include <netdb.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
 #include <netinet/in.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include "acm_util.h"
 #include "acm_mad.h"
 
 #define src_out     data[0]
@@ -1739,6 +1742,74 @@ static int acmp_dest_timeout(struct acmp_dest *dest)
 }
 
 static int
+acmp_check_addr_match(struct ifaddrs *iap, struct acm_ep_addr_data *saddr,
+		      unsigned int d_family)
+{
+	char sip[INET6_ADDRSTRLEN] = {0};
+	char dip[INET6_ADDRSTRLEN] = {0};
+	const char *tmp;
+	size_t sock_size;
+	unsigned int s_family;
+	int ret;
+
+	s_family = iap->ifa_addr->sa_family;
+
+	if (!iap->ifa_addr ||
+	    !(iap->ifa_flags & IFF_UP) ||
+	    (s_family != d_family))
+		return -1;
+
+	sock_size = (s_family == AF_INET) ? sizeof(struct sockaddr_in) :
+		sizeof(struct sockaddr_in6);
+
+	ret = getnameinfo(iap->ifa_addr, sock_size,
+			  sip, sizeof(sip),
+			  NULL, 0, NI_NUMERICHOST);
+
+	if (ret)
+		return ret;
+
+	tmp = inet_ntop(d_family, (void *)saddr->info.addr, dip,
+			sizeof(dip));
+	if (!tmp)
+		return -1;
+	ret = memcmp(sip, dip, strlen(dip));
+	return ret;
+}
+
+static void
+acmp_acquire_sgid(struct acm_ep_addr_data *saddr,
+		  struct acmp_dest *dest)
+{
+	struct ifaddrs *addrs, *iap;
+	unsigned int d_family;
+	int ret;
+
+	if (!ib_any_gid(&dest->path.sgid))
+		return;
+
+	if (dest->addr_type != ACM_ADDRESS_IP6 &&
+	    dest->addr_type != ACM_ADDRESS_IP)
+		return;
+
+	if (getifaddrs(&addrs))
+		return;
+
+	d_family = (dest->addr_type == ACM_ADDRESS_IP) ? AF_INET : AF_INET6;
+
+	for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
+		ret = acmp_check_addr_match(iap, saddr, d_family);
+		if (!ret) {
+			ret = acm_if_get_sgid(iap->ifa_name,
+					      &dest->path.sgid);
+			if (!ret)
+				break;
+		}
+	}
+	freeifaddrs(addrs);
+}
+
+static int
 acmp_resolve_dest(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 {
 	struct acmp_dest *dest;
@@ -1774,6 +1845,7 @@ test:
 		acm_log(2, "have address, resolving route\n");
 		acm_increment_counter(ACM_CNTR_ADDR_CACHE);
 		atomic_inc(&ep->counters[ACM_CNTR_ADDR_CACHE]);
+		acmp_acquire_sgid(saddr, dest);
 		status = acmp_resolve_path_sa(ep, dest, acmp_dest_sa_resp);
 		if (status) {
 			break;
