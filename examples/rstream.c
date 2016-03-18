@@ -88,7 +88,7 @@ static int size_option;
 static int iterations = 1;
 static int transfer_size = 1000;
 static int transfer_count = 1000;
-static int buffer_size;
+static int buffer_size, inline_size = 64;
 static char test_name[10] = "custom";
 static char *port = "7471";
 static int keepalive;
@@ -301,8 +301,8 @@ static void set_options(int rs)
 	if (use_rs) {
 		/* Inline size based on experimental data */
 		if (optimization == opt_latency) {
-			val = 384;
-			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &val, sizeof val);
+			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &inline_size,
+				      sizeof inline_size);
 		} else if (optimization == opt_bandwidth) {
 			val = 0;
 			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &val, sizeof val);
@@ -622,7 +622,7 @@ int main(int argc, char **argv)
 
 	ai_hints.ai_socktype = SOCK_STREAM;
 	rai_hints.ai_port_space = RDMA_PS_TCP;
-	while ((op = getopt(argc, argv, "s:b:f:B:I:C:S:p:k:T:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:f:B:i:I:C:S:p:k:T:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -643,6 +643,9 @@ int main(int argc, char **argv)
 			break;
 		case 'B':
 			buffer_size = atoi(optarg);
+			break;
+		case 'i':
+			inline_size = atoi(optarg);
 			break;
 		case 'I':
 			custom = 1;
@@ -677,6 +680,7 @@ int main(int argc, char **argv)
 			printf("\t[-f address_format]\n");
 			printf("\t    name, ip, ipv6, or gid\n");
 			printf("\t[-B buffer_size]\n");
+			printf("\t[-i inline_size]\n");
 			printf("\t[-I iterations]\n");
 			printf("\t[-C transfer_count]\n");
 			printf("\t[-S transfer_size or all]\n");
