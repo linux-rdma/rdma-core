@@ -47,7 +47,7 @@ wish to make use of this header file.
 %build
 aclocal -I config && libtoolize --force --copy && autoheader && \
 	automake --foreign --add-missing --copy && autoconf
-%configure CFLAGS="$CXXFLAGS -fno-strict-aliasing" LDFLAGS=-lpthread
+%configure CFLAGS="$CFLAGS -fno-strict-aliasing" LDFLAGS="$LDFLAGS -lpthread"
 make %{?_smp_mflags}
 
 %install
