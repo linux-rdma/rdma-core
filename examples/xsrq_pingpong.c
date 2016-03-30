@@ -52,11 +52,11 @@
 
 #include "pingpong.h"
 
-#define MSG_FORMAT "%04x:%06x:%06x:%06x:%04x"
-#define MSG_SIZE   31
+#define MSG_FORMAT "%04x:%06x:%06x:%06x:%06x"
+#define MSG_SIZE   33
 #define MSG_SSCAN  "%x:%x:%x:%x:%x"
 #define ADDR_FORMAT \
-	"%8s: LID %04x, QPN RECV %06x SEND %06x, PSN %06x, SRQN %04x\n"
+	"%8s: LID %04x, QPN RECV %06x SEND %06x, PSN %06x, SRQN %06x\n"
 #define TERMINATION_FORMAT "%s"
 #define TERMINATION_MSG_SIZE 4
 #define TERMINATION_MSG "END"
