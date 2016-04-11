@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([ibacm], [1.2.0], [linux-rdma@vger.kernel.org])
+AC_INIT([ibacm], [1.2.1], [linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/acm.c])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS([config.h])
@@ -63,9 +63,9 @@ fi
 
 dnl Check netlink header files
 AC_CHECK_HEADER(rdma/rdma_netlink.h,
-    AC_CHECK_HEADER(rdma/ib_user_sa.h,
+    [AC_CHECK_HEADER(rdma/ib_user_sa.h,
         AC_DEFINE(HAVE_NETLINK, 1, [Have netlink header files]),
-        AC_MSG_WARN([Missing rdma/ib_user_sa.h])),
+        AC_MSG_WARN([Missing rdma/ib_user_sa.h]))],
     AC_MSG_WARN([Missing rdma/rdma_netlink.h]))
 
 dnl Check for gcc atomic intrinsics
