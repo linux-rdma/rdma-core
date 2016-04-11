@@ -201,6 +201,8 @@ struct mlx4_context {
 	int				num_qps;
 	int				qp_table_shift;
 	int				qp_table_mask;
+	int				max_qp_wr;
+	int				max_sge;
 
 	struct mlx4_db_page	       *db_list[MLX4_NUM_DB_TYPE];
 	pthread_mutex_t			db_list_mutex;

@@ -128,6 +128,7 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	__u16				bf_reg_size;
 	struct mlx4_device              *dev = to_mdev(&v_device->device);
 	struct verbs_context *verbs_ctx = verbs_get_ctx(ibv_ctx);
+	struct ibv_device_attr		dev_attrs;
 
 	/* memory footprint of mlx4_context and verbs_context share
 	* struct ibv_context.
@@ -197,6 +198,12 @@ static int mlx4_init_context(struct verbs_device *v_device,
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 	ibv_ctx->ops = mlx4_ctx_ops;
+
+	memset(&dev_attrs, 0, sizeof(dev_attrs));
+	if (!mlx4_query_device(ibv_ctx, &dev_attrs)) {
+		context->max_qp_wr = dev_attrs.max_qp_wr;
+		context->max_sge = dev_attrs.max_sge;
+	}
 
 	verbs_ctx->has_comp_mask = VERBS_CONTEXT_XRCD | VERBS_CONTEXT_SRQ |
 					VERBS_CONTEXT_QP;

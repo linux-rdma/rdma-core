@@ -517,17 +517,27 @@ enum {
 struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr)
 {
+	struct mlx4_context *ctx = to_mctx(context);
 	struct mlx4_create_qp     cmd;
 	struct ibv_create_qp_resp resp;
 	struct mlx4_qp		 *qp;
 	int			  ret;
 
 	/* Sanity check QP size before proceeding */
-	if (attr->cap.max_send_wr     > 65536 ||
-	    attr->cap.max_recv_wr     > 65536 ||
-	    attr->cap.max_send_sge    > 64    ||
-	    attr->cap.max_recv_sge    > 64    ||
-	    attr->cap.max_inline_data > 1024)
+	if (ctx->max_qp_wr) { /* mlx4_query_device succeeded */
+		if (attr->cap.max_send_wr  > ctx->max_qp_wr ||
+		    attr->cap.max_recv_wr  > ctx->max_qp_wr ||
+		    attr->cap.max_send_sge > ctx->max_sge   ||
+		    attr->cap.max_recv_sge > ctx->max_sge)
+			return NULL;
+	} else {
+		if (attr->cap.max_send_wr  > 65536 ||
+		    attr->cap.max_recv_wr  > 65536 ||
+		    attr->cap.max_send_sge > 64    ||
+		    attr->cap.max_recv_sge > 64)
+			return NULL;
+	}
+	if (attr->cap.max_inline_data > 1024)
 		return NULL;
 
 	if (attr->comp_mask & ~MLX4_CREATE_QP_SUP_COMP_MASK)
