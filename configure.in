@@ -58,9 +58,9 @@ AC_PREREQ(2.57)
 AC_INIT(libhfi1verbs, 1.3, ibsupport@intel.com)
 AC_CONFIG_SRCDIR([src/hfiverbs.h])
 AC_CONFIG_AUX_DIR(config)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS(config.h)
 AM_INIT_AUTOMAKE(libhfi1verbs, 1.3)
-AM_PROG_LIBTOOL
+LT_INIT
 
 AC_ARG_WITH([valgrind],
     AC_HELP_STRING([--with-valgrind],
