@@ -91,7 +91,7 @@ application, which may be useful for debugging.
 %build
 ./autogen.sh
 %configure --with-valgrind
-make %{?_smp_flags}
+make
 
 %install
 make DESTDIR=$RPM_BUILD_ROOT install
