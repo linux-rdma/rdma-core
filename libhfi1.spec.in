@@ -67,20 +67,21 @@ BuildRequires: autoconf automake libtool
 BuildRequires: valgrind-devel
 ExclusiveArch: x86_64
 Obsoletes: libhfiverbs
+Obsoletes: libhfi1verbs
 
 %description
-libhfi1verbs provides a device-specific userspace driver for Intel Host
+libhfi1 provides a device-specific userspace driver for Intel Host
 Fabric interface cards.  This driver is designed for use with the
 libibverbs library.
 
 %package devel
-Summary: Development files for the libhfi1verbs driver
+Summary: Development files for the libhfi1 driver
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
 Obsoletes: libhfiverbs-devel
 
 %description devel
-Static version of libhfi1verbs that may be linked directly to an
+Static version of libhfi1 that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep

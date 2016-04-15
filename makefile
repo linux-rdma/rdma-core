@@ -54,7 +54,7 @@
 #
 # The desired version number comes from the most recent tag starting with "v"
 #
-NAME = libhfi1verbs
+NAME = libhfi1
 BASEVERSION=0.2
 VERSION = $(shell if [ -e .git ] ; then  git describe --tags --abbrev=0 --match='v*' | sed -e 's/^v//' -e 's/-/_/'; else echo "version" ; fi)
 

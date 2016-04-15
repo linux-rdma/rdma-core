@@ -76,8 +76,8 @@ EXTRA_DIST = src/hfiverbs.h \
     src/hfiverbs.map \
     config \
     autom4te.cache \
-    libhfi1verbs.spec.in \
+    libhfi1.spec.in \
     hfi1.driver
 
-dist-hook: libhfi1verbs.spec
-	cp libhfi1verbs.spec $(distdir)
+dist-hook: libhfi1.spec
+	cp libhfi1.spec $(distdir)
