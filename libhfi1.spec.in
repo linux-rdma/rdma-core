@@ -48,9 +48,9 @@
 # Copyright (c) 2007, 2008, 2009. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 
-%define ver @VERSION@
-%define RELEASE @RELEASE@
-%define rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
+%global ver @VERSION@
+%global RELEASE @RELEASE@
+%global rel %{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Name: @NAME@
 Version: %ver
@@ -74,13 +74,14 @@ libhfi1 provides a device-specific userspace driver for Intel Host
 Fabric interface cards.  This driver is designed for use with the
 libibverbs library.
 
-%package devel
+%package static
 Summary: Development files for the libhfi1 driver
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
 Obsoletes: libhfiverbs-devel
+Obsoletes: libhfi1verbs-devel
 
-%description devel
+%description static
 Static version of libhfi1 that may be linked directly to an
 application, which may be useful for debugging.
 
@@ -103,6 +104,6 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %license COPYING
 %config %{_sysconfdir}/libibverbs.d/hfi1.driver
 
-%files devel
+%files static
 %{_libdir}/libhfi1verbs*.a
 
