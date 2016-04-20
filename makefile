@@ -79,10 +79,7 @@ ${NAME}.spec: ${NAME}.spec.in
 		-e 's/@NAME@/'${NAME}'/g' ${NAME}.spec.in > ${NAME}.spec
 	if [ -e .git ]; then \
 		echo '%changelog' >> ${NAME}.spec; \
-		git log --no-merges v$(BASEVERSION)..HEAD --format="* %cd <%ae>%n- %s%n" \
-		| sed 's/-[0-9][0-9][0-9][0-9] //' \
-		| sed 's/ [0-9][0-9]:[0-9][0-9]:[0-9][0-9]//' \
-		>> ${NAME}.spec ; \
+		cat fedora_changelog.txt >> ${NAME}.spec ; \
 	fi
 
 ${NAME}.spec.fed: ${NAME}.spec.in
@@ -93,9 +90,7 @@ ${NAME}.spec.fed: ${NAME}.spec.in
 		-e 's/@NAME@/'${NAME}'/g' ${NAME}.spec.in > ${NAME}.spec
 	if [ -e .git ]; then \
 		echo '%changelog' >> ${NAME}.spec; \
-		git log --no-merges v$(BASEVERSION)..HEAD --format="* %cd <%ae>%n- %s%n" \
-		| sed 's/-[0-9][0-9][0-9][0-9] //' \
-		| sed 's/ [0-9][0-9]:[0-9][0-9]:[0-9][0-9]//' \
+		cat fedora_changelog.txt \
 		>> ${NAME}.spec ; \
 	fi
 
