@@ -62,7 +62,7 @@ License: GPLv2 or BSD
 Url: http://www.github.com/01org/opa-libhfi1verbs/
 Source: %{name}-%{version}.tar.gz
 
-BuildRequires: libibverbs-devel >= 1.0-0.5.rc7
+BuildRequires: libibverbs-devel >= @IBVERBS@
 BuildRequires: autoconf automake libtool
 BuildRequires: valgrind-devel
 ExclusiveArch: x86_64

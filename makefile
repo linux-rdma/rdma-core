@@ -1,9 +1,9 @@
+# Copyright(c) 2015 Intel Corporation.
+#
 # This file is provided under a dual BSD/GPLv2 license.  When using or
 # redistributing this file, you may do so under either license.
 #
 # GPL LICENSE SUMMARY
-#
-# Copyright(c) 2015 Intel Corporation.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -19,8 +19,6 @@
 # www.intel.com
 #
 # BSD LICENSE
-#
-# Copyright(c) 2015 Intel Corporation.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -48,7 +46,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# Copyright (c) 2014. Intel Corporation. All rights reserved.
+# Copyright (c) 2014-2016. Intel Corporation. All rights reserved.
 # Copyright (c) 2007, 2008, 2009. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 #
@@ -56,6 +54,8 @@
 #
 NAME = libhfi1
 BASEVERSION=0.2
+GEN_IBVERBS=1.0-0.5.rc7
+FED_IBVERBS=1.2.0
 VERSION = $(shell if [ -e .git ] ; then  git describe --tags --abbrev=0 --match='v*' | sed -e 's/^v//' -e 's/-/_/'; else echo "version" ; fi)
 
 # The desired release number comes the git describe following the version which
@@ -75,6 +75,7 @@ ${NAME}.spec: ${NAME}.spec.in
 	sed \
 		-e 's/@VERSION@/'${VERSION}'/g' \
 		-e 's/@RELEASE@/'${RELEASE}'/g' \
+		-e 's/@IBVERBS@/'${GEN_IBVERBS}'/g' \
 		-e 's/@NAME@/'${NAME}'/g' ${NAME}.spec.in > ${NAME}.spec
 	if [ -e .git ]; then \
 		echo '%changelog' >> ${NAME}.spec; \
@@ -84,10 +85,28 @@ ${NAME}.spec: ${NAME}.spec.in
 		>> ${NAME}.spec ; \
 	fi
 
-dist: distclean ${NAME}.spec
+${NAME}.spec.fed: ${NAME}.spec.in
+	sed \
+		-e 's/@VERSION@/'${VERSION}'/g' \
+		-e 's/@RELEASE@/'${RELEASE}'/g' \
+		-e 's/@IBVERBS@/'${FED_IBVERBS}'/g' \
+		-e 's/@NAME@/'${NAME}'/g' ${NAME}.spec.in > ${NAME}.spec
+	if [ -e .git ]; then \
+		echo '%changelog' >> ${NAME}.spec; \
+		git log --no-merges v$(BASEVERSION)..HEAD --format="* %cd <%ae>%n- %s%n" \
+		| sed 's/-[0-9][0-9][0-9][0-9] //' \
+		| sed 's/ [0-9][0-9]:[0-9][0-9]:[0-9][0-9]//' \
+		>> ${NAME}.spec ; \
+	fi
+
+gen_dist:
 	rm -rf /tmp/${NAME}-$(VERSION)
 	mkdir -p /tmp/${NAME}-$(VERSION)
 	cp -r . /tmp/${NAME}-$(VERSION)
 	tar $(EXCLUDES) -C /tmp -zcvf $(PWD)/${NAME}-$(VERSION).tar.gz ${NAME}-$(VERSION)
 	rm -rf /tmp/${NAME}-$(VERSION)
 
+dist: distclean ${NAME}.spec gen_dist
+
+
+fedora_dist: distclean ${NAME}.spec.fed gen_dist
