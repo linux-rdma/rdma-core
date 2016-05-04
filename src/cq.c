@@ -297,55 +297,38 @@ static void dump_cqe(FILE *fp, void *buf)
 			ntohl(p[i + 2]), ntohl(p[i + 3]));
 }
 
-static void mlx5_handle_error_cqe(struct mlx5_err_cqe *cqe,
-				  struct ibv_wc *wc)
+static enum ibv_wc_status mlx5_handle_error_cqe(struct mlx5_err_cqe *cqe)
 {
 	switch (cqe->syndrome) {
 	case MLX5_CQE_SYNDROME_LOCAL_LENGTH_ERR:
-		wc->status = IBV_WC_LOC_LEN_ERR;
-		break;
+		return IBV_WC_LOC_LEN_ERR;
 	case MLX5_CQE_SYNDROME_LOCAL_QP_OP_ERR:
-		wc->status = IBV_WC_LOC_QP_OP_ERR;
-		break;
+		return IBV_WC_LOC_QP_OP_ERR;
 	case MLX5_CQE_SYNDROME_LOCAL_PROT_ERR:
-		wc->status = IBV_WC_LOC_PROT_ERR;
-		break;
+		return IBV_WC_LOC_PROT_ERR;
 	case MLX5_CQE_SYNDROME_WR_FLUSH_ERR:
-		wc->status = IBV_WC_WR_FLUSH_ERR;
-		break;
+		return IBV_WC_WR_FLUSH_ERR;
 	case MLX5_CQE_SYNDROME_MW_BIND_ERR:
-		wc->status = IBV_WC_MW_BIND_ERR;
-		break;
+		return IBV_WC_MW_BIND_ERR;
 	case MLX5_CQE_SYNDROME_BAD_RESP_ERR:
-		wc->status = IBV_WC_BAD_RESP_ERR;
-		break;
+		return IBV_WC_BAD_RESP_ERR;
 	case MLX5_CQE_SYNDROME_LOCAL_ACCESS_ERR:
-		wc->status = IBV_WC_LOC_ACCESS_ERR;
-		break;
+		return IBV_WC_LOC_ACCESS_ERR;
 	case MLX5_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR:
-		wc->status = IBV_WC_REM_INV_REQ_ERR;
-		break;
+		return IBV_WC_REM_INV_REQ_ERR;
 	case MLX5_CQE_SYNDROME_REMOTE_ACCESS_ERR:
-		wc->status = IBV_WC_REM_ACCESS_ERR;
-		break;
+		return IBV_WC_REM_ACCESS_ERR;
 	case MLX5_CQE_SYNDROME_REMOTE_OP_ERR:
-		wc->status = IBV_WC_REM_OP_ERR;
-		break;
+		return IBV_WC_REM_OP_ERR;
 	case MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR:
-		wc->status = IBV_WC_RETRY_EXC_ERR;
-		break;
+		return IBV_WC_RETRY_EXC_ERR;
 	case MLX5_CQE_SYNDROME_RNR_RETRY_EXC_ERR:
-		wc->status = IBV_WC_RNR_RETRY_EXC_ERR;
-		break;
+		return IBV_WC_RNR_RETRY_EXC_ERR;
 	case MLX5_CQE_SYNDROME_REMOTE_ABORTED_ERR:
-		wc->status = IBV_WC_REM_ABORT_ERR;
-		break;
+		return IBV_WC_REM_ABORT_ERR;
 	default:
-		wc->status = IBV_WC_GENERAL_ERR;
-		break;
+		return IBV_WC_GENERAL_ERR;
 	}
-
-	wc->vendor_err = cqe->vendor_err_synd;
 }
 
 #if defined(__x86_64__) || defined (__i386__)
@@ -504,15 +487,60 @@ static inline int get_cur_rsc(struct mlx5_context *mctx,
 
 }
 
+static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
+				    struct mlx5_cqe64 **pcqe64,
+				    void **pcqe)
+				    __attribute__((always_inline));
+static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
+				    struct mlx5_cqe64 **pcqe64,
+				    void **pcqe)
+{
+	void *cqe;
+	struct mlx5_cqe64 *cqe64;
+
+	cqe = next_cqe_sw(cq);
+	if (!cqe)
+		return CQ_EMPTY;
+
+	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
+
+	++cq->cons_index;
+
+	VALGRIND_MAKE_MEM_DEFINED(cqe64, sizeof *cqe64);
+
+	/*
+	 * Make sure we read CQ entry contents after we've checked the
+	 * ownership bit.
+	 */
+	rmb();
+
+#ifdef MLX5_DEBUG
+	{
+		struct mlx5_context *mctx = to_mctx(cq->ibv_cq.context);
+
+		if (mlx5_debug_mask & MLX5_DBG_CQ_CQE) {
+			FILE *fp = mctx->dbg_fp;
+
+			mlx5_dbg(fp, MLX5_DBG_CQ_CQE, "dump cqe for cqn 0x%x:\n", cq->cqn);
+			dump_cqe(fp, cqe64);
+		}
+	}
+#endif
+	*pcqe64 = cqe64;
+	*pcqe = cqe;
+
+	return CQ_OK;
+}
+
 static inline int mlx5_poll_one(struct mlx5_cq *cq,
-			 struct mlx5_resource **cur_rsc,
-			 struct mlx5_srq **cur_srq,
-			 struct ibv_wc *wc, int cqe_ver)
-			 __attribute__((always_inline));
+				struct mlx5_resource **cur_rsc,
+				struct mlx5_srq **cur_srq,
+				struct ibv_wc *wc, int cqe_ver)
+				__attribute__((always_inline));
 static inline int mlx5_poll_one(struct mlx5_cq *cq,
-			 struct mlx5_resource **cur_rsc,
-			 struct mlx5_srq **cur_srq,
-			 struct ibv_wc *wc, int cqe_ver)
+				struct mlx5_resource **cur_rsc,
+				struct mlx5_srq **cur_srq,
+				struct ibv_wc *wc, int cqe_ver)
 {
 	struct mlx5_cqe64 *cqe64;
 	struct mlx5_wq *wq;
@@ -528,33 +556,11 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 	struct mlx5_context *mctx;
 	uint8_t is_srq = 0;
 
-	cqe = next_cqe_sw(cq);
-	if (!cqe)
-		return CQ_EMPTY;
+	err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
+	if (err == CQ_EMPTY)
+		return err;
 
 	mctx = to_mctx(cq->ibv_cq.context);
-
-	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
-
-	++cq->cons_index;
-
-	VALGRIND_MAKE_MEM_DEFINED(cqe64, sizeof *cqe64);
-
-	/*
-	 * Make sure we read CQ entry contents after we've checked the
-	 * ownership bit.
-	 */
-	rmb();
-
-#ifdef MLX5_DEBUG
-	if (mlx5_debug_mask & MLX5_DBG_CQ_CQE) {
-		FILE *fp = mctx->dbg_fp;
-
-		mlx5_dbg(fp, MLX5_DBG_CQ_CQE, "dump cqe for cqn 0x%x:\n", cq->cqn);
-		dump_cqe(fp, cqe64);
-	}
-#endif
-
 	qpn = ntohl(cqe64->sop_drop_qpn) & 0xffffff;
 	wc->wc_flags = 0;
 	wc->qp_num = qpn;
@@ -602,7 +608,8 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 	case MLX5_CQE_RESP_ERR:
 		srqn_uidx = ntohl(cqe64->srqn_uidx) & 0xffffff;
 		ecqe = (struct mlx5_err_cqe *)cqe64;
-		mlx5_handle_error_cqe(ecqe, wc);
+		wc->status = mlx5_handle_error_cqe(ecqe);
+		wc->vendor_err = ecqe->vendor_err_synd;
 		if (unlikely(ecqe->syndrome != MLX5_CQE_SYNDROME_WR_FLUSH_ERR &&
 			     ecqe->syndrome != MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR)) {
 			FILE *fp = mctx->dbg_fp;
