@@ -831,6 +831,261 @@ static inline int poll_cq(struct ibv_cq *ibcq, int ne,
 	return err == CQ_POLL_ERR ? err : npolled;
 }
 
+enum  polling_mode {
+	POLLING_MODE_NO_STALL,
+	POLLING_MODE_STALL,
+	POLLING_MODE_STALL_ADAPTIVE
+};
+
+static inline void _mlx5_end_poll(struct ibv_cq_ex *ibcq,
+				  int lock, enum polling_mode stall)
+				  __attribute__((always_inline));
+static inline void _mlx5_end_poll(struct ibv_cq_ex *ibcq,
+				  int lock, enum polling_mode stall)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+
+	update_cons_index(cq);
+
+	if (lock)
+		mlx5_spin_unlock(&cq->lock);
+
+	if (stall) {
+		if (stall == POLLING_MODE_STALL_ADAPTIVE) {
+			if (!(cq->flags & MLX5_CQ_FLAGS_FOUND_CQES)) {
+				cq->stall_cycles = max(cq->stall_cycles - mlx5_stall_cq_dec_step,
+						       mlx5_stall_cq_poll_min);
+				mlx5_get_cycles(&cq->stall_last_count);
+			} else if (cq->flags & MLX5_CQ_FLAGS_EMPTY_DURING_POLL) {
+				cq->stall_cycles = min(cq->stall_cycles + mlx5_stall_cq_inc_step,
+						       mlx5_stall_cq_poll_max);
+				mlx5_get_cycles(&cq->stall_last_count);
+			} else {
+				cq->stall_cycles = max(cq->stall_cycles - mlx5_stall_cq_dec_step,
+						       mlx5_stall_cq_poll_min);
+				cq->stall_last_count = 0;
+			}
+		} else if (!(cq->flags & MLX5_CQ_FLAGS_FOUND_CQES)) {
+			cq->stall_next_poll = 1;
+		}
+
+		cq->flags &= ~(MLX5_CQ_FLAGS_FOUND_CQES | MLX5_CQ_FLAGS_EMPTY_DURING_POLL);
+	}
+}
+
+static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr,
+				  int lock, enum polling_mode stall, int cqe_version)
+				  __attribute__((always_inline));
+static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr,
+				  int lock, enum polling_mode stall, int cqe_version)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+	struct mlx5_cqe64 *cqe64;
+	void *cqe;
+	int err;
+
+	if (unlikely(attr->comp_mask))
+		return EINVAL;
+
+	if (stall) {
+		if (stall == POLLING_MODE_STALL_ADAPTIVE) {
+			if (cq->stall_last_count)
+				mlx5_stall_cycles_poll_cq(cq->stall_last_count + cq->stall_cycles);
+		} else if (cq->stall_next_poll) {
+			cq->stall_next_poll = 0;
+			mlx5_stall_poll_cq();
+		}
+	}
+
+	if (lock)
+		mlx5_spin_lock(&cq->lock);
+
+	cq->cur_rsc = NULL;
+	cq->cur_srq = NULL;
+
+	err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
+	if (err == CQ_EMPTY) {
+		if (lock)
+			mlx5_spin_unlock(&cq->lock);
+
+		if (stall) {
+			if (stall == POLLING_MODE_STALL_ADAPTIVE) {
+				cq->stall_cycles = max(cq->stall_cycles - mlx5_stall_cq_dec_step,
+						mlx5_stall_cq_poll_min);
+				mlx5_get_cycles(&cq->stall_last_count);
+			} else {
+				cq->stall_next_poll = 1;
+			}
+		}
+
+		return ENOENT;
+	}
+
+	if (stall)
+		cq->flags |= MLX5_CQ_FLAGS_FOUND_CQES;
+
+	err = mlx5_parse_lazy_cqe(cq, cqe64, cqe, cqe_version);
+	if (lock && err)
+		mlx5_spin_unlock(&cq->lock);
+
+	if (stall && err) {
+		if (stall == POLLING_MODE_STALL_ADAPTIVE) {
+			cq->stall_cycles = max(cq->stall_cycles - mlx5_stall_cq_dec_step,
+						mlx5_stall_cq_poll_min);
+			cq->stall_last_count = 0;
+		}
+
+		cq->flags &= ~(MLX5_CQ_FLAGS_FOUND_CQES);
+	}
+
+	return err;
+}
+
+static inline int mlx5_next_poll(struct ibv_cq_ex *ibcq,
+				 enum polling_mode stall, int cqe_version)
+				 __attribute__((always_inline));
+static inline int mlx5_next_poll(struct ibv_cq_ex *ibcq,
+				 enum polling_mode stall,
+				 int cqe_version)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+	struct mlx5_cqe64 *cqe64;
+	void *cqe;
+	int err;
+
+	err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
+	if (err == CQ_EMPTY) {
+		if (stall == POLLING_MODE_STALL_ADAPTIVE)
+			cq->flags |= MLX5_CQ_FLAGS_EMPTY_DURING_POLL;
+
+		return ENOENT;
+	}
+
+	return mlx5_parse_lazy_cqe(cq, cqe64, cqe, cqe_version);
+}
+
+static inline int mlx5_next_poll_adaptive_v0(struct ibv_cq_ex *ibcq)
+{
+	return mlx5_next_poll(ibcq, POLLING_MODE_STALL_ADAPTIVE, 0);
+}
+
+static inline int mlx5_next_poll_adaptive_v1(struct ibv_cq_ex *ibcq)
+{
+	return mlx5_next_poll(ibcq, POLLING_MODE_STALL_ADAPTIVE, 1);
+}
+
+static inline int mlx5_next_poll_v0(struct ibv_cq_ex *ibcq)
+{
+	return mlx5_next_poll(ibcq, 0, 0);
+}
+
+static inline int mlx5_next_poll_v1(struct ibv_cq_ex *ibcq)
+{
+	return mlx5_next_poll(ibcq, 0, 1);
+}
+
+static inline int mlx5_start_poll_v0(struct ibv_cq_ex *ibcq,
+				     struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, 0, 0);
+}
+
+static inline int mlx5_start_poll_v1(struct ibv_cq_ex *ibcq,
+				     struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, 0, 1);
+}
+
+static inline int mlx5_start_poll_v0_lock(struct ibv_cq_ex *ibcq,
+					  struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, 0, 0);
+}
+
+static inline int mlx5_start_poll_v1_lock(struct ibv_cq_ex *ibcq,
+					  struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, 0, 1);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v0_lock(struct ibv_cq_ex *ibcq,
+							 struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 0);
+}
+
+static inline int mlx5_start_poll_stall_v0_lock(struct ibv_cq_ex *ibcq,
+						struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 0);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v1_lock(struct ibv_cq_ex *ibcq,
+							 struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 1);
+}
+
+static inline int mlx5_start_poll_stall_v1_lock(struct ibv_cq_ex *ibcq,
+						struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 1);
+}
+
+static inline int mlx5_start_poll_stall_v0(struct ibv_cq_ex *ibcq,
+					   struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 0);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v0(struct ibv_cq_ex *ibcq,
+						    struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 0);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v1(struct ibv_cq_ex *ibcq,
+						    struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 1);
+}
+
+static inline int mlx5_start_poll_stall_v1(struct ibv_cq_ex *ibcq,
+					   struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 1);
+}
+
+static inline void mlx5_end_poll_adaptive_stall_lock(struct ibv_cq_ex *ibcq)
+{
+	_mlx5_end_poll(ibcq, 1, POLLING_MODE_STALL_ADAPTIVE);
+}
+
+static inline void mlx5_end_poll_stall_lock(struct ibv_cq_ex *ibcq)
+{
+	_mlx5_end_poll(ibcq, 1, POLLING_MODE_STALL);
+}
+
+static inline void mlx5_end_poll_adaptive_stall(struct ibv_cq_ex *ibcq)
+{
+	_mlx5_end_poll(ibcq, 0, POLLING_MODE_STALL_ADAPTIVE);
+}
+
+static inline void mlx5_end_poll_stall(struct ibv_cq_ex *ibcq)
+{
+	_mlx5_end_poll(ibcq, 0, POLLING_MODE_STALL);
+}
+
+static inline void mlx5_end_poll(struct ibv_cq_ex *ibcq)
+{
+	_mlx5_end_poll(ibcq, 0, 0);
+}
+
+static inline void mlx5_end_poll_lock(struct ibv_cq_ex *ibcq)
+{
+	_mlx5_end_poll(ibcq, 1, 0);
+}
+
 int mlx5_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 {
 	return poll_cq(ibcq, ne, wc, 0);

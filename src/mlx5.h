@@ -366,6 +366,8 @@ enum {
 
 enum {
 	MLX5_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
+	MLX5_CQ_FLAGS_EMPTY_DURING_POLL = 1 << 1,
+	MLX5_CQ_FLAGS_FOUND_CQES = 1 << 2,
 };
 
 struct mlx5_cq {
