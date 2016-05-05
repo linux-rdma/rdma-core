@@ -144,3 +144,25 @@ following attributes:
 * **flags** - the following flags are currently defined:
     - IBV_TM_CAP_RC - Support tag matching on RC transport
 
+
+### TM-SRQ creation
+
+TM-SRQs are created by the ibv_create_srq_ex() Verb, which accepts the
+following new attributes:
+* **srq_type** - set to **IBV_SRQT_TM**
+* **comp_mask** - set the **IBV_SRQ_INIT_ATTR_TM** flag
+* **tm_cap** - TM properties for this TM-SRQ; defined as follows:
+
+```h
+struct ibv_tm_cap {
+	 uint32_t max_num_tags;   /* Matching list size */
+	 uint32_t max_ops;	  /* Number of outstanding TM operations */
+}
+```
+Similarly to XRC SRQs, a TM-SRQ has a dedicated CQ.
+
+RC QPs are associated with the TM-SRQ just like standard SRQs. However, the
+ownership of the QP's Send Queue is passed to the TM-SRQ, which uses it to
+initiate rendezvous RDMA-Reads. Receive completions are reported to the
+TM-SRQ's CQ.
+

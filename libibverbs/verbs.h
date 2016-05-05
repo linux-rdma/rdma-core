@@ -673,7 +673,8 @@ struct ibv_srq_init_attr {
 
 enum ibv_srq_type {
 	IBV_SRQT_BASIC,
-	IBV_SRQT_XRC
+	IBV_SRQT_XRC,
+	IBV_SRQT_TM,
 };
 
 enum ibv_srq_init_attr_mask {
@@ -681,7 +682,13 @@ enum ibv_srq_init_attr_mask {
 	IBV_SRQ_INIT_ATTR_PD		= 1 << 1,
 	IBV_SRQ_INIT_ATTR_XRCD		= 1 << 2,
 	IBV_SRQ_INIT_ATTR_CQ		= 1 << 3,
-	IBV_SRQ_INIT_ATTR_RESERVED	= 1 << 4
+	IBV_SRQ_INIT_ATTR_TM		= 1 << 4,
+	IBV_SRQ_INIT_ATTR_RESERVED	= 1 << 5,
+};
+
+struct ibv_tm_cap {
+	uint32_t		max_num_tags;
+	uint32_t		max_ops;
 };
 
 struct ibv_srq_init_attr_ex {
@@ -693,6 +700,7 @@ struct ibv_srq_init_attr_ex {
 	struct ibv_pd	       *pd;
 	struct ibv_xrcd	       *xrcd;
 	struct ibv_cq	       *cq;
+	struct ibv_tm_cap	tm_cap;
 };
 
 enum ibv_wq_type {

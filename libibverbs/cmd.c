@@ -720,6 +720,17 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 		vxrcd = container_of(attr_ex->xrcd, struct verbs_xrcd, xrcd);
 		cmd->xrcd_handle = vxrcd->handle;
 		cmd->cq_handle   = attr_ex->cq->handle;
+	} else if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_TM) {
+		if (cmd->srq_type != IBV_SRQT_TM)
+			return EINVAL;
+		if (!(attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_CQ) ||
+		    !attr_ex->tm_cap.max_num_tags)
+			return EINVAL;
+
+		cmd->cq_handle    = attr_ex->cq->handle;
+		cmd->max_num_tags = attr_ex->tm_cap.max_num_tags;
+	} else if (cmd->srq_type != IBV_SRQT_BASIC) {
+		return EINVAL;
 	}
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
