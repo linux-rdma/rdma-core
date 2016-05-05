@@ -368,6 +368,8 @@ enum {
 	MLX5_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
 	MLX5_CQ_FLAGS_EMPTY_DURING_POLL = 1 << 1,
 	MLX5_CQ_FLAGS_FOUND_CQES = 1 << 2,
+	MLX5_CQ_FLAGS_EXTENDED = 1 << 3,
+	MLX5_CQ_FLAGS_SINGLE_THREADED = 1 << 4,
 };
 
 struct mlx5_cq {
@@ -635,6 +637,9 @@ int mlx5_dereg_mr(struct ibv_mr *mr);
 struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
+struct ibv_cq_ex *mlx5_create_cq_ex(struct ibv_context *context,
+				    struct ibv_cq_init_attr_ex *cq_attr);
+void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr);
 int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 		      struct mlx5_buf *buf, int nent, int cqe_sz);
 int mlx5_free_cq_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);

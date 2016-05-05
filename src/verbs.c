@@ -254,9 +254,22 @@ static int qp_sig_enabled(void)
 	return 0;
 }
 
-struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
-			      struct ibv_comp_channel *channel,
-			      int comp_vector)
+enum {
+	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS	|
+				       IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
+};
+
+enum {
+	CREATE_CQ_SUPPORTED_COMP_MASK = IBV_CQ_INIT_ATTR_MASK_FLAGS
+};
+
+enum {
+	CREATE_CQ_SUPPORTED_FLAGS = IBV_CREATE_CQ_ATTR_SINGLE_THREADED
+};
+
+static struct ibv_cq_ex *create_cq(struct ibv_context *context,
+				   const struct ibv_cq_init_attr_ex *cq_attr,
+				   int cq_alloc_flags)
 {
 	struct mlx5_create_cq		cmd;
 	struct mlx5_create_cq_resp	resp;
@@ -268,9 +281,30 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 	FILE *fp = to_mctx(context)->dbg_fp;
 #endif
 
-	if (!cqe) {
-		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
+	if (!cq_attr->cqe) {
+		mlx5_dbg(fp, MLX5_DBG_CQ, "CQE invalid\n");
 		errno = EINVAL;
+		return NULL;
+	}
+
+	if (cq_attr->comp_mask & ~CREATE_CQ_SUPPORTED_COMP_MASK) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "Unsupported comp_mask for create_cq\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
+	    cq_attr->flags & ~CREATE_CQ_SUPPORTED_FLAGS) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "Unsupported creation flags requested for create_cq\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (cq_attr->wc_flags & ~CREATE_CQ_SUPPORTED_WC_FLAGS) {
+		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
+		errno = ENOTSUP;
 		return NULL;
 	}
 
@@ -286,15 +320,8 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 	if (mlx5_spinlock_init(&cq->lock))
 		goto err;
 
-	/* The additional entry is required for resize CQ */
-	if (cqe <= 0) {
-		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
-		errno = EINVAL;
-		goto err_spl;
-	}
-
-	ncqe = align_queue_size(cqe + 1);
-	if ((ncqe > (1 << 24)) || (ncqe < (cqe + 1))) {
+	ncqe = align_queue_size(cq_attr->cqe + 1);
+	if ((ncqe > (1 << 24)) || (ncqe < (cq_attr->cqe + 1))) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "ncqe %d\n", ncqe);
 		errno = EINVAL;
 		goto err_spl;
@@ -322,12 +349,17 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 	cq->dbrec[MLX5_CQ_ARM_DB]	= 0;
 	cq->arm_sn			= 0;
 	cq->cqe_sz			= cqe_sz;
+	cq->flags			= cq_alloc_flags;
 
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
+	    cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
+		cq->flags |= MLX5_CQ_FLAGS_SINGLE_THREADED;
 	cmd.buf_addr = (uintptr_t) cq->buf_a.buf;
 	cmd.db_addr  = (uintptr_t) cq->dbrec;
 	cmd.cqe_size = cqe_sz;
 
-	ret = ibv_cmd_create_cq(context, ncqe - 1, channel, comp_vector,
+	ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
+				cq_attr->comp_vector,
 				ibv_cq_ex_to_cq(&cq->ibv_cq), &cmd.ibv_cmd,
 				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (ret) {
@@ -342,7 +374,10 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 	cq->stall_adaptive_enable = to_mctx(context)->stall_adaptive_enable;
 	cq->stall_cycles = to_mctx(context)->stall_cycles;
 
-	return ibv_cq_ex_to_cq(&cq->ibv_cq);
+	if (cq_alloc_flags & MLX5_CQ_FLAGS_EXTENDED)
+		mlx5_cq_fill_pfns(cq, cq_attr);
+
+	return &cq->ibv_cq;
 
 err_db:
 	mlx5_free_db(to_mctx(context), cq->dbrec);
@@ -357,6 +392,30 @@ err:
 	free(cq);
 
 	return NULL;
+}
+
+struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
+			      struct ibv_comp_channel *channel,
+			      int comp_vector)
+{
+	struct ibv_cq_ex *cq;
+	struct ibv_cq_init_attr_ex cq_attr = {.cqe = cqe, .channel = channel,
+						.comp_vector = comp_vector,
+						.wc_flags = IBV_WC_STANDARD_FLAGS};
+
+	if (cqe <= 0) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	cq = create_cq(context, &cq_attr, 0);
+	return cq ? ibv_cq_ex_to_cq(cq) : NULL;
+}
+
+struct ibv_cq_ex *mlx5_create_cq_ex(struct ibv_context *context,
+				    struct ibv_cq_init_attr_ex *cq_attr)
+{
+	return create_cq(context, cq_attr, MLX5_CQ_FLAGS_EXTENDED);
 }
 
 int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)

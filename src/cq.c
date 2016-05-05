@@ -1223,6 +1223,80 @@ static inline uint64_t mlx5_cq_read_wc_completion_ts(struct ibv_cq_ex *ibcq)
 	return ntohll(cq->cqe64->timestamp);
 }
 
+#define BIT(i) (1UL << (i))
+
+#define SINGLE_THREADED BIT(0)
+#define STALL BIT(1)
+#define V1 BIT(2)
+#define ADAPTIVE BIT(3)
+
+#define mlx5_start_poll_name(cqe_ver, lock, stall, adaptive) \
+	mlx5_start_poll##adaptive##stall##cqe_ver##lock
+#define mlx5_next_poll_name(cqe_ver, adaptive) \
+	mlx5_next_poll##adaptive##cqe_ver
+#define mlx5_end_poll_name(lock, stall, adaptive) \
+	mlx5_end_poll##adaptive##stall##lock
+
+#define POLL_FN_ENTRY(cqe_ver, lock, stall, adaptive) { \
+		.start_poll = &mlx5_start_poll_name(cqe_ver, lock, stall, adaptive), \
+		.next_poll = &mlx5_next_poll_name(cqe_ver, adaptive), \
+		.end_poll = &mlx5_end_poll_name(lock, stall, adaptive), \
+	}
+
+static const struct op
+{
+	int (*start_poll)(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr);
+	int (*next_poll)(struct ibv_cq_ex *ibcq);
+	void (*end_poll)(struct ibv_cq_ex *ibcq);
+} ops[ADAPTIVE + V1 + STALL + SINGLE_THREADED + 1] = {
+	[V1] =  POLL_FN_ENTRY(_v1, _lock, , ),
+	[0] =  POLL_FN_ENTRY(_v0, _lock, , ),
+	[V1 | SINGLE_THREADED] =  POLL_FN_ENTRY(_v1, , , ),
+	[SINGLE_THREADED] =  POLL_FN_ENTRY(_v0, , , ),
+	[V1 | STALL] =  POLL_FN_ENTRY(_v1, _lock, _stall, ),
+	[STALL] =  POLL_FN_ENTRY(_v0, _lock, _stall, ),
+	[V1 | SINGLE_THREADED | STALL] =  POLL_FN_ENTRY(_v1, , _stall, ),
+	[SINGLE_THREADED | STALL] =  POLL_FN_ENTRY(_v0, , _stall, ),
+	[V1 | STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v1, _lock, _stall, _adaptive),
+	[STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v0, _lock, _stall, _adaptive),
+	[V1 | SINGLE_THREADED | STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v1, , _stall, _adaptive),
+	[SINGLE_THREADED | STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v0, , _stall, _adaptive),
+};
+
+void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr)
+{
+	struct mlx5_context *mctx = to_mctx(ibv_cq_ex_to_cq(&cq->ibv_cq)->context);
+	const struct op *poll_ops = &ops[((cq->stall_enable && cq->stall_adaptive_enable) ? ADAPTIVE : 0) |
+					 (mctx->cqe_version ? V1 : 0) |
+					 (cq->flags & MLX5_CQ_FLAGS_SINGLE_THREADED ?
+						      SINGLE_THREADED : 0) |
+					 (cq->stall_enable ? STALL : 0)];
+
+	cq->ibv_cq.start_poll = poll_ops->start_poll;
+	cq->ibv_cq.next_poll = poll_ops->next_poll;
+	cq->ibv_cq.end_poll = poll_ops->end_poll;
+
+	cq->ibv_cq.read_opcode = mlx5_cq_read_wc_opcode;
+	cq->ibv_cq.read_vendor_err = mlx5_cq_read_wc_vendor_err;
+	cq->ibv_cq.read_wc_flags = mlx5_cq_read_wc_flags;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_BYTE_LEN)
+		cq->ibv_cq.read_byte_len = mlx5_cq_read_wc_byte_len;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_IMM)
+		cq->ibv_cq.read_imm_data = mlx5_cq_read_wc_imm_data;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_QP_NUM)
+		cq->ibv_cq.read_qp_num = mlx5_cq_read_wc_qp_num;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SRC_QP)
+		cq->ibv_cq.read_src_qp = mlx5_cq_read_wc_src_qp;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SLID)
+		cq->ibv_cq.read_slid = mlx5_cq_read_wc_slid;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SL)
+		cq->ibv_cq.read_sl = mlx5_cq_read_wc_sl;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
+		cq->ibv_cq.read_dlid_path_bits = mlx5_cq_read_wc_dlid_path_bits;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
+		cq->ibv_cq.read_completion_ts = mlx5_cq_read_wc_completion_ts;
+}
+
 int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 {
 	struct mlx5_cq *cq = to_mcq(ibvcq);
