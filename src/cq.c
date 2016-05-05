@@ -219,6 +219,54 @@ static void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe)
 	}
 }
 
+static inline void handle_good_req_lazy(struct mlx5_cqe64 *cqe, uint32_t *pwc_byte_len)
+{
+	switch (ntohl(cqe->sop_drop_qpn) >> 24) {
+	case MLX5_OPCODE_RDMA_READ:
+		*pwc_byte_len  = ntohl(cqe->byte_cnt);
+		break;
+	case MLX5_OPCODE_ATOMIC_CS:
+	case MLX5_OPCODE_ATOMIC_FA:
+		*pwc_byte_len  = 8;
+		break;
+	}
+}
+
+static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *cqe,
+					struct mlx5_qp *qp, struct mlx5_srq *srq)
+{
+	uint16_t	wqe_ctr;
+	struct mlx5_wq *wq;
+	int err = IBV_WC_SUCCESS;
+
+	if (srq) {
+		wqe_ctr = ntohs(cqe->wqe_counter);
+		cq->ibv_cq.wr_id = srq->wrid[wqe_ctr];
+		mlx5_free_srq_wqe(srq, wqe_ctr);
+		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
+			err = mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe,
+						    ntohl(cqe->byte_cnt));
+		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
+			err = mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe - 1,
+						    ntohl(cqe->byte_cnt));
+	} else {
+		wq	  = &qp->rq;
+		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
+		cq->ibv_cq.wr_id = wq->wrid[wqe_ctr];
+		++wq->tail;
+		if (qp->qp_cap_cache & MLX5_RX_CSUM_VALID)
+			cq->flags |= MLX5_CQ_FLAGS_RX_CSUM_VALID;
+		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
+			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe,
+						    ntohl(cqe->byte_cnt));
+		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
+			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe - 1,
+						    ntohl(cqe->byte_cnt));
+	}
+
+	return err;
+}
+
 static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 			    struct mlx5_qp *qp, struct mlx5_srq *srq)
 {
@@ -532,41 +580,49 @@ static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 	return CQ_OK;
 }
 
-static inline int mlx5_poll_one(struct mlx5_cq *cq,
-				struct mlx5_resource **cur_rsc,
-				struct mlx5_srq **cur_srq,
-				struct ibv_wc *wc, int cqe_ver)
-				__attribute__((always_inline));
-static inline int mlx5_poll_one(struct mlx5_cq *cq,
-				struct mlx5_resource **cur_rsc,
-				struct mlx5_srq **cur_srq,
-				struct ibv_wc *wc, int cqe_ver)
+static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
+				 struct mlx5_cqe64 *cqe64,
+				 void *cqe,
+				 struct mlx5_resource **cur_rsc,
+				 struct mlx5_srq **cur_srq,
+				 struct ibv_wc *wc,
+				 int cqe_ver, int lazy)
+				 __attribute__((always_inline));
+static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
+				 struct mlx5_cqe64 *cqe64,
+				 void *cqe,
+				 struct mlx5_resource **cur_rsc,
+				 struct mlx5_srq **cur_srq,
+				 struct ibv_wc *wc,
+				 int cqe_ver, int lazy)
 {
-	struct mlx5_cqe64 *cqe64;
 	struct mlx5_wq *wq;
 	uint16_t wqe_ctr;
-	void *cqe;
 	uint32_t qpn;
 	uint32_t srqn_uidx;
 	int idx;
 	uint8_t opcode;
 	struct mlx5_err_cqe *ecqe;
-	int err;
+	int err = 0;
 	struct mlx5_qp *mqp;
 	struct mlx5_context *mctx;
 	uint8_t is_srq = 0;
 
-	err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
-	if (err == CQ_EMPTY)
-		return err;
-
-	mctx = to_mctx(cq->ibv_cq.context);
+	mctx = to_mctx(ibv_cq_ex_to_cq(&cq->ibv_cq)->context);
 	qpn = ntohl(cqe64->sop_drop_qpn) & 0xffffff;
-	wc->wc_flags = 0;
-	wc->qp_num = qpn;
+	if (lazy) {
+		cq->cqe64 = cqe64;
+		cq->flags &= (~MLX5_CQ_FLAGS_RX_CSUM_VALID);
+	} else {
+		wc->wc_flags = 0;
+		wc->qp_num = qpn;
+	}
+
 	opcode = cqe64->op_own >> 4;
 	switch (opcode) {
 	case MLX5_CQE_REQ:
+	{
+		uint32_t uninitialized_var(wc_byte_len);
 		mqp = get_req_context(mctx, cur_rsc,
 				      (cqe_ver ? (ntohl(cqe64->srqn_uidx) & 0xffffff) : qpn),
 				      cqe_ver);
@@ -575,20 +631,29 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 		wq = &mqp->sq;
 		wqe_ctr = ntohs(cqe64->wqe_counter);
 		idx = wqe_ctr & (wq->wqe_cnt - 1);
-		handle_good_req(wc, cqe64);
+		if (lazy)
+			handle_good_req_lazy(cqe64, &wc_byte_len);
+		else
+			handle_good_req(wc, cqe64);
+
 		if (cqe64->op_own & MLX5_INLINE_SCATTER_32)
 			err = mlx5_copy_to_send_wqe(mqp, wqe_ctr, cqe,
-						    wc->byte_len);
+						    lazy ? wc_byte_len : wc->byte_len);
 		else if (cqe64->op_own & MLX5_INLINE_SCATTER_64)
 			err = mlx5_copy_to_send_wqe(mqp, wqe_ctr, cqe - 1,
-						    wc->byte_len);
-		else
-			err = 0;
+						     lazy ? wc_byte_len : wc->byte_len);
 
-		wc->wr_id = wq->wrid[idx];
+		if (lazy) {
+			cq->ibv_cq.wr_id = wq->wrid[idx];
+			cq->ibv_cq.status = err;
+		} else {
+			wc->wr_id = wq->wrid[idx];
+			wc->status = err;
+		}
+
 		wq->tail = wq->wqe_head[idx] + 1;
-		wc->status = err;
 		break;
+	}
 	case MLX5_CQE_RESP_WR_IMM:
 	case MLX5_CQE_RESP_SEND:
 	case MLX5_CQE_RESP_SEND_IMM:
@@ -599,7 +664,12 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 		if (unlikely(err))
 			return CQ_POLL_ERR;
 
-		wc->status = handle_responder(wc, cqe64, rsc_to_mqp(*cur_rsc),
+		if (lazy)
+			cq->ibv_cq.status = handle_responder_lazy(cq, cqe64,
+							      rsc_to_mqp(*cur_rsc),
+							      is_srq ? *cur_srq : NULL);
+		else
+			wc->status = handle_responder(wc, cqe64, rsc_to_mqp(*cur_rsc),
 					      is_srq ? *cur_srq : NULL);
 		break;
 	case MLX5_CQE_RESIZE_CQ:
@@ -608,8 +678,15 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 	case MLX5_CQE_RESP_ERR:
 		srqn_uidx = ntohl(cqe64->srqn_uidx) & 0xffffff;
 		ecqe = (struct mlx5_err_cqe *)cqe64;
-		wc->status = mlx5_handle_error_cqe(ecqe);
-		wc->vendor_err = ecqe->vendor_err_synd;
+		{
+			enum ibv_wc_status *pstatus = lazy ? &cq->ibv_cq.status : &wc->status;
+
+			*pstatus = mlx5_handle_error_cqe(ecqe);
+		}
+
+		if (!lazy)
+			wc->vendor_err = ecqe->vendor_err_synd;
+
 		if (unlikely(ecqe->syndrome != MLX5_CQE_SYNDROME_WR_FLUSH_ERR &&
 			     ecqe->syndrome != MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR)) {
 			FILE *fp = mctx->dbg_fp;
@@ -631,7 +708,10 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 			wq = &mqp->sq;
 			wqe_ctr = ntohs(cqe64->wqe_counter);
 			idx = wqe_ctr & (wq->wqe_cnt - 1);
-			wc->wr_id = wq->wrid[idx];
+			if (lazy)
+				cq->ibv_cq.wr_id = wq->wrid[idx];
+			else
+				wc->wr_id = wq->wrid[idx];
 			wq->tail = wq->wqe_head[idx] + 1;
 		} else {
 			err = get_cur_rsc(mctx, cqe_ver, qpn, srqn_uidx,
@@ -641,12 +721,18 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 
 			if (is_srq) {
 				wqe_ctr = ntohs(cqe64->wqe_counter);
-				wc->wr_id = (*cur_srq)->wrid[wqe_ctr];
+				if (lazy)
+					cq->ibv_cq.wr_id = (*cur_srq)->wrid[wqe_ctr];
+				else
+					wc->wr_id = (*cur_srq)->wrid[wqe_ctr];
 				mlx5_free_srq_wqe(*cur_srq, wqe_ctr);
 			} else {
 				mqp = rsc_to_mqp(*cur_rsc);
 				wq = &mqp->rq;
-				wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+				if (lazy)
+					cq->ibv_cq.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+				else
+					wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 				++wq->tail;
 			}
 		}
@@ -654,6 +740,38 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 	}
 
 	return CQ_OK;
+}
+
+static inline int mlx5_parse_lazy_cqe(struct mlx5_cq *cq,
+				      struct mlx5_cqe64 *cqe64,
+				      void *cqe, int cqe_ver)
+				      __attribute__((always_inline));
+static inline int mlx5_parse_lazy_cqe(struct mlx5_cq *cq,
+				      struct mlx5_cqe64 *cqe64,
+				      void *cqe, int cqe_ver)
+{
+	return mlx5_parse_cqe(cq, cqe64, cqe, &cq->cur_rsc, &cq->cur_srq, NULL, cqe_ver, 1);
+}
+
+static inline int mlx5_poll_one(struct mlx5_cq *cq,
+				struct mlx5_resource **cur_rsc,
+				struct mlx5_srq **cur_srq,
+				struct ibv_wc *wc, int cqe_ver)
+				__attribute__((always_inline));
+static inline int mlx5_poll_one(struct mlx5_cq *cq,
+				struct mlx5_resource **cur_rsc,
+				struct mlx5_srq **cur_srq,
+				struct ibv_wc *wc, int cqe_ver)
+{
+	struct mlx5_cqe64 *cqe64;
+	void *cqe;
+	int err;
+
+	err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
+	if (err == CQ_EMPTY)
+		return err;
+
+	return mlx5_parse_cqe(cq, cqe64, cqe, cur_rsc, cur_srq, wc, cqe_ver, 0);
 }
 
 static inline int poll_cq(struct ibv_cq *ibcq, int ne,

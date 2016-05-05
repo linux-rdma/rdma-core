@@ -328,8 +328,8 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 	cmd.cqe_size = cqe_sz;
 
 	ret = ibv_cmd_create_cq(context, ncqe - 1, channel, comp_vector,
-				&cq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp);
+				ibv_cq_ex_to_cq(&cq->ibv_cq), &cmd.ibv_cmd,
+				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "ret %d\n", ret);
 		goto err_db;
@@ -342,7 +342,7 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 	cq->stall_adaptive_enable = to_mctx(context)->stall_adaptive_enable;
 	cq->stall_cycles = to_mctx(context)->stall_cycles;
 
-	return &cq->ibv_cq;
+	return ibv_cq_ex_to_cq(&cq->ibv_cq);
 
 err_db:
 	mlx5_free_db(to_mctx(context), cq->dbrec);

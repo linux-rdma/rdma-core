@@ -364,8 +364,13 @@ enum {
 	MLX5_CQ_ARM_DB	= 1,
 };
 
+enum {
+	MLX5_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
+};
+
 struct mlx5_cq {
-	struct ibv_cq			ibv_cq;
+	/* ibv_cq should always be subset of ibv_cq_ex */
+	struct ibv_cq_ex		ibv_cq;
 	struct mlx5_buf			buf_a;
 	struct mlx5_buf			buf_b;
 	struct mlx5_buf		       *active_buf;
@@ -384,6 +389,10 @@ struct mlx5_cq {
 	uint64_t			stall_last_count;
 	int				stall_adaptive_enable;
 	int				stall_cycles;
+	struct mlx5_resource		*cur_rsc;
+	struct mlx5_srq			*cur_srq;
+	struct mlx5_cqe64		*cqe64;
+	uint32_t			flags;
 };
 
 struct mlx5_srq {
