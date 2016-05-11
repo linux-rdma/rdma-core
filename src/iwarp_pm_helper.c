@@ -200,7 +200,8 @@ static int check_iwpm_ip_addr(struct sockaddr_storage *local_addr)
 	
 	/* get a list of host ethernet interfaces */
 	if ((ret = getifaddrs(ifa_list)) < 0) {
-		syslog(LOG_WARNING, "check_iwpm_ip_addr: Unable to get the list of interfaces.\n");
+		syslog(LOG_WARNING, "check_iwpm_ip_addr: Unable to get the list of interfaces (%s).\n",
+				strerror(errno));
 		return ret;
 	}
 	/* go through the list to make sure local IP address is valid */
@@ -235,6 +236,8 @@ static int check_iwpm_ip_addr(struct sockaddr_storage *local_addr)
 	}
 	if (found_addr)
 		ret = 0;
+
+	freeifaddrs(*ifa_list);
 	return ret;
 }
 
