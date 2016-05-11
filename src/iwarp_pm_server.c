@@ -276,6 +276,7 @@ static int process_iwpm_register_pid(struct nlmsghdr *req_nlh, int client_idx, i
 		str_err = "Unable to send nlmsg response";
 		goto register_pid_error;	
 	}
+	nlmsg_free(resp_nlmsg);
 	return 0;
 register_pid_error:
 	if (resp_nlmsg)
@@ -367,6 +368,7 @@ static int process_iwpm_add_mapping(struct nlmsghdr *req_nlh, int client_idx, in
 	}
 	/* add the new mapping to the list */
 	add_iwpm_mapped_port(&mapped_ports, iwpm_port);
+	nlmsg_free(resp_nlmsg);
 	return 0;
 
 add_mapping_free_error:
@@ -605,6 +607,7 @@ static int send_conn_info_nlmsg(struct sockaddr_storage *local_addr,
 		str_err = "Unable to send nlmsg response";
 		goto nlmsg_free_error;
 	}
+	nlmsg_free(resp_nlmsg);
 	return 0;
 nlmsg_free_error:
 	if (resp_nlmsg)
@@ -993,6 +996,7 @@ static int process_iwpm_mapinfo_count(struct nlmsghdr *req_nlh, int client_idx, 
 		str_err = "Unable to send nlmsg response";
 		goto mapinfo_count_free_error;	
 	}
+	nlmsg_free(resp_nlmsg);
 	return 0;
 mapinfo_count_free_error:
 	if (resp_nlmsg)
@@ -1037,6 +1041,7 @@ static int send_iwpm_error_msg(__u32 seq, __u16 err_code, int client_idx, int nl
 		str_err = "Unable to send nlmsg response";
 		goto send_error_msg_exit;	
 	}
+	nlmsg_free(resp_nlmsg);
 	return 0;
 send_error_msg_exit:
 	if (resp_nlmsg)
@@ -1249,6 +1254,7 @@ static int send_iwpm_mapinfo_request(int nl_sock, __u32 *iwarp_clients, int leng
 			str_err = "Unable to send nlmsg response";
 			goto send_mapinfo_error;	
 		}
+		nlmsg_free(req_nlmsg);
 	}
 	return 0;
 send_mapinfo_error:
