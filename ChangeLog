@@ -1,3 +1,35 @@
+commit ae7c98dba44da7761f1c911332f73da47aab7d3b
+Author: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Wed May 11 14:15:22 2016 -0700
+
+    Updating version to 1.0.4 to be included in OFED-3.18-2
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit ca1928eacc419fa7215c5297a0081cccd353b602
+Author: Mustafa Ismail <mustafa.ismail@intel.com>
+Date:   Wed May 11 14:00:52 2016 -0700
+
+    Fix for freeing a nlmsg after sending it
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 3119700891b802517577b189193b7e76ee256508
+Author: Mustafa Ismail <mustafa.ismail@intel.com>
+Date:   Wed May 11 13:57:22 2016 -0700
+
+    Fix for freeing the list of network interfaces after using it
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit ab8225cd5dfd64eb6cdde69defcf7593fb429396
+Author: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Wed May 11 13:56:13 2016 -0700
+
+    Update ChangeLog
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
 commit 03f0bd35c1804c0171cc013e36c1dc94c131dff9
 Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
 Date:   Wed Oct 14 10:06:04 2015 -0700
