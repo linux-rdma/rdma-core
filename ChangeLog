@@ -1,8 +1,24 @@
-commit 0ca269259f87243aeec8bd5fcfc7721ada6224fa
+commit 03f0bd35c1804c0171cc013e36c1dc94c131dff9
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Wed Oct 14 10:06:04 2015 -0700
+
+    Updating version to 1.0.3 to be included in OFED-3.18-1
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit 360337da4b10c0a26edcbf6adaf7eab02570b782
+Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
+Date:   Tue Oct 13 14:36:13 2015 -0700
+
+    Update ChangeLog
+    
+    Signed-off-by: Tatyana Nikolova <tatyana.e.nikolova@intel.com>
+
+commit a18b1deca6bb6c0d7b2110bb6fdfff4902489c3f
 Author: Tatyana E. Nikolova <tatyana.e.nikolova@intel.com>
 Date:   Tue Oct 13 14:26:58 2015 -0700
 
-    libiwpm: Make sure the iwpmd starts after the network service
+    The iwpmd needs to start after the network service
     
     Fix for the port mapper service not starting
     after boot on SLES11 SP4
