@@ -97,7 +97,7 @@ fi
 %config %_sysconfdir/iwpmd.conf
 
 %changelog
-*Wed May 11 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.4
+*Wed May 11 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.4
 - Fixes for freeing allocated memory resources after using them
 - Releasing libiwpm-1.0.4 to be included in OFED-3.18-2
 *Wed Oct 14 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.3
