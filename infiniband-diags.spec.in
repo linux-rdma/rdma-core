@@ -12,6 +12,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source: http://www.openfabrics.org/downloads/management/@TARBALL@
 Url: http://openfabrics.org/
 BuildRequires: libibmad-devel, opensm-devel, libibumad-devel, glib2-devel, libudev-devel
+@SYSTEMD_BUILD_REQUIRES@
 Requires: libibmad, opensm-libs, libibumad, glib2
 Provides: perl(IBswcountlimits)
 Obsoletes: openib-diags
@@ -167,36 +168,35 @@ rm -rf $RPM_BUILD_ROOT
 %define _perldir %(perl -e 'use Config; $T=$Config{installvendorlib}; print $T;')
 %{_perldir}/*
 %{_sysconfdir}/infiniband-diags/*
-%{_sysconfdir}/init.d/rdma-ndd
+@SPEC_FILE_RDMA_NDD_INSTALL@
 %doc README COPYING ChangeLog
 
 
 %post
 if [ $1 = 1 ]; then
-    if [ -e /sbin/chkconfig ]; then
+    if [ -e /etc/init.d/rdma-ndd ] && [ -e /sbin/chkconfig ]; then
         /sbin/chkconfig --add rdma-ndd
-        /sbin/chkconfig rdma-ndd on
-    elif [ -e /usr/sbin/update-rc.d ]; then
-        /usr/sbin/update-rc.d rdma-ndd defaults
-    else
-        /usr/lib/lsb/install_initd /etc/init.d/rdma-ndd
     fi
     if type systemctl >/dev/null 2>&1; then
-        systemctl --system daemon-reload
+        systemctl daemon-reload
     fi
-else
-    /etc/init.d/rdma-ndd condrestart
 fi
 
 %preun
 if [ $1 = 0 ]; then
-    /etc/init.d/rdma-ndd stop
-    if [ -e /sbin/chkconfig ]; then
+    if [ -e /etc/init.d/rdma-ndd ] && [ -e /sbin/chkconfig ]; then
+    	/etc/init.d/rdma-ndd stop
         /sbin/chkconfig --del rdma-ndd
-    elif [ -e /usr/sbin/update-rc.d ]; then
-        /usr/sbin/update-rc.d -f rdma-ndd remove
-    else
-        /usr/lib/lsb/remove_initd /etc/init.d/rdma-ndd
+    fi
+    if type systemctl >/dev/null 2>&1; then
+        systemctl stop rdma-ndd
+    fi
+fi
+
+%postun
+if [ $1 = 0 ]; then
+    if type systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload
     fi
 fi
 

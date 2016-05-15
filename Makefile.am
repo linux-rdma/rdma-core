@@ -177,6 +177,10 @@ install-data-hook:
 
 if ENABLE_RDMA_NDD
 install-exec-hook:
+if SYSTEMD_SYSTEM
+	$(top_srcdir)/config/install-sh -m 755 $(top_srcdir)/etc/rdma-ndd.service $(DESTDIR)/$(SYSTEMD_SYSTEM_UNIT_DIR)/rdma-ndd.service
+else
 	$(top_srcdir)/config/install-sh -m 755 -d $(DESTDIR)/$(sysconfdir)/init.d
 	$(top_srcdir)/config/install-sh -m 755 $(top_srcdir)/etc/rdma-ndd.init $(DESTDIR)/$(sysconfdir)/init.d/rdma-ndd
+endif
 endif
