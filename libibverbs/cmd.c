@@ -238,6 +238,23 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			attr->raw_packet_caps = resp->raw_packet_caps;
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, tm_caps) +
+			 sizeof(attr->tm_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, tm_caps) +
+		    sizeof(resp->tm_caps)) {
+			attr->tm_caps.max_rndv_hdr_size =
+				resp->tm_caps.max_rndv_hdr_size;
+			attr->tm_caps.max_num_tags =
+				resp->tm_caps.max_num_tags;
+			attr->tm_caps.flags = resp->tm_caps.flags;
+			attr->tm_caps.max_ops =
+				resp->tm_caps.max_ops;
+			attr->tm_caps.max_sge =
+				resp->tm_caps.max_sge;
+		}
+	}
+
 	return 0;
 }
 

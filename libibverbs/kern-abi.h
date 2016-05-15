@@ -280,6 +280,15 @@ struct ibv_rss_caps_resp {
 	__u32 reserved;
 };
 
+struct ibv_tm_caps_resp {
+	__u32 max_rndv_hdr_size;
+	__u32 max_num_tags;
+	__u32 flags;
+	__u32 max_ops;
+	__u32 max_sge;
+	__u32 reserved;
+};
+
 struct ibv_query_device_resp_ex {
 	struct ibv_query_device_resp base;
 	__u32 comp_mask;
@@ -291,6 +300,7 @@ struct ibv_query_device_resp_ex {
 	struct ibv_rss_caps_resp rss_caps;
 	__u32  max_wq_type_rq;
 	__u32 raw_packet_caps;
+	struct ibv_tm_caps_resp tm_caps;
 };
 
 struct ibv_query_port {

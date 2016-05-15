@@ -266,6 +266,23 @@ enum ibv_raw_packet_caps {
 	IBV_RAW_PACKET_CAP_DELAY_DROP		= 1 << 3,
 };
 
+enum ibv_tm_cap_flags {
+	IBV_TM_CAP_RC		    = 1 << 0,
+};
+
+struct ibv_tm_caps {
+	/* Max size of rendezvous request header */
+	uint32_t max_rndv_hdr_size;
+	/* Max number of tagged buffers in a TM-SRQ matching list */
+	uint32_t max_num_tags;
+	/* From enum ibv_tm_cap_flags */
+	uint32_t flags;
+	/* Max number of outstanding list operations */
+	uint32_t max_ops;
+	/* Max number of SGEs in a tagged buffer */
+	uint32_t max_sge;
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -278,6 +295,7 @@ struct ibv_device_attr_ex {
 	uint32_t		max_wq_type_rq;
 	struct ibv_packet_pacing_caps packet_pacing_caps;
 	uint32_t		raw_packet_caps; /* Use ibv_raw_packet_caps */
+	struct ibv_tm_caps	tm_caps;
 };
 
 enum ibv_mtu {

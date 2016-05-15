@@ -130,3 +130,17 @@ achieved by reporting to HW the number of unexpected messages handled by SW
 (with respect to the current posted tags). When the SW and HW are in synch, tag
 matching resumes normally.
 
+## Tag Matching Verbs
+
+### Capabilities
+
+Tag matching capabilities are queried by ibv_query_device_ex(), and report the
+following attributes:
+
+* **max_rndv_hdr_size** - Max size of rendezvous request header
+* **max_num_tags** - Max number of tagged buffers in a TM-SRQ matching list
+* **max_ops** - Max number of outstanding tag matching list operations
+* **max_sge** - Max number of SGEs in a tagged buffer
+* **flags** - the following flags are currently defined:
+    - IBV_TM_CAP_RC - Support tag matching on RC transport
+
