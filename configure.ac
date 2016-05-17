@@ -2,12 +2,12 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT(libiwpm, 1.0.4, linux-rdma@vger.kernel.org)
+AC_INIT(libiwpm, 1.0.5, linux-rdma@vger.kernel.org)
 AC_CONFIG_SRCDIR([src/iwarp_pm_server.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE(-Wall -Werror)
 
 # Checks for programs.
 AC_PROG_CC
