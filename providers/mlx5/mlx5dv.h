@@ -217,6 +217,7 @@ enum {
 	MLX5_OPCODE_LOCAL_INVAL		= 0x1b,
 	MLX5_OPCODE_CONFIG_CMD		= 0x1f,
 	MLX5_OPCODE_UMR			= 0x25,
+	MLX5_OPCODE_TAG_MATCHING	= 0x28
 };
 
 /*
@@ -449,6 +450,17 @@ struct mlx5_wqe_eth_seg {
 	__be16		inline_hdr_sz;
 	uint8_t		inline_hdr_start[2];
 	uint8_t		inline_hdr[16];
+};
+
+struct mlx5_wqe_tm_seg {
+	uint8_t		opcode;
+	uint8_t		flags;
+	__be16		index;
+	uint8_t		rsvd0[2];
+	__be16		sw_cnt;
+	uint8_t		rsvd1[8];
+	__be64		append_tag;
+	__be64		append_mask;
 };
 
 /*

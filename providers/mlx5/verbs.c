@@ -757,7 +757,9 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 
 	mlx5_free_db(ctx, msrq->db);
 	mlx5_free_buf(&msrq->buf);
+	free(msrq->tm_list);
 	free(msrq->wrid);
+	free(msrq->op);
 	free(msrq);
 
 	return 0;
@@ -2025,15 +2027,33 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 		goto err_free_uidx;
 
 	if (attr->srq_type == IBV_SRQT_TM) {
+		int i;
+
 		msrq->cmd_qp = create_cmd_qp(context, attr, ibsrq);
 		if (!msrq->cmd_qp)
 			goto err_destroy;
+
+		msrq->tm_list = calloc(attr->tm_cap.max_num_tags + 1,
+				       sizeof(struct mlx5_tag_entry));
+		if (!msrq->tm_list)
+			goto err_free_cmd;
+		for (i = 0; i < attr->tm_cap.max_num_tags; i++)
+			msrq->tm_list[i].next = &msrq->tm_list[i + 1];
+		msrq->tm_head = &msrq->tm_list[0];
+		msrq->tm_tail = &msrq->tm_list[attr->tm_cap.max_num_tags];
+
+		msrq->op = calloc(to_mqp(msrq->cmd_qp)->sq.wqe_cnt,
+				  sizeof(struct mlx5_srq_op));
+		if (!msrq->op)
+			goto err_free_tm;
+		msrq->op_head = 0;
+		msrq->op_tail = 0;
 	}
 
 	if (!ctx->cqe_version) {
 		err = mlx5_store_srq(to_mctx(context), resp.srqn, msrq);
 		if (err)
-			goto err_free_cmd;
+			goto err_free_tm;
 
 		pthread_mutex_unlock(&ctx->srq_table_mutex);
 	}
@@ -2044,6 +2064,9 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 
 	return ibsrq;
 
+err_free_tm:
+	free(msrq->tm_list);
+	free(msrq->op);
 err_free_cmd:
 	if (msrq->cmd_qp)
 		mlx5_destroy_qp(msrq->cmd_qp);
