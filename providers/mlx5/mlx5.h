@@ -323,6 +323,7 @@ enum {
 	MLX5_CQ_FLAGS_EXTENDED = 1 << 3,
 	MLX5_CQ_FLAGS_SINGLE_THREADED = 1 << 4,
 	MLX5_CQ_FLAGS_DV_OWNED = 1 << 5,
+	MLX5_CQ_FLAGS_TM_SYNC_REQ = 1 << 6,
 };
 
 struct mlx5_cq {
