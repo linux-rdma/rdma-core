@@ -1,0 +1,55 @@
+Name: libi40iw
+Version: @VERSION@ 
+Release: 1%{?dist}
+Summary: Intel Ethernet Connection X722 RDMA Userspace Library
+
+Group: System Environment/Libraries
+License: GPL/BSD
+Url: http://www.openfabrics.org/
+Source: http://www.openfabrics.org/downloads/i40iw/%{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+BuildRequires: libibverbs-devel
+
+%description
+libi40iw provides a device-specific RDMA userspace library for Intel
+Ethernet Connection X722 for use with the libibverbs library.
+
+%package devel-static
+Summary: Development files for the libi40iw library
+Group: System Environment/Libraries
+Requires: %{name} = %{version}-%{release}
+
+%description devel-static
+Static version of libi40iw that may be linked directly to an
+application, which may be useful for debugging.
+
+%prep
+%setup -q -n %{name}-%{version}
+
+%build
+%configure
+make %{?_smp_mflags}
+
+%install
+rm -rf $RPM_BUILD_ROOT
+make DESTDIR=%{buildroot} install
+# remove unpackaged files from the buildroot
+rm -f $RPM_BUILD_ROOT%{_libdir}/*.la $RPM_BUILD_ROOT%{_libdir}/libi40iw.so
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%defattr(-,root,root,-)
+%{_libdir}/libi40iw*.so
+%{_sysconfdir}/libibverbs.d/i40iw.driver
+%doc AUTHORS COPYING
+
+%files devel-static
+%defattr(-,root,root,-)
+%{_libdir}/libi40iw*.a
+
+%changelog
+*Mon May 23 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.223
+- Initial public release of libi40iw
