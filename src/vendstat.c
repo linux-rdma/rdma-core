@@ -146,6 +146,7 @@ static uint16_t ext_fw_info_device[][2] = {
 	{0x0245, 0x0245},	/* Switch-X */
 	{0xc738, 0xc73b},	/* Switch-X */
 	{0xcb20, 0xcb20},	/* Switch-IB */
+	{0xcf08, 0xcf08},	/* Switch-IB2 */
 	{0x01b3, 0x01b3},	/* IS-4 */
 	{0x1003, 0x1016},	/* Connect-X */
 	{0x0000, 0x0000}};
