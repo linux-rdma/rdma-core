@@ -1,4 +1,5 @@
 AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+ACLOCAL_AMFLAGS = -I m4
 
 mlx5_version_script = @MLX5_VERSION_SCRIPT@
 

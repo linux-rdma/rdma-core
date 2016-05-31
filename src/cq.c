@@ -421,7 +421,7 @@ static void mlx5_get_cycles(uint64_t *cycles)
 static inline struct mlx5_qp *get_req_context(struct mlx5_context *mctx,
 					      struct mlx5_resource **cur_rsc,
 					      uint32_t rsn, int cqe_ver)
-					      __attribute__((always_inline));
+					      ALWAYS_INLINE;
 static inline struct mlx5_qp *get_req_context(struct mlx5_context *mctx,
 					      struct mlx5_resource **cur_rsc,
 					      uint32_t rsn, int cqe_ver)
@@ -437,7 +437,7 @@ static inline int get_resp_ctx_v1(struct mlx5_context *mctx,
 				  struct mlx5_resource **cur_rsc,
 				  struct mlx5_srq **cur_srq,
 				  uint32_t uidx, uint8_t *is_srq)
-				  __attribute__((always_inline));
+				  ALWAYS_INLINE;
 static inline int get_resp_ctx_v1(struct mlx5_context *mctx,
 				  struct mlx5_resource **cur_rsc,
 				  struct mlx5_srq **cur_srq,
@@ -473,7 +473,7 @@ static inline int get_resp_ctx_v1(struct mlx5_context *mctx,
 static inline int get_qp_ctx(struct mlx5_context *mctx,
 			     struct mlx5_resource **cur_rsc,
 			     uint32_t qpn)
-			       __attribute__((always_inline));
+			     ALWAYS_INLINE;
 static inline int get_qp_ctx(struct mlx5_context *mctx,
 			     struct mlx5_resource **cur_rsc,
 			     uint32_t qpn)
@@ -495,7 +495,7 @@ static inline int get_qp_ctx(struct mlx5_context *mctx,
 static inline int get_srq_ctx(struct mlx5_context *mctx,
 			      struct mlx5_srq **cur_srq,
 			      uint32_t srqn_uidx)
-			      __attribute__((always_inline));
+			      ALWAYS_INLINE;
 static inline int get_srq_ctx(struct mlx5_context *mctx,
 			      struct mlx5_srq **cur_srq,
 			      uint32_t srqn)
@@ -538,7 +538,7 @@ static inline int get_cur_rsc(struct mlx5_context *mctx,
 static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 				    struct mlx5_cqe64 **pcqe64,
 				    void **pcqe)
-				    __attribute__((always_inline));
+				    ALWAYS_INLINE;
 static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 				    struct mlx5_cqe64 **pcqe64,
 				    void **pcqe)
@@ -587,7 +587,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 				 struct mlx5_srq **cur_srq,
 				 struct ibv_wc *wc,
 				 int cqe_ver, int lazy)
-				 __attribute__((always_inline));
+				 ALWAYS_INLINE;
 static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 				 struct mlx5_cqe64 *cqe64,
 				 void *cqe,
@@ -745,7 +745,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 static inline int mlx5_parse_lazy_cqe(struct mlx5_cq *cq,
 				      struct mlx5_cqe64 *cqe64,
 				      void *cqe, int cqe_ver)
-				      __attribute__((always_inline));
+				      ALWAYS_INLINE;
 static inline int mlx5_parse_lazy_cqe(struct mlx5_cq *cq,
 				      struct mlx5_cqe64 *cqe64,
 				      void *cqe, int cqe_ver)
@@ -757,7 +757,7 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 				struct mlx5_resource **cur_rsc,
 				struct mlx5_srq **cur_srq,
 				struct ibv_wc *wc, int cqe_ver)
-				__attribute__((always_inline));
+				ALWAYS_INLINE;
 static inline int mlx5_poll_one(struct mlx5_cq *cq,
 				struct mlx5_resource **cur_rsc,
 				struct mlx5_srq **cur_srq,
@@ -776,7 +776,7 @@ static inline int mlx5_poll_one(struct mlx5_cq *cq,
 
 static inline int poll_cq(struct ibv_cq *ibcq, int ne,
 		      struct ibv_wc *wc, int cqe_ver)
-		      __attribute__((always_inline));
+		      ALWAYS_INLINE;
 static inline int poll_cq(struct ibv_cq *ibcq, int ne,
 		      struct ibv_wc *wc, int cqe_ver)
 {
@@ -839,7 +839,7 @@ enum  polling_mode {
 
 static inline void _mlx5_end_poll(struct ibv_cq_ex *ibcq,
 				  int lock, enum polling_mode stall)
-				  __attribute__((always_inline));
+				  ALWAYS_INLINE;
 static inline void _mlx5_end_poll(struct ibv_cq_ex *ibcq,
 				  int lock, enum polling_mode stall)
 {
@@ -875,7 +875,7 @@ static inline void _mlx5_end_poll(struct ibv_cq_ex *ibcq,
 
 static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr,
 				  int lock, enum polling_mode stall, int cqe_version)
-				  __attribute__((always_inline));
+				  ALWAYS_INLINE;
 static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr,
 				  int lock, enum polling_mode stall, int cqe_version)
 {
@@ -943,7 +943,7 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 
 static inline int mlx5_next_poll(struct ibv_cq_ex *ibcq,
 				 enum polling_mode stall, int cqe_version)
-				 __attribute__((always_inline));
+				 ALWAYS_INLINE;
 static inline int mlx5_next_poll(struct ibv_cq_ex *ibcq,
 				 enum polling_mode stall,
 				 int cqe_version)

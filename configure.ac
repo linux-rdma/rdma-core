@@ -6,6 +6,7 @@ AC_CONFIG_SRCDIR([src/mlx5.h])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE([foreign])
+AC_CONFIG_MACRO_DIR([m4])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_PROG_LIBTOOL
@@ -83,6 +84,8 @@ AC_CACHE_CHECK(whether ld accepts --version-script, ac_cv_version_script,
     else
         ac_cv_version_script=no
     fi])
+
+AX_GCC_FUNC_ATTRIBUTE([always_inline])
 
 if test $ac_cv_version_script = yes; then
     MLX5_VERSION_SCRIPT='-Wl,--version-script=$(srcdir)/src/mlx5.map'
