@@ -486,6 +486,10 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 
 	if (cmd_core_size >= offsetof(struct ibv_create_cq_ex, flags) +
 	    sizeof(cmd->flags)) {
+		if ((cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) &&
+		    (cq_attr->flags & ~(IBV_CREATE_CQ_ATTR_RESERVED - 1)))
+			return EOPNOTSUPP;
+
 		if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
 			cmd->flags |= IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP;
 	}

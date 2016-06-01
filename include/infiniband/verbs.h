@@ -1185,7 +1185,13 @@ struct ibv_context {
 };
 
 enum ibv_cq_init_attr_mask {
-	IBV_CQ_INIT_ATTR_MASK_RESERVED	= 0 << 1
+	IBV_CQ_INIT_ATTR_MASK_FLAGS	= 1 << 0,
+	IBV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 1
+};
+
+enum ibv_create_cq_attr_flags {
+	IBV_CREATE_CQ_ATTR_SINGLE_THREADED = 1 << 0,
+	IBV_CREATE_CQ_ATTR_RESERVED = 1 << 1,
 };
 
 struct ibv_cq_init_attr_ex {
@@ -1207,6 +1213,10 @@ struct ibv_cq_init_attr_ex {
 	 * enum ibv_cq_init_attr_mask
 	 */
 	uint32_t		comp_mask;
+	/* create cq attr flags - one or more flags from
+	 * enum ibv_create_cq_attr_flags
+	 */
+	uint32_t		flags;
 };
 
 enum verbs_context_mask {

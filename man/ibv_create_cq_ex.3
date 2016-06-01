@@ -41,6 +41,14 @@ enum ibv_wc_flags_ex {
         IBV_WC_EX_WITH_COMPLETION_TIMESTAMP  = 1 << 7,  /* Require completion timestamp in WC /*
 };
 
+enum ibv_cq_init_attr_mask {
+        IBV_CQ_INIT_ATTR_MASK_FLAGS             = 1 << 0,
+};
+
+enum ibv_create_cq_attr_flags {
+        IBV_CREATE_CQ_ATTR_SINGLE_THREADED      = 1 << 0, /* This CQ is used from a single threaded, thus no locking is required */
+};
+
 .SH "Polling an extended CQ"
 In order to poll an extended CQ efficiently, a user could use the following functions.
 
