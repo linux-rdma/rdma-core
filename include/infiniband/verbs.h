@@ -858,6 +858,10 @@ struct ibv_cq {
 	uint32_t		async_events_completed;
 };
 
+struct ibv_poll_cq_attr {
+	uint32_t comp_mask;
+};
+
 struct ibv_cq_ex {
 	struct ibv_context     *context;
 	struct ibv_comp_channel *channel;
@@ -871,11 +875,93 @@ struct ibv_cq_ex {
 	uint32_t		async_events_completed;
 
 	uint32_t		comp_mask;
+	enum ibv_wc_status status;
+	uint64_t wr_id;
+	int (*start_poll)(struct ibv_cq_ex *current,
+			     struct ibv_poll_cq_attr *attr);
+	int (*next_poll)(struct ibv_cq_ex *current);
+	void (*end_poll)(struct ibv_cq_ex *current);
+	enum ibv_wc_opcode (*read_opcode)(struct ibv_cq_ex *current);
+	uint32_t (*read_vendor_err)(struct ibv_cq_ex *current);
+	uint32_t (*read_byte_len)(struct ibv_cq_ex *current);
+	uint32_t (*read_imm_data)(struct ibv_cq_ex *current);
+	uint32_t (*read_qp_num)(struct ibv_cq_ex *current);
+	uint32_t (*read_src_qp)(struct ibv_cq_ex *current);
+	int (*read_wc_flags)(struct ibv_cq_ex *current);
+	uint32_t (*read_slid)(struct ibv_cq_ex *current);
+	uint8_t (*read_sl)(struct ibv_cq_ex *current);
+	uint8_t (*read_dlid_path_bits)(struct ibv_cq_ex *current);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
 {
 	return (struct ibv_cq *)cq;
+}
+
+static inline int ibv_start_poll(struct ibv_cq_ex *cq,
+				    struct ibv_poll_cq_attr *attr)
+{
+	return cq->start_poll(cq, attr);
+}
+
+static inline int ibv_next_poll(struct ibv_cq_ex *cq)
+{
+	return cq->next_poll(cq);
+}
+
+static inline void ibv_end_poll(struct ibv_cq_ex *cq)
+{
+	cq->end_poll(cq);
+}
+
+static inline enum ibv_wc_opcode ibv_wc_read_opcode(struct ibv_cq_ex *cq)
+{
+	return cq->read_opcode(cq);
+}
+
+static inline uint32_t ibv_wc_read_vendor_err(struct ibv_cq_ex *cq)
+{
+	return cq->read_vendor_err(cq);
+}
+
+static inline uint32_t ibv_wc_read_byte_len(struct ibv_cq_ex *cq)
+{
+	return cq->read_byte_len(cq);
+}
+
+static inline uint32_t ibv_wc_read_imm_data(struct ibv_cq_ex *cq)
+{
+	return cq->read_imm_data(cq);
+}
+
+static inline uint32_t ibv_wc_read_qp_num(struct ibv_cq_ex *cq)
+{
+	return cq->read_qp_num(cq);
+}
+
+static inline uint32_t ibv_wc_read_src_qp(struct ibv_cq_ex *cq)
+{
+	return cq->read_src_qp(cq);
+}
+
+static inline int ibv_wc_read_wc_flags(struct ibv_cq_ex *cq)
+{
+	return cq->read_wc_flags(cq);
+}
+
+static inline uint32_t ibv_wc_read_slid(struct ibv_cq_ex *cq)
+{
+	return cq->read_slid(cq);
+}
+
+static inline uint8_t ibv_wc_read_sl(struct ibv_cq_ex *cq)
+{
+	return cq->read_sl(cq);
+}
+
+static inline uint8_t ibv_wc_read_dlid_path_bits(struct ibv_cq_ex *cq)
+{
+	return cq->read_dlid_path_bits(cq);
 }
 
 struct ibv_ah {
