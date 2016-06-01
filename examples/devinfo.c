@@ -339,6 +339,16 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 
 		print_odp_caps(&device_attr.odp_caps);
+		if (device_attr.completion_timestamp_mask)
+			printf("\tcompletion timestamp_mask:\t\t\t0x%016lx\n",
+			       device_attr.completion_timestamp_mask);
+		else
+			printf("\tcompletion_timestamp_mask not supported\n");
+
+		if (device_attr.hca_core_clock)
+			printf("\thca_core_clock:\t\t\t%lukHZ\n", device_attr.hca_core_clock);
+		else
+			printf("\tcore clock not supported\n");
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {

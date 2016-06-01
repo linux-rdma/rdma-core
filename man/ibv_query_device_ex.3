@@ -22,8 +22,10 @@ is a pointer to an ibv_device_attr_ex struct, as defined in <infiniband/verbs.h>
 struct ibv_device_attr_ex {
 .in +8
 struct ibv_device_attr orig_attr;
-uint32_t               comp_mask;              /* Compatibility mask that defines which of the following variables are valid */
-struct ibv_odp_caps    odp_caps;               /* On-Demand Paging capabilities */
+uint32_t               comp_mask;                  /* Compatibility mask that defines which of the following variables are valid */
+struct ibv_odp_caps    odp_caps;                   /* On-Demand Paging capabilities */
+uint64_t               completion_timestamp_mask;  /* Completion timestamp mask (0 = unsupported) */
+uint64_t               hca_core_clock;             /* The frequency (in kHZ) of the HCA (0 = unsupported) */
 .in -8
 };
 
