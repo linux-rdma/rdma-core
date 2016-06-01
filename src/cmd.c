@@ -438,6 +438,44 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 	return 0;
 }
 
+int ibv_cmd_create_cq_ex(struct ibv_context *context,
+			 struct ibv_cq_init_attr_ex *cq_attr,
+			 struct ibv_cq_ex *cq,
+			 struct ibv_create_cq_ex *cmd,
+			 size_t cmd_core_size,
+			 size_t cmd_size,
+			 struct ibv_create_cq_resp_ex *resp,
+			 size_t resp_core_size,
+			 size_t resp_size)
+{
+	int err;
+
+	memset(cmd, 0, cmd_core_size);
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_CQ_EX, resp,
+			       resp_core_size, resp_size);
+
+	if (cq_attr->comp_mask & ~(IBV_CQ_INIT_ATTR_MASK_RESERVED - 1))
+		return EINVAL;
+
+	cmd->user_handle   = (uintptr_t)cq;
+	cmd->cqe           = cq_attr->cqe;
+	cmd->comp_vector   = cq_attr->comp_vector;
+	cmd->comp_channel  = cq_attr->channel ? cq_attr->channel->fd : -1;
+	cmd->comp_mask = 0;
+
+	err = write(context->cmd_fd, cmd, cmd_size);
+	if (err != cmd_size)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	cq->handle  = resp->base.cq_handle;
+	cq->cqe     = resp->base.cqe;
+	cq->context = context;
+
+	return 0;
+}
+
 int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 {
 	struct ibv_poll_cq       cmd;

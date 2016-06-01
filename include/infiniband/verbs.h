@@ -360,6 +360,30 @@ enum {
 	IBV_WC_IP_CSUM_OK_SHIFT	= 2
 };
 
+enum ibv_create_cq_wc_flags {
+	IBV_WC_EX_WITH_BYTE_LEN		= 1 << 0,
+	IBV_WC_EX_WITH_IMM		= 1 << 1,
+	IBV_WC_EX_WITH_QP_NUM		= 1 << 2,
+	IBV_WC_EX_WITH_SRC_QP		= 1 << 3,
+	IBV_WC_EX_WITH_SLID		= 1 << 4,
+	IBV_WC_EX_WITH_SL		= 1 << 5,
+	IBV_WC_EX_WITH_DLID_PATH_BITS	= 1 << 6,
+};
+
+enum {
+	IBV_WC_STANDARD_FLAGS = IBV_WC_EX_WITH_BYTE_LEN		|
+				 IBV_WC_EX_WITH_IMM		|
+				 IBV_WC_EX_WITH_QP_NUM		|
+				 IBV_WC_EX_WITH_SRC_QP		|
+				 IBV_WC_EX_WITH_SLID		|
+				 IBV_WC_EX_WITH_SL		|
+				 IBV_WC_EX_WITH_DLID_PATH_BITS
+};
+
+enum {
+	IBV_CREATE_CQ_SUP_WC_FLAGS = IBV_WC_STANDARD_FLAGS
+};
+
 enum ibv_wc_flags {
 	IBV_WC_GRH		= 1 << 0,
 	IBV_WC_WITH_IMM		= 1 << 1,
@@ -834,6 +858,26 @@ struct ibv_cq {
 	uint32_t		async_events_completed;
 };
 
+struct ibv_cq_ex {
+	struct ibv_context     *context;
+	struct ibv_comp_channel *channel;
+	void		       *cq_context;
+	uint32_t		handle;
+	int			cqe;
+
+	pthread_mutex_t		mutex;
+	pthread_cond_t		cond;
+	uint32_t		comp_events_completed;
+	uint32_t		async_events_completed;
+
+	uint32_t		comp_mask;
+};
+
+static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
+{
+	return (struct ibv_cq *)cq;
+}
+
 struct ibv_ah {
 	struct ibv_context     *context;
 	struct ibv_pd	       *pd;
@@ -1044,6 +1088,31 @@ struct ibv_context {
 	void		       *abi_compat;
 };
 
+enum ibv_cq_init_attr_mask {
+	IBV_CQ_INIT_ATTR_MASK_RESERVED	= 0 << 1
+};
+
+struct ibv_cq_init_attr_ex {
+	/* Minimum number of entries required for CQ */
+	uint32_t			cqe;
+	/* Consumer-supplied context returned for completion events */
+	void			*cq_context;
+	/* Completion channel where completion events will be queued.
+	 * May be NULL if completion events will not be used.
+	 */
+	struct ibv_comp_channel *channel;
+	/* Completion vector used to signal completion events.
+	 *  Must be < context->num_comp_vectors.
+	 */
+	uint32_t			comp_vector;
+	 /* Or'ed bit of enum ibv_create_cq_wc_flags. */
+	uint64_t		wc_flags;
+	/* compatibility mask (extended verb). Or'd flags of
+	 * enum ibv_cq_init_attr_mask
+	 */
+	uint32_t		comp_mask;
+};
+
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
@@ -1055,6 +1124,9 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,
+					  struct ibv_cq_init_attr_ex *init_attr);
+	struct verbs_ex_private *priv;
 	int (*query_device_ex)(struct ibv_context *context,
 			       const struct ibv_query_device_ex_input *input,
 			       struct ibv_device_attr_ex *attr,
@@ -1358,6 +1430,30 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
 			     void *cq_context,
 			     struct ibv_comp_channel *channel,
 			     int comp_vector);
+
+/**
+ * ibv_create_cq_ex - Create a completion queue
+ * @context - Context CQ will be attached to
+ * @cq_attr - Attributes to create the CQ with
+ */
+static inline
+struct ibv_cq_ex *ibv_create_cq_ex(struct ibv_context *context,
+				   struct ibv_cq_init_attr_ex *cq_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, create_cq_ex);
+
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	if (cq_attr->comp_mask & ~(IBV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return vctx->create_cq_ex(context, cq_attr);
+}
 
 /**
  * ibv_resize_cq - Modifies the capacity of the CQ.

@@ -155,6 +155,15 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      int comp_vector, struct ibv_cq *cq,
 		      struct ibv_create_cq *cmd, size_t cmd_size,
 		      struct ibv_create_cq_resp *resp, size_t resp_size);
+int ibv_cmd_create_cq_ex(struct ibv_context *context,
+			 struct ibv_cq_init_attr_ex *cq_attr,
+			 struct ibv_cq_ex *cq,
+			 struct ibv_create_cq_ex *cmd,
+			 size_t cmd_core_size,
+			 size_t cmd_size,
+			 struct ibv_create_cq_resp_ex *resp,
+			 size_t resp_core_size,
+			 size_t resp_size);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 #define IBV_CMD_RESIZE_CQ_HAS_RESP_PARAMS
