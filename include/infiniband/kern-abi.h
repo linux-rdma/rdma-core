@@ -447,6 +447,10 @@ struct ibv_create_cq_resp {
 	__u32 cqe;
 };
 
+enum ibv_create_cq_ex_kernel_flags {
+	IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP = 1 << 0,
+};
+
 struct ibv_create_cq_ex {
 	struct ex_hdr	hdr;
 	__u64		user_handle;

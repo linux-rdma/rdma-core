@@ -38,6 +38,7 @@ enum ibv_wc_flags_ex {
         IBV_WC_EX_WITH_SLID                  = 1 << 4,  /* Require slid in WC */
         IBV_WC_EX_WITH_SL                    = 1 << 5,  /* Require sl in WC */
         IBV_WC_EX_WITH_DLID_PATH_BITS        = 1 << 6,  /* Require dlid path bits in WC */
+        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP  = 1 << 7,  /* Require completion timestamp in WC /*
 };
 
 .SH "Polling an extended CQ"
@@ -114,6 +115,9 @@ Below members and functions are used in order to poll the current completion. Th
 
 .BI "uint8_t ibv_wc_read_dlid_path_bits(struct ibv_cq_ex " "*cq"); \c
  Get the dlid_path_bits field from the current completion.
+
+.BI "uint64_t ibv_wc_read_completion_ts(struct ibv_cq_ex " "*cq"); \c
+ Get the completion timestamp from the current completion.
 
 .SH "RETURN VALUE"
 .B ibv_create_cq_ex()
