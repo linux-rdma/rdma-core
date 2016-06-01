@@ -1219,6 +1219,16 @@ struct ibv_cq_init_attr_ex {
 	uint32_t		flags;
 };
 
+enum ibv_values_mask {
+	IBV_VALUES_MASK_RAW_CLOCK	= 1 << 0,
+	IBV_VALUES_MASK_RESERVED	= 1 << 1
+};
+
+struct ibv_values_ex {
+	uint32_t	comp_mask;
+	struct timespec raw_clock;
+};
+
 enum verbs_context_mask {
 	VERBS_CONTEXT_XRCD	= 1 << 0,
 	VERBS_CONTEXT_SRQ	= 1 << 1,
@@ -1230,6 +1240,8 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_rt_values)(struct ibv_context *context,
+			       struct ibv_values_ex *values);
 	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,
 					  struct ibv_cq_init_attr_ex *init_attr);
 	struct verbs_ex_private *priv;
@@ -1746,6 +1758,27 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_query_rt_values_ex - Get current real time @values of a device.
+ * @values - in/out - defines the attributes we need to query/queried.
+ * (Or's bits of enum ibv_values_mask on values->comp_mask field)
+ */
+static inline int
+ibv_query_rt_values_ex(struct ibv_context *context,
+		       struct ibv_values_ex *values)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, query_rt_values);
+	if (!vctx)
+		return ENOSYS;
+
+	if (values->comp_mask & ~(IBV_VALUES_MASK_RESERVED - 1))
+		return EINVAL;
+
+	return vctx->query_rt_values(context, values);
 }
 
 /**
