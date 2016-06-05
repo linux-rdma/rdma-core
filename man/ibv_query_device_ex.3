@@ -26,6 +26,7 @@ uint32_t               comp_mask;                  /* Compatibility mask that de
 struct ibv_odp_caps    odp_caps;                   /* On-Demand Paging capabilities */
 uint64_t               completion_timestamp_mask;  /* Completion timestamp mask (0 = unsupported) */
 uint64_t               hca_core_clock;             /* The frequency (in kHZ) of the HCA (0 = unsupported) */
+uint64_t               device_cap_flags_ex;    /* Extended device capability flags */
 .in -8
 };
 

@@ -127,6 +127,12 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
 };
 
+/*
+ * Can't extended above ibv_device_cap_flags enum as in some systems/compilers
+ * enum range is limited to 4 bytes.
+ */
+#define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
+
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
 	IBV_ATOMIC_HCA,
@@ -209,6 +215,7 @@ struct ibv_device_attr_ex {
 	struct ibv_odp_caps	odp_caps;
 	uint64_t		completion_timestamp_mask;
 	uint64_t		hca_core_clock;
+	uint64_t		device_cap_flags_ex;
 };
 
 enum ibv_mtu {
@@ -628,12 +635,13 @@ struct ibv_qp_init_attr {
 enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_PD		= 1 << 0,
 	IBV_QP_INIT_ATTR_XRCD		= 1 << 1,
-	IBV_QP_INIT_ATTR_CREATE_FLAGS  = 1 << 2,
+	IBV_QP_INIT_ATTR_CREATE_FLAGS	= 1 << 2,
 	IBV_QP_INIT_ATTR_RESERVED	= 1 << 3
 };
 
 enum ibv_qp_create_flags {
-	IBV_QP_CREATE_BLOCK_SELF_MCAST_LB       = 1 << 1,
+	IBV_QP_CREATE_BLOCK_SELF_MCAST_LB	= 1 << 1,
+	IBV_QP_CREATE_SCATTER_FCS		= 1 << 8,
 };
 
 struct ibv_qp_init_attr_ex {

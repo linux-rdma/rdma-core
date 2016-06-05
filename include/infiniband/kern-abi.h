@@ -273,6 +273,7 @@ struct ibv_query_device_resp_ex {
 	struct ibv_odp_caps_resp odp_caps;
 	__u64 timestamp_mask;
 	__u64 hca_core_clock;
+	__u64 device_cap_flags_ex;
 };
 
 struct ibv_query_port {
