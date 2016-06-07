@@ -122,6 +122,14 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 #define wmb()	mb()					/* for s390x */
 #define wc_wmb() wmb()					/* for s390x */
 
+#elif defined(__aarch64__)
+
+/* Perhaps dmb would be sufficient? Let us be conservative for now. */
+#define mb()	{ asm volatile("dsb sy" ::: "memory"); }
+#define rmb()	{ asm volatile("dsb ld" ::: "memory"); }
+#define wmb()	{ asm volatile("dsb st" ::: "memory"); }
+#define wc_wmb() wmb()
+
 #else
 
 #warning No architecture specific defines found.  Using generic implementation.
