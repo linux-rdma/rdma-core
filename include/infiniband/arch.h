@@ -132,12 +132,7 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
 
 #else
 
-#warning No architecture specific defines found.  Using generic implementation.
-
-#define mb()	 asm volatile("" ::: "memory")
-#define rmb()	 mb()
-#define wmb()	 mb()
-#define wc_wmb() wmb()
+#error No architecture specific memory barrier defines found!
 
 #endif
 
