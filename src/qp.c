@@ -481,8 +481,13 @@ static inline void set_umr_control_seg(struct mlx5_qp *qp, enum ibv_mw_type type
 	memset(ctrl->rsvd0, 0, sizeof(ctrl->rsvd0));
 	memset(ctrl->rsvd1, 0, sizeof(ctrl->rsvd1));
 
+	if (type == IBV_MW_TYPE_2)
+		ctrl->mkey_mask |= htonll(MLX5_WQE_UMR_CTRL_MKEY_MASK_QPN);
+
 	if (bind_info->length) {
 		ctrl->klm_octowords = get_klm_octo(1);
+		if (type == IBV_MW_TYPE_2)
+			ctrl->flags |=  MLX5_WQE_UMR_CTRL_FLAG_CHECK_FREE;
 		ctrl->mkey_mask |= htonll(MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN	|
 					      MLX5_WQE_UMR_CTRL_MKEY_MASK_START_ADDR |
 					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_LOCAL_WRITE |
@@ -852,6 +857,18 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 #ifdef MW_DEBUG
 	if (wr->opcode == IBV_WR_BIND_MW) {
 		if (wr->bind_mw.mw->type == IBV_MW_TYPE_1) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		if (!wr->bind_mw.bind_info.mr ||
+		    !wr->bind_mw.bind_info.addr ||
+		    !wr->bind_mw.bind_info.length) {
+			errno = EINVAL;
+			return errno;
+		}
+
+		if (wr->bind_mw.bind_info.mr->pd != wr->bind_mw.mw->pd) {
 			errno = EINVAL;
 			return errno;
 		}
