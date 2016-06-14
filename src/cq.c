@@ -1113,6 +1113,7 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 		return IBV_WC_RECV_RDMA_WITH_IMM;
 	case MLX5_CQE_RESP_SEND:
 	case MLX5_CQE_RESP_SEND_IMM:
+	case MLX5_CQE_RESP_SEND_INV:
 		return IBV_WC_RECV;
 	case MLX5_CQE_REQ:
 		switch (ntohl(cq->cqe64->sop_drop_qpn) >> 24) {
@@ -1168,6 +1169,9 @@ static inline int mlx5_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 	case MLX5_CQE_RESP_SEND_IMM:
 		wc_flags	|= IBV_WC_WITH_IMM;
 		break;
+	case MLX5_CQE_RESP_SEND_INV:
+		wc_flags |= IBV_WC_WITH_INV;
+		break;
 	}
 
 	wc_flags |= ((ntohl(cq->cqe64->flags_rqpn) >> 28) & 3) ? IBV_WC_GRH : 0;
@@ -1193,7 +1197,12 @@ static inline uint32_t mlx5_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return cq->cqe64->imm_inval_pkey;
+	switch (cq->cqe64->op_own >> 4) {
+	case MLX5_CQE_RESP_SEND_INV:
+		return ntohl(cq->cqe64->imm_inval_pkey);
+	default:
+		return cq->cqe64->imm_inval_pkey;
+	}
 }
 
 static inline uint32_t mlx5_cq_read_wc_slid(struct ibv_cq_ex *ibcq)
