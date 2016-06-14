@@ -56,7 +56,8 @@ static const uint32_t mlx5_ib_opcode[] = {
 	[IBV_WR_RDMA_READ]		= MLX5_OPCODE_RDMA_READ,
 	[IBV_WR_ATOMIC_CMP_AND_SWP]	= MLX5_OPCODE_ATOMIC_CS,
 	[IBV_WR_ATOMIC_FETCH_AND_ADD]	= MLX5_OPCODE_ATOMIC_FA,
-	[IBV_WR_BIND_MW]		= MLX5_OPCODE_UMR
+	[IBV_WR_BIND_MW]		= MLX5_OPCODE_UMR,
+	[IBV_WR_LOCAL_INV]		= MLX5_OPCODE_UMR
 };
 
 static void *get_recv_wqe(struct mlx5_qp *qp, int n)
@@ -496,6 +497,8 @@ static inline void set_umr_control_seg(struct mlx5_qp *qp, enum ibv_mw_type type
 					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_ATOMIC);
 	} else {
 		ctrl->klm_octowords = get_klm_octo(0);
+		if (type == IBV_MW_TYPE_2)
+			ctrl->flags |= MLX5_WQE_UMR_CTRL_FLAG_CHECK_QPN;
 	}
 
 	*seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
@@ -628,7 +631,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		switch (ibqp->qp_type) {
 		case IBV_QPT_XRC_SEND:
-			if (unlikely(wr->opcode != IBV_WR_BIND_MW)) {
+			if (unlikely(wr->opcode != IBV_WR_BIND_MW &&
+				     wr->opcode != IBV_WR_LOCAL_INV)) {
 				xrc = seg;
 				xrc->xrc_srqn = htonl(wr->qp_type.xrc.remote_srqn);
 				seg += sizeof(*xrc);
@@ -679,6 +683,20 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					goto out;
 				}
 				break;
+			case IBV_WR_LOCAL_INV: {
+				struct ibv_mw_bind_info	bind_info = {};
+
+				next_fence = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
+				ctrl->imm = htonl(wr->imm_data);
+				err = set_bind_wr(qp, IBV_MW_TYPE_2, 0,
+						  &bind_info, ibqp->qp_num,
+						  &seg, &size);
+				if (err) {
+					*bad_wr = wr;
+					goto out;
+				}
+				break;
+			}
 
 			default:
 				break;
@@ -706,6 +724,20 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					goto out;
 				}
 				break;
+			case IBV_WR_LOCAL_INV: {
+				struct ibv_mw_bind_info	bind_info = {};
+
+				next_fence = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
+				ctrl->imm = htonl(wr->imm_data);
+				err = set_bind_wr(qp, IBV_MW_TYPE_2, 0,
+						  &bind_info, ibqp->qp_num,
+						  &seg, &size);
+				if (err) {
+					*bad_wr = wr;
+					goto out;
+				}
+				break;
+			}
 
 			default:
 				break;

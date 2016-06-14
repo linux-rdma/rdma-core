@@ -216,6 +216,9 @@ static void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe)
 	case MLX5_OPCODE_BIND_MW:
 		wc->opcode    = IBV_WC_BIND_MW;
 		break;
+	case MLX5_OPCODE_UMR:
+		wc->opcode = IBV_WC_LOCAL_INV;
+		break;
 	}
 }
 
