@@ -187,7 +187,7 @@ static void update_cons_index(struct mlx5_cq *cq)
 	cq->dbrec[MLX5_CQ_SET_CI] = htonl(cq->cons_index & 0xffffff);
 }
 
-static void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe)
+static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, struct mlx5_wq *wq, int idx)
 {
 	switch (ntohl(cqe->sop_drop_qpn) >> 24) {
 	case MLX5_OPCODE_RDMA_WRITE_IMM:
@@ -213,16 +213,14 @@ static void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe)
 		wc->opcode    = IBV_WC_FETCH_ADD;
 		wc->byte_len  = 8;
 		break;
-	case MLX5_OPCODE_BIND_MW:
-		wc->opcode    = IBV_WC_BIND_MW;
-		break;
 	case MLX5_OPCODE_UMR:
-		wc->opcode = IBV_WC_LOCAL_INV;
+		wc->opcode = wq->wr_data[idx];
 		break;
 	}
 }
 
-static inline void handle_good_req_lazy(struct mlx5_cqe64 *cqe, uint32_t *pwc_byte_len)
+static inline void handle_good_req_lazy(struct mlx5_cqe64 *cqe, uint32_t *pwc_byte_len,
+					int *umr_opcode, struct mlx5_wq *wq, int idx)
 {
 	switch (ntohl(cqe->sop_drop_qpn) >> 24) {
 	case MLX5_OPCODE_RDMA_READ:
@@ -231,6 +229,9 @@ static inline void handle_good_req_lazy(struct mlx5_cqe64 *cqe, uint32_t *pwc_by
 	case MLX5_OPCODE_ATOMIC_CS:
 	case MLX5_OPCODE_ATOMIC_FA:
 		*pwc_byte_len  = 8;
+		break;
+	case MLX5_OPCODE_UMR:
+		*umr_opcode = wq->wr_data[idx];
 		break;
 	}
 }
@@ -640,9 +641,9 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 		wqe_ctr = ntohs(cqe64->wqe_counter);
 		idx = wqe_ctr & (wq->wqe_cnt - 1);
 		if (lazy)
-			handle_good_req_lazy(cqe64, &wc_byte_len);
+			handle_good_req_lazy(cqe64, &wc_byte_len, &cq->umr_opcode, wq, idx);
 		else
-			handle_good_req(wc, cqe64);
+			handle_good_req(wc, cqe64, wq, idx);
 
 		if (cqe64->op_own & MLX5_INLINE_SCATTER_32)
 			err = mlx5_copy_to_send_wqe(mqp, wqe_ctr, cqe,
@@ -1130,8 +1131,8 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 			return IBV_WC_COMP_SWAP;
 		case MLX5_OPCODE_ATOMIC_FA:
 			return IBV_WC_FETCH_ADD;
-		case MLX5_OPCODE_BIND_MW:
-			return IBV_WC_BIND_MW;
+		case MLX5_OPCODE_UMR:
+			return cq->umr_opcode;
 		}
 	}
 

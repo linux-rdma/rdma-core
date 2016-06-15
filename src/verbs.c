@@ -983,6 +983,14 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 		if (!qp->sq.wrid) {
 			errno = ENOMEM;
 			err = -1;
+			return err;
+		}
+
+		qp->sq.wr_data = malloc(qp->sq.wqe_cnt * sizeof(qp->sq.wr_data));
+		if (!qp->sq.wr_data) {
+			errno = ENOMEM;
+			err = -1;
+			goto ex_wrid;
 		}
 	}
 
@@ -1051,6 +1059,8 @@ ex_wrid:
 	if (qp->sq.wqe_head)
 		free(qp->sq.wqe_head);
 
+	if (qp->sq.wr_data)
+		free(qp->sq.wr_data);
 	if (qp->sq.wrid)
 		free(qp->sq.wrid);
 
@@ -1074,6 +1084,9 @@ static void mlx5_free_qp_buf(struct mlx5_qp *qp)
 
 	if (qp->sq.wrid)
 		free(qp->sq.wrid);
+
+	if (qp->sq.wr_data)
+		free(qp->sq.wr_data);
 }
 
 static int mlx5_cmd_create_qp_ex(struct ibv_context *context,

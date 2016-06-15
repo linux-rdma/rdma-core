@@ -215,7 +215,6 @@ enum {
 	MLX5_OPCODE_ATOMIC_FA		= 0x12,
 	MLX5_OPCODE_ATOMIC_MASKED_CS	= 0x14,
 	MLX5_OPCODE_ATOMIC_MASKED_FA	= 0x15,
-	MLX5_OPCODE_BIND_MW		= 0x18,
 	MLX5_OPCODE_FMR			= 0x19,
 	MLX5_OPCODE_LOCAL_INVAL		= 0x1b,
 	MLX5_OPCODE_CONFIG_CMD		= 0x1f,
@@ -410,6 +409,7 @@ struct mlx5_cq {
 	struct mlx5_srq			*cur_srq;
 	struct mlx5_cqe64		*cqe64;
 	uint32_t			flags;
+	int			umr_opcode;
 };
 
 struct mlx5_srq {
@@ -447,6 +447,7 @@ struct mlx5_wq {
 	int				wqe_shift;
 	int				offset;
 	void			       *qend;
+	uint32_t			*wr_data;
 };
 
 struct mlx5_bf {

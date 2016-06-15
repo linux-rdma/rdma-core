@@ -685,6 +685,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					*bad_wr = wr;
 					goto out;
 				}
+
+				qp->sq.wr_data[idx] = IBV_WC_BIND_MW;
 				break;
 			case IBV_WR_LOCAL_INV: {
 				struct ibv_mw_bind_info	bind_info = {};
@@ -698,6 +700,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					*bad_wr = wr;
 					goto out;
 				}
+
+				qp->sq.wr_data[idx] = IBV_WC_LOCAL_INV;
 				break;
 			}
 
@@ -726,6 +730,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					*bad_wr = wr;
 					goto out;
 				}
+
+				qp->sq.wr_data[idx] = IBV_WC_BIND_MW;
 				break;
 			case IBV_WR_LOCAL_INV: {
 				struct ibv_mw_bind_info	bind_info = {};
@@ -739,6 +745,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					*bad_wr = wr;
 					goto out;
 				}
+
+				qp->sq.wr_data[idx] = IBV_WC_LOCAL_INV;
 				break;
 			}
 
