@@ -58,7 +58,7 @@
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 #include <infiniband/verbs.h>
-#include <rdma/ib_rxe.h>
+#include <rdma/ib_user_rxe.h>
 
 #include "rxe_queue.h"
 #include "rxe-abi.h"
