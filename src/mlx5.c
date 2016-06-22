@@ -79,8 +79,9 @@ struct {
 	HCA(MELLANOX, 4116),	/* ConnectX-4 Virtual Function */
 	HCA(MELLANOX, 4117),	/* ConnectX-4LX */
 	HCA(MELLANOX, 4118),	/* ConnectX-4LX Virtual Function */
-	HCA(MELLANOX, 4119),	/* ConnectX-5 */
+	HCA(MELLANOX, 4119),	/* ConnectX-5, PCIe 3.0 */
 	HCA(MELLANOX, 4120),	/* ConnectX-5 Virtual Function */
+	HCA(MELLANOX, 4121),    /* ConnectX-5, PCIe 4.0 */
 };
 
 uint32_t mlx5_debug_mask = 0;
