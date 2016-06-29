@@ -7,5 +7,5 @@ src_iwpmd_SOURCES = src/iwarp_pm_server.c src/iwarp_pm_common.c src/iwarp_pm_hel
 
 EXTRA_DIST = iwpmd_init iwpmd.service
 
-dist-hook: libiwpm.spec
-	cp libiwpm.spec $(distdir)
+dist-hook: iwpmd.spec
+	cp iwpmd.spec $(distdir)

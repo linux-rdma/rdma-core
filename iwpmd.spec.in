@@ -1,4 +1,4 @@
-Name:     libiwpm
+Name:     iwpmd
 Version:  1.0.5
 Release:  1
 Summary:  iWarp Port Mapper userspace daemon
@@ -21,7 +21,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%(%{__id_u} -n)
 %endif 
 
 %description
-libiwpm provides a userspace service for iWarp drivers to claim
+iwpmd provides a userspace service for iWarp drivers to claim
 tcp ports through the standard socket interface
 
 %prep
