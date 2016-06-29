@@ -90,8 +90,6 @@ fi
 
 %files -f %iwpmscript
 %defattr(-,root,root,-) 
-%_includedir/rdma/iwpm_netlink.h
-%_includedir/rdma/iwarp_pm.h
 %_bindir/iwpmd
 %doc AUTHORS COPYING README
 %config %_sysconfdir/iwpmd.conf
