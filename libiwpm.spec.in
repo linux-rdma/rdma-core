@@ -91,7 +91,8 @@ fi
 %files -f %iwpmscript
 %defattr(-,root,root,-) 
 %_bindir/iwpmd
-%doc AUTHORS COPYING README
+%license COPYING
+%doc AUTHORS README
 %config %_sysconfdir/iwpmd.conf
 
 %changelog
