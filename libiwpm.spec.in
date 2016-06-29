@@ -5,7 +5,7 @@ Summary:  iWarp Port Mapper userspace daemon
 Requires: libnl-devel
 
 Group: System Environment/Daemons
-License: GPL/BSD
+License: BSD or GPLv2
 Url: http://www.openfabrics.org/
 Source: http://www.openfabrics.org/downloads/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%(%{__id_u} -n)
