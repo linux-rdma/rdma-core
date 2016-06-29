@@ -97,26 +97,26 @@ fi
 %config %_sysconfdir/iwpmd.conf
 
 %changelog
-*Mon May 16 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.5
+* Mon May 16 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.5
 - Adding m4 directory to the package to fix SLES11SP3 build error
 - Fix for defining AM_INIT_AUTOMAKE macro
 - Releasing libiwpm-1.0.5 to be included in OFED-3.18-2
-*Wed May 11 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.4
+* Wed May 11 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.4
 - Fixes for freeing allocated memory resources after using them
 - Releasing libiwpm-1.0.4 to be included in OFED-3.18-2
-*Wed Oct 14 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.3
+* Wed Oct 14 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.3
 - Fix for the init script to enable the service to start automatically
   after boot on SLES11 SP4
 - Releasing libiwpm-1.0.3 to be included in OFED-3.18-1
-*Fri Aug 14 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.3rc1
+* Fri Aug 14 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.3rc1
 - Adding iwpmd.conf file to enable changing the size
   of the netlink socket receive buffer
 - Including a fix for failing to send netlink messages
-*Thu Jul 2 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.2
+* Thu Jul 2 2015 Tatyana Nikolova <tatyana.e.nikolova@intel.com> -  1.0.2
 - Fixes for the iwpmd start-up scripts with systemd
 - A change to enable multi devices per port mapper client
 - Releasing libiwpm-1.0.2 to be included in OFED-3.18
-*Fri Oct 31 2014 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.1
+* Fri Oct 31 2014 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.1
 - Releasing libiwpm-1.0.1 to be included in OFED-3.18
-*Mon Jun 10 2013 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.0
+* Mon Jun 10 2013 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 1.0.0
 - Releasing iWarp Port Mapper Version 1.0.0 
