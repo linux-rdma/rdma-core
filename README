@@ -19,8 +19,6 @@ be loaded in order for the iwpmd service to start successfully.
 If the iwpmd is installed, but the required modules aren't loaded, you need to
 load the modules and then restart the iwpmd service.
 
-OFED-3.18 is the first OFED package to include iwpmd.
-
 STARTING THE SERVICE
 
 After installing an OFED package which includes iwpmd, the service should start 
