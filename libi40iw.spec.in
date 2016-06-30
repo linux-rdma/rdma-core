@@ -43,7 +43,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %{_libdir}/libi40iw*.so
-%{_sysconfdir}/libibverbs.d/i40iw.driver
+%config %{_sysconfdir}/libibverbs.d/i40iw.driver
 %license COPYING
 %doc AUTHORS
 
