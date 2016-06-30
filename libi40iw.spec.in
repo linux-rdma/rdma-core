@@ -44,7 +44,8 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{_libdir}/libi40iw*.so
 %{_sysconfdir}/libibverbs.d/i40iw.driver
-%doc AUTHORS COPYING
+%license COPYING
+%doc AUTHORS
 
 %files devel-static
 %defattr(-,root,root,-)
