@@ -1,11 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(libi40iw, 0.5.223, linux-rdma@vger.kernel.org)
+AC_INIT(libi40iw, 0.5.224, linux-rdma@vger.kernel.org)
 AC_CONFIG_SRCDIR([src/i40iw_umain.c])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(libi40iw, 0.5.223)
+AM_INIT_AUTOMAKE(libi40iw, 0.5.224)
 AM_PROG_LIBTOOL
 
 AC_ARG_ENABLE(libcheck, [ --disable-libcheck    do not test for the presence of ib libraries],
