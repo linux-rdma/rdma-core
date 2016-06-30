@@ -32,13 +32,13 @@ application, which may be useful for debugging.
 make %{?_smp_mflags}
 
 %install
-rm -rf $RPM_BUILD_ROOT
+rm -rf %{buildroot}
 make DESTDIR=%{buildroot} install
 # remove unpackaged files from the buildroot
-rm -f $RPM_BUILD_ROOT%{_libdir}/*.la $RPM_BUILD_ROOT%{_libdir}/libi40iw.so
+rm -f %{buildroot}%{_libdir}/*.la %{buildroot}%{_libdir}/libi40iw.so
 
 %clean
-rm -rf $RPM_BUILD_ROOT
+rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
