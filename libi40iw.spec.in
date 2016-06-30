@@ -52,5 +52,5 @@ rm -rf %{buildroot}
 %{_libdir}/libi40iw*.a
 
 %changelog
-*Mon May 23 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.223
+* Mon May 23 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.223-1
 - Initial public release of libi40iw
