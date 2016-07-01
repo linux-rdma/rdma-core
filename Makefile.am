@@ -1,14 +1,7 @@
 lib_LTLIBRARIES = src/libi40iw.la
 
 AM_CPPFLAGS = -I$(srcdir)/src
-#ifdef UPSTREAM_RELEASE
-AM_CFLAGS = -g -O2 -Wall -D_GNU_SOURCE
-#else
-AM_CFLAGS = -g -O2 -Wall -D_GNU_SOURCE \
-		-DEXTERNAL_RELEASE -U__KERNEL__ \
-                -DRDMA_REPORT_SQE_LENGTH -DPOWER_ON_ERRATA  \
-		-DIWARP_LINUX -DPF_DRIVER 
-#endif
+AM_CFLAGS = -O2 -Wall -D_GNU_SOURCE
 
 if HAVE_LD_VERSION_SCRIPT
     i40iw_version_script = -Wl,--version-script=$(srcdir)/src/i40iw.map
