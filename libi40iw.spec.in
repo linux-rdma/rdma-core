@@ -56,5 +56,6 @@ rm -rf %{buildroot}
 - Add BSD license text to COPYING
 - Clean up the AM_CFLAGS settings
 - Minor fixes to the spec.in, including license, config and url entries
+
 * Mon May 23 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.223-1
 - Initial public release of libi40iw
