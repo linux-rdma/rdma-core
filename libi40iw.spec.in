@@ -18,7 +18,7 @@ Ethernet Connection X722 for use with the libibverbs library.
 %package devel-static
 Summary: Development files for the libi40iw library
 Group: System Environment/Libraries
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description devel-static
 Static version of libi40iw that may be linked directly to an
