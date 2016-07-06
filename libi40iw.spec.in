@@ -32,7 +32,6 @@ application, which may be useful for debugging.
 make %{?_smp_mflags}
 
 %install
-rm -rf %{buildroot}
 make DESTDIR=%{buildroot} install
 # remove unpackaged files from the buildroot
 rm -f %{buildroot}%{_libdir}/*.la %{buildroot}%{_libdir}/libi40iw.so
