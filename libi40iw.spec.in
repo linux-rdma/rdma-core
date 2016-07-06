@@ -51,6 +51,10 @@ rm -rf %{buildroot}
 %{_libdir}/libi40iw*.a
 
 %changelog
+* Wed Jul 6 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.225-1
+- Add isa dependency to subpackage
+- Remove "rm -rf buildroot" from the install section
+
 * Thu Jun 30 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.224-1
 - Add BSD license text to COPYING
 - Clean up the AM_CFLAGS settings
