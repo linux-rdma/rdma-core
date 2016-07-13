@@ -1172,6 +1172,8 @@ enum ibv_flow_attr_type {
 	 * receive all Eth multicast traffic which isn't steered to any QP
 	 */
 	IBV_FLOW_ATTR_MC_DEFAULT	= 0x2,
+	/* sniffer rule - receive all port traffic */
+	IBV_FLOW_ATTR_SNIFFER		= 0x3,
 };
 
 enum ibv_flow_spec_type {
