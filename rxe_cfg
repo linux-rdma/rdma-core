@@ -44,13 +44,13 @@ my $no_persist = 0;
 my $debug = 0;
 my $force = 0;
 my $linkonly = 0;
-my $parms = "/sys/module/ib_rxe/parameters";
+my $parms = "/sys/module/rdma_rxe/parameters";
 my $modprobe_opt = "";
 my $modprobe_checked = "0";
 my $persistence_path = "/var/rxe";
 my $persistence_file = "${persistence_path}/rxe";
 my $num_persistent = 0;
-my $sys = "/sys/module/ib_rxe/parameters";
+my $sys = "/sys/module/rdma_rxe/parameters";
 my %rxe_names;
 my @rxe_array;
 my %eth_names;
@@ -304,7 +304,7 @@ sub check_module_status {
     }
 }
 
-# print driver load status and ethertype for ib_rxe and ib_rxe_net
+# print driver load status and ethertype for rdma_rxe and rdma_rxe_net
 sub show_module_status {
     my $rxe_loaded = 1;
 
@@ -543,7 +543,7 @@ sub do_start {
     modprobe("ib_core");
     modprobe("ib_uverbs");
     modprobe("rdma_ucm");
-    modprobe("ib_rxe");
+    modprobe("rdma_rxe");
 
     populate_persistence();
 
@@ -580,7 +580,7 @@ sub do_stop {
     }
 
     if (-e $sys) {
-	system("rmmod ib_rxe");
+	system("rmmod rdma_rxe");
     }
 
     if (-e $sys) {
@@ -701,7 +701,7 @@ sub main {
     get_names();
     get_dev_info();
 
-    # Stuff that requires the ib_rxe module to be loaded
+    # Stuff that requires the rdma_rxe module to be loaded
     switch($arg1) {
         case "stop"	{ do_stop(); 			exit; }
         case "debug"	{ do_debug($arg2);	 	exit; }

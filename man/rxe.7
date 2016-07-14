@@ -4,9 +4,9 @@
 .SH "NAME"
 rxe \- Soft RDMA over Ethernet
 .SH "SYNOPSIS"
-\fBmodprobe ib_rxe\fR
+\fBmodprobe rdma_rxe\fR
 .br
-\fBmodprobe ib_rxe_net\fR
+\fBmodprobe rdma_rxe_net\fR
 .br
 This is usually performed by a configuration utility (see \fBrxe_cfg\fR(8).)
 
@@ -23,77 +23,77 @@ In particular, while the use of a GRH header is optional within IB subnets, it i
 Directory that holds RDMA device information. The format is the same as other RDMA devices.
 
 .TP
-\fB/sys/module/ib_rxe_net/parameters/add\fR
+\fB/sys/module/rdma_rxe_net/parameters/add\fR
 Write only file used by \fBrxe_cfg(8)\fR to add new RXE devices to existing Ethernet devices.
 
 .TP
-\fB/sys/module/ib_rxe_net/parameters/remove\fR
+\fB/sys/module/rdma_rxe_net/parameters/remove\fR
 Write only file used by \fBrxe_cfg(8)\fR to remove RXE devices.
 
 .TP
-\fB/sys/module/ib_rxe_net/parameters/mtu\fR
+\fB/sys/module/rdma_rxe_net/parameters/mtu\fR
 Write only file used by \fBrxe_cfg(8)\fR to configure RoCE and Ethernet MTU values.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_ucontext\fR
+\fB/sys/module/rdma_rxe/parameters/max_ucontext\fR
 Read/Write file that sets a limit on the number of UCs allowed per RXE device.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_qp\fR
+\fB/sys/module/rdma_rxe/parameters/max_qp\fR
 Read/Write file that sets a limit on the number of QPs allowed per RXE device.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_qp_wr\fR
+\fB/sys/module/rdma_rxe/parameters/max_qp_wr\fR
 Read/Write file that sets a limit on the number of WRs per QP allowed per RXE device.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_mr\fR
+\fB/sys/module/rdma_rxe/parameters/max_mr\fR
 Read/Write file that sets a limit on the number of MRs allowed per RXE device.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_fmr\fR
+\fB/sys/module/rdma_rxe/parameters/max_fmr\fR
 Read/Write file that sets a limit on the number of FMRs allowed per RXE device.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_cq\fR
+\fB/sys/module/rdma_rxe/parameters/max_cq\fR
 Read/Write file that sets a limit on the number of CQs allowed per RXE device.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_log_cqe\fR
+\fB/sys/module/rdma_rxe/parameters/max_log_cqe\fR
 Read/Write file that sets a limit on the log base 2 of the number of CQEs per CQ allowed per RXE device.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_inline_data\fR
+\fB/sys/module/rdma_rxe/parameters/max_inline_data\fR
 Read/Write file that sets a limit on the maximum amount of inline data per WR allowed per RXE device.
 
 The above configuration parameters only affect a new RXE instance when it is created not afterwards.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/crc_disable\fR
+\fB/sys/module/rdma_rxe/parameters/crc_disable\fR
 Read/Write file that controls the disabling of ICRC computation. Set to a nonzero value for TRUE. Zero for FALSE.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/fast_comp|req|resp|arb\fR
+\fB/sys/module/rdma_rxe/parameters/fast_comp|req|resp|arb\fR
 Read/Write file that enables calling kernel tasklets as subroutines to reduce latency.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/nsec_per_packet|kbyte\fR
+\fB/sys/module/rdma_rxe/parameters/nsec_per_packet|kbyte\fR
 Read/Write file that controls static rate pacing for output packets. If set to nonzero values the minimum delay to the next packet is set to nsec_per_kbyte * sizeof(current packet in KBytes) or nsec_per_packet which ever is less.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_packet_per_ack\fR
+\fB/sys/module/rdma_rxe/parameters/max_packet_per_ack\fR
 Read/Write file that controls the issuing of acks by the responder during a long message. If set additional acks will be generated every max_pkt_per_ack packets.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_skb_per_qp\fR
+\fB/sys/module/rdma_rxe/parameters/max_skb_per_qp\fR
 Read/Write file that controls the number of skbs (packets) that a requester can queue for sending internally.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/max_req_comp_gap\fR
+\fB/sys/module/rdma_rxe/parameters/max_req_comp_gap\fR
 Read/Write file that controls the maximum gap between the PSN of request packets send and ack packets received.
 
 .TP
-\fB/sys/module/ib_rxe/parameters/default_mtu\fR
+\fB/sys/module/rdma_rxe/parameters/default_mtu\fR
 Read/Write file that controls the default mtu used for UD packets.
 
 .SH "SEE ALSO"

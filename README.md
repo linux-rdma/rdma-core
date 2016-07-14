@@ -50,7 +50,7 @@ make
 make install
 Configure Soft-RoCE (RXE):
 
-Load ib_rxe kernel module using the rxe_cfg script included in the librxe RPM:
+Load rdma_rxe kernel module using the rxe_cfg script included in the librxe RPM:
 rxe_cfg start (this might require sudo or root privileges)
 Create RXE device over network interface (e.g. eth0):
 rxe_cfg add eth0
