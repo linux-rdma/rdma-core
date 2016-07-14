@@ -526,13 +526,6 @@ sub modprobe {
     system("modprobe $modprobe_opt $module $opts");
 }
 
-sub do_set_roce_mode {
-    my $rxed = $_[0];
-    system("mkdir -p /sys/kernel/config/rdma_cm/$rxed");
-    system("echo IBOE V2 | tee /sys/kernel/config/rdma_cm/$rxed/default_roce_mode");
-    rmdir "/sys/kernel/config/rdma_cm/$rxed";
-}
-
 # bring up rxe
 sub do_start {
     my $proto_str = "";
@@ -561,9 +554,6 @@ sub do_start {
 	}
     }
 
-    foreach my $rxe (@rxe_array) {
-        do_set_roce_mode($rxe);
-    }
 }
 
 # check if argument is an integer
