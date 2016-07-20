@@ -1,6 +1,6 @@
 Name: libmlx4
-Version: 1.2.0
-Release: 0.1%{?dist}
+Version: 1.2.1
+Release: 1%{?dist}
 Summary: Mellanox ConnectX InfiniBand HCA Userspace Driver
 
 Group: System Environment/Libraries
@@ -52,6 +52,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libmlx4.a
 
 %changelog
+* Wed Jul 20 2016 Yishai Hadas <yishaih@mellanox.com> - 1.2.1-1
+- New upstream release
+
 * Mon May  5 2014 Roland Dreier <roland@digitalvampire.org> - 1.0.6-1
 - New upstream release
 

@@ -1,3 +1,10 @@
+libmlx4 (1.2.1-1) unstable; urgency=low
+
+  * New upstream release.
+    - Depend on libibverbs 1.2.1.
+
+ -- Yishai Hadas <yishaih@mellanox.com>  Wed, 20 Jul 2016 13:37:20 -0700
+
 libmlx4 (1.0.6-1) unstable; urgency=low
 
   * New upstream release.
