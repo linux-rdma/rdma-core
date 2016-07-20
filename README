@@ -1,4 +1,14 @@
 Introduction
 ============
 
-Original file content erased. Put there something after finish coding...
+libmlx5 is a userspace driver for Mellanox ConnectX InfiniBand HCAs.
+It is a plug-in module for libibverbs that allows programs to use
+Mellanox hardware directly from userspace.  See the libibverbs package
+for more information.
+
+Using libmlx5
+==============
+
+libmlx5 will be loaded and used automatically by programs linked with
+libibverbs.  The mlx5_ib kernel module must be loaded for HCA devices
+to be detected and used.

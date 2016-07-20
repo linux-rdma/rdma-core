@@ -1,5 +1,5 @@
 Name: libmlx5
-Version: @VERSION@
+Version: 1.2.1
 Release: 1%{?dist}
 Summary: Mellanox ConnectX-IB InfiniBand HCA Userspace Driver
 
@@ -26,7 +26,7 @@ Static version of libmlx5 that may be linked directly to an
 application, which may be useful for debugging.
 
 %prep
-%setup -q -n %{name}-@VERSION@
+%setup -q -n %{name}-%{version}
 
 %build
 %configure
@@ -52,6 +52,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libmlx5.a
 
 %changelog
+* Wed Jul 20 2016 Yishai Hadas <yishaih@mellanox.com> - 1.2.1-1
+- New upstream release
+
 * Mon Mar 26 2012 Eli Cohen <eli@mellanox.com> - 1.0.0
 - First version
 
