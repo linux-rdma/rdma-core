@@ -852,6 +852,23 @@ struct ibv_kern_spec_ipv4 {
 	struct ibv_kern_ipv4_filter mask;
 };
 
+struct ibv_kern_ipv4_ext_filter {
+	__u32 src_ip;
+	__u32 dst_ip;
+	__u8  proto;
+	__u8  tos;
+	__u8  ttl;
+	__u8  flags;
+};
+
+struct ibv_kern_spec_ipv4_ext {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_ipv4_ext_filter val;
+	struct ibv_kern_ipv4_ext_filter mask;
+};
+
 struct ibv_kern_tcp_udp_filter {
 	__u16 dst_port;
 	__u16 src_port;
@@ -875,6 +892,7 @@ struct ibv_kern_spec {
 		} hdr;
 		struct ibv_kern_spec_eth eth;
 		struct ibv_kern_spec_ipv4 ipv4;
+		struct ibv_kern_spec_ipv4_ext ipv4_ext;
 		struct ibv_kern_spec_tcp_udp tcp_udp;
 	};
 

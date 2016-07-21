@@ -1177,6 +1177,7 @@ enum ibv_flow_attr_type {
 enum ibv_flow_spec_type {
 	IBV_FLOW_SPEC_ETH	= 0x20,
 	IBV_FLOW_SPEC_IPV4	= 0x30,
+	IBV_FLOW_SPEC_IPV4_EXT	= 0x32,
 	IBV_FLOW_SPEC_TCP	= 0x40,
 	IBV_FLOW_SPEC_UDP	= 0x41,
 };
@@ -1210,6 +1211,22 @@ struct ibv_flow_spec_ipv4 {
 	struct ibv_flow_ipv4_filter mask;
 };
 
+struct ibv_flow_ipv4_ext_filter {
+	uint32_t src_ip;
+	uint32_t dst_ip;
+	uint8_t  proto;
+	uint8_t  tos;
+	uint8_t  ttl;
+	uint8_t  flags;
+};
+
+struct ibv_flow_spec_ipv4_ext {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_ipv4_ext_filter val;
+	struct ibv_flow_ipv4_ext_filter mask;
+};
+
 struct ibv_flow_tcp_udp_filter {
 	uint16_t dst_port;
 	uint16_t src_port;
@@ -1231,6 +1248,7 @@ struct ibv_flow_spec {
 		struct ibv_flow_spec_eth eth;
 		struct ibv_flow_spec_ipv4 ipv4;
 		struct ibv_flow_spec_tcp_udp tcp_udp;
+		struct ibv_flow_spec_ipv4_ext ipv4_ext;
 	};
 };
 
