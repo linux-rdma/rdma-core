@@ -72,8 +72,6 @@
 #define I40E_DB_SHADOW_AREA_SIZE 64
 #define I40E_DB_CQ_OFFSET 0x40
 
-#define PAGE_SIZE sysconf(_SC_PAGESIZE)
-
 enum i40iw_uhca_type {
 	INTEL_i40iw
 };

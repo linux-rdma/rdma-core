@@ -111,7 +111,7 @@ struct ibv_pd *i40iw_ualloc_pd(struct ibv_context *context)
 		goto err_free;
 
 	iwupd->pd_id = resp.pd_id;
-	map = mmap(NULL, PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED, context->cmd_fd, 0);
+	map = mmap(NULL, I40IW_HW_PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED, context->cmd_fd, 0);
 	if (map == MAP_FAILED) {
 		ibv_cmd_dealloc_pd(&iwupd->ibv_pd);
 		goto err_free;
@@ -139,7 +139,7 @@ int i40iw_ufree_pd(struct ibv_pd *pd)
 	if (ret)
 		return ret;
 
-	munmap((void *)iwupd->db, PAGE_SIZE);
+	munmap((void *)iwupd->db, I40IW_HW_PAGE_SIZE);
 	free(iwupd);
 
 	return 0;
@@ -259,7 +259,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 	cq_pages = i40iw_num_of_pages(info.cq_size * cqe_struct_size);
 	totalsize = (cq_pages << 12) + I40E_DB_SHADOW_AREA_SIZE;
 
-	info.cq_base = memalign(PAGE_SIZE, totalsize);
+	info.cq_base = memalign(I40IW_HW_PAGE_SIZE, totalsize);
 
 	if (!info.cq_base)
 		goto err;
@@ -515,7 +515,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	sqsize = sq_pages << 12;
 	rqsize = rq_pages << 12;
 	totalqpsize = rqsize + sqsize + I40E_DB_SHADOW_AREA_SIZE;
-	info->sq = memalign(PAGE_SIZE, totalqpsize);
+	info->sq = memalign(I40IW_HW_PAGE_SIZE, totalqpsize);
 
 	if (!info->sq) {
 		fprintf(stderr, PFX "%s: failed to allocate memory for SQ\n", __func__);
@@ -564,9 +564,9 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 		void *map;
 		u64 offset;
 
-		offset = (resp->push_idx + I40IW_BASE_PUSH_PAGE) * PAGE_SIZE;
+		offset = (resp->push_idx + I40IW_BASE_PUSH_PAGE) * I40IW_HW_PAGE_SIZE;
 
-		map = mmap(NULL, PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED,
+		map = mmap(NULL, I40IW_HW_PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED,
 			   pd->context->cmd_fd, offset);
 		if (map == MAP_FAILED) {
 			fprintf(stderr, PFX "%s: failed to map push page, errno %d\n", __func__, errno);
@@ -575,12 +575,12 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 		} else {
 			info->push_wqe = map;
 
-			offset += PAGE_SIZE;
-			map = mmap(NULL, PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED,
+			offset += I40IW_HW_PAGE_SIZE;
+			map = mmap(NULL, I40IW_HW_PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED,
 				   pd->context->cmd_fd, offset);
 			if (map == MAP_FAILED) {
 				fprintf(stderr, PFX "%s: failed to map push doorbell, errno %d\n", __func__, errno);
-				munmap(info->push_wqe, PAGE_SIZE);
+				munmap(info->push_wqe, I40IW_HW_PAGE_SIZE);
 				info->push_wqe = NULL;
 				info->push_db = NULL;
 			} else {
@@ -779,9 +779,9 @@ int i40iw_udestroy_qp(struct ibv_qp *qp)
 	int ret;
 
 	if (iwuqp->push_db)
-		munmap(iwuqp->push_db, PAGE_SIZE);
+		munmap(iwuqp->push_db, I40IW_HW_PAGE_SIZE);
 	if (iwuqp->push_wqe)
-		munmap(iwuqp->push_wqe, PAGE_SIZE);
+		munmap(iwuqp->push_wqe, I40IW_HW_PAGE_SIZE);
 	ibv_cmd_dereg_mr(&iwuqp->mr);
 	ibv_cmd_destroy_qp(qp);
 	if (iwuqp->qp.sq_wrtrk_array)

@@ -246,7 +246,7 @@ found:
 
 	dev->ibv_dev.ops = i40iw_udev_ops;
 	dev->hca_type = hca_table[i].type;
-	dev->page_size = PAGE_SIZE;
+	dev->page_size = I40IW_HW_PAGE_SIZE;
 	return &dev->ibv_dev;
 }
 
