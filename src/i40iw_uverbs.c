@@ -307,9 +307,10 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 	else
 		fprintf(stderr, PFX "%s: failed to initialze CQ, status %d\n", __func__, ret);
 err:
-	pthread_spin_destroy(&iwucq->lock);
 	if (info.cq_base)
 		free(info.cq_base);
+	if (pthread_spin_destroy(&iwucq->lock))
+		return NULL;
 	free(iwucq);
 	return NULL;
 }
@@ -321,13 +322,16 @@ err:
 int i40iw_udestroy_cq(struct ibv_cq *cq)
 {
 	struct i40iw_ucq *iwucq = to_i40iw_ucq(cq);
+	int ret;
 
 	ibv_cmd_dereg_mr(&iwucq->mr);
 	if (ibv_cmd_destroy_cq(cq))
 		fprintf(stderr, PFX "%s: failed to destroy CQ\n", __func__);
 
 	free(iwucq->cq.cq_base);
-	pthread_spin_destroy(&iwucq->lock);
+	ret = pthread_spin_destroy(&iwucq->lock);
+	if (ret)
+		return ret;
 	free(iwucq);
 
 	return 0;
@@ -348,7 +352,9 @@ int i40iw_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 
 	iwucq = to_i40iw_ucq(cq);
 
-	pthread_spin_lock(&iwucq->lock);
+	ret = pthread_spin_lock(&iwucq->lock);
+	if (ret)
+		return ret;
 	while (cqe_count < num_entries) {
 		ret = iwucq->cq.ops.iw_cq_poll_completion(&iwucq->cq, &cq_poll_info, true);
 		if (ret == I40IW_ERR_QUEUE_EMPTY) {
@@ -427,12 +433,15 @@ int i40iw_uarm_cq(struct ibv_cq *cq, int solicited)
 {
 	struct i40iw_ucq *iwucq;
 	enum i40iw_completion_notify cq_notify = IW_CQ_COMPL_EVENT;
+	int ret;
 
 	iwucq = to_i40iw_ucq(cq);
 	if (solicited)
 		cq_notify = IW_CQ_COMPL_SOLICITED;
 
-	pthread_spin_lock(&iwucq->lock);
+	ret = pthread_spin_lock(&iwucq->lock);
+	if (ret)
+		return ret;
 
 	if (iwucq->is_armed) {
 		if ((iwucq->arm_sol) && (!solicited)) {
@@ -459,7 +468,8 @@ void i40iw_cq_event(struct ibv_cq *cq)
 	struct i40iw_ucq *iwucq;
 
 	iwucq = to_i40iw_ucq(cq);
-	pthread_spin_lock(&iwucq->lock);
+	if (pthread_spin_lock(&iwucq->lock))
+		return;
 
 	if (iwucq->skip_arm)
 		i40iw_arm_cq(iwucq, IW_CQ_COMPL_EVENT);
@@ -682,18 +692,13 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 
 	if (!info.sq_wrtrk_array) {
 		fprintf(stderr, PFX "%s: failed to allocate memory for SQ work array\n", __func__);
-		pthread_spin_destroy(&iwuqp->lock);
-		free(iwuqp);
-		return NULL;
+		goto err_destroy_lock;
 	}
 
 	info.rq_wrid_array = calloc(rqdepth, sizeof(*info.rq_wrid_array));
 	if (!info.rq_wrid_array) {
 		fprintf(stderr, PFX "%s: failed to allocate memory for RQ work array\n", __func__);
-		pthread_spin_destroy(&iwuqp->lock);
-		free(iwuqp);
-		free(info.sq_wrtrk_array);
-		return NULL;
+		goto err_free_sq_wrtrk;
 	}
 
 	iwuqp->sq_sig_all = attr->sq_sig_all;
@@ -701,12 +706,8 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	status = i40iw_vmapped_qp(iwuqp, pd, attr, &resp, sqdepth, rqdepth, &info);
 
 	if (!status) {
-		pthread_spin_destroy(&iwuqp->lock);
-		free(iwuqp);
-		free(info.sq_wrtrk_array);
-		free(info.rq_wrid_array);
 		fprintf(stderr, PFX "%s: failed to map QP\n", __func__);
-		return NULL;
+		goto err_free_rq_wrid;
 	}
 	info.qp_id = resp.qp_id;
 	iwuqp->i40iw_drv_opt = resp.i40iw_drv_opt;
@@ -727,6 +728,16 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 
 err_destroy_qp:
 	i40iw_udestroy_qp(&iwuqp->ibv_qp);
+	return NULL;
+
+err_free_rq_wrid:
+	free(info.rq_wrid_array);
+err_free_sq_wrtrk:
+	free(info.sq_wrtrk_array);
+err_destroy_lock:
+	if (pthread_spin_destroy(&iwuqp->lock))
+		return NULL;
+	free(iwuqp);
 	return NULL;
 }
 
@@ -765,6 +776,7 @@ int i40iw_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 int i40iw_udestroy_qp(struct ibv_qp *qp)
 {
 	struct i40iw_uqp *iwuqp = to_i40iw_uqp(qp);
+	int ret;
 
 	if (iwuqp->push_db)
 		munmap(iwuqp->push_db, PAGE_SIZE);
@@ -778,13 +790,15 @@ int i40iw_udestroy_qp(struct ibv_qp *qp)
 		free(iwuqp->qp.rq_wrid_array);
 	free((void *)iwuqp->qp.sq_base);
 
-	pthread_spin_destroy(&iwuqp->lock);
 	/* Clean any pending completions from the cq(s) */
 	if (iwuqp->send_cq)
 		i40iw_clean_cq((void *)&iwuqp->qp, &iwuqp->send_cq->cq);
 
 	if ((iwuqp->recv_cq) && (iwuqp->recv_cq != iwuqp->send_cq))
 		i40iw_clean_cq((void *)&iwuqp->qp, &iwuqp->recv_cq->cq);
+	ret = pthread_spin_destroy(&iwuqp->lock);
+	if (ret)
+		return ret;
 	free(iwuqp);
 
 	return 0;
@@ -823,7 +837,9 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 
 	iwuqp = (struct i40iw_uqp *)ib_qp;
 
-	pthread_spin_lock(&iwuqp->lock);
+	err = pthread_spin_lock(&iwuqp->lock);
+	if (err)
+		return err;
 	while (ib_wr) {
 		memset(&info, 0, sizeof(info));
 		info.wr_id = (u64)(ib_wr->wr_id);
@@ -944,7 +960,9 @@ int i40iw_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr, struct ibv
 	struct i40iw_sge sg_list[I40IW_MAX_WQ_FRAGMENT_COUNT];
 
 	memset(&post_recv, 0, sizeof(post_recv));
-	pthread_spin_lock(&iwuqp->lock);
+	err = pthread_spin_lock(&iwuqp->lock);
+	if (err)
+		return err;
 	while (ib_wr) {
 		post_recv.num_sges = ib_wr->num_sge;
 		post_recv.wr_id = ib_wr->wr_id;
