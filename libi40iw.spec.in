@@ -51,6 +51,11 @@ rm -rf %{buildroot}
 %{_libdir}/libi40iw*.a
 
 %changelog
+* Fri Jul 22 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.226-1
+- Remove code for inline data size greater than 64B
+- Replace sysconf call with the supported page size
+- Add return code check for pthread_spin calls
+
 * Wed Jul 6 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.225-1
 - Add isa dependency to subpackage
 - Remove "rm -rf buildroot" from the install section
