@@ -1502,11 +1502,14 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return ret;
 }
 
+#define RROCE_UDP_SPORT_MIN 0xC000
+#define RROCE_UDP_SPORT_MAX 0xFFFF
 struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct mlx5_context *ctx = to_mctx(pd->context);
 	struct ibv_port_attr port_attr;
 	struct mlx5_ah *ah;
+	uint32_t gid_type;
 	uint32_t tmp;
 	uint8_t grh;
 	int is_eth;
@@ -1534,6 +1537,14 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		return NULL;
 
 	if (is_eth) {
+		if (ibv_query_gid_type(pd->context, attr->port_num,
+				       attr->grh.sgid_index, &gid_type))
+			goto err;
+
+		if (gid_type == IBV_GID_TYPE_ROCE_V2)
+			ah->av.rlid = htons(rand() % (RROCE_UDP_SPORT_MAX + 1
+						      - RROCE_UDP_SPORT_MIN)
+					    + RROCE_UDP_SPORT_MIN);
 		/* Since RoCE packets must contain GRH, this bit is reserved
 		 * for RoCE and shouldn't be set.
 		 */
@@ -1558,13 +1569,14 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		uint16_t vid;
 
 		if (ibv_resolve_eth_l2_from_gid(pd->context, attr, ah->av.rmac,
-						&vid)) {
-			free(ah);
-			return NULL;
-		}
+						&vid))
+			goto err;
 	}
 
 	return &ah->ibv_ah;
+err:
+	free(ah);
+	return NULL;
 }
 
 int mlx5_destroy_ah(struct ibv_ah *ah)
