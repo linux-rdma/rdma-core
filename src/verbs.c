@@ -1504,12 +1504,29 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
+	struct mlx5_context *ctx = to_mctx(pd->context);
+	struct ibv_port_attr port_attr;
 	struct mlx5_ah *ah;
 	uint32_t tmp;
-	struct mlx5_context *ctx = to_mctx(pd->context);
+	int is_eth;
 
 	if (attr->port_num < 1 || attr->port_num > ctx->num_ports)
 		return NULL;
+
+	if (ctx->cached_link_layer[attr->port_num - 1]) {
+		is_eth = ctx->cached_link_layer[attr->port_num - 1] ==
+			IBV_LINK_LAYER_ETHERNET;
+	} else {
+		if (ibv_query_port(pd->context, attr->port_num, &port_attr))
+			return NULL;
+
+		is_eth = (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET);
+	}
+
+	if (unlikely((!attr->is_global) && is_eth)) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	ah = calloc(1, sizeof *ah);
 	if (!ah)
@@ -1526,6 +1543,16 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 			    (attr->grh.flow_label & 0xfffff));
 		ah->av.grh_gid_fl = tmp;
 		memcpy(ah->av.rgid, attr->grh.dgid.raw, 16);
+	}
+
+	if (is_eth) {
+		uint16_t vid;
+
+		if (ibv_resolve_eth_l2_from_gid(pd->context, attr, ah->av.rmac,
+						&vid)) {
+			free(ah);
+			return NULL;
+		}
 	}
 
 	return &ah->ibv_ah;

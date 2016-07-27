@@ -509,7 +509,8 @@ struct mlx5_av {
 	uint8_t		stat_rate_sl;
 	uint8_t		fl_mlid;
 	uint16_t	rlid;
-	uint8_t		reserved0[10];
+	uint8_t		reserved0[4];
+	uint8_t		rmac[6];
 	uint8_t		tclass;
 	uint8_t		hop_limit;
 	uint32_t	grh_gid_fl;
