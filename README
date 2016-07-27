@@ -17,46 +17,29 @@ Dependencies:
 	5) glib2
 
 
-Release notes v1.6.5 => 1.6.6
+Release notes v1.6.6 => 1.6.7
 
    1) bug fixes
+   2) Add support for systemd
 
 
-Authors since 1.6.5
+Authors since 1.6.6
 
-Ana Guerrero López (1):
-      rdma-ndd: fix compiler warnings.
-
-Dan Ben Yosef (2):
-      perfquery -T (print Extended Speed Counters) times out on nodes supporting
-      libibnetdisc: Avoid pushing same pointer to the hash table
+Dan Ben Yosef (1):
+  saquery.c: Fix changing qos_class flag value to network order twice
 
 Hal Rosenstock (5):
-      perfquery.c: Change format of capability mask in IBWARN for consistency
-      ibdiag_sa.c: In sa_get_handle, handle umad_open_port and umad_register fai
-      iblinkinfo.c: Close additional file descriptor in advance
-      ibdiag_common.c: Move static to beginning of get_build_version declaration
-      perfquery.c: Fix smp_query_via return value checks
+  ibcacheedit.c: Eliminate unused parameter passed to
+    update_switchportguids
+  ibqueryerrors.c: Removed unused passed parameters to print_port_config
+    and query_and_dump
+  Remove unused pisize parameter from dump_portinfo in ibdiag_common
+  ibportstate.c: Fix unsigned comparison warnings
+  ibsendtrap.c: Eliminate unused parameter from send_trap
 
-Ira Weiny (3):
-      infiniband-diags/rdma-ndd: Fix issues with install
-      infiniband-diags/rdma-ndd: add --pidfile option
-      infiniband-diags: rdma-ndd: remove udev logging when not supported
+Ira Weiny (1):
+  rdma-ndd: Add systemd support
 
-Michal Schmidt (2):
-      rdma-ndd: never use udev_get_sys_path()
-      build-sys: avoid overlinking to libudev
-
-Vladimir Koushnir (10):
-      ibqueryerrors: Resource leak in path_record_query
-      Remove redundant umad file descriptor from libibnetdisc
-      query_smp.c: Avoid busy looping in process_one_recv
-      dump_fts: Open global file descriptor after calling ibnd_discover_fabric
-      ibqueryerrors: code improvement
-      ibqueryerrors: Fix crash when no SM is running
-      ibqueryerrors: Close global file descriptor before running ibnd_discover_f
-      ibqueryerrors: improve code related to DR option
-      vendstat: mad_rpc_close_port not called in corner cases
-      saquery.c: Fix saquery -D option
-
+Vladimir Koushnir (1):
+  infiniband-diags: Add Switch-IB2 support to device white lists
 
