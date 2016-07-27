@@ -1508,6 +1508,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct ibv_port_attr port_attr;
 	struct mlx5_ah *ah;
 	uint32_t tmp;
+	uint8_t grh;
 	int is_eth;
 
 	if (attr->port_num < 1 || attr->port_num > ctx->num_ports)
@@ -1532,13 +1533,21 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	if (!ah)
 		return NULL;
 
+	if (is_eth) {
+		/* Since RoCE packets must contain GRH, this bit is reserved
+		 * for RoCE and shouldn't be set.
+		 */
+		grh = 0;
+	} else {
+		ah->av.fl_mlid = attr->src_path_bits & 0x7f;
+		ah->av.rlid = htons(attr->dlid);
+		grh = 1;
+	}
 	ah->av.stat_rate_sl = (attr->static_rate << 4) | attr->sl;
-	ah->av.fl_mlid = attr->src_path_bits & 0x7f;
-	ah->av.rlid = htons(attr->dlid);
 	if (attr->is_global) {
 		ah->av.tclass = attr->grh.traffic_class;
 		ah->av.hop_limit = attr->grh.hop_limit;
-		tmp = htonl((1 << 30) |
+		tmp = htonl((grh << 30) |
 			    ((attr->grh.sgid_index & 0xff) << 20) |
 			    (attr->grh.flow_label & 0xfffff));
 		ah->av.grh_gid_fl = tmp;
