@@ -479,6 +479,18 @@ void i40iw_cq_event(struct ibv_cq *cq)
 	pthread_spin_unlock(&iwucq->lock);
 }
 
+static void i40iw_destroy_vmapped_qp(struct i40iw_uqp *iwuqp,
+					struct i40iw_qp_quanta *sq_base)
+{
+	if (iwuqp->push_db)
+		munmap(iwuqp->push_db, I40IW_HW_PAGE_SIZE);
+	if (iwuqp->push_wqe)
+		munmap(iwuqp->push_wqe, I40IW_HW_PAGE_SIZE);
+	ibv_cmd_destroy_qp(&iwuqp->ibv_qp);
+	ibv_cmd_dereg_mr(&iwuqp->mr);
+	free((void *)sq_base);
+}
+
 /**
  * i40iw_vmapped_qp - create resources for qp
  * @iwuqp: qp struct for resources
@@ -541,6 +553,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 #endif
 	if (ret) {
 		fprintf(stderr, PFX "%s: failed to pin memory for SQ\n", __func__);
+		free(info->sq);
 		return 0;
 	}
 	cmd.user_wqe_buffers = (__u64)((uintptr_t)info->sq);
@@ -642,6 +655,11 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	struct i40iw_qp_uk_init_info info;
 	int sq_attr, rq_attr;
 
+	if (attr->qp_type != IBV_QPT_RC) {
+		fprintf(stderr, PFX "%s: failed to create QP, unsupported QP type: 0x%x\n", __func__, attr->qp_type);
+		return NULL;
+	}
+
 	if (attr->cap.max_send_sge > I40IW_MAX_WQ_FRAGMENT_COUNT)
 		attr->cap.max_send_sge = I40IW_MAX_WQ_FRAGMENT_COUNT;
 
@@ -673,10 +691,9 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 		return NULL;
 	memset(iwuqp, 0, sizeof(*iwuqp));
 
-	if (pthread_spin_init(&iwuqp->lock, PTHREAD_PROCESS_PRIVATE)) {
-		free(iwuqp);
-		return NULL;
-	}
+	if (pthread_spin_init(&iwuqp->lock, PTHREAD_PROCESS_PRIVATE))
+		goto err_free_qp;
+
 	memset(&info, 0, sizeof(info));
 
 	info.sq_size = sq_attr;
@@ -713,11 +730,6 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	iwuqp->i40iw_drv_opt = resp.i40iw_drv_opt;
 	iwuqp->ibv_qp.qp_num = resp.qp_id;
 
-	if (attr->qp_type != IBV_QPT_RC) {
-		fprintf(stderr, PFX "%s: failed to create QP, unsupported QP type: 0x%x\n", __func__, attr->qp_type);
-		goto err_destroy_qp;
-	}
-
 	info.max_sq_frag_cnt = attr->cap.max_send_sge;
 	info.max_rq_frag_cnt = attr->cap.max_recv_sge;
 	info.max_inline_data = attr->cap.max_inline_data;
@@ -726,17 +738,14 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	if (!status)
 		return &iwuqp->ibv_qp;
 
-err_destroy_qp:
-	i40iw_udestroy_qp(&iwuqp->ibv_qp);
-	return NULL;
-
+	i40iw_destroy_vmapped_qp(iwuqp, info.sq);
 err_free_rq_wrid:
 	free(info.rq_wrid_array);
 err_free_sq_wrtrk:
 	free(info.sq_wrtrk_array);
 err_destroy_lock:
-	if (pthread_spin_destroy(&iwuqp->lock))
-		return NULL;
+	pthread_spin_destroy(&iwuqp->lock);
+err_free_qp:
 	free(iwuqp);
 	return NULL;
 }
@@ -778,30 +787,23 @@ int i40iw_udestroy_qp(struct ibv_qp *qp)
 	struct i40iw_uqp *iwuqp = to_i40iw_uqp(qp);
 	int ret;
 
-	if (iwuqp->push_db)
-		munmap(iwuqp->push_db, I40IW_HW_PAGE_SIZE);
-	if (iwuqp->push_wqe)
-		munmap(iwuqp->push_wqe, I40IW_HW_PAGE_SIZE);
-	ibv_cmd_dereg_mr(&iwuqp->mr);
-	ibv_cmd_destroy_qp(qp);
+	i40iw_destroy_vmapped_qp(iwuqp, iwuqp->qp.sq_base);
+
 	if (iwuqp->qp.sq_wrtrk_array)
 		free(iwuqp->qp.sq_wrtrk_array);
 	if (iwuqp->qp.rq_wrid_array)
 		free(iwuqp->qp.rq_wrid_array);
-	free((void *)iwuqp->qp.sq_base);
-
 	/* Clean any pending completions from the cq(s) */
 	if (iwuqp->send_cq)
 		i40iw_clean_cq((void *)&iwuqp->qp, &iwuqp->send_cq->cq);
 
 	if ((iwuqp->recv_cq) && (iwuqp->recv_cq != iwuqp->send_cq))
 		i40iw_clean_cq((void *)&iwuqp->qp, &iwuqp->recv_cq->cq);
+
 	ret = pthread_spin_destroy(&iwuqp->lock);
-	if (ret)
-		return ret;
 	free(iwuqp);
 
-	return 0;
+	return ret;
 }
 
 /**
