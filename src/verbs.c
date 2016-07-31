@@ -986,7 +986,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			return err;
 		}
 
-		qp->sq.wr_data = malloc(qp->sq.wqe_cnt * sizeof(qp->sq.wr_data));
+		qp->sq.wr_data = malloc(qp->sq.wqe_cnt * sizeof(*qp->sq.wr_data));
 		if (!qp->sq.wr_data) {
 			errno = ENOMEM;
 			err = -1;
@@ -1098,7 +1098,6 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 	struct mlx5_create_qp_ex cmd_ex;
 	int ret;
 
-	memset(resp, 0, sizeof(*resp));
 	memset(&cmd_ex, 0, sizeof(cmd_ex));
 	memcpy(&cmd_ex.ibv_cmd.base, &cmd->ibv_cmd.user_handle,
 	       offsetof(typeof(cmd->ibv_cmd), is_srq) +
@@ -1138,7 +1137,7 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	int				ret;
 	struct mlx5_context	       *ctx = to_mctx(context);
 	struct ibv_qp		       *ibqp;
-	uint32_t			usr_idx = 0;
+	int32_t				usr_idx = 0;
 	uint32_t			uuar_index;
 #ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
@@ -1156,6 +1155,8 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	qp->ibv_qp = ibqp;
 
 	memset(&cmd, 0, sizeof(cmd));
+	memset(&resp, 0, sizeof(resp));
+	memset(&resp_ex, 0, sizeof(resp_ex));
 
 	qp->wq_sig = qp_sig_enabled();
 	if (qp->wq_sig)

@@ -182,7 +182,7 @@ int32_t mlx5_store_uidx(struct mlx5_context *ctx, void *rsc)
 
 	if (!ctx->uidx_table[tind].refcnt) {
 		ctx->uidx_table[tind].table = calloc(MLX5_UIDX_TABLE_MASK + 1,
-						     sizeof(void *));
+						     sizeof(struct mlx5_resource *));
 		if (!ctx->uidx_table[tind].table)
 			goto out;
 	}
