@@ -51,6 +51,9 @@ rm -rf %{buildroot}
 %{_libdir}/libi40iw*.a
 
 %changelog
+* Mon Aug 1 2016 Chien Tin Tung <chien.tin.tung@intel.com> - 0.5.227-1
+- Fix and refactor error patch in i40iw_ucreate_qp
+
 * Fri Jul 22 2016 Tatyana Nikolova <tatyana.e.nikolova@intel.com> - 0.5.226-1
 - Remove code for inline data size greater than 64B
 - Replace sysconf call with the supported page size
