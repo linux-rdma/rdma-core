@@ -202,6 +202,14 @@ struct mlx5_modify_wq {
 	__u32			reserved;
 };
 
+struct mlx5_create_rwq_ind_table_resp {
+	struct ibv_create_rwq_ind_table_resp ibv_resp;
+};
+
+struct mlx5_destroy_rwq_ind_table {
+	struct ibv_destroy_rwq_ind_table ibv_cmd;
+};
+
 struct mlx5_resize_cq {
 	struct ibv_resize_cq		ibv_cmd;
 	__u64				buf_addr;

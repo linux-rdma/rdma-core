@@ -748,6 +748,8 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, create_wq, mlx5_create_wq);
 	verbs_set_ctx_op(v_ctx, modify_wq, mlx5_modify_wq);
 	verbs_set_ctx_op(v_ctx, destroy_wq, mlx5_destroy_wq);
+	verbs_set_ctx_op(v_ctx, create_rwq_ind_table, mlx5_create_rwq_ind_table);
+	verbs_set_ctx_op(v_ctx, destroy_rwq_ind_table, mlx5_destroy_rwq_ind_table);
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,
