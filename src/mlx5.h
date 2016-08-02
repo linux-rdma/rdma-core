@@ -497,6 +497,7 @@ struct mlx5_qp {
 	int				atomics_enabled;
 	uint32_t			max_tso;
 	uint16_t			max_tso_header;
+	int                             rss_qp;
 };
 
 struct mlx5_av {

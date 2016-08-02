@@ -149,6 +149,17 @@ struct mlx5_create_qp_ex {
 	struct mlx5_create_qp_drv_ex drv_ex;
 };
 
+struct mlx5_create_qp_ex_rss {
+	struct ibv_create_qp_ex	ibv_cmd;
+	__u64 rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
+	__u8 rx_hash_function; /* enum ibv_rx_hash_function_flags */
+	__u8 rx_key_len;
+	__u8 reserved[6];
+	__u8 rx_hash_key[128];
+	__u32   comp_mask;
+	__u32   reserved1;
+};
+
 struct mlx5_create_qp_resp_ex {
 	struct ibv_create_qp_resp_ex	ibv_resp;
 	__u32				uuar_index;

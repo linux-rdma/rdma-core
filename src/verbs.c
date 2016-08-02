@@ -1128,6 +1128,37 @@ static void mlx5_free_qp_buf(struct mlx5_qp *qp)
 		free(qp->sq.wr_data);
 }
 
+static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attr,
+				 struct mlx5_qp *qp)
+{
+	struct mlx5_create_qp_ex_rss cmd_ex_rss = {};
+	struct mlx5_create_qp_resp_ex resp = {};
+	int ret;
+
+	if (attr->rx_hash_conf.rx_hash_key_len > sizeof(cmd_ex_rss.rx_hash_key)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	cmd_ex_rss.rx_hash_fields_mask = attr->rx_hash_conf.rx_hash_fields_mask;
+	cmd_ex_rss.rx_hash_function = attr->rx_hash_conf.rx_hash_function;
+	cmd_ex_rss.rx_key_len = attr->rx_hash_conf.rx_hash_key_len;
+	memcpy(cmd_ex_rss.rx_hash_key, attr->rx_hash_conf.rx_hash_key,
+			attr->rx_hash_conf.rx_hash_key_len);
+
+	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
+					    sizeof(qp->verbs_qp), attr,
+					    &cmd_ex_rss.ibv_cmd, sizeof(cmd_ex_rss.ibv_cmd),
+					    sizeof(cmd_ex_rss), &resp.ibv_resp,
+					    sizeof(resp.ibv_resp), sizeof(resp));
+	if (ret)
+		return ret;
+
+	qp->rss_qp = 1;
+	return 0;
+}
+
 static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr,
 				 struct mlx5_create_qp *cmd,
@@ -1160,12 +1191,16 @@ enum {
 	MLX5_CREATE_QP_SUP_COMP_MASK = (IBV_QP_INIT_ATTR_PD |
 					IBV_QP_INIT_ATTR_XRCD |
 					IBV_QP_INIT_ATTR_CREATE_FLAGS |
-					IBV_QP_INIT_ATTR_MAX_TSO_HEADER),
+					IBV_QP_INIT_ATTR_MAX_TSO_HEADER |
+					IBV_QP_INIT_ATTR_IND_TABLE |
+					IBV_QP_INIT_ATTR_RX_HASH),
 };
 
 enum {
 	MLX5_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS |
-					IBV_QP_INIT_ATTR_MAX_TSO_HEADER),
+					IBV_QP_INIT_ATTR_MAX_TSO_HEADER |
+					IBV_QP_INIT_ATTR_IND_TABLE |
+					IBV_QP_INIT_ATTR_RX_HASH),
 };
 
 struct ibv_qp *create_qp(struct ibv_context *context,
@@ -1202,6 +1237,14 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
 	memset(&resp_ex, 0, sizeof(resp_ex));
+
+	if (attr->comp_mask & IBV_QP_INIT_ATTR_RX_HASH) {
+		ret = mlx5_cmd_create_rss_qp(context, attr, qp);
+		if (ret)
+			goto err;
+
+		return ibqp;
+	}
 
 	qp->wq_sig = qp_sig_enabled();
 	if (qp->wq_sig)
@@ -1410,6 +1453,13 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 	struct mlx5_context *ctx = to_mctx(ibqp->context);
 	int ret;
 
+	if (qp->rss_qp) {
+		ret = ibv_cmd_destroy_qp(ibqp);
+		if (ret)
+			return ret;
+		goto free;
+	}
+
 	if (!ctx->cqe_version)
 		pthread_mutex_lock(&ctx->qp_table_mutex);
 
@@ -1440,6 +1490,7 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 
 	mlx5_free_db(ctx, qp->db);
 	mlx5_free_qp_buf(qp);
+free:
 	free(qp);
 
 	return 0;
@@ -1451,6 +1502,9 @@ int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	struct ibv_query_qp cmd;
 	struct mlx5_qp *qp = to_mqp(ibqp);
 	int ret;
+
+	if (qp->rss_qp)
+		return ENOSYS;
 
 	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof(cmd));
 	if (ret)
@@ -1473,6 +1527,9 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct mlx5_context *context = to_mctx(qp->context);
 	int ret;
 	uint32_t *db;
+
+	if (mqp->rss_qp)
+		return ENOSYS;
 
 	if (attr_mask & IBV_QP_PORT) {
 		switch (qp->qp_type) {
