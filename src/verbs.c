@@ -885,6 +885,40 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 	return wq_size;
 }
 
+static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
+			      struct mlx5_rwq *rwq,
+			      struct ibv_wq_init_attr *attr)
+{
+	int wqe_size;
+	int wq_size;
+	int num_scatter;
+	int scat_spc;
+
+	if (!attr->max_wr)
+		return -EINVAL;
+
+	/* TBD: check caps for RQ */
+	num_scatter = max(attr->max_sge, 1);
+	wqe_size = sizeof(struct mlx5_wqe_data_seg) * num_scatter;
+
+	if (rwq->wq_sig)
+		wqe_size += sizeof(struct mlx5_rwqe_sig);
+
+	if (wqe_size <= 0 || wqe_size > ctx->max_rq_desc_sz)
+		return -EINVAL;
+
+	wqe_size = mlx5_round_up_power_of_two(wqe_size);
+	wq_size = mlx5_round_up_power_of_two(attr->max_wr) * wqe_size;
+	wq_size = max(wq_size, MLX5_SEND_WQE_BB);
+	rwq->rq.wqe_cnt = wq_size / wqe_size;
+	rwq->rq.wqe_shift = mlx5_ilog2(wqe_size);
+	rwq->rq.max_post = 1 << mlx5_ilog2(wq_size / wqe_size);
+	scat_spc = wqe_size -
+		((rwq->wq_sig) ? sizeof(struct mlx5_rwqe_sig) : 0);
+	rwq->rq.max_gs = scat_spc / sizeof(struct mlx5_wqe_data_seg);
+	return wq_size;
+}
+
 static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
 			     struct mlx5_qp *qp)
@@ -1824,6 +1858,186 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	a = &attr->orig_attr;
 	snprintf(a->fw_ver, sizeof(a->fw_ver), "%d.%d.%04d",
 		 major, minor, sub_minor);
+
+	return 0;
+}
+
+static int rwq_sig_enabled(struct ibv_context *context)
+{
+	char *env;
+
+	env = getenv("MLX5_RWQ_SIGNATURE");
+	if (env)
+		return 1;
+
+	return 0;
+}
+
+static void mlx5_free_rwq_buf(struct mlx5_rwq *rwq, struct ibv_context *context)
+{
+	struct mlx5_context *ctx = to_mctx(context);
+
+	mlx5_free_actual_buf(ctx, &rwq->buf);
+	free(rwq->rq.wrid);
+}
+
+static int mlx5_alloc_rwq_buf(struct ibv_context *context,
+			      struct mlx5_rwq *rwq,
+			      int size)
+{
+	int err;
+	enum mlx5_alloc_type default_alloc_type = MLX5_ALLOC_TYPE_PREFER_CONTIG;
+
+	rwq->rq.wrid = malloc(rwq->rq.wqe_cnt * sizeof(uint64_t));
+	if (!rwq->rq.wrid) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	err = mlx5_alloc_prefered_buf(to_mctx(context), &rwq->buf,
+				      align(rwq->buf_size, to_mdev
+				      (context->device)->page_size),
+				      to_mdev(context->device)->page_size,
+				      default_alloc_type,
+				      MLX5_RWQ_PREFIX);
+
+	if (err) {
+		free(rwq->rq.wrid);
+		errno = ENOMEM;
+		return -1;
+	}
+
+	return 0;
+}
+
+struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
+			      struct ibv_wq_init_attr *attr)
+{
+	struct mlx5_create_wq		cmd;
+	struct mlx5_create_wq_resp		resp;
+	int				err;
+	struct mlx5_rwq			*rwq;
+	struct mlx5_context	*ctx = to_mctx(context);
+	int ret;
+	int32_t				usr_idx = 0;
+#ifdef MLX5_DEBUG
+	FILE *fp = ctx->dbg_fp;
+#endif
+
+	if (attr->wq_type != IBV_WQT_RQ)
+		return NULL;
+
+	memset(&cmd, 0, sizeof(cmd));
+	memset(&resp, 0, sizeof(resp));
+
+	rwq = calloc(1, sizeof(*rwq));
+	if (!rwq)
+		return NULL;
+
+	rwq->wq_sig = rwq_sig_enabled(context);
+	if (rwq->wq_sig)
+		cmd.drv.flags = MLX5_RWQ_FLAG_SIGNATURE;
+
+	ret = mlx5_calc_rwq_size(ctx, rwq, attr);
+	if (ret < 0) {
+		errno = -ret;
+		goto err;
+	}
+
+	rwq->buf_size = ret;
+	if (mlx5_alloc_rwq_buf(context, rwq, ret))
+		goto err;
+
+	mlx5_init_rwq_indices(rwq);
+
+	if (mlx5_spinlock_init(&rwq->rq.lock))
+		goto err_free_rwq_buf;
+
+	rwq->db = mlx5_alloc_dbrec(ctx);
+	if (!rwq->db)
+		goto err_free_rwq_buf;
+
+	rwq->db[MLX5_RCV_DBR] = 0;
+	rwq->db[MLX5_SND_DBR] = 0;
+	rwq->pbuff = rwq->buf.buf + rwq->rq.offset;
+	rwq->recv_db =  &rwq->db[MLX5_RCV_DBR];
+	cmd.drv.buf_addr = (uintptr_t)rwq->buf.buf;
+	cmd.drv.db_addr  = (uintptr_t)rwq->db;
+	cmd.drv.rq_wqe_count = rwq->rq.wqe_cnt;
+	cmd.drv.rq_wqe_shift = rwq->rq.wqe_shift;
+	usr_idx = mlx5_store_uidx(ctx, rwq);
+	if (usr_idx < 0) {
+		mlx5_dbg(fp, MLX5_DBG_QP, "Couldn't find free user index\n");
+		goto err_free_db_rec;
+	}
+
+	cmd.drv.user_index = usr_idx;
+	err = ibv_cmd_create_wq(context, attr, &rwq->wq, &cmd.ibv_cmd,
+				sizeof(cmd.ibv_cmd),
+				sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp.ibv_resp),
+				sizeof(resp));
+	if (err)
+		goto err_create;
+
+	rwq->rsc.type = MLX5_RSC_TYPE_RWQ;
+	rwq->rsc.rsn =  cmd.drv.user_index;
+
+	rwq->wq.post_recv = mlx5_post_wq_recv;
+	return &rwq->wq;
+
+err_create:
+	mlx5_clear_uidx(ctx, cmd.drv.user_index);
+err_free_db_rec:
+	mlx5_free_db(to_mctx(context), rwq->db);
+err_free_rwq_buf:
+	mlx5_free_rwq_buf(rwq, context);
+err:
+	free(rwq);
+	return NULL;
+}
+
+int mlx5_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr)
+{
+	struct mlx5_modify_wq	cmd = {};
+	struct mlx5_rwq *rwq = to_mrwq(wq);
+
+	if ((attr->attr_mask & IBV_WQ_ATTR_STATE) &&
+	    attr->wq_state == IBV_WQS_RDY) {
+		if ((attr->attr_mask & IBV_WQ_ATTR_CURR_STATE) &&
+		    attr->curr_wq_state != wq->state)
+			return -EINVAL;
+
+		if (wq->state == IBV_WQS_RESET) {
+			mlx5_spin_lock(&to_mcq(wq->cq)->lock);
+			__mlx5_cq_clean(to_mcq(wq->cq),
+					rwq->rsc.rsn, NULL);
+			mlx5_spin_unlock(&to_mcq(wq->cq)->lock);
+			mlx5_init_rwq_indices(rwq);
+			rwq->db[MLX5_RCV_DBR] = 0;
+			rwq->db[MLX5_SND_DBR] = 0;
+		}
+	}
+
+	return ibv_cmd_modify_wq(wq, attr, &cmd.ibv_cmd,  sizeof(cmd.ibv_cmd), sizeof(cmd));
+}
+
+int mlx5_destroy_wq(struct ibv_wq *wq)
+{
+	struct mlx5_rwq *rwq = to_mrwq(wq);
+	int ret;
+
+	ret = ibv_cmd_destroy_wq(wq);
+	if (ret)
+		return ret;
+
+	mlx5_spin_lock(&to_mcq(wq->cq)->lock);
+	__mlx5_cq_clean(to_mcq(wq->cq), rwq->rsc.rsn, NULL);
+	mlx5_spin_unlock(&to_mcq(wq->cq)->lock);
+	mlx5_clear_uidx(to_mctx(wq->context), rwq->rsc.rsn);
+	mlx5_free_db(to_mctx(wq->context), rwq->db);
+	mlx5_free_rwq_buf(rwq, wq->context);
+	free(rwq);
 
 	return 0;
 }

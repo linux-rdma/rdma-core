@@ -154,6 +154,12 @@ void *mlx5_get_send_wqe(struct mlx5_qp *qp, int n)
 	return qp->sq_start + (n << MLX5_SEND_WQE_SHIFT);
 }
 
+void mlx5_init_rwq_indices(struct mlx5_rwq *rwq)
+{
+	rwq->rq.head	 = 0;
+	rwq->rq.tail	 = 0;
+}
+
 void mlx5_init_qp_indices(struct mlx5_qp *qp)
 {
 	qp->sq.head	 = 0;
@@ -1039,6 +1045,12 @@ static void set_sig_seg(struct mlx5_qp *qp, struct mlx5_rwqe_sig *sig,
 	sign ^= calc_sig(&qpn, 4);
 	sign ^= calc_sig(&idx, 2);
 	sig->signature = sign;
+}
+
+int mlx5_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr)
+{
+	return ENOSYS;
 }
 
 int mlx5_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,

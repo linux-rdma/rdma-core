@@ -135,6 +135,7 @@ enum {
 #define MLX5_CQ_PREFIX "MLX_CQ"
 #define MLX5_QP_PREFIX "MLX_QP"
 #define MLX5_MR_PREFIX "MLX_MR"
+#define MLX5_RWQ_PREFIX "MLX_RWQ"
 #define MLX5_MAX_LOG2_CONTIG_BLOCK_SIZE 23
 #define MLX5_MIN_LOG2_CONTIG_BLOCK_SIZE 12
 
@@ -263,6 +264,7 @@ enum mlx5_rsc_type {
 	MLX5_RSC_TYPE_QP,
 	MLX5_RSC_TYPE_XSRQ,
 	MLX5_RSC_TYPE_SRQ,
+	MLX5_RSC_TYPE_RWQ,
 	MLX5_RSC_TYPE_INVAL,
 };
 
@@ -522,6 +524,18 @@ struct mlx5_ah {
 	struct mlx5_av			av;
 };
 
+struct mlx5_rwq {
+	struct mlx5_resource rsc;
+	struct ibv_wq wq;
+	struct mlx5_buf buf;
+	int buf_size;
+	struct mlx5_wq rq;
+	uint32_t *db;
+	void	*pbuff;
+	uint32_t	*recv_db;
+	int wq_sig;
+};
+
 static inline int mlx5_ilog2(int n)
 {
 	int t;
@@ -592,6 +606,11 @@ static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
 	struct verbs_qp *vqp = (struct verbs_qp *)ibqp;
 
 	return container_of(vqp, struct mlx5_qp, verbs_qp);
+}
+
+static inline struct mlx5_rwq *to_mrwq(struct ibv_wq *ibwq)
+{
+	return container_of(ibwq, struct mlx5_rwq, wq);
 }
 
 static inline struct mlx5_mr *to_mmr(struct ibv_mr *ibmr)
@@ -704,10 +723,13 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask);
 int mlx5_destroy_qp(struct ibv_qp *qp);
 void mlx5_init_qp_indices(struct mlx5_qp *qp);
+void mlx5_init_rwq_indices(struct mlx5_rwq *rwq);
 int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr);
 int mlx5_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
+int mlx5_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr);
 void mlx5_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 			   struct mlx5_qp *qp);
 void mlx5_set_sq_sizes(struct mlx5_qp *qp, struct ibv_qp_cap *cap,
@@ -738,6 +760,10 @@ struct ibv_xrcd *mlx5_open_xrcd(struct ibv_context *context,
 				struct ibv_xrcd_init_attr *xrcd_init_attr);
 int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
 int mlx5_close_xrcd(struct ibv_xrcd *ib_xrcd);
+struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
+			      struct ibv_wq_init_attr *attr);
+int mlx5_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr);
+int mlx5_destroy_wq(struct ibv_wq *wq);
 struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 				   struct ibv_srq_init_attr_ex *attr);
 

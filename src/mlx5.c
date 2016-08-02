@@ -745,6 +745,9 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, ibv_create_flow, ibv_cmd_create_flow);
 	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, ibv_cmd_destroy_flow);
 	verbs_set_ctx_op(v_ctx, create_cq_ex, mlx5_create_cq_ex);
+	verbs_set_ctx_op(v_ctx, create_wq, mlx5_create_wq);
+	verbs_set_ctx_op(v_ctx, modify_wq, mlx5_modify_wq);
+	verbs_set_ctx_op(v_ctx, destroy_wq, mlx5_destroy_wq);
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,
