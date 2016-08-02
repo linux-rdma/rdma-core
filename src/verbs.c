@@ -1908,7 +1908,8 @@ int mlx5_query_device_ex(struct ibv_context *context,
 		return err;
 
 	attr->tso_caps = resp.tso_caps;
-
+	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
+	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;

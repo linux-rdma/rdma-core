@@ -237,11 +237,22 @@ struct mlx5_query_device_ex {
 	struct ibv_query_device_ex	ibv_cmd;
 };
 
+struct mlx5_reserved_tso_caps {
+	__u64 reserved;
+};
+
+struct mlx5_rss_caps {
+	__u64 rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
+	__u8 rx_hash_function; /* enum ibv_rx_hash_function_flags */
+	__u8 reserved[7];
+};
+
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
 	__u32				response_length;
 	struct ibv_tso_caps		tso_caps;
+	struct mlx5_rss_caps            rss_caps; /* vendor data channel */
 };
 
 #endif /* MLX5_ABI_H */
