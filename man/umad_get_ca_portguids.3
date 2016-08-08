@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\"
-.TH UMAD_GET_CA_PORTGUIDS 3  "May 11, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_GET_CA_PORTGUIDS 3  "August 8, 2016" "OpenIB" "OpenIB Programmer\'s Manual"
 .SH "NAME"
 umad_get_ca_portguids \- get the InfiniBand device ports GUIDs
 .SH "SYNOPSIS"
@@ -29,6 +29,9 @@ uint64_t entries.
 On success,
 .B umad_get_ca_portguids()
 returns a non-negative value equal to the number of port GUIDs actually filled.
+Not all filled entries may be valid. Invalid entries will be 0.
+For example, on a CA node with only one port, this function returns a value of 2.
+In this case, the value at index 0 will be invalid as it is reserved for switches.
 On failure, a negative value is returned.
 .SH "SEE ALSO"
 .BR umad_get_cas_names (3)
