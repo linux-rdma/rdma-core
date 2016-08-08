@@ -279,10 +279,8 @@ static int set_data_inl_seg(struct mlx5_qp *qp, struct ibv_send_wr *wr,
 		inl += len;
 		offset = 0;
 
-		if (unlikely(inl > qp->max_inline_data)) {
-			errno = ENOMEM;
-			return -1;
-		}
+		if (unlikely(inl > qp->max_inline_data))
+			return ENOMEM;
 
 		if (unlikely(wqe + len > qend)) {
 			copy = qend - wqe;
@@ -517,10 +515,8 @@ static inline int set_bind_wr(struct mlx5_qp *qp, enum ibv_mw_type type,
 #ifdef MW_DEBUG
 	if (bind_info->mw_access_flags &
 	    ~(IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_REMOTE_READ |
-	     IBV_ACCESS_REMOTE_WRITE)) {
-		errno = EINVAL;
-		return errno;
-	}
+	     IBV_ACCESS_REMOTE_WRITE))
+		return EINVAL;
 
 	if (bind_info->mr &&
 	    (bind_info->mr->addr > (void *)bind_info->addr ||
@@ -529,17 +525,14 @@ static inline int set_bind_wr(struct mlx5_qp *qp, enum ibv_mw_type type,
 	     !(to_mmr(bind_info->mr)->alloc_flags &  IBV_ACCESS_MW_BIND) ||
 	     (bind_info->mw_access_flags &
 	      (IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_REMOTE_WRITE) &&
-	      !(to_mmr(bind_info->mr)->alloc_flags & IBV_ACCESS_LOCAL_WRITE)))) {
-		errno = EINVAL;
-		return errno;
-	}
+	      !(to_mmr(bind_info->mr)->alloc_flags & IBV_ACCESS_LOCAL_WRITE))))
+		return EINVAL;
+
 #endif
 
 	/* check that len > 2GB because KLM support only 2GB */
-	if (bind_info->length > 1UL << 31) {
-		errno = EOPNOTSUPP;
-		return errno;
-	}
+	if (bind_info->length > 1UL << 31)
+		return EOPNOTSUPP;
 
 	set_umr_control_seg(qp, type, rkey, bind_info, qpn, seg, size);
 	if (unlikely((*seg == qend)))
@@ -590,8 +583,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (unlikely(wr->opcode < 0 ||
 		    wr->opcode >= sizeof mlx5_ib_opcode / sizeof mlx5_ib_opcode[0])) {
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "bad opcode %d\n", wr->opcode);
-			errno = EINVAL;
-			err = -1;
+			err = EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -599,8 +591,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (unlikely(mlx5_wq_overflow(&qp->sq, nreq,
 					      to_mcq(qp->ibv_qp->send_cq)))) {
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "work queue overflow\n");
-			errno = ENOMEM;
-			err = -1;
+			err = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -608,8 +599,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		if (unlikely(wr->num_sge > qp->sq.max_gs)) {
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "max gs exceeded %d (max = %d)\n",
 				 wr->num_sge, qp->sq.max_gs);
-			errno = ENOMEM;
-			err = -1;
+			err = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -899,22 +889,16 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 {
 #ifdef MW_DEBUG
 	if (wr->opcode == IBV_WR_BIND_MW) {
-		if (wr->bind_mw.mw->type == IBV_MW_TYPE_1) {
-			errno = EINVAL;
-			return errno;
-		}
+		if (wr->bind_mw.mw->type == IBV_MW_TYPE_1)
+			return EINVAL;
 
 		if (!wr->bind_mw.bind_info.mr ||
 		    !wr->bind_mw.bind_info.addr ||
-		    !wr->bind_mw.bind_info.length) {
-			errno = EINVAL;
-			return errno;
-		}
+		    !wr->bind_mw.bind_info.length)
+			return EINVAL;
 
-		if (wr->bind_mw.bind_info.mr->pd != wr->bind_mw.mw->pd) {
-			errno = EINVAL;
-			return errno;
-		}
+		if (wr->bind_mw.bind_info.mr->pd != wr->bind_mw.mw->pd)
+			return EINVAL;
 	}
 #endif
 
