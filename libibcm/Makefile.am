@@ -8,9 +8,9 @@ AM_CFLAGS = -g -Wall
 src_libibcm_la_CFLAGS = $(AM_CFLAGS)
 
 if HAVE_LD_VERSION_SCRIPT
-    ibcm_version_script = -Wl,--version-script=$(srcdir)/src/libibcm.map
+    libibcm_version_script = -Wl,--version-script=$(srcdir)/src/libibcm.map
 else
-    ibcm_version_script =
+    libibcm_version_script =
 endif
 
 src_libibcm_la_SOURCES = src/cm.c
