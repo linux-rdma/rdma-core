@@ -240,10 +240,11 @@ static inline void handle_good_req_lazy(struct mlx5_cqe64 *cqe, uint32_t *pwc_by
 }
 
 static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *cqe,
-					struct mlx5_qp *qp, struct mlx5_srq *srq)
+					struct mlx5_resource *cur_rsc, struct mlx5_srq *srq)
 {
 	uint16_t	wqe_ctr;
 	struct mlx5_wq *wq;
+	struct mlx5_qp *qp = rsc_to_mqp(cur_rsc);
 	int err = IBV_WC_SUCCESS;
 
 	if (srq) {
@@ -257,12 +258,17 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 			err = mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe - 1,
 						    ntohl(cqe->byte_cnt));
 	} else {
-		wq	  = &qp->rq;
+		if (likely(cur_rsc->type == MLX5_RSC_TYPE_QP)) {
+			wq = &qp->rq;
+			if (qp->qp_cap_cache & MLX5_RX_CSUM_VALID)
+				cq->flags |= MLX5_CQ_FLAGS_RX_CSUM_VALID;
+		} else {
+			wq = &(rsc_to_mrwq(cur_rsc)->rq);
+		}
+
 		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
 		cq->ibv_cq.wr_id = wq->wrid[wqe_ctr];
 		++wq->tail;
-		if (qp->qp_cap_cache & MLX5_RX_CSUM_VALID)
-			cq->flags |= MLX5_CQ_FLAGS_RX_CSUM_VALID;
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe,
 						    ntohl(cqe->byte_cnt));
@@ -274,11 +280,12 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 	return err;
 }
 
-static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
-			    struct mlx5_qp *qp, struct mlx5_srq *srq)
+static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
+				   struct mlx5_resource *cur_rsc, struct mlx5_srq *srq)
 {
 	uint16_t	wqe_ctr;
 	struct mlx5_wq *wq;
+	struct mlx5_qp *qp = rsc_to_mqp(cur_rsc);
 	uint8_t g;
 	int err = 0;
 
@@ -294,7 +301,18 @@ static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 			err = mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe - 1,
 						    wc->byte_len);
 	} else {
-		wq	  = &qp->rq;
+		if (likely(cur_rsc->type == MLX5_RSC_TYPE_QP)) {
+			wq = &qp->rq;
+			if (qp->qp_cap_cache & MLX5_RX_CSUM_VALID)
+				wc->wc_flags |= (!!(cqe->hds_ip_ext & MLX5_CQE_L4_OK) &
+						 !!(cqe->hds_ip_ext & MLX5_CQE_L3_OK) &
+						(get_cqe_l3_hdr_type(cqe) ==
+						MLX5_CQE_L3_HDR_TYPE_IPV4)) <<
+						IBV_WC_IP_CSUM_OK_SHIFT;
+		} else {
+			wq = &(rsc_to_mrwq(cur_rsc)->rq);
+		}
+
 		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
 		wc->wr_id = wq->wrid[wqe_ctr];
 		++wq->tail;
@@ -304,12 +322,6 @@ static int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe - 1,
 						    wc->byte_len);
-		if (qp->qp_cap_cache & MLX5_RX_CSUM_VALID)
-			wc->wc_flags |= (!!(cqe->hds_ip_ext & MLX5_CQE_L4_OK) &
-					 !!(cqe->hds_ip_ext & MLX5_CQE_L3_OK) &
-					(get_cqe_l3_hdr_type(cqe) ==
-					MLX5_CQE_L3_HDR_TYPE_IPV4)) <<
-					IBV_WC_IP_CSUM_OK_SHIFT;
 	}
 	if (err)
 		return err;
@@ -474,6 +486,8 @@ static inline int get_resp_ctx_v1(struct mlx5_context *mctx,
 	case MLX5_RSC_TYPE_XSRQ:
 		*cur_srq = rsc_to_msrq(*cur_rsc);
 		*is_srq = 1;
+		break;
+	case MLX5_RSC_TYPE_RWQ:
 		break;
 	default:
 		return CQ_POLL_ERR;
@@ -678,10 +692,10 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 
 		if (lazy)
 			cq->ibv_cq.status = handle_responder_lazy(cq, cqe64,
-							      rsc_to_mqp(*cur_rsc),
+							      *cur_rsc,
 							      is_srq ? *cur_srq : NULL);
 		else
-			wc->status = handle_responder(wc, cqe64, rsc_to_mqp(*cur_rsc),
+			wc->status = handle_responder(wc, cqe64, *cur_rsc,
 					      is_srq ? *cur_srq : NULL);
 		break;
 	case MLX5_CQE_RESIZE_CQ:
@@ -739,8 +753,15 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 					wc->wr_id = (*cur_srq)->wrid[wqe_ctr];
 				mlx5_free_srq_wqe(*cur_srq, wqe_ctr);
 			} else {
-				mqp = rsc_to_mqp(*cur_rsc);
-				wq = &mqp->rq;
+				switch ((*cur_rsc)->type) {
+				case MLX5_RSC_TYPE_RWQ:
+					wq = &(rsc_to_mrwq(*cur_rsc)->rq);
+					break;
+				default:
+					wq = &(rsc_to_mqp(*cur_rsc)->rq);
+					break;
+				}
+
 				if (lazy)
 					cq->ibv_cq.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 				else

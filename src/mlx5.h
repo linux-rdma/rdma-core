@@ -639,6 +639,11 @@ static inline struct mlx5_srq *rsc_to_msrq(struct mlx5_resource *rsc)
 	return (struct mlx5_srq *)rsc;
 }
 
+static inline struct mlx5_rwq *rsc_to_mrwq(struct mlx5_resource *rsc)
+{
+	return (struct mlx5_rwq *)rsc;
+}
+
 int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
 void mlx5_free_buf(struct mlx5_buf *buf);
 int mlx5_alloc_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf,

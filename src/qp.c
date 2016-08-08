@@ -67,6 +67,11 @@ static void *get_recv_wqe(struct mlx5_qp *qp, int n)
 	return qp->buf.buf + qp->rq.offset + (n << qp->rq.wqe_shift);
 }
 
+static void *get_wq_recv_wqe(struct mlx5_rwq *rwq, int n)
+{
+	return rwq->pbuff  + (n << rwq->rq.wqe_shift);
+}
+
 static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
 			 int max)
 {
@@ -1047,10 +1052,89 @@ static void set_sig_seg(struct mlx5_qp *qp, struct mlx5_rwqe_sig *sig,
 	sig->signature = sign;
 }
 
+static void set_wq_sig_seg(struct mlx5_rwq *rwq, struct mlx5_rwqe_sig *sig,
+			   int size, uint16_t idx)
+{
+	uint8_t  sign;
+	uint32_t qpn = rwq->wq.wq_num;
+
+	sign = calc_sig(sig, size);
+	sign ^= calc_sig(&qpn, 4);
+	sign ^= calc_sig(&idx, 2);
+	sig->signature = sign;
+}
+
 int mlx5_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
 		      struct ibv_recv_wr **bad_wr)
 {
-	return ENOSYS;
+	struct mlx5_rwq *rwq = to_mrwq(ibwq);
+	struct mlx5_wqe_data_seg *scat;
+	int err = 0;
+	int nreq;
+	int ind;
+	int i, j;
+	struct mlx5_rwqe_sig *sig;
+
+	mlx5_spin_lock(&rwq->rq.lock);
+
+	ind = rwq->rq.head & (rwq->rq.wqe_cnt - 1);
+
+	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		if (unlikely(mlx5_wq_overflow(&rwq->rq, nreq,
+					      to_mcq(rwq->wq.cq)))) {
+			err = ENOMEM;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		if (unlikely(wr->num_sge > rwq->rq.max_gs)) {
+			err = EINVAL;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		scat = get_wq_recv_wqe(rwq, ind);
+		sig = (struct mlx5_rwqe_sig *)scat;
+		if (unlikely(rwq->wq_sig)) {
+			memset(sig, 0, 1 << rwq->rq.wqe_shift);
+			++scat;
+		}
+
+		for (i = 0, j = 0; i < wr->num_sge; ++i) {
+			if (unlikely(!wr->sg_list[i].length))
+				continue;
+			set_data_ptr_seg(scat + j++, wr->sg_list + i, 0);
+		}
+
+		if (j < rwq->rq.max_gs) {
+			scat[j].byte_count = 0;
+			scat[j].lkey       = htonl(MLX5_INVALID_LKEY);
+			scat[j].addr       = 0;
+		}
+
+		if (unlikely(rwq->wq_sig))
+			set_wq_sig_seg(rwq, sig, (wr->num_sge + 1) << 4,
+				       rwq->rq.head & 0xffff);
+
+		rwq->rq.wrid[ind] = wr->wr_id;
+
+		ind = (ind + 1) & (rwq->rq.wqe_cnt - 1);
+	}
+
+out:
+	if (likely(nreq)) {
+		rwq->rq.head += nreq;
+		/*
+		 * Make sure that descriptors are written before
+		 * doorbell record.
+		 */
+		wmb();
+		*(rwq->recv_db) = htonl(rwq->rq.head & 0xffff);
+	}
+
+	mlx5_spin_unlock(&rwq->rq.lock);
+
+	return err;
 }
 
 int mlx5_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
