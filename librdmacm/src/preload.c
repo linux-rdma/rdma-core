@@ -356,7 +356,7 @@ static enum fd_type fd_close(int index, int *fd)
 	return type;
 }
 
-void getenv_options(void)
+static void getenv_options(void)
 {
 	char *var;
 
@@ -521,7 +521,7 @@ err:
 /*
  * Use defaults on failure.
  */
-void set_rsocket_options(int rsocket)
+static void set_rsocket_options(int rsocket)
 {
 	if (sq_size)
 		rsetsockopt(rsocket, SOL_RDMA, RDMA_SQSIZE, &sq_size, sizeof sq_size);
