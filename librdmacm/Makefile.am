@@ -5,7 +5,7 @@ lib_LTLIBRARIES = src/librdmacm.la
 rslib_LTLIBRARIES = src/librspreload.la
 
 ACLOCAL_AMFLAGS = -I config
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE -DSYSCONFDIR=\"$(sysconfdir)\" -DRDMADIR=\"@rdmadir@\"
+AM_CFLAGS = -g -Wall -DSYSCONFDIR=\"$(sysconfdir)\" -DRDMADIR=\"@rdmadir@\"
 
 src_librdmacm_la_CFLAGS = $(AM_CFLAGS)
 src_librspreload_la_CFLAGS = $(AM_CFLAGS)

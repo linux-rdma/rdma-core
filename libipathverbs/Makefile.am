@@ -33,7 +33,7 @@
 # combinations of this program with other software, or any other
 # product whatsoever.
 
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+AM_CFLAGS = -g -Wall
 
 ipathverbs_version_script = @IPATHVERBS_VERSION_SCRIPT@
 

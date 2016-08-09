@@ -3,7 +3,7 @@ INCLUDES = -I$(srcdir)/include
 lib_LTLIBRARIES = src/libibcm.la
 
 ACLOCAL_AMFLAGS = -I config
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+AM_CFLAGS = -g -Wall
 
 src_libibcm_la_CFLAGS = $(AM_CFLAGS)
 

@@ -1,7 +1,7 @@
 
 lib_LTLIBRARIES = src/libocrdma.la
 
-AM_CFLAGS = -Wall -D_GNU_SOURCE
+AM_CFLAGS = -Wall
 
 if HAVE_LD_VERSION_SCRIPT
     ocrdma_version_script = -Wl,--version-script=$(srcdir)/src/ocrdma.map

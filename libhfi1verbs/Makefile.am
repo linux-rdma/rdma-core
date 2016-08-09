@@ -51,7 +51,7 @@
 # Copyright (c) 2007. QLogic Corp. All rights reserved.
 # Copyright (c) 2003, 2004, 2005. PathScale, Inc. All rights reserved.
 
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+AM_CFLAGS = -g -Wall
 
 hfiverbs_version_script = @HFIVERBS_VERSION_SCRIPT@
 

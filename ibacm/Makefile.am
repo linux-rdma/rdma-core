@@ -1,6 +1,6 @@
 AM_CPPFLAGS = -I$(srcdir)/include -I$(srcdir)/linux -I$(srcdir)/src
 
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE 
+AM_CFLAGS = -g -Wall
 AM_LDFLAGS = -lpthread -ldl
 
 if HAVE_LD_VERSION_SCRIPT

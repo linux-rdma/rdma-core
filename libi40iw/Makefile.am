@@ -1,7 +1,7 @@
 lib_LTLIBRARIES = src/libi40iw.la
 
 AM_CPPFLAGS = -I$(srcdir)/src
-AM_CFLAGS = -O2 -Wall -D_GNU_SOURCE
+AM_CFLAGS = -O2 -Wall
 
 if HAVE_LD_VERSION_SCRIPT
     i40iw_version_script = -Wl,--version-script=$(srcdir)/src/i40iw.map

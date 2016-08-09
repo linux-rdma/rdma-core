@@ -1,5 +1,5 @@
 AM_CPPFLAGS = -I$(includedir)/libnl3 -I/usr/include/libnl3
-AM_CFLAGS = -O2 -Wall -D_GNU_SOURCE
+AM_CFLAGS = -O2 -Wall
 ACLOCAL_AMFLAGS = -I m4
 
 bin_PROGRAMS = src/iwpmd

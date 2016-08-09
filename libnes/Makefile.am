@@ -1,7 +1,7 @@
 
 lib_LTLIBRARIES = src/libnes.la
 
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+AM_CFLAGS = -g -Wall
 
 if HAVE_LD_VERSION_SCRIPT
     nes_version_script = -Wl,--version-script=$(srcdir)/src/nes.map
