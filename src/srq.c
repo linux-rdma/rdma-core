@@ -101,14 +101,14 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wr->num_sge > srq->max_gs) {
-			err = -1;
+			err = EINVAL;
 			*bad_wr = wr;
 			break;
 		}
 
 		if (srq->head == srq->tail) {
 			/* SRQ is full*/
-			err = -1;
+			err = ENOMEM;
 			*bad_wr = wr;
 			break;
 		}

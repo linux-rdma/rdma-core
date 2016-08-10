@@ -982,16 +982,14 @@ int mlx5_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (unlikely(mlx5_wq_overflow(&qp->rq, nreq,
 					      to_mcq(qp->ibv_qp->recv_cq)))) {
-			errno = ENOMEM;
+			err = ENOMEM;
 			*bad_wr = wr;
-			err = -1;
 			goto out;
 		}
 
 		if (unlikely(wr->num_sge > qp->rq.max_gs)) {
-			errno = EINVAL;
+			err = EINVAL;
 			*bad_wr = wr;
-			err = -1;
 			goto out;
 		}
 
