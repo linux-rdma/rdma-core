@@ -45,7 +45,7 @@ if HAVE_IBV_DEVICE_LIBRARY_EXTENSION
     src_libipathverbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
         $(ipathverbs_version_script)
     ipathverbsconfdir = $(sysconfdir)/libibverbs.d
-    ipathverbsconf_DATA = ipath.driver
+    ipathverbsconf_DATA = ipathverbs.driver
 else
     ipathverbslibdir = $(libdir)/infiniband
     ipathverbslib_LTLIBRARIES = src/ipathverbs.la
@@ -59,7 +59,7 @@ EXTRA_DIST = src/ipathverbs.h \
     src/ipath-abi.h \
     src/ipathverbs.map \
     libipathverbs.spec.in \
-    ipath.driver \
+    ipathverbs.driver \
     truescale-serdes.cmds \
     truescale.conf
 

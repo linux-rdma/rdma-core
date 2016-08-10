@@ -63,7 +63,7 @@ if HAVE_IBV_DEVICE_LIBRARY_EXTENSION
     src_libhfi1verbs_la_LDFLAGS = -avoid-version -release @IBV_DEVICE_LIBRARY_EXTENSION@ \
         $(hfiverbs_version_script)
     hfiverbsconfdir = $(sysconfdir)/libibverbs.d
-    hfiverbsconf_DATA = hfi1.driver
+    hfiverbsconf_DATA = hfi1verbs.driver
 else
     hfiverbslibdir = $(libdir)/infiniband
     hfiverbslib_LTLIBRARIES = src/hfiverbs.la
@@ -77,7 +77,7 @@ EXTRA_DIST = src/hfiverbs.h \
     config \
     autom4te.cache \
     libhfi1.spec.in \
-    hfi1.driver
+    hfi1verbs.driver
 
 dist-hook: libhfi1.spec
 	cp libhfi1.spec $(distdir)
