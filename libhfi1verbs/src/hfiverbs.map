@@ -1,4 +1,0 @@
-{
-	global: ibv_driver_init;
-	local: *;
-};
