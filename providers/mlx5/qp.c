@@ -212,7 +212,7 @@ static void set_datagram_seg(struct mlx5_wqe_datagram_seg *dseg,
 			     struct ibv_send_wr *wr)
 {
 	memcpy(&dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof dseg->av);
-	dseg->av.dqp_dct = htonl(wr->wr.ud.remote_qpn | MLX5_EXTENED_UD_AV);
+	dseg->av.dqp_dct = htonl(wr->wr.ud.remote_qpn | MLX5_EXTENDED_UD_AV);
 	dseg->av.key.qkey.qkey = htonl(wr->wr.ud.remote_qkey);
 }
 
