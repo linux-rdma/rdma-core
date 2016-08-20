@@ -29,7 +29,7 @@ rdma_library(ibverbs libibverbs.map 1 1.0.0
   sysfs.c
   verbs.c
   )
-target_link_libraries(ibverbs PRIVATE
+target_link_libraries(ibverbs LINK_PRIVATE
   ${NL_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CMAKE_DL_LIBS}

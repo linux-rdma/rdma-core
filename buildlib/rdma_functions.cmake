@@ -98,8 +98,8 @@ function(rdma_provider DEST)
   # Even though these are modules we still want to use Wl,--no-undefined
   set_target_properties(${DEST} PROPERTIES LINK_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
   rdma_set_library_map(${DEST} ${BUILDLIB}/provider.map)
-  target_link_libraries(${DEST} PRIVATE ibverbs)
-  target_link_libraries(${DEST} PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(${DEST} LINK_PRIVATE ibverbs)
+  target_link_libraries(${DEST} LINK_PRIVATE ${CMAKE_THREAD_LIBS_INIT})
   set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
   # Provider Plugins do not use SONAME versioning, there is no reason to
   # create the usual symlinks.
@@ -259,6 +259,7 @@ function(rdma_finalize_libs)
     list(GET RDMA_STATIC_LIBS ${I} STATIC)
 
     # PUBLIC libraries
+    set(LIBS "")
     get_property(TMP TARGET ${SHARED} PROPERTY INTERFACE_LINK_LIBRARIES SET)
     if (TMP)
       get_target_property(TMP ${SHARED} INTERFACE_LINK_LIBRARIES)

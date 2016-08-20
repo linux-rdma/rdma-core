@@ -6,4 +6,4 @@ publish_headers(infiniband
 rdma_library(ibcm libibcm.map 1 1.0.0
   cm.c
   )
-target_link_libraries(ibcm PUBLIC ibverbs)
+target_link_libraries(ibcm LINK_PUBLIC ibverbs)

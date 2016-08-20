@@ -13,7 +13,7 @@
 #      Do not link to libnl and do not resolve neighbours internally for Ethernet,
 #      and do not build iwpmd.
 
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(RDMA C)
 
 # CMake likes to use -rdynamic too much, they fixed it in 3.4.
