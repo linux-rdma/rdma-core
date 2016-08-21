@@ -26,17 +26,18 @@ uint32_t               comp_mask;                  /* Compatibility mask that de
 struct ibv_odp_caps    odp_caps;                   /* On-Demand Paging capabilities */
 uint64_t               completion_timestamp_mask;  /* Completion timestamp mask (0 = unsupported) */
 uint64_t               hca_core_clock;             /* The frequency (in kHZ) of the HCA (0 = unsupported) */
-uint64_t               device_cap_flags_ex;    /* Extended device capability flags */
+uint64_t               device_cap_flags_ex;        /* Extended device capability flags */
+struct ibv_tso_caps    tso_caps;                   /* TCP segmentation offload capabilities */
 .in -8
 };
 
-struct ibv_exp_odp_caps {
-	uint64_t	general_odp_caps;  /* Mask with enum ibv_odp_general_cap_bits */
-	struct {
-		uint32_t	rc_odp_caps;      /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
-		uint32_t	uc_odp_caps;      /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
-		uint32_t	ud_odp_caps;      /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
-	} per_transport_caps;
+struct ibv_odp_caps {
+        uint64_t general_odp_caps;    /* Mask with enum ibv_odp_general_cap_bits */
+        struct {
+                uint32_t rc_odp_caps; /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
+                uint32_t uc_odp_caps; /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
+                uint32_t ud_odp_caps; /* Mask with enum ibv_odp_tranport_cap_bits to know which operations are supported. */
+        } per_transport_caps;
 };
 
 enum ibv_odp_general_cap_bits {
@@ -49,6 +50,11 @@ enum ibv_odp_transport_cap_bits {
         IBV_ODP_SUPPORT_WRITE    = 1 << 2, /* RDMA-Write operations support on-demand paging */
         IBV_ODP_SUPPORT_READ     = 1 << 3, /* RDMA-Read operations support on-demand paging */
         IBV_ODP_SUPPORT_ATOMIC   = 1 << 4, /* RDMA-Atomic operations support on-demand paging */
+};
+
+struct ibv_tso_caps {
+        uint32_t max_tso;        /* Maximum payload size in bytes supported for segmentation by TSO engine.*/
+        uint32_t supported_qpts; /* Bitmap showing which QP types are supported by TSO operation. */
 };
 
 .fi

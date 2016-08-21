@@ -34,6 +34,7 @@ uint32_t                comp_mask;	/* Identifies valid fields */
 struct ibv_pd          *pd;		/* PD to be associated with the QP */
 struct ibv_xrcd        *xrcd;		/* XRC domain to be associated with the target QP */
 enum ibv_qp_create_flags create_flags;	/* Creation flags for this QP */
+uint16_t                max_tso_header; /* Maximum TSO header size */
 .in -8
 };
 .sp
