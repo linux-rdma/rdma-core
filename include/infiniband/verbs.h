@@ -209,6 +209,11 @@ enum ibv_odp_general_caps {
 	IBV_ODP_SUPPORT = 1 << 0,
 };
 
+struct ibv_tso_caps {
+	uint32_t max_tso;
+	uint32_t supported_qpts;
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -216,6 +221,7 @@ struct ibv_device_attr_ex {
 	uint64_t		completion_timestamp_mask;
 	uint64_t		hca_core_clock;
 	uint64_t		device_cap_flags_ex;
+	struct ibv_tso_caps	tso_caps;
 };
 
 enum ibv_mtu {
@@ -357,6 +363,7 @@ enum ibv_wc_opcode {
 	IBV_WC_FETCH_ADD,
 	IBV_WC_BIND_MW,
 	IBV_WC_LOCAL_INV,
+	IBV_WC_TSO,
 /*
  * Set value of IBV_WC_RECV so consumers can test if a completion is a
  * receive by testing (opcode & IBV_WC_RECV).
@@ -636,7 +643,8 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_PD		= 1 << 0,
 	IBV_QP_INIT_ATTR_XRCD		= 1 << 1,
 	IBV_QP_INIT_ATTR_CREATE_FLAGS	= 1 << 2,
-	IBV_QP_INIT_ATTR_RESERVED	= 1 << 3
+	IBV_QP_INIT_ATTR_MAX_TSO_HEADER = 1 << 3,
+	IBV_QP_INIT_ATTR_RESERVED	= 1 << 4
 };
 
 enum ibv_qp_create_flags {
@@ -657,7 +665,7 @@ struct ibv_qp_init_attr_ex {
 	struct ibv_pd	       *pd;
 	struct ibv_xrcd	       *xrcd;
 	uint32_t                create_flags;
-
+	uint16_t		max_tso_header;
 };
 
 enum ibv_qp_open_attr_mask {
@@ -756,6 +764,7 @@ enum ibv_wr_opcode {
 	IBV_WR_LOCAL_INV,
 	IBV_WR_BIND_MW,
 	IBV_WR_SEND_WITH_INV,
+	IBV_WR_TSO,
 };
 
 enum ibv_send_flags {
@@ -802,12 +811,18 @@ struct ibv_send_wr {
 			uint32_t    remote_srqn;
 		} xrc;
 	} qp_type;
-	struct {
-		struct ibv_mw	*mw;
-		uint32_t		rkey;
-		struct ibv_mw_bind_info	bind_info;
-	} bind_mw;
-
+	union {
+		struct {
+			struct ibv_mw	*mw;
+			uint32_t		rkey;
+			struct ibv_mw_bind_info	bind_info;
+		} bind_mw;
+		struct {
+			void		       *hdr;
+			uint16_t		hdr_sz;
+			uint16_t		mss;
+		} tso;
+	};
 };
 
 struct ibv_recv_wr {
@@ -1967,6 +1982,12 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 				struct ibv_ah_attr *attr,
 				uint8_t eth_mac[ETHERNET_LL_SIZE],
 				uint16_t *vid);
+
+static inline int ibv_is_qpt_supported(uint32_t caps, enum ibv_qp_type qpt)
+{
+	return !!(caps & (1 << qpt));
+}
+
 END_C_DECLS
 
 #  undef __attribute_const
