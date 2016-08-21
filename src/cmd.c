@@ -163,6 +163,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	cmd->comp_mask = 0;
 	cmd->reserved = 0;
 	memset(attr->orig_attr.fw_ver, 0, sizeof(attr->orig_attr.fw_ver));
+	memset(&attr->comp_mask, 0, attr_size - sizeof(attr->orig_attr));
 	err = write(context->cmd_fd, cmd, cmd_size);
 	if (err != cmd_size)
 		return errno;
@@ -184,8 +185,6 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 				resp->odp_caps.per_transport_caps.uc_odp_caps;
 			attr->odp_caps.per_transport_caps.ud_odp_caps =
 				resp->odp_caps.per_transport_caps.ud_odp_caps;
-		} else {
-			memset(&attr->odp_caps, 0, sizeof(attr->odp_caps));
 		}
 	}
 
@@ -196,8 +195,6 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		    offsetof(struct ibv_query_device_resp_ex, timestamp_mask) +
 		    sizeof(resp->timestamp_mask))
 			attr->completion_timestamp_mask = resp->timestamp_mask;
-		else
-			attr->completion_timestamp_mask = 0;
 	}
 
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, hca_core_clock) +
@@ -206,8 +203,6 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		    offsetof(struct ibv_query_device_resp_ex, hca_core_clock) +
 		    sizeof(resp->hca_core_clock))
 			attr->hca_core_clock = resp->hca_core_clock;
-		else
-			attr->hca_core_clock = 0;
 	}
 
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, device_cap_flags_ex) +
@@ -216,8 +211,6 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		    offsetof(struct ibv_query_device_resp_ex, device_cap_flags_ex) +
 		    sizeof(resp->device_cap_flags_ex))
 			attr->device_cap_flags_ex = resp->device_cap_flags_ex;
-		else
-			attr->device_cap_flags_ex = 0;
 	}
 
 	return 0;
