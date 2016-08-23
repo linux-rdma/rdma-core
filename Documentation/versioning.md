@@ -29,6 +29,16 @@ index 389feee1e0f9..63854fe8f07f 100644
  
  #-------------------------
  # Basic standard paths
+diff --git a/rdma-core.spec b/rdma-core.spec
+index d1407ee9e24b..fca79ccf57e5 100644
+--- a/rdma-core.spec
++++ b/rdma-core.spec
+@@ -1,5 +1,5 @@
+ Name: rdma-core
+-Version: 11
++Version: 12
+ Release: 1%{?dist}
+ Summary: Userspace components for the Linux Kernel\'s drivers/infiniband stack
 ```
 
 # Shared Library Versions
