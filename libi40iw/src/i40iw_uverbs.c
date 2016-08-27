@@ -154,9 +154,7 @@ struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int a
 {
 	struct ibv_mr *mr;
 	struct i40iw_ureg_mr cmd;
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	struct ibv_reg_mr_resp resp;
-#endif
 
 	mr = malloc(sizeof(*mr));
 	if (!mr)
@@ -164,14 +162,9 @@ struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int a
 
 	cmd.reg_type = I40IW_UMEMREG_TYPE_MEM;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
 			   access, mr, &cmd.ibv_cmd, sizeof(cmd),
 			   &resp, sizeof(resp))) {
-#else
-	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
-			   access, mr, &cmd.ibv_cmd, sizeof(cmd))) {
-#endif
 		fprintf(stderr, PFX "%s: Failed to register memory\n", __func__);
 		free(mr);
 		return NULL;
@@ -226,9 +219,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 
 	struct i40iw_ureg_mr reg_mr_cmd;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	struct ibv_reg_mr_resp reg_mr_resp;
-#endif
 
 	if (cqe > I40IW_MAX_CQ_SIZE)
 		return NULL;
@@ -268,18 +259,10 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 
 	reg_mr_cmd.cq_pages = cq_pages;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, (void *)info.cq_base, totalsize,
 			     (uintptr_t)info.cq_base, IBV_ACCESS_LOCAL_WRITE,
 			     &iwucq->mr, &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd), &reg_mr_resp,
 			     sizeof(reg_mr_resp));
-#else
-	ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, (void *)info.sq, totalsize,
-			     (uintptr_t)info.cq_base, IBV_ACCESS_LOCAL_WRITE,
-			     &iwucq->mr, &reg_mr_cmd.ibv_cmd,
-			     sizeof(reg_mr_cmd));
-#endif
-
 	if (ret) {
 		fprintf(stderr, PFX "%s: failed to pin memory for CQ\n", __func__);
 		goto err;
@@ -509,10 +492,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	int ret;
 	struct i40iw_ureg_mr reg_mr_cmd;
 	u32 sq_pages, rq_pages;
-
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	struct ibv_reg_mr_resp reg_mr_resp;
-#endif
 
 	memset(&reg_mr_cmd, 0, sizeof(reg_mr_cmd));
 	if ((sqdepth % I40IWQP_SW_WQSIZE_1024))
@@ -540,15 +520,9 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	reg_mr_cmd.sq_pages = sq_pages;
 	reg_mr_cmd.rq_pages = rq_pages;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	ret = ibv_cmd_reg_mr(pd, (void *)info->sq, totalqpsize, (uintptr_t)info->sq,
 			     IBV_ACCESS_LOCAL_WRITE, &iwuqp->mr, &reg_mr_cmd.ibv_cmd,
 			     sizeof(reg_mr_cmd), &reg_mr_resp, sizeof(reg_mr_resp));
-#else
-	ret = ibv_cmd_reg_mr(pd, (void *)info->sq, totalqpsize, (uintptr_t)info->sq,
-			     IBV_ACCESS_LOCAL_WRITE, &iwuqp->mr, &reg_mr_cmd.ibv_cmd,
-			     sizeof(reg_mr_cmd));
-#endif
 	if (ret) {
 		fprintf(stderr, PFX "%s: failed to pin memory for SQ\n", __func__);
 		free(info->sq);

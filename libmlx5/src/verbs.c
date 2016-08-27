@@ -171,25 +171,15 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	struct ibv_reg_mr cmd;
 	int ret;
 	enum ibv_access_flags access = (enum ibv_access_flags)acc;
+	struct ibv_reg_mr_resp resp;
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
 		return NULL;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
-	{
-		struct ibv_reg_mr_resp resp;
-
-		ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-				     access, &(mr->ibv_mr),
-				     &cmd, sizeof(cmd),
-				     &resp, sizeof resp);
-	}
-#else
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr, access,
-			      &(mr->ibv_mr),
-			     &cmd, sizeof cmd);
-#endif
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access,
+			     &(mr->ibv_mr), &cmd, sizeof(cmd), &resp,
+			     sizeof resp);
 	if (ret) {
 		mlx5_free_buf(&(mr->buf));
 		free(mr);

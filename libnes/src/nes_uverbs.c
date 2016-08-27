@@ -172,23 +172,16 @@ struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 	struct nes_ureg_mr cmd;
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	struct ibv_reg_mr_resp resp;
-#endif
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
 		return NULL;
 
 	cmd.reg_type = NES_UMEMREG_TYPE_MEM;
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
 			access, mr, &cmd.ibv_cmd, sizeof cmd,
 			&resp, sizeof resp)) {
-#else
-	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-			access, mr, &cmd.ibv_cmd, sizeof cmd)) {
-#endif
 		free(mr);
 
 		return NULL;
@@ -225,9 +218,7 @@ int nes_ima_ureplace_cq(struct ibv_cq *cq,
 	struct nes_ucreate_cq_resp resp;
 	int comp_vector = nesucq->comp_vector;
 	struct nes_ureg_mr reg_mr_cmd;
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	struct ibv_reg_mr_resp reg_mr_resp;
-#endif
 	struct nes_uvcontext *nesvctx = to_nes_uctx(cq->context);
 
 	ret = ibv_cmd_destroy_cq(cq);
@@ -248,20 +239,12 @@ int nes_ima_ureplace_cq(struct ibv_cq *cq,
 
 	reg_mr_cmd.reg_type = NES_UMEMREG_TYPE_CQ;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	ret = ibv_cmd_reg_mr(&nesvctx->nesupd->ibv_pd, (void *)nesucq->cqes,
 			(nesucq->size*sizeof(struct nes_hw_cqe)),
 			(uintptr_t)nesucq->cqes,
 			IBV_ACCESS_LOCAL_WRITE, &nesucq->mr,
 			&reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
 			&reg_mr_resp, sizeof reg_mr_resp);
-#else
-	ret = ibv_cmd_reg_mr(&nesvctx->nesupd->ibv_pd, (void *)nesucq->cqes,
-			(nesucq->size*sizeof(struct nes_hw_cqe)),
-			(uintptr_t)nesucq->cqes,
-			IBV_ACCESS_LOCAL_WRITE, &nesucq->mr,
-			&reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd);
-#endif
 	if (ret) {
 		free((struct nes_hw_cqe *)nesucq->cqes);
 		goto err;
@@ -305,9 +288,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 {
 	struct nes_ucq *nesucq;
 	struct nes_ureg_mr reg_mr_cmd;
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	struct ibv_reg_mr_resp reg_mr_resp;
-#endif
 	struct nes_ucreate_cq cmd;
 	struct nes_ucreate_cq_resp resp;
 	int ret;
@@ -336,18 +317,11 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 	/* Register the memory for the CQ */
 	reg_mr_cmd.reg_type = NES_UMEMREG_TYPE_CQ;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
 	ret = ibv_cmd_reg_mr(&nesvctx->nesupd->ibv_pd, (void *)nesucq->cqes,
 			(nesucq->size*sizeof(struct nes_hw_cqe)),
 			(uintptr_t)nesucq->cqes, IBV_ACCESS_LOCAL_WRITE, &nesucq->mr,
 			&reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
 			&reg_mr_resp, sizeof reg_mr_resp);
-#else
-	ret = ibv_cmd_reg_mr(&nesvctx->nesupd->ibv_pd, (void *)nesucq->cqes,
-			(nesucq->size*sizeof(struct nes_hw_cqe)),
-			(uintptr_t)nesucq->cqes, IBV_ACCESS_LOCAL_WRITE, &nesucq->mr,
-			&reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd);
-#endif
 	if (ret) {
 		/* fprintf(stderr, "ibv_cmd_reg_mr failed (ret = %d).\n", ret); */
 		free((struct nes_hw_cqe *)nesucq->cqes);
@@ -1039,9 +1013,7 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 {
 	struct nes_ucreate_qp cmd;
 	struct nes_ureg_mr reg_mr_cmd;
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
         struct ibv_reg_mr_resp reg_mr_resp;
-#endif
 	int totalqpsize;
 	int ret;
 
@@ -1060,17 +1032,10 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 	//fprintf(stderr, PFX "qp_rq_vbase = %p qp_sq_vbase=%p reg_mr = %p\n",
 	//		nesuqp->rq_vbase, nesuqp->sq_vbase, &nesuqp->mr);
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
         ret = ibv_cmd_reg_mr(pd, (void *)nesuqp->sq_vbase,totalqpsize,
 			     (uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
 			     &nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
 			     &reg_mr_resp, sizeof reg_mr_resp);
-#else
-        ret = ibv_cmd_reg_mr(pd, (void *)nesuqp->sq_vbase,totalqpsize,
-			     (uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
-			     &nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd);
-#endif
-
         if (ret) {
                 // fprintf(stderr, PFX "%s ibv_cmd_reg_mr failed (ret = %d).\n", __FUNCTION__, ret);
 		free((void *) nesuqp->sq_vbase);
