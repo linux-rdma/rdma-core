@@ -13,10 +13,6 @@
 // FIXME: Remove this, The cmake version hard-requires new style CLOEXEC support
 #define STREAM_CLOEXEC "e"
 
-// FIXME: Remove this, cmake always provides a valgrind/memcheck.h
-#define HAVE_VALGRIND_MEMCHECK_H 1
-#define INCLUDE_VALGRIND 1
-
 #define IBV_CONFIG_DIR "@CONFIG_DIR@"
 #define RS_CONF_DIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/rsocket"
 #define IWPM_CONFIG_FILE "@CMAKE_INSTALL_FULL_SYSCONFDIR@/iwpmd.conf"

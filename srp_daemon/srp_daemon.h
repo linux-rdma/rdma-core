@@ -408,12 +408,7 @@ typedef struct {
 	char filler[MAD_BLOCK_SIZE];
 } srp_ib_user_mad_t;
 
-#if defined(HAVE_VALGRIND_DRD_H) && defined(ENABLE_VALGRIND)
 #include <valgrind/drd.h>
-#endif
-#ifndef ANNOTATE_BENIGN_RACE_SIZED
-#define ANNOTATE_BENIGN_RACE_SIZED(a, b, c) do { } while(0)
-#endif
 
 #define pr_human(arg...)				\
 	do {						\

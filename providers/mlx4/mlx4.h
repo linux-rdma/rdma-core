@@ -47,23 +47,7 @@
 #define uninitialized_var(x) x = x
 #endif
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-
-#  include <valgrind/memcheck.h>
-
-#  if !defined(VALGRIND_MAKE_MEM_DEFINED) || !defined(VALGRIND_MAKE_MEM_UNDEFINED)
-#    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_(UN)DEFINED not available"
-#  endif
-
-#endif /* HAVE_VALGRIND_MEMCHECK_H */
-
-#ifndef VALGRIND_MAKE_MEM_DEFINED
-#  define VALGRIND_MAKE_MEM_DEFINED(addr,len)
-#endif
-
-#ifndef VALGRIND_MAKE_MEM_UNDEFINED
-#  define VALGRIND_MAKE_MEM_UNDEFINED(addr,len)
-#endif
+#include <valgrind/memcheck.h>
 
 #ifndef rmb
 #  define rmb() mb()
