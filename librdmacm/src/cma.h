@@ -47,16 +47,7 @@
 
 #include <ccan/minmax.h>
 
-#ifdef INCLUDE_VALGRIND
-#   include <valgrind/memcheck.h>
-#   ifndef VALGRIND_MAKE_MEM_DEFINED
-#       warning "Valgrind requested, but VALGRIND_MAKE_MEM_DEFINED undefined"
-#   endif
-#endif
-
-#ifndef VALGRIND_MAKE_MEM_DEFINED
-#   define VALGRIND_MAKE_MEM_DEFINED(addr,len)
-#endif
+#include <valgrind/memcheck.h>
 
 #define PFX "librdmacm: "
 

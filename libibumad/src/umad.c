@@ -52,19 +52,7 @@
 
 #define IB_OPENIB_OUI                 (0x001405)
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-
-#  include <valgrind/memcheck.h>
-
-#  ifndef VALGRIND_MAKE_MEM_DEFINED
-#    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_DEFINED not available"
-#  endif
-
-#endif				/* HAVE_VALGRIND_MEMCHECK_H */
-
-#ifndef VALGRIND_MAKE_MEM_DEFINED
-#  define VALGRIND_MAKE_MEM_DEFINED(addr,len)
-#endif
+#include <valgrind/memcheck.h>
 
 typedef struct ib_user_mad_reg_req {
 	uint32_t id;
