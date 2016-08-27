@@ -42,25 +42,6 @@
 #include "mlx5.h"
 #include "bitmap.h"
 
-#if !(defined(HAVE_IBV_DONTFORK_RANGE) && defined(HAVE_IBV_DOFORK_RANGE))
-
-/*
- * If libibverbs isn't exporting these functions, then there's no
- * point in doing it here, because the rest of libibverbs isn't going
- * to be fork-safe anyway.
- */
-static int ibv_dontfork_range(void *base, size_t size)
-{
-	return 0;
-}
-
-static int ibv_dofork_range(void *base, size_t size)
-{
-	return 0;
-}
-
-#endif /* HAVE_IBV_DONTFORK_RANGE && HAVE_IBV_DOFORK_RANGE */
-
 static int mlx5_bitmap_init(struct mlx5_bitmap *bitmap, uint32_t num,
 			    uint32_t mask)
 {

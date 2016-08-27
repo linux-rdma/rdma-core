@@ -41,16 +41,6 @@
 #include <pthread.h>
 #include <string.h>
 
-#ifndef HAVE_IBV_REGISTER_DRIVER
-#include <sysfs/libsysfs.h>
-#endif
-
-#ifndef HAVE_IBV_READ_SYSFS_FILE
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#endif
-
 #include "mthca.h"
 #include "mthca-abi.h"
 
@@ -224,36 +214,6 @@ static struct ibv_device_ops mthca_dev_ops = {
 	.free_context  = mthca_free_context
 };
 
-/*
- * Keep a private implementation of HAVE_IBV_READ_SYSFS_FILE to handle
- * old versions of libibverbs that didn't implement it.  This can be
- * removed when libibverbs 1.0.3 or newer is available "everywhere."
- */
-#ifndef HAVE_IBV_READ_SYSFS_FILE
-static int ibv_read_sysfs_file(const char *dir, const char *file,
-			       char *buf, size_t size)
-{
-	char path[256];
-	int fd;
-	int len;
-
-	snprintf(path, sizeof path, "%s/%s", dir, file);
-
-	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		return -1;
-
-	len = read(fd, buf, size);
-
-	close(fd);
-
-	if (len > 0 && buf[len - 1] == '\n')
-		buf[--len] = '\0';
-
-	return len;
-}
-#endif /* HAVE_IBV_READ_SYSFS_FILE */
-
 static struct ibv_device *mthca_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
@@ -300,25 +260,7 @@ found:
 	return &dev->ibv_dev;
 }
 
-#ifdef HAVE_IBV_REGISTER_DRIVER
 static __attribute__((constructor)) void mthca_register_driver(void)
 {
 	ibv_register_driver("mthca", mthca_driver_init);
 }
-#else
-/*
- * Export the old libsysfs sysfs_class_device-based driver entry point
- * if libibverbs does not export an ibv_register_driver() function.
- */
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
-{
-	int abi_ver = 0;
-	char value[8];
-
-	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
-				value, sizeof value) > 0)
-		abi_ver = strtol(value, NULL, 10);
-
-	return mthca_driver_init(sysdev->path, abi_ver);
-}
-#endif /* HAVE_IBV_REGISTER_DRIVER */
