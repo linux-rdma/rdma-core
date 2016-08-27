@@ -96,8 +96,6 @@ endif()
 # Setup the basic C compiler
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
-# FIXME: Eliminate HAVE_CONFIG_H, we always have it.
-add_definitions(-DHAVE_CONFIG_H)
 
 # Require GNU99 mode
 RDMA_EnableCStd()

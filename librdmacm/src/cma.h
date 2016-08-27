@@ -34,9 +34,7 @@
 #if !defined(CMA_H)
 #define CMA_H
 
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <config.h>
 
 #include <stdlib.h>
 #include <errno.h>
