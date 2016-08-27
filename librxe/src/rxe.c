@@ -935,22 +935,8 @@ static struct ibv_device *rxe_driver_init(const char *uverbs_sys_path,
 	return &dev->ibv_dev;
 }
 
-#ifdef HAVE_IBV_REGISTER_DRIVER
 static __attribute__ ((constructor))
 void rxe_register_driver(void)
 {
 	ibv_register_driver("rxe", rxe_driver_init);
 }
-#else
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
-{
-	int abi_ver = 0;
-	char value[8];
-
-	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
-				value, sizeof value) > 0)
-		abi_ver = strtol(value, NULL, 10);
-
-	return rxe_driver_init(sysdev->path, abi_ver);
-}
-#endif /* HAVE_IBV_REGISTER_DRIVER */

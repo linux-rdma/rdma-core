@@ -993,9 +993,7 @@ static const char *qptype2key(enum ibv_qp_type type)
 	case IBV_QPT_RC: return "HUGE_RC";
 	case IBV_QPT_UC: return "HUGE_UC";
 	case IBV_QPT_UD: return "HUGE_UD";
-#ifdef _NOT_EXISTS_IN_OFED_2_0
 	case IBV_QPT_RAW_PACKET: return "HUGE_RAW_ETH";
-#endif
 	default: return "HUGE_NA";
 	}
 }

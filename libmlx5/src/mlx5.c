@@ -42,10 +42,6 @@
 #include <sched.h>
 #include <sys/param.h>
 
-#ifndef HAVE_IBV_REGISTER_DRIVER
-#include <sysfs/libsysfs.h>
-#endif
-
 #include "mlx5.h"
 #include "mlx5-abi.h"
 
