@@ -46,17 +46,6 @@
 
 #include "ibverbs.h"
 
-/*
- * Most distro's headers don't have these yet.
- */
-#ifndef MADV_DONTFORK
-#define MADV_DONTFORK	10
-#endif
-
-#ifndef MADV_DOFORK
-#define MADV_DOFORK	11
-#endif
-
 struct ibv_mem_node {
 	enum {
 		IBV_RED,
