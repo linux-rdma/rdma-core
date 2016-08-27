@@ -47,16 +47,9 @@
 
 #define DEFAULT_ABI	"IBVERBS_1.1"
 
-#ifdef HAVE_SYMVER_SUPPORT
-#  define symver(name, api, ver) \
-	asm(".symver " #name "," #api "@" #ver)
-#  define default_symver(name, api) \
+#define symver(name, api, ver) asm(".symver " #name "," #api "@" #ver)
+#define default_symver(name, api)                                              \
 	asm(".symver " #name "," #api "@@" DEFAULT_ABI)
-#else
-#  define symver(name, api, ver)
-#  define default_symver(name, api) \
-	extern __typeof(name) api __attribute__((alias(#name)))
-#endif /* HAVE_SYMVER_SUPPORT */
 
 #define PFX		"libibverbs: "
 
