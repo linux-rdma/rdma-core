@@ -10,8 +10,8 @@
 #  -DCMAKE_BUILD_TYPE=RelWithDebInfo
 #      Change the optimization level, Debug disables optimization,
 #      Release is for packagers
-#  -DENABLE_VALGRIND=1 (default disabled)
-#      Embed valgrind notations, this has a tiny negative performance impact
+#  -DENABLE_VALGRIND=0 (default enabled)
+#      Disable valgrind notations, this has a tiny positive performance impact
 #  -DENABLE_RESOLVE_NEIGH=0 (default enabled)
 #      Do not link to libnl and do not resolve neighbours internally for Ethernet,
 #      and do not build iwpmd.
@@ -189,9 +189,11 @@ RDMA_DoFixup("${HAVE_RDMA_USER_RXE}" "rdma/rdma_user_rxe.h")
 #-------------------------
 # Apply fixups
 
-# FIXME: We should probably always enable memcheck.h, and only selectively
-# turn it off in the real high performance paths. There is no reason umad
-# should ever have memcheck disabled for instance.
+# We prefer to build with valgrind memcheck.h present, but if not, or the user
+# requested valgrind disabled, then replace it with our dummy stub.
+if (NOT DEFINED ENABLE_VALGRIND)
+  set(ENABLE_VALGRIND "ON" CACHE BOOL "Enable use of valgrind annotations")
+endif()
 if (ENABLE_VALGRIND)
   CHECK_INCLUDE_FILE("valgrind/memcheck.h" HAVE_VALGRIND_MEMCHECK)
   CHECK_INCLUDE_FILE("valgrind/drd.h" HAVE_VALGRIND_DRD)
