@@ -15,6 +15,8 @@
 #  -DENABLE_RESOLVE_NEIGH=0 (default enabled)
 #      Do not link to libnl and do not resolve neighbours internally for Ethernet,
 #      and do not build iwpmd.
+#  -DENABLE_STATIC=1 (default disabled)
+#      Produce static libraries along with the usual shared libraries.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(RDMA C)
@@ -65,6 +67,10 @@ include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
+
+if (NOT DEFINED ENABLE_STATIC)
+  set(ENABLE_STATIC "OFF" CACHE BOOL "Produce static linking libraries as well as shared libraries.")
+endif()
 
 #-------------------------
 # Setup the basic C compiler

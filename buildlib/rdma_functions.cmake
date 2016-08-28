@@ -47,14 +47,16 @@ endfunction()
 # Basic function to produce a standard libary with a GNU LD version script.
 function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
   # Create a static library
-  add_library(${DEST}-static STATIC ${ARGN})
-  set_target_properties(${DEST}-static PROPERTIES
-    OUTPUT_NAME ${DEST}
-    LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
-  install(TARGETS ${DEST}-static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  if (ENABLE_STATIC)
+    add_library(${DEST}-static STATIC ${ARGN})
+    set_target_properties(${DEST}-static PROPERTIES
+      OUTPUT_NAME ${DEST}
+      LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    install(TARGETS ${DEST}-static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
-  list(APPEND RDMA_STATIC_LIBS ${DEST} ${DEST}-static)
-  set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
+    list(APPEND RDMA_STATIC_LIBS ${DEST} ${DEST}-static)
+    set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
+  endif()
 
   # Create a shared library
   add_library(${DEST} SHARED ${ARGN})
@@ -85,12 +87,14 @@ function(rdma_provider DEST)
   # FIXME: This is probably pointless, the provider library has no symbols so
   # what good is it? Presumably it should be used with -Wl,--whole-archive,
   # but we don't have any directions on how to make static linking work..
-  add_library(${DEST} STATIC ${ARGN})
-  set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
-  install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  if (ENABLE_STATIC)
+    add_library(${DEST} STATIC ${ARGN})
+    set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
-  list(APPEND RDMA_STATIC_LIBS ${DEST}-rdmav2 ${DEST})
-  set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
+    list(APPEND RDMA_STATIC_LIBS ${DEST}-rdmav2 ${DEST})
+    set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
+  endif()
 
   # Create the plugin shared library
   set(DEST ${DEST}-rdmav2)
@@ -155,6 +159,10 @@ endfunction()
 # from the shared and setting up the libtool .la files.
 function(rdma_finalize_libs)
   list(LENGTH RDMA_STATIC_LIBS LEN)
+  if (LEN LESS 2)
+    return()
+  endif()
+
   math(EXPR LEN ${LEN}-1)
   foreach(I RANGE 0 ${LEN} 2)
     list(GET RDMA_STATIC_LIBS ${I} SHARED)
