@@ -7,6 +7,9 @@
 # Common options passed to cmake are:
 #  -DCMAKE_EXPORT_COMPILE_COMMANDS=1
 #      Write a compile_commands.json file for clang tooling
+#  -DCMAKE_BUILD_TYPE=RelWithDebInfo
+#      Change the optimization level, Debug disables optimization,
+#      Release is for packagers
 #  -DENABLE_VALGRIND=1 (default disabled)
 #      Embed valgrind notations, this has a tiny negative performance impact
 #  -DENABLE_RESOLVE_NEIGH=0 (default enabled)
@@ -58,12 +61,14 @@ include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 include(CheckTypeSize)
 include(RDMA_EnableCStd)
+include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
 
 #-------------------------
 # Setup the basic C compiler
+RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 # FIXME: Eliminate HAVE_CONFIG_H, we always have it.
 add_definitions(-DHAVE_CONFIG_H)
