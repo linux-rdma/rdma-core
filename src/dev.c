@@ -176,13 +176,24 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		if (!rhp->mmid2ptr) {
 			goto err_unmap;
 		}
-		rhp->max_qp = T4_QID_BASE + attr.max_cq;
-		rhp->qpid2ptr = calloc(T4_QID_BASE + attr.max_cq, sizeof(void *));
+		if (rhp->abi_version < 3) {
+			fprintf(stderr, "Warning: iw_cxgb4 driver is of older version"
+					" than libcxgb4:: %d\n", rhp->abi_version);
+			rhp->max_qp = T4_QID_BASE + attr.max_qp;
+		} else {
+			rhp->max_qp = context->status_page->qp_start +
+					context->status_page->qp_size;
+		}
+		rhp->qpid2ptr = calloc(rhp->max_qp, sizeof(void *));
 		if (!rhp->qpid2ptr) {
 			goto err_unmap;
 		}
-		rhp->max_cq = T4_QID_BASE + attr.max_cq;
-		rhp->cqid2ptr = calloc(T4_QID_BASE + attr.max_cq, sizeof(void *));
+		if (rhp->abi_version < 3)
+			rhp->max_cq = T4_QID_BASE + attr.max_cq;
+		else
+			rhp->max_cq = context->status_page->cq_start +
+					context->status_page->cq_size;
+		rhp->cqid2ptr = calloc(rhp->max_cq, sizeof(void *));
 		if (!rhp->cqid2ptr)
 			goto err_unmap;
 	}
