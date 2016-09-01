@@ -1,7 +1,7 @@
 /*
  * This file is part of the Chelsio T4/T5/T6 Ethernet driver.
  *
- * Copyright (C) 2003-2015 Chelsio Communications.  All rights reserved.
+ * Copyright (C) 2003-2016 Chelsio Communications.  All rights reserved.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
