@@ -291,7 +291,7 @@ out:
 
 static int svr_run(void)
 {
-	size_t len;
+	ssize_t len;
 	int ret;
 
 	ret = svr_bind();
