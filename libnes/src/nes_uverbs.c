@@ -215,6 +215,7 @@ int nes_udereg_mr(struct ibv_mr *mr)
 	return 0;
 }
 
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 static
 int nes_ima_ureplace_cq(struct ibv_cq *cq,
 			int mcrqf,
@@ -296,6 +297,7 @@ int nes_ima_ureplace_cq(struct ibv_cq *cq,
  err:
 	return ret;
 }
+#endif
 
 /**
  * nes_ucreate_cq
@@ -425,7 +427,6 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	int cqe_count = 0;
 	uint32_t head;
 	uint32_t cq_size;
-	uint16_t qp_size;
 
 	volatile struct nes_hw_nic_cqe *cqe = 0;
 	volatile struct nes_hw_nic_cqe *cqes;
@@ -487,7 +488,6 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 			entry->src_qp = nesuqp->qp_id;
 			if (cqe_misc & NES_NIC_CQE_SQ) {
 				entry->opcode = IBV_WC_SEND;
-				qp_size = nesuqp->sq_size;
 
 				entry->wr_id =
 					nesuqp->send_wr_id[nesuqp->sq_tail];
@@ -557,7 +557,6 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	uint32_t wqe_index;
 	uint32_t wq_tail = 0;
 	struct nes_hw_cqe cqe;
-	uint32_t tmp;
 	uint64_t u64temp;
 	int move_cq_head = 1;
 	uint32_t err_code;
@@ -679,7 +678,6 @@ nes_upoll_cq_update:
 					nesvctx = to_nes_uctx(cq->context);
 				nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(nesucq->cq_id |
 						(nesucq->polled_completions << 16));
-				tmp = nesvctx->nesupd->udoorbell->cqe_alloc;
 				nesucq->polled_completions = 0;
 			}
 		} else {
@@ -699,7 +697,6 @@ nes_upoll_cq_update:
 			nesvctx = to_nes_uctx(cq->context);
 		nesvctx->nesupd->udoorbell->cqe_alloc = cpu_to_le32(nesucq->cq_id |
 				(nesucq->polled_completions << 16));
-		tmp = nesvctx->nesupd->udoorbell->cqe_alloc;
 		nesucq->polled_completions = 0;
 	}
 	nesucq->head = head;
@@ -1140,7 +1137,6 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	struct nes_uqp *nesuqp;
 	int	sqdepth, rqdepth;
 	int	 status = 1;
-	int i = 0;
 
 	/* fprintf(stderr, PFX "%s\n", __FUNCTION__); */
 
@@ -1211,6 +1207,8 @@ struct ibv_qp *nes_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 
 #if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (attr->qp_type == IBV_QPT_RAW_ETH) {
+		int i = 0;
+
 		nesuqp->nes_ud_sksq_fd = open("/dev/infiniband/nes_ud_sksq",
 						O_RDWR);
 		if (nesuqp->nes_ud_sksq_fd <= 0)
@@ -1327,7 +1325,6 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 {
 	struct nes_uqp *nesuqp = to_nes_uqp(qp);
 	int ret = 0;
-	int i = 0;
 
 	// fprintf(stderr, PFX "%s addr&mr= %p  \n", __FUNCTION__, &nesuqp->mr );
 
@@ -1353,6 +1350,8 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 
 #if HAVE_DECL_IBV_QPT_RAW_ETH
 	if (qp->qp_type == IBV_QPT_RAW_ETH) {
+		int i = 0;
+
 		if (nesuqp->pend_rx_wr) {
 			for (i = 0; i < NES_UD_RX_BATCH_SZ; i++)
 				if (nesuqp->pend_rx_wr[i].sg_list) {
@@ -1381,6 +1380,7 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 	return 0;
 }
 
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 static inline
 int nes_ima_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 		struct ibv_send_wr **bad_wr)
@@ -1457,6 +1457,7 @@ int nes_ima_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 out:
 	return ret;
 }
+#endif
 
 /**
  * nes_upost_send
@@ -1653,6 +1654,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	return err;
 }
 
+#if HAVE_DECL_IBV_QPT_RAW_ETH
 static inline
 int nes_ima_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 		struct ibv_recv_wr **bad_wr)
@@ -1727,6 +1729,7 @@ int nes_ima_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 out:
 	return ret;
 }
+#endif
 
 /**
  * nes_upost_recv

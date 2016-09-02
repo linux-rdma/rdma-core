@@ -100,7 +100,6 @@ int open_test_device(void)
 
 void test_register(void)
 {
-	int rc = 0;
 	int agent_id;
 	long method_mask[16 / sizeof(long)];
 	uint32_t class_oui = 0x001405; /* OPENIB_OUI */

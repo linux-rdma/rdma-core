@@ -128,28 +128,12 @@ static inline int __list_empty(struct work_list *list)
 	return list->list.next == &list->list;
 }
 
-static inline int list_empty(struct work_list *work_list)
-{
-	pthread_mutex_lock(&work_list->lock);
-	return work_list->list.next == &work_list->list;
-	pthread_mutex_unlock(&work_list->lock);
-}
-
 static inline struct list_head *__list_remove_head(struct work_list *work_list)
 {
 	struct list_head *list_item;
 	
 	list_item = work_list->list.next;
 	__list_delete(list_item);
-	return list_item;
-}
-
-static inline struct list_head *list_remove_head(struct work_list *work_list)
-{
-	struct list_head *list_item;
-	pthread_mutex_lock(&work_list->lock);
-	list_item = __list_remove_head(work_list);
-	pthread_mutex_unlock(&work_list->lock);
 	return list_item;
 }
 
