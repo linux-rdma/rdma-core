@@ -44,7 +44,7 @@ enum ibv_mtu pp_mtu_to_enum(int mtu)
 	case 1024: return IBV_MTU_1024;
 	case 2048: return IBV_MTU_2048;
 	case 4096: return IBV_MTU_4096;
-	default:   return -1;
+	default:   return 0;
 	}
 }
 

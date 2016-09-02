@@ -768,7 +768,7 @@ int main(int argc, char *argv[])
 
 		case 'm':
 			mtu = pp_mtu_to_enum(strtol(optarg, NULL, 0));
-			if (mtu < 0) {
+			if (mtu == 0) {
 				usage(argv[0]);
 				return 1;
 			}

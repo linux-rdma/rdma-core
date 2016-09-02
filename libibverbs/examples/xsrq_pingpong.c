@@ -906,7 +906,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			ctx.mtu = pp_mtu_to_enum(strtol(optarg, NULL, 0));
-			if (ctx.mtu < 0) {
+			if (ctx.mtu == 0) {
 				usage(argv[0]);
 				return 1;
 			}
