@@ -44,20 +44,13 @@
 
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
+#include <infiniband/arch.h>
 
 #include <ccan/minmax.h>
 
 #include <valgrind/memcheck.h>
 
 #define PFX "librdmacm: "
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-static inline uint64_t htonll(uint64_t x) { return bswap_64(x); }
-static inline uint64_t ntohll(uint64_t x) { return bswap_64(x); }
-#else
-static inline uint64_t htonll(uint64_t x) { return x; }
-static inline uint64_t ntohll(uint64_t x) { return x; }
-#endif
 
 /*
  * Fast synchronization for low contention locking.

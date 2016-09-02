@@ -34,20 +34,15 @@
 
 #include <stdlib.h>
 #include <sys/types.h>
-#include <byteswap.h>
+#include <endian.h>
 #include <poll.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
 #include <infiniband/ib.h>
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-static inline uint64_t cpu_to_be64(uint64_t x) { return x; }
-static inline uint32_t cpu_to_be32(uint32_t x) { return x; }
-#else
-static inline uint64_t cpu_to_be64(uint64_t x) { return bswap_64(x); }
-static inline uint32_t cpu_to_be32(uint32_t x) { return bswap_32(x); }
-#endif
+static inline uint64_t cpu_to_be64(uint64_t x) { return htobe64(x); }
+static inline uint32_t cpu_to_be32(uint32_t x) { return htobe32(x); }
 
 extern int use_rs;
 

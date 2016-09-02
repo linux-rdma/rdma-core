@@ -41,15 +41,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <endian.h>
 #include <byteswap.h>
 #include <netinet/in.h>
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#define htonll(x) bswap_64(x)
-#else
-#define htonll(x) (x)
-#endif
+#include <infiniband/arch.h>
 
 static int ret_code(void)
 {
