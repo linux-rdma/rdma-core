@@ -47,10 +47,6 @@
 #define unlikely(x)	__builtin_expect((x), 0)
 #endif
 
-#ifndef uninitialized_var
-#define uninitialized_var(x) x = x
-#endif
-
 #include <valgrind/memcheck.h>
 
 #ifndef min

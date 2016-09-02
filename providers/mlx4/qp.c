@@ -217,7 +217,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	struct mlx4_context *ctx;
 	struct mlx4_qp *qp = to_mqp(ibqp);
 	void *wqe;
-	struct mlx4_wqe_ctrl_seg *uninitialized_var(ctrl);
+	struct mlx4_wqe_ctrl_seg *ctrl;
 	int ind;
 	int nreq;
 	int inl = 0;

@@ -303,7 +303,7 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	           struct ibv_send_wr **bad_wr)
 {
 	int err = 0;
-	u8 uninitialized_var(len16);
+	u8 len16;
 	enum fw_wr_opcodes fw_opcode;
 	enum fw_ri_wr_flags fw_flags;
 	struct c4iw_qp *qhp;

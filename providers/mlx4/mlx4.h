@@ -43,10 +43,6 @@
 
 #define MLX4_PORTS_NUM 2
 
-#ifndef uninitialized_var
-#define uninitialized_var(x) x = x
-#endif
-
 #include <valgrind/memcheck.h>
 
 #define HIDDEN		__attribute__((visibility ("hidden")))

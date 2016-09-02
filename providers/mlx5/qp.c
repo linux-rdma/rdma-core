@@ -319,7 +319,7 @@ static uint8_t wq_sig(struct mlx5_wqe_ctrl_seg *ctrl)
 #ifdef MLX5_DEBUG
 void dump_wqe(FILE *fp, int idx, int size_16, struct mlx5_qp *qp)
 {
-	uint32_t *uninitialized_var(p);
+	uint32_t *p;
 	int i, j;
 	int tidx = idx;
 
@@ -854,7 +854,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		}
 
 		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
-			int uninitialized_var(sz);
+			int sz;
 
 			err = set_data_inl_seg(qp, wr, seg, &sz, &sg_copy_ptr);
 			if (unlikely(err)) {

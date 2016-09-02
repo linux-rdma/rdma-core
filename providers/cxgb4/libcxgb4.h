@@ -264,6 +264,4 @@ void dump_state();
 extern int stall_to;
 #endif
 
-#define uninitialized_var(x) x = x
-
 #endif				/* IWCH_H */
