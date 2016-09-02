@@ -727,7 +727,7 @@ uint16_t neigh_get_vlan_id_from_dev(struct get_neigh_handler *neigh_handler)
 
 void neigh_set_vlan_id(struct get_neigh_handler *neigh_handler, uint16_t vid)
 {
-	if (vid >= 0 && vid <= 0xfff)
+	if (vid <= 0xfff)
 		neigh_handler->vid = vid;
 }
 
