@@ -620,7 +620,7 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 			qp->dpp_cq = 0;
 		}
 	}
-	qp->state = IBV_QPS_RESET;
+	qp->state = OCRDMA_QPS_RST;
 	INIT_DBLY_LIST_NODE(&qp->sq_entry);
 	INIT_DBLY_LIST_NODE(&qp->rq_entry);
 	return &qp->ibv_qp;
