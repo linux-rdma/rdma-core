@@ -404,6 +404,20 @@ struct ds_udp_header {
 
 #define ds_next_qp(qp) container_of((qp)->list.next, struct ds_qp, list)
 
+static void write_all(int fd, const void *msg, size_t len)
+{
+	// FIXME: if fd is a socket this really needs to handle EINTR and other conditions.
+	ssize_t rc = write(fd, msg, len);
+	assert(rc == len);
+}
+
+static void read_all(int fd, void *msg, size_t len)
+{
+	// FIXME: if fd is a socket this really needs to handle EINTR and other conditions.
+	ssize_t rc = read(fd, msg, len);
+	assert(rc == len);
+}
+
 static void ds_insert_qp(struct rsocket *rs, struct ds_qp *qp)
 {
 	if (!rs->qp_list)
@@ -444,8 +458,8 @@ static int rs_notify_svc(struct rs_svc *svc, struct rsocket *rs, int cmd)
 	msg.cmd = cmd;
 	msg.status = EINVAL;
 	msg.rs = rs;
-	write(svc->sock[0], &msg, sizeof msg);
-	read(svc->sock[0], &msg, sizeof msg);
+	write_all(svc->sock[0], &msg, sizeof msg);
+	read_all(svc->sock[0], &msg, sizeof msg);
 	ret = rdma_seterrno(msg.status);
 	if (svc->cnt)
 		goto unlock;
@@ -484,6 +498,15 @@ static int rs_scale_to_value(int value, int bits)
 	       value : (value & ~(1 << (bits - 1))) << bits;
 }
 
+/* gcc > ~5 will not allow (void)fscanf to suppress -Wunused-result, but this
+   will do it.  In this case ignoring the result is OK (but horribly
+   unfriendly to user) since the library has a sane default. */
+#define failable_fscanf(f, fmt, ...)                                           \
+	{                                                                      \
+		int rc = fscanf(f, fmt, __VA_ARGS__);                          \
+		(void) rc;                                                     \
+	}
+
 void rs_configure(void)
 {
 	FILE *f;
@@ -501,27 +524,27 @@ void rs_configure(void)
 	ucma_ib_init();
 
 	if ((f = fopen(RS_CONF_DIR "/polling_time", "r"))) {
-		(void) fscanf(f, "%u", &polling_time);
+		failable_fscanf(f, "%u", &polling_time);
 		fclose(f);
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/inline_default", "r"))) {
-		(void) fscanf(f, "%hu", &def_inline);
+		failable_fscanf(f, "%hu", &def_inline);
 		fclose(f);
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/sqsize_default", "r"))) {
-		(void) fscanf(f, "%hu", &def_sqsize);
+		failable_fscanf(f, "%hu", &def_sqsize);
 		fclose(f);
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/rqsize_default", "r"))) {
-		(void) fscanf(f, "%hu", &def_rqsize);
+		failable_fscanf(f, "%hu", &def_rqsize);
 		fclose(f);
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/mem_default", "r"))) {
-		(void) fscanf(f, "%u", &def_mem);
+		failable_fscanf(f, "%u", &def_mem);
 		fclose(f);
 
 		if (def_mem < 1)
@@ -529,14 +552,14 @@ void rs_configure(void)
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/wmem_default", "r"))) {
-		(void) fscanf(f, "%u", &def_wmem);
+		failable_fscanf(f, "%u", &def_wmem);
 		fclose(f);
 		if (def_wmem < RS_SNDLOWAT)
 			def_wmem = RS_SNDLOWAT << 1;
 	}
 
 	if ((f = fopen(RS_CONF_DIR "/iomap_size", "r"))) {
-		(void) fscanf(f, "%hu", &def_iomap_size);
+		failable_fscanf(f, "%hu", &def_iomap_size);
 		fclose(f);
 
 		/* round to supported values */
@@ -3345,7 +3368,8 @@ static int rs_set_keepalive(struct rsocket *rs, int on)
 	if (on) {
 		if (!rs->keepalive_time) {
 			if ((f = fopen("/proc/sys/net/ipv4/tcp_keepalive_time", "r"))) {
-				(void) fscanf(f, "%u", &rs->keepalive_time);
+				if (fscanf(f, "%u", &rs->keepalive_time) != 1)
+					rs->keepalive_time = 7200;
 				fclose(f);
 			} else {
 				rs->keepalive_time = 7200;
@@ -3985,7 +4009,7 @@ static void udp_svc_process_sock(struct rs_svc *svc)
 {
 	struct rs_svc_msg msg;
 
-	read(svc->sock[1], &msg, sizeof msg);
+	read_all(svc->sock[1], &msg, sizeof msg);
 	switch (msg.cmd) {
 	case RS_SVC_ADD_DGRAM:
 		msg.status = rs_svc_add_rs(svc, msg.rs);
@@ -4009,7 +4033,7 @@ static void udp_svc_process_sock(struct rs_svc *svc)
 		break;
 	}
 
-	write(svc->sock[1], &msg, sizeof msg);
+	write_all(svc->sock[1], &msg, sizeof msg);
 }
 
 static uint8_t udp_svc_sgid_index(struct ds_dest *dest, union ibv_gid *sgid)
@@ -4184,7 +4208,7 @@ static void *udp_svc_run(void *arg)
 	ret = rs_svc_grow_sets(svc, 4);
 	if (ret) {
 		msg.status = ret;
-		write(svc->sock[1], &msg, sizeof msg);
+		write_all(svc->sock[1], &msg, sizeof msg);
 		return (void *) (uintptr_t) ret;
 	}
 
@@ -4222,7 +4246,7 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 	struct rs_svc_msg msg;
 	int i;
 
-	read(svc->sock[1], &msg, sizeof msg);
+	read_all(svc->sock[1], &msg, sizeof msg);
 	switch (msg.cmd) {
 	case RS_SVC_ADD_KEEPALIVE:
 		msg.status = rs_svc_add_rs(svc, msg.rs);
@@ -4253,7 +4277,7 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 	default:
 		break;
 	}
-	write(svc->sock[1], &msg, sizeof msg);
+	write_all(svc->sock[1], &msg, sizeof msg);
 }
 
 /*
@@ -4282,7 +4306,7 @@ static void *tcp_svc_run(void *arg)
 	ret = rs_svc_grow_sets(svc, 16);
 	if (ret) {
 		msg.status = ret;
-		write(svc->sock[1], &msg, sizeof msg);
+		write_all(svc->sock[1], &msg, sizeof msg);
 		return (void *) (uintptr_t) ret;
 	}
 

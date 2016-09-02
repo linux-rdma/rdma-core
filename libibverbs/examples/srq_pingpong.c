@@ -222,8 +222,10 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 		wire_gid_to_gid(gid, &rem_dest[i].gid);
 	}
 
-	write(sockfd, "done", sizeof "done");
-
+	if (write(sockfd, "done", sizeof "done") != sizeof "done") {
+		perror("client write");
+		goto out;
+	}
 out:
 	close(sockfd);
 	return rem_dest;
@@ -333,7 +335,12 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 		}
 	}
 
-	read(connfd, msg, sizeof msg);
+	if (read(connfd, msg, sizeof msg) != sizeof msg) {
+		perror("client write");
+		free(rem_dest);
+		rem_dest = NULL;
+		goto out;
+	}
 
 out:
 	close(connfd);

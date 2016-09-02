@@ -208,13 +208,12 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
 		goto out;
 	}
 
-	if (read(sockfd, msg, sizeof msg) != sizeof msg) {
-		perror("client read");
-		fprintf(stderr, "Couldn't read remote address\n");
+	if (read(sockfd, msg, sizeof msg) != sizeof msg ||
+	    write(sockfd, "done", sizeof "done") != sizeof "done") {
+		perror("client read/write");
+		fprintf(stderr, "Couldn't read/write remote address\n");
 		goto out;
 	}
-
-	write(sockfd, "done", sizeof "done");
 
 	rem_dest = malloc(sizeof *rem_dest);
 	if (!rem_dest)
@@ -316,14 +315,14 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	gid_to_wire_gid(&my_dest->gid, gid);
 	sprintf(msg, "%04x:%06x:%06x:%s", my_dest->lid, my_dest->qpn,
 							my_dest->psn, gid);
-	if (write(connfd, msg, sizeof msg) != sizeof msg) {
-		fprintf(stderr, "Couldn't send local address\n");
+	if (write(connfd, msg, sizeof msg) != sizeof msg ||
+	    read(connfd, msg, sizeof msg) != sizeof msg) {
+		fprintf(stderr, "Couldn't send/recv local address\n");
 		free(rem_dest);
 		rem_dest = NULL;
 		goto out;
 	}
 
-	read(connfd, msg, sizeof msg);
 
 out:
 	close(connfd);

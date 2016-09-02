@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <ifaddrs.h>
 #include <netdb.h>
+#include <assert.h>
 #ifndef _LINUX_IF_H
 #include <net/if.h>
 #else
@@ -372,9 +373,11 @@ static struct nl_addr *process_get_neigh_mac(
 
 			if (FD_ISSET(timer_fd, &fdset)) {
 				uint64_t read_val;
+				ssize_t rc;
 
-				(void)read(timer_fd, &read_val,
-					   sizeof(read_val));
+				rc =
+				    read(timer_fd, &read_val, sizeof(read_val));
+				assert(rc == sizeof(read_val));
 				if (++retries >=  NUM_OF_TRIES) {
 					if (!errno)
 						errno = EDESTADDRREQ;
