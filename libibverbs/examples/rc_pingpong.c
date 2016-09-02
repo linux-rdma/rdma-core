@@ -731,7 +731,7 @@ int main(int argc, char *argv[])
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
 			{ .name = "odp",      .has_arg = 0, .val = 'o' },
 			{ .name = "ts",       .has_arg = 0, .val = 't' },
-			{ 0 }
+			{}
 		};
 
 		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:ot",
