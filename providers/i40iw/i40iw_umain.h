@@ -195,28 +195,14 @@ int i40iw_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 int i40iw_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 void i40iw_async_event(struct ibv_async_event *event);
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
 static inline uint32_t cpu_to_le32(uint32_t x)
 {
-	return x;
+	return htole32(x);
 }
 
 static inline uint32_t le32_to_cpu(uint32_t x)
 {
-	return x;
+	return le32toh(x);
 }
-#else
-static inline uint32_t cpu_to_le32(uint32_t x)
-{
-	return ((x & 0xFF000000) >> 24) | ((x & 0x00FF0000) >> 8) |
-	    ((x & 0x0000FF00) << 8) | ((x & 0x000000FF) << 24);
-}
-
-static inline uint32_t le32_to_cpu(uint32_t x)
-{
-	return ((x & 0xFF000000) >> 24) | ((x & 0x00FF0000) >> 8) |
-	    ((x & 0x0000FF00) << 8) | ((x & 0x000000FF) << 24);
-}
-#endif
 
 #endif /* i40iw_umain_H */

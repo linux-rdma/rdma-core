@@ -46,6 +46,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <netinet/in.h>
+#include <infiniband/arch.h>
 
 #define ACM_ADDR_FILE "ibacm_addr.cfg"
 #define ACM_OPTS_FILE "ibacm_opts.cfg"
@@ -58,13 +59,6 @@
 
 #define min(a, b) (a < b ? a : b)
 #define max(a, b) (a > b ? a : b)
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#define htonll(x) bswap_64(x)
-#else
-#define htonll(x) (x)
-#endif
-#define ntohll(x) htonll(x)
 
 #if DEFINE_ATOMICS
 typedef struct { pthread_mutex_t mut; int val; } atomic_t;

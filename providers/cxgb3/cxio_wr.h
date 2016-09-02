@@ -50,13 +50,9 @@
 #define Q_COUNT(rptr,wptr) ((wptr)-(rptr))
 #define Q_PTR2IDX(ptr,size_log2) (ptr & ((1UL<<size_log2)-1))
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#  define cpu_to_pci32(val) ((val))
-#elif __BYTE_ORDER == __BIG_ENDIAN
-#  define cpu_to_pci32(val) (__bswap_32((val)))
-#else
-#  error __BYTE_ORDER not defined
-#endif
+/* Generally speaking, PCI systems auto-byteswap on PCI accesses, so this is
+   probably wrong */
+#define cpu_to_pci32(val) htole32(val)
 
 #define RING_DOORBELL(doorbell, QPID) { \
 	*doorbell = cpu_to_pci32(QPID); \
