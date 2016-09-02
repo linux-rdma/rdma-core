@@ -7,7 +7,7 @@ AC_CONFIG_SRCDIR([src/iwarp_pm_server.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE(-Wall -Werror)
+AM_INIT_AUTOMAKE([-Wall -Werror subdir-objects])
 
 # Checks for programs.
 AC_PROG_CC
