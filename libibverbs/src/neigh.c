@@ -207,7 +207,7 @@ static int create_socket(struct get_neigh_handler *neigh_handler,
 				    &addr_src.len);
 	if (err) {
 		errno = EADDRNOTAVAIL;
-		return err;
+		return -1;
 	}
 
 	addr_dst->len = sizeof(addr_dst->sktaddr);
@@ -216,24 +216,22 @@ static int create_socket(struct get_neigh_handler *neigh_handler,
 				    &addr_dst->len);
 	if (err) {
 		errno = EADDRNOTAVAIL;
-		return err;
+		return -1;
 	}
 
 	err = set_link_port(&addr_dst->sktaddr, PORT_DISCARD,
 			    neigh_handler->oif);
 	if (err)
-		return err;
+		return -1;
 
 	sock_fd = socket(addr_dst->sktaddr.s.sa_family,
 			 SOCK_DGRAM | SOCK_CLOEXEC, 0);
 	if (sock_fd == -1)
-		return errno ? -errno : -1;
+		return -1;
 	err = bind(sock_fd, &addr_src.sktaddr.s, addr_src.len);
 	if (err) {
-		int bind_err = -errno;
-
 		close(sock_fd);
-		return bind_err ?: EADDRNOTAVAIL;
+		return -1;
 	}
 
 	*psock_fd = sock_fd;
