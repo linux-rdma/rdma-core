@@ -10,8 +10,8 @@
 # Provides:       srpd
 # Required-Start: $syslog @RDMA_SERVICE@
 # Required-Stop: $syslog @RDMA_SERVICE@
-# Default-Start: @DEFAULT_START@
-# Default-Stop: @DEFAULT_STOP@
+# Default-Start: @SRP_DEFAULT_START@
+# Default-Stop: @SRP_DEFAULT_STOP@
 # Should-Start:
 # Should-Stop:
 # Short-Description: Starts and stops the InfiniBand SRP client service
