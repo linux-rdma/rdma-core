@@ -1201,7 +1201,7 @@ int main(int argc, char *argv[])
 			if ((cb->size < RPING_MIN_BUFSIZE) ||
 			    (cb->size > (RPING_BUFSIZE - 1))) {
 				fprintf(stderr, "Invalid size %d "
-				       "(valid range is %Zd to %d)\n",
+				       "(valid range is %zd to %d)\n",
 				       cb->size, RPING_MIN_BUFSIZE, RPING_BUFSIZE);
 				ret = EINVAL;
 			} else
