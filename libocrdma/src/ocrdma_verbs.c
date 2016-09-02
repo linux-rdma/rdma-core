@@ -1539,7 +1539,7 @@ int ocrdma_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 static enum ibv_wc_status ocrdma_to_ibwc_err(uint16_t status)
 {
-	enum ibv_wc_opcode ibwc_status = IBV_WC_GENERAL_ERR;
+	enum ibv_wc_status ibwc_status = IBV_WC_GENERAL_ERR;
 	switch (status) {
 	case OCRDMA_CQE_GENERAL_ERR:
 		ibwc_status = IBV_WC_GENERAL_ERR;
