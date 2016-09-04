@@ -392,7 +392,7 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 	/* Can't be smaller then the number of outstanding CQEs */
 	outst_cqe = mlx4_get_outstanding_cqes(cq);
 	if (cqe < outst_cqe + 1) {
-		ret = 0;
+		ret = EINVAL;
 		goto out;
 	}
 
