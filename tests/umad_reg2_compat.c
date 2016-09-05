@@ -154,7 +154,7 @@ void test_fall_back(void)
 {
 	int rc = 0;
 	struct umad_reg_attr reg_attr;
-	int agent_id;
+	uint32_t agent_id;
 	int fd;
 
 	fd = open_test_device();

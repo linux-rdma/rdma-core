@@ -92,8 +92,8 @@ void test_fail(void)
 {
 	int rc = 0;
 	struct umad_reg_attr reg_attr;
-	int agent_id;
-	int agent_id2;
+	uint32_t agent_id;
+	uint32_t agent_id2;
 	int fd;
 
 	printf("\n *****\nBegin invalid tests\n");
@@ -200,7 +200,7 @@ void test_oui(void)
 {
 	int rc = 0;
 	struct umad_reg_attr reg_attr;
-	int agent_id;
+	uint32_t agent_id;
 	int fd;
 
 	printf("\n *****\nStart valid oui tests\n");
