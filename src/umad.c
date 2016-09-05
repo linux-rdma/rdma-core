@@ -50,7 +50,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 
-#include "umad.h"
+#include <infiniband/umad.h>
 
 #define IB_OPENIB_OUI                 (0x001405)
 

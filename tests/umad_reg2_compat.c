@@ -39,7 +39,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#include "umad.h"
+#include <infiniband/umad.h>
 
 #define UNLIKELY_MGMT_CLASS 0x2F
 #define UNLIKELY_RMPP_MGMT_CLASS 0x4F
