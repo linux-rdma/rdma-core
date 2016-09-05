@@ -120,8 +120,8 @@ Switch Forwarding Table info
 
 	See: ibtracert, ibroute, dump_lfts, dump_mfts, check_lft_balance, ibfindnodesusing
 
-Peformance counters
--------------------
+Performance counters
+--------------------
 
 	See: ibqueryerrors, perfquery
 

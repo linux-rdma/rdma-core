@@ -57,7 +57,7 @@ The node to start a partial scan can be specified with the following addresses.
 
 **--switch, -S <port_guid>** same as "-G". (provided only for backward compatibility)
 
-How much of the scan to be printed can be controled with the following.
+How much of the scan to be printed can be controlled with the following.
 
 **--all, -a**
 Print all nodes found in a partial fabric scan.  Normally a
@@ -81,7 +81,7 @@ Filter downports indicated in a ibnetdiscover cache.  If a port was previously
 indicated as down in the specified cache, and is still down, do not output it in the
 resulting output.  This option may be particularly useful for environments
 where switches are not fully populated, thus much of the default iblinkinfo
-info is considered unuseful.  See **ibnetdiscover** for information on caching
+info is considered useless.  See **ibnetdiscover** for information on caching
 ibnetdiscover output.
 
 

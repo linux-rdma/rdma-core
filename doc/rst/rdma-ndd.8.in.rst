@@ -27,7 +27,7 @@ those changes.
 DETAILS
 =======
 
-Full operation of this deamon requires kernels which support polling of the
+Full operation of this daemon requires kernels which support polling of the
 procfs hostname file as well as libudev.
 
 If your system does not support either of these features, the daemon will set
@@ -37,7 +37,7 @@ the Node Descriptions at start up and then sleep forever.
 Node Description format
 -----------------------
 
-The deamon uses the nd_format configuration option within the ibdiags.conf
+The daemon uses the nd_format configuration option within the ibdiags.conf
 file.  %h and %d can be used as wildcards in that string to specify the dynamic
 use of <hostname> and <device> respectively.
 

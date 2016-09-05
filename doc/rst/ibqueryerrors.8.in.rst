@@ -63,7 +63,7 @@ using a QoS aware routing engine as it can cause a credit deadlock.
 
 **CAUTION** clearing data or error counters will occur regardless of if they
 are printed or not.  See **--counters** and **--data** for details on
-controling which counters are printed.
+controlling which counters are printed.
 
 **--details** include receive error and transmit discard details
 
