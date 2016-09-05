@@ -474,13 +474,13 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 
 		print_odp_caps(&device_attr.odp_caps);
 		if (device_attr.completion_timestamp_mask)
-			printf("\tcompletion timestamp_mask:\t\t\t0x%016lx\n",
+			printf("\tcompletion timestamp_mask:\t\t\t0x%016" PRIx64 "\n",
 			       device_attr.completion_timestamp_mask);
 		else
 			printf("\tcompletion_timestamp_mask not supported\n");
 
 		if (device_attr.hca_core_clock)
-			printf("\thca_core_clock:\t\t\t%lukHZ\n", device_attr.hca_core_clock);
+			printf("\thca_core_clock:\t\t\t%" PRIu64 "kHZ\n", device_attr.hca_core_clock);
 		else
 			printf("\tcore clock not supported\n");
 
