@@ -1,7 +1,7 @@
 
 #SUBDIRS = .
 
-INCLUDES = -I$(srcdir)/include -I$(includedir) -I$(includedir)/infiniband
+AM_CPPFLAGS = -I$(srcdir)/include -I$(includedir) -I$(includedir)/infiniband
 
 lib_LTLIBRARIES = libibnetdisc.la
 sbin_PROGRAMS =

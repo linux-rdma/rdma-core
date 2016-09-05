@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I config
 SUBDIRS = libibnetdisc
 
-INCLUDES = -I$(top_builddir)/include/ -I$(srcdir)/include -I$(includedir) \
+AM_CPPFLAGS = -I$(top_builddir)/include/ -I$(srcdir)/include -I$(includedir) \
 	-I$(includedir)/infiniband -I$(top_srcdir)/libibnetdisc/include
 
 if DEBUG
