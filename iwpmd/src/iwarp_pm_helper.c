@@ -82,7 +82,7 @@ iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *req_nlh,
 	/* assochandle helps match iwpm request sent to remote peer with future iwpm accept/reject */
 	iwpm_map_req->assochandle = assochandle;
 	if (!assochandle)
-		iwpm_map_req->assochandle = (__u64)iwpm_map_req;
+		iwpm_map_req->assochandle = (uintptr_t)iwpm_map_req;
 
 	memcpy(&iwpm_map_req->src_addr, src_addr, sizeof(struct sockaddr_storage));
 	/* keep record of remote IP address and port */

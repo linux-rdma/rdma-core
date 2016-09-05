@@ -583,7 +583,7 @@ int ipath_modify_srq(struct ibv_srq *ibsrq,
 			 (sizeof(struct ibv_sge) * srq->rq.max_sge)) *
 			srq->rq.size;
 	}
-	cmd.offset_addr = (__u64) &offset;
+	cmd.offset_addr = (uintptr_t) &offset;
 	ret = ibv_cmd_modify_srq(ibsrq, attr, attr_mask,
 				 &cmd.ibv_cmd, sizeof cmd);
 	if (ret) {

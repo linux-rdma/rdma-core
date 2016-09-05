@@ -1562,7 +1562,7 @@ static void acm_nl_process_invalid_request(struct acmc_client *client,
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH;
 	msg.hdr.status = ACM_STATUS_EINVAL;
-	msg.hdr.tid = (uint64_t) acmnlmsg;
+	msg.hdr.tid = (uintptr_t) acmnlmsg;
 
 	acm_nl_send(client->sock, &msg);
 }
@@ -1584,7 +1584,7 @@ static void acm_nl_process_resolve(struct acmc_client *client,
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH;
 	msg.hdr.status = ACM_STATUS_SUCCESS;
-	msg.hdr.tid = (uint64_t) acmnlmsg;
+	msg.hdr.tid = (uintptr_t) acmnlmsg;
 	msg.resolve_data[0].type = ACM_EP_INFO_PATH;
 
 	/* We support only one pathrecord */

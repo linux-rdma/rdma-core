@@ -4266,7 +4266,7 @@ static void tcp_svc_send_keepalive(struct rsocket *rs)
 	if (rs_ctrl_avail(rs) && (rs->state & rs_connected)) {
 		rs->ctrl_seqno++;
 		rs_post_write(rs, NULL, 0, rs_msg_set(RS_OP_CTRL, RS_CTRL_KEEPALIVE),
-			      0, (uint64_t) NULL, (uint64_t) NULL);
+			      0, (uintptr_t) NULL, (uintptr_t) NULL);
 	}
 	fastlock_release(&rs->cq_lock);
 }	

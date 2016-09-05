@@ -557,7 +557,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 		return 0;
 	}
 	cmd.user_wqe_buffers = (__u64)((uintptr_t)info->sq);
-	cmd.user_compl_ctx = (u64)&iwuqp->qp;
+	cmd.user_compl_ctx = (uintptr_t)&iwuqp->qp;
 
 	ret = ibv_cmd_create_qp(pd, &iwuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof(cmd),
 				&resp->ibv_resp, sizeof(struct i40iw_ucreate_qp_resp));
