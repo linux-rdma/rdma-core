@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 docdir=`dirname $0`
 mode=$1
