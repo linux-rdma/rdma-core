@@ -1402,7 +1402,7 @@ static int acm_nl_send(SOCKET sock, struct acm_msg *msg)
 	int ret;
 	int datalen;
 
-	orig = (struct acm_nl_msg *) msg->hdr.tid;
+	orig = (struct acm_nl_msg *)(uintptr_t)msg->hdr.tid;
 
 	memset(&dst_addr, 0, sizeof(dst_addr));
 	dst_addr.nl_family = AF_NETLINK;
