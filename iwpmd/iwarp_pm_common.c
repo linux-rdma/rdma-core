@@ -33,11 +33,6 @@
 
 #include "iwarp_pm.h"
 
-/* Necessary only for SLES11 */
-#if !defined (NETLINK_RDMA)
-	#define NETLINK_RDMA	        20
-#endif
-
 /* iwpm config params */
 char * iwpm_param_names[IWPM_PARAM_NUM] = 
 	{ "nl_sock_rbuf_size" };

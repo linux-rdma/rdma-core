@@ -52,7 +52,7 @@
 #include <pthread.h>
 #include <syslog.h>
 #include <netlink/msg.h>
-#include "iwpm_netlink.h"
+#include <rdma/rdma_netlink.h>
 
 #define IWARP_PM_PORT          3935
 #define IWARP_PM_VER_SHIFT     6

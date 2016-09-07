@@ -210,6 +210,12 @@ check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
 CHECK_INCLUDE_FILE("rdma/rdma_user_rxe.h" HAVE_RDMA_USER_RXE)
 RDMA_DoFixup("${HAVE_RDMA_USER_RXE}" "rdma/rdma_user_rxe.h")
 
+CHECK_C_SOURCE_COMPILES("
+ #include <rdma/rdma_netlink.h>
+ int main(int argc,const char *argv[]) { return RDMA_NL_IWPM_REMOTE_INFO && RDMA_NL_IWCM; }"
+  HAVE_RDMA_NETLINK)
+RDMA_DoFixup("${HAVE_RDMA_NETLINK}" "rdma/rdma_netlink.h")
+
 #-------------------------
 # Apply fixups
 
@@ -309,6 +315,9 @@ if (NL_KIND EQUAL 0)
 endif()
 if (NOT HAVE_RDMA_USER_RXE)
   message(STATUS " rdma/rdma_user_rxe.h NOT found (old system kernel headers)")
+endif()
+if (NOT HAVE_RDMA_NETLINK)
+  message(STATUS " rdma/rdma_netlink.h NOT found (old system kernel headers)")
 endif()
 if (NOT HAVE_C_WARNINGS)
   message(STATUS " extended C warnings NOT supported")
