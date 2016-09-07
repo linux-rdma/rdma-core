@@ -448,7 +448,7 @@ found:
 	if (fw_min < FW_MIN) {
 		PDBG("libcxgb4: non-fatal firmware version mismatch.  "
 			"Firmware minor number is %u and libcxgb4 needs %u.\n",
-			fw_maj, FW_MAJ);
+			fw_min, FW_MIN);
 		fflush(stderr);
 	}
 
