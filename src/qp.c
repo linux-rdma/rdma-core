@@ -285,47 +285,6 @@ int t3a_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	return ret;
 }
 
-/* 
- * XXX: This is going to be moved to firmware. 
- *      Missing pdid/qpid check for now.
- */
-static inline int iwch_sgl2pbl_map(struct iwch_device *rhp,
-				   struct ibv_sge *sg_list, uint32_t num_sgle,
-				   uint32_t *pbl_addr, uint8_t *page_size)
-{
-	int i;
-	struct iwch_mr *mhp;
-	uint32_t offset;
-	for (i = 0; i < num_sgle; i++) {
-		mhp = rhp->mmid2ptr[t3_mmid(sg_list[i].lkey)];
-		if (!mhp) {
-			PDBG("%s %d\n", __FUNCTION__, __LINE__);
-			return -1;
-		}
-		if (sg_list[i].addr < mhp->va_fbo) {
-			PDBG("%s %d\n", __FUNCTION__, __LINE__);
-			return -1;
-		}
-		if (sg_list[i].addr + ((uint64_t) sg_list[i].length) <
-		    sg_list[i].addr) {
-			PDBG("%s %d\n", __FUNCTION__, __LINE__);
-			return -1;
-		}
-		if (sg_list[i].addr + ((uint64_t) sg_list[i].length) >
-		    mhp->va_fbo + ((uint64_t) mhp->len)) {
-			PDBG("%s %d\n", __FUNCTION__, __LINE__);
-			return -1;
-		}
-		offset = sg_list[i].addr - mhp->va_fbo;
-		offset += ((uint32_t) mhp->va_fbo) %
-		    (1UL << (12 + mhp->page_size));
-		pbl_addr[i] = mhp->pbl_addr +
-		    (offset >> (12 + mhp->page_size));
-		page_size[i] = mhp->page_size;
-	}
-	return 0;
-}
-
 static inline int iwch_build_rdma_recv(struct iwch_device *rhp,
 				       union t3_wr *wqe, 
 				       struct ibv_recv_wr *wr)
