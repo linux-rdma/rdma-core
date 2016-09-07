@@ -54,28 +54,6 @@
 
 #include <valgrind/memcheck.h>
 
-#ifndef rmb
-#  define rmb() mb()
-#endif
-
-#ifndef wmb
-#  define wmb() mb()
-#endif
-
-#ifndef wc_wmb
-
-#if defined(__i386__)
-#define wc_wmb() asm volatile("lock; addl $0, 0(%%esp) " ::: "memory")
-#elif defined(__x86_64__)
-#define wc_wmb() asm volatile("sfence" ::: "memory")
-#elif defined(__ia64__)
-#define wc_wmb() asm volatile("fwb" ::: "memory")
-#else
-#define wc_wmb() wmb()
-#endif
-
-#endif
-
 #define HIDDEN		__attribute__((visibility("hidden")))
 
 #ifdef HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
