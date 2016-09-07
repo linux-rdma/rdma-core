@@ -6,7 +6,6 @@ publish_headers(infiniband
   ../include/infiniband/kern-abi.h
   ../include/infiniband/marshall.h
   ../include/infiniband/opcode.h
-  ../include/infiniband/sa-kern-abi.h
   ../include/infiniband/sa.h
   ../include/infiniband/verbs.h
   )
