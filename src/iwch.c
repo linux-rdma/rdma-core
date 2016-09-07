@@ -225,7 +225,7 @@ found:
 
 	DBGLOG("libcxgb3");
 
-	if (fw_min < FW_MIN) {
+	if ((signed int)fw_min < FW_MIN) {
 		PDBG("libcxgb3: non-fatal firmware version mismatch.  "
 			"Firmware minor number is %u and libcxgb3 needs %u.\n",
 			fw_min, FW_MIN);
