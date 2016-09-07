@@ -435,7 +435,7 @@ found:
 	cp = strtok(NULL, ".");
 	sscanf(cp, "%i", &fw_min);
 
-	if (fw_maj < FW_MAJ) {
+	if ((signed int)fw_maj < FW_MAJ) {
 		fprintf(stderr, "libcxgb4: Fatal firmware version mismatch.  "
 			"Firmware major number is %u and libcxgb4 needs %u.\n",
 			fw_maj, FW_MAJ);
@@ -445,7 +445,7 @@ found:
 
 	DBGLOG("libcxgb4");
 
-	if (fw_min < FW_MIN) {
+	if ((signed int)fw_min < FW_MIN) {
 		PDBG("libcxgb4: non-fatal firmware version mismatch.  "
 			"Firmware minor number is %u and libcxgb4 needs %u.\n",
 			fw_min, FW_MIN);
