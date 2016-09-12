@@ -1,6 +1,6 @@
 [Unit]
 Description=iWarp Port Mapper
-After=syslog.target network.target
+After=network.target
 
 [Service]
 ExecStart=/usr/bin/iwpmd
