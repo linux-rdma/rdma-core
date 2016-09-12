@@ -1,0 +1,1 @@
+install ib_qib modprobe -i ib_qib $CMDLINE_OPTS && @CMAKE_INSTALL_FULL_LIBEXECDIR@/truescale-serdes.cmds start
