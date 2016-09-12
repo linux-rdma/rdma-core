@@ -17,6 +17,8 @@
 #      and do not build iwpmd.
 #  -DENABLE_STATIC=1 (default disabled)
 #      Produce static libraries along with the usual shared libraries.
+#  -DVERBS_PROVIDER_DIR='' (default /usr/lib.../libibverbs)
+#      Use the historical search path for providers, in the standard system library.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(RDMA C)
@@ -52,6 +54,10 @@ set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd"
 
 set(ACM_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/ibacm"
   CACHE PATH "Location for ibacm provider plugin shared library files.")
+
+# Location to find the provider plugin shared library files
+set(VERBS_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/libibverbs"
+  CACHE PATH "Location for provider plugin shared library files. If set to empty the system search path is used.")
 
 # Allow the 'run' dir to be configurable, this historically has been /var/run, but
 # some systems now use /run/

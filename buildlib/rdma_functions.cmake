@@ -78,11 +78,6 @@ function(rdma_provider DEST)
   file(MAKE_DIRECTORY "${BUILD_LIB}/libibverbs.d/")
   file(WRITE "${BUILD_LIB}/libibverbs.d/${DEST}.driver" "driver ${BUILD_LIB}/${DEST}\n")
 
-  # FIXME: This symlink is provided for compat with the old build, but it
-  # never should have existed in the first place, nothing should use this
-  # name, we can probably remove it.
-  rdma_install_symlink("lib${DEST}-rdmav2.so" "${CMAKE_INSTALL_LIBDIR}/lib${DEST}.so")
-
   # Create a static provider library
   # FIXME: This is probably pointless, the provider library has no symbols so
   # what good is it? Presumably it should be used with -Wl,--whole-archive,
@@ -108,7 +103,16 @@ function(rdma_provider DEST)
   # Provider Plugins do not use SONAME versioning, there is no reason to
   # create the usual symlinks.
 
-  install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  if (VERBS_PROVIDER_DIR)
+    install(TARGETS ${DEST} DESTINATION "${VERBS_PROVIDER_DIR}")
+  else()
+    install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
+    # FIXME: This symlink is provided for compat with the old build, but it
+    # never should have existed in the first place, nothing should use this
+    # name, we can probably remove it.
+    rdma_install_symlink("lib${DEST}-rdmav2.so" "${CMAKE_INSTALL_LIBDIR}/lib${DEST}.so")
+  endif()
 endfunction()
 
  # Create an installed executable
