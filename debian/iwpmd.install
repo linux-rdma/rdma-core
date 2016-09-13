@@ -1,0 +1,7 @@
+etc/init.d/ibacm
+etc/init.d/iwpmd
+etc/iwpmd.conf
+lib/systemd/system/iwpmd.service
+usr/bin/iwpmd
+usr/share/man/man1/iwpmd.1
+usr/share/man/man5/iwpmd.conf.5

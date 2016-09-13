@@ -39,6 +39,16 @@ index d1407ee9e24b..fca79ccf57e5 100644
 +Version: 12
  Release: 1%{?dist}
  Summary: Userspace components for the Linux Kernel\'s drivers/infiniband stack
+diff --git a/debian/changelog b/debian/changelog
+index 0e6cba0be464..a12ac6b60028 100644
+--- a/debian/changelog
++++ b/debian/changelog
+@@ -1,4 +1,4 @@
+-rdma-core (11-1) unstable; urgency=low
++rdma-core (12-1) unstable; urgency=low
+ 
+   * New version
+ 
 ```
 
 # Shared Library Versions
