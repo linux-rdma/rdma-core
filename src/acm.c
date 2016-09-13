@@ -3117,7 +3117,11 @@ int CDECL_FUNC main(int argc, char **argv)
 	for (i = 0; i < ACM_MAX_COUNTER; i++)
 		atomic_init(&counter[i]);
 
-	umad_init();
+	if (umad_init() != 0) {
+		acm_log(0, "ERROR - fail to initialize umad\n");
+		return -1;
+	}
+
 	if (acm_open_providers()) {
 		acm_log(0, "ERROR - unable to open any providers\n");
 		return -1;
