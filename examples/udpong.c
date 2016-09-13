@@ -427,6 +427,7 @@ static int client_connect(void)
 	if (ret) {
 		perror("rconnect");
 		rs_close(rs);
+		goto out;
 	}
 
 	msg.op = msg_op_login;

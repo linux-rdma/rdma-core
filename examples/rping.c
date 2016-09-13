@@ -759,6 +759,7 @@ static struct rping_cb *clone_cb(struct rping_cb *listening_cb)
 	struct rping_cb *cb = malloc(sizeof *cb);
 	if (!cb)
 		return NULL;
+	memset(cb, 0, sizeof *cb);
 	*cb = *listening_cb;
 	cb->child_cm_id->context = cb;
 	return cb;
