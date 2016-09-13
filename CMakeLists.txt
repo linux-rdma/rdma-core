@@ -70,6 +70,9 @@ else()
   set(CMAKE_INSTALL_FULL_RUNDIR "${CMAKE_INSTALL_RUNDIR}")
 endif()
 
+set(DISTRO_FLAVOUR "None" CACHE
+  STRING "Flavour of distribution to install for. This primarily impacts the init.d scripts installed.")
+
 #-------------------------
 # Load CMake components
 set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
