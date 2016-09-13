@@ -67,7 +67,7 @@ low level call details shown.  For
 synchronous operation, calls to rdma_create_event_channel, rdma_get_cm_event,
 rdma_ack_cm_event, and rdma_destroy_event_channel
 would be eliminated.  Abstracted calls, such as rdma_create_ep encapsulate
-serveral of these calls under a single API.
+several of these calls under a single API.
 Users may also refer to the example applications for
 code samples.  A general connection flow would be:
 .IP rdma_getaddrinfo
@@ -171,7 +171,7 @@ regarding the reason for the failure.
 .P
 Prior versions of the library would return -errno and not set errno for some cases
 related to ENOMEM, ENODEV, ENODATA, EINVAL, and EADDRNOTAVAIL codes. Applications
-that want to check these codes and have compatability with prior library versions
+that want to check these codes and have compatibility with prior library versions
 must manually set errno to the negative of the return code if it is < -1.
 .SH "SEE ALSO"
 rdma_accept(3),
