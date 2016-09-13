@@ -56,9 +56,9 @@ dnl Checks for header files.
 AC_HEADER_STDC
 if test "$disable_libcheck" != "yes"; then
 AC_CHECK_HEADER(infiniband/verbs.h, [],
-    AC_MSG_ERROR([<infiniband/verbs.h> not found.  Is libibverbs installed?]))
+    AC_MSG_ERROR([<infiniband/verbs.h> not found.  Is libibverbs-devel installed?]))
 AC_CHECK_HEADER(infiniband/umad.h, [],
-    AC_MSG_ERROR([<infiniband/umad.h> not found.  Is libibumad installed?]))
+    AC_MSG_ERROR([<infiniband/umad.h> not found.  Is libibumad-devel installed?]))
 fi
 
 dnl Check netlink header files
