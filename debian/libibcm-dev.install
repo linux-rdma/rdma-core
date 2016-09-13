@@ -1,0 +1,2 @@
+usr/lib/*/libibcm*.so
+usr/include/infiniband/cm.h

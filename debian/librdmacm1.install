@@ -1,0 +1,2 @@
+usr/lib/*/librdmacm*.so.*
+usr/lib/*/rsocket/librspreload*.so*

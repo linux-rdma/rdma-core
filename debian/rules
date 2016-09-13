@@ -1,0 +1,99 @@
+#!/usr/bin/make -f
+
+
+DH_OPTS := --builddirectory=build-deb
+our_version = $(shell dpkg-parsechangelog -S version)
+debian_version = -$(lastword $(subst -, ,$(our_version)))
+
+# For aesthetic reasons we want to use the shared libary ABI version as the
+# Debian package version, not the overall source package version. See
+# Documentation/versioning.md
+get_lib_version = $(patsubst build-deb/lib/$(1).so.%,%,$(wildcard build-deb/lib/$(1).so.*.*))
+libibcm_version = $(call get_lib_version,libibcm)
+libibumad_version = $(call get_lib_version,libibumad)
+libibverbs_version = $(call get_lib_version,libibverbs)
+librdmacm_version = $(call get_lib_version,librdmacm)
+
+# Upstream wishes to use CMAKE_BUILD_TYPE=Release, and ensures that has a
+# sensible basis of options (eg no -O3, including -g). Debian specific options
+# come from CFLAGS as usual.
+
+# Upstream encourages the use of Ninja to build the source, convince dh to use
+# it until someone writes native support for dh+cmake+ninja.
+override_dh_auto_configure:
+	dh_auto_configure $(DH_OPTS) -- -GNinja \
+			-DDISTRO_FLAVOUR=Debian \
+			-DCMAKE_BUILD_TYPE=Release \
+			-DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
+			-DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=/lib/systemd/system \
+			-DCMAKE_INSTALL_INITDDIR:PATH=/etc/init.d \
+			-DCMAKE_INSTALL_LIBEXECDIR:PATH=/usr/lib
+	cp buildlib/ninja-wrapper build-deb/Makefile
+
+# The following files are not used on Debian
+# FIXME: should they be?
+INST_EXCLUDE := "etc/rsyslog.d/srp_daemon.conf" \
+		"usr/sbin/run_srp_daemon" \
+		"usr/sbin/srp_daemon.sh"
+INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
+override_dh_install:
+	dh_install --fail-missing $(INST_EXCLUDE)
+
+# cmake installs the correct init scripts in the correct place, just setup the
+# pre-postrms
+override_dh_installinit:
+	dh_installinit -pibacm --onlyscripts
+	dh_installinit -piwpmd --onlyscripts
+	dh_installinit -psrptools --onlyscripts
+	dh_installinit --remaining-packages
+
+# Provider plugin libaries are not shared libraries and do not belong in the
+# shlibs file.
+# librspreload is a LD_PRELOAD library and does not belong in the shlib files
+SHLIBS_EXCLUDE = "/libibverbs/" "librspreload"
+SHLIBS_EXCLUDE := $(addprefix --exclude=,$(SHLIBS_EXCLUDE))
+override_dh_makeshlibs:
+	dh_makeshlibs -plibibcm1 $(SHLIBS_EXCLUDE) -- -v$(libibcm_version)$(debian_version)
+	dh_makeshlibs -plibibverbs1 $(SHLIBS_EXCLUDE) -- -v$(libibverbs_version)$(debian_version)
+	dh_makeshlibs -plibrdmacm1 $(SHLIBS_EXCLUDE) -- -v$(librdmacm_version)$(debian_version)
+	dh_makeshlibs -plibibumad3 $(SHLIBS_EXCLUDE) -- -v$(libibumad_version)$(debian_version)
+
+	dh_makeshlibs --remaining-packages $(SHLIBS_EXCLUDE)
+
+# Inject the version numbers that are different from the source version
+override_dh_gencontrol:
+	dh_gencontrol -plibibcm1 -- -v$(libibcm_version)$(debian_version)
+	dh_gencontrol -plibibumad3 -- -v$(libibumad_version)$(debian_version)
+	dh_gencontrol -plibibverbs1 -- -v$(libibverbs_version)$(debian_version)
+	dh_gencontrol -plibrdmacm1 -- -v$(librdmacm_version)$(debian_version)
+
+	dh_gencontrol -plibibcm1-dbg -- -v$(libibcm_version)$(debian_version)
+	dh_gencontrol -plibibumad3-dbg -- -v$(libibumad_version)$(debian_version)
+	dh_gencontrol -plibibverbs1-dbg -- -v$(libibverbs_version)$(debian_version)
+	dh_gencontrol -plibrdmacm1-dbg -- -v$(librdmacm_version)$(debian_version)
+
+	dh_gencontrol -plibibcm-dev -- -v$(libibcm_version)$(debian_version)
+	dh_gencontrol -plibibumad-dev -- -v$(libibumad_version)$(debian_version)
+	dh_gencontrol -plibibverbs-dev -- -v$(libibverbs_version)$(debian_version)
+	dh_gencontrol -plibrdmacm-dev -- -v$(librdmacm_version)$(debian_version)
+
+	dh_gencontrol --remaining-packages
+
+# Create dbg packages.
+# FIXME: should we just have a rdma-core-dbg package ?
+override_dh_strip:
+	dh_strip -plibibcm1 --dbg-package=libibcm1-dbg
+	dh_strip -plibibumad3 --dbg-package=libibumad3-dbg
+	dh_strip -plibibverbs1 --dbg-package=libibverbs1-dbg
+	dh_strip -plibrdmacm1 --dbg-package=librdmacm1-dbg
+
+	dh_strip --remaining-packages
+
+# Upstream encourages the use of 'build' as the developer build output
+# directory, allow that directory to be present and still allow dh to work.
+.PHONY: build
+build:
+	dh $@ --with systemd $(DH_OPTS)
+
+%:
+	dh $@ --with systemd $(DH_OPTS)
