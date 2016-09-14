@@ -51,6 +51,9 @@ AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
 AC_CHECK_LIB(ibverbs, ibv_register_driver_ext,
     AC_DEFINE(HAVE_IBV_EXT, 1, [adding verbs extension support]))
 
+AC_CHECK_LIB(pthread, pthread_mutex_init, [],
+    AC_MSG_ERROR([pthread_mutex_init() not found.  libmlx5 requires libpthread.]))
+
 dnl Checks for header files.
 AC_CHECK_HEADER(infiniband/driver.h, [],
     AC_MSG_ERROR([<infiniband/driver.h> not found.  libmlx5 requires libibverbs.]))
