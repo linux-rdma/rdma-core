@@ -1,4 +1,4 @@
-AM_CFLAGS = -g -Wall -D_GNU_SOURCE
+AM_CFLAGS = -g -Wall
 
 mlx4_version_script = @MLX4_VERSION_SCRIPT@
 
