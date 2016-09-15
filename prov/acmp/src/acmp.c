@@ -356,16 +356,39 @@ acmp_put_dest(struct acmp_dest *dest)
 	}
 }
 
+/* Caller must hold ep lock. */
+static void
+acmp_remove_dest(struct acmp_ep *ep, struct acmp_dest *dest)
+{
+	acm_log(2, "%s\n", dest->name);
+	tdelete(dest->address, &ep->dest_map[dest->addr_type - 1],
+		acmp_compare_dest);
+	acmp_put_dest(dest);
+}
+
 static struct acmp_dest *
 acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, const uint8_t *addr)
 {
 	struct acmp_dest *dest;
+	int64_t rec_expr_minutes;
 
 	acm_format_name(2, log_data, sizeof log_data,
 			addr_type, addr, ACM_MAX_ADDRESS);
 	acm_log(2, "%s\n", log_data);
 	lock_acquire(&ep->lock);
 	dest = acmp_get_dest(ep, addr_type, addr);
+	if (dest && dest->state == ACMP_READY &&
+	    dest->addr_timeout != (uint64_t)~0ULL) {
+		rec_expr_minutes = dest->addr_timeout - time_stamp_min();
+		if (rec_expr_minutes <= 0) {
+			acm_log(2, "Record expired\n");
+			acmp_remove_dest(ep, dest);
+			dest = NULL;
+		} else {
+			acm_log(2, "Record valid for the next %ld minute(s)\n",
+				rec_expr_minutes);
+		}
+	}
 	if (!dest) {
 		dest = acmp_alloc_dest(addr_type, addr);
 		if (dest) {
@@ -377,15 +400,6 @@ acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, const uint8_t *addr)
 	lock_release(&ep->lock);
 	return dest;
 }
-
-/* Caller must hold ep lock. */
-//static void
-//acmp_remove_dest(struct acmp_ep *ep, struct acmp_dest *dest)
-//{
-//	acm_log(2, "%s\n", dest->name);
-//	tdelete(dest->address, &ep->dest_map[dest->addr_type - 1], acmp_compare_dest);
-//	acmp_put_dest(dest);
-//}
 
 static struct acmp_request *acmp_alloc_req(uint64_t id, struct acm_msg *msg)
 {
