@@ -250,7 +250,16 @@ int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
 		      size_t cmd_size);
 int ibv_cmd_destroy_wq(struct ibv_wq *wq);
-
+int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
+				 struct ibv_rwq_ind_table_init_attr *init_attr,
+				 struct ibv_rwq_ind_table *rwq_ind_table,
+				 struct ibv_create_rwq_ind_table *cmd,
+				 size_t cmd_core_size,
+				 size_t cmd_size,
+				 struct ibv_create_rwq_ind_table_resp *resp,
+				 size_t resp_core_size,
+				 size_t resp_size);
+int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);
 

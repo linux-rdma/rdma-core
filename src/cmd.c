@@ -1757,3 +1757,71 @@ int ibv_cmd_destroy_wq(struct ibv_wq *wq)
 
 	return ret;
 }
+
+int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
+				 struct ibv_rwq_ind_table_init_attr *init_attr,
+				 struct ibv_rwq_ind_table *rwq_ind_table,
+				 struct ibv_create_rwq_ind_table *cmd,
+				 size_t cmd_core_size,
+				 size_t cmd_size,
+				 struct ibv_create_rwq_ind_table_resp *resp,
+				 size_t resp_core_size,
+				 size_t resp_size)
+{
+	int err, i;
+	uint32_t required_tbl_size, alloc_tbl_size;
+	uint32_t *tbl_start;
+	int num_tbl_entries;
+
+	if (init_attr->comp_mask >= IBV_CREATE_IND_TABLE_RESERVED)
+		return EINVAL;
+
+	alloc_tbl_size = cmd_core_size - sizeof(*cmd);
+	num_tbl_entries = 1 << init_attr->log_ind_tbl_size;
+
+	/* Data must be u64 aligned */
+	required_tbl_size = (num_tbl_entries * sizeof(uint32_t)) < sizeof(uint64_t) ?
+			sizeof(uint64_t) : (num_tbl_entries * sizeof(uint32_t));
+
+	if (alloc_tbl_size < required_tbl_size)
+		return EINVAL;
+
+	tbl_start = (uint32_t *)((uint8_t *)cmd + sizeof(*cmd));
+	for (i = 0; i < num_tbl_entries; i++)
+		tbl_start[i] = init_attr->ind_tbl[i]->handle;
+
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size,
+			       CREATE_RWQ_IND_TBL, resp,
+			       resp_core_size, resp_size);
+	cmd->log_ind_tbl_size = init_attr->log_ind_tbl_size;
+	cmd->comp_mask = 0;
+
+	err = write(context->cmd_fd, cmd, cmd_size);
+	if (err != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	if (resp->response_length < resp_core_size)
+		return EINVAL;
+
+	rwq_ind_table->ind_tbl_handle = resp->ind_tbl_handle;
+	rwq_ind_table->ind_tbl_num = resp->ind_tbl_num;
+	rwq_ind_table->context = context;
+	return 0;
+}
+
+int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
+{
+	struct ibv_destroy_rwq_ind_table cmd;
+	int ret = 0;
+
+	memset(&cmd, 0, sizeof(cmd));
+	IBV_INIT_CMD_EX(&cmd, sizeof(cmd), DESTROY_RWQ_IND_TBL);
+	cmd.ind_tbl_handle = rwq_ind_table->ind_tbl_handle;
+
+	if (write(rwq_ind_table->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
+		ret = errno;
+
+	return ret;
+}

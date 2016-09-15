@@ -119,7 +119,9 @@ enum {
 	IB_USER_VERBS_CMD_DESTROY_FLOW,
 	IB_USER_VERBS_CMD_CREATE_WQ,
 	IB_USER_VERBS_CMD_MODIFY_WQ,
-	IB_USER_VERBS_CMD_DESTROY_WQ
+	IB_USER_VERBS_CMD_DESTROY_WQ,
+	IB_USER_VERBS_CMD_CREATE_RWQ_IND_TBL,
+	IB_USER_VERBS_CMD_DESTROY_RWQ_IND_TBL,
 };
 
 /*
@@ -1131,6 +1133,8 @@ enum {
 	IB_USER_VERBS_CMD_CREATE_WQ_V2 = -1,
 	IB_USER_VERBS_CMD_MODIFY_WQ_V2 = -1,
 	IB_USER_VERBS_CMD_DESTROY_WQ_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_RWQ_IND_TBL_V2 = -1,
+	IB_USER_VERBS_CMD_DESTROY_RWQ_IND_TBL_V2 = -1,
 };
 
 struct ibv_modify_srq_v3 {
@@ -1204,6 +1208,29 @@ struct ibv_modify_wq  {
 	__u32 wq_handle;
 	__u32 wq_state;
 	__u32 curr_wq_state;
+};
+
+struct ibv_create_rwq_ind_table {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 log_ind_tbl_size;
+	/* Following are wq handles based on log_ind_tbl_size, must be 64 bytes aligned.
+	 * __u32 wq_handle1
+	 * __u32 wq_handle2
+	 */
+};
+
+struct ibv_create_rwq_ind_table_resp {
+	__u32 comp_mask;
+	__u32 response_length;
+	__u32 ind_tbl_handle;
+	__u32 ind_tbl_num;
+};
+
+struct ibv_destroy_rwq_ind_table {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 ind_tbl_handle;
 };
 
 #endif /* KERN_ABI_H */

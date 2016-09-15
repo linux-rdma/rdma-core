@@ -126,4 +126,6 @@ IBVERBS_1.3 {
 		ibv_cmd_create_wq;
 		ibv_cmd_modify_wq;
 		ibv_cmd_destroy_wq;
+		ibv_cmd_create_rwq_ind_table;
+		ibv_cmd_destroy_rwq_ind_table;
 } IBVERBS_1.1;

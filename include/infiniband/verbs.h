@@ -652,6 +652,34 @@ struct ibv_wq_attr {
 	enum	ibv_wq_state	curr_wq_state;
 };
 
+/*
+ * Receive Work Queue Indirection Table.
+ * It's used in order to distribute incoming packets between different
+ * Receive Work Queues. Associating Receive WQs with different CPU cores
+ * allows to workload the traffic between different CPU cores.
+ * The Indirection Table can contain only WQs of type IBV_WQT_RQ.
+*/
+struct ibv_rwq_ind_table {
+	struct ibv_context *context;
+	int ind_tbl_handle;
+	int ind_tbl_num;
+	uint32_t comp_mask;
+};
+
+enum ibv_ind_table_init_attr_mask {
+	IBV_CREATE_IND_TABLE_RESERVED = (1 << 0)
+};
+
+/*
+ * Receive Work Queue Indirection Table attributes
+ */
+struct ibv_rwq_ind_table_init_attr {
+	uint32_t log_ind_tbl_size;
+	/* Each entry is a pointer to a Receive Work Queue */
+	struct ibv_wq **ind_tbl;
+	uint32_t comp_mask;
+};
+
 enum ibv_qp_type {
 	IBV_QPT_RC = 2,
 	IBV_QPT_UC,
@@ -1339,6 +1367,9 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*destroy_rwq_ind_table)(struct ibv_rwq_ind_table *rwq_ind_table);
+	struct ibv_rwq_ind_table *(*create_rwq_ind_table)(struct ibv_context *context,
+							  struct ibv_rwq_ind_table_init_attr *init_attr);
 	int (*destroy_wq)(struct ibv_wq *wq);
 	int (*modify_wq)(struct ibv_wq *wq, struct ibv_wq_attr *wq_attr);
 	struct ibv_wq * (*create_wq)(struct ibv_context *context,
@@ -2030,6 +2061,46 @@ static inline int ibv_destroy_wq(struct ibv_wq *wq)
 		return ENOSYS;
 
 	return vctx->destroy_wq(wq);
+}
+
+/*
+ * ibv_create_rwq_ind_table - Creates a receive work queue Indirection Table
+ * @context: ibv_context.
+ * @init_attr: A list of initial attributes required to create the Indirection Table.
+ * Return Value
+ * ibv_create_rwq_ind_table returns a pointer to the created
+ * Indirection Table, or NULL if the request fails.
+ */
+static inline struct ibv_rwq_ind_table *ibv_create_rwq_ind_table(struct ibv_context *context,
+								 struct ibv_rwq_ind_table_init_attr *init_attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, create_rwq_ind_table);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->create_rwq_ind_table(context, init_attr);
+}
+
+/*
+ * ibv_destroy_rwq_ind_table - Destroys the specified Indirection Table.
+ * @rwq_ind_table: The Indirection Table to destroy.
+ * Return Value
+ * ibv_destroy_rwq_ind_table() returns 0 on success, or the value of errno
+ * on failure (which indicates the failure reason).
+*/
+static inline int ibv_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(rwq_ind_table->context, destroy_rwq_ind_table);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->destroy_rwq_ind_table(rwq_ind_table);
 }
 
 /**
