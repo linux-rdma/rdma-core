@@ -213,6 +213,25 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			attr->device_cap_flags_ex = resp->device_cap_flags_ex;
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, rss_caps) +
+			 sizeof(attr->rss_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, rss_caps) +
+		    sizeof(resp->rss_caps)) {
+			attr->rss_caps.supported_qpts = resp->rss_caps.supported_qpts;
+			attr->rss_caps.max_rwq_indirection_tables = resp->rss_caps.max_rwq_indirection_tables;
+			attr->rss_caps.max_rwq_indirection_table_size = resp->rss_caps.max_rwq_indirection_table_size;
+		}
+	}
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, max_wq_type_rq) +
+			 sizeof(attr->max_wq_type_rq)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, max_wq_type_rq) +
+		    sizeof(resp->max_wq_type_rq))
+			attr->max_wq_type_rq = resp->max_wq_type_rq;
+	}
+
 	return 0;
 }
 

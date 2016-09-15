@@ -238,6 +238,14 @@ enum ibv_rx_hash_fields {
 	IBV_RX_HASH_DST_PORT_UDP	= 1 << 7
 };
 
+struct ibv_rss_caps {
+	uint32_t supported_qpts;
+	uint32_t max_rwq_indirection_tables;
+	uint32_t max_rwq_indirection_table_size;
+	uint64_t rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
+	uint8_t  rx_hash_function; /* enum ibv_rx_hash_function_flags */
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -246,6 +254,8 @@ struct ibv_device_attr_ex {
 	uint64_t		hca_core_clock;
 	uint64_t		device_cap_flags_ex;
 	struct ibv_tso_caps	tso_caps;
+	struct ibv_rss_caps     rss_caps;
+	uint32_t		max_wq_type_rq;
 };
 
 enum ibv_mtu {

@@ -364,6 +364,28 @@ static void print_tso_caps(const struct ibv_tso_caps *caps)
 	}
 }
 
+static void print_rss_caps(const struct ibv_rss_caps *caps)
+{
+	uint32_t unknown_general_caps = ~(1 << IBV_QPT_RAW_PACKET |
+					  1 << IBV_QPT_UD);
+	printf("\trss_caps:\n");
+	printf("\t\tmax_rwq_indirection_tables:\t\t\t%u\n", caps->max_rwq_indirection_tables);
+	printf("\t\tmax_rwq_indirection_table_size:\t\t\t%u\n", caps->max_rwq_indirection_table_size);
+	printf("\t\trx_hash_function:\t\t\t\t0x%x\n", caps->rx_hash_function);
+	printf("\t\trx_hash_fields_mask:\t\t\t\t0x%" PRIX64 "\n", caps->rx_hash_fields_mask);
+
+	if (caps->supported_qpts) {
+		printf("\t\tsupported_qp:\n");
+		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_RAW_PACKET))
+			printf("\t\t\t\t\tSUPPORT_RAW_PACKET\n");
+		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_UD))
+			printf("\t\t\t\t\tSUPPORT_UD\n");
+		if (caps->supported_qpts & unknown_general_caps)
+			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
+			       caps->supported_qpts & unknown_general_caps);
+	}
+}
+
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
@@ -465,6 +487,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tdevice_cap_flags_ex:\t\t0x%" PRIX64 "\n", device_attr.device_cap_flags_ex);
 		print_device_cap_flags_ex(device_attr.device_cap_flags_ex);
 		print_tso_caps(&device_attr.tso_caps);
+		print_rss_caps(&device_attr.rss_caps);
+		printf("\tmax_wq_type_rq:\t\t\t%u\n", device_attr.max_wq_type_rq);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
