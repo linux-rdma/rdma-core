@@ -86,6 +86,11 @@ enum verbs_qp_mask {
 	VERBS_QP_RESERVED	= 1 << 1
 };
 
+enum ibv_gid_type {
+	IBV_GID_TYPE_IB_ROCE_V1,
+	IBV_GID_TYPE_ROCE_V2,
+};
+
 struct verbs_qp {
 	struct ibv_qp		qp;
 	uint32_t		comp_mask;
@@ -281,4 +286,6 @@ static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 	return ENOSYS;
 }
 
+int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
+		       unsigned int index, enum ibv_gid_type *type);
 #endif /* INFINIBAND_DRIVER_H */

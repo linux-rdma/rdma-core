@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <dirent.h>
 
 #include "ibverbs.h"
 #ifndef NRESOLVE_NEIGH
@@ -584,6 +585,70 @@ struct ibv_ah *__ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	return ah;
 }
 default_symver(__ibv_create_ah, ibv_create_ah);
+
+/* GID types as appear in sysfs, no change is expected as of ABI
+ * compatibility.
+ */
+#define V1_TYPE "IB/RoCE v1"
+#define V2_TYPE "RoCE v2"
+int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
+		       unsigned int index, enum ibv_gid_type *type)
+{
+	char name[32];
+	char buff[11];
+
+	snprintf(name, sizeof(name), "ports/%d/gid_attrs/types/%d", port_num,
+		 index);
+
+	/* Reset errno so that we can rely on its value upon any error flow in
+	 * ibv_read_sysfs_file.
+	 */
+	errno = 0;
+	if (ibv_read_sysfs_file(context->device->ibdev_path, name, buff,
+				sizeof(buff)) <= 0) {
+		char *dir_path;
+		DIR *dir;
+
+		if (errno == EINVAL) {
+			/* In IB, this file doesn't exist and the kernel sets
+			 * errno to -EINVAL.
+			 */
+			*type = IBV_GID_TYPE_IB_ROCE_V1;
+			return 0;
+		}
+		if (asprintf(&dir_path, "%s/%s/%d/%s/",
+			     context->device->ibdev_path, "ports", port_num,
+			     "gid_attrs") < 0)
+			return -1;
+		dir = opendir(dir_path);
+		free(dir_path);
+		if (!dir) {
+			if (errno == ENOENT)
+				/* Assuming that if gid_attrs doesn't exist,
+				 * we have an old kernel and all GIDs are
+				 * IB/RoCE v1
+				 */
+				*type = IBV_GID_TYPE_IB_ROCE_V1;
+			else
+				return -1;
+		} else {
+			closedir(dir);
+			errno = EFAULT;
+			return -1;
+		}
+	} else {
+		if (!strcmp(buff, V1_TYPE)) {
+			*type = IBV_GID_TYPE_IB_ROCE_V1;
+		} else if (!strcmp(buff, V2_TYPE)) {
+			*type = IBV_GID_TYPE_ROCE_V2;
+		} else {
+			errno = ENOTSUP;
+			return -1;
+		}
+	}
+
+	return 0;
+}
 
 static int ibv_find_gid_index(struct ibv_context *context, uint8_t port_num,
 			      union ibv_gid *gid)
