@@ -341,6 +341,7 @@ enum ibv_event_type {
 	IBV_EVENT_QP_LAST_WQE_REACHED,
 	IBV_EVENT_CLIENT_REREGISTER,
 	IBV_EVENT_GID_CHANGE,
+	IBV_EVENT_WQ_FATAL,
 };
 
 struct ibv_async_event {
@@ -348,6 +349,7 @@ struct ibv_async_event {
 		struct ibv_cq  *cq;
 		struct ibv_qp  *qp;
 		struct ibv_srq *srq;
+		struct ibv_wq  *wq;
 		int		port_num;
 	} element;
 	enum ibv_event_type	event_type;

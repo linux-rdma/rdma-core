@@ -298,6 +298,9 @@ int __ibv_get_async_event(struct ibv_context *context,
 		event->element.srq = (void *) (uintptr_t) ev.element;
 		break;
 
+	case IBV_EVENT_WQ_FATAL:
+		event->element.wq = (void *) (uintptr_t) ev.element;
+		break;
 	default:
 		event->element.port_num = ev.element;
 		break;
@@ -353,6 +356,18 @@ void __ibv_ack_async_event(struct ibv_async_event *event)
 		++srq->events_completed;
 		pthread_cond_signal(&srq->cond);
 		pthread_mutex_unlock(&srq->mutex);
+
+		return;
+	}
+
+	case IBV_EVENT_WQ_FATAL:
+	{
+		struct ibv_wq *wq = event->element.wq;
+
+		pthread_mutex_lock(&wq->mutex);
+		++wq->events_completed;
+		pthread_cond_signal(&wq->cond);
+		pthread_mutex_unlock(&wq->mutex);
 
 		return;
 	}
