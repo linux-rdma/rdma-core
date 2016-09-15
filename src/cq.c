@@ -222,23 +222,6 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 	}
 }
 
-static inline void handle_good_req_lazy(struct mlx5_cqe64 *cqe, uint32_t *pwc_byte_len,
-					int *umr_opcode, struct mlx5_wq *wq, int idx)
-{
-	switch (ntohl(cqe->sop_drop_qpn) >> 24) {
-	case MLX5_OPCODE_RDMA_READ:
-		*pwc_byte_len  = ntohl(cqe->byte_cnt);
-		break;
-	case MLX5_OPCODE_ATOMIC_CS:
-	case MLX5_OPCODE_ATOMIC_FA:
-		*pwc_byte_len  = 8;
-		break;
-	case MLX5_OPCODE_UMR:
-		*umr_opcode = wq->wr_data[idx];
-		break;
-	}
-}
-
 static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *cqe,
 					struct mlx5_resource *cur_rsc, struct mlx5_srq *srq)
 {
@@ -648,7 +631,6 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 	switch (opcode) {
 	case MLX5_CQE_REQ:
 	{
-		uint32_t uninitialized_var(wc_byte_len);
 		mqp = get_req_context(mctx, cur_rsc,
 				      (cqe_ver ? (ntohl(cqe64->srqn_uidx) & 0xffffff) : qpn),
 				      cqe_ver);
@@ -657,22 +639,43 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 		wq = &mqp->sq;
 		wqe_ctr = ntohs(cqe64->wqe_counter);
 		idx = wqe_ctr & (wq->wqe_cnt - 1);
-		if (lazy)
-			handle_good_req_lazy(cqe64, &wc_byte_len, &cq->umr_opcode, wq, idx);
-		else
-			handle_good_req(wc, cqe64, wq, idx);
-
-		if (cqe64->op_own & MLX5_INLINE_SCATTER_32)
-			err = mlx5_copy_to_send_wqe(mqp, wqe_ctr, cqe,
-						    lazy ? wc_byte_len : wc->byte_len);
-		else if (cqe64->op_own & MLX5_INLINE_SCATTER_64)
-			err = mlx5_copy_to_send_wqe(mqp, wqe_ctr, cqe - 1,
-						     lazy ? wc_byte_len : wc->byte_len);
-
 		if (lazy) {
+			uint32_t wc_byte_len;
+
+			switch (ntohl(cqe64->sop_drop_qpn) >> 24) {
+			case MLX5_OPCODE_UMR:
+				cq->umr_opcode = wq->wr_data[idx];
+				break;
+
+			case MLX5_OPCODE_RDMA_READ:
+				wc_byte_len = ntohl(cqe64->byte_cnt);
+				goto scatter_out;
+			case MLX5_OPCODE_ATOMIC_CS:
+			case MLX5_OPCODE_ATOMIC_FA:
+				wc_byte_len = 8;
+
+			scatter_out:
+				if (cqe64->op_own & MLX5_INLINE_SCATTER_32)
+					err = mlx5_copy_to_send_wqe(
+					    mqp, wqe_ctr, cqe, wc_byte_len);
+				else if (cqe64->op_own & MLX5_INLINE_SCATTER_64)
+					err = mlx5_copy_to_send_wqe(
+					    mqp, wqe_ctr, cqe - 1, wc_byte_len);
+				break;
+			}
+
 			cq->ibv_cq.wr_id = wq->wrid[idx];
 			cq->ibv_cq.status = err;
 		} else {
+			handle_good_req(wc, cqe64, wq, idx);
+
+			if (cqe64->op_own & MLX5_INLINE_SCATTER_32)
+				err = mlx5_copy_to_send_wqe(mqp, wqe_ctr, cqe,
+							    wc->byte_len);
+			else if (cqe64->op_own & MLX5_INLINE_SCATTER_64)
+				err = mlx5_copy_to_send_wqe(
+				    mqp, wqe_ctr, cqe - 1, wc->byte_len);
+
 			wc->wr_id = wq->wrid[idx];
 			wc->status = err;
 		}
