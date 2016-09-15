@@ -66,7 +66,9 @@ man_MANS = man/ibv_asyncwatch.1 man/ibv_devices.1 man/ibv_devinfo.1	\
     man/ibv_get_srq_num.3 man/ibv_open_qp.3 man/ibv_query_device_ex.3	\
     man/ibv_alloc_mw.3 man/ibv_bind_mw.3 man/ibv_inc_rkey.3		\
     man/ibv_rereg_mr.3 man/ibv_create_cq_ex.3				\
-    man/ibv_query_rt_values_ex.3 man/ibv_xsrq_pingpong.1
+    man/ibv_query_rt_values_ex.3 man/ibv_xsrq_pingpong.1		\
+    man/ibv_create_wq.3 man/ibv_modify_wq.3				\
+    man/ibv_create_rwq_ind_table.3
 
 DEBIAN = debian/changelog debian/compat debian/control debian/copyright \
     debian/ibverbs-utils.install debian/libibverbs1.install \
@@ -104,6 +106,8 @@ install-data-hook:
 	$(RM) ibv_close_xrcd.3 && \
 	$(RM) ibv_dealloc_mw.3 && \
 	$(RM) ibv_destroy_flow.3 && \
+	$(RM) ibv_destroy_wq.3 && \
+	$(RM) ibv_destroy_rwq_ind_table.3 && \
 	$(LN_S) ibv_get_async_event.3 ibv_ack_async_event.3 && \
 	$(LN_S) ibv_get_cq_event.3 ibv_ack_cq_events.3 && \
 	$(LN_S) ibv_open_device.3 ibv_close_device.3 && \
@@ -123,4 +127,6 @@ install-data-hook:
 	$(LN_S) ibv_rate_to_mbps.3 mbps_to_ibv_rate.3 && \
 	$(LN_S) ibv_open_xrcd.3 ibv_close_xrcd.3 && \
 	$(LN_S) ibv_alloc_mw.3 ibv_dealloc_mw.3 && \
-	$(LN_S) ibv_create_flow.3 ibv_destroy_flow.3
+	$(LN_S) ibv_create_flow.3 ibv_destroy_flow.3 && \
+	$(LN_S) ibv_create_wq.3 ibv_destroy_wq.3 && \
+	$(LN_S) ibv_create_rwq_ind_table.3 ibv_destroy_rwq_ind_table.3

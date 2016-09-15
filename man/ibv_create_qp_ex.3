@@ -35,6 +35,8 @@ struct ibv_pd          *pd;		/* PD to be associated with the QP */
 struct ibv_xrcd        *xrcd;		/* XRC domain to be associated with the target QP */
 enum ibv_qp_create_flags create_flags;	/* Creation flags for this QP */
 uint16_t                max_tso_header; /* Maximum TSO header size */
+struct ibv_rwq_ind_table *rwq_ind_tbl;  /* Indirection table to be associated with the QP */
+struct ibv_rx_hash_conf  rx_hash_conf;  /* RX hash configuration to be used */
 .in -8
 };
 .sp
@@ -46,6 +48,15 @@ uint32_t                max_recv_wr;    /* Requested max number of outstanding W
 uint32_t                max_send_sge;   /* Requested max number of scatter/gather (s/g) elements in a WR in the SQ */
 uint32_t                max_recv_sge;   /* Requested max number of s/g elements in a WR in the SQ */
 uint32_t                max_inline_data;/* Requested max number of data (bytes) that can be posted inline to the SQ, otherwise 0 */
+.in -8
+};
+.nf
+struct ibv_rx_hash_conf {
+.in +8
+uint8_t                rx_hash_function;       /* RX hash function, use enum ibv_rx_hash_function_flags */
+uint8_t                rx_hash_key_len;        /* RX hash key length */
+uint8_t                *rx_hash_key;           /* RX hash key data */
+uint64_t               rx_hash_fields_mask;    /* RX fields that should participate in the hashing, use enum ibv_rx_hash_fields */
 .in -8
 };
 .fi
@@ -78,7 +89,8 @@ fails if the QP is attached to a multicast group.
 .SH "SEE ALSO"
 .BR ibv_alloc_pd (3),
 .BR ibv_modify_qp (3),
-.BR ibv_query_qp (3)
+.BR ibv_query_qp (3),
+.BR ibv_create_rwq_ind_table (3)
 .SH "AUTHORS"
 .TP
 Yishai Hadas <yishaih@mellanox.com>
