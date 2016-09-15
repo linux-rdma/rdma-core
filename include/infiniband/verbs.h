@@ -214,6 +214,30 @@ struct ibv_tso_caps {
 	uint32_t supported_qpts;
 };
 
+/* RX Hash function flags */
+enum ibv_rx_hash_function_flags {
+	IBV_RX_HASH_FUNC_TOEPLITZ	= 1 << 0,
+};
+
+/*
+ * RX Hash fields enable to set which incoming packet's field should
+ * participates in RX Hash. Each flag represent certain packet's field,
+ * when the flag is set the field that is represented by the flag will
+ * participate in RX Hash calculation.
+ * Note: *IPV4 and *IPV6 flags can't be enabled together on the same QP
+ * and *TCP and *UDP flags can't be enabled together on the same QP.
+*/
+enum ibv_rx_hash_fields {
+	IBV_RX_HASH_SRC_IPV4	= 1 << 0,
+	IBV_RX_HASH_DST_IPV4	= 1 << 1,
+	IBV_RX_HASH_SRC_IPV6	= 1 << 2,
+	IBV_RX_HASH_DST_IPV6	= 1 << 3,
+	IBV_RX_HASH_SRC_PORT_TCP	= 1 << 4,
+	IBV_RX_HASH_DST_PORT_TCP	= 1 << 5,
+	IBV_RX_HASH_SRC_PORT_UDP	= 1 << 6,
+	IBV_RX_HASH_DST_PORT_UDP	= 1 << 7
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -713,12 +737,22 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_CREATE_FLAGS	= 1 << 2,
 	IBV_QP_INIT_ATTR_MAX_TSO_HEADER = 1 << 3,
 	IBV_QP_INIT_ATTR_IND_TABLE	= 1 << 4,
-	IBV_QP_INIT_ATTR_RESERVED	= 1 << 5
+	IBV_QP_INIT_ATTR_RX_HASH	= 1 << 5,
+	IBV_QP_INIT_ATTR_RESERVED	= 1 << 6
 };
 
 enum ibv_qp_create_flags {
 	IBV_QP_CREATE_BLOCK_SELF_MCAST_LB	= 1 << 1,
 	IBV_QP_CREATE_SCATTER_FCS		= 1 << 8,
+};
+
+struct ibv_rx_hash_conf {
+	/* enum ibv_rx_hash_function_flags */
+	uint8_t	rx_hash_function;
+	uint8_t	rx_hash_key_len;
+	uint8_t	*rx_hash_key;
+	/* enum ibv_rx_hash_fields */
+	uint64_t	rx_hash_fields_mask;
 };
 
 struct ibv_qp_init_attr_ex {
@@ -736,6 +770,7 @@ struct ibv_qp_init_attr_ex {
 	uint32_t                create_flags;
 	uint16_t		max_tso_header;
 	struct ibv_rwq_ind_table       *rwq_ind_tbl;
+	struct ibv_rx_hash_conf	rx_hash_conf;
 };
 
 enum ibv_qp_open_attr_mask {
