@@ -367,9 +367,7 @@ static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
 	int inl_hdr_size = MLX5_ETH_L2_INLINE_HEADER_SIZE;
 	int inl_hdr_copy_size = 0;
 	int j = 0;
-#ifdef MLX5_DEBUG
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp;
-#endif
 
 	if (unlikely(wr->num_sge < 1)) {
 		mlx5_dbg(fp, MLX5_DBG_QP_SEND, "illegal num_sge: %d, minimum is 1\n",
@@ -571,9 +569,7 @@ static inline int set_tso_eth_seg(void **seg, struct ibv_send_wr *wr,
 	int size_of_inl_hdr_start = sizeof(eseg->inline_hdr_start);
 	uint64_t left, left_len, copy_sz;
 	void *pdata = wr->tso.hdr;
-#ifdef MLX5_DEBUG
 	FILE *fp = to_mctx(qp->ibv_qp->context)->dbg_fp;
-#endif
 
 	if (unlikely(wr->tso.hdr_sz < MLX5_ETH_L2_MIN_HEADER_SIZE ||
 		     wr->tso.hdr_sz > qp->max_tso_header)) {
@@ -640,10 +636,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	uint8_t fence;
 	uint8_t next_fence;
 	uint32_t max_tso = 0;
-
-#ifdef MLX5_DEBUG
-	FILE *fp = to_mctx(ibqp->context)->dbg_fp;
-#endif
+	FILE *fp = to_mctx(ibqp->context)->dbg_fp; /* The compiler ignores in non-debug mode */
 
 	mlx5_spin_lock(&qp->sq.lock);
 

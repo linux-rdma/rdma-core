@@ -159,7 +159,11 @@ do {									\
 } while (0)
 
 #else
-	#define mlx5_dbg(fp, mask, format, arg...)
+static inline void mlx5_dbg(FILE *fp, uint32_t mask, const char *fmt, ...)
+	__attribute__((format(printf, 3, 4)));
+static inline void mlx5_dbg(FILE *fp, uint32_t mask, const char *fmt, ...)
+{
+}
 #endif
 
 enum {

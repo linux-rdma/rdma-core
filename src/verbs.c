@@ -360,9 +360,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	int				cqe_sz;
 	int				ret;
 	int				ncqe;
-#ifdef MLX5_DEBUG
 	FILE *fp = to_mctx(context)->dbg_fp;
-#endif
 
 	if (!cq_attr->cqe) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "CQE invalid\n");
@@ -840,9 +838,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 {
 	int wqe_size;
 	int wq_size;
-#ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
-#endif
 
 	if (!attr->cap.max_send_wr)
 		return 0;
@@ -926,9 +922,7 @@ static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 	int wqe_size;
 	int wq_size;
 	int scat_spc;
-#ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
-#endif
 
 	if (!attr->cap.max_recv_wr)
 		return 0;
@@ -1215,9 +1209,7 @@ struct ibv_qp *create_qp(struct ibv_context *context,
 	struct ibv_qp		       *ibqp;
 	int32_t				usr_idx = 0;
 	uint32_t			uuar_index;
-#ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
-#endif
 
 	if (attr->comp_mask & ~MLX5_CREATE_QP_SUP_COMP_MASK)
 		return NULL;
@@ -1749,9 +1741,7 @@ mlx5_create_xrc_srq(struct ibv_context *context,
 	int max_sge;
 	struct ibv_srq *ibsrq;
 	int uidx;
-#ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
-#endif
 
 	msrq = calloc(1, sizeof(*msrq));
 	if (!msrq)
@@ -1978,9 +1968,7 @@ struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
 	struct mlx5_context	*ctx = to_mctx(context);
 	int ret;
 	int32_t				usr_idx = 0;
-#ifdef MLX5_DEBUG
 	FILE *fp = ctx->dbg_fp;
-#endif
 
 	if (attr->wq_type != IBV_WQT_RQ)
 		return NULL;
