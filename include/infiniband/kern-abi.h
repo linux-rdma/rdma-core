@@ -116,7 +116,10 @@ enum {
 						IB_USER_VERBS_CMD_CREATE_CQ,
 	IB_USER_VERBS_CMD_CREATE_FLOW = IB_USER_VERBS_CMD_EXTENDED_MASK +
 					IB_USER_VERBS_CMD_THRESHOLD,
-	IB_USER_VERBS_CMD_DESTROY_FLOW
+	IB_USER_VERBS_CMD_DESTROY_FLOW,
+	IB_USER_VERBS_CMD_CREATE_WQ,
+	IB_USER_VERBS_CMD_MODIFY_WQ,
+	IB_USER_VERBS_CMD_DESTROY_WQ
 };
 
 /*
@@ -1125,6 +1128,9 @@ enum {
 	IB_USER_VERBS_CMD_QUERY_DEVICE_EX_V2 = -1,
 	IB_USER_VERBS_CMD_CREATE_QP_EX_V2 = -1,
 	IB_USER_VERBS_CMD_CREATE_CQ_EX_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_WQ_V2 = -1,
+	IB_USER_VERBS_CMD_MODIFY_WQ_V2 = -1,
+	IB_USER_VERBS_CMD_DESTROY_WQ_V2 = -1,
 };
 
 struct ibv_modify_srq_v3 {
@@ -1157,6 +1163,47 @@ struct ibv_create_qp_resp_v4 {
 
 struct ibv_create_srq_resp_v5 {
 	__u32 srq_handle;
+};
+
+struct ibv_create_wq {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 wq_type;
+	__u64 user_handle;
+	__u32 pd_handle;
+	__u32 cq_handle;
+	__u32 max_wr;
+	__u32 max_sge;
+};
+
+struct ibv_create_wq_resp {
+	__u32 comp_mask;
+	__u32 response_length;
+	__u32 wq_handle;
+	__u32 max_wr;
+	__u32 max_sge;
+	__u32 wqn;
+};
+
+struct ibv_destroy_wq {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 wq_handle;
+};
+
+struct ibv_destroy_wq_resp {
+	__u32 comp_mask;
+	__u32 response_length;
+	__u32 events_reported;
+	__u32 reserved;
+};
+
+struct ibv_modify_wq  {
+	struct ex_hdr hdr;
+	__u32 attr_mask;
+	__u32 wq_handle;
+	__u32 wq_state;
+	__u32 curr_wq_state;
 };
 
 #endif /* KERN_ABI_H */

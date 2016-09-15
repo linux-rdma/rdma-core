@@ -1659,3 +1659,101 @@ int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
 	free(flow_id);
 	return ret;
 }
+
+int ibv_cmd_create_wq(struct ibv_context *context,
+		      struct ibv_wq_init_attr *wq_init_attr,
+		      struct ibv_wq *wq,
+		      struct ibv_create_wq *cmd,
+		      size_t cmd_core_size,
+		      size_t cmd_size,
+		      struct ibv_create_wq_resp *resp,
+		      size_t resp_core_size,
+		      size_t resp_size)
+{
+	int err;
+
+	if (wq_init_attr->comp_mask >= IBV_WQ_INIT_ATTR_RESERVED)
+		return EINVAL;
+
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size,
+			       CREATE_WQ, resp,
+			       resp_core_size, resp_size);
+
+	cmd->user_handle   = (uintptr_t)wq;
+	cmd->pd_handle           = wq_init_attr->pd->handle;
+	cmd->cq_handle   = wq_init_attr->cq->handle;
+	cmd->wq_type = wq_init_attr->wq_type;
+	cmd->max_sge = wq_init_attr->max_sge;
+	cmd->max_wr = wq_init_attr->max_wr;
+	cmd->comp_mask = 0;
+
+	err = write(context->cmd_fd, cmd, cmd_size);
+	if (err != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	if (resp->response_length < resp_core_size)
+		return EINVAL;
+
+	wq->handle  = resp->wq_handle;
+	wq_init_attr->max_wr = resp->max_wr;
+	wq_init_attr->max_sge = resp->max_sge;
+	wq->wq_num = resp->wqn;
+	wq->context = context;
+	wq->cq = wq_init_attr->cq;
+	wq->pd = wq_init_attr->pd;
+	wq->wq_type = wq_init_attr->wq_type;
+
+	return 0;
+}
+
+int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
+		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
+		      size_t cmd_size)
+{
+	if (attr->attr_mask >= IBV_WQ_ATTR_RESERVED)
+		return EINVAL;
+
+	memset(cmd, 0, cmd_core_size);
+	IBV_INIT_CMD_EX(cmd, cmd_size, MODIFY_WQ);
+
+	cmd->curr_wq_state = attr->curr_wq_state;
+	cmd->wq_state = attr->wq_state;
+	cmd->wq_handle = wq->handle;
+	cmd->attr_mask = attr->attr_mask;
+
+	if (write(wq->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	if (attr->attr_mask & IBV_WQ_ATTR_STATE)
+		wq->state = attr->wq_state;
+
+	return 0;
+}
+
+int ibv_cmd_destroy_wq(struct ibv_wq *wq)
+{
+	struct ibv_destroy_wq cmd;
+	struct ibv_destroy_wq_resp resp;
+	int ret = 0;
+
+	memset(&cmd, 0, sizeof(cmd));
+	memset(&resp, 0, sizeof(resp));
+
+	IBV_INIT_CMD_RESP_EX(&cmd, sizeof(cmd), DESTROY_WQ, &resp, sizeof(resp));
+	cmd.wq_handle = wq->handle;
+
+	if (write(wq->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
+		return errno;
+
+	if (resp.response_length < sizeof(resp))
+		return EINVAL;
+
+	pthread_mutex_lock(&wq->mutex);
+	while (wq->events_completed != resp.events_reported)
+		pthread_cond_wait(&wq->cond, &wq->mutex);
+	pthread_mutex_unlock(&wq->mutex);
+
+	return ret;
+}

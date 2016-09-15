@@ -236,6 +236,20 @@ int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t l
 struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
 				     struct ibv_flow_attr *flow_attr);
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id);
+int ibv_cmd_create_wq(struct ibv_context *context,
+		      struct ibv_wq_init_attr *wq_init_attr,
+		      struct ibv_wq *wq,
+		      struct ibv_create_wq *cmd,
+		      size_t cmd_core_size,
+		      size_t cmd_size,
+		      struct ibv_create_wq_resp *resp,
+		      size_t resp_core_size,
+		      size_t resp_size);
+
+int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
+		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
+		      size_t cmd_size);
+int ibv_cmd_destroy_wq(struct ibv_wq *wq);
 
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);

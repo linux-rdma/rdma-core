@@ -612,6 +612,46 @@ struct ibv_srq_init_attr_ex {
 	struct ibv_cq	       *cq;
 };
 
+enum ibv_wq_type {
+	IBV_WQT_RQ
+};
+
+enum ibv_wq_init_attr_mask {
+	IBV_WQ_INIT_ATTR_RESERVED	= 1 << 0,
+};
+
+struct ibv_wq_init_attr {
+	void		       *wq_context;
+	enum ibv_wq_type	wq_type;
+	uint32_t		max_wr;
+	uint32_t		max_sge;
+	struct	ibv_pd	       *pd;
+	struct	ibv_cq	       *cq;
+	uint32_t		comp_mask;
+};
+
+enum ibv_wq_state {
+	IBV_WQS_RESET,
+	IBV_WQS_RDY,
+	IBV_WQS_ERR,
+	IBV_WQS_UNKNOWN
+};
+
+enum ibv_wq_attr_mask {
+	IBV_WQ_ATTR_STATE	= 1 << 0,
+	IBV_WQ_ATTR_CURR_STATE	= 1 << 1,
+	IBV_WQ_ATTR_RESERVED	= 1 << 2
+};
+
+struct ibv_wq_attr {
+	/* enum ibv_wq_attr_mask */
+	uint32_t		attr_mask;
+	/* Move the WQ to this state */
+	enum	ibv_wq_state	wq_state;
+	/* Assume this is the current WQ state */
+	enum	ibv_wq_state	curr_wq_state;
+};
+
 enum ibv_qp_type {
 	IBV_QPT_RC = 2,
 	IBV_QPT_UC,
@@ -849,6 +889,35 @@ struct ibv_srq {
 	uint32_t		events_completed;
 };
 
+/*
+ * Work Queue. QP can be created without internal WQs "packaged" inside it,
+ * this QP can be configured to use "external" WQ object as its
+ * receive/send queue.
+ * WQ associated (many to one) with Completion Queue it owns WQ properties
+ * (PD, WQ size etc).
+ * WQ of type IBV_WQT_RQ:
+ * - Contains receive WQEs, in this case its PD serves as scatter as well.
+ * - Exposes post receive function to be used to post a list of work
+ *   requests (WRs) to its receive queue.
+ */
+struct ibv_wq {
+	struct ibv_context     *context;
+	void		       *wq_context;
+	struct	ibv_pd	       *pd;
+	struct	ibv_cq	       *cq;
+	uint32_t		wq_num;
+	uint32_t		handle;
+	enum ibv_wq_state       state;
+	enum ibv_wq_type	wq_type;
+	int (*post_recv)(struct ibv_wq *current,
+			 struct ibv_recv_wr *recv_wr,
+			 struct ibv_recv_wr **bad_recv_wr);
+	pthread_mutex_t		mutex;
+	pthread_cond_t		cond;
+	uint32_t		events_completed;
+	uint32_t		comp_mask;
+};
+
 struct ibv_qp {
 	struct ibv_context     *context;
 	void		       *qp_context;
@@ -995,6 +1064,13 @@ static inline uint8_t ibv_wc_read_dlid_path_bits(struct ibv_cq_ex *cq)
 static inline uint64_t ibv_wc_read_completion_ts(struct ibv_cq_ex *cq)
 {
 	return cq->read_completion_ts(cq);
+}
+
+static inline int ibv_post_wq_recv(struct ibv_wq *wq,
+				   struct ibv_recv_wr *recv_wr,
+				   struct ibv_recv_wr **bad_recv_wr)
+{
+	return wq->post_recv(wq, recv_wr, bad_recv_wr);
 }
 
 struct ibv_ah {
@@ -1263,6 +1339,10 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*destroy_wq)(struct ibv_wq *wq);
+	int (*modify_wq)(struct ibv_wq *wq, struct ibv_wq_attr *wq_attr);
+	struct ibv_wq * (*create_wq)(struct ibv_context *context,
+				     struct ibv_wq_init_attr *wq_init_attr);
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,
@@ -1871,6 +1951,86 @@ int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
  * ibv_destroy_qp - Destroy a queue pair.
  */
 int ibv_destroy_qp(struct ibv_qp *qp);
+
+/*
+ * ibv_create_wq - Creates a WQ associated with the specified protection
+ * domain.
+ * @context: ibv_context.
+ * @wq_init_attr: A list of initial attributes required to create the
+ * WQ. If WQ creation succeeds, then the attributes are updated to
+ * the actual capabilities of the created WQ.
+ *
+ * wq_init_attr->max_wr and wq_init_attr->max_sge determine
+ * the requested size of the WQ, and set to the actual values allocated
+ * on return.
+ * If ibv_create_wq() succeeds, then max_wr and max_sge will always be
+ * at least as large as the requested values.
+ *
+ * Return Value
+ * ibv_create_wq() returns a pointer to the created WQ, or NULL if the request
+ * fails.
+ */
+static inline struct ibv_wq *ibv_create_wq(struct ibv_context *context,
+					   struct ibv_wq_init_attr *wq_init_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, create_wq);
+	struct ibv_wq *wq;
+
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	wq = vctx->create_wq(context, wq_init_attr);
+	if (wq) {
+		wq->events_completed = 0;
+		pthread_mutex_init(&wq->mutex, NULL);
+		pthread_cond_init(&wq->cond, NULL);
+	}
+
+	return wq;
+}
+
+/*
+ * ibv_modify_wq - Modifies the attributes for the specified WQ.
+ * @wq: The WQ to modify.
+ * @wq_attr: On input, specifies the WQ attributes to modify.
+ *    wq_attr->attr_mask: A bit-mask used to specify which attributes of the WQ
+ *    are being modified.
+ * On output, the current values of selected WQ attributes are returned.
+ *
+ * Return Value
+ * ibv_modify_wq() returns 0 on success, or the value of errno
+ * on failure (which indicates the failure reason).
+ *
+*/
+static inline int ibv_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *wq_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(wq->context, modify_wq);
+
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->modify_wq(wq, wq_attr);
+}
+
+/*
+ * ibv_destroy_wq - Destroys the specified WQ.
+ * @ibv_wq: The WQ to destroy.
+ * Return Value
+ * ibv_destroy_wq() returns 0 on success, or the value of errno
+ * on failure (which indicates the failure reason).
+*/
+static inline int ibv_destroy_wq(struct ibv_wq *wq)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(wq->context, destroy_wq);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->destroy_wq(wq);
+}
 
 /**
  * ibv_post_send - Post a list of work requests to a send queue.

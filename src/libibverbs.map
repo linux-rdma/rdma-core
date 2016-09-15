@@ -120,3 +120,10 @@ IBVERBS_1.1 {
 		ibv_cmd_rereg_mr;
 
 } IBVERBS_1.0;
+
+IBVERBS_1.3 {
+	global:
+		ibv_cmd_create_wq;
+		ibv_cmd_modify_wq;
+		ibv_cmd_destroy_wq;
+} IBVERBS_1.1;
