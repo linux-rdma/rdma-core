@@ -830,12 +830,22 @@ static int create_qp_ex_common(struct verbs_qp *qp,
 			return EINVAL;
 
 		cmd->pd_handle	= qp_attr->pd->handle;
-		cmd->send_cq_handle = qp_attr->send_cq->handle;
+		if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE) {
+			if (cmd->max_recv_wr || cmd->max_recv_sge ||
+			    cmd->recv_cq_handle || qp_attr->srq)
+				return EINVAL;
 
-		if (qp_attr->qp_type != IBV_QPT_XRC_SEND) {
-			cmd->recv_cq_handle = qp_attr->recv_cq->handle;
-			cmd->srq_handle = qp_attr->srq ? qp_attr->srq->handle :
-							 0;
+			/* send_cq is optinal */
+			if (qp_attr->cap.max_send_wr)
+				cmd->send_cq_handle = qp_attr->send_cq->handle;
+		} else {
+			cmd->send_cq_handle = qp_attr->send_cq->handle;
+
+			if (qp_attr->qp_type != IBV_QPT_XRC_SEND) {
+				cmd->recv_cq_handle = qp_attr->recv_cq->handle;
+				cmd->srq_handle = qp_attr->srq ? qp_attr->srq->handle :
+								 0;
+			}
 		}
 	}
 
@@ -931,6 +941,14 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 				    sizeof(qp_attr->create_flags))
 			return EINVAL;
 		cmd->create_flags = qp_attr->create_flags;
+	}
+
+	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE) {
+		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, ind_tbl_handle) +
+				    sizeof(cmd->ind_tbl_handle))
+			return EINVAL;
+		cmd->ind_tbl_handle = qp_attr->rwq_ind_tbl->ind_tbl_handle;
+		cmd->comp_mask = IBV_CREATE_QP_EX_KERNEL_MASK_IND_TABLE;
 	}
 
 	err = write(context->cmd_fd, cmd, cmd_size);

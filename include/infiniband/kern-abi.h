@@ -657,11 +657,17 @@ struct ibv_create_qp_resp {
 	__u32 reserved;
 };
 
+enum ibv_create_qp_ex_kernel_mask {
+	IBV_CREATE_QP_EX_KERNEL_MASK_IND_TABLE = 1 << 0,
+};
+
 struct ibv_create_qp_ex {
 	struct ex_hdr	hdr;
 	struct ibv_create_qp_common base;
 	__u32 comp_mask;
 	__u32 create_flags;
+	__u32 ind_tbl_handle;
+	__u32 reserved1;
 };
 
 struct ibv_create_qp_resp_ex {

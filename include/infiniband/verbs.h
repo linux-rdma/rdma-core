@@ -712,7 +712,8 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_XRCD		= 1 << 1,
 	IBV_QP_INIT_ATTR_CREATE_FLAGS	= 1 << 2,
 	IBV_QP_INIT_ATTR_MAX_TSO_HEADER = 1 << 3,
-	IBV_QP_INIT_ATTR_RESERVED	= 1 << 4
+	IBV_QP_INIT_ATTR_IND_TABLE	= 1 << 4,
+	IBV_QP_INIT_ATTR_RESERVED	= 1 << 5
 };
 
 enum ibv_qp_create_flags {
@@ -734,6 +735,7 @@ struct ibv_qp_init_attr_ex {
 	struct ibv_xrcd	       *xrcd;
 	uint32_t                create_flags;
 	uint16_t		max_tso_header;
+	struct ibv_rwq_ind_table       *rwq_ind_tbl;
 };
 
 enum ibv_qp_open_attr_mask {
