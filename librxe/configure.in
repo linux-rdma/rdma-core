@@ -36,6 +36,8 @@ if test x$enable_repackage = x || test x$enable_repackage = xno; then
         AC_MSG_ERROR([<infiniband/driver.h> not found.  librxe requires libibverbs.]))
     AC_CHECK_FUNCS(ibv_read_sysfs_file ibv_dontfork_range ibv_dofork_range \
         ibv_register_driver)
+    AC_CHECK_LIB(pthread, pthread_mutex_init, [],
+    AC_MSG_ERROR([pthread_mutex_init() not found.  librxe requires libpthread.]))
 
     dummy=if$$
     cat <<IBV_VERSION > $dummy.c

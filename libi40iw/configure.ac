@@ -23,6 +23,8 @@ then
 AC_CHECK_LIB(ibverbs, ibv_get_device_list, [],
     AC_MSG_ERROR([ibv_get_device_list() not found.  libi40iw requires libibverbs.]))
 fi
+AC_CHECK_LIB(pthread, pthread_mutex_init, [],
+    AC_MSG_ERROR([pthread_mutex_init() not found.  libi40iw requires libpthread.]))
 
 dnl Checks for header files.
 AC_CHECK_HEADERS(sysfs/libsysfs.h)

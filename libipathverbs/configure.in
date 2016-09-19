@@ -81,6 +81,8 @@ AC_CHECK_SIZEOF(long)
 dnl Checks for library functions
 AC_CHECK_FUNCS(ibv_read_sysfs_file ibv_dontfork_range ibv_dofork_range \
     ibv_register_driver)
+AC_CHECK_LIB(pthread, pthread_mutex_init, [],
+    AC_MSG_ERROR([pthread_mutex_init() not found. libipathverbs requires libpthread.]))
 
 dnl Now check if for libibverbs 1.0 vs 1.1
 dummy=if$$
