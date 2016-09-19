@@ -218,7 +218,7 @@ static struct sa_data {
 	struct pollfd	*fds;
 	struct acmc_port **ports;
 	int		nfds;
-} sa = { 2000, 2, 1};
+} sa = { 2000, 2, 1, 0, NULL, NULL, 0};
 
 /*
  * Service options - may be set through ibacm_opts.cfg file.
