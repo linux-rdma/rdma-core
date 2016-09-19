@@ -44,10 +44,8 @@
 #include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
-#ifdef HAVE_NETLINK
 #include <infiniband/umad_types.h>
 #include <infiniband/umad_sa.h>
-#endif
 #include <dlist.h>
 #include <dlfcn.h> 
 #include <search.h>
@@ -57,18 +55,11 @@
 #include <netinet/in.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#ifdef HAVE_NETLINK
 #include <rdma/rdma_netlink.h>
 #include <rdma/ib_user_sa.h>
-#endif
 #include <poll.h>
 #include "acm_mad.h"
 #include "acm_util.h"
-#ifdef HAVE_NETLINK
-#if !defined(RDMA_NL_LS_F_ERR)
-	#include "acm_netlink.h"
-#endif
-#endif
 
 #define src_out     data[0]
 #define src_index   data[1]
@@ -77,9 +68,7 @@
 #define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
-#ifdef HAVE_NETLINK
 #define NL_CLIENT_INDEX 0
-#endif
 
 struct acmc_subnet {
 	DLIST_ENTRY            entry;
@@ -166,7 +155,6 @@ struct acmc_sa_req {
 	struct acm_sa_mad	mad;
 };
 
-#ifdef HAVE_NETLINK
 struct acm_nl_path {
 	struct nlattr			attr_hdr;
 	struct ib_path_rec_data		rec;
@@ -181,7 +169,6 @@ struct acm_nl_msg {
 		struct acm_nl_path		path[0];
 	};
 };
-#endif
 
 static char def_prov_name[ACM_PROV_NAME_SIZE] = "ibacmp";
 static DLIST_ENTRY provider_list;
@@ -204,9 +191,7 @@ static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey);
 static int acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 			      size_t addr_len, uint8_t addr_type);
 static void acm_event_handler(struct acmc_device *dev);
-#ifdef HAVE_NETLINK
 static int acm_nl_send(SOCKET sock, struct acm_msg *msg);
-#endif
 
 static struct sa_data {
 	int		timeout;
@@ -501,11 +486,9 @@ int acm_resolve_response(uint64_t id, struct acm_msg *msg)
 		goto release;
 	}
 
-#ifdef HAVE_NETLINK
 	if (id == NL_CLIENT_INDEX)
 		ret = acm_nl_send(client->sock, msg);
 	else
-#endif
 		ret = send(client->sock, (char *) msg, msg->hdr.length, 0);
 
 	if (ret != msg->hdr.length)
@@ -638,10 +621,8 @@ static void acm_svr_accept(void)
 	}
 
 	for (i = 0; i < FD_SETSIZE - 1; i++) {
-	#ifdef HAVE_NETLINK
 		if (i == NL_CLIENT_INDEX)
 			continue;
-	#endif
 		if (!atomic_get(&client_array[i].refcnt))
 			break;
 	}
@@ -1391,7 +1372,6 @@ static void acm_ipnl_handler(void)
 	}
 }
 
-#ifdef HAVE_NETLINK
 static int acm_nl_send(SOCKET sock, struct acm_msg *msg)
 {
 	struct sockaddr_nl dst_addr;
@@ -1713,7 +1693,6 @@ static int acm_init_nl(void)
 	client_array[NL_CLIENT_INDEX].sock = nl_rcv_socket;
 	return 0;
 }
-#endif
 
 static void acm_server(void)
 {
@@ -1729,11 +1708,9 @@ static void acm_server(void)
 		acm_log(0, "ERROR - server listen failed\n");
 		return;
 	}
-#ifdef HAVE_NETLINK
 	ret = acm_init_nl();
 	if (ret)
 		acm_log(1, "Warn - Netlink init failed\n");
-#endif
 
 	while (1) {
 		n = (int) listen_socket;
@@ -1772,11 +1749,9 @@ static void acm_server(void)
 			if (client_array[i].sock != INVALID_SOCKET &&
 				FD_ISSET(client_array[i].sock, &readfds)) {
 				acm_log(2, "receiving from client %d\n", i);
-			#ifdef HAVE_NETLINK
 				if (i == NL_CLIENT_INDEX)
 					acm_nl_receive(&client_array[i]);
 				else
-			#endif
 					acm_svr_receive(&client_array[i]);
 			}
 		}
@@ -3142,10 +3117,8 @@ int CDECL_FUNC main(int argc, char **argv)
 	acm_server();
 
 	acm_log(0, "shutting down\n");
-#ifdef HAVE_NETLINK
 	if (client_array[NL_CLIENT_INDEX].sock != INVALID_SOCKET)
 		close(client_array[NL_CLIENT_INDEX].sock);
-#endif
 	acm_close_providers();
 	acm_stop_sa_handler();
 	umad_done();
