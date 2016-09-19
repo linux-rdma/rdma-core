@@ -927,7 +927,7 @@ static void enumerate_eps(char *svc)
 static int query_svcs(void)
 {
 	char **svc_list;
-	int ret, i;
+	int ret = -1, i;
 
 	svc_list = parse(svc_arg, NULL);
 	if (!svc_list) {
