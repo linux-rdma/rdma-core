@@ -95,3 +95,31 @@ $ install -m755 ninja /usr/local/bin/ninja
 ```
 
 Use the 'cmake3' program in place of `cmake` in the above instructions.
+
+# Reporting bugs
+
+Bugs should be reported to the <linux-rdma@vger.kernel.org> mailing list
+In your bug report, please include:
+
+ * Information about your system:
+   - Linux distribution and version
+   - Linux kernel and version
+   - InfiniBand hardware and firmware version
+   - ... any other relevant information
+
+ * How to reproduce the bug.
+
+ * If the bug is a crash, the exact output printed out when the crash
+   occurred, including any kernel messages produced.
+
+# Submitting patches
+
+Patches should also be submitted to the <linux-rdma@vger.kernel.org>
+mailing list.  Please use unified diff form (the -u option to GNU diff),
+and include a good description of what your patch does and why it should
+be applied.  If your patch fixes a bug, please make sure to describe the
+bug and how your fix works.
+
+Make sure that your contribution can be licensed under the same
+license as the original code you are patching, and that you have all
+necessary permissions to release your work.
