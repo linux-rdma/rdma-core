@@ -1,16 +1,4 @@
-This README is for userspace cm library.
-
-Building
-
-To make this directory, run:
-./autogen.sh && ./configure && make && make install
-
-Typically the autogen and configure steps only need be done the first
-time unless configure.in or Makefile.am changes.
-
-Libraries are installed by default at /usr/local/lib.
-
-Device files
+# Device files
 
 The userspace CM uses a device file per adapter present.
 
