@@ -1,0 +1,133 @@
+                          List of maintainers
+
+Generally patches should be submitted to the main development mailing list:
+
+linux-rdma@vger.kernel.org
+
+Descriptions of section entries:
+        F: Files and directories with wildcard patterns.
+           A trailing slash includes all files and subdirectory files.
+           F:   providers/mlx4/ all files in and below providers/mlx4/
+           F:   providers/*     all files in drivers/net, but not below
+           F:   */net/*         all files in "any top level directory"/net
+           One pattern per line.  Multiple F: lines acceptable.
+        L: Mailing list that is relevant to this area
+        M: Designated reviewer: FullName <address@domain>
+           These reviewers should be CCed on patches.
+        S: Status, one of the following:
+           Supported:   Someone is actually paid to look after this.
+           Maintained:  Someone actually looks after it.
+           Odd Fixes:   It has a maintainer but they don't have time to do
+                        much other than throw the odd patch in. See below..
+           Orphan:      No current maintainer [but maybe you could take the
+                        role as you write your new code].
+           Obsolete:    Old code. Something tagged obsolete generally means
+                        it has been replaced by a better system and you
+                        should be using that.
+
+                -----------------------------------
+
+* OVERALL PACKAGE
+M:	Doug Ledford <dledford@redhat.com>
+M:	Leon Romanovsky <leon@kernel.org>
+S:	Supported
+
+BUILD SYSTEM
+M:	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+S:	Supported
+F:	*/CMakeLists.txt
+F:	*/lib*.map
+F:	buildlib/
+
+CXGB3 USERSPACE PROVIDER (for iw_cxgb3.ko)
+M:	Steve Wise <swise@opengridcomputing.com>
+S:	Supported
+F:	libcxgb3/
+
+CXGB4 USERSPACE PROVIDER (for iw_cxgb4.ko)
+M:	Steve Wise <swise@opengridcomputing.com>
+S:	Supported
+F:	libcxgb4/
+
+HF1 USERSPACE PROVIDER (for hf1.ko)
+M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
+S:	Supported
+L:	intel-opa@lists.01.org
+F:	libhfi1verbs/
+
+I40IW USERSPACE PROVIDER (for i40iw.ko)
+M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
+S:	Supported
+F:	libi40iw/
+
+RDMA Communication Manager Assistant (for librdmacm.so)
+M:	Sean Hefty <sean.hefty@intel.com>
+S:	Supported
+F:	ibacm/*
+
+IPATH/QIB USERSPACE PROVIDER (for ib_qib.ko)
+M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
+S:	Supported
+L:	ibsupport@intel.com
+F:	libipathverbs/
+
+IWARP PORT MAPPER DAEMON (for iwarp kernel providers)
+M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
+S:	Supported
+F:	iwpmd/
+
+LIBIBCM USERSPACE LIBRARY FOR IB CONNECTION MANAGEMENT (/dev/infiniband/ucmX)
+M:	Sean Hefty <sean.hefty@intel.com>
+S:	Obsolete
+F:	libibcm/
+
+LIBIBUMAD USERSPACE LIBRARY FOR SMP AND GMP MAD PROCESSING (/dev/infiniband/umadX)
+M:	Hal Rosenstock <hal@dev.mellanox.co.il>
+S:	Supported
+F:	libibumad/
+
+LIBIBVERBS USERSPACE LIBRARY FOR RDMA VERBS (/dev/infiniband/uverbsX)
+M:	Doug Ledford <dledford@redhat.com>
+M:	Yishai Hadas <yishaih@dev.mellanox.co.il>
+S:	Supported
+F:	libibverbs/
+
+LIBRDMACM USERSPACE LIBRARY FOR RDMA CONNECTION MANAGEMENT (/dev/infiniband/rdma_cm)
+M:	Sean Hefty <sean.hefty@intel.com>
+S:	Supported
+F:	librdmacm/
+
+MLX4 USERSPACE PROVIDER (for mlx4_ib.ko)
+M:	Yishai Hadas <yishaih@mellanox.com>
+S:	Supported
+F:	libmlx4/
+
+MLX5 USERSPACE PROVIDER (for mlx5_ib.ko)
+M:	Yishai Hadas <yishaih@mellanox.com>
+S:	Supported
+F:	libmlx5/
+
+MTHCA USERSPACE PROVIDER (for ib_mthca.ko)
+M:	Vladimir Sokolovsky <vlad@mellanox.com>
+S:	Supported
+F:	libmthca/
+
+NES USERSPACE PROVIDER (for iw_nes.ko)
+M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
+S:	Supported
+F:	libnes/
+
+OCRDMA USERSPACE PROVIDER (for ocrdma.ko)
+M:	Devesh Sharma <Devesh.sharma@broadcom.com>
+S:	Supported
+F:	libocrdma/
+
+RXE SOFT ROCEE USERSPACE PROVIDER (for rdma_rxe.ko)
+M:	Moni Shoua <monis@mellanox.com>
+S:	Supported
+F:	librxe/
+
+SRP DAEMON (for ib_srp.ko)
+M:	Bart Van Assche <bvanassche@acm.org>
+S:	Supported
+F:	srp_daemon/
