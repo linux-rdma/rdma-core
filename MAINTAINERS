@@ -43,24 +43,24 @@ F:	buildlib/
 CXGB3 USERSPACE PROVIDER (for iw_cxgb3.ko)
 M:	Steve Wise <swise@opengridcomputing.com>
 S:	Supported
-F:	libcxgb3/
+F:	providers/cxgb3/
 
 CXGB4 USERSPACE PROVIDER (for iw_cxgb4.ko)
 M:	Steve Wise <swise@opengridcomputing.com>
 S:	Supported
-F:	libcxgb4/
+F:	providers/cxgb4/
 
 HF1 USERSPACE PROVIDER (for hf1.ko)
 M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
 M:	Dennis Dalessandro <dennis.dalessandro@intel.com>
 S:	Supported
 L:	intel-opa@lists.01.org (moderated for non-subscribers)
-F:	libhfi1verbs/
+F:	providers/hfi1verbs/
 
 I40IW USERSPACE PROVIDER (for i40iw.ko)
 M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
 S:	Supported
-F:	libi40iw/
+F:	providers/i40iw/
 
 RDMA Communication Manager Assistant (for librdmacm.so)
 M:	Sean Hefty <sean.hefty@intel.com>
@@ -72,7 +72,7 @@ M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
 M:	Dennis Dalessandro <dennis.dalessandro@intel.com>
 L:	infinipath@intel.com
 S:	Supported
-F:	libipathverbs/
+F:	providers/ipathverbs/
 
 IWARP PORT MAPPER DAEMON (for iwarp kernel providers)
 M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
@@ -112,35 +112,35 @@ MLX4 USERSPACE PROVIDER (for mlx4_ib.ko)
 M:	Yishai Hadas <yishaih@mellanox.com>
 H:	Roland Dreier <rolandd@cisco.com>
 S:	Supported
-F:	libmlx4/
+F:	providers/mlx4/
 
 MLX5 USERSPACE PROVIDER (for mlx5_ib.ko)
 M:	Yishai Hadas <yishaih@mellanox.com>
 H:	Eli Cohen <eli@mellanox.com>
 S:	Supported
-F:	libmlx5/
+F:	providers/mlx5/
 
 MTHCA USERSPACE PROVIDER (for ib_mthca.ko)
 M:	Vladimir Sokolovsky <vlad@mellanox.com>
 H:	Michael S. Tsirkin <mst@mellanox.co.il>
 H:	Roland Dreier <roland@topspin.com>
 S:	Supported
-F:	libmthca/
+F:	providers/mthca/
 
 NES USERSPACE PROVIDER (for iw_nes.ko)
 M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
 S:	Supported
-F:	libnes/
+F:	providers/nes/
 
 OCRDMA USERSPACE PROVIDER (for ocrdma.ko)
 M:	Devesh Sharma <Devesh.sharma@broadcom.com>
 S:	Supported
-F:	libocrdma/
+F:	providers/ocrdma/
 
 RXE SOFT ROCEE USERSPACE PROVIDER (for rdma_rxe.ko)
 M:	Moni Shoua <monis@mellanox.com>
 S:	Supported
-F:	librxe/
+F:	providers/rxe/
 
 SRP DAEMON (for ib_srp.ko)
 M:	Bart Van Assche <bvanassche@acm.org>

@@ -1,3 +1,8 @@
+rdma_provider(ipathverbs
+  ipathverbs.c
+  verbs.c
+  )
+
 rdma_subst_install(FILES "truescale.conf.in"
   DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/modprobe.d/"
   RENAME "truescale.conf")
