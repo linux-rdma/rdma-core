@@ -1,0 +1,10 @@
+Description: Tell libibverbs to look in /usr/lib/libibverbs for plugin library
+Author: Roland Dreier <roland@digitalvampire.org>
+
+Index: libmthca.git/mthca.driver
+===================================================================
+--- libmthca.git.orig/mthca.driver	2011-07-05 14:23:39.701070946 -0700
++++ libmthca.git/mthca.driver	2011-07-05 14:24:08.310933096 -0700
+@@ -1 +1 @@
+-driver mthca
++driver /usr/lib/libibverbs/libmthca

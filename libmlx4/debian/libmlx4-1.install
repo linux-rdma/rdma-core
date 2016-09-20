@@ -1,0 +1,2 @@
+usr/lib/libmlx4-rdmav2.so		/usr/lib/libibverbs/
+etc/libibverbs.d/mlx4.driver

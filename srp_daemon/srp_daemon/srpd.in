@@ -1,0 +1,162 @@
+#!/bin/bash
+#
+# Manage the SRP client daemon (srp_daemon)
+#
+# chkconfig: - 25 75
+# description: Starts/Stops InfiniBand SRP client service
+# config:	/etc/srp_daemon.conf
+#
+### BEGIN INIT INFO
+# Provides:       srpd
+# Required-Start: $syslog @RDMA_SERVICE@
+# Required-Stop: $syslog @RDMA_SERVICE@
+# Default-Start: @DEFAULT_START@
+# Default-Stop: @DEFAULT_STOP@
+# Should-Start:
+# Should-Stop:
+# Short-Description: Starts and stops the InfiniBand SRP client service
+# Description: The InfiniBand SRP client service attaches to SRP devices
+#	on the InfiniBand fabric and makes them appear as local disks to
+#	to the system.  This service starts the client daemon that's
+#	responsible for initiating and maintaining the connections to
+#	remote devices.
+### END INIT INFO
+
+if [ -e /etc/rdma/rdma.conf ]; then
+    # RHEL / Fedora.
+    RDMA_CONFIG=/etc/rdma/rdma.conf
+else
+    # OFED
+    RDMA_CONFIG=/etc/infiniband/openib.conf
+fi
+if [ -f $RDMA_CONFIG ]; then
+    . $RDMA_CONFIG
+fi
+pidfile=/var/run/srp_daemon.sh.pid
+prog=/usr/sbin/srp_daemon.sh
+
+checkpid() {
+    [ -e "/proc/$1" ]
+}
+
+stop_srp_daemon() {
+    if ! running; then
+        return 1
+    fi
+
+    local pid=`cat $pidfile`
+    kill $pid
+    # timeout 30 seconds for termination
+    for i in `seq 300`; do
+        if ! checkpid $pid; then
+            return 0
+        fi
+        sleep 0.1
+    done
+    kill -9 $pid
+    # If srp_daemon executables didn't finish by now
+    # force kill
+    pkill -9 srp_daemon
+
+    return 0
+}
+
+# if the ib_srp module is loaded or built into the kernel return 0 otherwise
+# return 1.
+is_srp_mod_loaded() {
+    [ -e /sys/module/ib_srp ]
+}
+
+running() {
+    [ -f $pidfile ] && checkpid "$(cat $pidfile)"
+}
+
+start() {
+    if ! is_srp_mod_loaded; then
+	echo "SRP kernel module is not loaded, unable to start SRP daemon"
+	return 6
+    fi
+    if running; then
+	echo "Already started"
+	return 0
+    fi
+
+    echo -n "Starting SRP daemon service"
+
+    if [ "$SRP_DEFAULT_TL_RETRY_COUNT" ]; then
+        params=$params"-l $SRP_DEFAULT_TL_RETRY_COUNT "
+    fi
+
+    setsid $prog $params </dev/null >&/dev/null &
+    RC=$?
+    [ $RC -eq 0 ] && echo || echo " ...failed"
+    return $RC
+}
+
+stop() {
+    echo -n "Stopping SRP daemon service"
+
+    stop_srp_daemon
+    RC=$?
+    for ((i=0;i<5;i++)); do
+	if ! running; then
+	    rm -f $pidfile
+	    break
+	fi
+	sleep 1
+    done
+    [ $RC -eq 0 ] && echo || echo " ...failed"
+    return $RC
+}
+
+status() {
+    local ret
+
+    if [ ! -f $pidfile ]; then
+	ret=3 # program not running
+    else
+	checkpid "$(cat $pidfile)"
+	ret=$? # 1: pid file exists and not running / 0: running
+    fi
+    if [ $ret -eq 0 ] ; then
+	echo "$prog is running... pid=$(cat $pidfile)"
+    else
+	echo "$prog is not running."
+    fi
+    return $ret
+}
+
+restart() {
+    stop
+    start
+}
+
+condrestart() {
+    [ -f $pidfile ] && restart || return 0
+}
+
+usage() {
+    echo
+    echo "Usage: `basename $0` {start|stop|restart|condrestart|try-restart|force-reload|status}"
+    echo
+    return 2
+}
+
+case $1 in
+    start|stop|restart|condrestart|try-restart|force-reload)
+	[ `id -u` != "0" ] && exit 4 ;;
+esac
+
+case $1 in
+    start) start; RC=$? ;;
+    stop) stop; RC=$? ;;
+    restart) restart; RC=$? ;;
+    reload) RC=3 ;;
+    condrestart) condrestart; RC=$? ;;
+    try-restart) condrestart; RC=$? ;;
+    force-reload) condrestart; RC=$? ;;
+    status) status; RC=$? ;;
+    *) usage; RC=$? ;;
+esac
+
+exit $RC

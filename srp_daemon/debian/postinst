@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    configure|install)
+        for ib_conf_file in /etc/infiniband/openib.conf /etc/rdma/rdma.conf; do
+            if [ -e $ib_conf_file ] && ! grep -q '^SRP_DAEMON_ENABLE=' $ib_conf_file; then
+                cat <<EOF >>$ib_conf_file
+
+# Enable SRP High Availability daemon
+SRPHA_ENABLE=no
+SRP_DAEMON_ENABLE=no
+EOF
+            fi
+        done
+        ;;
+
+    upgrade|abort-upgrade)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 0
+        ;;
+esac
+exit 0

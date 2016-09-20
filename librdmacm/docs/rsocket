@@ -1,0 +1,279 @@
+rsocket Protocol and Design Guide               11/11/2012
+
+Data Streaming (TCP) Overview
+-----------------------------
+Rsockets is a protocol over RDMA that supports a socket-level API
+for applications.  For details on the current state of the
+implementation, readers should refer to the rsocket man page.  This
+document describes the rsocket protocol, general design, and
+some implementation details. 
+
+Rsockets exchanges data by performing RDMA write operations into
+exposed data buffers.  In addition to RDMA write data, rsockets uses
+small, 32-bit messages for internal communication.  RDMA writes
+are used to transfer application data into remote data buffers
+and to notify the peer when new target data buffers are available.
+The following figure highlights the operation.
+
+   host A                   host B
+                          remote SGL                      
+  target SGL  <-------------  [  ]
+     [  ] ------
+     [  ] --    ------   receive buffer(s)         
+            --        ----->  +--+
+              --              |  |
+                --            |  |
+                  --          |  |
+                    --        +--+
+                      --       
+                        --->  +--+
+                              |  |
+                              |  |
+                              +--+
+
+The remote SGL contains the address, size, and rkey of the target SGL.  As
+receive buffers become available on host B, rsockets will issue an RDMA
+write against one of the entries in the target SGL on host A.  The
+updated entry will reference an available receive buffer.  Immediate data
+included with the RDMA write will indicate to host A that a target SGE
+has been updated.
+
+When host A has data to send, it will check its target SGL.  The current
+target SGE will contain the address, size, and rkey of the next receive
+buffer on host B.  If the data transfer is smaller than the size of the
+remote receive buffer, host A will update its target SGE to reflect the
+remaining size of the receive buffer.  That is, once a receive buffer has
+been published to a remote peer, it will be fully consumed before a second
+buffer is used.
+
+Rsockets relies on immediate data to notify the remote peer when data has
+been transferred or when a target SGL has been updated.  Because immediate
+data requires that the remote QP have a posted receive, rsockets also uses
+a credit based flow control mechanism.  The number of credits is based on
+the size of the receive queue, with initial credits exchanged during
+connection setup.  In order to transfer data, rsockets requires both
+available receive buffers (published via the target SGL) and data credits.
+
+Since immediate data is limited to 32-bits, messages may either indicate
+the arrival of application data or may be an internal message, but not both.
+To avoid credit deadlock, rsockets reserves a small number of available
+credits for control messages only, with the protocol relying on RNR NAKs
+and retries to make forward progress.
+
+
+Connection Establishment
+------------------------
+rsockets uses the RDMA CM for connection establishment.  Struct rs_conn_data
+is exchanged during the connection exchange as private data in the request
+and reply messages.
+
+struct rs_sge {
+	uint64_t addr;
+	uint32_t key;
+	uint32_t length;
+};
+
+#define RS_CONN_FLAG_NET 1
+
+struct rs_conn_data {
+	uint8_t		  version;
+	uint8_t		  flags;
+	uint16_t	  credits;
+	uint32_t	  reserved2;
+	struct rs_sge target_sgl;
+	struct rs_sge data_buf;
+};
+
+Version - current version is 1
+Flags
+RS_CONN_FLAG_NET - Set to 1 if host is big Endian.
+                   Determines byte ordering for RDMA write messages
+Credits - number of initial receive credits
+Reserved2 - set to 0
+Target SGL - Address, size (# entries), and rkey of target SGL.
+             Remote side will copy this into their remote SGL.
+Data Buffer - Initial receive buffer address, size (in bytes), and rkey.
+              Remote side will copy this into their first target SGE.
+
+
+Message Format
+--------------
+Rsocket uses RDMA writes with immediate data for all message exchanges.
+RDMA writes of 0 length are used if no additional data beyond the message
+needs to be exchanged.  Immediate data is limited to 32-bits.  Rsockets
+defines the following format for messages.
+
+The upper 3 bits are used to define the type of message being exchanged,
+with the meaning of the lower 29 bits determined by the upper bits.
+
+Bits    Message             Meaning of
+31:29    Type               Bits 28:0
+000    Data Transfer     bytes transfered
+001    reserved
+010    reserved - used internally, available for future use
+011    reserved
+100    Credit Update     received credits granted
+101    reserved
+110    Iomap Updated     index of updated entry
+111    Control           control message type
+
+Data Transfer
+Indicates that application data has been written into the next available
+receive buffer.  The size of the transfer, in bytes, is carried in the lower
+bits of the message.
+
+Credit Update
+Used to indicate that additional receive buffers and credits are available.
+The number of available credits is carried in the lower bits of the message.
+A credit update message is also used to indicate that a target SGE has been
+updated, in which case the number of additional credits may be 0.  The
+receiver of a credit update message must check for updates to the target SGL
+by inspecting the contents of the SGL.  The rsocket implementation must take
+care not to modify a remote target SGL while it may be in use.  This is done
+by tracking when a receive buffer referenced by a remote target SGL has been
+filled.
+
+Iomap Updated
+Used to indicate that a remote iomap entry was updated.  The updated entry
+contains the offset value associated with an address, length, and rkey.  Once
+an iomap has been updated, the local application can issue directed IO
+transfers against the corresponding remote buffer.
+
+Control Message - DISCONNECT
+Indicates that the rsocket connection has been fully disconnected and will no
+longer send or receive data.  Data received before the disconnect message was
+processed may still be available for reading.
+ 
+Control Message - SHUTDOWN
+Indicates that the remote rsocket has shutdown the send side of its
+connection.  The recipient of a shutdown message will no longer accept
+incoming data, but may still transfer outbound data.
+
+
+Iomapped Buffers
+----------------
+Rsockets allows for zero-copy transfers using what it refers to as iomapped
+buffers.  Iomapping and direct data placement (zero-copy) transfers are done
+using rsocket specific extensions.  The general operation is similar to
+that used for normal data transfers described above.
+
+   host A                   host B
+                          remote iomap                      
+  target iomap  <-----------  [  ]
+     [  ] ------
+     [  ] --    ------  iomapped buffer(s)         
+            --        ----->  +--+
+              --              |  |
+                --            |  |
+                  --          |  |
+                    --        +--+
+                      --       
+                        --->  +--+
+                              |  |
+                              |  |
+                              +--+
+
+The remote iomap contains the address, size, and rkey of the target iomap.  As
+the applicaton maps buffers host B to a given rsocket, rsockets will issue an RDMA
+write against one of the entries in the target iomap on host A.  The
+updated entry will reference an available iomapped buffer.  Immediate data
+included with the RDMA write will indicate to host A that a target iomap
+has been updated.
+
+When host A wishes to transfer directly into an iomapped buffer, it will check
+its target iomap for an offset corresponding to a remotely mapped buffer.  A
+matching iomap entry will contain the address, size, and rkey of the target
+buffer on host B.  Host A will then issue an RDMA operation against the
+registered remote data buffer.
+
+From host A's perspective, the transfer appears as a normal send/write
+operation, with the data stream redirected directly into the receiving
+application's buffer.
+
+
+
+Datagram Overview
+-----------------
+The rsocket API supports datagram sockets.  Datagram support is handled through an
+entirely different protocol and internal implementation.  Unlike connected rsockets,
+datagram rsockets are not necessarily bound to a network (IP) address.  A datagram
+socket may use any number of network (IP) addresses, including those which map to
+different RDMA devices.  As a result, a single datagram rsocket must support
+using multiple RDMA devices and ports, and a datagram rsocket references a single
+UDP socket, plus zero or more UD QPs.
+
+Rsockets uses headers inserted before user data sent over UDP sockets to resolve
+remote UD QP numbers.  When a user first attempts to send a datagram to a remote
+address (IP and UDP port), rsockets will take the following steps:
+
+1. Store the destination address into a lookup table.
+2. Resolve which local network address should be used when sending
+   to the specified destination.
+3. Allocate a UD QP on the RDMA device associated with the local address.
+4. Send the user's datagram to the remote UDP socket.
+
+A header is inserted before the user's datagram.  The header specifies the
+UD QP number associated with the local network address (IP and UDP port) of
+the send.
+
+A service thread is used to process messages received on the UDP socket.  This
+thread updates the rsocket lookup tables with the remote QPN and path record
+data.  The service thread forwards data received on the UDP socket to an
+rsocket QP.  After the remote QPN and path records have been resolved, datagram
+communication between two nodes are done over the UD QP.
+
+UDP Message Format
+------------------
+Rsockets uses messages exchanged over UDP sockets to resolve remote QP numbers.
+If a user sends a datagram to a remote service and the local rsocket is not
+yet configured to send directly to a remote UD QP, the user data is sent over
+a UDP socket with the following header inserted before the user data. 
+
+struct ds_udp_header {
+	uint32_t	  tag;
+	uint8_t		  version;
+	uint8_t		  op;
+	uint8_t		  length;
+	uint8_t		  reserved;
+	uint32_t	  qpn;  /* lower 8-bits reserved */
+	union {
+		uint32_t  ipv4;
+		uint8_t   ipv6[16];
+	} addr;
+};
+
+Tag - Marker used to help identify that the UDP header is present.
+#define DS_UDP_TAG 0x55555555
+
+Version - IP address version, either 4 or 6
+Op - Indicates message type, used to control the receiver's operation.
+     Valid operations are RS_OP_DATA and RS_OP_CTRL.  Data messages
+     carry user data, while control messages are used to reply with the
+     local QP number.
+Length - Size of the UDP header.
+QPN - UD QP number associated with sender's IP address and port.
+      The sender's address and port is extracted from the received UDP
+      datagram.
+Addr - Target IP address of the sent datagram.
+
+Once the remote QP information has been resolved, data is sent directly
+between UD QPs.  The following header is inserted before any user data that
+is transferred over a UD QP.
+
+struct ds_header {
+	uint8_t		     version;
+	uint8_t		     length;
+	uint16_t	     port;
+	union {
+		uint32_t     ipv4;
+		struct {
+			uint32_t flowinfo;
+			uint8_t  addr[16];
+		} ipv6;
+	} addr;
+};
+
+Verion - IP address version
+Length - Size of the header
+Port - Associated source address UDP port
+Addr - Associated source IP address 

@@ -1,0 +1,791 @@
+commit 49507d0a9d75a146be39e5fd89e749aba89fc23d
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 10 09:52:43 2011 -0500
+
+    Spin 1.3.1 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f2aed2ca2ede359f04b43e482c8e0cd6e035aa9d
+Author: Kumar Sanghvi <kumaras@chelsio.com>
+Date:   Mon Oct 10 09:51:43 2011 -0500
+
+    From 20c71f269c2b9abbab9a0b3333dd15aaf8c0de0f Mon Sep 17 00:00:00 2001
+    Subject: [PATCH] qp.c: Track qp flush status
+    
+    Track qp flush status, and don't re-flush a qp if its already
+    flushed once.
+    
+    This resolves segfaults observed with dapltest.
+    
+    Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+
+commit 0bbd607c53059e12d6a020332b0cb6f1a1435350
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 25 10:07:00 2010 -0500
+
+    Spin release 1.3.0.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 240d1124a3cd2bcf1f9440378d0a5f67cad06165
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 25 10:06:53 2010 -0500
+
+    Detect CQs with QPs in error and flush them.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d5ae103822fb5638da204f23fb5cbcb0ea45b6aa
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:52:31 2009 -0500
+
+    Spin 1.2.5 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit bfdca7d4392aaee9d8253d306378b036b8a60874
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:52:22 2009 -0500
+
+    Remove immediate work requests
+    
+    The aren't supported/defined in iWARP.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 7b7460e47ad82ea81101230642c43ee10c6ad517
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:18:12 2009 -0500
+
+    Handle 0B IO better.
+    
+    Allow num_sge == 0 to indicate a 0B IO.
+    
+    Also, for read, if length is 0 then create a valid 0B read request
+    regardless of the user's specified lkey/rkey.  This avoids 0 stag
+    connection terminations.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit e901d7d2ab0e9429118765e98e69a3992b91c584
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Sep 29 14:00:54 2009 -0500
+
+    Reset the T3 wq when the qp moves to RESET.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0f71e2dc0e1a40f4954f30f14deae965818c3c4e
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Sep 28 14:10:57 2009 -0500
+
+    Spin release 1.2.4.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 76d2a6347ab753d26237dc94c95da8d0c6c0c251
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Sep 28 14:07:44 2009 -0500
+
+    Support for doorbell overflow avoidance.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ad77c21cafde669c878032fc0f46635408568498
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Sep 28 14:07:20 2009 -0500
+
+    Support sq_sig_all QP attribute.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f6ea9eb207fa4b68f3a9c6f016bc8a262edb1808
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Jul 22 12:58:03 2009 -0500
+
+    Spin release version 1.2.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0ec532c2b6b92be6adf58849c9e3d215a50d306d
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Jul 22 12:52:51 2009 -0500
+
+    Support new device ids: 0x35, 0x36.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f685c8fe7e77e64614d825e563dd9f02a0b1ae16
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 17 11:28:46 2008 -0500
+
+    Spin release 1.2.2
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ebd19d077d331270805aefa9ca00d3661561ba87
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jul 17 11:28:27 2008 -0500
+
+    Relax the required firmware level.
+    
+    Turns out that libcxgb3 can really run on either 6.0 or 5.0
+    firmware.  So I'm relaxing the requirement...
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 6f7485feb244d8571fcab2292ef92c97bea48df0
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue May 13 09:09:35 2008 -0500
+
+    Spin release 1.2.1.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 309916b23ba384a0bd297e7e51b6b89bff357a78
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed May 7 20:45:01 2008 -0500
+
+    Use local stag == 1 to silently drop the p2p read response.
+    
+    The current code fails if there are read completions -and-
+    the p2p read response in the cq when its flushed.
+    
+    This fix uses the fact that the RTR read is to target stag 1,
+    which is not a valid stag.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 67d519c4a9e28e54a9e436404156c9ae7eb60314
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed May 7 20:25:41 2008 -0500
+
+    Handle wrapping when flushing the software sq.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a3dcea751a94ad5e0a9cad6c55a839a9848f327c
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sat Apr 26 11:39:43 2008 -0500
+
+    Spin 1.2.0 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit cc2ef741842883233a77e18d65a828c711e581a3
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sat Apr 26 11:39:43 2008 -0500
+
+    Support for peer-to-peer connection setup.
+    
+    - ignore unsolicited 0B reads.
+
+commit 92322b93f48fa98b4fadb736ae49dafda237272a
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Apr 24 14:23:50 2008 -0500
+
+    Support for peer-to-peer connection setup.
+    
+    - ignore unsolicited 0B reads.
+
+commit a8fb6221af4d914f39c1e71f9331f6d428d698c2
+Author: Steve Wise (Open Grid Computing) <swise@hosting.openfabrics.org>
+Date:   Tue Apr 1 15:30:11 2008 -0700
+
+    Spin 1.1.5 release.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit db41ebc10f4cc4c2fe7826589636ab7d4b804218
+Author: Jon Mason <jon@opengridcomputing.com>
+Date:   Tue Feb 26 08:27:12 2008 -0600
+
+    Provide an empty stub for iwch_query_qp.
+    
+    This prevents crashes when calling ibv_query_qp due to an expected
+    library provided function.
+    
+    Signed-off-by: Jon Mason <jon@opengridcomputing.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ec4f7f1c6b8beceb9001519bc4e2ee89fbb2e6d0
+Author: Dotan Barak <dotanb@dev.mellanox.co.il>
+Date:   Tue Feb 26 08:23:36 2008 -0600
+
+    Remove duplicated line.
+    
+    Signed-off-by: Dotan Barak <dotanb@dev.mellanox.co.il>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 8218482d03898f859e1fa272649fafc64f91f05f
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Feb 12 15:16:03 2008 -0600
+
+    Spin release 1.1.4.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 1bc6930d8884646ef73db71a95cc32c96c20ba32
+Author: Jon Mason <jon@opengridcomputing.com>
+Date:   Tue Feb 12 14:46:10 2008 -0600
+
+    libcxgb3: zeroing of wc_flags
+    
+    The wc_flags field in struct ibv_wc is left uninitialized in
+    iwch_poll_cq_one.  User space applications may check this field and
+    deterministically perform actions based on the garbage in the field.
+    Zeroing this out will prevent this unintended behavior.
+    
+    Signed-off-by: Jon Mason <jon@opengridcomputing.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 946e1572d38d786038d3bca5a2ec184dcf7636c4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jan 25 16:47:01 2008 -0600
+
+    Spin release 1.1.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 94fb771a44212a679d7f83ee69df24e841e0ce08
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jan 25 13:04:31 2008 -0600
+
+    Fix path for obtaining the firmware version.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 4bbb15965b53cad6273094e95b06895010ca025c
+Author: Jon Mason <jon@opengridcomputing.com>
+Date:   Wed Jan 23 09:40:28 2008 -0600
+
+    Non-supported functions should return NULL when returning pointers.
+    
+    Some/Most user space programs will not check for a (void *) to -ENOSYS,
+    which can look like a real address until referenced.
+    
+    This patch converts the uses of (void *) -ENOSYS to NULL.
+    
+    Signed-off-by: Jon Mason <jon@opengridcomputing.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 10893a7a45e6913483d90023bb90bf9cb2420384
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jan 3 17:19:27 2008 -0600
+
+    Spin release 1.1.2.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a35c74c32d038bd7508ad3cb6c5291c1865d3ba4
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jan 3 17:16:27 2008 -0600
+
+    Fix compiler warnings on 32b.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ef3b9d4f99eb6e18c29b70599edf99d0715f03fb
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Jan 3 17:15:19 2008 -0600
+
+    segfault running rping over iwarp on 32b distros.
+    
+    The cxgb3 driver is copying out the pd_id, but the lib isn't allocating
+    space for it.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 55950cff6f1f059d3547aee1959a50c1b2a495af
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Dec 17 13:33:00 2007 -0600
+
+    Spin release 1.1.1.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 41eeaace0554d9d9e0f87acc8aca012381855657
+Author: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Date:   Mon Dec 17 13:32:49 2007 -0600
+
+    zero context struct at allocation time (prep for additional context ops)
+    
+    The ibv_context structure will be getting additional ops, to be added at
+    the end of the structure (and not as part of the existing ibv_context_ops
+    structure).
+    
+    Reason: ibv_context_ops is declared directly as a member of ibv_context,
+    and not as a pointer.  Binaries compiled with previous libibverbs
+    versions will not be backwards compatible if we add new operations to
+    ibv_context_ops, since fields following the ops structure will move.
+    
+    To enable adding new operations at the end of the existing ibv_context
+    struct, all driver libraries MUST zero their context structure at
+    allocation time, so that new ops will be NULL by default.
+    
+    Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d730d15161ddc58bd906aa854ffb45d54f817045
+Author: Steve Wise (Open Grid Computing) <swise@hosting.openfabrics.org>
+Date:   Thu Nov 29 07:57:36 2007 -0800
+
+    Spin releases 1.1.0.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ee419d4dd670c070a852a60abd84412dac26e4a1
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sun Nov 18 16:34:16 2007 -0600
+
+    Support 5.0 firmware.
+    
+    - 5.0 and beyond handles RECV SGL cracking.
+    - fail driver init if the maj number doesn't match compiled-in value.
+    - debug log of minor number is down level.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 6c7f9a508da1ee45acb7ba6b8ce5bdfa171dc907
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 11 16:32:06 2007 -0500
+
+    Fix the configure.in file to update the release number.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 86d1051445e9b7e68cc0a982a1bea818aa4dd553
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 8 15:04:14 2007 -0500
+
+    Spin release 1.0.3.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 352a1c70f9bcb49e784292b3468be35a578b62ab
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 4 14:29:06 2007 -0500
+
+    Unmap cq and wq objects before deleting them.
+    
+    Older kernels BUG_ON() if we free the dma_coherent memory while
+    there is a user mapping.  So unamp first, then delete.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit fee4e0da90b8aa41dcb8de68e1be6401617594fd
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sun Sep 23 15:49:06 2007 -0500
+
+    Spin release 1.0.2.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 78d24a815e1c8a6d54e918a719dd84847798c52c
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sun Sep 23 13:59:48 2007 -0500
+
+    Doorbell writes need to be in PCI byte order.
+    
+    For BE systems, the qpid written into the user doorbell
+    must be swapped.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 778dfb6e2237bcf3c70b276428280decaa1ad97e
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Aug 16 11:16:25 2007 -0500
+
+    Spin release 1.0.1
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f83bb009c9cfd2dcd9e57bfb0f98125b4a032bbf
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Aug 13 15:08:07 2007 -0500
+
+    Add ChangeLog File.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a888124eac87e520b512ced4b073069e8803be34
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Aug 13 14:13:38 2007 -0500
+
+    libcxgb3: Don't hold locks around QP and CQ destruction.
+    
+    Don't hold the object lock around object destruction.  It results
+    in a deadlock situation where one thread is blocked in the common
+    libibverbs destroy method awaiting events to be acked, and the other
+    thread trying to access the object to service the event.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit f97dcedc6d5af5c222542d69755ad4193f2114fc
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Jun 12 20:32:59 2007 -0500
+
+    Fix copyrights.
+    
+    - Fixed copyright on firmware header.
+    - Added 2007
+    - removed OGC copyrights.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit e889105a95381ae41c0c83716ad8097ed25c8aae
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Apr 5 11:40:41 2007 -0500
+
+    More inline fixes.
+    
+    - Round up the flit count based on the inline data size.
+    - Limit the max inline to 64B.
+    - fixed union access errors.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 828671e2e902de5f39ad3a10d342d6eb25db3134
+Author: root <root@r1-iw.(none)>
+Date:   Wed Apr 4 20:02:00 2007 -0700
+
+    Set the correct flit length in SEND WR with INLINE data.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5e5e510422d680e357adb51116ebc473e1244073
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sat Mar 31 15:57:44 2007 -0500
+
+    Support the IBV_SEND_INLINE option.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 1233233c9a8ceef63dfd4f7223e262a284938d53
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Mar 23 09:50:32 2007 -0500
+
+    Support for PE9K as T3B device.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d19b47277b1fd3c985edb00915c581317acf8c40
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Mar 23 09:49:50 2007 -0500
+
+    Fix DEBUG only compile break.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d387c832e168a2bfbe4b6cab762feaa19cd86d5c
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Mar 13 12:34:42 2007 -0500
+
+    munmap() objects before deleting them.
+    
+    This change is needed to support older kernels where the iw_cxgb3 driver
+    reserves the pages in the objects.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 42359ad5c2684b8b05d9ffb9f161e4bb9d724de2
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jan 19 09:36:04 2007 -0600
+
+    Use the chelsio device number to determine the type of adapter.
+    
+    The existing code was using the sysfs files to obtain the adapter type
+    or hw revision.  This method wasn't portable to older distros because
+    it used sysfs entries not inserted by the rdma core, but rather by the
+    PCI subsystem.  Further, these files don't exist in RHEL4u4! This code
+    was implemented before it was known that the chelsio device numbers
+    actually encode the hw revision.
+    
+    The simpler and portable solution is to just determine the hardware
+    revision based on the device number.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 0d7105e87c5dcbb5903dfe351edf02b8d1c3cd77
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Sun Jan 14 11:30:58 2007 -0600
+
+    Revert "Pass driver data through ibv_cmd_req_notify_cq()"
+    
+    Chelsio cxgb3 driver no longer needs to pass rptr value via
+    ibv_cmd_req_notify_cq().
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit fb02c47a6774f46283cc87cb32709b35f5df94b6
+Author: Roland Dreier <rolandd@cisco.com>
+Date:   Wed Jan 10 16:53:55 2007 -0600
+
+    Update libcxgb3 for new libibverbs driver handling
+    
+    The latest libibverbs development tree changes how low-level drivers
+    are found.  The driver must be in a shared object like
+    libcxgb3-rdmav2.so in the ordinary library path, rather than
+    infiniband/cxgb3.so as for libibverbs 1.0.  In addition, the driver
+    must call ibv_register_driver() to pass its entry point to libibverbs,
+    rather than exporting an ibv_driver_init() function.
+    
+    Since the current libcxgb3 tree is targeted only for libibverbs
+    development trees and won't work with libibverbs 1.0, this patch
+    changes libcxgb3 to work with the new libibverbs way of loading
+    drivers without any autoconf tests.
+    
+    Signed-off-by: Roland Dreier <rolandd@cisco.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit b7754141f0e0f74ab1ed8436549696b9e786e7e6
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Jan 10 08:58:00 2007 -0600
+
+    Pass user rptr address in cq_create() so the kernel can
+    copy the value in when rearming.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit a03f937c9e582594acb0a2463b6d7ea943df2dd7
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Jan 9 13:24:19 2007 -0600
+
+    Makefile.am doesn't specify all the src files.
+    
+    Fix it.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit ab3ca66328b836c5391e6db459e63db1e7539f34
+Author: Steve Wise <swise@dell3.ogc.int>
+Date:   Tue Jan 9 08:33:16 2007 -0600
+
+    Missed a lib check.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 5a746cc9a38292af561041be791e027827d127be
+Author: Steve Wise <swise@dell3.ogc.int>
+Date:   Tue Jan 9 08:27:21 2007 -0600
+
+    Added --disable-libcheck for ofed packaging.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit e09381faf20f555ff48401e0e9f8e585e7d7dbf3
+Author: Steve Wise <swise@dell3.ogc.int>
+Date:   Thu Dec 7 14:02:07 2006 -0600
+
+    Correctly compute the page shift.
+    
+    Math bug causes incorrect RECV PBLs to get posted for platforms
+    with page size != 4096.
+    
+    From: Steve Wise <swise@opengridcomputing.com>
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit b567532ba81e964b1ebc5dcbe01281477200b449
+Author: Steve Wise <swise@hosting.openfabrics.org>
+Date:   Tue Nov 21 16:50:48 2006 -0800
+
+    Fixed typo.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 702ca4f86ccac5396b154a24fe63aac8fb224d91
+Author: Steve Wise <swise@hosting.openfabrics.org>
+Date:   Tue Nov 21 16:48:20 2006 -0800
+
+    Added AUTHORS, COPYING, and README files.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 3e47e95f29ece7603702ed964405c93ba08bca25
+Author: Steve Wise <swise@hosting.openfabrics.org>
+Date:   Tue Nov 21 15:46:28 2006 -0800
+
+    Added config dir.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 8f503acbfc2d7ec5dcbc9e8324febdca06c4dd08
+Author: Steve Wise <swise@hosting.openfabrics.org>
+Date:   Tue Nov 21 15:31:49 2006 -0800
+
+    Change __uxx to uint_xxt types.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit bec7c4b999ec75fd9763fb5c1c6e02687a26a197
+Author: Steve Wise <swise@hosting.openfabrics.org>
+Date:   Tue Nov 21 15:28:23 2006 -0800
+
+    Fix configure problem with RHEL.
+    
+    Move the test for sizeof long to work around problems with the RHEL
+    distro and our configure.in script.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 6f3087e62c431aa8e958b7aea626f3c64ca78975
+Author: Steve Wise <swise@hosting.openfabrics.org>
+Date:   Tue Nov 21 15:26:42 2006 -0800
+
+    Support T3B Devices.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 25a1d04084dabeb5b89ef94ba91d765343880e75
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 26 15:56:53 2006 +0000
+
+    r9970: Debug printf format fixes.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 4dca9189bc7f837198d8a7200559753dd06b6160
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 26 15:53:40 2006 +0000
+
+    r9969: Misc code cleanup.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 62e7a2f99cba05b2b087d3c0c884a437e17c5696
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 26 15:53:14 2006 +0000
+
+    r9968: Added all T3 devices.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c883b2a08b2082d17511a4584eee48278e77a281
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Oct 25 20:51:04 2006 +0000
+
+    r9960: Code cleanup.
+    
+    - resolve XXX
+    - use device max sizes from cxio_wr.h
+    - rename id2hlp arrays to id2ptr
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit c6bd55fe8a4912e4240945353b072d5dfb82befe
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Oct 25 19:55:43 2006 +0000
+
+    r9959: Cleanup debug logging.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 6cb0e95ae048a43a289961bd7d61376cd1f96169
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Oct 25 19:32:49 2006 +0000
+
+    r9957: Include stddef.h to get offsetof.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit d2d12bab0324a34dde8eee418b2ba4f4a314e0f6
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon Oct 23 15:35:15 2006 +0000
+
+    r9947: Initial Poll Optimizations for Kernel mode.
+    
+    - pull user mode poll changes for out of order and unsignaled into kernel poll.
+    
+    - user mode poll bug fixes after testing kernel mode with RNFS.
+    
+    - fix CQ sizing hacks to be for T3A only.
+    
+    Still need to remove the T3A poll odditites or make them if (t3a_device())...
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 9d98bb8eb0c656858154e1a25501c6e4d262c098
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Thu Oct 19 21:01:34 2006 +0000
+
+    r9914: Poll fixes and T3B semantics for user mode.
+    
+    - Support T3B poll semantics
+    - Support unsignaled sq wrs correctly
+    - Support out of order read completions without stalling the entire cq
+    
+    The above changes were done by adding a SW SQ where out of order
+    completions are stored until they become in-order, at which time they
+    get flushed into the SW CQ.  This makes for a simplified overall poll
+    and also supports unsignaled SQ WRs.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 885bedbf8987bad3f45b9781921189a638b6eb2a
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Wed Oct 18 16:04:06 2006 +0000
+
+    r9880: Fill in vendor_err field of work completions with the T3 status.
+    
+    Just do it.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 16796aab2cf355d8518fec137bb73733f15954e6
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Oct 13 19:21:32 2006 +0000
+
+    r9816: Initial T3B + Kernel Bypass Support.
+    
+    This large commit is the first drop of T3B device support including
+    kernel bypass.  T3A devices will still work with this but will not
+    support kernel bypass.
+    
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+
+commit 18e8955335d3d9f48f0eba032efd48b36dbbb2c5
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Fri Jun 2 19:53:25 2006 +0000
+
+    r7631: Bring iWARP branch up to trunk r7626 + iwarp changes.
+
+commit 363feeafaa6e309f9ca262d49cb0123384521699
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Mon May 1 21:11:27 2006 +0000
+
+    r6845: Support for C302X cards.
+
+commit e0b4e5f422b4915381fbb290b240dacae894b967
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Apr 4 20:16:12 2006 +0000
+
+    r6226: Cleaned up some debug code.
+    
+    - Remove printfs.
+    
+    - Don't abort() on device allocation failure.
+
+commit 448dddc5cc29d1a774cb28de7d61756ce05f4aa2
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Mar 14 18:12:35 2006 +0000
+
+    r5818: Removed dead files and DEBIAN.
+
+commit 0a1a5a0dbb8e530c1d77af7b8ca7e57d0ba29713
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Mar 14 17:54:52 2006 +0000
+
+    r5817: cleaned up the spec file.
+
+commit 645aa688786467bcc7902acc7b3b3080b1320138
+Author: Tom Tucker <tom@opengridcomputing.com>
+Date:   Wed Mar 8 00:11:18 2006 +0000
+
+    r5666: Support the various T3 devices.
+
+commit b6b5c1f039d139aba0f552d9f9ca99c632c0d1e9
+Author: Tom Tucker <tom@opengridcomputing.com>
+Date:   Sun Mar 5 20:49:26 2006 +0000
+
+    r5623: import of the cxgb3 iwarp driver.

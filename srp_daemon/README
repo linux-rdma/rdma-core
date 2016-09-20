@@ -1,0 +1,82 @@
+Introduction
+============
+
+srptools is a package of tools for discovering and connecting to SRP
+SCSI targets on InfiniBand fabrics.  These targets can be accessed
+with the InfiniBand SRP initiator module, "ib_srp," included in Linux
+kernels 2.6.15 and newer.
+
+Using srptools
+==============
+
+srptools currently contains only a single executable, ibsrpdm.  To run
+ibsrpdm, the ib_umad module must be loaded, as well as an appropriate
+low-level driver for the installed IB hardware -- for example,
+ib_mthca for a Mellanox HCA, ib_ipath for a QLogic HCA, or hcad_mod
+for an IBM eHCA.
+
+With no command line parameters, ibsrpdm displays information about
+SRP targets in human-readable form:
+
+    # ibsrpdm
+    IO Unit Info:
+        port LID:        0009
+        port GID:        fe800000000000000005ad00000013e9
+        change ID:       73b0
+        max controllers: 0x01
+
+        controller[  1]
+            GUID:      0005ad00000013e7
+            vendor ID: 0005ad
+            device ID: 0005ad
+            IO class : 0100
+            ID:        Topspin SRP/FC TCA
+            service entries: 2
+                service[  0]: 0000000000000066 / SRP.T10:20030003BA27CC7A
+                service[  1]: 0000000000000066 / SRP.T10:20030003BA27CF53
+
+With the "-c" flag, ibsrpdm displays information in a form that can be
+written to the kernel SRP initiators add_target file to connect to the
+SRP targets.  For example:
+
+    # ibsrpdm -c
+    id_ext=20030003BA27CC7A,ioc_guid=0005ad00000013e7,dgid=fe800000000000000005ad00000013e9,pkey=ffff,service_id=0000000000000066
+    id_ext=20030003BA27CF53,ioc_guid=0005ad00000013e7,dgid=fe800000000000000005ad00000013e9,pkey=ffff,service_id=0000000000000066
+
+Given this, the command below will connect to the first target
+discovered from the first port of the local HCA device "mthca0":
+
+    # echo -n id_ext=20030003BA27CC7A,ioc_guid=0005ad00000013e7,dgid=fe800000000000000005ad00000013e9,pkey=ffff,service_id=0000000000000066 > /sys/class/infiniband_srp/srp-mthca0-1/add_target
+
+Reporting bugs
+==============
+
+Bugs should be reported to the OpenIB mailing list
+<openib-general@openib.org>.  In your bug report, please include:
+
+ * Information about your system:
+   - Linux distribution and version
+   - Linux kernel and version
+   - InfiniBand hardware and firmware version
+   - ... any other relevant information
+
+ * How to reproduce the bug.
+
+ * If the bug is a crash, the exact output printed out when the crash
+   occurred, including any kernel messages produced.
+
+Submitting patches
+==================
+
+Patches should also be submitted to the OpenIB mailing list
+<openib-general@openib.org>.  Please use unified diff form (the -u
+option to GNU diff), and include a good description of what your patch
+does and why it should be applied.  If your patch fixes a bug, please
+make sure to describe the bug and how your fix works.
+
+Please include a change to the ChangeLog file (in standard GNU
+changelog format) as part of your patch.
+
+Make sure that your contribution can be licensed under the same
+license as the original code you are patching, and that you have all
+necessary permissions to release your work.

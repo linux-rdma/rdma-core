@@ -1,0 +1,4 @@
+usr/include
+usr/lib/libibverbs*.a
+usr/lib/libibverbs*.so
+usr/share/man/man3

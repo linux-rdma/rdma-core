@@ -1,0 +1,2 @@
+usr/lib/libmthca-rdmav2.so		/usr/lib/libibverbs/
+etc/libibverbs.d/mthca.driver

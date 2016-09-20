@@ -1,0 +1,10 @@
+Description: Tell libibverbs to look in /usr/lib/libibverbs for plugin library
+Author: Roland Dreier <roland@digitalvampire.org>
+
+Index: libmlx4.git/mlx4.driver
+===================================================================
+--- libmlx4.git.orig/mlx4.driver	2011-07-06 01:27:34.521058451 -0700
++++ libmlx4.git/mlx4.driver	2011-07-06 01:27:47.051074172 -0700
+@@ -1 +1 @@
+-driver mlx4
++driver /usr/lib/libibverbs/libmlx4

@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ "$1" = "remove" ]; then
+    for ib_conf_file in /etc/infiniband/openib.conf /etc/rdma/rdma.conf; do
+        if [ -e $ib_conf_file ]; then
+            sed -i '/^# Enable SRP High Availability daemon/d' $ib_conf_file
+            sed -i '/^SRPHA_ENABLE/d' $ib_conf_file
+            sed -i '/^SRP_DAEMON_ENABLE/d' $ib_conf_file
+        fi
+    done
+fi

@@ -1,0 +1,48 @@
+Source: libmthca
+Priority: extra
+Maintainer: Roland Dreier <roland@digitalvampire.org>
+DM-Upload-Allowed: yes
+Build-Depends: debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.19), libibverbs-dev (>= 1.1.3)
+Standards-Version: 3.9.2
+Section: libs
+Homepage: http://www.openfabrics.org/
+
+Package: libmthca1
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libibverbs1 (>= 1.1.3)
+Description: Userspace driver for Mellanox InfiniBand HCAs
+ libmthca is a device-specific driver for Mellanox InfiniBand host
+ channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains the loadable plug-in.
+
+Package: libmthca-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends}, libmthca1 (= ${binary:Version})
+Description: Development files for the libmthca driver
+ libmthca is a device-specific driver for Mellanox InfiniBand host
+ channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains static versions of libmthca that may be linked
+ directly to an application, which may be useful for debugging.
+
+Package: libmthca1-dbg
+Section: debug
+Priority: extra
+Architecture: any
+Depends: ${misc:Depends}, libmthca1 (= ${binary:Version})
+Description: Debugging symbols for the libmthca driver
+ libmthca is a device-specific driver for Mellanox InfiniBand host
+ channel adapters (HCAs) for the libibverbs library.  This allows
+ userspace processes to access Mellanox HCA hardware directly with
+ low latency and low overhead.
+ .
+ This package contains the debugging symbols associated with
+ libmthca1. They will automatically be used by gdb for debugging
+ libmthca-related issues.

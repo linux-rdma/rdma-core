@@ -1,0 +1,66 @@
+2006-08-16  Ishai Rabinovitz <ishai@mellanox.com>
+
+	* srp_daemon: Add a new tool srp_daemon. srp_daemon check for 
+	new targets that join the fabric. It can also ask ib_srp module
+	to connect to these targets.
+
+	* Makefile.am: Was changed to call to srp_daemon Makefile.
+
+	* Configure.in: Was changed to include srp_daemon.
+
+2006-07-01  Roland Dreier  <rdreier@cisco.com>
+
+	* src/srp-dm.c (get_node): Use correct attribute ID to retrieve
+	NodeRecord -- old code incorrectly queried for a PortInfoRecord.
+
+2006-06-14  Roland Dreier  <rdreier@cisco.com>
+
+	* src/srp-dm.c: Add support for SMs that support queries of
+	PortInfo that match only specified bits in the CapabilityMask.
+	This will be more efficient on large fabrics, since only ports
+	with the IsDM bit will be queried, instead of retrieving the full
+	node record table for the full fabric.
+
+	* src/srp-dm.h: Change SRP_DM_ATTR_CLASS_PORT_INFO to
+	SRP_ATTR_CLASS_PORT_INFO, since it is not a per-class value.
+
+	* src/srp-dm.c: Change agent array into a single value, since only
+	the QP1 agent is ever used.
+
+2006-06-08  Roland Dreier  <rdreier@cisco.com>
+
+	* src/srp-dm.c (get_port_list): In some setups (eg Cisco SFS 3001
+	with an FC gateway), there will be switches with the IsDM bit set
+	on port 0.  So the initial get of NodeRecords must retrieve all
+	records, not just CA ports.
+
+2006-06-07  Roland Dreier  <rdreier@cisco.com>
+	* src/srp-dm.c (do_port): Use correct endianness when comparing
+	GUID against Topspin OUI.
+
+	* src/srp-dm.c (set_class_port_info): Trivial whitespace fixes.
+
+2006-05-29  Ishai Rabinovitz  <ishai@mellanox.co.il>
+
+	* src/srp-dm.c (main): The agent ID array is declared with 0
+	entries, which leads to corruption when it is filled in by
+	create_agent().  Fix that by declaring it with the correct number
+	of entries, 2.
+
+2006-04-10  Roland Dreier  <rdreier@cisco.com>
+
+	* configure.in: srptools no longer needs to check for libsysfs.
+
+	* src/srp-dm.c: Remove use of libsysfs -- just read directly to
+	get what we need.
+	Make functions static, since they are only used in one file.
+
+2006-01-18  Yael Shenhav  <yaeli@mellanox.co.il>
+
+	* src/ib_user_mad.h: Use __u16/__u32 instead of __be16/__be32,
+	since not all toolchains export __beXX types to userspace.
+
+2006-01-17  Roland Dreier  <rdreier@cisco.com>
+
+	* Release as version 0.03
+

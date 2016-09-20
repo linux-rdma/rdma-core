@@ -1,0 +1,2 @@
+* Thu Apr 21 2016 Dennis Dalessandro <dennis.dalessandro@intel.com> 0.5-23
+- Initial packaging for libhfi1 for Fedora.

@@ -1,0 +1,73 @@
+#                                               -*- Autoconf -*-
+# Process this file with autoconf to produce a configure script.
+
+AC_PREREQ(2.57)
+AC_INIT(srptools, 1.0.3, users@lists.openfabrics.org)
+AC_CONFIG_SRCDIR(srp_daemon/srp_daemon.c)
+AC_CONFIG_AUX_DIR(config)
+AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
+
+AC_ARG_ENABLE(libcheck, [  --disable-libcheck      do not test for presence of ib libraries],
+[       if test x$enableval = xno ; then
+                disable_libcheck=yes
+        fi
+])
+
+# resolve <sysconfdir> config dir.
+conf_dir_tmp1="`eval echo ${sysconfdir} | sed 's/^NONE/$ac_default_prefix/'`"
+SYS_CONFIG_DIR="`eval echo $conf_dir_tmp1`"
+
+AC_ARG_WITH([rdma_service],
+    AC_HELP_STRING([--with-rdma-service=name],
+                   [name of the RDMA service: "rdma" when using /etc/init.d/rdma to start RDMA services; "openibd" when using /etc/init.d/openibd to start RDMA services [default=openibd]]))
+AC_SUBST(RDMA_SERVICE, ${with_rdma_service:-openibd})
+
+if { rpm -q sles-release || rpm -q openSUSE-release; } >/dev/null 2>&1; then
+   default_start="2 3 5"
+   default_stop="0 1 4 6"
+else
+   default_start="2 3 4 5"
+   default_stop="0 1 6"
+fi
+AC_SUBST(DEFAULT_START, $default_start)
+AC_SUBST(DEFAULT_STOP, $default_stop)
+
+# Checks for programs.
+AC_PROG_CC
+AM_PROG_CC_C_O
+
+# Checks for libraries.
+if test "$disable_libcheck" != "yes"
+then
+AC_CHECK_LIB([ibumad], [umad_init], [],
+	AC_MSG_ERROR([srptools requires libibumad.]))
+AC_CHECK_LIB([ibverbs], [ibv_get_device_list], [],
+	AC_MSG_ERROR([srptools requires libibverbs.]))
+fi
+AC_CHECK_LIB([pthread], [pthread_self], [],
+	AC_MSG_ERROR([srptools requires libpthread.]))
+AC_CHECK_LIB([rt], [clock_gettime], [],
+	AC_MSG_ERROR([srptools requires librt.]))
+
+
+# Checks for header files.
+AC_HEADER_DIRENT
+AC_HEADER_STDC
+AC_CHECK_HEADERS(fcntl.h netinet/in.h stdint.h stdlib.h string.h sys/ioctl.h dnl
+                 sys/time.h unistd.h valgrind/drd.h)
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_C_INLINE
+AC_TYPE_SIZE_T
+
+# Checks for library functions.
+AC_FUNC_CLOSEDIR_VOID
+AC_PROG_GCC_TRADITIONAL
+AC_FUNC_MALLOC
+AC_FUNC_MEMCMP
+AC_CHECK_FUNCS([memset strdup strndup strtol strtoull])
+
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT(srptools.spec srp_daemon/srpd)

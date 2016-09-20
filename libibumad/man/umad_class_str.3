@@ -1,0 +1,45 @@
+.\" -*- nroff -*-
+.\"
+.TH UMAD_CLASS_STR 3  "Feb 15, 2013" "OpenIB" "OpenIB Programmer\'s Manual"
+.SH "NAME"
+umad_*_str \- class of functions to return string representations of enums
+
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/umad_str.h>
+.sp
+.BI "const char * umad_class_str(uint8_t mgmt_class)"
+.BI "const char * umad_method_str(uint8_t mgmt_class, uint8_t method)"
+.BI "const char * umad_attribute_str(uint8_t mgmt_class, be16_t attr_id)"
+
+.BI "const char * umad_common_mad_status_str(be16_t status)"
+.BI "const char * umad_sa_mad_status_str(be16_t status)"
+
+.SH "DESCRIPTION"
+
+.B "const char * umad_class_str(uint8_t mgmt_class)"
+Return string value of management class enum
+
+.B "const char * umad_method_str(uint8_t mgmt_class, uint8_t method)"
+Return string value of the method for the mgmt_class specified
+
+.B "const char * umad_attribute_str(uint8_t mgmt_class, be16_t attr_id)"
+Return string value of attribute specified in attr_id based on mgmt_class specified.
+
+.B "const char * umad_common_mad_status_str(be16_t status)"
+Return string value for common MAD status values
+
+.B "const char * umad_sa_mad_status_str(be16_t status)"
+Return string value for SA MAD status values
+
+
+.B NOTE:
+Not all classes are supported.
+
+.SH "RETURN VALUE"
+
+Returns a string representations of the fields specified.
+
+.SH "AUTHOR"
+.TP
+Ira Weiny <weiny2@llnl.gov>

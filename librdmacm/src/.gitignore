@@ -1,0 +1,9 @@
+# files produced by ./configure
+/.deps
+
+# files produced by make (libtool)
+/*.o
+/*.lo
+/*.la
+/.libs
+/.dirstamp

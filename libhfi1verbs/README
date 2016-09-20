@@ -1,0 +1,23 @@
+Introduction
+============
+
+libhfiverbs is a userspace driver for the Intel Host Fabric
+interface.
+
+It works as a plug-in module for libibverbs that allows programs to use
+Intel HFI's directly from userspace.  See the libibverbs package for
+more information.
+
+Using libhfiverbs
+===================
+
+libhfiverbs will be loaded and used automatically by programs linked
+with libibverbs.  The hfi kernel module must be loaded for Intel
+fabric devices to be detected and used.
+
+Supported Hardware
+==================
+
+libhfiverbs currently supports the following Intel Host fabric
+interfaces:
+	TBR
