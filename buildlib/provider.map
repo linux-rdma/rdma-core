@@ -1,0 +1,6 @@
+/* The providers do not export any symbols at all. Instead they rely on
+   attribute(constructor) to cause their init function to run at dlopen
+   time. */
+{
+	local: *;
+};

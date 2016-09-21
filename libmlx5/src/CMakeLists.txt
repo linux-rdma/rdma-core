@@ -1,0 +1,9 @@
+rdma_provider(mlx5
+  buf.c
+  cq.c
+  dbrec.c
+  mlx5.c
+  qp.c
+  srq.c
+  verbs.c
+)

@@ -1,0 +1,5 @@
+rdma_test_executable(umad_reg2 umad_reg2_compat.c)
+target_link_libraries(umad_reg2 ibumad)
+
+rdma_test_executable(umad_register2 umad_register2.c)
+target_link_libraries(umad_register2 ibumad)

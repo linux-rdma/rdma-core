@@ -1,0 +1,35 @@
+// FIXME: Remove this, ibverbs is included so we don't need to detect
+#define HAVE_IBV_DOFORK_RANGE 1
+#define HAVE_IBV_DONTFORK_RANGE 1
+#define HAVE_IBV_REGISTER_DRIVER 1
+#define HAVE_IBV_READ_SYSFS_FILE 1
+
+// FIXME: Remove this, we provide the netlink kernel headers ibacm needs
+#define HAVE_NETLINK 1
+
+// FIXME: Remove this, The cmake version hard-requires symbol version support
+#define HAVE_SYMVER_SUPPORT 1
+
+// FIXME: Remove this, The cmake version hard-requires new style CLOEXEC support
+#define STREAM_CLOEXEC "e"
+
+// FIXME: Remove this, cmake always provides a valgrind/memcheck.h
+#define HAVE_VALGRIND_MEMCHECK_H 1
+#define INCLUDE_VALGRIND 1
+
+#define SYSCONFDIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@"
+
+#define IBV_CONFIG_DIR "@CONFIG_DIR@"
+
+// FIXME This has been supported in compilers forever, we should just fail to build on such old systems.
+#cmakedefine HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE 1
+
+@SIZEOF_LONG_CODE@
+
+#if @NL_KIND@ == 3
+# define HAVE_LIBNL3 1
+#elif @NL_KIND@ == 1
+# define HAVE_LIBNL1 1
+#elif @NL_KIND@ == 0
+# define NRESOLVE_NEIGH 1
+#endif
