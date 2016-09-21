@@ -249,6 +249,7 @@ add_subdirectory(librxe/)
 # Binaries
 add_subdirectory(ibacm)
 if (NOT NL_KIND EQUAL 0)
+  add_subdirectory(iwpmd)
   add_subdirectory(iwpmd/src)
 endif()
 add_subdirectory(libibcm/examples)

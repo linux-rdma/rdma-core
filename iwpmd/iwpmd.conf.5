@@ -1,0 +1,20 @@
+.TH "iwpmd.conf" 5 "2016-09-16" "iwpmd.conf" "iwpmd.conf" iwpmd.conf
+.SH NAME
+iwpmd.conf \- iWARP port mapper config file.
+.SH SYNOPSIS
+.sp
+.nf
+\fIiwpmd.conf\fR
+.fi
+.SH "DESCRIPTION"
+The iwpmd.conf file provides configuration parameters for iwpmd.  Parameters
+are in the form: param=value, and one per line.  Parameters include:
+.P
+nl_sock_rbuf_size - The socket buffer size of the netlink socket used
+to communicate with the kernel port map client.  The default is 400MB.
+.SH "EXAMPLES"
+nl_sock_rbuf_size=419430400
+.SH "FILES"
+/etc/iwpmd.conf
+.SH "SEE ALSO"
+iwpmd(1)
