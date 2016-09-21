@@ -36,6 +36,7 @@ rdma_man_pages(
   ibv_poll_cq.3
   ibv_post_recv.3
   ibv_post_send.3
+  ibv_post_srq_ops.3
   ibv_post_srq_recv.3
   ibv_query_device.3
   ibv_query_device_ex.3

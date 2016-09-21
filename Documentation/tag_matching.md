@@ -166,3 +166,83 @@ ownership of the QP's Send Queue is passed to the TM-SRQ, which uses it to
 initiate rendezvous RDMA-Reads. Receive completions are reported to the
 TM-SRQ's CQ.
 
+
+### Managing TM receive buffers
+
+Untagged (unexpected) buffers are posted using the standard
+**ibv_post_srq_recv**() Verb.
+
+Tagged buffers are manipulated by a new **ibv_post_srq_ops**() Verb:
+
+```h
+int ibv_post_srq_ops(struct ibv_srq *srq, struct ibv_ops_wr *wr,
+                     struct ibv_ops_wr **bad_wr);
+```
+```h
+struct ibv_ops_wr {
+	 uint64_t		 wr_id;    /* User defined WR ID */
+	 /* Pointer to next WR in list, NULL if last WR */
+	 struct ibv_ops_wr	*next;
+	 enum ibv_ops_wr_opcode  opcode;   /* From enum ibv_ops_wr_opcode */
+	 int			 flags;    /* From enum ibv_ops_flags */
+	 struct {
+		  /* Number of unexpected messages
+		   * handled by SW */
+		  uint32_t unexpected_cnt;
+		  /* Input parameter for the DEL opcode
+		   * and output parameter for the ADD opcode */
+		  uint32_t handle;
+		  struct {
+			  /* WR ID for TM_RECV */
+			  uint64_t		  recv_wr_id;
+			  struct ibv_sge	 *sg_list;
+			  int			  num_sge;
+			  uint64_t		  tag;
+			  uint64_t		  mask;
+		  } add;
+	 } tm;
+};
+```
+
+The following opcodes are defined:
+
+Opcode **IBV_WR_TAG_ADD** - add a tagged buffer entry to the tag matching list.
+The input consists of an SGE list, a tag, a mask (matching parameters), and the
+latest unexpected message count. A handle that uniquely identifies the entry is
+returned upon success.
+
+Opcode **IBV_WR_TAG_DEL** - delete a tag entry.
+The input is an entry handle returned from a previous **IBV_WR_TAG_ADD**
+operation, and the latest unexpected message count.
+
+Note that the operation may fail if the associated tag was consumed by an
+incoming message. In this case **IBV_WC_TM_ERR** status will be returned in WC.
+
+Opcode **IBV_WR_TAG_SYNC** - report the number of unexpected messages handled by
+the SW.
+The input comprises only the unexpected message count. To reduce explicit
+synchronization to a minimum, all completions indicate when synchronization is
+necessary by setting the **IBV_WC_TM_SYNC_REQ** flag.
+
+**ibv_post_srq_ops**() operations are non-signaled by default. To request an
+explicit completion for a given operation, the standard **IBV_OPS_SIGNALED**
+flag must be set. The number of outstanding tag-manipulation operations must
+not exceed the **max_ops** capability.
+
+While **wr_id** identifies the tag manipulation operation itself, the
+**recv_wr_id** field is used to identify the tagged buffer in receive
+completions.
+
+
+### TM completion processing
+
+There are 2 types of TM completions: tag-manipulation and receive completions.
+
+Tag-manipulation operations generate the following completion opcodes:
+* **IBV_WC_TM_ADD** - completion of a tag addition operation
+* **IBV_WC_TM_DEL** - completion of a tag removal operation
+* **IBV_WC_TM_SYNC** - completion of a synchronization operation
+
+These completions are complemented by the **IBV_WC_TM_SYNC_REQ** flag, which
+indicates whether further HW synchronization is needed.
+

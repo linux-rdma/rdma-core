@@ -427,7 +427,8 @@ enum ibv_wc_status {
 	IBV_WC_INV_EEC_STATE_ERR,
 	IBV_WC_FATAL_ERR,
 	IBV_WC_RESP_TIMEOUT_ERR,
-	IBV_WC_GENERAL_ERR
+	IBV_WC_GENERAL_ERR,
+	IBV_WC_TM_ERR,
 };
 const char *ibv_wc_status_str(enum ibv_wc_status status);
 
@@ -445,7 +446,11 @@ enum ibv_wc_opcode {
  * receive by testing (opcode & IBV_WC_RECV).
  */
 	IBV_WC_RECV			= 1 << 7,
-	IBV_WC_RECV_RDMA_WITH_IMM
+	IBV_WC_RECV_RDMA_WITH_IMM,
+
+	IBV_WC_TM_ADD,
+	IBV_WC_TM_DEL,
+	IBV_WC_TM_SYNC,
 };
 
 enum {
@@ -486,7 +491,8 @@ enum ibv_wc_flags {
 	IBV_WC_GRH		= 1 << 0,
 	IBV_WC_WITH_IMM		= 1 << 1,
 	IBV_WC_IP_CSUM_OK	= 1 << IBV_WC_IP_CSUM_OK_SHIFT,
-	IBV_WC_WITH_INV         = 1 << 3
+	IBV_WC_WITH_INV		= 1 << 3,
+	IBV_WC_TM_SYNC_REQ	= 1 << 4,
 };
 
 struct ibv_wc {
@@ -1025,6 +1031,35 @@ struct ibv_recv_wr {
 	struct ibv_recv_wr     *next;
 	struct ibv_sge	       *sg_list;
 	int			num_sge;
+};
+
+enum ibv_ops_wr_opcode {
+	IBV_WR_TAG_ADD,
+	IBV_WR_TAG_DEL,
+	IBV_WR_TAG_SYNC,
+};
+
+enum ibv_ops_flags {
+	IBV_OPS_SIGNALED = 1 << 0,
+	IBV_OPS_TM_SYNC  = 1 << 1,
+};
+
+struct ibv_ops_wr {
+	uint64_t				wr_id;
+	struct ibv_ops_wr		       *next;
+	enum ibv_ops_wr_opcode			opcode;
+	int					flags;
+	struct {
+		uint32_t			unexpected_cnt;
+		uint32_t			handle;
+		struct {
+			uint64_t		recv_wr_id;
+			struct ibv_sge	       *sg_list;
+			int			num_sge;
+			uint64_t		tag;
+			uint64_t		mask;
+		} add;
+	} tm;
 };
 
 struct ibv_mw_bind {
@@ -1572,6 +1607,9 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*post_srq_ops)(struct ibv_srq *srq,
+			    struct ibv_ops_wr *op,
+			    struct ibv_ops_wr **bad_op);
 	int (*destroy_rwq_ind_table)(struct ibv_rwq_ind_table *rwq_ind_table);
 	struct ibv_rwq_ind_table *(*create_rwq_ind_table)(struct ibv_context *context,
 							  struct ibv_rwq_ind_table_init_attr *init_attr);
@@ -2068,6 +2106,20 @@ static inline int ibv_post_srq_recv(struct ibv_srq *srq,
 				    struct ibv_recv_wr **bad_recv_wr)
 {
 	return srq->context->ops.post_srq_recv(srq, recv_wr, bad_recv_wr);
+}
+
+static inline int ibv_post_srq_ops(struct ibv_srq *srq,
+				   struct ibv_ops_wr *op,
+				   struct ibv_ops_wr **bad_op)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(srq->context, post_srq_ops);
+	if (!vctx) {
+		*bad_op = op;
+		return ENOSYS;
+	}
+	return vctx->post_srq_ops(srq, op, bad_op);
 }
 
 /**
