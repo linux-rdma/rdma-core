@@ -52,7 +52,7 @@ int c4iw_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 {
 	struct ibv_query_device cmd;
 	uint64_t raw_fw_ver;
-	unsigned major, minor, sub_minor;
+	u8 major, minor, sub_minor, build;
 	int ret;
 
 	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd,
@@ -60,12 +60,13 @@ int c4iw_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 	if (ret)
 		return ret;
 
-	major = (raw_fw_ver >> 32) & 0xffff;
-	minor = (raw_fw_ver >> 16) & 0xffff;
-	sub_minor = raw_fw_ver & 0xffff;
+	major = (raw_fw_ver >> 24) & 0xff;
+	minor = (raw_fw_ver >> 16) & 0xff;
+	sub_minor = (raw_fw_ver >> 8) & 0xff;
+	build = raw_fw_ver & 0xff;
 
 	snprintf(attr->fw_ver, sizeof attr->fw_ver,
-		 "%d.%d.%d", major, minor, sub_minor);
+		 "%d.%d.%d.%d", major, minor, sub_minor, build);
 
 	return 0;
 }
