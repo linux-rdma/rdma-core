@@ -1,3 +1,4 @@
+/* Do not change this file without reading Documentation/versioning.md */
 IBVERBS_1.0 {
 	global:
 		ibv_get_device_list;

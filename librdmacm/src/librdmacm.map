@@ -1,3 +1,4 @@
+/* Do not change this file without reading Documentation/versioning.md */
 RDMACM_1.0 {
 	global:
 		rdma_create_event_channel;

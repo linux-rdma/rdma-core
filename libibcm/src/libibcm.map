@@ -1,3 +1,4 @@
+/* Do not change this file without reading Documentation/versioning.md */
 IBCM_1.0 {
 	global:
 		ib_cm_open_device;

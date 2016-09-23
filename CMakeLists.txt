@@ -32,8 +32,9 @@ else()
 endif()
 
 set(PACKAGE_NAME "RDMA")
-# FIXME versioning strategy?
-set(PACKAGE_VERSION "1")
+
+# See Documentation/versioning.md
+set(PACKAGE_VERSION "11")
 
 #-------------------------
 # Basic standard paths

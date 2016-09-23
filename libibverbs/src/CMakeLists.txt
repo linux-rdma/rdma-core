@@ -17,7 +17,9 @@ else()
   set(NEIGH "")
 endif()
 
-rdma_library(ibverbs libibverbs.map 1 1.0.0
+rdma_library(ibverbs libibverbs.map
+  # See Documentation/versioning.md
+  1 1.3.${PACKAGE_VERSION}
   cmd.c
   compat-1_0.c
   device.c

@@ -8,7 +8,9 @@ publish_headers(infiniband
   ../include/infiniband/ib.h
   )
 
-rdma_library(rdmacm librdmacm.map 1 1.0.0
+rdma_library(rdmacm librdmacm.map
+  # See Documentation/versioning.md
+  1 1.1.${PACKAGE_VERSION}
   acm.c
   addrinfo.c
   cma.c

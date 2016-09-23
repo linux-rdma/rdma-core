@@ -1,3 +1,4 @@
+/* Do not change this file without reading Documentation/versioning.md */
 IBUMAD_1.0 {
 	global:
 		umad_init;
