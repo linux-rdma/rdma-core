@@ -85,7 +85,6 @@
 #define IWPM_IFNAME_SIZE   16
 #define IWPM_IPADDR_SIZE   16
 
-#define IWPM_CONFIG_FILE "/etc/iwpmd.conf"
 #define IWPM_PARAM_NUM 1
 #define IWPM_PARAM_NAME_LEN 64
 

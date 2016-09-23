@@ -31,6 +31,7 @@
 #if !defined(OSD_H)
 #define OSD_H
 
+#include <config.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -46,7 +47,6 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
-#define ACM_CONF_DIR  IBACM_CONFIG_PATH
 #define ACM_ADDR_FILE "ibacm_addr.cfg"
 #define ACM_OPTS_FILE "ibacm_opts.cfg"
 

@@ -226,7 +226,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
 	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after Timeout of <retry timeout> seconds\n");
 	fprintf(stderr, "-l <tl_retry timeout>	Transport retry count before failing IO. should be in range [2..7], (default 2)\n");
-	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect (default: /etc/srp_daemon.conf\n");
+	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect (default: " SRP_DEAMON_CONFIG_FILE ")\n");
 	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extension\n");
@@ -1622,7 +1622,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->retry_timeout 		= 20;
 	conf->add_target_file  		= NULL;
 	conf->print_initiator_ext	= 0;
-	conf->rules_file		= "/etc/srp_daemon.conf";
+	conf->rules_file		= SRP_DEAMON_CONFIG_FILE;
 	conf->rules			= NULL;
 	conf->tl_retry_count		= 0;
 

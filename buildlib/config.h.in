@@ -17,9 +17,18 @@
 #define HAVE_VALGRIND_MEMCHECK_H 1
 #define INCLUDE_VALGRIND 1
 
-#define SYSCONFDIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@"
-
 #define IBV_CONFIG_DIR "@CONFIG_DIR@"
+#define RS_CONF_DIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/rsocket"
+#define IWPM_CONFIG_FILE "@CMAKE_INSTALL_FULL_SYSCONFDIR@/iwpmd.conf"
+
+#define SRP_DEAMON_CONFIG_FILE "@CMAKE_INSTALL_FULL_SYSCONFDIR@/srp_daemon.conf"
+
+#define ACM_CONF_DIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma"
+#define IBACM_LIB_PATH "@ACM_PROVIDER_DIR@"
+#define IBACM_BIN_PATH "@CMAKE_INSTALL_FULL_BINDIR@"
+#define IBACM_PID_FILE "@CMAKE_INSTALL_FULL_RUNDIR@/ibacm.pid"
+#define IBACM_PORT_FILE "@CMAKE_INSTALL_FULL_RUNDIR@/ibacm.port"
+#define IBACM_LOG_FILE "@CMAKE_INSTALL_FULL_LOCALSTATEDIR@/log/ibacm.log"
 
 // FIXME This has been supported in compilers forever, we should just fail to build on such old systems.
 #cmakedefine HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE 1

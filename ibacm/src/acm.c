@@ -226,9 +226,9 @@ static struct sa_data {
 static char *acme = IBACM_BIN_PATH "/ib_acme -A";
 static char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
 static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
-static char log_file[128] = "/var/log/ibacm.log";
+static char log_file[128] = IBACM_LOG_FILE;
 static int log_level = 0;
-static char lock_file[128] = "/var/run/ibacm.pid";
+static char lock_file[128] = IBACM_PID_FILE;
 static short server_port = 6125;
 static int support_ips_in_addr_cfg = 0;
 static char prov_lib_path[256] = IBACM_LIB_PATH;
@@ -578,7 +578,7 @@ static void acm_init_server(void)
 		atomic_init(&client_array[i].refcnt);
 	}
 
-	if (!(f = fopen("/var/run/ibacm.port", "w"))) {
+	if (!(f = fopen(IBACM_PORT_FILE, "w"))) {
 		acm_log(0, "notice - cannot publish ibacm port number\n");
 		return;
 	}

@@ -53,6 +53,16 @@ set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd"
 set(ACM_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/ibacm"
   CACHE PATH "Location for ibacm provider plugin shared library files.")
 
+# Allow the 'run' dir to be configurable, this historically has been /var/run, but
+# some systems now use /run/
+set(CMAKE_INSTALL_RUNDIR "var/run"
+  CACHE PATH "Location for runtime information, typically /var/run, or /run")
+if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_RUNDIR})
+  set(CMAKE_INSTALL_FULL_RUNDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_RUNDIR}")
+else()
+  set(CMAKE_INSTALL_FULL_RUNDIR "${CMAKE_INSTALL_RUNDIR}")
+endif()
+
 #-------------------------
 # Load CMake components
 set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")

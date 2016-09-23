@@ -120,7 +120,7 @@ static int ucma_set_server_port(void)
 {
 	FILE *f;
 
-	if ((f = fopen("/var/run/ibacm.port", "r" STREAM_CLOEXEC))) {
+	if ((f = fopen(IBACM_PORT_FILE, "r" STREAM_CLOEXEC))) {
 		fscanf(f, "%" SCNu16, &server_port);
 		fclose(f);
 	}

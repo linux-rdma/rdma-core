@@ -31,6 +31,7 @@
  *
  */
 
+#include "config.h"
 #include "iwarp_pm.h"
 
 const char iwpm_ulib_name [] = "iWarpPortMapperUser";
