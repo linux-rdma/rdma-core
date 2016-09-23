@@ -135,8 +135,17 @@ endfunction()
 # filename
 function(rdma_man_pages)
   foreach(I ${ARGN})
-    string(REGEX REPLACE "^.+[.](.+)$" "\\1" MAN_SECT ${I})
-    install(FILES ${I} DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/")
+    if ("${I}" MATCHES "\\.in$")
+      string(REGEX REPLACE "^.+[.](.+)\\.in$" "\\1" MAN_SECT "${I}")
+      string(REGEX REPLACE "^(.+)\\.in$" "\\1" BASE_NAME "${I}")
+      get_filename_component(BASE_NAME "${BASE_NAME}" NAME)
+      rdma_subst_install(FILES "${I}"
+	DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/"
+	RENAME "${BASE_NAME}")
+    else()
+      string(REGEX REPLACE "^.+[.](.+)$" "\\1" MAN_SECT "${I}")
+      install(FILES "${I}" DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/")
+    endif()
   endforeach()
 endfunction()
 
