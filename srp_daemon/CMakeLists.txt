@@ -1,5 +1,10 @@
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
 
+rdma_man_pages(
+  ibsrpdm.1
+  srp_daemon.1.in
+  )
+
 rdma_sbin_executable(srp_daemon
   srp_daemon.c
   srp_handle_traps.c
