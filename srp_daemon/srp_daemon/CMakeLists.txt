@@ -15,7 +15,9 @@ target_link_libraries(srp_daemon
 rdma_install_symlink(srp_daemon "${CMAKE_INSTALL_SBINDIR}/ibsrpdm")
 # FIXME: Why?
 rdma_install_symlink(srp_daemon "${CMAKE_INSTALL_SBINDIR}/run_srp_daemon")
-install(FILES srp_daemon.sh DESTINATION "${CMAKE_INSTALL_SBINDIR}")
+rdma_subst_install(FILES "srp_daemon.sh.in"
+  DESTINATION "${CMAKE_INSTALL_SBINDIR}"
+  RENAME "srp_daemon.sh")
 
 install(FILES logrotate-srp_daemon DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/logrotate.d" RENAME "srp_daemon")
 install(FILES rsyslog-srp_daemon.conf DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/rsyslog.d" RENAME "srp_daemon.conf")

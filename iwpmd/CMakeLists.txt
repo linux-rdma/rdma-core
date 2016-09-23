@@ -1,4 +1,4 @@
 rdma_man_pages(
-  iwpmd.1
-  iwpmd.conf.5
+  iwpmd.1.in
+  iwpmd.conf.5.in
   )

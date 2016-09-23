@@ -30,12 +30,12 @@
 
 shopt -s nullglob
 
-prog=/usr/sbin/srp_daemon
+prog=@CMAKE_INSTALL_FULL_SBINDIR@/srp_daemon
 params=$@
 ibdir="/sys/class/infiniband"
 rescan_interval=60
 pids=""
-pidfile=/var/run/srp_daemon.sh.pid
+pidfile=@CMAKE_INSTALL_FULL_RUNDIR@/srp_daemon.sh.pid
 mypid=$$
 
 trap_handler()

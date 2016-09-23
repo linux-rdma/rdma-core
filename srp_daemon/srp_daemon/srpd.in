@@ -4,7 +4,7 @@
 #
 # chkconfig: - 25 75
 # description: Starts/Stops InfiniBand SRP client service
-# config:	/etc/srp_daemon.conf
+# config:	@CMAKE_INSTALL_FULL_SYSCONFDIR@/srp_daemon.conf
 #
 ### BEGIN INIT INFO
 # Provides:       srpd
@@ -32,8 +32,8 @@ fi
 if [ -f $RDMA_CONFIG ]; then
     . $RDMA_CONFIG
 fi
-pidfile=/var/run/srp_daemon.sh.pid
-prog=/usr/sbin/srp_daemon.sh
+pidfile=@CMAKE_INSTALL_FULL_RUNDIR@/srp_daemon.sh.pid
+prog=@CMAKE_INSTALL_FULL_SBINDIR@/srp_daemon.sh
 
 checkpid() {
     [ -e "/proc/$1" ]

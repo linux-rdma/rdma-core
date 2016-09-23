@@ -19,7 +19,7 @@
 #	host route lookups.
 ### END INIT INFO
 
-pidfile=/var/run/ibacm.pid
+pidfile=@CMAKE_INSTALL_FULL_RUNDIR@/ibacm.pid
 subsys=/var/lock/subsys/ibacm
 
 daemon() { /sbin/daemon   ${1+"$@"}; }

@@ -15,6 +15,6 @@ to communicate with the kernel port map client.  The default is 400MB.
 .SH "EXAMPLES"
 nl_sock_rbuf_size=419430400
 .SH "FILES"
-/etc/iwpmd.conf
+@CMAKE_INSTALL_FULL_SYSCONFDIR@/iwpmd.conf
 .SH "SEE ALSO"
 iwpmd(1)

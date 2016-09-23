@@ -52,7 +52,7 @@ rdma_man_pages(
   man/ib_acme.1
   man/ibacm.1
   man/ibacm.7
-  man/ibacm_prov.7
+  man/ibacm_prov.7.in
   )
 
 # FIXME: update the .init.in

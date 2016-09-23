@@ -15,7 +15,7 @@ Each srp_daemon instance operates on one local port. Upon boot it performs a ful
 
 When a new machine joins the fabric, srp_daemon checks if it is a target. When there is a change of capabilities, srp_daemon checks if the machine has turned into a target. When there is an SA change or a timeout expiration, srp_daemon performs a full rescan of the fabric.
 
-For each target srp_daemon finds, it checks if it should connect to this target according to its rules (default rules file is /etc/srp_daemon.conf) and if it is already connected to the local port. If it should connect to this target and if it is not connected yet, srp_daemon can either print the target details or connect to it.
+For each target srp_daemon finds, it checks if it should connect to this target according to its rules (default rules file is @CMAKE_INSTALL_FULL_SYSCONFDIR@/srp_daemon.conf) and if it is already connected to the local port. If it should connect to this target and if it is not connected yet, srp_daemon can either print the target details or connect to it.
 
 .SH OPTIONS
 
@@ -57,7 +57,7 @@ Retries to connect to existing target after \fIretry-Timeout\fR seconds. If -R i
 .TP
 \fB\-f\fR \fIrules-File\fR
 Decide to which targets to connect according to the rules in \fIrules-File\fR. 
-If \fB\-f\fR is not specified, uses the default rules file /etc/srp_daemon.conf.
+If \fB\-f\fR is not specified, uses the default rules file @CMAKE_INSTALL_FULL_SYSCONFDIR@/srp_daemon.conf.
 Each line in the \fIrules-File\fR is a rule which can be either an allow connection or a disallow connection according to 
 the first character in the line (a or d accordingly). The rest of the line is values for id_ext, ioc_guid, dgid, 
 service_id. Please take a look at the example section for an example of the file. srp_daemon decide whether to allow or disallow each target according  to first rule that match the target. If no rule matches the target, the target is allowed and will be connected. In an allow rule it is possible to set attributes for the connection to the target. Supported attributes are max_cmd_per_lun and max_sect.
@@ -72,7 +72,7 @@ Perform \fIretries\fR retries on each send to MAD (default: 3 retries).
 New format - use also initiator_ext in the connection command.
 
 .SH FILES
-/etc/srp_daemon.conf -
+@CMAKE_INSTALL_FULL_SYSCONFDIR@/srp_daemon.conf -
 Default rules configuration file that indicates to which targets to connect. Can be overridden using the \fB\-f\fR \fIrules-File\fR option. 
 Each line in this file is a rule which can be either an allow connection or a disallow connection according to 
 the first character in the line (a or d accordingly). The rest of the line is values for id_ext, ioc_guid, dgid, 
@@ -86,7 +86,7 @@ srp_daemon -o -c -a		    (Prints the connection commands for the targets in the 
 srp_daemon -e -f rules.txt	    (Connects to the targets allowed in the rules file rules.txt)
 
 .nf
-An example for a rules configuration file (such as /etc/srp_daemon.conf)
+An example for a rules configuration file (such as @CMAKE_INSTALL_FULL_SYSCONFDIR@/srp_daemon.conf)
 ------------------------------------------------------------------------
 # Rules file example
 # This is a comment
