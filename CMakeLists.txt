@@ -282,8 +282,7 @@ add_subdirectory(libibcm/examples)
 add_subdirectory(libibumad/tests)
 add_subdirectory(libibverbs/examples)
 add_subdirectory(librdmacm/examples)
-add_subdirectory(srp_daemon/srp_daemon)
-add_subdirectory(srp_daemon/man)
+add_subdirectory(srp_daemon)
 
 rdma_finalize_libs()
 
