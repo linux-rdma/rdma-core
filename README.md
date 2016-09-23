@@ -6,7 +6,7 @@ following device nodes:
 
  - /dev/infiniband/uverbsX (libibverbs)
  - /dev/infiniband/rdma_cm (librdmacm)
- - /dev/infiniband/umadX (libumad)
+ - /dev/infiniband/umadX (libibumad)
  - /dev/infiniband/ucmX (libibcm, deprecated)
 
 The userspace component of the libibverbs RDMA kernel drivers are included
