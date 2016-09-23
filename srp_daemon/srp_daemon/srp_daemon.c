@@ -131,7 +131,7 @@ static int check_process_uniqueness(struct config_t *conf)
 	char path[256];
 	int fd;
 
-	snprintf(path, sizeof(path), "/var/tmp/srp_daemon_%s_%d",
+	snprintf(path, sizeof(path), SRP_DEAMON_LOCK_PREFIX "_%s_%d",
 		 conf->dev_name, conf->port_num);
 
 	if ((fd = open(path, O_CREAT|O_RDWR,
