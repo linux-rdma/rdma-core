@@ -522,9 +522,9 @@ int main(int argc, char **argv)
 		IBEXIT("Can't set M_Key fields on switch port != 0");
 
 	if (port_op != QUERY || changed)
-		printf("Initial %s PortInfo:\n", is_switch ? "Switch" : "CA");
+		printf("Initial %s PortInfo:\n", is_switch ? "Switch" : "CA/RT");
 	else
-		printf("%s PortInfo:\n", is_switch ? "Switch" : "CA");
+		printf("%s PortInfo:\n", is_switch ? "Switch" : "CA/RT");
 	espeed_cap = get_port_info(&portid, data, portnum, is_switch);
 	show_port_info(&portid, data, portnum, espeed_cap, is_switch);
 	if (is_mlnx_ext_port_info_supported(devid)) {
