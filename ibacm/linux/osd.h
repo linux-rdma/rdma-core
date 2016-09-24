@@ -46,6 +46,8 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
+#include "../../utils/math.h"
+
 #define ACM_CONF_DIR  IBACM_CONFIG_PATH
 #define ACM_ADDR_FILE "ibacm_addr.cfg"
 #define ACM_OPTS_FILE "ibacm_opts.cfg"
@@ -55,9 +57,6 @@
 
 #define container_of(ptr, type, field) \
 	((type *) ((void *) ptr - offsetof(type, field)))
-
-#define min(a, b) (a < b ? a : b)
-#define max(a, b) (a > b ? a : b)
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define htonll(x) bswap_64(x)

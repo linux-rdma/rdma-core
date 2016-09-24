@@ -38,6 +38,8 @@ set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
 set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
 # Libraries
 set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+# Common code
+set(COMMON_CODE utils)
 
 # Location to place provider .driver files
 set(CONFIG_DIR "${CMAKE_INSTALL_FULL_SYSCONFDIR}/libibverbs.d")
@@ -137,6 +139,10 @@ RDMA_AddOptCFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-Wl,--no-undef
 
 # Verify that GNU --version-script and asm(".symver") works
 find_package(LDSymVer REQUIRED)
+
+#-------------------------
+# Common code
+include_directories(${COMMON_CODE})
 
 #-------------------------
 # Find libraries
