@@ -46,7 +46,7 @@
 
 #include "ocrdma_main.h"
 #include "ocrdma_abi.h"
-#include "ocrdma_list.h"
+#include "../../utils/list.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -68,7 +68,7 @@ struct {
 	UCNA(EMULEX, GEN1), UCNA(EMULEX, GEN2), UCNA(EMULEX, GEN2_VF)
 };
 
-static DBLY_LIST_HEAD(ocrdma_dev_list);
+static LIST_HEAD(ocrdma_dev_list);
 
 static struct ibv_context *ocrdma_alloc_context(struct ibv_device *, int);
 static void ocrdma_free_context(struct ibv_context *);
@@ -222,7 +222,7 @@ found:
 	pthread_mutex_init(&dev->dev_lock, NULL);
 	pthread_spin_init(&dev->flush_q_lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = ocrdma_dev_ops;
-	INIT_DBLY_LIST_NODE(&dev->entry);
+	INIT_LIST_NODE(&dev->entry);
 	list_lock(&ocrdma_dev_list);
 	list_add_node_tail(&dev->entry, &ocrdma_dev_list);
 	list_unlock(&ocrdma_dev_list);
@@ -244,7 +244,7 @@ void ocrdma_register_driver(void)
 static __attribute__ ((destructor))
 void ocrdma_unregister_driver(void)
 {
-	struct ocrdma_list_node *cur, *tmp;
+	struct list_node *cur, *tmp;
 	struct ocrdma_device *dev;
 	list_lock(&ocrdma_dev_list);
 	list_for_each_node_safe(cur, tmp, &ocrdma_dev_list) {

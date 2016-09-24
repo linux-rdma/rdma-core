@@ -42,7 +42,7 @@
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 
-#include "ocrdma_list.h"
+#include "../../utils/list.h"
 
 #define ocrdma_err(format, arg...) printf(format, ##arg)
 
@@ -58,7 +58,7 @@ struct ocrdma_device {
 	struct ocrdma_qp **qp_tbl;
 	pthread_mutex_t dev_lock;
 	pthread_spinlock_t flush_q_lock;
-	struct ocrdma_list_node entry;
+	struct list_node entry;
 	int id;
 	int gen;
 	uint32_t wqe_size;
@@ -106,8 +106,8 @@ struct ocrdma_cq {
 	uint8_t deferred_arm;
 	uint8_t deferred_sol;
 	uint8_t first_arm;
-	struct ocrdma_list_head sq_head;
-	struct ocrdma_list_head rq_head;
+	struct list_head sq_head;
+	struct list_head rq_head;
 };
 
 enum {
@@ -203,8 +203,8 @@ struct ocrdma_qp {
 
 	enum ibv_qp_type qp_type;
 	enum ocrdma_qp_state state;
-	struct ocrdma_list_node sq_entry;
-	struct ocrdma_list_node rq_entry;
+	struct list_node sq_entry;
+	struct list_node rq_entry;
 	uint16_t id;
 	uint16_t rsvd;
 	uint32_t db_shift;
