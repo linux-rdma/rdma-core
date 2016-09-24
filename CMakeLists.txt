@@ -1,6 +1,7 @@
 # COPYRIGHT (c) 2016 Obsidian Research Corporation. See COPYING file
 # Run cmake as:
 #  mkdir build
+#  cd build
 #  cmake -GNinja ..
 #  ninja
 #
