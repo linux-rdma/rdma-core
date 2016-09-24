@@ -620,7 +620,7 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 			qp->dpp_cq = 0;
 		}
 	}
-	qp->state = IBV_QPS_RESET;
+	qp->state = OCRDMA_QPS_RST;
 	INIT_DBLY_LIST_NODE(&qp->sq_entry);
 	INIT_DBLY_LIST_NODE(&qp->rq_entry);
 	return &qp->ibv_qp;
@@ -1539,7 +1539,7 @@ int ocrdma_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 static enum ibv_wc_status ocrdma_to_ibwc_err(uint16_t status)
 {
-	enum ibv_wc_opcode ibwc_status = IBV_WC_GENERAL_ERR;
+	enum ibv_wc_status ibwc_status = IBV_WC_GENERAL_ERR;
 	switch (status) {
 	case OCRDMA_CQE_GENERAL_ERR:
 		ibwc_status = IBV_WC_GENERAL_ERR;

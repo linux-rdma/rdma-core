@@ -1,19 +1,5 @@
-This README is for userspace RDMA cm library.
+# Device files
 
-
-Building
-========
-To make this directory, run:
-./autogen.sh && ./configure && make && make install
-
-Typically the autogen and configure steps only need be done the first
-time unless configure.in or Makefile.am changes.
-
-Libraries are installed by default at /usr/local/lib.
-
-
-Device files
-============
 The userspace CMA uses a single device file regardless of the number
 of adapters or ports present.
 
@@ -31,17 +17,16 @@ or you can create it manually
   mknod /dev/infiniband/rdma_cm c 231 255
 
 
-Common issues
-=============
+# Common issues
 
 Using multiple interfaces
-	The librdmacm does support multiple interfaces.  To make use
+:	The librdmacm does support multiple interfaces.  To make use
 	of multiple interfaces, however, you need to instruct linux
 	to only send ARP reples on the interface targetted in the ARP
 	request.  This can be done using a command similar to the
 	following:
 
-	sysctl -w net.ipv4.conf.all.arp_ignore=2
+		sysctl -w net.ipv4.conf.all.arp_ignore=2
 
 	Without this change, it's possible for linux to resopnd to ARP
 	requests on a different interface (IP address) than the IP
@@ -50,12 +35,12 @@ Using multiple interfaces
 	device.
 
 Using loopback
-	The librdmacm relies on ARP to resolve IP address to RDMA
+:	The librdmacm relies on ARP to resolve IP address to RDMA
 	addresses.  To support loopback connections between different
 	ports on the same system, ARP must be enabled for local
 	resolution:
 
-	sysctl net.ipv4.conf.all.accept_local=1
+		sysctl net.ipv4.conf.all.accept_local=1
 
 	Without this setting, loopback connections may timeout
 	during address resolution.

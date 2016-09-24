@@ -471,13 +471,15 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	}
 
 	while (cqe_count < num_entries) {
-		entry->opcode = -1;
+		const enum ibv_wc_opcode INVAL_OP = -1;
+
+		entry->opcode = INVAL_OP;
 		cqe = &cqes[head];
 		cqe_misc =
 			le32_to_cpu(cqe->cqe_words[NES_NIC_CQE_MISC_IDX]);
 		if (cqe_misc & NES_NIC_CQE_VALID) {
 			memset(entry, 0, sizeof *entry);
-			entry->opcode = -1;
+			entry->opcode = INVAL_OP;
 			cqe->cqe_words[NES_NIC_CQE_MISC_IDX] = 0;
 			entry->status = (cqe_misc & NES_NIC_CQE_ERRV_MASK) >>
 						NES_NIC_CQE_ERRV_SHIFT;
@@ -523,7 +525,7 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 			if (++head >= cq_size)
 				head = 0;
 
-			if (entry->opcode != -1) {
+			if (entry->opcode != INVAL_OP) {
 				/* it is possible that no entry will be
 				  available */
 				cqe_count++;

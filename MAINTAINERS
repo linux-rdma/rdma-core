@@ -11,6 +11,7 @@ Descriptions of section entries:
            F:   providers/*     all files in drivers/net, but not below
            F:   */net/*         all files in "any top level directory"/net
            One pattern per line.  Multiple F: lines acceptable.
+        H: Historical authors
         L: Mailing list that is relevant to this area
         M: Designated reviewer: FullName <address@domain>
            These reviewers should be CCed on patches.
@@ -73,22 +74,30 @@ F:	libipathverbs/
 
 IWARP PORT MAPPER DAEMON (for iwarp kernel providers)
 M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
+H:	Robert Sharp <robert.o.sharp@intel.com>
 S:	Supported
 F:	iwpmd/
 
 LIBIBCM USERSPACE LIBRARY FOR IB CONNECTION MANAGEMENT (/dev/infiniband/ucmX)
 M:	Sean Hefty <sean.hefty@intel.com>
+H:	Libor Michalek <libor@topspin.com>
 S:	Obsolete
 F:	libibcm/
 
 LIBIBUMAD USERSPACE LIBRARY FOR SMP AND GMP MAD PROCESSING (/dev/infiniband/umadX)
 M:	Hal Rosenstock <hal@dev.mellanox.co.il>
+H:	Sasha Khapyorsky <sashak@voltaire.com>
+H:	Shahar Frank <shahar@voltaire.com>
 S:	Supported
 F:	libibumad/
 
 LIBIBVERBS USERSPACE LIBRARY FOR RDMA VERBS (/dev/infiniband/uverbsX)
 M:	Doug Ledford <dledford@redhat.com>
 M:	Yishai Hadas <yishaih@dev.mellanox.co.il>
+H:	Michael S. Tsirkin <mst@mellanox.co.il>
+H:	Sean Hefty <sean.hefty@intel.com>
+H:	Dotan Barak <dotanba@gmail.com>
+H:	Roland Dreier <roland@topspin.com>
 S:	Supported
 F:	libibverbs/
 
@@ -99,16 +108,20 @@ F:	librdmacm/
 
 MLX4 USERSPACE PROVIDER (for mlx4_ib.ko)
 M:	Yishai Hadas <yishaih@mellanox.com>
+H:	Roland Dreier <rolandd@cisco.com>
 S:	Supported
 F:	libmlx4/
 
 MLX5 USERSPACE PROVIDER (for mlx5_ib.ko)
 M:	Yishai Hadas <yishaih@mellanox.com>
+H:	Eli Cohen <eli@mellanox.com>
 S:	Supported
 F:	libmlx5/
 
 MTHCA USERSPACE PROVIDER (for ib_mthca.ko)
 M:	Vladimir Sokolovsky <vlad@mellanox.com>
+H:	Michael S. Tsirkin <mst@mellanox.co.il>
+H:	Roland Dreier <roland@topspin.com>
 S:	Supported
 F:	libmthca/
 

@@ -7,6 +7,10 @@ target_link_libraries(iwpmd
   ${NL_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   )
-# FIXME iwpmd_init init.d file
-# FIXME iwpmd.service systemd file
-# FIXME iwpmd.conf
+
+install(FILES "../iwpmd.service" DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}")
+install(FILES "../iwpmd_init"
+  DESTINATION "${CMAKE_INSTALL_INITDDIR}"
+  RENAME "iwpmd"
+  PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
+install(FILES "../iwpmd.conf" DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")

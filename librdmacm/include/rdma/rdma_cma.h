@@ -278,7 +278,7 @@ int rdma_create_ep(struct rdma_cm_id **id, struct rdma_addrinfo *res,
 
 /**
  * rdma_destroy_ep - Deallocates a communication identifier and qp.
- * @id: The communication identifer to destroy.
+ * @id: The communication identifier to destroy.
  * Description:
  *   Destroys the specified rdma_cm_id and any associated QP created
  *   on that id.
