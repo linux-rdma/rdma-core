@@ -55,9 +55,6 @@
 #define LIB_DESTRUCTOR __attribute__((destructor))
 #define CDECL_FUNC
 
-#define container_of(ptr, type, field) \
-	((type *) ((void *) ptr - offsetof(type, field)))
-
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define htonll(x) bswap_64(x)
 #else

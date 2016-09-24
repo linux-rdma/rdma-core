@@ -70,12 +70,6 @@ static inline uint64_t htonll(uint64_t x) { return x; }
 static inline uint64_t ntohll(uint64_t x) { return x; }
 #endif
 
-#ifndef container_of
-#define container_of(ptr, type, field) \
-	((type *) ((void *)ptr - offsetof(type, field)))
-#endif
-
-
 /*
  * Fast synchronization for low contention locking.
  */
