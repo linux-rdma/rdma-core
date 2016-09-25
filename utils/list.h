@@ -32,33 +32,33 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __OCRDMA_LIST_H__
-#define __OCRDMA_LIST_H__
+#ifndef _RDMA_LIST_H__
+#define _RDMA_LIST_H__
 
-struct ocrdma_list_node {
-	struct ocrdma_list_node *next, *prev;
+struct list_node {
+	struct list_node *next, *prev;
 };
 
-struct ocrdma_list_head {
-	struct ocrdma_list_node node;
+struct list_head {
+	struct list_node node;
 	pthread_mutex_t lock;
 };
 
-#define DBLY_LIST_HEAD_INIT(name) { { &(name.node), &(name.node) } , \
+#define LIST_HEAD_INIT(name) { { &(name.node), &(name.node) } , \
                         PTHREAD_MUTEX_INITIALIZER }
 
-#define DBLY_LIST_HEAD(name) \
-	struct ocrdma_list_head name = DBLY_LIST_HEAD_INIT(name); \
+#define LIST_HEAD(name) \
+	struct list_head name = LIST_HEAD_INIT(name);
 
-#define INIT_DBLY_LIST_NODE(ptr) do { \
+#define INIT_LIST_NODE(ptr) do { \
 	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
 } while (0)
 
-#define INIT_DBLY_LIST_HEAD(ptr) INIT_DBLY_LIST_NODE(ptr.node)
+#define INIT_LIST_HEAD(ptr) INIT_LIST_NODE(ptr.node)
 
-static inline void __list_add_node(struct ocrdma_list_node *new,
-				       struct ocrdma_list_node *prev,
-				       struct ocrdma_list_node *next)
+static inline void __list_add_node(struct list_node *new,
+				   struct list_node *prev,
+				   struct list_node *next)
 {
 	next->prev = new;
 	new->next = next;
@@ -66,20 +66,27 @@ static inline void __list_add_node(struct ocrdma_list_node *new,
 	prev->next = new;
 }
 
-static inline void list_add_node_tail(struct ocrdma_list_node *new,
-					  struct ocrdma_list_head *head)
+static inline void list_add_node_tail(struct list_node *new,
+				      struct list_head *head)
 {
 	__list_add_node(new, head->node.prev, &head->node);
 }
 
-static inline void __list_del_node(struct ocrdma_list_node *prev,
-				       struct ocrdma_list_node *next)
+static inline void list_add_node(struct list_node *new,
+				 struct list_head *head)
+{
+	__list_add_node(new, &head->node, head->node.next);
+}
+
+
+static inline void __list_del_node(struct list_node *prev,
+				   struct list_node *next)
 {
 	next->prev = prev;
 	prev->next = next;
 }
 
-static inline void list_del_node(struct ocrdma_list_node *entry)
+static inline void list_del_node(struct list_node *entry)
 {
 	__list_del_node(entry->prev, entry->next);
 	entry->next = entry->prev = 0;
@@ -93,12 +100,12 @@ static inline void list_del_node(struct ocrdma_list_node *entry)
 
 /**
  * list_for_each_node_safe	-	iterate over a list safe against removal of list entry
- * @pos:	the &struct ocrdma_list_head to use as a loop counter.
- * @n:		another &struct ocrdma_list_head to use as temporary storage
+ * @pos:	the &struct list_head to use as a loop counter.
+ * @n:		another &struct list_head to use as temporary storage
  * @head:	the head for your list.
  */
 #define list_for_each_node_safe(pos, n, head) \
 	for (pos = (head)->node.next, n = pos->next; pos != &((head)->node); \
 		pos = n, n = pos->next)
 
-#endif				/* __OCRDMA_LIST_H__ */
+#endif /* _RDMA_LIST_H_ */

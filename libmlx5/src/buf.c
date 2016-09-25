@@ -259,16 +259,17 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 			  size_t size, int page_size)
 {
 	int found = 0;
-	LIST_HEAD(slist);
 	int nchunk;
 	struct mlx5_hugetlb_mem *hmem;
+	struct list_node *tmp, *cur;
 	int ret;
 
 	buf->length = align(size, MLX5_Q_CHUNK_SIZE);
 	nchunk = buf->length / MLX5_Q_CHUNK_SIZE;
 
 	mlx5_spin_lock(&mctx->hugetlb_lock);
-	list_for_each_entry(hmem, &mctx->hugetlb_list, list) {
+	list_for_each_node_safe(cur, tmp, &mctx->hugetlb_list) {
+		hmem = list_node(cur, struct mlx5_hugetlb_mem, entry);
 		if (bitmap_avail(&hmem->bitmap)) {
 			buf->base = bitmap_alloc_range(&hmem->bitmap, nchunk, 1);
 			if (buf->base != -1) {
@@ -297,9 +298,9 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 
 		mlx5_spin_lock(&mctx->hugetlb_lock);
 		if (bitmap_avail(&hmem->bitmap))
-			list_add(&hmem->list, &mctx->hugetlb_list);
+			list_add_node(&hmem->entry, &mctx->hugetlb_list);
 		else
-			list_add_tail(&hmem->list, &mctx->hugetlb_list);
+			list_add_node_tail(&hmem->entry, &mctx->hugetlb_list);
 		mlx5_spin_unlock(&mctx->hugetlb_lock);
 	}
 
@@ -318,7 +319,7 @@ out_fork:
 	mlx5_spin_lock(&mctx->hugetlb_lock);
 	bitmap_free_range(&hmem->bitmap, buf->base, nchunk);
 	if (bitmap_empty(&hmem->bitmap)) {
-		list_del(&hmem->list);
+		list_del_node(&hmem->entry);
 		mlx5_spin_unlock(&mctx->hugetlb_lock);
 		free_huge_mem(hmem);
 	} else
@@ -335,7 +336,7 @@ static void free_huge_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 	mlx5_spin_lock(&ctx->hugetlb_lock);
 	bitmap_free_range(&buf->hmem->bitmap, buf->base, nchunk);
 	if (bitmap_empty(&buf->hmem->bitmap)) {
-		list_del(&buf->hmem->list);
+		list_del_node(&buf->hmem->entry);
 		mlx5_spin_unlock(&ctx->hugetlb_lock);
 		free_huge_mem(buf->hmem);
 	} else

@@ -49,13 +49,7 @@
 
 #include "pingpong.h"
 
-#ifndef max
-#define max(x, y) (((x) > (y)) ? (x) : (y))
-#endif
-
-#ifndef min
-#define min(x, y) (((x) < (y)) ? (x) : (y))
-#endif
+#include "../../utils/math.h"
 
 enum {
 	PINGPONG_RECV_WRID = 1,

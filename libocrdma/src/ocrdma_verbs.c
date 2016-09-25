@@ -51,7 +51,7 @@
 
 #include "ocrdma_main.h"
 #include "ocrdma_abi.h"
-#include "ocrdma_list.h"
+#include "../../utils/list.h"
 
 static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
 			      int solicited, uint32_t num_cqe);
@@ -307,8 +307,8 @@ static struct ibv_cq *ocrdma_create_cq_common(struct ibv_context *context,
 		ocrdma_ring_cq_db(cq, 0, 0, 0);
 	}
 	cq->ibv_cq.cqe = cqe;
-	INIT_DBLY_LIST_HEAD(&cq->sq_head);
-	INIT_DBLY_LIST_HEAD(&cq->rq_head);
+	INIT_LIST_HEAD(&cq->sq_head);
+	INIT_LIST_HEAD(&cq->rq_head);
 	return &cq->ibv_cq;
 cq_err2:
 	(void)ibv_cmd_destroy_cq(&cq->ibv_cq);
@@ -621,8 +621,8 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 		}
 	}
 	qp->state = OCRDMA_QPS_RST;
-	INIT_DBLY_LIST_NODE(&qp->sq_entry);
-	INIT_DBLY_LIST_NODE(&qp->rq_entry);
+	INIT_LIST_NODE(&qp->sq_entry);
+	INIT_LIST_NODE(&qp->rq_entry);
 	return &qp->ibv_qp;
 
 map_err:
@@ -663,7 +663,7 @@ static int ocrdma_is_qp_in_sq_flushlist(struct ocrdma_cq *cq,
 					struct ocrdma_qp *qp)
 {
 	struct ocrdma_qp *list_qp;
-	struct ocrdma_list_node *cur, *tmp;
+	struct list_node *cur, *tmp;
 	int found = 0;
 	list_for_each_node_safe(cur, tmp, &cq->sq_head) {
 		list_qp = list_node(cur, struct ocrdma_qp, sq_entry);
@@ -679,7 +679,7 @@ static int ocrdma_is_qp_in_rq_flushlist(struct ocrdma_cq *cq,
 					struct ocrdma_qp *qp)
 {
 	struct ocrdma_qp *list_qp;
-	struct ocrdma_list_node *cur, *tmp;
+	struct list_node *cur, *tmp;
 	int found = 0;
 	list_for_each_node_safe(cur, tmp, &cq->rq_head) {
 		list_qp = list_node(cur, struct ocrdma_qp, rq_entry);
@@ -2034,7 +2034,7 @@ int ocrdma_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 	int cqes_to_poll = num_entries;
 	int num_os_cqe = 0, err_cqes = 0;
 	struct ocrdma_qp *qp;
-	struct ocrdma_list_node *cur, *tmp;
+	struct list_node *cur, *tmp;
 
 	cq = get_ocrdma_cq(ibcq);
 	pthread_spin_lock(&cq->cq_lock);
