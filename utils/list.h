@@ -48,7 +48,7 @@ struct list_head {
                         PTHREAD_MUTEX_INITIALIZER }
 
 #define LIST_HEAD(name) \
-	struct list_head name = LIST_HEAD_INIT(name); \
+	struct list_head name = LIST_HEAD_INIT(name);
 
 #define INIT_LIST_NODE(ptr) do { \
 	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
@@ -71,6 +71,13 @@ static inline void list_add_node_tail(struct list_node *new,
 {
 	__list_add_node(new, head->node.prev, &head->node);
 }
+
+static inline void list_add_node(struct list_node *new,
+				 struct list_head *head)
+{
+	__list_add_node(new, &head->node, head->node.next);
+}
+
 
 static inline void __list_del_node(struct list_node *prev,
 				   struct list_node *next)

@@ -39,10 +39,10 @@
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 #include "mlx5-abi.h"
-#include "list.h"
 #include "bitmap.h"
 
 #include "../../utils/math.h"
+#include "../../utils/list.h"
 
 #ifdef __GNUC__
 #define likely(x)	__builtin_expect((x), 1)
@@ -355,7 +355,7 @@ struct mlx5_hugetlb_mem {
 	int			shmid;
 	void		       *shmaddr;
 	struct mlx5_bitmap	bitmap;
-	struct list_head	list;
+	struct list_node	entry;
 };
 
 struct mlx5_buf {
