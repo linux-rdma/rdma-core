@@ -1615,6 +1615,14 @@ static int get_filters_size(struct ibv_flow_spec *ib_spec,
 		ib_spec_filter_mask = (void *)&ib_spec->ipv4_ext.val +
 			*ib_filter_size;
 		break;
+	case IBV_FLOW_SPEC_IPV6:
+		min_filter_size =
+			offsetof(struct ibv_kern_ipv6_filter, hop_limit) +
+			sizeof(kern_spec->ipv6.mask.hop_limit);
+		curr_kern_filter_size = min_filter_size;
+		ib_spec_filter_mask = (void *)&ib_spec->ipv6.val +
+			*ib_filter_size;
+		break;
 	default:
 		return EINVAL;
 	}
@@ -1669,6 +1677,19 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->ipv4_ext.val, &ib_spec->ipv4_ext.val,
 		       kern_filter_size);
 		memcpy(&kern_spec->ipv4_ext.mask, (void *)&ib_spec->ipv4_ext.val
+		       + ib_filter_size, kern_filter_size);
+		break;
+	case IBV_FLOW_SPEC_IPV6:
+		ret = get_filters_size(ib_spec, kern_spec,
+				       &ib_filter_size, &kern_filter_size,
+				       IBV_FLOW_SPEC_IPV6);
+		if (ret)
+			return ret;
+
+		kern_spec->ipv6.size = sizeof(struct ibv_kern_spec_ipv6);
+		memcpy(&kern_spec->ipv6.val, &ib_spec->ipv6.val,
+		       kern_filter_size);
+		memcpy(&kern_spec->ipv6.mask, (void *)&ib_spec->ipv6.val
 		       + ib_filter_size, kern_filter_size);
 		break;
 	case IBV_FLOW_SPEC_TCP:

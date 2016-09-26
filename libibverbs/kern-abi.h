@@ -869,6 +869,24 @@ struct ibv_kern_spec_ipv4_ext {
 	struct ibv_kern_ipv4_ext_filter mask;
 };
 
+struct ibv_kern_ipv6_filter {
+	__u8  src_ip[16];
+	__u8  dst_ip[16];
+	__u32 flow_label;
+	__u8  next_hdr;
+	__u8  traffic_class;
+	__u8  hop_limit;
+	__u8  reserved;
+};
+
+struct ibv_kern_spec_ipv6 {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_ipv6_filter val;
+	struct ibv_kern_ipv6_filter mask;
+};
+
 struct ibv_kern_tcp_udp_filter {
 	__u16 dst_port;
 	__u16 src_port;
@@ -894,8 +912,8 @@ struct ibv_kern_spec {
 		struct ibv_kern_spec_ipv4 ipv4;
 		struct ibv_kern_spec_ipv4_ext ipv4_ext;
 		struct ibv_kern_spec_tcp_udp tcp_udp;
+		struct ibv_kern_spec_ipv6 ipv6;
 	};
-
 };
 
 struct ibv_kern_flow_attr {
