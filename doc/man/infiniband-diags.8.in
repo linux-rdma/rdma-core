@@ -402,7 +402,7 @@ See: ibportstate, ibaddr
 See: ibtracert, ibroute, dump_lfts, dump_mfts, check_lft_balance, ibfindnodesusing
 .UNINDENT
 .UNINDENT
-.SS Peformance counters
+.SS Performance counters
 .INDENT 0.0
 .INDENT 3.5
 See: ibqueryerrors, perfquery

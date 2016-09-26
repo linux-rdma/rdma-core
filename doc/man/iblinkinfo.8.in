@@ -88,7 +88,7 @@ Examples:
 .sp
 \fB\-\-switch, \-S <port_guid>\fP same as "\-G". (provided only for backward compatibility)
 .sp
-How much of the scan to be printed can be controled with the following.
+How much of the scan to be printed can be controlled with the following.
 .sp
 \fB\-\-all, \-a\fP
 Print all nodes found in a partial fabric scan.  Normally a
@@ -133,7 +133,7 @@ Filter downports indicated in a ibnetdiscover cache.  If a port was previously
 indicated as down in the specified cache, and is still down, do not output it in the
 resulting output.  This option may be particularly useful for environments
 where switches are not fully populated, thus much of the default iblinkinfo
-info is considered unuseful.  See \fBibnetdiscover\fP for information on caching
+info is considered useless.  See \fBibnetdiscover\fP for information on caching
 ibnetdiscover output.
 .SS Port Selection flags
 .\" Define the common option -C

@@ -77,7 +77,7 @@ using a QoS aware routing engine as it can cause a credit deadlock.
 .sp
 \fBCAUTION\fP clearing data or error counters will occur regardless of if they
 are printed or not.  See \fB\-\-counters\fP and \fB\-\-data\fP for details on
-controling which counters are printed.
+controlling which counters are printed.
 .sp
 \fB\-\-details\fP include receive error and transmit discard details
 .sp
