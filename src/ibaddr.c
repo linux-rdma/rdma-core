@@ -83,7 +83,7 @@ static int ib_resolve_addr(ib_portid_t * portid, int portnum, int show_lid,
 		printf("LID start 0x%x end 0x%x", portid->lid,
 		       portid->lid + (1 << lmc) - 1);
 	else if (show_lid < 0)
-		printf("LID start %d end %d", portid->lid,
+		printf("LID start %u end %u", portid->lid,
 		       portid->lid + (1 << lmc) - 1);
 	printf("\n");
 	return 0;
