@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I config
 SUBDIRS = .
 
-INCLUDES = -I$(srcdir)/include -I$(includedir)
+AM_CPPFLAGS = -I$(srcdir)/include -I$(includedir)
 
 lib_LTLIBRARIES = libibmad.la
 
