@@ -52,6 +52,7 @@ F:	libcxgb4/
 
 HF1 USERSPACE PROVIDER (for hf1.ko)
 M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
+M:	Dennis Dalessandro <dennis.dalessandro@intel.com>
 S:	Supported
 L:	intel-opa@lists.01.org
 F:	libhfi1verbs/
@@ -68,8 +69,9 @@ F:	ibacm/*
 
 IPATH/QIB USERSPACE PROVIDER (for ib_qib.ko)
 M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
+M:	Dennis Dalessandro <dennis.dalessandro@intel.com>
+L:	infinipath <infinipath@intel.com>
 S:	Supported
-L:	ibsupport@intel.com
 F:	libipathverbs/
 
 IWARP PORT MAPPER DAEMON (for iwarp kernel providers)
