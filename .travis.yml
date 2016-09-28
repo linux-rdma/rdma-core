@@ -1,0 +1,28 @@
+language: c
+# We need at least cmake 2.12, this means we need to use trusty.
+# Precise's glibc, etc predates what we are willing to support.
+# No reason for sudo.
+sudo: required
+dist: trusty
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - build-essential
+      - cmake
+      - debhelper
+      - gcc
+      - gcc-6
+      - libnl-3-dev
+      - libnl-route-3-dev
+      - make
+      - ninja-build
+      - pkg-config
+      - python
+      - valgrind
+script:
+  - mkdir build
+  - cd build
+  - CC=gcc-6 cmake -GNinja ..
+  - ninja
