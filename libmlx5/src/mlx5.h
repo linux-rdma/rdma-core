@@ -39,7 +39,7 @@
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 #include "mlx5-abi.h"
-#include "list.h"
+#include <ccan/list.h>
 #include "bitmap.h"
 #include <ccan/minmax.h>
 
@@ -354,7 +354,7 @@ struct mlx5_hugetlb_mem {
 	int			shmid;
 	void		       *shmaddr;
 	struct mlx5_bitmap	bitmap;
-	struct list_head	list;
+	struct list_node	entry;
 };
 
 struct mlx5_buf {
