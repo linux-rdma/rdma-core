@@ -53,9 +53,6 @@
 #define LIB_DESTRUCTOR __attribute__((destructor))
 #define CDECL_FUNC
 
-#define container_of(ptr, type, field) \
-	((type *) ((void *) ptr - offsetof(type, field)))
-
 #define min(a, b) (a < b ? a : b)
 #define max(a, b) (a > b ? a : b)
 

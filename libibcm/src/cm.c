@@ -121,11 +121,6 @@ struct cm_id_private {
 	pthread_mutex_t mut;
 };
 
-#ifndef container_of
-#define container_of(ptr, type, field) \
-	((type *) ((void *)ptr - offsetof(type, field)))
-#endif
-
 static int check_abi_version(void)
 {
 	char value[8];
