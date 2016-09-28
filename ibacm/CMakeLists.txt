@@ -18,7 +18,7 @@ rdma_sbin_executable(ibacm
   src/acm.c
   src/acm_util.c
   )
-target_link_libraries(ibacm
+target_link_libraries(ibacm LINK_PRIVATE
   ibverbs
   ibumad
   ${CMAKE_THREAD_LIBS_INIT}
@@ -32,7 +32,7 @@ add_library(ibacmp MODULE
   prov/acmp/src/acmp.c
   )
 rdma_set_library_map(ibacmp "prov/acmp/src/libibacmp.map")
-target_link_libraries(ibacmp
+target_link_libraries(ibacmp LINK_PRIVATE
   ibacm
   ibverbs
   ibumad
@@ -48,7 +48,7 @@ rdma_executable(ib_acme
   src/libacm.c
   src/parse.c
   )
-target_link_libraries(ib_acme
+target_link_libraries(ib_acme LINK_PRIVATE
   ibverbs
   )
 target_compile_definitions(ib_acme PRIVATE "-DACME_PRINTS")

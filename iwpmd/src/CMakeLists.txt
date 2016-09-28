@@ -3,7 +3,7 @@ rdma_executable(iwpmd
   iwarp_pm_helper.c
   iwarp_pm_server.c
   )
-target_link_libraries(iwpmd
+target_link_libraries(iwpmd LINK_PRIVATE
   ${NL_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   )
