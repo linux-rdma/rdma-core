@@ -51,7 +51,7 @@
 
 #include "ocrdma_main.h"
 #include "ocrdma_abi.h"
-#include "ocrdma_list.h"
+#include <ccan/list.h>
 
 static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
 			      int solicited, uint32_t num_cqe);
@@ -307,8 +307,8 @@ static struct ibv_cq *ocrdma_create_cq_common(struct ibv_context *context,
 		ocrdma_ring_cq_db(cq, 0, 0, 0);
 	}
 	cq->ibv_cq.cqe = cqe;
-	INIT_DBLY_LIST_HEAD(&cq->sq_head);
-	INIT_DBLY_LIST_HEAD(&cq->rq_head);
+	list_head_init(&cq->sq_head);
+	list_head_init(&cq->rq_head);
 	return &cq->ibv_cq;
 cq_err2:
 	(void)ibv_cmd_destroy_cq(&cq->ibv_cq);
@@ -621,8 +621,8 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 		}
 	}
 	qp->state = OCRDMA_QPS_RST;
-	INIT_DBLY_LIST_NODE(&qp->sq_entry);
-	INIT_DBLY_LIST_NODE(&qp->rq_entry);
+	list_node_init(&qp->sq_entry);
+	list_node_init(&qp->rq_entry);
 	return &qp->ibv_qp;
 
 map_err:
@@ -663,10 +663,9 @@ static int ocrdma_is_qp_in_sq_flushlist(struct ocrdma_cq *cq,
 					struct ocrdma_qp *qp)
 {
 	struct ocrdma_qp *list_qp;
-	struct ocrdma_list_node *cur, *tmp;
+	struct ocrdma_qp *list_qp_tmp;
 	int found = 0;
-	list_for_each_node_safe(cur, tmp, &cq->sq_head) {
-		list_qp = list_node(cur, struct ocrdma_qp, sq_entry);
+	list_for_each_safe(&cq->sq_head, list_qp, list_qp_tmp, sq_entry) {
 		if (qp == list_qp) {
 			found = 1;
 			break;
@@ -679,10 +678,9 @@ static int ocrdma_is_qp_in_rq_flushlist(struct ocrdma_cq *cq,
 					struct ocrdma_qp *qp)
 {
 	struct ocrdma_qp *list_qp;
-	struct ocrdma_list_node *cur, *tmp;
+	struct ocrdma_qp *list_qp_tmp;
 	int found = 0;
-	list_for_each_node_safe(cur, tmp, &cq->rq_head) {
-		list_qp = list_node(cur, struct ocrdma_qp, rq_entry);
+	list_for_each_safe(&cq->rq_head, list_qp, list_qp_tmp, rq_entry) {
 		if (qp == list_qp) {
 			found = 1;
 			break;
@@ -708,11 +706,11 @@ static void ocrdma_del_flush_qp(struct ocrdma_qp *qp)
 	pthread_spin_lock(&dev->flush_q_lock);
 	found = ocrdma_is_qp_in_sq_flushlist(qp->sq_cq, qp);
 	if (found)
-		list_del_node(&qp->sq_entry);
+		list_del(&qp->sq_entry);
 	if (!qp->srq) {
 		found = ocrdma_is_qp_in_rq_flushlist(qp->rq_cq, qp);
 		if (found)
-			list_del_node(&qp->rq_entry);
+			list_del(&qp->rq_entry);
 	}
 	pthread_spin_unlock(&dev->flush_q_lock);
 }
@@ -724,11 +722,11 @@ static void ocrdma_flush_qp(struct ocrdma_qp *qp)
 	pthread_spin_lock(&qp->dev->flush_q_lock);
 	found = ocrdma_is_qp_in_sq_flushlist(qp->sq_cq, qp);
 	if (!found)
-		list_add_node_tail(&qp->sq_entry, &qp->sq_cq->sq_head);
+		list_add_tail(&qp->sq_cq->sq_head, &qp->sq_entry);
 	if (!qp->srq) {
 		found = ocrdma_is_qp_in_rq_flushlist(qp->rq_cq, qp);
 		if (!found)
-			list_add_node_tail(&qp->rq_entry, &qp->rq_cq->rq_head);
+			list_add_tail(&qp->rq_cq->rq_head, &qp->rq_entry);
 	}
 	pthread_spin_unlock(&qp->dev->flush_q_lock);
 }
@@ -2034,7 +2032,7 @@ int ocrdma_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 	int cqes_to_poll = num_entries;
 	int num_os_cqe = 0, err_cqes = 0;
 	struct ocrdma_qp *qp;
-	struct ocrdma_list_node *cur, *tmp;
+	struct ocrdma_qp *qp_tmp;
 
 	cq = get_ocrdma_cq(ibcq);
 	pthread_spin_lock(&cq->cq_lock);
@@ -2045,8 +2043,7 @@ int ocrdma_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 	if (cqes_to_poll) {
 		wc = wc + num_os_cqe;
 		pthread_spin_lock(&cq->dev->flush_q_lock);
-		list_for_each_node_safe(cur, tmp, &cq->sq_head) {
-			qp = list_node(cur, struct ocrdma_qp, sq_entry);
+		list_for_each_safe(&cq->sq_head, qp, qp_tmp, sq_entry) {
 			if (cqes_to_poll == 0)
 				break;
 			err_cqes = ocrdma_add_err_cqe(cq, cqes_to_poll, qp, wc);
