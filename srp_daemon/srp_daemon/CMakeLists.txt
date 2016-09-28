@@ -5,7 +5,7 @@ rdma_sbin_executable(srp_daemon
   srp_handle_traps.c
   srp_sync.c
   )
-target_link_libraries(srp_daemon
+target_link_libraries(srp_daemon LINK_PRIVATE
   ibverbs
   ibumad
   ${RT_LIBRARIES}
