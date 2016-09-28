@@ -82,7 +82,7 @@ static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
 		return IBV_WC_SUCCESS;
 
 	for (i = 0; i < max; ++i) {
-		copy = min(*size, ntohl(scat->byte_count));
+		copy = min_t(long, *size, ntohl(scat->byte_count));
 		memcpy((void *)(unsigned long)ntohll(scat->addr), buf, copy);
 		*size -= copy;
 		if (*size == 0)
@@ -364,7 +364,7 @@ static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
 					  struct mlx5_wqe_eth_seg *eseg,
 					  struct mlx5_sg_copy_ptr *sg_copy_ptr)
 {
-	int inl_hdr_size = MLX5_ETH_L2_INLINE_HEADER_SIZE;
+	uint32_t inl_hdr_size = MLX5_ETH_L2_INLINE_HEADER_SIZE;
 	int inl_hdr_copy_size = 0;
 	int j = 0;
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp;

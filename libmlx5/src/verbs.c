@@ -728,10 +728,11 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 
 static int sq_overhead(enum ibv_qp_type	qp_type)
 {
-	int size = 0;
-	size_t mw_bind_size = sizeof(struct mlx5_wqe_umr_ctrl_seg) +
-			      sizeof(struct mlx5_wqe_mkey_context_seg) +
-			      max(sizeof(struct mlx5_wqe_umr_klm_seg), 64);
+	size_t size = 0;
+	size_t mw_bind_size =
+	    sizeof(struct mlx5_wqe_umr_ctrl_seg) +
+	    sizeof(struct mlx5_wqe_mkey_context_seg) +
+	    max_t(size_t, sizeof(struct mlx5_wqe_umr_klm_seg), 64);
 
 	switch (qp_type) {
 	case IBV_QPT_RC:
@@ -813,18 +814,18 @@ static int mlx5_calc_rcv_wqe(struct mlx5_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
 			     struct mlx5_qp *qp)
 {
-	int size;
+	uint32_t size;
 	int num_scatter;
 
 	if (attr->srq)
 		return 0;
 
-	num_scatter = max(attr->cap.max_recv_sge, 1);
+	num_scatter = max_t(uint32_t, attr->cap.max_recv_sge, 1);
 	size = sizeof(struct mlx5_wqe_data_seg) * num_scatter;
 	if (qp->wq_sig)
 		size += sizeof(struct mlx5_rwqe_sig);
 
-	if (size < 0 || size > ctx->max_rq_desc_sz)
+	if (size > ctx->max_rq_desc_sz)
 		return -EINVAL;
 
 	size = mlx5_round_up_power_of_two(size);
@@ -885,16 +886,16 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 			      struct mlx5_rwq *rwq,
 			      struct ibv_wq_init_attr *attr)
 {
-	int wqe_size;
+	size_t wqe_size;
 	int wq_size;
-	int num_scatter;
+	uint32_t num_scatter;
 	int scat_spc;
 
 	if (!attr->max_wr)
 		return -EINVAL;
 
 	/* TBD: check caps for RQ */
-	num_scatter = max(attr->max_sge, 1);
+	num_scatter = max_t(uint32_t, attr->max_sge, 1);
 	wqe_size = sizeof(struct mlx5_wqe_data_seg) * num_scatter;
 
 	if (rwq->wq_sig)

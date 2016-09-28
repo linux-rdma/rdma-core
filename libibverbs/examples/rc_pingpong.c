@@ -580,8 +580,8 @@ static int pp_post_send(struct pingpong_context *ctx)
 }
 
 struct ts_params {
-	unsigned int		 comp_recv_max_time_delta;
-	unsigned int		 comp_recv_min_time_delta;
+	uint64_t		 comp_recv_max_time_delta;
+	uint64_t		 comp_recv_min_time_delta;
 	uint64_t		 comp_recv_total_time_delta;
 	uint64_t		 comp_recv_prev_time;
 	int			 last_comp_with_ts;

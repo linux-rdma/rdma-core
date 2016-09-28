@@ -61,7 +61,7 @@ int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size)
 	scat = (struct mlx5_wqe_data_seg *) (next + 1);
 
 	for (i = 0; i < max; ++i) {
-		copy = min(size, ntohl(scat->byte_count));
+		copy = min_t(long, size, ntohl(scat->byte_count));
 		memcpy((void *)(unsigned long)ntohll(scat->addr), buf, copy);
 		size -= copy;
 		if (size <= 0)

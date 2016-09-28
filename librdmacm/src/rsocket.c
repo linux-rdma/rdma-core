@@ -3294,10 +3294,10 @@ static void rs_copy_addr(struct sockaddr *dst, struct sockaddr *src, socklen_t *
 	socklen_t size;
 
 	if (src->sa_family == AF_INET) {
-		size = min(*len, sizeof(struct sockaddr_in));
+		size = min_t(socklen_t, *len, sizeof(struct sockaddr_in));
 		*len = sizeof(struct sockaddr_in);
 	} else {
-		size = min(*len, sizeof(struct sockaddr_in6));
+		size = min_t(socklen_t, *len, sizeof(struct sockaddr_in6));
 		*len = sizeof(struct sockaddr_in6);
 	}
 	memcpy(dst, src, size);
@@ -3472,15 +3472,18 @@ int rsetsockopt(int socket, int level, int optname,
 
 		switch (optname) {
 		case RDMA_SQSIZE:
-			rs->sq_size = min((*(uint32_t *) optval), RS_QP_MAX_SIZE);
+			rs->sq_size = min_t(uint32_t, (*(uint32_t *)optval),
+					    RS_QP_MAX_SIZE);
 			ret = 0;
 			break;
 		case RDMA_RQSIZE:
-			rs->rq_size = min((*(uint32_t *) optval), RS_QP_MAX_SIZE);
+			rs->rq_size = min_t(uint32_t, (*(uint32_t *)optval),
+					    RS_QP_MAX_SIZE);
 			ret = 0;
 			break;
 		case RDMA_INLINE:
-			rs->sq_inline = min(*(uint32_t *) optval, RS_QP_MAX_SIZE);
+			rs->sq_inline = min_t(uint32_t, *(uint32_t *)optval,
+					      RS_QP_MAX_SIZE);
 			ret = 0;
 			break;
 		case RDMA_IOMAPSIZE:
