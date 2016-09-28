@@ -2,4 +2,9 @@ publish_internal_headers(ccan
   minmax.h
   build_assert.h
   config.h
+  list.h
+  str.h
+  str_debug.h
+  check_type.h
+  container_of.h
   )
