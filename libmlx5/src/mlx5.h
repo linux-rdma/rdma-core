@@ -41,6 +41,7 @@
 #include "mlx5-abi.h"
 #include "list.h"
 #include "bitmap.h"
+#include <ccan/minmax.h>
 
 #ifdef __GNUC__
 #define likely(x)	__builtin_expect((x), 1)
@@ -89,20 +90,6 @@
 #define wc_wmb() wmb()
 #endif
 
-#endif
-
-#ifndef min
-#define min(a, b) \
-	({ typeof(a) _a = (a); \
-	   typeof(b) _b = (b); \
-	   _a < _b ? _a : _b; })
-#endif
-
-#ifndef max
-#define max(a, b) \
-	({ typeof(a) _a = (a); \
-	   typeof(b) _b = (b); \
-	   _a > _b ? _a : _b; })
 #endif
 
 #define HIDDEN		__attribute__((visibility("hidden")))

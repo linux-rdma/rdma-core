@@ -1,0 +1,2 @@
+#define HAVE_STATEMENT_EXPR 1
+#define HAVE_TYPEOF 1

@@ -221,6 +221,7 @@ configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOT
 
 #-------------------------
 # Sub-directories
+add_subdirectory(ccan)
 # Libraries
 add_subdirectory(libibumad/src)
 add_subdirectory(libibumad/man)

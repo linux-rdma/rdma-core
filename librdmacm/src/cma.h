@@ -47,6 +47,8 @@
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
 
+#include <ccan/minmax.h>
+
 #ifdef INCLUDE_VALGRIND
 #   include <valgrind/memcheck.h>
 #   ifndef VALGRIND_MAKE_MEM_DEFINED
@@ -67,9 +69,6 @@ static inline uint64_t ntohll(uint64_t x) { return bswap_64(x); }
 static inline uint64_t htonll(uint64_t x) { return x; }
 static inline uint64_t ntohll(uint64_t x) { return x; }
 #endif
-
-#define max(a, b) ((a) > (b) ? a : b)
-#define min(a, b) ((a) < (b) ? a : b)
 
 /*
  * Fast synchronization for low contention locking.
