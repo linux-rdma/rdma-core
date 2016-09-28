@@ -1,8 +1,16 @@
+#ifndef CONFIG_H_IN
+#define CONFIG_H_IN
+
 // FIXME: Remove this, ibverbs is included so we don't need to detect
 #define HAVE_IBV_DOFORK_RANGE 1
 #define HAVE_IBV_DONTFORK_RANGE 1
 #define HAVE_IBV_REGISTER_DRIVER 1
 #define HAVE_IBV_READ_SYSFS_FILE 1
+
+#define HAVE_STATEMENT_EXPR 1
+#define HAVE_BUILTIN_TYPES_COMPATIBLE_P 1
+#define HAVE_TYPEOF 1
+#define HAVE_ISBLANK 1
 
 // FIXME: Remove this, we provide the netlink kernel headers ibacm needs
 #define HAVE_NETLINK 1
@@ -32,4 +40,6 @@
 # define HAVE_LIBNL1 1
 #elif @NL_KIND@ == 0
 # define NRESOLVE_NEIGH 1
+#endif
+
 #endif

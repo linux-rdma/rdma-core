@@ -1,10 +1,9 @@
 # COPYRIGHT (c) 2016 Obsidian Research Corporation. See COPYING file
 
-# Copy headers from the source directory to the proper place in the
-# build/include directory
-function(PUBLISH_HEADERS DEST)
+# Same as publish_headers but does not install them during the install phase
+function(publish_internal_headers DEST)
   if(NOT ARGN)
-    message(SEND_ERROR "Error: PUBLISH_HEADERS called without any files")
+    message(SEND_ERROR "Error: publish_internal_headers called without any files")
     return()
   endif()
 
@@ -15,6 +14,17 @@ function(PUBLISH_HEADERS DEST)
     get_filename_component(FIL ${SFIL} NAME)
     execute_process(COMMAND "ln" "-Tsf"
       "${CMAKE_CURRENT_SOURCE_DIR}/${SFIL}" "${DDIR}/${FIL}")
+  endforeach()
+endfunction()
+
+# Copy headers from the source directory to the proper place in the
+# build/include directory. This also installs them into /usr/include/xx during
+# the install phase
+function(publish_headers DEST)
+  publish_internal_headers("${DEST}" ${ARGN})
+
+  foreach(SFIL ${ARGN})
+    get_filename_component(FIL ${SFIL} NAME)
     install(FILES "${SFIL}" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${DEST}/" RENAME "${FIL}")
   endforeach()
 endfunction()

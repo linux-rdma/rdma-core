@@ -49,13 +49,7 @@
 
 #include "pingpong.h"
 
-#ifndef max
-#define max(x, y) (((x) > (y)) ? (x) : (y))
-#endif
-
-#ifndef min
-#define min(x, y) (((x) < (y)) ? (x) : (y))
-#endif
+#include <ccan/minmax.h>
 
 enum {
 	PINGPONG_RECV_WRID = 1,
@@ -586,8 +580,8 @@ static int pp_post_send(struct pingpong_context *ctx)
 }
 
 struct ts_params {
-	unsigned int		 comp_recv_max_time_delta;
-	unsigned int		 comp_recv_min_time_delta;
+	uint64_t		 comp_recv_max_time_delta;
+	uint64_t		 comp_recv_min_time_delta;
 	uint64_t		 comp_recv_total_time_delta;
 	uint64_t		 comp_recv_prev_time;
 	int			 last_comp_with_ts;
