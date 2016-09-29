@@ -1,4 +1,4 @@
-/* CC0 (Public domain) - see LICENSE file for details */
+/* CC0 (Public domain) - see LICENSE.CC0 file for details */
 #ifndef CCAN_MINMAX_H
 #define CCAN_MINMAX_H
 
