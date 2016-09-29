@@ -218,7 +218,7 @@ static struct sa_data {
 	struct pollfd	*fds;
 	struct acmc_port **ports;
 	int		nfds;
-} sa = { 2000, 2, 1};
+} sa = { 2000, 2, 1, 0, NULL, NULL, 0};
 
 /*
  * Service options - may be set through ibacm_opts.cfg file.
@@ -226,9 +226,9 @@ static struct sa_data {
 static char *acme = IBACM_BIN_PATH "/ib_acme -A";
 static char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
 static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
-static char log_file[128] = "/var/log/ibacm.log";
+static char log_file[128] = IBACM_LOG_FILE;
 static int log_level = 0;
-static char lock_file[128] = "/var/run/ibacm.pid";
+static char lock_file[128] = IBACM_PID_FILE;
 static short server_port = 6125;
 static int support_ips_in_addr_cfg = 0;
 static char prov_lib_path[256] = IBACM_LIB_PATH;
@@ -578,7 +578,7 @@ static void acm_init_server(void)
 		atomic_init(&client_array[i].refcnt);
 	}
 
-	if (!(f = fopen("/var/run/ibacm.port", "w"))) {
+	if (!(f = fopen(IBACM_PORT_FILE, "w"))) {
 		acm_log(0, "notice - cannot publish ibacm port number\n");
 		return;
 	}
@@ -1402,7 +1402,7 @@ static int acm_nl_send(SOCKET sock, struct acm_msg *msg)
 	int ret;
 	int datalen;
 
-	orig = (struct acm_nl_msg *) msg->hdr.tid;
+	orig = (struct acm_nl_msg *)(uintptr_t)msg->hdr.tid;
 
 	memset(&dst_addr, 0, sizeof(dst_addr));
 	dst_addr.nl_family = AF_NETLINK;
@@ -1562,7 +1562,7 @@ static void acm_nl_process_invalid_request(struct acmc_client *client,
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH;
 	msg.hdr.status = ACM_STATUS_EINVAL;
-	msg.hdr.tid = (uint64_t) acmnlmsg;
+	msg.hdr.tid = (uintptr_t) acmnlmsg;
 
 	acm_nl_send(client->sock, &msg);
 }
@@ -1584,7 +1584,7 @@ static void acm_nl_process_resolve(struct acmc_client *client,
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.length = ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH;
 	msg.hdr.status = ACM_STATUS_SUCCESS;
-	msg.hdr.tid = (uint64_t) acmnlmsg;
+	msg.hdr.tid = (uintptr_t) acmnlmsg;
 	msg.resolve_data[0].type = ACM_EP_INFO_PATH;
 
 	/* We support only one pathrecord */
@@ -3031,7 +3031,6 @@ static int acm_open_lock_file(void)
 
 	snprintf(pid, sizeof pid, "%d\n", getpid());
 	if (write(lock_fd, pid, strlen(pid)) != strlen(pid)){
-		lockf(lock_fd, F_ULOCK, 0);
 		close(lock_fd);
 		return -1;
 	}

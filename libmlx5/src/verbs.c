@@ -1701,8 +1701,8 @@ mlx5_open_xrcd(struct ibv_context *context,
 {
 	int err;
 	struct verbs_xrcd *xrcd;
-	struct ibv_open_xrcd cmd = {0};
-	struct ibv_open_xrcd_resp resp = {0};
+	struct ibv_open_xrcd cmd = {};
+	struct ibv_open_xrcd_resp resp = {};
 
 	xrcd = calloc(1, sizeof(*xrcd));
 	if (!xrcd)

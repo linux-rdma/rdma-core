@@ -1,7 +1,7 @@
 #!/bin/bash
 
 inst /etc/modprobe.d/truescale.conf
-inst /usr/sbin/truescale-serdes.cmds
+inst /usr/libexec/truescale-serdes.cmds
 
 # All files needed by truescale-serdes.cmds need to be present here
 inst /sbin/lspci

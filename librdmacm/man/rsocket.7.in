@@ -129,7 +129,7 @@ fork off a process to handle the new connection.
 .P
 rsockets uses configuration files that give an administrator control
 over the default settings used by rsockets.  Use files under
-%sysconfig%/rdma/rsocket as shown:
+@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/rsocket as shown:
 .P
 .P
 mem_default - default size of receive buffer(s)
@@ -149,7 +149,7 @@ polling_time - default number of microseconds to poll for data before waiting
 All configuration files should contain a single integer value.  Values may
 be set by issuing a command similar to the following example.
 .P
-echo 1000000 > /etc/rdma/rsocket/mem_default
+echo 1000000 > @CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/rsocket/mem_default
 .P
 If configuration files are not available, rsockets uses internal defaults.
 Applications can override default values programmatically through the

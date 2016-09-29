@@ -596,6 +596,12 @@ void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 		kwr->wr.atomic.swap		= uwr->wr.atomic.swap;
 		kwr->wr.atomic.rkey		= uwr->wr.atomic.rkey;
 		break;
+
+	case IBV_WR_LOCAL_INV:
+	case IBV_WR_BIND_MW:
+	case IBV_WR_SEND_WITH_INV:
+	case IBV_WR_TSO:
+		break;
 	}
 }
 

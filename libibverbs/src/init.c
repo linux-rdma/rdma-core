@@ -190,33 +190,56 @@ void verbs_register_driver(const char *name, verbs_driver_init_func init_func)
 	register_driver(name, NULL, init_func);
 }
 
+#define __IBV_QUOTE(x)	#x
+#define IBV_QUOTE(x)	__IBV_QUOTE(x)
+#define DLOPEN_TRAILER "-" IBV_QUOTE(IBV_DEVICE_LIBRARY_EXTENSION) ".so"
+
 static void load_driver(const char *name)
 {
 	char *so_name;
 	void *dlhandle;
 
-#define __IBV_QUOTE(x)	#x
-#define IBV_QUOTE(x)	__IBV_QUOTE(x)
-
-	if (asprintf(&so_name,
-		     name[0] == '/' ?
-		     "%s-" IBV_QUOTE(IBV_DEVICE_LIBRARY_EXTENSION) ".so" :
-		     "lib%s-" IBV_QUOTE(IBV_DEVICE_LIBRARY_EXTENSION) ".so",
-		     name) < 0) {
-		fprintf(stderr, PFX "Warning: couldn't load driver '%s'.\n",
-			name);
+	/* If the name is an absolute path then open that path after appending
+	   the trailer suffix */
+	if (name[0] == '/') {
+		if (asprintf(&so_name, "%s" DLOPEN_TRAILER, name) < 0)
+			goto out_asprintf;
+		dlhandle = dlopen(so_name, RTLD_NOW);
+		if (!dlhandle)
+			goto out_dlopen;
+		free(so_name);
 		return;
 	}
 
-	dlhandle = dlopen(so_name, RTLD_NOW);
-	if (!dlhandle) {
-		fprintf(stderr, PFX "Warning: couldn't load driver '%s': %s\n",
-			name, dlerror());
-		goto out;
+	/* If configured with a provider plugin path then try that next */
+	if (sizeof(VERBS_PROVIDER_DIR) >= 1) {
+		if (asprintf(&so_name, VERBS_PROVIDER_DIR "/lib%s" DLOPEN_TRAILER, name) <
+		    0)
+			goto out_asprintf;
+		dlhandle = dlopen(so_name, RTLD_NOW);
+		free(so_name);
+		if (dlhandle)
+			return;
 	}
 
-out:
+	/* Otherwise use the system libary search path. This is the historical
+	   behavior of libibverbs */
+	if (asprintf(&so_name, "lib%s" DLOPEN_TRAILER, name) < 0)
+		goto out_asprintf;
+	dlhandle = dlopen(so_name, RTLD_NOW);
+	if (!dlhandle)
+		goto out_dlopen;
 	free(so_name);
+	return;
+
+out_asprintf:
+	fprintf(stderr, PFX "Warning: couldn't load driver '%s'.\n", name);
+	return;
+out_dlopen:
+	fprintf(stderr, PFX "Warning: couldn't load driver '%s': %s\n", so_name,
+		dlerror());
+	free(so_name);
+	return;
 }
 
 static void load_drivers(void)

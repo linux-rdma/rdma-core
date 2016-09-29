@@ -557,7 +557,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 		return 0;
 	}
 	cmd.user_wqe_buffers = (__u64)((uintptr_t)info->sq);
-	cmd.user_compl_ctx = (u64)&iwuqp->qp;
+	cmd.user_compl_ctx = (uintptr_t)&iwuqp->qp;
 
 	ret = ibv_cmd_create_qp(pd, &iwuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof(cmd),
 				&resp->ibv_resp, sizeof(struct i40iw_ucreate_qp_resp));
@@ -858,7 +858,7 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 				info.op_type = I40IW_OP_TYPE_SEND;
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-				info.op.inline_send.data = (void *)ib_wr->sg_list[0].addr;
+			  info.op.inline_send.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
 				info.op.inline_send.len = ib_wr->sg_list[0].length;
 				ret = iwuqp->qp.ops.iw_inline_send(&iwuqp->qp, &info,
 								   ib_wr->wr.rdma.rkey, false);
@@ -881,7 +881,7 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 			info.op_type = I40IW_OP_TYPE_RDMA_WRITE;
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-				info.op.inline_rdma_write.data = (void *)ib_wr->sg_list[0].addr;
+			  info.op.inline_rdma_write.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
 				info.op.inline_rdma_write.len = ib_wr->sg_list[0].length;
 				info.op.inline_rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
 				info.op.inline_rdma_write.rem_addr.len = ib_wr->sg_list->length;

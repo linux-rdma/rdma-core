@@ -875,7 +875,7 @@ int main(int argc, char *argv[])
 			{ .name = "sl",        .has_arg = 1, .val = 'l' },
 			{ .name = "events",    .has_arg = 0, .val = 'e' },
 			{ .name = "gid-idx",   .has_arg = 1, .val = 'g' },
-			{ 0 }
+			{}
 		};
 
 		c = getopt_long(argc, argv, "p:d:i:s:m:c:n:l:eg:", long_options,
@@ -906,7 +906,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			ctx.mtu = pp_mtu_to_enum(strtol(optarg, NULL, 0));
-			if (ctx.mtu < 0) {
+			if (ctx.mtu == 0) {
 				usage(argv[0]);
 				return 1;
 			}

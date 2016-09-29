@@ -7,11 +7,18 @@
 # Common options passed to cmake are:
 #  -DCMAKE_EXPORT_COMPILE_COMMANDS=1
 #      Write a compile_commands.json file for clang tooling
-#  -DENABLE_VALGRIND=1 (default disabled)
-#      Embed valgrind notations, this has a tiny negative performance impact
+#  -DCMAKE_BUILD_TYPE=RelWithDebInfo
+#      Change the optimization level, Debug disables optimization,
+#      Release is for packagers
+#  -DENABLE_VALGRIND=0 (default enabled)
+#      Disable valgrind notations, this has a tiny positive performance impact
 #  -DENABLE_RESOLVE_NEIGH=0 (default enabled)
 #      Do not link to libnl and do not resolve neighbours internally for Ethernet,
 #      and do not build iwpmd.
+#  -DENABLE_STATIC=1 (default disabled)
+#      Produce static libraries along with the usual shared libraries.
+#  -DVERBS_PROVIDER_DIR='' (default /usr/lib.../libibverbs)
+#      Use the historical search path for providers, in the standard system library.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(RDMA C)
@@ -25,8 +32,9 @@ else()
 endif()
 
 set(PACKAGE_NAME "RDMA")
-# FIXME versioning strategy?
-set(PACKAGE_VERSION "1")
+
+# See Documentation/versioning.md
+set(PACKAGE_VERSION "11")
 
 #-------------------------
 # Basic standard paths
@@ -48,6 +56,20 @@ set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd"
 set(ACM_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/ibacm"
   CACHE PATH "Location for ibacm provider plugin shared library files.")
 
+# Location to find the provider plugin shared library files
+set(VERBS_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/libibverbs"
+  CACHE PATH "Location for provider plugin shared library files. If set to empty the system search path is used.")
+
+# Allow the 'run' dir to be configurable, this historically has been /var/run, but
+# some systems now use /run/
+set(CMAKE_INSTALL_RUNDIR "var/run"
+  CACHE PATH "Location for runtime information, typically /var/run, or /run")
+if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_RUNDIR})
+  set(CMAKE_INSTALL_FULL_RUNDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_RUNDIR}")
+else()
+  set(CMAKE_INSTALL_FULL_RUNDIR "${CMAKE_INSTALL_RUNDIR}")
+endif()
+
 #-------------------------
 # Load CMake components
 set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
@@ -58,12 +80,18 @@ include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 include(CheckTypeSize)
 include(RDMA_EnableCStd)
+include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
 
+if (NOT DEFINED ENABLE_STATIC)
+  set(ENABLE_STATIC "OFF" CACHE BOOL "Produce static linking libraries as well as shared libraries.")
+endif()
+
 #-------------------------
 # Setup the basic C compiler
+RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 # FIXME: Eliminate HAVE_CONFIG_H, we always have it.
 add_definitions(-DHAVE_CONFIG_H)
@@ -184,9 +212,11 @@ RDMA_DoFixup("${HAVE_RDMA_USER_RXE}" "rdma/rdma_user_rxe.h")
 #-------------------------
 # Apply fixups
 
-# FIXME: We should probably always enable memcheck.h, and only selectively
-# turn it off in the real high performance paths. There is no reason umad
-# should ever have memcheck disabled for instance.
+# We prefer to build with valgrind memcheck.h present, but if not, or the user
+# requested valgrind disabled, then replace it with our dummy stub.
+if (NOT DEFINED ENABLE_VALGRIND)
+  set(ENABLE_VALGRIND "ON" CACHE BOOL "Enable use of valgrind annotations")
+endif()
 if (ENABLE_VALGRIND)
   CHECK_INCLUDE_FILE("valgrind/memcheck.h" HAVE_VALGRIND_MEMCHECK)
   CHECK_INCLUDE_FILE("valgrind/drd.h" HAVE_VALGRIND_DRD)

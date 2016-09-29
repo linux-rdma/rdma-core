@@ -57,8 +57,7 @@ rdma_man_pages(
   rdma_xserver.1
   riostream.1
   rping.1
-  # FIXME: rsocket has a text substitution but nothing ever filled it in.
-  rsocket.7
+  rsocket.7.in
   rstream.1
   ucmatose.1
   udaddy.1

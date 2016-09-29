@@ -3,11 +3,6 @@ publish_headers(infiniband
   include/infiniband/acm_prov.h
   )
 
-# FIXME: To config.h
-add_definitions("-DIBACM_CONFIG_PATH=\"${CMAKE_INSTALL_FULL_SYSCONFDIR}/rdma\"")
-add_definitions("-DIBACM_LIB_PATH=\"${ACM_PROVIDER_DIR}\"")
-add_definitions("-DIBACM_BIN_PATH=\"${CMAKE_INSTALL_FULL_BINDIR}\"")
-
 # FIXME: Fixup the include scheme to not require all these -Is
 include_directories("include")
 include_directories("src")
@@ -57,7 +52,7 @@ rdma_man_pages(
   man/ib_acme.1
   man/ibacm.1
   man/ibacm.7
-  man/ibacm_prov.7
+  man/ibacm_prov.7.in
   )
 
 # FIXME: update the .init.in

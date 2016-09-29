@@ -38,6 +38,7 @@
 #include <getopt.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <inttypes.h>
 
 #include <osd.h>
 #include <infiniband/verbs.h>
@@ -130,9 +131,9 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Examples:\n");
 	fprintf(f, "# log_file stdout\n");
 	fprintf(f, "# log_file stderr\n");
-	fprintf(f, "# log_file /var/log/ibacm.log\n");
+	fprintf(f, "# log_file %s\n", IBACM_LOG_FILE);
 	fprintf(f, "\n");
-	fprintf(f, "log_file /var/log/ibacm.log\n");
+	fprintf(f, "log_file %s\n", IBACM_LOG_FILE);
 	fprintf(f, "\n");
 	fprintf(f, "# log_level:\n");
 	fprintf(f, "# Indicates the amount of detailed data written to the log file.  Log levels\n");
@@ -147,7 +148,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# Specifies the location of the ACM lock file used to ensure that only a\n");
 	fprintf(f, "# single instance of ACM is running.\n");
 	fprintf(f, "\n");
-	fprintf(f, "lock_file /var/run/ibacm.pid\n");
+	fprintf(f, "lock_file %s\n", IBACM_PID_FILE);
 	fprintf(f, "\n");
 	fprintf(f, "# addr_prot:\n");
 	fprintf(f, "# Default resolution protocol to resolve IP addresses into IB GIDs.\n");
@@ -276,7 +277,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# the ACM cache.  This option is only valid if route_preload\n");
 	fprintf(f, "# indicates that routing data should be read from a file.\n");
 	fprintf(f, "# Default is %s/ibacm_route.data\n", ACM_CONF_DIR);
-	fprintf(f, "# route_data_file /etc/rdma/ibacm_route.data\n");
+	fprintf(f, "# route_data_file %s/ibacm_route.data\n", ACM_CONF_DIR);
 	fprintf(f, "\n");
 	fprintf(f, "# addr_preload:\n");
 	fprintf(f, "# Specifies if the ACM address cache should be preloaded, or built on demand.\n");
@@ -292,7 +293,7 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# the ACM cache.  This option is only valid if addr_preload\n");
 	fprintf(f, "# indicates that address data should be read from a file.\n");
 	fprintf(f, "# Default is %s/ibacm_hosts.data\n", ACM_CONF_DIR);
-	fprintf(f, "# addr_data_file /etc/rdma/ibacm_hosts.data\n");
+	fprintf(f, "# addr_data_file %s/ibacm_hosts.data\n", ACM_CONF_DIR);
 	fprintf(f, "\n");
 	fprintf(f, "# support_ips_in_addr_cfg:\n");
 	fprintf(f, "# If 1 continue to read IP addresses from ibacm_addr.cfg\n");
@@ -902,7 +903,7 @@ static int enumerate_ep(char *svc, int index)
 		labels = 1;
 	}
 
-	printf("%s,0x%016lx,%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
+	printf("%s,0x%016" PRIx64 ",%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
 	       ep_data->port_num, ep_data->pkey, index, ep_data->prov_name);
 	for (i = 0; i < ep_data->addr_cnt; i++) 
 		printf(",%s", ep_data->addrs[i].name);
@@ -927,7 +928,7 @@ static void enumerate_eps(char *svc)
 static int query_svcs(void)
 {
 	char **svc_list;
-	int ret, i;
+	int ret = -1, i;
 
 	svc_list = parse(svc_arg, NULL);
 	if (!svc_list) {

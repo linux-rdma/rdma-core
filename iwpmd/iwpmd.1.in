@@ -51,6 +51,6 @@ to the system message log.
 .P
 SIGTERM/SIGHUP will force iwpmd to exit.
 .SH "FILES"
-/etc/iwpmd.conf
+@CMAKE_INSTALL_FULL_SYSCONFDIR@/iwpmd.conf
 .SH "SEE ALSO"
 rdma_cm(7)

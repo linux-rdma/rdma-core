@@ -943,10 +943,11 @@ static inline void *ocrdma_hwq_head(struct ocrdma_qp_hwq_info *q)
 	return q->va + (q->head * q->entry_size);
 }
 
-static inline void *ocrdma_wq_tail(struct ocrdma_qp_hwq_info *q)
+/*static inline void *ocrdma_wq_tail(struct ocrdma_qp_hwq_info *q)
 {
 	return q->va + (q->tail * q->entry_size);
 }
+*/
 
 static inline void *ocrdma_hwq_head_from_idx(struct ocrdma_qp_hwq_info *q,
 					     uint32_t idx)

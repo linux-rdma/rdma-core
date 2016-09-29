@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 		static struct option long_options[] = {
 			{ .name = "ib-dev",    .has_arg = 1, .val = 'd' },
 			{ .name = "help",      .has_arg = 0, .val = 'h' },
-			{ 0 }
+			{}
 		};
 
 		c = getopt_long(argc, argv, "d:h", long_options, NULL);

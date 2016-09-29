@@ -7,7 +7,9 @@ publish_headers(infiniband
   ../include/infiniband/umad_types.h
   )
 
-rdma_library(ibumad libibumad.map 3 3.1.0
+rdma_library(ibumad libibumad.map
+  # See Documentation/versioning.md
+  3 3.1.${PACKAGE_VERSION}
   sysfs.c
   umad.c
   umad_str.c
