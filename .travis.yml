@@ -21,8 +21,20 @@ addons:
       - pkg-config
       - python
       - valgrind
+
+      # 32 bit support packages
+      - gcc-multilib
+      - lib32gcc-6-dev
 script:
-  - mkdir build
+  - mkdir build build32
   - cd build
-  - CC=gcc-6 cmake -GNinja ..
+  # The goal is warning free compile on latest gcc.
+  - CC=gcc-6 CFLAGS=-Werror cmake -GNinja ..
+  - ninja
+
+  # 32 bit build
+  - cd ../build32
+  # travis's trusty is not configured in a way that enables all32 bit
+  # packages. We could fix this with some sudo stuff.. For now turn off libnl
+  - CC=gcc-6 CFLAGS="-Werror -m32" cmake -GNinja .. -DENABLE_RESOLVE_NEIGH=0
   - ninja
