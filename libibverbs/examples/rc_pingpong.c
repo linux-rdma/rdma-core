@@ -46,6 +46,7 @@
 #include <getopt.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <inttypes.h>
 
 #include "pingpong.h"
 
@@ -1021,9 +1022,9 @@ int main(int argc, char *argv[])
 		       iters, usec / 1000000., usec / iters);
 
 		if (use_ts && ts.comp_with_time_iters) {
-			printf("Max receive completion clock cycles = %u\n",
+			printf("Max receive completion clock cycles = %" PRIu64 "\n",
 			       ts.comp_recv_max_time_delta);
-			printf("Min receive completion clock cycles = %u\n",
+			printf("Min receive completion clock cycles = %" PRIu64 "\n",
 			       ts.comp_recv_min_time_delta);
 			printf("Average receive completion clock cycles = %f\n",
 			       (double)ts.comp_recv_total_time_delta / ts.comp_with_time_iters);
