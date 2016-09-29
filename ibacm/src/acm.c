@@ -3031,7 +3031,6 @@ static int acm_open_lock_file(void)
 
 	snprintf(pid, sizeof pid, "%d\n", getpid());
 	if (write(lock_fd, pid, strlen(pid)) != strlen(pid)){
-		lockf(lock_fd, F_ULOCK, 0);
 		close(lock_fd);
 		return -1;
 	}
