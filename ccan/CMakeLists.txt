@@ -9,6 +9,7 @@ publish_internal_headers(ccan
   )
 
 set(C_FILES
+  list.c
   str.c
   )
 add_library(ccan STATIC ${C_FILES})
