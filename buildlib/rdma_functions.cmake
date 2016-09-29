@@ -6,6 +6,9 @@
 # Global list of pairs of (SHARED STATIC) libary target names
 set(RDMA_STATIC_LIBS "" CACHE INTERNAL "Doc" FORCE)
 
+set(COMMON_LIBS_PIC ccan_pic)
+set(COMMON_LIBS ccan)
+
 # Install a symlink during 'make install'
 function(rdma_install_symlink LINK_CONTENT DEST)
   # Create a link in the build tree with the right content
@@ -59,6 +62,7 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
   # Create a shared library
   add_library(${DEST} SHARED ${ARGN})
   rdma_set_library_map(${DEST} ${VERSION_SCRIPT})
+  target_link_libraries(${DEST} LINK_PRIVATE ${COMMON_LIBS_PIC})
   set_target_properties(${DEST} PROPERTIES
     SOVERSION ${SOVERSION}
     VERSION ${VERSION}
@@ -98,6 +102,7 @@ function(rdma_provider DEST)
   # Even though these are modules we still want to use Wl,--no-undefined
   set_target_properties(${DEST} PROPERTIES LINK_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
   rdma_set_library_map(${DEST} ${BUILDLIB}/provider.map)
+  target_link_libraries(${DEST} LINK_PRIVATE ${COMMON_LIBS_PIC})
   target_link_libraries(${DEST} LINK_PRIVATE ibverbs)
   target_link_libraries(${DEST} LINK_PRIVATE ${CMAKE_THREAD_LIBS_INIT})
   set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
@@ -110,6 +115,7 @@ endfunction()
  # Create an installed executable
 function(rdma_executable EXEC)
   add_executable(${EXEC} ${ARGN})
+  target_link_libraries(${EXEC} LINK_PRIVATE ${COMMON_LIBS})
   set_target_properties(${EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN}")
   install(TARGETS ${EXEC} DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endfunction()
@@ -117,6 +123,7 @@ endfunction()
  # Create an installed executable (under sbin)
 function(rdma_sbin_executable EXEC)
   add_executable(${EXEC} ${ARGN})
+  target_link_libraries(${EXEC} LINK_PRIVATE ${COMMON_LIBS})
   set_target_properties(${EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN}")
   install(TARGETS ${EXEC} DESTINATION "${CMAKE_INSTALL_SBINDIR}")
 endfunction()
@@ -124,6 +131,7 @@ endfunction()
 # Create an test executable (not-installed)
 function(rdma_test_executable EXEC)
   add_executable(${EXEC} ${ARGN})
+  target_link_libraries(${EXEC} LINK_PRIVATE ${COMMON_LIBS})
   set_target_properties(${EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN}")
 endfunction()
 

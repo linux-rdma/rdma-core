@@ -730,7 +730,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	mlx5_read_env(&vdev->device, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
-	INIT_LIST_HEAD(&context->hugetlb_list);
+	list_head_init(&context->hugetlb_list);
 
 	context->ibv_ctx.ops = mlx5_ctx_ops;
 

@@ -46,7 +46,7 @@
 
 #include "ocrdma_main.h"
 #include "ocrdma_abi.h"
-#include "ocrdma_list.h"
+#include <ccan/list.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -68,7 +68,8 @@ struct {
 	UCNA(EMULEX, GEN1), UCNA(EMULEX, GEN2), UCNA(EMULEX, GEN2_VF)
 };
 
-static DBLY_LIST_HEAD(ocrdma_dev_list);
+static LIST_HEAD(ocrdma_dev_list);
+static pthread_mutex_t ocrdma_dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static struct ibv_context *ocrdma_alloc_context(struct ibv_device *, int);
 static void ocrdma_free_context(struct ibv_context *);
@@ -222,10 +223,10 @@ found:
 	pthread_mutex_init(&dev->dev_lock, NULL);
 	pthread_spin_init(&dev->flush_q_lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = ocrdma_dev_ops;
-	INIT_DBLY_LIST_NODE(&dev->entry);
-	list_lock(&ocrdma_dev_list);
-	list_add_node_tail(&dev->entry, &ocrdma_dev_list);
-	list_unlock(&ocrdma_dev_list);
+	list_node_init(&dev->entry);
+	pthread_mutex_lock(&ocrdma_dev_list_lock);
+	list_add_tail(&ocrdma_dev_list, &dev->entry);
+	pthread_mutex_unlock(&ocrdma_dev_list_lock);
 	return &dev->ibv_dev;
 qp_err:
 	free(dev);
@@ -244,14 +245,13 @@ void ocrdma_register_driver(void)
 static __attribute__ ((destructor))
 void ocrdma_unregister_driver(void)
 {
-	struct ocrdma_list_node *cur, *tmp;
 	struct ocrdma_device *dev;
-	list_lock(&ocrdma_dev_list);
-	list_for_each_node_safe(cur, tmp, &ocrdma_dev_list) {
-		dev = list_node(cur, struct ocrdma_device, entry);
+	struct ocrdma_device *dev_tmp;
+	pthread_mutex_lock(&ocrdma_dev_list_lock);
+	list_for_each_safe(&ocrdma_dev_list, dev, dev_tmp, entry) {
 		pthread_mutex_destroy(&dev->dev_lock);
 		pthread_spin_destroy(&dev->flush_q_lock);
-		list_del_node(&dev->entry);
+		list_del(&dev->entry);
 		/*
 		 * Avoid freeing the dev here since MPI get SIGSEGV
 		 * in few error cases because of reference to ib_dev
@@ -260,5 +260,5 @@ void ocrdma_unregister_driver(void)
 		 */
 		/* free(dev); */
 	}
-	list_unlock(&ocrdma_dev_list);
+	pthread_mutex_unlock(&ocrdma_dev_list_lock);
 }

@@ -629,7 +629,7 @@ static int acmp_best_mc_index(struct acmp_ep *ep, struct acm_resolve_rec *rec)
 {
 	int i, index;
 
-	for (i = min(rec->gid_cnt, ACM_MAX_GID_COUNT) - 1; i >= 0; i--) {
+	for (i = min_t(int, rec->gid_cnt, ACM_MAX_GID_COUNT) - 1; i >= 0; i--) {
 		index = acmp_mc_index(ep, &rec->gid[i]);
 		if (index >= 0) {
 			return index;
