@@ -41,7 +41,7 @@
 #include <sys/time.h>
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
-#include "queue.h"
+#include <ccan/list.h>
 #include "t4.h"
 
 extern unsigned long c4iw_page_size;
@@ -60,7 +60,7 @@ struct c4iw_dev {
 	int max_cq;
 	struct c4iw_cq **cqid2ptr;
 	pthread_spinlock_t lock;
-	SLIST_ENTRY(c4iw_dev) list;
+	struct list_node list;
 	int abi_version;
 };
 
