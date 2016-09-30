@@ -473,7 +473,7 @@ found:
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = c4iw_dev_ops;
-	dev->chip_version = CHELSIO_PCI_ID_CHIP_VERSION(hca_table[i].device);
+	dev->chip_version = CHELSIO_CHIP_VERSION(hca_table[i].device >> 8);
 	dev->abi_version = abi_version;
 
 	PDBG("%s device claimed\n", __FUNCTION__);
