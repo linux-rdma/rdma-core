@@ -85,6 +85,8 @@
 #define PDBG(fmt, args...) do {} while (0)
 #endif
 
+#define A_PCIE_MA_SYNC 0x30b4
+
 #define T4_MAX_READ_DEPTH 16
 #define T4_QID_BASE 1024
 #define T4_MAX_QIDS 256
@@ -492,7 +494,7 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
 		} else {
 			PDBG("%s: DB wq->sq.pidx = %d; len16=%d\n",
 			     __func__, wq->sq.pidx, len16);
-			writel(V_QID(wq->sq.bar2_qid) | V_PIDX_T5(inc),
+			writel(QID_V(wq->sq.bar2_qid) | PIDX_T5_V(inc),
 			       wq->sq.udb);
 		}
 		wc_wmb();
@@ -511,7 +513,7 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
 				*(u32 *)&wq->sq.queue[wq->sq.size].flits[2] = i;
 		}
 	}
-	writel(V_QID(wq->sq.qid & wq->qid_mask) | V_PIDX(inc), wq->sq.udb);
+	writel(QID_V(wq->sq.qid & wq->qid_mask) | PIDX_V(inc), wq->sq.udb);
 }
 
 static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
@@ -526,13 +528,13 @@ static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
 		} else {
 			PDBG("%s: DB wq->rq.pidx = %d; len16=%d\n",
 			     __func__, wq->rq.pidx, len16);
-			writel(V_QID(wq->rq.bar2_qid) | V_PIDX_T5(inc),
+			writel(QID_V(wq->rq.bar2_qid) | PIDX_T5_V(inc),
 			       wq->rq.udb);
 		}
 		wc_wmb();
 		return;
 	}
-	writel(V_QID(wq->rq.qid & wq->qid_mask) | V_PIDX(inc), wq->rq.udb);
+	writel(QID_V(wq->rq.qid & wq->qid_mask) | PIDX_V(inc), wq->rq.udb);
 }
 
 static inline int t4_wq_in_error(struct t4_wq *wq)
@@ -584,14 +586,14 @@ static inline int t4_arm_cq(struct t4_cq *cq, int se)
 {
 	u32 val;
 
-	while (cq->cidx_inc > M_CIDXINC) {
-		val = V_SEINTARM(0) | V_CIDXINC(M_CIDXINC) | V_TIMERREG(7) |
-		      V_INGRESSQID(cq->cqid & cq->qid_mask);
+	while (cq->cidx_inc > CIDXINC_M) {
+		val = SEINTARM_V(0) | CIDXINC_V(CIDXINC_M) | TIMERREG_V(7) |
+		      INGRESSQID_V(cq->cqid & cq->qid_mask);
 		writel(val, cq->ugts);
-		cq->cidx_inc -= M_CIDXINC;
+		cq->cidx_inc -= CIDXINC_M;
 	}
-	val = V_SEINTARM(se) | V_CIDXINC(cq->cidx_inc) | V_TIMERREG(6) |
-	      V_INGRESSQID(cq->cqid & cq->qid_mask);
+	val = SEINTARM_V(se) | CIDXINC_V(cq->cidx_inc) | TIMERREG_V(6) |
+	      INGRESSQID_V(cq->cqid & cq->qid_mask);
 	writel(val, cq->ugts);
 	cq->cidx_inc = 0;
 	return 0;
@@ -620,11 +622,11 @@ static inline void t4_swcq_consume(struct t4_cq *cq)
 static inline void t4_hwcq_consume(struct t4_cq *cq)
 {
 	cq->bits_type_ts = cq->queue[cq->cidx].bits_type_ts;
-	if (++cq->cidx_inc == (cq->size >> 4) || cq->cidx_inc == M_CIDXINC) {
+	if (++cq->cidx_inc == (cq->size >> 4) || cq->cidx_inc == CIDXINC_M) {
 		uint32_t val;
 
-		val = V_SEINTARM(0) | V_CIDXINC(cq->cidx_inc) | V_TIMERREG(7) |
-			V_INGRESSQID(cq->cqid & cq->qid_mask);
+		val = SEINTARM_V(0) | CIDXINC_V(cq->cidx_inc) | TIMERREG_V(7) |
+			INGRESSQID_V(cq->cqid & cq->qid_mask);
 		writel(val, cq->ugts);
 		cq->cidx_inc = 0;
 	}
