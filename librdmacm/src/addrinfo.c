@@ -32,9 +32,7 @@
  * $Id: cm.c 3453 2005-09-15 21:43:21Z sean.hefty $
  */
 
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <config.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>

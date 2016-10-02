@@ -38,19 +38,7 @@
 
 #include <infiniband/driver.h>
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-
-#  include <valgrind/memcheck.h>
-
-#  ifndef VALGRIND_MAKE_MEM_DEFINED
-#    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_DEFINED not available"
-#  endif
-
-#endif /* HAVE_VALGRIND_MEMCHECK_H */
-
-#ifndef VALGRIND_MAKE_MEM_DEFINED
-#  define VALGRIND_MAKE_MEM_DEFINED(addr, len) 0
-#endif
+#include <valgrind/memcheck.h>
 
 #define HIDDEN		__attribute__((visibility ("hidden")))
 
@@ -59,16 +47,9 @@
 
 #define DEFAULT_ABI	"IBVERBS_1.1"
 
-#ifdef HAVE_SYMVER_SUPPORT
-#  define symver(name, api, ver) \
-	asm(".symver " #name "," #api "@" #ver)
-#  define default_symver(name, api) \
+#define symver(name, api, ver) asm(".symver " #name "," #api "@" #ver)
+#define default_symver(name, api)                                              \
 	asm(".symver " #name "," #api "@@" DEFAULT_ABI)
-#else
-#  define symver(name, api, ver)
-#  define default_symver(name, api) \
-	extern __typeof(name) api __attribute__((alias(#name)))
-#endif /* HAVE_SYMVER_SUPPORT */
 
 #define PFX		"libibverbs: "
 

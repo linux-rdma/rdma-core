@@ -30,9 +30,7 @@
  * SOFTWARE.
  */
 
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -173,25 +171,15 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	struct ibv_reg_mr cmd;
 	int ret;
 	enum ibv_access_flags access = (enum ibv_access_flags)acc;
+	struct ibv_reg_mr_resp resp;
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
 		return NULL;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
-	{
-		struct ibv_reg_mr_resp resp;
-
-		ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-				     access, &(mr->ibv_mr),
-				     &cmd, sizeof(cmd),
-				     &resp, sizeof resp);
-	}
-#else
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr, access,
-			      &(mr->ibv_mr),
-			     &cmd, sizeof cmd);
-#endif
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access,
+			     &(mr->ibv_mr), &cmd, sizeof(cmd), &resp,
+			     sizeof resp);
 	if (ret) {
 		mlx5_free_buf(&(mr->buf));
 		free(mr);
@@ -995,9 +983,7 @@ static const char *qptype2key(enum ibv_qp_type type)
 	case IBV_QPT_RC: return "HUGE_RC";
 	case IBV_QPT_UC: return "HUGE_UC";
 	case IBV_QPT_UD: return "HUGE_UD";
-#ifdef _NOT_EXISTS_IN_OFED_2_0
 	case IBV_QPT_RAW_PACKET: return "HUGE_RAW_ETH";
-#endif
 	default: return "HUGE_NA";
 	}
 }

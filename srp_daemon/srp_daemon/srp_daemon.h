@@ -42,25 +42,10 @@
 #include <byteswap.h>
 #include <infiniband/verbs.h>
 #include <infiniband/umad.h>
+#include <infiniband/arch.h>
 
 #include "config.h"
 #include "srp_ib_types.h"
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#ifndef htonll
-#define htonll(x) bswap_64(x)
-#endif
-#ifndef ntohll
-#define ntohll(x) bswap_64(x)
-#endif
-#elif __BYTE_ORDER == __BIG_ENDIAN
-#ifndef htonll
-#define htonll(x) (x)
-#endif
-#ifndef ntohll
-#define ntohll(x) (x)
-#endif
-#endif
 
 #ifdef __cplusplus
 template <bool b> struct vki_static_assert { int m_bitfield:(2*b-1); };
@@ -408,12 +393,7 @@ typedef struct {
 	char filler[MAD_BLOCK_SIZE];
 } srp_ib_user_mad_t;
 
-#if defined(HAVE_VALGRIND_DRD_H) && defined(ENABLE_VALGRIND)
 #include <valgrind/drd.h>
-#endif
-#ifndef ANNOTATE_BENIGN_RACE_SIZED
-#define ANNOTATE_BENIGN_RACE_SIZED(a, b, c) do { } while(0)
-#endif
 
 #define pr_human(arg...)				\
 	do {						\

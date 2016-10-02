@@ -31,9 +31,7 @@
  * SOFTWARE.
  */
 
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <config.h>
 
 #include <errno.h>
 #include <sys/mman.h>
@@ -47,17 +45,6 @@
 #include <inttypes.h>
 
 #include "ibverbs.h"
-
-/*
- * Most distro's headers don't have these yet.
- */
-#ifndef MADV_DONTFORK
-#define MADV_DONTFORK	10
-#endif
-
-#ifndef MADV_DOFORK
-#define MADV_DOFORK	11
-#endif
 
 struct ibv_mem_node {
 	enum {

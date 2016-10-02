@@ -30,9 +30,7 @@
  * SOFTWARE.
  */
 #define _GNU_SOURCE
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,10 +41,6 @@
 #include <string.h>
 #include <sched.h>
 #include <sys/param.h>
-
-#ifndef HAVE_IBV_REGISTER_DRIVER
-#include <sysfs/libsysfs.h>
-#endif
 
 #include "mlx5.h"
 #include "mlx5-abi.h"

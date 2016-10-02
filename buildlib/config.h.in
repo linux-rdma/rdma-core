@@ -1,12 +1,6 @@
 #ifndef CONFIG_H_IN
 #define CONFIG_H_IN
 
-// FIXME: Remove this, ibverbs is included so we don't need to detect
-#define HAVE_IBV_DOFORK_RANGE 1
-#define HAVE_IBV_DONTFORK_RANGE 1
-#define HAVE_IBV_REGISTER_DRIVER 1
-#define HAVE_IBV_READ_SYSFS_FILE 1
-
 #define HAVE_STATEMENT_EXPR 1
 #define HAVE_BUILTIN_TYPES_COMPATIBLE_P 1
 #define HAVE_TYPEOF 1
@@ -15,15 +9,8 @@
 // FIXME: Remove this, we provide the netlink kernel headers ibacm needs
 #define HAVE_NETLINK 1
 
-// FIXME: Remove this, The cmake version hard-requires symbol version support
-#define HAVE_SYMVER_SUPPORT 1
-
 // FIXME: Remove this, The cmake version hard-requires new style CLOEXEC support
 #define STREAM_CLOEXEC "e"
-
-// FIXME: Remove this, cmake always provides a valgrind/memcheck.h
-#define HAVE_VALGRIND_MEMCHECK_H 1
-#define INCLUDE_VALGRIND 1
 
 #define IBV_CONFIG_DIR "@CONFIG_DIR@"
 #define RS_CONF_DIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/rsocket"

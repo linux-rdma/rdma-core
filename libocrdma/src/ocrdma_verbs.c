@@ -32,9 +32,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if HAVE_CONFIG_H
 #include <config.h>
-#endif				/* HAVE_CONFIG_H */
 
 #include <assert.h>
 #include <stdlib.h>
@@ -48,6 +46,7 @@
 #include <sys/mman.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <endian.h>
 
 #include "ocrdma_main.h"
 #include "ocrdma_abi.h"
@@ -56,48 +55,23 @@
 static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
 			      int solicited, uint32_t num_cqe);
 
-static inline uint32_t ocrdma_swap_endianness(uint32_t val)
-{
-	return ((val & 0xFF000000) >> 24) | ((val & 0xFF) << 24) |
-	    ((val & 0xFF00) << 8) | ((val & 0xFF0000) >> 8);
-}
-
 static inline uint32_t ocrdma_cpu_to_le(uint32_t val)
 {
-#if __BYTE_ORDER == __BIG_ENDIAN
-	return ocrdma_swap_endianness(val);
-#else
-	return val;
-#endif
+	return htole32(val);
 }
 
 static inline uint32_t ocrdma_le_to_cpu(uint32_t val)
 {
-#if __BYTE_ORDER == __BIG_ENDIAN
-	return ocrdma_swap_endianness(val);
-#else
-	return val;
-#endif
-}
-
-static inline uint32_t ocrdma_cpu_to_be(uint32_t val)
-{
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	return ocrdma_swap_endianness(val);
-#else
-	return val;
-#endif
+	return le32toh(val);
 }
 
 static inline void ocrdma_swap_cpu_to_le(void *dst, uint32_t len)
 {
-#if __BYTE_ORDER == __BIG_ENDIAN
 	int i = 0;
 	uint32_t *src_ptr = dst;
 	uint32_t *dst_ptr = dst;
 	for (; i < (len / 4); i++)
-		*dst_ptr++ = ocrdma_swap_endianness(*src_ptr++);
-#endif
+		*dst_ptr++ = le32toh(*src_ptr++);
 }
 
 /*

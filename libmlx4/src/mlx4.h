@@ -47,47 +47,7 @@
 #define uninitialized_var(x) x = x
 #endif
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-
-#  include <valgrind/memcheck.h>
-
-#  if !defined(VALGRIND_MAKE_MEM_DEFINED) || !defined(VALGRIND_MAKE_MEM_UNDEFINED)
-#    warning "Valgrind support requested, but VALGRIND_MAKE_MEM_(UN)DEFINED not available"
-#  endif
-
-#endif /* HAVE_VALGRIND_MEMCHECK_H */
-
-#ifndef VALGRIND_MAKE_MEM_DEFINED
-#  define VALGRIND_MAKE_MEM_DEFINED(addr,len)
-#endif
-
-#ifndef VALGRIND_MAKE_MEM_UNDEFINED
-#  define VALGRIND_MAKE_MEM_UNDEFINED(addr,len)
-#endif
-
-#ifndef rmb
-#  define rmb() mb()
-#endif
-
-#ifndef wmb
-#  define wmb() mb()
-#endif
-
-#ifndef wc_wmb
-
-#if defined(__i386__)
-#define wc_wmb() asm volatile("lock; addl $0,0(%%esp) " ::: "memory")
-#elif defined(__x86_64__)
-#define wc_wmb() asm volatile("sfence" ::: "memory")
-#elif defined(__ia64__)
-#define wc_wmb() asm volatile("fwb" ::: "memory")
-#elif defined(__s390x__)
-#define wc_wmb { asm volatile("" : : : "memory") }
-#else
-#define wc_wmb() wmb()
-#endif
-
-#endif
+#include <valgrind/memcheck.h>
 
 #define HIDDEN		__attribute__((visibility ("hidden")))
 

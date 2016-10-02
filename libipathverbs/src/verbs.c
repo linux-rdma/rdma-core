@@ -35,9 +35,7 @@
  * product whatsoever.
  */
 
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -117,25 +115,15 @@ struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
+	struct ibv_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
 		return NULL;
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
-	{
-		struct ibv_reg_mr_resp resp;
-
-		ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-				     access, mr, &cmd, sizeof cmd,
-                                     &resp, sizeof resp);
-	}
-#else
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
-			     access, mr, &cmd, sizeof cmd);
-#endif
-
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, mr,
+			     &cmd, sizeof cmd, &resp, sizeof resp);
 	if (ret) {
 		free(mr);
 		return NULL;

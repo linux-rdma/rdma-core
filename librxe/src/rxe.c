@@ -37,9 +37,7 @@
  * product whatsoever.
  */
 
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif /* HAVE_CONFIG_H */
+#include <config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -129,6 +127,7 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
+	struct ibv_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof *mr);
@@ -136,19 +135,8 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		return NULL;
 	}
 
-#ifdef IBV_CMD_REG_MR_HAS_RESP_PARAMS
-	{
-		struct ibv_reg_mr_resp resp;
-
-		ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-				     access, mr, &cmd, sizeof cmd,
-				     &resp, sizeof resp);
-	}
-#else
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-			     access, mr, &cmd, sizeof cmd);
-#endif
-
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, mr,
+			     &cmd, sizeof cmd, &resp, sizeof resp);
 	if (ret) {
 		free(mr);
 		return NULL;
@@ -937,22 +925,8 @@ static struct ibv_device *rxe_driver_init(const char *uverbs_sys_path,
 	return &dev->ibv_dev;
 }
 
-#ifdef HAVE_IBV_REGISTER_DRIVER
 static __attribute__ ((constructor))
 void rxe_register_driver(void)
 {
 	ibv_register_driver("rxe", rxe_driver_init);
 }
-#else
-struct ibv_device *openib_driver_init(struct sysfs_class_device *sysdev)
-{
-	int abi_ver = 0;
-	char value[8];
-
-	if (ibv_read_sysfs_file(sysdev->path, "abi_version",
-				value, sizeof value) > 0)
-		abi_ver = strtol(value, NULL, 10);
-
-	return rxe_driver_init(sysdev->path, abi_ver);
-}
-#endif /* HAVE_IBV_REGISTER_DRIVER */
