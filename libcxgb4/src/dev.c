@@ -75,7 +75,7 @@ unsigned long c4iw_page_mask;
 int ma_wr;
 int t5_en_wc = 1;
 
-SLIST_HEAD(devices_struct, c4iw_dev) devices;
+static LIST_HEAD(devices);
 
 static struct ibv_context_ops c4iw_ctx_ops = {
 	.query_device = c4iw_query_device,
@@ -365,7 +365,7 @@ void dump_state()
 	int i;
 
 	fprintf(stderr, "STALL DETECTED:\n");
-	SLIST_FOREACH(dev, &devices, list) {
+	list_for_each(&devices, dev, list) {
 		//pthread_spin_lock(&dev->lock);
 		fprintf(stderr, "Device %s\n", dev->ibv_dev.name);
 		for (i=0; i < dev->max_cq; i++) {
@@ -471,11 +471,12 @@ found:
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	dev->ibv_dev.ops = c4iw_dev_ops;
-	dev->chip_version = CHELSIO_PCI_ID_CHIP_VERSION(hca_table[i].device);
+	dev->chip_version = CHELSIO_CHIP_VERSION(hca_table[i].device >> 8);
 	dev->abi_version = abi_version;
+	list_node_init(&dev->list);
 
 	PDBG("%s device claimed\n", __FUNCTION__);
-	SLIST_INSERT_HEAD(&devices, dev, list);
+	list_add_tail(&devices, &dev->list);
 #ifdef STALL_DETECTION
 {
 	char *c = getenv("CXGB4_STALL_TIMEOUT");

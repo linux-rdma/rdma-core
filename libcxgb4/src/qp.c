@@ -147,10 +147,10 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
 		return -EINVAL;
 	if (wr->send_flags & IBV_SEND_SOLICITED)
 		wqe->send.sendop_pkd = cpu_to_be32(
-			V_FW_RI_SEND_WR_SENDOP(FW_RI_SEND_WITH_SE));
+			FW_RI_SEND_WR_SENDOP_V(FW_RI_SEND_WITH_SE));
 	else
 		wqe->send.sendop_pkd = cpu_to_be32(
-			V_FW_RI_SEND_WR_SENDOP(FW_RI_SEND));
+			FW_RI_SEND_WR_SENDOP_V(FW_RI_SEND));
 	wqe->send.stag_inv = 0;
 	wqe->send.r3 = 0;
 	wqe->send.r4 = 0;
