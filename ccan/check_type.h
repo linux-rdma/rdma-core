@@ -1,4 +1,4 @@
-/* CC0 (Public domain) - see LICENSE file for details */
+/* CC0 (Public domain) - see LICENSE.CC0 file for details */
 #ifndef CCAN_CHECK_TYPE_H
 #define CCAN_CHECK_TYPE_H
 #include "config.h"
