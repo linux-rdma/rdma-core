@@ -64,6 +64,7 @@ F:	providers/i40iw/
 
 RDMA Communication Manager Assistant (for librdmacm.so)
 M:	Sean Hefty <sean.hefty@intel.com>
+M:	Hal Rosenstock <hal@dev.mellanox.co.il>
 S:	Supported
 F:	ibacm/*
 
