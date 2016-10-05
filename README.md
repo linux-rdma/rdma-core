@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/linux-rdma/rdma-core.svg?branch=master)](https://travis-ci.org/linux-rdma/rdma-core)
+
 # RDMA Core Userspace Libraries and Daemons
 
 This is the userspace components for the Linux Kernel's drivers/infiniband
