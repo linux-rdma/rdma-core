@@ -1,0 +1,89 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          srptools
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Discovers SRP scsi targets.
+# Description:       Discovers SRP scsi over infiniband targets.
+### END INIT INFO
+
+[ -x /usr/sbin/srp_daemon ] || exit 0
+
+IBDIR=/sys/class/infiniband
+
+PORTS=""
+RETRIES=""
+LOG=""
+
+[ -f /etc/default/srptools ] &&  . /etc/default/srptools
+
+start_daemon () {
+
+if [ "$PORTS" = "NONE" ] ; then
+echo "srptools disabled."
+exit 0
+fi
+
+
+if [ "$PORTS" = "ALL" ]  ; then
+    for HCA_ID in `/bin/ls -1 ${IBDIR}`
+      do
+      for PORT in `/bin/ls -1 ${IBDIR}/${HCA_ID}/ports/`
+        do
+        run_daemon
+      done
+    done
+fi
+
+
+for ADAPTER in $PORTS ; do
+    HCA_ID=`echo $ADAPTER | awk -F: '{print $1}'`
+    PORT=`echo $ADAPTER | awk -F:  '{print $2}'`
+    run_daemon
+done
+}
+
+
+run_daemon() {
+# SRP deamon wedges if we start it on a port which is not up
+
+        STATUS=`/usr/sbin/ibstat $HCA_ID $PORT | grep "State:"`
+
+        if [ "$STATUS" = "State: Active" ] ; then
+            echo "Starting srp on $HCA_ID $PORT"
+
+# srp does not background itself; using the start-stop-daemon background function
+# causes us to lose stdout, which is where it logs to
+            nohup start-stop-daemon --start --quiet -m --pidfile /var/run/srp_daemon.${HCA_ID}.${PORT} \
+            --exec  /usr/sbin/srp_daemon -- -e -c -n -i ${HCA_ID} -p ${PORT} -R ${RETRIES}   >> $LOG 2>&1 &
+            RETVAL=$?
+        fi
+}
+
+stop_daemon () {
+     for HCA_ID in `/bin/ls -1 ${IBDIR}`
+      do
+      for PORT in `/bin/ls -1 ${IBDIR}/${HCA_ID}/ports/`
+        do
+        start-stop-daemon --stop --quiet --oknodo -m --pidfile /var/run/srp_daemon.${HCA_ID}.${PORT}
+        RETVAL=$?
+      done
+    done
+}
+
+
+case "$1" in
+
+start)
+start_daemon
+;;
+stop)
+stop_daemon
+;;
+restart | reload | force-reload )
+stop_daemon
+start_daemon
+;;
+esac

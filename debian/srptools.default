@@ -1,0 +1,14 @@
+#How often should srpdeamon  rescan the fabric (seconds)
+RETRIES=60
+
+#Where should srp-deamon log to
+LOG=/var/log/srp_daemon.log
+
+# What ports should srp-deamon be started on.
+# Format is CA:port
+# ALL or NONE will run on all ports on none
+# respectively
+
+PORTS=NONE
+#PORTS=ALL
+#PORTS="mthca0:1 mlx4_0:2"
