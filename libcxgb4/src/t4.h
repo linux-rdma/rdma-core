@@ -63,8 +63,7 @@
 #define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 
-/* Generally speaking, PCI systems auto-byteswap on PCI accesses, so this is
-   probably wrong */
+/* FIXME: Move me to a generic PCI mmio accessor */
 #define cpu_to_pci32(val) htole32(val)
 
 #define writel(v, a) do { *((volatile u32 *)(a)) = cpu_to_pci32(v); } while (0)

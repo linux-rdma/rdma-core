@@ -50,8 +50,7 @@
 #define Q_COUNT(rptr,wptr) ((wptr)-(rptr))
 #define Q_PTR2IDX(ptr,size_log2) (ptr & ((1UL<<size_log2)-1))
 
-/* Generally speaking, PCI systems auto-byteswap on PCI accesses, so this is
-   probably wrong */
+/* FIXME: Move me to a generic PCI mmio accessor */
 #define cpu_to_pci32(val) htole32(val)
 
 #define RING_DOORBELL(doorbell, QPID) { \
