@@ -48,8 +48,6 @@
 #define unlikely(x) __builtin_expect((x),0)
 #endif
 
-#define HIDDEN __attribute__((visibility ("hidden")))
-
 #define PFX	"libnes: "
 
 #define  NES_QP_MMAP		1

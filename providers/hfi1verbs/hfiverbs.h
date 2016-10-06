@@ -67,8 +67,6 @@
 #include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 
-#define HIDDEN		__attribute__((visibility ("hidden")))
-
 #define PFX		"hfi1: "
 
 struct hfi1_device {

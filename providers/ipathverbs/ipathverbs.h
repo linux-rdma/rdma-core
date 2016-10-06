@@ -47,8 +47,6 @@
 #include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 
-#define HIDDEN		__attribute__((visibility ("hidden")))
-
 #define PFX		"ipath: "
 
 struct ipath_device {

@@ -40,8 +40,6 @@
 
 #include <valgrind/memcheck.h>
 
-#define HIDDEN		__attribute__((visibility ("hidden")))
-
 #define INIT		__attribute__((constructor))
 #define FINI		__attribute__((destructor))
 
@@ -58,9 +56,9 @@ struct ibv_abi_compat_v2 {
 	pthread_mutex_t		in_use;
 };
 
-extern HIDDEN int abi_ver;
+extern int abi_ver;
 
-HIDDEN int ibverbs_init(struct ibv_device ***list);
+int ibverbs_init(struct ibv_device ***list);
 
 struct verbs_ex_private {
 	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,

@@ -48,7 +48,7 @@
 
 #include "ibverbs.h"
 
-HIDDEN int abi_ver;
+int abi_ver;
 
 struct ibv_sysfs_dev {
 	char		        sysfs_name[IBV_SYSFS_NAME_MAX];
@@ -498,7 +498,7 @@ static void add_device(struct ibv_device *dev,
 	(*dev_list)[(*num_devices)++] = dev;
 }
 
-HIDDEN int ibverbs_init(struct ibv_device ***list)
+int ibverbs_init(struct ibv_device ***list)
 {
 	const char *sysfs_path;
 	struct ibv_sysfs_dev *sysfs_dev, *next_dev;
