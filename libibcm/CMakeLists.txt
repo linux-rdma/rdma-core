@@ -1,6 +1,6 @@
 publish_headers(infiniband
-  ../include/infiniband/cm.h
-  ../include/infiniband/cm_abi.h
+  cm.h
+  cm_abi.h
   )
 
 rdma_library(ibcm libibcm.map

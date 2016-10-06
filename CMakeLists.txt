@@ -257,7 +257,7 @@ add_subdirectory(libibverbs/src)
 add_subdirectory(libibverbs/man)
 add_subdirectory(librdmacm/src)
 add_subdirectory(librdmacm/man)
-add_subdirectory(libibcm/src)
+add_subdirectory(libibcm)
 
 # Providers
 add_subdirectory(providers/cxgb3)
