@@ -1,5 +1,3 @@
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
-
 publish_headers(infiniband
   ../include/infiniband/arch.h
   ../include/infiniband/driver.h

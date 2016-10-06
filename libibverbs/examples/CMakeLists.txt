@@ -1,5 +1,3 @@
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
-
 # Shared example files
 add_library(ibverbs_tools STATIC
   pingpong.c
