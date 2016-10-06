@@ -255,7 +255,7 @@ add_subdirectory(libibumad)
 add_subdirectory(libibumad/man)
 add_subdirectory(libibverbs)
 add_subdirectory(libibverbs/man)
-add_subdirectory(librdmacm/src)
+add_subdirectory(librdmacm)
 add_subdirectory(librdmacm/man)
 add_subdirectory(libibcm)
 

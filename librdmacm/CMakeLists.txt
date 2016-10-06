@@ -1,11 +1,11 @@
 publish_headers(rdma
-  ../include/rdma/rdma_cma.h
-  ../include/rdma/rdma_cma_abi.h
-  ../include/rdma/rdma_verbs.h
-  ../include/rdma/rsocket.h
+  rdma_cma.h
+  rdma_cma_abi.h
+  rdma_verbs.h
+  rsocket.h
   )
 publish_headers(infiniband
-  ../include/infiniband/ib.h
+  ib.h
   )
 
 rdma_library(rdmacm librdmacm.map
