@@ -1,7 +1,6 @@
 rdma_man_pages(
   umad_addr_dump.3
   umad_alloc.3
-  umad_attribute_str.3
   umad_class_str.3
   umad_close_port.3
   umad_debug.3
@@ -17,8 +16,6 @@ rdma_man_pages(
   umad_get_pkey.3
   umad_get_port.3
   umad_init.3
-  umad_mad_status_str.3
-  umad_method_str.3
   umad_open_port.3
   umad_poll.3
   umad_recv.3
@@ -36,6 +33,9 @@ rdma_man_pages(
   umad_unregister.3
   )
 rdma_alias_man_pages(
+  umad_class_str.3 umad_attribute_str.3
+  umad_class_str.3 umad_mad_status_str.3
+  umad_class_str.3 umad_method_str.3
   umad_get_ca.3 umad_release_ca.3
   umad_get_port.3 umad_release_port.3
   umad_init.3 umad_done.3
