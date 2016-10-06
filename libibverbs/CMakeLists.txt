@@ -1,12 +1,12 @@
 publish_headers(infiniband
-  ../include/infiniband/arch.h
-  ../include/infiniband/driver.h
-  ../include/infiniband/kern-abi.h
-  ../include/infiniband/marshall.h
-  ../include/infiniband/opcode.h
-  ../include/infiniband/sa-kern-abi.h
-  ../include/infiniband/sa.h
-  ../include/infiniband/verbs.h
+  arch.h
+  driver.h
+  kern-abi.h
+  marshall.h
+  opcode.h
+  sa-kern-abi.h
+  sa.h
+  verbs.h
   )
 
 if (NOT NL_KIND EQUAL 0)
