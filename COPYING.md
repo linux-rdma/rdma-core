@@ -1,7 +1,7 @@
 # Default Dual License
 
 Unless otherwise stated this software is available to you under a choice of
-one of two licenses.  You may choose to be licensed under the terms of the the
+one of two licenses.  You may choose to be licensed under the terms of the
 OpenIB.org BSD (MIT variant) license (see COPYING.BSD_MIT) or the GNU General
 Public License (GPL) Version 2 (see COPYING.GPL2), both included in this
 package.
@@ -35,11 +35,6 @@ several licenses:
 
 The following providers use a different license than the Default Dual
 License. Refer to files in each directory for details.
-
-cxbg4
-: A combination of the
-    - Default Dual License
-    - cxgb4/src/queue.h: BSD 3 clause license.
 
 hfi1verbs
 : Dual License: GPLv2 or Intel 3 clause BSD license
