@@ -76,6 +76,7 @@ F:	providers/ipathverbs/
 
 IWARP PORT MAPPER DAEMON (for iwarp kernel providers)
 M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
+M:	Steve Wise <swise@opengridcomputing.com>
 H:	Robert Sharp <robert.o.sharp@intel.com>
 S:	Supported
 F:	iwpmd/
