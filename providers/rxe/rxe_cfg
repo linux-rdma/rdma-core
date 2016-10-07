@@ -241,7 +241,6 @@ sub status_print {
     my @flen = ();
     my $num_fields = 0;
     my $i;
-    my $j;
     my $pad;
     my $line;
 
@@ -281,9 +280,7 @@ sub status_print {
 	    else {
 		print "   ";
 	    }
-	    for ($j = 0; $j < $pad; $j++) {
-		print " ";
-	    }
+	    printf("%*s", $pad, "");
 	}
 	print "\n";
     }
