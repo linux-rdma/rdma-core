@@ -1,0 +1,8 @@
+etc/default/srptools
+etc/init.d/srptools
+etc/logrotate.d/srp_daemon
+etc/srp_daemon.conf
+usr/sbin/ibsrpdm
+usr/sbin/srp_daemon
+usr/share/man/man1/ibsrpdm.1
+usr/share/man/man1/srp_daemon.1

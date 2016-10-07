@@ -1,0 +1,3 @@
+usr/lib/*/libibcm*.so
+usr/include/infiniband/cm.h
+usr/include/infiniband/cm_abi.h

@@ -70,6 +70,9 @@ else()
   set(CMAKE_INSTALL_FULL_RUNDIR "${CMAKE_INSTALL_RUNDIR}")
 endif()
 
+set(DISTRO_FLAVOUR "None" CACHE
+  STRING "Flavour of distribution to install for. This primarily impacts the init.d scripts installed.")
+
 #-------------------------
 # Load CMake components
 set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
@@ -251,42 +254,38 @@ configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOT
 # Sub-directories
 add_subdirectory(ccan)
 # Libraries
-add_subdirectory(libibumad/src)
+add_subdirectory(libibumad)
 add_subdirectory(libibumad/man)
-add_subdirectory(libibverbs/src)
+add_subdirectory(libibverbs)
 add_subdirectory(libibverbs/man)
-add_subdirectory(librdmacm/src)
+add_subdirectory(librdmacm)
 add_subdirectory(librdmacm/man)
-add_subdirectory(libibcm/src)
+add_subdirectory(libibcm)
 
 # Providers
-add_subdirectory(libcxgb3/src)
-add_subdirectory(libcxgb4/src)
-add_subdirectory(libhfi1verbs/src)
-add_subdirectory(libi40iw/src)
-add_subdirectory(libipathverbs/src)
-add_subdirectory(libipathverbs/)
-add_subdirectory(libmlx4/src)
-add_subdirectory(libmlx5/src)
-add_subdirectory(libmthca/src)
-add_subdirectory(libnes/src)
-add_subdirectory(libocrdma/src)
-add_subdirectory(librxe/src)
-add_subdirectory(librxe/man)
-add_subdirectory(librxe/)
+add_subdirectory(providers/cxgb3)
+add_subdirectory(providers/cxgb4)
+add_subdirectory(providers/hfi1verbs)
+add_subdirectory(providers/i40iw)
+add_subdirectory(providers/ipathverbs)
+add_subdirectory(providers/mlx4)
+add_subdirectory(providers/mlx5)
+add_subdirectory(providers/mthca)
+add_subdirectory(providers/nes)
+add_subdirectory(providers/ocrdma)
+add_subdirectory(providers/rxe)
+add_subdirectory(providers/rxe/man)
 
 # Binaries
 add_subdirectory(ibacm)
 if (NOT NL_KIND EQUAL 0)
   add_subdirectory(iwpmd)
-  add_subdirectory(iwpmd/src)
 endif()
 add_subdirectory(libibcm/examples)
 add_subdirectory(libibumad/tests)
 add_subdirectory(libibverbs/examples)
 add_subdirectory(librdmacm/examples)
-add_subdirectory(srp_daemon/srp_daemon)
-add_subdirectory(srp_daemon/man)
+add_subdirectory(srp_daemon)
 
 rdma_finalize_libs()
 

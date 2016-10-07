@@ -1,0 +1,16 @@
+usr/bin/ibv_asyncwatch
+usr/bin/ibv_devices
+usr/bin/ibv_devinfo
+usr/bin/ibv_rc_pingpong
+usr/bin/ibv_srq_pingpong
+usr/bin/ibv_uc_pingpong
+usr/bin/ibv_ud_pingpong
+usr/bin/ibv_xsrq_pingpong
+usr/share/man/man1/ibv_asyncwatch.1
+usr/share/man/man1/ibv_devices.1
+usr/share/man/man1/ibv_devinfo.1
+usr/share/man/man1/ibv_rc_pingpong.1
+usr/share/man/man1/ibv_srq_pingpong.1
+usr/share/man/man1/ibv_uc_pingpong.1
+usr/share/man/man1/ibv_ud_pingpong.1
+usr/share/man/man1/ibv_xsrq_pingpong.1

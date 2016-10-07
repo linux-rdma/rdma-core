@@ -59,19 +59,22 @@ void wire_gid_to_gid(const char *wgid, union ibv_gid *gid)
 	char tmp[9];
 	uint32_t v32;
 	int i;
+	uint32_t tmp_gid[4];
 
 	for (tmp[8] = 0, i = 0; i < 4; ++i) {
 		memcpy(tmp, wgid + i * 8, 8);
 		sscanf(tmp, "%x", &v32);
-		*(uint32_t *)(&gid->raw[i * 4]) = ntohl(v32);
+		tmp_gid[i] = ntohl(v32);
 	}
+	memcpy(gid, tmp_gid, sizeof(*gid));
 }
 
 void gid_to_wire_gid(const union ibv_gid *gid, char wgid[])
 {
+	uint32_t tmp_gid[4];
 	int i;
 
+	memcpy(tmp_gid, gid, sizeof(tmp_gid));
 	for (i = 0; i < 4; ++i)
-		sprintf(&wgid[i * 8], "%08x",
-			htonl(*(uint32_t *)(gid->raw + i * 4)));
+		sprintf(&wgid[i * 8], "%08x", htonl(tmp_gid[i]));
 }

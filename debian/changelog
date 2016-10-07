@@ -1,0 +1,5 @@
+rdma-core (11-1) unstable; urgency=low
+
+  * New version
+
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Mon, 12 Sep 2016 13:44:24 -0600
