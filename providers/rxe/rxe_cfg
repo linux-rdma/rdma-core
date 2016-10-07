@@ -220,6 +220,7 @@ sub get_dev_info {
 		$rxe_mtu{$rxe} = $line;
 	    }
 	}
+	$rxe_mtu{$rxe} = "(?)" if (!$rxe_mtu{$rxe});
     }
 }
 
