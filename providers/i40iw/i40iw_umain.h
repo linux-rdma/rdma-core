@@ -54,8 +54,6 @@
 #define unlikely(x) __builtin_expect((x), 0)
 #endif
 
-#define HIDDEN __attribute__((visibility("hidden")))
-
 #define PFX "libi40iw-"
 
 #define  I40IW_BASE_PUSH_PAGE	1

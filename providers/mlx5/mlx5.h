@@ -54,8 +54,6 @@
 
 #include <valgrind/memcheck.h>
 
-#define HIDDEN		__attribute__((visibility("hidden")))
-
 #ifdef HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
 #define ALWAYS_INLINE __attribute__((always_inline))
 #else

@@ -1,22 +1,11 @@
-Assistant for InfiniBand Communication Management (IB ACM)
+# The Assistant for InfiniBand Communication Management (IB ACM)
 
-Note: The IB ACM should be considered experimental.
+The IB ACM library implements and provides a framework for name, address, and
+route resolution services over InfiniBand.  The IB ACM provides information
+needed to establish a connection, but does not implement the CM protocol.
 
-
-Overview
---------
-The IB ACM package implements and provides a framework for experimental name,
-address, and route resolution services over InfiniBand.  It is intended to
-address connection setup scalability issues running MPI applications on
-large clusters.  The IB ACM provides information needed to establish a
-connection, but does not implement the CM protocol.
-
-The librdmacm can invoke IB ACM services when built using the --with-ib_acm
-option.  The IB ACM services tie in under the rdma_resolve_addr,
-rdma_resolve_route, and rdma_getaddrinfo routines.  For maximum benefit,
-the rdma_getaddrinfo routine should be used, however existing applications
-should still see significant connection scaling benefits using the calls
-available in librdmacm 1.0.11 and previous releases.
+IB ACM services are used by librdmacm to implement the rdma_resolve_addr,
+rdma_resolve_route, and rdma_getaddrinfo routines.
 
 The IB ACM is focused on being scalable and efficient.  The current
 implementation limits network traffic, SA interactions, and centralized
@@ -26,34 +15,12 @@ different fabric topologies.
 This release is limited in its handling of dynamic changes.
 
 The IB ACM package is comprised of two components: the ibacm service
-and a test/configuration utility - ib_acme.  Both are userspace components
-and are available for Linux and Windows.  Additional details are given below.
+and a test/configuration utility - ib_acme.
 
+# Details
 
-Quick Start Guide
------------------
-1. Prerequisites: libibverbs and libibumad must be installed.
-   The IB stack should be running with IPoIB configured.
-   These steps assume that the user has administrative privileges.
-2. Install the IB ACM package
-   This installs ibacm, and ib_acme.
-3. Run ib_acme -A -O
-   This will generate IB ACM address and options configuration files.
-   (acm_addr.cfg and acm_opts.cfg)
-4. Run ibacm -D
-   This will run ibacm as service/daemon.
-   Because ibacm uses the libibumad interfaces, it should be run with
-   administrative privileges.
-5. Optionally, run ib_acme -s <source_ip> -d <dest_ip> -v
-   This will verify that the ibacm service is running.
-5. Install librdmacm.
-   The librdmacm will automatically use the ibacm service.
-   On failures, the librdmacm will fall back to normal resolution.
+### ib_acme
 
-
-Details
--------
-ib_acme:
 The ib_acme program serves a dual role.  It acts as a utility to test
 ibacm operation and help verify if the ibacm service and selected
 protocol is usable for a given cluster configuration.   Additionally,
@@ -61,7 +28,8 @@ it automatically generates ibacm configuration files to assist with
 or eliminate manual setup.
 
 
-acm configuration files:
+### acm configuration files
+
 The ibacm service relies on two configuration files.
 
 The acm_addr.cfg file contains name and address mappings for each IB
@@ -75,8 +43,8 @@ ib_acme generates the acm_opts.cfg file using static information.  A
 future enhancement would adjust options based on the current system
 and cluster size.
 
+### ibacm
 
-ibacm:
 The ibacm service is responsible for resolving names and addresses to
 InfiniBand path information and caching such data. It is implemented as a
 daemon that execute with administrative privileges.

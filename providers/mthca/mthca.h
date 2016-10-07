@@ -41,8 +41,6 @@
 
 #include <valgrind/memcheck.h>
 
-#define HIDDEN		__attribute__((visibility ("hidden")))
-
 #define PFX		"mthca: "
 
 enum mthca_hca_type {
