@@ -31,6 +31,11 @@ else()
   string(REPLACE "-rdynamic" "" CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_C_FLAGS}")
 endif()
 
+# Make RDMA_CHECK_C_LINKER_FLAG work better
+if(POLICY CMP0056)
+  cmake_policy(SET CMP0056 NEW)
+endif()
+
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
@@ -150,18 +155,18 @@ CHECK_C_SOURCE_COMPILES("
 
 # Enable development support features
 # Prune unneeded shared libraries during linking
-RDMA_AddOptCFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
-RDMA_AddOptCFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
-RDMA_AddOptCFlag(CMAKE_MODULE_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
+RDMA_AddOptLDFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
+RDMA_AddOptLDFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
+RDMA_AddOptLDFlag(CMAKE_MODULE_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
 
 # Ensure all shared ELFs have fully described linking
-RDMA_AddOptCFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-Wl,--no-undefined")
-RDMA_AddOptCFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-Wl,--no-undefined")
+RDMA_AddOptLDFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-Wl,--no-undefined")
+RDMA_AddOptLDFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-Wl,--no-undefined")
 
 # Enable gold linker - gold has different linking checks
-#RDMA_AddOptCFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-fuse-ld=gold")
-#RDMA_AddOptCFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-fuse-ld=gold")
-#RDMA_AddOptCFlag(CMAKE_MODULE_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-fuse-ld=gold")
+#RDMA_AddOptLDFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-fuse-ld=gold")
+#RDMA_AddOptLDFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-fuse-ld=gold")
+#RDMA_AddOptLDFlag(CMAKE_MODULE_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-fuse-ld=gold")
 
 # Verify that GNU --version-script and asm(".symver") works
 find_package(LDSymVer REQUIRED)

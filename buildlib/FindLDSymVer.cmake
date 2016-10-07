@@ -16,8 +16,14 @@ IBVERBS_1.1 {
 } IBVERBS_1.0;
 ")
 
-set(CMAKE_REQUIRED_FLAGS_SAVE ${CMAKE_REQUIRED_FLAGS})
-set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS} "-Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/test.map")
+# See RDMA_CHECK_C_LINKER_FLAG
+set(SAFE_CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
+set(SAFE_CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+if (POLICY CMP0056)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/test.map")
+else()
+  set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES} -Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/test.map")
+endif()
 
 # And matching source, this also checks that .symver asm works
 check_c_source_compiles("
@@ -26,9 +32,11 @@ asm(\".symver ibv_get_device_list_1, ibv_get_device_list@IBVERBS_1.1\");
 void ibv_get_device_list_0(void){}
 asm(\".symver ibv_get_device_list_0, ibv_get_device_list@@IBVERBS_1.0\");
 
-int main(void){return 0;}" _LDSYMVER_SUCCESS)
+int main(int argc,const char *argv[]){return 0;}" _LDSYMVER_SUCCESS)
+
 file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/test.map")
-set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_SAVE})
+set(CMAKE_EXE_LINKER_FLAGS "${SAFE_CMAKE_EXE_LINKER_FLAGS}")
+set(CMAKE_REQUIRED_LIBRARIES "${SAFE_CMAKE_REQUIRED_LIBRARIES}")
 
 if (_LDSYMVER_SUCCESS)
   set(LDSYMVER_MODE "GNU" CACHE INTERNAL "How to set symbol versions on shared libraries")
