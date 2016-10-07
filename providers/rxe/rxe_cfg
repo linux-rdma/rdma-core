@@ -39,7 +39,6 @@ use File::Basename;
 use Getopt::Long;
 use Switch;
 
-my $z = "2>/dev/null";
 my $help = 0;
 my $no_persist = 0;
 my $debug = 0;
@@ -150,7 +149,7 @@ sub get_dev_info {
 
 	$eth_list[$i++] = $eth;
 
-	@lines = `ethtool -i $eth $z`;
+	@lines = `ethtool -i $eth`;
 	foreach $line (@lines) {
 	    chomp($line);
 
@@ -171,7 +170,7 @@ sub get_dev_info {
 	$link_state{$eth} = "";
 	$link_speed{$eth} = "";
 
-	@lines = `ethtool $eth $z`;
+	@lines = `ethtool $eth`;
 	foreach $line (@lines) {
 	    chomp($line);
 
@@ -190,7 +189,7 @@ sub get_dev_info {
 	$ipv4_addr{$eth} = "            ";
 	$eth_mtu{$eth} = "";
 
-	@lines = `ifconfig $eth $z`;
+	@lines = `ifconfig $eth`;
 	foreach $line (@lines) {
 	    # get IP address
 	    if ($line =~ /inet addr/) {
@@ -211,7 +210,7 @@ sub get_dev_info {
     # get rxe mtu
     foreach my $rxe (@rxe_array) {
 	
-	@lines  = `ibv_devinfo -d $rxe $z`;
+	@lines = `ibv_devinfo -d $rxe`;
 	foreach $line (@lines) {
 	    if ($line =~ "active_mtu") {
 		$line =~ s/^\s+active_mtu:\s+//g;
@@ -494,7 +493,7 @@ sub get_devinfo {
     my $rxe = $_[0];
 
     my $cmd = "ibv_devinfo -d $rxe";
-    return `$cmd $z`;
+    return `$cmd`;
 }
 
 # allow unsupported modules to load in SLES11 if allowed
@@ -679,7 +678,7 @@ sub main {
     # create persistence file if necessary
     mkdir -p $persistence_path;
     if (!(-e $persistence_file)) {
-        `touch $persistence_file $z`;
+        `touch $persistence_file`;
     }
 
     # Get full context of the configuration
