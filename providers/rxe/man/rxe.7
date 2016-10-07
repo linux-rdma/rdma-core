@@ -2,16 +2,17 @@
 .\"
 .TH RXE 7 2011-06-29 1.0.0
 .SH "NAME"
-rxe \- Soft RDMA over Ethernet
+rxe \- Software RDMA over Ethernet
 .SH "SYNOPSIS"
 \fBmodprobe rdma_rxe\fR
-.br
-\fBmodprobe rdma_rxe_net\fR
 .br
 This is usually performed by a configuration utility (see \fBrxe_cfg\fR(8).)
 
 .SH "DESCRIPTION"
-This is a software implementation of the RoCE protocol, which transports the full OFED RDMA protocol set (kernel and user mode) over layer 2 Ethernet.  Infiniband (IB) transport and GRH headers are encapsulated in Ethernet packets of ether type 0x8915.
+The rdma_rxe kernel module provides a software implementation of the RoCEv2
+protocol. The RoCEv2 protocol is an RDMA transport protocol that exists on
+top of UDP/IPv4 or UDP/IPv6. The InfiniBand (IB) Base Transport Header (BTH)
+is encapsulated in the UDP packet.
 
 Once a RXE instance has been created, communicating via RXE is the same as communicating via any OFED compatible Infiniband HCA, albeit in some cases with addressing implications.
 
