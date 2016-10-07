@@ -300,23 +300,7 @@ sub check_module_status {
 
 # print driver load status and ethertype for rdma_rxe and rdma_rxe_net
 sub show_module_status {
-    my $rxe_loaded = 1;
-
-    if (!(-e $sys)) {
-	$rxe_loaded = 0;
-    }
-
-    if ($rxe_loaded) {
-	return 0;
-    }
-    elsif (!$rxe_loaded) {
-	print "rxe modules not loaded\n";
-	return 1;
-    }
-    else {
-	print "Configuration does not make sense\n";
-	return 1;
-    }
+    print "rdma_rxe module not loaded\n" if (!(-e $sys));
 }
 
 # print rxe status
