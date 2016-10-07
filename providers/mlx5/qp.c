@@ -38,6 +38,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <util/compiler.h>
 
 #include "mlx5.h"
 #include "doorbell.h"

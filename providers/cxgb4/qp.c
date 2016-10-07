@@ -37,6 +37,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <netinet/in.h>
+#include <util/compiler.h>
 #include "libcxgb4.h"
 
 #ifdef STATS

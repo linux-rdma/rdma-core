@@ -37,6 +37,7 @@
 #include <sys/errno.h>
 #include <netinet/in.h>
 #include <infiniband/opcode.h>
+#include <util/compiler.h>
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
 
