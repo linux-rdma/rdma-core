@@ -2118,7 +2118,7 @@ static void acmp_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
 static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_ep *ep)
 {
 	union ibv_gid sgid, dgid;
-	struct ibv_port_attr attr = { 0 };
+	struct ibv_port_attr attr = {};
 	struct acmp_dest *dest;
 	char s[128];
 	char *p, *ptr, *p_guid, *p_lid;
