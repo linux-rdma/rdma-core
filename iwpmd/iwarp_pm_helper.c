@@ -35,7 +35,6 @@
 
 extern iwpm_mapped_port *mapped_ports;
 extern iwpm_mapped_port *pending_ports;
-extern iwpm_mapping_request *mapping_reqs;
 
 extern pthread_cond_t cond_req_complete;
 extern pthread_mutex_t map_req_mutex;
@@ -96,8 +95,7 @@ iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *req_nlh,
 void add_iwpm_map_request(iwpm_mapping_request *iwpm_map_req)
 {
 	pthread_mutex_lock(&map_req_mutex);
-	add_list_element((iwpm_list **)&mapping_reqs, (iwpm_list **)&iwpm_map_req,
-				IWPM_LIST_MAP_REQUESTS);
+	list_add(&mapping_reqs, &iwpm_map_req->entry);
 	/* if not wake, signal the thread that a new request has been posted */
 	if (!wake)
 		pthread_cond_signal(&cond_req_complete);
@@ -117,8 +115,7 @@ void remove_iwpm_map_request(iwpm_mapping_request *iwpm_map_req)
 			"Timeout for request (type = %u pid = %d)\n",
 			iwpm_map_req->msg_type, iwpm_map_req->nlmsg_pid);
 	}
-	remove_list_element((iwpm_list **)&mapping_reqs, (iwpm_list *)iwpm_map_req,
-				IWPM_LIST_MAP_REQUESTS);
+	list_del(&iwpm_map_req->entry);
 	if (iwpm_map_req->send_msg)
 		free(iwpm_map_req->send_msg);
 	free(iwpm_map_req);
@@ -140,7 +137,7 @@ int update_iwpm_map_request(__u64 assochandle, struct sockaddr_storage *src_addr
 
 	pthread_mutex_lock(&map_req_mutex);
 	/* look for a matching entry in the list */
-	for (iwpm_map_req = mapping_reqs; iwpm_map_req != NULL; iwpm_map_req = iwpm_map_req->next) {
+	list_for_each(&mapping_reqs, iwpm_map_req, entry) {
 		if (assochandle == iwpm_map_req->assochandle &&
 				(msg_type & iwpm_map_req->msg_type) &&
 				check_same_sockaddr(src_addr, &iwpm_map_req->src_addr)) {
@@ -627,16 +624,11 @@ int add_iwpm_pending_msg(iwpm_send_msg *send_msg)
 static void assign_list_head(iwpm_list **list, iwpm_list *list_element, int list_type)
 {
 	iwpm_mapped_port **ports;
-	iwpm_mapping_request **requests;
 
 	switch (list_type) {
 		case IWPM_LIST_MAPPED_PORTS:
 			ports = (iwpm_mapped_port **)list;
 			*ports = (iwpm_mapped_port *)list_element;
-			break;
-		case IWPM_LIST_MAP_REQUESTS:
-			requests = (iwpm_mapping_request **)list;
-			*requests = (iwpm_mapping_request *)list_element;
 			break;
 		default:
 			break;

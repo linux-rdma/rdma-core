@@ -38,7 +38,7 @@ const char iwpm_ulib_name [] = "iWarpPortMapperUser";
 int iwpm_version = 3;
 
 iwpm_mapped_port *mapped_ports = NULL;        /* list of mapped ports */
-volatile iwpm_mapping_request *mapping_reqs = NULL;    /* list of map tracking objects */
+LIST_HEAD(mapping_reqs);		      /* list of map tracking objects */
 LIST_HEAD(pending_messages);		      /* list of pending wire messages */
 iwpm_client client_list[IWARP_PM_MAX_CLIENTS];/* list of iwarp port mapper clients */
 int mapinfo_num_list[IWARP_PM_MAX_CLIENTS];   /* list of iwarp port mapper clients */
@@ -96,7 +96,7 @@ void *iwpm_mapping_reqs_handler()
 	while (1) {
 		pthread_mutex_lock(&map_req_mutex);
 		wake = 0;
-		if (!mapping_reqs) {
+		if (list_empty(&mapping_reqs)) {
 			/* wait until a new mapping request is posted */
 			ret = pthread_cond_wait(&cond_req_complete, &map_req_mutex);
 			if (ret) {
@@ -111,9 +111,7 @@ void *iwpm_mapping_reqs_handler()
 		do {
 			pthread_mutex_lock(&map_req_mutex);
 			wake = 1;
-			iwpm_map_req = (iwpm_mapping_request *)mapping_reqs;
-			while (iwpm_map_req) {
-				next_map_req = iwpm_map_req->next;
+			list_for_each_safe(&mapping_reqs, iwpm_map_req, next_map_req, entry) {
 				if (iwpm_map_req->timeout > 0) {
 					if (iwpm_map_req->timeout < IWPM_MAP_REQ_TIMEOUT &&
 							iwpm_map_req->msg_type != IWARP_PM_REQ_ACK) {
@@ -130,11 +128,10 @@ void *iwpm_mapping_reqs_handler()
 				} else {
 					remove_iwpm_map_request(iwpm_map_req);
 				}
-				iwpm_map_req = next_map_req;
 			}
 			pthread_mutex_unlock(&map_req_mutex);
 			sleep(1);
-		} while (mapping_reqs);
+		} while (!list_empty(&mapping_reqs));
 	}
 mapping_reqs_handler_exit:
 	return NULL;

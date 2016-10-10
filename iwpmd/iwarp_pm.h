@@ -134,7 +134,6 @@ typedef union sockaddr_union {
 
 enum {
 	IWPM_LIST_MAPPED_PORTS,
-	IWPM_LIST_MAP_REQUESTS,
 };
 
 typedef struct iwpm_list {
@@ -174,8 +173,7 @@ typedef struct iwpm_send_msg {
 } iwpm_send_msg;
 
 typedef struct iwpm_mapping_request {
-	struct iwpm_mapping_request *   next;
-	struct iwpm_mapping_request *   prev;
+	struct list_node		entry;
 	struct sockaddr_storage		src_addr;
 	struct sockaddr_storage		remote_addr;
 	__u16 				nlmsg_type;     /* Message content */
@@ -293,5 +291,6 @@ void remove_list_element(iwpm_list **, iwpm_list *, int);
 void free_iwpm_mapped_ports(void);
 
 extern struct list_head pending_messages;
+extern struct list_head mapping_reqs;
 
 #endif
