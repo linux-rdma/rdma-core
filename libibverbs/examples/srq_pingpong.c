@@ -333,7 +333,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 		}
 	}
 
-	if (read(connfd, msg, sizeof msg) != sizeof msg) {
+	if (read(connfd, msg, sizeof msg) != sizeof "done") {
 		perror("client write");
 		free(rem_dest);
 		rem_dest = NULL;
