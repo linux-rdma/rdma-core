@@ -33,8 +33,7 @@
 
 #include "iwarp_pm.h"
 
-extern iwpm_mapped_port *mapped_ports;
-extern iwpm_mapped_port *pending_ports;
+static LIST_HEAD(mapped_ports);		/* list of mapped ports */
 
 extern pthread_cond_t cond_req_complete;
 extern pthread_mutex_t map_req_mutex;
@@ -417,10 +416,9 @@ reopen_mapped_port_error:
 
 /**
  * add_iwpm_mapped_port - Add mapping to a global list
- * @iwpm_ports: list where to save the mapping
  * @iwpm_port: mapping to be saved
  */
-void add_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iwpm_port)
+void add_iwpm_mapped_port(iwpm_mapped_port *iwpm_port)
 {
 	static int dbg_idx = 1;
 	iwpm_debug(IWARP_PM_ALL_DBG, "add_iwpm_mapped_port: Adding a new mapping #%d\n", dbg_idx++);
@@ -429,8 +427,7 @@ void add_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iwpm_
 		if (iwpm_port->ref_cnt > 1)
 			return;
 	}
-	add_list_element((iwpm_list **)iwpm_ports, (iwpm_list **)&iwpm_port,
-				IWPM_LIST_MAPPED_PORTS);
+	list_add(&mapped_ports, &iwpm_port->entry);
 }
 
 /**
@@ -474,7 +471,6 @@ int check_same_sockaddr(struct sockaddr_storage *sockaddr_a, struct sockaddr_sto
 
 /**
  * find_iwpm_mapping - Find saved mapped port object
- * @iwpm_ports: list of mapped port object
  * @search_addr: IP address and port to search for in the list
  * @not_mapped: if set, compare local addresses, otherwise compare mapped addresses
  *
@@ -482,13 +478,13 @@ int check_same_sockaddr(struct sockaddr_storage *sockaddr_a, struct sockaddr_sto
  * to find a saved port object with the sockaddr or
  * a wild card address with the same tcp port
  */
-iwpm_mapped_port *find_iwpm_mapping(iwpm_mapped_port *iwpm_ports,
-				struct sockaddr_storage *search_addr, int not_mapped)
+iwpm_mapped_port *find_iwpm_mapping(struct sockaddr_storage *search_addr,
+		int not_mapped)
 {
 	iwpm_mapped_port *iwpm_port, *saved_iwpm_port = NULL;
 	struct sockaddr_storage *current_addr;
 
-	for (iwpm_port = iwpm_ports; iwpm_port != NULL; iwpm_port = iwpm_port->next) {
+	list_for_each(&mapped_ports, iwpm_port, entry) {
 		current_addr = (not_mapped)? &iwpm_port->local_addr : &iwpm_port->mapped_addr;
 
 		if (get_sockaddr_port(search_addr) == get_sockaddr_port(current_addr)) {
@@ -505,20 +501,19 @@ find_mapping_exit:
 
 /**
  * find_iwpm_same_mapping - Find saved mapped port object
- * @iwpm_ports: list of mapped port object
  * @search_addr: IP address and port to search for in the list
  * @not_mapped: if set, compare local addresses, otherwise compare mapped addresses
  *
  * Compares the search_sockaddr to the addresses in the list,
  * to find a saved port object with the same sockaddr
  */
-iwpm_mapped_port *find_iwpm_same_mapping(iwpm_mapped_port *iwpm_ports,
-				struct sockaddr_storage *search_addr, int not_mapped)
+iwpm_mapped_port *find_iwpm_same_mapping(struct sockaddr_storage *search_addr,
+		int not_mapped)
 {
 	iwpm_mapped_port *iwpm_port, *saved_iwpm_port = NULL;
 	struct sockaddr_storage *current_addr;
 
-	for (iwpm_port = iwpm_ports; iwpm_port != NULL; iwpm_port = iwpm_port->next) {
+	list_for_each(&mapped_ports, iwpm_port, entry) {
 		current_addr = (not_mapped)? &iwpm_port->local_addr : &iwpm_port->mapped_addr;
 		if (check_same_sockaddr(search_addr, current_addr)) {
 			saved_iwpm_port = iwpm_port;
@@ -556,29 +551,27 @@ void free_iwpm_port(iwpm_mapped_port *iwpm_port)
 
 /**
  * remove_iwpm_mapped_port - Remove a mapping from a global list
- * @iwpm_ports: list from which the mapping needs to be removed
  * @iwpm_port: mapping to be removed
  *
  * Called only by the main iwarp port mapper thread
  */
-void remove_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iwpm_port)
+void remove_iwpm_mapped_port(iwpm_mapped_port *iwpm_port)
 {
 	static int dbg_idx = 1;
 	iwpm_debug(IWARP_PM_ALL_DBG, "remove_iwpm_mapped_port: index = %d\n", dbg_idx++);
 
-	remove_list_element((iwpm_list **)iwpm_ports, (iwpm_list *)iwpm_port,
-				IWPM_LIST_MAPPED_PORTS);
+	list_del(&iwpm_port->entry);
 }
 
-void print_iwpm_mapped_ports(iwpm_mapped_port *iwpm_ports)
+void print_iwpm_mapped_ports(void)
 {
 	iwpm_mapped_port *iwpm_port;
-	int i;
+	int i = 0;
 
 	syslog(LOG_WARNING, "print_iwpm_mapped_ports:\n");
 
-	for (iwpm_port = iwpm_ports, i = 0; iwpm_port != NULL; iwpm_port = iwpm_port->next, i++) {
-		syslog(LOG_WARNING, "Mapping #%d\n", i);
+	list_for_each(&mapped_ports, iwpm_port, entry) {
+		syslog(LOG_WARNING, "Mapping #%d\n", i++);
 		print_iwpm_sockaddr(&iwpm_port->local_addr, "Local address", IWARP_PM_DEBUG);
 		print_iwpm_sockaddr(&iwpm_port->mapped_addr, "Mapped address", IWARP_PM_DEBUG);
 	}
@@ -617,55 +610,6 @@ int add_iwpm_pending_msg(iwpm_send_msg *send_msg)
 	return 0;
 }
 
-/*
- * assign_list_head - Make list_element the first element in the list
- *                    (i.e. *list = *list_element)
- */
-static void assign_list_head(iwpm_list **list, iwpm_list *list_element, int list_type)
-{
-	iwpm_mapped_port **ports;
-
-	switch (list_type) {
-		case IWPM_LIST_MAPPED_PORTS:
-			ports = (iwpm_mapped_port **)list;
-			*ports = (iwpm_mapped_port *)list_element;
-			break;
-		default:
-			break;
-	}
-}
-
-/**
- * add_list_element - Add element to a doubly linked list
- */
-void add_list_element(iwpm_list **list, iwpm_list **list_element, int list_type)
-{
-	/* add element to the beginning of the list*/
-	(*list_element)->next = *list;
-	if (*list)
-		(*list)->prev = *list_element;
-	(*list_element)->prev = NULL;
-	assign_list_head(list, *list_element, list_type);
-}
-
-/**
- * remove_list_element - Remove element from a doubly linked list
- */
-void remove_list_element(iwpm_list **list, iwpm_list *list_element, int list_type)
-{
-	/* remove element from the list */
-	if (list_element->prev) {
-		list_element->prev->next = list_element->next;
-		if (list_element->next)
-			list_element->next->prev = list_element->prev;
-	} else {
-		/* remove first element */
-		assign_list_head(list, list_element->next, list_type);
-		if (*list)
-			(*list)->prev = NULL;
-	}
-}
-
 /**
  * free_iwpm_mapped_ports - Free all iwpm mapped port objects
  */
@@ -673,10 +617,6 @@ void free_iwpm_mapped_ports(void)
 {
 	iwpm_mapped_port *iwpm_port;
 
-	while (mapped_ports) {
-		iwpm_port = mapped_ports;
-		mapped_ports = mapped_ports->next;
+	while ((iwpm_port = list_pop(&mapped_ports, iwpm_mapped_port, entry)))
 		free_iwpm_port(iwpm_port);
-	}
-	mapped_ports = NULL;
 }

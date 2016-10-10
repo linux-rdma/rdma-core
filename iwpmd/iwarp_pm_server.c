@@ -37,7 +37,6 @@
 const char iwpm_ulib_name [] = "iWarpPortMapperUser";
 int iwpm_version = 3;
 
-iwpm_mapped_port *mapped_ports = NULL;        /* list of mapped ports */
 LIST_HEAD(mapping_reqs);		      /* list of map tracking objects */
 LIST_HEAD(pending_messages);		      /* list of pending wire messages */
 iwpm_client client_list[IWARP_PM_MAX_CLIENTS];/* list of iwarp port mapper clients */
@@ -325,7 +324,7 @@ static int process_iwpm_add_mapping(struct nlmsghdr *req_nlh, int client_idx, in
 	}
 	local_addr = (struct sockaddr_storage *)nla_data(nltb[IWPM_NLA_MANAGE_ADDR]);
 
-	iwpm_port = find_iwpm_mapping(mapped_ports, local_addr, not_mapped);
+	iwpm_port = find_iwpm_mapping(local_addr, not_mapped);
 	if (iwpm_port) {
 		if (check_same_sockaddr(local_addr, &iwpm_port->local_addr) && iwpm_port->wcard) {
 				iwpm_port->ref_cnt++;
@@ -366,7 +365,7 @@ static int process_iwpm_add_mapping(struct nlmsghdr *req_nlh, int client_idx, in
 		goto add_mapping_free_error;
 	}
 	/* add the new mapping to the list */
-	add_iwpm_mapped_port(&mapped_ports, iwpm_port);
+	add_iwpm_mapped_port(iwpm_port);
 	nlmsg_free(resp_nlmsg);
 	return 0;
 
@@ -432,7 +431,7 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	local_addr = (struct sockaddr_storage *)nla_data(nltb[IWPM_NLA_QUERY_LOCAL_ADDR]);
 	remote_addr = (struct sockaddr_storage *)nla_data(nltb[IWPM_NLA_QUERY_REMOTE_ADDR]);
 
-	iwpm_port = find_iwpm_mapping(mapped_ports, local_addr, not_mapped);
+	iwpm_port = find_iwpm_mapping(local_addr, not_mapped);
 	if (iwpm_port) {
 		err_code = IWPM_DUPLICATE_MAPPING_ERR;
 		str_err = "Duplicate mapped port";
@@ -497,7 +496,7 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	form_iwpm_send_msg(pm_client_sock, &dest_addr.s_sockaddr, msg_parms.msize, send_msg);
 
 	add_iwpm_map_request(iwpm_map_req);
-	add_iwpm_mapped_port(&mapped_ports, iwpm_port);
+	add_iwpm_mapped_port(iwpm_port);
 	return send_iwpm_msg(form_iwpm_request, &msg_parms, &dest_addr.s_sockaddr, pm_client_sock);
 query_mapping_free_error:
 	if (iwpm_port)
@@ -542,7 +541,7 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 	iwpm_debug(IWARP_PM_NETLINK_DBG, "process_remove_mapping: Going to remove mapping"
 			" (client idx = %d)\n", client_idx);
 
-	iwpm_port = find_iwpm_same_mapping(mapped_ports, local_addr, not_mapped);
+	iwpm_port = find_iwpm_same_mapping(local_addr, not_mapped);
 	if (!iwpm_port) {
 		iwpm_debug(IWARP_PM_NETLINK_DBG, "process_remove_mapping: Unable to find mapped port object\n");
 		print_iwpm_sockaddr(local_addr, "process_remove_mapping: Local address", IWARP_PM_ALL_DBG);
@@ -560,7 +559,7 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 		if (ref_cnt)
 			goto remove_mapping_exit;
 	}
-	remove_iwpm_mapped_port(&mapped_ports, iwpm_port);
+	remove_iwpm_mapped_port(iwpm_port);
 	free_iwpm_port(iwpm_port);
 remove_mapping_exit:
 	return ret;
@@ -641,7 +640,7 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms, int nl_sock,
 
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_addr,
 				 &msg_parms->apipaddr[0], NULL, &msg_parms->apport);
-	iwpm_port = find_iwpm_mapping(mapped_ports, &local_addr, not_mapped);
+	iwpm_port = find_iwpm_mapping(&local_addr, not_mapped);
 	if (!iwpm_port) {
 		/* could not find mapping for the requested address */
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_request: "
@@ -737,7 +736,7 @@ static int process_iwpm_wire_accept(iwpm_msg_parms *msg_parms, int nl_sock,
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &remote_mapped_addr,
 				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
 	ret = -EINVAL;
-	iwpm_port = find_iwpm_same_mapping(mapped_ports, &local_addr, not_mapped);
+	iwpm_port = find_iwpm_same_mapping(&local_addr, not_mapped);
 	if (!iwpm_port) {
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_accept: "
 			"Received accept for unknown mapping.\n");
@@ -812,7 +811,7 @@ static int process_iwpm_wire_reject(iwpm_msg_parms *msg_parms, int nl_sock)
 	print_iwpm_sockaddr(&remote_addr, "process_wire_reject: Remote address",
 					IWARP_PM_ALL_DBG);
 	ret = -EINVAL;
-	iwpm_port = find_iwpm_same_mapping(mapped_ports, &local_addr, not_mapped);
+	iwpm_port = find_iwpm_same_mapping(&local_addr, not_mapped);
 	if (!iwpm_port) {
 		syslog(LOG_WARNING, "process_wire_reject: Received reject for unknown mapping.\n");
 		return 0;
@@ -857,7 +856,7 @@ static int process_iwpm_wire_ack(iwpm_msg_parms *msg_parms)
 
 	copy_iwpm_sockaddr(msg_parms->address_family, NULL, &local_mapped_addr,
 				&msg_parms->apipaddr[0], NULL, &msg_parms->apport);
-	iwpm_port = find_iwpm_mapping(mapped_ports, &local_mapped_addr, not_mapped);
+	iwpm_port = find_iwpm_mapping(&local_mapped_addr, not_mapped);
 	if (!iwpm_port) {
 		iwpm_debug(IWARP_PM_WIRE_DBG, "process_wire_ack: Received ack for unknown mapping.\n");
 		return 0;
@@ -905,7 +904,7 @@ static int process_iwpm_mapinfo(struct nlmsghdr *req_nlh, int client_idx, int nl
 	local_addr = (struct sockaddr_storage *)nla_data(nltb[IWPM_NLA_MAPINFO_LOCAL_ADDR]);
 	local_mapped_addr = (struct sockaddr_storage *)nla_data(nltb[IWPM_NLA_MAPINFO_MAPPED_ADDR]);
 
-	iwpm_port = find_iwpm_mapping(mapped_ports, local_addr, not_mapped);
+	iwpm_port = find_iwpm_mapping(local_addr, not_mapped);
 	if (iwpm_port) {
 		/* Can be safely ignored, if the mapinfo is exactly the same,
  		 * because the client will provide all the port information it has and
@@ -926,7 +925,7 @@ static int process_iwpm_mapinfo(struct nlmsghdr *req_nlh, int client_idx, int nl
 		goto process_mapinfo_error;
 	}
 	/* add the new mapping to the list */
-	add_iwpm_mapped_port(&mapped_ports, iwpm_port);
+	add_iwpm_mapped_port(iwpm_port);
 process_mapinfo_exit:
 	mapinfo_num_list[client_idx]++;
 	return 0;
@@ -1301,7 +1300,7 @@ static int iwarp_port_mapper()
 	do {
 		do {
 			if (print_mappings) {
-				print_iwpm_mapped_ports(mapped_ports);
+				print_iwpm_mapped_ports();
 				print_mappings = 0;
 			}
 			/* initialize the file sets for select */

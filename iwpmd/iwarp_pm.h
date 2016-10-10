@@ -92,7 +92,7 @@
 #define IWARP_PM_NETLINK_DBG  0x01
 #define IWARP_PM_WIRE_DBG     0x02
 #define IWARP_PM_RETRY_DBG    0x04
-#define IWARP_PM_ALL_DBG      0x07 
+#define IWARP_PM_ALL_DBG      0x07
 #define IWARP_PM_DEBUG        0x08
 
 #define iwpm_debug(dbg_level, str, args...) \
@@ -101,15 +101,15 @@
 	} while (0)
 
 /* Port Mapper errors */
-enum {                                   
+enum {
         IWPM_INVALID_NLMSG_ERR = 10,
-        IWPM_CREATE_MAPPING_ERR,              
+        IWPM_CREATE_MAPPING_ERR,
         IWPM_DUPLICATE_MAPPING_ERR,
-        IWPM_UNKNOWN_MAPPING_ERR,                 
-        IWPM_CLIENT_DEV_INFO_ERR,       
-        IWPM_USER_LIB_INFO_ERR,                                                  
-        IWPM_REMOTE_QUERY_REJECT   
-};      
+        IWPM_UNKNOWN_MAPPING_ERR,
+        IWPM_CLIENT_DEV_INFO_ERR,
+        IWPM_USER_LIB_INFO_ERR,
+        IWPM_REMOTE_QUERY_REJECT
+};
 
 /* iwpm param indexes */
 enum {
@@ -128,22 +128,12 @@ typedef union sockaddr_union {
 	struct sockaddr_storage s_sockaddr;
 	struct sockaddr sock_addr;
 	struct sockaddr_in v4_sockaddr;
-	struct sockaddr_in6 v6_sockaddr;	
+	struct sockaddr_in6 v6_sockaddr;
 	struct sockaddr_nl nl_sockaddr;
 } sockaddr_union;
 
-enum {
-	IWPM_LIST_MAPPED_PORTS,
-};
-
-typedef struct iwpm_list {
-	struct iwpm_list * next;
-	struct iwpm_list * prev;
-} iwpm_list;
-
 typedef struct iwpm_mapped_port {
-	struct iwpm_mapped_port *   next;
-	struct iwpm_mapped_port *   prev;
+	struct list_node	    entry;
 	int			    owner_client;
 	int			    sd;
 	struct sockaddr_storage	    local_addr;
@@ -221,7 +211,7 @@ void destroy_iwpm_socket(int);
 
 int check_iwpm_nlattr_tb(struct nlattr * [], int);
 
-int parse_iwpm_nlmsg(struct nlmsghdr *, int, struct nla_policy *, struct nlattr * [], const char *); 
+int parse_iwpm_nlmsg(struct nlmsghdr *, int, struct nla_policy *, struct nlattr * [], const char *);
 
 int parse_iwpm_msg(iwpm_wire_msg *, iwpm_msg_parms *);
 
@@ -233,7 +223,7 @@ void form_iwpm_ack(iwpm_wire_msg *, iwpm_msg_parms *);
 
 void form_iwpm_reject(iwpm_wire_msg *, iwpm_msg_parms *);
 
-int send_iwpm_nlmsg(int, struct nl_msg *, int); 
+int send_iwpm_nlmsg(int, struct nl_msg *, int);
 
 struct nl_msg *create_iwpm_nlmsg(__u16, int);
 
@@ -252,18 +242,18 @@ iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *, int);
 
 iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *, struct sockaddr_storage *, int);
 
-void add_iwpm_mapped_port(iwpm_mapped_port **, iwpm_mapped_port *);
+void add_iwpm_mapped_port(iwpm_mapped_port *);
 
-iwpm_mapped_port *find_iwpm_mapping(iwpm_mapped_port *, struct sockaddr_storage *, int);
+iwpm_mapped_port *find_iwpm_mapping(struct sockaddr_storage *, int);
 
-iwpm_mapped_port *find_iwpm_same_mapping(iwpm_mapped_port *, struct sockaddr_storage *, int);
+iwpm_mapped_port *find_iwpm_same_mapping(struct sockaddr_storage *, int);
 
-void remove_iwpm_mapped_port(iwpm_mapped_port **, iwpm_mapped_port *);
+void remove_iwpm_mapped_port(iwpm_mapped_port *);
 
-void print_iwpm_mapped_ports(iwpm_mapped_port *);
+void print_iwpm_mapped_ports(void);
 
 void free_iwpm_port(iwpm_mapped_port *);
- 
+
 int free_iwpm_wcard_mapping(iwpm_mapped_port *);
 
 iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *, struct sockaddr_storage *,
@@ -283,10 +273,6 @@ int send_iwpm_msg(void (*form_msg_type)(iwpm_wire_msg *, iwpm_msg_parms *),
 int add_iwpm_pending_msg(iwpm_send_msg *);
 
 int check_same_sockaddr(struct sockaddr_storage *, struct sockaddr_storage *);
-
-void add_list_element(iwpm_list **, iwpm_list **, int);
-
-void remove_list_element(iwpm_list **, iwpm_list *, int);
 
 void free_iwpm_mapped_ports(void);
 
