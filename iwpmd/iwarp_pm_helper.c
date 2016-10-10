@@ -35,12 +35,11 @@
 
 extern iwpm_mapped_port *mapped_ports;
 extern iwpm_mapped_port *pending_ports;
-extern iwpm_mapping_request *mapping_reqs; 
-extern iwpm_send_msg *pending_messages;
+extern iwpm_mapping_request *mapping_reqs;
 
-extern pthread_cond_t cond_req_complete; 
+extern pthread_cond_t cond_req_complete;
 extern pthread_mutex_t map_req_mutex;
-extern int wake; /* set if map_req_thread is wake */ 
+extern int wake; /* set if map_req_thread is wake */
 extern pthread_cond_t cond_pending_msg;
 extern pthread_mutex_t pending_msg_mutex;
 
@@ -63,7 +62,7 @@ iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *req_nlh,
 
 	/* create iwpm conversation tracking object */
 	iwpm_map_req = malloc(sizeof(iwpm_mapping_request));
-	if (!iwpm_map_req) 
+	if (!iwpm_map_req)
 		return NULL;
 	if (req_nlh) {
 		type = req_nlh->nlmsg_type;
@@ -76,9 +75,9 @@ iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *req_nlh,
 	iwpm_map_req->msg_type = msg_type;
 	iwpm_map_req->send_msg = send_msg;
 
-	iwpm_map_req->nlmsg_type = type; 
-	iwpm_map_req->nlmsg_seq = seq; 
-	iwpm_map_req->nlmsg_pid = pid; 
+	iwpm_map_req->nlmsg_type = type;
+	iwpm_map_req->nlmsg_seq = seq;
+	iwpm_map_req->nlmsg_pid = pid;
 	/* assochandle helps match iwpm request sent to remote peer with future iwpm accept/reject */
 	iwpm_map_req->assochandle = assochandle;
 	if (!assochandle)
@@ -93,11 +92,11 @@ iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *req_nlh,
 /**
  * add_iwpm_map_request - Add a map request tracking object to a global list
  * @iwpm_map_req: mapping request to be saved
- */ 
+ */
 void add_iwpm_map_request(iwpm_mapping_request *iwpm_map_req)
 {
 	pthread_mutex_lock(&map_req_mutex);
-	add_list_element((iwpm_list **)&mapping_reqs, (iwpm_list **)&iwpm_map_req, 
+	add_list_element((iwpm_list **)&mapping_reqs, (iwpm_list **)&iwpm_map_req,
 				IWPM_LIST_MAP_REQUESTS);
 	/* if not wake, signal the thread that a new request has been posted */
 	if (!wake)
@@ -105,11 +104,11 @@ void add_iwpm_map_request(iwpm_mapping_request *iwpm_map_req)
 	pthread_mutex_unlock(&map_req_mutex);
 }
 
-/** 
+/**
  * remove_iwpm_map_request - Free a map request tracking object
  * @iwpm_map_req: mapping request to be removed
  *
- * Routine must be called within lock context 
+ * Routine must be called within lock context
  */
 void remove_iwpm_map_request(iwpm_mapping_request *iwpm_map_req)
 {
@@ -131,7 +130,7 @@ void remove_iwpm_map_request(iwpm_mapping_request *iwpm_map_req)
  * @src_addr: the request src address to search for
  * @msg_type: the request type to search for
  * @iwpm_copy_req: to store a copy of the found map request object
- * @update: if set update the found request, otherwise don't update 
+ * @update: if set update the found request, otherwise don't update
  */
 int update_iwpm_map_request(__u64 assochandle, struct sockaddr_storage *src_addr,
 				int msg_type, iwpm_mapping_request *iwpm_copy_req, int update)
@@ -142,17 +141,17 @@ int update_iwpm_map_request(__u64 assochandle, struct sockaddr_storage *src_addr
 	pthread_mutex_lock(&map_req_mutex);
 	/* look for a matching entry in the list */
 	for (iwpm_map_req = mapping_reqs; iwpm_map_req != NULL; iwpm_map_req = iwpm_map_req->next) {
-		if (assochandle == iwpm_map_req->assochandle && 
+		if (assochandle == iwpm_map_req->assochandle &&
 				(msg_type & iwpm_map_req->msg_type) &&
 				check_same_sockaddr(src_addr, &iwpm_map_req->src_addr)) {
 			ret = 0;
 			/* get a copy of the request (a different thread is in charge of freeing it) */
 			memcpy(iwpm_copy_req, iwpm_map_req, sizeof(iwpm_mapping_request));
 			if (!update)
-				goto update_map_request_exit;				
-			if (iwpm_map_req->complete) 
 				goto update_map_request_exit;
-			
+			if (iwpm_map_req->complete)
+				goto update_map_request_exit;
+
 			/* update the request object */
 			if (iwpm_map_req->msg_type == IWARP_PM_REQ_ACK) {
 				iwpm_map_req->timeout = IWPM_MAP_REQ_TIMEOUT;
@@ -180,7 +179,7 @@ int send_iwpm_msg(void (*form_msg_type)(iwpm_wire_msg *, iwpm_msg_parms *),
 
 	form_msg_type(&send_msg.data, msg_parms);
 	form_iwpm_send_msg(send_sock, recv_addr, msg_parms->msize, &send_msg);
-	return add_iwpm_pending_msg(&send_msg); 
+	return add_iwpm_pending_msg(&send_msg);
 }
 
 /**
@@ -197,7 +196,7 @@ static int check_iwpm_ip_addr(struct sockaddr_storage *local_addr)
 	struct ifaddrs *ifa_current;
 	int found_addr = 0;
 	int ret = -EINVAL;
-	
+
 	/* get a list of host ethernet interfaces */
 	if ((ret = getifaddrs(ifa_list)) < 0) {
 		syslog(LOG_WARNING, "check_iwpm_ip_addr: Unable to get the list of interfaces (%s).\n",
@@ -209,21 +208,21 @@ static int check_iwpm_ip_addr(struct sockaddr_storage *local_addr)
 	while (ifa_current != NULL && !found_addr) {
 		if (local_addr->ss_family == ifa_current->ifa_addr->sa_family) {
 			switch (ifa_current->ifa_addr->sa_family) {
-			case AF_INET: {	
+			case AF_INET: {
 				if (!memcmp(&((struct sockaddr_in *)
 					ifa_current->ifa_addr)->sin_addr.s_addr,
-				   	&((struct sockaddr_in *)local_addr)->sin_addr.s_addr, 
+				   	&((struct sockaddr_in *)local_addr)->sin_addr.s_addr,
 					IWARP_PM_IPV4_ADDR)) {
 
 					found_addr = 1;
-				} 
+				}
 				break;
-			}	
+			}
 			case AF_INET6: {
 				if (!memcmp(&((struct sockaddr_in6 *)
 					ifa_current->ifa_addr)->sin6_addr.s6_addr,
-				    	&((struct sockaddr_in6 *)local_addr)->sin6_addr.s6_addr, 
-					INET6_ADDRSTRLEN)) 
+				    	&((struct sockaddr_in6 *)local_addr)->sin6_addr.s6_addr,
+					INET6_ADDRSTRLEN))
 
 					found_addr = 1;
 				break;
@@ -244,30 +243,30 @@ static int check_iwpm_ip_addr(struct sockaddr_storage *local_addr)
 /**
  * get_iwpm_ip_addr - Get a mapped IP address
  * @local_addr:  local IP address to map
- * @mapped_addr: to store the mapped local IP address 
+ * @mapped_addr: to store the mapped local IP address
  *
  * Currently, don't map the local IP address
  */
-static int get_iwpm_ip_addr(struct sockaddr_storage *local_addr, 
+static int get_iwpm_ip_addr(struct sockaddr_storage *local_addr,
 					struct sockaddr_storage *mapped_addr)
 {
 	int ret = check_iwpm_ip_addr(local_addr);
 	if (!ret)
 		memcpy(mapped_addr, local_addr, sizeof(struct sockaddr_storage));
-	else 
+	else
 		iwpm_debug(IWARP_PM_ALL_DBG, "get_iwpm_ip_addr: Invalid local IP address.\n");
-	
+
 	return ret;
 }
 
 /**
  * get_iwpm_tcp_port - Get a new TCP port from the host stack
- * @addr_family: should be valid AF_INET or AF_INET6 
+ * @addr_family: should be valid AF_INET or AF_INET6
  * @requested_port: set only if reopening of mapped port
  * @mapped_addr: to store the mapped TCP port
  * @new_sock: to store socket handle (bound to the mapped TCP port)
 */
-static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port, 
+static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 					struct sockaddr_storage *mapped_addr, int *new_sock)
 {
 	sockaddr_union bind_addr;
@@ -283,7 +282,7 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 		str_err = "Unable to create socket";
 		goto get_tcp_port_error;
 	}
-	
+
 	memset(&bind_addr, 0, sizeof(bind_addr));
 	switch (addr_family) {
 	case AF_INET:
@@ -291,8 +290,8 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 		bind_in4 = &bind_addr.v4_sockaddr;
 		bind_in4->sin_family = addr_family;
 		bind_in4->sin_addr.s_addr = INADDR_ANY;
-		if (requested_port) 
-			requested_port = *mapped_port;	
+		if (requested_port)
+			requested_port = *mapped_port;
 		bind_in4->sin_port = requested_port;
 		new_port = &bind_in4->sin_port;
 		break;
@@ -301,8 +300,8 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 		bind_in6 = &bind_addr.v6_sockaddr;
 		bind_in6->sin6_family = addr_family;
 		bind_in6->sin6_addr = in6addr_any;
-		if (requested_port) 
-			requested_port = *mapped_port;		
+		if (requested_port)
+			requested_port = *mapped_port;
 		bind_in6->sin6_port = requested_port;
 		new_port = &bind_in6->sin6_port;
 		break;
@@ -327,9 +326,9 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 		addr_family, ntohs(requested_port), ntohs(*mapped_port));
 	return 0;
 get_tcp_port_error:
-	syslog(LOG_WARNING, "get_iwpm_tcp_port: %s (addr family = %04X, requested port = %04X).\n", 
+	syslog(LOG_WARNING, "get_iwpm_tcp_port: %s (addr family = %04X, requested port = %04X).\n",
 				str_err, addr_family, ntohs(requested_port));
-	return -errno;	
+	return -errno;
 }
 
 /**
@@ -356,20 +355,20 @@ static iwpm_mapped_port *get_iwpm_port(int client_idx, struct sockaddr_storage *
 		iwpm_port->wcard = 1;
 		iwpm_port->ref_cnt = 1;
 	}
-	return iwpm_port;	
+	return iwpm_port;
 }
 
-/** 
+/**
  * create_iwpm_mapped_port - Create a new mapped port object
  * @local_addr: local address to be mapped (IP address and TCP port)
- * @client_idx: the index of the client owner of the mapped port 
+ * @client_idx: the index of the client owner of the mapped port
  */
 iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *local_addr, int client_idx)
 {
 	iwpm_mapped_port *iwpm_port;
 	struct sockaddr_storage mapped_addr;
 	int new_sd;
- 
+
 	/* check the local IP address */
 	if (get_iwpm_ip_addr(local_addr, &mapped_addr))
 		goto create_mapped_port_error;
@@ -385,13 +384,13 @@ create_mapped_port_error:
 	return NULL;
 }
 
-/** 
+/**
  * reopen_iwpm_mapped_port - Create a new mapped port object
  * @local_addr: local address to be mapped (IP address and TCP port)
  * @mapped_addr: mapped address to be remapped (IP address and TCP port)
- * @client_idx: the index of the client owner of the mapped port 
+ * @client_idx: the index of the client owner of the mapped port
  */
-iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr, 
+iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 						struct sockaddr_storage *mapped_addr, int client_idx)
 {
 	iwpm_mapped_port *iwpm_port;
@@ -423,7 +422,7 @@ reopen_mapped_port_error:
  * add_iwpm_mapped_port - Add mapping to a global list
  * @iwpm_ports: list where to save the mapping
  * @iwpm_port: mapping to be saved
- */ 
+ */
 void add_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iwpm_port)
 {
 	static int dbg_idx = 1;
@@ -433,7 +432,7 @@ void add_iwpm_mapped_port(iwpm_mapped_port **iwpm_ports, iwpm_mapped_port *iwpm_
 		if (iwpm_port->ref_cnt > 1)
 			return;
 	}
-	add_list_element((iwpm_list **)iwpm_ports, (iwpm_list **)&iwpm_port, 
+	add_list_element((iwpm_list **)iwpm_ports, (iwpm_list **)&iwpm_port,
 				IWPM_LIST_MAPPED_PORTS);
 }
 
@@ -451,20 +450,20 @@ int check_same_sockaddr(struct sockaddr_storage *sockaddr_a, struct sockaddr_sto
 			struct sockaddr_in *in4addr_b = (struct sockaddr_in *)sockaddr_b;
 
 			if ((in4addr_a->sin_addr.s_addr == in4addr_b->sin_addr.s_addr)
-			 		&& (in4addr_a->sin_port == in4addr_b->sin_port)) 
+			 		&& (in4addr_a->sin_port == in4addr_b->sin_port))
 				ret = 1;
-			
+
 			break;
 		}
 		case AF_INET6: {
 			struct sockaddr_in6 *in6addr_a = (struct sockaddr_in6 *)sockaddr_a;
 			struct sockaddr_in6 *in6addr_b = (struct sockaddr_in6 *)sockaddr_b;
 
-			if ((!memcmp(in6addr_a->sin6_addr.s6_addr, 
+			if ((!memcmp(in6addr_a->sin6_addr.s6_addr,
 					in6addr_b->sin6_addr.s6_addr, IWPM_IPADDR_SIZE)) &&
-					(in6addr_a->sin6_port == in6addr_b->sin6_port)) 
+					(in6addr_a->sin6_port == in6addr_b->sin6_port))
 				ret = 1;
-			
+
 			break;
 		}
 		default:
@@ -477,7 +476,7 @@ int check_same_sockaddr(struct sockaddr_storage *sockaddr_a, struct sockaddr_sto
 }
 
 /**
- * find_iwpm_mapping - Find saved mapped port object 
+ * find_iwpm_mapping - Find saved mapped port object
  * @iwpm_ports: list of mapped port object
  * @search_addr: IP address and port to search for in the list
  * @not_mapped: if set, compare local addresses, otherwise compare mapped addresses
@@ -485,7 +484,7 @@ int check_same_sockaddr(struct sockaddr_storage *sockaddr_a, struct sockaddr_sto
  * Compares the search_sockaddr to the addresses in the list,
  * to find a saved port object with the sockaddr or
  * a wild card address with the same tcp port
- */ 
+ */
 iwpm_mapped_port *find_iwpm_mapping(iwpm_mapped_port *iwpm_ports,
 				struct sockaddr_storage *search_addr, int not_mapped)
 {
@@ -508,14 +507,14 @@ find_mapping_exit:
 }
 
 /**
- * find_iwpm_same_mapping - Find saved mapped port object 
+ * find_iwpm_same_mapping - Find saved mapped port object
  * @iwpm_ports: list of mapped port object
  * @search_addr: IP address and port to search for in the list
  * @not_mapped: if set, compare local addresses, otherwise compare mapped addresses
  *
  * Compares the search_sockaddr to the addresses in the list,
  * to find a saved port object with the same sockaddr
- */ 
+ */
 iwpm_mapped_port *find_iwpm_same_mapping(iwpm_mapped_port *iwpm_ports,
 				struct sockaddr_storage *search_addr, int not_mapped)
 {
@@ -533,7 +532,7 @@ find_same_mapping_exit:
 	return saved_iwpm_port;
 }
 
-/** 
+/**
  * free_iwpm_wcard_port - Free wild card mapping object
  * @iwpm_port: mapped port object to be freed
  *
@@ -548,17 +547,17 @@ int free_iwpm_wcard_mapping(iwpm_mapped_port *iwpm_port)
 	return iwpm_port->ref_cnt;
 }
 
-/** 
+/**
  * free_iwpm_port - Free mapping object
  * @iwpm_port: mapped port object to be freed
  */
-void free_iwpm_port(iwpm_mapped_port *iwpm_port) 
-{	
+void free_iwpm_port(iwpm_mapped_port *iwpm_port)
+{
 	close(iwpm_port->sd);
 	free(iwpm_port);
 }
 
-/** 
+/**
  * remove_iwpm_mapped_port - Remove a mapping from a global list
  * @iwpm_ports: list from which the mapping needs to be removed
  * @iwpm_port: mapping to be removed
@@ -602,7 +601,7 @@ void form_iwpm_send_msg(int pm_sock, struct sockaddr_storage *dest,
 /**
  * add_iwpm_pending_msg - Add wire message to a global list of pending messages
  * @send_msg: message to send to the remote port mapper peer
- */ 
+ */
 int add_iwpm_pending_msg(iwpm_send_msg *send_msg)
 {
 	iwpm_pending_msg *pending_msg = (iwpm_pending_msg *)malloc(sizeof(iwpm_pending_msg));
@@ -613,36 +612,22 @@ int add_iwpm_pending_msg(iwpm_send_msg *send_msg)
 	memcpy(&pending_msg->send_msg, send_msg, sizeof(iwpm_send_msg));
 
 	pthread_mutex_lock(&pending_msg_mutex);
-	add_list_element((iwpm_list **)&pending_messages, (iwpm_list **)&pending_msg,
-				IWPM_LIST_PENDING_MSGS);
+	list_add(&pending_messages, &pending_msg->entry);
+ 	pthread_mutex_unlock(&pending_msg_mutex);
 	pthread_mutex_unlock(&pending_msg_mutex);
 	/* signal the thread that a new message has been posted */
 	pthread_cond_signal(&cond_pending_msg);
 	return 0;
 }
 
-/** 
- * remove_iwpm_pending_msg - Free wire message buffer
- * @pending_msg: message to be removed
- *
- * Routine must be called within lock context 
- */
-void remove_iwpm_pending_msg(iwpm_pending_msg *pending_msg)
-{
-	remove_list_element((iwpm_list **)&pending_messages, (iwpm_list *)pending_msg,
-				IWPM_LIST_PENDING_MSGS);
-	free(pending_msg);
-}
-
 /*
  * assign_list_head - Make list_element the first element in the list
  *                    (i.e. *list = *list_element)
  */
-static void assign_list_head(iwpm_list **list, iwpm_list *list_element, int list_type) 
+static void assign_list_head(iwpm_list **list, iwpm_list *list_element, int list_type)
 {
 	iwpm_mapped_port **ports;
 	iwpm_mapping_request **requests;
-	iwpm_send_msg **messages;
 
 	switch (list_type) {
 		case IWPM_LIST_MAPPED_PORTS:
@@ -653,16 +638,12 @@ static void assign_list_head(iwpm_list **list, iwpm_list *list_element, int list
 			requests = (iwpm_mapping_request **)list;
 			*requests = (iwpm_mapping_request *)list_element;
 			break;
-		case IWPM_LIST_PENDING_MSGS:
-			messages = (iwpm_send_msg **)list;
-			*messages = (iwpm_send_msg *)list_element;
-			break;
 		default:
 			break;
 	}
 }
 
-/** 
+/**
  * add_list_element - Add element to a doubly linked list
  */
 void add_list_element(iwpm_list **list, iwpm_list **list_element, int list_type)
@@ -675,7 +656,7 @@ void add_list_element(iwpm_list **list, iwpm_list **list_element, int list_type)
 	assign_list_head(list, *list_element, list_type);
 }
 
-/** 
+/**
  * remove_list_element - Remove element from a doubly linked list
  */
 void remove_list_element(iwpm_list **list, iwpm_list *list_element, int list_type)
@@ -693,8 +674,8 @@ void remove_list_element(iwpm_list **list, iwpm_list *list_element, int list_typ
 	}
 }
 
-/** 
- * free_iwpm_mapped_ports - Free all iwpm mapped port objects 
+/**
+ * free_iwpm_mapped_ports - Free all iwpm mapped port objects
  */
 void free_iwpm_mapped_ports(void)
 {

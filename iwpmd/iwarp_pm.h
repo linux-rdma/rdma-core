@@ -52,6 +52,7 @@
 #include <pthread.h>
 #include <syslog.h>
 #include <netlink/msg.h>
+#include <ccan/list.h>
 #include "iwpm_netlink.h"
 
 #define IWARP_PM_PORT          3935
@@ -134,7 +135,6 @@ typedef union sockaddr_union {
 enum {
 	IWPM_LIST_MAPPED_PORTS,
 	IWPM_LIST_MAP_REQUESTS,
-	IWPM_LIST_PENDING_MSGS
 };
 
 typedef struct iwpm_list {
@@ -189,8 +189,7 @@ typedef struct iwpm_mapping_request {
 } iwpm_mapping_request;
 
 typedef struct iwpm_pending_msg {
-	struct iwpm_send_msg *  next;
-	struct iwpm_send_msg *  prev;
+	struct list_node	entry;
 	iwpm_send_msg           send_msg;
 } iwpm_pending_msg;
 
@@ -285,8 +284,6 @@ int send_iwpm_msg(void (*form_msg_type)(iwpm_wire_msg *, iwpm_msg_parms *),
 
 int add_iwpm_pending_msg(iwpm_send_msg *);
 
-void remove_iwpm_pending_msg(iwpm_pending_msg *);
-
 int check_same_sockaddr(struct sockaddr_storage *, struct sockaddr_storage *);
 
 void add_list_element(iwpm_list **, iwpm_list **, int);
@@ -294,5 +291,7 @@ void add_list_element(iwpm_list **, iwpm_list **, int);
 void remove_list_element(iwpm_list **, iwpm_list *, int);
 
 void free_iwpm_mapped_ports(void);
+
+extern struct list_head pending_messages;
 
 #endif
