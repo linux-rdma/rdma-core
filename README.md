@@ -36,10 +36,7 @@ Additional service daemons are provided for:
 This project uses a cmake based build system. Quick start:
 
 ```sh
-$ mkdir build
-$ cd build
-$ cmake -GNinja ..
-$ ninja
+$ bash build.sh
 ```
 
 *build/bin* will contain the sample programs and *build/lib* will contain the
@@ -76,16 +73,6 @@ Install required packages:
 $ yum install cmake gcc libnl3-devel make pkgconfig valgrind-devel
 ```
 
-For end users, the package can be built using GNU Make and the old cmake
-included with the distro:
-
-```sh
-$ mkdir build
-$ cd build
-$ cmake  ..
-$ make
-```
-
 Developers are suggested to install more modern tooling for the best experience.
 
 ```sh
@@ -95,8 +82,6 @@ $ curl -OL https://github.com/ninja-build/ninja/releases/download/v1.7.1/ninja-l
 $ unzip ninja-linux.zip
 $ install -m755 ninja /usr/local/bin/ninja
 ```
-
-Use the 'cmake3' program in place of `cmake` in the above instructions.
 
 # Reporting bugs
 
