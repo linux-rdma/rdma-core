@@ -309,7 +309,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	sprintf(msg, "%04x:%06x:%06x:%s", my_dest->lid, my_dest->qpn,
 							my_dest->psn, gid);
 	if (write(connfd, msg, sizeof msg) != sizeof msg ||
-	    read(connfd, msg, sizeof msg) != sizeof msg) {
+	    read(connfd, msg, sizeof msg) != sizeof "done") {
 		fprintf(stderr, "Couldn't send/recv local address\n");
 		free(rem_dest);
 		rem_dest = NULL;

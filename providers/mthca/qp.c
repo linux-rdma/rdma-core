@@ -37,6 +37,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
+#include <util/compiler.h>
 
 #include "mthca.h"
 #include "doorbell.h"
@@ -107,15 +108,8 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int size;
 	int size0 = 0;
 	int i;
-	/*
-	 * f0 and op0 cannot be used unless nreq > 0, which means this
-	 * function makes it through the loop at least once.  So the
-	 * code inside the if (!size0) will be executed, and f0 and
-	 * op0 will be initialized.  So any gcc warning about "may be
-	 * used unitialized" is bogus.
-	 */
-	uint32_t f0;
-	uint32_t op0;
+	uint32_t uninitialized_var(f0);
+	uint32_t uninitialized_var(op0);
 
 	pthread_spin_lock(&qp->sq.lock);
 
@@ -449,15 +443,8 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int size;
 	int size0 = 0;
 	int i;
-	/*
-	 * f0 and op0 cannot be used unless nreq > 0, which means this
-	 * function makes it through the loop at least once.  So the
-	 * code inside the if (!size0) will be executed, and f0 and
-	 * op0 will be initialized.  So any gcc warning about "may be
-	 * used unitialized" is bogus.
-	 */
-	uint32_t f0;
-	uint32_t op0;
+	uint32_t uninitialized_var(f0);
+	uint32_t uninitialized_var(op0);
 
 	pthread_spin_lock(&qp->sq.lock);
 

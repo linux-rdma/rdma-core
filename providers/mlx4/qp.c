@@ -39,6 +39,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
+#include <util/compiler.h>
 
 #include "mlx4.h"
 #include "doorbell.h"
