@@ -87,7 +87,7 @@ void iwpm_signal_handler(int signum)
 /**
  * iwpm_mapping_reqs_handler - Handle mapping requests timeouts and retries
  */
-void *iwpm_mapping_reqs_handler()
+static void *iwpm_mapping_reqs_handler(void *unused)
 {
 	iwpm_mapping_request *iwpm_map_req, *next_map_req;
 	int ret = 0;
@@ -139,7 +139,7 @@ mapping_reqs_handler_exit:
 /**
  * iwpm_pending_msgs_handler - Handle sending iwarp port mapper wire messages
  */
-void *iwpm_pending_msgs_handler()
+static void *iwpm_pending_msgs_handler(void *unused)
 {
 	iwpm_pending_msg *pending_msg;
 	iwpm_send_msg *send_msg;
@@ -1438,11 +1438,11 @@ int main(int argc, char *argv[])
 	pthread_cond_init(&cond_req_complete, NULL);
 	pthread_cond_init(&cond_pending_msg, NULL);
 
-	ret = pthread_create(&map_req_thread, NULL, &iwpm_mapping_reqs_handler, NULL);
+	ret = pthread_create(&map_req_thread, NULL, iwpm_mapping_reqs_handler, NULL);
 	if (ret)
 		goto error_exit;
 
-	ret = pthread_create(&pending_msg_thread, NULL, &iwpm_pending_msgs_handler, NULL);
+	ret = pthread_create(&pending_msg_thread, NULL, iwpm_pending_msgs_handler, NULL);
 	if (ret)
 		goto error_exit;
 
