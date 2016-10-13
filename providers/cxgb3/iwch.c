@@ -105,6 +105,10 @@ static struct ibv_context_ops iwch_ctx_ops = {
 	.req_notify_cq = iwch_arm_cq,
 };
 
+unsigned long iwch_page_size;
+unsigned long iwch_page_shift;
+unsigned long iwch_page_mask;
+
 static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 					      int cmd_fd)
 {

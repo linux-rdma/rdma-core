@@ -633,9 +633,9 @@ static inline unsigned t3_cq_depth(struct t3_cq *cq)
 	return (1UL<<cq->size_log2);
 }
 
-unsigned long iwch_page_size;
-unsigned long iwch_page_shift;
-unsigned long iwch_page_mask;
+extern unsigned long iwch_page_size;
+extern unsigned long iwch_page_shift;
+extern unsigned long iwch_page_mask;
 
 #define PAGE_ALIGN(x) (((x) + iwch_page_mask) & ~iwch_page_mask)
 
