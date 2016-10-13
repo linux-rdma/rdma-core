@@ -51,7 +51,7 @@
 	{ .vendor = PCI_VENDOR_ID_##v,			\
 	  .device = d }
 
-struct {
+static struct {
 	unsigned		vendor;
 	unsigned		device;
 } hca_table[] = {
