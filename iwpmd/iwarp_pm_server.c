@@ -34,34 +34,34 @@
 #include "config.h"
 #include "iwarp_pm.h"
 
-const char iwpm_ulib_name [] = "iWarpPortMapperUser";
-int iwpm_version = 3;
+static const char iwpm_ulib_name [] = "iWarpPortMapperUser";
+static int iwpm_version = 3;
 
 LIST_HEAD(mapping_reqs);		      /* list of map tracking objects */
 LIST_HEAD(pending_messages);		      /* list of pending wire messages */
 iwpm_client client_list[IWARP_PM_MAX_CLIENTS];/* list of iwarp port mapper clients */
-int mapinfo_num_list[IWARP_PM_MAX_CLIENTS];   /* list of iwarp port mapper clients */
+static int mapinfo_num_list[IWARP_PM_MAX_CLIENTS];   /* list of iwarp port mapper clients */
 
 /* socket handles */
 static int pmv4_sock, pmv6_sock, netlink_sock, pmv4_client_sock, pmv6_client_sock;
 
-pthread_t map_req_thread; /* handling mapping requests timeout */
-pthread_cond_t cond_req_complete;
+static pthread_t map_req_thread; /* handling mapping requests timeout */
+pthread_cond_t cond_req_complete; 
 pthread_mutex_t map_req_mutex = PTHREAD_MUTEX_INITIALIZER;
 int wake = 0; /* set if map_req_thread is wake */
 
-pthread_t pending_msg_thread; /* sending iwpm wire messages */
+static pthread_t pending_msg_thread; /* sending iwpm wire messages */
 pthread_cond_t cond_pending_msg;
 pthread_mutex_t pending_msg_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void iwpm_cleanup(void);
-int print_mappings = 0;
+static int print_mappings = 0;
 
 /**
  * iwpm_signal_handler - Handle signals which iwarp port mapper receives
  * @signum: the number of the caught signal
  */
-void iwpm_signal_handler(int signum)
+static void iwpm_signal_handler(int signum)
 {
 	switch(signum) {
 		case SIGHUP:

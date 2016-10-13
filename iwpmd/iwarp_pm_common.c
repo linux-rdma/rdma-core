@@ -39,9 +39,9 @@
 #endif
 
 /* iwpm config params */
-char * iwpm_param_names[IWPM_PARAM_NUM] = 
+static char * iwpm_param_names[IWPM_PARAM_NUM] =
 	{ "nl_sock_rbuf_size" };
-int iwpm_param_vals[IWPM_PARAM_NUM] = 
+static int iwpm_param_vals[IWPM_PARAM_NUM] =
 	{ 0 };
 
 /**
@@ -276,7 +276,7 @@ void destroy_iwpm_socket(int pm_sock)
 /**
  * check_iwpm_nlattr - Check for NULL netlink attribute
  */ 
-int check_iwpm_nlattr(struct nlattr *nltb[], int nla_count)
+static int check_iwpm_nlattr(struct nlattr *nltb[], int nla_count)
 { 
         int i, ret = 0;          
         for (i = 1; i < nla_count; i++) {
