@@ -95,7 +95,7 @@ int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_gu
 	for (s = buf, i = 0; i < 4; i++) {
 		if (!(str = strsep(&s, ": \t\n")))
 			return -EINVAL;
-		guid = (guid << 16) | (strtoul(str, 0, 16) & 0xffff);
+		guid = (guid << 16) | (strtoul(str, NULL, 16) & 0xffff);
 	}
 
 	*net_guid = htonll(guid);
@@ -115,7 +115,7 @@ int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid)
 	for (s = buf, i = 0; i < 8; i++) {
 		if (!(str = strsep(&s, ": \t\n")))
 			return -EINVAL;
-		ugid[i] = htons(strtoul(str, 0, 16) & 0xffff);
+		ugid[i] = htons(strtoul(str, NULL, 16) & 0xffff);
 	}
 
 	return 0;
@@ -129,7 +129,7 @@ int sys_read_uint64(const char *dir_name, const char *file_name, uint64_t * u)
 	if ((r = sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
 		return r;
 
-	*u = strtoull(buf, 0, 0);
+	*u = strtoull(buf, NULL, 0);
 
 	return 0;
 }
@@ -142,7 +142,7 @@ int sys_read_uint(const char *dir_name, const char *file_name, unsigned *u)
 	if ((r = sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
 		return r;
 
-	*u = strtoul(buf, 0, 0);
+	*u = strtoul(buf, NULL, 0);
 
 	return 0;
 }
