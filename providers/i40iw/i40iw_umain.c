@@ -57,7 +57,7 @@ unsigned int i40iw_debug_level;
 	  .device = d,		\
 	  .type = INTEL_ ## t }
 
-struct {
+static struct {
 	unsigned int vendor;
 	unsigned int device;
 	enum i40iw_uhca_type type;
