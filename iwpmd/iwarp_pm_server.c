@@ -1279,7 +1279,7 @@ static void iwpm_cleanup(void)
 /**
  * iwarp_port_mapper - Distribute work orders for processing different types of iwpm messages
  */
-static int iwarp_port_mapper()
+static int iwarp_port_mapper(void)
 {
 	fd_set select_fdset; /* read fdset */
 	struct timeval select_timeout;
@@ -1355,8 +1355,8 @@ iwarp_port_mapper_exit:
 
 /**
  * daemonize_iwpm_server - Make iwarp port mapper a daemon process
- */
-static void daemonize_iwpm_server()
+ */ 
+static void daemonize_iwpm_server(void)
 {
 	pid_t pid, sid;
 

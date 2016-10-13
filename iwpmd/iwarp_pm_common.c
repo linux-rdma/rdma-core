@@ -212,7 +212,7 @@ create_socket_v6_exit:
 /**
  * create_netlink_socket - Create netlink socket for the iwarp port mapper
  */
-int create_netlink_socket()
+int create_netlink_socket(void)
 {
 	sockaddr_union bind_addr;
 	struct sockaddr_nl *bind_nl;
