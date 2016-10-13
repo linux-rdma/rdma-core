@@ -759,7 +759,7 @@ int nes_upoll_cq_no_db_read(struct ibv_cq *cq, int num_entries, struct ibv_wc *e
 /**
  * nes_arm_cq
  */
-void nes_arm_cq(struct nes_ucq *nesucq, struct nes_uvcontext *nesvctx, int sol)
+static void nes_arm_cq(struct nes_ucq *nesucq, struct nes_uvcontext *nesvctx, int sol)
 {
 	uint32_t cq_arm;
 

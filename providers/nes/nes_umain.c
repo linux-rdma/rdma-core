@@ -60,7 +60,7 @@ long int page_size;
 	  .device = d,    \
 	  .type = NETEFFECT_##t }
 
-struct {
+static struct {
 	unsigned vendor;
 	unsigned device;
 	enum nes_uhca_type type;
