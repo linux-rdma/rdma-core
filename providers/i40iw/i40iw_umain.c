@@ -46,8 +46,6 @@
 #include "i40iw_umain.h"
 #include "i40iw-abi.h"
 
-unsigned int i40iw_debug_level;
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
