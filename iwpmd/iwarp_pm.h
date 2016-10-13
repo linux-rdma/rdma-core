@@ -209,8 +209,6 @@ int create_netlink_socket(void);
 
 void destroy_iwpm_socket(int);
 
-int check_iwpm_nlattr_tb(struct nlattr * [], int);
-
 int parse_iwpm_nlmsg(struct nlmsghdr *, int, struct nla_policy *, struct nlattr * [], const char *);
 
 int parse_iwpm_msg(iwpm_wire_msg *, iwpm_msg_parms *);
