@@ -40,6 +40,7 @@
 #include <infiniband/umad_sm.h>
 #include <infiniband/umad_sa.h>
 #include <infiniband/umad_cm.h>
+#include "umad_str.h"
 
 const char * umad_class_str(uint8_t mgmt_class)
 {
