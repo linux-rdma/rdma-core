@@ -53,6 +53,7 @@
 #define IB_OPENIB_OUI                 (0x001405)
 
 #include <valgrind/memcheck.h>
+#include "sysfs.h"
 
 typedef struct ib_user_mad_reg_req {
 	uint32_t id;
@@ -76,12 +77,6 @@ struct ib_user_mad_reg_req2 {
 	uint8_t  rmpp_version;
 	uint8_t  reserved[3];
 };
-
-extern int sys_read_string(const char *dir_name, const char *file_name, char *str, int len);
-extern int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_guid);
-extern int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid);
-extern int sys_read_uint64(const char *dir_name, const char *file_name, uint64_t * u);
-extern int sys_read_uint(const char *dir_name, const char *file_name, unsigned *u);
 
 #define IBWARN(fmt, args...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
 

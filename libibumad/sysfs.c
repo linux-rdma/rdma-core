@@ -44,6 +44,7 @@
 #include <byteswap.h>
 #include <netinet/in.h>
 #include <infiniband/arch.h>
+#include "sysfs.h"
 
 static int ret_code(void)
 {
