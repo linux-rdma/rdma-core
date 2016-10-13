@@ -49,8 +49,6 @@
 #include "nes_umain.h"
 #include "nes-abi.h"
 
-extern long int page_size;
-
 #define STATIC static
 #define INLINE inline
 

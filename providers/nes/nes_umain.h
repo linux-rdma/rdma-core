@@ -400,4 +400,6 @@ static inline uint32_t le32_to_cpu(uint32_t x)
 	return le32toh(x);
 }
 
+extern long int page_size;
+
 #endif				/* nes_umain_H */
