@@ -61,7 +61,7 @@
 	  .device = PCI_DEVICE_ID_CHELSIO_##d,		\
 	  .type = CHELSIO_##t }
 
-struct {
+static struct {
 	unsigned vendor;
 	unsigned device;
 	enum iwch_hca_type type;
