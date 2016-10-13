@@ -151,7 +151,7 @@ static int check_process_uniqueness(struct config_t *conf)
 	return fd;
 }
 
-int srpd_sys_read_string(const char *dir_name, const char *file_name,
+static int srpd_sys_read_string(const char *dir_name, const char *file_name,
 			 char *str, int max_len)
 {
 	char path[256], *s;
@@ -177,7 +177,7 @@ int srpd_sys_read_string(const char *dir_name, const char *file_name,
 	return 0;
 }
 
-int srpd_sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
+static int srpd_sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
 {
 	char buf[64], *str, *s;
 	uint16_t *ugid = (uint16_t *)gid;
@@ -195,7 +195,7 @@ int srpd_sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
 	return 0;
 }
 
-int srpd_sys_read_uint64(char *dir_name, char *file_name, uint64_t *u)
+static int srpd_sys_read_uint64(char *dir_name, char *file_name, uint64_t *u)
 {
 	char buf[32];
 	int r;
@@ -257,7 +257,7 @@ check_equal_uint16(char *dir_name, char *attr, uint16_t val)
 
 static int recalc(struct resources *res);
 
-void pr_cmd(char *target_str, int not_connected)
+static void pr_cmd(char *target_str, int not_connected)
 {
 	int ret;
 
@@ -343,7 +343,7 @@ static int check_not_equal_int(char *dir_name, char *attr, int value)
 	return 0;
 }
 
-int is_enabled_by_rules_file(struct target_details *target)
+static int is_enabled_by_rules_file(struct target_details *target)
 {
 	int rule;
 	struct config_t *conf = config;
@@ -584,7 +584,7 @@ static int add_non_exist_target(struct target_details *target)
 	return 1;
 }
 
-int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
+static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 		 srp_ib_user_mad_t *in_mad, int in_mad_size)
 {
 	struct srp_dm_mad *out_dm_mad = (void *) out_mad->hdr.data;
@@ -1804,7 +1804,7 @@ static int umad_resources_create(struct umad_resources *umad_res)
 	return 0;
 }
 
-void *run_thread_retry_to_connect(void *res_in)
+static void *run_thread_retry_to_connect(void *res_in)
 {
 	struct resources *res = (struct resources *)res_in;
 	struct target_details *target;
