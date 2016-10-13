@@ -59,8 +59,8 @@ static char *src_file;
 static struct timeval start, end;
 //static void buf[1024 * 1024];
 static uint64_t bytes;
-int fd;
-void *file_addr;
+static int fd;
+static void *file_addr;
 
 enum {
 	CMD_NOOP,

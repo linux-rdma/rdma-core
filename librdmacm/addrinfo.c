@@ -43,7 +43,7 @@
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
 
-struct rdma_addrinfo nohints;
+static struct rdma_addrinfo nohints;
 
 static void ucma_convert_to_ai(struct addrinfo *ai, struct rdma_addrinfo *rai)
 {

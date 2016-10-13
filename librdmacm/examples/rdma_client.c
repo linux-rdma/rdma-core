@@ -39,11 +39,11 @@
 static char *server = "127.0.0.1";
 static char *port = "7471";
 
-struct rdma_cm_id *id;
-struct ibv_mr *mr, *send_mr;
-int send_flags;
-uint8_t send_msg[16];
-uint8_t recv_msg[16];
+static struct rdma_cm_id *id;
+static struct ibv_mr *mr, *send_mr;
+static int send_flags;
+static uint8_t send_msg[16];
+static uint8_t recv_msg[16];
 
 static int run(void)
 {

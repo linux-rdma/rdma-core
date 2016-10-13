@@ -505,7 +505,7 @@ static int rs_scale_to_value(int value, int bits)
 		(void) rc;                                                     \
 	}
 
-void rs_configure(void)
+static void rs_configure(void)
 {
 	FILE *f;
 	static int init;
