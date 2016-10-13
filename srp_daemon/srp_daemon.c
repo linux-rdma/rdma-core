@@ -647,7 +647,7 @@ recv:
 	return -1;
 }
 
-static void initialize_sysfs()
+static void initialize_sysfs(void)
 {
 	char *env;
 
