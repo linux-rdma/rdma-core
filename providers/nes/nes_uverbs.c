@@ -324,7 +324,7 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	uint32_t head;
 	uint32_t cq_size;
 
-	volatile struct nes_hw_nic_cqe *cqe = 0;
+	volatile struct nes_hw_nic_cqe *cqe = NULL;
 	volatile struct nes_hw_nic_cqe *cqes;
 
 	struct nes_uqp *nesuqp = nesucq->udqp;
