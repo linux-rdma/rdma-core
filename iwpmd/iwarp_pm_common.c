@@ -44,8 +44,6 @@ char * iwpm_param_names[IWPM_PARAM_NUM] =
 int iwpm_param_vals[IWPM_PARAM_NUM] = 
 	{ 0 };
 
-extern iwpm_client client_list[IWARP_PM_MAX_CLIENTS];
-
 /**
  * get_iwpm_param()
  */

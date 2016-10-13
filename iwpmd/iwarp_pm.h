@@ -277,4 +277,12 @@ void free_iwpm_mapped_ports(void);
 extern struct list_head pending_messages;
 extern struct list_head mapping_reqs;
 
+extern iwpm_client client_list[IWARP_PM_MAX_CLIENTS];
+
+extern pthread_cond_t cond_req_complete;
+extern pthread_mutex_t map_req_mutex;
+extern int wake;
+extern pthread_cond_t cond_pending_msg;
+extern pthread_mutex_t pending_msg_mutex;
+
 #endif
