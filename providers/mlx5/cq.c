@@ -384,7 +384,7 @@ static enum ibv_wc_status mlx5_handle_error_cqe(struct mlx5_err_cqe *cqe)
 }
 
 #if defined(__x86_64__) || defined (__i386__)
-static inline unsigned long get_cycles()
+static inline unsigned long get_cycles(void)
 {
 	uint32_t low, high;
 	uint64_t val;
@@ -394,7 +394,7 @@ static inline unsigned long get_cycles()
 	return val;
 }
 
-static void mlx5_stall_poll_cq()
+static void mlx5_stall_poll_cq(void)
 {
 	int i;
 
