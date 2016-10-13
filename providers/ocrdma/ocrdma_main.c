@@ -59,7 +59,7 @@
 	{ .vendor = PCI_VENDOR_ID_##v,        \
 	  .device = PCI_DEVICE_ID_EMULEX_##d }
 
-struct {
+static struct {
 	unsigned vendor;
 	unsigned device;
 } ucna_table[] = {

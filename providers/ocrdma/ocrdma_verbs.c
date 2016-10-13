@@ -608,7 +608,7 @@ mbx_err:
 	return NULL;
 }
 
-enum ocrdma_qp_state get_ocrdma_qp_state(enum ibv_qp_state qps)
+static enum ocrdma_qp_state get_ocrdma_qp_state(enum ibv_qp_state qps)
 {
 	switch (qps) {
 	case IBV_QPS_RESET:
