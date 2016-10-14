@@ -62,6 +62,7 @@
 #include <rdma/ib_user_sa.h>
 #endif
 #include <poll.h>
+#include <inttypes.h>
 #include "acm_mad.h"
 #include "acm_util.h"
 #ifdef HAVE_NETLINK
@@ -1471,7 +1472,7 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 	case LS_NLA_TYPE_SERVICE_ID:
 		sid = (uint64_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*sid)) {
-			acm_log(2, "service_id 0x%llx\n", *sid);
+			acm_log(2, "service_id 0x%" PRIx64 "\n", *sid);
 			path->service_id = htonll(*sid);
 		} else {
 			ret = -1;
@@ -2207,7 +2208,7 @@ static void acm_port_get_gid_tbl(struct acmc_port *port)
 					    &port->gid_tbl[j]);
 			if (ret || !port->gid_tbl[j].global.interface_id)
 				break;
-			acm_log(2, "guid %d: 0x%llx %llx\n", j,
+			acm_log(2, "guid %d: 0x%" PRIx64 " %" PRIx64 "\n", j,
 				port->gid_tbl[j].global.subnet_prefix, 
 				port->gid_tbl[j].global.interface_id);
 		}
@@ -2577,8 +2578,8 @@ static void acm_load_prov_config(void)
 			continue;
 		}
 		prefix = strtoull(p, NULL, 0);
-		acm_log(2, "provider %s subnet_prefix 0x%llx\n", prov_name, 
-			prefix);
+		acm_log(2, "provider %s subnet_prefix 0x%" PRIx64 "\n",
+			prov_name, prefix);
 		/* Convert it into network byte order */
 		prefix = htonll(prefix);
 
@@ -2667,8 +2668,8 @@ static int acm_open_providers(void)
 
 		if (version != ACM_PROV_VERSION ||
 		    provider->size != sizeof(struct acm_provider)) {
-			acm_log(0, "Error -unmatched provider version 0x%08x (size %d)"
-				" core 0x%08x (size %d)\n", version, provider->size,
+			acm_log(0, "Error -unmatched provider version 0x%08x (size %zd)"
+				" core 0x%08x (size %zd)\n", version, provider->size,
 				ACM_PROV_VERSION, sizeof(struct acm_provider));
 			dlclose(handle);
 			continue;
@@ -2863,7 +2864,7 @@ static void acmc_recv_mad(struct acmc_port *port)
 	}
 
 	hdr = &resp.sa_mad.mad_hdr;
-	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %llx at %x atm %x\n",
+	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %" PRIx64 "x at %x atm %x\n",
 		hdr->base_version, hdr->mgmt_class, hdr->class_version,
 		hdr->method, hdr->status, hdr->tid, hdr->attr_id, hdr->attr_mod);
 	found = 0;

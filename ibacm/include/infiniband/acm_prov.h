@@ -85,7 +85,8 @@ int provider_query(struct acm_provider **info, uint32_t *version);
 /* Functions exported from core */
 #define acm_log(level, format, ...) \
 	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
-extern void acm_write(int level, const char *format, ...);
+extern void acm_write(int level, const char *format, ...)
+    __attribute__((format(printf, 2, 3)));
 extern void acm_format_name(int level, char *name, size_t name_size,
 	uint8_t addr_type, const uint8_t *addr, size_t addr_size);
 
