@@ -210,6 +210,18 @@ else()
   set(NL_LIBRARIES "")
 endif()
 
+# Older stuff blows up if these headers are included together
+if (NOT NL_KIND EQUAL 0)
+  set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+  set(CMAKE_REQUIRED_INCLUDES "${NL_INCLUDE_DIRS}")
+  CHECK_C_SOURCE_COMPILES("
+#include <netlink/route/link.h>
+#include <net/if.h>
+ int main(int argc,const char *argv[]) {return 0;}"
+    HAVE_WORKING_IF_H)
+  set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
+endif()
+
 # Statically determine sizeof(long), this is largely unnecessary, no new code
 # should rely on this.
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
@@ -325,6 +337,10 @@ if (NL_KIND EQUAL 1)
 endif()
 if (NL_KIND EQUAL 0)
   message(STATUS " neighbour resolution NOT enabled")
+else()
+  if (NOT HAVE_WORKING_IF_H)
+    message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
+  endif()
 endif()
 if (NOT HAVE_RDMA_USER_RXE)
   message(STATUS " rdma/rdma_user_rxe.h NOT found (old system kernel headers)")

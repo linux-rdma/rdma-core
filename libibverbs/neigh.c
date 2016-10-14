@@ -20,10 +20,11 @@
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <assert.h>
-#ifndef _LINUX_IF_H
+#if HAVE_WORKING_IF_H
 #include <net/if.h>
 #else
-/*Workaround when there's a collision between the includes */
+/* We need this decl from net/if.h but old systems do not let use co-include
+   net/if.h and netlink/route/link.h */
 extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
 #endif
 
