@@ -294,7 +294,6 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 	struct mthca_cqe *cqe;
 	struct mthca_srq *srq;
 	uint32_t qpn;
-	uint32_t wqe;
 	int wqe_index;
 	int is_error;
 	int is_send;
@@ -339,6 +338,7 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 		wqe_index = ((ntohl(cqe->wqe) - (*cur_qp)->send_wqe_offset) >> wq->wqe_shift);
 		wc->wr_id = (*cur_qp)->wrid[wqe_index + (*cur_qp)->rq.max];
 	} else if ((*cur_qp)->ibv_qp.srq) {
+		uint32_t wqe;
 		srq = to_msrq((*cur_qp)->ibv_qp.srq);
 		wqe = htonl(cqe->wqe);
 		wq = NULL;

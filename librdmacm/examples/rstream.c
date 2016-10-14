@@ -255,62 +255,62 @@ out:
 	return ret;
 }
 
-static void set_keepalive(int rs)
+static void set_keepalive(int fd)
 {
 	int optval;
 	socklen_t optlen = sizeof(optlen);
 
 	optval = 1;
-	if (rs_setsockopt(rs, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen)) {
+	if (rs_setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen)) {
 		perror("rsetsockopt SO_KEEPALIVE");
 		return;
 	}
 
 	optval = keepalive;
-	if (rs_setsockopt(rs, IPPROTO_TCP, TCP_KEEPIDLE, &optval, optlen))
+	if (rs_setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &optval, optlen))
 		perror("rsetsockopt TCP_KEEPIDLE");
 
-	if (!(rs_getsockopt(rs, SOL_SOCKET, SO_KEEPALIVE, &optval, &optlen)))
+	if (!(rs_getsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, &optlen)))
 		printf("Keepalive: %s\n", (optval ? "ON" : "OFF"));
 
-	if (!(rs_getsockopt(rs, IPPROTO_TCP, TCP_KEEPIDLE, &optval, &optlen)))
+	if (!(rs_getsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &optval, &optlen)))
 		printf("  time: %i\n", optval);
 }
 
-static void set_options(int rs)
+static void set_options(int fd)
 {
 	int val;
 
 	if (buffer_size) {
-		rs_setsockopt(rs, SOL_SOCKET, SO_SNDBUF, (void *) &buffer_size,
+		rs_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *) &buffer_size,
 			      sizeof buffer_size);
-		rs_setsockopt(rs, SOL_SOCKET, SO_RCVBUF, (void *) &buffer_size,
+		rs_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void *) &buffer_size,
 			      sizeof buffer_size);
 	} else {
 		val = 1 << 19;
-		rs_setsockopt(rs, SOL_SOCKET, SO_SNDBUF, (void *) &val, sizeof val);
-		rs_setsockopt(rs, SOL_SOCKET, SO_RCVBUF, (void *) &val, sizeof val);
+		rs_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *) &val, sizeof val);
+		rs_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void *) &val, sizeof val);
 	}
 
 	val = 1;
-	rs_setsockopt(rs, IPPROTO_TCP, TCP_NODELAY, (void *) &val, sizeof(val));
+	rs_setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void *) &val, sizeof(val));
 
 	if (flags & MSG_DONTWAIT)
-		rs_fcntl(rs, F_SETFL, O_NONBLOCK);
+		rs_fcntl(fd, F_SETFL, O_NONBLOCK);
 
 	if (use_rs) {
 		/* Inline size based on experimental data */
 		if (optimization == opt_latency) {
-			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &inline_size,
+			rs_setsockopt(fd, SOL_RDMA, RDMA_INLINE, &inline_size,
 				      sizeof inline_size);
 		} else if (optimization == opt_bandwidth) {
 			val = 0;
-			rs_setsockopt(rs, SOL_RDMA, RDMA_INLINE, &val, sizeof val);
+			rs_setsockopt(fd, SOL_RDMA, RDMA_INLINE, &val, sizeof val);
 		}
 	}
 
 	if (keepalive)
-		set_keepalive(rs);
+		set_keepalive(fd);
 }
 
 static int server_listen(void)
@@ -564,10 +564,10 @@ free:
 	return ret;
 }
 
-static int set_test_opt(char *optarg)
+static int set_test_opt(const char *arg)
 {
-	if (strlen(optarg) == 1) {
-		switch (optarg[0]) {
+	if (strlen(arg) == 1) {
+		switch (arg[0]) {
 		case 's':
 			use_rs = 0;
 			break;
@@ -594,19 +594,19 @@ static int set_test_opt(char *optarg)
 			return -1;
 		}
 	} else {
-		if (!strncasecmp("socket", optarg, 6)) {
+		if (!strncasecmp("socket", arg, 6)) {
 			use_rs = 0;
-		} else if (!strncasecmp("async", optarg, 5)) {
+		} else if (!strncasecmp("async", arg, 5)) {
 			use_async = 1;
-		} else if (!strncasecmp("block", optarg, 5)) {
+		} else if (!strncasecmp("block", arg, 5)) {
 			flags = (flags & ~MSG_DONTWAIT) | MSG_WAITALL;
-		} else if (!strncasecmp("nonblock", optarg, 8)) {
+		} else if (!strncasecmp("nonblock", arg, 8)) {
 			flags |= MSG_DONTWAIT;
-		} else if (!strncasecmp("resolve", optarg, 7)) {
+		} else if (!strncasecmp("resolve", arg, 7)) {
 			use_rgai = 1;
-		} else if (!strncasecmp("verify", optarg, 6)) {
+		} else if (!strncasecmp("verify", arg, 6)) {
 			verify = 1;
-		} else if (!strncasecmp("fork", optarg, 4)) {
+		} else if (!strncasecmp("fork", arg, 4)) {
 			use_fork = 1;
 			use_rs = 0;
 		} else {

@@ -115,6 +115,20 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarati
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
 
+# At some point after 4.4 gcc fixed shadow to ignore function vs variable
+# conflicts
+set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+  set(CMAKE_REQUIRED_FLAGS "-Wshadow")
+CHECK_C_SOURCE_COMPILES("
+ #include <unistd.h>
+ int main(int argc,const char *argv[]) { int access = 1; return access; }"
+  HAVE_C_WORKING_SHADOW
+  FAIL_REGEX "warning")
+if (HAVE_C_WORKING_SHADOW)
+  RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WORKING_SHADOW "-Wshadow")
+endif()
+set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
+
 # At some point around 5.4 gcc fixed missing-field-initializers to ignore this
 # common idiom we use extensively. Since this is a useful warning for
 # developers try and leave it on if the compiler supports it.
@@ -371,6 +385,9 @@ if (NOT HAVE_NO_STRICT_ALIASING)
 endif()
 if (NOT HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS)
   message(STATUS " -Wmissing-field-initializers does NOT work")
+endif()
+if (NOT HAVE_C_WORKING_SHADOW)
+  message(STATUS " -Wshadow does NOT work")
 endif()
 if (NOT HAVE_C_WREDUNDANT_DECLS)
   message(STATUS " -Wredundant-decls does NOT work")

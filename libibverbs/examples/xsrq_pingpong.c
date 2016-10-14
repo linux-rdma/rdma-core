@@ -456,13 +456,13 @@ static int recv_remote_dest(int sockfd, int index)
 	return 0;
 }
 
-static void set_ah_attr(struct ibv_ah_attr *attr, struct pingpong_context *ctx,
+static void set_ah_attr(struct ibv_ah_attr *attr, struct pingpong_context *myctx,
 			int index)
 {
 	attr->is_global = 1;
 	attr->grh.hop_limit = 5;
-	attr->grh.dgid = ctx->rem_dest[index].gid;
-	attr->grh.sgid_index = ctx->gidx;
+	attr->grh.dgid = myctx->rem_dest[index].gid;
+	attr->grh.sgid_index = myctx->gidx;
 }
 
 static int connect_qps(int index)

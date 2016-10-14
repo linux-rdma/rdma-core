@@ -252,7 +252,7 @@ static struct acm_provider def_prov = {
 static DLIST_ENTRY acmp_dev_list;
 static lock_t acmp_dev_lock;
 
-static atomic_t tid;
+static atomic_t g_tid;
 static DLIST_ENTRY timeout_list;
 static event_t timeout_event;
 static atomic_t wait_cnt;
@@ -787,7 +787,7 @@ static void acmp_init_path_query(struct ib_sa_mad *mad)
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_GET;
-	mad->tid = htonll((uint64_t) atomic_inc(&tid));
+	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_PATH_REC;
 }
 
@@ -1378,7 +1378,7 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_SET;
-	mad->tid = htonll((uint64_t) atomic_inc(&tid));
+	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_MC_MEMBER_REC;
 	mad->comp_mask =
 		IB_COMP_MASK_MC_MGID | IB_COMP_MASK_MC_PORT_GID |
@@ -1703,7 +1703,7 @@ acmp_send_resolve(struct acmp_ep *ep, struct acmp_dest *dest,
 	mad->class_version = 1;
 	mad->method = IB_METHOD_GET;
 	mad->control = ACM_CTRL_RESOLVE;
-	mad->tid = htonll((uint64_t) atomic_inc(&tid));
+	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
 
 	rec = (struct acm_resolve_rec *) mad->data;
 	rec->src_type = (uint8_t) saddr->type;
@@ -2948,7 +2948,7 @@ static void __attribute__((constructor)) acmp_init(void)
 
 	acmp_log_options();
 
-	atomic_init(&tid);
+	atomic_init(&g_tid);
 	atomic_init(&wait_cnt);
 	DListInit(&acmp_dev_list);
 	lock_init(&acmp_dev_lock);

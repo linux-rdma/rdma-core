@@ -770,7 +770,6 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	} else {
-		int i;
 		for (i = 0; dev_list[i]; ++i)
 			if (!strcmp(ibv_get_device_name(dev_list[i]), ib_devname))
 				break;
