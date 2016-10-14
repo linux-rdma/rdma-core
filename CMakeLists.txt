@@ -246,6 +246,14 @@ if (NOT LIBC_HAS_LIBRT)
 endif()
 
 #-------------------------
+# Final warning flags
+
+# Old version of cmake used 'main(){..}' as their test program which breaks with -Werror.
+# So set this flag last.
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WSTRICT_PROTOTYPES "-Wstrict-prototypes")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definition")
+
+#-------------------------
 # Build Prep
 # Write out a git ignore file to the build directory if it isn't the source
 # directory. For developer convenience

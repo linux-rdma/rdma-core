@@ -512,7 +512,7 @@ static void show_path(struct ibv_path_record *path)
 	printf("  packet lifetime: %d\n", path->packetlifetime & 0x1F);
 }
 
-static uint32_t get_resolve_flags()
+static uint32_t get_resolve_flags(void)
 {
 	uint32_t flags = 0;
 

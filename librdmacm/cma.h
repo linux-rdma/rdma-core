@@ -138,8 +138,8 @@ extern int af_ib_support;
 
 #define RAI_ROUTEONLY		0x01000000
 
-void ucma_ib_init();
-void ucma_ib_cleanup();
+void ucma_ib_init(void);
+void ucma_ib_cleanup(void);
 void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints);
 
 struct ib_connect_hdr {

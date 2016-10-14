@@ -354,7 +354,7 @@ static int send_termination_ack(int index)
 	return 0;
 }
 
-static int pp_client_termination()
+static int pp_client_termination(void)
 {
 	if (send_termination_ack(0))
 		return 1;
@@ -364,7 +364,7 @@ static int pp_client_termination()
 	return 0;
 }
 
-static int pp_server_termination()
+static int pp_server_termination(void)
 {
 	int i;
 

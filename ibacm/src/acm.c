@@ -2421,7 +2421,7 @@ static void acm_event_handler(struct acmc_device *dev)
 	ibv_ack_async_event(&event);
 }
 
-static void acm_activate_devices()
+static void acm_activate_devices(void)
 {
 	struct acmc_device *dev;
 	DLIST_ENTRY *dev_entry;
