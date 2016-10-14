@@ -497,7 +497,7 @@ clean_ctx:
 	return NULL;
 }
 
-int pp_close_ctx(struct pingpong_context *ctx, int num_qp)
+static int pp_close_ctx(struct pingpong_context *ctx, int num_qp)
 {
 	int i;
 

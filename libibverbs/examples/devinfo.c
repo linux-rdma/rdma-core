@@ -283,7 +283,7 @@ static void print_device_cap_flags(uint32_t dev_cap_flags)
 		       dev_cap_flags & unknown_flags);
 }
 
-void print_odp_trans_caps(uint32_t trans)
+static void print_odp_trans_caps(uint32_t trans)
 {
 	uint32_t unknown_transport_caps = ~(IBV_ODP_SUPPORT_SEND |
 					    IBV_ODP_SUPPORT_RECV |
@@ -310,7 +310,7 @@ void print_odp_trans_caps(uint32_t trans)
 	}
 }
 
-void print_odp_caps(const struct ibv_odp_caps *caps)
+static void print_odp_caps(const struct ibv_odp_caps *caps)
 {
 	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT);
 

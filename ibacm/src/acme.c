@@ -74,9 +74,6 @@ int verbose;
 struct ibv_context **verbs;
 int dev_cnt;
 
-extern int gen_addr_ip(FILE *f);
-extern char **parse(char *args, int *count);
-
 #define VPRINT(format, ...) do { if (verbose) printf(format, ## __VA_ARGS__ ); } while (0)
 
 static void show_usage(char *program)
@@ -958,7 +955,7 @@ static int query_svcs(void)
 	return ret;
 }
 
-char *opt_arg(int argc, char **argv)
+static char *opt_arg(int argc, char **argv)
 {
 	if (optarg)
 		return optarg;
@@ -969,7 +966,7 @@ char *opt_arg(int argc, char **argv)
 	return NULL;
 }
 
-void parse_perf_arg(char *arg)
+static void parse_perf_arg(char *arg)
 {
 	if (!strnicmp("col", arg, 3)) {
 		perf_query = PERF_QUERY_COL;
