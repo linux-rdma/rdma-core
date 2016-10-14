@@ -132,8 +132,6 @@ struct config_entry {
 
 static struct config_entry *config;
 static int config_cnt;
-extern char *program_invocation_short_name;
-
 
 static void free_config(void)
 {

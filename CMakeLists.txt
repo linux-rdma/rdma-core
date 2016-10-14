@@ -269,6 +269,23 @@ endif()
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WSTRICT_PROTOTYPES "-Wstrict-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definition")
 
+# Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
+# systems
+if (NOT NL_KIND EQUAL 0)
+  set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+  set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+  set(CMAKE_REQUIRED_INCLUDES "${NL_INCLUDE_DIRS}")
+  set(CMAKE_REQUIRED_FLAGS "-Wredundant-decls")
+  CHECK_C_SOURCE_COMPILES("
+ #include <netlink/route/route.h>
+ int main(int argc,const char *argv[]) { return 0; }"
+  HAVE_C_WREDUNDANT_DECLS
+  FAIL_REGEX "warning")
+  set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
+  set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
+endif()
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
+
 #-------------------------
 # Build Prep
 # Write out a git ignore file to the build directory if it isn't the source
@@ -353,4 +370,7 @@ if (NOT HAVE_NO_STRICT_ALIASING)
 endif()
 if (NOT HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS)
   message(STATUS " -Wmissing-field-initializers does NOT work")
+endif()
+if (NOT HAVE_C_WREDUNDANT_DECLS)
+  message(STATUS " -Wredundant-decls does NOT work")
 endif()

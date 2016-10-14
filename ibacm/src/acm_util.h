@@ -31,17 +31,17 @@
 #define ACM_IF_H
 
 #include <infiniband/verbs.h>
+#include <infiniband/acm_prov.h>
 
 #ifdef ACME_PRINTS
 
+#undef acm_log
 #define acm_log(level, format, ...) \
 	printf(format, ## __VA_ARGS__)
 
 #else /* !ACME_PRINTS */
 #define acm_log(level, format, ...) \
 	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
-
-void acm_write(int level, const char *format, ...);
 #endif /* ACME_PRINTS */
 
 int acm_if_is_ib(char *ifname);

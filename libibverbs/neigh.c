@@ -36,9 +36,6 @@ extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-/* Workaround - declaration missing */
-extern int		rtnl_link_vlan_get_id(struct rtnl_link *);
-
 #ifndef HAVE_LIBNL1
 #include <netlink/route/link/vlan.h>
 #endif
