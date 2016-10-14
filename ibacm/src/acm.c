@@ -2483,7 +2483,7 @@ static void acm_open_dev(struct ibv_device *ibdev)
 
 	ret = ibv_query_device(verbs, &attr);
 	if (ret) {
-		acm_log(0, "ERROR - ibv_query_device (%s) %d\n", ret, ibdev->name);
+		acm_log(0, "ERROR - ibv_query_device (%d) %s\n", ret, ibdev->name);
 		goto err1;
 	}
 
