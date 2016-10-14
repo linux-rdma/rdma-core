@@ -2868,7 +2868,7 @@ static void acmp_set_options(void)
 	FILE *f;
 	char s[120];
 	char opt[32], value[256];
-	char *opts_file = acm_get_opts_file();
+	const char *opts_file = acm_get_opts_file();
 
 	if (!(f = fopen(opts_file, "r")))
 		return;

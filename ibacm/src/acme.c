@@ -44,13 +44,13 @@
 #include "libacm.h"
 #include "acm_util.h"
 
-static char *dest_dir = ACM_CONF_DIR;
-static char *addr_file = ACM_ADDR_FILE;
-static char *opts_file = ACM_OPTS_FILE;
+static const char *dest_dir = ACM_CONF_DIR;
+static const char *addr_file = ACM_ADDR_FILE;
+static const char *opts_file = ACM_OPTS_FILE;
 
 static char *dest_addr;
 static char *src_addr;
-static char *svc_arg = "localhost";
+static const char *svc_arg = "localhost";
 static char *dest_arg;
 static char *src_arg;
 static char addr_type = 'u';

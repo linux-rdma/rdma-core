@@ -78,7 +78,7 @@ enum rs_optimization {
 	opt_bandwidth
 };
 
-int get_rdma_addr(char *src, char *dst, char *port,
+int get_rdma_addr(const char *src, const char *dst, const char *port,
 		  struct rdma_addrinfo *hints, struct rdma_addrinfo **rai);
 
 void size_str(char *str, size_t ssize, long long size);

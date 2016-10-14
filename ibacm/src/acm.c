@@ -221,9 +221,9 @@ static struct sa_data {
 /*
  * Service options - may be set through ibacm_opts.cfg file.
  */
-static char *acme = IBACM_BIN_PATH "/ib_acme -A";
-static char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
-static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
+static const char *acme = IBACM_BIN_PATH "/ib_acme -A";
+static const char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
+static const char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
 static char log_file[128] = IBACM_LOG_FILE;
 static int log_level = 0;
 static char lock_file[128] = IBACM_PID_FILE;
@@ -292,7 +292,7 @@ int ib_any_gid(union ibv_gid *gid)
 	return ((gid->global.subnet_prefix | gid->global.interface_id) == 0);
 }
 
-char * acm_get_opts_file(void)
+const char *acm_get_opts_file(void)
 {
 	return opts_file;
 }

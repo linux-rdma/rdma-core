@@ -82,7 +82,7 @@ enum log_dest { log_to_syslog, log_to_stderr };
 static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
 
 static const int   node_table_response_size = 1 << 18;
-static char *sysfs_path = "/sys";
+static const char *sysfs_path = "/sys";
 static enum log_dest s_log_dest = log_to_syslog;
 static int wakeup_pipe[2] = { -1, -1 };
 
@@ -152,7 +152,7 @@ static int check_process_uniqueness(struct config_t *conf)
 }
 
 static int srpd_sys_read_string(const char *dir_name, const char *file_name,
-			 char *str, int max_len)
+				char *str, int max_len)
 {
 	char path[256], *s;
 	int fd, r;
@@ -177,7 +177,8 @@ static int srpd_sys_read_string(const char *dir_name, const char *file_name,
 	return 0;
 }
 
-static int srpd_sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
+static int srpd_sys_read_gid(const char *dir_name, const char *file_name,
+			     uint8_t *gid)
 {
 	char buf[64], *str, *s;
 	uint16_t *ugid = (uint16_t *)gid;
@@ -195,7 +196,8 @@ static int srpd_sys_read_gid(char *dir_name, char *file_name, uint8_t *gid)
 	return 0;
 }
 
-static int srpd_sys_read_uint64(char *dir_name, char *file_name, uint64_t *u)
+static int srpd_sys_read_uint64(const char *dir_name, const char *file_name,
+				uint64_t *u)
 {
 	char buf[32];
 	int r;
@@ -234,7 +236,7 @@ static void usage(const char *argv0)
 }
 
 static int
-check_equal_uint64(char *dir_name, char *attr, uint64_t val)
+check_equal_uint64(char *dir_name, const char *attr, uint64_t val)
 {
 	uint64_t attr_value;
 
@@ -245,7 +247,7 @@ check_equal_uint64(char *dir_name, char *attr, uint64_t val)
 }
 
 static int
-check_equal_uint16(char *dir_name, char *attr, uint16_t val)
+check_equal_uint16(char *dir_name, const char *attr, uint16_t val)
 {
 	uint64_t attr_value;
 
@@ -309,7 +311,8 @@ void pr_err(const char *fmt, ...)
 	}
 }
 
-static int check_not_equal_str(char *dir_name, char *attr, char *value)
+static int check_not_equal_str(const char *dir_name, const char *attr,
+			       const char *value)
 {
 	const int MAX_ATTR_STRING_LENGTH=64;
 
@@ -329,7 +332,8 @@ static int check_not_equal_str(char *dir_name, char *attr, char *value)
 	return 0;
 }
 
-static int check_not_equal_int(char *dir_name, char *attr, int value)
+static int check_not_equal_int(const char *dir_name, const char *attr,
+			       int value)
 {
 	const int MAX_ATTR_STRING_LENGTH=64;
 
@@ -654,12 +658,13 @@ static void initialize_sysfs(void)
 	env = getenv("SYSFS_PATH");
 	if (env) {
 		int len;
+		char *dup;
 
-		sysfs_path = strndup(env, 256);
-		len = strlen(sysfs_path);
-		while (len > 0 && sysfs_path[len - 1] == '/') {
+		sysfs_path = dup = strndup(env, 256);
+		len = strlen(dup);
+		while (len > 0 && dup[len - 1] == '/') {
 			--len;
-			sysfs_path[len] = '\0';
+			dup[len] = '\0';
 		}
 	}
 }

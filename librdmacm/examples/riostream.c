@@ -88,7 +88,7 @@ static int transfer_size = 1000;
 static int transfer_count = 1000;
 static int buffer_size, inline_size = 64;
 static char test_name[10] = "custom";
-static char *port = "7471";
+static const char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
 static struct timeval start, end;

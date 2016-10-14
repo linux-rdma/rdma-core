@@ -225,7 +225,7 @@ int send_iwpm_nlmsg(int, struct nl_msg *, int);
 
 struct nl_msg *create_iwpm_nlmsg(__u16, int);
 
-void print_iwpm_sockaddr(struct sockaddr_storage *, char *, __u32);
+void print_iwpm_sockaddr(struct sockaddr_storage *, const char *, __u32);
 
 __be16 get_sockaddr_port(struct sockaddr_storage *sockaddr);
 

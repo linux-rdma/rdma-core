@@ -75,7 +75,7 @@ static struct cmatest test;
 static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
-static char *port = "7471";
+static const char *port = "7471";
 static uint8_t set_tos = 0;
 static uint8_t tos;
 static uint8_t migrate = 0;

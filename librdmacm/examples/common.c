@@ -47,7 +47,7 @@
 
 int use_rs = 1;
 
-int get_rdma_addr(char *src, char *dst, char *port,
+int get_rdma_addr(const char *src, const char *dst, const char *port,
 		  struct rdma_addrinfo *hints, struct rdma_addrinfo **rai)
 {
 	struct rdma_addrinfo rai_hints, *res;

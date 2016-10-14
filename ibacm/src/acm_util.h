@@ -53,6 +53,6 @@ typedef void (*acm_if_iter_cb)(char *ifname, union ibv_gid *gid, uint16_t pkey,
 				char *ip_str, void *ctx);
 int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx);
 
-char **parse(char *args, int *count);
+char **parse(const char *args, int *count);
 
 #endif /* ACM_IF_H */

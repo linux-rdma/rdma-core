@@ -39,7 +39,7 @@
 #endif
 
 /* iwpm config params */
-static char * iwpm_param_names[IWPM_PARAM_NUM] =
+static const char * iwpm_param_names[IWPM_PARAM_NUM] =
 	{ "nl_sock_rbuf_size" };
 static int iwpm_param_vals[IWPM_PARAM_NUM] =
 	{ 0 };
@@ -609,8 +609,9 @@ int is_wcard_ipaddr(struct sockaddr_storage *search_addr)
  * print_iwpm_sockaddr - Print socket address (IP address and Port)
  * @sockaddr: socket address to print
  * @msg: message to print
- */ 
-void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, char *msg, __u32 dbg_flag)
+ */
+void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, const char *msg,
+			 __u32 dbg_flag)
 {
 	struct sockaddr_in6 *sockaddr_v6;
 	struct sockaddr_in *sockaddr_v4;

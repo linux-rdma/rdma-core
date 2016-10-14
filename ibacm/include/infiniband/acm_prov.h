@@ -61,7 +61,7 @@ struct acm_address {
 struct acm_provider {
 	size_t    size; 
 	uint32_t  version;
-	char      *name;
+	const char *name;
 	int	(*open_device)(const struct acm_device *device, 
 			void **dev_context);
 	void	(*close_device)(void *dev_context);
@@ -113,7 +113,7 @@ acm_alloc_sa_mad(const struct acm_endpoint *endpoint, void *context,
 extern void acm_free_sa_mad(struct acm_sa_mad *mad);
 extern int acm_send_sa_mad(struct acm_sa_mad *mad);
 
-extern char * acm_get_opts_file(void);
+extern const char *acm_get_opts_file(void);
 extern void acm_increment_counter(int type);
 
 #endif /* ACM_PROV_H */

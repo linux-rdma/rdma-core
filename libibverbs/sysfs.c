@@ -42,11 +42,11 @@
 
 #include "ibverbs.h"
 
-static char *sysfs_path;
+static const char *sysfs_path;
 
 const char *ibv_get_sysfs_path(void)
 {
-	char *env = NULL;
+	const char *env = NULL;
 
 	if (sysfs_path)
 		return sysfs_path;
@@ -60,12 +60,13 @@ const char *ibv_get_sysfs_path(void)
 
 	if (env) {
 		int len;
+		char *dup;
 
-		sysfs_path = strndup(env, IBV_SYSFS_PATH_MAX);
-		len = strlen(sysfs_path);
-		while (len > 0 && sysfs_path[len - 1] == '/') {
+		sysfs_path = dup = strndup(env, IBV_SYSFS_PATH_MAX);
+		len = strlen(dup);
+		while (len > 0 && dup[len - 1] == '/') {
 			--len;
-			sysfs_path[len] = '\0';
+			dup[len] = '\0';
 		}
 	} else
 		sysfs_path = "/sys";

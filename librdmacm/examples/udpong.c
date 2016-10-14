@@ -93,7 +93,7 @@ static int transfer_size = 1000;
 static int transfer_count = 1000;
 static int buffer_size;
 static char test_name[10] = "custom";
-static char *port = "7174";
+static const char *port = "7174";
 static char *dst_addr;
 static char *src_addr;
 static union socket_addr addr;

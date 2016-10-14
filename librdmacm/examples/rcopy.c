@@ -52,7 +52,7 @@ union rsocket_address {
 	struct sockaddr_storage storage;
 };
 
-static char *port = "7427";
+static const char *port = "7427";
 static char *dst_addr;
 static char *dst_file;
 static char *src_file;

@@ -1138,7 +1138,7 @@ static int get_addr(char *dst, struct sockaddr *addr)
 	return ret;
 }
 
-static void usage(char *name)
+static void usage(const char *name)
 {
 	printf("%s -s [-vVd] [-S size] [-C count] [-a addr] [-p port]\n", 
 	       basename(name));
