@@ -45,7 +45,8 @@
 
 static struct rdma_addrinfo nohints;
 
-static void ucma_convert_to_ai(struct addrinfo *ai, struct rdma_addrinfo *rai)
+static void ucma_convert_to_ai(struct addrinfo *ai,
+			       const struct rdma_addrinfo *rai)
 {
 	memset(ai, 0, sizeof(*ai));
 	if (rai->ai_flags & RAI_PASSIVE)
@@ -141,7 +142,8 @@ static int ucma_convert_in6(int ps, struct sockaddr_ib **dst, socklen_t *dst_len
 }
 
 static int ucma_convert_to_rai(struct rdma_addrinfo *rai,
-			       struct rdma_addrinfo *hints, struct addrinfo *ai)
+			       const struct rdma_addrinfo *hints,
+			       const struct addrinfo *ai)
 {
 	int ret;
 
@@ -210,8 +212,8 @@ static int ucma_convert_to_rai(struct rdma_addrinfo *rai,
 	return ret;
 }
 
-static int ucma_getaddrinfo(char *node, char *service,
-			    struct rdma_addrinfo *hints,
+static int ucma_getaddrinfo(const char *node, const char *service,
+			    const struct rdma_addrinfo *hints,
 			    struct rdma_addrinfo *rai)
 {
 	struct addrinfo ai_hints;
@@ -232,8 +234,8 @@ static int ucma_getaddrinfo(char *node, char *service,
 	return ret;
 }
 
-int rdma_getaddrinfo(char *node, char *service,
-		     struct rdma_addrinfo *hints,
+int rdma_getaddrinfo(const char *node, const char *service,
+		     const struct rdma_addrinfo *hints,
 		     struct rdma_addrinfo **res)
 {
 	struct rdma_addrinfo *rai;

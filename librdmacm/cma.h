@@ -140,7 +140,8 @@ extern int af_ib_support;
 
 void ucma_ib_init(void);
 void ucma_ib_cleanup(void);
-void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints);
+void ucma_ib_resolve(struct rdma_addrinfo **rai,
+		     const struct rdma_addrinfo *hints);
 
 struct ib_connect_hdr {
 	uint8_t  cma_version;

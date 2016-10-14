@@ -668,8 +668,8 @@ int rdma_migrate_id(struct rdma_cm_id *id, struct rdma_event_channel *channel);
 /**
  * rdma_getaddrinfo - RDMA address and route resolution service.
  */
-int rdma_getaddrinfo(char *node, char *service,
-		     struct rdma_addrinfo *hints,
+int rdma_getaddrinfo(const char *node, const char *service,
+		     const struct rdma_addrinfo *hints,
 		     struct rdma_addrinfo **res);
 
 void rdma_freeaddrinfo(struct rdma_addrinfo *res);

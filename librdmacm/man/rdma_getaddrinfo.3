@@ -5,9 +5,9 @@ rdma_getaddrinfo \- Provides transport independent address translation.
 .B "#include <rdma/rdma_cma.h>"
 .P
 .B "int" rdma_getaddrinfo
-.BI "(char *" node ","
-.BI "char *" service ","
-.BI "struct rdma_addrinfo *" hints ","
+.BI "(const char *" node ","
+.BI "const char *" service ","
+.BI "const struct rdma_addrinfo *" hints ","
 .BI "struct rdma_addrinfo **" res ");"
 .SH ARGUMENTS
 .IP "node" 12
