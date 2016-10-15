@@ -35,10 +35,10 @@
 use warnings;
 use strict;
 
+use File::Basename;
 use Getopt::Long;
 use Switch;
 
-my $z = "2>/dev/null";
 my $help = 0;
 my $no_persist = 0;
 my $debug = 0;
@@ -67,20 +67,25 @@ my @mlx4_port;
 my @mlx4_ether;
 my @roce_list;
 
+# Read a file and return its contents as a string.
+sub read_file {
+    my $filename = shift;
+    my $result = "";
+
+    if (open(FILE, $filename)) {
+	$result = <FILE>;
+	close FILE;
+    }
+    return $result;
+}
+
 #get mapping between rxe and eth devices
 sub get_names {
-    return if (!(-e "/sys/class/infiniband"));
-
-    my @list;
-    my $rxe;
-    my $eth;
     my $i = 0;
     
-    @list = `ls /sys/class/infiniband | grep rxe $z`;
-    foreach $rxe (@list) {
-	chomp($rxe);
-
-	$eth = `cat /sys/class/infiniband/$rxe/parent $z`;
+    foreach my $rxe (glob("/sys/class/infiniband/rxe*")) {
+	$rxe = basename($rxe);
+	my $eth = read_file("/sys/class/infiniband/$rxe/parent");
 	chomp($eth);
 	
 	if (($eth =~ /[\w]+[\d]/)
@@ -98,25 +103,13 @@ sub get_names {
 
 # get list of Mellanox RoCE ports
 sub get_mlx4_list {
-    return if (!(-e "/sys/class/infiniband"));
-
-    my @list;
-    my $mlx4;
-    my @ports;
-    my $port;
-    my $link;
     my $i = 0;
 
-    @list = `ls /sys/class/infiniband | grep mlx4_ $z`;
-    foreach $mlx4 (@list) {
-	chomp($mlx4);
-	chdir("/sys/class/infiniband/$mlx4/ports");
-
-	@ports = `ls $z`;
-	foreach $port (@ports) {
-	    chomp($port);
-
-	    $link= `cat $port/link_layer $z`;
+    foreach my $mlx4 (glob("/sys/class/infiniband/mlx4_*")) {
+	$mlx4 = basename($mlx4);
+	foreach my $port (glob("/sys/class/infiniband/$mlx4/ports/*")) {
+	    $port = basename($port);
+	    my $link = read_file("$port/link_layer");
 	    chomp($link);
 
 	    if ($link =~ "Ethernet") {
@@ -141,10 +134,10 @@ sub get_dev_info {
     get_mlx4_list();
 
     my @my_eth_list = ();
-    my @my_eth_devs = `ls /sys/class/net`;
-    foreach my $my_eth_dev (@my_eth_devs) {
-        chomp($my_eth_dev);
-        my $my_dev_type = `cat /sys/class/net/${my_eth_dev}/type`;
+    foreach my $my_eth_dev (glob("/sys/class/net/*")) {
+	$my_eth_dev = basename($my_eth_dev);
+        my $my_dev_type = read_file("/sys/class/net/${my_eth_dev}/type");
+	chomp($my_dev_type);
         if ($my_dev_type == "1") {
             push(@my_eth_list, "$my_eth_dev");
         }
@@ -156,7 +149,7 @@ sub get_dev_info {
 
 	$eth_list[$i++] = $eth;
 
-	@lines = `ethtool -i $eth $z`;
+	@lines = `ethtool -i $eth`;
 	foreach $line (@lines) {
 	    chomp($line);
 
@@ -177,7 +170,7 @@ sub get_dev_info {
 	$link_state{$eth} = "";
 	$link_speed{$eth} = "";
 
-	@lines = `ethtool $eth $z`;
+	@lines = `ethtool $eth`;
 	foreach $line (@lines) {
 	    chomp($line);
 
@@ -196,7 +189,7 @@ sub get_dev_info {
 	$ipv4_addr{$eth} = "            ";
 	$eth_mtu{$eth} = "";
 
-	@lines = `ifconfig $eth $z`;
+	@lines = `ifconfig $eth`;
 	foreach $line (@lines) {
 	    # get IP address
 	    if ($line =~ /inet addr/) {
@@ -217,7 +210,7 @@ sub get_dev_info {
     # get rxe mtu
     foreach my $rxe (@rxe_array) {
 	
-	@lines  = `ibv_devinfo -d $rxe $z`;
+	@lines = `ibv_devinfo -d $rxe`;
 	foreach $line (@lines) {
 	    if ($line =~ "active_mtu") {
 		$line =~ s/^\s+active_mtu:\s+//g;
@@ -226,6 +219,7 @@ sub get_dev_info {
 		$rxe_mtu{$rxe} = $line;
 	    }
 	}
+	$rxe_mtu{$rxe} = "(?)" if (!$rxe_mtu{$rxe});
     }
 }
 
@@ -247,7 +241,6 @@ sub status_print {
     my @flen = ();
     my $num_fields = 0;
     my $i;
-    my $j;
     my $pad;
     my $line;
 
@@ -287,9 +280,7 @@ sub status_print {
 	    else {
 		print "   ";
 	    }
-	    for ($j = 0; $j < $pad; $j++) {
-		print " ";
-	    }
+	    printf("%*s", $pad, "");
 	}
 	print "\n";
     }
@@ -306,23 +297,7 @@ sub check_module_status {
 
 # print driver load status and ethertype for rdma_rxe and rdma_rxe_net
 sub show_module_status {
-    my $rxe_loaded = 1;
-
-    if (!(-e $sys)) {
-	$rxe_loaded = 0;
-    }
-
-    if ($rxe_loaded) {
-	return 0;
-    }
-    elsif (!$rxe_loaded) {
-	print "rxe modules not loaded\n";
-	return 1;
-    }
-    else {
-	print "Configuration does not make sense\n";
-	return 1;
-    }
+    print "rdma_rxe module not loaded\n" if (!(-e $sys));
 }
 
 # print rxe status
@@ -378,11 +353,11 @@ sub do_status {
 
 # read file containing list of ethernet devices into a list
 sub populate_persistence {
-    my @lines = `cat $persistence_file $z`;
-    my $line;
     my $i = 0;
     
-    foreach $line (@lines) {
+    open FILE, $persistence_file;
+    while(<FILE>) {
+	my $line = $_;
 	chomp($line);
 	$line =~ s/^\s+//g;
 	if ($line =~ /[\w]+[\d]/) {
@@ -394,6 +369,7 @@ sub populate_persistence {
 	    }
 	}
     }
+    close FILE;
 
     $num_persistent = $i;
 }
@@ -498,7 +474,7 @@ sub get_devinfo {
     my $rxe = $_[0];
 
     my $cmd = "ibv_devinfo -d $rxe";
-    return `$cmd $z`;
+    return `$cmd`;
 }
 
 # allow unsupported modules to load in SLES11 if allowed
@@ -604,7 +580,7 @@ sub do_debug {
 	}
     }
 
-    my $current = `cat $debugfile $z`;
+    my $current = read_file($debugfile);
     chomp($current);
     if ($current > 0) {
 	print "Debug is ON ($current)\n";
@@ -681,9 +657,9 @@ sub main {
     }
 
     # create persistence file if necessary
-    `mkdir -p $persistence_path $z`;
+    mkdir -p $persistence_path;
     if (!(-e $persistence_file)) {
-        `touch $persistence_file $z`;
+        `touch $persistence_file`;
     }
 
     # Get full context of the configuration
