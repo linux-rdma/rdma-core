@@ -255,7 +255,7 @@ skip_cqe:
  *	-EAGAIN 		caller must try again
  * 	any other -errno	fatal error
  */
-int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
+static int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 		     struct ibv_wc *wc)
 {
 	struct iwch_qp *qhp = NULL;

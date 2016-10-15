@@ -1184,7 +1184,7 @@ enum {
 					IBV_QP_INIT_ATTR_RX_HASH),
 };
 
-struct ibv_qp *create_qp(struct ibv_context *context,
+static struct ibv_qp *create_qp(struct ibv_context *context,
 			 struct ibv_qp_init_attr_ex *attr)
 {
 	struct mlx5_create_qp		cmd;

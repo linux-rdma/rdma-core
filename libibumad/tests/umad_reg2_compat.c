@@ -42,7 +42,7 @@
 #define UNLIKELY_MGMT_CLASS 0x2F
 #define UNLIKELY_RMPP_MGMT_CLASS 0x4F
 
-int test_failures = 0;
+static int test_failures = 0;
 
 /** =========================================================================
  * Stolen from OpenSM's register
@@ -69,7 +69,7 @@ static void set_bit64(int b, uint64_t *buf)
 	*addr |= mask;
 }
 
-void dump_reg_attr(struct umad_reg_attr *reg_attr)
+static void dump_reg_attr(struct umad_reg_attr *reg_attr)
 {
 	printf("\nmgmt_class %u\n"
 		"mgmt_class_version %u\n"
@@ -85,7 +85,7 @@ void dump_reg_attr(struct umad_reg_attr *reg_attr)
 	      reg_attr->rmpp_version);
 }
 
-int open_test_device(void)
+static int open_test_device(void)
 {
 	int fd = umad_open_port(NULL, 0);
 	if (fd < 0) {
@@ -96,7 +96,7 @@ int open_test_device(void)
 	return fd;
 }
 
-void test_register(void)
+static void test_register(void)
 {
 	int agent_id;
 	long method_mask[16 / sizeof(long)];
@@ -147,7 +147,7 @@ void test_register(void)
 }
 
 
-void test_fall_back(void)
+static void test_fall_back(void)
 {
 	int rc = 0;
 	struct umad_reg_attr reg_attr;

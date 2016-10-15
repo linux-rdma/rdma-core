@@ -55,6 +55,7 @@
 #include <netinet/in.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <inttypes.h>
 #include "acm_util.h"
 #include "acm_mad.h"
 
@@ -251,7 +252,7 @@ static struct acm_provider def_prov = {
 static DLIST_ENTRY acmp_dev_list;
 static lock_t acmp_dev_lock;
 
-static atomic_t tid;
+static atomic_t g_tid;
 static DLIST_ENTRY timeout_list;
 static event_t timeout_event;
 static atomic_t wait_cnt;
@@ -383,7 +384,7 @@ acmp_acquire_dest(struct acmp_ep *ep, uint8_t addr_type, const uint8_t *addr)
 			acmp_remove_dest(ep, dest);
 			dest = NULL;
 		} else {
-			acm_log(2, "Record valid for the next %ld minute(s)\n",
+			acm_log(2, "Record valid for the next %" PRId64 " minute(s)\n",
 				rec_expr_minutes);
 		}
 	}
@@ -411,7 +412,7 @@ static struct acmp_request *acmp_alloc_req(uint64_t id, struct acm_msg *msg)
 
 	req->id = id;
 	memcpy(&req->msg, msg, sizeof(req->msg));
-	acm_log(2, "id %llu, req %p\n", id, req);
+	acm_log(2, "id %" PRIu64 ", req %p\n", id, req);
 	return req;
 }
 
@@ -786,7 +787,7 @@ static void acmp_init_path_query(struct ib_sa_mad *mad)
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_GET;
-	mad->tid = htonll((uint64_t) atomic_inc(&tid));
+	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_PATH_REC;
 }
 
@@ -935,7 +936,7 @@ acmp_resolve_response(uint64_t id, struct acm_msg *req_msg,
 {
 	struct acm_msg msg;
 
-	acm_log(2, "client %lld, status 0x%x\n", id, status);
+	acm_log(2, "client %" PRIu64 ", status 0x%x\n", id, status);
 	memset(&msg, 0, sizeof msg);
 
 	if (dest) {
@@ -981,7 +982,7 @@ acmp_complete_queued_req(struct acmp_dest *dest, uint8_t status)
 		req = container_of(entry, struct acmp_request, entry);
 		lock_release(&dest->lock);
 
-		acm_log(2, "completing request, client %d\n", req->id);
+		acm_log(2, "completing request, client %" PRIu64 "\n", req->id);
 		acmp_resolve_response(req->id, &req->msg, dest, status);
 		acmp_free_req(req);
 
@@ -1016,7 +1017,8 @@ acmp_dest_sa_resp(struct acm_sa_mad *mad)
 		acmp_init_path_av(dest->ep->port, dest);
 		dest->addr_timeout = time_stamp_min() + (unsigned) addr_timeout;
 		dest->route_timeout = time_stamp_min() + (unsigned) route_timeout;
-		acm_log(2, "timeout addr %llu route %llu\n", dest->addr_timeout, dest->route_timeout);
+		acm_log(2, "timeout addr %" PRIu64 " route %" PRIu64 "\n",
+			dest->addr_timeout, dest->route_timeout);
 		dest->state = ACMP_READY;
 	} else {
 		dest->state = ACMP_INIT;
@@ -1376,7 +1378,7 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_SET;
-	mad->tid = htonll((uint64_t) atomic_inc(&tid));
+	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_MC_MEMBER_REC;
 	mad->comp_mask =
 		IB_COMP_MASK_MC_MGID | IB_COMP_MASK_MC_PORT_GID |
@@ -1701,7 +1703,7 @@ acmp_send_resolve(struct acmp_ep *ep, struct acmp_dest *dest,
 	mad->class_version = 1;
 	mad->method = IB_METHOD_GET;
 	mad->control = ACM_CTRL_RESOLVE;
-	mad->tid = htonll((uint64_t) atomic_inc(&tid));
+	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
 
 	rec = (struct acm_resolve_rec *) mad->data;
 	rec->src_type = (uint8_t) saddr->type;
@@ -1726,7 +1728,7 @@ static uint8_t acmp_queue_req(struct acmp_dest *dest, uint64_t id, struct acm_ms
 {
 	struct acmp_request *req;
 
-	acm_log(2, "id %llu\n", id);
+	acm_log(2, "id %" PRIu64 "\n", id);
 	req = acmp_alloc_req(id, msg);
 	if (!req) {
 		return ACM_STATUS_ENOMEM;
@@ -2446,8 +2448,8 @@ static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
 	struct acmp_device *dev;
 	DLIST_ENTRY *dev_entry;
 
-	acm_log(1, "dev 0x%llx port %d pkey 0x%x\n",
-		endpoint->port->dev->dev_guid, endpoint->port->port_num, 
+	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
+		endpoint->port->dev->dev_guid, endpoint->port->port_num,
 		endpoint->pkey);
 	for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
 	     dev_entry = dev_entry->Next) {
@@ -2466,7 +2468,7 @@ acmp_get_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	struct acmp_ep *ep;
 	DLIST_ENTRY *entry;
 
-	acm_log(1, "dev 0x%llx port %d pkey 0x%x\n",
+	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
 		endpoint->port->dev->dev_guid, endpoint->port->port_num, endpoint->pkey);
 	for (entry = port->ep_list.Next; entry != &port->ep_list;
 	     entry = entry->Next) {
@@ -2769,7 +2771,7 @@ static int acmp_open_dev(const struct acm_device *device, void **dev_context)
 	DLIST_ENTRY *dev_entry;
 	struct ibv_context *verbs;
 
-	acm_log(1, "dev_guid 0x%llx %s\n", device->dev_guid, 
+	acm_log(1, "dev_guid 0x%" PRIx64 " %s\n", device->dev_guid,
 		device->verbs->device->name);
 
 	for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
@@ -2777,7 +2779,7 @@ static int acmp_open_dev(const struct acm_device *device, void **dev_context)
 		dev = container_of(dev_entry, struct acmp_device, entry);
 
 		if (dev->guid == device->dev_guid) {
-			acm_log(2, "dev_guid 0x%llx already exits\n", 
+			acm_log(2, "dev_guid 0x%" PRIx64 " already exits\n",
 				device->dev_guid);
 			*dev_context = dev;
 			dev->device = device;
@@ -2859,7 +2861,7 @@ static void acmp_close_dev(void *dev_context)
 {
 	struct acmp_device *dev = dev_context;
 
-	acm_log(1, "dev_guid 0x%llx\n", dev->device->dev_guid);
+	acm_log(1, "dev_guid 0x%" PRIx64 "\n", dev->device->dev_guid);
 	dev->device = NULL;
 }
 
@@ -2868,7 +2870,7 @@ static void acmp_set_options(void)
 	FILE *f;
 	char s[120];
 	char opt[32], value[256];
-	char *opts_file = acm_get_opts_file();
+	const char *opts_file = acm_get_opts_file();
 
 	if (!(f = fopen(opts_file, "r")))
 		return;
@@ -2946,7 +2948,7 @@ static void __attribute__((constructor)) acmp_init(void)
 
 	acmp_log_options();
 
-	atomic_init(&tid);
+	atomic_init(&g_tid);
 	atomic_init(&wait_cnt);
 	DListInit(&acmp_dev_list);
 	lock_init(&acmp_dev_lock);

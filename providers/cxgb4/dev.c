@@ -49,7 +49,7 @@
  * Macros needed to support the PCI Device ID Table ...
  */
 #define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN \
-	struct { \
+	static struct { \
 		unsigned vendor; \
 		unsigned device; \
 	} hca_table[] = {

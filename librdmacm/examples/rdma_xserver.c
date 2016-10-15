@@ -38,14 +38,14 @@
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
 
-static char *port = "7471";
+static const char *port = "7471";
 
-struct rdma_cm_id *listen_id, *id;
-struct ibv_mr *mr;
-struct rdma_addrinfo hints;
+static struct rdma_cm_id *listen_id, *id;
+static struct ibv_mr *mr;
+static struct rdma_addrinfo hints;
 
-uint8_t recv_msg[16];
-uint32_t srqn;
+static uint8_t recv_msg[16];
+static uint32_t srqn;
 
 static int create_srq(void)
 {

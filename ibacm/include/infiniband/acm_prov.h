@@ -61,7 +61,7 @@ struct acm_address {
 struct acm_provider {
 	size_t    size; 
 	uint32_t  version;
-	char      *name;
+	const char *name;
 	int	(*open_device)(const struct acm_device *device, 
 			void **dev_context);
 	void	(*close_device)(void *dev_context);
@@ -85,7 +85,8 @@ int provider_query(struct acm_provider **info, uint32_t *version);
 /* Functions exported from core */
 #define acm_log(level, format, ...) \
 	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
-extern void acm_write(int level, const char *format, ...);
+extern void acm_write(int level, const char *format, ...)
+    __attribute__((format(printf, 2, 3)));
 extern void acm_format_name(int level, char *name, size_t name_size,
 	uint8_t addr_type, const uint8_t *addr, size_t addr_size);
 
@@ -113,7 +114,7 @@ acm_alloc_sa_mad(const struct acm_endpoint *endpoint, void *context,
 extern void acm_free_sa_mad(struct acm_sa_mad *mad);
 extern int acm_send_sa_mad(struct acm_sa_mad *mad);
 
-extern char * acm_get_opts_file(void);
+extern const char *acm_get_opts_file(void);
 extern void acm_increment_counter(int type);
 
 #endif /* ACM_PROV_H */

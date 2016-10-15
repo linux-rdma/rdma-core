@@ -78,7 +78,7 @@ struct pingpong_context {
 	uint64_t		 completion_timestamp_mask;
 };
 
-struct ibv_cq *pp_cq(struct pingpong_context *ctx)
+static struct ibv_cq *pp_cq(struct pingpong_context *ctx)
 {
 	return use_ts ? ibv_cq_ex_to_cq(ctx->cq_s.cq_ex) :
 		ctx->cq_s.cq;
@@ -496,7 +496,7 @@ clean_ctx:
 	return NULL;
 }
 
-int pp_close_ctx(struct pingpong_context *ctx)
+static int pp_close_ctx(struct pingpong_context *ctx)
 {
 	if (ibv_destroy_qp(ctx->qp)) {
 		fprintf(stderr, "Couldn't destroy QP\n");

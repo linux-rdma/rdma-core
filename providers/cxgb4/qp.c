@@ -267,20 +267,6 @@ static int build_rdma_recv(struct c4iw_qp *qhp, union t4_recv_wr *wqe,
 	return 0;
 }
 
-void dump_wqe(void *arg)
-{
-	u64 *p = arg;
-	int len16;
-
-	len16 = be64_to_cpu(*p) & 0xff;
-	while (len16--) {
-		printf("%02x: %016llx ", (u8)(unsigned long)p, (long long)be64_to_cpu(*p));
-		p++;
-		printf("%016llx\n", (long long)be64_to_cpu(*p));
-		p++;
-	}
-}
-
 static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
 {
 	struct ibv_modify_qp cmd;

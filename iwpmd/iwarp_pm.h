@@ -209,8 +209,6 @@ int create_netlink_socket(void);
 
 void destroy_iwpm_socket(int);
 
-int check_iwpm_nlattr_tb(struct nlattr * [], int);
-
 int parse_iwpm_nlmsg(struct nlmsghdr *, int, struct nla_policy *, struct nlattr * [], const char *);
 
 int parse_iwpm_msg(iwpm_wire_msg *, iwpm_msg_parms *);
@@ -227,7 +225,7 @@ int send_iwpm_nlmsg(int, struct nl_msg *, int);
 
 struct nl_msg *create_iwpm_nlmsg(__u16, int);
 
-void print_iwpm_sockaddr(struct sockaddr_storage *, char *, __u32);
+void print_iwpm_sockaddr(struct sockaddr_storage *, const char *, __u32);
 
 __be16 get_sockaddr_port(struct sockaddr_storage *sockaddr);
 
@@ -278,5 +276,13 @@ void free_iwpm_mapped_ports(void);
 
 extern struct list_head pending_messages;
 extern struct list_head mapping_reqs;
+
+extern iwpm_client client_list[IWARP_PM_MAX_CLIENTS];
+
+extern pthread_cond_t cond_req_complete;
+extern pthread_mutex_t map_req_mutex;
+extern int wake;
+extern pthread_cond_t cond_pending_msg;
+extern pthread_mutex_t pending_msg_mutex;
 
 #endif

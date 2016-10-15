@@ -61,7 +61,7 @@
 	  .device = PCI_DEVICE_ID_CHELSIO_##d,		\
 	  .type = CHELSIO_##t }
 
-struct {
+static struct {
 	unsigned vendor;
 	unsigned device;
 	enum iwch_hca_type type;
@@ -104,6 +104,10 @@ static struct ibv_context_ops iwch_ctx_ops = {
 	.post_srq_recv = iwch_post_srq_recv,
 	.req_notify_cq = iwch_arm_cq,
 };
+
+unsigned long iwch_page_size;
+unsigned long iwch_page_shift;
+unsigned long iwch_page_mask;
 
 static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 					      int cmd_fd)

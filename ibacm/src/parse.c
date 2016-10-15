@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "acm_util.h"
 
 static char *expand(char *basename, char *args, int *str_cnt, int *str_size)
 {
@@ -69,7 +70,7 @@ static char *expand(char *basename, char *args, int *str_cnt, int *str_size)
 	return str_buf;
 }
 
-char **parse(char *args, int *count)
+char **parse(const char *args, int *count)
 {
 	char **ptrs = NULL;
 	char *str_buf, *cpy, *token, *next;

@@ -53,6 +53,7 @@
 #define IB_OPENIB_OUI                 (0x001405)
 
 #include <valgrind/memcheck.h>
+#include "sysfs.h"
 
 typedef struct ib_user_mad_reg_req {
 	uint32_t id;
@@ -77,18 +78,12 @@ struct ib_user_mad_reg_req2 {
 	uint8_t  reserved[3];
 };
 
-extern int sys_read_string(const char *dir_name, const char *file_name, char *str, int len);
-extern int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_guid);
-extern int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid);
-extern int sys_read_uint64(const char *dir_name, const char *file_name, uint64_t * u);
-extern int sys_read_uint(const char *dir_name, const char *file_name, unsigned *u);
-
 #define IBWARN(fmt, args...) fprintf(stderr, "ibwarn: [%d] %s: " fmt "\n", getpid(), __func__, ## args)
 
 #define TRACE	if (umaddebug)	IBWARN
 #define DEBUG	if (umaddebug)	IBWARN
 
-int umaddebug = 0;
+static int umaddebug = 0;
 
 #define UMAD_DEV_FILE_SZ	256
 
@@ -220,7 +215,7 @@ static int release_ca(umad_ca_t * ca)
 			continue;
 		release_port(ca->ports[i]);
 		free(ca->ports[i]);
-		ca->ports[i] = 0;
+		ca->ports[i] = NULL;
 	}
 	return 0;
 }
@@ -325,13 +320,13 @@ static const char *resolve_ca_name(const char *ca_name, int *best_port)
 
 	if (ca_name) {
 		if (resolve_ca_port(ca_name, best_port) < 0)
-			return 0;
+			return NULL;
 		return ca_name;
 	}
 
 	/* Get the list of CA names */
 	if ((n = umad_get_cas_names((void *)names, UMAD_MAX_DEVICES)) < 0)
-		return 0;
+		return NULL;
 
 	/* Find the first existing CA with an active port */
 	for (caidx = 0; caidx < n; caidx++) {
@@ -359,7 +354,8 @@ static const char *resolve_ca_name(const char *ca_name, int *best_port)
 	}
 
 	DEBUG("phys found %d on %s port %d",
-	      phys_found, phys_found >= 0 ? names[phys_found] : 0, port_found);
+	      phys_found, phys_found >= 0 ? names[phys_found] : NULL,
+	      port_found);
 	if (phys_found >= 0) {
 		if (best_port)
 			*best_port = port_found;
@@ -409,7 +405,7 @@ static int get_ca(const char *ca_name, umad_ca_t * ca)
 	if (!(dir = opendir(dir_name)))
 		return -ENOENT;
 
-	if ((r = scandir(dir_name, &namelist, 0, alphasort)) < 0) {
+	if ((r = scandir(dir_name, &namelist, NULL, alphasort)) < 0) {
 		ret = errno < 0 ? errno : -EIO;
 		goto error;
 	}
@@ -549,7 +545,7 @@ int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 
 	TRACE("max %d", max);
 
-	n = scandir(SYS_INFINIBAND, &namelist, 0, alphasort);
+	n = scandir(SYS_INFINIBAND, &namelist, NULL, alphasort);
 	if (n > 0) {
 		for (i = 0; i < n; i++) {
 			if (strcmp(namelist[i]->d_name, ".") &&
@@ -578,7 +574,7 @@ int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max)
 	int ports = 0, i;
 
 	TRACE("ca name %s max port guids %d", ca_name, max);
-	if (!(ca_name = resolve_ca_name(ca_name, 0)))
+	if (!(ca_name = resolve_ca_name(ca_name, NULL)))
 		return -ENODEV;
 
 	if (umad_get_ca(ca_name, &ca) < 0)
@@ -655,7 +651,7 @@ int umad_get_ca(const char *ca_name, umad_ca_t * ca)
 	int r;
 
 	TRACE("ca_name %s", ca_name);
-	if (!(ca_name = resolve_ca_name(ca_name, 0)))
+	if (!(ca_name = resolve_ca_name(ca_name, NULL)))
 		return -ENODEV;
 
 	if (find_cached_ca(ca_name, ca) > 0)

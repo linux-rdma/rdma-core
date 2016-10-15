@@ -35,12 +35,6 @@
 
 static LIST_HEAD(mapped_ports);		/* list of mapped ports */
 
-extern pthread_cond_t cond_req_complete;
-extern pthread_mutex_t map_req_mutex;
-extern int wake; /* set if map_req_thread is wake */
-extern pthread_cond_t cond_pending_msg;
-extern pthread_mutex_t pending_msg_mutex;
-
 /**
  * create_iwpm_map_request - Create a new map request tracking object
  * @req_nlh: netlink header of the received client message

@@ -1459,9 +1459,9 @@ static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
 }
 
 #define verbs_get_ctx_op(ctx, op) ({ \
-	struct verbs_context *vctx = verbs_get_ctx(ctx); \
-	(!vctx || (vctx->sz < sizeof(*vctx) - offsetof(struct verbs_context, op)) || \
-	 !vctx->op) ? NULL : vctx; })
+	struct verbs_context *__vctx = verbs_get_ctx(ctx); \
+	(!__vctx || (__vctx->sz < sizeof(*__vctx) - offsetof(struct verbs_context, op)) || \
+	 !__vctx->op) ? NULL : __vctx; })
 
 #define verbs_set_ctx_op(_vctx, op, ptr) ({ \
 	struct verbs_context *vctx = _vctx; \

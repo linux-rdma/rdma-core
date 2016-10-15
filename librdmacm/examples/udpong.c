@@ -93,13 +93,13 @@ static int transfer_size = 1000;
 static int transfer_count = 1000;
 static int buffer_size;
 static char test_name[10] = "custom";
-static char *port = "7174";
+static const char *port = "7174";
 static char *dst_addr;
 static char *src_addr;
-static union socket_addr addr;
-static socklen_t addrlen;
+static union socket_addr g_addr;
+static socklen_t g_addrlen;
 static struct timeval start, end;
-static struct message msg;
+static struct message g_msg;
 
 static void show_perf(void)
 {
@@ -109,7 +109,7 @@ static void show_perf(void)
 	int transfers;
 
 	usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-	transfers = echo ? transfer_count * 2 : ntohl(msg.data);
+	transfers = echo ? transfer_count * 2 : ntohl(g_msg.data);
 	bytes = (long long) transfers * transfer_size;
 
 	/* name size transfers bytes seconds Gb/sec usec/xfer */
@@ -147,23 +147,23 @@ static void init_bandwidth_test(int size)
 	echo = 0;
 }
 
-static void set_options(int rs)
+static void set_options(int fd)
 {
 	int val;
 
 	if (buffer_size) {
-		rs_setsockopt(rs, SOL_SOCKET, SO_SNDBUF, (void *) &buffer_size,
+		rs_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *) &buffer_size,
 			      sizeof buffer_size);
-		rs_setsockopt(rs, SOL_SOCKET, SO_RCVBUF, (void *) &buffer_size,
+		rs_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void *) &buffer_size,
 			      sizeof buffer_size);
 	} else {
 		val = 1 << 19;
-		rs_setsockopt(rs, SOL_SOCKET, SO_SNDBUF, (void *) &val, sizeof val);
-		rs_setsockopt(rs, SOL_SOCKET, SO_RCVBUF, (void *) &val, sizeof val);
+		rs_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *) &val, sizeof val);
+		rs_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void *) &val, sizeof val);
 	}
 
 	if (flags & MSG_DONTWAIT)
-		rs_fcntl(rs, F_SETFL, O_NONBLOCK);
+		rs_fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 
 static ssize_t svr_send(struct message *msg, size_t size,
@@ -296,12 +296,12 @@ static int svr_run(void)
 
 	ret = svr_bind();
 	while (!ret) {
-		addrlen = sizeof addr;
-		len = svr_recv(&msg, sizeof msg, &addr, &addrlen);
+		g_addrlen = sizeof g_addr;
+		len = svr_recv(&g_msg, sizeof g_msg, &g_addr, &g_addrlen);
 		if (len < 0)
 			return len;
 
-		ret = svr_process(&msg, len, &addr, addrlen);
+		ret = svr_process(&g_msg, len, &g_addr, g_addrlen);
 	}
 	return ret;
 }
@@ -375,22 +375,22 @@ static int run_test(void)
 {
 	int ret, i;
 
-	msg.op = msg_op_start;
-	ret = client_send_recv(&msg, CTRL_MSG_SIZE, 1000);
+	g_msg.op = msg_op_start;
+	ret = client_send_recv(&g_msg, CTRL_MSG_SIZE, 1000);
 	if (ret != CTRL_MSG_SIZE)
 		goto out;
 
-	msg.op = echo ? msg_op_echo : msg_op_data;
+	g_msg.op = echo ? msg_op_echo : msg_op_data;
 	gettimeofday(&start, NULL);
 	for (i = 0; i < transfer_count; i++) {
-		ret = echo ? client_send_recv(&msg, transfer_size, 1) :
-			     client_send(&msg, transfer_size);
+		ret = echo ? client_send_recv(&g_msg, transfer_size, 1) :
+			     client_send(&g_msg, transfer_size);
 		if (ret != transfer_size)
 			goto out;
 	}
 
-	msg.op = msg_op_end;
-	ret = client_send_recv(&msg, CTRL_MSG_SIZE, 1);
+	g_msg.op = msg_op_end;
+	ret = client_send_recv(&g_msg, CTRL_MSG_SIZE, 1);
 	if (ret != CTRL_MSG_SIZE)
 		goto out;
 
@@ -430,8 +430,8 @@ static int client_connect(void)
 		goto out;
 	}
 
-	msg.op = msg_op_login;
-	ret = client_send_recv(&msg, CTRL_MSG_SIZE, 1000);
+	g_msg.op = msg_op_login;
+	ret = client_send_recv(&g_msg, CTRL_MSG_SIZE, 1000);
 	if (ret == CTRL_MSG_SIZE)
 		ret = 0;
 
@@ -468,10 +468,10 @@ static int client_run(void)
 	return ret;
 }
 
-static int set_test_opt(char *optarg)
+static int set_test_opt(const char *arg)
 {
-	if (strlen(optarg) == 1) {
-		switch (optarg[0]) {
+	if (strlen(arg) == 1) {
+		switch (arg[0]) {
 		case 's':
 			use_rs = 0;
 			break;
@@ -491,15 +491,15 @@ static int set_test_opt(char *optarg)
 			return -1;
 		}
 	} else {
-		if (!strncasecmp("socket", optarg, 6)) {
+		if (!strncasecmp("socket", arg, 6)) {
 			use_rs = 0;
-		} else if (!strncasecmp("async", optarg, 5)) {
+		} else if (!strncasecmp("async", arg, 5)) {
 			use_async = 1;
-		} else if (!strncasecmp("block", optarg, 5)) {
+		} else if (!strncasecmp("block", arg, 5)) {
 			flags = 0;
-		} else if (!strncasecmp("nonblock", optarg, 8)) {
+		} else if (!strncasecmp("nonblock", arg, 8)) {
 			flags = MSG_DONTWAIT;
-		} else if (!strncasecmp("echo", optarg, 4)) {
+		} else if (!strncasecmp("echo", arg, 4)) {
 			echo = 1;
 		} else {
 			return -1;

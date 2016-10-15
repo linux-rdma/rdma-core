@@ -37,15 +37,15 @@
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
 
-static char *server = "127.0.0.1";
+static const char *server = "127.0.0.1";
 static char port[6] = "7471";
 
-struct rdma_cm_id *id;
-struct ibv_mr *mr;
-struct rdma_addrinfo hints;
+static struct rdma_cm_id *id;
+static struct ibv_mr *mr;
+static struct rdma_addrinfo hints;
 
-uint8_t send_msg[16];
-uint32_t srqn;
+static uint8_t send_msg[16];
+static uint32_t srqn;
 
 static int post_send(void)
 {

@@ -324,7 +324,7 @@ struct config_t {
 	int		timeout;
 	int		recalc_time;
 	int		print_initiator_ext;
-	char	       *rules_file;
+	const char     *rules_file;
 	struct rule    *rules;
 	int 		retry_timeout;
 	int		tl_retry_count;

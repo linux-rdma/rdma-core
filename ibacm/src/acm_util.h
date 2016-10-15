@@ -31,17 +31,17 @@
 #define ACM_IF_H
 
 #include <infiniband/verbs.h>
+#include <infiniband/acm_prov.h>
 
 #ifdef ACME_PRINTS
 
+#undef acm_log
 #define acm_log(level, format, ...) \
 	printf(format, ## __VA_ARGS__)
 
 #else /* !ACME_PRINTS */
 #define acm_log(level, format, ...) \
 	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
-
-void acm_write(int level, const char *format, ...);
 #endif /* ACME_PRINTS */
 
 int acm_if_is_ib(char *ifname);
@@ -52,5 +52,7 @@ typedef void (*acm_if_iter_cb)(char *ifname, union ibv_gid *gid, uint16_t pkey,
 				uint8_t addr_type, uint8_t *addr, size_t addr_len,
 				char *ip_str, void *ctx);
 int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx);
+
+char **parse(const char *args, int *count);
 
 #endif /* ACM_IF_H */

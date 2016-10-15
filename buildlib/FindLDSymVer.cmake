@@ -27,8 +27,10 @@ endif()
 
 # And matching source, this also checks that .symver asm works
 check_c_source_compiles("
+void ibv_get_device_list_1(void);
 void ibv_get_device_list_1(void){}
 asm(\".symver ibv_get_device_list_1, ibv_get_device_list@IBVERBS_1.1\");
+void ibv_get_device_list_0(void);
 void ibv_get_device_list_0(void){}
 asm(\".symver ibv_get_device_list_0, ibv_get_device_list@@IBVERBS_1.0\");
 

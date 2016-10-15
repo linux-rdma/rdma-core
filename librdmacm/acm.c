@@ -363,7 +363,8 @@ static int ucma_ib_addr(struct sockaddr *addr, socklen_t len)
 	return len && addr && (addr->sa_family == AF_IB);
 }
 
-void ucma_ib_resolve(struct rdma_addrinfo **rai, struct rdma_addrinfo *hints)
+void ucma_ib_resolve(struct rdma_addrinfo **rai,
+		     const struct rdma_addrinfo *hints)
 {
 	struct acm_msg msg;
 	struct acm_ep_addr_data *data;

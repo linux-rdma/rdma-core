@@ -47,6 +47,8 @@
 
 #include "ibverbs.h"
 
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+
 static pthread_once_t device_list_once = PTHREAD_ONCE_INIT;
 static int num_devices;
 static struct ibv_device **device_list;

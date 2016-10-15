@@ -62,7 +62,7 @@
 	{ .vendor = PCI_VENDOR_ID_##v,			\
 	  .device = d }
 
-struct {
+static struct {
 	unsigned		vendor;
 	unsigned		device;
 } hca_table[] = {
@@ -310,7 +310,7 @@ static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
 			p ++;
 		}
 
-		word = strtoul(p, 0, 16);
+		word = strtoul(p, NULL, 16);
 
 		for (k = 0; word; ++k, word >>= 1)
 			if (word & 1)

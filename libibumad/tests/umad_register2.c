@@ -57,9 +57,9 @@ struct ib_user_mad_reg_req2 {
 	uint8_t  reserved[3];
 };
 
-int test_failures = 0;
+static int test_failures = 0;
 
-void dump_reg_attr(struct umad_reg_attr *reg_attr)
+static void dump_reg_attr(struct umad_reg_attr *reg_attr)
 {
 	printf("\nmgmt_class %u\n"
 		"mgmt_class_version %u\n"
@@ -75,7 +75,7 @@ void dump_reg_attr(struct umad_reg_attr *reg_attr)
 	      reg_attr->rmpp_version);
 }
 
-int open_test_device(void)
+static int open_test_device(void)
 {
 	int fd = umad_open_port(NULL, 0);
 	if (fd < 0) {
@@ -86,7 +86,7 @@ int open_test_device(void)
 	return fd;
 }
 
-void test_fail(void)
+static void test_fail(void)
 {
 	int rc = 0;
 	struct umad_reg_attr reg_attr;
@@ -194,7 +194,7 @@ out:
 	printf("\n *****\nEnd invalid tests\n");
 }
 
-void test_oui(void)
+static void test_oui(void)
 {
 	int rc = 0;
 	struct umad_reg_attr reg_attr;
@@ -251,7 +251,7 @@ out:
 	printf("\n End valid oui tests\n *****\n");
 }
 
-void check_register2_support(void)
+static void check_register2_support(void)
 {
 	struct ib_user_mad_reg_req2 req;
 	int fd;

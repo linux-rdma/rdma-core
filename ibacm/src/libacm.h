@@ -34,7 +34,7 @@
 #include <infiniband/acm.h>
 
 int ib_acm_connect(char *dest_svc);
-void ib_acm_disconnect();
+void ib_acm_disconnect(void);
 
 int ib_acm_resolve_name(char *src, char *dest,
 	struct ibv_path_data **paths, int *count, uint32_t flags,

@@ -85,12 +85,6 @@ struct mlx4_xsrq_table {
 	int			  mask;
 };
 
-void mlx4_init_xsrq_table(struct mlx4_xsrq_table *xsrq_table, int size);
-struct mlx4_srq *mlx4_find_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn);
-int mlx4_store_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn,
-		    struct mlx4_srq *srq);
-void mlx4_clear_xsrq(struct mlx4_xsrq_table *xsrq_table, uint32_t srqn);
-
 enum {
 	MLX4_XRC_QPN_BIT     = (1 << 23)
 };

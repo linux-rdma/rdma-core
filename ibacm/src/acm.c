@@ -62,6 +62,7 @@
 #include <rdma/ib_user_sa.h>
 #endif
 #include <poll.h>
+#include <inttypes.h>
 #include "acm_mad.h"
 #include "acm_util.h"
 #ifdef HAVE_NETLINK
@@ -221,9 +222,9 @@ static struct sa_data {
 /*
  * Service options - may be set through ibacm_opts.cfg file.
  */
-static char *acme = IBACM_BIN_PATH "/ib_acme -A";
-static char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
-static char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
+static const char *acme = IBACM_BIN_PATH "/ib_acme -A";
+static const char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
+static const char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
 static char log_file[128] = IBACM_LOG_FILE;
 static int log_level = 0;
 static char lock_file[128] = IBACM_PID_FILE;
@@ -292,7 +293,7 @@ int ib_any_gid(union ibv_gid *gid)
 	return ((gid->global.subnet_prefix | gid->global.interface_id) == 0);
 }
 
-char * acm_get_opts_file(void)
+const char *acm_get_opts_file(void)
 {
 	return opts_file;
 }
@@ -1471,7 +1472,7 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 	case LS_NLA_TYPE_SERVICE_ID:
 		sid = (uint64_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*sid)) {
-			acm_log(2, "service_id 0x%llx\n", *sid);
+			acm_log(2, "service_id 0x%" PRIx64 "\n", *sid);
 			path->service_id = htonll(*sid);
 		} else {
 			ret = -1;
@@ -2207,7 +2208,7 @@ static void acm_port_get_gid_tbl(struct acmc_port *port)
 					    &port->gid_tbl[j]);
 			if (ret || !port->gid_tbl[j].global.interface_id)
 				break;
-			acm_log(2, "guid %d: 0x%llx %llx\n", j,
+			acm_log(2, "guid %d: 0x%" PRIx64 " %" PRIx64 "\n", j,
 				port->gid_tbl[j].global.subnet_prefix, 
 				port->gid_tbl[j].global.interface_id);
 		}
@@ -2421,7 +2422,7 @@ static void acm_event_handler(struct acmc_device *dev)
 	ibv_ack_async_event(&event);
 }
 
-static void acm_activate_devices()
+static void acm_activate_devices(void)
 {
 	struct acmc_device *dev;
 	DLIST_ENTRY *dev_entry;
@@ -2483,7 +2484,7 @@ static void acm_open_dev(struct ibv_device *ibdev)
 
 	ret = ibv_query_device(verbs, &attr);
 	if (ret) {
-		acm_log(0, "ERROR - ibv_query_device (%s) %d\n", ret, ibdev->name);
+		acm_log(0, "ERROR - ibv_query_device (%d) %s\n", ret, ibdev->name);
 		goto err1;
 	}
 
@@ -2577,8 +2578,8 @@ static void acm_load_prov_config(void)
 			continue;
 		}
 		prefix = strtoull(p, NULL, 0);
-		acm_log(2, "provider %s subnet_prefix 0x%llx\n", prov_name, 
-			prefix);
+		acm_log(2, "provider %s subnet_prefix 0x%" PRIx64 "\n",
+			prov_name, prefix);
 		/* Convert it into network byte order */
 		prefix = htonll(prefix);
 
@@ -2667,8 +2668,8 @@ static int acm_open_providers(void)
 
 		if (version != ACM_PROV_VERSION ||
 		    provider->size != sizeof(struct acm_provider)) {
-			acm_log(0, "Error -unmatched provider version 0x%08x (size %d)"
-				" core 0x%08x (size %d)\n", version, provider->size,
+			acm_log(0, "Error -unmatched provider version 0x%08x (size %zd)"
+				" core 0x%08x (size %zd)\n", version, provider->size,
 				ACM_PROV_VERSION, sizeof(struct acm_provider));
 			dlclose(handle);
 			continue;
@@ -2863,7 +2864,7 @@ static void acmc_recv_mad(struct acmc_port *port)
 	}
 
 	hdr = &resp.sa_mad.mad_hdr;
-	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %llx at %x atm %x\n",
+	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %" PRIx64 "x at %x atm %x\n",
 		hdr->base_version, hdr->mgmt_class, hdr->class_version,
 		hdr->method, hdr->status, hdr->tid, hdr->attr_id, hdr->attr_mod);
 	found = 0;

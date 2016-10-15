@@ -305,7 +305,7 @@ static struct ibv_srq *rxe_create_srq(struct ibv_pd *pd,
 	return &srq->ibv_srq;
 }
 
-int rxe_modify_srq(struct ibv_srq *ibsrq,
+static int rxe_modify_srq(struct ibv_srq *ibsrq,
 		   struct ibv_srq_attr *attr, int attr_mask)
 {
 	struct rxe_srq *srq = to_rsrq(ibsrq);
@@ -553,7 +553,7 @@ static int validate_send_wr(struct rxe_wq *sq, struct ibv_send_wr *ibwr,
 	return 0;
 }
 
-void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
+static void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 {
 	memset(kwr, 0, sizeof(*kwr));
 
@@ -593,7 +593,7 @@ void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 	}
 }
 
-int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
+static int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
 		  struct ibv_send_wr *ibwr, unsigned int length,
 		  struct rxe_send_wqe *wqe)
 {
@@ -668,7 +668,7 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 }
 
 /* send a null post send as a doorbell */
-int post_send_db(struct ibv_qp *ibqp)
+static int post_send_db(struct ibv_qp *ibqp)
 {
 	struct ibv_post_send cmd;
 	struct ibv_post_send_resp resp;

@@ -49,8 +49,6 @@
 #include "nes_umain.h"
 #include "nes-abi.h"
 
-extern long int page_size;
-
 #define STATIC static
 #define INLINE inline
 
@@ -326,7 +324,7 @@ int nes_ima_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	uint32_t head;
 	uint32_t cq_size;
 
-	volatile struct nes_hw_nic_cqe *cqe = 0;
+	volatile struct nes_hw_nic_cqe *cqe = NULL;
 	volatile struct nes_hw_nic_cqe *cqes;
 
 	struct nes_uqp *nesuqp = nesucq->udqp;
@@ -761,7 +759,7 @@ int nes_upoll_cq_no_db_read(struct ibv_cq *cq, int num_entries, struct ibv_wc *e
 /**
  * nes_arm_cq
  */
-void nes_arm_cq(struct nes_ucq *nesucq, struct nes_uvcontext *nesvctx, int sol)
+static void nes_arm_cq(struct nes_ucq *nesucq, struct nes_uvcontext *nesvctx, int sol)
 {
 	uint32_t cq_arm;
 

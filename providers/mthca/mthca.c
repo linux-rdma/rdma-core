@@ -77,7 +77,7 @@
 	  .device = PCI_DEVICE_ID_MELLANOX_##d,		\
 	  .type = MTHCA_##t }
 
-struct {
+static struct {
 	unsigned		vendor;
 	unsigned		device;
 	enum mthca_hca_type	type;

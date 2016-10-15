@@ -130,6 +130,8 @@ enum ibv_rate mbps_to_ibv_rate(int mbps)
 	}
 }
 
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+
 int __ibv_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *device_attr)
 {

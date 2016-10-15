@@ -455,7 +455,7 @@ int ocrdma_destroy_srq(struct ibv_srq *ibsrq)
 		free(srq->rqe_wr_id_tbl);
 	if (srq->db_va) {
 		munmap((void *)srq->db_va, srq->db_size);
-		srq->db_va = 0;
+		srq->db_va = NULL;
 	}
 	if (srq->rq.va) {
 		munmap(srq->rq.va, srq->rq.len);
@@ -591,7 +591,7 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 	} else {
 		if (qp->dpp_cq) {
 			ocrdma_destroy_cq(&qp->dpp_cq->ibv_cq);
-			qp->dpp_cq = 0;
+			qp->dpp_cq = NULL;
 		}
 	}
 	qp->state = OCRDMA_QPS_RST;
@@ -608,7 +608,7 @@ mbx_err:
 	return NULL;
 }
 
-enum ocrdma_qp_state get_ocrdma_qp_state(enum ibv_qp_state qps)
+static enum ocrdma_qp_state get_ocrdma_qp_state(enum ibv_qp_state qps)
 {
 	switch (qps) {
 	case IBV_QPS_RESET:
@@ -1789,7 +1789,7 @@ static void ocrdma_update_free_srq_cqe(struct ibv_wc *ibwc,
 				       struct ocrdma_cqe *cqe,
 				       struct ocrdma_qp *qp)
 {
-	struct ocrdma_srq *srq = 0;
+	struct ocrdma_srq *srq = NULL;
 	uint32_t wqe_idx;
 
 	srq = get_ocrdma_srq(qp->ibv_qp.srq);

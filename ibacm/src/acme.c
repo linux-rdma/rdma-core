@@ -44,13 +44,13 @@
 #include "libacm.h"
 #include "acm_util.h"
 
-static char *dest_dir = ACM_CONF_DIR;
-static char *addr_file = ACM_ADDR_FILE;
-static char *opts_file = ACM_OPTS_FILE;
+static const char *dest_dir = ACM_CONF_DIR;
+static const char *addr_file = ACM_ADDR_FILE;
+static const char *opts_file = ACM_OPTS_FILE;
 
 static char *dest_addr;
 static char *src_addr;
-static char *svc_arg = "localhost";
+static const char *svc_arg = "localhost";
 static char *dest_arg;
 static char *src_arg;
 static char addr_type = 'u';
@@ -73,9 +73,6 @@ int verbose;
 
 struct ibv_context **verbs;
 int dev_cnt;
-
-extern int gen_addr_ip(FILE *f);
-extern char **parse(char *args, int *count);
 
 #define VPRINT(format, ...) do { if (verbose) printf(format, ## __VA_ARGS__ ); } while (0)
 
@@ -512,7 +509,7 @@ static void show_path(struct ibv_path_record *path)
 	printf("  packet lifetime: %d\n", path->packetlifetime & 0x1F);
 }
 
-static uint32_t get_resolve_flags()
+static uint32_t get_resolve_flags(void)
 {
 	uint32_t flags = 0;
 
@@ -958,7 +955,7 @@ static int query_svcs(void)
 	return ret;
 }
 
-char *opt_arg(int argc, char **argv)
+static char *opt_arg(int argc, char **argv)
 {
 	if (optarg)
 		return optarg;
@@ -969,7 +966,7 @@ char *opt_arg(int argc, char **argv)
 	return NULL;
 }
 
-void parse_perf_arg(char *arg)
+static void parse_perf_arg(char *arg)
 {
 	if (!strnicmp("col", arg, 3)) {
 		perf_query = PERF_QUERY_COL;

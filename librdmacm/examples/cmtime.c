@@ -48,7 +48,7 @@
 
 static struct rdma_addrinfo hints, *rai;
 static struct rdma_event_channel *channel;
-static char *port = "7471";
+static const char *port = "7471";
 static char *dst_addr;
 static char *src_addr;
 static int timeout = 2000;
@@ -66,7 +66,7 @@ enum step {
 	STEP_CNT
 };
 
-static char *step_str[] = {
+static const char *step_str[] = {
 	"create id",
 	"bind addr",
 	"resolve addr",

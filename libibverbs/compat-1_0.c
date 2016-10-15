@@ -40,6 +40,8 @@
 
 #include "ibverbs.h"
 
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+
 struct ibv_pd_1_0 {
 	struct ibv_context_1_0 *context;
 	uint32_t		handle;

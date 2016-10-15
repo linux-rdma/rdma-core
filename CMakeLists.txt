@@ -110,6 +110,24 @@ RDMA_EnableCStd()
 # FIXME: I wonder how many of the signed compares are bugs?
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WARNINGS
   "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_PROTOTYPES "-Wmissing-prototypes")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarations")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
+
+# At some point after 4.4 gcc fixed shadow to ignore function vs variable
+# conflicts
+set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+  set(CMAKE_REQUIRED_FLAGS "-Wshadow")
+CHECK_C_SOURCE_COMPILES("
+ #include <unistd.h>
+ int main(int argc,const char *argv[]) { int access = 1; return access; }"
+  HAVE_C_WORKING_SHADOW
+  FAIL_REGEX "warning")
+if (HAVE_C_WORKING_SHADOW)
+  RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WORKING_SHADOW "-Wshadow")
+endif()
+set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
 
 # At some point around 5.4 gcc fixed missing-field-initializers to ignore this
 # common idiom we use extensively. Since this is a useful warning for
@@ -148,6 +166,7 @@ endif()
 
 # always_inline is supported
 CHECK_C_SOURCE_COMPILES("
+ int foo(void);
  inline __attribute__((always_inline)) int foo(void) {return 0;}
  int main(int argc,const char *argv[]) { return foo(); }"
   HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
@@ -206,6 +225,18 @@ else()
   set(NL_LIBRARIES "")
 endif()
 
+# Older stuff blows up if these headers are included together
+if (NOT NL_KIND EQUAL 0)
+  set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+  set(CMAKE_REQUIRED_INCLUDES "${NL_INCLUDE_DIRS}")
+  CHECK_C_SOURCE_COMPILES("
+#include <netlink/route/link.h>
+#include <net/if.h>
+ int main(int argc,const char *argv[]) {return 0;}"
+    HAVE_WORKING_IF_H)
+  set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
+endif()
+
 # Statically determine sizeof(long), this is largely unnecessary, no new code
 # should rely on this.
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
@@ -244,6 +275,31 @@ int main(int argc,const char *argv[]) {
 if (NOT LIBC_HAS_LIBRT)
   set(RT_LIBRARIES "rt")
 endif()
+
+#-------------------------
+# Final warning flags
+
+# Old version of cmake used 'main(){..}' as their test program which breaks with -Werror.
+# So set this flag last.
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WSTRICT_PROTOTYPES "-Wstrict-prototypes")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definition")
+
+# Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
+# systems
+if (NOT NL_KIND EQUAL 0)
+  set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+  set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+  set(CMAKE_REQUIRED_INCLUDES "${NL_INCLUDE_DIRS}")
+  set(CMAKE_REQUIRED_FLAGS "-Wredundant-decls")
+  CHECK_C_SOURCE_COMPILES("
+ #include <netlink/route/route.h>
+ int main(int argc,const char *argv[]) { return 0; }"
+  HAVE_C_WREDUNDANT_DECLS
+  FAIL_REGEX "warning")
+  set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
+  set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
+endif()
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
 
 #-------------------------
 # Build Prep
@@ -313,6 +369,10 @@ if (NL_KIND EQUAL 1)
 endif()
 if (NL_KIND EQUAL 0)
   message(STATUS " neighbour resolution NOT enabled")
+else()
+  if (NOT HAVE_WORKING_IF_H)
+    message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
+  endif()
 endif()
 if (NOT HAVE_RDMA_USER_RXE)
   message(STATUS " rdma/rdma_user_rxe.h NOT found (old system kernel headers)")
@@ -325,4 +385,10 @@ if (NOT HAVE_NO_STRICT_ALIASING)
 endif()
 if (NOT HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS)
   message(STATUS " -Wmissing-field-initializers does NOT work")
+endif()
+if (NOT HAVE_C_WORKING_SHADOW)
+  message(STATUS " -Wshadow does NOT work")
+endif()
+if (NOT HAVE_C_WREDUNDANT_DECLS)
+  message(STATUS " -Wredundant-decls does NOT work")
 endif()

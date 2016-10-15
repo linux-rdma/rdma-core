@@ -39,12 +39,10 @@
 #endif
 
 /* iwpm config params */
-char * iwpm_param_names[IWPM_PARAM_NUM] = 
+static const char * iwpm_param_names[IWPM_PARAM_NUM] =
 	{ "nl_sock_rbuf_size" };
-int iwpm_param_vals[IWPM_PARAM_NUM] = 
+static int iwpm_param_vals[IWPM_PARAM_NUM] =
 	{ 0 };
-
-extern iwpm_client client_list[IWARP_PM_MAX_CLIENTS];
 
 /**
  * get_iwpm_param()
@@ -212,7 +210,7 @@ create_socket_v6_exit:
 /**
  * create_netlink_socket - Create netlink socket for the iwarp port mapper
  */
-int create_netlink_socket()
+int create_netlink_socket(void)
 {
 	sockaddr_union bind_addr;
 	struct sockaddr_nl *bind_nl;
@@ -278,7 +276,7 @@ void destroy_iwpm_socket(int pm_sock)
 /**
  * check_iwpm_nlattr - Check for NULL netlink attribute
  */ 
-int check_iwpm_nlattr(struct nlattr *nltb[], int nla_count)
+static int check_iwpm_nlattr(struct nlattr *nltb[], int nla_count)
 { 
         int i, ret = 0;          
         for (i = 1; i < nla_count; i++) {
@@ -611,8 +609,9 @@ int is_wcard_ipaddr(struct sockaddr_storage *search_addr)
  * print_iwpm_sockaddr - Print socket address (IP address and Port)
  * @sockaddr: socket address to print
  * @msg: message to print
- */ 
-void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, char *msg, __u32 dbg_flag)
+ */
+void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, const char *msg,
+			 __u32 dbg_flag)
 {
 	struct sockaddr_in6 *sockaddr_v6;
 	struct sockaddr_in *sockaddr_v4;
