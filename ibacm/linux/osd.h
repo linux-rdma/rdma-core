@@ -53,8 +53,6 @@
 #define ACM_ADDR_FILE "ibacm_addr.cfg"
 #define ACM_OPTS_FILE "ibacm_opts.cfg"
 
-#define CDECL_FUNC
-
 #if DEFINE_ATOMICS
 typedef struct { pthread_mutex_t mut; int val; } atomic_t;
 static inline int atomic_inc(atomic_t *atomic)

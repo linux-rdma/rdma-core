@@ -3049,7 +3049,7 @@ static void show_usage(char *program)
 	printf("                      (default %s/%s)\n", ACM_CONF_DIR, ACM_OPTS_FILE);
 }
 
-int CDECL_FUNC main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int i, op, daemon = 1;
 

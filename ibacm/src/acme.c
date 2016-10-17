@@ -983,7 +983,7 @@ static void parse_perf_arg(char *arg)
 	}
 }
 
-int CDECL_FUNC main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int op, ret;
 	int make_addr = 0;
