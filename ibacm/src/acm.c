@@ -46,7 +46,6 @@
 #include <infiniband/verbs.h>
 #include <infiniband/umad_types.h>
 #include <infiniband/umad_sa.h>
-#include <dlist.h>
 #include <dlfcn.h>
 #include <search.h>
 #include <net/if.h>
@@ -59,6 +58,7 @@
 #include <rdma/ib_user_sa.h>
 #include <poll.h>
 #include <inttypes.h>
+#include <ccan/list.h>
 #include "acm_mad.h"
 #include "acm_util.h"
 #if !defined(RDMA_NL_LS_F_ERR)
@@ -75,19 +75,19 @@
 #define NL_CLIENT_INDEX 0
 
 struct acmc_subnet {
-	DLIST_ENTRY            entry;
+	struct list_node       entry;
 	uint64_t               subnet_prefix;
 };
 
 struct acmc_prov {
 	struct acm_provider    *prov;
 	void                   *handle;
-	DLIST_ENTRY            entry;
-	DLIST_ENTRY            subnet_list;
+	struct list_node       entry;
+	struct list_head       subnet_list;
 };
 
 struct acmc_prov_context {
-	DLIST_ENTRY             entry;
+	struct list_node        entry;
 	atomic_t                refcnt;
 	struct acm_provider     *prov;
 	void                    *context;
@@ -103,11 +103,11 @@ struct acmc_port {
 	int		    mad_portid;
 	int		    mad_agentid;
 	struct ib_mad_addr  sa_addr;
-	DLIST_ENTRY         sa_pending;
-	DLIST_ENTRY	    sa_wait;
+	struct list_head    sa_pending;
+	struct list_head    sa_wait;
 	int		    sa_credits;
 	pthread_mutex_t     lock;
-	DLIST_ENTRY         ep_list;
+	struct list_head    ep_list;
 	enum ibv_port_state state;
 	int                 gid_cnt;
 	union ibv_gid       *gid_tbl;
@@ -119,8 +119,8 @@ struct acmc_port {
 
 struct acmc_device {
 	struct acm_device       device;
-	DLIST_ENTRY             entry;
-	DLIST_ENTRY             prov_dev_context_list;
+	struct list_node        entry;
+	struct list_head        prov_dev_context_list;
 	int                     port_cnt;
 	struct acmc_port        port[0];
 };
@@ -136,7 +136,7 @@ struct acmc_ep {
 	struct acm_endpoint   endpoint;
 	void                  *prov_ep_context;
 	struct acmc_addr      addr_info[MAX_EP_ADDR];
-	DLIST_ENTRY	      entry;
+	struct list_node      entry;
 };
 
 struct acmc_client {
@@ -153,7 +153,7 @@ union socket_addr {
 };
 
 struct acmc_sa_req {
-	DLIST_ENTRY		entry;
+	struct list_node	entry;
 	struct acmc_ep		*ep;
 	void			(*resp_handler)(struct acm_sa_mad *);
 	struct acm_sa_mad	mad;
@@ -175,10 +175,10 @@ struct acm_nl_msg {
 };
 
 static char def_prov_name[ACM_PROV_NAME_SIZE] = "ibacmp";
-static DLIST_ENTRY provider_list;
+static LIST_HEAD(provider_list);
 static struct acmc_prov *def_provider = NULL;
 
-static DLIST_ENTRY dev_list;
+static LIST_HEAD(dev_list);
 
 static int listen_socket;
 static int ip_mon_socket;
@@ -308,13 +308,11 @@ acm_alloc_prov_context(struct acm_provider *prov)
 }
 
 static struct acmc_prov_context *
-acm_get_prov_context(DLIST_ENTRY *list, struct acm_provider *prov)
+acm_get_prov_context(struct list_head *list, struct acm_provider *prov)
 {
-	DLIST_ENTRY *entry;
 	struct acmc_prov_context *ctx;
 
-	for (entry = list->Next; entry != list; entry = entry->Next) {
-		ctx = container_of(entry, struct acmc_prov_context, entry);
+	list_for_each(list, ctx, entry) {
 		if (ctx->prov == prov) {
 			return ctx;
 		}
@@ -324,7 +322,7 @@ acm_get_prov_context(DLIST_ENTRY *list, struct acm_provider *prov)
 }
 
 static struct acmc_prov_context *
-acm_acquire_prov_context(DLIST_ENTRY *list, struct acm_provider *prov)
+acm_acquire_prov_context(struct list_head *list, struct acm_provider *prov)
 {
 	struct acmc_prov_context *ctx;
 
@@ -335,7 +333,7 @@ acm_acquire_prov_context(DLIST_ENTRY *list, struct acm_provider *prov)
 			acm_log(0, "Error -- failed to allocate provider context\n");
 			return NULL;
 		}
-		DListInsertTail(&ctx->entry, list);
+		list_add_tail(list, &ctx->entry);
 	} else {
 		atomic_inc(&ctx->refcnt);
 	}
@@ -347,7 +345,7 @@ static void
 acm_release_prov_context(struct acmc_prov_context *ctx)
 {
 	if (atomic_dec(&ctx->refcnt) <= 0) {
-		DListRemove(&ctx->entry);
+		list_del(&ctx->entry);
 		free(ctx);
 	}
 }
@@ -679,7 +677,6 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 {
 	struct acmc_ep *ep;
 	struct acm_address *addr;
-	DLIST_ENTRY *ep_entry;
 	int i;
 
 	if (port->state != IBV_PORT_ACTIVE)
@@ -689,10 +686,7 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 	    !acm_is_path_from_port(port, &data->info.path))
 		return NULL;
 
-	for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
-	     ep_entry = ep_entry->Next) {
-
-		ep = container_of(ep_entry, struct acmc_ep, entry);
+	list_for_each(&port->ep_list, ep, entry) {
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
 		     (ntohs(data->info.path.pkey) == ep->endpoint.pkey))) {
@@ -715,16 +709,12 @@ static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 {
 	struct acmc_device *dev;
 	struct acmc_addr *addr;
-	DLIST_ENTRY *dev_entry;
 	int i;
 
 	acm_format_name(2, log_data, sizeof log_data,
 			data->type, data->info.addr, sizeof data->info.addr);
 	acm_log(2, "%s\n", log_data);
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-		 dev_entry = dev_entry->Next) {
-
-		dev = container_of(dev_entry, struct acmc_device, entry);
+	list_for_each(&dev_list, dev, entry) {
 		for (i = 0; i < dev->port_cnt; i++) {
 			addr = acm_get_port_ep_address(&dev->port[i], data);
 			if (addr)
@@ -741,27 +731,17 @@ static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 static struct acmc_ep *acm_get_ep(int index)
 {
 	struct acmc_device *dev;
-	DLIST_ENTRY *dev_entry;
 	struct acmc_ep *ep;
-	DLIST_ENTRY *ep_entry;
 	int i, inx = 0;
 
 	acm_log(2, "ep index %d\n", index);
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-	     dev_entry = dev_entry->Next) {
-		dev = container_of(dev_entry, struct acmc_device, entry);
+	list_for_each(&dev_list, dev, entry) {
 		for (i = 0; i < dev->port_cnt; i++) {
 			if (dev->port[i].state != IBV_PORT_ACTIVE)
 				continue;
-			for (ep_entry = dev->port[i].ep_list.Next;
-			     ep_entry != &dev->port[i].ep_list;
-			     ep_entry = ep_entry->Next, inx++) {
-				if (index == inx) {
-					ep = container_of(ep_entry,
-							  struct acmc_ep,
-							  entry);
+			list_for_each(&dev->port[i].ep_list, ep, entry) {
+				if (index == inx)
 					return ep;
-				}
 			}
 		}
 	}
@@ -1271,27 +1251,19 @@ static void acm_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
  */
 static int resync_system_ips(void)
 {
-	DLIST_ENTRY *dev_entry;
 	struct acmc_device *dev;
 	struct acmc_port *port;
 	struct acmc_ep *ep;
-	DLIST_ENTRY *entry;
 	int i, cnt;
 
 	acm_log(0, "Resyncing all IP's\n");
 
 	/* mark all IP's invalid */
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-	     dev_entry = dev_entry->Next) {
-		dev = container_of(dev_entry, struct acmc_device, entry);
-
+	list_for_each(&dev_list, dev, entry) {
 		for (cnt = 0; cnt < dev->port_cnt; cnt++) {
 			port = &dev->port[cnt];
 
-			for (entry = port->ep_list.Next; entry != &port->ep_list;
-			     entry = entry->Next) {
-				ep = container_of(entry, struct acmc_ep, entry);
-
+			list_for_each(&port->ep_list, ep, entry) {
 				for (i = 0; i < MAX_EP_ADDR; i++) {
 					if (ep->addr_info[i].addr.type == ACM_ADDRESS_IP ||
 					    ep->addr_info[i].addr.type == ACM_ADDRESS_IP6)
@@ -1703,7 +1675,6 @@ static void acm_server(void)
 	fd_set readfds;
 	int i, n, ret;
 	struct acmc_device *dev;
-	DLIST_ENTRY *dev_entry;
 
 	acm_log(0, "started\n");
 	acm_init_server();
@@ -1731,9 +1702,7 @@ static void acm_server(void)
 			}
 		}
 
-		for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-		     dev_entry = dev_entry->Next) {
-			dev = container_of(dev_entry, struct acmc_device, entry);
+		list_for_each(&dev_list, dev, entry) {
 			FD_SET(dev->device.verbs->async_fd, &readfds);
 			n = max(n, (int) dev->device.verbs->async_fd);
 		}
@@ -1761,9 +1730,7 @@ static void acm_server(void)
 			}
 		}
 
-		for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-		     dev_entry = dev_entry->Next) {
-			dev = container_of(dev_entry, struct acmc_device, entry);
+		list_for_each(&dev_list, dev, entry) {
 			if (FD_ISSET(dev->device.verbs->async_fd, &readfds)) {
 				acm_log(2, "handling event from %s\n",
 					dev->device.verbs->device->name);
@@ -1907,15 +1874,10 @@ out:
 static struct acmc_device *
 acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port)
 {
-	DLIST_ENTRY *dev_entry;
 	struct acmc_device *dev;
 	int i;
 
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-		 dev_entry = dev_entry->Next) {
-
-		dev = container_of(dev_entry, struct acmc_device, entry);
-
+	list_for_each(&dev_list, dev, entry) {
 		for (*port = 1; *port <= dev->port_cnt; (*port)++) {
 
 			for (i = 0; i < dev->port[*port - 1].gid_cnt; i++) {
@@ -2032,12 +1994,10 @@ out:
 static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
 {
 	struct acmc_ep *ep, *res = NULL;
-	DLIST_ENTRY *entry;
 
 	acm_log(2, "pkey 0x%x\n", pkey);
 
-	for (entry = port->ep_list.Next; entry != &port->ep_list; entry = entry->Next) {
-		ep = container_of(entry, struct acmc_ep, entry);
+	list_for_each(&port->ep_list, ep, entry) {
 		if (ep->endpoint.pkey == pkey) {
 			res = ep;
 			break;
@@ -2111,7 +2071,7 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 		goto ep_close;
 	}
 
-	DListInsertHead(&ep->entry, &port->ep_list);
+	list_add(&port->ep_list, &ep->entry);
 	return;
 
 ep_close:
@@ -2123,22 +2083,13 @@ ep_close:
 
 static void acm_assign_provider(struct acmc_port *port)
 {
-	DLIST_ENTRY *entry;
 	struct acmc_prov *prov;
-	DLIST_ENTRY *sub_entry;
 	struct acmc_subnet *subnet;
 
 	acm_log(2, "port %s/%d\n", port->port.dev->verbs->device->name,
 		port->port.port_num);
-	for (entry = provider_list.Next; entry != &provider_list;
-	     entry = entry->Next) {
-		prov = container_of(entry, struct acmc_prov, entry);
-
-		for (sub_entry = prov->subnet_list.Next;
-		     sub_entry != &prov->subnet_list;
-		     sub_entry = sub_entry->Next) {
-			subnet = container_of(sub_entry, struct acmc_subnet,
-					      entry);
+	list_for_each(&provider_list, prov, entry) {
+		list_for_each(&prov->subnet_list, subnet, entry) {
 			if (subnet->subnet_prefix ==
 			    port->gid_tbl[0].global.subnet_prefix) {
 				acm_log(2, "Found provider %s for port %s/%d\n",
@@ -2291,16 +2242,11 @@ err1:
 
 static void acm_shutdown_port(struct acmc_port *port)
 {
-	DLIST_ENTRY *entry;
 	struct acmc_ep *ep;
 	struct acmc_prov_context *dev_ctx;
 
-	while (!DListEmpty(&port->ep_list)) {
-		entry = port->ep_list.Next;
-		DListRemove(entry);
-		ep = container_of(entry, struct acmc_ep, entry);
+	while ((ep = list_pop(&port->ep_list, struct acmc_ep, entry)))
 		acm_ep_down(ep);
-	}
 
 	if (port->prov_port_context) {
 		port->prov->close_port(port->prov_port_context);
@@ -2404,14 +2350,10 @@ static void acm_event_handler(struct acmc_device *dev)
 static void acm_activate_devices(void)
 {
 	struct acmc_device *dev;
-	DLIST_ENTRY *dev_entry;
 	int i;
 
 	acm_log(1, "\n");
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-		dev_entry = dev_entry->Next) {
-
-		dev = container_of(dev_entry, struct acmc_device, entry);
+	list_for_each(&dev_list, dev, entry) {
 		for (i = 0; i < dev->port_cnt; i++) {
 			acm_port_up(&dev->port[i]);
 		}
@@ -2426,9 +2368,9 @@ acm_open_port(struct acmc_port *port, struct acmc_device *dev, uint8_t port_num)
 	port->port.dev = &dev->device;
 	port->port.port_num = port_num;
 	pthread_mutex_init(&port->lock, NULL);
-	DListInit(&port->ep_list);
-	DListInit(&port->sa_pending);
-	DListInit(&port->sa_wait);
+	list_head_init(&port->ep_list);
+	list_head_init(&port->sa_pending);
+	list_head_init(&port->sa_wait);
 	port->sa_credits = sa.depth;
 	port->sa_addr.qpn = htonl(1);
 	port->sa_addr.qkey = htonl(ACM_QKEY);
@@ -2475,13 +2417,13 @@ static void acm_open_dev(struct ibv_device *ibdev)
 	dev->device.verbs = verbs;
 	dev->device.dev_guid = ibv_get_device_guid(ibdev);
 	dev->port_cnt = attr.phys_port_cnt;
-	DListInit(&dev->prov_dev_context_list);
+	list_head_init(&dev->prov_dev_context_list);
 
 	for (i = 0; i < dev->port_cnt; i++) {
 		acm_open_port(&dev->port[i], dev, i + 1);
 	}
 
-	DListInsertHead(&dev->entry, &dev_list);
+	list_add(&dev_list, &dev->entry);
 
 	acm_log(1, "%s opened\n", ibdev->name);
 	return;
@@ -2507,7 +2449,7 @@ static int acm_open_devices(void)
 		acm_open_dev(ibdev[i]);
 
 	ibv_free_device_list(ibdev);
-	if (DListEmpty(&dev_list)) {
+	if (list_empty(&dev_list)) {
 		acm_log(0, "ERROR - no devices\n");
 		return -1;
 	}
@@ -2523,7 +2465,6 @@ static void acm_load_prov_config(void)
 	char prov_name[ACM_PROV_NAME_SIZE];
 	uint64_t prefix;
 	struct acmc_prov *prov;
-	DLIST_ENTRY *entry;
 	struct acmc_subnet *subnet;
 
 	if (!(fd = fopen(opts_file, "r")))
@@ -2562,9 +2503,7 @@ static void acm_load_prov_config(void)
 		/* Convert it into network byte order */
 		prefix = htonll(prefix);
 
-		for (entry = provider_list.Next; entry != &provider_list;
-		     entry = entry->Next) {
-			prov = container_of(entry, struct acmc_prov, entry);
+		list_for_each(&provider_list, prov, entry) {
 			if (!strcasecmp(prov->prov->name, prov_name)) {
 				subnet = calloc(1, sizeof (*subnet));
 				if (!subnet) {
@@ -2572,17 +2511,15 @@ static void acm_load_prov_config(void)
 					return;
 				}
 				subnet->subnet_prefix = prefix;
-				DListInsertTail(&subnet->entry,
-						&prov->subnet_list);
+				list_add_after(&provider_list, &prov->entry,
+						&subnet->entry);
 			}
 		}
 	}
 
 	fclose(fd);
 
-	for (entry = provider_list.Next; entry != &provider_list;
-	     entry = entry->Next) {
-		prov = container_of(entry, struct acmc_prov, entry);
+	list_for_each(&provider_list, prov, entry) {
 		if (!strcasecmp(prov->prov->name, def_prov_name)) {
 			def_provider = prov;
 			break;
@@ -2665,8 +2602,8 @@ static int acm_open_providers(void)
 
 		prov->prov = provider;
 		prov->handle = handle;
-		DListInit(&prov->subnet_list);
-		DListInsertTail(&prov->entry, &provider_list);
+		list_head_init(&prov->subnet_list);
+		list_add_tail(&provider_list, &prov->entry);
 		if (!strcasecmp(provider->name, def_prov_name))
 			def_provider = prov;
 	}
@@ -2679,23 +2616,15 @@ static int acm_open_providers(void)
 static void acm_close_providers(void)
 {
 	struct acmc_prov *prov;
-	DLIST_ENTRY *entry;
-	DLIST_ENTRY *sub_entry;
 	struct acmc_subnet *subnet;
 
 	acm_log(1, "\n");
 	def_provider = NULL;
-	while (!DListEmpty(&provider_list)) {
-		entry = provider_list.Next;
-		DListRemove(entry);
-		prov = container_of(entry, struct acmc_prov, entry);
-		while (!DListEmpty(&prov->subnet_list)) {
-			sub_entry = prov->subnet_list.Next;
-			DListRemove(sub_entry);
-			subnet = container_of(sub_entry, struct acmc_subnet,
-					      entry);
+
+	while ((prov = list_pop(&provider_list, struct acmc_prov, entry))) {
+		while ((subnet = list_pop(&prov->subnet_list,
+				struct acmc_subnet, entry)))
 			free(subnet);
-		}
 		dlclose(prov->handle);
 		free(prov);
 	}
@@ -2704,23 +2633,17 @@ static void acm_close_providers(void)
 static int acmc_init_sa_fds(void)
 {
 	struct acmc_device *dev;
-	DLIST_ENTRY *dev_entry;
 	int ret, p, i = 0;
 
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-	     dev_entry = dev_entry->Next) {
-		dev = container_of(dev_entry, struct acmc_device, entry);
+	list_for_each(&dev_list, dev, entry)
 		sa.nfds += dev->port_cnt;
-	}
 
 	sa.fds = calloc(sa.nfds, sizeof(*sa.fds));
 	sa.ports = calloc(sa.nfds, sizeof(*sa.ports));
 	if (!sa.fds || !sa.ports)
 		return -ENOMEM;
 
-	for (dev_entry = dev_list.Next; dev_entry != &dev_list;
-	     dev_entry = dev_entry->Next) {
-		dev = container_of(dev_entry, struct acmc_device, entry);
+	list_for_each(&dev_list, dev, entry) {
 		for (p = 0; p < dev->port_cnt; p++) {
 			sa.fds[i].fd = umad_get_fd(dev->port[p].mad_portid);
 			sa.fds[i].events = POLLIN;
@@ -2784,16 +2707,16 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 	mad->umad.addr.pkey_index = req->ep->port->sa_pkey_index;
 
 	pthread_mutex_lock(&port->lock);
-	if (port->sa_credits && DListEmpty(&port->sa_wait)) {
+	if (port->sa_credits && list_empty(&port->sa_wait)) {
 		ret = umad_send(port->mad_portid, port->mad_agentid, &mad->umad,
 				sizeof mad->sa_mad, sa.timeout, sa.retries);
 		if (!ret) {
 			port->sa_credits--;
-			DListInsertTail(&req->entry, &port->sa_pending);
+			list_add_tail(&port->sa_pending, &req->entry);
 		}
 	} else {
 		ret = 0;
-		DListInsertTail(&req->entry, &port->sa_wait);
+		list_add_tail(&port->sa_wait, &req->entry);
 	}
 	pthread_mutex_unlock(&port->lock);
 	return ret;
@@ -2805,18 +2728,18 @@ static void acmc_send_queued_req(struct acmc_port *port)
 	int ret;
 
 	pthread_mutex_lock(&port->lock);
-	if (DListEmpty(&port->sa_wait) || !port->sa_credits) {
+	if (list_empty(&port->sa_wait) || !port->sa_credits) {
 		pthread_mutex_unlock(&port->lock);
 		return;
 	}
 
-	req = container_of(port->sa_wait.Next, struct acmc_sa_req, entry);
-	DListRemove(&req->entry);
+	req = list_pop(&port->sa_wait, struct acmc_sa_req, entry);
+
 	ret = umad_send(port->mad_portid, port->mad_agentid, &req->mad.umad,
 			sizeof req->mad.sa_mad, sa.timeout, sa.retries);
 	if (!ret) {
 		port->sa_credits--;
-		DListInsertTail(&req->entry, &port->sa_pending);
+		list_add_tail(&port->sa_pending, &req->entry);
 	}
 	pthread_mutex_unlock(&port->lock);
 
@@ -2830,7 +2753,6 @@ static void acmc_recv_mad(struct acmc_port *port)
 {
 	struct acmc_sa_req *req;
 	struct acm_sa_mad resp;
-	DLIST_ENTRY *entry;
 	int ret, len, found;
 	struct umad_hdr *hdr;
 
@@ -2848,13 +2770,11 @@ static void acmc_recv_mad(struct acmc_port *port)
 		hdr->method, hdr->status, hdr->tid, hdr->attr_id, hdr->attr_mod);
 	found = 0;
 	pthread_mutex_lock(&port->lock);
-	for (entry = port->sa_pending.Next; entry != &port->sa_pending;
-	     entry = entry->Next) {
-		req = container_of(entry, struct acmc_sa_req, entry);
+	list_for_each(&port->sa_pending, req, entry) {
 		/* The lower 32-bit of the tid is used for agentid in umad */
 		if (req->mad.sa_mad.mad_hdr.tid == (hdr->tid & 0xFFFFFFFF00000000)) {
 			found = 1;
-			DListRemove(entry);
+			list_del(&req->entry);
 			port->sa_credits++;
 			break;
 		}
@@ -3086,8 +3006,6 @@ int main(int argc, char **argv)
 	acm_log(0, "Assistant to the InfiniBand Communication Manager\n");
 	acm_log_options();
 
-	DListInit(&provider_list);
-	DListInit(&dev_list);
 	for (i = 0; i < ACM_MAX_COUNTER; i++)
 		atomic_init(&counter[i]);
 

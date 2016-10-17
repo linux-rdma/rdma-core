@@ -45,7 +45,6 @@
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
 #include <ifaddrs.h>
-#include <dlist.h>
 #include <dlfcn.h>
 #include <search.h>
 #include <netdb.h>
@@ -56,6 +55,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <inttypes.h>
+#include <ccan/list.h>
 #include "acm_util.h"
 #include "acm_mad.h"
 
@@ -113,7 +113,7 @@ struct acmp_dest {
 	struct ibv_path_record path;
 	union ibv_gid          mgid;
 	uint64_t               req_id;
-	DLIST_ENTRY            req_queue;
+	struct list_head       req_queue;
 	uint32_t               remote_qpn;
 	pthread_mutex_t        lock;
 	enum acmp_state        state;
@@ -129,7 +129,7 @@ struct acmp_device;
 struct acmp_port {
 	struct acmp_device  *dev;
 	const struct acm_port *port;
-	DLIST_ENTRY         ep_list;
+	struct list_head    ep_list;
 	pthread_mutex_t     lock;
 	struct acmp_dest    sa_dest;
 	enum ibv_port_state state;
@@ -148,7 +148,7 @@ struct acmp_device {
 	struct ibv_comp_channel *channel;
 	struct ibv_pd           *pd;
 	uint64_t                guid;
-	DLIST_ENTRY             entry;
+	struct list_node        entry;
 	pthread_t               comp_thread_id;
 	int                     port_cnt;
 	struct acmp_port        port[0];
@@ -157,7 +157,7 @@ struct acmp_device {
 /* Maintain separate virtual send queues to avoid deadlock */
 struct acmp_send_queue {
 	int                   credits;
-	DLIST_ENTRY           pending;
+	struct list_head      pending;
 };
 
 struct acmp_addr {
@@ -173,7 +173,7 @@ struct acmp_ep {
 	struct ibv_qp         *qp;
 	struct ibv_mr         *mr;
 	uint8_t               *recv_bufs;
-	DLIST_ENTRY           entry;
+	struct list_node      entry;
 	char		      id_string[ACM_MAX_ADDRESS];
 	void                  *dest_map[ACM_ADDRESS_RESERVED - 1];
 	struct acmp_dest      mc_dest[MAX_EP_MC];
@@ -184,15 +184,15 @@ struct acmp_ep {
 	pthread_mutex_t       lock;
 	struct acmp_send_queue resolve_queue;
 	struct acmp_send_queue resp_queue;
-	DLIST_ENTRY           active_queue;
-	DLIST_ENTRY           wait_queue;
+	struct list_head      active_queue;
+	struct list_head      wait_queue;
 	enum acmp_state       state;
 	struct acmp_addr      addr_info[MAX_EP_ADDR];
 	atomic_t              counters[ACM_MAX_COUNTER];
 };
 
 struct acmp_send_msg {
-	DLIST_ENTRY          entry;
+	struct list_node     entry;
 	struct acmp_ep       *ep;
 	struct acmp_dest     *dest;
 	struct ibv_ah        *ah;
@@ -210,7 +210,7 @@ struct acmp_send_msg {
 
 struct acmp_request {
 	uint64_t	id;
-	DLIST_ENTRY	entry;
+	struct list_node entry;
 	struct acm_msg	msg;
 	struct acmp_ep	*ep;
 };
@@ -249,11 +249,11 @@ static struct acm_provider def_prov = {
 	.query_perf = acmp_query_perf,
 };
 
-static DLIST_ENTRY acmp_dev_list;
+static LIST_HEAD(acmp_dev_list);
 static pthread_mutex_t acmp_dev_lock;
 
 static atomic_t g_tid;
-static DLIST_ENTRY timeout_list;
+static LIST_HEAD(timeout_list);
 static event_t timeout_event;
 static atomic_t wait_cnt;
 static pthread_t retry_thread_id;
@@ -301,7 +301,7 @@ static void
 acmp_init_dest(struct acmp_dest *dest, uint8_t addr_type,
 	       const uint8_t *addr, size_t size)
 {
-	DListInit(&dest->req_queue);
+	list_head_init(&dest->req_queue);
 	atomic_init(&dest->refcnt);
 	atomic_set(&dest->refcnt, 1);
 	pthread_mutex_init(&dest->lock, NULL);
@@ -508,11 +508,11 @@ static void acmp_post_send(struct acmp_send_queue *queue, struct acmp_send_msg *
 	if (queue->credits) {
 		acm_log(2, "posting send to QP\n");
 		queue->credits--;
-		DListInsertTail(&msg->entry, &ep->active_queue);
+		list_add_tail(&ep->active_queue, &msg->entry);
 		ibv_post_send(ep->qp, &msg->wr, &bad_wr);
 	} else {
 		acm_log(2, "no sends available, queuing message\n");
-		DListInsertTail(&msg->entry, &queue->pending);
+		list_add_tail(&queue->pending, &msg->entry);
 	}
 	pthread_mutex_unlock(&ep->lock);
 }
@@ -539,17 +539,14 @@ static void acmp_send_available(struct acmp_ep *ep, struct acmp_send_queue *queu
 {
 	struct acmp_send_msg *msg;
 	struct ibv_send_wr *bad_wr;
-	DLIST_ENTRY *entry;
 
-	if (DListEmpty(&queue->pending)) {
-		queue->credits++;
-	} else {
+	msg = list_pop(&queue->pending, struct acmp_send_msg, entry);
+	if (msg) {
 		acm_log(2, "posting queued send message\n");
-		entry = queue->pending.Next;
-		DListRemove(entry);
-		msg = container_of(entry, struct acmp_send_msg, entry);
-		DListInsertTail(&msg->entry, &ep->active_queue);
+		list_add_tail(&ep->active_queue, &msg->entry);
 		ibv_post_send(ep->qp, &msg->wr, &bad_wr);
+	} else {
+		queue->credits++;
 	}
 }
 
@@ -558,11 +555,11 @@ static void acmp_complete_send(struct acmp_send_msg *msg)
 	struct acmp_ep *ep = msg->ep;
 
 	pthread_mutex_lock(&ep->lock);
-	DListRemove(&msg->entry);
+	list_del(&msg->entry);
 	if (msg->tries) {
 		acm_log(2, "waiting for response\n");
 		msg->expires = time_stamp_ms() + ep->port->subnet_timeout + timeout;
-		DListInsertTail(&msg->entry, &ep->wait_queue);
+		list_add_tail(&ep->wait_queue, &msg->entry);
 		if (atomic_inc(&wait_cnt) == 1)
 			event_signal(&timeout_event);
 	} else {
@@ -575,20 +572,17 @@ static void acmp_complete_send(struct acmp_send_msg *msg)
 
 static struct acmp_send_msg *acmp_get_request(struct acmp_ep *ep, uint64_t tid, int *free)
 {
-	struct acmp_send_msg *msg, *req = NULL;
+	struct acmp_send_msg *msg, *next, *req = NULL;
 	struct acm_mad *mad;
-	DLIST_ENTRY *entry, *next;
 
 	acm_log(2, "\n");
 	pthread_mutex_lock(&ep->lock);
-	for (entry = ep->wait_queue.Next; entry != &ep->wait_queue; entry = next) {
-		next = entry->Next;
-		msg = container_of(entry, struct acmp_send_msg, entry);
+	list_for_each_safe(&ep->wait_queue, msg, next, entry) {
 		mad = (struct acm_mad *) msg->data;
 		if (mad->tid == tid) {
 			acm_log(2, "match found in wait queue\n");
 			req = msg;
-			DListRemove(entry);
+			list_del(&msg->entry);
 			(void) atomic_dec(&wait_cnt);
 			acmp_send_available(ep, msg->req_queue);
 			*free = 1;
@@ -596,8 +590,7 @@ static struct acmp_send_msg *acmp_get_request(struct acmp_ep *ep, uint64_t tid, 
 		}
 	}
 
-	for (entry = ep->active_queue.Next; entry != &ep->active_queue; entry = entry->Next) {
-		msg = container_of(entry, struct acmp_send_msg, entry);
+	list_for_each(&ep->active_queue, msg, entry) {
 		mad = (struct acm_mad *) msg->data;
 		if (mad->tid == tid && msg->tries) {
 			acm_log(2, "match found in active queue\n");
@@ -972,14 +965,10 @@ static void
 acmp_complete_queued_req(struct acmp_dest *dest, uint8_t status)
 {
 	struct acmp_request *req;
-	DLIST_ENTRY *entry;
 
 	acm_log(2, "status %d\n", status);
 	pthread_mutex_lock(&dest->lock);
-	while (!DListEmpty(&dest->req_queue)) {
-		entry = dest->req_queue.Next;
-		DListRemove(entry);
-		req = container_of(entry, struct acmp_request, entry);
+	while ((req = list_pop(&dest->req_queue, struct acmp_request, entry))) {
 		pthread_mutex_unlock(&dest->lock);
 
 		acm_log(2, "completing request, client %" PRIu64 "\n", req->id);
@@ -1113,7 +1102,7 @@ acmp_process_addr_req(struct acmp_ep *ep, struct ibv_wc *wc, struct acm_mad *mad
 			status = acmp_record_acm_route(ep, dest);
 			break;
 		}
-		if (addr || !DListEmpty(&dest->req_queue)) {
+		if (addr || !list_empty(&dest->req_queue)) {
 			status = acmp_resolve_path_sa(ep, dest, acmp_resolve_sa_resp);
 			if (status)
 				break;
@@ -1458,15 +1447,12 @@ static void acmp_ep_join(struct acmp_ep *ep)
 static int acmp_port_join(void *port_context)
 {
 	struct acmp_ep *ep;
-	DLIST_ENTRY *ep_entry;
 	struct acmp_port *port = port_context;
 
 	acm_log(1, "device %s port %d\n", port->dev->verbs->device->name,
 		port->port_num);
 
-	for (ep_entry = port->ep_list.Next; ep_entry != &port->ep_list;
-		 ep_entry = ep_entry->Next) {
-		ep = container_of(ep_entry, struct acmp_ep, entry);
+	list_for_each(&port->ep_list, ep, entry) {
 		if (!ep->endpoint) {
 			/* Stale endpoint */
 			continue;
@@ -1497,16 +1483,11 @@ static int acmp_handle_event(void *port_context, enum ibv_event_type type)
 
 static void acmp_process_timeouts(void)
 {
-	DLIST_ENTRY *entry;
 	struct acmp_send_msg *msg;
 	struct acm_resolve_rec *rec;
 	struct acm_mad *mad;
 
-	while (!DListEmpty(&timeout_list)) {
-		entry = timeout_list.Next;
-		DListRemove(entry);
-
-		msg = container_of(entry, struct acmp_send_msg, entry);
+	while ((msg = list_pop(&timeout_list, struct acmp_send_msg, entry))) {
 		mad = (struct acm_mad *) &msg->data[0];
 		rec = (struct acm_resolve_rec *) mad->data;
 
@@ -1521,24 +1502,21 @@ static void acmp_process_timeouts(void)
 
 static void acmp_process_wait_queue(struct acmp_ep *ep, uint64_t *next_expire)
 {
-	struct acmp_send_msg *msg;
-	DLIST_ENTRY *entry, *next;
+	struct acmp_send_msg *msg, *next;
 	struct ibv_send_wr *bad_wr;
 
-	for (entry = ep->wait_queue.Next; entry != &ep->wait_queue; entry = next) {
-		next = entry->Next;
-		msg = container_of(entry, struct acmp_send_msg, entry);
+	list_for_each_safe(&ep->wait_queue, msg, next, entry) {
 		if (msg->expires < time_stamp_ms()) {
-			DListRemove(entry);
+			list_del(&msg->entry);
 			(void) atomic_dec(&wait_cnt);
 			if (--msg->tries) {
 				acm_log(1, "notice - retrying request\n");
-				DListInsertTail(&msg->entry, &ep->active_queue);
+				list_add_tail(&ep->active_queue, &msg->entry);
 				ibv_post_send(ep->qp, &msg->wr, &bad_wr);
 			} else {
 				acm_log(0, "notice - failing request\n");
 				acmp_send_available(ep, msg->req_queue);
-				DListInsertTail(&msg->entry, &timeout_list);
+				list_add_tail(&timeout_list, &msg->entry);
 			}
 		} else {
 			*next_expire = min(*next_expire, msg->expires);
@@ -1556,7 +1534,6 @@ static void *acmp_retry_handler(void *context)
 	struct acmp_device *dev;
 	struct acmp_port *port;
 	struct acmp_ep *ep;
-	DLIST_ENTRY *dev_entry, *ep_entry;
 	uint64_t next_expire;
 	int i, wait;
 
@@ -1579,24 +1556,17 @@ static void *acmp_retry_handler(void *context)
 
 		next_expire = -1;
 		pthread_mutex_lock(&acmp_dev_lock);
-		for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
-		     dev_entry = dev_entry->Next) {
-
-			dev = container_of(dev_entry, struct acmp_device, entry);
+		list_for_each(&acmp_dev_list, dev, entry) {
 			pthread_mutex_unlock(&acmp_dev_lock);
 
 			for (i = 0; i < dev->port_cnt; i++) {
 				port = &dev->port[i];
 
 				pthread_mutex_lock(&port->lock);
-				for (ep_entry = port->ep_list.Next;
-				     ep_entry != &port->ep_list;
-				     ep_entry = ep_entry->Next) {
-
-					ep = container_of(ep_entry, struct acmp_ep, entry);
+				list_for_each(&port->ep_list, ep, entry) {
 					pthread_mutex_unlock(&port->lock);
 					pthread_mutex_lock(&ep->lock);
-					if (!DListEmpty(&ep->wait_queue))
+					if (!list_empty(&ep->wait_queue))
 						acmp_process_wait_queue(ep, &next_expire);
 					pthread_mutex_unlock(&ep->lock);
 					pthread_mutex_lock(&port->lock);
@@ -1735,7 +1705,7 @@ static uint8_t acmp_queue_req(struct acmp_dest *dest, uint64_t id, struct acm_ms
 	}
 	req->ep = dest->ep;
 
-	DListInsertTail(&req->entry, &dest->req_queue);
+	list_add_tail(&dest->req_queue, &req->entry);
 	return ACM_STATUS_SUCCESS;
 }
 
@@ -2446,15 +2416,12 @@ static void acmp_remove_addr(void *addr_context)
 static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
 {
 	struct acmp_device *dev;
-	DLIST_ENTRY *dev_entry;
 
 	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
 		endpoint->port->dev->dev_guid, endpoint->port->port_num,
 		endpoint->pkey);
-	for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
-	     dev_entry = dev_entry->Next) {
 
-		dev = container_of(dev_entry, struct acmp_device, entry);
+	list_for_each(&acmp_dev_list, dev, entry) {
 		if (dev->guid == endpoint->port->dev->dev_guid)
 			return &dev->port[endpoint->port->port_num - 1];
 	}
@@ -2466,13 +2433,11 @@ static struct acmp_ep *
 acmp_get_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 {
 	struct acmp_ep *ep;
-	DLIST_ENTRY *entry;
 
 	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
 		endpoint->port->dev->dev_guid, endpoint->port->port_num, endpoint->pkey);
-	for (entry = port->ep_list.Next; entry != &port->ep_list;
-	     entry = entry->Next) {
-		ep = container_of(entry, struct acmp_ep, entry);
+
+	list_for_each(&port->ep_list, ep, entry) {
 		if (ep->pkey == endpoint->pkey)
 			return ep;
 	}
@@ -2526,10 +2491,10 @@ acmp_alloc_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	ep->pkey = endpoint->pkey;
 	ep->resolve_queue.credits = resolve_depth;
 	ep->resp_queue.credits = send_depth;
-	DListInit(&ep->resolve_queue.pending);
-	DListInit(&ep->resp_queue.pending);
-	DListInit(&ep->active_queue);
-	DListInit(&ep->wait_queue);
+	list_head_init(&ep->resolve_queue.pending);
+	list_head_init(&ep->resp_queue.pending);
+	list_head_init(&ep->active_queue);
+	list_head_init(&ep->wait_queue);
 	pthread_mutex_init(&ep->lock, NULL);
 	sprintf(ep->id_string, "%s-%d-0x%x", port->dev->verbs->device->name,
 		port->port_num, endpoint->pkey);
@@ -2628,7 +2593,7 @@ static int acmp_open_endpoint(const struct acm_endpoint *endpoint,
 		goto err2;
 
 	pthread_mutex_lock(&port->lock);
-	DListInsertHead(&ep->entry, &port->ep_list);
+	list_add(&port->ep_list, &ep->entry);
 	pthread_mutex_unlock(&port->lock);
 	acmp_ep_preload(ep);
 	acmp_ep_join(ep);
@@ -2757,7 +2722,7 @@ static void acmp_init_port(struct acmp_port *port, struct acmp_device *dev,
 	port->dev = dev;
 	port->port_num = port_num;
 	pthread_mutex_init(&port->lock, NULL);
-	DListInit(&port->ep_list);
+	list_head_init(&port->ep_list);
 	acmp_init_dest(&port->sa_dest, ACM_ADDRESS_LID, NULL, 0);
 	port->state = IBV_PORT_DOWN;
 }
@@ -2768,16 +2733,12 @@ static int acmp_open_dev(const struct acm_device *device, void **dev_context)
 	size_t size;
 	struct ibv_device_attr attr;
 	int i, ret;
-	DLIST_ENTRY *dev_entry;
 	struct ibv_context *verbs;
 
 	acm_log(1, "dev_guid 0x%" PRIx64 " %s\n", device->dev_guid,
 		device->verbs->device->name);
 
-	for (dev_entry = acmp_dev_list.Next; dev_entry != &acmp_dev_list;
-	     dev_entry = dev_entry->Next) {
-		dev = container_of(dev_entry, struct acmp_device, entry);
-
+	list_for_each(&acmp_dev_list, dev, entry) {
 		if (dev->guid == device->dev_guid) {
 			acm_log(2, "dev_guid 0x%" PRIx64 " already exits\n",
 				device->dev_guid);
@@ -2839,7 +2800,7 @@ static int acmp_open_dev(const struct acm_device *device, void **dev_context)
 	}
 
 	pthread_mutex_lock(&acmp_dev_lock);
-	DListInsertHead(&dev->entry, &acmp_dev_list);
+	list_add(&acmp_dev_list, &dev->entry);
 	pthread_mutex_unlock(&acmp_dev_lock);
 	dev->guid = device->dev_guid;
 	*dev_context = dev;
@@ -2947,9 +2908,7 @@ static void __attribute__((constructor)) acmp_init(void)
 
 	atomic_init(&g_tid);
 	atomic_init(&wait_cnt);
-	DListInit(&acmp_dev_list);
 	pthread_mutex_init(&acmp_dev_lock, NULL);
-	DListInit(&timeout_list);
 	event_init(&timeout_event);
 
 	umad_init();
