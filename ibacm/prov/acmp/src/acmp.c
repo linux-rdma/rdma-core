@@ -2941,9 +2941,6 @@ static void acmp_log_options(void)
 
 static void __attribute__((constructor)) acmp_init(void)
 {
-	if (osd_init())
-		return;
-
 	acmp_set_options();
 
 	acmp_log_options();

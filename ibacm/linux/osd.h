@@ -112,9 +112,6 @@ static inline int event_wait(event_t *e, int timeout)
 	return ret;
 }
 
-#define osd_init()  0
-#define osd_close()
-
 static inline uint64_t time_stamp_us(void)
 {
 	struct timeval curtime;

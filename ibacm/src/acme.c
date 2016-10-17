@@ -985,13 +985,9 @@ static void parse_perf_arg(char *arg)
 
 int main(int argc, char **argv)
 {
-	int op, ret;
+	int op, ret = 0;
 	int make_addr = 0;
 	int make_opts = 0;
-
-	ret = osd_init();
-	if (ret)
-		goto out;
 
 	while ((op = getopt(argc, argv, "e::f:s:d:vcA::O::D:P::S:C:V")) != -1) {
 		switch (op) {
@@ -1068,8 +1064,6 @@ int main(int argc, char **argv)
 	if (!ret && make_opts)
 		ret = gen_opts();
 
-	osd_close();
-out:
 	if (verbose || !(make_addr || make_opts) || ret)
 		printf("return status 0x%x\n", ret);
 	return ret;
