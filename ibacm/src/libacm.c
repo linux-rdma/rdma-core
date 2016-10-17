@@ -38,7 +38,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-extern lock_t lock;
+extern pthread_mutex_t lock;
 static SOCKET sock = INVALID_SOCKET;
 static short server_port = 6125;
 
@@ -47,8 +47,8 @@ static void acm_set_server_port(void)
 	FILE *f;
 
 	if ((f = fopen(IBACM_PORT_FILE, "r"))) {
-		if (fscanf(f, "%hu", (unsigned short *) &server_port) != 1) 
-			printf("Failed to read server port\n"); 
+		if (fscanf(f, "%hu", (unsigned short *) &server_port) != 1)
+			printf("Failed to read server port\n");
 		fclose(f);
 	}
 }
@@ -212,7 +212,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	struct acm_msg msg;
 	int ret, cnt = 0;
 
-	lock_acquire(&lock);
+	pthread_mutex_lock(&lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;
@@ -230,7 +230,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 		goto out;
 
 	msg.hdr.length = ACM_MSG_HDR_LENGTH + (cnt * ACM_MSG_EP_LENGTH);
-	
+
 	ret = send(sock, (char *) &msg, msg.hdr.length, 0);
 	if (ret != msg.hdr.length)
 		goto out;
@@ -246,7 +246,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 
 	ret = acm_format_resp(&msg, paths, count, print);
 out:
-	lock_release(&lock);
+	pthread_mutex_unlock(&lock);
 	return ret;
 }
 
@@ -275,7 +275,7 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 	struct acm_ep_addr_data *data;
 	int ret;
 
-	lock_acquire(&lock);
+	pthread_mutex_lock(&lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;
@@ -285,7 +285,7 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 	data->flags = flags;
 	data->type = ACM_EP_INFO_PATH;
 	data->info.path = *path;
-	
+
 	ret = send(sock, (char *) &msg, msg.hdr.length, 0);
 	if (ret != msg.hdr.length)
 		goto out;
@@ -299,7 +299,7 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 		*path = data->info.path;
 
 out:
-	lock_release(&lock);
+	pthread_mutex_unlock(&lock);
 	return ret;
 }
 
@@ -308,7 +308,7 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 	struct acm_msg msg;
 	int ret, i;
 
-	lock_acquire(&lock);
+	pthread_mutex_lock(&lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
@@ -341,7 +341,7 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 		(*counters)[i] = ntohll(msg.perf_data[i]);
 	ret = 0;
 out:
-	lock_release(&lock);
+	pthread_mutex_unlock(&lock);
 	return ret;
 }
 
@@ -353,7 +353,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	int cnt;
 	struct acm_ep_config_data *edata;
 
-	lock_acquire(&lock);
+	pthread_mutex_lock(&lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_EP_QUERY;
@@ -376,7 +376,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	}
 
 	cnt = ntohs(msg.ep_data[0].addr_cnt);
-	len = sizeof(struct acm_ep_config_data) + 
+	len = sizeof(struct acm_ep_config_data) +
 		ACM_MAX_ADDRESS * cnt;
 	edata = malloc(len);
 	if (!edata) {
@@ -391,20 +391,20 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	*data = edata;
 	ret = 0;
 out:
-	lock_release(&lock);
+	pthread_mutex_unlock(&lock);
 	return ret;
 }
 
-int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type, 
+int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 			     uint64_t **counters, int *count)
 {
 	struct acm_msg msg;
 	int ret, i, len;
 
-	if (!src) 
+	if (!src)
 		return -1;
 
-	lock_acquire(&lock);
+	pthread_mutex_lock(&lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
@@ -444,7 +444,7 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 
 	ret = 0;
 out:
-	lock_release(&lock);
+	pthread_mutex_unlock(&lock);
 	return ret;
 }
 

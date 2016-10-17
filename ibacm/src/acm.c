@@ -106,7 +106,7 @@ struct acmc_port {
 	DLIST_ENTRY         sa_pending;
 	DLIST_ENTRY	    sa_wait;
 	int		    sa_credits;
-	lock_t              lock;
+	pthread_mutex_t     lock;
 	DLIST_ENTRY         ep_list;
 	enum ibv_port_state state;
 	int                 gid_cnt;
@@ -140,7 +140,7 @@ struct acmc_ep {
 };
 
 struct acmc_client {
-	lock_t   lock;   /* acquire ep lock first */
+	pthread_mutex_t lock;   /* acquire ep lock first */
 	SOCKET   sock;
 	int      index;
 	atomic_t refcnt;
@@ -185,7 +185,7 @@ static SOCKET ip_mon_socket;
 static struct acmc_client client_array[FD_SETSIZE - 1];
 
 static FILE *flog;
-static lock_t log_lock;
+static pthread_mutex_t log_lock;
 PER_THREAD char log_data[ACM_MAX_ADDRESS];
 static atomic_t counter[ACM_MAX_COUNTER];
 
@@ -230,11 +230,11 @@ void acm_write(int level, const char *format, ...)
 
 	gettimeofday(&tv, NULL);
 	va_start(args, format);
-	lock_acquire(&log_lock);
+	pthread_mutex_lock(&log_lock);
 	fprintf(flog, "%u.%03u: ", (unsigned) tv.tv_sec, (unsigned) (tv.tv_usec / 1000));
 	vfprintf(flog, format, args);
 	fflush(flog);
-	lock_release(&log_lock);
+	pthread_mutex_unlock(&log_lock);
 	va_end(args);
 }
 
@@ -483,7 +483,7 @@ int acm_resolve_response(uint64_t id, struct acm_msg *msg)
 	else if (msg->hdr.status)
 		atomic_inc(&counter[ACM_CNTR_ERROR]);
 
-	lock_acquire(&client->lock);
+	pthread_mutex_lock(&client->lock);
 	if (client->sock == INVALID_SOCKET) {
 		acm_log(0, "ERROR - connection lost\n");
 		ret = ACM_STATUS_ENOTCONN;
@@ -501,7 +501,7 @@ int acm_resolve_response(uint64_t id, struct acm_msg *msg)
 		ret = 0;
 
 release:
-	lock_release(&client->lock);
+	pthread_mutex_unlock(&client->lock);
 	(void) atomic_dec(&client->refcnt);
 	return ret;
 }
@@ -524,7 +524,7 @@ int acm_query_response(uint64_t id, struct acm_msg *msg)
 	int ret;
 
 	acm_log(2, "status 0x%x\n", msg->hdr.status);
-	lock_acquire(&client->lock);
+	pthread_mutex_lock(&client->lock);
 	if (client->sock == INVALID_SOCKET) {
 		acm_log(0, "ERROR - connection lost\n");
 		ret = ACM_STATUS_ENOTCONN;
@@ -538,7 +538,7 @@ int acm_query_response(uint64_t id, struct acm_msg *msg)
 		ret = 0;
 
 release:
-	lock_release(&client->lock);
+	pthread_mutex_unlock(&client->lock);
 	(void) atomic_dec(&client->refcnt);
 	return ret;
 }
@@ -557,7 +557,7 @@ static void acm_init_server(void)
 	int i;
 
 	for (i = 0; i < FD_SETSIZE - 1; i++) {
-		lock_init(&client_array[i].lock);
+		pthread_mutex_init(&client_array[i].lock, NULL);
 		client_array[i].index = i;
 		client_array[i].sock = INVALID_SOCKET;
 		atomic_init(&client_array[i].refcnt);
@@ -604,11 +604,11 @@ static int acm_listen(void)
 
 static void acm_disconnect_client(struct acmc_client *client)
 {
-	lock_acquire(&client->lock);
+	pthread_mutex_lock(&client->lock);
 	shutdown(client->sock, SHUT_RDWR);
 	closesocket(client->sock);
 	client->sock = INVALID_SOCKET;
-	lock_release(&client->lock);
+	pthread_mutex_unlock(&client->lock);
 	(void) atomic_dec(&client->refcnt);
 }
 
@@ -2425,7 +2425,7 @@ acm_open_port(struct acmc_port *port, struct acmc_device *dev, uint8_t port_num)
 	port->dev = dev;
 	port->port.dev = &dev->device;
 	port->port.port_num = port_num;
-	lock_init(&port->lock);
+	pthread_mutex_init(&port->lock, NULL);
 	DListInit(&port->ep_list);
 	DListInit(&port->sa_pending);
 	DListInit(&port->sa_wait);
@@ -2783,7 +2783,7 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 	mad->umad.addr.sl = port->sa_addr.sl;
 	mad->umad.addr.pkey_index = req->ep->port->sa_pkey_index;
 
-	lock_acquire(&port->lock);
+	pthread_mutex_lock(&port->lock);
 	if (port->sa_credits && DListEmpty(&port->sa_wait)) {
 		ret = umad_send(port->mad_portid, port->mad_agentid, &mad->umad,
 				sizeof mad->sa_mad, sa.timeout, sa.retries);
@@ -2795,7 +2795,7 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 		ret = 0;
 		DListInsertTail(&req->entry, &port->sa_wait);
 	}
-	lock_release(&port->lock);
+	pthread_mutex_unlock(&port->lock);
 	return ret;
 }
 
@@ -2804,9 +2804,9 @@ static void acmc_send_queued_req(struct acmc_port *port)
 	struct acmc_sa_req *req;
 	int ret;
 
-	lock_acquire(&port->lock);
+	pthread_mutex_lock(&port->lock);
 	if (DListEmpty(&port->sa_wait) || !port->sa_credits) {
-		lock_release(&port->lock);
+		pthread_mutex_unlock(&port->lock);
 		return;
 	}
 
@@ -2818,7 +2818,7 @@ static void acmc_send_queued_req(struct acmc_port *port)
 		port->sa_credits--;
 		DListInsertTail(&req->entry, &port->sa_pending);
 	}
-	lock_release(&port->lock);
+	pthread_mutex_unlock(&port->lock);
 
 	if (ret) {
 		req->mad.umad.status = -ret;
@@ -2847,7 +2847,7 @@ static void acmc_recv_mad(struct acmc_port *port)
 		hdr->base_version, hdr->mgmt_class, hdr->class_version,
 		hdr->method, hdr->status, hdr->tid, hdr->attr_id, hdr->attr_mod);
 	found = 0;
-	lock_acquire(&port->lock);
+	pthread_mutex_lock(&port->lock);
 	for (entry = port->sa_pending.Next; entry != &port->sa_pending;
 	     entry = entry->Next) {
 		req = container_of(entry, struct acmc_sa_req, entry);
@@ -2859,7 +2859,7 @@ static void acmc_recv_mad(struct acmc_port *port)
 			break;
 		}
 	}
-	lock_release(&port->lock);
+	pthread_mutex_unlock(&port->lock);
 
 	if (found) {
 		memcpy(&req->mad.umad, &resp.umad, sizeof(resp.umad) + len);
@@ -3083,7 +3083,7 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (acm_open_lock_file())
 		return -1;
 
-	lock_init(&log_lock);
+	pthread_mutex_init(&log_lock, NULL);
 	flog = acm_open_log();
 
 	acm_log(0, "Assistant to the InfiniBand Communication Manager\n");

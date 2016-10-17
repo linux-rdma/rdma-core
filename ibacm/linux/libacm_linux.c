@@ -29,9 +29,9 @@
 
 #include <osd.h>
 
-lock_t lock;
+pthread_mutex_t lock;
 
 static void __attribute__((constructor)) lib_init(void)
 {
-	lock_init(&lock);
+	pthread_mutex_init(&lock, NULL);
 }
