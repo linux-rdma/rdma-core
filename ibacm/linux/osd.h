@@ -53,7 +53,6 @@
 #define ACM_ADDR_FILE "ibacm_addr.cfg"
 #define ACM_OPTS_FILE "ibacm_opts.cfg"
 
-#define LIB_DESTRUCTOR __attribute__((destructor))
 #define CDECL_FUNC
 
 #if DEFINE_ATOMICS
