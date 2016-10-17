@@ -38,7 +38,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-extern pthread_mutex_t lock;
+static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
 static short server_port = 6125;
 
@@ -212,7 +212,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 	struct acm_msg msg;
 	int ret, cnt = 0;
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&acm_lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;
@@ -246,7 +246,7 @@ static int acm_resolve(uint8_t *src, uint8_t *dest, uint8_t type,
 
 	ret = acm_format_resp(&msg, paths, count, print);
 out:
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&acm_lock);
 	return ret;
 }
 
@@ -275,7 +275,7 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 	struct acm_ep_addr_data *data;
 	int ret;
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&acm_lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_RESOLVE;
@@ -299,7 +299,7 @@ int ib_acm_resolve_path(struct ibv_path_record *path, uint32_t flags)
 		*path = data->info.path;
 
 out:
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&acm_lock);
 	return ret;
 }
 
@@ -308,7 +308,7 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 	struct acm_msg msg;
 	int ret, i;
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&acm_lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
@@ -341,7 +341,7 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 		(*counters)[i] = ntohll(msg.perf_data[i]);
 	ret = 0;
 out:
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&acm_lock);
 	return ret;
 }
 
@@ -353,7 +353,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	int cnt;
 	struct acm_ep_config_data *edata;
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&acm_lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_EP_QUERY;
@@ -391,7 +391,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	*data = edata;
 	ret = 0;
 out:
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&acm_lock);
 	return ret;
 }
 
@@ -404,7 +404,7 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 	if (!src)
 		return -1;
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&acm_lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
@@ -444,7 +444,7 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 
 	ret = 0;
 out:
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&acm_lock);
 	return ret;
 }
 

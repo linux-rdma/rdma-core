@@ -38,7 +38,6 @@ set_target_properties(ibacmp PROPERTIES
 install(TARGETS ibacmp DESTINATION "${ACM_PROVIDER_DIR}")
 
 rdma_executable(ib_acme
-  linux/libacm_linux.c
   src/acme.c
   src/libacm.c
   src/parse.c
