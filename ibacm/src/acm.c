@@ -388,7 +388,7 @@ static void acm_mark_addr_invalid(struct acmc_ep *ep,
 			continue;
 
 		if ((data->type == ACM_ADDRESS_NAME &&
-		    !strnicmp((char *) ep->addr_info[i].addr.info.name,
+		    !strncasecmp((char *) ep->addr_info[i].addr.info.name,
 			      (char *) data->info.addr, ACM_MAX_ADDRESS)) ||
 		     !memcmp(ep->addr_info[i].addr.info.addr, data->info.addr,
 			     ACM_MAX_ADDRESS)) {
@@ -410,7 +410,7 @@ acm_addr_lookup(const struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr
 			continue;
 
 		if ((addr_type == ACM_ADDRESS_NAME &&
-			!strnicmp((char *) ep->addr_info[i].addr.info.name,
+			!strncasecmp((char *) ep->addr_info[i].addr.info.name,
 				(char *) addr, ACM_MAX_ADDRESS)) ||
 			!memcmp(ep->addr_info[i].addr.info.addr, addr, ACM_MAX_ADDRESS))
 			return &ep->addr_info[i].addr;
@@ -2004,7 +2004,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 			memcpy(addr, name, addr_len);
 		}
 
-		if (stricmp(pkey_str, "default")) {
+		if (strcasecmp(pkey_str, "default")) {
 			if (sscanf(pkey_str, "%hx", &pkey) != 1) {
 				acm_log(0, "ERROR - bad pkey format %s\n", pkey_str);
 				continue;
@@ -2013,7 +2013,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 			pkey = ep->port->def_acm_pkey;
 		}
 
-		if (!stricmp(dev_name, dev) &&
+		if (!strcasecmp(dev_name, dev) &&
 		    (ep->port->port.port_num == (uint8_t) port) &&
 		    (ep->endpoint.pkey == pkey)) {
 			acm_log(1, "assigning %s\n", name);
@@ -2939,23 +2939,23 @@ static void acm_set_options(void)
 		if (sscanf(s, "%32s%256s", opt, value) != 2)
 			continue;
 
-		if (!stricmp("log_file", opt))
+		if (!strcasecmp("log_file", opt))
 			strcpy(log_file, value);
-		else if (!stricmp("log_level", opt))
+		else if (!strcasecmp("log_level", opt))
 			log_level = atoi(value);
-		else if (!stricmp("lock_file", opt))
+		else if (!strcasecmp("lock_file", opt))
 			strcpy(lock_file, value);
-		else if (!stricmp("server_port", opt))
+		else if (!strcasecmp("server_port", opt))
 			server_port = (short) atoi(value);
-		else if (!stricmp("provider_lib_path", opt))
+		else if (!strcasecmp("provider_lib_path", opt))
 			strcpy(prov_lib_path, value);
-		else if (!stricmp("support_ips_in_addr_cfg", opt))
+		else if (!strcasecmp("support_ips_in_addr_cfg", opt))
 			support_ips_in_addr_cfg = atoi(value);
-		else if (!stricmp("timeout", opt))
+		else if (!strcasecmp("timeout", opt))
 			sa.timeout = atoi(value);
-		else if (!stricmp("retries", opt))
+		else if (!strcasecmp("retries", opt))
 			sa.retries = atoi(value);
-		else if (!stricmp("sa_depth", opt))
+		else if (!strcasecmp("sa_depth", opt))
 			sa.depth = atoi(value);
 	}
 
@@ -2981,10 +2981,10 @@ static FILE *acm_open_log(void)
 {
 	FILE *f;
 
-	if (!stricmp(log_file, "stdout"))
+	if (!strcasecmp(log_file, "stdout"))
 		return stdout;
 
-	if (!stricmp(log_file, "stderr"))
+	if (!strcasecmp(log_file, "stderr"))
 		return stderr;
 
 	if (!(f = fopen(log_file, "w")))

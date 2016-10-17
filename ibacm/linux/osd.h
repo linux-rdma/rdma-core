@@ -87,9 +87,6 @@ typedef struct { volatile int val; } atomic_t;
 #define atomic_get(v) ((v)->val)
 #define atomic_set(v, s) ((v)->val = s)
 
-#define stricmp strcasecmp
-#define strnicmp strncasecmp
-
 typedef struct { pthread_cond_t cond; pthread_mutex_t mutex; } event_t;
 static inline void event_init(event_t *e)
 {

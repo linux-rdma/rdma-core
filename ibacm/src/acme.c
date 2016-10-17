@@ -968,9 +968,9 @@ static char *opt_arg(int argc, char **argv)
 
 static void parse_perf_arg(char *arg)
 {
-	if (!strnicmp("col", arg, 3)) {
+	if (!strncasecmp("col", arg, 3)) {
 		perf_query = PERF_QUERY_COL;
-	} else if (!strnicmp("all", arg, 3)) {
+	} else if (!strncasecmp("all", arg, 3)) {
 		perf_query = PERF_QUERY_EP_ALL;
 	} else if (!strcmp("s", arg)) {
 		perf_query = PERF_QUERY_EP_ADDR;

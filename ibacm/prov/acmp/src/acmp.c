@@ -1057,7 +1057,7 @@ acmp_addr_lookup(struct acmp_ep *ep, uint8_t *addr, uint16_t type)
 			continue;
 
 		if ((type == ACM_ADDRESS_NAME &&
-		    !strnicmp((char *) ep->addr_info[i].info.name,
+		    !strncasecmp((char *) ep->addr_info[i].info.name,
 			      (char *) addr, ACM_MAX_ADDRESS)) ||
 		    !memcmp(ep->addr_info[i].info.addr, addr,
 			    ACM_MAX_ADDRESS)) {
@@ -1993,7 +1993,7 @@ static void acmp_query_perf(void *ep_context, uint64_t *values, uint8_t *cnt)
 
 static enum acmp_addr_prot acmp_convert_addr_prot(char *param)
 {
-	if (!stricmp("acm", param))
+	if (!strcasecmp("acm", param))
 		return ACMP_ADDR_PROT_ACM;
 
 	return addr_prot;
@@ -2001,9 +2001,9 @@ static enum acmp_addr_prot acmp_convert_addr_prot(char *param)
 
 static enum acmp_route_prot acmp_convert_route_prot(char *param)
 {
-	if (!stricmp("acm", param))
+	if (!strcasecmp("acm", param))
 		return ACMP_ROUTE_PROT_ACM;
-	else if (!stricmp("sa", param))
+	else if (!strcasecmp("sa", param))
 		return ACMP_ROUTE_PROT_SA;
 
 	return route_prot;
@@ -2011,9 +2011,9 @@ static enum acmp_route_prot acmp_convert_route_prot(char *param)
 
 static enum acmp_loopback_prot acmp_convert_loopback_prot(char *param)
 {
-	if (!stricmp("none", param))
+	if (!strcasecmp("none", param))
 		return ACMP_LOOPBACK_PROT_NONE;
-	else if (!stricmp("local", param))
+	else if (!strcasecmp("local", param))
 		return ACMP_LOOPBACK_PROT_LOCAL;
 
 	return loopback_prot;
@@ -2021,9 +2021,9 @@ static enum acmp_loopback_prot acmp_convert_loopback_prot(char *param)
 
 static enum acmp_route_preload acmp_convert_route_preload(char *param)
 {
-	if (!stricmp("none", param) || !stricmp("no", param))
+	if (!strcasecmp("none", param) || !strcasecmp("no", param))
 		return ACMP_ROUTE_PRELOAD_NONE;
-	else if (!stricmp("opensm_full_v1", param))
+	else if (!strcasecmp("opensm_full_v1", param))
 		return ACMP_ROUTE_PRELOAD_OSM_FULL_V1;
 
 	return route_preload;
@@ -2031,9 +2031,9 @@ static enum acmp_route_preload acmp_convert_route_preload(char *param)
 
 static enum acmp_addr_preload acmp_convert_addr_preload(char *param)
 {
-	if (!stricmp("none", param) || !stricmp("no", param))
+	if (!strcasecmp("none", param) || !strcasecmp("no", param))
 		return ACMP_ADDR_PRELOAD_NONE;
-	else if (!stricmp("acm_hosts", param))
+	else if (!strcasecmp("acm_hosts", param))
 		return ACMP_ADDR_PRELOAD_HOSTS;
 
 	return addr_preload;
@@ -2882,37 +2882,37 @@ static void acmp_set_options(void)
 		if (sscanf(s, "%31s%255s", opt, value) != 2)
 			continue;
 
-		if (!stricmp("addr_prot", opt))
+		if (!strcasecmp("addr_prot", opt))
 			addr_prot = acmp_convert_addr_prot(value);
-		else if (!stricmp("addr_timeout", opt))
+		else if (!strcasecmp("addr_timeout", opt))
 			addr_timeout = atoi(value);
-		else if (!stricmp("route_prot", opt))
+		else if (!strcasecmp("route_prot", opt))
 			route_prot = acmp_convert_route_prot(value);
 		else if (!strcmp("route_timeout", opt))
 			route_timeout = atoi(value);
-		else if (!stricmp("loopback_prot", opt))
+		else if (!strcasecmp("loopback_prot", opt))
 			loopback_prot = acmp_convert_loopback_prot(value);
-		else if (!stricmp("timeout", opt))
+		else if (!strcasecmp("timeout", opt))
 			timeout = atoi(value);
-		else if (!stricmp("retries", opt))
+		else if (!strcasecmp("retries", opt))
 			retries = atoi(value);
-		else if (!stricmp("resolve_depth", opt))
+		else if (!strcasecmp("resolve_depth", opt))
 			resolve_depth = atoi(value);
-		else if (!stricmp("send_depth", opt))
+		else if (!strcasecmp("send_depth", opt))
 			send_depth = atoi(value);
-		else if (!stricmp("recv_depth", opt))
+		else if (!strcasecmp("recv_depth", opt))
 			recv_depth = atoi(value);
-		else if (!stricmp("min_mtu", opt))
+		else if (!strcasecmp("min_mtu", opt))
 			min_mtu = acm_convert_mtu(atoi(value));
-		else if (!stricmp("min_rate", opt))
+		else if (!strcasecmp("min_rate", opt))
 			min_rate = acm_convert_rate(atoi(value));
-		else if (!stricmp("route_preload", opt))
+		else if (!strcasecmp("route_preload", opt))
 			route_preload = acmp_convert_route_preload(value);
-		else if (!stricmp("route_data_file", opt))
+		else if (!strcasecmp("route_data_file", opt))
 			strcpy(route_data_file, value);
-		else if (!stricmp("addr_preload", opt))
+		else if (!strcasecmp("addr_preload", opt))
 			addr_preload = acmp_convert_addr_preload(value);
-		else if (!stricmp("addr_data_file", opt))
+		else if (!strcasecmp("addr_data_file", opt))
 			strcpy(addr_data_file, value);
 	}
 
