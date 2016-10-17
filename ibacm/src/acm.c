@@ -44,12 +44,10 @@
 #include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
-#ifdef HAVE_NETLINK
 #include <infiniband/umad_types.h>
 #include <infiniband/umad_sa.h>
-#endif
 #include <dlist.h>
-#include <dlfcn.h> 
+#include <dlfcn.h>
 #include <search.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -57,18 +55,14 @@
 #include <netinet/in.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#ifdef HAVE_NETLINK
 #include <rdma/rdma_netlink.h>
 #include <rdma/ib_user_sa.h>
-#endif
 #include <poll.h>
 #include <inttypes.h>
 #include "acm_mad.h"
 #include "acm_util.h"
-#ifdef HAVE_NETLINK
 #if !defined(RDMA_NL_LS_F_ERR)
 	#include "acm_netlink.h"
-#endif
 #endif
 
 #define src_out     data[0]
@@ -78,9 +72,7 @@
 #define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
-#ifdef HAVE_NETLINK
 #define NL_CLIENT_INDEX 0
-#endif
 
 struct acmc_subnet {
 	DLIST_ENTRY            entry;
@@ -89,8 +81,8 @@ struct acmc_subnet {
 
 struct acmc_prov {
 	struct acm_provider    *prov;
-	void                   *handle; 
-	DLIST_ENTRY            entry;   
+	void                   *handle;
+	DLIST_ENTRY            entry;
 	DLIST_ENTRY            subnet_list;
 };
 
@@ -167,7 +159,6 @@ struct acmc_sa_req {
 	struct acm_sa_mad	mad;
 };
 
-#ifdef HAVE_NETLINK
 struct acm_nl_path {
 	struct nlattr			attr_hdr;
 	struct ib_path_rec_data		rec;
@@ -182,7 +173,6 @@ struct acm_nl_msg {
 		struct acm_nl_path		path[0];
 	};
 };
-#endif
 
 static char def_prov_name[ACM_PROV_NAME_SIZE] = "ibacmp";
 static DLIST_ENTRY provider_list;
@@ -205,9 +195,7 @@ static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey);
 static int acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 			      size_t addr_len, uint8_t addr_type);
 static void acm_event_handler(struct acmc_device *dev);
-#ifdef HAVE_NETLINK
 static int acm_nl_send(SOCKET sock, struct acm_msg *msg);
-#endif
 
 static struct sa_data {
 	int		timeout;
@@ -319,7 +307,7 @@ acm_alloc_prov_context(struct acm_provider *prov)
 	return ctx;
 }
 
-static struct acmc_prov_context * 
+static struct acmc_prov_context *
 acm_get_prov_context(DLIST_ENTRY *list, struct acm_provider *prov)
 {
 	DLIST_ENTRY *entry;
@@ -502,11 +490,9 @@ int acm_resolve_response(uint64_t id, struct acm_msg *msg)
 		goto release;
 	}
 
-#ifdef HAVE_NETLINK
 	if (id == NL_CLIENT_INDEX)
 		ret = acm_nl_send(client->sock, msg);
 	else
-#endif
 		ret = send(client->sock, (char *) msg, msg->hdr.length, 0);
 
 	if (ret != msg->hdr.length)
@@ -605,7 +591,7 @@ static int acm_listen(void)
 		acm_log(0, "ERROR - unable to bind listen socket\n");
 		return socket_errno();
 	}
-	
+
 	ret = listen(listen_socket, 0);
 	if (ret == SOCKET_ERROR) {
 		acm_log(0, "ERROR - unable to start listen\n");
@@ -639,10 +625,8 @@ static void acm_svr_accept(void)
 	}
 
 	for (i = 0; i < FD_SETSIZE - 1; i++) {
-	#ifdef HAVE_NETLINK
 		if (i == NL_CLIENT_INDEX)
 			continue;
-	#endif
 		if (!atomic_get(&client_array[i].refcnt))
 			break;
 	}
@@ -681,7 +665,7 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 	}
 
 	for (i = 0; i < port->gid_cnt; i++) {
-		if (port->gid_tbl[i].global.subnet_prefix == 
+		if (port->gid_tbl[i].global.subnet_prefix ==
 		    path->dgid.global.subnet_prefix) {
 			return 1;
 		}
@@ -769,12 +753,12 @@ static struct acmc_ep *acm_get_ep(int index)
 		for (i = 0; i < dev->port_cnt; i++) {
 			if (dev->port[i].state != IBV_PORT_ACTIVE)
 				continue;
-			for (ep_entry = dev->port[i].ep_list.Next; 
+			for (ep_entry = dev->port[i].ep_list.Next;
 			     ep_entry != &dev->port[i].ep_list;
 			     ep_entry = ep_entry->Next, inx++) {
 				if (index == inx) {
-					ep = container_of(ep_entry, 
-							  struct acmc_ep, 
+					ep = container_of(ep_entry,
+							  struct acmc_ep,
 							  entry);
 					return ep;
 				}
@@ -1000,7 +984,7 @@ acm_svr_resolve_path(struct acmc_client *client, struct acm_msg *msg)
 	}
 
 	ep = container_of(addr->addr.endpoint, struct acmc_ep, endpoint);
-	return ep->port->prov->resolve(addr->prov_addr_context, msg, 
+	return ep->port->prov->resolve(addr->prov_addr_context, msg,
 				       client->index);
 }
 
@@ -1034,7 +1018,7 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	msg->hdr.data[2] = 0;
 
 	if ((ntohs(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
-	    && index < 1) || 
+	    && index < 1) ||
 	    ((ntohs(msg->hdr.length) >= (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && !(msg->resolve_data[0].flags & ACM_EP_FLAG_SOURCE)))) {
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
@@ -1047,8 +1031,8 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 			ep = acm_get_ep(index - 1);
 		} else {
 			addr = acm_get_ep_address(&msg->resolve_data[0]);
-			if (addr) 
-				ep = container_of(addr->addr.endpoint, 
+			if (addr)
+				ep = container_of(addr->addr.endpoint,
 						  struct acmc_ep, endpoint);
 		}
 
@@ -1093,7 +1077,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 		len = ACM_MSG_HDR_LENGTH + sizeof(struct acm_ep_config_data);
 		for (i = 0; i < MAX_EP_ADDR; i++) {
 			if (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID) {
-				memcpy(msg->ep_data[0].addrs[cnt++].name, 
+				memcpy(msg->ep_data[0].addrs[cnt++].name,
 				       ep->addr_info[i].string_buf,
 				       ACM_MAX_ADDRESS);
 			}
@@ -1392,7 +1376,6 @@ static void acm_ipnl_handler(void)
 	}
 }
 
-#ifdef HAVE_NETLINK
 static int acm_nl_send(SOCKET sock, struct acm_msg *msg)
 {
 	struct sockaddr_nl dst_addr;
@@ -1714,7 +1697,6 @@ static int acm_init_nl(void)
 	client_array[NL_CLIENT_INDEX].sock = nl_rcv_socket;
 	return 0;
 }
-#endif
 
 static void acm_server(void)
 {
@@ -1730,11 +1712,10 @@ static void acm_server(void)
 		acm_log(0, "ERROR - server listen failed\n");
 		return;
 	}
-#ifdef HAVE_NETLINK
+
 	ret = acm_init_nl();
 	if (ret)
 		acm_log(1, "Warn - Netlink init failed\n");
-#endif
 
 	while (1) {
 		n = (int) listen_socket;
@@ -1773,11 +1754,9 @@ static void acm_server(void)
 			if (client_array[i].sock != INVALID_SOCKET &&
 				FD_ISSET(client_array[i].sock, &readfds)) {
 				acm_log(2, "receiving from client %d\n", i);
-			#ifdef HAVE_NETLINK
 				if (i == NL_CLIENT_INDEX)
 					acm_nl_receive(&client_array[i]);
 				else
-			#endif
 					acm_svr_receive(&client_array[i]);
 			}
 		}
@@ -1786,7 +1765,7 @@ static void acm_server(void)
 		     dev_entry = dev_entry->Next) {
 			dev = container_of(dev_entry, struct acmc_device, entry);
 			if (FD_ISSET(dev->device.verbs->async_fd, &readfds)) {
-				acm_log(2, "handling event from %s\n", 
+				acm_log(2, "handling event from %s\n",
 					dev->device.verbs->device->name);
 				acm_event_handler(dev);
 			}
@@ -1901,7 +1880,7 @@ acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		   address is found */
 		if (!ep->prov_ep_context) {
 			ret = ep->port->prov->open_endpoint(&ep->endpoint,
-				ep->port->prov_port_context, 
+				ep->port->prov_port_context,
 				&ep->prov_ep_context);
 			if (ret) {
 				acm_log(0, "Error: failed to open prov ep\n");
@@ -1941,8 +1920,8 @@ acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port)
 
 			for (i = 0; i < dev->port[*port - 1].gid_cnt; i++) {
 
-				if (!memcmp(sgid->raw, 
-					    dev->port[*port - 1].gid_tbl[i].raw, 
+				if (!memcmp(sgid->raw,
+					    dev->port[*port - 1].gid_tbl[i].raw,
 					    sizeof(*sgid)))
 					return dev;
 			}
@@ -2071,17 +2050,17 @@ static void acm_ep_down(struct acmc_ep *ep)
 {
 	int i;
 
-	acm_log(1, "%s %d pkey 0x%04x\n", 
-		ep->port->dev->device.verbs->device->name, 
+	acm_log(1, "%s %d pkey 0x%04x\n",
+		ep->port->dev->device.verbs->device->name,
 		ep->port->port.port_num, ep->endpoint.pkey);
 	for (i = 0; i < MAX_EP_ADDR; i++) {
-		if (ep->addr_info[i].addr.type && 
-		    ep->addr_info[i].prov_addr_context) 
+		if (ep->addr_info[i].addr.type &&
+		    ep->addr_info[i].prov_addr_context)
 			ep->port->prov->remove_address(ep->addr_info[i].
 						       prov_addr_context);
 	}
 
-	if (ep->prov_ep_context) 
+	if (ep->prov_ep_context)
 		ep->port->prov->close_endpoint(ep->prov_ep_context);
 
 	free(ep);
@@ -2136,7 +2115,7 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 	return;
 
 ep_close:
-	if (ep->prov_ep_context) 
+	if (ep->prov_ep_context)
 		port->prov->close_endpoint(ep->prov_ep_context);
 
 	free(ep);
@@ -2149,22 +2128,22 @@ static void acm_assign_provider(struct acmc_port *port)
 	DLIST_ENTRY *sub_entry;
 	struct acmc_subnet *subnet;
 
-	acm_log(2, "port %s/%d\n", port->port.dev->verbs->device->name, 
+	acm_log(2, "port %s/%d\n", port->port.dev->verbs->device->name,
 		port->port.port_num);
-	for (entry = provider_list.Next; entry != &provider_list; 
+	for (entry = provider_list.Next; entry != &provider_list;
 	     entry = entry->Next) {
 		prov = container_of(entry, struct acmc_prov, entry);
 
-		for (sub_entry = prov->subnet_list.Next; 
-		     sub_entry != &prov->subnet_list; 
+		for (sub_entry = prov->subnet_list.Next;
+		     sub_entry != &prov->subnet_list;
 		     sub_entry = sub_entry->Next) {
 			subnet = container_of(sub_entry, struct acmc_subnet,
 					      entry);
-			if (subnet->subnet_prefix == 
+			if (subnet->subnet_prefix ==
 			    port->gid_tbl[0].global.subnet_prefix) {
 				acm_log(2, "Found provider %s for port %s/%d\n",
-					prov->prov->name, 
-					port->port.dev->verbs->device->name, 
+					prov->prov->name,
+					port->port.dev->verbs->device->name,
 					port->port.port_num);
 				port->prov = prov->prov;
 				return;
@@ -2175,11 +2154,11 @@ static void acm_assign_provider(struct acmc_port *port)
 	/* If no provider is found, assign the default provider*/
 	if (!port->prov) {
 		acm_log(2, "No prov found, assign default prov %s to %s/%d\n",
-			def_provider ? def_provider->prov->name: "NULL", 
-			port->port.dev->verbs->device->name, 
+			def_provider ? def_provider->prov->name: "NULL",
+			port->port.dev->verbs->device->name,
 			port->port.port_num);
 		port->prov = def_provider ? def_provider->prov : NULL;
-	} 
+	}
 }
 
 static void acm_port_get_gid_tbl(struct acmc_port *port)
@@ -2188,7 +2167,7 @@ static void acm_port_get_gid_tbl(struct acmc_port *port)
 	int i, j, ret;
 
 	for (i = 0;; i++) {
-		ret = ibv_query_gid(port->port.dev->verbs, port->port.port_num, 
+		ret = ibv_query_gid(port->port.dev->verbs, port->port.port_num,
 				    i, &gid);
 		if (ret || !gid.global.interface_id)
 			break;
@@ -2203,18 +2182,18 @@ static void acm_port_get_gid_tbl(struct acmc_port *port)
 		}
 
 		for (j = 0; j < i; j++) {
-			ret = ibv_query_gid(port->port.dev->verbs, 
-					    port->port.port_num, j, 
+			ret = ibv_query_gid(port->port.dev->verbs,
+					    port->port.port_num, j,
 					    &port->gid_tbl[j]);
 			if (ret || !port->gid_tbl[j].global.interface_id)
 				break;
 			acm_log(2, "guid %d: 0x%" PRIx64 " %" PRIx64 "\n", j,
-				port->gid_tbl[j].global.subnet_prefix, 
+				port->gid_tbl[j].global.subnet_prefix,
 				port->gid_tbl[j].global.interface_id);
 		}
 		port->gid_cnt = j;
 	}
-	acm_log(2, "port %d gid_cnt %d\n", port->port.port_num, 
+	acm_log(2, "port %d gid_cnt %d\n", port->port.port_num,
 		port->gid_cnt);
 }
 
@@ -2227,9 +2206,9 @@ static void acm_port_up(struct acmc_port *port)
 	int index = -1;
 	uint16_t first_pkey = 0;
 
-	acm_log(1, "%s %d\n", port->dev->device.verbs->device->name, 
+	acm_log(1, "%s %d\n", port->dev->device.verbs->device->name,
 		port->port.port_num);
-	ret = ibv_query_port(port->dev->device.verbs, port->port.port_num, 
+	ret = ibv_query_port(port->dev->device.verbs, port->port.port_num,
 			     &attr);
 	if (ret) {
 		acm_log(0, "ERROR - unable to get port state\n");
@@ -2251,7 +2230,7 @@ static void acm_port_up(struct acmc_port *port)
 		acm_log(1, "no provider assigned to port\n");
 		return;
 	}
-	dev_ctx = acm_acquire_prov_context(&port->dev->prov_dev_context_list, 
+	dev_ctx = acm_acquire_prov_context(&port->dev->prov_dev_context_list,
 					   port->prov);
 	if (!dev_ctx) {
 		acm_log(0, "Error -- failed to acquire dev context\n");
@@ -2265,7 +2244,7 @@ static void acm_port_up(struct acmc_port *port)
 		}
 	}
 
-	if (port->prov->open_port(&port->port, dev_ctx->context, 
+	if (port->prov->open_port(&port->port, dev_ctx->context,
 				  &port->prov_port_context)) {
 		acm_log(0, "Error -- failed to open the prov port\n");
 		goto err1;
@@ -2276,7 +2255,7 @@ static void acm_port_up(struct acmc_port *port)
 	 * Use the first pkey as the default pkey for parsing address file.
 	 */
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
-		ret = ibv_query_pkey(port->dev->device.verbs, 
+		ret = ibv_query_pkey(port->dev->device.verbs,
 				     port->port.port_num, i, &pkey);
 		if (ret)
 			continue;
@@ -2295,7 +2274,7 @@ static void acm_port_up(struct acmc_port *port)
 	port->def_acm_pkey = first_pkey;
 
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
-		ret = ibv_query_pkey(port->dev->device.verbs, 
+		ret = ibv_query_pkey(port->dev->device.verbs,
 				     port->port.port_num, i, &pkey);
 		if (ret)
 			continue;
@@ -2326,7 +2305,7 @@ static void acm_shutdown_port(struct acmc_port *port)
 	if (port->prov_port_context) {
 		port->prov->close_port(port->prov_port_context);
 		port->prov_port_context = NULL;
-		dev_ctx = acm_get_prov_context(&port->dev->prov_dev_context_list, 
+		dev_ctx = acm_get_prov_context(&port->dev->prov_dev_context_list,
 					       port->prov);
 		if (dev_ctx) {
 			if (atomic_get(&dev_ctx->refcnt) == 1)
@@ -2357,7 +2336,7 @@ static void acm_port_down(struct acmc_port *port)
 	port->state = attr.state;
 	acm_shutdown_port(port);
 
-	acm_log(1, "%s %d is down\n", port->dev->device.verbs->device->name, 
+	acm_log(1, "%s %d is down\n", port->dev->device.verbs->device->name,
 		port->port.port_num);
 }
 
@@ -2388,7 +2367,7 @@ static void acm_event_handler(struct acmc_device *dev)
 		return;
 
 	acm_log(2, "processing async event %s for %s\n",
-		ibv_event_type_str(event.event_type), 
+		ibv_event_type_str(event.event_type),
 		dev->device.verbs->device->name);
 	i = event.element.port_num - 1;
 
@@ -2583,7 +2562,7 @@ static void acm_load_prov_config(void)
 		/* Convert it into network byte order */
 		prefix = htonll(prefix);
 
-		for (entry = provider_list.Next; entry != &provider_list; 
+		for (entry = provider_list.Next; entry != &provider_list;
 		     entry = entry->Next) {
 			prov = container_of(entry, struct acmc_prov, entry);
 			if (!strcasecmp(prov->prov->name, prov_name)) {
@@ -2593,7 +2572,7 @@ static void acm_load_prov_config(void)
 					return;
 				}
 				subnet->subnet_prefix = prefix;
-				DListInsertTail(&subnet->entry, 
+				DListInsertTail(&subnet->entry,
 						&prov->subnet_list);
 			}
 		}
@@ -2601,7 +2580,7 @@ static void acm_load_prov_config(void)
 
 	fclose(fd);
 
-	for (entry = provider_list.Next; entry != &provider_list; 
+	for (entry = provider_list.Next; entry != &provider_list;
 	     entry = entry->Next) {
 		prov = container_of(entry, struct acmc_prov, entry);
 		if (!strcasecmp(prov->prov->name, def_prov_name)) {
@@ -2633,7 +2612,7 @@ static int acm_open_providers(void)
 	}
 
 	while ((dent = readdir(shlib_dir))) {
-		if (!strstr(dent->d_name, ".so"))  
+		if (!strstr(dent->d_name, ".so"))
 			continue;
 
 		snprintf(file_name, sizeof(file_name), "%s/%s", prov_lib_path,
@@ -2688,7 +2667,7 @@ static int acm_open_providers(void)
 		prov->handle = handle;
 		DListInit(&prov->subnet_list);
 		DListInsertTail(&prov->entry, &provider_list);
-		if (!strcasecmp(provider->name, def_prov_name)) 
+		if (!strcasecmp(provider->name, def_prov_name))
 			def_provider = prov;
 	}
 
@@ -3143,10 +3122,8 @@ int CDECL_FUNC main(int argc, char **argv)
 	acm_server();
 
 	acm_log(0, "shutting down\n");
-#ifdef HAVE_NETLINK
 	if (client_array[NL_CLIENT_INDEX].sock != INVALID_SOCKET)
 		close(client_array[NL_CLIENT_INDEX].sock);
-#endif
 	acm_close_providers();
 	acm_stop_sa_handler();
 	umad_done();

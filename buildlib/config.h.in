@@ -6,9 +6,6 @@
 #define HAVE_TYPEOF 1
 #define HAVE_ISBLANK 1
 
-// FIXME: Remove this, we provide the netlink kernel headers ibacm needs
-#define HAVE_NETLINK 1
-
 // FIXME: Remove this, The cmake version hard-requires new style CLOEXEC support
 #define STREAM_CLOEXEC "e"
 
