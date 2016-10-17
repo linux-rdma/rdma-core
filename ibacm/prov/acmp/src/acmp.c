@@ -259,7 +259,7 @@ static atomic_t wait_cnt;
 static pthread_t retry_thread_id;
 static int retry_thread_started = 0;
 
-__thread char log_data[ACM_MAX_ADDRESS];
+static __thread char log_data[ACM_MAX_ADDRESS];
 
 /*
  * Service options - may be set through ibacm_opts.cfg file.

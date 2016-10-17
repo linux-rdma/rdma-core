@@ -69,10 +69,10 @@ enum perf_query_output {
 	PERF_QUERY_EP_ADDR
 };
 static enum perf_query_output perf_query;
-int verbose;
+static int verbose;
 
-struct ibv_context **verbs;
-int dev_cnt;
+static struct ibv_context **verbs;
+static int dev_cnt;
 
 #define VPRINT(format, ...) do { if (verbose) printf(format, ## __VA_ARGS__ ); } while (0)
 
