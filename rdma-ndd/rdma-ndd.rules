@@ -1,0 +1,3 @@
+# If an InfiniBand/RDMA device is installed with a writable node_description
+# sysfs then start rdma-ndd to keep it up to date
+SUBSYSTEM=="infiniband", TAG+="systemd", ATTRS{node_desc}=="*", ENV{SYSTEMD_WANTS}+="rdma-ndd.service"

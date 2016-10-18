@@ -299,6 +299,9 @@ rm -rf %{buildroot}/%{_initrddir}/
 %{_libexecdir}/rdma-fixup-mtrr.awk
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
+%{_sbindir}/rdma-ndd
+%{_unitdir}/rdma-ndd.service
+%{_mandir}/man8/rdma-ndd.*
 %license COPYING.*
 
 %files devel

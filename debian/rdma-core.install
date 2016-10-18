@@ -1,2 +1,6 @@
+lib/systemd/system/rdma-ndd.service
+lib/udev/rules.d/rdma-ndd.rules
+usr/sbin/rdma-ndd
 usr/share/doc/rdma-core/MAINTAINERS
 usr/share/doc/rdma-core/README.md
+usr/share/man/man8/rdma-ndd.8

@@ -1,0 +1,8 @@
+[Unit]
+Description=RDMA Node Description Daemon
+Documentation=man:rdma-ndd
+
+[Service]
+Restart=always
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/rdma-ndd -f
+
