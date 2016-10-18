@@ -1,0 +1,12 @@
+[Unit]
+Description=RDMA Node Description Daemon
+After=rdma.service
+
+[Service]
+Type=forking
+EnvironmentFile=@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma-ndd.conf
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/rdma-ndd
+
+[Install]
+WantedBy=multi-user.target
+

@@ -352,6 +352,7 @@ add_subdirectory(libibumad/tests)
 add_subdirectory(libibverbs/examples)
 add_subdirectory(librdmacm/examples)
 add_subdirectory(srp_daemon)
+add_subdirectory(rdma-ndd)
 
 rdma_finalize_libs()
 
