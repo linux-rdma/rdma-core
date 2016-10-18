@@ -69,10 +69,10 @@ enum perf_query_output {
 	PERF_QUERY_EP_ADDR
 };
 static enum perf_query_output perf_query;
-int verbose;
+static int verbose;
 
-struct ibv_context **verbs;
-int dev_cnt;
+static struct ibv_context **verbs;
+static int dev_cnt;
 
 #define VPRINT(format, ...) do { if (verbose) printf(format, ## __VA_ARGS__ ); } while (0)
 
@@ -968,9 +968,9 @@ static char *opt_arg(int argc, char **argv)
 
 static void parse_perf_arg(char *arg)
 {
-	if (!strnicmp("col", arg, 3)) {
+	if (!strncasecmp("col", arg, 3)) {
 		perf_query = PERF_QUERY_COL;
-	} else if (!strnicmp("all", arg, 3)) {
+	} else if (!strncasecmp("all", arg, 3)) {
 		perf_query = PERF_QUERY_EP_ALL;
 	} else if (!strcmp("s", arg)) {
 		perf_query = PERF_QUERY_EP_ADDR;
@@ -983,15 +983,11 @@ static void parse_perf_arg(char *arg)
 	}
 }
 
-int CDECL_FUNC main(int argc, char **argv)
+int main(int argc, char **argv)
 {
-	int op, ret;
+	int op, ret = 0;
 	int make_addr = 0;
 	int make_opts = 0;
-
-	ret = osd_init();
-	if (ret)
-		goto out;
 
 	while ((op = getopt(argc, argv, "e::f:s:d:vcA::O::D:P::S:C:V")) != -1) {
 		switch (op) {
@@ -1068,8 +1064,6 @@ int CDECL_FUNC main(int argc, char **argv)
 	if (!ret && make_opts)
 		ret = gen_opts();
 
-	osd_close();
-out:
 	if (verbose || !(make_addr || make_opts) || ret)
 		printf("return status 0x%x\n", ret);
 	return ret;

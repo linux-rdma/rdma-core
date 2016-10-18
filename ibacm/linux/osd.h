@@ -53,9 +53,6 @@
 #define ACM_ADDR_FILE "ibacm_addr.cfg"
 #define ACM_OPTS_FILE "ibacm_opts.cfg"
 
-#define LIB_DESTRUCTOR __attribute__((destructor))
-#define CDECL_FUNC
-
 #if DEFINE_ATOMICS
 typedef struct { pthread_mutex_t mut; int val; } atomic_t;
 static inline int atomic_inc(atomic_t *atomic)
@@ -90,9 +87,6 @@ typedef struct { volatile int val; } atomic_t;
 #define atomic_get(v) ((v)->val)
 #define atomic_set(v, s) ((v)->val = s)
 
-#define stricmp strcasecmp
-#define strnicmp strncasecmp
-
 typedef struct { pthread_cond_t cond; pthread_mutex_t mutex; } event_t;
 static inline void event_init(event_t *e)
 {
@@ -115,20 +109,6 @@ static inline int event_wait(event_t *e, int timeout)
 	return ret;
 }
 
-#define lock_t       pthread_mutex_t
-#define lock_init(x) pthread_mutex_init(x, NULL)
-#define lock_acquire pthread_mutex_lock
-#define lock_release pthread_mutex_unlock
-
-#define osd_init()  0
-#define osd_close()
-
-#define SOCKET         int
-#define SOCKET_ERROR   -1
-#define INVALID_SOCKET -1
-#define socket_errno() errno
-#define closesocket    close
-
 static inline uint64_t time_stamp_us(void)
 {
 	struct timeval curtime;
@@ -140,12 +120,5 @@ static inline uint64_t time_stamp_us(void)
 #define time_stamp_ms()  (time_stamp_us() / (uint64_t) 1000)
 #define time_stamp_sec() (time_stamp_ms() / (uint64_t) 1000)
 #define time_stamp_min() (time_stamp_sec() / (uint64_t) 60)
-
-#define PER_THREAD __thread
-static inline int beginthread(void (*func)(void *), void *arg)
-{
-	pthread_t thread;
-	return pthread_create(&thread, NULL, (void *(*)(void*)) func, arg);
-}
 
 #endif /* OSD_H */
