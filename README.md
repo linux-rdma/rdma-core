@@ -48,13 +48,13 @@ only load from the system path.
 ### Debian Derived
 
 ```sh
-$ apt-get install build-essential cmake gcc libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind
+$ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind
 ```
 
 ### Fedora
 
 ```sh
-$ dnf install cmake gcc libnl3-devel pkgconfig valgrind-devel ninja-build
+$ dnf install cmake gcc libnl3-devel systemd-devel pkgconfig valgrind-devel ninja-build
 ```
 
 NOTE: Fedora Core uses the name 'ninja-build' for the ninja command.
