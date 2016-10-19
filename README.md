@@ -25,6 +25,7 @@ is included:
  - ib_mthca.ko
  - iw_nes.ko
  - ocrdma.ko
+ - qedr.ko
  - rdma_rxe.ko
 
 Additional service daemons are provided for:
