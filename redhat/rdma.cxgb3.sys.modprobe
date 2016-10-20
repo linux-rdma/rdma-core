@@ -1,0 +1,1 @@
+install cxgb3 /sbin/modprobe --ignore-install cxgb3 $CMDLINE_OPTS && /sbin/modprobe iw_cxgb3

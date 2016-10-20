@@ -1,0 +1,17 @@
+[Unit]
+Description=Start or stop the daemon that attaches to SRP devices
+Documentation=file:///etc/rdma/rdma.conf file:///etc/srp_daemon.conf
+DefaultDependencies=false
+Conflicts=emergency.target emergency.service
+Requires=rdma.service
+Wants=opensm.service
+After=rdma.service opensm.service
+After=network.target
+Before=remote-fs-pre.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/srp_daemon.sh
+
+[Install]
+WantedBy=remote-fs-pre.target

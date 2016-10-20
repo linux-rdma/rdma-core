@@ -1,0 +1,41 @@
+# All lines in this file that start with a # are comments,
+# all other lines will be processed without argument checks
+# Format of this file is one sriov vf setting per line with
+# arguments as follows:
+#    vf [port #] [ethernet settings | infiniband settings]
+#
+#  @vf - PCI address of device to configure as found in
+#	  /sys/bus/pci/devices/
+#
+#  [port @port] - Optional: the port number we are setting on
+#         the device.  We always assume port 1 unless told
+#         otherwise.
+#
+#  Ethernet settings:
+#  mac <mac address> [additional options]
+#    @mac - mac address to assign to vf...this is currently required by
+#        the ip program if you wish to be able to set any of the other
+#        settings.  If you don't set anything on a vf, it will get a
+#        random mac address and you may use static IP addressing to
+#        have a consistent IP address in spite of the random mac
+#    @* - additional arguments are passed to ip link without any
+#      further processing/checking, additional options that could
+#      be passed as of the time of writing this are:
+#        [ vlan VLANID [ qos VLAN-QOS ] ]
+#        [ rate TXRATE ]
+#        [ spoofchk { on | off} ]
+#        [ state { auto | enable | disable} ]
+#
+#  InfiniBand settings:
+#  [guid <guid>] [pkey <space separated list of pkeys>]
+#    @guid - 64bit GUID value to assign to vf.  Omit this option to
+#          use a subnet manager assigned GUID.
+#    @pkey - one or more pkeys to assign to this guest, must be last
+#          item on line
+#
+#  Examples:
+#
+#    0000:44:00.1 guid 05011403007bcba1 pkey 0xffff 0x8002
+#    0000:44:00.1 port 2 mac aa:bb:cc:dd:ee:f0 spoofchk on
+#    0000:44:00.2 port 1 pkey 0x7fff 0x0002
+#    0000:44:00.2 port 2 mac aa:bb:cc:dd:ee:f1 vlan 10 spoofchk on state enable
