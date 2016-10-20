@@ -411,7 +411,7 @@ static void mlx5_get_cycles(uint64_t *cycles)
 	*cycles = get_cycles();
 }
 #else
-static void mlx5_stall_poll_cq()
+static void mlx5_stall_poll_cq(void)
 {
 }
 static void mlx5_stall_cycles_poll_cq(uint64_t cycles)
