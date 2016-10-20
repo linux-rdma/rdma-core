@@ -144,7 +144,6 @@ M:	Ram Amrani <Ram.Amrani@cavium.com>
 M:	Ariel Elior <Ariel.Elior@cavium.com>
 S:	Supported
 F:	providers/qedr/
-P:	Doug Ledford <dledford@redhat.com>
 
 RXE SOFT ROCEE USERSPACE PROVIDER (for rdma_rxe.ko)
 M:	Moni Shoua <monis@mellanox.com>
