@@ -85,7 +85,8 @@ This is a simple example without the split sub packages to get things started.
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
 	 -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{my_unitdir} \
 	 -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
-	 -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir}
+	 -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
+	 -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version}
 %make_jobs
 
 %install
@@ -102,6 +103,8 @@ rm -rf %{buildroot}/%{my_unitdir}/
 
 %files
 %doc %{_mandir}/man*/*
+%doc %{_docdir}/%{name}-%{version}/README.md
+%doc %{_docdir}/%{name}-%{version}/MAINTAINERS
 %{_bindir}/*
 %{_includedir}/*
 %{_libdir}/lib*.so*
@@ -110,6 +113,7 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %{_libdir}/rsocket/*
 %{_sbindir}/*
 %{_libexecdir}/*
+%{_docdir}/%{name}-%{version}/*
 %if 0%{?_unitdir:1}
 %{_unitdir}/*
 %else
