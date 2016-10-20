@@ -104,9 +104,6 @@ do {								\
 		      ##__VA_ARGS__);	fflush(fd); }		\
 } while (0)
 
-#define ROUND_UP_X(_val, _x) \
-	(((unsigned long)(_val) + ((_x)-1)) & (long)~((_x)-1))
-
 struct qelr_buf {
 	void		*addr;
 	size_t		len;		/* a 64 uint is used as s preparation
@@ -292,9 +289,6 @@ static inline struct qelr_cq *get_qelr_cq(struct ibv_cq *ibcq)
 #define QELR_RESP_RDMA (RDMA_CQE_RESPONDER_RDMA_FLG_MASK <<	\
 			RDMA_CQE_RESPONDER_RDMA_FLG_SHIFT)
 #define QELR_RESP_RDMA_IMM (QELR_RESP_IMM | QELR_RESP_RDMA)
-
-#define round_up(_val, _x) \
-	(((unsigned long)(_val) + ((_x)-1)) & (long)~((_x)-1))
 
 #define TYPEPTR_ADDR_SET(type_ptr, field, vaddr)			\
 	do {								\
