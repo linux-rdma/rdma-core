@@ -210,7 +210,7 @@ static void load_driver(const char *name)
 	}
 
 	/* If configured with a provider plugin path then try that next */
-	if (sizeof(VERBS_PROVIDER_DIR) >= 1) {
+	if (sizeof(VERBS_PROVIDER_DIR) > 1) {
 		if (asprintf(&so_name, VERBS_PROVIDER_DIR "/lib%s" DLOPEN_TRAILER, name) <
 		    0)
 			goto out_asprintf;

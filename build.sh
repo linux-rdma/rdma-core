@@ -23,9 +23,9 @@ fi
 cd "$BUILDDIR"
 
 if [ "x$NINJA" == "x" ]; then
-    cmake ..
+    $CMAKE ..
     make
 else
-    cmake -GNinja ..
+    $CMAKE -GNinja ..
     $NINJA
 fi
