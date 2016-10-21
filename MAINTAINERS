@@ -139,6 +139,12 @@ M:	Devesh Sharma <Devesh.sharma@broadcom.com>
 S:	Supported
 F:	providers/ocrdma/
 
+QEDR USERSPACE PROVIDER (for qedr.ko)
+M:	Ram Amrani <Ram.Amrani@cavium.com>
+M:	Ariel Elior <Ariel.Elior@cavium.com>
+S:	Supported
+F:	providers/qedr/
+
 RXE SOFT ROCEE USERSPACE PROVIDER (for rdma_rxe.ko)
 M:	Moni Shoua <monis@mellanox.com>
 S:	Supported
