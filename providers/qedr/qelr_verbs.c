@@ -50,9 +50,6 @@
 #include "qelr_chain.h"
 #include "qelr_verbs.h"
 
-#define PTR_LO(x) ((uint32_t)(((uint64_t)(x)) & 0xffffffff))
-#define PTR_HI(x) ((uint32_t)(((uint64_t)(x)) >> 32))
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <execinfo.h>
@@ -504,8 +501,8 @@ qelr_create_qp_configure_req(struct qelr_qp *qp,
 			     struct qelr_create_qp_req *req)
 {
 	memset(req, 0, sizeof(*req));
-	req->qp_handle_hi = PTR_HI(qp);
-	req->qp_handle_lo = PTR_LO(qp);
+	req->qp_handle_hi = U64_HI(qp);
+	req->qp_handle_lo = U64_LO(qp);
 	qelr_create_qp_configure_sq_req(qp, req);
 	qelr_create_qp_configure_rq_req(qp, req);
 }
@@ -566,8 +563,8 @@ static void qelr_print_ah_attr(struct qelr_devctx *cxt, struct ibv_ah_attr *attr
 {
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
 		   "grh.dgid=[%lx:%lx], grh.flow_label=%d, grh.sgid_index=%d, grh.hop_limit=%d, grh.traffic_class=%d, dlid=%d, sl=%d, src_path_bits=%d, static_rate = %d, port_num=%d\n",
-		   attr->grh.dgid.global.interface_id,
-		   attr->grh.dgid.global.subnet_prefix,
+		   (unsigned long)attr->grh.dgid.global.interface_id,
+		   (unsigned long)attr->grh.dgid.global.subnet_prefix,
 		   attr->grh.flow_label, attr->grh.hop_limit,
 		   attr->grh.sgid_index, attr->grh.traffic_class, attr->dlid,
 		   attr->sl, attr->src_path_bits,
@@ -953,7 +950,7 @@ static uint32_t qelr_prepare_sq_inline_data(struct qelr_qp *qp,
 	/* copy data inline */
 	for (i = 0; i < wr->num_sge; i++) {
 		uint32_t len = wr->sg_list[i].length;
-		void *src = (void *)wr->sg_list[i].addr;
+		void *src = (void *)(uintptr_t)wr->sg_list[i].addr;
 
 		qelr_edpm_set_payload(qp, src, wr->sg_list[i].length);
 
@@ -1503,12 +1500,9 @@ static enum rdma_cqe_type cqe_get_type(union rdma_cqe *cqe)
 
 static struct qelr_qp *cqe_get_qp(union rdma_cqe *cqe)
 {
-	struct rdma_cqe_requester *resp_cqe = &cqe->req;
-	struct qelr_qp *qp;
+	struct regpair *qph = &cqe->req.qp_handle;
 
-	qp = (struct qelr_qp *)HILO_U64(resp_cqe->qp_handle.hi,
-					resp_cqe->qp_handle.lo);
-	return qp;
+	return (struct qelr_qp *)HILO_U64(qph->hi, qph->lo);
 }
 
 static int process_req(struct qelr_qp *qp, struct qelr_cq *cq, int num_entries,

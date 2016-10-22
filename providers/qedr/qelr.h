@@ -303,9 +303,9 @@ static inline struct qelr_cq *get_qelr_cq(struct ibv_cq *ibcq)
 		(sge)->flags = htole32(vflags);		\
 	} while (0)
 
-#define U64_HI(val) ((uint32_t)(((uint64_t)(val)) >> 32))
-#define U64_LO(val) ((uint32_t)(((uint64_t)(val)) & 0xffffffff))
-#define HILO_U64(hi, lo)		((((uint64_t)(hi)) << 32) + (lo))
+#define U64_HI(val) ((uint32_t)(((uint64_t)(uintptr_t)(val)) >> 32))
+#define U64_LO(val) ((uint32_t)(((uint64_t)(uintptr_t)(val)) & 0xffffffff))
+#define HILO_U64(hi, lo) ((uintptr_t)((((uint64_t)(hi)) << 32) + (lo)))
 
 #define QELR_MAX_RQ_WQE_SIZE (RDMA_MAX_SGE_PER_RQ_WQE)
 #define QELR_MAX_SQ_WQE_SIZE (ROCE_REQ_MAX_SINGLE_SQ_WQE_SIZE /	\
