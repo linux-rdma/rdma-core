@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2010,2011 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2011,2016 Oracle and/or its affiliates. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -655,15 +656,22 @@ int main(int argc, char **argv)
 
 			/* Setup portid for peer port */
 			memcpy(&peerportid, &portid, sizeof(peerportid));
-			peerportid.drpath.cnt = 1;
-			peerportid.drpath.p[1] = (uint8_t) portnum;
+			if (portid.lid == 0) {
+				peerportid.drpath.cnt++;
+				if (peerportid.drpath.cnt == IB_SUBNET_PATH_HOPS_MAX) {
+					IBEXIT("Too many hops");
+				}
+			} else {
+				peerportid.drpath.cnt = 1;
 
-			/* Set DrSLID to local lid */
-			if (resolve_self(ibd_ca, ibd_ca_port, &selfportid,
-						&selfport, 0) < 0)
-				IBEXIT("could not resolve self");
-			peerportid.drpath.drslid = (uint16_t) selfportid.lid;
-			peerportid.drpath.drdlid = 0xffff;
+				/* Set DrSLID to local lid */
+				if (resolve_self(ibd_ca, ibd_ca_port, &selfportid,
+						         &selfport, 0) < 0)
+					IBEXIT("could not resolve self");
+				peerportid.drpath.drslid = (uint16_t) selfportid.lid;
+				peerportid.drpath.drdlid = 0xffff;
+			}
+			peerportid.drpath.p[peerportid.drpath.cnt] = (uint8_t) portnum;
 
 			/* Get peer port NodeInfo to obtain peer port number */
 			is_peer_switch = get_node_info(&peerportid, data);
