@@ -217,6 +217,7 @@ enum mlx5_rsc_type {
 
 enum {
 	MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE = 1 << 0,
+	MLX5_USER_CMDS_SUPP_UHW_CREATE_AH    = 1 << 1,
 };
 
 struct mlx5_resource {
@@ -470,6 +471,7 @@ struct mlx5_av {
 struct mlx5_ah {
 	struct ibv_ah			ibv_ah;
 	struct mlx5_av			av;
+	bool				kern_ah;
 };
 
 struct mlx5_rwq {
