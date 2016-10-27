@@ -71,7 +71,7 @@ uint32_t qelr_dp_module;
 	{ .vendor = PCI_VENDOR_ID_QLOGIC,	\
 	  .device = PCI_DEVICE_ID_QLOGIC_##d }
 
-struct {
+static const struct {
 	unsigned int vendor;
 	unsigned int device;
 } hca_table[] = {

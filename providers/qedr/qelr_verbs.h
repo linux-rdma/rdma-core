@@ -40,44 +40,38 @@
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
 
-struct ibv_device *qelr_driver_init(const char *, int);
+int qelr_query_device(struct ibv_context *context,
+		      struct ibv_device_attr *attr);
+int qelr_query_port(struct ibv_context *context, uint8_t port,
+		    struct ibv_port_attr *attr);
 
-int qelr_query_device(struct ibv_context *, struct ibv_device_attr *);
-int qelr_query_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
+struct ibv_pd *qelr_alloc_pd(struct ibv_context *context);
+int qelr_dealloc_pd(struct ibv_pd *ibpd);
 
-struct ibv_pd *qelr_alloc_pd(struct ibv_context *);
-int qelr_dealloc_pd(struct ibv_pd *);
+struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
+			   size_t len, int access);
+int qelr_dereg_mr(struct ibv_mr *mr);
 
-struct ibv_mr *qelr_reg_mr(struct ibv_pd *, void *, size_t,
-			   int ibv_access_flags);
-int qelr_dereg_mr(struct ibv_mr *);
-
-struct ibv_cq *qelr_create_cq(struct ibv_context *, int,
-			      struct ibv_comp_channel *, int);
+struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
+			      struct ibv_comp_channel *channel,
+			      int comp_vector);
+int qelr_arm_cq(struct ibv_cq *ibcq, int solicited);
+int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc);
+void qelr_cq_event(struct ibv_cq *ibcq);
 int qelr_destroy_cq(struct ibv_cq *);
-int qelr_poll_cq(struct ibv_cq *, int, struct ibv_wc *);
-void qelr_cq_event(struct ibv_cq *);
-int qelr_arm_cq(struct ibv_cq *, int);
 
-int qelr_query_srq(struct ibv_srq *ibv_srq, struct ibv_srq_attr *attr);
-int qelr_modify_srq(struct ibv_srq *ibv_srq, struct ibv_srq_attr *attr,
-		    int attr_mask);
-struct ibv_srq *qelr_create_srq(struct ibv_pd *, struct ibv_srq_init_attr *);
-int qelr_destroy_srq(struct ibv_srq *ibv_srq);
-int qelr_post_srq_recv(struct ibv_srq *, struct ibv_recv_wr *,
-		       struct ibv_recv_wr **bad_wr);
+struct ibv_qp *qelr_create_qp(struct ibv_pd *pd,
+			      struct ibv_qp_init_attr *attrs);
+int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
+		   int attr_mask);
+int qelr_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		  int attr_mask, struct ibv_qp_init_attr *init_attr);
+int qelr_destroy_qp(struct ibv_qp *ibqp);
 
-struct ibv_qp *qelr_create_qp(struct ibv_pd *, struct ibv_qp_init_attr *);
-int qelr_modify_qp(struct ibv_qp *, struct ibv_qp_attr *,
-		   int ibv_qp_attr_mask);
-int qelr_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
-		  struct ibv_qp_init_attr *init_attr);
-int qelr_destroy_qp(struct ibv_qp *);
-
-int qelr_post_send(struct ibv_qp *, struct ibv_send_wr *,
-		   struct ibv_send_wr **);
-int qelr_post_recv(struct ibv_qp *, struct ibv_recv_wr *,
-		   struct ibv_recv_wr **);
+int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
+		   struct ibv_send_wr **bad_wr);
+int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		   struct ibv_recv_wr **bad_wr);
 
 void qelr_async_event(struct ibv_async_event *event);
 #endif /* __QELR_VERBS_H__ */
