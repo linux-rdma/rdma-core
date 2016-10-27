@@ -1214,8 +1214,8 @@ static int init_iwpm_clients(__u32 iwarp_clients[])
 {
 	int client_num = 2;
 
-	iwarp_clients[0] = RDMA_NL_NES;
-	iwarp_clients[1] = RDMA_NL_C4IW;
+	iwarp_clients[0] = RDMA_NL_IWCM;
+	iwarp_clients[1] = RDMA_NL_IWCM+1; /* Legacy RDMA_NL_C4IW for old kernels */
 
 	return client_num;
 }

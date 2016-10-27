@@ -61,9 +61,6 @@
 #include <ccan/list.h>
 #include "acm_mad.h"
 #include "acm_util.h"
-#if !defined(RDMA_NL_LS_F_ERR)
-	#include "acm_netlink.h"
-#endif
 
 #define src_out     data[0]
 #define src_index   data[1]
