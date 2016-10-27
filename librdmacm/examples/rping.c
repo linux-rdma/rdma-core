@@ -224,6 +224,8 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 
 	case RDMA_CM_EVENT_DEVICE_REMOVAL:
 		fprintf(stderr, "cma detected device removal!!!!\n");
+		cb->state = ERROR;
+		sem_post(&cb->sem);
 		ret = -1;
 		break;
 
