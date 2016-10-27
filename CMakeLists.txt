@@ -19,6 +19,8 @@
 #      Produce static libraries along with the usual shared libraries.
 #  -DVERBS_PROVIDER_DIR='' (default /usr/lib.../libibverbs)
 #      Use the historical search path for providers, in the standard system library.
+#  -DKERNEL_DIR='.../linux' (default '')
+#      If set use the kernel UAPI headers from this kernel source tree.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(RDMA C)
@@ -241,10 +243,7 @@ endif()
 # should rely on this.
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
 
-# Are our kernel headers new enough?
-# If not replace them with built-in copies so we can continue to build.
-CHECK_INCLUDE_FILE("rdma/rdma_user_rxe.h" HAVE_RDMA_USER_RXE)
-RDMA_DoFixup("${HAVE_RDMA_USER_RXE}" "rdma/rdma_user_rxe.h")
+include(RDMA_LinuxHeaders)
 
 #-------------------------
 # Apply fixups
@@ -375,9 +374,7 @@ else()
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
   endif()
 endif()
-if (NOT HAVE_RDMA_USER_RXE)
-  message(STATUS " rdma/rdma_user_rxe.h NOT found (old system kernel headers)")
-endif()
+rdma_report_missing_kheaders()
 if (NOT HAVE_C_WARNINGS)
   message(STATUS " extended C warnings NOT supported")
 endif()
