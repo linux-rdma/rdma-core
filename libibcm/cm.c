@@ -380,8 +380,8 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 
 int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 {
-	struct ibv_kern_path_rec p_path;
-	struct ibv_kern_path_rec *a_path;
+	struct ib_user_path_rec p_path;
+	struct ib_user_path_rec *a_path;
 	struct cm_abi_req *cmd;
 	void *msg;
 	int result;
@@ -646,7 +646,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		   void *private_data,
 		   uint8_t private_data_len)
 {
-	struct ibv_kern_path_rec abi_path;
+	struct ib_user_path_rec abi_path;
 	struct cm_abi_lap *cmd;
 	void *msg;
 	int result;
@@ -673,7 +673,7 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_req_param *param)
 {
-	struct ibv_kern_path_rec abi_path;
+	struct ib_user_path_rec abi_path;
 	struct cm_abi_sidr_req *cmd;
 	void *msg;
 	int result;

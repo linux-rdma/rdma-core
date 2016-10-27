@@ -34,7 +34,7 @@
 #define RDMA_CMA_ABI_H
 
 #include <infiniband/kern-abi.h>
-#include <infiniband/sa-kern-abi.h>
+#include <rdma/ib_user_sa.h>
 #include <infiniband/sa.h>
 
 /*
@@ -173,7 +173,7 @@ struct ucma_abi_query {
 
 struct ucma_abi_query_route_resp {
 	__u64 node_guid;
-	struct ibv_kern_path_rec ib_route[2];
+	struct ib_user_path_rec ib_route[2];
 	struct sockaddr_in6 src_addr;
 	struct sockaddr_in6 dst_addr;
 	__u32 num_paths;

@@ -36,7 +36,7 @@
 #include <infiniband/verbs.h>
 #include <infiniband/sa.h>
 #include <infiniband/kern-abi.h>
-#include <infiniband/sa-kern-abi.h>
+#include <rdma/ib_user_sa.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -55,9 +55,9 @@ void ibv_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
 				struct ibv_kern_ah_attr *src);
 
 void ibv_copy_path_rec_from_kern(struct ibv_sa_path_rec *dst,
-				 struct ibv_kern_path_rec *src);
+				 struct ib_user_path_rec *src);
 
-void ibv_copy_path_rec_to_kern(struct ibv_kern_path_rec *dst,
+void ibv_copy_path_rec_to_kern(struct ib_user_path_rec *dst,
 			       struct ibv_sa_path_rec *src);
 
 END_C_DECLS
