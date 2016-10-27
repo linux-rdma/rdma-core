@@ -1,5 +1,6 @@
 [Unit]
 Description=iWarp Port Mapper
+Documentation=man:iwpmd file:/etc/iwpmd.conf
 After=network.target
 
 [Service]

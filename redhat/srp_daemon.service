@@ -1,6 +1,6 @@
 [Unit]
 Description=Start or stop the daemon that attaches to SRP devices
-Documentation=file:///etc/rdma/rdma.conf file:///etc/srp_daemon.conf
+Documentation=man:srp_daemon file:/etc/rdma/rdma.conf file:/etc/srp_daemon.conf
 DefaultDependencies=false
 Conflicts=emergency.target emergency.service
 Requires=rdma.service
