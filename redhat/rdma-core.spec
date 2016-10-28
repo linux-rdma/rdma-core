@@ -267,7 +267,7 @@ install -D -m0644 redhat/rdma.fixup-mtrr.awk %{buildroot}%{_libexecdir}/rdma-fix
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 # ibacm
-%{buildroot}/%{_bindir}/ib_acme -D . -O
+bin/ib_acme -D . -O
 install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 install -D -m0644 redhat/ibacm.service %{buildroot}%{_unitdir}/
 
