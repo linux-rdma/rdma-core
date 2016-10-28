@@ -8,10 +8,8 @@ Summary: RDMA core userspace libraries and daemons
 #  providers/rxe/ Incorporates code from ipathverbs and contains the patent clause
 #  providers/hfi1verbs Uses the 3 Clause BSD license
 License: GPLv2 or BSD
-Url: http://openfabrics.org/
+Url: https://github.com/linux-rdma/rdma-core
 Source: rdma-core-%{version}.tgz
-# https://github.com/linux-rdma/rdma-core
-BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires: binutils
 BuildRequires: cmake >= 2.8.11
@@ -20,7 +18,6 @@ BuildRequires: pkgconfig
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
 BuildRequires: valgrind-devel
-BuildRequires: libnl3-devel
 
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone
 # package called 'rdma', which we're supplanting here.
@@ -40,11 +37,6 @@ BuildRequires: ninja-build
 BuildRequires: make
 %define make_jobs make -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} make install
-%endif
-
-%define systemd_dep systemd-units
-%if 0%{?fedora} >= 18
-%define systemd_dep systemd
 %endif
 
 %description
@@ -125,9 +117,9 @@ displays information about RDMA devices.
 
 %package -n ibacm
 Summary: InfiniBand Communication Manager Assistant
-Requires(post): %{systemd_dep}
-Requires(preun): %{systemd_dep}
-Requires(postun): %{systemd_dep}
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
 Requires: rdma-core
 
 %description -n ibacm
@@ -142,9 +134,9 @@ library knows how to talk directly to the ibacm daemon to retrieve data.
 
 %package -n iwpmd
 Summary: iWarp Port Mapper userspace daemon
-Requires(post): %{systemd_dep}
-Requires(preun): %{systemd_dep}
-Requires(postun): %{systemd_dep}
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
 Requires: rdma-core
 
 %description -n iwpmd
@@ -178,7 +170,6 @@ librdmacm provides a userspace RDMA Communication Managment API.
 
 %package -n librdmacm-utils
 Summary: Examples for the librdmacm library
-Requires: librdmacm%{?_isa} = %{version}-%{release}
 
 %description -n librdmacm-utils
 Example test programs for the librdmacm library.
@@ -188,9 +179,9 @@ Summary: Tools for using the InfiniBand SRP protocol devices
 Obsoletes: srptools <= 1.0.3
 Provides: srptools = %{version}-%{release}
 Obsoletes: openib-srptools <= 0.0.6
-Requires(post): %{systemd_dep}
-Requires(preun): %{systemd_dep}
-Requires(postun): %{systemd_dep}
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
 Requires: rdma-core
 
 %description -n srp_daemon
@@ -201,13 +192,6 @@ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 %setup
 
 %build
-
-# Detect if systemd is supported on this system
-%if 0%{?_unitdir:1}
-%define my_unitdir %{_unitdir}
-%else
-%define my_unitdir /tmp/
-%endif
 
 # New RPM defines _rundir, usually as /run
 %if 0%{?_rundir:1}
@@ -228,7 +212,7 @@ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
          -DCMAKE_INSTALL_INFODIR:PATH=%{_infodir} \
          -DCMAKE_INSTALL_MANDIR:PATH=%{_mandir} \
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
-	 -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{my_unitdir} \
+	 -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
 	 -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
 	 -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
 	 -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version}
@@ -274,11 +258,8 @@ install -D -m0644 redhat/ibacm.service %{buildroot}%{_unitdir}/
 # srp_daemon
 install -D -m0644 redhat/srp_daemon.service %{buildroot}%{_unitdir}/
 
-%if 0%{?_unitdir:1}
+# Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
-%else
-rm -rf %{buildroot}/%{my_unitdir}/
-%endif
 
 %post -p /sbin/ldconfig
 %postun -p /sbin/ldconfig

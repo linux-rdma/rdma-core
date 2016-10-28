@@ -8,9 +8,8 @@ Summary: RDMA core userspace libraries and daemons
 #  providers/rxe/ Incorporates code from ipathverbs and contains the patent clause
 #  providers/hfi1verbs Uses the 3 Clause BSD license
 License: (GPLv2 or BSD) and (GPLv2 or PathScale-BSD)
-Url: http://openfabrics.org/
+Url: https://github.com/linux-rdma/rdma-core
 Source: rdma-core-%{version}.tgz
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 BuildRequires: binutils
 BuildRequires: cmake >= 2.8.11
@@ -60,6 +59,9 @@ This is a simple example without the split sub packages to get things started.
 # Detect if systemd is supported on this system
 %if 0%{?_unitdir:1}
 %define my_unitdir %{_unitdir}
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
 %else
 %define my_unitdir /tmp/
 %endif
