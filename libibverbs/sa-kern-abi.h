@@ -1,6 +1,4 @@
 /*
- * Copyright (c) 2005 Intel Corporation.  All rights reserved.
- *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
  * General Public License (GPL) Version 2, available from the file
@@ -33,33 +31,11 @@
 #ifndef INFINIBAND_SA_KERN_ABI_H
 #define INFINIBAND_SA_KERN_ABI_H
 
-#include <linux/types.h>
+#warning "This header is obsolete, use rdma/ib_user_sa.h instead"
 
-/*
- * Obsolete, deprecated names.  Will be removed in libibverbs 1.1.
- */
-#define ib_kern_path_rec	ibv_kern_path_rec
+#include <rdma/ib_user_sa.h>
 
-struct ibv_kern_path_rec {
-	__u8  dgid[16];
-	__u8  sgid[16];
-	__u16 dlid;
-	__u16 slid;
-	__u32 raw_traffic;
-	__u32 flow_label;
-	__u32 reversible;
-	__u32 mtu;
-	__u16 pkey;
-	__u8  hop_limit;
-	__u8  traffic_class;
-	__u8  numb_path;
-	__u8  sl;
-	__u8  mtu_selector;
-	__u8  rate_selector;
-	__u8  rate;
-	__u8  packet_life_time_selector;
-	__u8  packet_life_time;
-	__u8  preference;
-};
+#define ib_kern_path_rec ib_user_path_rec
+#define ibv_kern_path_rec ib_user_path_rec
 
-#endif /* INFINIBAND_SA_KERN_ABI_H */
+#endif

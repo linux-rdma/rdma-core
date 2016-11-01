@@ -45,13 +45,16 @@
 #include <stddef.h>
 
 #include <infiniband/cm.h>
-#include <infiniband/cm_abi.h>
+#include <rdma/ib_user_cm.h>
 #include <infiniband/driver.h>
 #include <infiniband/marshall.h>
 
 #include <valgrind/memcheck.h>
 
 #define PFX "libibcm: "
+
+#define IB_USER_CM_MIN_ABI_VERSION     4
+#define IB_USER_CM_MAX_ABI_VERSION     5
 
 static int abi_ver;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
@@ -69,7 +72,7 @@ static inline int ERR(int err)
 
 #define CM_CREATE_MSG_CMD_RESP(msg, cmd, resp, type, size) \
 do {                                        \
-	struct cm_abi_cmd_hdr *hdr;         \
+	struct ib_ucm_cmd_hdr *hdr;         \
                                             \
 	size = sizeof(*hdr) + sizeof(*cmd); \
 	msg = alloca(size);                 \
@@ -89,7 +92,7 @@ do {                                        \
 
 #define CM_CREATE_MSG_CMD(msg, cmd, type, size) \
 do {                                        \
-	struct cm_abi_cmd_hdr *hdr;         \
+	struct ib_ucm_cmd_hdr *hdr;         \
                                             \
 	size = sizeof(*hdr) + sizeof(*cmd); \
 	msg = alloca(size);                 \
@@ -244,8 +247,8 @@ err:	ib_cm_free_id(cm_id_priv);
 int ib_cm_create_id(struct ib_cm_device *device,
 		    struct ib_cm_id **cm_id, void *context)
 {
-	struct cm_abi_create_id_resp *resp;
-	struct cm_abi_create_id *cmd;
+	struct ib_ucm_create_id_resp *resp;
+	struct ib_ucm_create_id *cmd;
 	struct cm_id_private *cm_id_priv;
 	void *msg;
 	int result;
@@ -274,8 +277,8 @@ err:	ib_cm_free_id(cm_id_priv);
 
 int ib_cm_destroy_id(struct ib_cm_id *cm_id)
 {
-	struct cm_abi_destroy_id_resp *resp;
-	struct cm_abi_destroy_id *cmd;
+	struct ib_ucm_destroy_id_resp *resp;
+	struct ib_ucm_destroy_id *cmd;
 	struct cm_id_private *cm_id_priv;
 	void *msg;
 	int result;
@@ -303,8 +306,8 @@ int ib_cm_destroy_id(struct ib_cm_id *cm_id)
 
 int ib_cm_attr_id(struct ib_cm_id *cm_id, struct ib_cm_attr_param *param)
 {
-	struct cm_abi_attr_id_resp *resp;
-	struct cm_abi_attr_id *cmd;
+	struct ib_ucm_attr_id_resp *resp;
+	struct ib_ucm_attr_id *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -333,7 +336,7 @@ int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
 		       int *qp_attr_mask)
 {
 	struct ibv_kern_qp_attr *resp;
-	struct cm_abi_init_qp_attr *cmd;
+	struct ib_ucm_init_qp_attr *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -361,7 +364,7 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 		 uint64_t service_id,
 		 uint64_t service_mask)
 {
-	struct cm_abi_listen *cmd;
+	struct ib_ucm_listen *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -380,9 +383,9 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
 
 int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 {
-	struct ibv_kern_path_rec p_path;
-	struct ibv_kern_path_rec *a_path;
-	struct cm_abi_req *cmd;
+	struct ib_user_path_rec p_path;
+	struct ib_user_path_rec *a_path;
+	struct ib_ucm_req *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -433,7 +436,7 @@ int ib_cm_send_req(struct ib_cm_id *cm_id, struct ib_cm_req_param *param)
 
 int ib_cm_send_rep(struct ib_cm_id *cm_id, struct ib_cm_rep_param *param)
 {
-	struct cm_abi_rep *cmd;
+	struct ib_ucm_rep *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -471,7 +474,7 @@ static inline int cm_send_private_data(struct ib_cm_id *cm_id,
 				       void *private_data,
 				       uint8_t private_data_len)
 {
-	struct cm_abi_private_data *cmd;
+	struct ib_ucm_private_data *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -517,6 +520,14 @@ int ib_cm_send_drep(struct ib_cm_id *cm_id,
 
 static int cm_establish(struct ib_cm_id *cm_id)
 {
+	/* In kernel ABI 4 ESTABLISH was repurposed as NOTIFY and gained an
+	   extra field. For some reason the compat definitions were deleted
+	   from the uapi headers :( */
+#define IB_USER_CM_CMD_ESTABLISH IB_USER_CM_CMD_NOTIFY
+	struct cm_abi_establish { /* ABI 4 support */
+		__u32 id;
+	};
+
 	struct cm_abi_establish *cmd;
 	void *msg;
 	int result;
@@ -534,7 +545,7 @@ static int cm_establish(struct ib_cm_id *cm_id)
 
 int ib_cm_notify(struct ib_cm_id *cm_id, enum ibv_event_type event)
 {
-	struct cm_abi_notify *cmd;
+	struct ib_ucm_notify *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -565,7 +576,7 @@ static inline int cm_send_status(struct ib_cm_id *cm_id,
 				 void *private_data,
 				 uint8_t private_data_len)
 {
-	struct cm_abi_info *cmd;
+	struct ib_ucm_info *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -620,7 +631,7 @@ int ib_cm_send_mra(struct ib_cm_id *cm_id,
 		   void *private_data,
 		   uint8_t private_data_len)
 {
-	struct cm_abi_mra *cmd;
+	struct ib_ucm_mra *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -646,8 +657,8 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 		   void *private_data,
 		   uint8_t private_data_len)
 {
-	struct ibv_kern_path_rec abi_path;
-	struct cm_abi_lap *cmd;
+	struct ib_user_path_rec abi_path;
+	struct ib_ucm_lap *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -673,8 +684,8 @@ int ib_cm_send_lap(struct ib_cm_id *cm_id,
 int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_req_param *param)
 {
-	struct ibv_kern_path_rec abi_path;
-	struct cm_abi_sidr_req *cmd;
+	struct ib_user_path_rec abi_path;
+	struct ib_ucm_sidr_req *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -686,7 +697,6 @@ int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 	cmd->id             = cm_id->handle;
 	cmd->sid            = param->service_id;
 	cmd->timeout        = param->timeout_ms;
-	cmd->pkey           = param->path->pkey;
 	cmd->max_cm_retries = param->max_cm_retries;
 
 	ibv_copy_path_rec_to_kern(&abi_path, param->path);
@@ -707,7 +717,7 @@ int ib_cm_send_sidr_req(struct ib_cm_id *cm_id,
 int ib_cm_send_sidr_rep(struct ib_cm_id *cm_id,
 			struct ib_cm_sidr_rep_param *param)
 {
-	struct cm_abi_sidr_rep *cmd;
+	struct ib_ucm_sidr_rep *cmd;
 	void *msg;
 	int result;
 	int size;
@@ -739,7 +749,7 @@ int ib_cm_send_sidr_rep(struct ib_cm_id *cm_id,
 }
 
 static void cm_event_req_get(struct ib_cm_req_event_param *ureq,
-			     struct cm_abi_req_event_resp *kreq)
+			     struct ib_ucm_req_event_resp *kreq)
 {
 	ureq->remote_ca_guid             = kreq->remote_ca_guid;
 	ureq->remote_qkey                = kreq->remote_qkey;
@@ -763,7 +773,7 @@ static void cm_event_req_get(struct ib_cm_req_event_param *ureq,
 }
 
 static void cm_event_rep_get(struct ib_cm_rep_event_param *urep,
-			     struct cm_abi_rep_event_resp *krep)
+			     struct ib_ucm_rep_event_resp *krep)
 {
 	urep->remote_ca_guid      = krep->remote_ca_guid;
 	urep->remote_qkey         = krep->remote_qkey;
@@ -779,7 +789,7 @@ static void cm_event_rep_get(struct ib_cm_rep_event_param *urep,
 }
 
 static void cm_event_sidr_rep_get(struct ib_cm_sidr_rep_event_param *urep,
-				  struct cm_abi_sidr_rep_event_resp *krep)
+				  struct ib_ucm_sidr_rep_event_resp *krep)
 {
 	urep->status = krep->status;
 	urep->qkey   = krep->qkey;
@@ -789,9 +799,9 @@ static void cm_event_sidr_rep_get(struct ib_cm_sidr_rep_event_param *urep,
 int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 {
 	struct cm_id_private *cm_id_priv;
-	struct cm_abi_cmd_hdr *hdr;
-	struct cm_abi_event_get *cmd;
-	struct cm_abi_event_resp *resp;
+	struct ib_ucm_cmd_hdr *hdr;
+	struct ib_ucm_event_get *cmd;
+	struct ib_ucm_event_resp *resp;
 	struct ib_cm_event *evt = NULL;
 	struct ibv_sa_path_rec *path_a = NULL;
 	struct ibv_sa_path_rec *path_b = NULL;
@@ -861,7 +871,7 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 	evt->cm_id = (void *) (uintptr_t) resp->uid;
 	evt->event = resp->event;
 
-	if (resp->present & CM_ABI_PRES_PRIMARY) {
+	if (resp->present & IB_UCM_PRES_PRIMARY) {
 		path_a = malloc(sizeof(*path_a));
 		if (!path_a) {
 			result = ERR(ENOMEM);
@@ -869,7 +879,7 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 		}
 	}
 
-	if (resp->present & CM_ABI_PRES_ALTERNATE) {
+	if (resp->present & IB_UCM_PRES_ALTERNATE) {
 		path_b = malloc(sizeof(*path_b));
 		if (!path_b) {
 			result = ERR(ENOMEM);
@@ -940,7 +950,7 @@ int ib_cm_get_event(struct ib_cm_device *device, struct ib_cm_event **event)
 		break;
 	}
 
-	if (resp->present & CM_ABI_PRES_DATA) {
+	if (resp->present & IB_UCM_PRES_DATA) {
 		evt->private_data = data;
 		data = NULL;
 	}
