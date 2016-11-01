@@ -8,3 +8,4 @@ usr/share/man/man1/ib_acme.1
 usr/share/man/man1/ibacm.1
 usr/share/man/man7/ibacm.7
 usr/share/man/man7/ibacm_prov.7
+usr/share/doc/rdma-core/ibacm.md usr/share/doc/ibacm/

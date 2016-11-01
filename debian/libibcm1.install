@@ -1,1 +1,2 @@
 usr/lib/*/libibcm*.so.*
+usr/share/doc/rdma-core/libibcm.md usr/share/doc/libibcm1/

@@ -1,0 +1,183 @@
+#!/bin/bash
+# Network Interface Configuration System
+# Copyright (c) 1996-2013 Red Hat, Inc. all rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+. /etc/init.d/functions
+
+cd /etc/sysconfig/network-scripts
+. ./network-functions
+
+[ -f ../network ] && . ../network
+
+CONFIG=${1}
+
+source_config
+
+# Allow the user to override the detection of our physical device by passing
+# it in.  No checking is done, if the user gives us a bogus dev, it's
+# their problem.
+[ -n "${PHYSDEV}" ] && REALDEVICE="$PHYSDEV"
+
+. /etc/sysconfig/network
+
+# Check to make sure the device is actually up
+check_device_down ${DEVICE} && exit 0
+
+# If we are a P_Key device, we need to munge a few things
+if [ "${PKEY}" = yes ]; then
+	[ -z "${PKEY_ID}" ] && {
+	        net_log $"InfiniBand IPoIB device: PKEY=yes requires a PKEY_ID"
+	        exit 1
+	}
+	[ -z "${PHYSDEV}" ] && {
+	        net_log $"InfiniBand IPoIB device: PKEY=yes requires a PHYSDEV"
+	        exit 1
+	}
+	# Normalize our PKEY_ID to have the high bit set
+	NEW_PKEY_ID=`printf "0x%04x" $(( 0x8000 | ${PKEY_ID} ))`
+	NEW_PKEY_NAME=`printf "%04x" ${NEW_PKEY_ID}`
+	[ "${DEVICE}" != "${PHYSDEV}.${NEW_PKEY_NAME}" ] && {
+                net_log $"Configured DEVICE name does not match what new device name would be.  This
+is most likely because once the PKEY_ID was normalized, it no longer
+resulted in the expected device naming, and so the DEVICE entry in the
+config file needs to be updated to match. This can also be caused by
+giving PKEY_ID as a hex number but without using the mandatory 0x prefix.
+	Configured DEVICE=$DEVICE
+        Configured PHYSDEV=$PHYSDEV
+        Configured PKEY_ID=$PKEY_ID
+        Calculated PKEY_ID=$NEW_PKEY_ID
+        Calculated name=${PHYSDEV}.${NEW_PKEY_NAME}"
+                exit 1
+        }
+        [ -d "/sys/class/net/${DEVICE}" ] || exit 0
+        # When we get to downing the IP address, we need REALDEVICE to
+        # point to our PKEY device
+        REALDEVICE="${DEVICE}"
+fi
+
+
+if [ "${SLAVE}" != "yes" -o -z "${MASTER}" ]; then
+if [ -n "${HWADDR}" -a -z "${MACADDR}" ]; then
+    HWADDR=$(echo $HWADDR | tail -c 24)
+    FOUNDMACADDR=$(get_hwaddr ${REALDEVICE} | tail -c 24)
+    if [ -n "${FOUNDMACADDR}" -a "${FOUNDMACADDR}" != "${HWADDR}" ]; then
+        NEWCONFIG=$(get_config_by_hwaddr ${FOUNDMACADDR})
+	if [ -n "${NEWCONFIG}" ]; then
+	   eval $(LANG=C grep -F "DEVICE=" $NEWCONFIG)
+	else
+	   net_log $"Device ${DEVICE} has MAC address ${FOUNDMACADDR}, instead of configured address ${HWADDR}. Ignoring."
+	   exit 1
+	fi
+	if [ -n "${NEWCONFIG}" -a "${NEWCONFIG##*/}" != "${CONFIG##*/}" -a "${DEVICE}" = "${REALDEVICE}" ]; then
+	   exec /sbin/ifdown ${NEWCONFIG}
+	else
+	   net_log $"Device ${DEVICE} has MAC address ${FOUNDMACADDR}, instead of configured address ${HWADDR}. Ignoring."
+	   exit 1
+	fi
+    fi
+fi
+fi
+
+if is_bonding_device ${DEVICE} ; then
+    for device in $(LANG=C grep -l "^[[:space:]]*MASTER=\"\?${DEVICE}\"\?\([[:space:]#]\|$\)" /etc/sysconfig/network-scripts/ifcfg-*) ; do
+	is_ignored_file "$device" && continue
+	/sbin/ifdown ${device##*/}
+    done
+    for arg in $BONDING_OPTS ; do
+	key=${arg%%=*};
+	[[ "${key}" != "arp_ip_target" ]] && continue
+	value=${arg##*=};
+	if [ "${value:0:1}" != "" ]; then
+            OLDIFS=$IFS;
+            IFS=',';
+            for arp_ip in $value; do
+		if grep -q $arp_ip /sys/class/net/${DEVICE}/bonding/arp_ip_target; then
+                    echo "-$arp_ip" > /sys/class/net/${DEVICE}/bonding/arp_ip_target
+		fi
+            done
+            IFS=$OLDIFS;
+	else
+	    value=${value#+};
+	    if grep -q $value /sys/class/net/${DEVICE}/bonding/arp_ip_target; then
+                echo "-$value" > /sys/class/net/${DEVICE}/bonding/arp_ip_target
+	    fi
+	fi
+    done
+fi
+
+/etc/sysconfig/network-scripts/ifdown-ipv6 ${CONFIG}
+
+retcode=0
+[ -n "$(pidof -x dhclient)" ] && {
+   for VER in "" 6 ; do
+	if [ -f "/var/run/dhclient$VER-${DEVICE}.pid" ]; then
+		dhcpid=$(cat /var/run/dhclient$VER-${DEVICE}.pid)
+		generate_lease_file_name $VER
+		if [[ "$DHCPRELEASE" = [yY1]* ]];  then
+			/sbin/dhclient -r -lf ${LEASEFILE} -pf /var/run/dhclient$VER-${DEVICE}.pid ${DEVICE} >/dev/null 2>&1
+			retcode=$?
+		else
+			kill $dhcpid >/dev/null 2>&1
+			retcode=$?
+			reason=STOP$VER interface=${DEVICE} /sbin/dhclient-script
+		fi
+		if [ -f "/var/run/dhclient$VER-${DEVICE}.pid" ]; then
+			rm -f /var/run/dhclient$VER-${DEVICE}.pid
+			kill $dhcpid >/dev/null 2>&1
+		fi
+	fi
+    done
+}
+# we can't just delete the configured address because that address
+# may have been changed in the config file since the device was
+# brought up.  Flush all addresses associated with this
+# instance instead.
+if [ -d "/sys/class/net/${REALDEVICE}" ]; then
+	if [ "${REALDEVICE}" = "${DEVICE}" ]; then
+		ip addr flush dev ${REALDEVICE} scope global 2>/dev/null
+	else
+		ip addr flush dev ${REALDEVICE} label ${DEVICE} scope global 2>/dev/null
+	fi
+
+	if [ "${SLAVE}" = "yes" -a -n "${MASTER}" ]; then
+		echo "-${DEVICE}" > /sys/class/net/${MASTER}/bonding/slaves 2>/dev/null
+	fi
+
+	if [ "${REALDEVICE}" = "${DEVICE}" ]; then
+		ip link set dev ${DEVICE} down 2>/dev/null
+	fi
+fi
+[ "$retcode" = "0" ] && retcode=$?
+
+# wait up to 5 seconds for device to actually come down...
+waited=0
+while ! check_device_down ${DEVICE} && [ "$waited" -lt 50 ] ; do
+    usleep 10000
+    waited=$(($waited+1))
+done
+
+if [ "$retcode" = 0 ] ; then
+    /etc/sysconfig/network-scripts/ifdown-post $CONFIG
+    # do NOT use $? because ifdown should return whether or not
+    # the interface went down.
+fi
+
+if [ -n "$PKEY" ]; then
+    # PKey PKEY
+    echo "$NEW_PKEY_ID" > /sys/class/net/${PHYSDEV}/delete_child
+fi
+
+exit $retcode

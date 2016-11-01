@@ -23,7 +23,7 @@
 #      If set use the kernel UAPI headers from this kernel source tree.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
-project(RDMA C)
+project(rdma-core C)
 
 # CMake likes to use -rdynamic too much, they fixed it in 3.4.
 if(POLICY CMP0065)
@@ -314,6 +314,7 @@ configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOT
 # Sub-directories
 add_subdirectory(ccan)
 add_subdirectory(util)
+add_subdirectory(Documentation)
 # Libraries
 add_subdirectory(libibumad)
 add_subdirectory(libibumad/man)

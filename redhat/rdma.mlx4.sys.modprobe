@@ -1,0 +1,5 @@
+# WARNING! - This file is overwritten any time the rdma rpm package is
+# updated.  Please do not make any changes to this file.  Instead, make
+# changes to the mlx4.conf file.  It's contents are preserved if they
+# have been changed from the default values.
+install mlx4_core /sbin/modprobe --ignore-install mlx4_core $CMDLINE_OPTS && (if [ -f /usr/libexec/mlx4-setup.sh -a -f /etc/rdma/mlx4.conf ]; then /usr/libexec/mlx4-setup.sh < /etc/rdma/mlx4.conf; fi; /sbin/modprobe mlx4_en; if /sbin/modinfo mlx4_ib > /dev/null 2>&1; then /sbin/modprobe mlx4_ib; fi)

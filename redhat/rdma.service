@@ -1,0 +1,15 @@
+[Unit]
+Description=Initialize the iWARP/InfiniBand/RDMA stack in the kernel
+Documentation=file:/etc/rdma/rdma.conf
+RefuseManualStop=true
+DefaultDependencies=false
+Conflicts=emergency.target emergency.service
+Before=network.target remote-fs-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/rdma-init-kernel
+
+[Install]
+WantedBy=sysinit.target

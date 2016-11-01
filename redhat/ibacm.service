@@ -1,0 +1,12 @@
+[Unit]
+Description=Starts the InfiniBand Address Cache Manager daemon
+Documentation=man:ibacm file:/etc/rdma/ibacm_opts.cfg
+Requires=rdma.service
+After=rdma.service opensm.service
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/ibacm
+
+[Install]
+WantedBy=network.target

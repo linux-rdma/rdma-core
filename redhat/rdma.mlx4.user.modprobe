@@ -1,0 +1,21 @@
+# This file is intended for users to select the various module options
+# they need for the mlx4 driver.  On upgrade of the rdma package,
+# any user made changes to this file are preserved.  Any changes made
+# to the libmlx4.conf file in this directory are overwritten on
+# pacakge upgrade.
+#
+# Some sample options and what they would do
+# Enable debugging output, device managed flow control, and disable SRIOV
+#options mlx4_core debug_level=1 log_num_mgm_entry_size=-1 probe_vf=0 num_vfs=0
+#
+# Enable debugging output and create SRIOV devices, but don't attach any of
+# the child devices to the host, only the parent device
+#options mlx4_core debug_level=1 probe_vf=0 num_vfs=7
+#
+# Enable debugging output, SRIOV, and attach one of the SRIOV child devices
+# in addition to the parent device to the host
+#options mlx4_core debug_level=1 probe_vf=1 num_vfs=7
+#
+# Enable per priority flow control for send and receive, setting both priority
+# 1 and 2 as no drop priorities
+#options mlx4_en pfctx=3 pfcrx=3

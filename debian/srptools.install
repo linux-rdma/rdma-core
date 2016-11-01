@@ -6,3 +6,4 @@ usr/sbin/ibsrpdm
 usr/sbin/srp_daemon
 usr/share/man/man1/ibsrpdm.1
 usr/share/man/man1/srp_daemon.1
+usr/share/doc/rdma-core/ibsrpdm.md usr/share/doc/srptools/

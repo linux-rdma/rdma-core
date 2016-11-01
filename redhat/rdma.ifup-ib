@@ -1,0 +1,308 @@
+#!/bin/bash
+# Network Interface Configuration System
+# Copyright (c) 1996-2013 Red Hat, Inc. all rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+. /etc/init.d/functions
+
+cd /etc/sysconfig/network-scripts
+. ./network-functions
+
+[ -f ../network ] && . ../network
+
+CONFIG="${1}"
+
+need_config "${CONFIG}"
+
+source_config
+
+# Allow the user to override the detection of our physical device by passing
+# it in.  No checking is done, if the user gives us a bogus dev, it's
+# their problem.
+[ -n "${PHYSDEV}" ] && REALDEVICE="$PHYSDEV"
+
+if [ "${BOOTPROTO}" = "dhcp" ]; then
+    DYNCONFIG=true
+fi
+
+# load the module associated with that device
+# /sbin/modprobe ${REALDEVICE}
+is_available_wait ${REALDEVICE} ${DEVTIMEOUT}
+
+# bail out, if the MAC does not fit
+if [ -n "${HWADDR}" ]; then
+	FOUNDMACADDR=$(get_hwaddr ${REALDEVICE} | tail -c 24)
+	HWADDR=$(echo $HWADDR | tail -c 24)
+	if [ "${FOUNDMACADDR}" != "${HWADDR}" ]; then
+		net_log $"Device ${DEVICE} has different MAC address than expected, ignoring."
+		exit 1
+	fi
+fi
+
+# now check the real state
+is_available ${REALDEVICE} || {
+      if [ -n "$alias" ]; then
+         net_log $"$alias device ${DEVICE} does not seem to be present, delaying initialization."
+      else
+         net_log $"Device ${DEVICE} does not seem to be present, delaying initialization."
+      fi
+      exit 1
+}
+
+# if we are a P_Key device, create the device if needed
+if [ "${PKEY}" = yes ]; then
+	[ -z "${PKEY_ID}" ] && {
+		net_log $"InfiniBand IPoIB device: PKEY=yes requires a PKEY_ID"
+		exit 1
+	}
+	[ -z "${PHYSDEV}" ] && {
+		net_log $"InfiniBand IPoIB device: PKEY=yes requires a PHYSDEV"
+		exit 1
+	}
+	# Normalize our PKEY_ID to have the high bit set
+	NEW_PKEY_ID=`printf "0x%04x" $(( 0x8000 | ${PKEY_ID} ))`
+	NEW_PKEY_NAME=`printf "%04x" ${NEW_PKEY_ID}`
+	[ "${DEVICE}" != "${PHYSDEV}.${NEW_PKEY_NAME}" ] && {
+		net_log $"Configured DEVICE name does not match what new device name would be.  This
+is most likely because once the PKEY_ID was normalized, it no longer
+resulted in the expected device naming, and so the DEVICE entry in the
+config file needs to be updated to match. This can also be caused by
+giving PKEY_ID as a hex number but without using the mandatory 0x prefix.
+	Configured DEVICE=$DEVICE
+	Configured PHYSDEV=$PHYSDEV
+	Configured PKEY_ID=$PKEY_ID
+	Calculated PKEY_ID=$NEW_PKEY_ID
+	Calculated name=${PHYSDEV}.${NEW_PKEY_NAME}"
+		exit 1
+	}
+	[ -d "/sys/class/net/${DEVICE}" ] ||
+		echo "${NEW_PKEY_ID}" > "/sys/class/net/${PHYSDEV}/create_child"
+	[ -d "/sys/class/net/${DEVICE}" ] || {
+		echo "Failed to create child device $NEW_PKEY_ID of $PHYSDEV"
+		exit 1
+	}
+	# When we get to setting up the IP address, we need REALDEVICE to
+	# point to our new PKEY device
+	REALDEVICE="${DEVICE}"
+fi
+
+
+if [ -n "${MACADDR}" ]; then
+    net_log $"IPoIB devices do not support setting the MAC address of the interface"
+    # ip link set dev ${DEVICE} address ${MACADDR}
+fi
+
+# First, do we even support setting connected mode?
+if [ -e /sys/class/net/${DEVICE}/mode ]; then
+    # OK, set the mode in all cases, that way it gets reset on a down/up
+    # cycle, allowing people to change the mode without rebooting
+    if [ "${CONNECTED_MODE}" = yes ]; then
+        echo connected > /sys/class/net/${DEVICE}/mode
+	# cap the MTU where we should based upon mode
+	[ -z "$MTU" ] && MTU=65520
+	[ "$MTU" -gt 65520 ] && MTU=65520
+    else
+        echo datagram > /sys/class/net/${DEVICE}/mode
+	# cap the MTU where we should based upon mode
+	[ -z "$MTU" ] && MTU=2044
+	[ "$MTU" -gt 2044 ] && MTU=2044
+    fi
+fi
+
+if [ -n "${MTU}" ]; then
+    ip link set dev ${DEVICE} mtu ${MTU}
+fi
+
+# slave device?
+if [ "${SLAVE}" = yes -a "${ISALIAS}" = no -a "${MASTER}" != "" ]; then
+    install_bonding_driver ${MASTER}
+    grep -wq "${DEVICE}" /sys/class/net/${MASTER}/bonding/slaves 2>/dev/null || {
+	/sbin/ip link set dev ${DEVICE} down
+	echo "+${DEVICE}" > /sys/class/net/${MASTER}/bonding/slaves 2>/dev/null
+    }
+    ethtool_set
+
+    exit 0
+fi
+
+# Bonding initialization. For DHCP, we need to enslave the devices early,
+# so it can actually get an IP.
+if [ "$ISALIAS" = no ] && is_bonding_device ${DEVICE} ; then
+    install_bonding_driver ${DEVICE}
+    /sbin/ip link set dev ${DEVICE} up
+    for device in $(LANG=C grep -l "^[[:space:]]*MASTER=\"\?${DEVICE}\"\?\([[:space:]#]\|$\)" /etc/sysconfig/network-scripts/ifcfg-*) ; do
+	    is_ignored_file "$device" && continue
+	    /sbin/ifup ${device##*/}
+    done
+
+    [ -n "${LINKDELAY}" ] && /bin/sleep ${LINKDELAY}
+
+    # add the bits to setup the needed post enslavement parameters
+    for arg in $BONDING_OPTS ; do
+        key=${arg%%=*};
+        value=${arg##*=};
+	if [ "${key}" = "primary" ]; then
+            echo $value > /sys/class/net/${DEVICE}/bonding/$key
+	fi
+    done
+fi
+
+
+if [ -n "${DYNCONFIG}" ] && [ -x /sbin/dhclient ]; then
+    if [[ "${PERSISTENT_DHCLIENT}" =  [yY1]* ]]; then
+       ONESHOT="";
+    else
+       ONESHOT="-1";
+    fi;
+    generate_config_file_name
+    generate_lease_file_name
+    DHCLIENTARGS="${DHCLIENTARGS} -H ${DHCP_HOSTNAME:-${HOSTNAME%%.*}} ${ONESHOT} -q ${DHCLIENTCONF} -lf ${LEASEFILE} -pf /var/run/dhclient-${DEVICE}.pid"
+    echo
+    echo -n $"Determining IP information for ${DEVICE}..."
+    if [[ "${PERSISTENT_DHCLIENT}" !=  [yY1]* ]] && check_link_down ${DEVICE}; then
+	echo $" failed; no link present.  Check cable?"
+	exit 1
+    fi
+
+    ethtool_set
+
+    if /sbin/dhclient ${DHCLIENTARGS} ${DEVICE} ; then
+	echo $" done."
+	dhcpipv4="good"
+    else
+	echo $" failed."
+	if [[ "${IPV4_FAILURE_FATAL}"  = [Yy1]* ]] ; then
+	    exit 1
+	fi
+	if [[ "$IPV6INIT" != [yY1]* && "$DHCPV6C" != [yY1]* ]] ; then
+	    exit 1
+	fi
+	net_log "Unable to obtain IPv4 DHCP address ${DEVICE}." warning
+    fi
+# end dynamic device configuration
+else
+    if [ -z "${IPADDR}" -a -z "${IPADDR0}" -a -z "${IPADDR1}" -a -z "${IPADDR2}" ]; then
+         # enable device without IP, useful for e.g. PPPoE
+	 ip link set dev ${REALDEVICE} up
+	 ethtool_set
+	 [ -n "${LINKDELAY}" ] && /bin/sleep ${LINKDELAY}
+    else
+
+    expand_config
+
+    [ -n "${ARP}" ] && \
+	ip link set dev ${REALDEVICE} $(toggle_value arp $ARP)
+
+    if ! ip link set dev ${REALDEVICE} up ; then
+	net_log $"Failed to bring up ${DEVICE}."
+	exit 1
+    fi
+
+    ethtool_set
+
+    [ -n "${LINKDELAY}" ] && /bin/sleep ${LINKDELAY}
+
+    if [ "${DEVICE}" = "lo" ]; then
+        SCOPE="scope host"
+    else
+        SCOPE=${SCOPE:-}
+    fi
+
+    if [ -n "$SRCADDR" ]; then
+       SRC="src $SRCADDR"
+    else
+       SRC=
+    fi
+
+    # set IP address(es)
+    for idx in {0..256} ; do
+	if [ -z "${ipaddr[$idx]}" ]; then
+	    break
+	fi
+
+	if ! LC_ALL=C ip addr ls ${REALDEVICE} | LC_ALL=C grep -q "${ipaddr[$idx]}/${prefix[$idx]}" ; then
+	    [ "${REALDEVICE}" != "lo" ] && [ "${arpcheck[$idx]}" != "no" ] && \
+	    /sbin/arping -q -c 2 -w 3 -D -I ${REALDEVICE} ${ipaddr[$idx]}
+	    if [ $? = 1 ]; then
+		net_log $"Error, some other host already uses address ${ipaddr[$idx]}."
+		exit 1
+	    fi
+
+	    if ! ip addr add ${ipaddr[$idx]}/${prefix[$idx]} \
+		brd ${broadcast[$idx]:-+} dev ${REALDEVICE} ${SCOPE} label ${DEVICE}; then
+		net_log $"Error adding address ${ipaddr[$idx]} for ${DEVICE}."
+	    fi
+	fi
+
+	if [ -n "$SRCADDR" ]; then
+           sysctl -w "net.ipv4.conf.${REALDEVICE}.arp_filter=1" >/dev/null 2>&1
+	fi
+
+	# update ARP cache of neighboring computers
+	if [ "${REALDEVICE}" != "lo" ]; then
+	    /sbin/arping -q -A -c 1 -I ${REALDEVICE} ${ipaddr[$idx]}
+	    ( sleep 2;
+	      /sbin/arping -q -U -c 1 -I ${REALDEVICE} ${ipaddr[$idx]} ) > /dev/null 2>&1 < /dev/null &
+	fi
+    done
+
+    # Set a default route.
+    if [ "${DEFROUTE}" != "no" ] && [ -z "${GATEWAYDEV}" -o "${GATEWAYDEV}" = "${REALDEVICE}" ]; then
+	# set up default gateway. replace if one already exists
+	if [ -n "${GATEWAY}" ] && [ "$(ipcalc --network ${GATEWAY} ${netmask[0]} 2>/dev/null)" = "NETWORK=${NETWORK}" ]; then
+	    ip route replace default ${METRIC:+metric $METRIC} \
+		via ${GATEWAY} ${WINDOW:+window $WINDOW} ${SRC} \
+		${GATEWAYDEV:+dev $GATEWAYDEV} ||
+			net_log $"Error adding default gateway ${GATEWAY} for ${DEVICE}."
+	elif [ "${GATEWAYDEV}" = "${DEVICE}" ]; then
+	    ip route replace default ${METRIC:+metric $METRIC} \
+		${SRC} ${WINDOW:+window $WINDOW} dev ${REALDEVICE} ||
+			net_log $"Erorr adding default gateway for ${REALDEVICE}."
+	fi
+    fi
+    fi
+fi
+
+# Add Zeroconf route.
+if [ -z "${NOZEROCONF}" -a "${ISALIAS}" = "no" -a "${REALDEVICE}" != "lo" ]; then
+    ip route add 169.254.0.0/16 dev ${REALDEVICE} metric $((1000 + $(cat /sys/class/net/${REALDEVICE}/ifindex))) scope link
+fi
+
+# Inform firewall which network zone (empty means default) this interface belongs to
+if [ -x /usr/bin/firewall-cmd -a "${REALDEVICE}" != "lo" ]; then
+    /usr/bin/firewall-cmd --zone="${ZONE}" --change-interface="${DEVICE}" > /dev/null 2>&1
+fi
+
+# IPv6 initialisation?
+/etc/sysconfig/network-scripts/ifup-ipv6 ${CONFIG}
+if [[ "${DHCPV6C}"  = [Yy1]* ]] && [ -x /sbin/dhclient ]; then
+    generate_config_file_name 6
+    generate_lease_file_name 6
+    echo
+    echo -n $"Determining IPv6 information for ${DEVICE}..."
+    if /sbin/dhclient -6 -1 ${DHCPV6C_OPTIONS} ${DHCLIENTCONF} -lf ${LEASEFILE} -pf /var/run/dhclient6-${DEVICE}.pid -H ${DHCP_HOSTNAME:-${HOSTNAME%%.*}} ${DEVICE} ; then
+        echo $" done."
+    else
+        echo $" failed."
+        if [ "${dhcpipv4}" = "good" -o -n "${IPADDR}" ]; then
+            net_log "Unable to obtain IPv6 DHCP address ${DEVICE}." warning
+        else
+            exit 1
+        fi
+    fi
+fi
+
+exec /etc/sysconfig/network-scripts/ifup-post ${CONFIG} ${2}
+

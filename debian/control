@@ -262,6 +262,14 @@ Description: Development files for the librdmacm library
  It contains the header files and static libraries (optionally)
  needed for compiling.
 
+Package: rdma-core
+Section: net
+Architecture: linux-any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: RDMA core userspace infrastructure and documentation.
+ rdma-core provides the basic boot time support (eg systemd integration)
+ for systems that use the Linux kernel's RDMA subystem.
+
 Package: rdmacm-utils
 Section: net
 Architecture: linux-any

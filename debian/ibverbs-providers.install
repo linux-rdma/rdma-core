@@ -5,3 +5,4 @@ usr/lib/truescale-serdes.cmds
 usr/share/man/man8/rxe_cfg.8
 usr/share/man/man7/rxe.7
 usr/bin/rxe_cfg
+usr/share/doc/rdma-core/rxe.md usr/share/doc/ibverbs-providers/
