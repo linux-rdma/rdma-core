@@ -372,7 +372,7 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 {
 	struct verbs_device *vdev;
 	struct ibv_device *dev;
-	char value[8];
+	char value[16];
 
 	if (driver->init_func) {
 		dev = driver->init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
