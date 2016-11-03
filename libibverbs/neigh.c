@@ -1,3 +1,5 @@
+/* Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+ */
 
 #include "config.h"
 #include <net/if_packet.h>
