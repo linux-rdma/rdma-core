@@ -55,10 +55,10 @@
 #include <netinet/in.h>
 #include <sys/mman.h>
 #include <infiniband/driver.h>
+#include <rdma/pvrdma-abi.h>
 
 #define BIT(nr) (1UL << (nr))
 
-#include "pvrdma-abi.h"
 #include "pvrdma_ring.h"
 
 #ifndef rmb
