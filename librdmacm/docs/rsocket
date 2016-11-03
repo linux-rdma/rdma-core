@@ -1,3 +1,4 @@
+.. Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
 rsocket Protocol and Design Guide               11/11/2012
 
 Data Streaming (TCP) Overview
