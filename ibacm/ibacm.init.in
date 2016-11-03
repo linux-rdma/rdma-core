@@ -1,4 +1,5 @@
 #!/bin/bash
+# Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
 #
 # Bring up/down the ibacm daemon
 #
