@@ -25,6 +25,7 @@ is included:
  - ib_mthca.ko
  - iw_nes.ko
  - ocrdma.ko
+ - pvrdma.ko
  - qedr.ko
  - rdma_rxe.ko
 
