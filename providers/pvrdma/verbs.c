@@ -163,12 +163,11 @@ static int is_link_local_gid(const union ibv_gid *gid)
 
 static int is_ipv6_addr_v4mapped(const struct in6_addr *a)
 {
-	return ((a->s6_addr32[0] | a->s6_addr32[1]) |
-		(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL ||
+	return IN6_IS_ADDR_V4MAPPED(&a->s6_addr32) ||
 		/* IPv4 encoded multicast addresses */
 		(a->s6_addr32[0] == htonl(0xff0e0000) &&
 		((a->s6_addr32[1] |
-			(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL));
+		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL));
 }
 
 static void set_mac_from_gid(const union ibv_gid *gid,

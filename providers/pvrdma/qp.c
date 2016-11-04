@@ -50,11 +50,11 @@
 int pvrdma_alloc_qp_buf(struct pvrdma_device *dev, struct ibv_qp_cap *cap,
 			enum ibv_qp_type type, struct pvrdma_qp *qp)
 {
-	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
+	qp->sq.wrid = calloc(qp->sq.wqe_cnt, sizeof(uint64_t));
 	if (!qp->sq.wrid)
 		return -1;
 
-	qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof(uint64_t));
+	qp->rq.wrid = calloc(qp->rq.wqe_cnt, sizeof(uint64_t));
 	if (!qp->rq.wrid) {
 		free(qp->sq.wrid);
 		return -1;
@@ -106,13 +106,13 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 	int ret;
 
 	attr->cap.max_recv_sge =
-		align_next_power2(max(1U, attr->cap.max_recv_sge));
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_sge));
 	attr->cap.max_recv_wr =
-		align_next_power2(max(1U, attr->cap.max_recv_wr));
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_wr));
 	attr->cap.max_send_sge =
-		align_next_power2(max(1U, attr->cap.max_send_sge));
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_sge));
 	attr->cap.max_send_wr =
-		align_next_power2(max(1U, attr->cap.max_send_wr));
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_wr));
 
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
@@ -280,10 +280,10 @@ int pvrdma_destroy_qp(struct ibv_qp *ibqp)
 
 	pvrdma_lock_cqs(ibqp);
 	/* Dump cqs */
-	__pvrdma_cq_clean(to_vcq(ibqp->recv_cq), ibqp->qp_num);
+	pvrdma_cq_clean_int(to_vcq(ibqp->recv_cq), ibqp->qp_num);
 
 	if (ibqp->send_cq != ibqp->recv_cq)
-		__pvrdma_cq_clean(to_vcq(ibqp->send_cq), ibqp->qp_num);
+		pvrdma_cq_clean_int(to_vcq(ibqp->send_cq), ibqp->qp_num);
 	pvrdma_unlock_cqs(ibqp);
 
 	free(qp->sq.wrid);

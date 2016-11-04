@@ -56,18 +56,11 @@
 #include <sys/mman.h>
 #include <infiniband/driver.h>
 #include <rdma/pvrdma-abi.h>
+#include <ccan/minmax.h>
 
 #define BIT(nr) (1UL << (nr))
 
 #include "pvrdma_ring.h"
-
-#ifndef rmb
-#  define rmb() mb()
-#endif
-
-#ifndef wmb
-#  define wmb() mb()
-#endif
 
 #ifndef likely
 #define likely(x)	__builtin_expect(!!(x), 1)
@@ -79,20 +72,6 @@
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #else
 #define unlikely(x)	(x)
-#endif
-
-#ifndef max
-#define max(a, b) \
-	({ typeof (a) _a = (a); \
-	   typeof (b) _b = (b); \
-	   _a > _b ? _a : _b; })
-#endif
-
-#ifndef min
-#define min(a,b) \
-	({ typeof (a) _a = (a); \
-	   typeof (b) _b = (b); \
-	   _a < _b ? _a : _b; })
 #endif
 
 #define PFX "pvrdma: "
@@ -210,38 +189,34 @@ static inline int align_next_power2(int size)
 	return val;
 }
 
-#define to_vxxx(xxx, type)						\
-	((struct pvrdma_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct pvrdma_##type, ibv_##xxx)))
-
 static inline struct pvrdma_device *to_vdev(struct ibv_device *ibdev)
 {
-	return to_vxxx(dev, device);
+	return container_of(ibdev, struct pvrdma_device, ibv_dev);
 }
 
 static inline struct pvrdma_context *to_vctx(struct ibv_context *ibctx)
 {
-	return to_vxxx(ctx, context);
+	return container_of(ibctx, struct pvrdma_context, ibv_ctx);
 }
 
 static inline struct pvrdma_pd *to_vpd(struct ibv_pd *ibpd)
 {
-	return to_vxxx(pd, pd);
+	return container_of(ibpd, struct pvrdma_pd, ibv_pd);
 }
 
 static inline struct pvrdma_cq *to_vcq(struct ibv_cq *ibcq)
 {
-	return to_vxxx(cq, cq);
+	return container_of(ibcq, struct pvrdma_cq, ibv_cq);
 }
 
 static inline struct pvrdma_qp *to_vqp(struct ibv_qp *ibqp)
 {
-	return to_vxxx(qp, qp);
+	return container_of(ibqp, struct pvrdma_qp, ibv_qp);
 }
 
 static inline struct pvrdma_ah *to_vah(struct ibv_ah *ibah)
 {
-	return to_vxxx(ah, ah);
+	return container_of(ibah, struct pvrdma_ah, ibv_ah);
 }
 
 static inline void pvrdma_write_uar_qp(void *uar, unsigned value)
@@ -306,7 +281,7 @@ int pvrdma_destroy_cq(struct ibv_cq *cq);
 int pvrdma_req_notify_cq(struct ibv_cq *cq, int solicited);
 int pvrdma_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 void pvrdma_cq_event(struct ibv_cq *cq);
-void __pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn);
+void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn);
 void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn);
 int pvrdma_get_outstanding_cqes(struct pvrdma_cq *cq);
 void pvrdma_cq_resize_copy_cqes(struct pvrdma_cq *cq, void *buf,

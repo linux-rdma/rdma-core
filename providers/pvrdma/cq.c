@@ -157,7 +157,7 @@ int pvrdma_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 	return npolled;
 }
 
-void __pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn)
+void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn)
 {
 	/* Flush CQEs from specified QP */
 	int has_data;
@@ -205,7 +205,7 @@ void __pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn)
 void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn)
 {
 	pthread_spin_lock(&cq->lock);
-	__pvrdma_cq_clean(cq, qpn);
+	pvrdma_cq_clean_int(cq, qpn);
 	pthread_spin_unlock(&cq->lock);
 }
 
