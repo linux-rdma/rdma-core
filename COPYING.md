@@ -45,11 +45,6 @@ ipathverbs
 ocrdma
 : Dual License: GPLv2 or OpenIB.org BSD (FreeBSD variant), See COPYING.BSD_FB
 
-rxe
-: A combination of the
-    - Default Dual License
-    - GPLv2 or PathScale BSD Patent license
-
 ## Libraries
 
 All library compilable source code (.c and .h files) are available under the
