@@ -1619,7 +1619,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
 		break;
 	default:
-		return -EINVAL;
+		return EINVAL;
 	}
 	return 0;
 }
@@ -1656,8 +1656,10 @@ struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
 	ib_spec = flow_attr + 1;
 	for (i = 0; i < flow_attr->num_of_specs; i++) {
 		err = ib_spec_to_kern_spec(ib_spec, kern_spec);
-		if (err)
+		if (err) {
+			errno = err;
 			goto err;
+		}
 		cmd->flow_attr.size +=
 			((struct ibv_kern_spec *)kern_spec)->hdr.size;
 		kern_spec += ((struct ibv_kern_spec *)kern_spec)->hdr.size;

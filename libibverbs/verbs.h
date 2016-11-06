@@ -1590,8 +1590,10 @@ static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
 						      ibv_create_flow);
-	if (!vctx || !vctx->ibv_create_flow)
+	if (!vctx || !vctx->ibv_create_flow) {
+		errno = ENOSYS;
 		return NULL;
+	}
 
 	return vctx->ibv_create_flow(qp, flow);
 }
