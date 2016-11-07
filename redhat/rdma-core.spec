@@ -170,6 +170,7 @@ librdmacm provides a userspace RDMA Communication Managment API.
 
 %package -n librdmacm-utils
 Summary: Examples for the librdmacm library
+Requires: librdmacm%{?_isa} = %{version}-%{release}
 
 %description -n librdmacm-utils
 Example test programs for the librdmacm library.
