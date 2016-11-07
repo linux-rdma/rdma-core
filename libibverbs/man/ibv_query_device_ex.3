@@ -31,6 +31,7 @@ uint64_t               device_cap_flags_ex;        /* Extended device capability
 struct ibv_tso_caps    tso_caps;                   /* TCP segmentation offload capabilities */
 struct ibv_rss_caps    rss_caps;                   /* RSS capabilities */
 uint32_t               max_wq_type_rq;             /* Max Work Queue from type RQ */
+struct ibv_packet_pacing_caps packet_pacing_caps; /* Packet pacing capabilities */
 .in -8
 };
 
@@ -66,6 +67,12 @@ struct ibv_rss_caps {
         uint32_t max_rwq_indirection_table_size;   /* Max receive work queue indirection table size */
         uint64_t rx_hash_fields_mask;              /* Mask with enum ibv_rx_hash_fields to know which incoming packet's field can participates in the RX hash */
         uint8_t  rx_hash_function;                 /* Mask with enum ibv_rx_hash_function_flags to know which hash functions are supported */
+};
+
+struct ibv_packet_pacing_caps {
+       uint32_t qp_rate_limit_min; /* Minimum rate limit in kbps */
+       uint32_t qp_rate_limit_max; /* Maximum rate limit in kbps */
+       uint32_t supported_qpts;    /* Bitmap showing which QP types are supported. */
 };
 
 .fi

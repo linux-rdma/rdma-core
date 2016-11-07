@@ -246,6 +246,12 @@ struct ibv_rss_caps {
 	uint8_t  rx_hash_function; /* enum ibv_rx_hash_function_flags */
 };
 
+struct ibv_packet_pacing_caps {
+	uint32_t qp_rate_limit_min;
+	uint32_t qp_rate_limit_max; /* In kbps */
+	uint32_t supported_qpts;
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -256,6 +262,7 @@ struct ibv_device_attr_ex {
 	struct ibv_tso_caps	tso_caps;
 	struct ibv_rss_caps     rss_caps;
 	uint32_t		max_wq_type_rq;
+	struct ibv_packet_pacing_caps packet_pacing_caps;
 };
 
 enum ibv_mtu {

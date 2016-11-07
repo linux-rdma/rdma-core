@@ -384,6 +384,26 @@ static void print_rss_caps(const struct ibv_rss_caps *caps)
 	}
 }
 
+static void print_packet_pacing_caps(const struct ibv_packet_pacing_caps *caps)
+{
+	uint32_t unknown_general_caps = ~(1 << IBV_QPT_RAW_PACKET |
+					  1 << IBV_QPT_UD);
+	printf("\tpacket_pacing_caps:\n");
+	printf("\t\tqp_rate_limit_min:\t%ukbps\n", caps->qp_rate_limit_min);
+	printf("\t\tqp_rate_limit_max:\t%ukbps\n", caps->qp_rate_limit_max);
+
+	if (caps->qp_rate_limit_max) {
+		printf("\t\tsupported_qp:\n");
+		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_RAW_PACKET))
+			printf("\t\t\t\t\tSUPPORT_RAW_PACKET\n");
+		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_UD))
+			printf("\t\t\t\t\tSUPPORT_UD\n");
+		if (caps->supported_qpts & unknown_general_caps)
+			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
+			       caps->supported_qpts & unknown_general_caps);
+	}
+}
+
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
@@ -487,6 +507,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		print_tso_caps(&device_attr.tso_caps);
 		print_rss_caps(&device_attr.rss_caps);
 		printf("\tmax_wq_type_rq:\t\t\t%u\n", device_attr.max_wq_type_rq);
+		print_packet_pacing_caps(&device_attr.packet_pacing_caps);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
