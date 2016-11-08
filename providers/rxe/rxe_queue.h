@@ -30,9 +30,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * Patent licenses, if any, provided herein do not apply to
- * combinations of this program with other software, or any other
- * product whatsoever.
  */
 
 /* implements a simple circular buffer with sizes a power of 2 */
