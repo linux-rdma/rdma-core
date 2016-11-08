@@ -79,7 +79,7 @@ int pvrdma_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *pvrdma_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd cmd;
-	struct pvrdma_alloc_pd_resp resp;
+	struct user_pvrdma_alloc_pd_resp resp;
 	struct pvrdma_pd *pd;
 
 	pd = malloc(sizeof(*pd));
@@ -92,7 +92,7 @@ struct ibv_pd *pvrdma_alloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 
-	pd->pdn = resp.pdn;
+	pd->pdn = resp.udata.pdn;
 
 	return &pd->ibv_pd;
 }

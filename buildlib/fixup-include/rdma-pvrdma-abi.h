@@ -46,14 +46,14 @@
 #ifndef __PVRDMA_ABI_H__
 #define __PVRDMA_ABI_H__
 
-#include <infiniband/kern-abi.h>
+#include <linux/types.h>
 
-#define PVRDMA_UVERBS_ABI_VERSION	3
+#define PVRDMA_UVERBS_ABI_VERSION	3		/* ABI Version. */
 #define PVRDMA_UAR_HANDLE_MASK		0x00FFFFFF	/* Bottom 24 bits. */
-#define PVRDMA_UAR_QP_OFFSET		0		/* QP doorbell offset. */
+#define PVRDMA_UAR_QP_OFFSET		0		/* QP doorbell. */
 #define PVRDMA_UAR_QP_SEND		BIT(30)		/* Send bit. */
 #define PVRDMA_UAR_QP_RECV		BIT(31)		/* Recv bit. */
-#define PVRDMA_UAR_CQ_OFFSET		4		/* CQ doorbell offset. */
+#define PVRDMA_UAR_CQ_OFFSET		4		/* CQ doorbell. */
 #define PVRDMA_UAR_CQ_ARM_SOL		BIT(29)		/* Arm solicited bit. */
 #define PVRDMA_UAR_CQ_ARM		BIT(30)		/* Arm bit. */
 #define PVRDMA_UAR_CQ_POLL		BIT(31)		/* Poll bit. */
@@ -129,55 +129,47 @@ enum pvrdma_wc_flags {
 };
 
 struct pvrdma_alloc_ucontext_resp {
-	struct ibv_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-	__u32				reserved;
+	__u32 qp_tab_size;
+	__u32 reserved;
 };
 
 struct pvrdma_alloc_pd_resp {
-	struct ibv_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-	__u32				reserved;
+	__u32 pdn;
+	__u32 reserved;
 };
 
 struct pvrdma_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u32				buf_size;
-	__u32				reserved;
+	__u64 buf_addr;
+	__u32 buf_size;
+	__u32 reserved;
 };
 
 struct pvrdma_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
-	__u32				cqn;
-	__u32				reserved;
+	__u32 cqn;
+	__u32 reserved;
 };
 
 struct pvrdma_resize_cq {
-	struct ibv_resize_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u32				buf_size;
-	__u32				reserved;
+	__u64 buf_addr;
+	__u32 buf_size;
+	__u32 reserved;
 };
 
 struct pvrdma_create_srq {
-	struct ibv_create_srq		ibv_cmd;
-	__u64				buf_addr;
+	__u64 buf_addr;
 };
 
 struct pvrdma_create_srq_resp {
-	struct ibv_create_srq_resp	ibv_resp;
-	__u32				srqn;
-	__u32				reserved;
+	__u32 srqn;
+	__u32 reserved;
 };
 
 struct pvrdma_create_qp {
-	struct ibv_create_qp		ibv_cmd;
-	__u64				rbuf_addr;
-	__u64				sbuf_addr;
-	__u32				rbuf_size;
-	__u32				sbuf_size;
-	__u64				qp_addr;
+	__u64 rbuf_addr;
+	__u64 sbuf_addr;
+	__u32 rbuf_size;
+	__u32 sbuf_size;
+	__u64 qp_addr;
 };
 
 /* PVRDMA masked atomic compare and swap */

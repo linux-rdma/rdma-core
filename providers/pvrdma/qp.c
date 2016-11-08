@@ -100,7 +100,7 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 				struct ibv_qp_init_attr *attr)
 {
 	struct pvrdma_device *dev = to_vdev(pd->context->device);
-	struct pvrdma_create_qp cmd;
+	struct user_pvrdma_create_qp cmd;
 	struct ibv_create_qp_resp resp;
 	struct pvrdma_qp *qp;
 	int ret;
@@ -152,11 +152,11 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 		goto err_free;
 
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.rbuf_addr = (uintptr_t)qp->rbuf.buf;
-	cmd.rbuf_size = qp->rbuf.length;
-	cmd.sbuf_addr = (uintptr_t)qp->sbuf.buf;
-	cmd.sbuf_size = qp->sbuf.length;
-	cmd.qp_addr = (uintptr_t) qp;
+	cmd.udata.rbuf_addr = (uintptr_t)qp->rbuf.buf;
+	cmd.udata.rbuf_size = qp->rbuf.length;
+	cmd.udata.sbuf_addr = (uintptr_t)qp->sbuf.buf;
+	cmd.udata.sbuf_size = qp->sbuf.length;
+	cmd.udata.qp_addr = (uintptr_t) qp;
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr,
 				&cmd.ibv_cmd, sizeof(cmd),

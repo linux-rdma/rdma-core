@@ -97,14 +97,14 @@ static int pvrdma_init_context_shared(struct pvrdma_context *context,
 				      int cmd_fd)
 {
 	struct ibv_get_context cmd;
-	struct pvrdma_alloc_ucontext_resp resp;
+	struct user_pvrdma_alloc_ucontext_resp resp;
 
 	context->ibv_ctx.cmd_fd = cmd_fd;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		return errno;
 
-	context->qp_tbl = calloc(resp.qp_tab_size & 0xFFFF,
+	context->qp_tbl = calloc(resp.udata.qp_tab_size & 0xFFFF,
 				 sizeof(struct pvrdma_qp *));
 	if (!context->qp_tbl)
 		return -ENOMEM;

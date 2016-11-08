@@ -214,8 +214,8 @@ struct ibv_cq *pvrdma_create_cq(struct ibv_context *context, int cqe,
 				int comp_vector)
 {
 	struct pvrdma_device *dev = to_vdev(context->device);
-	struct pvrdma_create_cq cmd;
-	struct pvrdma_create_cq_resp resp;
+	struct user_pvrdma_create_cq cmd;
+	struct user_pvrdma_create_cq_resp resp;
 	struct pvrdma_cq *cq;
 	int ret;
 
@@ -239,15 +239,15 @@ struct ibv_cq *pvrdma_create_cq(struct ibv_context *context, int cqe,
 
 	cq->ring_state = cq->buf.buf;
 
-	cmd.buf_addr = (uintptr_t) cq->buf.buf;
-	cmd.buf_size = cq->buf.length;
+	cmd.udata.buf_addr = (uintptr_t) cq->buf.buf;
+	cmd.udata.buf_size = cq->buf.length;
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 				&cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp));
 	if (ret)
 		goto err_buf;
 
-	cq->cqn = resp.cqn;
+	cq->cqn = resp.udata.cqn;
 	cq->cqe_cnt = cq->ibv_cq.cqe;
 
 	return &cq->ibv_cq;
