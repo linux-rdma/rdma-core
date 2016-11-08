@@ -166,8 +166,12 @@ struct mlx4_pd {
 	uint32_t			pdn;
 };
 
+enum {
+	MLX4_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
+};
+
 struct mlx4_cq {
-	struct ibv_cq			ibv_cq;
+	struct ibv_cq_ex		ibv_cq;
 	struct mlx4_buf			buf;
 	struct mlx4_buf			resize_buf;
 	pthread_spinlock_t		lock;
@@ -177,6 +181,9 @@ struct mlx4_cq {
 	uint32_t		       *arm_db;
 	int				arm_sn;
 	int				cqe_size;
+	struct mlx4_qp			*cur_qp;
+	struct mlx4_cqe			*cqe;
+	uint32_t			flags;
 };
 
 struct mlx4_srq {

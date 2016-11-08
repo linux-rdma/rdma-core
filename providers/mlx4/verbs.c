@@ -346,14 +346,14 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 	cmd.db_addr  = (uintptr_t) cq->set_ci_db;
 
 	ret = ibv_cmd_create_cq(context, cqe - 1, channel, comp_vector,
-				&cq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp);
+				ibv_cq_ex_to_cq(&cq->ibv_cq), &cmd.ibv_cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
 	if (ret)
 		goto err_db;
 
 	cq->cqn = resp.cqn;
 
-	return &cq->ibv_cq;
+	return ibv_cq_ex_to_cq(&cq->ibv_cq);
 
 err_db:
 	mlx4_free_db(to_mctx(context), MLX4_DB_TYPE_CQ, cq->set_ci_db);

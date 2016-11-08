@@ -156,6 +156,46 @@ static enum ibv_wc_status mlx4_handle_error_cqe(struct mlx4_err_cqe *cqe)
 	}
 }
 
+static inline void handle_good_req(struct ibv_wc *wc, struct mlx4_cqe *cqe)
+{
+	wc->wc_flags = 0;
+	switch (cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) {
+	case MLX4_OPCODE_RDMA_WRITE_IMM:
+		wc->wc_flags |= IBV_WC_WITH_IMM;
+	case MLX4_OPCODE_RDMA_WRITE:
+		wc->opcode    = IBV_WC_RDMA_WRITE;
+		break;
+	case MLX4_OPCODE_SEND_IMM:
+		wc->wc_flags |= IBV_WC_WITH_IMM;
+	case MLX4_OPCODE_SEND:
+	case MLX4_OPCODE_SEND_INVAL:
+		wc->opcode    = IBV_WC_SEND;
+		break;
+	case MLX4_OPCODE_RDMA_READ:
+		wc->opcode    = IBV_WC_RDMA_READ;
+		wc->byte_len  = ntohl(cqe->byte_cnt);
+		break;
+	case MLX4_OPCODE_ATOMIC_CS:
+		wc->opcode    = IBV_WC_COMP_SWAP;
+		wc->byte_len  = 8;
+		break;
+	case MLX4_OPCODE_ATOMIC_FA:
+		wc->opcode    = IBV_WC_FETCH_ADD;
+		wc->byte_len  = 8;
+		break;
+	case MLX4_OPCODE_LOCAL_INVAL:
+		wc->opcode    = IBV_WC_LOCAL_INV;
+		break;
+	case MLX4_OPCODE_BIND_MW:
+		wc->opcode    = IBV_WC_BIND_MW;
+		break;
+	default:
+		/* assume it's a send completion */
+		wc->opcode    = IBV_WC_SEND;
+		break;
+	}
+}
+
 static inline int mlx4_get_next_cqe(struct mlx4_cq *cq,
 				    struct mlx4_cqe **pcqe)
 				    ALWAYS_INLINE;
@@ -186,25 +226,35 @@ static inline int mlx4_get_next_cqe(struct mlx4_cq *cq,
 	return CQ_OK;
 }
 
-static int mlx4_poll_one(struct mlx4_cq *cq,
-			 struct mlx4_qp **cur_qp,
-			 struct ibv_wc *wc)
+static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
+					struct mlx4_cqe *cqe,
+					struct mlx4_qp **cur_qp,
+					struct ibv_wc *wc, int lazy)
+					ALWAYS_INLINE;
+static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
+					struct mlx4_cqe *cqe,
+					struct mlx4_qp **cur_qp,
+					struct ibv_wc *wc, int lazy)
 {
 	struct mlx4_wq *wq;
-	struct mlx4_cqe *cqe;
 	struct mlx4_srq *srq;
 	uint32_t qpn;
 	uint32_t g_mlpath_rqpn;
+	uint64_t *pwr_id;
 	uint16_t wqe_index;
 	struct mlx4_err_cqe *ecqe;
+	struct mlx4_context *mctx;
 	int is_error;
 	int is_send;
+	enum ibv_wc_status *pstatus;
 
-	if  (mlx4_get_next_cqe(cq, &cqe) == CQ_EMPTY)
-		return CQ_EMPTY;
-
+	mctx = to_mctx(cq->ibv_cq.context);
 	qpn = ntohl(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
-	wc->qp_num = qpn;
+	if (lazy) {
+		cq->cqe = cqe;
+		cq->flags &= (~MLX4_CQ_FLAGS_RX_CSUM_VALID);
+	} else
+		wc->qp_num = qpn;
 
 	is_send  = cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK;
 	is_error = (cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
@@ -216,7 +266,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		 * because CQs will be locked while SRQs are removed
 		 * from the table.
 		 */
-		srq = mlx4_find_xsrq(&to_mctx(cq->ibv_cq.context)->xsrq_table,
+		srq = mlx4_find_xsrq(&mctx->xsrq_table,
 				     ntohl(cqe->g_mlpath_rqpn) & MLX4_CQE_QPN_MASK);
 		if (!srq)
 			return CQ_POLL_ERR;
@@ -227,78 +277,46 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 			 * because CQs will be locked while QPs are removed
 			 * from the table.
 			 */
-			*cur_qp = mlx4_find_qp(to_mctx(cq->ibv_cq.context), qpn);
+			*cur_qp = mlx4_find_qp(mctx, qpn);
 			if (!*cur_qp)
 				return CQ_POLL_ERR;
 		}
 		srq = ((*cur_qp)->verbs_qp.qp.srq) ? to_msrq((*cur_qp)->verbs_qp.qp.srq) : NULL;
 	}
 
+	pwr_id = lazy ? &cq->ibv_cq.wr_id : &wc->wr_id;
 	if (is_send) {
 		wq = &(*cur_qp)->sq;
 		wqe_index = ntohs(cqe->wqe_index);
 		wq->tail += (uint16_t) (wqe_index - (uint16_t) wq->tail);
-		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+		*pwr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
 	} else if (srq) {
 		wqe_index = htons(cqe->wqe_index);
-		wc->wr_id = srq->wrid[wqe_index];
+		*pwr_id = srq->wrid[wqe_index];
 		mlx4_free_srq_wqe(srq, wqe_index);
 	} else {
 		wq = &(*cur_qp)->rq;
-		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+		*pwr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
 	}
 
+	pstatus = lazy ? &cq->ibv_cq.status : &wc->status;
 	if (is_error) {
 		ecqe = (struct mlx4_err_cqe *)cqe;
-		wc->status = mlx4_handle_error_cqe(ecqe);
-		wc->vendor_err = ecqe->vendor_err;
-
+		*pstatus = mlx4_handle_error_cqe(ecqe);
+		if (!lazy)
+			wc->vendor_err = ecqe->vendor_err;
 		return CQ_OK;
 	}
 
-	wc->status = IBV_WC_SUCCESS;
-
-	if (is_send) {
-		wc->wc_flags = 0;
-		switch (cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) {
-		case MLX4_OPCODE_RDMA_WRITE_IMM:
-			wc->wc_flags |= IBV_WC_WITH_IMM;
-		case MLX4_OPCODE_RDMA_WRITE:
-			wc->opcode    = IBV_WC_RDMA_WRITE;
-			break;
-		case MLX4_OPCODE_SEND_IMM:
-			wc->wc_flags |= IBV_WC_WITH_IMM;
-		case MLX4_OPCODE_SEND:
-			wc->opcode    = IBV_WC_SEND;
-			break;
-		case MLX4_OPCODE_RDMA_READ:
-			wc->opcode    = IBV_WC_RDMA_READ;
-			wc->byte_len  = ntohl(cqe->byte_cnt);
-			break;
-		case MLX4_OPCODE_ATOMIC_CS:
-			wc->opcode    = IBV_WC_COMP_SWAP;
-			wc->byte_len  = 8;
-			break;
-		case MLX4_OPCODE_ATOMIC_FA:
-			wc->opcode    = IBV_WC_FETCH_ADD;
-			wc->byte_len  = 8;
-			break;
-		case MLX4_OPCODE_LOCAL_INVAL:
-			wc->opcode    = IBV_WC_LOCAL_INV;
-			break;
-		case MLX4_OPCODE_BIND_MW:
-			wc->opcode    = IBV_WC_BIND_MW;
-			break;
-		case MLX4_OPCODE_SEND_INVAL:
-			wc->opcode    = IBV_WC_SEND;
-			break;
-		default:
-			/* assume it's a send completion */
-			wc->opcode    = IBV_WC_SEND;
-			break;
-		}
+	*pstatus = IBV_WC_SUCCESS;
+	if (lazy) {
+		if (!is_send)
+			if ((*cur_qp) && ((*cur_qp)->qp_cap_cache & MLX4_RX_CSUM_VALID))
+				cq->flags |= MLX4_CQ_FLAGS_RX_CSUM_VALID;
+	} else if (is_send) {
+		handle_good_req(wc, cqe);
 	} else {
 		wc->byte_len = ntohl(cqe->byte_cnt);
 
@@ -331,7 +349,7 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 		wc->wc_flags	  |= g_mlpath_rqpn & 0x80000000 ? IBV_WC_GRH : 0;
 		wc->pkey_index     = ntohl(cqe->immed_rss_invalid) & 0x7f;
 		/* When working with xrc srqs, don't have qp to check link layer.
-		  * Using IB SL, should consider Roce. (TBD)
+		* Using IB SL, should consider Roce. (TBD)
 		*/
 		if ((*cur_qp) && (*cur_qp)->link_layer == IBV_LINK_LAYER_ETHERNET)
 			wc->sl	   = ntohs(cqe->sl_vid) >> 13;
@@ -340,12 +358,39 @@ static int mlx4_poll_one(struct mlx4_cq *cq,
 
 		if ((*cur_qp) && ((*cur_qp)->qp_cap_cache & MLX4_RX_CSUM_VALID)) {
 			wc->wc_flags |= ((cqe->status & htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) ==
-					 htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) <<
-					IBV_WC_IP_CSUM_OK_SHIFT;
+				 htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) <<
+				IBV_WC_IP_CSUM_OK_SHIFT;
 		}
 	}
 
 	return CQ_OK;
+}
+
+static inline int mlx4_parse_lazy_cqe(struct mlx4_cq *cq,
+				      struct mlx4_cqe *cqe)
+				      ALWAYS_INLINE;
+static inline int mlx4_parse_lazy_cqe(struct mlx4_cq *cq,
+				      struct mlx4_cqe *cqe)
+{
+	return mlx4_parse_cqe(cq, cqe, &cq->cur_qp, NULL, 1);
+}
+
+static inline int mlx4_poll_one(struct mlx4_cq *cq,
+			 struct mlx4_qp **cur_qp,
+			 struct ibv_wc *wc)
+			 ALWAYS_INLINE;
+static inline int mlx4_poll_one(struct mlx4_cq *cq,
+			 struct mlx4_qp **cur_qp,
+			 struct ibv_wc *wc)
+{
+	struct mlx4_cqe *cqe;
+	int err;
+
+	err = mlx4_get_next_cqe(cq, &cqe);
+	if (err == CQ_EMPTY)
+		return err;
+
+	return mlx4_parse_cqe(cq, cqe, cur_qp, wc, 0);
 }
 
 int mlx4_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
