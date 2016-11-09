@@ -239,6 +239,10 @@ if (NOT NL_KIND EQUAL 0)
   set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
 endif()
 
+# udev
+find_package(UDev REQUIRED)
+include_directories(${UDEV_INCLUDE_DIRS})
+
 # Statically determine sizeof(long), this is largely unnecessary, no new code
 # should rely on this.
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
@@ -349,6 +353,7 @@ add_subdirectory(libibumad/tests)
 add_subdirectory(libibverbs/examples)
 add_subdirectory(librdmacm/examples)
 add_subdirectory(srp_daemon)
+add_subdirectory(rdma-ndd)
 
 rdma_finalize_libs()
 

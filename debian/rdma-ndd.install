@@ -1,0 +1,4 @@
+etc/rdmam-ndd.conf
+lib/systemd/system/rdma-ndd.service
+usr/sbin/rdma-ndd
+usr/share/man/man8/rdma-ndd.8
