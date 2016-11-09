@@ -78,6 +78,18 @@ struct mlx4_create_cq_resp {
 	__u32				reserved;
 };
 
+struct mlx4_create_cq_ex {
+	struct ibv_create_cq_ex		ibv_cmd;
+	__u64				buf_addr;
+	__u64				db_addr;
+};
+
+struct mlx4_create_cq_resp_ex {
+	struct ibv_create_cq_resp_ex	ibv_resp;
+	__u32				cqn;
+	__u32				reserved;
+};
+
 struct mlx4_resize_cq {
 	struct ibv_resize_cq		ibv_cmd;
 	__u64				buf_addr;

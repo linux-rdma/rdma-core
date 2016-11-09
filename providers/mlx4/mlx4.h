@@ -168,6 +168,8 @@ struct mlx4_pd {
 
 enum {
 	MLX4_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
+	MLX4_CQ_FLAGS_EXTENDED = 1 << 1,
+	MLX4_CQ_FLAGS_SINGLE_THREADED = 1 << 2,
 };
 
 struct mlx4_cq {
@@ -375,6 +377,9 @@ int mlx4_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
+struct ibv_cq_ex *mlx4_create_cq_ex(struct ibv_context *context,
+				    struct ibv_cq_init_attr_ex *cq_attr);
+void mlx4_cq_fill_pfns(struct mlx4_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr);
 int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
 		      int entry_size);
 int mlx4_resize_cq(struct ibv_cq *cq, int cqe);
