@@ -272,13 +272,20 @@ struct mlx4_cqe {
 	uint32_t	vlan_my_qpn;
 	uint32_t	immed_rss_invalid;
 	uint32_t	g_mlpath_rqpn;
-	uint16_t	sl_vid;
-	uint16_t	rlid;
+	union {
+		struct {
+			uint16_t	sl_vid;
+			uint16_t	rlid;
+		};
+		uint32_t ts_47_16;
+	};
 	uint32_t	status;
 	uint32_t	byte_cnt;
 	uint16_t	wqe_index;
 	uint16_t	checksum;
-	uint8_t		reserved3[3];
+	uint8_t		reserved3;
+	uint8_t		ts_15_8;
+	uint8_t		ts_7_0;
 	uint8_t		owner_sr_opcode;
 };
 
