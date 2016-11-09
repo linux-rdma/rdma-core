@@ -109,7 +109,6 @@ void smp_engine_destroy(smp_engine_t * engine);
 int add_to_nodeguid_hash(ibnd_node_t * node, ibnd_node_t * hash[]);
 
 int add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[]);
-void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable);
 
 void add_to_type_list(ibnd_node_t * node, f_internal_t * fabric);
 
