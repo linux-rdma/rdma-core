@@ -46,6 +46,13 @@ BuildRequires: make
 %endif
 %endif
 
+# Detect if systemd is supported on this system
+%if 0%{?_unitdir:1}
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
+%endif
+
 %description
 Temporary packaging
 
@@ -59,9 +66,6 @@ This is a simple example without the split sub packages to get things started.
 # Detect if systemd is supported on this system
 %if 0%{?_unitdir:1}
 %define my_unitdir %{_unitdir}
-Requires(post): systemd-units
-Requires(preun): systemd-units
-Requires(postun): systemd-units
 %else
 %define my_unitdir /tmp/
 %endif
