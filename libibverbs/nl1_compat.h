@@ -1,3 +1,6 @@
+/* Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+ */
+
 #ifndef _NL1_COMPAT_H_
 #define _NL1_COMPAT_H_
 

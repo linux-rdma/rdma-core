@@ -1,3 +1,6 @@
+/* Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+ */
+
 #ifndef _NEIGH_H_
 #define _NEIGH_H_
 

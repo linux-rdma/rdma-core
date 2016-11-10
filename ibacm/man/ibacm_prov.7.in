@@ -1,3 +1,4 @@
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
 .TH "IBACM_PROV" 7 "2014-06-16" "IBACM_PROV" "IB ACM Provider Guide" IBACM_PROV
 .SH NAME
 ibacm_prov \- InfiniBand communication management assistant provider interface
