@@ -14,6 +14,7 @@ Source: rdma-core-%{version}.tgz
 BuildRequires: binutils
 BuildRequires: cmake >= 2.8.11
 BuildRequires: gcc
+BuildRequires: libudev-devel
 BuildRequires: pkgconfig
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
@@ -92,7 +93,8 @@ This is a simple example without the split sub packages to get things started.
 	 -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{my_unitdir} \
 	 -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
 	 -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
-	 -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version}
+	 -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
+	 -DCMAKE_INSTALL_UDEV_RULESDR:PATH=%{_udevrulesdir}
 %make_jobs
 
 %install
@@ -119,6 +121,7 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %{_libdir}/rsocket/*
 %{_sbindir}/*
 %{_libexecdir}/*
+%{_udevrulesdir}/*
 %{_docdir}/%{name}-%{version}/*
 %if 0%{?_unitdir:1}
 %{_unitdir}/*

@@ -24,6 +24,7 @@ addons:
       - gcc-6
       - libnl-3-dev
       - libnl-route-3-dev
+      - libudev-dev
       - make
       - ninja-build
       - pkg-config

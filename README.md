@@ -50,13 +50,13 @@ only load from the system path.
 ### Debian Derived
 
 ```sh
-$ apt-get install build-essential cmake gcc libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind
+$ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind
 ```
 
 ### Fedora
 
 ```sh
-$ dnf install cmake gcc libnl3-devel pkgconfig valgrind-devel ninja-build
+$ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninja-build
 ```
 
 NOTE: Fedora Core uses the name 'ninja-build' for the ninja command.
@@ -64,7 +64,7 @@ NOTE: Fedora Core uses the name 'ninja-build' for the ninja command.
 ### OpenSuSE
 
 ```sh
-$ zypper install cmake gcc libnl3-devel ninja pkg-config valgrind-devel
+$ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel
 ```
 
 ## Building on CentOS 6/7
@@ -72,7 +72,7 @@ $ zypper install cmake gcc libnl3-devel ninja pkg-config valgrind-devel
 Install required packages:
 
 ```sh
-$ yum install cmake gcc libnl3-devel make pkgconfig valgrind-devel
+$ yum install cmake gcc libnl3-devel libudev-devel make pkgconfig valgrind-devel
 ```
 
 Developers are suggested to install more modern tooling for the best experience.
