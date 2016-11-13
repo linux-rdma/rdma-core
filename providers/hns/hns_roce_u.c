@@ -127,6 +127,11 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->ibv_ctx.ops.cq_event	   = hns_roce_u_cq_event;
 	context->ibv_ctx.ops.destroy_cq    = hns_roce_u_destroy_cq;
 
+	context->ibv_ctx.ops.create_qp     = hns_roce_u_create_qp;
+	context->ibv_ctx.ops.query_qp	   = hns_roce_u_query_qp;
+	context->ibv_ctx.ops.modify_qp     = hr_dev->u_hw->modify_qp;
+	context->ibv_ctx.ops.destroy_qp    = hr_dev->u_hw->destroy_qp;
+
 	if (hns_roce_u_query_device(&context->ibv_ctx, &dev_attrs))
 		goto tptr_free;
 

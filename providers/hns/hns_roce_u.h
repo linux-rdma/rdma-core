@@ -44,6 +44,7 @@
 
 #define HNS_ROCE_MAX_CQ_NUM		0x10000
 #define HNS_ROCE_MIN_CQE_NUM		0x40
+#define HNS_ROCE_MIN_WQE_NUM		0x20
 #define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
 #define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
@@ -128,10 +129,29 @@ struct hns_roce_cq {
 	int				arm_sn;
 };
 
+struct hns_roce_srq {
+	struct ibv_srq			ibv_srq;
+	struct hns_roce_buf		buf;
+	pthread_spinlock_t		lock;
+	unsigned long			*wrid;
+	unsigned int			srqn;
+	int				max;
+	unsigned int			max_gs;
+	int				wqe_shift;
+	int				head;
+	int				tail;
+	unsigned int			*db;
+	unsigned short			counter;
+};
+
 struct hns_roce_wq {
 	unsigned long			*wrid;
+	pthread_spinlock_t		lock;
 	unsigned int			wqe_cnt;
+	int				max_post;
+	unsigned int			head;
 	unsigned int			tail;
+	unsigned int			max_gs;
 	int				wqe_shift;
 	int				offset;
 };
@@ -139,14 +159,21 @@ struct hns_roce_wq {
 struct hns_roce_qp {
 	struct ibv_qp			ibv_qp;
 	struct hns_roce_buf		buf;
+	int				max_inline_data;
+	int				buf_size;
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
+	int				port_num;
+	int				sl;
 };
 
 struct hns_roce_u_hw {
 	int (*poll_cq)(struct ibv_cq *ibvcq, int ne, struct ibv_wc *wc);
 	int (*arm_cq)(struct ibv_cq *ibvcq, int solicited);
+	int (*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			 int attr_mask);
+	int (*destroy_qp)(struct ibv_qp *ibqp);
 };
 
 static inline unsigned long align(unsigned long val, unsigned long align)
@@ -174,6 +201,16 @@ static inline struct hns_roce_cq *to_hr_cq(struct ibv_cq *ibv_cq)
 	return container_of(ibv_cq, struct hns_roce_cq, ibv_cq);
 }
 
+static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
+{
+	return container_of(ibv_srq, struct hns_roce_srq, ibv_srq);
+}
+
+static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
+{
+	return container_of(ibv_qp, struct hns_roce_qp, ibv_qp);
+}
+
 int hns_roce_u_query_device(struct ibv_context *context,
 			    struct ibv_device_attr *attr);
 int hns_roce_u_query_port(struct ibv_context *context, uint8_t port,
@@ -193,9 +230,17 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 int hns_roce_u_destroy_cq(struct ibv_cq *cq);
 void hns_roce_u_cq_event(struct ibv_cq *cq);
 
+struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
+				    struct ibv_qp_init_attr *attr);
+
+int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
+			int attr_mask, struct ibv_qp_init_attr *init_attr);
+
 int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 		       int page_size);
 void hns_roce_free_buf(struct hns_roce_buf *buf);
+
+void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 
 extern struct hns_roce_u_hw hns_roce_u_hw_v1;
 

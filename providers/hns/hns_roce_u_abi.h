@@ -58,4 +58,12 @@ struct hns_roce_create_cq_resp {
 	__u32				reserved;
 };
 
+struct hns_roce_create_qp {
+	struct ibv_create_qp		ibv_cmd;
+	__u64				buf_addr;
+	__u8				log_sq_bb_count;
+	__u8				log_sq_stride;
+	__u8				reserved[5];
+};
+
 #endif /* _HNS_ROCE_U_ABI_H */
