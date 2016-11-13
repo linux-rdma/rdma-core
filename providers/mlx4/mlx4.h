@@ -154,6 +154,11 @@ struct mlx4_context {
 		uint8_t                 link_layer;
 		enum ibv_port_cap_flags caps;
 	} port_query_cache[MLX4_PORTS_NUM];
+	struct {
+		uint64_t                offset;
+		uint8_t                 offset_valid;
+	} core_clock;
+	void			       *hca_core_clock;
 };
 
 struct mlx4_buf {
@@ -360,7 +365,8 @@ int mlx4_query_device_ex(struct ibv_context *context,
 			 size_t attr_size);
 int mlx4_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr);
-
+int mlx4_query_rt_values(struct ibv_context *context,
+			 struct ibv_values_ex *values);
 struct ibv_pd *mlx4_alloc_pd(struct ibv_context *context);
 int mlx4_free_pd(struct ibv_pd *pd);
 struct ibv_xrcd *mlx4_open_xrcd(struct ibv_context *context,
