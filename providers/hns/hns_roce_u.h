@@ -51,6 +51,10 @@
 
 #define PFX				"hns: "
 
+#ifndef likely
+#define likely(x)     __builtin_expect(!!(x), 1)
+#endif
+
 #define roce_get_field(origin, mask, shift) \
 	(((origin) & (mask)) >> (shift))
 
@@ -171,6 +175,10 @@ struct hns_roce_qp {
 struct hns_roce_u_hw {
 	int (*poll_cq)(struct ibv_cq *ibvcq, int ne, struct ibv_wc *wc);
 	int (*arm_cq)(struct ibv_cq *ibvcq, int solicited);
+	int (*post_send)(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
+			 struct ibv_send_wr **bad_wr);
+	int (*post_recv)(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
+			 struct ibv_recv_wr **bad_wr);
 	int (*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask);
 	int (*destroy_qp)(struct ibv_qp *ibqp);

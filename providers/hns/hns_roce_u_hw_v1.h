@@ -39,9 +39,15 @@
 #define HNS_ROCE_CQE_IS_SQ			0
 
 #define HNS_ROCE_RC_WQE_INLINE_DATA_MAX_LEN	32
+#define HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM		2
 
 enum {
+	HNS_ROCE_WQE_INLINE		= 1 << 31,
+	HNS_ROCE_WQE_SE			= 1 << 30,
+	HNS_ROCE_WQE_SGE_NUM_BIT	= 24,
 	HNS_ROCE_WQE_IMM		= 1 << 23,
+	HNS_ROCE_WQE_FENCE		= 1 << 21,
+	HNS_ROCE_WQE_CQ_NOTIFY		 = 1 << 20,
 	HNS_ROCE_WQE_OPCODE_SEND        = 0 << 16,
 	HNS_ROCE_WQE_OPCODE_RDMA_READ   = 1 << 16,
 	HNS_ROCE_WQE_OPCODE_RDMA_WRITE  = 2 << 16,
@@ -52,6 +58,20 @@ enum {
 struct hns_roce_wqe_ctrl_seg {
 	__be32		sgl_pa_h;
 	__be32		flag;
+	__be32		imm_data;
+	__be32		msg_length;
+};
+
+struct hns_roce_wqe_data_seg {
+	__be64		addr;
+	__be32		lkey;
+	__be32		len;
+};
+
+struct hns_roce_wqe_raddr_seg {
+	__be32		rkey;
+	__be32		len;
+	__be64		raddr;
 };
 
 enum {
@@ -101,6 +121,43 @@ struct hns_roce_cq_db {
 #define CQ_DB_U32_8_CMD_M   (((1UL << 3) - 1) << CQ_DB_U32_8_CMD_S)
 
 #define CQ_DB_U32_8_HW_SYNC_S 31
+
+struct hns_roce_rq_db {
+	unsigned int u32_4;
+	unsigned int u32_8;
+};
+
+#define RQ_DB_U32_4_RQ_HEAD_S 0
+#define RQ_DB_U32_4_RQ_HEAD_M   (((1UL << 15) - 1) << RQ_DB_U32_4_RQ_HEAD_S)
+
+#define RQ_DB_U32_8_QPN_S 0
+#define RQ_DB_U32_8_QPN_M   (((1UL << 24) - 1) << RQ_DB_U32_8_QPN_S)
+
+#define RQ_DB_U32_8_CMD_S 28
+#define RQ_DB_U32_8_CMD_M   (((1UL << 3) - 1) << RQ_DB_U32_8_CMD_S)
+
+#define RQ_DB_U32_8_HW_SYNC_S 31
+
+struct hns_roce_sq_db {
+	unsigned int u32_4;
+	unsigned int u32_8;
+};
+
+#define SQ_DB_U32_4_SQ_HEAD_S 0
+#define SQ_DB_U32_4_SQ_HEAD_M (((1UL << 15) - 1) << SQ_DB_U32_4_SQ_HEAD_S)
+
+#define SQ_DB_U32_4_SL_S 16
+#define SQ_DB_U32_4_SL_M (((1UL << 2) - 1) << SQ_DB_U32_4_SL_S)
+
+#define SQ_DB_U32_4_PORT_S 18
+#define SQ_DB_U32_4_PORT_M (((1UL << 3) - 1) << SQ_DB_U32_4_PORT_S)
+
+#define SQ_DB_U32_4_DIRECT_WQE_S 31
+
+#define SQ_DB_U32_8_QPN_S 0
+#define SQ_DB_U32_8_QPN_M (((1UL << 24) - 1) << SQ_DB_U32_8_QPN_S)
+
+#define SQ_DB_U32_8_HW_SYNC 31
 
 struct hns_roce_cqe {
 	unsigned int cqe_byte_4;
@@ -159,5 +216,27 @@ struct hns_roce_rc_send_wqe {
 	unsigned int l_key1;
 	unsigned int length1;
 };
+
+struct hns_roce_rc_rq_wqe {
+	unsigned int u32_0;
+	unsigned int sgl_ba_31_0;
+	unsigned int u32_2;
+	unsigned int rvd_5;
+	unsigned int rvd_6;
+	unsigned int rvd_7;
+	unsigned int rvd_8;
+	unsigned int rvd_9;
+
+	uint64_t     va0;
+	unsigned int l_key0;
+	unsigned int length0;
+
+	uint64_t     va1;
+	unsigned int l_key1;
+	unsigned int length1;
+};
+#define RC_RQ_WQE_NUMBER_OF_DATA_SEG_S 16
+#define RC_RQ_WQE_NUMBER_OF_DATA_SEG_M \
+	(((1UL << 6) - 1) << RC_RQ_WQE_NUMBER_OF_DATA_SEG_S)
 
 #endif /* _HNS_ROCE_U_HW_V1_H */
