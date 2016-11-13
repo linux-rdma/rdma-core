@@ -95,12 +95,19 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
+	context->ibv_ctx.ops.query_device  = hns_roce_u_query_device;
+	context->ibv_ctx.ops.query_port    = hns_roce_u_query_port;
+
+	if (hns_roce_u_query_device(&context->ibv_ctx, &dev_attrs))
+		goto tptr_free;
+
 	context->max_qp_wr = dev_attrs.max_qp_wr;
 	context->max_sge = dev_attrs.max_sge;
 	context->max_cqe = dev_attrs.max_cqe;
 
 	return &context->ibv_ctx;
 
+tptr_free:
 err_free:
 	free(context);
 	return NULL;
