@@ -71,3 +71,82 @@ int hns_roce_u_query_port(struct ibv_context *context, uint8_t port,
 
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
 }
+
+struct ibv_pd *hns_roce_u_alloc_pd(struct ibv_context *context)
+{
+	struct ibv_alloc_pd cmd;
+	struct hns_roce_pd *pd;
+	struct hns_roce_alloc_pd_resp resp;
+
+	pd = (struct hns_roce_pd *)malloc(sizeof(*pd));
+	if (!pd)
+		return NULL;
+
+	if (ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd, sizeof(cmd),
+			     &resp.ibv_resp, sizeof(resp))) {
+		free(pd);
+		return NULL;
+	}
+
+	pd->pdn = resp.pdn;
+
+	return &pd->ibv_pd;
+}
+
+int hns_roce_u_free_pd(struct ibv_pd *pd)
+{
+	int ret;
+
+	ret = ibv_cmd_dealloc_pd(pd);
+	if (ret)
+		return ret;
+
+	free(to_hr_pd(pd));
+
+	return ret;
+}
+
+struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+				 int access)
+{
+	int ret;
+	struct ibv_mr *mr;
+	struct ibv_reg_mr cmd;
+	struct ibv_reg_mr_resp resp;
+
+	if (!addr) {
+		fprintf(stderr, "2nd parm addr is NULL!\n");
+		return NULL;
+	}
+
+	if (!length) {
+		fprintf(stderr, "3st parm length is 0!\n");
+		return NULL;
+	}
+
+	mr = malloc(sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr, access, mr,
+			     &cmd, sizeof(cmd), &resp, sizeof(resp));
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+
+	return mr;
+}
+
+int hns_roce_u_dereg_mr(struct ibv_mr *mr)
+{
+	int ret;
+
+	ret = ibv_cmd_dereg_mr(mr);
+	if (ret)
+		return ret;
+
+	free(mr);
+
+	return ret;
+}

@@ -40,4 +40,10 @@ struct hns_roce_alloc_ucontext_resp {
 	__u32				qp_tab_size;
 };
 
+struct hns_roce_alloc_pd_resp {
+	struct ibv_alloc_pd_resp	ibv_resp;
+	__u32				pdn;
+	__u32				reserved;
+};
+
 #endif /* _HNS_ROCE_U_ABI_H */

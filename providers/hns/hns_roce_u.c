@@ -97,6 +97,10 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 
 	context->ibv_ctx.ops.query_device  = hns_roce_u_query_device;
 	context->ibv_ctx.ops.query_port    = hns_roce_u_query_port;
+	context->ibv_ctx.ops.alloc_pd	   = hns_roce_u_alloc_pd;
+	context->ibv_ctx.ops.dealloc_pd    = hns_roce_u_free_pd;
+	context->ibv_ctx.ops.reg_mr	   = hns_roce_u_reg_mr;
+	context->ibv_ctx.ops.dereg_mr	   = hns_roce_u_dereg_mr;
 
 	if (hns_roce_u_query_device(&context->ibv_ctx, &dev_attrs))
 		goto tptr_free;

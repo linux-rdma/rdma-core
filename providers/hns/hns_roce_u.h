@@ -73,6 +73,11 @@ struct hns_roce_context {
 	int				max_cqe;
 };
 
+struct hns_roce_pd {
+	struct ibv_pd			ibv_pd;
+	unsigned int			pdn;
+};
+
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
 {
 	return container_of(ibv_dev, struct hns_roce_device, ibv_dev);
@@ -83,8 +88,21 @@ static inline struct hns_roce_context *to_hr_ctx(struct ibv_context *ibv_ctx)
 	return container_of(ibv_ctx, struct hns_roce_context, ibv_ctx);
 }
 
+static inline struct hns_roce_pd *to_hr_pd(struct ibv_pd *ibv_pd)
+{
+	return container_of(ibv_pd, struct hns_roce_pd, ibv_pd);
+}
+
 int hns_roce_u_query_device(struct ibv_context *context,
 			    struct ibv_device_attr *attr);
 int hns_roce_u_query_port(struct ibv_context *context, uint8_t port,
 			  struct ibv_port_attr *attr);
+
+struct ibv_pd *hns_roce_u_alloc_pd(struct ibv_context *context);
+int hns_roce_u_free_pd(struct ibv_pd *pd);
+
+struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+				 int access);
+int hns_roce_u_dereg_mr(struct ibv_mr *mr);
+
 #endif /* _HNS_ROCE_U_H */
