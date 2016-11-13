@@ -230,6 +230,14 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			attr->max_wq_type_rq = resp->max_wq_type_rq;
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, raw_packet_caps) +
+			 sizeof(attr->raw_packet_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, raw_packet_caps) +
+		    sizeof(resp->raw_packet_caps))
+			attr->raw_packet_caps = resp->raw_packet_caps;
+	}
+
 	return 0;
 }
 

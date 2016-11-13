@@ -290,7 +290,7 @@ struct ibv_query_device_resp_ex {
 	__u64 device_cap_flags_ex;
 	struct ibv_rss_caps_resp rss_caps;
 	__u32  max_wq_type_rq;
-	__u32 reserved;
+	__u32 raw_packet_caps;
 };
 
 struct ibv_query_port {
