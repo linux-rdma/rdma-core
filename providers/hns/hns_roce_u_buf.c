@@ -30,32 +30,32 @@
  * SOFTWARE.
  */
 
-#ifndef _HNS_ROCE_U_ABI_H
-#define _HNS_ROCE_U_ABI_H
+#include <errno.h>
+#include <sys/mman.h>
 
-#include <infiniband/kern-abi.h>
+#include "hns_roce_u.h"
 
-struct hns_roce_alloc_ucontext_resp {
-	struct ibv_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-};
+int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
+		       int page_size)
+{
+	int ret;
 
-struct hns_roce_alloc_pd_resp {
-	struct ibv_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-	__u32				reserved;
-};
+	buf->length = align(size, page_size);
+	buf->buf = mmap(NULL, buf->length, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (buf->buf == MAP_FAILED)
+		return errno;
 
-struct hns_roce_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-};
+	ret = ibv_dontfork_range(buf->buf, size);
+	if (ret)
+		munmap(buf->buf, buf->length);
 
-struct hns_roce_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
-	__u32				cqn;
-	__u32				reserved;
-};
+	return ret;
+}
 
-#endif /* _HNS_ROCE_U_ABI_H */
+void hns_roce_free_buf(struct hns_roce_buf *buf)
+{
+	ibv_dofork_range(buf->buf, buf->length);
+
+	munmap(buf->buf, buf->length);
+}

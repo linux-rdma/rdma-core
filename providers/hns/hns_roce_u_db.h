@@ -30,32 +30,25 @@
  * SOFTWARE.
  */
 
-#ifndef _HNS_ROCE_U_ABI_H
-#define _HNS_ROCE_U_ABI_H
+#include <linux/types.h>
 
-#include <infiniband/kern-abi.h>
+#include "hns_roce_u.h"
 
-struct hns_roce_alloc_ucontext_resp {
-	struct ibv_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-};
+#ifndef _HNS_ROCE_U_DB_H
+#define _HNS_ROCE_U_DB_H
 
-struct hns_roce_alloc_pd_resp {
-	struct ibv_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-	__u32				reserved;
-};
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define HNS_ROCE_PAIR_TO_64(val) ((uint64_t) val[1] << 32 | val[0])
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#define HNS_ROCE_PAIR_TO_64(val) ((uint64_t) val[0] << 32 | val[1])
+#else
+#error __BYTE_ORDER not defined
+#endif
 
-struct hns_roce_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-};
+static inline void hns_roce_write64(uint32_t val[2],
+				    struct hns_roce_context *ctx, int offset)
+{
+	*(volatile uint64_t *) (ctx->uar + offset) = HNS_ROCE_PAIR_TO_64(val);
+}
 
-struct hns_roce_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
-	__u32				cqn;
-	__u32				reserved;
-};
-
-#endif /* _HNS_ROCE_U_ABI_H */
+#endif /* _HNS_ROCE_U_DB_H */

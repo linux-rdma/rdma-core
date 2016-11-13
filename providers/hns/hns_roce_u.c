@@ -46,15 +46,19 @@
 
 static const struct {
 	char	 hid[HID_LEN];
+	void	 *data;
+	int	 version;
 } acpi_table[] = {
-	{"acpi:HISI00D1:"},
-	{},
+	 {"acpi:HISI00D1:", &hns_roce_u_hw_v1, HNS_ROCE_HW_VER1},
+	 {},
 };
 
 static const struct {
 	char	 compatible[DEV_MATCH_LEN];
+	void	 *data;
+	int	 version;
 } dt_table[] = {
-	{"hisilicon,hns-roce-v1"},
+	{"hisilicon,hns-roce-v1", &hns_roce_u_hw_v1, HNS_ROCE_HW_VER1},
 	{},
 };
 
@@ -93,6 +97,21 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 		goto err_free;
 	}
 
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
+		/*
+		 * when vma->vm_pgoff is 1, the cq_tptr_base includes 64K CQ,
+		 * a pointer of CQ need 2B size
+		 */
+		context->cq_tptr_base = mmap(NULL, HNS_ROCE_CQ_DB_BUF_SIZE,
+					     PROT_READ | PROT_WRITE, MAP_SHARED,
+					     cmd_fd, HNS_ROCE_TPTR_OFFSET);
+		if (context->cq_tptr_base == MAP_FAILED) {
+			fprintf(stderr,
+				PFX "Warning: Failed to mmap cq_tptr page.\n");
+			goto db_free;
+		}
+	}
+
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
 	context->ibv_ctx.ops.query_device  = hns_roce_u_query_device;
@@ -101,6 +120,12 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->ibv_ctx.ops.dealloc_pd    = hns_roce_u_free_pd;
 	context->ibv_ctx.ops.reg_mr	   = hns_roce_u_reg_mr;
 	context->ibv_ctx.ops.dereg_mr	   = hns_roce_u_dereg_mr;
+
+	context->ibv_ctx.ops.create_cq     = hns_roce_u_create_cq;
+	context->ibv_ctx.ops.poll_cq	   = hr_dev->u_hw->poll_cq;
+	context->ibv_ctx.ops.req_notify_cq = hr_dev->u_hw->arm_cq;
+	context->ibv_ctx.ops.cq_event	   = hns_roce_u_cq_event;
+	context->ibv_ctx.ops.destroy_cq    = hns_roce_u_destroy_cq;
 
 	if (hns_roce_u_query_device(&context->ibv_ctx, &dev_attrs))
 		goto tptr_free;
@@ -112,6 +137,16 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	return &context->ibv_ctx;
 
 tptr_free:
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
+		if (munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE))
+			fprintf(stderr, PFX "Warning: Munmap tptr failed.\n");
+		context->cq_tptr_base = NULL;
+	}
+
+db_free:
+	munmap(context->uar, to_hr_dev(ibdev)->page_size);
+	context->uar = NULL;
+
 err_free:
 	free(context);
 	return NULL;
@@ -122,6 +157,8 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	struct hns_roce_context *context = to_hr_ctx(ibctx);
 
 	munmap(context->uar, to_hr_dev(ibctx->device)->page_size);
+	if (to_hr_dev(ibctx->device)->hw_version == HNS_ROCE_HW_VER1)
+		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
 	context->uar = NULL;
 
@@ -140,18 +177,26 @@ static struct ibv_device *hns_roce_driver_init(const char *uverbs_sys_path,
 	struct hns_roce_device  *dev;
 	char			 value[128];
 	int			 i;
+	void			 *u_hw;
+	int			 hw_version;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/modalias",
 				value, sizeof(value)) > 0)
 		for (i = 0; i < sizeof(acpi_table) / sizeof(acpi_table[0]); ++i)
-			if (!strcmp(value, acpi_table[i].hid))
+			if (!strcmp(value, acpi_table[i].hid)) {
+				u_hw = acpi_table[i].data;
+				hw_version = acpi_table[i].version;
 				goto found;
+			}
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/of_node/compatible",
 				value, sizeof(value)) > 0)
 		for (i = 0; i < sizeof(dt_table) / sizeof(dt_table[0]); ++i)
-			if (!strcmp(value, dt_table[i].compatible))
+			if (!strcmp(value, dt_table[i].compatible)) {
+				u_hw = dt_table[i].data;
+				hw_version = dt_table[i].version;
 				goto found;
+			}
 
 	return NULL;
 
@@ -164,6 +209,8 @@ found:
 	}
 
 	dev->ibv_dev.ops = hns_roce_dev_ops;
+	dev->u_hw = (struct hns_roce_u_hw *)u_hw;
+	dev->hw_version = hw_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	return &dev->ibv_dev;
 }

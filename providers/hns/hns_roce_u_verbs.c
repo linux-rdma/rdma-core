@@ -40,6 +40,8 @@
 #include <unistd.h>
 
 #include "hns_roce_u.h"
+#include "hns_roce_u_abi.h"
+#include "hns_roce_u_hw_v1.h"
 
 int hns_roce_u_query_device(struct ibv_context *context,
 			    struct ibv_device_attr *attr)
@@ -147,6 +149,120 @@ int hns_roce_u_dereg_mr(struct ibv_mr *mr)
 		return ret;
 
 	free(mr);
+
+	return ret;
+}
+
+static int align_cq_size(int req)
+{
+	int nent;
+
+	for (nent = HNS_ROCE_MIN_CQE_NUM; nent < req; nent <<= 1)
+		;
+
+	return nent;
+}
+
+static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
+{
+	if (*cqe < HNS_ROCE_MIN_CQE_NUM) {
+		fprintf(stderr, "cqe = %d, less than minimum CQE number.\n",
+			*cqe);
+		*cqe = HNS_ROCE_MIN_CQE_NUM;
+	}
+
+	if (*cqe > context->max_cqe)
+		return -1;
+
+	return 0;
+}
+
+static int hns_roce_alloc_cq_buf(struct hns_roce_device *dev,
+				 struct hns_roce_buf *buf, int nent)
+{
+	if (hns_roce_alloc_buf(buf,
+			align(nent * HNS_ROCE_CQE_ENTRY_SIZE, dev->page_size),
+			dev->page_size))
+		return -1;
+	memset(buf->buf, 0, nent * HNS_ROCE_CQE_ENTRY_SIZE);
+
+	return 0;
+}
+
+struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
+				    struct ibv_comp_channel *channel,
+				    int comp_vector)
+{
+	struct hns_roce_create_cq	cmd;
+	struct hns_roce_create_cq_resp	resp;
+	struct hns_roce_cq		*cq;
+	int				ret;
+
+	if (hns_roce_verify_cq(&cqe, to_hr_ctx(context)))
+		return NULL;
+
+	cq = malloc(sizeof(*cq));
+	if (!cq)
+		return NULL;
+
+	cq->cons_index = 0;
+
+	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
+		goto err;
+
+	cqe = align_cq_size(cqe);
+
+	if (hns_roce_alloc_cq_buf(to_hr_dev(context->device), &cq->buf, cqe))
+		goto err;
+
+	cmd.buf_addr = (uintptr_t) cq->buf.buf;
+
+	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
+				&cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
+	if (ret)
+		goto err_db;
+
+	cq->cqn = resp.cqn;
+	cq->cq_depth = cqe;
+
+	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER1)
+		cq->set_ci_db = to_hr_ctx(context)->cq_tptr_base + cq->cqn * 2;
+	else
+		cq->set_ci_db = to_hr_ctx(context)->uar +
+				ROCEE_DB_OTHERS_L_0_REG;
+
+	cq->arm_db    = cq->set_ci_db;
+	cq->arm_sn    = 1;
+	*(cq->set_ci_db) = 0;
+	*(cq->arm_db) = 0;
+
+	return &cq->ibv_cq;
+
+err_db:
+	hns_roce_free_buf(&cq->buf);
+
+err:
+	free(cq);
+
+	return NULL;
+}
+
+void hns_roce_u_cq_event(struct ibv_cq *cq)
+{
+	to_hr_cq(cq)->arm_sn++;
+}
+
+int hns_roce_u_destroy_cq(struct ibv_cq *cq)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_cq(cq);
+	if (ret)
+		return ret;
+
+	hns_roce_free_buf(&to_hr_cq(cq)->buf);
+	free(to_hr_cq(cq));
 
 	return ret;
 }
