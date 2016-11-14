@@ -57,6 +57,12 @@ S:	Supported
 L:	intel-opa@lists.01.org (moderated for non-subscribers)
 F:	providers/hfi1verbs/
 
+HNS USERSPACE PROVIDER (for hns-roce.ko)
+M:	Lijun Ou <oulijun@huawei.com>
+M:	Wei Hu(Xavier) <xavier.huwei@huawei.com>
+S:	Supported
+F:	providers/hns/
+
 I40IW USERSPACE PROVIDER (for i40iw.ko)
 M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
 S:	Supported
