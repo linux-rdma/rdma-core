@@ -26,6 +26,8 @@ struct ibv_wq_attr {
 uint32_t                attr_mask;     /* Use enum ibv_wq_attr_mask */
 enum ibv_wq_state       wq_state;      /* Move to this state */
 enum ibv_wq_state       curr_wq_state; /* Assume this is the current state */
+uint32_t                flags;         /* Flags values to modify, use enum ibv_wq_flags */
+uint32_t                flags_mask;    /* Which flags to modify, use enum ibv_wq_flags */
 .in -8
 };
 .fi

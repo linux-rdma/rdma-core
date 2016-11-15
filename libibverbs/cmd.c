@@ -1894,6 +1894,15 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 	cmd->max_wr = wq_init_attr->max_wr;
 	cmd->comp_mask = 0;
 
+	if (cmd_core_size >= offsetof(struct ibv_create_wq, create_flags) +
+	    sizeof(cmd->create_flags)) {
+		if (wq_init_attr->comp_mask & IBV_WQ_INIT_ATTR_FLAGS) {
+			if (wq_init_attr->create_flags & ~(IBV_WQ_FLAGS_RESERVED - 1))
+				return EOPNOTSUPP;
+			cmd->create_flags = wq_init_attr->create_flags;
+		}
+	}
+
 	err = write(context->cmd_fd, cmd, cmd_size);
 	if (err != cmd_size)
 		return errno;
@@ -1927,6 +1936,15 @@ int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 
 	cmd->curr_wq_state = attr->curr_wq_state;
 	cmd->wq_state = attr->wq_state;
+	if (cmd_core_size >= offsetof(struct ibv_modify_wq, flags_mask) +
+	    sizeof(cmd->flags_mask)) {
+		if (attr->attr_mask & IBV_WQ_ATTR_FLAGS) {
+			if (attr->flags_mask & ~(IBV_WQ_FLAGS_RESERVED - 1))
+				return EOPNOTSUPP;
+			cmd->flags = attr->flags;
+			cmd->flags_mask = attr->flags_mask;
+		}
+	}
 	cmd->wq_handle = wq->handle;
 	cmd->attr_mask = attr->attr_mask;
 
