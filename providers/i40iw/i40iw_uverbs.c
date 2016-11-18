@@ -337,7 +337,7 @@ int i40iw_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 	if (ret)
 		return ret;
 	while (cqe_count < num_entries) {
-		ret = iwucq->cq.ops.iw_cq_poll_completion(&iwucq->cq, &cq_poll_info, true);
+		ret = iwucq->cq.ops.iw_cq_poll_completion(&iwucq->cq, &cq_poll_info);
 		if (ret == I40IW_ERR_QUEUE_EMPTY) {
 			break;
 		} else if (ret) {
