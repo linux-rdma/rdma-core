@@ -43,8 +43,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PVRDMA_ABI_H__
-#define __PVRDMA_ABI_H__
+#ifndef __VMW_PVRDMA_ABI_H__
+#define __VMW_PVRDMA_ABI_H__
 
 #include <linux/types.h>
 
@@ -286,4 +286,4 @@ struct pvrdma_cqe {
 	__u8 reserved2[7]; /* Pad to next power of 2 (64). */
 };
 
-#endif /* __PVRDMA_ABI_H__ */
+#endif /* __VMW_PVRDMA_ABI_H__ */

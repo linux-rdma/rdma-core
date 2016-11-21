@@ -46,7 +46,7 @@
 #ifndef __PVRDMA_ABI_FIX_H__
 #define __PVRDMA_ABI_FIX_H__
 
-#include <rdma/pvrdma-abi.h>
+#include <rdma/vmw_pvrdma-abi.h>
 
 struct user_pvrdma_alloc_ucontext_resp {
 	struct ibv_get_context_resp		ibv_resp;
