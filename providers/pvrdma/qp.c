@@ -90,10 +90,10 @@ int pvrdma_alloc_qp_buf(struct pvrdma_device *dev, struct ibv_qp_cap *cap,
 
 static void pvrdma_init_qp_queue(struct pvrdma_qp *qp)
 {
-	atomic_set(&(qp->sq.ring_state->cons_head), 0);
-	atomic_set(&(qp->sq.ring_state->prod_tail), 0);
-	atomic_set(&(qp->rq.ring_state->cons_head), 0);
-	atomic_set(&(qp->rq.ring_state->prod_tail), 0);
+	qp->sq.ring_state->cons_head = 0;
+	qp->sq.ring_state->prod_tail = 0;
+	qp->rq.ring_state->cons_head = 0;
+	qp->rq.ring_state->prod_tail = 0;
 }
 
 struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,

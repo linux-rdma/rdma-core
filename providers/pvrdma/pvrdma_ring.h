@@ -50,14 +50,16 @@
 #include <linux/types.h>
 
 #define PVRDMA_INVALID_IDX	-1	/* Invalid index. */
-#define atomic_read(_x)		*(_x)
-#define atomic_set(_x, _y)	(*(_x) = (_y))
 
-typedef uint32_t atomic_t;
+/*
+ * Rings are shared with the device, so read/write access must be atomic.
+ * PVRDMA is x86 only, and since 32-bit access is atomic on x86, using
+ * regular uint32_t is safe.
+ */
 
 struct pvrdma_ring {
-	atomic_t prod_tail;	/* Producer tail. */
-	atomic_t cons_head;	/* Consumer head. */
+	uint32_t prod_tail;	/* Producer tail. */
+	uint32_t cons_head;	/* Consumer head. */
 };
 
 struct pvrdma_ring_state {
@@ -65,34 +67,35 @@ struct pvrdma_ring_state {
 	struct pvrdma_ring rx;	/* Rx ring. */
 };
 
-static inline int pvrdma_idx_valid(__u32 idx, __u32 max_elems)
+static inline int pvrdma_idx_valid(uint32_t idx, uint32_t max_elems)
 {
 	/* Generates fewer instructions than a less-than. */
 	return (idx & ~((max_elems << 1) - 1)) == 0;
 }
 
-static inline __s32 pvrdma_idx(atomic_t *var, __u32 max_elems)
+static inline int32_t pvrdma_idx(uint32_t *var, uint32_t max_elems)
 {
-	const unsigned idx = atomic_read(var);
+	const uint32_t idx = *var;
 
 	if (pvrdma_idx_valid(idx, max_elems))
 		return idx & (max_elems - 1);
 	return PVRDMA_INVALID_IDX;
 }
 
-static inline void pvrdma_idx_ring_inc(atomic_t *var, __u32 max_elems)
+static inline void pvrdma_idx_ring_inc(uint32_t *var, uint32_t max_elems)
 {
-	__u32 idx = atomic_read(var) + 1;	/* Increment. */
+	uint32_t idx = (*var) + 1;		/* Increment. */
 
 	idx &= (max_elems << 1) - 1;		/* Modulo size, flip gen. */
-	atomic_set(var, idx);
+	*var = idx;
 }
 
-static inline __s32 pvrdma_idx_ring_has_space(const struct pvrdma_ring *r,
-					      __u32 max_elems, __u32 *out_tail)
+static inline int32_t pvrdma_idx_ring_has_space(const struct pvrdma_ring *r,
+						uint32_t max_elems,
+						uint32_t *out_tail)
 {
-	const __u32 tail = atomic_read(&r->prod_tail);
-	const __u32 head = atomic_read(&r->cons_head);
+	const uint32_t tail = r->prod_tail;
+	const uint32_t head = r->cons_head;
 
 	if (pvrdma_idx_valid(tail, max_elems) &&
 	    pvrdma_idx_valid(head, max_elems)) {
@@ -102,11 +105,12 @@ static inline __s32 pvrdma_idx_ring_has_space(const struct pvrdma_ring *r,
 	return PVRDMA_INVALID_IDX;
 }
 
-static inline __s32 pvrdma_idx_ring_has_data(const struct pvrdma_ring *r,
-					     __u32 max_elems, __u32 *out_head)
+static inline int32_t pvrdma_idx_ring_has_data(const struct pvrdma_ring *r,
+					       uint32_t max_elems,
+					       uint32_t *out_head)
 {
-	const __u32 tail = atomic_read(&r->prod_tail);
-	const __u32 head = atomic_read(&r->cons_head);
+	const uint32_t tail = r->prod_tail;
+	const uint32_t head = r->cons_head;
 
 	if (pvrdma_idx_valid(tail, max_elems) &&
 	    pvrdma_idx_valid(head, max_elems)) {
@@ -116,11 +120,12 @@ static inline __s32 pvrdma_idx_ring_has_data(const struct pvrdma_ring *r,
 	return PVRDMA_INVALID_IDX;
 }
 
-static inline __s32 pvrdma_idx_ring_is_valid_idx(const struct pvrdma_ring *r,
-						 __u32 max_elems, __u32 *idx)
+static inline int32_t pvrdma_idx_ring_is_valid_idx(const struct pvrdma_ring *r,
+						   uint32_t max_elems,
+						   uint32_t *idx)
 {
-	const __u32 tail = atomic_read(&r->prod_tail);
-	const __u32 head = atomic_read(&r->cons_head);
+	const uint32_t tail = r->prod_tail;
+	const uint32_t head = r->cons_head;
 
 	if (pvrdma_idx_valid(tail, max_elems) &&
 	    pvrdma_idx_valid(head, max_elems) &&
