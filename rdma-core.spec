@@ -37,7 +37,7 @@ BuildRequires: ninja,make
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
-%define make_jobs ninja -v %{?_smp_mflags}
+%define make_jobs ninja-build -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} ninja-build install
 %else
 # Fallback to make otherwise
