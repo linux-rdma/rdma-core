@@ -59,7 +59,7 @@ $ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-
 $ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninja-build
 ```
 
-NOTE: Fedora Core uses the name 'ninja-build' for the ninja command.
+NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.
 
 ### OpenSuSE
 
@@ -75,15 +75,16 @@ Install required packages:
 $ yum install cmake gcc libnl3-devel libudev-devel make pkgconfig valgrind-devel
 ```
 
-Developers are suggested to install more modern tooling for the best experience.
+Developers on CentOS 7 are suggested to install more modern tooling for the
+best experience.
 
 ```sh
 $ yum install epel-release
-$ yum install cmake3 unzip
-$ curl -OL https://github.com/ninja-build/ninja/releases/download/v1.7.1/ninja-linux.zip
-$ unzip ninja-linux.zip
-$ install -m755 ninja /usr/local/bin/ninja
+$ yum install cmake3 unzip ninja-build
 ```
+
+NOTE: EPEL uses the name 'ninja-build' for the 'ninja' command, and 'cmake3'
+for the 'cmake' command.
 
 # Reporting bugs
 
