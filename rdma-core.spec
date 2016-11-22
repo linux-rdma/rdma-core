@@ -77,6 +77,13 @@ This is a simple example without the split sub packages to get things started.
 %define _rundir /var/run
 %endif
 
+# New RPM defines _udevrulesdir, usually as /usr/lib/udev/rules.d
+%if 0%{?_udevrulesdir:1}
+%else
+# This is the old path (eg for C6)
+%define _udevrulesdir /lib/udev/rules.d
+%endif
+
 # Pass all of the rpm paths directly to GNUInstallDirs and our other defines.
 %cmake %{CMAKE_FLAGS} \
          -DCMAKE_BUILD_TYPE=Release \
