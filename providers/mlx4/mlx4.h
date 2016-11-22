@@ -265,8 +265,7 @@ struct mlx4_cqe {
 	uint32_t	vlan_my_qpn;
 	uint32_t	immed_rss_invalid;
 	uint32_t	g_mlpath_rqpn;
-	uint8_t		sl_vid;
-	uint8_t		reserved1;
+	uint16_t	sl_vid;
 	uint16_t	rlid;
 	uint32_t	status;
 	uint32_t	byte_cnt;
