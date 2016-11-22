@@ -14,6 +14,7 @@ Source: rdma-core-%{version}.tgz
 BuildRequires: binutils
 BuildRequires: cmake >= 2.8.11
 BuildRequires: gcc
+BuildRequires: libudev-devel
 BuildRequires: pkgconfig
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
@@ -216,7 +217,8 @@ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 	 -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
 	 -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
 	 -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
-	 -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version}
+	 -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
+	 -DCMAKE_INSTALL_UDEV_RULESDR:PATH=%{_udevrulesdir}
 %make_jobs
 
 %install
@@ -297,6 +299,9 @@ rm -rf %{buildroot}/%{_initrddir}/
 %{_libexecdir}/rdma-fixup-mtrr.awk
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
+%{_sbindir}/rdma-ndd
+%{_unitdir}/rdma-ndd.service
+%{_mandir}/man8/rdma-ndd.*
 %license COPYING.*
 
 %files devel

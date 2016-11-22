@@ -10,9 +10,3 @@ SUBSYSTEM=="module", KERNEL=="mlx*", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_
 SUBSYSTEM=="module", KERNEL=="iw_*", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}="rdma.service"
 SUBSYSTEM=="module", KERNEL=="be2net", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}="rdma.service"
 SUBSYSTEM=="module", KERNEL=="enic", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}="rdma.service"
-
-# When we detect a new verbs device is added to the system, set the node
-# description on that device
-# If rdma-ndd is installed, defer the setting of the node description to it.
-SUBSYSTEM=="infiniband", KERNEL=="*", ACTION=="add", TEST!="/usr/sbin/rdma-ndd", RUN+="/bin/bash -c 'sleep 1; echo -n `hostname -s` %k > /sys/class/infiniband/%k/node_desc'"
-

@@ -77,6 +77,16 @@ else()
   set(CMAKE_INSTALL_FULL_RUNDIR "${CMAKE_INSTALL_RUNDIR}")
 endif()
 
+# Allow the udev rules.d dir to be configurable, this has historically been
+# /lib/udev/rules.d/, but some systems now prefix /usr/
+set(CMAKE_INSTALL_UDEV_RULESDIR "lib/udev/rules.d"
+  CACHE PATH "Location for system udev rules, typically /lib/udev/rules.d or /usr/lib/udev/rules.d")
+if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_UDEV_RULESDIR})
+  set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_UDEV_RULESDIR}")
+else()
+  set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_UDEV_RULESDIR}")
+endif()
+
 set(DISTRO_FLAVOUR "None" CACHE
   STRING "Flavour of distribution to install for. This primarily impacts the init.d scripts installed.")
 
@@ -239,6 +249,10 @@ if (NOT NL_KIND EQUAL 0)
   set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
 endif()
 
+# udev
+find_package(UDev)
+include_directories(${UDEV_INCLUDE_DIRS})
+
 # Statically determine sizeof(long), this is largely unnecessary, no new code
 # should rely on this.
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
@@ -349,6 +363,9 @@ add_subdirectory(libibcm/examples)
 add_subdirectory(libibumad/tests)
 add_subdirectory(libibverbs/examples)
 add_subdirectory(librdmacm/examples)
+if (UDEV_FOUND)
+  add_subdirectory(rdma-ndd)
+endif()
 add_subdirectory(srp_daemon)
 
 rdma_finalize_libs()
@@ -375,6 +392,9 @@ else()
   if (NOT HAVE_WORKING_IF_H)
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
   endif()
+endif()
+if (NOT UDEV_FOUND)
+  message(STATUS " libudev NOT found (disabling features)")
 endif()
 rdma_report_missing_kheaders()
 if (NOT HAVE_C_WARNINGS)
