@@ -506,8 +506,6 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	struct ibv_reg_mr_resp reg_mr_resp;
 
 	memset(&reg_mr_cmd, 0, sizeof(reg_mr_cmd));
-	if ((sqdepth % I40IWQP_SW_WQSIZE_1024))
-		sqdepth = sqdepth + I40IWQP_SW_WQSIZE_1024 - (sqdepth % I40IWQP_SW_WQSIZE_1024);
 	sqsize = sqdepth * I40IW_QP_WQE_MIN_SIZE;
 	rqsize = rqdepth * I40IW_QP_WQE_MIN_SIZE;
 
