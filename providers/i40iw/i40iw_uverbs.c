@@ -305,6 +305,10 @@ int i40iw_udestroy_cq(struct ibv_cq *cq)
 	struct i40iw_ucq *iwucq = to_i40iw_ucq(cq);
 	int ret;
 
+	ret = pthread_spin_destroy(&iwucq->lock);
+	if (ret)
+		return ret;
+
 	ret = ibv_cmd_destroy_cq(cq);
 	if (ret)
 		return ret;
@@ -312,9 +316,6 @@ int i40iw_udestroy_cq(struct ibv_cq *cq)
 	ibv_cmd_dereg_mr(&iwucq->mr);
 
 	free(iwucq->cq.cq_base);
-	ret = pthread_spin_destroy(&iwucq->lock);
-	if (ret)
-		return ret;
 	free(iwucq);
 
 	return 0;
@@ -769,6 +770,10 @@ int i40iw_udestroy_qp(struct ibv_qp *qp)
 	struct i40iw_uqp *iwuqp = to_i40iw_uqp(qp);
 	int ret;
 
+	ret = pthread_spin_destroy(&iwuqp->lock);
+	if (ret)
+		return ret;
+
 	ret = i40iw_destroy_vmapped_qp(iwuqp, iwuqp->qp.sq_base);
 	if (ret)
 		return ret;
@@ -784,10 +789,9 @@ int i40iw_udestroy_qp(struct ibv_qp *qp)
 	if ((iwuqp->recv_cq) && (iwuqp->recv_cq != iwuqp->send_cq))
 		i40iw_clean_cq((void *)&iwuqp->qp, &iwuqp->recv_cq->cq);
 
-	ret = pthread_spin_destroy(&iwuqp->lock);
 	free(iwuqp);
 
-	return ret;
+	return 0;
 }
 
 /**
