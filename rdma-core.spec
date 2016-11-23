@@ -118,8 +118,6 @@ rm -rf %{buildroot}/%{my_unitdir}/
 
 %files
 %doc %{_mandir}/man*/*
-%doc %{_docdir}/%{name}-%{version}/README.md
-%doc %{_docdir}/%{name}-%{version}/MAINTAINERS
 %{_bindir}/*
 %{_includedir}/*
 %{_libdir}/lib*.so*
@@ -129,7 +127,7 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %{_sbindir}/*
 %{_libexecdir}/*
 %{_udevrulesdir}/*
-%{_docdir}/%{name}-%{version}/*
+%doc %{_docdir}/%{name}-%{version}/*
 %if 0%{?_unitdir:1}
 %{_unitdir}/*
 %else
