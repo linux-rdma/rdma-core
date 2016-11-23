@@ -305,9 +305,11 @@ int i40iw_udestroy_cq(struct ibv_cq *cq)
 	struct i40iw_ucq *iwucq = to_i40iw_ucq(cq);
 	int ret;
 
+	ret = ibv_cmd_destroy_cq(cq);
+	if (ret)
+		return ret;
+
 	ibv_cmd_dereg_mr(&iwucq->mr);
-	if (ibv_cmd_destroy_cq(cq))
-		fprintf(stderr, PFX "%s: failed to destroy CQ\n", __func__);
 
 	free(iwucq->cq.cq_base);
 	ret = pthread_spin_destroy(&iwucq->lock);
@@ -460,16 +462,24 @@ void i40iw_cq_event(struct ibv_cq *cq)
 	pthread_spin_unlock(&iwucq->lock);
 }
 
-static void i40iw_destroy_vmapped_qp(struct i40iw_uqp *iwuqp,
+static int i40iw_destroy_vmapped_qp(struct i40iw_uqp *iwuqp,
 					struct i40iw_qp_quanta *sq_base)
 {
+	int ret;
+
+	ret = ibv_cmd_destroy_qp(&iwuqp->ibv_qp);
+	if (ret)
+		return ret;
+
 	if (iwuqp->push_db)
 		munmap(iwuqp->push_db, I40IW_HW_PAGE_SIZE);
 	if (iwuqp->push_wqe)
 		munmap(iwuqp->push_wqe, I40IW_HW_PAGE_SIZE);
-	ibv_cmd_destroy_qp(&iwuqp->ibv_qp);
+
 	ibv_cmd_dereg_mr(&iwuqp->mr);
 	free((void *)sq_base);
+
+	return 0;
 }
 
 /**
@@ -759,7 +769,9 @@ int i40iw_udestroy_qp(struct ibv_qp *qp)
 	struct i40iw_uqp *iwuqp = to_i40iw_uqp(qp);
 	int ret;
 
-	i40iw_destroy_vmapped_qp(iwuqp, iwuqp->qp.sq_base);
+	ret = i40iw_destroy_vmapped_qp(iwuqp, iwuqp->qp.sq_base);
+	if (ret)
+		return ret;
 
 	if (iwuqp->qp.sq_wrtrk_array)
 		free(iwuqp->qp.sq_wrtrk_array);
