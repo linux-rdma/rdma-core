@@ -1,0 +1,740 @@
+#!/usr/bin/env python
+# Copyright 2015-2016 Obsidian Research Corp. See COPYING.
+# PYTHON_ARGCOMPLETE_OK
+"""cbuild - Build in a docker container
+
+This script helps using docker containers to run software builds. This allows
+building for a wide range of distributions without having to install them.
+
+Each target distribution has a base docker image and a set of packages to
+install. The first step is to build the customized docker container:
+
+ $ buildlib/cbuild build-images fc25
+
+This will download the base image and customize it with the required packages.
+
+Next, a build can be performed 'in place'. This is useful to do edit/compile
+cycles with an alternate distribution.
+
+ $ buildlib/cbuild make fc25
+
+The build output will be placed in build-fc25
+
+Finally, a full package build can be performed inside the container. Note this
+mode actually creates a source tree inside the container based on the current
+git HEAD commit, so any uncommitted edits will be lost.
+
+ $ buildlib/cbuild pkg fc25
+
+In this case only the final package results are copied outside the container
+(to ..) and everything else is discarded.
+
+In all cases the containers that are spun up are deleted after they are
+finished, only the base container created during 'build-images' is kept. The
+'--run-shell' option can be used to setup the container to the point of
+running the build command and instead run an interactive bash shell. This is
+useful for debugging certain kinds of build problems."""
+
+import argparse
+import collections
+import grp
+import imp
+import inspect
+import json
+import multiprocessing
+import os
+import pipes
+import pwd
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import yaml
+from contextlib import contextmanager;
+
+project = "rdma-core";
+
+def get_version():
+    """Return the version string for the project, this gets automatically written
+    into the packaging files."""
+    with open("CMakeLists.txt","r") as F:
+        for ln in F:
+            g = re.match(r'^set\(PACKAGE_VERSION "(.+)"\)',ln)
+            if g is None:
+                continue;
+            return g.group(1);
+    raise RuntimeError("Could not find version");
+
+class DockerFile(object):
+    def __init__(self,src):
+        self.lines = ["FROM %s"%(src)];
+
+class Environment(object):
+    aliases = set();
+    use_make = False;
+    proxy = True;
+
+    def image_name(self):
+        return "build-%s/%s"%(project,self.name);
+
+# -------------------------------------------------------------------------
+
+class YumEnvironment(Environment):
+    is_rpm = True;
+    def get_docker_file(self):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN yum install -y %s && yum clean all"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
+
+class centos6(YumEnvironment):
+    docker_parent = "centos:6";
+    pkgs = {
+        'cmake',
+        'gcc',
+        'libnl3-devel',
+        'libudev-devel',
+        'make',
+        'pkgconfig',
+        'python',
+        'rpm-build',
+        'valgrind-devel',
+    };
+    name = "centos6";
+    use_make = True;
+
+class centos7(YumEnvironment):
+    docker_parent = "centos:7";
+    pkgs = centos6.pkgs;
+    name = "centos7";
+    use_make = True;
+    specfile = "redhat/rdma-core.spec";
+
+class centos7_epel(centos7):
+    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3"};
+    name = "centos7_epel";
+    use_make = False;
+    ninja_cmd = "ninja-build";
+    # Our spec file does not know how to cope with cmake3
+    is_rpm = False;
+
+    def get_docker_file(self):
+        res = YumEnvironment.get_docker_file(self);
+        res.lines.insert(1,"RUN yum install -y epel-release");
+        res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
+        return res;
+
+class fc25(Environment):
+    docker_parent = "fedora:25";
+    pkgs = (centos7.pkgs - {"make"}) | {"ninja-build"};
+    name = "fc25";
+    specfile = "redhat/rdma-core.spec";
+    ninja_cmd = "ninja-build";
+    is_rpm = True;
+
+    def get_docker_file(self):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN dnf install -y %s && dnf clean all"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
+
+# -------------------------------------------------------------------------
+
+class APTEnvironment(Environment):
+    is_deb = True;
+    def get_docker_file(self):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
+
+class trusty(APTEnvironment):
+    docker_parent = "ubuntu:14.04";
+    pkgs = {
+        'build-essential',
+        'cmake',
+        'debhelper',
+        'dh-systemd',
+        'gcc',
+        'libnl-3-dev',
+        'libnl-route-3-dev',
+        'libudev-dev',
+        'make',
+        'ninja-build',
+        'pkg-config',
+        'python',
+        'valgrind',
+        };
+    name = "ubuntu-14.04";
+    aliases = {"trusty"};
+
+class xenial(APTEnvironment):
+    docker_parent = "ubuntu:16.04"
+    pkgs = trusty.pkgs;
+    name = "ubuntu-16.04";
+    aliases = {"xenial"};
+
+class jessie(APTEnvironment):
+    docker_parent = "debian:8"
+    pkgs = trusty.pkgs;
+    name = "debian-8";
+    aliases = {"jessie"};
+
+class travis(APTEnvironment):
+    """This parses the .travis.yml "apt" add on and converts it to a dockerfile,
+    basically creating a container that is similar to what travis would
+    use. Note this does not use the base travis image, nor does it install the
+    typical travis packages."""
+    docker_parent = "ubuntu:14.04";
+    name = "travis";
+    is_deb = True;
+    _yaml = None;
+
+    def get_yaml(self):
+        if self._yaml:
+            return self._yaml;
+
+        # Load the commands from the travis file
+        with open(".travis.yml") as F:
+            self._yaml = yaml.load(F);
+        return self._yaml;
+    yaml = property(get_yaml);
+
+    def get_repos(self):
+        """Return a list of things to add with apt-add-repository"""
+        Source = collections.namedtuple("Source",["sourceline","key_url"]);
+
+        # See https://github.com/travis-ci/apt-source-whitelist/blob/master/ubuntu.json
+        pre_defined = {
+            "ubuntu-toolchain-r-test": Source("ppa:ubuntu-toolchain-r/test",None),
+        };
+
+        # Unique the sources
+        res = set();
+        for src in self.yaml["addons"]["apt"]["sources"]:
+            if isinstance(src,dict):
+                res.add(Source(sourceline=src["sourceline"],
+                               key_url=src["key_url"]));
+            else:
+                res.add(pre_defined[src]);
+
+        # Add the sources
+        scmds = [];
+        scmds.extend("apt-key add /etc/apt/trusted.gpg.d/%s"%(os.path.basename(I.key_url))
+                    for I in res if I.key_url is not None);
+        scmds.extend("http_proxy= apt-add-repository -y %s"%(pipes.quote(I.sourceline))
+                    for I in res);
+
+        # Download the keys
+        cmds = ["ADD %s /etc/apt/trusted.gpg.d/"%(I.key_url)
+                for I in res if I.key_url is not None];
+
+        cmds.append("RUN " + " && ".join(scmds));
+        return cmds;
+
+    def get_docker_file(self):
+        # First this to get apt-add-repository
+        self.pkgs = {"software-properties-common"}
+        res = APTEnvironment.get_docker_file(self);
+
+        # Sources list from the travis.yml
+        res.lines.extend(self.get_repos());
+
+        # Package list from the travis.yml
+        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s"%(
+            " ".join(sorted(self.yaml["addons"]["apt"]["packages"]))));
+
+        return res;
+
+# -------------------------------------------------------------------------
+
+class ZypperEnvironment(Environment):
+    is_rpm = True;
+    def get_docker_file(self):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN zypper --non-interactive refresh");
+        res.lines.append("RUN zypper --non-interactive dist-upgrade");
+        res.lines.append("RUN zypper --non-interactive install %s"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
+
+class harlequin(ZypperEnvironment):
+    proxy = False;
+    docker_parent = "opensuse:13.2";
+    pkgs = {
+        'cmake',
+        'gcc',
+        'libnl3-devel',
+        'libudev-devel',
+        'make',
+        'ninja',
+        'pkg-config',
+        'python',
+        'rpm-build',
+        'valgrind-devel',
+    };
+    name = "opensuse-13.2";
+    aliases = {"harelequin"};
+
+class malachite(ZypperEnvironment):
+    docker_parent = "opensuse:42.1";
+    pkgs = harlequin.pkgs;
+    name = "opensuse-42.1";
+    aliases = {"malachite"};
+
+class tumbleweed(ZypperEnvironment):
+    docker_parent = "opensuse:tumbleweed";
+    pkgs = harlequin.pkgs;
+    name = "tumbleweed";
+
+# -------------------------------------------------------------------------
+
+environments = [centos6(),
+                centos7(),
+                centos7_epel(),
+                travis(),
+                trusty(),
+                xenial(),
+                jessie(),
+                fc25(),
+                harlequin(),
+                malachite(),
+                tumbleweed(),
+];
+
+class ToEnvAction(argparse.Action):
+    """argparse helper to parse environment lists into environment classes"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not isinstance(values,list):
+            values = [values];
+
+        res = set();
+        for I in values:
+            if I == "all":
+                res.update(environments);
+            else:
+                for env in environments:
+                    if env.name == I or I in env.aliases:
+                        res.add(env);
+        setattr(namespace, self.dest, sorted(res,key=lambda x:x.name))
+
+def env_choices():
+    """All the names that can be used with ToEnvAction"""
+    envs = set(("all",));
+    for I in environments:
+        envs.add(I.name);
+        envs.update(I.aliases);
+    return envs;
+
+def docker_cmd(env,*cmd):
+    """Invoke docker"""
+    cmd = list(cmd);
+    if env.sudo:
+        return subprocess.check_call(["sudo","docker"] + cmd);
+    return subprocess.check_call(["docker"] + cmd);
+
+def docker_cmd_str(env,*cmd):
+    """Invoke docker"""
+    cmd = list(cmd);
+    if env.sudo:
+        return subprocess.check_output(["sudo","docker"] + cmd);
+    return subprocess.check_output(["docker"] + cmd);
+
+@contextmanager
+def private_tmp(args):
+    """Simple version of Python 3's tempfile.TemporaryDirectory"""
+    dfn = tempfile.mkdtemp();
+    try:
+        yield dfn;
+    finally:
+        try:
+            shutil.rmtree(dfn);
+        except:
+            # The debian builds result in root owned files because we don't use fakeroot
+            subprocess.check_call(['sudo','rm','-rf',dfn]);
+
+@contextmanager
+def inDirectory(dir):
+    cdir = os.getcwd();
+    try:
+        os.chdir(dir);
+        yield True;
+    finally:
+        os.chdir(cdir);
+
+def get_image_id(args,image_name):
+    img = json.loads(docker_cmd_str(args,"inspect",image_name));
+    image_id = img[0]["Id"];
+    # Newer dockers put a prefix
+    if ":" in image_id:
+        image_id = image_id.partition(':')[2];
+    return image_id;
+
+# -------------------------------------------------------------------------
+
+def run_rpm_build(args,spec_file,env):
+    version = get_version();
+    with open(spec_file,"r") as F:
+        for ln in F:
+            if ln.startswith("Version:"):
+                ver = ln.strip().partition(' ')[2];
+                assert(ver == get_version());
+
+            if ln.startswith("Source:"):
+                tarfn = ln.strip().partition(' ')[2];
+    tarfn = tarfn.replace("%{version}",version);
+
+    image_id = get_image_id(args,env.image_name());
+    with private_tmp(args) as tmpdir:
+        os.mkdir(os.path.join(tmpdir,"SOURCES"));
+        os.mkdir(os.path.join(tmpdir,"tmp"));
+
+        subprocess.check_call(["git","archive",
+                               "--prefix","%s/"%(os.path.splitext(tarfn)[0]),
+                               "--output",os.path.join(tmpdir,"SOURCES",tarfn),
+                               "HEAD"]);
+
+        with open(spec_file,"r") as inF:
+            spec = list(inF);
+        tspec_file = os.path.basename(spec_file);
+        with open(os.path.join(tmpdir,tspec_file),"w") as outF:
+            outF.write("".join(spec));
+
+        home = os.path.join(os.path.sep,"home",os.getenv("LOGNAME"));
+        vdir = os.path.join(home,"rpmbuild");
+
+        opts = [
+            "run",
+            "--rm=true",
+            "-v","%s:%s"%(tmpdir,vdir),
+            "-w",vdir,
+            "-h","builder-%s"%(image_id[:12]),
+            "-e","HOME=%s"%(home),
+            "-e","TMPDIR=%s"%(os.path.join(vdir,"tmp")),
+        ];
+
+        # rpmbuild complains if we do not have an entry in passwd and group
+        # for the user we are going to use to do the build.
+        with open(os.path.join(tmpdir,"go.py"),"w") as F:
+            print >> F,"""
+import os;
+with open("/etc/passwd","a") as F:
+   print >> F, {passwd!r};
+with open("/etc/group","a") as F:
+   print >> F, {group!r};
+os.setgid({gid:d});
+os.setuid({uid:d});
+""".format(passwd=":".join(str(I) for I in pwd.getpwuid(os.getuid())),
+           group=":".join(str(I) for I in grp.getgrgid(os.getgid())),
+           uid=os.getuid(),
+           gid=os.getgid());
+
+            bopts = ["-bb",tspec_file];
+
+            print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
+                ",".join(repr(I) for I in bopts));
+
+        if args.run_shell:
+            opts.append("-ti");
+        opts.append(env.image_name());
+
+        if args.run_shell:
+            opts.append("/bin/bash");
+        else:
+            opts.extend(["python","go.py"]);
+
+        docker_cmd(args,*opts)
+
+        print
+        for path,jnk,files in os.walk(os.path.join(tmpdir,"RPMS")):
+            for I in files:
+                print "Final RPM: ",os.path.join("..",I);
+                shutil.move(os.path.join(path,I),
+                            os.path.join("..",I));
+
+def run_deb_build(args,env):
+    image_id = get_image_id(args,env.image_name());
+    with private_tmp(args) as tmpdir:
+        os.mkdir(os.path.join(tmpdir,"src"));
+        os.mkdir(os.path.join(tmpdir,"tmp"));
+
+        opwd = os.getcwd();
+        with inDirectory(os.path.join(tmpdir,"src")):
+            subprocess.check_call(["git",
+                                   "--git-dir",os.path.join(opwd,".git"),
+                                   "reset","--hard","HEAD"]);
+
+        home = os.path.join(os.path.sep,"home",os.getenv("LOGNAME"));
+
+        opts = [
+            "run",
+            "--read-only",
+            "--rm=true",
+            "-v","%s:%s"%(tmpdir,home),
+            "-w",os.path.join(home,"src"),
+            "-h","builder-%s"%(image_id[:12]),
+            "-e","HOME=%s"%(home),
+            "-e","TMPDIR=%s"%(os.path.join(home,"tmp")),
+            "-e","DEB_BUILD_OPTIONS=parallel=%u"%(multiprocessing.cpu_count()),
+        ];
+
+        # Create a go.py that will let us run the compilation as the user and
+        # then switch to root only for the packaging step.
+        with open(os.path.join(tmpdir,"go.py"),"w") as F:
+            print >> F,"""
+import subprocess,os;
+def to_user():
+   os.setgid({gid:d});
+   os.setuid({uid:d});
+subprocess.check_call(["debian/rules","debian/rules","build"],
+            preexec_fn=to_user);
+subprocess.check_call(["debian/rules","debian/rules","binary"]);
+""".format(uid=os.getuid(),
+           gid=os.getgid());
+
+        if args.run_shell:
+            opts.append("-ti");
+        opts.append(env.image_name());
+
+        if args.run_shell:
+            opts.append("/bin/bash");
+        else:
+            opts.extend(["python",os.path.join(home,"go.py")]);
+
+        docker_cmd(args,*opts);
+
+        print
+        for I in os.listdir(tmpdir):
+            if I.endswith(".deb"):
+                print "Final DEB: ",os.path.join("..",I);
+                shutil.move(os.path.join(tmpdir,I),
+                            os.path.join("..",I));
+
+def run_travis_build(args,env):
+    with private_tmp(args) as tmpdir:
+        os.mkdir(os.path.join(tmpdir,"src"));
+        os.mkdir(os.path.join(tmpdir,"tmp"));
+
+        opwd = os.getcwd();
+        with inDirectory(os.path.join(tmpdir,"src")):
+            subprocess.check_call(["git",
+                                   "--git-dir",os.path.join(opwd,".git"),
+                                   "reset","--hard","HEAD"]);
+
+        home = os.path.join(os.path.sep,"home",os.getenv("LOGNAME"));
+
+        opts = [
+            "run",
+            "--read-only",
+            "--rm=true",
+            "-v","%s:%s"%(tmpdir,home),
+            "-w",os.path.join(home,"src"),
+            "-u",str(os.getuid()),
+            "-e","HOME=%s"%(home),
+            "-e","TMPDIR=%s"%(os.path.join(home,"tmp")),
+        ];
+
+        # Load the commands from the travis file
+        with open(os.path.join(opwd,".travis.yml")) as F:
+            cmds = yaml.load(F)["script"];
+
+        with open(os.path.join(tmpdir,"go.sh"),"w") as F:
+            print >> F,"#!/bin/bash";
+            print >> F,"set -e";
+            for I in cmds:
+                print >> F,I;
+
+        if args.run_shell:
+            opts.append("-ti");
+        opts.append(env.image_name());
+
+        if args.run_shell:
+            opts.append("/bin/bash");
+        else:
+            opts.extend(["/bin/bash",os.path.join(home,"go.sh")]);
+
+        docker_cmd(args,*opts);
+
+def args_pkg(parser):
+    parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
+    parser.add_argument("--run-shell",default=False,action="store_true",
+                        help="Instead of running the build, enter a shell");
+def cmd_pkg(args):
+    """Build a package in the given environment."""
+    for env in args.ENV:
+        if env.name == "travis":
+            run_travis_build(args,env);
+        elif getattr(env,"is_deb",False):
+            run_deb_build(args,env);
+        elif getattr(env,"is_rpm",False):
+            run_rpm_build(args,
+                          getattr(env,"specfile","%s.spec"%(project)),
+                          env);
+        else:
+            print "%s does not support packaging"%(env.name);
+
+# -------------------------------------------------------------------------
+
+def args_make(parser):
+    parser.add_argument("--run-shell",default=False,action="store_true",
+                        help="Instead of running the build, enter a shell");
+    parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
+    parser.add_argument('ARGS', nargs=argparse.REMAINDER);
+def cmd_make(args):
+    """Run cmake and ninja within a docker container. If cmake has not yet been
+    run then this runs it with the given environment variables, then invokes ninja.
+    Otherwise ninja is invoked without calling cmake."""
+    SRC = os.getcwd();
+
+    for env in args.ENV:
+        BUILD = "build-%s"%(env.name)
+        if not os.path.exists(BUILD):
+            os.mkdir(BUILD);
+
+        home = os.path.join(os.path.sep,"home",os.getenv("LOGNAME"));
+
+        dirs = [os.getcwd(),"/tmp"];
+        # Import the symlink target too if BUILD is a symlink
+        BUILD_r = os.path.realpath(BUILD);
+        if not BUILD_r.startswith(os.path.realpath(SRC)):
+            dirs.append(BUILD_r);
+
+        cmake_args = []
+        cmake_envs = []
+        ninja_args = []
+        for I in args.ARGS:
+            if I.startswith("-D"):
+                cmake_args.append(I);
+            elif I.find('=') != -1:
+                cmake_envs.append(I);
+            else:
+                ninja_args.append(I);
+
+        if env.use_make:
+            need_cmake = not os.path.exists(os.path.join(BUILD_r,"Makefile"));
+        else:
+            need_cmake = not os.path.exists(os.path.join(BUILD_r,"build.ninja"));
+        opts = ["run",
+                "--read-only",
+                "--rm=true",
+                "-ti",
+                "-u",str(os.getuid()),
+                "-e","HOME=%s"%(home),
+                "-w",BUILD_r,
+        ];
+        for I in dirs:
+            opts.append("-v");
+            opts.append("%s:%s"%(I,I));
+        for I in cmake_envs:
+            opts.append("-e");
+            opts.append(I);
+        if args.run_shell:
+            opts.append("-ti");
+        opts.append(env.image_name());
+
+        if args.run_shell:
+            os.execlp("sudo","sudo","docker",*(opts + ["/bin/bash"]));
+
+        if need_cmake:
+            if env.use_make:
+                prog_args = ["cmake",SRC] + cmake_args;
+            else:
+                prog_args = ["cmake","-GNinja",SRC] + cmake_args;
+            docker_cmd(args,*(opts + prog_args));
+
+        if env.use_make:
+            prog_args = ["make","-C",BUILD_r] + ninja_args;
+        else:
+            prog_args = [getattr(env,"ninja_cmd","ninja"),
+                         "-C",BUILD_r] + ninja_args;
+
+        if len(args.ENV) <= 1:
+            os.execlp("sudo","sudo","docker",*(opts + prog_args));
+        else:
+            docker_cmd(args,*(opts + prog_args));
+
+# -------------------------------------------------------------------------
+
+def get_build_args(args,env):
+    """Return extra docker arguments for building. This is the system APT proxy."""
+    res = [];
+    if args.pull:
+        res.append("--pull");
+
+    if env.proxy and os.path.exists("/etc/apt/apt.conf.d/01proxy"):
+        # The line in this file must be 'Acquire::http { Proxy "http://xxxx:3142"; };'
+        with open("/etc/apt/apt.conf.d/01proxy") as F:
+            proxy = F.read().strip().split('"')[1];
+            res.append("--build-arg");
+            res.append('http_proxy=%s'%(proxy));
+    return res;
+
+def args_build_images(parser):
+    parser.add_argument("ENV",nargs="+",action=ToEnvAction,choices=env_choices());
+    parser.add_argument("--no-pull",default=True,action="store_false",
+                        dest="pull",
+                        help="Instead of running the build, enter a shell");
+def cmd_build_images(args):
+    """Run from the top level source directory to make the docker images that are
+    needed for building. This only needs to be run once."""
+    for env in args.ENV:
+        df = env.get_docker_file();
+        with private_tmp(args) as tmpdir:
+            fn = os.path.join(tmpdir,"Dockerfile");
+            with open(fn,"wt") as F:
+                for ln in df.lines:
+                    print >> F,ln;
+            opts = (["build"] +
+                    get_build_args(args,env) +
+                    ["-f",fn,
+                     "-t",env.image_name(),
+                     tmpdir]);
+            docker_cmd(args,*opts);
+
+# -------------------------------------------------------------------------
+def args_docker_gc(parser):
+    pass;
+def cmd_docker_gc(args):
+    """Run garbage collection on docker images and containers."""
+
+    containers = set(docker_cmd_str(args,"ps","-a","-q","--filter","status=exited").split());
+    images = set(docker_cmd_str(args,"images","-q","--filter","dangling=true").split());
+
+    if containers:
+        docker_cmd(args,"rm",*sorted(containers));
+    if images:
+        docker_cmd(args,"rmi",*sorted(images));
+
+# -------------------------------------------------------------------------
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Operate docker for building this package')
+    subparsers = parser.add_subparsers(title="Sub Commands");
+
+    funcs = globals();
+    for k,v in funcs.items():
+        if k.startswith("cmd_") and inspect.isfunction(v):
+            sparser = subparsers.add_parser(k[4:].replace('_','-'),
+                                            help=v.__doc__);
+            funcs["args_" + k[4:]](sparser);
+            sparser.set_defaults(func=v);
+
+    try:
+        import argcomplete;
+        argcomplete.autocomplete(parser);
+    except ImportError:
+        pass;
+
+    args = parser.parse_args();
+    args.sudo = True;
+
+    # This script must always run from the top of the git tree, and a git
+    # checkout is mandatory.
+    git_top = subprocess.check_output(["git","rev-parse","--git-dir"]).strip();
+    if git_top != ".git":
+        os.chdir(os.path.dirname(git_top));
+
+    if not args.func(args):
+        sys.exit(100);
+    sys.exit(0);

@@ -37,7 +37,7 @@ BuildRequires: ninja,make
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
-%define make_jobs ninja -v %{?_smp_mflags}
+%define make_jobs ninja-build -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} ninja-build install
 %else
 # Fallback to make otherwise
@@ -77,6 +77,13 @@ This is a simple example without the split sub packages to get things started.
 %define _rundir /var/run
 %endif
 
+# New RPM defines _udevrulesdir, usually as /usr/lib/udev/rules.d
+%if 0%{?_udevrulesdir:1}
+%else
+# This is the old path (eg for C6)
+%define _udevrulesdir /lib/udev/rules.d
+%endif
+
 # Pass all of the rpm paths directly to GNUInstallDirs and our other defines.
 %cmake %{CMAKE_FLAGS} \
          -DCMAKE_BUILD_TYPE=Release \
@@ -94,7 +101,7 @@ This is a simple example without the split sub packages to get things started.
 	 -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
 	 -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
 	 -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
-	 -DCMAKE_INSTALL_UDEV_RULESDR:PATH=%{_udevrulesdir}
+	 -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir}
 %make_jobs
 
 %install
@@ -111,8 +118,6 @@ rm -rf %{buildroot}/%{my_unitdir}/
 
 %files
 %doc %{_mandir}/man*/*
-%doc %{_docdir}/%{name}-%{version}/README.md
-%doc %{_docdir}/%{name}-%{version}/MAINTAINERS
 %{_bindir}/*
 %{_includedir}/*
 %{_libdir}/lib*.so*
@@ -122,7 +127,7 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %{_sbindir}/*
 %{_libexecdir}/*
 %{_udevrulesdir}/*
-%{_docdir}/%{name}-%{version}/*
+%doc %{_docdir}/%{name}-%{version}/*
 %if 0%{?_unitdir:1}
 %{_unitdir}/*
 %else
