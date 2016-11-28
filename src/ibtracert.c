@@ -804,7 +804,7 @@ int main(int argc, char **argv)
 		NULL,
 	};
 
-	ibdiag_process_opts(argc, argv, NULL, "DKy", opts, process_opt,
+	ibdiag_process_opts(argc, argv, NULL, "DK", opts, process_opt,
 			    usage_args, usage_examples);
 
 	f = stdout;
