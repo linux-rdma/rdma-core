@@ -3,18 +3,31 @@
 IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 
 usage() {
-	echo Usage: `basename $0` "[-h] [<topology-file> | -C ca_name" \
-	    "-P ca_port -t timeout_ms]"
+	echo Usage: `basename $0` "[-h] [<topology-file> | -y mkey" \
+	    "-C ca_name -P ca_port -t timeout_ms]"
 	exit -1
 }
 
 topofile=""
 ca_info=""
+mkey="0"
 
 while [ "$1" ]; do
 	case $1 in
 	-h | --help)
 		usage
+		;;
+	-y | --m_key)
+		case $2 in
+		-*)
+			usage
+			;;
+		esac
+		if [ x$2 = x ] ; then
+			usage
+		fi
+		shift
+		mkey="$1"
 		;;
 	-P | --Port | -C | --Ca | -t | --timeout)
 		case $2 in
@@ -44,7 +57,7 @@ done
 if [ "$topofile" ]; then
 	netcmd="cat $topofile"
 else
-	netcmd="$IBPATH/ibnetdiscover $ca_info"
+	netcmd="$IBPATH/ibnetdiscover -y $mkey $ca_info"
 fi
 
 text="`eval $netcmd`"
