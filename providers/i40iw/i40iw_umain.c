@@ -47,6 +47,7 @@
 #include "i40iw-abi.h"
 
 unsigned int i40iw_dbg;
+unsigned int i40iw_max_hugepgcnt;
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -240,6 +241,15 @@ found:
 	env_val = getenv("I40IW_DEBUG");
 	if (env_val)
 		i40iw_dbg = atoi(env_val);
+
+	env_val = getenv("I40IW_MAX_HUGEPGCNT");
+	if (env_val) {
+		if ((atoi(env_val) < 0) || (atoi(env_val) > 100))
+			fprintf(stderr, PFX "%s: Valid range for Max Huge Page Count is 0 to 100. Setting to 0\n",
+				__func__);
+		else
+			i40iw_max_hugepgcnt = atoi(env_val);
+	}
 
 	dev = malloc(sizeof(*dev));
 	if (!dev) {

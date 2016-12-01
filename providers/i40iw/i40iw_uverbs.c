@@ -51,6 +51,9 @@
 #include "i40iw_umain.h"
 #include "i40iw-abi.h"
 
+unsigned int i40iw_hugepgcnt;
+extern unsigned int i40iw_max_hugepgcnt;
+
 /**
  * i40iw_uquery_device - call driver to query device for max resources
  * @context: user context for the device
@@ -248,11 +251,24 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 	cq_pages = i40iw_num_of_pages(info.cq_size * cqe_struct_size);
 	totalsize = (cq_pages << 12) + I40E_DB_SHADOW_AREA_SIZE;
 
+	if ((totalsize > I40IW_HW_PAGE_SIZE) && (totalsize <= I40IW_HPAGE_SIZE_2M)) {
+		if (i40iw_hugepgcnt < i40iw_max_hugepgcnt) {
+			info.cq_base = mmap(NULL, I40IW_HPAGE_SIZE_2M, PROT_READ | PROT_WRITE,
+					MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, 0, 0);
+			if (info.cq_base != MAP_FAILED) {
+				iwucq->is_hugetlb = true;
+				i40iw_hugepgcnt++;
+				goto cqmem_alloc_done;
+			}
+		}
+	}
+
 	info.cq_base = memalign(I40IW_HW_PAGE_SIZE, totalsize);
 
 	if (!info.cq_base)
 		goto err;
 
+cqmem_alloc_done:
 	memset(info.cq_base, 0, totalsize);
 	info.shadow_area = (u64 *)((u8 *)info.cq_base + (cq_pages << 12));
 	reg_mr_cmd.reg_type = I40IW_UMEMREG_TYPE_CQ;
@@ -315,7 +331,13 @@ int i40iw_udestroy_cq(struct ibv_cq *cq)
 
 	ibv_cmd_dereg_mr(&iwucq->mr);
 
-	free(iwucq->cq.cq_base);
+	if (iwucq->is_hugetlb) {
+		munmap(iwucq->cq.cq_base, I40IW_HPAGE_SIZE_2M);
+		i40iw_hugepgcnt--;
+	} else {
+		free(iwucq->cq.cq_base);
+	}
+
 	free(iwucq);
 
 	return 0;
@@ -481,7 +503,13 @@ static int i40iw_destroy_vmapped_qp(struct i40iw_uqp *iwuqp,
 		munmap(iwuqp->push_wqe, I40IW_HW_PAGE_SIZE);
 
 	ibv_cmd_dereg_mr(&iwuqp->mr);
-	free((void *)sq_base);
+
+	if (iwuqp->is_hugetlb) {
+		munmap((void *)sq_base, I40IW_HPAGE_SIZE_2M);
+		i40iw_hugepgcnt--;
+	} else {
+		free((void *)sq_base);
+	}
 
 	return 0;
 }
@@ -519,6 +547,19 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	sqsize = sq_pages << 12;
 	rqsize = rq_pages << 12;
 	totalqpsize = rqsize + sqsize + I40E_DB_SHADOW_AREA_SIZE;
+
+	if ((totalqpsize > I40IW_HW_PAGE_SIZE) && (totalqpsize <= I40IW_HPAGE_SIZE_2M)) {
+		if (i40iw_hugepgcnt < i40iw_max_hugepgcnt) {
+			info->sq = mmap(NULL, I40IW_HPAGE_SIZE_2M, PROT_READ | PROT_WRITE,
+					MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, 0, 0);
+			if (info->sq != MAP_FAILED) {
+				iwuqp->is_hugetlb = true;
+				i40iw_hugepgcnt++;
+				goto qpmem_alloc_done;
+			}
+		}
+	}
+
 	info->sq = memalign(I40IW_HW_PAGE_SIZE, totalqpsize);
 
 	if (!info->sq) {
@@ -526,6 +567,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 		return 0;
 	}
 
+qpmem_alloc_done:
 	memset(info->sq, 0, totalqpsize);
 	info->rq = &info->sq[sqsize / I40IW_QP_WQE_MIN_SIZE];
 	info->shadow_area = info->rq[rqsize / I40IW_QP_WQE_MIN_SIZE].elem;
