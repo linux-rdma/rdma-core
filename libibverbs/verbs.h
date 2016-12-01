@@ -1172,11 +1172,15 @@ enum ibv_flow_attr_type {
 	 * receive all Eth multicast traffic which isn't steered to any QP
 	 */
 	IBV_FLOW_ATTR_MC_DEFAULT	= 0x2,
+	/* sniffer rule - receive all port traffic */
+	IBV_FLOW_ATTR_SNIFFER		= 0x3,
 };
 
 enum ibv_flow_spec_type {
 	IBV_FLOW_SPEC_ETH	= 0x20,
 	IBV_FLOW_SPEC_IPV4	= 0x30,
+	IBV_FLOW_SPEC_IPV6	= 0x31,
+	IBV_FLOW_SPEC_IPV4_EXT	= 0x32,
 	IBV_FLOW_SPEC_TCP	= 0x40,
 	IBV_FLOW_SPEC_UDP	= 0x41,
 };
@@ -1210,6 +1214,38 @@ struct ibv_flow_spec_ipv4 {
 	struct ibv_flow_ipv4_filter mask;
 };
 
+struct ibv_flow_ipv4_ext_filter {
+	uint32_t src_ip;
+	uint32_t dst_ip;
+	uint8_t  proto;
+	uint8_t  tos;
+	uint8_t  ttl;
+	uint8_t  flags;
+};
+
+struct ibv_flow_spec_ipv4_ext {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_ipv4_ext_filter val;
+	struct ibv_flow_ipv4_ext_filter mask;
+};
+
+struct ibv_flow_ipv6_filter {
+	uint8_t  src_ip[16];
+	uint8_t  dst_ip[16];
+	uint32_t flow_label;
+	uint8_t  next_hdr;
+	uint8_t  traffic_class;
+	uint8_t  hop_limit;
+};
+
+struct ibv_flow_spec_ipv6 {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_ipv6_filter val;
+	struct ibv_flow_ipv6_filter mask;
+};
+
 struct ibv_flow_tcp_udp_filter {
 	uint16_t dst_port;
 	uint16_t src_port;
@@ -1231,6 +1267,8 @@ struct ibv_flow_spec {
 		struct ibv_flow_spec_eth eth;
 		struct ibv_flow_spec_ipv4 ipv4;
 		struct ibv_flow_spec_tcp_udp tcp_udp;
+		struct ibv_flow_spec_ipv4_ext ipv4_ext;
+		struct ibv_flow_spec_ipv6 ipv6;
 	};
 };
 
@@ -1590,8 +1628,10 @@ static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
 						      ibv_create_flow);
-	if (!vctx || !vctx->ibv_create_flow)
+	if (!vctx || !vctx->ibv_create_flow) {
+		errno = ENOSYS;
 		return NULL;
+	}
 
 	return vctx->ibv_create_flow(qp, flow);
 }

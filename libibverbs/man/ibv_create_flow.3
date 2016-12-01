@@ -43,6 +43,7 @@ enum ibv_flow_attr_type {
 IBV_FLOW_ATTR_NORMAL		= 0x0,		/* Steering according to rule specifications */
 IBV_FLOW_ATTR_ALL_DEFAULT	= 0x1,		/* Default unicast and multicast rule - receive all Eth traffic which isn't steered to any QP */
 IBV_FLOW_ATTR_MC_DEFAULT 	= 0x2,		/* Default multicast rule - receive all Eth multicast traffic which isn't steered to any QP */
+IBV_FLOW_ATTR_SNIFFER		= 0x3,		/* Sniffer rule - receive all port traffic */
 .in -8
 };
 .sp
@@ -54,6 +55,31 @@ IBV_FLOW_ATTR_FLAGS_DONT_TRAP       = 1 << 1,	/* Rule doesn't trap received pack
 .in -8
 };
 .fi
+.nf
+.br
+
+enum ibv_flow_spec_type {
+.in +8
+IBV_FLOW_SPEC_ETH                       = 0x20,   /* Flow specification of L2 header */
+IBV_FLOW_SPEC_IPV4                      = 0x30,   /* Flow specification of IPv4 header */
+IBV_FLOW_SPEC_IPV6                      = 0x31,   /* Flow specification of IPv6 header */
+IBV_FLOW_SPEC_IPV4_EXT                  = 0x32,   /* Extended flow specification of IPv4 */
+IBV_FLOW_SPEC_TCP                       = 0x40,   /* Flow specification of TCP header */
+IBV_FLOW_SPEC_UDP                       = 0x41,   /* Flow specification of UDP header */
+.in -8
+};
+.br
+
+Flow specification general structure:
+.BR
+struct ibv_flow_spec_xxx {
+.in +8
+enum ibv_flow_spec_type  type;
+uint16_t  size;                  /* Flow specification size = sizeof(struct ibv_flow_spec_xxx) */
+struct ibv_flow_xxx_filter val;
+struct ibv_flow_xxx_filter mask; /* Defines which bits from the filter value are applicable when looking for a match in the incoming packet */
+.in -8
+};
 .PP
 Each spec struct holds the relevant network layer parameters for matching. To enforce the match, the user sets a mask for each parameter.
 .br
@@ -97,12 +123,21 @@ Device managed flow steering isn't currently supported
 .SS EPERM
 No permissions to add the flow steering rule
 .SH "NOTES"
-These verbs are available only for devices supporting
+1. These verbs are available only for devices supporting
 .br
-IBV_DEVICE_MANAGED_FLOW_STEERING and only for QPs of Transport Service Type
+   IBV_DEVICE_MANAGED_FLOW_STEERING and only for QPs of Transport Service Type
 .BR IBV_QPT_UD
 or
 .BR IBV_QPT_RAW_PACKET
+.br
+2. User must memset the spec struct with zeros before using it.
+.br
+3. ether_type field in ibv_flow_eth_filter is the ethertype following the last VLAN tag of the packet.
+.br
+4. Only rule type IBV_FLOW_ATTR_NORMAL supports IBV_FLOW_ATTR_FLAGS_DONT_TRAP flag.
+.br
+5. No specifications are needed for IBV_FLOW_ATTR_SNIFFER rule type.
+.br
 .PP
 .SH EXAMPLE
 .br
@@ -173,3 +208,5 @@ Hadar Hen Zion <hadarh@mellanox.com>
 Matan Barak <matanb@mellanox.com>
 .TP
 Yishai Hadas <yishaih@mellanox.com>
+.TP
+Maor Gottlieb <maorg@mellanox.com>

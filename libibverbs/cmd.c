@@ -42,7 +42,7 @@
 #include <string.h>
 
 #include "ibverbs.h"
-
+#include <ccan/minmax.h>
 
 int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
 			size_t cmd_size, struct ibv_get_context_resp *resp,
@@ -1590,9 +1590,63 @@ int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t l
 	return 0;
 }
 
+static int buffer_is_zero(char *addr, ssize_t size)
+{
+	return addr[0] == 0 && !memcmp(addr, addr + 1, size - 1);
+}
+
+static int get_filters_size(struct ibv_flow_spec *ib_spec,
+			    struct ibv_kern_spec *kern_spec,
+			    int *ib_filter_size, int *kern_filter_size,
+			    enum ibv_flow_spec_type type)
+{
+	void *ib_spec_filter_mask;
+	int curr_kern_filter_size;
+	int min_filter_size;
+
+	*ib_filter_size = (ib_spec->hdr.size - sizeof(ib_spec->hdr)) / 2;
+
+	switch (type) {
+	case IBV_FLOW_SPEC_IPV4_EXT:
+		min_filter_size =
+			offsetof(struct ibv_kern_ipv4_ext_filter, flags) +
+			sizeof(kern_spec->ipv4_ext.mask.flags);
+		curr_kern_filter_size = min_filter_size;
+		ib_spec_filter_mask = (void *)&ib_spec->ipv4_ext.val +
+			*ib_filter_size;
+		break;
+	case IBV_FLOW_SPEC_IPV6:
+		min_filter_size =
+			offsetof(struct ibv_kern_ipv6_filter, hop_limit) +
+			sizeof(kern_spec->ipv6.mask.hop_limit);
+		curr_kern_filter_size = min_filter_size;
+		ib_spec_filter_mask = (void *)&ib_spec->ipv6.val +
+			*ib_filter_size;
+		break;
+	default:
+		return EINVAL;
+	}
+
+	if (*ib_filter_size < min_filter_size)
+		return EINVAL;
+
+	if (*ib_filter_size > curr_kern_filter_size &&
+	    !buffer_is_zero(ib_spec_filter_mask + curr_kern_filter_size,
+			    *ib_filter_size - curr_kern_filter_size))
+		return EOPNOTSUPP;
+
+	*kern_filter_size = min_t(int, curr_kern_filter_size, *ib_filter_size);
+
+	return 0;
+}
+
 static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 				struct ibv_kern_spec *kern_spec)
 {
+	int kern_filter_size;
+	int ib_filter_size;
+	int ret;
+
 	kern_spec->hdr.type = ib_spec->hdr.type;
 
 	switch (ib_spec->hdr.type) {
@@ -1610,6 +1664,34 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->ipv4.mask, &ib_spec->ipv4.mask,
 		       sizeof(struct ibv_flow_ipv4_filter));
 		break;
+	case IBV_FLOW_SPEC_IPV4_EXT:
+		ret = get_filters_size(ib_spec, kern_spec,
+				       &ib_filter_size, &kern_filter_size,
+				       IBV_FLOW_SPEC_IPV4_EXT);
+		if (ret)
+			return ret;
+
+		kern_spec->hdr.type = IBV_FLOW_SPEC_IPV4;
+		kern_spec->ipv4_ext.size = sizeof(struct
+						  ibv_kern_spec_ipv4_ext);
+		memcpy(&kern_spec->ipv4_ext.val, &ib_spec->ipv4_ext.val,
+		       kern_filter_size);
+		memcpy(&kern_spec->ipv4_ext.mask, (void *)&ib_spec->ipv4_ext.val
+		       + ib_filter_size, kern_filter_size);
+		break;
+	case IBV_FLOW_SPEC_IPV6:
+		ret = get_filters_size(ib_spec, kern_spec,
+				       &ib_filter_size, &kern_filter_size,
+				       IBV_FLOW_SPEC_IPV6);
+		if (ret)
+			return ret;
+
+		kern_spec->ipv6.size = sizeof(struct ibv_kern_spec_ipv6);
+		memcpy(&kern_spec->ipv6.val, &ib_spec->ipv6.val,
+		       kern_filter_size);
+		memcpy(&kern_spec->ipv6.mask, (void *)&ib_spec->ipv6.val
+		       + ib_filter_size, kern_filter_size);
+		break;
 	case IBV_FLOW_SPEC_TCP:
 	case IBV_FLOW_SPEC_UDP:
 		kern_spec->tcp_udp.size = sizeof(struct ibv_kern_spec_tcp_udp);
@@ -1619,7 +1701,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
 		break;
 	default:
-		return -EINVAL;
+		return EINVAL;
 	}
 	return 0;
 }
@@ -1656,8 +1738,10 @@ struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
 	ib_spec = flow_attr + 1;
 	for (i = 0; i < flow_attr->num_of_specs; i++) {
 		err = ib_spec_to_kern_spec(ib_spec, kern_spec);
-		if (err)
+		if (err) {
+			errno = err;
 			goto err;
+		}
 		cmd->flow_attr.size +=
 			((struct ibv_kern_spec *)kern_spec)->hdr.size;
 		kern_spec += ((struct ibv_kern_spec *)kern_spec)->hdr.size;
