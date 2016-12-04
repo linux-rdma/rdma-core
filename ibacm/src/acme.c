@@ -354,7 +354,7 @@ static void gen_addr_temp(FILE *f)
 	fprintf(f, "#\n");
 	fprintf(f, "# device name - struct ibv_device name\n");
 	fprintf(f, "# port number - valid port number on device (numbering starts at 1)\n");
-	fprintf(f, "# pkey - partition key in hex (can specify 'default' for pkey 0xFFFF)\n");
+	fprintf(f, "# pkey - partition key in hex (can specify 'default' for first entry in pkey table)\n");
 	fprintf(f, "#\n");
 	fprintf(f, "# Up to 4 addresses can be associated with a given <device, port, pkey> tuple\n");
 	fprintf(f, "#\n");
