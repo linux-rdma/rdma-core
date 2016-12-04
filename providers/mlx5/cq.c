@@ -1189,6 +1189,13 @@ static inline uint64_t mlx5_cq_read_wc_completion_ts(struct ibv_cq_ex *ibcq)
 	return be64toh(cq->cqe64->timestamp);
 }
 
+static inline uint16_t mlx5_cq_read_wc_cvlan(struct ibv_cq_ex *ibcq)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+
+	return be16toh(cq->cqe64->vlan_info);
+}
+
 #define BIT(i) (1UL << (i))
 
 #define SINGLE_THREADED BIT(0)
@@ -1261,6 +1268,8 @@ void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_
 		cq->ibv_cq.read_dlid_path_bits = mlx5_cq_read_wc_dlid_path_bits;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
 		cq->ibv_cq.read_completion_ts = mlx5_cq_read_wc_completion_ts;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_CVLAN)
+		cq->ibv_cq.read_cvlan = mlx5_cq_read_wc_cvlan;
 }
 
 int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
