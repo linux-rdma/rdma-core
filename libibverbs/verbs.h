@@ -675,7 +675,8 @@ enum ibv_wq_init_attr_mask {
 
 enum ibv_wq_flags {
 	IBV_WQ_FLAGS_CVLAN_STRIPPING		= 1 << 0,
-	IBV_WQ_FLAGS_RESERVED			= 1 << 1,
+	IBV_WQ_FLAGS_SCATTER_FCS		= 1 << 1,
+	IBV_WQ_FLAGS_RESERVED			= 1 << 2,
 };
 
 struct ibv_wq_init_attr {
@@ -685,7 +686,7 @@ struct ibv_wq_init_attr {
 	uint32_t		max_sge;
 	struct	ibv_pd	       *pd;
 	struct	ibv_cq	       *cq;
-	uint32_t		comp_mask;
+	uint32_t		comp_mask; /* Use ibv_wq_init_attr_mask */
 	uint32_t		create_flags; /* use ibv_wq_flags */
 };
 
