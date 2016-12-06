@@ -149,6 +149,7 @@ static uint16_t ext_fw_info_device[][2] = {
 	{0xcf08, 0xcf08},	/* Switch-IB2 */
 	{0x01b3, 0x01b3},	/* IS-4 */
 	{0x1003, 0x1016},	/* Connect-X */
+	{0x1b02, 0x1b02},	/* Bull */
 	{0x0000, 0x0000}};
 
 static int is_ext_fw_info_supported(uint16_t device_id) {
