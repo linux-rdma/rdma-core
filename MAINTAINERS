@@ -160,4 +160,3 @@ M:	Adit Ranadive <aditr@vmware.com>
 L:	pv-drivers@vmware.com
 S:	Supported
 F:	providers/vmw_pvrdma/
-
