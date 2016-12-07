@@ -335,10 +335,10 @@ add_subdirectory(providers/mlx5)
 add_subdirectory(providers/mthca)
 add_subdirectory(providers/nes)
 add_subdirectory(providers/ocrdma)
-add_subdirectory(providers/vmw_pvrdma)
 add_subdirectory(providers/qedr)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
+add_subdirectory(providers/vmw_pvrdma)
 
 # Binaries
 add_subdirectory(ibacm)

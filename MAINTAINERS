@@ -139,12 +139,6 @@ M:	Devesh Sharma <Devesh.sharma@broadcom.com>
 S:	Supported
 F:	providers/ocrdma/
 
-PVRDMA USERSPACE PROVIDER (for pvrdma.ko)
-M:	Adit Ranadive <aditr@vmware.com>
-L:	pv-drivers@vmware.com
-S:	Supported
-F:	providers/pvrdma/
-
 QEDR USERSPACE PROVIDER (for qedr.ko)
 M:	Ram Amrani <Ram.Amrani@cavium.com>
 M:	Ariel Elior <Ariel.Elior@cavium.com>
@@ -160,3 +154,10 @@ SRP DAEMON (for ib_srp.ko)
 M:	Bart Van Assche <bvanassche@acm.org>
 S:	Supported
 F:	srp_daemon/
+
+VMWARE PVRDMA USERSPACE PROVIDER (for vmw_pvrdma.ko)
+M:	Adit Ranadive <aditr@vmware.com>
+L:	pv-drivers@vmware.com
+S:	Supported
+F:	providers/vmw_pvrdma/
+
