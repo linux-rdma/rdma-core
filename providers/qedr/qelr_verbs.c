@@ -989,7 +989,10 @@ static uint32_t qelr_prepare_sq_inline_data(struct qelr_qp *qp,
 
 	if (qp->edpm.is_edpm) {
 		qp->edpm.dpm_payload_size += data_size;
-		qp->edpm.rdma_ext->dma_length = htonl(data_size);
+
+		if (wr->opcode == IBV_WR_RDMA_WRITE ||
+		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
+			qp->edpm.rdma_ext->dma_length = htonl(data_size);
 	}
 
 	return data_size;
