@@ -1027,7 +1027,9 @@ static uint32_t qelr_prepare_sq_rdma_data(struct qelr_qp *qp,
 	rwqe2->r_key = htole32(wr->wr.rdma.rkey);
 	TYPEPTR_ADDR_SET(rwqe2, remote_va, wr->wr.rdma.remote_addr);
 
-	if (wr->send_flags & IBV_SEND_INLINE) {
+	if (wr->send_flags & IBV_SEND_INLINE &&
+	    (wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM ||
+	     wr->opcode == IBV_WR_RDMA_WRITE)) {
 		uint8_t flags = 0;
 
 		SET_FIELD2(flags, RDMA_SQ_RDMA_WQE_1ST_INLINE_FLG, 1);
