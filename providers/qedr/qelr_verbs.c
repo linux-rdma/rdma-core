@@ -1676,6 +1676,7 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 	uint8_t flags;
 
 	wc->opcode = IBV_WC_RECV;
+	wc->wc_flags = 0;
 
 	FP_DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ, "\n");
 
