@@ -175,11 +175,10 @@ u64 *i40iw_qp_get_next_send_wqe(struct i40iw_qp_uk *qp,
 			qp->swqe_polarity = !qp->swqe_polarity;
 	}
 
-	for (i = 0; i < wqe_size / I40IW_QP_WQE_MIN_SIZE; i++) {
-		I40IW_RING_MOVE_HEAD(qp->sq_ring, ret_code);
-		if (ret_code)
-			return NULL;
-	}
+	I40IW_RING_MOVE_HEAD_BY_COUNT(qp->sq_ring,
+				      (wqe_size / I40IW_QP_WQE_MIN_SIZE), ret_code);
+	if (ret_code)
+		return NULL;
 
 	wqe = qp->sq_base[*wqe_idx].elem;
 
@@ -291,9 +290,9 @@ static enum i40iw_status_code i40iw_rdma_write(struct i40iw_qp_uk *qp,
 
 	i40iw_set_fragment(wqe, I40IW_BYTE_0, op_info->lo_sg_list);
 
-	for (i = 1; i < op_info->num_lo_sges; i++) {
-		byte_off = I40IW_BYTE_32 + (i - 1) * 16;
+	for (i = 1, byte_off = I40IW_BYTE_32; i < op_info->num_lo_sges; i++) {
 		i40iw_set_fragment(wqe, byte_off, &op_info->lo_sg_list[i]);
+		byte_off += 16;
 	}
 
 	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
@@ -404,9 +403,9 @@ static enum i40iw_status_code i40iw_send(struct i40iw_qp_uk *qp,
 
 	i40iw_set_fragment(wqe, I40IW_BYTE_0, op_info->sg_list);
 
-	for (i = 1; i < op_info->num_sges; i++) {
-		byte_off = I40IW_BYTE_32 + (i - 1) * 16;
+	for (i = 1, byte_off = I40IW_BYTE_32; i < op_info->num_sges; i++) {
 		i40iw_set_fragment(wqe, byte_off, &op_info->sg_list[i]);
+		byte_off += 16;
 	}
 
 	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
@@ -433,7 +432,7 @@ static enum i40iw_status_code i40iw_inline_rdma_write(struct i40iw_qp_uk *qp,
 	struct i40iw_inline_rdma_write *op_info;
 	u64 *push;
 	u64 header = 0;
-	u32 i, wqe_idx;
+	u32 wqe_idx;
 	enum i40iw_status_code ret_code;
 	bool read_fence = false;
 	u8 wqe_size;
@@ -469,14 +468,12 @@ static enum i40iw_status_code i40iw_inline_rdma_write(struct i40iw_qp_uk *qp,
 	src = (u8 *)(op_info->data);
 
 	if (op_info->len <= I40IW_BYTE_16) {
-		for (i = 0; i < op_info->len; i++, src++, dest++)
-			*dest = *src;
+		memcpy(dest, src, op_info->len);
 	} else {
-		for (i = 0; i < I40IW_BYTE_16; i++, src++, dest++)
-			*dest = *src;
+		memcpy(dest, src, I40IW_BYTE_16);
+		src += I40IW_BYTE_16;
 		dest = (u8 *)wqe + I40IW_BYTE_32;
-		for (; i < op_info->len; i++, src++, dest++)
-			*dest = *src;
+		memcpy(dest, src, op_info->len - I40IW_BYTE_16);
 	}
 
 	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
@@ -511,7 +508,7 @@ static enum i40iw_status_code i40iw_inline_send(struct i40iw_qp_uk *qp,
 	u8 *dest, *src;
 	struct i40iw_post_inline_send *op_info;
 	u64 header;
-	u32 wqe_idx, i;
+	u32 wqe_idx;
 	enum i40iw_status_code ret_code;
 	bool read_fence = false;
 	u8 wqe_size;
@@ -545,14 +542,12 @@ static enum i40iw_status_code i40iw_inline_send(struct i40iw_qp_uk *qp,
 	src = (u8 *)(op_info->data);
 
 	if (op_info->len <= I40IW_BYTE_16) {
-		for (i = 0; i < op_info->len; i++, src++, dest++)
-			*dest = *src;
+		memcpy(dest, src, op_info->len);
 	} else {
-		for (i = 0; i < I40IW_BYTE_16; i++, src++, dest++)
-			*dest = *src;
+		memcpy(dest, src, I40IW_BYTE_16);
+		src += I40IW_BYTE_16;
 		dest = (u8 *)wqe + I40IW_BYTE_32;
-		for (; i < op_info->len; i++, src++, dest++)
-			*dest = *src;
+		memcpy(dest, src, op_info->len - I40IW_BYTE_16);
 	}
 
 	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
@@ -692,9 +687,9 @@ static enum i40iw_status_code i40iw_post_receive(struct i40iw_qp_uk *qp,
 
 	i40iw_set_fragment(wqe, I40IW_BYTE_0, info->sg_list);
 
-	for (i = 1; i < info->num_sges; i++) {
-		byte_off = I40IW_BYTE_32 + (i - 1) * 16;
+	for (i = 1, byte_off = I40IW_BYTE_32; i < info->num_sges; i++) {
 		i40iw_set_fragment(wqe, byte_off, &info->sg_list[i]);
+		byte_off += 16;
 	}
 
 	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
@@ -760,8 +755,7 @@ static enum i40iw_status_code i40iw_cq_post_entries(struct i40iw_cq_uk *cq,
  * @post_cq: update cq tail
  */
 static enum i40iw_status_code i40iw_cq_poll_completion(struct i40iw_cq_uk *cq,
-						       struct i40iw_cq_poll_info *info,
-						       bool post_cq)
+						       struct i40iw_cq_poll_info *info)
 {
 	u64 comp_ctx, qword0, qword2, qword3, wqe_qword;
 	u64 *cqe, *sw_wqe;
@@ -769,7 +763,6 @@ static enum i40iw_status_code i40iw_cq_poll_completion(struct i40iw_cq_uk *cq,
 	struct i40iw_ring *pring = NULL;
 	u32 wqe_idx, q_type, array_idx = 0;
 	enum i40iw_status_code ret_code = 0;
-	enum i40iw_status_code ret_code2 = 0;
 	bool move_cq_head = true;
 	u8 polarity;
 	u8 addl_wqes = 0;
@@ -877,19 +870,14 @@ exit:
 			move_cq_head = false;
 
 	if (move_cq_head) {
-		I40IW_RING_MOVE_HEAD(cq->cq_ring, ret_code2);
-
-		if (ret_code2 && !ret_code)
-			ret_code = ret_code2;
+		I40IW_RING_MOVE_HEAD_NOCHECK(cq->cq_ring);
 
 		if (I40IW_RING_GETCURRENT_HEAD(cq->cq_ring) == 0)
 			cq->polarity ^= 1;
 
-		if (post_cq) {
-			I40IW_RING_MOVE_TAIL(cq->cq_ring);
-			set_64bit_val(cq->shadow_area, I40IW_BYTE_0,
-				      I40IW_RING_GETCURRENT_HEAD(cq->cq_ring));
-		}
+		I40IW_RING_MOVE_TAIL(cq->cq_ring);
+		set_64bit_val(cq->shadow_area, I40IW_BYTE_0,
+			      I40IW_RING_GETCURRENT_HEAD(cq->cq_ring));
 	} else {
 		if (info->is_srq)
 			return ret_code;

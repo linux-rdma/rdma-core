@@ -1318,9 +1318,6 @@
 /* wqe size considering 32 bytes per wqe*/
 #define I40IWQP_SW_MIN_WQSIZE 4		/* 128 bytes */
 #define I40IWQP_SW_MAX_WQSIZE 2048	/* 2048 bytes */
-
-#define I40IWQP_SW_WQSIZE_1024 1024
-
 #define I40IWQP_OP_RDMA_WRITE 0
 #define I40IWQP_OP_RDMA_READ 1
 #define I40IWQP_OP_RDMA_SEND 3
@@ -1585,6 +1582,9 @@ enum i40iw_alignment {
 
 #define I40IW_RING_MOVE_TAIL(_ring) \
 	(_ring).tail = ((_ring).tail + 1) % (_ring).size
+
+#define I40IW_RING_MOVE_HEAD_NOCHECK(_ring) \
+	(_ring).head = ((_ring).head + 1) % (_ring).size
 
 #define I40IW_RING_MOVE_TAIL_BY_COUNT(_ring, _count) \
 	(_ring).tail = ((_ring).tail + (_count)) % (_ring).size
