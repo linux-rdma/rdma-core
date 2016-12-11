@@ -293,8 +293,9 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 
 	rc = ibv_cmd_destroy_cq(ibv_cq);
 	if (rc) {
-		DP_ERR(cxt->dbg_fp,
-		       "destroy cq: failed to destroy %p, got %d.\n", cq, rc);
+		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+		           "destroy cq: failed to destroy %p, got %d.\n", cq,
+			   rc);
 		return rc;
 	}
 
