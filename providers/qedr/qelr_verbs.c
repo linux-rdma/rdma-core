@@ -293,8 +293,9 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 
 	rc = ibv_cmd_destroy_cq(ibv_cq);
 	if (rc) {
-		DP_ERR(cxt->dbg_fp,
-		       "destroy cq: failed to destroy %p, got %d.\n", cq, rc);
+		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
+		           "destroy cq: failed to destroy %p, got %d.\n", cq,
+			   rc);
 		return rc;
 	}
 
@@ -989,7 +990,10 @@ static uint32_t qelr_prepare_sq_inline_data(struct qelr_qp *qp,
 
 	if (qp->edpm.is_edpm) {
 		qp->edpm.dpm_payload_size += data_size;
-		qp->edpm.rdma_ext->dma_length = htonl(data_size);
+
+		if (wr->opcode == IBV_WR_RDMA_WRITE ||
+		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
+			qp->edpm.rdma_ext->dma_length = htonl(data_size);
 	}
 
 	return data_size;
@@ -1027,7 +1031,9 @@ static uint32_t qelr_prepare_sq_rdma_data(struct qelr_qp *qp,
 	rwqe2->r_key = htole32(wr->wr.rdma.rkey);
 	TYPEPTR_ADDR_SET(rwqe2, remote_va, wr->wr.rdma.remote_addr);
 
-	if (wr->send_flags & IBV_SEND_INLINE) {
+	if (wr->send_flags & IBV_SEND_INLINE &&
+	    (wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM ||
+	     wr->opcode == IBV_WR_RDMA_WRITE)) {
 		uint8_t flags = 0;
 
 		SET_FIELD2(flags, RDMA_SQ_RDMA_WQE_1ST_INLINE_FLG, 1);
@@ -1674,6 +1680,7 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 	uint8_t flags;
 
 	wc->opcode = IBV_WC_RECV;
+	wc->wc_flags = 0;
 
 	FP_DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ, "\n");
 
