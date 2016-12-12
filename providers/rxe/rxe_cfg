@@ -332,7 +332,7 @@ sub do_status {
 	    $outp[$ln] .= "\t";
 	    $outp[$ln] .= set_field("$link_state{$eth}");
 	    $outp[$ln] .= "\t";
-	    $outp[$ln] .= set_field("$eth_driver{$eth}");
+	    $outp[$ln] .= set_field(exists($eth_driver{$eth}) ? $eth_driver{$eth} : "");
 	    $outp[$ln] .= "\t";
 	    $outp[$ln] .= set_field("$link_speed{$eth}");
 	    $outp[$ln] .= "\t";
