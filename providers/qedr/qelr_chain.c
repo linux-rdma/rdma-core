@@ -44,11 +44,11 @@ void *qelr_chain_get_last_elem(struct qelr_chain *p_chain)
 	void			*p_virt_addr	= NULL;
 	uint32_t		size;
 
-	if (!p_chain->addr)
+	if (!p_chain->first_addr)
 		goto out;
 
 	size		= p_chain->elem_size * (p_chain->n_elems - 1);
-	p_virt_addr	= ((uint8_t *)p_chain->addr + size);
+	p_virt_addr	= ((uint8_t *)p_chain->first_addr + size);
 out:
 	return p_virt_addr;
 }
@@ -58,8 +58,8 @@ void qelr_chain_reset(struct qelr_chain *p_chain)
 	p_chain->prod_idx	= 0;
 	p_chain->cons_idx	= 0;
 
-	p_chain->p_cons_elem	= p_chain->addr;
-	p_chain->p_prod_elem	= p_chain->addr;
+	p_chain->p_cons_elem	= p_chain->first_addr;
+	p_chain->p_prod_elem	= p_chain->first_addr;
 }
 
 #define QELR_ANON_FD		(-1)	/* MAP_ANONYMOUS => file desc.= -1  */
@@ -76,7 +76,7 @@ int qelr_chain_alloc(struct qelr_chain *chain, int chain_size, int page_size,
 	addr = mmap(NULL, a_chain_size, PROT_READ | PROT_WRITE,
 			 MAP_PRIVATE | MAP_ANONYMOUS, QELR_ANON_FD,
 			 QELR_ANON_OFFSET);
-	if (chain->addr == MAP_FAILED)
+	if (chain->first_addr == MAP_FAILED)
 		return errno;
 
 	ret = ibv_dontfork_range(addr, a_chain_size);
@@ -87,13 +87,15 @@ int qelr_chain_alloc(struct qelr_chain *chain, int chain_size, int page_size,
 
 	/* init chain */
 	memset(chain, 0, sizeof(*chain));
-	memset(chain->addr, 0, chain->size);
-	chain->addr = addr;
+	memset(chain->first_addr, 0, chain->size);
+	chain->first_addr = addr;
 	chain->size = a_chain_size;
-	chain->p_cons_elem = chain->addr;
-	chain->p_prod_elem = chain->addr;
+	chain->p_cons_elem = chain->first_addr;
+	chain->p_prod_elem = chain->first_addr;
 	chain->elem_size = elem_size;
 	chain->n_elems = chain->size / elem_size;
+	chain->last_addr = (void *)
+			((uint8_t *)addr + (elem_size * (chain->n_elems -1)));
 
 	return 0;
 }
@@ -101,7 +103,7 @@ int qelr_chain_alloc(struct qelr_chain *chain, int chain_size, int page_size,
 void qelr_chain_free(struct qelr_chain *chain)
 {
 	if (chain->size) {
-		ibv_dofork_range(chain->addr, chain->size);
-		munmap(chain->addr, chain->size);
+		ibv_dofork_range(chain->first_addr, chain->size);
+		munmap(chain->first_addr, chain->size);
 	}
 }

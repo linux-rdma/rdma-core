@@ -248,7 +248,7 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 	if (rc)
 		goto err_0;
 
-	cmd.addr = (uintptr_t) cq->chain.addr;
+	cmd.addr = (uintptr_t) cq->chain.first_addr;
 	cmd.len = cq->chain.size;
 	rc = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 			       &cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
@@ -485,7 +485,7 @@ static inline void
 qelr_create_qp_configure_sq_req(struct qelr_qp *qp,
 				struct qelr_create_qp_req *req)
 {
-	req->sq_addr = (uintptr_t)qp->sq.chain.addr;
+	req->sq_addr = (uintptr_t)qp->sq.chain.first_addr;
 	req->sq_len = qp->sq.chain.size;
 }
 
@@ -493,7 +493,7 @@ static inline void
 qelr_create_qp_configure_rq_req(struct qelr_qp *qp,
 				struct qelr_create_qp_req *req)
 {
-	req->rq_addr = (uintptr_t)qp->rq.chain.addr;
+	req->rq_addr = (uintptr_t)qp->rq.chain.first_addr;
 	req->rq_len = qp->rq.chain.size;
 }
 
@@ -1443,8 +1443,8 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 				   wr->sg_list[i].length, flags);
 			FP_DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
 				      "[%d]: len %d key %x addr %x:%x\n", i,
-				      rqe->length, rqe->flags, rqe->addr.hi,
-				      rqe->addr.lo);
+				      rqe->length, rqe->flags,
+				      rqe->first_addr.hi, rqe->first_addr.lo);
 		}
 		/* Special case of no sges. FW requires between 1-4 sges...
 		 * in this case we need to post 1 sge with length zero. this is
