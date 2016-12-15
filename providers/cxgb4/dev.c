@@ -239,7 +239,7 @@ static void dump_cq(struct c4iw_cq *chp)
                 chp->cq.cqid, chp->cq.queue, chp->cq.cidx,
 	 	chp->cq.sw_queue, chp->cq.sw_cidx, chp->cq.sw_pidx, chp->cq.sw_in_use,
                 chp->cq.size, chp->cq.error, chp->cq.gen, chp->cq.cidx_inc, be64_to_cpu(chp->cq.bits_type_ts),
-		t4_cq_notempty(&chp->cq) || (chp->iq ? t4_iq_notempty(chp->iq) : 0));
+		t4_cq_notempty(&chp->cq));
 
 	for (i=0; i < chp->cq.size; i++) {
 		u64 *p = (u64 *)(chp->cq.queue + i);
@@ -310,10 +310,10 @@ static void dump_qp(struct c4iw_qp *qhp)
 			swsqe->opcode,
 			swsqe->complete,
 			swsqe->signaled,
-			cpu_to_be64(swsqe->cqe.u.flits[0]),
-			cpu_to_be64(swsqe->cqe.u.flits[1]),
-			cpu_to_be64((u64)swsqe->cqe.reserved),
-			cpu_to_be64(swsqe->cqe.bits_type_ts));
+			cpu_to_be64(((uint64_t *)&swsqe->cqe)[0]),
+			cpu_to_be64(((uint64_t *)&swsqe->cqe)[1]),
+			cpu_to_be64(((uint64_t *)&swsqe->cqe)[2]),
+			cpu_to_be64(((uint64_t *)&swsqe->cqe)[3]));
 		if (++cidx == qhp->wq.sq.size)
 			cidx = 0;
 	}
@@ -359,7 +359,7 @@ static void dump_qp(struct c4iw_qp *qhp)
 	}
 }
 
-void dump_state()
+void dump_state(void)
 {
 	struct c4iw_dev *dev;
 	int i;
@@ -462,7 +462,7 @@ found:
 	}
 
 	PDBG("%s found vendor %d device %d type %d\n",
-	     __FUNCTION__, vendor, device, hca_table[i].chip_version);
+	     __FUNCTION__, vendor, device, CHELSIO_CHIP_VERSION(hca_table[i].device >> 8));
 
 	dev = calloc(1, sizeof *dev);
 	if (!dev) {
