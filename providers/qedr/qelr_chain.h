@@ -34,8 +34,8 @@
 #define __QELR_CHAIN_H__
 
 struct qelr_chain {
-	/* Address of first page of the chain */
-	void		*addr;
+	void		*first_addr;	/* Address of first element in chain */
+	void		*last_addr;	/* Address of last element in chain */
 
 	/* Point to next element to produce/consume */
 	void		*p_prod_elem;
@@ -64,8 +64,8 @@ static inline void *qelr_chain_produce(struct qelr_chain *p_chain)
 
 	p_ret = p_chain->p_prod_elem;
 
-	if (p_chain->prod_idx % p_chain->n_elems == 0)
-		p_chain->p_prod_elem = p_chain->addr;
+	if (p_chain->p_prod_elem == p_chain->last_addr)
+		p_chain->p_prod_elem = p_chain->first_addr;
 	else
 		p_chain->p_prod_elem = (void *)(((uint8_t *)p_chain->p_prod_elem) +
 				       p_chain->elem_size);
@@ -83,8 +83,9 @@ static inline void *qelr_chain_produce_n(struct qelr_chain *p_chain, int n)
 
 	n_wrap = p_chain->prod_idx % p_chain->n_elems;
 	if (n_wrap < n)
-		p_chain->p_prod_elem = (void *)(((uint8_t *)p_chain->addr) +
-				       (p_chain->elem_size * n_wrap));
+		p_chain->p_prod_elem = (void *)
+				       (((uint8_t *)p_chain->first_addr) +
+					(p_chain->elem_size * n_wrap));
 	else
 		p_chain->p_prod_elem = (void *)(((uint8_t *)p_chain->p_prod_elem) +
 				       (p_chain->elem_size * n));
@@ -100,8 +101,8 @@ static inline void *qelr_chain_consume(struct qelr_chain *p_chain)
 
 	p_ret = p_chain->p_cons_elem;
 
-	if (p_chain->cons_idx % p_chain->n_elems == 0)
-		p_chain->p_cons_elem = p_chain->addr;
+	if (p_chain->p_cons_elem == p_chain->last_addr)
+		p_chain->p_cons_elem = p_chain->first_addr;
 	else
 		p_chain->p_cons_elem	= (void *)
 					  (((uint8_t *)p_chain->p_cons_elem) +
@@ -120,8 +121,9 @@ static inline void *qelr_chain_consume_n(struct qelr_chain *p_chain, int n)
 
 	n_wrap = p_chain->cons_idx % p_chain->n_elems;
 	if (n_wrap < n)
-		p_chain->p_cons_elem = (void *)(((uint8_t *)p_chain->addr) +
-				       (p_chain->elem_size * n_wrap));
+		p_chain->p_cons_elem = (void *)
+				       (((uint8_t *)p_chain->first_addr) +
+					(p_chain->elem_size * n_wrap));
 	else
 		p_chain->p_cons_elem = (void *)(((uint8_t *)p_chain->p_cons_elem) +
 				       (p_chain->elem_size * n));
