@@ -260,7 +260,7 @@ extern struct c4iw_stats c4iw_stats;
 #endif
 
 #ifdef STALL_DETECTION
-void dump_state();
+void dump_state(void);
 extern int stall_to;
 #endif
 
