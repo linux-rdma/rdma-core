@@ -970,11 +970,8 @@ enum i40iw_status_code i40iw_qp_uk_init(struct i40iw_qp_uk *qp,
 
 	if (info->max_rq_frag_cnt > I40IW_MAX_WQ_FRAGMENT_COUNT)
 		return I40IW_ERR_INVALID_FRAG_COUNT;
-	ret_code = i40iw_get_wqe_shift(info->sq_size, info->max_sq_frag_cnt, info->max_inline_data, &sqshift);
-	if (ret_code)
-		return ret_code;
 
-	ret_code = i40iw_get_wqe_shift(info->rq_size, info->max_rq_frag_cnt, 0, &rqshift);
+	ret_code = i40iw_get_wqe_shift(info->sq_size, info->max_sq_frag_cnt, info->max_inline_data, &sqshift);
 	if (ret_code)
 		return ret_code;
 
@@ -1006,8 +1003,19 @@ enum i40iw_status_code i40iw_qp_uk_init(struct i40iw_qp_uk *qp,
 	if (!qp->use_srq) {
 		qp->rq_size = info->rq_size;
 		qp->max_rq_frag_cnt = info->max_rq_frag_cnt;
-		qp->rq_wqe_size = rqshift;
 		I40IW_RING_INIT(qp->rq_ring, qp->rq_size);
+		switch (info->abi_ver) {
+		case 4:
+			ret_code = i40iw_get_wqe_shift(info->rq_size, info->max_rq_frag_cnt, 0, &rqshift);
+			if (ret_code)
+				return ret_code;
+			break;
+		case 5: /* fallthrough until next ABI version */
+		default:
+			rqshift = I40IW_MAX_RQ_WQE_SHIFT;
+			break;
+		}
+		qp->rq_wqe_size = rqshift;
 		qp->rq_wqe_size_multiplier = 4 << rqshift;
 	}
 	qp->ops = iw_qp_uk_ops;
