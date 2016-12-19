@@ -540,7 +540,7 @@ int is_mlnx_ext_port_info_supported(uint32_t vendorid,
 		      devid == 0x1ba0 ||
 		      (devid >= 0x1bd0 && devid <= 0x1bd5))))
 			return 1;
-		if ((devid >= 0x1003 && devid <= 0x1016) ||
+		if ((devid >= 0x1003 && devid <= 0x1017) ||
 		    ((vendorid == 0x119f) &&
 		     /* Bull ConnectX3 */
 		     (devid == 0x1b33 || devid == 0x1b73 ||

@@ -148,7 +148,7 @@ static uint16_t ext_fw_info_device[][2] = {
 	{0xcb20, 0xcb20},	/* Switch-IB */
 	{0xcf08, 0xcf08},	/* Switch-IB2 */
 	{0x01b3, 0x01b3},	/* IS-4 */
-	{0x1003, 0x1016},	/* Connect-X */
+	{0x1003, 0x1017},	/* Connect-X */
 	{0x1b02, 0x1b02},	/* Bull SwitchX */
 	{0x1b50, 0x1b50},	/* Bull SwitchX */
 	{0x1ba0, 0x1ba0},	/* Bull SwitchIB */
