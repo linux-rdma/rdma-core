@@ -149,7 +149,18 @@ static uint16_t ext_fw_info_device[][2] = {
 	{0xcf08, 0xcf08},	/* Switch-IB2 */
 	{0x01b3, 0x01b3},	/* IS-4 */
 	{0x1003, 0x1016},	/* Connect-X */
-	{0x1b02, 0x1b02},	/* Bull */
+	{0x1b02, 0x1b02},	/* Bull SwitchX */
+	{0x1b50, 0x1b50},	/* Bull SwitchX */
+	{0x1ba0, 0x1ba0},	/* Bull SwitchIB */
+	{0x1bd0, 0x1bd5},	/* Bull SwitchIB and SwitchIB2 */
+	{0x1b33, 0x1b33},	/* Bull ConnectX3 */
+	{0x1b73, 0x1b73},	/* Bull ConnectX3 */
+	{0x1b40, 0x1b41},	/* Bull ConnectX3 */
+	{0x1b60, 0x1b61},	/* Bull ConnectX3 */
+	{0x1b83, 0x1b83},	/* Bull ConnectIB */
+	{0x1b93, 0x1b94},	/* Bull ConnectIB */
+	{0x1bb4, 0x1bb5},	/* Bull ConnectX4 */
+	{0x1bc4, 0x1bc4},	/* Bull ConnectX4 */
 	{0x0000, 0x0000}};
 
 static int is_ext_fw_info_supported(uint16_t device_id) {

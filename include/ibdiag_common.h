@@ -133,7 +133,7 @@ extern void ibexit(const char *fn, char *msg, ...);
  */
 extern char *conv_cnt_human_readable(uint64_t val64, float *val, int data);
 
-int is_mlnx_ext_port_info_supported(uint32_t devid);
+int is_mlnx_ext_port_info_supported(uint32_t vendorid, uint16_t devid);
 
 int is_port_info_extended_supported(ib_portid_t * dest, int port,
 				    struct ibmad_port *srcport);

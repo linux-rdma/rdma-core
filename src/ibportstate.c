@@ -385,6 +385,7 @@ int main(int argc, char **argv)
 	int selfport = 0;
 	int changed = 0;
 	int i;
+	uint32_t vendorid, rem_vendorid;
 	uint16_t devid, rem_devid;
 	uint64_t val;
 	char *endp;
@@ -516,6 +517,7 @@ int main(int argc, char **argv)
 		port_op = QUERY;
 
 	is_switch = get_node_info(&portid, data);
+	vendorid = (uint32_t) mad_get_field(data, 0, IB_NODE_VENDORID_F);
 	devid = (uint16_t) mad_get_field(data, 0, IB_NODE_DEVID_F);
 
 	if ((port_args[MKEY].set || port_args[MKEYLEASE].set ||
@@ -528,7 +530,7 @@ int main(int argc, char **argv)
 		printf("%s PortInfo:\n", is_switch ? "Switch" : "CA/RT");
 	espeed_cap = get_port_info(&portid, data, portnum, is_switch);
 	show_port_info(&portid, data, portnum, espeed_cap, is_switch);
-	if (is_mlnx_ext_port_info_supported(devid)) {
+	if (is_mlnx_ext_port_info_supported(vendorid, devid)) {
 		get_mlnx_ext_port_info(&portid, data2, portnum);
 		show_mlnx_ext_port_info(&portid, data2, portnum);
 	}
@@ -675,6 +677,7 @@ int main(int argc, char **argv)
 
 			/* Get peer port NodeInfo to obtain peer port number */
 			is_peer_switch = get_node_info(&peerportid, data);
+			rem_vendorid = (uint32_t) mad_get_field(data, 0, IB_NODE_VENDORID_F);
 			rem_devid = (uint16_t) mad_get_field(data, 0, IB_NODE_DEVID_F);
 
 			mad_decode_field(data, IB_NODE_LOCAL_PORT_F,
@@ -685,12 +688,12 @@ int main(int argc, char **argv)
 			peer_espeed_cap = get_port_info(&peerportid, data,
 							peerlocalportnum,
 							is_peer_switch);
-			if (is_mlnx_ext_port_info_supported(rem_devid))
+			if (is_mlnx_ext_port_info_supported(rem_vendorid, rem_devid))
 				get_mlnx_ext_port_info(&peerportid, data2,
 						       peerlocalportnum);
 			show_port_info(&peerportid, data, peerlocalportnum,
 				       peer_espeed_cap, is_peer_switch);
-			if (is_mlnx_ext_port_info_supported(rem_devid))
+			if (is_mlnx_ext_port_info_supported(rem_vendorid, rem_devid))
 				show_mlnx_ext_port_info(&peerportid, data2,
 							peerlocalportnum);
 
