@@ -95,6 +95,7 @@ struct i40iw_uvcontext {
 	uint32_t max_qps;	/* maximum qps allowed for this user process */
 	uint32_t wq_size;	/* size of the WQs (sq+rq) + shadow allocated to the mmaped area */
 	struct i40iw_dev_uk dev;
+	int abi_ver;
 };
 
 struct i40iw_uqp;
