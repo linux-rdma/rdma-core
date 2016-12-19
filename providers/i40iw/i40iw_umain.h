@@ -70,6 +70,15 @@
 #define I40E_DB_SHADOW_AREA_SIZE 64
 #define I40E_DB_CQ_OFFSET 0x40
 
+#define I40IW_HPAGE_SIZE_2M (2 * 1024 * 1024)
+
+extern unsigned int i40iw_dbg;
+#define i40iw_debug(fmt, args...) \
+do { \
+	if (i40iw_dbg) \
+		fprintf(stderr, PFX "%s: " fmt, __FUNCTION__, ##args); \
+} while (0)
+
 enum i40iw_uhca_type {
 	INTEL_i40iw
 };
@@ -111,6 +120,7 @@ struct i40iw_ucq {
 	int comp_vector;
 	struct i40iw_uqp *udqp;
 	struct i40iw_cq_uk cq;
+	bool is_hugetlb;
 };
 
 struct i40iw_uqp {
@@ -129,6 +139,7 @@ struct i40iw_uqp {
 	uint32_t wq_size;
 	struct ibv_recv_wr *pend_rx_wr;
 	struct i40iw_qp_uk qp;
+	bool is_hugetlb;
 
 };
 
