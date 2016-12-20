@@ -834,8 +834,14 @@ check_ext_speed:
 
 check_fdr10_active:
 	if ((mad_get_field(port->ext_info, 0,
-			   IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F) & FDR10) == 0)
-		snprintf(speed_msg, msg_size, "Could be FDR10");
+			   IB_MLNX_EXT_PORT_LINK_SPEED_ACTIVE_F) & FDR10) == 0) {
+		/* Special case QDR to try to avoid confusion with FDR10 */
+		if (mad_get_field(port->info, 0, IB_PORT_LINK_SPEED_ACTIVE_F) == 4)	/* QDR (10.0 Gbps) */
+			snprintf(speed_msg, msg_size,
+				 "Could be FDR10 (Found link at QDR but expected speed is FDR10)");
+		else
+			snprintf(speed_msg, msg_size, "Could be FDR10");
+	}
 }
 
 int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
