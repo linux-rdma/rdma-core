@@ -28,6 +28,7 @@ OPTIONS
 .. include:: common/opt_C.rst
 .. include:: common/opt_P.rst
 .. include:: common/opt_t.rst
+.. include:: common/opt_y.rst
 .. include:: common/opt_h.rst
 .. include:: common/opt_z-config.rst
 
