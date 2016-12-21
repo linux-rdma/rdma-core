@@ -187,7 +187,7 @@ Requires(postun): systemd-units
 Requires: rdma-core
 
 %description -n srp_daemon
-In conjunction with the kernel ib_srp driver, srptools allows you to
+In conjunction with the kernel ib_srp driver, srp_daemon allows you to
 discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 
 %prep
