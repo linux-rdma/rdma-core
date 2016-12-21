@@ -309,6 +309,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 
 %files
 %dir %{_sysconfdir}/rdma
+%dir %{_docdir}/%{name}-%{version}
 %doc %{_docdir}/%{name}-%{version}/README.md
 %config(noreplace) %{_sysconfdir}/rdma/*
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
