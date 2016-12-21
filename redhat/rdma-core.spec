@@ -336,13 +336,11 @@ rm -rf %{buildroot}/%{_initrddir}/
 %doc %{_docdir}/%{name}-%{version}/MAINTAINERS
 %{_includedir}/*
 %{_libdir}/lib*.so
-%{_libdir}/rsocket/*.so
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*
 %{_mandir}/man3/*_to_ibv_rate.*
 %{_mandir}/man7/rdma_cm.*
-%{_mandir}/man7/rsocket.*
 
 %files -n libibverbs
 %dir %{_sysconfdir}/libibverbs.d
@@ -389,8 +387,10 @@ rm -rf %{buildroot}/%{_initrddir}/
 
 %files -n librdmacm
 %{_libdir}/librdmacm*.so.*
-%{_libdir}/rsocket/*.so.*
+%dir %{_libdir}/rsocket
+%{_libdir}/rsocket/*.so*
 %doc %{_docdir}/%{name}-%{version}/librdmacm.md
+%{_mandir}/man7/rsocket.*
 
 %files -n librdmacm-utils
 %{_bindir}/cmtime
