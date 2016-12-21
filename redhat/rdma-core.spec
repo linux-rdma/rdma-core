@@ -20,6 +20,7 @@ BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
 BuildRequires: valgrind-devel
 
+Requires: dracut
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone
 # package called 'rdma', which we're supplanting here.
 Provides: rdma = %{version}-%{release}
@@ -41,7 +42,9 @@ BuildRequires: make
 %endif
 
 %description
-RDMA core userspace infrastructure and documentation.
+RDMA core userspace infrastructure and documentation, including initscripts,
+kernel driver-specific modprobe override configs, IPoIB network scripts,
+dracut rules, and the rdma-ndd utility.
 
 %package devel
 Summary: RDMA core development libraries and headers
