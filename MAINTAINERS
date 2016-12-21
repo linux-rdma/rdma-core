@@ -8,7 +8,7 @@ Descriptions of section entries:
         F: Files and directories with wildcard patterns.
            A trailing slash includes all files and subdirectory files.
            F:   providers/mlx4/ all files in and below providers/mlx4/
-           F:   providers/*     all files in drivers/net, but not below
+           F:   providers/*     all files in providers, but not below
            F:   */net/*         all files in "any top level directory"/net
            One pattern per line.  Multiple F: lines acceptable.
         H: Historical authors
