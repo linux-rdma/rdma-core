@@ -267,20 +267,45 @@ install -D -m0644 redhat/srp_daemon.service %{buildroot}%{_unitdir}/
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
 
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
+# libibverbs
+%post -n libibverbs -p /sbin/ldconfig
+%postun -n libibverbs -p /sbin/ldconfig
 
+# libibcm
+%post -n libibcm -p /sbin/ldconfig
+%postun -n libibcm -p /sbin/ldconfig
+
+# libibumad
+%post -n libibumad -p /sbin/ldconfig
+%postun -n libibumad -p /sbin/ldconfig
+
+# librdmacm
+%post -n librdmacm -p /sbin/ldconfig
+%postun -n librdmacm -p /sbin/ldconfig
+
+# ibacm
 %post -n ibacm
 %systemd_post ibacm.service
-
 %preun -n ibacm
 %systemd_preun ibacm.service
-
 %postun -n ibacm
 %systemd_postun_with_restart ibacm.service
 
-%post -n libibcm -p /sbin/ldconfig
-%postun -n libibcm -p /sbin/ldconfig
+# srp_daemon
+%post -n srp_daemon
+%systemd_post srp_daemon.service
+%preun -n srp_daemon
+%systemd_preun srp_daemon.service
+%postun -n srp_daemon
+%systemd_postun_with_restart srp_daemon.service
+
+# iwpmd
+%post -n iwpmd
+%systemd_post iwpmd.service
+%preun -n iwpmd
+%systemd_preun iwpmd.service
+%postun -n iwpmd
+%systemd_postun_with_restart iwpmd.service
 
 %files
 %dir %{_sysconfdir}/rdma
