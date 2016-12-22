@@ -1221,55 +1221,127 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 {
 	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
 
-	cmd->qp_handle 		 = qp->handle;
-	cmd->attr_mask 		 = attr_mask;
-	cmd->qkey 		 = attr->qkey;
-	cmd->rq_psn 		 = attr->rq_psn;
-	cmd->sq_psn 		 = attr->sq_psn;
-	cmd->dest_qp_num 	 = attr->dest_qp_num;
-	cmd->qp_access_flags 	 = attr->qp_access_flags;
-	cmd->pkey_index		 = attr->pkey_index;
-	cmd->alt_pkey_index 	 = attr->alt_pkey_index;
-	cmd->qp_state 		 = attr->qp_state;
-	cmd->cur_qp_state 	 = attr->cur_qp_state;
-	cmd->path_mtu 		 = attr->path_mtu;
-	cmd->path_mig_state 	 = attr->path_mig_state;
-	cmd->en_sqd_async_notify = attr->en_sqd_async_notify;
-	cmd->max_rd_atomic 	 = attr->max_rd_atomic;
-	cmd->max_dest_rd_atomic  = attr->max_dest_rd_atomic;
-	cmd->min_rnr_timer 	 = attr->min_rnr_timer;
-	cmd->port_num 		 = attr->port_num;
-	cmd->timeout 		 = attr->timeout;
-	cmd->retry_cnt 		 = attr->retry_cnt;
-	cmd->rnr_retry 		 = attr->rnr_retry;
-	cmd->alt_port_num 	 = attr->alt_port_num;
-	cmd->alt_timeout 	 = attr->alt_timeout;
+	cmd->qp_handle = qp->handle;
+	cmd->attr_mask = attr_mask;
 
-	memcpy(cmd->dest.dgid, attr->ah_attr.grh.dgid.raw, 16);
-	cmd->dest.flow_label 	    = attr->ah_attr.grh.flow_label;
-	cmd->dest.dlid 		    = attr->ah_attr.dlid;
-	cmd->dest.reserved	    = 0;
-	cmd->dest.sgid_index 	    = attr->ah_attr.grh.sgid_index;
-	cmd->dest.hop_limit 	    = attr->ah_attr.grh.hop_limit;
-	cmd->dest.traffic_class     = attr->ah_attr.grh.traffic_class;
-	cmd->dest.sl 		    = attr->ah_attr.sl;
-	cmd->dest.src_path_bits     = attr->ah_attr.src_path_bits;
-	cmd->dest.static_rate 	    = attr->ah_attr.static_rate;
-	cmd->dest.is_global 	    = attr->ah_attr.is_global;
-	cmd->dest.port_num 	    = attr->ah_attr.port_num;
+	if (attr_mask & IBV_QP_STATE)
+		cmd->qp_state = attr->qp_state;
+	else
+		cmd->qp_state = 0;
 
-	memcpy(cmd->alt_dest.dgid, attr->alt_ah_attr.grh.dgid.raw, 16);
-	cmd->alt_dest.flow_label    = attr->alt_ah_attr.grh.flow_label;
-	cmd->alt_dest.dlid 	    = attr->alt_ah_attr.dlid;
-	cmd->alt_dest.reserved	    = 0;
-	cmd->alt_dest.sgid_index    = attr->alt_ah_attr.grh.sgid_index;
-	cmd->alt_dest.hop_limit     = attr->alt_ah_attr.grh.hop_limit;
-	cmd->alt_dest.traffic_class = attr->alt_ah_attr.grh.traffic_class;
-	cmd->alt_dest.sl 	    = attr->alt_ah_attr.sl;
-	cmd->alt_dest.src_path_bits = attr->alt_ah_attr.src_path_bits;
-	cmd->alt_dest.static_rate   = attr->alt_ah_attr.static_rate;
-	cmd->alt_dest.is_global     = attr->alt_ah_attr.is_global;
-	cmd->alt_dest.port_num 	    = attr->alt_ah_attr.port_num;
+	if (attr_mask & IBV_QP_CUR_STATE)
+		cmd->cur_qp_state = attr->cur_qp_state;
+	else
+		cmd->cur_qp_state = 0;
+
+	if (attr_mask & IBV_QP_EN_SQD_ASYNC_NOTIFY)
+		cmd->en_sqd_async_notify = attr->en_sqd_async_notify;
+	else
+		cmd->en_sqd_async_notify = 0;
+
+	if (attr_mask & IBV_QP_ACCESS_FLAGS)
+		cmd->qp_access_flags = attr->qp_access_flags;
+	else
+		cmd->qp_access_flags = 0;
+	if (attr_mask & IBV_QP_PKEY_INDEX)
+		cmd->pkey_index = attr->pkey_index;
+	else
+		cmd->pkey_index = 0;
+	if (attr_mask & IBV_QP_PORT)
+		cmd->port_num = attr->port_num;
+	else
+		cmd->port_num = 0;
+	if (attr_mask & IBV_QP_QKEY)
+		cmd->qkey = attr->qkey;
+	else
+		cmd->qkey = 0;
+
+	if (attr_mask & IBV_QP_AV) {
+		memcpy(cmd->dest.dgid, attr->ah_attr.grh.dgid.raw, 16);
+		cmd->dest.flow_label = attr->ah_attr.grh.flow_label;
+		cmd->dest.dlid = attr->ah_attr.dlid;
+		cmd->dest.reserved = 0;
+		cmd->dest.sgid_index = attr->ah_attr.grh.sgid_index;
+		cmd->dest.hop_limit = attr->ah_attr.grh.hop_limit;
+		cmd->dest.traffic_class = attr->ah_attr.grh.traffic_class;
+		cmd->dest.sl = attr->ah_attr.sl;
+		cmd->dest.src_path_bits = attr->ah_attr.src_path_bits;
+		cmd->dest.static_rate = attr->ah_attr.static_rate;
+		cmd->dest.is_global = attr->ah_attr.is_global;
+		cmd->dest.port_num = attr->ah_attr.port_num;
+	} else
+		memset(&cmd->dest, 0, sizeof(cmd->dest));
+
+	if (attr_mask & IBV_QP_PATH_MTU)
+		cmd->path_mtu = attr->path_mtu;
+	else
+		cmd->path_mtu = 0;
+	if (attr_mask & IBV_QP_TIMEOUT)
+		cmd->timeout = attr->timeout;
+	else
+		cmd->timeout = 0;
+	if (attr_mask & IBV_QP_RETRY_CNT)
+		cmd->retry_cnt = attr->retry_cnt;
+	else
+		cmd->retry_cnt = 0;
+	if (attr_mask & IBV_QP_RNR_RETRY)
+		cmd->rnr_retry = attr->rnr_retry;
+	else
+		cmd->rnr_retry = 0;
+	if (attr_mask & IBV_QP_RQ_PSN)
+		cmd->rq_psn = attr->rq_psn;
+	else
+		cmd->rq_psn = 0;
+	if (attr_mask & IBV_QP_MAX_QP_RD_ATOMIC)
+		cmd->max_rd_atomic = attr->max_rd_atomic;
+	else
+		cmd->max_rd_atomic = 0;
+
+	if (attr_mask & IBV_QP_ALT_PATH) {
+		cmd->alt_pkey_index = attr->alt_pkey_index;
+		cmd->alt_port_num = attr->alt_port_num;
+		cmd->alt_timeout = attr->alt_timeout;
+
+		memcpy(cmd->alt_dest.dgid, attr->alt_ah_attr.grh.dgid.raw, 16);
+		cmd->alt_dest.flow_label = attr->alt_ah_attr.grh.flow_label;
+		cmd->alt_dest.dlid = attr->alt_ah_attr.dlid;
+		cmd->alt_dest.reserved = 0;
+		cmd->alt_dest.sgid_index = attr->alt_ah_attr.grh.sgid_index;
+		cmd->alt_dest.hop_limit = attr->alt_ah_attr.grh.hop_limit;
+		cmd->alt_dest.traffic_class =
+		    attr->alt_ah_attr.grh.traffic_class;
+		cmd->alt_dest.sl = attr->alt_ah_attr.sl;
+		cmd->alt_dest.src_path_bits = attr->alt_ah_attr.src_path_bits;
+		cmd->alt_dest.static_rate = attr->alt_ah_attr.static_rate;
+		cmd->alt_dest.is_global = attr->alt_ah_attr.is_global;
+		cmd->alt_dest.port_num = attr->alt_ah_attr.port_num;
+	} else {
+		cmd->alt_pkey_index = 0;
+		cmd->alt_port_num = 0;
+		cmd->alt_timeout = 0;
+		memset(&cmd->alt_dest, 0, sizeof(cmd->alt_dest));
+	}
+
+	if (attr_mask & IBV_QP_MIN_RNR_TIMER)
+		cmd->min_rnr_timer = attr->min_rnr_timer;
+	else
+		cmd->min_rnr_timer = 0;
+	if (attr_mask & IBV_QP_SQ_PSN)
+		cmd->sq_psn = attr->sq_psn;
+	else
+		cmd->sq_psn = 0;
+	if (attr_mask & IBV_QP_MAX_DEST_RD_ATOMIC)
+		cmd->max_dest_rd_atomic = attr->max_dest_rd_atomic;
+	else
+		cmd->max_dest_rd_atomic = 0;
+	if (attr_mask & IBV_QP_PATH_MIG_STATE)
+		cmd->path_mig_state = attr->path_mig_state;
+	else
+		cmd->path_mig_state = 0;
+	if (attr_mask & IBV_QP_DEST_QPN)
+		cmd->dest_qp_num = attr->dest_qp_num;
+	else
+		cmd->dest_qp_num = 0;
 
 	cmd->reserved[0] = cmd->reserved[1] = 0;
 
