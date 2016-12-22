@@ -5,6 +5,9 @@
 #  ninja
 #
 # Common options passed to cmake are:
+#  -DIN_PLACE=1
+#      Configure the build to be run from the build directory, this results in something
+#      that is not installable.
 #  -DCMAKE_EXPORT_COMPILE_COMMANDS=1
 #      Write a compile_commands.json file for clang tooling
 #  -DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -45,6 +48,13 @@ set(PACKAGE_VERSION "12")
 
 #-------------------------
 # Basic standard paths
+
+# Override the CMAKE_INSTALL_ dirs to be under the build/ directory
+if (IN_PLACE)
+  set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_BINARY_DIR}/etc")
+  set(CMAKE_INSTALL_BINDIR "${CMAKE_BINARY_DIR}/bin")
+endif()
+
 include(GNUInstallDirs)
 # C include root
 set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
@@ -52,9 +62,9 @@ set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
 set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
 # Libraries
 set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+# Used for IN_PLACE configuration
+set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
 
-# Location to place provider .driver files
-set(CONFIG_DIR "${CMAKE_INSTALL_FULL_SYSCONFDIR}/libibverbs.d")
 set(CMAKE_INSTALL_INITDDIR "${CMAKE_INSTALL_SYSCONFDIR}/init.d"
   CACHE PATH "Location for init.d files")
 set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/system"
@@ -85,6 +95,15 @@ if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_UDEV_RULESDIR})
   set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_UDEV_RULESDIR}")
 else()
   set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_UDEV_RULESDIR}")
+endif()
+
+# Location to place provider .driver files
+if (IN_PLACE)
+  set(CONFIG_DIR "${BUILD_ETC}/libibverbs.d")
+  set(VERBS_PROVIDER_DIR "${BUILD_LIB}")
+  set(ACM_PROVIDER_DIR "${BUILD_LIB}/ibacm")
+else()
+  set(CONFIG_DIR "${CMAKE_INSTALL_FULL_SYSCONFDIR}/libibverbs.d")
 endif()
 
 set(DISTRO_FLAVOUR "None" CACHE

@@ -79,8 +79,8 @@ function(rdma_provider DEST)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" DESTINATION "${CONFIG_DIR}")
 
   # Uninstalled driver file
-  file(MAKE_DIRECTORY "${BUILD_LIB}/libibverbs.d/")
-  file(WRITE "${BUILD_LIB}/libibverbs.d/${DEST}.driver" "driver ${BUILD_LIB}/${DEST}\n")
+  file(MAKE_DIRECTORY "${BUILD_ETC}/libibverbs.d/")
+  file(WRITE "${BUILD_ETC}/libibverbs.d/${DEST}.driver" "driver ${BUILD_LIB}/lib${DEST}\n")
 
   # Create a static provider library
   # FIXME: This is probably pointless, the provider library has no symbols so

@@ -36,6 +36,11 @@ target_link_libraries(ibacmp LINK_PRIVATE
 set_target_properties(ibacmp PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
 install(TARGETS ibacmp DESTINATION "${ACM_PROVIDER_DIR}")
+# ACM providers are linked into a subdir so that IN_PLACE can work.
+file(MAKE_DIRECTORY "${BUILD_LIB}/ibacm/")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E create_symlink
+    "../libibacmp.so"
+    "${BUILD_LIB}/ibacm/libibacmp.so")
 
 rdma_executable(ib_acme
   src/acme.c

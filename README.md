@@ -42,7 +42,8 @@ $ bash build.sh
 ```
 
 *build/bin* will contain the sample programs and *build/lib* will contain the
-shared libraries.
+shared libraries. The build is configured to run all the programs 'in-place'
+and cannot be installed.
 
 NOTE: It is not currently easy to run from the build directory, the plugins
 only load from the system path.
