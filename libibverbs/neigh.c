@@ -628,16 +628,9 @@ free:
 	return oif;
 }
 
-static void destroy_zero_based_socket(void)
-{
-	if (zero_socket != NULL)
-		nl_socket_free(zero_socket);
-}
-
 static void alloc_zero_based_socket(void)
 {
 	zero_socket = nl_socket_alloc();
-	atexit(&destroy_zero_based_socket);
 }
 
 int neigh_init_resources(struct get_neigh_handler *neigh_handler, int timeout)

@@ -239,24 +239,3 @@ void ocrdma_register_driver(void)
 {
 	ibv_register_driver("ocrdma", ocrdma_driver_init);
 }
-
-static __attribute__ ((destructor))
-void ocrdma_unregister_driver(void)
-{
-	struct ocrdma_device *dev;
-	struct ocrdma_device *dev_tmp;
-	pthread_mutex_lock(&ocrdma_dev_list_lock);
-	list_for_each_safe(&ocrdma_dev_list, dev, dev_tmp, entry) {
-		pthread_mutex_destroy(&dev->dev_lock);
-		pthread_spin_destroy(&dev->flush_q_lock);
-		list_del(&dev->entry);
-		/*
-		 * Avoid freeing the dev here since MPI get SIGSEGV
-		 * in few error cases because of reference to ib_dev
-		 * after free.
-		 * TODO Bug 135437 fix it properly to avoid mem leak
-		 */
-		/* free(dev); */
-	}
-	pthread_mutex_unlock(&ocrdma_dev_list_lock);
-}

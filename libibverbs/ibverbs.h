@@ -41,7 +41,6 @@
 #include <valgrind/memcheck.h>
 
 #define INIT		__attribute__((constructor))
-#define FINI		__attribute__((destructor))
 
 #define DEFAULT_ABI	"IBVERBS_1.1"
 

@@ -134,28 +134,6 @@ int af_ib_support;
 static struct index_map ucma_idm;
 static fastlock_t idm_lock;
 
-static void ucma_cleanup(void)
-{
-	ucma_ib_cleanup();
-
-	if (cma_dev_cnt) {
-		while (cma_dev_cnt--) {
-			if (!cma_dev_array[cma_dev_cnt].verbs)
-				continue;
-
-			if (cma_dev_array[cma_dev_cnt].refcnt)
-				ibv_dealloc_pd(cma_dev_array[cma_dev_cnt].pd);
-			ibv_close_device(cma_dev_array[cma_dev_cnt].verbs);
-			free(cma_dev_array[cma_dev_cnt].port);
-			cma_init_cnt--;
-		}
-
-		fastlock_destroy(&idm_lock);
-		free(cma_dev_array);
-		cma_dev_cnt = 0;
-	}
-}
-
 static int check_abi_version(void)
 {
 	char value[8];
@@ -376,11 +354,6 @@ out:
 void rdma_free_devices(struct ibv_context **list)
 {
 	free(list);
-}
-
-static void __attribute__((destructor)) rdma_cma_fini(void)
-{
-	ucma_cleanup();
 }
 
 struct rdma_event_channel *rdma_create_event_channel(void)

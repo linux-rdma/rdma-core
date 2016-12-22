@@ -2923,25 +2923,6 @@ static void __attribute__((constructor)) acmp_init(void)
 	acmp_initialized = 1;
 }
 
-static void __attribute__((destructor)) acmp_exit(void)
-{
-	acm_log(1, "Unloading...\n");
-	if (retry_thread_started) {
-		if (pthread_cancel(retry_thread_id)) {
-			acm_log(0, "Error: failed to cancel the retry thread\n");
-			return;
-		}
-		if (pthread_join(retry_thread_id, NULL)) {
-			acm_log(0, "Error: failed to join the retry thread\n");
-			return;
-		}
-		retry_thread_started = 0;
-	}
-
-	umad_done();
-	acmp_initialized = 0;
-}
-
 int provider_query(struct acm_provider **provider, uint32_t *version)
 {
 	acm_log(1, "\n");
