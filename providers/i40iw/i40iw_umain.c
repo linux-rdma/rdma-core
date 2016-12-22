@@ -154,21 +154,15 @@ static struct ibv_context *i40iw_ualloc_context(struct ibv_device *ibdev, int cm
 
 	memset(iwvctx, 0, sizeof(*iwvctx));
 	iwvctx->ibv_ctx.cmd_fd = cmd_fd;
-	cmd.userspace_ver = I40IW_ABI_VER;
+	cmd.userspace_ver = I40IW_ABI_USERSPACE_VER;
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_get_context(&iwvctx->ibv_ctx, (struct ibv_get_context *)&cmd,
-				sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
-
-		cmd.userspace_ver = 4;
-		if (ibv_cmd_get_context(&iwvctx->ibv_ctx, (struct ibv_get_context *)&cmd,
 				sizeof(cmd), &resp.ibv_resp, sizeof(resp)))
-			goto err_free;
+		goto err_free;
 
-	}
-
-	if (resp.kernel_ver > I40IW_ABI_VER) {
+	if (resp.kernel_ver != I40IW_ABI_KERNEL_VER) {
 		fprintf(stderr, PFX "%s: incompatible kernel driver version: %d.  Need version %d\n",
-			__func__, resp.kernel_ver, I40IW_ABI_VER);
+			__func__, resp.kernel_ver, I40IW_ABI_KERNEL_VER);
 		goto err_free;
 	}
 
@@ -177,7 +171,6 @@ static struct ibv_context *i40iw_ualloc_context(struct ibv_device *ibdev, int cm
 	iwvctx->max_pds = resp.max_pds;
 	iwvctx->max_qps = resp.max_qps;
 	iwvctx->wq_size = resp.wq_size;
-	iwvctx->abi_ver = resp.kernel_ver;
 
 	i40iw_device_init_uk(&iwvctx->dev);
 	ibv_pd = i40iw_ualloc_pd(&iwvctx->ibv_ctx);

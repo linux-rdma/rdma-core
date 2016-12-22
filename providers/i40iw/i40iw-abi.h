@@ -37,7 +37,8 @@
 
 #include <infiniband/kern-abi.h>
 
-#define I40IW_ABI_VER 5
+#define I40IW_ABI_USERSPACE_VER 4
+#define I40IW_ABI_KERNEL_VER 4
 
 struct i40iw_get_context {
 	struct ibv_get_context cmd;

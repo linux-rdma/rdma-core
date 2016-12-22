@@ -661,21 +661,12 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 		return NULL;
 	}
 
-	switch (iwvctx->abi_ver) {
-	case 4:
-		rqdepth = i40iw_qp_get_qdepth(rq_attr, attr->cap.max_recv_sge, 0);
-		if (!rqdepth) {
-			fprintf(stderr, PFX "%s: invalid RQ attributes, max_recv_wr=%d max_recv_sge=%d\n",
-				__func__, attr->cap.max_recv_wr, attr->cap.max_recv_sge);
-			return NULL;
-		}
-		break;
-	case 5: /* fallthrough until next ABI version */
-	default:
-		rqdepth = rq_attr << I40IW_MAX_RQ_WQE_SHIFT;
-		break;
+	rqdepth = i40iw_qp_get_qdepth(rq_attr, attr->cap.max_recv_sge, 0);
+	if (!rqdepth) {
+		fprintf(stderr, PFX "%s: invalid RQ attributes, max_recv_wr=%d max_recv_sge=%d\n",
+			__func__, attr->cap.max_recv_wr, attr->cap.max_recv_sge);
+		return NULL;
 	}
-
 	iwuqp = memalign(1024, sizeof(*iwuqp));
 	if (!iwuqp)
 		return NULL;
@@ -696,7 +687,6 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 
 	info.wqe_alloc_reg = (u32 *)iwvctx->iwupd->db;
 	info.sq_wrtrk_array = calloc(sqdepth, sizeof(*info.sq_wrtrk_array));
-	info.abi_ver = iwvctx->abi_ver;
 
 	if (!info.sq_wrtrk_array) {
 		fprintf(stderr, PFX "%s: failed to allocate memory for SQ work array\n", __func__);
