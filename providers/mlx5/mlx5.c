@@ -771,7 +771,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	context->cqe_version = resp.cqe_version;
 	if (context->cqe_version) {
-		if (context->cqe_version == 1)
+		if (context->cqe_version == MLX5_CQE_VERSION_V1)
 			mlx5_ctx_ops.poll_cq = mlx5_poll_cq_v1;
 		else
 			 goto err_free_bf;
