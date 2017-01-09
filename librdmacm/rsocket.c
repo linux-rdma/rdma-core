@@ -1045,18 +1045,18 @@ static void rs_format_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 	memset(conn->reserved, 0, sizeof conn->reserved);
 	conn->target_iomap_size = (uint8_t) rs_value_to_scale(rs->target_iomap_size, 8);
 
-	conn->target_sgl.addr = htonll((uintptr_t) rs->target_sgl);
+	conn->target_sgl.addr = htobe64((uintptr_t) rs->target_sgl);
 	conn->target_sgl.length = htonl(RS_SGL_SIZE);
 	conn->target_sgl.key = htonl(rs->target_mr->rkey);
 
-	conn->data_buf.addr = htonll((uintptr_t) rs->rbuf);
+	conn->data_buf.addr = htobe64((uintptr_t) rs->rbuf);
 	conn->data_buf.length = htonl(rs->rbuf_size >> 1);
 	conn->data_buf.key = htonl(rs->rmr->rkey);
 }
 
 static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 {
-	rs->remote_sgl.addr = ntohll(conn->target_sgl.addr);
+	rs->remote_sgl.addr = be64toh(conn->target_sgl.addr);
 	rs->remote_sgl.length = ntohl(conn->target_sgl.length);
 	rs->remote_sgl.key = ntohl(conn->target_sgl.key);
 	rs->remote_sge = 1;
@@ -1071,7 +1071,7 @@ static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 		rs->remote_iomap.key = rs->remote_sgl.key;
 	}
 
-	rs->target_sgl[0].addr = ntohll(conn->data_buf.addr);
+	rs->target_sgl[0].addr = be64toh(conn->data_buf.addr);
 	rs->target_sgl[0].length = ntohl(conn->data_buf.length);
 	rs->target_sgl[0].key = ntohl(conn->data_buf.key);
 

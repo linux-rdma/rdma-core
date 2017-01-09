@@ -338,7 +338,7 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 
 	*count = msg.hdr.data[0];
 	for (i = 0; i < *count; i++)
-		(*counters)[i] = ntohll(msg.perf_data[i]);
+		(*counters)[i] = be64toh(msg.perf_data[i]);
 	ret = 0;
 out:
 	pthread_mutex_unlock(&acm_lock);
@@ -385,7 +385,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	}
 
 	memcpy(edata, &msg.ep_data[0], len);
-	edata->dev_guid = ntohll(msg.ep_data[0].dev_guid);
+	edata->dev_guid = be64toh(msg.ep_data[0].dev_guid);
 	edata->pkey = ntohs(msg.ep_data[0].pkey);
 	edata->addr_cnt = cnt;
 	*data = edata;
@@ -440,7 +440,7 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 
 	*count = msg.hdr.data[0];
 	for (i = 0; i < *count; i++)
-		(*counters)[i] = ntohll(msg.perf_data[i]);
+		(*counters)[i] = be64toh(msg.perf_data[i]);
 
 	ret = 0;
 out:

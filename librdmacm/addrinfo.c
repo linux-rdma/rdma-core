@@ -113,12 +113,12 @@ void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 	uint16_t port;
 
 	port = addr ? ucma_get_port(addr) : 0;
-	sib->sib_sid = htonll(((uint64_t) ps << 16) + ntohs(port));
+	sib->sib_sid = htobe64(((uint64_t) ps << 16) + ntohs(port));
 
 	if (ps)
-		sib->sib_sid_mask = htonll(RDMA_IB_IP_PS_MASK);
+		sib->sib_sid_mask = htobe64(RDMA_IB_IP_PS_MASK);
 	if (port)
-		sib->sib_sid_mask |= htonll(RDMA_IB_IP_PORT_MASK);
+		sib->sib_sid_mask |= htobe64(RDMA_IB_IP_PORT_MASK);
 }
 
 static int ucma_convert_in6(int ps, struct sockaddr_ib **dst, socklen_t *dst_len,

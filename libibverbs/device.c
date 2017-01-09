@@ -43,8 +43,6 @@
 #include <alloca.h>
 #include <errno.h>
 
-#include <infiniband/arch.h>
-
 #include "ibverbs.h"
 
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
@@ -118,7 +116,7 @@ uint64_t __ibv_get_device_guid(struct ibv_device *device)
 	for (i = 0; i < 4; ++i)
 		guid = (guid << 16) | parts[i];
 
-	return htonll(guid);
+	return htobe64(guid);
 }
 default_symver(__ibv_get_device_guid, ibv_get_device_guid);
 

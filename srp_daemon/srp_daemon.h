@@ -42,7 +42,6 @@
 #include <byteswap.h>
 #include <infiniband/verbs.h>
 #include <infiniband/umad.h>
-#include <infiniband/arch.h>
 
 #include "config.h"
 #include "srp_ib_types.h"
