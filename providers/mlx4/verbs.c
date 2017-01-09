@@ -64,6 +64,43 @@ int mlx4_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 	return 0;
 }
 
+int mlx4_query_device_ex(struct ibv_context *context,
+			 const struct ibv_query_device_ex_input *input,
+			 struct ibv_device_attr_ex *attr,
+			 size_t attr_size)
+{
+	struct mlx4_context *mctx = to_mctx(context);
+	struct mlx4_query_device_ex_resp resp = {};
+	struct mlx4_query_device_ex cmd = {};
+	uint64_t raw_fw_ver;
+	unsigned sub_minor;
+	unsigned major;
+	unsigned minor;
+	int err;
+
+	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
+				      &raw_fw_ver,
+				      &cmd.ibv_cmd, sizeof(cmd.ibv_cmd), sizeof(cmd),
+				      &resp.ibv_resp, sizeof(resp.ibv_resp),
+				      sizeof(resp));
+	if (err)
+		return err;
+
+	if (resp.comp_mask & MLX4_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
+		mctx->core_clock.offset = resp.hca_core_clock_offset;
+		mctx->core_clock.offset_valid = 1;
+	}
+
+	major     = (raw_fw_ver >> 32) & 0xffff;
+	minor     = (raw_fw_ver >> 16) & 0xffff;
+	sub_minor = raw_fw_ver & 0xffff;
+
+	snprintf(attr->orig_attr.fw_ver, sizeof attr->orig_attr.fw_ver,
+		 "%d.%d.%03d", major, minor, sub_minor);
+
+	return 0;
+}
+
 int mlx4_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr)
 {
