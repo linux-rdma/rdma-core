@@ -37,15 +37,16 @@
 #ifndef H_RXE_PCQ
 #define H_RXE_PCQ
 
+#include <stdatomic.h>
+
 /* MUST MATCH kernel struct rxe_pqc in rxe_queue.h */
 struct rxe_queue {
 	uint32_t		log2_elem_size;
 	uint32_t		index_mask;
 	uint32_t		pad_1[30];
-	volatile uint32_t	producer_index;
+	_Atomic(uint32_t)	producer_index;
 	uint32_t		pad_2[31];
-	volatile uint32_t	consumer_index;
-	uint32_t		pad_3[31];
+	_Atomic(uint32_t)	consumer_index;
 	uint8_t			data[0];
 };
 
@@ -56,48 +57,59 @@ static inline int next_index(struct rxe_queue *q, int index)
 
 static inline int queue_empty(struct rxe_queue *q)
 {
-	return ((q->producer_index - q->consumer_index)
-			& q->index_mask) == 0;
+	/* Must hold consumer_index lock */
+	return ((atomic_load(&q->producer_index) -
+		 atomic_load_explicit(&q->consumer_index,
+				      memory_order_relaxed)) &
+		q->index_mask) == 0;
 }
 
 static inline int queue_full(struct rxe_queue *q)
 {
-	return ((q->producer_index + 1 - q->consumer_index)
-			& q->index_mask) == 0;
+	/* Must hold producer_index lock */
+	return ((atomic_load_explicit(&q->producer_index,
+				      memory_order_relaxed) +
+		 1 - atomic_load(&q->consumer_index)) &
+		q->index_mask) == 0;
 }
 
 static inline void advance_producer(struct rxe_queue *q)
 {
-	q->producer_index = (q->producer_index + 1)
-			& q->index_mask;
+	/* Must hold producer_index lock */
+	atomic_thread_fence(memory_order_release);
+	atomic_store(
+	    &q->producer_index,
+	    (atomic_load_explicit(&q->producer_index, memory_order_relaxed) +
+	     1) &
+		q->index_mask);
 }
 
 static inline void advance_consumer(struct rxe_queue *q)
 {
-	q->consumer_index = (q->consumer_index + 1)
-			& q->index_mask;
+	/* Must hold consumer_index lock */
+	atomic_store(
+	    &q->consumer_index,
+	    (atomic_load_explicit(&q->consumer_index, memory_order_relaxed) +
+	     1) &
+		q->index_mask);
 }
 
 static inline void *producer_addr(struct rxe_queue *q)
 {
-	return q->data + ((q->producer_index & q->index_mask)
-				<< q->log2_elem_size);
+	/* Must hold producer_index lock */
+	return q->data + ((atomic_load_explicit(&q->producer_index,
+						memory_order_relaxed) &
+			   q->index_mask)
+			  << q->log2_elem_size);
 }
 
 static inline void *consumer_addr(struct rxe_queue *q)
 {
-	return q->data + ((q->consumer_index & q->index_mask)
-				<< q->log2_elem_size);
-}
-
-static inline unsigned int producer_index(struct rxe_queue *q)
-{
-	return q->producer_index;
-}
-
-static inline unsigned int consumer_index(struct rxe_queue *q)
-{
-	return q->consumer_index;
+	/* Must hold consumer_index lock */
+	return q->data + ((atomic_load_explicit(&q->consumer_index,
+						memory_order_relaxed) &
+			   q->index_mask)
+			  << q->log2_elem_size);
 }
 
 static inline void *addr_from_index(struct rxe_queue *q, unsigned int index)
@@ -109,16 +121,6 @@ static inline void *addr_from_index(struct rxe_queue *q, unsigned int index)
 static inline unsigned int index_from_addr(const struct rxe_queue *q, const void *addr)
 {
 	return (((uint8_t *)addr - q->data) >> q->log2_elem_size) & q->index_mask;
-}
-
-static inline unsigned int queue_count(const struct rxe_queue *q)
-{
-	return (q->producer_index - q->consumer_index) & q->index_mask;
-}
-
-static inline void *queue_head(struct rxe_queue *q)
-{
-	return queue_empty(q) ? NULL : consumer_addr(q);
 }
 
 #endif /* H_RXE_PCQ */

@@ -42,9 +42,9 @@
 #include <byteswap.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <stdatomic.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 
 #define PFX		"ipath: "
@@ -80,8 +80,8 @@ struct ipath_wc {
 };
 
 struct ipath_cq_wc {
-	uint32_t		head;
-	uint32_t		tail;
+	_Atomic(uint32_t)	head;
+	_Atomic(uint32_t)	tail;
 	struct ipath_wc		queue[1];
 };
 
@@ -112,8 +112,8 @@ struct ipath_rwqe {
  * use get_rwqe_ptr() instead.
  */
 struct ipath_rwq {
-	uint32_t		head;	/* new requests posted to the head */
-	uint32_t		tail;	/* receives pull requests from here. */
+	_Atomic(uint32_t)	head;	/* new requests posted to the head. */
+	_Atomic(uint32_t)	tail;	/* receives pull requests from here. */
 	struct ipath_rwqe	wq[0];
 };
 
