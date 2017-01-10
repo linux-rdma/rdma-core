@@ -396,7 +396,7 @@ int hfi1_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 int hfi1_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 
 	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);
 }
