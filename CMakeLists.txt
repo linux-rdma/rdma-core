@@ -203,6 +203,10 @@ CHECK_C_SOURCE_COMPILES("
   HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
   FAIL_REGEX "warning")
 
+# Provide a shim if C11 stdatomic.h is not supported.
+CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
+RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
+
 # Enable development support features
 # Prune unneeded shared libraries during linking
 RDMA_AddOptLDFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
@@ -408,6 +412,9 @@ if (NOT HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE)
 endif()
 if (NOT HAVE_COHERENT_DMA)
   message(STATUS " Architecture NOT able to do coherent DMA (check libibverbs/arch.h) some providers disabled!")
+endif()
+if (NOT HAVE_STDATOMIC)
+  message(STATUS " C11 stdatomic.h NOT available (old compiler)")
 endif()
 if (NOT HAVE_VALGRIND_MEMCHECK)
   message(STATUS " Valgrind memcheck.h NOT enabled")
