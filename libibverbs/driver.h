@@ -225,6 +225,11 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *qp_attr,
 int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		      int attr_mask,
 		      struct ibv_modify_qp *cmd, size_t cmd_size);
+int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			 int attr_mask, struct ibv_modify_qp_ex *cmd,
+			 size_t cmd_core_size, size_t cmd_size,
+			 struct ibv_modify_qp_resp_ex *resp,
+			 size_t resp_core_size, size_t resp_size);
 int ibv_cmd_destroy_qp(struct ibv_qp *qp);
 int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		      struct ibv_send_wr **bad_wr);

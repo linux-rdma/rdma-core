@@ -114,6 +114,8 @@ enum {
 					 IB_USER_VERBS_CMD_CREATE_QP,
 	IB_USER_VERBS_CMD_CREATE_CQ_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
 						IB_USER_VERBS_CMD_CREATE_CQ,
+	IB_USER_VERBS_CMD_MODIFY_QP_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
+						IB_USER_VERBS_CMD_MODIFY_QP,
 	IB_USER_VERBS_CMD_CREATE_FLOW = IB_USER_VERBS_CMD_EXTENDED_MASK +
 					IB_USER_VERBS_CMD_THRESHOLD,
 	IB_USER_VERBS_CMD_DESTROY_FLOW,
@@ -745,10 +747,7 @@ struct ibv_query_qp_resp {
 	__u64 driver_data[0];
 };
 
-struct ibv_modify_qp {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+struct ibv_modify_qp_common {
 	struct ibv_qp_dest dest;
 	struct ibv_qp_dest alt_dest;
 	__u32 qp_handle;
@@ -775,7 +774,26 @@ struct ibv_modify_qp {
 	__u8  alt_port_num;
 	__u8  alt_timeout;
 	__u8  reserved[2];
+};
+
+struct ibv_modify_qp {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	struct ibv_modify_qp_common base;
 	__u64 driver_data[0];
+};
+
+struct ibv_modify_qp_ex {
+	struct ex_hdr		    hdr;
+	struct ibv_modify_qp_common base;
+	__u32  rate_limit;
+	__u32  reserved;
+};
+
+struct ibv_modify_qp_resp_ex {
+	__u32  comp_mask;
+	__u32  response_length;
 };
 
 struct ibv_destroy_qp {
@@ -1187,6 +1205,7 @@ enum {
 	IB_USER_VERBS_CMD_DESTROY_WQ_V2 = -1,
 	IB_USER_VERBS_CMD_CREATE_RWQ_IND_TBL_V2 = -1,
 	IB_USER_VERBS_CMD_DESTROY_RWQ_IND_TBL_V2 = -1,
+	IB_USER_VERBS_CMD_MODIFY_QP_EX_V2 = -1,
 };
 
 struct ibv_modify_srq_v3 {

@@ -49,6 +49,7 @@ uint8_t                 retry_cnt;              /* Retry count (valid only for R
 uint8_t                 rnr_retry;              /* RNR retry (valid only for RC QPs) */
 uint8_t                 alt_port_num;           /* Alternate port number */
 uint8_t                 alt_timeout;            /* Local ack timeout for alternate path (valid only for RC QPs) */
+uint32_t                rate_limit;             /* Rate limit in kbps for packet pacing */
 .in -8
 };
 .fi
@@ -105,6 +106,7 @@ The argument is either 0 or the bitwise OR of one or more of the following flags
 .B IBV_QP_CAP \fR Set cap
 .TP
 .B IBV_QP_DEST_QPN \fR Set dest_qp_num
+.B IBV_QP_RATE_LIMIT \fR Set rate_limit
 .SH "RETURN VALUE"
 .B ibv_modify_qp()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).
