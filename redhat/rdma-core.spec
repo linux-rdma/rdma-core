@@ -421,8 +421,6 @@ rm -rf %{buildroot}/%{_initrddir}/
 
 %files -n srp_daemon
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
-%config(noreplace) %{_sysconfdir}/logrotate.d/srp_daemon
-%config(noreplace) %{_sysconfdir}/rsyslog.d/srp_daemon.conf
 %{_unitdir}/srp_daemon.service
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon

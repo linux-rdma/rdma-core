@@ -136,6 +136,4 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %config %{_sysconfdir}/iwpmd.conf
 %config %{_sysconfdir}/srp_daemon.conf
 %config %{_sysconfdir}/libibverbs.d/*
-%config %{_sysconfdir}/logrotate.d/srp_daemon
 %{_sysconfdir}/modprobe.d/*
-%config %{_sysconfdir}/rsyslog.d/srp_daemon.conf
