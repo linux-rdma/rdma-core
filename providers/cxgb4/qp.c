@@ -269,7 +269,7 @@ static int build_rdma_recv(struct c4iw_qp *qhp, union t4_recv_wr *wqe,
 
 static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	struct ibv_qp_attr attr;
 	int mask;
 	int __attribute__((unused)) ret;

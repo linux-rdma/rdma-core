@@ -831,7 +831,7 @@ static int ocrdma_qp_state_machine(struct ocrdma_qp *qp,
 int ocrdma_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		     int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	struct ocrdma_qp *qp = get_ocrdma_qp(ibqp);
 	int status;
 

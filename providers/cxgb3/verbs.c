@@ -376,7 +376,7 @@ static void reset_qp(struct iwch_qp *qhp)
 int iwch_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	struct iwch_qp *qhp = to_iwch_qp(ibqp);
 	int ret;
 

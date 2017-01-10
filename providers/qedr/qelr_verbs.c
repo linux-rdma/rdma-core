@@ -763,7 +763,7 @@ static int qelr_update_qp_state(struct qelr_qp *qp,
 int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		     int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	struct qelr_qp *qp = get_qelr_qp(ibqp);
 	struct qelr_devctx *cxt = get_qelr_ctx(ibqp->context);
 	int rc;

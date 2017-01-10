@@ -642,7 +642,7 @@ static int hns_roce_u_v1_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 				   int attr_mask)
 {
 	int ret;
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	struct hns_roce_qp *hr_qp = to_hr_qp(qp);
 
 	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
