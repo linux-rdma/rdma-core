@@ -8,8 +8,8 @@
 #
 ### BEGIN INIT INFO
 # Provides: iwpmd
-# Required-Start: $network $syslog
-# Required-Stop:
+# Required-Start: $network $syslog $remote_fs
+# Required-Stop: $remote_fs
 # Default-Stop: 0 1 2 6
 # Default-Start: 3 5
 # Short-Description: iWarp Port Mapper Daemon
