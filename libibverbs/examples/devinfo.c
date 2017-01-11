@@ -45,7 +45,6 @@
 
 #include <infiniband/verbs.h>
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 
 static int verbose;
 
@@ -57,7 +56,7 @@ static int null_gid(union ibv_gid *gid)
 
 static const char *guid_str(uint64_t node_guid, char *str)
 {
-	node_guid = ntohll(node_guid);
+	node_guid = be64toh(node_guid);
 	sprintf(str, "%04x:%04x:%04x:%04x",
 		(unsigned) (node_guid >> 48) & 0xffff,
 		(unsigned) (node_guid >> 32) & 0xffff,

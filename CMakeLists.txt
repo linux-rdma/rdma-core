@@ -203,6 +203,10 @@ CHECK_C_SOURCE_COMPILES("
   HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
   FAIL_REGEX "warning")
 
+# Provide a shim if C11 stdatomic.h is not supported.
+CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
+RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
+
 # Enable development support features
 # Prune unneeded shared libraries during linking
 RDMA_AddOptLDFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
@@ -277,6 +281,14 @@ include_directories(${UDEV_INCLUDE_DIRS})
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
 
 include(RDMA_LinuxHeaders)
+
+# Determine if this arch supports cache coherent DMA. This isn't really an
+# arch specific property, but for our purposes arches that do not support it
+# also do not define wmb/etc which breaks our compile.
+CHECK_C_SOURCE_COMPILES("
+#include \"${CMAKE_CURRENT_SOURCE_DIR}/libibverbs/arch.h\"
+ int main(int argc,const char *argv[]) {return 0;}"
+  HAVE_COHERENT_DMA)
 
 #-------------------------
 # Apply fixups
@@ -358,18 +370,21 @@ add_subdirectory(librdmacm/man)
 add_subdirectory(libibcm)
 
 # Providers
+if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/cxgb3)
 add_subdirectory(providers/cxgb4)
-add_subdirectory(providers/hfi1verbs)
 add_subdirectory(providers/hns)
 add_subdirectory(providers/i40iw)
-add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/mlx4)
 add_subdirectory(providers/mlx5)
 add_subdirectory(providers/mthca)
 add_subdirectory(providers/nes)
 add_subdirectory(providers/ocrdma)
 add_subdirectory(providers/qedr)
+endif()
+
+add_subdirectory(providers/hfi1verbs)
+add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
 
@@ -395,6 +410,12 @@ rdma_finalize_libs()
 message(STATUS "Missing Optional Items:")
 if (NOT HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE)
   message(STATUS " Compiler attribute always_inline NOT supported")
+endif()
+if (NOT HAVE_COHERENT_DMA)
+  message(STATUS " Architecture NOT able to do coherent DMA (check libibverbs/arch.h) some providers disabled!")
+endif()
+if (NOT HAVE_STDATOMIC)
+  message(STATUS " C11 stdatomic.h NOT available (old compiler)")
 endif()
 if (NOT HAVE_VALGRIND_MEMCHECK)
   message(STATUS " Valgrind memcheck.h NOT enabled")

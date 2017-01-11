@@ -298,19 +298,19 @@ int hfi1_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 
 	pthread_spin_lock(&cq->lock);
 	q = cq->queue;
-	tail = q->tail;
+	tail = atomic_load_explicit(&q->tail, memory_order_relaxed);
 	for (npolled = 0; npolled < ne; ++npolled, ++wc) {
-		if (tail == q->head)
+		if (tail == atomic_load(&q->head))
 			break;
 		/* Make sure entry is read after head index is read. */
-		rmb();
+		atomic_thread_fence(memory_order_acquire);
 		memcpy(wc, &q->queue[tail], sizeof(*wc));
 		if (tail == cq->ibv_cq.cqe)
 			tail = 0;
 		else
 			tail++;
 	}
-	q->tail = tail;
+	atomic_store(&q->tail, tail);
 	pthread_spin_unlock(&cq->lock);
 
 	return npolled;
@@ -478,7 +478,7 @@ static int post_recv(struct hfi1_rq *rq, struct ibv_recv_wr *wr,
 
 	pthread_spin_lock(&rq->lock);
 	rwq = rq->rwq;
-	head = rwq->head;
+	head = atomic_load_explicit(&rwq->head, memory_order_relaxed);
 	for (i = wr; i; i = i->next) {
 		if ((unsigned) i->num_sge > rq->max_sge) {
 			ret = EINVAL;
@@ -487,7 +487,7 @@ static int post_recv(struct hfi1_rq *rq, struct ibv_recv_wr *wr,
 		wqe = get_rwqe_ptr(rq, head);
 		if (++head >= rq->size)
 			head = 0;
-		if (head == rwq->tail) {
+		if (head == atomic_load(&rwq->tail)) {
 			ret = ENOMEM;
 			goto bad;
 		}
@@ -495,9 +495,10 @@ static int post_recv(struct hfi1_rq *rq, struct ibv_recv_wr *wr,
 		wqe->num_sge = i->num_sge;
 		for (n = 0; n < wqe->num_sge; n++)
 			wqe->sg_list[n] = i->sg_list[n];
+
 		/* Make sure queue entry is written before the head index. */
-		wmb();
-		rwq->head = head;
+		atomic_thread_fence(memory_order_release);
+		atomic_store(&rwq->head, head);
 	}
 	ret = 0;
 	goto done;

@@ -50,7 +50,6 @@
 #include <stddef.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_user_rxe.h>
 
@@ -255,7 +254,7 @@ static int rxe_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 		if (queue_empty(q))
 			break;
 
-		rmb();
+		atomic_thread_fence(memory_order_acquire);
 		src = consumer_addr(q);
 		memcpy(wc, src, sizeof(*wc));
 		advance_consumer(q);
@@ -401,8 +400,6 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 	wqe->dma.cur_sge = 0;
 	wqe->dma.num_sge = wqe->num_sge;
 	wqe->dma.sge_offset = 0;
-
-	rmb();
 
 	advance_producer(q);
 

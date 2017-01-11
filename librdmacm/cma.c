@@ -177,8 +177,8 @@ static void ucma_set_af_ib_support(void)
 
 	memset(&sib, 0, sizeof sib);
 	sib.sib_family = AF_IB;
-	sib.sib_sid = htonll(RDMA_IB_IP_PS_TCP);
-	sib.sib_sid_mask = htonll(RDMA_IB_IP_PS_MASK);
+	sib.sib_sid = htobe64(RDMA_IB_IP_PS_TCP);
+	sib.sib_sid_mask = htobe64(RDMA_IB_IP_PS_MASK);
 	af_ib_support = 1;
 	ret = rdma_bind_addr(id, (struct sockaddr *) &sib);
 	af_ib_support = !ret;
@@ -2443,7 +2443,7 @@ uint16_t ucma_get_port(struct sockaddr *addr)
 	case AF_INET6:
 		return ((struct sockaddr_in6 *) addr)->sin6_port;
 	case AF_IB:
-		return htons((uint16_t) ntohll(((struct sockaddr_ib *) addr)->sib_sid));
+		return htons((uint16_t) be64toh(((struct sockaddr_ib *) addr)->sib_sid));
 	default:
 		return 0;
 	}
