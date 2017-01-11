@@ -3,7 +3,7 @@ Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
 Section: net
 Priority: extra
 Build-Depends: cmake (>= 2.8.11),
-               debhelper (>= 9),
+               debhelper (>= 10),
                dh-systemd,
                dpkg-dev (>= 1.17),
                libnl-3-dev,
