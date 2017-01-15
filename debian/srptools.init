@@ -17,6 +17,8 @@ PORTS=""
 RETRIES=""
 LOG=""
 
+. /lib/lsb/init-functions
+
 [ -f /etc/default/srptools ] &&  . /etc/default/srptools
 
 start_daemon () {
