@@ -11,7 +11,7 @@ Build-Depends: cmake (>= 2.8.11),
                libnl-route-3-dev,
                libudev-dev,
                make,
-               ninja,
+               ninja-build,
                pkg-config,
                valgrind
 Standards-Version: 3.9.8
