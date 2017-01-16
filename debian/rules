@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
-
-DH_OPTS := --builddirectory=build-deb
+%:
+	dh $@ --with systemd --builddirectory=build-deb
 
 # Upstream wishes to use CMAKE_BUILD_TYPE=Release, and ensures that has a
 # sensible basis of options (eg no -O3, including -g). Debian specific options
@@ -10,7 +10,7 @@ DH_OPTS := --builddirectory=build-deb
 # Upstream encourages the use of Ninja to build the source, convince dh to use
 # it until someone writes native support for dh+cmake+ninja.
 override_dh_auto_configure:
-	dh_auto_configure $(DH_OPTS) -- -GNinja \
+	dh_auto_configure -- -GNinja \
 			-DDISTRO_FLAVOUR=Debian \
 			-DCMAKE_BUILD_TYPE=Release \
 			-DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
@@ -58,8 +58,3 @@ override_dh_strip:
 # Upstream encourages the use of 'build' as the developer build output
 # directory, allow that directory to be present and still allow dh to work.
 .PHONY: build
-build:
-	dh $@ --with systemd $(DH_OPTS)
-
-%:
-	dh $@ --with systemd $(DH_OPTS)
