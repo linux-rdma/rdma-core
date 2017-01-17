@@ -3,10 +3,14 @@
 %:
 	dh $@ --with systemd --builddirectory=build-deb
 
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf build-deb
+
 # Upstream wishes to use CMAKE_BUILD_TYPE=Release, and ensures that has a
 # sensible basis of options (eg no -O3, including -g). Debian specific options
 # come from CFLAGS as usual.
-
+#
 # Upstream encourages the use of Ninja to build the source, convince dh to use
 # it until someone writes native support for dh+cmake+ninja.
 override_dh_auto_configure:
@@ -18,7 +22,12 @@ override_dh_auto_configure:
 			-DCMAKE_INSTALL_INITDDIR:PATH=/etc/init.d \
 			-DCMAKE_INSTALL_LIBEXECDIR:PATH=/usr/lib \
 			-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d
-	cp buildlib/ninja-wrapper build-deb/Makefile
+
+override_dh_auto_build:
+	ninja -C build-deb -v
+
+override_dh_auto_install:
+	DESTDIR=$(CURDIR)/debian/tmp ninja -C build-deb install
 
 # The following files are not used on Debian
 # FIXME: should they be?
