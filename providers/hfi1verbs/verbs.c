@@ -679,12 +679,14 @@ int hfi1_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 struct ibv_ah *hfi1_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct ibv_ah *ah;
+	struct ibv_create_ah_resp resp;
 
 	ah = malloc(sizeof *ah);
 	if (ah == NULL)
 		return NULL;
 
-	if (ibv_cmd_create_ah(pd, ah, attr)) {
+	memset(&resp, 0, sizeof(resp));
+	if (ibv_cmd_create_ah(pd, ah, attr, &resp, sizeof(resp))) {
 		free(ah);
 		return NULL;
 	}

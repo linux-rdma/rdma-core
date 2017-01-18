@@ -64,7 +64,6 @@ IBVERBS_1.0 {
 		ibv_cmd_post_send;
 		ibv_cmd_post_recv;
 		ibv_cmd_post_srq_recv;
-		ibv_cmd_create_ah;
 		ibv_cmd_destroy_ah;
 		ibv_cmd_attach_mcast;
 		ibv_cmd_detach_mcast;
@@ -131,3 +130,8 @@ IBVERBS_1.3 {
 		ibv_cmd_destroy_rwq_ind_table;
 		ibv_query_gid_type;
 } IBVERBS_1.1;
+
+IBVERBS_1.4 {
+	global:
+		ibv_cmd_create_ah;
+} IBVERBS_1.3;

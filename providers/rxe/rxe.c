@@ -778,6 +778,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct rxe_ah *ah;
 	struct rxe_av *av;
 	union ibv_gid sgid;
+	struct ibv_create_ah_resp resp;
 
 	err = ibv_query_gid(pd->context, attr->port_num, attr->grh.sgid_index,
 			    &sgid);
@@ -800,7 +801,8 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	rdma_gid2ip(&av->sgid_addr._sockaddr, &sgid);
 	rdma_gid2ip(&av->dgid_addr._sockaddr, &attr->grh.dgid);
 
-	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr)) {
+	memset(&resp, 0, sizeof(resp));
+	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {
 		free(ah);
 		return NULL;
 	}

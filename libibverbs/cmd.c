@@ -1519,12 +1519,13 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 }
 
 int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
-		      struct ibv_ah_attr *attr)
+		      struct ibv_ah_attr *attr,
+		      struct ibv_create_ah_resp *resp,
+		      size_t resp_size)
 {
 	struct ibv_create_ah      cmd;
-	struct ibv_create_ah_resp resp;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_AH, &resp, sizeof resp);
+	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_AH, resp, resp_size);
 	cmd.user_handle            = (uintptr_t) ah;
 	cmd.pd_handle              = pd->handle;
 	cmd.attr.dlid              = attr->dlid;
@@ -1542,9 +1543,9 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 	if (write(pd->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
 
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	ah->handle  = resp.handle;
+	ah->handle  = resp->handle;
 	ah->context = pd->context;
 
 	return 0;
