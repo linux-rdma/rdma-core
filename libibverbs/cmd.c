@@ -1140,6 +1140,13 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 {
 	struct ibv_query_qp_resp resp;
 
+	/*
+	 * Masks over IBV_QP_DEST_QPN are not supported by
+	 * that not extended command.
+	 */
+	if (attr_mask & ~((IBV_QP_DEST_QPN << 1) - 1))
+		return EOPNOTSUPP;
+
 	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_QP, &resp, sizeof resp);
 	cmd->qp_handle = qp->handle;
 	cmd->attr_mask = attr_mask;
@@ -1215,12 +1222,10 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return 0;
 }
 
-int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		      int attr_mask,
-		      struct ibv_modify_qp *cmd, size_t cmd_size)
+static void copy_modify_qp_fields(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+				  int attr_mask,
+				  struct ibv_modify_qp_common *cmd)
 {
-	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
-
 	cmd->qp_handle = qp->handle;
 	cmd->attr_mask = attr_mask;
 
@@ -1299,9 +1304,56 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		cmd->dest_qp_num = attr->dest_qp_num;
 
 	cmd->reserved[0] = cmd->reserved[1] = 0;
+}
+
+int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		      int attr_mask,
+		      struct ibv_modify_qp *cmd, size_t cmd_size)
+{
+	/*
+	 * Masks over IBV_QP_DEST_QPN are only supported by
+	 * ibv_cmd_modify_qp_ex.
+	 */
+	if (attr_mask & ~((IBV_QP_DEST_QPN << 1) - 1))
+		return EOPNOTSUPP;
+
+	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
+
+	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
 
 	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			 int attr_mask, struct ibv_modify_qp_ex *cmd,
+			 size_t cmd_core_size, size_t cmd_size,
+			 struct ibv_modify_qp_resp_ex *resp,
+			 size_t resp_core_size, size_t resp_size)
+{
+	if (resp_core_size < offsetof(struct ibv_modify_qp_resp_ex,
+			     response_length) + sizeof(resp->response_length))
+		return EINVAL;
+
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, MODIFY_QP_EX,
+			       resp, resp_core_size, resp_size);
+
+	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
+
+	if (attr_mask & IBV_QP_RATE_LIMIT) {
+		if (cmd_size >= offsetof(struct ibv_modify_qp_ex, rate_limit) +
+		    sizeof(cmd->rate_limit))
+			cmd->rate_limit = attr->rate_limit;
+		else
+			return EINVAL;
+	}
+
+	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	return 0;
 }

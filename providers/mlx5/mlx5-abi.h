@@ -260,6 +260,8 @@ struct mlx5_query_device_ex_resp {
 	__u32				response_length;
 	struct ibv_tso_caps		tso_caps;
 	struct mlx5_rss_caps            rss_caps; /* vendor data channel */
+	__u64				reserved_cqe_comp;
+	struct ibv_packet_pacing_caps	packet_pacing_caps;
 };
 
 #endif /* MLX5_ABI_H */

@@ -1498,10 +1498,16 @@ int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	return 0;
 }
 
+enum {
+	MLX5_MODIFY_QP_EX_ATTR_MASK = IBV_QP_RATE_LIMIT,
+};
+
 int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
 	struct ibv_modify_qp cmd = {};
+	struct ibv_modify_qp_ex cmd_ex = {};
+	struct ibv_modify_qp_resp_ex resp = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
 	struct mlx5_context *context = to_mctx(qp->context);
 	int ret;
@@ -1533,7 +1539,15 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		}
 	}
 
-	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK)
+		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask,
+					   &cmd_ex,
+					   sizeof(cmd_ex), sizeof(cmd_ex),
+					   &resp,
+					   sizeof(resp), sizeof(resp));
+	else
+		ret = ibv_cmd_modify_qp(qp, attr, attr_mask,
+					&cmd, sizeof(cmd));
 
 	if (!ret		       &&
 	    (attr_mask & IBV_QP_STATE) &&
@@ -1905,6 +1919,8 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	attr->tso_caps = resp.tso_caps;
 	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
 	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
+	attr->packet_pacing_caps = resp.packet_pacing_caps;
+
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;
