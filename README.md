@@ -28,6 +28,7 @@ is included:
  - ocrdma.ko
  - qedr.ko
  - rdma_rxe.ko
+ - vmw_pvrdma.ko
 
 Additional service daemons are provided for:
  - srp_daemon (ib_srp.ko)
