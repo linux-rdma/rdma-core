@@ -1,11 +1,11 @@
 etc/init.d/ibacm
 usr/bin/ib_acme
-usr/sbin/ibacm
 usr/include/infiniband/acm.h
 usr/include/infiniband/acm_prov.h
-usr/lib/x86_64-linux-gnu/ibacm/libibacmp.so
+usr/lib/*/ibacm/libibacmp.so
+usr/sbin/ibacm
+usr/share/doc/rdma-core/ibacm.md usr/share/doc/ibacm/
 usr/share/man/man1/ib_acme.1
 usr/share/man/man1/ibacm.1
 usr/share/man/man7/ibacm.7
 usr/share/man/man7/ibacm_prov.7
-usr/share/doc/rdma-core/ibacm.md usr/share/doc/ibacm/

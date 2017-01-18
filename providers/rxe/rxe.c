@@ -50,7 +50,6 @@
 #include <stddef.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_user_rxe.h>
 
@@ -255,7 +254,7 @@ static int rxe_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 		if (queue_empty(q))
 			break;
 
-		rmb();
+		atomic_thread_fence(memory_order_acquire);
 		src = consumer_addr(q);
 		memcpy(wc, src, sizeof(*wc));
 		advance_consumer(q);
@@ -401,8 +400,6 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 	wqe->dma.cur_sge = 0;
 	wqe->dma.num_sge = wqe->num_sge;
 	wqe->dma.sge_offset = 0;
-
-	rmb();
 
 	advance_producer(q);
 
@@ -781,6 +778,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct rxe_ah *ah;
 	struct rxe_av *av;
 	union ibv_gid sgid;
+	struct ibv_create_ah_resp resp;
 
 	err = ibv_query_gid(pd->context, attr->port_num, attr->grh.sgid_index,
 			    &sgid);
@@ -803,7 +801,8 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	rdma_gid2ip(&av->sgid_addr._sockaddr, &sgid);
 	rdma_gid2ip(&av->dgid_addr._sockaddr, &attr->grh.dgid);
 
-	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr)) {
+	memset(&resp, 0, sizeof(resp));
+	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {
 		free(ah);
 		return NULL;
 	}

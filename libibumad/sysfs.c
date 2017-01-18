@@ -43,7 +43,6 @@
 #include <fcntl.h>
 #include <byteswap.h>
 #include <netinet/in.h>
-#include <infiniband/arch.h>
 #include "sysfs.h"
 
 static int ret_code(void)
@@ -98,7 +97,7 @@ int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_gu
 		guid = (guid << 16) | (strtoul(str, NULL, 16) & 0xffff);
 	}
 
-	*net_guid = htonll(guid);
+	*net_guid = htobe64(guid);
 
 	return 0;
 }

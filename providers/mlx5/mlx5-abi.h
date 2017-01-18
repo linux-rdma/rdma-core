@@ -91,6 +91,13 @@ struct mlx5_alloc_ucontext_resp {
 	__u64				hca_core_clock_offset;
 };
 
+struct mlx5_create_ah_resp {
+	struct ibv_create_ah_resp	ibv_resp;
+	__u32				response_length;
+	__u8				dmac[ETHERNET_LL_SIZE];
+	__u8				reserved[6];
+};
+
 struct mlx5_alloc_pd_resp {
 	struct ibv_alloc_pd_resp	ibv_resp;
 	__u32				pdn;

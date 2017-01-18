@@ -2,26 +2,23 @@ Source: rdma-core
 Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
 Section: net
 Priority: extra
-Build-Depends: build-essential,
-	       cmake (>= 2.8.11),
-	       debhelper (>= 9),
-	       dh-systemd,
-	       dpkg-dev (>= 1.17),
-	       gcc,
-	       libudev-dev,
-	       libnl-3-dev,
-	       libnl-route-3-dev,
-	       make,
-	       ninja,
-	       pkg-config,
-	       valgrind
+Build-Depends: cmake (>= 2.8.11),
+               debhelper (>= 9),
+               dh-systemd,
+               dpkg-dev (>= 1.17),
+               libnl-3-dev,
+               libnl-route-3-dev,
+               libudev-dev,
+               ninja-build,
+               pkg-config,
+               valgrind
 Standards-Version: 3.9.8
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git
 Vcs-Browser: https://github.com/linux-rdma/rdma-core
 
 Package: ibacm
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: InfiniBand Communication Manager Assistant (ACM)
  The IB ACM implements and provides a framework for name, address, and
  route (path) resolution services over InfiniBand.
@@ -33,7 +30,7 @@ Description: InfiniBand Communication Manager Assistant (ACM)
 Package: ibverbs-utils
 Section: net
 Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Examples for the libibverbs library
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and
@@ -50,7 +47,7 @@ Description: Examples for the libibverbs library
 Package: ibverbs-providers
 Section: net
 Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends}
+Depends: ${misc:Depends}, ${perl:Depends}, ${shlibs:Depends}
 Provides: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1
 Replaces: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1
 Breaks: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1
@@ -107,7 +104,7 @@ Package: libibumad3
 Architecture: linux-any
 Section: libs
 Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: InfiniBand Userspace Management Datagram (uMAD) library
  libibumad provides userspace Infiniband Management Datagram (uMAD)
  functions which sit on top of the uMAD modules in the kernel.
@@ -145,7 +142,7 @@ Package: libibverbs1
 Architecture: linux-any
 Section: libs
 Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
+Depends: adduser, ${misc:Depends}, ${shlibs:Depends}
 Recommends: ibverbs-providers
 Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  libibverbs is a library that allows userspace processes to use RDMA
@@ -165,7 +162,7 @@ Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
 Package: libibverbs1-dbg
 Section: debug
 Architecture: linux-any
-Depends: ${misc:Depends}, libibverbs1 (= ${binary:Version})
+Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}
 Description: Debugging symbols for the libibverbs library
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and
@@ -183,7 +180,7 @@ Description: Debugging symbols for the libibverbs library
 Package: libibverbs-dev
 Section: libdevel
 Architecture: linux-any
-Depends: ${misc:Depends}, libibverbs1 (= ${binary:Version})
+Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and
@@ -294,7 +291,7 @@ Description: Examples for the librdmacm library
 
 Package: srptools
 Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}, infiniband-diags
+Depends: infiniband-diags, ${misc:Depends}, ${shlibs:Depends}
 Description: Tools for Infiniband attached storage (SRP)
  In conjunction with the kernel ib_srp driver, srptools allows you to
  discover and use Infiniband attached storage devices which use the
@@ -302,7 +299,7 @@ Description: Tools for Infiniband attached storage (SRP)
 
 Package: iwpmd
 Architecture: linux-any
-Depends: ${shlibs:Depends}, ${misc:Depends}, infiniband-diags
-Description:Userspace component for iWarp RDMA services
+Depends: infiniband-diags, ${misc:Depends}, ${shlibs:Depends}
+Description: Userspace component for iWarp RDMA services
  iwpmd provides a userspace service for iWarp drivers to claim
  tcp ports through the standard socket interface.

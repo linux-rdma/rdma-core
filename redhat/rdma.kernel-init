@@ -14,7 +14,7 @@ MTRR_SCRIPT=/usr/libexec/rdma-fixup-mtrr.awk
 LOAD_ULP_MODULES=""
 LOAD_CORE_USER_MODULES="ib_umad ib_uverbs ib_ucm rdma_ucm"
 LOAD_CORE_CM_MODULES="iw_cm ib_cm rdma_cm"
-LOAD_CORE_MODULES="ib_core ib_mad ib_sa ib_addr"
+LOAD_CORE_MODULES="ib_core"
 LOAD_TECH_PREVIEW_DRIVERS="no"
 
 if [ -f $CONFIG ]; then

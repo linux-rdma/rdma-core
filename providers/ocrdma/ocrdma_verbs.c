@@ -2099,6 +2099,7 @@ struct ibv_ah *ocrdma_create_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 	int ahtbl_idx;
 	struct ocrdma_pd *pd;
 	struct ocrdma_ah *ah;
+	struct ibv_create_ah_resp resp;
 
 	pd = get_ocrdma_pd(ibpd);
 	ah = malloc(sizeof *ah);
@@ -2111,7 +2112,8 @@ struct ibv_ah *ocrdma_create_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 	if (ahtbl_idx < 0)
 		goto tbl_err;
 	attr->dlid = ahtbl_idx;
-	status = ibv_cmd_create_ah(ibpd, &ah->ibv_ah, attr);
+	memset(&resp, 0, sizeof(resp));
+	status = ibv_cmd_create_ah(ibpd, &ah->ibv_ah, attr, &resp, sizeof(resp));
 	if (status)
 		goto cmd_err;
 

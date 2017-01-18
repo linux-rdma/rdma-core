@@ -1,4 +1,3 @@
-etc/init.d/ibacm
 etc/init.d/iwpmd
 etc/iwpmd.conf
 lib/systemd/system/iwpmd.service

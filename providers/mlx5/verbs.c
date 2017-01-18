@@ -1650,11 +1650,21 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	}
 
 	if (is_eth) {
-		uint16_t vid;
+		if (ctx->cmds_supp_uhw & MLX5_USER_CMDS_SUPP_UHW_CREATE_AH) {
+			struct mlx5_create_ah_resp resp = {};
 
-		if (ibv_resolve_eth_l2_from_gid(pd->context, attr, ah->av.rmac,
-						&vid))
-			goto err;
+			if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp.ibv_resp, sizeof(resp)))
+				goto err;
+
+			ah->kern_ah = true;
+			memcpy(ah->av.rmac, resp.dmac, ETHERNET_LL_SIZE);
+		} else {
+			uint16_t vid;
+
+			if (ibv_resolve_eth_l2_from_gid(pd->context, attr,
+							ah->av.rmac, &vid))
+				goto err;
+		}
 	}
 
 	return &ah->ibv_ah;
@@ -1665,8 +1675,16 @@ err:
 
 int mlx5_destroy_ah(struct ibv_ah *ah)
 {
-	free(to_mah(ah));
+	struct mlx5_ah *mah = to_mah(ah);
+	int err;
 
+	if (mah->kern_ah) {
+		err = ibv_cmd_destroy_ah(ah);
+		if (err)
+			return err;
+	}
+
+	free(mah);
 	return 0;
 }
 

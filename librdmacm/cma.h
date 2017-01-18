@@ -44,7 +44,6 @@
 
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
-#include <infiniband/arch.h>
 
 #include <ccan/minmax.h>
 

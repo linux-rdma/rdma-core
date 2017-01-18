@@ -1,0 +1,505 @@
+/*
+ * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of EITHER the GNU General Public License
+ * version 2 as published by the Free Software Foundation or the BSD
+ * 2-Clause License. This program is distributed in the hope that it
+ * will be useful, but WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED
+ * WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License version 2 for more details at
+ * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program available in the file COPYING in the main
+ * directory of this source tree.
+ *
+ * The BSD 2-Clause License
+ *
+ *     Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
+ *
+ *      - Redistributions of source code must retain the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer.
+ *
+ *      - Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials
+ *        provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <infiniband/arch.h>
+
+#include "pvrdma.h"
+
+int pvrdma_alloc_qp_buf(struct pvrdma_device *dev, struct ibv_qp_cap *cap,
+			enum ibv_qp_type type, struct pvrdma_qp *qp)
+{
+	qp->sq.wrid = calloc(qp->sq.wqe_cnt, sizeof(uint64_t));
+	if (!qp->sq.wrid)
+		return -1;
+
+	qp->rq.wrid = calloc(qp->rq.wqe_cnt, sizeof(uint64_t));
+	if (!qp->rq.wrid) {
+		free(qp->sq.wrid);
+		return -1;
+	}
+
+	/* Align page size for [rq][sq] */
+	qp->rbuf.length = align(qp->rq.offset +
+				qp->rq.wqe_cnt * qp->rq.wqe_size,
+				dev->page_size);
+	qp->sbuf.length = align(qp->sq.offset +
+				qp->sq.wqe_cnt * qp->sq.wqe_size,
+				dev->page_size);
+	qp->buf_size = qp->rbuf.length + qp->sbuf.length;
+
+	if (pvrdma_alloc_buf(&qp->rbuf, qp->rbuf.length, dev->page_size)) {
+		free(qp->sq.wrid);
+		free(qp->rq.wrid);
+		return -1;
+	}
+
+	if (pvrdma_alloc_buf(&qp->sbuf, qp->sbuf.length, dev->page_size)) {
+		free(qp->sq.wrid);
+		free(qp->rq.wrid);
+		pvrdma_free_buf(&qp->rbuf);
+		return -1;
+	}
+
+	memset(qp->rbuf.buf, 0, qp->rbuf.length);
+	memset(qp->sbuf.buf, 0, qp->sbuf.length);
+
+	return 0;
+}
+
+static void pvrdma_init_qp_queue(struct pvrdma_qp *qp)
+{
+	qp->sq.ring_state->cons_head = 0;
+	qp->sq.ring_state->prod_tail = 0;
+	qp->rq.ring_state->cons_head = 0;
+	qp->rq.ring_state->prod_tail = 0;
+}
+
+struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
+				struct ibv_qp_init_attr *attr)
+{
+	struct pvrdma_device *dev = to_vdev(pd->context->device);
+	struct user_pvrdma_create_qp cmd;
+	struct ibv_create_qp_resp resp;
+	struct pvrdma_qp *qp;
+	int ret;
+
+	attr->cap.max_recv_sge =
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_sge));
+	attr->cap.max_recv_wr =
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_wr));
+	attr->cap.max_send_sge =
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_sge));
+	attr->cap.max_send_wr =
+		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_wr));
+
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	qp->rq.max_gs = attr->cap.max_recv_sge;
+	qp->rq.wqe_cnt = attr->cap.max_recv_wr;
+	qp->rq.offset = 0;
+	qp->rq.wqe_size = align_next_power2(sizeof(struct pvrdma_rq_wqe_hdr) +
+					    sizeof(struct ibv_sge) *
+					    qp->rq.max_gs);
+
+	qp->sq.max_gs = attr->cap.max_send_sge;
+	qp->sq.wqe_cnt = attr->cap.max_send_wr;
+	/* Extra page for shared ring state */
+	qp->sq.offset = dev->page_size;
+	qp->sq.wqe_size = align_next_power2(sizeof(struct pvrdma_sq_wqe_hdr) +
+					    sizeof(struct ibv_sge) *
+					    qp->sq.max_gs);
+
+	/* Reset attr.cap, no srq for now */
+	if (attr->srq) {
+		attr->cap.max_recv_wr = 0;
+		qp->rq.wqe_cnt = 0;
+	}
+
+	/* Allocate [rq][sq] memory */
+	if (pvrdma_alloc_qp_buf(dev, &attr->cap, attr->qp_type, qp))
+		goto err;
+
+	qp->sq.ring_state = qp->sbuf.buf;
+	qp->rq.ring_state = (struct pvrdma_ring *)&qp->sq.ring_state[1];
+	pvrdma_init_qp_queue(qp);
+
+	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
+	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
+		goto err_free;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.udata.rbuf_addr = (uintptr_t)qp->rbuf.buf;
+	cmd.udata.rbuf_size = qp->rbuf.length;
+	cmd.udata.sbuf_addr = (uintptr_t)qp->sbuf.buf;
+	cmd.udata.sbuf_size = qp->sbuf.length;
+	cmd.udata.qp_addr = (uintptr_t) qp;
+
+	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr,
+				&cmd.ibv_cmd, sizeof(cmd),
+				&resp, sizeof(resp));
+
+	if (ret)
+		goto err_free;
+
+	to_vctx(pd->context)->qp_tbl[qp->ibv_qp.qp_num & 0xFFFF] = qp;
+
+	/* If set, each WR submitted to the SQ generate a completion entry */
+	if (attr->sq_sig_all)
+		qp->sq_signal_bits = htonl(PVRDMA_WQE_CTRL_CQ_UPDATE);
+	else
+		qp->sq_signal_bits = 0;
+
+	return &qp->ibv_qp;
+
+err_free:
+	if (qp->sq.wqe_cnt)
+		free(qp->sq.wrid);
+	if (qp->rq.wqe_cnt)
+		free(qp->rq.wrid);
+	pvrdma_free_buf(&qp->rbuf);
+	pvrdma_free_buf(&qp->sbuf);
+err:
+	free(qp);
+
+	return NULL;
+}
+
+int pvrdma_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
+		      int attr_mask,
+		      struct ibv_qp_init_attr *init_attr)
+{
+	struct ibv_query_qp cmd;
+	struct pvrdma_qp *qp = to_vqp(ibqp);
+	int ret;
+
+	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr,
+			       &cmd, sizeof(cmd));
+	if (ret)
+		return ret;
+
+	/* Passing back */
+	init_attr->cap.max_send_wr     = qp->sq.wqe_cnt;
+	init_attr->cap.max_send_sge    = qp->sq.max_gs;
+	init_attr->cap.max_inline_data = qp->max_inline_data;
+
+	attr->cap = init_attr->cap;
+
+	return 0;
+}
+
+int pvrdma_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		       int attr_mask)
+{
+	struct ibv_modify_qp cmd;
+	int ret;
+
+	/* Sanity check */
+	if (!attr_mask)
+		return 0;
+
+	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+
+	if (!ret &&
+	    (attr_mask & IBV_QP_STATE) &&
+	    attr->qp_state == IBV_QPS_RESET) {
+		pvrdma_cq_clean(to_vcq(qp->recv_cq), qp->qp_num);
+		if (qp->send_cq != qp->recv_cq)
+			pvrdma_cq_clean(to_vcq(qp->send_cq), qp->qp_num);
+		pvrdma_init_qp_queue(to_vqp(qp));
+	}
+
+	return ret;
+}
+
+static void pvrdma_lock_cqs(struct ibv_qp *qp)
+{
+	struct pvrdma_cq *send_cq = to_vcq(qp->send_cq);
+	struct pvrdma_cq *recv_cq = to_vcq(qp->recv_cq);
+
+	if (send_cq == recv_cq)
+		pthread_spin_lock(&send_cq->lock);
+	else if (send_cq->cqn < recv_cq->cqn) {
+		pthread_spin_lock(&send_cq->lock);
+		pthread_spin_lock(&recv_cq->lock);
+	} else {
+		pthread_spin_lock(&recv_cq->lock);
+		pthread_spin_lock(&send_cq->lock);
+	}
+}
+
+static void pvrdma_unlock_cqs(struct ibv_qp *qp)
+{
+	struct pvrdma_cq *send_cq = to_vcq(qp->send_cq);
+	struct pvrdma_cq *recv_cq = to_vcq(qp->recv_cq);
+
+	if (send_cq == recv_cq)
+		pthread_spin_unlock(&send_cq->lock);
+	else if (send_cq->cqn < recv_cq->cqn) {
+		pthread_spin_unlock(&recv_cq->lock);
+		pthread_spin_unlock(&send_cq->lock);
+	} else {
+		pthread_spin_unlock(&send_cq->lock);
+		pthread_spin_unlock(&recv_cq->lock);
+	}
+}
+
+int pvrdma_destroy_qp(struct ibv_qp *ibqp)
+{
+	struct pvrdma_context *ctx = to_vctx(ibqp->context);
+	struct pvrdma_qp *qp = to_vqp(ibqp);
+	int ret;
+
+	ret = ibv_cmd_destroy_qp(ibqp);
+	if (ret) {
+		return ret;
+	}
+
+	pvrdma_lock_cqs(ibqp);
+	/* Dump cqs */
+	pvrdma_cq_clean_int(to_vcq(ibqp->recv_cq), ibqp->qp_num);
+
+	if (ibqp->send_cq != ibqp->recv_cq)
+		pvrdma_cq_clean_int(to_vcq(ibqp->send_cq), ibqp->qp_num);
+	pvrdma_unlock_cqs(ibqp);
+
+	free(qp->sq.wrid);
+	free(qp->rq.wrid);
+	pvrdma_free_buf(&qp->rbuf);
+	pvrdma_free_buf(&qp->sbuf);
+	ctx->qp_tbl[ibqp->qp_num & 0xFFFF] = NULL;
+	free(qp);
+
+	return 0;
+}
+
+static void *get_rq_wqe(struct pvrdma_qp *qp, int n)
+{
+	return qp->rbuf.buf + qp->rq.offset + (n * qp->rq.wqe_size);
+}
+
+static void *get_sq_wqe(struct pvrdma_qp *qp, int n)
+{
+	return qp->sbuf.buf + qp->sq.offset + (n * qp->sq.wqe_size);
+}
+
+int pvrdma_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
+		     struct ibv_send_wr **bad_wr)
+{
+	struct pvrdma_context *ctx = to_vctx(ibqp->context);
+	struct pvrdma_qp *qp = to_vqp(ibqp);
+	int ind;
+	int nreq = 0;
+	struct pvrdma_sq_wqe_hdr *wqe_hdr;
+	struct ibv_sge *sge;
+	int ret = 0;
+	int i;
+
+	/*
+	 * In states lower than RTS, we can fail immediately. In other states,
+	 * just post and let the device figure it out.
+	 */
+	if (ibqp->state < IBV_QPS_RTS) {
+		*bad_wr = wr;
+		return EINVAL;
+	}
+
+	pthread_spin_lock(&qp->sq.lock);
+	ind = pvrdma_idx(&(qp->sq.ring_state->prod_tail), qp->sq.wqe_cnt);
+	if (ind < 0) {
+		pthread_spin_unlock(&qp->sq.lock);
+		ret = EINVAL;
+		goto out;
+	}
+
+	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		unsigned int tail;
+
+		if (pvrdma_idx_ring_has_space(qp->sq.ring_state,
+					      qp->sq.wqe_cnt, &tail) <= 0) {
+			ret = ENOMEM;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		if (wr->num_sge > qp->sq.max_gs) {
+			ret = EINVAL;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		wqe_hdr = (struct pvrdma_sq_wqe_hdr *)get_sq_wqe(qp, ind);
+		wqe_hdr->wr_id = wr->wr_id;
+		wqe_hdr->num_sge = wr->num_sge;
+		wqe_hdr->opcode = ibv_wr_opcode_to_pvrdma(wr->opcode);
+		wqe_hdr->send_flags = ibv_send_flags_to_pvrdma(wr->send_flags);
+		if (wr->opcode == IBV_WR_SEND_WITH_IMM ||
+		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
+			wqe_hdr->ex.imm_data = wr->imm_data;
+
+		switch (ibqp->qp_type) {
+		case IBV_QPT_UD:
+			wqe_hdr->wr.ud.remote_qpn = wr->wr.ud.remote_qpn;
+			wqe_hdr->wr.ud.remote_qkey = wr->wr.ud.remote_qkey;
+			wqe_hdr->wr.ud.av = to_vah(wr->wr.ud.ah)->av;
+			break;
+		case IBV_QPT_RC:
+			switch (wr->opcode) {
+			case IBV_WR_RDMA_READ:
+			case IBV_WR_RDMA_WRITE:
+			case IBV_WR_RDMA_WRITE_WITH_IMM:
+				wqe_hdr->wr.rdma.remote_addr =
+					wr->wr.rdma.remote_addr;
+				wqe_hdr->wr.rdma.rkey = wr->wr.rdma.rkey;
+				break;
+			case IBV_WR_ATOMIC_CMP_AND_SWP:
+			case IBV_WR_ATOMIC_FETCH_AND_ADD:
+				wqe_hdr->wr.atomic.remote_addr = wr->wr.atomic.remote_addr;
+				wqe_hdr->wr.atomic.rkey = wr->wr.atomic.rkey;
+				wqe_hdr->wr.atomic.compare_add = wr->wr.atomic.compare_add;
+				if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP)
+					wqe_hdr->wr.atomic.swap = wr->wr.atomic.swap;
+				break;
+			default:
+				/* No extra segments required for sends */
+				break;
+			}
+			break;
+		default:
+			fprintf(stderr, PFX "invalid post send opcode\n");
+			ret = EINVAL;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		/* Write each segment */
+		sge = (struct ibv_sge *)&wqe_hdr[1];
+		for (i = 0; i < wr->num_sge; i++) {
+			sge->addr = wr->sg_list[i].addr;
+			sge->length = wr->sg_list[i].length;
+			sge->lkey = wr->sg_list[i].lkey;
+			sge++;
+		}
+
+		pvrdma_idx_ring_inc(&(qp->sq.ring_state->prod_tail),
+				    qp->sq.wqe_cnt);
+
+		wmb();
+
+		qp->sq.wrid[ind] = wr->wr_id;
+		++ind;
+		if (ind >= qp->sq.wqe_cnt)
+			ind = 0;
+	}
+
+out:
+	if (nreq)
+		pvrdma_write_uar_qp(ctx->uar,
+				    PVRDMA_UAR_QP_SEND | ibqp->qp_num);
+
+	wmb();
+	pthread_spin_unlock(&qp->sq.lock);
+
+	return ret;
+}
+
+int pvrdma_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		     struct ibv_recv_wr **bad_wr)
+{
+	struct pvrdma_context *ctx = to_vctx(ibqp->context);
+	struct pvrdma_qp *qp = to_vqp(ibqp);
+	struct pvrdma_rq_wqe_hdr *wqe_hdr;
+	struct ibv_sge *sge;
+	int nreq;
+	int ind;
+	int i;
+	int ret = 0;
+
+	if (!wr || !bad_wr)
+		return EINVAL;
+
+	/*
+	 * In the RESET state, we can fail immediately. For other states,
+	 * just post and let the device figure it out.
+	 */
+	if (ibqp->state == IBV_QPS_RESET) {
+		*bad_wr = wr;
+		return EINVAL;
+	}
+
+	pthread_spin_lock(&qp->rq.lock);
+
+	ind = pvrdma_idx(&(qp->rq.ring_state->prod_tail), qp->rq.wqe_cnt);
+	if (ind < 0) {
+		pthread_spin_unlock(&qp->rq.lock);
+		*bad_wr = wr;
+		return EINVAL;
+	}
+
+	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		unsigned int tail;
+
+		if (pvrdma_idx_ring_has_space(qp->rq.ring_state,
+					      qp->rq.wqe_cnt, &tail) <= 0) {
+			ret = ENOMEM;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		if (wr->num_sge > qp->rq.max_gs) {
+			ret = EINVAL;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		/* Fetch wqe */
+		wqe_hdr = (struct pvrdma_rq_wqe_hdr *)get_rq_wqe(qp, ind);
+		wqe_hdr->wr_id = wr->wr_id;
+		wqe_hdr->num_sge = wr->num_sge;
+
+		sge = (struct ibv_sge *)(wqe_hdr + 1);
+		for (i = 0; i < wr->num_sge; ++i) {
+			sge->addr = (uint64_t)wr->sg_list[i].addr;
+			sge->length = wr->sg_list[i].length;
+			sge->lkey = wr->sg_list[i].lkey;
+			sge++;
+		}
+
+		pvrdma_idx_ring_inc(&qp->rq.ring_state->prod_tail,
+				    qp->rq.wqe_cnt);
+
+		qp->rq.wrid[ind] = wr->wr_id;
+		ind = (ind + 1) & (qp->rq.wqe_cnt - 1);
+	}
+
+out:
+	if (nreq)
+		pvrdma_write_uar_qp(ctx->uar,
+				    PVRDMA_UAR_QP_RECV | ibqp->qp_num);
+
+	pthread_spin_unlock(&qp->rq.lock);
+	return ret;
+}

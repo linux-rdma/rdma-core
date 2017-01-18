@@ -47,7 +47,6 @@
 #include <inttypes.h>
 
 #include <rdma/rdma_cma.h>
-#include <infiniband/arch.h>
 
 static int debug = 0;
 #define DEBUG_LOG if (debug) printf
@@ -246,7 +245,7 @@ static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
 	}
 
 	cb->remote_rkey = ntohl(cb->recv_buf.rkey);
-	cb->remote_addr = ntohll(cb->recv_buf.buf);
+	cb->remote_addr = be64toh(cb->recv_buf.buf);
 	cb->remote_len  = ntohl(cb->recv_buf.size);
 	DEBUG_LOG("Received rkey %x addr %" PRIx64 " len %d from peer\n",
 		  cb->remote_rkey, cb->remote_addr, cb->remote_len);
@@ -622,12 +621,12 @@ static void rping_format_send(struct rping_cb *cb, char *buf, struct ibv_mr *mr)
 {
 	struct rping_rdma_info *info = &cb->send_buf;
 
-	info->buf = htonll((uint64_t) (unsigned long) buf);
+	info->buf = htobe64((uint64_t) (unsigned long) buf);
 	info->rkey = htonl(mr->rkey);
 	info->size = htonl(cb->size);
 
 	DEBUG_LOG("RDMA addr %" PRIx64" rkey %x len %d\n",
-		  ntohll(info->buf), ntohl(info->rkey), ntohl(info->size));
+		  be64toh(info->buf), ntohl(info->rkey), ntohl(info->size));
 }
 
 static int rping_test_server(struct rping_cb *cb)

@@ -46,7 +46,6 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <netinet/in.h>
-#include <infiniband/arch.h>
 
 #include <ccan/minmax.h>
 

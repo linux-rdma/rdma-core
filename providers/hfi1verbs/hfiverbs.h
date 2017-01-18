@@ -62,9 +62,9 @@
 #include <byteswap.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <stdatomic.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 
 #define PFX		"hfi1: "
@@ -100,8 +100,8 @@ struct hfi1_wc {
 };
 
 struct hfi1_cq_wc {
-	uint32_t		head;
-	uint32_t		tail;
+	_Atomic(uint32_t)	head;
+	_Atomic(uint32_t)	tail;
 	struct hfi1_wc		queue[1];
 };
 
@@ -132,8 +132,8 @@ struct hfi1_rwqe {
  * use get_rwqe_ptr() instead.
  */
 struct hfi1_rwq {
-	uint32_t		head;	/* new requests posted to the head */
-	uint32_t		tail;	/* receives pull requests from here. */
+	_Atomic(uint32_t)	head;	/* new requests posted to the head. */
+	_Atomic(uint32_t)	tail;	/* receives pull requests from here. */
 	struct hfi1_rwqe	wq[0];
 };
 
