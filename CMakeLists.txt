@@ -381,13 +381,13 @@ add_subdirectory(providers/mthca)
 add_subdirectory(providers/nes)
 add_subdirectory(providers/ocrdma)
 add_subdirectory(providers/qedr)
+add_subdirectory(providers/vmw_pvrdma)
 endif()
 
 add_subdirectory(providers/hfi1verbs)
 add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
-add_subdirectory(providers/vmw_pvrdma)
 
 # Binaries
 add_subdirectory(ibacm)
