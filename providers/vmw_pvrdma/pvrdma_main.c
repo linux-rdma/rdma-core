@@ -45,6 +45,12 @@
 
 #include "pvrdma.h"
 
+/*
+ * VMware PVRDMA vendor id and PCI device id.
+ */
+#define PCI_VENDOR_ID_VMWARE		0x15AD
+#define PCI_DEVICE_ID_VMWARE_PVRDMA	0x0820
+
 static struct ibv_context_ops pvrdma_ctx_ops = {
 	.query_device = pvrdma_query_device,
 	.query_port = pvrdma_query_port,
@@ -166,7 +172,22 @@ static struct pvrdma_device *pvrdma_driver_init_shared(
 						int abi_version)
 {
 	struct pvrdma_device *dev;
-	char name[16];
+	char value[8];
+	unsigned int vendor_id, device_id;
+
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
+				value, sizeof(value)) < 0)
+		return NULL;
+	vendor_id = strtol(value, NULL, 16);
+
+	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
+				value, sizeof(value)) < 0)
+		return NULL;
+	device_id = strtol(value, NULL, 16);
+
+	if (vendor_id != PCI_VENDOR_ID_VMWARE ||
+	    device_id != PCI_DEVICE_ID_VMWARE_PVRDMA)
+		return NULL;
 
 	/* We support only a single ABI version for now. */
 	if (abi_version != PVRDMA_UVERBS_ABI_VERSION) {
@@ -174,12 +195,6 @@ static struct pvrdma_device *pvrdma_driver_init_shared(
 			"supported (supported %d)\n",
 			abi_version, uverbs_sys_path,
 			PVRDMA_UVERBS_ABI_VERSION);
-		return NULL;
-	}
-
-	if (ibv_read_sysfs_file(uverbs_sys_path,
-				"ibdev", name, sizeof(name)) < 0) {
-		fprintf(stderr, PFX "not ib device\n");
 		return NULL;
 	}
 
