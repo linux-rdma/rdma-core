@@ -411,6 +411,7 @@ static inline int qelr_configure_qp_sq(struct qelr_devctx *cxt,
 	qp->sq.edpm_db = cxt->db_addr;
 
 	/* shadow SQ */
+	qp->sq.max_wr++;	/* prod/cons method requires N+1 elements */
 	qp->wqe_wr_id = calloc(qp->sq.max_wr, sizeof(*qp->wqe_wr_id));
 	if (!qp->wqe_wr_id) {
 		DP_ERR(cxt->dbg_fp,
@@ -432,6 +433,7 @@ static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 	qp->rq.prod = 0;
 
 	/* shadow RQ */
+	qp->rq.max_wr++;	/* prod/cons method requires N+1 elements */
 	qp->rqe_wr_id = calloc(qp->rq.max_wr, sizeof(*qp->rqe_wr_id));
 	if (!qp->rqe_wr_id) {
 		DP_ERR(cxt->dbg_fp,
@@ -1138,7 +1140,8 @@ int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 
 	pthread_spin_lock(&qp->q_lock);
 
-	if (qp->state != QELR_QPS_RTS && qp->state != QELR_QPS_SQD) {
+	if (qp->state != QELR_QPS_RTS && qp->state != QELR_QPS_SQD &&
+	    qp->state != QELR_QPS_ERR) {
 		pthread_spin_unlock(&qp->q_lock);
 		*bad_wr = wr;
 		return -EINVAL;
@@ -1383,7 +1386,7 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 	pthread_spin_lock(&qp->q_lock);
 
-	if (qp->state == QELR_QPS_RST || qp->state == QELR_QPS_ERR) {
+	if (qp->state == QELR_QPS_RST) {
 		pthread_spin_unlock(&qp->q_lock);
 		*bad_wr = wr;
 		return -EINVAL;
