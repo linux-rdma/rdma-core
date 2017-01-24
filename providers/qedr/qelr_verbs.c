@@ -1140,7 +1140,8 @@ int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 
 	pthread_spin_lock(&qp->q_lock);
 
-	if (qp->state != QELR_QPS_RTS && qp->state != QELR_QPS_SQD) {
+	if (qp->state != QELR_QPS_RTS && qp->state != QELR_QPS_SQD &&
+	    qp->state != QELR_QPS_ERR) {
 		pthread_spin_unlock(&qp->q_lock);
 		*bad_wr = wr;
 		return -EINVAL;
@@ -1385,7 +1386,7 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 	pthread_spin_lock(&qp->q_lock);
 
-	if (qp->state == QELR_QPS_RST || qp->state == QELR_QPS_ERR) {
+	if (qp->state == QELR_QPS_RST) {
 		pthread_spin_unlock(&qp->q_lock);
 		*bad_wr = wr;
 		return -EINVAL;
