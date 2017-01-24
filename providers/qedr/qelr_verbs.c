@@ -411,6 +411,7 @@ static inline int qelr_configure_qp_sq(struct qelr_devctx *cxt,
 	qp->sq.edpm_db = cxt->db_addr;
 
 	/* shadow SQ */
+	qp->sq.max_wr++;	/* prod/cons method requires N+1 elements */
 	qp->wqe_wr_id = calloc(qp->sq.max_wr, sizeof(*qp->wqe_wr_id));
 	if (!qp->wqe_wr_id) {
 		DP_ERR(cxt->dbg_fp,
@@ -432,6 +433,7 @@ static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 	qp->rq.prod = 0;
 
 	/* shadow RQ */
+	qp->rq.max_wr++;	/* prod/cons method requires N+1 elements */
 	qp->rqe_wr_id = calloc(qp->rq.max_wr, sizeof(*qp->rqe_wr_id));
 	if (!qp->rqe_wr_id) {
 		DP_ERR(cxt->dbg_fp,
