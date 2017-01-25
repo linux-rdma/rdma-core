@@ -544,6 +544,7 @@ static void usage(const char *argv0)
 	printf("  -s, --size=<size>      size of message to exchange (default 2048)\n");
 	printf("  -r, --rx-depth=<dep>   number of receives to post at a time (default 500)\n");
 	printf("  -n, --iters=<iters>    number of exchanges (default 1000)\n");
+        printf("  -l, --sl=<SL>          send messages with service level <SL> (default 0)\n");
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 }
