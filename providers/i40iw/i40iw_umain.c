@@ -46,6 +46,9 @@
 #include "i40iw_umain.h"
 #include "i40iw-abi.h"
 
+unsigned int i40iw_dbg;
+unsigned int i40iw_max_hugepgcnt;
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -189,7 +192,7 @@ static struct ibv_context *i40iw_ualloc_context(struct ibv_device *ibdev, int cm
 	return &iwvctx->ibv_ctx;
 
 err_free:
-	fprintf(stderr, PFX "%s: failed to allocate context for device.\n", __func__);
+	i40iw_debug("failed to allocate context for device.\n");
 	free(iwvctx);
 
 	return NULL;
@@ -221,6 +224,7 @@ static struct ibv_device_ops i40iw_udev_ops = {
 struct ibv_device *i40iw_driver_init(const char *uverbs_sys_path, int abi_version)
 {
 	char value[16];
+	char *env_val;
 	struct i40iw_udevice *dev;
 	unsigned int vendor, device;
 	int i;
@@ -241,9 +245,22 @@ struct ibv_device *i40iw_driver_init(const char *uverbs_sys_path, int abi_versio
 
 	return NULL;
 found:
+	env_val = getenv("I40IW_DEBUG");
+	if (env_val)
+		i40iw_dbg = atoi(env_val);
+
+	env_val = getenv("I40IW_MAX_HUGEPGCNT");
+	if (env_val) {
+		if ((atoi(env_val) < 0) || (atoi(env_val) > 100))
+			fprintf(stderr, PFX "%s: Valid range for Max Huge Page Count is 0 to 100. Setting to 0\n",
+				__func__);
+		else
+			i40iw_max_hugepgcnt = atoi(env_val);
+	}
+
 	dev = malloc(sizeof(*dev));
 	if (!dev) {
-		fprintf(stderr, PFX "%s: failed to allocate memory for device object\n", __func__);
+		i40iw_debug("failed to allocate memory for device object\n");
 		return NULL;
 	}
 
