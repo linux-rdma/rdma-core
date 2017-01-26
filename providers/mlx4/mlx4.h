@@ -36,6 +36,7 @@
 
 #include <stddef.h>
 #include <netinet/in.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -50,14 +51,6 @@
 enum {
 	MLX4_STAT_RATE_OFFSET		= 5
 };
-
-#ifndef likely
-#ifdef __GNUC__
-#define likely(x)       __builtin_expect(!!(x),1)
-#else
-#define likely(x)      (x)
-#endif
-#endif
 
 enum {
 	MLX4_QP_TABLE_BITS		= 8,

@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <syslog.h>
+#include <util/compiler.h>
 
 /*
  * Try and minimize the changes from the kernel code that is pull in
@@ -59,7 +60,6 @@
 #define be32_to_cpu ntohl
 #define be64_to_cpu ntohll
 #define BUG_ON(c) assert(!(c))
-#define unlikely
 #define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 

@@ -38,6 +38,7 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <endian.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -46,13 +47,6 @@
 #include "i40iw_d.h"
 #include "i40iw_status.h"
 #include "i40iw_user.h"
-
-#ifndef likely
-#define likely(x)   __builtin_expect((x), 1)
-#endif
-#ifndef unlikely
-#define unlikely(x) __builtin_expect((x), 0)
-#endif
 
 #define PFX "libi40iw-"
 

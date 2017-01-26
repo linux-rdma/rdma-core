@@ -35,6 +35,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -42,11 +43,6 @@
 #include <ccan/list.h>
 #include "bitmap.h"
 #include <ccan/minmax.h>
-
-#ifdef __GNUC__
-#define likely(x)	__builtin_expect((x), 1)
-#define unlikely(x)	__builtin_expect((x), 0)
-#endif
 
 #include <valgrind/memcheck.h>
 

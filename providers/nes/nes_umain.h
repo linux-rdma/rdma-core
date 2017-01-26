@@ -37,16 +37,10 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <endian.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
-
-#ifndef likely
-#define likely(x)   __builtin_expect((x),1)
-#endif
-#ifndef unlikely
-#define unlikely(x) __builtin_expect((x),0)
-#endif
 
 #define PFX	"libnes: "
 
