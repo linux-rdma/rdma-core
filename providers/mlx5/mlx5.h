@@ -46,12 +46,6 @@
 
 #include <valgrind/memcheck.h>
 
-#ifdef HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
-#define ALWAYS_INLINE __attribute__((always_inline))
-#else
-#define ALWAYS_INLINE
-#endif
-
 #define PFX		"mlx5: "
 
 
