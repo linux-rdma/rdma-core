@@ -3,7 +3,7 @@ Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
 Section: net
 Priority: extra
 Build-Depends: cmake (>= 2.8.11),
-               debhelper (>= 9),
+               debhelper (>= 10),
                dh-systemd,
                dpkg-dev (>= 1.17),
                libnl-3-dev,
@@ -18,7 +18,7 @@ Vcs-Browser: https://github.com/linux-rdma/rdma-core
 
 Package: ibacm
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
 Description: InfiniBand Communication Manager Assistant (ACM)
  The IB ACM implements and provides a framework for name, address, and
  route (path) resolution services over InfiniBand.
@@ -74,19 +74,6 @@ Description: InfiniBand Communication Manager (CM) library
  .
  This package contains the shared library.
 
-Package: libibcm1-dbg
-Section: debug
-Architecture: linux-any
-Depends: ${misc:Depends}
-Description: InfiniBand Communication Manager (CM) library
- libibcm provides a userspace implementation of an InfiniBand
- Communication Manager (CM). The CM handles both connection
- establishment as well as service ID resolution.
- .
- This package contains the debugging symbols associated with
- libibcm1. They will automatically be used by gdb for debugging
- libibcm-related issues.
-
 Package: libibcm-dev
 Section: libdevel
 Architecture: linux-any
@@ -111,19 +98,6 @@ Description: InfiniBand Userspace Management Datagram (uMAD) library
  These are used by InfiniBand diagnostic and management tools.
  .
  This package contains the shared library.
-
-Package: libibumad3-dbg
-Section: debug
-Architecture: linux-any
-Depends: ${misc:Depends}
-Description: InfiniBand Userspace Management Datagram (uMAD) library
- libibumad provides userspace Infiniband Management Datagram (uMAD)
- functions which sit on top of the uMAD modules in the kernel.
- These are used by InfiniBand diagnostic and management tools.
- .
- This package contains the debugging symbols associated with
- libibumad3. They will automatically be used by gdb for debugging
- libibumad-related issues.
 
 Package: libibumad-dev
 Section: libdevel
@@ -158,24 +132,6 @@ Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  should also be installed.
  .
  This package contains the shared library.
-
-Package: libibverbs1-dbg
-Section: debug
-Architecture: linux-any
-Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}
-Description: Debugging symbols for the libibverbs library
- libibverbs is a library that allows userspace processes to use RDMA
- "verbs" as described in the InfiniBand Architecture Specification and
- the RDMA Protocol Verbs Specification.  iWARP ethernet NICs support
- RDMA over hardware-offloaded TCP/IP, while InfiniBand is a
- high-throughput, low-latency networking technology.  InfiniBand host
- channel adapters (HCAs) and iWARP NICs commonly support direct
- hardware access from userspace (kernel bypass), and libibverbs
- supports this when available.
- .
- This package contains the debugging symbols associated with
- libibverbs1. They will automatically be used by gdb for debugging
- libibverbs-related issues.
 
 Package: libibverbs-dev
 Section: libdevel
@@ -215,28 +171,6 @@ Description: Library for managing RDMA connections
  transfer data.
  .
  This package contains the shared library.
-
-Package: librdmacm1-dbg
-Section: debug
-Architecture: linux-any
-Depends: librdmacm1 (= ${binary:Version}), ${misc:Depends}
-Description: Debugging symbols for the librdmacm library
- librdmacm is a library that allows applications to set up reliable
- connected and unreliable datagram transfers when using RDMA adapters.
- It provides a transport-neutral interface in the sense that the same
- code can be used for both InfiniBand and iWARP adapters.  The
- interface is based on sockets, but adapted for queue pair (QP) based
- semantics: communication must use a specific RDMA device, and data
- transfers are message-based.
- .
- librdmacm only provides communication management (connection setup
- and tear-down) and works in conjunction with the verbs interface
- provided by libibverbs, which provides the interface used to actually
- transfer data.
- .
- This package contains the debugging symbols associated with
- librdmacm1. They will automatically be used by gdb for debugging
- librdmacm-related issues.
 
 Package: librdmacm-dev
 Section: libdevel
@@ -291,7 +225,7 @@ Description: Examples for the librdmacm library
 
 Package: srptools
 Architecture: linux-any
-Depends: infiniband-diags, ${misc:Depends}, ${shlibs:Depends}
+Depends: infiniband-diags, lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
 Description: Tools for Infiniband attached storage (SRP)
  In conjunction with the kernel ib_srp driver, srptools allows you to
  discover and use Infiniband attached storage devices which use the
@@ -299,7 +233,7 @@ Description: Tools for Infiniband attached storage (SRP)
 
 Package: iwpmd
 Architecture: linux-any
-Depends: infiniband-diags, ${misc:Depends}, ${shlibs:Depends}
+Depends: infiniband-diags, lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
 Description: Userspace component for iWarp RDMA services
  iwpmd provides a userspace service for iWarp drivers to claim
  tcp ports through the standard socket interface.

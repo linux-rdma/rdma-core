@@ -1,6 +1,8 @@
 libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.0@IBVERBS_1.0 1.1.6
  IBVERBS_1.1@IBVERBS_1.1 1.1.6
+ IBVERBS_1.3@IBVERBS_1.3 1.1.12
+ IBVERBS_1.4@IBVERBS_1.4 12
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
  ibv_ack_cq_events@IBVERBS_1.0 1.1.6
@@ -15,15 +17,17 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_cmd_alloc_pd@IBVERBS_1.0 1.1.6
  ibv_cmd_attach_mcast@IBVERBS_1.0 1.1.6
  ibv_cmd_close_xrcd@IBVERBS_1.1 1.1.8
- ibv_cmd_create_ah@IBVERBS_1.0 1.1.6
+ ibv_cmd_create_ah@IBVERBS_1.4 12
  ibv_cmd_create_cq@IBVERBS_1.0 1.1.6
  ibv_cmd_create_cq_ex@IBVERBS_1.0 1.2.1
  ibv_cmd_create_flow@IBVERBS_1.0 1.1.8
  ibv_cmd_create_qp@IBVERBS_1.0 1.1.6
  ibv_cmd_create_qp_ex2@IBVERBS_1.1 1.2.1
  ibv_cmd_create_qp_ex@IBVERBS_1.1 1.1.8
+ ibv_cmd_create_rwq_ind_table@IBVERBS_1.3 1.1.12
  ibv_cmd_create_srq@IBVERBS_1.0 1.1.6
  ibv_cmd_create_srq_ex@IBVERBS_1.1 1.1.8
+ ibv_cmd_create_wq@IBVERBS_1.3 1.1.12
  ibv_cmd_dealloc_mw@IBVERBS_1.1 1.2.1
  ibv_cmd_dealloc_pd@IBVERBS_1.0 1.1.6
  ibv_cmd_dereg_mr@IBVERBS_1.0 1.1.6
@@ -31,11 +35,15 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_cmd_destroy_cq@IBVERBS_1.0 1.1.6
  ibv_cmd_destroy_flow@IBVERBS_1.0 1.1.8
  ibv_cmd_destroy_qp@IBVERBS_1.0 1.1.6
+ ibv_cmd_destroy_rwq_ind_table@IBVERBS_1.3 1.1.12
  ibv_cmd_destroy_srq@IBVERBS_1.0 1.1.6
+ ibv_cmd_destroy_wq@IBVERBS_1.3 1.1.12
  ibv_cmd_detach_mcast@IBVERBS_1.0 1.1.6
  ibv_cmd_get_context@IBVERBS_1.0 1.1.6
  ibv_cmd_modify_qp@IBVERBS_1.0 1.1.6
+ ibv_cmd_modify_qp_ex@IBVERBS_1.4 12
  ibv_cmd_modify_srq@IBVERBS_1.0 1.1.6
+ ibv_cmd_modify_wq@IBVERBS_1.3 1.1.12
  ibv_cmd_open_qp@IBVERBS_1.1 1.1.8
  ibv_cmd_open_xrcd@IBVERBS_1.1 1.1.8
  ibv_cmd_poll_cq@IBVERBS_1.0 1.1.6
@@ -110,6 +118,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_query_device@IBVERBS_1.1 1.1.6
  ibv_query_gid@IBVERBS_1.0 1.1.6
  ibv_query_gid@IBVERBS_1.1 1.1.6
+ ibv_query_gid_type@IBVERBS_1.3 1.1.12
  ibv_query_pkey@IBVERBS_1.0 1.1.6
  ibv_query_pkey@IBVERBS_1.1 1.1.6
  ibv_query_port@IBVERBS_1.0 1.1.6
