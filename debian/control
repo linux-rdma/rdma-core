@@ -15,6 +15,7 @@ Build-Depends: cmake (>= 2.8.11),
 Standards-Version: 3.9.8
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git
 Vcs-Browser: https://github.com/linux-rdma/rdma-core
+Homepage: https://github.com/linux-rdma/rdma-core
 
 Package: ibacm
 Architecture: any
