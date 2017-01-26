@@ -7,11 +7,11 @@ ibv_xsrq_pingpong \- simple InfiniBand shared receive queue test
 .SH SYNOPSIS
 .B ibv_xsrq_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-m mtu] [\-c clients]
-[\-n num_tests] [\-l sl] [\-e] \fBHOSTNAME\fR
+[\-n num_tests] [\-l sl] [\-e] [\-g gid index] \fBHOSTNAME\fR
 
 .B ibv_xsrq_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-m mtu] [\-c clients]
-[\-n num_tests] [\-l sl] [\-e]
+[\-n num_tests] [\-l sl] [\-e] [\-g gid index]
 
 .SH DESCRIPTION
 .PP
@@ -49,6 +49,9 @@ use \fISL\fR as the service level value (default 0)
 \fB\-e\fR, \fB\-\-events\fR
 sleep while waiting for work completion events (default is to poll for
 completions)
+.TP
+\fB\-g\fR, \fB\-\-gid-idx\fR=\fIGIDINDEX\fR
+local port \fIGIDINDEX\fR
 
 .SH SEE ALSO
 .BR ibv_rc_pingpong (1),
