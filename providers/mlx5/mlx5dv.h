@@ -37,6 +37,13 @@
 #include <linux/types.h>
 #include <arpa/inet.h>
 
+/* Always inline the functions */
+#ifdef __GNUC__
+#define MLX5DV_ALWAYS_INLINE inline __attribute__((always_inline))
+#else
+#define MLX5DV_ALWAYS_INLINE inline
+#endif
+
 enum {
 	MLX5_RCV_DBR	= 0,
 	MLX5_SND_DBR	= 1,
@@ -263,6 +270,37 @@ struct mlx5_cqe64 {
 	uint8_t		signature;
 	uint8_t		op_own;
 };
+
+static MLX5DV_ALWAYS_INLINE
+uint8_t mlx5dv_get_cqe_owner(struct mlx5_cqe64 *cqe)
+{
+	return cqe->op_own & 0x1;
+}
+
+static MLX5DV_ALWAYS_INLINE
+void mlx5dv_set_cqe_owner(struct mlx5_cqe64 *cqe, uint8_t val)
+{
+	cqe->op_own = (val & 0x1) | (cqe->op_own & ~0x1);
+}
+
+/* Solicited event */
+static MLX5DV_ALWAYS_INLINE
+uint8_t mlx5dv_get_cqe_se(struct mlx5_cqe64 *cqe)
+{
+	return (cqe->op_own >> 1) & 0x1;
+}
+
+static MLX5DV_ALWAYS_INLINE
+uint8_t mlx5dv_get_cqe_format(struct mlx5_cqe64 *cqe)
+{
+	return (cqe->op_own >> 2) & 0x3;
+}
+
+static MLX5DV_ALWAYS_INLINE
+uint8_t mlx5dv_get_cqe_opcode(struct mlx5_cqe64 *cqe)
+{
+	return cqe->op_own >> 4;
+}
 
 /*
  * WQE related part
