@@ -17,7 +17,7 @@ endif()
 
 rdma_library(ibverbs libibverbs.map
   # See Documentation/versioning.md
-  1 1.3.${PACKAGE_VERSION}
+  1 1.4.${PACKAGE_VERSION}
   cmd.c
   compat-1_0.c
   device.c
