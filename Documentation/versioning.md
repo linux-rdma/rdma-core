@@ -17,37 +17,49 @@ When the PACKAGE_VERSION is changed, the packaging files should be updated:
 
 ```diff
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 389feee1e0f9..63854fe8f07f 100644
+index 8f7a47580f7b95..45cbc4e018b296 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -26,7 +26,7 @@ project(RDMA C)
+@@ -44,7 +44,7 @@ endif()
  set(PACKAGE_NAME "RDMA")
  
  # See Documentation/versioning.md
--set(PACKAGE_VERSION "11")
-+set(PACKAGE_VERSION "12")
+-set(PACKAGE_VERSION "12")
++set(PACKAGE_VERSION "13")
  
  #-------------------------
  # Basic standard paths
+diff --git a/debian/changelog b/debian/changelog
+index 6cabcc483ca85e..3defc050c5e457 100644
+--- a/debian/changelog
++++ b/debian/changelog
+@@ -1,4 +1,4 @@
+-rdma-core (12-1) unstable; urgency=low
++rdma-core (13-1) unstable; urgency=low
+ 
+   * New version.
+   * Adding debian/copyright.
 diff --git a/rdma-core.spec b/rdma-core.spec
-index d1407ee9e24b..fca79ccf57e5 100644
+index 41eedb2813c52d..6519bc370a230a 100644
 --- a/rdma-core.spec
 +++ b/rdma-core.spec
 @@ -1,5 +1,5 @@
  Name: rdma-core
--Version: 11
-+Version: 12
+-Version: 12
++Version: 13
  Release: 1%{?dist}
- Summary: Userspace components for the Linux Kernel\'s drivers/infiniband stack
-diff --git a/debian/changelog b/debian/changelog
-index 0e6cba0be464..a12ac6b60028 100644
---- a/debian/changelog
-+++ b/debian/changelog
-@@ -1,4 +1,4 @@
--rdma-core (11-1) unstable; urgency=low
-+rdma-core (12-1) unstable; urgency=low
+ Summary: RDMA core userspace libraries and daemons
  
-   * New version
+diff --git a/redhat/rdma-core.spec b/redhat/rdma-core.spec
+index 4271e7c9817e67..f2198ee3cd9410 100644
+--- a/redhat/rdma-core.spec
++++ b/redhat/rdma-core.spec
+@@ -1,5 +1,5 @@
+ Name: rdma-core
+-Version: 12
++Version: 13
+ Release: 1%{?dist}
+ Summary: RDMA core userspace libraries and daemons
  
 ```
 
