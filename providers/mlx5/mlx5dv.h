@@ -43,6 +43,7 @@
 #endif /* defined(__SSE3__) */
 
 #include <infiniband/verbs.h>
+#include <infiniband/tm_types.h>
 
 /* Always inline the functions */
 #ifdef __GNUC__
@@ -311,6 +312,8 @@ struct mlx5_cqe64 {
 			__be16		vlan_info;
 		};
 		struct mlx5_tm_cqe tm_cqe;
+		/* TMH is scattered to CQE upon match */
+		struct ibv_tmh tmh;
 	};
 	__be32		srqn_uidx;
 	__be32		imm_inval_pkey;
