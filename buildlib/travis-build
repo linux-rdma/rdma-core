@@ -10,6 +10,7 @@ cd build
 # The goal is warning free compile on latest gcc.
 CC=gcc-6 CFLAGS=-Werror cmake -GNinja ..
 ninja
+../buildlib/check-build --src ..
 
 # .. and latest clang
 cd ../build-clang
