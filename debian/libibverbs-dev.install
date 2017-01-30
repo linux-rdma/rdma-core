@@ -1,7 +1,4 @@
-usr/include/infiniband/arch.h
-usr/include/infiniband/driver.h
 usr/include/infiniband/kern-abi.h
-usr/include/infiniband/marshall.h
 usr/include/infiniband/opcode.h
 usr/include/infiniband/sa-kern-abi.h
 usr/include/infiniband/sa.h

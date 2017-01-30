@@ -74,7 +74,18 @@ def check_lib_symver(args,fn):
         raise ValueError("Symbol version %r implied by filename %r not in ELF (%r)"%(
             newest_symver,fn,syms));
 
-    syms = list(syms);
+    # The private symbol tag should also be older than the package version
+    private = set(I for I in syms if "PRIVATE" in I)
+    if len(private) > 1:
+        raise ValueError("Too many private symbol versions in ELF %r (%r)"%(fn,private));
+    if private:
+        private_rel = list(private)[0].split('_')[-1];
+        print repr(private_rel)
+        if private_rel > args.PACKAGE_VERSION:
+            raise ValueError("Private Symbol Version %r is newer than the package version %r"%(
+                private,args.PACKAGE_VERSION));
+
+    syms = list(syms - private);
     syms.sort(key=lambda x:re.split('[._]',x));
     if newest_symver != syms[-1]:
         raise ValueError("Symbol version %r implied by filename %r not the newest in ELF (%r)"%(

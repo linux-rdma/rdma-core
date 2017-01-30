@@ -138,3 +138,25 @@ $ readelf -s build/lib/libibumad.so.3.1.11
 ```
 
 Finally update the `debian/libibumad3.symbols` file.
+
+## Private symbols in libibverbs
+
+Many symbols in libibverbs are private to rdma-core, they are being marked in
+the map file using the IBVERBS_PRIVATE_ prefix.
+
+For simplicity, there is only one version of the private symbol version
+stanza, and it is bumped whenever any change (add/remove/modify) to any of the
+private ABI is done. This makes it very clear if an incompatible provider is
+being used with libibverbs.
+
+Due to this there is no reason to provide compat symbol versions for the
+private ABI.
+
+### Use of private symbols between component packages
+
+A distribution packaging system still must have the correct dependencies
+between libraries within rdma-core that may use these private symbols.
+
+For this reason the private symbols can only be used by provider libraries and
+the distribution must ensure that a matched set of provider libraries and
+libibverbs are installed.

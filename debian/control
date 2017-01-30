@@ -47,7 +47,7 @@ Description: Examples for the libibverbs library
 Package: ibverbs-providers
 Section: net
 Architecture: linux-any
-Depends: ${misc:Depends}, ${perl:Depends}, ${shlibs:Depends}
+Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}, ${perl:Depends}, ${shlibs:Depends}
 Provides: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1
 Replaces: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1
 Breaks: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1

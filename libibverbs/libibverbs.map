@@ -37,43 +37,14 @@ IBVERBS_1.0 {
 		ibv_destroy_ah;
 		ibv_attach_mcast;
 		ibv_detach_mcast;
-		ibv_cmd_get_context;
-		ibv_cmd_query_device;
-		ibv_cmd_query_device_ex;
-		ibv_cmd_query_port;
-		ibv_cmd_query_gid;
-		ibv_cmd_query_pkey;
-		ibv_cmd_alloc_pd;
-		ibv_cmd_dealloc_pd;
-		ibv_cmd_reg_mr;
-		ibv_cmd_dereg_mr;
-		ibv_cmd_create_cq;
-		ibv_cmd_create_cq_ex;
-		ibv_cmd_poll_cq;
-		ibv_cmd_req_notify_cq;
-		ibv_cmd_resize_cq;
-		ibv_cmd_destroy_cq;
-		ibv_cmd_create_srq;
-		ibv_cmd_modify_srq;
-		ibv_cmd_query_srq;
-		ibv_cmd_destroy_srq;
-		ibv_cmd_create_qp;
-		ibv_cmd_query_qp;
-		ibv_cmd_modify_qp;
-		ibv_cmd_destroy_qp;
-		ibv_cmd_post_send;
-		ibv_cmd_post_recv;
-		ibv_cmd_post_srq_recv;
-		ibv_cmd_destroy_ah;
-		ibv_cmd_attach_mcast;
-		ibv_cmd_detach_mcast;
-		ibv_cmd_create_flow;
-		ibv_cmd_destroy_flow;
-		ibv_copy_qp_attr_from_kern;
-		ibv_copy_path_rec_from_kern;
-		ibv_copy_path_rec_to_kern;
 		ibv_rate_to_mult;
 		mult_to_ibv_rate;
+
+		/* These historical symbols are now private to libibverbs, but used by
+		   other rdma-core libraries. Do not change them. */
+		ibv_copy_path_rec_from_kern;
+		ibv_copy_path_rec_to_kern;
+		ibv_copy_qp_attr_from_kern;
 		ibv_get_sysfs_path;
 		ibv_read_sysfs_file;
 
@@ -91,48 +62,81 @@ IBVERBS_1.1 {
 
 		ibv_init_ah_from_wc;
 		ibv_create_ah_from_wc;
-		ibv_copy_ah_attr_from_kern;
 		ibv_fork_init;
 		ibv_dontfork_range;
 		ibv_dofork_range;
-		ibv_register_driver;
-		verbs_register_driver;
 
 		ibv_node_type_str;
 		ibv_port_state_str;
 		ibv_event_type_str;
 		ibv_wc_status_str;
 
-		ibv_cmd_alloc_mw;
-		ibv_cmd_dealloc_mw;
-
 		ibv_rate_to_mbps;
 		mbps_to_ibv_rate;
 
 		ibv_resolve_eth_l2_from_gid;
 
-		ibv_cmd_open_xrcd;
-		ibv_cmd_close_xrcd;
-		ibv_cmd_create_srq_ex;
-		ibv_cmd_create_qp_ex;
-		ibv_cmd_create_qp_ex2;
-		ibv_cmd_open_qp;
-		ibv_cmd_rereg_mr;
-
+		/* These historical symbols are now private to libibverbs, but used by
+		   other rdma-core libraries. Do not change them. */
+		ibv_copy_ah_attr_from_kern;
 } IBVERBS_1.0;
 
-IBVERBS_1.3 {
-	global:
-		ibv_cmd_create_wq;
-		ibv_cmd_modify_wq;
-		ibv_cmd_destroy_wq;
-		ibv_cmd_create_rwq_ind_table;
-		ibv_cmd_destroy_rwq_ind_table;
-		ibv_query_gid_type;
-} IBVERBS_1.1;
+/* NOTE: The next stanza for public symbols should be IBVERBS_1.4 due to release 12 */
 
-IBVERBS_1.4 {
+/* If any symbols in this stanza change ABI then the entire staza gets a new symbol
+   version. */
+IBVERBS_PRIVATE_13 {
 	global:
-		ibv_cmd_modify_qp_ex;
+		/* These historical symbols are now private to libibverbs */
+		ibv_cmd_alloc_mw;
+		ibv_cmd_alloc_pd;
+		ibv_cmd_attach_mcast;
+		ibv_cmd_close_xrcd;
 		ibv_cmd_create_ah;
-} IBVERBS_1.3;
+		ibv_cmd_create_cq;
+		ibv_cmd_create_cq_ex;
+		ibv_cmd_create_flow;
+		ibv_cmd_create_qp;
+		ibv_cmd_create_qp_ex2;
+		ibv_cmd_create_qp_ex;
+		ibv_cmd_create_rwq_ind_table;
+		ibv_cmd_create_srq;
+		ibv_cmd_create_srq_ex;
+		ibv_cmd_create_wq;
+		ibv_cmd_dealloc_mw;
+		ibv_cmd_dealloc_pd;
+		ibv_cmd_dereg_mr;
+		ibv_cmd_destroy_ah;
+		ibv_cmd_destroy_cq;
+		ibv_cmd_destroy_flow;
+		ibv_cmd_destroy_qp;
+		ibv_cmd_destroy_rwq_ind_table;
+		ibv_cmd_destroy_srq;
+		ibv_cmd_destroy_wq;
+		ibv_cmd_detach_mcast;
+		ibv_cmd_get_context;
+		ibv_cmd_modify_qp;
+		ibv_cmd_modify_qp_ex;
+		ibv_cmd_modify_srq;
+		ibv_cmd_modify_wq;
+		ibv_cmd_open_qp;
+		ibv_cmd_open_xrcd;
+		ibv_cmd_poll_cq;
+		ibv_cmd_post_recv;
+		ibv_cmd_post_send;
+		ibv_cmd_post_srq_recv;
+		ibv_cmd_query_device;
+		ibv_cmd_query_device_ex;
+		ibv_cmd_query_gid;
+		ibv_cmd_query_pkey;
+		ibv_cmd_query_port;
+		ibv_cmd_query_qp;
+		ibv_cmd_query_srq;
+		ibv_cmd_reg_mr;
+		ibv_cmd_req_notify_cq;
+		ibv_cmd_rereg_mr;
+		ibv_cmd_resize_cq;
+		ibv_query_gid_type;
+		ibv_register_driver;
+		verbs_register_driver;
+};

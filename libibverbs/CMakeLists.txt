@@ -1,12 +1,15 @@
 publish_headers(infiniband
-  arch.h
-  driver.h
   kern-abi.h
-  marshall.h
   opcode.h
   sa-kern-abi.h
   sa.h
   verbs.h
+  )
+
+publish_internal_headers(infiniband
+  arch.h
+  driver.h
+  marshall.h
   )
 
 if (NOT NL_KIND EQUAL 0)
@@ -17,7 +20,7 @@ endif()
 
 rdma_library(ibverbs libibverbs.map
   # See Documentation/versioning.md
-  1 1.4.${PACKAGE_VERSION}
+  1 1.1.${PACKAGE_VERSION}
   cmd.c
   compat-1_0.c
   device.c
