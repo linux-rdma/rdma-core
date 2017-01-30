@@ -10,7 +10,8 @@ if (MLX5_MW_DEBUG)
   add_definitions("-DMW_DEBUG")
 endif()
 
-rdma_provider(mlx5
+rdma_shared_provider(mlx5 libmlx5.map
+  1 1.0.${PACKAGE_VERSION}
   buf.c
   cq.c
   dbrec.c
@@ -18,4 +19,8 @@ rdma_provider(mlx5
   qp.c
   srq.c
   verbs.c
+)
+
+publish_headers(infiniband
+  mlx5dv.h
 )
