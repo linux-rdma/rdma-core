@@ -59,6 +59,7 @@
 #include <poll.h>
 #include <inttypes.h>
 #include <ccan/list.h>
+#include <util/util.h>
 #include "acm_mad.h"
 #include "acm_util.h"
 
@@ -2549,8 +2550,10 @@ static int acm_open_providers(void)
 		if (!strstr(dent->d_name, ".so"))
 			continue;
 
-		snprintf(file_name, sizeof(file_name), "%s/%s", prov_lib_path,
-			 dent->d_name);
+		if (!check_snprintf(file_name, sizeof(file_name), "%s/%s",
+				    prov_lib_path, dent->d_name))
+			continue;
+
 		if (lstat(file_name, &buf)) {
 			acm_log(0, "Error - could not stat: %s\n", file_name);
 			continue;

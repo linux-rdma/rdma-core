@@ -46,6 +46,7 @@
 #include <dirent.h>
 #include <errno.h>
 
+#include <util/util.h>
 #include "ibverbs.h"
 
 int abi_ver;
@@ -85,8 +86,9 @@ static int find_sysfs_devs(void)
 	char value[8];
 	int ret = 0;
 
-	snprintf(class_path, sizeof class_path, "%s/class/infiniband_verbs",
-		 ibv_get_sysfs_path());
+	if (!check_snprintf(class_path, sizeof(class_path),
+			    "%s/class/infiniband_verbs", ibv_get_sysfs_path()))
+		return ENOMEM;
 
 	class_dir = opendir(class_path);
 	if (!class_dir)
@@ -105,8 +107,9 @@ static int find_sysfs_devs(void)
 			goto out;
 		}
 
-		snprintf(sysfs_dev->sysfs_path, sizeof sysfs_dev->sysfs_path,
-			 "%s/%s", class_path, dent->d_name);
+		if (!check_snprintf(sysfs_dev->sysfs_path, sizeof sysfs_dev->sysfs_path,
+				    "%s/%s", class_path, dent->d_name))
+			continue;
 
 		if (stat(sysfs_dev->sysfs_path, &buf)) {
 			fprintf(stderr, PFX "Warning: couldn't stat '%s'.\n",
@@ -117,8 +120,9 @@ static int find_sysfs_devs(void)
 		if (!S_ISDIR(buf.st_mode))
 			continue;
 
-		snprintf(sysfs_dev->sysfs_name, sizeof sysfs_dev->sysfs_name,
-			"%s", dent->d_name);
+		if (!check_snprintf(sysfs_dev->sysfs_name, sizeof sysfs_dev->sysfs_name,
+				    "%s", dent->d_name))
+			continue;
 
 		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "ibdev",
 					sysfs_dev->ibdev_name,
@@ -128,9 +132,11 @@ static int find_sysfs_devs(void)
 			continue;
 		}
 
-		snprintf(sysfs_dev->ibdev_path, sizeof sysfs_dev->ibdev_path,
-			 "%s/class/infiniband/%s", ibv_get_sysfs_path(),
-			 sysfs_dev->ibdev_name);
+		if (!check_snprintf(
+			sysfs_dev->ibdev_path, sizeof(sysfs_dev->ibdev_path),
+			"%s/class/infiniband/%s", ibv_get_sysfs_path(),
+			sysfs_dev->ibdev_name))
+			continue;
 
 		sysfs_dev->next        = sysfs_dev_list;
 		sysfs_dev->have_driver = 0;
