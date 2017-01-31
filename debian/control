@@ -29,7 +29,6 @@ Description: InfiniBand Communication Manager Assistant (ACM)
  A primary user of the ibacm service is the librdmacm library.
 
 Package: ibverbs-utils
-Section: net
 Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Examples for the libibverbs library
@@ -46,7 +45,6 @@ Description: Examples for the libibverbs library
  ibv_devinfo, which displays information about InfiniBand devices.
 
 Package: ibverbs-providers
-Section: net
 Architecture: linux-any
 Depends: ${misc:Depends}, ${perl:Depends}, ${shlibs:Depends}
 Provides: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1
@@ -262,7 +260,6 @@ Description: Development files for the librdmacm library
  needed for compiling.
 
 Package: rdma-core
-Section: net
 Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: RDMA core userspace infrastructure and documentation.
@@ -270,7 +267,6 @@ Description: RDMA core userspace infrastructure and documentation.
  for systems that use the Linux kernel's RDMA subystem.
 
 Package: rdmacm-utils
-Section: net
 Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Examples for the librdmacm library
