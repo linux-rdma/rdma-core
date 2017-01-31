@@ -1200,7 +1200,7 @@ static inline int ocrdma_build_inline_sges(struct ocrdma_qp *qp,
 		hdr->total_len = ocrdma_sglist_len(wr->sg_list, wr->num_sge);
 		if (hdr->total_len > qp->max_inline_data) {
 			ocrdma_err
-			("%s() supported_len=0x%x, unspported len req=0x%x\n",
+			("%s() supported_len=0x%x, unsupported len req=0x%x\n",
 			__func__, qp->max_inline_data, hdr->total_len);
 			return EINVAL;
 		}
