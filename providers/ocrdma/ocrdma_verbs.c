@@ -1083,7 +1083,7 @@ int ocrdma_destroy_qp(struct ibv_qp *ibqp)
 		munmap(qp->sq.va, qp->sq.len);
 
 	/* ensure that CQEs for newly created QP (whose id may be same with
-	 * one which just getting destroyed are same), dont get
+	 * one which just getting destroyed are same), don't get
 	 * discarded until the old CQEs are discarded.
 	 */
 	pthread_mutex_lock(&dev->dev_lock);
