@@ -181,6 +181,17 @@ class jessie(APTEnvironment):
     name = "debian-8";
     aliases = {"jessie"};
 
+class debian_experimental(APTEnvironment):
+    docker_parent = "debian:experimental"
+    pkgs = (trusty.pkgs ^ {"gcc"}) | {"gcc-7"};
+    name = "debian-experimental";
+
+    def get_docker_file(self):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN apt-get update && apt-get -t experimental install -y --no-install-recommends %s && apt-get clean"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
+
 class travis(APTEnvironment):
     """This parses the .travis.yml "apt" add on and converts it to a dockerfile,
     basically creating a container that is similar to what travis would
@@ -301,6 +312,7 @@ environments = [centos6(),
                 harlequin(),
                 malachite(),
                 tumbleweed(),
+                debian_experimental(),
 ];
 
 class ToEnvAction(argparse.Action):
