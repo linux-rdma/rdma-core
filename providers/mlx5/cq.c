@@ -40,6 +40,7 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <util/compiler.h>
 #include <infiniband/opcode.h>
 
 #include "mlx5.h"
@@ -189,11 +190,13 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 	switch (ntohl(cqe->sop_drop_qpn) >> 24) {
 	case MLX5_OPCODE_RDMA_WRITE_IMM:
 		wc->wc_flags |= IBV_WC_WITH_IMM;
+		SWITCH_FALLTHROUGH;
 	case MLX5_OPCODE_RDMA_WRITE:
 		wc->opcode    = IBV_WC_RDMA_WRITE;
 		break;
 	case MLX5_OPCODE_SEND_IMM:
 		wc->wc_flags |= IBV_WC_WITH_IMM;
+		SWITCH_FALLTHROUGH;
 	case MLX5_OPCODE_SEND:
 	case MLX5_OPCODE_SEND_INVAL:
 		wc->opcode    = IBV_WC_SEND;

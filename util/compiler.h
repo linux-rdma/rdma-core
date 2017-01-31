@@ -37,4 +37,11 @@
 #define ALWAYS_INLINE
 #endif
 
+/* Use to mark fall through on switch statements as desired. */
+#if __GNUC__ >= 7
+#define SWITCH_FALLTHROUGH __attribute__ ((fallthrough))
+#else
+#define SWITCH_FALLTHROUGH
+#endif
+
 #endif

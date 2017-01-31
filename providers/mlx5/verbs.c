@@ -45,6 +45,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include <util/compiler.h>
 #include "mlx5.h"
 #include "mlx5-abi.h"
 #include "wqe.h"
@@ -743,6 +744,8 @@ static int sq_overhead(enum ibv_qp_type	qp_type)
 
 	case IBV_QPT_XRC_SEND:
 		size = sizeof(struct mlx5_wqe_ctrl_seg) + mw_bind_size;
+		SWITCH_FALLTHROUGH;
+
 	case IBV_QPT_XRC_RECV:
 		size = max(size, sizeof(struct mlx5_wqe_ctrl_seg) +
 			   sizeof(struct mlx5_wqe_xrc_seg) +

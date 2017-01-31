@@ -49,6 +49,7 @@
 #include "qelr_abi.h"
 #include "qelr_chain.h"
 #include "qelr_verbs.h"
+#include <util/compiler.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1686,7 +1687,7 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 		case QELR_RESP_RDMA_IMM:
 			/* update opcode */
 			wc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
-			/* fall to set imm data */
+			SWITCH_FALLTHROUGH;
 		case QELR_RESP_IMM:
 			wc->imm_data =
 				ntohl(le32toh(resp->imm_data_or_inv_r_Key));
