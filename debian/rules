@@ -56,14 +56,17 @@ override_dh_makeshlibs:
 
 # Create dbg packages.
 # FIXME: should we just have a rdma-core-dbg package ?
+# USE_DBGSYM :=
+DH_VERSION := $(shell dpkg-query -W -f '$${Version}' debhelper)
+USE_DBGSYM ?= $(shell if dpkg --compare-versions $(DH_VERSION) ">=" 9.20160114 ; then echo yes ; fi)
 override_dh_strip:
-	dh_strip -plibibcm1 --dbg-package=libibcm1-dbg
-	dh_strip -plibibumad3 --dbg-package=libibumad3-dbg
-	dh_strip -plibibverbs1 --dbg-package=libibverbs1-dbg
-	dh_strip -plibrdmacm1 --dbg-package=librdmacm1-dbg
-
+ifeq ( $(USE_DBGSYM),yes)
+	dh_strip -plibibcm1 --dbgsym-migration='libibcm1-dbg (<< 12-1~)'
+	dh_strip -plibibumad3 --dbgsym-migration='libibumad3-dbg (<< 12-1~)'
+	dh_strip -plibibverbs1 --dbgsym-migration='libibverbs1-dbg (<< 12-1~)'
+	dh_strip -plibrdmacm1 --dbgsym-migration='librdmacm1-dbg (<< 12-1~)'
+endif
 	dh_strip --remaining-packages
-
 # Upstream encourages the use of 'build' as the developer build output
 # directory, allow that directory to be present and still allow dh to work.
 .PHONY: build
