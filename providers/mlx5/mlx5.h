@@ -35,6 +35,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -43,18 +44,7 @@
 #include "bitmap.h"
 #include <ccan/minmax.h>
 
-#ifdef __GNUC__
-#define likely(x)	__builtin_expect((x), 1)
-#define unlikely(x)	__builtin_expect((x), 0)
-#endif
-
 #include <valgrind/memcheck.h>
-
-#ifdef HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
-#define ALWAYS_INLINE __attribute__((always_inline))
-#else
-#define ALWAYS_INLINE
-#endif
 
 #define PFX		"mlx5: "
 

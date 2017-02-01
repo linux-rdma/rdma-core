@@ -118,6 +118,28 @@ static struct ibv_context_ops mlx4_ctx_ops = {
 	.detach_mcast  = ibv_cmd_detach_mcast
 };
 
+static int mlx4_map_internal_clock(struct mlx4_device *mdev,
+				   struct ibv_context *ibv_ctx)
+{
+	struct mlx4_context *context = to_mctx(ibv_ctx);
+	void *hca_clock_page;
+
+	hca_clock_page = mmap(NULL, mdev->page_size,
+			      PROT_READ, MAP_SHARED, ibv_ctx->cmd_fd,
+			      mdev->page_size * 3);
+
+	if (hca_clock_page == MAP_FAILED) {
+		fprintf(stderr, PFX
+			"Warning: Timestamp available,\n"
+			"but failed to mmap() hca core clock page.\n");
+		return -1;
+	}
+
+	context->hca_core_clock = hca_clock_page +
+		(context->core_clock.offset & (mdev->page_size - 1));
+	return 0;
+}
+
 static int mlx4_init_context(struct verbs_device *v_device,
 				struct ibv_context *ibv_ctx, int cmd_fd)
 {
@@ -129,7 +151,7 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	__u16				bf_reg_size;
 	struct mlx4_device              *dev = to_mdev(&v_device->device);
 	struct verbs_context *verbs_ctx = verbs_get_ctx(ibv_ctx);
-	struct ibv_device_attr		dev_attrs;
+	struct ibv_device_attr_ex	dev_attrs;
 
 	/* memory footprint of mlx4_context and verbs_context share
 	* struct ibv_context.
@@ -200,10 +222,14 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 	ibv_ctx->ops = mlx4_ctx_ops;
 
+	context->hca_core_clock = NULL;
 	memset(&dev_attrs, 0, sizeof(dev_attrs));
-	if (!mlx4_query_device(ibv_ctx, &dev_attrs)) {
-		context->max_qp_wr = dev_attrs.max_qp_wr;
-		context->max_sge = dev_attrs.max_sge;
+	if (!mlx4_query_device_ex(ibv_ctx, NULL, &dev_attrs,
+				  sizeof(struct ibv_device_attr_ex))) {
+		context->max_qp_wr = dev_attrs.orig_attr.max_qp_wr;
+		context->max_sge = dev_attrs.orig_attr.max_sge;
+		if (context->core_clock.offset_valid)
+			mlx4_map_internal_clock(dev, ibv_ctx);
 	}
 
 	verbs_ctx->has_comp_mask = VERBS_CONTEXT_XRCD | VERBS_CONTEXT_SRQ |
@@ -216,6 +242,9 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	verbs_set_ctx_op(verbs_ctx, open_qp, mlx4_open_qp);
 	verbs_set_ctx_op(verbs_ctx, ibv_create_flow, ibv_cmd_create_flow);
 	verbs_set_ctx_op(verbs_ctx, ibv_destroy_flow, ibv_cmd_destroy_flow);
+	verbs_set_ctx_op(verbs_ctx, create_cq_ex, mlx4_create_cq_ex);
+	verbs_set_ctx_op(verbs_ctx, query_device_ex, mlx4_query_device_ex);
+	verbs_set_ctx_op(verbs_ctx, query_rt_values, mlx4_query_rt_values);
 
 	return 0;
 
@@ -229,7 +258,9 @@ static void mlx4_uninit_context(struct verbs_device *v_device,
 	munmap(context->uar, to_mdev(&v_device->device)->page_size);
 	if (context->bf_page)
 		munmap(context->bf_page, to_mdev(&v_device->device)->page_size);
-
+	if (context->hca_core_clock)
+		munmap(context->hca_core_clock - context->core_clock.offset,
+		       to_mdev(&v_device->device)->page_size);
 }
 
 static struct verbs_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)

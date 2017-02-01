@@ -36,6 +36,7 @@
 
 #include <stddef.h>
 #include <netinet/in.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -50,14 +51,6 @@
 enum {
 	MLX4_STAT_RATE_OFFSET		= 5
 };
-
-#ifndef likely
-#ifdef __GNUC__
-#define likely(x)       __builtin_expect(!!(x),1)
-#else
-#define likely(x)      (x)
-#endif
-#endif
 
 enum {
 	MLX4_QP_TABLE_BITS		= 8,
@@ -161,6 +154,11 @@ struct mlx4_context {
 		uint8_t                 link_layer;
 		enum ibv_port_cap_flags caps;
 	} port_query_cache[MLX4_PORTS_NUM];
+	struct {
+		uint64_t                offset;
+		uint8_t                 offset_valid;
+	} core_clock;
+	void			       *hca_core_clock;
 };
 
 struct mlx4_buf {
@@ -173,8 +171,14 @@ struct mlx4_pd {
 	uint32_t			pdn;
 };
 
+enum {
+	MLX4_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
+	MLX4_CQ_FLAGS_EXTENDED = 1 << 1,
+	MLX4_CQ_FLAGS_SINGLE_THREADED = 1 << 2,
+};
+
 struct mlx4_cq {
-	struct ibv_cq			ibv_cq;
+	struct ibv_cq_ex		ibv_cq;
 	struct mlx4_buf			buf;
 	struct mlx4_buf			resize_buf;
 	pthread_spinlock_t		lock;
@@ -184,6 +188,9 @@ struct mlx4_cq {
 	uint32_t		       *arm_db;
 	int				arm_sn;
 	int				cqe_size;
+	struct mlx4_qp			*cur_qp;
+	struct mlx4_cqe			*cqe;
+	uint32_t			flags;
 };
 
 struct mlx4_srq {
@@ -272,14 +279,20 @@ struct mlx4_cqe {
 	uint32_t	vlan_my_qpn;
 	uint32_t	immed_rss_invalid;
 	uint32_t	g_mlpath_rqpn;
-	uint8_t		sl_vid;
-	uint8_t		reserved1;
-	uint16_t	rlid;
+	union {
+		struct {
+			uint16_t	sl_vid;
+			uint16_t	rlid;
+		};
+		uint32_t ts_47_16;
+	};
 	uint32_t	status;
 	uint32_t	byte_cnt;
 	uint16_t	wqe_index;
 	uint16_t	checksum;
-	uint8_t		reserved3[3];
+	uint8_t		reserved3;
+	uint8_t		ts_15_8;
+	uint8_t		ts_7_0;
 	uint8_t		owner_sr_opcode;
 };
 
@@ -346,9 +359,14 @@ void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type, uint32_t
 
 int mlx4_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr);
+int mlx4_query_device_ex(struct ibv_context *context,
+			 const struct ibv_query_device_ex_input *input,
+			 struct ibv_device_attr_ex *attr,
+			 size_t attr_size);
 int mlx4_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr);
-
+int mlx4_query_rt_values(struct ibv_context *context,
+			 struct ibv_values_ex *values);
 struct ibv_pd *mlx4_alloc_pd(struct ibv_context *context);
 int mlx4_free_pd(struct ibv_pd *pd);
 struct ibv_xrcd *mlx4_open_xrcd(struct ibv_context *context,
@@ -369,6 +387,9 @@ int mlx4_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector);
+struct ibv_cq_ex *mlx4_create_cq_ex(struct ibv_context *context,
+				    struct ibv_cq_init_attr_ex *cq_attr);
+void mlx4_cq_fill_pfns(struct mlx4_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr);
 int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
 		      int entry_size);
 int mlx4_resize_cq(struct ibv_cq *cq, int cqe);

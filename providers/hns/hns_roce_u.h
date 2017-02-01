@@ -34,6 +34,7 @@
 #define _HNS_ROCE_U_H
 
 #include <stddef.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
 #include <infiniband/arch.h>
@@ -50,10 +51,6 @@
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
 #define PFX				"hns: "
-
-#ifndef likely
-#define likely(x)     __builtin_expect(!!(x), 1)
-#endif
 
 #define roce_get_field(origin, mask, shift) \
 	(((origin) & (mask)) >> (shift))

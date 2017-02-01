@@ -51,6 +51,10 @@ struct mlx4_alloc_ucontext_resp_v3 {
 	__u16				bf_regs_per_page;
 };
 
+enum mlx4_query_dev_ex_resp_mask {
+	MLX4_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET = 1UL << 0,
+};
+
 struct mlx4_alloc_ucontext_resp {
 	struct ibv_get_context_resp	ibv_resp;
 	__u32				dev_caps;
@@ -78,9 +82,32 @@ struct mlx4_create_cq_resp {
 	__u32				reserved;
 };
 
+struct mlx4_create_cq_ex {
+	struct ibv_create_cq_ex		ibv_cmd;
+	__u64				buf_addr;
+	__u64				db_addr;
+};
+
+struct mlx4_create_cq_resp_ex {
+	struct ibv_create_cq_resp_ex	ibv_resp;
+	__u32				cqn;
+	__u32				reserved;
+};
+
 struct mlx4_resize_cq {
 	struct ibv_resize_cq		ibv_cmd;
 	__u64				buf_addr;
+};
+
+struct mlx4_query_device_ex_resp {
+	struct ibv_query_device_resp_ex ibv_resp;
+	__u32				comp_mask;
+	__u32				response_length;
+	__u64				hca_core_clock_offset;
+};
+
+struct mlx4_query_device_ex {
+	struct ibv_query_device_ex	ibv_cmd;
 };
 
 struct mlx4_create_srq {

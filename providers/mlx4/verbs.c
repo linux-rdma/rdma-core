@@ -64,6 +64,89 @@ int mlx4_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 	return 0;
 }
 
+int mlx4_query_device_ex(struct ibv_context *context,
+			 const struct ibv_query_device_ex_input *input,
+			 struct ibv_device_attr_ex *attr,
+			 size_t attr_size)
+{
+	struct mlx4_context *mctx = to_mctx(context);
+	struct mlx4_query_device_ex_resp resp = {};
+	struct mlx4_query_device_ex cmd = {};
+	uint64_t raw_fw_ver;
+	unsigned sub_minor;
+	unsigned major;
+	unsigned minor;
+	int err;
+
+	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
+				      &raw_fw_ver,
+				      &cmd.ibv_cmd, sizeof(cmd.ibv_cmd), sizeof(cmd),
+				      &resp.ibv_resp, sizeof(resp.ibv_resp),
+				      sizeof(resp));
+	if (err)
+		return err;
+
+	if (resp.comp_mask & MLX4_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
+		mctx->core_clock.offset = resp.hca_core_clock_offset;
+		mctx->core_clock.offset_valid = 1;
+	}
+
+	major     = (raw_fw_ver >> 32) & 0xffff;
+	minor     = (raw_fw_ver >> 16) & 0xffff;
+	sub_minor = raw_fw_ver & 0xffff;
+
+	snprintf(attr->orig_attr.fw_ver, sizeof attr->orig_attr.fw_ver,
+		 "%d.%d.%03d", major, minor, sub_minor);
+
+	return 0;
+}
+
+#define READL(ptr) (*((uint32_t *)(ptr)))
+static int mlx4_read_clock(struct ibv_context *context, uint64_t *cycles)
+{
+	unsigned int clockhi, clocklo, clockhi1;
+	int i;
+	struct mlx4_context *ctx = to_mctx(context);
+
+	if (!ctx->hca_core_clock)
+		return -EOPNOTSUPP;
+
+	/* Handle wraparound */
+	for (i = 0; i < 2; i++) {
+		clockhi = ntohl(READL(ctx->hca_core_clock));
+		clocklo = ntohl(READL(ctx->hca_core_clock + 4));
+		clockhi1 = ntohl(READL(ctx->hca_core_clock));
+		if (clockhi == clockhi1)
+			break;
+	}
+
+	*cycles = (uint64_t)clockhi << 32 | (uint64_t)clocklo;
+
+	return 0;
+}
+
+int mlx4_query_rt_values(struct ibv_context *context,
+			 struct ibv_values_ex *values)
+{
+	uint32_t comp_mask = 0;
+	int err = 0;
+
+	if (values->comp_mask & IBV_VALUES_MASK_RAW_CLOCK) {
+		uint64_t cycles;
+
+		err = mlx4_read_clock(context, &cycles);
+		if (!err) {
+			values->raw_clock.tv_sec = 0;
+			values->raw_clock.tv_nsec = cycles;
+			comp_mask |= IBV_VALUES_MASK_RAW_CLOCK;
+		}
+	}
+
+	values->comp_mask = comp_mask;
+
+	return err;
+}
+
 int mlx4_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr)
 {
@@ -304,19 +387,103 @@ int align_queue_size(int req)
 	return nent;
 }
 
-struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
-			       struct ibv_comp_channel *channel,
-			       int comp_vector)
+enum {
+	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS	|
+				       IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
+};
+
+enum {
+	CREATE_CQ_SUPPORTED_COMP_MASK = IBV_CQ_INIT_ATTR_MASK_FLAGS
+};
+
+enum {
+	CREATE_CQ_SUPPORTED_FLAGS = IBV_CREATE_CQ_ATTR_SINGLE_THREADED
+};
+
+
+static int mlx4_cmd_create_cq(struct ibv_context *context,
+			      struct ibv_cq_init_attr_ex *cq_attr,
+			      struct mlx4_cq *cq)
 {
-	struct mlx4_create_cq      cmd;
-	struct mlx4_create_cq_resp resp;
-	struct mlx4_cq		  *cq;
-	int			   ret;
-	struct mlx4_context       *mctx = to_mctx(context);
+	struct mlx4_create_cq      cmd = {};
+	struct mlx4_create_cq_resp resp = {};
+	int ret;
+
+	cmd.buf_addr = (uintptr_t) cq->buf.buf;
+	cmd.db_addr  = (uintptr_t) cq->set_ci_db;
+
+	ret = ibv_cmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
+				cq_attr->comp_vector,
+				ibv_cq_ex_to_cq(&cq->ibv_cq),
+				&cmd.ibv_cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
+	if (!ret)
+		cq->cqn = resp.cqn;
+
+	return ret;
+
+}
+
+static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
+				 struct ibv_cq_init_attr_ex *cq_attr,
+				 struct mlx4_cq *cq)
+{
+	struct mlx4_create_cq_ex      cmd = {};
+	struct mlx4_create_cq_resp_ex resp = {};
+	int ret;
+
+	cmd.buf_addr = (uintptr_t) cq->buf.buf;
+	cmd.db_addr  = (uintptr_t) cq->set_ci_db;
+
+	ret = ibv_cmd_create_cq_ex(context, cq_attr,
+				   &cq->ibv_cq, &cmd.ibv_cmd,
+				   sizeof(cmd.ibv_cmd),
+				   sizeof(cmd),
+				   &resp.ibv_resp,
+				   sizeof(resp.ibv_resp),
+				   sizeof(resp));
+	if (!ret)
+		cq->cqn = resp.cqn;
+
+	return ret;
+}
+
+static struct ibv_cq_ex *create_cq(struct ibv_context *context,
+				   struct ibv_cq_init_attr_ex *cq_attr,
+				   int cq_alloc_flags)
+{
+	struct mlx4_cq      *cq;
+	int                  ret;
+	struct mlx4_context *mctx = to_mctx(context);
 
 	/* Sanity check CQ size before proceeding */
-	if (cqe > 0x3fffff)
+	if (cq_attr->cqe > 0x3fffff) {
+		errno = EINVAL;
 		return NULL;
+	}
+
+	if (cq_attr->comp_mask & ~CREATE_CQ_SUPPORTED_COMP_MASK) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
+	    cq_attr->flags & ~CREATE_CQ_SUPPORTED_FLAGS) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	if (cq_attr->wc_flags & ~CREATE_CQ_SUPPORTED_WC_FLAGS)
+		return NULL;
+
+	/* mlx4 devices don't support slid and sl in cqe when completion
+	 * timestamp is enabled in the CQ
+	*/
+	if ((cq_attr->wc_flags & (IBV_WC_EX_WITH_SLID | IBV_WC_EX_WITH_SL)) &&
+	    (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)) {
+		errno = ENOTSUP;
+		return NULL;
+	}
 
 	cq = malloc(sizeof *cq);
 	if (!cq)
@@ -327,9 +494,9 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	cqe = align_queue_size(cqe + 1);
+	cq_attr->cqe = align_queue_size(cq_attr->cqe + 1);
 
-	if (mlx4_alloc_cq_buf(to_mdev(context->device), &cq->buf, cqe, mctx->cqe_size))
+	if (mlx4_alloc_cq_buf(to_mdev(context->device), &cq->buf, cq_attr->cqe, mctx->cqe_size))
 		goto err;
 
 	cq->cqe_size = mctx->cqe_size;
@@ -341,17 +508,24 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 	*cq->arm_db    = 0;
 	cq->arm_sn     = 1;
 	*cq->set_ci_db = 0;
+	cq->flags = cq_alloc_flags;
 
-	cmd.buf_addr = (uintptr_t) cq->buf.buf;
-	cmd.db_addr  = (uintptr_t) cq->set_ci_db;
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
+	    cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
+		cq->flags |= MLX4_CQ_FLAGS_SINGLE_THREADED;
 
-	ret = ibv_cmd_create_cq(context, cqe - 1, channel, comp_vector,
-				&cq->ibv_cq, &cmd.ibv_cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp);
+	--cq_attr->cqe;
+	if (cq_alloc_flags & MLX4_CQ_FLAGS_EXTENDED)
+		ret = mlx4_cmd_create_cq_ex(context, cq_attr, cq);
+	else
+		ret = mlx4_cmd_create_cq(context, cq_attr, cq);
+
 	if (ret)
 		goto err_db;
 
-	cq->cqn = resp.cqn;
+
+	if (cq_alloc_flags & MLX4_CQ_FLAGS_EXTENDED)
+		mlx4_cq_fill_pfns(cq, cq_attr);
 
 	return &cq->ibv_cq;
 
@@ -365,6 +539,36 @@ err:
 	free(cq);
 
 	return NULL;
+}
+
+struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
+			      struct ibv_comp_channel *channel,
+			      int comp_vector)
+{
+	struct ibv_cq_ex *cq;
+	struct ibv_cq_init_attr_ex cq_attr = {.cqe = cqe, .channel = channel,
+					      .comp_vector = comp_vector,
+					      .wc_flags = IBV_WC_STANDARD_FLAGS};
+
+	cq = create_cq(context, &cq_attr, 0);
+	return cq ? ibv_cq_ex_to_cq(cq) : NULL;
+}
+
+struct ibv_cq_ex *mlx4_create_cq_ex(struct ibv_context *context,
+				    struct ibv_cq_init_attr_ex *cq_attr)
+{
+	/*
+	 * Make local copy since some attributes might be adjusted
+	 * for internal use.
+	 */
+	struct ibv_cq_init_attr_ex cq_attr_c = {.cqe = cq_attr->cqe,
+						.channel = cq_attr->channel,
+						.comp_vector = cq_attr->comp_vector,
+						.wc_flags = cq_attr->wc_flags,
+						.comp_mask = cq_attr->comp_mask,
+						.flags = cq_attr->flags};
+
+	return create_cq(context, &cq_attr_c, MLX4_CQ_FLAGS_EXTENDED);
 }
 
 int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
