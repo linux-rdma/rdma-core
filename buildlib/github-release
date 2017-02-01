@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+if [[ $TRAVIS_TAG == v* ]] && [ "$TRAVIS_OS_NAME" = "linux" ]; then
+	# Let's create release for vX tags only.
+	git archive --prefix rdma-core-$TRAVIS_TAG/ --output rdma-core-$TRAVIS_TAG.tar.gz HEAD
+fi

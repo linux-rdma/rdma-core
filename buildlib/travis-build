@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Stop on error
+set -e
+# Echo all commands to Travis log
+set -x
+
+mkdir build build-clang build32 build-no-dma
+cd build
+# The goal is warning free compile on latest gcc.
+CC=gcc-6 CFLAGS=-Werror cmake -GNinja ..
+ninja
+
+# .. and latest clang
+cd ../build-clang
+CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
+ninja
+
+# 32 bit build
+cd ../build32
+# travis's trusty is not configured in a way that enables all 32 bit
+# packages. We could fix this with some sudo stuff.. For now turn off libnl
+CC=gcc-6 CFLAGS="-Werror -m32" cmake -GNinja .. -DENABLE_RESOLVE_NEIGH=0
+ninja
+
+# Test with coherent DMA mode disabled (ie as would be on ARM32, etc)
+cd ../build-clang
+echo "#error Fail" >> ../libibverbs/arch.h
+rm CMakeCache.txt
+CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
+ninja
+cd ..
