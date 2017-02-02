@@ -1687,7 +1687,7 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */
 	IBV_REREG_MR_ERR_INPUT = -1,
-	/* Old MR is valid, failed via dont fork on new address range */
+	/* Old MR is valid, failed via don't fork on new address range */
 	IBV_REREG_MR_ERR_DONT_FORK_NEW = -2,
 	/* New MR is valid, failed via do fork on old address range */
 	IBV_REREG_MR_ERR_DO_FORK_OLD = -3,

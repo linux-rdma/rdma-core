@@ -173,7 +173,7 @@ struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
 	}
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_MR,
-		   "MR Register %p completed succesfully pd_id=%d addr=%p len=%zu access=%d lkey=%x rkey=%x\n",
+		   "MR Register %p completed successfully pd_id=%d addr=%p len=%zu access=%d lkey=%x rkey=%x\n",
 		   mr, pd->pd_id, addr, len, access, mr->ibv_mr.lkey,
 		   mr->ibv_mr.rkey);
 
@@ -192,7 +192,7 @@ int qelr_dereg_mr(struct ibv_mr *mr)
 	free(mr);
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_MR,
-		   "MR DERegister %p completed succesfully\n", mr);
+		   "MR DERegister %p completed successfully\n", mr);
 	return 0;
 }
 
@@ -804,7 +804,7 @@ int qelr_destroy_qp(struct ibv_qp *ibqp)
 	free(qp);
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
-		   "destroy cq: succesfully destroyed %p\n", qp);
+		   "destroy cq: successfully destroyed %p\n", qp);
 
 	return 0;
 }

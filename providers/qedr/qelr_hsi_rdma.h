@@ -272,7 +272,7 @@ struct rdma_sq_atomic_wqe
 #define RDMA_SQ_ATOMIC_WQE_RD_FENCE_FLG_SHIFT    1
 #define RDMA_SQ_ATOMIC_WQE_INV_FENCE_FLG_MASK    0x1 /* If set, all pending operations will be completed before start processing this WQE */
 #define RDMA_SQ_ATOMIC_WQE_INV_FENCE_FLG_SHIFT   2
-#define RDMA_SQ_ATOMIC_WQE_SE_FLG_MASK           0x1 /* Dont care for atomic wqe */
+#define RDMA_SQ_ATOMIC_WQE_SE_FLG_MASK           0x1 /* Don't care for atomic wqe */
 #define RDMA_SQ_ATOMIC_WQE_SE_FLG_SHIFT          3
 #define RDMA_SQ_ATOMIC_WQE_INLINE_FLG_MASK       0x1 /* Should be 0 for atomic wqe */
 #define RDMA_SQ_ATOMIC_WQE_INLINE_FLG_SHIFT      4
@@ -306,7 +306,7 @@ struct rdma_sq_atomic_wqe_1st
 #define RDMA_SQ_ATOMIC_WQE_1ST_RD_FENCE_FLG_SHIFT  1
 #define RDMA_SQ_ATOMIC_WQE_1ST_INV_FENCE_FLG_MASK  0x1 /* If set, all pending operations will be completed before start processing this WQE */
 #define RDMA_SQ_ATOMIC_WQE_1ST_INV_FENCE_FLG_SHIFT 2
-#define RDMA_SQ_ATOMIC_WQE_1ST_SE_FLG_MASK         0x1 /* Dont care for atomic wqe */
+#define RDMA_SQ_ATOMIC_WQE_1ST_SE_FLG_MASK         0x1 /* Don't care for atomic wqe */
 #define RDMA_SQ_ATOMIC_WQE_1ST_SE_FLG_SHIFT        3
 #define RDMA_SQ_ATOMIC_WQE_1ST_INLINE_FLG_MASK     0x1 /* Should be 0 for atomic wqe */
 #define RDMA_SQ_ATOMIC_WQE_1ST_INLINE_FLG_SHIFT    4
@@ -350,7 +350,7 @@ struct rdma_sq_bind_wqe
 #define RDMA_SQ_BIND_WQE_RD_FENCE_FLG_SHIFT  1
 #define RDMA_SQ_BIND_WQE_INV_FENCE_FLG_MASK  0x1 /* If set, all pending operations will be completed before start processing this WQE */
 #define RDMA_SQ_BIND_WQE_INV_FENCE_FLG_SHIFT 2
-#define RDMA_SQ_BIND_WQE_SE_FLG_MASK         0x1 /* Dont care for bind wqe */
+#define RDMA_SQ_BIND_WQE_SE_FLG_MASK         0x1 /* Don't care for bind wqe */
 #define RDMA_SQ_BIND_WQE_SE_FLG_SHIFT        3
 #define RDMA_SQ_BIND_WQE_INLINE_FLG_MASK     0x1 /* Should be 0 for bind wqe */
 #define RDMA_SQ_BIND_WQE_INLINE_FLG_SHIFT    4
@@ -401,7 +401,7 @@ struct rdma_sq_bind_wqe_1st
 #define RDMA_SQ_BIND_WQE_1ST_RD_FENCE_FLG_SHIFT  1
 #define RDMA_SQ_BIND_WQE_1ST_INV_FENCE_FLG_MASK  0x1 /* If set, all pending operations will be completed before start processing this WQE */
 #define RDMA_SQ_BIND_WQE_1ST_INV_FENCE_FLG_SHIFT 2
-#define RDMA_SQ_BIND_WQE_1ST_SE_FLG_MASK         0x1 /* Dont care for bind wqe */
+#define RDMA_SQ_BIND_WQE_1ST_SE_FLG_MASK         0x1 /* Don't care for bind wqe */
 #define RDMA_SQ_BIND_WQE_1ST_SE_FLG_SHIFT        3
 #define RDMA_SQ_BIND_WQE_1ST_INLINE_FLG_MASK     0x1 /* Should be 0 for bind wqe */
 #define RDMA_SQ_BIND_WQE_1ST_INLINE_FLG_SHIFT    4
@@ -482,7 +482,7 @@ struct rdma_sq_fmr_wqe
 #define RDMA_SQ_FMR_WQE_RD_FENCE_FLG_SHIFT           1
 #define RDMA_SQ_FMR_WQE_INV_FENCE_FLG_MASK           0x1 /* If set, all pending operations will be completed before start processing this WQE */
 #define RDMA_SQ_FMR_WQE_INV_FENCE_FLG_SHIFT          2
-#define RDMA_SQ_FMR_WQE_SE_FLG_MASK                  0x1 /* Dont care for FMR wqe */
+#define RDMA_SQ_FMR_WQE_SE_FLG_MASK                  0x1 /* Don't care for FMR wqe */
 #define RDMA_SQ_FMR_WQE_SE_FLG_SHIFT                 3
 #define RDMA_SQ_FMR_WQE_INLINE_FLG_MASK              0x1 /* Should be 0 for FMR wqe */
 #define RDMA_SQ_FMR_WQE_INLINE_FLG_SHIFT             4
@@ -558,7 +558,7 @@ struct rdma_sq_fmr_wqe_1st
 #define RDMA_SQ_FMR_WQE_1ST_RD_FENCE_FLG_SHIFT    1
 #define RDMA_SQ_FMR_WQE_1ST_INV_FENCE_FLG_MASK    0x1 /* If set, all pending operations will be completed before start processing this WQE */
 #define RDMA_SQ_FMR_WQE_1ST_INV_FENCE_FLG_SHIFT   2
-#define RDMA_SQ_FMR_WQE_1ST_SE_FLG_MASK           0x1 /* Dont care for FMR wqe */
+#define RDMA_SQ_FMR_WQE_1ST_SE_FLG_MASK           0x1 /* Don't care for FMR wqe */
 #define RDMA_SQ_FMR_WQE_1ST_SE_FLG_SHIFT          3
 #define RDMA_SQ_FMR_WQE_1ST_INLINE_FLG_MASK       0x1 /* Should be 0 for FMR wqe */
 #define RDMA_SQ_FMR_WQE_1ST_INLINE_FLG_SHIFT      4
@@ -647,7 +647,7 @@ struct rdma_sq_local_inv_wqe
 #define RDMA_SQ_LOCAL_INV_WQE_RD_FENCE_FLG_SHIFT    1
 #define RDMA_SQ_LOCAL_INV_WQE_INV_FENCE_FLG_MASK    0x1 /* If set, all pending operations will be completed before start processing this WQE */
 #define RDMA_SQ_LOCAL_INV_WQE_INV_FENCE_FLG_SHIFT   2
-#define RDMA_SQ_LOCAL_INV_WQE_SE_FLG_MASK           0x1 /* Dont care for local invalidate wqe */
+#define RDMA_SQ_LOCAL_INV_WQE_SE_FLG_MASK           0x1 /* Don't care for local invalidate wqe */
 #define RDMA_SQ_LOCAL_INV_WQE_SE_FLG_SHIFT          3
 #define RDMA_SQ_LOCAL_INV_WQE_INLINE_FLG_MASK       0x1 /* Should be 0 for local invalidate wqe */
 #define RDMA_SQ_LOCAL_INV_WQE_INLINE_FLG_SHIFT      4

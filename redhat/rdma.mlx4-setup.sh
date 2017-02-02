@@ -55,7 +55,7 @@ function set_dual_port() {
 	fi
 
 	# our mode is not eth <anything> as that is covered above
-	# so we should be able to succesfully set the ports in
+	# so we should be able to successfully set the ports in
 	# port1 then port2 order
 	if [ "$cur_p1" != "$port1" -o "$cur_p2" != "$port2" ]; then
 		# Try setting the ports in order first

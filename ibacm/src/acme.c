@@ -91,7 +91,7 @@ static void show_usage(char *program)
 	printf("   [-c]             - read ACM cached data only\n");
 	printf("   [-P [opt]]       - query performance data from destination service:\n");
 	printf("                        No option: output combined data in row format.\n");
-	printf("                        col: output combined data in colum format.\n");
+	printf("                        col: output combined data in column format.\n");
 	printf("                        N: output data for endpoint N (N = 1, 2,...)\n");
 	printf("                        all: output data for all endpoints\n");
 	printf("                        s: output data for the endpoint with the\n");

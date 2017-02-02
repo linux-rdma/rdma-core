@@ -286,7 +286,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 	if (!ret)
 		return &iwucq->ibv_cq;
 	else
-		fprintf(stderr, PFX "%s: failed to initialze CQ, status %d\n", __func__, ret);
+		fprintf(stderr, PFX "%s: failed to initialize CQ, status %d\n", __func__, ret);
 err:
 	if (info.cq_base)
 		free(info.cq_base);

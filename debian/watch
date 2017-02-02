@@ -1,0 +1,2 @@
+version=3
+https://github.com/linux-rdma/rdma-core/releases (?:.*?/)?(?:rdma-core-|v)?(\d[\d.]*)\.tar\.gz

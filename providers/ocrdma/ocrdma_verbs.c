@@ -1083,7 +1083,7 @@ int ocrdma_destroy_qp(struct ibv_qp *ibqp)
 		munmap(qp->sq.va, qp->sq.len);
 
 	/* ensure that CQEs for newly created QP (whose id may be same with
-	 * one which just getting destroyed are same), dont get
+	 * one which just getting destroyed are same), don't get
 	 * discarded until the old CQEs are discarded.
 	 */
 	pthread_mutex_lock(&dev->dev_lock);
@@ -1200,7 +1200,7 @@ static inline int ocrdma_build_inline_sges(struct ocrdma_qp *qp,
 		hdr->total_len = ocrdma_sglist_len(wr->sg_list, wr->num_sge);
 		if (hdr->total_len > qp->max_inline_data) {
 			ocrdma_err
-			("%s() supported_len=0x%x, unspported len req=0x%x\n",
+			("%s() supported_len=0x%x, unsupported len req=0x%x\n",
 			__func__, qp->max_inline_data, hdr->total_len);
 			return EINVAL;
 		}
