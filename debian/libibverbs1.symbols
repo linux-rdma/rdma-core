@@ -1,6 +1,8 @@
 libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.0@IBVERBS_1.0 1.1.6
  IBVERBS_1.1@IBVERBS_1.1 1.1.6
+# This version should always reflect the current package version.
+ (regex|optional)"@IBVERBS_PRIVATE_" 12-1
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
  ibv_ack_cq_events@IBVERBS_1.0 1.1.6
@@ -11,46 +13,6 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_attach_mcast@IBVERBS_1.1 1.1.6
  ibv_close_device@IBVERBS_1.0 1.1.6
  ibv_close_device@IBVERBS_1.1 1.1.6
- ibv_cmd_alloc_mw@IBVERBS_1.1 1.2.1
- ibv_cmd_alloc_pd@IBVERBS_1.0 1.1.6
- ibv_cmd_attach_mcast@IBVERBS_1.0 1.1.6
- ibv_cmd_close_xrcd@IBVERBS_1.1 1.1.8
- ibv_cmd_create_ah@IBVERBS_1.0 1.1.6
- ibv_cmd_create_cq@IBVERBS_1.0 1.1.6
- ibv_cmd_create_cq_ex@IBVERBS_1.0 1.2.1
- ibv_cmd_create_flow@IBVERBS_1.0 1.1.8
- ibv_cmd_create_qp@IBVERBS_1.0 1.1.6
- ibv_cmd_create_qp_ex2@IBVERBS_1.1 1.2.1
- ibv_cmd_create_qp_ex@IBVERBS_1.1 1.1.8
- ibv_cmd_create_srq@IBVERBS_1.0 1.1.6
- ibv_cmd_create_srq_ex@IBVERBS_1.1 1.1.8
- ibv_cmd_dealloc_mw@IBVERBS_1.1 1.2.1
- ibv_cmd_dealloc_pd@IBVERBS_1.0 1.1.6
- ibv_cmd_dereg_mr@IBVERBS_1.0 1.1.6
- ibv_cmd_destroy_ah@IBVERBS_1.0 1.1.6
- ibv_cmd_destroy_cq@IBVERBS_1.0 1.1.6
- ibv_cmd_destroy_flow@IBVERBS_1.0 1.1.8
- ibv_cmd_destroy_qp@IBVERBS_1.0 1.1.6
- ibv_cmd_destroy_srq@IBVERBS_1.0 1.1.6
- ibv_cmd_detach_mcast@IBVERBS_1.0 1.1.6
- ibv_cmd_get_context@IBVERBS_1.0 1.1.6
- ibv_cmd_modify_qp@IBVERBS_1.0 1.1.6
- ibv_cmd_modify_srq@IBVERBS_1.0 1.1.6
- ibv_cmd_open_qp@IBVERBS_1.1 1.1.8
- ibv_cmd_open_xrcd@IBVERBS_1.1 1.1.8
- ibv_cmd_poll_cq@IBVERBS_1.0 1.1.6
- ibv_cmd_post_recv@IBVERBS_1.0 1.1.6
- ibv_cmd_post_send@IBVERBS_1.0 1.1.6
- ibv_cmd_post_srq_recv@IBVERBS_1.0 1.1.6
- ibv_cmd_query_device@IBVERBS_1.0 1.1.6
- ibv_cmd_query_device_ex@IBVERBS_1.0 1.2.0
- ibv_cmd_query_port@IBVERBS_1.0 1.1.6
- ibv_cmd_query_qp@IBVERBS_1.0 1.1.6
- ibv_cmd_query_srq@IBVERBS_1.0 1.1.6
- ibv_cmd_reg_mr@IBVERBS_1.0 1.1.6
- ibv_cmd_req_notify_cq@IBVERBS_1.0 1.1.6
- ibv_cmd_rereg_mr@IBVERBS_1.1 1.2.1
- ibv_cmd_resize_cq@IBVERBS_1.0 1.1.6
  ibv_copy_ah_attr_from_kern@IBVERBS_1.1 1.1.6
  ibv_copy_path_rec_from_kern@IBVERBS_1.0 1.1.6
  ibv_copy_path_rec_to_kern@IBVERBS_1.0 1.1.6
@@ -131,4 +93,3 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_wc_status_str@IBVERBS_1.1 1.1.6
  mbps_to_ibv_rate@IBVERBS_1.1 1.1.8
  mult_to_ibv_rate@IBVERBS_1.0 1.1.6
- verbs_register_driver@IBVERBS_1.1 1.1.8

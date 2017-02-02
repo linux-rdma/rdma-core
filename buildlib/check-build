@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+# Copyright 2017 Obsidian Research Corp. See COPYING.
+"""check-build - Run static checks on a build"""
+import argparse
+import inspect
+import os
+import re
+import subprocess
+from contextlib import contextmanager;
+
+def get_src_dir():
+    """Get the source directory using git"""
+    git_top = subprocess.check_output(["git","rev-parse","--git-dir"]).strip();
+    if git_top == ".git":
+        return ".";
+    return os.path.dirname(git_top);
+
+def get_package_version(args):
+    """Return PACKAGE_VERSION from CMake"""
+    with open(os.path.join(args.SRC,"CMakeLists.txt")) as F:
+        for ln in F:
+            g = re.match(r'^set\(PACKAGE_VERSION "(.+)"\)',ln)
+            if g is None:
+                continue;
+            return g.group(1);
+    raise RuntimeError("Could not find version");
+
+@contextmanager
+def inDirectory(dir):
+    cdir = os.getcwd();
+    try:
+        os.chdir(dir);
+        yield True;
+    finally:
+        os.chdir(cdir);
+
+# -------------------------------------------------------------------------
+
+def get_symbol_vers(fn):
+    """Return the symbol version suffixes from the ELF file, eg IB_VERBS_1.0, etc"""
+    syms = subprocess.check_output(["readelf","--wide","-s",fn]);
+    go = False;
+    res = set();
+    for I in syms.splitlines():
+        if I.startswith("Symbol table '.dynsym'"):
+            go = True;
+            continue;
+
+        if I.startswith(" ") and go:
+            itms = I.split();
+            if (len(itms) == 8 and itms[3] == "OBJECT" and
+                itms[4] == "GLOBAL" and itms[6] == "ABS"):
+                res.add(itms[7]);
+        else:
+            go = False;
+    if not res:
+        raise ValueError("Faild to read ELF symbol versions from %r"%(fn));
+    return res;
+
+def check_lib_symver(args,fn):
+    g = re.match(r"lib([^.]+)\.so\.(\d+)\.(\d+)\.(.*)",fn);
+    if g.group(4) != args.PACKAGE_VERSION:
+        raise ValueError("Shared Library filename %r does not have the package version %r (%r)%"(
+            fn,args.PACKAGE_VERSION,g.groups()));
+
+    # umad used the wrong symbol version name when they moved to soname 3.0
+    if g.group(1) == "ibumad":
+        newest_symver = "%s_%s.%s"%(g.group(1).upper(),'1',g.group(3));
+    else:
+        newest_symver = "%s_%s.%s"%(g.group(1).upper(),g.group(2),g.group(3));
+
+    syms = get_symbol_vers(fn);
+    if newest_symver not in syms:
+        raise ValueError("Symbol version %r implied by filename %r not in ELF (%r)"%(
+            newest_symver,fn,syms));
+
+    # The private symbol tag should also be older than the package version
+    private = set(I for I in syms if "PRIVATE" in I)
+    if len(private) > 1:
+        raise ValueError("Too many private symbol versions in ELF %r (%r)"%(fn,private));
+    if private:
+        private_rel = list(private)[0].split('_')[-1];
+        print repr(private_rel)
+        if private_rel > args.PACKAGE_VERSION:
+            raise ValueError("Private Symbol Version %r is newer than the package version %r"%(
+                private,args.PACKAGE_VERSION));
+
+    syms = list(syms - private);
+    syms.sort(key=lambda x:re.split('[._]',x));
+    if newest_symver != syms[-1]:
+        raise ValueError("Symbol version %r implied by filename %r not the newest in ELF (%r)"%(
+            newest_symver,fn,syms));
+
+def test_lib_names(args):
+    """Check that the library filename matches the symbol versions"""
+    libd = os.path.join(args.BUILD,"lib");
+
+    # List of shlibs that follow the ABI guidelines
+    libs = {};
+    with inDirectory(libd):
+        for fn in os.listdir("."):
+            if os.path.islink(fn):
+                lfn = os.readlink(fn);
+                if not os.path.islink(lfn):
+                    check_lib_symver(args,lfn);
+
+# -------------------------------------------------------------------------
+
+parser = argparse.ArgumentParser(description='Run build time tests')
+parser.add_argument("--build",default=os.getcwd(),dest="BUILD",
+                    help="Build directory to inpsect");
+parser.add_argument("--src",default=None,dest="SRC",
+                    help="Top of the source tree");
+args = parser.parse_args();
+
+if args.SRC is None:
+    args.SRC = get_src_dir();
+args.PACKAGE_VERSION = get_package_version(args);
+
+funcs = globals();
+for k,v in funcs.items():
+    if k.startswith("test_") and inspect.isfunction(v):
+        v(args);
