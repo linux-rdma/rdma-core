@@ -48,6 +48,8 @@
 
 #include "ibverbs.h"
 
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+
 int abi_ver;
 
 struct ibv_sysfs_dev {
@@ -175,10 +177,11 @@ static void register_driver(const char *name, ibv_driver_init_func init_func,
 	tail_driver = driver;
 }
 
-void ibv_register_driver(const char *name, ibv_driver_init_func init_func)
+void __ibv_register_driver(const char *name, ibv_driver_init_func init_func)
 {
 	register_driver(name, init_func, NULL);
 }
+private_symver(__ibv_register_driver, ibv_register_driver);
 
 /* New registration symbol with same functionality - used by providers to
   * validate that library supports verbs extension.

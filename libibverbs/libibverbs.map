@@ -65,6 +65,7 @@ IBVERBS_1.1 {
 		ibv_fork_init;
 		ibv_dontfork_range;
 		ibv_dofork_range;
+		ibv_register_driver;
 
 		ibv_node_type_str;
 		ibv_port_state_str;
@@ -84,7 +85,7 @@ IBVERBS_1.1 {
 /* NOTE: The next stanza for public symbols should be IBVERBS_1.4 due to release 12 */
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
-   version. */
+   version. Also see the private_symver() macro */
 IBVERBS_PRIVATE_13 {
 	global:
 		/* These historical symbols are now private to libibverbs */

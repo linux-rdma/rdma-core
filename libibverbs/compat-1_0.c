@@ -937,3 +937,14 @@ int __ibv_detach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid, uint16_t l
 	return ibv_detach_mcast(qp->real_qp, gid, lid);
 }
 symver(__ibv_detach_mcast_1_0, ibv_detach_mcast, IBVERBS_1.0);
+
+typedef struct ibv_device *(*ibv_driver_init_func_1_1)(const char *uverbs_sys_path,
+						       int abi_version);
+void __ibv_register_driver_1_1(const char *name, ibv_driver_init_func init_func_1_1)
+{
+	/* The driver interface is private as of rdma-core 13. This stub is
+	 * left to preserve dynamic-link compatability with old libfabrics
+	 * usnic providers which use this function only to suppress a fprintf
+	 * in old versions of libibverbs. */
+}
+symver(__ibv_register_driver_1_1, ibv_register_driver, IBVERBS_1.1);

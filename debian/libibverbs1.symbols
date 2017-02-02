@@ -85,6 +85,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_read_sysfs_file@IBVERBS_1.0 1.1.6
  ibv_reg_mr@IBVERBS_1.0 1.1.6
  ibv_reg_mr@IBVERBS_1.1 1.1.6
+ ibv_register_driver@IBVERBS_1.1 1.1.6
  ibv_rereg_mr@IBVERBS_1.1 1.2.1
  ibv_resize_cq@IBVERBS_1.0 1.1.6
  ibv_resize_cq@IBVERBS_1.1 1.1.6
