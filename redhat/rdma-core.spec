@@ -110,6 +110,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libcxgb3: Chelsio T3 iWARP HCA
 - libcxgb4: Chelsio T4 iWARP HCA
 - libhfi1: Intel Omni-Path HFI
+- libhns: HiSilicon Hip06 SoC
 - libi40iw: Intel Ethernet Connection X722 RDMA
 - libipathverbs: QLogic InfiniPath HCA
 - libmlx4: Mellanox ConnectX-3 InfiniBand HCA
@@ -117,7 +118,9 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libmthca: Mellanox InfiniBand HCA
 - libnes: NetEffect RNIC
 - libocrdma: Emulex OneConnect RDMA/RoCE Device
+- libqedr: QLogic QL4xxx RoCE HCA
 - librxe: A software implementation of the RoCE protocol
+- libvmw_pvrdma: VMware paravirtual RDMA device
 
 %package -n libibverbs-utils
 Summary: Examples for the libibverbs library

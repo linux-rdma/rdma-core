@@ -128,8 +128,6 @@ IBVERBS_PRIVATE_13 {
 		ibv_cmd_post_srq_recv;
 		ibv_cmd_query_device;
 		ibv_cmd_query_device_ex;
-		ibv_cmd_query_gid;
-		ibv_cmd_query_pkey;
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
