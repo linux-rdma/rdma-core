@@ -1,8 +1,7 @@
 libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.0@IBVERBS_1.0 1.1.6
  IBVERBS_1.1@IBVERBS_1.1 1.1.6
-# This version should always reflect the current package version.
- (regex|optional)"@IBVERBS_PRIVATE_" 12-1
+ (symver)IBVERBS_PRIVATE_13 13
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
  ibv_ack_cq_events@IBVERBS_1.0 1.1.6
