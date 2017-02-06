@@ -182,8 +182,10 @@ static int port_dump(umad_port_t * port, int alone)
 	       7 ? port_phy_state_str[port->phys_state] : "???");
 	if (is_fdr10(port))
 		printf("%sRate: %d (FDR10)\n", pre, port->rate);
-	else
+	else if (port->rate != 2)	/* 1x SDR */
 		printf("%sRate: %d\n", pre, port->rate);
+	else
+		printf("%sRate: 2.5\n", pre);
 	printf("%sBase lid: %d\n", pre, port->base_lid);
 	printf("%sLMC: %d\n", pre, port->lmc);
 	printf("%sSM lid: %d\n", pre, port->sm_lid);
