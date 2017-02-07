@@ -174,7 +174,7 @@ struct acmp_ep {
 	struct ibv_mr         *mr;
 	uint8_t               *recv_bufs;
 	struct list_node      entry;
-	char		      id_string[ACM_MAX_ADDRESS];
+	char		      id_string[IBV_SYSFS_NAME_MAX + 11];
 	void                  *dest_map[ACM_ADDRESS_RESERVED - 1];
 	struct acmp_dest      mc_dest[MAX_EP_MC];
 	int                   mc_cnt;

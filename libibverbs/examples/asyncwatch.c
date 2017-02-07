@@ -38,6 +38,7 @@
 #include <getopt.h>
 #include <string.h>
 
+#include <util/compiler.h>
 #include <infiniband/verbs.h>
 
 static const char *event_name_str(enum ibv_event_type event_type)
@@ -115,6 +116,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			ret = 0;
+			SWITCH_FALLTHROUGH;
 		default:
 			usage(argv[0]);
 			return ret;

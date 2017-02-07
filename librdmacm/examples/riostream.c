@@ -46,6 +46,7 @@
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
+#include <util/compiler.h>
 #include "common.h"
 
 struct test_size_param {
@@ -644,6 +645,7 @@ int main(int argc, char **argv)
 			if (!set_test_opt(optarg))
 				break;
 			/* invalid option - fall through */
+			SWITCH_FALLTHROUGH;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");

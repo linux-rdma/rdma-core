@@ -40,6 +40,7 @@
 #include <netinet/in.h>
 #include <string.h>
 
+#include <util/compiler.h>
 #include <infiniband/opcode.h>
 
 #include "mlx4.h"
@@ -162,11 +163,13 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx4_cqe *cqe)
 	switch (cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) {
 	case MLX4_OPCODE_RDMA_WRITE_IMM:
 		wc->wc_flags |= IBV_WC_WITH_IMM;
+		SWITCH_FALLTHROUGH;
 	case MLX4_OPCODE_RDMA_WRITE:
 		wc->opcode    = IBV_WC_RDMA_WRITE;
 		break;
 	case MLX4_OPCODE_SEND_IMM:
 		wc->wc_flags |= IBV_WC_WITH_IMM;
+		SWITCH_FALLTHROUGH;
 	case MLX4_OPCODE_SEND:
 	case MLX4_OPCODE_SEND_INVAL:
 		wc->opcode    = IBV_WC_SEND;

@@ -114,11 +114,11 @@ static void hns_roce_update_cq_cons_index(struct hns_roce_context *ctx,
 static void hns_roce_handle_error_cqe(struct hns_roce_cqe *cqe,
 				      struct ibv_wc *wc)
 {
+	fprintf(stderr, PFX "error cqe!\n");
 	switch (roce_get_field(cqe->cqe_byte_4,
 			       CQE_BYTE_4_STATUS_OF_THE_OPERATION_M,
 			       CQE_BYTE_4_STATUS_OF_THE_OPERATION_S) &
 		HNS_ROCE_CQE_STATUS_MASK) {
-		fprintf(stderr, PFX "error cqe!\n");
 	case HNS_ROCE_CQE_SYNDROME_LOCAL_LENGTH_ERR:
 		wc->status = IBV_WC_LOC_LEN_ERR;
 		break;
