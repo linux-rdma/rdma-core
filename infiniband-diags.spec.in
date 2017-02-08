@@ -182,7 +182,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man3/*
 %define _perldir %(perl -e 'use Config; $T=$Config{installvendorlib}; print $T;')
 %{_perldir}/*
-%{_sysconfdir}/infiniband-diags/*
+%config(noreplace) %{_sysconfdir}/infiniband-diags/error_thresholds
+%config(noreplace) %{_sysconfdir}/infiniband-diags/ibdiag.conf
 @SPEC_FILE_RDMA_NDD_INSTALL@
 %doc README COPYING ChangeLog
 
