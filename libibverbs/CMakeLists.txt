@@ -1,4 +1,5 @@
 publish_headers(infiniband
+  arch.h
   kern-abi.h
   opcode.h
   sa-kern-abi.h
