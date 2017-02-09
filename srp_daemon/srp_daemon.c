@@ -462,9 +462,9 @@ static int add_non_exist_target(struct target_details *target)
 			if (srpd_sys_read_gid(scsi_host_dir, "dgid", dgid_val))
 				continue;
 		}
-		if (htonll(target->subnet_prefix) != *((uint64_t *) dgid_val))
+		if (htobe64(target->subnet_prefix) != *((uint64_t *) dgid_val))
 			continue;
-		if (htonll(target->h_guid) != *((uint64_t *) (dgid_val+8)))
+		if (htobe64(target->h_guid) != *((uint64_t *) (dgid_val+8)))
 			continue;
 
 		/* If there is no local_ib_device in the scsi host dir (old kernel module), assumes it is equal */
@@ -603,7 +603,7 @@ static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 		/* Skip tid 0 because OpenSM ignores it. */
 		if (++tid == 0)
 			++tid;
-		out_dm_mad->tid = htonll(tid);
+		out_dm_mad->tid = htobe64(tid);
 
 		ret = umad_send(portid, agent, out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
@@ -1033,7 +1033,7 @@ int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
 		        SRP_SA_ATTR_NODE, 0);
 
-	out_sa_mad->comp_mask     = htonll(1); /* LID */
+	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	node			  = (void *) out_sa_mad->data;
 	node->lid		  = htons(dlid);
 
@@ -1059,7 +1059,7 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
 		        SRP_SA_ATTR_PORT_INFO, 0);
 
-	out_sa_mad->comp_mask     = htonll(1); /* LID */
+	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	port_info                 = (void *) out_sa_mad->data;
 	port_info->endport_lid	  = htons(dlid);
 
@@ -1134,7 +1134,7 @@ static int get_shared_pkeys(struct resources *res,
 			continue;
 
 		/* Mark components: DLID, SLID, PKEY */
-		out_sa_mad->comp_mask = htonll(1 << 4 | 1 << 5 | 1 << 13);
+		out_sa_mad->comp_mask = htobe64(1 << 4 | 1 << 5 | 1 << 13);
 		out_sa_mad->rmpp_version = 1;
 		out_sa_mad->rmpp_type = 1;
 		path_rec = (ib_path_rec_t *)out_sa_mad->data;
@@ -1194,7 +1194,7 @@ static int do_dm_port_list(struct resources *res)
 		        SRP_SA_ATTR_PORT_INFO, SRP_SM_CAP_MASK_MATCH_ATTR_MOD);
 
 	out_sa_mad->method     	   = SRP_SA_METHOD_GET_TABLE;
-	out_sa_mad->comp_mask      = htonll(1 << 7); /* Capability mask */
+	out_sa_mad->comp_mask      = htobe64(1 << 7); /* Capability mask */
 	out_sa_mad->rmpp_version   = 1;
 	out_sa_mad->rmpp_type      = 1;
 	port_info		   = (void *) out_sa_mad->data;
@@ -2330,7 +2330,7 @@ static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
 		        SRP_SA_ATTR_PATH_REC, 0);
 
-	out_sa_mad->comp_mask = htonll( 4 | 8 | 64 | 512 | 4096 );
+	out_sa_mad->comp_mask = htobe64( 4 | 8 | 64 | 512 | 4096 );
 
 	path_rec->sgid = *gid;
 	path_rec->dgid = *gid;

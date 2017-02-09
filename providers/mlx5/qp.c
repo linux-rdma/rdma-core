@@ -190,7 +190,7 @@ static int mlx5_wq_overflow(struct mlx5_wq *wq, int nreq, struct mlx5_cq *cq)
 static inline void set_raddr_seg(struct mlx5_wqe_raddr_seg *rseg,
 				 uint64_t remote_addr, uint32_t rkey)
 {
-	rseg->raddr    = htonll(remote_addr);
+	rseg->raddr    = htobe64(remote_addr);
 	rseg->rkey     = htonl(rkey);
 	rseg->reserved = 0;
 }
@@ -201,10 +201,10 @@ static void set_atomic_seg(struct mlx5_wqe_atomic_seg *aseg,
 			   uint64_t compare_add)
 {
 	if (opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-		aseg->swap_add = htonll(swap);
-		aseg->compare  = htonll(compare_add);
+		aseg->swap_add = htobe64(swap);
+		aseg->compare  = htobe64(compare_add);
 	} else {
-		aseg->swap_add = htonll(compare_add);
+		aseg->swap_add = htobe64(compare_add);
 	}
 }
 
@@ -221,7 +221,7 @@ static void set_data_ptr_seg(struct mlx5_wqe_data_seg *dseg, struct ibv_sge *sg,
 {
 	dseg->byte_count = htonl(sg->length - offset);
 	dseg->lkey       = htonl(sg->lkey);
-	dseg->addr       = htonll(sg->addr + offset);
+	dseg->addr       = htobe64(sg->addr + offset);
 }
 
 static void set_data_ptr_seg_atomic(struct mlx5_wqe_data_seg *dseg,
@@ -229,7 +229,7 @@ static void set_data_ptr_seg_atomic(struct mlx5_wqe_data_seg *dseg,
 {
 	dseg->byte_count = htonl(MLX5_ATOMIC_SIZE);
 	dseg->lkey       = htonl(sg->lkey);
-	dseg->addr       = htonll(sg->addr);
+	dseg->addr       = htobe64(sg->addr);
 }
 
 /*
@@ -430,7 +430,7 @@ static void set_umr_data_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
 
 	data->klm.byte_count = htonl(bind_info->length);
 	data->klm.mkey = htonl(bind_info->mr->lkey);
-	data->klm.address = htonll(bind_info->addr);
+	data->klm.address = htobe64(bind_info->addr);
 
 	memset(&data->klm + 1, 0, sizeof(data->reserved) -
 	       sizeof(data->klm));
@@ -467,8 +467,8 @@ static void set_umr_mkey_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
 		if (bind_info->mw_access_flags & IBV_ACCESS_ZERO_BASED)
 			mkey->start_addr = 0;
 		else
-			mkey->start_addr = htonll(bind_info->addr);
-		mkey->len = htonll(bind_info->length);
+			mkey->start_addr = htobe64(bind_info->addr);
+		mkey->len = htobe64(bind_info->length);
 	} else {
 		mkey->free = MLX5_WQE_MKEY_CONTEXT_FREE;
 	}
@@ -485,20 +485,20 @@ static inline void set_umr_control_seg(struct mlx5_qp *qp, enum ibv_mw_type type
 
 	ctrl->flags = MLX5_WQE_UMR_CTRL_FLAG_TRNSLATION_OFFSET |
 		MLX5_WQE_UMR_CTRL_FLAG_INLINE;
-	ctrl->mkey_mask = htonll(MLX5_WQE_UMR_CTRL_MKEY_MASK_FREE |
+	ctrl->mkey_mask = htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_FREE |
 				     MLX5_WQE_UMR_CTRL_MKEY_MASK_MKEY);
 	ctrl->translation_offset = 0;
 	memset(ctrl->rsvd0, 0, sizeof(ctrl->rsvd0));
 	memset(ctrl->rsvd1, 0, sizeof(ctrl->rsvd1));
 
 	if (type == IBV_MW_TYPE_2)
-		ctrl->mkey_mask |= htonll(MLX5_WQE_UMR_CTRL_MKEY_MASK_QPN);
+		ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_QPN);
 
 	if (bind_info->length) {
 		ctrl->klm_octowords = get_klm_octo(1);
 		if (type == IBV_MW_TYPE_2)
 			ctrl->flags |=  MLX5_WQE_UMR_CTRL_FLAG_CHECK_FREE;
-		ctrl->mkey_mask |= htonll(MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN	|
+		ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN	|
 					      MLX5_WQE_UMR_CTRL_MKEY_MASK_START_ADDR |
 					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_LOCAL_WRITE |
 					      MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_REMOTE_READ |

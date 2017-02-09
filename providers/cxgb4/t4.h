@@ -55,7 +55,7 @@
 #define __iomem
 #define cpu_to_be16 htons
 #define cpu_to_be32 htonl
-#define cpu_to_be64 htonll
+#define cpu_to_be64 htobe64
 #define be16_to_cpu ntohs
 #define be32_to_cpu ntohl
 #define be64_to_cpu ntohll

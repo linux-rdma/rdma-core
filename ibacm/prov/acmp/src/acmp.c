@@ -780,7 +780,7 @@ static void acmp_init_path_query(struct ib_sa_mad *mad)
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_GET;
-	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
+	mad->tid = htobe64((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_PATH_REC;
 }
 
@@ -1367,7 +1367,7 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_SET;
-	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
+	mad->tid = htobe64((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_MC_MEMBER_REC;
 	mad->comp_mask =
 		IB_COMP_MASK_MC_MGID | IB_COMP_MASK_MC_PORT_GID |
@@ -1673,7 +1673,7 @@ acmp_send_resolve(struct acmp_ep *ep, struct acmp_dest *dest,
 	mad->class_version = 1;
 	mad->method = IB_METHOD_GET;
 	mad->control = ACM_CTRL_RESOLVE;
-	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
+	mad->tid = htobe64((uint64_t) atomic_inc(&g_tid));
 
 	rec = (struct acm_resolve_rec *) mad->data;
 	rec->src_type = (uint8_t) saddr->type;
@@ -1957,7 +1957,7 @@ static void acmp_query_perf(void *ep_context, uint64_t *values, uint8_t *cnt)
 	int i;
 
 	for (i = 0; i < ACM_MAX_COUNTER; i++)
-		values[i] = htonll((uint64_t) atomic_get(&ep->counters[i]));
+		values[i] = htobe64((uint64_t) atomic_get(&ep->counters[i]));
 	*cnt = ACM_MAX_COUNTER;
 }
 
@@ -2082,7 +2082,7 @@ static void acmp_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
 		if (lid2guid[lid])
 			acm_log(0, "ERROR - duplicate lid %u\n", lid);
 		else
-			lid2guid[lid] = htonll(guid);
+			lid2guid[lid] = htobe64(guid);
 	}
 }
 

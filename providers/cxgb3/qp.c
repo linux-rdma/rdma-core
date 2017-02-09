@@ -84,7 +84,7 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 			    htonl(wr->sg_list[i].lkey);
 			wqe->send.sgl[i].len =
 			    htonl(wr->sg_list[i].length);
-			wqe->send.sgl[i].to = htonll(wr->sg_list[i].addr);
+			wqe->send.sgl[i].to = htobe64(wr->sg_list[i].addr);
 		}
 		wqe->send.plen = htonl(wqe->send.plen);
 		wqe->send.num_sgle = htonl(wr->num_sge);
@@ -104,7 +104,7 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 	wqe->write.rdmaop = T3_RDMA_WRITE;
 	wqe->write.reserved = 0;
 	wqe->write.stag_sink = htonl(wr->wr.rdma.rkey);
-	wqe->write.to_sink = htonll(wr->wr.rdma.remote_addr);
+	wqe->write.to_sink = htobe64(wr->wr.rdma.remote_addr);
 
 	wqe->write.num_sgle = wr->num_sge;
 
@@ -139,7 +139,7 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 			wqe->write.sgl[i].len =
 			    htonl(wr->sg_list[i].length);
 			wqe->write.sgl[i].to =
-			    htonll(wr->sg_list[i].addr);
+			    htobe64(wr->sg_list[i].addr);
 		}
 		wqe->write.plen = htonl(wqe->write.plen);
 		wqe->write.num_sgle = htonl(wr->num_sge);
@@ -157,10 +157,10 @@ static inline int iwch_build_rdma_read(union t3_wr *wqe, struct ibv_send_wr *wr,
 	wqe->read.reserved = 0;
 	if (wr->num_sge == 1 && wr->sg_list[0].length > 0) {
 		wqe->read.rem_stag = htonl(wr->wr.rdma.rkey);
-		wqe->read.rem_to = htonll(wr->wr.rdma.remote_addr);
+		wqe->read.rem_to = htobe64(wr->wr.rdma.remote_addr);
 		wqe->read.local_stag = htonl(wr->sg_list[0].lkey);
 		wqe->read.local_len = htonl(wr->sg_list[0].length);
-		wqe->read.local_to = htonll(wr->sg_list[0].addr);
+		wqe->read.local_to = htobe64(wr->sg_list[0].addr);
 	} else {
 
 		/* build passable 0B read request */
@@ -295,7 +295,7 @@ static inline int iwch_build_rdma_recv(struct iwch_device *rhp,
 	for (i = 0; i < wr->num_sge; i++) {
 		wqe->recv.sgl[i].stag = htonl(wr->sg_list[i].lkey);
 		wqe->recv.sgl[i].len = htonl(wr->sg_list[i].length);
-		wqe->recv.sgl[i].to = htonll(wr->sg_list[i].addr);
+		wqe->recv.sgl[i].to = htobe64(wr->sg_list[i].addr);
 	}
 	for (; i < T3_MAX_SGE; i++) {
 		wqe->recv.sgl[i].stag = 0;

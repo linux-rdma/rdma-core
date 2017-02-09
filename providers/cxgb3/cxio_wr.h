@@ -351,7 +351,7 @@ static inline void build_fw_riwrh(struct fw_riwrh *wqe, enum t3_wr_opcode op,
 	wqe->gen_tid_len = htonl(V_FW_RIWR_GEN(genbit) | V_FW_RIWR_TID(tid) |
 				 V_FW_RIWR_LEN(len));
 	/* 2nd gen bit... */
-        ((union t3_wr *)wqe)->flit[15] = htonll(genbit);
+        ((union t3_wr *)wqe)->flit[15] = htobe64(genbit);
 }
 
 /*

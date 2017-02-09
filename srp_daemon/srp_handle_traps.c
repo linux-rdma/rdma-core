@@ -606,14 +606,14 @@ static int register_to_trap(struct sync_resources *sync_res,
 	    comp_mask |= SRP_INFORMINFO_QPN_COMP;
 	}
 
-	p_sa_mad->comp_mask = htonll(comp_mask);
+	p_sa_mad->comp_mask = htobe64(comp_mask);
 	pr_debug("comp_mask: %llx\n", comp_mask);
 
 	do {
 		pthread_mutex_lock(res->mad_buffer_mutex);
 		res->mad_buffer->base_ver = 0; // flag that the buffer is empty
 		pthread_mutex_unlock(res->mad_buffer_mutex);
-		mad_hdr->trans_id = htonll(trans_id);
+		mad_hdr->trans_id = htobe64(trans_id);
 		trans_id++;
 
 		ret = ibv_post_send(res->qp, &sr, bad_wr);

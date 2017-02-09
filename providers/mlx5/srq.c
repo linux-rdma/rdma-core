@@ -120,7 +120,7 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		for (i = 0; i < wr->num_sge; ++i) {
 			scat[i].byte_count = htonl(wr->sg_list[i].length);
 			scat[i].lkey       = htonl(wr->sg_list[i].lkey);
-			scat[i].addr       = htonll(wr->sg_list[i].addr);
+			scat[i].addr       = htobe64(wr->sg_list[i].addr);
 		}
 
 		if (i < srq->max_gs) {

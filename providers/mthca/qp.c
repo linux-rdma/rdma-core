@@ -147,7 +147,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
 				((struct mthca_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.atomic.remote_addr);
+					htobe64(wr->wr.atomic.remote_addr);
 				((struct mthca_raddr_seg *) wqe)->rkey =
 					htonl(wr->wr.atomic.rkey);
 				((struct mthca_raddr_seg *) wqe)->reserved = 0;
@@ -156,12 +156,12 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 				if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 					((struct mthca_atomic_seg *) wqe)->swap_add =
-						htonll(wr->wr.atomic.swap);
+						htobe64(wr->wr.atomic.swap);
 					((struct mthca_atomic_seg *) wqe)->compare =
-						htonll(wr->wr.atomic.compare_add);
+						htobe64(wr->wr.atomic.compare_add);
 				} else {
 					((struct mthca_atomic_seg *) wqe)->swap_add =
-						htonll(wr->wr.atomic.compare_add);
+						htobe64(wr->wr.atomic.compare_add);
 					((struct mthca_atomic_seg *) wqe)->compare = 0;
 				}
 
@@ -174,7 +174,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
 			case IBV_WR_RDMA_READ:
 				((struct mthca_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.rdma.remote_addr);
+					htobe64(wr->wr.rdma.remote_addr);
 				((struct mthca_raddr_seg *) wqe)->rkey =
 					htonl(wr->wr.rdma.rkey);
 				((struct mthca_raddr_seg *) wqe)->reserved = 0;
@@ -194,7 +194,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
 				((struct mthca_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.rdma.remote_addr);
+					htobe64(wr->wr.rdma.remote_addr);
 				((struct mthca_raddr_seg *) wqe)->rkey =
 					htonl(wr->wr.rdma.rkey);
 				((struct mthca_raddr_seg *) wqe)->reserved = 0;
@@ -213,7 +213,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			((struct mthca_tavor_ud_seg *) wqe)->lkey =
 				htonl(to_mah(wr->wr.ud.ah)->key);
 			((struct mthca_tavor_ud_seg *) wqe)->av_addr =
-				htonll((uintptr_t) to_mah(wr->wr.ud.ah)->av);
+				htobe64((uintptr_t) to_mah(wr->wr.ud.ah)->av);
 			((struct mthca_tavor_ud_seg *) wqe)->dqpn =
 				htonl(wr->wr.ud.remote_qpn);
 			((struct mthca_tavor_ud_seg *) wqe)->qkey =
@@ -265,7 +265,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				seg = wqe;
 				seg->byte_count = htonl(wr->sg_list[i].length);
 				seg->lkey = htonl(wr->sg_list[i].lkey);
-				seg->addr = htonll(wr->sg_list[i].addr);
+				seg->addr = htobe64(wr->sg_list[i].addr);
 				wqe += sizeof *seg;
 			}
 
@@ -372,7 +372,7 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			((struct mthca_data_seg *) wqe)->lkey =
 				htonl(wr->sg_list[i].lkey);
 			((struct mthca_data_seg *) wqe)->addr =
-				htonll(wr->sg_list[i].addr);
+				htobe64(wr->sg_list[i].addr);
 			wqe += sizeof (struct mthca_data_seg);
 			size += sizeof (struct mthca_data_seg) / 16;
 		}
@@ -508,7 +508,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
 				((struct mthca_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.atomic.remote_addr);
+					htobe64(wr->wr.atomic.remote_addr);
 				((struct mthca_raddr_seg *) wqe)->rkey =
 					htonl(wr->wr.atomic.rkey);
 				((struct mthca_raddr_seg *) wqe)->reserved = 0;
@@ -517,12 +517,12 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 				if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 					((struct mthca_atomic_seg *) wqe)->swap_add =
-						htonll(wr->wr.atomic.swap);
+						htobe64(wr->wr.atomic.swap);
 					((struct mthca_atomic_seg *) wqe)->compare =
-						htonll(wr->wr.atomic.compare_add);
+						htobe64(wr->wr.atomic.compare_add);
 				} else {
 					((struct mthca_atomic_seg *) wqe)->swap_add =
-						htonll(wr->wr.atomic.compare_add);
+						htobe64(wr->wr.atomic.compare_add);
 					((struct mthca_atomic_seg *) wqe)->compare = 0;
 				}
 
@@ -535,7 +535,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
 			case IBV_WR_RDMA_READ:
 				((struct mthca_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.rdma.remote_addr);
+					htobe64(wr->wr.rdma.remote_addr);
 				((struct mthca_raddr_seg *) wqe)->rkey =
 					htonl(wr->wr.rdma.rkey);
 				((struct mthca_raddr_seg *) wqe)->reserved = 0;
@@ -555,7 +555,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_RDMA_WRITE:
 			case IBV_WR_RDMA_WRITE_WITH_IMM:
 				((struct mthca_raddr_seg *) wqe)->raddr =
-					htonll(wr->wr.rdma.remote_addr);
+					htobe64(wr->wr.rdma.remote_addr);
 				((struct mthca_raddr_seg *) wqe)->rkey =
 					htonl(wr->wr.rdma.rkey);
 				((struct mthca_raddr_seg *) wqe)->reserved = 0;
@@ -624,7 +624,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				seg = wqe;
 				seg->byte_count = htonl(wr->sg_list[i].length);
 				seg->lkey = htonl(wr->sg_list[i].lkey);
-				seg->addr = htonll(wr->sg_list[i].addr);
+				seg->addr = htobe64(wr->sg_list[i].addr);
 				wqe += sizeof *seg;
 			}
 
@@ -730,7 +730,7 @@ int mthca_arbel_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			((struct mthca_data_seg *) wqe)->lkey =
 				htonl(wr->sg_list[i].lkey);
 			((struct mthca_data_seg *) wqe)->addr =
-				htonll(wr->sg_list[i].addr);
+				htobe64(wr->sg_list[i].addr);
 			wqe += sizeof (struct mthca_data_seg);
 		}
 
