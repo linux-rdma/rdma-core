@@ -54,7 +54,6 @@
 #include <netinet/in.h>
 #include <linux/types.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <errno.h>
 #include <getopt.h>
 #include <dirent.h>

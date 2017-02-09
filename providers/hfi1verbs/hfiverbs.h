@@ -59,7 +59,6 @@
 #define HFI1_H
 
 #include <endian.h>
-#include <byteswap.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <stdatomic.h>

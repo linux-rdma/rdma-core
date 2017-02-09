@@ -39,7 +39,6 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <time.h>
 #include <errno.h>
 #include <string.h>

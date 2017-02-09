@@ -40,7 +40,6 @@
 #include <getopt.h>
 #include <netinet/in.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <inttypes.h>
 
 #include <infiniband/verbs.h>

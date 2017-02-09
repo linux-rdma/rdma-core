@@ -43,7 +43,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <stddef.h>
 #include <netdb.h>
 #include <syslog.h>

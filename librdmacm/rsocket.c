@@ -47,6 +47,7 @@
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
 #include <search.h>
+#include <byteswap.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>

@@ -41,7 +41,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <byteswap.h>
 #include <netinet/in.h>
 #include "sysfs.h"
 

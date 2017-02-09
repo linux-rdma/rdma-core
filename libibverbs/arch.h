@@ -35,7 +35,6 @@
 
 #include <stdint.h>
 #include <endian.h>
-#include <byteswap.h>
 
 #undef htonll
 #undef ntohll

@@ -36,7 +36,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <byteswap.h>
 #include <arpa/inet.h>
 
 #ifdef __cplusplus

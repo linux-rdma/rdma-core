@@ -34,7 +34,6 @@
 
 #include <stdio.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <getopt.h>
 #include <string.h>
 
