@@ -36,6 +36,7 @@
 #include <infiniband/kern-abi.h>
 #include <rdma/ib_user_sa.h>
 #include <infiniband/sa.h>
+#include <netinet/in.h>
 
 /*
  * This file must be kept in sync with the kernel's version of rdma_user_cm.h

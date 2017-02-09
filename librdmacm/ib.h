@@ -34,6 +34,7 @@
 #define _RDMA_IB_H
 
 #include <linux/types.h>
+#include <arpa/inet.h>
 #include <string.h>
 
 #ifndef AF_IB
