@@ -7,7 +7,6 @@ publish_headers(infiniband
   )
 
 publish_internal_headers(infiniband
-  arch.h
   driver.h
   marshall.h
   )

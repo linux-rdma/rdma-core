@@ -38,7 +38,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 #include <linux/types.h>
 typedef unsigned char u8;
 typedef unsigned long long u64;

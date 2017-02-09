@@ -39,7 +39,7 @@
 #include <ccan/minmax.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #define writel(b, p) (*(uint32_t *)(p) = (b))
 #define writeq(b, p) (*(uint64_t *)(p) = (b))

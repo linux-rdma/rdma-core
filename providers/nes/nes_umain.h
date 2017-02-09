@@ -40,7 +40,7 @@
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #define PFX	"libnes: "
 

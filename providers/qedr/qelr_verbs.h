@@ -38,7 +38,7 @@
 #include <endian.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 int qelr_query_device(struct ibv_context *context,
 		      struct ibv_device_attr *attr);

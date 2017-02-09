@@ -38,7 +38,7 @@
 #include <endian.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 struct ibv_device *qelr_driver_init(const char *, int);
 

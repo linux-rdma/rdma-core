@@ -43,7 +43,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #include "pvrdma.h"
 

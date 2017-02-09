@@ -37,7 +37,7 @@
 #include <stddef.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #include <valgrind/memcheck.h>
 

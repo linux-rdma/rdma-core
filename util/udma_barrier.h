@@ -30,18 +30,8 @@
  * SOFTWARE.
  */
 
-#ifndef INFINIBAND_ARCH_H
-#define INFINIBAND_ARCH_H
-
-#include <stdint.h>
-#include <endian.h>
-
-#undef htonll
-#undef ntohll
-static inline uint64_t htonll(uint64_t x) { return htobe64(x); }
-static inline uint64_t ntohll(uint64_t x) { return be64toh(x); }
-#define htonll htonll
-#define ntohll ntohll
+#ifndef __UTIL_UDMA_BARRIER_H
+#define __UTIL_UDMA_BARRIER_H
 
 /*
  * Architecture-specific defines.  Currently, an architecture is
@@ -132,4 +122,4 @@ static inline uint64_t ntohll(uint64_t x) { return be64toh(x); }
 
 #endif
 
-#endif /* INFINIBAND_ARCH_H */
+#endif

@@ -38,7 +38,7 @@
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 #include "mlx5-abi.h"
 #include <ccan/list.h>
 #include "bitmap.h"

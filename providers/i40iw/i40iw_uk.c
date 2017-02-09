@@ -32,6 +32,8 @@
 *
 *******************************************************************************/
 
+#include <stdint.h>
+
 #include "i40iw_osdep.h"
 #include "i40iw_status.h"
 #include "i40iw_d.h"
