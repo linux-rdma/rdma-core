@@ -37,9 +37,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <byteswap.h>
+#include <endian.h>
 
-#include <asm/byteorder.h>
 #include <netinet/in.h>
 
 #include <infiniband/cm.h>
@@ -585,7 +584,7 @@ static void run_server(void)
 		printf("listen request failed\n");
 		return;
 	}
-	ret = ib_cm_listen(listen_id, __cpu_to_be64(0x1000), 0);
+	ret = ib_cm_listen(listen_id, htobe64(0x1000), 0);
 	if (ret) {
 		printf("failure trying to listen: %d\n", ret);
 		goto out;
@@ -702,7 +701,7 @@ static void run_client(char *dst)
 
 	memset(&req, 0, sizeof req);
 	req.primary_path = &test.path_rec;
-	req.service_id = __cpu_to_be64(0x1000);
+	req.service_id = htobe64(0x1000);
 
 	/*
 	 * When choosing the responder resources for a ULP, it is usually
