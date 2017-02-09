@@ -41,9 +41,6 @@
 #include <rdma/rsocket.h>
 #include <infiniband/ib.h>
 
-static inline uint64_t cpu_to_be64(uint64_t x) { return htobe64(x); }
-static inline uint32_t cpu_to_be32(uint32_t x) { return htobe32(x); }
-
 extern int use_rs;
 
 #define rs_socket(f,t,p)  use_rs ? rsocket(f,t,p)  : socket(f,t,p)
