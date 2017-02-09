@@ -1267,7 +1267,7 @@ static inline uint64_t mlx5_cq_read_wc_completion_ts(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohll(cq->cqe64->timestamp);
+	return be64toh(cq->cqe64->timestamp);
 }
 
 #define BIT(i) (1UL << (i))

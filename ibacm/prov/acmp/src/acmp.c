@@ -2126,7 +2126,7 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 			continue;
 
 		guid = (uint64_t) strtoull(p_guid, NULL, 16);
-		if (guid != ntohll(sgid.global.interface_id))
+		if (guid != be64toh(sgid.global.interface_id))
 			continue;
 
 		ptr = strstr(ptr, "base LID");

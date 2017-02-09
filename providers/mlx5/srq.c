@@ -60,7 +60,7 @@ int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size)
 
 	for (i = 0; i < max; ++i) {
 		copy = min_t(long, size, ntohl(scat->byte_count));
-		memcpy((void *)(unsigned long)ntohll(scat->addr), buf, copy);
+		memcpy((void *)(unsigned long)be64toh(scat->addr), buf, copy);
 		size -= copy;
 		if (size <= 0)
 			return IBV_WC_SUCCESS;

@@ -81,7 +81,7 @@ static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
 
 	for (i = 0; i < max; ++i) {
 		copy = min_t(long, *size, ntohl(scat->byte_count));
-		memcpy((void *)(unsigned long)ntohll(scat->addr), buf, copy);
+		memcpy((void *)(unsigned long)be64toh(scat->addr), buf, copy);
 		*size -= copy;
 		if (*size == 0)
 			return IBV_WC_SUCCESS;
@@ -347,7 +347,7 @@ void *mlx5_get_atomic_laddr(struct mlx5_qp *qp, uint16_t idx, int *byte_count)
 	dpseg = mlx5_get_send_wqe(qp, idx) + sizeof(struct mlx5_wqe_ctrl_seg) +
 		sizeof(struct mlx5_wqe_raddr_seg) +
 		sizeof(struct mlx5_wqe_atomic_seg);
-	addr = (void *)(unsigned long)ntohll(dpseg->addr);
+	addr = (void *)(unsigned long)be64toh(dpseg->addr);
 
 	/*
 	 * Currently byte count is always 8 bytes. Fix this when

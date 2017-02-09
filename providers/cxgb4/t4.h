@@ -58,7 +58,7 @@
 #define cpu_to_be64 htobe64
 #define be16_to_cpu ntohs
 #define be32_to_cpu ntohl
-#define be64_to_cpu ntohll
+#define be64_to_cpu be64toh
 #define BUG_ON(c) assert(!(c))
 #define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))

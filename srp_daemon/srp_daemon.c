@@ -365,7 +365,7 @@ static int is_enabled_by_rules_file(struct target_details *target)
 			continue;
 
 		if (conf->rules[rule].ioc_guid[0] != '\0' &&
-		    ntohll(target->ioc_prof.guid) !=
+		    be64toh(target->ioc_prof.guid) !=
 		    strtoull(conf->rules[rule].ioc_guid, NULL, 16))
 			continue;
 
@@ -450,7 +450,7 @@ static int add_non_exist_target(struct target_details *target)
 					target->h_service_id))
 			continue;
 		if (!check_equal_uint64(scsi_host_dir, "ioc_guid",
-					ntohll(target->ioc_prof.guid)))
+					be64toh(target->ioc_prof.guid)))
 			continue;
 		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
 			/*
@@ -518,7 +518,7 @@ static int add_non_exist_target(struct target_details *target)
 		"pkey=%04x,"
 		"service_id=%016llx",
 		target->id_ext,
-		(unsigned long long) ntohll(target->ioc_prof.guid),
+		(unsigned long long) be64toh(target->ioc_prof.guid),
 		(unsigned long long) target->subnet_prefix,
 		(unsigned long long) target->h_guid,
 		target->pkey,
@@ -545,7 +545,7 @@ static int add_non_exist_target(struct target_details *target)
 		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",initiator_ext=%016llx",
-				(unsigned long long) ntohll(target->h_guid));
+				(unsigned long long) be64toh(target->h_guid));
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 			pr_err("Target config string is too long, ignoring target\n");
@@ -637,7 +637,7 @@ recv:
 				return -ret;
 			}
 
-			received_tid = ntohll(in_dm_mad->tid);
+			received_tid = be64toh(in_dm_mad->tid);
 			if (tid != received_tid)
 				pr_debug("umad_recv returned different transaction id sent %d got %d\n",
 					 tid, received_tid);
@@ -970,7 +970,7 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 			pr_human("    controller[%3d]\n", i + 1);
 
 			pr_human("        GUID:      %016llx\n",
-				 (unsigned long long) ntohll(target->ioc_prof.guid));
+				 (unsigned long long) be64toh(target->ioc_prof.guid));
 			pr_human("        vendor ID: %06x\n", ntohl(target->ioc_prof.vendor_id) >> 8);
 			pr_human("        device ID: %06x\n", ntohl(target->ioc_prof.device_id));
 			pr_human("        IO class : %04hx\n", ntohs(target->ioc_prof.io_class));
@@ -997,10 +997,10 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 
 					pr_human("            service[%3d]: %016llx / %s\n",
 						 j + k,
-						 (unsigned long long) ntohll(svc_entries.service[k].id),
+						 (unsigned long long) be64toh(svc_entries.service[k].id),
 						 svc_entries.service[k].name);
 
-					target->h_service_id = ntohll(svc_entries.service[k].id);
+					target->h_service_id = be64toh(svc_entries.service[k].id);
 					target->pkey = pkey;
 					if (is_enabled_by_rules_file(target)) {
 						if (!add_non_exist_target(target) && !config->once) {
@@ -1041,7 +1041,7 @@ int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 		return -1;
 
 	node  = (void *) in_sa_mad->data;
-	*guid = ntohll(node->port_guid);
+	*guid = be64toh(node->port_guid);
 
 	return 0;
 }
@@ -1067,7 +1067,7 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 		return -1;
 
 	port_info = (void *) in_sa_mad->data;
-	*subnet_prefix = ntohll(port_info->subnet_prefix);
+	*subnet_prefix = be64toh(port_info->subnet_prefix);
 	*isdm          = !!(ntohl(port_info->capability_mask) & SRP_IS_DM);
 
 	return 0;
@@ -1233,7 +1233,7 @@ static int do_dm_port_list(struct resources *res)
 
 		for (j = 0; j < num_pkeys; ++j)
 			do_port(res, pkeys[j], ntohs(port_info->endport_lid),
-				ntohll(port_info->subnet_prefix), guid);
+				be64toh(port_info->subnet_prefix), guid);
 	}
 
 	free(in_mad_buf);
@@ -1311,7 +1311,7 @@ static int do_full_port_list(struct resources *res)
 
 		for (j = 0; j < num_pkeys; ++j)
 			(void) handle_port(res, pkeys[j], ntohs(node->lid),
-					   ntohll(node->port_guid));
+					   be64toh(node->port_guid));
 	}
 
 	free(in_mad_buf);
@@ -2195,7 +2195,7 @@ catas_start:
 
 					srp_sleep(0, 100);
 					handle_port(res, pkey, lid,
-						    ntohll(ib_gid_get_guid(&gid)));
+						    be64toh(ib_gid_get_guid(&gid)));
 				}
 			}
 		} else {
