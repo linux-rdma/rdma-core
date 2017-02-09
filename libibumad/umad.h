@@ -229,14 +229,13 @@ static inline void umad_free(void *umad)
 }
 
 #ifndef ntohll
-  #if __BYTE_ORDER == __LITTLE_ENDIAN
-    #define ntohll(x) bswap_64(x)
-  #elif __BYTE_ORDER == __BIG_ENDIAN
-    #define ntohll(x) x
-  #endif
-#endif
-#ifndef htonll
-  #define htonll ntohll
+#undef htonll
+#undef ntohll
+/* Users should use the glibc functions directly, not these wrappers */
+static inline __attribute__((deprecated)) uint64_t htonll(uint64_t x) { return htobe64(x); }
+static inline __attribute__((deprecated)) uint64_t ntohll(uint64_t x) { return be64toh(x); }
+#define htonll htonll
+#define ntohll ntohll
 #endif
 
 END_C_DECLS
