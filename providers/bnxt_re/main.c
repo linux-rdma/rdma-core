@@ -128,6 +128,7 @@ static int bnxt_re_init_context(struct verbs_device *vdev,
 	dev->pg_size = resp.pg_size;
 	dev->cqe_size = resp.cqe_size;
 	dev->max_cq_depth = resp.max_cqd;
+	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	ibvctx->ops = bnxt_re_cntx_ops;
 
 	return 0;
@@ -136,7 +137,11 @@ static int bnxt_re_init_context(struct verbs_device *vdev,
 static void bnxt_re_uninit_context(struct verbs_device *vdev,
 				   struct ibv_context *ibvctx)
 {
+	struct bnxt_re_context *cntx;
+
+	cntx = to_bnxt_re_context(ibvctx);
 	/* Unmap if anything device specific was mapped in init_context. */
+	pthread_spin_destroy(&cntx->fqlock);
 }
 
 static struct verbs_device_ops bnxt_re_dev_ops = {

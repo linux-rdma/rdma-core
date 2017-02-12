@@ -50,6 +50,7 @@
 
 #include "bnxt_re-abi.h"
 #include "memory.h"
+#include "flush.h"
 
 #define DEV	"bnxt_re : "
 
@@ -69,6 +70,8 @@ struct bnxt_re_cq {
 	uint32_t cqid;
 	struct bnxt_re_queue cqq;
 	struct bnxt_re_dpi *udpi;
+	struct list_head sfhead;
+	struct list_head rfhead;
 	uint32_t cqe_size;
 	uint8_t  phase;
 };
@@ -104,6 +107,8 @@ struct bnxt_re_qp {
 	struct bnxt_re_cq *rcq;
 	struct bnxt_re_dpi *udpi;
 	struct bnxt_re_qpcap cap;
+	struct bnxt_re_fque_node snode;
+	struct bnxt_re_fque_node rnode;
 	uint32_t qpid;
 	uint32_t tbl_indx;
 	uint32_t sq_psn;
@@ -133,6 +138,7 @@ struct bnxt_re_context {
 	uint32_t max_qp;
 	uint32_t max_srq;
 	struct bnxt_re_dpi udpi;
+	pthread_spinlock_t fqlock;
 };
 
 /* DB ring functions used internally*/
