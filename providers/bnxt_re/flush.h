@@ -33,80 +33,53 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Description: Implements data-struture to allocate page-aligned
- *              memory buffer.
+ * Description: A few wrappers for flush queue management
  */
 
-#ifndef __MEMORY_H__
-#define __MEMORY_H__
+#ifndef __FLUSH_H__
+#define __FLUSH_H__
 
-#include <pthread.h>
+#include <ccan/list.h>
 
-struct bnxt_re_queue {
-	void *va;
-	uint32_t bytes; /* for munmap */
-	uint32_t depth; /* no. of entries */
-	uint32_t head;
-	uint32_t tail;
-	uint32_t stride;
-	pthread_spinlock_t qlock;
+struct bnxt_re_fque_node {
+	uint8_t valid;
+	struct list_node list;
 };
 
-static inline unsigned long get_aligned(uint32_t size, uint32_t al_size)
+static inline void fque_init_node(struct bnxt_re_fque_node *node)
 {
-	return (unsigned long)(size + al_size - 1) & ~(al_size - 1);
+	list_node_init(&node->list);
+	node->valid = false;
 }
 
-static inline unsigned long roundup_pow_of_two(unsigned long val)
+static inline void fque_add_node_tail(struct list_head *head,
+				      struct bnxt_re_fque_node *new)
 {
-	unsigned long roundup = 1;
-
-	if (val == 1)
-		return (roundup << 1);
-
-	while (roundup < val)
-		roundup <<= 1;
-
-	return roundup;
+	list_add_tail(head, &new->list);
+	new->valid = true;
 }
 
-int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);
-void bnxt_re_free_aligned(struct bnxt_re_queue *que);
-
-static inline void iowrite64(__u64 *dst, __le64 *src)
+static inline void fque_del_node(struct bnxt_re_fque_node *entry)
 {
-	*(volatile __le64 *)dst = *src;
+	entry->valid = false;
+	list_del(&entry->list);
 }
 
-static inline void iowrite32(__u32 *dst, __le32 *src)
+static inline uint8_t _fque_node_valid(struct bnxt_re_fque_node *node)
 {
-	*(volatile __le32 *)dst = *src;
+	return node->valid;
 }
 
-/* Basic queue operation */
-static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que)
+static inline void bnxt_re_fque_add_node(struct list_head *head,
+					 struct bnxt_re_fque_node *node)
 {
-	return (((que->tail + 1) & (que->depth - 1)) == que->head);
+	if (!_fque_node_valid(node))
+		fque_add_node_tail(head, node);
 }
 
-static inline uint32_t bnxt_re_is_que_empty(struct bnxt_re_queue *que)
+static inline void bnxt_re_fque_del_node(struct bnxt_re_fque_node *node)
 {
-	return que->tail == que->head;
+	if (_fque_node_valid(node))
+		fque_del_node(node);
 }
-
-static inline uint32_t bnxt_re_incr(uint32_t val, uint32_t max)
-{
-	return (++val & (max - 1));
-}
-
-static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que)
-{
-	que->tail = bnxt_re_incr(que->tail, que->depth);
-}
-
-static inline void bnxt_re_incr_head(struct bnxt_re_queue *que)
-{
-	que->head = bnxt_re_incr(que->head, que->depth);
-}
-
-#endif
+#endif	/* __FLUSH_H__ */
