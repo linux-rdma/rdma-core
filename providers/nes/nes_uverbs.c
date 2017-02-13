@@ -473,7 +473,7 @@ int nes_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 			break;
 
 		/* Make sure we read CQ entry contents *after* we've checked the valid bit. */
-		mb();
+		udma_from_device_barrier();
 
 		cqe = (volatile struct nes_hw_cqe)nesucq->cqes[head];
 
@@ -638,7 +638,7 @@ int nes_upoll_cq_no_db_read(struct ibv_cq *cq, int num_entries, struct ibv_wc *e
 			break;
 
 		/* Make sure we read CQ entry contents *after* we've checked the valid bit. */
-		mb();
+		udma_from_device_barrier();
 
 		cqe = (volatile struct nes_hw_cqe)nesucq->cqes[head];
 
@@ -1125,7 +1125,7 @@ static void nes_clean_cq(struct nes_uqp *nesuqp, struct nes_ucq *nesucq)
 
 	cq_head = nesucq->head;
 	while (le32_to_cpu(nesucq->cqes[cq_head].cqe_words[NES_CQE_OPCODE_IDX]) & NES_CQE_VALID) {
-		rmb();
+		udma_from_device_barrier();
 		lo = le32_to_cpu(nesucq->cqes[cq_head].cqe_words[NES_CQE_COMP_COMP_CTX_LOW_IDX]);
 		hi = le32_to_cpu(nesucq->cqes[cq_head].cqe_words[NES_CQE_COMP_COMP_CTX_HIGH_IDX]);
 		u64temp = (((uint64_t)hi) << 32) | ((uint64_t)lo);
@@ -1205,6 +1205,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	int sge_index;
 
 	pthread_spin_lock(&nesuqp->lock);
+	udma_to_device_barrier();
 
 	head = nesuqp->sq_head;
 	while (ib_wr) {
@@ -1234,7 +1235,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 		u64temp = (uint64_t)((uintptr_t)nesuqp);
 		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX] = cpu_to_le32((uint32_t)u64temp);
 		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_HIGH_IDX] = cpu_to_le32((uint32_t)(u64temp>>32));
-		mb();
+		udma_ordering_write_barrier();
 		wqe->wqe_words[NES_IWARP_SQ_WQE_COMP_CTX_LOW_IDX] |= cpu_to_le32(head);
 
 		switch (ib_wr->opcode) {
@@ -1360,7 +1361,7 @@ int nes_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 	}
 
 	nesuqp->sq_head = head;
-	mb();
+	udma_to_device_barrier();
 	while (wqe_count) {
 		counter = (wqe_count<(uint32_t)255) ? wqe_count : 255;
 		wqe_count -= counter;
@@ -1400,6 +1401,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	}
 
 	pthread_spin_lock(&nesuqp->lock);
+	udma_to_device_barrier();
 
 	head = nesuqp->rq_head;
 	while (ib_wr) {
@@ -1427,7 +1429,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 				cpu_to_le32((uint32_t)u64temp);
 		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_HIGH_IDX] =
 				cpu_to_le32((uint32_t)(u64temp >> 32));
-		mb();
+		udma_ordering_write_barrier();
 		wqe->wqe_words[NES_IWARP_RQ_WQE_COMP_CTX_LOW_IDX] |= cpu_to_le32(head);
 
 		total_payload_length = 0;
@@ -1452,7 +1454,7 @@ int nes_upost_recv(struct ibv_qp *ib_qp, struct ibv_recv_wr *ib_wr,
 	}
 
 	nesuqp->rq_head = head;
-	mb();
+	udma_to_device_barrier();
 	while (wqe_count) {
 		counter = (wqe_count<(uint32_t)255) ? wqe_count : 255;
 		wqe_count -= counter;
