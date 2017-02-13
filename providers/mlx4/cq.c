@@ -222,7 +222,7 @@ static inline int mlx4_get_next_cqe(struct mlx4_cq *cq,
 	 * Make sure we read CQ entry contents after we've checked the
 	 * ownership bit.
 	 */
-	rmb();
+	udma_from_device_barrier();
 
 	*pcqe = cqe;
 
@@ -698,7 +698,7 @@ int mlx4_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 * Make sure that the doorbell record in host memory is
 	 * written before ringing the doorbell via PCI MMIO.
 	 */
-	wmb();
+	udma_to_device_barrier();
 
 	doorbell[0] = htonl(sn << 28 | cmd | cq->cqn);
 	doorbell[1] = htonl(ci);
@@ -764,7 +764,7 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 		 * Make sure update of buffer contents is done before
 		 * updating consumer index.
 		 */
-		wmb();
+		udma_to_device_barrier();
 		mlx4_update_cons_index(cq);
 	}
 }
