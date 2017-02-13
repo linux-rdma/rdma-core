@@ -109,7 +109,7 @@ retry:
 	if (!cqe)
 		return CQ_EMPTY;
 
-	rmb();
+	udma_from_device_barrier();
 
 	if (ctx->qp_tbl[cqe->qp & 0xFFFF])
 		*cur_qp = (struct pvrdma_qp *)ctx->qp_tbl[cqe->qp & 0xFFFF];
@@ -184,11 +184,11 @@ void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn)
 			if (tail < 0)
 				tail = cq->cqe_cnt - 1;
 			curr_cqe = get_cqe(cq, curr);
-			rmb();
+			udma_from_device_barrier();
 			if ((curr_cqe->qp & 0xFFFF) != qpn) {
 				if (curr != tail) {
 					cqe = get_cqe(cq, tail);
-					rmb();
+					udma_from_device_barrier();
 					*cqe = *curr_cqe;
 				}
 				tail--;

@@ -404,10 +404,9 @@ int pvrdma_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			sge++;
 		}
 
+		udma_to_device_barrier();
 		pvrdma_idx_ring_inc(&(qp->sq.ring_state->prod_tail),
 				    qp->sq.wqe_cnt);
-
-		wmb();
 
 		qp->sq.wrid[ind] = wr->wr_id;
 		++ind;
@@ -416,11 +415,12 @@ int pvrdma_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 
 out:
-	if (nreq)
+	if (nreq) {
+		udma_to_device_barrier();
 		pvrdma_write_uar_qp(ctx->uar,
 				    PVRDMA_UAR_QP_SEND | ibqp->qp_num);
+	}
 
-	wmb();
 	pthread_spin_unlock(&qp->sq.lock);
 
 	return ret;
