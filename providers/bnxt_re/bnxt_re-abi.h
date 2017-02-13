@@ -43,6 +43,142 @@
 
 #define BNXT_RE_ABI_VERSION 1
 
+enum bnxt_re_wr_opcode {
+	BNXT_RE_WR_OPCD_SEND		= 0x00,
+	BNXT_RE_WR_OPCD_SEND_IMM	= 0x01,
+	BNXT_RE_WR_OPCD_SEND_INVAL	= 0x02,
+	BNXT_RE_WR_OPCD_RDMA_WRITE	= 0x04,
+	BNXT_RE_WR_OPCD_RDMA_WRITE_IMM	= 0x05,
+	BNXT_RE_WR_OPCD_RDMA_READ	= 0x06,
+	BNXT_RE_WR_OPCD_ATOMIC_CS	= 0x08,
+	BNXT_RE_WR_OPCD_ATOMIC_FA	= 0x0B,
+	BNXT_RE_WR_OPCD_LOC_INVAL	= 0x0C,
+	BNXT_RE_WR_OPCD_BIND		= 0x0E,
+	BNXT_RE_WR_OPCD_RECV		= 0x80
+};
+
+enum bnxt_re_wr_flags {
+	BNXT_RE_WR_FLAGS_INLINE		= 0x10,
+	BNXT_RE_WR_FLAGS_SE		= 0x08,
+	BNXT_RE_WR_FLAGS_UC_FENCE	= 0x04,
+	BNXT_RE_WR_FLAGS_RD_FENCE	= 0x02,
+	BNXT_RE_WR_FLAGS_SIGNALED	= 0x01
+};
+
+enum bnxt_re_wc_type {
+	BNXT_RE_WC_TYPE_SEND		= 0x00,
+	BNXT_RE_WC_TYPE_RECV_RC		= 0x01,
+	BNXT_RE_WC_TYPE_RECV_UD		= 0x02,
+	BNXT_RE_WC_TYPE_RECV_RAW	= 0x03,
+	BNXT_RE_WC_TYPE_TERM		= 0x0E,
+	BNXT_RE_WC_TYPE_COFF		= 0x0F
+};
+
+enum bnxt_re_req_wc_status {
+	BNXT_RE_REQ_ST_OK		= 0x00,
+	BNXT_RE_REQ_ST_BAD_RESP		= 0x01,
+	BNXT_RE_REQ_ST_LOC_LEN		= 0x02,
+	BNXT_RE_REQ_ST_LOC_QP_OP	= 0x03,
+	BNXT_RE_REQ_ST_PROT		= 0x04,
+	BNXT_RE_REQ_ST_MEM_OP		= 0x05,
+	BNXT_RE_REQ_ST_REM_INVAL	= 0x06,
+	BNXT_RE_REQ_ST_REM_ACC		= 0x07,
+	BNXT_RE_REQ_ST_REM_OP		= 0x08,
+	BNXT_RE_REQ_ST_RNR_NAK_XCED	= 0x09,
+	BNXT_RE_REQ_ST_TRNSP_XCED	= 0x0A,
+	BNXT_RE_REQ_ST_WR_FLUSH		= 0x0B
+};
+
+enum bnxt_re_rsp_wc_status {
+	BNXT_RE_RSP_ST_OK		= 0x00,
+	BNXT_RE_RSP_ST_LOC_ACC		= 0x01,
+	BNXT_RE_RSP_ST_LOC_LEN		= 0x02,
+	BNXT_RE_RSP_ST_LOC_PROT		= 0x03,
+	BNXT_RE_RSP_ST_LOC_QP_OP	= 0x04,
+	BNXT_RE_RSP_ST_MEM_OP		= 0x05,
+	BNXT_RE_RSP_ST_REM_INVAL	= 0x06,
+	BNXT_RE_RSP_ST_WR_FLUSH		= 0x07,
+	BNXT_RE_RSP_ST_HW_FLUSH		= 0x08
+};
+
+enum bnxt_re_hdr_offset {
+	BNXT_RE_HDR_WT_MASK		= 0xFF,
+	BNXT_RE_HDR_FLAGS_MASK		= 0xFF,
+	BNXT_RE_HDR_FLAGS_SHIFT		= 0x08,
+	BNXT_RE_HDR_WS_MASK		= 0xFF,
+	BNXT_RE_HDR_WS_SHIFT		= 0x10
+};
+
+enum bnxt_re_db_que_type {
+	BNXT_RE_QUE_TYPE_SQ		= 0x00,
+	BNXT_RE_QUE_TYPE_RQ		= 0x01,
+	BNXT_RE_QUE_TYPE_SRQ		= 0x02,
+	BNXT_RE_QUE_TYPE_SRQ_ARM	= 0x03,
+	BNXT_RE_QUE_TYPE_CQ		= 0x04,
+	BNXT_RE_QUE_TYPE_CQ_ARMSE	= 0x05,
+	BNXT_RE_QUE_TYPE_CQ_ARMALL	= 0x06,
+	BNXT_RE_QUE_TYPE_CQ_ARMENA	= 0x07,
+	BNXT_RE_QUE_TYPE_SRQ_ARMENA	= 0x08,
+	BNXT_RE_QUE_TYPE_CQ_CUT_ACK	= 0x09,
+	BNXT_RE_QUE_TYPE_NULL		= 0x0F
+};
+
+enum bnxt_re_db_mask {
+	BNXT_RE_DB_INDX_MASK		= 0xFFFFFUL,
+	BNXT_RE_DB_QID_MASK		= 0xFFFFFUL,
+	BNXT_RE_DB_TYP_MASK		= 0x0FUL,
+	BNXT_RE_DB_TYP_SHIFT		= 0x1C
+};
+
+enum bnxt_re_psns_mask {
+	BNXT_RE_PSNS_SPSN_MASK		= 0xFFFFFF,
+	BNXT_RE_PSNS_OPCD_MASK		= 0xFF,
+	BNXT_RE_PSNS_OPCD_SHIFT		= 0x18,
+	BNXT_RE_PSNS_NPSN_MASK		= 0xFFFFFF,
+	BNXT_RE_PSNS_FLAGS_MASK		= 0xFF,
+	BNXT_RE_PSNS_FLAGS_SHIFT	= 0x18
+};
+
+enum bnxt_re_bcqe_mask {
+	BNXT_RE_BCQE_PH_MASK		= 0x01,
+	BNXT_RE_BCQE_TYPE_MASK		= 0x0F,
+	BNXT_RE_BCQE_TYPE_SHIFT		= 0x01,
+	BNXT_RE_BCQE_STATUS_MASK	= 0xFF,
+	BNXT_RE_BCQE_STATUS_SHIFT	= 0x08,
+	BNXT_RE_BCQE_FLAGS_MASK		= 0xFFFFU,
+	BNXT_RE_BCQE_FLAGS_SHIFT	= 0x10,
+	BNXT_RE_BCQE_RWRID_MASK		= 0xFFFFFU,
+	BNXT_RE_BCQE_SRCQP_MASK		= 0xFF,
+	BNXT_RE_BCQE_SRCQP_SHIFT	= 0x18
+};
+
+enum bnxt_re_rc_flags_mask {
+	BNXT_RE_RC_FLAGS_SRQ_RQ_MASK	= 0x01,
+	BNXT_RE_RC_FLAGS_IMM_MASK	= 0x02,
+	BNXT_RE_RC_FLAGS_IMM_SHIFT	= 0x01,
+	BNXT_RE_RC_FLAGS_INV_MASK	= 0x04,
+	BNXT_RE_RC_FLAGS_INV_SHIFT	= 0x02,
+	BNXT_RE_RC_FLAGS_RDMA_MASK	= 0x08,
+	BNXT_RE_RC_FLAGS_RDMA_SHIFT	= 0x03
+};
+
+enum bnxt_re_ud_flags_mask {
+	BNXT_RE_UD_FLAGS_SRQ_RQ_MASK	= 0x01,
+	BNXT_RE_UD_FLAGS_IMM_MASK	= 0x02,
+	BNXT_RE_UD_FLAGS_HDR_TYP_MASK	= 0x0C,
+
+	BNXT_RE_UD_FLAGS_SRQ		= 0x01,
+	BNXT_RE_UD_FLAGS_RQ		= 0x00,
+	BNXT_RE_UD_FLAGS_ROCE		= 0x00,
+	BNXT_RE_UD_FLAGS_ROCE_IPV4	= 0x02,
+	BNXT_RE_UD_FLAGS_ROCE_IPV6	= 0x03
+};
+
+struct bnxt_re_db_hdr {
+	__le32 indx;
+	__le32 typ_qid; /* typ: 4, qid:20*/
+};
+
 struct bnxt_re_cntx_resp {
 	struct ibv_get_context_resp resp;
 	__u32 dev_id;
@@ -76,6 +212,39 @@ struct bnxt_re_cq_resp {
 	__u32 tail;
 	__u32 phase;
 	__u32 rsvd;
+};
+
+struct bnxt_re_bcqe {
+	__le32 flg_st_typ_ph;
+	__le32 qphi_rwrid;
+};
+
+struct bnxt_re_req_cqe {
+	__le64 qp_handle;
+	__le32 con_indx; /* 16 bits valid. */
+	__le32 rsvd1;
+	__le64 rsvd2;
+};
+
+struct bnxt_re_rc_cqe {
+	__le32 length;
+	__le32 imm_key;
+	__le64 qp_handle;
+	__le64 mr_handle;
+};
+
+struct bnxt_re_ud_cqe {
+	__le32 length; /* 14 bits */
+	__le32 immd;
+	__le64 qp_handle;
+	__le64 qplo_mac; /* 16:48*/
+};
+
+struct bnxt_re_term_cqe {
+	__le64 qp_handle;
+	__le32 rq_sq_cidx;
+	__le32 rsvd;
+	__le64 rsvd1;
 };
 
 struct bnxt_re_qp_req {
@@ -157,7 +326,9 @@ struct bnxt_re_brqe {
 };
 
 struct bnxt_re_rqe {
-	__le64 rsvd[3];
+	__le32 wrid;
+	__le32 rsvd1;
+	__le64 rsvd[2];
 };
 
 struct bnxt_re_srqe {
@@ -165,5 +336,4 @@ struct bnxt_re_srqe {
 	__le32 rsvd1;
 	__le64 rsvd[2];
 };
-
 #endif

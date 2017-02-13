@@ -105,6 +105,7 @@ static struct ibv_context_ops bnxt_re_cntx_ops = {
 	.destroy_ah    = bnxt_re_destroy_ah
 };
 
+/* Context Init functions */
 static int bnxt_re_init_context(struct verbs_device *vdev,
 				struct ibv_context *ibvctx, int cmd_fd)
 {
