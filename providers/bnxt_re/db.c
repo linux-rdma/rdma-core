@@ -33,75 +33,61 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Description: Implements data-struture to allocate page-aligned
- *              memory buffer.
+ * Description: Doorbell handling functions.
  */
 
-#ifndef __MEMORY_H__
-#define __MEMORY_H__
+#include <util/udma_barrier.h>
+#include "main.h"
 
-#include <pthread.h>
-
-struct bnxt_re_queue {
-	void *va;
-	uint32_t bytes; /* for munmap */
-	uint32_t depth; /* no. of entries */
-	uint32_t head;
-	uint32_t tail;
-	uint32_t stride;
-	pthread_spinlock_t qlock;
-};
-
-static inline unsigned long get_aligned(uint32_t size, uint32_t al_size)
+static void bnxt_re_ring_db(struct bnxt_re_dpi *dpi,
+			    struct bnxt_re_db_hdr *hdr)
 {
-	return (unsigned long)(size + al_size - 1) & ~(al_size - 1);
+	__le64 *dbval;
+
+	pthread_spin_lock(&dpi->db_lock);
+	dbval = (__le64 *)&hdr->indx;
+	udma_to_device_barrier();
+	iowrite64(dpi->dbpage, dbval);
+	pthread_spin_unlock(&dpi->db_lock);
 }
 
-static inline unsigned long roundup_pow_of_two(unsigned long val)
+static void bnxt_re_init_db_hdr(struct bnxt_re_db_hdr *hdr, uint32_t indx,
+				uint32_t qid, uint32_t typ)
 {
-	unsigned long roundup = 1;
-
-	if (val == 1)
-		return (roundup << 1);
-
-	while (roundup < val)
-		roundup <<= 1;
-
-	return roundup;
+	hdr->indx = htole32(indx & BNXT_RE_DB_INDX_MASK);
+	hdr->typ_qid = htole32(qid & BNXT_RE_DB_QID_MASK);
+	hdr->typ_qid |= htole32(((typ & BNXT_RE_DB_TYP_MASK) <<
+				  BNXT_RE_DB_TYP_SHIFT));
 }
 
-int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);
-void bnxt_re_free_aligned(struct bnxt_re_queue *que);
-
-static inline void iowrite64(__u64 *dst, __le64 *src)
+void bnxt_re_ring_rq_db(struct bnxt_re_qp *qp)
 {
-	*(volatile __le64 *)dst = *src;
+	struct bnxt_re_db_hdr hdr;
+
+	bnxt_re_init_db_hdr(&hdr, qp->rqq->tail, qp->qpid, BNXT_RE_QUE_TYPE_RQ);
+	bnxt_re_ring_db(qp->udpi, &hdr);
 }
 
-static inline void iowrite32(__u32 *dst, __le32 *src)
+void bnxt_re_ring_sq_db(struct bnxt_re_qp *qp)
 {
-	*(volatile __le32 *)dst = *src;
+	struct bnxt_re_db_hdr hdr;
+
+	bnxt_re_init_db_hdr(&hdr, qp->sqq->tail, qp->qpid, BNXT_RE_QUE_TYPE_SQ);
+	bnxt_re_ring_db(qp->udpi, &hdr);
 }
 
-/* Basic queue operation */
-static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que)
+void bnxt_re_ring_cq_db(struct bnxt_re_cq *cq)
 {
-	return (((que->tail + 1) & (que->depth - 1)) == que->head);
+	struct bnxt_re_db_hdr hdr;
+
+	bnxt_re_init_db_hdr(&hdr, cq->cqq.head, cq->cqid, BNXT_RE_QUE_TYPE_CQ);
+	bnxt_re_ring_db(cq->udpi, &hdr);
 }
 
-static inline uint32_t bnxt_re_incr(uint32_t val, uint32_t max)
+void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag)
 {
-	return (++val & (max - 1));
-}
+	struct bnxt_re_db_hdr hdr;
 
-static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que)
-{
-	que->tail = bnxt_re_incr(que->tail, que->depth);
+	bnxt_re_init_db_hdr(&hdr, cq->cqq.head, cq->cqid, aflag);
+	bnxt_re_ring_db(cq->udpi, &hdr);
 }
-
-static inline void bnxt_re_incr_head(struct bnxt_re_queue *que)
-{
-	que->head = bnxt_re_incr(que->head, que->depth);
-}
-
-#endif
