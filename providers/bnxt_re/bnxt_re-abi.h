@@ -174,6 +174,13 @@ enum bnxt_re_ud_flags_mask {
 	BNXT_RE_UD_FLAGS_ROCE_IPV6	= 0x03
 };
 
+enum bnxt_re_shpg_offt {
+	BNXT_RE_SHPG_BEG_RESV_OFFT	= 0x00,
+	BNXT_RE_SHPG_AVID_OFFT		= 0x10,
+	BNXT_RE_SHPG_AVID_SIZE		= 0x04,
+	BNXT_RE_SHPG_END_RESV_OFFT	= 0xFF0
+};
+
 struct bnxt_re_db_hdr {
 	__le32 indx;
 	__le32 typ_qid; /* typ: 4, qid:20*/

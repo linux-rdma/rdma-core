@@ -711,9 +711,6 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 	struct ibv_device_attr devattr;
 	int ret;
 
-	if (attr->qp_type == IBV_QPT_UD)
-		return -ENOSYS;
-
 	ret = bnxt_re_query_device(&cntx->ibvctx, &devattr);
 	if (ret)
 		return ret;
@@ -789,6 +786,11 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 		psn_depth++;
 
 	que->depth += psn_depth;
+	/* PSN-search memory is allocated without checking for
+	 * QP-Type. Kenrel driver do not map this memory if it
+	 * is UD-qp. UD-qp use this memory to maintain WC-opcode.
+	 * See definition of bnxt_re_fill_psns() for the use case.
+	 */
 	ret = bnxt_re_alloc_aligned(qp->sqq, pg_size);
 	if (ret)
 		return ret;
@@ -1010,17 +1012,18 @@ static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_psns *psns,
 	uint32_t pkt_cnt = 0, nxt_psn;
 
 	memset(psns, 0, sizeof(*psns));
-	psns->opc_spsn = htole32(qp->sq_psn & BNXT_RE_PSNS_SPSN_MASK);
+	if (qp->qptyp == IBV_QPT_RC) {
+		psns->opc_spsn = htole32(qp->sq_psn & BNXT_RE_PSNS_SPSN_MASK);
+		pkt_cnt = (len / qp->mtu);
+		if (len % qp->mtu)
+			pkt_cnt++;
+		nxt_psn = ((qp->sq_psn + pkt_cnt) & BNXT_RE_PSNS_NPSN_MASK);
+		psns->flg_npsn = htole32(nxt_psn);
+		qp->sq_psn = nxt_psn;
+	}
 	opcode = bnxt_re_ibv_wr_to_wc_opcd(opcode);
 	psns->opc_spsn |= htole32(((opcode & BNXT_RE_PSNS_OPCD_MASK) <<
 				    BNXT_RE_PSNS_OPCD_SHIFT));
-
-	pkt_cnt = (len / qp->mtu);
-	if (len % qp->mtu)
-		pkt_cnt++;
-	nxt_psn = ((qp->sq_psn + pkt_cnt) & BNXT_RE_PSNS_NPSN_MASK);
-	psns->flg_npsn = htole32(nxt_psn);
-	qp->sq_psn = nxt_psn;
 }
 
 static void bnxt_re_fill_wrid(struct bnxt_re_wrid *wrid, struct ibv_send_wr *wr,
@@ -1061,6 +1064,26 @@ static int bnxt_re_build_send_sqe(struct bnxt_re_qp *qp, void *wqe,
 	qesize += (bnxt_re_get_sqe_hdr_sz() >> 4);
 	hdrval |= (qesize & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT;
 	hdr->rsv_ws_fl_wt |= htole32(hdrval);
+	return len;
+}
+
+static int bnxt_re_build_ud_sqe(struct bnxt_re_qp *qp, void *wqe,
+				struct ibv_send_wr *wr, uint8_t is_inline)
+{
+	struct bnxt_re_send *sqe = ((void *)wqe + sizeof(struct bnxt_re_bsqe));
+	struct bnxt_re_ah *ah;
+	int len;
+
+	len = bnxt_re_build_send_sqe(qp, wqe, wr, is_inline);
+	sqe->qkey = htole32(wr->wr.ud.remote_qkey);
+	sqe->dst_qp = htole32(wr->wr.ud.remote_qpn);
+	if (!wr->wr.ud.ah) {
+		len = -EINVAL;
+		goto bail;
+	}
+	ah = to_bnxt_re_ah(wr->wr.ud.ah);
+	sqe->avid = htole32(ah->avid & 0xFFFFF);
+bail:
 	return len;
 }
 
@@ -1124,9 +1147,14 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		case IBV_WR_SEND_WITH_IMM:
 			hdr->key_immd = htole32(be32toh(wr->imm_data));
 		case IBV_WR_SEND:
-			bytes = bnxt_re_build_send_sqe(qp, sqe, wr, is_inline);
+			if (qp->qptyp == IBV_QPT_UD)
+				bytes = bnxt_re_build_ud_sqe(qp, sqe, wr,
+							     is_inline);
+			else
+				bytes = bnxt_re_build_send_sqe(qp, sqe, wr,
+							       is_inline);
 			if (bytes < 0)
-				ret = ENOMEM;
+				ret = (bytes == -EINVAL) ? EINVAL : ENOMEM;
 			break;
 		case IBV_WR_RDMA_WRITE_WITH_IMM:
 			hdr->key_immd = htole32(be32toh(wr->imm_data));
@@ -1262,10 +1290,45 @@ int bnxt_re_post_srq_recv(struct ibv_srq *ibvsrq, struct ibv_recv_wr *wr,
 
 struct ibv_ah *bnxt_re_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
 {
+	struct bnxt_re_context *uctx;
+	struct bnxt_re_ah *ah;
+	struct ibv_create_ah_resp resp;
+	int status;
+
+	uctx = to_bnxt_re_context(ibvpd->context);
+
+	ah = calloc(1, sizeof(*ah));
+	if (!ah)
+		goto failed;
+
+	pthread_mutex_lock(&uctx->shlock);
+	memset(&resp, 0, sizeof(resp));
+	status = ibv_cmd_create_ah(ibvpd, &ah->ibvah, attr,
+				   &resp, sizeof(resp));
+	if (status) {
+		pthread_mutex_unlock(&uctx->shlock);
+		free(ah);
+		goto failed;
+	}
+	/* read AV ID now. */
+	ah->avid = *(uint32_t *)(uctx->shpg + BNXT_RE_SHPG_AVID_OFFT);
+	pthread_mutex_unlock(&uctx->shlock);
+
+	return &ah->ibvah;
+failed:
 	return NULL;
 }
 
 int bnxt_re_destroy_ah(struct ibv_ah *ibvah)
 {
-	return -ENOSYS;
+	struct bnxt_re_ah *ah;
+	int status;
+
+	ah = to_bnxt_re_ah(ibvah);
+	status = ibv_cmd_destroy_ah(ibvah);
+	if (status)
+		return status;
+	free(ah);
+
+	return 0;
 }

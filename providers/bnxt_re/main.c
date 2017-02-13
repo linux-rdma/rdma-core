@@ -129,18 +129,35 @@ static int bnxt_re_init_context(struct verbs_device *vdev,
 	dev->cqe_size = resp.cqe_size;
 	dev->max_cq_depth = resp.max_cqd;
 	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
+	/* mmap shared page. */
+	cntx->shpg = mmap(NULL, dev->pg_size, PROT_READ | PROT_WRITE,
+			  MAP_SHARED, cmd_fd, 0);
+	if (cntx->shpg == MAP_FAILED) {
+		cntx->shpg = NULL;
+		goto failed;
+	}
+	pthread_mutex_init(&cntx->shlock, NULL);
+
 	ibvctx->ops = bnxt_re_cntx_ops;
 
 	return 0;
+failed:
+	fprintf(stderr, DEV "Failed to allocate context for device\n");
+	return errno;
 }
 
 static void bnxt_re_uninit_context(struct verbs_device *vdev,
 				   struct ibv_context *ibvctx)
 {
+	struct bnxt_re_dev *dev;
 	struct bnxt_re_context *cntx;
 
+	dev = to_bnxt_re_dev(&vdev->device);
 	cntx = to_bnxt_re_context(ibvctx);
 	/* Unmap if anything device specific was mapped in init_context. */
+	pthread_mutex_destroy(&cntx->shlock);
+	if (cntx->shpg)
+		munmap(cntx->shpg, dev->pg_size);
 	pthread_spin_destroy(&cntx->fqlock);
 }
 
