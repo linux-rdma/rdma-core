@@ -54,7 +54,8 @@ enum bnxt_re_wr_opcode {
 	BNXT_RE_WR_OPCD_ATOMIC_FA	= 0x0B,
 	BNXT_RE_WR_OPCD_LOC_INVAL	= 0x0C,
 	BNXT_RE_WR_OPCD_BIND		= 0x0E,
-	BNXT_RE_WR_OPCD_RECV		= 0x80
+	BNXT_RE_WR_OPCD_RECV		= 0x80,
+	BNXT_RE_WR_OPCD_INVAL		= 0xFF
 };
 
 enum bnxt_re_wr_flags {

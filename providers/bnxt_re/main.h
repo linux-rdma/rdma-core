@@ -236,9 +236,15 @@ static inline uint8_t bnxt_re_ibv_to_bnxt_wr_opcd(uint8_t ibv_opcd)
 	case IBV_WR_RDMA_READ:
 		bnxt_opcd = BNXT_RE_WR_OPCD_RDMA_READ;
 		break;
+	case IBV_WR_ATOMIC_CMP_AND_SWP:
+		bnxt_opcd = BNXT_RE_WR_OPCD_ATOMIC_CS;
+		break;
+	case IBV_WR_ATOMIC_FETCH_AND_ADD:
+		bnxt_opcd = BNXT_RE_WR_OPCD_ATOMIC_FA;
+		break;
 		/* TODO: Add other opcodes */
 	default:
-		bnxt_opcd = 0xFF;
+		bnxt_opcd = BNXT_RE_WR_OPCD_INVAL;
 		break;
 	};
 

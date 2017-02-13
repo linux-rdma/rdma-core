@@ -1068,6 +1068,8 @@ static int bnxt_re_build_send_sqe(struct bnxt_re_qp *qp, void *wqe,
 
 	/* Fill Header */
 	opcode = bnxt_re_ibv_to_bnxt_wr_opcd(wr->opcode);
+	if (opcode == BNXT_RE_WR_OPCD_INVAL)
+		return -EINVAL;
 	hdrval = (opcode & BNXT_RE_HDR_WT_MASK);
 
 	if (is_inline) {
@@ -1111,6 +1113,39 @@ static int bnxt_re_build_rdma_sqe(struct bnxt_re_qp *qp, void *wqe,
 	len = bnxt_re_build_send_sqe(qp, wqe, wr, is_inline);
 	sqe->rva = htole64(wr->wr.rdma.remote_addr);
 	sqe->rkey = htole32(wr->wr.rdma.rkey);
+
+	return len;
+}
+
+static int bnxt_re_build_cns_sqe(struct bnxt_re_qp *qp, void *wqe,
+				 struct ibv_send_wr *wr)
+{
+	struct bnxt_re_bsqe *hdr = wqe;
+	struct bnxt_re_atomic *sqe = ((void *)wqe +
+				      sizeof(struct bnxt_re_bsqe));
+	int len;
+
+	len = bnxt_re_build_send_sqe(qp, wqe, wr, false);
+	hdr->key_immd = htole32(wr->wr.atomic.rkey);
+	sqe->rva = htole64(wr->wr.atomic.remote_addr);
+	sqe->cmp_dt = htole64(wr->wr.atomic.compare_add);
+	sqe->swp_dt = htole64(wr->wr.atomic.swap);
+
+	return len;
+}
+
+static int bnxt_re_build_fna_sqe(struct bnxt_re_qp *qp, void *wqe,
+				 struct ibv_send_wr *wr)
+{
+	struct bnxt_re_bsqe *hdr = wqe;
+	struct bnxt_re_atomic *sqe = ((void *)wqe +
+				      sizeof(struct bnxt_re_bsqe));
+	int len;
+
+	len = bnxt_re_build_send_sqe(qp, wqe, wr, false);
+	hdr->key_immd = htole32(wr->wr.atomic.rkey);
+	sqe->rva = htole64(wr->wr.atomic.remote_addr);
+	sqe->cmp_dt = htole64(wr->wr.atomic.compare_add);
 
 	return len;
 }
@@ -1168,27 +1203,28 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			else
 				bytes = bnxt_re_build_send_sqe(qp, sqe, wr,
 							       is_inline);
-			if (bytes < 0)
-				ret = (bytes == -EINVAL) ? EINVAL : ENOMEM;
 			break;
 		case IBV_WR_RDMA_WRITE_WITH_IMM:
 			hdr->key_immd = htole32(be32toh(wr->imm_data));
 		case IBV_WR_RDMA_WRITE:
 			bytes = bnxt_re_build_rdma_sqe(qp, sqe, wr, is_inline);
-			if (bytes < 0)
-				ret = ENOMEM;
 			break;
 		case IBV_WR_RDMA_READ:
 			bytes = bnxt_re_build_rdma_sqe(qp, sqe, wr, false);
-			if (bytes < 0)
-				ret = ENOMEM;
+			break;
+		case IBV_WR_ATOMIC_CMP_AND_SWP:
+			bytes = bnxt_re_build_cns_sqe(qp, sqe, wr);
+			break;
+		case IBV_WR_ATOMIC_FETCH_AND_ADD:
+			bytes = bnxt_re_build_fna_sqe(qp, sqe, wr);
 			break;
 		default:
-			ret = EINVAL;
+			bytes = -EINVAL;
 			break;
 		}
 
-		if (ret) {
+		if (bytes < 0) {
+			ret = (bytes == -EINVAL) ? EINVAL : ENOMEM;
 			*bad = wr;
 			break;
 		}
