@@ -110,8 +110,10 @@ static int bnxt_re_init_context(struct verbs_device *vdev,
 {
 	struct ibv_get_context cmd;
 	struct bnxt_re_cntx_resp resp;
+	struct bnxt_re_dev *dev;
 	struct bnxt_re_context *cntx;
 
+	dev = to_bnxt_re_dev(&vdev->device);
 	cntx = to_bnxt_re_context(ibvctx);
 
 	memset(&resp, 0, sizeof(resp));
@@ -122,6 +124,9 @@ static int bnxt_re_init_context(struct verbs_device *vdev,
 
 	cntx->dev_id = resp.dev_id;
 	cntx->max_qp = resp.max_qp;
+	dev->pg_size = resp.pg_size;
+	dev->cqe_size = resp.cqe_size;
+	dev->max_cq_depth = resp.max_cqd;
 	ibvctx->ops = bnxt_re_cntx_ops;
 
 	return 0;
