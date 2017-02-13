@@ -141,6 +141,20 @@ struct mlx4_create_qp {
 	__u32				inl_recv_sz;
 };
 
+struct mlx4_create_qp_drv_ex_rss {
+	__u64		hash_fields_mask; /* enum ibv_rx_hash_fields */
+	__u8		hash_function; /* enum ibv_rx_hash_function_flags */
+	__u8		reserved[7];
+	__u8		hash_key[40];
+	__u32		comp_mask;
+	__u32		reserved1;
+};
+
+struct mlx4_create_qp_ex_rss {
+	struct ibv_create_qp_ex		 ibv_cmd;
+	struct mlx4_create_qp_drv_ex_rss drv_ex;
+};
+
 struct mlx4_create_qp_drv_ex {
 	__u64		buf_addr;
 	__u64		db_addr;

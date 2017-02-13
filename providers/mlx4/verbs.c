@@ -745,6 +745,70 @@ int mlx4_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
+static int mlx4_cmd_create_qp_ex_rss(struct ibv_context *context,
+				     struct ibv_qp_init_attr_ex *attr,
+				     struct mlx4_create_qp *cmd,
+				     struct mlx4_qp *qp)
+{
+	struct mlx4_create_qp_ex_rss cmd_ex = {};
+	struct mlx4_create_qp_resp_ex resp;
+	int ret;
+
+	if (attr->rx_hash_conf.rx_hash_key_len !=
+	    sizeof(cmd_ex.drv_ex.hash_key)) {
+		errno = ENOTSUP;
+		return errno;
+	}
+
+	cmd_ex.drv_ex.hash_fields_mask =
+		attr->rx_hash_conf.rx_hash_fields_mask;
+	cmd_ex.drv_ex.hash_function =
+		attr->rx_hash_conf.rx_hash_function;
+	memcpy(cmd_ex.drv_ex.hash_key, attr->rx_hash_conf.rx_hash_key,
+	       sizeof(cmd_ex.drv_ex.hash_key));
+
+	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
+				    sizeof(qp->verbs_qp), attr,
+				    &cmd_ex.ibv_cmd, sizeof(cmd_ex.ibv_cmd),
+				    sizeof(cmd_ex), &resp.ibv_resp,
+				    sizeof(resp.ibv_resp), sizeof(resp));
+	return ret;
+}
+
+static struct ibv_qp *_mlx4_create_qp_ex_rss(struct ibv_context *context,
+					     struct ibv_qp_init_attr_ex *attr)
+{
+	struct mlx4_create_qp cmd = {};
+	struct mlx4_qp *qp;
+	int ret;
+
+	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_RX_HASH) ||
+	    !(attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE))
+		return NULL;
+
+	if (attr->qp_type != IBV_QPT_RAW_PACKET)
+		return NULL;
+
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
+	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
+		goto err;
+
+	ret = mlx4_cmd_create_qp_ex_rss(context, attr, &cmd, qp);
+	if (ret)
+		goto err;
+
+	qp->type = MLX4_RSC_TYPE_RSS_QP;
+
+	return &qp->verbs_qp.qp;
+err:
+	free(qp);
+	return NULL;
+}
+
 static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr,
 				 struct mlx4_create_qp *cmd,
@@ -791,6 +855,11 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 	struct ibv_create_qp_resp resp = {};
 	struct mlx4_qp		 *qp;
 	int			  ret;
+
+	if (attr->comp_mask & (IBV_QP_INIT_ATTR_RX_HASH |
+			       IBV_QP_INIT_ATTR_IND_TABLE)) {
+		return _mlx4_create_qp_ex_rss(context, attr);
+	}
 
 	/* Sanity check QP size before proceeding */
 	if (ctx->max_qp_wr) { /* mlx4_query_device succeeded */
@@ -987,6 +1056,9 @@ int mlx4_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	struct mlx4_qp *qp = to_mqp(ibqp);
 	int ret;
 
+	if (qp->type == MLX4_RSC_TYPE_RSS_QP)
+		return ENOTSUP;
+
 	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof cmd);
 	if (ret)
 		return ret;
@@ -1000,6 +1072,20 @@ int mlx4_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	return 0;
 }
 
+static int _mlx4_modify_qp_rss(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			       int attr_mask)
+{
+	struct ibv_modify_qp cmd = {};
+
+	if (attr_mask & ~(IBV_QP_STATE | IBV_QP_PORT))
+		return ENOTSUP;
+
+	if (attr->qp_state > IBV_QPS_RTR)
+		return ENOTSUP;
+
+	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+}
+
 int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    int attr_mask)
 {
@@ -1008,6 +1094,9 @@ int mlx4_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct mlx4_qp *mqp = to_mqp(qp);
 	struct ibv_device_attr device_attr;
 	int ret;
+
+	if (mqp->type == MLX4_RSC_TYPE_RSS_QP)
+		return _mlx4_modify_qp_rss(qp, attr, attr_mask);
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (attr_mask & IBV_QP_PORT) {
@@ -1108,10 +1197,27 @@ static void mlx4_unlock_cqs(struct ibv_qp *qp)
 	}
 }
 
+static int _mlx4_destroy_qp_rss(struct ibv_qp *ibqp)
+{
+	struct mlx4_qp *qp = to_mqp(ibqp);
+	int ret;
+
+	ret = ibv_cmd_destroy_qp(ibqp);
+	if (ret && !cleanup_on_fatal(ret))
+		return ret;
+
+	free(qp);
+
+	return 0;
+}
+
 int mlx4_destroy_qp(struct ibv_qp *ibqp)
 {
 	struct mlx4_qp *qp = to_mqp(ibqp);
 	int ret;
+
+	if (qp->type == MLX4_RSC_TYPE_RSS_QP)
+		return _mlx4_destroy_qp_rss(ibqp);
 
 	pthread_mutex_lock(&to_mctx(ibqp->context)->qp_table_mutex);
 	ret = ibv_cmd_destroy_qp(ibqp);

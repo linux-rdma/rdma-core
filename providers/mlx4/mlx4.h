@@ -198,6 +198,11 @@ struct mlx4_wq {
 	int				offset;
 };
 
+enum mlx4_rsc_type {
+	MLX4_RSC_TYPE_QP	= 0,
+	MLX4_RSC_TYPE_RSS_QP	= 1,
+};
+
 struct mlx4_qp {
 	union {
 		struct verbs_qp		verbs_qp;
@@ -216,6 +221,7 @@ struct mlx4_qp {
 	struct mlx4_wq			rq;
 
 	uint8_t				link_layer;
+	uint8_t				type; /* enum mlx4_rsc_type */
 	uint32_t			qp_cap_cache;
 };
 
