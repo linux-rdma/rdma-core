@@ -52,7 +52,12 @@ static void copy_wr_to_sq(struct t4_wq *wq, union t4_wr *wqe, u8 len16)
 	dst = (u64 *)((u8 *)wq->sq.queue + wq->sq.wq_pidx * T4_EQ_ENTRY_SIZE);
 	if (t4_sq_onchip(wq)) {
 		len16 = align(len16, 4);
-		wc_wmb();
+
+		/* In onchip mode the copy below will be made to WC memory and
+		 * could trigger DMA. In offchip mode the copy below only
+		 * queues the WQE, DMA cannot start until t4_ring_sq_db
+		 * happens */
+		mmio_wc_start();
 	}
 	while (len16) {
 		*dst++ = *src++;
@@ -62,7 +67,13 @@ static void copy_wr_to_sq(struct t4_wq *wq, union t4_wr *wqe, u8 len16)
 		if (dst == (u64 *)&wq->sq.queue[wq->sq.size])
 			dst = (u64 *)wq->sq.queue;
 		len16--;
+
+		/* NOTE len16 cannot be large enough to write to the
+		   same sq.queue memory twice in this loop */
 	}
+
+	if (t4_sq_onchip(wq))
+		mmio_flush_writes();
 }
 
 static void copy_wr_to_rq(struct t4_wq *wq, union t4_recv_wr *wqe, u8 len16)
@@ -274,7 +285,9 @@ static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
 	int mask;
 	int __attribute__((unused)) ret;
 
-	wc_wmb();
+	/* FIXME: Why do we need this barrier if the kernel is going to
+	   trigger the DMA? */
+	udma_to_device_barrier();
 	if (qid == qhp->wq.sq.qid) {
 		attr.sq_psn = idx;
 		mask = IBV_QP_SQ_PSN;
@@ -385,8 +398,11 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			      len16, wqe);
 	} else
 		ring_kernel_db(qhp, qhp->wq.sq.qid, idx);
+	/* This write is only for debugging, the value does not matter for DMA
+	 */
 	qhp->wq.sq.queue[qhp->wq.sq.size].status.host_wq_pidx = \
 			(qhp->wq.sq.wq_pidx);
+
 	pthread_spin_unlock(&qhp->lock);
 	return err;
 }

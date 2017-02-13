@@ -317,9 +317,12 @@ enum {
 };
 
 struct t4_sq {
+	/* queue is either host memory or WC MMIO memory if
+	 * t4_sq_onchip(). */
 	union t4_wr *queue;
 	struct t4_swsqe *sw_sq;
 	struct t4_swsqe *oldest_read;
+	/* udb is either UC or WC MMIO memory depending on device version. */
 	volatile u32 *udb;
 	size_t memsize;
 	u32 qid;
@@ -366,12 +369,6 @@ struct t4_wq {
 	int flushed;
 	u8 *db_offp;
 };
-
-static inline void t4_ma_sync(struct t4_wq *wq, int page_size)
-{
-	wc_wmb();
-	*((volatile u32 *)wq->sq.ma_sync) = 1;
-}
 
 static inline int t4_rqes_posted(struct t4_wq *wq)
 {
@@ -444,8 +441,11 @@ static inline void t4_sq_produce(struct t4_wq *wq, u8 len16)
 	wq->sq.wq_pidx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
 	if (wq->sq.wq_pidx >= wq->sq.size * T4_SQ_NUM_SLOTS)
 		wq->sq.wq_pidx %= wq->sq.size * T4_SQ_NUM_SLOTS;
-	if (!wq->error)
+	if (!wq->error) {
+		/* This write is only for debugging, the value does not matter
+		 * for DMA */
 		wq->sq.queue[wq->sq.size].status.host_pidx = (wq->sq.pidx);
+	}
 }
 
 static inline void t4_sq_consume(struct t4_wq *wq)
@@ -457,10 +457,14 @@ static inline void t4_sq_consume(struct t4_wq *wq)
 	if (++wq->sq.cidx == wq->sq.size)
 		wq->sq.cidx = 0;
 	assert((wq->sq.cidx != wq->sq.pidx) || wq->sq.in_use == 0);
-	if (!wq->error)
+	if (!wq->error){
+		/* This write is only for debugging, the value does not matter
+		 * for DMA */
 		wq->sq.queue[wq->sq.size].status.host_cidx = wq->sq.cidx;
+	}
 }
 
+/* Copies to WC MMIO memory */
 static void copy_wqe_to_udb(volatile u32 *udb_offset, void *wqe)
 {
 	u64 *src, *dst;
@@ -482,8 +486,8 @@ extern int t5_en_wc;
 static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
 				 union t4_wr *wqe)
 {
-	wc_wmb();
 	if (!t4) {
+		mmio_wc_start();
 		if (t5_en_wc && inc == 1 && wq->sq.wc_reg_available) {
 			PDBG("%s: WC wq->sq.pidx = %d; len16=%d\n",
 			     __func__, wq->sq.pidx, len16);
@@ -494,30 +498,45 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
 			writel(QID_V(wq->sq.bar2_qid) | PIDX_T5_V(inc),
 			       wq->sq.udb);
 		}
-		wc_wmb();
+		/* udb is WC for > t4 devices */
+		mmio_flush_writes();
 		return;
 	}
+
+	udma_to_device_barrier();
 	if (ma_wr) {
 		if (t4_sq_onchip(wq)) {
 			int i;
+
+			mmio_wc_start();
 			for (i = 0; i < 16; i++)
 				*(volatile u32 *)&wq->sq.queue[wq->sq.size].flits[2+i] = i;
+			mmio_flush_writes();
 		}
 	} else {
 		if (t4_sq_onchip(wq)) {
 			int i;
+
+			mmio_wc_start();
 			for (i = 0; i < 16; i++)
+				/* FIXME: What is this supposed to be doing?
+				 * Writing to the same address multiple times
+				 * with WC memory is not guarenteed to
+				 * generate any more than one TLP. Why isn't
+				 * writing to WC memory marked volatile? */
 				*(u32 *)&wq->sq.queue[wq->sq.size].flits[2] = i;
+			mmio_flush_writes();
 		}
 	}
+	/* udb is UC for t4 devices */
 	writel(QID_V(wq->sq.qid & wq->qid_mask) | PIDX_V(inc), wq->sq.udb);
 }
 
 static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
 				 union t4_recv_wr *wqe)
 {
-	wc_wmb();
 	if (!t4) {
+		mmio_wc_start();
 		if (t5_en_wc && inc == 1 && wq->sq.wc_reg_available) {
 			PDBG("%s: WC wq->rq.pidx = %d; len16=%d\n",
 			     __func__, wq->rq.pidx, len16);
@@ -528,9 +547,12 @@ static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t4, u8 len16,
 			writel(QID_V(wq->rq.bar2_qid) | PIDX_T5_V(inc),
 			       wq->rq.udb);
 		}
-		wc_wmb();
+		/* udb is WC for > t4 devices */
+		mmio_flush_writes();
 		return;
 	}
+	/* udb is UC for t4 devices */
+	udma_to_device_barrier();
 	writel(QID_V(wq->rq.qid & wq->qid_mask) | PIDX_V(inc), wq->rq.udb);
 }
 
@@ -655,7 +677,7 @@ static inline int t4_next_hw_cqe(struct t4_cq *cq, struct t4_cqe **cqe)
 		cq->error = 1;
 		assert(0);
 	} else if (t4_valid_cqe(cq, &cq->queue[cq->cidx])) {
-		rmb();
+		udma_from_device_barrier();
 		*cqe = &cq->queue[cq->cidx];
 		ret = 0;
 	} else
