@@ -48,27 +48,7 @@
 #include <util/udma_barrier.h>
 
 #include "bnxt_re-abi.h"
-
-struct bnxt_re_pd {
-	struct ibv_pd ibvpd;
-	uint32_t pdid;
-};
-
-struct bnxt_re_cq {
-	struct ibv_cq ibvcq;
-};
-
-struct bnxt_re_qp {
-	struct ibv_qp ibvqp;
-};
-
-struct bnxt_re_srq {
-	struct ibv_srq ibvsrq;
-};
-
-struct bnxt_re_mr {
-	struct ibv_mr ibvmr;
-};
+#include "memory.h"
 
 #define DEV	"bnxt_re : "
 
@@ -78,9 +58,55 @@ struct bnxt_re_dpi {
 	pthread_spinlock_t db_lock;
 };
 
+struct bnxt_re_pd {
+	struct ibv_pd ibvpd;
+	uint32_t pdid;
+};
+
+struct bnxt_re_cq {
+	struct ibv_cq ibvcq;
+	uint32_t cqid;
+	struct bnxt_re_queue cqq;
+	struct bnxt_re_dpi *udpi;
+	uint32_t cqe_size;
+	uint8_t  phase;
+};
+
+struct bnxt_re_srq {
+	struct ibv_srq ibvsrq;
+};
+
+struct bnxt_re_qp {
+	struct ibv_qp ibvqp;
+	struct bnxt_re_queue *sqq;
+	struct bnxt_re_psns *psns; /* start ptr. */
+	struct bnxt_re_queue *rqq;
+	struct bnxt_re_srq *srq;
+	struct bnxt_re_cq *scq;
+	struct bnxt_re_cq *rcq;
+	struct bnxt_re_dpi *udpi;
+	uint64_t *swrid;
+	uint64_t *rwrid;
+	uint32_t qpid;
+	uint32_t tbl_indx;
+	uint16_t mtu;
+	uint16_t qpst;
+	uint8_t qptyp;
+	/* wrid? */
+	/* irdord? */
+};
+
+struct bnxt_re_mr {
+	struct ibv_mr ibvmr;
+};
+
 struct bnxt_re_dev {
 	struct verbs_device vdev;
 	uint8_t abi_version;
+	uint32_t pg_size;
+
+	uint32_t cqe_size;
+	uint32_t max_cq_depth;
 };
 
 struct bnxt_re_context {
@@ -107,4 +133,27 @@ static inline struct bnxt_re_pd *to_bnxt_re_pd(struct ibv_pd *ibvpd)
 	return container_of(ibvpd, struct bnxt_re_pd, ibvpd);
 }
 
+static inline struct bnxt_re_cq *to_bnxt_re_cq(struct ibv_cq *ibvcq)
+{
+	return container_of(ibvcq, struct bnxt_re_cq, ibvcq);
+}
+
+static inline struct bnxt_re_qp *to_bnxt_re_qp(struct ibv_qp *ibvqp)
+{
+	return container_of(ibvqp, struct bnxt_re_qp, ibvqp);
+}
+
+static inline uint32_t bnxt_re_get_sqe_sz(void)
+{
+	return sizeof(struct bnxt_re_bsqe) +
+	       sizeof(struct bnxt_re_send) +
+	       BNXT_RE_MAX_INLINE_SIZE;
+}
+
+static inline uint32_t bnxt_re_get_rqe_sz(void)
+{
+	return sizeof(struct bnxt_re_brqe) +
+	       sizeof(struct bnxt_re_rqe) +
+	       BNXT_RE_MAX_INLINE_SIZE;
+}
 #endif
