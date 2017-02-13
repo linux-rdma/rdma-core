@@ -75,7 +75,7 @@ static enum i40iw_status_code i40iw_nop_1(struct i40iw_qp_uk *qp)
 	    LS_64(signaled, I40IWQPSQ_SIGCOMPL) |
 	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID) | nop_signature++;
 
-	i40iw_wmb();	/* Memory barrier to ensure data is written before valid bit is set */
+	udma_to_device_barrier();	/* Memory barrier to ensure data is written before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 	return 0;
@@ -91,7 +91,7 @@ void i40iw_qp_post_wr(struct i40iw_qp_uk *qp)
 	u32 hw_sq_tail;
 	u32 sw_sq_head;
 
-	i40iw_mb(); /* valid bit is written and loads completed before reading shadow */
+	udma_to_device_barrier(); /* valid bit is written and loads completed before reading shadow */
 
 	/* read the doorbell shadow area */
 	get_64bit_val(qp->shadow_area, I40IW_BYTE_0, &temp);
@@ -297,7 +297,7 @@ static enum i40iw_status_code i40iw_rdma_write(struct i40iw_qp_uk *qp,
 		byte_off += 16;
 	}
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 
@@ -347,7 +347,7 @@ static enum i40iw_status_code i40iw_rdma_read(struct i40iw_qp_uk *qp,
 
 	i40iw_set_fragment(wqe, I40IW_BYTE_0, &op_info->lo_addr);
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 	if (post_sq)
@@ -410,7 +410,7 @@ static enum i40iw_status_code i40iw_send(struct i40iw_qp_uk *qp,
 		byte_off += 16;
 	}
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 	if (post_sq)
@@ -478,7 +478,7 @@ static enum i40iw_status_code i40iw_inline_rdma_write(struct i40iw_qp_uk *qp,
 		memcpy(dest, src, op_info->len - I40IW_BYTE_16);
 	}
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 
@@ -552,7 +552,7 @@ static enum i40iw_status_code i40iw_inline_send(struct i40iw_qp_uk *qp,
 		memcpy(dest, src, op_info->len - I40IW_BYTE_16);
 	}
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 
@@ -601,7 +601,7 @@ static enum i40iw_status_code i40iw_stag_local_invalidate(struct i40iw_qp_uk *qp
 	    LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
 	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 
@@ -650,7 +650,7 @@ static enum i40iw_status_code i40iw_mw_bind(struct i40iw_qp_uk *qp,
 	    LS_64(info->signaled, I40IWQPSQ_SIGCOMPL) |
 	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 
@@ -694,7 +694,7 @@ static enum i40iw_status_code i40iw_post_receive(struct i40iw_qp_uk *qp,
 		byte_off += 16;
 	}
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 
@@ -731,7 +731,7 @@ static void i40iw_cq_request_notification(struct i40iw_cq_uk *cq,
 
 	set_64bit_val(cq->shadow_area, I40IW_BYTE_32, temp_val);
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	db_wr32(cq->cq_id, cq->cqe_alloc_reg);
 }
@@ -779,6 +779,8 @@ static enum i40iw_status_code i40iw_cq_poll_completion(struct i40iw_cq_uk *cq,
 
 	if (polarity != cq->polarity)
 		return I40IW_ERR_QUEUE_EMPTY;
+
+	udma_from_device_barrier();
 
 	q_type = (u8)RS_64(qword3, I40IW_CQ_SQ);
 	info->error = (bool)RS_64(qword3, I40IW_CQ_ERROR);
@@ -1121,7 +1123,7 @@ enum i40iw_status_code i40iw_nop(struct i40iw_qp_uk *qp,
 	    LS_64(signaled, I40IWQPSQ_SIGCOMPL) |
 	    LS_64(qp->swqe_polarity, I40IWQPSQ_VALID);
 
-	i40iw_wmb(); /* make sure WQE is populated before valid bit is set */
+	udma_to_device_barrier(); /* make sure WQE is populated before valid bit is set */
 
 	set_64bit_val(wqe, I40IW_BYTE_24, header);
 	if (post_sq)
