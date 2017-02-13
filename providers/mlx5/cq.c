@@ -489,7 +489,7 @@ static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 	 * Make sure we read CQ entry contents after we've checked the
 	 * ownership bit.
 	 */
-	rmb();
+	udma_from_device_barrier();
 
 #ifdef MLX5_DEBUG
 	{
@@ -1283,14 +1283,14 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 * Make sure that the doorbell record in host memory is
 	 * written before ringing the doorbell via PCI MMIO.
 	 */
-	wmb();
+	udma_to_device_barrier();
 
 	doorbell[0] = htonl(sn << 28 | cmd | ci);
 	doorbell[1] = htonl(cq->cqn);
 
 	mlx5_write64(doorbell, ctx->uar[0] + MLX5_CQ_DOORBELL, &ctx->lock32);
 
-	wc_wmb();
+	mmio_ordered_writes_hack();
 
 	return 0;
 }
@@ -1395,7 +1395,7 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 		 * Make sure update of buffer contents is done before
 		 * updating consumer index.
 		 */
-		wmb();
+		udma_to_device_barrier();
 		update_cons_index(cq);
 	}
 }

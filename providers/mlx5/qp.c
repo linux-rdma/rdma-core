@@ -926,10 +926,13 @@ out:
 		 * Make sure that descriptors are written before
 		 * updating doorbell record and ringing the doorbell
 		 */
-		wmb();
+		udma_to_device_barrier();
 		qp->db[MLX5_SND_DBR] = htonl(qp->sq.cur_post & 0xffff);
 
-		wc_wmb();
+		/* Make sure that the doorbell write happens before the memcpy
+		 * to WC memory below */
+		mmio_wc_start();
+
 		ctx = to_mctx(ibqp->context);
 		if (bf->need_lock)
 			mlx5_spin_lock(&bf->lock);
@@ -944,15 +947,15 @@ out:
 				     &ctx->lock32);
 
 		/*
-		 * use wc_wmb() to ensure write combining buffers are flushed out
+		 * use mmio_flush_writes() to ensure write combining buffers are flushed out
 		 * of the running CPU. This must be carried inside the spinlock.
 		 * Otherwise, there is a potential race. In the race, CPU A
 		 * writes doorbell 1, which is waiting in the WC buffer. CPU B
 		 * writes doorbell 2, and it's write is flushed earlier. Since
-		 * the wc_wmb is CPU local, this will result in the HCA seeing
+		 * the mmio_flush_writes is CPU local, this will result in the HCA seeing
 		 * doorbell 2, followed by doorbell 1.
 		 */
-		wc_wmb();
+		mmio_flush_writes();
 		bf->offset ^= bf->buf_size;
 		if (bf->need_lock)
 			mlx5_spin_unlock(&bf->lock);
@@ -1119,7 +1122,7 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 		*(rwq->recv_db) = htonl(rwq->rq.head & 0xffff);
 	}
 
@@ -1193,7 +1196,8 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
+
 		/*
 		 * For Raw Packet QP, avoid updating the doorbell record
 		 * as long as the QP isn't in RTR state, to avoid receiving
