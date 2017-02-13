@@ -131,12 +131,34 @@ int bnxt_re_free_pd(struct ibv_pd *ibvpd)
 struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 			      int access)
 {
-	return NULL;
+	struct bnxt_re_mr *mr;
+	struct ibv_reg_mr cmd;
+	struct bnxt_re_mr_resp resp;
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	if (ibv_cmd_reg_mr(ibvpd, sva, len, (uintptr_t)sva, access, &mr->ibvmr,
+			   &cmd, sizeof(cmd), &resp.resp, sizeof(resp))) {
+		free(mr);
+		return NULL;
+	}
+
+	return &mr->ibvmr;
 }
 
 int bnxt_re_dereg_mr(struct ibv_mr *ibvmr)
 {
-	return -ENOSYS;
+	struct bnxt_re_mr *mr = (struct bnxt_re_mr *)ibvmr;
+	int status;
+
+	status = ibv_cmd_dereg_mr(ibvmr);
+	if (status)
+		return status;
+	free(mr);
+
+	return 0;
 }
 
 struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,

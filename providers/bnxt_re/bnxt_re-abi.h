@@ -56,4 +56,8 @@ struct bnxt_re_pd_resp {
 	__u64 dbr;
 };
 
+struct bnxt_re_mr_resp {
+	struct ibv_reg_mr_resp resp;
+};
+
 #endif
