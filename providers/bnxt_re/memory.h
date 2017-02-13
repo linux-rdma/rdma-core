@@ -83,6 +83,16 @@ static inline void iowrite32(__u32 *dst, __le32 *src)
 	*(volatile __le32 *)dst = *src;
 }
 
+static inline __u32 upper_32_bits(uint64_t n)
+{
+	return (__u32)((n >> 16) >> 16);
+}
+
+static inline __u32 lower_32_bits(uint64_t n)
+{
+	return (__u32)(n & 0xFFFFFFFFUL);
+}
+
 /* Basic queue operation */
 static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que)
 {
