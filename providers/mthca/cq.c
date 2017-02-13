@@ -152,7 +152,7 @@ static inline void update_cons_index(struct mthca_cq *cq, int incr)
 
 	if (mthca_is_memfree(cq->ibv_cq.context)) {
 		*cq->set_ci_db = htonl(cq->cons_index);
-		wmb();
+		mmio_ordered_writes_hack();
 	} else {
 		doorbell[0] = htonl(MTHCA_TAVOR_CQ_DB_INC_CI | cq->cqn);
 		doorbell[1] = htonl(incr - 1);
@@ -310,7 +310,7 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 	 * Make sure we read CQ entry contents after we've checked the
 	 * ownership bit.
 	 */
-	rmb();
+	udma_from_device_barrier();
 
 	qpn = ntohl(cqe->my_qpn);
 
@@ -472,7 +472,7 @@ int mthca_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	}
 
 	if (freed) {
-		wmb();
+		udma_to_device_barrier();
 		update_cons_index(cq, freed);
 	}
 
@@ -516,7 +516,7 @@ int mthca_arbel_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 * Make sure that the doorbell record in host memory is
 	 * written before ringing the doorbell via PCI MMIO.
 	 */
-	wmb();
+	udma_to_device_barrier();
 
 	doorbell[0] = htonl((sn << 28)                       |
 			    (solicited ?
@@ -582,7 +582,7 @@ void __mthca_cq_clean(struct mthca_cq *cq, uint32_t qpn, struct mthca_srq *srq)
 	if (nfreed) {
 		for (i = 0; i < nfreed; ++i)
 			set_cqe_hw(get_cqe(cq, (cq->cons_index + i) & cq->ibv_cq.cqe));
-		wmb();
+		udma_to_device_barrier();
 		cq->cons_index += nfreed;
 		update_cons_index(cq, nfreed);
 	}

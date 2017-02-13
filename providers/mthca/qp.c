@@ -112,6 +112,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	uint32_t uninitialized_var(op0);
 
 	pthread_spin_lock(&qp->sq.lock);
+	udma_to_device_barrier();
 
 	ind = qp->sq.next_ind;
 
@@ -287,7 +288,7 @@ int mthca_tavor_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		/*
 		 * Make sure that nda_op is written before setting ee_nds.
 		 */
-		wmb();
+		udma_ordering_write_barrier();
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl((size0 ? 0 : MTHCA_NEXT_DBD) | size |
 			((wr->send_flags & IBV_SEND_FENCE) ?
@@ -313,6 +314,7 @@ out:
 				     qp->send_wqe_offset) | f0 | op0);
 		doorbell[1] = htonl((ibqp->qp_num << 8) | size0);
 
+		udma_to_device_barrier();
 		mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_SEND_DOORBELL);
 	}
 
@@ -400,7 +402,7 @@ int mthca_tavor_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			 * Make sure that descriptors are written
 			 * before doorbell is rung.
 			 */
-			wmb();
+			udma_to_device_barrier();
 
 			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
 
@@ -419,7 +421,7 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell is rung.
 		 */
-		wmb();
+		udma_to_device_barrier();
 
 		mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_RECV_DOORBELL);
 	}
@@ -466,14 +468,14 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			 * Make sure that descriptors are written before
 			 * doorbell record.
 			 */
-			wmb();
+			udma_to_device_barrier();
 			*qp->sq.db = htonl(qp->sq.head & 0xffff);
 
 			/*
 			 * Make sure doorbell record is written before we
 			 * write MMIO send doorbell.
 			 */
-			wmb();
+			mmio_ordered_writes_hack();
 			mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_SEND_DOORBELL);
 
 			size0 = 0;
@@ -643,7 +645,7 @@ int mthca_arbel_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			htonl(((ind << qp->sq.wqe_shift) +
 			       qp->send_wqe_offset) |
 			      mthca_opcode[wr->opcode]);
-		wmb();
+		udma_ordering_write_barrier();
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
 			htonl(MTHCA_NEXT_DBD | size |
 			      ((wr->send_flags & IBV_SEND_FENCE) ?
@@ -674,14 +676,14 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 		*qp->sq.db = htonl(qp->sq.head & 0xffff);
 
 		/*
 		 * Make sure doorbell record is written before we
 		 * write MMIO send doorbell.
 		 */
-		wmb();
+		mmio_ordered_writes_hack();
 		mthca_write64(doorbell, to_mctx(ibqp->context), MTHCA_SEND_DOORBELL);
 	}
 
@@ -754,7 +756,7 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 		*qp->rq.db = htonl(qp->rq.head & 0xffff);
 	}
 
