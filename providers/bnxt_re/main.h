@@ -123,6 +123,11 @@ struct bnxt_re_mr {
 	struct ibv_mr ibvmr;
 };
 
+struct bnxt_re_ah {
+	struct ibv_ah ibvah;
+	uint32_t avid;
+};
+
 struct bnxt_re_dev {
 	struct verbs_device vdev;
 	uint8_t abi_version;
@@ -138,6 +143,8 @@ struct bnxt_re_context {
 	uint32_t max_qp;
 	uint32_t max_srq;
 	struct bnxt_re_dpi udpi;
+	void *shpg;
+	pthread_mutex_t shlock;
 	pthread_spinlock_t fqlock;
 };
 
@@ -173,6 +180,11 @@ static inline struct bnxt_re_cq *to_bnxt_re_cq(struct ibv_cq *ibvcq)
 static inline struct bnxt_re_qp *to_bnxt_re_qp(struct ibv_qp *ibvqp)
 {
 	return container_of(ibvqp, struct bnxt_re_qp, ibvqp);
+}
+
+static inline struct bnxt_re_ah *to_bnxt_re_ah(struct ibv_ah *ibvah)
+{
+        return container_of(ibvah, struct bnxt_re_ah, ibvah);
 }
 
 static inline uint32_t bnxt_re_get_sqe_sz(void)
