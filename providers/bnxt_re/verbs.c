@@ -338,10 +338,8 @@ static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	return pcqe;
 }
 
-static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp,
-				 struct ibv_wc *ibvwc,
-				 struct bnxt_re_bcqe *hdr,
-				 struct bnxt_re_rc_cqe *rcqe)
+static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
+				 struct bnxt_re_bcqe *hdr, void *cqe)
 {
 	struct bnxt_re_queue *rq = qp->rqq;
 	struct bnxt_re_wrid *rwrid;
@@ -366,6 +364,10 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp,
 		ibvwc->qp_num = qp->qpid;
 		ibvwc->opcode = IBV_WC_RECV;
 		ibvwc->byte_len = 0;
+		ibvwc->wc_flags = 0;
+		if (qp->qptyp == IBV_QPT_UD)
+			ibvwc->src_qp = 0;
+
 		bnxt_re_incr_head(qp->rqq);
 		if (qp->qpst != IBV_QPS_ERR)
 			qp->qpst = IBV_QPS_ERR;
@@ -377,16 +379,32 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp,
 	return 1;
 }
 
+static void bnxt_re_fill_ud_cqe(struct ibv_wc *ibvwc,
+				struct bnxt_re_bcqe *hdr, void *cqe)
+{
+	struct bnxt_re_ud_cqe *ucqe = cqe;
+	uint32_t qpid;
+
+	qpid = ((le32toh(hdr->qphi_rwrid) >> BNXT_RE_BCQE_SRCQP_SHIFT) &
+		 BNXT_RE_BCQE_SRCQP_SHIFT) << 0x10; /* higher 8 bits of 24 */
+	qpid |= (le64toh(ucqe->qplo_mac) >> BNXT_RE_UD_CQE_SRCQPLO_SHIFT) &
+		 BNXT_RE_UD_CQE_SRCQPLO_MASK; /*lower 16 of 24 */
+	ibvwc->src_qp = qpid;
+	ibvwc->wc_flags |= IBV_WC_GRH;
+	/*IB-stack ABI in user do not ask for MAC to be reported. */
+}
+
 static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 				      struct ibv_wc *ibvwc,
-				      struct bnxt_re_bcqe *hdr,
-				      struct bnxt_re_rc_cqe *rcqe)
+				      struct bnxt_re_bcqe *hdr, void *cqe)
 {
 	struct bnxt_re_queue *rq = qp->rqq;
 	struct bnxt_re_wrid *rwrid;
+	struct bnxt_re_rc_cqe *rcqe;
 	uint32_t head = rq->head;
 	uint8_t flags, is_imm, is_rdma;
 
+	rcqe = cqe;
 	rwrid = &qp->rwrid[head];
 
 	ibvwc->status = IBV_WC_SUCCESS;
@@ -409,6 +427,9 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 			ibvwc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
 	}
 
+	if (qp->qptyp == IBV_QPT_UD)
+		bnxt_re_fill_ud_cqe(ibvwc, hdr, cqe);
+
 	bnxt_re_incr_head(rq);
 }
 
@@ -416,19 +437,17 @@ static uint8_t bnxt_re_poll_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 				 void *cqe, int *cnt)
 {
 	struct bnxt_re_bcqe *hdr;
-	struct bnxt_re_rc_cqe *rcqe;
 	uint8_t status, pcqe = false;
 
-	rcqe = cqe;
 	hdr = cqe + sizeof(struct bnxt_re_rc_cqe);
 
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	*cnt = 1;
 	if (status == BNXT_RE_RSP_ST_OK)
-		bnxt_re_poll_success_rcqe(qp, ibvwc, hdr, rcqe);
+		bnxt_re_poll_success_rcqe(qp, ibvwc, hdr, cqe);
 	else
-		*cnt = bnxt_re_poll_err_rcqe(qp, ibvwc, hdr, rcqe);
+		*cnt = bnxt_re_poll_err_rcqe(qp, ibvwc, hdr, cqe);
 
 	return pcqe;
 }
@@ -486,9 +505,6 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc)
 			     (uintptr_t)le64toh(scqe->qp_handle);
 			if (!qp)
 				break; /*stale cqe. should be rung.*/
-			if (qp->qptyp == IBV_QPT_UD)
-				goto bail; /* TODO: Add UD poll */
-
 			pcqe = bnxt_re_poll_scqe(qp, wc, cqe, &cnt);
 			break;
 		case BNXT_RE_WC_TYPE_RECV_RC:
@@ -503,7 +519,6 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc)
 				goto bail; /*TODO: Add SRQ poll */
 
 			pcqe = bnxt_re_poll_rcqe(qp, wc, cqe, &cnt);
-			/* TODO: Process UD rcqe */
 			break;
 		case BNXT_RE_WC_TYPE_RECV_RAW:
 			break;

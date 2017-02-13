@@ -174,6 +174,12 @@ enum bnxt_re_ud_flags_mask {
 	BNXT_RE_UD_FLAGS_ROCE_IPV6	= 0x03
 };
 
+enum bnxt_re_ud_cqe_mask {
+	BNXT_RE_UD_CQE_MAC_MASK		= 0xFFFFFFFFFFFFULL,
+	BNXT_RE_UD_CQE_SRCQPLO_MASK	= 0xFFFF,
+	BNXT_RE_UD_CQE_SRCQPLO_SHIFT	= 0x30
+};
+
 enum bnxt_re_shpg_offt {
 	BNXT_RE_SHPG_BEG_RESV_OFFT	= 0x00,
 	BNXT_RE_SHPG_AVID_OFFT		= 0x10,
