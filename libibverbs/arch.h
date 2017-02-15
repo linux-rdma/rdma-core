@@ -127,9 +127,16 @@ static inline uint64_t ntohll(uint64_t x) { return be64toh(x); }
 #define wmb()	{ asm volatile("dsb st" ::: "memory"); }
 #define wc_wmb() wmb()
 
+#elif defined(__mips__)
+
+#define mb()   { asm volatile("sync" ::: "memory"); }
+#define rmb()  { asm volatile("sync_rmb" ::: "memory"); }
+#define wmb()  { asm volatile("sync_wmb" ::: "memory"); }
+#define wc_wmb() wmb()
+
 #else
 
-#error No architecture specific memory barrier defines found!
+#warning No architecture specific memory barrier defines found!
 
 #endif
 
