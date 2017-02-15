@@ -41,7 +41,7 @@
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #include "i40iw_osdep.h"
 #include "i40iw_d.h"

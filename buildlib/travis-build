@@ -26,7 +26,7 @@ ninja
 
 # Test with coherent DMA mode disabled (ie as would be on ARM32, etc)
 cd ../build-clang
-echo "#error Fail" >> ../libibverbs/arch.h
+echo "#error Fail" >> ../util/udma_barrier.h
 rm CMakeCache.txt
 CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
 ninja

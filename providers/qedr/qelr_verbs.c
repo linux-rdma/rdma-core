@@ -900,7 +900,7 @@ static inline void qelr_edpm_set_rdma_ext(struct qelr_qp *qp,
 	if (!qp->edpm.is_edpm)
 		return;
 
-	qp->edpm.rdma_ext->remote_va = htonll(remote_addr);
+	qp->edpm.rdma_ext->remote_va = htobe64(remote_addr);
 	qp->edpm.rdma_ext->remote_key = htonl(rkey);
 	qp->edpm.dpm_payload_offset += sizeof(*qp->edpm.rdma_ext);
 	qp->edpm.dpm_payload_size += sizeof(*qp->edpm.rdma_ext);

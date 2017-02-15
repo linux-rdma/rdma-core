@@ -4,7 +4,6 @@
 #define MMIO_H
 
 #include <unistd.h>
-#include <asm/unistd.h>
 #include <sys/syscall.h>
 #ifdef __s390x__
 

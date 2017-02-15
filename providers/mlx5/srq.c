@@ -60,7 +60,7 @@ int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size)
 
 	for (i = 0; i < max; ++i) {
 		copy = min_t(long, size, ntohl(scat->byte_count));
-		memcpy((void *)(unsigned long)ntohll(scat->addr), buf, copy);
+		memcpy((void *)(unsigned long)be64toh(scat->addr), buf, copy);
 		size -= copy;
 		if (size <= 0)
 			return IBV_WC_SUCCESS;
@@ -120,7 +120,7 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		for (i = 0; i < wr->num_sge; ++i) {
 			scat[i].byte_count = htonl(wr->sg_list[i].length);
 			scat[i].lkey       = htonl(wr->sg_list[i].lkey);
-			scat[i].addr       = htonll(wr->sg_list[i].addr);
+			scat[i].addr       = htobe64(wr->sg_list[i].addr);
 		}
 
 		if (i < srq->max_gs) {

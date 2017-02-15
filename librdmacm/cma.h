@@ -39,7 +39,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <semaphore.h>
 
 #include <rdma/rdma_cma.h>

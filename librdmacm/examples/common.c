@@ -40,7 +40,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <byteswap.h>
 
 #include <rdma/rdma_cma.h>
 #include "common.h"

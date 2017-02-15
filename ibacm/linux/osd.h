@@ -37,7 +37,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
-#include <byteswap.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>

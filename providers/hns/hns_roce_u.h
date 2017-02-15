@@ -37,7 +37,7 @@
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 #include <infiniband/verbs.h>
 #include <ccan/container_of.h>
 

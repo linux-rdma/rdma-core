@@ -5,7 +5,9 @@ import argparse
 import inspect
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 from contextlib import contextmanager;
 
 def get_src_dir():
@@ -33,6 +35,15 @@ def inDirectory(dir):
         yield True;
     finally:
         os.chdir(cdir);
+
+@contextmanager
+def private_tmp():
+    """Simple version of Python 3's tempfile.TemporaryDirectory"""
+    dfn = tempfile.mkdtemp();
+    try:
+        yield dfn;
+    finally:
+        shutil.rmtree(dfn);
 
 # -------------------------------------------------------------------------
 
@@ -80,7 +91,6 @@ def check_lib_symver(args,fn):
         raise ValueError("Too many private symbol versions in ELF %r (%r)"%(fn,private));
     if private:
         private_rel = list(private)[0].split('_')[-1];
-        print repr(private_rel)
         if private_rel > args.PACKAGE_VERSION:
             raise ValueError("Private Symbol Version %r is newer than the package version %r"%(
                 private,args.PACKAGE_VERSION));
@@ -103,6 +113,49 @@ def test_lib_names(args):
                 lfn = os.readlink(fn);
                 if not os.path.islink(lfn):
                     check_lib_symver(args,lfn);
+
+# -------------------------------------------------------------------------
+
+def is_obsolete(fn):
+    """True if the header is obsolete and should not be compiled anyhow."""
+    with open(fn) as F:
+        for ln in F.readlines():
+            if re.search(r"#warning.*This header is obsolete",ln):
+                return True;
+    return False;
+
+def is_fixup(fn):
+    """True if this is a fixup header, fixup headers are exempted because they
+    required includes are not the same for kernel headers (eg netinet/in.h)"""
+    if os.path.islink(fn):
+        return "buildlib/fixup-include/" in os.readlink(fn);
+    return False;
+
+def test_public_headers(args):
+    """Test that every header file can be included on its own, and has no obvious
+    implicit dependencies. This is mainly intended to check the public
+    headers, but this sweeps in published internal headers too."""
+    incdir = os.path.abspath(os.path.join(args.BUILD,"include"));
+    includes = set();
+    for root,dirs,files in os.walk(incdir):
+        for I in files:
+            if I.endswith(".h"):
+                includes.add(os.path.join(root,I));
+
+    # Make a little ninja file to compile each header
+    with private_tmp() as tmpd:
+        with open(os.path.join(tmpd,"build.ninja"),"wt") as F:
+            print >> F,"rule comp";
+            print >> F," command = cc -c -I %s $in -o $out"%(incdir);
+            print >> F," description=Header check for $in";
+            count = 0;
+            for I in sorted(includes):
+                if is_obsolete(I) or is_fixup(I):
+                    continue;
+                print >> F,"build %s : comp %s"%("out%d.o"%(count),I);
+                print >> F,"default %s"%("out%d.o"%(count));
+                count = count + 1;
+        subprocess.check_call(["ninja"],cwd=tmpd);
 
 # -------------------------------------------------------------------------
 

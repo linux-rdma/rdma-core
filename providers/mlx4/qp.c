@@ -157,7 +157,7 @@ static inline void set_local_inv_seg(struct mlx4_wqe_local_inval_seg *iseg,
 static inline void set_raddr_seg(struct mlx4_wqe_raddr_seg *rseg,
 				 uint64_t remote_addr, uint32_t rkey)
 {
-	rseg->raddr    = htonll(remote_addr);
+	rseg->raddr    = htobe64(remote_addr);
 	rseg->rkey     = htonl(rkey);
 	rseg->reserved = 0;
 }
@@ -165,10 +165,10 @@ static inline void set_raddr_seg(struct mlx4_wqe_raddr_seg *rseg,
 static void set_atomic_seg(struct mlx4_wqe_atomic_seg *aseg, struct ibv_send_wr *wr)
 {
 	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-		aseg->swap_add = htonll(wr->wr.atomic.swap);
-		aseg->compare  = htonll(wr->wr.atomic.compare_add);
+		aseg->swap_add = htobe64(wr->wr.atomic.swap);
+		aseg->compare  = htobe64(wr->wr.atomic.compare_add);
 	} else {
-		aseg->swap_add = htonll(wr->wr.atomic.compare_add);
+		aseg->swap_add = htobe64(wr->wr.atomic.compare_add);
 		aseg->compare  = 0;
 	}
 
@@ -188,13 +188,13 @@ static void __set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
 	dseg->byte_count = htonl(sg->length);
 	dseg->lkey       = htonl(sg->lkey);
-	dseg->addr       = htonll(sg->addr);
+	dseg->addr       = htobe64(sg->addr);
 }
 
 static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
 	dseg->lkey       = htonl(sg->lkey);
-	dseg->addr       = htonll(sg->addr);
+	dseg->addr       = htobe64(sg->addr);
 
 	/*
 	 * Need a barrier here before writing the byte_count field to

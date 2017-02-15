@@ -1000,7 +1000,7 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	    ((ntohs(msg->hdr.length) >= (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && !(msg->resolve_data[0].flags & ACM_EP_FLAG_SOURCE)))) {
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
-			msg->perf_data[i] = htonll((uint64_t) atomic_get(&counter[i]));
+			msg->perf_data[i] = htobe64((uint64_t) atomic_get(&counter[i]));
 
 		msg->hdr.data[0] = ACM_MAX_COUNTER;
 		len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
@@ -1426,7 +1426,7 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 		sid = (uint64_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*sid)) {
 			acm_log(2, "service_id 0x%" PRIx64 "\n", *sid);
-			path->service_id = htonll(*sid);
+			path->service_id = htobe64(*sid);
 		} else {
 			ret = -1;
 		}
@@ -2499,7 +2499,7 @@ static void acm_load_prov_config(void)
 		acm_log(2, "provider %s subnet_prefix 0x%" PRIx64 "\n",
 			prov_name, prefix);
 		/* Convert it into network byte order */
-		prefix = htonll(prefix);
+		prefix = htobe64(prefix);
 
 		list_for_each(&provider_list, prov, entry) {
 			if (!strcasecmp(prov->prov->name, prov_name)) {

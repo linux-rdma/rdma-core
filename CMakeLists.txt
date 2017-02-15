@@ -286,7 +286,7 @@ include(RDMA_LinuxHeaders)
 # arch specific property, but for our purposes arches that do not support it
 # also do not define wmb/etc which breaks our compile.
 CHECK_C_SOURCE_COMPILES("
-#include \"${CMAKE_CURRENT_SOURCE_DIR}/libibverbs/arch.h\"
+#include \"${CMAKE_CURRENT_SOURCE_DIR}/util/udma_barrier.h\"
  int main(int argc,const char *argv[]) {return 0;}"
   HAVE_COHERENT_DMA)
 

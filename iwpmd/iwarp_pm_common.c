@@ -32,6 +32,7 @@
  */
 
 #include "iwarp_pm.h"
+#include <endian.h>
 
 /* iwpm config params */
 static const char * iwpm_param_names[IWPM_PARAM_NUM] =
@@ -380,7 +381,7 @@ int parse_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 	int ret_value = 0;
 
 	msg_parms->pmtime = pm_msg->pmtime;
-	msg_parms->assochandle = __be64_to_cpu(pm_msg->assochandle);
+	msg_parms->assochandle = be64toh(pm_msg->assochandle);
 	msg_parms->ip_ver = (pm_msg->magic & IWARP_PM_IPVER_MASK) >> IWARP_PM_IPVER_SHIFT;
 	switch (msg_parms->ip_ver) {
 	case 4:
@@ -420,7 +421,7 @@ static void form_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 {
 	memset(pm_msg, 0, sizeof(struct iwpm_wire_msg));
 	pm_msg->pmtime = msg_parms->pmtime;
-	pm_msg->assochandle = __cpu_to_be64(msg_parms->assochandle);
+	pm_msg->assochandle = htobe64(msg_parms->assochandle);
 	/* record IP version, port mapper version, message type */
 	pm_msg->magic = (msg_parms->ip_ver << IWARP_PM_IPVER_SHIFT) & IWARP_PM_IPVER_MASK;
 	pm_msg->magic |= (msg_parms->ver << IWARP_PM_VER_SHIFT) & IWARP_PM_VER_MASK;

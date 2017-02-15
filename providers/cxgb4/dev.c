@@ -323,7 +323,7 @@ static void dump_qp(struct c4iw_qp *qhp)
 	for (i=0; i < qhp->wq.sq.size * T4_SQ_NUM_SLOTS; i++) {
 		for (j=0; j < T4_EQ_ENTRY_SIZE / 16; j++) {
 			fprintf(stderr, "%04u %016" PRIx64 " %016" PRIx64 " ",
-				i, ntohll(p[0]), ntohll(p[1]));
+				i, be64toh(p[0]), be64toh(p[1]));
 			if (j == 0 && i == qhp->wq.sq.wq_pidx)
 				fprintf(stderr, " <-- pidx");
 			fprintf(stderr, "\n");
@@ -348,7 +348,7 @@ static void dump_qp(struct c4iw_qp *qhp)
 	for (i=0; i < qhp->wq.rq.size * T4_RQ_NUM_SLOTS; i++) {
 		for (j=0; j < T4_EQ_ENTRY_SIZE / 16; j++) {
 			fprintf(stderr, "%04u %016" PRIx64 " %016" PRIx64 " ",
-				i, ntohll(p[0]), ntohll(p[1]));
+				i, be64toh(p[0]), be64toh(p[1]));
 			if (j == 0 && i == qhp->wq.rq.pidx)
 				fprintf(stderr, " <-- pidx");
 			if (j == 0 && i == qhp->wq.rq.cidx)

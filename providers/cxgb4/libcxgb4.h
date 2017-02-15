@@ -40,7 +40,7 @@
 #include <sys/errno.h>
 #include <sys/time.h>
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 #include <ccan/list.h>
 #include "t4.h"
 

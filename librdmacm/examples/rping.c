@@ -40,7 +40,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <byteswap.h>
 #include <semaphore.h>
 #include <arpa/inet.h>
 #include <pthread.h>

@@ -126,7 +126,7 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 			((struct mthca_data_seg *) wqe)->lkey =
 				htonl(wr->sg_list[i].lkey);
 			((struct mthca_data_seg *) wqe)->addr =
-				htonll(wr->sg_list[i].addr);
+				htobe64(wr->sg_list[i].addr);
 			wqe += sizeof (struct mthca_data_seg);
 		}
 
@@ -219,7 +219,7 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 			((struct mthca_data_seg *) wqe)->lkey =
 				htonl(wr->sg_list[i].lkey);
 			((struct mthca_data_seg *) wqe)->addr =
-				htonll(wr->sg_list[i].addr);
+				htobe64(wr->sg_list[i].addr);
 			wqe += sizeof (struct mthca_data_seg);
 		}
 

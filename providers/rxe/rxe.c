@@ -45,7 +45,6 @@
 #include <errno.h>
 
 #include <endian.h>
-#include <byteswap.h>
 #include <pthread.h>
 #include <stddef.h>
 
