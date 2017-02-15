@@ -121,6 +121,7 @@ static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
 
 	*cqe_flushed = 0;
 	hw_cqe = cxio_next_cqe(cq);
+	udma_from_device_barrier();
 
 	/* 
 	 * Skip cqes not affiliated with a QP.
@@ -266,6 +267,7 @@ static int iwch_poll_cq_one(struct iwch_device *rhp, struct iwch_cq *chp,
 	int ret = 1;
 
 	hw_cqe = cxio_next_cqe(&chp->cq);
+	udma_from_device_barrier();
 
 	if (!hw_cqe)
 		return 0;
