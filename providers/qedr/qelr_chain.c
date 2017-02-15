@@ -76,7 +76,7 @@ int qelr_chain_alloc(struct qelr_chain *chain, int chain_size, int page_size,
 	addr = mmap(NULL, a_chain_size, PROT_READ | PROT_WRITE,
 			 MAP_PRIVATE | MAP_ANONYMOUS, QELR_ANON_FD,
 			 QELR_ANON_OFFSET);
-	if (chain->first_addr == MAP_FAILED)
+	if (addr == MAP_FAILED)
 		return errno;
 
 	ret = ibv_dontfork_range(addr, a_chain_size);
