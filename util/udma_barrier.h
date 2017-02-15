@@ -33,95 +33,6 @@
 #ifndef __UTIL_UDMA_BARRIER_H
 #define __UTIL_UDMA_BARRIER_H
 
-/*
- * Architecture-specific defines.  Currently, an architecture is
- * required to implement the following operations:
- *
- * mb() - memory barrier.  No loads or stores may be reordered across
- *     this macro by either the compiler or the CPU.
- * rmb() - read memory barrier.  No loads may be reordered across this
- *     macro by either the compiler or the CPU.
- * wmb() - write memory barrier.  No stores may be reordered across
- *     this macro by either the compiler or the CPU.
- * wc_wmb() - flush write combine buffers.  No write-combined writes
- *     will be reordered across this macro by either the compiler or
- *     the CPU.
- */
-
-#if defined(__i386__)
-
-#define mb()	 asm volatile("lock; addl $0,0(%%esp) " ::: "memory")
-#define rmb()	 mb()
-#define wmb()	 asm volatile("" ::: "memory")
-#define wc_wmb() mb()
-
-#elif defined(__x86_64__)
-
-/*
- * Only use lfence for mb() and rmb() because we don't care about
- * ordering against non-temporal stores (for now at least).
- */
-#define mb()	 asm volatile("lfence" ::: "memory")
-#define rmb()	 mb()
-#define wmb()	 asm volatile("" ::: "memory")
-#define wc_wmb() asm volatile("sfence" ::: "memory")
-
-#elif defined(__PPC64__)
-
-#define mb()	 asm volatile("sync" ::: "memory")
-#define rmb()	 asm volatile("lwsync" ::: "memory")
-#define wmb()	 mb()
-#define wc_wmb() wmb()
-
-#elif defined(__ia64__)
-
-#define mb()	 asm volatile("mf" ::: "memory")
-#define rmb()	 mb()
-#define wmb()	 mb()
-#define wc_wmb() asm volatile("fwb" ::: "memory")
-
-#elif defined(__PPC__)
-
-#define mb()	 asm volatile("sync" ::: "memory")
-#define rmb()	 mb()
-#define wmb()	 mb()
-#define wc_wmb() wmb()
-
-#elif defined(__sparc_v9__)
-
-#define mb()	 asm volatile("membar #LoadLoad | #LoadStore | #StoreStore | #StoreLoad" ::: "memory")
-#define rmb()	 asm volatile("membar #LoadLoad" ::: "memory")
-#define wmb()	 asm volatile("membar #StoreStore" ::: "memory")
-#define wc_wmb() wmb()
-
-#elif defined(__sparc__)
-
-#define mb()	 asm volatile("" ::: "memory")
-#define rmb()	 mb()
-#define wmb()	 mb()
-#define wc_wmb() wmb()
-
-#elif defined(__s390x__)
-
-#define mb()	{ asm volatile("" : : : "memory"); }	/* for s390x */
-#define rmb()	mb()					/* for s390x */
-#define wmb()	mb()					/* for s390x */
-#define wc_wmb() wmb()					/* for s390x */
-
-#elif defined(__aarch64__)
-
-/* Perhaps dmb would be sufficient? Let us be conservative for now. */
-#define mb()	{ asm volatile("dsb sy" ::: "memory"); }
-#define rmb()	{ asm volatile("dsb ld" ::: "memory"); }
-#define wmb()	{ asm volatile("dsb st" ::: "memory"); }
-#define wc_wmb() wmb()
-
-#else
-
-#error No architecture specific memory barrier defines found!
-
-#endif
-
 /* Barriers for DMA.
 
    These barriers are expliclty only for use with user DMA operations. If you
@@ -167,7 +78,25 @@
    memory types or non-temporal stores are required to use SFENCE in their own
    code prior to calling verbs to start a DMA.
 */
-#define udma_to_device_barrier() wmb()
+#if defined(__i386__)
+#define udma_to_device_barrier() asm volatile("" ::: "memory")
+#elif defined(__x86_64__)
+#define udma_to_device_barrier() asm volatile("" ::: "memory")
+#elif defined(__PPC64__)
+#define udma_to_device_barrier() asm volatile("sync" ::: "memory")
+#elif defined(__PPC__)
+#define udma_to_device_barrier() asm volatile("sync" ::: "memory")
+#elif defined(__ia64__)
+#define udma_to_device_barrier() asm volatile("mf" ::: "memory")
+#elif defined(__sparc_v9__)
+#define udma_to_device_barrier() asm volatile("membar #StoreStore" ::: "memory")
+#elif defined(__aarch64__)
+#define wmb() asm volatile("dsb st" ::: "memory");
+#elif defined(__sparc__) || defined(__s390x__)
+#define udma_to_device_barrier() asm volatile("" ::: "memory")
+#else
+#error No architecture specific memory barrier defines found!
+#endif
 
 /* Ensure that all ordered stores from the device are observable from the
    CPU. This only makes sense after something that observes an ordered store
@@ -181,7 +110,25 @@
    that is a DMA target, to ensure that the following reads see the
    data written before the MemWr TLP that set the valid bit.
 */
-#define udma_from_device_barrier() rmb()
+#if defined(__i386__)
+#define udma_from_device_barrier() asm volatile("lock; addl $0,0(%%esp) " ::: "memory")
+#elif defined(__x86_64__)
+#define udma_from_device_barrier() asm volatile("lfence" ::: "memory")
+#elif defined(__PPC64__)
+#define udma_from_device_barrier() asm volatile("lwsync" ::: "memory")
+#elif defined(__PPC__)
+#define udma_from_device_barrier() asm volatile("sync" ::: "memory")
+#elif defined(__ia64__)
+#define udma_from_device_barrier() asm volatile("mf" ::: "memory")
+#elif defined(__sparc_v9__)
+#define udma_from_device_barrier() asm volatile("membar #LoadLoad" ::: "memory")
+#elif defined(__aarch64__)
+#define udma_from_device_barrier() asm volatile("dsb ld" ::: "memory");
+#elif defined(__sparc__) || defined(__s390x__)
+#define udma_from_device_barrier() asm volatile("" ::: "memory")
+#else
+#error No architecture specific memory barrier defines found!
+#endif
 
 /* Order writes to CPU memory so that a DMA device cannot view writes after
    the barrier without also seeing all writes before the barrier. This does
@@ -202,7 +149,7 @@
       udma_ordering_write_barrier();  // Guarantee WQE written in order
       wqe->valid = 1;
 */
-#define udma_ordering_write_barrier() wmb()
+#define udma_ordering_write_barrier() udma_to_device_barrier()
 
 /* Promptly flush writes to MMIO Write Cominbing memory.
    This should be used after a write to WC memory. This is both a barrier
@@ -227,7 +174,24 @@
    This is intended to be used in conjunction with WC memory to generate large
    PCI-E MemWr TLPs from the CPU.
 */
-#define mmio_flush_writes() wc_wmb()
+#if defined(__i386__)
+#define mmio_flush_writes() asm volatile("lock; addl $0,0(%%esp) " ::: "memory")
+#elif defined(__x86_64__)
+#define mmio_flush_writes() asm volatile("sfence" ::: "memory")
+#elif defined(__PPC64__)
+#define mmio_flush_writes() asm volatile("sync" ::: "memory")
+#elif defined(__PPC__)
+#define mmio_flush_writes() asm volatile("sync" ::: "memory")
+#elif defined(__ia64__)
+#define mmio_flush_writes() asm volatile("fwb" ::: "memory")
+#elif defined(__sparc_v9__)
+#define mmio_flush_writes() asm volatile("membar #StoreStore" ::: "memory")
+#elif defined(__aarch64__)
+#define mmio_flush_writes() asm volatile("dsb st" ::: "memory");
+#elif defined(__sparc__) || defined(__s390x__)
+#define mmio_flush_writes() asm volatile("" ::: "memory")
+#error No architecture specific memory barrier defines found!
+#endif
 
 /* Prevent WC writes from being re-ordered relative to other MMIO
    writes. This should be used before a write to WC memory.
