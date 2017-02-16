@@ -44,6 +44,8 @@
 #include <tmmintrin.h>
 #endif /* defined(__SSE3__) */
 
+#include <infiniband/verbs.h>
+
 /* Always inline the functions */
 #ifdef __GNUC__
 #define MLX5DV_ALWAYS_INLINE inline __attribute__((always_inline))

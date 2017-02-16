@@ -146,7 +146,7 @@ def test_public_headers(args):
     with private_tmp() as tmpd:
         with open(os.path.join(tmpd,"build.ninja"),"wt") as F:
             print >> F,"rule comp";
-            print >> F," command = cc -c -I %s $in -o $out"%(incdir);
+            print >> F," command = cc -Werror -c -I %s $in -o $out"%(incdir);
             print >> F," description=Header check for $in";
             count = 0;
             for I in sorted(includes):
