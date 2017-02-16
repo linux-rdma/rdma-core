@@ -5,19 +5,15 @@ set -e
 # Echo all commands to Travis log
 set -x
 
-mkdir build build-clang build32 build-no-dma
-cd build
-# The goal is warning free compile on latest gcc.
-CC=gcc-6 CFLAGS=-Werror cmake -GNinja ..
+mkdir build-clang build32
+
+# Build with latest clang first
+cd build-clang
+CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
 ninja
 ../buildlib/check-build --src ..
 
-# .. and latest clang
-cd ../build-clang
-CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
-ninja
-
-# 32 bit build
+# 32 bit build to check format strings/etc
 cd ../build32
 # travis's trusty is not configured in a way that enables all 32 bit
 # packages. We could fix this with some sudo stuff.. For now turn off libnl
@@ -26,8 +22,23 @@ ninja
 
 # Test with coherent DMA mode disabled (ie as would be on ARM32, etc)
 cd ../build-clang
+cp ../util/udma_barrier.h ../util/udma_barrier.h.old
 echo "#error Fail" >> ../util/udma_barrier.h
 rm CMakeCache.txt
 CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
 ninja
+
+# Finally run through gcc-6 64 bit through the debian packaging This gives a
+# good clue if patches are changing packaging related things, the RPM stuff
+# will have to be audited by hand.
+
+# When running cmake through debian/rules it is hard to set -Werror,
+# instead force it on by changing the CMakeLists.txt
 cd ..
+cp util/udma_barrier.h.old util/udma_barrier.h
+echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")' >> buildlib/RDMA_EnableCStd.cmake
+sed -i -e 's/-DCMAKE_BUILD_TYPE=Release//g' debian/rules
+sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
+
+CC=gcc-6 debian/rules build
+fakeroot debian/rules binary
