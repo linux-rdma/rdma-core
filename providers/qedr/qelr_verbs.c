@@ -366,8 +366,6 @@ static inline int qelr_create_qp_buffers_rq(struct qelr_devctx *cxt,
 	max_recv_wr = min_t(uint32_t, max_recv_wr, cxt->max_recv_wr);
 	max_recv_sges = max_recv_wr * cxt->sges_per_recv_wr;
 	max_recv_buf = max_recv_sges * QELR_RQE_ELEMENT_SIZE;
-	qp->rq.max_wr = max_recv_wr;
-	qp->rq.max_sges = RDMA_MAX_SGE_PER_RQ_WQE;
 
 	chain_size = max_recv_buf;
 	rc = qelr_chain_alloc(&qp->rq.chain, chain_size, cxt->kernel_page_size,
