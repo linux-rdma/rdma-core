@@ -69,3 +69,5 @@ override_dh_strip:
 # Upstream encourages the use of 'build' as the developer build output
 # directory, allow that directory to be present and still allow dh to work.
 .PHONY: build
+build:
+	dh $@ --with systemd --builddirectory=build-deb

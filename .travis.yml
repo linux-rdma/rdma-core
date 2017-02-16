@@ -20,6 +20,8 @@ addons:
       - clang-3.9
       - cmake
       - debhelper
+      - dh-systemd
+      - fakeroot
       - gcc
       - gcc-6
       - libnl-3-dev
