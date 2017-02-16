@@ -578,6 +578,115 @@ static int mlx5_map_internal_clock(struct mlx5_device *mdev,
 	return 0;
 }
 
+int mlx5dv_query_device(struct ibv_context *ctx_in,
+			 struct mlx5dv_context *attrs_out)
+{
+	attrs_out->comp_mask = 0;
+	attrs_out->version   = 0;
+	attrs_out->flags     = 0;
+
+	if (to_mctx(ctx_in)->cqe_version == MLX5_CQE_VERSION_V1)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_CQE_V1;
+
+	return 0;
+}
+
+static int mlx5dv_get_qp(struct ibv_qp *qp_in,
+			 struct mlx5dv_qp *qp_out)
+{
+	struct mlx5_qp *mqp = to_mqp(qp_in);
+
+	qp_out->comp_mask = 0;
+	qp_out->dbrec     = mqp->db;
+
+	if (mqp->sq_buf_size)
+		/* IBV_QPT_RAW_PACKET */
+		qp_out->sq.buf = (void *)((uintptr_t)mqp->sq_buf.buf);
+	else
+		qp_out->sq.buf = (void *)((uintptr_t)mqp->buf.buf + mqp->sq.offset);
+	qp_out->sq.wqe_cnt = mqp->sq.wqe_cnt;
+	qp_out->sq.stride  = 1 << mqp->sq.wqe_shift;
+
+	qp_out->rq.buf     = (void *)((uintptr_t)mqp->buf.buf + mqp->rq.offset);
+	qp_out->rq.wqe_cnt = mqp->rq.wqe_cnt;
+	qp_out->rq.stride  = 1 << mqp->rq.wqe_shift;
+
+	qp_out->bf.reg    = mqp->bf->reg;
+
+	if (mqp->bf->uuarn > 0)
+		qp_out->bf.size = mqp->bf->buf_size;
+	else
+		qp_out->bf.size = 0;
+
+	return 0;
+}
+
+static int mlx5dv_get_cq(struct ibv_cq *cq_in,
+			 struct mlx5dv_cq *cq_out)
+{
+	struct mlx5_cq *mcq = to_mcq(cq_in);
+	struct mlx5_context *mctx = to_mctx(cq_in->context);
+
+	cq_out->comp_mask = 0;
+	cq_out->cqn       = mcq->cqn;
+	cq_out->cqe_cnt   = mcq->ibv_cq.cqe + 1;
+	cq_out->cqe_size  = mcq->cqe_sz;
+	cq_out->buf       = mcq->active_buf->buf;
+	cq_out->dbrec     = mcq->dbrec;
+	cq_out->uar	  = mctx->uar;
+
+	mcq->flags	 |= MLX5_CQ_FLAGS_DV_OWNED;
+
+	return 0;
+}
+
+static int mlx5dv_get_rwq(struct ibv_wq *wq_in,
+			  struct mlx5dv_rwq *rwq_out)
+{
+	struct mlx5_rwq *mrwq = to_mrwq(wq_in);
+
+	rwq_out->comp_mask = 0;
+	rwq_out->buf       = mrwq->pbuff;
+	rwq_out->dbrec     = mrwq->recv_db;
+	rwq_out->wqe_cnt   = mrwq->rq.wqe_cnt;
+	rwq_out->stride    = 1 << mrwq->rq.wqe_shift;
+
+	return 0;
+}
+
+static int mlx5dv_get_srq(struct ibv_srq *srq_in,
+			  struct mlx5dv_srq *srq_out)
+{
+	struct mlx5_srq *msrq;
+
+	msrq = container_of(srq_in, struct mlx5_srq, vsrq.srq);
+
+	srq_out->comp_mask = 0;
+	srq_out->buf       = msrq->buf.buf;
+	srq_out->dbrec     = msrq->db;
+	srq_out->stride    = 1 << msrq->wqe_shift;
+	srq_out->head      = msrq->head;
+	srq_out->tail      = msrq->tail;
+
+	return 0;
+}
+
+int mlx5dv_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type)
+{
+	int ret = 0;
+
+	if (obj_type & MLX5DV_OBJ_QP)
+		ret = mlx5dv_get_qp(obj->qp.in, obj->qp.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_CQ))
+		ret = mlx5dv_get_cq(obj->cq.in, obj->cq.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_SRQ))
+		ret = mlx5dv_get_srq(obj->srq.in, obj->srq.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_RWQ))
+		ret = mlx5dv_get_rwq(obj->rwq.in, obj->rwq.out);
+
+	return ret;
+}
+
 static int mlx5_init_context(struct verbs_device *vdev,
 			     struct ibv_context *ctx, int cmd_fd)
 {
@@ -662,7 +771,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	context->cqe_version = resp.cqe_version;
 	if (context->cqe_version) {
-		if (context->cqe_version == 1)
+		if (context->cqe_version == MLX5_CQE_VERSION_V1)
 			mlx5_ctx_ops.poll_cq = mlx5_poll_cq_v1;
 		else
 			 goto err_free_bf;

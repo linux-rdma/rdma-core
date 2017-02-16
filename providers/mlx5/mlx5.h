@@ -43,6 +43,7 @@
 #include <ccan/list.h>
 #include "bitmap.h"
 #include <ccan/minmax.h>
+#include "mlx5dv.h"
 
 #include <valgrind/memcheck.h>
 
@@ -100,11 +101,6 @@ static inline void mlx5_dbg(FILE *fp, uint32_t mask, const char *fmt, ...)
 #endif
 
 enum {
-	MLX5_RCV_DBR	= 0,
-	MLX5_SND_DBR	= 1,
-};
-
-enum {
 	MLX5_STAT_RATE_OFFSET		= 5
 };
 
@@ -127,36 +123,10 @@ enum {
 };
 
 enum {
-	MLX5_SEND_WQE_BB	= 64,
-	MLX5_SEND_WQE_SHIFT	= 6,
-};
-
-enum {
 	MLX5_BF_OFFSET	= 0x800
 };
 
 enum {
-	MLX5_INLINE_SCATTER_32	= 0x4,
-	MLX5_INLINE_SCATTER_64	= 0x8,
-};
-
-enum {
-	MLX5_OPCODE_NOP			= 0x00,
-	MLX5_OPCODE_SEND_INVAL		= 0x01,
-	MLX5_OPCODE_RDMA_WRITE		= 0x08,
-	MLX5_OPCODE_RDMA_WRITE_IMM	= 0x09,
-	MLX5_OPCODE_SEND		= 0x0a,
-	MLX5_OPCODE_SEND_IMM		= 0x0b,
-	MLX5_OPCODE_TSO			= 0x0e,
-	MLX5_OPCODE_RDMA_READ		= 0x10,
-	MLX5_OPCODE_ATOMIC_CS		= 0x11,
-	MLX5_OPCODE_ATOMIC_FA		= 0x12,
-	MLX5_OPCODE_ATOMIC_MASKED_CS	= 0x14,
-	MLX5_OPCODE_ATOMIC_MASKED_FA	= 0x15,
-	MLX5_OPCODE_FMR			= 0x19,
-	MLX5_OPCODE_LOCAL_INVAL		= 0x1b,
-	MLX5_OPCODE_CONFIG_CMD		= 0x1f,
-
 	MLX5_RECV_OPCODE_RDMA_WRITE_IMM	= 0x00,
 	MLX5_RECV_OPCODE_SEND		= 0x01,
 	MLX5_RECV_OPCODE_SEND_IMM	= 0x02,
@@ -164,15 +134,10 @@ enum {
 
 	MLX5_CQE_OPCODE_ERROR		= 0x1e,
 	MLX5_CQE_OPCODE_RESIZE		= 0x16,
-	MLX5_OPCODE_UMR			= 0x25,
 };
 
 enum {
 	MLX5_SRQ_FLAG_SIGNATURE		= 1 << 0,
-};
-
-enum {
-	MLX5_INLINE_SEG	= 0x80000000,
 };
 
 enum {
@@ -239,7 +204,7 @@ struct mlx5_context {
 	int				prefer_bf;
 	int				shut_up_bf;
 	struct {
-		struct mlx5_qp	      **table;
+		struct mlx5_qp        **table;
 		int			refcnt;
 	}				qp_table[MLX5_QP_TABLE_SIZE];
 	pthread_mutex_t			qp_table_mutex;
@@ -328,6 +293,7 @@ enum {
 	MLX5_CQ_FLAGS_FOUND_CQES = 1 << 2,
 	MLX5_CQ_FLAGS_EXTENDED = 1 << 3,
 	MLX5_CQ_FLAGS_SINGLE_THREADED = 1 << 4,
+	MLX5_CQ_FLAGS_DV_OWNED = 1 << 5,
 };
 
 struct mlx5_cq {
@@ -438,29 +404,9 @@ struct mlx5_qp {
 	int                             rss_qp;
 };
 
-struct mlx5_av {
-	union {
-		struct {
-			uint32_t	qkey;
-			uint32_t	reserved;
-		} qkey;
-		uint64_t	dc_key;
-	} key;
-	uint32_t	dqp_dct;
-	uint8_t		stat_rate_sl;
-	uint8_t		fl_mlid;
-	uint16_t	rlid;
-	uint8_t		reserved0[4];
-	uint8_t		rmac[6];
-	uint8_t		tclass;
-	uint8_t		hop_limit;
-	uint32_t	grh_gid_fl;
-	uint8_t		rgid[16];
-};
-
 struct mlx5_ah {
 	struct ibv_ah			ibv_ah;
-	struct mlx5_av			av;
+	struct mlx5_wqe_av		av;
 	bool				kern_ah;
 };
 

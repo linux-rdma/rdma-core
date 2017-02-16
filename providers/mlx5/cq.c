@@ -48,95 +48,15 @@
 #include "doorbell.h"
 
 enum {
-	MLX5_CQ_DOORBELL			= 0x20
-};
-
-enum {
 	CQ_OK					=  0,
 	CQ_EMPTY				= -1,
 	CQ_POLL_ERR				= -2
-};
-
-#define MLX5_CQ_DB_REQ_NOT_SOL			(1 << 24)
-#define MLX5_CQ_DB_REQ_NOT			(0 << 24)
-
-enum {
-	MLX5_CQE_SYNDROME_LOCAL_LENGTH_ERR		= 0x01,
-	MLX5_CQE_SYNDROME_LOCAL_QP_OP_ERR		= 0x02,
-	MLX5_CQE_SYNDROME_LOCAL_PROT_ERR		= 0x04,
-	MLX5_CQE_SYNDROME_WR_FLUSH_ERR			= 0x05,
-	MLX5_CQE_SYNDROME_MW_BIND_ERR			= 0x06,
-	MLX5_CQE_SYNDROME_BAD_RESP_ERR			= 0x10,
-	MLX5_CQE_SYNDROME_LOCAL_ACCESS_ERR		= 0x11,
-	MLX5_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR		= 0x12,
-	MLX5_CQE_SYNDROME_REMOTE_ACCESS_ERR		= 0x13,
-	MLX5_CQE_SYNDROME_REMOTE_OP_ERR			= 0x14,
-	MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR	= 0x15,
-	MLX5_CQE_SYNDROME_RNR_RETRY_EXC_ERR		= 0x16,
-	MLX5_CQE_SYNDROME_REMOTE_ABORTED_ERR		= 0x22,
-};
-
-enum {
-	MLX5_CQE_OWNER_MASK	= 1,
-	MLX5_CQE_REQ		= 0,
-	MLX5_CQE_RESP_WR_IMM	= 1,
-	MLX5_CQE_RESP_SEND	= 2,
-	MLX5_CQE_RESP_SEND_IMM	= 3,
-	MLX5_CQE_RESP_SEND_INV	= 4,
-	MLX5_CQE_RESIZE_CQ	= 5,
-	MLX5_CQE_REQ_ERR	= 13,
-	MLX5_CQE_RESP_ERR	= 14,
-	MLX5_CQE_INVALID	= 15,
 };
 
 enum {
 	MLX5_CQ_MODIFY_RESEIZE = 0,
 	MLX5_CQ_MODIFY_MODER = 1,
 	MLX5_CQ_MODIFY_MAPPING = 2,
-};
-
-enum {
-	MLX5_CQE_L2_OK = 1 << 0,
-	MLX5_CQE_L3_OK = 1 << 1,
-	MLX5_CQE_L4_OK = 1 << 2,
-};
-
-enum {
-	MLX5_CQE_L3_HDR_TYPE_NONE = 0x0,
-	MLX5_CQE_L3_HDR_TYPE_IPV6 = 0x1,
-	MLX5_CQE_L3_HDR_TYPE_IPV4 = 0x2,
-};
-
-struct mlx5_err_cqe {
-	uint8_t		rsvd0[32];
-	uint32_t	srqn;
-	uint8_t		rsvd1[18];
-	uint8_t		vendor_err_synd;
-	uint8_t		syndrome;
-	uint32_t	s_wqe_opcode_qpn;
-	uint16_t	wqe_counter;
-	uint8_t		signature;
-	uint8_t		op_own;
-};
-
-struct mlx5_cqe64 {
-	uint8_t		rsvd0[17];
-	uint8_t		ml_path;
-	uint8_t		rsvd20[4];
-	uint16_t	slid;
-	uint32_t	flags_rqpn;
-	uint8_t		hds_ip_ext;
-	uint8_t		l4_hdr_type_etc;
-	uint16_t	vlan_info;
-	uint32_t	srqn_uidx;
-	uint32_t	imm_inval_pkey;
-	uint8_t		rsvd40[4];
-	uint32_t	byte_cnt;
-	__be64		timestamp;
-	uint32_t	sop_drop_qpn;
-	uint16_t	wqe_counter;
-	uint8_t		signature;
-	uint8_t		op_own;
 };
 
 int mlx5_stall_num_loop = 60;
@@ -167,7 +87,7 @@ static void *get_sw_cqe(struct mlx5_cq *cq, int n)
 
 	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
 
-	if (likely((cqe64->op_own) >> 4 != MLX5_CQE_INVALID) &&
+	if (likely(mlx5dv_get_cqe_opcode(cqe64) != MLX5_CQE_INVALID) &&
 	    !((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^ !!(n & (cq->ibv_cq.cqe + 1)))) {
 		return cqe;
 	} else {
@@ -258,7 +178,7 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe - 1,
 						    ntohl(cqe->byte_cnt));
-	}
+}
 
 	return err;
 }
@@ -627,7 +547,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 		wc->qp_num = qpn;
 	}
 
-	opcode = cqe64->op_own >> 4;
+	opcode = mlx5dv_get_cqe_opcode(cqe64);
 	switch (opcode) {
 	case MLX5_CQE_REQ:
 	{
@@ -1136,7 +1056,7 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	switch (cq->cqe64->op_own >> 4) {
+	switch (mlx5dv_get_cqe_opcode(cq->cqe64)) {
 	case MLX5_CQE_RESP_WR_IMM:
 		return IBV_WC_RECV_RDMA_WITH_IMM;
 	case MLX5_CQE_RESP_SEND:
@@ -1194,7 +1114,7 @@ static inline int mlx5_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 				  MLX5_CQE_L3_HDR_TYPE_IPV4)) <<
 				IBV_WC_IP_CSUM_OK_SHIFT;
 
-	switch (cq->cqe64->op_own >> 4) {
+	switch (mlx5dv_get_cqe_opcode(cq->cqe64)) {
 	case MLX5_CQE_RESP_WR_IMM:
 	case MLX5_CQE_RESP_SEND_IMM:
 		wc_flags	|= IBV_WC_WITH_IMM;
@@ -1227,7 +1147,7 @@ static inline uint32_t mlx5_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	switch (cq->cqe64->op_own >> 4) {
+	switch (mlx5dv_get_cqe_opcode(cq->cqe64)) {
 	case MLX5_CQE_RESP_SEND_INV:
 		return ntohl(cq->cqe64->imm_inval_pkey);
 	default:
@@ -1409,7 +1329,7 @@ static inline int free_res_cqe(struct mlx5_cqe64 *cqe64, uint32_t rsn,
 {
 	if (cqe_version) {
 		if (is_equal_uidx(cqe64, rsn)) {
-			if (srq && is_responder(cqe64->op_own >> 4))
+			if (srq && is_responder(mlx5dv_get_cqe_opcode(cqe64)))
 				mlx5_free_srq_wqe(srq,
 						  ntohs(cqe64->wqe_counter));
 			return 1;
@@ -1435,7 +1355,7 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	uint8_t owner_bit;
 	int cqe_version;
 
-	if (!cq)
+	if (!cq || cq->flags & MLX5_CQ_FLAGS_DV_OWNED)
 		return;
 
 	/*

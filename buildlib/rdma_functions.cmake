@@ -72,6 +72,57 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
   install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 endfunction()
 
+# Create a special provider with exported symbols in it The shared provider
+# exists as a normal system library with the normal shared library SONAME and
+# other convections. The system library is symlinked into the
+# VERBS_PROVIDER_DIR so it can be dlopened as a provider as well.
+function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
+  # Installed driver file
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" "driver ${DEST}\n")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" DESTINATION "${CONFIG_DIR}")
+
+  # Uninstalled driver file
+  file(MAKE_DIRECTORY "${BUILD_ETC}/libibverbs.d/")
+  file(WRITE "${BUILD_ETC}/libibverbs.d/${DEST}.driver" "driver ${BUILD_LIB}/lib${DEST}\n")
+
+  # Create a static provider library
+  if (ENABLE_STATIC)
+    add_library(${DEST} STATIC ${ARGN})
+    set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
+    list(APPEND RDMA_STATIC_LIBS ${DEST}-rdmav2 ${DEST})
+    set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
+  endif()
+
+  # Create the plugin shared library
+  add_library(${DEST} SHARED ${ARGN})
+  rdma_set_library_map(${DEST} ${VERSION_SCRIPT})
+
+  target_link_libraries(${DEST} LINK_PRIVATE ${COMMON_LIBS_PIC})
+  target_link_libraries(${DEST} LINK_PRIVATE ibverbs)
+  target_link_libraries(${DEST} LINK_PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+  set_target_properties(${DEST} PROPERTIES
+    SOVERSION ${SOVERSION}
+    VERSION ${VERSION}
+    LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
+  install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
+  # Compute a relative symlink from VERBS_PROVIDER_DIR to LIBDIR
+  execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/buildlib/relpath
+    "${CMAKE_INSTALL_FULL_LIBDIR}/lib${DEST}.so.${VERSION}"
+    "${VERBS_PROVIDER_DIR}"
+    OUTPUT_VARIABLE DEST_LINK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+  rdma_install_symlink("${DEST_LINK_PATH}" "${VERBS_PROVIDER_DIR}/lib${DEST}-rdmav2.so")
+
+  # cmake doesn't create target DESTINATION directories until everything is
+  # finished, do it manually here so we can create the in-tree symlink.
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E make_directory "${BUILD_LIB}")
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E create_symlink
+    "lib${DEST}.so.${VERSION}"
+    "${BUILD_LIB}/lib${DEST}-rdmav2.so")
+endfunction()
+
 # Create a provider shared library for libibverbs
 function(rdma_provider DEST)
   # Installed driver file
