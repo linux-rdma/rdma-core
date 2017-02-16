@@ -35,6 +35,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdatomic.h>
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
@@ -683,7 +684,11 @@ static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 		abort();
 	} else {
 		lock->in_use = 1;
-		wmb();
+		/*
+		 * This fence is not at all correct, but it increases the
+		 * chance that in_use is detected by another thread without
+		 * much runtime cost. */
+		atomic_thread_fence(memory_order_acq_rel);
 	}
 
 	return 0;
