@@ -159,4 +159,23 @@ struct mlx4_create_qp_resp_ex {
 	struct ibv_create_qp_resp_ex	ibv_resp;
 };
 
+struct mlx4_drv_create_wq {
+	__u64		buf_addr;
+	__u64		db_addr;
+	__u8		log_range_size;
+	__u8		reserved[3];
+	__u32		comp_mask;
+};
+
+struct mlx4_create_wq {
+	struct ibv_create_wq		ibv_cmd;
+	struct mlx4_drv_create_wq	drv;
+};
+
+struct mlx4_modify_wq {
+	struct ibv_modify_wq	ibv_cmd;
+	__u32			comp_mask;
+	__u32			reserved;
+};
+
 #endif /* MLX4_ABI_H */

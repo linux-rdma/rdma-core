@@ -650,13 +650,13 @@ void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 		; /* nothing */
 }
 
-int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
+int mlx4_alloc_qp_buf(struct ibv_context *context, uint32_t max_recv_sge,
 		      enum ibv_qp_type type, struct mlx4_qp *qp,
 		      struct mlx4dv_qp_init_attr *mlx4qp_attr)
 {
 	int wqe_size;
 
-	qp->rq.max_gs	 = cap->max_recv_sge;
+	qp->rq.max_gs	 = max_recv_sge;
 	wqe_size = qp->rq.max_gs * sizeof(struct mlx4_wqe_data_seg);
 	if (mlx4qp_attr &&
 	    mlx4qp_attr->comp_mask & MLX4DV_QP_INIT_ATTR_MASK_INL_RECV &&

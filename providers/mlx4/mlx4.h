@@ -134,6 +134,7 @@ struct mlx4_context {
 	} core_clock;
 	void			       *hca_core_clock;
 	uint32_t			max_inl_recv_sz;
+	uint8_t				log_wqs_range_sz;
 };
 
 struct mlx4_buf {
@@ -198,7 +199,10 @@ struct mlx4_wq {
 };
 
 struct mlx4_qp {
-	struct verbs_qp			verbs_qp;
+	union {
+		struct verbs_qp		verbs_qp;
+		struct ibv_wq		wq;
+	};
 	struct mlx4_buf			buf;
 	int				max_inline_data;
 	int				buf_size;
@@ -272,6 +276,11 @@ static inline struct mlx4_qp *to_mqp(struct ibv_qp *ibqp)
 {
 	return container_of(container_of(ibqp, struct verbs_qp, qp),
 			    struct mlx4_qp, verbs_qp);
+}
+
+static inline struct mlx4_qp *wq_to_mqp(struct ibv_wq *ibwq)
+{
+	return container_of(ibwq, struct mlx4_qp, wq);
 }
 
 static inline struct mlx4_ah *to_mah(struct ibv_ah *ibah)
@@ -385,7 +394,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
 void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 			   struct mlx4_qp *qp);
-int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
+int mlx4_alloc_qp_buf(struct ibv_context *context, uint32_t max_recv_sge,
 		       enum ibv_qp_type type, struct mlx4_qp *qp,
 		       struct mlx4dv_qp_init_attr *mlx4qp_attr);
 void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
@@ -398,5 +407,9 @@ int mlx4_destroy_ah(struct ibv_ah *ah);
 int mlx4_alloc_av(struct mlx4_pd *pd, struct ibv_ah_attr *attr,
 		   struct mlx4_ah *ah);
 void mlx4_free_av(struct mlx4_ah *ah);
+struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
+			      struct ibv_wq_init_attr *attr);
+int mlx4_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr);
+int mlx4_destroy_wq(struct ibv_wq *wq);
 
 #endif /* MLX4_H */

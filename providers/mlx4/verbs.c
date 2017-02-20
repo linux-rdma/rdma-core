@@ -839,7 +839,7 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 			attr->cap.max_recv_wr = 1;
 	}
 
-	if (mlx4_alloc_qp_buf(context, &attr->cap, attr->qp_type, qp,
+	if (mlx4_alloc_qp_buf(context, attr->cap.max_recv_sge, attr->qp_type, qp,
 			      mlx4qp_attr))
 		goto err;
 
@@ -1269,6 +1269,175 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 int mlx4_destroy_ah(struct ibv_ah *ah)
 {
 	free(to_mah(ah));
+
+	return 0;
+}
+
+struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
+			      struct ibv_wq_init_attr *attr)
+{
+	struct mlx4_context		*ctx = to_mctx(context);
+	struct mlx4_create_wq		cmd = {};
+	struct ibv_create_wq_resp	resp = {};
+	struct mlx4_qp			*qp;
+	int				ret;
+
+	if (attr->wq_type != IBV_WQT_RQ) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	/* Sanity check QP size before proceeding */
+	if (ctx->max_qp_wr) { /* mlx4_query_device succeeded */
+		if (attr->max_wr  > ctx->max_qp_wr ||
+		    attr->max_sge > ctx->max_sge) {
+			errno = EINVAL;
+			return NULL;
+		}
+	} else {
+		if (attr->max_wr  > 65536 ||
+		    attr->max_sge > 64) {
+			errno = EINVAL;
+			return NULL;
+		}
+	}
+
+	if (attr->comp_mask) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	if (attr->max_sge < 1)
+		attr->max_sge = 1;
+
+	if (attr->max_wr < 1)
+		attr->max_wr = 1;
+
+	/* Kernel driver requires a dummy SQ with minimum properties */
+	qp->sq.wqe_shift = 6;
+	qp->sq.wqe_cnt = 1;
+
+	qp->rq.wqe_cnt = align_queue_size(attr->max_wr);
+
+	if (mlx4_alloc_qp_buf(context, attr->max_sge, IBV_QPT_RAW_PACKET, qp, NULL))
+		goto err;
+
+	mlx4_init_qp_indices(qp);
+	mlx4_qp_init_sq_ownership(qp); /* For dummy SQ */
+
+	if (pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
+		goto err_free;
+
+	qp->db = mlx4_alloc_db(to_mctx(context), MLX4_DB_TYPE_RQ);
+	if (!qp->db)
+		goto err_free;
+
+	*qp->db = 0;
+	cmd.drv.db_addr = (uintptr_t)qp->db;
+
+	cmd.drv.buf_addr = (uintptr_t)qp->buf.buf;
+
+	cmd.drv.log_range_size = ctx->log_wqs_range_sz;
+
+	pthread_mutex_lock(&to_mctx(context)->qp_table_mutex);
+
+	ret = ibv_cmd_create_wq(context, attr, &qp->wq, &cmd.ibv_cmd,
+				sizeof(cmd.ibv_cmd),
+				sizeof(cmd),
+				&resp, sizeof(resp),
+				sizeof(resp));
+	if (ret)
+		goto err_rq_db;
+
+	ret = mlx4_store_qp(to_mctx(context), qp->wq.wq_num, qp);
+	if (ret)
+		goto err_destroy;
+
+	pthread_mutex_unlock(&to_mctx(context)->qp_table_mutex);
+
+	ctx->log_wqs_range_sz = 0;
+
+	qp->rq.max_post = attr->max_wr;
+	qp->rq.wqe_cnt = attr->max_wr;
+	qp->rq.max_gs  = attr->max_sge;
+
+	qp->wq.state = IBV_WQS_RESET;
+
+	return &qp->wq;
+
+err_destroy:
+	ibv_cmd_destroy_wq(&qp->wq);
+
+err_rq_db:
+	pthread_mutex_unlock(&to_mctx(context)->qp_table_mutex);
+	mlx4_free_db(to_mctx(context), MLX4_DB_TYPE_RQ, qp->db);
+
+err_free:
+	free(qp->rq.wrid);
+	mlx4_free_buf(&qp->buf);
+
+err:
+	free(qp);
+
+	return NULL;
+}
+
+int mlx4_modify_wq(struct ibv_wq *ibwq, struct ibv_wq_attr *attr)
+{
+	struct mlx4_qp *qp = wq_to_mqp(ibwq);
+	struct mlx4_modify_wq cmd = {};
+	int ret;
+
+	ret = ibv_cmd_modify_wq(ibwq, attr, &cmd.ibv_cmd,  sizeof(cmd.ibv_cmd),
+				sizeof(cmd));
+
+	if (!ret && (attr->attr_mask & IBV_WQ_ATTR_STATE) &&
+	    (ibwq->state == IBV_WQS_RESET)) {
+		mlx4_cq_clean(to_mcq(ibwq->cq), ibwq->wq_num, NULL);
+
+		mlx4_init_qp_indices(qp);
+		*qp->db = 0;
+	}
+
+	return ret;
+}
+
+int mlx4_destroy_wq(struct ibv_wq *ibwq)
+{
+	struct mlx4_context *mcontext = to_mctx(ibwq->context);
+	struct mlx4_qp *qp = wq_to_mqp(ibwq);
+	struct mlx4_cq *cq = NULL;
+	int ret;
+
+	pthread_mutex_lock(&mcontext->qp_table_mutex);
+
+	ret = ibv_cmd_destroy_wq(ibwq);
+	if (ret && !cleanup_on_fatal(ret)) {
+		pthread_mutex_unlock(&mcontext->qp_table_mutex);
+		return ret;
+	}
+
+	cq = to_mcq(ibwq->cq);
+	pthread_spin_lock(&cq->lock);
+	__mlx4_cq_clean(cq, ibwq->wq_num, NULL);
+
+	mlx4_clear_qp(mcontext, ibwq->wq_num);
+
+	pthread_spin_unlock(&cq->lock);
+
+	pthread_mutex_unlock(&mcontext->qp_table_mutex);
+
+	mlx4_free_db(mcontext, MLX4_DB_TYPE_RQ, qp->db);
+	free(qp->rq.wrid);
+	free(qp->sq.wrid);
+
+	mlx4_free_buf(&qp->buf);
+
+	free(qp);
 
 	return 0;
 }

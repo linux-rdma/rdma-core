@@ -256,6 +256,9 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	verbs_set_ctx_op(verbs_ctx, create_cq_ex, mlx4_create_cq_ex);
 	verbs_set_ctx_op(verbs_ctx, query_device_ex, mlx4_query_device_ex);
 	verbs_set_ctx_op(verbs_ctx, query_rt_values, mlx4_query_rt_values);
+	verbs_set_ctx_op(verbs_ctx, create_wq, mlx4_create_wq);
+	verbs_set_ctx_op(verbs_ctx, modify_wq, mlx4_modify_wq);
+	verbs_set_ctx_op(verbs_ctx, destroy_wq, mlx4_destroy_wq);
 
 	return 0;
 
