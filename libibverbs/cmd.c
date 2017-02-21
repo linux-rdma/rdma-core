@@ -1823,6 +1823,9 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 			sizeof(struct ibv_kern_spec_action_tag);
 		kern_spec->flow_tag.tag_id = ib_spec->flow_tag.tag_id;
 		break;
+	case IBV_FLOW_SPEC_ACTION_DROP:
+		kern_spec->drop.size = sizeof(struct ibv_kern_spec_action_drop);
+		break;
 	default:
 		return EINVAL;
 	}
