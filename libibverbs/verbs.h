@@ -1217,12 +1217,13 @@ enum ibv_flow_attr_type {
 };
 
 enum ibv_flow_spec_type {
-	IBV_FLOW_SPEC_ETH	= 0x20,
-	IBV_FLOW_SPEC_IPV4	= 0x30,
-	IBV_FLOW_SPEC_IPV6	= 0x31,
-	IBV_FLOW_SPEC_IPV4_EXT	= 0x32,
-	IBV_FLOW_SPEC_TCP	= 0x40,
-	IBV_FLOW_SPEC_UDP	= 0x41,
+	IBV_FLOW_SPEC_ETH		= 0x20,
+	IBV_FLOW_SPEC_IPV4		= 0x30,
+	IBV_FLOW_SPEC_IPV6		= 0x31,
+	IBV_FLOW_SPEC_IPV4_EXT		= 0x32,
+	IBV_FLOW_SPEC_TCP		= 0x40,
+	IBV_FLOW_SPEC_UDP		= 0x41,
+	IBV_FLOW_SPEC_VXLAN_TUNNEL	= 0x50
 };
 
 struct ibv_flow_eth_filter {
@@ -1298,6 +1299,17 @@ struct ibv_flow_spec_tcp_udp {
 	struct ibv_flow_tcp_udp_filter mask;
 };
 
+struct ibv_flow_tunnel_filter {
+	uint32_t tunnel_id;
+};
+
+struct ibv_flow_spec_tunnel {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_tunnel_filter val;
+	struct ibv_flow_tunnel_filter mask;
+};
+
 struct ibv_flow_spec {
 	union {
 		struct {
@@ -1309,6 +1321,7 @@ struct ibv_flow_spec {
 		struct ibv_flow_spec_tcp_udp tcp_udp;
 		struct ibv_flow_spec_ipv4_ext ipv4_ext;
 		struct ibv_flow_spec_ipv6 ipv6;
+		struct ibv_flow_spec_tunnel tunnel;
 	};
 };
 

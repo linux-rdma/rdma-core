@@ -1712,6 +1712,15 @@ static int get_filters_size(struct ibv_flow_spec *ib_spec,
 		ib_spec_filter_mask = (void *)&ib_spec->ipv6.val +
 			*ib_filter_size;
 		break;
+	case IBV_FLOW_SPEC_VXLAN_TUNNEL:
+		min_filter_size =
+			offsetof(struct ibv_kern_tunnel_filter,
+				 tunnel_id) +
+			sizeof(kern_spec->tunnel.mask.tunnel_id);
+		curr_kern_filter_size = min_filter_size;
+		ib_spec_filter_mask = (void *)&ib_spec->tunnel.val +
+			*ib_filter_size;
+		break;
 	default:
 		return EINVAL;
 	}
@@ -1788,6 +1797,19 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       sizeof(struct ibv_flow_ipv4_filter));
 		memcpy(&kern_spec->tcp_udp.mask, &ib_spec->tcp_udp.mask,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
+		break;
+	case IBV_FLOW_SPEC_VXLAN_TUNNEL:
+		ret = get_filters_size(ib_spec, kern_spec,
+				       &ib_filter_size, &kern_filter_size,
+				       IBV_FLOW_SPEC_VXLAN_TUNNEL);
+		if (ret)
+			return ret;
+
+		kern_spec->tunnel.size = sizeof(struct ibv_kern_spec_tunnel);
+		memcpy(&kern_spec->tunnel.val, &ib_spec->tunnel.val,
+		       kern_filter_size);
+		memcpy(&kern_spec->tunnel.mask, (void *)&ib_spec->tunnel.val
+		       + ib_filter_size, kern_filter_size);
 		break;
 	default:
 		return EINVAL;
