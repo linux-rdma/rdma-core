@@ -32,11 +32,9 @@ extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
 
 /* for PFX */
 #include "ibverbs.h"
+#include <ccan/minmax.h>
 
 #include "neigh.h"
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 #ifndef HAVE_LIBNL1
 #include <netlink/route/link/vlan.h>
@@ -342,7 +340,7 @@ static struct nl_addr *process_get_neigh_mac(
 	if (timer_fd < 0)
 		goto close_socket;
 
-	nfds = MAX(fd, timer_fd) + 1;
+	nfds = max(fd, timer_fd) + 1;
 
 	while (1) {
 		FD_ZERO(&fdset);
@@ -455,7 +453,7 @@ static const struct encoded_l3_addr {
 
 static int nl_addr_cmp_prefix_msb(void *addr1, int len1, void *addr2, int len2)
 {
-	int len = MIN(len1, len2);
+	int len = min(len1, len2);
 	int bytes = len / 8;
 	int d = memcmp(addr1, addr2, bytes);
 
@@ -483,11 +481,10 @@ static int handle_encoded_mac(struct nl_addr *dst, struct nl_addr **ll_addr)
 			continue;
 
 		prefix = nl_addr_build(
-				family,
-				(void *)encoded_prefixes[i].data,
-				MIN(encoded_prefixes[i].prefix_bits/8 +
-				    !!(encoded_prefixes[i].prefix_bits % 8),
-				    sizeof(encoded_prefixes[i].data)));
+		    family, (void *)encoded_prefixes[i].data,
+		    min_t(size_t, encoded_prefixes[i].prefix_bits / 8 +
+				      !!(encoded_prefixes[i].prefix_bits % 8),
+			  sizeof(encoded_prefixes[i].data)));
 
 		if (prefix == NULL)
 			return -ENOMEM;

@@ -917,15 +917,14 @@ static inline void qelr_edpm_set_payload(struct qelr_qp *qp, char *buf,
 	qp->edpm.dpm_payload_offset += length;
 }
 
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-
 static uint32_t qelr_prepare_sq_inline_data(struct qelr_qp *qp,
 					    uint8_t *wqe_size,
 					    struct ibv_send_wr *wr,
 					    struct ibv_send_wr **bad_wr,
 					    uint8_t *bits, uint8_t bit)
 {
-	int i, seg_siz;
+	int i;
+	uint32_t seg_siz;
 	char *seg_prt, *wqe;
 	uint32_t data_size = sge_data_len(wr->sg_list, wr->num_sge);
 
@@ -964,7 +963,7 @@ static uint32_t qelr_prepare_sq_inline_data(struct qelr_qp *qp,
 			}
 
 			/* calculate currently allowed length */
-			cur = MIN(len, seg_siz);
+			cur = min(len, seg_siz);
 
 			memcpy(seg_prt, src, cur);
 
