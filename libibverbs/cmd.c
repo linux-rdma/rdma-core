@@ -1818,6 +1818,11 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->tunnel.mask, (void *)&ib_spec->tunnel.val
 		       + ib_filter_size, kern_filter_size);
 		break;
+	case IBV_FLOW_SPEC_ACTION_TAG:
+		kern_spec->flow_tag.size =
+			sizeof(struct ibv_kern_spec_action_tag);
+		kern_spec->flow_tag.tag_id = ib_spec->flow_tag.tag_id;
+		break;
 	default:
 		return EINVAL;
 	}
