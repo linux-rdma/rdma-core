@@ -1747,8 +1747,9 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 
 	kern_spec->hdr.type = ib_spec->hdr.type;
 
-	switch (ib_spec->hdr.type) {
+	switch (kern_spec->hdr.type) {
 	case IBV_FLOW_SPEC_ETH:
+	case IBV_FLOW_SPEC_ETH | IBV_FLOW_SPEC_INNER:
 		kern_spec->eth.size = sizeof(struct ibv_kern_spec_eth);
 		memcpy(&kern_spec->eth.val, &ib_spec->eth.val,
 		       sizeof(struct ibv_flow_eth_filter));
@@ -1756,6 +1757,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       sizeof(struct ibv_flow_eth_filter));
 		break;
 	case IBV_FLOW_SPEC_IPV4:
+	case IBV_FLOW_SPEC_IPV4 | IBV_FLOW_SPEC_INNER:
 		kern_spec->ipv4.size = sizeof(struct ibv_kern_spec_ipv4);
 		memcpy(&kern_spec->ipv4.val, &ib_spec->ipv4.val,
 		       sizeof(struct ibv_flow_ipv4_filter));
@@ -1763,13 +1765,15 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       sizeof(struct ibv_flow_ipv4_filter));
 		break;
 	case IBV_FLOW_SPEC_IPV4_EXT:
+	case IBV_FLOW_SPEC_IPV4_EXT | IBV_FLOW_SPEC_INNER:
 		ret = get_filters_size(ib_spec, kern_spec,
 				       &ib_filter_size, &kern_filter_size,
 				       IBV_FLOW_SPEC_IPV4_EXT);
 		if (ret)
 			return ret;
 
-		kern_spec->hdr.type = IBV_FLOW_SPEC_IPV4;
+		kern_spec->hdr.type = IBV_FLOW_SPEC_IPV4 |
+				     (IBV_FLOW_SPEC_INNER & ib_spec->hdr.type);
 		kern_spec->ipv4_ext.size = sizeof(struct
 						  ibv_kern_spec_ipv4_ext);
 		memcpy(&kern_spec->ipv4_ext.val, &ib_spec->ipv4_ext.val,
@@ -1778,6 +1782,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       + ib_filter_size, kern_filter_size);
 		break;
 	case IBV_FLOW_SPEC_IPV6:
+	case IBV_FLOW_SPEC_IPV6 | IBV_FLOW_SPEC_INNER:
 		ret = get_filters_size(ib_spec, kern_spec,
 				       &ib_filter_size, &kern_filter_size,
 				       IBV_FLOW_SPEC_IPV6);
@@ -1792,6 +1797,8 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		break;
 	case IBV_FLOW_SPEC_TCP:
 	case IBV_FLOW_SPEC_UDP:
+	case IBV_FLOW_SPEC_TCP | IBV_FLOW_SPEC_INNER:
+	case IBV_FLOW_SPEC_UDP | IBV_FLOW_SPEC_INNER:
 		kern_spec->tcp_udp.size = sizeof(struct ibv_kern_spec_tcp_udp);
 		memcpy(&kern_spec->tcp_udp.val, &ib_spec->tcp_udp.val,
 		       sizeof(struct ibv_flow_ipv4_filter));

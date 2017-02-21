@@ -1223,7 +1223,8 @@ enum ibv_flow_spec_type {
 	IBV_FLOW_SPEC_IPV4_EXT		= 0x32,
 	IBV_FLOW_SPEC_TCP		= 0x40,
 	IBV_FLOW_SPEC_UDP		= 0x41,
-	IBV_FLOW_SPEC_VXLAN_TUNNEL	= 0x50
+	IBV_FLOW_SPEC_VXLAN_TUNNEL	= 0x50,
+	IBV_FLOW_SPEC_INNER		= 0x100
 };
 
 struct ibv_flow_eth_filter {
