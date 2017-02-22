@@ -613,8 +613,8 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 			 struct mlx5dv_context *attrs_out)
 {
 	struct mlx5_context *mctx = to_mctx(ctx_in);
+	uint64_t comp_mask_out = 0;
 
-	attrs_out->comp_mask = 0;
 	attrs_out->version   = 0;
 	attrs_out->flags     = 0;
 
@@ -623,6 +623,13 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 
 	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_MPW)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_MPW;
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_CQE_COMPRESION) {
+		attrs_out->cqe_comp_caps = mctx->cqe_comp_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_CQE_COMPRESION;
+	}
+
+	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
 }

@@ -58,6 +58,16 @@ enum {
 	MLX5_SND_DBR	= 1,
 };
 
+enum mlx5dv_context_comp_mask {
+	MLX5DV_CONTEXT_MASK_CQE_COMPRESION	= 1 << 0,
+	MLX5DV_CONTEXT_MASK_RESERVED		= 1 << 1,
+};
+
+struct mlx5dv_cqe_comp_caps {
+	uint32_t max_num;
+	uint32_t supported_format; /* enum mlx5dv_cqe_comp_res_format */
+};
+
 /*
  * Direct verbs device-specific attributes
  */
@@ -65,6 +75,7 @@ struct mlx5dv_context {
 	uint8_t		version;
 	uint64_t	flags;
 	uint64_t	comp_mask;
+	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
 };
 
 enum mlx5dv_context_flags {
@@ -279,6 +290,12 @@ struct mlx5_cqe64 {
 	uint16_t	wqe_counter;
 	uint8_t		signature;
 	uint8_t		op_own;
+};
+
+enum mlx5dv_cqe_comp_res_format {
+	MLX5DV_CQE_RES_FORMAT_HASH		= 1 << 0,
+	MLX5DV_CQE_RES_FORMAT_CSUM		= 1 << 1,
+	MLX5DV_CQE_RES_FORMAT_RESERVED		= 1 << 2,
 };
 
 static MLX5DV_ALWAYS_INLINE
