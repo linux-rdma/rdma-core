@@ -28,6 +28,7 @@ struct ibv_comp_channel *channel;          /* Completion channel where completio
 int                     comp_vector;       /* Completion vector used to signal completion events. Must be >= 0 and < context->num_comp_vectors. */
 uint64_t                wc_flags;          /* The wc_flags that should be returned in ibv_poll_cq_ex. Or'ed bit of enum ibv_wc_flags_ex. */
 uint32_t                comp_mask;         /* compatibility mask (extended verb). */
+void                    *vendor_data;      /* Vendor private data for creating a CQ. */
 .in -8
 };
 
@@ -44,6 +45,7 @@ enum ibv_wc_flags_ex {
 
 enum ibv_cq_init_attr_mask {
         IBV_CQ_INIT_ATTR_MASK_FLAGS             = 1 << 0,
+	IBV_CQ_INIT_ATTR_MASK_VENDOR_DATA       = 1 << 1,
 };
 
 enum ibv_create_cq_attr_flags {

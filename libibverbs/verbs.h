@@ -1399,7 +1399,8 @@ struct ibv_context {
 
 enum ibv_cq_init_attr_mask {
 	IBV_CQ_INIT_ATTR_MASK_FLAGS	= 1 << 0,
-	IBV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 1
+	IBV_CQ_INIT_ATTR_MASK_VENDOR_DATA = 1 << 1,
+	IBV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 2
 };
 
 enum ibv_create_cq_attr_flags {
@@ -1430,6 +1431,8 @@ struct ibv_cq_init_attr_ex {
 	 * enum ibv_create_cq_attr_flags
 	 */
 	uint32_t		flags;
+	/* Vendor private data for creating a CQ */
+	void			*vendor_data;
 };
 
 enum ibv_values_mask {
