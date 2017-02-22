@@ -180,6 +180,10 @@ enum {
 	MLX5_USER_CMDS_SUPP_UHW_CREATE_AH    = 1 << 1,
 };
 
+enum mlx5_vendor_cap_flags {
+	MLX5_VENDOR_CAP_FLAGS_MPW		= 1 << 0,
+};
+
 struct mlx5_resource {
 	enum mlx5_rsc_type	type;
 	uint32_t		rsn;
@@ -258,6 +262,7 @@ struct mlx5_context {
 	struct ibv_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
 	uint32_t			uar_size;
+	uint64_t			vendor_cap_flags; /* Use enum mlx5_vendor_cap_flags */
 };
 
 struct mlx5_bitmap {
