@@ -1924,6 +1924,9 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
 	attr->packet_pacing_caps = resp.packet_pacing_caps.caps;
 
+	if (resp.support_multi_pkt_send_wqe)
+		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_MPW;
+
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;

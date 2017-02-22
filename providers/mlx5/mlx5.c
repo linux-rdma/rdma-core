@@ -612,12 +612,17 @@ static int mlx5_map_internal_clock(struct mlx5_device *mdev,
 int mlx5dv_query_device(struct ibv_context *ctx_in,
 			 struct mlx5dv_context *attrs_out)
 {
+	struct mlx5_context *mctx = to_mctx(ctx_in);
+
 	attrs_out->comp_mask = 0;
 	attrs_out->version   = 0;
 	attrs_out->flags     = 0;
 
-	if (to_mctx(ctx_in)->cqe_version == MLX5_CQE_VERSION_V1)
+	if (mctx->cqe_version == MLX5_CQE_VERSION_V1)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_CQE_V1;
+
+	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_MPW)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_MPW;
 
 	return 0;
 }
@@ -827,6 +832,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	}
 
 	context->cmds_supp_uhw = resp.cmds_supp_uhw;
+	context->vendor_cap_flags = 0;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
