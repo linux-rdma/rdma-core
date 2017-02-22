@@ -292,10 +292,20 @@ struct mlx5_cqe64 {
 	uint8_t		op_own;
 };
 
+enum mlx5dv_create_cq_vendor_data_mask {
+	MLX5DV_CREATE_CQ_MASK_COMPRESSED_CQE	= 1 << 0,
+	MLX5DV_CREATE_CQ_MASK_RESERVED		= 1 << 1,
+};
+
 enum mlx5dv_cqe_comp_res_format {
 	MLX5DV_CQE_RES_FORMAT_HASH		= 1 << 0,
 	MLX5DV_CQE_RES_FORMAT_CSUM		= 1 << 1,
 	MLX5DV_CQE_RES_FORMAT_RESERVED		= 1 << 2,
+};
+
+struct mlx5dv_create_cq_vendor_data {
+	uint64_t comp_mask; /* Use enum mlx5dv_create_cq_vendor_data_mask */
+	uint8_t cqe_comp_res_format; /* Use enum mlx5dv_cqe_comp_res_format */
 };
 
 static MLX5DV_ALWAYS_INLINE

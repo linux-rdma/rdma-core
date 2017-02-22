@@ -118,6 +118,9 @@ struct mlx5_create_cq {
 	__u64				buf_addr;
 	__u64				db_addr;
 	__u32				cqe_size;
+	__u8				cqe_comp_en;
+	__u8				cqe_comp_res_format;
+	__u16				reserved;
 };
 
 struct mlx5_create_cq_resp {
