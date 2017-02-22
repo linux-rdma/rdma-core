@@ -263,6 +263,11 @@ struct mlx5_rss_caps {
 	__u8 reserved[7];
 };
 
+struct mlx5_packet_pacing_caps {
+	struct ibv_packet_pacing_caps caps;
+	__u32  reserved;
+};
+
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
@@ -270,7 +275,7 @@ struct mlx5_query_device_ex_resp {
 	struct ibv_tso_caps		tso_caps;
 	struct mlx5_rss_caps            rss_caps; /* vendor data channel */
 	__u64				reserved_cqe_comp;
-	struct ibv_packet_pacing_caps	packet_pacing_caps;
+	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 };
 
 #endif /* MLX5_ABI_H */
