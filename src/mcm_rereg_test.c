@@ -166,7 +166,7 @@ static int rereg_send_all(int port, int agent, ib_portid_t * dport,
 		    rereg_port_gid(port, agent, dport, umad, len, list[i].gid);
 		if (ret < 0) {
 			err("rereg_send_all: rereg_port_gid 0x%016" PRIx64
-			    " failed\n", ntohll(list[i].guid));
+			    " failed\n", be64toh(list[i].guid));
 			continue;
 		}
 		list[i].trid = mad_get_field64(umad_get_mad(umad), 0,
@@ -245,7 +245,7 @@ static int rereg_recv_all(int port, int agent, ib_portid_t * dport,
 			}
 			info("guid 0x%016" PRIx64
 			     ": method = %x status = %x. Resending\n",
-			     ntohll(list[i].guid), method, status);
+			     be64toh(list[i].guid), method, status);
 			rereg_port_gid(port, agent, dport, umad, len,
 				       list[i].gid);
 			list[i].trid =
@@ -298,7 +298,7 @@ static int rereg_query_all(int port, int agent, ib_portid_t * dport,
 
 		if (status)
 			info("guid 0x%016" PRIx64 ": status %x, method %x\n",
-			     ntohll(list[i].guid), status, method);
+			     be64toh(list[i].guid), status, method);
 	}
 
 	info("rereg_query_all: %u queried.\n", cnt);
@@ -315,8 +315,8 @@ static int rereg_and_test_port(char *guid_file, int port, int agent,
 	char line[256];
 	FILE *f;
 	ibmad_gid_t port_gid;
-	uint64_t prefix = htonll(0xfe80000000000000ull);
-	uint64_t guid = htonll(0x0002c90200223825ull);
+	uint64_t prefix = htobe64(0xfe80000000000000ull);
+	uint64_t guid = htobe64(0x0002c90200223825ull);
 	struct guid_trid *list;
 	int i = 0;
 
@@ -335,7 +335,7 @@ static int rereg_and_test_port(char *guid_file, int port, int agent,
 
 	while (fgets(line, sizeof(line), f)) {
 		guid = strtoull(line, NULL, 0);
-		guid = htonll(guid);
+		guid = htobe64(guid);
 		memcpy(&port_gid[0], &prefix, 8);
 		memcpy(&port_gid[8], &guid, 8);
 

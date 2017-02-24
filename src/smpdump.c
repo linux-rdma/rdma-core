@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <netinet/in.h>
+#include <endian.h>
 
 #include <infiniband/mad.h>
 #include <infiniband/umad.h>
@@ -92,7 +93,7 @@ void drsmp_get_init(void *umad, DRPath * path, int attr, int mod)
 	smp->method = 1;
 	smp->attr_id = (uint16_t) htons((uint16_t) attr);
 	smp->attr_mod = htonl(mod);
-	smp->tid = htonll(drmad_tid++);
+	smp->tid = htobe64(drmad_tid++);
 	smp->dr_slid = 0xffff;
 	smp->dr_dlid = 0xffff;
 
@@ -117,7 +118,7 @@ void smp_get_init(void *umad, int lid, int attr, int mod)
 	smp->method = 1;
 	smp->attr_id = (uint16_t) htons((uint16_t) attr);
 	smp->attr_mod = htonl(mod);
-	smp->tid = htonll(drmad_tid++);
+	smp->tid = htobe64(drmad_tid++);
 
 	umad_set_addr(umad, lid, 0, 0, 0);
 }
@@ -131,7 +132,7 @@ void drsmp_set_init(void *umad, DRPath * path, int attr, int mod, void *data)
 	smp->method = 2;	/* SET */
 	smp->attr_id = (uint16_t) htons((uint16_t) attr);
 	smp->attr_mod = htonl(mod);
-	smp->tid = htonll(drmad_tid++);
+	smp->tid = htobe64(drmad_tid++);
 	smp->dr_slid = 0xffff;
 	smp->dr_dlid = 0xffff;
 

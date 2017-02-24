@@ -403,7 +403,7 @@ static char *guid_info(ib_portid_t * dest, char **argv, int argc)
 		p = (uint64_t *) data;
 		for (j = 0; j < k; j += 2, p += 2) {
 			printf("%4u: 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
-			       (i * 8) + j, ntohll(p[0]), ntohll(p[1]));
+			       (i * 8) + j, be64toh(p[0]), be64toh(p[1]));
 		}
 	}
 	printf("%d guids capacity for this port\n", n);
