@@ -1662,29 +1662,17 @@ extern MAD_EXPORT int ibdebug;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #ifndef ntohll
-static inline uint64_t ntohll(uint64_t x)
-{
-	return bswap_64(x);
-}
+#define ntohll bswap_64
 #endif
 #ifndef htonll
-static inline uint64_t htonll(uint64_t x)
-{
-	return bswap_64(x);
-}
+#define htonll bswap_64
 #endif
 #elif __BYTE_ORDER == __BIG_ENDIAN
 #ifndef ntohll
-static inline uint64_t ntohll(uint64_t x)
-{
-	return x;
-}
+#define ntohll(x) (x)
 #endif
 #ifndef htonll
-static inline uint64_t htonll(uint64_t x)
-{
-	return x;
-}
+#define htonll(x) (x)
 #endif
 #endif				/* __BYTE_ORDER == __BIG_ENDIAN */
 
