@@ -198,7 +198,7 @@ static struct pvrdma_device *pvrdma_driver_init_shared(
 		return NULL;
 	}
 
-	dev = malloc(sizeof(*dev));
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		fprintf(stderr, PFX "couldn't allocate device for %s\n",
 			uverbs_sys_path);
@@ -207,13 +207,13 @@ static struct pvrdma_device *pvrdma_driver_init_shared(
 
 	dev->abi_version = abi_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->ibv_dev.ops = pvrdma_dev_ops;
+	dev->ibv_dev.device.ops = pvrdma_dev_ops;
 
 	return dev;
 }
 
-static struct ibv_device *pvrdma_driver_init(const char *uverbs_sys_path,
-					     int abi_version)
+static struct verbs_device *pvrdma_driver_init(const char *uverbs_sys_path,
+					       int abi_version)
 {
 	struct pvrdma_device *dev = pvrdma_driver_init_shared(uverbs_sys_path,
 							      abi_version);

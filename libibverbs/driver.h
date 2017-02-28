@@ -115,8 +115,8 @@ static inline struct verbs_device *verbs_get_device(
 		NULL : container_of(dev, struct verbs_device, device);
 }
 
-typedef struct ibv_device *(*ibv_driver_init_func)(const char *uverbs_sys_path,
-						   int abi_version);
+typedef struct verbs_device *(*ibv_driver_init_func)(const char *uverbs_sys_path,
+						     int abi_version);
 typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_path,
 						       int abi_version);
 

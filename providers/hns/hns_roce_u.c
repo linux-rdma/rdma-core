@@ -178,8 +178,8 @@ static struct ibv_device_ops hns_roce_dev_ops = {
 	.free_context	= hns_roce_free_context
 };
 
-static struct ibv_device *hns_roce_driver_init(const char *uverbs_sys_path,
-					       int abi_version)
+static struct verbs_device *hns_roce_driver_init(const char *uverbs_sys_path,
+						 int abi_version)
 {
 	struct hns_roce_device  *dev;
 	char			 value[128];
@@ -208,14 +208,14 @@ static struct ibv_device *hns_roce_driver_init(const char *uverbs_sys_path,
 	return NULL;
 
 found:
-	dev = malloc(sizeof(struct hns_roce_device));
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
 			uverbs_sys_path);
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = hns_roce_dev_ops;
+	dev->ibv_dev.device.ops = hns_roce_dev_ops;
 	dev->u_hw = (struct hns_roce_u_hw *)u_hw;
 	dev->hw_version = hw_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);

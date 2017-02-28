@@ -89,7 +89,7 @@ enum {
 struct mthca_ah_page;
 
 struct mthca_device {
-	struct ibv_device   ibv_dev;
+	struct verbs_device ibv_dev;
 	enum mthca_hca_type hca_type;
 	int                 page_size;
 };

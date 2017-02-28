@@ -384,9 +384,10 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 	char value[16];
 
 	if (driver->init_func) {
-		dev = driver->init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
-		if (!dev)
+		vdev = driver->init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
+		if (!vdev)
 			return NULL;
+		dev = &vdev->device;
 	} else {
 		vdev = driver->verbs_init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
 		if (!vdev)

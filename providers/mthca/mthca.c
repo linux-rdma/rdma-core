@@ -214,7 +214,7 @@ static struct ibv_device_ops mthca_dev_ops = {
 	.free_context  = mthca_free_context
 };
 
-static struct ibv_device *mthca_driver_init(const char *uverbs_sys_path,
+static struct verbs_device *mthca_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
 	char			value[8];
@@ -246,14 +246,14 @@ found:
 		return NULL;
 	}
 
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
 			uverbs_sys_path);
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = mthca_dev_ops;
+	dev->ibv_dev.device.ops = mthca_dev_ops;
 	dev->hca_type    = hca_table[i].type;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 

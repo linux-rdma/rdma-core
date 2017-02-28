@@ -397,8 +397,8 @@ void dump_state(void)
  */
 int c4iw_abi_version = 1;
 
-static struct ibv_device *cxgb4_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static struct verbs_device *cxgb4_driver_init(const char *uverbs_sys_path,
+					      int abi_version)
 {
 	char devstr[IBV_SYSFS_PATH_MAX], ibdev[16], value[32], *cp;
 	struct c4iw_dev *dev;
@@ -470,7 +470,7 @@ found:
 	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = c4iw_dev_ops;
+	dev->ibv_dev.device.ops = c4iw_dev_ops;
 	dev->chip_version = CHELSIO_CHIP_VERSION(hca_table[i].device >> 8);
 	dev->abi_version = abi_version;
 	list_node_init(&dev->list);

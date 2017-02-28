@@ -177,8 +177,8 @@ static struct ibv_device_ops ipath_dev_ops = {
 	.free_context	= ipath_free_context
 };
 
-static struct ibv_device *ipath_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static struct verbs_device *ipath_driver_init(const char *uverbs_sys_path,
+					      int abi_version)
 {
 	char			value[8];
 	struct ipath_device    *dev;
@@ -203,14 +203,14 @@ static struct ibv_device *ipath_driver_init(const char *uverbs_sys_path,
 	return NULL;
 
 found:
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
 			uverbs_sys_path);
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = ipath_dev_ops;
+	dev->ibv_dev.device.ops = ipath_dev_ops;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;

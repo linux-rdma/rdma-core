@@ -112,7 +112,7 @@ struct qelr_buf {
 };
 
 struct qelr_device {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 };
 
 struct qelr_devctx {

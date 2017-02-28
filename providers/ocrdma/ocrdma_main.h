@@ -54,7 +54,7 @@
 struct ocrdma_qp;
 
 struct ocrdma_device {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	struct ocrdma_qp **qp_tbl;
 	pthread_mutex_t dev_lock;
 	pthread_spinlock_t flush_q_lock;
@@ -265,8 +265,6 @@ static inline struct ocrdma_ah *get_ocrdma_ah(struct ibv_ah *ibah)
 {
 	return get_ocrdma_xxx(ah, ah);
 }
-
-struct ibv_device *ocrdma_driver_init(const char *, int);
 
 void ocrdma_init_ahid_tbl(struct ocrdma_devctx *ctx);
 int ocrdma_query_device(struct ibv_context *, struct ibv_device_attr *);

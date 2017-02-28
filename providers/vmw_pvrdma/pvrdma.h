@@ -110,7 +110,7 @@ enum {
 };
 
 struct pvrdma_device {
-	struct ibv_device		ibv_dev;
+	struct verbs_device		ibv_dev;
 	int				page_size;
 	int				abi_version;
 };

@@ -80,7 +80,7 @@ enum {
 };
 
 struct hns_roce_device {
-	struct ibv_device		ibv_dev;
+	struct verbs_device		ibv_dev;
 	int				page_size;
 	struct hns_roce_u_hw		*u_hw;
 	int				hw_version;

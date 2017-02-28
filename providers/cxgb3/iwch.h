@@ -51,7 +51,7 @@ struct iwch_mr;
 #define ABI_VERS 1
 
 struct iwch_device {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	enum iwch_hca_type hca_type;
 	struct iwch_mr **mmid2ptr;
 	struct iwch_qp **qpid2ptr;
