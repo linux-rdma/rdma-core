@@ -204,7 +204,7 @@ static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 	 * chunk and get a valid (!= * 0xffffffff) byte count but
 	 * stale data, and end up sending the wrong data.
 	 */
-	wmb();
+	udma_ordering_write_barrier();
 
 	if (likely(sg->length))
 		dseg->byte_count = htonl(sg->length);
@@ -227,6 +227,9 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int i;
 
 	pthread_spin_lock(&qp->sq.lock);
+
+	/* Get all user DMA buffers ready to go */
+	udma_to_device_barrier();
 
 	/* XXX check that state is OK to post send */
 
@@ -400,7 +403,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					wqe += to_copy;
 					addr += to_copy;
 					seg_len += to_copy;
-					wmb(); /* see comment below */
+					udma_ordering_write_barrier(); /* see comment below */
 					seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
 					seg_len = 0;
 					seg = wqe;
@@ -428,7 +431,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				 * data, and end up sending the wrong
 				 * data.
 				 */
-				wmb();
+				udma_ordering_write_barrier();
 				seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
 			}
 
@@ -450,7 +453,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		 * setting ownership bit (because HW can start
 		 * executing as soon as we do).
 		 */
-		wmb();
+		udma_ordering_write_barrier();
 
 		ctrl->owner_opcode = htonl(mlx4_ib_opcode[wr->opcode]) |
 			(ind & qp->sq.wqe_cnt ? htonl(1 << 31) : 0);
@@ -478,7 +481,7 @@ out:
 		 * Make sure that descriptor is written to memory
 		 * before writing to BlueFlame page.
 		 */
-		wmb();
+		mmio_wc_start();
 
 		++qp->sq.head;
 
@@ -486,7 +489,7 @@ out:
 
 		mlx4_bf_copy(ctx->bf_page + ctx->bf_offset, (unsigned long *) ctrl,
 			     align(size * 16, 64));
-		wc_wmb();
+		mmio_flush_writes();
 
 		ctx->bf_offset ^= ctx->bf_buf_size;
 
@@ -498,7 +501,7 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 
 		mmio_writel((unsigned long)(ctx->uar + MLX4_SEND_DOORBELL),
 			    qp->doorbell_qpn);
@@ -566,7 +569,7 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 
 		*qp->db = htonl(qp->rq.head & 0xffff);
 	}

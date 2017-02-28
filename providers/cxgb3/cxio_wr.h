@@ -347,7 +347,7 @@ static inline void build_fw_riwrh(struct fw_riwrh *wqe, enum t3_wr_opcode op,
 	wqe->op_seop_flags = htonl(V_FW_RIWR_OP(op) |
 				   V_FW_RIWR_SOPEOP(M_FW_RIWR_SOPEOP) |
 				   V_FW_RIWR_FLAGS(flags));
-	mb();
+	udma_to_device_barrier();
 	wqe->gen_tid_len = htonl(V_FW_RIWR_GEN(genbit) | V_FW_RIWR_TID(tid) |
 				 V_FW_RIWR_LEN(len));
 	/* 2nd gen bit... */

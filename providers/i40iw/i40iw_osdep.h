@@ -105,18 +105,4 @@ static inline void db_wr32(u32 value, u32 *wqe_word)
 #define ACQUIRE_LOCK()
 #define RELEASE_LOCK()
 
-#if defined(__i386__)
-#define i40iw_mb() mb()		/* full memory barrier */
-#define i40iw_wmb() mb()	/* write memory barrier */
-#elif defined(__x86_64__)
-#define i40iw_mb() asm volatile("mfence" ::: "memory")	 /* full memory barrier */
-#define i40iw_wmb() asm volatile("sfence" ::: "memory")	 /* write memory barrier */
-#else
-#define i40iw_mb() mb()		/* full memory barrier */
-#define i40iw_wmb() wmb()	/* write memory barrier */
-#endif
-#define i40iw_rmb() rmb()	/* read memory barrier */
-#define i40iw_smp_mb() smp_mb()		/* memory barrier */
-#define i40iw_smp_wmb() smp_wmb()	/* write memory barrier */
-#define i40iw_smp_rmb() smp_rmb()	/* read memory barrier */
 #endif				/* _I40IW_OSDEP_H_ */

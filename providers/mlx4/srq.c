@@ -113,7 +113,7 @@ int mlx4_post_srq_recv(struct ibv_srq *ibsrq,
 		 * Make sure that descriptors are written before
 		 * we write doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 
 		*srq->db = htonl(srq->counter);
 	}

@@ -672,9 +672,9 @@ static int qelr_update_qp_state(struct qelr_qp *qp,
 			/* Update doorbell (in case post_recv was done before
 			 * move to RTR)
 			 */
-			wmb();
+			mmio_wc_start();
 			writel(qp->rq.db_data.raw, qp->rq.db);
-			wc_wmb();
+			mmio_flush_writes();
 			break;
 		case QELR_QPS_ERR:
 			break;
@@ -1096,7 +1096,7 @@ static void doorbell_edpm_qp(struct qelr_qp *qp)
 	if (!qp->edpm.is_edpm)
 		return;
 
-	wmb();
+	mmio_wc_start();
 
 	qp->edpm.msg.data.icid = qp->sq.db_data.data.icid;
 	qp->edpm.msg.data.prod_val = qp->sq.db_data.data.value;
@@ -1116,15 +1116,17 @@ static void doorbell_edpm_qp(struct qelr_qp *qp)
 		       sizeof(uint64_t));
 
 		bytes += sizeof(uint64_t);
-		/* Need to place a barrier after every 64 bytes */
+		/* Since we rewrite the buffer every 64 bytes we need to flush
+		 * it here, otherwise the CPU could optimize away the
+		 * duplicate stores.
+		 */
 		if (bytes == 64) {
-			wc_wmb();
+			mmio_flush_writes();
 			bytes = 0;
 		}
 		offset++;
 	}
-
-	wc_wmb();
+	mmio_flush_writes();
 }
 
 int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
@@ -1363,11 +1365,9 @@ int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 	}
 
 	if (!qp->edpm.is_edpm) {
-		wmb();
-
+		mmio_wc_start();
 		writel(qp->sq.db_data.raw, qp->sq.db);
-
-		wc_wmb();
+		mmio_flush_writes();
 	}
 
 	pthread_spin_unlock(&qp->q_lock);
@@ -1446,14 +1446,13 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		qelr_inc_sw_prod_u16(&qp->rq);
 
-		wmb();
+		mmio_wc_start();
 
 		db_val = le16toh(qp->rq.db_data.data.value) + 1;
 		qp->rq.db_data.data.value = htole16(db_val);
 
 		writel(qp->rq.db_data.raw, qp->rq.db);
-
-		wc_wmb();
+		mmio_flush_writes();
 
 		wr = wr->next;
 	}
@@ -1795,12 +1794,12 @@ static int qelr_poll_cq_resp(struct qelr_qp *qp, struct qelr_cq *cq,
 
 static void doorbell_cq(struct qelr_cq *cq, uint32_t cons, uint8_t flags)
 {
-	wmb();
+	mmio_wc_start();
 	cq->db.data.agg_flags = flags;
 	cq->db.data.value = htole32(cons);
 
 	writeq(cq->db.raw, cq->db_addr);
-	wc_wmb();
+	mmio_flush_writes();
 }
 
 int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
@@ -1816,7 +1815,7 @@ int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 		struct qelr_qp *qp;
 
 		/* prevent speculative reads of any field of CQE */
-		rmb();
+		udma_from_device_barrier();
 
 		qp = cqe_get_qp(cqe);
 		if (!qp) {

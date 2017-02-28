@@ -98,7 +98,7 @@ static inline void mthca_write64(uint32_t val[2], struct mthca_context *ctx, int
 static inline void mthca_write_db_rec(uint32_t val[2], uint32_t *db)
 {
 	*(volatile uint32_t *) db       = val[0];
-	mb();
+	mmio_ordered_writes_hack();
 	*(volatile uint32_t *) (db + 1) = val[1];
 }
 

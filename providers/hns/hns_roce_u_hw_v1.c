@@ -67,6 +67,8 @@ static void hns_roce_update_rq_head(struct hns_roce_context *ctx,
 	roce_set_field(rq_db.u32_8, RQ_DB_U32_8_CMD_M, RQ_DB_U32_8_CMD_S, 1);
 	roce_set_bit(rq_db.u32_8, RQ_DB_U32_8_HW_SYNC_S, 1);
 
+	udma_to_device_barrier();
+
 	hns_roce_write64((uint32_t *)&rq_db, ctx, ROCEE_DB_OTHERS_L_0_REG);
 }
 
@@ -86,6 +88,8 @@ static void hns_roce_update_sq_head(struct hns_roce_context *ctx,
 	roce_set_field(sq_db.u32_4, SQ_DB_U32_4_SL_M, SQ_DB_U32_4_SL_S, sl);
 	roce_set_field(sq_db.u32_8, SQ_DB_U32_8_QPN_M, SQ_DB_U32_8_QPN_S, qpn);
 	roce_set_bit(sq_db.u32_8, SQ_DB_U32_8_HW_SYNC, 1);
+
+	udma_to_device_barrier();
 
 	hns_roce_write64((uint32_t *)&sq_db, ctx, ROCEE_DB_SQ_L_0_REG);
 }
@@ -261,7 +265,7 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 	/* Get the next cqe, CI will be added gradually */
 	++cq->cons_index;
 
-	rmb();
+	udma_from_device_barrier();
 
 	qpn = roce_get_field(cqe->cqe_byte_16, CQE_BYTE_16_LOCAL_QPN_M,
 			     CQE_BYTE_16_LOCAL_QPN_S);
@@ -408,7 +412,7 @@ static int hns_roce_u_v1_poll_cq(struct ibv_cq *ibvcq, int ne,
 		if (dev->hw_version == HNS_ROCE_HW_VER1) {
 			*cq->set_ci_db = (unsigned short)(cq->cons_index &
 					 ((cq->cq_depth << 1) - 1));
-			mb();
+			mmio_ordered_writes_hack();
 		}
 
 		hns_roce_update_cq_cons_index(ctx, cq);
@@ -581,7 +585,6 @@ out:
 	/* Set DB return */
 	if (likely(nreq)) {
 		qp->sq.head += nreq;
-		wmb();
 
 		hns_roce_update_sq_head(ctx, qp->ibv_qp.qp_num,
 				qp->port_num - 1, qp->sl,
@@ -625,7 +628,7 @@ static void __hns_roce_v1_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 
 	if (nfreed) {
 		cq->cons_index += nfreed;
-		wmb();
+		udma_to_device_barrier();
 		hns_roce_update_cq_cons_index(ctx, cq);
 	}
 }
@@ -815,8 +818,6 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 out:
 	if (nreq) {
 		qp->rq.head += nreq;
-
-		wmb();
 
 		hns_roce_update_rq_head(ctx, qp->ibv_qp.qp_num,
 				    qp->rq.head & ((qp->rq.wqe_cnt << 1) - 1));

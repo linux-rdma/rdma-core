@@ -573,6 +573,8 @@ static void reset_qp(struct c4iw_qp *qhp)
 	qhp->wq.rq.cidx = qhp->wq.rq.pidx = qhp->wq.rq.in_use = 0;
 	qhp->wq.sq.oldest_read = NULL;
 	memset(qhp->wq.sq.queue, 0, qhp->wq.sq.memsize);
+	if (t4_sq_onchip(&qhp->wq))
+		mmio_flush_writes();
 	memset(qhp->wq.rq.queue, 0, qhp->wq.rq.memsize);
 }
 
