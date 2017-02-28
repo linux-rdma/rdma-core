@@ -256,5 +256,5 @@ found:
 
 static __attribute__ ((constructor)) void i40iw_register_driver(void)
 {
-	ibv_register_driver("i40iw", i40iw_driver_init);
+	verbs_register_driver("i40iw", i40iw_driver_init);
 }

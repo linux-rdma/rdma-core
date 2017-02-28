@@ -219,5 +219,5 @@ found:
 
 static __attribute__((constructor)) void hfi1_register_driver(void)
 {
-	ibv_register_driver("hfi1verbs", hfi1_driver_init);
+	verbs_register_driver("hfi1verbs", hfi1_driver_init);
 }

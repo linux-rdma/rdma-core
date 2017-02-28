@@ -284,5 +284,5 @@ err1:
 
 static __attribute__((constructor)) void cxgb3_register_driver(void)
 {
-	ibv_register_driver("cxgb3", cxgb3_driver_init);
+	verbs_register_driver("cxgb3", cxgb3_driver_init);
 }

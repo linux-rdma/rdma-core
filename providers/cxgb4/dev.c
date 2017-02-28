@@ -512,7 +512,7 @@ static __attribute__((constructor)) void cxgb4_register_driver(void)
 	c4iw_page_size = sysconf(_SC_PAGESIZE);
 	c4iw_page_shift = long_log2(c4iw_page_size);
 	c4iw_page_mask = ~(c4iw_page_size - 1);
-	ibv_register_driver("cxgb4", cxgb4_driver_init);
+	verbs_register_driver("cxgb4", cxgb4_driver_init);
 }
 
 #ifdef STATS

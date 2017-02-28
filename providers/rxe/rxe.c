@@ -922,5 +922,5 @@ static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,
 static __attribute__ ((constructor))
 void rxe_register_driver(void)
 {
-	ibv_register_driver("rxe", rxe_driver_init);
+	verbs_register_driver("rxe", rxe_driver_init);
 }

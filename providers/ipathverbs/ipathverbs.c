@@ -218,5 +218,5 @@ found:
 
 static __attribute__((constructor)) void ipath_register_driver(void)
 {
-	ibv_register_driver("ipathverbs", ipath_driver_init);
+	verbs_register_driver("ipathverbs", ipath_driver_init);
 }

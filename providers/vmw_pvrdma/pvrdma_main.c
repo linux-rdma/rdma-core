@@ -225,5 +225,5 @@ static struct verbs_device *pvrdma_driver_init(const char *uverbs_sys_path,
 
 static __attribute__((constructor)) void pvrdma_register_driver(void)
 {
-	ibv_register_driver("pvrdma", pvrdma_driver_init);
+	verbs_register_driver("pvrdma", pvrdma_driver_init);
 }

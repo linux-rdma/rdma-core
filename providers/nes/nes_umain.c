@@ -253,5 +253,5 @@ static __attribute__((constructor)) void nes_register_driver(void)
 {
 	/* fprintf(stderr, PFX "nes_register_driver: call ibv_register_driver()\n"); */
 
-	ibv_register_driver("nes", nes_driver_init);
+	verbs_register_driver("nes", nes_driver_init);
 }

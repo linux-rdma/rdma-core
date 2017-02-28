@@ -237,5 +237,5 @@ qp_err:
 static __attribute__ ((constructor))
 void ocrdma_register_driver(void)
 {
-	ibv_register_driver("ocrdma", ocrdma_driver_init);
+	verbs_register_driver("ocrdma", ocrdma_driver_init);
 }
