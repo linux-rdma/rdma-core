@@ -162,7 +162,7 @@ static void pvrdma_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops pvrdma_dev_ops = {
+static struct verbs_device_ops pvrdma_dev_ops = {
 	.alloc_context = pvrdma_alloc_context,
 	.free_context  = pvrdma_free_context
 };
@@ -207,7 +207,7 @@ static struct pvrdma_device *pvrdma_driver_init_shared(
 
 	dev->abi_version = abi_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->ibv_dev.device.ops = pvrdma_dev_ops;
+	dev->ibv_dev.ops = &pvrdma_dev_ops;
 
 	return dev;
 }

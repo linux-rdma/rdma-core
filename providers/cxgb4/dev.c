@@ -220,7 +220,7 @@ static void c4iw_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops c4iw_dev_ops = {
+static struct verbs_device_ops c4iw_dev_ops = {
 	.alloc_context = c4iw_alloc_context,
 	.free_context = c4iw_free_context
 };
@@ -470,7 +470,7 @@ found:
 	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.device.ops = c4iw_dev_ops;
+	dev->ibv_dev.ops = &c4iw_dev_ops;
 	dev->chip_version = CHELSIO_CHIP_VERSION(hca_table[i].device >> 8);
 	dev->abi_version = abi_version;
 	list_node_init(&dev->list);

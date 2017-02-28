@@ -1304,9 +1304,10 @@ struct ibv_flow {
 struct ibv_device;
 struct ibv_context;
 
-struct ibv_device_ops {
-	struct ibv_context *	(*alloc_context)(struct ibv_device *device, int cmd_fd);
-	void			(*free_context)(struct ibv_context *context);
+/* Obsolete, never used, do not touch */
+struct _ibv_device_ops {
+	struct ibv_context *	(*_dummy1)(struct ibv_device *device, int cmd_fd);
+	void			(*_dummy2)(struct ibv_context *context);
 };
 
 enum {
@@ -1315,7 +1316,7 @@ enum {
 };
 
 struct ibv_device {
-	struct ibv_device_ops	ops;
+	struct _ibv_device_ops	_ops;
 	enum ibv_node_type	node_type;
 	enum ibv_transport_type	transport_type;
 	/* Name of underlying kernel IB device, eg "mthca0" */

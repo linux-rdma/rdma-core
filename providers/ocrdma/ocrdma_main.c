@@ -103,7 +103,7 @@ static struct ibv_context_ops ocrdma_ctx_ops = {
 	.detach_mcast = ocrdma_detach_mcast
 };
 
-static struct ibv_device_ops ocrdma_dev_ops = {
+static struct verbs_device_ops ocrdma_dev_ops = {
 	.alloc_context = ocrdma_alloc_context,
 	.free_context = ocrdma_free_context
 };
@@ -220,7 +220,7 @@ found:
 	bzero(dev->qp_tbl, OCRDMA_MAX_QP * sizeof(struct ocrdma_qp *));
 	pthread_mutex_init(&dev->dev_lock, NULL);
 	pthread_spin_init(&dev->flush_q_lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.device.ops = ocrdma_dev_ops;
+	dev->ibv_dev.ops = &ocrdma_dev_ops;
 	list_node_init(&dev->entry);
 	pthread_mutex_lock(&ocrdma_dev_list_lock);
 	list_add_tail(&ocrdma_dev_list, &dev->entry);

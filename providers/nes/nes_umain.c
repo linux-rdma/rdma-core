@@ -185,7 +185,7 @@ static void nes_ufree_context(struct ibv_context *ibctx)
 }
 
 
-static struct ibv_device_ops nes_udev_ops = {
+static struct verbs_device_ops nes_udev_ops = {
 	.alloc_context = nes_ualloc_context,
 	.free_context = nes_ufree_context
 };
@@ -236,7 +236,7 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.device.ops = nes_udev_ops;
+	dev->ibv_dev.ops = &nes_udev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 

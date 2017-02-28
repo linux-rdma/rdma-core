@@ -173,7 +173,7 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	context = NULL;
 }
 
-static struct ibv_device_ops hns_roce_dev_ops = {
+static struct verbs_device_ops hns_roce_dev_ops = {
 	.alloc_context = hns_roce_alloc_context,
 	.free_context	= hns_roce_free_context
 };
@@ -215,7 +215,7 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.device.ops = hns_roce_dev_ops;
+	dev->ibv_dev.ops = &hns_roce_dev_ops;
 	dev->u_hw = (struct hns_roce_u_hw *)u_hw;
 	dev->hw_version = hw_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);

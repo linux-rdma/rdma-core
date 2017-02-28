@@ -172,7 +172,7 @@ static void ipath_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops ipath_dev_ops = {
+static struct verbs_device_ops ipath_dev_ops = {
 	.alloc_context	= ipath_alloc_context,
 	.free_context	= ipath_free_context
 };
@@ -210,7 +210,7 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.device.ops = ipath_dev_ops;
+	dev->ibv_dev.ops = &ipath_dev_ops;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;

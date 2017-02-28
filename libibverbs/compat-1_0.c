@@ -161,7 +161,7 @@ struct ibv_device_1_0 {
 	void		       *obsolete_sysfs_dev;
 	void		       *obsolete_sysfs_ibdev;
 	struct ibv_device      *real_device; /* was obsolete driver member */
-	struct ibv_device_ops	ops;
+	struct _ibv_device_ops	_ops;
 };
 
 struct ibv_context_ops_1_0 {

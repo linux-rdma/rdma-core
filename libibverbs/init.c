@@ -45,6 +45,7 @@
 #include <sys/resource.h>
 #include <dirent.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <util/util.h>
 #include "ibverbs.h"
@@ -394,8 +395,8 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 			return NULL;
 
 		dev = &vdev->device;
-		dev->ops.alloc_context = NULL;
-		dev->ops.free_context = NULL;
+		assert(dev->_ops._dummy1 == NULL);
+		assert(dev->_ops._dummy2 == NULL);
 	}
 
 	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "node_type", value, sizeof value) < 0) {

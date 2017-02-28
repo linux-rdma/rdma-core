@@ -208,7 +208,7 @@ static void i40iw_ufree_context(struct ibv_context *ibctx)
 	free(iwvctx);
 }
 
-static struct ibv_device_ops i40iw_udev_ops = {
+static struct verbs_device_ops i40iw_udev_ops = {
 	.alloc_context	= i40iw_ualloc_context,
 	.free_context	= i40iw_ufree_context
 };
@@ -248,7 +248,7 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.device.ops = i40iw_udev_ops;
+	dev->ibv_dev.ops = &i40iw_udev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = I40IW_HW_PAGE_SIZE;
 	return &dev->ibv_dev;

@@ -209,7 +209,7 @@ static void mthca_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops mthca_dev_ops = {
+static struct verbs_device_ops mthca_dev_ops = {
 	.alloc_context = mthca_alloc_context,
 	.free_context  = mthca_free_context
 };
@@ -253,7 +253,7 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.device.ops = mthca_dev_ops;
+	dev->ibv_dev.ops = &mthca_dev_ops;
 	dev->hca_type    = hca_table[i].type;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 

@@ -173,8 +173,8 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 	if (cmd_fd < 0)
 		return NULL;
 
-	if (!verbs_device) {
-		context = device->ops.alloc_context(device, cmd_fd);
+	if (!verbs_device->ops->init_context) {
+		context = verbs_device->ops->alloc_context(device, cmd_fd);
 		if (!context)
 			goto err;
 	} else {
@@ -200,7 +200,7 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 		context_ex->sz = sizeof(*context_ex);
 
 		context = &context_ex->context;
-		ret = verbs_device->init_context(verbs_device, context, cmd_fd);
+		ret = verbs_device->ops->init_context(verbs_device, context, cmd_fd);
 		if (ret)
 			goto verbs_err;
 		/*
@@ -245,15 +245,15 @@ int __ibv_close_device(struct ibv_context *context)
 	int cmd_fd   = context->cmd_fd;
 	int cq_fd    = -1;
 	struct verbs_context *context_ex;
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
 
 	context_ex = verbs_get_ctx(context);
 	if (context_ex) {
-		struct verbs_device *verbs_device = verbs_get_device(context->device);
-		verbs_device->uninit_context(verbs_device, context);
+		verbs_device->ops->uninit_context(verbs_device, context);
 		free(context_ex->priv);
 		free(context_ex);
 	} else {
-		context->device->ops.free_context(context);
+		verbs_device->ops->free_context(context);
 	}
 
 	close(async_fd);

@@ -114,7 +114,7 @@ static struct ibv_context_ops qelr_ctx_ops = {
 	.async_event = qelr_async_event,
 };
 
-static struct ibv_device_ops qelr_dev_ops = {
+static struct verbs_device_ops qelr_dev_ops = {
 	.alloc_context = qelr_alloc_context,
 	.free_context = qelr_free_context
 };
@@ -272,7 +272,7 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.device.ops = qelr_dev_ops;
+	dev->ibv_dev.ops = &qelr_dev_ops;
 
 	return &dev->ibv_dev;
 }

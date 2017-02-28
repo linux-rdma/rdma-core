@@ -886,7 +886,7 @@ static void rxe_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops rxe_dev_ops = {
+static struct verbs_device_ops rxe_dev_ops = {
 	.alloc_context = rxe_alloc_context,
 	.free_context = rxe_free_context,
 };
@@ -913,7 +913,7 @@ static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,
 		return NULL;
 	}
 
-	dev->ibv_dev.device.ops = rxe_dev_ops;
+	dev->ibv_dev.ops = &rxe_dev_ops;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;

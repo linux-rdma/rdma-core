@@ -166,7 +166,7 @@ static void iwch_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops iwch_dev_ops = {
+static struct verbs_device_ops iwch_dev_ops = {
 	.alloc_context = iwch_alloc_context,
 	.free_context = iwch_free_context
 };
@@ -251,7 +251,7 @@ found:
 	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.device.ops = iwch_dev_ops;
+	dev->ibv_dev.ops = &iwch_dev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->abi_version = abi_version;
 
