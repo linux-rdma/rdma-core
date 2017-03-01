@@ -43,7 +43,7 @@ enum rdma_network_type {
 };
 
 struct rxe_device {
-	struct ibv_device	ibv_dev;
+	struct verbs_device	ibv_dev;
 	int	abi_version;
 };
 

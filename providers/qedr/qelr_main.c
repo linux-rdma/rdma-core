@@ -114,7 +114,7 @@ static struct ibv_context_ops qelr_ctx_ops = {
 	.async_event = qelr_async_event,
 };
 
-static struct ibv_device_ops qelr_dev_ops = {
+static struct verbs_device_ops qelr_dev_ops = {
 	.alloc_context = qelr_alloc_context,
 	.free_context = qelr_free_context
 };
@@ -231,8 +231,8 @@ static void qelr_free_context(struct ibv_context *ibctx)
 	free(ctx);
 }
 
-struct ibv_device *qelr_driver_init(const char *uverbs_sys_path,
-				    int abi_version)
+static struct verbs_device *qelr_driver_init(const char *uverbs_sys_path,
+					     int abi_version)
 {
 	char value[16];
 	struct qelr_device *dev;
@@ -265,16 +265,14 @@ found:
 		return NULL;
 	}
 
-	dev = malloc(sizeof(*dev));
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		qelr_err("%s() Fatal: fail allocate device for libqedr\n",
 			 __func__);
 		return NULL;
 	}
 
-	bzero(dev, sizeof(*dev));
-
-	dev->ibv_dev.ops = qelr_dev_ops;
+	dev->ibv_dev.ops = &qelr_dev_ops;
 
 	return &dev->ibv_dev;
 }
@@ -282,5 +280,5 @@ found:
 static __attribute__ ((constructor))
 void qelr_register_driver(void)
 {
-	ibv_register_driver("qelr", qelr_driver_init);
+	verbs_register_driver("qelr", qelr_driver_init);
 }

@@ -1304,9 +1304,10 @@ struct ibv_flow {
 struct ibv_device;
 struct ibv_context;
 
-struct ibv_device_ops {
-	struct ibv_context *	(*alloc_context)(struct ibv_device *device, int cmd_fd);
-	void			(*free_context)(struct ibv_context *context);
+/* Obsolete, never used, do not touch */
+struct _ibv_device_ops {
+	struct ibv_context *	(*_dummy1)(struct ibv_device *device, int cmd_fd);
+	void			(*_dummy2)(struct ibv_context *context);
 };
 
 enum {
@@ -1315,7 +1316,7 @@ enum {
 };
 
 struct ibv_device {
-	struct ibv_device_ops	ops;
+	struct _ibv_device_ops	_ops;
 	enum ibv_node_type	node_type;
 	enum ibv_transport_type	transport_type;
 	/* Name of underlying kernel IB device, eg "mthca0" */
@@ -1326,17 +1327,6 @@ struct ibv_device {
 	char			dev_path[IBV_SYSFS_PATH_MAX];
 	/* Path to infiniband class device in sysfs */
 	char			ibdev_path[IBV_SYSFS_PATH_MAX];
-};
-
-struct verbs_device {
-	struct ibv_device device; /* Must be first */
-	size_t	sz;
-	size_t	size_of_context;
-	int	(*init_context)(struct verbs_device *device,
-				struct ibv_context *ctx, int cmd_fd);
-	void	(*uninit_context)(struct verbs_device *device,
-				struct ibv_context *ctx);
-	/* future fields added here */
 };
 
 struct ibv_context_ops {
@@ -1514,13 +1504,6 @@ static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
 	struct verbs_context *vctx = _vctx; \
 	if (vctx && (vctx->sz >= sizeof(*vctx) - offsetof(struct verbs_context, op))) \
 		vctx->op = ptr; })
-
-static inline struct verbs_device *verbs_get_device(
-					const struct ibv_device *dev)
-{
-	return (dev->ops.alloc_context) ?
-		NULL : container_of(dev, struct verbs_device, device);
-}
 
 /**
  * ibv_get_device_list - Get list of IB devices currently available

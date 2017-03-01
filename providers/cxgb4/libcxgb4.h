@@ -51,7 +51,7 @@ extern unsigned long c4iw_page_mask;
 struct c4iw_mr;
 
 struct c4iw_dev {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	unsigned chip_version;
 	int max_mr;
 	struct c4iw_mr **mmid2ptr;

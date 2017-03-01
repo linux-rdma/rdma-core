@@ -69,7 +69,7 @@ enum i40iw_uhca_type {
 };
 
 struct i40iw_udevice {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	enum i40iw_uhca_type hca_type;
 	int page_size;
 };
@@ -155,9 +155,6 @@ static inline struct i40iw_uqp *to_i40iw_uqp(struct ibv_qp *ibqp)
 {
 	return to_i40iw_uxxx(qp, qp);
 }
-
-/* i40iw_umain.c */
-struct ibv_device *i40iw_driver_init(const char *, int);
 
 /* i40iw_uverbs.c */
 int i40iw_uquery_device(struct ibv_context *, struct ibv_device_attr *);

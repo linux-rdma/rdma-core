@@ -185,7 +185,7 @@ static void nes_ufree_context(struct ibv_context *ibctx)
 }
 
 
-static struct ibv_device_ops nes_udev_ops = {
+static struct verbs_device_ops nes_udev_ops = {
 	.alloc_context = nes_ualloc_context,
 	.free_context = nes_ufree_context
 };
@@ -194,7 +194,8 @@ static struct ibv_device_ops nes_udev_ops = {
 /**
  * nes_driver_init
  */
-struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version)
+static struct verbs_device *nes_driver_init(const char *uverbs_sys_path,
+					    int abi_version)
 {
 	char value[16];
 	struct nes_udevice *dev;
@@ -229,13 +230,13 @@ found:
 			sscanf(value, "%u", &nes_debug_level);
 	}
 
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		nes_debug(NES_DBG_INIT, "Fatal: couldn't allocate device for libnes\n");
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = nes_udev_ops;
+	dev->ibv_dev.ops = &nes_udev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
@@ -252,5 +253,5 @@ static __attribute__((constructor)) void nes_register_driver(void)
 {
 	/* fprintf(stderr, PFX "nes_register_driver: call ibv_register_driver()\n"); */
 
-	ibv_register_driver("nes", nes_driver_init);
+	verbs_register_driver("nes", nes_driver_init);
 }

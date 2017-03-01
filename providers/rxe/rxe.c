@@ -886,13 +886,13 @@ static void rxe_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops rxe_dev_ops = {
+static struct verbs_device_ops rxe_dev_ops = {
 	.alloc_context = rxe_alloc_context,
 	.free_context = rxe_free_context,
 };
 
-static struct ibv_device *rxe_driver_init(const char *uverbs_sys_path,
-					  int abi_version)
+static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,
+					    int abi_version)
 {
 	struct rxe_device *dev;
 	char value[16];
@@ -905,7 +905,7 @@ static struct ibv_device *rxe_driver_init(const char *uverbs_sys_path,
 	if (strncmp(value, "rxe", 3))
 		return NULL;
 
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		fprintf(stderr,
 			"rxe: Fatal: couldn't allocate device for %s\n",
@@ -913,7 +913,7 @@ static struct ibv_device *rxe_driver_init(const char *uverbs_sys_path,
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = rxe_dev_ops;
+	dev->ibv_dev.ops = &rxe_dev_ops;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;
@@ -922,5 +922,5 @@ static struct ibv_device *rxe_driver_init(const char *uverbs_sys_path,
 static __attribute__ ((constructor))
 void rxe_register_driver(void)
 {
-	ibv_register_driver("rxe", rxe_driver_init);
+	verbs_register_driver("rxe", rxe_driver_init);
 }

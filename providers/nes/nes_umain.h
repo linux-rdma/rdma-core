@@ -248,7 +248,7 @@ struct nes_user_doorbell {
 };
 
 struct nes_udevice {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	enum nes_uhca_type hca_type;
 	int page_size;
 };
@@ -350,9 +350,6 @@ static inline struct nes_uqp *to_nes_uqp(struct ibv_qp *ibqp)
 	return to_nes_uxxx(qp, qp);
 }
 
-
-/* nes_umain.c */
-struct ibv_device *nes_driver_init(const char *, int);
 
 /* nes_uverbs.c */
 int nes_uquery_device(struct ibv_context *, struct ibv_device_attr *);

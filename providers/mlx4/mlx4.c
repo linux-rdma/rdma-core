@@ -263,6 +263,11 @@ static void mlx4_uninit_context(struct verbs_device *v_device,
 		       to_mdev(&v_device->device)->page_size);
 }
 
+static struct verbs_device_ops mlx4_dev_ops = {
+	.init_context = mlx4_init_context,
+	.uninit_context = mlx4_uninit_context,
+};
+
 static struct verbs_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
 {
 	char			value[8];
@@ -308,12 +313,10 @@ found:
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	dev->abi_version = abi_version;
 
+	dev->verbs_dev.ops = &mlx4_dev_ops;
 	dev->verbs_dev.sz = sizeof(*dev);
 	dev->verbs_dev.size_of_context =
 		sizeof(struct mlx4_context) - sizeof(struct ibv_context);
-	/* mlx4_init_context will initialize provider calls */
-	dev->verbs_dev.init_context = mlx4_init_context;
-	dev->verbs_dev.uninit_context = mlx4_uninit_context;
 
 	return &dev->verbs_dev;
 }

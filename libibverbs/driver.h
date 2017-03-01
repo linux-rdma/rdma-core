@@ -53,6 +53,8 @@
  */
 #define IBV_DEVICE_LIBRARY_EXTENSION rdmav2
 
+struct verbs_device;
+
 enum verbs_xrcd_mask {
 	VERBS_XRCD_HANDLE	= 1 << 0,
 	VERBS_XRCD_RESERVED	= 1 << 1
@@ -96,13 +98,39 @@ struct verbs_qp {
 	uint32_t		comp_mask;
 	struct verbs_xrcd       *xrcd;
 };
-typedef struct ibv_device *(*ibv_driver_init_func)(const char *uverbs_sys_path,
-						   int abi_version);
+
+/* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
+struct verbs_device_ops {
+	/* Old interface, do not use in new code. */
+	struct ibv_context *(*alloc_context)(struct ibv_device *device,
+					     int cmd_fd);
+	void (*free_context)(struct ibv_context *context);
+
+	/* New interface */
+	int (*init_context)(struct verbs_device *device,
+			    struct ibv_context *ctx, int cmd_fd);
+	void (*uninit_context)(struct verbs_device *device,
+			       struct ibv_context *ctx);
+};
+
+/* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
+struct verbs_device {
+	struct ibv_device device; /* Must be first */
+	const struct verbs_device_ops *ops;
+	size_t	sz;
+	size_t	size_of_context;
+};
+
+static inline struct verbs_device *
+verbs_get_device(const struct ibv_device *dev)
+{
+	return container_of(dev, struct verbs_device, device);
+}
+
 typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_path,
 						       int abi_version);
-
-void ibv_register_driver(const char *name, ibv_driver_init_func init_func);
 void verbs_register_driver(const char *name, verbs_driver_init_func init_func);
+
 int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
 			size_t cmd_size, struct ibv_get_context_resp *resp,
 			size_t resp_size);

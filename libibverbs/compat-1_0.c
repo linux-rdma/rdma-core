@@ -161,7 +161,7 @@ struct ibv_device_1_0 {
 	void		       *obsolete_sysfs_dev;
 	void		       *obsolete_sysfs_ibdev;
 	struct ibv_device      *real_device; /* was obsolete driver member */
-	struct ibv_device_ops	ops;
+	struct _ibv_device_ops	_ops;
 };
 
 struct ibv_context_ops_1_0 {
@@ -940,7 +940,7 @@ symver(__ibv_detach_mcast_1_0, ibv_detach_mcast, IBVERBS_1.0);
 
 typedef struct ibv_device *(*ibv_driver_init_func_1_1)(const char *uverbs_sys_path,
 						       int abi_version);
-void __ibv_register_driver_1_1(const char *name, ibv_driver_init_func init_func_1_1)
+void __ibv_register_driver_1_1(const char *name, ibv_driver_init_func_1_1 init_func)
 {
 	/* The driver interface is private as of rdma-core 13. This stub is
 	 * left to preserve dynamic-link compatability with old libfabrics

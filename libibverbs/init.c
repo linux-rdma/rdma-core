@@ -45,6 +45,7 @@
 #include <sys/resource.h>
 #include <dirent.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <util/util.h>
 #include "ibverbs.h"
@@ -70,7 +71,6 @@ struct ibv_driver_name {
 
 struct ibv_driver {
 	const char	       *name;
-	ibv_driver_init_func	init_func;
 	verbs_driver_init_func	verbs_init_func;
 	struct ibv_driver      *next;
 };
@@ -160,8 +160,8 @@ static int find_sysfs_devs(void)
 	return ret;
 }
 
-static void register_driver(const char *name, ibv_driver_init_func init_func,
-			    verbs_driver_init_func verbs_init_func)
+void verbs_register_driver(const char *name,
+			   verbs_driver_init_func verbs_init_func)
 {
 	struct ibv_driver *driver;
 
@@ -172,7 +172,6 @@ static void register_driver(const char *name, ibv_driver_init_func init_func,
 	}
 
 	driver->name            = name;
-	driver->init_func	= init_func;
 	driver->verbs_init_func = verbs_init_func;
 	driver->next            = NULL;
 
@@ -181,20 +180,6 @@ static void register_driver(const char *name, ibv_driver_init_func init_func,
 	else
 		head_driver = driver;
 	tail_driver = driver;
-}
-
-void __ibv_register_driver(const char *name, ibv_driver_init_func init_func)
-{
-	register_driver(name, init_func, NULL);
-}
-private_symver(__ibv_register_driver, ibv_register_driver);
-
-/* New registration symbol with same functionality - used by providers to
-  * validate that library supports verbs extension.
-  */
-void verbs_register_driver(const char *name, verbs_driver_init_func init_func)
-{
-	register_driver(name, NULL, init_func);
 }
 
 #define __IBV_QUOTE(x)	#x
@@ -383,19 +368,13 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 	struct ibv_device *dev;
 	char value[16];
 
-	if (driver->init_func) {
-		dev = driver->init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
-		if (!dev)
-			return NULL;
-	} else {
-		vdev = driver->verbs_init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
-		if (!vdev)
-			return NULL;
+	vdev = driver->verbs_init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
+	if (!vdev)
+		return NULL;
 
-		dev = &vdev->device;
-		dev->ops.alloc_context = NULL;
-		dev->ops.free_context = NULL;
-	}
+	dev = &vdev->device;
+	assert(dev->_ops._dummy1 == NULL);
+	assert(dev->_ops._dummy2 == NULL);
 
 	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "node_type", value, sizeof value) < 0) {
 		fprintf(stderr, PFX "Warning: no node_type attr under %s.\n",

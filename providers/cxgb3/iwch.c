@@ -166,13 +166,13 @@ static void iwch_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
-static struct ibv_device_ops iwch_dev_ops = {
+static struct verbs_device_ops iwch_dev_ops = {
 	.alloc_context = iwch_alloc_context,
 	.free_context = iwch_free_context
 };
 
-static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static struct verbs_device *cxgb3_driver_init(const char *uverbs_sys_path,
+					      int abi_version)
 {
 	char devstr[IBV_SYSFS_PATH_MAX], ibdev[16], value[32], *cp;
 	struct iwch_device *dev;
@@ -245,13 +245,13 @@ found:
 	PDBG("%s found vendor %d device %d type %d\n", 
 	     __FUNCTION__, vendor, device, hca_table[i].type);
 
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		return NULL;
 	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = iwch_dev_ops;
+	dev->ibv_dev.ops = &iwch_dev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->abi_version = abi_version;
 
@@ -284,5 +284,5 @@ err1:
 
 static __attribute__((constructor)) void cxgb3_register_driver(void)
 {
-	ibv_register_driver("cxgb3", cxgb3_driver_init);
+	verbs_register_driver("cxgb3", cxgb3_driver_init);
 }

@@ -208,7 +208,7 @@ static void i40iw_ufree_context(struct ibv_context *ibctx)
 	free(iwvctx);
 }
 
-static struct ibv_device_ops i40iw_udev_ops = {
+static struct verbs_device_ops i40iw_udev_ops = {
 	.alloc_context	= i40iw_ualloc_context,
 	.free_context	= i40iw_ufree_context
 };
@@ -218,7 +218,8 @@ static struct ibv_device_ops i40iw_udev_ops = {
  * @uverbs_sys_path: sys path
  * @abi_version: not used
  */
-struct ibv_device *i40iw_driver_init(const char *uverbs_sys_path, int abi_version)
+static struct verbs_device *i40iw_driver_init(const char *uverbs_sys_path,
+					      int abi_version)
 {
 	char value[16];
 	struct i40iw_udevice *dev;
@@ -241,13 +242,13 @@ struct ibv_device *i40iw_driver_init(const char *uverbs_sys_path, int abi_versio
 
 	return NULL;
 found:
-	dev = malloc(sizeof(*dev));
+	dev = calloc(1, sizeof(*dev));
 	if (!dev) {
 		fprintf(stderr, PFX "%s: failed to allocate memory for device object\n", __func__);
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = i40iw_udev_ops;
+	dev->ibv_dev.ops = &i40iw_udev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = I40IW_HW_PAGE_SIZE;
 	return &dev->ibv_dev;
@@ -255,5 +256,5 @@ found:
 
 static __attribute__ ((constructor)) void i40iw_register_driver(void)
 {
-	ibv_register_driver("i40iw", i40iw_driver_init);
+	verbs_register_driver("i40iw", i40iw_driver_init);
 }
