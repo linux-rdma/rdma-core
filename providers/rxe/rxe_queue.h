@@ -47,6 +47,7 @@ struct rxe_queue {
 	_Atomic(uint32_t)	producer_index;
 	uint32_t		pad_2[31];
 	_Atomic(uint32_t)	consumer_index;
+	uint32_t		pad_3[31];
 	uint8_t			data[0];
 };
 
