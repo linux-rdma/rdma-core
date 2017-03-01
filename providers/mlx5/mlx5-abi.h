@@ -48,10 +48,16 @@ enum {
 };
 
 enum {
-	MLX5_NUM_UUARS_PER_PAGE = 2,
-	MLX5_MAX_UAR_PAGES	= 1 << 8,
-	MLX5_MAX_UUARS		= MLX5_MAX_UAR_PAGES * MLX5_NUM_UUARS_PER_PAGE,
-	MLX5_DEF_TOT_UUARS	= 8 * MLX5_NUM_UUARS_PER_PAGE,
+	MLX5_NUM_NON_FP_BFREGS_PER_UAR	= 2,
+	NUM_BFREGS_PER_UAR		= 4,
+	MLX5_MAX_UARS			= 1 << 8,
+	MLX5_MAX_BFREGS			= MLX5_MAX_UARS * MLX5_NUM_NON_FP_BFREGS_PER_UAR,
+	MLX5_DEF_TOT_UUARS		= 8 * MLX5_NUM_NON_FP_BFREGS_PER_UAR,
+	MLX5_MED_BFREGS_TSHOLD		= 12,
+};
+
+enum mlx5_lib_caps {
+	MLX5_LIB_CAP_4K_UAR		= 1 << 0,
 };
 
 struct mlx5_alloc_ucontext {
@@ -64,6 +70,7 @@ struct mlx5_alloc_ucontext {
 	__u8				reserved0;
 	__u16				reserved1;
 	__u32				reserved2;
+	__u64				lib_caps;
 };
 
 enum mlx5_ib_alloc_ucontext_resp_mask {
@@ -89,6 +96,8 @@ struct mlx5_alloc_ucontext_resp {
 	__u8				cmds_supp_uhw;
 	__u16				reserved2;
 	__u64				hca_core_clock_offset;
+	__u32				log_uar_size;
+	__u32				num_uars_per_page;
 };
 
 struct mlx5_create_ah_resp {

@@ -67,6 +67,10 @@ enum {
 	MLX5_CQE_VERSION_V1	= 1,
 };
 
+enum {
+	MLX5_ADAPTER_PAGE_SIZE		= 4096,
+};
+
 #define MLX5_CQ_PREFIX "MLX_CQ"
 #define MLX5_QP_PREFIX "MLX_QP"
 #define MLX5_MR_PREFIX "MLX_MR"
@@ -200,6 +204,7 @@ struct mlx5_context {
 	int				bf_reg_size;
 	int				tot_uuars;
 	int				low_lat_uuars;
+	int				num_uars_per_page;
 	int				bf_regs_per_page;
 	int				num_bf_regs;
 	int				prefer_bf;
@@ -222,7 +227,7 @@ struct mlx5_context {
 	}				uidx_table[MLX5_UIDX_TABLE_SIZE];
 	pthread_mutex_t                 uidx_table_mutex;
 
-	void			       *uar[MLX5_MAX_UAR_PAGES];
+	void			       *uar[MLX5_MAX_UARS];
 	struct mlx5_spinlock		lock32;
 	struct mlx5_db_page	       *db_list;
 	pthread_mutex_t			db_list_mutex;
@@ -252,6 +257,7 @@ struct mlx5_context {
 	void			       *hca_core_clock;
 	struct ibv_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
+	uint32_t			uar_size;
 };
 
 struct mlx5_bitmap {
