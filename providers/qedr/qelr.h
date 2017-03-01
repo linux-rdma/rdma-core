@@ -236,13 +236,11 @@ struct qelr_qp {
 		uint8_t wqe_size;
 	} *rqe_wr_id;
 
-	struct qelr_edpm			edpm;
 	uint8_t					prev_wqe_size;
 	uint32_t				max_inline_data;
 	uint32_t				qp_id;
 	int					sq_sig_all;
 	int					atomic_supported;
-
 };
 
 static inline struct qelr_devctx *get_qelr_ctx(struct ibv_context *ibctx)
