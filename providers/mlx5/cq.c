@@ -1281,16 +1281,16 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 
 	/*
 	 * Make sure that the doorbell record in host memory is
-	 * written before ringing the doorbell via PCI MMIO.
+	 * written before ringing the doorbell via PCI WC MMIO.
 	 */
-	udma_to_device_barrier();
+	mmio_wc_start();
 
 	doorbell[0] = htonl(sn << 28 | cmd | ci);
 	doorbell[1] = htonl(cq->cqn);
 
 	mlx5_write64(doorbell, ctx->uar[0] + MLX5_CQ_DOORBELL, &ctx->lock32);
 
-	mmio_ordered_writes_hack();
+	mmio_flush_writes();
 
 	return 0;
 }
