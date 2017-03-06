@@ -486,9 +486,8 @@ static void add_device(struct ibv_device *dev,
 	(*dev_list)[(*num_devices)++] = dev;
 }
 
-int ibverbs_init(struct ibv_device ***list)
+int ibverbs_get_device_list(struct ibv_device ***list)
 {
-	const char *sysfs_path;
 	struct ibv_sysfs_dev *sysfs_dev, *next_dev;
 	struct ibv_device *device;
 	int num_devices = 0;
@@ -498,23 +497,6 @@ int ibverbs_init(struct ibv_device ***list)
 	int ret;
 
 	*list = NULL;
-
-	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
-		if (ibv_fork_init())
-			fprintf(stderr, PFX "Warning: fork()-safety requested "
-				"but init failed\n");
-
-	sysfs_path = ibv_get_sysfs_path();
-	if (!sysfs_path)
-		return -ENOSYS;
-
-	ret = check_abi_version(sysfs_path);
-	if (ret)
-		return -ret;
-
-	check_memlock_limit();
-
-	read_config();
 
 	ret = find_sysfs_devs();
 	if (ret)
@@ -581,4 +563,29 @@ out:
 	}
 
 	return num_devices;
+}
+
+int ibverbs_init(struct ibv_device ***list)
+{
+	const char *sysfs_path;
+	int ret;
+
+	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
+		if (ibv_fork_init())
+			fprintf(stderr, PFX "Warning: fork()-safety requested "
+				"but init failed\n");
+
+	sysfs_path = ibv_get_sysfs_path();
+	if (!sysfs_path)
+		return -ENOSYS;
+
+	ret = check_abi_version(sysfs_path);
+	if (ret)
+		return -ret;
+
+	check_memlock_limit();
+
+	read_config();
+
+	return ibverbs_get_device_list(list);
 }
