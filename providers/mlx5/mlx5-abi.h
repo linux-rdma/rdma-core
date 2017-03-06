@@ -34,6 +34,7 @@
 #define MLX5_ABI_H
 
 #include <infiniband/kern-abi.h>
+#include "mlx5dv.h"
 
 #define MLX5_UVERBS_MIN_ABI_VERSION	1
 #define MLX5_UVERBS_MAX_ABI_VERSION	1
@@ -117,6 +118,9 @@ struct mlx5_create_cq {
 	__u64				buf_addr;
 	__u64				db_addr;
 	__u32				cqe_size;
+	__u8				cqe_comp_en;
+	__u8				cqe_comp_res_format;
+	__u16				reserved;
 };
 
 struct mlx5_create_cq_resp {
@@ -263,14 +267,21 @@ struct mlx5_rss_caps {
 	__u8 reserved[7];
 };
 
+struct mlx5_packet_pacing_caps {
+	struct ibv_packet_pacing_caps caps;
+	__u32  reserved;
+};
+
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
 	__u32				response_length;
 	struct ibv_tso_caps		tso_caps;
 	struct mlx5_rss_caps            rss_caps; /* vendor data channel */
-	__u64				reserved_cqe_comp;
-	struct ibv_packet_pacing_caps	packet_pacing_caps;
+	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
+	struct mlx5_packet_pacing_caps	packet_pacing_caps;
+	__u32				support_multi_pkt_send_wqe;
+	__u32				reserved;
 };
 
 #endif /* MLX5_ABI_H */

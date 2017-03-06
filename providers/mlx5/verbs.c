@@ -332,7 +332,8 @@ enum {
 };
 
 enum {
-	CREATE_CQ_SUPPORTED_COMP_MASK = IBV_CQ_INIT_ATTR_MASK_FLAGS
+	CREATE_CQ_SUPPORTED_COMP_MASK = IBV_CQ_INIT_ATTR_MASK_FLAGS |
+					IBV_CQ_INIT_ATTR_MASK_VENDOR_DATA
 };
 
 enum {
@@ -350,6 +351,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	int				ret;
 	int				ncqe;
 	FILE *fp = to_mctx(context)->dbg_fp;
+	struct mlx5dv_create_cq_vendor_data *vendor_data;
+	struct mlx5_context *mctx = to_mctx(context);
 
 	if (!cq_attr->cqe) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "CQE invalid\n");
@@ -427,6 +430,36 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cmd.buf_addr = (uintptr_t) cq->buf_a.buf;
 	cmd.db_addr  = (uintptr_t) cq->dbrec;
 	cmd.cqe_size = cqe_sz;
+
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_VENDOR_DATA) {
+		if (!(cq_attr->vendor_data)) {
+			mlx5_dbg(fp, MLX5_DBG_CQ, "Vendor data is requried\n");
+			errno = EINVAL;
+			goto err_db;
+		}
+
+		vendor_data = (struct mlx5dv_create_cq_vendor_data *)(cq_attr->vendor_data);
+
+		if (vendor_data->comp_mask & ~(MLX5DV_CREATE_CQ_MASK_RESERVED - 1)) {
+			mlx5_dbg(fp, MLX5_DBG_CQ,
+				 "Unsupported vendor comp_mask for create_cq\n");
+			errno = EINVAL;
+			goto err_db;
+		}
+
+		if (vendor_data->comp_mask & MLX5DV_CREATE_CQ_MASK_COMPRESSED_CQE) {
+			if (mctx->cqe_comp_caps.max_num &&
+			    (vendor_data->cqe_comp_res_format &
+			     mctx->cqe_comp_caps.supported_format)) {
+				cmd.cqe_comp_en = 1;
+				cmd.cqe_comp_res_format = vendor_data->cqe_comp_res_format;
+			} else {
+				mlx5_dbg(fp, MLX5_DBG_CQ, "CQE Compression is not supported\n");
+				errno = EINVAL;
+				goto err_db;
+			}
+		}
+	}
 
 	ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
 				cq_attr->comp_vector,
@@ -1922,7 +1955,12 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	attr->tso_caps = resp.tso_caps;
 	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
 	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
-	attr->packet_pacing_caps = resp.packet_pacing_caps;
+	attr->packet_pacing_caps = resp.packet_pacing_caps.caps;
+
+	if (resp.support_multi_pkt_send_wqe)
+		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_MPW;
+
+	mctx->cqe_comp_caps = resp.cqe_comp_caps;
 
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
