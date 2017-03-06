@@ -429,6 +429,7 @@ enum ibv_wc_status {
 	IBV_WC_RESP_TIMEOUT_ERR,
 	IBV_WC_GENERAL_ERR,
 	IBV_WC_TM_ERR,
+	IBV_WC_TM_RNDV_INCOMPLETE,
 };
 const char *ibv_wc_status_str(enum ibv_wc_status status);
 
@@ -451,6 +452,8 @@ enum ibv_wc_opcode {
 	IBV_WC_TM_ADD,
 	IBV_WC_TM_DEL,
 	IBV_WC_TM_SYNC,
+	IBV_WC_TM_RECV,
+	IBV_WC_TM_NO_TAG,
 };
 
 enum {
@@ -468,6 +471,7 @@ enum ibv_create_cq_wc_flags {
 	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP	= 1 << 7,
 	IBV_WC_EX_WITH_CVLAN		= 1 << 8,
 	IBV_WC_EX_WITH_FLOW_TAG		= 1 << 9,
+	IBV_WC_EX_WITH_TM_INFO		= 1 << 10,
 };
 
 enum {
@@ -484,7 +488,8 @@ enum {
 	IBV_CREATE_CQ_SUP_WC_FLAGS = IBV_WC_STANDARD_FLAGS |
 				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
 				IBV_WC_EX_WITH_CVLAN |
-				IBV_WC_EX_WITH_FLOW_TAG
+				IBV_WC_EX_WITH_FLOW_TAG |
+				IBV_WC_EX_WITH_TM_INFO
 };
 
 enum ibv_wc_flags {
@@ -493,6 +498,8 @@ enum ibv_wc_flags {
 	IBV_WC_IP_CSUM_OK	= 1 << IBV_WC_IP_CSUM_OK_SHIFT,
 	IBV_WC_WITH_INV		= 1 << 3,
 	IBV_WC_TM_SYNC_REQ	= 1 << 4,
+	IBV_WC_TM_MATCH		= 1 << 5,
+	IBV_WC_TM_DATA_VALID	= 1 << 6,
 };
 
 struct ibv_wc {
@@ -1148,6 +1155,11 @@ struct ibv_poll_cq_attr {
 	uint32_t comp_mask;
 };
 
+struct ibv_wc_tm_info {
+	uint64_t		tag;	 /* tag from TMH */
+	uint32_t		priv;	 /* opaque user data from TMH */
+};
+
 struct ibv_cq_ex {
 	struct ibv_context     *context;
 	struct ibv_comp_channel *channel;
@@ -1180,6 +1192,8 @@ struct ibv_cq_ex {
 	uint64_t (*read_completion_ts)(struct ibv_cq_ex *current);
 	uint16_t (*read_cvlan)(struct ibv_cq_ex *current);
 	uint32_t (*read_flow_tag)(struct ibv_cq_ex *current);
+	void (*read_tm_info)(struct ibv_cq_ex *current,
+			     struct ibv_wc_tm_info *tm_info);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
@@ -1275,6 +1289,12 @@ static inline uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex *cq)
 static inline uint32_t ibv_wc_read_flow_tag(struct ibv_cq_ex *cq)
 {
 	return cq->read_flow_tag(cq);
+}
+
+static inline void ibv_wc_read_tm_info(struct ibv_cq_ex *cq,
+				       struct ibv_wc_tm_info *tm_info)
+{
+	cq->read_tm_info(cq, tm_info);
 }
 
 static inline int ibv_post_wq_recv(struct ibv_wq *wq,

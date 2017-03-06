@@ -298,3 +298,44 @@ Tag-manipulation operations generate the following completion opcodes:
 These completions are complemented by the **IBV_WC_TM_SYNC_REQ** flag, which
 indicates whether further HW synchronization is needed.
 
+TM receive completions generate the following completion codes:
+* **IBV_WC_RECV** - standard SRQ completion; used for unexpected messages
+* **IBV_WC_TM_NO_TAG** - completion of a message sent with the
+  **IBV_TM_NO_TAG** opcode.
+* **IBV_WC_TM_RECV** - completion of a tag-matching operation
+
+The **IBV_WC_TM_RECV** completion is complemented by the following completion
+flags:
+-	**IBV_WC_TM_MATCH** - a match was performed
+-	**IBV_WC_TM_DATA_VALID** - all data of the matched message has been
+	delivered to memory
+
+In single-packet eager messages, both flags are set. When larger messages or
+rendezvous transfers are involved, matching and data transfer completion are
+distinct events that generate 2 completion events for the same **recv_wr_id**.
+While data transfer completions may be arbitrarily delayed depending on
+message size, matching completion is reported immediately and is always
+serialized with respect to other matches and the completion of unexpected
+messages.
+
+In addition, **IBV_WC_TM_RECV** completions provide further information about
+the matched message. This information is obtained using extended CQ processing
+via the following extractor function:
+
+```h
+static inline void ibv_wc_read_tm_info(struct ibv_cq_ex *cq,
+                                       struct ibv_wc_tm_info *tm_info);
+```
+```h
+struct ibv_wc_tm_info {
+	  uint64_t		  tag;	   /* tag from TMH */
+	  uint32_t		  priv;    /* opaque user data from TMH */
+};
+```
+
+Finally, when a posted tagged buffer is insufficient to hold the data of a
+rendezvous request, the HW completes the buffer with an
+IBV_WC_TM_RNDV_INCOMPLETE status. In this case, the TMH and RVH headers are
+scattered into the tagged buffer (tag-matching has still been completed!), and
+message handling is resumed by SW.
+
