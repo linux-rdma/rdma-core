@@ -1006,7 +1006,7 @@ found:
 		return NULL;
 	}
 
-	dev = malloc(sizeof *dev);
+	dev = calloc(1, sizeof *dev);
 	if (!dev) {
 		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
 			uverbs_sys_path);
