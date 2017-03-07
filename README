@@ -7,21 +7,21 @@ The main consumer of this library is the infiniband-diags package.
 Dependencies:
 
 	1) libibumad >= 1.3.7
+		rdma-core now provides libibumad
 	2) opensm-libs >= 3.3.10
 	3) ib_umad kernel module
 
-Release notes for 1.3.11 to 1.3.12 are:
+Release notes for 1.3.12 to 1.3.13 are:
 
    1) bug fixes
-   2) new Fields for Port Extended Speeds
 
 
-Updates since 1.3.11
+Updates since 1.3.12
 
+  Ira Weiny  :  libibmad: Fix conflict with new umad.h header
+  Hal Rosenstock  :  configure.ac: Update AM_INIT_AUTOMAKE to use subdir-objects
+  Ira Weiny  :  configure.ac: Update configure.in to configure.ac
+  Ira Weiny  :  libibmad: Makefile.am: Fix INCLUDES warning
+  Vladimir Koushnir  :  portid.c: Preserve routepath string in str2drpath
 
-  Hal Rosenstock  :  fields.c: Fix commentary typo
-  Al Chu  :  libibmad/src/rpc.c: Remove superfluous packet dump
-  Hal Rosenstock  :  fields.c: Print SwitchCongestionSetting threshold fields in hex rather than decimal
-  Dan Ben Yosef  :  libibmad: Add new fields for SM:PortInfoExtended and for PM:PortExtendedSpeedsCounters
-  Hal Rosenstock  :  dump.c: In mad_dump_linkwidth, output undefined widths
 
