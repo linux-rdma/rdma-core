@@ -592,7 +592,7 @@ int main(int argc, char *argv[])
 			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },
 			{ .name = "list",     .has_arg = 0, .val = 'l' },
 			{ .name = "verbose",  .has_arg = 0, .val = 'v' },
-			{ 0, 0, 0, 0}
+			{ }
 		};
 
 		c = getopt_long(argc, argv, "d:i:lv", long_options, NULL);
