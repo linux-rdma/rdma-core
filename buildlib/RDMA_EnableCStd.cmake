@@ -36,6 +36,13 @@ endfunction()
 # Enable the minimum required gnu11 standard in the compiler
 # This was introduced in GCC 4.7
 function(RDMA_EnableCStd)
+  if (HAVE_SPARSE)
+    # Sparse doesn't support gnu11, but doesn't fail if the option is present,
+    # force gnu99 instead.
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99" PARENT_SCOPE)
+    return()
+  endif()
+
   if (CMAKE_VERSION VERSION_LESS "3.1")
     # Check for support of the usual flag
     CHECK_C_COMPILER_FLAG("-std=gnu11" SUPPORTS_GNU11)
