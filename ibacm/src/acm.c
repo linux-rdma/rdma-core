@@ -51,7 +51,6 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
-#include <netinet/in.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <rdma/rdma_netlink.h>

@@ -43,7 +43,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <netinet/in.h>
 #include <dirent.h>
 #include <ctype.h>
 #include <inttypes.h>

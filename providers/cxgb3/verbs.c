@@ -37,7 +37,6 @@
 #include <errno.h>
 #include <pthread.h>
 #include <sys/mman.h>
-#include <netinet/in.h>
 #include <inttypes.h>
 
 #include "iwch.h"

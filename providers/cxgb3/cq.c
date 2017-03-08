@@ -32,7 +32,6 @@
 #include <config.h>
 
 #include <stdio.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <sys/errno.h>
 

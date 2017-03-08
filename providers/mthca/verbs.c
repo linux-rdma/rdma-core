@@ -38,7 +38,6 @@
 #include <strings.h>
 #include <pthread.h>
 #include <errno.h>
-#include <netinet/in.h>
 
 #include "mthca.h"
 #include "mthca-abi.h"

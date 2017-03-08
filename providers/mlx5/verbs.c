@@ -37,7 +37,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
-#include <netinet/in.h>
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>

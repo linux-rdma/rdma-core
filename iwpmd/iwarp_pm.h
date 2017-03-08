@@ -41,7 +41,6 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/stat.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <linux/netlink.h>

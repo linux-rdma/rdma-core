@@ -43,7 +43,6 @@
 #include <pthread.h>
 #include <malloc.h>
 #include <sys/mman.h>
-#include <netinet/in.h>
 #include <linux/if_ether.h>
 #include <sys/stat.h>
 #include <fcntl.h>

@@ -38,7 +38,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <getopt.h>
-#include <netinet/in.h>
 #include <endian.h>
 #include <inttypes.h>
 

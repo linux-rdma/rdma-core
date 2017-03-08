@@ -37,7 +37,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <getopt.h>

@@ -37,7 +37,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <netinet/in.h>
 #include <string.h>
 
 #include <util/compiler.h>

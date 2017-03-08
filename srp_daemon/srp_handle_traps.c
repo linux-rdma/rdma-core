@@ -37,7 +37,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <netinet/in.h>
 #include <endian.h>
 #include <time.h>
 #include <errno.h>

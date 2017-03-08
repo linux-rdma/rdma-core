@@ -42,6 +42,7 @@
 #include <string.h>
 #include <linux/ip.h>
 #include <dirent.h>
+#include <netinet/in.h>
 
 #include "ibverbs.h"
 #ifndef NRESOLVE_NEIGH

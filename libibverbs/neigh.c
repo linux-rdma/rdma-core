@@ -16,7 +16,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/timerfd.h>
-#include <netinet/in.h>
 #include <errno.h>
 #include <unistd.h>
 #include <ifaddrs.h>

@@ -40,7 +40,6 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 

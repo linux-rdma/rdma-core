@@ -43,7 +43,6 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
 #include <search.h>

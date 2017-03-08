@@ -51,7 +51,6 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <netinet/in.h>
 #include <linux/types.h>
 #include <endian.h>
 #include <errno.h>
