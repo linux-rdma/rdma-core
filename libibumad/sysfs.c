@@ -79,7 +79,7 @@ int sys_read_string(const char *dir_name, const char *file_name, char *str, int 
 	return 0;
 }
 
-int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_guid)
+int sys_read_guid(const char *dir_name, const char *file_name, __be64 *net_guid)
 {
 	char buf[32], *str, *s;
 	uint64_t guid;

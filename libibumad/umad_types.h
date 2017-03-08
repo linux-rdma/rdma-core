@@ -127,12 +127,12 @@ struct umad_hdr {
 	uint8_t	 mgmt_class;
 	uint8_t	 class_version;
 	uint8_t	 method;
-	be16_t   status;
-	be16_t   class_specific;
-	be64_t   tid;
-	be16_t   attr_id;
-	be16_t   resv;
-	be32_t   attr_mod;
+	__be16   status;
+	__be16   class_specific;
+	__be64   tid;
+	__be16   attr_id;
+	__be16   resv;
+	__be32   attr_mod;
 };
 
 struct umad_rmpp_hdr {
@@ -140,8 +140,8 @@ struct umad_rmpp_hdr {
 	uint8_t	 rmpp_type;
 	uint8_t	 rmpp_rtime_flags;
 	uint8_t	 rmpp_status;
-	be32_t   seg_num;
-	be32_t   paylen_newwin;
+	__be32   seg_num;
+	__be32   paylen_newwin;
 };
 
 struct umad_packet {
@@ -173,20 +173,20 @@ enum {
 struct umad_class_port_info {
 	uint8_t base_ver;
 	uint8_t class_ver;
-	be16_t  cap_mask;
-	be32_t  cap_mask2_resp_time;
+	__be16  cap_mask;
+	__be32  cap_mask2_resp_time;
 	uint8_t redir_gid[16]; /* network byte order */
-	be32_t  redir_tc_sl_fl;
-	be16_t  redir_lid;
-	be16_t  redir_pkey;
-	be32_t  redir_qp;
-	be32_t  redir_qkey;
+	__be32  redir_tc_sl_fl;
+	__be16  redir_lid;
+	__be16  redir_pkey;
+	__be32  redir_qp;
+	__be32  redir_qkey;
 	uint8_t trap_gid[16]; /* network byte order */
-	be32_t  trap_tc_sl_fl;
-	be16_t  trap_lid;
-	be16_t  trap_pkey;
-	be32_t  trap_hl_qp;
-	be32_t  trap_qkey;
+	__be32  trap_tc_sl_fl;
+	__be16  trap_lid;
+	__be16  trap_pkey;
+	__be32  trap_hl_qp;
+	__be32  trap_qkey;
 };
 static inline uint32_t
 umad_class_cap_mask2(struct umad_class_port_info *cpi)
