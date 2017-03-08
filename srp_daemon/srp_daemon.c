@@ -179,7 +179,7 @@ static int srpd_sys_read_gid(const char *dir_name, const char *file_name,
 			     uint8_t *gid)
 {
 	char buf[64], *str, *s;
-	uint16_t *ugid = (uint16_t *)gid;
+	__be16 *ugid = (__be16 *)gid;
 	int r, i;
 
 	if ((r = srpd_sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
@@ -408,7 +408,7 @@ static int add_non_exist_target(struct target_details *target)
 	struct dirent *subdir;
 	char *subdir_name_ptr;
 	int prefix_len;
-	uint8_t dgid_val[16];
+	ib_gid_t dgid_val;
 	const int MAX_TARGET_CONFIG_STR_STRING = 255;
 	char target_config_str[MAX_TARGET_CONFIG_STR_STRING];
 	int len;
@@ -450,19 +450,21 @@ static int add_non_exist_target(struct target_details *target)
 		if (!check_equal_uint64(scsi_host_dir, "ioc_guid",
 					be64toh(target->ioc_prof.guid)))
 			continue;
-		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
+		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid",
+				      dgid_val.raw)) {
 			/*
 			 * In case this is an old kernel that does not have
 			 * orig_dgid in sysfs, use dgid instead (this is
 			 * problematic when there is a dgid redirection
 			 * by the CM)
 			 */
-			if (srpd_sys_read_gid(scsi_host_dir, "dgid", dgid_val))
+			if (srpd_sys_read_gid(scsi_host_dir, "dgid",
+					      dgid_val.raw))
 				continue;
 		}
-		if (htobe64(target->subnet_prefix) != *((uint64_t *) dgid_val))
+		if (htobe64(target->subnet_prefix) != dgid_val.unicast.prefix)
 			continue;
-		if (htobe64(target->h_guid) != *((uint64_t *) (dgid_val+8)))
+		if (htobe64(target->h_guid) != dgid_val.unicast.interface_id)
 			continue;
 
 		/* If there is no local_ib_device in the scsi host dir (old kernel module), assumes it is equal */
@@ -821,7 +823,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	}
 
 	for (i = 0; i < 8; ++i)
-		((uint16_t *) cpi->trap_gid)[i] = htobe16(strtol(val + i * 5, NULL, 16));
+		((__be16 *) cpi->trap_gid)[i] = htobe16(strtol(val + i * 5, NULL, 16));
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;

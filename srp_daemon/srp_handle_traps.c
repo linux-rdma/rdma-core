@@ -576,7 +576,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 			0 );                       /* Attribute Modifier */
 
 
-	data->lid_range_begin = 0xFFFF;
+	data->lid_range_begin = htobe16(0xFFFF);
 	data->is_generic = 1;
 	data->subscribe = subscribe;
 	if (trap_num == SRP_TRAP_JOIN)
