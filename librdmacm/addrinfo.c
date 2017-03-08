@@ -113,7 +113,7 @@ void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 	uint16_t port;
 
 	port = addr ? ucma_get_port(addr) : 0;
-	sib->sib_sid = htobe64(((uint64_t) ps << 16) + ntohs(port));
+	sib->sib_sid = htobe64(((uint64_t) ps << 16) + be16toh(port));
 
 	if (ps)
 		sib->sib_sid_mask = htobe64(RDMA_IB_IP_PS_MASK);

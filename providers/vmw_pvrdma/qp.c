@@ -169,7 +169,7 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 
 	/* If set, each WR submitted to the SQ generate a completion entry */
 	if (attr->sq_sig_all)
-		qp->sq_signal_bits = htonl(PVRDMA_WQE_CTRL_CQ_UPDATE);
+		qp->sq_signal_bits = htobe32(PVRDMA_WQE_CTRL_CQ_UPDATE);
 	else
 		qp->sq_signal_bits = 0;
 

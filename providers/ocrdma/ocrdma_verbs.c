@@ -35,6 +35,7 @@
 #include <config.h>
 
 #include <assert.h>
+#include <endian.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,7 +45,6 @@
 #include <pthread.h>
 #include <malloc.h>
 #include <sys/mman.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <endian.h>
 
@@ -1413,7 +1413,7 @@ int ocrdma_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 		switch (wr->opcode) {
 		case IBV_WR_SEND_WITH_IMM:
 			hdr->cw |= (OCRDMA_FLAG_IMM << OCRDMA_WQE_FLAGS_SHIFT);
-			hdr->immdt = ntohl(wr->imm_data);
+			hdr->immdt = be32toh(wr->imm_data);
 			SWITCH_FALLTHROUGH;
 		case IBV_WR_SEND:
 			hdr->cw |= (OCRDMA_SEND << OCRDMA_WQE_OPCODE_SHIFT);
@@ -1421,7 +1421,7 @@ int ocrdma_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 			break;
 		case IBV_WR_RDMA_WRITE_WITH_IMM:
 			hdr->cw |= (OCRDMA_FLAG_IMM << OCRDMA_WQE_FLAGS_SHIFT);
-			hdr->immdt = ntohl(wr->imm_data);
+			hdr->immdt = be32toh(wr->imm_data);
 			SWITCH_FALLTHROUGH;
 		case IBV_WR_RDMA_WRITE:
 			hdr->cw |= (OCRDMA_WRITE << OCRDMA_WQE_OPCODE_SHIFT);
@@ -1867,11 +1867,11 @@ static void ocrdma_poll_success_rcqe(struct ocrdma_qp *qp,
 		ibwc->byte_len = ocrdma_le_to_cpu(cqe->rq.rxlen);
 
 	if (is_cqe_imm(cqe)) {
-		ibwc->imm_data = htonl(ocrdma_le_to_cpu(cqe->rq.lkey_immdt));
+		ibwc->imm_data = htobe32(ocrdma_le_to_cpu(cqe->rq.lkey_immdt));
 		ibwc->wc_flags |= IBV_WC_WITH_IMM;
 	} else if (is_cqe_wr_imm(cqe)) {
 		ibwc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
-		ibwc->imm_data = htonl(ocrdma_le_to_cpu(cqe->rq.lkey_immdt));
+		ibwc->imm_data = htobe32(ocrdma_le_to_cpu(cqe->rq.lkey_immdt));
 		ibwc->wc_flags |= IBV_WC_WITH_IMM;
 	}
 	if (qp->ibv_qp.srq)

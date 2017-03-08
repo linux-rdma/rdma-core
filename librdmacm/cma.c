@@ -690,15 +690,15 @@ static void ucma_convert_path(struct ibv_path_data *path_data,
 	sa_path->slid = path_data->path.slid;
 	sa_path->raw_traffic = 0;
 
-	fl_hop = ntohl(path_data->path.flowlabel_hoplimit);
-	sa_path->flow_label = htonl(fl_hop >> 8);
+	fl_hop = be32toh(path_data->path.flowlabel_hoplimit);
+	sa_path->flow_label = htobe32(fl_hop >> 8);
 	sa_path->hop_limit = (uint8_t) fl_hop;
 
 	sa_path->traffic_class = path_data->path.tclass;
 	sa_path->reversible = path_data->path.reversible_numpath >> 7;
 	sa_path->numb_path = 1;
 	sa_path->pkey = path_data->path.pkey;
-	sa_path->sl = ntohs(path_data->path.qosclass_sl) & 0xF;
+	sa_path->sl = be16toh(path_data->path.qosclass_sl) & 0xF;
 	sa_path->mtu_selector = 2;	/* exactly */
 	sa_path->mtu = path_data->path.mtu & 0x1F;
 	sa_path->rate_selector = 2;
@@ -2442,7 +2442,7 @@ uint16_t ucma_get_port(struct sockaddr *addr)
 	case AF_INET6:
 		return ((struct sockaddr_in6 *) addr)->sin6_port;
 	case AF_IB:
-		return htons((uint16_t) be64toh(((struct sockaddr_ib *) addr)->sib_sid));
+		return htobe16((uint16_t) be64toh(((struct sockaddr_ib *) addr)->sib_sid));
 	default:
 		return 0;
 	}

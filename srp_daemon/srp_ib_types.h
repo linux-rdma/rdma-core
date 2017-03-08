@@ -36,7 +36,8 @@
 #ifndef SRP_IB_TYPES_H
 #define SRP_IB_TYPES_H
 
-#include <netinet/in.h>
+#include <endian.h>
+#include <stdint.h>
 
 #define SRP_INFORMINFO_LID_COMP		(1 << 1)
 #define SRP_INFORMINFO_ISGENERIC_COMP	(1 << 4)
@@ -159,7 +160,7 @@ typedef union _ib_gid
 
 static inline uint32_t ib_get_attr_size(const ib_net16_t attr_offset)
 {
-	return( ((uint32_t)ntohs( attr_offset )) << 3 );
+	return( ((uint32_t)be16toh( attr_offset )) << 3 );
 }
 
 /************************************************************

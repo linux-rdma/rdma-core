@@ -30,9 +30,9 @@
 #if !defined(ACM_MAD_H)
 #define ACM_MAD_H
 
+#include <endian.h>
 #include <infiniband/verbs.h>
 #include <infiniband/acm.h>
-#include <netinet/in.h>
 
 #define ACM_SEND_SIZE 256
 #define ACM_RECV_SIZE (ACM_SEND_SIZE + sizeof(struct ibv_grh))
@@ -46,8 +46,8 @@
 
 #define ACM_MGMT_CLASS   0x2C
 
-#define ACM_CTRL_ACK     htons(0x8000)
-#define ACM_CTRL_RESOLVE htons(0x0001)
+#define ACM_CTRL_ACK     htobe16(0x8000)
+#define ACM_CTRL_RESOLVE htobe16(0x0001)
 
 struct acm_mad {
 	uint8_t  base_version;
@@ -61,7 +61,7 @@ struct acm_mad {
 	uint8_t  data[240];
 };
 
-#define acm_class_status(status) ((uint8_t) (ntohs(status) >> 8))
+#define acm_class_status(status) ((uint8_t) (be16toh(status) >> 8))
 
 #define ACM_QKEY 0x80010000
 
@@ -119,7 +119,7 @@ struct ib_sa_mad {
 	uint8_t  data[200];
 };
 
-#define IB_SA_ATTR_PATH_REC htons(0x0035)
+#define IB_SA_ATTR_PATH_REC htobe16(0x0035)
 
 #define IB_COMP_MASK_PR_SERVICE_ID         (htobe64(1 << 0) | \
                                             htobe64(1 << 1))
@@ -147,7 +147,7 @@ struct ib_sa_mad {
 /* RESERVED                                 htobe64(1 << 23) */
 
 #define IB_MC_QPN 0xffffff
-#define IB_SA_ATTR_MC_MEMBER_REC htons(0x0038)
+#define IB_SA_ATTR_MC_MEMBER_REC htobe16(0x0038)
 
 #define IB_COMP_MASK_MC_MGID                htobe64(1 << 0)
 #define IB_COMP_MASK_MC_PORT_GID            htobe64(1 << 1)

@@ -191,12 +191,12 @@ struct umad_class_port_info {
 static inline uint32_t
 umad_class_cap_mask2(struct umad_class_port_info *cpi)
 {
-	return (ntohl(cpi->cap_mask2_resp_time) >> 5);
+	return (be32toh(cpi->cap_mask2_resp_time) >> 5);
 }
 static inline uint8_t
 umad_class_resp_time(struct umad_class_port_info *cpi)
 {
-	return (uint8_t)(ntohl(cpi->cap_mask2_resp_time)
+	return (uint8_t)(be32toh(cpi->cap_mask2_resp_time)
 			 & UMAD_CLASS_RESP_TIME_MASK);
 }
 

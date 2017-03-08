@@ -34,6 +34,7 @@
 #ifndef IWARP_PM_H
 #define IWARP_PM_H
 
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

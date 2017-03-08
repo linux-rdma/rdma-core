@@ -39,6 +39,7 @@
 #include <linux/types.h>
 #include <util/compiler.h>
 #include <util/udma_barrier.h>
+#include <endian.h>
 
 /*
  * Try and minimize the changes from the kernel code that is pull in
@@ -50,12 +51,6 @@
 #define u64 uint64_t
 #define DECLARE_PCI_UNMAP_ADDR(a)
 #define __iomem
-#define cpu_to_be16 htons
-#define cpu_to_be32 htonl
-#define cpu_to_be64 htobe64
-#define be16_to_cpu ntohs
-#define be32_to_cpu ntohl
-#define be64_to_cpu be64toh
 #define BUG_ON(c) assert(!(c))
 #define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
@@ -65,7 +60,6 @@
 
 #define writel(v, a) do { *((volatile u32 *)(a)) = cpu_to_pci32(v); } while (0)
 
-#include <arpa/inet.h> 			/* For htonl() and friends */
 #include "t4_regs.h"
 #include "t4_chip_type.h"
 #include "t4fw_api.h"
@@ -250,25 +244,25 @@ struct t4_cqe {
 #define G_CQE_OPCODE(x)   ((((x) >> S_CQE_OPCODE)) & M_CQE_OPCODE)
 #define V_CQE_OPCODE(x)   ((x)<<S_CQE_OPCODE)
 
-#define SW_CQE(x)         (G_CQE_SWCQE(be32_to_cpu((x)->header)))
-#define CQE_QPID(x)       (G_CQE_QPID(be32_to_cpu((x)->header)))
-#define CQE_TYPE(x)       (G_CQE_TYPE(be32_to_cpu((x)->header)))
+#define SW_CQE(x)         (G_CQE_SWCQE(be32toh((x)->header)))
+#define CQE_QPID(x)       (G_CQE_QPID(be32toh((x)->header)))
+#define CQE_TYPE(x)       (G_CQE_TYPE(be32toh((x)->header)))
 #define SQ_TYPE(x)	  (CQE_TYPE((x)))
 #define RQ_TYPE(x)	  (!CQE_TYPE((x)))
-#define CQE_STATUS(x)     (G_CQE_STATUS(be32_to_cpu((x)->header)))
-#define CQE_OPCODE(x)     (G_CQE_OPCODE(be32_to_cpu((x)->header)))
+#define CQE_STATUS(x)     (G_CQE_STATUS(be32toh((x)->header)))
+#define CQE_OPCODE(x)     (G_CQE_OPCODE(be32toh((x)->header)))
 
 #define CQE_SEND_OPCODE(x)( \
-	(G_CQE_OPCODE(be32_to_cpu((x)->header)) == FW_RI_SEND) || \
-	(G_CQE_OPCODE(be32_to_cpu((x)->header)) == FW_RI_SEND_WITH_SE) || \
-	(G_CQE_OPCODE(be32_to_cpu((x)->header)) == FW_RI_SEND_WITH_INV) || \
-	(G_CQE_OPCODE(be32_to_cpu((x)->header)) == FW_RI_SEND_WITH_SE_INV))
+	(G_CQE_OPCODE(be32toh((x)->header)) == FW_RI_SEND) || \
+	(G_CQE_OPCODE(be32toh((x)->header)) == FW_RI_SEND_WITH_SE) || \
+	(G_CQE_OPCODE(be32toh((x)->header)) == FW_RI_SEND_WITH_INV) || \
+	(G_CQE_OPCODE(be32toh((x)->header)) == FW_RI_SEND_WITH_SE_INV))
 
-#define CQE_LEN(x)        (be32_to_cpu((x)->len))
+#define CQE_LEN(x)        (be32toh((x)->len))
 
 /* used for RQ completion processing */
-#define CQE_WRID_STAG(x)  (be32_to_cpu((x)->u.rcqe.stag))
-#define CQE_WRID_MSN(x)   (be32_to_cpu((x)->u.rcqe.msn))
+#define CQE_WRID_STAG(x)  (be32toh((x)->u.rcqe.stag))
+#define CQE_WRID_MSN(x)   (be32toh((x)->u.rcqe.msn))
 
 /* used for SQ completion processing */
 #define CQE_WRID_SQ_IDX(x)	(x)->u.scqe.cidx
@@ -294,9 +288,9 @@ struct t4_cqe {
 #define M_CQE_TS	0x0fffffffffffffffULL
 #define G_CQE_TS(x)	((x) & M_CQE_TS)
 
-#define CQE_OVFBIT(x)	((unsigned)G_CQE_OVFBIT(be64_to_cpu((x)->bits_type_ts)))
-#define CQE_GENBIT(x)	((unsigned)G_CQE_GENBIT(be64_to_cpu((x)->bits_type_ts)))
-#define CQE_TS(x)	(G_CQE_TS(be64_to_cpu((x)->bits_type_ts)))
+#define CQE_OVFBIT(x)	((unsigned)G_CQE_OVFBIT(be64toh((x)->bits_type_ts)))
+#define CQE_GENBIT(x)	((unsigned)G_CQE_GENBIT(be64toh((x)->bits_type_ts)))
+#define CQE_TS(x)	(G_CQE_TS(be64toh((x)->bits_type_ts)))
 
 struct t4_swsqe {
 	u64			wr_id;

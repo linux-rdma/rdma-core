@@ -148,8 +148,8 @@ void ucma_ib_init(void)
 
 	memset(&addr, 0, sizeof addr);
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	addr.sin_port = htons(server_port);
+	addr.sin_addr.s_addr = htobe32(INADDR_LOOPBACK);
+	addr.sin_port = htobe16(server_port);
 	ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
 	if (ret) {
 		close(sock);
@@ -189,13 +189,13 @@ static int ucma_ib_set_addr(struct rdma_addrinfo *ib_rai,
 
 	src->sib_family = AF_IB;
 	src->sib_pkey = path->pkey;
-	src->sib_flowinfo = htonl(ntohl(path->flowlabel_hoplimit) >> 8);
+	src->sib_flowinfo = htobe32(be32toh(path->flowlabel_hoplimit) >> 8);
 	memcpy(&src->sib_addr, &path->sgid, 16);
 	ucma_set_sid(ib_rai->ai_port_space, rai->ai_src_addr, src);
 
 	dst->sib_family = AF_IB;
 	dst->sib_pkey = path->pkey;
-	dst->sib_flowinfo = htonl(ntohl(path->flowlabel_hoplimit) >> 8);
+	dst->sib_flowinfo = htobe32(be32toh(path->flowlabel_hoplimit) >> 8);
 	memcpy(&dst->sib_addr, &path->dgid, 16);
 	ucma_set_sid(ib_rai->ai_port_space, rai->ai_dst_addr, dst);
 

@@ -70,7 +70,7 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 			datap += wr->sg_list[i].length;
 		}
 		*flit_cnt = 4 + (ROUNDUP8(wqe->send.plen) >> 3);
-		wqe->send.plen = htonl(wqe->send.plen);
+		wqe->send.plen = htobe32(wqe->send.plen);
 	} else {
 		wqe->send.plen = 0;
 		for (i = 0; i < wr->num_sge; i++) {
@@ -80,13 +80,13 @@ static inline int iwch_build_rdma_send(union t3_wr *wqe, struct ibv_send_wr *wr,
 			}
 			wqe->send.plen += wr->sg_list[i].length;
 			wqe->send.sgl[i].stag =
-			    htonl(wr->sg_list[i].lkey);
+			    htobe32(wr->sg_list[i].lkey);
 			wqe->send.sgl[i].len =
-			    htonl(wr->sg_list[i].length);
+			    htobe32(wr->sg_list[i].length);
 			wqe->send.sgl[i].to = htobe64(wr->sg_list[i].addr);
 		}
-		wqe->send.plen = htonl(wqe->send.plen);
-		wqe->send.num_sgle = htonl(wr->num_sge);
+		wqe->send.plen = htobe32(wqe->send.plen);
+		wqe->send.num_sgle = htobe32(wr->num_sge);
 		*flit_cnt = 4 + ((wr->num_sge) << 1);
 	}
 	return 0;
@@ -102,7 +102,7 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 		return -1;
 	wqe->write.rdmaop = T3_RDMA_WRITE;
 	wqe->write.reserved = 0;
-	wqe->write.stag_sink = htonl(wr->wr.rdma.rkey);
+	wqe->write.stag_sink = htobe32(wr->wr.rdma.rkey);
 	wqe->write.to_sink = htobe64(wr->wr.rdma.remote_addr);
 
 	wqe->write.num_sgle = wr->num_sge;
@@ -124,7 +124,7 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 			datap += wr->sg_list[i].length;
 		}
 		*flit_cnt = 5 + (ROUNDUP8(wqe->write.plen) >> 3);
-		wqe->write.plen = htonl(wqe->write.plen);
+		wqe->write.plen = htobe32(wqe->write.plen);
 	} else {
 		wqe->write.plen = 0;
 		for (i = 0; i < wr->num_sge; i++) {
@@ -134,14 +134,14 @@ static inline int iwch_build_rdma_write(union t3_wr *wqe,
 			}
 			wqe->write.plen += wr->sg_list[i].length;
 			wqe->write.sgl[i].stag =
-			    htonl(wr->sg_list[i].lkey);
+			    htobe32(wr->sg_list[i].lkey);
 			wqe->write.sgl[i].len =
-			    htonl(wr->sg_list[i].length);
+			    htobe32(wr->sg_list[i].length);
 			wqe->write.sgl[i].to =
 			    htobe64(wr->sg_list[i].addr);
 		}
-		wqe->write.plen = htonl(wqe->write.plen);
-		wqe->write.num_sgle = htonl(wr->num_sge);
+		wqe->write.plen = htobe32(wqe->write.plen);
+		wqe->write.num_sgle = htobe32(wr->num_sge);
 		*flit_cnt = 5 + ((wr->num_sge) << 1);
 	}
 	return 0;
@@ -155,10 +155,10 @@ static inline int iwch_build_rdma_read(union t3_wr *wqe, struct ibv_send_wr *wr,
 	wqe->read.rdmaop = T3_READ_REQ;
 	wqe->read.reserved = 0;
 	if (wr->num_sge == 1 && wr->sg_list[0].length > 0) {
-		wqe->read.rem_stag = htonl(wr->wr.rdma.rkey);
+		wqe->read.rem_stag = htobe32(wr->wr.rdma.rkey);
 		wqe->read.rem_to = htobe64(wr->wr.rdma.remote_addr);
-		wqe->read.local_stag = htonl(wr->sg_list[0].lkey);
-		wqe->read.local_len = htonl(wr->sg_list[0].length);
+		wqe->read.local_stag = htobe32(wr->sg_list[0].lkey);
+		wqe->read.local_len = htobe32(wr->sg_list[0].length);
 		wqe->read.local_to = htobe64(wr->sg_list[0].addr);
 	} else {
 
@@ -290,10 +290,10 @@ static inline int iwch_build_rdma_recv(struct iwch_device *rhp,
 	if (wr->num_sge > T3_MAX_SGE)
 		return -1;
 
-	wqe->recv.num_sgle = htonl(wr->num_sge);
+	wqe->recv.num_sgle = htobe32(wr->num_sge);
 	for (i = 0; i < wr->num_sge; i++) {
-		wqe->recv.sgl[i].stag = htonl(wr->sg_list[i].lkey);
-		wqe->recv.sgl[i].len = htonl(wr->sg_list[i].length);
+		wqe->recv.sgl[i].stag = htobe32(wr->sg_list[i].lkey);
+		wqe->recv.sgl[i].len = htobe32(wr->sg_list[i].length);
 		wqe->recv.sgl[i].to = htobe64(wr->sg_list[i].addr);
 	}
 	for (; i < T3_MAX_SGE; i++) {
@@ -317,7 +317,7 @@ static void insert_recv_cqe(struct t3_wq *wq, struct t3_cq *cq)
 		     V_CQE_SWCQE(1) |
 		     V_CQE_QPID(wq->qpid) | 
 		     V_CQE_GENBIT(Q_GENBIT(cq->sw_wptr, cq->size_log2));
-	cqe.header = htonl(cqe.header);
+	cqe.header = htobe32(cqe.header);
 	*(cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2)) = cqe;
 	cq->sw_wptr++;
 }
@@ -349,7 +349,7 @@ static void insert_sq_cqe(struct t3_wq *wq, struct t3_cq *cq,
 		     V_CQE_SWCQE(1) |
 		     V_CQE_QPID(wq->qpid) | 
 		     V_CQE_GENBIT(Q_GENBIT(cq->sw_wptr, cq->size_log2));
-	cqe.header = htonl(cqe.header);
+	cqe.header = htobe32(cqe.header);
 	CQE_WRID_SQ_WPTR(cqe) = sqp->sq_wptr;
 
 	*(cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2)) = cqe;
@@ -384,7 +384,7 @@ static void flush_hw_cq(struct t3_cq *cq)
 		     __FUNCTION__, cq->rptr, cq->sw_wptr);
 		swcqe = cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2);
 		*swcqe = *cqe;
-		swcqe->header |= htonl(V_CQE_SWCQE(1));
+		swcqe->header |= htobe32(V_CQE_SWCQE(1));
 		cq->sw_wptr++;
 		cq->rptr++;
 		cqe = cxio_next_hw_cqe(cq);

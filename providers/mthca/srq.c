@@ -32,8 +32,8 @@
 
 #include <config.h>
 
+#include <endian.h>
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
 
@@ -68,7 +68,7 @@ void mthca_free_srq_wqe(struct mthca_srq *srq, int ind)
 
 	last_free = get_wqe(srq, srq->last_free);
 	*wqe_to_link(last_free) = ind;
-	last_free->nda_op = htonl((ind << srq->wqe_shift) | 1);
+	last_free->nda_op = htobe32((ind << srq->wqe_shift) | 1);
 	*wqe_to_link(get_wqe(srq, ind)) = -1;
 	srq->last_free = ind;
 
@@ -122,9 +122,9 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 
 		for (i = 0; i < wr->num_sge; ++i) {
 			((struct mthca_data_seg *) wqe)->byte_count =
-				htonl(wr->sg_list[i].length);
+				htobe32(wr->sg_list[i].length);
 			((struct mthca_data_seg *) wqe)->lkey =
-				htonl(wr->sg_list[i].lkey);
+				htobe32(wr->sg_list[i].lkey);
 			((struct mthca_data_seg *) wqe)->addr =
 				htobe64(wr->sg_list[i].addr);
 			wqe += sizeof (struct mthca_data_seg);
@@ -132,12 +132,12 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 
 		if (i < srq->max_gs) {
 			((struct mthca_data_seg *) wqe)->byte_count = 0;
-			((struct mthca_data_seg *) wqe)->lkey = htonl(MTHCA_INVAL_LKEY);
+			((struct mthca_data_seg *) wqe)->lkey = htobe32(MTHCA_INVAL_LKEY);
 			((struct mthca_data_seg *) wqe)->addr = 0;
 		}
 
 		((struct mthca_next_seg *) prev_wqe)->ee_nds =
-			htonl(MTHCA_NEXT_DBD);
+			htobe32(MTHCA_NEXT_DBD);
 
 		srq->wrid[ind]  = wr->wr_id;
 		srq->first_free = next_ind;
@@ -145,8 +145,8 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 		if (++nreq == MTHCA_TAVOR_MAX_WQES_PER_RECV_DB) {
 			nreq = 0;
 
-			doorbell[0] = htonl(first_ind << srq->wqe_shift);
-			doorbell[1] = htonl(srq->srqn << 8);
+			doorbell[0] = htobe32(first_ind << srq->wqe_shift);
+			doorbell[1] = htobe32(srq->srqn << 8);
 
 			/*
 			 * Make sure that descriptors are written
@@ -161,8 +161,8 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 	}
 
 	if (nreq) {
-		doorbell[0] = htonl(first_ind << srq->wqe_shift);
-		doorbell[1] = htonl((srq->srqn << 8) | nreq);
+		doorbell[0] = htobe32(first_ind << srq->wqe_shift);
+		doorbell[1] = htobe32((srq->srqn << 8) | nreq);
 
 		/*
 		 * Make sure that descriptors are written before
@@ -215,9 +215,9 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 
 		for (i = 0; i < wr->num_sge; ++i) {
 			((struct mthca_data_seg *) wqe)->byte_count =
-				htonl(wr->sg_list[i].length);
+				htobe32(wr->sg_list[i].length);
 			((struct mthca_data_seg *) wqe)->lkey =
-				htonl(wr->sg_list[i].lkey);
+				htobe32(wr->sg_list[i].lkey);
 			((struct mthca_data_seg *) wqe)->addr =
 				htobe64(wr->sg_list[i].addr);
 			wqe += sizeof (struct mthca_data_seg);
@@ -225,7 +225,7 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 
 		if (i < srq->max_gs) {
 			((struct mthca_data_seg *) wqe)->byte_count = 0;
-			((struct mthca_data_seg *) wqe)->lkey = htonl(MTHCA_INVAL_LKEY);
+			((struct mthca_data_seg *) wqe)->lkey = htobe32(MTHCA_INVAL_LKEY);
 			((struct mthca_data_seg *) wqe)->addr = 0;
 		}
 
@@ -241,7 +241,7 @@ int mthca_arbel_post_srq_recv(struct ibv_srq *ibsrq,
 		 * we write doorbell record.
 		 */
 		udma_ordering_write_barrier();
-		*srq->db = htonl(srq->counter);
+		*srq->db = htobe32(srq->counter);
 	}
 
 	pthread_spin_unlock(&srq->lock);
@@ -290,7 +290,7 @@ int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 
 		if (i < srq->max - 1) {
 			*wqe_to_link(wqe) = i + 1;
-			next->nda_op = htonl(((i + 1) << srq->wqe_shift) | 1);
+			next->nda_op = htobe32(((i + 1) << srq->wqe_shift) | 1);
 		} else {
 			*wqe_to_link(wqe) = -1;
 			next->nda_op = 0;
@@ -299,7 +299,7 @@ int mthca_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 		for (scatter = wqe + sizeof (struct mthca_next_seg);
 		     (void *) scatter < wqe + (1 << srq->wqe_shift);
 		     ++scatter)
-			scatter->lkey = htonl(MTHCA_INVAL_LKEY);
+			scatter->lkey = htobe32(MTHCA_INVAL_LKEY);
 	}
 
 	srq->first_free = 0;

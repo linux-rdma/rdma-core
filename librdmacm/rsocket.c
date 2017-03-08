@@ -195,7 +195,7 @@ struct rs_iomap_mr {
 };
 
 #define RS_MAX_CTRL_MSG    (sizeof(struct rs_sge))
-#define rs_host_is_net()   (1 == htonl(1))
+#define rs_host_is_net()   (1 == htobe32(1))
 #define RS_CONN_FLAG_NET   (1 << 0)
 #define RS_CONN_FLAG_IOMAP (1 << 1)
 
@@ -1041,24 +1041,24 @@ static void rs_format_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 	conn->version = 1;
 	conn->flags = RS_CONN_FLAG_IOMAP |
 		      (rs_host_is_net() ? RS_CONN_FLAG_NET : 0);
-	conn->credits = htons(rs->rq_size);
+	conn->credits = htobe16(rs->rq_size);
 	memset(conn->reserved, 0, sizeof conn->reserved);
 	conn->target_iomap_size = (uint8_t) rs_value_to_scale(rs->target_iomap_size, 8);
 
 	conn->target_sgl.addr = htobe64((uintptr_t) rs->target_sgl);
-	conn->target_sgl.length = htonl(RS_SGL_SIZE);
-	conn->target_sgl.key = htonl(rs->target_mr->rkey);
+	conn->target_sgl.length = htobe32(RS_SGL_SIZE);
+	conn->target_sgl.key = htobe32(rs->target_mr->rkey);
 
 	conn->data_buf.addr = htobe64((uintptr_t) rs->rbuf);
-	conn->data_buf.length = htonl(rs->rbuf_size >> 1);
-	conn->data_buf.key = htonl(rs->rmr->rkey);
+	conn->data_buf.length = htobe32(rs->rbuf_size >> 1);
+	conn->data_buf.key = htobe32(rs->rmr->rkey);
 }
 
 static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 {
 	rs->remote_sgl.addr = be64toh(conn->target_sgl.addr);
-	rs->remote_sgl.length = ntohl(conn->target_sgl.length);
-	rs->remote_sgl.key = ntohl(conn->target_sgl.key);
+	rs->remote_sgl.length = be32toh(conn->target_sgl.length);
+	rs->remote_sgl.key = be32toh(conn->target_sgl.key);
 	rs->remote_sge = 1;
 	if ((rs_host_is_net() && !(conn->flags & RS_CONN_FLAG_NET)) ||
 	    (!rs_host_is_net() && (conn->flags & RS_CONN_FLAG_NET)))
@@ -1072,10 +1072,10 @@ static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 	}
 
 	rs->target_sgl[0].addr = be64toh(conn->data_buf.addr);
-	rs->target_sgl[0].length = ntohl(conn->data_buf.length);
-	rs->target_sgl[0].key = ntohl(conn->data_buf.key);
+	rs->target_sgl[0].length = be32toh(conn->data_buf.length);
+	rs->target_sgl[0].key = be32toh(conn->data_buf.key);
 
-	rs->sseq_comp = ntohs(conn->credits);
+	rs->sseq_comp = be16toh(conn->credits);
 }
 
 static int ds_init(struct rsocket *rs, int domain)
@@ -1656,7 +1656,7 @@ static int rs_post_msg(struct rsocket *rs, uint32_t msg)
 		wr.num_sge = 0;
 		wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
 		wr.send_flags = 0;
-		wr.imm_data = htonl(msg);
+		wr.imm_data = htobe32(msg);
 	} else {
 		sge.addr = (uintptr_t) &msg;
 		sge.lkey = 0;
@@ -1705,7 +1705,7 @@ static int rs_post_write_msg(struct rsocket *rs,
 		wr.num_sge = nsge;
 		wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
 		wr.send_flags = flags;
-		wr.imm_data = htonl(msg);
+		wr.imm_data = htobe32(msg);
 		wr.wr.rdma.remote_addr = addr;
 		wr.wr.rdma.rkey = rkey;
 
@@ -1908,7 +1908,7 @@ static int rs_poll_cq(struct rsocket *rs)
 			rcnt++;
 
 			if (wc.wc_flags & IBV_WC_WITH_IMM) {
-				msg = ntohl(wc.imm_data);
+				msg = be32toh(wc.imm_data);
 			} else {
 				msg = ((uint32_t *) (rs->rbuf + rs->rbuf_size))
 					[rs_wr_data(wc.wr_id)];
@@ -2605,11 +2605,11 @@ static ssize_t ds_sendv_udp(struct rsocket *rs, const struct iovec *iov,
 	if (iovcnt > 8)
 		return ERR(ENOTSUP);
 
-	hdr.tag = htonl(DS_UDP_TAG);
+	hdr.tag = htobe32(DS_UDP_TAG);
 	hdr.version = rs->conn_dest->qp->hdr.version;
 	hdr.op = op;
 	hdr.reserved = 0;
-	hdr.qpn = htonl(rs->conn_dest->qp->cm_id->qp->qp_num & 0xFFFFFF);
+	hdr.qpn = htobe32(rs->conn_dest->qp->cm_id->qp->qp_num & 0xFFFFFF);
 	if (rs->conn_dest->qp->hdr.version == 4) {
 		hdr.length = DS_UDP_IPV4_HDR_LEN;
 		hdr.addr.ipv4 = rs->conn_dest->qp->hdr.addr.ipv4;
@@ -3550,8 +3550,8 @@ static void rs_convert_sa_path(struct ibv_sa_path_rec *sa_path,
 	path_data->path.sgid = sa_path->sgid;
 	path_data->path.dlid = sa_path->dlid;
 	path_data->path.slid = sa_path->slid;
-	fl_hop = ntohl(sa_path->flow_label) << 8;
-	path_data->path.flowlabel_hoplimit = htonl(fl_hop) | sa_path->hop_limit;
+	fl_hop = be32toh(sa_path->flow_label) << 8;
+	path_data->path.flowlabel_hoplimit = htobe32(fl_hop) | sa_path->hop_limit;
 	path_data->path.tclass = sa_path->traffic_class;
 	path_data->path.reversible_numpath = sa_path->reversible << 7 | 1;
 	path_data->path.pkey = sa_path->pkey;
@@ -4096,12 +4096,12 @@ static void udp_svc_create_ah(struct rsocket *rs, struct ds_dest *dest, uint32_t
 	if (id->route.path_rec->hop_limit > 1) {
 		attr.is_global = 1;
 		attr.grh.dgid = id->route.path_rec->dgid;
-		attr.grh.flow_label = ntohl(id->route.path_rec->flow_label);
+		attr.grh.flow_label = be32toh(id->route.path_rec->flow_label);
 		attr.grh.sgid_index = udp_svc_sgid_index(dest, &id->route.path_rec->sgid);
 		attr.grh.hop_limit = id->route.path_rec->hop_limit;
 		attr.grh.traffic_class = id->route.path_rec->traffic_class;
 	}
-	attr.dlid = ntohs(id->route.path_rec->dlid);
+	attr.dlid = be16toh(id->route.path_rec->dlid);
 	attr.sl = id->route.path_rec->sl;
 	attr.src_path_bits = id->route.path_rec->slid & udp_svc_path_bits(dest);
 	attr.static_rate = id->route.path_rec->rate;
@@ -4118,7 +4118,7 @@ out:
 static int udp_svc_valid_udp_hdr(struct ds_udp_header *udp_hdr,
 				 union socket_addr *addr)
 {
-	return (udp_hdr->tag == ntohl(DS_UDP_TAG)) &&
+	return (udp_hdr->tag == be32toh(DS_UDP_TAG)) &&
 		((udp_hdr->version == 4 && addr->sa.sa_family == AF_INET &&
 		  udp_hdr->length == DS_UDP_IPV4_HDR_LEN) ||
 		 (udp_hdr->version == 6 && addr->sa.sa_family == AF_INET6 &&
@@ -4171,8 +4171,8 @@ static void udp_svc_process_rs(struct rsocket *rs)
 		return;
 
 	len = ret - udp_hdr->length;
-	udp_hdr->tag = ntohl(udp_hdr->tag);
-	udp_hdr->qpn = ntohl(udp_hdr->qpn) & 0xFFFFFF;
+	udp_hdr->tag = be32toh(udp_hdr->tag);
+	udp_hdr->qpn = be32toh(udp_hdr->qpn) & 0xFFFFFF;
 	ret = ds_get_dest(rs, &addr.sa, addrlen, &dest);
 	if (ret)
 		return;

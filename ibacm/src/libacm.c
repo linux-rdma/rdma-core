@@ -72,7 +72,7 @@ int ib_acm_connect(char *dest)
 		goto err1;
 	}
 
-	((struct sockaddr_in *) res->ai_addr)->sin_port = htons(server_port);
+	((struct sockaddr_in *) res->ai_addr)->sin_port = htobe16(server_port);
 	ret = connect(sock, res->ai_addr, res->ai_addrlen);
 	if (ret)
 		goto err2;
@@ -313,14 +313,14 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
 	msg.hdr.data[1] = index;
-	msg.hdr.length = htons(ACM_MSG_HDR_LENGTH);
+	msg.hdr.length = htobe16(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
 	if (ret != ACM_MSG_HDR_LENGTH)
 		goto out;
 
 	ret = recv(sock, (char *) &msg, sizeof msg, 0);
-	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length)) {
+	if (ret < ACM_MSG_HDR_LENGTH || ret != be16toh(msg.hdr.length)) {
 		ret = ACM_STATUS_EINVAL;
 		goto out;
 	}
@@ -358,14 +358,14 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_EP_QUERY;
 	msg.hdr.data[0] = index;
-	msg.hdr.length = htons(ACM_MSG_HDR_LENGTH);
+	msg.hdr.length = htobe16(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
 	if (ret != ACM_MSG_HDR_LENGTH)
 		goto out;
 
 	ret = recv(sock, (char *) &msg, sizeof msg, 0);
-	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length)) {
+	if (ret < ACM_MSG_HDR_LENGTH || ret != be16toh(msg.hdr.length)) {
 		ret = ACM_STATUS_EINVAL;
 		goto out;
 	}
@@ -375,7 +375,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 		goto out;
 	}
 
-	cnt = ntohs(msg.ep_data[0].addr_cnt);
+	cnt = be16toh(msg.ep_data[0].addr_cnt);
 	len = sizeof(struct acm_ep_config_data) +
 		ACM_MAX_ADDRESS * cnt;
 	edata = malloc(len);
@@ -386,7 +386,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 
 	memcpy(edata, &msg.ep_data[0], len);
 	edata->dev_guid = be64toh(msg.ep_data[0].dev_guid);
-	edata->pkey = ntohs(msg.ep_data[0].pkey);
+	edata->pkey = be16toh(msg.ep_data[0].pkey);
 	edata->addr_cnt = cnt;
 	*data = edata;
 	ret = 0;
@@ -415,14 +415,14 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 		goto out;
 
 	len = ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH;
-	msg.hdr.length = htons(len);
+	msg.hdr.length = htobe16(len);
 
 	ret = send(sock, (char *) &msg, len, 0);
 	if (ret != len)
 		goto out;
 
 	ret = recv(sock, (char *) &msg, sizeof msg, 0);
-	if (ret < ACM_MSG_HDR_LENGTH || ret != ntohs(msg.hdr.length)) {
+	if (ret < ACM_MSG_HDR_LENGTH || ret != be16toh(msg.hdr.length)) {
 		ret = ACM_STATUS_EINVAL;
 		goto out;
 	}

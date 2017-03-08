@@ -210,7 +210,7 @@ static int post_sends(struct cmatest_node *node, int signal_flag)
 	send_wr.opcode = IBV_WR_SEND_WITH_IMM;
 	send_wr.send_flags = signal_flag;
 	send_wr.wr_id = (unsigned long)node;
-	send_wr.imm_data = htonl(node->cma_id->qp->qp_num);
+	send_wr.imm_data = htobe32(node->cma_id->qp->qp_num);
 
 	send_wr.wr.ud.ah = node->ah;
 	send_wr.wr.ud.remote_qpn = node->remote_qpn;
@@ -456,7 +456,7 @@ static void create_reply_ah(struct cmatest_node *node, struct ibv_wc *wc)
 
 	node->ah = ibv_create_ah_from_wc(node->pd, wc, node->mem,
 					 node->cma_id->port_num);
-	node->remote_qpn = ntohl(wc->imm_data);
+	node->remote_qpn = be32toh(wc->imm_data);
 
 	ibv_query_qp(node->cma_id->qp, &attr, IBV_QP_QKEY, &init_attr);
 	node->remote_qkey = attr.qkey;

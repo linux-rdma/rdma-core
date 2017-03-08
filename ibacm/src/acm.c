@@ -258,14 +258,14 @@ void acm_format_name(int level, char *name, size_t name_size,
 		path = (struct ibv_path_record *) addr;
 		if (path->dlid) {
 			snprintf(name, name_size, "SLID(%u) DLID(%u)",
-				ntohs(path->slid), ntohs(path->dlid));
+				be16toh(path->slid), be16toh(path->dlid));
 		} else {
 			acm_format_name(level, name, name_size, ACM_ADDRESS_GID,
 					path->dgid.raw, sizeof path->dgid);
 		}
 		break;
 	case ACM_ADDRESS_LID:
-		snprintf(name, name_size, "LID(%u)", ntohs(*((uint16_t *) addr)));
+		snprintf(name, name_size, "LID(%u)", be16toh(*((uint16_t *) addr)));
 		break;
 	default:
 		strcpy(name, "Unknown");
@@ -431,7 +431,7 @@ uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 	if (path->slid)
 		comp_mask |= IB_COMP_MASK_PR_SLID;
 
-	fl_hop = ntohl(path->flowlabel_hoplimit);
+	fl_hop = be32toh(path->flowlabel_hoplimit);
 	if (fl_hop >> 8)
 		comp_mask |= IB_COMP_MASK_PR_FLOW_LABEL;
 	if (fl_hop & 0xFF)
@@ -444,7 +444,7 @@ uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 	if (path->pkey)
 		comp_mask |= IB_COMP_MASK_PR_PKEY;
 
-	qos_sl = ntohs(path->qosclass_sl);
+	qos_sl = be16toh(path->qosclass_sl);
 	if (qos_sl >> 4)
 		comp_mask |= IB_COMP_MASK_PR_QOS_CLASS;
 	if (qos_sl & 0xF)
@@ -580,7 +580,7 @@ static int acm_listen(void)
 
 	memset(&addr, 0, sizeof addr);
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(server_port);
+	addr.sin_port = htobe16(server_port);
 	ret = bind(listen_socket, (struct sockaddr *) &addr, sizeof addr);
 	if (ret == -1) {
 		acm_log(0, "ERROR - unable to bind listen socket\n");
@@ -648,7 +648,7 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 	}
 
 	if (path->slid) {
-		return (port->lid == (ntohs(path->slid) & port->lid_mask));
+		return (port->lid == (be16toh(path->slid) & port->lid_mask));
 	}
 
 	if (ib_any_gid(&path->dgid)) {
@@ -686,7 +686,7 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 	list_for_each(&port->ep_list, ep, entry) {
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
-		     (ntohs(data->info.path.pkey) == ep->endpoint.pkey))) {
+		     (be16toh(data->info.path.pkey) == ep->endpoint.pkey))) {
 			for (i = 0; i < MAX_EP_ADDR; i++) {
 				if (ep->addr_info[i].addr.type)
 					return &ep->addr_info[i];
@@ -994,9 +994,9 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	msg->hdr.status = ACM_STATUS_SUCCESS;
 	msg->hdr.data[2] = 0;
 
-	if ((ntohs(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
+	if ((be16toh(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && index < 1) ||
-	    ((ntohs(msg->hdr.length) >= (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
+	    ((be16toh(msg->hdr.length) >= (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && !(msg->resolve_data[0].flags & ACM_EP_FLAG_SOURCE)))) {
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
 			msg->perf_data[i] = htobe64((uint64_t) atomic_get(&counter[i]));
@@ -1022,7 +1022,7 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 			len = ACM_MSG_HDR_LENGTH;
 		}
 	}
-	msg->hdr.length = htons(len);
+	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);
 	if (ret != len)
@@ -1047,7 +1047,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 		msg->hdr.status = ACM_STATUS_SUCCESS;
 		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
 		msg->ep_data[0].port_num = ep->port->port.port_num;
-		msg->ep_data[0].pkey = htons(ep->endpoint.pkey);
+		msg->ep_data[0].pkey = htobe16(ep->endpoint.pkey);
 		strncpy((char *)msg->ep_data[0].prov_name, ep->port->prov->name,
 			ACM_MAX_PROV_NAME - 1);
 		msg->ep_data[0].prov_name[ACM_MAX_PROV_NAME - 1] = '\0';
@@ -1059,7 +1059,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 				       ACM_MAX_ADDRESS);
 			}
 		}
-		msg->ep_data[0].addr_cnt = htons(cnt);
+		msg->ep_data[0].addr_cnt = htobe16(cnt);
 		len += cnt * ACM_MAX_ADDRESS;
 	} else {
 		msg->hdr.status = ACM_STATUS_EINVAL;
@@ -1068,7 +1068,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.data[1] = 0;
 	msg->hdr.data[2] = 0;
-	msg->hdr.length = htons(len);
+	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);
 	if (ret != len)
@@ -1082,7 +1082,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 static int acm_msg_length(struct acm_msg *msg)
 {
 	return (msg->hdr.opcode == ACM_OP_RESOLVE) ?
-		msg->hdr.length : ntohs(msg->hdr.length);
+		msg->hdr.length : be16toh(msg->hdr.length);
 }
 
 static void acm_svr_receive(struct acmc_client *client)
@@ -1473,7 +1473,7 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 		pkey = (uint16_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*pkey)) {
 			acm_log(2, "pkey 0x%x\n", *pkey);
-			path->pkey = htons(*pkey);
+			path->pkey = htobe16(*pkey);
 		} else {
 			ret = -1;
 		}
@@ -1483,10 +1483,10 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 		qos = (uint16_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*qos)) {
 			acm_log(2, "qos_class 0x%x\n", *qos);
-			val = ntohs(path->qosclass_sl);
+			val = be16toh(path->qosclass_sl);
 			val &= ~IBV_PATH_RECORD_QOS_MASK;
 			val |= (*qos & IBV_PATH_RECORD_QOS_MASK);
-			path->qosclass_sl = htons(val);
+			path->qosclass_sl = htobe16(val);
 		} else {
 			ret = -1;
 		}
@@ -2207,7 +2207,7 @@ static void acm_port_up(struct acmc_port *port)
 				     port->port.port_num, i, &pkey);
 		if (ret)
 			continue;
-		pkey = ntohs(pkey);
+		pkey = be16toh(pkey);
 		if (i == 0)
 			first_pkey = pkey;
 		if (pkey == 0xffff) {
@@ -2226,7 +2226,7 @@ static void acm_port_up(struct acmc_port *port)
 				     port->port.port_num, i, &pkey);
 		if (ret)
 			continue;
-		pkey = ntohs(pkey);
+		pkey = be16toh(pkey);
 		if (!(pkey & 0x7fff))
 			continue;
 
@@ -2369,8 +2369,8 @@ acm_open_port(struct acmc_port *port, struct acmc_device *dev, uint8_t port_num)
 	list_head_init(&port->sa_pending);
 	list_head_init(&port->sa_wait);
 	port->sa_credits = sa.depth;
-	port->sa_addr.qpn = htonl(1);
-	port->sa_addr.qkey = htonl(ACM_QKEY);
+	port->sa_addr.qpn = htobe32(1);
+	port->sa_addr.qkey = htobe32(ACM_QKEY);
 
 	port->mad_portid = umad_open_port(dev->device.verbs->device->name, port_num);
 	if (port->mad_portid < 0)
@@ -2701,7 +2701,7 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 	port = req->ep->port;
 	mad->umad.addr.qpn = port->sa_addr.qpn;
 	mad->umad.addr.qkey = port->sa_addr.qkey;
-	mad->umad.addr.lid = htons(port->sa_addr.lid);
+	mad->umad.addr.lid = htobe16(port->sa_addr.lid);
 	mad->umad.addr.sl = port->sa_addr.sl;
 	mad->umad.addr.pkey_index = req->ep->port->sa_pkey_index;
 

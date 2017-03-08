@@ -34,8 +34,8 @@
 #ifndef MLX4_H
 #define MLX4_H
 
+#include <endian.h>
 #include <stddef.h>
-#include <netinet/in.h>
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
@@ -58,7 +58,7 @@ enum {
 	MLX4_QP_TABLE_MASK		= MLX4_QP_TABLE_SIZE - 1
 };
 
-#define MLX4_REMOTE_SRQN_FLAGS(wr) htonl(wr->qp_type.xrc.remote_srqn << 8)
+#define MLX4_REMOTE_SRQN_FLAGS(wr) htobe32(wr->qp_type.xrc.remote_srqn << 8)
 
 enum {
 	MLX4_XSRQ_TABLE_BITS = 8,
@@ -348,7 +348,7 @@ static inline struct mlx4_ah *to_mah(struct ibv_ah *ibah)
 
 static inline void mlx4_update_cons_index(struct mlx4_cq *cq)
 {
-	*cq->set_ci_db = htonl(cq->cons_index & 0xffffff);
+	*cq->set_ci_db = htobe32(cq->cons_index & 0xffffff);
 }
 
 int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size);

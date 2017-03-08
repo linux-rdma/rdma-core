@@ -495,15 +495,15 @@ static void show_path(struct ibv_path_record *path)
 	printf("  dgid: %s\n", gid);
 	inet_ntop(AF_INET6, path->sgid.raw, gid, sizeof gid);
 	printf("  sgid: %s\n", gid);
-	printf("  dlid: %u\n", ntohs(path->dlid));
-	printf("  slid: %u\n", ntohs(path->slid));
-	fl_hop = ntohl(path->flowlabel_hoplimit);
+	printf("  dlid: %u\n", be16toh(path->dlid));
+	printf("  slid: %u\n", be16toh(path->slid));
+	fl_hop = be32toh(path->flowlabel_hoplimit);
 	printf("  flow label: 0x%x\n", fl_hop >> 8);
 	printf("  hop limit: %d\n", (uint8_t) fl_hop);
 	printf("  tclass: %d\n", path->tclass);
 	printf("  reversible: %d\n", path->reversible_numpath >> 7);
-	printf("  pkey: 0x%x\n", ntohs(path->pkey));
-	printf("  sl: %d\n", ntohs(path->qosclass_sl) & 0xF);
+	printf("  pkey: 0x%x\n", be16toh(path->pkey));
+	printf("  sl: %d\n", be16toh(path->qosclass_sl) & 0xF);
 	printf("  mtu: %d\n", path->mtu & 0x1F);
 	printf("  rate: %d\n", path->rate & 0x1F);
 	printf("  packet lifetime: %d\n", path->packetlifetime & 0x1F);
@@ -599,8 +599,8 @@ static int resolve_lid(struct ibv_path_record *path)
 	int ret;
 
 	if (src_addr)
-		path->slid = htons((uint16_t) atoi(src_addr));
-	path->dlid = htons((uint16_t) atoi(dest_addr));
+		path->slid = htobe16((uint16_t) atoi(src_addr));
+	path->dlid = htobe16((uint16_t) atoi(dest_addr));
 	path->reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
 
 	ret = ib_acm_resolve_path(path, get_resolve_flags());

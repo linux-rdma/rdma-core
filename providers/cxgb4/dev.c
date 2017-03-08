@@ -238,23 +238,23 @@ static void dump_cq(struct c4iw_cq *chp)
 		"cidx_inc %d bits_type_ts %016" PRIx64 " notempty %d\n", chp,
                 chp->cq.cqid, chp->cq.queue, chp->cq.cidx,
 	 	chp->cq.sw_queue, chp->cq.sw_cidx, chp->cq.sw_pidx, chp->cq.sw_in_use,
-                chp->cq.size, chp->cq.error, chp->cq.gen, chp->cq.cidx_inc, be64_to_cpu(chp->cq.bits_type_ts),
+                chp->cq.size, chp->cq.error, chp->cq.gen, chp->cq.cidx_inc, be64toh(chp->cq.bits_type_ts),
 		t4_cq_notempty(&chp->cq));
 
 	for (i=0; i < chp->cq.size; i++) {
 		u64 *p = (u64 *)(chp->cq.queue + i);
 
-		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64, i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64, i, be64toh(p[0]), be64toh(p[1]));
 		if (i == chp->cq.cidx)
 			fprintf(stderr, " <-- cidx\n");
 		else
 			fprintf(stderr, "\n");
 		p+= 2;
-		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64toh(p[0]), be64toh(p[1]));
 		p+= 2;
-		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64toh(p[0]), be64toh(p[1]));
 		p+= 2;
-		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64_to_cpu(p[0]), be64_to_cpu(p[1]));
+		fprintf(stderr, "%02x: %016" PRIx64 " %016" PRIx64 "\n", i, be64toh(p[0]), be64toh(p[1]));
 		p+= 2;
 	}
 }
@@ -310,10 +310,10 @@ static void dump_qp(struct c4iw_qp *qhp)
 			swsqe->opcode,
 			swsqe->complete,
 			swsqe->signaled,
-			cpu_to_be64(((uint64_t *)&swsqe->cqe)[0]),
-			cpu_to_be64(((uint64_t *)&swsqe->cqe)[1]),
-			cpu_to_be64(((uint64_t *)&swsqe->cqe)[2]),
-			cpu_to_be64(((uint64_t *)&swsqe->cqe)[3]));
+			htobe64(((uint64_t *)&swsqe->cqe)[0]),
+			htobe64(((uint64_t *)&swsqe->cqe)[1]),
+			htobe64(((uint64_t *)&swsqe->cqe)[2]),
+			htobe64(((uint64_t *)&swsqe->cqe)[3]));
 		if (++cidx == qhp->wq.sq.size)
 			cidx = 0;
 	}

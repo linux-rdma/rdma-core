@@ -572,7 +572,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 			2,        /* Class Version */
 			SRP_MAD_METHOD_SET,         /* Method */
 			0,            /* Transaction ID - will be set before the send in the loop*/
-			htons(SRP_MAD_ATTR_INFORM_INFO),   /* Attribute ID */
+			htobe16(SRP_MAD_ATTR_INFORM_INFO),   /* Attribute ID */
 			0 );                       /* Attribute Modifier */
 
 
@@ -580,17 +580,17 @@ static int register_to_trap(struct sync_resources *sync_res,
 	data->is_generic = 1;
 	data->subscribe = subscribe;
 	if (trap_num == SRP_TRAP_JOIN)
-		data->trap_type = htons(3); /* SM */
+		data->trap_type = htobe16(3); /* SM */
 	else if (trap_num == SRP_TRAP_CHANGE_CAP)
-		data->trap_type = htons(4); /* Informational */
-	data->g_or_v.generic.trap_num = htons(trap_num);
+		data->trap_type = htobe16(4); /* Informational */
+	data->g_or_v.generic.trap_num = htobe16(trap_num);
         data->g_or_v.generic.node_type_msb = 0;
 	if (trap_num == SRP_TRAP_JOIN)
 		/* Class Manager */
-		data->g_or_v.generic.node_type_lsb = htons(4);
+		data->g_or_v.generic.node_type_lsb = htobe16(4);
 	else if (trap_num == SRP_TRAP_CHANGE_CAP)
 		/* Channel Adapter */
-		data->g_or_v.generic.node_type_lsb = htons(1);
+		data->g_or_v.generic.node_type_lsb = htobe16(1);
 
 	comp_mask |= SRP_INFORMINFO_LID_COMP	    |
 		     SRP_INFORMINFO_ISGENERIC_COMP  |
@@ -600,7 +600,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 		     SRP_INFORMINFO_PRODUCER_COMP;
 
 	if (!data->subscribe) {
-	    data->g_or_v.generic.qpn_resp_time_val = htonl(res->qp->qp_num << 8);
+	    data->g_or_v.generic.qpn_resp_time_val = htobe32(res->qp->qp_num << 8);
 	    comp_mask |= SRP_INFORMINFO_QPN_COMP;
 	}
 
@@ -709,14 +709,14 @@ static int get_trap_notices(struct resources *res)
 
 		if ((mad_buffer->mgmt_class == SRP_MGMT_CLASS_SA) &&
 		    (mad_buffer->method == SRP_SA_METHOD_GET_RESP) &&
-		    (ntohs(mad_buffer->attr_id) == SRP_MAD_ATTR_INFORM_INFO)) {
+		    (be16toh(mad_buffer->attr_id) == SRP_MAD_ATTR_INFORM_INFO)) {
 		/* this is probably a response to register to trap */
 			pthread_mutex_lock(res->ud_res->mad_buffer_mutex);
 			*res->ud_res->mad_buffer = *mad_buffer;
 			pthread_mutex_unlock(res->ud_res->mad_buffer_mutex);
 		} else if ((mad_buffer->mgmt_class == SRP_MGMT_CLASS_SA) &&
 		    (mad_buffer->method == SRP_SA_METHOD_REPORT) &&
-		    (ntohs(mad_buffer->attr_id) == SRP_MAD_ATTR_NOTICE))
+		    (be16toh(mad_buffer->attr_id) == SRP_MAD_ATTR_NOTICE))
 		{ /* this is a trap notice */
 			pkey_index = wc.pkey_index;
 			ret = pkey_index_to_pkey(res->umad_res, pkey_index, &pkey);
@@ -728,16 +728,16 @@ static int get_trap_notices(struct resources *res)
 			}
 
 			notice_buffer = (ib_mad_notice_attr_t *) (mad_buffer->data);
-			trap_num = ntohs(notice_buffer->g_or_v.generic.trap_num);
+			trap_num = be16toh(notice_buffer->g_or_v.generic.trap_num);
 			response_to_trap(res->sync_res, res->ud_res, mad_buffer);
 			if (trap_num == SRP_TRAP_JOIN)
 				push_gid_to_list(res->sync_res,
 						 &notice_buffer->data_details.ntc_64_67.gid,
 						 pkey);
 			else if (trap_num == SRP_TRAP_CHANGE_CAP) {
-				if (ntohl(notice_buffer->data_details.ntc_144.new_cap_mask) & SRP_IS_DM)
+				if (be32toh(notice_buffer->data_details.ntc_144.new_cap_mask) & SRP_IS_DM)
 					push_lid_to_list(res->sync_res,
-							 ntohs(notice_buffer->data_details.ntc_144.lid),
+							 be16toh(notice_buffer->data_details.ntc_144.lid),
 							 pkey);
 			} else {
 				pr_err("Unhandled trap_num %d\n", trap_num);

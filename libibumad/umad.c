@@ -158,7 +158,7 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 		/* assume IB by default */
 		sprintf(port->link_layer, "IB");
 
-	port->capmask = htonl(port->capmask);
+	port->capmask = htobe32(port->capmask);
 
 	if (sys_read_gid(port_dir, SYS_PORT_GID, gid) < 0)
 		goto clean;
@@ -735,7 +735,7 @@ int umad_set_grh(void *umad, void *mad_addr)
 	if (mad_addr) {
 		mad->addr.grh_present = 1;
 		memcpy(mad->addr.gid, addr->gid, 16);
-		mad->addr.flow_label = htonl(addr->flow_label);
+		mad->addr.flow_label = htobe32(addr->flow_label);
 		mad->addr.hop_limit = addr->hop_limit;
 		mad->addr.traffic_class = addr->traffic_class;
 	} else
@@ -769,9 +769,9 @@ int umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
 
 	TRACE("umad %p dlid %u dqp %d sl %d, qkey %x",
 	      umad, dlid, dqp, sl, qkey);
-	mad->addr.qpn = htonl(dqp);
-	mad->addr.lid = htons(dlid);
-	mad->addr.qkey = htonl(qkey);
+	mad->addr.qpn = htobe32(dqp);
+	mad->addr.lid = htobe16(dlid);
+	mad->addr.qkey = htobe32(qkey);
 	mad->addr.sl = sl;
 
 	return 0;
@@ -782,7 +782,7 @@ int umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
 	struct ib_user_mad *mad = umad;
 
 	TRACE("umad %p dlid %u dqp %d sl %d qkey %x",
-	      umad, ntohs(dlid), ntohl(dqp), sl, ntohl(qkey));
+	      umad, be16toh(dlid), be32toh(dqp), sl, be32toh(qkey));
 	mad->addr.qpn = dqp;
 	mad->addr.lid = dlid;
 	mad->addr.qkey = qkey;
@@ -938,7 +938,7 @@ int umad_register(int fd, int mgmt_class, int mgmt_version,
 		  uint8_t rmpp_version, long method_mask[])
 {
 	struct ib_user_mad_reg_req req;
-	uint32_t oui = htonl(IB_OPENIB_OUI);
+	uint32_t oui = htobe32(IB_OPENIB_OUI);
 	int qp;
 
 	TRACE
@@ -1093,7 +1093,7 @@ void umad_addr_dump(ib_mad_addr_t * addr)
 	IBWARN("qpn %d qkey 0x%x lid %u sl %d\n"
 	       "grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x pkey_index 0x%x\n"
 	       "Gid 0x%s",
-	       ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
+	       be32toh(addr->qpn), be32toh(addr->qkey), be16toh(addr->lid), addr->sl,
 	       addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit,
 	       (int)addr->traffic_class, addr->flow_label, addr->pkey_index,
 	       gid_str);

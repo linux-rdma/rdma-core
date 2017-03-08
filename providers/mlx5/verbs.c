@@ -89,9 +89,9 @@ static int mlx5_read_clock(struct ibv_context *context, uint64_t *cycles)
 
 	/* Handle wraparound */
 	for (i = 0; i < 2; i++) {
-		clockhi = ntohl(READL(ctx->hca_core_clock));
-		clocklo = ntohl(READL(ctx->hca_core_clock + 4));
-		clockhi1 = ntohl(READL(ctx->hca_core_clock));
+		clockhi = be32toh(READL(ctx->hca_core_clock));
+		clocklo = be32toh(READL(ctx->hca_core_clock + 4));
+		clockhi1 = be32toh(READL(ctx->hca_core_clock));
 		if (clockhi == clockhi1)
 			break;
 	}
@@ -1581,7 +1581,7 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	    attr->qp_state == IBV_QPS_RTR &&
 	    qp->qp_type == IBV_QPT_RAW_PACKET) {
 		mlx5_spin_lock(&mqp->rq.lock);
-		mqp->db[MLX5_RCV_DBR] = htonl(mqp->rq.head & 0xffff);
+		mqp->db[MLX5_RCV_DBR] = htobe32(mqp->rq.head & 0xffff);
 		mlx5_spin_unlock(&mqp->rq.lock);
 	}
 
@@ -1628,7 +1628,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 			goto err;
 
 		if (gid_type == IBV_GID_TYPE_ROCE_V2)
-			ah->av.rlid = htons(rand() % (RROCE_UDP_SPORT_MAX + 1
+			ah->av.rlid = htobe16(rand() % (RROCE_UDP_SPORT_MAX + 1
 						      - RROCE_UDP_SPORT_MIN)
 					    + RROCE_UDP_SPORT_MIN);
 		/* Since RoCE packets must contain GRH, this bit is reserved
@@ -1637,14 +1637,14 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		grh = 0;
 	} else {
 		ah->av.fl_mlid = attr->src_path_bits & 0x7f;
-		ah->av.rlid = htons(attr->dlid);
+		ah->av.rlid = htobe16(attr->dlid);
 		grh = 1;
 	}
 	ah->av.stat_rate_sl = (attr->static_rate << 4) | attr->sl;
 	if (attr->is_global) {
 		ah->av.tclass = attr->grh.traffic_class;
 		ah->av.hop_limit = attr->grh.hop_limit;
-		tmp = htonl((grh << 30) |
+		tmp = htobe32((grh << 30) |
 			    ((attr->grh.sgid_index & 0xff) << 20) |
 			    (attr->grh.flow_label & 0xfffff));
 		ah->av.grh_gid_fl = tmp;
