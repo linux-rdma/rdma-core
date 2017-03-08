@@ -545,7 +545,7 @@ static int add_non_exist_target(struct target_details *target)
 		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",initiator_ext=%016llx",
-				(unsigned long long) be64toh(target->h_guid));
+				(unsigned long long) target->h_guid);
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 			pr_err("Target config string is too long, ignoring target\n");
