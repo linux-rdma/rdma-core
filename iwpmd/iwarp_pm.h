@@ -45,7 +45,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <linux/netlink.h>
-#include <linux/byteorder/big_endian.h>
 #include <netlink/attr.h>
 #include <signal.h>
 #include <ifaddrs.h>
