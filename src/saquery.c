@@ -69,7 +69,7 @@
 
 struct query_params {
 	uint64_t service_id;
-	ib_gid_t sgid, dgid, gid, mgid;
+	ibmad_gid_t sgid, dgid, gid, mgid;
 	uint16_t slid, dlid, mlid;
 	uint32_t flow_label;
 	int hop_limit;
@@ -118,9 +118,9 @@ int requested_lid_flag = 0;
 uint64_t requested_guid = 0;
 int requested_guid_flag = 0;
 
-static unsigned valid_gid(ib_gid_t * gid)
+static unsigned valid_gid(ibmad_gid_t * gid)
 {
-	ib_gid_t zero_gid;
+	ibmad_gid_t zero_gid;
 	memset(&zero_gid, 0, sizeof zero_gid);
 	return memcmp(&zero_gid, gid, sizeof(*gid));
 }
