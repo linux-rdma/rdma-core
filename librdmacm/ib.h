@@ -44,16 +44,6 @@
 #define PF_IB AF_IB
 #endif
 
-#ifndef __be16
-#define __be16 __u16
-#endif
-#ifndef __be32
-#define __be32 __u32
-#endif
-#ifndef __be64
-#define __be64 __u64
-#endif
-
 struct ib_addr {
 	union {
 		__u8		uib_addr8[16];
