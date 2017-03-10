@@ -125,7 +125,7 @@ static int check_for_digit_name(const struct dirent *dent)
 static int get_port(const char *ca_name, const char *dir, int portnum, umad_port_t * port)
 {
 	char port_dir[256];
-	uint8_t gid[16];
+	union umad_gid gid;
 	struct dirent **namelist = NULL;
 	int i, len, num_pkeys = 0;
 	uint32_t capmask;
@@ -162,11 +162,11 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 
 	port->capmask = htobe32(capmask);
 
-	if (sys_read_gid(port_dir, SYS_PORT_GID, gid) < 0)
+	if (sys_read_gid(port_dir, SYS_PORT_GID, &gid) < 0)
 		goto clean;
 
-	memcpy(&port->gid_prefix, gid, sizeof port->gid_prefix);
-	memcpy(&port->port_guid, gid + 8, sizeof port->port_guid);
+	port->gid_prefix = gid.global.subnet_prefix;
+	port->port_guid = gid.global.interface_id;
 
 	snprintf(port_dir + len, sizeof(port_dir) - len, "/pkeys");
 	num_pkeys = scandir(port_dir, &namelist, check_for_digit_name, NULL);
@@ -569,7 +569,7 @@ int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 	return j;
 }
 
-int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max)
+int umad_get_ca_portguids(const char *ca_name, __be64 *portguids, int max)
 {
 	umad_ca_t ca;
 	int ports = 0, i;
@@ -588,8 +588,8 @@ int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max)
 		}
 
 		for (i = 0; i <= ca.numports; i++)
-			portguids[ports++] =
-			    ca.ports[i] ? ca.ports[i]->port_guid : 0;
+			portguids[ports++] = ca.ports[i] ?
+				ca.ports[i]->port_guid : htobe64(0);
 	}
 
 	release_ca(&ca);

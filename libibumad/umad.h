@@ -157,8 +157,8 @@ typedef struct umad_port {
 	unsigned phys_state;
 	unsigned rate;
 	__be32 capmask;
-	uint64_t gid_prefix;
-	uint64_t port_guid;
+	__be64	 gid_prefix;
+	__be64	 port_guid;
 	unsigned pkeys_size;
 	uint16_t *pkeys;
 	char link_layer[UMAD_CA_NAME_LEN];
@@ -180,7 +180,7 @@ int umad_init(void);
 int umad_done(void);
 
 int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max);
-int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max);
+int umad_get_ca_portguids(const char *ca_name, __be64 *portguids, int max);
 
 int umad_get_ca(const char *ca_name, umad_ca_t * ca);
 int umad_release_ca(umad_ca_t * ca);
