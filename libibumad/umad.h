@@ -54,6 +54,19 @@ typedef __be16 __attribute__((deprecated)) be16_t;
 typedef __be32 __attribute__((deprecated)) be32_t;
 typedef __be64 __attribute__((deprecated)) be64_t;
 
+/*
+ * A GID data structure that may be used in definitions of on-the-wire data
+ * structures. Do not cast umad_gid pointers to ibv_gid pointers because the
+ * alignment of these two data structures is different.
+ */
+union umad_gid {
+	uint8_t		raw[16];
+	struct {
+		__be64	subnet_prefix;
+		__be64	interface_id;
+	} global;
+} __attribute__((aligned(4))) __attribute__((packed));
+
 #define UMAD_MAX_DEVICES 32
 #define UMAD_ANY_PORT	0
 typedef struct ib_mad_addr {
@@ -66,7 +79,10 @@ typedef struct ib_mad_addr {
 	uint8_t gid_index;
 	uint8_t hop_limit;
 	uint8_t traffic_class;
-	uint8_t gid[16]; /* network-byte order */
+	union {
+		uint8_t		gid[16]; /* network-byte order */
+		union umad_gid	ib_gid;
+	};
 	__be32 flow_label;
 	uint16_t pkey_index;
 	uint8_t reserved[6];

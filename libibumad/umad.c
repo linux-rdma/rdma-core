@@ -736,7 +736,7 @@ int umad_set_grh(void *umad, void *mad_addr)
 
 	if (mad_addr) {
 		mad->addr.grh_present = 1;
-		memcpy(mad->addr.gid, addr->gid, 16);
+		mad->addr.ib_gid = addr->ib_gid;
 		/* The definition for umad_set_grh requires that the input be
 		 * in host order */
 		mad->addr.flow_label = htobe32((__force uint32_t)addr->flow_label);
