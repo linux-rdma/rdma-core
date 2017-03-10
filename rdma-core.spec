@@ -26,7 +26,9 @@ BuildRequires: valgrind-devel
 # SuSE releases have it, and sometime around cmake 3.3.2-1.2 the macros learned to use it.
 BuildRequires: ninja,make
 %define __builder ninja
-# cmake_install,make_jobs is specified by opensuse
+# cmake_install is specified by opensuse. It also specifies make_jobs, but it
+# doesn't work with __builder as other rpm macro packages define it too.
+%define make_jobs ninja -v %{?_smp_mflags}
 
 # Tumbleweed's cmake RPM macro adds -Wl,--no-undefined to the module flags
 # which is totally inappropriate and breaks building 'ENABLE_EXPORTS' style
