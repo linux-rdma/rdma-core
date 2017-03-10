@@ -44,4 +44,10 @@
 #define SWITCH_FALLTHROUGH
 #endif
 
+#ifdef __CHECKER__
+# define __force __attribute__((force))
+#else
+# define __force
+#endif
+
 #endif

@@ -8,15 +8,10 @@
 #ifndef _ENDIAN_H_
 #define _ENDIAN_H_
 
-#ifdef __CHECKER__
-# define __force __attribute__((force))
-#else
-# define __force
-#endif
-
 #include_next <endian.h>
 #include <stdint.h>
 #include <linux/types.h> /* __be16, __be32 and __be64 */
+#include <util/compiler.h> /* __force */
 
 static inline uint16_t rdma_be16toh(uint16_t val) { return be16toh(val); }
 static inline uint32_t rdma_be32toh(uint32_t val) { return be32toh(val); }
