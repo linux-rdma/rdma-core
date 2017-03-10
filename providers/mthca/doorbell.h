@@ -33,6 +33,12 @@
 #ifndef DOORBELL_H
 #define DOORBELL_H
 
+#include <stdint.h>
+#include <pthread.h>
+#include "mthca.h"
+
+struct mthca_context;
+
 #ifdef __i386__
 
 static inline void mthca_write64(uint32_t val[2], struct mthca_context *ctx, int offset)

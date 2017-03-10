@@ -35,6 +35,7 @@
 #ifndef __OCRDMA_ABI_H__
 #define __OCRDMA_ABI_H__
 
+#include <stdint.h>
 #include <infiniband/kern-abi.h>
 
 #define OCRDMA_ABI_VERSION	2

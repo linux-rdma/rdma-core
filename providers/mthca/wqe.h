@@ -34,6 +34,8 @@
 #ifndef WQE_H
 #define WQE_H
 
+#include <stdint.h>
+
 enum {
 	MTHCA_SEND_DOORBELL	= 0x10,
 	MTHCA_RECV_DOORBELL	= 0x18

@@ -36,6 +36,7 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <endian.h>
+#include <stdio.h>
 #include <ccan/minmax.h>
 
 #include <infiniband/driver.h>

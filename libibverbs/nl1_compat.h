@@ -9,6 +9,8 @@
 #include <netlink/route/route.h>
 #include <netlink/route/neighbour.h>
 
+struct nl_handle;
+
 /* Workaround - declaration missing */
 extern int		rtnl_link_vlan_get_id(struct rtnl_link *);
 

@@ -35,7 +35,7 @@
 #define INDEXER_H
 
 #include <config.h>
-
+#include <stddef.h>
 #include <sys/types.h>
 
 /*

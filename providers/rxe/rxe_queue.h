@@ -37,6 +37,7 @@
 #ifndef H_RXE_PCQ
 #define H_RXE_PCQ
 
+#include <stdint.h>
 #include <stdatomic.h>
 
 /* MUST MATCH kernel struct rxe_pqc in rxe_queue.h */

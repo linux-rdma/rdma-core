@@ -32,9 +32,8 @@
 
 #ifndef __QED_HSI_RDMA__
 #define __QED_HSI_RDMA__
-/************************************************************************/
-/* Add include to common rdma target for both eCore and protocol rdma driver */
-/************************************************************************/
+
+#include "common_hsi.h"
 #include "rdma_common.h"
 
 /*

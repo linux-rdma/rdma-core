@@ -34,6 +34,7 @@
 #define MLX5_ABI_H
 
 #include <infiniband/kern-abi.h>
+#include <infiniband/verbs.h>
 
 #define MLX5_UVERBS_MIN_ABI_VERSION	1
 #define MLX5_UVERBS_MAX_ABI_VERSION	1

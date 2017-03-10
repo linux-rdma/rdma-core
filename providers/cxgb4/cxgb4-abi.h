@@ -32,6 +32,7 @@
 #ifndef IWCH_ABI_H
 #define IWCH_ABI_H
 
+#include <stdint.h>
 #include <infiniband/kern-abi.h>
 
 struct c4iw_alloc_ucontext_resp {

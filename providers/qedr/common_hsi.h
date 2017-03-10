@@ -32,6 +32,10 @@
 
 #ifndef __COMMON_HSI__
 #define __COMMON_HSI__
+
+#include <stdint.h>
+#include <linux/types.h>
+
 /********************************/
 /* PROTOCOL COMMON FW CONSTANTS */
 /********************************/

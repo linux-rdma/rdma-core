@@ -33,6 +33,8 @@
 #ifndef WQE_H
 #define WQE_H
 
+#include <stdint.h>
+
 enum {
 	MLX4_SEND_DOORBELL	= 0x14,
 };

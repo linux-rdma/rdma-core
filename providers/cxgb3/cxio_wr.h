@@ -32,7 +32,9 @@
 #ifndef __CXIO_WR_H__
 #define __CXIO_WR_H__
 
+#include <stddef.h>
 #include <arpa/inet.h> 			/* For htonl() and friends */
+#include <util/udma_barrier.h>
 #include "firmware_exports.h"
 
 #define T3_MAX_NUM_QP (1<<15)

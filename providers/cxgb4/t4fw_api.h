@@ -35,6 +35,8 @@
 #ifndef _T4FW_INTERFACE_H_
 #define _T4FW_INTERFACE_H_
 
+#include <linux/types.h>
+
 enum fw_retval {
 	FW_SUCCESS		= 0,	/* completed successfully */
 	FW_EPERM		= 1,	/* operation not permitted */

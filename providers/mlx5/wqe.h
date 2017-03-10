@@ -33,6 +33,8 @@
 #ifndef WQE_H
 #define WQE_H
 
+#include <stdint.h>
+
 struct mlx5_sg_copy_ptr {
 	int	index;
 	int	offset;
