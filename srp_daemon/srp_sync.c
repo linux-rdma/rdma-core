@@ -117,7 +117,8 @@ void sync_resources_cleanup(struct sync_resources *res)
 	pthread_mutex_destroy(&res->mutex);
 }
 
-void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid, uint16_t pkey)
+void push_gid_to_list(struct sync_resources *res, union umad_gid *gid,
+		      uint16_t pkey)
 {
 	int i;
 
@@ -202,8 +203,8 @@ void clear_traps_list(struct sync_resources *res)
 
 
 /* assumes that res->mutex is locked !!! */
-int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid,
-		  uint16_t *pkey)
+int pop_from_list(struct sync_resources *res, uint16_t *lid,
+		  union umad_gid *gid, uint16_t *pkey)
 {
 	int ret=0;
 	int i;
