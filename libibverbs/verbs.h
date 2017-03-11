@@ -50,7 +50,7 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
-#if __GNUC__ >= 3
+#if __GNUC__ >= 3 && !defined(__CHECKER__)
 #  define __attribute_const __attribute__((const))
 #else
 #  define __attribute_const
