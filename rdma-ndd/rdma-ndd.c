@@ -291,9 +291,9 @@ int main(int argc, char *argv[])
 	while (1) {
 		int opt_idx = 0;
 		static struct option long_opts[] = {
-			{"foreground",   0, 0, 'f' },
-			{"help",         0, 0, 'h' },
-			{"debug",         0, 0, 'd' },
+			{ "foreground",   0, NULL, 'f' },
+			{ "help",         0, NULL, 'h' },
+			{ "debug",        0, NULL, 'd' },
 			{ }
 		};
 
