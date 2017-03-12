@@ -33,6 +33,7 @@
 *******************************************************************************/
 
 #include <stdint.h>
+#include <stdatomic.h>
 
 #include "i40iw_osdep.h"
 #include "i40iw_status.h"
@@ -91,7 +92,14 @@ void i40iw_qp_post_wr(struct i40iw_qp_uk *qp)
 	u32 hw_sq_tail;
 	u32 sw_sq_head;
 
-	udma_to_device_barrier(); /* valid bit is written and loads completed before reading shadow */
+	/* valid bit is written and loads completed before reading shadow
+	 *
+	 * Whatever is happening here does not match our common macros for
+	 * producer/consumer DMA and may not be portable, however on x86-64
+	 * the required barrier is MFENCE, get a 'portable' version via C11
+	 * atomic.
+	 */
+	atomic_thread_fence(memory_order_seq_cst);
 
 	/* read the doorbell shadow area */
 	get_64bit_val(qp->shadow_area, I40IW_BYTE_0, &temp);
