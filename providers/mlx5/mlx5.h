@@ -184,6 +184,10 @@ enum mlx5_vendor_cap_flags {
 	MLX5_VENDOR_CAP_FLAGS_MPW		= 1 << 0,
 };
 
+enum {
+	MLX5_FLOW_TAG_MASK	= 0x000fffff,
+};
+
 struct mlx5_resource {
 	enum mlx5_rsc_type	type;
 	uint32_t		rsn;

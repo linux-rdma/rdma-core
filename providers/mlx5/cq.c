@@ -1196,6 +1196,13 @@ static inline uint16_t mlx5_cq_read_wc_cvlan(struct ibv_cq_ex *ibcq)
 	return be16toh(cq->cqe64->vlan_info);
 }
 
+static inline uint32_t mlx5_cq_read_flow_tag(struct ibv_cq_ex *ibcq)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+
+	return be32toh(cq->cqe64->sop_drop_qpn) & MLX5_FLOW_TAG_MASK;
+}
+
 #define BIT(i) (1UL << (i))
 
 #define SINGLE_THREADED BIT(0)
@@ -1270,6 +1277,8 @@ void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_
 		cq->ibv_cq.read_completion_ts = mlx5_cq_read_wc_completion_ts;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_CVLAN)
 		cq->ibv_cq.read_cvlan = mlx5_cq_read_wc_cvlan;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_FLOW_TAG)
+		cq->ibv_cq.read_flow_tag = mlx5_cq_read_flow_tag;
 }
 
 int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
