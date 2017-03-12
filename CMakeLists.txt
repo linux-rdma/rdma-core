@@ -119,6 +119,7 @@ include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 include(CheckTypeSize)
 include(RDMA_EnableCStd)
+include(RDMA_Sparse)
 include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
@@ -132,6 +133,9 @@ endif()
 # Setup the basic C compiler
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
+
+RDMA_CheckSparse()
+message(STATUS "SPARSE1 ${HAVE_SPARSE}")
 
 # Require GNU99 mode
 RDMA_EnableCStd()
@@ -204,7 +208,12 @@ CHECK_C_SOURCE_COMPILES("
   FAIL_REGEX "warning")
 
 # Provide a shim if C11 stdatomic.h is not supported.
-CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
+# Note, when using sparse the gcc stdatomic.h produces sparse errors
+CHECK_C_SOURCE_COMPILES("
+ #include <stdatomic.h>
+ int main(int argc,const char *argv[]) { return 0}"
+  HAVE_STDATOMIC
+  FAIL_REGEX "error")
 RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
 
 # Enable development support features

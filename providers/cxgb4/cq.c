@@ -35,7 +35,6 @@
 #include <syslog.h>
 #include <pthread.h>
 #include <sys/errno.h>
-#include <netinet/in.h>
 #include <infiniband/opcode.h>
 #include <util/compiler.h>
 #include "libcxgb4.h"
@@ -48,12 +47,12 @@ static void insert_recv_cqe(struct t4_wq *wq, struct t4_cq *cq)
 	PDBG("%s wq %p cq %p sw_cidx %u sw_pidx %u\n", __func__,
 	     wq, cq, cq->sw_cidx, cq->sw_pidx);
 	memset(&cqe, 0, sizeof(cqe));
-	cqe.header = cpu_to_be32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
+	cqe.header = htobe32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
 			         V_CQE_OPCODE(FW_RI_SEND) |
 				 V_CQE_TYPE(0) |
 				 V_CQE_SWCQE(1) |
 				 V_CQE_QPID(wq->sq.qid));
-	cqe.bits_type_ts = cpu_to_be64(V_CQE_GENBIT((u64)cq->gen));
+	cqe.bits_type_ts = htobe64(V_CQE_GENBIT((u64)cq->gen));
 	cq->sw_queue[cq->sw_pidx] = cqe;
 	t4_swcq_produce(cq);
 }
@@ -81,13 +80,13 @@ static void insert_sq_cqe(struct t4_wq *wq, struct t4_cq *cq,
 	PDBG("%s wq %p cq %p sw_cidx %u sw_pidx %u\n", __func__,
 	     wq, cq, cq->sw_cidx, cq->sw_pidx);
 	memset(&cqe, 0, sizeof(cqe));
-	cqe.header = cpu_to_be32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
+	cqe.header = htobe32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
 			         V_CQE_OPCODE(swcqe->opcode) |
 			         V_CQE_TYPE(1) |
 			         V_CQE_SWCQE(1) |
 			         V_CQE_QPID(wq->sq.qid));
 	CQE_WRID_SQ_IDX(&cqe) = swcqe->idx;
-	cqe.bits_type_ts = cpu_to_be64(V_CQE_GENBIT((u64)cq->gen));
+	cqe.bits_type_ts = htobe64(V_CQE_GENBIT((u64)cq->gen));
 	cq->sw_queue[cq->sw_pidx] = cqe;
 	t4_swcq_produce(cq);
 }
@@ -150,7 +149,7 @@ static void flush_completed_wrs(struct t4_wq *wq, struct t4_cq *cq)
 			PDBG("%s moving cqe into swcq sq idx %u cq idx %u\n",
 			     __func__, cidx, cq->sw_pidx);
 
-			swsqe->cqe.header |= htonl(V_CQE_SWCQE(1));
+			swsqe->cqe.header |= htobe32(V_CQE_SWCQE(1));
 			cq->sw_queue[cq->sw_pidx] = swsqe->cqe;
 			t4_swcq_produce(cq);
 			swsqe->flushed = 1;
@@ -166,8 +165,8 @@ static void create_read_req_cqe(struct t4_wq *wq, struct t4_cqe *hw_cqe,
 				struct t4_cqe *read_cqe)
 {
 	read_cqe->u.scqe.cidx = wq->sq.oldest_read->idx;
-	read_cqe->len = ntohl(wq->sq.oldest_read->read_len);
-	read_cqe->header = htonl(V_CQE_QPID(CQE_QPID(hw_cqe)) |
+	read_cqe->len = be32toh(wq->sq.oldest_read->read_len);
+	read_cqe->header = htobe32(V_CQE_QPID(CQE_QPID(hw_cqe)) |
 				 V_CQE_SWCQE(SW_CQE(hw_cqe)) |
 				 V_CQE_OPCODE(FW_RI_READ_REQ) |
 				 V_CQE_TYPE(1));
@@ -274,7 +273,7 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp)
 		} else {
 			swcqe = &chp->cq.sw_queue[chp->cq.sw_pidx];
 			*swcqe = *hw_cqe;
-			swcqe->header |= cpu_to_be32(V_CQE_SWCQE(1));
+			swcqe->header |= htobe32(V_CQE_SWCQE(1));
 			t4_swcq_produce(&chp->cq);
 		}
 next_cqe:
@@ -322,10 +321,10 @@ static void dump_cqe(void *arg)
 {
 	u64 *p = arg;
 	syslog(LOG_NOTICE, "cxgb4 err cqe %016llx %016llx %016llx %016llx\n",
-	       (long long)be64_to_cpu(p[0]),
-	       (long long)be64_to_cpu(p[1]),
-	       (long long)be64_to_cpu(p[2]),
-	       (long long)be64_to_cpu(p[3]));
+	       (long long)be64toh(p[0]),
+	       (long long)be64toh(p[1]),
+	       (long long)be64toh(p[2]),
+	       (long long)be64toh(p[3]));
 }
 
 /*
@@ -462,7 +461,7 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 		}
 		if (unlikely((CQE_WRID_MSN(hw_cqe) != (wq->rq.msn)))) {
 			t4_set_wq_in_error(wq);
-			hw_cqe->header |= htonl(V_CQE_STATUS(T4_ERR_MSN));
+			hw_cqe->header |= htobe32(V_CQE_STATUS(T4_ERR_MSN));
 			goto proc_cqe;
 		}
 		goto proc_cqe;

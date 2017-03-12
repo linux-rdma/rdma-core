@@ -33,6 +33,9 @@
 #ifndef _HNS_ROCE_U_HW_V1_H
 #define _HNS_ROCE_U_HW_V1_H
 
+#include <stdint.h>
+#include <linux/types.h>
+
 #define HNS_ROCE_CQ_DB_REQ_SOL			1
 #define HNS_ROCE_CQ_DB_REQ_NEXT			0
 

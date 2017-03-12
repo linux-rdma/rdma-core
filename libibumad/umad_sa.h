@@ -138,9 +138,9 @@ struct umad_sa_packet {
 	struct umad_hdr		mad_hdr;
 	struct umad_rmpp_hdr	rmpp_hdr;
 	uint8_t			sm_key[8]; /* network-byte order */
-	be16_t			attr_offset;
-	be16_t			reserved;
-	be64_t			comp_mask;
+	__be16			attr_offset;
+	__be16			reserved;
+	__be64			comp_mask;
 	uint8_t 		data[UMAD_LEN_SA_DATA]; /* network-byte order */
 };
 

@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 			{"foreground",   0, 0, 'f' },
 			{"help",         0, 0, 'h' },
 			{"debug",         0, 0, 'd' },
-			{0,              0, 0,  0 }
+			{ }
 		};
 
 		char c = getopt_long(argc, argv, "fh", long_opts, &opt_idx);

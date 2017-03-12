@@ -313,11 +313,11 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 	*mapped_port = *new_port;
 	iwpm_debug(IWARP_PM_ALL_DBG, "get_iwpm_tcp_port: Open tcp port "
 		"(addr family = %04X, requested port = %04X, mapped port = %04X).\n",
-		addr_family, ntohs(requested_port), ntohs(*mapped_port));
+		addr_family, be16toh(requested_port), be16toh(*mapped_port));
 	return 0;
 get_tcp_port_error:
 	syslog(LOG_WARNING, "get_iwpm_tcp_port: %s (addr family = %04X, requested port = %04X).\n",
-				str_err, addr_family, ntohs(requested_port));
+				str_err, addr_family, be16toh(requested_port));
 	return -errno;
 }
 

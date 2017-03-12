@@ -452,13 +452,13 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	memcpy(&dest_addr.s_sockaddr, remote_addr, sizeof(struct sockaddr_storage));
 	switch (dest_addr.s_sockaddr.ss_family) {
 	case AF_INET:
-		dest_addr.v4_sockaddr.sin_port = htons(IWARP_PM_PORT);
+		dest_addr.v4_sockaddr.sin_port = htobe16(IWARP_PM_PORT);
 		msg_parms.ip_ver = 4;
 		msg_parms.address_family = AF_INET;
 		pm_client_sock = pmv4_client_sock;
 		break;
 	case AF_INET6:
-		dest_addr.v6_sockaddr.sin6_port = htons(IWARP_PM_PORT);
+		dest_addr.v6_sockaddr.sin6_port = htobe16(IWARP_PM_PORT);
 		msg_parms.ip_ver = 6;
 		msg_parms.address_family = AF_INET6;
 		pm_client_sock = pmv6_client_sock;
@@ -478,7 +478,7 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	msg_parms.ver = 0;
 	iwpm_debug(IWARP_PM_WIRE_DBG, "process_query_mapping: Local port = 0x%04X, "
 			"remote port = 0x%04X\n",
-			ntohs(msg_parms.cpport), ntohs(msg_parms.apport));
+			be16toh(msg_parms.cpport), be16toh(msg_parms.apport));
 	ret = -ENOMEM;
         send_msg = (iwpm_send_msg *)malloc(sizeof(iwpm_send_msg));
 	if (!send_msg) {

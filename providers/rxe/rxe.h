@@ -36,6 +36,12 @@
 #ifndef RXE_H
 #define RXE_H
 
+#include <infiniband/driver.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <rdma/rdma_user_rxe.h> /* struct rxe_av */
+#include "rxe-abi.h"
+
 enum rdma_network_type {
 	RDMA_NETWORK_IB,
 	RDMA_NETWORK_IPV4,

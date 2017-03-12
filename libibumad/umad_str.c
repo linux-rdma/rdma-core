@@ -33,8 +33,8 @@
  *
  */
 
+#include <endian.h>
 #include <stdio.h>
-#include <arpa/inet.h>
 #include <infiniband/umad.h>
 #include <infiniband/umad_types.h>
 #include <infiniband/umad_sm.h>
@@ -139,9 +139,9 @@ const char * umad_method_str(uint8_t mgmt_class, uint8_t method)
 	return (umad_common_method_str(method));
 }
 
-const char * umad_common_mad_status_str(be16_t status)
+const char * umad_common_mad_status_str(__be16 status)
 {
-	status = ntohs(status);
+	status = be16toh(status);
 
 	if (status & UMAD_STATUS_BUSY)
 		return ("Busy");
@@ -162,9 +162,9 @@ const char * umad_common_mad_status_str(be16_t status)
 	return ("Success");
 }
 
-const char * umad_sa_mad_status_str(be16_t status)
+const char * umad_sa_mad_status_str(__be16 status)
 {
-	status = ntohs(status);
+	status = be16toh(status);
 	switch((status & UMAD_STATUS_CLASS_MASK) >> 8) {
 		case UMAD_SA_STATUS_SUCCESS:
 			return ("Success");
@@ -188,9 +188,9 @@ const char * umad_sa_mad_status_str(be16_t status)
 	return ("Undefined Error");
 }
 
-static const char *umad_common_attr_str(be16_t attr_id)
+static const char *umad_common_attr_str(__be16 attr_id)
 {
-	switch(ntohs(attr_id)) {
+	switch(be16toh(attr_id)) {
 		case UMAD_ATTR_CLASS_PORT_INFO:
 			return "Class Port Info";
 		case UMAD_ATTR_NOTICE:
@@ -202,9 +202,9 @@ static const char *umad_common_attr_str(be16_t attr_id)
 	}
 }
 
-static const char * umad_sm_attr_str(be16_t attr_id)
+static const char * umad_sm_attr_str(__be16 attr_id)
 {
-	switch(ntohs(attr_id)) {
+	switch(be16toh(attr_id)) {
 		case UMAD_SM_ATTR_NODE_DESC:
 			return ("NodeDescription");
 		case UMAD_SM_ATTR_NODE_INFO:
@@ -249,9 +249,9 @@ static const char * umad_sm_attr_str(be16_t attr_id)
 	return ("<unknown>");
 }
 
-static const char * umad_sa_attr_str(be16_t attr_id)
+static const char * umad_sa_attr_str(__be16 attr_id)
 {
-	switch(ntohs(attr_id)) {
+	switch(be16toh(attr_id)) {
 		case UMAD_SA_ATTR_NODE_REC:
 			return ("NodeRecord");
 		case UMAD_SA_ATTR_PORT_INFO_REC:
@@ -304,9 +304,9 @@ static const char * umad_sa_attr_str(be16_t attr_id)
 	return ("<unknown>");
 }
 
-static const char * umad_cm_attr_str(be16_t attr_id)
+static const char * umad_cm_attr_str(__be16 attr_id)
 {
-	switch(ntohs(attr_id)) {
+	switch(be16toh(attr_id)) {
 		case UMAD_CM_ATTR_REQ:
 			return "ConnectRequest";
 		case UMAD_CM_ATTR_MRA:
@@ -339,7 +339,7 @@ static const char * umad_cm_attr_str(be16_t attr_id)
 	return ("<unknown>");
 }
 
-const char * umad_attribute_str(uint8_t mgmt_class, be16_t attr_id)
+const char * umad_attribute_str(uint8_t mgmt_class, __be16 attr_id)
 {
 	switch (mgmt_class) {
 		case UMAD_CLASS_SUBN_LID_ROUTED:

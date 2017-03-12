@@ -32,6 +32,7 @@
  */
 #include <config.h>
 
+#include <endian.h>
 #include <inttypes.h>
 #include <string.h>
 #include <errno.h>
@@ -41,7 +42,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <netinet/in.h>
 #include "sysfs.h"
 
 static int ret_code(void)
@@ -79,7 +79,7 @@ int sys_read_string(const char *dir_name, const char *file_name, char *str, int 
 	return 0;
 }
 
-int sys_read_guid(const char *dir_name, const char *file_name, uint64_t * net_guid)
+int sys_read_guid(const char *dir_name, const char *file_name, __be64 *net_guid)
 {
 	char buf[32], *str, *s;
 	uint64_t guid;
@@ -113,7 +113,7 @@ int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid)
 	for (s = buf, i = 0; i < 8; i++) {
 		if (!(str = strsep(&s, ": \t\n")))
 			return -EINVAL;
-		ugid[i] = htons(strtoul(str, NULL, 16) & 0xffff);
+		ugid[i] = htobe16(strtoul(str, NULL, 16) & 0xffff);
 	}
 
 	return 0;

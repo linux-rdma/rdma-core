@@ -34,6 +34,9 @@
 #ifndef DOORBELL_H
 #define DOORBELL_H
 
+#include <stdint.h>
+#include "mlx5.h"
+
 #if SIZEOF_LONG == 8
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN

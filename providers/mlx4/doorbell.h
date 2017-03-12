@@ -33,7 +33,12 @@
 #ifndef DOORBELL_H
 #define DOORBELL_H
 
+#include <stdint.h>
+#include <pthread.h>
+#include "mlx4.h"
 #include "mmio.h"
+
+struct mlx4_context;
 
 #if SIZEOF_LONG == 8
 

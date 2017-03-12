@@ -34,7 +34,7 @@
 #define _RDMA_IB_H
 
 #include <linux/types.h>
-#include <arpa/inet.h>
+#include <endian.h>
 #include <string.h>
 
 #ifndef AF_IB
@@ -42,16 +42,6 @@
 #endif
 #ifndef PF_IB
 #define PF_IB AF_IB
-#endif
-
-#ifndef __be16
-#define __be16 __u16
-#endif
-#ifndef __be32
-#define __be32 __u32
-#endif
-#ifndef __be64
-#define __be64 __u64
 #endif
 
 struct ib_addr {
@@ -78,7 +68,7 @@ static inline int ib_addr_any(const struct ib_addr *a)
 static inline int ib_addr_loopback(const struct ib_addr *a)
 {
 	return ((a->sib_addr32[0] | a->sib_addr32[1] |
-		 a->sib_addr32[2] | (a->sib_addr32[3] ^ htonl(1))) == 0);
+		 a->sib_addr32[2] | (a->sib_addr32[3] ^ htobe32(1))) == 0);
 }
 
 static inline void ib_addr_set(struct ib_addr *addr,

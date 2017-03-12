@@ -111,7 +111,7 @@ int create_iwpm_socket_v4(__u16 bind_port)
 	bind_in4 = &bind_addr.v4_sockaddr;
 	bind_in4->sin_family = AF_INET;
 	bind_in4->sin_addr.s_addr = INADDR_ANY;
-	bind_in4->sin_port = htons(bind_port);
+	bind_in4->sin_port = htobe16(bind_port);
 
 	if (bind(pm_sock, &bind_addr.sock_addr, sizeof(struct sockaddr_in))) {
 		syslog(LOG_WARNING, "create_iwpm_socket_v4: Unable to bind socket (port = %u). %s.\n",
@@ -133,7 +133,7 @@ int create_iwpm_socket_v4(__u16 bind_port)
 
 	iwpm_debug(IWARP_PM_WIRE_DBG, "create_iwpm_socket_v4: Socket IP address:port %s:%u\n",
 		inet_ntop(bind_in4->sin_family, &bind_in4->sin_addr.s_addr, ip_address_text,
-			INET6_ADDRSTRLEN), ntohs(bind_in4->sin_port));
+			INET6_ADDRSTRLEN), be16toh(bind_in4->sin_port));
 create_socket_v4_exit:
 	return pm_sock;
 }
@@ -176,7 +176,7 @@ int create_iwpm_socket_v6(__u16 bind_port)
 	bind_in6 = &bind_addr.v6_sockaddr;
 	bind_in6->sin6_family = AF_INET6;
 	bind_in6->sin6_addr = in6addr_any;
-	bind_in6->sin6_port = htons(bind_port);
+	bind_in6->sin6_port = htobe16(bind_port);
 
 	if (bind(pm_sock, &bind_addr.sock_addr, sizeof(struct sockaddr_in6))) {
 		syslog(LOG_WARNING, "create_iwpm_socket_v6: Unable to bind socket (port = %u). %s.\n", 
@@ -198,7 +198,7 @@ int create_iwpm_socket_v6(__u16 bind_port)
 
 	iwpm_debug(IWARP_PM_WIRE_DBG, "create_iwpm_socket_v6: Socket IP address:port %s:%04X\n",
 		inet_ntop(bind_in6->sin6_family, &bind_in6->sin6_addr, ip_address_text,
-			INET6_ADDRSTRLEN), ntohs(bind_in6->sin6_port));
+			INET6_ADDRSTRLEN), be16toh(bind_in6->sin6_port));
 create_socket_v6_exit:
 	return pm_sock;
 }
@@ -618,13 +618,13 @@ void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, const char *msg,
 		sockaddr_v4 = (struct sockaddr_in *)sockaddr;
 		iwpm_debug(dbg_flag, "%s IPV4 %s:%u(0x%04X)\n", msg,
 			inet_ntop(AF_INET, &sockaddr_v4->sin_addr, ip_address_text, INET6_ADDRSTRLEN),
-			ntohs(sockaddr_v4->sin_port), ntohs(sockaddr_v4->sin_port));
+			be16toh(sockaddr_v4->sin_port), be16toh(sockaddr_v4->sin_port));
 		break;
 	case AF_INET6:
 		sockaddr_v6 = (struct sockaddr_in6 *)sockaddr;
 		iwpm_debug(dbg_flag, "%s IPV6 %s:%u(0x%04X)\n", msg,
 			inet_ntop(AF_INET6, &sockaddr_v6->sin6_addr, ip_address_text, INET6_ADDRSTRLEN),
-			ntohs(sockaddr_v6->sin6_port), ntohs(sockaddr_v6->sin6_port));
+			be16toh(sockaddr_v6->sin6_port), be16toh(sockaddr_v6->sin6_port));
 		break;
 	default:
 		break;

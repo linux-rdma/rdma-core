@@ -27,6 +27,7 @@
  * SOFTWARE.
  */
 
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,7 +110,7 @@ static int test(void)
 	}
 
 	if (hints.ai_qp_type == IBV_QPT_XRC_SEND)
-		srqn = ntohl(*(uint32_t *) id->event->param.conn.private_data);
+		srqn = be32toh(*(uint32_t *) id->event->param.conn.private_data);
 
 	ret = post_send();
 	if (ret) {

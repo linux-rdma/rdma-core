@@ -34,14 +34,15 @@
 #define _GNU_SOURCE
 #include <config.h>
 
+#include <endian.h>
 #include <stdio.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <linux/ip.h>
 #include <dirent.h>
+#include <netinet/in.h>
 
 #include "ibverbs.h"
 #ifndef NRESOLVE_NEIGH
@@ -187,7 +188,7 @@ int __ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 	if (sscanf(attr, "%hx", &val) != 1)
 		return -1;
 
-	*pkey = htons(val);
+	*pkey = htobe16(val);
 	return 0;
 }
 default_symver(__ibv_query_pkey, ibv_query_pkey);
@@ -676,7 +677,7 @@ static inline void map_ipv4_addr_to_ipv6(__be32 ipv4, struct in6_addr *ipv6)
 {
 	ipv6->s6_addr32[0] = 0;
 	ipv6->s6_addr32[1] = 0;
-	ipv6->s6_addr32[2] = htonl(0x0000FFFF);
+	ipv6->s6_addr32[2] = htobe32(0x0000FFFF);
 	ipv6->s6_addr32[3] = ipv4;
 }
 
@@ -695,7 +696,7 @@ static inline uint16_t ipv4_calc_hdr_csum(uint16_t *data, unsigned int num_hword
 
 static inline int get_grh_header_version(struct ibv_grh *grh)
 {
-	int ip6h_version = (ntohl(grh->version_tclass_flow) >> 28) & 0xf;
+	int ip6h_version = (be32toh(grh->version_tclass_flow) >> 28) & 0xf;
 	struct iphdr *ip4h = (struct iphdr *)((void *)grh + 20);
 	struct iphdr ip4h_checked;
 
@@ -732,7 +733,7 @@ static inline void set_ah_attr_generic_fields(struct ibv_ah_attr *ah_attr,
 {
 	uint32_t flow_class;
 
-	flow_class = ntohl(grh->version_tclass_flow);
+	flow_class = be32toh(grh->version_tclass_flow);
 	ah_attr->grh.flow_label = flow_class & 0xFFFFF;
 	ah_attr->dlid = wc->slid;
 	ah_attr->sl = wc->sl;
@@ -748,7 +749,7 @@ static inline int set_ah_attr_by_ipv4(struct ibv_context *context,
 	int ret;
 
 	/* No point searching multicast GIDs in GID table */
-	if (IN_CLASSD(ntohl(ip4h->daddr))) {
+	if (IN_CLASSD(be32toh(ip4h->daddr))) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -799,7 +800,7 @@ static inline int set_ah_attr_by_ipv6(struct ibv_context *context,
 		return ret;
 
 	ah_attr->grh.sgid_index = (uint8_t) ret;
-	flow_class = ntohl(grh->version_tclass_flow);
+	flow_class = be32toh(grh->version_tclass_flow);
 	ah_attr->grh.hop_limit = grh->hop_limit;
 	ah_attr->grh.traffic_class = (flow_class >> 20) & 0xFF;
 
@@ -869,9 +870,9 @@ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 {
 	return IN6_IS_ADDR_V4MAPPED(&a->s6_addr32) ||
 		/* IPv4 encoded multicast addresses */
-		(a->s6_addr32[0]  == htonl(0xff0e0000) &&
+		(a->s6_addr32[0]  == htobe32(0xff0e0000) &&
 		((a->s6_addr32[1] |
-		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL));
+		 (a->s6_addr32[2] ^ htobe32(0x0000ffff))) == 0UL));
 }
 
 struct peer_address {

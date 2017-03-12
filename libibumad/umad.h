@@ -34,9 +34,11 @@
 #ifndef _UMAD_H
 #define _UMAD_H
 
+#include <endian.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <linux/types.h> /* __be16, __be32 and __be64 */
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -48,16 +50,16 @@
 
 BEGIN_C_DECLS
 
-typedef uint16_t be16_t;
-typedef uint32_t be32_t;
-typedef uint64_t be64_t;
+typedef __be16 __attribute__((deprecated)) be16_t;
+typedef __be32 __attribute__((deprecated)) be32_t;
+typedef __be64 __attribute__((deprecated)) be64_t;
 
 #define UMAD_MAX_DEVICES 32
 #define UMAD_ANY_PORT	0
 typedef struct ib_mad_addr {
-	be32_t qpn;
-	be32_t qkey;
-	be16_t lid;
+	__be32 qpn;
+	__be32 qkey;
+	__be16 lid;
 	uint8_t sl;
 	uint8_t path_bits;
 	uint8_t grh_present;
@@ -65,8 +67,8 @@ typedef struct ib_mad_addr {
 	uint8_t hop_limit;
 	uint8_t traffic_class;
 	uint8_t gid[16]; /* network-byte order */
-	be32_t flow_label;
-	be16_t pkey_index;
+	__be32 flow_label;
+	__be16 pkey_index;
 	uint8_t reserved[6];
 } ib_mad_addr_t;
 
@@ -153,8 +155,8 @@ typedef struct umad_ca {
 	char fw_ver[20];
 	char ca_type[40];
 	char hw_ver[20];
-	uint64_t node_guid;
-	uint64_t system_guid;
+	__be64 node_guid;
+	__be64 system_guid;
 	umad_port_t *ports[UMAD_CA_MAX_PORTS];
 } umad_ca_t;
 

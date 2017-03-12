@@ -32,12 +32,12 @@
 
 #include <config.h>
 
+#include <endian.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
-#include <netinet/in.h>
 
 #include "mlx4.h"
 #include "mlx4-abi.h"
@@ -113,9 +113,9 @@ static int mlx4_read_clock(struct ibv_context *context, uint64_t *cycles)
 
 	/* Handle wraparound */
 	for (i = 0; i < 2; i++) {
-		clockhi = ntohl(READL(ctx->hca_core_clock));
-		clocklo = ntohl(READL(ctx->hca_core_clock + 4));
-		clockhi1 = ntohl(READL(ctx->hca_core_clock));
+		clockhi = be32toh(READL(ctx->hca_core_clock));
+		clocklo = be32toh(READL(ctx->hca_core_clock + 4));
+		clockhi1 = be32toh(READL(ctx->hca_core_clock));
 		if (clockhi == clockhi1)
 			break;
 	}
@@ -888,9 +888,9 @@ struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 	if (attr->qp_type != IBV_QPT_XRC_RECV)
 		mlx4_set_sq_sizes(qp, &attr->cap, attr->qp_type);
 
-	qp->doorbell_qpn    = htonl(qp->verbs_qp.qp.qp_num << 8);
+	qp->doorbell_qpn    = htobe32(qp->verbs_qp.qp.qp_num << 8);
 	if (attr->sq_sig_all)
-		qp->sq_signal_bits = htonl(MLX4_WQE_CTRL_CQ_UPDATE);
+		qp->sq_signal_bits = htobe32(MLX4_WQE_CTRL_CQ_UPDATE);
 	else
 		qp->sq_signal_bits = 0;
 
@@ -1126,7 +1126,7 @@ static int link_local_gid(const union ibv_gid *gid)
 	uint32_t hi = tmp[0];
 	uint32_t lo = tmp[1];
 
-	if (hi == htonl(0xfe800000) && lo == 0)
+	if (hi == htobe32(0xfe800000) && lo == 0)
 		return 1;
 
 	return 0;
@@ -1168,15 +1168,15 @@ static int mlx4_resolve_grh_to_l2(struct ibv_pd *pd, struct mlx4_ah *ah,
 		if (err)
 			return err;
 
-		ah->av.dlid = htons(0xc000);
-		ah->av.port_pd |= htonl(1 << 31);
+		ah->av.dlid = htobe16(0xc000);
+		ah->av.port_pd |= htobe32(1 << 31);
 
 		vid = get_vlan_id(&sgid);
 	} else
 		return 1;
 
 	if (vid != 0xffff) {
-		ah->av.port_pd |= htonl(1 << 29);
+		ah->av.port_pd |= htobe32(1 << 29);
 		ah->vlan = vid | ((attr->sl & 7) << 13);
 	}
 
@@ -1197,14 +1197,14 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 
 	memset(&ah->av, 0, sizeof ah->av);
 
-	ah->av.port_pd   = htonl(to_mpd(pd)->pdn | (attr->port_num << 24));
+	ah->av.port_pd   = htobe32(to_mpd(pd)->pdn | (attr->port_num << 24));
 
 	if (port_attr.link_layer != IBV_LINK_LAYER_ETHERNET) {
 		ah->av.g_slid = attr->src_path_bits;
-		ah->av.dlid   = htons(attr->dlid);
-		ah->av.sl_tclass_flowlabel = htonl(attr->sl << 28);
+		ah->av.dlid   = htobe16(attr->dlid);
+		ah->av.sl_tclass_flowlabel = htobe32(attr->sl << 28);
 	} else
-		ah->av.sl_tclass_flowlabel = htonl(attr->sl << 29);
+		ah->av.sl_tclass_flowlabel = htobe32(attr->sl << 29);
 
 	if (attr->static_rate) {
 		ah->av.stat_rate = attr->static_rate + MLX4_STAT_RATE_OFFSET;
@@ -1215,7 +1215,7 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		ah->av.gid_index = attr->grh.sgid_index;
 		ah->av.hop_limit = attr->grh.hop_limit;
 		ah->av.sl_tclass_flowlabel |=
-			htonl((attr->grh.traffic_class << 20) |
+			htobe32((attr->grh.traffic_class << 20) |
 				    attr->grh.flow_label);
 		memcpy(ah->av.dgid, attr->grh.dgid.raw, 16);
 	}
@@ -1231,7 +1231,7 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 			}
 
 			if (vid <= 0xfff) {
-				ah->av.port_pd |= htonl(1 << 29);
+				ah->av.port_pd |= htobe32(1 << 29);
 				ah->vlan = vid |
 					((attr->sl & 7) << 13);
 			}

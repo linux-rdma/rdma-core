@@ -34,6 +34,7 @@
 #ifndef IWARP_PM_H
 #define IWARP_PM_H
 
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,11 +42,9 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/stat.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <linux/netlink.h>
-#include <linux/byteorder/big_endian.h>
 #include <netlink/attr.h>
 #include <signal.h>
 #include <ifaddrs.h>

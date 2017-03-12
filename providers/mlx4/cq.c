@@ -37,7 +37,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <netinet/in.h>
 #include <string.h>
 
 #include <util/compiler.h>
@@ -121,7 +120,7 @@ static enum ibv_wc_status mlx4_handle_error_cqe(struct mlx4_err_cqe *cqe)
 		printf(PFX "local QP operation err "
 		       "(QPN %06x, WQE index %x, vendor syndrome %02x, "
 		       "opcode = %02x)\n",
-		       htonl(cqe->vlan_my_qpn), htonl(cqe->wqe_index),
+		       htobe32(cqe->vlan_my_qpn), htobe32(cqe->wqe_index),
 		       cqe->vendor_err,
 		       cqe->owner_sr_opcode & ~MLX4_CQE_OWNER_MASK);
 
@@ -176,7 +175,7 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx4_cqe *cqe)
 		break;
 	case MLX4_OPCODE_RDMA_READ:
 		wc->opcode    = IBV_WC_RDMA_READ;
-		wc->byte_len  = ntohl(cqe->byte_cnt);
+		wc->byte_len  = be32toh(cqe->byte_cnt);
 		break;
 	case MLX4_OPCODE_ATOMIC_CS:
 		wc->opcode    = IBV_WC_COMP_SWAP;
@@ -252,7 +251,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 	enum ibv_wc_status *pstatus;
 
 	mctx = to_mctx(cq->ibv_cq.context);
-	qpn = ntohl(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
+	qpn = be32toh(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
 	if (lazy) {
 		cq->cqe = cqe;
 		cq->flags &= (~MLX4_CQ_FLAGS_RX_CSUM_VALID);
@@ -270,7 +269,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 		 * from the table.
 		 */
 		srq = mlx4_find_xsrq(&mctx->xsrq_table,
-				     ntohl(cqe->g_mlpath_rqpn) & MLX4_CQE_QPN_MASK);
+				     be32toh(cqe->g_mlpath_rqpn) & MLX4_CQE_QPN_MASK);
 		if (!srq)
 			return CQ_POLL_ERR;
 	} else {
@@ -290,12 +289,12 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 	pwr_id = lazy ? &cq->ibv_cq.wr_id : &wc->wr_id;
 	if (is_send) {
 		wq = &(*cur_qp)->sq;
-		wqe_index = ntohs(cqe->wqe_index);
+		wqe_index = be16toh(cqe->wqe_index);
 		wq->tail += (uint16_t) (wqe_index - (uint16_t) wq->tail);
 		*pwr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
 	} else if (srq) {
-		wqe_index = htons(cqe->wqe_index);
+		wqe_index = htobe16(cqe->wqe_index);
 		*pwr_id = srq->wrid[wqe_index];
 		mlx4_free_srq_wqe(srq, wqe_index);
 	} else {
@@ -321,7 +320,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 	} else if (is_send) {
 		handle_good_req(wc, cqe);
 	} else {
-		wc->byte_len = ntohl(cqe->byte_cnt);
+		wc->byte_len = be32toh(cqe->byte_cnt);
 
 		switch (cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) {
 		case MLX4_RECV_OPCODE_RDMA_WRITE_IMM:
@@ -332,7 +331,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 		case MLX4_RECV_OPCODE_SEND_INVAL:
 			wc->opcode   = IBV_WC_RECV;
 			wc->wc_flags |= IBV_WC_WITH_INV;
-			wc->imm_data = ntohl(cqe->immed_rss_invalid);
+			wc->imm_data = be32toh(cqe->immed_rss_invalid);
 			break;
 		case MLX4_RECV_OPCODE_SEND:
 			wc->opcode   = IBV_WC_RECV;
@@ -345,23 +344,23 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 			break;
 		}
 
-		wc->slid	   = ntohs(cqe->rlid);
-		g_mlpath_rqpn	   = ntohl(cqe->g_mlpath_rqpn);
+		wc->slid	   = be16toh(cqe->rlid);
+		g_mlpath_rqpn	   = be32toh(cqe->g_mlpath_rqpn);
 		wc->src_qp	   = g_mlpath_rqpn & 0xffffff;
 		wc->dlid_path_bits = (g_mlpath_rqpn >> 24) & 0x7f;
 		wc->wc_flags	  |= g_mlpath_rqpn & 0x80000000 ? IBV_WC_GRH : 0;
-		wc->pkey_index     = ntohl(cqe->immed_rss_invalid) & 0x7f;
+		wc->pkey_index     = be32toh(cqe->immed_rss_invalid) & 0x7f;
 		/* When working with xrc srqs, don't have qp to check link layer.
 		* Using IB SL, should consider Roce. (TBD)
 		*/
 		if ((*cur_qp) && (*cur_qp)->link_layer == IBV_LINK_LAYER_ETHERNET)
-			wc->sl	   = ntohs(cqe->sl_vid) >> 13;
+			wc->sl	   = be16toh(cqe->sl_vid) >> 13;
 		else
-			wc->sl	   = ntohs(cqe->sl_vid) >> 12;
+			wc->sl	   = be16toh(cqe->sl_vid) >> 12;
 
 		if ((*cur_qp) && ((*cur_qp)->qp_cap_cache & MLX4_RX_CSUM_VALID)) {
-			wc->wc_flags |= ((cqe->status & htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) ==
-				 htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) <<
+			wc->wc_flags |= ((cqe->status & htobe32(MLX4_CQE_STATUS_IPV4_CSUM_OK)) ==
+				 htobe32(MLX4_CQE_STATUS_IPV4_CSUM_OK)) <<
 				IBV_WC_IP_CSUM_OK_SHIFT;
 		}
 	}
@@ -542,7 +541,7 @@ static uint32_t mlx4_cq_read_wc_qp_num(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohl(cq->cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
+	return be32toh(cq->cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
 }
 
 static int mlx4_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
@@ -561,8 +560,8 @@ static int mlx4_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 	} else {
 		if (cq->flags & MLX4_CQ_FLAGS_RX_CSUM_VALID)
 			wc_flags |= ((cq->cqe->status &
-				htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) ==
-				htonl(MLX4_CQE_STATUS_IPV4_CSUM_OK)) <<
+				htobe32(MLX4_CQE_STATUS_IPV4_CSUM_OK)) ==
+				htobe32(MLX4_CQE_STATUS_IPV4_CSUM_OK)) <<
 				IBV_WC_IP_CSUM_OK_SHIFT;
 
 		switch (cq->cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) {
@@ -574,7 +573,7 @@ static int mlx4_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 			wc_flags |= IBV_WC_WITH_INV;
 			break;
 		}
-		wc_flags |= (ntohl(cq->cqe->g_mlpath_rqpn) & 0x80000000) ? IBV_WC_GRH : 0;
+		wc_flags |= (be32toh(cq->cqe->g_mlpath_rqpn) & 0x80000000) ? IBV_WC_GRH : 0;
 	}
 
 	return wc_flags;
@@ -584,7 +583,7 @@ static uint32_t mlx4_cq_read_wc_byte_len(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohl(cq->cqe->byte_cnt);
+	return be32toh(cq->cqe->byte_cnt);
 }
 
 static uint32_t mlx4_cq_read_wc_vendor_err(struct ibv_cq_ex *ibcq)
@@ -601,7 +600,7 @@ static uint32_t mlx4_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
 
 	switch (cq->cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) {
 	case MLX4_RECV_OPCODE_SEND_INVAL:
-		return ntohl(cq->cqe->immed_rss_invalid);
+		return be32toh(cq->cqe->immed_rss_invalid);
 	default:
 		return cq->cqe->immed_rss_invalid;
 	}
@@ -611,7 +610,7 @@ static uint32_t mlx4_cq_read_wc_slid(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return (uint32_t)ntohs(cq->cqe->rlid);
+	return (uint32_t)be16toh(cq->cqe->rlid);
 }
 
 static uint8_t mlx4_cq_read_wc_sl(struct ibv_cq_ex *ibcq)
@@ -619,30 +618,30 @@ static uint8_t mlx4_cq_read_wc_sl(struct ibv_cq_ex *ibcq)
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
 	if ((cq->cur_qp) && (cq->cur_qp->link_layer == IBV_LINK_LAYER_ETHERNET))
-		return ntohs(cq->cqe->sl_vid) >> 13;
+		return be16toh(cq->cqe->sl_vid) >> 13;
 	else
-		return ntohs(cq->cqe->sl_vid) >> 12;
+		return be16toh(cq->cqe->sl_vid) >> 12;
 }
 
 static uint32_t mlx4_cq_read_wc_src_qp(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohl(cq->cqe->g_mlpath_rqpn) & 0xffffff;
+	return be32toh(cq->cqe->g_mlpath_rqpn) & 0xffffff;
 }
 
 static uint8_t mlx4_cq_read_wc_dlid_path_bits(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return (ntohl(cq->cqe->g_mlpath_rqpn) >> 24) & 0x7f;
+	return (be32toh(cq->cqe->g_mlpath_rqpn) >> 24) & 0x7f;
 }
 
 static uint64_t mlx4_cq_read_wc_completion_ts(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ((uint64_t)ntohl(cq->cqe->ts_47_16) << 16) |
+	return ((uint64_t)be32toh(cq->cqe->ts_47_16) << 16) |
 			       (cq->cqe->ts_15_8   <<  8) |
 			       (cq->cqe->ts_7_0);
 }
@@ -692,7 +691,7 @@ int mlx4_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	ci  = cq->cons_index & 0xffffff;
 	cmd = solicited ? MLX4_CQ_DB_REQ_NOT_SOL : MLX4_CQ_DB_REQ_NOT;
 
-	*cq->arm_db = htonl(sn << 28 | cmd | ci);
+	*cq->arm_db = htobe32(sn << 28 | cmd | ci);
 
 	/*
 	 * Make sure that the doorbell record in host memory is
@@ -700,8 +699,8 @@ int mlx4_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 */
 	udma_to_device_barrier();
 
-	doorbell[0] = htonl(sn << 28 | cmd | cq->cqn);
-	doorbell[1] = htonl(ci);
+	doorbell[0] = htobe32(sn << 28 | cmd | cq->cqn);
+	doorbell[1] = htobe32(ci);
 
 	mlx4_write64(doorbell, to_mctx(ibvcq->context), MLX4_CQ_DOORBELL);
 
@@ -740,13 +739,13 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
 		cqe += cqe_inc;
 		if (srq && srq->ext_srq &&
-		    ntohl(cqe->g_mlpath_rqpn & MLX4_CQE_QPN_MASK) == srq->verbs_srq.srq_num &&
+		    be32toh(cqe->g_mlpath_rqpn & MLX4_CQE_QPN_MASK) == srq->verbs_srq.srq_num &&
 		    !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK)) {
-			mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
+			mlx4_free_srq_wqe(srq, be16toh(cqe->wqe_index));
 			++nfreed;
-		} else if ((ntohl(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK) == qpn) {
+		} else if ((be32toh(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK) == qpn) {
 			if (srq && !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK))
-				mlx4_free_srq_wqe(srq, ntohs(cqe->wqe_index));
+				mlx4_free_srq_wqe(srq, be16toh(cqe->wqe_index));
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe);

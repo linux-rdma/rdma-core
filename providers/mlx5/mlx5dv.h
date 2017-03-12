@@ -33,12 +33,8 @@
 #ifndef _MLX5DV_H_
 #define _MLX5DV_H_
 
-/* For __be64 type */
-#include <linux/types.h>
-/* For htonl/htons */
-#include <arpa/inet.h>
-/* Some system requires this file instead of arpa/inet.h */
-#include <netinet/in.h>
+#include <linux/types.h> /* For the __be64 type */
+#include <endian.h>
 #if defined(__SSE3__)
 #include <emmintrin.h>
 #include <tmmintrin.h>
@@ -441,15 +437,15 @@ void mlx5dv_set_ctrl_seg(struct mlx5_wqe_ctrl_seg *seg, uint16_t pi,
 			 uint8_t fm_ce_se, uint8_t ds,
 			 uint8_t signature, uint32_t imm)
 {
-	seg->opmod_idx_opcode	= htonl(((uint32_t)opmod << 24) | ((uint32_t)pi << 8) | opcode);
-	seg->qpn_ds		= htonl((qp_num << 8) | ds);
+	seg->opmod_idx_opcode	= htobe32(((uint32_t)opmod << 24) | ((uint32_t)pi << 8) | opcode);
+	seg->qpn_ds		= htobe32((qp_num << 8) | ds);
 	seg->fm_ce_se		= fm_ce_se;
 	seg->signature		= signature;
 	/*
 	 * The caller should prepare "imm" in advance based on WR opcode.
 	 * For IBV_WR_SEND_WITH_IMM and IBV_WR_RDMA_WRITE_WITH_IMM,
 	 * the "imm" should be assigned as is.
-	 * For the IBV_WR_SEND_WITH_INV, it should be htonl(imm).
+	 * For the IBV_WR_SEND_WITH_INV, it should be htobe32(imm).
 	 */
 	seg->imm		= imm;
 }
@@ -515,14 +511,14 @@ void mlx5dv_set_dgram_seg(struct mlx5_wqe_datagram_seg *seg,
 
 	/* Always put 64 bits, in q_key, the reserved part will be 0 */
 	seg->av.key.dc_key	= htobe64(key);
-	seg->av.dqp_dct		= htonl(((uint32_t)ext << 31) | dqp_dct);
+	seg->av.dqp_dct		= htobe32(((uint32_t)ext << 31) | dqp_dct);
 	seg->av.stat_rate_sl	= stat_rate_sl;
 	seg->av.fl_mlid		= fl_mlid;
-	seg->av.rlid		= htons(rlid);
+	seg->av.rlid		= htobe16(rlid);
 	memcpy(seg->av.rmac, rmac, 6);
 	seg->av.tclass		= tclass;
 	seg->av.hop_limit	= hop_limit;
-	seg->av.grh_gid_fl	= htonl(grh_gid_fi);
+	seg->av.grh_gid_fl	= htobe32(grh_gid_fi);
 	memcpy(seg->av.rgid, rgid, 16);
 }
 
@@ -536,8 +532,8 @@ void mlx5dv_set_data_seg(struct mlx5_wqe_data_seg *seg,
 			 uint32_t length, uint32_t lkey,
 			 uintptr_t address)
 {
-	seg->byte_count = htonl(length);
-	seg->lkey       = htonl(lkey);
+	seg->byte_count = htobe32(length);
+	seg->lkey       = htobe32(lkey);
 	seg->addr       = htobe64(address);
 }
 /*
@@ -583,8 +579,8 @@ void mlx5dv_set_eth_seg(struct mlx5_wqe_eth_seg *seg, uint8_t cs_flags,
 			uint8_t *inline_hdr_start)
 {
 	seg->cs_flags		= cs_flags;
-	seg->mss		= htons(mss);
-	seg->inline_hdr_sz	= htons(inline_hdr_sz);
+	seg->mss		= htobe16(mss);
+	seg->inline_hdr_sz	= htobe16(inline_hdr_sz);
 	memcpy(seg->inline_hdr_start, inline_hdr_start, inline_hdr_sz);
 }
 #endif /* _MLX5DV_H_ */

@@ -33,7 +33,6 @@
 #include <config.h>
 
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
 
@@ -54,7 +53,7 @@ void mlx4_free_srq_wqe(struct mlx4_srq *srq, int ind)
 	pthread_spin_lock(&srq->lock);
 
 	next = get_wqe(srq, srq->tail);
-	next->next_wqe_index = htons(ind);
+	next->next_wqe_index = htobe16(ind);
 	srq->tail = ind;
 
 	pthread_spin_unlock(&srq->lock);
@@ -90,18 +89,18 @@ int mlx4_post_srq_recv(struct ibv_srq *ibsrq,
 		srq->wrid[srq->head] = wr->wr_id;
 
 		next      = get_wqe(srq, srq->head);
-		srq->head = ntohs(next->next_wqe_index);
+		srq->head = be16toh(next->next_wqe_index);
 		scat      = (struct mlx4_wqe_data_seg *) (next + 1);
 
 		for (i = 0; i < wr->num_sge; ++i) {
-			scat[i].byte_count = htonl(wr->sg_list[i].length);
-			scat[i].lkey       = htonl(wr->sg_list[i].lkey);
+			scat[i].byte_count = htobe32(wr->sg_list[i].length);
+			scat[i].lkey       = htobe32(wr->sg_list[i].lkey);
 			scat[i].addr       = htobe64(wr->sg_list[i].addr);
 		}
 
 		if (i < srq->max_gs) {
 			scat[i].byte_count = 0;
-			scat[i].lkey       = htonl(MLX4_INVALID_LKEY);
+			scat[i].lkey       = htobe32(MLX4_INVALID_LKEY);
 			scat[i].addr       = 0;
 		}
 	}
@@ -115,7 +114,7 @@ int mlx4_post_srq_recv(struct ibv_srq *ibsrq,
 		 */
 		udma_to_device_barrier();
 
-		*srq->db = htonl(srq->counter);
+		*srq->db = htobe32(srq->counter);
 	}
 
 	pthread_spin_unlock(&srq->lock);
@@ -159,12 +158,12 @@ int mlx4_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 
 	for (i = 0; i < srq->max; ++i) {
 		next = get_wqe(srq, i);
-		next->next_wqe_index = htons((i + 1) & (srq->max - 1));
+		next->next_wqe_index = htobe16((i + 1) & (srq->max - 1));
 
 		for (scatter = (void *) (next + 1);
 		     (void *) scatter < (void *) next + (1 << srq->wqe_shift);
 		     ++scatter)
-			scatter->lkey = htonl(MLX4_INVALID_LKEY);
+			scatter->lkey = htobe32(MLX4_INVALID_LKEY);
 	}
 
 	srq->head = 0;

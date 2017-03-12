@@ -32,7 +32,6 @@
 #include <config.h>
 
 #include <stdio.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <sys/errno.h>
 
@@ -69,7 +68,7 @@ static inline void flush_completed_wrs(struct t3_wq *wq, struct t3_cq *cq)
 			/* 
 			 * Insert this completed cqe into the swcq.
 			 */
-			sqp->cqe.header |= htonl(V_CQE_SWCQE(1));
+			sqp->cqe.header |= htobe32(V_CQE_SWCQE(1));
 			*(cq->sw_queue + Q_PTR2IDX(cq->sw_wptr, cq->size_log2)) 
 				= sqp->cqe;
 			cq->sw_wptr++;
@@ -86,7 +85,7 @@ static inline void create_read_req_cqe(struct t3_wq *wq,
 {
 	CQE_WRID_SQ_WPTR(*read_cqe) = wq->oldest_read->sq_wptr;
 	read_cqe->len = wq->oldest_read->read_len;
-	read_cqe->header = htonl(V_CQE_QPID(CQE_QPID(*hw_cqe)) |
+	read_cqe->header = htobe32(V_CQE_QPID(CQE_QPID(*hw_cqe)) |
 				 V_CQE_SWCQE(SW_CQE(*hw_cqe)) |
 				 V_CQE_OPCODE(T3_READ_REQ) |
 				 V_CQE_TYPE(1));
@@ -183,7 +182,7 @@ static inline int cxio_poll_cq(struct t3_wq *wq, struct t3_cq *cq,
 		 */
 		if ((CQE_WRID_MSN(*hw_cqe) != (wq->rq_rptr + 1))) {
 			t3_set_wq_in_error(wq);
-			hw_cqe->header |= htonl(V_CQE_STATUS(TPT_ERR_MSN));
+			hw_cqe->header |= htobe32(V_CQE_STATUS(TPT_ERR_MSN));
 		}
 		goto proc_cqe;
 	}

@@ -31,20 +31,18 @@
  * SOFTWARE.
  */
 #define _GNU_SOURCE
+#include <endian.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <semaphore.h>
-#include <arpa/inet.h>
 #include <pthread.h>
 #include <inttypes.h>
-
 #include <rdma/rdma_cma.h>
 
 static int debug = 0;
@@ -243,9 +241,9 @@ static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
 		return -1;
 	}
 
-	cb->remote_rkey = ntohl(cb->recv_buf.rkey);
+	cb->remote_rkey = be32toh(cb->recv_buf.rkey);
 	cb->remote_addr = be64toh(cb->recv_buf.buf);
-	cb->remote_len  = ntohl(cb->recv_buf.size);
+	cb->remote_len  = be32toh(cb->recv_buf.size);
 	DEBUG_LOG("Received rkey %x addr %" PRIx64 " len %d from peer\n",
 		  cb->remote_rkey, cb->remote_addr, cb->remote_len);
 
@@ -621,11 +619,11 @@ static void rping_format_send(struct rping_cb *cb, char *buf, struct ibv_mr *mr)
 	struct rping_rdma_info *info = &cb->send_buf;
 
 	info->buf = htobe64((uint64_t) (unsigned long) buf);
-	info->rkey = htonl(mr->rkey);
-	info->size = htonl(cb->size);
+	info->rkey = htobe32(mr->rkey);
+	info->size = htobe32(cb->size);
 
 	DEBUG_LOG("RDMA addr %" PRIx64" rkey %x len %d\n",
-		  be64toh(info->buf), ntohl(info->rkey), ntohl(info->size));
+		  be64toh(info->buf), be32toh(info->rkey), be32toh(info->size));
 }
 
 static int rping_test_server(struct rping_cb *cb)
@@ -1172,7 +1170,7 @@ int main(int argc, char *argv[])
 	cb->state = IDLE;
 	cb->size = 64;
 	cb->sin.ss_family = PF_INET;
-	cb->port = htons(7174);
+	cb->port = htobe16(7174);
 	sem_init(&cb->sem, 0, 0);
 
 	opterr = 0;
@@ -1185,7 +1183,7 @@ int main(int argc, char *argv[])
 			persistent_server = 1;
 			break;
 		case 'p':
-			cb->port = htons(atoi(optarg));
+			cb->port = htobe16(atoi(optarg));
 			DEBUG_LOG("port %d\n", (int) atoi(optarg));
 			break;
 		case 's':

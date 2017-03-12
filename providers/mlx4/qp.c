@@ -35,7 +35,6 @@
 #include <config.h>
 
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
@@ -98,7 +97,7 @@ void mlx4_qp_init_sq_ownership(struct mlx4_qp *qp)
 
 	for (i = 0; i < qp->sq.wqe_cnt; ++i) {
 		ctrl = get_send_wqe(qp, i);
-		ctrl->owner_opcode = htonl(1 << 31);
+		ctrl->owner_opcode = htobe32(1 << 31);
 		ctrl->fence_size = 1 << (qp->sq.wqe_shift - 4);
 
 		stamp_send_wqe(qp, i);
@@ -125,20 +124,20 @@ static void set_bind_seg(struct mlx4_wqe_bind_seg *bseg, struct ibv_send_wr *wr)
 	int acc = wr->bind_mw.bind_info.mw_access_flags;
 	bseg->flags1 = 0;
 	if (acc & IBV_ACCESS_REMOTE_ATOMIC)
-		bseg->flags1 |= htonl(MLX4_WQE_MW_ATOMIC);
+		bseg->flags1 |= htobe32(MLX4_WQE_MW_ATOMIC);
 	if (acc & IBV_ACCESS_REMOTE_WRITE)
-		bseg->flags1 |= htonl(MLX4_WQE_MW_REMOTE_WRITE);
+		bseg->flags1 |= htobe32(MLX4_WQE_MW_REMOTE_WRITE);
 	if (acc & IBV_ACCESS_REMOTE_READ)
-		bseg->flags1 |= htonl(MLX4_WQE_MW_REMOTE_READ);
+		bseg->flags1 |= htobe32(MLX4_WQE_MW_REMOTE_READ);
 
 	bseg->flags2 = 0;
 	if (((struct ibv_mw *)(wr->bind_mw.mw))->type == IBV_MW_TYPE_2)
-		bseg->flags2 |= htonl(MLX4_WQE_BIND_TYPE_2);
+		bseg->flags2 |= htobe32(MLX4_WQE_BIND_TYPE_2);
 	if (acc & IBV_ACCESS_ZERO_BASED)
-		bseg->flags2 |= htonl(MLX4_WQE_BIND_ZERO_BASED);
+		bseg->flags2 |= htobe32(MLX4_WQE_BIND_ZERO_BASED);
 
-	bseg->new_rkey = htonl(wr->bind_mw.rkey);
-	bseg->lkey = htonl(wr->bind_mw.bind_info.mr->lkey);
+	bseg->new_rkey = htobe32(wr->bind_mw.rkey);
+	bseg->lkey = htobe32(wr->bind_mw.bind_info.mr->lkey);
 	bseg->addr = htobe64((uint64_t) wr->bind_mw.bind_info.addr);
 	bseg->length = htobe64(wr->bind_mw.bind_info.length);
 }
@@ -146,7 +145,7 @@ static void set_bind_seg(struct mlx4_wqe_bind_seg *bseg, struct ibv_send_wr *wr)
 static inline void set_local_inv_seg(struct mlx4_wqe_local_inval_seg *iseg,
 		uint32_t rkey)
 {
-	iseg->mem_key	= htonl(rkey);
+	iseg->mem_key	= htobe32(rkey);
 
 	iseg->reserved1    = 0;
 	iseg->reserved2    = 0;
@@ -158,7 +157,7 @@ static inline void set_raddr_seg(struct mlx4_wqe_raddr_seg *rseg,
 				 uint64_t remote_addr, uint32_t rkey)
 {
 	rseg->raddr    = htobe64(remote_addr);
-	rseg->rkey     = htonl(rkey);
+	rseg->rkey     = htobe32(rkey);
 	rseg->reserved = 0;
 }
 
@@ -178,22 +177,22 @@ static void set_datagram_seg(struct mlx4_wqe_datagram_seg *dseg,
 			     struct ibv_send_wr *wr)
 {
 	memcpy(dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof (struct mlx4_av));
-	dseg->dqpn = htonl(wr->wr.ud.remote_qpn);
-	dseg->qkey = htonl(wr->wr.ud.remote_qkey);
-	dseg->vlan = htons(to_mah(wr->wr.ud.ah)->vlan);
+	dseg->dqpn = htobe32(wr->wr.ud.remote_qpn);
+	dseg->qkey = htobe32(wr->wr.ud.remote_qkey);
+	dseg->vlan = htobe16(to_mah(wr->wr.ud.ah)->vlan);
 	memcpy(dseg->mac, to_mah(wr->wr.ud.ah)->mac, 6);
 }
 
 static void __set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
-	dseg->byte_count = htonl(sg->length);
-	dseg->lkey       = htonl(sg->lkey);
+	dseg->byte_count = htobe32(sg->length);
+	dseg->lkey       = htobe32(sg->lkey);
 	dseg->addr       = htobe64(sg->addr);
 }
 
 static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
-	dseg->lkey       = htonl(sg->lkey);
+	dseg->lkey       = htobe32(sg->lkey);
 	dseg->addr       = htobe64(sg->addr);
 
 	/*
@@ -207,9 +206,9 @@ static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 	udma_ordering_write_barrier();
 
 	if (likely(sg->length))
-		dseg->byte_count = htonl(sg->length);
+		dseg->byte_count = htobe32(sg->length);
 	else
-		dseg->byte_count = htonl(0x80000000);
+		dseg->byte_count = htobe32(0x80000000);
 }
 
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
@@ -259,9 +258,9 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		ctrl->srcrb_flags =
 			(wr->send_flags & IBV_SEND_SIGNALED ?
-			 htonl(MLX4_WQE_CTRL_CQ_UPDATE) : 0) |
+			 htobe32(MLX4_WQE_CTRL_CQ_UPDATE) : 0) |
 			(wr->send_flags & IBV_SEND_SOLICITED ?
-			 htonl(MLX4_WQE_CTRL_SOLICIT) : 0)   |
+			 htobe32(MLX4_WQE_CTRL_SOLICIT) : 0)   |
 			qp->sq_signal_bits;
 
 		if (wr->opcode == IBV_WR_SEND_WITH_IMM ||
@@ -308,7 +307,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				break;
 			case IBV_WR_LOCAL_INV:
 				ctrl->srcrb_flags |=
-					htonl(MLX4_WQE_CTRL_STRONG_ORDER);
+					htobe32(MLX4_WQE_CTRL_STRONG_ORDER);
 				set_local_inv_seg(wqe, wr->imm_data);
 				wqe  += sizeof
 					(struct mlx4_wqe_local_inval_seg);
@@ -317,7 +316,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				break;
 			case IBV_WR_BIND_MW:
 				ctrl->srcrb_flags |=
-					htonl(MLX4_WQE_CTRL_STRONG_ORDER);
+					htobe32(MLX4_WQE_CTRL_STRONG_ORDER);
 				set_bind_seg(wqe, wr);
 				wqe  += sizeof
 					(struct mlx4_wqe_bind_seg);
@@ -325,7 +324,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					(struct mlx4_wqe_bind_seg) / 16;
 				break;
 			case IBV_WR_SEND_WITH_INV:
-				ctrl->imm = htonl(wr->imm_data);
+				ctrl->imm = htobe32(wr->imm_data);
 				break;
 
 			default:
@@ -345,7 +344,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					*bad_wr = wr;
 					goto out;
 				}
-				ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_IP_HDR_CSUM |
+				ctrl->srcrb_flags |= htobe32(MLX4_WQE_CTRL_IP_HDR_CSUM |
 							   MLX4_WQE_CTRL_TCP_UDP_CSUM);
 			}
 			break;
@@ -353,14 +352,14 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		case IBV_QPT_RAW_PACKET:
 			/* For raw eth, the MLX4_WQE_CTRL_SOLICIT flag is used
 			 * to indicate that no icrc should be calculated */
-			ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_SOLICIT);
+			ctrl->srcrb_flags |= htobe32(MLX4_WQE_CTRL_SOLICIT);
 			if (wr->send_flags & IBV_SEND_IP_CSUM) {
 				if (!(qp->qp_cap_cache & MLX4_CSUM_SUPPORT_RAW_OVER_ETH)) {
 					ret = EINVAL;
 					*bad_wr = wr;
 					goto out;
 				}
-				ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_IP_HDR_CSUM |
+				ctrl->srcrb_flags |= htobe32(MLX4_WQE_CTRL_IP_HDR_CSUM |
 							   MLX4_WQE_CTRL_TCP_UDP_CSUM);
 			}
 			break;
@@ -404,7 +403,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					addr += to_copy;
 					seg_len += to_copy;
 					udma_ordering_write_barrier(); /* see comment below */
-					seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
+					seg->byte_count = htobe32(MLX4_INLINE_SEG | seg_len);
 					seg_len = 0;
 					seg = wqe;
 					wqe += sizeof *seg;
@@ -432,7 +431,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				 * data.
 				 */
 				udma_ordering_write_barrier();
-				seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
+				seg->byte_count = htobe32(MLX4_INLINE_SEG | seg_len);
 			}
 
 			size += (inl + num_seg * sizeof * seg + 15) / 16;
@@ -455,8 +454,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		 */
 		udma_ordering_write_barrier();
 
-		ctrl->owner_opcode = htonl(mlx4_ib_opcode[wr->opcode]) |
-			(ind & qp->sq.wqe_cnt ? htonl(1 << 31) : 0);
+		ctrl->owner_opcode = htobe32(mlx4_ib_opcode[wr->opcode]) |
+			(ind & qp->sq.wqe_cnt ? htobe32(1 << 31) : 0);
 
 		/*
 		 * We can improve latency by not stamping the last
@@ -474,7 +473,7 @@ out:
 	ctx = to_mctx(ibqp->context);
 
 	if (nreq == 1 && inl && size > 1 && size <= ctx->bf_buf_size / 16) {
-		ctrl->owner_opcode |= htonl((qp->sq.head & 0xffff) << 8);
+		ctrl->owner_opcode |= htobe32((qp->sq.head & 0xffff) << 8);
 
 		ctrl->bf_qpn |= qp->doorbell_qpn;
 		/*
@@ -552,7 +551,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		if (i < qp->rq.max_gs) {
 			scat[i].byte_count = 0;
-			scat[i].lkey       = htonl(MLX4_INVALID_LKEY);
+			scat[i].lkey       = htobe32(MLX4_INVALID_LKEY);
 			scat[i].addr       = 0;
 		}
 
@@ -571,7 +570,7 @@ out:
 		 */
 		udma_to_device_barrier();
 
-		*qp->db = htonl(qp->rq.head & 0xffff);
+		*qp->db = htobe32(qp->rq.head & 0xffff);
 	}
 
 	pthread_spin_unlock(&qp->rq.lock);

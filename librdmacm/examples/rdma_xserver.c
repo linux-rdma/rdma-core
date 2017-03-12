@@ -27,6 +27,7 @@
  * SOFTWARE.
  */
 
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +35,6 @@
 #include <getopt.h>
 #include <netdb.h>
 #include <ctype.h>
-#include <netinet/in.h>
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
 
@@ -63,7 +63,7 @@ static int create_srq(void)
 
 	if (id->srq) {
 		ibv_get_srq_num(id->srq, &srqn);
-		srqn = htonl(srqn);
+		srqn = htobe32(srqn);
 	}
 	return ret;
 }

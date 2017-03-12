@@ -37,7 +37,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -216,7 +215,7 @@ static int post_sends(struct cmatest_node *node, int signal_flag)
 	send_wr.opcode = IBV_WR_SEND_WITH_IMM;
 	send_wr.send_flags = signal_flag;
 	send_wr.wr_id = (unsigned long)node;
-	send_wr.imm_data = htonl(node->cma_id->qp->qp_num);
+	send_wr.imm_data = htobe32(node->cma_id->qp->qp_num);
 
 	send_wr.wr.ud.ah = node->ah;
 	send_wr.wr.ud.remote_qpn = node->remote_qpn;

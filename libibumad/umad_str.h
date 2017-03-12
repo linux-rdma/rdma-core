@@ -48,10 +48,10 @@ BEGIN_C_DECLS
 
 const char * umad_class_str(uint8_t mgmt_class);
 const char * umad_method_str(uint8_t mgmt_class, uint8_t method);
-const char * umad_attribute_str(uint8_t mgmt_class, be16_t attr_id);
+const char * umad_attribute_str(uint8_t mgmt_class, __be16 attr_id);
 
-const char * umad_common_mad_status_str(be16_t status);
-const char * umad_sa_mad_status_str(be16_t status);
+const char * umad_common_mad_status_str(__be16 status);
+const char * umad_sa_mad_status_str(__be16 status);
 
 END_C_DECLS
 #endif /* _UMAD_STR_H */

@@ -36,7 +36,6 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdio.h>
-#include <netinet/in.h>
 #include <util/compiler.h>
 #include "libcxgb4.h"
 
@@ -118,7 +117,7 @@ static int build_immd(struct t4_sq *sq, struct fw_ri_immd *immdp,
 	immdp->op = FW_RI_DATA_IMMD;
 	immdp->r1 = 0;
 	immdp->r2 = 0;
-	immdp->immdlen = cpu_to_be32(plen);
+	immdp->immdlen = htobe32(plen);
 	*plenp = plen;
 	return 0;
 }
@@ -134,14 +133,14 @@ static int build_isgl(struct fw_ri_isgl *isglp, struct ibv_sge *sg_list,
 		if ((plen + sg_list[i].length) < plen)
 			return -EMSGSIZE;
 		plen += sg_list[i].length;
-		*flitp++ = cpu_to_be64(((u64)sg_list[i].lkey << 32) |
+		*flitp++ = htobe64(((u64)sg_list[i].lkey << 32) |
 				     sg_list[i].length);
-		*flitp++ = cpu_to_be64(sg_list[i].addr);
+		*flitp++ = htobe64(sg_list[i].addr);
 	}
 	*flitp = 0;
 	isglp->op = FW_RI_DATA_ISGL;
 	isglp->r1 = 0;
-	isglp->nsge = cpu_to_be16(num_sge);
+	isglp->nsge = htobe16(num_sge);
 	isglp->r2 = 0;
 	if (plenp)
 		*plenp = plen;
@@ -158,10 +157,10 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
 	if (wr->num_sge > T4_MAX_SEND_SGE)
 		return -EINVAL;
 	if (wr->send_flags & IBV_SEND_SOLICITED)
-		wqe->send.sendop_pkd = cpu_to_be32(
+		wqe->send.sendop_pkd = htobe32(
 			FW_RI_SEND_WR_SENDOP_V(FW_RI_SEND_WITH_SE));
 	else
-		wqe->send.sendop_pkd = cpu_to_be32(
+		wqe->send.sendop_pkd = htobe32(
 			FW_RI_SEND_WR_SENDOP_V(FW_RI_SEND));
 	wqe->send.stag_inv = 0;
 	wqe->send.r3 = 0;
@@ -193,7 +192,7 @@ static int build_rdma_send(struct t4_sq *sq, union t4_wr *wqe,
 		plen = 0;
 	}
 	*len16 = DIV_ROUND_UP(size, 16);
-	wqe->send.plen = cpu_to_be32(plen);
+	wqe->send.plen = htobe32(plen);
 	return 0;
 }
 
@@ -207,8 +206,8 @@ static int build_rdma_write(struct t4_sq *sq, union t4_wr *wqe,
 	if (wr->num_sge > T4_MAX_SEND_SGE)
 		return -EINVAL;
 	wqe->write.r2 = 0;
-	wqe->write.stag_sink = cpu_to_be32(wr->wr.rdma.rkey);
-	wqe->write.to_sink = cpu_to_be64(wr->wr.rdma.remote_addr);
+	wqe->write.stag_sink = htobe32(wr->wr.rdma.rkey);
+	wqe->write.to_sink = htobe64(wr->wr.rdma.remote_addr);
 	if (wr->num_sge) {
 		if (wr->send_flags & IBV_SEND_INLINE) {
 			ret = build_immd(sq, wqe->write.u.immd_src, wr,
@@ -234,7 +233,7 @@ static int build_rdma_write(struct t4_sq *sq, union t4_wr *wqe,
 		plen = 0;
 	}
 	*len16 = DIV_ROUND_UP(size, 16);
-	wqe->write.plen = cpu_to_be32(plen);
+	wqe->write.plen = htobe32(plen);
 	return 0;
 }
 
@@ -243,18 +242,18 @@ static int build_rdma_read(union t4_wr *wqe, struct ibv_send_wr *wr, u8 *len16)
 	if (wr->num_sge > 1)
 		return -EINVAL;
 	if (wr->num_sge) {
-		wqe->read.stag_src = cpu_to_be32(wr->wr.rdma.rkey);
-		wqe->read.to_src_hi = cpu_to_be32((u32)(wr->wr.rdma.remote_addr >>32));
-		wqe->read.to_src_lo = cpu_to_be32((u32)wr->wr.rdma.remote_addr);
-		wqe->read.stag_sink = cpu_to_be32(wr->sg_list[0].lkey);
-		wqe->read.plen = cpu_to_be32(wr->sg_list[0].length);
-		wqe->read.to_sink_hi = cpu_to_be32((u32)(wr->sg_list[0].addr >> 32));
-		wqe->read.to_sink_lo = cpu_to_be32((u32)(wr->sg_list[0].addr));
+		wqe->read.stag_src = htobe32(wr->wr.rdma.rkey);
+		wqe->read.to_src_hi = htobe32((u32)(wr->wr.rdma.remote_addr >>32));
+		wqe->read.to_src_lo = htobe32((u32)wr->wr.rdma.remote_addr);
+		wqe->read.stag_sink = htobe32(wr->sg_list[0].lkey);
+		wqe->read.plen = htobe32(wr->sg_list[0].length);
+		wqe->read.to_sink_hi = htobe32((u32)(wr->sg_list[0].addr >> 32));
+		wqe->read.to_sink_lo = htobe32((u32)(wr->sg_list[0].addr));
 	} else {
-		wqe->read.stag_src = cpu_to_be32(2);
+		wqe->read.stag_src = htobe32(2);
 		wqe->read.to_src_hi = 0;
 		wqe->read.to_src_lo = 0;
-		wqe->read.stag_sink = cpu_to_be32(2);
+		wqe->read.stag_sink = htobe32(2);
 		wqe->read.plen = 0;
 		wqe->read.to_sink_hi = 0;
 		wqe->read.to_sink_lo = 0;

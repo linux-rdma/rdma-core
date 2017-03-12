@@ -33,8 +33,8 @@
 #define _GNU_SOURCE
 #include <config.h>
 
+#include <endian.h>
 #include <stdio.h>
-#include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

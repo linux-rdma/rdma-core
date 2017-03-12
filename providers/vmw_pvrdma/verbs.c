@@ -43,6 +43,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <arpa/inet.h>
 #include "pvrdma.h"
 
 int pvrdma_query_device(struct ibv_context *context,
@@ -155,7 +156,7 @@ static int is_link_local_gid(const union ibv_gid *gid)
 {
 	uint32_t *hi = (uint32_t *)(gid->raw);
 	uint32_t *lo = (uint32_t *)(gid->raw + 4);
-	if (hi[0] == htonl(0xfe800000) && lo[0] == 0)
+	if (hi[0] == htobe32(0xfe800000) && lo[0] == 0)
 		return 1;
 
 	return 0;
@@ -165,9 +166,9 @@ static int is_ipv6_addr_v4mapped(const struct in6_addr *a)
 {
 	return IN6_IS_ADDR_V4MAPPED(&a->s6_addr32) ||
 		/* IPv4 encoded multicast addresses */
-		(a->s6_addr32[0] == htonl(0xff0e0000) &&
+		(a->s6_addr32[0] == htobe32(0xff0e0000) &&
 		((a->s6_addr32[1] |
-		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL));
+		 (a->s6_addr32[2] ^ htobe32(0x0000ffff))) == 0UL));
 }
 
 static void set_mac_from_gid(const union ibv_gid *gid,

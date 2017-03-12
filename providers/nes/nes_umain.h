@@ -382,15 +382,6 @@ int nes_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 int nes_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 void nes_async_event(struct ibv_async_event *event);
 
-static inline uint32_t cpu_to_le32(uint32_t x)
-{
-	return htole32(x);
-}
-static inline uint32_t le32_to_cpu(uint32_t x)
-{
-	return le32toh(x);
-}
-
 extern long int page_size;
 
 #endif				/* nes_umain_H */

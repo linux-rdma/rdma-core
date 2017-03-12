@@ -32,8 +32,8 @@
 #define _GNU_SOURCE
 #include <config.h>
 
+#include <endian.h>
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
 #include <strings.h>
@@ -142,7 +142,7 @@ out:
 
 void mthca_set_db_qn(uint32_t *db, enum mthca_db_type type, uint32_t qn)
 {
-	db[1] = htonl((qn << 8) | (type << 5));
+	db[1] = htobe32((qn << 8) | (type << 5));
 }
 
 void mthca_free_db(struct mthca_db_table *db_tab, enum mthca_db_type type, int db_index)

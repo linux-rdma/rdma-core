@@ -33,6 +33,7 @@
 #include <config.h>
 
 #include <assert.h>
+#include <endian.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -42,7 +43,6 @@
 #include <pthread.h>
 #include <malloc.h>
 #include <sys/mman.h>
-#include <netinet/in.h>
 #include <unistd.h>
 
 #include "qelr.h"
@@ -904,7 +904,7 @@ static inline void qelr_edpm_set_rdma_ext(struct qelr_qp *qp,
 		return;
 
 	edpm->rdma_ext->remote_va = htobe64(remote_addr);
-	edpm->rdma_ext->remote_key = htonl(rkey);
+	edpm->rdma_ext->remote_key = htobe32(rkey);
 	edpm->dpm_payload_offset += sizeof(*edpm->rdma_ext);
 	edpm->dpm_payload_size += sizeof(*edpm->rdma_ext);
 }
@@ -988,7 +988,7 @@ static void qelr_prepare_sq_inline_data(struct qelr_qp *qp,
 
 		if (wr->opcode == IBV_WR_RDMA_WRITE ||
 		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
-			edpm->rdma_ext->dma_length = htonl(data_size);
+			edpm->rdma_ext->dma_length = htobe32(data_size);
 	}
 }
 
@@ -1213,7 +1213,7 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 
 		swqe->wqe_size = 2;
 		swqe2 = (struct rdma_sq_send_wqe_2st *)qelr_chain_produce(&qp->sq.chain);
-		swqe->inv_key_or_imm_data = htonl(htole32(wr->imm_data));
+		swqe->inv_key_or_imm_data = htobe32(htole32(wr->imm_data));
 		qelr_edpm_set_inv_imm(qp, &edpm, swqe->inv_key_or_imm_data);
 		qelr_prepare_sq_send_data(qp, &edpm, data_size, swqe, swqe2, wr);
 		qelr_edpm_set_msg_data(qp, &edpm,
@@ -1243,7 +1243,7 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		rwqe = (struct rdma_sq_rdma_wqe_1st *)wqe;
 
 		rwqe->wqe_size = 2;
-		rwqe->imm_data = htonl(htole32(wr->imm_data));
+		rwqe->imm_data = htobe32(htole32(wr->imm_data));
 		qelr_edpm_set_rdma_ext(qp, &edpm, wr->wr.rdma.remote_addr,
 				       wr->wr.rdma.rkey);
 		qelr_edpm_set_inv_imm(qp, &edpm, rwqe->imm_data);
@@ -1705,7 +1705,7 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 			SWITCH_FALLTHROUGH;
 		case QELR_RESP_IMM:
 			wc->imm_data =
-				ntohl(le32toh(resp->imm_data_or_inv_r_Key));
+				be32toh(le32toh(resp->imm_data_or_inv_r_Key));
 			wc->wc_flags |= IBV_WC_WITH_IMM;
 			break;
 		case QELR_RESP_RDMA:

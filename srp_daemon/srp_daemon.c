@@ -51,7 +51,6 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <netinet/in.h>
 #include <linux/types.h>
 #include <endian.h>
 #include <errno.h>
@@ -180,7 +179,7 @@ static int srpd_sys_read_gid(const char *dir_name, const char *file_name,
 			     uint8_t *gid)
 {
 	char buf[64], *str, *s;
-	uint16_t *ugid = (uint16_t *)gid;
+	__be16 *ugid = (__be16 *)gid;
 	int r, i;
 
 	if ((r = srpd_sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
@@ -189,7 +188,7 @@ static int srpd_sys_read_gid(const char *dir_name, const char *file_name,
 	for (s = buf, i = 0 ; i < 8; i++) {
 		if (!(str = strsep(&s, ": \t\n")))
 			return -EINVAL;
-		ugid[i] = htons(strtoul(str, NULL, 16) & 0xffff);
+		ugid[i] = htobe16(strtoul(str, NULL, 16) & 0xffff);
 	}
 
 	return 0;
@@ -409,7 +408,7 @@ static int add_non_exist_target(struct target_details *target)
 	struct dirent *subdir;
 	char *subdir_name_ptr;
 	int prefix_len;
-	uint8_t dgid_val[16];
+	ib_gid_t dgid_val;
 	const int MAX_TARGET_CONFIG_STR_STRING = 255;
 	char target_config_str[MAX_TARGET_CONFIG_STR_STRING];
 	int len;
@@ -451,19 +450,21 @@ static int add_non_exist_target(struct target_details *target)
 		if (!check_equal_uint64(scsi_host_dir, "ioc_guid",
 					be64toh(target->ioc_prof.guid)))
 			continue;
-		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
+		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid",
+				      dgid_val.raw)) {
 			/*
 			 * In case this is an old kernel that does not have
 			 * orig_dgid in sysfs, use dgid instead (this is
 			 * problematic when there is a dgid redirection
 			 * by the CM)
 			 */
-			if (srpd_sys_read_gid(scsi_host_dir, "dgid", dgid_val))
+			if (srpd_sys_read_gid(scsi_host_dir, "dgid",
+					      dgid_val.raw))
 				continue;
 		}
-		if (htobe64(target->subnet_prefix) != *((uint64_t *) dgid_val))
+		if (htobe64(target->subnet_prefix) != dgid_val.unicast.prefix)
 			continue;
-		if (htobe64(target->h_guid) != *((uint64_t *) (dgid_val+8)))
+		if (htobe64(target->h_guid) != dgid_val.unicast.interface_id)
 			continue;
 
 		/* If there is no local_ib_device in the scsi host dir (old kernel module), assumes it is equal */
@@ -528,10 +529,10 @@ static int add_non_exist_target(struct target_details *target)
 		return -1;
 	}
 
-	if (target->ioc_prof.io_class != htons(SRP_REV16A_IB_IO_CLASS)) {
+	if (target->ioc_prof.io_class != htobe16(SRP_REV16A_IB_IO_CLASS)) {
 		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
-				",io_class=%04hx", ntohs(target->ioc_prof.io_class));
+				",io_class=%04hx", be16toh(target->ioc_prof.io_class));
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 			pr_err("Target config string is too long, ignoring target\n");
@@ -544,7 +545,7 @@ static int add_non_exist_target(struct target_details *target)
 		len += snprintf(target_config_str+len,
 				MAX_TARGET_CONFIG_STR_STRING - len,
 				",initiator_ext=%016llx",
-				(unsigned long long) be64toh(target->h_guid));
+				(unsigned long long) target->h_guid);
 
 		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
 			pr_err("Target config string is too long, ignoring target\n");
@@ -608,7 +609,7 @@ static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 				config->timeout, 0);
 		if (ret < 0) {
 			pr_err("umad_send to %u failed\n",
-				(uint16_t) ntohs(out_mad->hdr.addr.lid));
+				(uint16_t) be16toh(out_mad->hdr.addr.lid));
 			return ret;
 		}
 
@@ -619,7 +620,7 @@ recv:
 					     &len, config->timeout);
 			if (in_agent < 0) {
 				pr_err("umad_recv from %u failed - %d\n",
-					(uint16_t) ntohs(out_mad->hdr.addr.lid),
+					(uint16_t) be16toh(out_mad->hdr.addr.lid),
 					in_agent);
 				return in_agent;
 			}
@@ -632,7 +633,7 @@ recv:
 			if (ret) {
 				pr_err(
 					"bad MAD status (%u) from lid %d\n",
-					ret, (uint16_t) ntohs(out_mad->hdr.addr.lid));
+					ret, (uint16_t) be16toh(out_mad->hdr.addr.lid));
 				return -ret;
 			}
 
@@ -739,16 +740,16 @@ static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent,
 	memset(out_umad, 0, sizeof *out_umad);
 
 	out_umad->hdr.agent_id   = agent;
-	out_umad->hdr.addr.qpn   = htonl(1);
-	out_umad->hdr.addr.qkey  = htonl(0x80010000);
-	out_umad->hdr.addr.lid   = htons(h_dlid);
+	out_umad->hdr.addr.qpn   = htobe32(1);
+	out_umad->hdr.addr.qkey  = htobe32(0x80010000);
+	out_umad->hdr.addr.lid   = htobe16(h_dlid);
 
 	out_mad = (void *) out_umad->hdr.data;
 
 	out_mad->base_version  = 1;
 	out_mad->method        = SRP_MAD_METHOD_GET;
-	out_mad->attr_id       = htons(h_attr_id);
-	out_mad->attr_mod      = htonl(h_attr_mod);
+	out_mad->attr_id       = htobe16(h_attr_id);
+	out_mad->attr_mod      = htobe32(h_attr_mod);
 }
 
 static void init_srp_dm_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
@@ -789,7 +790,7 @@ static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 
 	cpi = (void *) in_sa_mad->data;
 
-	*mask_match = !!(ntohs(cpi->cap_mask) & SRP_SM_SUPPORTS_MASK_MATCH);
+	*mask_match = !!(be16toh(cpi->cap_mask) & SRP_SM_SUPPORTS_MASK_MATCH);
 
 	return 0;
 }
@@ -814,7 +815,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 		return -1;
 	}
 
-	cpi->trap_lid = htons(strtol(val, NULL, 0));
+	cpi->trap_lid = htobe16(strtol(val, NULL, 0));
 
 	if (srpd_sys_read_string(umad_res->port_sysfs_path, "gids/0", val, sizeof val) < 0) {
 		pr_err("Couldn't read GID[0]\n");
@@ -822,7 +823,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	}
 
 	for (i = 0; i < 8; ++i)
-		((uint16_t *) cpi->trap_gid)[i] = htons(strtol(val + i * 5, NULL, 16));
+		((__be16 *) cpi->trap_gid)[i] = htobe16(strtol(val + i * 5, NULL, 16));
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -830,7 +831,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
 		pr_err("Class Port Info set returned status 0x%04x\n",
-			ntohs(in_dm_mad->status));
+			be16toh(in_dm_mad->status));
 		return -1;
 	}
 
@@ -851,7 +852,7 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
 		pr_err("IO Unit Info query returned status 0x%04x\n",
-			ntohs(in_dm_mad->status));
+			be16toh(in_dm_mad->status));
 		return -1;
 	}
 
@@ -876,7 +877,7 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
 		pr_err("IO Controller Profile query returned status 0x%04x for %d\n",
-			ntohs(in_dm_mad->status), ioc);
+			be16toh(in_dm_mad->status), ioc);
 		return -1;
 	}
 
@@ -900,7 +901,7 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 	in_dm_mad = get_data_ptr(in_mad);
 	if (in_dm_mad->status) {
 		pr_err("Service Entries query returned status 0x%04x\n",
-			ntohs(in_dm_mad->status));
+			be16toh(in_dm_mad->status));
 		return -1;
 	}
 
@@ -943,7 +944,7 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 	pr_human("    port GID:        %016llx%016llx\n",
 		 (unsigned long long) target->subnet_prefix,
 		 (unsigned long long) target->h_guid);
-	pr_human("    change ID:       %04x\n", ntohs(iou_info.change_id));
+	pr_human("    change ID:       %04x\n", be16toh(iou_info.change_id));
 	pr_human("    max controllers: 0x%02x\n", iou_info.max_controllers);
 
 	if (config->verbose > 0)
@@ -970,9 +971,9 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 
 			pr_human("        GUID:      %016llx\n",
 				 (unsigned long long) be64toh(target->ioc_prof.guid));
-			pr_human("        vendor ID: %06x\n", ntohl(target->ioc_prof.vendor_id) >> 8);
-			pr_human("        device ID: %06x\n", ntohl(target->ioc_prof.device_id));
-			pr_human("        IO class : %04hx\n", ntohs(target->ioc_prof.io_class));
+			pr_human("        vendor ID: %06x\n", be32toh(target->ioc_prof.vendor_id) >> 8);
+			pr_human("        device ID: %06x\n", be32toh(target->ioc_prof.device_id));
+			pr_human("        IO class : %04hx\n", be16toh(target->ioc_prof.io_class));
 			pr_human("        ID:        %s\n", target->ioc_prof.id);
 			pr_human("        service entries: %d\n", target->ioc_prof.service_entries);
 
@@ -1034,7 +1035,7 @@ int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 
 	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	node			  = (void *) out_sa_mad->data;
-	node->lid		  = htons(dlid);
+	node->lid		  = htobe16(dlid);
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -1060,14 +1061,14 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 
 	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	port_info                 = (void *) out_sa_mad->data;
-	port_info->endport_lid	  = htons(dlid);
+	port_info->endport_lid	  = htobe16(dlid);
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
 	port_info = (void *) in_sa_mad->data;
 	*subnet_prefix = be64toh(port_info->subnet_prefix);
-	*isdm          = !!(ntohl(port_info->capability_mask) & SRP_IS_DM);
+	*isdm          = !!(be32toh(port_info->capability_mask) & SRP_IS_DM);
 
 	return 0;
 }
@@ -1137,9 +1138,9 @@ static int get_shared_pkeys(struct resources *res,
 		out_sa_mad->rmpp_version = 1;
 		out_sa_mad->rmpp_type = 1;
 		path_rec = (ib_path_rec_t *)out_sa_mad->data;
-		path_rec->slid = htons(local_port_lid);
-		path_rec->dlid = htons(dest_port_lid);
-		path_rec->pkey = htons(pkey);
+		path_rec->slid = htobe16(local_port_lid);
+		path_rec->dlid = htobe16(dest_port_lid);
+		path_rec->pkey = htobe16(pkey);
 
 		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
 				   (srp_ib_user_mad_t *)in_mad,
@@ -1156,7 +1157,7 @@ static int get_shared_pkeys(struct resources *res,
 		}
 
 		path_rec = (ib_path_rec_t *)in_sa_mad->data;
-		pkeys[num_pkeys++] = ntohs(path_rec->pkey);
+		pkeys[num_pkeys++] = be16toh(path_rec->pkey);
 	}
 
 	free(in_mad_buf);
@@ -1197,7 +1198,7 @@ static int do_dm_port_list(struct resources *res)
 	out_sa_mad->rmpp_version   = 1;
 	out_sa_mad->rmpp_type      = 1;
 	port_info		   = (void *) out_sa_mad->data;
-	port_info->capability_mask = htonl(SRP_IS_DM); /* IsDM */
+	port_info->capability_mask = htobe32(SRP_IS_DM); /* IsDM */
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
 			   (srp_ib_user_mad_t *) in_mad,
@@ -1218,20 +1219,20 @@ static int do_dm_port_list(struct resources *res)
 
 	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
 		port_info = (void *) in_sa_mad->data + i * size;
-		if (get_node(umad_res, ntohs(port_info->endport_lid), &guid))
+		if (get_node(umad_res, be16toh(port_info->endport_lid), &guid))
 			continue;
 
-		num_pkeys = get_shared_pkeys(res, ntohs(port_info->endport_lid),
+		num_pkeys = get_shared_pkeys(res, be16toh(port_info->endport_lid),
 					     pkeys);
 		if (num_pkeys < 0) {
 			pr_err("failed to get shared P_Keys with LID %x\n",
-			       ntohs(port_info->endport_lid));
+			       be16toh(port_info->endport_lid));
 			free(in_mad_buf);
 			return num_pkeys;
 		}
 
 		for (j = 0; j < num_pkeys; ++j)
-			do_port(res, pkeys[j], ntohs(port_info->endport_lid),
+			do_port(res, pkeys[j], be16toh(port_info->endport_lid),
 				be64toh(port_info->subnet_prefix), guid);
 	}
 
@@ -1294,22 +1295,22 @@ static int do_full_port_list(struct resources *res)
 		return len;
 	}
 
-	size = ntohs(in_sa_mad->attr_offset) * 8;
+	size = be16toh(in_sa_mad->attr_offset) * 8;
 
 	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
 		node = (void *) in_sa_mad->data + i * size;
 
-		num_pkeys = get_shared_pkeys(res, ntohs(node->lid),
+		num_pkeys = get_shared_pkeys(res, be16toh(node->lid),
 					     pkeys);
 		if (num_pkeys < 0) {
 			pr_err("failed to get shared P_Keys with LID %x\n",
-			       ntohs(node->lid));
+			       be16toh(node->lid));
 			free(in_mad_buf);
 			return num_pkeys;
 		}
 
 		for (j = 0; j < num_pkeys; ++j)
-			(void) handle_port(res, pkeys[j], ntohs(node->lid),
+			(void) handle_port(res, pkeys[j], be16toh(node->lid),
 					   be64toh(node->port_guid));
 	}
 
@@ -2334,14 +2335,14 @@ static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid
 	path_rec->sgid = *gid;
 	path_rec->dgid = *gid;
 	path_rec->num_path = 1;
-	path_rec->hop_flow_raw = htonl(1 << 31); /* rawtraffic=1 hoplimit = 0 */
+	path_rec->hop_flow_raw = htobe32(1 << 31); /* rawtraffic=1 hoplimit = 0 */
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
 	path_rec = (ib_path_rec_t *) in_sa_mad->data;
 
-	*lid = ntohs(path_rec->dlid);
+	*lid = be16toh(path_rec->dlid);
 
 	return 0;
 }

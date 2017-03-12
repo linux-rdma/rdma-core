@@ -32,7 +32,10 @@
 #ifndef __CXIO_WR_H__
 #define __CXIO_WR_H__
 
-#include <arpa/inet.h> 			/* For htonl() and friends */
+#include <stddef.h>
+#include <stdint.h>
+#include <endian.h>
+#include <util/udma_barrier.h>
 #include "firmware_exports.h"
 
 #define T3_MAX_NUM_QP (1<<15)
@@ -344,11 +347,11 @@ static inline void build_fw_riwrh(struct fw_riwrh *wqe, enum t3_wr_opcode op,
 				  enum t3_wr_flags flags, uint8_t genbit, 
 				  uint32_t tid, uint8_t len)
 {
-	wqe->op_seop_flags = htonl(V_FW_RIWR_OP(op) |
+	wqe->op_seop_flags = htobe32(V_FW_RIWR_OP(op) |
 				   V_FW_RIWR_SOPEOP(M_FW_RIWR_SOPEOP) |
 				   V_FW_RIWR_FLAGS(flags));
 	udma_to_device_barrier();
-	wqe->gen_tid_len = htonl(V_FW_RIWR_GEN(genbit) | V_FW_RIWR_TID(tid) |
+	wqe->gen_tid_len = htobe32(V_FW_RIWR_GEN(genbit) | V_FW_RIWR_TID(tid) |
 				 V_FW_RIWR_LEN(len));
 	/* 2nd gen bit... */
         ((union t3_wr *)wqe)->flit[15] = htobe64(genbit);
@@ -506,24 +509,24 @@ struct t3_cqe {
 #define G_CQE_OPCODE(x)   ((((x) >> S_CQE_OPCODE)) & M_CQE_OPCODE)
 #define V_CQE_OPCODE(x)   ((x)<<S_CQE_OPCODE)
 
-#define SW_CQE(x)         (G_CQE_SWCQE(ntohl((x).header)))
-#define CQE_OOO(x)        (G_CQE_OOO(be32_to_cpu((x).header)))
-#define CQE_QPID(x)       (G_CQE_QPID(ntohl((x).header)))
-#define CQE_GENBIT(x)     (G_CQE_GENBIT(ntohl((x).header)))
-#define CQE_TYPE(x)       (G_CQE_TYPE(ntohl((x).header)))
+#define SW_CQE(x)         (G_CQE_SWCQE(be32toh((x).header)))
+#define CQE_OOO(x)        (G_CQE_OOO(be32toh((x).header)))
+#define CQE_QPID(x)       (G_CQE_QPID(be32toh((x).header)))
+#define CQE_GENBIT(x)     (G_CQE_GENBIT(be32toh((x).header)))
+#define CQE_TYPE(x)       (G_CQE_TYPE(be32toh((x).header)))
 #define SQ_TYPE(x)	  (CQE_TYPE((x)))
 #define RQ_TYPE(x)	  (!CQE_TYPE((x)))
-#define CQE_STATUS(x)     (G_CQE_STATUS(ntohl((x).header)))
-#define CQE_OPCODE(x)     (G_CQE_OPCODE(ntohl((x).header)))
+#define CQE_STATUS(x)     (G_CQE_STATUS(be32toh((x).header)))
+#define CQE_OPCODE(x)     (G_CQE_OPCODE(be32toh((x).header)))
 
-#define CQE_LEN(x)        (ntohl((x).len))
+#define CQE_LEN(x)        (be32toh((x).len))
 
-#define CQE_WRID_HI(x)    (ntohl((x).wrid_hi_stag))
-#define CQE_WRID_LOW(x)   (ntohl((x).wrid_low_msn))
+#define CQE_WRID_HI(x)    (be32toh((x).wrid_hi_stag))
+#define CQE_WRID_LOW(x)   (be32toh((x).wrid_low_msn))
 
 /* used for RQ completion processing */
-#define CQE_WRID_STAG(x)  (ntohl((x).wrid_hi_stag))
-#define CQE_WRID_MSN(x)   (ntohl((x).wrid_low_msn))
+#define CQE_WRID_STAG(x)  (be32toh((x).wrid_hi_stag))
+#define CQE_WRID_MSN(x)   (be32toh((x).wrid_low_msn))
 
 /* used for SQ completion processing */
 #define CQE_WRID_SQ_WPTR(x)	((x).wrid_hi_stag)

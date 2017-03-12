@@ -33,7 +33,6 @@
 #include <config.h>
 
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
@@ -59,7 +58,7 @@ int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size)
 	scat = (struct mlx5_wqe_data_seg *) (next + 1);
 
 	for (i = 0; i < max; ++i) {
-		copy = min_t(long, size, ntohl(scat->byte_count));
+		copy = min_t(long, size, be32toh(scat->byte_count));
 		memcpy((void *)(unsigned long)be64toh(scat->addr), buf, copy);
 		size -= copy;
 		if (size <= 0)
@@ -78,7 +77,7 @@ void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind)
 	mlx5_spin_lock(&srq->lock);
 
 	next = get_wqe(srq, srq->tail);
-	next->next_wqe_index = htons(ind);
+	next->next_wqe_index = htobe16(ind);
 	srq->tail = ind;
 
 	mlx5_spin_unlock(&srq->lock);
@@ -114,18 +113,18 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		srq->wrid[srq->head] = wr->wr_id;
 
 		next      = get_wqe(srq, srq->head);
-		srq->head = ntohs(next->next_wqe_index);
+		srq->head = be16toh(next->next_wqe_index);
 		scat      = (struct mlx5_wqe_data_seg *) (next + 1);
 
 		for (i = 0; i < wr->num_sge; ++i) {
-			scat[i].byte_count = htonl(wr->sg_list[i].length);
-			scat[i].lkey       = htonl(wr->sg_list[i].lkey);
+			scat[i].byte_count = htobe32(wr->sg_list[i].length);
+			scat[i].lkey       = htobe32(wr->sg_list[i].lkey);
 			scat[i].addr       = htobe64(wr->sg_list[i].addr);
 		}
 
 		if (i < srq->max_gs) {
 			scat[i].byte_count = 0;
-			scat[i].lkey       = htonl(MLX5_INVALID_LKEY);
+			scat[i].lkey       = htobe32(MLX5_INVALID_LKEY);
 			scat[i].addr       = 0;
 		}
 	}
@@ -139,7 +138,7 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		 */
 		udma_to_device_barrier();
 
-		*srq->db = htonl(srq->counter);
+		*srq->db = htobe32(srq->counter);
 	}
 
 	mlx5_spin_unlock(&srq->lock);
@@ -198,7 +197,7 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq)
 
 	for (i = 0; i < srq->max; ++i) {
 		next = get_wqe(srq, i);
-		next->next_wqe_index = htons((i + 1) & (srq->max - 1));
+		next->next_wqe_index = htobe16((i + 1) & (srq->max - 1));
 	}
 
 	srq->head = 0;
