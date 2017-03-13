@@ -347,7 +347,10 @@ rm -rf %{buildroot}/%{_initrddir}/
 
 %files devel
 %doc %{_docdir}/%{name}-%{version}/MAINTAINERS
-%{_includedir}/*
+%dir %{_includedir}/infiniband
+%dir %{_includedir}/rdma
+%{_includedir}/infiniband/*
+%{_includedir}/rdma/*
 %{_libdir}/lib*.so
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
