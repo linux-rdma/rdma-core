@@ -561,8 +561,8 @@ static void qelr_print_ah_attr(struct qelr_devctx *cxt, struct ibv_ah_attr *attr
 {
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
 		   "grh.dgid=[%#" PRIx64 ":%#" PRIx64 "], grh.flow_label=%d, grh.sgid_index=%d, grh.hop_limit=%d, grh.traffic_class=%d, dlid=%d, sl=%d, src_path_bits=%d, static_rate = %d, port_num=%d\n",
-		   attr->grh.dgid.global.interface_id,
-		   attr->grh.dgid.global.subnet_prefix,
+		   be64toh(attr->grh.dgid.global.interface_id),
+		   be64toh(attr->grh.dgid.global.subnet_prefix),
 		   attr->grh.flow_label, attr->grh.hop_limit,
 		   attr->grh.sgid_index, attr->grh.traffic_class, attr->dlid,
 		   attr->sl, attr->src_path_bits,

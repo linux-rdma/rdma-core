@@ -2136,8 +2136,8 @@ static void acm_port_get_gid_tbl(struct acmc_port *port)
 			if (ret || !port->gid_tbl[j].global.interface_id)
 				break;
 			acm_log(2, "guid %d: 0x%" PRIx64 " %" PRIx64 "\n", j,
-				port->gid_tbl[j].global.subnet_prefix,
-				port->gid_tbl[j].global.interface_id);
+				be64toh(port->gid_tbl[j].global.subnet_prefix),
+				be64toh(port->gid_tbl[j].global.interface_id));
 		}
 		port->gid_cnt = j;
 	}
