@@ -286,7 +286,7 @@ const char *__ibv_get_device_name_1_0(struct ibv_device_1_0 *device)
 }
 symver(__ibv_get_device_name_1_0, ibv_get_device_name, IBVERBS_1.0);
 
-uint64_t __ibv_get_device_guid_1_0(struct ibv_device_1_0 *device)
+__be64 __ibv_get_device_guid_1_0(struct ibv_device_1_0 *device)
 {
 	return ibv_get_device_guid(device->real_device);
 }
@@ -595,7 +595,7 @@ int __ibv_query_gid_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
 symver(__ibv_query_gid_1_0, ibv_query_gid, IBVERBS_1.0);
 
 int __ibv_query_pkey_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
-			 int index, uint16_t *pkey)
+			 int index, __be16 *pkey)
 {
 	return ibv_query_pkey(context->real_context, port_num, index, pkey);
 }

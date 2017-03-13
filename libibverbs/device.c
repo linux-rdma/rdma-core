@@ -98,7 +98,7 @@ const char *__ibv_get_device_name(struct ibv_device *device)
 }
 default_symver(__ibv_get_device_name, ibv_get_device_name);
 
-uint64_t __ibv_get_device_guid(struct ibv_device *device)
+__be64 __ibv_get_device_guid(struct ibv_device *device)
 {
 	char attr[24];
 	uint64_t guid = 0;

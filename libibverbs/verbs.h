@@ -142,8 +142,8 @@ enum ibv_atomic_cap {
 
 struct ibv_device_attr {
 	char			fw_ver[64];
-	uint64_t		node_guid;
-	uint64_t		sys_image_guid;
+	__be64			node_guid;
+	__be64			sys_image_guid;
 	uint64_t		max_mr_size;
 	uint64_t		page_size_cap;
 	uint32_t		vendor_id;
@@ -462,7 +462,10 @@ struct ibv_wc {
 	/* When (wc_flags & IBV_WC_WITH_IMM): Immediate data in network byte order.
 	 * When (wc_flags & IBV_WC_WITH_INV): Stores the invalidated rkey.
 	 */
-	uint32_t		imm_data;
+	union {
+		__be32		imm_data;
+		uint32_t	invalidated_rkey;
+	};
 	uint32_t		qp_num;
 	uint32_t		src_qp;
 	int			wc_flags;
@@ -915,7 +918,7 @@ struct ibv_send_wr {
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
 	int			send_flags;
-	uint32_t		imm_data;	/* in network byte order */
+	__be32			imm_data;
 	union {
 		struct {
 			uint64_t	remote_addr;
@@ -1534,7 +1537,7 @@ const char *ibv_get_device_name(struct ibv_device *device);
 /**
  * ibv_get_device_guid - Return device's node GUID
  */
-uint64_t ibv_get_device_guid(struct ibv_device *device);
+__be64 ibv_get_device_guid(struct ibv_device *device);
 
 /**
  * ibv_open_device - Initialize device for use
@@ -1604,7 +1607,7 @@ int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
  * ibv_query_pkey - Get a P_Key table entry
  */
 int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
-		   int index, uint16_t *pkey);
+		   int index, __be16 *pkey);
 
 /**
  * ibv_alloc_pd - Allocate a protection domain

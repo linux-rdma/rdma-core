@@ -173,7 +173,7 @@ int __ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 default_symver(__ibv_query_gid, ibv_query_gid);
 
 int __ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
-		     int index, uint16_t *pkey)
+		     int index, __be16 *pkey)
 {
 	char name[24];
 	char attr[8];
