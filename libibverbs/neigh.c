@@ -54,7 +54,7 @@ struct skt {
 	socklen_t len;
 };
 
-static int set_link_port(union sktaddr *s, int port, int oif)
+static int set_link_port(union sktaddr *s, __be16 port, int oif)
 {
 	switch (s->s.sa_family) {
 	case AF_INET:
@@ -394,7 +394,7 @@ close_socket:
 static int get_mcast_mac_ipv4(struct nl_addr *dst, struct nl_addr **ll_addr)
 {
 	uint8_t mac_addr[6] = {0x01, 0x00, 0x5E};
-	uint32_t addr = be32toh(*(uint32_t *)nl_addr_get_binary_addr(dst));
+	uint32_t addr = be32toh(*(__be32 *)nl_addr_get_binary_addr(dst));
 
 	mac_addr[5] = addr & 0xFF;
 	addr >>= 8;

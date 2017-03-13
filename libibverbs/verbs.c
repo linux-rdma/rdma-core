@@ -44,6 +44,8 @@
 #include <dirent.h>
 #include <netinet/in.h>
 
+#include <util/compiler.h>
+
 #include "ibverbs.h"
 #ifndef NRESOLVE_NEIGH
 #include <net/if.h>
@@ -681,7 +683,7 @@ static inline void map_ipv4_addr_to_ipv6(__be32 ipv4, struct in6_addr *ipv6)
 	ipv6->s6_addr32[3] = ipv4;
 }
 
-static inline uint16_t ipv4_calc_hdr_csum(uint16_t *data, unsigned int num_hwords)
+static inline __sum16 ipv4_calc_hdr_csum(uint16_t *data, unsigned int num_hwords)
 {
 	unsigned int i = 0;
 	uint32_t sum = 0;
@@ -691,7 +693,7 @@ static inline uint16_t ipv4_calc_hdr_csum(uint16_t *data, unsigned int num_hword
 
 	sum = (sum & 0xffff) + (sum >> 16);
 
-	return ~sum;
+	return (__force __sum16)~sum;
 }
 
 static inline int get_grh_header_version(struct ibv_grh *grh)

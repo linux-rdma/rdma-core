@@ -492,7 +492,7 @@ struct ibv_kern_wc {
 	__u32  opcode;
 	__u32  vendor_err;
 	__u32  byte_len;
-	__u32  imm_data;
+	__be32  imm_data;
 	__u32  qp_num;
 	__u32  src_qp;
 	__u32  wc_flags;
@@ -814,7 +814,7 @@ struct ibv_kern_send_wr {
 	__u32 num_sge;
 	__u32 opcode;
 	__u32 send_flags;
-	__u32 imm_data;
+	__be32 imm_data;
 	union {
 		struct {
 			__u64 remote_addr;

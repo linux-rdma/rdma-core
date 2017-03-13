@@ -89,7 +89,7 @@ struct ibv_send_wr_1_0 {
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
 	int			send_flags;
-	uint32_t		imm_data;	/* in network byte order */
+	__be32			imm_data;
 	union {
 		struct {
 			uint64_t	remote_addr;
