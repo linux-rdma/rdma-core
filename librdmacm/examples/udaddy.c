@@ -135,7 +135,7 @@ static int init_node(struct cmatest_node *node)
 	}
 
 	cqe = message_count ? message_count * 2 : 2;
-	node->cq = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
+	node->cq = ibv_create_cq(node->cma_id->verbs, cqe, node, NULL, 0);
 	if (!node->cq) {
 		ret = -ENOMEM;
 		printf("udaddy: unable to create CQ\n");

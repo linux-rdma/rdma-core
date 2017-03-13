@@ -2420,7 +2420,7 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	rs = idm_at(&idm, socket);
 	if (rs->type == SOCK_DGRAM) {
 		fastlock_acquire(&rs->rlock);
-		ret = ds_recvfrom(rs, buf, len, flags, NULL, 0);
+		ret = ds_recvfrom(rs, buf, len, flags, NULL, NULL);
 		fastlock_release(&rs->rlock);
 		return ret;
 	}

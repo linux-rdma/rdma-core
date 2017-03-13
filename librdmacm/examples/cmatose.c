@@ -119,8 +119,8 @@ static int init_node(struct cmatest_node *node)
 	}
 
 	cqe = message_count ? message_count : 1;
-	node->cq[SEND_CQ_INDEX] = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
-	node->cq[RECV_CQ_INDEX] = ibv_create_cq(node->cma_id->verbs, cqe, node, 0, 0);
+	node->cq[SEND_CQ_INDEX] = ibv_create_cq(node->cma_id->verbs, cqe, node, NULL, 0);
+	node->cq[RECV_CQ_INDEX] = ibv_create_cq(node->cma_id->verbs, cqe, node, NULL, 0);
 	if (!node->cq[SEND_CQ_INDEX] || !node->cq[RECV_CQ_INDEX]) {
 		ret = -ENOMEM;
 		printf("cmatose: unable to create CQ\n");
