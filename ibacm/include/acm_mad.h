@@ -54,9 +54,9 @@ struct acm_mad {
 	uint8_t  mgmt_class;
 	uint8_t  class_version;
 	uint8_t  method;
-	uint16_t status;
-	uint16_t control;
-	uint64_t tid;
+	__be16   status;
+	__be16   control;
+	__be64   tid;
 
 	uint8_t  data[240];
 };
@@ -97,24 +97,24 @@ struct ib_sa_mad {
 	uint8_t  mgmt_class;
 	uint8_t  class_version;
 	uint8_t  method;
-	uint16_t status;
-	uint16_t reserved1;
-	uint64_t tid;
-	uint16_t attr_id;
-	uint16_t reserved2;
-	uint32_t attr_mod;
+	__be16 status;
+	__be16 reserved1;
+	__be64 tid;
+	__be16 attr_id;
+	__be16 reserved2;
+	__be32 attr_mod;
 
 	uint8_t  rmpp_version;
 	uint8_t  rmpp_type;
 	uint8_t  rmpp_flags;
 	uint8_t  rmpp_status;
-	uint32_t seg_num;
-	uint32_t paylen_newwin;
+	__be32 seg_num;
+	__be32 paylen_newwin;
 
-	uint32_t sm_key[2];
-	uint16_t attr_offset;
-	uint16_t reserved3;
-	uint64_t comp_mask;
+	__be32 sm_key[2];
+	__be16 attr_offset;
+	__be16 reserved3;
+	__be64 comp_mask;
 
 	uint8_t  data[200];
 };
@@ -171,14 +171,14 @@ struct ib_sa_mad {
 struct ib_mc_member_rec {
 	union ibv_gid mgid;
 	union ibv_gid port_gid;
-	uint32_t      qkey;
-	uint16_t      mlid;
+	__be32        qkey;
+	__be16        mlid;
 	uint8_t       mtu;
 	uint8_t       tclass;
-	uint16_t      pkey;
+	__be16        pkey;
 	uint8_t       rate;
 	uint8_t       packet_lifetime;
-	uint32_t      sl_flow_hop;
+	__be32        sl_flow_hop;
 	uint8_t       scope_state;
 	uint8_t       proxy_join;
 	uint8_t       reserved[2];

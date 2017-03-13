@@ -41,6 +41,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
+#include <linux/types.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -61,8 +62,8 @@ BEGIN_C_DECLS
 union ibv_gid {
 	uint8_t			raw[16];
 	struct {
-		uint64_t	subnet_prefix;
-		uint64_t	interface_id;
+		__be64	subnet_prefix;
+		__be64	interface_id;
 	} global;
 };
 
@@ -549,8 +550,8 @@ struct ibv_global_route {
 };
 
 struct ibv_grh {
-	uint32_t		version_tclass_flow;
-	uint16_t		paylen;
+	__be32			version_tclass_flow;
+	__be16			paylen;
 	uint8_t			next_hdr;
 	uint8_t			hop_limit;
 	union ibv_gid		sgid;
