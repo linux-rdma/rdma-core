@@ -173,7 +173,7 @@ struct ucma_abi_query {
 };
 
 struct ucma_abi_query_route_resp {
-	__u64 node_guid;
+	__be64 node_guid;
 	struct ib_user_path_rec ib_route[2];
 	struct sockaddr_in6 src_addr;
 	struct sockaddr_in6 dst_addr;
@@ -183,10 +183,10 @@ struct ucma_abi_query_route_resp {
 };
 
 struct ucma_abi_query_addr_resp {
-	__u64 node_guid;
+	__be64 node_guid;
 	__u8  port_num;
 	__u8  reserved;
-	__u16 pkey;
+	__be16 pkey;
 	__u16 src_size;
 	__u16 dst_size;
 	struct sockaddr_storage src_addr;

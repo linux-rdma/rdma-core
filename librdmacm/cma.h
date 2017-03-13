@@ -78,7 +78,7 @@ static inline void fastlock_release(fastlock_t *lock)
 		sem_post(&lock->sem);
 }
 
-uint16_t ucma_get_port(struct sockaddr *addr);
+__be16 ucma_get_port(struct sockaddr *addr);
 int ucma_addrlen(struct sockaddr *addr);
 void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 		  struct sockaddr_ib *sib);
