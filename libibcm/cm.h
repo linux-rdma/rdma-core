@@ -100,7 +100,7 @@ struct ib_cm_req_event_param {
 	struct ibv_sa_path_rec	*primary_path;
 	struct ibv_sa_path_rec	*alternate_path;
 
-	uint64_t		remote_ca_guid; /* netork-byte order */
+	__be64			remote_ca_guid;
 	uint32_t		remote_qkey;
 	uint32_t		remote_qpn;
 	enum ibv_qp_type	qp_type;
@@ -117,7 +117,7 @@ struct ib_cm_req_event_param {
 };
 
 struct ib_cm_rep_event_param {
-	uint64_t		remote_ca_guid; /* network-byte order */
+	__be64			remote_ca_guid;
 	uint32_t		remote_qkey;
 	uint32_t		remote_qpn;
 	uint32_t		starting_psn;
@@ -309,10 +309,10 @@ int ib_cm_create_id(struct ib_cm_device *device,
 int ib_cm_destroy_id(struct ib_cm_id *cm_id);
 
 struct ib_cm_attr_param {
-	uint64_t		service_id;   /* network-byte order */
-	uint64_t		service_mask; /* network-byte order */
-	uint32_t		local_id;
-	uint32_t		remote_id;
+	__be64			service_id;
+	__be64			service_mask;
+	__be32			local_id;
+	__be32			remote_id;
 };
 
 /**
@@ -340,13 +340,13 @@ int ib_cm_attr_id(struct ib_cm_id *cm_id,
  *   exactly.
  */
 int ib_cm_listen(struct ib_cm_id *cm_id,
-		 uint64_t service_id,
-		 uint64_t service_mask);
+		 __be64 service_id,
+		 __be64 service_mask);
 
 struct ib_cm_req_param {
 	struct ibv_sa_path_rec	*primary_path;
 	struct ibv_sa_path_rec	*alternate_path;
-	uint64_t		service_id; /* network-byte order */
+	__be64			service_id;
 	uint32_t		qp_num;
 	enum ibv_qp_type	qp_type;
 	uint32_t		starting_psn;
@@ -542,7 +542,7 @@ int ib_cm_send_apr(struct ib_cm_id *cm_id,
 
 struct ib_cm_sidr_req_param {
 	struct ibv_sa_path_rec	*path;
-	uint64_t		service_id; /* network-byte order */
+	__be64			service_id;
 	int			timeout_ms;
 	void			*private_data;
 	uint8_t			private_data_len;
