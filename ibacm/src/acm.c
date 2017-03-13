@@ -2770,8 +2770,8 @@ static void acmc_recv_mad(struct acmc_port *port)
 	found = 0;
 	pthread_mutex_lock(&port->lock);
 	list_for_each(&port->sa_pending, req, entry) {
-		/* The lower 32-bit of the tid is used for agentid in umad */
-		if (req->mad.sa_mad.mad_hdr.tid == (hdr->tid & 0xFFFFFFFF00000000ULL)) {
+		/* The upper 32-bit of the tid is used for agentid in umad */
+		if (req->mad.sa_mad.mad_hdr.tid == (hdr->tid & htobe64(0xFFFFFFFF))) {
 			found = 1;
 			list_del(&req->entry);
 			port->sa_credits++;
