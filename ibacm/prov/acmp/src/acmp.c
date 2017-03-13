@@ -113,7 +113,7 @@ struct acmp_dest {
 	struct ibv_ah_attr     av;
 	struct ibv_path_record path;
 	union ibv_gid          mgid;
-	uint64_t               req_id;
+	__be64                 req_id;
 	struct list_head       req_queue;
 	uint32_t               remote_qpn;
 	pthread_mutex_t        lock;
@@ -148,7 +148,7 @@ struct acmp_device {
 	const struct acm_device *device;
 	struct ibv_comp_channel *channel;
 	struct ibv_pd           *pd;
-	uint64_t                guid;
+	__be64                  guid;
 	struct list_node        entry;
 	pthread_t               comp_thread_id;
 	int                     port_cnt;
@@ -571,7 +571,7 @@ static void acmp_complete_send(struct acmp_send_msg *msg)
 	pthread_mutex_unlock(&ep->lock);
 }
 
-static struct acmp_send_msg *acmp_get_request(struct acmp_ep *ep, uint64_t tid, int *free)
+static struct acmp_send_msg *acmp_get_request(struct acmp_ep *ep, __be64 tid, int *free)
 {
 	struct acmp_send_msg *msg, *next, *req = NULL;
 	struct acm_mad *mad;
@@ -1879,7 +1879,7 @@ acmp_resolve_path(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 	addr = msg->resolve_data[1].info.addr;
 	memset(addr, 0, ACM_MAX_ADDRESS);
 	if (path->dlid) {
-		* ((uint16_t *) addr) = path->dlid;
+		* ((__be16 *) addr) = path->dlid;
 		dest = acmp_acquire_dest(ep, ACM_ADDRESS_LID, addr);
 	} else {
 		memcpy(addr, &path->dgid, sizeof path->dgid);
@@ -2039,7 +2039,7 @@ err:
 }
 
 /* Parse "opensm full v1" file to build LID to GUID table */
-static void acmp_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
+static void acmp_parse_osm_fullv1_lid2guid(FILE *f, __be64 *lid2guid)
 {
 	char s[128];
 	char *p, *ptr, *p_guid, *p_lid;
@@ -2088,7 +2088,7 @@ static void acmp_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
 }
 
 /* Parse 'opensm full v1' file to populate PR cache */
-static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_ep *ep)
+static int acmp_parse_osm_fullv1_paths(FILE *f, __be64 *lid2guid, struct acmp_ep *ep)
 {
 	union ibv_gid sgid, dgid;
 	struct ibv_port_attr attr = {};
@@ -2096,7 +2096,8 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 	char s[128];
 	char *p, *ptr, *p_guid, *p_lid;
 	uint64_t guid;
-	uint16_t lid, dlid, net_dlid;
+	uint16_t lid, dlid;
+	__be16 net_dlid;
 	int sl, mtu, rate;
 	int ret = 1, i;
 	uint8_t addr[ACM_MAX_ADDRESS];
@@ -2231,7 +2232,7 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 static int acmp_parse_osm_fullv1(struct acmp_ep *ep)
 {
 	FILE *f;
-	uint64_t *lid2guid;
+	__be64 *lid2guid;
 	int ret = 1;
 
 	if (!(f = fopen(route_data_file, "r"))) {
@@ -2451,7 +2452,8 @@ static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 {
 	struct acmp_port *port;
 	int ret;
-	uint16_t pkey, i;
+	__be16 pkey;
+	uint16_t i;
 
 	port = acmp_get_port(endpoint);
 	if (!port)
@@ -2614,7 +2616,9 @@ err0:
 static void acmp_port_up(struct acmp_port *port)
 {
 	struct ibv_port_attr attr;
-	uint16_t pkey, sm_lid;
+	uint16_t pkey;
+	__be16 pkey_be;
+	__be16 sm_lid;
 	int i, ret;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
@@ -2644,10 +2648,10 @@ static void acmp_port_up(struct acmp_port *port)
 	atomic_set(&port->sa_dest.refcnt, 1);
 	port->sa_dest.state = ACMP_READY;
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
-		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
+		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey_be);
 		if (ret)
 			continue;
-		pkey = be16toh(pkey);
+		pkey = be16toh(pkey_be);
 		if (!(pkey & 0x7fff))
 			continue;
 

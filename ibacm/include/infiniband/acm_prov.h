@@ -38,7 +38,7 @@
 
 struct acm_device {
 	struct ibv_context 	*verbs;
-	uint64_t		dev_guid;
+	__be64			dev_guid;
 };
 
 struct acm_port {
@@ -93,7 +93,7 @@ extern void acm_format_name(int level, char *name, size_t name_size,
 extern int ib_any_gid(union ibv_gid *gid);
 extern uint8_t acm_gid_index(struct acm_port *port, union ibv_gid *gid);
 extern int acm_get_gid(struct acm_port *port, int index, union ibv_gid *gid);
-extern uint64_t acm_path_comp_mask(struct ibv_path_record *path);
+extern __be64 acm_path_comp_mask(struct ibv_path_record *path);
 
 extern int acm_resolve_response(uint64_t id, struct acm_msg *msg);
 extern int acm_query_response(uint64_t id, struct acm_msg *msg);
