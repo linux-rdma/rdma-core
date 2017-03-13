@@ -2459,7 +2459,7 @@ static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 
 	for (i = 0, ret = 0; !ret; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
-		if (!ret && endpoint->pkey == pkey)
+		if (!ret && endpoint->pkey == be16toh(pkey))
 			return i;
 	}
 	return 0;
