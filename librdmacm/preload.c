@@ -687,7 +687,8 @@ static void fork_passive(int socket)
 	ret = real.getsockname(sfd, (struct sockaddr *) &sin6, &len);
 	if (ret)
 		goto out;
-	sin6.sin6_flowinfo = sin6.sin6_scope_id = 0;
+	sin6.sin6_flowinfo = 0;
+	sin6.sin6_scope_id = 0;
 	memset(&sin6.sin6_addr, 0, sizeof sin6.sin6_addr);
 
 	sem = sem_open("/rsocket_fork", O_CREAT | O_RDWR,
