@@ -632,7 +632,7 @@ static int get_dst_addr(char *dst, struct sockaddr_in *addr_in)
 	}
 
 	*addr_in = *(struct sockaddr_in *) res->ai_addr;
-	addr_in->sin_port = 7471;
+	addr_in->sin_port = htobe16(7471);
 out:
 	freeaddrinfo(res);
 	return ret;
