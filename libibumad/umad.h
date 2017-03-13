@@ -68,7 +68,7 @@ typedef struct ib_mad_addr {
 	uint8_t traffic_class;
 	uint8_t gid[16]; /* network-byte order */
 	__be32 flow_label;
-	__be16 pkey_index;
+	uint16_t pkey_index;
 	uint8_t reserved[6];
 } ib_mad_addr_t;
 
@@ -140,7 +140,7 @@ typedef struct umad_port {
 	unsigned state;
 	unsigned phys_state;
 	unsigned rate;
-	uint32_t capmask;
+	__be32 capmask;
 	uint64_t gid_prefix;
 	uint64_t port_guid;
 	unsigned pkeys_size;
@@ -183,7 +183,7 @@ int umad_status(void *umad);
 ib_mad_addr_t *umad_get_mad_addr(void *umad);
 int umad_set_grh_net(void *umad, void *mad_addr);
 int umad_set_grh(void *umad, void *mad_addr);
-int umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey);
+int umad_set_addr_net(void *umad, __be16 dlid, __be32 dqp, int sl, __be32 qkey);
 int umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
 int umad_set_pkey(void *umad, int pkey_index);
 int umad_get_pkey(void *umad);

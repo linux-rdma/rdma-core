@@ -46,6 +46,7 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <util/compiler.h>
 
 #include <infiniband/umad.h>
 
@@ -127,6 +128,7 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 	uint8_t gid[16];
 	struct dirent **namelist = NULL;
 	int i, len, num_pkeys = 0;
+	uint32_t capmask;
 
 	strncpy(port->ca_name, ca_name, sizeof port->ca_name - 1);
 	port->portnum = portnum;
@@ -150,7 +152,7 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 		goto clean;
 	if (sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate) < 0)
 		goto clean;
-	if (sys_read_uint(port_dir, SYS_PORT_CAPMASK, &port->capmask) < 0)
+	if (sys_read_uint(port_dir, SYS_PORT_CAPMASK, &capmask) < 0)
 		goto clean;
 
 	if (sys_read_string(port_dir, SYS_PORT_LINK_LAYER,
@@ -158,7 +160,7 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 		/* assume IB by default */
 		sprintf(port->link_layer, "IB");
 
-	port->capmask = htobe32(port->capmask);
+	port->capmask = htobe32(capmask);
 
 	if (sys_read_gid(port_dir, SYS_PORT_GID, gid) < 0)
 		goto clean;
@@ -735,7 +737,9 @@ int umad_set_grh(void *umad, void *mad_addr)
 	if (mad_addr) {
 		mad->addr.grh_present = 1;
 		memcpy(mad->addr.gid, addr->gid, 16);
-		mad->addr.flow_label = htobe32(addr->flow_label);
+		/* The definition for umad_set_grh requires that the input be
+		 * in host order */
+		mad->addr.flow_label = htobe32((__force uint32_t)addr->flow_label);
 		mad->addr.hop_limit = addr->hop_limit;
 		mad->addr.traffic_class = addr->traffic_class;
 	} else
@@ -777,7 +781,7 @@ int umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
 	return 0;
 }
 
-int umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
+int umad_set_addr_net(void *umad, __be16 dlid, __be32 dqp, int sl, __be32 qkey)
 {
 	struct ib_user_mad *mad = umad;
 
@@ -938,7 +942,7 @@ int umad_register(int fd, int mgmt_class, int mgmt_version,
 		  uint8_t rmpp_version, long method_mask[])
 {
 	struct ib_user_mad_reg_req req;
-	uint32_t oui = htobe32(IB_OPENIB_OUI);
+	__be32 oui = htobe32(IB_OPENIB_OUI);
 	int qp;
 
 	TRACE
