@@ -656,7 +656,7 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 	dest->path.dgid = mc_rec->mgid;
 	dest->path.sgid = mc_rec->port_gid;
 	dest->path.dlid = mc_rec->mlid;
-	dest->path.slid = htobe16(port->lid) | port->sa_dest.av.src_path_bits;
+	dest->path.slid = htobe16(port->lid | port->sa_dest.av.src_path_bits);
 	dest->path.flowlabel_hoplimit = htobe32(sl_flow_hop & 0xFFFFFFF);
 	dest->path.tclass = mc_rec->tclass;
 	dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
@@ -675,7 +675,7 @@ acmp_init_path_av(struct acmp_port *port, struct acmp_dest *dest)
 
 	dest->av.dlid = be16toh(dest->path.dlid);
 	dest->av.sl = be16toh(dest->path.qosclass_sl) & 0xF;
-	dest->av.src_path_bits = dest->path.slid & 0x7F;
+	dest->av.src_path_bits = be16toh(dest->path.slid) & 0x7F;
 	dest->av.static_rate = dest->path.rate & 0x3F;
 	dest->av.port_num = port->port_num;
 

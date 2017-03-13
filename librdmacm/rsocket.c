@@ -4103,7 +4103,7 @@ static void udp_svc_create_ah(struct rsocket *rs, struct ds_dest *dest, uint32_t
 	}
 	attr.dlid = be16toh(id->route.path_rec->dlid);
 	attr.sl = id->route.path_rec->sl;
-	attr.src_path_bits = id->route.path_rec->slid & udp_svc_path_bits(dest);
+	attr.src_path_bits = be16toh(id->route.path_rec->slid) & udp_svc_path_bits(dest);
 	attr.static_rate = id->route.path_rec->rate;
 	attr.port_num  = id->port_num;
 
