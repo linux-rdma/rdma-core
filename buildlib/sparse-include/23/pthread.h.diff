@@ -1,0 +1,11 @@
+--- /usr/include/pthread.h	2016-11-16 15:43:59.000000000 -0700
++++ build-sparse/include/pthread.h	2017-03-15 12:43:28.736376893 -0600
+@@ -84,7 +84,7 @@
+ 
+ #ifdef __PTHREAD_MUTEX_HAVE_PREV
+ # define PTHREAD_MUTEX_INITIALIZER \
+-  { { 0, 0, 0, 0, 0, __PTHREAD_SPINS, { 0, 0 } } }
++  { { 0, 0, 0, 0, 0, __PTHREAD_SPINS, { } } }
+ # ifdef __USE_GNU
+ #  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \
+   { { 0, 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP, __PTHREAD_SPINS, { 0, 0 } } }

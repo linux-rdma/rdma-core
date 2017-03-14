@@ -207,13 +207,10 @@ CHECK_C_SOURCE_COMPILES("
   FAIL_REGEX "warning")
 
 # Provide a shim if C11 stdatomic.h is not supported.
-# Note, when using sparse the gcc stdatomic.h produces sparse errors
-CHECK_C_SOURCE_COMPILES("
- #include <stdatomic.h>
- int main(int argc,const char *argv[]) { return 0; }"
-  HAVE_STDATOMIC
-  FAIL_REGEX "error")
-RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
+if (NOT HAVE_SPARSE)
+  CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
+  RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
+endif()
 
 # Enable development support features
 # Prune unneeded shared libraries during linking
