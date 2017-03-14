@@ -2136,8 +2136,8 @@ static void acm_port_get_gid_tbl(struct acmc_port *port)
 			if (ret || !port->gid_tbl[j].global.interface_id)
 				break;
 			acm_log(2, "guid %d: 0x%" PRIx64 " %" PRIx64 "\n", j,
-				port->gid_tbl[j].global.subnet_prefix,
-				port->gid_tbl[j].global.interface_id);
+				be64toh(port->gid_tbl[j].global.subnet_prefix),
+				be64toh(port->gid_tbl[j].global.interface_id));
 		}
 		port->gid_cnt = j;
 	}
@@ -2770,8 +2770,8 @@ static void acmc_recv_mad(struct acmc_port *port)
 	found = 0;
 	pthread_mutex_lock(&port->lock);
 	list_for_each(&port->sa_pending, req, entry) {
-		/* The lower 32-bit of the tid is used for agentid in umad */
-		if (req->mad.sa_mad.mad_hdr.tid == (hdr->tid & 0xFFFFFFFF00000000ULL)) {
+		/* The upper 32-bit of the tid is used for agentid in umad */
+		if (req->mad.sa_mad.mad_hdr.tid == (hdr->tid & htobe64(0xFFFFFFFF))) {
 			found = 1;
 			list_del(&req->entry);
 			port->sa_credits++;

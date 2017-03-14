@@ -656,7 +656,7 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 	dest->path.dgid = mc_rec->mgid;
 	dest->path.sgid = mc_rec->port_gid;
 	dest->path.dlid = mc_rec->mlid;
-	dest->path.slid = htobe16(port->lid) | port->sa_dest.av.src_path_bits;
+	dest->path.slid = htobe16(port->lid | port->sa_dest.av.src_path_bits);
 	dest->path.flowlabel_hoplimit = htobe32(sl_flow_hop & 0xFFFFFFF);
 	dest->path.tclass = mc_rec->tclass;
 	dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
@@ -675,7 +675,7 @@ acmp_init_path_av(struct acmp_port *port, struct acmp_dest *dest)
 
 	dest->av.dlid = be16toh(dest->path.dlid);
 	dest->av.sl = be16toh(dest->path.qosclass_sl) & 0xF;
-	dest->av.src_path_bits = dest->path.slid & 0x7F;
+	dest->av.src_path_bits = be16toh(dest->path.slid) & 0x7F;
 	dest->av.static_rate = dest->path.rate & 0x3F;
 	dest->av.port_num = port->port_num;
 
@@ -2419,8 +2419,8 @@ static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
 	struct acmp_device *dev;
 
 	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
-		endpoint->port->dev->dev_guid, endpoint->port->port_num,
-		endpoint->pkey);
+		be64toh(endpoint->port->dev->dev_guid),
+		endpoint->port->port_num, endpoint->pkey);
 
 	list_for_each(&acmp_dev_list, dev, entry) {
 		if (dev->guid == endpoint->port->dev->dev_guid)
@@ -2436,7 +2436,8 @@ acmp_get_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	struct acmp_ep *ep;
 
 	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
-		endpoint->port->dev->dev_guid, endpoint->port->port_num, endpoint->pkey);
+		be64toh(endpoint->port->dev->dev_guid),
+		endpoint->port->port_num, endpoint->pkey);
 
 	list_for_each(&port->ep_list, ep, entry) {
 		if (ep->pkey == endpoint->pkey)
@@ -2458,7 +2459,7 @@ static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 
 	for (i = 0, ret = 0; !ret; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
-		if (!ret && endpoint->pkey == pkey)
+		if (!ret && endpoint->pkey == be16toh(pkey))
 			return i;
 	}
 	return 0;
@@ -2736,13 +2737,13 @@ static int acmp_open_dev(const struct acm_device *device, void **dev_context)
 	int i, ret;
 	struct ibv_context *verbs;
 
-	acm_log(1, "dev_guid 0x%" PRIx64 " %s\n", device->dev_guid,
+	acm_log(1, "dev_guid 0x%" PRIx64 " %s\n", be64toh(device->dev_guid),
 		device->verbs->device->name);
 
 	list_for_each(&acmp_dev_list, dev, entry) {
 		if (dev->guid == device->dev_guid) {
 			acm_log(2, "dev_guid 0x%" PRIx64 " already exits\n",
-				device->dev_guid);
+				be64toh(device->dev_guid));
 			*dev_context = dev;
 			dev->device = device;
 			return 0;
@@ -2823,7 +2824,7 @@ static void acmp_close_dev(void *dev_context)
 {
 	struct acmp_device *dev = dev_context;
 
-	acm_log(1, "dev_guid 0x%" PRIx64 "\n", dev->device->dev_guid);
+	acm_log(1, "dev_guid 0x%" PRIx64 "\n", be64toh(dev->device->dev_guid));
 	dev->device = NULL;
 }
 

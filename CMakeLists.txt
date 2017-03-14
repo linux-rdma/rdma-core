@@ -135,7 +135,6 @@ RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 
 RDMA_CheckSparse()
-message(STATUS "SPARSE1 ${HAVE_SPARSE}")
 
 # Require GNU99 mode
 RDMA_EnableCStd()

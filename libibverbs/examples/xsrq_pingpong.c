@@ -97,7 +97,7 @@ struct pingpong_context {
 	int			 gidx;
 };
 
-struct pingpong_context ctx;
+static struct pingpong_context ctx;
 
 
 static int open_device(char *ib_devname)
