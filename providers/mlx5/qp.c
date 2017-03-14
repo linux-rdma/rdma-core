@@ -930,11 +930,11 @@ out:
 
 		/* Make sure that the doorbell write happens before the memcpy
 		 * to WC memory below */
-		mmio_wc_start();
-
 		ctx = to_mctx(ibqp->context);
 		if (bf->need_lock)
-			mlx5_spin_lock(&bf->lock);
+			mmio_wc_spinlock(&bf->lock.lock);
+		else
+			mmio_wc_start();
 
 		if (!ctx->shut_up_bf && nreq == 1 && bf->uuarn &&
 		    (inl || ctx->prefer_bf) && size > 1 &&
@@ -953,6 +953,7 @@ out:
 		 * writes doorbell 2, and it's write is flushed earlier. Since
 		 * the mmio_flush_writes is CPU local, this will result in the HCA seeing
 		 * doorbell 2, followed by doorbell 1.
+		 * Flush before toggling bf_offset to be latency oriented.
 		 */
 		mmio_flush_writes();
 		bf->offset ^= bf->buf_size;

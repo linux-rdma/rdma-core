@@ -203,7 +203,7 @@ static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 	 * chunk and get a valid (!= * 0xffffffff) byte count but
 	 * stale data, and end up sending the wrong data.
 	 */
-	udma_ordering_write_barrier();
+	udma_to_device_barrier();
 
 	if (likely(sg->length))
 		dseg->byte_count = htobe32(sg->length);
@@ -226,9 +226,6 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	int i;
 
 	pthread_spin_lock(&qp->sq.lock);
-
-	/* Get all user DMA buffers ready to go */
-	udma_to_device_barrier();
 
 	/* XXX check that state is OK to post send */
 
@@ -402,7 +399,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					wqe += to_copy;
 					addr += to_copy;
 					seg_len += to_copy;
-					udma_ordering_write_barrier(); /* see comment below */
+					udma_to_device_barrier(); /* see comment below */
 					seg->byte_count = htobe32(MLX4_INLINE_SEG | seg_len);
 					seg_len = 0;
 					seg = wqe;
@@ -430,7 +427,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				 * data, and end up sending the wrong
 				 * data.
 				 */
-				udma_ordering_write_barrier();
+				udma_to_device_barrier();
 				seg->byte_count = htobe32(MLX4_INLINE_SEG | seg_len);
 			}
 
@@ -452,7 +449,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		 * setting ownership bit (because HW can start
 		 * executing as soon as we do).
 		 */
-		udma_ordering_write_barrier();
+		udma_to_device_barrier();
 
 		ctrl->owner_opcode = htobe32(mlx4_ib_opcode[wr->opcode]) |
 			(ind & qp->sq.wqe_cnt ? htobe32(1 << 31) : 0);
@@ -476,18 +473,16 @@ out:
 		ctrl->owner_opcode |= htobe32((qp->sq.head & 0xffff) << 8);
 
 		ctrl->bf_qpn |= qp->doorbell_qpn;
+		++qp->sq.head;
 		/*
 		 * Make sure that descriptor is written to memory
 		 * before writing to BlueFlame page.
 		 */
-		mmio_wc_start();
-
-		++qp->sq.head;
-
-		pthread_spin_lock(&ctx->bf_lock);
+		mmio_wc_spinlock(&ctx->bf_lock);
 
 		mlx4_bf_copy(ctx->bf_page + ctx->bf_offset, (unsigned long *) ctrl,
 			     align(size * 16, 64));
+		/* Flush before toggling bf_offset to be latency oriented */
 		mmio_flush_writes();
 
 		ctx->bf_offset ^= ctx->bf_buf_size;

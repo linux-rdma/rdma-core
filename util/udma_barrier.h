@@ -33,6 +33,8 @@
 #ifndef __UTIL_UDMA_BARRIER_H
 #define __UTIL_UDMA_BARRIER_H
 
+#include <pthread.h>
+
 /* Barriers for DMA.
 
    These barriers are expliclty only for use with user DMA operations. If you
@@ -221,5 +223,38 @@
    to some future writel.
 */
 #define mmio_ordered_writes_hack() mmio_flush_writes()
+
+/* Write Combining Spinlock primitive
+
+   Any access to a multi-value WC region must ensure that multiple cpus do not
+   write to the same values concurrently, these macros make that
+   straightforward and efficient if the choosen exclusion is a spinlock.
+
+   The spinlock guarantees that the WC writes issued within the critical
+   section are made visible as TLP to the device. The TLP must be seen by the
+   device strictly in the order that the spinlocks are acquired, and combining
+   WC writes between different sections is not permitted.
+
+   Use of these macros allow the fencing inside the spinlock to be combined
+   with the fencing required for DMA.
+ */
+static inline void mmio_wc_spinlock(pthread_spinlock_t *lock)
+{
+	pthread_spin_lock(lock);
+#if !defined(__i386__) && !defined(__x86_64__)
+	/* For x86 the serialization within the spin lock is enough to
+	 * strongly order WC and other memory types. */
+	mmio_wc_start();
+#endif
+}
+
+static inline void mmio_wc_spinunlock(pthread_spinlock_t *lock)
+{
+	/* It is possible that on x86 the atomic in the lock is strong enough
+	 * to force-flush the WC buffers quickly, and this SFENCE can be
+	 * omitted too. */
+	mmio_flush_writes();
+	pthread_spin_unlock(lock);
+}
 
 #endif
