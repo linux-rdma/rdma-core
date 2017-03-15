@@ -210,7 +210,7 @@ CHECK_C_SOURCE_COMPILES("
 # Note, when using sparse the gcc stdatomic.h produces sparse errors
 CHECK_C_SOURCE_COMPILES("
  #include <stdatomic.h>
- int main(int argc,const char *argv[]) { return 0}"
+ int main(int argc,const char *argv[]) { return 0; }"
   HAVE_STDATOMIC
   FAIL_REGEX "error")
 RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
