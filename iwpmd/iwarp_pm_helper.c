@@ -396,7 +396,7 @@ iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 		goto reopen_mapped_port_error;
 	}
 	/* get a tcp port from the host net stack */
-	if (get_iwpm_tcp_port(local_addr->ss_family, 1, mapped_addr, &new_sd))
+	if (get_iwpm_tcp_port(local_addr->ss_family, htobe16(1), mapped_addr, &new_sd))
 		goto reopen_mapped_port_error;
 
 	iwpm_port = get_iwpm_port(client_idx, local_addr, mapped_addr, new_sd);
