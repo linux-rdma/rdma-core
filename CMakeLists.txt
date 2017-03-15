@@ -376,27 +376,27 @@ add_subdirectory(libibcm)
 
 # Providers
 if (HAVE_COHERENT_DMA)
-add_subdirectory(providers/cxgb3)
-add_subdirectory(providers/cxgb4)
-add_subdirectory(providers/hns)
-add_subdirectory(providers/i40iw)
-add_subdirectory(providers/mlx4)
-add_subdirectory(providers/mlx5)
-add_subdirectory(providers/mlx5/man)
-add_subdirectory(providers/mthca)
-add_subdirectory(providers/nes)
-add_subdirectory(providers/ocrdma)
-add_subdirectory(providers/qedr)
-add_subdirectory(providers/vmw_pvrdma)
+add_subdirectory(providers/cxgb3) # NO SPARSE
+add_subdirectory(providers/cxgb4) # NO SPARSE
+add_subdirectory(providers/hns) # NO SPARSE
+add_subdirectory(providers/i40iw) # NO SPARSE
+add_subdirectory(providers/mlx4) # NO SPARSE
+add_subdirectory(providers/mlx5) # NO SPARSE
+add_subdirectory(providers/mlx5/man) # NO SPARSE
+add_subdirectory(providers/mthca) # NO SPARSE
+add_subdirectory(providers/nes) # NO SPARSE
+add_subdirectory(providers/ocrdma) # NO SPARSE
+add_subdirectory(providers/qedr) # NO SPARSE
+add_subdirectory(providers/vmw_pvrdma) # NO SPARSE
 endif()
 
-add_subdirectory(providers/hfi1verbs)
-add_subdirectory(providers/ipathverbs)
-add_subdirectory(providers/rxe)
-add_subdirectory(providers/rxe/man)
+add_subdirectory(providers/hfi1verbs) # NO SPARSE
+add_subdirectory(providers/ipathverbs) # NO SPARSE
+add_subdirectory(providers/rxe) # NO SPARSE
+add_subdirectory(providers/rxe/man) # NO SPARSE
 
 # Binaries
-add_subdirectory(ibacm)
+add_subdirectory(ibacm) # NO SPARSE
 if (NOT NL_KIND EQUAL 0)
   add_subdirectory(iwpmd)
 endif()

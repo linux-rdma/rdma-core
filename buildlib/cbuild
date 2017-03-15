@@ -226,7 +226,7 @@ class travis(APTEnvironment):
         for src in self.yaml["addons"]["apt"]["sources"]:
             if isinstance(src,dict):
                 res.add(Source(sourceline=src["sourceline"],
-                               key_url=src["key_url"]));
+                               key_url=src.get("key_url",None)));
             else:
                 res.add(pre_defined[src]);
 
