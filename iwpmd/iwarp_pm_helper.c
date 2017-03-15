@@ -279,7 +279,7 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 		mapped_port = &((struct sockaddr_in *)mapped_addr)->sin_port;
 		bind_in4 = &bind_addr.v4_sockaddr;
 		bind_in4->sin_family = addr_family;
-		bind_in4->sin_addr.s_addr = INADDR_ANY;
+		bind_in4->sin_addr.s_addr = htobe32(INADDR_ANY);
 		if (requested_port)
 			requested_port = *mapped_port;
 		bind_in4->sin_port = requested_port;

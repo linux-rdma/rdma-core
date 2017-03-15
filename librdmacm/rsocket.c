@@ -1402,8 +1402,8 @@ connected:
 static int rs_any_addr(const union socket_addr *addr)
 {
 	if (addr->sa.sa_family == AF_INET) {
-		return (addr->sin.sin_addr.s_addr == INADDR_ANY ||
-			addr->sin.sin_addr.s_addr == INADDR_LOOPBACK);
+		return (addr->sin.sin_addr.s_addr == htobe32(INADDR_ANY) ||
+			addr->sin.sin_addr.s_addr == htobe32(INADDR_LOOPBACK));
 	} else {
 		return (!memcmp(&addr->sin6.sin6_addr, &in6addr_any, 16) ||
 			!memcmp(&addr->sin6.sin6_addr, &in6addr_loopback, 16));

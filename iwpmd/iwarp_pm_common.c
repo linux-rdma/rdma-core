@@ -110,7 +110,7 @@ int create_iwpm_socket_v4(__u16 bind_port)
 	memset(&bind_addr, 0, sizeof(bind_addr));
 	bind_in4 = &bind_addr.v4_sockaddr;
 	bind_in4->sin_family = AF_INET;
-	bind_in4->sin_addr.s_addr = INADDR_ANY;
+	bind_in4->sin_addr.s_addr = htobe32(INADDR_ANY);
 	bind_in4->sin_port = htobe16(bind_port);
 
 	if (bind(pm_sock, &bind_addr.sock_addr, sizeof(struct sockaddr_in))) {
