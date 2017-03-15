@@ -40,8 +40,6 @@
 
 #include "ibverbs.h"
 
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
-
 struct ibv_pd_1_0 {
 	struct ibv_context_1_0 *context;
 	uint32_t		handle;
@@ -225,6 +223,69 @@ struct ibv_context_1_0 {
 
 	struct ibv_context	       *real_context; /* was abi_compat member */
 };
+
+typedef struct ibv_device *(*ibv_driver_init_func_1_1)(const char *uverbs_sys_path,
+						       int abi_version);
+
+/* Hack to avoid GCC's -Wmissing-prototypes and the similar error from sparse
+   with these prototypes. Symbol versionining requires the goofy names, the
+   prototype must match the version in the historical 1.0 verbs.h.
+ */
+struct ibv_device_1_0 **__ibv_get_device_list_1_0(int *num);
+void __ibv_free_device_list_1_0(struct ibv_device_1_0 **list);
+const char *__ibv_get_device_name_1_0(struct ibv_device_1_0 *device);
+__be64 __ibv_get_device_guid_1_0(struct ibv_device_1_0 *device);
+struct ibv_context_1_0 *__ibv_open_device_1_0(struct ibv_device_1_0 *device);
+int __ibv_close_device_1_0(struct ibv_context_1_0 *context);
+int __ibv_get_async_event_1_0(struct ibv_context_1_0 *context,
+			      struct ibv_async_event *event);
+void __ibv_ack_async_event_1_0(struct ibv_async_event *event);
+int __ibv_query_device_1_0(struct ibv_context_1_0 *context,
+			   struct ibv_device_attr *device_attr);
+int __ibv_query_port_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
+			 struct ibv_port_attr *port_attr);
+int __ibv_query_gid_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
+			int index, union ibv_gid *gid);
+int __ibv_query_pkey_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
+			 int index, __be16 *pkey);
+struct ibv_pd_1_0 *__ibv_alloc_pd_1_0(struct ibv_context_1_0 *context);
+int __ibv_dealloc_pd_1_0(struct ibv_pd_1_0 *pd);
+struct ibv_mr_1_0 *__ibv_reg_mr_1_0(struct ibv_pd_1_0 *pd, void *addr,
+				    size_t length, int access);
+int __ibv_dereg_mr_1_0(struct ibv_mr_1_0 *mr);
+struct ibv_cq_1_0 *__ibv_create_cq_1_0(struct ibv_context_1_0 *context, int cqe,
+				       void *cq_context,
+				       struct ibv_comp_channel *channel,
+				       int comp_vector);
+int __ibv_resize_cq_1_0(struct ibv_cq_1_0 *cq, int cqe);
+int __ibv_destroy_cq_1_0(struct ibv_cq_1_0 *cq);
+int __ibv_get_cq_event_1_0(struct ibv_comp_channel *channel,
+			   struct ibv_cq_1_0 **cq, void **cq_context);
+void __ibv_ack_cq_events_1_0(struct ibv_cq_1_0 *cq, unsigned int nevents);
+struct ibv_srq_1_0 *
+__ibv_create_srq_1_0(struct ibv_pd_1_0 *pd,
+		     struct ibv_srq_init_attr *srq_init_attr);
+int __ibv_modify_srq_1_0(struct ibv_srq_1_0 *srq, struct ibv_srq_attr *srq_attr,
+			 int srq_attr_mask);
+int __ibv_query_srq_1_0(struct ibv_srq_1_0 *srq, struct ibv_srq_attr *srq_attr);
+int __ibv_destroy_srq_1_0(struct ibv_srq_1_0 *srq);
+struct ibv_qp_1_0 *
+__ibv_create_qp_1_0(struct ibv_pd_1_0 *pd,
+		    struct ibv_qp_init_attr_1_0 *qp_init_attr);
+int __ibv_query_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
+		       int attr_mask, struct ibv_qp_init_attr_1_0 *init_attr);
+int __ibv_modify_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
+			int attr_mask);
+int __ibv_destroy_qp_1_0(struct ibv_qp_1_0 *qp);
+struct ibv_ah_1_0 *__ibv_create_ah_1_0(struct ibv_pd_1_0 *pd,
+				       struct ibv_ah_attr *attr);
+int __ibv_destroy_ah_1_0(struct ibv_ah_1_0 *ah);
+int __ibv_attach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid,
+			   uint16_t lid);
+int __ibv_detach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid,
+			   uint16_t lid);
+void __ibv_register_driver_1_1(const char *name,
+			       ibv_driver_init_func_1_1 init_func);
 
 struct ibv_device_1_0 **__ibv_get_device_list_1_0(int *num)
 {
@@ -938,8 +999,6 @@ int __ibv_detach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid, uint16_t l
 }
 symver(__ibv_detach_mcast_1_0, ibv_detach_mcast, IBVERBS_1.0);
 
-typedef struct ibv_device *(*ibv_driver_init_func_1_1)(const char *uverbs_sys_path,
-						       int abi_version);
 void __ibv_register_driver_1_1(const char *name, ibv_driver_init_func_1_1 init_func)
 {
 	/* The driver interface is private as of rdma-core 13. This stub is

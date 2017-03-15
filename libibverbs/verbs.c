@@ -53,6 +53,53 @@
 #include "neigh.h"
 #endif
 
+/* Hack to avoid GCC's -Wmissing-prototypes and the similar error from sparse
+   with these prototypes. Symbol versionining requires the goofy names, the
+   prototype must match the version in verbs.h.
+ */
+int __ibv_query_device(struct ibv_context *context,
+		       struct ibv_device_attr *device_attr);
+int __ibv_query_port(struct ibv_context *context, uint8_t port_num,
+		     struct ibv_port_attr *port_attr);
+int __ibv_query_gid(struct ibv_context *context, uint8_t port_num, int index,
+		    union ibv_gid *gid);
+int __ibv_query_pkey(struct ibv_context *context, uint8_t port_num, int index,
+		     __be16 *pkey);
+struct ibv_pd *__ibv_alloc_pd(struct ibv_context *context);
+int __ibv_dealloc_pd(struct ibv_pd *pd);
+struct ibv_mr *__ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			    int access);
+int __ibv_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
+		   size_t length, int access);
+int __ibv_dereg_mr(struct ibv_mr *mr);
+struct ibv_cq *__ibv_create_cq(struct ibv_context *context, int cqe,
+			       void *cq_context,
+			       struct ibv_comp_channel *channel,
+			       int comp_vector);
+int __ibv_resize_cq(struct ibv_cq *cq, int cqe);
+int __ibv_destroy_cq(struct ibv_cq *cq);
+int __ibv_get_cq_event(struct ibv_comp_channel *channel, struct ibv_cq **cq,
+		       void **cq_context);
+void __ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
+struct ibv_srq *__ibv_create_srq(struct ibv_pd *pd,
+				 struct ibv_srq_init_attr *srq_init_attr);
+int __ibv_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
+		     int srq_attr_mask);
+int __ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+int __ibv_destroy_srq(struct ibv_srq *srq);
+struct ibv_qp *__ibv_create_qp(struct ibv_pd *pd,
+			       struct ibv_qp_init_attr *qp_init_attr);
+int __ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
+		   struct ibv_qp_init_attr *init_attr);
+int __ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask);
+int __ibv_destroy_qp(struct ibv_qp *qp);
+struct ibv_ah *__ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
+int __ibv_destroy_ah(struct ibv_ah *ah);
+int __ibv_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
+		       uint16_t lid);
+int __ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
+		       uint16_t lid);
+
 int __attribute__((const)) ibv_rate_to_mult(enum ibv_rate rate)
 {
 	switch (rate) {
@@ -132,8 +179,6 @@ enum ibv_rate __attribute__((const)) mbps_to_ibv_rate(int mbps)
 	default:     return IBV_RATE_MAX;
 	}
 }
-
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
 
 int __ibv_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *device_attr)
