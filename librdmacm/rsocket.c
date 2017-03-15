@@ -190,7 +190,7 @@ struct rs_iomap_mr {
 	uint64_t offset;
 	struct ibv_mr *mr;
 	dlist_entry entry;
-	atomic_t refcnt;
+	_Atomic(int) refcnt;
 	int index;	/* -1 if mapping is local and not in iomap_list */
 };
 
@@ -898,7 +898,7 @@ static int rs_create_ep(struct rsocket *rs)
 
 static void rs_release_iomap_mr(struct rs_iomap_mr *iomr)
 {
-	if (atomic_dec(&iomr->refcnt))
+	if (atomic_fetch_sub(&iomr->refcnt, 1))
 		return;
 
 	dlist_remove(&iomr->entry);
@@ -3798,8 +3798,7 @@ off_t riomap(int socket, void *buf, size_t len, int prot, int flags, off_t offse
 	if (offset == -1)
 		offset = (uintptr_t) buf;
 	iomr->offset = offset;
-	atomic_init(&iomr->refcnt);
-	atomic_set(&iomr->refcnt, 1);
+	atomic_store(&iomr->refcnt, 1);
 
 	if (iomr->index >= 0) {
 		dlist_insert_tail(&iomr->entry, &rs->iomap_queue);
