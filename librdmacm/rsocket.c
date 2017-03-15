@@ -3551,11 +3551,11 @@ static void rs_convert_sa_path(struct ibv_sa_path_rec *sa_path,
 	path_data->path.dlid = sa_path->dlid;
 	path_data->path.slid = sa_path->slid;
 	fl_hop = be32toh(sa_path->flow_label) << 8;
-	path_data->path.flowlabel_hoplimit = htobe32(fl_hop) | sa_path->hop_limit;
+	path_data->path.flowlabel_hoplimit = htobe32(fl_hop | sa_path->hop_limit);
 	path_data->path.tclass = sa_path->traffic_class;
 	path_data->path.reversible_numpath = sa_path->reversible << 7 | 1;
 	path_data->path.pkey = sa_path->pkey;
-	path_data->path.qosclass_sl = sa_path->sl;
+	path_data->path.qosclass_sl = htobe16(sa_path->sl);
 	path_data->path.mtu = sa_path->mtu | 2 << 6;	/* exactly */
 	path_data->path.rate = sa_path->rate | 2 << 6;
 	path_data->path.packetlifetime = sa_path->packet_life_time | 2 << 6;
