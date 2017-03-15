@@ -899,7 +899,7 @@ static int rs_create_ep(struct rsocket *rs)
 
 static void rs_release_iomap_mr(struct rs_iomap_mr *iomr)
 {
-	if (atomic_fetch_sub(&iomr->refcnt, 1))
+	if (atomic_fetch_sub(&iomr->refcnt, 1) != 1)
 		return;
 
 	dlist_remove(&iomr->entry);

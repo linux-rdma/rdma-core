@@ -1013,7 +1013,7 @@ int close(int socket)
 			return ret;
 	}
 
-	if (atomic_fetch_sub(&fdi->refcnt, 1))
+	if (atomic_fetch_sub(&fdi->refcnt, 1) != 1)
 		return 0;
 
 	idm_clear(&idm, socket);
