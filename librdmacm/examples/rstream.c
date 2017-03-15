@@ -527,7 +527,7 @@ static int run(void)
 			run_test();
 		}
 		if (fork_pid)
-			wait(NULL);
+			waitpid(fork_pid, NULL, 0);
 		else
 			rs_shutdown(rs, SHUT_RDWR);
 		rs_close(rs);
@@ -555,7 +555,7 @@ static int run(void)
 	}
 
 	if (fork_pid)
-		wait(NULL);
+		waitpid(fork_pid, NULL, 0);
 	else
 		rs_shutdown(rs, SHUT_RDWR);
 	rs_close(rs);
