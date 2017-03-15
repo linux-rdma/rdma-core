@@ -51,7 +51,7 @@
 #include "neigh.h"
 #endif
 
-int ibv_rate_to_mult(enum ibv_rate rate)
+int __attribute__((const)) ibv_rate_to_mult(enum ibv_rate rate)
 {
 	switch (rate) {
 	case IBV_RATE_2_5_GBPS: return  1;
@@ -67,7 +67,7 @@ int ibv_rate_to_mult(enum ibv_rate rate)
 	}
 }
 
-enum ibv_rate mult_to_ibv_rate(int mult)
+enum ibv_rate __attribute__((const)) mult_to_ibv_rate(int mult)
 {
 	switch (mult) {
 	case 1:  return IBV_RATE_2_5_GBPS;
@@ -83,7 +83,7 @@ enum ibv_rate mult_to_ibv_rate(int mult)
 	}
 }
 
-int ibv_rate_to_mbps(enum ibv_rate rate)
+int  __attribute__((const)) ibv_rate_to_mbps(enum ibv_rate rate)
 {
 	switch (rate) {
 	case IBV_RATE_2_5_GBPS: return 2500;
@@ -107,7 +107,7 @@ int ibv_rate_to_mbps(enum ibv_rate rate)
 	}
 }
 
-enum ibv_rate mbps_to_ibv_rate(int mbps)
+enum ibv_rate __attribute__((const)) mbps_to_ibv_rate(int mbps)
 {
 	switch (mbps) {
 	case 2500:   return IBV_RATE_2_5_GBPS;
