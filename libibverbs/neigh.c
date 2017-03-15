@@ -9,6 +9,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
+#if HAVE_WORKING_IF_H
+#include <net/if.h>
+#endif
+
 #include <netlink/route/rtnl.h>
 #include <netlink/route/link.h>
 #include <netlink/route/route.h>
@@ -22,9 +27,8 @@
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <assert.h>
-#if HAVE_WORKING_IF_H
-#include <net/if.h>
-#else
+
+#if !HAVE_WORKING_IF_H
 /* We need this decl from net/if.h but old systems do not let use co-include
    net/if.h and netlink/route/link.h */
 extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
