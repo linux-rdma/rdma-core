@@ -18,9 +18,10 @@ int main(int argc,const char *argv[]) {return 0;}
     set(HAVE_SPARSE TRUE PARENT_SCOPE)
   endif()
 
-  # Replace glibc endian.h with our version that has sparse annotations for
-  # the byteswap macros.
+  # Replace glibc <endian.h> and <netinet/in.h> with our versions that have
+  # sparse annotations for the byteswap macros.
   RDMA_DoFixup("${HAVE_NO_SPARSE}" "endian.h")
+  RDMA_DoFixup("${HAVE_NO_SPARSE}" "netinet/in.h")
 
   # Enable endian analysis in sparse
   add_definitions("-D__CHECK_ENDIAN__")
