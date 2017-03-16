@@ -411,5 +411,8 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 			      struct ibv_wq_init_attr *attr);
 int mlx4_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr);
 int mlx4_destroy_wq(struct ibv_wq *wq);
+struct ibv_rwq_ind_table *mlx4_create_rwq_ind_table(struct ibv_context *context,
+						    struct ibv_rwq_ind_table_init_attr *init_attr);
+int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 
 #endif /* MLX4_H */
