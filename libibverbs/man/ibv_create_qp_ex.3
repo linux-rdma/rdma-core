@@ -52,6 +52,14 @@ uint32_t                max_inline_data;/* Requested max number of data (bytes) 
 .in -8
 };
 .nf
+enum ibv_qp_create_flags {
+.in +8
+IBV_QP_CREATE_BLOCK_SELF_MCAST_LB       = 1 << 1, /* Prevent self multicast loopback */
+IBV_QP_CREATE_SCATTER_FCS               = 1 << 8, /* FCS field will be scattered to host memory */
+IBV_QP_CREATE_CVLAN_STRIPPING           = 1 << 9, /* CVLAN field will be stripped from incoming packets */
+.in -8
+};
+.nf
 struct ibv_rx_hash_conf {
 .in +8
 uint8_t                rx_hash_function;       /* RX hash function, use enum ibv_rx_hash_function_flags */

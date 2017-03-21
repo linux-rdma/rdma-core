@@ -17,10 +17,10 @@ creates a completion queue (CQ) for RDMA device context
 .I context\fR.
 The argument
 .I cq_attr
-is a pointer to struct ibv_create_cq_attr_ex as defined in <infiniband/verbs.h>.
+is a pointer to struct ibv_cq_init_attr_ex as defined in <infiniband/verbs.h>.
 .PP
 .nf
-struct ibv_create_cq_attr_ex {
+struct ibv_cq_init_attr_ex {
 .in +8
 int                     cqe;               /* Minimum number of entries required for CQ */
 void                    *cq_context;       /* Consumer-supplied context returned for completion events */
@@ -28,6 +28,7 @@ struct ibv_comp_channel *channel;          /* Completion channel where completio
 int                     comp_vector;       /* Completion vector used to signal completion events. Must be >= 0 and < context->num_comp_vectors. */
 uint64_t                wc_flags;          /* The wc_flags that should be returned in ibv_poll_cq_ex. Or'ed bit of enum ibv_wc_flags_ex. */
 uint32_t                comp_mask;         /* compatibility mask (extended verb). */
+uint32_t                flags              /* One or more flags from enum ibv_create_cq_attr_flags */
 .in -8
 };
 
@@ -40,6 +41,7 @@ enum ibv_wc_flags_ex {
         IBV_WC_EX_WITH_SL                    = 1 << 5,  /* Require sl in WC */
         IBV_WC_EX_WITH_DLID_PATH_BITS        = 1 << 6,  /* Require dlid path bits in WC */
         IBV_WC_EX_WITH_COMPLETION_TIMESTAMP  = 1 << 7,  /* Require completion timestamp in WC /*
+        IBV_WC_EX_WITH_CVLAN                 = 1 << 8,  /* Require VLAN info in WC */
 };
 
 enum ibv_cq_init_attr_mask {
@@ -127,6 +129,9 @@ Below members and functions are used in order to poll the current completion. Th
 
 .BI "uint64_t ibv_wc_read_completion_ts(struct ibv_cq_ex " "*cq"); \c
  Get the completion timestamp from the current completion.
+
+.BI "uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex " "*cq"); \c
+ Get the CVLAN field from the current completion.
 
 .SH "RETURN VALUE"
 .B ibv_create_cq_ex()

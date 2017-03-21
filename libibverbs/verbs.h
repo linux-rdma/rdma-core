@@ -253,6 +253,12 @@ struct ibv_packet_pacing_caps {
 	uint32_t supported_qpts;
 };
 
+enum ibv_raw_packet_caps {
+	IBV_RAW_PACKET_CAP_CVLAN_STRIPPING	= 1 << 0,
+	IBV_RAW_PACKET_CAP_SCATTER_FCS		= 1 << 1,
+	IBV_RAW_PACKET_CAP_IP_CSUM		= 1 << 2,
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -264,6 +270,7 @@ struct ibv_device_attr_ex {
 	struct ibv_rss_caps     rss_caps;
 	uint32_t		max_wq_type_rq;
 	struct ibv_packet_pacing_caps packet_pacing_caps;
+	uint32_t		raw_packet_caps; /* Use ibv_raw_packet_caps */
 };
 
 enum ibv_mtu {
@@ -429,6 +436,7 @@ enum ibv_create_cq_wc_flags {
 	IBV_WC_EX_WITH_SL		= 1 << 5,
 	IBV_WC_EX_WITH_DLID_PATH_BITS	= 1 << 6,
 	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP	= 1 << 7,
+	IBV_WC_EX_WITH_CVLAN		= 1 << 8,
 };
 
 enum {
@@ -443,7 +451,8 @@ enum {
 
 enum {
 	IBV_CREATE_CQ_SUP_WC_FLAGS = IBV_WC_STANDARD_FLAGS |
-				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
+				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
+				IBV_WC_EX_WITH_CVLAN
 };
 
 enum ibv_wc_flags {
@@ -664,7 +673,14 @@ enum ibv_wq_type {
 };
 
 enum ibv_wq_init_attr_mask {
-	IBV_WQ_INIT_ATTR_RESERVED	= 1 << 0,
+	IBV_WQ_INIT_ATTR_FLAGS		= 1 << 0,
+	IBV_WQ_INIT_ATTR_RESERVED	= 1 << 1,
+};
+
+enum ibv_wq_flags {
+	IBV_WQ_FLAGS_CVLAN_STRIPPING		= 1 << 0,
+	IBV_WQ_FLAGS_SCATTER_FCS		= 1 << 1,
+	IBV_WQ_FLAGS_RESERVED			= 1 << 2,
 };
 
 struct ibv_wq_init_attr {
@@ -674,7 +690,8 @@ struct ibv_wq_init_attr {
 	uint32_t		max_sge;
 	struct	ibv_pd	       *pd;
 	struct	ibv_cq	       *cq;
-	uint32_t		comp_mask;
+	uint32_t		comp_mask; /* Use ibv_wq_init_attr_mask */
+	uint32_t		create_flags; /* use ibv_wq_flags */
 };
 
 enum ibv_wq_state {
@@ -687,7 +704,8 @@ enum ibv_wq_state {
 enum ibv_wq_attr_mask {
 	IBV_WQ_ATTR_STATE	= 1 << 0,
 	IBV_WQ_ATTR_CURR_STATE	= 1 << 1,
-	IBV_WQ_ATTR_RESERVED	= 1 << 2
+	IBV_WQ_ATTR_FLAGS	= 1 << 2,
+	IBV_WQ_ATTR_RESERVED	= 1 << 3,
 };
 
 struct ibv_wq_attr {
@@ -697,6 +715,8 @@ struct ibv_wq_attr {
 	enum	ibv_wq_state	wq_state;
 	/* Assume this is the current WQ state */
 	enum	ibv_wq_state	curr_wq_state;
+	uint32_t		flags; /* Use ibv_wq_flags */
+	uint32_t		flags_mask; /* Use ibv_wq_flags */
 };
 
 /*
@@ -767,6 +787,7 @@ enum ibv_qp_init_attr_mask {
 enum ibv_qp_create_flags {
 	IBV_QP_CREATE_BLOCK_SELF_MCAST_LB	= 1 << 1,
 	IBV_QP_CREATE_SCATTER_FCS		= 1 << 8,
+	IBV_QP_CREATE_CVLAN_STRIPPING		= 1 << 9,
 };
 
 struct ibv_rx_hash_conf {
@@ -1078,6 +1099,7 @@ struct ibv_cq_ex {
 	uint8_t (*read_sl)(struct ibv_cq_ex *current);
 	uint8_t (*read_dlid_path_bits)(struct ibv_cq_ex *current);
 	uint64_t (*read_completion_ts)(struct ibv_cq_ex *current);
+	uint16_t (*read_cvlan)(struct ibv_cq_ex *current);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
@@ -1154,6 +1176,11 @@ static inline uint8_t ibv_wc_read_dlid_path_bits(struct ibv_cq_ex *cq)
 static inline uint64_t ibv_wc_read_completion_ts(struct ibv_cq_ex *cq)
 {
 	return cq->read_completion_ts(cq);
+}
+
+static inline uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex *cq)
+{
+	return cq->read_cvlan(cq);
 }
 
 static inline int ibv_post_wq_recv(struct ibv_wq *wq,

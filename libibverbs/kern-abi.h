@@ -290,7 +290,7 @@ struct ibv_query_device_resp_ex {
 	__u64 device_cap_flags_ex;
 	struct ibv_rss_caps_resp rss_caps;
 	__u32  max_wq_type_rq;
-	__u32 reserved;
+	__u32 raw_packet_caps;
 };
 
 struct ibv_query_port {
@@ -1249,6 +1249,8 @@ struct ibv_create_wq {
 	__u32 cq_handle;
 	__u32 max_wr;
 	__u32 max_sge;
+	__u32 create_flags;
+	__u32 reserved;
 };
 
 struct ibv_create_wq_resp {
@@ -1279,6 +1281,8 @@ struct ibv_modify_wq  {
 	__u32 wq_handle;
 	__u32 wq_state;
 	__u32 curr_wq_state;
+	__u32 flags;
+	__u32 flags_mask;
 };
 
 struct ibv_create_rwq_ind_table {

@@ -32,6 +32,7 @@ struct ibv_tso_caps    tso_caps;                   /* TCP segmentation offload c
 struct ibv_rss_caps    rss_caps;                   /* RSS capabilities */
 uint32_t               max_wq_type_rq;             /* Max Work Queue from type RQ */
 struct ibv_packet_pacing_caps packet_pacing_caps; /* Packet pacing capabilities */
+uint32_t               raw_packet_caps;            /* Raw packet capabilities, use enum ibv_raw_packet_caps */
 .in -8
 };
 
@@ -73,6 +74,14 @@ struct ibv_packet_pacing_caps {
        uint32_t qp_rate_limit_min; /* Minimum rate limit in kbps */
        uint32_t qp_rate_limit_max; /* Maximum rate limit in kbps */
        uint32_t supported_qpts;    /* Bitmap showing which QP types are supported. */
+};
+
+enum ibv_raw_packet_caps {
+.in +8
+IBV_RAW_PACKET_CAP_CVLAN_STRIPPING	= 1 << 0, /* CVLAN stripping is supported */
+IBV_RAW_PACKET_CAP_SCATTER_FCS		= 1 << 1, /* FCS scattering is supported */
+IBV_RAW_PACKET_CAP_IP_CSUM		= 1 << 2, /* IP CSUM offload is supported */
+.in -8
 };
 
 .fi

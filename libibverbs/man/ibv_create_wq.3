@@ -31,8 +31,20 @@ uint32_t                   max_sge;       /* Requested max number of scatter/gat
 struct  ibv_pd            *pd;            /* PD to be associated with the WQ */
 struct  ibv_cq            *cq;            /* CQ to be associated with the WQ */
 uint32_t                   comp_mask;     /* Identifies valid fields. Use ibv_wq_init_attr_mask */
+uint32_t                   create_flags    /* Creation flags for this WQ, use enum ibv_wq_flags */
 .in -8
 };
+
+.sp
+.nf
+enum ibv_wq_flags {
+.in +8
+IBV_WQ_FLAGS_CVLAN_STRIPPING		= 1 << 0, /* CVLAN field will be stripped from incoming packets */
+IBV_WQ_FLAGS_SCATTER_FCS		= 1 << 1, /* FCS field will be scattered to host memory */
+IBV_WQ_FLAGS_RESERVED			= 1 << 2,
+.in -8
+};
+.nf
 .fi
 .PP
 The function

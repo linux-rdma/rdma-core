@@ -401,6 +401,17 @@ static void print_packet_pacing_caps(const struct ibv_packet_pacing_caps *caps)
 	}
 }
 
+static void print_raw_packet_caps(uint32_t raw_packet_caps)
+{
+	printf("\traw packet caps:\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_CVLAN_STRIPPING)
+		printf("\t\t\t\t\tC-VLAN stripping offload\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_SCATTER_FCS)
+		printf("\t\t\t\t\tScatter FCS offload\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
+		printf("\t\t\t\t\tIP csum offload\n");
+}
+
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
@@ -498,6 +509,9 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 			printf("\thca_core_clock:\t\t\t%" PRIu64 "kHZ\n", device_attr.hca_core_clock);
 		else
 			printf("\tcore clock not supported\n");
+
+		if (device_attr.raw_packet_caps)
+			print_raw_packet_caps(device_attr.raw_packet_caps);
 
 		printf("\tdevice_cap_flags_ex:\t\t0x%" PRIX64 "\n", device_attr.device_cap_flags_ex);
 		print_device_cap_flags_ex(device_attr.device_cap_flags_ex);
