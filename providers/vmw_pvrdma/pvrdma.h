@@ -56,23 +56,12 @@
 #include <sys/mman.h>
 #include <infiniband/driver.h>
 #include <ccan/minmax.h>
+#include <util/compiler.h>
 
 #define BIT(nr) (1UL << (nr))
 
 #include "pvrdma-abi-fix.h"
 #include "pvrdma_ring.h"
-
-#ifndef likely
-#define likely(x)	__builtin_expect(!!(x), 1)
-#else
-#define likely(x)	(x)
-#endif
-
-#ifndef unlikely
-#define unlikely(x)	__builtin_expect(!!(x), 0)
-#else
-#define unlikely(x)	(x)
-#endif
 
 #define PFX "pvrdma: "
 

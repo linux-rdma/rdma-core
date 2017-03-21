@@ -69,12 +69,12 @@ static inline void fastlock_destroy(fastlock_t *lock)
 }
 static inline void fastlock_acquire(fastlock_t *lock)
 {
-	if (atomic_fetch_add(&lock->cnt, 1) > 1)
+	if (atomic_fetch_add(&lock->cnt, 1) > 0)
 		sem_wait(&lock->sem);
 }
 static inline void fastlock_release(fastlock_t *lock)
 {
-	if (atomic_fetch_sub(&lock->cnt, 1) > 0)
+	if (atomic_fetch_sub(&lock->cnt, 1) > 1)
 		sem_post(&lock->sem);
 }
 
