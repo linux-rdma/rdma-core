@@ -11,7 +11,7 @@ if (MLX5_MW_DEBUG)
 endif()
 
 rdma_shared_provider(mlx5 libmlx5.map
-  1 1.0.${PACKAGE_VERSION}
+  1 1.1.${PACKAGE_VERSION}
   buf.c
   cq.c
   dbrec.c
