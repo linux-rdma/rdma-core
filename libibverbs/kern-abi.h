@@ -215,8 +215,8 @@ struct ibv_query_device {
 
 struct ibv_query_device_resp {
 	__u64 fw_ver;
-	__u64 node_guid;
-	__u64 sys_image_guid;
+	__be64 node_guid;
+	__be64 sys_image_guid;
 	__u64 max_mr_size;
 	__u64 page_size_cap;
 	__u32 vendor_id;
@@ -492,7 +492,7 @@ struct ibv_kern_wc {
 	__u32  opcode;
 	__u32  vendor_err;
 	__u32  byte_len;
-	__u32  imm_data;
+	__be32  imm_data;
 	__u32  qp_num;
 	__u32  src_qp;
 	__u32  wc_flags;
@@ -814,7 +814,7 @@ struct ibv_kern_send_wr {
 	__u32 num_sge;
 	__u32 opcode;
 	__u32 send_flags;
-	__u32 imm_data;
+	__be32 imm_data;
 	union {
 		struct {
 			__u64 remote_addr;

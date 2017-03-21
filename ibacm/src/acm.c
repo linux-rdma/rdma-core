@@ -73,7 +73,7 @@
 
 struct acmc_subnet {
 	struct list_node       entry;
-	uint64_t               subnet_prefix;
+	__be64                 subnet_prefix;
 };
 
 struct acmc_prov {
@@ -265,7 +265,7 @@ void acm_format_name(int level, char *name, size_t name_size,
 		}
 		break;
 	case ACM_ADDRESS_LID:
-		snprintf(name, name_size, "LID(%u)", be16toh(*((uint16_t *) addr)));
+		snprintf(name, name_size, "LID(%u)", be16toh(*((__be16 *) addr)));
 		break;
 	default:
 		strcpy(name, "Unknown");
@@ -413,11 +413,11 @@ acm_addr_lookup(const struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr
 	return NULL;
 }
 
-uint64_t acm_path_comp_mask(struct ibv_path_record *path)
+__be64 acm_path_comp_mask(struct ibv_path_record *path)
 {
 	uint32_t fl_hop;
 	uint16_t qos_sl;
-	uint64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 
 	acm_log(2, "\n");
 	if (path->service_id)
@@ -2149,6 +2149,7 @@ static void acm_port_up(struct acmc_port *port)
 {
 	struct ibv_port_attr attr;
 	uint16_t pkey;
+	__be16 pkey_be;
 	int i, ret;
 	struct acmc_prov_context *dev_ctx;
 	int index = -1;
@@ -2170,7 +2171,7 @@ static void acm_port_up(struct acmc_port *port)
 	acm_port_get_gid_tbl(port);
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
-	port->sa_addr.lid = attr.sm_lid;
+	port->sa_addr.lid = htobe16(attr.sm_lid);
 	port->sa_addr.sl = attr.sm_sl;
 	port->state = IBV_PORT_ACTIVE;
 	acm_assign_provider(port);
@@ -2204,10 +2205,10 @@ static void acm_port_up(struct acmc_port *port)
 	 */
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->device.verbs,
-				     port->port.port_num, i, &pkey);
+				     port->port.port_num, i, &pkey_be);
 		if (ret)
 			continue;
-		pkey = be16toh(pkey);
+		pkey = be16toh(pkey_be);
 		if (i == 0)
 			first_pkey = pkey;
 		if (pkey == 0xffff) {
@@ -2223,10 +2224,10 @@ static void acm_port_up(struct acmc_port *port)
 
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->device.verbs,
-				     port->port.port_num, i, &pkey);
+				     port->port.port_num, i, &pkey_be);
 		if (ret)
 			continue;
-		pkey = be16toh(pkey);
+		pkey = be16toh(pkey_be);
 		if (!(pkey & 0x7fff))
 			continue;
 
@@ -2497,8 +2498,6 @@ static void acm_load_prov_config(void)
 		prefix = strtoull(p, NULL, 0);
 		acm_log(2, "provider %s subnet_prefix 0x%" PRIx64 "\n",
 			prov_name, prefix);
-		/* Convert it into network byte order */
-		prefix = htobe64(prefix);
 
 		list_for_each(&provider_list, prov, entry) {
 			if (!strcasecmp(prov->prov->name, prov_name)) {
@@ -2507,7 +2506,7 @@ static void acm_load_prov_config(void)
 					acm_log(0, "Error: out of memory\n");
 					return;
 				}
-				subnet->subnet_prefix = prefix;
+				subnet->subnet_prefix = htobe64(prefix);
 				list_add_after(&provider_list, &prov->entry,
 						&subnet->entry);
 			}
@@ -2701,7 +2700,7 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 	port = req->ep->port;
 	mad->umad.addr.qpn = port->sa_addr.qpn;
 	mad->umad.addr.qkey = port->sa_addr.qkey;
-	mad->umad.addr.lid = htobe16(port->sa_addr.lid);
+	mad->umad.addr.lid = port->sa_addr.lid;
 	mad->umad.addr.sl = port->sa_addr.sl;
 	mad->umad.addr.pkey_index = req->ep->port->sa_pkey_index;
 

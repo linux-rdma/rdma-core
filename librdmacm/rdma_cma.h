@@ -88,7 +88,7 @@ enum rdma_port_space {
 struct rdma_ib_addr {
 	union ibv_gid	sgid;
 	union ibv_gid	dgid;
-	uint16_t	pkey;
+	__be16		pkey;
 };
 
 struct rdma_addr {
@@ -585,8 +585,8 @@ int rdma_get_cm_event(struct rdma_event_channel *channel,
  */
 int rdma_ack_cm_event(struct rdma_cm_event *event);
 
-uint16_t rdma_get_src_port(struct rdma_cm_id *id);
-uint16_t rdma_get_dst_port(struct rdma_cm_id *id);
+__be16 rdma_get_src_port(struct rdma_cm_id *id);
+__be16 rdma_get_dst_port(struct rdma_cm_id *id);
 
 static inline struct sockaddr *rdma_get_local_addr(struct rdma_cm_id *id)
 {

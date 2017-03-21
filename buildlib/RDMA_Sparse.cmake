@@ -16,11 +16,12 @@ int main(int argc,const char *argv[]) {return 0;}
     set(HAVE_SPARSE FALSE PARENT_SCOPE)
   else()
     set(HAVE_SPARSE TRUE PARENT_SCOPE)
-  endif()
 
-  # Replace glibc endian.h with our version that has sparse annotations for
-  # the byteswap macros.
-  RDMA_DoFixup("${HAVE_NO_SPARSE}" "endian.h")
+    # Replace various glibc headers with our own versions that have embedded sparse annotations.
+    execute_process(COMMAND "${BUILDLIB}/gen-sparse.py"
+      "--out" "${BUILD_INCLUDE}/"
+      "--src" "${CMAKE_SOURCE_DIR}/")
+  endif()
 
   # Enable endian analysis in sparse
   add_definitions("-D__CHECK_ENDIAN__")

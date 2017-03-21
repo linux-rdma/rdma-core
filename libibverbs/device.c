@@ -45,7 +45,19 @@
 
 #include "ibverbs.h"
 
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+/* Hack to avoid GCC's -Wmissing-prototypes and the similar error from sparse
+   with these prototypes. Symbol versionining requires the goofy names, the
+   prototype must match the version in verbs.h.
+ */
+struct ibv_device **__ibv_get_device_list(int *num_devices);
+void __ibv_free_device_list(struct ibv_device **list);
+const char *__ibv_get_device_name(struct ibv_device *device);
+__be64 __ibv_get_device_guid(struct ibv_device *device);
+struct ibv_context *__ibv_open_device(struct ibv_device *device);
+int __ibv_close_device(struct ibv_context *context);
+int __ibv_get_async_event(struct ibv_context *context,
+			  struct ibv_async_event *event);
+void __ibv_ack_async_event(struct ibv_async_event *event);
 
 static pthread_once_t device_list_once = PTHREAD_ONCE_INIT;
 static int num_devices;
@@ -98,7 +110,7 @@ const char *__ibv_get_device_name(struct ibv_device *device)
 }
 default_symver(__ibv_get_device_name, ibv_get_device_name);
 
-uint64_t __ibv_get_device_guid(struct ibv_device *device)
+__be64 __ibv_get_device_guid(struct ibv_device *device)
 {
 	char attr[24];
 	uint64_t guid = 0;
@@ -120,8 +132,9 @@ uint64_t __ibv_get_device_guid(struct ibv_device *device)
 }
 default_symver(__ibv_get_device_guid, ibv_get_device_guid);
 
-struct ibv_cq_ex *__lib_ibv_create_cq_ex(struct ibv_context *context,
-					 struct ibv_cq_init_attr_ex *cq_attr)
+static struct ibv_cq_ex *
+__lib_ibv_create_cq_ex(struct ibv_context *context,
+		       struct ibv_cq_init_attr_ex *cq_attr)
 {
 	struct verbs_context *vctx = verbs_get_ctx(context);
 	struct ibv_cq_ex *cq;

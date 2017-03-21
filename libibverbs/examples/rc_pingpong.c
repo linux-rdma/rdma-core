@@ -274,7 +274,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	}
 
 	listen(sockfd, 1);
-	connfd = accept(sockfd, NULL, 0);
+	connfd = accept(sockfd, NULL, NULL);
 	close(sockfd);
 	if (connfd < 0) {
 		fprintf(stderr, "accept() failed\n");

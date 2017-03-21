@@ -40,6 +40,7 @@
 #include <errno.h>
 #include <endian.h>
 #include <semaphore.h>
+#include <stdatomic.h>
 
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
@@ -53,46 +54,14 @@
 /*
  * Fast synchronization for low contention locking.
  */
-#if DEFINE_ATOMICS
-#define fastlock_t pthread_mutex_t
-#define fastlock_init(lock) pthread_mutex_init(lock, NULL)
-#define fastlock_destroy(lock) pthread_mutex_destroy(lock)
-#define fastlock_acquire(lock) pthread_mutex_lock(lock)
-#define fastlock_release(lock) pthread_mutex_unlock(lock)
-
-typedef struct { pthread_mutex_t mut; int val; } atomic_t;
-static inline int atomic_inc(atomic_t *atomic)
-{
-	int v;
-
-	pthread_mutex_lock(&atomic->mut);
-	v = ++(atomic->val);
-	pthread_mutex_unlock(&atomic->mut);
-	return v;
-}
-static inline int atomic_dec(atomic_t *atomic)
-{
-	int v;
-
-	pthread_mutex_lock(&atomic->mut);
-	v = --(atomic->val);
-	pthread_mutex_unlock(&atomic->mut);
-	return v;
-}
-static inline void atomic_init(atomic_t *atomic)
-{
-	pthread_mutex_init(&atomic->mut, NULL);
-	atomic->val = 0;
-}
-#else
 typedef struct {
 	sem_t sem;
-	volatile int cnt;
+	_Atomic(int) cnt;
 } fastlock_t;
 static inline void fastlock_init(fastlock_t *lock)
 {
 	sem_init(&lock->sem, 0, 0);
-	lock->cnt = 0;
+	atomic_store(&lock->cnt, 0);
 }
 static inline void fastlock_destroy(fastlock_t *lock)
 {
@@ -100,24 +69,16 @@ static inline void fastlock_destroy(fastlock_t *lock)
 }
 static inline void fastlock_acquire(fastlock_t *lock)
 {
-	if (__sync_add_and_fetch(&lock->cnt, 1) > 1)
+	if (atomic_fetch_add(&lock->cnt, 1) > 0)
 		sem_wait(&lock->sem);
 }
 static inline void fastlock_release(fastlock_t *lock)
 {
-	if (__sync_sub_and_fetch(&lock->cnt, 1) > 0)
+	if (atomic_fetch_sub(&lock->cnt, 1) > 1)
 		sem_post(&lock->sem);
 }
 
-typedef struct { volatile int val; } atomic_t;
-#define atomic_inc(v) (__sync_add_and_fetch(&(v)->val, 1))
-#define atomic_dec(v) (__sync_sub_and_fetch(&(v)->val, 1))
-#define atomic_init(v) ((v)->val = 0)
-#endif /* DEFINE_ATOMICS */
-#define atomic_get(v) ((v)->val)
-#define atomic_set(v, s) ((v)->val = s)
-
-uint16_t ucma_get_port(struct sockaddr *addr);
+__be16 ucma_get_port(struct sockaddr *addr);
 int ucma_addrlen(struct sockaddr *addr);
 void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 		  struct sockaddr_ib *sib);

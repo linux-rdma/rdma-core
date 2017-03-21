@@ -110,7 +110,7 @@ static int test(void)
 	}
 
 	if (hints.ai_qp_type == IBV_QPT_XRC_SEND)
-		srqn = be32toh(*(uint32_t *) id->event->param.conn.private_data);
+		srqn = be32toh(*(__be32 *) id->event->param.conn.private_data);
 
 	ret = post_send();
 	if (ret) {

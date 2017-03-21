@@ -41,6 +41,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
+#include <linux/types.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -61,8 +62,8 @@ BEGIN_C_DECLS
 union ibv_gid {
 	uint8_t			raw[16];
 	struct {
-		uint64_t	subnet_prefix;
-		uint64_t	interface_id;
+		__be64	subnet_prefix;
+		__be64	interface_id;
 	} global;
 };
 
@@ -141,8 +142,8 @@ enum ibv_atomic_cap {
 
 struct ibv_device_attr {
 	char			fw_ver[64];
-	uint64_t		node_guid;
-	uint64_t		sys_image_guid;
+	__be64			node_guid;
+	__be64			sys_image_guid;
 	uint64_t		max_mr_size;
 	uint64_t		page_size_cap;
 	uint32_t		vendor_id;
@@ -461,7 +462,10 @@ struct ibv_wc {
 	/* When (wc_flags & IBV_WC_WITH_IMM): Immediate data in network byte order.
 	 * When (wc_flags & IBV_WC_WITH_INV): Stores the invalidated rkey.
 	 */
-	uint32_t		imm_data;
+	union {
+		__be32		imm_data;
+		uint32_t	invalidated_rkey;
+	};
 	uint32_t		qp_num;
 	uint32_t		src_qp;
 	int			wc_flags;
@@ -549,8 +553,8 @@ struct ibv_global_route {
 };
 
 struct ibv_grh {
-	uint32_t		version_tclass_flow;
-	uint16_t		paylen;
+	__be32			version_tclass_flow;
+	__be16			paylen;
 	uint8_t			next_hdr;
 	uint8_t			hop_limit;
 	union ibv_gid		sgid;
@@ -584,26 +588,26 @@ enum ibv_rate {
  * converted to 2, since 5 Gbit/sec is 2 * 2.5 Gbit/sec.
  * @rate: rate to convert.
  */
-int ibv_rate_to_mult(enum ibv_rate rate) __attribute_const;
+int  __attribute_const ibv_rate_to_mult(enum ibv_rate rate);
 
 /**
  * mult_to_ibv_rate - Convert a multiple of 2.5 Gbit/sec to an IB rate enum.
  * @mult: multiple to convert.
  */
-enum ibv_rate mult_to_ibv_rate(int mult) __attribute_const;
+enum ibv_rate __attribute_const mult_to_ibv_rate(int mult);
 
 /**
  * ibv_rate_to_mbps - Convert the IB rate enum to Mbit/sec.
  * For example, IBV_RATE_5_GBPS will return the value 5000.
  * @rate: rate to convert.
  */
-int ibv_rate_to_mbps(enum ibv_rate rate) __attribute_const;
+int __attribute_const ibv_rate_to_mbps(enum ibv_rate rate);
 
 /**
  * mbps_to_ibv_rate - Convert a Mbit/sec value to an IB rate enum.
  * @mbps: value to convert.
  */
-enum ibv_rate mbps_to_ibv_rate(int mbps) __attribute_const;
+enum ibv_rate __attribute_const mbps_to_ibv_rate(int mbps) __attribute_const;
 
 struct ibv_ah_attr {
 	struct ibv_global_route	grh;
@@ -914,7 +918,7 @@ struct ibv_send_wr {
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
 	int			send_flags;
-	uint32_t		imm_data;	/* in network byte order */
+	__be32			imm_data;
 	union {
 		struct {
 			uint64_t	remote_addr;
@@ -1533,7 +1537,7 @@ const char *ibv_get_device_name(struct ibv_device *device);
 /**
  * ibv_get_device_guid - Return device's node GUID
  */
-uint64_t ibv_get_device_guid(struct ibv_device *device);
+__be64 ibv_get_device_guid(struct ibv_device *device);
 
 /**
  * ibv_open_device - Initialize device for use
@@ -1603,7 +1607,7 @@ int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
  * ibv_query_pkey - Get a P_Key table entry
  */
 int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
-		   int index, uint16_t *pkey);
+		   int index, __be16 *pkey);
 
 /**
  * ibv_alloc_pd - Allocate a protection domain

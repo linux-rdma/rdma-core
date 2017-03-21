@@ -139,9 +139,9 @@ const char * umad_method_str(uint8_t mgmt_class, uint8_t method)
 	return (umad_common_method_str(method));
 }
 
-const char * umad_common_mad_status_str(__be16 status)
+const char * umad_common_mad_status_str(__be16 _status)
 {
-	status = be16toh(status);
+	uint16_t status = be16toh(_status);
 
 	if (status & UMAD_STATUS_BUSY)
 		return ("Busy");
@@ -162,9 +162,9 @@ const char * umad_common_mad_status_str(__be16 status)
 	return ("Success");
 }
 
-const char * umad_sa_mad_status_str(__be16 status)
+const char * umad_sa_mad_status_str(__be16 _status)
 {
-	status = be16toh(status);
+	uint16_t status = be16toh(_status);
 	switch((status & UMAD_STATUS_CLASS_MASK) >> 8) {
 		case UMAD_SA_STATUS_SUCCESS:
 			return ("Success");

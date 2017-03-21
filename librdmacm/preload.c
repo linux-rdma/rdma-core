@@ -119,7 +119,7 @@ struct fd_info {
 	enum fd_fork_state state;
 	int fd;
 	int dupfd;
-	atomic_t refcnt;
+	_Atomic(int) refcnt;
 };
 
 struct config_entry {
@@ -266,8 +266,7 @@ static int fd_open(void)
 	}
 
 	fdi->dupfd = -1;
-	atomic_init(&fdi->refcnt);
-	atomic_set(&fdi->refcnt, 1);
+	atomic_store(&fdi->refcnt, 1);
 	pthread_mutex_lock(&mut);
 	ret = idm_set(&idm, index, fdi);
 	pthread_mutex_unlock(&mut);
@@ -688,7 +687,8 @@ static void fork_passive(int socket)
 	ret = real.getsockname(sfd, (struct sockaddr *) &sin6, &len);
 	if (ret)
 		goto out;
-	sin6.sin6_flowinfo = sin6.sin6_scope_id = 0;
+	sin6.sin6_flowinfo = 0;
+	sin6.sin6_scope_id = 0;
 	memset(&sin6.sin6_addr, 0, sizeof sin6.sin6_addr);
 
 	sem = sem_open("/rsocket_fork", O_CREAT | O_RDWR,
@@ -1013,7 +1013,7 @@ int close(int socket)
 			return ret;
 	}
 
-	if (atomic_dec(&fdi->refcnt))
+	if (atomic_fetch_sub(&fdi->refcnt, 1) != 1)
 		return 0;
 
 	idm_clear(&idm, socket);
@@ -1118,7 +1118,7 @@ int dup2(int oldfd, int newfd)
 	newfdi = idm_lookup(&idm, newfd);
 	if (newfdi) {
 		 /* newfd cannot have been dup'ed directly */
-		if (atomic_get(&newfdi->refcnt) > 1)
+		if (atomic_load(&newfdi->refcnt) > 1)
 			return ERR(EBUSY);
 		close(newfd);
 	}
@@ -1145,9 +1145,8 @@ int dup2(int oldfd, int newfd)
 	} else {
 		newfdi->dupfd = oldfd;
 	}
-	atomic_init(&newfdi->refcnt);
-	atomic_set(&newfdi->refcnt, 1);
-	atomic_inc(&oldfdi->refcnt);
+	atomic_store(&newfdi->refcnt, 1);
+	atomic_fetch_add(&oldfdi->refcnt, 1);
 	return newfd;
 }
 

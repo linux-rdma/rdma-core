@@ -35,22 +35,23 @@
 #define INFINIBAND_SA_H
 
 #include <infiniband/verbs.h>
+#include <linux/types.h>
 
 struct ibv_sa_path_rec {
 	/* reserved */
 	/* reserved */
 	union ibv_gid dgid;
 	union ibv_gid sgid;
-	uint16_t      dlid;
-	uint16_t      slid;
+	__be16        dlid;
+	__be16        slid;
 	int           raw_traffic;
 	/* reserved */
-	uint32_t      flow_label;
+	__be32        flow_label;
 	uint8_t       hop_limit;
 	uint8_t       traffic_class;
 	int           reversible;
 	uint8_t       numb_path;
-	uint16_t      pkey;
+	__be16        pkey;
 	/* reserved */
 	uint8_t       sl;
 	uint8_t       mtu_selector;
@@ -100,16 +101,16 @@ struct ibv_sa_service_rec {
 #define IBV_PATH_RECORD_REVERSIBLE 0x80
 
 struct ibv_path_record {
-	uint64_t	service_id;
+	__be64		service_id;
 	union ibv_gid	dgid;
 	union ibv_gid	sgid;
-	uint16_t	dlid;
-	uint16_t	slid;
-	uint32_t	flowlabel_hoplimit; /* resv-31:28 flow label-27:8 hop limit-7:0*/
+	__be16		dlid;
+	__be16		slid;
+	__be32		flowlabel_hoplimit; /* resv-31:28 flow label-27:8 hop limit-7:0*/
 	uint8_t		tclass;
 	uint8_t		reversible_numpath; /* reversible-7:7 num path-6:0 */
-	uint16_t	pkey;
-	uint16_t	qosclass_sl;	    /* qos class-15:4 sl-3:0 */
+	__be16		pkey;
+	__be16		qosclass_sl;	    /* qos class-15:4 sl-3:0 */
 	uint8_t		mtu;		    /* mtu selector-7:6 mtu-5:0 */
 	uint8_t		rate;		    /* rate selector-7:6 rate-5:0 */
 	uint8_t		packetlifetime;	    /* lifetime selector-7:6 lifetime-5:0 */

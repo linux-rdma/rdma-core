@@ -422,7 +422,7 @@ static int server_connect(void)
 			}
 		}
 
-		rs = raccept(lrs, NULL, 0);
+		rs = raccept(lrs, NULL, NULL);
 	} while (rs < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
 	if (rs < 0) {
 		perror("raccept");

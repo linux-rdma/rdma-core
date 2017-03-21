@@ -104,7 +104,7 @@ int sys_read_guid(const char *dir_name, const char *file_name, __be64 *net_guid)
 int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid)
 {
 	char buf[64], *str, *s;
-	uint16_t *ugid = (uint16_t *) gid;
+	__be16 *ugid = (__be16 *) gid;
 	int r, i;
 
 	if ((r = sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)

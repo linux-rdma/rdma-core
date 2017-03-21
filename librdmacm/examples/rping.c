@@ -83,9 +83,9 @@ enum test_state {
 };
 
 struct rping_rdma_info {
-	uint64_t buf;
-	uint32_t rkey;
-	uint32_t size;
+	__be64 buf;
+	__be32 rkey;
+	__be32 size;
 };
 
 /*
@@ -141,7 +141,7 @@ struct rping_cb {
 	sem_t sem;
 
 	struct sockaddr_storage sin;
-	uint16_t port;			/* dst port in NBO */
+	__be16 port;			/* dst port in NBO */
 	int verbose;			/* verbose logging */
 	int count;			/* ping count */
 	int size;			/* ping data size */
