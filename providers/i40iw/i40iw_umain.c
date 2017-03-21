@@ -208,9 +208,17 @@ static void i40iw_ufree_context(struct ibv_context *ibctx)
 	free(iwvctx);
 }
 
+static void i40iw_uninit_device(struct verbs_device *verbs_device)
+{
+	struct i40iw_udevice *dev = to_i40iw_udev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops i40iw_udev_ops = {
 	.alloc_context	= i40iw_ualloc_context,
-	.free_context	= i40iw_ufree_context
+	.free_context	= i40iw_ufree_context,
+	.uninit_device  = i40iw_uninit_device
 };
 
 /**

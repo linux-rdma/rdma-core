@@ -965,9 +965,17 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 	close_debug_file(context);
 }
 
+static void mlx5_uninit_device(struct verbs_device *verbs_device)
+{
+	struct mlx5_device *dev = to_mdev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops mlx5_dev_ops = {
 	.init_context = mlx5_init_context,
 	.uninit_context = mlx5_cleanup_context,
+	.uninit_device = mlx5_uninit_device
 };
 
 static struct verbs_device *mlx5_driver_init(const char *uverbs_sys_path,

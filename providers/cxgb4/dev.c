@@ -220,9 +220,17 @@ static void c4iw_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void c4iw_uninit_device(struct verbs_device *verbs_device)
+{
+	struct c4iw_dev *dev = to_c4iw_dev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops c4iw_dev_ops = {
 	.alloc_context = c4iw_alloc_context,
-	.free_context = c4iw_free_context
+	.free_context = c4iw_free_context,
+	.uninit_device = c4iw_uninit_device
 };
 
 #ifdef STALL_DETECTION

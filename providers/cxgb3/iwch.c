@@ -166,9 +166,17 @@ static void iwch_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void iwch_uninit_device(struct verbs_device *verbs_device)
+{
+	struct iwch_device *dev = to_iwch_dev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops iwch_dev_ops = {
 	.alloc_context = iwch_alloc_context,
-	.free_context = iwch_free_context
+	.free_context = iwch_free_context,
+	.uninit_device = iwch_uninit_device
 };
 
 static struct verbs_device *cxgb3_driver_init(const char *uverbs_sys_path,

@@ -172,9 +172,17 @@ static void ipath_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void ipath_uninit_device(struct verbs_device *verbs_device)
+{
+	struct ipath_device *dev = to_idev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops ipath_dev_ops = {
 	.alloc_context	= ipath_alloc_context,
-	.free_context	= ipath_free_context
+	.free_context	= ipath_free_context,
+	.uninit_device  = ipath_uninit_device
 };
 
 static struct verbs_device *ipath_driver_init(const char *uverbs_sys_path,

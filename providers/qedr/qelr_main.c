@@ -108,9 +108,17 @@ static struct ibv_context_ops qelr_ctx_ops = {
 	.async_event = qelr_async_event,
 };
 
+static void qelr_uninit_device(struct verbs_device *verbs_device)
+{
+	struct qelr_device *dev = get_qelr_dev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops qelr_dev_ops = {
 	.alloc_context = qelr_alloc_context,
-	.free_context = qelr_free_context
+	.free_context = qelr_free_context,
+	.uninit_device = qelr_uninit_device
 };
 
 static void qelr_open_debug_file(struct qelr_devctx *ctx)

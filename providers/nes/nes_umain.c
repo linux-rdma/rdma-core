@@ -184,10 +184,17 @@ static void nes_ufree_context(struct ibv_context *ibctx)
 	free(nesvctx);
 }
 
+static void nes_uninit_device(struct verbs_device *verbs_device)
+{
+	struct nes_udevice *dev = to_nes_udev(&verbs_device->device);
+
+	free(dev);
+}
 
 static struct verbs_device_ops nes_udev_ops = {
 	.alloc_context = nes_ualloc_context,
-	.free_context = nes_ufree_context
+	.free_context = nes_ufree_context,
+	.uninit_device = nes_uninit_device
 };
 
 

@@ -103,9 +103,17 @@ static struct ibv_context_ops ocrdma_ctx_ops = {
 	.detach_mcast = ocrdma_detach_mcast
 };
 
+static void ocrdma_uninit_device(struct verbs_device *verbs_device)
+{
+	struct ocrdma_device *dev = get_ocrdma_dev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops ocrdma_dev_ops = {
 	.alloc_context = ocrdma_alloc_context,
-	.free_context = ocrdma_free_context
+	.free_context = ocrdma_free_context,
+	.uninit_device = ocrdma_uninit_device
 };
 
 /*
