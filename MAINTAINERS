@@ -40,6 +40,11 @@ F:	*/CMakeLists.txt
 F:	*/lib*.map
 F:	buildlib/
 
+BNXT_RE USERSPACE PROVIDER (for bnxt_re.ko)
+M:	Devesh Sharma  <Devesh.sharma@broadcom.com>
+S:	Supported
+F:	providers/bnxt_re/
+
 CXGB3 USERSPACE PROVIDER (for iw_cxgb3.ko)
 M:	Steve Wise <swise@opengridcomputing.com>
 S:	Supported
