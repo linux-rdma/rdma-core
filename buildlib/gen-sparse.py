@@ -35,7 +35,7 @@ def get_buildlib_patches(dfn):
                 bn = 0;
 
             res.append((bn,os.path.join(d,I)));
-    res.sort();
+    res.sort(reverse=True);
 
     ret = collections.defaultdict(list);
     for _,I in res:
@@ -79,7 +79,10 @@ def replace_header(fn):
                        pfn,os.path.join(args.INCLUDE,fn)):
             return;
         tries = tries + 1;
-    raise ValueError("Unable to apply any patch to %r, tries %u"%(fn,tries));
+
+    print "Unable to apply any patch to %r, tries %u"%(fn,tries);
+    global failed;
+    failed = True;
 
 def save(fn,outdir):
     """Diff the header file in our include directory against the system header and
@@ -124,6 +127,10 @@ if args.save:
     for I in headers:
         save(I,outdir);
 else:
+    failed = False;
     patches = get_buildlib_patches(os.path.join(args.SRC,"buildlib","sparse-include"));
     for I in headers:
         replace_header(I);
+
+    if failed:
+        raise ValueError("Patch applications failed");

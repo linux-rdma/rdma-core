@@ -20,7 +20,12 @@ int main(int argc,const char *argv[]) {return 0;}
     # Replace various glibc headers with our own versions that have embedded sparse annotations.
     execute_process(COMMAND "${BUILDLIB}/gen-sparse.py"
       "--out" "${BUILD_INCLUDE}/"
-      "--src" "${CMAKE_SOURCE_DIR}/")
+      "--src" "${CMAKE_SOURCE_DIR}/"
+      RESULT_VARIABLE retcode)
+    if(NOT "${retcode}" STREQUAL "0")
+      message(FATAL_ERROR "glibc header file patching for sparse failed. Review include/*.rej and fix the rejects, then do "
+	"${BUILDLIB}/gen-sparse.py -out ${BUILD_INCLUDE}/ --src ${CMAKE_SOURCE_DIR}/ --save")
+    endif()
   endif()
 
   # Enable endian analysis in sparse
