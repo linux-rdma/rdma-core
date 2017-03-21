@@ -5,7 +5,7 @@ set -e
 # Echo all commands to Travis log
 set -x
 
-mkdir build-clang build32
+mkdir build-clang build32 build-sparse
 
 # Build with latest clang first
 cd build-clang
@@ -20,6 +20,18 @@ cd ../build32
 CC=gcc-6 CFLAGS="-Werror -m32" cmake -GNinja .. -DENABLE_RESOLVE_NEIGH=0
 ninja
 
+# Run sparse on the subdirectories which are sparse clean
+cd ../build-sparse
+mv ../CMakeLists.txt ../CMakeLists-orig.txt
+grep -v "# NO SPARSE" ../CMakeLists-orig.txt > ../CMakeLists.txt
+CC=cgcc CFLAGS="-Werror" cmake -GNinja ..
+ninja > out
+# sparse does not fail gcc on messages
+if grep -v '^\[' out; then
+   false
+fi
+mv ../CMakeLists-orig.txt ../CMakeLists.txt
+
 # Test with coherent DMA mode disabled (ie as would be on ARM32, etc)
 cd ../build-clang
 cp ../util/udma_barrier.h ../util/udma_barrier.h.old
@@ -27,6 +39,7 @@ echo "#error Fail" >> ../util/udma_barrier.h
 rm CMakeCache.txt
 CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
 ninja
+cp ../util/udma_barrier.h.old ../util/udma_barrier.h
 
 # Finally run through gcc-6 64 bit through the debian packaging This gives a
 # good clue if patches are changing packaging related things, the RPM stuff
@@ -35,7 +48,6 @@ ninja
 # When running cmake through debian/rules it is hard to set -Werror,
 # instead force it on by changing the CMakeLists.txt
 cd ..
-cp util/udma_barrier.h.old util/udma_barrier.h
 echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")' >> buildlib/RDMA_EnableCStd.cmake
 sed -i -e 's/-DCMAKE_BUILD_TYPE=Release//g' debian/rules
 sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules

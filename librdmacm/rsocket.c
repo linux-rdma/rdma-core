@@ -47,6 +47,7 @@
 #include <sys/epoll.h>
 #include <search.h>
 #include <byteswap.h>
+#include <util/compiler.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
@@ -190,19 +191,19 @@ struct rs_iomap_mr {
 	uint64_t offset;
 	struct ibv_mr *mr;
 	dlist_entry entry;
-	atomic_t refcnt;
+	_Atomic(int) refcnt;
 	int index;	/* -1 if mapping is local and not in iomap_list */
 };
 
 #define RS_MAX_CTRL_MSG    (sizeof(struct rs_sge))
-#define rs_host_is_net()   (1 == htobe32(1))
+#define rs_host_is_net()   ((__force __be32)1 == htobe32(1))
 #define RS_CONN_FLAG_NET   (1 << 0)
 #define RS_CONN_FLAG_IOMAP (1 << 1)
 
 struct rs_conn_data {
 	uint8_t		  version;
 	uint8_t		  flags;
-	uint16_t	  credits;
+	__be16		  credits;
 	uint8_t		  reserved[3];
 	uint8_t		  target_iomap_size;
 	struct rs_sge	  target_sgl;
@@ -257,11 +258,11 @@ union socket_addr {
 struct ds_header {
 	uint8_t		  version;
 	uint8_t		  length;
-	uint16_t	  port;
+	__be16		  port;
 	union {
-		uint32_t  ipv4;
+		__be32  ipv4;
 		struct {
-			uint32_t flowinfo;
+			__be32 flowinfo;
 			uint8_t  addr[16];
 		} ipv6;
 	} addr;
@@ -385,14 +386,14 @@ struct rsocket {
 #define DS_UDP_TAG 0x55555555
 
 struct ds_udp_header {
-	uint32_t	  tag;
+	__be32		  tag;
 	uint8_t		  version;
 	uint8_t		  op;
 	uint8_t		  length;
 	uint8_t		  reserved;
-	uint32_t	  qpn;  /* lower 8-bits reserved */
+	__be32		  qpn;  /* lower 8-bits reserved */
 	union {
-		uint32_t ipv4;
+		__be32	 ipv4;
 		uint8_t  ipv6[16];
 	} addr;
 };
@@ -898,7 +899,7 @@ static int rs_create_ep(struct rsocket *rs)
 
 static void rs_release_iomap_mr(struct rs_iomap_mr *iomr)
 {
-	if (atomic_dec(&iomr->refcnt))
+	if (atomic_fetch_sub(&iomr->refcnt, 1))
 		return;
 
 	dlist_remove(&iomr->entry);
@@ -1045,20 +1046,20 @@ static void rs_format_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 	memset(conn->reserved, 0, sizeof conn->reserved);
 	conn->target_iomap_size = (uint8_t) rs_value_to_scale(rs->target_iomap_size, 8);
 
-	conn->target_sgl.addr = htobe64((uintptr_t) rs->target_sgl);
-	conn->target_sgl.length = htobe32(RS_SGL_SIZE);
-	conn->target_sgl.key = htobe32(rs->target_mr->rkey);
+	conn->target_sgl.addr = (__force uint64_t)htobe64((uintptr_t) rs->target_sgl);
+	conn->target_sgl.length = (__force uint32_t)htobe32(RS_SGL_SIZE);
+	conn->target_sgl.key = (__force uint32_t)htobe32(rs->target_mr->rkey);
 
-	conn->data_buf.addr = htobe64((uintptr_t) rs->rbuf);
-	conn->data_buf.length = htobe32(rs->rbuf_size >> 1);
-	conn->data_buf.key = htobe32(rs->rmr->rkey);
+	conn->data_buf.addr = (__force uint64_t)htobe64((uintptr_t) rs->rbuf);
+	conn->data_buf.length = (__force uint32_t)htobe32(rs->rbuf_size >> 1);
+	conn->data_buf.key = (__force uint32_t)htobe32(rs->rmr->rkey);
 }
 
 static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 {
-	rs->remote_sgl.addr = be64toh(conn->target_sgl.addr);
-	rs->remote_sgl.length = be32toh(conn->target_sgl.length);
-	rs->remote_sgl.key = be32toh(conn->target_sgl.key);
+	rs->remote_sgl.addr = be64toh((__force __be64)conn->target_sgl.addr);
+	rs->remote_sgl.length = be32toh((__force __be32)conn->target_sgl.length);
+	rs->remote_sgl.key = be32toh((__force __be32)conn->target_sgl.key);
 	rs->remote_sge = 1;
 	if ((rs_host_is_net() && !(conn->flags & RS_CONN_FLAG_NET)) ||
 	    (!rs_host_is_net() && (conn->flags & RS_CONN_FLAG_NET)))
@@ -1071,9 +1072,9 @@ static void rs_save_conn_data(struct rsocket *rs, struct rs_conn_data *conn)
 		rs->remote_iomap.key = rs->remote_sgl.key;
 	}
 
-	rs->target_sgl[0].addr = be64toh(conn->data_buf.addr);
-	rs->target_sgl[0].length = be32toh(conn->data_buf.length);
-	rs->target_sgl[0].key = be32toh(conn->data_buf.key);
+	rs->target_sgl[0].addr = be64toh((__force __be64)conn->data_buf.addr);
+	rs->target_sgl[0].length = be32toh((__force __be32)conn->data_buf.length);
+	rs->target_sgl[0].key = be32toh((__force __be32)conn->data_buf.key);
 
 	rs->sseq_comp = be16toh(conn->credits);
 }
@@ -1402,8 +1403,8 @@ connected:
 static int rs_any_addr(const union socket_addr *addr)
 {
 	if (addr->sa.sa_family == AF_INET) {
-		return (addr->sin.sin_addr.s_addr == INADDR_ANY ||
-			addr->sin.sin_addr.s_addr == INADDR_LOOPBACK);
+		return (addr->sin.sin_addr.s_addr == htobe32(INADDR_ANY) ||
+			addr->sin.sin_addr.s_addr == htobe32(INADDR_LOOPBACK));
 	} else {
 		return (!memcmp(&addr->sin6.sin6_addr, &in6addr_any, 16) ||
 			!memcmp(&addr->sin6.sin6_addr, &in6addr_loopback, 16));
@@ -1415,7 +1416,7 @@ static int ds_get_src_addr(struct rsocket *rs,
 			   union socket_addr *src_addr, socklen_t *src_len)
 {
 	int sock, ret;
-	uint16_t port;
+	__be16 port;
 
 	*src_len = sizeof(*src_addr);
 	ret = getsockname(rs->udp_sock, &src_addr->sa, src_len);
@@ -2420,7 +2421,7 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	rs = idm_at(&idm, socket);
 	if (rs->type == SOCK_DGRAM) {
 		fastlock_acquire(&rs->rlock);
-		ret = ds_recvfrom(rs, buf, len, flags, NULL, 0);
+		ret = ds_recvfrom(rs, buf, len, flags, NULL, NULL);
 		fastlock_release(&rs->rlock);
 		return ret;
 	}
@@ -3551,11 +3552,11 @@ static void rs_convert_sa_path(struct ibv_sa_path_rec *sa_path,
 	path_data->path.dlid = sa_path->dlid;
 	path_data->path.slid = sa_path->slid;
 	fl_hop = be32toh(sa_path->flow_label) << 8;
-	path_data->path.flowlabel_hoplimit = htobe32(fl_hop) | sa_path->hop_limit;
+	path_data->path.flowlabel_hoplimit = htobe32(fl_hop | sa_path->hop_limit);
 	path_data->path.tclass = sa_path->traffic_class;
 	path_data->path.reversible_numpath = sa_path->reversible << 7 | 1;
 	path_data->path.pkey = sa_path->pkey;
-	path_data->path.qosclass_sl = sa_path->sl;
+	path_data->path.qosclass_sl = htobe16(sa_path->sl);
 	path_data->path.mtu = sa_path->mtu | 2 << 6;	/* exactly */
 	path_data->path.rate = sa_path->rate | 2 << 6;
 	path_data->path.packetlifetime = sa_path->packet_life_time | 2 << 6;
@@ -3798,8 +3799,7 @@ off_t riomap(int socket, void *buf, size_t len, int prot, int flags, off_t offse
 	if (offset == -1)
 		offset = (uintptr_t) buf;
 	iomr->offset = offset;
-	atomic_init(&iomr->refcnt);
-	atomic_set(&iomr->refcnt, 1);
+	atomic_store(&iomr->refcnt, 1);
 
 	if (iomr->index >= 0) {
 		dlist_insert_tail(&iomr->entry, &rs->iomap_queue);
@@ -4118,7 +4118,7 @@ out:
 static int udp_svc_valid_udp_hdr(struct ds_udp_header *udp_hdr,
 				 union socket_addr *addr)
 {
-	return (udp_hdr->tag == be32toh(DS_UDP_TAG)) &&
+	return (udp_hdr->tag == htobe32(DS_UDP_TAG)) &&
 		((udp_hdr->version == 4 && addr->sa.sa_family == AF_INET &&
 		  udp_hdr->length == DS_UDP_IPV4_HDR_LEN) ||
 		 (udp_hdr->version == 6 && addr->sa.sa_family == AF_INET6 &&
@@ -4161,6 +4161,7 @@ static void udp_svc_process_rs(struct rsocket *rs)
 	union socket_addr addr;
 	socklen_t addrlen = sizeof addr;
 	int len, ret;
+	uint32_t qpn;
 
 	ret = recvfrom(rs->udp_sock, buf, sizeof buf, 0, &addr.sa, &addrlen);
 	if (ret < DS_UDP_IPV4_HDR_LEN)
@@ -4171,8 +4172,11 @@ static void udp_svc_process_rs(struct rsocket *rs)
 		return;
 
 	len = ret - udp_hdr->length;
-	udp_hdr->tag = be32toh(udp_hdr->tag);
-	udp_hdr->qpn = be32toh(udp_hdr->qpn) & 0xFFFFFF;
+	qpn = be32toh(udp_hdr->qpn) & 0xFFFFFF;
+
+	udp_hdr->tag = (__force __be32)be32toh(udp_hdr->tag);
+	udp_hdr->qpn = (__force __be32)qpn;
+
 	ret = ds_get_dest(rs, &addr.sa, addrlen, &dest);
 	if (ret)
 		return;
@@ -4186,8 +4190,8 @@ static void udp_svc_process_rs(struct rsocket *rs)
 		fastlock_release(&rs->slock);
 	}
 
-	if (!dest->ah || (dest->qpn != udp_hdr->qpn))
-		udp_svc_create_ah(rs, dest, udp_hdr->qpn);
+	if (!dest->ah || (dest->qpn != qpn))
+		udp_svc_create_ah(rs, dest, qpn);
 
 	/* to do: handle when dest local ip address doesn't match udp ip */
 	if (udp_hdr->op == RS_OP_DATA) {

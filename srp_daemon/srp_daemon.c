@@ -312,17 +312,16 @@ void pr_err(const char *fmt, ...)
 static int check_not_equal_str(const char *dir_name, const char *attr,
 			       const char *value)
 {
-	const int MAX_ATTR_STRING_LENGTH=64;
-
- 	char attr_value[MAX_ATTR_STRING_LENGTH];
+	char attr_value[64];
 	int len = strlen(value);
 
-	if (len > MAX_ATTR_STRING_LENGTH) {
+	if (len > sizeof(attr_value)) {
 		pr_err("string %s is too long\n", value);
 		return 1;
 	}
 
-	if (srpd_sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
+	if (srpd_sys_read_string(dir_name, attr, attr_value,
+				 sizeof(attr_value)))
 		return 0;
 	if (strncmp(attr_value, value, len))
 		return 1;
@@ -333,11 +332,10 @@ static int check_not_equal_str(const char *dir_name, const char *attr,
 static int check_not_equal_int(const char *dir_name, const char *attr,
 			       int value)
 {
-	const int MAX_ATTR_STRING_LENGTH=64;
+	char attr_value[64];
 
-	char attr_value[MAX_ATTR_STRING_LENGTH];
-
-	if (srpd_sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
+	if (srpd_sys_read_string(dir_name, attr, attr_value,
+				 sizeof(attr_value)))
 		return 0;
 	if (value != atoi(attr_value))
 		return 1;
@@ -402,15 +400,13 @@ static int is_enabled_by_rules_file(struct target_details *target)
 
 static int add_non_exist_target(struct target_details *target)
 {
-	const int MAX_SCSI_HOST_DIR_NAME_LENGTH = 50;
-	char scsi_host_dir[MAX_SCSI_HOST_DIR_NAME_LENGTH];
+	char scsi_host_dir[50];
 	DIR *dir;
 	struct dirent *subdir;
 	char *subdir_name_ptr;
 	int prefix_len;
 	ib_gid_t dgid_val;
-	const int MAX_TARGET_CONFIG_STR_STRING = 255;
-	char target_config_str[MAX_TARGET_CONFIG_STR_STRING];
+	char target_config_str[255];
 	int len;
 	int not_connected = 1;
 
@@ -436,7 +432,7 @@ static int add_non_exist_target(struct target_details *target)
 			continue;
 
 		strncpy(subdir_name_ptr, subdir->d_name,
-			MAX_SCSI_HOST_DIR_NAME_LENGTH - prefix_len);
+			sizeof(scsi_host_dir) - prefix_len);
 		if (!check_equal_uint64(scsi_host_dir, "id_ext",
 				        strtoull(target->id_ext, NULL, 16)))
 			continue;
@@ -512,7 +508,7 @@ static int add_non_exist_target(struct target_details *target)
 
 	}
 
-	len = snprintf(target_config_str, MAX_TARGET_CONFIG_STR_STRING, "id_ext=%s,"
+	len = snprintf(target_config_str, sizeof(target_config_str), "id_ext=%s,"
 		"ioc_guid=%016llx,"
 		"dgid=%016llx%016llx,"
 		"pkey=%04x,"
@@ -523,7 +519,7 @@ static int add_non_exist_target(struct target_details *target)
 		(unsigned long long) target->h_guid,
 		target->pkey,
 		(unsigned long long) target->h_service_id);
-	if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+	if (len >= sizeof(target_config_str)) {
 		pr_err("Target config string is too long, ignoring target\n");
 		closedir(dir);
 		return -1;
@@ -531,10 +527,10 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (target->ioc_prof.io_class != htobe16(SRP_REV16A_IB_IO_CLASS)) {
 		len += snprintf(target_config_str+len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
+				sizeof(target_config_str) - len,
 				",io_class=%04hx", be16toh(target->ioc_prof.io_class));
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
@@ -543,11 +539,11 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (config->print_initiator_ext) {
 		len += snprintf(target_config_str+len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
+				sizeof(target_config_str) - len,
 				",initiator_ext=%016llx",
 				(unsigned long long) target->h_guid);
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
@@ -556,10 +552,10 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (config->execute && config->tl_retry_count) {
 		len += snprintf(target_config_str + len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
+				sizeof(target_config_str) - len,
 				",tl_retry_count=%d", config->tl_retry_count);
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
@@ -568,11 +564,11 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (target->options) {
 		len += snprintf(target_config_str+len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
+				sizeof(target_config_str) - len,
 				"%s",
 				target->options);
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;

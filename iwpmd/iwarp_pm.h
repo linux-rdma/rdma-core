@@ -144,7 +144,7 @@ typedef struct iwpm_mapped_port {
 typedef struct iwpm_wire_msg {
 	__u8	magic;
 	__u8	pmtime;
-	__u16	reserved;
+	__be16	reserved;
 	__be16	apport;
 	__be16	cpport;
 	__be64	assochandle;

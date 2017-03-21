@@ -52,9 +52,9 @@ static int null_gid(union ibv_gid *gid)
 		 gid->raw[12] | gid->raw[13] | gid->raw[14] | gid->raw[15]);
 }
 
-static const char *guid_str(uint64_t node_guid, char *str)
+static const char *guid_str(__be64 _node_guid, char *str)
 {
-	node_guid = be64toh(node_guid);
+	uint64_t node_guid = be64toh(_node_guid);
 	sprintf(str, "%04x:%04x:%04x:%04x",
 		(unsigned) (node_guid >> 48) & 0xffff,
 		(unsigned) (node_guid >> 32) & 0xffff,
@@ -330,7 +330,7 @@ static void print_odp_caps(const struct ibv_odp_caps *caps)
 
 static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
 {
-	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000;
+	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000ULL;
 	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS);
 
 	if (ex_flags & IBV_DEVICE_RAW_SCATTER_FCS)

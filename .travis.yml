@@ -15,6 +15,8 @@ addons:
       - sourceline: "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-3.9 main"
         key_url: "http://apt.llvm.org/llvm-snapshot.gpg.key"
       - ubuntu-toolchain-r-test
+      # Multiverse is not on by default and we need it to get sparse
+      - sourceline: "deb http://archive.ubuntu.com/ubuntu/ trusty multiverse"
     packages:
       - build-essential
       - clang-3.9
@@ -32,6 +34,7 @@ addons:
       - pkg-config
       - python
       - valgrind
+      - sparse
 
       # 32 bit support packages
       - gcc-multilib

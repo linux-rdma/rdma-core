@@ -361,8 +361,8 @@ int ib_cm_init_qp_attr(struct ib_cm_id *cm_id,
 }
 
 int ib_cm_listen(struct ib_cm_id *cm_id,
-		 uint64_t service_id,
-		 uint64_t service_mask)
+		 __be64 service_id,
+		 __be64 service_mask)
 {
 	struct ib_ucm_listen *cmd;
 	void *msg;

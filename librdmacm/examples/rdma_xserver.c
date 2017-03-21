@@ -45,12 +45,13 @@ static struct ibv_mr *mr;
 static struct rdma_addrinfo hints;
 
 static uint8_t recv_msg[16];
-static uint32_t srqn;
+static __be32 srqn;
 
 static int create_srq(void)
 {
 	struct ibv_srq_init_attr attr;
 	int ret;
+	uint32_t tmp_srqn;
 
 	attr.attr.max_wr = 1;
 	attr.attr.max_sge = 1;
@@ -62,8 +63,8 @@ static int create_srq(void)
 		perror("rdma_create_srq:");
 
 	if (id->srq) {
-		ibv_get_srq_num(id->srq, &srqn);
-		srqn = htobe32(srqn);
+		ibv_get_srq_num(id->srq, &tmp_srqn);
+		srqn = htobe32(tmp_srqn);
 	}
 	return ret;
 }

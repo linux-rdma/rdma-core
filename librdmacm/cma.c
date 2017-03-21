@@ -80,7 +80,7 @@ struct cma_device {
 	struct ibv_pd	   *pd;
 	struct ibv_xrcd    *xrcd;
 	struct cma_port    *port;
-	uint64_t	    guid;
+	__be64		    guid;
 	int		    port_cnt;
 	int		    refcnt;
 	int		    max_qpsize;
@@ -239,7 +239,7 @@ err1:
 	return ret;
 }
 
-static struct ibv_context *ucma_open_device(uint64_t guid)
+static struct ibv_context *ucma_open_device(__be64 guid)
 {
 	struct ibv_device **dev_list;
 	struct ibv_context *verbs = NULL;
@@ -382,7 +382,7 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 	free(channel);
 }
 
-static int ucma_get_device(struct cma_id_private *id_priv, uint64_t guid)
+static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid)
 {
 	struct cma_device *cma_dev;
 	int i, ret;
@@ -1088,10 +1088,10 @@ static int ucma_modify_qp_err(struct rdma_cm_id *id)
 }
 
 static int ucma_find_pkey(struct cma_device *cma_dev, uint8_t port_num,
-			  uint16_t pkey, uint16_t *pkey_index)
+			  __be16 pkey, uint16_t *pkey_index)
 {
 	int ret, i;
-	uint16_t chk_pkey;
+	__be16 chk_pkey;
 
 	for (i = 0, ret = 0; !ret; i++) {
 		ret = ibv_query_pkey(cma_dev->verbs, port_num, i, &chk_pkey);
@@ -2434,7 +2434,7 @@ int ucma_max_qpsize(struct rdma_cm_id *id)
 	return max_size;
 }
 
-uint16_t ucma_get_port(struct sockaddr *addr)
+__be16 ucma_get_port(struct sockaddr *addr)
 {
 	switch (addr->sa_family) {
 	case AF_INET:
@@ -2448,12 +2448,12 @@ uint16_t ucma_get_port(struct sockaddr *addr)
 	}
 }
 
-uint16_t rdma_get_src_port(struct rdma_cm_id *id)
+__be16 rdma_get_src_port(struct rdma_cm_id *id)
 {
 	return ucma_get_port(&id->route.addr.src_addr);
 }
 
-uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
+__be16 rdma_get_dst_port(struct rdma_cm_id *id)
 {
 	return ucma_get_port(&id->route.addr.dst_addr);
 }

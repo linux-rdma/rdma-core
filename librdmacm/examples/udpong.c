@@ -70,7 +70,7 @@ struct message {
 	uint8_t id;
 	uint8_t seqno;
 	uint8_t reserved;
-	uint32_t data;
+	__be32 data;
 	uint8_t  buf[2048];
 };
 

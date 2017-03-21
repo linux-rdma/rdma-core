@@ -110,7 +110,7 @@ static int ucma_copy_addr(struct sockaddr **dst, socklen_t *dst_len,
 void ucma_set_sid(enum rdma_port_space ps, struct sockaddr *addr,
 		  struct sockaddr_ib *sib)
 {
-	uint16_t port;
+	__be16 port;
 
 	port = addr ? ucma_get_port(addr) : 0;
 	sib->sib_sid = htobe64(((uint64_t) ps << 16) + be16toh(port));
@@ -129,7 +129,7 @@ static int ucma_convert_in6(int ps, struct sockaddr_ib **dst, socklen_t *dst_len
 		return ERR(ENOMEM);
 
 	(*dst)->sib_family = AF_IB;
-	(*dst)->sib_pkey = 0xFFFF;
+	(*dst)->sib_pkey = htobe16(0xFFFF);
 	(*dst)->sib_flowinfo = src->sin6_flowinfo;
 	ib_addr_set(&(*dst)->sib_addr, src->sin6_addr.s6_addr32[0],
 		    src->sin6_addr.s6_addr32[1], src->sin6_addr.s6_addr32[2],

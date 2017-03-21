@@ -386,7 +386,7 @@ static int server_connect(void)
 			}
 		}
 
-		rs = rs_accept(lrs, NULL, 0);
+		rs = rs_accept(lrs, NULL, NULL);
 	} while (rs < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
 	if (rs < 0) {
 		perror("raccept");
@@ -527,7 +527,7 @@ static int run(void)
 			run_test();
 		}
 		if (fork_pid)
-			wait(NULL);
+			waitpid(fork_pid, NULL, 0);
 		else
 			rs_shutdown(rs, SHUT_RDWR);
 		rs_close(rs);
@@ -555,7 +555,7 @@ static int run(void)
 	}
 
 	if (fork_pid)
-		wait(NULL);
+		waitpid(fork_pid, NULL, 0);
 	else
 		rs_shutdown(rs, SHUT_RDWR);
 	rs_close(rs);

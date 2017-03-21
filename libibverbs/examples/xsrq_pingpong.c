@@ -633,7 +633,7 @@ static int pp_server_connect(int port)
 	listen(sockfd, ctx.num_clients);
 
 	for (i = 0; i < ctx.num_clients; i++) {
-		connfd = accept(sockfd, NULL, 0);
+		connfd = accept(sockfd, NULL, NULL);
 		if (connfd < 0) {
 			fprintf(stderr, "accept() failed for client %d\n", i);
 			return 1;
