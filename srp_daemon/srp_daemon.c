@@ -2036,6 +2036,21 @@ int main(int argc, char *argv[])
 	int			lockfd = -1;
 	int			received_signal = 0;
 
+#ifndef __CHECKER__
+	/*
+	 * Hide these checks for sparse because these checks fail with
+	 * older versions of sparse.
+	 */
+	STATIC_ASSERT(sizeof(ib_sa_mad_t) == 256);
+	STATIC_ASSERT(sizeof(ib_path_rec_t) == 64);
+	STATIC_ASSERT(sizeof(ib_mad_t) == 24);
+	STATIC_ASSERT(sizeof(ib_inform_info_t) == 36);
+	STATIC_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
+	STATIC_ASSERT(offsetof(ib_mad_notice_attr_t,
+			       data_details.ntc_64_67.gid) == 16);
+
+	STATIC_ASSERT(__alignof__(union umad_gid) == 4);
+#endif
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
