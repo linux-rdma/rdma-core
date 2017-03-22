@@ -86,7 +86,7 @@ IBVERBS_1.1 {
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. Also see the private_symver() macro */
-IBVERBS_PRIVATE_13 {
+IBVERBS_PRIVATE_14 {
 	global:
 		/* These historical symbols are now private to libibverbs */
 		ibv_cmd_alloc_mw;
@@ -138,4 +138,5 @@ IBVERBS_PRIVATE_13 {
 		ibv_query_gid_type;
 		ibv_register_driver;
 		verbs_register_driver;
+		verbs_init_cq;
 };

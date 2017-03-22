@@ -132,6 +132,26 @@ __be64 __ibv_get_device_guid(struct ibv_device *device)
 }
 default_symver(__ibv_get_device_guid, ibv_get_device_guid);
 
+void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
+		       struct ibv_comp_channel *channel,
+		       void *cq_context)
+{
+	cq->context		   = context;
+	cq->channel		   = channel;
+
+	if (cq->channel) {
+		pthread_mutex_lock(&context->mutex);
+		++cq->channel->refcnt;
+		pthread_mutex_unlock(&context->mutex);
+	}
+
+	cq->cq_context		   = cq_context;
+	cq->comp_events_completed  = 0;
+	cq->async_events_completed = 0;
+	pthread_mutex_init(&cq->mutex, NULL);
+	pthread_cond_init(&cq->cond, NULL);
+}
+
 static struct ibv_cq_ex *
 __lib_ibv_create_cq_ex(struct ibv_context *context,
 		       struct ibv_cq_init_attr_ex *cq_attr)
@@ -144,23 +164,11 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
 		return NULL;
 	}
 
-	pthread_mutex_lock(&context->mutex);
-
 	cq = vctx->priv->create_cq_ex(context, cq_attr);
 
-	if (cq) {
-		cq->context		   = context;
-		cq->channel		   = cq_attr->channel;
-		if (cq->channel)
-			++cq->channel->refcnt;
-		cq->cq_context		   = cq_attr->cq_context;
-		cq->comp_events_completed  = 0;
-		cq->async_events_completed = 0;
-		pthread_mutex_init(&cq->mutex, NULL);
-		pthread_cond_init(&cq->cond, NULL);
-	}
-
-	pthread_mutex_unlock(&context->mutex);
+	if (cq)
+		verbs_init_cq(ibv_cq_ex_to_cq(cq), context,
+			        cq_attr->channel, cq_attr->cq_context);
 
 	return cq;
 }
