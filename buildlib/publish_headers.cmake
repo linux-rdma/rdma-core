@@ -12,8 +12,7 @@ function(publish_internal_headers DEST)
 
   foreach(SFIL ${ARGN})
     get_filename_component(FIL ${SFIL} NAME)
-    execute_process(COMMAND "ln" "-Tsf"
-      "${CMAKE_CURRENT_SOURCE_DIR}/${SFIL}" "${DDIR}/${FIL}")
+    rdma_create_symlink("${CMAKE_CURRENT_SOURCE_DIR}/${SFIL}" "${DDIR}/${FIL}")
   endforeach()
 endfunction()
 

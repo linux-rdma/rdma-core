@@ -34,9 +34,7 @@ function(rdma_check_kheader PATH C_TEST)
       # kernel headers into our tree and rely on the distro's fixup of
       # non-rdma headers.  The RDMA headers are all compatible with this
       # scheme.
-      execute_process(COMMAND "${CMAKE_COMMAND}" "-E" "create_symlink"
-	"${KERNEL_DIR}/include/uapi/${PATH}"
-	"${DEST}")
+      rdma_create_symlink("${KERNEL_DIR}/include/uapi/${PATH}" "${DEST}")
     else()
       message(FATAL_ERROR "Kernel tree does not contain expected UAPI header"
 	"${KERNEL_DIR}/include/uapi/${PATH}")
