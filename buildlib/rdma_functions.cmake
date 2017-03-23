@@ -143,7 +143,12 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
   execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/buildlib/relpath
     "${CMAKE_INSTALL_FULL_LIBDIR}/lib${DEST}.so.${VERSION}"
     "${VERBS_PROVIDER_DIR}"
-    OUTPUT_VARIABLE DEST_LINK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+    OUTPUT_VARIABLE DEST_LINK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE retcode)
+  if(NOT "${retcode}" STREQUAL "0")
+    message(FATAL_ERROR "Unable to run buildlib/relpath, do you have python?")
+  endif()
+
   rdma_install_symlink("${DEST_LINK_PATH}" "${VERBS_PROVIDER_DIR}/lib${DEST}-rdmav2.so")
   rdma_create_symlink("lib${DEST}.so.${VERSION}" "${BUILD_LIB}/lib${DEST}-rdmav2.so")
 endfunction()
