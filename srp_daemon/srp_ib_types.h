@@ -297,72 +297,12 @@ typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
 			ib_gid_t	gid;	// the Node or Multicast Group that came in/out
 		} PACK_SUFFIX ntc_64_67;
 
-		struct _ntc_128 {
-			__be16	 sw_lid;	// the sw lid of which link state changed
-		} PACK_SUFFIX ntc_128;
-
-		struct _ntc_129_131 {
-			__be16		pad;
-			__be16		lid;	// lid and port number of the violation
-			uint8_t		port_num;
-		} PACK_SUFFIX ntc_129_131;
-
 		struct _ntc_144 {
 			__be16		pad1;
 			__be16		lid;		// lid where capability mask changed
 			__be16		pad2;
 			__be32		new_cap_mask;	// new capability mask
 		} PACK_SUFFIX ntc_144;
-
-		struct _ntc_145 {
-			__be16		pad1;
-			__be16		lid;		// lid where sys guid changed
-			__be16		pad2;
-			__be64		new_sys_guid;	// new system image guid
-		} PACK_SUFFIX ntc_145;
-
-		struct _ntc_256 {			// total: 54
-			__be16		pad1;		// 2
-			__be16		lid;		// 2
-			__be16		pad2;		// 2
-			uint8_t		method;		// 1
-			uint8_t		pad3;		// 1
-			__be16		attr_id;	// 2
-			__be32		attr_mod;	// 4
-			__be64		mkey;		// 8
-			uint8_t		dr_slid;	// 1
-			uint8_t		dr_trunc_hop;	// 1
-			uint8_t		dr_rtn_path[30];// 30
-		} PACK_SUFFIX ntc_256;
-
-		struct _ntc_257_258 // violation of p/q_key // 49
-		{
-			__be16		pad1;		// 2
-			__be16		lid1;		// 2
-			__be16		lid2;		// 2
-			__be32		key;		// 2
-			uint8_t		sl;		// 1
-			__be32		qp1;		// 4
-			__be32		qp2;		// 4
-			ib_gid_t	gid1;		// 16
-			ib_gid_t	gid2;		// 16
-		} PACK_SUFFIX ntc_257_258;
-
-		struct _ntc_259 // p/q_key violation with sw info 53
-		{
-			__be16		data_valid;		// 2
-			__be16		lid1;		// 2
-			__be16		lid2;		// 2
-			__be32		key;		// 4
-			uint8_t		sl;		// 1
-			__be32		qp1;		// 4
-			uint8_t		qp2_msb;	// 1
-			__be16		qp2_lsb;	// 2
-			ib_gid_t	gid1;		// 16
-			ib_gid_t	gid2;		// 16
-			__be16		sw_lid;		// 2
-			uint8_t		port_no;	// 1
-		} PACK_SUFFIX ntc_259;
 
 	} data_details;
 
