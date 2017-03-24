@@ -9,13 +9,44 @@ set(RDMA_STATIC_LIBS "" CACHE INTERNAL "Doc" FORCE)
 set(COMMON_LIBS_PIC ccan_pic)
 set(COMMON_LIBS ccan)
 
+# Create a symlink at filename DEST
+# If the directory containing DEST does not exist then it is created
+# automatically.
+function(rdma_create_symlink LINK_CONTENT DEST)
+  if(NOT LINK_CONTENT)
+    message(FATAL_ERROR "Failed to provide LINK_CONTENT")
+  endif()
+
+  # Make sure the directory exists, cmake doesn't create target DESTINATION
+  # directories until everything is finished, do it manually here if necessary
+  if(CMAKE_VERSION VERSION_LESS "2.8.12")
+    get_filename_component(DDIR "${DEST}" PATH)
+  else()
+    get_filename_component(DDIR "${DEST}" DIRECTORY)
+  endif()
+
+  IF(NOT EXISTS "${DDIR}/")
+    execute_process(COMMAND "${CMAKE_COMMAND}" "-E" "make_directory"
+      "${BUILD_LIB}" RESULT_VARIABLE retcode)
+    if(NOT "${retcode}" STREQUAL "0")
+      message(FATAL_ERROR "Failed to create directory ${DDIR}")
+    endif()
+  endif()
+
+  # Newer versions of cmake can use "${CMAKE_COMMAND}" "-E" "create_symlink"
+  # however it is broken weirdly on older versions.
+  execute_process(COMMAND "ln" "-Tsf"
+    "${LINK_CONTENT}" "${DEST}" RESULT_VARIABLE retcode)
+  if(NOT "${retcode}" STREQUAL "0")
+    message(FATAL_ERROR "Failed to create symlink in ${DEST}")
+  endif()
+endfunction()
+
 # Install a symlink during 'make install'
 function(rdma_install_symlink LINK_CONTENT DEST)
   # Create a link in the build tree with the right content
   get_filename_component(FN "${DEST}" NAME)
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E create_symlink
-    "${LINK_CONTENT}"
-    "${CMAKE_CURRENT_BINARY_DIR}/${FN}")
+  rdma_create_symlink("${LINK_CONTENT}" "${CMAKE_CURRENT_BINARY_DIR}/${FN}")
 
   # Have cmake install it. Doing it this way lets cpack work if we ever wish
   # to use that.
@@ -112,15 +143,14 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
   execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/buildlib/relpath
     "${CMAKE_INSTALL_FULL_LIBDIR}/lib${DEST}.so.${VERSION}"
     "${VERBS_PROVIDER_DIR}"
-    OUTPUT_VARIABLE DEST_LINK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
-  rdma_install_symlink("${DEST_LINK_PATH}" "${VERBS_PROVIDER_DIR}/lib${DEST}-rdmav2.so")
+    OUTPUT_VARIABLE DEST_LINK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE retcode)
+  if(NOT "${retcode}" STREQUAL "0")
+    message(FATAL_ERROR "Unable to run buildlib/relpath, do you have python?")
+  endif()
 
-  # cmake doesn't create target DESTINATION directories until everything is
-  # finished, do it manually here so we can create the in-tree symlink.
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E make_directory "${BUILD_LIB}")
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E create_symlink
-    "lib${DEST}.so.${VERSION}"
-    "${BUILD_LIB}/lib${DEST}-rdmav2.so")
+  rdma_install_symlink("${DEST_LINK_PATH}" "${VERBS_PROVIDER_DIR}/lib${DEST}-rdmav2.so")
+  rdma_create_symlink("lib${DEST}.so.${VERSION}" "${BUILD_LIB}/lib${DEST}-rdmav2.so")
 endfunction()
 
 # Create a provider shared library for libibverbs

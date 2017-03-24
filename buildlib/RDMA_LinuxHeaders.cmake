@@ -15,6 +15,8 @@ function(rdma_canon_header PATH OUT_VAR)
 endfunction()
 
 function(rdma_check_kheader PATH C_TEST)
+  cmake_parse_arguments(ARGS "NO_SHIM;OPTIONAL" "" "" ${ARGN})
+
   rdma_canon_header("${PATH}" HAVE)
 
   if(KERNEL_DIR)
@@ -34,9 +36,7 @@ function(rdma_check_kheader PATH C_TEST)
       # kernel headers into our tree and rely on the distro's fixup of
       # non-rdma headers.  The RDMA headers are all compatible with this
       # scheme.
-      execute_process(COMMAND "${CMAKE_COMMAND}" "-E" "create_symlink"
-	"${KERNEL_DIR}/include/uapi/${PATH}"
-	"${DEST}")
+      rdma_create_symlink("${KERNEL_DIR}/include/uapi/${PATH}" "${DEST}")
     else()
       message(FATAL_ERROR "Kernel tree does not contain expected UAPI header"
 	"${KERNEL_DIR}/include/uapi/${PATH}")
@@ -57,14 +57,23 @@ ${C_TEST}" "${HAVE}")
     if (NOT "${${HAVE}}")
       # Run the compile test against the linked kernel header, this is to help
       # make sure the compile tests work before the headers hit the distro
-      message(FATAL_ERROR "Kernel UAPI header failed compile test"
-	"${PATH}")
+      message(FATAL_ERROR "Kernel UAPI header failed compile test" "${PATH}")
     endif()
   else()
-    RDMA_DoFixup("${${HAVE}}" "${PATH}")
-    if (NOT "${${HAVE}}")
-      list(APPEND MISSING_HEADERS "${PATH}")
-      set(MISSING_HEADERS "${MISSING_HEADERS}" PARENT_SCOPE)
+    # NO_SHIM - means the header must exist in the system
+    # NO_SHIM OPTIONAL - menas the header will be linked from KERNEL_DIR, but is ignored otherwise
+    if (NOT ARGS_OPTIONAL)
+      # because it is only used for setting up the kernel headers.
+      if (ARGS_NO_SHIM)
+	RDMA_DoFixup("${${HAVE}}" "${PATH}" NO_SHIM)
+      else()
+	RDMA_DoFixup("${${HAVE}}" "${PATH}")
+      endif()
+
+      if (NOT "${${HAVE}}")
+	list(APPEND MISSING_HEADERS "${PATH}")
+	set(MISSING_HEADERS "${MISSING_HEADERS}" PARENT_SCOPE)
+      endif()
     endif()
   endif()
 endfunction()
@@ -76,11 +85,13 @@ function(rdma_report_missing_kheaders)
 endfunction()
 
 # This list is topologically sorted
-rdma_check_kheader("rdma/ib_user_verbs.h" "${DEFAULT_TEST}")
-rdma_check_kheader("rdma/ib_user_sa.h" "${DEFAULT_TEST}")
-rdma_check_kheader("rdma/ib_user_cm.h" "${DEFAULT_TEST}")
-rdma_check_kheader("rdma/ib_user_mad.h" "${DEFAULT_TEST}")
+rdma_check_kheader("rdma/ib_user_verbs.h" "${DEFAULT_TEST}" NO_SHIM OPTIONAL)
+rdma_check_kheader("rdma/ib_user_sa.h" "${DEFAULT_TEST}" NO_SHIM)
+rdma_check_kheader("rdma/ib_user_cm.h" "${DEFAULT_TEST}" NO_SHIM)
+rdma_check_kheader("rdma/hfi/hfi1_ioctl.h" "${DEFAULT_TEST}" NO_SHIM OPTIONAL)
+rdma_check_kheader("rdma/rdma_user_ioctl.h" "${DEFAULT_TEST}" NO_SHIM OPTIONAL)
+rdma_check_kheader("rdma/ib_user_mad.h" "${DEFAULT_TEST}" NO_SHIM OPTIONAL)
 rdma_check_kheader("rdma/rdma_netlink.h" "int main(int argc,const char *argv[]) { return RDMA_NL_IWPM_REMOTE_INFO && RDMA_NL_IWCM; }")
-rdma_check_kheader("rdma/rdma_user_cm.h" "${DEFAULT_TEST}")
+rdma_check_kheader("rdma/rdma_user_cm.h" "${DEFAULT_TEST}" NO_SHIM OPTIONAL)
 rdma_check_kheader("rdma/rdma_user_rxe.h" "${DEFAULT_TEST}")
 rdma_check_kheader("rdma/vmw_pvrdma-abi.h" "${DEFAULT_TEST}")

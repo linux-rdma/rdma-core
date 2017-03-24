@@ -20,6 +20,7 @@ BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
 BuildRequires: valgrind-devel
 BuildRequires: systemd
+BuildRequires: python
 
 Requires: dracut, kmod, systemd
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone

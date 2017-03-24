@@ -33,6 +33,7 @@ is included:
 Additional service daemons are provided for:
  - srp_daemon (ib_srp.ko)
  - iwpmd (for iwarp kernel providers)
+ - ibacm (for InfiniBand communication management assistant)
 
 # Building
 
