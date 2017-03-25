@@ -176,7 +176,7 @@ struct umad_class_port_info {
 	__be16  cap_mask;
 	__be32  cap_mask2_resp_time;
 	union {
-		uint8_t redir_gid[16]; /* network byte order */
+		uint8_t redir_gid[16] __attribute__((deprecated)); /* network byte order */
 		union umad_gid redirgid;
 	};
 	__be32  redir_tc_sl_fl;
@@ -185,7 +185,7 @@ struct umad_class_port_info {
 	__be32  redir_qp;
 	__be32  redir_qkey;
 	union {
-		uint8_t trap_gid[16]; /* network byte order */
+		uint8_t trap_gid[16] __attribute__((deprecated)); /* network byte order */
 		union umad_gid trapgid;
 	};
 	__be32  trap_tc_sl_fl;
