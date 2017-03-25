@@ -101,7 +101,8 @@ int sys_read_guid(const char *dir_name, const char *file_name, __be64 *net_guid)
 	return 0;
 }
 
-int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid)
+int sys_read_gid(const char *dir_name, const char *file_name,
+		 union umad_gid *gid)
 {
 	char buf[64], *str, *s;
 	__be16 *ugid = (__be16 *) gid;

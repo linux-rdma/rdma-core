@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <endian.h>
 #include <stdarg.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -196,7 +197,7 @@ struct rs_iomap_mr {
 };
 
 #define RS_MAX_CTRL_MSG    (sizeof(struct rs_sge))
-#define rs_host_is_net()   ((__force __be32)1 == htobe32(1))
+#define rs_host_is_net()   (__BYTE_ORDER == __BIG_ENDIAN)
 #define RS_CONN_FLAG_NET   (1 << 0)
 #define RS_CONN_FLAG_IOMAP (1 << 1)
 

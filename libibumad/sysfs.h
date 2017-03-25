@@ -35,10 +35,12 @@
 
 #include <stdint.h>
 #include <linux/types.h>
+#include <infiniband/umad.h>
 
 extern int sys_read_string(const char *dir_name, const char *file_name, char *str, int len);
 extern int sys_read_guid(const char *dir_name, const char *file_name, __be64 * net_guid);
-extern int sys_read_gid(const char *dir_name, const char *file_name, uint8_t * gid);
+extern int sys_read_gid(const char *dir_name, const char *file_name,
+			union umad_gid *gid);
 extern int sys_read_uint64(const char *dir_name, const char *file_name, uint64_t * u);
 extern int sys_read_uint(const char *dir_name, const char *file_name, unsigned *u);
 

@@ -77,7 +77,8 @@
 
 enum log_dest { log_to_syslog, log_to_stderr };
 
-static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
+static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
+		   uint16_t *lid);
 
 static const int   node_table_response_size = 1 << 18;
 static const char *sysfs_path = "/sys";
@@ -405,7 +406,7 @@ static int add_non_exist_target(struct target_details *target)
 	struct dirent *subdir;
 	char *subdir_name_ptr;
 	int prefix_len;
-	ib_gid_t dgid_val;
+	union umad_gid dgid_val;
 	char target_config_str[255];
 	int len;
 	int not_connected = 1;
@@ -458,9 +459,10 @@ static int add_non_exist_target(struct target_details *target)
 					      dgid_val.raw))
 				continue;
 		}
-		if (htobe64(target->subnet_prefix) != dgid_val.unicast.prefix)
+		if (htobe64(target->subnet_prefix) !=
+		    dgid_val.global.subnet_prefix)
 			continue;
-		if (htobe64(target->h_guid) != dgid_val.unicast.interface_id)
+		if (htobe64(target->h_guid) != dgid_val.global.interface_id)
 			continue;
 
 		/* If there is no local_ib_device in the scsi host dir (old kernel module), assumes it is equal */
@@ -2029,13 +2031,28 @@ int main(int argc, char *argv[])
 	struct resources       *res;
 	uint16_t 		lid;
 	uint16_t 		pkey;
-	ib_gid_t 		gid;
+	union umad_gid 		gid;
 	struct target_details  *target;
 	struct sigaction	sa;
 	int			subscribed;
 	int			lockfd = -1;
 	int			received_signal = 0;
 
+#ifndef __CHECKER__
+	/*
+	 * Hide these checks for sparse because these checks fail with
+	 * older versions of sparse.
+	 */
+	STATIC_ASSERT(sizeof(ib_sa_mad_t) == 256);
+	STATIC_ASSERT(sizeof(ib_path_rec_t) == 64);
+	STATIC_ASSERT(sizeof(ib_mad_t) == 24);
+	STATIC_ASSERT(sizeof(ib_inform_info_t) == 36);
+	STATIC_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
+	STATIC_ASSERT(offsetof(ib_mad_notice_attr_t,
+			       data_details.ntc_64_67.gid) == 16);
+
+	STATIC_ASSERT(__alignof__(union umad_gid) == 4);
+#endif
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
@@ -2315,7 +2332,8 @@ static int recalc(struct resources *res)
 	return ret;
 }
 
-static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid)
+static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
+		   uint16_t *lid)
 {
 	srp_ib_user_mad_t		out_mad, in_mad;
 	struct srp_dm_rmpp_sa_mad 	*in_sa_mad  = get_data_ptr(in_mad);

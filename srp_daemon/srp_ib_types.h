@@ -39,6 +39,7 @@
 #include <endian.h>
 #include <stdint.h>
 #include <linux/types.h> /* __be16, __be32 and __be64 */
+#include <infiniband/umad.h> /* union umad_gid */
 
 #define SRP_INFORMINFO_LID_COMP		(1 << 1)
 #define SRP_INFORMINFO_ISGENERIC_COMP	(1 << 4)
@@ -62,8 +63,6 @@
 * SOURCE
 */
 #define MAD_BLOCK_SIZE						256
-
-typedef __be64 ib_gid_prefix_t;
 
 /****s* IBA Base: Types/ib_sa_mad_t
 * NAME
@@ -107,23 +106,6 @@ typedef struct _ib_sa_mad
 	uint8_t		data[IB_SA_DATA_SIZE];
 } PACK_SUFFIX ib_sa_mad_t;
 
-typedef union _ib_gid
-{
-	uint8_t		raw[16];
-	struct _ib_gid_unicast
-	{
-		ib_gid_prefix_t	prefix;
-		__be64		interface_id;
-	} PACK_SUFFIX unicast;
-
-	struct _ib_gid_multicast
-	{
-		uint8_t		header[2];
-		uint8_t		raw_group_id[14];
-	} PACK_SUFFIX multicast;
-
-} PACK_SUFFIX ib_gid_t;
-
 static inline uint32_t ib_get_attr_size(const __be16 attr_offset)
 {
 	return( ((uint32_t)be16toh( attr_offset )) << 3 );
@@ -155,8 +137,8 @@ enum {
 typedef struct _ib_path_rec
 {
 	uint8_t		resv0[8];
-	ib_gid_t	dgid;
-	ib_gid_t	sgid;
+	union umad_gid	dgid;
+	union umad_gid	sgid;
 	__be16		dlid;
 	__be16		slid;
 	__be32		hop_flow_raw;
@@ -229,7 +211,7 @@ ib_mad_init_new(ib_mad_t* const	p_mad,
 
 typedef struct _ib_inform_info
 {
-	ib_gid_t	gid;
+	union umad_gid	gid;
 	__be16		lid_range_begin;
 	__be16		lid_range_end;
 	__be16		reserved1;
@@ -294,18 +276,8 @@ typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
 		struct _ntc_64_67
 		{
 			uint8_t		res[6];
-			ib_gid_t	gid;	// the Node or Multicast Group that came in/out
+			union umad_gid	gid;	// the Node or Multicast Group that came in/out
 		} PACK_SUFFIX ntc_64_67;
-
-		struct _ntc_128 {
-			__be16	 sw_lid;	// the sw lid of which link state changed
-		} PACK_SUFFIX ntc_128;
-
-		struct _ntc_129_131 {
-			__be16		pad;
-			__be16		lid;	// lid and port number of the violation
-			uint8_t		port_num;
-		} PACK_SUFFIX ntc_129_131;
 
 		struct _ntc_144 {
 			__be16		pad1;
@@ -314,59 +286,9 @@ typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
 			__be32		new_cap_mask;	// new capability mask
 		} PACK_SUFFIX ntc_144;
 
-		struct _ntc_145 {
-			__be16		pad1;
-			__be16		lid;		// lid where sys guid changed
-			__be16		pad2;
-			__be64		new_sys_guid;	// new system image guid
-		} PACK_SUFFIX ntc_145;
-
-		struct _ntc_256 {			// total: 54
-			__be16		pad1;		// 2
-			__be16		lid;		// 2
-			__be16		pad2;		// 2
-			uint8_t		method;		// 1
-			uint8_t		pad3;		// 1
-			__be16		attr_id;	// 2
-			__be32		attr_mod;	// 4
-			__be64		mkey;		// 8
-			uint8_t		dr_slid;	// 1
-			uint8_t		dr_trunc_hop;	// 1
-			uint8_t		dr_rtn_path[30];// 30
-		} PACK_SUFFIX ntc_256;
-
-		struct _ntc_257_258 // violation of p/q_key // 49
-		{
-			__be16		pad1;		// 2
-			__be16		lid1;		// 2
-			__be16		lid2;		// 2
-			__be32		key;		// 2
-			uint8_t		sl;		// 1
-			__be32		qp1;		// 4
-			__be32		qp2;		// 4
-			ib_gid_t	gid1;		// 16
-			ib_gid_t	gid2;		// 16
-		} PACK_SUFFIX ntc_257_258;
-
-		struct _ntc_259 // p/q_key violation with sw info 53
-		{
-			__be16		data_valid;		// 2
-			__be16		lid1;		// 2
-			__be16		lid2;		// 2
-			__be32		key;		// 4
-			uint8_t		sl;		// 1
-			__be32		qp1;		// 4
-			uint8_t		qp2_msb;	// 1
-			__be16		qp2_lsb;	// 2
-			ib_gid_t	gid1;		// 16
-			ib_gid_t	gid2;		// 16
-			__be16		sw_lid;		// 2
-			uint8_t		port_no;	// 1
-		} PACK_SUFFIX ntc_259;
-
 	} data_details;
 
-	ib_gid_t			issuer_gid;	// 16		80
+	union umad_gid			issuer_gid;	// 16		80
 
 } PACK_SUFFIX ib_mad_notice_attr_t;
 
@@ -379,9 +301,9 @@ typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
 *
 * SYNOPSIS
 */
-static inline __be64 ib_gid_get_guid(const ib_gid_t *const p_gid)
+static inline __be64 ib_gid_get_guid(const union umad_gid *const p_gid)
 {
-	return p_gid->unicast.interface_id;
+	return p_gid->global.interface_id;
 }
 
 #endif

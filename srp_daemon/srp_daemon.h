@@ -368,7 +368,7 @@ struct sync_resources {
 	struct {
 		uint16_t lid;
 		uint16_t pkey;
-		ib_gid_t gid;
+		union umad_gid gid;
 	} tasks[SIZE_OF_TASKS_LIST];
 	pthread_mutex_t mutex;
 	struct target_details *retry_tasks_head;
@@ -418,15 +418,16 @@ int create_trap_resources(struct ud_resources *ud_res);
 int register_to_traps(struct resources *res, int subscribe);
 uint16_t get_port_lid(struct ibv_context *ib_ctx, int port_num);
 int create_ah(struct ud_resources *ud_res);
-void push_gid_to_list(struct sync_resources *res, ib_gid_t *gid, uint16_t pkey);
+void push_gid_to_list(struct sync_resources *res, union umad_gid *gid,
+		      uint16_t pkey);
 void push_lid_to_list(struct sync_resources *res, uint16_t lid, uint16_t pkey);
 struct target_details *pop_from_retry_list(struct sync_resources *res);
 void push_to_retry_list(struct sync_resources *res,
 			struct target_details *target);
 int retry_list_is_empty(struct sync_resources *res);
 void clear_traps_list(struct sync_resources *res);
-int pop_from_list(struct sync_resources *res, uint16_t *lid, ib_gid_t *gid,
-		  uint16_t *pkey);
+int pop_from_list(struct sync_resources *res, uint16_t *lid,
+		  union umad_gid *gid, uint16_t *pkey);
 int sync_resources_init(struct sync_resources *res);
 void sync_resources_cleanup(struct sync_resources *res);
 int modify_qp_to_err(struct ibv_qp *qp);
