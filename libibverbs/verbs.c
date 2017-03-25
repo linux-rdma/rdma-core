@@ -441,23 +441,10 @@ struct ibv_cq *__ibv_create_cq(struct ibv_context *context, int cqe, void *cq_co
 {
 	struct ibv_cq *cq;
 
-	pthread_mutex_lock(&context->mutex);
-
 	cq = context->ops.create_cq(context, cqe, channel, comp_vector);
 
-	if (cq) {
-		cq->context    	     	   = context;
-		cq->channel		   = channel;
-		if (channel)
-			++channel->refcnt;
-		cq->cq_context 	     	   = cq_context;
-		cq->comp_events_completed  = 0;
-		cq->async_events_completed = 0;
-		pthread_mutex_init(&cq->mutex, NULL);
-		pthread_cond_init(&cq->cond, NULL);
-	}
-
-	pthread_mutex_unlock(&context->mutex);
+	if (cq)
+		verbs_init_cq(cq, context, channel, cq_context);
 
 	return cq;
 }
@@ -477,15 +464,14 @@ int __ibv_destroy_cq(struct ibv_cq *cq)
 	struct ibv_comp_channel *channel = cq->channel;
 	int ret;
 
-	if (channel)
-		pthread_mutex_lock(&channel->context->mutex);
-
 	ret = cq->context->ops.destroy_cq(cq);
 
 	if (channel) {
-		if (!ret)
+		if (!ret) {
+			pthread_mutex_lock(&channel->context->mutex);
 			--channel->refcnt;
-		pthread_mutex_unlock(&channel->context->mutex);
+			pthread_mutex_unlock(&channel->context->mutex);
+		}
 	}
 
 	return ret;

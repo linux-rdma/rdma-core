@@ -130,6 +130,9 @@ verbs_get_device(const struct ibv_device *dev)
 typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_path,
 						       int abi_version);
 void verbs_register_driver(const char *name, verbs_driver_init_func init_func);
+void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
+		       struct ibv_comp_channel *channel,
+		       void *cq_context);
 
 int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
 			size_t cmd_size, struct ibv_get_context_resp *resp,

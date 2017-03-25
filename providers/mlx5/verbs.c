@@ -341,7 +341,8 @@ enum {
 
 static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				   const struct ibv_cq_init_attr_ex *cq_attr,
-				   int cq_alloc_flags)
+				   int cq_alloc_flags,
+				   struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
 	struct mlx5_create_cq		cmd;
 	struct mlx5_create_cq_resp	resp;
@@ -349,6 +350,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	int				cqe_sz;
 	int				ret;
 	int				ncqe;
+	struct mlx5_context *mctx = to_mctx(context);
 	FILE *fp = to_mctx(context)->dbg_fp;
 
 	if (!cq_attr->cqe) {
@@ -428,6 +430,28 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cmd.db_addr  = (uintptr_t) cq->dbrec;
 	cmd.cqe_size = cqe_sz;
 
+	if (mlx5cq_attr) {
+		if (mlx5cq_attr->comp_mask & ~(MLX5DV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
+			mlx5_dbg(fp, MLX5_DBG_CQ,
+				   "Unsupported vendor comp_mask for create_cq\n");
+			errno = EINVAL;
+			goto err_db;
+		}
+
+		if (mlx5cq_attr->comp_mask & MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE) {
+			if (mctx->cqe_comp_caps.max_num &&
+			    (mlx5cq_attr->cqe_comp_res_format &
+			     mctx->cqe_comp_caps.supported_format)) {
+				cmd.cqe_comp_en = 1;
+				cmd.cqe_comp_res_format = mlx5cq_attr->cqe_comp_res_format;
+			} else {
+				mlx5_dbg(fp, MLX5_DBG_CQ, "CQE Compression is not supported\n");
+				errno = EINVAL;
+				goto err_db;
+			}
+		}
+	}
+
 	ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
 				cq_attr->comp_vector,
 				ibv_cq_ex_to_cq(&cq->ibv_cq), &cmd.ibv_cmd,
@@ -478,14 +502,29 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
-	cq = create_cq(context, &cq_attr, 0);
+	cq = create_cq(context, &cq_attr, 0, NULL);
 	return cq ? ibv_cq_ex_to_cq(cq) : NULL;
 }
 
 struct ibv_cq_ex *mlx5_create_cq_ex(struct ibv_context *context,
 				    struct ibv_cq_init_attr_ex *cq_attr)
 {
-	return create_cq(context, cq_attr, MLX5_CQ_FLAGS_EXTENDED);
+	return create_cq(context, cq_attr, MLX5_CQ_FLAGS_EXTENDED, NULL);
+}
+
+struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
+				      struct ibv_cq_init_attr_ex *cq_attr,
+				      struct mlx5dv_cq_init_attr *mlx5_cq_attr)
+{
+	struct ibv_cq_ex *cq;
+
+	cq = create_cq(context, cq_attr, MLX5_CQ_FLAGS_EXTENDED, mlx5_cq_attr);
+	if (!cq)
+		return NULL;
+
+	verbs_init_cq(ibv_cq_ex_to_cq(cq), context,
+		      cq_attr->channel, cq_attr->cq_context);
+	return cq;
 }
 
 int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
@@ -1922,7 +1961,12 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	attr->tso_caps = resp.tso_caps;
 	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
 	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
-	attr->packet_pacing_caps = resp.packet_pacing_caps;
+	attr->packet_pacing_caps = resp.packet_pacing_caps.caps;
+
+	if (resp.support_multi_pkt_send_wqe)
+		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_MPW;
+
+	mctx->cqe_comp_caps = resp.cqe_comp_caps;
 
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
