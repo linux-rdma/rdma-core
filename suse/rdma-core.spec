@@ -544,6 +544,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
 %doc %{_docdir}/%{name}-%{version}/udev.md
+%doc %{_docdir}/%{name}-%{version}/tag_matching.md
 %{_bindir}/rxe_cfg
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rxe*
