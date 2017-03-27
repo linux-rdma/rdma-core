@@ -822,7 +822,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	}
 
 	for (i = 0; i < 8; ++i)
-		((__be16 *) cpi->trapgid.raw)[i] = htobe16(strtol(val + i * 5, NULL, 16));
+		cpi->trapgid.raw_be16[i] = htobe16(strtol(val + i * 5, NULL, 16));
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
