@@ -110,11 +110,14 @@ uint8_t *performance_reset_via(void *rcvbuf, ib_portid_t * dest,
 
 	memset(rcvbuf, 0, IB_MAD_SIZE);
 
-	/* Same for attribute IDs */
+	/* Next 2 lines - same for attribute IDs */
 	mad_set_field(rcvbuf, 0, IB_PC_PORT_SELECT_F, port);
 	mad_set_field(rcvbuf, 0, IB_PC_COUNTER_SELECT_F, mask);
 	mask = mask >> 16;
-	mad_set_field(rcvbuf, 0, IB_PC_COUNTER_SELECT2_F, mask);
+	if (id == IB_GSI_PORT_COUNTERS_EXT)
+		mad_set_field(rcvbuf, 0, IB_PC_EXT_COUNTER_SELECT2_F, mask);
+	else
+		mad_set_field(rcvbuf, 0, IB_PC_COUNTER_SELECT2_F, mask);
 	rpc.attr.mod = 0;
 	rpc.timeout = timeout;
 	rpc.datasz = IB_PC_DATA_SZ;
