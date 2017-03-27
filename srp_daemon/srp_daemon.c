@@ -2051,14 +2051,11 @@ int main(int argc, char *argv[])
 	STATIC_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
 	STATIC_ASSERT(offsetof(ib_mad_notice_attr_t,
 			       data_details.ntc_64_67.gid) == 16);
-
-	STATIC_ASSERT(__alignof__(union umad_gid) == 4);
 #endif
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	STATIC_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
-	STATIC_ASSERT(sizeof(struct umad_class_port_info) == 72);
 	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
