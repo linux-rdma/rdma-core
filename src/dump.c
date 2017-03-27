@@ -792,7 +792,14 @@ void mad_dump_perfcounters(char *buf, int bufsz, void *val, int valsz)
 
 void mad_dump_perfcounters_ext(char *buf, int bufsz, void *val, int valsz)
 {
-	_dump_fields(buf, bufsz, val, IB_PC_EXT_FIRST_F, IB_PC_EXT_LAST_F);
+	int cnt;
+
+	cnt = _dump_fields(buf, bufsz, val, IB_PC_EXT_FIRST_F, IB_PC_EXT_LAST_F);
+	if (cnt < 0)
+		return;
+
+	 _dump_fields(buf + cnt, bufsz - cnt, val,
+		      IB_PC_EXT_COUNTER_SELECT2_F, IB_PC_EXT_ERR_LAST_F);
 }
 
 void mad_dump_perfcounters_xmt_sl(char *buf, int bufsz, void *val, int valsz)

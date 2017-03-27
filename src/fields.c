@@ -984,6 +984,26 @@ static const ib_field_t ib_mad_f[] = {
 	{1184, 32, "PortFECCorrectedSymbolCtr", mad_dump_uint},
 	{0, 0},			/* IB_PESC_RSFEC_LAST_F */
 
+	/*
+	 * More PortCountersExtended fields
+	 */
+	{32, 32, "CounterSelect2", mad_dump_hex},
+	{576, 64, "SymbolErrorCounter", mad_dump_uint},
+	{640, 64, "LinkErrorRecoveryCounter",  mad_dump_uint},
+	{704, 64, "LinkDownedCounter", mad_dump_uint},
+	{768, 64, "PortRcvErrors", mad_dump_uint},
+	{832, 64, "PortRcvRemotePhysicalErrors", mad_dump_uint},
+	{896, 64, "PortRcvSwitchRelayErrors", mad_dump_uint},
+	{960, 64, "PortXmitDiscards", mad_dump_uint},
+	{1024, 64, "PortXmitConstraintErrors", mad_dump_uint},
+	{1088, 64, "PortRcvConstraintErrors", mad_dump_uint},
+	{1152, 64, "LocalLinkIntegrityErrors", mad_dump_uint},
+	{1216, 64, "ExcessiveBufferOverrunErrors", mad_dump_uint},
+	{1280, 64, "VL15Dropped", mad_dump_uint},
+	{1344, 64, "PortXmitWait", mad_dump_uint},
+	{1408, 64, "QP1Dropped", mad_dump_uint},
+	{0, 0},			/* IB_PC_EXT_ERR_LAST_F */
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 };
 
