@@ -753,8 +753,7 @@ static int rxe_post_recv(struct ibv_qp *ibqp,
 
 static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 {
-	 return ((unsigned long)(a->s6_addr32[0] | a->s6_addr32[1]) |
-		 (unsigned long)(a->s6_addr32[2] ^ htobe32(0x0000ffff))) == 0UL;
+	return IN6_IS_ADDR_V4MAPPED(a);
 }
 
 static inline int rdma_gid2ip(struct sockaddr *out, union ibv_gid *gid)

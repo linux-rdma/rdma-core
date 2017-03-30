@@ -392,8 +392,8 @@ endif()
 
 add_subdirectory(providers/hfi1verbs) # NO SPARSE
 add_subdirectory(providers/ipathverbs) # NO SPARSE
-add_subdirectory(providers/rxe) # NO SPARSE
-add_subdirectory(providers/rxe/man) # NO SPARSE
+add_subdirectory(providers/rxe)
+add_subdirectory(providers/rxe/man)
 
 # Binaries
 add_subdirectory(ibacm) # NO SPARSE
