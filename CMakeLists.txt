@@ -390,8 +390,8 @@ add_subdirectory(providers/qedr) # NO SPARSE
 add_subdirectory(providers/vmw_pvrdma) # NO SPARSE
 endif()
 
-add_subdirectory(providers/hfi1verbs) # NO SPARSE
-add_subdirectory(providers/ipathverbs) # NO SPARSE
+add_subdirectory(providers/hfi1verbs)
+add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
 
