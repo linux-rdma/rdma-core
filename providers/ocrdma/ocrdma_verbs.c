@@ -59,7 +59,7 @@ static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
 static inline void ocrdma_swap_cpu_to_le(void *dst, uint32_t len)
 {
 	int i = 0;
-	uint32_t *src_ptr = dst;
+        __le32 *src_ptr = dst;
 	uint32_t *dst_ptr = dst;
 	for (; i < (len / 4); i++)
 		*dst_ptr++ = le32toh(*src_ptr++);
@@ -1099,26 +1099,26 @@ int ocrdma_destroy_qp(struct ibv_qp *ibqp)
 
 static void ocrdma_ring_sq_db(struct ocrdma_qp *qp)
 {
-	uint32_t db_val = htole32((qp->sq.dbid | (1 << 16)));
+	__le32 db_val = htole32((qp->sq.dbid | (1 << 16)));
 
 	udma_to_device_barrier();
-	*(uint32_t *) (((uint8_t *) qp->db_sq_va)) = db_val;
+	*(__le32 *) (((uint8_t *) qp->db_sq_va)) = db_val;
 }
 
 static void ocrdma_ring_rq_db(struct ocrdma_qp *qp)
 {
-	uint32_t db_val = htole32((qp->rq.dbid | (1 << qp->db_shift)));
+	__le32 db_val = htole32((qp->rq.dbid | (1 << qp->db_shift)));
 
 	udma_to_device_barrier();
-	*(uint32_t *) ((uint8_t *) qp->db_rq_va) = db_val;
+	*(__le32 *) ((uint8_t *) qp->db_rq_va) = db_val;
 }
 
 static void ocrdma_ring_srq_db(struct ocrdma_srq *srq)
 {
-	uint32_t db_val = htole32(srq->rq.dbid | (1 << srq->db_shift));
+	__le32 db_val = htole32(srq->rq.dbid | (1 << srq->db_shift));
 
 	udma_to_device_barrier();
-	*(uint32_t *) (srq->db_va) = db_val;
+	*(__le32 *) (srq->db_va) = db_val;
 }
 
 static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
@@ -1137,7 +1137,7 @@ static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
 	val |= (num_cqe << OCRDMA_DB_CQ_NUM_POPPED_SHIFT);
 
 	udma_to_device_barrier();
-	*(uint32_t *) ((uint8_t *) (cq->db_va) + OCRDMA_DB_CQ_OFFSET) =
+	*(__le32 *) ((uint8_t *) (cq->db_va) + OCRDMA_DB_CQ_OFFSET) =
 	    htole32(val);
 }
 
@@ -1323,7 +1323,7 @@ static void ocrdma_build_dpp_wqe(void *va, struct ocrdma_hdr_wqe *wqe,
 
 	/* convert WQE header to LE format */
 	for (; i < hdr_len; i++)
-		*((uint32_t *) va + i) =
+		*((__le32 *) va + i) =
 			htole32(*((uint32_t *) wqe + i));
 	/* Convertion of data is done in HW */
 	for (; i < pyld_len; i++)
@@ -1585,7 +1585,7 @@ static enum ibv_wc_status ocrdma_to_ibwc_err(uint16_t status)
 static void ocrdma_update_wc(struct ocrdma_qp *qp, struct ibv_wc *ibwc,
 			     uint32_t wqe_idx)
 {
-	struct ocrdma_hdr_wqe *hdr;
+	struct ocrdma_hdr_wqe_le *hdr;
 	struct ocrdma_sge *rw;
 	int opcode;
 
