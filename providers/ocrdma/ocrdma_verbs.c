@@ -1610,7 +1610,7 @@ static void ocrdma_update_wc(struct ocrdma_qp *qp, struct ibv_wc *ibwc,
 	default:
 		ibwc->status = IBV_WC_GENERAL_ERR;
 		ocrdma_err("%s() invalid opcode received = 0x%x\n",
-			   __func__, hdr->cw & OCRDMA_WQE_OPCODE_MASK);
+			   __func__, le32toh(hdr->cw) & OCRDMA_WQE_OPCODE_MASK);
 		break;
 	};
 }
