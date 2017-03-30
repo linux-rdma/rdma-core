@@ -159,8 +159,8 @@ struct mlx4_cq {
 	pthread_spinlock_t		lock;
 	uint32_t			cqn;
 	uint32_t			cons_index;
-	uint32_t		       *set_ci_db;
-	uint32_t		       *arm_db;
+	__be32			       *set_ci_db;
+	__be32			       *arm_db;
 	int				arm_sn;
 	int				cqe_size;
 	struct mlx4_qp			*cur_qp;
@@ -179,7 +179,7 @@ struct mlx4_srq {
 	int				wqe_shift;
 	int				head;
 	int				tail;
-	uint32_t		       *db;
+	__be32			       *db;
 	uint16_t			counter;
 	uint8_t				ext_srq;
 };
@@ -202,12 +202,12 @@ struct mlx4_qp {
 	int				max_inline_data;
 	int				buf_size;
 
-	uint32_t			doorbell_qpn;
-	uint32_t			sq_signal_bits;
+	__be32				doorbell_qpn;
+	__be32				sq_signal_bits;
 	int				sq_spare_wqes;
 	struct mlx4_wq			sq;
 
-	uint32_t		       *db;
+	__be32			       *db;
 	struct mlx4_wq			rq;
 
 	uint8_t				link_layer;
@@ -292,8 +292,9 @@ static inline int cleanup_on_fatal(int ret)
 int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size);
 void mlx4_free_buf(struct mlx4_buf *buf);
 
-uint32_t *mlx4_alloc_db(struct mlx4_context *context, enum mlx4_db_type type);
-void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type, uint32_t *db);
+__be32 *mlx4_alloc_db(struct mlx4_context *context, enum mlx4_db_type type);
+void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type,
+		  __be32 *db);
 
 int mlx4_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr);

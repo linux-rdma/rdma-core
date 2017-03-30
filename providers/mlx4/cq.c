@@ -287,7 +287,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 		case MLX4_RECV_OPCODE_SEND_INVAL:
 			wc->opcode   = IBV_WC_RECV;
 			wc->wc_flags |= IBV_WC_WITH_INV;
-			wc->imm_data = be32toh(cqe->immed_rss_invalid);
+			wc->invalidated_rkey = be32toh(cqe->immed_rss_invalid);
 			break;
 		case MLX4_RECV_OPCODE_SEND:
 			wc->opcode   = IBV_WC_RECV;
@@ -550,13 +550,16 @@ static uint32_t mlx4_cq_read_wc_vendor_err(struct ibv_cq_ex *ibcq)
 	return ecqe->vendor_err;
 }
 
-static uint32_t mlx4_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
+static __be32 mlx4_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
 	switch (mlx4dv_get_cqe_opcode(cq->cqe)) {
 	case MLX4_RECV_OPCODE_SEND_INVAL:
-		return be32toh(cq->cqe->immed_rss_invalid);
+		/* This is returning invalidate_rkey which is in host order, see
+		 * ibv_wc_read_invalidated_rkey
+		 */
+		return (__force __be32)be32toh(cq->cqe->immed_rss_invalid);
 	default:
 		return cq->cqe->immed_rss_invalid;
 	}

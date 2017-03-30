@@ -104,7 +104,7 @@ int mlx4_query_device_ex(struct ibv_context *context,
 
 static int mlx4_read_clock(struct ibv_context *context, uint64_t *cycles)
 {
-	unsigned int clockhi, clocklo, clockhi1;
+	uint32_t clockhi, clocklo, clockhi1;
 	int i;
 	struct mlx4_context *ctx = to_mctx(context);
 
@@ -1123,14 +1123,7 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 
 static int link_local_gid(const union ibv_gid *gid)
 {
-	uint32_t *tmp = (uint32_t *)gid->raw;
-	uint32_t hi = tmp[0];
-	uint32_t lo = tmp[1];
-
-	if (hi == htobe32(0xfe800000) && lo == 0)
-		return 1;
-
-	return 0;
+	return gid->global.subnet_prefix == htobe64(0xfe80000000000000ULL);
 }
 
 static int is_multicast_gid(const union ibv_gid *gid)

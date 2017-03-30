@@ -125,20 +125,20 @@ enum mlx4_cqe_status {
 };
 
 struct mlx4_cqe {
-	uint32_t	vlan_my_qpn;
-	uint32_t	immed_rss_invalid;
-	uint32_t	g_mlpath_rqpn;
+	__be32		vlan_my_qpn;
+	__be32		immed_rss_invalid;
+	__be32		g_mlpath_rqpn;
 	union {
 		struct {
-			uint16_t	sl_vid;
-			uint16_t	rlid;
+			__be16	sl_vid;
+			__be16	rlid;
 		};
-		uint32_t ts_47_16;
+		__be32	ts_47_16;
 	};
-	uint32_t	status;
-	uint32_t	byte_cnt;
-	uint16_t	wqe_index;
-	uint16_t	checksum;
+	__be32		status;
+	__be32		byte_cnt;
+	__be16		wqe_index;
+	__be16		checksum;
 	uint8_t		reserved3;
 	uint8_t		ts_15_8;
 	uint8_t		ts_7_0;
@@ -146,9 +146,9 @@ struct mlx4_cqe {
 };
 
 struct mlx4dv_qp {
-	uint32_t		*rdb;
+	__be32		       *rdb;
 	uint32_t		*sdb;
-	uint32_t		doorbell_qpn;
+	__be32			doorbell_qpn;
 	struct {
 		uint32_t	wqe_cnt;
 		int		wqe_shift;
@@ -173,8 +173,8 @@ struct mlx4dv_cq {
 	} buf;
 	uint32_t			cqe_cnt;
 	uint32_t			cqn;
-	uint32_t		       *set_ci_db;
-	uint32_t		       *arm_db;
+	__be32			       *set_ci_db;
+	__be32			       *arm_db;
 	int				arm_sn;
 	int				cqe_size;
 	uint64_t			comp_mask;
@@ -187,7 +187,7 @@ struct mlx4dv_srq {
 	int				wqe_shift;
 	int				head;
 	int				tail;
-	uint32_t		       *db;
+	__be32			       *db;
 	uint64_t			comp_mask;
 };
 
@@ -284,28 +284,28 @@ enum {
 
 struct mlx4_wqe_local_inval_seg {
 	uint64_t		reserved1;
-	uint32_t		mem_key;
+	__be32			mem_key;
 	uint32_t		reserved2;
 	uint64_t		reserved3[2];
 };
 
 struct mlx4_wqe_bind_seg {
-	uint32_t		flags1;
-	uint32_t		flags2;
-	uint32_t		new_rkey;
-	uint32_t		lkey;
-	uint64_t		addr;
-	uint64_t		length;
+	__be32			flags1;
+	__be32			flags2;
+	__be32			new_rkey;
+	__be32			lkey;
+	__be64			addr;
+	__be64			length;
 };
 
 struct mlx4_wqe_ctrl_seg {
-	uint32_t		owner_opcode;
+	__be32			owner_opcode;
 	union {
 		struct {
 			uint8_t			reserved[3];
 			uint8_t			fence_size;
 		};
-		uint32_t	bf_qpn;
+		__be32		bf_qpn;
 	};
 	/*
 	 * High 24 bits are SRC remote buffer; low 8 bits are flags:
@@ -316,61 +316,61 @@ struct mlx4_wqe_ctrl_seg {
 	 * [1]   SE (solicited event)
 	 * [0]   FL (force loopback)
 	 */
-	uint32_t		srcrb_flags;
+	__be32			srcrb_flags;
 	/*
 	 * imm is immediate data for send/RDMA write w/ immediate;
 	 * also invalidation key for send with invalidate; input
 	 * modifier for WQEs on CCQs.
 	 */
-	uint32_t		imm;
+	__be32			imm;
 };
 
 struct mlx4_av {
-	uint32_t			port_pd;
+	__be32				port_pd;
 	uint8_t				reserved1;
 	uint8_t				g_slid;
-	uint16_t			dlid;
+	__be16				dlid;
 	uint8_t				reserved2;
 	uint8_t				gid_index;
 	uint8_t				stat_rate;
 	uint8_t				hop_limit;
-	uint32_t			sl_tclass_flowlabel;
+	__be32				sl_tclass_flowlabel;
 	uint8_t				dgid[16];
 };
 
 struct mlx4_wqe_datagram_seg {
 	struct mlx4_av		av;
-	uint32_t		dqpn;
-	uint32_t		qkey;
-	uint16_t		vlan;
+	__be32			dqpn;
+	__be32			qkey;
+	__be16			vlan;
 	uint8_t			mac[6];
 };
 
 struct mlx4_wqe_data_seg {
-	uint32_t		byte_count;
-	uint32_t		lkey;
-	uint64_t		addr;
+	__be32			byte_count;
+	__be32			lkey;
+	__be64			addr;
 };
 
 struct mlx4_wqe_inline_seg {
-	uint32_t		byte_count;
+	__be32			byte_count;
 };
 
 struct mlx4_wqe_srq_next_seg {
 	uint16_t		reserved1;
-	uint16_t		next_wqe_index;
+	__be16			next_wqe_index;
 	uint32_t		reserved2[3];
 };
 
 struct mlx4_wqe_raddr_seg {
-	uint64_t		raddr;
-	uint32_t		rkey;
-	uint32_t		reserved;
+	__be64			raddr;
+	__be32			rkey;
+	__be32			reserved;
 };
 
 struct mlx4_wqe_atomic_seg {
-	uint64_t		swap_add;
-	uint64_t		compare;
+	__be64			swap_add;
+	__be64			compare;
 };
 
 /*
