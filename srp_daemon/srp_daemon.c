@@ -61,6 +61,7 @@
 #include <signal.h>
 #include <sys/syslog.h>
 #include <infiniband/umad.h>
+#include <infiniband/umad_types.h>
 #include "srp_ib_types.h"
 
 #include "srp_daemon.h"
@@ -774,7 +775,7 @@ static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 {
 	srp_ib_user_mad_t		out_mad, in_mad;
 	struct srp_dm_rmpp_sa_mad      *in_sa_mad;
-	struct srp_class_port_info     *cpi;
+	struct umad_class_port_info    *cpi;
 	int				ret;
 
 	in_sa_mad  = get_data_ptr(in_mad);
@@ -797,7 +798,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 {
 	srp_ib_user_mad_t		in_mad, out_mad;
 	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
-	struct srp_class_port_info     *cpi;
+	struct umad_class_port_info     *cpi;
 	char val[64];
 	int i;
 
@@ -821,7 +822,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	}
 
 	for (i = 0; i < 8; ++i)
-		((__be16 *) cpi->trap_gid)[i] = htobe16(strtol(val + i * 5, NULL, 16));
+		cpi->trapgid.raw_be16[i] = htobe16(strtol(val + i * 5, NULL, 16));
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -2050,14 +2051,11 @@ int main(int argc, char *argv[])
 	STATIC_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
 	STATIC_ASSERT(offsetof(ib_mad_notice_attr_t,
 			       data_details.ntc_64_67.gid) == 16);
-
-	STATIC_ASSERT(__alignof__(union umad_gid) == 4);
 #endif
 	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
 	STATIC_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	STATIC_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
-	STATIC_ASSERT(sizeof(struct srp_class_port_info) == 72);
 	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 

@@ -61,6 +61,7 @@ typedef __be64 __attribute__((deprecated)) be64_t;
  */
 union umad_gid {
 	uint8_t		raw[16];
+	__be16		raw_be16[8];
 	struct {
 		__be64	subnet_prefix;
 		__be64	interface_id;

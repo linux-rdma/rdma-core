@@ -219,26 +219,6 @@ struct srp_sa_port_info_rec {
 	uint8_t		error_threshold;
 };
 
-struct srp_class_port_info {
-	uint8_t		base_version;
-	uint8_t		class_version;
-	__be16		cap_mask;
-	uint8_t		reserved1[3];
-	uint8_t		resp_time;
-	uint8_t		redir_gid[16];
-	__be32		redir_tc_sl_fl;
-	__be16		redir_lid;
-	__be16		redir_pkey;
-	__be32		redir_qpn;
-	__be32		redir_qkey;
-	uint8_t		trap_gid[16];
-	__be32		trap_tc_sl_fl;
-	__be16		trap_lid;
-	__be16		trap_pkey;
-	__be32		trap_hl_qpn;
-	__be32		trap_qkey;
-};
-
 struct srp_dm_iou_info {
 	__be16		change_id;
 	uint8_t		max_controllers;
