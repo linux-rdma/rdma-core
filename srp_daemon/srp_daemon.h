@@ -42,17 +42,10 @@
 #include <infiniband/verbs.h>
 #include <infiniband/umad.h>
 #include <linux/types.h>	/* __be16, __be32 and __be64 */
+#include <ccan/build_assert.h>
 
 #include "config.h"
 #include "srp_ib_types.h"
-
-#ifdef __cplusplus
-template <bool b> struct vki_static_assert { int m_bitfield:(2*b-1); };
-#define STATIC_ASSERT(expr) \
-	(void)(sizeof(vki_static_assert<(expr)>) - sizeof(int))
-#else
-#define STATIC_ASSERT(expr) (void)(sizeof(struct { int:-!(expr); }))
-#endif
 
 /* a CMP b. See also the BSD macro timercmp(). */
 #define ts_cmp(a, b, CMP)			\
