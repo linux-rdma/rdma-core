@@ -294,7 +294,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 		*pwr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
 	} else if (srq) {
-		wqe_index = htobe16(cqe->wqe_index);
+		wqe_index = be16toh(cqe->wqe_index);
 		*pwr_id = srq->wrid[wqe_index];
 		mlx4_free_srq_wqe(srq, wqe_index);
 	} else {
