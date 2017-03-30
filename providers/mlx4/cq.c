@@ -739,7 +739,7 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
 		cqe += cqe_inc;
 		if (srq && srq->ext_srq &&
-		    be32toh(cqe->g_mlpath_rqpn & MLX4_CQE_QPN_MASK) == srq->verbs_srq.srq_num &&
+		    (be32toh(cqe->g_mlpath_rqpn) & MLX4_CQE_QPN_MASK) == srq->verbs_srq.srq_num &&
 		    !(cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK)) {
 			mlx4_free_srq_wqe(srq, be16toh(cqe->wqe_index));
 			++nfreed;
