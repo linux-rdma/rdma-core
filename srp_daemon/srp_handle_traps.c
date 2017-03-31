@@ -320,7 +320,7 @@ int ud_resources_create(struct ud_resources *res)
 	if (fill_rq(res))
 		return -1;
 
-	res->mad_buffer = malloc(sizeof(ib_sa_mad_t));
+	res->mad_buffer = malloc(sizeof(struct umad_sa_packet));
 	if (!res->mad_buffer) {
 		pr_err("Could not alloc mad_buffer, abort\n");
 		return -1;
@@ -556,7 +556,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 	long long unsigned comp_mask = 0;
 
 	struct umad_hdr *mad_hdr = (struct umad_hdr *) (res->send_buf);
-	ib_sa_mad_t* p_sa_mad = (ib_sa_mad_t *) (res->send_buf);
+	struct umad_sa_packet *p_sa_mad = (struct umad_sa_packet *) (res->send_buf);
 	ib_inform_info_t *data = (ib_inform_info_t *) (p_sa_mad->data);
 	static uint64_t trans_id = 0x0000FFFF;
 
@@ -611,7 +611,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 
 	do {
 		pthread_mutex_lock(res->mad_buffer_mutex);
-		res->mad_buffer->base_ver = 0; // flag that the buffer is empty
+		res->mad_buffer->mad_hdr.base_version = 0; // flag that the buffer is empty
 		pthread_mutex_unlock(res->mad_buffer_mutex);
 		mad_hdr->tid = htobe64(trans_id);
 		trans_id++;
@@ -630,12 +630,12 @@ static int register_to_trap(struct sync_resources *sync_res,
 		do {
 			srp_sleep(1, 0);
 			pthread_mutex_lock(res->mad_buffer_mutex);
-			if (res->mad_buffer->base_ver == 0)
+			if (res->mad_buffer->mad_hdr.base_version == 0)
 				rc = 0;
-			else if (res->mad_buffer->trans_id == mad_hdr->tid)
+			else if (res->mad_buffer->mad_hdr.tid == mad_hdr->tid)
 				rc = 1;
 			else {
-				res->mad_buffer->base_ver = 0;
+				res->mad_buffer->mad_hdr.base_version = 0;
 				rc = 2;
 			}
 			pthread_mutex_unlock(res->mad_buffer_mutex);
@@ -656,7 +656,8 @@ static int register_to_trap(struct sync_resources *sync_res,
 * Function: response_to_trap
 *****************************************************************************/
 static int response_to_trap(struct sync_resources *sync_res,
-			    struct ud_resources *res, ib_sa_mad_t *mad_buffer)
+			    struct ud_resources *res,
+			    struct umad_sa_packet *mad_buffer)
 {
 	struct ibv_send_wr sr;
 	struct ibv_sge sg;
@@ -665,10 +666,10 @@ static int response_to_trap(struct sync_resources *sync_res,
 	int ret;
 	struct ibv_wc wc;
 
-	ib_sa_mad_t *response_buffer = (ib_sa_mad_t *) (res->send_buf);
+	struct umad_sa_packet *response_buffer = (struct umad_sa_packet *) (res->send_buf);
 
-	memcpy(response_buffer, mad_buffer, sizeof(ib_sa_mad_t));
-	response_buffer->method = UMAD_METHOD_REPORT_RESP;
+	memcpy(response_buffer, mad_buffer, sizeof(struct umad_sa_packet));
+	response_buffer->mad_hdr.method = UMAD_METHOD_REPORT_RESP;
 
 	fill_send_request(res, &sr, &sg, (struct umad_hdr *) response_buffer);
 	ret = ibv_post_send(res->qp, &sr, bad_wr);
@@ -693,7 +694,7 @@ static int get_trap_notices(struct resources *res)
 	int pkey_index;
 	uint16_t pkey;
 	char *buffer;
-	ib_sa_mad_t *mad_buffer;
+	struct umad_sa_packet *mad_buffer;
 	ib_mad_notice_attr_t *notice_buffer;
 	int trap_num;
 
@@ -707,18 +708,18 @@ static int get_trap_notices(struct resources *res)
 		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", (long long int) wc.wr_id);
 		cur_receive = wc.wr_id;
 		buffer = res->ud_res->recv_buf + RECV_BUF_SIZE * cur_receive;
-		mad_buffer = (ib_sa_mad_t *) (buffer + GRH_SIZE);
+		mad_buffer = (struct umad_sa_packet *) (buffer + GRH_SIZE);
 
-		if ((mad_buffer->mgmt_class == UMAD_CLASS_SUBN_ADM) &&
-		    (mad_buffer->method == UMAD_METHOD_GET_RESP) &&
-		    (be16toh(mad_buffer->attr_id) == UMAD_ATTR_INFORM_INFO)) {
+		if ((mad_buffer->mad_hdr.mgmt_class == UMAD_CLASS_SUBN_ADM) &&
+		    (mad_buffer->mad_hdr.method == UMAD_METHOD_GET_RESP) &&
+		    (be16toh(mad_buffer->mad_hdr.attr_id) == UMAD_ATTR_INFORM_INFO)) {
 		/* this is probably a response to register to trap */
 			pthread_mutex_lock(res->ud_res->mad_buffer_mutex);
 			*res->ud_res->mad_buffer = *mad_buffer;
 			pthread_mutex_unlock(res->ud_res->mad_buffer_mutex);
-		} else if ((mad_buffer->mgmt_class == UMAD_CLASS_SUBN_ADM) &&
-		    (mad_buffer->method == UMAD_METHOD_REPORT) &&
-		    (be16toh(mad_buffer->attr_id) == UMAD_ATTR_NOTICE))
+		} else if ((mad_buffer->mad_hdr.mgmt_class == UMAD_CLASS_SUBN_ADM) &&
+		    (mad_buffer->mad_hdr.method == UMAD_METHOD_REPORT) &&
+		    (be16toh(mad_buffer->mad_hdr.attr_id) == UMAD_ATTR_NOTICE))
 		{ /* this is a trap notice */
 			pkey_index = wc.pkey_index;
 			ret = pkey_index_to_pkey(res->umad_res, pkey_index, &pkey);

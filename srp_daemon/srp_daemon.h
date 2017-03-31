@@ -274,7 +274,7 @@ struct ud_resources {
 	int   	                cq_size;
 	struct ibv_comp_channel *channel;
 	pthread_mutex_t		*mad_buffer_mutex;
-	ib_sa_mad_t		*mad_buffer;
+	struct umad_sa_packet	*mad_buffer;
 };
 
 struct umad_resources {

@@ -65,48 +65,6 @@
 */
 #define MAD_BLOCK_SIZE						256
 
-/****s* IBA Base: Types/ib_sa_mad_t
-* NAME
-*	ib_sa_mad_t
-*
-* DESCRIPTION
-*	IBA defined SA MAD format. (15.2.1)
-*
-* SYNOPSIS
-*/
-#define IB_SA_DATA_SIZE 200
-
-typedef struct _ib_sa_mad
-{
-	uint8_t		base_ver;
-	uint8_t		mgmt_class;
-	uint8_t		class_ver;
-	uint8_t		method;
-	__be16		status;
-	__be16		resv;
-	__be64		trans_id;
-	__be16		attr_id;
-	__be16		resv1;
-	__be32		attr_mod;
-
-	uint8_t		rmpp_version;
-	uint8_t		rmpp_type;
-	uint8_t		rmpp_flags;
-	uint8_t		rmpp_status;
-
-	__be32		seg_num;
-	__be32		paylen_newwin;
-
-	__be64		sm_key;
-
-	__be16		attr_offset;
-	__be16		resv3;
-
-	__be64		comp_mask;
-
-	uint8_t		data[IB_SA_DATA_SIZE];
-} PACK_SUFFIX ib_sa_mad_t;
-
 static inline uint32_t ib_get_attr_size(const __be16 attr_offset)
 {
 	return( ((uint32_t)be16toh( attr_offset )) << 3 );

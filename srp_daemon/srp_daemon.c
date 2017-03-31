@@ -755,21 +755,21 @@ static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent,
 static void init_srp_dm_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
 			    uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	ib_sa_mad_t *out_dm_mad = get_data_ptr(*out_mad);
+	struct umad_sa_packet *out_dm_mad = get_data_ptr(*out_mad);
 
 	init_srp_mad(out_mad, agent, h_dlid, h_attr_id, h_attr_mod);
-	out_dm_mad->mgmt_class = UMAD_CLASS_DEVICE_MGMT;
-	out_dm_mad->class_ver  = 1;
+	out_dm_mad->mad_hdr.mgmt_class = UMAD_CLASS_DEVICE_MGMT;
+	out_dm_mad->mad_hdr.class_version  = 1;
 }
 
 static void init_srp_sa_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
 			    uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	ib_sa_mad_t *out_sa_mad = get_data_ptr(*out_mad);
+	struct umad_sa_packet *out_sa_mad = get_data_ptr(*out_mad);
 
 	init_srp_mad(out_mad, agent, h_dlid, h_attr_id, h_attr_mod);
-	out_sa_mad->mgmt_class = UMAD_CLASS_SUBN_ADM;
-	out_sa_mad->class_ver  = UMAD_SA_CLASS_VERSION;
+	out_sa_mad->mad_hdr.mgmt_class = UMAD_CLASS_SUBN_ADM;
+	out_sa_mad->mad_hdr.class_version  = UMAD_SA_CLASS_VERSION;
 }
 
 static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
@@ -2045,7 +2045,6 @@ int main(int argc, char *argv[])
 	 * Hide these checks for sparse because these checks fail with
 	 * older versions of sparse.
 	 */
-	BUILD_ASSERT(sizeof(ib_sa_mad_t) == 256);
 	BUILD_ASSERT(sizeof(ib_path_rec_t) == 64);
 	BUILD_ASSERT(sizeof(ib_inform_info_t) == 36);
 	BUILD_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
