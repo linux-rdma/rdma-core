@@ -775,7 +775,7 @@ static void init_srp_sa_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dl
 static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 {
 	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *in_sa_mad;
+	struct umad_sa_packet	       *in_sa_mad;
 	struct umad_class_port_info    *cpi;
 	int				ret;
 
@@ -799,7 +799,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 {
 	srp_ib_user_mad_t		in_mad, out_mad;
 	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
-	struct umad_class_port_info     *cpi;
+	struct umad_class_port_info    *cpi;
 	char val[64];
 	int i;
 
@@ -1024,7 +1024,7 @@ out:
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 {
 	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 
 	in_sa_mad = get_data_ptr(in_mad);
@@ -1050,7 +1050,7 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 			 uint64_t *subnet_prefix, int *isdm)
 {
 	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_port_info_rec    *port_info;
 
 	in_sa_mad = get_data_ptr(in_mad);
@@ -1099,7 +1099,7 @@ static int get_shared_pkeys(struct resources *res,
 	uint8_t                        *in_mad_buf;
 	srp_ib_user_mad_t		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	ib_path_rec_t		       *path_rec;
 	ssize_t len;
 	int size;
@@ -1135,8 +1135,8 @@ static int get_shared_pkeys(struct resources *res,
 
 		/* Mark components: DLID, SLID, PKEY */
 		out_sa_mad->comp_mask = htobe64(1 << 4 | 1 << 5 | 1 << 13);
-		out_sa_mad->rmpp_version = UMAD_RMPP_VERSION;
-		out_sa_mad->rmpp_type = 1;
+		out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+		out_sa_mad->rmpp_hdr.rmpp_type = 1;
 		path_rec = (ib_path_rec_t *)out_sa_mad->data;
 		path_rec->slid = htobe16(local_port_lid);
 		path_rec->dlid = htobe16(dest_port_lid);
@@ -1173,7 +1173,7 @@ static int do_dm_port_list(struct resources *res)
 	uint8_t                        *in_mad_buf;
 	srp_ib_user_mad_t		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_port_info_rec    *port_info;
 	ssize_t len;
 	int size;
@@ -1195,8 +1195,8 @@ static int do_dm_port_list(struct resources *res)
 
 	out_sa_mad->method     	   = UMAD_SA_METHOD_GET_TABLE;
 	out_sa_mad->comp_mask      = htobe64(1 << 7); /* Capability mask */
-	out_sa_mad->rmpp_version   = UMAD_RMPP_VERSION;
-	out_sa_mad->rmpp_type      = 1;
+	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+	out_sa_mad->rmpp_hdr.rmpp_type = 1;
 	port_info		   = (void *) out_sa_mad->data;
 	port_info->capability_mask = htobe32(SRP_IS_DM); /* IsDM */
 
@@ -1263,7 +1263,7 @@ static int do_full_port_list(struct resources *res)
 	uint8_t                        *in_mad_buf;
 	srp_ib_user_mad_t		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 	ssize_t len;
 	int size;
@@ -1284,8 +1284,8 @@ static int do_full_port_list(struct resources *res)
 
 	out_sa_mad->method     	  = UMAD_SA_METHOD_GET_TABLE;
 	out_sa_mad->comp_mask     = 0; /* Get all end ports */
-	out_sa_mad->rmpp_version  = UMAD_RMPP_VERSION;
-	out_sa_mad->rmpp_type     = 1;
+	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+	out_sa_mad->rmpp_hdr.rmpp_type = 1;
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
 			   (srp_ib_user_mad_t *) in_mad,
@@ -2052,7 +2052,6 @@ int main(int argc, char *argv[])
 			      data_details.ntc_64_67.gid) == 16);
 #endif
 	BUILD_ASSERT(sizeof(struct srp_dm_mad) == 256);
-	BUILD_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
 	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	BUILD_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
 	BUILD_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
@@ -2333,8 +2332,8 @@ static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
 		   uint16_t *lid)
 {
 	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad 	*in_sa_mad  = get_data_ptr(in_mad);
-	struct srp_dm_rmpp_sa_mad 	*out_sa_mad = get_data_ptr(out_mad);
+	struct umad_sa_packet		*in_sa_mad  = get_data_ptr(in_mad);
+	struct umad_sa_packet		*out_sa_mad = get_data_ptr(out_mad);
 	ib_path_rec_t			*path_rec   = (ib_path_rec_t *) out_sa_mad->data;
 
 	memset(&in_mad, 0, sizeof(in_mad));

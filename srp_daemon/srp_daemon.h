@@ -93,30 +93,6 @@ struct srp_dm_mad {
 	uint8_t		data[192];
 };
 
-struct srp_dm_rmpp_sa_mad {
-	uint8_t		base_version;
-	uint8_t		mgmt_class;
-	uint8_t		class_version;
-	uint8_t		method;
-	__be16		status;
-	__be16		reserved1;
-	__be64		tid;
-	__be16		attr_id;
-	__be16		reserved2;
-	__be32		attr_mod;
-	uint8_t		rmpp_version;
-	uint8_t		rmpp_type;
-	uint8_t		rmpp_rtime_flags;
-	uint8_t		rmpp_status;
-	__be32		seg_num;
-	__be32		paylen_newwin;
-	__be64		sm_key __attribute__((packed));
-	__be16		attr_offset;
-	__be16		reserved3;
-	__be64		comp_mask;
-	uint8_t		data[200];
-};
-
 struct srp_sa_node_rec {
 	__be16		lid;
 	__be16		reserved;
