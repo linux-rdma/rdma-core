@@ -119,6 +119,7 @@ enum {
 enum {
 	UMAD_LEN_DATA			= 232,
 	UMAD_LEN_RMPP_DATA		= 220,
+	UMAD_LEN_DM_DATA		= 192,
 	UMAD_LEN_VENDOR_DATA		= 216,
 };
 
@@ -153,6 +154,12 @@ struct umad_rmpp_packet {
 	struct umad_hdr		mad_hdr;
 	struct umad_rmpp_hdr	rmpp_hdr;
 	uint8_t			data[UMAD_LEN_RMPP_DATA]; /* network-byte order */
+};
+
+struct umad_dm_packet {
+	struct umad_hdr		mad_hdr;
+	uint8_t			reserved[40];
+	uint8_t			data[UMAD_LEN_DM_DATA];	/* network-byte order */
 };
 
 struct umad_vendor_packet {

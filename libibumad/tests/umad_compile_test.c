@@ -57,6 +57,7 @@ int main(int argc, char *argv[])
 	BUILD_ASSERT(sizeof(struct umad_rmpp_hdr) == 12);
 	BUILD_ASSERT(sizeof(struct umad_packet) == 256);
 	BUILD_ASSERT(sizeof(struct umad_rmpp_packet) == 256);
+	BUILD_ASSERT(sizeof(struct umad_dm_packet) == 256);
 	BUILD_ASSERT(sizeof(struct umad_vendor_packet) == 256);
 	BUILD_ASSERT(sizeof(struct umad_class_port_info) == 72);
 	BUILD_ASSERT(offsetof(struct umad_class_port_info, redirgid) == 8);
