@@ -275,10 +275,10 @@ struct resources {
 	pthread_t timer_thread;
 };
 
-typedef struct {
+struct srp_ib_user_mad {
 	struct ib_user_mad hdr;
 	char filler[MAD_BLOCK_SIZE];
-} srp_ib_user_mad_t;
+};
 
 #include <valgrind/drd.h>
 
