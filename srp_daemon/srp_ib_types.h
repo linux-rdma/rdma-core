@@ -40,6 +40,7 @@
 #include <stdint.h>
 #include <linux/types.h> /* __be16, __be32 and __be64 */
 #include <infiniband/umad.h> /* union umad_gid */
+#include <infiniband/umad_types.h>
 
 #define SRP_INFORMINFO_LID_COMP		(1 << 1)
 #define SRP_INFORMINFO_ISGENERIC_COMP	(1 << 4)
@@ -155,54 +156,31 @@ typedef struct _ib_path_rec
 }	PACK_SUFFIX ib_path_rec_t;
 
 
-/****s* IBA Base: Types/ib_mad_t
+/****f* IBA Base: Types/umad_init_new
 * NAME
-*	ib_mad_t
+*	umad_init_new
 *
 * DESCRIPTION
-*	IBA defined MAD header (13.4.3)
-*
-* SYNOPSIS
-*/
-typedef struct _ib_mad
-{
-	uint8_t		base_ver;
-	uint8_t		mgmt_class;
-	uint8_t		class_ver;
-	uint8_t		method;
-	__be16		status;
-	__be16		class_spec;
-	__be64		trans_id;
-	__be16		attr_id;
-	__be16		resv;
-	__be32		attr_mod;
-}	PACK_SUFFIX ib_mad_t;
-
-/****f* IBA Base: Types/ib_mad_init_new
-* NAME
-*	ib_mad_init_new
-*
-* DESCRIPTION
-*	Initializes a MAD common header.
+*	Initialize UMAD common header.
 *
 * SYNOPSIS
 */
 static inline void
-ib_mad_init_new(ib_mad_t* const	p_mad,
-		const uint8_t mgmt_class,
-		const uint8_t class_ver,
-		const uint8_t method,
-		const __be64 trans_id,
-		const __be16 attr_id,
-		const __be32 attr_mod)
+umad_init_new(struct umad_hdr* const	p_mad,
+	      const uint8_t mgmt_class,
+	      const uint8_t class_ver,
+	      const uint8_t method,
+	      const __be64 trans_id,
+	      const __be16 attr_id,
+	      const __be32 attr_mod)
 {
-	p_mad->base_ver = 1;
+	p_mad->base_version = 1;
 	p_mad->mgmt_class = mgmt_class;
-	p_mad->class_ver = class_ver;
+	p_mad->class_version = class_ver;
 	p_mad->method = method;
 	p_mad->status = 0;
-	p_mad->class_spec = 0;
-	p_mad->trans_id = trans_id;
+	p_mad->class_specific = 0;
+	p_mad->tid = trans_id;
 	p_mad->attr_id = attr_id;
 	p_mad->resv = 0;
 	p_mad->attr_mod = attr_mod;

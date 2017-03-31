@@ -453,7 +453,7 @@ int ud_resources_destroy(struct ud_resources *res)
 }
 
 static void fill_send_request(struct ud_resources *res, struct ibv_send_wr *psr,
-       			      struct ibv_sge *psg, ib_mad_t *mad_hdr)
+			      struct ibv_sge *psg, struct umad_hdr *mad_hdr)
 {
 	static int wr_id=0;
 
@@ -555,8 +555,8 @@ static int register_to_trap(struct sync_resources *sync_res,
 	int ret;
 	long long unsigned comp_mask = 0;
 
-	ib_mad_t *mad_hdr = (ib_mad_t *) (res->send_buf);
-        ib_sa_mad_t* p_sa_mad = (ib_sa_mad_t *) (res->send_buf);
+	struct umad_hdr *mad_hdr = (struct umad_hdr *) (res->send_buf);
+	ib_sa_mad_t* p_sa_mad = (ib_sa_mad_t *) (res->send_buf);
 	ib_inform_info_t *data = (ib_inform_info_t *) (p_sa_mad->data);
 	static uint64_t trans_id = 0x0000FFFF;
 
@@ -569,13 +569,13 @@ static int register_to_trap(struct sync_resources *sync_res,
 
 	fill_send_request(res, &sr, &sg, mad_hdr);
 
-	ib_mad_init_new(mad_hdr, /* Mad Header */
-			UMAD_CLASS_SUBN_ADM,        /* Management Class */
-			UMAD_SA_CLASS_VERSION,      /* Class Version */
-			UMAD_METHOD_SET,            /* Method */
-			0,            /* Transaction ID - will be set before the send in the loop*/
-			htobe16(UMAD_ATTR_INFORM_INFO),   /* Attribute ID */
-			0 );                       /* Attribute Modifier */
+	umad_init_new(mad_hdr, /* Mad Header */
+		      UMAD_CLASS_SUBN_ADM,        /* Management Class */
+		      UMAD_SA_CLASS_VERSION,      /* Class Version */
+		      UMAD_METHOD_SET,            /* Method */
+		      0,            /* Transaction ID - will be set before the send in the loop*/
+		      htobe16(UMAD_ATTR_INFORM_INFO),   /* Attribute ID */
+		      0 );                       /* Attribute Modifier */
 
 
 	data->lid_range_begin = htobe16(0xFFFF);
@@ -613,7 +613,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 		pthread_mutex_lock(res->mad_buffer_mutex);
 		res->mad_buffer->base_ver = 0; // flag that the buffer is empty
 		pthread_mutex_unlock(res->mad_buffer_mutex);
-		mad_hdr->trans_id = htobe64(trans_id);
+		mad_hdr->tid = htobe64(trans_id);
 		trans_id++;
 
 		ret = ibv_post_send(res->qp, &sr, bad_wr);
@@ -632,7 +632,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 			pthread_mutex_lock(res->mad_buffer_mutex);
 			if (res->mad_buffer->base_ver == 0)
 				rc = 0;
-			else if (res->mad_buffer->trans_id == mad_hdr->trans_id)
+			else if (res->mad_buffer->trans_id == mad_hdr->tid)
 				rc = 1;
 			else {
 				res->mad_buffer->base_ver = 0;
@@ -670,7 +670,7 @@ static int response_to_trap(struct sync_resources *sync_res,
 	memcpy(response_buffer, mad_buffer, sizeof(ib_sa_mad_t));
 	response_buffer->method = UMAD_METHOD_REPORT_RESP;
 
-	fill_send_request(res, &sr, &sg, (ib_mad_t *) response_buffer);
+	fill_send_request(res, &sr, &sg, (struct umad_hdr *) response_buffer);
 	ret = ibv_post_send(res->qp, &sr, bad_wr);
 	if (ret < 0) {
 		pr_err("failed to post response\n");

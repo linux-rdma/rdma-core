@@ -2047,7 +2047,6 @@ int main(int argc, char *argv[])
 	 */
 	BUILD_ASSERT(sizeof(ib_sa_mad_t) == 256);
 	BUILD_ASSERT(sizeof(ib_path_rec_t) == 64);
-	BUILD_ASSERT(sizeof(ib_mad_t) == 24);
 	BUILD_ASSERT(sizeof(ib_inform_info_t) == 36);
 	BUILD_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
 	BUILD_ASSERT(offsetof(ib_mad_notice_attr_t,
