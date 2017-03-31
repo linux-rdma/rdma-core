@@ -1100,7 +1100,7 @@ static int get_shared_pkeys(struct resources *res,
 	struct srp_ib_user_mad		out_mad;
 	struct ib_user_mad	       *in_mad;
 	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
-	ib_path_rec_t		       *path_rec;
+	struct ib_path_rec	       *path_rec;
 	ssize_t len;
 	int size;
 	int i, num_pkeys = 0;
@@ -1137,7 +1137,7 @@ static int get_shared_pkeys(struct resources *res,
 		out_sa_mad->comp_mask = htobe64(1 << 4 | 1 << 5 | 1 << 13);
 		out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
 		out_sa_mad->rmpp_hdr.rmpp_type = 1;
-		path_rec = (ib_path_rec_t *)out_sa_mad->data;
+		path_rec = (struct ib_path_rec *)out_sa_mad->data;
 		path_rec->slid = htobe16(local_port_lid);
 		path_rec->dlid = htobe16(dest_port_lid);
 		path_rec->pkey = htobe16(pkey);
@@ -1156,7 +1156,7 @@ static int get_shared_pkeys(struct resources *res,
 			continue;
 		}
 
-		path_rec = (ib_path_rec_t *)in_sa_mad->data;
+		path_rec = (struct ib_path_rec *)in_sa_mad->data;
 		pkeys[num_pkeys++] = be16toh(path_rec->pkey);
 	}
 
@@ -2045,10 +2045,10 @@ int main(int argc, char *argv[])
 	 * Hide these checks for sparse because these checks fail with
 	 * older versions of sparse.
 	 */
-	BUILD_ASSERT(sizeof(ib_path_rec_t) == 64);
-	BUILD_ASSERT(sizeof(ib_inform_info_t) == 36);
-	BUILD_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
-	BUILD_ASSERT(offsetof(ib_mad_notice_attr_t,
+	BUILD_ASSERT(sizeof(struct ib_path_rec) == 64);
+	BUILD_ASSERT(sizeof(struct ib_inform_info) == 36);
+	BUILD_ASSERT(sizeof(struct ib_mad_notice_attr) == 80);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr,
 			      data_details.ntc_64_67.gid) == 16);
 #endif
 	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
@@ -2333,7 +2333,7 @@ static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
 	struct srp_ib_user_mad		out_mad, in_mad;
 	struct umad_sa_packet		*in_sa_mad  = get_data_ptr(in_mad);
 	struct umad_sa_packet		*out_sa_mad = get_data_ptr(out_mad);
-	ib_path_rec_t			*path_rec   = (ib_path_rec_t *) out_sa_mad->data;
+	struct ib_path_rec		*path_rec   = (struct ib_path_rec *) out_sa_mad->data;
 
 	memset(&in_mad, 0, sizeof(in_mad));
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
@@ -2349,7 +2349,7 @@ static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
-	path_rec = (ib_path_rec_t *) in_sa_mad->data;
+	path_rec = (struct ib_path_rec *) in_sa_mad->data;
 
 	*lid = be16toh(path_rec->dlid);
 

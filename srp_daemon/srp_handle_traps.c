@@ -557,7 +557,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 
 	struct umad_hdr *mad_hdr = (struct umad_hdr *) (res->send_buf);
 	struct umad_sa_packet *p_sa_mad = (struct umad_sa_packet *) (res->send_buf);
-	ib_inform_info_t *data = (ib_inform_info_t *) (p_sa_mad->data);
+	struct ib_inform_info *data = (struct ib_inform_info *) (p_sa_mad->data);
 	static uint64_t trans_id = 0x0000FFFF;
 
 	if (subscribe)
@@ -695,7 +695,7 @@ static int get_trap_notices(struct resources *res)
 	uint16_t pkey;
 	char *buffer;
 	struct umad_sa_packet *mad_buffer;
-	ib_mad_notice_attr_t *notice_buffer;
+	struct ib_mad_notice_attr *notice_buffer;
 	int trap_num;
 
 	while (!stop_threads(res->sync_res)) {
@@ -730,7 +730,7 @@ static int get_trap_notices(struct resources *res)
 				break;
 			}
 
-			notice_buffer = (ib_mad_notice_attr_t *) (mad_buffer->data);
+			notice_buffer = (struct ib_mad_notice_attr *) (mad_buffer->data);
 			trap_num = be16toh(notice_buffer->g_or_v.generic.trap_num);
 			response_to_trap(res->sync_res, res->ud_res, mad_buffer);
 			if (trap_num == UMAD_SM_GID_IN_SERVICE_TRAP)

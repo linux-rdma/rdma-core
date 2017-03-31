@@ -83,9 +83,9 @@ enum {
   MAD_RMPP_HDR_SIZE = 36,
 };
 
-/****s* IBA Base: Types/ib_path_rec_t
+/****s* IBA Base: Types/struct ib_path_rec
 * NAME
-*	ib_path_rec_t
+*	struct ib_path_rec
 *
 * DESCRIPTION
 *	Path records encapsulate the properties of a given
@@ -93,7 +93,7 @@ enum {
 *
 * SYNOPSIS
 */
-typedef struct _ib_path_rec
+struct ib_path_rec
 {
 	uint8_t		resv0[8];
 	union umad_gid	dgid;
@@ -111,7 +111,7 @@ typedef struct _ib_path_rec
 	uint8_t		preference;
 	uint8_t		resv2[6];
 
-}	PACK_SUFFIX ib_path_rec_t;
+}	PACK_SUFFIX;
 
 
 /****f* IBA Base: Types/umad_init_new
@@ -145,7 +145,7 @@ umad_init_new(struct umad_hdr* const	p_mad,
 }
 
 
-typedef struct _ib_inform_info
+struct ib_inform_info
 {
 	union umad_gid	gid;
 	__be16		lid_range_begin;
@@ -176,9 +176,9 @@ typedef struct _ib_inform_info
 
 	}	PACK_SUFFIX g_or_v;
 
-} PACK_SUFFIX ib_inform_info_t;
+} PACK_SUFFIX;
 
-typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
+struct ib_mad_notice_attr		// Total Size calc  Accumulated
 {
 	uint8_t		generic_type;		// 1		1
 
@@ -226,7 +226,7 @@ typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
 
 	union umad_gid			issuer_gid;	// 16		80
 
-} PACK_SUFFIX ib_mad_notice_attr_t;
+} PACK_SUFFIX;
 
 /****f* IBA Base: Types/ib_gid_get_guid
 * NAME
