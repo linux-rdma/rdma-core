@@ -56,41 +56,9 @@
 #define SRP_CATAS_ERR SIGUSR1
 
 enum {
-	SRP_MGMT_CLASS_SA = 3,
-	SRP_MGMT_CLASS_DM = 6
-};
-
-enum {
-	SRP_MGMT_CLASS_SA_VERSION = 2,
-};
-
-enum {
-        SRP_SA_RMPP_VERSION = 1,
-};
-
-
-enum {
-	SRP_MAD_ATTR_CLASS_PORT_INFO 	  = 0x0001,
-	SRP_MAD_ATTR_NOTICE	  	  = 0x0002,
-	SRP_MAD_ATTR_INFORM_INFO	  = 0x0003,
-
-	SRP_SA_ATTR_NODE		  = 0x0011,
-	SRP_SA_ATTR_PORT_INFO		  = 0x0012,
-	SRP_SA_ATTR_PATH_REC		  = 0x0035,
-
 	SRP_DM_ATTR_IO_UNIT_INFO    	  = 0x0010,
 	SRP_DM_ATTR_IO_CONTROLLER_PROFILE = 0x0011,
 	SRP_DM_ATTR_SERVICE_ENTRIES       = 0x0012
-};
-
-enum {
-	SRP_MAD_METHOD_GET		= 0x01,
-	SRP_MAD_METHOD_SET		= 0x02,
-
-	SRP_SA_METHOD_REPORT		= 0x06,
-	SRP_SA_METHOD_GET_TABLE		= 0x12,
-	SRP_SA_METHOD_GET_RESP		= 0x81,
-	SRP_SA_METHOD_REPORT_RESP	= 0x86
 };
 
 enum {
@@ -106,18 +74,8 @@ enum {
 };
 
 enum {
-	SRP_MAD_HEADER_SIZE		= 24
-};
-
-enum {
 	SRP_REV10_IB_IO_CLASS	= 0xff00,
 	SRP_REV16A_IB_IO_CLASS	= 0x0100
-};
-
-enum {
-	SRP_TRAP_JOIN		= 0x40, /* 64 */
-	SRP_TRAP_LEFT		= 0x41, /* 65 */
-	SRP_TRAP_CHANGE_CAP 	= 0x90  /* 144 */
 };
 
 struct srp_dm_mad {
@@ -249,10 +207,6 @@ struct srp_dm_svc_entries {
 		char		name[40];
 		__be64		id;
 	}		service[4];
-};
-
-enum {
-	MY_IB_QP1_WELL_KNOWN_Q_KEY = 0x80010000
 };
 
 enum {

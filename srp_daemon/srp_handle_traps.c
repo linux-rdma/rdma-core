@@ -42,6 +42,8 @@
 #include <errno.h>
 #include <string.h>
 #include <infiniband/verbs.h>
+#include <infiniband/umad_sa.h>
+#include <infiniband/umad_sm.h>
 
 #include "srp_ib_types.h"
 
@@ -96,7 +98,7 @@ static int modify_qp_to_rts(struct ibv_qp *qp)
 	attr.qp_state = IBV_QPS_INIT;
 	attr.port_num = config->port_num;
 	attr.pkey_index = 0;
-	attr.qkey = MY_IB_QP1_WELL_KNOWN_Q_KEY;
+	attr.qkey = UMAD_QKEY;
 
 	flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY;
 
@@ -468,7 +470,7 @@ static void fill_send_request(struct ud_resources *res, struct ibv_send_wr *psr,
 	psr->send_flags = IBV_SEND_SIGNALED;
 	psr->wr.ud.ah = res->ah;
 	psr->wr.ud.remote_qpn = 1;
-	psr->wr.ud.remote_qkey = MY_IB_QP1_WELL_KNOWN_Q_KEY;
+	psr->wr.ud.remote_qkey = UMAD_QKEY;
 
 	psg->addr = (uintptr_t) mad_hdr;
 	psg->length = SEND_SIZE;
@@ -568,27 +570,27 @@ static int register_to_trap(struct sync_resources *sync_res,
 	fill_send_request(res, &sr, &sg, mad_hdr);
 
 	ib_mad_init_new(mad_hdr, /* Mad Header */
-			SRP_MGMT_CLASS_SA,        /* Management Class */
-			2,        /* Class Version */
-			SRP_MAD_METHOD_SET,         /* Method */
+			UMAD_CLASS_SUBN_ADM,        /* Management Class */
+			UMAD_SA_CLASS_VERSION,      /* Class Version */
+			UMAD_METHOD_SET,            /* Method */
 			0,            /* Transaction ID - will be set before the send in the loop*/
-			htobe16(SRP_MAD_ATTR_INFORM_INFO),   /* Attribute ID */
+			htobe16(UMAD_ATTR_INFORM_INFO),   /* Attribute ID */
 			0 );                       /* Attribute Modifier */
 
 
 	data->lid_range_begin = htobe16(0xFFFF);
 	data->is_generic = 1;
 	data->subscribe = subscribe;
-	if (trap_num == SRP_TRAP_JOIN)
+	if (trap_num == UMAD_SM_GID_IN_SERVICE_TRAP)
 		data->trap_type = htobe16(3); /* SM */
-	else if (trap_num == SRP_TRAP_CHANGE_CAP)
+	else if (trap_num == UMAD_SM_LOCAL_CHANGES_TRAP)
 		data->trap_type = htobe16(4); /* Informational */
 	data->g_or_v.generic.trap_num = htobe16(trap_num);
         data->g_or_v.generic.node_type_msb = 0;
-	if (trap_num == SRP_TRAP_JOIN)
+	if (trap_num == UMAD_SM_GID_IN_SERVICE_TRAP)
 		/* Class Manager */
 		data->g_or_v.generic.node_type_lsb = htobe16(4);
-	else if (trap_num == SRP_TRAP_CHANGE_CAP)
+	else if (trap_num == UMAD_SM_LOCAL_CHANGES_TRAP)
 		/* Channel Adapter */
 		data->g_or_v.generic.node_type_lsb = htobe16(1);
 
@@ -666,7 +668,7 @@ static int response_to_trap(struct sync_resources *sync_res,
 	ib_sa_mad_t *response_buffer = (ib_sa_mad_t *) (res->send_buf);
 
 	memcpy(response_buffer, mad_buffer, sizeof(ib_sa_mad_t));
-	response_buffer->method = SRP_SA_METHOD_REPORT_RESP;
+	response_buffer->method = UMAD_METHOD_REPORT_RESP;
 
 	fill_send_request(res, &sr, &sg, (ib_mad_t *) response_buffer);
 	ret = ibv_post_send(res->qp, &sr, bad_wr);
@@ -707,16 +709,16 @@ static int get_trap_notices(struct resources *res)
 		buffer = res->ud_res->recv_buf + RECV_BUF_SIZE * cur_receive;
 		mad_buffer = (ib_sa_mad_t *) (buffer + GRH_SIZE);
 
-		if ((mad_buffer->mgmt_class == SRP_MGMT_CLASS_SA) &&
-		    (mad_buffer->method == SRP_SA_METHOD_GET_RESP) &&
-		    (be16toh(mad_buffer->attr_id) == SRP_MAD_ATTR_INFORM_INFO)) {
+		if ((mad_buffer->mgmt_class == UMAD_CLASS_SUBN_ADM) &&
+		    (mad_buffer->method == UMAD_METHOD_GET_RESP) &&
+		    (be16toh(mad_buffer->attr_id) == UMAD_ATTR_INFORM_INFO)) {
 		/* this is probably a response to register to trap */
 			pthread_mutex_lock(res->ud_res->mad_buffer_mutex);
 			*res->ud_res->mad_buffer = *mad_buffer;
 			pthread_mutex_unlock(res->ud_res->mad_buffer_mutex);
-		} else if ((mad_buffer->mgmt_class == SRP_MGMT_CLASS_SA) &&
-		    (mad_buffer->method == SRP_SA_METHOD_REPORT) &&
-		    (be16toh(mad_buffer->attr_id) == SRP_MAD_ATTR_NOTICE))
+		} else if ((mad_buffer->mgmt_class == UMAD_CLASS_SUBN_ADM) &&
+		    (mad_buffer->method == UMAD_METHOD_REPORT) &&
+		    (be16toh(mad_buffer->attr_id) == UMAD_ATTR_NOTICE))
 		{ /* this is a trap notice */
 			pkey_index = wc.pkey_index;
 			ret = pkey_index_to_pkey(res->umad_res, pkey_index, &pkey);
@@ -730,11 +732,11 @@ static int get_trap_notices(struct resources *res)
 			notice_buffer = (ib_mad_notice_attr_t *) (mad_buffer->data);
 			trap_num = be16toh(notice_buffer->g_or_v.generic.trap_num);
 			response_to_trap(res->sync_res, res->ud_res, mad_buffer);
-			if (trap_num == SRP_TRAP_JOIN)
+			if (trap_num == UMAD_SM_GID_IN_SERVICE_TRAP)
 				push_gid_to_list(res->sync_res,
 						 &notice_buffer->data_details.ntc_64_67.gid,
 						 pkey);
-			else if (trap_num == SRP_TRAP_CHANGE_CAP) {
+			else if (trap_num == UMAD_SM_LOCAL_CHANGES_TRAP) {
 				if (be32toh(notice_buffer->data_details.ntc_144.new_cap_mask) & SRP_IS_DM)
 					push_lid_to_list(res->sync_res,
 							 be16toh(notice_buffer->data_details.ntc_144.lid),
@@ -771,7 +773,7 @@ void *run_thread_get_trap_notices(void *res_in)
 int register_to_traps(struct resources *res, int subscribe)
 {
 	int rc;
-	int trap_numbers[] = {SRP_TRAP_JOIN, SRP_TRAP_CHANGE_CAP};
+	int trap_numbers[] = {UMAD_SM_GID_IN_SERVICE_TRAP, UMAD_SM_LOCAL_CHANGES_TRAP};
 	int i;
 
 	for (i=0; i < sizeof(trap_numbers) / sizeof(*trap_numbers); ++i) {
