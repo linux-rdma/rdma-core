@@ -591,8 +591,8 @@ static int add_non_exist_target(struct target_details *target)
 static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 		 srp_ib_user_mad_t *in_mad, int in_mad_size)
 {
-	struct srp_dm_mad *out_dm_mad = (void *) out_mad->hdr.data;
-	struct srp_dm_mad *in_dm_mad = (void *) in_mad->hdr.data;
+	struct umad_dm_packet *out_dm_mad = (void *) out_mad->hdr.data;
+	struct umad_dm_packet *in_dm_mad = (void *) in_mad->hdr.data;
 	int i, len;
 	int in_agent;
 	int ret;
@@ -603,7 +603,7 @@ static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 		/* Skip tid 0 because OpenSM ignores it. */
 		if (++tid == 0)
 			++tid;
-		out_dm_mad->tid = htobe64(tid);
+		out_dm_mad->mad_hdr.tid = htobe64(tid);
 
 		ret = umad_send(portid, agent, out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
@@ -637,7 +637,7 @@ recv:
 				return -ret;
 			}
 
-			received_tid = be64toh(in_dm_mad->tid);
+			received_tid = be64toh(in_dm_mad->mad_hdr.tid);
 			if (tid != received_tid)
 				pr_debug("umad_recv returned different transaction id sent %d got %d\n",
 					 tid, received_tid);
@@ -735,7 +735,7 @@ end:
 static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent,
 			 uint16_t h_dlid, uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	struct srp_dm_mad *out_mad;
+	struct umad_dm_packet *out_mad;
 
 	memset(out_umad, 0, sizeof *out_umad);
 
@@ -746,10 +746,10 @@ static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent,
 
 	out_mad = (void *) out_umad->hdr.data;
 
-	out_mad->base_version  = UMAD_BASE_VERSION;
-	out_mad->method        = UMAD_METHOD_GET;
-	out_mad->attr_id       = htobe16(h_attr_id);
-	out_mad->attr_mod      = htobe32(h_attr_mod);
+	out_mad->mad_hdr.base_version  = UMAD_BASE_VERSION;
+	out_mad->mad_hdr.method        = UMAD_METHOD_GET;
+	out_mad->mad_hdr.attr_id       = htobe16(h_attr_id);
+	out_mad->mad_hdr.attr_mod      = htobe32(h_attr_mod);
 }
 
 static void init_srp_dm_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
@@ -798,7 +798,7 @@ static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 {
 	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
+	struct umad_dm_packet	       *out_dm_mad, *in_dm_mad;
 	struct umad_class_port_info    *cpi;
 	char val[64];
 	int i;
@@ -806,7 +806,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, UMAD_ATTR_CLASS_PORT_INFO, 0);
 
 	out_dm_mad = get_data_ptr(out_mad);
-	out_dm_mad->method = UMAD_METHOD_SET;
+	out_dm_mad->mad_hdr.method = UMAD_METHOD_SET;
 
 	cpi                = (void *) out_dm_mad->data;
 
@@ -829,9 +829,9 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("Class Port Info set returned status 0x%04x\n",
-			be16toh(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -842,7 +842,7 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 			struct srp_dm_iou_info *iou_info)
 {
 	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_IO_UNIT_INFO, 0);
 
@@ -850,9 +850,9 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("IO Unit Info query returned status 0x%04x\n",
-			be16toh(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -867,7 +867,7 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 			struct srp_dm_ioc_prof *ioc_prof)
 {
 	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, h_dlid, SRP_DM_ATTR_IO_CONTROLLER_PROFILE, ioc);
 
@@ -875,9 +875,9 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("IO Controller Profile query returned status 0x%04x for %d\n",
-			be16toh(in_dm_mad->status), ioc);
+			be16toh(in_dm_mad->mad_hdr.status), ioc);
 		return -1;
 	}
 
@@ -890,7 +890,7 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 			   int start, int end, struct srp_dm_svc_entries *svc_entries)
 {
 	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_SERVICE_ENTRIES,
 			(ioc << 16) | (end << 8) | start);
@@ -899,9 +899,9 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("Service Entries query returned status 0x%04x\n",
-			be16toh(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -1193,7 +1193,7 @@ static int do_dm_port_list(struct resources *res)
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
 		        UMAD_SA_ATTR_PORT_INFO_REC, SRP_SM_CAP_MASK_MATCH_ATTR_MOD);
 
-	out_sa_mad->method     	   = UMAD_SA_METHOD_GET_TABLE;
+	out_sa_mad->mad_hdr.method = UMAD_SA_METHOD_GET_TABLE;
 	out_sa_mad->comp_mask      = htobe64(1 << 7); /* Capability mask */
 	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
 	out_sa_mad->rmpp_hdr.rmpp_type = 1;
@@ -1282,7 +1282,7 @@ static int do_full_port_list(struct resources *res)
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
 		        UMAD_SA_ATTR_NODE_REC, 0);
 
-	out_sa_mad->method     	  = UMAD_SA_METHOD_GET_TABLE;
+	out_sa_mad->mad_hdr.method = UMAD_SA_METHOD_GET_TABLE;
 	out_sa_mad->comp_mask     = 0; /* Get all end ports */
 	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
 	out_sa_mad->rmpp_hdr.rmpp_type = 1;
@@ -2051,7 +2051,6 @@ int main(int argc, char *argv[])
 	BUILD_ASSERT(offsetof(ib_mad_notice_attr_t,
 			      data_details.ntc_64_67.gid) == 16);
 #endif
-	BUILD_ASSERT(sizeof(struct srp_dm_mad) == 256);
 	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	BUILD_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
 	BUILD_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
