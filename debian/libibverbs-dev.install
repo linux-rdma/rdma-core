@@ -6,6 +6,7 @@ usr/include/infiniband/opcode.h
 usr/include/infiniband/sa-kern-abi.h
 usr/include/infiniband/sa.h
 usr/include/infiniband/verbs.h
+usr/include/infiniband/tm_types.h
 usr/lib/*/libibverbs*.so
 usr/lib/*/libmlx4.so
 usr/lib/*/libmlx5.so

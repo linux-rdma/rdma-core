@@ -234,6 +234,58 @@ While **wr_id** identifies the tag manipulation operation itself, the
 completions.
 
 
+### Sending TM messages
+
+TM messages are sent using standard RC Send operations. A TM message comprises
+a Tag-Matching Header (TMH), an optional Rendezvous Header (RVH), and
+a payload.
+
+TMH and RVH are defined in infiniband/tm_types.h:
+
+```h
+struct ibv_tmh {
+	  uint8_t	  opcode;
+	  uint8_t	  reserved[3];
+	  __be32	  app_ctx;
+	  __be64	  tag;
+};
+```
+```h
+struct ibv_rvh {
+	  __be64	  va;
+	  __be32	  rkey;
+	  __be32	  len;
+};
+```
+
+The following opcodes are defined:
+
+* **IBV_TM_NO_TAG**   - Send a message without a tag.
+Such a message will always be treated as unexpected by the receiver TM-SRQ.
+Any data following the opcode is ignored by the tag matching logic, and the
+message is delivered in its entirety (including the opcode) to the standard
+SRQ buffer.
+
+* **IBV_TM_OP_EAGER** - Send an eager tagged message.
+The message consists of a TMH followed by payload.
+
+* **IBV_TM_OP_RNDV**  - Send a tagged rendezvous request.
+The message consists of a TMH, an RVH, and optional additional data (which may
+be inspected by receiver SW if the message is deemed unexpected). The RVH must
+refer to a registered buffer containing the rendezvous payload. The total
+rendezvous message size must not exceed the **max_rndv_hdr_size** capability.
+The Sender must consider the operation outstanding until a TM message with the
+**IBV_TM_OP_FIN** opcode is received, after which the buffer may be deregistered
+and freed.
+
+* **IBV_TM_OP_FIN**   - Send a rendezvous completion indication.
+The message consists of a copy of the original TMH and RVH of the rendezvous
+request, apart the opcode. This message is sent after the receiver has
+completed the transfer of the rendezvous payload by an RDMA-read operation. It
+may be sent either by HW or SW, depending on whether the rendezvous request
+was handled as expected or unexpected by the TM-SRQ.
+
+
 ### TM completion processing
 
 There are 2 types of TM completions: tag-manipulation and receive completions.
