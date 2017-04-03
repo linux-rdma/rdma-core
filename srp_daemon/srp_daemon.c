@@ -2044,20 +2044,20 @@ int main(int argc, char *argv[])
 	 * Hide these checks for sparse because these checks fail with
 	 * older versions of sparse.
 	 */
-	STATIC_ASSERT(sizeof(ib_sa_mad_t) == 256);
-	STATIC_ASSERT(sizeof(ib_path_rec_t) == 64);
-	STATIC_ASSERT(sizeof(ib_mad_t) == 24);
-	STATIC_ASSERT(sizeof(ib_inform_info_t) == 36);
-	STATIC_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
-	STATIC_ASSERT(offsetof(ib_mad_notice_attr_t,
-			       data_details.ntc_64_67.gid) == 16);
+	BUILD_ASSERT(sizeof(ib_sa_mad_t) == 256);
+	BUILD_ASSERT(sizeof(ib_path_rec_t) == 64);
+	BUILD_ASSERT(sizeof(ib_mad_t) == 24);
+	BUILD_ASSERT(sizeof(ib_inform_info_t) == 36);
+	BUILD_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
+	BUILD_ASSERT(offsetof(ib_mad_notice_attr_t,
+			      data_details.ntc_64_67.gid) == 16);
 #endif
-	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
-	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
-	STATIC_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
-	STATIC_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
-	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
-	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
+	BUILD_ASSERT(sizeof(struct srp_dm_mad) == 256);
+	BUILD_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
+	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
+	BUILD_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
+	BUILD_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
+	BUILD_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
 	ret = pipe(wakeup_pipe);
 	if (ret < 0) {

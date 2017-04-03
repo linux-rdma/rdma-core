@@ -52,7 +52,19 @@ int main(int argc, char *argv[])
 	BUILD_ASSERT(__alignof__(union umad_gid) == 4);
 #endif
 
+	/* umad_types.h structure checks */
+	BUILD_ASSERT(sizeof(struct umad_hdr) == 24);
+	BUILD_ASSERT(sizeof(struct umad_rmpp_hdr) == 12);
+	BUILD_ASSERT(sizeof(struct umad_packet) == 256);
+	BUILD_ASSERT(sizeof(struct umad_rmpp_packet) == 256);
+	BUILD_ASSERT(sizeof(struct umad_vendor_packet) == 256);
 	BUILD_ASSERT(sizeof(struct umad_class_port_info) == 72);
 	BUILD_ASSERT(offsetof(struct umad_class_port_info, redirgid) == 8);
 	BUILD_ASSERT(offsetof(struct umad_class_port_info, trapgid) == 40);
+
+	/* umad_sm.h structure check */
+	BUILD_ASSERT(sizeof(struct umad_smp) == 256);
+
+	/* umad_sa.h structure check */
+	BUILD_ASSERT(sizeof(struct umad_sa_packet) == 256);
 }
