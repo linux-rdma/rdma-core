@@ -13,12 +13,33 @@ Copyright: 2015-2016, Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
            2016-2017, Talat Batheesh <talatb@mellanox.com>
 License: GPL-2
 
-Files: buildlib/cbuild
-Copyright: 2015-2016, Obsidian Research Corp.
+Files: CMakeLists.txt
+Copyright: 2015-2017, Obsidian Research Corporation.
 License: GPL-2 or BSD
 
-Files: buildlib/fixup-include/*
+Files: buildlib/*
+Copyright: 2015-2017, Obsidian Research Corporation.
+License: GPL-2 or BSD
+
+Files: buildlib/fixup-include/rdma-vmw_pvrdma-abi.h
+Copyright: 2012-2016 VMware, Inc.
+License: GPL-2 or BSD
+
+Files: buildlib/fixup-include/stdatomic.h
+Copyright: 2011 Ed Schouten <ed@FreeBSD.org>
+                David Chisnall <theraven@FreeBSD.org>
+License: BSD-2-clause
+
+Files: buildlib/fixup-include/rdma-rdma_user_rxe.h
 Copyright: 2016, Mellanox Technologies Ltd.
+License: GPL-2 or BSD
+
+Files: buildlib/relpath
+Copyright: 2017 Mellanox Technologies, Inc.
+License: GPL-2 or BSD
+
+Files: buildlib/sparse-include/*
+Copyright: 2017 Obsidian Research Corporation.
 License: GPL-2 or BSD
 
 Files: ccan/*
@@ -64,7 +85,12 @@ Files: libibumad/*
 Copyright: 2004-2008, Voltaire Inc.
 License: GPL-2 or BSD
 
-Files: libibumad/tests/*
+Files: libibumad/tests/umad_compile_test.c
+Copyright: 2017 Mellanox Technologies LTD.
+License: GPL-2 or BSD
+
+Files: libibumad/tests/umad_reg2_compat.c
+  libibumad/tests/umad_register2.c
 Copyright: 2014, Intel Corporation.
 License: GPL-2 or BSD
 
@@ -355,6 +381,10 @@ Copyright: 2009, System Fabric Works, Inc.
            2005, PathScale, Inc.
 License: GPL-2 or BSD
 
+Files: providers/vmw_pvrdma/*
+Copyright: 2012-2016 VMware, Inc.
+License: GPL-2 or BSD
+
 Files: rdma-ndd/*
 Copyright: 2016, Intel Corporation.
 License: GPL-2 or BSD
@@ -382,6 +412,10 @@ License: BSD-2-clause
 Files: srp_daemon/srp_daemon.sh.in
   srp_daemon/srp_handle_traps.c
 Copyright: 2006, Mellanox Technologies.
+License: GPL-2 or BSD
+
+Files: util/udma_barrier.h
+Copyright: 2005 Topspin Communications.
 License: GPL-2 or BSD
 
 License: BSD
