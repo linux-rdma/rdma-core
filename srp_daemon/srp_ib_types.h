@@ -40,6 +40,7 @@
 #include <stdint.h>
 #include <linux/types.h> /* __be16, __be32 and __be64 */
 #include <infiniband/umad.h> /* union umad_gid */
+#include <infiniband/umad_types.h>
 
 #define SRP_INFORMINFO_LID_COMP		(1 << 1)
 #define SRP_INFORMINFO_ISGENERIC_COMP	(1 << 4)
@@ -64,48 +65,6 @@
 */
 #define MAD_BLOCK_SIZE						256
 
-/****s* IBA Base: Types/ib_sa_mad_t
-* NAME
-*	ib_sa_mad_t
-*
-* DESCRIPTION
-*	IBA defined SA MAD format. (15.2.1)
-*
-* SYNOPSIS
-*/
-#define IB_SA_DATA_SIZE 200
-
-typedef struct _ib_sa_mad
-{
-	uint8_t		base_ver;
-	uint8_t		mgmt_class;
-	uint8_t		class_ver;
-	uint8_t		method;
-	__be16		status;
-	__be16		resv;
-	__be64		trans_id;
-	__be16		attr_id;
-	__be16		resv1;
-	__be32		attr_mod;
-
-	uint8_t		rmpp_version;
-	uint8_t		rmpp_type;
-	uint8_t		rmpp_flags;
-	uint8_t		rmpp_status;
-
-	__be32		seg_num;
-	__be32		paylen_newwin;
-
-	__be64		sm_key;
-
-	__be16		attr_offset;
-	__be16		resv3;
-
-	__be64		comp_mask;
-
-	uint8_t		data[IB_SA_DATA_SIZE];
-} PACK_SUFFIX ib_sa_mad_t;
-
 static inline uint32_t ib_get_attr_size(const __be16 attr_offset)
 {
 	return( ((uint32_t)be16toh( attr_offset )) << 3 );
@@ -124,9 +83,9 @@ enum {
   MAD_RMPP_HDR_SIZE = 36,
 };
 
-/****s* IBA Base: Types/ib_path_rec_t
+/****s* IBA Base: Types/struct ib_path_rec
 * NAME
-*	ib_path_rec_t
+*	struct ib_path_rec
 *
 * DESCRIPTION
 *	Path records encapsulate the properties of a given
@@ -134,7 +93,7 @@ enum {
 *
 * SYNOPSIS
 */
-typedef struct _ib_path_rec
+struct ib_path_rec
 {
 	uint8_t		resv0[8];
 	union umad_gid	dgid;
@@ -152,64 +111,41 @@ typedef struct _ib_path_rec
 	uint8_t		preference;
 	uint8_t		resv2[6];
 
-}	PACK_SUFFIX ib_path_rec_t;
+}	PACK_SUFFIX;
 
 
-/****s* IBA Base: Types/ib_mad_t
+/****f* IBA Base: Types/umad_init_new
 * NAME
-*	ib_mad_t
+*	umad_init_new
 *
 * DESCRIPTION
-*	IBA defined MAD header (13.4.3)
-*
-* SYNOPSIS
-*/
-typedef struct _ib_mad
-{
-	uint8_t		base_ver;
-	uint8_t		mgmt_class;
-	uint8_t		class_ver;
-	uint8_t		method;
-	__be16		status;
-	__be16		class_spec;
-	__be64		trans_id;
-	__be16		attr_id;
-	__be16		resv;
-	__be32		attr_mod;
-}	PACK_SUFFIX ib_mad_t;
-
-/****f* IBA Base: Types/ib_mad_init_new
-* NAME
-*	ib_mad_init_new
-*
-* DESCRIPTION
-*	Initializes a MAD common header.
+*	Initialize UMAD common header.
 *
 * SYNOPSIS
 */
 static inline void
-ib_mad_init_new(ib_mad_t* const	p_mad,
-		const uint8_t mgmt_class,
-		const uint8_t class_ver,
-		const uint8_t method,
-		const __be64 trans_id,
-		const __be16 attr_id,
-		const __be32 attr_mod)
+umad_init_new(struct umad_hdr* const	p_mad,
+	      const uint8_t mgmt_class,
+	      const uint8_t class_ver,
+	      const uint8_t method,
+	      const __be64 trans_id,
+	      const __be16 attr_id,
+	      const __be32 attr_mod)
 {
-	p_mad->base_ver = 1;
+	p_mad->base_version = 1;
 	p_mad->mgmt_class = mgmt_class;
-	p_mad->class_ver = class_ver;
+	p_mad->class_version = class_ver;
 	p_mad->method = method;
 	p_mad->status = 0;
-	p_mad->class_spec = 0;
-	p_mad->trans_id = trans_id;
+	p_mad->class_specific = 0;
+	p_mad->tid = trans_id;
 	p_mad->attr_id = attr_id;
 	p_mad->resv = 0;
 	p_mad->attr_mod = attr_mod;
 }
 
 
-typedef struct _ib_inform_info
+struct ib_inform_info
 {
 	union umad_gid	gid;
 	__be16		lid_range_begin;
@@ -240,9 +176,9 @@ typedef struct _ib_inform_info
 
 	}	PACK_SUFFIX g_or_v;
 
-} PACK_SUFFIX ib_inform_info_t;
+} PACK_SUFFIX;
 
-typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
+struct ib_mad_notice_attr		// Total Size calc  Accumulated
 {
 	uint8_t		generic_type;		// 1		1
 
@@ -290,7 +226,7 @@ typedef struct _ib_mad_notice_attr		// Total Size calc  Accumulated
 
 	union umad_gid			issuer_gid;	// 16		80
 
-} PACK_SUFFIX ib_mad_notice_attr_t;
+} PACK_SUFFIX;
 
 /****f* IBA Base: Types/ib_gid_get_guid
 * NAME

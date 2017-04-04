@@ -56,41 +56,9 @@
 #define SRP_CATAS_ERR SIGUSR1
 
 enum {
-	SRP_MGMT_CLASS_SA = 3,
-	SRP_MGMT_CLASS_DM = 6
-};
-
-enum {
-	SRP_MGMT_CLASS_SA_VERSION = 2,
-};
-
-enum {
-        SRP_SA_RMPP_VERSION = 1,
-};
-
-
-enum {
-	SRP_MAD_ATTR_CLASS_PORT_INFO 	  = 0x0001,
-	SRP_MAD_ATTR_NOTICE	  	  = 0x0002,
-	SRP_MAD_ATTR_INFORM_INFO	  = 0x0003,
-
-	SRP_SA_ATTR_NODE		  = 0x0011,
-	SRP_SA_ATTR_PORT_INFO		  = 0x0012,
-	SRP_SA_ATTR_PATH_REC		  = 0x0035,
-
 	SRP_DM_ATTR_IO_UNIT_INFO    	  = 0x0010,
 	SRP_DM_ATTR_IO_CONTROLLER_PROFILE = 0x0011,
 	SRP_DM_ATTR_SERVICE_ENTRIES       = 0x0012
-};
-
-enum {
-	SRP_MAD_METHOD_GET		= 0x01,
-	SRP_MAD_METHOD_SET		= 0x02,
-
-	SRP_SA_METHOD_REPORT		= 0x06,
-	SRP_SA_METHOD_GET_TABLE		= 0x12,
-	SRP_SA_METHOD_GET_RESP		= 0x81,
-	SRP_SA_METHOD_REPORT_RESP	= 0x86
 };
 
 enum {
@@ -106,57 +74,8 @@ enum {
 };
 
 enum {
-	SRP_MAD_HEADER_SIZE		= 24
-};
-
-enum {
 	SRP_REV10_IB_IO_CLASS	= 0xff00,
 	SRP_REV16A_IB_IO_CLASS	= 0x0100
-};
-
-enum {
-	SRP_TRAP_JOIN		= 0x40, /* 64 */
-	SRP_TRAP_LEFT		= 0x41, /* 65 */
-	SRP_TRAP_CHANGE_CAP 	= 0x90  /* 144 */
-};
-
-struct srp_dm_mad {
-	uint8_t		base_version;
-	uint8_t		mgmt_class;
-	uint8_t		class_version;
-	uint8_t		method;
-	__be16		status;
-	__be16		reserved1;
-	__be64		tid;
-	__be16		attr_id;
-	__be16		reserved2;
-	__be32		attr_mod;
-	uint8_t		reserved3[40];
-	uint8_t		data[192];
-};
-
-struct srp_dm_rmpp_sa_mad {
-	uint8_t		base_version;
-	uint8_t		mgmt_class;
-	uint8_t		class_version;
-	uint8_t		method;
-	__be16		status;
-	__be16		reserved1;
-	__be64		tid;
-	__be16		attr_id;
-	__be16		reserved2;
-	__be32		attr_mod;
-	uint8_t		rmpp_version;
-	uint8_t		rmpp_type;
-	uint8_t		rmpp_rtime_flags;
-	uint8_t		rmpp_status;
-	__be32		seg_num;
-	__be32		paylen_newwin;
-	__be64		sm_key __attribute__((packed));
-	__be16		attr_offset;
-	__be16		reserved3;
-	__be64		comp_mask;
-	uint8_t		data[200];
 };
 
 struct srp_sa_node_rec {
@@ -252,10 +171,6 @@ struct srp_dm_svc_entries {
 };
 
 enum {
-	MY_IB_QP1_WELL_KNOWN_Q_KEY = 0x80010000
-};
-
-enum {
 	SEND_SIZE  = 256,
 	GRH_SIZE   = 40,
 	RECV_BUF_SIZE   = SEND_SIZE + GRH_SIZE,
@@ -320,7 +235,7 @@ struct ud_resources {
 	int   	                cq_size;
 	struct ibv_comp_channel *channel;
 	pthread_mutex_t		*mad_buffer_mutex;
-	ib_sa_mad_t		*mad_buffer;
+	struct umad_sa_packet	*mad_buffer;
 };
 
 struct umad_resources {
@@ -360,10 +275,10 @@ struct resources {
 	pthread_t timer_thread;
 };
 
-typedef struct {
+struct srp_ib_user_mad {
 	struct ib_user_mad hdr;
 	char filler[MAD_BLOCK_SIZE];
-} srp_ib_user_mad_t;
+};
 
 #include <valgrind/drd.h>
 

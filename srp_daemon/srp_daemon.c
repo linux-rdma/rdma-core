@@ -62,6 +62,7 @@
 #include <sys/syslog.h>
 #include <infiniband/umad.h>
 #include <infiniband/umad_types.h>
+#include <infiniband/umad_sa.h>
 #include "srp_ib_types.h"
 
 #include "srp_daemon.h"
@@ -587,11 +588,11 @@ static int add_non_exist_target(struct target_details *target)
 	return 1;
 }
 
-static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
-		 srp_ib_user_mad_t *in_mad, int in_mad_size)
+static int send_and_get(int portid, int agent, struct srp_ib_user_mad *out_mad,
+		 struct srp_ib_user_mad *in_mad, int in_mad_size)
 {
-	struct srp_dm_mad *out_dm_mad = (void *) out_mad->hdr.data;
-	struct srp_dm_mad *in_dm_mad = (void *) in_mad->hdr.data;
+	struct umad_dm_packet *out_dm_mad = (void *) out_mad->hdr.data;
+	struct umad_dm_packet *in_dm_mad = (void *) in_mad->hdr.data;
 	int i, len;
 	int in_agent;
 	int ret;
@@ -602,7 +603,7 @@ static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 		/* Skip tid 0 because OpenSM ignores it. */
 		if (++tid == 0)
 			++tid;
-		out_dm_mad->tid = htobe64(tid);
+		out_dm_mad->mad_hdr.tid = htobe64(tid);
 
 		ret = umad_send(portid, agent, out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
@@ -636,7 +637,7 @@ recv:
 				return -ret;
 			}
 
-			received_tid = be64toh(in_dm_mad->tid);
+			received_tid = be64toh(in_dm_mad->mad_hdr.tid);
 			if (tid != received_tid)
 				pr_debug("umad_recv returned different transaction id sent %d got %d\n",
 					 tid, received_tid);
@@ -731,57 +732,57 @@ end:
 	return ret;
 }
 
-static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent,
+static void init_srp_mad(struct srp_ib_user_mad *out_umad, int agent,
 			 uint16_t h_dlid, uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	struct srp_dm_mad *out_mad;
+	struct umad_dm_packet *out_mad;
 
 	memset(out_umad, 0, sizeof *out_umad);
 
 	out_umad->hdr.agent_id   = agent;
 	out_umad->hdr.addr.qpn   = htobe32(1);
-	out_umad->hdr.addr.qkey  = htobe32(0x80010000);
+	out_umad->hdr.addr.qkey  = htobe32(UMAD_QKEY);
 	out_umad->hdr.addr.lid   = htobe16(h_dlid);
 
 	out_mad = (void *) out_umad->hdr.data;
 
-	out_mad->base_version  = 1;
-	out_mad->method        = SRP_MAD_METHOD_GET;
-	out_mad->attr_id       = htobe16(h_attr_id);
-	out_mad->attr_mod      = htobe32(h_attr_mod);
+	out_mad->mad_hdr.base_version  = UMAD_BASE_VERSION;
+	out_mad->mad_hdr.method        = UMAD_METHOD_GET;
+	out_mad->mad_hdr.attr_id       = htobe16(h_attr_id);
+	out_mad->mad_hdr.attr_mod      = htobe32(h_attr_mod);
 }
 
-static void init_srp_dm_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
+static void init_srp_dm_mad(struct srp_ib_user_mad *out_mad, int agent, uint16_t h_dlid,
 			    uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	ib_sa_mad_t *out_dm_mad = get_data_ptr(*out_mad);
+	struct umad_sa_packet *out_dm_mad = get_data_ptr(*out_mad);
 
 	init_srp_mad(out_mad, agent, h_dlid, h_attr_id, h_attr_mod);
-	out_dm_mad->mgmt_class = SRP_MGMT_CLASS_DM;
-	out_dm_mad->class_ver  = 1;
+	out_dm_mad->mad_hdr.mgmt_class = UMAD_CLASS_DEVICE_MGMT;
+	out_dm_mad->mad_hdr.class_version  = 1;
 }
 
-static void init_srp_sa_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
+static void init_srp_sa_mad(struct srp_ib_user_mad *out_mad, int agent, uint16_t h_dlid,
 			    uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	ib_sa_mad_t *out_sa_mad = get_data_ptr(*out_mad);
+	struct umad_sa_packet *out_sa_mad = get_data_ptr(*out_mad);
 
 	init_srp_mad(out_mad, agent, h_dlid, h_attr_id, h_attr_mod);
-	out_sa_mad->mgmt_class = SRP_MGMT_CLASS_SA;
-	out_sa_mad->class_ver  = SRP_MGMT_CLASS_SA_VERSION;
+	out_sa_mad->mad_hdr.mgmt_class = UMAD_CLASS_SUBN_ADM;
+	out_sa_mad->mad_hdr.class_version  = UMAD_SA_CLASS_VERSION;
 }
 
 static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *in_sa_mad;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet	       *in_sa_mad;
 	struct umad_class_port_info    *cpi;
 	int				ret;
 
 	in_sa_mad  = get_data_ptr(in_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_MAD_ATTR_CLASS_PORT_INFO, 0);
+		        UMAD_ATTR_CLASS_PORT_INFO, 0);
 
 	ret = send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0);
 	if (ret < 0)
@@ -796,16 +797,16 @@ static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 
 static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
-	struct umad_class_port_info     *cpi;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *out_dm_mad, *in_dm_mad;
+	struct umad_class_port_info    *cpi;
 	char val[64];
 	int i;
 
-	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_MAD_ATTR_CLASS_PORT_INFO, 0);
+	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, UMAD_ATTR_CLASS_PORT_INFO, 0);
 
 	out_dm_mad = get_data_ptr(out_mad);
-	out_dm_mad->method = SRP_MAD_METHOD_SET;
+	out_dm_mad->mad_hdr.method = UMAD_METHOD_SET;
 
 	cpi                = (void *) out_dm_mad->data;
 
@@ -828,9 +829,9 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("Class Port Info set returned status 0x%04x\n",
-			be16toh(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -840,8 +841,8 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 			struct srp_dm_iou_info *iou_info)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_IO_UNIT_INFO, 0);
 
@@ -849,9 +850,9 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("IO Unit Info query returned status 0x%04x\n",
-			be16toh(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -865,8 +866,8 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int ioc,
 			struct srp_dm_ioc_prof *ioc_prof)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, h_dlid, SRP_DM_ATTR_IO_CONTROLLER_PROFILE, ioc);
 
@@ -874,9 +875,9 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("IO Controller Profile query returned status 0x%04x for %d\n",
-			be16toh(in_dm_mad->status), ioc);
+			be16toh(in_dm_mad->mad_hdr.status), ioc);
 		return -1;
 	}
 
@@ -888,8 +889,8 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int ioc,
 			   int start, int end, struct srp_dm_svc_entries *svc_entries)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_SERVICE_ENTRIES,
 			(ioc << 16) | (end << 8) | start);
@@ -898,9 +899,9 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("Service Entries query returned status 0x%04x\n",
-			be16toh(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -1022,15 +1023,15 @@ out:
 
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 
 	in_sa_mad = get_data_ptr(in_mad);
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_NODE, 0);
+		        UMAD_SA_ATTR_NODE_REC, 0);
 
 	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	node			  = (void *) out_sa_mad->data;
@@ -1048,15 +1049,15 @@ int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 			 uint64_t *subnet_prefix, int *isdm)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_port_info_rec    *port_info;
 
 	in_sa_mad = get_data_ptr(in_mad);
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PORT_INFO, 0);
+		        UMAD_SA_ATTR_PORT_INFO_REC, 0);
 
 	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	port_info                 = (void *) out_sa_mad->data;
@@ -1096,10 +1097,10 @@ static int get_shared_pkeys(struct resources *res,
 {
 	struct umad_resources          *umad_res = res->umad_res;
 	uint8_t                        *in_mad_buf;
-	srp_ib_user_mad_t		out_mad;
+	struct srp_ib_user_mad		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
-	ib_path_rec_t		       *path_rec;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
+	struct ib_path_rec	       *path_rec;
 	ssize_t len;
 	int size;
 	int i, num_pkeys = 0;
@@ -1117,7 +1118,7 @@ static int get_shared_pkeys(struct resources *res,
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PATH_REC, 0);
+		        UMAD_SA_ATTR_PATH_REC, 0);
 
 	/**
 	 * Due to OpenSM bug (issue #335016) SM won't return
@@ -1134,15 +1135,15 @@ static int get_shared_pkeys(struct resources *res,
 
 		/* Mark components: DLID, SLID, PKEY */
 		out_sa_mad->comp_mask = htobe64(1 << 4 | 1 << 5 | 1 << 13);
-		out_sa_mad->rmpp_version = 1;
-		out_sa_mad->rmpp_type = 1;
-		path_rec = (ib_path_rec_t *)out_sa_mad->data;
+		out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+		out_sa_mad->rmpp_hdr.rmpp_type = 1;
+		path_rec = (struct ib_path_rec *)out_sa_mad->data;
 		path_rec->slid = htobe16(local_port_lid);
 		path_rec->dlid = htobe16(dest_port_lid);
 		path_rec->pkey = htobe16(pkey);
 
 		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-				   (srp_ib_user_mad_t *)in_mad,
+				   (struct srp_ib_user_mad *)in_mad,
 				   node_table_response_size);
 		if (len < 0)
 			goto err;
@@ -1155,7 +1156,7 @@ static int get_shared_pkeys(struct resources *res,
 			continue;
 		}
 
-		path_rec = (ib_path_rec_t *)in_sa_mad->data;
+		path_rec = (struct ib_path_rec *)in_sa_mad->data;
 		pkeys[num_pkeys++] = be16toh(path_rec->pkey);
 	}
 
@@ -1170,9 +1171,9 @@ static int do_dm_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
 	uint8_t                        *in_mad_buf;
-	srp_ib_user_mad_t		out_mad;
+	struct srp_ib_user_mad		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_port_info_rec    *port_info;
 	ssize_t len;
 	int size;
@@ -1190,17 +1191,17 @@ static int do_dm_port_list(struct resources *res)
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PORT_INFO, SRP_SM_CAP_MASK_MATCH_ATTR_MOD);
+		        UMAD_SA_ATTR_PORT_INFO_REC, SRP_SM_CAP_MASK_MATCH_ATTR_MOD);
 
-	out_sa_mad->method     	   = SRP_SA_METHOD_GET_TABLE;
+	out_sa_mad->mad_hdr.method = UMAD_SA_METHOD_GET_TABLE;
 	out_sa_mad->comp_mask      = htobe64(1 << 7); /* Capability mask */
-	out_sa_mad->rmpp_version   = 1;
-	out_sa_mad->rmpp_type      = 1;
+	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+	out_sa_mad->rmpp_hdr.rmpp_type = 1;
 	port_info		   = (void *) out_sa_mad->data;
 	port_info->capability_mask = htobe32(SRP_IS_DM); /* IsDM */
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-			   (srp_ib_user_mad_t *) in_mad,
+			   (struct srp_ib_user_mad *) in_mad,
 			   node_table_response_size);
 	if (len < 0) {
 		free(in_mad_buf);
@@ -1260,9 +1261,9 @@ static int do_full_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
 	uint8_t                        *in_mad_buf;
-	srp_ib_user_mad_t		out_mad;
+	struct srp_ib_user_mad		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 	ssize_t len;
 	int size;
@@ -1279,15 +1280,15 @@ static int do_full_port_list(struct resources *res)
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_NODE, 0);
+		        UMAD_SA_ATTR_NODE_REC, 0);
 
-	out_sa_mad->method     	  = SRP_SA_METHOD_GET_TABLE;
+	out_sa_mad->mad_hdr.method = UMAD_SA_METHOD_GET_TABLE;
 	out_sa_mad->comp_mask     = 0; /* Get all end ports */
-	out_sa_mad->rmpp_version  = 1;
-	out_sa_mad->rmpp_type     = 1;
+	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+	out_sa_mad->rmpp_hdr.rmpp_type = 1;
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-			   (srp_ib_user_mad_t *) in_mad,
+			   (struct srp_ib_user_mad *) in_mad,
 			   node_table_response_size);
 	if (len < 0) {
 		free(in_mad_buf);
@@ -1797,9 +1798,9 @@ static int umad_resources_create(struct umad_resources *umad_res)
 		return -ENXIO;
 	}
 
-	umad_res->agent = umad_register(umad_res->portid, SRP_MGMT_CLASS_SA,
-					   SRP_MGMT_CLASS_SA_VERSION,
-					   SRP_SA_RMPP_VERSION, NULL);
+	umad_res->agent = umad_register(umad_res->portid, UMAD_CLASS_SUBN_ADM,
+					   UMAD_SA_CLASS_VERSION,
+					   UMAD_RMPP_VERSION, NULL);
 	if (umad_res->agent < 0) {
 		pr_err("umad_register failed\n");
 		return umad_res->agent;
@@ -2044,16 +2045,12 @@ int main(int argc, char *argv[])
 	 * Hide these checks for sparse because these checks fail with
 	 * older versions of sparse.
 	 */
-	BUILD_ASSERT(sizeof(ib_sa_mad_t) == 256);
-	BUILD_ASSERT(sizeof(ib_path_rec_t) == 64);
-	BUILD_ASSERT(sizeof(ib_mad_t) == 24);
-	BUILD_ASSERT(sizeof(ib_inform_info_t) == 36);
-	BUILD_ASSERT(sizeof(ib_mad_notice_attr_t) == 80);
-	BUILD_ASSERT(offsetof(ib_mad_notice_attr_t,
+	BUILD_ASSERT(sizeof(struct ib_path_rec) == 64);
+	BUILD_ASSERT(sizeof(struct ib_inform_info) == 36);
+	BUILD_ASSERT(sizeof(struct ib_mad_notice_attr) == 80);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr,
 			      data_details.ntc_64_67.gid) == 16);
 #endif
-	BUILD_ASSERT(sizeof(struct srp_dm_mad) == 256);
-	BUILD_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
 	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	BUILD_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
 	BUILD_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
@@ -2333,14 +2330,14 @@ static int recalc(struct resources *res)
 static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
 		   uint16_t *lid)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad 	*in_sa_mad  = get_data_ptr(in_mad);
-	struct srp_dm_rmpp_sa_mad 	*out_sa_mad = get_data_ptr(out_mad);
-	ib_path_rec_t			*path_rec   = (ib_path_rec_t *) out_sa_mad->data;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet		*in_sa_mad  = get_data_ptr(in_mad);
+	struct umad_sa_packet		*out_sa_mad = get_data_ptr(out_mad);
+	struct ib_path_rec		*path_rec   = (struct ib_path_rec *) out_sa_mad->data;
 
 	memset(&in_mad, 0, sizeof(in_mad));
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PATH_REC, 0);
+		        UMAD_SA_ATTR_PATH_REC, 0);
 
 	out_sa_mad->comp_mask = htobe64( 4 | 8 | 64 | 512 | 4096 );
 
@@ -2352,7 +2349,7 @@ static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
-	path_rec = (ib_path_rec_t *) in_sa_mad->data;
+	path_rec = (struct ib_path_rec *) in_sa_mad->data;
 
 	*lid = be16toh(path_rec->dlid);
 
