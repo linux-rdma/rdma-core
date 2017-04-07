@@ -893,8 +893,6 @@ static int mlx5_init_context(struct verbs_device *vdev,
 		mlx5_map_internal_clock(mdev, ctx);
 	}
 
-	mlx5_spinlock_init(&context->lock32);
-
 	context->prefer_bf = get_always_bf();
 	context->shut_up_bf = get_shut_up_bf();
 	mlx5_read_env(&vdev->device, context);

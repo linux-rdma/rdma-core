@@ -37,10 +37,10 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <util/mmio.h>
 #include <util/compiler.h>
 
 #include "mlx5.h"
-#include "doorbell.h"
 #include "wqe.h"
 
 #define MLX5_ATOMIC_SIZE 8
@@ -942,8 +942,7 @@ out:
 			mlx5_bf_copy(bf->reg + bf->offset, (unsigned long long *)ctrl,
 				     align(size * 16, 64), qp);
 		else
-			mlx5_write64((__be32 *)ctrl, bf->reg + bf->offset,
-				     &ctx->lock32);
+			mmio_write64_be(bf->reg + bf->offset, *(__be64 *)ctrl);
 
 		/*
 		 * use mmio_flush_writes() to ensure write combining buffers are flushed out

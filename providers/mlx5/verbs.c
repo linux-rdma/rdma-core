@@ -45,6 +45,8 @@
 #include <sys/mman.h>
 
 #include <util/compiler.h>
+#include <util/mmio.h>
+
 #include "mlx5.h"
 #include "mlx5-abi.h"
 #include "wqe.h"
@@ -77,7 +79,6 @@ int mlx5_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 	return 0;
 }
 
-#define READL(ptr) (*((uint32_t *)(ptr)))
 static int mlx5_read_clock(struct ibv_context *context, uint64_t *cycles)
 {
 	unsigned int clockhi, clocklo, clockhi1;
@@ -89,9 +90,9 @@ static int mlx5_read_clock(struct ibv_context *context, uint64_t *cycles)
 
 	/* Handle wraparound */
 	for (i = 0; i < 2; i++) {
-		clockhi = be32toh(READL(ctx->hca_core_clock));
-		clocklo = be32toh(READL(ctx->hca_core_clock + 4));
-		clockhi1 = be32toh(READL(ctx->hca_core_clock));
+		clockhi = be32toh(mmio_read32_be(ctx->hca_core_clock));
+		clocklo = be32toh(mmio_read32_be(ctx->hca_core_clock + 4));
+		clockhi1 = be32toh(mmio_read32_be(ctx->hca_core_clock));
 		if (clockhi == clockhi1)
 			break;
 	}
