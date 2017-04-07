@@ -35,11 +35,18 @@ addons:
       - python
       - valgrind
       - sparse
+      - wget
 
       # 32 bit support packages
       - gcc-multilib
       - lib32gcc-6-dev
 
+before_script:
+  - export LATEST_GCC_LINARO_URL=`wget -qO - https://releases.linaro.org/components/toolchain/binaries/latest/aarch64-linux-gnu/ | grep -o '<a href=['"'"'"].*gcc-linaro-.*x86_64_aarch64-linux-gnu.tar.xz['"'"'"]'  |  sed -e 's/^<a href=["'"'"']//' -e 's/["'"'"']$//'`
+  - export LATEST_GCC_LINARO_TAR=`basename $LATEST_GCC_LINARO_URL`
+  - wget -q http://releases.linaro.org/$LATEST_GCC_LINARO_URL
+  - mkdir $HOME/aarch64 && tar xf $LATEST_GCC_LINARO_TAR -C $HOME/aarch64 --strip 1
+  - rm $LATEST_GCC_LINARO_TAR
 script:
   - buildlib/travis-build
   - buildlib/github-release

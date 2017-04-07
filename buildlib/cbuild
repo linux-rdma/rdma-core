@@ -244,6 +244,12 @@ class travis(APTEnvironment):
         cmds.append("RUN " + " && ".join(scmds));
         return cmds;
 
+    def get_before_script(self):
+        """Return a list of commands to run from before_script"""
+        cmds = ["RUN useradd -ms /bin/bash travis && \\"
+                "su -l -c %s"%(pipes.quote(" && ".join(self.yaml["before_script"]))) + " travis"];
+        return cmds
+
     def get_docker_file(self):
         # First this to get apt-add-repository
         self.pkgs = {"software-properties-common"}
@@ -255,6 +261,9 @@ class travis(APTEnvironment):
         # Package list from the travis.yml
         res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s"%(
             " ".join(sorted(self.yaml["addons"]["apt"]["packages"]))));
+
+        # Adding before_script commands
+        res.lines.extend(self.get_before_script())
 
         return res;
 
@@ -534,17 +543,18 @@ def run_travis_build(args,env):
                                    "--git-dir",os.path.join(opwd,".git"),
                                    "reset","--hard","HEAD"]);
 
-        home = os.path.join(os.path.sep,"home",os.getenv("LOGNAME"));
+        home = os.path.join(os.path.sep,"home","travis");
+        home_build = os.path.join(os.path.sep,home,"build");
 
         opts = [
             "run",
             "--read-only",
             "--rm=true",
-            "-v","%s:%s"%(tmpdir,home),
-            "-w",os.path.join(home,"src"),
-            "-u",str(os.getuid()),
+            "-v","%s:%s"%(tmpdir, home_build),
+            "-w",os.path.join(home_build,"src"),
+            "-u","travis",
             "-e","HOME=%s"%(home),
-            "-e","TMPDIR=%s"%(os.path.join(home,"tmp")),
+            "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
         ];
 
         # Load the commands from the travis file
@@ -564,7 +574,7 @@ def run_travis_build(args,env):
         if args.run_shell:
             opts.append("/bin/bash");
         else:
-            opts.extend(["/bin/bash",os.path.join(home,"go.sh")]);
+            opts.extend(["/bin/bash",os.path.join(home_build,"go.sh")]);
 
         docker_cmd(args,*opts);
 
