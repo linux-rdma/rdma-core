@@ -40,10 +40,10 @@
 #include <string.h>
 
 #include <util/compiler.h>
+#include <util/mmio.h>
 #include <infiniband/opcode.h>
 
 #include "mlx4.h"
-#include "doorbell.h"
 
 enum {
 	MLX4_CQ_DOORBELL			= 0x20
@@ -682,7 +682,7 @@ void mlx4_cq_fill_pfns(struct mlx4_cq *cq, const struct ibv_cq_init_attr_ex *cq_
 int mlx4_arm_cq(struct ibv_cq *ibvcq, int solicited)
 {
 	struct mlx4_cq *cq = to_mcq(ibvcq);
-	uint32_t doorbell[2];
+	uint64_t doorbell;
 	uint32_t sn;
 	uint32_t ci;
 	uint32_t cmd;
@@ -690,6 +690,10 @@ int mlx4_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	sn  = cq->arm_sn & 3;
 	ci  = cq->cons_index & 0xffffff;
 	cmd = solicited ? MLX4_CQ_DB_REQ_NOT_SOL : MLX4_CQ_DB_REQ_NOT;
+
+	doorbell = sn << 28 | cmd | cq->cqn;
+	doorbell <<= 32;
+	doorbell |= ci;
 
 	*cq->arm_db = htobe32(sn << 28 | cmd | ci);
 
@@ -699,10 +703,8 @@ int mlx4_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 */
 	udma_to_device_barrier();
 
-	doorbell[0] = htobe32(sn << 28 | cmd | cq->cqn);
-	doorbell[1] = htobe32(ci);
-
-	mlx4_write64(doorbell, to_mctx(ibvcq->context), MLX4_CQ_DOORBELL);
+	mmio_write64_be(to_mctx(ibvcq->context)->uar + MLX4_CQ_DOORBELL,
+			htobe64(doorbell));
 
 	return 0;
 }

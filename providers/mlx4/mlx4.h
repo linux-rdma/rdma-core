@@ -127,7 +127,6 @@ struct mlx4_context {
 	struct ibv_context		ibv_ctx;
 
 	void			       *uar;
-	pthread_spinlock_t		uar_lock;
 
 	void			       *bf_page;
 	int				bf_buf_size;

@@ -38,11 +38,12 @@
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
+#include <util/mmio.h>
 #include <util/compiler.h>
 
 #include "mlx4.h"
-#include "doorbell.h"
 #include "wqe.h"
+#include "mmio.h"
 
 static const uint32_t mlx4_ib_opcode[] = {
 	[IBV_WR_SEND]			= MLX4_OPCODE_SEND,
@@ -497,8 +498,8 @@ out:
 		 */
 		udma_to_device_barrier();
 
-		mmio_writel((unsigned long)(ctx->uar + MLX4_SEND_DOORBELL),
-			    qp->doorbell_qpn);
+		mmio_write32_be(ctx->uar + MLX4_SEND_DOORBELL,
+				qp->doorbell_qpn);
 	}
 
 	if (nreq)
