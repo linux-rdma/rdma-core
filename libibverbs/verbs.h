@@ -941,7 +941,13 @@ struct ibv_send_wr {
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
 	int			send_flags;
-	__be32			imm_data;
+	/* When opcode is *_WITH_IMM: Immediate data in network byte order.
+	 * When opcode is *_INV: Stores the rkey to invalidate
+	 */
+	union {
+		__be32			imm_data;
+		uint32_t		invalidate_rkey;
+	};
 	union {
 		struct {
 			uint64_t	remote_addr;
