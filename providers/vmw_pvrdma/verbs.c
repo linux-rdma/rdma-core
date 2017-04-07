@@ -154,12 +154,7 @@ static int is_multicast_gid(const union ibv_gid *gid)
 
 static int is_link_local_gid(const union ibv_gid *gid)
 {
-	uint32_t *hi = (uint32_t *)(gid->raw);
-	uint32_t *lo = (uint32_t *)(gid->raw + 4);
-	if (hi[0] == htobe32(0xfe800000) && lo[0] == 0)
-		return 1;
-
-	return 0;
+	return gid->global.subnet_prefix == htobe64(0xfe80000000000000ULL);
 }
 
 static int is_ipv6_addr_v4mapped(const struct in6_addr *a)
