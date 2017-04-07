@@ -918,6 +918,25 @@ struct ibv_kern_spec_tcp_udp {
 	struct ibv_kern_tcp_udp_filter mask;
 };
 
+struct ibv_kern_spec_action_tag {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	__u32 tag_id;
+	__u32 reserved1;
+};
+
+struct ibv_kern_tunnel_filter {
+	__u32 tunnel_id;
+};
+
+struct ibv_kern_spec_tunnel {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_tunnel_filter val;
+	struct ibv_kern_tunnel_filter mask;
+};
 
 struct ibv_kern_spec {
 	union {
@@ -931,6 +950,8 @@ struct ibv_kern_spec {
 		struct ibv_kern_spec_ipv4_ext ipv4_ext;
 		struct ibv_kern_spec_tcp_udp tcp_udp;
 		struct ibv_kern_spec_ipv6 ipv6;
+		struct ibv_kern_spec_tunnel tunnel;
+		struct ibv_kern_spec_action_tag flow_tag;
 	};
 };
 

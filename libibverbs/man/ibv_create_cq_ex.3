@@ -42,6 +42,7 @@ enum ibv_wc_flags_ex {
         IBV_WC_EX_WITH_DLID_PATH_BITS        = 1 << 6,  /* Require dlid path bits in WC */
         IBV_WC_EX_WITH_COMPLETION_TIMESTAMP  = 1 << 7,  /* Require completion timestamp in WC /*
         IBV_WC_EX_WITH_CVLAN                 = 1 << 8,  /* Require VLAN info in WC */
+        IBV_WC_EX_WITH_FLOW_TAG		     = 1 << 9,  /* Require flow tag in WC */
 };
 
 enum ibv_cq_init_attr_mask {
@@ -132,6 +133,9 @@ Below members and functions are used in order to poll the current completion. Th
 
 .BI "uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex " "*cq"); \c
  Get the CVLAN field from the current completion.
+
+.BI "uint32_t ibv_wc_read_flow_tag(struct ibv_cq_ex " "*cq"); \c
+ Get flow tag from the current completion.
 
 .SH "RETURN VALUE"
 .B ibv_create_cq_ex()
