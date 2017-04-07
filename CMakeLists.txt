@@ -385,15 +385,15 @@ add_subdirectory(providers/mlx5) # NO SPARSE
 add_subdirectory(providers/mlx5/man) # NO SPARSE
 add_subdirectory(providers/mthca) # NO SPARSE
 add_subdirectory(providers/nes) # NO SPARSE
-add_subdirectory(providers/ocrdma) # NO SPARSE
+add_subdirectory(providers/ocrdma)
 add_subdirectory(providers/qedr) # NO SPARSE
 add_subdirectory(providers/vmw_pvrdma) # NO SPARSE
 endif()
 
-add_subdirectory(providers/hfi1verbs) # NO SPARSE
-add_subdirectory(providers/ipathverbs) # NO SPARSE
-add_subdirectory(providers/rxe) # NO SPARSE
-add_subdirectory(providers/rxe/man) # NO SPARSE
+add_subdirectory(providers/hfi1verbs)
+add_subdirectory(providers/ipathverbs)
+add_subdirectory(providers/rxe)
+add_subdirectory(providers/rxe/man)
 
 # Binaries
 add_subdirectory(ibacm) # NO SPARSE

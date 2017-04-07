@@ -242,27 +242,27 @@ struct ocrdma_cqe {
 	union {
 		/* w0 to w2 */
 		struct {
-			uint32_t wqeidx;
-			uint32_t bytes_xfered;
-			uint32_t qpn;
+			__le32 wqeidx;
+			__le32 bytes_xfered;
+			__le32 qpn;
 		} wq;
 		struct {
-			uint32_t lkey_immdt;
-			uint32_t rxlen;
-			uint32_t buftag_qpn;
+			__le32 lkey_immdt;
+			__le32 rxlen;
+			__le32 buftag_qpn;
 		} rq;
 		struct {
-			uint32_t lkey_immdt;
-			uint32_t rxlen_pkey;
-			uint32_t buftag_qpn;
+			__le32 lkey_immdt;
+			__le32 rxlen_pkey;
+			__le32 buftag_qpn;
 		} ud;
 		struct {
-			uint32_t word_0;
-			uint32_t word_1;
-			uint32_t qpn;
+			__le32 word_0;
+			__le32 word_1;
+			__le32 qpn;
 		} cmn;
 	};
-	uint32_t flags_status_srcqpn;	/* w3 */
+	__le32 flags_status_srcqpn;	/* w3 */
 } __attribute__ ((packed));
 
 struct ocrdma_sge {
@@ -333,6 +333,19 @@ struct ocrdma_hdr_wqe {
 		uint32_t lkey;
 	};
 	uint32_t total_len;
+} __attribute__ ((packed));
+
+struct ocrdma_hdr_wqe_le {
+	__le32 cw;
+	union {
+		__le32 rsvd_tag;
+		__le32 rsvd_stag_flags;
+	};
+	union {
+		__le32 immdt;
+		__le32 lkey;
+	};
+	__le32 total_len;
 } __attribute__ ((packed));
 
 struct ocrdma_ewqe_atomic {
