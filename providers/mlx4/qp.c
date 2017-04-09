@@ -42,7 +42,6 @@
 #include <util/compiler.h>
 
 #include "mlx4.h"
-#include "wqe.h"
 
 static const uint32_t mlx4_ib_opcode[] = {
 	[IBV_WR_SEND]			= MLX4_OPCODE_SEND,

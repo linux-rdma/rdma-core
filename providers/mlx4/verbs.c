@@ -43,7 +43,6 @@
 
 #include "mlx4.h"
 #include "mlx4-abi.h"
-#include "wqe.h"
 
 int mlx4_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
 {

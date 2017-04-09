@@ -324,3 +324,79 @@ static __attribute__((constructor)) void mlx4_register_driver(void)
 {
 	verbs_register_driver("mlx4", mlx4_driver_init);
 }
+
+static int mlx4dv_get_qp(struct ibv_qp *qp_in,
+			 struct mlx4dv_qp *qp_out)
+{
+	struct mlx4_qp *mqp = to_mqp(qp_in);
+	struct mlx4_context *ctx = to_mctx(qp_in->context);
+
+	qp_out->comp_mask = 0;
+
+	qp_out->buf.buf = mqp->buf.buf;
+	qp_out->buf.length = mqp->buf.length;
+
+	qp_out->rdb = mqp->db;
+	qp_out->sdb = (uint32_t *) (ctx->uar + MLX4_SEND_DOORBELL);
+	qp_out->doorbell_qpn = mqp->doorbell_qpn;
+
+	qp_out->sq.wqe_cnt = mqp->sq.wqe_cnt;
+	qp_out->sq.wqe_shift = mqp->sq.wqe_shift;
+	qp_out->sq.offset = mqp->sq.offset;
+
+	qp_out->rq.wqe_cnt = mqp->rq.wqe_cnt;
+	qp_out->rq.wqe_shift = mqp->rq.wqe_shift;
+	qp_out->rq.offset = mqp->rq.offset;
+
+	return 0;
+}
+
+static int mlx4dv_get_cq(struct ibv_cq *cq_in,
+			 struct mlx4dv_cq *cq_out)
+{
+	struct mlx4_cq *mcq = to_mcq(cq_in);
+
+	cq_out->comp_mask = 0;
+	cq_out->buf.buf = mcq->buf.buf;
+	cq_out->buf.length = mcq->buf.length;
+	cq_out->cqn = mcq->cqn;
+	cq_out->set_ci_db = mcq->set_ci_db;
+	cq_out->arm_db = mcq->arm_db;
+	cq_out->arm_sn = mcq->arm_sn;
+	cq_out->cqe_size = mcq->cqe_size;
+	cq_out->cqe_cnt = mcq->ibv_cq.cqe + 1;
+
+	mcq->flags |= MLX4_CQ_FLAGS_DV_OWNED;
+
+	return 0;
+}
+
+static int mlx4dv_get_srq(struct ibv_srq *srq_in,
+			  struct mlx4dv_srq *srq_out)
+{
+	struct mlx4_srq *msrq = to_msrq(srq_in);
+
+	srq_out->comp_mask = 0;
+	srq_out->buf.buf = msrq->buf.buf;
+	srq_out->buf.length = msrq->buf.length;
+	srq_out->wqe_shift = msrq->wqe_shift;
+	srq_out->head = msrq->head;
+	srq_out->tail = msrq->tail;
+	srq_out->db = msrq->db;
+
+	return 0;
+}
+
+int mlx4dv_init_obj(struct mlx4dv_obj *obj, uint64_t obj_type)
+{
+	int ret = 0;
+
+	if (obj_type & MLX4DV_OBJ_QP)
+		ret = mlx4dv_get_qp(obj->qp.in, obj->qp.out);
+	if (!ret && (obj_type & MLX4DV_OBJ_CQ))
+		ret = mlx4dv_get_cq(obj->cq.in, obj->cq.out);
+	if (!ret && (obj_type & MLX4DV_OBJ_SRQ))
+		ret = mlx4dv_get_srq(obj->srq.in, obj->srq.out);
+
+	return ret;
+}

@@ -46,53 +46,9 @@
 #include "mlx4.h"
 
 enum {
-	MLX4_CQ_DOORBELL			= 0x20
-};
-
-enum {
 	CQ_OK					=  0,
 	CQ_EMPTY				= -1,
 	CQ_POLL_ERR				= -2
-};
-
-#define MLX4_CQ_DB_REQ_NOT_SOL			(1 << 24)
-#define MLX4_CQ_DB_REQ_NOT			(2 << 24)
-
-enum {
-	MLX4_CQE_VLAN_PRESENT_MASK		= 1 << 29,
-	MLX4_CQE_QPN_MASK			= 0xffffff,
-};
-
-enum {
-	MLX4_CQE_OWNER_MASK			= 0x80,
-	MLX4_CQE_IS_SEND_MASK			= 0x40,
-	MLX4_CQE_OPCODE_MASK			= 0x1f
-};
-
-enum {
-	MLX4_CQE_SYNDROME_LOCAL_LENGTH_ERR		= 0x01,
-	MLX4_CQE_SYNDROME_LOCAL_QP_OP_ERR		= 0x02,
-	MLX4_CQE_SYNDROME_LOCAL_PROT_ERR		= 0x04,
-	MLX4_CQE_SYNDROME_WR_FLUSH_ERR			= 0x05,
-	MLX4_CQE_SYNDROME_MW_BIND_ERR			= 0x06,
-	MLX4_CQE_SYNDROME_BAD_RESP_ERR			= 0x10,
-	MLX4_CQE_SYNDROME_LOCAL_ACCESS_ERR		= 0x11,
-	MLX4_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR		= 0x12,
-	MLX4_CQE_SYNDROME_REMOTE_ACCESS_ERR		= 0x13,
-	MLX4_CQE_SYNDROME_REMOTE_OP_ERR			= 0x14,
-	MLX4_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR	= 0x15,
-	MLX4_CQE_SYNDROME_RNR_RETRY_EXC_ERR		= 0x16,
-	MLX4_CQE_SYNDROME_REMOTE_ABORTED_ERR		= 0x22,
-};
-
-struct mlx4_err_cqe {
-	uint32_t	vlan_my_qpn;
-	uint32_t	reserved1[5];
-	uint16_t	wqe_index;
-	uint8_t		vendor_err;
-	uint8_t		syndrome;
-	uint8_t		reserved2[3];
-	uint8_t		owner_sr_opcode;
 };
 
 static struct mlx4_cqe *get_cqe(struct mlx4_cq *cq, int entry)
@@ -721,6 +677,9 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	uint8_t owner_bit;
 	int nfreed = 0;
 	int cqe_inc = cq->cqe_size == 64 ? 1 : 0;
+
+	if (!cq || cq->flags & MLX4_CQ_FLAGS_DV_OWNED)
+		return;
 
 	/*
 	 * First we need to find the current producer index, so we

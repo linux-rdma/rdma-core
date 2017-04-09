@@ -37,7 +37,6 @@
 #include <string.h>
 
 #include "mlx4.h"
-#include "wqe.h"
 #include "mlx4-abi.h"
 
 static void *get_wqe(struct mlx4_srq *srq, int n)
