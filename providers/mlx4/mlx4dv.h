@@ -37,6 +37,13 @@
 #include <endian.h>
 #include <infiniband/verbs.h>
 
+/* Always inline the functions */
+#ifdef __GNUC__
+#define MLX4DV_ALWAYS_INLINE inline __attribute__((always_inline))
+#else
+#define MLX4DV_ALWAYS_INLINE inline
+#endif
+
 enum {
 	MLX4_OPCODE_NOP			= 0x00,
 	MLX4_OPCODE_SEND_INVAL		= 0x01,
@@ -218,6 +225,25 @@ enum mlx4dv_obj_type {
  * Return: 0 in case of success.
  */
 int mlx4dv_init_obj(struct mlx4dv_obj *obj, uint64_t obj_type);
+
+static MLX4DV_ALWAYS_INLINE
+uint8_t mlx4dv_get_cqe_owner(struct mlx4_cqe *cqe)
+{
+	return cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK;
+}
+
+static MLX4DV_ALWAYS_INLINE
+void mlx4dv_set_cqe_owner(struct mlx4_cqe *cqe, uint8_t val)
+{
+	cqe->owner_sr_opcode = (val & MLX4_CQE_OWNER_MASK) |
+		(cqe->owner_sr_opcode & ~MLX4_CQE_OWNER_MASK);
+}
+
+static MLX4DV_ALWAYS_INLINE
+uint8_t mlx4dv_get_cqe_opcode(struct mlx4_cqe *cqe)
+{
+	return cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK;
+}
 
 /*
  * WQE related part
