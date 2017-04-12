@@ -1134,8 +1134,6 @@ static int get_shared_pkeys(struct resources *res,
 
 		/* Mark components: DLID, SLID, PKEY */
 		out_sa_mad->comp_mask = htobe64(1 << 4 | 1 << 5 | 1 << 13);
-		out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
-		out_sa_mad->rmpp_hdr.rmpp_type = 1;
 		path_rec = (struct ib_path_rec *)out_sa_mad->data;
 		path_rec->slid = htobe16(local_port_lid);
 		path_rec->dlid = htobe16(dest_port_lid);
