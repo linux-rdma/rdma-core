@@ -632,8 +632,8 @@ recv:
 			ret = umad_status(in_mad);
 			if (ret) {
 				pr_err(
-					"bad MAD status (%u) from lid %d\n",
-					ret, (uint16_t) be16toh(out_mad->hdr.addr.lid));
+					"bad MAD status (%u) from lid %#x\n",
+					ret, be16toh(out_mad->hdr.addr.lid));
 				return -ret;
 			}
 
@@ -935,7 +935,7 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 
 	ret = get_iou_info(umad_res, dlid, &iou_info);
 	if (ret < 0) {
-		pr_err("failed to get iou info for dlid %x\n", dlid);
+		pr_err("failed to get iou info for dlid %#x\n", dlid);
 		goto out;
 	}
 
@@ -1214,7 +1214,7 @@ static int do_dm_port_list(struct resources *res)
 		num_pkeys = get_shared_pkeys(res, be16toh(port_info->endport_lid),
 					     pkeys);
 		if (num_pkeys < 0) {
-			pr_err("failed to get shared P_Keys with LID %x\n",
+			pr_err("failed to get shared P_Keys with LID %#x\n",
 			       be16toh(port_info->endport_lid));
 			free(in_mad_buf);
 			return num_pkeys;
@@ -1235,7 +1235,7 @@ void handle_port(struct resources *res, uint16_t pkey, uint16_t lid, uint64_t h_
 	uint64_t subnet_prefix;
 	int isdm;
 
- 	pr_debug("enter handle_port for lid %d\n", lid);
+	pr_debug("enter handle_port for lid %#x\n", lid);
 	if (get_port_info(umad_res, lid, &subnet_prefix, &isdm))
 		return;
 
@@ -1292,7 +1292,7 @@ static int do_full_port_list(struct resources *res)
 		num_pkeys = get_shared_pkeys(res, be16toh(node->lid),
 					     pkeys);
 		if (num_pkeys < 0) {
-			pr_err("failed to get shared P_Keys with LID %x\n",
+			pr_err("failed to get shared P_Keys with LID %#x\n",
 			       be16toh(node->lid));
 			free(in_mad_buf);
 			return num_pkeys;
@@ -2188,7 +2188,7 @@ catas_start:
 					/* unexpected error - do a full rescan */
 					schedule_rescan(res->sync_res, 0);
 				else {
-					pr_debug("lid is %d\n", lid);
+					pr_debug("lid is %#x\n", lid);
 
 					srp_sleep(0, 100);
 					handle_port(res, pkey, lid,

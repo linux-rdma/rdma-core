@@ -171,7 +171,7 @@ void push_lid_to_list(struct sync_resources *res, uint16_t lid, uint16_t pkey)
 
 	for (i=0; i < res->next_task; ++i)
 		if (res->tasks[i].lid == lid && res->tasks[i].pkey == pkey) {
-			pr_debug("lid %d is already in task list\n", lid);
+			pr_debug("lid %#x is already in task list\n", lid);
 			pthread_mutex_unlock(&res->mutex);
 			return;
 		}
