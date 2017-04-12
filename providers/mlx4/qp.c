@@ -175,7 +175,7 @@ static void set_atomic_seg(struct mlx4_wqe_atomic_seg *aseg, struct ibv_send_wr 
 static void set_datagram_seg(struct mlx4_wqe_datagram_seg *dseg,
 			     struct ibv_send_wr *wr)
 {
-	memcpy(dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof (struct mlx4_av));
+	memcpy(&dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof (struct mlx4_av));
 	dseg->dqpn = htobe32(wr->wr.ud.remote_qpn);
 	dseg->qkey = htobe32(wr->wr.ud.remote_qkey);
 	dseg->vlan = htobe16(to_mah(wr->wr.ud.ah)->vlan);

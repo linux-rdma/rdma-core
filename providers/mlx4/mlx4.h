@@ -214,19 +214,6 @@ struct mlx4_qp {
 	uint32_t			qp_cap_cache;
 };
 
-struct mlx4_av {
-	uint32_t			port_pd;
-	uint8_t				reserved1;
-	uint8_t				g_slid;
-	uint16_t			dlid;
-	uint8_t				reserved2;
-	uint8_t				gid_index;
-	uint8_t				stat_rate;
-	uint8_t				hop_limit;
-	uint32_t			sl_tclass_flowlabel;
-	uint8_t				dgid[16];
-};
-
 struct mlx4_ah {
 	struct ibv_ah			ibv_ah;
 	struct mlx4_av			av;

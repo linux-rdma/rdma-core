@@ -325,8 +325,21 @@ struct mlx4_wqe_ctrl_seg {
 	uint32_t		imm;
 };
 
+struct mlx4_av {
+	uint32_t			port_pd;
+	uint8_t				reserved1;
+	uint8_t				g_slid;
+	uint16_t			dlid;
+	uint8_t				reserved2;
+	uint8_t				gid_index;
+	uint8_t				stat_rate;
+	uint8_t				hop_limit;
+	uint32_t			sl_tclass_flowlabel;
+	uint8_t				dgid[16];
+};
+
 struct mlx4_wqe_datagram_seg {
-	uint32_t		av[8];
+	struct mlx4_av		av;
 	uint32_t		dqpn;
 	uint32_t		qkey;
 	uint16_t		vlan;
