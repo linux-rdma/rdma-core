@@ -1102,7 +1102,6 @@ static int get_shared_pkeys(struct resources *res,
 	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct ib_path_rec	       *path_rec;
 	ssize_t len;
-	int size;
 	int i, num_pkeys = 0;
 	uint16_t pkey;
 	uint16_t local_port_lid = get_port_lid(res->ud_res->ib_ctx,
@@ -1147,14 +1146,6 @@ static int get_shared_pkeys(struct resources *res,
 				   node_table_response_size);
 		if (len < 0)
 			goto err;
-
-		size = ib_get_attr_size(in_sa_mad->attr_offset);
-		if (!size) {
-			if (config->verbose)
-				printf("PathRec Query did not find any targets "
-				       "over P_Key %x\n", pkey);
-			continue;
-		}
 
 		path_rec = (struct ib_path_rec *)in_sa_mad->data;
 		pkeys[num_pkeys++] = be16toh(path_rec->pkey);
