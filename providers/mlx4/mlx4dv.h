@@ -373,5 +373,91 @@ struct mlx4_wqe_atomic_seg {
 	uint64_t		compare;
 };
 
+/*
+ * Control segment - contains some control information for the current WQE.
+ *
+ * Output:
+ *	seg	  - control segment to be filled
+ * Input:
+ *	owner_opcode	- Opcode of this WQE (Encodes the type of operation
+ *	                  to be executed on the QP) and owner bit.
+ *	wqe_cnt		- Number of queue entries.
+ *	ind		- WQEBB number of the first block of this WQE.
+ *	fence_size	- Fence bit and WQE size in octowords.
+ *	srcrb_flags	- High 24 bits are SRC remote buffer; low 8 bits are
+ *	                  flags which described in mlx4_wqe_ctrl_seg struct.
+ *	imm		- Immediate data/Invalidation key.
+ */
+static MLX4DV_ALWAYS_INLINE
+void mlx4dv_set_ctrl_seg(struct mlx4_wqe_ctrl_seg *seg, uint32_t owner_opcode,
+			 uint8_t fence_size, uint32_t srcrb_flags, uint32_t imm)
+{
+	seg->owner_opcode = htobe32(owner_opcode);
+	seg->fence_size = fence_size;
+	seg->srcrb_flags = htobe32(srcrb_flags);
+	/*
+	 * The caller should prepare "imm" in advance based on WR opcode.
+	 * For IBV_WR_SEND_WITH_IMM and IBV_WR_RDMA_WRITE_WITH_IMM,
+	 * the "imm" should be assigned as is.
+	 * For the IBV_WR_SEND_WITH_INV, it should be htobe32(imm).
+	 */
+	seg->imm = imm;
+}
+
+/*
+ * Datagram Segment - contains address information required in order
+ * to form a datagram message.
+ *
+ * Output:
+ *	seg - datagram segment to be filled.
+ * Input:
+ *	port_pd			- Port number and protection domain.
+ *	g_slid			- GRH and source LID for IB port only.
+ *	dlid			- Remote LID.
+ *	gid_index		- Index to port GID table.
+ *	state_rate		- Maximum static rate control.
+ *	hop_limit		- IPv6 hop limit.
+ *	sl_tclass_flowlabel	- Service Level, IPv6 TClass and flow table.
+ *	dgid			- Remote GID for IB port only.
+ *	dqpn			- Destination QP.
+ *	qkey			- QKey.
+ *	vlan			- VLAN for RAW ETHERNET QP only.
+ *	mac			- Destination MAC for RAW ETHERNET QP only.
+ */
+static MLX4DV_ALWAYS_INLINE
+void mlx4dv_set_dgram_seg(struct mlx4_wqe_datagram_seg *seg, uint32_t port_pd,
+			  uint8_t g_slid, uint16_t dlid, uint8_t gid_index,
+			  uint8_t stat_rate, uint8_t hop_limit, uint32_t
+			  sl_tclass_flowlabel, uint8_t *dgid, uint32_t dqpn,
+			  uint32_t qkey, uint16_t vlan, uint8_t *mac)
+{
+	seg->av.port_pd = htobe32(port_pd);
+	seg->av.g_slid = g_slid;
+	seg->av.dlid = htobe16(dlid);
+	seg->av.gid_index = gid_index;
+	seg->av.stat_rate = stat_rate;
+	seg->av.hop_limit = hop_limit;
+	seg->av.sl_tclass_flowlabel = htobe32(sl_tclass_flowlabel);
+	memcpy(seg->av.dgid, dgid, 16);
+	seg->dqpn = htobe32(dqpn);
+	seg->qkey = htobe32(qkey);
+	seg->vlan = htobe16(vlan);
+	memcpy(seg->mac, mac, 6);
+}
+
+/*
+ * Data Segments - contain pointers and a byte count for the scatter/gather list.
+ * They can optionally contain data, which will save a memory read access for
+ * gather Work Requests.
+ */
+static MLX4DV_ALWAYS_INLINE
+void mlx4dv_set_data_seg(struct mlx4_wqe_data_seg *seg,
+			 uint32_t length, uint32_t lkey,
+			 uintptr_t address)
+{
+	seg->byte_count = htobe32(length);
+	seg->lkey       = htobe32(lkey);
+	seg->addr       = htobe64(address);
+}
 #endif /* _MLX4DV_H_ */
 
