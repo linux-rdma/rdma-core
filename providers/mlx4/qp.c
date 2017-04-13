@@ -43,7 +43,6 @@
 
 #include "mlx4.h"
 #include "wqe.h"
-#include "mmio.h"
 
 static const uint32_t mlx4_ib_opcode[] = {
 	[IBV_WR_SEND]			= MLX4_OPCODE_SEND,
@@ -481,8 +480,8 @@ out:
 		 */
 		mmio_wc_spinlock(&ctx->bf_lock);
 
-		mlx4_bf_copy(ctx->bf_page + ctx->bf_offset, (unsigned long *) ctrl,
-			     align(size * 16, 64));
+		mmio_memcpy_x64(ctx->bf_page + ctx->bf_offset, ctrl,
+				align(size * 16, 64));
 		/* Flush before toggling bf_offset to be latency oriented */
 		mmio_flush_writes();
 

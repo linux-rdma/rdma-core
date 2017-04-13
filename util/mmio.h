@@ -56,6 +56,7 @@
 #include <linux/types.h>
 #include <stdatomic.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <endian.h>
 
 #include <config.h>
@@ -158,7 +159,6 @@ static inline uint8_t mmio_read8(const void *addr)
 	return atomic_load_explicit((_Atomic(uint32_t) *)addr,
 				    memory_order_relaxed);
 }
-
 #endif /* __s390x__ */
 
 MAKE_WRITE(mmio_write16, 16)
@@ -201,6 +201,57 @@ __le64 mmio_read64_le(const void *addr);
 	{                                                                      \
 		return le##_SZ_##toh(_NAME_##_le(addr));                       \
 	}
+
+/* This strictly guarantees the order of TLP generation for the memory copy to
+   be in ascending address order.
+*/
+#ifdef __s390x__
+static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
+{
+	s390_mmio_write(addr, src, bytecnt);
+}
+#else
+
+/* Transfer is some multiple of 64 bytes */
+static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
+{
+	uintptr_t *dst_p = dest;
+
+	/* Caller must guarantee:
+	    assert(bytecnt != 0);
+	    assert((bytecnt % 64) == 0);
+	    assert(((uintptr_t)dest) % __alignof__(*dst) == 0);
+	    assert(((uintptr_t)src) % __alignof__(*dst) == 0);
+	*/
+
+	/* Use the native word size for the copy */
+	if (sizeof(*dst_p) == 8) {
+		const __be64 *src_p = src;
+
+		do {
+			/* Do 64 bytes at a time */
+			mmio_write64_be(dst_p++, *src_p++);
+			mmio_write64_be(dst_p++, *src_p++);
+			mmio_write64_be(dst_p++, *src_p++);
+			mmio_write64_be(dst_p++, *src_p++);
+			mmio_write64_be(dst_p++, *src_p++);
+			mmio_write64_be(dst_p++, *src_p++);
+			mmio_write64_be(dst_p++, *src_p++);
+			mmio_write64_be(dst_p++, *src_p++);
+
+			bytecnt -= 8 * sizeof(*dst_p);
+		} while (bytecnt > 0);
+	} else if (sizeof(*dst_p) == 4) {
+		const __be32 *src_p = src;
+
+		do {
+			mmio_write32_be(dst_p++, *src_p++);
+			mmio_write32_be(dst_p++, *src_p++);
+			bytecnt -= 2 * sizeof(*dst_p);
+		} while (bytecnt > 0);
+	}
+}
+#endif
 
 MAKE_WRITE(mmio_write16, 16)
 MAKE_WRITE(mmio_write32, 32)
