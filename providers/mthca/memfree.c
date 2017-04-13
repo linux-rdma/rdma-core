@@ -56,7 +56,7 @@ struct mthca_db_table {
 };
 
 int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
-		   uint32_t **db)
+		   __be32 **db)
 {
 	int i, j, k;
 	int group, start, end, dir;
@@ -140,7 +140,7 @@ out:
 	return ret;
 }
 
-void mthca_set_db_qn(uint32_t *db, enum mthca_db_type type, uint32_t qn)
+void mthca_set_db_qn(__be32 *db, enum mthca_db_type type, uint32_t qn)
 {
 	db[1] = htobe32((qn << 8) | (type << 5));
 }

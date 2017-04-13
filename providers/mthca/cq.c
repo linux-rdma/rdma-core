@@ -93,14 +93,14 @@ enum {
 };
 
 struct mthca_cqe {
-	uint32_t	my_qpn;
-	uint32_t	my_ee;
-	uint32_t	rqpn;
-	uint16_t	sl_g_mlpath;
-	uint16_t	rlid;
-	uint32_t	imm_etype_pkey_eec;
-	uint32_t	byte_cnt;
-	uint32_t	wqe;
+	__be32		my_qpn;
+	__be32		my_ee;
+	__be32		rqpn;
+	__be16		sl_g_mlpath;
+	__be16		rlid;
+	__be32		imm_etype_pkey_eec;
+	__be32		byte_cnt;
+	__be32		wqe;
 	uint8_t		opcode;
 	uint8_t		is_send;
 	uint8_t		reserved;
@@ -108,13 +108,13 @@ struct mthca_cqe {
 };
 
 struct mthca_err_cqe {
-	uint32_t	my_qpn;
-	uint32_t	reserved1[3];
+	__be32		my_qpn;
+	__be32		reserved1[3];
 	uint8_t		syndrome;
 	uint8_t		vendor_err;
-	uint16_t	db_cnt;
-	uint32_t	reserved2;
-	uint32_t	wqe;
+	__be16		db_cnt;
+	__be32		reserved2;
+	__be32		wqe;
 	uint8_t		opcode;
 	uint8_t		reserved3[2];
 	uint8_t		owner;
@@ -163,11 +163,11 @@ static inline void update_cons_index(struct mthca_cq *cq, int incr)
 
 static void dump_cqe(void *cqe_ptr)
 {
-	uint32_t *cqe = cqe_ptr;
+	__be32 *cqe = cqe_ptr;
 	int i;
 
 	for (i = 0; i < 8; ++i)
-		printf("  [%2x] %08x\n", i * 4, be32toh(((uint32_t *) cqe)[i]));
+		printf("  [%2x] %08x\n", i * 4, be32toh(cqe[i]));
 }
 
 static int handle_error_cqe(struct mthca_cq *cq,
@@ -177,7 +177,7 @@ static int handle_error_cqe(struct mthca_cq *cq,
 {
 	int err;
 	int dbd;
-	uint32_t new_wqe;
+	__be32 new_wqe;
 
 	if (cqe->syndrome == SYNDROME_LOCAL_QP_OP_ERR) {
 		printf("local QP operation err "

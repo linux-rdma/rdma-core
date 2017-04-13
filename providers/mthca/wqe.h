@@ -60,57 +60,57 @@ enum {
 };
 
 struct mthca_next_seg {
-	uint32_t	nda_op;	/* [31:6] next WQE [4:0] next opcode */
-	uint32_t	ee_nds;	/* [31:8] next EE  [7] DBD [6] F [5:0] next WQE size */
-	uint32_t	flags;	/* [3] CQ [2] Event [1] Solicit */
-	uint32_t	imm;	/* immediate data */
+	__be32		nda_op;	/* [31:6] next WQE [4:0] next opcode */
+	__be32		ee_nds;	/* [31:8] next EE  [7] DBD [6] F [5:0] next WQE size */
+	__be32		flags;	/* [3] CQ [2] Event [1] Solicit */
+	__be32		imm;	/* immediate data */
 };
 
 struct mthca_tavor_ud_seg {
-	uint32_t	reserved1;
-	uint32_t	lkey;
-	uint64_t	av_addr;
-	uint32_t	reserved2[4];
-	uint32_t	dqpn;
-	uint32_t	qkey;
-	uint32_t	reserved3[2];
+	__be32		reserved1;
+	__be32		lkey;
+	__be64		av_addr;
+	__be32		reserved2[4];
+	__be32		dqpn;
+	__be32		qkey;
+	__be32		reserved3[2];
 };
 
 struct mthca_arbel_ud_seg {
-	uint32_t	av[8];
-	uint32_t	dqpn;
-	uint32_t	qkey;
-	uint32_t	reserved[2];
+	__be32		av[8];
+	__be32		dqpn;
+	__be32		qkey;
+	__be32		reserved[2];
 };
 
 struct mthca_bind_seg {
-	uint32_t	flags;	/* [31] Atomic [30] rem write [29] rem read */
-	uint32_t	reserved;
-	uint32_t	new_rkey;
-	uint32_t	lkey;
-	uint64_t	addr;
-	uint64_t	length;
+	__be32		flags;	/* [31] Atomic [30] rem write [29] rem read */
+	__be32		reserved;
+	__be32		new_rkey;
+	__be32		lkey;
+	__be64		addr;
+	__be64		length;
 };
 
 struct mthca_raddr_seg {
-	uint64_t	raddr;
-	uint32_t	rkey;
-	uint32_t	reserved;
+	__be64		raddr;
+	__be32		rkey;
+	__be32		reserved;
 };
 
 struct mthca_atomic_seg {
-	uint64_t	swap_add;
-	uint64_t	compare;
+	__be64		swap_add;
+	__be64		compare;
 };
 
 struct mthca_data_seg {
-	uint32_t	byte_count;
-	uint32_t	lkey;
-	uint64_t	addr;
+	__be32		byte_count;
+	__be32		lkey;
+	__be64		addr;
 };
 
 struct mthca_inline_seg {
-	uint32_t	byte_count;
+	__be32		byte_count;
 };
 
 #endif /* WQE_H */

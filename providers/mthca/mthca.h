@@ -134,9 +134,9 @@ struct mthca_cq {
 
 	/* Next fields are mem-free only */
 	int                set_ci_db_index;
-	uint32_t          *set_ci_db;
+	__be32            *set_ci_db;
 	int                arm_db_index;
-	uint32_t          *arm_db;
+	__be32            *arm_db;
 	int                arm_sn;
 };
 
@@ -157,7 +157,7 @@ struct mthca_srq {
 
 	/* Next fields are mem-free only */
 	int           	   db_index;
-	uint32_t      	  *db;
+	__be32		  *db;
 	uint16_t      	   counter;
 };
 
@@ -174,7 +174,7 @@ struct mthca_wq {
 
 	/* Next fields are mem-free only */
 	int                db_index;
-	uint32_t          *db;
+	__be32		  *db;
 };
 
 struct mthca_qp {
@@ -191,16 +191,16 @@ struct mthca_qp {
 };
 
 struct mthca_av {
-	uint32_t port_pd;
+	__be32   port_pd;
 	uint8_t  reserved1;
 	uint8_t  g_slid;
-	uint16_t dlid;
+	__be16   dlid;
 	uint8_t  reserved2;
 	uint8_t  gid_index;
 	uint8_t  msg_sr;
 	uint8_t  hop_limit;
-	uint32_t sl_tclass_flowlabel;
-	uint32_t dgid[4];
+	__be32   sl_tclass_flowlabel;
+	__be32   dgid[4];
 };
 
 struct mthca_ah {
@@ -215,7 +215,7 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 	return (val + align - 1) & ~(align - 1);
 }
 
-static inline uintptr_t db_align(uint32_t *db)
+static inline uintptr_t db_align(__be32 *db)
 {
 	return (uintptr_t) db & ~((uintptr_t) MTHCA_DB_REC_PAGE_SIZE - 1);
 }
@@ -268,8 +268,8 @@ int mthca_alloc_buf(struct mthca_buf *buf, size_t size, int page_size);
 void mthca_free_buf(struct mthca_buf *buf);
 
 int mthca_alloc_db(struct mthca_db_table *db_tab, enum mthca_db_type type,
-		   uint32_t **db);
-void mthca_set_db_qn(uint32_t *db, enum mthca_db_type type, uint32_t qn);
+		   __be32 **db);
+void mthca_set_db_qn(__be32 *db, enum mthca_db_type type, uint32_t qn);
 void mthca_free_db(struct mthca_db_table *db_tab, enum mthca_db_type type, int db_index);
 struct mthca_db_table *mthca_alloc_db_tab(int uarc_size);
 void mthca_free_db_tab(struct mthca_db_table *db_tab);
@@ -340,7 +340,7 @@ struct mthca_qp *mthca_find_qp(struct mthca_context *ctx, uint32_t qpn);
 int mthca_store_qp(struct mthca_context *ctx, uint32_t qpn, struct mthca_qp *qp);
 void mthca_clear_qp(struct mthca_context *ctx, uint32_t qpn);
 int mthca_free_err_wqe(struct mthca_qp *qp, int is_send,
-		       int index, int *dbd, uint32_t *new_wqe);
+		       int index, int *dbd, __be32 *new_wqe);
 struct ibv_ah *mthca_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 int mthca_destroy_ah(struct ibv_ah *ah);
 int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
