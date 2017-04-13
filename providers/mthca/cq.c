@@ -154,10 +154,10 @@ static inline void update_cons_index(struct mthca_cq *cq, int incr)
 		*cq->set_ci_db = htobe32(cq->cons_index);
 		mmio_ordered_writes_hack();
 	} else {
-		doorbell[0] = htobe32(MTHCA_TAVOR_CQ_DB_INC_CI | cq->cqn);
-		doorbell[1] = htobe32(incr - 1);
+		doorbell[0] = MTHCA_TAVOR_CQ_DB_INC_CI | cq->cqn;
+		doorbell[1] = incr - 1;
 
-		mthca_write64(doorbell, to_mctx(cq->ibv_cq.context), MTHCA_CQ_DOORBELL);
+		mthca_write64(doorbell, to_mctx(cq->ibv_cq.context)->uar + MTHCA_CQ_DOORBELL);
 	}
 }
 
@@ -485,13 +485,12 @@ int mthca_tavor_arm_cq(struct ibv_cq *cq, int solicited)
 {
 	uint32_t doorbell[2];
 
-	doorbell[0] = htobe32((solicited ?
-			     MTHCA_TAVOR_CQ_DB_REQ_NOT_SOL :
-			     MTHCA_TAVOR_CQ_DB_REQ_NOT)      |
-			    to_mcq(cq)->cqn);
+	doorbell[0] = (solicited ? MTHCA_TAVOR_CQ_DB_REQ_NOT_SOL
+				 : MTHCA_TAVOR_CQ_DB_REQ_NOT) |
+		      to_mcq(cq)->cqn;
 	doorbell[1] = 0xffffffff;
 
-	mthca_write64(doorbell, to_mctx(cq->context), MTHCA_CQ_DOORBELL);
+	mthca_write64(doorbell, to_mctx(cq->context)->uar + MTHCA_CQ_DOORBELL);
 
 	return 0;
 }
@@ -501,16 +500,14 @@ int mthca_arbel_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	struct mthca_cq *cq = to_mcq(ibvcq);
 	uint32_t doorbell[2];
 	uint32_t sn;
-	uint32_t ci;
 
 	sn = cq->arm_sn & 3;
-	ci = htobe32(cq->cons_index);
 
-	doorbell[0] = ci;
-	doorbell[1] = htobe32((cq->cqn << 8) | (2 << 5) | (sn << 3) |
-			    (solicited ? 1 : 2));
+	doorbell[0] = cq->cons_index;
+	doorbell[1] =
+	    (cq->cqn << 8) | (2 << 5) | (sn << 3) | (solicited ? 1 : 2);
 
-	mthca_write_db_rec(doorbell, cq->arm_db);
+	mthca_write64(doorbell, cq->arm_db);
 
 	/*
 	 * Make sure that the doorbell record in host memory is
@@ -518,14 +515,13 @@ int mthca_arbel_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 */
 	udma_to_device_barrier();
 
-	doorbell[0] = htobe32((sn << 28)                       |
-			    (solicited ?
-			     MTHCA_ARBEL_CQ_DB_REQ_NOT_SOL :
-			     MTHCA_ARBEL_CQ_DB_REQ_NOT)      |
-			    cq->cqn);
-	doorbell[1] = ci;
+	doorbell[0] = (sn << 28) | (solicited ? MTHCA_ARBEL_CQ_DB_REQ_NOT_SOL
+					      : MTHCA_ARBEL_CQ_DB_REQ_NOT) |
+		      cq->cqn;
+	doorbell[1] = cq->cons_index;
 
-	mthca_write64(doorbell, to_mctx(ibvcq->context), MTHCA_CQ_DOORBELL);
+	mthca_write64(doorbell,
+		      to_mctx(ibvcq->context)->uar + MTHCA_CQ_DOORBELL);
 
 	return 0;
 }
