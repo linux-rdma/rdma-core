@@ -608,8 +608,8 @@ int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 		*portnum = port.portnum;
 	if (gid) {
 		memset(gid, 0, sizeof(*gid));
-		prefix = cl_hton64(port.gid_prefix);
-		guid = cl_hton64(port.port_guid);
+		prefix = cl_ntoh64(port.gid_prefix);
+		guid = cl_ntoh64(port.port_guid);
 		mad_encode_field(*gid, IB_GID_PREFIX_F, &prefix);
 		mad_encode_field(*gid, IB_GID_GUID_F, &guid);
 	}
