@@ -561,9 +561,9 @@ static int register_to_trap(struct sync_resources *sync_res,
 	static uint64_t trans_id = 0x0000FFFF;
 
 	if (subscribe)
-		pr_debug("Registering to trap:%d (sm in %d)\n", trap_num, dest_lid);
+		pr_debug("Registering to trap:%d (sm in %#x)\n", trap_num, dest_lid);
 	else
-		pr_debug("Deregistering from trap:%d (sm in %d)\n", trap_num, dest_lid);
+		pr_debug("Deregistering from trap:%d (sm in %#x)\n", trap_num, dest_lid);
 
 	memset(res->send_buf, 0, SEND_SIZE);
 
