@@ -80,12 +80,12 @@ Package: libibcm1-dbg
 Section: debug
 Architecture: linux-any
 Depends: ${misc:Depends}
-Description: InfiniBand Communication Manager (CM) library
+Description: Debug symbols for the libibcm1 library
  libibcm provides a userspace implementation of an InfiniBand
  Communication Manager (CM). The CM handles both connection
  establishment as well as service ID resolution.
  .
- This package contains the debugging symbols associated with
+ This package contains the debug symbols associated with
  libibcm1. They will automatically be used by gdb for debugging
  libibcm-related issues.
 
@@ -118,12 +118,12 @@ Package: libibumad3-dbg
 Section: debug
 Architecture: linux-any
 Depends: ${misc:Depends}
-Description: InfiniBand Userspace Management Datagram (uMAD) library
+Description: Debug symbols for the libibumad3 library
  libibumad provides userspace Infiniband Management Datagram (uMAD)
  functions which sit on top of the uMAD modules in the kernel.
  These are used by InfiniBand diagnostic and management tools.
  .
- This package contains the debugging symbols associated with
+ This package contains the debug symbols associated with
  libibumad3. They will automatically be used by gdb for debugging
  libibumad-related issues.
 
@@ -168,7 +168,7 @@ Section: debug
 Architecture: linux-any
 Multi-Arch: same
 Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}
-Description: Debugging symbols for the libibverbs library
+Description: Debug symbols for the libibverbs library
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and
  the RDMA Protocol Verbs Specification.  iWARP ethernet NICs support
@@ -178,7 +178,7 @@ Description: Debugging symbols for the libibverbs library
  hardware access from userspace (kernel bypass), and libibverbs
  supports this when available.
  .
- This package contains the debugging symbols associated with
+ This package contains the debug symbols associated with
  libibverbs1. They will automatically be used by gdb for debugging
  libibverbs-related issues.
 
@@ -226,7 +226,7 @@ Package: librdmacm1-dbg
 Section: debug
 Architecture: linux-any
 Depends: librdmacm1 (= ${binary:Version}), ${misc:Depends}
-Description: Debugging symbols for the librdmacm library
+Description: Debug symbols for the librdmacm library
  librdmacm is a library that allows applications to set up reliable
  connected and unreliable datagram transfers when using RDMA adapters.
  It provides a transport-neutral interface in the sense that the same
@@ -240,7 +240,7 @@ Description: Debugging symbols for the librdmacm library
  provided by libibverbs, which provides the interface used to actually
  transfer data.
  .
- This package contains the debugging symbols associated with
+ This package contains the debug symbols associated with
  librdmacm1. They will automatically be used by gdb for debugging
  librdmacm-related issues.
 
