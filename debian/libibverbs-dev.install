@@ -1,13 +1,13 @@
 usr/include/infiniband/arch.h
 usr/include/infiniband/kern-abi.h
+usr/include/infiniband/mlx5dv.h
 usr/include/infiniband/opcode.h
 usr/include/infiniband/sa-kern-abi.h
 usr/include/infiniband/sa.h
 usr/include/infiniband/verbs.h
-usr/include/infiniband/mlx5dv.h
 usr/lib/*/libibverbs*.so
-usr/share/man/man3/mlx5dv_*.3
-usr/share/man/man7/mlx5dv.7
 usr/share/man/man3/ibv_*
 usr/share/man/man3/mbps_to_ibv_rate.3
+usr/share/man/man3/mlx5dv_*.3
 usr/share/man/man3/mult_to_ibv_rate.3
+usr/share/man/man7/mlx5dv.7
