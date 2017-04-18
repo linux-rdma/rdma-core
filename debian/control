@@ -79,7 +79,7 @@ Description: InfiniBand Communication Manager (CM) library
 Package: libibcm1-dbg
 Section: debug
 Architecture: linux-any
-Depends: ${misc:Depends}
+Depends: libibcm1 (= ${binary:Version}), ${misc:Depends}
 Description: Debug symbols for the libibcm1 library
  libibcm provides a userspace implementation of an InfiniBand
  Communication Manager (CM). The CM handles both connection
@@ -117,7 +117,7 @@ Description: InfiniBand Userspace Management Datagram (uMAD) library
 Package: libibumad3-dbg
 Section: debug
 Architecture: linux-any
-Depends: ${misc:Depends}
+Depends: libibumad3 (= ${binary:Version}), ${misc:Depends}
 Description: Debug symbols for the libibumad3 library
  libibumad provides userspace Infiniband Management Datagram (uMAD)
  functions which sit on top of the uMAD modules in the kernel.
