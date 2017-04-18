@@ -1,8 +1,7 @@
 Source: rdma-core
 Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
-Uploaders:
- Benjamin Drung <benjamin.drung@profitbricks.com>,
- Talat Batheesh <talatb@mellanox.com>
+Uploaders: Benjamin Drung <benjamin.drung@profitbricks.com>,
+           Talat Batheesh <talatb@mellanox.com>
 Section: net
 Priority: extra
 Build-Depends: cmake (>= 2.8.11),
@@ -296,7 +295,10 @@ Description: Examples for the librdmacm library
 
 Package: srptools
 Architecture: linux-any
-Depends: infiniband-diags, lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
+Depends: infiniband-diags,
+         lsb-base (>= 3.2-14~),
+         ${misc:Depends},
+         ${shlibs:Depends}
 Description: Tools for Infiniband attached storage (SRP)
  In conjunction with the kernel ib_srp driver, srptools allows you to
  discover and use Infiniband attached storage devices which use the
@@ -304,7 +306,10 @@ Description: Tools for Infiniband attached storage (SRP)
 
 Package: iwpmd
 Architecture: linux-any
-Depends: infiniband-diags, lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
+Depends: infiniband-diags,
+         lsb-base (>= 3.2-14~),
+         ${misc:Depends},
+         ${shlibs:Depends}
 Description: Userspace component for iWarp RDMA services
  iwpmd provides a userspace service for iWarp drivers to claim
  tcp ports through the standard socket interface.
