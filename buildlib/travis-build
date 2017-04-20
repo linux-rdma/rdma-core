@@ -11,7 +11,7 @@ mkdir build-clang build32 build-sparse build-aarch64
 cd build-clang
 CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
 ninja
-../buildlib/check-build --src ..
+../buildlib/check-build --src .. --cc clang-3.9
 
 # 32 bit build to check format strings/etc
 cd ../build32

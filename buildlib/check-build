@@ -146,7 +146,7 @@ def test_public_headers(args):
     with private_tmp() as tmpd:
         with open(os.path.join(tmpd,"build.ninja"),"wt") as F:
             print >> F,"rule comp";
-            print >> F," command = cc -Werror -c -I %s $in -o $out"%(incdir);
+            print >> F," command = %s -Werror -c -I %s $in -o $out"%(args.CC,incdir);
             print >> F," description=Header check for $in";
             count = 0;
             for I in sorted(includes):
@@ -164,6 +164,8 @@ parser.add_argument("--build",default=os.getcwd(),dest="BUILD",
                     help="Build directory to inpsect");
 parser.add_argument("--src",default=None,dest="SRC",
                     help="Top of the source tree");
+parser.add_argument("--cc",default="cc",dest="CC",
+                    help="C compiler to use");
 args = parser.parse_args();
 
 if args.SRC is None:

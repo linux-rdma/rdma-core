@@ -340,7 +340,7 @@ static inline int mthca_poll_one(struct mthca_cq *cq,
 	} else if ((*cur_qp)->ibv_qp.srq) {
 		uint32_t wqe;
 		srq = to_msrq((*cur_qp)->ibv_qp.srq);
-		wqe = htobe32(cqe->wqe);
+		wqe = be32toh(cqe->wqe);
 		wq = NULL;
 		wqe_index = wqe >> srq->wqe_shift;
 		wc->wr_id = srq->wrid[wqe_index];

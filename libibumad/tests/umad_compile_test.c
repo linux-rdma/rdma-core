@@ -68,4 +68,6 @@ int main(int argc, char *argv[])
 
 	/* umad_sa.h structure check */
 	BUILD_ASSERT(sizeof(struct umad_sa_packet) == 256);
+
+	return 0;
 }

@@ -26,8 +26,8 @@ int main(int argc,const char *argv[]) {return 0;}
       message(FATAL_ERROR "glibc header file patching for sparse failed. Review include/*.rej and fix the rejects, then do "
 	"${BUILDLIB}/gen-sparse.py -out ${BUILD_INCLUDE}/ --src ${CMAKE_SOURCE_DIR}/ --save")
     endif()
-  endif()
 
-  # Enable endian analysis in sparse
-  add_definitions("-D__CHECK_ENDIAN__")
+    # Enable endian analysis in sparse
+    add_definitions("-D__CHECK_ENDIAN__")
+  endif()
 endfunction()

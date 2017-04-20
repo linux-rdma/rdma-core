@@ -552,7 +552,7 @@ def run_travis_build(args,env):
             "--rm=true",
             "-v","%s:%s"%(tmpdir, home_build),
             "-w",os.path.join(home_build,"src"),
-            "-u","travis",
+            "-u",str(os.getuid()),
             "-e","HOME=%s"%(home),
             "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
         ];
