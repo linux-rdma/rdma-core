@@ -177,7 +177,7 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe - 1,
 						    be32toh(cqe->byte_cnt));
-}
+	}
 
 	return err;
 }
@@ -227,8 +227,6 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 	}
 	if (err)
 		return err;
-
-	wc->byte_len = be32toh(cqe->byte_cnt);
 
 	switch (cqe->op_own >> 4) {
 	case MLX5_CQE_RESP_WR_IMM:
