@@ -1,4 +1,4 @@
-/* Licensed under BSD-MIT - see LICENSE.BSD-MIT file for details */
+/* Licensed under MIT - see LICENSE.MIT file for details */
 #include <stdio.h>
 #include <stdlib.h>
 #include "list.h"

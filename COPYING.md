@@ -28,7 +28,7 @@ Refer to individual files for information on the copyright holders.
 Utility source code that may be linked into any binary are available under
 several licenses:
 
-   - MIT license (see ccan/LICENSE.BSD-MIT)
+   - MIT license (see ccan/LICENSE.MIT)
    - Creative Commons CC0 1.0 Universal License (see ccan/LICENSE.CC0)
 
 ## Providers

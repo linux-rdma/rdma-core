@@ -1002,7 +1002,7 @@ symver(__ibv_detach_mcast_1_0, ibv_detach_mcast, IBVERBS_1.0);
 void __ibv_register_driver_1_1(const char *name, ibv_driver_init_func_1_1 init_func)
 {
 	/* The driver interface is private as of rdma-core 13. This stub is
-	 * left to preserve dynamic-link compatability with old libfabrics
+	 * left to preserve dynamic-link compatibility with old libfabrics
 	 * usnic providers which use this function only to suppress a fprintf
 	 * in old versions of libibverbs. */
 }

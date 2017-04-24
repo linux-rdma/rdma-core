@@ -1073,7 +1073,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 		}
 	}
 
-	/* compatability support */
+	/* compatibility support */
 	qp_huge_key  = qptype2key(qp->ibv_qp->qp_type);
 	if (mlx5_use_huge(qp_huge_key))
 		default_alloc_type = MLX5_ALLOC_TYPE_HUGE;
