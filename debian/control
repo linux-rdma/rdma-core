@@ -68,6 +68,7 @@ Description: User space provider drivers for libibverbs
 
 Package: libibcm1
 Architecture: linux-any
+Section: libs
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: InfiniBand Communication Manager (CM) library
  libibcm provides a userspace implementation of an InfiniBand
