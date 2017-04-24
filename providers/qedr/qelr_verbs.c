@@ -768,6 +768,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	struct ibv_modify_qp cmd = {};
 	struct qelr_qp *qp = get_qelr_qp(ibqp);
 	struct qelr_devctx *cxt = get_qelr_ctx(ibqp->context);
+	union ibv_gid sgid, *p_dgid;
 	int rc;
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP, "QP Modify %p, attr_mask=0x%x\n",
@@ -776,14 +777,45 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	qelr_print_qp_attr(cxt, attr);
 
 	rc = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof(cmd));
-
-	if (!rc && (attr_mask & IBV_QP_STATE)) {
-		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP, "QP Modify state %d->%d\n",
-			   qp->state, attr->qp_state);
-		qelr_update_qp_state(qp, attr->qp_state);
+	if (rc) {
+		DP_ERR(cxt->dbg_fp, "QP Modify: Failed command. rc=%d\n", rc);
+		return rc;
 	}
 
-	return rc;
+	if (attr_mask & IBV_QP_STATE) {
+		rc = qelr_update_qp_state(qp, attr->qp_state);
+		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+			   "QP Modify state %d->%d, rc=%d\n", qp->state,
+			   attr->qp_state, rc);
+		if (rc) {
+			DP_ERR(cxt->dbg_fp,
+			       "QP Modify: Failed to update state. rc=%d\n",
+			       rc);
+
+			return rc;
+		}
+	}
+
+	/* EDPM must be disabled if GIDs match */
+	if (attr_mask & IBV_QP_AV) {
+		rc = ibv_query_gid(ibqp->context, attr->ah_attr.port_num,
+				   attr->ah_attr.grh.sgid_index, &sgid);
+
+		if (!rc) {
+			p_dgid = &attr->ah_attr.grh.dgid;
+			qp->edpm_disabled = !memcmp(&sgid, p_dgid,
+						    sizeof(sgid));
+			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+				   "QP Modify: %p, edpm_disabled=%d\n", qp,
+				   qp->edpm_disabled);
+		} else  {
+			DP_ERR(cxt->dbg_fp,
+			       "QP Modify: Failed querying GID. rc=%d\n",
+			       rc);
+		}
+	}
+
+	return 0;
 }
 
 int qelr_destroy_qp(struct ibv_qp *ibqp)
@@ -839,7 +871,7 @@ static inline void qelr_init_edpm_info(struct qelr_devctx *cxt,
 	edpm->is_edpm = 0;
 
 	if (qelr_chain_is_full(&qp->sq.chain) &&
-	    wr->send_flags & IBV_SEND_INLINE) {
+	    wr->send_flags & IBV_SEND_INLINE && !qp->edpm_disabled) {
 		memset(edpm, 0, sizeof(*edpm));
 		edpm->rdma_ext = (struct qelr_rdma_ext *)&edpm->dpm_payload;
 		edpm->is_edpm = 1;
