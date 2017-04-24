@@ -70,6 +70,11 @@ static void qelr_inc_sw_prod_u16(struct qelr_qp_hwq_info *info)
 	info->prod = (info->prod + 1) % info->max_wr;
 }
 
+static inline int qelr_wq_is_full(struct qelr_qp_hwq_info *info)
+{
+	return (((info->prod + 1) % info->max_wr) == info->cons);
+}
+
 int qelr_query_device(struct ibv_context *context,
 		      struct ibv_device_attr *attr)
 {
@@ -1142,6 +1147,14 @@ static inline int qelr_can_post_send(struct qelr_devctx *cxt,
 		       "error: WR is bad. Post send on QP %p failed\n",
 		       qp);
 		return -EINVAL;
+	}
+
+	/* WR overflow */
+	if (qelr_wq_is_full(&qp->sq)) {
+		DP_ERR(cxt->dbg_fp,
+		       "error: WQ is full. Post send on QP %p failed (this error appears only once)\n",
+		       qp);
+		return -ENOMEM;
 	}
 
 	/* WQE overflow */
