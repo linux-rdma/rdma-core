@@ -38,6 +38,7 @@
 
 #include <infiniband/verbs.h>
 #include <infiniband/sa.h>
+#include <linux/types.h>
 #include <endian.h>
 
 #ifdef __cplusplus
