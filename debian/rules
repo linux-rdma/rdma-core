@@ -56,14 +56,11 @@ SHLIBS_EXCLUDE := $(addprefix --exclude=,$(SHLIBS_EXCLUDE))
 override_dh_makeshlibs:
 	dh_makeshlibs $(SHLIBS_EXCLUDE)
 
-# Create dbg packages.
-# FIXME: should we just have a rdma-core-dbg package ?
 override_dh_strip:
 	dh_strip -plibibcm1 --dbg-package=libibcm1-dbg
 	dh_strip -plibibumad3 --dbg-package=libibumad3-dbg
 	dh_strip -plibibverbs1 --dbg-package=libibverbs1-dbg
 	dh_strip -plibrdmacm1 --dbg-package=librdmacm1-dbg
-
 	dh_strip --remaining-packages
 
 # Upstream encourages the use of 'build' as the developer build output
