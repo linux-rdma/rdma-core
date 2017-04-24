@@ -92,7 +92,7 @@ Description: Debug symbols for the libibcm1 library
 Package: libibcm-dev
 Section: libdevel
 Architecture: linux-any
-Depends: libibcm1 (= ${binary:Version}), ${misc:Depends}
+Depends: libibcm1 (= ${binary:Version}), libibverbs-dev, ${misc:Depends}
 Description: Development files for the libibcm library
  libibcm provides a userspace implementation of an InfiniBand
  Communication Manager (CM). The CM handles both connection
