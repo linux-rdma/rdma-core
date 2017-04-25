@@ -33,7 +33,8 @@ override_dh_auto_install:
 
 # The following files are not used on Debian
 # FIXME: should they be?
-INST_EXCLUDE := "etc/rsyslog.d/srp_daemon.conf" \
+INST_EXCLUDE := "etc/init.d/srpd" \
+		"etc/rsyslog.d/srp_daemon.conf" \
 		"usr/sbin/run_srp_daemon" \
 		"usr/sbin/srp_daemon.sh"
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
@@ -45,7 +46,6 @@ override_dh_install:
 override_dh_installinit:
 	dh_installinit -pibacm --onlyscripts
 	dh_installinit -piwpmd --onlyscripts
-	dh_installinit -psrptools --onlyscripts
 	dh_installinit --remaining-packages
 
 # Provider plugin libaries are not shared libraries and do not belong in the
