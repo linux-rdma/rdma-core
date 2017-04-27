@@ -238,7 +238,7 @@ static int ca_stat(char *ca_name, int portnum, int no_ports)
 
 static int ports_list(char names[][UMAD_CA_NAME_LEN], int n)
 {
-	uint64_t guids[64];
+	__be64 guids[64];
 	int found, ports, i;
 
 	for (i = 0, found = 0; i < n && found < 64; i++) {
