@@ -850,7 +850,7 @@ int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
 	int len, i, ret;
 
 	len = strlen(mad_field_name(f));
-        if (len + 2 > n || spacing + 1 > n)
+	if (len + 2 > n || spacing + 1 > n)
 		return 0;
 
 	strncpy(buf, mad_field_name(f), n);
