@@ -48,6 +48,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <linux/types.h> /* __be64 */
 
 #include <infiniband/umad.h>
 
