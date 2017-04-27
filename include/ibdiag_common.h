@@ -83,6 +83,15 @@ extern char *ibd_nd_format;
 #define IS_PM_RSFEC_COUNTERS_SUP (CL_HTON16(((uint16_t)1)<<14))
 #endif
 
+#ifndef IB_PM_IS_QP1_DROP_SUP
+#define IB_PM_IS_QP1_DROP_SUP (CL_HTON16(((uint16_t)1)<<15))
+#endif
+
+/* PM ClassPortInfo CapabilityMask2 Bits */
+#ifndef IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP
+#define IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP (CL_HTON32(((uint32_t)1)<<1))
+#endif
+
 /* SM PortInfo CapabilityMask2 Bits */
 #ifndef IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED
 #define IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED (CL_HTON16(0x0002))
