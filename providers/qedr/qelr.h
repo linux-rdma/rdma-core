@@ -243,6 +243,7 @@ struct qelr_qp {
 	uint32_t				qp_id;
 	int					sq_sig_all;
 	int					atomic_supported;
+	uint8_t					edpm_disabled;
 };
 
 static inline struct qelr_devctx *get_qelr_ctx(struct ibv_context *ibctx)

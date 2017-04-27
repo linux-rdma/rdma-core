@@ -70,6 +70,11 @@ static void qelr_inc_sw_prod_u16(struct qelr_qp_hwq_info *info)
 	info->prod = (info->prod + 1) % info->max_wr;
 }
 
+static inline int qelr_wq_is_full(struct qelr_qp_hwq_info *info)
+{
+	return (((info->prod + 1) % info->max_wr) == info->cons);
+}
+
 int qelr_query_device(struct ibv_context *context,
 		      struct ibv_device_attr *attr)
 {
@@ -344,7 +349,7 @@ static inline int qelr_create_qp_buffers_sq(struct qelr_devctx *cxt,
 	rc = qelr_chain_alloc(&qp->sq.chain, chain_size, cxt->kernel_page_size,
 			      QELR_SQE_ELEMENT_SIZE);
 	if (rc)
-		DP_ERR(cxt->dbg_fp, "create qp: failed to map SQ, got %d", rc);
+		DP_ERR(cxt->dbg_fp, "create qp: failed to map SQ chain, got %d", rc);
 
 	qp->sq.max_wr = max_send_wr;
 	qp->sq.max_sges = cxt->sges_per_send_wr;
@@ -371,7 +376,7 @@ static inline int qelr_create_qp_buffers_rq(struct qelr_devctx *cxt,
 	rc = qelr_chain_alloc(&qp->rq.chain, chain_size, cxt->kernel_page_size,
 			      QELR_RQE_ELEMENT_SIZE);
 	if (rc)
-		DP_ERR(cxt->dbg_fp, "create qp: failed to map RQ, got %d", rc);
+		DP_ERR(cxt->dbg_fp, "create qp: failed to map RQ chain, got %d", rc);
 
 	qp->rq.max_wr = max_recv_wr;
 	qp->rq.max_sges = cxt->sges_per_recv_wr;
@@ -414,7 +419,7 @@ static inline int qelr_configure_qp_sq(struct qelr_devctx *cxt,
 	qp->wqe_wr_id = calloc(qp->sq.max_wr, sizeof(*qp->wqe_wr_id));
 	if (!qp->wqe_wr_id) {
 		DP_ERR(cxt->dbg_fp,
-		       "create qp: failed shdow SQ memory allocation\n");
+		       "create qp: failed shadow SQ memory allocation\n");
 		return -ENOMEM;
 	}
 	return 0;
@@ -436,7 +441,7 @@ static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 	qp->rqe_wr_id = calloc(qp->rq.max_wr, sizeof(*qp->rqe_wr_id));
 	if (!qp->rqe_wr_id) {
 		DP_ERR(cxt->dbg_fp,
-		       "create qp: failed shdow RQ memory allocation\n");
+		       "create qp: failed shadow RQ memory allocation\n");
 		return -ENOMEM;
 	}
 
@@ -763,6 +768,7 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	struct ibv_modify_qp cmd = {};
 	struct qelr_qp *qp = get_qelr_qp(ibqp);
 	struct qelr_devctx *cxt = get_qelr_ctx(ibqp->context);
+	union ibv_gid sgid, *p_dgid;
 	int rc;
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP, "QP Modify %p, attr_mask=0x%x\n",
@@ -771,14 +777,45 @@ int qelr_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	qelr_print_qp_attr(cxt, attr);
 
 	rc = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof(cmd));
-
-	if (!rc && (attr_mask & IBV_QP_STATE)) {
-		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP, "QP Modify state %d->%d\n",
-			   qp->state, attr->qp_state);
-		qelr_update_qp_state(qp, attr->qp_state);
+	if (rc) {
+		DP_ERR(cxt->dbg_fp, "QP Modify: Failed command. rc=%d\n", rc);
+		return rc;
 	}
 
-	return rc;
+	if (attr_mask & IBV_QP_STATE) {
+		rc = qelr_update_qp_state(qp, attr->qp_state);
+		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+			   "QP Modify state %d->%d, rc=%d\n", qp->state,
+			   attr->qp_state, rc);
+		if (rc) {
+			DP_ERR(cxt->dbg_fp,
+			       "QP Modify: Failed to update state. rc=%d\n",
+			       rc);
+
+			return rc;
+		}
+	}
+
+	/* EDPM must be disabled if GIDs match */
+	if (attr_mask & IBV_QP_AV) {
+		rc = ibv_query_gid(ibqp->context, attr->ah_attr.port_num,
+				   attr->ah_attr.grh.sgid_index, &sgid);
+
+		if (!rc) {
+			p_dgid = &attr->ah_attr.grh.dgid;
+			qp->edpm_disabled = !memcmp(&sgid, p_dgid,
+						    sizeof(sgid));
+			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+				   "QP Modify: %p, edpm_disabled=%d\n", qp,
+				   qp->edpm_disabled);
+		} else  {
+			DP_ERR(cxt->dbg_fp,
+			       "QP Modify: Failed querying GID. rc=%d\n",
+			       rc);
+		}
+	}
+
+	return 0;
 }
 
 int qelr_destroy_qp(struct ibv_qp *ibqp)
@@ -834,7 +871,7 @@ static inline void qelr_init_edpm_info(struct qelr_devctx *cxt,
 	edpm->is_edpm = 0;
 
 	if (qelr_chain_is_full(&qp->sq.chain) &&
-	    wr->send_flags & IBV_SEND_INLINE) {
+	    wr->send_flags & IBV_SEND_INLINE && !qp->edpm_disabled) {
 		memset(edpm, 0, sizeof(*edpm));
 		edpm->rdma_ext = (struct qelr_rdma_ext *)&edpm->dpm_payload;
 		edpm->is_edpm = 1;
@@ -1142,6 +1179,14 @@ static inline int qelr_can_post_send(struct qelr_devctx *cxt,
 		       "error: WR is bad. Post send on QP %p failed\n",
 		       qp);
 		return -EINVAL;
+	}
+
+	/* WR overflow */
+	if (qelr_wq_is_full(&qp->sq)) {
+		DP_ERR(cxt->dbg_fp,
+		       "error: WQ is full. Post send on QP %p failed (this error appears only once)\n",
+		       qp);
+		return -ENOMEM;
 	}
 
 	/* WQE overflow */
@@ -1587,13 +1632,13 @@ static int qelr_poll_cq_req(struct qelr_qp *qp, struct qelr_cq *cq,
 			enum ibv_wc_status wc_status;
 
 			switch (req->status) {
-			case	RDMA_CQE_REQ_STS_BAD_RESPONSE_ERR:
+			case    RDMA_CQE_REQ_STS_BAD_RESPONSE_ERR:
 				DP_ERR(cxt->dbg_fp,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_BAD_RESPONSE_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
 				wc_status = IBV_WC_BAD_RESP_ERR;
 				break;
-			case	RDMA_CQE_REQ_STS_LOCAL_LENGTH_ERR:
+			case    RDMA_CQE_REQ_STS_LOCAL_LENGTH_ERR:
 				DP_ERR(cxt->dbg_fp,
 				       "Error: POLL CQ with RDMA_CQE_REQ_STS_LOCAL_LENGTH_ERR. QP icid=0x%x\n",
 				       qp->sq.icid);
@@ -1650,7 +1695,7 @@ static int qelr_poll_cq_req(struct qelr_qp *qp, struct qelr_cq *cq,
 			default:
 				DP_ERR(cxt->dbg_fp,
 				       "IBV_WC_GENERAL_ERR. QP icid=0x%x\n",
-					qp->sq.icid);
+				       qp->sq.icid);
 				wc_status = IBV_WC_GENERAL_ERR;
 			}
 
