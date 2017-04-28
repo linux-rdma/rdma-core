@@ -1,4 +1,5 @@
 rdma_man_pages(
+  cmtime.1
   mckey.1
   rcopy.1
   rdma_accept.3
