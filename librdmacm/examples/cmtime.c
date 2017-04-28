@@ -640,6 +640,7 @@ int main(int argc, char **argv)
 			printf("\t[-b bind_address]\n");
 			printf("\t[-c connections]\n");
 			printf("\t[-p port_number]\n");
+			printf("\t[-r retries]\n");
 			printf("\t[-t timeout_ms]\n");
 			exit(1);
 		}
