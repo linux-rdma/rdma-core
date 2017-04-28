@@ -61,4 +61,5 @@ rdma_man_pages(
   rstream.1
   ucmatose.1
   udaddy.1
+  udpong.1
   )
