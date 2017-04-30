@@ -105,8 +105,7 @@ struct perf_count_ext {
 
 static uint8_t pc[1024];
 
-struct perf_count perf_count =
-    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+struct perf_count perf_count = {0};
 struct perf_count_ext perf_count_ext = {0};
 
 #define ALL_PORTS 0xFF
