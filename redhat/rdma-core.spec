@@ -425,6 +425,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 %{_bindir}/ucmatose
 %{_bindir}/udaddy
 %{_bindir}/udpong
+%{_mandir}/man1/cmtime.*
 %{_mandir}/man1/mckey.*
 %{_mandir}/man1/rcopy.*
 %{_mandir}/man1/rdma_client.*
@@ -436,6 +437,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 %{_mandir}/man1/rstream.*
 %{_mandir}/man1/ucmatose.*
 %{_mandir}/man1/udaddy.*
+%{_mandir}/man1/udpong.*
 
 %files -n srp_daemon
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
