@@ -290,6 +290,24 @@ enum ibv_port_state {
 	IBV_PORT_ACTIVE_DEFER	= 5
 };
 
+enum ibv_port_speed {
+	IBV_SPEED_SDR    = 1,
+	IBV_SPEED_DDR    = 2,
+	IBV_SPEED_QDR    = 4,
+	IBV_SPEED_FDR10  = 8,
+	IBV_SPEED_FDR    = 16,
+	IBV_SPEED_EDR    = 32,
+	IBV_SPEED_HDR    = 64,
+	IBV_SPEED_NDR    = 128
+};
+
+enum ibv_port_width {
+	IBV_WIDTH_1X     = 1,
+	IBV_WIDTH_4X     = 2,
+	IBV_WIDTH_8X     = 4,
+	IBV_WIDTH_12X    = 8
+};
+
 enum {
 	IBV_LINK_LAYER_UNSPECIFIED,
 	IBV_LINK_LAYER_INFINIBAND,
