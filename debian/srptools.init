@@ -14,7 +14,9 @@ IBDIR=/sys/class/infiniband
 
 PORTS=""
 RETRIES=""
+RETRIES_DEFAULT=60
 LOG=""
+LOG_DEFAULT=/var/log/srp_daemon.log
 
 [ -x $DAEMON ] || exit 0
 
@@ -35,7 +37,8 @@ run_daemon() {
         nohup start-stop-daemon --start --quiet -m \
 	      --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}" \
               --exec $DAEMON -- -e -c -n \
-	      -i "${HCA_ID}" -p "${PORT}" -R "${RETRIES}" >> "$LOG" 2>&1 &
+	      -i "${HCA_ID}" -p "${PORT}" -R "${RETRIES:-${RETRIES_DEFAULT}}" \
+	      >> "${LOG:-${LOG_DEFAULT}}" 2>&1 &
         RETVAL=$?
     fi
 }
