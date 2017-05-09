@@ -64,7 +64,23 @@ Description: User space provider drivers for libibverbs
  supports this when available.
  .
  A RDMA driver consists of a kernel portion and a user space portion.
- This package contains the user space verbs drivers.
+ This package contains the user space verbs drivers:
+ .
+  - bnxt_re: Broadcom NetXtreme-E RoCE HCAs
+  - cxgb3: Chelsio T3 iWARP HCAs
+  - cxgb4: Chelsio T4 iWARP HCAs
+  - hfi1verbs: Intel Omni-Path HFI
+  - hns: HiSilicon Hip06 SoC
+  - i40iw: Intel Ethernet Connection X722 RDMA
+  - ipathverbs: QLogic InfiniPath HCAs
+  - mlx4: Mellanox ConnectX-3 InfiniBand HCAs
+  - mlx5: Mellanox Connect-IB/X-4+ InfiniBand HCAs
+  - mthca: Mellanox InfiniBand HCAs
+  - nes: Intel NetEffect NE020-based iWARP adapters
+  - ocrdma: Emulex OneConnect RDMA/RoCE device
+  - qedr: QLogic QL4xxx RoCE HCAs
+  - rxe: A software implementation of the RoCE protocol
+  - vmw_pvrdma: VMware paravirtual RDMA device
 
 Package: libibcm1
 Architecture: linux-any
