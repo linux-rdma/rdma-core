@@ -25,11 +25,13 @@ LOG_DEFAULT=/var/log/srp_daemon.log
 [ -f /etc/default/srptools ] &&  . /etc/default/srptools
 
 run_daemon() {
+    local STATUS
+
     # srp_daemon wedges if we start it on a port which is not up
 
-    STATUS=`/usr/sbin/ibstat $HCA_ID $PORT | grep "State:"`
+    STATUS=$(<"${IBDIR}/${HCA_ID}/ports/${PORT}/state")
 
-    if [ "$STATUS" = "State: Active" ] &&
+    if [ "$STATUS" = "4: ACTIVE" ] &&
        [ "$(<"${IBDIR}/${HCA_ID}/ports/$PORT/link_layer")" = InfiniBand ]; then
 
 	# srp does not background itself; using the start-stop-daemon background
