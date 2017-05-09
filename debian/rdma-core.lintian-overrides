@@ -1,0 +1,2 @@
+# The rdma-ndd service is started by udev.
+rdma-core: systemd-service-file-missing-install-key lib/systemd/system/rdma-ndd.service
