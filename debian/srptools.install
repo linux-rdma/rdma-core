@@ -1,5 +1,3 @@
-etc/default/srptools
-etc/init.d/srptools
 etc/srp_daemon.conf
 usr/sbin/ibsrpdm
 usr/sbin/srp_daemon
