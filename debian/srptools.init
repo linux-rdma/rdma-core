@@ -9,13 +9,14 @@
 # Description:       Discovers SRP scsi over infiniband targets.
 ### END INIT INFO
 
-[ -x /usr/sbin/srp_daemon ] || exit 0
-
+DAEMON=/usr/sbin/srp_daemon
 IBDIR=/sys/class/infiniband
 
 PORTS=""
 RETRIES=""
 LOG=""
+
+[ -x $DAEMON ] || exit 0
 
 . /lib/lsb/init-functions
 
@@ -33,7 +34,7 @@ run_daemon() {
 	# function causes us to lose stdout, which is where it logs to
         nohup start-stop-daemon --start --quiet -m \
 	      --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}" \
-              --exec /usr/sbin/srp_daemon -- -e -c -n \
+              --exec $DAEMON -- -e -c -n \
 	      -i "${HCA_ID}" -p "${PORT}" -R "${RETRIES}" >> "$LOG" 2>&1 &
         RETVAL=$?
     fi
