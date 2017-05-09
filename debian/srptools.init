@@ -96,12 +96,36 @@ stop_daemon() {
     return $RETVAL
 }
 
+check_status() {
+    local pidfile=$1 pid
+
+    [ -e "$pidfile" ] || return 3 # not running
+    pid=$(<"$pidfile")
+    [ -n "$pid" ] || return 3 # not running
+    [ -d "/proc/$pid" ] || return 1 # not running and pid file exists
+    return 0 # running
+}
+
+daemon_status() {
+    local RETVAL=0
+
+    for_all_ports 'check_status /var/run/srp_daemon.${HCA_ID}.${PORT} $DAEMON; RETVAL=$(max $RETVAL $?)'
+    case $RETVAL in
+	0) log_success_msg "$DAEMON is running";;
+	*) log_failure_msg "$DAEMON is not running";;
+    esac
+    return $RETVAL
+}
+
 case "$1" in
     start)
 	start_daemon
 	;;
     stop)
 	stop_daemon
+	;;
+    status)
+	daemon_status
 	;;
     restart | reload | force-reload )
 	stop_daemon
