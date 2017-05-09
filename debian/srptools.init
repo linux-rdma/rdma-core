@@ -43,39 +43,39 @@ run_daemon() {
     fi
 }
 
+# Evaluate shell command $1 for every port in $PORTS
+for_all_ports() {
+    local cmd=$1 p
+
+    if [ "$PORTS" = "ALL" ]; then
+	for p in ${IBDIR}/*/ports/*; do
+	    [ -e "$p" ] || continue
+	    PORT=$(basename "$p")
+	    HCA_ID=$(basename "$(dirname "$(dirname "$p")")")
+	    eval "$cmd"
+	done
+    else
+	for ADAPTER in $PORTS; do
+	    HCA_ID=${ADAPTER%%:*}
+	    PORT=${ADAPTER#${HCA_ID}:}
+	    [ -n "$HCA_ID" ] && [ -n "$PORT" ] && eval "$cmd"
+	done
+    fi
+}
+
 start_daemon () {
     if [ "$PORTS" = "NONE" ] ; then
 	echo "srptools disabled."
 	exit 0
     fi
 
-    if [ "$PORTS" = "ALL" ]  ; then
-	for HCA_ID in `/bin/ls -1 ${IBDIR}`
-	do
-	    for PORT in `/bin/ls -1 ${IBDIR}/${HCA_ID}/ports/`
-            do
-		run_daemon
-	    done
-	done
-    fi
-
-    for ADAPTER in $PORTS ; do
-	HCA_ID=`echo $ADAPTER | awk -F: '{print $1}'`
-	PORT=`echo $ADAPTER | awk -F:  '{print $2}'`
-	run_daemon
-    done
+    for_all_ports run_daemon
 }
 
 stop_daemon() {
-    for HCA_ID in `/bin/ls -1 ${IBDIR}`
-    do
-	for PORT in `/bin/ls -1 ${IBDIR}/${HCA_ID}/ports/`
-        do
-            start-stop-daemon --stop --quiet --oknodo -m \
-			      --pidfile /var/run/srp_daemon.${HCA_ID}.${PORT}
-            RETVAL=$?
-	done
-    done
+    local PORTS=ALL
+
+    for_all_ports 'start-stop-daemon --stop --quiet --oknodo -m --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}"; RETVAL=$?'
 }
 
 case "$1" in
