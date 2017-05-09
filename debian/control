@@ -3,7 +3,7 @@ Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
 Uploaders: Benjamin Drung <benjamin.drung@profitbricks.com>,
            Talat Batheesh <talatb@mellanox.com>
 Section: net
-Priority: extra
+Priority: optional
 Build-Depends: cmake (>= 2.8.11),
                debhelper (>= 9),
                dh-systemd,
@@ -79,6 +79,7 @@ Description: InfiniBand Communication Manager (CM) library
 
 Package: libibcm1-dbg
 Section: debug
+Priority: extra
 Architecture: linux-any
 Depends: libibcm1 (= ${binary:Version}), ${misc:Depends}
 Description: Debug symbols for the libibcm1 library
@@ -117,6 +118,7 @@ Description: InfiniBand Userspace Management Datagram (uMAD) library
 
 Package: libibumad3-dbg
 Section: debug
+Priority: extra
 Architecture: linux-any
 Depends: libibumad3 (= ${binary:Version}), ${misc:Depends}
 Description: Debug symbols for the libibumad3 library
@@ -166,6 +168,7 @@ Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
 
 Package: libibverbs1-dbg
 Section: debug
+Priority: extra
 Architecture: linux-any
 Multi-Arch: same
 Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}
@@ -225,6 +228,7 @@ Description: Library for managing RDMA connections
 
 Package: librdmacm1-dbg
 Section: debug
+Priority: extra
 Architecture: linux-any
 Depends: librdmacm1 (= ${binary:Version}), ${misc:Depends}
 Description: Debug symbols for the librdmacm library
