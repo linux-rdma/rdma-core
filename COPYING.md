@@ -53,7 +53,7 @@ Default Dual License.
 Unmarked ancillary files may be available under a Dual License: GPLv2 or
 OpenIB.org BSD (FreeBSD variant).
 
-## Tools (iwpmd, srp_deamon, ibacm)
+## Tools (iwpmd, srp_daemon, ibacm)
 
 All compilable source code (.c and .h files) are available under the Default
 Dual License.

@@ -49,7 +49,7 @@ done
 
 
 run_daemon() {
-# SRP deamon wedges if we start it on a port which is not up
+# srp_daemon wedges if we start it on a port which is not up
 
         STATUS=`/usr/sbin/ibstat $HCA_ID $PORT | grep "State:"`
 
