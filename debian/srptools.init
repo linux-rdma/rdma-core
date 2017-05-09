@@ -24,6 +24,10 @@ LOG_DEFAULT=/var/log/srp_daemon.log
 
 [ -f /etc/default/srptools ] &&  . /etc/default/srptools
 
+max() {
+    echo $(($1 > $2 ? $1 : $2))
+}
+
 run_daemon() {
     local STATUS
 
@@ -41,7 +45,7 @@ run_daemon() {
               --exec $DAEMON -- -e -c -n \
 	      -i "${HCA_ID}" -p "${PORT}" -R "${RETRIES:-${RETRIES_DEFAULT}}" \
 	      >> "${LOG:-${LOG_DEFAULT}}" 2>&1 &
-        RETVAL=$?
+        RETVAL=$(max "$RETVAL" $?)
     fi
 }
 
@@ -65,19 +69,31 @@ for_all_ports() {
     fi
 }
 
-start_daemon () {
+start_daemon() {
+    local RETVAL=0
+
     if [ "$PORTS" = "NONE" ] ; then
 	echo "srptools disabled."
 	exit 0
     fi
 
     for_all_ports run_daemon
+    case $RETVAL in
+	0) log_success_msg "started $DAEMON";;
+	*) log_failure_msg "failed to start $DAEMON";;
+    esac
+    return $RETVAL
 }
 
 stop_daemon() {
-    local PORTS=ALL
+    local RETVAL=0 PORTS=ALL
 
-    for_all_ports 'start-stop-daemon --stop --quiet --oknodo -m --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}"; RETVAL=$?'
+    for_all_ports 'start-stop-daemon --stop --quiet --oknodo -m --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}"; RETVAL=$(max $RETVAL $?)'
+    case $RETVAL in
+	0) log_success_msg "stopped $DAEMON";;
+	*) log_failure_msg "failed to stop $DAEMON";;
+    esac
+    return $RETVAL
 }
 
 case "$1" in
