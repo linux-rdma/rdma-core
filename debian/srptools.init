@@ -29,8 +29,8 @@ run_daemon() {
 
     STATUS=`/usr/sbin/ibstat $HCA_ID $PORT | grep "State:"`
 
-    if [ "$STATUS" = "State: Active" ] ; then
-        echo "Starting srp on $HCA_ID $PORT"
+    if [ "$STATUS" = "State: Active" ] &&
+       [ "$(<"${IBDIR}/${HCA_ID}/ports/$PORT/link_layer")" = InfiniBand ]; then
 
 	# srp does not background itself; using the start-stop-daemon background
 	# function causes us to lose stdout, which is where it logs to
