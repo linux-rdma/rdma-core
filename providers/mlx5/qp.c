@@ -317,7 +317,7 @@ static uint8_t wq_sig(struct mlx5_wqe_ctrl_seg *ctrl)
 }
 
 #ifdef MLX5_DEBUG
-void dump_wqe(FILE *fp, int idx, int size_16, struct mlx5_qp *qp)
+static void dump_wqe(FILE *fp, int idx, int size_16, struct mlx5_qp *qp)
 {
 	uint32_t *uninitialized_var(p);
 	int i, j;
