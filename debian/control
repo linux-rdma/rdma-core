@@ -104,7 +104,9 @@ Package: libibverbs-dev
 Section: libdevel
 Architecture: linux-any
 Multi-Arch: same
-Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}
+Depends: ibverbs-providers (= ${binary:Version}),
+         libibverbs1 (= ${binary:Version}),
+         ${misc:Depends}
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and

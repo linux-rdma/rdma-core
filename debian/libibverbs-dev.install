@@ -6,6 +6,7 @@ usr/include/infiniband/sa-kern-abi.h
 usr/include/infiniband/sa.h
 usr/include/infiniband/verbs.h
 usr/lib/*/libibverbs*.so
+usr/lib/*/libmlx5.so
 usr/share/man/man3/ibv_*
 usr/share/man/man3/mbps_to_ibv_rate.3
 usr/share/man/man3/mlx5dv_*.3
