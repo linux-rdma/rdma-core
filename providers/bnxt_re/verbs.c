@@ -793,7 +793,11 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 
 	que = qp->sqq;
 	que->stride = bnxt_re_get_sqe_sz();
-	que->depth = roundup_pow_of_two(attr->cap.max_send_wr + 1);
+	/* 8916 adjustment */
+	que->depth = roundup_pow_of_two(attr->cap.max_send_wr + 1 +
+					BNXT_RE_FULL_FLAG_DELTA);
+	que->diff = que->depth - attr->cap.max_send_wr;
+
 	/* psn_depth extra entries of size que->stride */
 	psn_depth = (que->depth * sizeof(struct bnxt_re_psns)) /
 		     que->stride;
@@ -828,6 +832,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 		que = qp->rqq;
 		que->stride = bnxt_re_get_rqe_sz();
 		que->depth = roundup_pow_of_two(attr->cap.max_recv_wr + 1);
+		que->diff = que->depth - attr->cap.max_recv_wr;
 		ret = bnxt_re_alloc_aligned(qp->rqq, pg_size);
 		if (ret)
 			goto fail;
@@ -888,9 +893,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	qp->rcq = to_bnxt_re_cq(attr->recv_cq);
 	qp->udpi = &cntx->udpi;
 	/* Save/return the altered Caps. */
-	attr->cap.max_send_wr = cap->max_swr;
 	cap->max_ssge = attr->cap.max_send_sge;
-	attr->cap.max_recv_wr = cap->max_rwr;
 	cap->max_rsge = attr->cap.max_recv_sge;
 	cap->max_inline = attr->cap.max_inline_data;
 	cap->sqsig = attr->sq_sig_all;
