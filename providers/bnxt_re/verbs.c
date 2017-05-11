@@ -1081,6 +1081,11 @@ static int bnxt_re_build_send_sqe(struct bnxt_re_qp *qp, void *wqe,
 	} else {
 		qesize = wr->num_sge;
 	}
+	/* HW requires wqe size has room for atleast one sge even if none was
+	 * supplied by application
+	 */
+	if (!wr->num_sge)
+		qesize++;
 	qesize += (bnxt_re_get_sqe_hdr_sz() >> 4);
 	hdrval |= (qesize & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT;
 	hdr->rsv_ws_fl_wt |= htole32(hdrval);
@@ -1259,6 +1264,11 @@ static int bnxt_re_build_rqe(struct bnxt_re_qp *qp, struct ibv_recv_wr *wr,
 
 	len = bnxt_re_build_sge(sge, wr->sg_list, wr->num_sge, false);
 	wqe_sz = wr->num_sge + (bnxt_re_get_rqe_hdr_sz() >> 4); /* 16B align */
+	/* HW requires wqe size has room for atleast one sge even if none was
+	 * supplied by application
+	 */
+	if (!wr->num_sge)
+		wqe_sz++;
 	hdrval = BNXT_RE_WR_OPCD_RECV;
 	hdrval |= ((wqe_sz & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT);
 	hdr->rsv_ws_fl_wt = htole32(hdrval);
