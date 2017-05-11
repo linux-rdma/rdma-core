@@ -29,24 +29,14 @@ max() {
 }
 
 run_daemon() {
-    local STATUS
-
-    # srp_daemon wedges if we start it on a port which is not up
-
-    STATUS=$(<"${IBDIR}/${HCA_ID}/ports/${PORT}/state")
-
-    if [ "$STATUS" = "4: ACTIVE" ] &&
-       [ "$(<"${IBDIR}/${HCA_ID}/ports/$PORT/link_layer")" = InfiniBand ]; then
-
-	# srp does not background itself; using the start-stop-daemon background
-	# function causes us to lose stdout, which is where it logs to
-        nohup start-stop-daemon --start --quiet -m \
-	      --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}" \
-              --exec $DAEMON -- -e -c -n \
-	      -i "${HCA_ID}" -p "${PORT}" -R "${RETRIES:-${RETRIES_DEFAULT}}" \
-	      >> "${LOG:-${LOG_DEFAULT}}" 2>&1 &
-        RETVAL=$(max "$RETVAL" $?)
-    fi
+    # srp does not background itself; using the start-stop-daemon background
+    # function causes us to lose stdout, which is where it logs to
+    nohup start-stop-daemon --start --quiet -m \
+	  --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}" \
+          --exec $DAEMON -- -e -c -n \
+	  -i "${HCA_ID}" -p "${PORT}" -R "${RETRIES:-${RETRIES_DEFAULT}}" \
+	  >> "${LOG:-${LOG_DEFAULT}}" 2>&1 &
+    RETVAL=$(max "$RETVAL" $?)
 }
 
 # Evaluate shell command $1 for every port in $PORTS
