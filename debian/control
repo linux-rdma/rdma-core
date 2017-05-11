@@ -329,8 +329,7 @@ Description: Examples for the librdmacm library
 
 Package: srptools
 Architecture: linux-any
-Depends: infiniband-diags,
-         lsb-base (>= 3.2-14~),
+Depends: lsb-base (>= 3.2-14~),
          ${misc:Depends},
          ${shlibs:Depends}
 Description: Tools for Infiniband attached storage (SRP)

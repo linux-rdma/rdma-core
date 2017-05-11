@@ -9,83 +9,126 @@
 # Description:       Discovers SRP scsi over infiniband targets.
 ### END INIT INFO
 
-[ -x /usr/sbin/srp_daemon ] || exit 0
-
+DAEMON=/usr/sbin/srp_daemon
 IBDIR=/sys/class/infiniband
 
 PORTS=""
 RETRIES=""
+RETRIES_DEFAULT=60
 LOG=""
+LOG_DEFAULT=/var/log/srp_daemon.log
+
+[ -x $DAEMON ] || exit 0
 
 . /lib/lsb/init-functions
 
 [ -f /etc/default/srptools ] &&  . /etc/default/srptools
 
-start_daemon () {
-
-if [ "$PORTS" = "NONE" ] ; then
-echo "srptools disabled."
-exit 0
-fi
-
-
-if [ "$PORTS" = "ALL" ]  ; then
-    for HCA_ID in `/bin/ls -1 ${IBDIR}`
-      do
-      for PORT in `/bin/ls -1 ${IBDIR}/${HCA_ID}/ports/`
-        do
-        run_daemon
-      done
-    done
-fi
-
-
-for ADAPTER in $PORTS ; do
-    HCA_ID=`echo $ADAPTER | awk -F: '{print $1}'`
-    PORT=`echo $ADAPTER | awk -F:  '{print $2}'`
-    run_daemon
-done
+max() {
+    echo $(($1 > $2 ? $1 : $2))
 }
-
 
 run_daemon() {
-# SRP deamon wedges if we start it on a port which is not up
+    local STATUS
 
-        STATUS=`/usr/sbin/ibstat $HCA_ID $PORT | grep "State:"`
+    # srp_daemon wedges if we start it on a port which is not up
 
-        if [ "$STATUS" = "State: Active" ] ; then
-            echo "Starting srp on $HCA_ID $PORT"
+    STATUS=$(<"${IBDIR}/${HCA_ID}/ports/${PORT}/state")
 
-# srp does not background itself; using the start-stop-daemon background function
-# causes us to lose stdout, which is where it logs to
-            nohup start-stop-daemon --start --quiet -m --pidfile /var/run/srp_daemon.${HCA_ID}.${PORT} \
-            --exec  /usr/sbin/srp_daemon -- -e -c -n -i ${HCA_ID} -p ${PORT} -R ${RETRIES}   >> $LOG 2>&1 &
-            RETVAL=$?
-        fi
+    if [ "$STATUS" = "4: ACTIVE" ] &&
+       [ "$(<"${IBDIR}/${HCA_ID}/ports/$PORT/link_layer")" = InfiniBand ]; then
+
+	# srp does not background itself; using the start-stop-daemon background
+	# function causes us to lose stdout, which is where it logs to
+        nohup start-stop-daemon --start --quiet -m \
+	      --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}" \
+              --exec $DAEMON -- -e -c -n \
+	      -i "${HCA_ID}" -p "${PORT}" -R "${RETRIES:-${RETRIES_DEFAULT}}" \
+	      >> "${LOG:-${LOG_DEFAULT}}" 2>&1 &
+        RETVAL=$(max "$RETVAL" $?)
+    fi
 }
 
-stop_daemon () {
-     for HCA_ID in `/bin/ls -1 ${IBDIR}`
-      do
-      for PORT in `/bin/ls -1 ${IBDIR}/${HCA_ID}/ports/`
-        do
-        start-stop-daemon --stop --quiet --oknodo -m --pidfile /var/run/srp_daemon.${HCA_ID}.${PORT}
-        RETVAL=$?
-      done
-    done
+# Evaluate shell command $1 for every port in $PORTS
+for_all_ports() {
+    local cmd=$1 p
+
+    if [ "$PORTS" = "ALL" ]; then
+	for p in ${IBDIR}/*/ports/*; do
+	    [ -e "$p" ] || continue
+	    PORT=$(basename "$p")
+	    HCA_ID=$(basename "$(dirname "$(dirname "$p")")")
+	    eval "$cmd"
+	done
+    else
+	for ADAPTER in $PORTS; do
+	    HCA_ID=${ADAPTER%%:*}
+	    PORT=${ADAPTER#${HCA_ID}:}
+	    [ -n "$HCA_ID" ] && [ -n "$PORT" ] && eval "$cmd"
+	done
+    fi
 }
 
+start_daemon() {
+    local RETVAL=0
+
+    if [ "$PORTS" = "NONE" ] ; then
+	echo "srptools disabled."
+	exit 0
+    fi
+
+    for_all_ports run_daemon
+    case $RETVAL in
+	0) log_success_msg "started $DAEMON";;
+	*) log_failure_msg "failed to start $DAEMON";;
+    esac
+    return $RETVAL
+}
+
+stop_daemon() {
+    local RETVAL=0 PORTS=ALL
+
+    for_all_ports 'start-stop-daemon --stop --quiet --oknodo -m --pidfile "/var/run/srp_daemon.${HCA_ID}.${PORT}"; RETVAL=$(max $RETVAL $?)'
+    case $RETVAL in
+	0) log_success_msg "stopped $DAEMON";;
+	*) log_failure_msg "failed to stop $DAEMON";;
+    esac
+    return $RETVAL
+}
+
+check_status() {
+    local pidfile=$1 pid
+
+    [ -e "$pidfile" ] || return 3 # not running
+    pid=$(<"$pidfile")
+    [ -n "$pid" ] || return 3 # not running
+    [ -d "/proc/$pid" ] || return 1 # not running and pid file exists
+    return 0 # running
+}
+
+daemon_status() {
+    local RETVAL=0
+
+    for_all_ports 'check_status /var/run/srp_daemon.${HCA_ID}.${PORT} $DAEMON; RETVAL=$(max $RETVAL $?)'
+    case $RETVAL in
+	0) log_success_msg "$DAEMON is running";;
+	*) log_failure_msg "$DAEMON is not running";;
+    esac
+    return $RETVAL
+}
 
 case "$1" in
-
-start)
-start_daemon
-;;
-stop)
-stop_daemon
-;;
-restart | reload | force-reload )
-stop_daemon
-start_daemon
-;;
+    start)
+	start_daemon
+	;;
+    stop)
+	stop_daemon
+	;;
+    status)
+	daemon_status
+	;;
+    restart | reload | force-reload )
+	stop_daemon
+	start_daemon
+	;;
 esac
