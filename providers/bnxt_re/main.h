@@ -54,6 +54,8 @@
 
 #define DEV	"bnxt_re : "
 
+#define BNXT_RE_UD_QP_HW_STALL 0x400000
+
 struct bnxt_re_dpi {
 	__u32 dpindx;
 	__u64 *dbpage;
@@ -113,6 +115,7 @@ struct bnxt_re_qp {
 	uint32_t tbl_indx;
 	uint32_t sq_psn;
 	uint32_t pending_db;
+	uint64_t wqe_cnt;
 	uint16_t mtu;
 	uint16_t qpst;
 	uint8_t qptyp;

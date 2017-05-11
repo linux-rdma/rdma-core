@@ -1240,8 +1240,20 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		bnxt_re_fill_wrid(wrid, wr, bytes, qp->cap.sqsig);
 		bnxt_re_fill_psns(qp, psns, wr->opcode, bytes);
 		bnxt_re_incr_tail(sq);
+		qp->wqe_cnt++;
 		wr = wr->next;
 		bnxt_re_ring_sq_db(qp);
+		if (qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL && qp->qptyp ==
+		    IBV_QPT_UD) {
+			/* Move RTS to RTS since it is time. */
+			struct ibv_qp_attr attr;
+			int attr_mask;
+
+			attr_mask = IBV_QP_STATE;
+			attr.qp_state = IBV_QPS_RTS;
+			bnxt_re_modify_qp(&qp->ibvqp, &attr, attr_mask);
+			qp->wqe_cnt = 0;
+		}
 	}
 
 	pthread_spin_unlock(&sq->qlock);
