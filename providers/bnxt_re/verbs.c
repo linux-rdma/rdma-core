@@ -419,6 +419,11 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	ibvwc->wc_flags = 0;
 	if (is_imm) {
 		ibvwc->wc_flags |= IBV_WC_WITH_IMM;
+		/* Completion reports the raw-data in LE format, While
+		 * user expects it in BE format. Thus, swapping on outgoing
+		 * data is needed. On a BE platform le32toh will do the swap
+		 * while on LE platform htobe32 will do the job.
+		 */
 		ibvwc->imm_data = htobe32(le32toh(rcqe->imm_key));
 		if (is_rdma)
 			ibvwc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
@@ -917,9 +922,18 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 
 	rc = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
 	if (!rc) {
-		if (attr_mask & IBV_QP_STATE)
+		if (attr_mask & IBV_QP_STATE) {
 			qp->qpst = attr->qp_state;
-
+			/* transition to reset */
+			if (qp->qpst == IBV_QPS_RESET) {
+				qp->sqq->head = 0;
+				qp->sqq->tail = 0;
+				if (qp->rqq) {
+					qp->rqq->head = 0;
+					qp->rqq->tail = 0;
+				}
+			}
+		}
 		if (attr_mask & IBV_QP_SQ_PSN)
 			qp->sq_psn = attr->sq_psn;
 		if (attr_mask & IBV_QP_PATH_MTU)
@@ -1200,6 +1214,11 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 						  qp->cap.sqsig);
 		switch (wr->opcode) {
 		case IBV_WR_SEND_WITH_IMM:
+			/* Since our h/w is LE and user supplies raw-data in
+			 * BE format. Swapping on incoming data is needed.
+			 * On a BE platform htole32 will do the swap while on
+			 * LE platform be32toh will do the job.
+			 */
 			hdr->key_immd = htole32(be32toh(wr->imm_data));
 		case IBV_WR_SEND:
 			if (qp->qptyp == IBV_QPT_UD)
