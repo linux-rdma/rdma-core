@@ -159,6 +159,15 @@ static void bnxt_re_uninit_context(struct verbs_device *vdev,
 	if (cntx->shpg)
 		munmap(cntx->shpg, dev->pg_size);
 	pthread_spin_destroy(&cntx->fqlock);
+
+	/* Un-map DPI only for the first PD that was
+	 * allocated in this context.
+	 */
+	if (cntx->udpi.dbpage && cntx->udpi.dbpage != MAP_FAILED) {
+		pthread_spin_destroy(&cntx->udpi.db_lock);
+		munmap(cntx->udpi.dbpage, dev->pg_size);
+		cntx->udpi.dbpage = NULL;
+	}
 }
 
 static struct verbs_device_ops bnxt_re_dev_ops = {

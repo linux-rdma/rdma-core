@@ -96,14 +96,17 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 	dbr = *(uint64_t *)((uint32_t *)&resp + 3);
 
 	/* Map DB page now. */
-	cntx->udpi.dpindx = resp.dpi;
-	cntx->udpi.dbpage = mmap(NULL, dev->pg_size, PROT_WRITE, MAP_SHARED,
-				 ibvctx->cmd_fd, dbr);
-	if (cntx->udpi.dbpage == MAP_FAILED) {
-		(void)ibv_cmd_dealloc_pd(&pd->ibvpd);
-		goto out;
-	}
-	pthread_spin_init(&cntx->udpi.db_lock, PTHREAD_PROCESS_PRIVATE);
+	if (!cntx->udpi.dbpage) {
+		cntx->udpi.dpindx = resp.dpi;
+		cntx->udpi.dbpage = mmap(NULL, dev->pg_size, PROT_WRITE,
+					 MAP_SHARED, ibvctx->cmd_fd, dbr);
+		if (cntx->udpi.dbpage == MAP_FAILED) {
+			(void)ibv_cmd_dealloc_pd(&pd->ibvpd);
+			goto out;
+		}
+		pthread_spin_init(&cntx->udpi.db_lock,
+				  PTHREAD_PROCESS_PRIVATE);
+        }
 
 	return &pd->ibvpd;
 out:
@@ -114,18 +117,12 @@ out:
 int bnxt_re_free_pd(struct ibv_pd *ibvpd)
 {
 	struct bnxt_re_pd *pd = to_bnxt_re_pd(ibvpd);
-	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
-	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.device);
 	int status;
 
 	status = ibv_cmd_dealloc_pd(ibvpd);
 	if (status)
 		return status;
-
-	pthread_spin_destroy(&cntx->udpi.db_lock);
-	if (cntx->udpi.dbpage && (cntx->udpi.dbpage != MAP_FAILED))
-		munmap(cntx->udpi.dbpage, dev->pg_size);
-
+	/* DPI un-mapping will be during uninit_ucontext */
 	free(pd);
 
 	return 0;
