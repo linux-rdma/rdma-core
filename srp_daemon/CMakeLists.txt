@@ -3,6 +3,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
 rdma_man_pages(
   ibsrpdm.1
   srp_daemon.1.in
+  srp_daemon.service.5
+  srp_daemon_port@.service.5
   )
 
 rdma_sbin_executable(srp_daemon
@@ -24,6 +26,20 @@ rdma_subst_install(FILES "srp_daemon.sh.in"
   DESTINATION "${CMAKE_INSTALL_SBINDIR}"
   RENAME "srp_daemon.sh"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
+
+install(FILES start_on_all_ports
+  DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/srp_daemon"
+  PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
+
+rdma_subst_install(FILES srp_daemon.service.in
+  DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"
+  RENAME srp_daemon.service
+  PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+
+rdma_subst_install(FILES srp_daemon_port@.service.in
+  DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"
+  RENAME srp_daemon_port@.service
+  PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 
 install(FILES srp_daemon.conf DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
 

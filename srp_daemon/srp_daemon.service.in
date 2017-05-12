@@ -1,17 +1,14 @@
 [Unit]
-Description=Start or stop the daemon that attaches to SRP devices
+Description=Daemon that discovers and logs in to SRP target systems
 Documentation=man:srp_daemon file:/etc/rdma/rdma.conf file:/etc/srp_daemon.conf
 DefaultDependencies=false
 Conflicts=emergency.target emergency.service
-Requires=rdma.service
-Wants=opensm.service
-After=rdma.service opensm.service
-After=network.target
 Before=remote-fs-pre.target
 
 [Service]
-Type=simple
-ExecStart=/usr/sbin/srp_daemon.sh
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@CMAKE_INSTALL_LIBEXECDIR@/srp_daemon/start_on_all_ports
 
 [Install]
 WantedBy=remote-fs-pre.target
