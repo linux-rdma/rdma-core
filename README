@@ -10,36 +10,19 @@ interface to this library is _not_ guaranteed to be stable (though we try.)
 
 Dependencies:
 
-	1) libibmad >= 1.3.12
-	2) libibumad >= 1.3.7
-	3) opensm-libs >= 3.3.10
-	4) ib_umad kernel module
-	5) glib2
+	1) libibumad >= 1.3.7
+	2) opensm-libs >= 3.3.10
+	3) ib_umad kernel module
+	4) glib2
 
 
-Release notes v1.6.6 => 1.6.7
+Release notes 1.6.7 => 2.0.0
 
-   1) bug fixes
-   2) Add support for systemd
+   1) combine libibmad
 
 
-Authors since 1.6.6
+Authors since 1.6.7
 
-Dan Ben Yosef (1):
-  saquery.c: Fix changing qos_class flag value to network order twice
+*Preserved history from libibmad*
 
-Hal Rosenstock (5):
-  ibcacheedit.c: Eliminate unused parameter passed to
-    update_switchportguids
-  ibqueryerrors.c: Removed unused passed parameters to print_port_config
-    and query_and_dump
-  Remove unused pisize parameter from dump_portinfo in ibdiag_common
-  ibportstate.c: Fix unsigned comparison warnings
-  ibsendtrap.c: Eliminate unused parameter from send_trap
-
-Ira Weiny (1):
-  rdma-ndd: Add systemd support
-
-Vladimir Koushnir (1):
-  infiniband-diags: Add Switch-IB2 support to device white lists
 

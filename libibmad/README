@@ -1,27 +1,7 @@
 libibmad is a convenience library to encode, decode, and dump IB MAD packets.  It
-is implemented on top of and in conjunction with libibumad (the umad kernel
-interface library.)
+is implemented on top of libibumad.
 
-The main consumer of this library is the infiniband-diags package.
-
-Dependencies:
-
-	1) libibumad >= 1.3.7
-		rdma-core now provides libibumad
-	2) opensm-libs >= 3.3.10
-	3) ib_umad kernel module
-
-Release notes for 1.3.12 to 1.3.13 are:
-
-   1) bug fixes
-
-
-Updates since 1.3.12
-
-  Ira Weiny  :  libibmad: Fix conflict with new umad.h header
-  Hal Rosenstock  :  configure.ac: Update AM_INIT_AUTOMAKE to use subdir-objects
-  Ira Weiny  :  configure.ac: Update configure.in to configure.ac
-  Ira Weiny  :  libibmad: Makefile.am: Fix INCLUDES warning
-  Vladimir Koushnir  :  portid.c: Preserve routepath string in str2drpath
-
+The main consumer of this library is the infiniband-diags package and it is
+therefore provided as part of that package.  The last independent release of
+libibmad was version 1.3.13.
 
