@@ -5,7 +5,7 @@
 srp_daemon \- Discovers SRP targets in an InfiniBand Fabric
 
 .SH SYNOPSIS
-.B srp_daemon\fR [\fB-vVcaeon\fR] [\fB-d \fIumad-device\fR | \fB-i \fIinfiniband-device\fR [\fB-p \fIport-num\fR]] [\fB-t \fItimeout(ms)\fR] [\fB-r \fIretries\fR] [\fB-R \fIrescan-time\fR] [\fB-f \fIrules-file\fR]
+.B srp_daemon\fR [\fB-vVcaeon\fR] [\fB-d \fIumad-device\fR | \fB-i \fIinfiniband-device\fR [\fB-p \fIport-num\fR] | \fB-j \fIdev:port\fR] [\fB-t \fItimeout(ms)\fR] [\fB-r \fIretries\fR] [\fB-R \fIrescan-time\fR] [\fB-f \fIrules-file\fR]
 
 
 .SH DESCRIPTION
@@ -41,13 +41,20 @@ Print more verbose output
 Print even more verbose output (debug mode)
 .TP
 \fB\-i\fR \fIinfiniband-device\fR
-Work on \fIinfiniband-device\fR. This option should not be used with -d.
+Work on \fIinfiniband-device\fR. This option should not be used with -d nor
+with -j.
 .TP
 \fB\-p\fR \fIport-num\fR
-Work on port \fIport-num\fR (default 1). This option must be used with -i and should not be used with -d.
+Work on port \fIport-num\fR (default 1). This option must be used with -i and
+should not be used with -d nor with -j.
+.TP
+\fB\-j\fR \fIdev:port\fR
+Work on port number \fIport\fR of InfiniBand device \fIdev\fR. This option
+should not be used with -d, -i nor with -p.
 .TP
 \fB\-d\fR \fIumad-device\fR
-Use device file \fIumad-device\fR (default /dev/infiniband/umad0) This option should not be used with -i or -p.
+Use device file \fIumad-device\fR (default /dev/infiniband/umad0) This option
+should not be used with -i, -p nor with -j.
 .TP
 \fB\-c\fR
 Generate output suitable for piping directly to a
