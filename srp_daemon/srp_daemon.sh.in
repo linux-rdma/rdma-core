@@ -31,35 +31,35 @@
 shopt -s nullglob
 
 prog=@CMAKE_INSTALL_FULL_SBINDIR@/srp_daemon
-params=$@
+params=("$@")
 ibdir="/sys/class/infiniband"
 rescan_interval=60
-pids=""
-pidfile=@CMAKE_INSTALL_FULL_RUNDIR@/srp_daemon.sh.pid
+pids=()
+pidfile="@CMAKE_INSTALL_FULL_RUNDIR@/srp_daemon.sh.pid"
 mypid=$$
 
 trap_handler()
 {
-    if [ -n "$pids" ]; then
-        kill -15 $pids > /dev/null 2>&1
-        wait $pids
+    if [ "${#pids[@]}" ]; then
+        kill -15 "${pids[@]}" > /dev/null 2>&1
+        wait "${pids[@]}"
     fi
-    logger -i -t "$(basename $0)" "killing $prog."
-    /bin/rm -f $pidfile
+    logger -i -t "$(basename "$0")" "killing $prog."
+    /bin/rm -f "$pidfile"
     exit 0
 }
 
 # Check if there is another copy running of srp_daemon.sh
-if [ -f $pidfile ]; then
-    if [ -e /proc/$(cat $pidfile 2>/dev/null)/status ]; then
-        echo "$(basename $0) is already running. Exiting."
+if [ -f "$pidfile" ]; then
+    if [ -e "/proc/$(cat "$pidfile" 2>/dev/null)/status" ]; then
+        echo "$(basename "$0") is already running. Exiting."
         exit 1
     else
-        /bin/rm -f $pidfile
+        /bin/rm -f "$pidfile"
     fi
 fi
 
-if ! echo $mypid > $pidfile; then
+if ! echo $mypid > "$pidfile"; then
     echo "Creating $pidfile for pid $mypid failed"
     exit 1
 fi
@@ -72,12 +72,12 @@ do
 done
 
 for d in ${ibdir}_mad/umad*; do
-    hca_id="$(<$d/ibdev)"
-    port="$(<$d/port)"
+    hca_id="$(<"$d/ibdev")"
+    port="$(<"$d/port")"
     add_target="${ibdir}_srp/srp-${hca_id}-${port}/add_target"
     if [ -e "${add_target}" ]; then
-        ${prog} -e -c -n -i ${hca_id} -p ${port} -R ${rescan_interval} ${params} >/dev/null 2>&1 &
-        pids="$pids $!"
+        ${prog} -e -c -n -i "${hca_id}" -p "${port}" -R "${rescan_interval}" "${params[@]}" >/dev/null 2>&1 &
+        pids+=($!)
     fi
 done
 
