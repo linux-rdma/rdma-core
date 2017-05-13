@@ -31,11 +31,6 @@ AM_CONDITIONAL(HAVE_DASH, test x$have_dash = xtrue)
 dnl Checks for libraries
 AC_CHECK_LIB(ibumad, umad_init, [],
 	AC_MSG_ERROR([umad_init() not found. diags require libibumad.]))
-AC_CHECK_LIB(ibmad, mad_dump_mlnx_ext_port_info, [],
-	AC_MSG_ERROR([mad_dump_mlnx_ext_port_info() not found.
-	diags require libibmad with mad_dump_mlnx_ext_port_info support.]))
-AC_CHECK_LIB(ibmad, mad_dump_classportinfo, [],
-	AC_MSG_ERROR([mad_dump_classportinfo() not found. diags requires a more recent libibmad.]))
 AC_CHECK_MEMBER([struct umad_port.link_layer],
 			[ac_have_umad_port_link_layer=yes],
 			[ac_have_umad_port_link_layer=no],
@@ -48,12 +43,9 @@ AC_CHECK_LIB(osmcomp, cl_qmap_insert, [],
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([stdlib.h string.h unistd.h fcntl.h inttypes.h netinet/in.h sys/ioctl.h])
+AC_CHECK_HEADERS([stdlib.h string.h unistd.h fcntl.h inttypes.h netinet/in.h sys/ioctl.h sys/time.h])
 AC_CHECK_HEADER(infiniband/umad.h, [],
 	AC_MSG_ERROR([<infiniband/umad.h> not found. diags require libibumad.])
-)
-AC_CHECK_HEADER(infiniband/mad.h, [],
-	AC_MSG_ERROR([<infiniband/mad.h> not found. diags require libibmad.])
 )
 
 dnl Checks for library functions
@@ -63,6 +55,7 @@ AC_CHECK_FUNCS([strchr strrchr strtol strtoul memset strtoull])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
+AC_C_INLINE
 
 dnl Define a configure directory
 IBDIAG_CONFIG_PATH_TMP1="`eval echo ${sysconfdir}`"
@@ -179,6 +172,15 @@ if test -z $ibnetdisc_api_version; then
 fi
 AC_SUBST(ibnetdisc_api_version)
 dnl End libibnetdisc stuff
+
+dnl Begin libibmad stuff
+ibmad_api_version=`grep LIBVERSION $srcdir/libibmad/libibmad.ver | sed 's/LIBVERSION=//'`
+if test -z $ibmad_api_version; then
+   ibmad_api_version=1:0:0
+fi
+AC_SUBST(ibmad_api_version)
+dnl End libibmad stuff
+
 
 dnl Begin determine the systemd use and location
 PKG_CHECK_MODULES([SYSTEMD], [systemd], use_systemd=yes, use_systemd=no)
@@ -322,5 +324,6 @@ AC_CONFIG_FILES([\
 	doc/man/vendstat.8 \
 	doc/man/infiniband-diags.8 \
 	libibnetdisc/Makefile \
+	libibmad/Makefile \
 ])
 AC_OUTPUT
