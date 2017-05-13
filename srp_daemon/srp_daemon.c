@@ -2196,21 +2196,22 @@ catas_start:
 				}
 			}
 		} else {
+			static const struct timespec zero;
 			struct timespec now, delta;
+			struct timespec recalc = {
+				.tv_sec = config->recalc_time
+			};
 			struct timeval timeout;
 
 			clock_gettime(CLOCK_MONOTONIC, &now);
 			ts_sub(&res->sync_res->next_recalc_time, &now, &delta);
 			pthread_mutex_unlock(&res->sync_res->mutex);
 
-			if (delta.tv_sec > 0 ||
-			    (delta.tv_sec == 0 && delta.tv_nsec > 0)) {
-				timeout.tv_sec = delta.tv_sec;
-				timeout.tv_usec = delta.tv_nsec / 1000 + 1;
-			} else {
-				timeout.tv_sec = 0;
-				timeout.tv_usec = 0;
-			}
+			if (ts_cmp(&zero, &delta, <=) &&
+			    ts_cmp(&delta, &recalc, <))
+				recalc = delta;
+			timeout.tv_sec = recalc.tv_sec;
+			timeout.tv_usec = recalc.tv_nsec / 1000 + 1;
 
 			received_signal = get_received_signal(timeout.tv_sec,
 							timeout.tv_usec) ? :
