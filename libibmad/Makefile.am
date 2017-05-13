@@ -1,9 +1,13 @@
-ACLOCAL_AMFLAGS = -I config
-SUBDIRS = .
 
-AM_CPPFLAGS = -I$(srcdir)/include -I$(includedir)
+AM_CPPFLAGS = -I$(srcdir)/include -I$(includedir) -I$(includedir)/infiniband
 
 lib_LTLIBRARIES = libibmad.la
+
+if DEBUG
+DBGFLAGS = -ggdb -D_DEBUG_
+else
+DBGFLAGS =
+endif
 
 libibmad_la_CFLAGS = -Wall
 
@@ -26,10 +30,5 @@ libibmadincludedir = $(includedir)/infiniband
 
 libibmadinclude_HEADERS = $(srcdir)/include/infiniband/mad.h $(srcdir)/include/infiniband/mad_osd.h
 
-EXTRA_DIST = libibmad.spec.in libibmad.spec \
-	$(srcdir)/src/libibmad.map libibmad.ver autogen.sh
+EXTRA_DIST = $(srcdir)/src/libibmad.map libibmad.ver
 
-dist-hook:
-	if [ -x $(top_srcdir)/gen_chlog.sh ] ; then \
-		$(top_srcdir)/gen_chlog.sh > $(distdir)/ChangeLog ; \
-	fi

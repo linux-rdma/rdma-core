@@ -1,8 +1,9 @@
 ACLOCAL_AMFLAGS = -I config
-SUBDIRS = libibnetdisc
+SUBDIRS = libibmad libibnetdisc
 
 AM_CPPFLAGS = -I$(top_builddir)/include/ -I$(srcdir)/include -I$(includedir) \
-	-I$(includedir)/infiniband -I$(top_srcdir)/libibnetdisc/include
+	-I$(includedir)/infiniband -I$(top_srcdir)/libibnetdisc/include \
+	-I$(top_srcdir)/libibmad/include
 
 if DEBUG
 DBGFLAGS = -ggdb -D_DEBUG_
@@ -98,12 +99,13 @@ endif
 noinst_LIBRARIES = libcommon.a
 
 AM_CFLAGS = -Wall $(DBGFLAGS)
-LDADD = libcommon.a
+LDADD = libcommon.a \
+	-L$(top_builddir)/libibnetdisc -libnetdisc \
+	-L$(top_builddir)/libibmad -libmad
 
 libcommon_a_SOURCES = src/ibdiag_common.c src/ibdiag_sa.c
 src_ibaddr_SOURCES = src/ibaddr.c
 src_ibnetdiscover_SOURCES = src/ibnetdiscover.c
-src_ibnetdiscover_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibping_SOURCES = src/ibping.c
 src_ibportstate_SOURCES = src/ibportstate.c
 src_ibroute_SOURCES = src/ibroute.c
@@ -121,19 +123,16 @@ src_mcm_rereg_test_SOURCES = src/mcm_rereg_test.c
 src_iblinkinfo_SOURCES = src/iblinkinfo.c
 src_ibccquery_SOURCES = src/ibccquery.c
 src_ibccconfig_SOURCES = src/ibccconfig.c
-src_iblinkinfo_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibqueryerrors_SOURCES = src/ibqueryerrors.c
-src_ibqueryerrors_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 src_ibcacheedit_SOURCES = src/ibcacheedit.c
-src_ibcacheedit_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
 
 src_dump_fts_SOURCES = src/dump_fts.c
-src_dump_fts_LDFLAGS = -L$(top_builddir)/libibnetdisc -libnetdisc
+src_dump_fts_LDFLAGS = $(internal_lib_LDFLAGS)
 
 if ENABLE_RDMA_NDD
 src_rdma_ndd_SOURCES = src/rdma-ndd.c
 src_rdma_ndd_CFLAGS = $(AM_CFLAGS) $(UDEV_CFLAGS)
-src_rdma_ndd_LDADD = libcommon.a $(UDEV_LIBS)
+src_rdma_ndd_LDADD = libcommon.a $(UDEV_LIBS) $(LDADD)
 endif
 
 BUILT_SOURCES = ibdiag_version
