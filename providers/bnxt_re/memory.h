@@ -49,6 +49,14 @@ struct bnxt_re_queue {
 	uint32_t head;
 	uint32_t tail;
 	uint32_t stride;
+	/* Represents the difference between the real queue depth allocated in
+	 * HW and the user requested queue depth and is used to correctly flag
+	 * queue full condition based on user supplied queue depth.
+	 * This value can vary depending on the type of queue and any HW
+	 * requirements that mandate keeping a fixed gap between the producer
+	 * and the consumer indices in the queue
+	 */
+	uint32_t diff;
 	pthread_spinlock_t qlock;
 };
 
@@ -86,7 +94,7 @@ static inline void iowrite32(__u32 *dst, __le32 *src)
 /* Basic queue operation */
 static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que)
 {
-	return (((que->tail + 1) & (que->depth - 1)) == que->head);
+	return (((que->diff + que->tail) & (que->depth - 1)) == que->head);
 }
 
 static inline uint32_t bnxt_re_is_que_empty(struct bnxt_re_queue *que)

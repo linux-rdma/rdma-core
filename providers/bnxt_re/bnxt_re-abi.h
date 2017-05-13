@@ -43,6 +43,8 @@
 
 #define BNXT_RE_ABI_VERSION 1
 
+#define BNXT_RE_FULL_FLAG_DELTA        0x80
+
 enum bnxt_re_wr_opcode {
 	BNXT_RE_WR_OPCD_SEND		= 0x00,
 	BNXT_RE_WR_OPCD_SEND_IMM	= 0x01,

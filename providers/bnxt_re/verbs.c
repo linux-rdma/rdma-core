@@ -96,14 +96,17 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 	dbr = *(uint64_t *)((uint32_t *)&resp + 3);
 
 	/* Map DB page now. */
-	cntx->udpi.dpindx = resp.dpi;
-	cntx->udpi.dbpage = mmap(NULL, dev->pg_size, PROT_WRITE, MAP_SHARED,
-				 ibvctx->cmd_fd, dbr);
-	if (cntx->udpi.dbpage == MAP_FAILED) {
-		(void)ibv_cmd_dealloc_pd(&pd->ibvpd);
-		goto out;
-	}
-	pthread_spin_init(&cntx->udpi.db_lock, PTHREAD_PROCESS_PRIVATE);
+	if (!cntx->udpi.dbpage) {
+		cntx->udpi.dpindx = resp.dpi;
+		cntx->udpi.dbpage = mmap(NULL, dev->pg_size, PROT_WRITE,
+					 MAP_SHARED, ibvctx->cmd_fd, dbr);
+		if (cntx->udpi.dbpage == MAP_FAILED) {
+			(void)ibv_cmd_dealloc_pd(&pd->ibvpd);
+			goto out;
+		}
+		pthread_spin_init(&cntx->udpi.db_lock,
+				  PTHREAD_PROCESS_PRIVATE);
+        }
 
 	return &pd->ibvpd;
 out:
@@ -114,18 +117,12 @@ out:
 int bnxt_re_free_pd(struct ibv_pd *ibvpd)
 {
 	struct bnxt_re_pd *pd = to_bnxt_re_pd(ibvpd);
-	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
-	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.device);
 	int status;
 
 	status = ibv_cmd_dealloc_pd(ibvpd);
 	if (status)
 		return status;
-
-	pthread_spin_destroy(&cntx->udpi.db_lock);
-	if (cntx->udpi.dbpage && (cntx->udpi.dbpage != MAP_FAILED))
-		munmap(cntx->udpi.dbpage, dev->pg_size);
-
+	/* DPI un-mapping will be during uninit_ucontext */
 	free(pd);
 
 	return 0;
@@ -422,6 +419,11 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	ibvwc->wc_flags = 0;
 	if (is_imm) {
 		ibvwc->wc_flags |= IBV_WC_WITH_IMM;
+		/* Completion reports the raw-data in LE format, While
+		 * user expects it in BE format. Thus, swapping on outgoing
+		 * data is needed. On a BE platform le32toh will do the swap
+		 * while on LE platform htobe32 will do the job.
+		 */
 		ibvwc->imm_data = htobe32(le32toh(rcqe->imm_key));
 		if (is_rdma)
 			ibvwc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
@@ -793,7 +795,11 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 
 	que = qp->sqq;
 	que->stride = bnxt_re_get_sqe_sz();
-	que->depth = roundup_pow_of_two(attr->cap.max_send_wr + 1);
+	/* 8916 adjustment */
+	que->depth = roundup_pow_of_two(attr->cap.max_send_wr + 1 +
+					BNXT_RE_FULL_FLAG_DELTA);
+	que->diff = que->depth - attr->cap.max_send_wr;
+
 	/* psn_depth extra entries of size que->stride */
 	psn_depth = (que->depth * sizeof(struct bnxt_re_psns)) /
 		     que->stride;
@@ -828,6 +834,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 		que = qp->rqq;
 		que->stride = bnxt_re_get_rqe_sz();
 		que->depth = roundup_pow_of_two(attr->cap.max_recv_wr + 1);
+		que->diff = que->depth - attr->cap.max_recv_wr;
 		ret = bnxt_re_alloc_aligned(qp->rqq, pg_size);
 		if (ret)
 			goto fail;
@@ -888,9 +895,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	qp->rcq = to_bnxt_re_cq(attr->recv_cq);
 	qp->udpi = &cntx->udpi;
 	/* Save/return the altered Caps. */
-	attr->cap.max_send_wr = cap->max_swr;
 	cap->max_ssge = attr->cap.max_send_sge;
-	attr->cap.max_recv_wr = cap->max_rwr;
 	cap->max_rsge = attr->cap.max_recv_sge;
 	cap->max_inline = attr->cap.max_inline_data;
 	cap->sqsig = attr->sq_sig_all;
@@ -917,9 +922,18 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 
 	rc = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
 	if (!rc) {
-		if (attr_mask & IBV_QP_STATE)
+		if (attr_mask & IBV_QP_STATE) {
 			qp->qpst = attr->qp_state;
-
+			/* transition to reset */
+			if (qp->qpst == IBV_QPS_RESET) {
+				qp->sqq->head = 0;
+				qp->sqq->tail = 0;
+				if (qp->rqq) {
+					qp->rqq->head = 0;
+					qp->rqq->tail = 0;
+				}
+			}
+		}
 		if (attr_mask & IBV_QP_SQ_PSN)
 			qp->sq_psn = attr->sq_psn;
 		if (attr_mask & IBV_QP_PATH_MTU)
@@ -1078,6 +1092,11 @@ static int bnxt_re_build_send_sqe(struct bnxt_re_qp *qp, void *wqe,
 	} else {
 		qesize = wr->num_sge;
 	}
+	/* HW requires wqe size has room for atleast one sge even if none was
+	 * supplied by application
+	 */
+	if (!wr->num_sge)
+		qesize++;
 	qesize += (bnxt_re_get_sqe_hdr_sz() >> 4);
 	hdrval |= (qesize & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT;
 	hdr->rsv_ws_fl_wt |= htole32(hdrval);
@@ -1195,6 +1214,11 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 						  qp->cap.sqsig);
 		switch (wr->opcode) {
 		case IBV_WR_SEND_WITH_IMM:
+			/* Since our h/w is LE and user supplies raw-data in
+			 * BE format. Swapping on incoming data is needed.
+			 * On a BE platform htole32 will do the swap while on
+			 * LE platform be32toh will do the job.
+			 */
 			hdr->key_immd = htole32(be32toh(wr->imm_data));
 		case IBV_WR_SEND:
 			if (qp->qptyp == IBV_QPT_UD)
@@ -1232,8 +1256,20 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		bnxt_re_fill_wrid(wrid, wr, bytes, qp->cap.sqsig);
 		bnxt_re_fill_psns(qp, psns, wr->opcode, bytes);
 		bnxt_re_incr_tail(sq);
+		qp->wqe_cnt++;
 		wr = wr->next;
 		bnxt_re_ring_sq_db(qp);
+		if (qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL && qp->qptyp ==
+		    IBV_QPT_UD) {
+			/* Move RTS to RTS since it is time. */
+			struct ibv_qp_attr attr;
+			int attr_mask;
+
+			attr_mask = IBV_QP_STATE;
+			attr.qp_state = IBV_QPS_RTS;
+			bnxt_re_modify_qp(&qp->ibvqp, &attr, attr_mask);
+			qp->wqe_cnt = 0;
+		}
 	}
 
 	pthread_spin_unlock(&sq->qlock);
@@ -1256,6 +1292,11 @@ static int bnxt_re_build_rqe(struct bnxt_re_qp *qp, struct ibv_recv_wr *wr,
 
 	len = bnxt_re_build_sge(sge, wr->sg_list, wr->num_sge, false);
 	wqe_sz = wr->num_sge + (bnxt_re_get_rqe_hdr_sz() >> 4); /* 16B align */
+	/* HW requires wqe size has room for atleast one sge even if none was
+	 * supplied by application
+	 */
+	if (!wr->num_sge)
+		wqe_sz++;
 	hdrval = BNXT_RE_WR_OPCD_RECV;
 	hdrval |= ((wqe_sz & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT);
 	hdr->rsv_ws_fl_wt = htole32(hdrval);
