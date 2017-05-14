@@ -790,6 +790,7 @@ enum ibv_qp_create_flags {
 	IBV_QP_CREATE_BLOCK_SELF_MCAST_LB	= 1 << 1,
 	IBV_QP_CREATE_SCATTER_FCS		= 1 << 8,
 	IBV_QP_CREATE_CVLAN_STRIPPING		= 1 << 9,
+	IBV_QP_CREATE_SOURCE_QPN		= 1 << 10,
 };
 
 struct ibv_rx_hash_conf {
@@ -817,6 +818,7 @@ struct ibv_qp_init_attr_ex {
 	uint16_t		max_tso_header;
 	struct ibv_rwq_ind_table       *rwq_ind_tbl;
 	struct ibv_rx_hash_conf	rx_hash_conf;
+	uint32_t		source_qpn;
 };
 
 enum ibv_qp_open_attr_mask {

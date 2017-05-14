@@ -927,7 +927,8 @@ static void create_qp_handle_resp_common(struct ibv_context *context,
 enum {
 	CREATE_QP_EX2_SUP_CREATE_FLAGS = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB |
 					 IBV_QP_CREATE_SCATTER_FCS |
-					 IBV_QP_CREATE_CVLAN_STRIPPING,
+					 IBV_QP_CREATE_CVLAN_STRIPPING |
+					 IBV_QP_CREATE_SOURCE_QPN,
 };
 
 int ibv_cmd_create_qp_ex2(struct ibv_context *context,
@@ -967,6 +968,9 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 				    sizeof(qp_attr->create_flags))
 			return EINVAL;
 		cmd->create_flags = qp_attr->create_flags;
+
+		if (qp_attr->create_flags & IBV_QP_CREATE_SOURCE_QPN)
+			cmd->source_qpn = qp_attr->source_qpn;
 	}
 
 	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE) {

@@ -679,7 +679,7 @@ struct ibv_create_qp_ex {
 	__u32 comp_mask;
 	__u32 create_flags;
 	__u32 ind_tbl_handle;
-	__u32 reserved1;
+	__u32 source_qpn;
 };
 
 struct ibv_create_qp_resp_ex {
