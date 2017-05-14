@@ -1199,7 +1199,8 @@ out:
 		 * This is only for Raw Packet QPs since they are represented
 		 * differently in the hardware.
 		 */
-		if (likely(!(ibqp->qp_type == IBV_QPT_RAW_PACKET &&
+		if (likely(!((ibqp->qp_type == IBV_QPT_RAW_PACKET ||
+			      qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) &&
 			     ibqp->state < IBV_QPS_RTR)))
 			qp->db[MLX5_RCV_DBR] = htobe32(qp->rq.head & 0xffff);
 	}

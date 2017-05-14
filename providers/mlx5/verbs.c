@@ -1096,7 +1096,8 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 
 	memset(qp->buf.buf, 0, qp->buf_size);
 
-	if (attr->qp_type == IBV_QPT_RAW_PACKET) {
+	if (attr->qp_type == IBV_QPT_RAW_PACKET ||
+	    qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
 		size_t aligned_sq_buf_size = align(qp->sq_buf_size,
 						   to_mdev(context->device)->page_size);
 		/* For Raw Packet QP, allocate a separate buffer for the SQ */
@@ -1257,6 +1258,17 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	ibqp = (struct ibv_qp *)&qp->verbs_qp;
 	qp->ibv_qp = ibqp;
 
+	if ((attr->comp_mask & IBV_QP_INIT_ATTR_CREATE_FLAGS) &&
+		(attr->create_flags & IBV_QP_CREATE_SOURCE_QPN)) {
+
+		if (attr->qp_type != IBV_QPT_UD) {
+			errno = EINVAL;
+			goto err;
+		}
+
+		qp->flags |= MLX5_QP_FLAGS_USE_UNDERLAY;
+	}
+
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
 	memset(&resp_ex, 0, sizeof(resp_ex));
@@ -1282,7 +1294,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		goto err;
 	}
 
-	if (attr->qp_type == IBV_QPT_RAW_PACKET) {
+	if (attr->qp_type == IBV_QPT_RAW_PACKET ||
+	    qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
 		qp->buf_size = qp->sq.offset;
 		qp->sq_buf_size = ret - qp->buf_size;
 		qp->sq.offset = 0;
@@ -1296,7 +1309,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		goto err;
 	}
 
-	if (attr->qp_type == IBV_QPT_RAW_PACKET) {
+	if (attr->qp_type == IBV_QPT_RAW_PACKET ||
+	    qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
 		qp->sq_start = qp->sq_buf.buf;
 		qp->sq.qend = qp->sq_buf.buf +
 				(qp->sq.wqe_cnt << qp->sq.wqe_shift);
@@ -1322,7 +1336,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	qp->db[MLX5_SND_DBR] = 0;
 
 	cmd.buf_addr = (uintptr_t) qp->buf.buf;
-	cmd.sq_buf_addr = (attr->qp_type == IBV_QPT_RAW_PACKET) ?
+	cmd.sq_buf_addr = (attr->qp_type == IBV_QPT_RAW_PACKET ||
+			   qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) ?
 			  (uintptr_t) qp->sq_buf.buf : 0;
 	cmd.db_addr  = (uintptr_t) qp->db;
 	cmd.sq_wqe_count = qp->sq.wqe_cnt;
@@ -1560,6 +1575,16 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (mqp->rss_qp)
 		return ENOSYS;
 
+	if (mqp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
+		if (attr_mask & ~(IBV_QP_STATE | IBV_QP_CUR_STATE))
+			return EINVAL;
+
+		/* Underlay QP is UD over infiniband */
+		if (context->cached_device_cap_flags & IBV_DEVICE_UD_IP_CSUM)
+			mqp->qp_cap_cache |= MLX5_CSUM_SUPPORT_UNDERLAY_UD |
+					     MLX5_RX_CSUM_VALID;
+	}
+
 	if (attr_mask & IBV_QP_PORT) {
 		switch (qp->qp_type) {
 		case IBV_QPT_RAW_PACKET:
@@ -1621,7 +1646,8 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (!ret &&
 	    (attr_mask & IBV_QP_STATE) &&
 	    attr->qp_state == IBV_QPS_RTR &&
-	    qp->qp_type == IBV_QPT_RAW_PACKET) {
+	    (qp->qp_type == IBV_QPT_RAW_PACKET ||
+	     mqp->flags & MLX5_QP_FLAGS_USE_UNDERLAY)) {
 		mlx5_spin_lock(&mqp->rq.lock);
 		mqp->db[MLX5_RCV_DBR] = htobe32(mqp->rq.head & 0xffff);
 		mlx5_spin_unlock(&mqp->rq.lock);
