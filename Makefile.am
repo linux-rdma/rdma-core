@@ -157,11 +157,6 @@ EXTRA_DIST = doc scripts include infiniband-diags.spec.in infiniband-diags.spec 
 distclean-local:
 	$(top_srcdir)/doc/generate clean
 
-dist-hook:
-	if [ -x $(top_srcdir)/gen_chlog.sh ] ; then \
-		$(top_srcdir)/gen_chlog.sh > $(distdir)/ChangeLog ; \
-	fi
-
 # install this to a default location.
 install-data-hook:
 	if test ! -d $(DESTDIR)/$(sysconfdir)/infiniband-diags; then \
