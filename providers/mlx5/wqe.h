@@ -50,6 +50,10 @@ struct mlx5_eqe_qp_srq {
 	uint32_t	qp_srq_n;
 };
 
+struct mlx5_wqe_eth_pad {
+	uint8_t rsvd0[16];
+};
+
 struct mlx5_wqe_xrc_seg {
 	__be32		xrc_srqn;
 	uint8_t		rsvd[12];
@@ -63,6 +67,8 @@ struct mlx5_wqe_masked_atomic_seg {
 };
 
 enum {
+	MLX5_IPOIB_INLINE_MIN_HEADER_SIZE	= 4,
+	MLX5_SOURCE_QPN_INLINE_MAX_HEADER_SIZE	= 18,
 	MLX5_ETH_L2_INLINE_HEADER_SIZE	= 18,
 	MLX5_ETH_L2_MIN_HEADER_SIZE	= 14,
 };

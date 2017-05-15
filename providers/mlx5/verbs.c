@@ -756,7 +756,7 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
-static int sq_overhead(enum ibv_qp_type	qp_type)
+static int sq_overhead(struct mlx5_qp *qp, enum ibv_qp_type qp_type)
 {
 	size_t size = 0;
 	size_t mw_bind_size =
@@ -781,6 +781,10 @@ static int sq_overhead(enum ibv_qp_type	qp_type)
 	case IBV_QPT_UD:
 		size = sizeof(struct mlx5_wqe_ctrl_seg) +
 			sizeof(struct mlx5_wqe_datagram_seg);
+
+		if (qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY)
+			size += (sizeof(struct mlx5_wqe_eth_seg) + sizeof(struct mlx5_wqe_eth_pad));
+
 		break;
 
 	case IBV_QPT_XRC_SEND:
@@ -814,7 +818,7 @@ static int mlx5_calc_send_wqe(struct mlx5_context *ctx,
 	int max_gather;
 	int tot_size;
 
-	size = sq_overhead(attr->qp_type);
+	size = sq_overhead(qp, attr->qp_type);
 	if (size < 0)
 		return size;
 
@@ -887,7 +891,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 		return -EINVAL;
 	}
 
-	qp->max_inline_data = wqe_size - sq_overhead(attr->qp_type) -
+	qp->max_inline_data = wqe_size - sq_overhead(qp, attr->qp_type) -
 		sizeof(struct mlx5_wqe_inl_data_seg);
 	attr->cap.max_inline_data = qp->max_inline_data;
 
