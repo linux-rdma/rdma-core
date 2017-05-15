@@ -11,26 +11,43 @@ Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source: http://www.openfabrics.org/downloads/management/@TARBALL@
 Url: http://openfabrics.org/
-BuildRequires: libibmad-devel, opensm-devel, libibumad-devel, glib2-devel, libudev-devel
+BuildRequires: opensm-devel, libibumad-devel, glib2-devel, libudev-devel
 @SYSTEMD_BUILD_REQUIRES@
-Requires: libibmad, opensm-libs, libibumad, glib2
+Requires: opensm-libs, libibumad, glib2
 Provides: perl(IBswcountlimits)
 Obsoletes: openib-diags
+Provides: libibmad = %{version}-%{release}
+Obsoletes: libibmad < %{version}-%{release}
+Requires(post): /sbin/ldconfig
+Requires(postun): /sbin/ldconfig
 
 %description
-This package provides IB diagnostic programs and scripts needed to
-diagnose an IB subnet.
+This package provides IB diagnostic programs and scripts needed to diagnose an
+IB subnet.  infiniband-diags now also provides libibmad.  libibmad provides low
+layer IB functions for use by the IB diagnostic and management programs. These
+include MAD, SA, SMP, and other basic IB functions.
 
 %package compat
 Summary: OpenFabrics Alliance InfiniBand Diagnostic Tools
 Group: System Environment/Libraries
-BuildRequires: libibmad-devel, opensm-devel, libibumad-devel
-Requires: libibmad, opensm-libs, libibumad
+BuildRequires: opensm-devel, libibumad-devel
+Requires: opensm-libs, libibumad
 
 %description compat
 Deprecated scripts and utilities which provide duplicated functionality, most
 often at a reduced performance.  These are maintained for the time being for
 compatibility reasons.
+
+%package devel
+Summary: OpenFabrics Alliance InfiniBand Diagnostic Tools
+Group: System Environment/Libraries
+BuildRequires: opensm-devel, libibumad-devel
+Requires: opensm-libs, libibumad
+Provides: libibmad-devel = %{version}-%{release}
+Obsoletes: libibmad-devel < %{version}-%{release}
+
+%description devel
+Headers and development files for internal libraries.
 
 %prep
 %setup -q
@@ -161,18 +178,22 @@ rm -rf $RPM_BUILD_ROOT
 
 # and the rest
 %{_mandir}/man8/infiniband-diags.8.gz
-%{_libdir}/*.a
-%{_libdir}/*.so*
+%{_libdir}/*.so.*
 %{_mandir}/man3/*
-%{_includedir}/infiniband/*.h
 %define _perldir %(perl -e 'use Config; $T=$Config{installvendorlib}; print $T;')
 %{_perldir}/*
 %{_sysconfdir}/infiniband-diags/*
 @SPEC_FILE_RDMA_NDD_INSTALL@
 %doc README COPYING ChangeLog
 
+%files devel
+%{_libdir}/*.a
+%{_libdir}/*.so
+%{_includedir}/infiniband/*.h
+
 
 %post
+/sbin/ldconfig
 if [ $1 = 1 ]; then
     if [ -e /etc/init.d/rdma-ndd ] && [ -e /sbin/chkconfig ]; then
         /sbin/chkconfig --add rdma-ndd
@@ -194,6 +215,7 @@ if [ $1 = 0 ]; then
 fi
 
 %postun
+/sbin/ldconfig
 if [ $1 = 0 ]; then
     if type systemctl >/dev/null 2>&1; then
         systemctl daemon-reload
