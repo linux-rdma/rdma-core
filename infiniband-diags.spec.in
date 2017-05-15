@@ -11,8 +11,7 @@ Group: System Environment/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source: http://www.openfabrics.org/downloads/management/@TARBALL@
 Url: http://openfabrics.org/
-BuildRequires: opensm-devel, libibumad-devel, glib2-devel, libudev-devel
-@SYSTEMD_BUILD_REQUIRES@
+BuildRequires: opensm-devel, libibumad-devel, glib2-devel
 Requires: opensm-libs, libibumad, glib2
 Provides: perl(IBswcountlimits)
 Obsoletes: openib-diags
@@ -147,8 +146,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man8/ibccconfig.8.gz
 %{_sbindir}/dump_fts
 %{_mandir}/man8/dump_fts.8.gz
-%{_sbindir}/rdma-ndd
-%{_mandir}/man8/rdma-ndd.8.gz
 
 # scripts here
 %{_sbindir}/ibhosts
@@ -184,7 +181,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_perldir}/*
 %config(noreplace) %{_sysconfdir}/infiniband-diags/error_thresholds
 %config(noreplace) %{_sysconfdir}/infiniband-diags/ibdiag.conf
-@SPEC_FILE_RDMA_NDD_INSTALL@
 %doc README COPYING ChangeLog
 
 %files devel
@@ -195,33 +191,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 /sbin/ldconfig
-if [ $1 = 1 ]; then
-    if [ -e /etc/init.d/rdma-ndd ] && [ -e /sbin/chkconfig ]; then
-        /sbin/chkconfig --add rdma-ndd
-    fi
-    if type systemctl >/dev/null 2>&1; then
-        systemctl daemon-reload
-    fi
-fi
-
-%preun
-if [ $1 = 0 ]; then
-    if [ -e /etc/init.d/rdma-ndd ] && [ -e /sbin/chkconfig ]; then
-    	/etc/init.d/rdma-ndd stop
-        /sbin/chkconfig --del rdma-ndd
-    fi
-    if type systemctl >/dev/null 2>&1; then
-        systemctl stop rdma-ndd
-    fi
-fi
 
 %postun
 /sbin/ldconfig
-if [ $1 = 0 ]; then
-    if type systemctl >/dev/null 2>&1; then
-        systemctl daemon-reload
-    fi
-fi
 
 
 %changelog

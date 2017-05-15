@@ -18,10 +18,6 @@ sbin_PROGRAMS = src/ibaddr src/ibnetdiscover src/ibping src/ibportstate \
 		src/ibqueryerrors src/ibcacheedit src/ibccquery \
 		src/ibccconfig src/dump_fts
 
-if ENABLE_RDMA_NDD
-sbin_PROGRAMS += src/rdma-ndd
-endif
-
 if ENABLE_TEST_UTILS
 sbin_PROGRAMS += src/ibsendtrap src/mcm_rereg_test
 endif
@@ -77,10 +73,6 @@ man_MANS = doc/man/ibaddr.8 \
 		man/dump_lfts.8 \
 		man/dump_mfts.8
 
-if ENABLE_RDMA_NDD
-man_MANS += doc/man/rdma-ndd.8
-endif
-
 # define this for the dist target
 compat_man_pages = man/ibdiscover.8 man/ibcheckerrors.8 man/ibcheckerrs.8 \
 		man/ibchecknet.8 man/ibchecknode.8 man/ibcheckport.8 \
@@ -129,12 +121,6 @@ src_ibcacheedit_SOURCES = src/ibcacheedit.c
 src_dump_fts_SOURCES = src/dump_fts.c
 src_dump_fts_LDFLAGS = $(internal_lib_LDFLAGS)
 
-if ENABLE_RDMA_NDD
-src_rdma_ndd_SOURCES = src/rdma-ndd.c
-src_rdma_ndd_CFLAGS = $(AM_CFLAGS) $(UDEV_CFLAGS)
-src_rdma_ndd_LDADD = libcommon.a $(UDEV_LIBS) $(LDADD)
-endif
-
 BUILT_SOURCES = ibdiag_version
 ibdiag_version:
 	if [ -x $(top_srcdir)/gen_ver.sh ] ; then \
@@ -169,12 +155,3 @@ install-data-hook:
 	$(top_srcdir)/config/install-sh -c -m 444 $(top_srcdir)/etc/error_thresholds $(DESTDIR)/$(sysconfdir)/infiniband-diags
 	$(top_srcdir)/config/install-sh -c -m 400 $(top_srcdir)/etc/ibdiag.conf $(DESTDIR)/$(sysconfdir)/infiniband-diags
 
-if ENABLE_RDMA_NDD
-install-exec-hook:
-if SYSTEMD_SYSTEM
-	$(top_srcdir)/config/install-sh -m 755 $(top_srcdir)/etc/rdma-ndd.service $(DESTDIR)/$(SYSTEMD_SYSTEM_UNIT_DIR)/rdma-ndd.service
-else
-	$(top_srcdir)/config/install-sh -m 755 -d $(DESTDIR)/$(sysconfdir)/init.d
-	$(top_srcdir)/config/install-sh -m 755 $(top_srcdir)/etc/rdma-ndd.init $(DESTDIR)/$(sysconfdir)/init.d/rdma-ndd
-endif
-endif

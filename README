@@ -19,6 +19,9 @@ Dependencies:
 Release notes 1.6.7 => 2.0.0
 
    1) combine libibmad
+   2) Removed rdma-ndd
+   	2a) Removed need for systemd
+   	2b) Removed need for udev
 
 
 Authors since 1.6.7
