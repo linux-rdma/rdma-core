@@ -247,14 +247,16 @@ static inline void umad_free(void *umad)
 	free(umad);
 }
 
-#ifndef ntohll
-#undef htonll
-#undef ntohll
 /* Users should use the glibc functions directly, not these wrappers */
-static inline __attribute__((deprecated)) uint64_t htonll(uint64_t x) { return htobe64(x); }
+#ifndef ntohll
+#undef ntohll
 static inline __attribute__((deprecated)) uint64_t ntohll(uint64_t x) { return be64toh(x); }
-#define htonll htonll
 #define ntohll ntohll
+#endif
+#ifndef htonll
+#undef htonll
+static inline __attribute__((deprecated)) uint64_t htonll(uint64_t x) { return htobe64(x); }
+#define htonll htonll
 #endif
 
 END_C_DECLS
