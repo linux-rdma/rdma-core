@@ -445,6 +445,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon
 %{_sbindir}/run_srp_daemon
+%{_udevrulesdir}/srp_daemon.rules
 %{_mandir}/man1/ibsrpdm.1*
 %{_mandir}/man1/srp_daemon.1*
 %{_mandir}/man5/srp_daemon.service.5*
