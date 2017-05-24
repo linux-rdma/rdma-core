@@ -403,6 +403,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*
+%{_udevrulesdir}/libibumad.rules
 
 %files -n librdmacm
 %{_libdir}/librdmacm*.so.*
