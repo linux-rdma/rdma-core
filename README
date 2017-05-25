@@ -26,6 +26,61 @@ Release notes 1.6.7 => 2.0.0
 
 Authors since 1.6.7
 
-*Preserved history from libibmad*
+*Preserved full history from libibmad*
+
+Ana Guerrero López (4):
+  Update AM_INIT_AUTOMAKE to use subdir-objects
+  Replace INCLUDES with AM_CPPFLAGS
+  Update the shebang to point to /bin/bash
+  A few typo fixes in the manpages
+
+Dag Moxnes (1):
+  ibportstate: Fixed switch peer port probing when using DR routing
+
+Eitan Zahavi (1):
+  ibsendtrap.c: Add support for security traps
+
+Hal Rosenstock (13):
+  ibportstate.c: When not switch, port can be router port
+  ibaddr.c: Fix LID printfs to be unsigned rather than signed
+  libibnetdisc/internal.h: Remove duplicated declaration of
+    add_to_portlid_hash
+  ibtracert.c: Enable m_key option
+  Add Bull device ID support to device white lists
+  infiniband-diags: Add Connect-X5 device ID to device white
+  scripts: Add mkey support into ibhosts, ibswitches, and ibrouters
+  ibdiag_common.c: Disambiguate link speed when QDR and could be FDR10
+  saquery.c: Remove use of to be deprecated ib_gid_t
+  ibdiag_common.c: Fix endian conversion in resolve_self for umad_port
+    GID prefix and GUID
+  ibdiag_common.c: Fix cosmetic formatting issue
+  ibstat.c: Add include for __be64 type
+  perfquery.c: Output PerfMgt ClassPortInfo CapabilityMask2
+
+Ira Weiny (15):
+  doc/man/*.in: update pre-built *.in files
+  scripts: Add m_key to man pages
+  infiniband-diags: Use modern glibc htobe64/be64toh macros
+  infiniband-diags: Fix type passed to umad_get_ca_portguids
+  infiniband-diags/perfquery: Use universal zero init for perf_count
+  infiniband-diags: Update README files to reflect new merged repo
+  infiniband-diags: Bump version to 2.0.0
+  infiniband-diags: Update COPYING files to reflect the new repo
+  infiniband-diags: Remove redundant AUTHORS file
+  infiniband-diags: Move libibmad auto-configuration to main dir
+  infiniband-diags: Merge makefiles and build against internal libibmad
+  infiniband-diags: Combine libibmad spec into infiniband-diags
+  infiniband-diags: Remove outdated scripts for ChangeLog
+  infiniband-diags: set noreplace on config files
+  infiniband-diags: Remove rdma-ndd
+
+
+Oded Nissan (2):
+  ibstat.c: If port is 1x SDR, rate is 2.5 rather than 2 Gbps
+  perfquery.c: Add support for additional counters in
+    PortCountersExtended
+
+Vincent Ficet (1):
+  infiniband-diags: Add Bull device ID support to device white lists
 
 
