@@ -9,6 +9,11 @@ Before=remote-fs-pre.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@CMAKE_INSTALL_LIBEXECDIR@/srp_daemon/start_on_all_ports
+MemoryDenyWriteExecute=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+RestrictRealtime=yes
 
 [Install]
 WantedBy=remote-fs-pre.target
