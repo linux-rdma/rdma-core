@@ -15,8 +15,8 @@ install() {
 	inst /etc/rdma/mlx4.conf
 	inst /etc/rdma/sriov-vfs
 	inst /usr/libexec/rdma-init-kernel
-	inst /usr/libexec/rdma-fixup-mtrr.awk
-	inst /usr/libexec/mlx4-setup.sh
+	inst /usr/libexec/rdma-fixup-mtrr
+	inst /usr/libexec/mlx4-setup
 	inst /usr/libexec/rdma-set-sriov-vf
 	inst /usr/lib/modprobe.d/libmlx4.conf
 	inst_multiple lspci setpci awk sleep

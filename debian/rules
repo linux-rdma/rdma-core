@@ -23,7 +23,8 @@ override_dh_auto_configure:
 			-DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=/lib/systemd/system \
 			-DCMAKE_INSTALL_INITDDIR:PATH=/etc/init.d \
 			-DCMAKE_INSTALL_LIBEXECDIR:PATH=/usr/lib \
-			-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d
+			-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d \
+			-DCMAKE_INSTALL_LIBMODPROBE_DIR:PATH=/lib/modprobe.d
 
 override_dh_auto_build:
 	ninja -C build-deb -v
