@@ -1,0 +1,90 @@
+#!/bin/sh -e
+#
+# Network Interface Configuration System
+# Copyright (c) 2017 Mellanox Technologies, Inc.  All rights reserved.
+#
+# This software is available to you under a choice of one of two
+# licenses.  You may choose to be licensed under the terms of the GNU
+# General Public License (GPL) Version 2, available from the file
+# COPYING in the main directory of this source tree, or the
+# OpenIB.org BSD license below:
+#
+#     Redistribution and use in source and binary forms, with or
+#     without modification, are permitted provided that the following
+#     conditions are met:
+#
+#      - Redistributions of source code must retain the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer.
+#
+#      - Redistributions in binary form must reproduce the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer in the documentation and/or other materials
+#        provided with the distribution.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
+
+PREREQS=""
+
+prereqs() { echo "$PREREQS"; }
+
+case "$1" in
+    prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+# Begin real processing below this line
+
+_install_file()
+{
+    local fpath=$1; shift
+    local dest=$1; shift
+
+    if [ "X$fpath" = "X" ] || [ "X$dest" = "X" ]; then
+        exit 1
+    fi
+
+    fname=$(basename $fpath)
+    if [ -e $DESTDIR/$dest/$fname ]; then
+        return
+    fi
+
+    mkdir -p $DESTDIR/$dest
+    cp $fpath $DESTDIR/$dest
+}
+
+_install_file ${CMAKE_INSTALL_SYSCONFDIR}/rdma/rdma.conf ${CMAKE_INSTALL_SYSCONFDIR}/rdma
+_install_file ${CMAKE_INSTALL_SYSCONFDIR}/rdma/mlx4.conf ${CMAKE_INSTALL_SYSCONFDIR}/rdma
+_install_file ${CMAKE_INSTALL_SYSCONFDIR}/rdma/sriov-vfs ${CMAKE_INSTALL_SYSCONFDIR}/rdma
+
+_install_file ${CMAKE_INSTALL_FULL_LIBEXECDIR}/rdma-init-kernel ${CMAKE_INSTALL_FULL_LIBEXECDIR}
+_install_file ${CMAKE_INSTALL_FULL_LIBEXECDIR}/rdma-fixup-mtrr ${CMAKE_INSTALL_FULL_LIBEXECDIR}
+_install_file ${CMAKE_INSTALL_FULL_LIBEXECDIR}/mlx4-setup ${CMAKE_INSTALL_FULL_LIBEXECDIR}
+_install_file ${CMAKE_INSTALL_FULL_LIBEXECDIR}/rdma-set-sriov-vf ${CMAKE_INSTALL_FULL_LIBEXECDIR}
+
+_install_file ${CMAKE_INSTALL_LIBMODPROBE_DIR}/libmlx4.conf ${CMAKE_INSTALL_LIBMODPROBE_DIR}
+
+_install_file ${CMAKE_INSTALL_LIBMODPROBE_DIR}/mlx4-rdma.conf ${CMAKE_INSTALL_LIBMODPROBE_DIR}
+
+_install_file ${CMAKE_INSTALL_UDEV_RULESDIR}/98-rdma.rules ${CMAKE_INSTALL_UDEV_RULESDIR}
+
+_install_file ${CMAKE_INSTALL_UDEV_RULESDIR}/70-persistent-ipoib.rules ${CMAKE_INSTALL_UDEV_RULESDIR}
+
+for program in bash lspci setpci awk sleep; do
+  programpath=$(which $program)
+  copy_exec $programpath $(dirname $programpath)
+done
+
+exit 0

@@ -1,3 +1,5 @@
+etc/initramfs-tools/hooks/rdma/
+etc/initramfs-tools/hooks/rdma/rdma-initramfs-tools-hook
 etc/modprobe.d/mlx4.conf
 etc/rdma/mlx4.conf
 etc/rdma/rdma.conf
