@@ -14,3 +14,8 @@ rdma_library(ibumad libibumad.map
   umad.c
   umad_str.c
   )
+
+rdma_subst_install(FILES libibumad.udev-rules
+  RENAME libibumad.rules
+  DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
+

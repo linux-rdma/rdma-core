@@ -1,0 +1,24 @@
+[Unit]
+Description=SRP daemon that monitors port %i
+Documentation=man:srp_daemon file:/etc/rdma/rdma.conf file:/etc/srp_daemon.conf
+DefaultDependencies=false
+Conflicts=emergency.target emergency.service
+After=srp_daemon.service dev-infiniband-umad-%i.device network.target
+BindsTo=srp_daemon.service dev-infiniband-umad-%i.device
+Before=remote-fs-pre.target
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/srp_daemon -e -c -n -j %I -R 60
+MemoryDenyWriteExecute=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectSystem=full
+RestrictRealtime=yes
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
+
+[Install]
+WantedBy=remote-fs-pre.target

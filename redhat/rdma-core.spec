@@ -273,9 +273,6 @@ bin/ib_acme -D . -O
 install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 install -D -m0644 redhat/ibacm.service %{buildroot}%{_unitdir}/
 
-# srp_daemon
-install -D -m0644 redhat/srp_daemon.service %{buildroot}%{_unitdir}/
-
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
 
@@ -403,6 +400,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*
+%{_udevrulesdir}/libibumad.rules
 
 %files -n librdmacm
 %{_libdir}/librdmacm*.so.*
@@ -441,11 +439,15 @@ rm -rf %{buildroot}/%{_initrddir}/
 
 %files -n srp_daemon
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
+%{_libexecdir}/srp_daemon/start_on_all_ports
 %{_unitdir}/srp_daemon.service
+%{_unitdir}/srp_daemon_port@.service
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon
-%{_sbindir}/srp_daemon.sh
 %{_sbindir}/run_srp_daemon
+%{_udevrulesdir}/srp_daemon.rules
 %{_mandir}/man1/ibsrpdm.1*
 %{_mandir}/man1/srp_daemon.1*
+%{_mandir}/man5/srp_daemon.service.5*
+%{_mandir}/man5/srp_daemon_port@.service.5*
 %doc %{_docdir}/%{name}-%{version}/ibsrpdm.md

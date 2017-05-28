@@ -226,6 +226,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-d <umad device>	use umad Device \n");
 	fprintf(stderr, "-i <infiniband device>	use InfiniBand device \n");
 	fprintf(stderr, "-p <port_num>		use Port num \n");
+	fprintf(stderr, "-j <dev>:<port_num>	use the IB dev / port_num combination \n");
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
 	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after Timeout of <retry timeout> seconds\n");
 	fprintf(stderr, "-l <tl_retry timeout>	Transport retry count before failing IO. should be in range [2..7], (default 2)\n");
@@ -1623,7 +1624,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:p:t:r:R:T:l:Vhnf:");
+		c = getopt(argc, argv, "caveod:i:j:p:t:r:R:T:l:Vhnf:");
 		if (c == -1)
 			break;
 
@@ -1643,6 +1644,19 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			if (conf->port_num == 0) {
 				pr_err("Bad port number %s\n", optarg);
 				return -1;
+			}
+			break;
+		case 'j': {
+			char dev[32];
+			int port_num;
+
+			if (sscanf(optarg, "%31[^:]:%d", dev, &port_num) != 2) {
+				pr_err("Bad dev:port specification %s\n",
+				       optarg);
+				return -1;
+			}
+			conf->dev_name = strdup(dev);
+			conf->port_num = port_num;
 			}
 			break;
 		case 'c':
