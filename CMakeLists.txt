@@ -44,7 +44,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "14")
+set(PACKAGE_VERSION "15")
 
 #-------------------------
 # Basic standard paths
