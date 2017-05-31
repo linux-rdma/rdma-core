@@ -35,6 +35,7 @@
 #define RDMA_CMA_H
 
 #include <netinet/in.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include <infiniband/verbs.h>
 #include <infiniband/sa.h>
@@ -84,6 +85,32 @@ enum rdma_port_space {
  * RDMA CM.
  */
 #define RDMA_UDP_QKEY 0x01234567
+
+/* Error values for `rdma_getaddrinfo' function.  */
+#define RAI_NONAME		EAI_NONAME	/* NAME or SERVICE is unknown */
+#define RAI_AGAIN		EAI_AGAIN	/* Temporary failure in name resolution */
+#define RAI_FAIL		EAI_FAIL	/* Non-recoverable failure in name res */
+#define RAI_NOFAMILY		EAI_FAMILY	/* `ai_family' not supported */
+#define RAI_QPTYPE		EAI_SOCKTYPE	/* `ai_qptype' not supported */
+#define RAI_SERVICE		EAI_SERVICE	/* SERVICE not supported for `ai_qptype' */
+#define RAI_MEMORY		EAI_MEMORY	/* Memory allocation failure */
+#define RAI_OVERFLOW		EAI_OVERFLOW	/* Argument buffer overflow */
+#ifdef __USE_GNU
+# define RAI_NODATA		EAI_NODATA	/* No address associated with NAM */
+# define RAI_ADDRFAMILY		EAI_ADDRFAMILY	/* Address family for NAME not supported */
+# define RAI_EINPROGRESS	EAI_INPROGRESS	/* Processing request in progress */
+# define RAI_CANCELED		EAI_CANCELED	/* Request canceled */
+# define RAI_NOTCANCELED	EAI_NOTCANCELED /* Request not canceled */
+# define RAI_ALLDONE		EAI_ALLDONE	/* All requests done */
+# define RAI_INTR		EAI_INTR	/* Interrupted by a signal */
+# define RAI_IDN_ENCODE		EAI_IDN_ENCODE	/* IDN encoding failed */
+#endif
+/*
+ * rdma_getaddrinfo returns -1 (EAI_BADFLAGS in terms
+ * of getaddrinfo) and set system error in `errno'
+ */
+#define RAI_SYSTEM		EAI_BADFLAGS	/* System error returned in `errno' */
+#define RAI_BADFLAGS		EAI_SYSTEM	/* Invalid value for `ai_flags' field */
 
 struct rdma_ib_addr {
 	union ibv_gid	sgid;

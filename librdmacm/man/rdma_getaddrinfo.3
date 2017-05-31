@@ -26,8 +26,36 @@ Resolves the destination node and service address and returns
 information needed to establish communication.  Provides the
 RDMA functional equivalent to getaddrinfo.
 .SH "RETURN VALUE"
-Returns 0 on success, or -1 on error.  If an error occurs, errno will be
-set to indicate the failure reason.
+Returns 0 on success, or one of the following nonzero error codes:
+.IP "RAI_ADDRFAMILY" 12
+The specified network host does not have any network addresses in the
+requested address family.
+.IP "RAI_AGAIN" 12
+The name server returned a temporary failure indication. Try again later.
+.IP "RAI_BADFLAGS" 12
+hints.ai_flags contains invalid flags.
+.IP "RAI_FAIL" 12
+The name server returned a permanent failure indication.
+.IP "RAI_FAMILY" 12
+The requested address family is not supported.
+.IP "RAI_MEMORY" 12
+Out of memory.
+.IP "RAI_NODATA" 12
+The specified network host exists, but does not have any network addresses
+defined.
+.IP "RAI_NONAME" 12
+The node or service is not known; or both node and service are NULL.
+.IP "RAI_SERVICE" 12
+The requested service is not available for the requested QP type. It may be
+available through another QP type.
+.IP "RAI_QPTYPE" 12
+The requested socket type is not supported. This could occur, for example,
+if hints.ai_qptype and hints.ai_port_space are inconsistent (e.g., IBV_QPT_UD
+and RDMA_PS_TCP, respectively).
+.IP "EAI_SYSTEM" 12
+Other system error, check errno for details.
+The gai_strerror() function translates these error codes to a human readable
+string, suitable for error reporting.
 .SH "NOTES"
 Either node, service, or hints must be provided.  If hints are provided, the
 operation will be controlled by hints.ai_flags.  If RAI_PASSIVE is
@@ -46,7 +74,7 @@ Indicates that the results will be used on the passive/listening
 side of a connection.
 .IP "RAI_NUMERICHOST" 12
 If specified, then the node parameter, if provided, must be a numerical
-network address.  This flag suppresses any lengthy address resolution. 
+network address.  This flag suppresses any lengthy address resolution.
 .IP "RAI_NOROUTE" 12
 If set, this flag suppresses any lengthy route resolution.
 .IP "RAI_FAMILY" 12
@@ -57,7 +85,7 @@ Address family for the source and destination address.  Supported families
 are: AF_INET, AF_INET6, and AF_IB.
 .IP "ai_qp_type" 12
 Indicates the type of RDMA QP used for communication.  Supported types are:
-IBV_UD (unreliable datagram) and IBV_RC (reliable connected).
+IBV_QPT_UD (unreliable datagram) and IBV_QPT_RC (reliable connected).
 .IP "ai_port_space" 12
 RDMA port space in use.  Supported values are: RDMA_PS_UDP, RDMA_PS_TCP,
 and RDMA_PS_IB.
