@@ -124,10 +124,10 @@ static const char *mtu_str(enum ibv_mtu max_mtu)
 static const char *width_str(uint8_t width)
 {
 	switch (width) {
-	case 1:  return "1";
-	case 2:  return "4";
-	case 4:  return "8";
-	case 8:  return "12";
+	case IBV_WIDTH_1X:  return "1";
+	case IBV_WIDTH_4X:  return "4";
+	case IBV_WIDTH_8X:  return "8";
+	case IBV_WIDTH_12X:  return "12";
 	default: return "invalid width";
 	}
 }
@@ -135,14 +135,16 @@ static const char *width_str(uint8_t width)
 static const char *speed_str(uint8_t speed)
 {
 	switch (speed) {
-	case 1:  return "2.5 Gbps";
-	case 2:  return "5.0 Gbps";
+	case IBV_SPEED_SDR:  return "2.5 Gbps";
+	case IBV_SPEED_DDR:  return "5.0 Gbps";
 
-	case 4:  /* fall through */
-	case 8:  return "10.0 Gbps";
+	case IBV_SPEED_QDR:  /* fall through */
+	case IBV_SPEED_FDR10:  return "10.0 Gbps";
 
-	case 16: return "14.0 Gbps";
-	case 32: return "25.0 Gbps";
+	case IBV_SPEED_FDR: return "14.0 Gbps";
+	case IBV_SPEED_EDR: return "25.0 Gbps";
+	case IBV_SPEED_HDR: return "50.0 Gbps";
+	case IBV_SPEE_NDR: return "100.0 Gbps";
 	default: return "invalid speed";
 	}
 }
