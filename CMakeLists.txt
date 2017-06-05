@@ -185,6 +185,7 @@ RDMA_AddOptCFlag(NO_STRICT_ALIASING_FLAGS HAVE_NO_STRICT_ALIASING
 # supported so it really doesn't work right if this isn't available. Thus hard
 # require it.
 CHECK_C_SOURCE_COMPILES("
+ #define _GNU_SOURCE
  #include <sys/types.h>
  #include <sys/stat.h>
  #include <sys/socket.h>
