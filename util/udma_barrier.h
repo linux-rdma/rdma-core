@@ -192,6 +192,7 @@
 #define mmio_flush_writes() asm volatile("dsb st" ::: "memory");
 #elif defined(__sparc__) || defined(__s390x__)
 #define mmio_flush_writes() asm volatile("" ::: "memory")
+#else
 #error No architecture specific memory barrier defines found!
 #endif
 
