@@ -118,11 +118,12 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
 
   # Create a static provider library
   if (ENABLE_STATIC)
-    add_library(${DEST} STATIC ${ARGN})
-    set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
-    install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+    add_library(${DEST}-static STATIC ${ARGN})
+    set_target_properties(${DEST}-static PROPERTIES OUTPUT_NAME ${DEST})
+    set_target_properties(${DEST}-static PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    install(TARGETS ${DEST}-static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
-    list(APPEND RDMA_STATIC_LIBS ${DEST}-rdmav2 ${DEST})
+    list(APPEND RDMA_STATIC_LIBS ${DEST} ${DEST}-static)
     set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
   endif()
 
