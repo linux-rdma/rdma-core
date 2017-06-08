@@ -185,7 +185,6 @@ RDMA_AddOptCFlag(NO_STRICT_ALIASING_FLAGS HAVE_NO_STRICT_ALIASING
 # supported so it really doesn't work right if this isn't available. Thus hard
 # require it.
 CHECK_C_SOURCE_COMPILES("
- #define _GNU_SOURCE
  #include <sys/types.h>
  #include <sys/stat.h>
  #include <sys/socket.h>
@@ -195,6 +194,26 @@ CHECK_C_SOURCE_COMPILES("
     socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     return 0;
  }" HAS_CLOEXEC)
+
+if (NOT HAS_CLOEXEC)
+# At least uclibc wrongly hides this POSIX constant behind _GNU_SOURCE
+CHECK_C_SOURCE_COMPILES("
+ #define _GNU_SOURCE
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <sys/socket.h>
+ #include <fcntl.h>
+ int main(int argc,const char *argv[]) {
+    open(\".\",O_RDONLY | O_CLOEXEC);
+    socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    return 0;
+ }" HAS_CLOEXEC_GNU_SOURCE)
+  if (HAS_CLOEXEC_GNU_SOURCE)
+    set(HAS_CLOEXEC 1)
+    add_definitions("-D_GNU_SOURCE=")
+  endif()
+endif()
+
 if (NOT HAS_CLOEXEC)
   message(FATAL_ERROR "O_CLOEXEC/SOCK_CLOEXEC/fopen(..,\"e\") support is required but not found")
 endif()
