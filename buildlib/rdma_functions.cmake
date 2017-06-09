@@ -85,7 +85,7 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
     add_library(${DEST}-static STATIC ${ARGN})
     set_target_properties(${DEST}-static PROPERTIES
       OUTPUT_NAME ${DEST}
-      LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
+      ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB}")
     install(TARGETS ${DEST}-static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
     list(APPEND RDMA_STATIC_LIBS ${DEST} ${DEST}-static)
@@ -118,11 +118,12 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
 
   # Create a static provider library
   if (ENABLE_STATIC)
-    add_library(${DEST} STATIC ${ARGN})
-    set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
-    install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+    add_library(${DEST}-static STATIC ${ARGN})
+    set_target_properties(${DEST}-static PROPERTIES OUTPUT_NAME ${DEST})
+    set_target_properties(${DEST}-static PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    install(TARGETS ${DEST}-static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
-    list(APPEND RDMA_STATIC_LIBS ${DEST}-rdmav2 ${DEST})
+    list(APPEND RDMA_STATIC_LIBS ${DEST} ${DEST}-static)
     set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
   endif()
 
@@ -169,7 +170,7 @@ function(rdma_provider DEST)
   # but we don't have any directions on how to make static linking work..
   if (ENABLE_STATIC)
     add_library(${DEST} STATIC ${ARGN})
-    set_target_properties(${DEST} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    set_target_properties(${DEST} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB}")
     install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
     list(APPEND RDMA_STATIC_LIBS ${DEST}-rdmav2 ${DEST})
