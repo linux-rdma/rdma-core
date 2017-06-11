@@ -1583,6 +1583,7 @@ static int process_req(struct qelr_qp *qp, struct qelr_cq *cq, int num_entries,
 		case IBV_WC_RDMA_READ:
 		case IBV_WC_SEND:
 		case IBV_WC_BIND_MW:
+			wc->byte_len = qp->wqe_wr_id[qp->sq.cons].bytes_len;
 			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
 				   "POLL REQ CQ: IBV_WC_RDMA_READ / IBV_WC_SEND\n");
 			break;
