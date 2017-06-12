@@ -91,6 +91,7 @@ int mlx4_query_device_ex(struct ibv_context *context,
 		mctx->core_clock.offset = resp.hca_core_clock_offset;
 		mctx->core_clock.offset_valid = 1;
 	}
+	mctx->max_inl_recv_sz = resp.max_inl_recv_sz;
 
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
@@ -781,12 +782,13 @@ enum {
 	MLX4_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS),
 };
 
-struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
-				 struct ibv_qp_init_attr_ex *attr)
+static struct ibv_qp *create_qp_ex(struct ibv_context *context,
+				   struct ibv_qp_init_attr_ex *attr,
+				   struct mlx4dv_qp_init_attr *mlx4qp_attr)
 {
 	struct mlx4_context *ctx = to_mctx(context);
-	struct mlx4_create_qp     cmd;
-	struct ibv_create_qp_resp resp;
+	struct mlx4_create_qp     cmd = {};
+	struct ibv_create_qp_resp resp = {};
 	struct mlx4_qp		 *qp;
 	int			  ret;
 
@@ -837,7 +839,8 @@ struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 			attr->cap.max_recv_wr = 1;
 	}
 
-	if (mlx4_alloc_qp_buf(context, &attr->cap, attr->qp_type, qp))
+	if (mlx4_alloc_qp_buf(context, &attr->cap, attr->qp_type, qp,
+			      mlx4qp_attr))
 		goto err;
 
 	mlx4_init_qp_indices(qp);
@@ -846,6 +849,15 @@ struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
 		goto err_free;
 
+	if (mlx4qp_attr) {
+		if (mlx4qp_attr->comp_mask &
+		    ~(MLX4DV_QP_INIT_ATTR_MASK_RESERVED - 1)) {
+			errno = EINVAL;
+			goto err_free;
+		}
+		if (mlx4qp_attr->comp_mask & MLX4DV_QP_INIT_ATTR_MASK_INL_RECV)
+			cmd.inl_recv_sz = mlx4qp_attr->inl_recv_sz;
+	}
 	if (attr->cap.max_recv_sge) {
 		qp->db = mlx4_alloc_db(to_mctx(context), MLX4_DB_TYPE_RQ);
 		if (!qp->db)
@@ -864,8 +876,8 @@ struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
 	     ++cmd.log_sq_bb_count)
 		; /* nothing */
 	cmd.sq_no_prefetch = 0;	/* OK for ABI 2: just a reserved field */
-	memset(cmd.reserved, 0, sizeof cmd.reserved);
 	pthread_mutex_lock(&to_mctx(context)->qp_table_mutex);
+
 
 	if (attr->comp_mask & MLX4_CREATE_QP_EX2_COMP_MASK)
 		ret = mlx4_cmd_create_qp_ex(context, attr, &cmd, qp);
@@ -915,6 +927,19 @@ err:
 	free(qp);
 
 	return NULL;
+}
+
+struct ibv_qp *mlx4_create_qp_ex(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attr)
+{
+	return create_qp_ex(context, attr, NULL);
+}
+
+struct ibv_qp *mlx4dv_create_qp(struct ibv_context *context,
+				struct ibv_qp_init_attr_ex *attr,
+				struct mlx4dv_qp_init_attr *mlx4_qp_attr)
+{
+	return create_qp_ex(context, attr, mlx4_qp_attr);
 }
 
 struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)

@@ -427,3 +427,16 @@ int mlx4dv_init_obj(struct mlx4dv_obj *obj, uint64_t obj_type)
 
 	return ret;
 }
+
+int mlx4dv_query_device(struct ibv_context *ctx_in,
+			struct mlx4dv_context *attrs_out)
+{
+	struct mlx4_context *mctx = to_mctx(ctx_in);
+
+	attrs_out->version   = 0;
+	attrs_out->comp_mask = 0;
+
+	attrs_out->max_inl_recv_sz = mctx->max_inl_recv_sz;
+
+	return 0;
+}

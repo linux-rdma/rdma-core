@@ -133,6 +133,7 @@ struct mlx4_context {
 		uint8_t                 offset_valid;
 	} core_clock;
 	void			       *hca_core_clock;
+	uint32_t			max_inl_recv_sz;
 };
 
 struct mlx4_buf {
@@ -385,7 +386,8 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 			   struct mlx4_qp *qp);
 int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
-		       enum ibv_qp_type type, struct mlx4_qp *qp);
+		       enum ibv_qp_type type, struct mlx4_qp *qp,
+		       struct mlx4dv_qp_init_attr *mlx4qp_attr);
 void mlx4_set_sq_sizes(struct mlx4_qp *qp, struct ibv_qp_cap *cap,
 		       enum ibv_qp_type type);
 struct mlx4_qp *mlx4_find_qp(struct mlx4_context *ctx, uint32_t qpn);

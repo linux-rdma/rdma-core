@@ -379,6 +379,29 @@ struct mlx4_wqe_atomic_seg {
 	__be64			compare;
 };
 
+enum mlx4dv_qp_init_attr_mask {
+	MLX4DV_QP_INIT_ATTR_MASK_INL_RECV	= 1 << 0,
+	MLX4DV_QP_INIT_ATTR_MASK_RESERVED	= 1 << 1,
+};
+
+struct mlx4dv_qp_init_attr {
+	uint64_t comp_mask; /* Use enum mlx4dv_qp_init_attr_mask */
+	uint32_t inl_recv_sz;
+};
+
+struct ibv_qp *mlx4dv_create_qp(struct ibv_context *context,
+				struct ibv_qp_init_attr_ex *attr,
+				struct mlx4dv_qp_init_attr *mlx4_qp_attr);
+
+/*
+ * Direct verbs device-specific attributes
+ */
+struct mlx4dv_context {
+	uint8_t		version;
+	uint32_t	max_inl_recv_sz;
+	uint64_t	comp_mask;
+};
+
 /*
  * Control segment - contains some control information for the current WQE.
  *
@@ -465,5 +488,15 @@ void mlx4dv_set_data_seg(struct mlx4_wqe_data_seg *seg,
 	seg->lkey       = htobe32(lkey);
 	seg->addr       = htobe64(address);
 }
+
+/* Most device capabilities are exported by ibv_query_device(...),
+ * but there is HW device-specific information which is important
+ * for data-path, but isn't provided.
+ *
+ * Return 0 on success.
+ */
+int mlx4dv_query_device(struct ibv_context *ctx_in,
+			struct mlx4dv_context *attrs_out);
+
 #endif /* _MLX4DV_H_ */
 
