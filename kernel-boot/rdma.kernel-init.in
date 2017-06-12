@@ -8,8 +8,8 @@
 
 shopt -s nullglob
 
-CONFIG=/etc/rdma/rdma.conf
-MTRR_SCRIPT=/usr/libexec/rdma-fixup-mtrr.awk
+CONFIG=@CMAKE_INSTALL_SYSCONFDIR@/rdma/rdma.conf
+MTRR_SCRIPT=@CMAKE_INSTALL_FULL_LIBEXECDIR@/rdma-fixup-mtrr
 
 LOAD_ULP_MODULES=""
 LOAD_CORE_USER_MODULES="ib_umad ib_uverbs ib_ucm rdma_ucm"
@@ -257,6 +257,6 @@ RC=$[ $RC + $? ]
 errata_58
 errata_56
 
-/usr/libexec/rdma-set-sriov-vf
+@CMAKE_INSTALL_FULL_LIBEXECDIR@/rdma-set-sriov-vf
 
 exit $RC

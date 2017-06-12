@@ -110,6 +110,7 @@ This is a simple example without the split sub packages to get things started.
 %install
 %cmake_install
 
+%global sysmodprobedir %{_prefix}/lib/modprobe.d
 %if 0%{?_unitdir:1}
 rm -rf %{buildroot}/%{_initrddir}/
 %else
@@ -120,8 +121,15 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %postun -p /sbin/ldconfig
 
 %files
+%dir %{_sysconfdir}/rdma
 %doc %{_mandir}/man*/*
+%config(noreplace) %{_sysconfdir}/rdma/*
+%config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
+%{_unitdir}/rdma.service
 %{_bindir}/*
+%{sysmodprobedir}/libmlx4.conf
+%{sysmodprobedir}/cxgb3.conf
+%{sysmodprobedir}/cxgb4.conf
 %{_includedir}/*
 %{_libdir}/lib*.so*
 %{_libdir}/libibverbs/*
