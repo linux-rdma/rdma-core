@@ -66,20 +66,20 @@ static struct {
 	unsigned		vendor;
 	unsigned		device;
 } hca_table[] = {
-	HCA(MELLANOX, 4113),	/* MT4113 Connect-IB */
-	HCA(MELLANOX, 4114),	/* Connect-IB Virtual Function */
-	HCA(MELLANOX, 4115),	/* ConnectX-4 */
-	HCA(MELLANOX, 4116),	/* ConnectX-4 Virtual Function */
-	HCA(MELLANOX, 4117),	/* ConnectX-4LX */
-	HCA(MELLANOX, 4118),	/* ConnectX-4LX Virtual Function */
-	HCA(MELLANOX, 4119),	/* ConnectX-5, PCIe 3.0 */
-	HCA(MELLANOX, 4120),	/* ConnectX-5 Virtual Function */
-	HCA(MELLANOX, 4121),    /* ConnectX-5 Ex */
-	HCA(MELLANOX, 4122),	/* ConnectX-5 Ex VF */
-	HCA(MELLANOX, 4123),    /* ConnectX-6 */
-	HCA(MELLANOX, 4124),	/* ConnectX-6 VF */
-	HCA(MELLANOX, 41682),	/* BlueField integrated ConnectX-5 network controller */
-	HCA(MELLANOX, 41683),	/* BlueField integrated ConnectX-5 network controller VF */
+	HCA(MELLANOX, 0x1011),	/* MT4113 Connect-IB */
+	HCA(MELLANOX, 0x1012),	/* Connect-IB Virtual Function */
+	HCA(MELLANOX, 0x1013),	/* ConnectX-4 */
+	HCA(MELLANOX, 0x1014),	/* ConnectX-4 Virtual Function */
+	HCA(MELLANOX, 0x1015),	/* ConnectX-4LX */
+	HCA(MELLANOX, 0x1016),	/* ConnectX-4LX Virtual Function */
+	HCA(MELLANOX, 0x1017),	/* ConnectX-5, PCIe 3.0 */
+	HCA(MELLANOX, 0x1018),	/* ConnectX-5 Virtual Function */
+	HCA(MELLANOX, 0x1019),    /* ConnectX-5 Ex */
+	HCA(MELLANOX, 0x101a),	/* ConnectX-5 Ex VF */
+	HCA(MELLANOX, 0x101b),    /* ConnectX-6 */
+	HCA(MELLANOX, 0x101c),	/* ConnectX-6 VF */
+	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
+	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
 };
 
 uint32_t mlx5_debug_mask = 0;
