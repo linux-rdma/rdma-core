@@ -1259,7 +1259,7 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		swqe->wqe_size = 2;
 		swqe2 = (struct rdma_sq_send_wqe_2st *)qelr_chain_produce(&qp->sq.chain);
 		swqe->inv_key_or_imm_data = htobe32(htole32(wr->imm_data));
-		qelr_edpm_set_inv_imm(qp, &edpm, swqe->inv_key_or_imm_data);
+		qelr_edpm_set_inv_imm(qp, &edpm, wr->imm_data);
 		qelr_prepare_sq_send_data(qp, &edpm, data_size, swqe, swqe2, wr);
 		qelr_edpm_set_msg_data(qp, &edpm,
 				       QELR_IB_OPCODE_SEND_ONLY_WITH_IMMEDIATE,
@@ -1291,7 +1291,7 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		rwqe->imm_data = htobe32(htole32(wr->imm_data));
 		qelr_edpm_set_rdma_ext(qp, &edpm, wr->wr.rdma.remote_addr,
 				       wr->wr.rdma.rkey);
-		qelr_edpm_set_inv_imm(qp, &edpm, rwqe->imm_data);
+		qelr_edpm_set_inv_imm(qp, &edpm, wr->imm_data);
 		rwqe2 = (struct rdma_sq_rdma_wqe_2nd *)qelr_chain_produce(&qp->sq.chain);
 		qelr_prepare_sq_rdma_data(qp, &edpm, data_size, rwqe, rwqe2, wr);
 		qelr_edpm_set_msg_data(qp, &edpm,
