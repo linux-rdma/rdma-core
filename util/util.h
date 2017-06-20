@@ -10,4 +10,10 @@
 		(rc < len && rc >= 0);                                         \
 	})
 
+/* a CMP b. See also the BSD macro timercmp(). */
+#define ts_cmp(a, b, CMP)			\
+	(((a)->tv_sec == (b)->tv_sec) ?		\
+	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
+	 ((a)->tv_sec CMP (b)->tv_sec))
+
 #endif

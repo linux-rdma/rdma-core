@@ -39,6 +39,7 @@
 #include <stdint.h>
 #include <signal.h>
 #include <endian.h>
+#include <util/util.h>
 #include <infiniband/verbs.h>
 #include <infiniband/umad.h>
 #include <linux/types.h>	/* __be16, __be32 and __be64 */
@@ -46,12 +47,6 @@
 
 #include "config.h"
 #include "srp_ib_types.h"
-
-/* a CMP b. See also the BSD macro timercmp(). */
-#define ts_cmp(a, b, CMP)			\
-	(((a)->tv_sec == (b)->tv_sec) ?		\
-	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
-	 ((a)->tv_sec CMP (b)->tv_sec))
 
 #define SRP_CATAS_ERR SIGUSR1
 
