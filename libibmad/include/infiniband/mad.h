@@ -1310,6 +1310,11 @@ enum MAD_FIELDS {
 	IB_PC_EXT_QP1_DROP_F,
 	IB_PC_EXT_ERR_LAST_F,
 
+	/*
+	 * Another PortCounters field
+	 */
+	IB_PC_QP1_DROP_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 

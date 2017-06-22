@@ -818,7 +818,20 @@ void mad_dump_switchinfo(char *buf, int bufsz, void *val, int valsz)
 
 void mad_dump_perfcounters(char *buf, int bufsz, void *val, int valsz)
 {
-	_dump_fields(buf, bufsz, val, IB_PC_FIRST_F, IB_PC_LAST_F);
+	int cnt, cnt2;
+
+	cnt = _dump_fields(buf, bufsz, val,
+			   IB_PC_FIRST_F, IB_PC_VL15_DROPPED_F);
+	if (cnt < 0)
+		return;
+
+	cnt2 = _dump_fields(buf + cnt, bufsz - cnt, val,
+			    IB_PC_QP1_DROP_F, IB_PC_QP1_DROP_F + 1);
+	if (cnt2 < 0)
+		return;
+
+	_dump_fields(buf + cnt + cnt2, bufsz - cnt - cnt2, val,
+		     IB_PC_VL15_DROPPED_F, IB_PC_LAST_F);
 }
 
 void mad_dump_perfcounters_ext(char *buf, int bufsz, void *val, int valsz)

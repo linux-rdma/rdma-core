@@ -1004,6 +1004,11 @@ static const ib_field_t ib_mad_f[] = {
 	{1408, 64, "QP1Dropped", mad_dump_uint},
 	{0, 0},			/* IB_PC_EXT_ERR_LAST_F */
 
+	/*
+	 * Another PortCounters field
+	 */
+	{160, 16, "QP1Dropped", mad_dump_uint},
+
 	{0, 0}			/* IB_FIELD_LAST_ */
 };
 

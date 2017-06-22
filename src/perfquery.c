@@ -66,6 +66,7 @@ struct perf_count {
 	uint32_t rcvconstrainterrors;
 	uint32_t linkintegrityerrors;
 	uint32_t excbufoverrunerrors;
+	uint32_t qp1dropped;
 	uint32_t vl15dropped;
 	uint32_t xmtdata;
 	uint32_t rcvdata;
@@ -190,6 +191,8 @@ static void aggregate_perfcounters(void)
 	aggregate_4bit(&perf_count.linkintegrityerrors, val);
 	mad_decode_field(pc, IB_PC_ERR_EXCESS_OVR_F, &val);
 	aggregate_4bit(&perf_count.excbufoverrunerrors, val);
+	mad_decode_field(pc, IB_PC_QP1_DROP_F, &val);
+	aggregate_16bit(&perf_count.qp1dropped, val);
 	mad_decode_field(pc, IB_PC_VL15_DROPPED_F, &val);
 	aggregate_16bit(&perf_count.vl15dropped, val);
 	mad_decode_field(pc, IB_PC_XMT_BYTES_F, &val);
@@ -230,6 +233,7 @@ static void output_aggregate_perfcounters(ib_portid_t * portid,
 			 &perf_count.linkintegrityerrors);
 	mad_encode_field(pc, IB_PC_ERR_EXCESS_OVR_F,
 			 &perf_count.excbufoverrunerrors);
+	mad_encode_field(pc, IB_PC_QP1_DROP_F, &perf_count.qp1dropped);
 	mad_encode_field(pc, IB_PC_VL15_DROPPED_F, &perf_count.vl15dropped);
 	mad_encode_field(pc, IB_PC_XMT_BYTES_F, &perf_count.xmtdata);
 	mad_encode_field(pc, IB_PC_RCV_BYTES_F, &perf_count.rcvdata);
@@ -398,9 +402,7 @@ static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
 		if (aggregate)
 			aggregate_perfcounters();
 		else
-			mad_dump_fields(buf, sizeof buf, pc, sizeof pc,
-							IB_PC_FIRST_F,
-							(cap_mask & IB_PM_PC_XMIT_WAIT_SUP)?IB_PC_LAST_F:(IB_PC_RCV_PKTS_F+1));
+			mad_dump_perfcounters(buf, sizeof buf, pc, sizeof pc);
 
 	} else {
 		/* 1.2 errata: bit 9 is extended counter support
@@ -1062,8 +1064,12 @@ int main(int argc, char **argv)
 		goto done;
 
 do_reset:
-	if (argc <= 2 && !extended && (cap_mask & IB_PM_PC_XMIT_WAIT_SUP))
-		mask |= (1 << 16);	/* reset portxmitwait */
+	if (argc <= 2 && !extended) {
+		if (cap_mask & IB_PM_PC_XMIT_WAIT_SUP)
+			mask |= (1 << 16);	/* reset portxmitwait */
+		if (cap_mask & IB_PM_IS_QP1_DROP_SUP)
+			mask |= (1 << 17);	/* reset qp1dropped */
+	}
 
 	if (extended) {
 		mask |= 0xfff0000;
