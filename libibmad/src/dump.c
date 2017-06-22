@@ -616,6 +616,27 @@ void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 		*(--s) = 0;
 }
 
+void mad_dump_portcapmask2(char *buf, int bufsz, void *val, int valsz)
+{
+	int mask = *(int *)val;
+	char *s = buf;
+
+	s += sprintf(s, "0x%x\n", mask);
+	if (mask & (1 << 0))
+		s += sprintf(s, "\t\t\t\tIsSetNodeDescriptionSupported\n");
+	if (mask & (1 << 1))
+		s += sprintf(s, "\t\t\t\tIsPortInfoExtendedSupported\n");
+	if (mask & (1 << 2))
+		s += sprintf(s, "\t\t\t\tIsVirtualizationSupported\n");
+	if (mask & (1 << 3))
+		s += sprintf(s, "\t\t\t\tIsSwitchPortStateTableSupported\n");
+	if (mask & (1 << 4))
+		s += sprintf(s, "\t\t\t\tIsLinkWidth2xSupported\n");
+
+	if (s != buf)
+		*(--s) = 0;
+}
+
 void mad_dump_bitfield(char *buf, int bufsz, void *val, int valsz)
 {
 	snprintf(buf, bufsz, "0x%x", *(uint32_t *) val);

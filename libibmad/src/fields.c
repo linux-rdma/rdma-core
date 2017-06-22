@@ -529,7 +529,7 @@ static const ib_field_t ib_mad_f[] = {
 	/*
 	 * More PortInfo fields
 	 */
-	{BITSOFFS(480, 16), "CapabilityMask2", mad_dump_hex},
+	{BITSOFFS(480, 16), "CapabilityMask2", mad_dump_portcapmask2},
 	{BITSOFFS(496, 4), "LinkSpeedExtActive", mad_dump_linkspeedext},
 	{BITSOFFS(500, 4), "LinkSpeedExtSupported", mad_dump_linkspeedextsup},
 	{BITSOFFS(507, 5), "LinkSpeedExtEnabled", mad_dump_linkspeedexten},

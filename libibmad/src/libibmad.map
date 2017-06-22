@@ -34,6 +34,7 @@ IBMAD_1.3 {
 		mad_dump_perfcounters_rcv_err;
 		mad_dump_physportstate;
 		mad_dump_portcapmask;
+		mad_dump_portcapmask2;
 		mad_dump_portinfo;
 		mad_dump_portsamples_control;
 		mad_dump_portsamples_result;
