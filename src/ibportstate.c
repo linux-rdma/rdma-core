@@ -321,6 +321,11 @@ static void validate_width(int width, int peerwidth, int lwa)
 			IBWARN
 			    ("Peer ports operating at active width %d rather than 2 (4x)",
 			     lwa);
+	} else if ((width & peerwidth & 0x10)) {
+		if (lwa != 16)
+			IBWARN
+			    ("Peer ports operating at active width %d rather than 16 (2x)",
+			      lwa);
 	} else if ((width & peerwidth & 0x1)) {
 		if (lwa != 1)
 			IBWARN
@@ -461,7 +466,7 @@ int main(int argc, char **argv)
 					IBEXIT("invalid fdr10 speed value %ld", val);
 				break;
 			case WIDTH:
-				if ((val > 15 && val != 255))
+				if ((val > 31 && val != 255))
 					IBEXIT("invalid width value %ld", val);
 				break;
 			case VLS:

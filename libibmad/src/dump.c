@@ -183,6 +183,9 @@ void mad_dump_linkwidth(char *buf, int bufsz, void *val, int valsz)
 	case 8:
 		snprintf(buf, bufsz, "12X");
 		break;
+	case 16:
+		snprintf(buf, bufsz, "2X");
+		break;
 	default:
 		IBWARN("bad width %d", width);
 		snprintf(buf, bufsz, "undefined (%d)", width);
@@ -202,10 +205,12 @@ static void dump_linkwidth(char *buf, int bufsz, int width)
 		n += snprintf(buf + n, bufsz - n, "8X or ");
 	if (n < bufsz && (width & 0x8))
 		n += snprintf(buf + n, bufsz - n, "12X or ");
+	if (n < bufsz && (width & 0x10))
+		n += snprintf(buf + n, bufsz - n, "2X or ");
 
 	if (n >= bufsz)
 		return;
-	else if (width == 0 || (width >> 4))
+	else if (width == 0 || (width >> 5))
 		snprintf(buf + n, bufsz - n, "undefined (%d)", width);
 	else if (bufsz > 3)
 		buf[n - 4] = '\0';
@@ -223,10 +228,15 @@ void mad_dump_linkwidthsup(char *buf, int bufsz, void *val, int valsz)
 	case 7:
 	case 11:
 	case 15:
+	case 17:
+	case 19:
+	case 23:
+	case 27:
+	case 31:
 		break;
 
 	default:
-		if (!(width >> 4))
+		if (!(width >> 5))
 			snprintf(buf + strlen(buf), bufsz - strlen(buf),
 				 " (IBA extension)");
 		break;

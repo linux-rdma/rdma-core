@@ -134,6 +134,9 @@ char *dump_linkwidth_compat(uint32_t width)
 	case 8:
 		return ("12x");
 		break;
+	case 16:
+		return ("2x");
+		break;
 	}
 	return ("??");
 }
