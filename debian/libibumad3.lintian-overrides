@@ -1,0 +1,2 @@
+# False positive for Certificate Authoritys (CAs)
+libibumad3: spelling-error-in-binary usr/lib/x86_64-linux-gnu/libibumad.so.3.0.15 cas case

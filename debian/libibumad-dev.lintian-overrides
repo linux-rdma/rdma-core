@@ -1,0 +1,3 @@
+# False positive for Certificate Authoritys (CAs)
+libibumad-dev: spelling-error-in-manpage usr/share/man/man3/umad_get_cas_names.3.gz cas case
+libibumad-dev: spelling-error-in-manpage usr/share/man/man3/umad_get_cas_names.3.gz CAs Case
