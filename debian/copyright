@@ -438,35 +438,39 @@ Copyright: 2005 Topspin Communications.
 License: BSD-MIT or GPL-2
 
 License: BSD-MIT
- OpenIB.org BSD license (MIT variant)
- Redistribution and use in source and binary forms, with or
- without modification, are permitted provided that the following
- conditions are met:
-  * Redistributions of source code must retain the above
-    copyright notice, this list of conditions and the following
-    disclaimer.
-  * Redistributions in binary form must reproduce the above
-    copyright notice, this list of conditions and the following
-    disclaimer in the documentation and/or other materials
-    provided with the distribution.
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+              OpenIB.org BSD license (MIT variant)
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+ .
+   - Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+ .
+   - Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 
 License: BSD-2-clause
- OpenIB.org BSD license (FreeBSD Variant)
+            OpenIB.org BSD license (FreeBSD Variant)
+ .
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
-  * Redistributions of source code must retain the above copyright notice,
-    this list of conditions and the following disclaimer.
-  * Redistributions in binary form must reproduce the above copyright notice,
-    this list of conditions and the following disclaimer in the documentation
-    and/or other materials provided with the distribution.
+ .
+   - Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+ .
+   - Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+ .
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -479,43 +483,55 @@ License: BSD-2-clause
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 License: BSD-3-clause
- The BSD License
  Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions are
- met:
+ modification, are permitted provided that the following conditions
+ are met:
+ .
    * Redistributions of source code must retain the above copyright
      notice, this list of conditions and the following disclaimer.
    * Redistributions in binary form must reproduce the above copyright
-     notice, this list of conditions and the following disclaimer in the
-     documentation and/or other materials provided with the distribution.
-   * Neither the name of foo nor the names of its
-     contributors may be used to endorse or promote products derived from
-     this software without specific prior written permission.
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
- IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+   * Neither the name of Intel Corporation nor the names of its
+     contributors may be used to endorse or promote products derived
+     from this software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 License: GPL-2
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
- the Free Software Foundation; version 2 dated June, 1991.
- On Debian systems, the complete text of version 2 of the GNU General
- Public License can be found in '/usr/share/common-licenses/GPL-2'.
+ the Free Software Foundation; version 2 of the License.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License along
+ with this program; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ .
+ On Debian systems, the full text of the GNU General Public License
+ version 2 can be found in the file `/usr/share/common-licenses/GPL-2'.
 
 License: CC0
- Statement of Purpose.
  The laws of most jurisdictions throughout the world automatically confer
  exclusive Copyright and Related Rights (defined below) upon the creator and
  subsequent owner(s) (each and all, an "owner") of an original work of
  authorship and/or a database (each, a "Work").
+ .
  Certain owners wish to permanently relinquish those rights to a Work for the
  purpose of contributing to a commons of creative, cultural and scientific works
  ("Commons") that the public can reliably and without fear of later claims of
@@ -526,6 +542,7 @@ License: CC0
  production of creative, cultural and scientific works, or to gain reputation or
  greater distribution for their Work in part through the use and efforts of
  others.
+ .
  For these and/or other purposes and motivations, and without any expectation of
  additional consideration or compensation, the person associating CC0 with a
  Work (the "Affirmer"), to the extent that he or she is an owner of Copyright
@@ -533,10 +550,12 @@ License: CC0
  publicly distribute the Work under its terms, with knowledge of his or her
  Copyright and Related Rights in the Work and the meaning and intended legal
  effect of CC0 on those rights.
+ .
  1. Copyright and Related Rights. A Work made available under CC0 may be
  protected by copyright and related or neighboring rights ("Copyright and
  Related Rights"). Copyright and Related Rights include, but are not limited to,
  the following:
+ .
      the right to reproduce, adapt, distribute, perform, display, communicate,
  and translate a Work; moral rights retained by the original author(s) and/or
  performer(s); publicity and privacy rights pertaining to a person's image or
@@ -549,6 +568,7 @@ License: CC0
  or successor version of such directive); and other similar, equivalent or
  corresponding rights throughout the world based on applicable law or treaty,
  and any national implementations thereof.
+ .
  2. Waiver. To the greatest extent permitted by, but not in contravention of,
  applicable law, Affirmer hereby overtly, fully, permanently, irrevocably and
  unconditionally waives, abandons, and surrenders all of Affirmer's Copyright
@@ -564,6 +584,7 @@ License: CC0
  shall not be subject to revocation, rescission, cancellation, termination, or
  any other legal or equitable action to disrupt the quiet enjoyment of the Work
  by the public as contemplated by Affirmer's express Statement of Purpose.
+ .
  3. Public License Fallback. Should any part of the Waiver for any reason be
  judged legally invalid or ineffective under applicable law, then the Waiver
  shall be preserved to the maximum extent permitted taking into account
@@ -583,7 +604,9 @@ License: CC0
  exercise any of his or her remaining Copyright and Related Rights in the Work
  or (ii) assert any associated claims and causes of action with respect to the
  Work, in either case contrary to Affirmer's express Statement of Purpose.
+ .
  4. Limitations and Disclaimers.
+ .
      No trademark or patent rights held by Affirmer are waived, abandoned,
  surrendered, licensed or otherwise affected by this document.  Affirmer offers
  the Work as-is and makes no representations or warranties of any kind
@@ -607,8 +630,10 @@ License: MIT
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
+ .
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
+ .
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
