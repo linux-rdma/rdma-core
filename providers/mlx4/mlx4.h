@@ -350,6 +350,12 @@ static inline void mlx4_update_cons_index(struct mlx4_cq *cq)
 	*cq->set_ci_db = htobe32(cq->cons_index & 0xffffff);
 }
 
+extern int mlx4_cleanup_upon_device_fatal;
+static inline int cleanup_on_fatal(int ret)
+{
+	return (ret == EIO && mlx4_cleanup_upon_device_fatal);
+}
+
 int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size);
 void mlx4_free_buf(struct mlx4_buf *buf);
 
