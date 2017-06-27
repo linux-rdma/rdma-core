@@ -63,7 +63,11 @@ License: BSD-MIT or GPL-2
 
 Files: ccan/*
 Copyright: unspecified
-License: CC0 and MIT
+License: CC0
+
+Files: ccan/list.*
+Copyright: unspecified
+License: MIT
 
 Files: ibacm/*
 Copyright: 2013-2015, Mellanox Technologies LTD.
