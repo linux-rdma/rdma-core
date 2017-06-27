@@ -70,20 +70,19 @@ Copyright: unspecified
 License: MIT
 
 Files: ibacm/*
-Copyright: 2013-2015, Mellanox Technologies LTD.
-           2009-2014, Intel Corporation.
-License: BSD-MIT or GPL-2
-
-Files: ibacm/src/acm_util.c
-       ibacm/src/acm_util.h
-       ibacm/src/parse.c
-Copyright: 2004-2016, Intel Corporation.
+Copyright: 2009-2014, Intel Corporation.
+           2013, Mellanox Technologies LTD.
 License: BSD-MIT
 
 Files: ibacm/man/*
        ibacm/ibacm.init.in
 Copyright: disclaimed
 License: BSD-2-clause
+
+Files: ibacm/CMakeLists.txt
+       ibacm/ibacm_hosts.data
+Copyright: disclaimed
+License: BSD-MIT or GPL-2
 
 Files: iwpmd/*
 Copyright: 2004-2016, Intel Corporation.
