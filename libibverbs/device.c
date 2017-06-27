@@ -99,6 +99,7 @@ struct ibv_device **__ibv_get_device_list(int *num)
 
 	list_for_each(&device_list, device, entry) {
 		l[i] = &device->device;
+		ibverbs_device_hold(l[i]);
 		i++;
 	}
 	if (num)
@@ -111,6 +112,10 @@ default_symver(__ibv_get_device_list, ibv_get_device_list);
 
 void __ibv_free_device_list(struct ibv_device **list)
 {
+	int i;
+
+	for (i = 0; list[i]; i++)
+		ibverbs_device_put(list[i]);
 	free(list);
 }
 default_symver(__ibv_free_device_list, ibv_free_device_list);
@@ -260,6 +265,8 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 	context->cmd_fd = cmd_fd;
 	pthread_mutex_init(&context->mutex, NULL);
 
+	ibverbs_device_hold(device);
+
 	return context;
 
 verbs_err:
@@ -278,6 +285,7 @@ int __ibv_close_device(struct ibv_context *context)
 	int cq_fd    = -1;
 	struct verbs_context *context_ex;
 	struct verbs_device *verbs_device = verbs_get_device(context->device);
+	struct ibv_device *device = context->device;
 
 	context_ex = verbs_get_ctx(context);
 	if (context_ex) {
@@ -292,6 +300,7 @@ int __ibv_close_device(struct ibv_context *context)
 	close(cmd_fd);
 	if (abi_ver <= 2)
 		close(cq_fd);
+	ibverbs_device_put(device);
 
 	return 0;
 }

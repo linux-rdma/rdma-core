@@ -382,6 +382,7 @@ static struct verbs_device *try_driver(struct ibv_driver *driver,
 	if (!vdev)
 		return NULL;
 
+	atomic_init(&vdev->refcount, 1);
 	dev = &vdev->device;
 	assert(dev->_ops._dummy1 == NULL);
 	assert(dev->_ops._dummy2 == NULL);
@@ -512,8 +513,11 @@ int ibverbs_get_device_list(struct list_head *list)
 				break;
 			}
 		}
-		if (!sysfs_dev)
+
+		if (!sysfs_dev) {
 			list_del(&vdev->entry);
+			ibverbs_device_put(&vdev->device);
+		}
 	}
 
 	for (sysfs_dev = tmp_sysfs_dev_list; sysfs_dev; sysfs_dev =
@@ -609,4 +613,22 @@ int ibverbs_init(void)
 	read_config();
 
 	return 0;
+}
+
+void ibverbs_device_hold(struct ibv_device *dev)
+{
+	struct verbs_device *verbs_device = verbs_get_device(dev);
+
+	atomic_fetch_add(&verbs_device->refcount, 1);
+}
+
+void ibverbs_device_put(struct ibv_device *dev)
+{
+	struct verbs_device *verbs_device = verbs_get_device(dev);
+
+	if (atomic_fetch_sub(&verbs_device->refcount, 1) == 1) {
+		free(verbs_device->sysfs);
+		if (verbs_device->ops->uninit_device)
+			verbs_device->ops->uninit_device(verbs_device);
+	}
 }
