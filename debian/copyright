@@ -85,7 +85,7 @@ Copyright: disclaimed
 License: BSD-MIT or GPL-2
 
 Files: iwpmd/*
-Copyright: 2004-2016, Intel Corporation.
+Copyright: 2013-2016, Intel Corporation.
 License: BSD-MIT or GPL-2
 
 Files: libibcm/*
