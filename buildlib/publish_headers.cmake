@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2016 Obsidian Research Corporation. See COPYING file
+# COPYRIGHT (c) 2016 Obsidian Research Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 # Same as publish_headers but does not install them during the install phase
 function(publish_internal_headers DEST)

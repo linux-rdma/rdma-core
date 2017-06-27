@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2016 Obsidian Research Corporation. See COPYING file
+# COPYRIGHT (c) 2016 Obsidian Research Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 # cmake does not have way to do this even slightly sanely until CMP0056
 function(RDMA_CHECK_C_LINKER_FLAG FLAG CACHE_VAR)

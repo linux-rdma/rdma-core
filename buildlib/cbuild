@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2015-2016 Obsidian Research Corp. See COPYING.
+# Copyright 2015-2016 Obsidian Research Corp.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 # PYTHON_ARGCOMPLETE_OK
 """cbuild - Build in a docker container
 

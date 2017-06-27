@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2016 Intel Corporation. See COPYING file
+# COPYRIGHT (c) 2016 Intel Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 

@@ -1,4 +1,5 @@
-/* COPYRIGHT (c) 2017 Obsidian Research Corporation. See COPYING file */
+/* COPYRIGHT (c) 2017 Obsidian Research Corporation.
+   Licensed under BSD (MIT variant) or GPLv2. See COPYING. */
 
 #ifndef _SPARSE_ENDIAN_H_
 #define _SPARSE_ENDIAN_H_

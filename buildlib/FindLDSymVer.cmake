@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2016 Obsidian Research Corporation. See COPYING file
+# COPYRIGHT (c) 2016 Obsidian Research Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 # find_package helper to detect symbol version support in the compiler and
 # linker. If supported then LDSYMVER_MODE will be set to GNU
 

@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2016 Obsidian Research Corporation. See COPYING file
+# COPYRIGHT (c) 2016 Obsidian Research Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 # Execute a header fixup based on NOT_NEEDED for HEADER
 

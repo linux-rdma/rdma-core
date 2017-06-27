@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2015-2017 Obsidian Research Corp. See COPYING.
+# Copyright 2015-2017 Obsidian Research Corp.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 import argparse
 import subprocess
 import os
