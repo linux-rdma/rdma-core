@@ -37,6 +37,7 @@
 
 #include <infiniband/verbs.h>
 #include <infiniband/kern-abi.h>
+#include <ccan/list.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -119,6 +120,8 @@ struct verbs_device {
 	const struct verbs_device_ops *ops;
 	size_t	sz;
 	size_t	size_of_context;
+	struct list_node entry;
+	struct ibv_sysfs_dev *sysfs;
 };
 
 static inline struct verbs_device *
