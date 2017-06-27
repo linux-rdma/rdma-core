@@ -71,13 +71,13 @@ Copyright: 2013-2015, Mellanox Technologies LTD.
 License: BSD-MIT or GPL-2
 
 Files: ibacm/src/acm_util.c
-  ibacm/src/acm_util.h
-  ibacm/src/parse.c
+       ibacm/src/acm_util.h
+       ibacm/src/parse.c
 Copyright: 2004-2016, Intel Corporation.
 License: BSD-MIT
 
 Files: ibacm/man/*
-  ibacm/ibacm.init.in
+       ibacm/ibacm.init.in
 Copyright: disclaimed
 License: BSD-2-clause
 
@@ -109,12 +109,12 @@ Copyright: 2017 Mellanox Technologies LTD.
 License: BSD-MIT or GPL-2
 
 Files: libibumad/tests/umad_reg2_compat.c
-  libibumad/tests/umad_register2.c
+       libibumad/tests/umad_register2.c
 Copyright: 2014, Intel Corporation.
 License: BSD-MIT or GPL-2
 
 Files: libibumad/umad.c
-  libibumad/umad.h
+       libibumad/umad.h
 Copyright: 2005-2014, Intel Corporation.
            2004-2009, Voltaire Inc.
 License: BSD-MIT or GPL-2
@@ -169,7 +169,7 @@ Copyright: 2006, 2007, Cisco Systems, Inc.
 License: BSD-MIT or GPL-2
 
 Files: libibverbs/arch.h
-  libibverbs/opcode.h
+       libibverbs/opcode.h
 Copyright: 2004-2005, Topspin Communications.
 License: BSD-MIT or GPL-2
 
@@ -180,7 +180,7 @@ Copyright: 2006, Cisco Systems, Inc.
 License: BSD-MIT or GPL-2
 
 Files: libibverbs/compat-1_0.c
-  libibverbs/sysfs.c
+       libibverbs/sysfs.c
 Copyright: 2006, 2007, Cisco Systems, Inc.
 License: BSD-MIT or GPL-2
 
@@ -204,7 +204,7 @@ Copyright: 2005, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
 Files: libibverbs/examples/pingpong.c
-  libibverbs/examples/pingpong.h
+       libibverbs/examples/pingpong.h
 Copyright: 2005, 2006, Cisco Systems.
 License: BSD-MIT or GPL-2
 
@@ -220,7 +220,7 @@ Copyright: 2005, Topspin Communications.
 License: BSD-MIT or GPL-2
 
 Files: libibverbs/marshall.c
-  libibverbs/marshall.h
+       libibverbs/marshall.h
 Copyright: 2004-2016, Intel Corporation.
 License: BSD-MIT or GPL-2
 
@@ -237,9 +237,9 @@ Copyright: 2005-2007, Cisco Systems, Inc.
 License: BSD-MIT or GPL-2
 
 Files: libibverbs/man/*
-  libibverbs/neigh.h
-  libibverbs/nl1_compat.h
-  libibverbs/neigh.c
+       libibverbs/neigh.h
+       libibverbs/nl1_compat.h
+       libibverbs/neigh.c
 Copyright: disclaimed
 License: BSD-2-clause
 
@@ -248,7 +248,7 @@ Copyright: 2004-2016, Intel Corporation.
 License: BSD-MIT or GPL-2
 
 Files: librdmacm/examples/riostream.c
-  librdmacm/examples/rstream.c
+       librdmacm/examples/rstream.c
 Copyright: 2013-2015, Mellanox Technologies LTD.
            2009-2014, Intel Corporation.
 License: BSD-MIT or GPL-2
@@ -276,9 +276,9 @@ Copyright: 2004-2016, Chelsio, Inc.
 License: BSD-MIT or GPL-2
 
 Files: providers/cxgb4/t4_chip_type.h
-  providers/cxgb4/t4_pci_id_tbl.h
-  providers/cxgb4/t4_regs.h
-  providers/cxgb4/t4fw_api.h
+       providers/cxgb4/t4_pci_id_tbl.h
+       providers/cxgb4/t4_regs.h
+       providers/cxgb4/t4fw_api.h
 Copyright: 2003-2015, Chelsio Communications, Inc.
 License: BSD-MIT or GPL-2
 
@@ -423,13 +423,13 @@ Copyright: 2006, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
 Files: srp_daemon/srp_daemon.1.in
-  srp_daemon/srpd.in
-  srp_daemon/ibsrpdm.1
+       srp_daemon/srpd.in
+       srp_daemon/ibsrpdm.1
 Copyright: disclaimed
 License: BSD-2-clause
 
 Files: srp_daemon/srp_daemon.sh.in
-  srp_daemon/srp_handle_traps.c
+       srp_daemon/srp_handle_traps.c
 Copyright: 2006, Mellanox Technologies.
 License: BSD-MIT or GPL-2
 
