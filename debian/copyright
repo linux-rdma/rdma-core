@@ -42,7 +42,7 @@ License: BSD-MIT or GPL-2
 
 Files: buildlib/fixup-include/rdma-vmw_pvrdma-abi.h
 Copyright: 2012-2016 VMware, Inc.
-License: BSD-MIT or GPL-2
+License: BSD-2-clause or GPL-2
 
 Files: buildlib/fixup-include/stdatomic.h
 Copyright: 2011 Ed Schouten <ed@FreeBSD.org>
