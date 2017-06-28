@@ -178,10 +178,6 @@ Copyright: 2004-2005, Topspin Communications.
            2005, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
-Files: providers/mlx4/mmio.h
-Copyright: disclaimed
-License: BSD-2-clause
-
 Files: providers/mlx5/*
 Copyright: 2010-2017, Mellanox Technologies, Inc.
 License: BSD-MIT or GPL-2
