@@ -153,7 +153,9 @@ Copyright: 2003-2016, Chelsio Communications, Inc.
 License: BSD-MIT or GPL-2
 
 Files: providers/hfi1verbs/*
-Copyright: no-info-found
+Copyright: 2005 PathScale, Inc.
+           2006-2009 QLogic Corporation
+           2015 Intel Corporation
 License: BSD-3-clause or GPL-2
 
 Files: providers/hns/*
