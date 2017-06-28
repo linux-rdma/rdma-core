@@ -163,7 +163,7 @@ Copyright: 2016, Hisilicon Limited.
 License: BSD-MIT or GPL-2
 
 Files: providers/i40iw/*
-Copyright: 2004-2016, Intel Corporation.
+Copyright: 2015-2016, Intel Corporation.
 License: BSD-MIT or GPL-2
 
 Files: providers/ipathverbs/*
