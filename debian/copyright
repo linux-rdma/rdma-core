@@ -143,6 +143,10 @@ Files: librdmacm/man/*
 Copyright: disclaimed
 License: BSD-2-clause
 
+Files: providers/bnxt_re/*
+Copyright: 2015-2017, Broadcom Limited and/or its subsidiaries
+License: BSD-2-clause or GPL-2
+
 Files: providers/cxgb3/*
        providers/cxgb4/*
 Copyright: 2003-2016, Chelsio Communications, Inc.
