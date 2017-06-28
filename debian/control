@@ -23,6 +23,8 @@ Homepage: https://github.com/linux-rdma/rdma-core
 Package: rdma-core
 Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
+Breaks: infiniband-diags (<< 2.0.0)
+Replaces: infiniband-diags (<< 2.0.0)
 Description: RDMA core userspace infrastructure and documentation
  rdma-core provides the basic boot time support (eg systemd integration)
  for systems that use the Linux kernel's RDMA subystem.
