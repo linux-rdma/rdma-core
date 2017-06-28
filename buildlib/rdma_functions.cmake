@@ -7,8 +7,8 @@
 # Global list of pairs of (SHARED STATIC) libary target names
 set(RDMA_STATIC_LIBS "" CACHE INTERNAL "Doc" FORCE)
 
-set(COMMON_LIBS_PIC ccan_pic)
-set(COMMON_LIBS ccan)
+set(COMMON_LIBS_PIC ccan_pic rdma_util_pic)
+set(COMMON_LIBS ccan rdma_util)
 
 # Create a symlink at filename DEST
 # If the directory containing DEST does not exist then it is created

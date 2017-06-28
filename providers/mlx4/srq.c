@@ -37,7 +37,6 @@
 #include <string.h>
 
 #include "mlx4.h"
-#include "doorbell.h"
 #include "wqe.h"
 #include "mlx4-abi.h"
 

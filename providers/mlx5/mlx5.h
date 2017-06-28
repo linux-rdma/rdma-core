@@ -236,7 +236,6 @@ struct mlx5_context {
 	pthread_mutex_t                 uidx_table_mutex;
 
 	void			       *uar[MLX5_MAX_UARS];
-	struct mlx5_spinlock		lock32;
 	struct mlx5_db_page	       *db_list;
 	pthread_mutex_t			db_list_mutex;
 	int				cache_line_size;

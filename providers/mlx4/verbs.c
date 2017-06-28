@@ -39,6 +39,8 @@
 #include <pthread.h>
 #include <errno.h>
 
+#include <util/mmio.h>
+
 #include "mlx4.h"
 #include "mlx4-abi.h"
 #include "wqe.h"
@@ -101,7 +103,6 @@ int mlx4_query_device_ex(struct ibv_context *context,
 	return 0;
 }
 
-#define READL(ptr) (*((uint32_t *)(ptr)))
 static int mlx4_read_clock(struct ibv_context *context, uint64_t *cycles)
 {
 	unsigned int clockhi, clocklo, clockhi1;
@@ -113,9 +114,9 @@ static int mlx4_read_clock(struct ibv_context *context, uint64_t *cycles)
 
 	/* Handle wraparound */
 	for (i = 0; i < 2; i++) {
-		clockhi = be32toh(READL(ctx->hca_core_clock));
-		clocklo = be32toh(READL(ctx->hca_core_clock + 4));
-		clockhi1 = be32toh(READL(ctx->hca_core_clock));
+		clockhi = be32toh(mmio_read32_be(ctx->hca_core_clock));
+		clocklo = be32toh(mmio_read32_be(ctx->hca_core_clock + 4));
+		clockhi1 = be32toh(mmio_read32_be(ctx->hca_core_clock));
 		if (clockhi == clockhi1)
 			break;
 	}

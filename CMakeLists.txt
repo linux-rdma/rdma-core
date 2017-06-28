@@ -181,6 +181,19 @@ set(NO_STRICT_ALIASING_FLAGS "")
 RDMA_AddOptCFlag(NO_STRICT_ALIASING_FLAGS HAVE_NO_STRICT_ALIASING
   "-fno-strict-aliasing")
 
+CHECK_C_SOURCE_COMPILES("
+ #include <unistd.h>
+
+ void entry(void);
+
+ static void do_entry(void) {}
+ void entry(void) __attribute__((ifunc(\"resolve_entry\")));
+ static void *resolve_entry(void) {return &do_entry;}
+
+ int main(int argc,const char *argv[]) { entry(); }"
+  HAVE_FUNC_ATTRIBUTE_IFUNC
+  FAIL_REGEX "warning")
+
 # The code does not do the racy fcntl if the various CLOEXEC's are not
 # supported so it really doesn't work right if this isn't available. Thus hard
 # require it.
@@ -438,6 +451,9 @@ rdma_finalize_libs()
 message(STATUS "Missing Optional Items:")
 if (NOT HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE)
   message(STATUS " Compiler attribute always_inline NOT supported")
+endif()
+if (NOT HAVE_FUNC_ATTRIBUTE_IFUNC)
+  message(STATUS " Compiler attribute ifunc NOT supported")
 endif()
 if (NOT HAVE_COHERENT_DMA)
   message(STATUS " Architecture NOT able to do coherent DMA (check util/udma_barrier.h) some providers disabled!")

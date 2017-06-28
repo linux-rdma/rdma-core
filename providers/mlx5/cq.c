@@ -40,11 +40,11 @@
 #include <unistd.h>
 
 #include <util/compiler.h>
+#include <util/mmio.h>
 #include <infiniband/opcode.h>
 
 #include "mlx5.h"
 #include "wqe.h"
-#include "doorbell.h"
 
 enum {
 	CQ_OK					=  0,
@@ -1283,7 +1283,7 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 {
 	struct mlx5_cq *cq = to_mcq(ibvcq);
 	struct mlx5_context *ctx = to_mctx(ibvcq->context);
-	uint32_t doorbell[2];
+	uint64_t doorbell;
 	uint32_t sn;
 	uint32_t ci;
 	uint32_t cmd;
@@ -1291,6 +1291,10 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	sn  = cq->arm_sn & 3;
 	ci  = cq->cons_index & 0xffffff;
 	cmd = solicited ? MLX5_CQ_DB_REQ_NOT_SOL : MLX5_CQ_DB_REQ_NOT;
+
+	doorbell = sn << 28 | cmd | ci;
+	doorbell <<= 32;
+	doorbell |= cq->cqn;
 
 	cq->dbrec[MLX5_CQ_ARM_DB] = htobe32(sn << 28 | cmd | ci);
 
@@ -1300,10 +1304,7 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 */
 	mmio_wc_start();
 
-	doorbell[0] = htobe32(sn << 28 | cmd | ci);
-	doorbell[1] = htobe32(cq->cqn);
-
-	mlx5_write64(doorbell, ctx->uar[0] + MLX5_CQ_DOORBELL, &ctx->lock32);
+	mmio_write64_be(ctx->uar[0] + MLX5_CQ_DOORBELL, htobe64(doorbell));
 
 	mmio_flush_writes();
 

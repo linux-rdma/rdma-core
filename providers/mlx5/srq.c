@@ -38,7 +38,6 @@
 #include <errno.h>
 
 #include "mlx5.h"
-#include "doorbell.h"
 #include "wqe.h"
 
 static void *get_wqe(struct mlx5_srq *srq, int n)

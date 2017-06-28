@@ -37,10 +37,10 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <util/mmio.h>
 #include <util/compiler.h>
 
 #include "mlx5.h"
-#include "doorbell.h"
 #include "wqe.h"
 
 #define MLX5_ATOMIC_SIZE 8
@@ -236,22 +236,17 @@ static void set_data_ptr_seg_atomic(struct mlx5_wqe_data_seg *dseg,
  * implementations may use move-string-buffer assembler instructions,
  * which do not guarantee order of copying.
  */
-static void mlx5_bf_copy(unsigned long long *dst, unsigned long long *src,
-			 unsigned bytecnt, struct mlx5_qp *qp)
+static void mlx5_bf_copy(uint64_t *dst, const uint64_t *src, unsigned bytecnt,
+			 struct mlx5_qp *qp)
 {
-	while (bytecnt > 0) {
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		bytecnt -= 8 * sizeof(unsigned long long);
+	do {
+		mmio_memcpy_x64(dst, src, 64);
+		bytecnt -= 64;
+		dst += 8;
+		src += 8;
 		if (unlikely(src == qp->sq.qend))
 			src = qp->sq_start;
-	}
+	} while (bytecnt > 0);
 }
 
 static uint32_t send_ieth(struct ibv_send_wr *wr)
@@ -939,11 +934,10 @@ out:
 		if (!ctx->shut_up_bf && nreq == 1 && bf->uuarn &&
 		    (inl || ctx->prefer_bf) && size > 1 &&
 		    size <= bf->buf_size / 16)
-			mlx5_bf_copy(bf->reg + bf->offset, (unsigned long long *)ctrl,
+			mlx5_bf_copy(bf->reg + bf->offset, (uint64_t *)ctrl,
 				     align(size * 16, 64), qp);
 		else
-			mlx5_write64((__be32 *)ctrl, bf->reg + bf->offset,
-				     &ctx->lock32);
+			mmio_write64_be(bf->reg + bf->offset, *(__be64 *)ctrl);
 
 		/*
 		 * use mmio_flush_writes() to ensure write combining buffers are flushed out

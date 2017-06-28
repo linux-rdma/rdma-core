@@ -145,8 +145,8 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 		if (++nreq == MTHCA_TAVOR_MAX_WQES_PER_RECV_DB) {
 			nreq = 0;
 
-			doorbell[0] = htobe32(first_ind << srq->wqe_shift);
-			doorbell[1] = htobe32(srq->srqn << 8);
+			doorbell[0] = first_ind << srq->wqe_shift;
+			doorbell[1] = srq->srqn << 8;
 
 			/*
 			 * Make sure that descriptors are written
@@ -154,15 +154,16 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 			 */
 			udma_to_device_barrier();
 
-			mthca_write64(doorbell, to_mctx(ibsrq->context), MTHCA_RECV_DOORBELL);
+			mthca_write64(doorbell, to_mctx(ibsrq->context)->uar +
+						    MTHCA_RECV_DOORBELL);
 
 			first_ind = srq->first_free;
 		}
 	}
 
 	if (nreq) {
-		doorbell[0] = htobe32(first_ind << srq->wqe_shift);
-		doorbell[1] = htobe32((srq->srqn << 8) | nreq);
+		doorbell[0] = first_ind << srq->wqe_shift;
+		doorbell[1] = (srq->srqn << 8) | nreq;
 
 		/*
 		 * Make sure that descriptors are written before
@@ -170,7 +171,8 @@ int mthca_tavor_post_srq_recv(struct ibv_srq *ibsrq,
 		 */
 		udma_to_device_barrier();
 
-		mthca_write64(doorbell, to_mctx(ibsrq->context), MTHCA_RECV_DOORBELL);
+		mthca_write64(doorbell, to_mctx(ibsrq->context)->uar +
+					    MTHCA_RECV_DOORBELL);
 	}
 
 	pthread_spin_unlock(&srq->lock);

@@ -38,10 +38,10 @@
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
+#include <util/mmio.h>
 #include <util/compiler.h>
 
 #include "mlx4.h"
-#include "doorbell.h"
 #include "wqe.h"
 
 static const uint32_t mlx4_ib_opcode[] = {
@@ -480,8 +480,8 @@ out:
 		 */
 		mmio_wc_spinlock(&ctx->bf_lock);
 
-		mlx4_bf_copy(ctx->bf_page + ctx->bf_offset, (unsigned long *) ctrl,
-			     align(size * 16, 64));
+		mmio_memcpy_x64(ctx->bf_page + ctx->bf_offset, ctrl,
+				align(size * 16, 64));
 		/* Flush before toggling bf_offset to be latency oriented */
 		mmio_flush_writes();
 
@@ -497,8 +497,8 @@ out:
 		 */
 		udma_to_device_barrier();
 
-		mmio_writel((unsigned long)(ctx->uar + MLX4_SEND_DOORBELL),
-			    qp->doorbell_qpn);
+		mmio_write32_be(ctx->uar + MLX4_SEND_DOORBELL,
+				qp->doorbell_qpn);
 	}
 
 	if (nreq)
