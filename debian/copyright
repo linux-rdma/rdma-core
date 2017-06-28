@@ -122,6 +122,19 @@ Copyright: 2005-2014, Intel Corporation.
            2014-2015, Mellanox Technologies LTD.
 License: BSD-MIT or GPL-2
 
+Files: librdmacm/examples/cmtime.c
+       librdmacm/examples/rcopy.c
+       librdmacm/examples/rdma_client.c
+       librdmacm/examples/rdma_server.c
+       librdmacm/examples/rdma_xclient.c
+       librdmacm/examples/rdma_xserver.c
+       librdmacm/examples/riostream.c
+       librdmacm/examples/rstream.c
+       librdmacm/examples/udpong.c
+Copyright: 2005-2014, Intel Corporation.
+           2014-2015, Mellanox Technologies LTD.
+License: BSD-MIT
+
 Files: librdmacm/docs/rsocket
 Copyright: disclaimed
 License: BSD-2-clause
