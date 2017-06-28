@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2017 Obsidian Research Corporation. See COPYING file
+# COPYRIGHT (c) 2017 Obsidian Research Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 function(RDMA_CheckSparse)
   # Sparse defines __CHECKER__, but only for the 'sparse pass', which has no

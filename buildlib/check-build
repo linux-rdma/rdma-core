@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2017 Obsidian Research Corp. See COPYING.
+# Copyright 2017 Obsidian Research Corp.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 """check-build - Run static checks on a build"""
 import argparse
 import inspect
