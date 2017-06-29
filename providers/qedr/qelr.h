@@ -192,6 +192,8 @@ struct qelr_qp_hwq_info {
 	void					*db;      /* Doorbell address */
 	void					*edpm_db;
 	union db_prod32				db_data;  /* Doorbell data */
+	void					*iwarp_db2;
+	union db_prod32				iwarp_db2_data;
 
 	uint16_t				icid;
 };
