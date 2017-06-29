@@ -205,16 +205,17 @@ struct qelr_rdma_ext {
 /* rdma extension, invalidate / immediate data + padding, inline data... */
 #define QELR_MAX_DPM_PAYLOAD (sizeof(struct qelr_rdma_ext) + sizeof(uint64_t) +\
 			       ROCE_REQ_MAX_INLINE_DATA_SIZE)
-struct qelr_edpm {
+struct qelr_dpm {
+	uint8_t			is_edpm;
 	union {
 		struct db_roce_dpm_data	data;
 		uint64_t raw;
 	} msg;
 
-	uint8_t			dpm_payload[QELR_MAX_DPM_PAYLOAD];
-	uint32_t		dpm_payload_size;
-	uint32_t		dpm_payload_offset;
-	uint8_t			is_edpm;
+	uint8_t			payload[QELR_MAX_DPM_PAYLOAD];
+	uint32_t		payload_size;
+	uint32_t		payload_offset;
+
 	struct qelr_rdma_ext    *rdma_ext;
 };
 
