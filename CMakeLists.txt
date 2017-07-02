@@ -415,6 +415,7 @@ add_subdirectory(providers/cxgb4) # NO SPARSE
 add_subdirectory(providers/hns) # NO SPARSE
 add_subdirectory(providers/i40iw) # NO SPARSE
 add_subdirectory(providers/mlx4) # NO SPARSE
+add_subdirectory(providers/mlx4/man) # NO SPARSE
 add_subdirectory(providers/mlx5) # NO SPARSE
 add_subdirectory(providers/mlx5/man) # NO SPARSE
 add_subdirectory(providers/mthca) # NO SPARSE

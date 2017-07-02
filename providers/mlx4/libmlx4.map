@@ -1,0 +1,7 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+MLX4_1.0 {
+	global:
+		mlx4dv_init_obj;
+	local: *;
+};

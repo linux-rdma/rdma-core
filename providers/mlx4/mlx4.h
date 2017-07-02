@@ -42,6 +42,8 @@
 #include <util/udma_barrier.h>
 #include <infiniband/verbs.h>
 
+#include "mlx4dv.h"
+
 #define MLX4_PORTS_NUM 2
 
 #include <valgrind/memcheck.h>
@@ -86,33 +88,6 @@ enum mlx4_db_type {
 	MLX4_DB_TYPE_CQ,
 	MLX4_DB_TYPE_RQ,
 	MLX4_NUM_DB_TYPE
-};
-
-enum {
-	MLX4_OPCODE_NOP			= 0x00,
-	MLX4_OPCODE_SEND_INVAL		= 0x01,
-	MLX4_OPCODE_RDMA_WRITE		= 0x08,
-	MLX4_OPCODE_RDMA_WRITE_IMM	= 0x09,
-	MLX4_OPCODE_SEND		= 0x0a,
-	MLX4_OPCODE_SEND_IMM		= 0x0b,
-	MLX4_OPCODE_LSO			= 0x0e,
-	MLX4_OPCODE_RDMA_READ		= 0x10,
-	MLX4_OPCODE_ATOMIC_CS		= 0x11,
-	MLX4_OPCODE_ATOMIC_FA		= 0x12,
-	MLX4_OPCODE_MASKED_ATOMIC_CS	= 0x14,
-	MLX4_OPCODE_MASKED_ATOMIC_FA	= 0x15,
-	MLX4_OPCODE_BIND_MW		= 0x18,
-	MLX4_OPCODE_FMR			= 0x19,
-	MLX4_OPCODE_LOCAL_INVAL		= 0x1b,
-	MLX4_OPCODE_CONFIG_CMD		= 0x1f,
-
-	MLX4_RECV_OPCODE_RDMA_WRITE_IMM	= 0x00,
-	MLX4_RECV_OPCODE_SEND		= 0x01,
-	MLX4_RECV_OPCODE_SEND_IMM	= 0x02,
-	MLX4_RECV_OPCODE_SEND_INVAL	= 0x03,
-
-	MLX4_CQE_OPCODE_ERROR		= 0x1e,
-	MLX4_CQE_OPCODE_RESIZE		= 0x16,
 };
 
 struct mlx4_device {
@@ -174,6 +149,7 @@ enum {
 	MLX4_CQ_FLAGS_RX_CSUM_VALID = 1 << 0,
 	MLX4_CQ_FLAGS_EXTENDED = 1 << 1,
 	MLX4_CQ_FLAGS_SINGLE_THREADED = 1 << 2,
+	MLX4_CQ_FLAGS_DV_OWNED = 1 << 3,
 };
 
 struct mlx4_cq {
@@ -238,19 +214,6 @@ struct mlx4_qp {
 	uint32_t			qp_cap_cache;
 };
 
-struct mlx4_av {
-	uint32_t			port_pd;
-	uint8_t				reserved1;
-	uint8_t				g_slid;
-	uint16_t			dlid;
-	uint8_t				reserved2;
-	uint8_t				gid_index;
-	uint8_t				stat_rate;
-	uint8_t				hop_limit;
-	uint32_t			sl_tclass_flowlabel;
-	uint8_t				dgid[16];
-};
-
 struct mlx4_ah {
 	struct ibv_ah			ibv_ah;
 	struct mlx4_av			av;
@@ -263,36 +226,6 @@ enum {
 	MLX4_CSUM_SUPPORT_RAW_OVER_ETH	= (1 <<  1),
 	/* Only report rx checksum when the validation is valid */
 	MLX4_RX_CSUM_VALID		= (1 <<  16),
-};
-
-enum mlx4_cqe_status {
-	MLX4_CQE_STATUS_TCP_UDP_CSUM_OK	= (1 <<  2),
-	MLX4_CQE_STATUS_IPV4_PKT	= (1 << 22),
-	MLX4_CQE_STATUS_IP_HDR_CSUM_OK	= (1 << 28),
-	MLX4_CQE_STATUS_IPV4_CSUM_OK	= MLX4_CQE_STATUS_IPV4_PKT |
-					MLX4_CQE_STATUS_IP_HDR_CSUM_OK |
-					MLX4_CQE_STATUS_TCP_UDP_CSUM_OK
-};
-
-struct mlx4_cqe {
-	uint32_t	vlan_my_qpn;
-	uint32_t	immed_rss_invalid;
-	uint32_t	g_mlpath_rqpn;
-	union {
-		struct {
-			uint16_t	sl_vid;
-			uint16_t	rlid;
-		};
-		uint32_t ts_47_16;
-	};
-	uint32_t	status;
-	uint32_t	byte_cnt;
-	uint16_t	wqe_index;
-	uint16_t	checksum;
-	uint8_t		reserved3;
-	uint8_t		ts_15_8;
-	uint8_t		ts_7_0;
-	uint8_t		owner_sr_opcode;
 };
 
 static inline unsigned long align(unsigned long val, unsigned long align)

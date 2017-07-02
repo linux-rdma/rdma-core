@@ -355,7 +355,9 @@ rm -rf %{buildroot}/%{_initrddir}/
 %{_mandir}/man3/*_to_ibv_rate.*
 %{_mandir}/man7/rdma_cm.*
 %{_mandir}/man3/mlx5dv*
+%{_mandir}/man3/mlx4dv*
 %{_mandir}/man7/mlx5dv*
+%{_mandir}/man7/mlx4dv*
 
 %files -n libibverbs
 %dir %{_sysconfdir}/libibverbs.d
@@ -363,6 +365,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 %{_libdir}/libibverbs*.so.*
 %{_libdir}/libibverbs/*.so
 %{_libdir}/libmlx5.so*
+%{_libdir}/libmlx4.so*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
