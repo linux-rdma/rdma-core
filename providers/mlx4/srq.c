@@ -307,7 +307,7 @@ int mlx4_destroy_xrc_srq(struct ibv_srq *srq)
 	pthread_spin_unlock(&mcq->lock);
 
 	ret = ibv_cmd_destroy_srq(srq);
-	if (ret) {
+	if (ret && !cleanup_on_fatal(ret)) {
 		pthread_spin_lock(&mcq->lock);
 		mlx4_store_xsrq(&mctx->xsrq_table, msrq->verbs_srq.srq_num, msrq);
 		pthread_spin_unlock(&mcq->lock);
