@@ -197,9 +197,9 @@ struct qelr_qp_hwq_info {
 };
 
 struct qelr_rdma_ext {
-	uint64_t remote_va;
-	uint32_t remote_key;
-	uint32_t dma_length;
+	__be64	remote_va;
+	__be32	remote_key;
+	__be32	dma_length;
 };
 
 /* rdma extension, invalidate / immediate data + padding, inline data... */
