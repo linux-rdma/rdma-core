@@ -285,6 +285,7 @@ static inline struct qelr_cq *get_qelr_cq(struct ibv_cq *ibcq)
 	(((value) >> (name ## _SHIFT)) & name ## _MASK)
 
 #define ROCE_WQE_ELEM_SIZE	sizeof(struct rdma_sq_sge)
+#define RDMA_WQE_BYTES		(16)
 
 #define QELR_RESP_IMM (RDMA_CQE_RESPONDER_IMM_FLG_MASK <<	\
 			RDMA_CQE_RESPONDER_IMM_FLG_SHIFT)
