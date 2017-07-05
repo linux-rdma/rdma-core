@@ -197,6 +197,20 @@ struct mlx4dv_srq {
 	uint64_t			comp_mask;
 };
 
+struct mlx4dv_rwq {
+	__be32			*rdb;
+	struct {
+		uint32_t	wqe_cnt;
+		int		wqe_shift;
+		int		offset;
+	} rq;
+	struct {
+		void			*buf;
+		size_t			length;
+	} buf;
+	uint64_t		comp_mask;
+};
+
 struct mlx4dv_obj {
 	struct {
 		struct ibv_qp		*in;
@@ -210,12 +224,17 @@ struct mlx4dv_obj {
 		struct ibv_srq		*in;
 		struct mlx4dv_srq	*out;
 	} srq;
+	struct {
+		struct ibv_wq		*in;
+		struct mlx4dv_rwq	*out;
+	} rwq;
 };
 
 enum mlx4dv_obj_type {
 	MLX4DV_OBJ_QP	= 1 << 0,
 	MLX4DV_OBJ_CQ	= 1 << 1,
 	MLX4DV_OBJ_SRQ	= 1 << 2,
+	MLX4DV_OBJ_RWQ	= 1 << 3,
 };
 
 /*

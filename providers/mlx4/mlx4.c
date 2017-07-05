@@ -419,6 +419,24 @@ static int mlx4dv_get_srq(struct ibv_srq *srq_in,
 	return 0;
 }
 
+static int mlx4dv_get_rwq(struct ibv_wq *wq_in, struct mlx4dv_rwq *wq_out)
+{
+	struct mlx4_qp *mqp = wq_to_mqp(wq_in);
+
+	wq_out->comp_mask = 0;
+
+	wq_out->buf.buf = mqp->buf.buf;
+	wq_out->buf.length = mqp->buf.length;
+
+	wq_out->rdb = mqp->db;
+
+	wq_out->rq.wqe_cnt = mqp->rq.wqe_cnt;
+	wq_out->rq.wqe_shift = mqp->rq.wqe_shift;
+	wq_out->rq.offset = mqp->rq.offset;
+
+	return 0;
+}
+
 int mlx4dv_init_obj(struct mlx4dv_obj *obj, uint64_t obj_type)
 {
 	int ret = 0;
@@ -429,6 +447,8 @@ int mlx4dv_init_obj(struct mlx4dv_obj *obj, uint64_t obj_type)
 		ret = mlx4dv_get_cq(obj->cq.in, obj->cq.out);
 	if (!ret && (obj_type & MLX4DV_OBJ_SRQ))
 		ret = mlx4dv_get_srq(obj->srq.in, obj->srq.out);
+	if (!ret && (obj_type & MLX4DV_OBJ_RWQ))
+		ret = mlx4dv_get_rwq(obj->rwq.in, obj->rwq.out);
 
 	return ret;
 }
