@@ -5,5 +5,6 @@ MLX4_1.0 {
 		mlx4dv_init_obj;
 		mlx4dv_query_device;
 		mlx4dv_create_qp;
+		mlx4dv_set_context_attr;
 	local: *;
 };

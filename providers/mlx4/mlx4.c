@@ -443,3 +443,20 @@ int mlx4dv_query_device(struct ibv_context *ctx_in,
 
 	return 0;
 }
+
+int mlx4dv_set_context_attr(struct ibv_context *context,
+			    enum mlx4dv_set_ctx_attr_type attr_type,
+			    void *attr)
+{
+	struct mlx4_context *ctx = to_mctx(context);
+
+	switch (attr_type) {
+	case MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ:
+		ctx->log_wqs_range_sz = *((uint8_t *)attr);
+		break;
+	default:
+		return ENOTSUP;
+	}
+
+	return 0;
+}

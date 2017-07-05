@@ -498,5 +498,16 @@ void mlx4dv_set_data_seg(struct mlx4_wqe_data_seg *seg,
 int mlx4dv_query_device(struct ibv_context *ctx_in,
 			struct mlx4dv_context *attrs_out);
 
-#endif /* _MLX4DV_H_ */
+enum mlx4dv_set_ctx_attr_type {
+	/* Attribute type uint8_t */
+	MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ	= 0,
+};
 
+/*
+ * Returns 0 on success, or the value of errno on failure
+ * (which indicates the failure reason).
+ */
+int mlx4dv_set_context_attr(struct ibv_context *context,
+			    enum mlx4dv_set_ctx_attr_type attr_type,
+			    void *attr);
+#endif /* _MLX4DV_H_ */
