@@ -3,7 +3,7 @@
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
 %:
-	dh $@ --with systemd --builddirectory=build-deb
+	dh $@ --builddirectory=build-deb
 
 override_dh_auto_clean:
 	dh_auto_clean
