@@ -26,8 +26,13 @@ Depends: ${misc:Depends}, ${shlibs:Depends}
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
 Description: RDMA core userspace infrastructure and documentation
- rdma-core provides the basic boot time support (eg systemd integration)
- for systems that use the Linux kernel's RDMA subystem.
+ This package provides the basic boot time support for systems that use the
+ Linux kernel's remote direct memory access (RDMA) subystem which includes
+ InfiniBand, iWARP, and RDMA over Converged Ethernet (RoCE).
+ .
+ The package also contains the rdma-ndd daemon which watches for RDMA device
+ changes and/or hostname changes and updates the Node Description of the RDMA
+ devices based on those changes.
 
 Package: ibacm
 Architecture: any
