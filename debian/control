@@ -162,25 +162,6 @@ Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  .
  This package contains the shared library.
 
-Package: libibverbs1-dbg
-Section: debug
-Architecture: linux-any
-Multi-Arch: same
-Depends: libibverbs1 (= ${binary:Version}), ${misc:Depends}
-Description: Debug symbols for the libibverbs library
- libibverbs is a library that allows userspace processes to use RDMA
- "verbs" as described in the InfiniBand Architecture Specification and
- the RDMA Protocol Verbs Specification.  iWARP ethernet NICs support
- RDMA over hardware-offloaded TCP/IP, while InfiniBand is a
- high-throughput, low-latency networking technology.  InfiniBand host
- channel adapters (HCAs) and iWARP NICs commonly support direct
- hardware access from userspace (kernel bypass), and libibverbs
- supports this when available.
- .
- This package contains the debug symbols associated with
- libibverbs1. They will automatically be used by gdb for debugging
- libibverbs-related issues.
-
 Package: libibumad-dev
 Section: libdevel
 Architecture: linux-any
@@ -207,19 +188,6 @@ Description: InfiniBand Userspace Management Datagram (uMAD) library
  These are used by InfiniBand diagnostic and management tools.
  .
  This package contains the shared library.
-
-Package: libibumad3-dbg
-Section: debug
-Architecture: linux-any
-Depends: libibumad3 (= ${binary:Version}), ${misc:Depends}
-Description: Debug symbols for the libibumad3 library
- libibumad provides userspace Infiniband Management Datagram (uMAD)
- functions which sit on top of the uMAD modules in the kernel.
- These are used by InfiniBand diagnostic and management tools.
- .
- This package contains the debug symbols associated with
- libibumad3. They will automatically be used by gdb for debugging
- libibumad-related issues.
 
 Package: librdmacm-dev
 Section: libdevel
@@ -265,28 +233,6 @@ Description: Library for managing RDMA connections
  transfer data.
  .
  This package contains the shared library.
-
-Package: librdmacm1-dbg
-Section: debug
-Architecture: linux-any
-Depends: librdmacm1 (= ${binary:Version}), ${misc:Depends}
-Description: Debug symbols for the librdmacm library
- librdmacm is a library that allows applications to set up reliable
- connected and unreliable datagram transfers when using RDMA adapters.
- It provides a transport-neutral interface in the sense that the same
- code can be used for both InfiniBand and iWARP adapters.  The
- interface is based on sockets, but adapted for queue pair (QP) based
- semantics: communication must use a specific RDMA device, and data
- transfers are message-based.
- .
- librdmacm only provides communication management (connection setup
- and tear-down) and works in conjunction with the verbs interface
- provided by libibverbs, which provides the interface used to actually
- transfer data.
- .
- This package contains the debug symbols associated with
- librdmacm1. They will automatically be used by gdb for debugging
- librdmacm-related issues.
 
 Package: rdmacm-utils
 Architecture: linux-any
@@ -363,21 +309,6 @@ Description: Infiniband Management Datagram (MAD) library
  .
  This package contains the shared library.
 
-Package: libibmad5-dbg
-Section: debug
-Architecture: linux-any
-Pre-Depends: ${misc:Pre-Depends}
-Depends: libibmad5 (= ${binary:Version}), ${misc:Depends}
-Description: Debug symbols for Infiniband Management Datagram (MAD) library
- libibmad provides low layer InfiniBand functions for use by the
- Infiniband diagnostic and management programs. These include
- Management Datagrams (MAD), Subnet Administration (SA), Subnet
- Management Packets (SMP) and other basic functions.
- .
- This package contains the debug symbols associated with
- libibmad5. They will automatically be used by gdb for debugging
- libibmad-related issues.
-
 Package: libibmad-dev
 Section: libdevel
 Architecture: linux-any
@@ -407,21 +338,6 @@ Description: InfiniBand diagnostics library
  .
  This package provides libraries required by the InfiniBand
  diagnostic programs.
-
-Package: libibnetdisc5-dbg
-Section: debug
-Architecture: linux-any
-Multi-Arch: same
-Depends: libibnetdisc5 (= ${binary:Version}), ${misc:Depends}
-Description: Debug symbols for the libibnetdisc library
- InfiniBand is a switched fabric communications link used in
- high-performance computing and enterprise data centers. Its features
- include high throughput, low latency, quality of service and
- failover, and it is designed to be scalable.
- .
- This package contains the debug symbols associated with
- libibnetdisc5. They will automatically be used by gdb for debugging
- libibnetdisc-related issues.
 
 Package: libibnetdisc-dev
 Section: libdevel
