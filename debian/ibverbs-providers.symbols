@@ -1,10 +1,9 @@
+libmlx4.so.1 ibverbs-providers #MINVER#
+ MLX4_1.0@MLX4_1.0 15
+ mlx4dv_init_obj@MLX4_1.0 15
 libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.0@MLX5_1.0 13
  MLX5_1.1@MLX5_1.1 14
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_query_device@MLX5_1.0 13
  mlx5dv_create_cq@MLX5_1.1 14
-
-libmlx4.so.1 ibverbs-providers #MINVER#
- MLX4_1.0@MLX4_1.0 15
- mlx4dv_init_obj@MLX4_1.0 15
