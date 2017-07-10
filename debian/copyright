@@ -175,7 +175,7 @@ License: BSD-MIT or GPL-2
 Files: providers/mlx4/*
 Copyright: 2004-2005, Topspin Communications.
            2005-2007, Cisco, Inc.
-           2005, Mellanox Technologies Ltd.
+           2005-2017, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
 Files: providers/mlx5/*
