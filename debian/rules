@@ -28,6 +28,9 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	ninja -C build-deb -v
 
+# upstream does not ship test cases
+override_dh_auto_test:
+
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp ninja -C build-deb install
 
