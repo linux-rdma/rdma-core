@@ -1035,7 +1035,7 @@ static void qelr_prepare_sq_sges(struct qelr_qp *qp,
 static uint32_t qelr_prepare_sq_rdma_data(struct qelr_qp *qp,
 					  struct qelr_dpm *dpm,
 					  int data_size,
-					  uint8_t wqe_size,
+					  uint8_t *p_wqe_size,
 					  struct rdma_sq_rdma_wqe_1st *rwqe,
 					  struct rdma_sq_rdma_wqe_2nd *rwqe2,
 					  struct ibv_send_wr *wr,
@@ -1044,7 +1044,10 @@ static uint32_t qelr_prepare_sq_rdma_data(struct qelr_qp *qp,
 	memset(rwqe2, 0, sizeof(*rwqe2));
 	rwqe2->r_key = htole32(wr->wr.rdma.rkey);
 	TYPEPTR_ADDR_SET(rwqe2, remote_va, wr->wr.rdma.remote_addr);
-	rwqe->wqe_size = wqe_size;
+	rwqe->length = htole32(data_size);
+
+	if (is_imm)
+		rwqe->imm_data = htole32(be32toh(wr->imm_data));
 
 	if (wr->send_flags & IBV_SEND_INLINE &&
 	    (wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM ||
@@ -1053,16 +1056,13 @@ static uint32_t qelr_prepare_sq_rdma_data(struct qelr_qp *qp,
 
 		SET_FIELD2(flags, RDMA_SQ_RDMA_WQE_1ST_INLINE_FLG, 1);
 		qelr_prepare_sq_inline_data(qp, dpm, data_size,
-					    &rwqe->wqe_size, wr,
+					    p_wqe_size, wr,
 					    &rwqe->flags, flags);
+		rwqe->wqe_size = *p_wqe_size;
 	} else {
-		qelr_prepare_sq_sges(qp, dpm, &rwqe->wqe_size, wr);
+		qelr_prepare_sq_sges(qp, dpm, p_wqe_size, wr);
+		rwqe->wqe_size = *p_wqe_size;
 	}
-
-	rwqe->length = htole32(data_size);
-
-	if (is_imm)
-		rwqe->imm_data = htole32(be32toh(wr->imm_data));
 
 	return data_size;
 }
@@ -1070,30 +1070,30 @@ static uint32_t qelr_prepare_sq_rdma_data(struct qelr_qp *qp,
 static uint32_t qelr_prepare_sq_send_data(struct qelr_qp *qp,
 					  struct qelr_dpm *dpm,
 					  int data_size,
-					  uint8_t wqe_size,
+					  uint8_t *p_wqe_size,
 					  struct rdma_sq_send_wqe_1st *swqe,
 					  struct rdma_sq_send_wqe_2st *swqe2,
 					  struct ibv_send_wr *wr,
 					  bool is_imm)
 {
 	memset(swqe2, 0, sizeof(*swqe2));
-	swqe->wqe_size = wqe_size;
+	swqe->length = htole32(data_size);
+
+	if (is_imm)
+		swqe->inv_key_or_imm_data = htole32(be32toh(wr->imm_data));
 
 	if (wr->send_flags & IBV_SEND_INLINE) {
 		uint8_t flags = 0;
 
 		SET_FIELD2(flags, RDMA_SQ_SEND_WQE_INLINE_FLG, 1);
 		qelr_prepare_sq_inline_data(qp, dpm, data_size,
-					    &swqe->wqe_size, wr,
+					    p_wqe_size, wr,
 					    &swqe->flags, flags);
+		swqe->wqe_size = *p_wqe_size;
 	} else {
-		qelr_prepare_sq_sges(qp, dpm, &swqe->wqe_size, wr);
+		qelr_prepare_sq_sges(qp, dpm, p_wqe_size, wr);
+		swqe->wqe_size = *p_wqe_size;
 	}
-
-	swqe->length = htole32(data_size);
-
-	if (is_imm)
-		swqe->inv_key_or_imm_data = htole32(be32toh(wr->imm_data));
 
 	return data_size;
 }
@@ -1261,14 +1261,14 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		wqe->req_type = RDMA_SQ_REQ_TYPE_SEND_WITH_IMM;
 		swqe = (struct rdma_sq_send_wqe_1st *)wqe;
 
-		wqe_size = sizeof(struct rdma_sq_send_wqe) / sizeof(uint64_t);
+		wqe_size = sizeof(struct rdma_sq_send_wqe) / RDMA_WQE_BYTES;
 		swqe2 = (struct rdma_sq_send_wqe_2st *)qelr_chain_produce(&qp->sq.chain);
 
 		if (dpm.is_edpm)
 			qelr_edpm_set_inv_imm(qp, &dpm, wr->imm_data);
 
 		wqe_length = qelr_prepare_sq_send_data(qp, &dpm, data_size,
-						       wqe_size, swqe, swqe2,
+						       &wqe_size, swqe, swqe2,
 						       wr, 1 /* Imm */);
 
 		if (dpm.is_edpm)
@@ -1285,10 +1285,10 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		wqe->req_type = RDMA_SQ_REQ_TYPE_SEND;
 		swqe = (struct rdma_sq_send_wqe_1st *)wqe;
 
-		wqe_size = sizeof(struct rdma_sq_send_wqe) / sizeof(uint64_t);
+		wqe_size = sizeof(struct rdma_sq_send_wqe) / RDMA_WQE_BYTES;
 		swqe2 = (struct rdma_sq_send_wqe_2st *)qelr_chain_produce(&qp->sq.chain);
 		wqe_length = qelr_prepare_sq_send_data(qp, &dpm, data_size,
-						       wqe_size, swqe, swqe2,
+						       &wqe_size, swqe, swqe2,
 						       wr, 0);
 
 		if (dpm.is_edpm)
@@ -1305,7 +1305,7 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		wqe->req_type = RDMA_SQ_REQ_TYPE_RDMA_WR_WITH_IMM;
 		rwqe = (struct rdma_sq_rdma_wqe_1st *)wqe;
 
-		wqe_size = sizeof(struct rdma_sq_rdma_wqe) / sizeof(uint64_t);
+		wqe_size = sizeof(struct rdma_sq_rdma_wqe) / RDMA_WQE_BYTES;
 		rwqe2 = (struct rdma_sq_rdma_wqe_2nd *)qelr_chain_produce(&qp->sq.chain);
 		if (dpm.is_edpm) {
 			qelr_edpm_set_rdma_ext(qp, &dpm, wr->wr.rdma.remote_addr,
@@ -1313,7 +1313,8 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 			qelr_edpm_set_inv_imm(qp, &dpm, wr->imm_data);
 		}
 
-		wqe_length = qelr_prepare_sq_rdma_data(qp, &dpm, data_size, wqe_size, rwqe, rwqe2, wr, 1 /* Imm */);
+		wqe_length = qelr_prepare_sq_rdma_data(qp, &dpm, data_size, &wqe_size,
+						       rwqe, rwqe2, wr, 1 /* Imm */);
 		if (dpm.is_edpm)
 			qelr_edpm_set_msg_data(qp, &dpm,
 					       QELR_IB_OPCODE_RDMA_WRITE_ONLY_WITH_IMMEDIATE,
@@ -1328,14 +1329,15 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		wqe->req_type = RDMA_SQ_REQ_TYPE_RDMA_WR;
 		rwqe = (struct rdma_sq_rdma_wqe_1st *)wqe;
 
-		wqe_size = sizeof(struct rdma_sq_rdma_wqe) / sizeof(uint64_t);
+		wqe_size = sizeof(struct rdma_sq_rdma_wqe) / RDMA_WQE_BYTES;
 		rwqe2 = (struct rdma_sq_rdma_wqe_2nd *)qelr_chain_produce(&qp->sq.chain);
 		if (dpm.is_edpm)
 			qelr_edpm_set_rdma_ext(qp, &dpm,
 					       wr->wr.rdma.remote_addr,
 					       wr->wr.rdma.rkey);
 
-		wqe_length = qelr_prepare_sq_rdma_data(qp, &dpm, data_size, wqe_size, rwqe, rwqe2, wr, 0);
+		wqe_length = qelr_prepare_sq_rdma_data(qp, &dpm, data_size, &wqe_size,
+						       rwqe, rwqe2, wr, 0);
 		if (dpm.is_edpm)
 			qelr_edpm_set_msg_data(qp, &dpm,
 					       QELR_IB_OPCODE_RDMA_WRITE_ONLY,
@@ -1351,9 +1353,10 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		wqe->req_type = RDMA_SQ_REQ_TYPE_RDMA_RD;
 		rwqe = (struct rdma_sq_rdma_wqe_1st *)wqe;
 
-		wqe_size = sizeof(struct rdma_sq_rdma_wqe) / sizeof(uint64_t);
+		wqe_size = sizeof(struct rdma_sq_rdma_wqe) / RDMA_WQE_BYTES;
 		rwqe2 = (struct rdma_sq_rdma_wqe_2nd *)qelr_chain_produce(&qp->sq.chain);
-		wqe_length = qelr_prepare_sq_rdma_data(qp, &dpm, data_size, wqe_size, rwqe, rwqe2, wr, 0);
+		wqe_length = qelr_prepare_sq_rdma_data(qp, &dpm, data_size, &wqe_size,
+						       rwqe, rwqe2, wr, 0);
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
 		qp->wqe_wr_id[qp->sq.prod].bytes_len = wqe_length;
