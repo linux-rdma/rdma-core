@@ -9,8 +9,8 @@
 #
 ### BEGIN INIT INFO
 # Provides:       srpd
-# Required-Start: $syslog @RDMA_SERVICE@
-# Required-Stop: $syslog @RDMA_SERVICE@
+# Required-Start: $syslog rdma
+# Required-Stop: $syslog rdma
 # Default-Start: @SRP_DEFAULT_START@
 # Default-Stop: @SRP_DEFAULT_STOP@
 # Should-Start:

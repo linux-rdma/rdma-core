@@ -1,0 +1,143 @@
+#!/bin/bash
+#
+# Bring up the kernel RDMA stack
+#
+# This is usually run automatically by systemd after a hardware activation
+# event in udev has triggered a start of the rdma.service unit
+#
+
+set -eu
+shopt -s nullglob
+
+CONFIG=@CMAKE_INSTALL_SYSCONFDIR@/rdma/rdma.conf
+
+LOAD_ULP_MODULES=""
+LOAD_CORE_USER_MODULES="ib_umad ib_uverbs ib_ucm rdma_ucm"
+LOAD_CORE_CM_MODULES="iw_cm ib_cm rdma_cm"
+LOAD_CORE_MODULES="ib_core"
+
+if [ -f $CONFIG ]; then
+    . $CONFIG
+
+    if [ "${RDS_LOAD-}" = "yes" ]; then
+        IPOIB_LOAD=yes
+    fi
+
+    if [ "${IPOIB_LOAD-}" = "yes" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES ib_ipoib"
+    fi
+
+    if [ "${RDS_LOAD-}" = "yes" ] && [ -f "/lib/modules/$(uname -r)/kernel/net/rds/rds.ko" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES rds"
+        if [ -f "/lib/modules/$(uname -r)/kernel/net/rds/rds_tcp.ko" ]; then
+            LOAD_ULP_MODULES="$LOAD_ULP_MODULES rds_tcp"
+        fi
+        if [ -f "/lib/modules/$(uname -r)/kernel/net/rds/rds_rdma.ko" ]; then
+            LOAD_ULP_MODULES="$LOAD_ULP_MODULES rds_rdma"
+        fi
+    fi
+
+    if [ "${SRP_LOAD-}" = "yes" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES ib_srp"
+    fi
+
+    if [ "${SRPT_LOAD-}" = "yes" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES ib_srpt"
+    fi
+
+    if [ "${ISER_LOAD-}" = "yes" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES ib_iser"
+    fi
+
+    if [ "${ISERT_LOAD-}" = "yes" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES ib_isert"
+    fi
+
+    if [ "${XPRTRDMA_LOAD-}" = "yes" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES xprtrdma"
+    fi
+
+    if [ "${SVCRDMA_LOAD-}" = "yes" ]; then
+        LOAD_ULP_MODULES="$LOAD_ULP_MODULES svcrdma"
+    fi
+else
+    LOAD_ULP_MODULES="ib_ipoib"
+fi
+
+# If module $1 is loaded return - 0 else - 1
+is_loaded()
+{
+    /sbin/lsmod | grep -w "$1" > /dev/null 2>&1
+}
+
+load_modules()
+{
+    local RC=0
+
+    for module in "$@"; do
+        if ! /sbin/modinfo "$module" > /dev/null 2>&1; then
+            # do not attempt to load modules which do not exist
+            continue
+        fi
+        if ! is_loaded "$module"; then
+            if ! /sbin/modprobe "$module"; then
+                RC=$(( RC + 1 ))
+                echo
+                echo "Failed to load module $module"
+            fi
+        fi
+    done
+    return $RC
+}
+
+load_hardware_modules()
+{
+    local -i RC=0
+
+    # We match both class NETWORK and class INFINIBAND devices since our
+    # iWARP hardware is listed under class NETWORK.  The side effect of
+    # this is that we might cause a non-iWARP network driver to be loaded.
+    udevadm trigger --subsystem-match=pci --attr-nomatch=driver --attr-match=class=0x020000 --attr-match=class=0x0c0600
+    udevadm settle
+    if [ -r /proc/device-tree ]; then
+        if ls /proc/device-tree/*lhca* >/dev/null 2>&1; then
+            if ! is_loaded ib_ehca; then
+                load_modules ib_ehca || RC=$(( RC + $? ))
+            fi
+        fi
+    fi
+    if is_loaded mlx4_core -a ! is_loaded mlx4_ib; then
+        load_modules mlx4_ib || RC=$(( RC + $? ))
+    fi
+    if is_loaded mlx4_core -a ! is_loaded mlx4_en; then
+        load_modules mlx4_en || RC=$(( RC + $? ))
+    fi
+    if is_loaded mlx5_core -a ! is_loaded mlx5_ib; then
+        load_modules mlx5_ib || RC=$(( RC + $? ))
+    fi
+    if is_loaded cxgb3 -a ! is_loaded iw_cxgb3; then
+        load_modules iw_cxgb3 || RC=$(( RC + $? ))
+    fi
+    if is_loaded cxgb4 -a ! is_loaded iw_cxgb4; then
+        load_modules iw_cxgb4 || RC=$(( RC + $? ))
+    fi
+    if is_loaded be2net -a ! is_loaded ocrdma; then
+        load_modules ocrdma || RC=$(( RC + $? ))
+    fi
+    if is_loaded enic -a ! is_loaded usnic_verbs; then
+        load_modules usnic_verbs || RC=$(( RC + $? ))
+    fi
+    if is_loaded i40e -a ! is_loaded i40iw; then
+        load_modules i40iw || RC=$(( RC + $? ))
+    fi
+    return $RC
+}
+
+RC=0
+load_hardware_modules || RC=$(( RC + $? ))
+load_modules $LOAD_CORE_MODULES || RC=$(( RC + $? ))
+load_modules $LOAD_CORE_CM_MODULES || RC=$(( RC + $? ))
+load_modules $LOAD_CORE_USER_MODULES || RC=$(( RC + $? ))
+load_modules $LOAD_ULP_MODULES || RC=$(( RC + $? ))
+
+exit $RC
