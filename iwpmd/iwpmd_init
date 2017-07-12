@@ -29,12 +29,13 @@ if [ -f "/etc/redhat-release" ]; then
 	STATUSD=status
 	GETPID=/sbin/pidof
 
-elif [ -f "/etc/SuSE-release" ]; then
+else
+	# Debian / openSUSE / Ubuntu
 	. /lib/lsb/init-functions
 	STARTD=start_daemon
 	STOPD=killproc
 	STATUSD=/sbin/checkproc
-	GETPID=/sbin/pidofproc
+	GETPID=pidofproc
 fi
 
 check() {
