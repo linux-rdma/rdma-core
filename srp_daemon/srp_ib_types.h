@@ -50,9 +50,8 @@
 #define SRP_INFORMINFO_QPN_COMP		(1 << 8)
 #define SRP_INFORMINFO_PRODUCER_COMP	(1 << 12)
 
-#ifndef PACK_SUFFIX
+#define PACK_SUFFIX4 __attribute__((aligned(4))) __attribute__((packed))
 #define PACK_SUFFIX __attribute__((packed))
-#endif
 
 /****d* IBA Base: Constants/MAD_BLOCK_SIZE
 * NAME
@@ -111,7 +110,7 @@ struct ib_path_rec
 	uint8_t		preference;
 	uint8_t		resv2[6];
 
-}	PACK_SUFFIX;
+}	PACK_SUFFIX4;
 
 
 /****f* IBA Base: Types/umad_init_new
@@ -176,7 +175,7 @@ struct ib_inform_info
 
 	}	PACK_SUFFIX g_or_v;
 
-} PACK_SUFFIX;
+} PACK_SUFFIX4;
 
 struct ib_mad_notice_attr		// Total Size calc  Accumulated
 {
@@ -207,7 +206,7 @@ struct ib_mad_notice_attr		// Total Size calc  Accumulated
 		struct _raw_data
 		{
 			uint8_t	details[54];
-		} PACK_SUFFIX raw_data;
+		} raw_data;
 
 		struct _ntc_64_67
 		{
@@ -226,7 +225,7 @@ struct ib_mad_notice_attr		// Total Size calc  Accumulated
 
 	union umad_gid			issuer_gid;	// 16		80
 
-} PACK_SUFFIX;
+} PACK_SUFFIX4;
 
 /****f* IBA Base: Types/ib_gid_get_guid
 * NAME
