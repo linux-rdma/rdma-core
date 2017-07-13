@@ -451,6 +451,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %files -n srp_daemon
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
+%config(noreplace) %{_sysconfdir}/rdma/modules/srp_daemon.conf
 %{_libexecdir}/srp_daemon/start_on_all_ports
 %{_unitdir}/srp_daemon.service
 %{_unitdir}/srp_daemon_port@.service
