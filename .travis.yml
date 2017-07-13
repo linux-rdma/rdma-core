@@ -25,7 +25,7 @@ addons:
       - dh-systemd
       - fakeroot
       - gcc
-      - gcc-6
+      - gcc-7
       - libnl-3-dev
       - libnl-route-3-dev
       - libudev-dev
@@ -39,7 +39,7 @@ addons:
 
       # 32 bit support packages
       - gcc-multilib
-      - lib32gcc-6-dev
+      - lib32gcc-7-dev
 
 before_script:
   - export LATEST_GCC_LINARO_URL=`wget -qO - https://releases.linaro.org/components/toolchain/binaries/latest/aarch64-linux-gnu/ | grep -o '<a href=['"'"'"].*gcc-linaro-.*x86_64_aarch64-linux-gnu.tar.xz['"'"'"]'  |  sed -e 's/^<a href=["'"'"']//' -e 's/["'"'"']$//'`

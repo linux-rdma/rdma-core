@@ -17,7 +17,7 @@ ninja
 cd ../build32
 # travis's trusty is not configured in a way that enables all 32 bit
 # packages. We could fix this with some sudo stuff.. For now turn off libnl
-CC=gcc-6 CFLAGS="-Werror -m32" cmake -GNinja .. -DENABLE_RESOLVE_NEIGH=0
+CC=gcc-7 CFLAGS="-Werror -m32" cmake -GNinja .. -DENABLE_RESOLVE_NEIGH=0
 ninja
 
 # aarch64 build to check compilation on ARM 64bit platform
@@ -46,7 +46,7 @@ CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
 ninja
 cp ../util/udma_barrier.h.old ../util/udma_barrier.h
 
-# Finally run through gcc-6 64 bit through the debian packaging This gives a
+# Finally run through gcc-7 64 bit through the debian packaging This gives a
 # good clue if patches are changing packaging related things, the RPM stuff
 # will have to be audited by hand.
 
@@ -57,5 +57,5 @@ echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")' >> buildlib/RDMA_EnableCStd
 sed -i -e 's/-DCMAKE_BUILD_TYPE=Release//g' debian/rules
 sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
 
-CC=gcc-6 debian/rules build
+CC=gcc-7 debian/rules build
 fakeroot debian/rules binary
