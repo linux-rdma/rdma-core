@@ -976,6 +976,9 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 	else
 		qp->sq_signal_bits = 0;
 
+	qp->qpn_cache = qp->verbs_qp.qp.qp_num;
+	qp->type = attr->srq ? MLX4_RSC_TYPE_SRQ : MLX4_RSC_TYPE_QP;
+
 	return &qp->verbs_qp.qp;
 
 err_destroy:
@@ -1472,6 +1475,10 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 	qp->rq.max_gs  = attr->max_sge;
 
 	qp->wq.state = IBV_WQS_RESET;
+
+	qp->wq.post_recv = mlx4_post_wq_recv;
+
+	qp->qpn_cache = qp->wq.wq_num;
 
 	return &qp->wq;
 

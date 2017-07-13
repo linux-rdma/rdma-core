@@ -509,10 +509,14 @@ out:
 	return ret;
 }
 
-int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
-		   struct ibv_recv_wr **bad_wr)
+static inline int _mlx4_post_recv(struct mlx4_qp *qp, struct mlx4_cq *cq,
+				  struct ibv_recv_wr *wr,
+				  struct ibv_recv_wr **bad_wr)
+				  ALWAYS_INLINE;
+static inline int _mlx4_post_recv(struct mlx4_qp *qp, struct mlx4_cq *cq,
+				  struct ibv_recv_wr *wr,
+				  struct ibv_recv_wr **bad_wr)
 {
-	struct mlx4_qp *qp = to_mqp(ibqp);
 	struct mlx4_wqe_data_seg *scat;
 	int ret = 0;
 	int nreq;
@@ -526,7 +530,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wq_overflow(&qp->rq, nreq, to_mcq(ibqp->recv_cq))) {
+		if (wq_overflow(&qp->rq, nreq, cq)) {
 			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
@@ -570,6 +574,24 @@ out:
 	pthread_spin_unlock(&qp->rq.lock);
 
 	return ret;
+}
+
+int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		   struct ibv_recv_wr **bad_wr)
+{
+	struct mlx4_qp *qp = to_mqp(ibqp);
+	struct mlx4_cq *cq = to_mcq(ibqp->recv_cq);
+
+	return _mlx4_post_recv(qp, cq, wr, bad_wr);
+}
+
+int mlx4_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr)
+{
+	struct mlx4_qp *qp = wq_to_mqp(ibwq);
+	struct mlx4_cq *cq = to_mcq(ibwq->cq);
+
+	return _mlx4_post_recv(qp, cq, wr, bad_wr);
 }
 
 static int num_inline_segs(int data, enum ibv_qp_type type)

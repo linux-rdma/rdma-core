@@ -201,6 +201,7 @@ struct mlx4_wq {
 enum mlx4_rsc_type {
 	MLX4_RSC_TYPE_QP	= 0,
 	MLX4_RSC_TYPE_RSS_QP	= 1,
+	MLX4_RSC_TYPE_SRQ	= 2,
 };
 
 struct mlx4_qp {
@@ -223,6 +224,7 @@ struct mlx4_qp {
 	uint8_t				link_layer;
 	uint8_t				type; /* enum mlx4_rsc_type */
 	uint32_t			qp_cap_cache;
+	uint32_t			qpn_cache;
 };
 
 struct mlx4_ah {
@@ -420,5 +422,7 @@ int mlx4_destroy_wq(struct ibv_wq *wq);
 struct ibv_rwq_ind_table *mlx4_create_rwq_ind_table(struct ibv_context *context,
 						    struct ibv_rwq_ind_table_init_attr *init_attr);
 int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
+int mlx4_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr);
 
 #endif /* MLX4_H */
