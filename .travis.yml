@@ -1,7 +1,7 @@
 language: c
 # We need at least cmake 2.12, this means we need to use trusty.
 # Precise's glibc, etc predates what we are willing to support.
-# sudo is required to get the trusty image, and at present to enable llvm 3.9
+# sudo is required to get the trusty image, and at present to enable new llvm
 sudo: required
 dist: trusty
 addons:
@@ -11,15 +11,15 @@ addons:
   apt:
     sources:
       # sourceline because travis won't white list trusty builds, and hasn't
-      # whitelisted 3.9
-      - sourceline: "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-3.9 main"
+      # whitelisted 4.0
+      - sourceline: "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-4.0 main"
         key_url: "http://apt.llvm.org/llvm-snapshot.gpg.key"
       - ubuntu-toolchain-r-test
       # Multiverse is not on by default and we need it to get sparse
       - sourceline: "deb http://archive.ubuntu.com/ubuntu/ trusty multiverse"
     packages:
       - build-essential
-      - clang-3.9
+      - clang-4.0
       - cmake
       - debhelper
       - dh-systemd

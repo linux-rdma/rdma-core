@@ -9,9 +9,9 @@ mkdir build-clang build32 build-sparse build-aarch64
 
 # Build with latest clang first
 cd build-clang
-CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
+CC=clang-4.0 CFLAGS=-Werror cmake -GNinja ..
 ninja
-../buildlib/check-build --src .. --cc clang-3.9
+../buildlib/check-build --src .. --cc clang-4.0
 
 # 32 bit build to check format strings/etc
 cd ../build32
@@ -42,7 +42,7 @@ cd ../build-clang
 cp ../util/udma_barrier.h ../util/udma_barrier.h.old
 echo "#error Fail" >> ../util/udma_barrier.h
 rm CMakeCache.txt
-CC=clang-3.9 CFLAGS=-Werror cmake -GNinja ..
+CC=clang-4.0 CFLAGS=-Werror cmake -GNinja ..
 ninja
 cp ../util/udma_barrier.h.old ../util/udma_barrier.h
 
