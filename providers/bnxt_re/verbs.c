@@ -49,6 +49,8 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
+#include <util/compiler.h>
+
 #include "main.h"
 #include "verbs.h"
 
@@ -1220,6 +1222,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			 * LE platform be32toh will do the job.
 			 */
 			hdr->key_immd = htole32(be32toh(wr->imm_data));
+			SWITCH_FALLTHROUGH;
 		case IBV_WR_SEND:
 			if (qp->qptyp == IBV_QPT_UD)
 				bytes = bnxt_re_build_ud_sqe(qp, sqe, wr,
@@ -1230,6 +1233,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			break;
 		case IBV_WR_RDMA_WRITE_WITH_IMM:
 			hdr->key_immd = htole32(be32toh(wr->imm_data));
+			SWITCH_FALLTHROUGH;
 		case IBV_WR_RDMA_WRITE:
 			bytes = bnxt_re_build_rdma_sqe(qp, sqe, wr, is_inline);
 			break;
