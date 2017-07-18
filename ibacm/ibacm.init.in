@@ -10,8 +10,8 @@
 # Provides:       ibacm
 # Default-Start: 2 3 4 5
 # Default-Stop: 0 1 6
-# Required-Start: @rdmascript@ $network $remote_fs
-# Required-Stop: @rdmascript@ $network $remote_fs
+# Required-Start: rdma $network $remote_fs
+# Required-Stop: rdma $network $remote_fs
 # Should-Start:
 # Should-Stop:
 # Short-Description: Starts and stops the InfiniBand ACM service

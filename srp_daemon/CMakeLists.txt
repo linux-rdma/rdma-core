@@ -45,8 +45,6 @@ install(FILES srp_daemon.conf DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
 
 install(FILES srp_daemon.rules DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 
-# FIXME: The ib init.d file should really be included in rdma-core as well.
-set(RDMA_SERVICE "openibd" CACHE STRING "init.d file service name to order srpd after")
 # NOTE: These defaults are for CentOS, packagers should override.
 set(SRP_DEFAULT_START "2 3 4 5" CACHE STRING "Default-Start service data for srpd")
 set(SRP_DEFAULT_STOP "0 1 6" CACHE STRING "Default-Stop service data for srpd")
