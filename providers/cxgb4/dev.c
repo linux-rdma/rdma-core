@@ -466,6 +466,10 @@ found:
 	PDBG("%s found vendor %d device %d type %d\n",
 	     __FUNCTION__, vendor, device, CHELSIO_CHIP_VERSION(hca_table[i].device >> 8));
 
+	c4iw_page_size = sysconf(_SC_PAGESIZE);
+	c4iw_page_shift = long_log2(c4iw_page_size);
+	c4iw_page_mask = ~(c4iw_page_size - 1);
+
 	dev = calloc(1, sizeof *dev);
 	if (!dev) {
 		return NULL;
@@ -515,14 +519,7 @@ static const struct verbs_device_ops c4iw_dev_ops = {
 	.alloc_context = c4iw_alloc_context,
 	.free_context = c4iw_free_context,
 };
-
-static __attribute__((constructor)) void cxgb4_register_driver(void)
-{
-	c4iw_page_size = sysconf(_SC_PAGESIZE);
-	c4iw_page_shift = long_log2(c4iw_page_size);
-	c4iw_page_mask = ~(c4iw_page_size - 1);
-	verbs_register_driver(&c4iw_dev_ops);
-}
+PROVIDER_DRIVER(c4iw_dev_ops);
 
 #ifdef STATS
 void __attribute__ ((destructor)) cs_fini(void);
