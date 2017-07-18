@@ -173,9 +173,17 @@ static void hfi1_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void hf11_uninit_device(struct verbs_device *verbs_device)
+{
+	struct hfi1_device *dev = to_idev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops hfi1_dev_ops = {
 	.alloc_context	= hfi1_alloc_context,
-	.free_context	= hfi1_free_context
+	.free_context	= hfi1_free_context,
+	.uninit_device  = hf11_uninit_device
 };
 
 static struct verbs_device *hfi1_driver_init(const char *uverbs_sys_path,

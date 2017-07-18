@@ -62,6 +62,8 @@ struct ibv_sysfs_dev {
 	struct ibv_sysfs_dev   *next;
 	int			abi_ver;
 	int			have_driver;
+	struct timespec		time_created;
+	int			used;
 };
 
 struct ibv_driver_name {
@@ -75,11 +77,10 @@ struct ibv_driver {
 	struct ibv_driver      *next;
 };
 
-static struct ibv_sysfs_dev *sysfs_dev_list;
 static struct ibv_driver_name *driver_name_list;
 static struct ibv_driver *head_driver, *tail_driver;
 
-static int find_sysfs_devs(void)
+static int find_sysfs_devs(struct ibv_sysfs_dev **tmp_sysfs_dev_list)
 {
 	char class_path[IBV_SYSFS_PATH_MAX];
 	DIR *class_dir;
@@ -140,15 +141,24 @@ static int find_sysfs_devs(void)
 			sysfs_dev->ibdev_name))
 			continue;
 
-		sysfs_dev->next        = sysfs_dev_list;
+		if (stat(sysfs_dev->ibdev_path, &buf)) {
+			fprintf(stderr, PFX "Warning: couldn't stat '%s'.\n",
+				sysfs_dev->ibdev_path);
+			continue;
+		}
+
+		sysfs_dev->time_created = buf.st_mtim;
+
+		sysfs_dev->next        = *tmp_sysfs_dev_list;
 		sysfs_dev->have_driver = 0;
+		sysfs_dev->used = 0;
 		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "abi_version",
 					value, sizeof value) > 0)
 			sysfs_dev->abi_ver = strtol(value, NULL, 10);
 		else
 			sysfs_dev->abi_ver = 0;
 
-		sysfs_dev_list = sysfs_dev;
+		*tmp_sysfs_dev_list = sysfs_dev;
 		sysfs_dev      = NULL;
 	}
 
@@ -361,8 +371,8 @@ out:
 	closedir(conf_dir);
 }
 
-static struct ibv_device *try_driver(struct ibv_driver *driver,
-				     struct ibv_sysfs_dev *sysfs_dev)
+static struct verbs_device *try_driver(struct ibv_driver *driver,
+				       struct ibv_sysfs_dev *sysfs_dev)
 {
 	struct verbs_device *vdev;
 	struct ibv_device *dev;
@@ -372,6 +382,7 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 	if (!vdev)
 		return NULL;
 
+	atomic_init(&vdev->refcount, 1);
 	dev = &vdev->device;
 	assert(dev->_ops._dummy1 == NULL);
 	assert(dev->_ops._dummy2 == NULL);
@@ -410,14 +421,16 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 	strcpy(dev->dev_path,   sysfs_dev->sysfs_path);
 	strcpy(dev->name,       sysfs_dev->ibdev_name);
 	strcpy(dev->ibdev_path, sysfs_dev->ibdev_path);
+	vdev->sysfs = sysfs_dev;
+	sysfs_dev->used = 1;
 
-	return dev;
+	return vdev;
 }
 
-static struct ibv_device *try_drivers(struct ibv_sysfs_dev *sysfs_dev)
+static struct verbs_device *try_drivers(struct ibv_sysfs_dev *sysfs_dev)
 {
 	struct ibv_driver *driver;
-	struct ibv_device *dev;
+	struct verbs_device *dev;
 
 	for (driver = head_driver; driver; driver = driver->next) {
 		dev = try_driver(driver, sysfs_dev);
@@ -468,63 +481,54 @@ static void check_memlock_limit(void)
 			rlim.rlim_cur);
 }
 
-static void add_device(struct ibv_device *dev,
-		       struct ibv_device ***dev_list,
-		       int *num_devices,
-		       int *list_size)
+static int same_sysfs_dev(struct ibv_sysfs_dev *sysfs1,
+			  struct ibv_sysfs_dev *sysfs2)
 {
-	struct ibv_device **new_list;
-
-	if (*list_size <= *num_devices) {
-		*list_size = *list_size ? *list_size * 2 : 1;
-		new_list = realloc(*dev_list, *list_size * sizeof (struct ibv_device *));
-		if (!new_list)
-			return;
-		*dev_list = new_list;
-	}
-
-	(*dev_list)[(*num_devices)++] = dev;
+	if (!strcmp(sysfs1->sysfs_name, sysfs2->sysfs_name) &&
+	    ts_cmp(&sysfs1->time_created,
+		   &sysfs2->time_created, ==))
+		return 1;
+	return 0;
 }
 
-int ibverbs_init(struct ibv_device ***list)
+int ibverbs_get_device_list(struct list_head *list)
 {
-	const char *sysfs_path;
-	struct ibv_sysfs_dev *sysfs_dev, *next_dev;
-	struct ibv_device *device;
+	struct ibv_sysfs_dev *tmp_sysfs_dev_list = NULL, *sysfs_dev, *next_dev;
+	struct verbs_device *vdev, *tmp;
 	int num_devices = 0;
-	int list_size = 0;
 	int statically_linked = 0;
 	int no_driver = 0;
 	int ret;
 
-	*list = NULL;
-
-	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
-		if (ibv_fork_init())
-			fprintf(stderr, PFX "Warning: fork()-safety requested "
-				"but init failed\n");
-
-	sysfs_path = ibv_get_sysfs_path();
-	if (!sysfs_path)
-		return -ENOSYS;
-
-	ret = check_abi_version(sysfs_path);
+	ret = find_sysfs_devs(&tmp_sysfs_dev_list);
 	if (ret)
 		return -ret;
 
-	check_memlock_limit();
+	list_for_each_safe(list, vdev, tmp, entry) {
+		for (sysfs_dev = tmp_sysfs_dev_list; sysfs_dev; sysfs_dev =
+		     sysfs_dev->next) {
+			if (same_sysfs_dev(vdev->sysfs, sysfs_dev)) {
+				sysfs_dev->have_driver = 1;
+				num_devices++;
+				break;
+			}
+		}
 
-	read_config();
+		if (!sysfs_dev) {
+			list_del(&vdev->entry);
+			ibverbs_device_put(&vdev->device);
+		}
+	}
 
-	ret = find_sysfs_devs();
-	if (ret)
-		return -ret;
-
-	for (sysfs_dev = sysfs_dev_list; sysfs_dev; sysfs_dev = sysfs_dev->next) {
-		device = try_drivers(sysfs_dev);
-		if (device) {
-			add_device(device, list, &num_devices, &list_size);
+	for (sysfs_dev = tmp_sysfs_dev_list; sysfs_dev; sysfs_dev =
+	     sysfs_dev->next) {
+		if (sysfs_dev->have_driver)
+			continue;
+		vdev = try_drivers(sysfs_dev);
+		if (vdev) {
 			sysfs_dev->have_driver = 1;
+			list_add(list, &vdev->entry);
+			num_devices++;
 		} else
 			no_driver = 1;
 	}
@@ -554,20 +558,22 @@ int ibverbs_init(struct ibv_device ***list)
 
 	load_drivers();
 
-	for (sysfs_dev = sysfs_dev_list; sysfs_dev; sysfs_dev = sysfs_dev->next) {
+	for (sysfs_dev = tmp_sysfs_dev_list; sysfs_dev; sysfs_dev =
+	     sysfs_dev->next) {
 		if (sysfs_dev->have_driver)
 			continue;
 
-		device = try_drivers(sysfs_dev);
-		if (device) {
-			add_device(device, list, &num_devices, &list_size);
+		vdev = try_drivers(sysfs_dev);
+		if (vdev) {
 			sysfs_dev->have_driver = 1;
+			list_add(list, &vdev->entry);
+			num_devices++;
 		}
 	}
 
 out:
-	for (sysfs_dev = sysfs_dev_list,
-		     next_dev = sysfs_dev ? sysfs_dev->next : NULL;
+	for (sysfs_dev = tmp_sysfs_dev_list,
+	     next_dev = sysfs_dev ? sysfs_dev->next : NULL;
 	     sysfs_dev;
 	     sysfs_dev = next_dev, next_dev = sysfs_dev ? sysfs_dev->next : NULL) {
 		if (!sysfs_dev->have_driver && getenv("IBV_SHOW_WARNINGS")) {
@@ -577,8 +583,52 @@ out:
 				fprintf(stderr, "	When linking libibverbs statically, "
 					"driver must be statically linked too.\n");
 		}
-		free(sysfs_dev);
+		if (!sysfs_dev->used)
+			free(sysfs_dev);
 	}
 
 	return num_devices;
+}
+
+int ibverbs_init(void)
+{
+	const char *sysfs_path;
+	int ret;
+
+	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
+		if (ibv_fork_init())
+			fprintf(stderr, PFX "Warning: fork()-safety requested "
+				"but init failed\n");
+
+	sysfs_path = ibv_get_sysfs_path();
+	if (!sysfs_path)
+		return -ENOSYS;
+
+	ret = check_abi_version(sysfs_path);
+	if (ret)
+		return -ret;
+
+	check_memlock_limit();
+
+	read_config();
+
+	return 0;
+}
+
+void ibverbs_device_hold(struct ibv_device *dev)
+{
+	struct verbs_device *verbs_device = verbs_get_device(dev);
+
+	atomic_fetch_add(&verbs_device->refcount, 1);
+}
+
+void ibverbs_device_put(struct ibv_device *dev)
+{
+	struct verbs_device *verbs_device = verbs_get_device(dev);
+
+	if (atomic_fetch_sub(&verbs_device->refcount, 1) == 1) {
+		free(verbs_device->sysfs);
+		if (verbs_device->ops->uninit_device)
+			verbs_device->ops->uninit_device(verbs_device);
+	}
 }

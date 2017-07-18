@@ -162,9 +162,17 @@ static void pvrdma_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void pvrdma_uninit_device(struct verbs_device *verbs_device)
+{
+	struct pvrdma_device *dev = to_vdev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops pvrdma_dev_ops = {
 	.alloc_context = pvrdma_alloc_context,
-	.free_context  = pvrdma_free_context
+	.free_context  = pvrdma_free_context,
+	.uninit_device = pvrdma_uninit_device
 };
 
 static struct pvrdma_device *pvrdma_driver_init_shared(

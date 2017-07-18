@@ -209,9 +209,17 @@ static void mthca_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void mthca_uninit_device(struct verbs_device *verbs_device)
+{
+	struct mthca_device *dev = to_mdev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops mthca_dev_ops = {
 	.alloc_context = mthca_alloc_context,
-	.free_context  = mthca_free_context
+	.free_context  = mthca_free_context,
+	.uninit_device = mthca_uninit_device
 };
 
 static struct verbs_device *mthca_driver_init(const char *uverbs_sys_path,

@@ -1,7 +1,7 @@
 libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.0@IBVERBS_1.0 1.1.6
  IBVERBS_1.1@IBVERBS_1.1 1.1.6
- (symver)IBVERBS_PRIVATE_14 14
+ (symver)IBVERBS_PRIVATE_15 15
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
  ibv_ack_cq_events@IBVERBS_1.0 1.1.6

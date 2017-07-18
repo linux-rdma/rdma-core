@@ -173,9 +173,17 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	context = NULL;
 }
 
+static void hns_uninit_device(struct verbs_device *verbs_device)
+{
+	struct hns_roce_device *dev = to_hr_dev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops hns_roce_dev_ops = {
 	.alloc_context = hns_roce_alloc_context,
-	.free_context	= hns_roce_free_context
+	.free_context	= hns_roce_free_context,
+	.uninit_device = hns_uninit_device
 };
 
 static struct verbs_device *hns_roce_driver_init(const char *uverbs_sys_path,

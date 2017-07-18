@@ -59,7 +59,10 @@ struct ibv_abi_compat_v2 {
 
 extern int abi_ver;
 
-int ibverbs_init(struct ibv_device ***list);
+int ibverbs_get_device_list(struct list_head *list);
+int ibverbs_init(void);
+void ibverbs_device_put(struct ibv_device *dev);
+void ibverbs_device_hold(struct ibv_device *dev);
 
 struct verbs_ex_private {
 	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,

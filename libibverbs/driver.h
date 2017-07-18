@@ -35,8 +35,10 @@
 #ifndef INFINIBAND_DRIVER_H
 #define INFINIBAND_DRIVER_H
 
+#include <stdatomic.h>
 #include <infiniband/verbs.h>
 #include <infiniband/kern-abi.h>
+#include <ccan/list.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -111,6 +113,7 @@ struct verbs_device_ops {
 			    struct ibv_context *ctx, int cmd_fd);
 	void (*uninit_context)(struct verbs_device *device,
 			       struct ibv_context *ctx);
+	void (*uninit_device)(struct verbs_device *device);
 };
 
 /* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
@@ -119,6 +122,9 @@ struct verbs_device {
 	const struct verbs_device_ops *ops;
 	size_t	sz;
 	size_t	size_of_context;
+	atomic_int refcount;
+	struct list_node entry;
+	struct ibv_sysfs_dev *sysfs;
 };
 
 static inline struct verbs_device *

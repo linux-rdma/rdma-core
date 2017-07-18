@@ -886,9 +886,17 @@ static void rxe_free_context(struct ibv_context *ibctx)
 	free(context);
 }
 
+static void rxe_uninit_device(struct verbs_device *verbs_device)
+{
+	struct rxe_device *dev = to_rdev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops rxe_dev_ops = {
 	.alloc_context = rxe_alloc_context,
 	.free_context = rxe_free_context,
+	.uninit_device = rxe_uninit_device
 };
 
 static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,

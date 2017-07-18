@@ -59,47 +59,63 @@ int __ibv_get_async_event(struct ibv_context *context,
 			  struct ibv_async_event *event);
 void __ibv_ack_async_event(struct ibv_async_event *event);
 
-static pthread_once_t device_list_once = PTHREAD_ONCE_INIT;
-static int num_devices;
-static struct ibv_device **device_list;
+static pthread_mutex_t dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
+static int initialized;
+static struct list_head device_list = LIST_HEAD_INIT(device_list);
 
-static void count_devices(void)
-{
-	num_devices = ibverbs_init(&device_list);
-}
 
 struct ibv_device **__ibv_get_device_list(int *num)
 {
-	struct ibv_device **l;
-	int i;
+	struct ibv_device **l = NULL;
+	struct verbs_device *device;
+	int num_devices;
+	int i = 0;
 
 	if (num)
 		*num = 0;
 
-	pthread_once(&device_list_once, count_devices);
+	pthread_mutex_lock(&dev_list_lock);
+	if (!initialized) {
+		int ret = ibverbs_init();
+		initialized = (ret < 0) ? ret : 1;
+	}
 
+	if (initialized < 0) {
+		errno = -initialized;
+		goto out;
+	}
+
+	num_devices = ibverbs_get_device_list(&device_list);
 	if (num_devices < 0) {
 		errno = -num_devices;
-		return NULL;
+		goto out;
 	}
 
 	l = calloc(num_devices + 1, sizeof (struct ibv_device *));
 	if (!l) {
 		errno = ENOMEM;
-		return NULL;
+		goto out;
 	}
 
-	for (i = 0; i < num_devices; ++i)
-		l[i] = device_list[i];
+	list_for_each(&device_list, device, entry) {
+		l[i] = &device->device;
+		ibverbs_device_hold(l[i]);
+		i++;
+	}
 	if (num)
 		*num = num_devices;
-
+out:
+	pthread_mutex_unlock(&dev_list_lock);
 	return l;
 }
 default_symver(__ibv_get_device_list, ibv_get_device_list);
 
 void __ibv_free_device_list(struct ibv_device **list)
 {
+	int i;
+
+	for (i = 0; list[i]; i++)
+		ibverbs_device_put(list[i]);
 	free(list);
 }
 default_symver(__ibv_free_device_list, ibv_free_device_list);
@@ -249,6 +265,8 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 	context->cmd_fd = cmd_fd;
 	pthread_mutex_init(&context->mutex, NULL);
 
+	ibverbs_device_hold(device);
+
 	return context;
 
 verbs_err:
@@ -267,6 +285,7 @@ int __ibv_close_device(struct ibv_context *context)
 	int cq_fd    = -1;
 	struct verbs_context *context_ex;
 	struct verbs_device *verbs_device = verbs_get_device(context->device);
+	struct ibv_device *device = context->device;
 
 	context_ex = verbs_get_ctx(context);
 	if (context_ex) {
@@ -281,6 +300,7 @@ int __ibv_close_device(struct ibv_context *context)
 	close(cmd_fd);
 	if (abi_ver <= 2)
 		close(cq_fd);
+	ibverbs_device_put(device);
 
 	return 0;
 }

@@ -274,9 +274,17 @@ static void mlx4_uninit_context(struct verbs_device *v_device,
 		       to_mdev(&v_device->device)->page_size);
 }
 
+static void mlx4_uninit_device(struct verbs_device *verbs_device)
+{
+	struct mlx4_device *dev = to_mdev(&verbs_device->device);
+
+	free(dev);
+}
+
 static struct verbs_device_ops mlx4_dev_ops = {
 	.init_context = mlx4_init_context,
 	.uninit_context = mlx4_uninit_context,
+	.uninit_device = mlx4_uninit_device
 };
 
 static struct verbs_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
