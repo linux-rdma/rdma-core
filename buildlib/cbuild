@@ -550,6 +550,16 @@ def run_travis_build(args,env):
             subprocess.check_call(["git",
                                    "--git-dir",os.path.join(opwd,".git"),
                                    "reset","--hard","HEAD"]);
+            subprocess.check_call(["git",
+                                   "--git-dir",os.path.join(opwd,".git"),
+                                   "fetch",
+                                   "--no-tags",
+                                   "https://github.com/linux-rdma/rdma-core.git","HEAD",
+                                   "master"]);
+            base = subprocess.check_output(["git",
+                                            "--git-dir",os.path.join(opwd,".git"),
+                                            "merge-base",
+                                            "HEAD","FETCH_HEAD"]).strip();
 
         home = os.path.join(os.path.sep,"home","travis");
         home_build = os.path.join(os.path.sep,home,"build");
@@ -559,8 +569,10 @@ def run_travis_build(args,env):
             "--read-only",
             "--rm=true",
             "-v","%s:%s"%(tmpdir, home_build),
+            "-v","%s:%s:ro"%(os.path.join(opwd,".git"),os.path.join(home_build,"src",".git")),
             "-w",os.path.join(home_build,"src"),
             "-u",str(os.getuid()),
+            "-e","TRAVIS_COMMIT_RANGE=%s..HEAD"%(base),
             "-e","HOME=%s"%(home),
             "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
         ];
