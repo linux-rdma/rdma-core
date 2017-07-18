@@ -1,0 +1,14 @@
+#!/bin/bash
+# Copyright 2017 Mellanox Technologies Ltd.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
+
+set -e
+
+if [ $TRAVIS_COMMIT_RANGE != "" ]; then
+	cd buildlib/
+	wget https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/checkpatch.pl
+	wget https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/spelling.txt
+	DIR_FOR_PATCHES_TO_CHECK=$(mktemp -d)
+	git format-patch --no-cover-letter $TRAVIS_COMMIT_RANGE -o $DIR_FOR_PATCHES_TO_CHECK/
+	perl checkpatch.pl --no-tree --ignore PREFER_KERNEL_TYPES,FILE_PATH_CHANGES,EXECUTE_PERMISSIONS $DIR_FOR_PATCHES_TO_CHECK/*
+fi

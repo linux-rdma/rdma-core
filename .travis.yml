@@ -49,6 +49,7 @@ before_script:
   - rm $LATEST_GCC_LINARO_TAR
 script:
   - buildlib/travis-build
+  - buildlib/travis-checkpatch
   - buildlib/github-release
 deploy:
   # Deploy assets to Github releases
