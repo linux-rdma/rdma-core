@@ -495,6 +495,7 @@ int ibverbs_get_device_list(struct list_head *list)
 {
 	struct ibv_sysfs_dev *tmp_sysfs_dev_list = NULL, *sysfs_dev, *next_dev;
 	struct verbs_device *vdev, *tmp;
+	static int drivers_loaded;
 	int num_devices = 0;
 	int statically_linked = 0;
 	int no_driver = 0;
@@ -533,7 +534,7 @@ int ibverbs_get_device_list(struct list_head *list)
 			no_driver = 1;
 	}
 
-	if (!no_driver)
+	if (!no_driver || drivers_loaded)
 		goto out;
 
 	/*
@@ -557,6 +558,7 @@ int ibverbs_get_device_list(struct list_head *list)
 	}
 
 	load_drivers();
+	drivers_loaded = 1;
 
 	for (sysfs_dev = tmp_sysfs_dev_list; sysfs_dev; sysfs_dev =
 	     sysfs_dev->next) {
