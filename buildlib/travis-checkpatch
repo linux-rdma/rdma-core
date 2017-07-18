@@ -10,5 +10,5 @@ if [ $TRAVIS_COMMIT_RANGE != "" ]; then
 	wget https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/spelling.txt
 	DIR_FOR_PATCHES_TO_CHECK=$(mktemp -d)
 	git format-patch --no-cover-letter $TRAVIS_COMMIT_RANGE -o $DIR_FOR_PATCHES_TO_CHECK/
-	perl checkpatch.pl --no-tree --ignore PREFER_KERNEL_TYPES,FILE_PATH_CHANGES,EXECUTE_PERMISSIONS $DIR_FOR_PATCHES_TO_CHECK/*
+	perl checkpatch.pl --no-tree --ignore PREFER_KERNEL_TYPES,FILE_PATH_CHANGES,EXECUTE_PERMISSIONS,USE_NEGATIVE_ERRNO $DIR_FOR_PATCHES_TO_CHECK/*
 fi
