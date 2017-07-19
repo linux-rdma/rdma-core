@@ -48,23 +48,17 @@
 /*
  * Macros needed to support the PCI Device ID Table ...
  */
-#define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN \
-	static struct hca_ent { \
-		unsigned vendor; \
-		unsigned device; \
-	} hca_table[] = {
+#define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN                                    \
+	static const struct verbs_match_ent hca_table[] = {
 
 #define CH_PCI_DEVICE_ID_FUNCTION \
 		0x4
 
-#define CH_PCI_ID_TABLE_ENTRY(__DeviceID) \
-		{ \
-			.vendor = PCI_VENDOR_ID_CHELSIO, \
-			.device = (__DeviceID), \
-		}
+#define CH_PCI_ID_TABLE_ENTRY(__DeviceID)                                      \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_CHELSIO, __DeviceID, NULL)
 
 #define CH_PCI_DEVICE_ID_TABLE_DEFINE_END \
-	}
+	{} }
 
 #include "t4_chip_type.h"
 #include "t4_pci_id_tbl.h"
@@ -401,31 +395,13 @@ int c4iw_abi_version = 1;
 
 static bool c4iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[32], *cp;
-	unsigned vendor, device, fw_maj, fw_min;
-	int i;
+	unsigned int fw_maj, fw_min;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
+	/* Rely on the core code to match PCI devices */
+	if (!sysfs_dev->match)
 		return false;
-	sscanf(value, "%i", &vendor);
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return false;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device) {
-			sysfs_dev->provider_data = &hca_table[i];
-			goto found;
-		}
-
-	return false;
-
-found:
 	/*
 	 * Verify that the firmware major number matches.  Major number
 	 * mismatches are fatal.  Minor number mismatches are tolerated.
@@ -461,7 +437,6 @@ found:
 static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct c4iw_dev *dev;
-	struct hca_ent *hca_ent = sysfs_dev->provider_data;
 
 	c4iw_page_size = sysconf(_SC_PAGESIZE);
 	c4iw_page_shift = long_log2(c4iw_page_size);
@@ -473,7 +448,7 @@ static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	c4iw_abi_version = sysfs_dev->abi_ver;
-	dev->chip_version = CHELSIO_CHIP_VERSION(hca_ent->device >> 8);
+	dev->chip_version = CHELSIO_CHIP_VERSION(sysfs_dev->match->device >> 8);
 	dev->abi_version = sysfs_dev->abi_ver;
 	list_node_init(&dev->list);
 
@@ -513,6 +488,7 @@ static const struct verbs_device_ops c4iw_dev_ops = {
 	.name = "cxgb4",
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
+	.match_table = hca_table,
 	.match_device = c4iw_device_match,
 	.alloc_device = c4iw_device_alloc,
 	.uninit_device = c4iw_uninit_device,
