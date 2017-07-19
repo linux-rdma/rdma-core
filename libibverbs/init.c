@@ -367,22 +367,14 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 	struct ibv_device *dev;
 	char value[16];
 
-	if (ops->alloc_device) {
-		if (!match_device(ops, sysfs_dev))
-			return NULL;
+	if (!match_device(ops, sysfs_dev))
+		return NULL;
 
-		vdev = ops->alloc_device(sysfs_dev);
-		if (!vdev) {
-			fprintf(stderr, PFX
-				"Fatal: couldn't allocate device for %s\n",
-				sysfs_dev->ibdev_path);
-			return NULL;
-		}
-	} else {
-		vdev =
-		    ops->init_device(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
-		if (!vdev)
-			return NULL;
+	vdev = ops->alloc_device(sysfs_dev);
+	if (!vdev) {
+		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
+			sysfs_dev->ibdev_path);
+		return NULL;
 	}
 
 	vdev->ops = ops;

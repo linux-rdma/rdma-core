@@ -129,8 +129,6 @@ struct verbs_device_ops {
 			       struct ibv_context *ctx);
 
 	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
-	struct verbs_device *(*init_device)(const char *uverbs_sys_path,
-					    int abi_version);
 	void (*uninit_device)(struct verbs_device *device);
 };
 
