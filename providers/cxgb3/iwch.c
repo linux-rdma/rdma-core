@@ -56,16 +56,10 @@
 #define PCI_DEVICE_ID_CHELSIO_T3C20	0x0035
 #define PCI_DEVICE_ID_CHELSIO_S320E	0x0036
 
-#define HCA(v, d, t) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_CHELSIO_##d,		\
-	  .type = CHELSIO_##t }
-
-static struct hca_ent {
-	unsigned vendor;
-	unsigned device;
-	enum iwch_hca_type type;
-} hca_table[] = {
+#define HCA(v, d, t)                                                           \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_CHELSIO_##d,          \
+			(void *)(CHELSIO_##t))
+static const struct verbs_match_ent hca_table[] = {
 	HCA(CHELSIO, PE9000_2C, T3B),
 	HCA(CHELSIO, T302E, T3A),
 	HCA(CHELSIO, T302X, T3A),
@@ -175,31 +169,12 @@ static void iwch_uninit_device(struct verbs_device *verbs_device)
 
 static bool iwch_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[32], *cp;
-	unsigned vendor, device, fw_maj, fw_min;
-	int i;
+	unsigned int fw_maj, fw_min;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
+	/* Rely on the core code to match PCI devices */
+	if (!sysfs_dev->match)
 		return false;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return false;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device) {
-			sysfs_dev->provider_data = &hca_table[i];
-			goto found;
-		}
-
-	return false;
-
-found:
 
 	/* 
 	 * Verify that the firmware major number matches.  Major number
@@ -237,14 +212,13 @@ found:
 static struct verbs_device *iwch_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct iwch_device *dev;
-	struct hca_ent *hca_ent = sysfs_dev->provider_data;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->hca_type = hca_ent->type;
+	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->abi_version = sysfs_dev->abi_ver;
 
 	iwch_page_size = sysconf(_SC_PAGESIZE);
@@ -278,6 +252,7 @@ static const struct verbs_device_ops iwch_dev_ops = {
 	.name = "cxgb3",
 	.match_min_abi_version = 0,
 	.match_max_abi_version = ABI_VERS,
+	.match_table = hca_table,
 	.match_device = iwch_device_match,
 	.alloc_device = iwch_device_alloc,
 	.uninit_device = iwch_uninit_device,
