@@ -367,8 +367,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_libdir}/libibverbs
 %{_libdir}/libibverbs*.so.*
 %{_libdir}/libibverbs/*.so
-%{_libdir}/libmlx5.so*
-%{_libdir}/libmlx4.so*
+%{_libdir}/libmlx5.so.*
+%{_libdir}/libmlx4.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
