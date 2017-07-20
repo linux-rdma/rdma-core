@@ -402,6 +402,7 @@ configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOT
 add_subdirectory(ccan)
 add_subdirectory(util)
 add_subdirectory(Documentation)
+add_subdirectory(kernel-boot)
 # Libraries
 add_subdirectory(libibumad)
 add_subdirectory(libibumad/man)

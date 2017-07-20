@@ -142,4 +142,5 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %config %{_sysconfdir}/iwpmd.conf
 %config %{_sysconfdir}/srp_daemon.conf
 %config %{_sysconfdir}/libibverbs.d/*
+%config %{_sysconfdir}/rdma/modules/*
 %{_sysconfdir}/modprobe.d/*
