@@ -304,11 +304,11 @@ class harlequin(ZypperEnvironment):
     name = "opensuse-13.2";
     aliases = {"harelequin"};
 
-class malachite(ZypperEnvironment):
-    docker_parent = "opensuse:42.1";
+class leap(ZypperEnvironment):
+    docker_parent = "opensuse:42.2";
     pkgs = harlequin.pkgs;
-    name = "opensuse-42.1";
-    aliases = {"malachite"};
+    name = "opensuse-42.2";
+    aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse:tumbleweed";
@@ -327,7 +327,7 @@ environments = [centos6(),
                 stretch(),
                 fc26(),
                 harlequin(),
-                malachite(),
+                leap(),
                 tumbleweed(),
                 debian_experimental(),
 ];
