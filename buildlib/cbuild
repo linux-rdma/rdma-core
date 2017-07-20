@@ -126,10 +126,10 @@ class centos7_epel(centos7):
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
         return res;
 
-class fc25(Environment):
-    docker_parent = "fedora:25";
+class fc26(Environment):
+    docker_parent = "fedora:26";
     pkgs = (centos7.pkgs - {"make"}) | {"ninja-build"};
-    name = "fc25";
+    name = "fc26";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -318,7 +318,7 @@ environments = [centos6(),
                 trusty(),
                 xenial(),
                 jessie(),
-                fc25(),
+                fc26(),
                 harlequin(),
                 malachite(),
                 tumbleweed(),
