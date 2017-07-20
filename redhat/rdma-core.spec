@@ -274,6 +274,7 @@ install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
+rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 # libibverbs
 %post -n libibverbs -p /sbin/ldconfig
