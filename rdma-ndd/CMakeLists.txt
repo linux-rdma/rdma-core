@@ -14,7 +14,9 @@ rdma_man_pages(
   rdma-ndd.8.in
   )
 
-install(FILES "rdma-ndd.rules" DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
+install(FILES "rdma-ndd.rules"
+  RENAME "60-rdma-ndd.rules"
+  DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 
 rdma_subst_install(FILES "rdma-ndd.service.in"
   DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"

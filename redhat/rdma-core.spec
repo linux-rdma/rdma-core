@@ -331,7 +331,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{dracutlibdir}/modules.d/05rdma
 %{dracutlibdir}/modules.d/05rdma/module-setup.sh
 %{_udevrulesdir}/98-rdma.rules
-%{_udevrulesdir}/rdma-ndd.rules
+%{_udevrulesdir}/60-rdma-ndd.rules
 %{sysmodprobedir}/libmlx4.conf
 %{sysmodprobedir}/cxgb3.conf
 %{sysmodprobedir}/cxgb4.conf
@@ -406,7 +406,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*
-%{_udevrulesdir}/libibumad.rules
+%{_udevrulesdir}/90-libibumad.rules
 
 %files -n librdmacm
 %{_libdir}/librdmacm*.so.*
@@ -451,7 +451,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon
 %{_sbindir}/run_srp_daemon
-%{_udevrulesdir}/srp_daemon.rules
+%{_udevrulesdir}/60-srp_daemon.rules
 %{_mandir}/man1/ibsrpdm.1*
 %{_mandir}/man1/srp_daemon.1*
 %{_mandir}/man5/srp_daemon.service.5*

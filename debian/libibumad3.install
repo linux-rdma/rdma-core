@@ -1,2 +1,2 @@
-lib/udev/rules.d/libibumad.rules
+lib/udev/rules.d/90-libibumad.rules
 usr/lib/*/libibumad*.so.*
