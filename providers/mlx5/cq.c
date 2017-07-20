@@ -250,7 +250,7 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 	case MLX5_CQE_RESP_SEND_INV:
 		wc->opcode = IBV_WC_RECV;
 		wc->wc_flags |= IBV_WC_WITH_INV;
-		wc->imm_data = be32toh(cqe->imm_inval_pkey);
+		wc->invalidated_rkey = be32toh(cqe->imm_inval_pkey);
 		break;
 	}
 	wc->slid	   = be16toh(cqe->slid);
@@ -266,7 +266,7 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 
 static void dump_cqe(FILE *fp, void *buf)
 {
-	uint32_t *p = buf;
+	__be32 *p = buf;
 	int i;
 
 	for (i = 0; i < 16; i += 4)
@@ -1141,13 +1141,16 @@ static inline uint32_t mlx5_cq_read_wc_vendor_err(struct ibv_cq_ex *ibcq)
 	return ecqe->vendor_err_synd;
 }
 
-static inline uint32_t mlx5_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
+static inline __be32 mlx5_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
 	switch (mlx5dv_get_cqe_opcode(cq->cqe64)) {
 	case MLX5_CQE_RESP_SEND_INV:
-		return be32toh(cq->cqe64->imm_inval_pkey);
+		/* This is returning invalidate_rkey which is in host order, see
+		 * ibv_wc_read_invalidated_rkey
+		 */
+		return (__force __be32)be32toh(cq->cqe64->imm_inval_pkey);
 	default:
 		return cq->cqe64->imm_inval_pkey;
 	}
