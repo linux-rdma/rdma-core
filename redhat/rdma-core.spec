@@ -330,7 +330,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_unitdir}/rdma.service
 %dir %{dracutlibdir}/modules.d/05rdma
 %{dracutlibdir}/modules.d/05rdma/module-setup.sh
-%{_udevrulesdir}/*
+%{_udevrulesdir}/98-rdma.rules
+%{_udevrulesdir}/rdma-ndd.rules
 %{sysmodprobedir}/libmlx4.conf
 %{sysmodprobedir}/cxgb3.conf
 %{sysmodprobedir}/cxgb4.conf
