@@ -11,6 +11,7 @@ lib/udev/rules.d/60-rdma-ndd.rules
 lib/udev/rules.d/75-rdma-description.rules
 lib/udev/rules.d/90-rdma-hw-modules.rules
 lib/udev/rules.d/90-rdma-ulp-modules.rules
+lib/udev/rules.d/90-rdma-umad.rules
 usr/bin/rxe_cfg
 usr/lib/truescale-serdes.cmds
 usr/sbin/rdma-ndd

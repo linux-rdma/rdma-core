@@ -341,6 +341,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/75-rdma-description.rules
 %{_udevrulesdir}/90-rdma-hw-modules.rules
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
+%{_udevrulesdir}/90-rdma-umad.rules
 %{_udevrulesdir}/98-rdma.rules
 %{sysmodprobedir}/libmlx4.conf
 %{sysmodprobedir}/cxgb3.conf
@@ -416,7 +417,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*
-%{_udevrulesdir}/90-libibumad.rules
 
 %files -n librdmacm
 %{_libdir}/librdmacm*.so.*

@@ -22,3 +22,7 @@ install(FILES "rdma-hw-modules.rules"
 install(FILES "rdma-ulp-modules.rules"
   RENAME "90-rdma-ulp-modules.rules"
   DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
+
+install(FILES "rdma-umad.rules"
+  RENAME "90-rdma-umad.rules"
+  DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
