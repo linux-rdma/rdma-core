@@ -394,7 +394,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %doc %{_docdir}/%{name}-%{version}/ibacm.md
 
 %files -n iwpmd
-%{_bindir}/iwpmd
+%{_sbindir}/iwpmd
 %{_unitdir}/iwpmd.service
 %config(noreplace) %{_sysconfdir}/iwpmd.conf
 %{_mandir}/man8/iwpmd.*

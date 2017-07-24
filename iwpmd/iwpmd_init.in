@@ -16,7 +16,7 @@
 # Description: iWarp Port Mapper Daemon for opening sockets to claim TCP ports from userspace
 ### END INIT INFO
 
-IWPMD_BIN="/usr/bin/iwpmd"
+IWPMD_BIN="@CMAKE_INSTALL_FULL_SBINDIR@/iwpmd"
 LOCK="/var/lock/subsys/iwpmd"
 IWPMD_PID=0
 RETVAL=0

@@ -4,7 +4,7 @@ Documentation=man:iwpmd file:/etc/iwpmd.conf
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/iwpmd --systemd
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/iwpmd --systemd
 LimitNOFILE=102400
 
 [Install]
