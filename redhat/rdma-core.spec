@@ -320,6 +320,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma
 %dir %{_docdir}/%{name}-%{version}
 %doc %{_docdir}/%{name}-%{version}/README.md
+%doc %{_docdir}/%{name}-%{version}/rxe.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
 %config(noreplace) %{_sysconfdir}/rdma/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/sriov-vfs
@@ -340,9 +341,12 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libexecdir}/rdma-fixup-mtrr.awk
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
+%{_bindir}/rxe_cfg
 %{_sbindir}/rdma-ndd
 %{_unitdir}/rdma-ndd.service
+%{_mandir}/man7/rxe*
 %{_mandir}/man8/rdma-ndd.*
+%{_mandir}/man8/rxe*
 %license COPYING.*
 
 %files devel
@@ -371,10 +375,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libdir}/libmlx4.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
-%doc %{_docdir}/%{name}-%{version}/rxe.md
-%{_bindir}/rxe_cfg
-%{_mandir}/man7/rxe*
-%{_mandir}/man8/rxe*
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
