@@ -142,6 +142,7 @@ enum ibv_device_cap_flags {
  * enum range is limited to 4 bytes.
  */
 #define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
+#define IBV_DEVICE_PCI_WRITE_END_PADDING (1ULL << 36)
 
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
