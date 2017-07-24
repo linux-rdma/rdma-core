@@ -1,10 +1,8 @@
 etc/libibverbs.d/
-etc/modprobe.d/truescale.conf
 usr/bin/rxe_cfg
 usr/lib/*/libibverbs/lib*-rdmav2.so
 usr/lib/*/libmlx4.so.*
 usr/lib/*/libmlx5.so.*
-usr/lib/truescale-serdes.cmds
 usr/share/doc/rdma-core/rxe.md usr/share/doc/ibverbs-providers/
 usr/share/man/man7/rxe.7
 usr/share/man/man8/rxe_cfg.8

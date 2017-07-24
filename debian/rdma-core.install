@@ -1,5 +1,7 @@
+etc/modprobe.d/truescale.conf
 lib/systemd/system/rdma-ndd.service
 lib/udev/rules.d/rdma-ndd.rules
+usr/lib/truescale-serdes.cmds
 usr/sbin/rdma-ndd
 usr/share/doc/rdma-core/MAINTAINERS
 usr/share/doc/rdma-core/README.md
