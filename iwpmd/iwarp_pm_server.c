@@ -1358,39 +1358,14 @@ iwarp_port_mapper_exit:
  */ 
 static void daemonize_iwpm_server(void)
 {
-	pid_t pid, sid;
-
-	/* check if already a daemon */
-	if (getppid() == 1) return;
-
-    	pid = fork();
-    	if (pid < 0) {
-		syslog(LOG_WARNING, "daemonize_iwpm_server: Couldn't fork a new process\n");
-        	exit(EXIT_FAILURE);
-    	}
-
-    	/* exit the parent process */
-	if (pid > 0)
-        	exit(EXIT_SUCCESS);
-
+	if (daemon(0, 0) != 0) {
+		syslog(LOG_ERR, "Failed to daemonize\n");
+		exit(EXIT_FAILURE);
+	}
 	umask(0); /* change file mode mask */
-	sid = setsid();	/* create a new session, new group, no tty */
-	if (sid < 0) {
-    		syslog(LOG_WARNING, "daemonize_iwpm_server: Couldn't create new session\n");
-        	exit(EXIT_FAILURE);
-    	}
-
-    	if ((chdir("/")) < 0) {
-		syslog(LOG_WARNING, "daemonize_iwpm_server: Couldn't change the current directory\n");
-        	exit(EXIT_FAILURE);
-   	}
 
 	syslog(LOG_WARNING, "daemonize_iwpm_server: Starting iWarp Port Mapper V%d process\n",
 				iwpm_version);
-	/* close standard IO streams */
-	close(STDIN_FILENO);
-	close(STDOUT_FILENO);
-	close(STDERR_FILENO);
 }
 
 int main(int argc, char *argv[])
