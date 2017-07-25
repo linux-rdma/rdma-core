@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
 {
 	bool foreground = false;
 
-	openlog("rdma-ndd", LOG_PID, LOG_DAEMON);
+	openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
 
 	while (1) {
 		int opt_idx = 0;

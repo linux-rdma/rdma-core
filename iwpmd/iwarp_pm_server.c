@@ -1400,7 +1400,7 @@ int main(int argc, char *argv[])
 	FILE *fp;
 	int ret = EXIT_FAILURE;
 
-	openlog("iWarpPortMapper", LOG_CONS | LOG_PID, LOG_DAEMON);
+	openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
 
 	daemonize_iwpm_server();
 
