@@ -1955,6 +1955,58 @@ static void ts_sub(const struct timespec *a, const struct timespec *b,
 	}
 }
 
+static void cleanup_wakeup_fd(void)
+{
+	struct sigaction sa = {};
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = SIG_DFL;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SRP_CATAS_ERR, &sa, NULL);
+
+	close(wakeup_pipe[1]);
+	close(wakeup_pipe[0]);
+	wakeup_pipe[0] = -1;
+	wakeup_pipe[1] = -1;
+}
+
+static int setup_wakeup_fd(void)
+{
+	struct sigaction sa = {};
+	int ret;
+	int i;
+	int flags;
+
+	ret = pipe(wakeup_pipe);
+	if (ret < 0) {
+		pr_err("could not create pipe\n");
+		return -1;
+	}
+	for (i = 0; i < 2; i++) {
+		flags = fcntl(wakeup_pipe[i], F_GETFL);
+		if (flags < 0) {
+			pr_err("fcntl F_GETFL failed for %d\n", wakeup_pipe[i]);
+			goto close_pipe;
+		}
+		if (fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK) < 0) {
+			pr_err("fcntl F_SETFL failed for %d\n", wakeup_pipe[i]);
+			goto close_pipe;
+		}
+	}
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = signal_handler;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SRP_CATAS_ERR, &sa, NULL);
+	return 0;
+
+close_pipe:
+	cleanup_wakeup_fd();
+	return -1;
+}
+
 static int ibsrpdm(int argc, char *argv[])
 {
 	char* umad_dev = NULL;
@@ -2032,13 +2084,12 @@ umad_done:
 
 int main(int argc, char *argv[])
 {
-	int			ret, i, flags;
+	int			ret;
 	struct resources       *res;
 	uint16_t 		lid;
 	uint16_t 		pkey;
 	union umad_gid 		gid;
 	struct target_details  *target;
-	struct sigaction	sa;
 	int			subscribed;
 	int			lockfd = -1;
 	int			received_signal = 0;
@@ -2059,35 +2110,10 @@ int main(int argc, char *argv[])
 	BUILD_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	BUILD_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
-	ret = pipe(wakeup_pipe);
-	if (ret < 0) {
-		pr_err("could not create pipe\n");
-		goto out;
-	}
-	for (i = 0; i < 2; i++) {
-		flags = fcntl(wakeup_pipe[i], F_GETFL);
-		if (flags < 0) {
-			pr_err("fcntl F_GETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
-		if (fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK) < 0) {
-			pr_err("fcntl F_SETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
-
-	}
-
-	memset(&sa, 0, sizeof(sa));
-	sigemptyset(&sa.sa_mask);
-	sa.sa_handler = signal_handler;
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SRP_CATAS_ERR, &sa, NULL);
-
 	if (strcmp(argv[0] + max_t(int, 0, strlen(argv[0]) - strlen("ibsrpdm")),
 		   "ibsrpdm") == 0) {
 		ret = ibsrpdm(argc, argv);
-		goto restore_sig;
+		goto out;
 	}
 
 	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
@@ -2114,6 +2140,10 @@ int main(int argc, char *argv[])
 			goto free_config;
 		}
 	}
+
+	ret = setup_wakeup_fd();
+	if (ret)
+		goto cleanup_wakeup;
 
 catas_start:
 	subscribed = 0;
@@ -2279,20 +2309,12 @@ clean_umad:
 close_lockfd:
 	if (lockfd >= 0)
 		close(lockfd);
+cleanup_wakeup:
+	cleanup_wakeup_fd();
 free_config:
 	free_config(config);
 close_log:
 	closelog();
-restore_sig:
-	sa.sa_handler = SIG_DFL;
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SRP_CATAS_ERR, &sa, NULL);
-close_pipe:
-	close(wakeup_pipe[1]);
-	close(wakeup_pipe[0]);
-	wakeup_pipe[0] = -1;
-	wakeup_pipe[1] = -1;
 out:
 	exit(ret ? 1 : 0);
 }
