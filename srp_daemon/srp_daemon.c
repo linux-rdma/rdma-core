@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -234,6 +235,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extension\n");
+	fprintf(stderr, "--systemd		Enable systemd integration.\n");
 	fprintf(stderr, "\nExample: srp_daemon -e -n -i mthca0 -p 1 -R 60\n");
 }
 
@@ -1595,6 +1597,29 @@ out:
 	return ret;
 }
 
+static const struct option long_opts[] = {
+	{ "systemd",        0, NULL, 'S' },
+	{}
+};
+static const char short_opts[] = "caveod:i:j:p:t:r:R:T:l:Vhnf:";
+
+/* Check if the --systemd options was passed in very early so we can setup
+ * logging properly.
+ */
+static bool is_systemd(int argc, char *argv[])
+{
+	while (1) {
+		int c;
+
+		c = getopt_long(argc, argv, short_opts, long_opts, NULL);
+		if (c == -1)
+			break;
+		if (c == 'S')
+			return true;
+
+	}
+	return false;
+}
 
 static int get_config(struct config_t *conf, int argc, char *argv[])
 {
@@ -1621,10 +1646,11 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->rules			= NULL;
 	conf->tl_retry_count		= 0;
 
+	optind = 1;
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:j:p:t:r:R:T:l:Vhnf:");
+		c = getopt_long(argc, argv, short_opts, long_opts, NULL);
 		if (c == -1)
 			break;
 
@@ -1720,6 +1746,8 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 				       conf->tl_retry_count);
 				return -1;
 			}
+			break;
+		case 'S':
 			break;
 		case 'h':
 		default:
@@ -2093,6 +2121,7 @@ int main(int argc, char *argv[])
 	int			subscribed;
 	int			lockfd = -1;
 	int			received_signal = 0;
+	bool                    systemd;
 
 #ifndef __CHECKER__
 	/*
@@ -2116,7 +2145,12 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
+	systemd = is_systemd(argc, argv);
+
+	if (systemd)
+		openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
+	else
+		openlog("srp_daemon", LOG_PID, LOG_DAEMON);
 
 	config = calloc(1, sizeof(*config));
 	if (!config) {

@@ -91,6 +91,9 @@ Perform \fIretries\fR retries on each send to MAD (default: 3 retries).
 .TP
 \fB\-n\fR
 New format - use also initiator_ext in the connection command.
+.TP
+\fB\--systemd\fR
+Enable systemd integration.
 
 .SH FILES
 @CMAKE_INSTALL_FULL_SYSCONFDIR@/srp_daemon.conf -

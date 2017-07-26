@@ -9,7 +9,7 @@ Before=remote-fs-pre.target
 
 [Service]
 Type=simple
-ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/srp_daemon -e -c -n -j %I -R 60
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/srp_daemon --systemd -e -c -n -j %I -R 60
 MemoryDenyWriteExecute=yes
 PrivateNetwork=yes
 PrivateTmp=yes
