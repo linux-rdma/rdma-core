@@ -394,7 +394,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_bindir}/iwpmd
 %{_unitdir}/iwpmd.service
 %config(noreplace) %{_sysconfdir}/iwpmd.conf
-%{_mandir}/man1/iwpmd.*
+%{_mandir}/man8/iwpmd.*
 %{_mandir}/man5/iwpmd.*
 
 %files -n libibcm

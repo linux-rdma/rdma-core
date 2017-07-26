@@ -1,4 +1,4 @@
-.TH "iwpmd" 1 "2016-09-16" "iwpmd" "iwpmd" iwpmd
+.TH "iwpmd" 8 "2016-09-16" "iwpmd" "iwpmd" iwpmd
 .SH NAME
 iwpmd \- port mapping services for iWARP.
 .SH SYNOPSIS
