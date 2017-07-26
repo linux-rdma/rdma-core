@@ -59,6 +59,7 @@ IBV_QP_CREATE_BLOCK_SELF_MCAST_LB       = 1 << 1, /* Prevent self multicast loop
 IBV_QP_CREATE_SCATTER_FCS               = 1 << 8, /* FCS field will be scattered to host memory */
 IBV_QP_CREATE_CVLAN_STRIPPING           = 1 << 9, /* CVLAN field will be stripped from incoming packets */
 IBV_QP_CREATE_SOURCE_QPN                = 1 << 10, /* The created QP will use the source_qpn as its wire QP number */
+IBV_QP_CREATE_PCI_WRITE_END_PADDING     = 1 << 11, /* Incoming packets will be padded to cacheline size */
 .in -8
 };
 .nf

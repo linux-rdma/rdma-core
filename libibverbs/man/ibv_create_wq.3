@@ -42,7 +42,8 @@ enum ibv_wq_flags {
 IBV_WQ_FLAGS_CVLAN_STRIPPING            = 1 << 0, /* CVLAN field will be stripped from incoming packets */
 IBV_WQ_FLAGS_SCATTER_FCS                = 1 << 1, /* FCS field will be scattered to host memory */
 IBV_WQ_FLAGS_DELAY_DROP                 = 1 << 2, /* Packets won't be dropped immediately if no receive WQEs */
-IBV_WQ_FLAGS_RESERVED                   = 1 << 3,
+IBV_WQ_FLAGS_PCI_WRITE_END_PADDING      = 1 << 3, /* Incoming packets will be padded to cacheline size */
+IBV_WQ_FLAGS_RESERVED                   = 1 << 4,
 .in -8
 };
 .nf
