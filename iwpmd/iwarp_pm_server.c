@@ -32,6 +32,7 @@
  */
 
 #include "config.h"
+#include <getopt.h>
 #include "iwarp_pm.h"
 
 static const char iwpm_ulib_name [] = "iWarpPortMapperUser";
@@ -1355,14 +1356,13 @@ iwarp_port_mapper_exit:
 
 /**
  * daemonize_iwpm_server - Make iwarp port mapper a daemon process
- */ 
+ */
 static void daemonize_iwpm_server(void)
 {
 	if (daemon(0, 0) != 0) {
 		syslog(LOG_ERR, "Failed to daemonize\n");
 		exit(EXIT_FAILURE);
 	}
-	umask(0); /* change file mode mask */
 
 	syslog(LOG_WARNING, "daemonize_iwpm_server: Starting iWarp Port Mapper V%d process\n",
 				iwpm_version);
@@ -1373,11 +1373,35 @@ int main(int argc, char *argv[])
 	__u32 iwarp_clients[IWARP_PM_MAX_CLIENTS];
 	int known_clients;
 	FILE *fp;
+	int c;
 	int ret = EXIT_FAILURE;
+	bool systemd = false;
+
+	while (1) {
+		static const struct option long_opts[] = {
+			{"systemd", 0, NULL, 's'},
+			{}
+		};
+
+		c = getopt_long(argc, argv, "fs", long_opts, NULL);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 's':
+			systemd = true;
+			break;
+		default:
+			break;
+
+		}
+	}
 
 	openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
 
-	daemonize_iwpm_server();
+	if (!systemd)
+		daemonize_iwpm_server();
+	umask(0); /* change file mode mask */
 
 	fp = fopen(IWPM_CONFIG_FILE, "r");
 	if (fp) {

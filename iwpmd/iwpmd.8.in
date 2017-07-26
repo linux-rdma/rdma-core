@@ -45,6 +45,10 @@ which then releases the TCP port.
 The message exchange between iwpmd and the iWARP Connection Manager
 (between user space and kernel space) is implemented using netlink
 sockets.
+.SH OPTIONS
+.sp
+\fB\-s, \-\-systemd\fP
+Enable systemd integration.
 .SH "SIGNALS"
 SIGUSR1 will force a dump of the current mappings
 to the system message log.
