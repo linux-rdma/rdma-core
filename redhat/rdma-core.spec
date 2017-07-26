@@ -403,7 +403,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %files -n iwpmd
 %{_sbindir}/iwpmd
 %{_unitdir}/iwpmd.service
+%config(noreplace) %{_sysconfdir}/rdma/modules/iwpmd.conf
 %config(noreplace) %{_sysconfdir}/iwpmd.conf
+%{_udevrulesdir}/90-iwpmd.rules
 %{_mandir}/man8/iwpmd.*
 %{_mandir}/man5/iwpmd.*
 

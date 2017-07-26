@@ -21,3 +21,11 @@ rdma_subst_install(FILES "iwpmd_init.in"
   RENAME "iwpmd"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
 install(FILES "iwpmd.conf" DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
+
+install(FILES "iwpmd.rules"
+  RENAME "90-iwpmd.rules"
+  DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
+
+install(FILES modules-iwpmd.conf
+  RENAME "iwpmd.conf"
+  DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/rdma/modules")

@@ -1,11 +1,11 @@
 [Unit]
 Description=iWarp Port Mapper
 Documentation=man:iwpmd file:/etc/iwpmd.conf
-After=network.target
+Requires=rdma-load-modules@iwpmd.service
+After=network.target rdma-load-modules@iwpmd.service
 
 [Service]
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/iwpmd --systemd
 LimitNOFILE=102400
 
-[Install]
-WantedBy=multi-user.target
+# iwpmd is automatically started by udev when an iWarp RDMA device is present

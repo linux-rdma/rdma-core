@@ -48,7 +48,10 @@ Description: InfiniBand Communication Manager Assistant (ACM)
 
 Package: iwpmd
 Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
+Depends: lsb-base (>= 3.2-14~),
+         rdma-core (>= 15),
+         ${misc:Depends},
+         ${shlibs:Depends}
 Description: Userspace component for iWarp RDMA services
  This package contains the iWARP Port Mapper Daemon (iwpmd) which provides a
  userspace service for iWARP drivers to claim TCP ports through the standard
