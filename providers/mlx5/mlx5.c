@@ -114,6 +114,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.attach_mcast  = mlx5_attach_mcast,
 	.detach_mcast  = mlx5_detach_mcast,
 
+	.alloc_dm = mlx5_alloc_dm,
 	.alloc_parent_domain = mlx5_alloc_parent_domain,
 	.alloc_td = mlx5_alloc_td,
 	.close_xrcd = mlx5_close_xrcd,
@@ -129,6 +130,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.destroy_flow_action = mlx5_destroy_flow_action,
 	.destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table,
 	.destroy_wq = mlx5_destroy_wq,
+	.free_dm = mlx5_free_dm,
 	.get_srq_num = mlx5_get_srq_num,
 	.modify_cq = mlx5_modify_cq,
 	.modify_flow_action_esp = mlx5_modify_flow_action_esp,
@@ -138,6 +140,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.post_srq_ops = mlx5_post_srq_ops,
 	.query_device_ex = mlx5_query_device_ex,
 	.query_rt_values = mlx5_query_rt_values,
+	.reg_dm_mr = mlx5_reg_dm_mr,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
@@ -912,8 +915,6 @@ int mlx5dv_set_context_attr(struct ibv_context *ibv_ctx,
 	return 0;
 }
 
-typedef _Atomic(uint32_t) atomic_uint32_t;
-
 int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 			  struct mlx5dv_clock_info *clock_info)
 {
@@ -1149,6 +1150,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 			device_attr.orig_attr.device_cap_flags;
 		context->atomic_cap = device_attr.orig_attr.atomic_cap;
 		context->cached_tso_caps = device_attr.tso_caps;
+		context->max_dm_size = device_attr.max_dm_size;
 	}
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {

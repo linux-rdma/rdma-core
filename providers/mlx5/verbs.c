@@ -34,6 +34,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
@@ -389,6 +390,45 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		free(mr);
 		return NULL;
 	}
+	mr->alloc_flags = acc;
+
+	return &mr->ibv_mr;
+}
+
+enum {
+	MLX5_DM_ALLOWED_ACCESS = IBV_ACCESS_LOCAL_WRITE		|
+				 IBV_ACCESS_REMOTE_WRITE	|
+				 IBV_ACCESS_REMOTE_READ		|
+				 IBV_ACCESS_REMOTE_ATOMIC	|
+				 IBV_ACCESS_ZERO_BASED
+};
+
+struct ibv_mr *mlx5_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
+			      uint64_t dm_offset, size_t length,
+			      unsigned int acc)
+{
+	struct mlx5_dm *dm = to_mdm(ibdm);
+	struct mlx5_mr *mr;
+	int ret;
+
+	if (acc & ~MLX5_DM_ALLOWED_ACCESS) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = ibv_cmd_reg_dm_mr(pd, &dm->verbs_dm, dm_offset, length, acc,
+				&mr->ibv_mr, NULL);
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+
 	mr->alloc_flags = acc;
 
 	return &mr->ibv_mr;
@@ -3068,3 +3108,132 @@ int mlx5_destroy_flow_action(struct ibv_flow_action *action)
 	return ret;
 }
 
+static inline int mlx5_memcpy_to_dm(struct ibv_dm *ibdm, uint64_t dm_offset,
+				    const void *host_addr, size_t length)
+{
+	struct mlx5_dm *dm = to_mdm(ibdm);
+	atomic_uint32_t *dm_ptr =
+		(atomic_uint32_t *)dm->start_va + dm_offset / 4;
+	const uint32_t *host_ptr = host_addr;
+	const uint32_t *host_end = host_ptr + length / 4;
+
+	if (dm_offset + length > dm->length)
+		return EFAULT;
+
+	/* Due to HW limitation, DM access address and length must be aligned
+	 * to 4 bytes.
+	 */
+	if ((length & 3) || (dm_offset & 3))
+		return EINVAL;
+
+	/* Copy granularity should be 4 Bytes since we enforce copy size to be
+	 * a multiple of 4 bytes.
+	 */
+	while (host_ptr != host_end) {
+		atomic_store_explicit(dm_ptr, *host_ptr, memory_order_relaxed);
+		host_ptr++;
+		dm_ptr++;
+	}
+
+	return 0;
+}
+
+static inline int mlx5_memcpy_from_dm(void *host_addr, struct ibv_dm *ibdm,
+				      uint64_t dm_offset, size_t length)
+{
+	struct mlx5_dm *dm = to_mdm(ibdm);
+	void *dm_va = dm->start_va + dm_offset;
+
+	if (dm_offset + length > dm->length)
+		return EFAULT;
+
+	/* DM access address must be aligned to 4 bytes */
+	if (dm_offset & 3)
+		return EINVAL;
+
+	memcpy(host_addr, dm_va, length);
+
+	return 0;
+}
+
+struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
+			     struct ibv_alloc_dm_attr *dm_attr)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM, UVERBS_METHOD_DM_ALLOC,
+			       2);
+	int page_size = to_mdev(context->device)->page_size;
+	struct mlx5_context *mctx = to_mctx(context);
+	uint64_t act_size, start_offset;
+	struct mlx5_dm *dm;
+	uint16_t page_idx;
+	off_t offset = 0;
+	void *va;
+
+	if (!check_comp_mask(dm_attr->comp_mask, 0)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (dm_attr->length > mctx->max_dm_size) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	dm = calloc(1, sizeof(*dm));
+	if (!dm) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+
+	fill_attr_out(cmdb, MLX5_IB_ATTR_ALLOC_DM_RESP_START_OFFSET,
+		      &start_offset, sizeof(start_offset));
+	fill_attr_out(cmdb, MLX5_IB_ATTR_ALLOC_DM_RESP_PAGE_INDEX,
+		      &page_idx, sizeof(page_idx));
+
+	if (ibv_cmd_alloc_dm(context, dm_attr, &dm->verbs_dm, cmdb))
+		goto err_free_mem;
+
+	act_size = align(dm_attr->length, page_size);
+	set_command(MLX5_IB_MMAP_DEVICE_MEM, &offset);
+	set_extended_index(page_idx, &offset);
+	va = mmap(NULL, act_size, PROT_READ | PROT_WRITE,
+		  MAP_SHARED, context->cmd_fd,
+		  page_size * offset);
+	if (va == MAP_FAILED)
+		goto err_free_dm;
+
+	dm->mmap_va = va;
+	dm->length = dm_attr->length;
+	dm->start_va = va + (start_offset & (page_size - 1));
+	dm->verbs_dm.dm.memcpy_to_dm = mlx5_memcpy_to_dm;
+	dm->verbs_dm.dm.memcpy_from_dm = mlx5_memcpy_from_dm;
+
+	return &dm->verbs_dm.dm;
+
+err_free_dm:
+	ibv_cmd_free_dm(&dm->verbs_dm);
+
+err_free_mem:
+	free(dm);
+
+	return NULL;
+}
+
+int mlx5_free_dm(struct ibv_dm *ibdm)
+{
+	struct mlx5_device *mdev = to_mdev(ibdm->context->device);
+	struct mlx5_dm *dm = to_mdm(ibdm);
+	size_t act_size = align(dm->length, mdev->page_size);
+	int ret;
+
+	ret = ibv_cmd_free_dm(&dm->verbs_dm);
+
+	if (ret)
+		return ret;
+
+	munmap(dm->mmap_va, act_size);
+	free(dm);
+
+	return 0;
+}
