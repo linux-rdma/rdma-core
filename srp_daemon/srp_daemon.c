@@ -2053,7 +2053,7 @@ static int ibsrpdm(int argc, char *argv[])
 	ret = set_conf_dev_and_port(umad_dev, config);
 	if (ret) {
 		pr_err("Failed to build config\n");
-		return 1;
+		goto out;
 	}
 
 	umad_init();
@@ -2076,7 +2076,7 @@ static int ibsrpdm(int argc, char *argv[])
 	free_res(res);
 umad_done:
 	umad_done();
-
+out:
 	free_config(config);
 
 	return ret;
