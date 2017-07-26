@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 for p in /sys/class/infiniband/*/ports/*; do
     [ -e "$p" ] || continue
