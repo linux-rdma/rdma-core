@@ -126,10 +126,10 @@ class centos7_epel(centos7):
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
         return res;
 
-class fc25(Environment):
-    docker_parent = "fedora:25";
+class fc26(Environment):
+    docker_parent = "fedora:26";
     pkgs = (centos7.pkgs - {"make"}) | {"ninja-build"};
-    name = "fc25";
+    name = "fc26";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -181,6 +181,12 @@ class jessie(APTEnvironment):
     pkgs = trusty.pkgs;
     name = "debian-8";
     aliases = {"jessie"};
+
+class stretch(APTEnvironment):
+    docker_parent = "debian:9"
+    pkgs = trusty.pkgs;
+    name = "debian-9";
+    aliases = {"stretch"};
 
 class debian_experimental(APTEnvironment):
     docker_parent = "debian:experimental"
@@ -298,11 +304,11 @@ class harlequin(ZypperEnvironment):
     name = "opensuse-13.2";
     aliases = {"harelequin"};
 
-class malachite(ZypperEnvironment):
-    docker_parent = "opensuse:42.1";
+class leap(ZypperEnvironment):
+    docker_parent = "opensuse:42.2";
     pkgs = harlequin.pkgs;
-    name = "opensuse-42.1";
-    aliases = {"malachite"};
+    name = "opensuse-42.2";
+    aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse:tumbleweed";
@@ -318,9 +324,10 @@ environments = [centos6(),
                 trusty(),
                 xenial(),
                 jessie(),
-                fc25(),
+                stretch(),
+                fc26(),
                 harlequin(),
-                malachite(),
+                leap(),
                 tumbleweed(),
                 debian_experimental(),
 ];
@@ -543,6 +550,16 @@ def run_travis_build(args,env):
             subprocess.check_call(["git",
                                    "--git-dir",os.path.join(opwd,".git"),
                                    "reset","--hard","HEAD"]);
+            subprocess.check_call(["git",
+                                   "--git-dir",os.path.join(opwd,".git"),
+                                   "fetch",
+                                   "--no-tags",
+                                   "https://github.com/linux-rdma/rdma-core.git","HEAD",
+                                   "master"]);
+            base = subprocess.check_output(["git",
+                                            "--git-dir",os.path.join(opwd,".git"),
+                                            "merge-base",
+                                            "HEAD","FETCH_HEAD"]).strip();
 
         home = os.path.join(os.path.sep,"home","travis");
         home_build = os.path.join(os.path.sep,home,"build");
@@ -552,8 +569,10 @@ def run_travis_build(args,env):
             "--read-only",
             "--rm=true",
             "-v","%s:%s"%(tmpdir, home_build),
+            "-v","%s:%s:ro"%(os.path.join(opwd,".git"),os.path.join(home_build,"src",".git")),
             "-w",os.path.join(home_build,"src"),
             "-u",str(os.getuid()),
+            "-e","TRAVIS_COMMIT_RANGE=%s..HEAD"%(base),
             "-e","HOME=%s"%(home),
             "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
         ];

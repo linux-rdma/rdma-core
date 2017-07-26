@@ -26,6 +26,7 @@ addons:
       - fakeroot
       - gcc
       - gcc-7
+      - git
       - libnl-3-dev
       - libnl-route-3-dev
       - libudev-dev
