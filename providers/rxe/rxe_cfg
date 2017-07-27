@@ -36,6 +36,7 @@ use warnings;
 use strict;
 
 use File::Basename;
+use File::Path qw(make_path);
 use Getopt::Long;
 
 my $help = 0;
@@ -650,7 +651,7 @@ sub main {
     }
 
     # create persistence file if necessary
-    mkdir -p $persistence_path;
+    make_path($persistence_path);
     if (!(-e $persistence_file)) {
         `touch $persistence_file`;
     }
