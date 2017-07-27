@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -234,6 +235,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extension\n");
+	fprintf(stderr, "--systemd		Enable systemd integration.\n");
 	fprintf(stderr, "\nExample: srp_daemon -e -n -i mthca0 -p 1 -R 60\n");
 }
 
@@ -1595,6 +1597,29 @@ out:
 	return ret;
 }
 
+static const struct option long_opts[] = {
+	{ "systemd",        0, NULL, 'S' },
+	{}
+};
+static const char short_opts[] = "caveod:i:j:p:t:r:R:T:l:Vhnf:";
+
+/* Check if the --systemd options was passed in very early so we can setup
+ * logging properly.
+ */
+static bool is_systemd(int argc, char *argv[])
+{
+	while (1) {
+		int c;
+
+		c = getopt_long(argc, argv, short_opts, long_opts, NULL);
+		if (c == -1)
+			break;
+		if (c == 'S')
+			return true;
+
+	}
+	return false;
+}
 
 static int get_config(struct config_t *conf, int argc, char *argv[])
 {
@@ -1621,10 +1646,11 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->rules			= NULL;
 	conf->tl_retry_count		= 0;
 
+	optind = 1;
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:j:p:t:r:R:T:l:Vhnf:");
+		c = getopt_long(argc, argv, short_opts, long_opts, NULL);
 		if (c == -1)
 			break;
 
@@ -1720,6 +1746,8 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 				       conf->tl_retry_count);
 				return -1;
 			}
+			break;
+		case 'S':
 			break;
 		case 'h':
 		default:
@@ -1955,6 +1983,58 @@ static void ts_sub(const struct timespec *a, const struct timespec *b,
 	}
 }
 
+static void cleanup_wakeup_fd(void)
+{
+	struct sigaction sa = {};
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = SIG_DFL;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SRP_CATAS_ERR, &sa, NULL);
+
+	close(wakeup_pipe[1]);
+	close(wakeup_pipe[0]);
+	wakeup_pipe[0] = -1;
+	wakeup_pipe[1] = -1;
+}
+
+static int setup_wakeup_fd(void)
+{
+	struct sigaction sa = {};
+	int ret;
+	int i;
+	int flags;
+
+	ret = pipe(wakeup_pipe);
+	if (ret < 0) {
+		pr_err("could not create pipe\n");
+		return -1;
+	}
+	for (i = 0; i < 2; i++) {
+		flags = fcntl(wakeup_pipe[i], F_GETFL);
+		if (flags < 0) {
+			pr_err("fcntl F_GETFL failed for %d\n", wakeup_pipe[i]);
+			goto close_pipe;
+		}
+		if (fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK) < 0) {
+			pr_err("fcntl F_SETFL failed for %d\n", wakeup_pipe[i]);
+			goto close_pipe;
+		}
+	}
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = signal_handler;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SRP_CATAS_ERR, &sa, NULL);
+	return 0;
+
+close_pipe:
+	cleanup_wakeup_fd();
+	return -1;
+}
+
 static int ibsrpdm(int argc, char *argv[])
 {
 	char* umad_dev = NULL;
@@ -2001,7 +2081,7 @@ static int ibsrpdm(int argc, char *argv[])
 	ret = set_conf_dev_and_port(umad_dev, config);
 	if (ret) {
 		pr_err("Failed to build config\n");
-		return 1;
+		goto out;
 	}
 
 	umad_init();
@@ -2024,7 +2104,7 @@ static int ibsrpdm(int argc, char *argv[])
 	free_res(res);
 umad_done:
 	umad_done();
-
+out:
 	free_config(config);
 
 	return ret;
@@ -2032,16 +2112,16 @@ umad_done:
 
 int main(int argc, char *argv[])
 {
-	int			ret, i, flags;
+	int			ret;
 	struct resources       *res;
 	uint16_t 		lid;
 	uint16_t 		pkey;
 	union umad_gid 		gid;
 	struct target_details  *target;
-	struct sigaction	sa;
 	int			subscribed;
 	int			lockfd = -1;
 	int			received_signal = 0;
+	bool                    systemd;
 
 #ifndef __CHECKER__
 	/*
@@ -2059,38 +2139,18 @@ int main(int argc, char *argv[])
 	BUILD_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
 	BUILD_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
-	ret = pipe(wakeup_pipe);
-	if (ret < 0) {
-		pr_err("could not create pipe\n");
-		goto out;
-	}
-	for (i = 0; i < 2; i++) {
-		flags = fcntl(wakeup_pipe[i], F_GETFL);
-		if (flags < 0) {
-			pr_err("fcntl F_GETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
-		if (fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK) < 0) {
-			pr_err("fcntl F_SETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
-
-	}
-
-	memset(&sa, 0, sizeof(sa));
-	sigemptyset(&sa.sa_mask);
-	sa.sa_handler = signal_handler;
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SRP_CATAS_ERR, &sa, NULL);
-
 	if (strcmp(argv[0] + max_t(int, 0, strlen(argv[0]) - strlen("ibsrpdm")),
 		   "ibsrpdm") == 0) {
 		ret = ibsrpdm(argc, argv);
-		goto restore_sig;
+		goto out;
 	}
 
-	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
+	systemd = is_systemd(argc, argv);
+
+	if (systemd)
+		openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
+	else
+		openlog("srp_daemon", LOG_PID, LOG_DAEMON);
 
 	config = calloc(1, sizeof(*config));
 	if (!config) {
@@ -2114,6 +2174,10 @@ int main(int argc, char *argv[])
 			goto free_config;
 		}
 	}
+
+	ret = setup_wakeup_fd();
+	if (ret)
+		goto cleanup_wakeup;
 
 catas_start:
 	subscribed = 0;
@@ -2279,20 +2343,12 @@ clean_umad:
 close_lockfd:
 	if (lockfd >= 0)
 		close(lockfd);
+cleanup_wakeup:
+	cleanup_wakeup_fd();
 free_config:
 	free_config(config);
 close_log:
 	closelog();
-restore_sig:
-	sa.sa_handler = SIG_DFL;
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SRP_CATAS_ERR, &sa, NULL);
-close_pipe:
-	close(wakeup_pipe[1]);
-	close(wakeup_pipe[0]);
-	wakeup_pipe[0] = -1;
-	wakeup_pipe[1] = -1;
 out:
 	exit(ret ? 1 : 0);
 }

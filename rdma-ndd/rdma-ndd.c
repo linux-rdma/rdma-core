@@ -286,18 +286,17 @@ int main(int argc, char *argv[])
 {
 	bool foreground = false;
 
-	openlog("rdma-ndd", LOG_PID, LOG_DAEMON);
+	openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
 
 	while (1) {
-		int opt_idx = 0;
-		static struct option long_opts[] = {
+		static const struct option long_opts[] = {
 			{ "foreground",   0, NULL, 'f' },
 			{ "help",         0, NULL, 'h' },
 			{ "debug",        0, NULL, 'd' },
 			{ }
 		};
 
-		int c = getopt_long(argc, argv, "fh", long_opts, &opt_idx);
+		int c = getopt_long(argc, argv, "fh", long_opts, NULL);
 		if (c == -1)
 			break;
 

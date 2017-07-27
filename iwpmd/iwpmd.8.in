@@ -1,4 +1,4 @@
-.TH "iwpmd" 1 "2016-09-16" "iwpmd" "iwpmd" iwpmd
+.TH "iwpmd" 8 "2016-09-16" "iwpmd" "iwpmd" iwpmd
 .SH NAME
 iwpmd \- port mapping services for iWARP.
 .SH SYNOPSIS
@@ -45,6 +45,10 @@ which then releases the TCP port.
 The message exchange between iwpmd and the iWARP Connection Manager
 (between user space and kernel space) is implemented using netlink
 sockets.
+.SH OPTIONS
+.sp
+\fB\-s, \-\-systemd\fP
+Enable systemd integration.
 .SH "SIGNALS"
 SIGUSR1 will force a dump of the current mappings
 to the system message log.
