@@ -1,7 +1,7 @@
 etc/srp_daemon.conf
 lib/systemd/system/srp_daemon.service
 lib/systemd/system/srp_daemon_port@.service
-lib/udev/rules.d/srp_daemon.rules
+lib/udev/rules.d/60-srp_daemon.rules
 usr/lib/srp_daemon/start_on_all_ports
 usr/sbin/ibsrpdm
 usr/sbin/srp_daemon

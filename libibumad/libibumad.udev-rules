@@ -1,1 +1,1 @@
-ACTION=="add", SUBSYSTEM=="infiniband_mad", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/dev/infiniband/umad/$attr{ibdev}:$attr{port}"
+ACTION=="add", SUBSYSTEM=="infiniband_mad", KERNEL=="*umad*", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/rdma/devices/$attr{ibdev}:$attr{port}/umad"

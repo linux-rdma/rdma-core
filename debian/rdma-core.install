@@ -1,6 +1,13 @@
+etc/modprobe.d/mlx4.conf
+etc/modprobe.d/truescale.conf
 lib/systemd/system/rdma-ndd.service
-lib/udev/rules.d/rdma-ndd.rules
+lib/udev/rules.d/60-rdma-ndd.rules
+usr/bin/rxe_cfg
+usr/lib/truescale-serdes.cmds
 usr/sbin/rdma-ndd
 usr/share/doc/rdma-core/MAINTAINERS
 usr/share/doc/rdma-core/README.md
+usr/share/doc/rdma-core/rxe.md usr/share/doc/rdma-core/
+usr/share/man/man7/rxe.7
 usr/share/man/man8/rdma-ndd.8
+usr/share/man/man8/rxe_cfg.8

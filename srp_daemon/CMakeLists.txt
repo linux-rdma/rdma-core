@@ -43,7 +43,9 @@ rdma_subst_install(FILES srp_daemon_port@.service.in
 
 install(FILES srp_daemon.conf DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
 
-install(FILES srp_daemon.rules DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
+install(FILES "srp_daemon.rules"
+  RENAME "60-srp_daemon.rules"
+  DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 
 # FIXME: The ib init.d file should really be included in rdma-core as well.
 set(RDMA_SERVICE "openibd" CACHE STRING "init.d file service name to order srpd after")

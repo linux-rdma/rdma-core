@@ -297,22 +297,17 @@ void pr_debug(const char *fmt, ...)
 void pr_err(const char *fmt, ...)
 {
 	va_list args;
-	int pos;
-	char str[1000];
 
 	va_start(args, fmt);
-	pos = vsnprintf(str, sizeof(str), fmt, args);
-	va_end(args);
-	if (pos >= sizeof(str))
-		str[sizeof(str) - 1] = '\0';
 	switch (s_log_dest) {
 	case log_to_syslog:
-		syslog(LOG_DAEMON | LOG_ERR, "%s", str);
+		vsyslog(LOG_DAEMON | LOG_ERR, fmt, args);
 		break;
 	case log_to_stderr:
-		fprintf(stderr, "%s", str);
+		vfprintf(stderr, fmt, args);
 		break;
 	}
+	va_end(args);
 }
 
 static int check_not_equal_str(const char *dir_name, const char *attr,

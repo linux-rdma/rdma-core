@@ -257,7 +257,6 @@ install -D -m0755 redhat/rdma.ifup-ib %{buildroot}/%{_sysconfdir}/sysconfig/netw
 install -D -m0755 redhat/rdma.ifdown-ib %{buildroot}/%{_sysconfdir}/sysconfig/network-scripts/ifdown-ib
 install -D -m0644 redhat/rdma.service %{buildroot}%{_unitdir}/rdma.service
 install -D -m0644 redhat/rdma.udev-ipoib-naming.rules %{buildroot}%{_sysconfdir}/udev/rules.d/70-persistent-ipoib.rules
-install -D -m0644 redhat/rdma.mlx4.user.modprobe %{buildroot}%{_sysconfdir}/modprobe.d/mlx4.conf
 install -D -m0755 redhat/rdma.modules-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 install -D -m0644 redhat/rdma.udev-rules %{buildroot}%{_udevrulesdir}/98-rdma.rules
 install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{sysmodprobedir}/libmlx4.conf
@@ -320,7 +319,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma
 %dir %{_docdir}/%{name}-%{version}
 %doc %{_docdir}/%{name}-%{version}/README.md
-%config(noreplace) %{_sysconfdir}/rdma/*
+%doc %{_docdir}/%{name}-%{version}/rxe.md
+%config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
+%config(noreplace) %{_sysconfdir}/rdma/rdma.conf
+%config(noreplace) %{_sysconfdir}/rdma/sriov-vfs
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
 %config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/truescale.conf
@@ -328,7 +330,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_unitdir}/rdma.service
 %dir %{dracutlibdir}/modules.d/05rdma
 %{dracutlibdir}/modules.d/05rdma/module-setup.sh
-%{_udevrulesdir}/*
+%{_udevrulesdir}/98-rdma.rules
+%{_udevrulesdir}/60-rdma-ndd.rules
 %{sysmodprobedir}/libmlx4.conf
 %{sysmodprobedir}/cxgb3.conf
 %{sysmodprobedir}/cxgb4.conf
@@ -337,9 +340,12 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libexecdir}/rdma-fixup-mtrr.awk
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
+%{_bindir}/rxe_cfg
 %{_sbindir}/rdma-ndd
 %{_unitdir}/rdma-ndd.service
+%{_mandir}/man7/rxe*
 %{_mandir}/man8/rdma-ndd.*
+%{_mandir}/man8/rxe*
 %license COPYING.*
 
 %files devel
@@ -364,14 +370,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_libdir}/libibverbs
 %{_libdir}/libibverbs*.so.*
 %{_libdir}/libibverbs/*.so
-%{_libdir}/libmlx5.so*
-%{_libdir}/libmlx4.so*
+%{_libdir}/libmlx5.so.*
+%{_libdir}/libmlx4.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
-%doc %{_docdir}/%{name}-%{version}/rxe.md
-%{_bindir}/rxe_cfg
-%{_mandir}/man7/rxe*
-%{_mandir}/man8/rxe*
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
@@ -391,7 +393,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %doc %{_docdir}/%{name}-%{version}/ibacm.md
 
 %files -n iwpmd
-%{_bindir}/iwpmd
+%{_sbindir}/iwpmd
 %{_unitdir}/iwpmd.service
 %config(noreplace) %{_sysconfdir}/iwpmd.conf
 %{_mandir}/man8/iwpmd.*
@@ -403,7 +405,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*
-%{_udevrulesdir}/libibumad.rules
+%{_udevrulesdir}/90-libibumad.rules
 
 %files -n librdmacm
 %{_libdir}/librdmacm*.so.*
@@ -448,7 +450,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon
 %{_sbindir}/run_srp_daemon
-%{_udevrulesdir}/srp_daemon.rules
+%{_udevrulesdir}/60-srp_daemon.rules
 %{_mandir}/man1/ibsrpdm.1*
 %{_mandir}/man1/srp_daemon.1*
 %{_mandir}/man5/srp_daemon.service.5*
