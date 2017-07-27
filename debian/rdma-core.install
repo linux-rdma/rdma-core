@@ -1,3 +1,4 @@
+etc/modprobe.d/mlx4.conf
 etc/modprobe.d/truescale.conf
 lib/systemd/system/rdma-ndd.service
 lib/udev/rules.d/60-rdma-ndd.rules
