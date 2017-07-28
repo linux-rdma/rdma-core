@@ -1,5 +1,5 @@
 [Unit]
-Description=Starts the InfiniBand Address Cache Manager daemon
+Description=InfiniBand Address Cache Manager Daemon
 Documentation=man:ibacm file:@CMAKE_INSTALL_SYSCONFDIR@/rdma/ibacm_opts.cfg
 After=opensm.service
 
