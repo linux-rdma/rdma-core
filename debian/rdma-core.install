@@ -7,7 +7,7 @@ usr/lib/truescale-serdes.cmds
 usr/sbin/rdma-ndd
 usr/share/doc/rdma-core/MAINTAINERS
 usr/share/doc/rdma-core/README.md
-usr/share/doc/rdma-core/rxe.md usr/share/doc/rdma-core/
+usr/share/doc/rdma-core/rxe.md
 usr/share/man/man7/rxe.7
 usr/share/man/man8/rdma-ndd.8
 usr/share/man/man8/rxe_cfg.8
