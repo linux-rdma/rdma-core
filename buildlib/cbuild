@@ -107,7 +107,7 @@ class centos6(YumEnvironment):
 
 class centos7(YumEnvironment):
     docker_parent = "centos:7";
-    pkgs = centos6.pkgs;
+    pkgs = centos6.pkgs | {'systemd-devel'};
     name = "centos7";
     use_make = True;
     specfile = "redhat/rdma-core.spec";
@@ -152,7 +152,7 @@ class APTEnvironment(Environment):
 
 class trusty(APTEnvironment):
     docker_parent = "ubuntu:14.04";
-    pkgs = {
+    common_pkgs = {
         'build-essential',
         'cmake',
         'debhelper',
@@ -167,30 +167,35 @@ class trusty(APTEnvironment):
         'python',
         'valgrind',
         };
+    pkgs = common_pkgs | {
+        'libsystemd-daemon-dev',
+        'libsystemd-id128-dev',
+        'libsystemd-journal-dev',
+        };
     name = "ubuntu-14.04";
     aliases = {"trusty"};
 
 class xenial(APTEnvironment):
     docker_parent = "ubuntu:16.04"
-    pkgs = trusty.pkgs;
+    pkgs = trusty.common_pkgs | {"libsystemd-dev"};
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
-    pkgs = trusty.pkgs;
+    pkgs = xenial.pkgs;
     name = "debian-8";
     aliases = {"jessie"};
 
 class stretch(APTEnvironment):
     docker_parent = "debian:9"
-    pkgs = trusty.pkgs;
+    pkgs = jessie.pkgs;
     name = "debian-9";
     aliases = {"stretch"};
 
 class debian_experimental(APTEnvironment):
     docker_parent = "debian:experimental"
-    pkgs = (trusty.pkgs ^ {"gcc"}) | {"gcc-7"};
+    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-7"};
     name = "debian-experimental";
 
     def get_docker_file(self):
@@ -299,6 +304,7 @@ class harlequin(ZypperEnvironment):
         'pkg-config',
         'python',
         'rpm-build',
+        'systemd-devel',
         'valgrind-devel',
     };
     name = "opensuse-13.2";
