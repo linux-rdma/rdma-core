@@ -2,9 +2,11 @@
 Description=InfiniBand Address Cache Manager Daemon
 Documentation=man:ibacm file:@CMAKE_INSTALL_SYSCONFDIR@/rdma/ibacm_opts.cfg
 After=opensm.service
+Wants=ibacm.socket
 
 [Service]
-ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm -P
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm --systemd
 
 [Install]
+Also=ibacm.socket
 WantedBy=network.target

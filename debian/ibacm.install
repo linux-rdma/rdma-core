@@ -1,5 +1,6 @@
 etc/init.d/ibacm
 lib/systemd/system/ibacm.service
+lib/systemd/system/ibacm.socket
 usr/bin/ib_acme
 usr/include/infiniband/acm.h
 usr/include/infiniband/acm_prov.h
