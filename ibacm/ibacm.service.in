@@ -4,8 +4,7 @@ Documentation=man:ibacm file:@CMAKE_INSTALL_SYSCONFDIR@/rdma/ibacm_opts.cfg
 After=opensm.service
 
 [Service]
-Type=forking
-ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm -P
 
 [Install]
 WantedBy=network.target
