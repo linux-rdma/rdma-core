@@ -28,6 +28,8 @@
  * SOFTWARE.
  */
 
+#define _GNU_SOURCE
+
 #include <config.h>
 
 #include <stdio.h>
@@ -2933,29 +2935,6 @@ static int acm_open_lock_file(void)
 	return 0;
 }
 
-static void daemonize(void)
-{
-	pid_t pid, sid;
-
-	pid = fork();
-	if (pid)
-		exit(pid < 0);
-
-	sid = setsid();
-	if (sid < 0)
-		exit(1);
-
-	if (chdir("/"))
-		exit(1);
-
-	if(!freopen("/dev/null", "r", stdin))
-		exit(1);
-	if(!freopen("/dev/null", "w", stdout))
-		exit(1);
-	if(!freopen("/dev/null", "w", stderr))
-		exit(1);
-}
-
 static void show_usage(char *program)
 {
 	printf("usage: %s\n", program);
@@ -2969,7 +2948,7 @@ static void show_usage(char *program)
 
 int main(int argc, char **argv)
 {
-	int i, op, daemon = 1;
+	int i, op, as_daemon = 1;
 
 	while ((op = getopt(argc, argv, "DPA:O:")) != -1) {
 		switch (op) {
@@ -2977,7 +2956,7 @@ int main(int argc, char **argv)
 			/* option no longer required */
 			break;
 		case 'P':
-			daemon = 0;
+			as_daemon = 0;
 			break;
 		case 'A':
 			addr_file = optarg;
@@ -2991,8 +2970,10 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (daemon)
-		daemonize();
+	if (as_daemon) {
+		if (daemon(0, 0))
+			return EXIT_FAILURE;
+	}
 
 	acm_set_options();
 	if (acm_open_lock_file())
