@@ -59,7 +59,6 @@ rdma_man_pages(
 
 # FIXME: update the .init.in
 set(rdmascript "openibd")
-set(prefix "${CMAKE_INSTALL_PREFIX}")
 rdma_subst_install(FILES "ibacm.init.in"
   DESTINATION "${CMAKE_INSTALL_INITDDIR}"
   RENAME "ibacm"

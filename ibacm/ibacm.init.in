@@ -36,14 +36,14 @@ elif [ -s /lib/lsb/init-functions ]; then
 	# SLES / OpenSuSE / Debian
 	. /lib/lsb/init-functions
 	_daemon()   { start_daemon "$@"; }
-        _checkpid() { checkproc -p $pidfile @prefix@/sbin/ibacm; }
+        _checkpid() { checkproc -p $pidfile @CMAKE_INSTALL_FULL_SBINDIR@/ibacm; }
 	_success()  { log_success_msg; }
 	_failure()  { log_failure_msg; }
 elif [ -s /etc/rc.status ]; then
 	# Older SuSE
 	. /etc/rc.status
 	_daemon()   { /sbin/start_daemon ${1+"$@"}; }
-        _checkpid() { checkproc -p $pidfile @prefix@/sbin/ibacm; }
+        _checkpid() { checkproc -p $pidfile @CMAKE_INSTALL_FULL_SBINDIR@/ibacm; }
 	_success()  { rc_status -v; }
 	_failure()  { rc_status -v; }
 fi	
@@ -51,7 +51,7 @@ fi
 start()
 {
     echo -n "Starting ibacm daemon:"
-    _daemon @prefix@/sbin/ibacm
+    _daemon @CMAKE_INSTALL_FULL_SBINDIR@/ibacm
     if [[ $RETVAL -eq 0 ]]; then
         _success
     else

@@ -5,7 +5,7 @@ After=opensm.service
 
 [Service]
 Type=forking
-ExecStart=@prefix@/sbin/ibacm
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm
 
 [Install]
 WantedBy=network.target
