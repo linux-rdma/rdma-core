@@ -291,9 +291,8 @@ class ZypperEnvironment(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class harlequin(ZypperEnvironment):
-    proxy = False;
-    docker_parent = "opensuse:13.2";
+class leap(ZypperEnvironment):
+    docker_parent = "opensuse:42.2";
     pkgs = {
         'cmake',
         'gcc',
@@ -307,18 +306,12 @@ class harlequin(ZypperEnvironment):
         'systemd-devel',
         'valgrind-devel',
     };
-    name = "opensuse-13.2";
-    aliases = {"harelequin"};
-
-class leap(ZypperEnvironment):
-    docker_parent = "opensuse:42.2";
-    pkgs = harlequin.pkgs;
     name = "opensuse-42.2";
     aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse:tumbleweed";
-    pkgs = harlequin.pkgs;
+    pkgs = leap.pkgs;
     name = "tumbleweed";
 
 # -------------------------------------------------------------------------
@@ -332,7 +325,6 @@ environments = [centos6(),
                 jessie(),
                 stretch(),
                 fc26(),
-                harlequin(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
