@@ -414,15 +414,15 @@ add_subdirectory(providers/cxgb3) # NO SPARSE
 add_subdirectory(providers/cxgb4) # NO SPARSE
 add_subdirectory(providers/hns) # NO SPARSE
 add_subdirectory(providers/i40iw) # NO SPARSE
-add_subdirectory(providers/mlx4) # NO SPARSE
-add_subdirectory(providers/mlx4/man) # NO SPARSE
-add_subdirectory(providers/mlx5) # NO SPARSE
-add_subdirectory(providers/mlx5/man) # NO SPARSE
-add_subdirectory(providers/mthca) # NO SPARSE
+add_subdirectory(providers/mlx4)
+add_subdirectory(providers/mlx4/man)
+add_subdirectory(providers/mlx5)
+add_subdirectory(providers/mlx5/man)
+add_subdirectory(providers/mthca)
 add_subdirectory(providers/nes) # NO SPARSE
 add_subdirectory(providers/ocrdma)
 add_subdirectory(providers/qedr)
-add_subdirectory(providers/vmw_pvrdma) # NO SPARSE
+add_subdirectory(providers/vmw_pvrdma)
 endif()
 
 add_subdirectory(providers/hfi1verbs)

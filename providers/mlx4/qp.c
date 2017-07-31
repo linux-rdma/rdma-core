@@ -304,7 +304,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_LOCAL_INV:
 				ctrl->srcrb_flags |=
 					htobe32(MLX4_WQE_CTRL_STRONG_ORDER);
-				set_local_inv_seg(wqe, wr->imm_data);
+				set_local_inv_seg(wqe, wr->invalidate_rkey);
 				wqe  += sizeof
 					(struct mlx4_wqe_local_inval_seg);
 				size += sizeof
@@ -320,7 +320,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					(struct mlx4_wqe_bind_seg) / 16;
 				break;
 			case IBV_WR_SEND_WITH_INV:
-				ctrl->imm = htobe32(wr->imm_data);
+				ctrl->imm = htobe32(wr->invalidate_rkey);
 				break;
 
 			default:

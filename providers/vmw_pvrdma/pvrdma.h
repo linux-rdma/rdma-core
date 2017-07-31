@@ -152,7 +152,7 @@ struct pvrdma_qp {
 	struct pvrdma_buf		sbuf;
 	int				max_inline_data;
 	int				buf_size;
-	uint32_t			sq_signal_bits;
+	__be32				sq_signal_bits;
 	int				sq_spare_wqes;
 	struct pvrdma_wq		sq;
 	struct pvrdma_wq		rq;
@@ -210,12 +210,12 @@ static inline struct pvrdma_ah *to_vah(struct ibv_ah *ibah)
 
 static inline void pvrdma_write_uar_qp(void *uar, unsigned value)
 {
-	*(uint32_t *)(uar + PVRDMA_UAR_QP_OFFSET) = htole32(value);
+	*(__le32 *)(uar + PVRDMA_UAR_QP_OFFSET) = htole32(value);
 }
 
 static inline void pvrdma_write_uar_cq(void *uar, unsigned value)
 {
-	*(uint32_t *)(uar + PVRDMA_UAR_CQ_OFFSET) = htole32(value);
+	*(__le32 *)(uar + PVRDMA_UAR_CQ_OFFSET) = htole32(value);
 }
 
 static inline int ibv_send_flags_to_pvrdma(int flags)

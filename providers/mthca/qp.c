@@ -852,7 +852,7 @@ int mthca_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 	if (mthca_is_memfree(pd->context)) {
 		struct mthca_data_seg *scatter;
-		uint32_t sz;
+		__be32 sz;
 
 		sz = htobe32((sizeof (struct mthca_next_seg) +
 			    qp->rq.max_gs * sizeof (struct mthca_data_seg)) / 16);
@@ -926,7 +926,7 @@ void mthca_clear_qp(struct mthca_context *ctx, uint32_t qpn)
 }
 
 int mthca_free_err_wqe(struct mthca_qp *qp, int is_send,
-		       int index, int *dbd, uint32_t *new_wqe)
+		       int index, int *dbd, __be32 *new_wqe)
 {
 	struct mthca_next_seg *next;
 
