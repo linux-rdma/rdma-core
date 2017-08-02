@@ -47,7 +47,7 @@ my $linkonly = 0;
 my $parms = "/sys/module/rdma_rxe/parameters";
 my $modprobe_opt = "";
 my $modprobe_checked = "0";
-my $persistence_path = "/var/rxe";
+my $persistence_path = "@CMAKE_INSTALL_FULL_SHAREDSTATEDIR@/rxe";
 my $persistence_file = "${persistence_path}/rxe";
 my $num_persistent = 0;
 my $sys = "/sys/module/rdma_rxe/parameters";
@@ -506,7 +506,7 @@ sub modprobe {
 sub do_start {
     my $proto_str = "";
 
-    system("mkdir -p /var/rxe");
+    system("mkdir -p $persistence_path");
     system("touch $persistence_file");
 
     modprobe("ib_core");
