@@ -1968,6 +1968,9 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	if (resp.support_multi_pkt_send_wqe & MLX5_ALLOW_MPW)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_MPW_ALLOWED;
 
+	if (resp.support_multi_pkt_send_wqe & MLX5_SUPPORT_EMPW)
+		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW;
+
 	mctx->cqe_comp_caps = resp.cqe_comp_caps;
 
 	major     = (raw_fw_ver >> 32) & 0xffff;

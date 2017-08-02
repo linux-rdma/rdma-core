@@ -276,6 +276,7 @@ struct mlx5_packet_pacing_caps {
 enum mlx5_mpw_caps {
 	MLX5_MPW_OBSOLETE	= 1 << 0, /* Obsoleted, don't use */
 	MLX5_ALLOW_MPW		= 1 << 1,
+	MLX5_SUPPORT_EMPW	= 1 << 2,
 };
 
 struct mlx5_query_device_ex_resp {
