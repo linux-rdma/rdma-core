@@ -5,6 +5,7 @@ etc/rdma/modules/iwarp.conf
 etc/rdma/modules/opa.conf
 etc/rdma/modules/rdma.conf
 etc/rdma/modules/roce.conf
+lib/systemd/system/rdma-hw.target
 lib/systemd/system/rdma-load-modules@.service
 lib/systemd/system/rdma-ndd.service
 lib/udev/rules.d/60-rdma-ndd.rules

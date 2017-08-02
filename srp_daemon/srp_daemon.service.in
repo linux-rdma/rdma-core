@@ -8,7 +8,7 @@ Before=remote-fs-pre.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@CMAKE_INSTALL_LIBEXECDIR@/srp_daemon/start_on_all_ports
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/srp_daemon/start_on_all_ports
 MemoryDenyWriteExecute=yes
 PrivateTmp=yes
 ProtectHome=yes

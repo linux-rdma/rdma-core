@@ -1,8 +1,23 @@
 [Unit]
 Description=RDMA Node Description Daemon
 Documentation=man:rdma-ndd
+StopWhenUnneeded=yes
+# rdma-ndd is a kernel support program and needs to run as early as possible,
+# before the network link is brought up, and before an external manager tries
+# to read the local node description.
+DefaultDependencies=no
+Before=sysinit.target
+# Do not execute concurrently with an ongoing shutdown (required for DefaultDependencies=no)
+Conflicts=shutdown.target
+Before=shutdown.target
+# Networking, particularly link up, should not happen until ndd is ready
+Wants=network-pre.target
+Before=network-pre.target
+# rdma-hw is not ready until ndd is running
+Before=rdma-hw.target
 
 [Service]
 Restart=always
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/rdma-ndd -f
 
+# rdma-ndd is automatically wanted by udev when an RDMA device with a node description is present

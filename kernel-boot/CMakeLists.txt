@@ -3,6 +3,11 @@ rdma_subst_install(FILES rdma-load-modules@.service.in
   RENAME rdma-load-modules@.service
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 
+rdma_subst_install(FILES "rdma-hw.target.in"
+  RENAME "rdma-hw.target"
+  DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"
+  PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+
 install(FILES
   modules/infiniband.conf
   modules/iwarp.conf
