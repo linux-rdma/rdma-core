@@ -1,0 +1,1 @@
+TAG+="systemd", ENV{ID_RDMA_IWARP}=="1", ENV{SYSTEMD_WANTS}+="iwpmd.service"

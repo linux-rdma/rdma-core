@@ -1,0 +1,16 @@
+[Unit]
+Description=Load RDMA modules from @CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/modules/%I.conf
+Documentation=file:@CMAKE_INSTALL_FULL_DOCDIR@/udev.md
+DefaultDependencies=no
+Conflicts=shutdown.target
+# network-pre.target is to support distro network setup scripts that run after
+# systemd-modules-load.service but before sysinit.target, eg a classic network
+# setup script.
+Before=sysinit.target shutdown.target network-pre.target
+ConditionCapability=CAP_SYS_MODULE
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/lib/systemd/systemd-modules-load @CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/modules/%I.conf
+TimeoutSec=90s

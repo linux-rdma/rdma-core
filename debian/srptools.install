@@ -1,3 +1,4 @@
+etc/rdma/modules/srp_daemon.conf
 etc/srp_daemon.conf
 lib/systemd/system/srp_daemon.service
 lib/systemd/system/srp_daemon_port@.service

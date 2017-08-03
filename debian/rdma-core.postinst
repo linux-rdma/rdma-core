@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+if [ "$1" = "configure" ]; then
+    # we ship udev rules, so trigger an update. This has to be done after
+    # DEBHELPER restarts systemd to get our new service files loaded.
+    udevadm trigger --subsystem-match=infiniband --action=change || true
+    udevadm trigger --subsystem-match=net --action=change || true
+    udevadm trigger --subsystem-match=infiniband_mad --action=change || true
+fi

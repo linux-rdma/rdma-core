@@ -1,0 +1,39 @@
+ACTION=="remove", GOTO="rdma_hw_modules_end"
+SUBSYSTEM!="net", GOTO="rdma_hw_modules_end"
+
+# Automatically load RDMA specific kernel modules when a multi-function device is installed
+
+# These drivers autoload an ethernet driver based on hardware detection and
+# need userspace to load the module that has their RDMA component to turn on
+# RDMA.
+ENV{ID_NET_DRIVER}=="be2net", RUN{builtin}+="kmod load ocrdma"
+ENV{ID_NET_DRIVER}=="bnxt_en", RUN{builtin}+="kmod load bnxt_re"
+ENV{ID_NET_DRIVER}=="cxgb3", RUN{builtin}+="kmod load iw_cxgb3"
+ENV{ID_NET_DRIVER}=="cxgb4", RUN{builtin}+="kmod load iw_cxgb4"
+ENV{ID_NET_DRIVER}=="hns", RUN{builtin}+="kmod load hns_roce"
+ENV{ID_NET_DRIVER}=="i40e", RUN{builtin}+="kmod load i40iw"
+ENV{ID_NET_DRIVER}=="mlx4_en", RUN{builtin}+="kmod load mlx4_ib"
+ENV{ID_NET_DRIVER}=="mlx5_core", RUN{builtin}+="kmod load mlx5_ib"
+ENV{ID_NET_DRIVER}=="qede", RUN{builtin}+="kmod load qedr"
+
+# The user must explicitly load these modules via /etc/modules-load.d/ or otherwise
+# rxe
+
+# When in IB mode the kernel PCI core module autoloads the protocol modules
+# for these providers
+# mlx4
+# mlx5
+
+# enic no longer has a userspace verbs driver, this rule should probably be
+# owned by libfabric
+ENV{ID_NET_DRIVER}=="enic", RUN{builtin}+="kmod load usnic_verbs"
+
+# These providers are single function and autoload RDMA automatically based on
+# PCI probing
+# hfi1verbs
+# ipathverbs
+# mthca
+# vmw_pvrdma
+# nes
+
+LABEL="rdma_hw_modules_end"
