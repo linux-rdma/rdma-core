@@ -32,6 +32,7 @@
  */
 
 #include "config.h"
+#include <systemd/sd-daemon.h>
 #include <getopt.h>
 #include "iwarp_pm.h"
 
@@ -1447,6 +1448,10 @@ int main(int argc, char *argv[])
 
 	known_clients = init_iwpm_clients(&iwarp_clients[0]);
 	send_iwpm_mapinfo_request(netlink_sock, &iwarp_clients[0], known_clients);
+
+	if (systemd)
+		sd_notify(0, "READY=1");
+
 	iwarp_port_mapper(); /* start iwarp port mapper process */
 
 	free_iwpm_mapped_ports();

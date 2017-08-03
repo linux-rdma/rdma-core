@@ -5,6 +5,7 @@ Requires=rdma-load-modules@iwpmd.service
 After=network.target rdma-load-modules@iwpmd.service
 
 [Service]
+Type=notify
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/iwpmd --systemd
 LimitNOFILE=102400
 
