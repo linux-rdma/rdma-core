@@ -23,7 +23,7 @@ Homepage: https://github.com/linux-rdma/rdma-core
 
 Package: rdma-core
 Architecture: linux-any
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
 Recommends: dmidecode, ethtool, net-tools
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
@@ -32,9 +32,13 @@ Description: RDMA core userspace infrastructure and documentation
  Linux kernel's remote direct memory access (RDMA) subystem which includes
  InfiniBand, iWARP, and RDMA over Converged Ethernet (RoCE).
  .
- The package also contains the rdma-ndd daemon which watches for RDMA device
- changes and/or hostname changes and updates the Node Description of the RDMA
- devices based on those changes.
+ Several kernel RDMA support daemons are included:
+  - The rdma-ndd daemon which watches for RDMA device changes and/or hostname
+    changes and updates the Node Description of the RDMA devices based on
+    those changes.
+  - The iWARP Port Mapper Daemon (iwpmd) which provides a kernel support
+    service in userspace for iWARP drivers to claim TCP ports through the
+    standard socket interface.
 
 Package: ibacm
 Architecture: any
@@ -49,22 +53,6 @@ Description: InfiniBand Communication Manager Assistant (ACM)
  MPI applications on large clusters.  The IB ACM provides information
  needed to establish a connection, but does not implement the CM protocol.
  A primary user of the ibacm service is the librdmacm library.
-
-Package: iwpmd
-Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~),
-         rdma-core (>= 15),
-         ${misc:Depends},
-         ${shlibs:Depends}
-Description: Userspace component for iWarp RDMA services
- This package contains the iWARP Port Mapper Daemon (iwpmd) which provides a
- userspace service for iWARP drivers to claim TCP ports through the standard
- socket interface.
- .
- The kernel space support for the port mapper is part of the iw_cm module. The
- ib_core module includes netlink support, which is used by the port mapper
- clients to exchange messages with iwpmd. Both modules iw_cm and ib_core
- need to be loaded in order for the iwpmd service to start successfully.
 
 Package: ibverbs-providers
 Architecture: linux-any
