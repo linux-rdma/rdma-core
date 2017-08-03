@@ -28,6 +28,8 @@
  * SOFTWARE.
  */
 
+#define _GNU_SOURCE
+
 #include <config.h>
 
 #include <stdio.h>
@@ -57,6 +59,8 @@
 #include <rdma/ib_user_sa.h>
 #include <poll.h>
 #include <inttypes.h>
+#include <getopt.h>
+#include <systemd/sd-daemon.h>
 #include <ccan/list.h>
 #include <util/util.h>
 #include "acm_mad.h"
@@ -594,6 +598,35 @@ static int acm_listen(void)
 	}
 
 	acm_log(2, "listen active\n");
+	return 0;
+}
+
+/* Retrieve the listening socket from systemd. */
+static int acm_listen_systemd(void)
+{
+	int rc = sd_listen_fds(1);
+	if (rc == 0) {
+		/* We are in systemd mode but no FDs were passed? Fall back to
+		 * normal mode
+		 */
+		return acm_listen();
+	}
+	if (rc == -1) {
+		fprintf(stderr, "sd_listen_fds failed %d\n", rc);
+		return rc;
+	}
+
+	if (rc != 1) {
+		fprintf(stderr, "sd_listen_fds returned %d fds, expected 1\n", rc);
+		return -1;
+	}
+
+	if (!sd_is_socket(SD_LISTEN_FDS_START, AF_UNSPEC, SOCK_STREAM, 1)) {
+		fprintf(stderr, "sd_listen_fds socket is not a SOCK_STREAM listening socket\n");
+		return -1;
+	}
+
+	listen_socket = SD_LISTEN_FDS_START;
 	return 0;
 }
 
@@ -1667,7 +1700,7 @@ static int acm_init_nl(void)
 	return 0;
 }
 
-static void acm_server(void)
+static void acm_server(bool systemd)
 {
 	fd_set readfds;
 	int i, n, ret;
@@ -1675,7 +1708,10 @@ static void acm_server(void)
 
 	acm_log(0, "started\n");
 	acm_init_server();
-	ret = acm_listen();
+	if (systemd)
+		ret = acm_listen_systemd();
+	else
+		ret = acm_listen();
 	if (ret) {
 		acm_log(0, "ERROR - server listen failed\n");
 		return;
@@ -2933,29 +2969,6 @@ static int acm_open_lock_file(void)
 	return 0;
 }
 
-static void daemonize(void)
-{
-	pid_t pid, sid;
-
-	pid = fork();
-	if (pid)
-		exit(pid < 0);
-
-	sid = setsid();
-	if (sid < 0)
-		exit(1);
-
-	if (chdir("/"))
-		exit(1);
-
-	if(!freopen("/dev/null", "r", stdin))
-		exit(1);
-	if(!freopen("/dev/null", "w", stdout))
-		exit(1);
-	if(!freopen("/dev/null", "w", stderr))
-		exit(1);
-}
-
 static void show_usage(char *program)
 {
 	printf("usage: %s\n", program);
@@ -2969,15 +2982,22 @@ static void show_usage(char *program)
 
 int main(int argc, char **argv)
 {
-	int i, op, daemon = 1;
+	int i, op, as_daemon = 1;
+	bool systemd = false;
 
-	while ((op = getopt(argc, argv, "DPA:O:")) != -1) {
+	static const struct option long_opts[] = {
+		{"systemd", 0, NULL, 's'},
+		{}
+	};
+
+	while ((op = getopt_long(argc, argv, "DPA:O:", long_opts, NULL)) !=
+	       -1) {
 		switch (op) {
 		case 'D':
 			/* option no longer required */
 			break;
 		case 'P':
-			daemon = 0;
+			as_daemon = 0;
 			break;
 		case 'A':
 			addr_file = optarg;
@@ -2985,14 +3005,19 @@ int main(int argc, char **argv)
 		case 'O':
 			opts_file = optarg;
 			break;
+		case 's':
+			systemd = true;
+			break;
 		default:
 			show_usage(argv[0]);
 			exit(1);
 		}
 	}
 
-	if (daemon)
-		daemonize();
+	if (as_daemon && !systemd) {
+		if (daemon(0, 0))
+			return EXIT_FAILURE;
+	}
 
 	acm_set_options();
 	if (acm_open_lock_file())
@@ -3032,7 +3057,7 @@ int main(int argc, char **argv)
 	}
 	acm_activate_devices();
 	acm_log(1, "starting server\n");
-	acm_server();
+	acm_server(systemd);
 
 	acm_log(0, "shutting down\n");
 	if (client_array[NL_CLIENT_INDEX].sock != -1)

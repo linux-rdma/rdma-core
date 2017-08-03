@@ -328,6 +328,10 @@ CHECK_C_SOURCE_COMPILES("
  int main(int argc,const char *argv[]) {return 0;}"
   HAVE_COHERENT_DMA)
 
+find_package(Systemd)
+include_directories(${SYSTEMD_INCLUDE_DIRS})
+RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
+
 #-------------------------
 # Apply fixups
 
@@ -477,6 +481,9 @@ else()
   if (NOT HAVE_WORKING_IF_H)
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
   endif()
+endif()
+if (NOT SYSTEMD_FOUND)
+  message(STATUS " libsystemd NOT found (disabling features)")
 endif()
 if (NOT UDEV_FOUND)
   message(STATUS " libudev NOT found (disabling features)")

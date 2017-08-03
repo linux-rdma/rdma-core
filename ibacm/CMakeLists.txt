@@ -16,6 +16,7 @@ rdma_sbin_executable(ibacm
 target_link_libraries(ibacm LINK_PRIVATE
   ibverbs
   ibumad
+  ${SYSTEMD_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CMAKE_DL_LIBS}
   )
@@ -59,7 +60,6 @@ rdma_man_pages(
 
 # FIXME: update the .init.in
 set(rdmascript "openibd")
-set(prefix "${CMAKE_INSTALL_PREFIX}")
 rdma_subst_install(FILES "ibacm.init.in"
   DESTINATION "${CMAKE_INSTALL_INITDDIR}"
   RENAME "ibacm"
@@ -68,4 +68,9 @@ rdma_subst_install(FILES "ibacm.init.in"
 rdma_subst_install(FILES "ibacm.service.in"
   DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"
   RENAME ibacm.service
+  PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+
+install(FILES "ibacm.socket"
+  DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"
+  RENAME ibacm.socket
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
