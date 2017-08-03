@@ -288,6 +288,11 @@ enum mlx5_query_dev_resp_flags {
 	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_PAD	= 1 << 1,
 };
 
+struct mlx5_striding_rq_caps {
+	struct mlx5dv_striding_rq_caps	caps;
+	__u32				reserved;
+};
+
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
@@ -299,6 +304,7 @@ struct mlx5_query_device_ex_resp {
 	__u32				support_multi_pkt_send_wqe;
 	__u32				flags; /* Use enum mlx5_query_dev_resp_flags */
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
+	struct mlx5_striding_rq_caps	striding_rq_caps;
 };
 
 #endif /* MLX5_ABI_H */
