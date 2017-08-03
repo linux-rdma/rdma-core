@@ -23,7 +23,8 @@ Homepage: https://github.com/linux-rdma/rdma-core
 
 Package: rdma-core
 Architecture: linux-any
-Depends: dmidecode, ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Recommends: dmidecode, ethtool, net-tools
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
 Description: RDMA core userspace infrastructure and documentation
