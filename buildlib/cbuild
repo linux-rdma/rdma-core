@@ -293,6 +293,7 @@ class ZypperEnvironment(Environment):
 
 class leap(ZypperEnvironment):
     docker_parent = "opensuse:42.2";
+    specfile = "suse/rdma-core.spec";
     pkgs = {
         'cmake',
         'gcc',
@@ -313,6 +314,7 @@ class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse:tumbleweed";
     pkgs = leap.pkgs;
     name = "tumbleweed";
+    specfile = "suse/rdma-core.spec";
 
 # -------------------------------------------------------------------------
 
