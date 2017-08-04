@@ -208,7 +208,7 @@ __le64 mmio_read64_le(const void *addr);
 #ifdef __s390x__
 static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 {
-	s390_mmio_write(addr, src, bytecnt);
+	s390_mmio_write(dest, src, bytecnt);
 }
 #else
 
