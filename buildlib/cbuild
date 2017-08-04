@@ -405,11 +405,11 @@ def run_rpm_build(args,spec_file,env):
     with open(spec_file,"r") as F:
         for ln in F:
             if ln.startswith("Version:"):
-                ver = ln.strip().partition(' ')[2];
+                ver = ln.strip().partition(' ')[2].strip();
                 assert(ver == get_version());
 
             if ln.startswith("Source:"):
-                tarfn = ln.strip().partition(' ')[2];
+                tarfn = ln.strip().partition(' ')[2].strip();
     tarfn = tarfn.replace("%{version}",version);
 
     image_id = get_image_id(args,env.image_name());
