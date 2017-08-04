@@ -224,11 +224,11 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 
 		memset(data, '\0', sizeof data);
 		if (!cc_query_status_via(data, dest, IB_CC_ATTR_SWITCH_PORT_CONGESTION_SETTING,
-					 portnum / 32, 0, NULL, srcport, cckey))
+					 portnum / 48, 0, NULL, srcport, cckey))
 			return "switch port congestion setting query failed";
 
 		mad_dump_cc_switchportcongestionsettingelement(buf, sizeof buf,
-							       data + ((portnum % 32) * 4),
+							       data + ((portnum % 48) * 4),
 							       4);
 		printf("%s", buf);
 		return NULL;
@@ -236,7 +236,7 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 
 	/* else get all port info */
 
-	maxblocks = numports / 32 + 1;
+	maxblocks = numports / 48 + 1;
 
 	for (i = 0; i < maxblocks; i++) {
 		memset(data, '\0', sizeof data);
@@ -244,8 +244,8 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 					 i, 0, NULL, srcport, cckey))
 			return "switch port congestion setting query failed";
 
-		for (j = 0; j < 32 && outputcount <= numports; j++) {
-			printf("Port:............................%u\n", i * 32 + j);
+		for (j = 0; j < 48 && outputcount <= numports; j++) {
+			printf("Port:............................%u\n", i * 48 + j);
 			mad_dump_cc_switchportcongestionsettingelement(buf, sizeof buf,
 								       data + j * 4,
 								       4);

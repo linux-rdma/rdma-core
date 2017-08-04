@@ -412,7 +412,7 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 			 &cong_parm_marking_rate);
 
 	if (!cc_config_status_via(payload, rcv, dest, IB_CC_ATTR_SWITCH_PORT_CONGESTION_SETTING,
-				  portnum / 32, 0, NULL, srcport, cckey))
+				  portnum / 48, 0, NULL, srcport, cckey))
 		return "switch port congestion setting config failed";
 
 	return NULL;
