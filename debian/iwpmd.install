@@ -1,8 +1,0 @@
-etc/init.d/iwpmd
-etc/iwpmd.conf
-etc/rdma/modules/iwpmd.conf
-lib/systemd/system/iwpmd.service
-lib/udev/rules.d/90-iwpmd.rules
-usr/sbin/iwpmd
-usr/share/man/man5/iwpmd.conf.5
-usr/share/man/man8/iwpmd.8
