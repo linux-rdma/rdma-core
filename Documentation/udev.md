@@ -82,3 +82,68 @@ Admins using le.g.acy services can also place their RDMA hardware modules
 cause systemd to defer passing to sysinit.target until all RDMA hardware is
 setup, this is usually sufficient for le.g.acy services. This is probably the
 default behavior in many configurations.
+
+# Systemd Ordering
+
+Within rdma-core we have a series of units which run in the pre `basic.target`
+world to setup kernel services:
+
+ - `iwpmd`
+ - `rdma-ndd`
+ - `rdma-load-modules@.service`
+ - `ibacmd.socket`
+
+These special units use DefaultDependencies=no and order before any other unit that
+uses DefaultDependencies=yes. This will happen even in the case of hotplug.
+
+Units for normal rdma-using daemons should use DefaultDependencies=yes, and
+either this pattern for 'any RDMA device':
+
+```
+[Unit]
+# Order after rdma-hw.target has become active and setup the kernel services
+Requires=rdma-hw.target
+After=rdma-hw.target
+
+[Install]
+# Autostart when RDMA hardware is present
+WantedBy=rdma-hw.target
+```
+
+Or this pattern for a specific RDMA device:
+
+```
+[Unit]
+# Order after RDMA services are setup
+After=rdma-hw.target
+# Run only while a specific umad device is present
+After=dev-infiniband-umad0.device
+BindsTo=dev-infiniband-umad0.device
+
+[Install]
+# Schedual the unit to be runnable when RDMA hardware is present, but
+# it will only start once the requested device actuall appears.
+WantedBy=rdma-hw.target
+```
+
+Note, the above does explicitly reference `After=rdma-hw.target` even though
+all the current constituents of that target order before
+`sysinit.target`. This is to provide greater flexibility in the future.
+
+## rdma-hw.target
+
+This target is Wanted automatically by udev as soon as any RDMA hardware is
+plugged in or becomes available at boot.
+
+This may be used to pull in rdma management daemons dynamically when RDMA
+hardware is found. Such daemons should use:
+
+```
+[Install]
+WantedBy=rdma-hw.target
+```
+
+In their unit files.
+
+`rdma-hw.target` is also a synchronization point that orders after the low level,
+pre `sysinit.target` RDMA related units have been started.

@@ -38,7 +38,10 @@ Description: RDMA core userspace infrastructure and documentation
 
 Package: ibacm
 Architecture: any
-Depends: lsb-base (>= 3.2-14~), ${misc:Depends}, ${shlibs:Depends}
+Depends: lsb-base (>= 3.2-14~),
+         rdma-core (>= 15),
+         ${misc:Depends},
+         ${shlibs:Depends}
 Description: InfiniBand Communication Manager Assistant (ACM)
  The IB ACM implements and provides a framework for name, address, and
  route (path) resolution services over InfiniBand.
