@@ -5,6 +5,7 @@ After=opensm.service
 Wants=ibacm.socket
 
 [Service]
+Type=notify
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm --systemd
 
 [Install]

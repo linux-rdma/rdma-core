@@ -7,7 +7,10 @@ rdma_sbin_executable(rdma-ndd
   rdma-ndd.c
   )
 
-target_link_libraries(rdma-ndd LINK_PRIVATE ${UDEV_LIBRARIES})
+target_link_libraries(rdma-ndd LINK_PRIVATE
+  ${SYSTEMD_LIBRARIES}
+  ${UDEV_LIBRARIES}
+  )
 
 # FIXME Autogenerate from the .rst
 rdma_man_pages(

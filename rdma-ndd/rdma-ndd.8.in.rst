@@ -74,6 +74,9 @@ Run in the foreground instead of as a daemon
 **-d, --debugging**
 Log additional debugging information to syslog
 
+**--systemd**
+Enable systemd integration.
+
 
 AUTHOR
 ======

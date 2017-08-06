@@ -49,6 +49,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include <systemd/sd-daemon.h>
 #include <libudev.h>
 
 static struct udev *g_udev;
@@ -237,7 +238,7 @@ static void process_udev_event(int ud_fd, const char *hostname)
 	}
 }
 
-static void monitor(void)
+static void monitor(bool systemd)
 {
 	char hostname[128];
 	int hn_fd;
@@ -265,6 +266,9 @@ static void monitor(void)
 	fds[1].fd = ud_fd;
 	fds[1].events = POLLIN;
 
+	if (systemd)
+		sd_notify(0, "READY=1");
+
 	while (1) {
 		if (poll(fds, numfds, -1) <= 0) {
 			syslog(LOG_ERR, "Poll %s failed; exiting\n", SYS_HOSTNAME);
@@ -285,12 +289,14 @@ static void monitor(void)
 int main(int argc, char *argv[])
 {
 	bool foreground = false;
+	bool systemd = false;
 
 	openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
 
 	while (1) {
 		static const struct option long_opts[] = {
 			{ "foreground",   0, NULL, 'f' },
+			{ "systemd",      0, NULL, 's' },
 			{ "help",         0, NULL, 'h' },
 			{ "debug",        0, NULL, 'd' },
 			{ }
@@ -303,6 +309,9 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'f':
 			foreground = true;
+			break;
+		case 's':
+			systemd = true;
 			break;
 		case 'd':
 			debugging = true;
@@ -317,7 +326,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!foreground) {
+	if (!foreground && !systemd) {
 		if (daemon(0, 0) != 0) {
 			syslog(LOG_ERR, "Failed to daemonize\n");
 			return EXIT_FAILURE;
@@ -334,7 +343,7 @@ int main(int argc, char *argv[])
 
 	dbg_log("Node Descriptor format (%s)\n", g_nd_format);
 
-	monitor();
+	monitor(systemd);
 
 	return 0;
 }

@@ -78,6 +78,9 @@ Run in the foreground instead of as a daemon
 .sp
 \fB\-d, \-\-debugging\fP
 Log additional debugging information to syslog
+.sp
+\fB\-\-systemd\fP
+Enable systemd integration.
 .SH AUTHOR
 .INDENT 0.0
 .TP

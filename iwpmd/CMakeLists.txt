@@ -4,6 +4,7 @@ rdma_sbin_executable(iwpmd
   iwarp_pm_server.c
   )
 target_link_libraries(iwpmd LINK_PRIVATE
+  ${SYSTEMD_LIBRARIES}
   ${NL_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   )

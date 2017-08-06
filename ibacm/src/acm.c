@@ -1721,6 +1721,9 @@ static void acm_server(bool systemd)
 	if (ret)
 		acm_log(1, "Warn - Netlink init failed\n");
 
+	if (systemd)
+		sd_notify(0, "READY=1");
+
 	while (1) {
 		n = (int) listen_socket;
 		FD_ZERO(&readfds);
