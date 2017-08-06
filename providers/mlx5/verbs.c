@@ -952,21 +952,36 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 	return wq_size;
 }
 
+enum {
+	DV_CREATE_WQ_SUPPORTED_COMP_MASK = MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ
+};
+
 static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 			      struct mlx5_rwq *rwq,
-			      struct ibv_wq_init_attr *attr)
+			      struct ibv_wq_init_attr *attr,
+			      struct mlx5dv_wq_init_attr *mlx5wq_attr)
 {
 	size_t wqe_size;
 	int wq_size;
 	uint32_t num_scatter;
+	int is_mprq = 0;
 	int scat_spc;
 
 	if (!attr->max_wr)
 		return -EINVAL;
+	if (mlx5wq_attr) {
+		if (!check_comp_mask(mlx5wq_attr->comp_mask,
+				     DV_CREATE_WQ_SUPPORTED_COMP_MASK))
+			return -EINVAL;
+
+		is_mprq = !!(mlx5wq_attr->comp_mask &
+			     MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ);
+	}
 
 	/* TBD: check caps for RQ */
 	num_scatter = max_t(uint32_t, attr->max_sge, 1);
-	wqe_size = sizeof(struct mlx5_wqe_data_seg) * num_scatter;
+	wqe_size = sizeof(struct mlx5_wqe_data_seg) * num_scatter +
+		sizeof(struct mlx5_wqe_srq_next_seg) * is_mprq;
 
 	if (rwq->wq_sig)
 		wqe_size += sizeof(struct mlx5_rwqe_sig);
@@ -981,7 +996,8 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 	rwq->rq.wqe_shift = mlx5_ilog2(wqe_size);
 	rwq->rq.max_post = 1 << mlx5_ilog2(wq_size / wqe_size);
 	scat_spc = wqe_size -
-		((rwq->wq_sig) ? sizeof(struct mlx5_rwqe_sig) : 0);
+		((rwq->wq_sig) ? sizeof(struct mlx5_rwqe_sig) : 0) -
+		is_mprq * sizeof(struct mlx5_wqe_srq_next_seg);
 	rwq->rq.max_gs = scat_spc / sizeof(struct mlx5_wqe_data_seg);
 	return wq_size;
 }
@@ -2226,8 +2242,9 @@ static int mlx5_alloc_rwq_buf(struct ibv_context *context,
 	return 0;
 }
 
-struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
-			      struct ibv_wq_init_attr *attr)
+static struct ibv_wq *create_wq(struct ibv_context *context,
+			 struct ibv_wq_init_attr *attr,
+			 struct mlx5dv_wq_init_attr *mlx5wq_attr)
 {
 	struct mlx5_create_wq		cmd;
 	struct mlx5_create_wq_resp		resp;
@@ -2252,7 +2269,7 @@ struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
 	if (rwq->wq_sig)
 		cmd.drv.flags = MLX5_RWQ_FLAG_SIGNATURE;
 
-	ret = mlx5_calc_rwq_size(ctx, rwq, attr);
+	ret = mlx5_calc_rwq_size(ctx, rwq, attr, mlx5wq_attr);
 	if (ret < 0) {
 		errno = -ret;
 		goto err;
@@ -2286,6 +2303,35 @@ struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
 	}
 
 	cmd.drv.user_index = usr_idx;
+
+	if (mlx5wq_attr) {
+		if (mlx5wq_attr->comp_mask & MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ) {
+			if ((mlx5wq_attr->striding_rq_attrs.single_stride_log_num_of_bytes <
+			    ctx->striding_rq_caps.min_single_stride_log_num_of_bytes) ||
+			    (mlx5wq_attr->striding_rq_attrs.single_stride_log_num_of_bytes >
+			     ctx->striding_rq_caps.max_single_stride_log_num_of_bytes)) {
+				errno = EINVAL;
+				goto err_create;
+			}
+
+			if ((mlx5wq_attr->striding_rq_attrs.single_wqe_log_num_of_strides <
+			     ctx->striding_rq_caps.min_single_wqe_log_num_of_strides) ||
+			    (mlx5wq_attr->striding_rq_attrs.single_wqe_log_num_of_strides >
+			     ctx->striding_rq_caps.max_single_wqe_log_num_of_strides)) {
+				errno = EINVAL;
+				goto err_create;
+			}
+
+			cmd.drv.single_stride_log_num_of_bytes =
+				mlx5wq_attr->striding_rq_attrs.single_stride_log_num_of_bytes;
+			cmd.drv.single_wqe_log_num_of_strides =
+				mlx5wq_attr->striding_rq_attrs.single_wqe_log_num_of_strides;
+			cmd.drv.two_byte_shift_en =
+				mlx5wq_attr->striding_rq_attrs.two_byte_shift_en;
+			cmd.drv.comp_mask |= MLX5_IB_CREATE_WQ_STRIDING_RQ;
+		}
+	}
+
 	err = ibv_cmd_create_wq(context, attr, &rwq->wq, &cmd.ibv_cmd,
 				sizeof(cmd.ibv_cmd),
 				sizeof(cmd),
@@ -2309,6 +2355,19 @@ err_free_rwq_buf:
 err:
 	free(rwq);
 	return NULL;
+}
+
+struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
+			      struct ibv_wq_init_attr *attr)
+{
+	return create_wq(context, attr, NULL);
+}
+
+struct ibv_wq *mlx5dv_create_wq(struct ibv_context *context,
+				struct ibv_wq_init_attr *attr,
+				struct mlx5dv_wq_init_attr *mlx5_wq_attr)
+{
+	return create_wq(context, attr, mlx5_wq_attr);
 }
 
 int mlx5_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr)
