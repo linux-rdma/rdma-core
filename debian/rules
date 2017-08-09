@@ -48,6 +48,7 @@ override_dh_install:
 # pre-postrms
 override_dh_installinit:
 	dh_installinit -pibacm --onlyscripts
+	dh_installinit -prdma-core --onlyscripts --name=iwpmd
 	dh_installinit --remaining-packages
 
 # Provider plugin libaries are not shared libraries and do not belong in the
