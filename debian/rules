@@ -36,8 +36,7 @@ override_dh_auto_test:
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp ninja -C build-deb install
 
-# The following files are not used on Debian
-# FIXME: should they be?
+# The following files are not used on Debian (we ship our own sysvinit script)
 INST_EXCLUDE := "etc/init.d/srpd" \
 		"usr/sbin/run_srp_daemon" \
 		"usr/sbin/srp_daemon.sh"
