@@ -151,8 +151,8 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
     message(FATAL_ERROR "Unable to run buildlib/relpath, do you have python?")
   endif()
 
-  rdma_install_symlink("${DEST_LINK_PATH}" "${VERBS_PROVIDER_DIR}/lib${DEST}-rdmav2.so")
-  rdma_create_symlink("lib${DEST}.so.${VERSION}" "${BUILD_LIB}/lib${DEST}-rdmav2.so")
+  rdma_install_symlink("${DEST_LINK_PATH}" "${VERBS_PROVIDER_DIR}/lib${DEST}${IBVERBS_PROVIDER_SUFFIX}")
+  rdma_create_symlink("lib${DEST}.so.${VERSION}" "${BUILD_LIB}/lib${DEST}${IBVERBS_PROVIDER_SUFFIX}")
 endfunction()
 
 # Create a provider shared library for libibverbs
@@ -174,12 +174,12 @@ function(rdma_provider DEST)
     set_target_properties(${DEST} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB}")
     install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
-    list(APPEND RDMA_STATIC_LIBS ${DEST}-rdmav2 ${DEST})
+    list(APPEND RDMA_STATIC_LIBS "${DEST}-rdmav${IBVERBS_PABI_VERSION}" ${DEST})
     set(RDMA_STATIC_LIBS "${RDMA_STATIC_LIBS}" CACHE INTERNAL "")
   endif()
 
   # Create the plugin shared library
-  set(DEST ${DEST}-rdmav2)
+  set(DEST "${DEST}-rdmav${IBVERBS_PABI_VERSION}")
   add_library(${DEST} MODULE ${ARGN})
   # Even though these are modules we still want to use Wl,--no-undefined
   set_target_properties(${DEST} PROPERTIES LINK_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
@@ -199,7 +199,7 @@ function(rdma_provider DEST)
     # FIXME: This symlink is provided for compat with the old build, but it
     # never should have existed in the first place, nothing should use this
     # name, we can probably remove it.
-    rdma_install_symlink("lib${DEST}-rdmav2.so" "${CMAKE_INSTALL_LIBDIR}/lib${DEST}.so")
+    rdma_install_symlink("lib${DEST}${IBVERBS_PROVIDER_SUFFIX}" "${CMAKE_INSTALL_LIBDIR}/lib${DEST}.so")
   endif()
 endfunction()
 

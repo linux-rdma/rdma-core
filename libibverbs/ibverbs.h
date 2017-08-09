@@ -47,8 +47,6 @@
 #define symver(name, api, ver) asm(".symver " #name "," #api "@" #ver)
 #define default_symver(name, api)                                              \
 	asm(".symver " #name "," #api "@@" DEFAULT_ABI)
-#define private_symver(name, api)                                              \
-	asm(".symver " #name "," #api "@@IBVERBS_PRIVATE_14")
 
 #define PFX		"libibverbs: "
 

@@ -48,13 +48,6 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
-/*
- * Extension that low-level drivers should add to their .so filename
- * (probably via libtool "-release" option).  For example a low-level
- * driver named "libfoo" should build a plug-in named "libfoo-rdmav2.so".
- */
-#define IBV_DEVICE_LIBRARY_EXTENSION rdmav2
-
 struct verbs_device;
 
 enum verbs_xrcd_mask {
