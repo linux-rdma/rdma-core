@@ -18,7 +18,10 @@ else()
   set(NEIGH "")
 endif()
 
-rdma_library(ibverbs libibverbs.map
+configure_file("libibverbs.map.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map" @ONLY)
+
+rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
   1 1.1.${PACKAGE_VERSION}
   cmd.c

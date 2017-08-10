@@ -85,8 +85,8 @@ IBVERBS_1.1 {
 /* NOTE: The next stanza for public symbols should be IBVERBS_1.4 due to release 12 */
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
-   version. Also see the private_symver() macro */
-IBVERBS_PRIVATE_15 {
+   version. See the top level CMakeLists.txt for this setting. */
+IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 	global:
 		/* These historical symbols are now private to libibverbs */
 		ibv_cmd_alloc_mw;
