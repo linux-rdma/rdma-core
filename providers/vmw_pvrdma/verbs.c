@@ -186,6 +186,7 @@ struct ibv_ah *pvrdma_create_ah(struct ibv_pd *pd,
 	struct pvrdma_ah *ah;
 	struct pvrdma_av *av;
 	struct ibv_port_attr port_attr;
+	uint16_t vlan_id;
 
 	if (!attr->is_global)
 		return NULL;
@@ -216,7 +217,14 @@ struct ibv_ah *pvrdma_create_ah(struct ibv_pd *pd,
 	av->sl_tclass_flowlabel = (attr->grh.traffic_class << 20) |
 				   attr->grh.flow_label;
 	memcpy(av->dgid, attr->grh.dgid.raw, 16);
-	set_mac_from_gid(&attr->grh.dgid, av->dmac);
+
+	if (ibv_resolve_eth_l2_from_gid(pd->context, attr,
+					av->dmac, &vlan_id)) {
+		free(ah);
+		return NULL;
+	} else {
+		set_mac_from_gid(&attr->grh.dgid, av->dmac);
+	}
 
 	return &ah->ibv_ah;
 }
