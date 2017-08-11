@@ -24,6 +24,7 @@
 #define IBACM_LOG_FILE "@CMAKE_INSTALL_FULL_LOCALSTATEDIR@/log/ibacm.log"
 
 #define VERBS_PROVIDER_DIR "@VERBS_PROVIDER_DIR@"
+#define VERBS_PROVIDER_SUFFIX "@IBVERBS_PROVIDER_SUFFIX@"
 
 // FIXME This has been supported in compilers forever, we should just fail to build on such old systems.
 #cmakedefine HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE 1

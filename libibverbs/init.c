@@ -192,10 +192,6 @@ void verbs_register_driver(const char *name,
 	tail_driver = driver;
 }
 
-#define __IBV_QUOTE(x)	#x
-#define IBV_QUOTE(x)	__IBV_QUOTE(x)
-#define DLOPEN_TRAILER "-" IBV_QUOTE(IBV_DEVICE_LIBRARY_EXTENSION) ".so"
-
 static void load_driver(const char *name)
 {
 	char *so_name;
@@ -204,7 +200,7 @@ static void load_driver(const char *name)
 	/* If the name is an absolute path then open that path after appending
 	   the trailer suffix */
 	if (name[0] == '/') {
-		if (asprintf(&so_name, "%s" DLOPEN_TRAILER, name) < 0)
+		if (asprintf(&so_name, "%s" VERBS_PROVIDER_SUFFIX, name) < 0)
 			goto out_asprintf;
 		dlhandle = dlopen(so_name, RTLD_NOW);
 		if (!dlhandle)
@@ -215,8 +211,9 @@ static void load_driver(const char *name)
 
 	/* If configured with a provider plugin path then try that next */
 	if (sizeof(VERBS_PROVIDER_DIR) > 1) {
-		if (asprintf(&so_name, VERBS_PROVIDER_DIR "/lib%s" DLOPEN_TRAILER, name) <
-		    0)
+		if (asprintf(&so_name,
+			     VERBS_PROVIDER_DIR "/lib%s" VERBS_PROVIDER_SUFFIX,
+			     name) < 0)
 			goto out_asprintf;
 		dlhandle = dlopen(so_name, RTLD_NOW);
 		free(so_name);
@@ -226,7 +223,7 @@ static void load_driver(const char *name)
 
 	/* Otherwise use the system libary search path. This is the historical
 	   behavior of libibverbs */
-	if (asprintf(&so_name, "lib%s" DLOPEN_TRAILER, name) < 0)
+	if (asprintf(&so_name, "lib%s" VERBS_PROVIDER_SUFFIX, name) < 0)
 		goto out_asprintf;
 	dlhandle = dlopen(so_name, RTLD_NOW);
 	if (!dlhandle)

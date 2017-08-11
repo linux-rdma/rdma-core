@@ -48,7 +48,7 @@ def private_tmp():
 
 # -------------------------------------------------------------------------
 
-def get_symbol_vers(fn):
+def get_symbol_vers(fn,exported=True):
     """Return the symbol version suffixes from the ELF file, eg IB_VERBS_1.0, etc"""
     syms = subprocess.check_output(["readelf","--wide","-s",fn]);
     go = False;
@@ -60,13 +60,18 @@ def get_symbol_vers(fn):
 
         if I.startswith(" ") and go:
             itms = I.split();
-            if (len(itms) == 8 and itms[3] == "OBJECT" and
-                itms[4] == "GLOBAL" and itms[6] == "ABS"):
-                res.add(itms[7]);
+            if exported:
+                if (len(itms) == 8 and itms[3] == "OBJECT" and
+                    itms[4] == "GLOBAL" and itms[6] == "ABS"):
+                    res.add(itms[7]);
+            else:
+                if (len(itms) >= 8 and itms[3] == "FUNC" and
+                    itms[4] == "GLOBAL" and itms[6] == "UND"):
+                    res.add(itms[7]);
         else:
             go = False;
     if not res:
-        raise ValueError("Faild to read ELF symbol versions from %r"%(fn));
+        raise ValueError("Failed to read ELF symbol versions from %r"%(fn));
     return res;
 
 def check_lib_symver(args,fn):
@@ -114,6 +119,27 @@ def test_lib_names(args):
                 lfn = os.readlink(fn);
                 if not os.path.islink(lfn):
                     check_lib_symver(args,lfn);
+# -------------------------------------------------------------------------
+
+def check_verbs_abi(args,fn):
+    g = re.match(r"lib([^-]+)-rdmav(\d+).so",fn);
+    if g is None:
+        raise ValueError("Provider library has unknown file name format %r"%(fn));
+
+    private_ver = int(g.group(2));
+    syms = get_symbol_vers(fn,exported=False);
+    syms = {I.partition("@")[2] for I in syms};
+    assert "IBVERBS_PRIVATE_%u"%(private_ver) in syms;
+    assert len([I for I in syms if I.startswith("IBVERBS_PRIVATE")]) == 1;
+
+def test_verbs_private(args):
+    """Check that the IBVERBS_PRIVATE symbols match the library name, eg that the
+    map file and the cmake stuff are in sync."""
+    libd = os.path.join(args.BUILD,"lib");
+    with inDirectory(libd):
+        for fn in os.listdir("."):
+            if not os.path.islink(fn) and "rdmav" in fn:
+                check_verbs_abi(args,fn);
 
 # -------------------------------------------------------------------------
 
