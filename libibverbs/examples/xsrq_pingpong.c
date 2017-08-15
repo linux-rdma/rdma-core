@@ -825,7 +825,7 @@ static void init(void)
 	ctx.ib_port = 1;
 	ctx.num_clients  = 1;
 	ctx.num_tests = 5;
-	ctx.mtu = IBV_MTU_2048;
+	ctx.mtu = IBV_MTU_1024;
 	ctx.sl = 0;
 	ctx.gidx = -1;
 }
