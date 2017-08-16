@@ -2,6 +2,8 @@
 #ifndef UTIL_UTIL_H
 #define UTIL_UTIL_H
 
+#include <stdbool.h>
+
 /* Return true if the snprintf succeeded, false if there was truncation or
  * error */
 #define check_snprintf(buf, len, fmt, ...)                                     \
@@ -15,5 +17,7 @@
 	(((a)->tv_sec == (b)->tv_sec) ?		\
 	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
 	 ((a)->tv_sec CMP (b)->tv_sec))
+
+int set_fd_nonblock(int fd, bool nonblock);
 
 #endif
