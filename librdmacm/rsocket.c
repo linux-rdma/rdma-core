@@ -49,6 +49,7 @@
 #include <search.h>
 #include <byteswap.h>
 #include <util/compiler.h>
+#include <util/util.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
@@ -790,7 +791,7 @@ static int rs_create_cq(struct rsocket *rs, struct rdma_cm_id *cm_id)
 		goto err1;
 
 	if (rs->fd_flags & O_NONBLOCK) {
-		if (fcntl(cm_id->recv_cq_channel->fd, F_SETFL, O_NONBLOCK))
+		if (set_fd_nonblock(cm_id->recv_cq_channel->fd, true))
 			goto err2;
 	}
 
@@ -1253,7 +1254,7 @@ int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 	}
 
 	if (rs->fd_flags & O_NONBLOCK)
-		fcntl(new_rs->cm_id->channel->fd, F_SETFL, O_NONBLOCK);
+		set_fd_nonblock(new_rs->cm_id->channel->fd, true);
 
 	ret = rs_create_ep(new_rs);
 	if (ret)
@@ -1377,7 +1378,7 @@ connected:
 		break;
 	case rs_accepting:
 		if (!(rs->fd_flags & O_NONBLOCK))
-			fcntl(rs->cm_id->channel->fd, F_SETFL, 0);
+			set_fd_nonblock(rs->cm_id->channel->fd, true);
 
 		ret = ucma_complete(rs->cm_id);
 		if (ret)

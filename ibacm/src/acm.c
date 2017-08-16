@@ -2684,7 +2684,7 @@ static int acmc_init_sa_fds(void)
 		for (p = 0; p < dev->port_cnt; p++) {
 			sa.fds[i].fd = umad_get_fd(dev->port[p].mad_portid);
 			sa.fds[i].events = POLLIN;
-			ret = fcntl(sa.fds[i].fd, F_SETFL, O_NONBLOCK);
+			ret = set_fd_nonblock(sa.fds[i].fd, true);
 			if (ret)
 				acm_log(0, "WARNING - umad fd is blocking\n");
 
