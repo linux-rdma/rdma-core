@@ -604,29 +604,56 @@ static int acm_listen(void)
 /* Retrieve the listening socket from systemd. */
 static int acm_listen_systemd(void)
 {
+	int fd;
+
 	int rc = sd_listen_fds(1);
-	if (rc == 0) {
-		/* We are in systemd mode but no FDs were passed? Fall back to
-		 * normal mode
-		 */
-		return acm_listen();
-	}
 	if (rc == -1) {
 		fprintf(stderr, "sd_listen_fds failed %d\n", rc);
 		return rc;
 	}
 
-	if (rc != 1) {
-		fprintf(stderr, "sd_listen_fds returned %d fds, expected 1\n", rc);
+	if (rc > 2) {
+		fprintf(stderr,
+			"sd_listen_fds returned %d fds, expected <= 2\n", rc);
 		return -1;
 	}
 
-	if (!sd_is_socket(SD_LISTEN_FDS_START, AF_UNSPEC, SOCK_STREAM, 1)) {
-		fprintf(stderr, "sd_listen_fds socket is not a SOCK_STREAM listening socket\n");
-		return -1;
+	for (fd = SD_LISTEN_FDS_START; fd != SD_LISTEN_FDS_START + rc; fd++) {
+		if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, 0)) {
+			/* ListenNetlink for RDMA_NL_GROUP_LS multicast
+			 * messages from the kernel
+			 */
+			if (client_array[NL_CLIENT_INDEX].sock != -1) {
+				fprintf(stderr,
+					"sd_listen_fds returned more than one netlink socket\n");
+				return -1;
+			}
+			client_array[NL_CLIENT_INDEX].sock = fd;
+
+			/* systemd sets NONBLOCK on the netlink socket, while
+			 * we want blocking send to the kernel.
+			 */
+			if (set_fd_nonblock(fd, false)) {
+				fprintf(stderr,
+					"Unable to drop O_NOBLOCK on netlink socket");
+				return -1;
+			}
+		} else if (sd_is_socket(SD_LISTEN_FDS_START, AF_UNSPEC,
+					SOCK_STREAM, 1)) {
+			/* Socket for user space client communication */
+			if (listen_socket != -1) {
+				fprintf(stderr,
+					"sd_listen_fds returned more than one listening socket\n");
+				return -1;
+			}
+			listen_socket = fd;
+		} else {
+			fprintf(stderr,
+				"sd_listen_fds socket is not a SOCK_STREAM/SOCK_NETLINK listening socket\n");
+			return -1;
+		}
 	}
 
-	listen_socket = SD_LISTEN_FDS_START;
 	return 0;
 }
 
@@ -1708,18 +1735,30 @@ static void acm_server(bool systemd)
 
 	acm_log(0, "started\n");
 	acm_init_server();
-	if (systemd)
+
+	client_array[NL_CLIENT_INDEX].sock = -1;
+	listen_socket = -1;
+	if (systemd) {
 		ret = acm_listen_systemd();
-	else
-		ret = acm_listen();
-	if (ret) {
-		acm_log(0, "ERROR - server listen failed\n");
-		return;
+		if (ret) {
+			acm_log(0, "ERROR - systemd server listen failed\n");
+			return;
+		}
 	}
 
-	ret = acm_init_nl();
-	if (ret)
-		acm_log(1, "Warn - Netlink init failed\n");
+	if (listen_socket == -1) {
+		ret = acm_listen();
+		if (ret) {
+			acm_log(0, "ERROR - server listen failed\n");
+			return;
+		}
+	}
+
+	if (client_array[NL_CLIENT_INDEX].sock == -1) {
+		ret = acm_init_nl();
+		if (ret)
+			acm_log(1, "Warn - Netlink init failed\n");
+	}
 
 	if (systemd)
 		sd_notify(0, "READY=1");
