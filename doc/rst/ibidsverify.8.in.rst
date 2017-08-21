@@ -1,14 +1,14 @@
 ===========
-IBIDSVERIFY
+ibidsverify
 ===========
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 ---------------------------------------------------
 validate IB identifiers in subnet and report errors
 ---------------------------------------------------
+
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

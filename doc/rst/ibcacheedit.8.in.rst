@@ -1,15 +1,14 @@
 ===========
-IBCACHEEDIT
+ibcacheedit
 ===========
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 ---------------------------
 edit an ibnetdiscover cache
 ---------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

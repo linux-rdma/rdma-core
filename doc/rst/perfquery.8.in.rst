@@ -1,15 +1,14 @@
 =========
-PERFQUERY
+perfquery
 =========
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 -----------------------------------------------
 query InfiniBand port counters on a single port
 -----------------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

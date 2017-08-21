@@ -1,15 +1,14 @@
 ======
-IBSTAT
+ibstat
 ======
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 ------------------------------------------
 query basic status of InfiniBand device(s)
 ------------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

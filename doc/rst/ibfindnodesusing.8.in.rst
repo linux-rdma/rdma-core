@@ -1,15 +1,14 @@
 ================
-IBFINDNODESUSING
+ibfindnodesusing
 ================
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 -------------------------------------------------------------------------------
 find a list of end nodes which are routed through the specified switch and port
 -------------------------------------------------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

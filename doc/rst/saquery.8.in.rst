@@ -1,15 +1,14 @@
 =======
-SAQUERY
+saquery
 =======
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 -------------------------------------------------
 query InfiniBand subnet administration attributes
 -------------------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

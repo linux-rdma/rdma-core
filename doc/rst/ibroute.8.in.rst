@@ -1,15 +1,14 @@
 =======
-IBROUTE
+ibroute
 =======
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 -----------------------------------------
 query InfiniBand switch forwarding tables
 -----------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

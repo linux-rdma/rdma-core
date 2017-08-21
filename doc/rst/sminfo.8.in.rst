@@ -1,14 +1,14 @@
 ======
-SMINFO
+sminfo
 ======
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 ---------------------------------
 query InfiniBand SMInfo attribute
 ---------------------------------
+
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

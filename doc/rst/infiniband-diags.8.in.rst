@@ -1,15 +1,14 @@
 ================
-INFINIBAND-DIAGS
+infiniband-diags
 ================
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 ----------------------------------
 Diagnostics for InfiniBand Fabrics
 ----------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 DESCRIPTION
 ===========
