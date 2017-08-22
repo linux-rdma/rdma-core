@@ -2420,6 +2420,8 @@ ssize_t rrecv(int socket, void *buf, size_t len, int flags)
 	int ret = 0;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_DGRAM) {
 		fastlock_acquire(&rs->rlock);
 		ret = ds_recvfrom(rs, buf, len, flags, NULL, NULL);
@@ -2488,6 +2490,8 @@ ssize_t rrecvfrom(int socket, void *buf, size_t len, int flags,
 	int ret;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_DGRAM) {
 		fastlock_acquire(&rs->rlock);
 		ret = ds_recvfrom(rs, buf, len, flags, src_addr, addrlen);
@@ -2691,6 +2695,8 @@ ssize_t rsend(int socket, const void *buf, size_t len, int flags)
 	int ret = 0;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_DGRAM) {
 		fastlock_acquire(&rs->slock);
 		ret = dsend(rs, buf, len, flags);
@@ -2776,6 +2782,8 @@ ssize_t rsendto(int socket, const void *buf, size_t len, int flags,
 	int ret;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->type == SOCK_STREAM) {
 		if (dest_addr || addrlen)
 			return ERR(EISCONN);
@@ -2831,6 +2839,8 @@ static ssize_t rsendv(int socket, const struct iovec *iov, int iovcnt, int flags
 	int i, ret = 0;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (rs->state & rs_opening) {
 		ret = rs_do_connect(rs);
 		if (ret) {
@@ -3773,6 +3783,8 @@ off_t riomap(int socket, void *buf, size_t len, int prot, int flags, off_t offse
 	int access = IBV_ACCESS_LOCAL_WRITE;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	if (!rs->cm_id->pd || (prot & ~(PROT_WRITE | PROT_NONE)))
 		return ERR(EINVAL);
 
@@ -3821,6 +3833,8 @@ int riounmap(int socket, void *buf, size_t len)
 	int ret = 0;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	fastlock_acquire(&rs->map_lock);
 
 	for (entry = rs->iomap_list.next; entry != &rs->iomap_list;
@@ -3868,6 +3882,8 @@ size_t riowrite(int socket, const void *buf, size_t count, off_t offset, int fla
 	int ret = 0;
 
 	rs = idm_at(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
 	fastlock_acquire(&rs->slock);
 	if (rs->iomap_pending) {
 		ret = rs_send_iomaps(rs, flags);
