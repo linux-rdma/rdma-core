@@ -1012,6 +1012,9 @@ static void rs_free(struct rsocket *rs)
 		free(rs->target_buffer_list);
 	}
 
+	if (rs->index >= 0)
+		rs_remove(rs);
+
 	if (rs->cm_id) {
 		rs_free_iomappings(rs);
 		if (rs->cm_id->qp) {
@@ -1020,9 +1023,6 @@ static void rs_free(struct rsocket *rs)
 		}
 		rdma_destroy_id(rs->cm_id);
 	}
-
-	if (rs->index >= 0)
-		rs_remove(rs);
 
 	fastlock_destroy(&rs->map_lock);
 	fastlock_destroy(&rs->cq_wait_lock);
