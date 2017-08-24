@@ -291,9 +291,8 @@ class ZypperEnvironment(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class harlequin(ZypperEnvironment):
-    proxy = False;
-    docker_parent = "opensuse:13.2";
+class leap(ZypperEnvironment):
+    docker_parent = "opensuse:42.2";
     pkgs = {
         'cmake',
         'gcc',
@@ -307,18 +306,12 @@ class harlequin(ZypperEnvironment):
         'systemd-devel',
         'valgrind-devel',
     };
-    name = "opensuse-13.2";
-    aliases = {"harelequin"};
-
-class leap(ZypperEnvironment):
-    docker_parent = "opensuse:42.2";
-    pkgs = harlequin.pkgs;
     name = "opensuse-42.2";
     aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse:tumbleweed";
-    pkgs = harlequin.pkgs;
+    pkgs = leap.pkgs;
     name = "tumbleweed";
 
 # -------------------------------------------------------------------------
@@ -332,7 +325,6 @@ environments = [centos6(),
                 jessie(),
                 stretch(),
                 fc26(),
-                harlequin(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
@@ -409,16 +401,14 @@ def get_image_id(args,image_name):
 # -------------------------------------------------------------------------
 
 def run_rpm_build(args,spec_file,env):
-    version = get_version();
     with open(spec_file,"r") as F:
         for ln in F:
             if ln.startswith("Version:"):
-                ver = ln.strip().partition(' ')[2];
+                ver = ln.strip().partition(' ')[2].strip();
                 assert(ver == get_version());
 
             if ln.startswith("Source:"):
-                tarfn = ln.strip().partition(' ')[2];
-    tarfn = tarfn.replace("%{version}",version);
+                tarfn = ln.strip().partition(' ')[2].strip();
 
     image_id = get_image_id(args,env.image_name());
     with private_tmp(args) as tmpdir:
@@ -426,7 +416,8 @@ def run_rpm_build(args,spec_file,env):
         os.mkdir(os.path.join(tmpdir,"tmp"));
 
         subprocess.check_call(["git","archive",
-                               "--prefix","%s/"%(os.path.splitext(tarfn)[0]),
+                               # This must match the prefix generated buildlib/github-release
+                               "--prefix","%s-%s/"%(project,get_version()),
                                "--output",os.path.join(tmpdir,"SOURCES",tarfn),
                                "HEAD"]);
 
@@ -453,17 +444,25 @@ def run_rpm_build(args,spec_file,env):
         # for the user we are going to use to do the build.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
             print >> F,"""
-import os;
+import os,subprocess;
 with open("/etc/passwd","a") as F:
    print >> F, {passwd!r};
 with open("/etc/group","a") as F:
    print >> F, {group!r};
 os.setgid({gid:d});
 os.setuid({uid:d});
+
+# Get RPM to tell us the expected tar filename.
+for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
+   if ln.startswith("Source:"):
+      tarfn = ln.strip().partition(' ')[2].strip();
+os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
 """.format(passwd=":".join(str(I) for I in pwd.getpwuid(os.getuid())),
            group=":".join(str(I) for I in grp.getgrgid(os.getgid())),
            uid=os.getuid(),
-           gid=os.getgid());
+           gid=os.getgid(),
+           tarfn=tarfn,
+           tspec_file=tspec_file);
 
             bopts = ["-bb",tspec_file];
 
