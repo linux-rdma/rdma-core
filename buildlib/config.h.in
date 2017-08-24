@@ -25,6 +25,7 @@
 
 #define VERBS_PROVIDER_DIR "@VERBS_PROVIDER_DIR@"
 #define VERBS_PROVIDER_SUFFIX "@IBVERBS_PROVIDER_SUFFIX@"
+#define IBVERBS_PABI_VERSION @IBVERBS_PABI_VERSION@
 
 // FIXME This has been supported in compilers forever, we should just fail to build on such old systems.
 #cmakedefine HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE 1
