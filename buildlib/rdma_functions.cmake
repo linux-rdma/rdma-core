@@ -87,6 +87,7 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
     set_target_properties(${DEST}-static PROPERTIES
       OUTPUT_NAME ${DEST}
       ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    target_compile_definitions(${DEST}-static PRIVATE _STATIC_LIBRARY_BUILD_=1)
     install(TARGETS ${DEST}-static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
     list(APPEND RDMA_STATIC_LIBS ${DEST} ${DEST}-static)
@@ -122,6 +123,7 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
     add_library(${DEST}-static STATIC ${ARGN})
     set_target_properties(${DEST}-static PROPERTIES OUTPUT_NAME ${DEST})
     set_target_properties(${DEST}-static PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    target_compile_definitions(${DEST}-static PRIVATE _STATIC_LIBRARY_BUILD_=1)
     install(TARGETS ${DEST}-static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
     list(APPEND RDMA_STATIC_LIBS ${DEST} ${DEST}-static)
@@ -172,6 +174,7 @@ function(rdma_provider DEST)
   if (ENABLE_STATIC)
     add_library(${DEST} STATIC ${ARGN})
     set_target_properties(${DEST} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${BUILD_LIB}")
+    target_compile_definitions(${DEST} PRIVATE _STATIC_LIBRARY_BUILD_=1)
     install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
     list(APPEND RDMA_STATIC_LIBS "${DEST}-rdmav${IBVERBS_PABI_VERSION}" ${DEST})

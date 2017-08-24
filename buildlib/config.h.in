@@ -33,6 +33,10 @@
 
 #cmakedefine HAVE_WORKING_IF_H 1
 
+// Operating mode for symbol versions
+#cmakedefine HAVE_FULL_SYMBOL_VERSIONS 1
+#cmakedefine HAVE_LIMITED_SYMBOL_VERSIONS 1
+
 @SIZEOF_LONG_CODE@
 
 #if @NL_KIND@ == 3
