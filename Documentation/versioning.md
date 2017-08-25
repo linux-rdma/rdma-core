@@ -17,50 +17,53 @@ When the PACKAGE_VERSION is changed, the packaging files should be updated:
 
 ```diff
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 8f7a47580f7b95..45cbc4e018b296 100644
+index a2464ec5..cf237904 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -44,7 +44,7 @@ endif()
  set(PACKAGE_NAME "RDMA")
  
  # See Documentation/versioning.md
--set(PACKAGE_VERSION "12")
-+set(PACKAGE_VERSION "13")
- 
- #-------------------------
- # Basic standard paths
+-set(PACKAGE_VERSION "14")
++set(PACKAGE_VERSION "15")
+ # When this is changed the values in these files need changing too:
+ #   debian/libibverbs1.symbols
+ #   libibverbs/libibverbs.map
 diff --git a/debian/changelog b/debian/changelog
-index 6cabcc483ca85e..3defc050c5e457 100644
+index 86b402f4..9ee7fe16 100644
 --- a/debian/changelog
 +++ b/debian/changelog
 @@ -1,4 +1,4 @@
--rdma-core (12-1) unstable; urgency=low
-+rdma-core (13-1) unstable; urgency=low
+-rdma-core (14-1) unstable; urgency=low
++rdma-core (15-1) unstable; urgency=low
  
    * New version.
    * Adding debian/copyright.
-diff --git a/rdma-core.spec b/rdma-core.spec
-index 41eedb2813c52d..6519bc370a230a 100644
---- a/rdma-core.spec
-+++ b/rdma-core.spec
-@@ -1,5 +1,5 @@
- Name: rdma-core
--Version: 12
-+Version: 13
- Release: 1%{?dist}
- Summary: RDMA core userspace libraries and daemons
- 
 diff --git a/redhat/rdma-core.spec b/redhat/rdma-core.spec
-index 4271e7c9817e67..f2198ee3cd9410 100644
+index cc0c3ba0..62334730 100644
 --- a/redhat/rdma-core.spec
 +++ b/redhat/rdma-core.spec
 @@ -1,5 +1,5 @@
  Name: rdma-core
--Version: 12
-+Version: 13
+-Version: 14
++Version: 15
  Release: 1%{?dist}
  Summary: RDMA core userspace libraries and daemons
  
+diff --git a/suse/rdma-core.spec b/suse/rdma-core.spec
+index 76ca7286..a19f9e01 100644
+--- a/suse/rdma-core.spec
++++ b/suse/rdma-core.spec
+@@ -19,7 +19,7 @@
+ %bcond_without  systemd
+ %define         git_ver %{nil}
+ Name:           rdma-core
+-Version:        14
++Version:        15
+ Release:        0
+ Summary:        RDMA core userspace libraries and daemons
+ License:        GPL-2.0 or BSD-2-Clause
+
 ```
 
 # Shared Library Versions
