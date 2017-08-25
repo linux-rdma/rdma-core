@@ -11,3 +11,8 @@ MLX5_1.1 {
 	global:
 		mlx5dv_create_cq;
 } MLX5_1.0;
+
+MLX5_1.2 {
+	global:
+		mlx5dv_init_obj;
+} MLX5_1.1;

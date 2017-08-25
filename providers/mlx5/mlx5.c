@@ -42,6 +42,8 @@
 #include <sched.h>
 #include <sys/param.h>
 
+#include <util/symver.h>
+
 #include "mlx5.h"
 #include "mlx5-abi.h"
 
@@ -678,7 +680,7 @@ static int mlx5dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->cqe_size  = mcq->cqe_sz;
 	cq_out->buf       = mcq->active_buf->buf;
 	cq_out->dbrec     = mcq->dbrec;
-	cq_out->uar	  = mctx->uar[0];
+	cq_out->arm_db	  = mctx->uar[0];
 
 	mcq->flags	 |= MLX5_CQ_FLAGS_DV_OWNED;
 
@@ -716,7 +718,9 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 	return 0;
 }
 
-int mlx5dv_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type)
+LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
+		   int,
+		   struct mlx5dv_obj *obj, uint64_t obj_type)
 {
 	int ret = 0;
 
@@ -729,6 +733,22 @@ int mlx5dv_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type)
 	if (!ret && (obj_type & MLX5DV_OBJ_RWQ))
 		ret = mlx5dv_get_rwq(obj->rwq.in, obj->rwq.out);
 
+	return ret;
+}
+
+COMPAT_SYMVER_FUNC(mlx5dv_init_obj, 1_0, "MLX5_1.0",
+		   int,
+		   struct mlx5dv_obj *obj, uint64_t obj_type)
+{
+	int ret = 0;
+
+	ret = __mlx5dv_init_obj_1_2(obj, obj_type);
+	if (!ret && (obj_type & MLX5DV_OBJ_CQ)) {
+		/* ABI version 1.0 returns the void ** in this memory
+		 * location
+		 */
+		obj->cq.out->arm_db = to_mctx(obj->cq.in->context)->uar;
+	}
 	return ret;
 }
 
