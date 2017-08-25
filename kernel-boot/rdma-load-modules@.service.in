@@ -21,5 +21,5 @@ ConditionCapability=CAP_SYS_MODULE
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/lib/systemd/systemd-modules-load @CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/modules/%I.conf
+ExecStart=@CMAKE_INSTALL_SYSTEMD_BINDIR@/systemd-modules-load @CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/modules/%I.conf
 TimeoutSec=90s
