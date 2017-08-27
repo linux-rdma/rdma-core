@@ -129,7 +129,7 @@ struct mlx5dv_cq {
 	__be32			*dbrec;
 	uint32_t		cqe_cnt;
 	uint32_t		cqe_size;
-	void			*uar;
+	void			*arm_db;
 	uint32_t		cqn;
 	uint64_t		comp_mask;
 };

@@ -38,6 +38,7 @@
 #include <unistd.h>
 #include <alloca.h>
 
+#include <util/symver.h>
 #include "ibverbs.h"
 
 struct ibv_pd_1_0 {
@@ -227,67 +228,9 @@ struct ibv_context_1_0 {
 typedef struct ibv_device *(*ibv_driver_init_func_1_1)(const char *uverbs_sys_path,
 						       int abi_version);
 
-/* Hack to avoid GCC's -Wmissing-prototypes and the similar error from sparse
-   with these prototypes. Symbol versionining requires the goofy names, the
-   prototype must match the version in the historical 1.0 verbs.h.
- */
-struct ibv_device_1_0 **__ibv_get_device_list_1_0(int *num);
-void __ibv_free_device_list_1_0(struct ibv_device_1_0 **list);
-const char *__ibv_get_device_name_1_0(struct ibv_device_1_0 *device);
-__be64 __ibv_get_device_guid_1_0(struct ibv_device_1_0 *device);
-struct ibv_context_1_0 *__ibv_open_device_1_0(struct ibv_device_1_0 *device);
-int __ibv_close_device_1_0(struct ibv_context_1_0 *context);
-int __ibv_get_async_event_1_0(struct ibv_context_1_0 *context,
-			      struct ibv_async_event *event);
-void __ibv_ack_async_event_1_0(struct ibv_async_event *event);
-int __ibv_query_device_1_0(struct ibv_context_1_0 *context,
-			   struct ibv_device_attr *device_attr);
-int __ibv_query_port_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
-			 struct ibv_port_attr *port_attr);
-int __ibv_query_gid_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
-			int index, union ibv_gid *gid);
-int __ibv_query_pkey_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
-			 int index, __be16 *pkey);
-struct ibv_pd_1_0 *__ibv_alloc_pd_1_0(struct ibv_context_1_0 *context);
-int __ibv_dealloc_pd_1_0(struct ibv_pd_1_0 *pd);
-struct ibv_mr_1_0 *__ibv_reg_mr_1_0(struct ibv_pd_1_0 *pd, void *addr,
-				    size_t length, int access);
-int __ibv_dereg_mr_1_0(struct ibv_mr_1_0 *mr);
-struct ibv_cq_1_0 *__ibv_create_cq_1_0(struct ibv_context_1_0 *context, int cqe,
-				       void *cq_context,
-				       struct ibv_comp_channel *channel,
-				       int comp_vector);
-int __ibv_resize_cq_1_0(struct ibv_cq_1_0 *cq, int cqe);
-int __ibv_destroy_cq_1_0(struct ibv_cq_1_0 *cq);
-int __ibv_get_cq_event_1_0(struct ibv_comp_channel *channel,
-			   struct ibv_cq_1_0 **cq, void **cq_context);
-void __ibv_ack_cq_events_1_0(struct ibv_cq_1_0 *cq, unsigned int nevents);
-struct ibv_srq_1_0 *
-__ibv_create_srq_1_0(struct ibv_pd_1_0 *pd,
-		     struct ibv_srq_init_attr *srq_init_attr);
-int __ibv_modify_srq_1_0(struct ibv_srq_1_0 *srq, struct ibv_srq_attr *srq_attr,
-			 int srq_attr_mask);
-int __ibv_query_srq_1_0(struct ibv_srq_1_0 *srq, struct ibv_srq_attr *srq_attr);
-int __ibv_destroy_srq_1_0(struct ibv_srq_1_0 *srq);
-struct ibv_qp_1_0 *
-__ibv_create_qp_1_0(struct ibv_pd_1_0 *pd,
-		    struct ibv_qp_init_attr_1_0 *qp_init_attr);
-int __ibv_query_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
-		       int attr_mask, struct ibv_qp_init_attr_1_0 *init_attr);
-int __ibv_modify_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
-			int attr_mask);
-int __ibv_destroy_qp_1_0(struct ibv_qp_1_0 *qp);
-struct ibv_ah_1_0 *__ibv_create_ah_1_0(struct ibv_pd_1_0 *pd,
-				       struct ibv_ah_attr *attr);
-int __ibv_destroy_ah_1_0(struct ibv_ah_1_0 *ah);
-int __ibv_attach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid,
-			   uint16_t lid);
-int __ibv_detach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid,
-			   uint16_t lid);
-void __ibv_register_driver_1_1(const char *name,
-			       ibv_driver_init_func_1_1 init_func);
-
-struct ibv_device_1_0 **__ibv_get_device_list_1_0(int *num)
+COMPAT_SYMVER_FUNC(ibv_get_device_list, 1_0, "IBVERBS_1.0",
+		   struct ibv_device_1_0 **,
+		   int *num)
 {
 	struct ibv_device **real_list;
 	struct ibv_device_1_0 **l;
@@ -325,9 +268,10 @@ free_device_list:
 	ibv_free_device_list(real_list);
 	return NULL;
 }
-symver(__ibv_get_device_list_1_0, ibv_get_device_list, IBVERBS_1.0);
 
-void __ibv_free_device_list_1_0(struct ibv_device_1_0 **list)
+COMPAT_SYMVER_FUNC(ibv_free_device_list, 1_0, "IBVERBS_1.0",
+		   void,
+		   struct ibv_device_1_0 **list)
 {
 	struct ibv_device_1_0 **l = list;
 
@@ -339,19 +283,20 @@ void __ibv_free_device_list_1_0(struct ibv_device_1_0 **list)
 	ibv_free_device_list((void *) list[-1]);
 	free(list - 1);
 }
-symver(__ibv_free_device_list_1_0, ibv_free_device_list, IBVERBS_1.0);
 
-const char *__ibv_get_device_name_1_0(struct ibv_device_1_0 *device)
+COMPAT_SYMVER_FUNC(ibv_get_device_name, 1_0, "IBVERBS_1.0",
+		   const char *,
+		   struct ibv_device_1_0 *device)
 {
 	return ibv_get_device_name(device->real_device);
 }
-symver(__ibv_get_device_name_1_0, ibv_get_device_name, IBVERBS_1.0);
 
-__be64 __ibv_get_device_guid_1_0(struct ibv_device_1_0 *device)
+COMPAT_SYMVER_FUNC(ibv_get_device_guid, 1_0, "IBVERBS_1.0",
+		   __be64,
+		   struct ibv_device_1_0 *device)
 {
 	return ibv_get_device_guid(device->real_device);
 }
-symver(__ibv_get_device_guid_1_0, ibv_get_device_guid, IBVERBS_1.0);
 
 static int poll_cq_wrapper_1_0(struct ibv_cq_1_0 *cq, int num_entries,
 			       struct ibv_wc *wc)
@@ -519,7 +464,9 @@ static int post_recv_wrapper_1_0(struct ibv_qp_1_0 *qp, struct ibv_recv_wr_1_0 *
 	return ret;
 }
 
-struct ibv_context_1_0 *__ibv_open_device_1_0(struct ibv_device_1_0 *device)
+COMPAT_SYMVER_FUNC(ibv_open_device, 1_0, "IBVERBS_1.0",
+		   struct ibv_context_1_0 *,
+		   struct ibv_device_1_0 *device)
 {
 	struct ibv_context     *real_ctx;
 	struct ibv_context_1_0 *ctx;
@@ -545,9 +492,10 @@ struct ibv_context_1_0 *__ibv_open_device_1_0(struct ibv_device_1_0 *device)
 
 	return ctx;
 }
-symver(__ibv_open_device_1_0, ibv_open_device, IBVERBS_1.0);
 
-int __ibv_close_device_1_0(struct ibv_context_1_0 *context)
+COMPAT_SYMVER_FUNC(ibv_close_device, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_context_1_0 *context)
 {
 	int ret;
 
@@ -558,10 +506,11 @@ int __ibv_close_device_1_0(struct ibv_context_1_0 *context)
 	free(context);
 	return 0;
 }
-symver(__ibv_close_device_1_0, ibv_close_device, IBVERBS_1.0);
 
-int __ibv_get_async_event_1_0(struct ibv_context_1_0 *context,
-			      struct ibv_async_event *event)
+COMPAT_SYMVER_FUNC(ibv_get_async_event, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_context_1_0 *context,
+		   struct ibv_async_event *event)
 {
 	int ret;
 
@@ -596,9 +545,10 @@ int __ibv_get_async_event_1_0(struct ibv_context_1_0 *context,
 
 	return ret;
 }
-symver(__ibv_get_async_event_1_0, ibv_get_async_event, IBVERBS_1.0);
 
-void __ibv_ack_async_event_1_0(struct ibv_async_event *event)
+COMPAT_SYMVER_FUNC(ibv_ack_async_event, 1_0, "IBVERBS_1.0",
+		   void,
+		   struct ibv_async_event *event)
 {
 	struct ibv_async_event real_event = *event;
 
@@ -632,37 +582,45 @@ void __ibv_ack_async_event_1_0(struct ibv_async_event *event)
 
 	ibv_ack_async_event(&real_event);
 }
-symver(__ibv_ack_async_event_1_0, ibv_ack_async_event, IBVERBS_1.0);
 
-int __ibv_query_device_1_0(struct ibv_context_1_0 *context,
-			   struct ibv_device_attr *device_attr)
+COMPAT_SYMVER_FUNC(ibv_query_device, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_context_1_0 *context,
+		   struct ibv_device_attr *device_attr)
 {
 	return ibv_query_device(context->real_context, device_attr);
 }
-symver(__ibv_query_device_1_0, ibv_query_device, IBVERBS_1.0);
 
-int __ibv_query_port_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
-			 struct ibv_port_attr *port_attr)
+COMPAT_SYMVER_FUNC(ibv_query_port, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_context_1_0 *context,
+		   uint8_t port_num,
+		   struct ibv_port_attr *port_attr)
 {
 	return ibv_query_port(context->real_context, port_num, port_attr);
 }
-symver(__ibv_query_port_1_0, ibv_query_port, IBVERBS_1.0);
 
-int __ibv_query_gid_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
-			int index, union ibv_gid *gid)
+COMPAT_SYMVER_FUNC(ibv_query_gid, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_context_1_0 *context,
+		   uint8_t port_num, int index,
+		   union ibv_gid *gid)
 {
 	return ibv_query_gid(context->real_context, port_num, index, gid);
 }
-symver(__ibv_query_gid_1_0, ibv_query_gid, IBVERBS_1.0);
 
-int __ibv_query_pkey_1_0(struct ibv_context_1_0 *context, uint8_t port_num,
-			 int index, __be16 *pkey)
+COMPAT_SYMVER_FUNC(ibv_query_pkey, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_context_1_0 *context,
+		   uint8_t port_num, int index,
+		   __be16 *pkey)
 {
 	return ibv_query_pkey(context->real_context, port_num, index, pkey);
 }
-symver(__ibv_query_pkey_1_0, ibv_query_pkey, IBVERBS_1.0);
 
-struct ibv_pd_1_0 *__ibv_alloc_pd_1_0(struct ibv_context_1_0 *context)
+COMPAT_SYMVER_FUNC(ibv_alloc_pd, 1_0, "IBVERBS_1.0",
+		   struct ibv_pd_1_0 *,
+		   struct ibv_context_1_0 *context)
 {
 	struct ibv_pd *real_pd;
 	struct ibv_pd_1_0 *pd;
@@ -682,9 +640,10 @@ struct ibv_pd_1_0 *__ibv_alloc_pd_1_0(struct ibv_context_1_0 *context)
 
 	return pd;
 }
-symver(__ibv_alloc_pd_1_0, ibv_alloc_pd, IBVERBS_1.0);
 
-int __ibv_dealloc_pd_1_0(struct ibv_pd_1_0 *pd)
+COMPAT_SYMVER_FUNC(ibv_dealloc_pd, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_pd_1_0 *pd)
 {
 	int ret;
 
@@ -695,10 +654,11 @@ int __ibv_dealloc_pd_1_0(struct ibv_pd_1_0 *pd)
 	free(pd);
 	return 0;
 }
-symver(__ibv_dealloc_pd_1_0, ibv_dealloc_pd, IBVERBS_1.0);
 
-struct ibv_mr_1_0 *__ibv_reg_mr_1_0(struct ibv_pd_1_0 *pd, void *addr,
-				    size_t length, int access)
+COMPAT_SYMVER_FUNC(ibv_reg_mr, 1_0, "IBVERBS_1.0",
+		   struct ibv_mr_1_0 *,
+		   struct ibv_pd_1_0 *pd, void *addr, size_t length,
+		   int access)
 {
 	struct ibv_mr *real_mr;
 	struct ibv_mr_1_0 *mr;
@@ -721,9 +681,10 @@ struct ibv_mr_1_0 *__ibv_reg_mr_1_0(struct ibv_pd_1_0 *pd, void *addr,
 
 	return mr;
 }
-symver(__ibv_reg_mr_1_0, ibv_reg_mr, IBVERBS_1.0);
 
-int __ibv_dereg_mr_1_0(struct ibv_mr_1_0 *mr)
+COMPAT_SYMVER_FUNC(ibv_dereg_mr, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_mr_1_0 *mr)
 {
 	int ret;
 
@@ -734,12 +695,11 @@ int __ibv_dereg_mr_1_0(struct ibv_mr_1_0 *mr)
 	free(mr);
 	return 0;
 }
-symver(__ibv_dereg_mr_1_0, ibv_dereg_mr, IBVERBS_1.0);
 
-struct ibv_cq_1_0 *__ibv_create_cq_1_0(struct ibv_context_1_0 *context, int cqe,
-				       void *cq_context,
-				       struct ibv_comp_channel *channel,
-				       int comp_vector)
+COMPAT_SYMVER_FUNC(ibv_create_cq, 1_0, "IBVERBS_1.0",
+		   struct ibv_cq_1_0 *,
+		   struct ibv_context_1_0 *context, int cqe, void *cq_context,
+		   struct ibv_comp_channel *channel, int comp_vector)
 {
 	struct ibv_cq *real_cq;
 	struct ibv_cq_1_0 *cq;
@@ -764,15 +724,17 @@ struct ibv_cq_1_0 *__ibv_create_cq_1_0(struct ibv_context_1_0 *context, int cqe,
 
 	return cq;
 }
-symver(__ibv_create_cq_1_0, ibv_create_cq, IBVERBS_1.0);
 
-int __ibv_resize_cq_1_0(struct ibv_cq_1_0 *cq, int cqe)
+COMPAT_SYMVER_FUNC(ibv_resize_cq, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_cq_1_0 *cq, int cqe)
 {
 	return ibv_resize_cq(cq->real_cq, cqe);
 }
-symver(__ibv_resize_cq_1_0, ibv_resize_cq, IBVERBS_1.0);
 
-int __ibv_destroy_cq_1_0(struct ibv_cq_1_0 *cq)
+COMPAT_SYMVER_FUNC(ibv_destroy_cq, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_cq_1_0 *cq)
 {
 	int ret;
 
@@ -783,10 +745,12 @@ int __ibv_destroy_cq_1_0(struct ibv_cq_1_0 *cq)
 	free(cq);
 	return 0;
 }
-symver(__ibv_destroy_cq_1_0, ibv_destroy_cq, IBVERBS_1.0);
 
-int __ibv_get_cq_event_1_0(struct ibv_comp_channel *channel,
-			   struct ibv_cq_1_0 **cq, void **cq_context)
+COMPAT_SYMVER_FUNC(ibv_get_cq_event, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_comp_channel *channel,
+		   struct ibv_cq_1_0 **cq,
+		   void **cq_context)
 {
 	struct ibv_cq *real_cq;
 	void *cq_ptr;
@@ -801,16 +765,19 @@ int __ibv_get_cq_event_1_0(struct ibv_comp_channel *channel,
 
 	return 0;
 }
-symver(__ibv_get_cq_event_1_0, ibv_get_cq_event, IBVERBS_1.0);
 
-void __ibv_ack_cq_events_1_0(struct ibv_cq_1_0 *cq, unsigned int nevents)
+COMPAT_SYMVER_FUNC(ibv_ack_cq_events, 1_0, "IBVERBS_1.0",
+		   void,
+		   struct ibv_cq_1_0 *cq,
+		   unsigned int nevents)
 {
 	ibv_ack_cq_events(cq->real_cq, nevents);
 }
-symver(__ibv_ack_cq_events_1_0, ibv_ack_cq_events, IBVERBS_1.0);
 
-struct ibv_srq_1_0 *__ibv_create_srq_1_0(struct ibv_pd_1_0 *pd,
-					 struct ibv_srq_init_attr *srq_init_attr)
+COMPAT_SYMVER_FUNC(ibv_create_srq, 1_0, "IBVERBS_1.0",
+		   struct ibv_srq_1_0 *,
+		   struct ibv_pd_1_0 *pd,
+		   struct ibv_srq_init_attr *srq_init_attr)
 {
 	struct ibv_srq *real_srq;
 	struct ibv_srq_1_0 *srq;
@@ -834,23 +801,27 @@ struct ibv_srq_1_0 *__ibv_create_srq_1_0(struct ibv_pd_1_0 *pd,
 
 	return srq;
 }
-symver(__ibv_create_srq_1_0, ibv_create_srq, IBVERBS_1.0);
 
-int __ibv_modify_srq_1_0(struct ibv_srq_1_0 *srq,
-			 struct ibv_srq_attr *srq_attr,
-			 int srq_attr_mask)
+COMPAT_SYMVER_FUNC(ibv_modify_srq, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_srq_1_0 *srq,
+		   struct ibv_srq_attr *srq_attr,
+		   int srq_attr_mask)
 {
 	return ibv_modify_srq(srq->real_srq, srq_attr, srq_attr_mask);
 }
-symver(__ibv_modify_srq_1_0, ibv_modify_srq, IBVERBS_1.0);
 
-int __ibv_query_srq_1_0(struct ibv_srq_1_0 *srq, struct ibv_srq_attr *srq_attr)
+COMPAT_SYMVER_FUNC(ibv_query_srq, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_srq_1_0 *srq,
+		   struct ibv_srq_attr *srq_attr)
 {
 	return ibv_query_srq(srq->real_srq, srq_attr);
 }
-symver(__ibv_query_srq_1_0, ibv_query_srq, IBVERBS_1.0);
 
-int __ibv_destroy_srq_1_0(struct ibv_srq_1_0 *srq)
+COMPAT_SYMVER_FUNC(ibv_destroy_srq, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_srq_1_0 *srq)
 {
 	int ret;
 
@@ -861,10 +832,11 @@ int __ibv_destroy_srq_1_0(struct ibv_srq_1_0 *srq)
 	free(srq);
 	return 0;
 }
-symver(__ibv_destroy_srq_1_0, ibv_destroy_srq, IBVERBS_1.0);
 
-struct ibv_qp_1_0 *__ibv_create_qp_1_0(struct ibv_pd_1_0 *pd,
-				       struct ibv_qp_init_attr_1_0 *qp_init_attr)
+COMPAT_SYMVER_FUNC(ibv_create_qp, 1_0, "IBVERBS_1.0",
+		   struct ibv_qp_1_0 *,
+		   struct ibv_pd_1_0 *pd,
+		   struct ibv_qp_init_attr_1_0 *qp_init_attr)
 {
 	struct ibv_qp *real_qp;
 	struct ibv_qp_1_0 *qp;
@@ -905,11 +877,11 @@ struct ibv_qp_1_0 *__ibv_create_qp_1_0(struct ibv_pd_1_0 *pd,
 
 	return qp;
 }
-symver(__ibv_create_qp_1_0, ibv_create_qp, IBVERBS_1.0);
 
-int __ibv_query_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
-		       int attr_mask,
-		       struct ibv_qp_init_attr_1_0 *init_attr)
+COMPAT_SYMVER_FUNC(ibv_query_qp, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
+		   int attr_mask, struct ibv_qp_init_attr_1_0 *init_attr)
 {
 	struct ibv_qp_init_attr real_init_attr;
 	int ret;
@@ -928,16 +900,19 @@ int __ibv_query_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
 
 	return 0;
 }
-symver(__ibv_query_qp_1_0, ibv_query_qp, IBVERBS_1.0);
 
-int __ibv_modify_qp_1_0(struct ibv_qp_1_0 *qp, struct ibv_qp_attr *attr,
-			int attr_mask)
+COMPAT_SYMVER_FUNC(ibv_modify_qp, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_qp_1_0 *qp,
+		   struct ibv_qp_attr *attr,
+		   int attr_mask)
 {
 	return ibv_modify_qp(qp->real_qp, attr, attr_mask);
 }
-symver(__ibv_modify_qp_1_0, ibv_modify_qp, IBVERBS_1.0);
 
-int __ibv_destroy_qp_1_0(struct ibv_qp_1_0 *qp)
+COMPAT_SYMVER_FUNC(ibv_destroy_qp, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_qp_1_0 *qp)
 {
 	int ret;
 
@@ -948,10 +923,10 @@ int __ibv_destroy_qp_1_0(struct ibv_qp_1_0 *qp)
 	free(qp);
 	return 0;
 }
-symver(__ibv_destroy_qp_1_0, ibv_destroy_qp, IBVERBS_1.0);
 
-struct ibv_ah_1_0 *__ibv_create_ah_1_0(struct ibv_pd_1_0 *pd,
-				       struct ibv_ah_attr *attr)
+COMPAT_SYMVER_FUNC(ibv_create_ah, 1_0, "IBVERBS_1.0",
+		   struct ibv_ah_1_0 *,
+		   struct ibv_pd_1_0 *pd, struct ibv_ah_attr *attr)
 {
 	struct ibv_ah *real_ah;
 	struct ibv_ah_1_0 *ah;
@@ -972,9 +947,10 @@ struct ibv_ah_1_0 *__ibv_create_ah_1_0(struct ibv_pd_1_0 *pd,
 
 	return ah;
 }
-symver(__ibv_create_ah_1_0, ibv_create_ah, IBVERBS_1.0);
 
-int __ibv_destroy_ah_1_0(struct ibv_ah_1_0 *ah)
+COMPAT_SYMVER_FUNC(ibv_destroy_ah, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_ah_1_0 *ah)
 {
 	int ret;
 
@@ -985,25 +961,27 @@ int __ibv_destroy_ah_1_0(struct ibv_ah_1_0 *ah)
 	free(ah);
 	return 0;
 }
-symver(__ibv_destroy_ah_1_0, ibv_destroy_ah, IBVERBS_1.0);
 
-int __ibv_attach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid, uint16_t lid)
+COMPAT_SYMVER_FUNC(ibv_attach_mcast, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_qp_1_0 *qp, union ibv_gid *gid, uint16_t lid)
 {
 	return ibv_attach_mcast(qp->real_qp, gid, lid);
 }
-symver(__ibv_attach_mcast_1_0, ibv_attach_mcast, IBVERBS_1.0);
 
-int __ibv_detach_mcast_1_0(struct ibv_qp_1_0 *qp, union ibv_gid *gid, uint16_t lid)
+COMPAT_SYMVER_FUNC(ibv_detach_mcast, 1_0, "IBVERBS_1.0",
+		   int,
+		   struct ibv_qp_1_0 *qp, union ibv_gid *gid, uint16_t lid)
 {
 	return ibv_detach_mcast(qp->real_qp, gid, lid);
 }
-symver(__ibv_detach_mcast_1_0, ibv_detach_mcast, IBVERBS_1.0);
 
-void __ibv_register_driver_1_1(const char *name, ibv_driver_init_func_1_1 init_func)
+COMPAT_SYMVER_FUNC(ibv_register_driver, 1_1, "IBVERBS_1.1",
+		   void,
+		   const char *name, ibv_driver_init_func_1_1 init_func)
 {
 	/* The driver interface is private as of rdma-core 13. This stub is
 	 * left to preserve dynamic-link compatibility with old libfabrics
 	 * usnic providers which use this function only to suppress a fprintf
 	 * in old versions of libibverbs. */
 }
-symver(__ibv_register_driver_1_1, ibv_register_driver, IBVERBS_1.1);

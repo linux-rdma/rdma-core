@@ -43,28 +43,16 @@
 #include <alloca.h>
 #include <errno.h>
 
+#include <util/symver.h>
 #include "ibverbs.h"
-
-/* Hack to avoid GCC's -Wmissing-prototypes and the similar error from sparse
-   with these prototypes. Symbol versionining requires the goofy names, the
-   prototype must match the version in verbs.h.
- */
-struct ibv_device **__ibv_get_device_list(int *num_devices);
-void __ibv_free_device_list(struct ibv_device **list);
-const char *__ibv_get_device_name(struct ibv_device *device);
-__be64 __ibv_get_device_guid(struct ibv_device *device);
-struct ibv_context *__ibv_open_device(struct ibv_device *device);
-int __ibv_close_device(struct ibv_context *context);
-int __ibv_get_async_event(struct ibv_context *context,
-			  struct ibv_async_event *event);
-void __ibv_ack_async_event(struct ibv_async_event *event);
 
 static pthread_mutex_t dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static int initialized;
 static struct list_head device_list = LIST_HEAD_INIT(device_list);
 
-
-struct ibv_device **__ibv_get_device_list(int *num)
+LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
+		   struct ibv_device **,
+		   int *num)
 {
 	struct ibv_device **l = NULL;
 	struct verbs_device *device;
@@ -108,9 +96,10 @@ out:
 	pthread_mutex_unlock(&dev_list_lock);
 	return l;
 }
-default_symver(__ibv_get_device_list, ibv_get_device_list);
 
-void __ibv_free_device_list(struct ibv_device **list)
+LATEST_SYMVER_FUNC(ibv_free_device_list, 1_1, "IBVERBS_1.1",
+		   void,
+		   struct ibv_device **list)
 {
 	int i;
 
@@ -118,15 +107,17 @@ void __ibv_free_device_list(struct ibv_device **list)
 		ibverbs_device_put(list[i]);
 	free(list);
 }
-default_symver(__ibv_free_device_list, ibv_free_device_list);
 
-const char *__ibv_get_device_name(struct ibv_device *device)
+LATEST_SYMVER_FUNC(ibv_get_device_name, 1_1, "IBVERBS_1.1",
+		   const char *,
+		   struct ibv_device *device)
 {
 	return device->name;
 }
-default_symver(__ibv_get_device_name, ibv_get_device_name);
 
-__be64 __ibv_get_device_guid(struct ibv_device *device)
+LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
+		   __be64,
+		   struct ibv_device *device)
 {
 	char attr[24];
 	uint64_t guid = 0;
@@ -146,7 +137,6 @@ __be64 __ibv_get_device_guid(struct ibv_device *device)
 
 	return htobe64(guid);
 }
-default_symver(__ibv_get_device_guid, ibv_get_device_guid);
 
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
@@ -189,7 +179,9 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
 	return cq;
 }
 
-struct ibv_context *__ibv_open_device(struct ibv_device *device)
+LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
+		   struct ibv_context *,
+		   struct ibv_device *device)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
 	char *devpath;
@@ -276,9 +268,10 @@ err:
 	close(cmd_fd);
 	return NULL;
 }
-default_symver(__ibv_open_device, ibv_open_device);
 
-int __ibv_close_device(struct ibv_context *context)
+LATEST_SYMVER_FUNC(ibv_close_device, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_context *context)
 {
 	int async_fd = context->async_fd;
 	int cmd_fd   = context->cmd_fd;
@@ -304,10 +297,11 @@ int __ibv_close_device(struct ibv_context *context)
 
 	return 0;
 }
-default_symver(__ibv_close_device, ibv_close_device);
 
-int __ibv_get_async_event(struct ibv_context *context,
-			  struct ibv_async_event *event)
+LATEST_SYMVER_FUNC(ibv_get_async_event, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_context *context,
+		   struct ibv_async_event *event)
 {
 	struct ibv_kern_async_event ev;
 
@@ -350,9 +344,10 @@ int __ibv_get_async_event(struct ibv_context *context,
 
 	return 0;
 }
-default_symver(__ibv_get_async_event, ibv_get_async_event);
 
-void __ibv_ack_async_event(struct ibv_async_event *event)
+LATEST_SYMVER_FUNC(ibv_ack_async_event, 1_1, "IBVERBS_1.1",
+		   void,
+		   struct ibv_async_event *event)
 {
 	switch (event->event_type) {
 	case IBV_EVENT_CQ_ERR:
@@ -415,4 +410,3 @@ void __ibv_ack_async_event(struct ibv_async_event *event)
 		return;
 	}
 }
-default_symver(__ibv_ack_async_event, ibv_ack_async_event);

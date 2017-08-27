@@ -24,6 +24,10 @@
 #      Use the historical search path for providers, in the standard system library.
 #  -DKERNEL_DIR='.../linux' (default '')
 #      If set use the kernel UAPI headers from this kernel source tree.
+#  -DNO_COMPAT_SYMS=1 (default disabled)
+#      Do not generate backwards compatibility symbols in the shared
+#      libraries. This may is necessary if using a dynmic linker that does
+#      not support symbol versions, such as uclibc.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -269,6 +273,11 @@ RDMA_AddOptLDFlag(CMAKE_SHARED_LINKER_FLAGS SUPPORTS_NO_UNDEFINED "-Wl,--no-unde
 
 # Verify that GNU --version-script and asm(".symver") works
 find_package(LDSymVer REQUIRED)
+if (NO_COMPAT_SYMS)
+  set(HAVE_LIMITED_SYMBOL_VERSIONS 1)
+else()
+  set(HAVE_FULL_SYMBOL_VERSIONS 1)
+endif()
 
 #-------------------------
 # Find libraries

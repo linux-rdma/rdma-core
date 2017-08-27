@@ -42,12 +42,6 @@
 
 #define INIT		__attribute__((constructor))
 
-#define DEFAULT_ABI	"IBVERBS_1.1"
-
-#define symver(name, api, ver) asm(".symver " #name "," #api "@" #ver)
-#define default_symver(name, api)                                              \
-	asm(".symver " #name "," #api "@@" DEFAULT_ABI)
-
 #define PFX		"libibverbs: "
 
 struct ibv_abi_compat_v2 {
