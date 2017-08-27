@@ -183,7 +183,7 @@ Summary: Userspace RDMA Connection Manager
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n librdmacm
-librdmacm provides a userspace RDMA Communication Managment API.
+librdmacm provides a userspace RDMA Communication Management API.
 
 %package -n librdmacm-utils
 Summary: Examples for the librdmacm library
@@ -319,6 +319,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_docdir}/%{name}-%{version}
 %doc %{_docdir}/%{name}-%{version}/README.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
+%doc %{_docdir}/%{name}-%{version}/udev.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/infiniband.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/iwarp.conf

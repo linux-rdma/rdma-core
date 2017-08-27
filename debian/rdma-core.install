@@ -25,6 +25,7 @@ usr/sbin/rdma-ndd
 usr/share/doc/rdma-core/MAINTAINERS
 usr/share/doc/rdma-core/README.md
 usr/share/doc/rdma-core/rxe.md
+usr/share/doc/rdma-core/udev.md
 usr/share/man/man5/iwpmd.conf.5
 usr/share/man/man7/rxe.7
 usr/share/man/man8/iwpmd.8

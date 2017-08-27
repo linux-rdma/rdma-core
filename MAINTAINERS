@@ -166,6 +166,11 @@ M:	Bart Van Assche <bvanassche@acm.org>
 S:	Supported
 F:	srp_daemon/
 
+SUSE PACKAGING
+M:	Nicolas Morey-Chaisemartin <nmoreychaisemartin@suse.de>
+S:	Supported
+F:	suse/
+
 VMWARE PVRDMA USERSPACE PROVIDER (for vmw_pvrdma.ko)
 M:	Adit Ranadive <aditr@vmware.com>
 L:	pv-drivers@vmware.com

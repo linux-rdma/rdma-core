@@ -74,6 +74,8 @@ set(CMAKE_INSTALL_INITDDIR "${CMAKE_INSTALL_SYSCONFDIR}/init.d"
   CACHE PATH "Location for init.d files")
 set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/system"
   CACHE PATH "Location for systemd service files")
+set(CMAKE_INSTALL_SYSTEMD_BINDIR "/lib/systemd"
+  CACHE PATH "Location for systemd extra binaries")
 
 set(ACM_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/ibacm"
   CACHE PATH "Location for ibacm provider plugin shared library files.")
