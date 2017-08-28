@@ -61,7 +61,8 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_CQE_COMPRESION	= 1 << 0,
 	MLX5DV_CONTEXT_MASK_SWP			= 1 << 1,
 	MLX5DV_CONTEXT_MASK_STRIDING_RQ		= 1 << 2,
-	MLX5DV_CONTEXT_MASK_RESERVED		= 1 << 3,
+	MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS	= 1 << 3,
+	MLX5DV_CONTEXT_MASK_RESERVED		= 1 << 4,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -82,6 +83,12 @@ struct mlx5dv_striding_rq_caps {
 	uint32_t supported_qpts;
 };
 
+enum mlx5dv_tunnel_offloads {
+	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_VXLAN	= 1 << 0,
+	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_GRE	= 1 << 1,
+	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_GENEVE	= 1 << 2,
+};
+
 /*
  * Direct verbs device-specific attributes
  */
@@ -92,6 +99,7 @@ struct mlx5dv_context {
 	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
 	struct mlx5dv_sw_parsing_caps sw_parsing_caps;
 	struct mlx5dv_striding_rq_caps striding_rq_caps;
+	uint32_t	tunnel_offloads_caps;
 };
 
 enum mlx5dv_context_flags {

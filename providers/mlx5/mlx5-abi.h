@@ -312,6 +312,8 @@ struct mlx5_query_device_ex_resp {
 	__u32				flags; /* Use enum mlx5_query_dev_resp_flags */
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 	struct mlx5_striding_rq_caps	striding_rq_caps;
+	__u32				tunnel_offloads_caps;
+	__u32				reserved;
 };
 
 #endif /* MLX5_ABI_H */
