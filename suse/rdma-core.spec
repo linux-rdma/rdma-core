@@ -356,24 +356,6 @@ mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
 mkdir -p %{buildroot}%{sysmodprobedir}
 mkdir -p %{buildroot}%{_unitdir}
 
-install -D -m0644 redhat/rdma.conf %{buildroot}/%{_sysconfdir}/rdma/rdma.conf
-sed 's%/usr/libexec%/usr/lib%' redhat/rdma.service > %{buildroot}%{_unitdir}/rdma.service
-chmod 0644 %{buildroot}%{_unitdir}/rdma.service
-install -D -m0644 redhat/rdma.sriov-vfs %{buildroot}/%{_sysconfdir}/rdma/sriov-vfs
-install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
-install -D -m0644 redhat/rdma.udev-ipoib-naming.rules %{buildroot}%{_udevrulesdir}/70-persistent-ipoib.rules
-sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.modules-setup.sh > %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
-chmod 0755 %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
-install -D -m0644 redhat/rdma.udev-rules %{buildroot}%{_udevrulesdir}/98-rdma.rules
-sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.mlx4.sys.modprobe > %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
-chmod 0644 %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
-
-sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.kernel-init > %{buildroot}%{_libexecdir}/rdma-init-kernel
-chmod 0755 %{buildroot}%{_libexecdir}/rdma-init-kernel
-install -D -m0755 redhat/rdma.sriov-init %{buildroot}%{_libexecdir}/rdma-set-sriov-vf
-install -D -m0644 redhat/rdma.fixup-mtrr.awk %{buildroot}%{_libexecdir}/rdma-fixup-mtrr.awk
-install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
-
 mv %{buildroot}%{_sysconfdir}/modprobe.d/truescale.conf %{buildroot}%{_sysconfdir}/modprobe.d/50-truescale.conf
 %if 0%{?dma_coherent}
 mv %{buildroot}%{_sysconfdir}/modprobe.d/mlx4.conf %{buildroot}%{_sysconfdir}/modprobe.d/50-mlx4.conf
@@ -409,18 +391,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n %rdmacm_lname -p /sbin/ldconfig
 %postun -n %rdmacm_lname -p /sbin/ldconfig
-
-%pre
-%service_add_pre rdma.service
-
-%post
-%service_add_post rdma.service
-
-%preun
-%service_del_preun -n rdma.service
-
-%postun
-%service_del_postun -n rdma.service
 
 #
 # ibacm
@@ -491,36 +461,24 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_libexecdir}/udev/rules.d
 %dir %{_sysconfdir}/modprobe.d
 %doc %{_docdir}/%{name}-%{version}/README.md
-%config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/infiniband.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/iwarp.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/opa.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/roce.conf
-%config(noreplace) %{_sysconfdir}/rdma/rdma.conf
-%config(noreplace) %{_sysconfdir}/rdma/sriov-vfs
 %if 0%{?dma_coherent}
 %config(noreplace) %{_sysconfdir}/modprobe.d/50-mlx4.conf
 %endif
 %config(noreplace) %{_sysconfdir}/modprobe.d/50-truescale.conf
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
-%{_unitdir}/rdma.service
 %dir %{dracutlibdir}
 %dir %{dracutlibdir}/modules.d
 %dir %{dracutlibdir}/modules.d/05rdma
-%{dracutlibdir}/modules.d/05rdma/module-setup.sh
-%{_udevrulesdir}/70-persistent-ipoib.rules
 %{_udevrulesdir}/75-rdma-description.rules
 %{_udevrulesdir}/90-rdma-hw-modules.rules
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
 %{_udevrulesdir}/90-rdma-umad.rules
-%{_udevrulesdir}/98-rdma.rules
-%config %{sysmodprobedir}/50-libmlx4.conf
-%{_libexecdir}/rdma-init-kernel
-%{_libexecdir}/rdma-set-sriov-vf
-%{_libexecdir}/rdma-fixup-mtrr.awk
-%{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
 %license COPYING.*
 %{_sbindir}/rcrdma
