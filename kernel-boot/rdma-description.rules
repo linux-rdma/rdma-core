@@ -13,9 +13,10 @@ SUBSYSTEM!="infiniband", GOTO="rdma_description_end"
 # that extracted the ID information from the RDMA netlink.
 
 # Hardware that supports InfiniBand
+DRIVERS=="ib_mthca", ENV{ID_RDMA_INFINIBAND}="1"
 DRIVERS=="mlx4_core", ENV{ID_RDMA_INFINIBAND}="1"
 DRIVERS=="mlx5_core", ENV{ID_RDMA_INFINIBAND}="1"
-DRIVERS=="qib", ENV{ID_RDMA_INFINIBAND}="1"
+DRIVERS=="ib_qib", ENV{ID_RDMA_INFINIBAND}="1"
 
 # Hardware that supports OPA
 DRIVERS=="hfi1", ENV{ID_RDMA_OPA}="1"
