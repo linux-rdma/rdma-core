@@ -137,6 +137,6 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_resize_cq;
 		ibv_query_gid_type;
 		ibv_register_driver;
-		verbs_register_driver;
+		verbs_register_driver_@IBVERBS_PABI_VERSION@;
 		verbs_init_cq;
 };
