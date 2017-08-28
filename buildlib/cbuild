@@ -480,7 +480,7 @@ os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
         else:
             opts.extend(["python","go.py"]);
 
-        docker_cmd(args,*opts)
+        res = docker_cmd(args,*opts)
 
         print
         for path,jnk,files in os.walk(os.path.join(tmpdir,"RPMS")):
@@ -488,6 +488,7 @@ os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
                 print "Final RPM: ",os.path.join("..",I);
                 shutil.move(os.path.join(path,I),
                             os.path.join("..",I));
+        return res
 
 def run_deb_build(args,env):
     image_id = get_image_id(args,env.image_name());
@@ -538,7 +539,7 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
         else:
             opts.extend(["python",os.path.join(home,"go.py")]);
 
-        docker_cmd(args,*opts);
+        res = docker_cmd(args,*opts);
 
         print
         for I in os.listdir(tmpdir):
@@ -546,6 +547,7 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
                 print "Final DEB: ",os.path.join("..",I);
                 shutil.move(os.path.join(tmpdir,I),
                             os.path.join("..",I));
+        return res
 
 def run_travis_build(args,env):
     with private_tmp(args) as tmpdir:
@@ -603,7 +605,7 @@ def run_travis_build(args,env):
         else:
             opts.extend(["/bin/bash",os.path.join(home_build,"go.sh")]);
 
-        docker_cmd(args,*opts);
+        return docker_cmd(args,*opts);
 
 def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
@@ -611,18 +613,20 @@ def args_pkg(parser):
                         help="Instead of running the build, enter a shell");
 def cmd_pkg(args):
     """Build a package in the given environment."""
+    res = 0
     for env in args.ENV:
         if env.name == "travis":
-            run_travis_build(args,env);
+            res |= run_travis_build(args,env);
         elif getattr(env,"is_deb",False):
-            run_deb_build(args,env);
+            res |= run_deb_build(args,env);
         elif getattr(env,"is_rpm",False):
-            run_rpm_build(args,
+            res |= run_rpm_build(args,
                           getattr(env,"specfile","%s.spec"%(project)),
                           env);
         else:
             print "%s does not support packaging"%(env.name);
-
+            res = 1
+    return res
 # -------------------------------------------------------------------------
 
 def args_make(parser):
@@ -635,7 +639,7 @@ def cmd_make(args):
     run then this runs it with the given environment variables, then invokes ninja.
     Otherwise ninja is invoked without calling cmake."""
     SRC = os.getcwd();
-
+    res = 0
     for env in args.ENV:
         BUILD = "build-%s"%(env.name)
         if not os.path.exists(BUILD):
@@ -699,10 +703,11 @@ def cmd_make(args):
                          "-C",BUILD_r] + ninja_args;
 
         if len(args.ENV) <= 1:
-            os.execlp("sudo","sudo","docker",*(opts + prog_args));
+            res |= os.execlp("sudo","sudo","docker",*(opts + prog_args));
         else:
-            docker_cmd(args,*(opts + prog_args));
+            res |= docker_cmd(args,*(opts + prog_args));
 
+    return res
 # -------------------------------------------------------------------------
 
 def get_build_args(args,env):
@@ -727,6 +732,7 @@ def args_build_images(parser):
 def cmd_build_images(args):
     """Run from the top level source directory to make the docker images that are
     needed for building. This only needs to be run once."""
+    res = 0
     for env in args.ENV:
         df = env.get_docker_file();
         with private_tmp(args) as tmpdir:
@@ -739,7 +745,8 @@ def cmd_build_images(args):
                     ["-f",fn,
                      "-t",env.image_name(),
                      tmpdir]);
-            docker_cmd(args,*opts);
+            res |= docker_cmd(args,*opts);
+    return res
 
 # -------------------------------------------------------------------------
 def args_docker_gc(parser):
@@ -784,6 +791,7 @@ if __name__ == '__main__':
     if git_top != ".git":
         os.chdir(os.path.dirname(git_top));
 
-    if not args.func(args):
+    res = args.func(args);
+    if res == None:
         sys.exit(100);
-    sys.exit(0);
+    sys.exit(res);
