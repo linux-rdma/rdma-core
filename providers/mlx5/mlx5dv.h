@@ -36,6 +36,7 @@
 #include <linux/types.h> /* For the __be64 type */
 #include <endian.h>
 #if defined(__SSE3__)
+#include <limits.h>
 #include <emmintrin.h>
 #include <tmmintrin.h>
 #endif /* defined(__SSE3__) */
@@ -499,7 +500,11 @@ void mlx5dv_x86_set_ctrl_seg(struct mlx5_wqe_ctrl_seg *seg, uint16_t pi,
 				     (signature << 24) | (opcode << 16) | (opmod << 8) | fm_ce_se);
 	__m128i mask = _mm_set_epi8(15, 14, 13, 12,	/* immediate */
 				     0,			/* signal/fence_mode */
-				     0x80, 0x80,	/* reserved */
+#if CHAR_MIN
+				     -128, -128,        /* reserved */
+#else
+				     0x80, 0x80,        /* reserved */
+#endif
 				     3,			/* signature */
 				     6,			/* data size */
 				     8, 9, 10,		/* QP num */
