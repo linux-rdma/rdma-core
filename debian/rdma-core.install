@@ -8,6 +8,7 @@ etc/rdma/modules/iwpmd.conf
 etc/rdma/modules/opa.conf
 etc/rdma/modules/rdma.conf
 etc/rdma/modules/roce.conf
+etc/udev/rules.d/70-persistent-ipoib.rules
 lib/systemd/system/iwpmd.service
 lib/systemd/system/rdma-hw.target
 lib/systemd/system/rdma-load-modules@.service
