@@ -580,6 +580,8 @@ def run_travis_build(args,env):
             "-w",os.path.join(home_build,"src"),
             "-u",str(os.getuid()),
             "-e","TRAVIS_COMMIT_RANGE=%s..HEAD"%(base),
+            "-e","TRAVIS_BRANCH=%s"%(base),
+            "-e","TRAVIS_EVENT_TYPE=pull_request",
             "-e","HOME=%s"%(home),
             "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
         ];
