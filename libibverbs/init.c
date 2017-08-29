@@ -50,8 +50,6 @@
 #include <util/util.h>
 #include "ibverbs.h"
 
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
-
 int abi_ver;
 
 struct ibv_sysfs_dev {
