@@ -371,7 +371,6 @@ chmod 0644 %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
 sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.kernel-init > %{buildroot}%{_libexecdir}/rdma-init-kernel
 chmod 0755 %{buildroot}%{_libexecdir}/rdma-init-kernel
 install -D -m0755 redhat/rdma.sriov-init %{buildroot}%{_libexecdir}/rdma-set-sriov-vf
-install -D -m0644 redhat/rdma.fixup-mtrr.awk %{buildroot}%{_libexecdir}/rdma-fixup-mtrr.awk
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 mv %{buildroot}%{_sysconfdir}/modprobe.d/truescale.conf %{buildroot}%{_sysconfdir}/modprobe.d/50-truescale.conf
@@ -519,7 +518,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config %{sysmodprobedir}/50-libmlx4.conf
 %{_libexecdir}/rdma-init-kernel
 %{_libexecdir}/rdma-set-sriov-vf
-%{_libexecdir}/rdma-fixup-mtrr.awk
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
 %license COPYING.*
