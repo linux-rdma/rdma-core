@@ -166,6 +166,10 @@ struct mlx4dv_qp {
 	uint64_t		comp_mask;
 };
 
+enum mlx4dv_cq_comp_mask {
+	MLX4DV_CQ_MASK_UAR		= 1 << 0,
+};
+
 struct mlx4dv_cq {
 	struct {
 		void			*buf;
@@ -178,7 +182,9 @@ struct mlx4dv_cq {
 	int				arm_sn;
 	int				cqe_size;
 	uint64_t			comp_mask;
+	void				*cq_uar;
 };
+
 struct mlx4dv_srq {
 	struct {
 		void			*buf;
