@@ -170,6 +170,7 @@ struct hns_roce_qp {
 };
 
 struct hns_roce_u_hw {
+	uint32_t hw_version;
 	int (*poll_cq)(struct ibv_cq *ibvcq, int ne, struct ibv_wc *wc);
 	int (*arm_cq)(struct ibv_cq *ibvcq, int solicited);
 	int (*post_send)(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,

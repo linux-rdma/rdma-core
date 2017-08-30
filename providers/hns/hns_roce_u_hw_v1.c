@@ -829,6 +829,7 @@ out:
 }
 
 struct hns_roce_u_hw hns_roce_u_hw_v1 = {
+	.hw_version = HNS_ROCE_HW_VER1,
 	.poll_cq = hns_roce_u_v1_poll_cq,
 	.arm_cq = hns_roce_u_v1_arm_cq,
 	.post_send = hns_roce_u_v1_post_send,
