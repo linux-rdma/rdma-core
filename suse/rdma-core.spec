@@ -57,6 +57,7 @@ BuildRequires:  pkgconfig
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
+BuildRequires:  pkgconfig(udev)
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
 %endif
@@ -67,6 +68,7 @@ BuildRequires:  pkgconfig(systemd)
 Requires:       dracut
 Requires:       kmod
 Requires:       systemd
+Requires:       udev
 
 # SUSE previously shipped rdma as a stand-alone
 # package which we're supplanting here.
@@ -408,6 +410,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post
 %service_add_post rdma-sriov.service
+# we ship udev rules, so trigger an update.
+/sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
+/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
 
 %preun
 %service_del_preun -n rdma-sriov.service
@@ -438,6 +443,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n srp_daemon
 %service_add_post srp_daemon.service srp_daemon_port@.service
+# we ship udev rules, so trigger an update.
+/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change
 
 %preun -n srp_daemon
 %service_del_preun srp_daemon.service srp_daemon_port@.service
