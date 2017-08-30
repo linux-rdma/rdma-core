@@ -9,7 +9,6 @@
 shopt -s nullglob
 
 CONFIG=/etc/rdma/rdma.conf
-MTRR_SCRIPT=/usr/libexec/rdma-fixup-mtrr.awk
 
 LOAD_ULP_MODULES=""
 LOAD_CORE_USER_MODULES="ib_umad ib_uverbs ib_ucm rdma_ucm"
@@ -97,38 +96,10 @@ load_modules()
     return $RC
 }
 
-# This function is a horrible hack to work around BIOS authors that should
-# be shot.  Specifically, certain BIOSes will map the entire 4GB address
-# space as write-back cacheable when the machine has 4GB or more of RAM, and
-# then they will exclude the reserved PCI I/O addresses from that 4GB
-# cacheable mapping by making on overlapping uncacheable mapping.  However,
-# once you do that, it is then impossible to set *any* of the PCI I/O
-# address space as write-combining.  This is an absolute death-knell to
-# certain IB hardware.  So, we unroll this mapping here.  Instead of
-# punching a hole in a single 4GB mapping, we redo the base 4GB mapping as
-# a series of discreet mappings that effectively are the same as the 4GB
-# mapping minus the hole, and then we delete the uncacheable mappings that
-# are used to punch the hole.  This then leaves the PCI I/O address space
-# unregistered (which defaults it to uncacheable), but available for
-# write-combining mappings where needed.
-check_mtrr_registers()
-{
-    # If we actually change the mtrr registers, then the awk script will
-    # return true, and we need to unload the ib_ipath module if it's already
-    # loaded.  The udevtrigger in load_hardware_modules will immediately
-    # reload the ib_ipath module for us, so there shouldn't be a problem.
-    [ -f /proc/mtrr -a -f $MTRR_SCRIPT ] &&
-	awk -f $MTRR_SCRIPT /proc/mtrr 2>/dev/null &&
-	if is_loaded ib_ipath; then
-		/sbin/rmmod ib_ipath
-	fi
-}
-
 load_hardware_modules()
 {
     local -i RC=0
 
-    [ "$FIXUP_MTRR_REGS" = "yes" ] && check_mtrr_registers
     # We match both class NETWORK and class INFINIBAND devices since our
     # iWARP hardware is listed under class NETWORK.  The side effect of
     # this is that we might cause a non-iWARP network driver to be loaded.

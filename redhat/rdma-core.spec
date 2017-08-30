@@ -257,13 +257,11 @@ install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.co
 install -D -m0755 redhat/rdma.ifup-ib %{buildroot}/%{_sysconfdir}/sysconfig/network-scripts/ifup-ib
 install -D -m0755 redhat/rdma.ifdown-ib %{buildroot}/%{_sysconfdir}/sysconfig/network-scripts/ifdown-ib
 install -D -m0644 redhat/rdma.service %{buildroot}%{_unitdir}/rdma.service
-install -D -m0644 redhat/rdma.udev-ipoib-naming.rules %{buildroot}%{_sysconfdir}/udev/rules.d/70-persistent-ipoib.rules
 install -D -m0755 redhat/rdma.modules-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 install -D -m0644 redhat/rdma.udev-rules %{buildroot}%{_udevrulesdir}/98-rdma.rules
 install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{sysmodprobedir}/libmlx4.conf
 install -D -m0755 redhat/rdma.kernel-init %{buildroot}%{_libexecdir}/rdma-init-kernel
 install -D -m0755 redhat/rdma.sriov-init %{buildroot}%{_libexecdir}/rdma-set-sriov-vf
-install -D -m0644 redhat/rdma.fixup-mtrr.awk %{buildroot}%{_libexecdir}/rdma-fixup-mtrr.awk
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 # ibacm
@@ -346,7 +344,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{sysmodprobedir}/libmlx4.conf
 %{_libexecdir}/rdma-init-kernel
 %{_libexecdir}/rdma-set-sriov-vf
-%{_libexecdir}/rdma-fixup-mtrr.awk
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
 %{_bindir}/rxe_cfg
