@@ -34,6 +34,7 @@ DRIVERS=="hns", ENV{ID_RDMA_ROCE}="1"
 DRIVERS=="mlx4_core", ENV{ID_RDMA_ROCE}="1"
 DRIVERS=="mlx5_core", ENV{ID_RDMA_ROCE}="1"
 DRIVERS=="qede", ENV{ID_RDMA_ROCE}="1"
+DRIVERS=="vmw_pvrdma", ENV{ID_RDMA_ROCE}="1"
 DEVPATH=="*/infiniband/rxe*", ATTR{parent}=="*", ENV{ID_RDMA_ROCE}="1"
 
 # Setup the usual ID information so that systemd will display a sane name for
