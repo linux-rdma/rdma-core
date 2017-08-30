@@ -10,6 +10,10 @@ Before=rdma-hw.target
 ListenStream=6125
 BindToDevice=lo
 
+# Bind to PF_NETLINK, NETLINK_RDMA, RDMA_NL_GROUP_LS
+# Supported in systemd > 234
+ListenNetlink=rdma 4
+
 [Install]
 # Standard for all sockets
 WantedBy=sockets.target

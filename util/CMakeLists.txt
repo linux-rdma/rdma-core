@@ -4,9 +4,8 @@ publish_internal_headers(util
   util.h
   )
 
-# The empty dummy.c is only needed so that cmake always has something to build
-# into the library.
-set(C_FILES dummy.c)
+set(C_FILES
+  util.c)
 
 if (HAVE_COHERENT_DMA)
   publish_internal_headers(util

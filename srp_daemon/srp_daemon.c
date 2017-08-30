@@ -1998,24 +1998,11 @@ static int setup_wakeup_fd(void)
 {
 	struct sigaction sa = {};
 	int ret;
-	int i;
-	int flags;
 
-	ret = pipe(wakeup_pipe);
+	ret = pipe2(wakeup_pipe, O_NONBLOCK | O_CLOEXEC);
 	if (ret < 0) {
 		pr_err("could not create pipe\n");
 		return -1;
-	}
-	for (i = 0; i < 2; i++) {
-		flags = fcntl(wakeup_pipe[i], F_GETFL);
-		if (flags < 0) {
-			pr_err("fcntl F_GETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
-		if (fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK) < 0) {
-			pr_err("fcntl F_SETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
 	}
 
 	sigemptyset(&sa.sa_mask);
@@ -2024,10 +2011,6 @@ static int setup_wakeup_fd(void)
 	sigaction(SIGTERM, &sa, NULL);
 	sigaction(SRP_CATAS_ERR, &sa, NULL);
 	return 0;
-
-close_pipe:
-	cleanup_wakeup_fd();
-	return -1;
 }
 
 static int ibsrpdm(int argc, char *argv[])
