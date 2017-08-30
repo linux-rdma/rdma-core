@@ -509,7 +509,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
 %{_udevrulesdir}/90-rdma-umad.rules
 %{_udevrulesdir}/98-rdma-sriov.rules
-%config %{sysmodprobedir}/50-libmlx4.conf
+%{sysmodprobedir}/50-libmlx4.conf
 %{_libexecdir}/rdma-set-sriov-vf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
