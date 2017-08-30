@@ -57,6 +57,7 @@ BuildRequires:  pkgconfig
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
+BuildRequires:  pkgconfig(udev)
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
 %endif
@@ -67,6 +68,7 @@ BuildRequires:  pkgconfig(systemd)
 Requires:       dracut
 Requires:       kmod
 Requires:       systemd
+Requires:       udev
 
 # SUSE previously shipped rdma as a stand-alone
 # package which we're supplanting here.
@@ -356,26 +358,21 @@ mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
 mkdir -p %{buildroot}%{sysmodprobedir}
 mkdir -p %{buildroot}%{_unitdir}
 
-install -D -m0644 redhat/rdma.conf %{buildroot}/%{_sysconfdir}/rdma/rdma.conf
-sed 's%/usr/libexec%/usr/lib%' redhat/rdma.service > %{buildroot}%{_unitdir}/rdma.service
-chmod 0644 %{buildroot}%{_unitdir}/rdma.service
+# SRIOV service
 install -D -m0644 redhat/rdma.sriov-vfs %{buildroot}/%{_sysconfdir}/rdma/sriov-vfs
+install -D -m0755 redhat/rdma.sriov-init %{buildroot}%{_libexecdir}/rdma-set-sriov-vf
+install -D -m0644 suse/rdma.sriov-rules %{buildroot}%{_udevrulesdir}/98-rdma-sriov.rules
+install -D -m0644 suse/rdma.sriov-service %{buildroot}%{_unitdir}/rdma-sriov.service
+
+# Port type setup for mlx4 dual port cards
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
-sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.modules-setup.sh > %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
-chmod 0755 %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
-install -D -m0644 redhat/rdma.udev-rules %{buildroot}%{_udevrulesdir}/98-rdma.rules
 sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.mlx4.sys.modprobe > %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
 chmod 0644 %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
-
-sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.kernel-init > %{buildroot}%{_libexecdir}/rdma-init-kernel
-chmod 0755 %{buildroot}%{_libexecdir}/rdma-init-kernel
-install -D -m0755 redhat/rdma.sriov-init %{buildroot}%{_libexecdir}/rdma-set-sriov-vf
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
-mv %{buildroot}%{_sysconfdir}/modprobe.d/truescale.conf %{buildroot}%{_sysconfdir}/modprobe.d/50-truescale.conf
-%if 0%{?dma_coherent}
-mv %{buildroot}%{_sysconfdir}/modprobe.d/mlx4.conf %{buildroot}%{_sysconfdir}/modprobe.d/50-mlx4.conf
-%endif
+# Dracut file for IB support during boot
+sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.modules-setup.sh > %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+chmod 0755 %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 
 # ibacm
 cd build
@@ -409,16 +406,19 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %postun -n %rdmacm_lname -p /sbin/ldconfig
 
 %pre
-%service_add_pre rdma.service
+%service_add_pre rdma-sriov.service
 
 %post
-%service_add_post rdma.service
+%service_add_post rdma-sriov.service
+# we ship udev rules, so trigger an update.
+/sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
+/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
 
 %preun
-%service_del_preun -n rdma.service
+%service_del_preun -n rdma-sriov.service
 
 %postun
-%service_del_postun -n rdma.service
+%service_del_postun -n rdma-sriov.service
 
 #
 # ibacm
@@ -443,12 +443,16 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n srp_daemon
 %service_add_post srp_daemon.service srp_daemon_port@.service
+# we ship udev rules, so trigger an update.
+/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change
 
 %preun -n srp_daemon
-%service_del_preun srp_daemon.service srp_daemon_port@.service
+%service_del_preun srp_daemon.service
+%service_del_postun -n  srp_daemon_port@.service
 
 %postun -n srp_daemon
-%service_del_postun srp_daemon.service srp_daemon_port@.service
+%service_del_postun srp_daemon.service
+%service_del_postun -n  srp_daemon_port@.service
 
 #
 # iwpmd
@@ -487,6 +491,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_docdir}/%{name}-%{version}
 %dir %{_libexecdir}/udev
 %dir %{_libexecdir}/udev/rules.d
+%dir %{_sysconfdir}/udev
+%dir %{_sysconfdir}/udev/rules.d
 %dir %{_sysconfdir}/modprobe.d
 %doc %{_docdir}/%{name}-%{version}/README.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
@@ -495,16 +501,15 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/rdma/modules/opa.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/roce.conf
-%config(noreplace) %{_sysconfdir}/rdma/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/sriov-vfs
 %if 0%{?dma_coherent}
-%config(noreplace) %{_sysconfdir}/modprobe.d/50-mlx4.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
 %endif
-%config(noreplace) %{_sysconfdir}/modprobe.d/50-truescale.conf
+%config(noreplace) %{_sysconfdir}/modprobe.d/truescale.conf
 %config(noreplace) %{_sysconfdir}/udev/rules.d/70-persistent-ipoib.rules
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
-%{_unitdir}/rdma.service
+%{_unitdir}/rdma-sriov.service
 %dir %{dracutlibdir}
 %dir %{dracutlibdir}/modules.d
 %dir %{dracutlibdir}/modules.d/05rdma
@@ -513,9 +518,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-rdma-hw-modules.rules
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
 %{_udevrulesdir}/90-rdma-umad.rules
-%{_udevrulesdir}/98-rdma.rules
+%{_udevrulesdir}/98-rdma-sriov.rules
 %config %{sysmodprobedir}/50-libmlx4.conf
-%{_libexecdir}/rdma-init-kernel
 %{_libexecdir}/rdma-set-sriov-vf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
@@ -678,7 +682,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/rdma-ndd
 %{_sbindir}/rcrdma-ndd
 %{_unitdir}/rdma-ndd.service
-%{_mandir}/man8/rdma-ndd.*
 %{_mandir}/man8/rdma-ndd.8*
 %{_libexecdir}/udev/rules.d/60-rdma-ndd.rules
 
