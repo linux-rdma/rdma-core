@@ -447,10 +447,12 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change
 
 %preun -n srp_daemon
-%service_del_preun srp_daemon.service srp_daemon_port@.service
+%service_del_preun srp_daemon.service
+%service_del_postun -n  srp_daemon_port@.service
 
 %postun -n srp_daemon
-%service_del_postun srp_daemon.service srp_daemon_port@.service
+%service_del_postun srp_daemon.service
+%service_del_postun -n  srp_daemon_port@.service
 
 #
 # iwpmd
