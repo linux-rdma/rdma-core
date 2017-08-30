@@ -405,20 +405,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %rdmacm_lname -p /sbin/ldconfig
 %postun -n %rdmacm_lname -p /sbin/ldconfig
 
-%pre
-%service_add_pre rdma-sriov.service
-
 %post
-%service_add_post rdma-sriov.service
 # we ship udev rules, so trigger an update.
 /sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
-
-%preun
-%service_del_preun -n rdma-sriov.service
-
-%postun
-%service_del_postun -n rdma-sriov.service
 
 #
 # ibacm
