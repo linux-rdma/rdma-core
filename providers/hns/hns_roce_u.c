@@ -44,20 +44,11 @@
 #define HID_LEN			15
 #define DEV_MATCH_LEN		128
 
-struct hca_ent {
-	const char *str;
-	struct hns_roce_u_hw *data;
-	int version;
-};
-
-static const struct hca_ent acpi_table[] = {
-	 {"acpi:HISI00D1:", &hns_roce_u_hw_v1, HNS_ROCE_HW_VER1},
-	 {},
-};
-
-static const struct hca_ent dt_table[] = {
-	{"hisilicon,hns-roce-v1", &hns_roce_u_hw_v1, HNS_ROCE_HW_VER1},
-	{},
+static const struct verbs_match_ent hca_table[] = {
+	VERBS_MODALIAS_MATCH("acpi*:HISI00D1:*", &hns_roce_u_hw_v1),
+	VERBS_MODALIAS_MATCH("of:N*T*Chisilicon,hns-roce-v1C*", &hns_roce_u_hw_v1),
+	VERBS_MODALIAS_MATCH("of:N*T*Chisilicon,hns-roce-v1", &hns_roce_u_hw_v1),
+	{}
 };
 
 static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
@@ -178,43 +169,16 @@ static void hns_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static bool hns_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char			 value[128];
-	int			 i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/modalias",
-				value, sizeof(value)) > 0)
-		for (i = 0; i < sizeof(acpi_table) / sizeof(acpi_table[0]); ++i)
-			if (!strcmp(value, acpi_table[i].str)) {
-				sysfs_dev->provider_data =
-				    (void *)&acpi_table[i];
-				return true;
-			}
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/of_node/compatible",
-				value, sizeof(value)) > 0)
-		for (i = 0; i < sizeof(dt_table) / sizeof(dt_table[0]); ++i)
-			if (!strcmp(value, dt_table[i].str)) {
-				sysfs_dev->provider_data = (void *)&dt_table[i];
-				return true;
-			}
-
-	return false;
-}
-
 static struct verbs_device *hns_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct hns_roce_device  *dev;
-	const struct hca_ent *hca_ent = sysfs_dev->provider_data;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;
 
-	dev->u_hw = hca_ent->data;
-	dev->hw_version = hca_ent->version;
+	dev->u_hw = sysfs_dev->match->driver_data;
+	dev->hw_version = dev->u_hw->hw_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	return &dev->ibv_dev;
 }
@@ -223,7 +187,7 @@ static const struct verbs_device_ops hns_roce_dev_ops = {
 	.name = "hns",
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
-	.match_device = hns_device_match,
+	.match_table = hca_table,
 	.alloc_device = hns_device_alloc,
 	.uninit_device = hns_uninit_device,
 	.alloc_context = hns_roce_alloc_context,
