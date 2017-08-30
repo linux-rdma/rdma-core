@@ -786,4 +786,4 @@ if __name__ == '__main__':
     if git_top != ".git":
         os.chdir(os.path.dirname(git_top));
 
-    args.func(args):
+    args.func(args);
