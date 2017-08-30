@@ -678,7 +678,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/rdma-ndd
 %{_sbindir}/rcrdma-ndd
 %{_unitdir}/rdma-ndd.service
-%{_mandir}/man8/rdma-ndd.*
 %{_mandir}/man8/rdma-ndd.8*
 %{_libexecdir}/udev/rules.d/60-rdma-ndd.rules
 
