@@ -46,6 +46,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <assert.h>
+#include <fnmatch.h>
 
 #include <util/util.h>
 #include "ibverbs.h"
@@ -137,6 +138,11 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "abi_version",
 					value, sizeof value) > 0)
 			sysfs_dev->abi_ver = strtol(value, NULL, 10);
+
+		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path,
+					"device/modalias", sysfs_dev->modalias,
+					sizeof(sysfs_dev->modalias)) <= 0)
+			sysfs_dev->modalias[0] = 0;
 
 		list_add(tmp_sysfs_dev_list, &sysfs_dev->entry);
 		sysfs_dev      = NULL;
@@ -340,12 +346,86 @@ out:
 	closedir(conf_dir);
 }
 
+/* Match a single modalias value */
+static bool match_modalias(const struct verbs_match_ent *ent, const char *value)
+{
+	char pci_ma[100];
+
+	switch (ent->kind) {
+	case VERBS_MATCH_MODALIAS:
+		return fnmatch(ent->modalias, value, 0) == 0;
+	case VERBS_MATCH_PCI:
+		snprintf(pci_ma, sizeof(pci_ma), "pci:v%08Xd%08Xsv*",
+			 ent->vendor, ent->device);
+		return fnmatch(pci_ma, value, 0) == 0;
+	default:
+		return false;
+	}
+}
+
+/* Search a null terminated table of verbs_match_ent's and return the one
+ * that matches the device the verbs sysfs device is bound to or NULL.
+ */
+static const struct verbs_match_ent *
+match_modalias_device(const struct verbs_device_ops *ops,
+		      struct verbs_sysfs_dev *sysfs_dev)
+{
+	const struct verbs_match_ent *i;
+
+	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
+		if (match_modalias(i, sysfs_dev->modalias))
+			return i;
+
+	return NULL;
+}
+
+/* Match the device name itself */
+static const struct verbs_match_ent *
+match_name(const struct verbs_device_ops *ops,
+		      struct verbs_sysfs_dev *sysfs_dev)
+{
+	char name_ma[100];
+	const struct verbs_match_ent *i;
+
+	if (!check_snprintf(name_ma, sizeof(name_ma),
+			    "rdma_device:N%s", sysfs_dev->ibdev_name))
+		return NULL;
+
+	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
+		if (match_modalias(i, name_ma))
+			return i;
+
+	return NULL;
+}
+
 /* True if the provider matches the selected rdma sysfs device */
 static bool match_device(const struct verbs_device_ops *ops,
 			 struct verbs_sysfs_dev *sysfs_dev)
 {
-	if (!ops->match_device(sysfs_dev))
-		return false;
+	if (ops->match_table) {
+		/* The internally generated alias is checked first, since some
+		 * devices like rxe can attach to a random modalias, including
+		 * ones that match other providers.
+		 */
+		sysfs_dev->match = match_name(ops, sysfs_dev);
+		if (!sysfs_dev->match)
+			sysfs_dev->match =
+			    match_modalias_device(ops, sysfs_dev);
+	}
+
+	if (ops->match_device) {
+		/* If a matching function is provided then it is called
+		 * unconditionally after the table match above, it is
+		 * responsible for determining if the device matches based on
+		 * the match pointer and any other internal information.
+		 */
+		if (!ops->match_device(sysfs_dev))
+			return false;
+	} else {
+		/* With no match function, we must have a table match */
+		if (!sysfs_dev->match)
+			return false;
+	}
 
 	if (sysfs_dev->abi_ver < ops->match_min_abi_version ||
 	    sysfs_dev->abi_ver > ops->match_max_abi_version) {

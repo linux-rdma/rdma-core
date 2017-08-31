@@ -96,14 +96,56 @@ struct verbs_qp {
 	struct verbs_xrcd       *xrcd;
 };
 
+enum {
+	VERBS_MATCH_SENTINEL = 0,
+	VERBS_MATCH_PCI = 1,
+	VERBS_MATCH_MODALIAS = 2,
+};
+
+struct verbs_match_ent {
+	void *driver_data;
+	const char *modalias;
+	uint16_t vendor;
+	uint16_t device;
+	uint8_t kind;
+};
+#define VERBS_PCI_MATCH(_vendor, _device, _data)                               \
+	{                                                                      \
+	    .driver_data = (_data),                                            \
+	    .vendor = (_vendor),                                               \
+	    .device = (_device),                                               \
+	    .kind = VERBS_MATCH_PCI,                                           \
+	}
+
+#define VERBS_MODALIAS_MATCH(_mod_str, _data)                                  \
+	{                                                                      \
+	    .driver_data = (_data),                                            \
+	    .modalias = (_mod_str),                                            \
+	    .kind = VERBS_MATCH_MODALIAS,                                      \
+	}
+
+/* Matching on the IB device name is STRONGLY discouraged. This will only
+ * match if there is no device/modalias file available, and it will eventually
+ * be disabled entirely if the kernel supports renaming. Use is strongly
+ * discouraged.
+ */
+#define VERBS_NAME_MATCH(_name_prefix, _data)                                  \
+	{                                                                      \
+	    .driver_data = (_data),                                            \
+	    .modalias = "rdma_device:*N" _name_prefix "*",                     \
+	    .kind = VERBS_MATCH_MODALIAS,                                      \
+	}
+
 /* A rdma device detected in sysfs */
 struct verbs_sysfs_dev {
 	struct list_node entry;
 	void *provider_data;
+	const struct verbs_match_ent *match;
 	char sysfs_name[IBV_SYSFS_NAME_MAX];
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
 	char sysfs_path[IBV_SYSFS_PATH_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
+	char modalias[512];
 	int abi_ver;
 	struct timespec time_created;
 };
@@ -114,6 +156,7 @@ struct verbs_device_ops {
 
 	int match_min_abi_version;
 	int match_max_abi_version;
+	const struct verbs_match_ent *match_table;
 
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
