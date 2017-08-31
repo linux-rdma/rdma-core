@@ -40,6 +40,7 @@
 #include <infiniband/kern-abi.h>
 #include <ccan/list.h>
 #include <config.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -95,9 +96,26 @@ struct verbs_qp {
 	struct verbs_xrcd       *xrcd;
 };
 
+/* A rdma device detected in sysfs */
+struct verbs_sysfs_dev {
+	struct list_node entry;
+	void *provider_data;
+	char sysfs_name[IBV_SYSFS_NAME_MAX];
+	char ibdev_name[IBV_SYSFS_NAME_MAX];
+	char sysfs_path[IBV_SYSFS_PATH_MAX];
+	char ibdev_path[IBV_SYSFS_PATH_MAX];
+	int abi_ver;
+	struct timespec time_created;
+};
+
 /* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
 struct verbs_device_ops {
 	const char *name;
+
+	int match_min_abi_version;
+	int match_max_abi_version;
+
+	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
 	/* Old interface, do not use in new code. */
 	struct ibv_context *(*alloc_context)(struct ibv_device *device,
@@ -110,6 +128,7 @@ struct verbs_device_ops {
 	void (*uninit_context)(struct verbs_device *device,
 			       struct ibv_context *ctx);
 
+	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
 	struct verbs_device *(*init_device)(const char *uverbs_sys_path,
 					    int abi_version);
 	void (*uninit_device)(struct verbs_device *device);
@@ -123,7 +142,7 @@ struct verbs_device {
 	size_t	size_of_context;
 	atomic_int refcount;
 	struct list_node entry;
-	struct ibv_sysfs_dev *sysfs;
+	struct verbs_sysfs_dev *sysfs;
 };
 
 static inline struct verbs_device *
