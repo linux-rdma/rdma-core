@@ -405,20 +405,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %rdmacm_lname -p /sbin/ldconfig
 %postun -n %rdmacm_lname -p /sbin/ldconfig
 
-%pre
-%service_add_pre rdma-sriov.service
-
 %post
-%service_add_post rdma-sriov.service
 # we ship udev rules, so trigger an update.
 /sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
-
-%preun
-%service_del_preun -n rdma-sriov.service
-
-%postun
-%service_del_postun -n rdma-sriov.service
 
 #
 # ibacm
@@ -519,7 +509,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
 %{_udevrulesdir}/90-rdma-umad.rules
 %{_udevrulesdir}/98-rdma-sriov.rules
-%config %{sysmodprobedir}/50-libmlx4.conf
+%{sysmodprobedir}/50-libmlx4.conf
 %{_libexecdir}/rdma-set-sriov-vf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
