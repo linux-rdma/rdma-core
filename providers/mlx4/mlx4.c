@@ -375,8 +375,9 @@ static int mlx4dv_get_cq(struct ibv_cq *cq_in,
 			 struct mlx4dv_cq *cq_out)
 {
 	struct mlx4_cq *mcq = to_mcq(cq_in);
+	struct mlx4_context *mctx = to_mctx(cq_in->context);
+	uint64_t mask_out = 0;
 
-	cq_out->comp_mask = 0;
 	cq_out->buf.buf = mcq->buf.buf;
 	cq_out->buf.length = mcq->buf.length;
 	cq_out->cqn = mcq->cqn;
@@ -388,6 +389,12 @@ static int mlx4dv_get_cq(struct ibv_cq *cq_in,
 
 	mcq->flags |= MLX4_CQ_FLAGS_DV_OWNED;
 
+	if (cq_out->comp_mask & MLX4DV_CQ_MASK_UAR) {
+		cq_out->cq_uar = mctx->uar;
+		mask_out |= MLX4DV_CQ_MASK_UAR;
+	}
+
+	cq_out->comp_mask = mask_out;
 	return 0;
 }
 

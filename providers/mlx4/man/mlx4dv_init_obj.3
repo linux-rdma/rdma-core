@@ -62,7 +62,8 @@ uint32_t        *set_ci_db;
 uint32_t        *arm_db;
 int             arm_sn;
 int             cqe_size;
-uint64_t        comp_mask;
+uint64_t        comp_mask; /* Use enum mlx4dv_cq_comp_mask */
+void            *cq_uar;
 .in -8
 };
 
