@@ -453,6 +453,29 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				goto err_db;
 			}
 		}
+
+		if (mlx5cq_attr->comp_mask & MLX5DV_CQ_INIT_ATTR_MASK_FLAGS) {
+			if (mlx5cq_attr->flags & ~(MLX5DV_CQ_INIT_ATTR_FLAGS_RESERVED - 1)) {
+				mlx5_dbg(fp, MLX5_DBG_CQ,
+					 "Unsupported vendor flags for create_cq\n");
+				errno = EINVAL;
+				goto err_db;
+			}
+
+			if (mlx5cq_attr->flags & MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD) {
+				if (!(mctx->vendor_cap_flags &
+				      MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD) ||
+				    (cqe_sz != 128)) {
+					mlx5_dbg(fp, MLX5_DBG_CQ,
+						 "%dB CQE paddind is not supported\n",
+						 cqe_sz);
+					errno = EINVAL;
+					goto err_db;
+				}
+
+				cmd.flags |= MLX5_CREATE_CQ_FLAGS_CQE_128B_PAD;
+			}
+		}
 	}
 
 	ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,

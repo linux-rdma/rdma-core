@@ -114,6 +114,10 @@ struct mlx5_alloc_pd_resp {
 	__u32				pdn;
 };
 
+enum mlx5_create_cq_flags {
+	MLX5_CREATE_CQ_FLAGS_CQE_128B_PAD	= 1 << 0,
+};
+
 struct mlx5_create_cq {
 	struct ibv_create_cq		ibv_cmd;
 	__u64				buf_addr;
@@ -121,7 +125,7 @@ struct mlx5_create_cq {
 	__u32				cqe_size;
 	__u8                            cqe_comp_en;
 	__u8                            cqe_comp_res_format;
-	__u16                           reserved;
+	__u16                           flags; /* Use enum mlx5_create_cq_flags */
 };
 
 struct mlx5_create_cq_resp {
