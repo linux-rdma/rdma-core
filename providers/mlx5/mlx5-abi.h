@@ -279,6 +279,10 @@ enum mlx5_mpw_caps {
 	MLX5_SUPPORT_EMPW	= 1 << 2,
 };
 
+enum mlx5_query_dev_resp_flags {
+	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP	= 1 << 0,
+};
+
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
@@ -288,7 +292,7 @@ struct mlx5_query_device_ex_resp {
 	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	__u32				support_multi_pkt_send_wqe;
-	__u32				reserved;
+	__u32				flags; /* Use enum mlx5_query_dev_resp_flags */
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 };
 
