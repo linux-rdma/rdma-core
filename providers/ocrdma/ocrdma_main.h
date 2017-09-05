@@ -58,7 +58,6 @@ struct ocrdma_device {
 	struct ocrdma_qp **qp_tbl;
 	pthread_mutex_t dev_lock;
 	pthread_spinlock_t flush_q_lock;
-	struct list_node entry;
 	int id;
 	int gen;
 	uint32_t wqe_size;
