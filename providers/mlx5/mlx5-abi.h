@@ -281,6 +281,7 @@ enum mlx5_mpw_caps {
 
 enum mlx5_query_dev_resp_flags {
 	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP	= 1 << 0,
+	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_PAD	= 1 << 1,
 };
 
 struct mlx5_query_device_ex_resp {
