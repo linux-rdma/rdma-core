@@ -752,6 +752,22 @@ COMPAT_SYMVER_FUNC(mlx5dv_init_obj, 1_0, "MLX5_1.0",
 	return ret;
 }
 
+int mlx5dv_set_context_attr(struct ibv_context *ibv_ctx,
+			enum mlx5dv_set_ctx_attr_type type, void *attr)
+{
+	struct mlx5_context *ctx = to_mctx(ibv_ctx);
+
+	switch (type) {
+	case MLX5DV_CTX_ATTR_BUF_ALLOCATORS:
+		ctx->extern_alloc = *((struct mlx5dv_ctx_allocators *)attr);
+		break;
+	default:
+		return ENOTSUP;
+	}
+
+	return 0;
+}
+
 static void adjust_uar_info(struct mlx5_device *mdev,
 			    struct mlx5_context *context,
 			    struct mlx5_alloc_ucontext_resp resp)
