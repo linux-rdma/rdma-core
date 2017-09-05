@@ -387,6 +387,7 @@ struct mlx5_bf {
 	unsigned			offset;
 	unsigned			buf_size;
 	unsigned			uuarn;
+	off_t				uar_mmap_offset;
 };
 
 struct mlx5_mr {
