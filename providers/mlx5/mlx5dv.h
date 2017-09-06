@@ -33,6 +33,7 @@
 #ifndef _MLX5DV_H_
 #define _MLX5DV_H_
 
+#include <stdio.h>
 #include <linux/types.h> /* For the __be64 type */
 #include <endian.h>
 #if defined(__SSE3__)
@@ -106,6 +107,10 @@ struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
 int mlx5dv_query_device(struct ibv_context *ctx_in,
 			struct mlx5dv_context *attrs_out);
 
+enum mlx5dv_qp_comp_mask {
+	MLX5DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
+};
+
 struct mlx5dv_qp {
 	__be32			*dbrec;
 	struct {
@@ -123,6 +128,7 @@ struct mlx5dv_qp {
 		uint32_t	size;
 	} bf;
 	uint64_t		comp_mask;
+	off_t			uar_mmap_offset;
 };
 
 struct mlx5dv_cq {
@@ -619,4 +625,24 @@ void mlx5dv_set_eth_seg(struct mlx5_wqe_eth_seg *seg, uint8_t cs_flags,
 	seg->inline_hdr_sz	= htobe16(inline_hdr_sz);
 	memcpy(seg->inline_hdr_start, inline_hdr_start, inline_hdr_sz);
 }
+
+enum mlx5dv_set_ctx_attr_type {
+	MLX5DV_CTX_ATTR_BUF_ALLOCATORS = 1,
+};
+
+struct mlx5dv_ctx_allocators {
+	void *(*alloc)(size_t size, void *priv_data);
+	void (*free)(void *ptr, void *priv_data);
+	void *data;
+};
+
+/*
+ * Generic context attributes set API
+ *
+ * Returns 0 on success, or the value of errno on failure
+ * (which indicates the failure reason).
+ */
+int mlx5dv_set_context_attr(struct ibv_context *context,
+		enum mlx5dv_set_ctx_attr_type type, void *attr);
+
 #endif /* _MLX5DV_H_ */
