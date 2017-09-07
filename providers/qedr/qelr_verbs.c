@@ -60,6 +60,9 @@
 #define QELR_RQE_ELEMENT_SIZE	(sizeof(struct rdma_rq_sge))
 #define QELR_CQE_SIZE		(sizeof(union rdma_cqe))
 
+#define IS_IWARP(_dev)		(_dev->node_type == IBV_NODE_RNIC)
+#define IS_ROCE(_dev)		(_dev->node_type == IBV_NODE_CA)
+
 static void qelr_inc_sw_cons_u16(struct qelr_qp_hwq_info *info)
 {
 	info->cons = (info->cons + 1) % info->max_wr;
@@ -435,6 +438,9 @@ static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 	qp->rq.icid = resp->rq_icid;
 	qp->rq.db_data.data.icid = htole16(resp->rq_icid);
 	qp->rq.db = cxt->db_addr + resp->rq_db_offset;
+	qp->rq.iwarp_db2 = cxt->db_addr + resp->rq_db2_offset;
+	qp->rq.iwarp_db2_data.data.icid = htole16(qp->rq.icid);
+	qp->rq.iwarp_db2_data.data.value = htole16(DQ_TCM_IWARP_POST_RQ_CF_CMD);
 	qp->rq.prod = 0;
 
 	/* shadow RQ */
@@ -649,6 +655,12 @@ static int qelr_update_qp_state(struct qelr_qp *qp,
 	int status = 0;
 	enum qelr_qp_state new_state;
 
+	/* iWARP states are updated implicitely by driver and don't have a
+	 * real purpose in user-lib.
+	 */
+	if (IS_IWARP(qp->ibv_qp.context->device))
+		return 0;
+
 	new_state = get_qelr_qp_state(new_ib_state);
 
 	pthread_spin_lock(&qp->q_lock);
@@ -678,9 +690,11 @@ static int qelr_update_qp_state(struct qelr_qp *qp,
 			/* Update doorbell (in case post_recv was done before
 			 * move to RTR)
 			 */
-			mmio_wc_start();
-			writel(qp->rq.db_data.raw, qp->rq.db);
-			mmio_flush_writes();
+			if (IS_ROCE(qp->ibv_qp.context->device)) {
+				mmio_wc_start();
+				writel(qp->rq.db_data.raw, qp->rq.db);
+				mmio_flush_writes();
+			}
 			break;
 		case QELR_QPS_ERR:
 			break;
@@ -871,6 +885,10 @@ static inline void qelr_init_dpm_info(struct qelr_devctx *cxt,
 				      int data_size)
 {
 	dpm->is_edpm = 0;
+
+	/* Currently dpm is not supported for iWARP */
+	if (IS_IWARP(cxt->ibv_ctx.device))
+		return;
 
 	if (qelr_chain_is_full(&qp->sq.chain) &&
 	    wr->send_flags & IBV_SEND_INLINE && !qp->edpm_disabled) {
@@ -1434,7 +1452,8 @@ int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 
 	pthread_spin_lock(&qp->q_lock);
 
-	if ((qp->state != QELR_QPS_RTS && qp->state != QELR_QPS_ERR &&
+	if (IS_ROCE(ib_qp->context->device) &&
+	    (qp->state != QELR_QPS_RTS && qp->state != QELR_QPS_ERR &&
 	     qp->state != QELR_QPS_SQD)) {
 		pthread_spin_unlock(&qp->q_lock);
 		*bad_wr = wr;
@@ -1474,10 +1493,11 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	struct qelr_qp *qp =  get_qelr_qp(ibqp);
 	struct qelr_devctx *cxt = get_qelr_ctx(ibqp->context);
 	uint16_t db_val;
+	uint8_t iwarp = IS_IWARP(ibqp->context->device);
 
 	pthread_spin_lock(&qp->q_lock);
 
-	if (qp->state == QELR_QPS_RST) {
+	if (!iwarp && qp->state == QELR_QPS_RST) {
 		pthread_spin_unlock(&qp->q_lock);
 		*bad_wr = wr;
 		return -EINVAL;
@@ -1546,6 +1566,10 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		writel(qp->rq.db_data.raw, qp->rq.db);
 		mmio_flush_writes();
 
+		if (iwarp) {
+			writel(qp->rq.iwarp_db2_data.raw, qp->rq.iwarp_db2);
+			mmio_flush_writes();
+		}
 		wr = wr->next;
 	}
 
