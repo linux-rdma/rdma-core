@@ -60,6 +60,7 @@ static const struct {
 	unsigned int vendor;
 	unsigned int device;
 } cna_table[] = {
+	CNA(BROADCOM, 0x1614),  /* BCM57454 */
 	CNA(BROADCOM, 0x16C0),  /* BCM57417 NPAR */
 	CNA(BROADCOM, 0x16CE),  /* BMC57311 */
 	CNA(BROADCOM, 0x16CF),  /* BMC57312 */
@@ -74,7 +75,10 @@ static const struct {
 	CNA(BROADCOM, 0x16C1),  /* BMC57414 VF */
 	CNA(BROADCOM, 0x16EF),  /* BCM57416 NPAR */
 	CNA(BROADCOM, 0x16ED),  /* BCM57414 NPAR */
-	CNA(BROADCOM, 0x16EB)   /* BCM57412 NPAR */
+	CNA(BROADCOM, 0x16EB),  /* BCM57412 NPAR */
+	CNA(BROADCOM, 0x16F0),  /* BCM58730 */
+	CNA(BROADCOM, 0x16F1),  /* BCM57452 */
+	CNA(BROADCOM, 0xD802)   /* BCM58802 */
 };
 
 static struct ibv_context_ops bnxt_re_cntx_ops = {
