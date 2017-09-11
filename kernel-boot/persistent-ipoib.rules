@@ -7,6 +7,6 @@
 # bytes of the address or else the address might not match the variable QPN
 # portion.
 #
-# Modern udev is caase sensitive and all addresses need to be in lower case.
+# Modern udev is case sensitive and all addresses need to be in lower case.
 #
 # ACTION=="add", SUBSYSTEM=="net", DRIVERS=="?*", ATTR{type}=="32", ATTR{address}=="?*00:02:c9:03:00:31:78:f2", NAME="mlx4_ib3"
