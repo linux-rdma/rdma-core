@@ -104,6 +104,8 @@ struct mlx4_query_device_ex_resp {
 	__u32				comp_mask;
 	__u32				response_length;
 	__u64				hca_core_clock_offset;
+	__u32				max_inl_recv_sz;
+	__u32				reserved;
 };
 
 struct mlx4_query_device_ex {
@@ -135,7 +137,8 @@ struct mlx4_create_qp {
 	__u8				log_sq_bb_count;
 	__u8				log_sq_stride;
 	__u8				sq_no_prefetch;	/* was reserved in ABI 2 */
-	__u8				reserved[5];
+	__u8				reserved;
+	__u32				inl_recv_sz;
 };
 
 struct mlx4_create_qp_drv_ex {

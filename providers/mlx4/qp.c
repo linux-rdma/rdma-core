@@ -651,9 +651,17 @@ void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 }
 
 int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
-		       enum ibv_qp_type type, struct mlx4_qp *qp)
+		      enum ibv_qp_type type, struct mlx4_qp *qp,
+		      struct mlx4dv_qp_init_attr *mlx4qp_attr)
 {
+	int wqe_size;
+
 	qp->rq.max_gs	 = cap->max_recv_sge;
+	wqe_size = qp->rq.max_gs * sizeof(struct mlx4_wqe_data_seg);
+	if (mlx4qp_attr &&
+	    mlx4qp_attr->comp_mask & MLX4DV_QP_INIT_ATTR_MASK_INL_RECV &&
+	    mlx4qp_attr->inl_recv_sz > wqe_size)
+		wqe_size = mlx4qp_attr->inl_recv_sz;
 
 	if (qp->sq.wqe_cnt) {
 		qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof (uint64_t));
@@ -670,9 +678,11 @@ int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
 	}
 
 	for (qp->rq.wqe_shift = 4;
-	     1 << qp->rq.wqe_shift < qp->rq.max_gs * sizeof (struct mlx4_wqe_data_seg);
+	     1 << qp->rq.wqe_shift < wqe_size;
 	     qp->rq.wqe_shift++)
 		; /* nothing */
+	if (mlx4qp_attr)
+		mlx4qp_attr->inl_recv_sz = 1 << qp->rq.wqe_shift;
 
 	qp->buf_size = (qp->rq.wqe_cnt << qp->rq.wqe_shift) +
 		(qp->sq.wqe_cnt << qp->sq.wqe_shift);
