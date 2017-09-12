@@ -410,6 +410,8 @@ static void print_raw_packet_caps(uint32_t raw_packet_caps)
 		printf("\t\t\t\t\tScatter FCS offload\n");
 	if (raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
 		printf("\t\t\t\t\tIP csum offload\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_DELAY_DROP)
+		printf("\t\t\t\t\tDelay drop\n");
 }
 
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)

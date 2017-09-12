@@ -257,6 +257,7 @@ enum ibv_raw_packet_caps {
 	IBV_RAW_PACKET_CAP_CVLAN_STRIPPING	= 1 << 0,
 	IBV_RAW_PACKET_CAP_SCATTER_FCS		= 1 << 1,
 	IBV_RAW_PACKET_CAP_IP_CSUM		= 1 << 2,
+	IBV_RAW_PACKET_CAP_DELAY_DROP		= 1 << 3,
 };
 
 struct ibv_device_attr_ex {
@@ -682,7 +683,8 @@ enum ibv_wq_init_attr_mask {
 enum ibv_wq_flags {
 	IBV_WQ_FLAGS_CVLAN_STRIPPING		= 1 << 0,
 	IBV_WQ_FLAGS_SCATTER_FCS		= 1 << 1,
-	IBV_WQ_FLAGS_RESERVED			= 1 << 2,
+	IBV_WQ_FLAGS_DELAY_DROP			= 1 << 2,
+	IBV_WQ_FLAGS_RESERVED			= 1 << 3,
 };
 
 struct ibv_wq_init_attr {
