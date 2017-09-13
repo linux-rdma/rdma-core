@@ -150,7 +150,8 @@ enum {
 };
 
 enum {
-	MLX5_CSUM_SUPPORT_RAW_OVER_ETH  = (1 <<  0),
+	MLX5_CSUM_SUPPORT_RAW_OVER_ETH  = (1 << 0),
+	MLX5_CSUM_SUPPORT_UNDERLAY_UD   = (1 << 1),
 	/*
 	 * Only report rx checksum when the validation
 	 * is valid.
@@ -396,6 +397,10 @@ struct mlx5_mr {
 	uint32_t			alloc_flags;
 };
 
+enum mlx5_qp_flags {
+	MLX5_QP_FLAGS_USE_UNDERLAY = 0x01,
+};
+
 struct mlx5_qp {
 	struct mlx5_resource            rsc; /* This struct must be first */
 	struct verbs_qp			verbs_qp;
@@ -421,6 +426,7 @@ struct mlx5_qp {
 	uint32_t			max_tso;
 	uint16_t			max_tso_header;
 	int                             rss_qp;
+	uint32_t			flags; /* Use enum mlx5_qp_flags */
 };
 
 struct mlx5_ah {

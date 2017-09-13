@@ -38,6 +38,7 @@ enum ibv_qp_create_flags create_flags;	/* Creation flags for this QP */
 uint16_t                max_tso_header; /* Maximum TSO header size */
 struct ibv_rwq_ind_table *rwq_ind_tbl;  /* Indirection table to be associated with the QP */
 struct ibv_rx_hash_conf  rx_hash_conf;  /* RX hash configuration to be used */
+uint32_t                source_qpn;     /* Source QP number, creation flag IBV_QP_CREATE_SOURCE_QPN should be set, few NOTEs below */
 .in -8
 };
 .sp
@@ -57,6 +58,7 @@ enum ibv_qp_create_flags {
 IBV_QP_CREATE_BLOCK_SELF_MCAST_LB       = 1 << 1, /* Prevent self multicast loopback */
 IBV_QP_CREATE_SCATTER_FCS               = 1 << 8, /* FCS field will be scattered to host memory */
 IBV_QP_CREATE_CVLAN_STRIPPING           = 1 << 9, /* CVLAN field will be stripped from incoming packets */
+IBV_QP_CREATE_SOURCE_QPN                = 1 << 10, /* The created QP will use the source_qpn as its wire QP number */
 .in -8
 };
 .nf
@@ -92,6 +94,8 @@ returns 0 on success, or the value of errno on failure (which indicates the fail
 The attributes max_recv_wr and max_recv_sge are ignored by
 .B ibv_create_qp_ex()
 if the QP is to be associated with an SRQ.
+.PP
+The attribute source_qpn is supported only on UD QP, without flow steering RX should not be possible.
 .PP
 .B ibv_destroy_qp()
 fails if the QP is attached to a multicast group.
