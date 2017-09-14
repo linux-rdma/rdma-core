@@ -256,6 +256,11 @@ static int mlx4_init_context(struct verbs_device *v_device,
 	verbs_set_ctx_op(verbs_ctx, create_cq_ex, mlx4_create_cq_ex);
 	verbs_set_ctx_op(verbs_ctx, query_device_ex, mlx4_query_device_ex);
 	verbs_set_ctx_op(verbs_ctx, query_rt_values, mlx4_query_rt_values);
+	verbs_set_ctx_op(verbs_ctx, create_wq, mlx4_create_wq);
+	verbs_set_ctx_op(verbs_ctx, modify_wq, mlx4_modify_wq);
+	verbs_set_ctx_op(verbs_ctx, destroy_wq, mlx4_destroy_wq);
+	verbs_set_ctx_op(verbs_ctx, create_rwq_ind_table, mlx4_create_rwq_ind_table);
+	verbs_set_ctx_op(verbs_ctx, destroy_rwq_ind_table, mlx4_destroy_rwq_ind_table);
 
 	return 0;
 
@@ -414,6 +419,24 @@ static int mlx4dv_get_srq(struct ibv_srq *srq_in,
 	return 0;
 }
 
+static int mlx4dv_get_rwq(struct ibv_wq *wq_in, struct mlx4dv_rwq *wq_out)
+{
+	struct mlx4_qp *mqp = wq_to_mqp(wq_in);
+
+	wq_out->comp_mask = 0;
+
+	wq_out->buf.buf = mqp->buf.buf;
+	wq_out->buf.length = mqp->buf.length;
+
+	wq_out->rdb = mqp->db;
+
+	wq_out->rq.wqe_cnt = mqp->rq.wqe_cnt;
+	wq_out->rq.wqe_shift = mqp->rq.wqe_shift;
+	wq_out->rq.offset = mqp->rq.offset;
+
+	return 0;
+}
+
 int mlx4dv_init_obj(struct mlx4dv_obj *obj, uint64_t obj_type)
 {
 	int ret = 0;
@@ -424,6 +447,8 @@ int mlx4dv_init_obj(struct mlx4dv_obj *obj, uint64_t obj_type)
 		ret = mlx4dv_get_cq(obj->cq.in, obj->cq.out);
 	if (!ret && (obj_type & MLX4DV_OBJ_SRQ))
 		ret = mlx4dv_get_srq(obj->srq.in, obj->srq.out);
+	if (!ret && (obj_type & MLX4DV_OBJ_RWQ))
+		ret = mlx4dv_get_rwq(obj->rwq.in, obj->rwq.out);
 
 	return ret;
 }
@@ -437,6 +462,23 @@ int mlx4dv_query_device(struct ibv_context *ctx_in,
 	attrs_out->comp_mask = 0;
 
 	attrs_out->max_inl_recv_sz = mctx->max_inl_recv_sz;
+
+	return 0;
+}
+
+int mlx4dv_set_context_attr(struct ibv_context *context,
+			    enum mlx4dv_set_ctx_attr_type attr_type,
+			    void *attr)
+{
+	struct mlx4_context *ctx = to_mctx(context);
+
+	switch (attr_type) {
+	case MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ:
+		ctx->log_wqs_range_sz = *((uint8_t *)attr);
+		break;
+	default:
+		return ENOTSUP;
+	}
 
 	return 0;
 }

@@ -83,6 +83,26 @@ uint64_t        comp_mask;
 .in -8
 };
 
+struct mlx4dv_rwq {
+.in +8
+__be32          *rdb;
+struct {
+.in +8
+uint32_t        wqe_cnt;
+int             wqe_shift;
+int             offset;
+.in -8
+} rq;
+struct {
+.in +8
+void            *buf;
+size_t          length;
+.in -8
+} buf;
+uint64_t        comp_mask;
+.in -8
+};
+
 struct mlx4dv_obj {
 .in +8
 struct {

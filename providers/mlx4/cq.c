@@ -229,7 +229,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 		if (!srq)
 			return CQ_POLL_ERR;
 	} else {
-		if (!*cur_qp || (qpn != (*cur_qp)->verbs_qp.qp.qp_num)) {
+		if (!*cur_qp || (qpn != (*cur_qp)->qpn_cache)) {
 			/*
 			 * We do not have to take the QP table lock here,
 			 * because CQs will be locked while QPs are removed
@@ -239,7 +239,8 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 			if (!*cur_qp)
 				return CQ_POLL_ERR;
 		}
-		srq = ((*cur_qp)->verbs_qp.qp.srq) ? to_msrq((*cur_qp)->verbs_qp.qp.srq) : NULL;
+		srq = ((*cur_qp)->type == MLX4_RSC_TYPE_SRQ) ?
+			to_msrq((*cur_qp)->verbs_qp.qp.srq) : NULL;
 	}
 
 	pwr_id = lazy ? &cq->ibv_cq.wr_id : &wc->wr_id;

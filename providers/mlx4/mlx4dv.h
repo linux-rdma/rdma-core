@@ -197,6 +197,20 @@ struct mlx4dv_srq {
 	uint64_t			comp_mask;
 };
 
+struct mlx4dv_rwq {
+	__be32			*rdb;
+	struct {
+		uint32_t	wqe_cnt;
+		int		wqe_shift;
+		int		offset;
+	} rq;
+	struct {
+		void			*buf;
+		size_t			length;
+	} buf;
+	uint64_t		comp_mask;
+};
+
 struct mlx4dv_obj {
 	struct {
 		struct ibv_qp		*in;
@@ -210,12 +224,17 @@ struct mlx4dv_obj {
 		struct ibv_srq		*in;
 		struct mlx4dv_srq	*out;
 	} srq;
+	struct {
+		struct ibv_wq		*in;
+		struct mlx4dv_rwq	*out;
+	} rwq;
 };
 
 enum mlx4dv_obj_type {
 	MLX4DV_OBJ_QP	= 1 << 0,
 	MLX4DV_OBJ_CQ	= 1 << 1,
 	MLX4DV_OBJ_SRQ	= 1 << 2,
+	MLX4DV_OBJ_RWQ	= 1 << 3,
 };
 
 /*
@@ -498,5 +517,16 @@ void mlx4dv_set_data_seg(struct mlx4_wqe_data_seg *seg,
 int mlx4dv_query_device(struct ibv_context *ctx_in,
 			struct mlx4dv_context *attrs_out);
 
-#endif /* _MLX4DV_H_ */
+enum mlx4dv_set_ctx_attr_type {
+	/* Attribute type uint8_t */
+	MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ	= 0,
+};
 
+/*
+ * Returns 0 on success, or the value of errno on failure
+ * (which indicates the failure reason).
+ */
+int mlx4dv_set_context_attr(struct ibv_context *context,
+			    enum mlx4dv_set_ctx_attr_type attr_type,
+			    void *attr);
+#endif /* _MLX4DV_H_ */
