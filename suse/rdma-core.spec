@@ -65,7 +65,6 @@ BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig(libnl-3.0)
 BuildRequires:  pkgconfig(libnl-route-3.0)
 BuildRequires:  pkgconfig(systemd)
-Requires:       dracut
 Requires:       kmod
 Requires:       systemd
 Requires:       udev
