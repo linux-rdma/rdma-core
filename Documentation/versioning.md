@@ -22,10 +22,10 @@ index a2464ec5..cf237904 100644
 +++ b/CMakeLists.txt
 @@ -44,7 +44,7 @@ endif()
  set(PACKAGE_NAME "RDMA")
- 
+
  # See Documentation/versioning.md
--set(PACKAGE_VERSION "14")
-+set(PACKAGE_VERSION "15")
+-set(PACKAGE_VERSION "15")
++set(PACKAGE_VERSION "16")
  # When this is changed the values in these files need changing too:
  #   debian/libibverbs1.symbols
  #   libibverbs/libibverbs.map
@@ -34,9 +34,9 @@ index 86b402f4..9ee7fe16 100644
 --- a/debian/changelog
 +++ b/debian/changelog
 @@ -1,4 +1,4 @@
--rdma-core (14-1) unstable; urgency=low
-+rdma-core (15-1) unstable; urgency=low
- 
+-rdma-core (15-1) unstable; urgency=low
++rdma-core (16-1) unstable; urgency=low
+
    * New version.
    * Adding debian/copyright.
 diff --git a/redhat/rdma-core.spec b/redhat/rdma-core.spec
@@ -45,11 +45,11 @@ index cc0c3ba0..62334730 100644
 +++ b/redhat/rdma-core.spec
 @@ -1,5 +1,5 @@
  Name: rdma-core
--Version: 14
-+Version: 15
+-Version: 15
++Version: 16
  Release: 1%{?dist}
  Summary: RDMA core userspace libraries and daemons
- 
+
 diff --git a/suse/rdma-core.spec b/suse/rdma-core.spec
 index 76ca7286..a19f9e01 100644
 --- a/suse/rdma-core.spec
@@ -58,8 +58,8 @@ index 76ca7286..a19f9e01 100644
  %bcond_without  systemd
  %define         git_ver %{nil}
  Name:           rdma-core
--Version:        14
-+Version:        15
+-Version:        15
++Version:        16
  Release:        0
  Summary:        RDMA core userspace libraries and daemons
  License:        GPL-2.0 or BSD-2-Clause
