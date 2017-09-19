@@ -1,15 +1,14 @@
 =================
-CHECK_LFT_BALANCE
+check_lft_balance
 =================
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 --------------------------------------------------
 check InfiniBand unicast forwarding tables balance
 --------------------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

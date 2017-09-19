@@ -1,15 +1,14 @@
 =========
-IBSYSSTAT
+ibsysstat
 =========
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 --------------------------------------
 system status on an InfiniBand address
 --------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========

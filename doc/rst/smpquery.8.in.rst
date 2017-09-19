@@ -1,15 +1,14 @@
 ========
-SMPQUERY
+smpquery
 ========
-
-:Date: @BUILD_DATE@
-:Manual section: 8
-:Manual group: Open IB Diagnostics
 
 ---------------------------------------------
 query InfiniBand subnet management attributes
 ---------------------------------------------
 
+:Date: @BUILD_DATE@
+:Manual section: 8
+:Manual group: Open IB Diagnostics
 
 SYNOPSIS
 ========
