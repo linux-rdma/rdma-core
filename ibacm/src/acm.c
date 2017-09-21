@@ -2457,8 +2457,10 @@ acm_open_port(struct acmc_port *port, struct acmc_device *dev, uint8_t port_num)
 
 	port->mad_agentid = umad_register(port->mad_portid,
 					  IB_MGMT_CLASS_SA, 1, 1, NULL);
-	if (port->mad_agentid < 0)
+	if (port->mad_agentid < 0) {
+		umad_close_port(port->mad_portid);
 		acm_log(0, "ERROR - unable to register MAD client\n");
+	}
 
 	port->prov = NULL;
 	port->state = IBV_PORT_DOWN;
