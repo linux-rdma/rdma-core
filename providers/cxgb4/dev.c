@@ -49,7 +49,7 @@
  * Macros needed to support the PCI Device ID Table ...
  */
 #define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN \
-	static struct { \
+	static struct hca_ent { \
 		unsigned vendor; \
 		unsigned device; \
 	} hca_table[] = {
@@ -399,47 +399,40 @@ void dump_state(void)
  */
 int c4iw_abi_version = 1;
 
-static struct verbs_device *cxgb4_driver_init(const char *uverbs_sys_path,
-					      int abi_version)
+static bool c4iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char devstr[IBV_SYSFS_PATH_MAX], ibdev[16], value[32], *cp;
-	struct c4iw_dev *dev;
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
+	char value[32], *cp;
 	unsigned vendor, device, fw_maj, fw_min;
 	int i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	sscanf(value, "%i", &vendor);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
+		    device == hca_table[i].device) {
+			sysfs_dev->provider_data = &hca_table[i];
 			goto found;
+		}
 
-	return NULL;
+	return false;
 
 found:
-	c4iw_abi_version = abi_version;	
-
 	/*
 	 * Verify that the firmware major number matches.  Major number
 	 * mismatches are fatal.  Minor number mismatches are tolerated.
 	 */
-	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev",
-				ibdev, sizeof ibdev) < 0)
-		return NULL;
-
-	memset(devstr, 0, sizeof devstr);
-	snprintf(devstr, sizeof devstr, "%s/class/infiniband/%s",
-		 ibv_get_sysfs_path(), ibdev);
-	if (ibv_read_sysfs_file(devstr, "fw_ver", value, sizeof value) < 0)
-		return NULL;
+	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "fw_ver", value,
+				sizeof(value)) < 0)
+		return false;
 
 	cp = strtok(value+1, ".");
 	sscanf(cp, "%i", &fw_maj);
@@ -451,7 +444,7 @@ found:
 			"Firmware major number is %u and libcxgb4 needs %u.\n",
 			fw_maj, FW_MAJ);
 		fflush(stderr);
-		return NULL;
+		return false;
 	}
 
 	DBGLOG("libcxgb4");
@@ -462,22 +455,26 @@ found:
 			fw_min, FW_MIN);
 		fflush(stderr);
 	}
+	return true;
+}
 
-	PDBG("%s found vendor %d device %d type %d\n",
-	     __FUNCTION__, vendor, device, CHELSIO_CHIP_VERSION(hca_table[i].device >> 8));
+static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct c4iw_dev *dev;
+	struct hca_ent *hca_ent = sysfs_dev->provider_data;
 
 	c4iw_page_size = sysconf(_SC_PAGESIZE);
 	c4iw_page_shift = long_log2(c4iw_page_size);
 	c4iw_page_mask = ~(c4iw_page_size - 1);
 
 	dev = calloc(1, sizeof *dev);
-	if (!dev) {
+	if (!dev)
 		return NULL;
-	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->chip_version = CHELSIO_CHIP_VERSION(hca_table[i].device >> 8);
-	dev->abi_version = abi_version;
+	c4iw_abi_version = sysfs_dev->abi_ver;
+	dev->chip_version = CHELSIO_CHIP_VERSION(hca_ent->device >> 8);
+	dev->abi_version = sysfs_dev->abi_ver;
 	list_node_init(&dev->list);
 
 	PDBG("%s device claimed\n", __FUNCTION__);
@@ -514,7 +511,10 @@ found:
 
 static const struct verbs_device_ops c4iw_dev_ops = {
 	.name = "cxgb4",
-	.init_device = cxgb4_driver_init,
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_device = c4iw_device_match,
+	.alloc_device = c4iw_device_alloc,
 	.uninit_device = c4iw_uninit_device,
 	.alloc_context = c4iw_alloc_context,
 	.free_context = c4iw_free_context,

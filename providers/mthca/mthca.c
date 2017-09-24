@@ -77,7 +77,7 @@
 	  .device = PCI_DEVICE_ID_MELLANOX_##d,		\
 	  .type = MTHCA_##t }
 
-static struct {
+static struct hca_ent {
 	unsigned		vendor;
 	unsigned		device;
 	enum mthca_hca_type	type;
@@ -216,46 +216,44 @@ static void mthca_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device *mthca_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static bool mthca_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char			value[8];
-	struct mthca_device    *dev;
 	unsigned                vendor, device;
 	int                     i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	sscanf(value, "%i", &vendor);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
+		    device == hca_table[i].device) {
+			sysfs_dev->provider_data = &hca_table[i];
+			return true;
+		}
 
-	return NULL;
+	return false;
+}
 
-found:
-	if (abi_version > MTHCA_UVERBS_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is too new (expected %d)\n",
-			abi_version, uverbs_sys_path, MTHCA_UVERBS_ABI_VERSION);
-		return NULL;
-	}
+static struct verbs_device *
+mthca_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct mthca_device    *dev;
+	struct hca_ent *hca_ent = sysfs_dev->provider_data;
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->hca_type    = hca_table[i].type;
+	dev->hca_type    = hca_ent->type;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
@@ -263,7 +261,10 @@ found:
 
 static const struct verbs_device_ops mthca_dev_ops = {
 	.name = "mthca",
-	.init_device = mthca_driver_init,
+	.match_min_abi_version = 0,
+	.match_max_abi_version = MTHCA_UVERBS_ABI_VERSION,
+	.match_device = mthca_device_match,
+	.alloc_device = mthca_device_alloc,
 	.uninit_device = mthca_uninit_device,
 	.alloc_context = mthca_alloc_context,
 	.free_context = mthca_free_context,

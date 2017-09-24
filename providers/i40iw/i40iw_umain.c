@@ -55,7 +55,7 @@
 	  .device = d,		\
 	  .type = INTEL_ ## t }
 
-static struct {
+static struct hca_ent {
 	unsigned int vendor;
 	unsigned int device;
 	enum i40iw_uhca_type type;
@@ -220,44 +220,53 @@ static void i40iw_uninit_device(struct verbs_device *verbs_device)
  * @uverbs_sys_path: sys path
  * @abi_version: not used
  */
-static struct verbs_device *i40iw_driver_init(const char *uverbs_sys_path,
-					      int abi_version)
+static bool i40iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[16];
-	struct i40iw_udevice *dev;
 	unsigned int vendor, device;
 	int i;
 
 	if ((ibv_read_sysfs_file(uverbs_sys_path, "device/vendor", value, sizeof(value)) < 0) ||
 	    (sscanf(value, "%i", &vendor) != 1))
-		return NULL;
+		return false;
 
 	if ((ibv_read_sysfs_file(uverbs_sys_path, "device/device", value, sizeof(value)) < 0) ||
 	    (sscanf(value, "%i", &device) != 1))
-		return NULL;
+		return false;
 
 	for (i = 0; i < sizeof(hca_table) / sizeof(hca_table[0]); ++i) {
 		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
+		    device == hca_table[i].device) {
+			sysfs_dev->provider_data = &hca_table[i];
+			return true;
+		}
 	}
 
-	return NULL;
-found:
+	return false;
+}
+
+static struct verbs_device *
+i40iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct i40iw_udevice *dev;
+	struct hca_ent *hca_ent = sysfs_dev->provider_data;
+
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "%s: failed to allocate memory for device object\n", __func__);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->hca_type = hca_table[i].type;
+	dev->hca_type = hca_ent->type;
 	dev->page_size = I40IW_HW_PAGE_SIZE;
 	return &dev->ibv_dev;
 }
 
 static const struct verbs_device_ops i40iw_udev_ops = {
 	.name = "i40iw",
-	.init_device = i40iw_driver_init,
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_device = i40iw_device_match,
+	.alloc_device = i40iw_device_alloc,
 	.uninit_device  = i40iw_uninit_device,
 	.alloc_context = i40iw_ualloc_context,
 	.free_context = i40iw_ufree_context,

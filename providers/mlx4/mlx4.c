@@ -286,50 +286,41 @@ static void mlx4_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
+static bool mlx4_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char			value[8];
-	struct mlx4_device    *dev;
 	unsigned		vendor, device;
 	int			i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	vendor = strtol(value, NULL, 16);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	device = strtol(value, NULL, 16);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
 		    device == hca_table[i].device)
-			goto found;
+			return true;
 
-	return NULL;
+	return false;
+}
 
-found:
-	if (abi_version < MLX4_UVERBS_MIN_ABI_VERSION ||
-	    abi_version > MLX4_UVERBS_MAX_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is not supported "
-			"(min supported %d, max supported %d)\n",
-			abi_version, uverbs_sys_path,
-			MLX4_UVERBS_MIN_ABI_VERSION,
-			MLX4_UVERBS_MAX_ABI_VERSION);
-		return NULL;
-	}
+static struct verbs_device *mlx4_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct mlx4_device *dev;
 
 	dev = calloc(1, sizeof *dev);
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	dev->verbs_dev.sz = sizeof(*dev);
 	dev->verbs_dev.size_of_context =
@@ -340,7 +331,10 @@ found:
 
 static const struct verbs_device_ops mlx4_dev_ops = {
 	.name = "mlx4",
-	.init_device = mlx4_driver_init,
+	.match_min_abi_version = MLX4_UVERBS_MIN_ABI_VERSION,
+	.match_max_abi_version = MLX4_UVERBS_MAX_ABI_VERSION,
+	.match_device = mlx4_device_match,
+	.alloc_device = mlx4_device_alloc,
 	.uninit_device = mlx4_uninit_device,
 	.init_context = mlx4_init_context,
 	.uninit_context = mlx4_uninit_context,
