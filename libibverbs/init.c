@@ -70,8 +70,7 @@ struct ibv_driver_name {
 
 struct ibv_driver {
 	struct list_node	entry;
-	const char	       *name;
-	verbs_driver_init_func	verbs_init_func;
+	const struct verbs_device_ops *ops;
 };
 
 static LIST_HEAD(driver_name_list);
@@ -164,19 +163,19 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 	return ret;
 }
 
-void verbs_register_driver(const char *name,
-			   verbs_driver_init_func verbs_init_func)
+void verbs_register_driver(const struct verbs_device_ops *ops)
 {
 	struct ibv_driver *driver;
 
 	driver = malloc(sizeof *driver);
 	if (!driver) {
-		fprintf(stderr, PFX "Warning: couldn't allocate driver for %s\n", name);
+		fprintf(stderr,
+			PFX "Warning: couldn't allocate driver for %s\n",
+			ops->name);
 		return;
 	}
 
-	driver->name            = name;
-	driver->verbs_init_func = verbs_init_func;
+	driver->ops = ops;
 
 	list_add_tail(&driver_list, &driver->entry);
 }
@@ -354,16 +353,17 @@ out:
 	closedir(conf_dir);
 }
 
-static struct verbs_device *try_driver(struct ibv_driver *driver,
+static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 				       struct ibv_sysfs_dev *sysfs_dev)
 {
 	struct verbs_device *vdev;
 	struct ibv_device *dev;
 	char value[16];
 
-	vdev = driver->verbs_init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
+	vdev = ops->init_device(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
 	if (!vdev)
 		return NULL;
+	vdev->ops = ops;
 
 	atomic_init(&vdev->refcount, 1);
 	dev = &vdev->device;
@@ -415,7 +415,7 @@ static struct verbs_device *try_drivers(struct ibv_sysfs_dev *sysfs_dev)
 	struct verbs_device *dev;
 
 	list_for_each(&driver_list, driver, entry) {
-		dev = try_driver(driver, sysfs_dev);
+		dev = try_driver(driver->ops, sysfs_dev);
 		if (dev)
 			return dev;
 	}

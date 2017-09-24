@@ -1026,12 +1026,6 @@ static void mlx5_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops mlx5_dev_ops = {
-	.init_context = mlx5_init_context,
-	.uninit_context = mlx5_cleanup_context,
-	.uninit_device = mlx5_uninit_device
-};
-
 static struct verbs_device *mlx5_driver_init(const char *uverbs_sys_path,
 					     int abi_version)
 {
@@ -1078,7 +1072,6 @@ found:
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	dev->driver_abi_ver = abi_version;
 
-	dev->verbs_dev.ops = &mlx5_dev_ops;
 	dev->verbs_dev.sz = sizeof(*dev);
 	dev->verbs_dev.size_of_context = sizeof(struct mlx5_context) -
 		sizeof(struct ibv_context);
@@ -1086,7 +1079,11 @@ found:
 	return &dev->verbs_dev;
 }
 
-static __attribute__((constructor)) void mlx5_register_driver(void)
-{
-	verbs_register_driver("mlx5", mlx5_driver_init);
-}
+static const struct verbs_device_ops mlx5_dev_ops = {
+	.name = "mlx5",
+	.init_device = mlx5_driver_init,
+	.uninit_device = mlx5_uninit_device,
+	.init_context = mlx5_init_context,
+	.uninit_context = mlx5_cleanup_context,
+};
+PROVIDER_DRIVER(mlx5_dev_ops);

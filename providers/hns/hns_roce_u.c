@@ -180,12 +180,6 @@ static void hns_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops hns_roce_dev_ops = {
-	.alloc_context = hns_roce_alloc_context,
-	.free_context	= hns_roce_free_context,
-	.uninit_device = hns_uninit_device
-};
-
 static struct verbs_device *hns_roce_driver_init(const char *uverbs_sys_path,
 						 int abi_version)
 {
@@ -223,14 +217,17 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = &hns_roce_dev_ops;
 	dev->u_hw = (struct hns_roce_u_hw *)u_hw;
 	dev->hw_version = hw_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void hns_roce_register_driver(void)
-{
-	verbs_register_driver("hns", hns_roce_driver_init);
-}
+static const struct verbs_device_ops hns_roce_dev_ops = {
+	.name = "hns",
+	.init_device = hns_roce_driver_init,
+	.uninit_device = hns_uninit_device,
+	.alloc_context = hns_roce_alloc_context,
+	.free_context = hns_roce_free_context,
+};
+PROVIDER_DRIVER(hns_roce_dev_ops);

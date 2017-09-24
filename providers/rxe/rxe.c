@@ -893,12 +893,6 @@ static void rxe_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops rxe_dev_ops = {
-	.alloc_context = rxe_alloc_context,
-	.free_context = rxe_free_context,
-	.uninit_device = rxe_uninit_device
-};
-
 static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,
 					    int abi_version)
 {
@@ -921,14 +915,16 @@ static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = &rxe_dev_ops;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__ ((constructor))
-void rxe_register_driver(void)
-{
-	verbs_register_driver("rxe", rxe_driver_init);
-}
+static const struct verbs_device_ops rxe_dev_ops = {
+	.name = "rxe",
+	.init_device = rxe_driver_init,
+	.uninit_device = rxe_uninit_device,
+	.alloc_context = rxe_alloc_context,
+	.free_context = rxe_free_context,
+};
+PROVIDER_DRIVER(rxe_dev_ops);

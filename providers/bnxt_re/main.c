@@ -174,11 +174,6 @@ static void bnxt_re_uninit_context(struct verbs_device *vdev,
 	}
 }
 
-static struct verbs_device_ops bnxt_re_dev_ops = {
-	.init_context = bnxt_re_init_context,
-	.uninit_context = bnxt_re_uninit_context,
-};
-
 static struct verbs_device *bnxt_re_driver_init(const char *uverbs_sys_path,
 						int abi_version)
 {
@@ -220,12 +215,14 @@ found:
 	dev->vdev.sz = sizeof(*dev);
 	dev->vdev.size_of_context =
 		sizeof(struct bnxt_re_context) - sizeof(struct ibv_context);
-	dev->vdev.ops = &bnxt_re_dev_ops;
 
 	return &dev->vdev;
 }
 
-static __attribute__((constructor)) void bnxt_re_register_driver(void)
-{
-	verbs_register_driver("bnxt_re", bnxt_re_driver_init);
-}
+static const struct verbs_device_ops bnxt_re_dev_ops = {
+	.name = "bnxt_re",
+	.init_device = bnxt_re_driver_init,
+	.init_context = bnxt_re_init_context,
+	.uninit_context = bnxt_re_uninit_context,
+};
+PROVIDER_DRIVER(bnxt_re_dev_ops);

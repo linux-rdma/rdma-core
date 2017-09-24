@@ -115,12 +115,6 @@ static void qelr_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops qelr_dev_ops = {
-	.alloc_context = qelr_alloc_context,
-	.free_context = qelr_free_context,
-	.uninit_device = qelr_uninit_device
-};
-
 static void qelr_open_debug_file(struct qelr_devctx *ctx)
 {
 	char *env;
@@ -274,13 +268,14 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = &qelr_dev_ops;
-
 	return &dev->ibv_dev;
 }
 
-static __attribute__ ((constructor))
-void qelr_register_driver(void)
-{
-	verbs_register_driver("qelr", qelr_driver_init);
-}
+static const struct verbs_device_ops qelr_dev_ops = {
+	.name = "qedr",
+	.init_device = qelr_driver_init,
+	.uninit_device = qelr_uninit_device,
+	.alloc_context = qelr_alloc_context,
+	.free_context = qelr_free_context,
+};
+PROVIDER_DRIVER(qelr_dev_ops);

@@ -227,12 +227,6 @@ static void c4iw_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops c4iw_dev_ops = {
-	.alloc_context = c4iw_alloc_context,
-	.free_context = c4iw_free_context,
-	.uninit_device = c4iw_uninit_device
-};
-
 #ifdef STALL_DETECTION
 
 int stall_to;
@@ -478,7 +472,6 @@ found:
 	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = &c4iw_dev_ops;
 	dev->chip_version = CHELSIO_CHIP_VERSION(hca_table[i].device >> 8);
 	dev->abi_version = abi_version;
 	list_node_init(&dev->list);
@@ -515,12 +508,20 @@ found:
 	return &dev->ibv_dev;
 }
 
+static const struct verbs_device_ops c4iw_dev_ops = {
+	.name = "cxgb4",
+	.init_device = cxgb4_driver_init,
+	.uninit_device = c4iw_uninit_device,
+	.alloc_context = c4iw_alloc_context,
+	.free_context = c4iw_free_context,
+};
+
 static __attribute__((constructor)) void cxgb4_register_driver(void)
 {
 	c4iw_page_size = sysconf(_SC_PAGESIZE);
 	c4iw_page_shift = long_log2(c4iw_page_size);
 	c4iw_page_mask = ~(c4iw_page_size - 1);
-	verbs_register_driver("cxgb4", cxgb4_driver_init);
+	verbs_register_driver(&c4iw_dev_ops);
 }
 
 #ifdef STATS

@@ -107,12 +107,6 @@ static void ocrdma_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops ocrdma_dev_ops = {
-	.alloc_context = ocrdma_alloc_context,
-	.free_context = ocrdma_free_context,
-	.uninit_device = ocrdma_uninit_device
-};
-
 /*
  * ocrdma_alloc_context
  */
@@ -225,18 +219,17 @@ found:
 	bzero(dev->qp_tbl, OCRDMA_MAX_QP * sizeof(struct ocrdma_qp *));
 	pthread_mutex_init(&dev->dev_lock, NULL);
 	pthread_spin_init(&dev->flush_q_lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = &ocrdma_dev_ops;
 	return &dev->ibv_dev;
 qp_err:
 	free(dev);
 	return NULL;
 }
 
-/*
- * ocrdma_register_driver
- */
-static __attribute__ ((constructor))
-void ocrdma_register_driver(void)
-{
-	verbs_register_driver("ocrdma", ocrdma_driver_init);
-}
+static const struct verbs_device_ops ocrdma_dev_ops = {
+	.name = "ocrdma",
+	.init_device = ocrdma_driver_init,
+	.uninit_device = ocrdma_uninit_device,
+	.alloc_context = ocrdma_alloc_context,
+	.free_context = ocrdma_free_context,
+};
+PROVIDER_DRIVER(ocrdma_dev_ops);
