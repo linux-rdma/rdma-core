@@ -169,12 +169,6 @@ static void pvrdma_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops pvrdma_dev_ops = {
-	.alloc_context = pvrdma_alloc_context,
-	.free_context  = pvrdma_free_context,
-	.uninit_device = pvrdma_uninit_device
-};
-
 static struct pvrdma_device *pvrdma_driver_init_shared(
 						const char *uverbs_sys_path,
 						int abi_version)
@@ -215,7 +209,6 @@ static struct pvrdma_device *pvrdma_driver_init_shared(
 
 	dev->abi_version = abi_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->ibv_dev.ops = &pvrdma_dev_ops;
 
 	return dev;
 }
@@ -231,7 +224,11 @@ static struct verbs_device *pvrdma_driver_init(const char *uverbs_sys_path,
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void pvrdma_register_driver(void)
-{
-	verbs_register_driver("pvrdma", pvrdma_driver_init);
-}
+static const struct verbs_device_ops pvrdma_dev_ops = {
+	.name = "pvrdma",
+	.init_device = pvrdma_driver_init,
+	.uninit_device = pvrdma_uninit_device,
+	.alloc_context = pvrdma_alloc_context,
+	.free_context  = pvrdma_free_context,
+};
+PROVIDER_DRIVER(pvrdma_dev_ops);

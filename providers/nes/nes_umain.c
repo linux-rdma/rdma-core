@@ -191,13 +191,6 @@ static void nes_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops nes_udev_ops = {
-	.alloc_context = nes_ualloc_context,
-	.free_context = nes_ufree_context,
-	.uninit_device = nes_uninit_device
-};
-
-
 /**
  * nes_driver_init
  */
@@ -243,7 +236,6 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = &nes_udev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
@@ -252,13 +244,11 @@ found:
 	return &dev->ibv_dev;
 }
 
-
-/**
- * nes_register_driver
- */
-static __attribute__((constructor)) void nes_register_driver(void)
-{
-	/* fprintf(stderr, PFX "nes_register_driver: call ibv_register_driver()\n"); */
-
-	verbs_register_driver("nes", nes_driver_init);
-}
+static const struct verbs_device_ops nes_udev_ops = {
+	.name = "nes",
+	.init_device = nes_driver_init,
+	.uninit_device = nes_uninit_device,
+	.alloc_context = nes_ualloc_context,
+	.free_context = nes_ufree_context,
+};
+PROVIDER_DRIVER(nes_udev_ops);

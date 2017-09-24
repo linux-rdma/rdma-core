@@ -286,12 +286,6 @@ static void mlx4_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops mlx4_dev_ops = {
-	.init_context = mlx4_init_context,
-	.uninit_context = mlx4_uninit_context,
-	.uninit_device = mlx4_uninit_device
-};
-
 static struct verbs_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
 {
 	char			value[8];
@@ -337,7 +331,6 @@ found:
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	dev->abi_version = abi_version;
 
-	dev->verbs_dev.ops = &mlx4_dev_ops;
 	dev->verbs_dev.sz = sizeof(*dev);
 	dev->verbs_dev.size_of_context =
 		sizeof(struct mlx4_context) - sizeof(struct ibv_context);
@@ -345,10 +338,14 @@ found:
 	return &dev->verbs_dev;
 }
 
-static __attribute__((constructor)) void mlx4_register_driver(void)
-{
-	verbs_register_driver("mlx4", mlx4_driver_init);
-}
+static const struct verbs_device_ops mlx4_dev_ops = {
+	.name = "mlx4",
+	.init_device = mlx4_driver_init,
+	.uninit_device = mlx4_uninit_device,
+	.init_context = mlx4_init_context,
+	.uninit_context = mlx4_uninit_context,
+};
+PROVIDER_DRIVER(mlx4_dev_ops);
 
 static int mlx4dv_get_qp(struct ibv_qp *qp_in,
 			 struct mlx4dv_qp *qp_out)

@@ -173,12 +173,6 @@ static void iwch_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops iwch_dev_ops = {
-	.alloc_context = iwch_alloc_context,
-	.free_context = iwch_free_context,
-	.uninit_device = iwch_uninit_device
-};
-
 static struct verbs_device *cxgb3_driver_init(const char *uverbs_sys_path,
 					      int abi_version)
 {
@@ -259,7 +253,6 @@ found:
 	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = &iwch_dev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->abi_version = abi_version;
 
@@ -290,7 +283,11 @@ err1:
 	return NULL;
 }
 
-static __attribute__((constructor)) void cxgb3_register_driver(void)
-{
-	verbs_register_driver("cxgb3", cxgb3_driver_init);
-}
+static const struct verbs_device_ops iwch_dev_ops = {
+	.name = "cxgb3",
+	.init_device = cxgb3_driver_init,
+	.uninit_device = iwch_uninit_device,
+	.alloc_context = iwch_alloc_context,
+	.free_context = iwch_free_context,
+};
+PROVIDER_DRIVER(iwch_dev_ops);

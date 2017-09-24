@@ -215,12 +215,6 @@ static void i40iw_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops i40iw_udev_ops = {
-	.alloc_context	= i40iw_ualloc_context,
-	.free_context	= i40iw_ufree_context,
-	.uninit_device  = i40iw_uninit_device
-};
-
 /**
  * i40iw_driver_init - create device struct and provide callback routines for user context
  * @uverbs_sys_path: sys path
@@ -256,13 +250,16 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = &i40iw_udev_ops;
 	dev->hca_type = hca_table[i].type;
 	dev->page_size = I40IW_HW_PAGE_SIZE;
 	return &dev->ibv_dev;
 }
 
-static __attribute__ ((constructor)) void i40iw_register_driver(void)
-{
-	verbs_register_driver("i40iw", i40iw_driver_init);
-}
+static const struct verbs_device_ops i40iw_udev_ops = {
+	.name = "i40iw",
+	.init_device = i40iw_driver_init,
+	.uninit_device  = i40iw_uninit_device,
+	.alloc_context = i40iw_ualloc_context,
+	.free_context = i40iw_ufree_context,
+};
+PROVIDER_DRIVER(i40iw_udev_ops);

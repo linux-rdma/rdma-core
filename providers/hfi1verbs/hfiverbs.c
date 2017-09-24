@@ -180,12 +180,6 @@ static void hf11_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops hfi1_dev_ops = {
-	.alloc_context	= hfi1_alloc_context,
-	.free_context	= hfi1_free_context,
-	.uninit_device  = hf11_uninit_device
-};
-
 static struct verbs_device *hfi1_driver_init(const char *uverbs_sys_path,
 					     int abi_version)
 {
@@ -219,13 +213,16 @@ found:
 		return NULL;
 	}
 
-	dev->ibv_dev.ops = &hfi1_dev_ops;
 	dev->abi_version = abi_version;
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void hfi1_register_driver(void)
-{
-	verbs_register_driver("hfi1verbs", hfi1_driver_init);
-}
+static const struct verbs_device_ops hfi1_dev_ops = {
+	.name = "hfi1verbs",
+	.init_device = hfi1_driver_init,
+	.uninit_device  = hf11_uninit_device,
+	.alloc_context = hfi1_alloc_context,
+	.free_context = hfi1_free_context,
+};
+PROVIDER_DRIVER(hfi1_dev_ops);

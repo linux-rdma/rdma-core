@@ -97,6 +97,8 @@ struct verbs_qp {
 
 /* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
 struct verbs_device_ops {
+	const char *name;
+
 	/* Old interface, do not use in new code. */
 	struct ibv_context *(*alloc_context)(struct ibv_device *device,
 					     int cmd_fd);
@@ -107,6 +109,9 @@ struct verbs_device_ops {
 			    struct ibv_context *ctx, int cmd_fd);
 	void (*uninit_context)(struct verbs_device *device,
 			       struct ibv_context *ctx);
+
+	struct verbs_device *(*init_device)(const char *uverbs_sys_path,
+					    int abi_version);
 	void (*uninit_device)(struct verbs_device *device);
 };
 
@@ -139,7 +144,15 @@ typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_pa
 #define __make_verbs_register_driver(x)  ___make_verbs_register_driver(x)
 #define verbs_register_driver __make_verbs_register_driver(IBVERBS_PABI_VERSION)
 
-void verbs_register_driver(const char *name, verbs_driver_init_func init_func);
+void verbs_register_driver(const struct verbs_device_ops *ops);
+
+/* Macro for providers to use to supply verbs_device_ops to the core code */
+#define PROVIDER_DRIVER(drv)                                                   \
+	static __attribute__((constructor)) void drv##__register_driver(void)  \
+	{                                                                      \
+		verbs_register_driver(&drv);                                   \
+	}
+
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context);
