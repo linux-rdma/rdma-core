@@ -50,16 +50,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define INTEL_HCA(v, d, t)		\
-	{ .vendor = v,		\
-	  .device = d,		\
-	  .type = INTEL_ ## t }
-
-static struct hca_ent {
-	unsigned int vendor;
-	unsigned int device;
-	enum i40iw_uhca_type type;
-} hca_table[] = {
+#define INTEL_HCA(v, d, t) VERBS_PCI_MATCH(v, d, (void *)(INTEL_##t))
+static const struct verbs_match_ent hca_table[] = {
 #ifdef I40E_DEV_ID_X722_A0
 	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_A0, i40iw),
 #endif
@@ -96,6 +88,7 @@ static struct hca_ent {
 #ifdef I40E_DEV_ID_X722_FPGA_VF
 	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_FPGA_VF, i40iw),
 #endif
+	{}
 };
 
 static struct ibv_context *i40iw_ualloc_context(struct ibv_device *, int);
@@ -215,48 +208,16 @@ static void i40iw_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-/**
- * i40iw_driver_init - create device struct and provide callback routines for user context
- * @uverbs_sys_path: sys path
- * @abi_version: not used
- */
-static bool i40iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char value[16];
-	unsigned int vendor, device;
-	int i;
-
-	if ((ibv_read_sysfs_file(uverbs_sys_path, "device/vendor", value, sizeof(value)) < 0) ||
-	    (sscanf(value, "%i", &vendor) != 1))
-		return false;
-
-	if ((ibv_read_sysfs_file(uverbs_sys_path, "device/device", value, sizeof(value)) < 0) ||
-	    (sscanf(value, "%i", &device) != 1))
-		return false;
-
-	for (i = 0; i < sizeof(hca_table) / sizeof(hca_table[0]); ++i) {
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device) {
-			sysfs_dev->provider_data = &hca_table[i];
-			return true;
-		}
-	}
-
-	return false;
-}
-
 static struct verbs_device *
 i40iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct i40iw_udevice *dev;
-	struct hca_ent *hca_ent = sysfs_dev->provider_data;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;
 
-	dev->hca_type = hca_ent->type;
+	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->page_size = I40IW_HW_PAGE_SIZE;
 	return &dev->ibv_dev;
 }
@@ -265,7 +226,7 @@ static const struct verbs_device_ops i40iw_udev_ops = {
 	.name = "i40iw",
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
-	.match_device = i40iw_device_match,
+	.match_table = hca_table,
 	.alloc_device = i40iw_device_alloc,
 	.uninit_device  = i40iw_uninit_device,
 	.alloc_context = i40iw_ualloc_context,

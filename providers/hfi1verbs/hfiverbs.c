@@ -77,16 +77,12 @@
 #define PCI_DEVICE_ID_HFI_INTEL1		0x24f1
 #endif
 
-#define HFI(v, d) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_HFI_##d }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-} hca_table[] = {
+#define HFI(v, d)                                                              \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_HFI_##d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	HFI(INTEL, INTEL0),
 	HFI(INTEL, INTEL1),
+	{}
 };
 
 static struct ibv_context_ops hfi1_ctx_ops = {
@@ -180,31 +176,6 @@ static void hf11_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static bool hfi1_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char			value[8];
-	unsigned                vendor, device;
-	int                     i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return false;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return false;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			return true;
-
-	return false;
-}
-
 static struct verbs_device *hfi1_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct hfi1_device    *dev;
@@ -222,7 +193,7 @@ static const struct verbs_device_ops hfi1_dev_ops = {
 	.name = "hfi1verbs",
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
-	.match_device = hfi1_device_match,
+	.match_table = hca_table,
 	.alloc_device = hfi1_device_alloc,
 	.uninit_device  = hf11_uninit_device,
 	.alloc_context = hfi1_alloc_context,

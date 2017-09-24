@@ -52,15 +52,8 @@
 
 #define PCI_VENDOR_ID_BROADCOM		0x14E4
 
-#define CNA(v, d)					\
-	{	.vendor = PCI_VENDOR_ID_##v,		\
-		.device = d }
-
-static const struct {
-	unsigned int vendor;
-	unsigned int device;
-} cna_table[] = {
-	CNA(BROADCOM, 0x1614),  /* BCM57454 */
+#define CNA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
+static const struct verbs_match_ent cna_table[] = {
 	CNA(BROADCOM, 0x16C0),  /* BCM57417 NPAR */
 	CNA(BROADCOM, 0x16CE),  /* BMC57311 */
 	CNA(BROADCOM, 0x16CF),  /* BMC57312 */
@@ -78,7 +71,8 @@ static const struct {
 	CNA(BROADCOM, 0x16EB),  /* BCM57412 NPAR */
 	CNA(BROADCOM, 0x16F0),  /* BCM58730 */
 	CNA(BROADCOM, 0x16F1),  /* BCM57452 */
-	CNA(BROADCOM, 0xD802)   /* BCM58802 */
+	CNA(BROADCOM, 0xD802),  /* BCM58802 */
+	{}
 };
 
 static struct ibv_context_ops bnxt_re_cntx_ops = {
@@ -174,30 +168,6 @@ static void bnxt_re_uninit_context(struct verbs_device *vdev,
 	}
 }
 
-static bool bnxt_re_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char value[10];
-	unsigned int vendor, device;
-	int i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0)
-		return false;
-	vendor = strtol(value, NULL, 16);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0)
-		return false;
-	device = strtol(value, NULL, 16);
-
-	for (i = 0; i < sizeof(cna_table) / sizeof(cna_table[0]); ++i)
-		if (vendor == cna_table[i].vendor &&
-		    device == cna_table[i].device)
-			return true;
-	return false;
-}
-
 static struct verbs_device *
 bnxt_re_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
@@ -218,7 +188,7 @@ static const struct verbs_device_ops bnxt_re_dev_ops = {
 	.name = "bnxt_re",
 	.match_min_abi_version = BNXT_RE_ABI_VERSION,
 	.match_max_abi_version = BNXT_RE_ABI_VERSION,
-	.match_device = bnxt_re_device_match,
+	.match_table = cna_table,
 	.alloc_device = bnxt_re_device_alloc,
 	.init_context = bnxt_re_init_context,
 	.uninit_context = bnxt_re_uninit_context,

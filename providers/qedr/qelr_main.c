@@ -64,14 +64,9 @@
 uint32_t qelr_dp_level;
 uint32_t qelr_dp_module;
 
-#define QHCA(d)					\
-	{ .vendor = PCI_VENDOR_ID_QLOGIC,	\
-	  .device = PCI_DEVICE_ID_QLOGIC_##d }
-
-static const struct {
-	unsigned int vendor;
-	unsigned int device;
-} hca_table[] = {
+#define QHCA(d)                                                                \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_##d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	QHCA(57980S),
 	QHCA(57980S_40),
 	QHCA(57980S_10),
@@ -82,6 +77,7 @@ static const struct {
 	QHCA(57980S_IOV),
 	QHCA(AH),
 	QHCA(AH_IOV),
+	{}
 };
 
 static struct ibv_context *qelr_alloc_context(struct ibv_device *, int);
@@ -227,33 +223,6 @@ static void qelr_free_context(struct ibv_context *ibctx)
 	free(ctx);
 }
 
-static bool qelr_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char value[16];
-	unsigned int vendor, device;
-	int i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0)
-		return false;
-
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0)
-		return false;
-
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof(hca_table) / sizeof(hca_table[0]); ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			return true;
-
-	return false;
-}
-
 static struct verbs_device *qelr_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct qelr_device *dev;
@@ -269,7 +238,7 @@ static const struct verbs_device_ops qelr_dev_ops = {
 	.name = "qedr",
 	.match_min_abi_version = QELR_ABI_VERSION,
 	.match_max_abi_version = QELR_ABI_VERSION,
-	.match_device = qelr_device_match,
+	.match_table = hca_table,
 	.alloc_device = qelr_device_alloc,
 	.uninit_device = qelr_uninit_device,
 	.alloc_context = qelr_alloc_context,

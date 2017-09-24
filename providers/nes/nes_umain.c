@@ -55,18 +55,12 @@ long int page_size;
 #define PCI_VENDOR_ID_NETEFFECT		0x1678
 #endif
 
-#define HCA(v, d, t)                            \
-	{ .vendor = PCI_VENDOR_ID_##v,              \
-	  .device = d,    \
-	  .type = NETEFFECT_##t }
-
-static struct hca_ent {
-	unsigned vendor;
-	unsigned device;
-	enum nes_uhca_type type;
-} hca_table[] = {
+#define HCA(v, d, t)                                                           \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, (void *)(NETEFFECT_##t))
+static const struct verbs_match_ent hca_table[] = {
 	HCA(NETEFFECT, 0x0100, nes),
 	HCA(NETEFFECT, 0x0110, nes),
+	{},
 };
 
 static struct ibv_context *nes_ualloc_context(struct ibv_device *, int);
@@ -191,38 +185,10 @@ static void nes_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static bool nes_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char value[16];
-	unsigned vendor, device;
-	int i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-			value, sizeof(value)) < 0)
-		return false;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-			value, sizeof(value)) < 0)
-		return false;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device) {
-			sysfs_dev->provider_data = &hca_table[i];
-			return true;
-		}
-
-	return false;
-}
-
 static struct verbs_device *
 nes_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct nes_udevice *dev;
-	struct hca_ent *hca_ent = sysfs_dev->provider_data;
 	char value[16];
 
 	if (ibv_read_sysfs_file("/sys/module/iw_nes", "parameters/debug_level",
@@ -237,7 +203,7 @@ nes_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	if (!dev)
 		return NULL;
 
-	dev->hca_type = hca_ent->type;
+	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
 	nes_debug(NES_DBG_INIT, "libnes initialized\n");
@@ -249,7 +215,7 @@ static const struct verbs_device_ops nes_udev_ops = {
 	.name = "nes",
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
-	.match_device = nes_device_match,
+	.match_table = hca_table,
 	.alloc_device = nes_device_alloc,
 	.uninit_device = nes_uninit_device,
 	.alloc_context = nes_ualloc_context,

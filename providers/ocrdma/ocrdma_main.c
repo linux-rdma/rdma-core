@@ -55,15 +55,13 @@
 #define PCI_DEVICE_ID_EMULEX_GEN2        0x720
 #define PCI_DEVICE_ID_EMULEX_GEN2_VF     0x728
 
-#define UCNA(v, d)                            \
-	{ .vendor = PCI_VENDOR_ID_##v,        \
-	  .device = PCI_DEVICE_ID_EMULEX_##d }
-
-static struct {
-	unsigned vendor;
-	unsigned device;
-} ucna_table[] = {
-	UCNA(EMULEX, GEN1), UCNA(EMULEX, GEN2), UCNA(EMULEX, GEN2_VF)
+#define UCNA(v, d)                                                             \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_EMULEX_##d, NULL)
+static const struct verbs_match_ent ucna_table[] = {
+	UCNA(EMULEX, GEN1),
+	UCNA(EMULEX, GEN2),
+	UCNA(EMULEX, GEN2_VF),
+	{}
 };
 
 static struct ibv_context *ocrdma_alloc_context(struct ibv_device *, int);
@@ -168,31 +166,6 @@ static void ocrdma_free_context(struct ibv_context *ibctx)
 	free(ctx);
 }
 
-static bool ocrdma_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char value[16];
-	unsigned vendor, device;
-	int i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0)
-		return false;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0)
-		return false;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof ucna_table / sizeof ucna_table[0]; ++i) {
-		if (vendor == ucna_table[i].vendor &&
-		    device == ucna_table[i].device)
-			return true;
-	}
-	return false;
-}
-
 static struct verbs_device *
 ocrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
@@ -218,7 +191,7 @@ static const struct verbs_device_ops ocrdma_dev_ops = {
 	.name = "ocrdma",
 	.match_min_abi_version = OCRDMA_ABI_VERSION,
 	.match_max_abi_version = OCRDMA_ABI_VERSION,
-	.match_device = ocrdma_device_match,
+	.match_table = ucna_table,
 	.alloc_device = ocrdma_device_alloc,
 	.uninit_device = ocrdma_uninit_device,
 	.alloc_context = ocrdma_alloc_context,
