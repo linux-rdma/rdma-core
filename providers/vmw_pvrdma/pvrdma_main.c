@@ -169,28 +169,6 @@ static void pvrdma_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static bool pvrdma_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
-	char value[8];
-	unsigned int vendor_id, device_id;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0)
-		return false;
-	vendor_id = strtol(value, NULL, 16);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0)
-		return false;
-	device_id = strtol(value, NULL, 16);
-
-	if (vendor_id != PCI_VENDOR_ID_VMWARE ||
-	    device_id != PCI_DEVICE_ID_VMWARE_PVRDMA)
-		return false;
-	return true;
-}
-
 static struct verbs_device *
 pvrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
@@ -206,11 +184,17 @@ pvrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	return &dev->ibv_dev;
 }
 
+static const struct verbs_match_ent hca_table[] = {
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_VMWARE, PCI_DEVICE_ID_VMWARE_PVRDMA,
+			NULL),
+	{}
+};
+
 static const struct verbs_device_ops pvrdma_dev_ops = {
 	.name = "pvrdma",
 	.match_min_abi_version = PVRDMA_UVERBS_ABI_VERSION,
 	.match_max_abi_version = PVRDMA_UVERBS_ABI_VERSION,
-	.match_device = pvrdma_device_match,
+	.match_table = hca_table,
 	.alloc_device = pvrdma_device_alloc,
 	.uninit_device = pvrdma_uninit_device,
 	.alloc_context = pvrdma_alloc_context,
