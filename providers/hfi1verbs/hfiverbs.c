@@ -180,47 +180,50 @@ static void hf11_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device *hfi1_driver_init(const char *uverbs_sys_path,
-					     int abi_version)
+static bool hfi1_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char			value[8];
-	struct hfi1_device    *dev;
 	unsigned                vendor, device;
 	int                     i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	sscanf(value, "%i", &vendor);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
 				value, sizeof value) < 0)
-		return NULL;
+		return false;
 	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
 		    device == hca_table[i].device)
-			goto found;
+			return true;
 
-	return NULL;
+	return false;
+}
 
-found:
+static struct verbs_device *hfi1_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct hfi1_device    *dev;
+
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	return &dev->ibv_dev;
 }
 
 static const struct verbs_device_ops hfi1_dev_ops = {
 	.name = "hfi1verbs",
-	.init_device = hfi1_driver_init,
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_device = hfi1_device_match,
+	.alloc_device = hfi1_device_alloc,
 	.uninit_device  = hf11_uninit_device,
 	.alloc_context = hfi1_alloc_context,
 	.free_context = hfi1_free_context,

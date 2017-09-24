@@ -893,36 +893,40 @@ static void rxe_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static bool rxe_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
-	struct rxe_device *dev;
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[16];
 
 	/* make sure it is a rxe device */
 	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev",
 				value, sizeof(value)) < 0)
-		return NULL;
+		return false;
 
 	if (strncmp(value, "rxe", 3))
-		return NULL;
+		return false;
 
+	return true;
+}
+
+static struct verbs_device *rxe_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct rxe_device *dev;
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr,
-			"rxe: Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	return &dev->ibv_dev;
 }
 
 static const struct verbs_device_ops rxe_dev_ops = {
 	.name = "rxe",
-	.init_device = rxe_driver_init,
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_device = rxe_device_match,
+	.alloc_device = rxe_device_alloc,
 	.uninit_device = rxe_uninit_device,
 	.alloc_context = rxe_alloc_context,
 	.free_context = rxe_free_context,

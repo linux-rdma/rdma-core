@@ -169,64 +169,49 @@ static void pvrdma_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct pvrdma_device *pvrdma_driver_init_shared(
-						const char *uverbs_sys_path,
-						int abi_version)
+static bool pvrdma_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
-	struct pvrdma_device *dev;
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[8];
 	unsigned int vendor_id, device_id;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof(value)) < 0)
-		return NULL;
+		return false;
 	vendor_id = strtol(value, NULL, 16);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
 				value, sizeof(value)) < 0)
-		return NULL;
+		return false;
 	device_id = strtol(value, NULL, 16);
 
 	if (vendor_id != PCI_VENDOR_ID_VMWARE ||
 	    device_id != PCI_DEVICE_ID_VMWARE_PVRDMA)
-		return NULL;
-
-	/* We support only a single ABI version for now. */
-	if (abi_version != PVRDMA_UVERBS_ABI_VERSION) {
-		fprintf(stderr, PFX "ABI version %d of %s is not "
-			"supported (supported %d)\n",
-			abi_version, uverbs_sys_path,
-			PVRDMA_UVERBS_ABI_VERSION);
-		return NULL;
-	}
-
-	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "couldn't allocate device for %s\n",
-			uverbs_sys_path);
-		return NULL;
-	}
-
-	dev->abi_version = abi_version;
-	dev->page_size   = sysconf(_SC_PAGESIZE);
-
-	return dev;
+		return false;
+	return true;
 }
 
-static struct verbs_device *pvrdma_driver_init(const char *uverbs_sys_path,
-					       int abi_version)
+static struct verbs_device *
+pvrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	struct pvrdma_device *dev = pvrdma_driver_init_shared(uverbs_sys_path,
-							      abi_version);
+	struct pvrdma_device *dev;
+
+	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;
+
+	dev->abi_version = sysfs_dev->abi_ver;
+	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
 }
 
 static const struct verbs_device_ops pvrdma_dev_ops = {
 	.name = "pvrdma",
-	.init_device = pvrdma_driver_init,
+	.match_min_abi_version = PVRDMA_UVERBS_ABI_VERSION,
+	.match_max_abi_version = PVRDMA_UVERBS_ABI_VERSION,
+	.match_device = pvrdma_device_match,
+	.alloc_device = pvrdma_device_alloc,
 	.uninit_device = pvrdma_uninit_device,
 	.alloc_context = pvrdma_alloc_context,
 	.free_context  = pvrdma_free_context,

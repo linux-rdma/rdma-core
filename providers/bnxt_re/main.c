@@ -174,43 +174,38 @@ static void bnxt_re_uninit_context(struct verbs_device *vdev,
 	}
 }
 
-static struct verbs_device *bnxt_re_driver_init(const char *uverbs_sys_path,
-						int abi_version)
+static bool bnxt_re_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[10];
-	struct bnxt_re_dev *dev;
 	unsigned int vendor, device;
 	int i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
 				value, sizeof(value)) < 0)
-		return NULL;
+		return false;
 	vendor = strtol(value, NULL, 16);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
 				value, sizeof(value)) < 0)
-		return NULL;
+		return false;
 	device = strtol(value, NULL, 16);
 
 	for (i = 0; i < sizeof(cna_table) / sizeof(cna_table[0]); ++i)
 		if (vendor == cna_table[i].vendor &&
 		    device == cna_table[i].device)
-			goto found;
-	return NULL;
-found:
-	if (abi_version != BNXT_RE_ABI_VERSION) {
-		fprintf(stderr, DEV "FATAL: Max supported ABI of %s is %d "
-			"check for the latest version of kernel driver and"
-			"user library\n", uverbs_sys_path, abi_version);
-		return NULL;
-	}
+			return true;
+	return false;
+}
+
+static struct verbs_device *
+bnxt_re_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct bnxt_re_dev *dev;
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, DEV "Failed to allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
 	dev->vdev.sz = sizeof(*dev);
 	dev->vdev.size_of_context =
@@ -221,7 +216,10 @@ found:
 
 static const struct verbs_device_ops bnxt_re_dev_ops = {
 	.name = "bnxt_re",
-	.init_device = bnxt_re_driver_init,
+	.match_min_abi_version = BNXT_RE_ABI_VERSION,
+	.match_max_abi_version = BNXT_RE_ABI_VERSION,
+	.match_device = bnxt_re_device_match,
+	.alloc_device = bnxt_re_device_alloc,
 	.init_context = bnxt_re_init_context,
 	.uninit_context = bnxt_re_uninit_context,
 };

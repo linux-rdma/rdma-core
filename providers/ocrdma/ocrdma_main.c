@@ -168,50 +168,39 @@ static void ocrdma_free_context(struct ibv_context *ibctx)
 	free(ctx);
 }
 
-/**
- * ocrdma_driver_init
- */
-static struct verbs_device *ocrdma_driver_init(const char *uverbs_sys_path,
-					       int abi_version)
+static bool ocrdma_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
-
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[16];
-	struct ocrdma_device *dev;
 	unsigned vendor, device;
 	int i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0) {
-		return NULL;
-	}
+				value, sizeof(value)) < 0)
+		return false;
 	sscanf(value, "%i", &vendor);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0) {
-		return NULL;
-	}
+				value, sizeof(value)) < 0)
+		return false;
 	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof ucna_table / sizeof ucna_table[0]; ++i) {
 		if (vendor == ucna_table[i].vendor &&
 		    device == ucna_table[i].device)
-			goto found;
+			return true;
 	}
-	return NULL;
-found:
-	if (abi_version != OCRDMA_ABI_VERSION) {
-		fprintf(stderr,
-		  "Fatal: libocrdma ABI version %d of %s is not supported.\n",
-		  abi_version, uverbs_sys_path);
-		return NULL;
-	}
+	return false;
+}
+
+static struct verbs_device *
+ocrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct ocrdma_device *dev;
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		ocrdma_err("%s() Fatal: fail allocate device for libocrdma\n",
-			   __func__);
+	if (!dev)
 		return NULL;
-	}
 
 	dev->qp_tbl = malloc(OCRDMA_MAX_QP * sizeof(struct ocrdma_qp *));
 	if (!dev->qp_tbl)
@@ -227,7 +216,10 @@ qp_err:
 
 static const struct verbs_device_ops ocrdma_dev_ops = {
 	.name = "ocrdma",
-	.init_device = ocrdma_driver_init,
+	.match_min_abi_version = OCRDMA_ABI_VERSION,
+	.match_max_abi_version = OCRDMA_ABI_VERSION,
+	.match_device = ocrdma_device_match,
+	.alloc_device = ocrdma_device_alloc,
 	.uninit_device = ocrdma_uninit_device,
 	.alloc_context = ocrdma_alloc_context,
 	.free_context = ocrdma_free_context,

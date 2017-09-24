@@ -60,7 +60,7 @@ long int page_size;
 	  .device = d,    \
 	  .type = NETEFFECT_##t }
 
-static struct {
+static struct hca_ent {
 	unsigned vendor;
 	unsigned device;
 	enum nes_uhca_type type;
@@ -191,37 +191,40 @@ static void nes_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-/**
- * nes_driver_init
- */
-static struct verbs_device *nes_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static bool nes_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
+	const char *uverbs_sys_path = sysfs_dev->sysfs_path;
 	char value[16];
-	struct nes_udevice *dev;
 	unsigned vendor, device;
 	int i;
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-			value, sizeof(value)) < 0) {
-		return NULL;
-	}
+			value, sizeof(value)) < 0)
+		return false;
 	sscanf(value, "%i", &vendor);
 
 	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-			value, sizeof(value)) < 0) {
-		return NULL;
-	}
+			value, sizeof(value)) < 0)
+		return false;
 	sscanf(value, "%i", &device);
 
 	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
 		if (vendor == hca_table[i].vendor &&
-				device == hca_table[i].device)
-			goto found;
+		    device == hca_table[i].device) {
+			sysfs_dev->provider_data = &hca_table[i];
+			return true;
+		}
 
-	return NULL;
+	return false;
+}
 
-found:
+static struct verbs_device *
+nes_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct nes_udevice *dev;
+	struct hca_ent *hca_ent = sysfs_dev->provider_data;
+	char value[16];
+
 	if (ibv_read_sysfs_file("/sys/module/iw_nes", "parameters/debug_level",
 			value, sizeof(value)) > 0) {
 		sscanf(value, "%u", &nes_debug_level);
@@ -231,12 +234,10 @@ found:
 	}
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		nes_debug(NES_DBG_INIT, "Fatal: couldn't allocate device for libnes\n");
+	if (!dev)
 		return NULL;
-	}
 
-	dev->hca_type = hca_table[i].type;
+	dev->hca_type = hca_ent->type;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
 	nes_debug(NES_DBG_INIT, "libnes initialized\n");
@@ -246,7 +247,10 @@ found:
 
 static const struct verbs_device_ops nes_udev_ops = {
 	.name = "nes",
-	.init_device = nes_driver_init,
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_device = nes_device_match,
+	.alloc_device = nes_device_alloc,
 	.uninit_device = nes_uninit_device,
 	.alloc_context = nes_ualloc_context,
 	.free_context = nes_ufree_context,
