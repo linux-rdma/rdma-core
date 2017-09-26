@@ -42,6 +42,7 @@
 #include <errno.h>
 #include <string.h>
 #include <linux/types.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -81,7 +82,7 @@ union ibv_gid {
 
 #define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
 
-static void *__VERBS_ABI_IS_EXTENDED = ((uint8_t *) NULL) - 1;
+static void *__VERBS_ABI_IS_EXTENDED = (void *)UINTPTR_MAX;
 
 enum ibv_node_type {
 	IBV_NODE_UNKNOWN	= -1,
