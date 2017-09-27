@@ -21,9 +21,6 @@ addons:
       - build-essential
       - clang-4.0
       - cmake
-      - debhelper
-      - dh-systemd
-      - fakeroot
       - gcc
       - gcc-7
       - git
