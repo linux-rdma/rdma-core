@@ -286,6 +286,11 @@ struct ibv_tm_caps {
 	uint32_t max_sge;
 };
 
+struct ibv_cq_moderation_caps {
+	uint16_t max_cq_count;
+	uint16_t max_cq_period; /* in micro seconds */
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -299,6 +304,7 @@ struct ibv_device_attr_ex {
 	struct ibv_packet_pacing_caps packet_pacing_caps;
 	uint32_t		raw_packet_caps; /* Use ibv_raw_packet_caps */
 	struct ibv_tm_caps	tm_caps;
+	struct ibv_cq_moderation_caps  cq_mod_caps;
 };
 
 enum ibv_mtu {

@@ -397,6 +397,16 @@ static void print_rss_caps(const struct ibv_rss_caps *caps)
 	}
 }
 
+static void print_cq_moderation_caps(const struct ibv_cq_moderation_caps *cq_caps)
+{
+	if (!cq_caps->max_cq_count || !cq_caps->max_cq_period)
+		return;
+
+	printf("\n\tcq moderation caps:\n");
+	printf("\t\tmax_cq_count:\t%u\n", cq_caps->max_cq_count);
+	printf("\t\tmax_cq_period:\t%u us\n\n", cq_caps->max_cq_period);
+}
+
 static void print_packet_pacing_caps(const struct ibv_packet_pacing_caps *caps)
 {
 	uint32_t unknown_general_caps = ~(1 << IBV_QPT_RAW_PACKET |
@@ -538,6 +548,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tmax_wq_type_rq:\t\t\t%u\n", device_attr.max_wq_type_rq);
 		print_packet_pacing_caps(&device_attr.packet_pacing_caps);
 		print_tm_caps(&device_attr.tm_caps);
+		print_cq_moderation_caps(&device_attr.cq_mod_caps);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {

@@ -289,6 +289,12 @@ struct ibv_tm_caps_resp {
 	__u32 reserved;
 };
 
+struct ibv_cq_moderation_caps_resp {
+	__u16  cq_count;
+	__u16  cq_period;
+	__u32  reserved;
+};
+
 struct ibv_query_device_resp_ex {
 	struct ibv_query_device_resp base;
 	__u32 comp_mask;
@@ -301,6 +307,7 @@ struct ibv_query_device_resp_ex {
 	__u32  max_wq_type_rq;
 	__u32 raw_packet_caps;
 	struct ibv_tm_caps_resp tm_caps;
+	struct ibv_cq_moderation_caps_resp cq_mod_caps;
 };
 
 struct ibv_query_port {

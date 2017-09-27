@@ -255,6 +255,16 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		}
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, cq_mod_caps) +
+			 sizeof(attr->cq_mod_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, cq_mod_caps) +
+		    sizeof(resp->cq_mod_caps)) {
+			attr->cq_mod_caps.max_cq_count = resp->cq_mod_caps.cq_count;
+			attr->cq_mod_caps.max_cq_period = resp->cq_mod_caps.cq_period;
+		}
+	}
+
 	return 0;
 }
 
