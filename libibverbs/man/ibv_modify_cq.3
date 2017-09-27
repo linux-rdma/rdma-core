@@ -1,0 +1,48 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH IBV_MODIFY_CQ 3 2017-10-20 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_modify_cq \- modify a completion queue (CQ)
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "int ibv_modify_cq(struct ibv_cq " *cq ", struct ibv_modify_cq_attr "*cq_attr ");
+.sp
+.fi
+.SH "DESCRIPTION"
+.B ibv_modify_cq()
+modify a CQ
+.I cq\fR.
+The argument
+.I cq_attr
+is an ibv_modify_cq_attr struct, as defined in <infiniband/verbs.h>.
+.PP
+.nf
+struct ibv_moderate_cq {
+.in +8
+uint16_t cq_count;  /* number of completions per event */
+uint16_t cq_period; /* in micro seconds */
+.in -8
+};
+
+struct ibv_modify_cq_attr {
+.in +8
+	uint32_t attr_mask;
+	struct ibv_moderate_cq moderate;
+.in -8
+};
+.fi
+.PP
+The function
+.B ibv_modify_cq()
+will modify the CQ, based on the given
+.I cq_attr\fB\fR->attr_mask
+.SH "RETURN VALUE"
+returns 0 on success, or the value of errno on failure (which indicates the failure reason).
+.SH "SEE ALSO"
+.BR ibv_create_cq (3)
+.SH "AUTHORS"
+.TP
+Yonatan Cohen <yonatanc@mellanox.com>

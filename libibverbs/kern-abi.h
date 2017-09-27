@@ -124,6 +124,7 @@ enum {
 	IB_USER_VERBS_CMD_DESTROY_WQ,
 	IB_USER_VERBS_CMD_CREATE_RWQ_IND_TBL,
 	IB_USER_VERBS_CMD_DESTROY_RWQ_IND_TBL,
+	IB_USER_VERBS_CMD_MODIFY_CQ,
 };
 
 /*
@@ -1251,6 +1252,7 @@ enum {
 	IB_USER_VERBS_CMD_CREATE_RWQ_IND_TBL_V2 = -1,
 	IB_USER_VERBS_CMD_DESTROY_RWQ_IND_TBL_V2 = -1,
 	IB_USER_VERBS_CMD_MODIFY_QP_EX_V2 = -1,
+	IB_USER_VERBS_CMD_MODIFY_CQ_V2 = -1,
 };
 
 struct ibv_modify_srq_v3 {
@@ -1351,6 +1353,19 @@ struct ibv_destroy_rwq_ind_table {
 	struct ex_hdr hdr;
 	__u32 comp_mask;
 	__u32 ind_tbl_handle;
+};
+
+struct ibv_kern_modify_cq_attr {
+	__u16 cq_count;
+	__u16 cq_period;
+};
+
+struct ibv_modify_cq {
+	struct ex_hdr hdr;
+	__u32 cq_handle;
+	__u32 attr_mask;
+	struct ibv_kern_modify_cq_attr attr;
+	__u32 reserved;
 };
 
 #endif /* KERN_ABI_H */

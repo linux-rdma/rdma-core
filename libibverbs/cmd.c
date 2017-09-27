@@ -2130,3 +2130,27 @@ int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 
 	return ret;
 }
+
+
+int ibv_cmd_modify_cq(struct ibv_cq *cq,
+		      struct ibv_modify_cq_attr *attr,
+		      struct ibv_modify_cq *cmd,
+		      size_t cmd_size)
+{
+
+	if (attr->attr_mask >= IBV_CQ_ATTR_RESERVED)
+		return EINVAL;
+
+	IBV_INIT_CMD_EX(cmd, cmd_size, MODIFY_CQ);
+
+	cmd->cq_handle = cq->handle;
+	cmd->attr_mask = attr->attr_mask;
+	cmd->attr.cq_count =  attr->moderate.cq_count;
+	cmd->attr.cq_period = attr->moderate.cq_period;
+	cmd->reserved = 0;
+
+	if (write(cq->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	return 0;
+}
