@@ -181,6 +181,12 @@ class xenial(APTEnvironment):
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
+class artful(APTEnvironment):
+    docker_parent = "ubuntu:17.10"
+    pkgs = xenial.pkgs
+    name = "ubuntu-17.10";
+    aliases = {"artful"};
+
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
     pkgs = xenial.pkgs;
@@ -325,6 +331,7 @@ environments = [centos6(),
                 travis(),
                 trusty(),
                 xenial(),
+                artful(),
                 jessie(),
                 stretch(),
                 fc26(),
