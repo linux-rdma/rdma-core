@@ -478,6 +478,9 @@ os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
             extra_opts = getattr(env,"rpmbuild_options", [])
             bopts = ["-bb",tspec_file] + extra_opts;
 
+            # Let rpmbuild compile with -Werror
+            print >> F,'os.environ["CFLAGS"] = "-Werror"'
+
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
 
@@ -533,6 +536,10 @@ import subprocess,os;
 def to_user():
    os.setgid({gid:d});
    os.setuid({uid:d});
+
+# Compile with -Werror
+os.environ["CFLAGS"] = "-Werror"
+
 subprocess.check_call(["debian/rules","debian/rules","build"],
             preexec_fn=to_user);
 subprocess.check_call(["debian/rules","debian/rules","binary"]);
