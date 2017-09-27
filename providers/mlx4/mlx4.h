@@ -350,6 +350,7 @@ void mlx4_cq_fill_pfns(struct mlx4_cq *cq, const struct ibv_cq_init_attr_ex *cq_
 int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
 		      int entry_size);
 int mlx4_resize_cq(struct ibv_cq *cq, int cqe);
+int mlx4_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int mlx4_destroy_cq(struct ibv_cq *cq);
 int mlx4_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx4_arm_cq(struct ibv_cq *cq, int solicited);

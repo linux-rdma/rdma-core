@@ -1609,3 +1609,10 @@ int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 	free(rwq_ind_table);
 	return 0;
 }
+
+int mlx4_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
+{
+	struct ibv_modify_cq cmd = {};
+
+	return ibv_cmd_modify_cq(cq, attr, &cmd, sizeof(cmd));
+}
