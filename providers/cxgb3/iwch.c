@@ -56,16 +56,10 @@
 #define PCI_DEVICE_ID_CHELSIO_T3C20	0x0035
 #define PCI_DEVICE_ID_CHELSIO_S320E	0x0036
 
-#define HCA(v, d, t) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_CHELSIO_##d,		\
-	  .type = CHELSIO_##t }
-
-static struct {
-	unsigned vendor;
-	unsigned device;
-	enum iwch_hca_type type;
-} hca_table[] = {
+#define HCA(v, d, t)                                                           \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_CHELSIO_##d,          \
+			(void *)(CHELSIO_##t))
+static const struct verbs_match_ent hca_table[] = {
 	HCA(CHELSIO, PE9000_2C, T3B),
 	HCA(CHELSIO, T302E, T3A),
 	HCA(CHELSIO, T302X, T3A),
@@ -173,52 +167,22 @@ static void iwch_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops iwch_dev_ops = {
-	.alloc_context = iwch_alloc_context,
-	.free_context = iwch_free_context,
-	.uninit_device = iwch_uninit_device
-};
-
-static struct verbs_device *cxgb3_driver_init(const char *uverbs_sys_path,
-					      int abi_version)
+static bool iwch_device_match(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char devstr[IBV_SYSFS_PATH_MAX], ibdev[16], value[32], *cp;
-	struct iwch_device *dev;
-	unsigned vendor, device, fw_maj, fw_min;
-	int i;
+	char value[32], *cp;
+	unsigned int fw_maj, fw_min;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
+	/* Rely on the core code to match PCI devices */
+	if (!sysfs_dev->match)
+		return false;
 
 	/* 
 	 * Verify that the firmware major number matches.  Major number
 	 * mismatches are fatal.  Minor number mismatches are tolerated.
 	 */
-	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev", 
-				ibdev, sizeof ibdev) < 0)
-		return NULL;
-
-	memset(devstr, 0, sizeof devstr);
-	snprintf(devstr, sizeof devstr, "%s/class/infiniband/%s", 
-		 ibv_get_sysfs_path(), ibdev);
-	if (ibv_read_sysfs_file(devstr, "fw_ver", value, sizeof value) < 0)
-		return NULL;
+	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "fw_ver", value,
+				sizeof(value)) < 0)
+		return false;
 
 	cp = strtok(value+1, ".");
 	sscanf(cp, "%i", &fw_maj);
@@ -230,7 +194,7 @@ found:
 			"Firmware major number is %u and libcxgb3 needs %u.\n",
 			fw_maj, FW_MAJ);	
 		fflush(stderr);
-		return NULL;
+		return false;
 	}
 
 	DBGLOG("libcxgb3");
@@ -242,26 +206,20 @@ found:
 		fflush(stderr);
 	}
 
-	if (abi_version > ABI_VERS) {
-		PDBG("libcxgb3: ABI version mismatch.  "
-			"Kernel driver ABI is %u and libcxgb3 needs <= %u.\n",
-			abi_version, ABI_VERS);	
-		fflush(stderr);
-		return NULL;
-	}
+	return true;
+}
 
-	PDBG("%s found vendor %d device %d type %d\n", 
-	     __FUNCTION__, vendor, device, hca_table[i].type);
+static struct verbs_device *iwch_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct iwch_device *dev;
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
+	if (!dev)
 		return NULL;
-	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = &iwch_dev_ops;
-	dev->hca_type = hca_table[i].type;
-	dev->abi_version = abi_version;
+	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	iwch_page_size = sysconf(_SC_PAGESIZE);
 	iwch_page_shift = long_log2(iwch_page_size);
@@ -290,7 +248,15 @@ err1:
 	return NULL;
 }
 
-static __attribute__((constructor)) void cxgb3_register_driver(void)
-{
-	verbs_register_driver("cxgb3", cxgb3_driver_init);
-}
+static const struct verbs_device_ops iwch_dev_ops = {
+	.name = "cxgb3",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = ABI_VERS,
+	.match_table = hca_table,
+	.match_device = iwch_device_match,
+	.alloc_device = iwch_device_alloc,
+	.uninit_device = iwch_uninit_device,
+	.alloc_context = iwch_alloc_context,
+	.free_context = iwch_free_context,
+};
+PROVIDER_DRIVER(iwch_dev_ops);

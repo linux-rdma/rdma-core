@@ -73,19 +73,15 @@
 #define PCI_DEVICE_ID_INFINIPATH_7322		0x7322
 #endif
 
-#define HCA(v, d) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_INFINIPATH_##d }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-} hca_table[] = {
+#define HCA(v, d)                                                              \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_INFINIPATH_##d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	HCA(PATHSCALE,	HT),
 	HCA(PATHSCALE,	PE800),
 	HCA(QLOGIC,	6220),
 	HCA(QLOGIC,	7220),
 	HCA(QLOGIC,	7322),
+	{}
 };
 
 static struct ibv_context_ops ipath_ctx_ops = {
@@ -179,52 +175,28 @@ static void ipath_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops ipath_dev_ops = {
-	.alloc_context	= ipath_alloc_context,
-	.free_context	= ipath_free_context,
-	.uninit_device  = ipath_uninit_device
-};
-
-static struct verbs_device *ipath_driver_init(const char *uverbs_sys_path,
-					      int abi_version)
+static struct verbs_device *
+ipath_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char			value[8];
 	struct ipath_device    *dev;
-	unsigned                vendor, device;
-	int                     i;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->ibv_dev.ops = &ipath_dev_ops;
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void ipath_register_driver(void)
-{
-	verbs_register_driver("ipathverbs", ipath_driver_init);
-}
+static const struct verbs_device_ops ipath_dev_ops = {
+	.name = "ipathverbs",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_table = hca_table,
+	.alloc_device = ipath_device_alloc,
+	.uninit_device  = ipath_uninit_device,
+	.alloc_context = ipath_alloc_context,
+	.free_context = ipath_free_context,
+};
+PROVIDER_DRIVER(ipath_dev_ops);

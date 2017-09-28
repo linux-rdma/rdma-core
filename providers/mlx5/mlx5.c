@@ -59,15 +59,8 @@
 #define CPU_EQUAL(x, y) 1
 #endif
 
-
-#define HCA(v, d) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = d }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-} hca_table[] = {
+#define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x1011),	/* MT4113 Connect-IB */
 	HCA(MELLANOX, 0x1012),	/* Connect-IB Virtual Function */
 	HCA(MELLANOX, 0x1013),	/* ConnectX-4 */
@@ -82,6 +75,7 @@ static struct {
 	HCA(MELLANOX, 0x101c),	/* ConnectX-6 VF */
 	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
 	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
+	{}
 };
 
 uint32_t mlx5_debug_mask = 0;
@@ -1026,59 +1020,17 @@ static void mlx5_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops mlx5_dev_ops = {
-	.init_context = mlx5_init_context,
-	.uninit_context = mlx5_cleanup_context,
-	.uninit_device = mlx5_uninit_device
-};
-
-static struct verbs_device *mlx5_driver_init(const char *uverbs_sys_path,
-					     int abi_version)
+static struct verbs_device *mlx5_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char			value[8];
-	struct mlx5_device     *dev;
-	unsigned		vendor, device;
-	int			i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
-	if (abi_version < MLX5_UVERBS_MIN_ABI_VERSION ||
-	    abi_version > MLX5_UVERBS_MAX_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is not supported "
-			"(min supported %d, max supported %d)\n",
-			abi_version, uverbs_sys_path,
-			MLX5_UVERBS_MIN_ABI_VERSION,
-			MLX5_UVERBS_MAX_ABI_VERSION);
-		return NULL;
-	}
+	struct mlx5_device *dev;
 
 	dev = calloc(1, sizeof *dev);
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->driver_abi_ver = abi_version;
+	dev->driver_abi_ver = sysfs_dev->abi_ver;
 
-	dev->verbs_dev.ops = &mlx5_dev_ops;
 	dev->verbs_dev.sz = sizeof(*dev);
 	dev->verbs_dev.size_of_context = sizeof(struct mlx5_context) -
 		sizeof(struct ibv_context);
@@ -1086,7 +1038,14 @@ found:
 	return &dev->verbs_dev;
 }
 
-static __attribute__((constructor)) void mlx5_register_driver(void)
-{
-	verbs_register_driver("mlx5", mlx5_driver_init);
-}
+static const struct verbs_device_ops mlx5_dev_ops = {
+	.name = "mlx5",
+	.match_min_abi_version = MLX5_UVERBS_MIN_ABI_VERSION,
+	.match_max_abi_version = MLX5_UVERBS_MAX_ABI_VERSION,
+	.match_table = hca_table,
+	.alloc_device = mlx5_device_alloc,
+	.uninit_device = mlx5_uninit_device,
+	.init_context = mlx5_init_context,
+	.uninit_context = mlx5_cleanup_context,
+};
+PROVIDER_DRIVER(mlx5_dev_ops);

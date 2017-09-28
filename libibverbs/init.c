@@ -46,22 +46,12 @@
 #include <dirent.h>
 #include <errno.h>
 #include <assert.h>
+#include <fnmatch.h>
 
-#include <ccan/list.h>
 #include <util/util.h>
 #include "ibverbs.h"
 
 int abi_ver;
-
-struct ibv_sysfs_dev {
-	struct list_node	entry;
-	char		        sysfs_name[IBV_SYSFS_NAME_MAX];
-	char		        ibdev_name[IBV_SYSFS_NAME_MAX];
-	char		        sysfs_path[IBV_SYSFS_PATH_MAX];
-	char		        ibdev_path[IBV_SYSFS_PATH_MAX];
-	int			abi_ver;
-	struct timespec		time_created;
-};
 
 struct ibv_driver_name {
 	struct list_node	entry;
@@ -70,8 +60,7 @@ struct ibv_driver_name {
 
 struct ibv_driver {
 	struct list_node	entry;
-	const char	       *name;
-	verbs_driver_init_func	verbs_init_func;
+	const struct verbs_device_ops *ops;
 };
 
 static LIST_HEAD(driver_name_list);
@@ -82,7 +71,7 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 	char class_path[IBV_SYSFS_PATH_MAX];
 	DIR *class_dir;
 	struct dirent *dent;
-	struct ibv_sysfs_dev *sysfs_dev = NULL;
+	struct verbs_sysfs_dev *sysfs_dev = NULL;
 	char value[8];
 	int ret = 0;
 
@@ -101,7 +90,7 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 			continue;
 
 		if (!sysfs_dev)
-			sysfs_dev = malloc(sizeof *sysfs_dev);
+			sysfs_dev = calloc(1, sizeof(*sysfs_dev));
 		if (!sysfs_dev) {
 			ret = ENOMEM;
 			goto out;
@@ -149,8 +138,11 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "abi_version",
 					value, sizeof value) > 0)
 			sysfs_dev->abi_ver = strtol(value, NULL, 10);
-		else
-			sysfs_dev->abi_ver = 0;
+
+		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path,
+					"device/modalias", sysfs_dev->modalias,
+					sizeof(sysfs_dev->modalias)) <= 0)
+			sysfs_dev->modalias[0] = 0;
 
 		list_add(tmp_sysfs_dev_list, &sysfs_dev->entry);
 		sysfs_dev      = NULL;
@@ -164,19 +156,19 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 	return ret;
 }
 
-void verbs_register_driver(const char *name,
-			   verbs_driver_init_func verbs_init_func)
+void verbs_register_driver(const struct verbs_device_ops *ops)
 {
 	struct ibv_driver *driver;
 
 	driver = malloc(sizeof *driver);
 	if (!driver) {
-		fprintf(stderr, PFX "Warning: couldn't allocate driver for %s\n", name);
+		fprintf(stderr,
+			PFX "Warning: couldn't allocate driver for %s\n",
+			ops->name);
 		return;
 	}
 
-	driver->name            = name;
-	driver->verbs_init_func = verbs_init_func;
+	driver->ops = ops;
 
 	list_add_tail(&driver_list, &driver->entry);
 }
@@ -354,16 +346,118 @@ out:
 	closedir(conf_dir);
 }
 
-static struct verbs_device *try_driver(struct ibv_driver *driver,
-				       struct ibv_sysfs_dev *sysfs_dev)
+/* Match a single modalias value */
+static bool match_modalias(const struct verbs_match_ent *ent, const char *value)
+{
+	char pci_ma[100];
+
+	switch (ent->kind) {
+	case VERBS_MATCH_MODALIAS:
+		return fnmatch(ent->modalias, value, 0) == 0;
+	case VERBS_MATCH_PCI:
+		snprintf(pci_ma, sizeof(pci_ma), "pci:v%08Xd%08Xsv*",
+			 ent->vendor, ent->device);
+		return fnmatch(pci_ma, value, 0) == 0;
+	default:
+		return false;
+	}
+}
+
+/* Search a null terminated table of verbs_match_ent's and return the one
+ * that matches the device the verbs sysfs device is bound to or NULL.
+ */
+static const struct verbs_match_ent *
+match_modalias_device(const struct verbs_device_ops *ops,
+		      struct verbs_sysfs_dev *sysfs_dev)
+{
+	const struct verbs_match_ent *i;
+
+	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
+		if (match_modalias(i, sysfs_dev->modalias))
+			return i;
+
+	return NULL;
+}
+
+/* Match the device name itself */
+static const struct verbs_match_ent *
+match_name(const struct verbs_device_ops *ops,
+		      struct verbs_sysfs_dev *sysfs_dev)
+{
+	char name_ma[100];
+	const struct verbs_match_ent *i;
+
+	if (!check_snprintf(name_ma, sizeof(name_ma),
+			    "rdma_device:N%s", sysfs_dev->ibdev_name))
+		return NULL;
+
+	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
+		if (match_modalias(i, name_ma))
+			return i;
+
+	return NULL;
+}
+
+/* True if the provider matches the selected rdma sysfs device */
+static bool match_device(const struct verbs_device_ops *ops,
+			 struct verbs_sysfs_dev *sysfs_dev)
+{
+	if (ops->match_table) {
+		/* The internally generated alias is checked first, since some
+		 * devices like rxe can attach to a random modalias, including
+		 * ones that match other providers.
+		 */
+		sysfs_dev->match = match_name(ops, sysfs_dev);
+		if (!sysfs_dev->match)
+			sysfs_dev->match =
+			    match_modalias_device(ops, sysfs_dev);
+	}
+
+	if (ops->match_device) {
+		/* If a matching function is provided then it is called
+		 * unconditionally after the table match above, it is
+		 * responsible for determining if the device matches based on
+		 * the match pointer and any other internal information.
+		 */
+		if (!ops->match_device(sysfs_dev))
+			return false;
+	} else {
+		/* With no match function, we must have a table match */
+		if (!sysfs_dev->match)
+			return false;
+	}
+
+	if (sysfs_dev->abi_ver < ops->match_min_abi_version ||
+	    sysfs_dev->abi_ver > ops->match_max_abi_version) {
+		fprintf(stderr, PFX
+			"Warning: Driver %s does not support the kernel ABI of %u (supports %u to %u) for device %s\n",
+			ops->name, sysfs_dev->abi_ver,
+			ops->match_min_abi_version,
+			ops->match_max_abi_version,
+			sysfs_dev->ibdev_path);
+		return false;
+	}
+	return true;
+}
+
+static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
+				       struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct verbs_device *vdev;
 	struct ibv_device *dev;
 	char value[16];
 
-	vdev = driver->verbs_init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
-	if (!vdev)
+	if (!match_device(ops, sysfs_dev))
 		return NULL;
+
+	vdev = ops->alloc_device(sysfs_dev);
+	if (!vdev) {
+		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
+			sysfs_dev->ibdev_path);
+		return NULL;
+	}
+
+	vdev->ops = ops;
 
 	atomic_init(&vdev->refcount, 1);
 	dev = &vdev->device;
@@ -409,13 +503,13 @@ static struct verbs_device *try_driver(struct ibv_driver *driver,
 	return vdev;
 }
 
-static struct verbs_device *try_drivers(struct ibv_sysfs_dev *sysfs_dev)
+static struct verbs_device *try_drivers(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct ibv_driver *driver;
 	struct verbs_device *dev;
 
 	list_for_each(&driver_list, driver, entry) {
-		dev = try_driver(driver, sysfs_dev);
+		dev = try_driver(driver->ops, sysfs_dev);
 		if (dev)
 			return dev;
 	}
@@ -463,8 +557,8 @@ static void check_memlock_limit(void)
 			rlim.rlim_cur);
 }
 
-static int same_sysfs_dev(struct ibv_sysfs_dev *sysfs1,
-			  struct ibv_sysfs_dev *sysfs2)
+static int same_sysfs_dev(struct verbs_sysfs_dev *sysfs1,
+			  struct verbs_sysfs_dev *sysfs2)
 {
 	if (!strcmp(sysfs1->sysfs_name, sysfs2->sysfs_name) &&
 	    ts_cmp(&sysfs1->time_created,
@@ -481,8 +575,8 @@ static void try_all_drivers(struct list_head *sysfs_list,
 			    struct list_head *device_list,
 			    unsigned int *num_devices)
 {
-	struct ibv_sysfs_dev *sysfs_dev;
-	struct ibv_sysfs_dev *tmp;
+	struct verbs_sysfs_dev *sysfs_dev;
+	struct verbs_sysfs_dev *tmp;
 	struct verbs_device *vdev;
 
 	list_for_each_safe(sysfs_list, sysfs_dev, tmp, entry) {
@@ -499,7 +593,7 @@ static void try_all_drivers(struct list_head *sysfs_list,
 int ibverbs_get_device_list(struct list_head *device_list)
 {
 	LIST_HEAD(sysfs_list);
-	struct ibv_sysfs_dev *sysfs_dev, *next_dev;
+	struct verbs_sysfs_dev *sysfs_dev, *next_dev;
 	struct verbs_device *vdev, *tmp;
 	static int drivers_loaded;
 	unsigned int num_devices = 0;
@@ -515,7 +609,7 @@ int ibverbs_get_device_list(struct list_head *device_list)
 	 * present in the sysfs_list.
 	 */
 	list_for_each_safe(device_list, vdev, tmp, entry) {
-		struct ibv_sysfs_dev *old_sysfs = NULL;
+		struct verbs_sysfs_dev *old_sysfs = NULL;
 
 		list_for_each(&sysfs_list, sysfs_dev, entry) {
 			if (same_sysfs_dev(vdev->sysfs, sysfs_dev)) {

@@ -49,14 +49,8 @@ int mlx4_cleanup_upon_device_fatal = 0;
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
 
-#define HCA(v, d) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = d }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-} hca_table[] = {
+#define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x6340),	/* MT25408 "Hermon" SDR */
 	HCA(MELLANOX, 0x634a),	/* MT25408 "Hermon" DDR */
 	HCA(MELLANOX, 0x6354),	/* MT25408 "Hermon" QDR */
@@ -84,6 +78,7 @@ static struct {
 	HCA(MELLANOX, 0x100e),	/* MT27551 Family */
 	HCA(MELLANOX, 0x100f),	/* MT27560 Family */
 	HCA(MELLANOX, 0x1010),	/* MT27561 Family */
+	{}
 };
 
 static struct ibv_context_ops mlx4_ctx_ops = {
@@ -286,58 +281,17 @@ static void mlx4_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops mlx4_dev_ops = {
-	.init_context = mlx4_init_context,
-	.uninit_context = mlx4_uninit_context,
-	.uninit_device = mlx4_uninit_device
-};
-
-static struct verbs_device *mlx4_driver_init(const char *uverbs_sys_path, int abi_version)
+static struct verbs_device *mlx4_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char			value[8];
-	struct mlx4_device    *dev;
-	unsigned		vendor, device;
-	int			i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return NULL;
-	vendor = strtol(value, NULL, 16);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	device = strtol(value, NULL, 16);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
-	if (abi_version < MLX4_UVERBS_MIN_ABI_VERSION ||
-	    abi_version > MLX4_UVERBS_MAX_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is not supported "
-			"(min supported %d, max supported %d)\n",
-			abi_version, uverbs_sys_path,
-			MLX4_UVERBS_MIN_ABI_VERSION,
-			MLX4_UVERBS_MAX_ABI_VERSION);
-		return NULL;
-	}
+	struct mlx4_device *dev;
 
 	dev = calloc(1, sizeof *dev);
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
-	dev->verbs_dev.ops = &mlx4_dev_ops;
 	dev->verbs_dev.sz = sizeof(*dev);
 	dev->verbs_dev.size_of_context =
 		sizeof(struct mlx4_context) - sizeof(struct ibv_context);
@@ -345,10 +299,17 @@ found:
 	return &dev->verbs_dev;
 }
 
-static __attribute__((constructor)) void mlx4_register_driver(void)
-{
-	verbs_register_driver("mlx4", mlx4_driver_init);
-}
+static const struct verbs_device_ops mlx4_dev_ops = {
+	.name = "mlx4",
+	.match_min_abi_version = MLX4_UVERBS_MIN_ABI_VERSION,
+	.match_max_abi_version = MLX4_UVERBS_MAX_ABI_VERSION,
+	.match_table = hca_table,
+	.alloc_device = mlx4_device_alloc,
+	.uninit_device = mlx4_uninit_device,
+	.init_context = mlx4_init_context,
+	.uninit_context = mlx4_uninit_context,
+};
+PROVIDER_DRIVER(mlx4_dev_ops);
 
 static int mlx4dv_get_qp(struct ibv_qp *qp_in,
 			 struct mlx4dv_qp *qp_out)

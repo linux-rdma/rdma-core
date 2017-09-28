@@ -55,15 +55,13 @@
 #define PCI_DEVICE_ID_EMULEX_GEN2        0x720
 #define PCI_DEVICE_ID_EMULEX_GEN2_VF     0x728
 
-#define UCNA(v, d)                            \
-	{ .vendor = PCI_VENDOR_ID_##v,        \
-	  .device = PCI_DEVICE_ID_EMULEX_##d }
-
-static struct {
-	unsigned vendor;
-	unsigned device;
-} ucna_table[] = {
-	UCNA(EMULEX, GEN1), UCNA(EMULEX, GEN2), UCNA(EMULEX, GEN2_VF)
+#define UCNA(v, d)                                                             \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_EMULEX_##d, NULL)
+static const struct verbs_match_ent ucna_table[] = {
+	UCNA(EMULEX, GEN1),
+	UCNA(EMULEX, GEN2),
+	UCNA(EMULEX, GEN2_VF),
+	{}
 };
 
 static struct ibv_context *ocrdma_alloc_context(struct ibv_device *, int);
@@ -106,12 +104,6 @@ static void ocrdma_uninit_device(struct verbs_device *verbs_device)
 
 	free(dev);
 }
-
-static struct verbs_device_ops ocrdma_dev_ops = {
-	.alloc_context = ocrdma_alloc_context,
-	.free_context = ocrdma_free_context,
-	.uninit_device = ocrdma_uninit_device
-};
 
 /*
  * ocrdma_alloc_context
@@ -174,50 +166,14 @@ static void ocrdma_free_context(struct ibv_context *ibctx)
 	free(ctx);
 }
 
-/**
- * ocrdma_driver_init
- */
-static struct verbs_device *ocrdma_driver_init(const char *uverbs_sys_path,
-					       int abi_version)
+static struct verbs_device *
+ocrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-
-	char value[16];
 	struct ocrdma_device *dev;
-	unsigned vendor, device;
-	int i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0) {
-		return NULL;
-	}
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0) {
-		return NULL;
-	}
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof ucna_table / sizeof ucna_table[0]; ++i) {
-		if (vendor == ucna_table[i].vendor &&
-		    device == ucna_table[i].device)
-			goto found;
-	}
-	return NULL;
-found:
-	if (abi_version != OCRDMA_ABI_VERSION) {
-		fprintf(stderr,
-		  "Fatal: libocrdma ABI version %d of %s is not supported.\n",
-		  abi_version, uverbs_sys_path);
-		return NULL;
-	}
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		ocrdma_err("%s() Fatal: fail allocate device for libocrdma\n",
-			   __func__);
+	if (!dev)
 		return NULL;
-	}
 
 	dev->qp_tbl = malloc(OCRDMA_MAX_QP * sizeof(struct ocrdma_qp *));
 	if (!dev->qp_tbl)
@@ -225,18 +181,20 @@ found:
 	bzero(dev->qp_tbl, OCRDMA_MAX_QP * sizeof(struct ocrdma_qp *));
 	pthread_mutex_init(&dev->dev_lock, NULL);
 	pthread_spin_init(&dev->flush_q_lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = &ocrdma_dev_ops;
 	return &dev->ibv_dev;
 qp_err:
 	free(dev);
 	return NULL;
 }
 
-/*
- * ocrdma_register_driver
- */
-static __attribute__ ((constructor))
-void ocrdma_register_driver(void)
-{
-	verbs_register_driver("ocrdma", ocrdma_driver_init);
-}
+static const struct verbs_device_ops ocrdma_dev_ops = {
+	.name = "ocrdma",
+	.match_min_abi_version = OCRDMA_ABI_VERSION,
+	.match_max_abi_version = OCRDMA_ABI_VERSION,
+	.match_table = ucna_table,
+	.alloc_device = ocrdma_device_alloc,
+	.uninit_device = ocrdma_uninit_device,
+	.alloc_context = ocrdma_alloc_context,
+	.free_context = ocrdma_free_context,
+};
+PROVIDER_DRIVER(ocrdma_dev_ops);

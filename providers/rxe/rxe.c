@@ -57,6 +57,12 @@
 #include "rxe-abi.h"
 #include "rxe.h"
 
+static const struct verbs_match_ent hca_table[] = {
+	/* FIXME: rxe needs a more reliable way to detect the rxe device */
+	VERBS_NAME_MATCH("rxe", NULL),
+	{},
+};
+
 static int rxe_query_device(struct ibv_context *context,
 			    struct ibv_device_attr *attr)
 {
@@ -893,42 +899,26 @@ static void rxe_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops rxe_dev_ops = {
-	.alloc_context = rxe_alloc_context,
-	.free_context = rxe_free_context,
-	.uninit_device = rxe_uninit_device
-};
-
-static struct verbs_device *rxe_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static struct verbs_device *rxe_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct rxe_device *dev;
-	char value[16];
-
-	/* make sure it is a rxe device */
-	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev",
-				value, sizeof(value)) < 0)
-		return NULL;
-
-	if (strncmp(value, "rxe", 3))
-		return NULL;
-
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr,
-			"rxe: Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->ibv_dev.ops = &rxe_dev_ops;
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__ ((constructor))
-void rxe_register_driver(void)
-{
-	verbs_register_driver("rxe", rxe_driver_init);
-}
+static const struct verbs_device_ops rxe_dev_ops = {
+	.name = "rxe",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_table = hca_table,
+	.alloc_device = rxe_device_alloc,
+	.uninit_device = rxe_uninit_device,
+	.alloc_context = rxe_alloc_context,
+	.free_context = rxe_free_context,
+};
+PROVIDER_DRIVER(rxe_dev_ops);

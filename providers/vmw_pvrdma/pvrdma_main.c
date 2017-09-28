@@ -169,69 +169,35 @@ static void pvrdma_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops pvrdma_dev_ops = {
-	.alloc_context = pvrdma_alloc_context,
-	.free_context  = pvrdma_free_context,
-	.uninit_device = pvrdma_uninit_device
-};
-
-static struct pvrdma_device *pvrdma_driver_init_shared(
-						const char *uverbs_sys_path,
-						int abi_version)
+static struct verbs_device *
+pvrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct pvrdma_device *dev;
-	char value[8];
-	unsigned int vendor_id, device_id;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0)
-		return NULL;
-	vendor_id = strtol(value, NULL, 16);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0)
-		return NULL;
-	device_id = strtol(value, NULL, 16);
-
-	if (vendor_id != PCI_VENDOR_ID_VMWARE ||
-	    device_id != PCI_DEVICE_ID_VMWARE_PVRDMA)
-		return NULL;
-
-	/* We support only a single ABI version for now. */
-	if (abi_version != PVRDMA_UVERBS_ABI_VERSION) {
-		fprintf(stderr, PFX "ABI version %d of %s is not "
-			"supported (supported %d)\n",
-			abi_version, uverbs_sys_path,
-			PVRDMA_UVERBS_ABI_VERSION);
-		return NULL;
-	}
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "couldn't allocate device for %s\n",
-			uverbs_sys_path);
-		return NULL;
-	}
-
-	dev->abi_version = abi_version;
-	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->ibv_dev.ops = &pvrdma_dev_ops;
-
-	return dev;
-}
-
-static struct verbs_device *pvrdma_driver_init(const char *uverbs_sys_path,
-					       int abi_version)
-{
-	struct pvrdma_device *dev = pvrdma_driver_init_shared(uverbs_sys_path,
-							      abi_version);
 	if (!dev)
 		return NULL;
+
+	dev->abi_version = sysfs_dev->abi_ver;
+	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void pvrdma_register_driver(void)
-{
-	verbs_register_driver("pvrdma", pvrdma_driver_init);
-}
+static const struct verbs_match_ent hca_table[] = {
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_VMWARE, PCI_DEVICE_ID_VMWARE_PVRDMA,
+			NULL),
+	{}
+};
+
+static const struct verbs_device_ops pvrdma_dev_ops = {
+	.name = "pvrdma",
+	.match_min_abi_version = PVRDMA_UVERBS_ABI_VERSION,
+	.match_max_abi_version = PVRDMA_UVERBS_ABI_VERSION,
+	.match_table = hca_table,
+	.alloc_device = pvrdma_device_alloc,
+	.uninit_device = pvrdma_uninit_device,
+	.alloc_context = pvrdma_alloc_context,
+	.free_context  = pvrdma_free_context,
+};
+PROVIDER_DRIVER(pvrdma_dev_ops);
