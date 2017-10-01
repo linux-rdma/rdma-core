@@ -61,8 +61,10 @@ struct hns_roce_create_cq_resp {
 struct hns_roce_create_qp {
 	struct ibv_create_qp		ibv_cmd;
 	__u64				buf_addr;
+	__u64				db_addr;
 	__u8				log_sq_bb_count;
 	__u8				log_sq_stride;
+	__u8				sq_no_prefetch;
 	__u8				reserved[5];
 };
 
