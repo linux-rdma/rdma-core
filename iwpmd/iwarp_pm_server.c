@@ -317,7 +317,7 @@ static int process_iwpm_add_mapping(struct nlmsghdr *req_nlh, int client_idx, in
 	__u16 err_code = 0;
 	const char *msg_type = "Add Mapping Request";
 	const char *str_err = "";
-	int ret = -EINVAL, ref_cnt;
+	int ret = -EINVAL;
 
 	if (parse_iwpm_nlmsg(req_nlh, IWPM_NLA_MANAGE_MAPPING_MAX, manage_map_policy, nltb, msg_type)) {
 		err_code = IWPM_INVALID_NLMSG_ERR;
@@ -329,7 +329,7 @@ static int process_iwpm_add_mapping(struct nlmsghdr *req_nlh, int client_idx, in
 	iwpm_port = find_iwpm_mapping(local_addr, not_mapped);
 	if (iwpm_port) {
 		if (check_same_sockaddr(local_addr, &iwpm_port->local_addr) && iwpm_port->wcard) {
-				iwpm_port->ref_cnt++;
+			atomic_fetch_add(&iwpm_port->ref_cnt, 1);
 		} else {
 			err_code = IWPM_DUPLICATE_MAPPING_ERR;
 			str_err = "Duplicate mapped port";
@@ -375,12 +375,8 @@ add_mapping_free_error:
 	if (resp_nlmsg)
 		nlmsg_free(resp_nlmsg);
 	if (iwpm_port) {
-		if (iwpm_port->wcard) {
-			ref_cnt = free_iwpm_wcard_mapping(iwpm_port);
-			if (ref_cnt)
-				goto add_mapping_error;
-		}
-		free_iwpm_port(iwpm_port);
+		if (atomic_fetch_sub(&iwpm_port->ref_cnt, 1) == 1)
+			free_iwpm_port(iwpm_port);
 	}
 add_mapping_error:
 	syslog(LOG_WARNING, "process_add_mapping: %s (failed request from client = %s).\n",
@@ -435,15 +431,14 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 
 	iwpm_port = find_iwpm_mapping(local_addr, not_mapped);
 	if (iwpm_port) {
-		err_code = IWPM_DUPLICATE_MAPPING_ERR;
-		str_err = "Duplicate mapped port";
-		goto query_mapping_error;
-	}
-	iwpm_port = create_iwpm_mapped_port(local_addr, client_idx);
-	if (!iwpm_port) {
-		err_code = IWPM_CREATE_MAPPING_ERR;
-		str_err = "Unable to create new mapping";
-		goto query_mapping_error;
+		atomic_fetch_add(&iwpm_port->ref_cnt, 1);
+	} else {
+		iwpm_port = create_iwpm_mapped_port(local_addr, client_idx);
+		if (!iwpm_port) {
+			err_code = IWPM_CREATE_MAPPING_ERR;
+			str_err = "Unable to create new mapping";
+			goto query_mapping_error;
+		}
 	}
 	if (iwpm_port->wcard) {
 		err_code = IWPM_CREATE_MAPPING_ERR;
@@ -499,10 +494,13 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 
 	add_iwpm_map_request(iwpm_map_req);
 	add_iwpm_mapped_port(iwpm_port);
+
 	return send_iwpm_msg(form_iwpm_request, &msg_parms, &dest_addr.s_sockaddr, pm_client_sock);
 query_mapping_free_error:
-	if (iwpm_port)
-		free_iwpm_port(iwpm_port);
+	if (iwpm_port) {
+		if (atomic_fetch_sub(&iwpm_port->ref_cnt, 1) == 1)
+			free_iwpm_port(iwpm_port);
+	}
 	if (send_msg)
 		free(send_msg);
 	if (iwpm_map_req)
@@ -530,7 +528,7 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 	struct nlattr *nltb [IWPM_NLA_MANAGE_MAPPING_MAX];
 	int not_mapped = 1;
 	const char *msg_type = "Remove Mapping Request";
-	int ret = 0, ref_cnt;
+	int ret = 0;
 
 	if (parse_iwpm_nlmsg(req_nlh, IWPM_NLA_MANAGE_MAPPING_MAX, manage_map_policy, nltb, msg_type)) {
 		send_iwpm_error_msg(req_nlh->nlmsg_seq, IWPM_INVALID_NLMSG_ERR, client_idx, nl_sock);
@@ -556,13 +554,10 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 				client_idx);
 		goto remove_mapping_exit;
 	}
-	if (iwpm_port->wcard) {
-		ref_cnt = free_iwpm_wcard_mapping(iwpm_port);
-		if (ref_cnt)
-			goto remove_mapping_exit;
+	if (atomic_fetch_sub(&iwpm_port->ref_cnt, 1) == 1) {
+		remove_iwpm_mapped_port(iwpm_port);
+		free_iwpm_port(iwpm_port);
 	}
-	remove_iwpm_mapped_port(iwpm_port);
-	free_iwpm_port(iwpm_port);
 remove_mapping_exit:
 	return ret;
 }
