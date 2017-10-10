@@ -82,7 +82,12 @@ union ibv_gid {
 
 #define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
 
-static void *__VERBS_ABI_IS_EXTENDED = (void *)UINTPTR_MAX;
+#ifdef __cplusplus
+#include <limits>
+#define __VERBS_ABI_IS_EXTENDED ((void *)std::numeric_limits<uintptr_t>::max())
+#else
+#define __VERBS_ABI_IS_EXTENDED ((void *)UINTPTR_MAX)
+#endif
 
 enum ibv_node_type {
 	IBV_NODE_UNKNOWN	= -1,
