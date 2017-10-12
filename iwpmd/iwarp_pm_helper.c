@@ -341,10 +341,9 @@ static iwpm_mapped_port *get_iwpm_port(int client_idx, struct sockaddr_storage *
 	memcpy(&iwpm_port->mapped_addr, mapped_addr, sizeof(struct sockaddr_storage));
 	iwpm_port->owner_client = client_idx;
 	iwpm_port->sd = sd;
-        if (is_wcard_ipaddr(local_addr)) {
+	atomic_init(&iwpm_port->ref_cnt, 1);
+	if (is_wcard_ipaddr(local_addr))
 		iwpm_port->wcard = 1;
-		iwpm_port->ref_cnt = 1;
-	}
 	return iwpm_port;
 }
 
@@ -415,12 +414,9 @@ reopen_mapped_port_error:
 void add_iwpm_mapped_port(iwpm_mapped_port *iwpm_port)
 {
 	static int dbg_idx = 1;
+	if (atomic_load(&iwpm_port->ref_cnt) > 1)
+		return;
 	iwpm_debug(IWARP_PM_ALL_DBG, "add_iwpm_mapped_port: Adding a new mapping #%d\n", dbg_idx++);
-	/* only one mapping per wild card ip address */
-	if (iwpm_port->wcard) {
-		if (iwpm_port->ref_cnt > 1)
-			return;
-	}
 	list_add(&mapped_ports, &iwpm_port->entry);
 }
 
@@ -516,21 +512,6 @@ iwpm_mapped_port *find_iwpm_same_mapping(struct sockaddr_storage *search_addr,
 	}
 find_same_mapping_exit:
 	return saved_iwpm_port;
-}
-
-/**
- * free_iwpm_wcard_port - Free wild card mapping object
- * @iwpm_port: mapped port object to be freed
- *
- * Mappings with wild card IP addresses can't be freed
- * while their reference count > 0
- */
-int free_iwpm_wcard_mapping(iwpm_mapped_port *iwpm_port)
-{
-	if (iwpm_port->ref_cnt > 0)
-		iwpm_port->ref_cnt--;
-
-	return iwpm_port->ref_cnt;
 }
 
 /**

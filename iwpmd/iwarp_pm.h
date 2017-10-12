@@ -53,6 +53,7 @@
 #include <netlink/msg.h>
 #include <ccan/list.h>
 #include <rdma/rdma_netlink.h>
+#include <stdatomic.h>
 
 #define IWARP_PM_PORT          3935
 #define IWARP_PM_VER_SHIFT     6
@@ -138,7 +139,7 @@ typedef struct iwpm_mapped_port {
 	struct sockaddr_storage	    local_addr;
 	struct sockaddr_storage	    mapped_addr;
 	int			    wcard;
-	int			    ref_cnt; /* the number of owners, if wcard */
+	_Atomic(int)		    ref_cnt; /* the number of owners */
 } iwpm_mapped_port;
 
 typedef struct iwpm_wire_msg {
@@ -250,8 +251,6 @@ void remove_iwpm_mapped_port(iwpm_mapped_port *);
 void print_iwpm_mapped_ports(void);
 
 void free_iwpm_port(iwpm_mapped_port *);
-
-int free_iwpm_wcard_mapping(iwpm_mapped_port *);
 
 iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *, struct sockaddr_storage *,
 					struct sockaddr_storage *, __u64, int, iwpm_send_msg *);
