@@ -732,7 +732,7 @@ static void acmp_process_join_resp(struct acm_sa_mad *sa_mad)
 			acm_log(0, "ERROR - unable to create ah\n");
 			goto out;
 		}
-		ret = ibv_attach_mcast(ep->qp, &mc_rec->mgid, mc_rec->mlid);
+		ret = ibv_attach_mcast(ep->qp, &dest->mgid, dest->av.dlid);
 		if (ret) {
 			acm_log(0, "ERROR - unable to attach QP to multicast group\n");
 			ibv_destroy_ah(dest->ah);
@@ -1429,7 +1429,7 @@ static void acmp_ep_join(struct acmp_ep *ep)
 
 	if (ep->mc_dest[0].state == ACMP_READY && ep->mc_dest[0].ah) {
 		ibv_detach_mcast(ep->qp, &ep->mc_dest[0].mgid,
-				 be16toh(ep->mc_dest[0].av.dlid));
+				 ep->mc_dest[0].av.dlid);
 		ibv_destroy_ah(ep->mc_dest[0].ah);
 		ep->mc_dest[0].ah = NULL;
 	}
