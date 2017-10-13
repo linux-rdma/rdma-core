@@ -69,6 +69,12 @@ static struct ibv_context_ops pvrdma_ctx_ops = {
 	.modify_qp = pvrdma_modify_qp,
 	.destroy_qp = pvrdma_destroy_qp,
 
+	.create_srq = pvrdma_create_srq,
+	.modify_srq = pvrdma_modify_srq,
+	.query_srq = pvrdma_query_srq,
+	.destroy_srq = pvrdma_destroy_srq,
+	.post_srq_recv = pvrdma_post_srq_recv,
+
 	.post_send = pvrdma_post_send,
 	.post_recv = pvrdma_post_recv,
 	.create_ah = pvrdma_create_ah,
