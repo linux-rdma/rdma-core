@@ -2587,8 +2587,8 @@ static void acm_load_prov_config(void)
 					return;
 				}
 				subnet->subnet_prefix = htobe64(prefix);
-				list_add_after(&provider_list, &prov->entry,
-						&subnet->entry);
+				list_add_tail(&prov->subnet_list,
+					      &subnet->entry);
 			}
 		}
 	}
