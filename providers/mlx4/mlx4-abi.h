@@ -99,13 +99,19 @@ struct mlx4_resize_cq {
 	__u64				buf_addr;
 };
 
+struct mlx4_rss_caps {
+	__u64 rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
+	__u8 rx_hash_function; /* enum ibv_rx_hash_function_flags */
+	__u8 reserved[7];
+};
+
 struct mlx4_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
 	__u32				response_length;
 	__u64				hca_core_clock_offset;
 	__u32				max_inl_recv_sz;
-	__u32				reserved;
+	struct mlx4_rss_caps            rss_caps; /* vendor data channel */
 };
 
 struct mlx4_query_device_ex {
