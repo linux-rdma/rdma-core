@@ -506,8 +506,18 @@ int is_port_info_extended_supported(ib_portid_t * dest, int port,
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	uint32_t cap_mask;
 	uint16_t cap_mask2;
+	int type, portnum;
 
-	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, port, 0, srcport))
+	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
+		IBEXIT("node info query failed");
+
+	mad_decode_field(data, IB_NODE_TYPE_F, &type);
+	if (type == IB_NODE_SWITCH)
+		portnum = 0;
+	else
+		portnum = port;
+
+	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		IBEXIT("port info query failed");
 
 	mad_decode_field(data, IB_PORT_CAPMASK_F, &cap_mask);
