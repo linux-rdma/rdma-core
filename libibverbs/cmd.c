@@ -1778,6 +1778,14 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 	case IBV_FLOW_SPEC_ACTION_DROP:
 		kern_spec->drop.size = sizeof(struct ib_uverbs_flow_spec_action_drop);
 		break;
+	case IBV_FLOW_SPEC_ACTION_HANDLE: {
+		const struct verbs_flow_action *vaction =
+			container_of((const struct ibv_flow_action *)ib_spec->handle.action,
+				     const struct verbs_flow_action, action);
+		kern_spec->handle.size = sizeof(struct ib_uverbs_flow_spec_action_handle);
+		kern_spec->handle.handle = vaction->handle;
+		break;
+	}
 	default:
 		return EINVAL;
 	}
