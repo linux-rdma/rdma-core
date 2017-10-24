@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Hisilicon Limited.
+ * Copyright (c) 2016-2017 Hisilicon Limited.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -42,6 +42,7 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
 #include "hns_roce_u_hw_v1.h"
+#include "hns_roce_u_hw_v2.h"
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp)
 {
@@ -272,7 +273,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 		cq->set_ci_db = to_hr_ctx(context)->cq_tptr_base + cq->cqn * 2;
 	else
 		cq->set_ci_db = to_hr_ctx(context)->uar +
-				ROCEE_DB_OTHERS_L_0_REG;
+				ROCEE_VF_DB_CFG0_OFFSET;
 
 	cq->arm_db    = cq->set_ci_db;
 	cq->arm_sn    = 1;
@@ -312,18 +313,22 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 			      struct hns_roce_context *context)
 {
-	if (attr->cap.max_send_wr < HNS_ROCE_MIN_WQE_NUM) {
-		fprintf(stderr,
-			"max_send_wr = %d, less than minimum WQE number.\n",
-			attr->cap.max_send_wr);
-		attr->cap.max_send_wr = HNS_ROCE_MIN_WQE_NUM;
-	}
+	struct hns_roce_device *hr_dev = to_hr_dev(context->ibv_ctx.device);
 
-	if (attr->cap.max_recv_wr < HNS_ROCE_MIN_WQE_NUM) {
-		fprintf(stderr,
-			"max_recv_wr = %d, less than minimum WQE number.\n",
-			attr->cap.max_recv_wr);
-		attr->cap.max_recv_wr = HNS_ROCE_MIN_WQE_NUM;
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
+		if (attr->cap.max_send_wr < HNS_ROCE_MIN_WQE_NUM) {
+			fprintf(stderr,
+				"max_send_wr = %d, less than minimum WQE number.\n",
+				attr->cap.max_send_wr);
+				attr->cap.max_send_wr = HNS_ROCE_MIN_WQE_NUM;
+		}
+
+		if (attr->cap.max_recv_wr < HNS_ROCE_MIN_WQE_NUM) {
+			fprintf(stderr,
+				"max_recv_wr = %d, less than minimum WQE number.\n",
+				attr->cap.max_recv_wr);
+				attr->cap.max_recv_wr = HNS_ROCE_MIN_WQE_NUM;
+		}
 	}
 
 	if (attr->cap.max_recv_sge < 1)
