@@ -256,6 +256,8 @@ non_cxx_headers = {
     "infiniband/arch.h",
     "infiniband/ib.h",
     "infiniband/ib_user_ioctl_verbs.h",
+    "infiniband/mlx5_api.h",
+    "infiniband/mlx5_user_ioctl_verbs.h",
     "infiniband/opcode.h",
     "infiniband/sa-kern-abi.h",
     "infiniband/sa.h",

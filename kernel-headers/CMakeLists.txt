@@ -71,5 +71,6 @@ rdma_kernel_provider_abi(
 
 publish_headers(infiniband
   rdma/ib_user_ioctl_verbs.h
+  rdma/mlx5_user_ioctl_verbs.h
   )
 

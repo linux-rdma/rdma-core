@@ -46,6 +46,8 @@
 
 #include <util/compiler.h>
 #include <util/mmio.h>
+#include <rdma/ib_user_ioctl_cmds.h>
+#include <rdma/mlx5_user_ioctl_cmds.h>
 
 #include "mlx5.h"
 #include "mlx5-abi.h"
@@ -3013,6 +3015,33 @@ struct ibv_flow_action *mlx5_create_flow_action_esp(struct ibv_context *ctx,
 						    struct ibv_flow_action_esp_attr *attr)
 {
 	return _mlx5_create_flow_action_esp(ctx, attr, NULL);
+}
+
+struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
+						      struct ibv_flow_action_esp_attr *esp,
+						      struct mlx5dv_flow_action_esp *mlx5_attr)
+{
+	DECLARE_COMMAND_BUFFER_LINK(driver_attr, UVERBS_OBJECT_FLOW_ACTION,
+				    UVERBS_METHOD_FLOW_ACTION_ESP_CREATE, 1,
+				    NULL);
+
+	if (!check_comp_mask(mlx5_attr->comp_mask,
+			     MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (mlx5_attr->comp_mask & MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS) {
+		if (!check_comp_mask(mlx5_attr->action_flags,
+				     MLX5_IB_UAPI_FLOW_ACTION_FLAGS_REQUIRE_METADATA)) {
+			errno = EOPNOTSUPP;
+			return NULL;
+		}
+		fill_attr_in_uint64(driver_attr, MLX5_IB_ATTR_CREATE_FLOW_ACTION_FLAGS,
+				    mlx5_attr->action_flags);
+	}
+
+	return _mlx5_create_flow_action_esp(ctx, esp, driver_attr);
 }
 
 int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
