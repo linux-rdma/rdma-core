@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Hisilicon Limited.
+ * Copyright (c) 2016-2017 Hisilicon Limited.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -49,6 +49,8 @@
 #define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
 #define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
+
+#define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
 
 #define PFX				"hns: "
 
@@ -157,6 +159,12 @@ struct hns_roce_wq {
 	int				offset;
 };
 
+struct hns_roce_sge_ex {
+	int				offset;
+	unsigned int			sge_cnt;
+	int				sge_shift;
+};
+
 struct hns_roce_qp {
 	struct ibv_qp			ibv_qp;
 	struct hns_roce_buf		buf;
@@ -165,6 +173,8 @@ struct hns_roce_qp {
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
+	struct hns_roce_sge_ex		sge;
+	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
 };
@@ -249,5 +259,6 @@ void hns_roce_free_buf(struct hns_roce_buf *buf);
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 
 extern struct hns_roce_u_hw hns_roce_u_hw_v1;
+extern struct hns_roce_u_hw hns_roce_u_hw_v2;
 
 #endif /* _HNS_ROCE_U_H */
