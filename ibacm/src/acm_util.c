@@ -152,7 +152,7 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 
 	ret = ioctl(s, SIOCGIFCONF, ifc);
 	if (ret < 0) {
-		acm_log(0, "ioctl ifconf error %d\n", ret);
+		acm_log(0, "ioctl ifconf error: %s\n", strerror(errno));
 		goto out2;
 	}
 
