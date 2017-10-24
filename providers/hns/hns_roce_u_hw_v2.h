@@ -208,4 +208,54 @@ struct hns_roce_v2_cqe {
 
 #define CQE_BYTE_32_LPK_S 31
 
+struct hns_roce_rc_sq_wqe {
+	unsigned int	byte_4;
+	unsigned int	msg_len;
+	unsigned int	inv_key_immtdata;
+	unsigned int	byte_16;
+	unsigned int	byte_20;
+	unsigned int	rkey;
+	uint64_t	va;
+};
+
+#define RC_SQ_WQE_BYTE_4_OPCODE_S 0
+#define RC_SQ_WQE_BYTE_4_OPCODE_M \
+	(((1UL << 5) - 1) << RC_SQ_WQE_BYTE_4_OPCODE_S)
+
+#define RC_SQ_WQE_BYTE_4_OWNER_S 7
+
+#define RC_SQ_WQE_BYTE_4_CQE_S 8
+
+#define RC_SQ_WQE_BYTE_4_FENCE_S 9
+
+#define RC_SQ_WQE_BYTE_4_SO_S 10
+
+#define RC_SQ_WQE_BYTE_4_SE_S 11
+
+#define RC_SQ_WQE_BYTE_4_INLINE_S 12
+
+#define RC_SQ_WQE_BYTE_16_XRC_SRQN_S 0
+#define RC_SQ_WQE_BYTE_16_XRC_SRQN_M \
+	(((1UL << 24) - 1) << RC_SQ_WQE_BYTE_16_XRC_SRQN_S)
+
+#define RC_SQ_WQE_BYTE_16_SGE_NUM_S 24
+#define RC_SQ_WQE_BYTE_16_SGE_NUM_M \
+	(((1UL << 8) - 1) << RC_SQ_WQE_BYTE_16_SGE_NUM_S)
+
+#define RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S 0
+#define RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M \
+	(((1UL << 24) - 1) << RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S)
+
+struct hns_roce_v2_wqe_data_seg {
+	__be32    len;
+	__be32    lkey;
+	__be64    addr;
+};
+
+struct hns_roce_v2_wqe_raddr_seg {
+	__be32		rkey;
+	__be32		len;
+	__be64		raddr;
+};
+
 #endif /* _HNS_ROCE_U_HW_V2_H */
