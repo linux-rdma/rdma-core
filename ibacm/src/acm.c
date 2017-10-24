@@ -2648,7 +2648,7 @@ static int acm_open_providers(void)
 
 		query = dlsym(handle, "provider_query");
 		if ((err_str = dlerror()) != NULL) {
-			acm_log(0, "Error -provider_query not found in %s (%s)\n",
+			acm_log(0, "Error - provider_query not found in %s (%s)\n",
 				file_name, err_str);
 			dlclose(handle);
 			continue;
