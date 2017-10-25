@@ -45,6 +45,10 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
+#include <limits>
+#endif
+
+#ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
 #else /* !__cplusplus */
@@ -83,7 +87,6 @@ union ibv_gid {
 #define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
 
 #ifdef __cplusplus
-#include <limits>
 #define __VERBS_ABI_IS_EXTENDED ((void *)std::numeric_limits<uintptr_t>::max())
 #else
 #define __VERBS_ABI_IS_EXTENDED ((void *)UINTPTR_MAX)
