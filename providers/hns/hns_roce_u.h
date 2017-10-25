@@ -159,6 +159,12 @@ struct hns_roce_wq {
 	int				offset;
 };
 
+struct hns_roce_sge_ex {
+	int				offset;
+	unsigned int			sge_cnt;
+	int				sge_shift;
+};
+
 struct hns_roce_qp {
 	struct ibv_qp			ibv_qp;
 	struct hns_roce_buf		buf;
@@ -167,6 +173,8 @@ struct hns_roce_qp {
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
+	struct hns_roce_sge_ex		sge;
+	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
 };
