@@ -5,6 +5,7 @@ publish_headers(infiniband
   sa-kern-abi.h
   sa.h
   verbs.h
+  tm_types.h
   )
 
 publish_internal_headers(infiniband

@@ -132,6 +132,12 @@ enum {
 };
 
 enum {
+	MLX5_TM_OPCODE_NOP		= 0x00,
+	MLX5_TM_OPCODE_APPEND		= 0x01,
+	MLX5_TM_OPCODE_REMOVE		= 0x02,
+};
+
+enum {
 	MLX5_RECV_OPCODE_RDMA_WRITE_IMM	= 0x00,
 	MLX5_RECV_OPCODE_SEND		= 0x01,
 	MLX5_RECV_OPCODE_SEND_IMM	= 0x02,
@@ -142,7 +148,9 @@ enum {
 };
 
 enum {
-	MLX5_SRQ_FLAG_SIGNATURE		= 1 << 0,
+	MLX5_SRQ_FLAG_SIGNATURE		= (1 << 0),
+	MLX5_SRQ_FLAG_TM_SW_CNT		= (1 << 6),
+	MLX5_SRQ_FLAG_TM_CQE_REQ	= (1 << 7),
 };
 
 enum {
@@ -315,6 +323,7 @@ enum {
 	MLX5_CQ_FLAGS_EXTENDED = 1 << 3,
 	MLX5_CQ_FLAGS_SINGLE_THREADED = 1 << 4,
 	MLX5_CQ_FLAGS_DV_OWNED = 1 << 5,
+	MLX5_CQ_FLAGS_TM_SYNC_REQ = 1 << 6,
 };
 
 struct mlx5_cq {
@@ -345,6 +354,22 @@ struct mlx5_cq {
 	int			umr_opcode;
 };
 
+struct mlx5_tag_entry {
+	struct mlx5_tag_entry *next;
+	uint64_t	       wr_id;
+	int		       phase_cnt;
+	void		      *ptr;
+	uint32_t	       size;
+	int8_t		       expect_cqe;
+};
+
+struct mlx5_srq_op {
+	struct mlx5_tag_entry *tag;
+	uint64_t	       wr_id;
+	/* we need to advance tail pointer */
+	uint32_t	       wqe_head;
+};
+
 struct mlx5_srq {
 	struct mlx5_resource            rsc;  /* This struct must be first */
 	struct verbs_srq		vsrq;
@@ -360,7 +385,27 @@ struct mlx5_srq {
 	__be32			       *db;
 	uint16_t			counter;
 	int				wq_sig;
+	struct ibv_qp		       *cmd_qp;
+	struct mlx5_tag_entry	       *tm_list; /* vector of all tags */
+	struct mlx5_tag_entry	       *tm_head; /* queue of free tags */
+	struct mlx5_tag_entry	       *tm_tail;
+	struct mlx5_srq_op	       *op;
+	int				op_head;
+	int				op_tail;
+	int				unexp_in;
+	int				unexp_out;
 };
+
+
+static inline void mlx5_tm_release_tag(struct mlx5_srq *srq,
+				       struct mlx5_tag_entry *tag)
+{
+	if (!--tag->expect_cqe) {
+		tag->next = NULL;
+		srq->tm_tail->next = tag;
+		srq->tm_tail = tag;
+	}
+}
 
 struct wr_list {
 	uint16_t	opcode;
@@ -692,6 +737,9 @@ struct ibv_rwq_ind_table *mlx5_create_rwq_ind_table(struct ibv_context *context,
 int mlx5_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 				   struct ibv_srq_init_attr_ex *attr);
+int mlx5_post_srq_ops(struct ibv_srq *srq,
+		      struct ibv_ops_wr *wr,
+		      struct ibv_ops_wr **bad_wr);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

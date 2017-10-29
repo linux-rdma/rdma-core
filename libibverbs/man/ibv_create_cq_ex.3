@@ -140,6 +140,17 @@ Below members and functions are used in order to poll the current completion. Th
 .BI "uint32_t ibv_wc_read_flow_tag(struct ibv_cq_ex " "*cq"); \c
  Get flow tag from the current completion.
 
+.BI "void ibv_wc_read_tm_info(struct ibv_cq_ex " *cq ","
+.BI "struct ibv_wc_tm_info " *tm_info "); \c
+ Get tag matching info from the current completion.
+.nf
+struct ibv_wc_tm_info {
+.in +8
+uint64_t tag;  /* tag from TMH */
+uint32_t priv; /* opaque user data from TMH */
+.in -8
+};
+
 .SH "RETURN VALUE"
 .B ibv_create_cq_ex()
 returns a pointer to the CQ, or NULL if the request fails.

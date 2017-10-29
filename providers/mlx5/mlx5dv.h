@@ -43,6 +43,7 @@
 #endif /* defined(__SSE3__) */
 
 #include <infiniband/verbs.h>
+#include <infiniband/tm_types.h>
 
 /* Always inline the functions */
 #ifdef __GNUC__
@@ -217,6 +218,7 @@ enum {
 	MLX5_OPCODE_LOCAL_INVAL		= 0x1b,
 	MLX5_OPCODE_CONFIG_CMD		= 0x1f,
 	MLX5_OPCODE_UMR			= 0x25,
+	MLX5_OPCODE_TAG_MATCHING	= 0x28
 };
 
 /*
@@ -264,6 +266,7 @@ enum {
 	MLX5_CQE_RESP_SEND_IMM	= 3,
 	MLX5_CQE_RESP_SEND_INV	= 4,
 	MLX5_CQE_RESIZE_CQ	= 5,
+	MLX5_CQE_NO_PACKET	= 6,
 	MLX5_CQE_REQ_ERR	= 13,
 	MLX5_CQE_RESP_ERR	= 14,
 	MLX5_CQE_INVALID	= 15,
@@ -290,24 +293,43 @@ struct mlx5_err_cqe {
 	uint8_t		op_own;
 };
 
+struct mlx5_tm_cqe {
+	__be32		success;
+	__be16		hw_phase_cnt;
+	uint8_t		rsvd0[12];
+};
+
 struct mlx5_cqe64 {
-	uint8_t		rsvd0[17];
-	uint8_t		ml_path;
-	uint8_t		rsvd20[4];
-	__be16		slid;
-	__be32		flags_rqpn;
-	uint8_t		hds_ip_ext;
-	uint8_t		l4_hdr_type_etc;
-	__be16		vlan_info;
+	union {
+		struct {
+			uint8_t		rsvd0[17];
+			uint8_t		ml_path;
+			uint8_t		rsvd20[4];
+			__be16		slid;
+			__be32		flags_rqpn;
+			uint8_t		hds_ip_ext;
+			uint8_t		l4_hdr_type_etc;
+			__be16		vlan_info;
+		};
+		struct mlx5_tm_cqe tm_cqe;
+		/* TMH is scattered to CQE upon match */
+		struct ibv_tmh tmh;
+	};
 	__be32		srqn_uidx;
 	__be32		imm_inval_pkey;
-	uint8_t		rsvd40[4];
+	uint8_t		app;
+	uint8_t		app_op;
+	__be16		app_info;
 	__be32		byte_cnt;
 	__be64		timestamp;
 	__be32		sop_drop_qpn;
 	__be16		wqe_counter;
 	uint8_t		signature;
 	uint8_t		op_own;
+};
+
+enum {
+	MLX5_TMC_SUCCESS	= 0x80000000U,
 };
 
 enum mlx5dv_cqe_comp_res_format {
@@ -449,6 +471,17 @@ struct mlx5_wqe_eth_seg {
 	__be16		inline_hdr_sz;
 	uint8_t		inline_hdr_start[2];
 	uint8_t		inline_hdr[16];
+};
+
+struct mlx5_wqe_tm_seg {
+	uint8_t		opcode;
+	uint8_t		flags;
+	__be16		index;
+	uint8_t		rsvd0[2];
+	__be16		sw_cnt;
+	uint8_t		rsvd1[8];
+	__be64		append_tag;
+	__be64		append_mask;
 };
 
 /*

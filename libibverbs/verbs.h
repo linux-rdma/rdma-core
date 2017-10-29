@@ -269,6 +269,23 @@ enum ibv_raw_packet_caps {
 	IBV_RAW_PACKET_CAP_DELAY_DROP		= 1 << 3,
 };
 
+enum ibv_tm_cap_flags {
+	IBV_TM_CAP_RC		    = 1 << 0,
+};
+
+struct ibv_tm_caps {
+	/* Max size of rendezvous request header */
+	uint32_t max_rndv_hdr_size;
+	/* Max number of tagged buffers in a TM-SRQ matching list */
+	uint32_t max_num_tags;
+	/* From enum ibv_tm_cap_flags */
+	uint32_t flags;
+	/* Max number of outstanding list operations */
+	uint32_t max_ops;
+	/* Max number of SGEs in a tagged buffer */
+	uint32_t max_sge;
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -281,6 +298,7 @@ struct ibv_device_attr_ex {
 	uint32_t		max_wq_type_rq;
 	struct ibv_packet_pacing_caps packet_pacing_caps;
 	uint32_t		raw_packet_caps; /* Use ibv_raw_packet_caps */
+	struct ibv_tm_caps	tm_caps;
 };
 
 enum ibv_mtu {
@@ -412,7 +430,9 @@ enum ibv_wc_status {
 	IBV_WC_INV_EEC_STATE_ERR,
 	IBV_WC_FATAL_ERR,
 	IBV_WC_RESP_TIMEOUT_ERR,
-	IBV_WC_GENERAL_ERR
+	IBV_WC_GENERAL_ERR,
+	IBV_WC_TM_ERR,
+	IBV_WC_TM_RNDV_INCOMPLETE,
 };
 const char *ibv_wc_status_str(enum ibv_wc_status status);
 
@@ -430,7 +450,13 @@ enum ibv_wc_opcode {
  * receive by testing (opcode & IBV_WC_RECV).
  */
 	IBV_WC_RECV			= 1 << 7,
-	IBV_WC_RECV_RDMA_WITH_IMM
+	IBV_WC_RECV_RDMA_WITH_IMM,
+
+	IBV_WC_TM_ADD,
+	IBV_WC_TM_DEL,
+	IBV_WC_TM_SYNC,
+	IBV_WC_TM_RECV,
+	IBV_WC_TM_NO_TAG,
 };
 
 enum {
@@ -448,6 +474,7 @@ enum ibv_create_cq_wc_flags {
 	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP	= 1 << 7,
 	IBV_WC_EX_WITH_CVLAN		= 1 << 8,
 	IBV_WC_EX_WITH_FLOW_TAG		= 1 << 9,
+	IBV_WC_EX_WITH_TM_INFO		= 1 << 10,
 };
 
 enum {
@@ -464,14 +491,18 @@ enum {
 	IBV_CREATE_CQ_SUP_WC_FLAGS = IBV_WC_STANDARD_FLAGS |
 				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
 				IBV_WC_EX_WITH_CVLAN |
-				IBV_WC_EX_WITH_FLOW_TAG
+				IBV_WC_EX_WITH_FLOW_TAG |
+				IBV_WC_EX_WITH_TM_INFO
 };
 
 enum ibv_wc_flags {
 	IBV_WC_GRH		= 1 << 0,
 	IBV_WC_WITH_IMM		= 1 << 1,
 	IBV_WC_IP_CSUM_OK	= 1 << IBV_WC_IP_CSUM_OK_SHIFT,
-	IBV_WC_WITH_INV         = 1 << 3
+	IBV_WC_WITH_INV		= 1 << 3,
+	IBV_WC_TM_SYNC_REQ	= 1 << 4,
+	IBV_WC_TM_MATCH		= 1 << 5,
+	IBV_WC_TM_DATA_VALID	= 1 << 6,
 };
 
 struct ibv_wc {
@@ -658,7 +689,8 @@ struct ibv_srq_init_attr {
 
 enum ibv_srq_type {
 	IBV_SRQT_BASIC,
-	IBV_SRQT_XRC
+	IBV_SRQT_XRC,
+	IBV_SRQT_TM,
 };
 
 enum ibv_srq_init_attr_mask {
@@ -666,7 +698,13 @@ enum ibv_srq_init_attr_mask {
 	IBV_SRQ_INIT_ATTR_PD		= 1 << 1,
 	IBV_SRQ_INIT_ATTR_XRCD		= 1 << 2,
 	IBV_SRQ_INIT_ATTR_CQ		= 1 << 3,
-	IBV_SRQ_INIT_ATTR_RESERVED	= 1 << 4
+	IBV_SRQ_INIT_ATTR_TM		= 1 << 4,
+	IBV_SRQ_INIT_ATTR_RESERVED	= 1 << 5,
+};
+
+struct ibv_tm_cap {
+	uint32_t		max_num_tags;
+	uint32_t		max_ops;
 };
 
 struct ibv_srq_init_attr_ex {
@@ -678,6 +716,7 @@ struct ibv_srq_init_attr_ex {
 	struct ibv_pd	       *pd;
 	struct ibv_xrcd	       *xrcd;
 	struct ibv_cq	       *cq;
+	struct ibv_tm_cap	tm_cap;
 };
 
 enum ibv_wq_type {
@@ -1004,6 +1043,35 @@ struct ibv_recv_wr {
 	int			num_sge;
 };
 
+enum ibv_ops_wr_opcode {
+	IBV_WR_TAG_ADD,
+	IBV_WR_TAG_DEL,
+	IBV_WR_TAG_SYNC,
+};
+
+enum ibv_ops_flags {
+	IBV_OPS_SIGNALED = 1 << 0,
+	IBV_OPS_TM_SYNC  = 1 << 1,
+};
+
+struct ibv_ops_wr {
+	uint64_t				wr_id;
+	struct ibv_ops_wr		       *next;
+	enum ibv_ops_wr_opcode			opcode;
+	int					flags;
+	struct {
+		uint32_t			unexpected_cnt;
+		uint32_t			handle;
+		struct {
+			uint64_t		recv_wr_id;
+			struct ibv_sge	       *sg_list;
+			int			num_sge;
+			uint64_t		tag;
+			uint64_t		mask;
+		} add;
+	} tm;
+};
+
 struct ibv_mw_bind {
 	uint64_t		wr_id;
 	int			send_flags;
@@ -1090,6 +1158,11 @@ struct ibv_poll_cq_attr {
 	uint32_t comp_mask;
 };
 
+struct ibv_wc_tm_info {
+	uint64_t		tag;	 /* tag from TMH */
+	uint32_t		priv;	 /* opaque user data from TMH */
+};
+
 struct ibv_cq_ex {
 	struct ibv_context     *context;
 	struct ibv_comp_channel *channel;
@@ -1122,6 +1195,8 @@ struct ibv_cq_ex {
 	uint64_t (*read_completion_ts)(struct ibv_cq_ex *current);
 	uint16_t (*read_cvlan)(struct ibv_cq_ex *current);
 	uint32_t (*read_flow_tag)(struct ibv_cq_ex *current);
+	void (*read_tm_info)(struct ibv_cq_ex *current,
+			     struct ibv_wc_tm_info *tm_info);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
@@ -1217,6 +1292,12 @@ static inline uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex *cq)
 static inline uint32_t ibv_wc_read_flow_tag(struct ibv_cq_ex *cq)
 {
 	return cq->read_flow_tag(cq);
+}
+
+static inline void ibv_wc_read_tm_info(struct ibv_cq_ex *cq,
+				       struct ibv_wc_tm_info *tm_info)
+{
+	cq->read_tm_info(cq, tm_info);
 }
 
 static inline int ibv_post_wq_recv(struct ibv_wq *wq,
@@ -1549,6 +1630,9 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*post_srq_ops)(struct ibv_srq *srq,
+			    struct ibv_ops_wr *op,
+			    struct ibv_ops_wr **bad_op);
 	int (*destroy_rwq_ind_table)(struct ibv_rwq_ind_table *rwq_ind_table);
 	struct ibv_rwq_ind_table *(*create_rwq_ind_table)(struct ibv_context *context,
 							  struct ibv_rwq_ind_table_init_attr *init_attr);
@@ -2045,6 +2129,20 @@ static inline int ibv_post_srq_recv(struct ibv_srq *srq,
 				    struct ibv_recv_wr **bad_recv_wr)
 {
 	return srq->context->ops.post_srq_recv(srq, recv_wr, bad_recv_wr);
+}
+
+static inline int ibv_post_srq_ops(struct ibv_srq *srq,
+				   struct ibv_ops_wr *op,
+				   struct ibv_ops_wr **bad_op)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(srq->context, post_srq_ops);
+	if (!vctx) {
+		*bad_op = op;
+		return ENOSYS;
+	}
+	return vctx->post_srq_ops(srq, op, bad_op);
 }
 
 /**

@@ -330,7 +330,8 @@ enum {
 	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS	|
 				       IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
 				       IBV_WC_EX_WITH_CVLAN |
-				       IBV_WC_EX_WITH_FLOW_TAG
+				       IBV_WC_EX_WITH_FLOW_TAG |
+				       IBV_WC_EX_WITH_TM_INFO
 };
 
 enum {
@@ -739,6 +740,13 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 	struct mlx5_srq *msrq = to_msrq(srq);
 	struct mlx5_context *ctx = to_mctx(srq->context);
 
+	if (msrq->cmd_qp) {
+		ret = mlx5_destroy_qp(msrq->cmd_qp);
+		if (ret)
+			return ret;
+		msrq->cmd_qp = NULL;
+	}
+
 	ret = ibv_cmd_destroy_srq(srq);
 	if (ret)
 		return ret;
@@ -750,7 +758,9 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 
 	mlx5_free_db(ctx, msrq->db);
 	mlx5_free_buf(&msrq->buf);
+	free(msrq->tm_list);
 	free(msrq->wrid);
+	free(msrq->op);
 	free(msrq);
 
 	return 0;
@@ -1822,9 +1832,94 @@ int mlx5_close_xrcd(struct ibv_xrcd *ib_xrcd)
 	return ret;
 }
 
-static struct ibv_srq *
-mlx5_create_xrc_srq(struct ibv_context *context,
-		    struct ibv_srq_init_attr_ex *attr)
+static struct ibv_qp *
+create_cmd_qp(struct ibv_context *context,
+	      struct ibv_srq_init_attr_ex *srq_attr,
+	      struct ibv_srq *srq)
+{
+	struct ibv_qp_init_attr_ex init_attr = {};
+	FILE *fp = to_mctx(context)->dbg_fp;
+	struct ibv_port_attr port_attr;
+	struct ibv_modify_qp qcmd = {};
+	struct ibv_qp_attr attr = {};
+	struct ibv_query_port pcmd;
+	struct ibv_qp *qp;
+	int attr_mask;
+	int port = 1;
+	int ret;
+
+	ret = ibv_cmd_query_port(context, port, &port_attr,
+				 &pcmd, sizeof(pcmd));
+	if (ret) {
+		mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
+		return NULL;
+	}
+
+	init_attr.qp_type = IBV_QPT_RC;
+	init_attr.srq = srq;
+	/* Command QP will be used to pass MLX5_OPCODE_TAG_MATCHING messages
+	 * to add/remove tag matching list entries.
+	 * WQ size is based on max_ops parameter holding max number of
+	 * outstanding list operations.
+	 */
+	init_attr.cap.max_send_wr = srq_attr->tm_cap.max_ops;
+	/* Tag matching list entry will point to a single sge buffer */
+	init_attr.cap.max_send_sge = 1;
+	init_attr.comp_mask = IBV_QP_INIT_ATTR_PD;
+	init_attr.pd = srq_attr->pd;
+	init_attr.send_cq = srq_attr->cq;
+	init_attr.recv_cq = srq_attr->cq;
+
+	qp = create_qp(context, &init_attr);
+	if (!qp)
+		return NULL;
+
+	attr.qp_state = IBV_QPS_INIT;
+	attr.port_num = port;
+	attr_mask = IBV_QP_STATE | IBV_QP_PKEY_INDEX
+		  | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+
+	ret = ibv_cmd_modify_qp(qp, &attr, attr_mask, &qcmd, sizeof(qcmd));
+	if (ret) {
+		mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
+		goto err;
+	}
+
+	attr.qp_state = IBV_QPS_RTR;
+	attr.path_mtu = IBV_MTU_256;
+	attr.dest_qp_num = qp->qp_num; /* Loopback */
+	attr.ah_attr.dlid = port_attr.lid;
+	attr.ah_attr.port_num = port;
+	attr_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU
+		  | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN
+		  | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
+
+	ret = ibv_cmd_modify_qp(qp, &attr, attr_mask, &qcmd, sizeof(qcmd));
+	if (ret) {
+		mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
+		goto err;
+	}
+
+	attr.qp_state = IBV_QPS_RTS;
+	attr_mask = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT
+		  | IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN
+		  | IBV_QP_MAX_QP_RD_ATOMIC;
+
+	ret = ibv_cmd_modify_qp(qp, &attr, attr_mask, &qcmd, sizeof(qcmd));
+	if (ret) {
+		mlx5_dbg(fp, MLX5_DBG_QP, "ret %d\n", ret);
+		goto err;
+	}
+
+	return qp;
+
+err:
+	mlx5_destroy_qp(qp);
+	return NULL;
+}
+
+struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
+				   struct ibv_srq_init_attr_ex *attr)
 {
 	int err;
 	struct mlx5_create_srq_ex cmd;
@@ -1835,6 +1930,24 @@ mlx5_create_xrc_srq(struct ibv_context *context,
 	struct ibv_srq *ibsrq;
 	int uidx;
 	FILE *fp = ctx->dbg_fp;
+
+	if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ||
+	    (attr->srq_type == IBV_SRQT_BASIC))
+		return mlx5_create_srq(attr->pd,
+				       (struct ibv_srq_init_attr *)attr);
+
+	if (attr->srq_type != IBV_SRQT_XRC &&
+	    attr->srq_type != IBV_SRQT_TM) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	/* An extended CQ is required to read TM information from */
+	if (attr->srq_type == IBV_SRQT_TM &&
+	    !(attr->cq && (to_mcq(attr->cq)->flags & MLX5_CQ_FLAGS_EXTENDED))) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	msrq = calloc(1, sizeof(*msrq));
 	if (!msrq)
@@ -1914,10 +2027,34 @@ mlx5_create_xrc_srq(struct ibv_context *context,
 	if (err)
 		goto err_free_uidx;
 
+	if (attr->srq_type == IBV_SRQT_TM) {
+		int i;
+
+		msrq->cmd_qp = create_cmd_qp(context, attr, ibsrq);
+		if (!msrq->cmd_qp)
+			goto err_destroy;
+
+		msrq->tm_list = calloc(attr->tm_cap.max_num_tags + 1,
+				       sizeof(struct mlx5_tag_entry));
+		if (!msrq->tm_list)
+			goto err_free_cmd;
+		for (i = 0; i < attr->tm_cap.max_num_tags; i++)
+			msrq->tm_list[i].next = &msrq->tm_list[i + 1];
+		msrq->tm_head = &msrq->tm_list[0];
+		msrq->tm_tail = &msrq->tm_list[attr->tm_cap.max_num_tags];
+
+		msrq->op = calloc(to_mqp(msrq->cmd_qp)->sq.wqe_cnt,
+				  sizeof(struct mlx5_srq_op));
+		if (!msrq->op)
+			goto err_free_tm;
+		msrq->op_head = 0;
+		msrq->op_tail = 0;
+	}
+
 	if (!ctx->cqe_version) {
 		err = mlx5_store_srq(to_mctx(context), resp.srqn, msrq);
 		if (err)
-			goto err_destroy;
+			goto err_free_tm;
 
 		pthread_mutex_unlock(&ctx->srq_table_mutex);
 	}
@@ -1928,6 +2065,12 @@ mlx5_create_xrc_srq(struct ibv_context *context,
 
 	return ibsrq;
 
+err_free_tm:
+	free(msrq->tm_list);
+	free(msrq->op);
+err_free_cmd:
+	if (msrq->cmd_qp)
+		mlx5_destroy_qp(msrq->cmd_qp);
 err_destroy:
 	ibv_cmd_destroy_srq(ibsrq);
 
@@ -1946,19 +2089,6 @@ err_free:
 
 err:
 	free(msrq);
-
-	return NULL;
-}
-
-struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
-				   struct ibv_srq_init_attr_ex *attr)
-{
-	if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ||
-	    (attr->srq_type == IBV_SRQT_BASIC))
-		return mlx5_create_srq(attr->pd,
-				       (struct ibv_srq_init_attr *)attr);
-	else if (attr->srq_type == IBV_SRQT_XRC)
-		return mlx5_create_xrc_srq(context, attr);
 
 	return NULL;
 }

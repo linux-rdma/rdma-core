@@ -121,10 +121,12 @@ const char *ibv_wc_status_str(enum ibv_wc_status status)
 		[IBV_WC_INV_EEC_STATE_ERR]	= "invalid EE context state",
 		[IBV_WC_FATAL_ERR]		= "fatal error",
 		[IBV_WC_RESP_TIMEOUT_ERR]	= "response timeout error",
-		[IBV_WC_GENERAL_ERR]		= "general error"
+		[IBV_WC_GENERAL_ERR]		= "general error",
+		[IBV_WC_TM_ERR]			= "TM error",
+		[IBV_WC_TM_RNDV_INCOMPLETE]     = "TM software rendezvous",
 	};
 
-	if (status < IBV_WC_SUCCESS || status > IBV_WC_GENERAL_ERR)
+	if (status < IBV_WC_SUCCESS || status > IBV_WC_TM_RNDV_INCOMPLETE)
 		return "unknown";
 
 	return wc_status_str[status];
