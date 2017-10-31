@@ -150,8 +150,7 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 		goto clean;
 	if (sys_read_uint(port_dir, SYS_PORT_PHY_STATE, &port->phys_state) < 0)
 		goto clean;
-	if (sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate) < 0)
-		goto clean;
+	sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate);
 	if (sys_read_uint(port_dir, SYS_PORT_CAPMASK, &capmask) < 0)
 		goto clean;
 
