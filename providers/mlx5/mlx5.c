@@ -689,7 +689,7 @@ static int mlx5dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->cqe_size  = mcq->cqe_sz;
 	cq_out->buf       = mcq->active_buf->buf;
 	cq_out->dbrec     = mcq->dbrec;
-	cq_out->cq_uar	  = mctx->uar[0];
+	cq_out->cq_uar	  = mctx->uar[0].reg;
 
 	mcq->flags	 |= MLX5_CQ_FLAGS_DV_OWNED;
 
@@ -761,13 +761,50 @@ COMPAT_SYMVER_FUNC(mlx5dv_init_obj, 1_0, "MLX5_1.0",
 	return ret;
 }
 
-static off_t get_uar_mmap_offset(int idx, int page_size)
+static off_t get_uar_mmap_offset(int idx, int page_size, int command)
 {
 	off_t offset = 0;
 
-	set_command(MLX5_MMAP_GET_REGULAR_PAGES_CMD, &offset);
+	set_command(command, &offset);
 	set_index(idx, &offset);
+
 	return offset * page_size;
+}
+
+static off_t uar_type_to_cmd(int uar_type)
+{
+	return (uar_type == MLX5_UAR_TYPE_NC) ? MLX5_MMAP_GET_NC_PAGES_CMD :
+		MLX5_MMAP_GET_REGULAR_PAGES_CMD;
+}
+
+static void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
+		       int cmd_fd, int page_size, int uar_type)
+{
+	off_t offset;
+
+	if (uar_type == MLX5_UAR_TYPE_NC) {
+		offset = get_uar_mmap_offset(index, page_size,
+					     MLX5_MMAP_GET_NC_PAGES_CMD);
+		uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
+				       cmd_fd, offset);
+		if (uar->reg != MAP_FAILED) {
+			uar->type = MLX5_UAR_TYPE_NC;
+			goto out;
+		}
+	}
+
+	/* Backward compatibility for legacy kernels that don't support
+	 * MLX5_MMAP_GET_NC_PAGES_CMD mmap command.
+	 */
+	offset = get_uar_mmap_offset(index, page_size,
+				     MLX5_MMAP_GET_REGULAR_PAGES_CMD);
+	uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
+			cmd_fd, offset);
+	if (uar->reg != MAP_FAILED)
+		uar->type = MLX5_UAR_TYPE_REGULAR;
+
+out:
+	return uar->reg;
 }
 
 int mlx5dv_set_context_attr(struct ibv_context *ibv_ctx,
@@ -813,7 +850,6 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	int				low_lat_uuars;
 	int				gross_uuars;
 	int				j;
-	off_t				offset;
 	struct mlx5_device	       *mdev;
 	struct verbs_context	       *v_ctx;
 	struct ibv_port_attr		port_attr;
@@ -910,13 +946,15 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	pthread_mutex_init(&context->db_list_mutex, NULL);
 
+	context->prefer_bf = get_always_bf();
+	context->shut_up_bf = get_shut_up_bf();
+
 	num_sys_page_map = context->tot_uuars / (context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
 	for (i = 0; i < num_sys_page_map; ++i) {
-		offset = get_uar_mmap_offset(i, page_size);
-		context->uar[i] = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
-				       cmd_fd, offset);
-		if (context->uar[i] == MAP_FAILED) {
-			context->uar[i] = NULL;
+		if (mlx5_mmap(&context->uar[i], i, cmd_fd, page_size,
+			      context->shut_up_bf ? MLX5_UAR_TYPE_NC :
+			      MLX5_UAR_TYPE_REGULAR) == MAP_FAILED) {
+			context->uar[i].reg = NULL;
 			goto err_free_bf;
 		}
 	}
@@ -925,7 +963,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 		for (j = 0; j < context->num_uars_per_page; j++) {
 			for (k = 0; k < NUM_BFREGS_PER_UAR; k++) {
 				bfi = (i * context->num_uars_per_page + j) * NUM_BFREGS_PER_UAR + k;
-				context->bfs[bfi].reg = context->uar[i] + MLX5_ADAPTER_PAGE_SIZE * j +
+				context->bfs[bfi].reg = context->uar[i].reg + MLX5_ADAPTER_PAGE_SIZE * j +
 							MLX5_BF_OFFSET + k * context->bf_reg_size;
 				context->bfs[bfi].need_lock = need_uuar_lock(context, bfi);
 				mlx5_spinlock_init(&context->bfs[bfi].lock);
@@ -933,7 +971,9 @@ static int mlx5_init_context(struct verbs_device *vdev,
 				if (bfi)
 					context->bfs[bfi].buf_size = context->bf_reg_size / 2;
 				context->bfs[bfi].uuarn = bfi;
-				context->bfs[bfi].uar_mmap_offset = get_uar_mmap_offset(i, page_size);
+				context->bfs[bfi].uar_mmap_offset = get_uar_mmap_offset(i,
+											page_size,
+											uar_type_to_cmd(context->uar[i].type));
 			}
 		}
 	}
@@ -946,8 +986,6 @@ static int mlx5_init_context(struct verbs_device *vdev,
 		mlx5_map_internal_clock(mdev, ctx);
 	}
 
-	context->prefer_bf = get_always_bf();
-	context->shut_up_bf = get_shut_up_bf();
 	mlx5_read_env(&vdev->device, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
@@ -994,8 +1032,8 @@ err_free_bf:
 
 err_free:
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
-		if (context->uar[i])
-			munmap(context->uar[i], page_size);
+		if (context->uar[i].reg)
+			munmap(context->uar[i].reg, page_size);
 	}
 	close_debug_file(context);
 	return errno;
@@ -1010,8 +1048,8 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 
 	free(context->bfs);
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
-		if (context->uar[i])
-			munmap(context->uar[i], page_size);
+		if (context->uar[i].reg)
+			munmap(context->uar[i].reg, page_size);
 	}
 	if (context->hca_core_clock)
 		munmap(context->hca_core_clock - context->core_clock.offset,

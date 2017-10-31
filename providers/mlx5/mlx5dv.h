@@ -678,6 +678,11 @@ enum mlx5dv_set_ctx_attr_type {
 	MLX5DV_CTX_ATTR_BUF_ALLOCATORS = 1,
 };
 
+enum {
+	MLX5_MMAP_GET_REGULAR_PAGES_CMD	= 0,
+	MLX5_MMAP_GET_NC_PAGES_CMD	= 3,
+};
+
 struct mlx5dv_ctx_allocators {
 	void *(*alloc)(size_t size, void *priv_data);
 	void (*free)(void *ptr, void *priv_data);

@@ -57,7 +57,6 @@ enum {
 };
 
 enum {
-	MLX5_MMAP_GET_REGULAR_PAGES_CMD    = 0,
 	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
 	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5
 };
@@ -218,6 +217,16 @@ struct mlx5_spinlock {
 	int				in_use;
 };
 
+enum mlx5_uar_type {
+	MLX5_UAR_TYPE_REGULAR,
+	MLX5_UAR_TYPE_NC,
+};
+
+struct mlx5_uar_info {
+	void				*reg;
+	enum mlx5_uar_type		type;
+};
+
 struct mlx5_context {
 	struct ibv_context		ibv_ctx;
 	int				max_num_qps;
@@ -247,7 +256,7 @@ struct mlx5_context {
 	}				uidx_table[MLX5_UIDX_TABLE_SIZE];
 	pthread_mutex_t                 uidx_table_mutex;
 
-	void			       *uar[MLX5_MAX_UARS];
+	struct mlx5_uar_info		uar[MLX5_MAX_UARS];
 	struct mlx5_db_page	       *db_list;
 	pthread_mutex_t			db_list_mutex;
 	int				cache_line_size;
