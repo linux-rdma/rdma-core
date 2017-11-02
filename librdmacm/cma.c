@@ -880,8 +880,8 @@ static int rdma_resolve_addr2(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	CMA_INIT_CMD(&cmd, sizeof cmd, RESOLVE_ADDR);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
-	if ((cmd.src_size = src_len))
-		memcpy(&cmd.src_addr, src_addr, src_len);
+	cmd.src_size = src_len;
+	memcpy(&cmd.src_addr, src_addr, src_len);
 	memcpy(&cmd.dst_addr, dst_addr, dst_len);
 	cmd.dst_size = dst_len;
 	cmd.timeout_ms = timeout_ms;
