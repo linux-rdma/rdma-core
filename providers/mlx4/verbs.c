@@ -1542,7 +1542,7 @@ int mlx4_destroy_flow(struct ibv_flow *flow_id)
 
 	ret = ibv_cmd_destroy_flow(flow_id);
 
-	if (ret)
+	if (ret && !cleanup_on_fatal(ret))
 		return ret;
 
 	free(flow_id);
