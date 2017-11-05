@@ -45,17 +45,3 @@ rm CMakeCache.txt
 CC=clang-4.0 CFLAGS=-Werror cmake -GNinja ..
 ninja
 cp ../util/udma_barrier.h.old ../util/udma_barrier.h
-
-# Finally run through gcc-7 64 bit through the debian packaging This gives a
-# good clue if patches are changing packaging related things, the RPM stuff
-# will have to be audited by hand.
-
-# When running cmake through debian/rules it is hard to set -Werror,
-# instead force it on by changing the CMakeLists.txt
-cd ..
-echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")' >> buildlib/RDMA_EnableCStd.cmake
-sed -i -e 's/-DCMAKE_BUILD_TYPE=Release//g' debian/rules
-sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
-
-CC=gcc-7 debian/rules build
-fakeroot debian/rules binary
