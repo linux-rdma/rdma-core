@@ -745,6 +745,8 @@ int mlx5_destroy_wq(struct ibv_wq *wq);
 struct ibv_rwq_ind_table *mlx5_create_rwq_ind_table(struct ibv_context *context,
 						    struct ibv_rwq_ind_table_init_attr *init_attr);
 int mlx5_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
+struct ibv_flow *mlx5_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr);
+int mlx5_destroy_flow(struct ibv_flow *flow_id);
 struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 				   struct ibv_srq_init_attr_ex *attr);
 int mlx5_post_srq_ops(struct ibv_srq *srq,

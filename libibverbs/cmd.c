@@ -1864,12 +1864,12 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 	return 0;
 }
 
-struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
-				     struct ibv_flow_attr *flow_attr)
+int ibv_cmd_create_flow(struct ibv_qp *qp,
+			struct ibv_flow *flow_id,
+			struct ibv_flow_attr *flow_attr)
 {
 	struct ibv_create_flow *cmd;
 	struct ibv_create_flow_resp resp;
-	struct ibv_flow *flow_id;
 	size_t cmd_size;
 	size_t written_size;
 	int i, err;
@@ -1879,9 +1879,6 @@ struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
 	cmd_size = sizeof(*cmd) + (flow_attr->num_of_specs *
 				  sizeof(struct ibv_kern_spec));
 	cmd = alloca(cmd_size);
-	flow_id = malloc(sizeof(*flow_id));
-	if (!flow_id)
-		return NULL;
 	memset(cmd, 0, cmd_size);
 
 	cmd->qp_handle = qp->handle;
@@ -1916,10 +1913,9 @@ struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
 
 	flow_id->context = qp->context;
 	flow_id->handle = resp.flow_handle;
-	return flow_id;
+	return 0;
 err:
-	free(flow_id);
-	return NULL;
+	return errno;
 }
 
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
@@ -1933,7 +1929,6 @@ int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
 
 	if (write(flow_id->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		ret = errno;
-	free(flow_id);
 	return ret;
 }
 

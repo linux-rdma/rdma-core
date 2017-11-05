@@ -2325,6 +2325,35 @@ int mlx5_destroy_wq(struct ibv_wq *wq)
 	return 0;
 }
 
+struct ibv_flow *mlx5_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr)
+{
+	struct ibv_flow *flow_id;
+	int ret;
+
+	flow_id = calloc(1, sizeof *flow_id);
+	if (!flow_id)
+		return NULL;
+
+	ret = ibv_cmd_create_flow(qp, flow_id, flow_attr);
+	if (!ret)
+		return flow_id;
+
+	free(flow_id);
+	return NULL;
+}
+
+int mlx5_destroy_flow(struct ibv_flow *flow_id)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_flow(flow_id);
+	if (ret)
+		return ret;
+
+	free(flow_id);
+	return 0;
+}
+
 struct ibv_rwq_ind_table *mlx5_create_rwq_ind_table(struct ibv_context *context,
 						    struct ibv_rwq_ind_table_init_attr *init_attr)
 {

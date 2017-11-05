@@ -424,5 +424,7 @@ struct ibv_rwq_ind_table *mlx4_create_rwq_ind_table(struct ibv_context *context,
 int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int mlx4_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
 		      struct ibv_recv_wr **bad_wr);
+struct ibv_flow *mlx4_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr);
+int mlx4_destroy_flow(struct ibv_flow *flow_id);
 
 #endif /* MLX4_H */

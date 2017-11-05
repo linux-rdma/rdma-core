@@ -1519,6 +1519,36 @@ int mlx4_modify_wq(struct ibv_wq *ibwq, struct ibv_wq_attr *attr)
 	return ret;
 }
 
+struct ibv_flow *mlx4_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr)
+{
+	struct ibv_flow *flow_id;
+	int ret;
+
+	flow_id = calloc(1, sizeof *flow_id);
+	if (!flow_id)
+		return NULL;
+
+	ret = ibv_cmd_create_flow(qp, flow_id, flow_attr);
+	if (!ret)
+		return flow_id;
+
+	free(flow_id);
+	return NULL;
+}
+
+int mlx4_destroy_flow(struct ibv_flow *flow_id)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_flow(flow_id);
+
+	if (ret)
+		return ret;
+
+	free(flow_id);
+	return 0;
+}
+
 int mlx4_destroy_wq(struct ibv_wq *ibwq)
 {
 	struct mlx4_context *mcontext = to_mctx(ibwq->context);

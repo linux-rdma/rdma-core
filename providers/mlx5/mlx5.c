@@ -1000,8 +1000,8 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, get_srq_num, mlx5_get_srq_num);
 	verbs_set_ctx_op(v_ctx, query_device_ex, mlx5_query_device_ex);
 	verbs_set_ctx_op(v_ctx, query_rt_values, mlx5_query_rt_values);
-	verbs_set_ctx_op(v_ctx, ibv_create_flow, ibv_cmd_create_flow);
-	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, ibv_cmd_destroy_flow);
+	verbs_set_ctx_op(v_ctx, ibv_create_flow, mlx5_create_flow);
+	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, mlx5_destroy_flow);
 	verbs_set_ctx_op(v_ctx, create_cq_ex, mlx5_create_cq_ex);
 	verbs_set_ctx_op(v_ctx, create_wq, mlx5_create_wq);
 	verbs_set_ctx_op(v_ctx, modify_wq, mlx5_modify_wq);
