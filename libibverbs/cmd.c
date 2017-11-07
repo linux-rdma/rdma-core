@@ -1182,10 +1182,10 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct ibv_query_qp_resp resp;
 
 	/*
-	 * Masks over IBV_QP_DEST_QPN are not supported by
-	 * that not extended command.
+	 * Starting with IBV_QP_RATE_LIMIT the attribute must go through the
+	 * _ex path.
 	 */
-	if (attr_mask & ~((IBV_QP_DEST_QPN << 1) - 1))
+	if (attr_mask & ~(IBV_QP_RATE_LIMIT - 1))
 		return EOPNOTSUPP;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_QP, &resp, sizeof resp);
@@ -1352,10 +1352,10 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		      struct ibv_modify_qp *cmd, size_t cmd_size)
 {
 	/*
-	 * Masks over IBV_QP_DEST_QPN are only supported by
-	 * ibv_cmd_modify_qp_ex.
+	 * Starting with IBV_QP_RATE_LIMIT the attribute must go through the
+	 * _ex path.
 	 */
-	if (attr_mask & ~((IBV_QP_DEST_QPN << 1) - 1))
+	if (attr_mask & ~(IBV_QP_RATE_LIMIT - 1))
 		return EOPNOTSUPP;
 
 	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
