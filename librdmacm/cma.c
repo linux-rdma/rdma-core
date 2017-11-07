@@ -202,8 +202,10 @@ int ucma_init(void)
 
 	fastlock_init(&idm_lock);
 	ret = check_abi_version();
-	if (ret)
+	if (ret) {
+		ret = ERR(EPERM);
 		goto err1;
+	}
 
 	dev_list = ibv_get_device_list(&dev_cnt);
 	if (!dev_list) {
