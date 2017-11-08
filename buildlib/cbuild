@@ -322,6 +322,7 @@ class tumbleweed(ZypperEnvironment):
     pkgs = leap.pkgs;
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
+    rpmbuild_options = [ "--without=curlmini" ];
 
 # -------------------------------------------------------------------------
 
