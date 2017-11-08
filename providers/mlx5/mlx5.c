@@ -634,6 +634,23 @@ static int mlx5_map_internal_clock(struct mlx5_device *mdev,
 	return 0;
 }
 
+static void mlx5_map_clock_info(struct mlx5_device *mdev,
+				struct ibv_context *ibv_ctx)
+{
+	struct mlx5_context *context = to_mctx(ibv_ctx);
+	void *clock_info_page;
+	off_t offset = 0;
+
+	set_command(MLX5_MMAP_GET_CLOCK_INFO_CMD, &offset);
+	set_index(MLX5_IB_CLOCK_INFO_V1, &offset);
+	clock_info_page = mmap(NULL, mdev->page_size,
+			       PROT_READ, MAP_SHARED, ibv_ctx->cmd_fd,
+			       offset * mdev->page_size);
+
+	if (clock_info_page != MAP_FAILED)
+		context->clock_info_page = clock_info_page;
+}
+
 int mlx5dv_query_device(struct ibv_context *ctx_in,
 			 struct mlx5dv_context *attrs_out)
 {
@@ -1048,6 +1065,14 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		mlx5_map_internal_clock(mdev, &v_ctx->context);
 	}
 
+	context->clock_info_page = NULL;
+	if (resp.response_length + sizeof(resp.ibv_resp) >=
+	    offsetof(struct mlx5_alloc_ucontext_resp, clock_info_versions) +
+	    sizeof(resp.clock_info_versions) &&
+	    (resp.clock_info_versions & (1 << MLX5_IB_CLOCK_INFO_V1))) {
+		mlx5_map_clock_info(mdev, &v_ctx->context);
+	}
+
 	mlx5_read_env(ibdev, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
@@ -1115,6 +1140,8 @@ static void mlx5_free_context(struct ibv_context *ibctx)
 	if (context->hca_core_clock)
 		munmap(context->hca_core_clock - context->core_clock.offset,
 		       page_size);
+	if (context->clock_info_page)
+		munmap((void *)context->clock_info_page, page_size);
 	close_debug_file(context);
 
 	verbs_uninit_context(&context->ibv_ctx);

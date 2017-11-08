@@ -60,6 +60,7 @@ enum {
 	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
 	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5,
 	MLX5_MMAP_ALLOC_WC		= 6,
+	MLX5_MMAP_GET_CLOCK_INFO_CMD    = 7,
 };
 
 enum {
@@ -287,6 +288,7 @@ struct mlx5_context {
 		uint64_t                mask;
 	} core_clock;
 	void			       *hca_core_clock;
+	const struct mlx5_ib_clock_info *clock_info_page;
 	struct ibv_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
 	uint32_t			uar_size;

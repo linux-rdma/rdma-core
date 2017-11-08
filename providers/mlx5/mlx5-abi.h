@@ -81,6 +81,23 @@ enum mlx5_ib_alloc_ucontext_resp_mask {
 	MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET = 1UL << 0,
 };
 
+/* Bit indexes for the mlx5_alloc_ucontext_resp.clock_info_versions bitmap */
+enum {
+	MLX5_IB_CLOCK_INFO_V1	= 0,
+};
+
+struct mlx5_ib_clock_info {
+	__u32 sig;
+	__u32 resv;
+	__u64 nsec;
+	__u64 last_cycles;
+	__u64 frac;
+	__u32 mult;
+	__u32 shift;
+	__u64 mask;
+	__u64 overflow_period;
+};
+
 struct mlx5_alloc_ucontext_resp {
 	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
@@ -98,7 +115,8 @@ struct mlx5_alloc_ucontext_resp {
 	__u32				response_length;
 	__u8				cqe_version;
 	__u8				cmds_supp_uhw;
-	__u16				reserved2;
+	__u8				reserved2;
+	__u8				clock_info_versions;
 	__u64				hca_core_clock_offset;
 	__u32				log_uar_size;
 	__u32				num_uars_per_page;
