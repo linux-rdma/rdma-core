@@ -474,7 +474,8 @@ os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
            tarfn=tarfn,
            tspec_file=tspec_file);
 
-            bopts = ["-bb",tspec_file];
+            extra_opts = getattr(env,"rpmbuild_options", [])
+            bopts = ["-bb",tspec_file] + extra_opts;
 
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
