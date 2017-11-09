@@ -811,4 +811,44 @@ struct mlx5dv_clock_info {
 int mlx5dv_get_clock_info(struct ibv_context *context,
 			  struct mlx5dv_clock_info *clock_info);
 
+/*
+ * Translate device timestamp to nano-sec
+ *
+ * Input:
+ *      clock_info  - clock info to be filled
+ *      device_timestamp   - timestamp to translate
+ *
+ * Return: nano-sec
+ */
+static inline uint64_t mlx5dv_ts_to_ns(struct mlx5dv_clock_info *clock_info,
+				       uint64_t device_timestamp)
+{
+	uint64_t delta, nsec;
+
+	/*
+	 * device_timestamp & cycles are the free running 'mask' bit counters
+	 * from the hardware hca_core_clock clock.
+	 */
+	delta = (device_timestamp - clock_info->last_cycles) & clock_info->mask;
+	nsec  = clock_info->nsec;
+
+	/*
+	 * Guess if the device_timestamp is more recent than
+	 * clock_info->last_cycles, if not (too far in the future) treat
+	 * it as old time stamp. This will break every max_clock_info_update_nsec.
+	 */
+
+	if (delta > clock_info->mask / 2) {
+		delta = (clock_info->last_cycles - device_timestamp) &
+				clock_info->mask;
+		nsec -= ((delta * clock_info->mult) - clock_info->frac) >>
+				clock_info->shift;
+	} else {
+		nsec += ((delta * clock_info->mult) + clock_info->frac) >>
+				clock_info->shift;
+	}
+
+	return nsec;
+}
+
 #endif /* _MLX5DV_H_ */
