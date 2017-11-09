@@ -1048,6 +1048,8 @@ static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_psns *psns,
 		pkt_cnt = (len / qp->mtu);
 		if (len % qp->mtu)
 			pkt_cnt++;
+		if (len == 0)
+			pkt_cnt = 1;
 		nxt_psn = ((qp->sq_psn + pkt_cnt) & BNXT_RE_PSNS_NPSN_MASK);
 		psns->flg_npsn = htole32(nxt_psn);
 		qp->sq_psn = nxt_psn;
