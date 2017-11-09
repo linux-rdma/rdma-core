@@ -909,6 +909,13 @@ enum ibv_qp_attr_mask {
 	IBV_QP_PATH_MIG_STATE		= 1 << 18,
 	IBV_QP_CAP			= 1 << 19,
 	IBV_QP_DEST_QPN			= 1 << 20,
+	/* These bits were supported on older kernels, but never exposed from
+	   libibverbs:
+	_IBV_QP_SMAC   			= 1 << 21,
+	_IBV_QP_ALT_SMAC		= 1 << 22,
+	_IBV_QP_VID    			= 1 << 23,
+	_IBV_QP_ALT_VID 		= 1 << 24,
+	*/
 	IBV_QP_RATE_LIMIT		= 1 << 25,
 };
 
