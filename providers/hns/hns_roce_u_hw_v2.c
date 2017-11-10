@@ -444,11 +444,13 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 {
 	uint32_t ci;
+	uint32_t cmd_sn;
 	uint32_t solicited_flag;
 	struct hns_roce_v2_cq_db cq_db;
 	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
 
 	ci  = cq->cons_index & ((cq->cq_depth << 1) - 1);
+	cmd_sn = cq->arm_sn & HNS_ROCE_CMDSN_MASK;
 	solicited_flag = solicited ? HNS_ROCE_V2_CQ_DB_REQ_SOL :
 				     HNS_ROCE_V2_CQ_DB_REQ_NEXT;
 
@@ -462,7 +464,7 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 		       CQ_DB_PARAMETER_CQ_CONSUMER_IDX_S, ci);
 
 	roce_set_field(cq_db.parameter, CQ_DB_PARAMETER_CMD_SN_M,
-		       CQ_DB_PARAMETER_CMD_SN_S, 1);
+		       CQ_DB_PARAMETER_CMD_SN_S, cmd_sn);
 	roce_set_bit(cq_db.parameter, CQ_DB_PARAMETER_NOTIFY_S, solicited_flag);
 
 	hns_roce_write64((uint32_t *)&cq_db, to_hr_ctx(ibvcq->context),
