@@ -279,6 +279,9 @@ else()
   set(HAVE_FULL_SYMBOL_VERSIONS 1)
 endif()
 
+# Look for Python
+FIND_PACKAGE (PythonInterp)
+
 #-------------------------
 # Find libraries
 # pthread
