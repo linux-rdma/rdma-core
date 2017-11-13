@@ -309,7 +309,7 @@ class leap(ZypperEnvironment):
         'make',
         'ninja',
         'pkg-config',
-        'python',
+        'python3',
         'rpm-build',
         'systemd-devel',
         'valgrind-devel',

@@ -58,6 +58,7 @@ BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
+BuildRequires:  python3-base
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
 %endif
