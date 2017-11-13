@@ -286,6 +286,10 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 		      struct ibv_resize_cq *cmd, size_t cmd_size,
 		      struct ibv_resize_cq_resp *resp, size_t resp_size);
 int ibv_cmd_destroy_cq(struct ibv_cq *cq);
+int ibv_cmd_modify_cq(struct ibv_cq *cq,
+		      struct ibv_modify_cq_attr *attr,
+		      struct ibv_modify_cq *cmd,
+		      size_t cmd_size);
 
 int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_srq *srq, struct ibv_srq_init_attr *attr,

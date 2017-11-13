@@ -34,6 +34,7 @@ uint32_t               max_wq_type_rq;             /* Max Work Queue from type R
 struct ibv_packet_pacing_caps packet_pacing_caps; /* Packet pacing capabilities */
 uint32_t               raw_packet_caps;            /* Raw packet capabilities, use enum ibv_raw_packet_caps */
 struct ibv_tm_caps     tm_caps;                    /* Tag matching capabilities */
+struct ibv_cq_moderation_caps  cq_mod_caps;        /* CQ moderation max capabilities */
 .in -8
 };
 
@@ -99,6 +100,11 @@ uint32_t        flags;    	     /* From enum ibv_tm_cap_flags */
 uint32_t        max_ops;             /* Max number of outstanding list operations */
 uint32_t        max_sge;             /* Max number of SGEs in a tagged buffer */
 .in -8
+};
+
+struct ibv_cq_moderation_caps {
+	uint16_t max_cq_count;
+	uint16_t max_cq_period;
 };
 
 .fi

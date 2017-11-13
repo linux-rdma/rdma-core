@@ -286,6 +286,11 @@ struct ibv_tm_caps {
 	uint32_t max_sge;
 };
 
+struct ibv_cq_moderation_caps {
+	uint16_t max_cq_count;
+	uint16_t max_cq_period; /* in micro seconds */
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -299,6 +304,7 @@ struct ibv_device_attr_ex {
 	struct ibv_packet_pacing_caps packet_pacing_caps;
 	uint32_t		raw_packet_caps; /* Use ibv_raw_packet_caps */
 	struct ibv_tm_caps	tm_caps;
+	struct ibv_cq_moderation_caps  cq_mod_caps;
 };
 
 enum ibv_mtu {
@@ -1211,6 +1217,21 @@ static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
 	return (struct ibv_cq *)cq;
 }
 
+enum ibv_cq_attr_mask {
+	IBV_CQ_ATTR_MODERATE = 1 << 0,
+	IBV_CQ_ATTR_RESERVED = 1 << 1,
+};
+
+struct ibv_moderate_cq {
+	uint16_t cq_count;
+	uint16_t cq_period; /* in micro seconds */
+};
+
+struct ibv_modify_cq_attr {
+	uint32_t attr_mask;
+	struct ibv_moderate_cq moderate;
+};
+
 static inline int ibv_start_poll(struct ibv_cq_ex *cq,
 				    struct ibv_poll_cq_attr *attr)
 {
@@ -1637,6 +1658,7 @@ enum verbs_context_mask {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*post_srq_ops)(struct ibv_srq *srq,
 			    struct ibv_ops_wr *op,
 			    struct ibv_ops_wr **bad_op);
@@ -2048,6 +2070,15 @@ static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
 	return cq->context->ops.req_notify_cq(cq, solicited_only);
 }
 
+static inline int ibv_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(cq->context, modify_cq);
+
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->modify_cq(cq, attr);
+}
 /**
  * ibv_create_srq - Creates a SRQ associated with the specified protection
  *   domain.
