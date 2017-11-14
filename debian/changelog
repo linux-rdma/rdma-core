@@ -1,7 +1,14 @@
 rdma-core (16-1) unstable; urgency=low
 
-  * New version.
-  * Adding debian/copyright.
-  * Close ITP (Closes: #848971).
+  * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Mon, 12 Sep 2016 13:44:24 -0600
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 14 Nov 2017 12:24:09 +0100
+
+rdma-core (15-1) unstable; urgency=medium
+
+  * New upstream version. ibverbs-providers combines the source packages
+    libcxgb3, libipathverbs, libmlx4, libmlx5, libmthca, and libnes.
+    rdma-core also combines the source packages ibacm, libibcm, libibumad,
+    libibverbs, librdmacm, and srptools (Closes: #848971)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 18 Sep 2017 11:00:39 +0200
