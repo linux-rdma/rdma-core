@@ -16,7 +16,7 @@ Build-Depends: cmake (>= 2.8.11),
                pkg-config,
                python,
                valgrind [!alpha !armel !hppa !m68k !powerpcspe !sh4 !sparc64]
-Standards-Version: 4.1.0
+Standards-Version: 4.1.1
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git
 Vcs-Browser: https://github.com/linux-rdma/rdma-core
 Homepage: https://github.com/linux-rdma/rdma-core
