@@ -135,21 +135,6 @@ struct pvrdma_cq {
 	uint32_t			cqn;
 };
 
-struct pvrdma_srq {
-	struct ibv_srq			ibv_srq;
-	struct pvrdma_buf		buf;
-	pthread_spinlock_t		lock;
-	uint64_t			*wrid;
-	uint32_t			srqn;
-	int				wqe_cnt;
-	int				wqe_size;
-	int				max_gs;
-	int				wqe_shift;
-	struct pvrdma_ring_state	*ring_state;
-	uint16_t			counter;
-	int				offset;
-};
-
 struct pvrdma_wq {
 	uint64_t			*wrid;
 	pthread_spinlock_t		lock;
@@ -171,7 +156,6 @@ struct pvrdma_qp {
 	int				sq_spare_wqes;
 	struct pvrdma_wq		sq;
 	struct pvrdma_wq		rq;
-	int				is_srq;
 };
 
 struct pvrdma_ah {
@@ -214,11 +198,6 @@ static inline struct pvrdma_cq *to_vcq(struct ibv_cq *ibcq)
 	return container_of(ibcq, struct pvrdma_cq, ibv_cq);
 }
 
-static inline struct pvrdma_srq *to_vsrq(struct ibv_srq *ibsrq)
-{
-	return container_of(ibsrq, struct pvrdma_srq, ibv_srq);
-}
-
 static inline struct pvrdma_qp *to_vqp(struct ibv_qp *ibqp)
 {
 	return container_of(ibqp, struct pvrdma_qp, ibv_qp);
@@ -237,11 +216,6 @@ static inline void pvrdma_write_uar_qp(void *uar, unsigned value)
 static inline void pvrdma_write_uar_cq(void *uar, unsigned value)
 {
 	*(__le32 *)(uar + PVRDMA_UAR_CQ_OFFSET) = htole32(value);
-}
-
-static inline void pvrdma_write_uar_srq(void *uar, unsigned int value)
-{
-	*(__le32 *)(uar + PVRDMA_UAR_SRQ_OFFSET) = htole32(value);
 }
 
 static inline int ibv_send_flags_to_pvrdma(int flags)
@@ -326,21 +300,6 @@ struct pvrdma_qp *pvrdma_find_qp(struct pvrdma_context *ctx,
 int pvrdma_store_qp(struct pvrdma_context *ctx, uint32_t qpn,
 		    struct pvrdma_qp *qp);
 void pvrdma_clear_qp(struct pvrdma_context *ctx, uint32_t qpn);
-
-struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
-				  struct ibv_srq_init_attr *attr);
-int pvrdma_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr,
-		      int attr_mask);
-int pvrdma_query_srq(struct ibv_srq *srq,
-		     struct ibv_srq_attr *attr);
-int pvrdma_destroy_srq(struct ibv_srq *srq);
-int pvrdma_alloc_srq_buf(struct pvrdma_device *dev,
-			 struct ibv_srq_attr *attr,
-			 struct pvrdma_srq *srq);
-int pvrdma_post_srq_recv(struct ibv_srq *ibsrq,
-			 struct ibv_recv_wr *wr,
-			 struct ibv_recv_wr **bad_wr);
-void pvrdma_init_srq_queue(struct pvrdma_srq *srq);
 
 struct ibv_ah *pvrdma_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 int pvrdma_destroy_ah(struct ibv_ah *ah);

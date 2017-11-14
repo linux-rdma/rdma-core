@@ -69,16 +69,6 @@ struct user_pvrdma_create_cq_resp {
 	struct pvrdma_create_cq_resp	udata;
 };
 
-struct user_pvrdma_create_srq {
-	struct ibv_create_srq		ibv_cmd;
-	struct pvrdma_create_srq	udata;
-};
-
-struct user_pvrdma_create_srq_resp {
-	struct ibv_create_srq_resp	ibv_resp;
-	struct pvrdma_create_srq_resp	udata;
-};
-
 struct user_pvrdma_create_qp {
 	struct ibv_create_qp		ibv_cmd;
 	struct pvrdma_create_qp		udata;
