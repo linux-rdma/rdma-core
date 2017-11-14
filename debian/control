@@ -44,7 +44,7 @@ Description: RDMA core userspace infrastructure and documentation
     standard socket interface.
 
 Package: ibacm
-Architecture: any
+Architecture: linux-any
 Depends: lsb-base (>= 3.2-14~),
          rdma-core (>= 15),
          ${misc:Depends},
