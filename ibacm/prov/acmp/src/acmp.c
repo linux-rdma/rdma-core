@@ -1507,7 +1507,7 @@ static void acmp_process_wait_queue(struct acmp_ep *ep, uint64_t *next_expire)
 	struct ibv_send_wr *bad_wr;
 
 	list_for_each_safe(&ep->wait_queue, msg, next, entry) {
-		if (msg->expires < time_stamp_ms()) {
+		if (msg->expires <= time_stamp_ms()) {
 			list_del(&msg->entry);
 			(void) atomic_dec(&wait_cnt);
 			if (--msg->tries) {
