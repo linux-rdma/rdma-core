@@ -331,10 +331,13 @@ static void print_odp_caps(const struct ibv_odp_caps *caps)
 static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
 {
 	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000ULL;
-	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS);
+	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS |
+				   IBV_DEVICE_PCI_WRITE_END_PADDING);
 
 	if (ex_flags & IBV_DEVICE_RAW_SCATTER_FCS)
 		printf("\t\t\t\t\tRAW_SCATTER_FCS\n");
+	if (ex_flags & IBV_DEVICE_PCI_WRITE_END_PADDING)
+		printf("\t\t\t\t\tPCI_WRITE_END_PADDING\n");
 	if (ex_flags & unknown_flags)
 		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
 		       ex_flags & unknown_flags);

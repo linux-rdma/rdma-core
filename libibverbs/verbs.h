@@ -142,6 +142,7 @@ enum ibv_device_cap_flags {
  * enum range is limited to 4 bytes.
  */
 #define IBV_DEVICE_RAW_SCATTER_FCS (1ULL << 34)
+#define IBV_DEVICE_PCI_WRITE_END_PADDING (1ULL << 36)
 
 enum ibv_atomic_cap {
 	IBV_ATOMIC_NONE,
@@ -738,7 +739,8 @@ enum ibv_wq_flags {
 	IBV_WQ_FLAGS_CVLAN_STRIPPING		= 1 << 0,
 	IBV_WQ_FLAGS_SCATTER_FCS		= 1 << 1,
 	IBV_WQ_FLAGS_DELAY_DROP			= 1 << 2,
-	IBV_WQ_FLAGS_RESERVED			= 1 << 3,
+	IBV_WQ_FLAGS_PCI_WRITE_END_PADDING	= 1 << 3,
+	IBV_WQ_FLAGS_RESERVED			= 1 << 4,
 };
 
 struct ibv_wq_init_attr {
@@ -847,6 +849,7 @@ enum ibv_qp_create_flags {
 	IBV_QP_CREATE_SCATTER_FCS		= 1 << 8,
 	IBV_QP_CREATE_CVLAN_STRIPPING		= 1 << 9,
 	IBV_QP_CREATE_SOURCE_QPN		= 1 << 10,
+	IBV_QP_CREATE_PCI_WRITE_END_PADDING	= 1 << 11,
 };
 
 struct ibv_rx_hash_conf {
