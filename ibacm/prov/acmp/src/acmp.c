@@ -1579,10 +1579,12 @@ static void *acmp_retry_handler(void *context)
 		pthread_mutex_unlock(&acmp_dev_lock);
 
 		acmp_process_timeouts();
-		wait = (int) (next_expire - time_stamp_ms());
-		if (wait > 0 && atomic_get(&wait_cnt)) {
-			pthread_testcancel();
-			event_wait(&timeout_event, wait);
+		if (next_expire != -1) {
+			wait = (int) (next_expire - time_stamp_ms());
+			if (wait > 0 && atomic_get(&wait_cnt)) {
+				pthread_testcancel();
+				event_wait(&timeout_event, wait);
+			}
 		}
 	}
 
