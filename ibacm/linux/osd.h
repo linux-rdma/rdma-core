@@ -92,6 +92,7 @@ static inline void event_init(event_t *e)
 	pthread_mutex_init(&e->mutex, NULL);
 }
 #define event_signal(e)	pthread_cond_signal(&(e)->cond)
+#define ONE_SEC_IN_NSEC  1000000000ULL
 static inline int event_wait(event_t *e, int timeout)
 {
 	struct timeval curtime;
@@ -101,6 +102,10 @@ static inline int event_wait(event_t *e, int timeout)
 	gettimeofday(&curtime, NULL);
 	wait.tv_sec = curtime.tv_sec + ((unsigned) timeout) / 1000;
 	wait.tv_nsec = (curtime.tv_usec + (((unsigned) timeout) % 1000) * 1000) * 1000;
+	if (wait.tv_nsec > ONE_SEC_IN_NSEC) {
+		wait.tv_sec++;
+		wait.tv_nsec -= ONE_SEC_IN_NSEC;
+	}
 	pthread_mutex_lock(&e->mutex);
 	ret = pthread_cond_timedwait(&e->cond, &e->mutex, &wait);
 	pthread_mutex_unlock(&e->mutex);
