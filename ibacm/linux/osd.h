@@ -88,20 +88,23 @@ typedef struct { volatile int val; } atomic_t;
 typedef struct { pthread_cond_t cond; pthread_mutex_t mutex; } event_t;
 static inline void event_init(event_t *e)
 {
-	pthread_cond_init(&e->cond, NULL);
+	pthread_condattr_t attr;
+
+	pthread_condattr_init(&attr);
+	pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+	pthread_cond_init(&e->cond, &attr);
 	pthread_mutex_init(&e->mutex, NULL);
 }
 #define event_signal(e)	pthread_cond_signal(&(e)->cond)
 #define ONE_SEC_IN_NSEC  1000000000ULL
-static inline int event_wait(event_t *e, int timeout)
+static inline int event_wait(event_t *e, unsigned int timeout)
 {
-	struct timeval curtime;
 	struct timespec wait;
 	int ret;
 
-	gettimeofday(&curtime, NULL);
-	wait.tv_sec = curtime.tv_sec + ((unsigned) timeout) / 1000;
-	wait.tv_nsec = (curtime.tv_usec + (((unsigned) timeout) % 1000) * 1000) * 1000;
+	clock_gettime(CLOCK_MONOTONIC, &wait);
+	wait.tv_sec = wait.tv_sec + timeout / 1000;
+	wait.tv_nsec = wait.tv_nsec + (timeout % 1000) * 1000000;
 	if (wait.tv_nsec > ONE_SEC_IN_NSEC) {
 		wait.tv_sec++;
 		wait.tv_nsec -= ONE_SEC_IN_NSEC;
@@ -114,10 +117,9 @@ static inline int event_wait(event_t *e, int timeout)
 
 static inline uint64_t time_stamp_us(void)
 {
-	struct timeval curtime;
-	timerclear(&curtime);
-	gettimeofday(&curtime, NULL);
-	return (uint64_t) curtime.tv_sec * 1000000 + (uint64_t) curtime.tv_usec;
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (t.tv_sec * ONE_SEC_IN_NSEC + t.tv_nsec) / 1000;
 }
 
 #define time_stamp_ms()  (time_stamp_us() / (uint64_t) 1000)
