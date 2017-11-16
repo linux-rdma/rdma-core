@@ -33,7 +33,7 @@ static void pthread_mmio_write64_be(void *addr, __be64 val)
 	mmio_wc_spinunlock(&mmio_spinlock);
 }
 
-#if defined(__i386__)
+#if defined(__i386__) && defined(__SSE__)
 #include <xmmintrin.h>
 #include <cpuid.h>
 
@@ -73,7 +73,7 @@ write64_fn_t resolve_mmio_write64_be(void) __asm__("mmio_write64_be");
 
 write64_fn_t resolve_mmio_write64_be(void)
 {
-#if defined(__i386__)
+#if defined(__i386__) && defined(__SSE__)
 	if (have_sse())
 		return &sse_mmio_write64_be;
 #endif
