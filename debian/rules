@@ -2,12 +2,17 @@
 
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
+NO_COHERENT_DMA_ARCHS = armel armhf mips mips64el mipsel
+
 %:
 	dh $@ --with systemd --builddirectory=build-deb
 
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -rf build-deb
+	for package in ibverbs-providers libibverbs-dev rdma-core; do \
+		test ! -e debian/$$package.install.backup || mv debian/$$package.install.backup debian/$$package.install; \
+	done
 
 # Upstream wishes to use CMAKE_BUILD_TYPE=Release, and ensures that has a
 # sensible basis of options (eg no -O3, including -g). Debian specific options
@@ -34,6 +39,13 @@ override_dh_auto_build:
 override_dh_auto_test:
 
 override_dh_auto_install:
+# Some providers are disabled on architectures that are not able to do coherent DMA
+ifeq (,$(filter-out $(NO_COHERENT_DMA_ARCHS),$(DEB_HOST_ARCH)))
+	for package in ibverbs-providers libibverbs-dev rdma-core; do \
+		test -e debian/$$package.install.backup || cp debian/$$package.install debian/$$package.install.backup; \
+	done
+	sed -i '/mlx[45]/d' debian/ibverbs-providers.install debian/libibverbs-dev.install debian/rdma-core.install
+endif
 	DESTDIR=$(CURDIR)/debian/tmp ninja -C build-deb install
 
 # The following files are not used on Debian (we ship our own sysvinit script)
