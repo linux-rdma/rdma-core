@@ -92,16 +92,25 @@ enum mlx5dv_context_flags {
 	MLX5DV_CONTEXT_FLAGS_OBSOLETE	= (1 << 1), /* Obsoleted, don't use */
 	MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED = (1 << 2),
 	MLX5DV_CONTEXT_FLAGS_ENHANCED_MPW = (1 << 3),
+	MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP = (1 << 4), /* Support CQE 128B compression */
+	MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD = (1 << 5), /* Support CQE 128B padding */
 };
 
 enum mlx5dv_cq_init_attr_mask {
 	MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE	= 1 << 0,
-	MLX5DV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 1,
+	MLX5DV_CQ_INIT_ATTR_MASK_FLAGS		= 1 << 1,
+	MLX5DV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 2,
+};
+
+enum mlx5dv_cq_init_attr_flags {
+	MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD	= 1 << 0,
+	MLX5DV_CQ_INIT_ATTR_FLAGS_RESERVED	= 1 << 1,
 };
 
 struct mlx5dv_cq_init_attr {
 	uint64_t comp_mask; /* Use enum mlx5dv_cq_init_attr_mask */
 	uint8_t cqe_comp_res_format; /* Use enum mlx5dv_cqe_comp_res_format */
+	uint32_t flags; /* Use enum mlx5dv_cq_init_attr_flags */
 };
 
 struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,

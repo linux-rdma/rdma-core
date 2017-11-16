@@ -114,6 +114,10 @@ struct mlx5_alloc_pd_resp {
 	__u32				pdn;
 };
 
+enum mlx5_create_cq_flags {
+	MLX5_CREATE_CQ_FLAGS_CQE_128B_PAD	= 1 << 0,
+};
+
 struct mlx5_create_cq {
 	struct ibv_create_cq		ibv_cmd;
 	__u64				buf_addr;
@@ -121,7 +125,7 @@ struct mlx5_create_cq {
 	__u32				cqe_size;
 	__u8                            cqe_comp_en;
 	__u8                            cqe_comp_res_format;
-	__u16                           reserved;
+	__u16                           flags; /* Use enum mlx5_create_cq_flags */
 };
 
 struct mlx5_create_cq_resp {
@@ -279,6 +283,11 @@ enum mlx5_mpw_caps {
 	MLX5_SUPPORT_EMPW	= 1 << 2,
 };
 
+enum mlx5_query_dev_resp_flags {
+	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP	= 1 << 0,
+	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_PAD	= 1 << 1,
+};
+
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
@@ -288,7 +297,7 @@ struct mlx5_query_device_ex_resp {
 	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	__u32				support_multi_pkt_send_wqe;
-	__u32				reserved;
+	__u32				flags; /* Use enum mlx5_query_dev_resp_flags */
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 };
 
