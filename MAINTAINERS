@@ -40,6 +40,11 @@ F:	*/CMakeLists.txt
 F:	*/lib*.map
 F:	buildlib/
 
+DEBIAN PACKAGING
+M:	Benjamin Drung <benjamin.drung@profitbricks.com>
+S:	Supported
+F:	debian/
+
 BNXT_RE USERSPACE PROVIDER (for bnxt_re.ko)
 M:	Devesh Sharma  <Devesh.sharma@broadcom.com>
 S:	Supported
