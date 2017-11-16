@@ -1,7 +1,5 @@
 Source: rdma-core
-Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
-Uploaders: Benjamin Drung <benjamin.drung@profitbricks.com>,
-           Talat Batheesh <talatb@mellanox.com>
+Maintainer: Benjamin Drung <benjamin.drung@profitbricks.com>
 Section: net
 Priority: optional
 Build-Depends: cmake (>= 2.8.11),
