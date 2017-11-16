@@ -1,3 +1,11 @@
+rdma-core (15-3) unstable; urgency=medium
+
+  * debian/rules: Include architecture.mk for DEB_HOST_ARCH definition
+  * Add alpha, hppa, sh4 as non-coherent DMA archs
+  * Do not require valgrind on x32 (not available there due to build failure)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 16 Nov 2017 17:33:48 +0100
+
 rdma-core (15-2) unstable; urgency=medium
 
   * Do not build ibacm for non-Linux architectures
