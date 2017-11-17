@@ -114,6 +114,7 @@ struct cma_multicast {
 	uint32_t	handle;
 	union ibv_gid	mgid;
 	uint16_t	mlid;
+	uint16_t	join_flags;
 	struct sockaddr_storage addr;
 };
 
@@ -1715,7 +1716,8 @@ int rdma_disconnect(struct rdma_cm_id *id)
 }
 
 static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
-				socklen_t addrlen, void *context)
+				socklen_t addrlen, uint16_t join_flags,
+				void *context)
 {
 	struct ucma_abi_create_id_resp resp;
 	struct cma_id_private *id_priv;
@@ -1729,6 +1731,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 
 	mc->context = context;
 	mc->id_priv = id_priv;
+	mc->join_flags = join_flags;
 	memcpy(&mc->addr, addr, addrlen);
 	if (pthread_cond_init(&mc->cond, NULL)) {
 		ret = -1;
@@ -1748,7 +1751,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 		memcpy(&cmd.addr, addr, addrlen);
 		cmd.addr_size = addrlen;
 		cmd.uid = (uintptr_t) mc;
-		cmd.reserved = 0;
+		cmd.join_flags = join_flags;
 
 		ret = write(id->channel->fd, &cmd, sizeof cmd);
 		if (ret != sizeof cmd) {
@@ -1786,6 +1789,30 @@ err1:
 	return ret;
 }
 
+int rdma_join_multicast_ex(struct rdma_cm_id *id,
+			   struct rdma_cm_join_mc_attr_ex *mc_join_attr,
+			   void *context)
+{
+	int addrlen;
+
+	if (mc_join_attr->comp_mask >= RDMA_CM_JOIN_MC_ATTR_RESERVED)
+		return ERR(ENOTSUP);
+
+	if (!(mc_join_attr->comp_mask & RDMA_CM_JOIN_MC_ATTR_ADDRESS))
+		return ERR(EINVAL);
+
+	if (!(mc_join_attr->comp_mask & RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS) ||
+	    (mc_join_attr->join_flags >= RDMA_MC_JOIN_FLAG_RESERVED))
+		return ERR(EINVAL);
+
+	addrlen = ucma_addrlen(mc_join_attr->addr);
+	if (!addrlen)
+		return ERR(EINVAL);
+
+	return rdma_join_multicast2(id, mc_join_attr->addr, addrlen,
+				    mc_join_attr->join_flags, context);
+}
+
 int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 			void *context)
 {
@@ -1795,7 +1822,8 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 	if (!addrlen)
 		return ERR(EINVAL);
 
-	return rdma_join_multicast2(id, addr, addrlen, context);
+	return rdma_join_multicast2(id, addr, addrlen,
+				    RDMA_MC_JOIN_FLAG_FULLMEMBER, context);
 }
 
 int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
@@ -1823,7 +1851,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 	if (!mc)
 		return ERR(EADDRNOTAVAIL);
 
-	if (id->qp)
+	if (id->qp && (mc->join_flags != RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER))
 		ibv_detach_mcast(id->qp, &mc->mgid, mc->mlid);
 	
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, LEAVE_MCAST, &resp, sizeof resp);
@@ -2009,6 +2037,10 @@ static int ucma_process_join(struct cma_event *evt)
 	evt->mc->mlid = evt->event.param.ud.ah_attr.dlid;
 
 	if (!evt->id_priv->id.qp)
+		return 0;
+
+	/* Don't attach QP to multicast if joined as send only full member */
+	if (evt->mc->join_flags == RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER)
 		return 0;
 
 	return rdma_seterrno(ibv_attach_mcast(evt->id_priv->id.qp,
