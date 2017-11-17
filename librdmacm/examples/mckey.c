@@ -77,6 +77,7 @@ static int connections = 1;
 static int message_size = 100;
 static int message_count = 10;
 static int is_sender;
+static int send_only;
 static int unmapped_addr;
 static char *dst_addr;
 static char *src_addr;
@@ -241,6 +242,7 @@ static void connect_error(void)
 static int addr_handler(struct cmatest_node *node)
 {
 	int ret;
+	struct rdma_cm_join_mc_attr_ex mc_attr;
 
 	ret = verify_test_params(node);
 	if (ret)
@@ -256,7 +258,14 @@ static int addr_handler(struct cmatest_node *node)
 			goto err;
 	}
 
-	ret = rdma_join_multicast(node->cma_id, test.dst_addr, node);
+	mc_attr.comp_mask =
+	    RDMA_CM_JOIN_MC_ATTR_ADDRESS | RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS;
+	mc_attr.addr = test.dst_addr;
+	mc_attr.join_flags = send_only ? RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER
+				       : RDMA_MC_JOIN_FLAG_FULLMEMBER;
+
+	ret = rdma_join_multicast_ex(node->cma_id, &mc_attr, node);
+
 	if (ret) {
 		perror("mckey: failure joining");
 		goto err;
@@ -555,8 +564,7 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-
-	while ((op = getopt(argc, argv, "m:M:sb:c:C:S:p:")) != -1) {
+	while ((op = getopt(argc, argv, "m:M:sb:c:C:S:p:o")) != -1) {
 		switch (op) {
 		case 'm':
 			dst_addr = optarg;
@@ -584,6 +592,10 @@ int main(int argc, char **argv)
 		case 'p':
 			port_space = strtol(optarg, NULL, 0);
 			break;
+		case 'o':
+			send_only = 1;
+			break;
+
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t-m multicast_address\n");
@@ -596,6 +608,7 @@ int main(int argc, char **argv)
 			printf("\t[-S message_size]\n");
 			printf("\t[-p port_space - %#x for UDP (default), "
 			       "%#x for IPOIB]\n", RDMA_PS_UDP, RDMA_PS_IPOIB);
+			printf("\t[-o join as a send-only full-member]\n");
 			exit(1);
 		}
 	}
