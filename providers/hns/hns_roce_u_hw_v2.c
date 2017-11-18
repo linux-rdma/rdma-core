@@ -664,8 +664,11 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			/* set sge */
 			if (wr->num_sge <= 2) {
 				for (i = 0; i < wr->num_sge; i++)
-					set_data_seg_v2(dseg + i,
-							wr->sg_list + i);
+					if (likely(wr->sg_list[i].length)) {
+						set_data_seg_v2(dseg,
+							       wr->sg_list + i);
+						dseg++;
+					}
 			} else {
 				roce_set_field(rc_sq_wqe->byte_20,
 					RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
@@ -673,16 +676,22 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 					ind_sge & (qp->sge.sge_cnt - 1));
 
 				for (i = 0; i < 2; i++)
-					set_data_seg_v2(dseg + i,
-							wr->sg_list + i);
+					if (likely(wr->sg_list[i].length)) {
+						set_data_seg_v2(dseg,
+							       wr->sg_list + i);
+						dseg++;
+					}
 
 				dseg = get_send_sge_ex(qp, ind_sge &
 						    (qp->sge.sge_cnt - 1));
 
 				for (i = 0; i < wr->num_sge - 2; i++) {
-					set_data_seg_v2(dseg + i,
-							wr->sg_list + 2 + i);
-					ind_sge++;
+					if (likely(wr->sg_list[i + 2].length)) {
+						set_data_seg_v2(dseg,
+							   wr->sg_list + 2 + i);
+						dseg++;
+						ind_sge++;
+					}
 				}
 			}
 		}
@@ -745,8 +754,17 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		wqe = get_recv_wqe_v2(qp, ind);
 		dseg = (struct hns_roce_v2_wqe_data_seg *)wqe;
 
-		for (i = 0; i < wr->num_sge; i++)
-			set_data_seg_v2(dseg + i, wr->sg_list + i);
+		for (i = 0; i < wr->num_sge; i++) {
+			if (!wr->sg_list[i].length)
+				continue;
+			set_data_seg_v2(dseg, wr->sg_list + i);
+			dseg++;
+		}
+
+		if (i < qp->rq.max_gs) {
+			dseg[i].lkey = htole32(0x100);
+			dseg[i].addr = 0;
+		}
 
 		qp->rq.wrid[ind] = wr->wr_id;
 
