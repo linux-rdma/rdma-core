@@ -55,15 +55,15 @@
 #define PFX				"hns: "
 
 #define roce_get_field(origin, mask, shift) \
-	(((origin) & (mask)) >> (shift))
+	(((le32toh(origin)) & (mask)) >> (shift))
 
 #define roce_get_bit(origin, shift) \
 	roce_get_field((origin), (1ul << (shift)), (shift))
 
 #define roce_set_field(origin, mask, shift, val) \
 	do { \
-		(origin) &= (~(mask)); \
-		(origin) |= (((unsigned int)(val) << (shift)) & (mask)); \
+		(origin) &= ~htole32(mask); \
+		(origin) |= htole32(((unsigned int)(val) << (shift)) & (mask)); \
 	} while (0)
 
 #define roce_set_bit(origin, shift, val) \
