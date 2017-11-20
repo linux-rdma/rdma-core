@@ -197,6 +197,29 @@ struct rdma_addrinfo {
 	struct rdma_addrinfo	*ai_next;
 };
 
+/* Multicast join compatibility mask attributes */
+enum rdma_cm_join_mc_attr_mask {
+	RDMA_CM_JOIN_MC_ATTR_ADDRESS	= 1 << 0,
+	RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS	= 1 << 1,
+	RDMA_CM_JOIN_MC_ATTR_RESERVED	= 1 << 2,
+};
+
+/* Multicast join flags */
+enum rdma_cm_mc_join_flags {
+	RDMA_MC_JOIN_FLAG_FULLMEMBER,
+	RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER,
+	RDMA_MC_JOIN_FLAG_RESERVED,
+};
+
+struct rdma_cm_join_mc_attr_ex {
+	/* Bitwise OR between "rdma_cm_join_mc_attr_mask" enum */
+	uint32_t comp_mask;
+	/* Use a flag from "rdma_cm_mc_join_flags" enum */
+	uint32_t join_flags;
+	/* Multicast address identifying the group to join */
+	struct sockaddr *addr;
+};
+
 /**
  * rdma_create_event_channel - Open a channel used to report communication events.
  * Description:
@@ -553,6 +576,30 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
  *   rdma_join_multicast, rdma_destroy_qp
  */
 int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr);
+
+/**
+ * rdma_multicast_ex - Joins a multicast group with options.
+ * @id: Communication identifier associated with the request.
+ * @mc_join_attr: Extensive struct containing multicast join parameters.
+ * @context: User-defined context associated with the join request.
+ * Description:
+ *  Joins a multicast group with options. Currently supporting MC join flags.
+ *  The QP will be attached based on the given join flag.
+ *  Join message will be sent according to the join flag.
+ * Notes:
+ *  Before joining a multicast group, the rdma_cm_id must be bound to
+ *  an RDMA device by calling rdma_bind_addr or rdma_resolve_addr.  Use of
+ *  rdma_resolve_addr requires the local routing tables to resolve the
+ *  multicast address to an RDMA device.  The user must call
+ *  rdma_leave_multicast to leave the multicast group and release any
+ *  multicast resources.  The context is returned to the user through
+ *  the private_data field in the rdma_cm_event.
+ * See also:
+ *  rdma_leave_multicast, rdma_bind_addr, rdma_resolve_addr, rdma_create_qp
+ */
+int rdma_join_multicast_ex(struct rdma_cm_id *id,
+			   struct rdma_cm_join_mc_attr_ex *mc_join_attr,
+			   void *context);
 
 /**
  * rdma_get_cm_event - Retrieves the next pending communication event.

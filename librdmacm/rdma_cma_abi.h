@@ -302,7 +302,7 @@ struct ucma_abi_join_mcast {
 	__u64 uid;
 	__u32 id;
 	__u16 addr_size;
-	__u16 reserved;
+	__u16 join_flags;
 	struct sockaddr_storage addr;
 };
 

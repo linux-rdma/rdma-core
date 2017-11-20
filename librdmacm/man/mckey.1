@@ -41,6 +41,10 @@ The size of each message transferred, in bytes.  This value must be smaller
 than the MTU of the underlying RDMA transport, or an error will occur.
 (default 100)
 .TP
+\-o
+Join the multicast group as a send-only full-member. Otherwise the group is
+joined as a full-member.
+.TP
 \-p port_space
 The port space of the datagram communication.  May be either the RDMA
 UDP (0x0111) or IPoIB (0x0002) port space.  (default RDMA_PS_UDP)
