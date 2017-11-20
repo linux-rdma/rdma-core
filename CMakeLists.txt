@@ -436,7 +436,7 @@ if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/bnxt_re)
 add_subdirectory(providers/cxgb3) # NO SPARSE
 add_subdirectory(providers/cxgb4) # NO SPARSE
-add_subdirectory(providers/hns) # NO SPARSE
+add_subdirectory(providers/hns)
 add_subdirectory(providers/i40iw) # NO SPARSE
 add_subdirectory(providers/mlx4)
 add_subdirectory(providers/mlx4/man)

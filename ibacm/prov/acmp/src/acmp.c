@@ -1507,7 +1507,7 @@ static void acmp_process_wait_queue(struct acmp_ep *ep, uint64_t *next_expire)
 	struct ibv_send_wr *bad_wr;
 
 	list_for_each_safe(&ep->wait_queue, msg, next, entry) {
-		if (msg->expires < time_stamp_ms()) {
+		if (msg->expires <= time_stamp_ms()) {
 			list_del(&msg->entry);
 			(void) atomic_dec(&wait_cnt);
 			if (--msg->tries) {
@@ -1579,10 +1579,12 @@ static void *acmp_retry_handler(void *context)
 		pthread_mutex_unlock(&acmp_dev_lock);
 
 		acmp_process_timeouts();
-		wait = (int) (next_expire - time_stamp_ms());
-		if (wait > 0 && atomic_get(&wait_cnt)) {
-			pthread_testcancel();
-			event_wait(&timeout_event, wait);
+		if (next_expire != -1) {
+			wait = (int) (next_expire - time_stamp_ms());
+			if (wait > 0 && atomic_get(&wait_cnt)) {
+				pthread_testcancel();
+				event_wait(&timeout_event, wait);
+			}
 		}
 	}
 

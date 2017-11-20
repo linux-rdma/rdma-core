@@ -40,17 +40,17 @@
 static inline void set_raddr_seg(struct hns_roce_wqe_raddr_seg *rseg,
 				 uint64_t remote_addr, uint32_t rkey)
 {
-	rseg->raddr    = remote_addr;
-	rseg->rkey     = rkey;
+	rseg->raddr    = htole64(remote_addr);
+	rseg->rkey     = htole32(rkey);
 	rseg->len      = 0;
 }
 
 static void set_data_seg(struct hns_roce_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
 
-	dseg->lkey = sg->lkey;
-	dseg->addr = sg->addr;
-	dseg->len = sg->length;
+	dseg->lkey = htole32(sg->lkey);
+	dseg->addr = htole64(sg->addr);
+	dseg->len = htole32(sg->length);
 }
 
 static void hns_roce_update_rq_head(struct hns_roce_context *ctx,
@@ -337,13 +337,13 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 			 get_send_wqe(*cur_qp, roce_get_field(cqe->cqe_byte_4,
 						CQE_BYTE_4_WQE_INDEX_M,
 						CQE_BYTE_4_WQE_INDEX_S));
-		switch (sq_wqe->flag & HNS_ROCE_WQE_OPCODE_MASK) {
+		switch (le32toh(sq_wqe->flag) & HNS_ROCE_WQE_OPCODE_MASK) {
 		case HNS_ROCE_WQE_OPCODE_SEND:
 			wc->opcode = IBV_WC_SEND;
 			break;
 		case HNS_ROCE_WQE_OPCODE_RDMA_READ:
 			wc->opcode = IBV_WC_RDMA_READ;
-			wc->byte_len = cqe->byte_cnt;
+			wc->byte_len = le32toh(cqe->byte_cnt);
 			break;
 		case HNS_ROCE_WQE_OPCODE_RDMA_WRITE:
 			wc->opcode = IBV_WC_RDMA_WRITE;
@@ -355,11 +355,11 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 			wc->status = IBV_WC_GENERAL_ERR;
 			break;
 		}
-		wc->wc_flags = (sq_wqe->flag & HNS_ROCE_WQE_IMM ?
+		wc->wc_flags = (le32toh(sq_wqe->flag) & HNS_ROCE_WQE_IMM ?
 				IBV_WC_WITH_IMM : 0);
 	} else {
 		/* Get opcode and flag in rq&srq */
-		wc->byte_len = (cqe->byte_cnt);
+		wc->byte_len = le32toh(cqe->byte_cnt);
 
 		switch (roce_get_field(cqe->cqe_byte_4,
 				       CQE_BYTE_4_OPERATION_TYPE_M,
@@ -368,14 +368,15 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 		case HNS_ROCE_OPCODE_RDMA_WITH_IMM_RECEIVE:
 			wc->opcode   = IBV_WC_RECV_RDMA_WITH_IMM;
 			wc->wc_flags = IBV_WC_WITH_IMM;
-			wc->imm_data = cqe->immediate_data;
+			wc->imm_data = htobe32(le32toh(cqe->immediate_data));
 			break;
 		case HNS_ROCE_OPCODE_SEND_DATA_RECEIVE:
 			if (roce_get_bit(cqe->cqe_byte_4,
 					 CQE_BYTE_4_IMMEDIATE_DATA_FLAG_S)) {
 				wc->opcode   = IBV_WC_RECV;
 				wc->wc_flags = IBV_WC_WITH_IMM;
-				wc->imm_data = cqe->immediate_data;
+				wc->imm_data =
+					htobe32(le32toh(cqe->immediate_data));
 			} else {
 				wc->opcode   = IBV_WC_RECV;
 				wc->wc_flags = 0;
@@ -497,10 +498,10 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		qp->sq.wrid[ind & (qp->sq.wqe_cnt - 1)] = wr->wr_id;
 		for (i = 0; i < wr->num_sge; i++)
-			ctrl->msg_length += wr->sg_list[i].length;
+			ctrl->msg_length = htole32(le32toh(ctrl->msg_length) +
+						   wr->sg_list[i].length);
 
-
-		ctrl->flag |= ((wr->send_flags & IBV_SEND_SIGNALED) ?
+		ctrl->flag |= htole32(((wr->send_flags & IBV_SEND_SIGNALED) ?
 				HNS_ROCE_WQE_CQ_NOTIFY : 0) |
 			      (wr->send_flags & IBV_SEND_SOLICITED ?
 				HNS_ROCE_WQE_SE : 0) |
@@ -508,11 +509,11 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			       wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM) ?
 				HNS_ROCE_WQE_IMM : 0) |
 			      (wr->send_flags & IBV_SEND_FENCE ?
-				HNS_ROCE_WQE_FENCE : 0);
+				HNS_ROCE_WQE_FENCE : 0));
 
 		if (wr->opcode == IBV_WR_SEND_WITH_IMM ||
 		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
-			ctrl->imm_data = wr->imm_data;
+			ctrl->imm_data = htole32(be32toh(wr->imm_data));
 
 		wqe += sizeof(struct hns_roce_wqe_ctrl_seg);
 
@@ -541,7 +542,7 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				ps_opcode = HNS_ROCE_WQE_OPCODE_MASK;
 				break;
 			}
-			ctrl->flag |= (ps_opcode);
+			ctrl->flag |= htole32(ps_opcode);
 			wqe  += sizeof(struct hns_roce_wqe_raddr_seg);
 			break;
 		case IBV_QPT_UC:
@@ -554,7 +555,7 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		/* Inline */
 		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
-			if (ctrl->msg_length > qp->max_inline_data) {
+			if (le32toh(ctrl->msg_length) > qp->max_inline_data) {
 				ret = -1;
 				*bad_wr = wr;
 				printf("inline data len(1-32)=%d, send_flags = 0x%x, check failed!\r\n",
@@ -569,13 +570,14 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				wqe = wqe + wr->sg_list[i].length;
 			}
 
-			ctrl->flag |= HNS_ROCE_WQE_INLINE;
+			ctrl->flag |= htole32(HNS_ROCE_WQE_INLINE);
 		} else {
 			/* set sge */
 			for (i = 0; i < wr->num_sge; i++)
 				set_data_seg(dseg+i, wr->sg_list + i);
 
-			ctrl->flag |= wr->num_sge << HNS_ROCE_WQE_SGE_NUM_BIT;
+			ctrl->flag |=
+			       htole32(wr->num_sge << HNS_ROCE_WQE_SGE_NUM_BIT);
 		}
 
 		ind++;
@@ -783,15 +785,15 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 				       HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM);
 			sg = wr->sg_list;
 
-			rq_wqe->va0 = (sg->addr);
-			rq_wqe->l_key0 = (sg->lkey);
-			rq_wqe->length0 = (sg->length);
+			rq_wqe->va0 = htole64(sg->addr);
+			rq_wqe->l_key0 = htole32(sg->lkey);
+			rq_wqe->length0 = htole32(sg->length);
 
 			sg = wr->sg_list + 1;
 
-			rq_wqe->va1 = (sg->addr);
-			rq_wqe->l_key1 = (sg->lkey);
-			rq_wqe->length1 = (sg->length);
+			rq_wqe->va1 = htole64(sg->addr);
+			rq_wqe->l_key1 = htole32(sg->lkey);
+			rq_wqe->length1 = htole32(sg->length);
 		} else if (wr->num_sge == HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM - 1) {
 			roce_set_field(rq_wqe->u32_2,
 				       RC_RQ_WQE_NUMBER_OF_DATA_SEG_M,
@@ -799,9 +801,9 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 				       HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM - 1);
 			sg = wr->sg_list;
 
-			rq_wqe->va0 = (sg->addr);
-			rq_wqe->l_key0 = (sg->lkey);
-			rq_wqe->length0 = (sg->length);
+			rq_wqe->va0 = htole64(sg->addr);
+			rq_wqe->l_key0 = htole32(sg->lkey);
+			rq_wqe->length0 = htole32(sg->length);
 
 		} else if (wr->num_sge == HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM - 2) {
 			roce_set_field(rq_wqe->u32_2,

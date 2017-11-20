@@ -114,8 +114,8 @@ enum {
 };
 
 struct hns_roce_db {
-	unsigned int	byte_4;
-	unsigned int	parameter;
+	__le32	byte_4;
+	__le32	parameter;
 };
 #define DB_BYTE_4_TAG_S 0
 #define DB_BYTE_4_TAG_M   (((1UL << 23) - 1) << DB_BYTE_4_TAG_S)
@@ -140,8 +140,8 @@ struct hns_roce_db {
 	(((1UL << 3) - 1) << DB_PARAM_SL_S)
 
 struct hns_roce_v2_cq_db {
-	unsigned int	byte_4;
-	unsigned int	parameter;
+	__le32	byte_4;
+	__le32	parameter;
 };
 
 #define CQ_DB_BYTE_4_TAG_S 0
@@ -161,14 +161,17 @@ struct hns_roce_v2_cq_db {
 	(((1UL << 2) - 1) << CQ_DB_PARAMETER_CMD_SN_S)
 
 struct hns_roce_v2_cqe {
-	unsigned int	byte_4;
-	unsigned int	rkey_immtdata;
-	unsigned int	byte_12;
-	unsigned int	byte_16;
-	unsigned int	byte_cnt;
-	unsigned int	smac;
-	unsigned int	byte_28;
-	unsigned int	byte_32;
+	__le32	byte_4;
+	union {
+		__le32	rkey;
+		__be32	immtdata;
+	};
+	__le32	byte_12;
+	__le32	byte_16;
+	__le32	byte_cnt;
+	__le32	smac;
+	__le32	byte_28;
+	__le32	byte_32;
 };
 
 #define CQE_BYTE_4_OPCODE_S 0
@@ -211,13 +214,16 @@ struct hns_roce_v2_cqe {
 #define CQE_BYTE_32_LPK_S 31
 
 struct hns_roce_rc_sq_wqe {
-	unsigned int	byte_4;
-	unsigned int	msg_len;
-	unsigned int	inv_key_immtdata;
-	unsigned int	byte_16;
-	unsigned int	byte_20;
-	unsigned int	rkey;
-	uint64_t	va;
+	__le32	byte_4;
+	__le32	msg_len;
+	union {
+		__le32	inv_key;
+		__be32	immtdata;
+	};
+	__le32	byte_16;
+	__le32	byte_20;
+	__le32	rkey;
+	__le64	va;
 };
 
 #define RC_SQ_WQE_BYTE_4_OPCODE_S 0
@@ -249,15 +255,15 @@ struct hns_roce_rc_sq_wqe {
 	(((1UL << 24) - 1) << RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S)
 
 struct hns_roce_v2_wqe_data_seg {
-	__be32    len;
-	__be32    lkey;
-	__be64    addr;
+	__le32		len;
+	__le32		lkey;
+	__le64		addr;
 };
 
 struct hns_roce_v2_wqe_raddr_seg {
-	__be32		rkey;
-	__be32		len;
-	__be64		raddr;
+	__le32		rkey;
+	__le32		len;
+	__le64		raddr;
 };
 
 #endif /* _HNS_ROCE_U_HW_V2_H */
