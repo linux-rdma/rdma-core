@@ -2,6 +2,7 @@ publish_headers(infiniband
   umad.h
   umad_cm.h
   umad_sa.h
+  umad_sa_mcm.h
   umad_sm.h
   umad_str.h
   umad_types.h
