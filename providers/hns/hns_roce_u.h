@@ -165,6 +165,21 @@ struct hns_roce_sge_ex {
 	int				sge_shift;
 };
 
+struct hns_roce_rinl_sge {
+	void				*addr;
+	unsigned int			len;
+};
+
+struct hns_roce_rinl_wqe {
+	struct hns_roce_rinl_sge	*sg_list;
+	unsigned int			sge_cnt;
+};
+
+struct hns_roce_rinl_buf {
+	struct hns_roce_rinl_wqe	*wqe_list;
+	unsigned int			wqe_cnt;
+};
+
 struct hns_roce_qp {
 	struct ibv_qp			ibv_qp;
 	struct hns_roce_buf		buf;
@@ -177,6 +192,8 @@ struct hns_roce_qp {
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
+
+	struct hns_roce_rinl_buf	rq_rinl_buf;
 };
 
 struct hns_roce_u_hw {
