@@ -120,16 +120,16 @@ static void build_mcm_rec(struct umad_sa_packet *sa, uint8_t method,
 			sa->comp_mask |=
 				htobe64(UMAD_SA_MCM_COMP_MASK_RATE_SEL |
 					UMAD_SA_MCM_COMP_MASK_RATE);
-			mcm->rate = (UMAD_SA_MCM_SELECTOR_EXACTLY <<
-				     UMAD_SA_MCM_SELECTOR_SHIFT) |
-				    (rate & UMAD_SA_MCM_RATE_MTU_PKT_LIFE_MASK);
+			mcm->rate = (UMAD_SA_SELECTOR_EXACTLY <<
+				     UMAD_SA_SELECTOR_SHIFT) |
+				    (rate & UMAD_SA_RATE_MTU_PKT_LIFE_MASK);
 		}
 		if (mtu != 0xff) {
 			sa->comp_mask |= htobe64(UMAD_SA_MCM_COMP_MASK_MTU_SEL |
 						 UMAD_SA_MCM_COMP_MASK_MTU);
-			mcm->mtu = (UMAD_SA_MCM_SELECTOR_EXACTLY <<
-				    UMAD_SA_MCM_SELECTOR_SHIFT) |
-				   (mtu & UMAD_SA_MCM_RATE_MTU_PKT_LIFE_MASK);
+			mcm->mtu = (UMAD_SA_SELECTOR_EXACTLY <<
+				    UMAD_SA_SELECTOR_SHIFT) |
+				   (mtu & UMAD_SA_RATE_MTU_PKT_LIFE_MASK);
 		}
 		if (sl != 0xff) {
 			sa->comp_mask |= htobe64(UMAD_SA_MCM_COMP_MASK_SL);

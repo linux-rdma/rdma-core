@@ -62,22 +62,6 @@ enum {
 	UMAD_SA_MCM_COMP_MASK_PROXY_JOIN	= (1ULL << 17)
 };
 
-/*
- * Should this enum be moved to umad_sa.h and MCM_ removed
- * as these are shared by PathRecord and MultiPathRecord ?
- */
-enum {
-	UMAD_SA_MCM_SELECTOR_GREATER_THAN	= 0,
-	UMAD_SA_MCM_SELECTOR_LESS_THAN		= 1,
-	UMAD_SA_MCM_SELECTOR_EXACTLY		= 2,
-	UMAD_SA_MCM_SELECTOR_LARGEST_AVAIL	= 3,	/* rate & MTU */
-	UMAD_SA_MCM_SELECTOR_SMALLEST_AVAIL	= 3	/* packet lifetime */
-};
-
-/* Similarly for the following 2 defines */
-#define UMAD_SA_MCM_SELECTOR_SHIFT		6
-#define UMAD_SA_MCM_RATE_MTU_PKT_LIFE_MASK	0x3f
-
 enum {
 	UMAD_SA_MCM_JOIN_STATE_FULL_MEMBER	= (1 << 0),
 	UMAD_SA_MCM_JOIN_STATE_NON_MEMBER	= (1 << 1),
@@ -169,22 +153,6 @@ static inline int
 umad_sa_mcm_get_proxy_join(struct umad_sa_mcmember_record *p_mc_rec)
 {
 	return ((p_mc_rec->proxy_join & 0x80) == 0x80);
-}
-
-/*
- * Similarly, should the next 2 helpers be moved to umad_sa.h
- * without mcm_ in the function name ?
- */
-static inline uint8_t
-umad_sa_mcm_get_rate_mtu_or_life(uint8_t rate_mtu_or_life)
-{
-	return (rate_mtu_or_life & 0x3f);
-}
-
-static inline uint8_t
-umad_sa_mcm_set_rate_mtu_or_life(uint8_t selector, uint8_t rate_mtu_or_life)
-{
-	return (((selector & 0x3) << 6) | (rate_mtu_or_life & 0x3f));
 }
 
 #ifdef __cplusplus

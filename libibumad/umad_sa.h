@@ -126,6 +126,20 @@ enum {
 };
 
 /*
+ * Shared by SA MCMemberRecord, PathRecord, and MultiPathRecord
+ */
+enum {
+	UMAD_SA_SELECTOR_GREATER_THAN	= 0,
+	UMAD_SA_SELECTOR_LESS_THAN	= 1,
+	UMAD_SA_SELECTOR_EXACTLY	= 2,
+	UMAD_SA_SELECTOR_LARGEST_AVAIL	= 3,	/* rate & MTU */
+	UMAD_SA_SELECTOR_SMALLEST_AVAIL = 3	/* packet lifetime */
+};
+
+#define UMAD_SA_SELECTOR_SHIFT		6
+#define UMAD_SA_RATE_MTU_PKT_LIFE_MASK	0x3f
+
+/*
  *  sm_key is not aligned on an 8-byte boundary, so is defined as a byte array
  */
 struct umad_sa_packet {
@@ -137,6 +151,18 @@ struct umad_sa_packet {
 	__be64			comp_mask;
 	uint8_t 		data[UMAD_LEN_SA_DATA]; /* network-byte order */
 };
+
+static inline uint8_t
+umad_sa_get_rate_mtu_or_life(uint8_t rate_mtu_or_life)
+{
+	return (rate_mtu_or_life & 0x3f);
+}
+
+static inline uint8_t
+umad_sa_set_rate_mtu_or_life(uint8_t selector, uint8_t rate_mtu_or_life)
+{
+	return (((selector & 0x3) << 6) | (rate_mtu_or_life & 0x3f));
+}
 
 #ifdef __cplusplus
 }
