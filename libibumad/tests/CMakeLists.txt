@@ -4,4 +4,7 @@ target_link_libraries(umad_reg2 LINK_PRIVATE ibumad)
 rdma_test_executable(umad_register2 umad_register2.c)
 target_link_libraries(umad_register2 LINK_PRIVATE ibumad)
 
+rdma_test_executable(umad_sa_mcm_rereg_test umad_sa_mcm_rereg_test.c)
+target_link_libraries(umad_sa_mcm_rereg_test LINK_PRIVATE ibumad)
+
 rdma_test_executable(umad_compile_test umad_compile_test.c)
