@@ -63,3 +63,27 @@ Note that for Option 3, if the patch deviates from the original upstream patch (
 ## Versioning
 
 See versioning.md for setting package version on a stable branch.
+
+
+## Creating a stable branch
+
+Stable branch should be created from a release tag of the master branch.
+The first thing to do on a master branch is to commit the mainstream release ABI infos
+so that latters patches/fixes can be checked against this reference.
+
+To do that, the creator of the branch should run
+```
+./buildlib/cbuild build-images travis
+mkdir ABI
+touch ABI/.gitignore
+git add ABI/.gitignore
+git commit -m "ABI Files"
+./buildlib/cbuild pkg travis
+git add ABI/*
+git commit --amend
+```
+
+'cbuild pkg travis' will fail as the ABI verification step files, but it will
+produce the ABI reference files.
+
+Note that the ABI directory must NOT be committed at any point in the master branch.
