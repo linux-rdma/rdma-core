@@ -48,21 +48,16 @@
 #include <limits>
 #endif
 
-#ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else /* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif /* __cplusplus */
-
 #if __GNUC__ >= 3
 #  define __attribute_const __attribute__((const))
 #else
 #  define __attribute_const
 #endif
 
-BEGIN_C_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 union ibv_gid {
 	uint8_t			raw[16];
@@ -2535,7 +2530,9 @@ static inline int ibv_is_qpt_supported(uint32_t caps, enum ibv_qp_type qpt)
 	return !!(caps & (1 << qpt));
 }
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #  undef __attribute_const
 

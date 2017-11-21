@@ -41,14 +41,8 @@
 #include <linux/types.h> /* __be16, __be32 and __be64 */
 
 #ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else				/* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif				/* __cplusplus */
-
-BEGIN_C_DECLS
+extern "C" {
+#endif
 
 typedef __be16 __attribute__((deprecated)) be16_t;
 typedef __be32 __attribute__((deprecated)) be32_t;
@@ -259,5 +253,7 @@ static inline __attribute__((deprecated)) uint64_t htonll(uint64_t x) { return h
 #define htonll htonll
 #endif
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 #endif				/* _UMAD_H */
