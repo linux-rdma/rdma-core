@@ -72,6 +72,7 @@ static const struct verbs_match_ent hca_table[] = {
 	HCA(CHELSIO, T3B02, T3B),
 	HCA(CHELSIO, T3C20, T3B),
 	HCA(CHELSIO, S320E, T3B),
+	{},
 };
 
 static struct ibv_context_ops iwch_ctx_ops = {
