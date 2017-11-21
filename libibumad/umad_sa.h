@@ -39,14 +39,8 @@
 #include <infiniband/umad_types.h>
 
 #ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else				/* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif				/* __cplusplus */
-
-BEGIN_C_DECLS
+extern "C" {
+#endif
 
 /* SA specific methods */
 enum {
@@ -144,5 +138,7 @@ struct umad_sa_packet {
 	uint8_t 		data[UMAD_LEN_SA_DATA]; /* network-byte order */
 };
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 #endif				/* _UMAD_SA_H */

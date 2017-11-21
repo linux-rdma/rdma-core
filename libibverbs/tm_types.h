@@ -37,14 +37,8 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else				/* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif				/* __cplusplus */
-
-BEGIN_C_DECLS
+extern "C" {
+#endif
 
 enum ibv_tmh_op {
 	IBV_TMH_NO_TAG	      = 0,
@@ -66,5 +60,7 @@ struct ibv_rvh {
 	__be32		len;
 };
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 #endif				/* _TM_TYPES_H */

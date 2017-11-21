@@ -37,14 +37,8 @@
 #include <infiniband/umad.h>
 
 #ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else				/* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif				/* __cplusplus */
-
-BEGIN_C_DECLS
+extern "C" {
+#endif
 
 const char * umad_class_str(uint8_t mgmt_class);
 const char * umad_method_str(uint8_t mgmt_class, uint8_t method);
@@ -53,5 +47,7 @@ const char * umad_attribute_str(uint8_t mgmt_class, __be16 attr_id);
 const char * umad_common_mad_status_str(__be16 status);
 const char * umad_sa_mad_status_str(__be16 status);
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 #endif /* _UMAD_STR_H */

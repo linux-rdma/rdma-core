@@ -42,14 +42,6 @@
 #include <config.h>
 #include <stdbool.h>
 
-#ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else /* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif /* __cplusplus */
-
 struct verbs_device;
 
 enum verbs_xrcd_mask {
