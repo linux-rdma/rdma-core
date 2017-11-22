@@ -1300,7 +1300,7 @@ static inline uint32_t mlx5_cq_read_wc_qp_num(struct ibv_cq_ex *ibcq)
 	return be32toh(cq->cqe64->sop_drop_qpn) & 0xffffff;
 }
 
-static inline int mlx5_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
+static inline unsigned int mlx5_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 	int wc_flags = 0;

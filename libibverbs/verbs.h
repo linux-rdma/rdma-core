@@ -161,7 +161,7 @@ struct ibv_device_attr {
 	uint32_t		hw_ver;
 	int			max_qp;
 	int			max_qp_wr;
-	int			device_cap_flags;
+	unsigned int		device_cap_flags;
 	int			max_sge;
 	int			max_sge_rd;
 	int			max_cq;
@@ -527,7 +527,7 @@ struct ibv_wc {
 	};
 	uint32_t		qp_num;
 	uint32_t		src_qp;
-	int			wc_flags;
+	unsigned int		wc_flags;
 	uint16_t		pkey_index;
 	uint16_t		slid;
 	uint8_t			sl;
@@ -548,7 +548,7 @@ struct ibv_mw_bind_info {
 	struct ibv_mr	*mr;
 	uint64_t	 addr;
 	uint64_t	 length;
-	int		 mw_access_flags; /* use ibv_access_flags */
+	unsigned int	 mw_access_flags; /* use ibv_access_flags */
 };
 
 struct ibv_pd {
@@ -954,7 +954,7 @@ struct ibv_qp_attr {
 	uint32_t		rq_psn;
 	uint32_t		sq_psn;
 	uint32_t		dest_qp_num;
-	int			qp_access_flags;
+	unsigned int		qp_access_flags;
 	struct ibv_qp_cap	cap;
 	struct ibv_ah_attr	ah_attr;
 	struct ibv_ah_attr	alt_ah_attr;
@@ -1008,7 +1008,7 @@ struct ibv_send_wr {
 	struct ibv_sge	       *sg_list;
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
-	int			send_flags;
+	unsigned int		send_flags;
 	/* When opcode is *_WITH_IMM: Immediate data in network byte order.
 	 * When opcode is *_INV: Stores the rkey to invalidate
 	 */
@@ -1090,7 +1090,7 @@ struct ibv_ops_wr {
 
 struct ibv_mw_bind {
 	uint64_t		wr_id;
-	int			send_flags;
+	unsigned int		send_flags;
 	struct ibv_mw_bind_info bind_info;
 };
 
@@ -1204,7 +1204,7 @@ struct ibv_cq_ex {
 	__be32 (*read_imm_data)(struct ibv_cq_ex *current);
 	uint32_t (*read_qp_num)(struct ibv_cq_ex *current);
 	uint32_t (*read_src_qp)(struct ibv_cq_ex *current);
-	int (*read_wc_flags)(struct ibv_cq_ex *current);
+	unsigned int (*read_wc_flags)(struct ibv_cq_ex *current);
 	uint32_t (*read_slid)(struct ibv_cq_ex *current);
 	uint8_t (*read_sl)(struct ibv_cq_ex *current);
 	uint8_t (*read_dlid_path_bits)(struct ibv_cq_ex *current);
@@ -1290,7 +1290,7 @@ static inline uint32_t ibv_wc_read_src_qp(struct ibv_cq_ex *cq)
 	return cq->read_src_qp(cq);
 }
 
-static inline int ibv_wc_read_wc_flags(struct ibv_cq_ex *cq)
+static inline unsigned int ibv_wc_read_wc_flags(struct ibv_cq_ex *cq)
 {
 	return cq->read_wc_flags(cq);
 }
