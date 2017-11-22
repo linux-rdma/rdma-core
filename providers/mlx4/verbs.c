@@ -922,8 +922,8 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 		goto err_free;
 
 	if (mlx4qp_attr) {
-		if (mlx4qp_attr->comp_mask &
-		    ~(MLX4DV_QP_INIT_ATTR_MASK_RESERVED - 1)) {
+		if (!check_comp_mask(mlx4qp_attr->comp_mask,
+		    MLX4DV_QP_INIT_ATTR_MASK_RESERVED - 1)) {
 			errno = EINVAL;
 			goto err_free;
 		}

@@ -434,7 +434,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cmd.cqe_size = cqe_sz;
 
 	if (mlx5cq_attr) {
-		if (mlx5cq_attr->comp_mask & ~(MLX5DV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
+		if (!check_comp_mask(mlx5cq_attr->comp_mask,
+				     MLX5DV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
 			mlx5_dbg(fp, MLX5_DBG_CQ,
 				   "Unsupported vendor comp_mask for create_cq\n");
 			errno = EINVAL;
