@@ -38,6 +38,7 @@ useful for debugging certain kinds of build problems."""
 
 import argparse
 import collections
+import filecmp
 import grp
 import imp
 import inspect
@@ -557,6 +558,25 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
                 shutil.move(os.path.join(tmpdir,I),
                             os.path.join("..",I));
 
+def copy_abi_files(src):
+    """Retrieve the current ABI files and place them in the source tree."""
+    if not os.path.isdir(src):
+        return;
+
+    for path,jnk,files in os.walk(src):
+        for I in files:
+            if not I.startswith("current-"):
+                continue;
+
+            ref_fn = os.path.join("ABI",I[8:]);
+            cur_fn = os.path.join(src, path, I);
+
+            if os.path.isfile(ref_fn) and filecmp.cmp(ref_fn,cur_fn,False):
+                continue;
+
+            print "Changed ABI File: ", ref_fn;
+            shutil.copy(cur_fn, ref_fn);
+
 def run_travis_build(args,env):
     with private_tmp(args) as tmpdir:
         os.mkdir(os.path.join(tmpdir,"src"));
@@ -615,7 +635,12 @@ def run_travis_build(args,env):
         else:
             opts.extend(["/bin/bash",os.path.join(home_build,"go.sh")]);
 
-        docker_cmd(args,*opts);
+        try:
+            docker_cmd(args,*opts);
+        except subprocess.CalledProcessError, e:
+            copy_abi_files(os.path.join(tmpdir, "src/ABI"));
+            raise;
+        copy_abi_files(os.path.join(tmpdir, "src/ABI"));
 
 def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());

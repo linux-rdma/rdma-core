@@ -37,6 +37,8 @@ addons:
       - valgrind
       - sparse
       - wget
+      - abi-compliance-checker
+      - abi-dumper
 
       # 32 bit support packages
       - gcc-multilib

@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import sys
 from contextlib import contextmanager;
 
 def get_src_dir():
@@ -143,6 +144,51 @@ def test_verbs_private(args):
 
 # -------------------------------------------------------------------------
 
+def check_abi(args,fn):
+    g1 = re.match(r"lib([^.]+).so\.(.+)\.(.+)",fn);
+    g2 = re.match(r"lib([^.]+).so\.(.+\..+)",fn);
+    if g1 is None or g2 is None:
+        raise ValueError("Library has unknown file name format %r"%(fn));
+
+    ref_fn = os.path.join(args.SRC,"ABI",fn + ".dump");
+    cur_fn = os.path.join(args.SRC,"ABI","current-" + fn + ".dump");
+    subprocess.check_call(["abi-dumper",
+                           "-lver",g2.group(1),
+                           fn,
+                           "-o",cur_fn]);
+
+    if not os.path.exists(ref_fn):
+        print >> sys.stderr, "ABI file does not exist for %r"%(ref_fn);
+        return False;
+
+    subprocess.check_call(["abi-compliance-checker",
+                           "-l",g1.group(1),
+                           "-old",ref_fn,
+                           "-new",cur_fn]);
+
+    return True;
+
+def test_verbs_uapi(args):
+    """Compare the ABI output from 'abi-dumper' between what is present in git and
+    what was built in this tree.  This allows us to detect changes in ABI on
+    the -stable branch."""
+
+    # User must provide the ABI dir in the source tree
+    if not os.path.isdir(os.path.join(args.SRC,"ABI")):
+        print "ABI check skipped, no ABI/ directory.";
+        return;
+
+    libd = os.path.join(args.BUILD,"lib");
+    success = True;
+    with inDirectory(libd):
+        for fn in os.listdir("."):
+            if not os.path.islink(fn) and re.match(r"lib.+\.so\..+\..+",fn):
+                success = success & check_abi(args,fn);
+
+    assert success == True;
+
+# -------------------------------------------------------------------------
+
 def is_obsolete(fn):
     """True if the header is obsolete and should not be compiled anyhow."""
     with open(fn) as F:
@@ -197,6 +243,7 @@ args = parser.parse_args();
 
 if args.SRC is None:
     args.SRC = get_src_dir();
+args.SRC = os.path.abspath(args.SRC);
 args.PACKAGE_VERSION = get_package_version(args);
 
 funcs = globals();
