@@ -150,8 +150,8 @@ def check_abi(args,fn):
     if g1 is None or g2 is None:
         raise ValueError("Library has unknown file name format %r"%(fn));
 
-    ref_fn = os.path.join(args.SRC,"ABI",fn + ".dump");
-    cur_fn = os.path.join(args.SRC,"ABI","current-" + fn + ".dump");
+    ref_fn = os.path.join(args.SRC,"ABI",g1.group(1) + ".dump");
+    cur_fn = os.path.join(args.SRC,"ABI","current-" + g1.group(1) + ".dump");
     subprocess.check_call(["abi-dumper",
                            "-lver",g2.group(1),
                            fn,
