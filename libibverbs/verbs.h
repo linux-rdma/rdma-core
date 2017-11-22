@@ -1832,7 +1832,7 @@ static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
 						      ibv_create_flow);
-	if (!vctx || !vctx->ibv_create_flow) {
+	if (!vctx) {
 		errno = ENOSYS;
 		return NULL;
 	}
@@ -1844,7 +1844,7 @@ static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
 						      ibv_destroy_flow);
-	if (!vctx || !vctx->ibv_destroy_flow)
+	if (!vctx)
 		return -ENOSYS;
 	return vctx->ibv_destroy_flow(flow_id);
 }
