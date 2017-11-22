@@ -1650,15 +1650,6 @@ struct ibv_values_ex {
 	struct timespec raw_clock;
 };
 
-enum verbs_context_mask {
-	VERBS_CONTEXT_XRCD	= 1 << 0,
-	VERBS_CONTEXT_SRQ	= 1 << 1,
-	VERBS_CONTEXT_QP	= 1 << 2,
-	VERBS_CONTEXT_CREATE_FLOW = 1 << 3,
-	VERBS_CONTEXT_DESTROY_FLOW = 1 << 4,
-	VERBS_CONTEXT_RESERVED	= 1 << 5
-};
-
 struct verbs_context {
 	/*  "grows up" - new fields go here */
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
@@ -1696,7 +1687,7 @@ struct verbs_context {
 	struct ibv_xrcd *	(*open_xrcd)(struct ibv_context *context,
 					     struct ibv_xrcd_init_attr *xrcd_init_attr);
 	int			(*close_xrcd)(struct ibv_xrcd *xrcd);
-	uint64_t has_comp_mask;
+	uint64_t _ABI_placeholder3;
 	size_t   sz;			/* Must be immediately before struct ibv_context */
 	struct ibv_context context;	/* Must be last field in the struct */
 };

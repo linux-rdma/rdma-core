@@ -238,8 +238,6 @@ static int mlx4_init_context(struct verbs_device *v_device,
 			mlx4_map_internal_clock(dev, ibv_ctx);
 	}
 
-	verbs_ctx->has_comp_mask = VERBS_CONTEXT_XRCD | VERBS_CONTEXT_SRQ |
-					VERBS_CONTEXT_QP;
 	verbs_set_ctx_op(verbs_ctx, close_xrcd, mlx4_close_xrcd);
 	verbs_set_ctx_op(verbs_ctx, open_xrcd, mlx4_open_xrcd);
 	verbs_set_ctx_op(verbs_ctx, create_srq_ex, mlx4_create_srq_ex);
