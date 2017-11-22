@@ -275,7 +275,6 @@ LATEST_SYMVER_FUNC(ibv_close_device, 1_1, "IBVERBS_1.1",
 {
 	int async_fd = context->async_fd;
 	int cmd_fd   = context->cmd_fd;
-	int cq_fd    = -1;
 	struct verbs_context *context_ex;
 	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	struct ibv_device *device = context->device;
@@ -291,8 +290,6 @@ LATEST_SYMVER_FUNC(ibv_close_device, 1_1, "IBVERBS_1.1",
 
 	close(async_fd);
 	close(cmd_fd);
-	if (abi_ver <= 2)
-		close(cq_fd);
 	ibverbs_device_put(device);
 
 	return 0;
