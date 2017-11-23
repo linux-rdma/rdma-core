@@ -210,6 +210,10 @@ struct mlx5_create_qp_resp {
 	__u32				uuar_index;
 };
 
+enum mlx5_create_wq_comp_mask {
+	MLX5_IB_CREATE_WQ_STRIDING_RQ =		1 << 0,
+};
+
 struct mlx5_drv_create_wq {
 	__u64		buf_addr;
 	__u64		db_addr;
@@ -218,7 +222,9 @@ struct mlx5_drv_create_wq {
 	__u32		user_index;
 	__u32		flags;
 	__u32		comp_mask;
-	__u32		reserved;
+	__u32		single_stride_log_num_of_bytes;
+	__u32		single_wqe_log_num_of_strides;
+	__u32		two_byte_shift_en;
 };
 
 struct mlx5_create_wq {
@@ -288,6 +294,11 @@ enum mlx5_query_dev_resp_flags {
 	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_PAD	= 1 << 1,
 };
 
+struct mlx5_striding_rq_caps {
+	struct mlx5dv_striding_rq_caps	caps;
+	__u32				reserved;
+};
+
 struct mlx5_query_device_ex_resp {
 	struct ibv_query_device_resp_ex ibv_resp;
 	__u32				comp_mask;
@@ -299,6 +310,7 @@ struct mlx5_query_device_ex_resp {
 	__u32				support_multi_pkt_send_wqe;
 	__u32				flags; /* Use enum mlx5_query_dev_resp_flags */
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
+	struct mlx5_striding_rq_caps	striding_rq_caps;
 };
 
 #endif /* MLX5_ABI_H */
