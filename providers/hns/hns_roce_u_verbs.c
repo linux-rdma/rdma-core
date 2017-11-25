@@ -150,6 +150,17 @@ struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return mr;
 }
 
+int hns_roce_u_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+			void *addr, size_t length, int access)
+{
+	struct ibv_rereg_mr cmd;
+	struct ibv_rereg_mr_resp resp;
+
+	return ibv_cmd_rereg_mr(mr, flags, addr, length, (uintptr_t)addr,
+				access, pd, &cmd, sizeof(cmd), &resp,
+				sizeof(resp));
+}
+
 int hns_roce_u_dereg_mr(struct ibv_mr *mr)
 {
 	int ret;
