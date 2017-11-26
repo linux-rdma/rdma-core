@@ -118,6 +118,7 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->ibv_ctx.ops.alloc_pd	   = hns_roce_u_alloc_pd;
 	context->ibv_ctx.ops.dealloc_pd    = hns_roce_u_free_pd;
 	context->ibv_ctx.ops.reg_mr	   = hns_roce_u_reg_mr;
+	context->ibv_ctx.ops.rereg_mr	   = hns_roce_u_rereg_mr;
 	context->ibv_ctx.ops.dereg_mr	   = hns_roce_u_dereg_mr;
 
 	context->ibv_ctx.ops.create_cq     = hns_roce_u_create_cq;
