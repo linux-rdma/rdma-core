@@ -573,7 +573,7 @@ $VAR1 = {
                                  },
                           '1025' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '674',
+                                      'Line' => '683',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_WQT_RQ',
@@ -586,7 +586,7 @@ $VAR1 = {
                                     },
                           '1041' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '350',
+                                      'Line' => '359',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_EVENT_CQ_ERR',
@@ -1948,7 +1948,7 @@ $VAR1 = {
                                     },
                           '2098' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1477',
+                                      'Line' => '1486',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'device',
@@ -1998,7 +1998,7 @@ $VAR1 = {
                                     },
                           '2210' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1405',
+                                      'Line' => '1414',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => '_ops',
@@ -2042,7 +2042,7 @@ $VAR1 = {
                                     },
                           '2313' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1395',
+                                      'Line' => '1404',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => '_dummy1',
@@ -2084,7 +2084,7 @@ $VAR1 = {
                                     },
                           '2407' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1419',
+                                      'Line' => '1428',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'query_device',
@@ -2309,7 +2309,7 @@ $VAR1 = {
                                     },
                           '2860' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '143',
+                                      'Line' => '152',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'fw_ver',
@@ -2614,7 +2614,7 @@ $VAR1 = {
                                     },
                           '344' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '86',
+                                     'Line' => '95',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_NODE_UNKNOWN',
@@ -2657,7 +2657,7 @@ $VAR1 = {
                                     },
                           '3460' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '326',
+                                      'Line' => '335',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'state',
@@ -2787,7 +2787,7 @@ $VAR1 = {
                                     },
                           '3764' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '507',
+                                      'Line' => '516',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -2841,7 +2841,7 @@ $VAR1 = {
                                     },
                           '3852' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '536',
+                                      'Line' => '545',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -2885,7 +2885,7 @@ $VAR1 = {
                                     },
                           '395' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '96',
+                                     'Line' => '105',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_TRANSPORT_UNKNOWN',
@@ -2976,7 +2976,7 @@ $VAR1 = {
                                     },
                           '4047' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '551',
+                                      'Line' => '560',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -3032,7 +3032,7 @@ $VAR1 = {
                                     },
                           '4153' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1044',
+                                      'Line' => '1053',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -3112,7 +3112,7 @@ $VAR1 = {
                                     },
                           '4337' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1067',
+                                      'Line' => '1076',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -3166,7 +3166,7 @@ $VAR1 = {
                                     },
                           '434' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '137',
+                                     'Line' => '146',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_ATOMIC_NONE',
@@ -3193,7 +3193,7 @@ $VAR1 = {
                                     },
                           '4469' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1061',
+                                      'Line' => '1070',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -3290,7 +3290,7 @@ $VAR1 = {
                                     },
                           '461' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '285',
+                                     'Line' => '294',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_PORT_NOP',
@@ -3334,7 +3334,7 @@ $VAR1 = {
                                     },
                           '4695' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1004',
+                                      'Line' => '1013',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -3384,7 +3384,7 @@ $VAR1 = {
                                     },
                           '4801' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '998',
+                                      'Line' => '1007',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'wr_id',
@@ -3408,7 +3408,7 @@ $VAR1 = {
                                     },
                           '4850' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '500',
+                                      'Line' => '509',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'mr',
@@ -3488,7 +3488,7 @@ $VAR1 = {
                                     },
                           '4990' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '468',
+                                      'Line' => '477',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'wr_id',
@@ -3562,7 +3562,7 @@ $VAR1 = {
                                     },
                           '507' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '277',
+                                     'Line' => '286',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_MTU_256',
@@ -3591,7 +3591,7 @@ $VAR1 = {
                                    },
                           '5073' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '477',
+                                      'Line' => '486',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'imm_data',
@@ -3604,7 +3604,7 @@ $VAR1 = {
                                                            'type' => '3382'
                                                          }
                                                 },
-                                      'Name' => 'ibv_wc::anon-union-verbs.h-477',
+                                      'Name' => 'ibv_wc::anon-union-verbs.h-486',
                                       'NameSpace' => 'ibv_wc',
                                       'Size' => '4',
                                       'Type' => 'Union'
@@ -3679,7 +3679,7 @@ $VAR1 = {
                                     },
                           '5294' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '645',
+                                      'Line' => '654',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'srq_context',
@@ -3698,7 +3698,7 @@ $VAR1 = {
                                     },
                           '5330' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '639',
+                                      'Line' => '648',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'max_wr',
@@ -3783,7 +3783,7 @@ $VAR1 = {
                                     },
                           '547' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '546',
+                                     'Line' => '555',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_MW_TYPE_1',
@@ -3806,7 +3806,7 @@ $VAR1 = {
                                     },
                           '5478' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '991',
+                                      'Line' => '1000',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'wr_id',
@@ -3841,7 +3841,7 @@ $VAR1 = {
                                     },
                           '5545' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '935',
+                                      'Line' => '944',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'addr',
@@ -3890,7 +3890,7 @@ $VAR1 = {
                                     },
                           '5625' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '771',
+                                      'Line' => '780',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'qp_context',
@@ -3934,7 +3934,7 @@ $VAR1 = {
                                     },
                           '569' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '867',
+                                     'Line' => '876',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_QPS_RESET',
@@ -3975,7 +3975,7 @@ $VAR1 = {
                                    },
                           '5726' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '763',
+                                      'Line' => '772',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'max_send_wr',
@@ -4034,7 +4034,7 @@ $VAR1 = {
                                     },
                           '5837' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '884',
+                                      'Line' => '893',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'qp_state',
@@ -4173,7 +4173,7 @@ $VAR1 = {
                                     },
                           '6185' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '624',
+                                      'Line' => '633',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'grh',
@@ -4217,7 +4217,7 @@ $VAR1 = {
                                     },
                           '627' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '754',
+                                     'Line' => '763',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_QPT_RC',
@@ -4250,7 +4250,7 @@ $VAR1 = {
                                    },
                           '6286' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '559',
+                                      'Line' => '568',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'dgid',
@@ -4289,7 +4289,7 @@ $VAR1 = {
                                   },
                           '6361' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '62',
+                                      'Line' => '67',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'raw',
@@ -4308,7 +4308,7 @@ $VAR1 = {
                                     },
                           '6393' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '64',
+                                      'Line' => '69',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'subnet_prefix',
@@ -4321,7 +4321,7 @@ $VAR1 = {
                                                            'type' => '3349'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-64',
+                                      'Name' => 'anon-struct-verbs.h-69',
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
@@ -4381,7 +4381,7 @@ $VAR1 = {
                                     },
                           '6508' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '941',
+                                      'Line' => '950',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'wr_id',
@@ -4440,7 +4440,7 @@ $VAR1 = {
                                     },
                           '6604' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '951',
+                                      'Line' => '960',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'imm_data',
@@ -4453,14 +4453,14 @@ $VAR1 = {
                                                            'type' => '3382'
                                                          }
                                                 },
-                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-951',
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-960',
                                       'NameSpace' => 'ibv_send_wr',
                                       'Size' => '4',
                                       'Type' => 'Union'
                                     },
                           '6649' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '955',
+                                      'Line' => '964',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'rdma',
@@ -4478,14 +4478,14 @@ $VAR1 = {
                                                            'type' => '6783'
                                                          }
                                                 },
-                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-955',
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-964',
                                       'NameSpace' => 'ibv_send_wr',
                                       'Size' => '32',
                                       'Type' => 'Union'
                                     },
                           '6667' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '956',
+                                      'Line' => '965',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'remote_addr',
@@ -4498,13 +4498,13 @@ $VAR1 = {
                                                            'type' => '3382'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-956',
+                                      'Name' => 'anon-struct-verbs.h-965',
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
                           '6712' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '960',
+                                      'Line' => '969',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'remote_addr',
@@ -4527,13 +4527,13 @@ $VAR1 = {
                                                            'type' => '3382'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-960',
+                                      'Name' => 'anon-struct-verbs.h-969',
                                       'Size' => '32',
                                       'Type' => 'Struct'
                                     },
                           '673' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '384',
+                                     'Line' => '393',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_WC_SUCCESS',
@@ -4630,7 +4630,7 @@ $VAR1 = {
                                    },
                           '6783' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '966',
+                                      'Line' => '975',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'ah',
@@ -4648,13 +4648,13 @@ $VAR1 = {
                                                            'type' => '3382'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-966',
+                                      'Name' => 'anon-struct-verbs.h-975',
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
                           '6842' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '972',
+                                      'Line' => '981',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'xrc',
@@ -4662,14 +4662,14 @@ $VAR1 = {
                                                            'type' => '6860'
                                                          }
                                                 },
-                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-972',
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-981',
                                       'NameSpace' => 'ibv_send_wr',
                                       'Size' => '4',
                                       'Type' => 'Union'
                                     },
                           '6860' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '973',
+                                      'Line' => '982',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'remote_srqn',
@@ -4677,13 +4677,13 @@ $VAR1 = {
                                                            'type' => '3382'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-973',
+                                      'Name' => 'anon-struct-verbs.h-982',
                                       'Size' => '4',
                                       'Type' => 'Struct'
                                     },
                           '6889' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '977',
+                                      'Line' => '986',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'bind_mw',
@@ -4696,14 +4696,14 @@ $VAR1 = {
                                                            'type' => '6965'
                                                          }
                                                 },
-                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-977',
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-986',
                                       'NameSpace' => 'ibv_send_wr',
                                       'Size' => '48',
                                       'Type' => 'Union'
                                     },
                           '6907' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '978',
+                                      'Line' => '987',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'mw',
@@ -4721,13 +4721,13 @@ $VAR1 = {
                                                            'type' => '4850'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-978',
+                                      'Name' => 'anon-struct-verbs.h-987',
                                       'Size' => '48',
                                       'Type' => 'Struct'
                                     },
                           '6965' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '983',
+                                      'Line' => '992',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'hdr',
@@ -4745,7 +4745,7 @@ $VAR1 = {
                                                            'type' => '3393'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-983',
+                                      'Name' => 'anon-struct-verbs.h-992',
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
@@ -4757,7 +4757,7 @@ $VAR1 = {
                                     },
                           '7017' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1220',
+                                      'Line' => '1229',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -4876,7 +4876,7 @@ $VAR1 = {
                                     },
                           '7192' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '373',
+                                      'Line' => '382',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'element',
@@ -4895,7 +4895,7 @@ $VAR1 = {
                                     },
                           '7214' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '374',
+                                      'Line' => '383',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'cq',
@@ -4923,7 +4923,7 @@ $VAR1 = {
                                                            'type' => '63'
                                                          }
                                                 },
-                                      'Name' => 'ibv_async_event::anon-union-verbs.h-374',
+                                      'Name' => 'ibv_async_event::anon-union-verbs.h-383',
                                       'NameSpace' => 'ibv_async_event',
                                       'Size' => '8',
                                       'Type' => 'Union'
@@ -4936,7 +4936,7 @@ $VAR1 = {
                                     },
                           '7304' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1026',
+                                      'Line' => '1035',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -5026,7 +5026,7 @@ $VAR1 = {
                                     },
                           '815' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '410',
+                                     'Line' => '419',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_WC_SEND',
@@ -5075,7 +5075,7 @@ $VAR1 = {
                                    },
                           '887' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '878',
+                                     'Line' => '887',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_MIG_MIGRATED',
@@ -5120,7 +5120,7 @@ $VAR1 = {
                                   },
                           '915' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '913',
+                                     'Line' => '922',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_WR_RDMA_WRITE',
@@ -5187,7 +5187,7 @@ $VAR1 = {
                                     },
                           '991' => {
                                      'Header' => 'verbs.h',
-                                     'Line' => '701',
+                                     'Line' => '710',
                                      'Memb' => {
                                                  '0' => {
                                                           'name' => 'IBV_WQS_RESET',

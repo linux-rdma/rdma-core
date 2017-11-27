@@ -37,16 +37,16 @@ $VAR1 = {
                          'rsocket.c' => 1
                        },
           'SymbolInfo' => {
-                            '19751' => {
+                            '19745' => {
                                          'Line' => '552',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'channel',
-                                                               'type' => '15178'
+                                                               'type' => '15167'
                                                              },
                                                       '1' => {
                                                                'name' => 'id',
-                                                               'type' => '19825'
+                                                               'type' => '19819'
                                                              },
                                                       '2' => {
                                                                'name' => 'context',
@@ -61,27 +61,27 @@ $VAR1 = {
                                          'ShortName' => 'rdma_create_id',
                                          'Source' => 'cma.c'
                                        },
-                            '20315' => {
+                            '20309' => {
                                          'Line' => '332',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'num_devices',
-                                                               'type' => '35375'
+                                                               'type' => '35369'
                                                              }
                                                     },
                                          'Reg' => {
                                                     '0' => 'rdi'
                                                   },
-                                         'Return' => '35360',
+                                         'Return' => '35354',
                                          'ShortName' => 'rdma_get_devices',
                                          'Source' => 'cma.c'
                                        },
-                            '20415' => {
+                            '20409' => {
                                          'Line' => '353',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'list',
-                                                               'type' => '35360'
+                                                               'type' => '35354'
                                                              }
                                                     },
                                          'Reg' => {
@@ -91,18 +91,18 @@ $VAR1 = {
                                          'ShortName' => 'rdma_free_devices',
                                          'Source' => 'cma.c'
                                        },
-                            '20705' => {
+                            '20699' => {
                                          'Line' => '358',
-                                         'Return' => '15178',
+                                         'Return' => '15167',
                                          'ShortName' => 'rdma_create_event_channel',
                                          'Source' => 'cma.c'
                                        },
-                            '21297' => {
+                            '21291' => {
                                          'Line' => '581',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              }
                                                     },
                                          'Reg' => {
@@ -112,12 +112,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_destroy_id',
                                          'Source' => 'cma.c'
                                        },
-                            '21495' => {
+                            '21489' => {
                                          'Line' => '1867',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'event',
-                                                               'type' => '16106'
+                                                               'type' => '16095'
                                                              }
                                                     },
                                          'Reg' => {
@@ -127,24 +127,24 @@ $VAR1 = {
                                          'ShortName' => 'rdma_ack_cm_event',
                                          'Source' => 'cma.c'
                                        },
-                            '21738' => {
+                            '21732' => {
                                          'Line' => '379',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'channel',
-                                                               'type' => '15178'
+                                                               'type' => '15167'
                                                              }
                                                     },
                                          'Return' => '1',
                                          'ShortName' => 'rdma_destroy_event_channel',
                                          'Source' => 'cma.c'
                                        },
-                            '22503' => {
+                            '22497' => {
                                          'Line' => '818',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'addr',
@@ -159,16 +159,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_bind_addr',
                                          'Source' => 'cma.c'
                                        },
-                            '24204' => {
+                            '24198' => {
                                          'Line' => '2054',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'channel',
-                                                               'type' => '15178'
+                                                               'type' => '15167'
                                                              },
                                                       '1' => {
                                                                'name' => 'event',
-                                                               'type' => '35932'
+                                                               'type' => '35926'
                                                              }
                                                     },
                                          'Reg' => {
@@ -179,12 +179,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_get_cm_event',
                                          'Source' => 'cma.c'
                                        },
-                            '25710' => {
+                            '25704' => {
                                          'Line' => '897',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'src_addr',
@@ -209,12 +209,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_resolve_addr',
                                          'Source' => 'cma.c'
                                        },
-                            '26233' => {
+                            '26227' => {
                                          'Line' => '2232',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'level',
@@ -237,12 +237,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_set_option',
                                          'Source' => 'cma.c'
                                        },
-                            '26507' => {
+                            '26501' => {
                                          'Line' => '959',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'timeout_ms',
@@ -257,16 +257,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_resolve_route',
                                          'Source' => 'cma.c'
                                        },
-                            '27095' => {
+                            '27089' => {
                                          'Line' => '1255',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'attr',
-                                                               'type' => '19493'
+                                                               'type' => '19487'
                                                              }
                                                     },
                                          'Reg' => {
@@ -277,12 +277,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_create_srq_ex',
                                          'Source' => 'cma.c'
                                        },
-                            '27419' => {
+                            '27413' => {
                                          'Line' => '1300',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'pd',
@@ -302,16 +302,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_create_srq',
                                          'Source' => 'cma.c'
                                        },
-                            '28006' => {
+                            '28000' => {
                                          'Line' => '1326',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'attr',
-                                                               'type' => '19174'
+                                                               'type' => '19168'
                                                              }
                                                     },
                                          'Reg' => {
@@ -322,16 +322,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_create_qp_ex',
                                          'Source' => 'cma.c'
                                        },
-                            '28738' => {
+                            '28732' => {
                                          'Line' => '1468',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'conn_param',
-                                                               'type' => '23847'
+                                                               'type' => '23841'
                                                              }
                                                     },
                                          'Reg' => {
@@ -342,12 +342,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_connect',
                                          'Source' => 'cma.c'
                                        },
-                            '29073' => {
+                            '29067' => {
                                          'Line' => '1515',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'backlog',
@@ -362,12 +362,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_listen',
                                          'Source' => 'cma.c'
                                        },
-                            '29354' => {
+                            '29348' => {
                                          'Line' => '1390',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'pd',
@@ -382,16 +382,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_create_qp',
                                          'Source' => 'cma.c'
                                        },
-                            '29428' => {
+                            '29422' => {
                                          'Line' => '1536',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'listen',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'id',
-                                                               'type' => '19825'
+                                                               'type' => '19819'
                                                              }
                                                     },
                                          'Reg' => {
@@ -402,16 +402,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_get_request',
                                          'Source' => 'cma.c'
                                        },
-                            '29680' => {
+                            '29674' => {
                                          'Line' => '1583',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'conn_param',
-                                                               'type' => '23847'
+                                                               'type' => '23841'
                                                              }
                                                     },
                                          'Reg' => {
@@ -422,16 +422,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_accept',
                                          'Source' => 'cma.c'
                                        },
-                            '30464' => {
+                            '30458' => {
                                          'Line' => '1641',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'private_data',
-                                                               'type' => '16331'
+                                                               'type' => '16320'
                                                              },
                                                       '2' => {
                                                                'name' => 'private_data_len',
@@ -447,12 +447,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_reject',
                                          'Source' => 'cma.c'
                                        },
-                            '30600' => {
+                            '30594' => {
                                          'Line' => '1664',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'event',
@@ -467,12 +467,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_notify',
                                          'Source' => 'cma.c'
                                        },
-                            '30890' => {
+                            '30884' => {
                                          'Line' => '1694',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              }
                                                     },
                                          'Reg' => {
@@ -482,12 +482,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_disconnect',
                                          'Source' => 'cma.c'
                                        },
-                            '31495' => {
+                            '31489' => {
                                          'Line' => '1787',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'addr',
@@ -507,12 +507,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_join_multicast',
                                          'Source' => 'cma.c'
                                        },
-                            '31863' => {
+                            '31857' => {
                                          'Line' => '1799',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'addr',
@@ -527,12 +527,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_leave_multicast',
                                          'Source' => 'cma.c'
                                        },
-                            '32154' => {
+                            '32148' => {
                                          'Line' => '2192',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'event',
-                                                               'type' => '13909'
+                                                               'type' => '13898'
                                                              }
                                                     },
                                          'Reg' => {
@@ -542,16 +542,16 @@ $VAR1 = {
                                          'ShortName' => 'rdma_event_str',
                                          'Source' => 'cma.c'
                                        },
-                            '32302' => {
+                            '32296' => {
                                          'Line' => '2254',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              },
                                                       '1' => {
                                                                'name' => 'channel',
-                                                               'type' => '15178'
+                                                               'type' => '15167'
                                                              }
                                                     },
                                          'Reg' => {
@@ -562,12 +562,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_migrate_id',
                                          'Source' => 'cma.c'
                                        },
-                            '32671' => {
+                            '32665' => {
                                          'Line' => '2338',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '19825'
+                                                               'type' => '19819'
                                                              },
                                                       '1' => {
                                                                'name' => 'res',
@@ -592,36 +592,36 @@ $VAR1 = {
                                          'ShortName' => 'rdma_create_ep',
                                          'Source' => 'cma.c'
                                        },
-                            '33305' => {
+                            '33299' => {
                                          'Line' => '1404',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              }
                                                     },
                                          'Return' => '1',
                                          'ShortName' => 'rdma_destroy_qp',
                                          'Source' => 'cma.c'
                                        },
-                            '33327' => {
+                            '33321' => {
                                          'Line' => '1319',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              }
                                                     },
                                          'Return' => '1',
                                          'ShortName' => 'rdma_destroy_srq',
                                          'Source' => 'cma.c'
                                        },
-                            '33349' => {
+                            '33343' => {
                                          'Line' => '2402',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              }
                                                     },
                                          'Reg' => {
@@ -631,12 +631,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_destroy_ep',
                                          'Source' => 'cma.c'
                                        },
-                            '33749' => {
+                            '33743' => {
                                          'Line' => '2451',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              }
                                                     },
                                          'Reg' => {
@@ -646,12 +646,12 @@ $VAR1 = {
                                          'ShortName' => 'rdma_get_src_port',
                                          'Source' => 'cma.c'
                                        },
-                            '33867' => {
+                            '33861' => {
                                          'Line' => '2456',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'id',
-                                                               'type' => '16209'
+                                                               'type' => '16198'
                                                              }
                                                     },
                                          'Reg' => {
@@ -661,7 +661,7 @@ $VAR1 = {
                                          'ShortName' => 'rdma_get_dst_port',
                                          'Source' => 'cma.c'
                                        },
-                            '50774' => {
+                            '50768' => {
                                          'Line' => '1131',
                                          'Param' => {
                                                       '0' => {
@@ -686,7 +686,7 @@ $VAR1 = {
                                          'ShortName' => 'rsocket',
                                          'Source' => 'rsocket.c'
                                        },
-                            '52004' => {
+                            '51998' => {
                                          'Line' => '1173',
                                          'Param' => {
                                                       '0' => {
@@ -695,7 +695,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'addr',
-                                                               'type' => '49936'
+                                                               'type' => '49930'
                                                              },
                                                       '2' => {
                                                                'name' => 'addrlen',
@@ -711,7 +711,7 @@ $VAR1 = {
                                          'ShortName' => 'rbind',
                                          'Source' => 'rsocket.c'
                                        },
-                            '52399' => {
+                            '52393' => {
                                          'Line' => '1196',
                                          'Param' => {
                                                       '0' => {
@@ -731,7 +731,7 @@ $VAR1 = {
                                          'ShortName' => 'rlisten',
                                          'Source' => 'rsocket.c'
                                        },
-                            '53034' => {
+                            '53028' => {
                                          'Line' => '3340',
                                          'Param' => {
                                                       '0' => {
@@ -751,7 +751,7 @@ $VAR1 = {
                                          'ShortName' => 'rgetpeername',
                                          'Source' => 'rsocket.c'
                                        },
-                            '53311' => {
+                            '53305' => {
                                          'Line' => '1227',
                                          'Param' => {
                                                       '0' => {
@@ -776,7 +776,7 @@ $VAR1 = {
                                          'ShortName' => 'raccept',
                                          'Source' => 'rsocket.c'
                                        },
-                            '55398' => {
+                            '55392' => {
                                          'Line' => '1617',
                                          'Param' => {
                                                       '0' => {
@@ -785,7 +785,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'addr',
-                                                               'type' => '49936'
+                                                               'type' => '49930'
                                                              },
                                                       '2' => {
                                                                'name' => 'addrlen',
@@ -801,7 +801,7 @@ $VAR1 = {
                                          'ShortName' => 'rconnect',
                                          'Source' => 'rsocket.c'
                                        },
-                            '58461' => {
+                            '58455' => {
                                          'Line' => '2416',
                                          'Param' => {
                                                       '0' => {
@@ -827,11 +827,11 @@ $VAR1 = {
                                                     '2' => 'rdx',
                                                     '3' => 'rcx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rrecv',
                                          'Source' => 'rsocket.c'
                                        },
-                            '59620' => {
+                            '59614' => {
                                          'Line' => '2487',
                                          'Param' => {
                                                       '0' => {
@@ -867,11 +867,11 @@ $VAR1 = {
                                                     '4' => 'r8',
                                                     '5' => 'r9'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rrecvfrom',
                                          'Source' => 'rsocket.c'
                                        },
-                            '60147' => {
+                            '60141' => {
                                          'Line' => '2519',
                                          'Param' => {
                                                       '0' => {
@@ -880,7 +880,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'msg',
-                                                               'type' => '78407'
+                                                               'type' => '78401'
                                                              },
                                                       '2' => {
                                                                'name' => 'flags',
@@ -892,11 +892,11 @@ $VAR1 = {
                                                     '1' => 'rsi',
                                                     '2' => 'rdx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rrecvmsg',
                                          'Source' => 'rsocket.c'
                                        },
-                            '60269' => {
+                            '60263' => {
                                          'Line' => '2527',
                                          'Param' => {
                                                       '0' => {
@@ -917,11 +917,11 @@ $VAR1 = {
                                                     '1' => 'rsi',
                                                     '2' => 'rdx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rread',
                                          'Source' => 'rsocket.c'
                                        },
-                            '60340' => {
+                            '60334' => {
                                          'Line' => '2532',
                                          'Param' => {
                                                       '0' => {
@@ -930,7 +930,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'iov',
-                                                               'type' => '60104'
+                                                               'type' => '60098'
                                                              },
                                                       '2' => {
                                                                'name' => 'iovcnt',
@@ -942,11 +942,11 @@ $VAR1 = {
                                                     '1' => 'rsi',
                                                     '2' => 'rdx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rreadv',
                                          'Source' => 'rsocket.c'
                                        },
-                            '60590' => {
+                            '60584' => {
                                          'Line' => '2690',
                                          'Param' => {
                                                       '0' => {
@@ -955,7 +955,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'buf',
-                                                               'type' => '16331'
+                                                               'type' => '16320'
                                                              },
                                                       '2' => {
                                                                'name' => 'len',
@@ -972,7 +972,7 @@ $VAR1 = {
                                                     '2' => 'rdx',
                                                     '3' => 'rcx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rsend',
                                          'Source' => 'rsocket.c'
                                        },
@@ -1006,7 +1006,7 @@ $VAR1 = {
                                         'ShortName' => 'rdma_getaddrinfo',
                                         'Source' => 'addrinfo.c'
                                       },
-                            '63106' => {
+                            '63100' => {
                                          'Line' => '2779',
                                          'Param' => {
                                                       '0' => {
@@ -1015,7 +1015,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'buf',
-                                                               'type' => '16331'
+                                                               'type' => '16320'
                                                              },
                                                       '2' => {
                                                                'name' => 'len',
@@ -1027,7 +1027,7 @@ $VAR1 = {
                                                              },
                                                       '4' => {
                                                                'name' => 'dest_addr',
-                                                               'type' => '49936'
+                                                               'type' => '49930'
                                                              },
                                                       '5' => {
                                                                'name' => 'addrlen',
@@ -1042,11 +1042,11 @@ $VAR1 = {
                                                     '4' => 'r8',
                                                     '5' => 'r9'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rsendto',
                                          'Source' => 'rsocket.c'
                                        },
-                            '63452' => {
+                            '63446' => {
                                          'Line' => '2920',
                                          'Param' => {
                                                       '0' => {
@@ -1055,7 +1055,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'msg',
-                                                               'type' => '78412'
+                                                               'type' => '78406'
                                                              },
                                                       '2' => {
                                                                'name' => 'flags',
@@ -1067,11 +1067,11 @@ $VAR1 = {
                                                     '1' => 'rsi',
                                                     '2' => 'rdx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rsendmsg',
                                          'Source' => 'rsocket.c'
                                        },
-                            '64273' => {
+                            '64267' => {
                                          'Line' => '2928',
                                          'Param' => {
                                                       '0' => {
@@ -1080,7 +1080,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'buf',
-                                                               'type' => '16331'
+                                                               'type' => '16320'
                                                              },
                                                       '2' => {
                                                                'name' => 'count',
@@ -1092,11 +1092,11 @@ $VAR1 = {
                                                     '1' => 'rsi',
                                                     '2' => 'rdx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rwrite',
                                          'Source' => 'rsocket.c'
                                        },
-                            '64344' => {
+                            '64338' => {
                                          'Line' => '2933',
                                          'Param' => {
                                                       '0' => {
@@ -1105,7 +1105,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'iov',
-                                                               'type' => '60104'
+                                                               'type' => '60098'
                                                              },
                                                       '2' => {
                                                                'name' => 'iovcnt',
@@ -1117,20 +1117,20 @@ $VAR1 = {
                                                     '1' => 'rsi',
                                                     '2' => 'rdx'
                                                   },
-                                         'Return' => '58439',
+                                         'Return' => '58433',
                                          'ShortName' => 'rwritev',
                                          'Source' => 'rsocket.c'
                                        },
-                            '64825' => {
+                            '64819' => {
                                          'Line' => '3102',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'fds',
-                                                               'type' => '48461'
+                                                               'type' => '48455'
                                                              },
                                                       '1' => {
                                                                'name' => 'nfds',
-                                                               'type' => '48625'
+                                                               'type' => '48619'
                                                              },
                                                       '2' => {
                                                                'name' => 'timeout',
@@ -1146,7 +1146,7 @@ $VAR1 = {
                                          'ShortName' => 'rpoll',
                                          'Source' => 'rsocket.c'
                                        },
-                            '65806' => {
+                            '65800' => {
                                          'Line' => '3204',
                                          'Param' => {
                                                       '0' => {
@@ -1155,19 +1155,19 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'readfds',
-                                                               'type' => '65577'
+                                                               'type' => '65571'
                                                              },
                                                       '2' => {
                                                                'name' => 'writefds',
-                                                               'type' => '65577'
+                                                               'type' => '65571'
                                                              },
                                                       '3' => {
                                                                'name' => 'exceptfds',
-                                                               'type' => '65577'
+                                                               'type' => '65571'
                                                              },
                                                       '4' => {
                                                                'name' => 'timeout',
-                                                               'type' => '65648'
+                                                               'type' => '65642'
                                                              }
                                                     },
                                          'Reg' => {
@@ -1181,7 +1181,7 @@ $VAR1 = {
                                          'ShortName' => 'rselect',
                                          'Source' => 'rsocket.c'
                                        },
-                            '66369' => {
+                            '66363' => {
                                          'Line' => '3235',
                                          'Param' => {
                                                       '0' => {
@@ -1216,7 +1216,7 @@ $VAR1 = {
                                         'ShortName' => 'rdma_freeaddrinfo',
                                         'Source' => 'addrinfo.c'
                                       },
-                            '67958' => {
+                            '67952' => {
                                          'Line' => '3306',
                                          'Param' => {
                                                       '0' => {
@@ -1231,7 +1231,7 @@ $VAR1 = {
                                          'ShortName' => 'rclose',
                                          'Source' => 'rsocket.c'
                                        },
-                            '68092' => {
+                            '68086' => {
                                          'Line' => '3355',
                                          'Param' => {
                                                       '0' => {
@@ -1256,7 +1256,7 @@ $VAR1 = {
                                          'ShortName' => 'rgetsockname',
                                          'Source' => 'rsocket.c'
                                        },
-                            '68391' => {
+                            '68385' => {
                                          'Line' => '3397',
                                          'Param' => {
                                                       '0' => {
@@ -1273,7 +1273,7 @@ $VAR1 = {
                                                              },
                                                       '3' => {
                                                                'name' => 'optval',
-                                                               'type' => '16331'
+                                                               'type' => '16320'
                                                              },
                                                       '4' => {
                                                                'name' => 'optlen',
@@ -1291,7 +1291,7 @@ $VAR1 = {
                                          'ShortName' => 'rsetsockopt',
                                          'Source' => 'rsocket.c'
                                        },
-                            '69407' => {
+                            '69401' => {
                                          'Line' => '3578',
                                          'Param' => {
                                                       '0' => {
@@ -1326,7 +1326,7 @@ $VAR1 = {
                                          'ShortName' => 'rgetsockopt',
                                          'Source' => 'rsocket.c'
                                        },
-                            '69848' => {
+                            '69842' => {
                                          'Line' => '3723',
                                          'Param' => {
                                                       '0' => {
@@ -1349,7 +1349,7 @@ $VAR1 = {
                                          'ShortName' => 'rfcntl',
                                          'Source' => 'rsocket.c'
                                        },
-                            '70104' => {
+                            '70098' => {
                                          'Line' => '3780',
                                          'Param' => {
                                                       '0' => {
@@ -1374,7 +1374,7 @@ $VAR1 = {
                                                              },
                                                       '5' => {
                                                                'name' => 'offset',
-                                                               'type' => '70960'
+                                                               'type' => '70954'
                                                              }
                                                     },
                                          'Reg' => {
@@ -1385,11 +1385,11 @@ $VAR1 = {
                                                     '4' => 'r8',
                                                     '5' => 'r9'
                                                   },
-                                         'Return' => '70960',
+                                         'Return' => '70954',
                                          'ShortName' => 'riomap',
                                          'Source' => 'rsocket.c'
                                        },
-                            '70578' => {
+                            '70572' => {
                                          'Line' => '3829',
                                          'Param' => {
                                                       '0' => {
@@ -1414,7 +1414,7 @@ $VAR1 = {
                                          'ShortName' => 'riounmap',
                                          'Source' => 'rsocket.c'
                                        },
-                            '71203' => {
+                            '71197' => {
                                          'Line' => '3876',
                                          'Param' => {
                                                       '0' => {
@@ -1423,7 +1423,7 @@ $VAR1 = {
                                                              },
                                                       '1' => {
                                                                'name' => 'buf',
-                                                               'type' => '16331'
+                                                               'type' => '16320'
                                                              },
                                                       '2' => {
                                                                'name' => 'count',
@@ -1431,7 +1431,7 @@ $VAR1 = {
                                                              },
                                                       '3' => {
                                                                'name' => 'offset',
-                                                               'type' => '70960'
+                                                               'type' => '70954'
                                                              },
                                                       '4' => {
                                                                'name' => 'flags',
@@ -1603,7 +1603,7 @@ $VAR1 = {
                                      },
                           '10114' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '1004',
+                                       'Line' => '1013',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'context',
@@ -1647,7 +1647,7 @@ $VAR1 = {
                                      },
                           '10215' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '867',
+                                       'Line' => '876',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_QPS_RESET',
@@ -1694,7 +1694,7 @@ $VAR1 = {
                                      },
                           '10324' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '998',
+                                       'Line' => '1007',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'wr_id',
@@ -1718,7 +1718,7 @@ $VAR1 = {
                                      },
                           '10373' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '500',
+                                       'Line' => '509',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'mr',
@@ -1806,7 +1806,7 @@ $VAR1 = {
                                      },
                           '10513' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '468',
+                                       'Line' => '477',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'wr_id',
@@ -1888,7 +1888,7 @@ $VAR1 = {
                                     },
                           '10596' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '477',
+                                       'Line' => '486',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'imm_data',
@@ -1901,7 +1901,7 @@ $VAR1 = {
                                                             'type' => '779'
                                                           }
                                                  },
-                                       'Name' => 'ibv_wc::anon-union-verbs.h-477',
+                                       'Name' => 'ibv_wc::anon-union-verbs.h-486',
                                        'NameSpace' => 'ibv_wc',
                                        'Size' => '4',
                                        'Type' => 'Union'
@@ -1913,7 +1913,7 @@ $VAR1 = {
                                     },
                           '10720' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '384',
+                                       'Line' => '393',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_WC_SUCCESS',
@@ -2010,7 +2010,7 @@ $VAR1 = {
                                      },
                           '1074' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '62',
+                                      'Line' => '67',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'raw',
@@ -2029,7 +2029,7 @@ $VAR1 = {
                                     },
                           '10862' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '410',
+                                       'Line' => '419',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_WC_SEND',
@@ -2130,7 +2130,7 @@ $VAR1 = {
                                      },
                           '11031' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '645',
+                                       'Line' => '654',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'srq_context',
@@ -2149,7 +2149,7 @@ $VAR1 = {
                                      },
                           '1106' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '64',
+                                      'Line' => '69',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'subnet_prefix',
@@ -2162,13 +2162,13 @@ $VAR1 = {
                                                            'type' => '1045'
                                                          }
                                                 },
-                                      'Name' => 'anon-struct-verbs.h-64',
+                                      'Name' => 'anon-struct-verbs.h-69',
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
                           '11067' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '639',
+                                       'Line' => '648',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'max_wr',
@@ -2259,7 +2259,7 @@ $VAR1 = {
                                      },
                           '11215' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '991',
+                                       'Line' => '1000',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'wr_id',
@@ -2294,7 +2294,7 @@ $VAR1 = {
                                      },
                           '11282' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '935',
+                                       'Line' => '944',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'addr',
@@ -2349,7 +2349,7 @@ $VAR1 = {
                                     },
                           '11362' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '771',
+                                       'Line' => '780',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'qp_context',
@@ -2393,7 +2393,7 @@ $VAR1 = {
                                      },
                           '11463' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '763',
+                                       'Line' => '772',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'max_send_wr',
@@ -2460,7 +2460,7 @@ $VAR1 = {
                                      },
                           '11574' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '884',
+                                       'Line' => '893',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'qp_state',
@@ -2628,7 +2628,7 @@ $VAR1 = {
                                     },
                           '11922' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '878',
+                                       'Line' => '887',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_MIG_MIGRATED',
@@ -2649,7 +2649,7 @@ $VAR1 = {
                                      },
                           '11950' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '624',
+                                       'Line' => '633',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'grh',
@@ -2701,7 +2701,7 @@ $VAR1 = {
                                     },
                           '12051' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '559',
+                                       'Line' => '568',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'dgid',
@@ -2783,7 +2783,7 @@ $VAR1 = {
                                      },
                           '12273' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '941',
+                                       'Line' => '950',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'wr_id',
@@ -2842,7 +2842,7 @@ $VAR1 = {
                                      },
                           '12369' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '951',
+                                       'Line' => '960',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'imm_data',
@@ -2855,14 +2855,14 @@ $VAR1 = {
                                                             'type' => '779'
                                                           }
                                                  },
-                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-951',
+                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-960',
                                        'NameSpace' => 'ibv_send_wr',
                                        'Size' => '4',
                                        'Type' => 'Union'
                                      },
                           '12414' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '955',
+                                       'Line' => '964',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'rdma',
@@ -2880,14 +2880,14 @@ $VAR1 = {
                                                             'type' => '12548'
                                                           }
                                                  },
-                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-955',
+                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-964',
                                        'NameSpace' => 'ibv_send_wr',
                                        'Size' => '32',
                                        'Type' => 'Union'
                                      },
                           '12432' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '956',
+                                       'Line' => '965',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'remote_addr',
@@ -2900,13 +2900,13 @@ $VAR1 = {
                                                             'type' => '779'
                                                           }
                                                  },
-                                       'Name' => 'anon-struct-verbs.h-956',
+                                       'Name' => 'anon-struct-verbs.h-965',
                                        'Size' => '16',
                                        'Type' => 'Struct'
                                      },
                           '12477' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '960',
+                                       'Line' => '969',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'remote_addr',
@@ -2929,13 +2929,13 @@ $VAR1 = {
                                                             'type' => '779'
                                                           }
                                                  },
-                                       'Name' => 'anon-struct-verbs.h-960',
+                                       'Name' => 'anon-struct-verbs.h-969',
                                        'Size' => '32',
                                        'Type' => 'Struct'
                                      },
                           '12548' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '966',
+                                       'Line' => '975',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'ah',
@@ -2953,13 +2953,13 @@ $VAR1 = {
                                                             'type' => '779'
                                                           }
                                                  },
-                                       'Name' => 'anon-struct-verbs.h-966',
+                                       'Name' => 'anon-struct-verbs.h-975',
                                        'Size' => '16',
                                        'Type' => 'Struct'
                                      },
                           '12607' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '972',
+                                       'Line' => '981',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'xrc',
@@ -2967,14 +2967,14 @@ $VAR1 = {
                                                             'type' => '12625'
                                                           }
                                                  },
-                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-972',
+                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-981',
                                        'NameSpace' => 'ibv_send_wr',
                                        'Size' => '4',
                                        'Type' => 'Union'
                                      },
                           '12625' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '973',
+                                       'Line' => '982',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'remote_srqn',
@@ -2982,13 +2982,13 @@ $VAR1 = {
                                                             'type' => '779'
                                                           }
                                                  },
-                                       'Name' => 'anon-struct-verbs.h-973',
+                                       'Name' => 'anon-struct-verbs.h-982',
                                        'Size' => '4',
                                        'Type' => 'Struct'
                                      },
                           '12654' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '977',
+                                       'Line' => '986',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'bind_mw',
@@ -3001,14 +3001,14 @@ $VAR1 = {
                                                             'type' => '12730'
                                                           }
                                                  },
-                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-977',
+                                       'Name' => 'ibv_send_wr::anon-union-verbs.h-986',
                                        'NameSpace' => 'ibv_send_wr',
                                        'Size' => '48',
                                        'Type' => 'Union'
                                      },
                           '12672' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '978',
+                                       'Line' => '987',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'mw',
@@ -3026,13 +3026,13 @@ $VAR1 = {
                                                             'type' => '10373'
                                                           }
                                                  },
-                                       'Name' => 'anon-struct-verbs.h-978',
+                                       'Name' => 'anon-struct-verbs.h-987',
                                        'Size' => '48',
                                        'Type' => 'Struct'
                                      },
                           '12730' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '983',
+                                       'Line' => '992',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'hdr',
@@ -3050,13 +3050,13 @@ $VAR1 = {
                                                             'type' => '202'
                                                           }
                                                  },
-                                       'Name' => 'anon-struct-verbs.h-983',
+                                       'Name' => 'anon-struct-verbs.h-992',
                                        'Size' => '16',
                                        'Type' => 'Struct'
                                      },
                           '12777' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '913',
+                                       'Line' => '922',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_WR_RDMA_WRITE',
@@ -3115,7 +3115,7 @@ $VAR1 = {
                                      },
                           '12858' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '1220',
+                                       'Line' => '1229',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'context',
@@ -3234,7 +3234,7 @@ $VAR1 = {
                                      },
                           '13033' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '373',
+                                       'Line' => '382',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'element',
@@ -3253,7 +3253,7 @@ $VAR1 = {
                                      },
                           '13055' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '374',
+                                       'Line' => '383',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'cq',
@@ -3281,7 +3281,7 @@ $VAR1 = {
                                                             'type' => '174'
                                                           }
                                                  },
-                                       'Name' => 'ibv_async_event::anon-union-verbs.h-374',
+                                       'Name' => 'ibv_async_event::anon-union-verbs.h-383',
                                        'NameSpace' => 'ibv_async_event',
                                        'Size' => '8',
                                        'Type' => 'Union'
@@ -3294,7 +3294,7 @@ $VAR1 = {
                                      },
                           '13145' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '1026',
+                                       'Line' => '1035',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'context',
@@ -3368,7 +3368,7 @@ $VAR1 = {
                                      },
                           '13324' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '701',
+                                       'Line' => '710',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_WQS_RESET',
@@ -3393,7 +3393,7 @@ $VAR1 = {
                                      },
                           '13358' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '674',
+                                       'Line' => '683',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_WQT_RQ',
@@ -3422,7 +3422,7 @@ $VAR1 = {
                                      },
                           '13400' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '350',
+                                       'Line' => '359',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_EVENT_CQ_ERR',
@@ -3517,7 +3517,7 @@ $VAR1 = {
                                      },
                           '13535' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '524',
+                                       'Line' => '533',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'context',
@@ -3529,7 +3529,7 @@ $VAR1 = {
                                        'Size' => '8',
                                        'Type' => 'Struct'
                                      },
-                          '13909' => {
+                          '13898' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '50',
                                        'Memb' => {
@@ -3602,9 +3602,9 @@ $VAR1 = {
                                        'Size' => '4',
                                        'Type' => 'Enum'
                                      },
-                          '14157' => {
+                          '14146' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '650',
+                                       'Line' => '659',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'IBV_SRQT_BASIC',
@@ -3619,7 +3619,7 @@ $VAR1 = {
                                        'Size' => '4',
                                        'Type' => 'Enum'
                                      },
-                          '14978' => {
+                          '14967' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '122',
                                        'Memb' => {
@@ -3631,7 +3631,7 @@ $VAR1 = {
                                                    '1' => {
                                                             'name' => 'channel',
                                                             'offset' => '8',
-                                                            'type' => '15178'
+                                                            'type' => '15167'
                                                           },
                                                    '10' => {
                                                              'name' => 'recv_cq_channel',
@@ -3671,7 +3671,7 @@ $VAR1 = {
                                                    '4' => {
                                                             'name' => 'route',
                                                             'offset' => '32',
-                                                            'type' => '15204'
+                                                            'type' => '15193'
                                                           },
                                                    '5' => {
                                                             'name' => 'ps',
@@ -3686,7 +3686,7 @@ $VAR1 = {
                                                    '7' => {
                                                             'name' => 'event',
                                                             'offset' => '352',
-                                                            'type' => '16106'
+                                                            'type' => '16095'
                                                           },
                                                    '8' => {
                                                             'name' => 'send_cq_channel',
@@ -3738,13 +3738,13 @@ $VAR1 = {
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
-                          '15178' => {
-                                       'BaseType' => '15183',
+                          '15167' => {
+                                       'BaseType' => '15172',
                                        'Name' => 'struct rdma_event_channel*',
                                        'Size' => '4',
                                        'Type' => 'Pointer'
                                      },
-                          '15183' => {
+                          '15172' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '118',
                                        'Memb' => {
@@ -3758,19 +3758,19 @@ $VAR1 = {
                                        'Size' => '4',
                                        'Type' => 'Struct'
                                      },
-                          '15204' => {
+                          '15193' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '112',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'addr',
                                                             'offset' => '0',
-                                                            'type' => '15252'
+                                                            'type' => '15241'
                                                           },
                                                    '1' => {
                                                             'name' => 'path_rec',
                                                             'offset' => '296',
-                                                            'type' => '15864'
+                                                            'type' => '15853'
                                                           },
                                                    '2' => {
                                                             'name' => 'num_paths',
@@ -3782,31 +3782,31 @@ $VAR1 = {
                                        'Size' => '312',
                                        'Type' => 'Struct'
                                      },
-                          '15252' => {
+                          '15241' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '94',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'unnamed0',
                                                             'offset' => '0',
-                                                            'type' => '15269'
+                                                            'type' => '15258'
                                                           },
                                                    '1' => {
                                                             'name' => 'unnamed1',
                                                             'offset' => '128',
-                                                            'type' => '15330'
+                                                            'type' => '15319'
                                                           },
                                                    '2' => {
                                                             'name' => 'addr',
                                                             'offset' => '256',
-                                                            'type' => '15396'
+                                                            'type' => '15385'
                                                           }
                                                  },
                                        'Name' => 'struct rdma_addr',
                                        'Size' => '296',
                                        'Type' => 'Struct'
                                      },
-                          '15269' => {
+                          '15258' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '95',
                                        'Memb' => {
@@ -3828,7 +3828,7 @@ $VAR1 = {
                                                    '3' => {
                                                             'name' => 'src_storage',
                                                             'offset' => '0',
-                                                            'type' => '15740'
+                                                            'type' => '15729'
                                                           }
                                                  },
                                        'Name' => 'rdma_addr::anon-union-rdma_cma.h-95',
@@ -3836,7 +3836,7 @@ $VAR1 = {
                                        'Size' => '128',
                                        'Type' => 'Union'
                                      },
-                          '15330' => {
+                          '15319' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '101',
                                        'Memb' => {
@@ -3858,7 +3858,7 @@ $VAR1 = {
                                                    '3' => {
                                                             'name' => 'dst_storage',
                                                             'offset' => '0',
-                                                            'type' => '15740'
+                                                            'type' => '15729'
                                                           }
                                                  },
                                        'Name' => 'rdma_addr::anon-union-rdma_cma.h-101',
@@ -3866,14 +3866,14 @@ $VAR1 = {
                                        'Size' => '128',
                                        'Type' => 'Union'
                                      },
-                          '15396' => {
+                          '15385' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '107',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'ibaddr',
                                                             'offset' => '0',
-                                                            'type' => '15797'
+                                                            'type' => '15786'
                                                           }
                                                  },
                                        'Name' => 'rdma_addr::anon-union-rdma_cma.h-107',
@@ -3889,7 +3889,7 @@ $VAR1 = {
                                       'Size' => '2',
                                       'Type' => 'Typedef'
                                     },
-                          '15740' => {
+                          '15729' => {
                                        'Header' => 'socket.h',
                                        'Line' => '162',
                                        'Memb' => {
@@ -3913,7 +3913,7 @@ $VAR1 = {
                                        'Size' => '128',
                                        'Type' => 'Struct'
                                      },
-                          '15797' => {
+                          '15786' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '88',
                                        'Memb' => {
@@ -3951,13 +3951,13 @@ $VAR1 = {
                                       'Size' => '4',
                                       'Type' => 'Struct'
                                     },
-                          '15864' => {
-                                       'BaseType' => '15869',
+                          '15853' => {
+                                       'BaseType' => '15858',
                                        'Name' => 'struct ibv_sa_path_rec*',
                                        'Size' => '64',
                                        'Type' => 'Pointer'
                                      },
-                          '15869' => {
+                          '15858' => {
                                        'Header' => 'sa.h',
                                        'Line' => '40',
                                        'Memb' => {
@@ -4067,30 +4067,30 @@ $VAR1 = {
                                       'Size' => '8',
                                       'Type' => 'Array'
                                     },
-                          '16106' => {
-                                       'BaseType' => '16111',
+                          '16095' => {
+                                       'BaseType' => '16100',
                                        'Name' => 'struct rdma_cm_event*',
                                        'Size' => '80',
                                        'Type' => 'Pointer'
                                      },
-                          '16111' => {
+                          '16100' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '166',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'id',
                                                             'offset' => '0',
-                                                            'type' => '16209'
+                                                            'type' => '16198'
                                                           },
                                                    '1' => {
                                                             'name' => 'listen_id',
                                                             'offset' => '8',
-                                                            'type' => '16209'
+                                                            'type' => '16198'
                                                           },
                                                    '2' => {
                                                             'name' => 'event',
                                                             'offset' => '16',
-                                                            'type' => '13909'
+                                                            'type' => '13898'
                                                           },
                                                    '3' => {
                                                             'name' => 'status',
@@ -4100,26 +4100,26 @@ $VAR1 = {
                                                    '4' => {
                                                             'name' => 'param',
                                                             'offset' => '24',
-                                                            'type' => '16179'
+                                                            'type' => '16168'
                                                           }
                                                  },
                                        'Name' => 'struct rdma_cm_event',
                                        'Size' => '80',
                                        'Type' => 'Struct'
                                      },
-                          '16179' => {
+                          '16168' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '171',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'conn',
                                                             'offset' => '0',
-                                                            'type' => '16214'
+                                                            'type' => '16203'
                                                           },
                                                    '1' => {
                                                             'name' => 'ud',
                                                             'offset' => '0',
-                                                            'type' => '16337'
+                                                            'type' => '16326'
                                                           }
                                                  },
                                        'Name' => 'rdma_cm_event::anon-union-rdma_cma.h-171',
@@ -4161,20 +4161,20 @@ $VAR1 = {
                                       'Size' => '28',
                                       'Type' => 'Struct'
                                     },
-                          '16209' => {
-                                       'BaseType' => '14978',
+                          '16198' => {
+                                       'BaseType' => '14967',
                                        'Name' => 'struct rdma_cm_id*',
                                        'Size' => '416',
                                        'Type' => 'Pointer'
                                      },
-                          '16214' => {
+                          '16203' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '145',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'private_data',
                                                             'offset' => '0',
-                                                            'type' => '16331'
+                                                            'type' => '16320'
                                                           },
                                                    '1' => {
                                                             'name' => 'private_data_len',
@@ -4221,24 +4221,24 @@ $VAR1 = {
                                        'Size' => '24',
                                        'Type' => 'Struct'
                                      },
-                          '16331' => {
-                                       'BaseType' => '16336',
+                          '16320' => {
+                                       'BaseType' => '16325',
                                        'Name' => 'void const*',
                                        'Type' => 'Pointer'
                                      },
-                          '16336' => {
+                          '16325' => {
                                        'BaseType' => '1',
                                        'Name' => 'void const',
                                        'Type' => 'Const'
                                      },
-                          '16337' => {
+                          '16326' => {
                                        'Header' => 'rdma_cma.h',
                                        'Line' => '158',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'private_data',
                                                             'offset' => '0',
-                                                            'type' => '16331'
+                                                            'type' => '16320'
                                                           },
                                                    '1' => {
                                                             'name' => 'private_data_len',
@@ -4265,7 +4265,7 @@ $VAR1 = {
                                        'Size' => '56',
                                        'Type' => 'Struct'
                                      },
-                          '16528' => {
+                          '16517' => {
                                        'BaseType' => '1148',
                                        'Name' => 'uint8_t*',
                                        'Size' => '1',
@@ -4310,15 +4310,15 @@ $VAR1 = {
                                       'Size' => '16',
                                       'Type' => 'Union'
                                     },
-                          '17186' => {
-                                       'BaseType' => '17191',
+                          '17175' => {
+                                       'BaseType' => '17180',
                                        'Name' => 'struct ibv_rwq_ind_table*',
                                        'Size' => '24',
                                        'Type' => 'Pointer'
                                      },
-                          '17191' => {
+                          '17180' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '733',
+                                       'Line' => '742',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'context',
@@ -4362,7 +4362,7 @@ $VAR1 = {
                                       'Size' => '8',
                                       'Type' => 'Array'
                                     },
-                          '17685' => {
+                          '17674' => {
                                        'BaseType' => '487',
                                        'Header' => 'types.h',
                                        'Line' => '139',
@@ -4370,15 +4370,15 @@ $VAR1 = {
                                        'Size' => '8',
                                        'Type' => 'Typedef'
                                      },
-                          '19174' => {
-                                       'BaseType' => '19179',
+                          '19168' => {
+                                       'BaseType' => '19173',
                                        'Name' => 'struct ibv_qp_init_attr_ex*',
                                        'Size' => '128',
                                        'Type' => 'Pointer'
                                      },
-                          '19179' => {
+                          '19173' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '807',
+                                       'Line' => '816',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'qp_context',
@@ -4403,12 +4403,12 @@ $VAR1 = {
                                                    '12' => {
                                                              'name' => 'rwq_ind_tbl',
                                                              'offset' => '88',
-                                                             'type' => '17186'
+                                                             'type' => '17175'
                                                            },
                                                    '13' => {
                                                              'name' => 'rx_hash_conf',
                                                              'offset' => '96',
-                                                             'type' => '19384'
+                                                             'type' => '19378'
                                                            },
                                                    '14' => {
                                                              'name' => 'source_qpn',
@@ -4460,9 +4460,9 @@ $VAR1 = {
                                        'Size' => '128',
                                        'Type' => 'Struct'
                                      },
-                          '19384' => {
+                          '19378' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '798',
+                                       'Line' => '807',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'rx_hash_function',
@@ -4477,7 +4477,7 @@ $VAR1 = {
                                                    '2' => {
                                                             'name' => 'rx_hash_key',
                                                             'offset' => '8',
-                                                            'type' => '16528'
+                                                            'type' => '16517'
                                                           },
                                                    '3' => {
                                                             'name' => 'rx_hash_fields_mask',
@@ -4489,15 +4489,15 @@ $VAR1 = {
                                        'Size' => '24',
                                        'Type' => 'Struct'
                                      },
-                          '19493' => {
-                                       'BaseType' => '19498',
+                          '19487' => {
+                                       'BaseType' => '19492',
                                        'Name' => 'struct ibv_srq_init_attr_ex*',
                                        'Size' => '56',
                                        'Type' => 'Pointer'
                                      },
-                          '19498' => {
+                          '19492' => {
                                        'Header' => 'verbs.h',
-                                       'Line' => '663',
+                                       'Line' => '672',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'srq_context',
@@ -4517,7 +4517,7 @@ $VAR1 = {
                                                    '3' => {
                                                             'name' => 'srq_type',
                                                             'offset' => '24',
-                                                            'type' => '14157'
+                                                            'type' => '14146'
                                                           },
                                                    '4' => {
                                                             'name' => 'pd',
@@ -4539,8 +4539,8 @@ $VAR1 = {
                                        'Size' => '56',
                                        'Type' => 'Struct'
                                      },
-                          '19825' => {
-                                       'BaseType' => '16209',
+                          '19819' => {
+                                       'BaseType' => '16198',
                                        'Name' => 'struct rdma_cm_id**',
                                        'Size' => '416',
                                        'Type' => 'Pointer'
@@ -4584,8 +4584,8 @@ $VAR1 = {
                                       'Size' => '8',
                                       'Type' => 'Intrinsic'
                                     },
-                          '23847' => {
-                                       'BaseType' => '16214',
+                          '23841' => {
+                                       'BaseType' => '16203',
                                        'Name' => 'struct rdma_conn_param*',
                                        'Size' => '24',
                                        'Type' => 'Pointer'
@@ -4783,20 +4783,20 @@ $VAR1 = {
                                       'Size' => '96',
                                       'Type' => 'Pointer'
                                     },
-                          '35360' => {
+                          '35354' => {
                                        'BaseType' => '7012',
                                        'Name' => 'struct ibv_context**',
                                        'Size' => '328',
                                        'Type' => 'Pointer'
                                      },
-                          '35375' => {
+                          '35369' => {
                                        'BaseType' => '174',
                                        'Name' => 'int*',
                                        'Size' => '4',
                                        'Type' => 'Pointer'
                                      },
-                          '35932' => {
-                                       'BaseType' => '16106',
+                          '35926' => {
+                                       'BaseType' => '16095',
                                        'Name' => 'struct rdma_cm_event**',
                                        'Size' => '80',
                                        'Type' => 'Pointer'
@@ -4894,7 +4894,7 @@ $VAR1 = {
                                    },
                           '4757' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '754',
+                                      'Line' => '763',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_QPT_RC',
@@ -4925,13 +4925,13 @@ $VAR1 = {
                                       'Size' => '4',
                                       'Type' => 'Enum'
                                     },
-                          '48461' => {
-                                       'BaseType' => '48466',
+                          '48455' => {
+                                       'BaseType' => '48460',
                                        'Name' => 'struct pollfd*',
                                        'Size' => '8',
                                        'Type' => 'Pointer'
                                      },
-                          '48466' => {
+                          '48460' => {
                                        'Header' => 'poll.h',
                                        'Line' => '39',
                                        'Memb' => {
@@ -4955,7 +4955,7 @@ $VAR1 = {
                                        'Size' => '8',
                                        'Type' => 'Struct'
                                      },
-                          '48625' => {
+                          '48619' => {
                                        'BaseType' => '2317',
                                        'Header' => 'poll.h',
                                        'Line' => '36',
@@ -4968,19 +4968,19 @@ $VAR1 = {
                                      'Size' => '8',
                                      'Type' => 'Intrinsic'
                                    },
-                          '49936' => {
-                                       'BaseType' => '49941',
+                          '49930' => {
+                                       'BaseType' => '49935',
                                        'Name' => 'struct sockaddr const*',
                                        'Size' => '16',
                                        'Type' => 'Pointer'
                                      },
-                          '49941' => {
+                          '49935' => {
                                        'BaseType' => '795',
                                        'Name' => 'struct sockaddr const',
                                        'Size' => '16',
                                        'Type' => 'Const'
                                      },
-                          '49946' => {
+                          '49940' => {
                                        'BaseType' => '487',
                                        'Header' => 'select.h',
                                        'Line' => '54',
@@ -5006,15 +5006,15 @@ $VAR1 = {
                                       'Size' => '4',
                                       'Type' => 'Pointer'
                                     },
-                          '58439' => {
-                                       'BaseType' => '58450',
+                          '58433' => {
+                                       'BaseType' => '58444',
                                        'Header' => 'types.h',
                                        'Line' => '109',
                                        'Name' => 'ssize_t',
                                        'Size' => '8',
                                        'Type' => 'Typedef'
                                      },
-                          '58450' => {
+                          '58444' => {
                                        'BaseType' => '487',
                                        'Header' => 'types.h',
                                        'Line' => '172',
@@ -5022,19 +5022,19 @@ $VAR1 = {
                                        'Size' => '8',
                                        'Type' => 'Typedef'
                                      },
-                          '60104' => {
-                                       'BaseType' => '60109',
+                          '60098' => {
+                                       'BaseType' => '60103',
                                        'Name' => 'struct iovec const*',
                                        'Size' => '16',
                                        'Type' => 'Pointer'
                                      },
-                          '60109' => {
-                                       'BaseType' => '60114',
+                          '60103' => {
+                                       'BaseType' => '60108',
                                        'Name' => 'struct iovec const',
                                        'Size' => '16',
                                        'Type' => 'Const'
                                      },
-                          '60114' => {
+                          '60108' => {
                                        'Header' => 'uio.h',
                                        'Line' => '43',
                                        'Memb' => {
@@ -5053,7 +5053,7 @@ $VAR1 = {
                                        'Size' => '16',
                                        'Type' => 'Struct'
                                      },
-                          '61594' => {
+                          '61588' => {
                                        'Header' => 'socket.h',
                                        'Line' => '224',
                                        'Memb' => {
@@ -5070,7 +5070,7 @@ $VAR1 = {
                                                    '2' => {
                                                             'name' => 'msg_iov',
                                                             'offset' => '16',
-                                                            'type' => '61687'
+                                                            'type' => '61681'
                                                           },
                                                    '3' => {
                                                             'name' => 'msg_iovlen',
@@ -5097,64 +5097,64 @@ $VAR1 = {
                                        'Size' => '56',
                                        'Type' => 'Struct'
                                      },
-                          '61687' => {
-                                       'BaseType' => '60114',
+                          '61681' => {
+                                       'BaseType' => '60108',
                                        'Name' => 'struct iovec*',
                                        'Size' => '16',
                                        'Type' => 'Pointer'
                                      },
-                          '65577' => {
-                                       'BaseType' => '65582',
+                          '65571' => {
+                                       'BaseType' => '65576',
                                        'Name' => 'fd_set*',
                                        'Size' => '128',
                                        'Type' => 'Pointer'
                                      },
-                          '65582' => {
+                          '65576' => {
                                        'Header' => 'select.h',
                                        'Line' => '75',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'fds_bits',
                                                             'offset' => '0',
-                                                            'type' => '65610'
+                                                            'type' => '65604'
                                                           }
                                                  },
                                        'Name' => 'struct fd_set',
                                        'Size' => '128',
                                        'Type' => 'Struct'
                                      },
-                          '65610' => {
-                                       'BaseType' => '49946',
+                          '65604' => {
+                                       'BaseType' => '49940',
                                        'Name' => '__fd_mask[]',
                                        'Size' => '8',
                                        'Type' => 'Array'
                                      },
-                          '65648' => {
-                                       'BaseType' => '65653',
+                          '65642' => {
+                                       'BaseType' => '65647',
                                        'Name' => 'struct timeval*',
                                        'Size' => '16',
                                        'Type' => 'Pointer'
                                      },
-                          '65653' => {
+                          '65647' => {
                                        'Header' => 'time.h',
                                        'Line' => '30',
                                        'Memb' => {
                                                    '0' => {
                                                             'name' => 'tv_sec',
                                                             'offset' => '0',
-                                                            'type' => '17685'
+                                                            'type' => '17674'
                                                           },
                                                    '1' => {
                                                             'name' => 'tv_usec',
                                                             'offset' => '8',
-                                                            'type' => '65697'
+                                                            'type' => '65691'
                                                           }
                                                  },
                                        'Name' => 'struct timeval',
                                        'Size' => '16',
                                        'Type' => 'Struct'
                                      },
-                          '65697' => {
+                          '65691' => {
                                        'BaseType' => '487',
                                        'Header' => 'types.h',
                                        'Line' => '141',
@@ -5170,7 +5170,7 @@ $VAR1 = {
                                     },
                           '7017' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1477',
+                                      'Line' => '1486',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'device',
@@ -5212,7 +5212,7 @@ $VAR1 = {
                                       'Size' => '328',
                                       'Type' => 'Struct'
                                     },
-                          '70960' => {
+                          '70954' => {
                                        'BaseType' => '2252',
                                        'Header' => 'types.h',
                                        'Line' => '86',
@@ -5228,7 +5228,7 @@ $VAR1 = {
                                     },
                           '7129' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1405',
+                                      'Line' => '1414',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => '_ops',
@@ -5272,7 +5272,7 @@ $VAR1 = {
                                     },
                           '7232' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1395',
+                                      'Line' => '1404',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => '_dummy1',
@@ -5314,7 +5314,7 @@ $VAR1 = {
                                     },
                           '7308' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '86',
+                                      'Line' => '95',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_NODE_UNKNOWN',
@@ -5351,7 +5351,7 @@ $VAR1 = {
                                     },
                           '7359' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '96',
+                                      'Line' => '105',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_TRANSPORT_UNKNOWN',
@@ -5380,7 +5380,7 @@ $VAR1 = {
                                     },
                           '7437' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1419',
+                                      'Line' => '1428',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'query_device',
@@ -5563,20 +5563,20 @@ $VAR1 = {
                                      'Size' => '4',
                                      'Type' => 'Typedef'
                                    },
-                          '78407' => {
-                                       'BaseType' => '61594',
+                          '78401' => {
+                                       'BaseType' => '61588',
                                        'Name' => 'struct msghdr*',
                                        'Size' => '56',
                                        'Type' => 'Pointer'
                                      },
-                          '78412' => {
-                                       'BaseType' => '78417',
+                          '78406' => {
+                                       'BaseType' => '78411',
                                        'Name' => 'struct msghdr const*',
                                        'Size' => '56',
                                        'Type' => 'Pointer'
                                      },
-                          '78417' => {
-                                       'BaseType' => '61594',
+                          '78411' => {
+                                       'BaseType' => '61588',
                                        'Name' => 'struct msghdr const',
                                        'Size' => '56',
                                        'Type' => 'Const'
@@ -5602,7 +5602,7 @@ $VAR1 = {
                                     },
                           '7890' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '143',
+                                      'Line' => '152',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'fw_ver',
@@ -5844,7 +5844,7 @@ $VAR1 = {
                                    },
                           '8444' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '137',
+                                      'Line' => '146',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_ATOMIC_NONE',
@@ -5887,7 +5887,7 @@ $VAR1 = {
                                     },
                           '8538' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '326',
+                                      'Line' => '335',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'state',
@@ -6001,7 +6001,7 @@ $VAR1 = {
                                     },
                           '8821' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '285',
+                                      'Line' => '294',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_PORT_NOP',
@@ -6034,7 +6034,7 @@ $VAR1 = {
                                     },
                           '8867' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '277',
+                                      'Line' => '286',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_MTU_256',
@@ -6079,7 +6079,7 @@ $VAR1 = {
                                     },
                           '8928' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '507',
+                                      'Line' => '516',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -6133,7 +6133,7 @@ $VAR1 = {
                                     },
                           '9016' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '536',
+                                      'Line' => '545',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -6231,7 +6231,7 @@ $VAR1 = {
                                     },
                           '9212' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '551',
+                                      'Line' => '560',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -6265,7 +6265,7 @@ $VAR1 = {
                                     },
                           '9287' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '546',
+                                      'Line' => '555',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'IBV_MW_TYPE_1',
@@ -6304,7 +6304,7 @@ $VAR1 = {
                                     },
                           '9340' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1044',
+                                      'Line' => '1053',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -6384,7 +6384,7 @@ $VAR1 = {
                                     },
                           '9524' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1067',
+                                      'Line' => '1076',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',
@@ -6444,7 +6444,7 @@ $VAR1 = {
                                     },
                           '9656' => {
                                       'Header' => 'verbs.h',
-                                      'Line' => '1061',
+                                      'Line' => '1070',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'context',

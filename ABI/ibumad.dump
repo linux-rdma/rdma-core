@@ -24,23 +24,23 @@ $VAR1 = {
                        },
           'SymbolInfo' => {
                             '2437' => {
-                                        'Line' => '503',
+                                        'Line' => '502',
                                         'Return' => '142',
                                         'ShortName' => 'umad_init',
                                         'Source' => 'umad.c'
                                       },
                             '2463' => {
-                                        'Line' => '522',
+                                        'Line' => '521',
                                         'Return' => '142',
                                         'ShortName' => 'umad_done',
                                         'Source' => 'umad.c'
                                       },
                             '2552' => {
-                                        'Line' => '542',
+                                        'Line' => '541',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'cas',
-                                                              'type' => '8129'
+                                                              'type' => '8127'
                                                             },
                                                      '1' => {
                                                               'name' => 'max',
@@ -56,7 +56,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '3312' => {
-                                        'Line' => '572',
+                                        'Line' => '571',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'ca_name',
@@ -81,7 +81,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '3955' => {
-                                        'Line' => '650',
+                                        'Line' => '649',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'ca_name',
@@ -101,7 +101,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '4220' => {
-                                        'Line' => '601',
+                                        'Line' => '600',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'ca_name',
@@ -131,7 +131,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '4565' => {
-                                        'Line' => '618',
+                                        'Line' => '617',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'ca_name',
@@ -151,7 +151,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '4671' => {
-                                        'Line' => '668',
+                                        'Line' => '667',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'ca',
@@ -166,7 +166,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '4773' => {
-                                        'Line' => '683',
+                                        'Line' => '682',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'ca_name',
@@ -191,7 +191,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5130' => {
-                                        'Line' => '698',
+                                        'Line' => '697',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'port',
@@ -206,7 +206,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5206' => {
-                                        'Line' => '713',
+                                        'Line' => '712',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -221,7 +221,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5249' => {
-                                        'Line' => '720',
+                                        'Line' => '719',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -236,7 +236,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5309' => {
-                                        'Line' => '732',
+                                        'Line' => '731',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -256,7 +256,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5434' => {
-                                        'Line' => '750',
+                                        'Line' => '749',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -276,7 +276,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5503' => {
-                                        'Line' => '760',
+                                        'Line' => '759',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -291,7 +291,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5556' => {
-                                        'Line' => '770',
+                                        'Line' => '769',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -326,7 +326,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5675' => {
-                                        'Line' => '784',
+                                        'Line' => '783',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -361,13 +361,13 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5794' => {
-                                        'Line' => '726',
+                                        'Line' => '725',
                                         'Return' => '43',
                                         'ShortName' => 'umad_size',
                                         'Source' => 'umad.c'
                                       },
                             '5807' => {
-                                        'Line' => '1106',
+                                        'Line' => '1105',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -379,7 +379,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '5841' => {
-                                        'Line' => '798',
+                                        'Line' => '797',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -419,7 +419,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '6231' => {
-                                        'Line' => '843',
+                                        'Line' => '842',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -431,7 +431,7 @@ $VAR1 = {
                                                             },
                                                      '2' => {
                                                               'name' => 'length',
-                                                              'type' => '8139'
+                                                              'type' => '8137'
                                                             },
                                                      '3' => {
                                                               'name' => 'timeout_ms',
@@ -449,7 +449,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '6567' => {
-                                        'Line' => '890',
+                                        'Line' => '889',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -469,7 +469,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '6683' => {
-                                        'Line' => '896',
+                                        'Line' => '895',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -484,7 +484,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '6726' => {
-                                        'Line' => '902',
+                                        'Line' => '901',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -500,11 +500,11 @@ $VAR1 = {
                                                             },
                                                      '3' => {
                                                               'name' => 'oui',
-                                                              'type' => '8166'
+                                                              'type' => '8164'
                                                             },
                                                      '4' => {
                                                               'name' => 'method_mask',
-                                                              'type' => '8171'
+                                                              'type' => '8169'
                                                             }
                                                    },
                                         'Reg' => {
@@ -519,7 +519,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '6891' => {
-                                        'Line' => '941',
+                                        'Line' => '940',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -539,7 +539,7 @@ $VAR1 = {
                                                             },
                                                      '4' => {
                                                               'name' => 'method_mask',
-                                                              'type' => '8171'
+                                                              'type' => '8169'
                                                             }
                                                    },
                                         'Reg' => {
@@ -554,7 +554,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '7087' => {
-                                        'Line' => '976',
+                                        'Line' => '975',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'port_fd',
@@ -562,11 +562,11 @@ $VAR1 = {
                                                             },
                                                      '1' => {
                                                               'name' => 'attr',
-                                                              'type' => '8293'
+                                                              'type' => '8291'
                                                             },
                                                      '2' => {
                                                               'name' => 'agent_id',
-                                                              'type' => '8402'
+                                                              'type' => '8400'
                                                             }
                                                    },
                                         'Reg' => {
@@ -579,7 +579,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '7253' => {
-                                        'Line' => '1059',
+                                        'Line' => '1058',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'fd',
@@ -599,7 +599,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '7312' => {
-                                        'Line' => '1065',
+                                        'Line' => '1064',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -614,7 +614,7 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '7365' => {
-                                        'Line' => '1072',
+                                        'Line' => '1071',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
@@ -624,12 +624,12 @@ $VAR1 = {
                                         'Reg' => {
                                                    '0' => 'rdi'
                                                  },
-                                        'Return' => '8124',
+                                        'Return' => '8122',
                                         'ShortName' => 'umad_get_mad_addr',
                                         'Source' => 'umad.c'
                                       },
                             '7418' => {
-                                        'Line' => '1079',
+                                        'Line' => '1078',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'level',
@@ -644,11 +644,11 @@ $VAR1 = {
                                         'Source' => 'umad.c'
                                       },
                             '7461' => {
-                                        'Line' => '1086',
+                                        'Line' => '1085',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'addr',
-                                                              'type' => '8124'
+                                                              'type' => '8122'
                                                             }
                                                    },
                                         'Reg' => {
@@ -658,7 +658,7 @@ $VAR1 = {
                                         'ShortName' => 'umad_addr_dump',
                                         'Source' => 'umad.c'
                                       },
-                            '8784' => {
+                            '8782' => {
                                         'Line' => '45',
                                         'Param' => {
                                                      '0' => {
@@ -670,7 +670,7 @@ $VAR1 = {
                                         'ShortName' => 'umad_class_str',
                                         'Source' => 'umad_str.c'
                                       },
-                            '8908' => {
+                            '8906' => {
                                         'Line' => '134',
                                         'Param' => {
                                                      '0' => {
@@ -690,7 +690,7 @@ $VAR1 = {
                                         'ShortName' => 'umad_method_str',
                                         'Source' => 'umad_str.c'
                                       },
-                            '9022' => {
+                            '9020' => {
                                         'Line' => '142',
                                         'Param' => {
                                                      '0' => {
@@ -705,7 +705,7 @@ $VAR1 = {
                                         'ShortName' => 'umad_common_mad_status_str',
                                         'Source' => 'umad_str.c'
                                       },
-                            '9078' => {
+                            '9076' => {
                                         'Line' => '165',
                                         'Param' => {
                                                      '0' => {
@@ -720,7 +720,7 @@ $VAR1 = {
                                         'ShortName' => 'umad_sa_mad_status_str',
                                         'Source' => 'umad_str.c'
                                       },
-                            '9352' => {
+                            '9350' => {
                                         'Line' => '342',
                                         'Param' => {
                                                      '0' => {
@@ -1315,43 +1315,43 @@ $VAR1 = {
                                     'Size' => '1',
                                     'Type' => 'Intrinsic'
                                   },
-                          '8124' => {
+                          '8122' => {
                                       'BaseType' => '2005',
                                       'Name' => 'ib_mad_addr_t*',
                                       'Size' => '44',
                                       'Type' => 'Pointer'
                                     },
-                          '8129' => {
+                          '8127' => {
                                       'BaseType' => '1011',
                                       'Name' => 'char[]*',
                                       'Size' => '8',
                                       'Type' => 'Pointer'
                                     },
-                          '8139' => {
+                          '8137' => {
                                       'BaseType' => '142',
                                       'Name' => 'int*',
                                       'Size' => '4',
                                       'Type' => 'Pointer'
                                     },
-                          '8166' => {
+                          '8164' => {
                                       'BaseType' => '1197',
                                       'Name' => 'uint8_t*',
                                       'Size' => '1',
                                       'Type' => 'Pointer'
                                     },
-                          '8171' => {
+                          '8169' => {
                                       'BaseType' => '3922',
                                       'Name' => 'long*',
                                       'Size' => '8',
                                       'Type' => 'Pointer'
                                     },
-                          '8293' => {
-                                      'BaseType' => '8298',
+                          '8291' => {
+                                      'BaseType' => '8296',
                                       'Name' => 'struct umad_reg_attr*',
                                       'Size' => '32',
                                       'Type' => 'Pointer'
                                     },
-                          '8298' => {
+                          '8296' => {
                                       'Header' => 'umad.h',
                                       'Line' => '224',
                                       'Memb' => {
@@ -1373,7 +1373,7 @@ $VAR1 = {
                                                   '3' => {
                                                            'name' => 'method_mask',
                                                            'offset' => '8',
-                                                           'type' => '8379'
+                                                           'type' => '8377'
                                                          },
                                                   '4' => {
                                                            'name' => 'oui',
@@ -1390,13 +1390,13 @@ $VAR1 = {
                                       'Size' => '32',
                                       'Type' => 'Struct'
                                     },
-                          '8379' => {
+                          '8377' => {
                                       'BaseType' => '1082',
                                       'Name' => 'uint64_t[]',
                                       'Size' => '8',
                                       'Type' => 'Array'
                                     },
-                          '8402' => {
+                          '8400' => {
                                       'BaseType' => '1994',
                                       'Name' => 'uint32_t*',
                                       'Size' => '4',
