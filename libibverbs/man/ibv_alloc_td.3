@@ -1,0 +1,61 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH IBV_ALLOC_TD 3 2017-11-06 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_alloc_td(), ibv_dealloc_td() \- allocate and deallocate thread domain object
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "struct ibv_td *ibv_alloc_td(struct ibv_context " "*context" ,
+.BI "                            struct ibv_td_init_attr " "*init_attr" );
+.sp
+.BI "int ibv_dealloc_td(struct ibv_td " "*td");
+.fi
+.SH "DESCRIPTION"
+.B ibv_alloc_td()
+allocates a thread domain object for the RDMA device context
+.I context\fR.
+.sp
+The thread domain object defines how the verbs libraries and provider will use
+locks and additional hardware capabilities to achieve best performance for
+handling multi-thread or single-thread protection.  An application assigns
+verbs resources to a thread domain when it creates a verbs object.
+.sp
+If the
+.I
+ibv_td
+object is specified then any objects created under this thread domain will
+disable internal locking designed to protect against concurrent access to that
+object from multiple user threads. By default all verbs objects are safe for
+multi-threaded access, whether or not a thread domain is specified.
+.sp
+A
+.I struct ibv_td
+can be added to a parent domain via
+.B ibv_alloc_parent_domain()
+and then the parent domain can be used to create verbs objects.
+.sp
+.B ibv_dealloc_td()
+will deallocate the thread domain
+.I td\fR.
+All resources created with the
+.I td
+should be destroyed prior to deallocating the
+.I td\fR.
+.SH "RETURN VALUE"
+.B ibv_alloc_td()
+returns a pointer to the allocated struct
+.I ibv_td
+object, or NULL if the request fails (and sets errno to indicate the failure reason).
+.sp
+.B ibv_dealloc_td()
+returns 0 on success, or the value of errno on failure (which indicates the failure reason).
+.SH "SEE ALSO"
+.BR ibv_alloc_parent_domain (3),
+.SH "AUTHORS"
+.TP
+Alex Rosenbaum <alexr@mellanox.com>
+.TP
+Yishai Hadas <yishaih@mellanox.com>

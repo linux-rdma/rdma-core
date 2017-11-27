@@ -1,6 +1,7 @@
 rdma_man_pages(
   ibv_alloc_mw.3
   ibv_alloc_pd.3
+  ibv_alloc_td.3
   ibv_asyncwatch.1
   ibv_attach_mcast.3
   ibv_bind_mw.3
@@ -62,6 +63,7 @@ rdma_man_pages(
 rdma_alias_man_pages(
   ibv_alloc_mw.3 ibv_dealloc_mw.3
   ibv_alloc_pd.3 ibv_dealloc_pd.3
+  ibv_alloc_td.3 ibv_dealloc_td.3
   ibv_attach_mcast.3 ibv_detach_mcast.3
   ibv_create_ah.3 ibv_destroy_ah.3
   ibv_create_ah_from_wc.3 ibv_init_ah_from_wc.3

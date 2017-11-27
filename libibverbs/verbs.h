@@ -540,6 +540,14 @@ struct ibv_pd {
 	uint32_t		handle;
 };
 
+struct ibv_td_init_attr {
+	uint32_t comp_mask;
+};
+
+struct ibv_td {
+	struct ibv_context     *context;
+};
+
 enum ibv_xrcd_init_attr_mask {
 	IBV_XRCD_INIT_ATTR_FD	    = 1 << 0,
 	IBV_XRCD_INIT_ATTR_OFLAGS   = 1 << 1,
@@ -1636,6 +1644,8 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*dealloc_td)(struct ibv_td *td);
+	struct ibv_td *(*alloc_td)(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*post_srq_ops)(struct ibv_srq *srq,
 			    struct ibv_ops_wr *op,
@@ -2183,6 +2193,37 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_alloc_td - Allocate a thread domain
+ */
+static inline struct ibv_td *ibv_alloc_td(struct ibv_context *context,
+					  struct ibv_td_init_attr *init_attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, alloc_td);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->alloc_td(context, init_attr);
+}
+
+/**
+ * ibv_dealloc_td - Free a thread domain
+ */
+static inline int ibv_dealloc_td(struct ibv_td *td)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(td->context, dealloc_td);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->dealloc_td(td);
 }
 
 /**
