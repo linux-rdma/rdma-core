@@ -782,7 +782,12 @@ static off_t get_uar_mmap_offset(int idx, int page_size, int command)
 	off_t offset = 0;
 
 	set_command(command, &offset);
-	set_index(idx, &offset);
+
+	if (command == MLX5_MMAP_ALLOC_WC &&
+	    idx >= (1 << MLX5_IB_MMAP_CMD_SHIFT))
+		set_extended_index(idx, &offset);
+	else
+		set_index(idx, &offset);
 
 	return offset * page_size;
 }
@@ -793,8 +798,8 @@ static off_t uar_type_to_cmd(int uar_type)
 		MLX5_MMAP_GET_REGULAR_PAGES_CMD;
 }
 
-static void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
-		       int cmd_fd, int page_size, int uar_type)
+void *mlx5_mmap(struct mlx5_uar_info *uar, int index, int cmd_fd, int page_size,
+		int uar_type)
 {
 	off_t offset;
 
@@ -813,6 +818,8 @@ static void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 	 * MLX5_MMAP_GET_NC_PAGES_CMD mmap command.
 	 */
 	offset = get_uar_mmap_offset(index, page_size,
+				     (uar_type == MLX5_UAR_TYPE_REGULAR_DYN) ?
+				     MLX5_MMAP_ALLOC_WC :
 				     MLX5_MMAP_GET_REGULAR_PAGES_CMD);
 	uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
 			cmd_fd, offset);

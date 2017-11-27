@@ -58,7 +58,8 @@ enum {
 
 enum {
 	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
-	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5
+	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5,
+	MLX5_MMAP_ALLOC_WC		= 6,
 };
 
 enum {
@@ -222,6 +223,7 @@ struct mlx5_spinlock {
 enum mlx5_uar_type {
 	MLX5_UAR_TYPE_REGULAR,
 	MLX5_UAR_TYPE_NC,
+	MLX5_UAR_TYPE_REGULAR_DYN,
 };
 
 struct mlx5_uar_info {
@@ -800,6 +802,8 @@ struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 					struct ibv_parent_domain_init_attr *attr);
 
 
+void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
+		int cmd_fd, int page_size, int uar_type);
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
@@ -871,6 +875,11 @@ static inline void set_order(int order, off_t *offset)
 static inline void set_index(int index, off_t *offset)
 {
 	set_arg(index, offset);
+}
+
+static inline void set_extended_index(int index, off_t *offset)
+{
+	*offset |= (index & 0xff) | ((index >> 8) << 16);
 }
 
 static inline uint8_t calc_sig(void *wqe, int size)
