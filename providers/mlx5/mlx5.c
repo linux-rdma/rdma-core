@@ -928,6 +928,16 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	context->num_ports	= resp.num_ports;
 	context->max_recv_wr	= resp.max_recv_wr;
 	context->max_srq_recv_wr = resp.max_srq_recv_wr;
+	context->num_dyn_bfregs = resp.num_dyn_bfregs;
+
+	if (context->num_dyn_bfregs) {
+		context->count_dyn_bfregs = calloc(context->num_dyn_bfregs,
+						   sizeof(*context->count_dyn_bfregs));
+		if (!context->count_dyn_bfregs) {
+			errno = ENOMEM;
+			goto err_free;
+		}
+	}
 
 	context->cqe_version = resp.cqe_version;
 	if (context->cqe_version) {
@@ -940,7 +950,8 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	adjust_uar_info(mdev, context, resp);
 
 	gross_uuars = context->tot_uuars / MLX5_NUM_NON_FP_BFREGS_PER_UAR * NUM_BFREGS_PER_UAR;
-	context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
+	context->bfs = calloc(gross_uuars + context->num_dyn_bfregs, sizeof(*context->bfs));
+
 	if (!context->bfs) {
 		errno = ENOMEM;
 		goto err_free;
@@ -948,10 +959,12 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	context->cmds_supp_uhw = resp.cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
+	context->start_dyn_bfregs_index = gross_uuars;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
+	pthread_mutex_init(&context->dyn_bfregs_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
@@ -1051,6 +1064,7 @@ err_free_bf:
 	free(context->bfs);
 
 err_free:
+	free(context->count_dyn_bfregs);
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
 		if (context->uar[i].reg)
 			munmap(context->uar[i].reg, page_size);
@@ -1066,6 +1080,7 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 	int page_size = to_mdev(ibctx->device)->page_size;
 	int i;
 
+	free(context->count_dyn_bfregs);
 	free(context->bfs);
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
 		if (context->uar[i].reg)

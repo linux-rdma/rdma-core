@@ -294,6 +294,10 @@ struct mlx5_context {
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
+	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
+	uint32_t			num_dyn_bfregs;
+	uint32_t			*count_dyn_bfregs;
+	uint32_t			start_dyn_bfregs_index;
 };
 
 struct mlx5_bitmap {
