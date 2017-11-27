@@ -532,7 +532,8 @@ enum {
 				       IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
 				       IBV_WC_EX_WITH_CVLAN |
 				       IBV_WC_EX_WITH_FLOW_TAG |
-				       IBV_WC_EX_WITH_TM_INFO
+				       IBV_WC_EX_WITH_TM_INFO |
+				       IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
 };
 
 enum {
@@ -554,6 +555,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	int				cqe_sz;
 	int				ret;
 	int				ncqe;
+	int				rc;
 	struct mlx5_context *mctx = to_mctx(context);
 	FILE *fp = to_mctx(context)->dbg_fp;
 
@@ -588,6 +590,14 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (!cq) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
 		return NULL;
+	}
+
+	if (cq_alloc_flags & MLX5_CQ_FLAGS_EXTENDED) {
+		rc = mlx5_cq_fill_pfns(cq, cq_attr, mctx);
+		if (rc) {
+			errno = rc;
+			goto err;
+		}
 	}
 
 	memset(&cmd, 0, sizeof cmd);
@@ -695,9 +705,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cq->stall_enable = to_mctx(context)->stall_enable;
 	cq->stall_adaptive_enable = to_mctx(context)->stall_adaptive_enable;
 	cq->stall_cycles = to_mctx(context)->stall_cycles;
-
-	if (cq_alloc_flags & MLX5_CQ_FLAGS_EXTENDED)
-		mlx5_cq_fill_pfns(cq, cq_attr);
 
 	return &cq->ibv_cq;
 
