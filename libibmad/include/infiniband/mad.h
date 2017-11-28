@@ -1315,6 +1315,13 @@ enum MAD_FIELDS {
 	 */
 	IB_PC_QP1_DROP_F,
 
+	/*
+	 * More PortInfoExtended fields
+	 */
+	IB_PORT_EXT_HDR_FEC_MODE_SUPPORTED_F,
+	IB_PORT_EXT_HDR_FEC_MODE_ENABLED_F,
+	IB_PORT_EXT_HDR_FEC_MODE_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 

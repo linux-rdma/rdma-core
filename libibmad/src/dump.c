@@ -1183,8 +1183,16 @@ void mad_dump_classportinfo(char *buf, int bufsz, void *val, int valsz)
 
 void mad_dump_portinfo_ext(char *buf, int bufsz, void *val, int valsz)
 {
-	_dump_fields(buf, bufsz, val, IB_PORT_EXT_FIRST_F,
-		     IB_PORT_EXT_LAST_F);
+	int cnt;
+
+	cnt = _dump_fields(buf, bufsz, val, IB_PORT_EXT_FIRST_F,
+			   IB_PORT_EXT_LAST_F);
+	if (cnt < 0)
+		return;
+
+	_dump_fields(buf + cnt, bufsz - cnt, val,
+		     IB_PORT_EXT_HDR_FEC_MODE_SUPPORTED_F,
+		     IB_PORT_EXT_HDR_FEC_MODE_LAST_F);
 }
 
 void xdump(FILE * file, char *msg, void *p, int size)
