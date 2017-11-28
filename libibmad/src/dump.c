@@ -632,6 +632,8 @@ void mad_dump_portcapmask2(char *buf, int bufsz, void *val, int valsz)
 		s += sprintf(s, "\t\t\t\tIsSwitchPortStateTableSupported\n");
 	if (mask & (1 << 4))
 		s += sprintf(s, "\t\t\t\tIsLinkWidth2xSupported\n");
+	if (mask & (1 << 5))
+		s += sprintf(s, "\t\t\t\tIsLinkSpeedHDRSupported\n");
 
 	if (s != buf)
 		*(--s) = 0;
