@@ -114,6 +114,10 @@ extern char *ibd_nd_format;
 #define IB_PORT_EXT_LOW_LATENCY_RS_FEC_MODE_ACTIVE (CL_HTON16(0x0003))
 #endif
 
+#ifndef IB_PORT_EXT_RS_FEC2_MODE_ACTIVE
+#define IB_PORT_EXT_RS_FEC2_MODE_ACTIVE (CL_HTON16(0x0004))
+#endif
+
 /* SM PortInfoExtended CapabilityMask Bits */
 #ifndef IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED
 #define IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED (CL_HTON32(0x00000001))

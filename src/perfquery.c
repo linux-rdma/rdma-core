@@ -571,7 +571,8 @@ static uint8_t is_rsfec_mode_active(ib_portid_t * portid, int port,
 				 &fec_mode_active);
 		if((pie_capmask &
 		    CL_NTOH32(IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED)) &&
-		   (CL_NTOH16(IB_PORT_EXT_RS_FEC_MODE_ACTIVE) == (fec_mode_active & 0xffff)))
+		   ((CL_NTOH16(IB_PORT_EXT_RS_FEC_MODE_ACTIVE) == (fec_mode_active & 0xffff)) ||
+                    (CL_NTOH16(IB_PORT_EXT_RS_FEC2_MODE_ACTIVE) == (fec_mode_active & 0xffff))))
 			return 1;
 	}
 
