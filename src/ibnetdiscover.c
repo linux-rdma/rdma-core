@@ -115,6 +115,9 @@ char *dump_linkspeedext_compat(uint32_t espeed, uint32_t speed, uint32_t fdr10)
 	case 2:
 		return ("EDR");
 		break;
+	case 4:
+		return ("HDR");
+		break;
 	}
 	return ("???");
 }
