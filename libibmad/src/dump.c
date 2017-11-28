@@ -336,6 +336,9 @@ void mad_dump_linkspeedext(char *buf, int bufsz, void *val, int valsz)
 	case 2:
 		snprintf(buf, bufsz, "25.78125 Gbps");
 		break;
+	case 4:
+		snprintf(buf, bufsz, "53.125 Gbps");
+		break;
 	default:
 		snprintf(buf, bufsz, "undefined (%d)", speed);
 		break;
@@ -355,13 +358,16 @@ static void dump_linkspeedext(char *buf, int bufsz, int speed)
 		n += snprintf(buf + n, bufsz - n, "14.0625 Gbps or ");
 	if (n < bufsz && speed & 0x2)
 		n += snprintf(buf + n, bufsz - n, "25.78125 Gbps or ");
+	if (n < bufsz && speed & 0x4)
+		n += snprintf(buf + n, bufsz - n, "53.125 Gbps or ");
+
 	if (n >= bufsz) {
 		if (bufsz > 3)
 			buf[n - 4] = '\0';
 		return;
 	}
 
-	if (speed >> 2) {
+	if (speed >> 3) {
 		n += snprintf(buf + n, bufsz - n, "undefined (%d)", speed);
 		return;
 	} else if (bufsz > 3)
