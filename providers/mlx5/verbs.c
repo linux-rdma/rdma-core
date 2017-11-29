@@ -148,6 +148,7 @@ struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 
+	atomic_init(&pd->refcount, 1);
 	pd->pdn = resp.pdn;
 
 	return &pd->ibv_pd;
@@ -203,15 +204,73 @@ int mlx5_dealloc_td(struct ibv_td *ib_td)
 	return 0;
 }
 
+struct ibv_pd *
+mlx5_alloc_parent_domain(struct ibv_context *context,
+			 struct ibv_parent_domain_init_attr *attr)
+{
+	struct mlx5_parent_domain *mparent_domain;
+
+	if (ibv_check_alloc_parent_domain(attr))
+		return NULL;
+
+	if (attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	mparent_domain = calloc(1, sizeof(*mparent_domain));
+	if (!mparent_domain) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	if (attr->td) {
+		mparent_domain->mtd = to_mtd(attr->td);
+		atomic_fetch_add(&mparent_domain->mtd->refcount, 1);
+	}
+
+	mparent_domain->mpd.mprotection_domain = to_mpd(attr->pd);
+	atomic_fetch_add(&mparent_domain->mpd.mprotection_domain->refcount, 1);
+	atomic_init(&mparent_domain->mpd.refcount, 1);
+
+	ibv_initialize_parent_domain(
+	    &mparent_domain->mpd.ibv_pd,
+	    &mparent_domain->mpd.mprotection_domain->ibv_pd);
+
+	return &mparent_domain->mpd.ibv_pd;
+}
+
+static int mlx5_dealloc_parent_domain(struct mlx5_parent_domain *mparent_domain)
+{
+	if (atomic_load(&mparent_domain->mpd.refcount) > 1)
+		return EBUSY;
+
+	atomic_fetch_sub(&mparent_domain->mpd.mprotection_domain->refcount, 1);
+
+	if (mparent_domain->mtd)
+		atomic_fetch_sub(&mparent_domain->mtd->refcount, 1);
+
+	free(mparent_domain);
+	return 0;
+}
+
 int mlx5_free_pd(struct ibv_pd *pd)
 {
 	int ret;
+	struct mlx5_parent_domain *mparent_domain = to_mparent_domain(pd);
+	struct mlx5_pd *mpd = to_mpd(pd);
+
+	if (mparent_domain)
+		return mlx5_dealloc_parent_domain(mparent_domain);
+
+	if (atomic_load(&mpd->refcount) > 1)
+		return EBUSY;
 
 	ret = ibv_cmd_dealloc_pd(pd);
 	if (ret)
 		return ret;
 
-	free(to_mpd(pd));
+	free(mpd);
 	return 0;
 }
 

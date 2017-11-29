@@ -329,6 +329,13 @@ struct mlx5_td {
 struct mlx5_pd {
 	struct ibv_pd			ibv_pd;
 	uint32_t			pdn;
+	atomic_int			refcount;
+	struct mlx5_pd			*mprotection_domain;
+};
+
+struct mlx5_parent_domain {
+	struct mlx5_pd mpd;
+	struct mlx5_td *mtd;
 };
 
 enum {
@@ -557,9 +564,27 @@ static inline struct mlx5_context *to_mctx(struct ibv_context *ibctx)
 	return to_mxxx(ctx, context);
 }
 
+/* to_mpd always returns the real mlx5_pd object ie the protection domain. */
 static inline struct mlx5_pd *to_mpd(struct ibv_pd *ibpd)
 {
-	return to_mxxx(pd, pd);
+	struct mlx5_pd *mpd = to_mxxx(pd, pd);
+
+	if (mpd->mprotection_domain)
+		return mpd->mprotection_domain;
+
+	return mpd;
+}
+
+static inline struct mlx5_parent_domain *to_mparent_domain(struct ibv_pd *ibpd)
+{
+	struct mlx5_parent_domain *mparent_domain =
+	    ibpd ? container_of(ibpd, struct mlx5_parent_domain, mpd.ibv_pd) : NULL;
+
+	if (mparent_domain && mparent_domain->mpd.mprotection_domain)
+		return mparent_domain;
+
+	/* Otherwise ibpd isn't a parent_domain */
+	return NULL;
 }
 
 static inline struct mlx5_cq *to_mcq(struct ibv_cq *ibcq)
@@ -766,6 +791,10 @@ int mlx5_post_srq_ops(struct ibv_srq *srq,
 
 struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
 int mlx5_dealloc_td(struct ibv_td *td);
+
+struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
+					struct ibv_parent_domain_init_attr *attr);
+
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
