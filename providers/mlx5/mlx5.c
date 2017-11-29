@@ -1087,6 +1087,12 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 	int page_size = to_mdev(ibctx->device)->page_size;
 	int i;
 
+	for (i = context->start_dyn_bfregs_index;
+	      i < context->start_dyn_bfregs_index + context->num_dyn_bfregs; i++) {
+		if (context->bfs[i].uar)
+			munmap(context->bfs[i].uar, page_size);
+	}
+
 	free(context->count_dyn_bfregs);
 	free(context->bfs);
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {

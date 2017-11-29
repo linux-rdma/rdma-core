@@ -469,6 +469,10 @@ struct mlx5_bf {
 	unsigned			buf_size;
 	unsigned			uuarn;
 	off_t				uar_mmap_offset;
+	/* The virtual address of the mmaped uar, applicable for the dynamic use case */
+	void				*uar;
+	/* Index in the dynamic bfregs portion */
+	uint32_t			bfreg_dyn_index;
 };
 
 struct mlx5_mr {
