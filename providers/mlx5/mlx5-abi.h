@@ -44,6 +44,7 @@ enum {
 	MLX5_QP_FLAG_SIGNATURE		= 1 << 0,
 	MLX5_QP_FLAG_SCATTER_CQE	= 1 << 1,
 	MLX5_QP_FLAG_TUNNEL_OFFLOADS	= 1 << 2,
+	MLX5_QP_FLAG_BFREG_INDEX	= 1 << 3,
 };
 
 enum {
@@ -203,7 +204,7 @@ struct mlx5_create_qp {
 	__u32				rq_wqe_shift;
 	__u32				flags;
 	__u32                           uidx;
-	__u32                           reserved;
+	__u32                           bfreg_index;
 	/* SQ buffer address - used for Raw Packet QP */
 	__u64                           sq_buf_addr;
 };
