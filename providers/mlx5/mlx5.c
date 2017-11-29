@@ -1026,6 +1026,8 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	v_ctx->destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table;
 	v_ctx->post_srq_ops = mlx5_post_srq_ops;
 	v_ctx->modify_cq = mlx5_modify_cq;
+	v_ctx->alloc_td = mlx5_alloc_td;
+	v_ctx->dealloc_td = mlx5_dealloc_td;
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,

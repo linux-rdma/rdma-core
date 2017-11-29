@@ -153,6 +153,56 @@ struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context)
 	return &pd->ibv_pd;
 }
 
+static struct mlx5_bf *mlx5_attach_dedicated_bf(struct ibv_context *context)
+{
+	return NULL;
+}
+
+static void mlx5_detach_dedicated_bf(struct ibv_context *context, struct mlx5_bf *bf)
+{
+}
+
+struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr)
+{
+	struct mlx5_td	*td;
+
+	if (init_attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	td = calloc(1, sizeof(*td));
+	if (!td) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	td->bf = mlx5_attach_dedicated_bf(context);
+	if (!td->bf) {
+		free(td);
+		return NULL;
+	}
+
+	td->ibv_td.context = context;
+	atomic_init(&td->refcount, 1);
+
+	return &td->ibv_td;
+}
+
+int mlx5_dealloc_td(struct ibv_td *ib_td)
+{
+	struct mlx5_td	*td;
+
+	td = to_mtd(ib_td);
+	if (atomic_load(&td->refcount) > 1)
+		return EBUSY;
+
+	mlx5_detach_dedicated_bf(ib_td->context, td->bf);
+	free(td);
+
+	return 0;
+}
+
 int mlx5_free_pd(struct ibv_pd *pd)
 {
 	int ret;

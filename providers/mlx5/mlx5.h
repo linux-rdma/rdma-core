@@ -320,6 +320,12 @@ struct mlx5_buf {
 	enum mlx5_alloc_type		type;
 };
 
+struct mlx5_td {
+	struct ibv_td			ibv_td;
+	struct mlx5_bf			*bf;
+	atomic_int			refcount;
+};
+
 struct mlx5_pd {
 	struct ibv_pd			ibv_pd;
 	uint32_t			pdn;
@@ -568,6 +574,11 @@ static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
 	return container_of(vsrq, struct mlx5_srq, vsrq);
 }
 
+static inline struct mlx5_td *to_mtd(struct ibv_td *ibtd)
+{
+	return to_mxxx(td, td);
+}
+
 static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
 {
 	struct verbs_qp *vqp = (struct verbs_qp *)ibqp;
@@ -752,6 +763,9 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 int mlx5_post_srq_ops(struct ibv_srq *srq,
 		      struct ibv_ops_wr *wr,
 		      struct ibv_ops_wr **bad_wr);
+
+struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
+int mlx5_dealloc_td(struct ibv_td *td);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
