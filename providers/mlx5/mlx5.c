@@ -813,6 +813,18 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 	return 0;
 }
 
+static int mlx5dv_get_dm(struct ibv_dm *dm_in,
+			  struct mlx5dv_dm *dm_out)
+{
+	struct mlx5_dm *mdm = to_mdm(dm_in);
+
+	dm_out->comp_mask = 0;
+	dm_out->buf       = mdm->start_va;
+	dm_out->length    = mdm->length;
+
+	return 0;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
@@ -827,6 +839,8 @@ LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		ret = mlx5dv_get_srq(obj->srq.in, obj->srq.out);
 	if (!ret && (obj_type & MLX5DV_OBJ_RWQ))
 		ret = mlx5dv_get_rwq(obj->rwq.in, obj->rwq.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_DM))
+		ret = mlx5dv_get_dm(obj->dm.in, obj->dm.out);
 
 	return ret;
 }
