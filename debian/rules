@@ -4,7 +4,7 @@ include /usr/share/dpkg/architecture.mk
 
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
-NO_COHERENT_DMA_ARCHS = alpha armel armhf hppa mips mips64el mipsel sh4
+NO_COHERENT_DMA_ARCHS = alpha armel armhf hppa m68k mips mips64el mipsel sh4
 
 %:
 	dh $@ --with systemd --builddirectory=build-deb
