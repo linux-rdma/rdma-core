@@ -144,7 +144,7 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
   install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
   # Compute a relative symlink from VERBS_PROVIDER_DIR to LIBDIR
-  execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/buildlib/relpath
+  execute_process(COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/buildlib/relpath
     "${CMAKE_INSTALL_FULL_LIBDIR}/lib${DEST}.so.${VERSION}"
     "${VERBS_PROVIDER_DIR}"
     OUTPUT_VARIABLE DEST_LINK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE

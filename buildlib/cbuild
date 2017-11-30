@@ -38,6 +38,7 @@ useful for debugging certain kinds of build problems."""
 
 import argparse
 import collections
+import filecmp
 import grp
 import imp
 import inspect
@@ -181,6 +182,12 @@ class xenial(APTEnvironment):
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
+class artful(APTEnvironment):
+    docker_parent = "ubuntu:17.10"
+    pkgs = xenial.pkgs
+    name = "ubuntu-17.10";
+    aliases = {"artful"};
+
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
     pkgs = xenial.pkgs;
@@ -292,22 +299,23 @@ class ZypperEnvironment(Environment):
         return res;
 
 class leap(ZypperEnvironment):
-    docker_parent = "opensuse:42.2";
+    docker_parent = "opensuse:42.3";
     specfile = "suse/rdma-core.spec";
     pkgs = {
         'cmake',
         'gcc',
         'libnl3-devel',
         'libudev-devel',
+        'udev',
         'make',
         'ninja',
         'pkg-config',
-        'python',
+        'python3',
         'rpm-build',
         'systemd-devel',
         'valgrind-devel',
     };
-    name = "opensuse-42.2";
+    name = "opensuse-42.3";
     aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
@@ -315,6 +323,7 @@ class tumbleweed(ZypperEnvironment):
     pkgs = leap.pkgs;
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
+    rpmbuild_options = [ "--without=curlmini" ];
 
 # -------------------------------------------------------------------------
 
@@ -324,6 +333,7 @@ environments = [centos6(),
                 travis(),
                 trusty(),
                 xenial(),
+                artful(),
                 jessie(),
                 stretch(),
                 fc26(),
@@ -466,7 +476,8 @@ os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
            tarfn=tarfn,
            tspec_file=tspec_file);
 
-            bopts = ["-bb",tspec_file];
+            extra_opts = getattr(env,"rpmbuild_options", [])
+            bopts = ["-bb",tspec_file] + extra_opts;
 
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
@@ -547,6 +558,25 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
                 shutil.move(os.path.join(tmpdir,I),
                             os.path.join("..",I));
 
+def copy_abi_files(src):
+    """Retrieve the current ABI files and place them in the source tree."""
+    if not os.path.isdir(src):
+        return;
+
+    for path,jnk,files in os.walk(src):
+        for I in files:
+            if not I.startswith("current-"):
+                continue;
+
+            ref_fn = os.path.join("ABI",I[8:]);
+            cur_fn = os.path.join(src, path, I);
+
+            if os.path.isfile(ref_fn) and filecmp.cmp(ref_fn,cur_fn,False):
+                continue;
+
+            print "Changed ABI File: ", ref_fn;
+            shutil.copy(cur_fn, ref_fn);
+
 def run_travis_build(args,env):
     with private_tmp(args) as tmpdir:
         os.mkdir(os.path.join(tmpdir,"src"));
@@ -605,7 +635,12 @@ def run_travis_build(args,env):
         else:
             opts.extend(["/bin/bash",os.path.join(home_build,"go.sh")]);
 
-        docker_cmd(args,*opts);
+        try:
+            docker_cmd(args,*opts);
+        except subprocess.CalledProcessError, e:
+            copy_abi_files(os.path.join(tmpdir, "src/ABI"));
+            raise;
+        copy_abi_files(os.path.join(tmpdir, "src/ABI"));
 
 def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());

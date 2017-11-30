@@ -19,7 +19,7 @@
 %bcond_without  systemd
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        15
+Version:        15.1
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0 or BSD-2-Clause
@@ -58,6 +58,7 @@ BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
+BuildRequires:  python3-base
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
 %endif
@@ -77,8 +78,20 @@ Obsoletes:      rdma < %{version}
 Provides:       ofed = %{version}
 Obsoletes:      ofed < %{version}
 
+# Trickery to handle both SUSE OpenBuild System and Manual build
+# In OBS, rdma-core must use curl-mini instead of curl to avoid
+# a build dependency loop:
+# rdma-core -> cmake -> curl -> ... -> boost -> rdma-core
+# Thus we force a BuildRequires to curl-mini which as no impact
+# as it is not used during the build.
+# However curl-mini is not a published RPM. This would prevent any build
+# outside of OBS. Thus we add a bcond to allow manual build.
+# To force build without the use of curl-mini, --without=curlmini
+# should be passed to rpmbuild
 %if 0%{?suse_version} >= 1330
+%if %{with curlmini}
 BuildRequires:  curl-mini
+%endif
 %endif
 
 # Tumbleweed's cmake RPM macro adds -Wl,--no-undefined to the module flags

@@ -48,7 +48,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "15")
+set(PACKAGE_VERSION "15.1")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
 #   libibverbs/libibverbs.map
@@ -278,6 +278,9 @@ if (NO_COMPAT_SYMS)
 else()
   set(HAVE_FULL_SYMBOL_VERSIONS 1)
 endif()
+
+# Look for Python
+FIND_PACKAGE (PythonInterp)
 
 #-------------------------
 # Find libraries

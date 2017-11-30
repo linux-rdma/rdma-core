@@ -366,9 +366,13 @@ static inline uint8_t bnxt_re_to_ibv_wc_status(uint8_t bnxt_wcst,
 static inline uint8_t bnxt_re_is_cqe_valid(struct bnxt_re_cq *cq,
 					   struct bnxt_re_bcqe *hdr)
 {
+	uint8_t valid = 0;
+
+	valid = ((le32toh(hdr->flg_st_typ_ph) &
+		  BNXT_RE_BCQE_PH_MASK) == cq->phase);
 	udma_from_device_barrier();
-	return ((le32toh(hdr->flg_st_typ_ph) &
-		 BNXT_RE_BCQE_PH_MASK) == cq->phase);
+
+	return valid;
 }
 
 static inline void bnxt_re_change_cq_phase(struct bnxt_re_cq *cq)

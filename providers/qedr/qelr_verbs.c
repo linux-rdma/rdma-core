@@ -874,7 +874,7 @@ static void swap_wqe_data64(uint64_t *p)
 	__be64 *bep=(__be64 *)p;
 	int i;
 
-	for (i = 0; i < ROCE_WQE_ELEM_SIZE / sizeof(uint64_t); i++, p++)
+	for (i = 0; i < ROCE_WQE_ELEM_SIZE / sizeof(uint64_t); i++, p++, bep++)
 		*bep = htobe64(*p);
 }
 
