@@ -175,6 +175,7 @@ Description: Debug symbols for the libibverbs library
 Package: libibcm-dev
 Section: libdevel
 Architecture: linux-any
+Multi-Arch: same
 Depends: libibcm1 (= ${binary:Version}), libibverbs-dev, ${misc:Depends}
 Description: Development files for the libibcm library
  libibcm provides a userspace implementation of an InfiniBand
@@ -187,6 +188,7 @@ Description: Development files for the libibcm library
 
 Package: libibcm1
 Architecture: linux-any
+Multi-Arch: same
 Section: libs
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: InfiniBand Communication Manager (CM) library
@@ -212,6 +214,7 @@ Description: Debug symbols for the libibcm1 library
 Package: libibumad-dev
 Section: libdevel
 Architecture: linux-any
+Multi-Arch: same
 Depends: libibumad3 (= ${binary:Version}), ${misc:Depends}
 Description: Development files for libibumad
  libibumad provides userspace Infiniband Management Datagram (uMAD)
@@ -224,6 +227,7 @@ Description: Development files for libibumad
 
 Package: libibumad3
 Architecture: linux-any
+Multi-Arch: same
 Section: libs
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${misc:Depends}, ${shlibs:Depends}
@@ -250,6 +254,7 @@ Description: Debug symbols for the libibumad3 library
 Package: librdmacm-dev
 Section: libdevel
 Architecture: linux-any
+Multi-Arch: same
 Depends: libibverbs-dev, librdmacm1 (= ${binary:Version}), ${misc:Depends}
 Description: Development files for the librdmacm library
  librdmacm is a library that allows applications to set up reliable
@@ -271,6 +276,7 @@ Description: Development files for the librdmacm library
 
 Package: librdmacm1
 Architecture: linux-any
+Multi-Arch: same
 Section: libs
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${misc:Depends}, ${shlibs:Depends}
