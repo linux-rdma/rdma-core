@@ -1,3 +1,11 @@
+rdma-core (15.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Add m68k as non-coherent DMA architecture
+  * Mark libraries as Multi-Arch: same
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 30 Nov 2017 12:08:26 +0100
+
 rdma-core (15-3) unstable; urgency=medium
 
   * debian/rules: Include architecture.mk for DEB_HOST_ARCH definition
