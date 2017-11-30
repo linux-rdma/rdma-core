@@ -4,6 +4,37 @@ rdma-core (16.0-1) unstable; urgency=low
 
  -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 14 Nov 2017 12:24:09 +0100
 
+rdma-core (15.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Add m68k as non-coherent DMA architecture
+  * Mark libraries as Multi-Arch: same
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 30 Nov 2017 12:08:26 +0100
+
+rdma-core (15-3) unstable; urgency=medium
+
+  * debian/rules: Include architecture.mk for DEB_HOST_ARCH definition
+  * Add alpha, hppa, sh4 as non-coherent DMA archs
+  * Do not require valgrind on x32 (not available there due to build failure)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 16 Nov 2017 17:33:48 +0100
+
+rdma-core (15-2) unstable; urgency=medium
+
+  * Do not build ibacm for non-Linux architectures
+  * Do not require valgrind if not available
+  * Let libibverbs1 15 break ibverbs-providers 14
+  * Drop dh-systemd build dependency
+  * Bump Standards-Version to 4.1.1 (no changes needed)
+  * Drop lintian overrides for false positives
+  * Set myself as maintainer (instead of linux-rdma)
+  * Do not try to install disabled ibverbs providers on architectures that do
+    not provide cache coherent DMA (Closes: #881731)
+  * Explicitly list private libibverbs symbols
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 16 Nov 2017 12:55:28 +0100
+
 rdma-core (15-1) unstable; urgency=medium
 
   * New upstream version. ibverbs-providers combines the source packages
