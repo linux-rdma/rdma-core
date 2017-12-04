@@ -75,12 +75,12 @@ ethernet devices.
 Services that cannot handle hot plug must be ordered after
 systemd-udev-settle.service, which will wait for udev to complete loading
 modules and scheduling systemd services. This ensures that all RDMA hardware
-present at boot is setup before proceeding to run the le.g.acy service.
+present at boot is setup before proceeding to run the legacy service.
 
-Admins using le.g.acy services can also place their RDMA hardware modules
+Admins using legacy services can also place their RDMA hardware modules
 (e.g.  mlx4_ib) directly in /etc/modules-load.d/ or in their initrd which will
 cause systemd to defer passing to sysinit.target until all RDMA hardware is
-setup, this is usually sufficient for le.g.acy services. This is probably the
+setup, this is usually sufficient for legacy services. This is probably the
 default behavior in many configurations.
 
 # Systemd Ordering
