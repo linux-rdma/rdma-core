@@ -238,23 +238,23 @@ static int mlx4_init_context(struct verbs_device *v_device,
 			mlx4_map_internal_clock(dev, ibv_ctx);
 	}
 
-	verbs_set_ctx_op(verbs_ctx, close_xrcd, mlx4_close_xrcd);
-	verbs_set_ctx_op(verbs_ctx, open_xrcd, mlx4_open_xrcd);
-	verbs_set_ctx_op(verbs_ctx, create_srq_ex, mlx4_create_srq_ex);
-	verbs_set_ctx_op(verbs_ctx, get_srq_num, verbs_get_srq_num);
-	verbs_set_ctx_op(verbs_ctx, create_qp_ex, mlx4_create_qp_ex);
-	verbs_set_ctx_op(verbs_ctx, open_qp, mlx4_open_qp);
-	verbs_set_ctx_op(verbs_ctx, ibv_create_flow, mlx4_create_flow);
-	verbs_set_ctx_op(verbs_ctx, ibv_destroy_flow, mlx4_destroy_flow);
-	verbs_set_ctx_op(verbs_ctx, create_cq_ex, mlx4_create_cq_ex);
-	verbs_set_ctx_op(verbs_ctx, query_device_ex, mlx4_query_device_ex);
-	verbs_set_ctx_op(verbs_ctx, query_rt_values, mlx4_query_rt_values);
-	verbs_set_ctx_op(verbs_ctx, create_wq, mlx4_create_wq);
-	verbs_set_ctx_op(verbs_ctx, modify_wq, mlx4_modify_wq);
-	verbs_set_ctx_op(verbs_ctx, destroy_wq, mlx4_destroy_wq);
-	verbs_set_ctx_op(verbs_ctx, create_rwq_ind_table, mlx4_create_rwq_ind_table);
-	verbs_set_ctx_op(verbs_ctx, destroy_rwq_ind_table, mlx4_destroy_rwq_ind_table);
-	verbs_set_ctx_op(verbs_ctx, modify_cq, mlx4_modify_cq);
+	verbs_ctx->close_xrcd = mlx4_close_xrcd;
+	verbs_ctx->open_xrcd = mlx4_open_xrcd;
+	verbs_ctx->create_srq_ex = mlx4_create_srq_ex;
+	verbs_ctx->get_srq_num = verbs_get_srq_num;
+	verbs_ctx->create_qp_ex = mlx4_create_qp_ex;
+	verbs_ctx->open_qp = mlx4_open_qp;
+	verbs_ctx->ibv_create_flow = mlx4_create_flow;
+	verbs_ctx->ibv_destroy_flow = mlx4_destroy_flow;
+	verbs_ctx->create_cq_ex = mlx4_create_cq_ex;
+	verbs_ctx->query_device_ex = mlx4_query_device_ex;
+	verbs_ctx->query_rt_values = mlx4_query_rt_values;
+	verbs_ctx->create_wq = mlx4_create_wq;
+	verbs_ctx->modify_wq = mlx4_modify_wq;
+	verbs_ctx->destroy_wq = mlx4_destroy_wq;
+	verbs_ctx->create_rwq_ind_table = mlx4_create_rwq_ind_table;
+	verbs_ctx->destroy_rwq_ind_table = mlx4_destroy_rwq_ind_table;
+	verbs_ctx->modify_cq = mlx4_modify_cq;
 
 	return 0;
 

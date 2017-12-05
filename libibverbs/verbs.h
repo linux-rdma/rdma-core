@@ -1703,11 +1703,6 @@ static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
 	(!__vctx || (__vctx->sz < sizeof(*__vctx) - offsetof(struct verbs_context, op)) || \
 	 !__vctx->op) ? NULL : __vctx; })
 
-#define verbs_set_ctx_op(_vctx, op, ptr) ({ \
-	struct verbs_context *vctx = _vctx; \
-	if (vctx && (vctx->sz >= sizeof(*vctx) - offsetof(struct verbs_context, op))) \
-		vctx->op = ptr; })
-
 /**
  * ibv_get_device_list - Get list of IB devices currently available
  * @num_devices: optional.  if non-NULL, set to the number of devices
