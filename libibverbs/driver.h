@@ -247,7 +247,6 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 		      struct ibv_open_xrcd *cmd, size_t cmd_size,
 		      struct ibv_open_xrcd_resp *resp, size_t resp_size);
 int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd);
-#define IBV_CMD_REG_MR_HAS_RESP_PARAMS
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, int access,
 		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
@@ -281,7 +280,6 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 size_t resp_size);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
-#define IBV_CMD_RESIZE_CQ_HAS_RESP_PARAMS
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 		      struct ibv_resize_cq *cmd, size_t cmd_size,
 		      struct ibv_resize_cq_resp *resp, size_t resp_size);
