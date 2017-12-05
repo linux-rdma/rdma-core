@@ -1406,6 +1406,7 @@ enum ibv_flow_spec_type {
 	IBV_FLOW_SPEC_ACTION_TAG	= 0x1000,
 	IBV_FLOW_SPEC_ACTION_DROP	= 0x1001,
 	IBV_FLOW_SPEC_ACTION_HANDLE	= 0x1002,
+	IBV_FLOW_SPEC_ACTION_COUNT	= 0x1003,
 };
 
 struct ibv_flow_eth_filter {
@@ -1559,6 +1560,12 @@ struct ibv_flow_spec_action_handle {
 	const struct ibv_flow_action *action;
 };
 
+struct ibv_flow_spec_counter_action {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_counters *counters;
+};
+
 struct ibv_flow_spec {
 	union {
 		struct {
@@ -1577,6 +1584,7 @@ struct ibv_flow_spec {
 		struct ibv_flow_spec_action_tag flow_tag;
 		struct ibv_flow_spec_action_drop drop;
 		struct ibv_flow_spec_action_handle handle;
+		struct ibv_flow_spec_counter_action flow_count;
 	};
 };
 

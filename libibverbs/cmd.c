@@ -1809,6 +1809,15 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		kern_spec->handle.handle = vaction->handle;
 		break;
 	}
+	case IBV_FLOW_SPEC_ACTION_COUNT: {
+		const struct verbs_counters *vcounters =
+			container_of(ib_spec->flow_count.counters,
+				     const struct verbs_counters, counters);
+		kern_spec->flow_count.size =
+			sizeof(struct ib_uverbs_flow_spec_action_count);
+		kern_spec->flow_count.handle = vcounters->handle;
+		break;
+	}
 	default:
 		return EINVAL;
 	}

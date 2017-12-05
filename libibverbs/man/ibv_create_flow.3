@@ -75,6 +75,7 @@ IBV_FLOW_SPEC_INNER                    	= 0x100,  /* Flag making L2/L3/L4 specif
 IBV_FLOW_SPEC_ACTION_TAG                = 0x1000, /* Action tagging matched packet */
 IBV_FLOW_SPEC_ACTION_DROP               = 0x1001, /* Action dropping matched packet */
 IBV_FLOW_SPEC_ACTION_HANDLE             = 0x1002, /* Carry out an action created by ibv_create_flow_action_xxxx verb */
+IBV_FLOW_SPEC_ACTION_COUNT              = 0x1003, /* Action count matched packet with a ibv_counters handle */
 .in -8
 };
 .br
