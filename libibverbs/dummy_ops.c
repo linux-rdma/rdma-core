@@ -71,6 +71,13 @@ static void async_event(struct ibv_async_event *event)
 {
 }
 
+static int attach_counters_point_flow(struct ibv_counters *counters,
+				      struct ibv_counter_attach_attr *attr,
+				      struct ibv_flow *flow)
+{
+	return ENOSYS;
+}
+
 static int attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid)
 {
@@ -421,6 +428,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	alloc_pd,
 	alloc_td,
 	async_event,
+	attach_counters_point_flow,
 	attach_mcast,
 	bind_mw,
 	close_xrcd,
@@ -507,6 +515,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, alloc_parent_domain);
 	SET_OP(vctx, alloc_td);
 	SET_OP(ctx, async_event);
+	SET_OP(vctx, attach_counters_point_flow);
 	SET_OP(ctx, attach_mcast);
 	SET_OP(ctx, bind_mw);
 	SET_OP(vctx, close_xrcd);

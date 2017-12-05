@@ -211,6 +211,9 @@ struct verbs_context_ops {
 	struct ibv_td *(*alloc_td)(struct ibv_context *context,
 				   struct ibv_td_init_attr *init_attr);
 	void (*async_event)(struct ibv_async_event *event);
+	int (*attach_counters_point_flow)(struct ibv_counters *counters,
+					  struct ibv_counter_attach_attr *attr,
+					  struct ibv_flow *flow);
 	int (*attach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
 	int (*bind_mw)(struct ibv_qp *qp, struct ibv_mw *mw,

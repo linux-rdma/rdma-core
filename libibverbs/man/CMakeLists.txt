@@ -5,6 +5,7 @@ rdma_man_pages(
   ibv_alloc_pd.3
   ibv_alloc_td.3
   ibv_asyncwatch.1
+  ibv_attach_counters_point_flow.3.md
   ibv_attach_mcast.3.md
   ibv_bind_mw.3
   ibv_create_ah.3

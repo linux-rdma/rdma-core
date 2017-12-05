@@ -1768,6 +1768,17 @@ struct ibv_counters {
 	struct ibv_context	*context;
 };
 
+enum ibv_counter_description {
+	IBV_COUNTER_PACKETS,
+	IBV_COUNTER_BYTES,
+};
+
+struct ibv_counter_attach_attr {
+	enum ibv_counter_description counter_desc;
+	uint32_t index; /* Desired location index of the counter at the counters object */
+	uint32_t comp_mask;
+};
+
 enum ibv_values_mask {
 	IBV_VALUES_MASK_RAW_CLOCK	= 1 << 0,
 	IBV_VALUES_MASK_RESERVED	= 1 << 1
@@ -1780,6 +1791,9 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*attach_counters_point_flow)(struct ibv_counters *counters,
+					  struct ibv_counter_attach_attr *attr,
+					  struct ibv_flow *flow);
 	struct ibv_counters *(*create_counters)(struct ibv_context *context,
 						struct ibv_counters_init_attr *init_attr);
 	int (*destroy_counters)(struct ibv_counters *counters);
@@ -2873,6 +2887,19 @@ static inline int ibv_destroy_counters(struct ibv_counters *counters)
 		return ENOSYS;
 
 	return vctx->destroy_counters(counters);
+}
+
+static inline int ibv_attach_counters_point_flow(struct ibv_counters *counters,
+						 struct ibv_counter_attach_attr *attr,
+						 struct ibv_flow *flow)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(counters->context, attach_counters_point_flow);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->attach_counters_point_flow(counters, attr, flow);
 }
 
 #ifdef __cplusplus
