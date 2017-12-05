@@ -1760,6 +1760,14 @@ struct ibv_parent_domain_init_attr {
 	uint32_t comp_mask;
 };
 
+struct ibv_counters_init_attr {
+	uint32_t	comp_mask;
+};
+
+struct ibv_counters {
+	struct ibv_context	*context;
+};
+
 enum ibv_values_mask {
 	IBV_VALUES_MASK_RAW_CLOCK	= 1 << 0,
 	IBV_VALUES_MASK_RESERVED	= 1 << 1
@@ -1772,6 +1780,9 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_counters *(*create_counters)(struct ibv_context *context,
+						struct ibv_counters_init_attr *init_attr);
+	int (*destroy_counters)(struct ibv_counters *counters);
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
@@ -2837,6 +2848,31 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 static inline int ibv_is_qpt_supported(uint32_t caps, enum ibv_qp_type qpt)
 {
 	return !!(caps & (1 << qpt));
+}
+
+static inline struct ibv_counters *ibv_create_counters(struct ibv_context *context,
+						       struct ibv_counters_init_attr *init_attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, create_counters);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->create_counters(context, init_attr);
+}
+
+static inline int ibv_destroy_counters(struct ibv_counters *counters)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(counters->context, destroy_counters);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->destroy_counters(counters);
 }
 
 #ifdef __cplusplus

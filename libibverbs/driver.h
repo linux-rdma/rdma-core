@@ -188,6 +188,11 @@ struct verbs_device {
 	struct verbs_sysfs_dev *sysfs;
 };
 
+struct verbs_counters {
+	struct ibv_counters counters;
+	uint32_t handle;
+};
+
 /*
  * Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed. This is
  * the union of every op the driver can support. If new elements are added to
@@ -214,6 +219,8 @@ struct verbs_context_ops {
 	void (*cq_event)(struct ibv_cq *cq);
 	struct ibv_ah *(*create_ah)(struct ibv_pd *pd,
 				    struct ibv_ah_attr *attr);
+	struct ibv_counters *(*create_counters)(struct ibv_context *context,
+						struct ibv_counters_init_attr *init_attr);
 	struct ibv_cq *(*create_cq)(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector);
@@ -244,6 +251,7 @@ struct verbs_context_ops {
 	int (*dealloc_td)(struct ibv_td *td);
 	int (*dereg_mr)(struct ibv_mr *mr);
 	int (*destroy_ah)(struct ibv_ah *ah);
+	int (*destroy_counters)(struct ibv_counters *counters);
 	int (*destroy_cq)(struct ibv_cq *cq);
 	int (*destroy_flow)(struct ibv_flow *flow);
 	int (*destroy_flow_action)(struct ibv_flow_action *action);
@@ -526,6 +534,11 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 				 size_t resp_core_size,
 				 size_t resp_size);
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
+int ibv_cmd_create_counters(struct ibv_context *context,
+			    struct ibv_counters_init_attr *init_attr,
+			    struct verbs_counters *vcounters,
+			    struct ibv_command_buffer *link);
+int ibv_cmd_destroy_counters(struct verbs_counters *vcounters);
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);
 int ibv_cmd_alloc_dm(struct ibv_context *ctx,

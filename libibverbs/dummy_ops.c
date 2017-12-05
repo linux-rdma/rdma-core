@@ -98,6 +98,13 @@ static struct ibv_ah *create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	return NULL;
 }
 
+static struct ibv_counters *create_counters(struct ibv_context *context,
+					    struct ibv_counters_init_attr *init_attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_cq *create_cq(struct ibv_context *context, int cqe,
 				struct ibv_comp_channel *channel,
 				int comp_vector)
@@ -192,6 +199,11 @@ static int dereg_mr(struct ibv_mr *mr)
 }
 
 static int destroy_ah(struct ibv_ah *ah)
+{
+	return ENOSYS;
+}
+
+static int destroy_counters(struct ibv_counters *counters)
 {
 	return ENOSYS;
 }
@@ -414,6 +426,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	close_xrcd,
 	cq_event,
 	create_ah,
+	create_counters,
 	create_cq,
 	create_cq_ex,
 	create_flow,
@@ -429,6 +442,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	dealloc_td,
 	dereg_mr,
 	destroy_ah,
+	destroy_counters,
 	destroy_cq,
 	destroy_flow,
 	destroy_flow_action,
@@ -498,6 +512,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, close_xrcd);
 	SET_OP(ctx, cq_event);
 	SET_OP(ctx, create_ah);
+	SET_OP(vctx, create_counters);
 	SET_OP(ctx, create_cq);
 	SET_OP(vctx, create_cq_ex);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
@@ -513,6 +528,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, dealloc_td);
 	SET_OP(ctx, dereg_mr);
 	SET_OP(ctx, destroy_ah);
+	SET_OP(vctx, destroy_counters);
 	SET_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
 	SET_OP(vctx, destroy_flow_action);
