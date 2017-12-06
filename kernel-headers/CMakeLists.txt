@@ -29,13 +29,7 @@ publish_internal_headers(rdma/hfi
 function(rdma_kernel_provider_abi)
   # Older versions of cmake do not create the output directory automatically
   set(DDIR "${BUILD_INCLUDE}/kernel-abi")
-  if(NOT EXISTS "${DDIR}/")
-    execute_process(COMMAND "${CMAKE_COMMAND}" "-E" "make_directory"
-      "${DDIR}" RESULT_VARIABLE retcode)
-    if(NOT "${retcode}" STREQUAL "0")
-      message(FATAL_ERROR "Failed to create directory ${DDIR}")
-    endif()
-  endif()
+  rdma_make_dir("${DDIR}")
 
   set(HDRS "")
   foreach(IHDR ${ARGN})

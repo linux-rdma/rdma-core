@@ -136,6 +136,7 @@ include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
+include(rdma_man)
 
 if (NOT DEFINED ENABLE_STATIC)
   set(ENABLE_STATIC "OFF" CACHE BOOL "Produce static linking libraries as well as shared libraries.")
@@ -306,7 +307,10 @@ else()
 endif()
 
 # Look for Python
-FIND_PACKAGE (PythonInterp)
+FIND_PACKAGE(PythonInterp REQUIRED)
+
+# Look for pandoc
+FIND_PACKAGE(pandoc)
 
 #-------------------------
 # Find libraries
@@ -548,6 +552,13 @@ if (NL_KIND EQUAL 0)
 else()
   if (NOT HAVE_WORKING_IF_H)
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
+  endif()
+endif()
+if (NOT PANDOC_FOUND)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
+  else()
+    message(STATUS " pandoc NOT found (using prebuilt man pages)")
   endif()
 endif()
 if (NOT SYSTEMD_FOUND)

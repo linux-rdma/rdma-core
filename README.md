@@ -82,7 +82,7 @@ best experience.
 
 ```sh
 $ yum install epel-release
-$ yum install cmake3 unzip ninja-build
+$ yum install cmake3 ninja-build pandoc
 ```
 
 NOTE: EPEL uses the name 'ninja-build' for the 'ninja' command, and 'cmake3'
