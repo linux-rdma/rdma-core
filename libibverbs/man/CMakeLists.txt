@@ -4,7 +4,7 @@ rdma_man_pages(
   ibv_alloc_pd.3
   ibv_alloc_td.3
   ibv_asyncwatch.1
-  ibv_attach_mcast.3
+  ibv_attach_mcast.3.md
   ibv_bind_mw.3
   ibv_create_ah.3
   ibv_create_ah_from_wc.3
@@ -21,15 +21,15 @@ rdma_man_pages(
   ibv_create_wq.3
   ibv_devices.1
   ibv_devinfo.1
-  ibv_event_type_str.3
-  ibv_fork_init.3
+  ibv_event_type_str.3.md
+  ibv_fork_init.3.md
   ibv_get_async_event.3
   ibv_get_cq_event.3
-  ibv_get_device_guid.3
+  ibv_get_device_guid.3.md
   ibv_get_device_list.3
-  ibv_get_device_name.3
-  ibv_get_srq_num.3
-  ibv_inc_rkey.3
+  ibv_get_device_name.3.md
+  ibv_get_srq_num.3.md
+  ibv_inc_rkey.3.md
   ibv_modify_qp.3
   ibv_modify_srq.3
   ibv_modify_wq.3
@@ -43,19 +43,19 @@ rdma_man_pages(
   ibv_post_srq_recv.3
   ibv_query_device.3
   ibv_query_device_ex.3
-  ibv_query_gid.3
-  ibv_query_pkey.3
+  ibv_query_gid.3.md
+  ibv_query_pkey.3.md
   ibv_query_port.3
   ibv_query_qp.3
   ibv_query_rt_values_ex.3
   ibv_query_srq.3
-  ibv_rate_to_mbps.3
-  ibv_rate_to_mult.3
+  ibv_rate_to_mbps.3.md
+  ibv_rate_to_mult.3.md
   ibv_rc_pingpong.1
   ibv_reg_mr.3
-  ibv_req_notify_cq.3
-  ibv_rereg_mr.3
-  ibv_resize_cq.3
+  ibv_req_notify_cq.3.md
+  ibv_rereg_mr.3.md
+  ibv_resize_cq.3.md
   ibv_srq_pingpong.1
   ibv_uc_pingpong.1
   ibv_ud_pingpong.1
