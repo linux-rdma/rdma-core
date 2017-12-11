@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
 		IBPANIC("send failed");
 
 	if (umad_recv(portid, umad, &length, -1) != mad_agent)
-		IBPANIC("recv error: %s", drmad_status_str(smp));
+		IBPANIC("recv error: %s", strerror(errno));
 
 	if (!dump_char) {
 		xdump(stdout, 0, smp->data, 64);
