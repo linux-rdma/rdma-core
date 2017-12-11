@@ -497,6 +497,34 @@ static int stop_threads(struct sync_resources *sync_res)
 	return result;
 }
 
+/*****************************************************************************
+ * Function: poll_cq_once
+ * Poll a CQ once.
+ * Returns the number of completion polled (0 or 1).
+ * Returns a negative value on error.
+ *****************************************************************************/
+static int poll_cq_once(struct sync_resources *sync_res, struct ibv_cq *cq,
+			struct ibv_wc *wc)
+{
+	int ret;
+
+	ret = ibv_poll_cq(cq, 1, wc);
+	if (ret < 0) {
+		pr_err("poll CQ failed\n");
+		return ret;
+	}
+
+	if (ret > 0 && wc->status != IBV_WC_SUCCESS) {
+		if (!stop_threads(sync_res))
+			pr_err("got bad completion with status: 0x%x\n",
+			       wc->status);
+		return -ret;
+	}
+
+	return ret;
+}
+
+
 static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
 		   struct ibv_wc *wc, struct ibv_comp_channel *channel)
 {
@@ -505,6 +533,16 @@ static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
 	void          *ev_ctx;
 
 	if (channel) {
+		/* There may be extra completions that
+		 * were associated to the previous event.
+		 * Only poll for the first one. If there are more than one,
+		 * they will be handled by later call to poll_cq */
+		ret = poll_cq_once(sync_res, cq, wc);
+		/* return directly if there was an error or
+		 * 1 completion polled */
+		if (ret)
+			return ret;
+
 		if (ibv_get_cq_event(channel, &ev_cq, &ev_ctx)) {
 			pr_err("Failed to get cq_event\n");
 			return -1;
@@ -525,18 +563,9 @@ static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
 	}
 
 	do {
-		ret = ibv_poll_cq(cq, 1, wc);
-		if (ret < 0) {
-			pr_err("poll CQ failed\n");
+		ret = poll_cq_once(sync_res, cq, wc);
+		if (ret < 0)
 			return ret;
-		}
-
-		if (ret > 0 && wc->status != IBV_WC_SUCCESS) {
-			if (!stop_threads(sync_res))
-				pr_err("got bad completion with status: 0x%x\n",
-				       wc->status);
-			return -ret;
-		}
 
 		if (ret == 0 && channel) {
 			pr_err("Weird poll returned no cqe after CQ event\n");
