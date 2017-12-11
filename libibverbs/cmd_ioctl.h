@@ -373,4 +373,10 @@ fill_attr_in_enum(struct ibv_command_buffer *cmd, uint16_t attr_id,
 	return attr;
 }
 
+static inline int is_attr_size_valid(size_t num, size_t ent_size)
+{
+	/* check multiplication overflow */
+	return (!ent_size || UINT16_MAX / ent_size >= num);
+}
+
 #endif

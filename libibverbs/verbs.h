@@ -1779,6 +1779,10 @@ struct ibv_counter_attach_attr {
 	uint32_t comp_mask;
 };
 
+enum ibv_read_counters_flags {
+	IBV_READ_COUNTERS_ATTR_PREFER_CACHED = 1 << 0,
+};
+
 enum ibv_values_mask {
 	IBV_VALUES_MASK_RAW_CLOCK	= 1 << 0,
 	IBV_VALUES_MASK_RESERVED	= 1 << 1
@@ -1791,6 +1795,10 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*read_counters)(struct ibv_counters *counters,
+			     uint64_t *counters_value,
+			     uint32_t ncounters,
+			     uint32_t flags);
 	int (*attach_counters_point_flow)(struct ibv_counters *counters,
 					  struct ibv_counter_attach_attr *attr,
 					  struct ibv_flow *flow);
@@ -2900,6 +2908,20 @@ static inline int ibv_attach_counters_point_flow(struct ibv_counters *counters,
 		return ENOSYS;
 
 	return vctx->attach_counters_point_flow(counters, attr, flow);
+}
+
+static inline int ibv_read_counters(struct ibv_counters *counters,
+				    uint64_t *counters_value,
+				    uint32_t ncounters,
+				    uint32_t flags)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(counters->context, read_counters);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->read_counters(counters, counters_value, ncounters, flags);
 }
 
 #ifdef __cplusplus

@@ -57,6 +57,7 @@ rdma_man_pages(
   ibv_rate_to_mbps.3.md
   ibv_rate_to_mult.3.md
   ibv_rc_pingpong.1
+  ibv_read_counters.3.md
   ibv_reg_mr.3
   ibv_req_notify_cq.3.md
   ibv_rereg_mr.3.md

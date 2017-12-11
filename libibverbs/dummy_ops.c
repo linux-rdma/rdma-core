@@ -378,6 +378,14 @@ static int query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return ENOSYS;
 }
 
+static int read_counters(struct ibv_counters *counters,
+			 uint64_t *counters_value,
+			 uint32_t ncounters,
+			 uint32_t flags)
+{
+	return ENOSYS;
+}
+
 static struct ibv_mr *reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
 				uint64_t dm_offset, size_t length,
 				unsigned int access)
@@ -480,6 +488,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_qp,
 	query_rt_values,
 	query_srq,
+	read_counters,
 	reg_dm_mr,
 	reg_mr,
 	req_notify_cq,
@@ -567,6 +576,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
 	SET_OP(ctx, query_srq);
+	SET_OP(vctx, read_counters);
 	SET_OP(vctx, reg_dm_mr);
 	SET_OP(ctx, reg_mr);
 	SET_OP(ctx, req_notify_cq);

@@ -164,6 +164,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
+		ibv_cmd_read_counters;
 		ibv_cmd_reg_dm_mr;
 		ibv_cmd_reg_mr;
 		ibv_cmd_req_notify_cq;

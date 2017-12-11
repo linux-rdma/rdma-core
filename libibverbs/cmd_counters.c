@@ -69,3 +69,25 @@ int ibv_cmd_destroy_counters(struct verbs_counters *vcounters)
 	fill_attr_in_obj(cmd, UVERBS_ATTR_DESTROY_COUNTERS_HANDLE, vcounters->handle);
 	return execute_ioctl(vcounters->counters.context, cmd);
 }
+
+int ibv_cmd_read_counters(struct verbs_counters *vcounters,
+			  uint64_t *counters_value,
+			  uint32_t ncounters,
+			  uint32_t flags,
+			  struct ibv_command_buffer *link)
+{
+	DECLARE_COMMAND_BUFFER_LINK(cmd, UVERBS_OBJECT_COUNTERS,
+				    UVERBS_METHOD_COUNTERS_READ,
+				    4,
+				    link);
+
+	if (!is_attr_size_valid(ncounters, sizeof(uint64_t)))
+		return EINVAL;
+
+	fill_attr_in_obj(cmd, UVERBS_ATTR_READ_COUNTERS_HANDLE, vcounters->handle);
+	fill_attr_out(cmd, UVERBS_ATTR_READ_COUNTERS_BUFF, counters_value,
+		      ncounters * sizeof(uint64_t));
+	fill_attr_in_uint32(cmd, UVERBS_ATTR_READ_COUNTERS_FLAGS, flags);
+
+	return execute_ioctl(vcounters->counters.context, cmd);
+}

@@ -303,6 +303,10 @@ struct verbs_context_ops {
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+	int (*read_counters)(struct ibv_counters *counters,
+			     uint64_t *counters_value,
+			     uint32_t ncounters,
+			     uint32_t flags);
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
@@ -542,6 +546,11 @@ int ibv_cmd_create_counters(struct ibv_context *context,
 			    struct verbs_counters *vcounters,
 			    struct ibv_command_buffer *link);
 int ibv_cmd_destroy_counters(struct verbs_counters *vcounters);
+int ibv_cmd_read_counters(struct verbs_counters *vcounters,
+			  uint64_t *counters_value,
+			  uint32_t ncounters,
+			  uint32_t flags,
+			  struct ibv_command_buffer *link);
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);
 int ibv_cmd_alloc_dm(struct ibv_context *ctx,
