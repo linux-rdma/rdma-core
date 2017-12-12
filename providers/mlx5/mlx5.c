@@ -700,6 +700,14 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_DYN_BFREGS;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE) {
+		if (mctx->clock_info_page) {
+			attrs_out->max_clock_info_update_nsec =
+					mctx->clock_info_page->overflow_period;
+			comp_mask_out |= MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE;
+		}
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
@@ -891,6 +899,42 @@ int mlx5dv_set_context_attr(struct ibv_context *ibv_ctx,
 	default:
 		return ENOTSUP;
 	}
+
+	return 0;
+}
+
+typedef _Atomic(uint32_t) atomic_uint32_t;
+
+int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
+			  struct mlx5dv_clock_info *clock_info)
+{
+	struct mlx5_context *ctx = to_mctx(ctx_in);
+	const struct mlx5_ib_clock_info *ci = ctx->clock_info_page;
+	uint32_t retry, tmp_sig;
+	atomic_uint32_t *sig;
+
+	if (!ci)
+		return EINVAL;
+
+	sig = (atomic_uint32_t *)&ci->sig;
+
+	do {
+		retry = 10;
+repeat:
+		tmp_sig = atomic_load(sig);
+		if (unlikely(tmp_sig &
+			     MLX5_IB_CLOCK_INFO_KERNEL_UPDATING)) {
+			if (--retry)
+				goto repeat;
+			return EBUSY;
+		}
+		clock_info->nsec   = ci->nsec;
+		clock_info->last_cycles = ci->last_cycles;
+		clock_info->frac   = ci->frac;
+		clock_info->mult   = ci->mult;
+		clock_info->shift  = ci->shift;
+		clock_info->mask   = ci->mask;
+	} while (unlikely(tmp_sig != atomic_load(sig)));
 
 	return 0;
 }

@@ -86,6 +86,10 @@ enum {
 	MLX5_IB_CLOCK_INFO_V1	= 0,
 };
 
+enum {
+	MLX5_IB_CLOCK_INFO_KERNEL_UPDATING = 1,
+};
+
 struct mlx5_ib_clock_info {
 	__u32 sig;
 	__u32 resv;

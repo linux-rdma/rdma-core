@@ -63,7 +63,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_STRIDING_RQ		= 1 << 2,
 	MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS	= 1 << 3,
 	MLX5DV_CONTEXT_MASK_DYN_BFREGS		= 1 << 4,
-	MLX5DV_CONTEXT_MASK_RESERVED		= 1 << 5,
+	MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE	= 1 << 5,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -102,6 +102,7 @@ struct mlx5dv_context {
 	struct mlx5dv_striding_rq_caps striding_rq_caps;
 	uint32_t	tunnel_offloads_caps;
 	uint32_t	max_dynamic_bfregs;
+	uint64_t	max_clock_info_update_nsec;
 };
 
 enum mlx5dv_context_flags {
@@ -787,5 +788,27 @@ struct mlx5dv_ctx_allocators {
  */
 int mlx5dv_set_context_attr(struct ibv_context *context,
 		enum mlx5dv_set_ctx_attr_type type, void *attr);
+
+struct mlx5dv_clock_info {
+	uint64_t nsec;
+	uint64_t last_cycles;
+	uint64_t frac;
+	uint32_t mult;
+	uint32_t shift;
+	uint64_t mask;
+};
+
+/*
+ * Get mlx5 core clock info
+ *
+ * Output:
+ *      clock_info  - clock info to be filled
+ * Input:
+ *      context     - device context
+ *
+ * Return: 0 on success, or the value of errno on failure
+ */
+int mlx5dv_get_clock_info(struct ibv_context *context,
+			  struct mlx5dv_clock_info *clock_info);
 
 #endif /* _MLX5DV_H_ */
