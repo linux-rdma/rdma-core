@@ -87,6 +87,9 @@ int mlx4_query_device_ex(struct ibv_context *context,
 	if (err)
 		return err;
 
+	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
+	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
+
 	if (resp.comp_mask & MLX4_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
 		mctx->core_clock.offset = resp.hca_core_clock_offset;
 		mctx->core_clock.offset_valid = 1;
@@ -919,8 +922,8 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 		goto err_free;
 
 	if (mlx4qp_attr) {
-		if (mlx4qp_attr->comp_mask &
-		    ~(MLX4DV_QP_INIT_ATTR_MASK_RESERVED - 1)) {
+		if (!check_comp_mask(mlx4qp_attr->comp_mask,
+		    MLX4DV_QP_INIT_ATTR_MASK_RESERVED - 1)) {
 			errno = EINVAL;
 			goto err_free;
 		}
@@ -1519,6 +1522,36 @@ int mlx4_modify_wq(struct ibv_wq *ibwq, struct ibv_wq_attr *attr)
 	return ret;
 }
 
+struct ibv_flow *mlx4_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr)
+{
+	struct ibv_flow *flow_id;
+	int ret;
+
+	flow_id = calloc(1, sizeof *flow_id);
+	if (!flow_id)
+		return NULL;
+
+	ret = ibv_cmd_create_flow(qp, flow_id, flow_attr);
+	if (!ret)
+		return flow_id;
+
+	free(flow_id);
+	return NULL;
+}
+
+int mlx4_destroy_flow(struct ibv_flow *flow_id)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_flow(flow_id);
+
+	if (ret && !cleanup_on_fatal(ret))
+		return ret;
+
+	free(flow_id);
+	return 0;
+}
+
 int mlx4_destroy_wq(struct ibv_wq *ibwq)
 {
 	struct mlx4_context *mcontext = to_mctx(ibwq->context);
@@ -1608,4 +1641,11 @@ int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 
 	free(rwq_ind_table);
 	return 0;
+}
+
+int mlx4_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
+{
+	struct ibv_modify_cq cmd = {};
+
+	return ibv_cmd_modify_cq(cq, attr, &cmd, sizeof(cmd));
 }

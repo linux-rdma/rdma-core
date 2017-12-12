@@ -51,6 +51,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <sys/uio.h>
+
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
 #include <rdma/rsocket.h>

@@ -59,15 +59,8 @@
 #define CPU_EQUAL(x, y) 1
 #endif
 
-
-#define HCA(v, d) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = d }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-} hca_table[] = {
+#define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x1011),	/* MT4113 Connect-IB */
 	HCA(MELLANOX, 0x1012),	/* Connect-IB Virtual Function */
 	HCA(MELLANOX, 0x1013),	/* ConnectX-4 */
@@ -82,6 +75,7 @@ static struct {
 	HCA(MELLANOX, 0x101c),	/* ConnectX-6 VF */
 	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
 	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
+	{}
 };
 
 uint32_t mlx5_debug_mask = 0;
@@ -628,6 +622,12 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_MPW_ALLOWED)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED;
 
+	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP;
+
+	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD;
+
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_CQE_COMPRESION) {
 		attrs_out->cqe_comp_caps = mctx->cqe_comp_caps;
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_CQE_COMPRESION;
@@ -635,6 +635,21 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 
 	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_ENHANCED_MPW;
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_SWP) {
+		attrs_out->sw_parsing_caps = mctx->sw_parsing_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_SWP;
+	}
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_STRIDING_RQ) {
+		attrs_out->striding_rq_caps = mctx->striding_rq_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_STRIDING_RQ;
+	}
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS) {
+		attrs_out->tunnel_offloads_caps = mctx->tunnel_offloads_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS;
+	}
 
 	attrs_out->comp_mask = comp_mask_out;
 
@@ -690,7 +705,7 @@ static int mlx5dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->cqe_size  = mcq->cqe_sz;
 	cq_out->buf       = mcq->active_buf->buf;
 	cq_out->dbrec     = mcq->dbrec;
-	cq_out->cq_uar	  = mctx->uar[0];
+	cq_out->cq_uar	  = mctx->uar[0].reg;
 
 	mcq->flags	 |= MLX5_CQ_FLAGS_DV_OWNED;
 
@@ -762,13 +777,50 @@ COMPAT_SYMVER_FUNC(mlx5dv_init_obj, 1_0, "MLX5_1.0",
 	return ret;
 }
 
-static off_t get_uar_mmap_offset(int idx, int page_size)
+static off_t get_uar_mmap_offset(int idx, int page_size, int command)
 {
 	off_t offset = 0;
 
-	set_command(MLX5_MMAP_GET_REGULAR_PAGES_CMD, &offset);
+	set_command(command, &offset);
 	set_index(idx, &offset);
+
 	return offset * page_size;
+}
+
+static off_t uar_type_to_cmd(int uar_type)
+{
+	return (uar_type == MLX5_UAR_TYPE_NC) ? MLX5_MMAP_GET_NC_PAGES_CMD :
+		MLX5_MMAP_GET_REGULAR_PAGES_CMD;
+}
+
+static void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
+		       int cmd_fd, int page_size, int uar_type)
+{
+	off_t offset;
+
+	if (uar_type == MLX5_UAR_TYPE_NC) {
+		offset = get_uar_mmap_offset(index, page_size,
+					     MLX5_MMAP_GET_NC_PAGES_CMD);
+		uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
+				       cmd_fd, offset);
+		if (uar->reg != MAP_FAILED) {
+			uar->type = MLX5_UAR_TYPE_NC;
+			goto out;
+		}
+	}
+
+	/* Backward compatibility for legacy kernels that don't support
+	 * MLX5_MMAP_GET_NC_PAGES_CMD mmap command.
+	 */
+	offset = get_uar_mmap_offset(index, page_size,
+				     MLX5_MMAP_GET_REGULAR_PAGES_CMD);
+	uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
+			cmd_fd, offset);
+	if (uar->reg != MAP_FAILED)
+		uar->type = MLX5_UAR_TYPE_REGULAR;
+
+out:
+	return uar->reg;
 }
 
 int mlx5dv_set_context_attr(struct ibv_context *ibv_ctx,
@@ -814,7 +866,6 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	int				low_lat_uuars;
 	int				gross_uuars;
 	int				j;
-	off_t				offset;
 	struct mlx5_device	       *mdev;
 	struct verbs_context	       *v_ctx;
 	struct ibv_port_attr		port_attr;
@@ -911,13 +962,15 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	pthread_mutex_init(&context->db_list_mutex, NULL);
 
+	context->prefer_bf = get_always_bf();
+	context->shut_up_bf = get_shut_up_bf();
+
 	num_sys_page_map = context->tot_uuars / (context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
 	for (i = 0; i < num_sys_page_map; ++i) {
-		offset = get_uar_mmap_offset(i, page_size);
-		context->uar[i] = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
-				       cmd_fd, offset);
-		if (context->uar[i] == MAP_FAILED) {
-			context->uar[i] = NULL;
+		if (mlx5_mmap(&context->uar[i], i, cmd_fd, page_size,
+			      context->shut_up_bf ? MLX5_UAR_TYPE_NC :
+			      MLX5_UAR_TYPE_REGULAR) == MAP_FAILED) {
+			context->uar[i].reg = NULL;
 			goto err_free_bf;
 		}
 	}
@@ -926,7 +979,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 		for (j = 0; j < context->num_uars_per_page; j++) {
 			for (k = 0; k < NUM_BFREGS_PER_UAR; k++) {
 				bfi = (i * context->num_uars_per_page + j) * NUM_BFREGS_PER_UAR + k;
-				context->bfs[bfi].reg = context->uar[i] + MLX5_ADAPTER_PAGE_SIZE * j +
+				context->bfs[bfi].reg = context->uar[i].reg + MLX5_ADAPTER_PAGE_SIZE * j +
 							MLX5_BF_OFFSET + k * context->bf_reg_size;
 				context->bfs[bfi].need_lock = need_uuar_lock(context, bfi);
 				mlx5_spinlock_init(&context->bfs[bfi].lock);
@@ -934,7 +987,9 @@ static int mlx5_init_context(struct verbs_device *vdev,
 				if (bfi)
 					context->bfs[bfi].buf_size = context->bf_reg_size / 2;
 				context->bfs[bfi].uuarn = bfi;
-				context->bfs[bfi].uar_mmap_offset = get_uar_mmap_offset(i, page_size);
+				context->bfs[bfi].uar_mmap_offset = get_uar_mmap_offset(i,
+											page_size,
+											uar_type_to_cmd(context->uar[i].type));
 			}
 		}
 	}
@@ -947,8 +1002,6 @@ static int mlx5_init_context(struct verbs_device *vdev,
 		mlx5_map_internal_clock(mdev, ctx);
 	}
 
-	context->prefer_bf = get_always_bf();
-	context->shut_up_bf = get_shut_up_bf();
 	mlx5_read_env(&vdev->device, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
@@ -963,14 +1016,16 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	verbs_set_ctx_op(v_ctx, get_srq_num, mlx5_get_srq_num);
 	verbs_set_ctx_op(v_ctx, query_device_ex, mlx5_query_device_ex);
 	verbs_set_ctx_op(v_ctx, query_rt_values, mlx5_query_rt_values);
-	verbs_set_ctx_op(v_ctx, ibv_create_flow, ibv_cmd_create_flow);
-	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, ibv_cmd_destroy_flow);
+	verbs_set_ctx_op(v_ctx, ibv_create_flow, mlx5_create_flow);
+	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, mlx5_destroy_flow);
 	verbs_set_ctx_op(v_ctx, create_cq_ex, mlx5_create_cq_ex);
 	verbs_set_ctx_op(v_ctx, create_wq, mlx5_create_wq);
 	verbs_set_ctx_op(v_ctx, modify_wq, mlx5_modify_wq);
 	verbs_set_ctx_op(v_ctx, destroy_wq, mlx5_destroy_wq);
 	verbs_set_ctx_op(v_ctx, create_rwq_ind_table, mlx5_create_rwq_ind_table);
 	verbs_set_ctx_op(v_ctx, destroy_rwq_ind_table, mlx5_destroy_rwq_ind_table);
+	verbs_set_ctx_op(v_ctx, post_srq_ops, mlx5_post_srq_ops);
+	verbs_set_ctx_op(v_ctx, modify_cq, mlx5_modify_cq);
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,
@@ -994,8 +1049,8 @@ err_free_bf:
 
 err_free:
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
-		if (context->uar[i])
-			munmap(context->uar[i], page_size);
+		if (context->uar[i].reg)
+			munmap(context->uar[i].reg, page_size);
 	}
 	close_debug_file(context);
 	return errno;
@@ -1010,8 +1065,8 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 
 	free(context->bfs);
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
-		if (context->uar[i])
-			munmap(context->uar[i], page_size);
+		if (context->uar[i].reg)
+			munmap(context->uar[i].reg, page_size);
 	}
 	if (context->hca_core_clock)
 		munmap(context->hca_core_clock - context->core_clock.offset,
@@ -1026,59 +1081,17 @@ static void mlx5_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops mlx5_dev_ops = {
-	.init_context = mlx5_init_context,
-	.uninit_context = mlx5_cleanup_context,
-	.uninit_device = mlx5_uninit_device
-};
-
-static struct verbs_device *mlx5_driver_init(const char *uverbs_sys_path,
-					     int abi_version)
+static struct verbs_device *mlx5_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char			value[8];
-	struct mlx5_device     *dev;
-	unsigned		vendor, device;
-	int			i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
-	if (abi_version < MLX5_UVERBS_MIN_ABI_VERSION ||
-	    abi_version > MLX5_UVERBS_MAX_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is not supported "
-			"(min supported %d, max supported %d)\n",
-			abi_version, uverbs_sys_path,
-			MLX5_UVERBS_MIN_ABI_VERSION,
-			MLX5_UVERBS_MAX_ABI_VERSION);
-		return NULL;
-	}
+	struct mlx5_device *dev;
 
 	dev = calloc(1, sizeof *dev);
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
 	dev->page_size   = sysconf(_SC_PAGESIZE);
-	dev->driver_abi_ver = abi_version;
+	dev->driver_abi_ver = sysfs_dev->abi_ver;
 
-	dev->verbs_dev.ops = &mlx5_dev_ops;
 	dev->verbs_dev.sz = sizeof(*dev);
 	dev->verbs_dev.size_of_context = sizeof(struct mlx5_context) -
 		sizeof(struct ibv_context);
@@ -1086,7 +1099,14 @@ found:
 	return &dev->verbs_dev;
 }
 
-static __attribute__((constructor)) void mlx5_register_driver(void)
-{
-	verbs_register_driver("mlx5", mlx5_driver_init);
-}
+static const struct verbs_device_ops mlx5_dev_ops = {
+	.name = "mlx5",
+	.match_min_abi_version = MLX5_UVERBS_MIN_ABI_VERSION,
+	.match_max_abi_version = MLX5_UVERBS_MAX_ABI_VERSION,
+	.match_table = hca_table,
+	.alloc_device = mlx5_device_alloc,
+	.uninit_device = mlx5_uninit_device,
+	.init_context = mlx5_init_context,
+	.uninit_context = mlx5_cleanup_context,
+};
+PROVIDER_DRIVER(mlx5_dev_ops);

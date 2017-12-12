@@ -64,14 +64,9 @@
 uint32_t qelr_dp_level;
 uint32_t qelr_dp_module;
 
-#define QHCA(d)					\
-	{ .vendor = PCI_VENDOR_ID_QLOGIC,	\
-	  .device = PCI_DEVICE_ID_QLOGIC_##d }
-
-static const struct {
-	unsigned int vendor;
-	unsigned int device;
-} hca_table[] = {
+#define QHCA(d)                                                                \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_##d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	QHCA(57980S),
 	QHCA(57980S_40),
 	QHCA(57980S_10),
@@ -82,6 +77,7 @@ static const struct {
 	QHCA(57980S_IOV),
 	QHCA(AH),
 	QHCA(AH_IOV),
+	{}
 };
 
 static struct ibv_context *qelr_alloc_context(struct ibv_device *, int);
@@ -114,12 +110,6 @@ static void qelr_uninit_device(struct verbs_device *verbs_device)
 
 	free(dev);
 }
-
-static struct verbs_device_ops qelr_dev_ops = {
-	.alloc_context = qelr_alloc_context,
-	.free_context = qelr_free_context,
-	.uninit_device = qelr_uninit_device
-};
 
 static void qelr_open_debug_file(struct qelr_devctx *ctx)
 {
@@ -233,54 +223,25 @@ static void qelr_free_context(struct ibv_context *ibctx)
 	free(ctx);
 }
 
-static struct verbs_device *qelr_driver_init(const char *uverbs_sys_path,
-					     int abi_version)
+static struct verbs_device *qelr_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char value[16];
 	struct qelr_device *dev;
-	unsigned int vendor, device;
-	int i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0)
-		return NULL;
-
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0)
-		return NULL;
-
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof(hca_table) / sizeof(hca_table[0]); ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-found:
-	if (abi_version != QELR_ABI_VERSION) {
-		fprintf(stderr,
-			"Fatal: libqedr ABI version %d of %s is not supported.\n",
-			abi_version, uverbs_sys_path);
-		return NULL;
-	}
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		qelr_err("%s() Fatal: fail allocate device for libqedr\n",
-			 __func__);
+	if (!dev)
 		return NULL;
-	}
-
-	dev->ibv_dev.ops = &qelr_dev_ops;
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__ ((constructor))
-void qelr_register_driver(void)
-{
-	verbs_register_driver("qelr", qelr_driver_init);
-}
+static const struct verbs_device_ops qelr_dev_ops = {
+	.name = "qedr",
+	.match_min_abi_version = QELR_ABI_VERSION,
+	.match_max_abi_version = QELR_ABI_VERSION,
+	.match_table = hca_table,
+	.alloc_device = qelr_device_alloc,
+	.uninit_device = qelr_uninit_device,
+	.alloc_context = qelr_alloc_context,
+	.free_context = qelr_free_context,
+};
+PROVIDER_DRIVER(qelr_dev_ops);

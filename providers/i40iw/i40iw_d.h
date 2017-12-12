@@ -1315,9 +1315,11 @@
 #define I40IWQPC_LOCAL_IPADDR0_MASK     \
 	(0xffffffffULL << I40IWQPC_LOCAL_IPADDR0_SHIFT)
 
-/* wqe size considering 32 bytes per wqe*/
-#define I40IWQP_SW_MIN_WQSIZE 4		/* 128 bytes */
-#define I40IWQP_SW_MAX_WQSIZE 2048	/* 2048 bytes */
+#define I40IW_QP_SW_MIN_WQSIZE 4		/*in WRs*/
+#define I40IW_SQ_RSVD 2
+#define I40IW_RQ_RSVD 1
+#define I40IW_QP_SW_MAX_SQ_QUANTAS 2048
+#define I40IW_QP_SW_MAX_RQ_QUANTAS 16384
 #define I40IWQP_OP_RDMA_WRITE 0
 #define I40IWQP_OP_RDMA_READ 1
 #define I40IWQP_OP_RDMA_SEND 3

@@ -194,6 +194,26 @@ static inline void set_raddr_seg(struct mlx5_wqe_raddr_seg *rseg,
 	rseg->reserved = 0;
 }
 
+static void set_tm_seg(struct mlx5_wqe_tm_seg *tmseg, int op,
+		       struct ibv_ops_wr *wr, int index)
+{
+	tmseg->flags = 0;
+	if (wr->flags & IBV_OPS_SIGNALED)
+		tmseg->flags |= MLX5_SRQ_FLAG_TM_CQE_REQ;
+	if (wr->flags & IBV_OPS_TM_SYNC) {
+		tmseg->flags |= MLX5_SRQ_FLAG_TM_SW_CNT;
+		tmseg->sw_cnt = htobe16(wr->tm.unexpected_cnt);
+	}
+	tmseg->opcode = op << 4;
+	if (op == MLX5_TM_OPCODE_NOP)
+		return;
+	tmseg->index = htobe16(index);
+	if (op == MLX5_TM_OPCODE_REMOVE)
+		return;
+	tmseg->append_tag = htobe64(wr->tm.add.tag);
+	tmseg->append_mask = htobe64(wr->tm.add.mask);
+}
+
 static void set_atomic_seg(struct mlx5_wqe_atomic_seg *aseg,
 			   enum ibv_wr_opcode   opcode,
 			   uint64_t swap,
@@ -229,6 +249,13 @@ static void set_data_ptr_seg_atomic(struct mlx5_wqe_data_seg *dseg,
 	dseg->byte_count = htobe32(MLX5_ATOMIC_SIZE);
 	dseg->lkey       = htobe32(sg->lkey);
 	dseg->addr       = htobe64(sg->addr);
+}
+
+static void set_data_ptr_seg_end(struct mlx5_wqe_data_seg *dseg)
+{
+	dseg->byte_count = 0;
+	dseg->lkey       = htobe32(MLX5_INVALID_LKEY);
+	dseg->addr       = 0;
 }
 
 /*
@@ -661,10 +688,61 @@ static inline int mlx5_post_send_underlay(struct mlx5_qp *qp, struct ibv_send_wr
 	return 0;
 }
 
+static inline void post_send_db(struct mlx5_qp *qp, struct mlx5_bf *bf,
+				int nreq, int inl, int size,
+				uint8_t next_fence, void *ctrl)
+{
+	struct mlx5_context *ctx;
+
+	if (unlikely(!nreq))
+		return;
+
+	qp->sq.head += nreq;
+	qp->fm_cache = next_fence;
+
+	/*
+	 * Make sure that descriptors are written before
+	 * updating doorbell record and ringing the doorbell
+	 */
+	udma_to_device_barrier();
+	qp->db[MLX5_SND_DBR] = htobe32(qp->sq.cur_post & 0xffff);
+
+	/* Make sure that the doorbell write happens before the memcpy
+	 * to WC memory below
+	 */
+	ctx = to_mctx(qp->ibv_qp->context);
+	if (bf->need_lock)
+		mmio_wc_spinlock(&bf->lock.lock);
+	else
+		mmio_wc_start();
+
+	if (!ctx->shut_up_bf && nreq == 1 && bf->uuarn &&
+	    (inl || ctx->prefer_bf) && size > 1 &&
+	    size <= bf->buf_size / 16)
+		mlx5_bf_copy(bf->reg + bf->offset, ctrl,
+			     align(size * 16, 64), qp);
+	else
+		mmio_write64_be(bf->reg + bf->offset, *(__be64 *)ctrl);
+
+	/*
+	 * use mmio_flush_writes() to ensure write combining buffers are
+	 * flushed out of the running CPU. This must be carried inside
+	 * the spinlock. Otherwise, there is a potential race. In the
+	 * race, CPU A writes doorbell 1, which is waiting in the WC
+	 * buffer. CPU B writes doorbell 2, and it's write is flushed
+	 * earlier. Since the mmio_flush_writes is CPU local, this will
+	 * result in the HCA seeing doorbell 2, followed by doorbell 1.
+	 * Flush before toggling bf_offset to be latency oriented.
+	 */
+	mmio_flush_writes();
+	bf->offset ^= bf->buf_size;
+	if (bf->need_lock)
+		mlx5_spin_unlock(&bf->lock);
+}
+
 static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				  struct ibv_send_wr **bad_wr)
 {
-	struct mlx5_context *ctx;
 	struct mlx5_qp *qp = to_mqp(ibqp);
 	void *seg;
 	struct mlx5_wqe_eth_seg *eseg;
@@ -977,48 +1055,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 
 out:
-	if (likely(nreq)) {
-		qp->sq.head += nreq;
-		qp->fm_cache = next_fence;
-
-		/*
-		 * Make sure that descriptors are written before
-		 * updating doorbell record and ringing the doorbell
-		 */
-		udma_to_device_barrier();
-		qp->db[MLX5_SND_DBR] = htobe32(qp->sq.cur_post & 0xffff);
-
-		/* Make sure that the doorbell write happens before the memcpy
-		 * to WC memory below */
-		ctx = to_mctx(ibqp->context);
-		if (bf->need_lock)
-			mmio_wc_spinlock(&bf->lock.lock);
-		else
-			mmio_wc_start();
-
-		if (!ctx->shut_up_bf && nreq == 1 && bf->uuarn &&
-		    (inl || ctx->prefer_bf) && size > 1 &&
-		    size <= bf->buf_size / 16)
-			mlx5_bf_copy(bf->reg + bf->offset, (uint64_t *)ctrl,
-				     align(size * 16, 64), qp);
-		else
-			mmio_write64_be(bf->reg + bf->offset, *(__be64 *)ctrl);
-
-		/*
-		 * use mmio_flush_writes() to ensure write combining buffers are flushed out
-		 * of the running CPU. This must be carried inside the spinlock.
-		 * Otherwise, there is a potential race. In the race, CPU A
-		 * writes doorbell 1, which is waiting in the WC buffer. CPU B
-		 * writes doorbell 2, and it's write is flushed earlier. Since
-		 * the mmio_flush_writes is CPU local, this will result in the HCA seeing
-		 * doorbell 2, followed by doorbell 1.
-		 * Flush before toggling bf_offset to be latency oriented.
-		 */
-		mmio_flush_writes();
-		bf->offset ^= bf->buf_size;
-		if (bf->need_lock)
-			mlx5_spin_unlock(&bf->lock);
-	}
+	post_send_db(qp, bf, nreq, inl, size, next_fence, ctrl);
 
 	mlx5_spin_unlock(&qp->sq.lock);
 
@@ -1271,6 +1308,186 @@ out:
 	}
 
 	mlx5_spin_unlock(&qp->rq.lock);
+
+	return err;
+}
+
+static void mlx5_tm_add_op(struct mlx5_srq *srq, struct mlx5_tag_entry *tag,
+			   uint64_t wr_id, int nreq)
+{
+	struct mlx5_qp *qp = to_mqp(srq->cmd_qp);
+	struct mlx5_srq_op *op;
+
+	op = srq->op + (srq->op_tail++ & (qp->sq.wqe_cnt - 1));
+	op->tag = tag;
+	op->wr_id = wr_id;
+	/* Will point to next available WQE */
+	op->wqe_head = qp->sq.head + nreq;
+	if (tag)
+		tag->expect_cqe++;
+}
+
+int mlx5_post_srq_ops(struct ibv_srq *ibsrq, struct ibv_ops_wr *wr,
+		      struct ibv_ops_wr **bad_wr)
+{
+	struct mlx5_context *ctx = to_mctx(ibsrq->context);
+	struct mlx5_srq *srq = to_msrq(ibsrq);
+	struct mlx5_wqe_ctrl_seg *ctrl = NULL;
+	struct mlx5_tag_entry *tag;
+	struct mlx5_bf *bf;
+	struct mlx5_qp *qp;
+	unsigned int idx;
+	int size = 0;
+	int nreq = 0;
+	int err = 0;
+	void *qend;
+	void *seg;
+	FILE *fp = ctx->dbg_fp;
+
+	if (unlikely(!srq->cmd_qp)) {
+		*bad_wr = wr;
+		return EINVAL;
+	}
+
+	qp = to_mqp(srq->cmd_qp);
+	bf = qp->bf;
+	qend = qp->sq.qend;
+	mlx5_spin_lock(&srq->lock);
+
+	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		if (unlikely(mlx5_wq_overflow(&qp->sq, nreq,
+					      to_mcq(qp->ibv_qp->send_cq)))) {
+			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "work queue overflow\n");
+			err = ENOMEM;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		idx = qp->sq.cur_post & (qp->sq.wqe_cnt - 1);
+		ctrl = seg = mlx5_get_send_wqe(qp, idx);
+		*(uint32_t *)(seg + 8) = 0;
+		ctrl->imm = 0;
+		ctrl->fm_ce_se = 0;
+
+		seg += sizeof(*ctrl);
+		size = sizeof(*ctrl) / 16;
+
+		switch (wr->opcode) {
+		case IBV_WR_TAG_ADD:
+			if (unlikely(!srq->tm_head->next)) {
+				mlx5_dbg(fp, MLX5_DBG_QP_SEND, "tag matching list is full\n");
+				err = ENOMEM;
+				*bad_wr = wr;
+				goto out;
+			}
+			tag = srq->tm_head;
+#ifdef MLX5_DEBUG
+			if (wr->tm.add.num_sge > 1) {
+				mlx5_dbg(fp, MLX5_DBG_QP_SEND, "num_sge must be at most 1\n");
+				err = EINVAL;
+				*bad_wr = wr;
+				goto out;
+			}
+
+			if (tag->expect_cqe) {
+				mlx5_dbg(fp, MLX5_DBG_QP_SEND, "tag matching list is corrupted\n");
+				err = ENOMEM;
+				*bad_wr = wr;
+				goto out;
+			}
+#endif
+			srq->tm_head = tag->next;
+			/* place index of next entry into TM segment */
+			set_tm_seg(seg, MLX5_TM_OPCODE_APPEND, wr,
+				   tag->next - srq->tm_list);
+			tag->next = NULL;
+			tag->wr_id = wr->tm.add.recv_wr_id;
+			if (wr->flags & IBV_OPS_TM_SYNC)
+				srq->unexp_out = wr->tm.unexpected_cnt;
+			tag->phase_cnt = srq->unexp_out;
+			tag->expect_cqe++;
+
+			if (wr->flags & IBV_OPS_SIGNALED)
+				mlx5_tm_add_op(srq, tag, wr->wr_id, nreq);
+
+			wr->tm.handle = tag - srq->tm_list;
+			seg += sizeof(struct mlx5_wqe_tm_seg);
+			size += sizeof(struct mlx5_wqe_tm_seg) / 16;
+
+			if (unlikely(seg == qend))
+				seg = mlx5_get_send_wqe(qp, 0);
+
+			/* message is allowed to be empty */
+			if (wr->tm.add.num_sge && wr->tm.add.sg_list->length) {
+				set_data_ptr_seg(seg, wr->tm.add.sg_list, 0);
+				tag->ptr = (void *)(uintptr_t)wr->tm.add.sg_list->addr;
+				tag->size = wr->tm.add.sg_list->length;
+			} else {
+				set_data_ptr_seg_end(seg);
+			}
+			size += sizeof(struct mlx5_wqe_data_seg) / 16;
+			break;
+
+		case IBV_WR_TAG_DEL:
+			tag = &srq->tm_list[wr->tm.handle];
+
+#ifdef MLX5_DEBUG
+			if (!tag->expect_cqe) {
+				mlx5_dbg(fp, MLX5_DBG_QP_SEND, "removing tag which isn't in HW ownership\n");
+				err = ENOMEM;
+				*bad_wr = wr;
+				goto out;
+			}
+#endif
+			set_tm_seg(seg, MLX5_TM_OPCODE_REMOVE, wr,
+				   wr->tm.handle);
+
+			if (wr->flags & IBV_OPS_SIGNALED)
+				mlx5_tm_add_op(srq, tag, wr->wr_id, nreq);
+			else
+				mlx5_tm_release_tag(srq, tag);
+
+			seg += sizeof(struct mlx5_wqe_tm_seg);
+			size += sizeof(struct mlx5_wqe_tm_seg) / 16;
+			break;
+
+		case IBV_WR_TAG_SYNC:
+			set_tm_seg(seg, MLX5_TM_OPCODE_NOP, wr, 0);
+
+			if (wr->flags & IBV_OPS_SIGNALED)
+				mlx5_tm_add_op(srq, NULL, wr->wr_id, nreq);
+
+			seg += sizeof(struct mlx5_wqe_tm_seg);
+			size += sizeof(struct mlx5_wqe_tm_seg) / 16;
+			break;
+
+		default:
+			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "bad opcode %d\n",
+				 wr->opcode);
+			err = EINVAL;
+			*bad_wr = wr;
+			goto out;
+		}
+
+		ctrl->opmod_idx_opcode = htobe32(MLX5_OPCODE_TAG_MATCHING |
+				((qp->sq.cur_post & 0xffff) << 8));
+		ctrl->qpn_ds = htobe32(size | (srq->cmd_qp->qp_num << 8));
+
+		if (unlikely(qp->wq_sig))
+			ctrl->signature = wq_sig(ctrl);
+
+		qp->sq.cur_post += DIV_ROUND_UP(size * 16, MLX5_SEND_WQE_BB);
+
+#ifdef MLX5_DEBUG
+		if (mlx5_debug_mask & MLX5_DBG_QP_SEND)
+			dump_wqe(fp, idx, size, qp);
+#endif
+	}
+
+out:
+	post_send_db(qp, bf, nreq, 0, size, 0, ctrl);
+
+	mlx5_spin_unlock(&srq->lock);
 
 	return err;
 }

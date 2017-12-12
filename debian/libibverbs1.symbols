@@ -91,7 +91,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_wc_status_str@IBVERBS_1.1 1.1.6
  mbps_to_ibv_rate@IBVERBS_1.1 1.1.8
  mult_to_ibv_rate@IBVERBS_1.0 1.1.6
- IBVERBS_PRIVATE_15@IBVERBS_PRIVATE_15 15
+ IBVERBS_PRIVATE_16@IBVERBS_PRIVATE_16 16
  ibv_cmd_alloc_mw@IBVERBS_PRIVATE_15 15
  ibv_cmd_alloc_pd@IBVERBS_PRIVATE_15 15
  ibv_cmd_attach_mcast@IBVERBS_PRIVATE_15 15

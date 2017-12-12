@@ -31,14 +31,20 @@ Descriptions of section entries:
 * OVERALL PACKAGE
 M:	Doug Ledford <dledford@redhat.com>
 M:	Leon Romanovsky <leon@kernel.org>
+M:	Jason Gunthorpe <jgg@mellanox.com>
 S:	Supported
 
 BUILD SYSTEM
-M:	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+M:	Jason Gunthorpe <jgg@mellanox.com>
 S:	Supported
 F:	*/CMakeLists.txt
 F:	*/lib*.map
 F:	buildlib/
+
+DEBIAN PACKAGING
+M:	Benjamin Drung <benjamin.drung@profitbricks.com>
+S:	Supported
+F:	debian/
 
 BNXT_RE USERSPACE PROVIDER (for bnxt_re.ko)
 M:	Devesh Sharma  <Devesh.sharma@broadcom.com>

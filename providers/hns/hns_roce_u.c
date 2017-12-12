@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Hisilicon Limited.
+ * Copyright (c) 2016-2017 Hisilicon Limited.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -44,22 +44,21 @@
 #define HID_LEN			15
 #define DEV_MATCH_LEN		128
 
-static const struct {
-	char	 hid[HID_LEN];
-	void	 *data;
-	int	 version;
-} acpi_table[] = {
-	 {"acpi:HISI00D1:", &hns_roce_u_hw_v1, HNS_ROCE_HW_VER1},
-	 {},
-};
+#ifndef PCI_VENDOR_ID_HUAWEI
+#define PCI_VENDOR_ID_HUAWEI			0x19E5
+#endif
 
-static const struct {
-	char	 compatible[DEV_MATCH_LEN];
-	void	 *data;
-	int	 version;
-} dt_table[] = {
-	{"hisilicon,hns-roce-v1", &hns_roce_u_hw_v1, HNS_ROCE_HW_VER1},
-	{},
+static const struct verbs_match_ent hca_table[] = {
+	VERBS_MODALIAS_MATCH("acpi*:HISI00D1:*", &hns_roce_u_hw_v1),
+	VERBS_MODALIAS_MATCH("of:N*T*Chisilicon,hns-roce-v1C*", &hns_roce_u_hw_v1),
+	VERBS_MODALIAS_MATCH("of:N*T*Chisilicon,hns-roce-v1", &hns_roce_u_hw_v1),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA222, &hns_roce_u_hw_v2),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA223, &hns_roce_u_hw_v2),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA224, &hns_roce_u_hw_v2),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA225, &hns_roce_u_hw_v2),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA226, &hns_roce_u_hw_v2),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA227, &hns_roce_u_hw_v2),
+	{}
 };
 
 static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
@@ -119,6 +118,7 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->ibv_ctx.ops.alloc_pd	   = hns_roce_u_alloc_pd;
 	context->ibv_ctx.ops.dealloc_pd    = hns_roce_u_free_pd;
 	context->ibv_ctx.ops.reg_mr	   = hns_roce_u_reg_mr;
+	context->ibv_ctx.ops.rereg_mr	   = hns_roce_u_rereg_mr;
 	context->ibv_ctx.ops.dereg_mr	   = hns_roce_u_dereg_mr;
 
 	context->ibv_ctx.ops.create_cq     = hns_roce_u_create_cq;
@@ -180,57 +180,28 @@ static void hns_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops hns_roce_dev_ops = {
-	.alloc_context = hns_roce_alloc_context,
-	.free_context	= hns_roce_free_context,
-	.uninit_device = hns_uninit_device
-};
-
-static struct verbs_device *hns_roce_driver_init(const char *uverbs_sys_path,
-						 int abi_version)
+static struct verbs_device *hns_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct hns_roce_device  *dev;
-	char			 value[128];
-	int			 i;
-	void			 *u_hw;
-	int			 hw_version;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/modalias",
-				value, sizeof(value)) > 0)
-		for (i = 0; i < sizeof(acpi_table) / sizeof(acpi_table[0]); ++i)
-			if (!strcmp(value, acpi_table[i].hid)) {
-				u_hw = acpi_table[i].data;
-				hw_version = acpi_table[i].version;
-				goto found;
-			}
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/of_node/compatible",
-				value, sizeof(value)) > 0)
-		for (i = 0; i < sizeof(dt_table) / sizeof(dt_table[0]); ++i)
-			if (!strcmp(value, dt_table[i].compatible)) {
-				u_hw = dt_table[i].data;
-				hw_version = dt_table[i].version;
-				goto found;
-			}
-
-	return NULL;
-
-found:
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->ibv_dev.ops = &hns_roce_dev_ops;
-	dev->u_hw = (struct hns_roce_u_hw *)u_hw;
-	dev->hw_version = hw_version;
+	dev->u_hw = sysfs_dev->match->driver_data;
+	dev->hw_version = dev->u_hw->hw_version;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void hns_roce_register_driver(void)
-{
-	verbs_register_driver("hns", hns_roce_driver_init);
-}
+static const struct verbs_device_ops hns_roce_dev_ops = {
+	.name = "hns",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_table = hca_table,
+	.alloc_device = hns_device_alloc,
+	.uninit_device = hns_uninit_device,
+	.alloc_context = hns_roce_alloc_context,
+	.free_context = hns_roce_free_context,
+};
+PROVIDER_DRIVER(hns_roce_dev_ops);

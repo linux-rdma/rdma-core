@@ -238,6 +238,33 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			attr->raw_packet_caps = resp->raw_packet_caps;
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, tm_caps) +
+			 sizeof(attr->tm_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, tm_caps) +
+		    sizeof(resp->tm_caps)) {
+			attr->tm_caps.max_rndv_hdr_size =
+				resp->tm_caps.max_rndv_hdr_size;
+			attr->tm_caps.max_num_tags =
+				resp->tm_caps.max_num_tags;
+			attr->tm_caps.flags = resp->tm_caps.flags;
+			attr->tm_caps.max_ops =
+				resp->tm_caps.max_ops;
+			attr->tm_caps.max_sge =
+				resp->tm_caps.max_sge;
+		}
+	}
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, cq_mod_caps) +
+			 sizeof(attr->cq_mod_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, cq_mod_caps) +
+		    sizeof(resp->cq_mod_caps)) {
+			attr->cq_mod_caps.max_cq_count = resp->cq_mod_caps.cq_count;
+			attr->cq_mod_caps.max_cq_period = resp->cq_mod_caps.cq_period;
+		}
+	}
+
 	return 0;
 }
 
@@ -703,6 +730,17 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 		vxrcd = container_of(attr_ex->xrcd, struct verbs_xrcd, xrcd);
 		cmd->xrcd_handle = vxrcd->handle;
 		cmd->cq_handle   = attr_ex->cq->handle;
+	} else if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_TM) {
+		if (cmd->srq_type != IBV_SRQT_TM)
+			return EINVAL;
+		if (!(attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_CQ) ||
+		    !attr_ex->tm_cap.max_num_tags)
+			return EINVAL;
+
+		cmd->cq_handle    = attr_ex->cq->handle;
+		cmd->max_num_tags = attr_ex->tm_cap.max_num_tags;
+	} else if (cmd->srq_type != IBV_SRQT_BASIC) {
+		return EINVAL;
 	}
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
@@ -928,7 +966,8 @@ enum {
 	CREATE_QP_EX2_SUP_CREATE_FLAGS = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB |
 					 IBV_QP_CREATE_SCATTER_FCS |
 					 IBV_QP_CREATE_CVLAN_STRIPPING |
-					 IBV_QP_CREATE_SOURCE_QPN,
+					 IBV_QP_CREATE_SOURCE_QPN |
+					 IBV_QP_CREATE_PCI_WRITE_END_PADDING,
 };
 
 int ibv_cmd_create_qp_ex2(struct ibv_context *context,
@@ -1836,12 +1875,12 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 	return 0;
 }
 
-struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
-				     struct ibv_flow_attr *flow_attr)
+int ibv_cmd_create_flow(struct ibv_qp *qp,
+			struct ibv_flow *flow_id,
+			struct ibv_flow_attr *flow_attr)
 {
 	struct ibv_create_flow *cmd;
 	struct ibv_create_flow_resp resp;
-	struct ibv_flow *flow_id;
 	size_t cmd_size;
 	size_t written_size;
 	int i, err;
@@ -1851,9 +1890,6 @@ struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
 	cmd_size = sizeof(*cmd) + (flow_attr->num_of_specs *
 				  sizeof(struct ibv_kern_spec));
 	cmd = alloca(cmd_size);
-	flow_id = malloc(sizeof(*flow_id));
-	if (!flow_id)
-		return NULL;
 	memset(cmd, 0, cmd_size);
 
 	cmd->qp_handle = qp->handle;
@@ -1888,10 +1924,9 @@ struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
 
 	flow_id->context = qp->context;
 	flow_id->handle = resp.flow_handle;
-	return flow_id;
+	return 0;
 err:
-	free(flow_id);
-	return NULL;
+	return errno;
 }
 
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
@@ -1905,7 +1940,6 @@ int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
 
 	if (write(flow_id->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		ret = errno;
-	free(flow_id);
 	return ret;
 }
 
@@ -2091,4 +2125,28 @@ int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 		ret = errno;
 
 	return ret;
+}
+
+
+int ibv_cmd_modify_cq(struct ibv_cq *cq,
+		      struct ibv_modify_cq_attr *attr,
+		      struct ibv_modify_cq *cmd,
+		      size_t cmd_size)
+{
+
+	if (attr->attr_mask >= IBV_CQ_ATTR_RESERVED)
+		return EINVAL;
+
+	IBV_INIT_CMD_EX(cmd, cmd_size, MODIFY_CQ);
+
+	cmd->cq_handle = cq->handle;
+	cmd->attr_mask = attr->attr_mask;
+	cmd->attr.cq_count =  attr->moderate.cq_count;
+	cmd->attr.cq_period = attr->moderate.cq_period;
+	cmd->reserved = 0;
+
+	if (write(cq->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	return 0;
 }

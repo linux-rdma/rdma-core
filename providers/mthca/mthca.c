@@ -72,16 +72,10 @@
 #define PCI_VENDOR_ID_TOPSPIN			0x1867
 #endif
 
-#define HCA(v, d, t) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_MELLANOX_##d,		\
-	  .type = MTHCA_##t }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-	enum mthca_hca_type	type;
-} hca_table[] = {
+#define HCA(v, d, t)                                                           \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_MELLANOX_##d,         \
+			(void *)(MTHCA_##t))
+static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, TAVOR,	    TAVOR),
 	HCA(MELLANOX, ARBEL_COMPAT, TAVOR),
 	HCA(MELLANOX, ARBEL,	    ARBEL),
@@ -92,6 +86,7 @@ static struct {
 	HCA(TOPSPIN,  ARBEL,	    ARBEL),
 	HCA(TOPSPIN,  SINAI_OLD,    ARBEL),
 	HCA(TOPSPIN,  SINAI,	    ARBEL),
+	{}
 };
 
 static struct ibv_context_ops mthca_ctx_ops = {
@@ -216,59 +211,29 @@ static void mthca_uninit_device(struct verbs_device *verbs_device)
 	free(dev);
 }
 
-static struct verbs_device_ops mthca_dev_ops = {
-	.alloc_context = mthca_alloc_context,
-	.free_context  = mthca_free_context,
-	.uninit_device = mthca_uninit_device
-};
-
-static struct verbs_device *mthca_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static struct verbs_device *
+mthca_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	char			value[8];
 	struct mthca_device    *dev;
-	unsigned                vendor, device;
-	int                     i;
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
-	if (abi_version > MTHCA_UVERBS_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is too new (expected %d)\n",
-			abi_version, uverbs_sys_path, MTHCA_UVERBS_ABI_VERSION);
-		return NULL;
-	}
 
 	dev = calloc(1, sizeof(*dev));
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
+	if (!dev)
 		return NULL;
-	}
 
-	dev->ibv_dev.ops = &mthca_dev_ops;
-	dev->hca_type    = hca_table[i].type;
+	dev->hca_type    = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void mthca_register_driver(void)
-{
-	verbs_register_driver("mthca", mthca_driver_init);
-}
+static const struct verbs_device_ops mthca_dev_ops = {
+	.name = "mthca",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = MTHCA_UVERBS_ABI_VERSION,
+	.match_table = hca_table,
+	.alloc_device = mthca_device_alloc,
+	.uninit_device = mthca_uninit_device,
+	.alloc_context = mthca_alloc_context,
+	.free_context = mthca_free_context,
+};
+PROVIDER_DRIVER(mthca_dev_ops);

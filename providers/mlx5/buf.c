@@ -51,7 +51,7 @@ static int mlx5_bitmap_init(struct mlx5_bitmap *bitmap, uint32_t num,
 	bitmap->avail = num;
 	bitmap->mask = mask;
 	bitmap->avail = bitmap->max;
-	bitmap->table = calloc(BITS_TO_LONGS(bitmap->max), sizeof(uint32_t));
+	bitmap->table = calloc(BITS_TO_LONGS(bitmap->max), sizeof(*bitmap->table));
 	if (!bitmap->table)
 		return -ENOMEM;
 

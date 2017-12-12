@@ -71,3 +71,8 @@ RDMACM_1.0 {
 		rdma_create_qp_ex;
 	local: *;
 };
+
+RDMACM_1.1 {
+	global:
+		rdma_join_multicast_ex;
+} RDMACM_1.0;

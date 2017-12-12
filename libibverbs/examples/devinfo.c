@@ -331,13 +331,32 @@ static void print_odp_caps(const struct ibv_odp_caps *caps)
 static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
 {
 	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000ULL;
-	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS);
+	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS |
+				   IBV_DEVICE_PCI_WRITE_END_PADDING);
 
 	if (ex_flags & IBV_DEVICE_RAW_SCATTER_FCS)
 		printf("\t\t\t\t\tRAW_SCATTER_FCS\n");
+	if (ex_flags & IBV_DEVICE_PCI_WRITE_END_PADDING)
+		printf("\t\t\t\t\tPCI_WRITE_END_PADDING\n");
 	if (ex_flags & unknown_flags)
 		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
 		       ex_flags & unknown_flags);
+}
+
+static void print_tm_caps(const struct ibv_tm_caps *caps)
+{
+	if (caps->max_num_tags) {
+		printf("\tmax_rndv_hdr_size:\t\t%u\n",
+				caps->max_rndv_hdr_size);
+		printf("\tmax_num_tags:\t\t\t%u\n", caps->max_num_tags);
+		printf("\tmax_ops:\t\t\t%u\n", caps->max_ops);
+		printf("\tmax_sge:\t\t\t%u\n", caps->max_sge);
+		printf("\tflags:\n");
+		if (caps->flags & IBV_TM_CAP_RC)
+			printf("\t\t\t\t\tIBV_TM_CAP_RC\n");
+	} else {
+		printf("\ttag matching not supported\n");
+	}
 }
 
 static void print_tso_caps(const struct ibv_tso_caps *caps)
@@ -379,6 +398,16 @@ static void print_rss_caps(const struct ibv_rss_caps *caps)
 			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
 			       caps->supported_qpts & unknown_general_caps);
 	}
+}
+
+static void print_cq_moderation_caps(const struct ibv_cq_moderation_caps *cq_caps)
+{
+	if (!cq_caps->max_cq_count || !cq_caps->max_cq_period)
+		return;
+
+	printf("\n\tcq moderation caps:\n");
+	printf("\t\tmax_cq_count:\t%u\n", cq_caps->max_cq_count);
+	printf("\t\tmax_cq_period:\t%u us\n\n", cq_caps->max_cq_period);
 }
 
 static void print_packet_pacing_caps(const struct ibv_packet_pacing_caps *caps)
@@ -521,6 +550,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		print_rss_caps(&device_attr.rss_caps);
 		printf("\tmax_wq_type_rq:\t\t\t%u\n", device_attr.max_wq_type_rq);
 		print_packet_pacing_caps(&device_attr.packet_pacing_caps);
+		print_tm_caps(&device_attr.tm_caps);
+		print_cq_moderation_caps(&device_attr.cq_mod_caps);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {

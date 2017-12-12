@@ -40,14 +40,7 @@
 #include <infiniband/kern-abi.h>
 #include <ccan/list.h>
 #include <config.h>
-
-#ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else /* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif /* __cplusplus */
+#include <stdbool.h>
 
 struct verbs_device;
 
@@ -95,8 +88,70 @@ struct verbs_qp {
 	struct verbs_xrcd       *xrcd;
 };
 
+enum {
+	VERBS_MATCH_SENTINEL = 0,
+	VERBS_MATCH_PCI = 1,
+	VERBS_MATCH_MODALIAS = 2,
+};
+
+struct verbs_match_ent {
+	void *driver_data;
+	const char *modalias;
+	uint16_t vendor;
+	uint16_t device;
+	uint8_t kind;
+};
+#define VERBS_PCI_MATCH(_vendor, _device, _data)                               \
+	{                                                                      \
+	    .driver_data = (_data),                                            \
+	    .vendor = (_vendor),                                               \
+	    .device = (_device),                                               \
+	    .kind = VERBS_MATCH_PCI,                                           \
+	}
+
+#define VERBS_MODALIAS_MATCH(_mod_str, _data)                                  \
+	{                                                                      \
+	    .driver_data = (_data),                                            \
+	    .modalias = (_mod_str),                                            \
+	    .kind = VERBS_MATCH_MODALIAS,                                      \
+	}
+
+/* Matching on the IB device name is STRONGLY discouraged. This will only
+ * match if there is no device/modalias file available, and it will eventually
+ * be disabled entirely if the kernel supports renaming. Use is strongly
+ * discouraged.
+ */
+#define VERBS_NAME_MATCH(_name_prefix, _data)                                  \
+	{                                                                      \
+	    .driver_data = (_data),                                            \
+	    .modalias = "rdma_device:*N" _name_prefix "*",                     \
+	    .kind = VERBS_MATCH_MODALIAS,                                      \
+	}
+
+/* A rdma device detected in sysfs */
+struct verbs_sysfs_dev {
+	struct list_node entry;
+	void *provider_data;
+	const struct verbs_match_ent *match;
+	char sysfs_name[IBV_SYSFS_NAME_MAX];
+	char ibdev_name[IBV_SYSFS_NAME_MAX];
+	char sysfs_path[IBV_SYSFS_PATH_MAX];
+	char ibdev_path[IBV_SYSFS_PATH_MAX];
+	char modalias[512];
+	int abi_ver;
+	struct timespec time_created;
+};
+
 /* Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed */
 struct verbs_device_ops {
+	const char *name;
+
+	int match_min_abi_version;
+	int match_max_abi_version;
+	const struct verbs_match_ent *match_table;
+
+	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
+
 	/* Old interface, do not use in new code. */
 	struct ibv_context *(*alloc_context)(struct ibv_device *device,
 					     int cmd_fd);
@@ -107,6 +162,8 @@ struct verbs_device_ops {
 			    struct ibv_context *ctx, int cmd_fd);
 	void (*uninit_context)(struct verbs_device *device,
 			       struct ibv_context *ctx);
+
+	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
 	void (*uninit_device)(struct verbs_device *device);
 };
 
@@ -118,7 +175,7 @@ struct verbs_device {
 	size_t	size_of_context;
 	atomic_int refcount;
 	struct list_node entry;
-	struct ibv_sysfs_dev *sysfs;
+	struct verbs_sysfs_dev *sysfs;
 };
 
 static inline struct verbs_device *
@@ -139,7 +196,15 @@ typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_pa
 #define __make_verbs_register_driver(x)  ___make_verbs_register_driver(x)
 #define verbs_register_driver __make_verbs_register_driver(IBVERBS_PABI_VERSION)
 
-void verbs_register_driver(const char *name, verbs_driver_init_func init_func);
+void verbs_register_driver(const struct verbs_device_ops *ops);
+
+/* Macro for providers to use to supply verbs_device_ops to the core code */
+#define PROVIDER_DRIVER(drv)                                                   \
+	static __attribute__((constructor)) void drv##__register_driver(void)  \
+	{                                                                      \
+		verbs_register_driver(&drv);                                   \
+	}
+
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context);
@@ -213,6 +278,10 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 		      struct ibv_resize_cq *cmd, size_t cmd_size,
 		      struct ibv_resize_cq_resp *resp, size_t resp_size);
 int ibv_cmd_destroy_cq(struct ibv_cq *cq);
+int ibv_cmd_modify_cq(struct ibv_cq *cq,
+		      struct ibv_modify_cq_attr *attr,
+		      struct ibv_modify_cq *cmd,
+		      size_t cmd_size);
 
 int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_srq *srq, struct ibv_srq_init_attr *attr,
@@ -282,7 +351,8 @@ int ibv_cmd_destroy_ah(struct ibv_ah *ah);
 int ibv_cmd_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
 int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
 
-struct ibv_flow *ibv_cmd_create_flow(struct ibv_qp *qp,
+int ibv_cmd_create_flow(struct ibv_qp *qp,
+				     struct ibv_flow *flow_id,
 				     struct ibv_flow_attr *flow_attr);
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id);
 int ibv_cmd_create_wq(struct ibv_context *context,
@@ -328,6 +398,11 @@ static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 		return 0;
 	}
 	return ENOSYS;
+}
+
+static inline bool check_comp_mask(uint64_t input, uint64_t supported)
+{
+	return (input & ~supported) == 0;
 }
 
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,

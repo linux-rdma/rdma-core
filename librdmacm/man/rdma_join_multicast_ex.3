@@ -1,0 +1,66 @@
+.TH "RDMA_JOIN_MULTICAST_EX" 3 "2017-11-17" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.SH NAME
+rdma_join_multicast_ex \- Joins a multicast group with extended options.
+.SH SYNOPSIS
+.B "#include <rdma/rdma_cma.h>"
+.P
+.B "int" rdma_join_multicast_ex
+.BI "(struct rdma_cm_id *" id ","
+.BI "struct rdma_cm_join_mc_attr_ex *" mc_join_attr ","
+.BI "void *" context ");"
+.SH ARGUMENTS
+.IP "id" 20
+Communication identifier associated with the request.
+.IP "mc_join_attr" 20
+Is an rdma_cm_join_mc_attr_ex struct, as defined in <rdma/rdma_cma.h>.
+.IP "context" 20
+User-defined context associated with the join request.
+.SH "DESCRIPTION"
+Joins a multicast group (MCG) with extended options.
+Currently supporting MC join with a specified join flag.
+.P
+.nf
+struct rdma_cm_join_mc_attr_ex {
+.in +8
+uint32_t                comp_mask;      /* Bitwise OR between "rdma_cm_join_mc_attr_mask" enum */
+uint32_t                join_flags;     /* Use a single flag from "rdma_cm_mc_join_flags" enum */
+struct sockaddr         *addr;          /* Multicast address identifying the group to join */
+.in -8
+};
+.fi
+.P
+The supported join flags are:
+.P
+.B RDMA_MC_JOIN_FLAG_FULLMEMBER
+- Create multicast group, Send multicast messages to MCG, Receive multicast messages from MCG.
+.P
+.B RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER
+- Create multicast group, Send multicast messages to MCG, Don't receive multicast messages from MCG (send-only).
+.P
+Initiating a MC join as "Send Only Full Member" on InfiniBand requires SM support, otherwise joining will fail.
+.P
+Initiating a MC join as "Send Only Full Member" on RoCEv2/ETH will not send any IGMP messages unlike a Full Member MC join.
+When "Send Only Full Member" is used the QP will not be attached to the MCG.
+.P
+.SH "RETURN VALUE"
+Returns 0 on success, or -1 on error.  If an error occurs, errno will be
+set to indicate the failure reason.
+.SH "NOTES"
+Before joining a multicast group, the rdma_cm_id must be bound to
+an RDMA device by calling rdma_bind_addr or rdma_resolve_addr.  Use of
+rdma_resolve_addr requires the local routing tables to resolve the
+multicast address to an RDMA device, unless a specific source address
+is provided.  The user must call rdma_leave_multicast to leave the
+multicast group and release any multicast resources.  After the join
+operation completes, if a QP is associated with the rdma_cm_id,
+it is automatically attached to the multicast group when the multicast
+event is retrieved by the user.  Otherwise, the user is responsible
+for calling ibv_attach_mcast to bind the QP to the multicast group.
+The join context is returned to the user through the private_data
+field in the rdma_cm_event.
+.SH "SEE ALSO"
+rdma_join_multicast(3), rdma_leave_multicast(3), rdma_bind_addr(3), rdma_resolve_addr(3), rdma_create_qp(3),
+rdma_get_cm_event(3)
+.SH "AUTHORS"
+.TP
+Alex Vesker <valex@mellanox.com>

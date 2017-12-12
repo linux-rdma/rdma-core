@@ -19,7 +19,7 @@
 %bcond_without  systemd
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        15.1
+Version:        16.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0 or BSD-2-Clause
@@ -557,6 +557,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
 %doc %{_docdir}/%{name}-%{version}/udev.md
+%doc %{_docdir}/%{name}-%{version}/tag_matching.md
 %{_bindir}/rxe_cfg
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rxe*

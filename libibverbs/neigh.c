@@ -375,7 +375,7 @@ static struct nl_addr *process_get_neigh_mac(
 
 			if (FD_ISSET(timer_fd, &fdset)) {
 				uint64_t read_val;
-				ssize_t rc;
+				ssize_t __attribute__((unused)) rc;
 
 				rc =
 				    read(timer_fd, &read_val, sizeof(read_val));

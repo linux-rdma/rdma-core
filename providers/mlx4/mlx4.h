@@ -350,6 +350,7 @@ void mlx4_cq_fill_pfns(struct mlx4_cq *cq, const struct ibv_cq_init_attr_ex *cq_
 int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
 		      int entry_size);
 int mlx4_resize_cq(struct ibv_cq *cq, int cqe);
+int mlx4_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int mlx4_destroy_cq(struct ibv_cq *cq);
 int mlx4_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx4_arm_cq(struct ibv_cq *cq, int solicited);
@@ -424,5 +425,7 @@ struct ibv_rwq_ind_table *mlx4_create_rwq_ind_table(struct ibv_context *context,
 int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int mlx4_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
 		      struct ibv_recv_wr **bad_wr);
+struct ibv_flow *mlx4_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr);
+int mlx4_destroy_flow(struct ibv_flow *flow_id);
 
 #endif /* MLX4_H */

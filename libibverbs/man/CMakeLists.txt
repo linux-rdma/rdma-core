@@ -9,6 +9,7 @@ rdma_man_pages(
   ibv_create_comp_channel.3
   ibv_create_cq.3
   ibv_create_cq_ex.3
+  ibv_modify_cq.3
   ibv_create_flow.3
   ibv_create_qp.3
   ibv_create_qp_ex.3
@@ -36,6 +37,7 @@ rdma_man_pages(
   ibv_poll_cq.3
   ibv_post_recv.3
   ibv_post_send.3
+  ibv_post_srq_ops.3
   ibv_post_srq_recv.3
   ibv_query_device.3
   ibv_query_device_ex.3

@@ -48,11 +48,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "15.1")
+set(PACKAGE_VERSION "16.0")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
 #   libibverbs/libibverbs.map
-set(IBVERBS_PABI_VERSION "15")
+set(IBVERBS_PABI_VERSION "16")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -436,7 +436,7 @@ if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/bnxt_re)
 add_subdirectory(providers/cxgb3) # NO SPARSE
 add_subdirectory(providers/cxgb4) # NO SPARSE
-add_subdirectory(providers/hns) # NO SPARSE
+add_subdirectory(providers/hns)
 add_subdirectory(providers/i40iw) # NO SPARSE
 add_subdirectory(providers/mlx4)
 add_subdirectory(providers/mlx4/man)

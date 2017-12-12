@@ -57,7 +57,6 @@ enum {
 };
 
 enum {
-	MLX5_MMAP_GET_REGULAR_PAGES_CMD    = 0,
 	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
 	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5
 };
@@ -132,6 +131,12 @@ enum {
 };
 
 enum {
+	MLX5_TM_OPCODE_NOP		= 0x00,
+	MLX5_TM_OPCODE_APPEND		= 0x01,
+	MLX5_TM_OPCODE_REMOVE		= 0x02,
+};
+
+enum {
 	MLX5_RECV_OPCODE_RDMA_WRITE_IMM	= 0x00,
 	MLX5_RECV_OPCODE_SEND		= 0x01,
 	MLX5_RECV_OPCODE_SEND_IMM	= 0x02,
@@ -142,7 +147,9 @@ enum {
 };
 
 enum {
-	MLX5_SRQ_FLAG_SIGNATURE		= 1 << 0,
+	MLX5_SRQ_FLAG_SIGNATURE		= (1 << 0),
+	MLX5_SRQ_FLAG_TM_SW_CNT		= (1 << 6),
+	MLX5_SRQ_FLAG_TM_CQE_REQ	= (1 << 7),
 };
 
 enum {
@@ -186,6 +193,8 @@ enum mlx5_vendor_cap_flags {
 	MLX5_VENDOR_CAP_FLAGS_MPW		= 1 << 0, /* Obsoleted */
 	MLX5_VENDOR_CAP_FLAGS_MPW_ALLOWED	= 1 << 1,
 	MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW	= 1 << 2,
+	MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP	= 1 << 3,
+	MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD	= 1 << 4,
 };
 
 enum {
@@ -208,6 +217,16 @@ struct mlx5_db_page;
 struct mlx5_spinlock {
 	pthread_spinlock_t		lock;
 	int				in_use;
+};
+
+enum mlx5_uar_type {
+	MLX5_UAR_TYPE_REGULAR,
+	MLX5_UAR_TYPE_NC,
+};
+
+struct mlx5_uar_info {
+	void				*reg;
+	enum mlx5_uar_type		type;
 };
 
 struct mlx5_context {
@@ -239,7 +258,7 @@ struct mlx5_context {
 	}				uidx_table[MLX5_UIDX_TABLE_SIZE];
 	pthread_mutex_t                 uidx_table_mutex;
 
-	void			       *uar[MLX5_MAX_UARS];
+	struct mlx5_uar_info		uar[MLX5_MAX_UARS];
 	struct mlx5_db_page	       *db_list;
 	pthread_mutex_t			db_list_mutex;
 	int				cache_line_size;
@@ -272,6 +291,9 @@ struct mlx5_context {
 	uint64_t			vendor_cap_flags; /* Use enum mlx5_vendor_cap_flags */
 	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
 	struct mlx5dv_ctx_allocators	extern_alloc;
+	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
+	struct mlx5dv_striding_rq_caps	striding_rq_caps;
+	uint32_t			tunnel_offloads_caps;
 };
 
 struct mlx5_bitmap {
@@ -315,6 +337,7 @@ enum {
 	MLX5_CQ_FLAGS_EXTENDED = 1 << 3,
 	MLX5_CQ_FLAGS_SINGLE_THREADED = 1 << 4,
 	MLX5_CQ_FLAGS_DV_OWNED = 1 << 5,
+	MLX5_CQ_FLAGS_TM_SYNC_REQ = 1 << 6,
 };
 
 struct mlx5_cq {
@@ -345,6 +368,22 @@ struct mlx5_cq {
 	int			umr_opcode;
 };
 
+struct mlx5_tag_entry {
+	struct mlx5_tag_entry *next;
+	uint64_t	       wr_id;
+	int		       phase_cnt;
+	void		      *ptr;
+	uint32_t	       size;
+	int8_t		       expect_cqe;
+};
+
+struct mlx5_srq_op {
+	struct mlx5_tag_entry *tag;
+	uint64_t	       wr_id;
+	/* we need to advance tail pointer */
+	uint32_t	       wqe_head;
+};
+
 struct mlx5_srq {
 	struct mlx5_resource            rsc;  /* This struct must be first */
 	struct verbs_srq		vsrq;
@@ -360,7 +399,27 @@ struct mlx5_srq {
 	__be32			       *db;
 	uint16_t			counter;
 	int				wq_sig;
+	struct ibv_qp		       *cmd_qp;
+	struct mlx5_tag_entry	       *tm_list; /* vector of all tags */
+	struct mlx5_tag_entry	       *tm_head; /* queue of free tags */
+	struct mlx5_tag_entry	       *tm_tail;
+	struct mlx5_srq_op	       *op;
+	int				op_head;
+	int				op_tail;
+	int				unexp_in;
+	int				unexp_out;
 };
+
+
+static inline void mlx5_tm_release_tag(struct mlx5_srq *srq,
+				       struct mlx5_tag_entry *tag)
+{
+	if (!--tag->expect_cqe) {
+		tag->next = NULL;
+		srq->tm_tail->next = tag;
+		srq->tm_tail = tag;
+	}
+}
 
 struct wr_list {
 	uint16_t	opcode;
@@ -616,6 +675,7 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 		      struct mlx5_buf *buf, int nent, int cqe_sz);
 int mlx5_free_cq_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 int mlx5_resize_cq(struct ibv_cq *cq, int cqe);
+int mlx5_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int mlx5_destroy_cq(struct ibv_cq *cq);
 int mlx5_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int mlx5_poll_cq_v1(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
@@ -690,8 +750,13 @@ int mlx5_destroy_wq(struct ibv_wq *wq);
 struct ibv_rwq_ind_table *mlx5_create_rwq_ind_table(struct ibv_context *context,
 						    struct ibv_rwq_ind_table_init_attr *init_attr);
 int mlx5_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
+struct ibv_flow *mlx5_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr);
+int mlx5_destroy_flow(struct ibv_flow *flow_id);
 struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 				   struct ibv_srq_init_attr_ex *attr);
+int mlx5_post_srq_ops(struct ibv_srq *srq,
+		      struct ibv_ops_wr *wr,
+		      struct ibv_ops_wr **bad_wr);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
