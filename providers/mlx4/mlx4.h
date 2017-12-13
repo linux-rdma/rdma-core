@@ -275,14 +275,12 @@ static inline struct mlx4_cq *to_mcq(struct ibv_cq *ibcq)
 
 static inline struct mlx4_srq *to_msrq(struct ibv_srq *ibsrq)
 {
-	return container_of(container_of(ibsrq, struct verbs_srq, srq),
-			    struct mlx4_srq, verbs_srq);
+	return container_of(ibsrq, struct mlx4_srq, verbs_srq.srq);
 }
 
 static inline struct mlx4_qp *to_mqp(struct ibv_qp *ibqp)
 {
-	return container_of(container_of(ibqp, struct verbs_qp, qp),
-			    struct mlx4_qp, verbs_qp);
+	return container_of(ibqp, struct mlx4_qp, verbs_qp.qp);
 }
 
 static inline struct mlx4_qp *wq_to_mqp(struct ibv_wq *ibwq)
