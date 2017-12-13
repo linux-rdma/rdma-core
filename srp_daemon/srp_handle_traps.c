@@ -550,8 +550,8 @@ static int register_to_trap(struct sync_resources *sync_res,
 	struct ibv_sge sg;
 	struct ibv_send_wr *_bad_wr = NULL;
 	struct ibv_send_wr **bad_wr = &_bad_wr;
-	int counter = 0;
-	int rc = 0;
+	int counter;
+	int rc;
 	int ret;
 	long long unsigned comp_mask = 0;
 
@@ -609,7 +609,7 @@ static int register_to_trap(struct sync_resources *sync_res,
 	p_sa_mad->comp_mask = htobe64(comp_mask);
 	pr_debug("comp_mask: %llx\n", comp_mask);
 
-	do {
+	for (counter = 3, rc = 0; counter > 0 && rc == 0; counter--) {
 		pthread_mutex_lock(res->mad_buffer_mutex);
 		res->mad_buffer->mad_hdr.base_version = 0; // flag that the buffer is empty
 		pthread_mutex_unlock(res->mad_buffer_mutex);
@@ -640,10 +640,9 @@ static int register_to_trap(struct sync_resources *sync_res,
 			}
 			pthread_mutex_unlock(res->mad_buffer_mutex);
 		} while (rc == 2); // while old response.
+	}
 
-	} while (rc == 0 && ++counter < 3);
-
-	if (counter==3) {
+	if (counter == 0) {
 		pr_err("No response to inform info registration\n");
 		return -EAGAIN;
 	}
