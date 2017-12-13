@@ -1009,23 +1009,23 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	context->ibv_ctx.ops = mlx5_ctx_ops;
 
-	verbs_set_ctx_op(v_ctx, create_qp_ex, mlx5_create_qp_ex);
-	verbs_set_ctx_op(v_ctx, open_xrcd, mlx5_open_xrcd);
-	verbs_set_ctx_op(v_ctx, close_xrcd, mlx5_close_xrcd);
-	verbs_set_ctx_op(v_ctx, create_srq_ex, mlx5_create_srq_ex);
-	verbs_set_ctx_op(v_ctx, get_srq_num, mlx5_get_srq_num);
-	verbs_set_ctx_op(v_ctx, query_device_ex, mlx5_query_device_ex);
-	verbs_set_ctx_op(v_ctx, query_rt_values, mlx5_query_rt_values);
-	verbs_set_ctx_op(v_ctx, ibv_create_flow, mlx5_create_flow);
-	verbs_set_ctx_op(v_ctx, ibv_destroy_flow, mlx5_destroy_flow);
-	verbs_set_ctx_op(v_ctx, create_cq_ex, mlx5_create_cq_ex);
-	verbs_set_ctx_op(v_ctx, create_wq, mlx5_create_wq);
-	verbs_set_ctx_op(v_ctx, modify_wq, mlx5_modify_wq);
-	verbs_set_ctx_op(v_ctx, destroy_wq, mlx5_destroy_wq);
-	verbs_set_ctx_op(v_ctx, create_rwq_ind_table, mlx5_create_rwq_ind_table);
-	verbs_set_ctx_op(v_ctx, destroy_rwq_ind_table, mlx5_destroy_rwq_ind_table);
-	verbs_set_ctx_op(v_ctx, post_srq_ops, mlx5_post_srq_ops);
-	verbs_set_ctx_op(v_ctx, modify_cq, mlx5_modify_cq);
+	v_ctx->create_qp_ex = mlx5_create_qp_ex;
+	v_ctx->open_xrcd = mlx5_open_xrcd;
+	v_ctx->close_xrcd = mlx5_close_xrcd;
+	v_ctx->create_srq_ex = mlx5_create_srq_ex;
+	v_ctx->get_srq_num = mlx5_get_srq_num;
+	v_ctx->query_device_ex = mlx5_query_device_ex;
+	v_ctx->query_rt_values = mlx5_query_rt_values;
+	v_ctx->ibv_create_flow = mlx5_create_flow;
+	v_ctx->ibv_destroy_flow = mlx5_destroy_flow;
+	v_ctx->create_cq_ex = mlx5_create_cq_ex;
+	v_ctx->create_wq = mlx5_create_wq;
+	v_ctx->modify_wq = mlx5_modify_wq;
+	v_ctx->destroy_wq = mlx5_destroy_wq;
+	v_ctx->create_rwq_ind_table = mlx5_create_rwq_ind_table;
+	v_ctx->destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table;
+	v_ctx->post_srq_ops = mlx5_post_srq_ops;
+	v_ctx->modify_cq = mlx5_modify_cq;
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,

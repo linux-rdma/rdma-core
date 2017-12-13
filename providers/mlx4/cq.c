@@ -501,7 +501,7 @@ static uint32_t mlx4_cq_read_wc_qp_num(struct ibv_cq_ex *ibcq)
 	return be32toh(cq->cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
 }
 
-static int mlx4_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
+static unsigned int mlx4_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 {
 	struct mlx4_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 	int is_send  = cq->cqe->owner_sr_opcode & MLX4_CQE_IS_SEND_MASK;
