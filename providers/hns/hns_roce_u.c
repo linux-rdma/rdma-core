@@ -167,10 +167,7 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	if (to_hr_dev(ibctx->device)->hw_version == HNS_ROCE_HW_VER1)
 		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
-	context->uar = NULL;
-
 	free(context);
-	context = NULL;
 }
 
 static void hns_uninit_device(struct verbs_device *verbs_device)
