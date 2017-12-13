@@ -256,7 +256,7 @@ static inline struct qelr_devctx *get_qelr_ctx(struct ibv_context *ibctx)
 
 static inline struct qelr_device *get_qelr_dev(struct ibv_device *ibdev)
 {
-	return container_of(ibdev, struct qelr_device, ibv_dev);
+	return container_of(ibdev, struct qelr_device, ibv_dev.device);
 }
 
 static inline struct qelr_qp *get_qelr_qp(struct ibv_qp *ibqp)

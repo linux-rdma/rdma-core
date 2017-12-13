@@ -220,13 +220,11 @@ static inline uintptr_t db_align(__be32 *db)
 	return (uintptr_t) db & ~((uintptr_t) MTHCA_DB_REC_PAGE_SIZE - 1);
 }
 
-#define to_mxxx(xxx, type)						\
-	((struct mthca_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct mthca_##type, ibv_##xxx)))
+#define to_mxxx(xxx, type) container_of(ib##xxx, struct mthca_##type, ibv_##xxx)
 
 static inline struct mthca_device *to_mdev(struct ibv_device *ibdev)
 {
-	return to_mxxx(dev, device);
+	return container_of(ibdev, struct mthca_device, ibv_dev.device);
 }
 
 static inline struct mthca_context *to_mctx(struct ibv_context *ibctx)

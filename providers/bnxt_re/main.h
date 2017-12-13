@@ -161,7 +161,7 @@ void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag);
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
 {
-	return container_of(ibvdev, struct bnxt_re_dev, vdev);
+	return container_of(ibvdev, struct bnxt_re_dev, vdev.device);
 }
 
 static inline struct bnxt_re_context *to_bnxt_re_context(

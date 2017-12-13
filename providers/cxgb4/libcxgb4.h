@@ -120,12 +120,11 @@ struct c4iw_qp {
 };
 
 #define to_c4iw_xxx(xxx, type)						\
-	((struct c4iw_##type *)						\
-	 ((void *) ib##xxx - offsetof(struct c4iw_##type, ibv_##xxx)))
+	container_of(ib##xxx, struct c4iw_##type, ibv_##xxx)
 
 static inline struct c4iw_dev *to_c4iw_dev(struct ibv_device *ibdev)
 {
-	return to_c4iw_xxx(dev, dev);
+	return container_of(ibdev, struct c4iw_dev, ibv_dev.device);
 }
 
 static inline struct c4iw_context *to_c4iw_context(struct ibv_context *ibctx)

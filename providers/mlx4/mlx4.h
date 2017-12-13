@@ -247,16 +247,15 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 }
 int align_queue_size(int req);
 
-#define to_mxxx(xxx, type)						\
-	((struct mlx4_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct mlx4_##type, ibv_##xxx)))
+#define to_mxxx(xxx, type)                                                     \
+	container_of(ib##xxx, struct mlx4_##type, ibv_##xxx)
 
 static inline struct mlx4_device *to_mdev(struct ibv_device *ibdev)
 {
 	/* ibv_device is first field of verbs_device
 	 * see try_driver() in libibverbs.
 	 */
-	return container_of(ibdev, struct mlx4_device, verbs_dev);
+	return container_of(ibdev, struct mlx4_device, verbs_dev.device);
 }
 
 static inline struct mlx4_context *to_mctx(struct ibv_context *ibctx)
@@ -271,7 +270,7 @@ static inline struct mlx4_pd *to_mpd(struct ibv_pd *ibpd)
 
 static inline struct mlx4_cq *to_mcq(struct ibv_cq *ibcq)
 {
-	return to_mxxx(cq, cq);
+	return container_of((struct ibv_cq_ex *)ibcq, struct mlx4_cq, ibv_cq);
 }
 
 static inline struct mlx4_srq *to_msrq(struct ibv_srq *ibsrq)
