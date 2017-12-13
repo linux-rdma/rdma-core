@@ -111,14 +111,15 @@ static int bnxt_re_init_context(struct verbs_device *vdev,
 	struct bnxt_re_cntx_resp resp;
 	struct bnxt_re_dev *dev;
 	struct bnxt_re_context *cntx;
+	struct verbs_context *verbs_ctx = verbs_get_ctx(ibvctx);
 
 	dev = to_bnxt_re_dev(&vdev->device);
 	cntx = to_bnxt_re_context(ibvctx);
 
 	memset(&resp, 0, sizeof(resp));
 	ibvctx->cmd_fd = cmd_fd;
-	if (ibv_cmd_get_context(ibvctx, &cmd, sizeof(cmd),
-				&resp.resp, sizeof(resp)))
+	if (ibv_cmd_get_context(verbs_ctx, &cmd, sizeof(cmd), &resp.resp,
+				sizeof(resp)))
 		return errno;
 
 	cntx->dev_id = resp.dev_id;

@@ -122,41 +122,42 @@ static struct ibv_context_ops ipath_ctx_ops = {
 	.detach_mcast	= ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *ipath_alloc_context(struct ibv_device *ibdev,
-					       int cmd_fd)
+static struct verbs_context *ipath_alloc_context(struct ibv_device *ibdev,
+						 int cmd_fd)
 {
 	struct ipath_context	    *context;
 	struct ibv_get_context       cmd;
 	struct ibv_get_context_resp  resp;
 	struct ipath_device         *dev;
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
+
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
 				sizeof cmd, &resp, sizeof resp))
 		goto err_free;
 
-	context->ibv_ctx.ops = ipath_ctx_ops;
+	context->ibv_ctx.context.ops = ipath_ctx_ops;
 	dev = to_idev(ibdev);
 	if (dev->abi_version == 1) {
-		context->ibv_ctx.ops.create_cq     = ipath_create_cq_v1;
-		context->ibv_ctx.ops.poll_cq       = ibv_cmd_poll_cq;
-		context->ibv_ctx.ops.resize_cq     = ipath_resize_cq_v1;
-		context->ibv_ctx.ops.destroy_cq    = ipath_destroy_cq_v1;
-		context->ibv_ctx.ops.create_srq    = ipath_create_srq_v1;
-		context->ibv_ctx.ops.destroy_srq   = ipath_destroy_srq_v1;
-		context->ibv_ctx.ops.modify_srq    = ipath_modify_srq_v1;
-		context->ibv_ctx.ops.post_srq_recv = ibv_cmd_post_srq_recv;
-		context->ibv_ctx.ops.create_qp     = ipath_create_qp_v1;
-		context->ibv_ctx.ops.destroy_qp    = ipath_destroy_qp_v1;
-		context->ibv_ctx.ops.post_recv     = ibv_cmd_post_recv;
+		context->ibv_ctx.context.ops.create_cq = ipath_create_cq_v1;
+		context->ibv_ctx.context.ops.poll_cq = ibv_cmd_poll_cq;
+		context->ibv_ctx.context.ops.resize_cq = ipath_resize_cq_v1;
+		context->ibv_ctx.context.ops.destroy_cq = ipath_destroy_cq_v1;
+		context->ibv_ctx.context.ops.create_srq = ipath_create_srq_v1;
+		context->ibv_ctx.context.ops.destroy_srq = ipath_destroy_srq_v1;
+		context->ibv_ctx.context.ops.modify_srq = ipath_modify_srq_v1;
+		context->ibv_ctx.context.ops.post_srq_recv =
+			ibv_cmd_post_srq_recv;
+		context->ibv_ctx.context.ops.create_qp = ipath_create_qp_v1;
+		context->ibv_ctx.context.ops.destroy_qp = ipath_destroy_qp_v1;
+		context->ibv_ctx.context.ops.post_recv = ibv_cmd_post_recv;
 	}
 	return &context->ibv_ctx;
 
 err_free:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -165,6 +166,7 @@ static void ipath_free_context(struct ibv_context *ibctx)
 {
 	struct ipath_context *context = to_ictx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

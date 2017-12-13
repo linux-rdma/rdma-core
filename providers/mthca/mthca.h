@@ -97,7 +97,7 @@ struct mthca_device {
 struct mthca_db_table;
 
 struct mthca_context {
-	struct ibv_context     ibv_ctx;
+	struct verbs_context     ibv_ctx;
 	void                  *uar;
 	pthread_spinlock_t     uar_lock;
 	struct mthca_db_table *db_tab;
@@ -229,7 +229,7 @@ static inline struct mthca_device *to_mdev(struct ibv_device *ibdev)
 
 static inline struct mthca_context *to_mctx(struct ibv_context *ibctx)
 {
-	return to_mxxx(ctx, context);
+	return container_of(ibctx, struct mthca_context, ibv_ctx.context);
 }
 
 static inline struct mthca_pd *to_mpd(struct ibv_pd *ibpd)

@@ -887,7 +887,7 @@ static inline void qelr_init_dpm_info(struct qelr_devctx *cxt,
 	dpm->is_edpm = 0;
 
 	/* Currently dpm is not supported for iWARP */
-	if (IS_IWARP(cxt->ibv_ctx.device))
+	if (IS_IWARP(cxt->ibv_ctx.context.device))
 		return;
 
 	if (qelr_chain_is_full(&qp->sq.chain) &&

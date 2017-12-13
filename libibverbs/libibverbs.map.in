@@ -113,6 +113,7 @@ IBVERBS_1.1 {
 IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 	global:
 		/* These historical symbols are now private to libibverbs */
+		_verbs_init_and_alloc_context;
 		ibv_cmd_alloc_mw;
 		ibv_cmd_alloc_pd;
 		ibv_cmd_attach_mcast;
@@ -162,6 +163,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_query_gid_type;
 		ibv_register_driver;
 		verbs_register_driver_@IBVERBS_PABI_VERSION@;
+		verbs_uninit_context;
 		verbs_init_cq;
 		ibv_cmd_modify_cq;
 };

@@ -74,7 +74,7 @@ struct hfi1_device {
 };
 
 struct hfi1_context {
-	struct ibv_context	ibv_ctx;
+	struct verbs_context	ibv_ctx;
 };
 
 /*
@@ -158,7 +158,7 @@ struct hfi1_srq {
 
 static inline struct hfi1_context *to_ictx(struct ibv_context *ibctx)
 {
-	return to_ixxx(ctx, context);
+	return container_of(ibctx, struct hfi1_context, ibv_ctx.context);
 }
 
 static inline struct hfi1_device *to_idev(struct ibv_device *ibdev)

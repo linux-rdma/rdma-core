@@ -105,27 +105,23 @@ static void ocrdma_uninit_device(struct verbs_device *verbs_device)
 /*
  * ocrdma_alloc_context
  */
-static struct ibv_context *ocrdma_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+static struct verbs_context *ocrdma_alloc_context(struct ibv_device *ibdev,
+						  int cmd_fd)
 {
 	struct ocrdma_devctx *ctx;
 	struct ocrdma_get_context cmd;
 	struct ocrdma_alloc_ucontext_resp resp;
 
-	ctx = calloc(1, sizeof(struct ocrdma_devctx));
+	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx);
 	if (!ctx)
 		return NULL;
-	memset(&resp, 0, sizeof(resp));
-
-	ctx->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&ctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
 
-	ctx->ibv_ctx.device = ibdev;
-	ctx->ibv_ctx.ops = ocrdma_ctx_ops;
+	ctx->ibv_ctx.context.ops = ocrdma_ctx_ops;
 	get_ocrdma_dev(ibdev)->id = resp.dev_id;
 	get_ocrdma_dev(ibdev)->max_inline_data = resp.max_inline_data;
 	get_ocrdma_dev(ibdev)->wqe_size = resp.wqe_size;
@@ -146,6 +142,7 @@ static struct ibv_context *ocrdma_alloc_context(struct ibv_device *ibdev,
 
 cmd_err:
 	ocrdma_err("%s: Failed to allocate context for device.\n", __func__);
+	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 	return NULL;
 }
@@ -160,6 +157,7 @@ static void ocrdma_free_context(struct ibv_context *ibctx)
 	if (ctx->ah_tbl)
 		munmap((void *)ctx->ah_tbl, ctx->ah_tbl_len);
 
+	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 }
 

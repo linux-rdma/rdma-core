@@ -61,8 +61,8 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
-						  int cmd_fd)
+static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
+						    int cmd_fd)
 {
 	int i;
 	struct ibv_get_context cmd;
@@ -71,11 +71,10 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	struct hns_roce_alloc_ucontext_resp resp;
 	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
 
-	context = calloc(1, sizeof(*context));
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
 
-	context->ibv_ctx.cmd_fd = cmd_fd;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
@@ -113,28 +112,28 @@ static struct ibv_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
-	context->ibv_ctx.ops.query_device  = hns_roce_u_query_device;
-	context->ibv_ctx.ops.query_port    = hns_roce_u_query_port;
-	context->ibv_ctx.ops.alloc_pd	   = hns_roce_u_alloc_pd;
-	context->ibv_ctx.ops.dealloc_pd    = hns_roce_u_free_pd;
-	context->ibv_ctx.ops.reg_mr	   = hns_roce_u_reg_mr;
-	context->ibv_ctx.ops.rereg_mr	   = hns_roce_u_rereg_mr;
-	context->ibv_ctx.ops.dereg_mr	   = hns_roce_u_dereg_mr;
+	context->ibv_ctx.context.ops.query_device  = hns_roce_u_query_device;
+	context->ibv_ctx.context.ops.query_port    = hns_roce_u_query_port;
+	context->ibv_ctx.context.ops.alloc_pd	   = hns_roce_u_alloc_pd;
+	context->ibv_ctx.context.ops.dealloc_pd    = hns_roce_u_free_pd;
+	context->ibv_ctx.context.ops.reg_mr	   = hns_roce_u_reg_mr;
+	context->ibv_ctx.context.ops.rereg_mr	   = hns_roce_u_rereg_mr;
+	context->ibv_ctx.context.ops.dereg_mr	   = hns_roce_u_dereg_mr;
 
-	context->ibv_ctx.ops.create_cq     = hns_roce_u_create_cq;
-	context->ibv_ctx.ops.poll_cq	   = hr_dev->u_hw->poll_cq;
-	context->ibv_ctx.ops.req_notify_cq = hr_dev->u_hw->arm_cq;
-	context->ibv_ctx.ops.cq_event	   = hns_roce_u_cq_event;
-	context->ibv_ctx.ops.destroy_cq    = hns_roce_u_destroy_cq;
+	context->ibv_ctx.context.ops.create_cq     = hns_roce_u_create_cq;
+	context->ibv_ctx.context.ops.poll_cq	   = hr_dev->u_hw->poll_cq;
+	context->ibv_ctx.context.ops.req_notify_cq = hr_dev->u_hw->arm_cq;
+	context->ibv_ctx.context.ops.cq_event	   = hns_roce_u_cq_event;
+	context->ibv_ctx.context.ops.destroy_cq    = hns_roce_u_destroy_cq;
 
-	context->ibv_ctx.ops.create_qp     = hns_roce_u_create_qp;
-	context->ibv_ctx.ops.query_qp	   = hns_roce_u_query_qp;
-	context->ibv_ctx.ops.modify_qp     = hr_dev->u_hw->modify_qp;
-	context->ibv_ctx.ops.destroy_qp    = hr_dev->u_hw->destroy_qp;
-	context->ibv_ctx.ops.post_send     = hr_dev->u_hw->post_send;
-	context->ibv_ctx.ops.post_recv     = hr_dev->u_hw->post_recv;
+	context->ibv_ctx.context.ops.create_qp     = hns_roce_u_create_qp;
+	context->ibv_ctx.context.ops.query_qp	   = hns_roce_u_query_qp;
+	context->ibv_ctx.context.ops.modify_qp     = hr_dev->u_hw->modify_qp;
+	context->ibv_ctx.context.ops.destroy_qp    = hr_dev->u_hw->destroy_qp;
+	context->ibv_ctx.context.ops.post_send     = hr_dev->u_hw->post_send;
+	context->ibv_ctx.context.ops.post_recv     = hr_dev->u_hw->post_recv;
 
-	if (hns_roce_u_query_device(&context->ibv_ctx, &dev_attrs))
+	if (hns_roce_u_query_device(&context->ibv_ctx.context, &dev_attrs))
 		goto tptr_free;
 
 	context->max_qp_wr = dev_attrs.max_qp_wr;
@@ -155,6 +154,7 @@ db_free:
 	context->uar = NULL;
 
 err_free:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -167,6 +167,7 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	if (to_hr_dev(ibctx->device)->hw_version == HNS_ROCE_HW_VER1)
 		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

@@ -549,7 +549,9 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 				struct mlx5_alloc_ucontext_resp *resp,
 				size_t resp_len)
 {
-	if (!ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+	struct verbs_context *verbs_ctx = verbs_get_ctx(&context->ibv_ctx);
+
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
 				 req_len, &resp->ibv_resp, resp_len))
 		return 0;
 
@@ -572,12 +574,12 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 * to do so. If zero is a valid response, we will add a new
 	 * field that indicates whether the request was handled.
 	 */
-	if (!ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
 				 &resp->ibv_resp, resp_len))
 		return 0;
 
-	return ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+	return ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
 				   offsetof(struct mlx5_alloc_ucontext,
 					    cqe_version),
 				   &resp->ibv_resp, resp_len);

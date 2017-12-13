@@ -98,7 +98,8 @@ static struct ibv_context_ops nes_uctx_ops = {
 /**
  * nes_ualloc_context
  */
-static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_fd)
+static struct verbs_context *nes_ualloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct ibv_pd *ibv_pd;
 	struct nes_uvcontext *nesvctx;
@@ -109,16 +110,14 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 
 	page_size = sysconf(_SC_PAGESIZE);
 
-	nesvctx = malloc(sizeof *nesvctx);
+	nesvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, nesvctx, ibv_ctx);
 	if (!nesvctx)
 		return NULL;
 
-	memset(nesvctx, 0, sizeof *nesvctx);
-	nesvctx->ibv_ctx.cmd_fd = cmd_fd;
 	cmd.userspace_ver = NES_ABI_USERSPACE_VER;
 
 	if (ibv_cmd_get_context(&nesvctx->ibv_ctx, (struct ibv_get_context *)&cmd, sizeof cmd,
-			&resp.ibv_resp, sizeof(resp)))
+				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
 	if (resp.kernel_ver != NES_ABI_KERNEL_VER) {
@@ -135,12 +134,10 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 			sscanf(value, "%d", &nes_drv_opt);
 	}
 
-	nesvctx->ibv_ctx.device = ibdev;
-
 	if (nes_drv_opt & NES_DRV_OPT_NO_DB_READ)
 		nes_uctx_ops.poll_cq = nes_upoll_cq_no_db_read;
 
-	nesvctx->ibv_ctx.ops = nes_uctx_ops;
+	nesvctx->ibv_ctx.context.ops = nes_uctx_ops;
 	nesvctx->max_pds = resp.max_pds;
 	nesvctx->max_qps = resp.max_qps;
 	nesvctx->wq_size = resp.wq_size;
@@ -148,16 +145,17 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 	nesvctx->mcrqf = 0;
 
 	/* Get a doorbell region for the CQs */
-	ibv_pd = nes_ualloc_pd(&nesvctx->ibv_ctx);
+	ibv_pd = nes_ualloc_pd(&nesvctx->ibv_ctx.context);
 	if (!ibv_pd)
 		goto err_free;
-	ibv_pd->context = &nesvctx->ibv_ctx;
+	ibv_pd->context = &nesvctx->ibv_ctx.context;
 	nesvctx->nesupd = to_nes_upd(ibv_pd);
 
 	return &nesvctx->ibv_ctx;
 
 err_free:
  	fprintf(stderr, PFX "%s: Failed to allocate context for device.\n", __FUNCTION__);
+	verbs_uninit_context(&nesvctx->ibv_ctx);
 	free(nesvctx);
 
 	return NULL;
@@ -172,6 +170,7 @@ static void nes_ufree_context(struct ibv_context *ibctx)
 	struct nes_uvcontext *nesvctx = to_nes_uctx(ibctx);
 	nes_ufree_pd(&nesvctx->nesupd->ibv_pd);
 
+	verbs_uninit_context(&nesvctx->ibv_ctx);
 	free(nesvctx);
 }
 

@@ -153,8 +153,8 @@ struct verbs_device_ops {
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
 	/* Old interface, do not use in new code. */
-	struct ibv_context *(*alloc_context)(struct ibv_device *device,
-					     int cmd_fd);
+	struct verbs_context *(*alloc_context)(struct ibv_device *device,
+					       int cmd_fd);
 	void (*free_context)(struct ibv_context *context);
 
 	/* New interface */
@@ -205,13 +205,26 @@ void verbs_register_driver(const struct verbs_device_ops *ops);
 		verbs_register_driver(&drv);                                   \
 	}
 
+void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
+				    size_t alloc_size,
+				    struct verbs_context *context_offset);
+
+#define verbs_init_and_alloc_context(ibdev, cmd_fd, drv_ctx_ptr, ctx_memb)     \
+	((typeof(drv_ctx_ptr))_verbs_init_and_alloc_context(                   \
+		ibdev, cmd_fd, sizeof(*drv_ctx_ptr),                           \
+		&((typeof(drv_ctx_ptr))NULL)->ctx_memb))
+
+int verbs_init_context(struct verbs_context *context_ex,
+		       struct ibv_device *device, int cmd_fd);
+void verbs_uninit_context(struct verbs_context *context);
+
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context);
 
-int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
-			size_t cmd_size, struct ibv_get_context_resp *resp,
-			size_t resp_size);
+int ibv_cmd_get_context(struct verbs_context *context,
+			struct ibv_get_context *cmd, size_t cmd_size,
+			struct ibv_get_context_resp *resp, size_t resp_size);
 int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
 			 uint64_t *raw_fw_ver,

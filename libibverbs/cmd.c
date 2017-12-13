@@ -44,22 +44,22 @@
 #include "ibverbs.h"
 #include <ccan/minmax.h>
 
-int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
-			size_t cmd_size, struct ibv_get_context_resp *resp,
-			size_t resp_size)
+int ibv_cmd_get_context(struct verbs_context *context_ex,
+			struct ibv_get_context *cmd, size_t cmd_size,
+			struct ibv_get_context_resp *resp, size_t resp_size)
 {
 	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION)
 		return ENOSYS;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
+	if (write(context_ex->context.cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	context->async_fd         = resp->async_fd;
-	context->num_comp_vectors = resp->num_comp_vectors;
+	context_ex->context.async_fd = resp->async_fd;
+	context_ex->context.num_comp_vectors = resp->num_comp_vectors;
 
 	return 0;
 }

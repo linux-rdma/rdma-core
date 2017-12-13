@@ -167,16 +167,16 @@ static int mlx4_init_context(struct verbs_device *v_device,
 
 	mlx4_read_env();
 	if (dev->abi_version <= MLX4_UVERBS_NO_DEV_CAPS_ABI_VERSION) {
-		if (ibv_cmd_get_context(ibv_ctx, &cmd, sizeof cmd,
-					&resp_v3.ibv_resp, sizeof resp_v3))
+		if (ibv_cmd_get_context(verbs_ctx, &cmd, sizeof(cmd),
+					&resp_v3.ibv_resp, sizeof(resp_v3)))
 			return errno;
 
 		context->num_qps  = resp_v3.qp_tab_size;
 		bf_reg_size	  = resp_v3.bf_reg_size;
 		context->cqe_size = sizeof (struct mlx4_cqe);
 	} else  {
-		if (ibv_cmd_get_context(ibv_ctx, &cmd, sizeof cmd,
-					&resp.ibv_resp, sizeof resp))
+		if (ibv_cmd_get_context(verbs_ctx, &cmd, sizeof(cmd),
+					&resp.ibv_resp, sizeof(resp)))
 			return errno;
 
 		context->num_qps  = resp.qp_tab_size;

@@ -131,19 +131,18 @@ static struct ibv_context_ops i40iw_uctx_ops = {
  * context and getting back resource information to return as ibv_context.
  */
 
-static struct ibv_context *i40iw_ualloc_context(struct ibv_device *ibdev, int cmd_fd)
+static struct verbs_context *i40iw_ualloc_context(struct ibv_device *ibdev,
+						  int cmd_fd)
 {
 	struct ibv_pd *ibv_pd;
 	struct i40iw_uvcontext *iwvctx;
 	struct i40iw_get_context cmd;
 	struct i40iw_ualloc_ucontext_resp resp;
 
-	iwvctx = malloc(sizeof(*iwvctx));
+	iwvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, iwvctx, ibv_ctx);
 	if (!iwvctx)
 		return NULL;
 
-	memset(iwvctx, 0, sizeof(*iwvctx));
-	iwvctx->ibv_ctx.cmd_fd = cmd_fd;
 	cmd.userspace_ver = I40IW_ABI_VER;
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_get_context(&iwvctx->ibv_ctx, (struct ibv_get_context *)&cmd,
@@ -162,24 +161,24 @@ static struct ibv_context *i40iw_ualloc_context(struct ibv_device *ibdev, int cm
 		goto err_free;
 	}
 
-	iwvctx->ibv_ctx.device = ibdev;
-	iwvctx->ibv_ctx.ops = i40iw_uctx_ops;
+	iwvctx->ibv_ctx.context.ops = i40iw_uctx_ops;
 	iwvctx->max_pds = resp.max_pds;
 	iwvctx->max_qps = resp.max_qps;
 	iwvctx->wq_size = resp.wq_size;
 	iwvctx->abi_ver = resp.kernel_ver;
 
 	i40iw_device_init_uk(&iwvctx->dev);
-	ibv_pd = i40iw_ualloc_pd(&iwvctx->ibv_ctx);
+	ibv_pd = i40iw_ualloc_pd(&iwvctx->ibv_ctx.context);
 	if (!ibv_pd)
 		goto err_free;
-	ibv_pd->context = &iwvctx->ibv_ctx;
+	ibv_pd->context = &iwvctx->ibv_ctx.context;
 	iwvctx->iwupd = to_i40iw_upd(ibv_pd);
 
 	return &iwvctx->ibv_ctx;
 
 err_free:
 	fprintf(stderr, PFX "%s: failed to allocate context for device.\n", __func__);
+	verbs_uninit_context(&iwvctx->ibv_ctx);
 	free(iwvctx);
 
 	return NULL;
@@ -195,6 +194,7 @@ static void i40iw_ufree_context(struct ibv_context *ibctx)
 
 	i40iw_ufree_pd(&iwvctx->iwupd->ibv_pd);
 
+	verbs_uninit_context(&iwvctx->ibv_ctx);
 	free(iwvctx);
 }
 

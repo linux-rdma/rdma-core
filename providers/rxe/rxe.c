@@ -858,29 +858,27 @@ static struct ibv_context_ops rxe_ctx_ops = {
 	.detach_mcast = ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *rxe_alloc_context(struct ibv_device *ibdev,
-					     int cmd_fd)
+static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
+					       int cmd_fd)
 {
 	struct rxe_context *context;
 	struct ibv_get_context cmd;
 	struct ibv_get_context_resp resp;
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
 				sizeof cmd, &resp, sizeof resp))
 		goto out;
 
-	context->ibv_ctx.ops = rxe_ctx_ops;
+	context->ibv_ctx.context.ops = rxe_ctx_ops;
 
 	return &context->ibv_ctx;
 
 out:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -889,6 +887,7 @@ static void rxe_free_context(struct ibv_context *ibctx)
 {
 	struct rxe_context *context = to_rctx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

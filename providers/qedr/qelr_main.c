@@ -155,19 +155,18 @@ static void qelr_set_debug_mask(void)
 		qelr_dp_module = atoi(env);
 }
 
-static struct ibv_context *qelr_alloc_context(struct ibv_device *ibdev,
-					      int cmd_fd)
+static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct qelr_devctx *ctx;
 	struct qelr_get_context cmd;
 	struct qelr_alloc_ucontext_resp resp;
 
-	ctx = calloc(1, sizeof(struct qelr_devctx));
+	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx);
 	if (!ctx)
 		return NULL;
-	memset(&resp, 0, sizeof(resp));
 
-	ctx->ibv_ctx.cmd_fd = cmd_fd;
+	memset(&resp, 0, sizeof(resp));
 
 	qelr_open_debug_file(ctx);
 	qelr_set_debug_mask();
@@ -178,8 +177,7 @@ static struct ibv_context *qelr_alloc_context(struct ibv_device *ibdev,
 		goto cmd_err;
 
 	ctx->kernel_page_size = sysconf(_SC_PAGESIZE);
-	ctx->ibv_ctx.device = ibdev;
-	ctx->ibv_ctx.ops = qelr_ctx_ops;
+	ctx->ibv_ctx.context.ops = qelr_ctx_ops;
 	ctx->db_pa = resp.db_pa;
 	ctx->db_size = resp.db_size;
 	ctx->max_send_wr = resp.max_send_wr;
@@ -205,6 +203,7 @@ static struct ibv_context *qelr_alloc_context(struct ibv_device *ibdev,
 cmd_err:
 	qelr_err("%s: Failed to allocate context for device.\n", __func__);
 	qelr_close_debug_file(ctx);
+	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 	return NULL;
 }
@@ -217,6 +216,7 @@ static void qelr_free_context(struct ibv_context *ibctx)
 		munmap(ctx->db_addr, ctx->db_size);
 
 	qelr_close_debug_file(ctx);
+	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 }
 
