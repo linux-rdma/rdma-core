@@ -29,7 +29,7 @@ struct ibv_cq          *send_cq;        /* CQ to be associated with the Send Que
 struct ibv_cq          *recv_cq;        /* CQ to be associated with the Receive Queue (RQ) */
 struct ibv_srq         *srq;            /* SRQ handle if QP is to be associated with an SRQ, otherwise NULL */
 struct ibv_qp_cap       cap;            /* QP capabilities */
-enum ibv_qp_type        qp_type;        /* QP Transport Service Type: IBV_QPT_RC, IBV_QPT_UC, IBV_QPT_UD or IBV_QPT_RAW_PACKET */
+enum ibv_qp_type        qp_type;        /* QP Transport Service Type: IBV_QPT_RC, IBV_QPT_UC, IBV_QPT_UD, IBV_QPT_RAW_PACKET or IBV_QPT_DRIVER */
 int                     sq_sig_all;     /* If set, each Work Request (WR) submitted to the SQ generates a completion entry */
 .in -8
 };
@@ -77,6 +77,9 @@ if the QP is to be associated with an SRQ.
 .PP
 .B ibv_destroy_qp()
 fails if the QP is attached to a multicast group.
+.PP
+.B IBV_QPT_DRIVER
+does not represent a specific service and is used for vendor specific QP logic.
 .SH "SEE ALSO"
 .BR ibv_alloc_pd (3),
 .BR ibv_modify_qp (3),
