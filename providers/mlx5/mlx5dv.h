@@ -144,11 +144,23 @@ enum mlx5dv_qp_create_flags {
 
 enum mlx5dv_qp_init_attr_mask {
 	MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS	= 1 << 0,
+	MLX5DV_QP_INIT_ATTR_MASK_DC			= 1 << 1,
+};
+
+enum mlx5dv_dc_type {
+	MLX5DV_DCTYPE_DCT     = 1,
+	MLX5DV_DCTYPE_DCI,
+};
+
+struct mlx5dv_dc_init_attr {
+	enum mlx5dv_dc_type	dc_type;
+	uint64_t dct_access_key;
 };
 
 struct mlx5dv_qp_init_attr {
 	uint64_t comp_mask;	/* Use enum mlx5dv_qp_init_attr_mask */
 	uint32_t create_flags;	/* Use enum mlx5dv_qp_create_flags */
+	struct mlx5dv_dc_init_attr  dc_init_attr;
 };
 
 struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
