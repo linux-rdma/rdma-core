@@ -80,9 +80,6 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context *qelr_alloc_context(struct ibv_device *, int);
-static void qelr_free_context(struct ibv_context *);
-
 static struct ibv_context_ops qelr_ctx_ops = {
 	.query_device = qelr_query_device,
 	.query_port = qelr_query_port,

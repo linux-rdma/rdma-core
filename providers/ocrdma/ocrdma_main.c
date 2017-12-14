@@ -64,9 +64,6 @@ static const struct verbs_match_ent ucna_table[] = {
 	{}
 };
 
-static struct ibv_context *ocrdma_alloc_context(struct ibv_device *, int);
-static void ocrdma_free_context(struct ibv_context *);
-
 static struct ibv_context_ops ocrdma_ctx_ops = {
 	.query_device = ocrdma_query_device,
 	.query_port = ocrdma_query_port,
