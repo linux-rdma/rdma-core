@@ -187,7 +187,7 @@ static struct mlx5_bf *mlx5_attach_dedicated_bf(struct ibv_context *context)
 {
 	struct mlx5_uar_info uar;
 	struct mlx5_context *ctx = to_mctx(context);
-	struct mlx5_device *dev = to_mdev(ctx->ibv_ctx.device);
+	struct mlx5_device *dev = to_mdev(context->device);
 	int bfreg_dyn_index;
 	uint32_t bfreg_total_index;
 	uint32_t uar_page_index;
@@ -218,7 +218,7 @@ static struct mlx5_bf *mlx5_attach_dedicated_bf(struct ibv_context *context)
 		goto set_reg;
 	}
 
-	ctx->bfs[mmap_bf_index].uar = mlx5_mmap(&uar, uar_page_index, ctx->ibv_ctx.cmd_fd, dev->page_size,
+	ctx->bfs[mmap_bf_index].uar = mlx5_mmap(&uar, uar_page_index, context->cmd_fd, dev->page_size,
 				  MLX5_UAR_TYPE_REGULAR_DYN);
 	if (ctx->bfs[mmap_bf_index].uar == MAP_FAILED) {
 		ctx->bfs[mmap_bf_index].uar = NULL;

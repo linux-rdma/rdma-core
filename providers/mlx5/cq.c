@@ -1717,7 +1717,7 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 {
 	struct mlx5_cqe64 *cqe;
 	int i;
-	struct mlx5_device *dev = to_mdev(mctx->ibv_ctx.device);
+	struct mlx5_device *dev = to_mdev(mctx->ibv_ctx.context.device);
 	int ret;
 	enum mlx5_alloc_type type;
 	enum mlx5_alloc_type default_type = MLX5_ALLOC_TYPE_ANON;

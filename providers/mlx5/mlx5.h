@@ -232,7 +232,7 @@ struct mlx5_uar_info {
 };
 
 struct mlx5_context {
-	struct ibv_context		ibv_ctx;
+	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
 	int				bf_reg_size;
 	int				tot_uuars;
@@ -571,7 +571,7 @@ static inline struct mlx5_device *to_mdev(struct ibv_device *ibdev)
 
 static inline struct mlx5_context *to_mctx(struct ibv_context *ibctx)
 {
-	return to_mxxx(ctx, context);
+	return container_of(ibctx, struct mlx5_context, ibv_ctx.context);
 }
 
 /* to_mpd always returns the real mlx5_pd object ie the protection domain. */

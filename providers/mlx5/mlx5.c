@@ -549,7 +549,7 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 				struct mlx5_alloc_ucontext_resp *resp,
 				size_t resp_len)
 {
-	struct verbs_context *verbs_ctx = verbs_get_ctx(&context->ibv_ctx);
+	struct verbs_context *verbs_ctx = &context->ibv_ctx;
 
 	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
 				 req_len, &resp->ibv_resp, resp_len))
@@ -868,8 +868,8 @@ static void adjust_uar_info(struct mlx5_device *mdev,
 	context->num_uars_per_page = resp.num_uars_per_page;
 }
 
-static int mlx5_init_context(struct verbs_device *vdev,
-			     struct ibv_context *ctx, int cmd_fd)
+static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct mlx5_context	       *context;
 	struct mlx5_alloc_ucontext	req;
@@ -880,7 +880,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	int				low_lat_uuars;
 	int				gross_uuars;
 	int				j;
-	struct mlx5_device	       *mdev;
+	struct mlx5_device	       *mdev = to_mdev(ibdev);
 	struct verbs_context	       *v_ctx;
 	struct ibv_port_attr		port_attr;
 	struct ibv_device_attr_ex	device_attr;
@@ -888,13 +888,13 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	int				bfi;
 	int				num_sys_page_map;
 
-	mdev = to_mdev(&vdev->device);
-	v_ctx = verbs_get_ctx(ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	if (!context)
+		return NULL;
+
+	v_ctx = &context->ibv_ctx;
 	page_size = mdev->page_size;
 	mlx5_single_threaded = single_threaded_app();
-
-	context = to_mctx(ctx);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	open_debug_file(context);
 	set_debug_mask();
@@ -1026,15 +1026,15 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	    sizeof(resp.hca_core_clock_offset) &&
 	    resp.comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET) {
 		context->core_clock.offset = resp.hca_core_clock_offset;
-		mlx5_map_internal_clock(mdev, ctx);
+		mlx5_map_internal_clock(mdev, &v_ctx->context);
 	}
 
-	mlx5_read_env(&vdev->device, context);
+	mlx5_read_env(ibdev, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
 	list_head_init(&context->hugetlb_list);
 
-	context->ibv_ctx.ops = mlx5_ctx_ops;
+	v_ctx->context.ops = mlx5_ctx_ops;
 
 	v_ctx->create_qp_ex = mlx5_create_qp_ex;
 	v_ctx->open_xrcd = mlx5_open_xrcd;
@@ -1058,7 +1058,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	v_ctx->alloc_parent_domain = mlx5_alloc_parent_domain;
 
 	memset(&device_attr, 0, sizeof(device_attr));
-	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,
+	if (!mlx5_query_device_ex(&v_ctx->context, NULL, &device_attr,
 				  sizeof(struct ibv_device_attr_ex))) {
 		context->cached_device_cap_flags =
 			device_attr.orig_attr.device_cap_flags;
@@ -1068,11 +1068,11 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {
 		memset(&port_attr, 0, sizeof(port_attr));
-		if (!mlx5_query_port(ctx, j + 1, &port_attr))
+		if (!mlx5_query_port(&v_ctx->context, j + 1, &port_attr))
 			context->cached_link_layer[j] = port_attr.link_layer;
 	}
 
-	return 0;
+	return v_ctx;
 
 err_free_bf:
 	free(context->bfs);
@@ -1084,11 +1084,13 @@ err_free:
 			munmap(context->uar[i].reg, page_size);
 	}
 	close_debug_file(context);
-	return errno;
+
+	verbs_uninit_context(&context->ibv_ctx);
+	free(context);
+	return NULL;
 }
 
-static void mlx5_cleanup_context(struct verbs_device *device,
-				 struct ibv_context *ibctx)
+static void mlx5_free_context(struct ibv_context *ibctx)
 {
 	struct mlx5_context *context = to_mctx(ibctx);
 	int page_size = to_mdev(ibctx->device)->page_size;
@@ -1110,6 +1112,9 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 		munmap(context->hca_core_clock - context->core_clock.offset,
 		       page_size);
 	close_debug_file(context);
+
+	verbs_uninit_context(&context->ibv_ctx);
+	free(context);
 }
 
 static void mlx5_uninit_device(struct verbs_device *verbs_device)
@@ -1144,7 +1149,7 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.match_table = hca_table,
 	.alloc_device = mlx5_device_alloc,
 	.uninit_device = mlx5_uninit_device,
-	.init_context = mlx5_init_context,
-	.uninit_context = mlx5_cleanup_context,
+	.alloc_context = mlx5_alloc_context,
+	.free_context = mlx5_free_context,
 };
 PROVIDER_DRIVER(mlx5_dev_ops);
