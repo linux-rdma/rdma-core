@@ -258,29 +258,6 @@ err_free:
 	return NULL;
 }
 
-/* Use the init_context flow to create a verbs_context */
-static struct verbs_context *alloc_context(struct verbs_device *device,
-					   int cmd_fd)
-{
-	struct verbs_context *context;
-
-	context = _verbs_init_and_alloc_context(
-		&device->device, cmd_fd,
-		sizeof(*context) + device->size_of_context, NULL);
-	if (!context)
-		return NULL;
-
-	if (device->ops->init_context(device, &context->context, cmd_fd))
-		goto err_uninit;
-
-	return context;
-
-err_uninit:
-	verbs_uninit_context(context);
-	free(context);
-	return NULL;
-}
-
 LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *,
 		   struct ibv_device *device)
@@ -303,15 +280,11 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	if (cmd_fd < 0)
 		return NULL;
 
-	if (!verbs_device->ops->init_context)
-		context_ex = verbs_device->ops->alloc_context(device, cmd_fd);
-	else
-		context_ex = alloc_context(verbs_device, cmd_fd);
-
 	/*
 	 * cmd_fd ownership is transferred into alloc_context, if it fails
 	 * then it closes cmd_fd and returns NULL
 	 */
+	context_ex = verbs_device->ops->alloc_context(device, cmd_fd);
 	if (!context_ex)
 		return NULL;
 
@@ -337,15 +310,7 @@ LATEST_SYMVER_FUNC(ibv_close_device, 1_1, "IBVERBS_1.1",
 {
 	struct verbs_device *verbs_device = verbs_get_device(context->device);
 
-	if (verbs_device->ops->uninit_context) {
-		struct verbs_context *context_ex =
-			container_of(context, struct verbs_context, context);
-
-		verbs_device->ops->uninit_context(verbs_device, context);
-		verbs_uninit_context(context_ex);
-	} else {
-		verbs_device->ops->free_context(context);
-	}
+	verbs_device->ops->free_context(context);
 
 	return 0;
 }

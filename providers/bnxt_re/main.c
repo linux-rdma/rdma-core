@@ -179,10 +179,6 @@ bnxt_re_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	if (!dev)
 		return NULL;
 
-	dev->vdev.sz = sizeof(*dev);
-	dev->vdev.size_of_context =
-		sizeof(struct bnxt_re_context) - sizeof(struct ibv_context);
-
 	return &dev->vdev;
 }
 

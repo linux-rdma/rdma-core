@@ -152,16 +152,9 @@ struct verbs_device_ops {
 
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
-	/* Old interface, do not use in new code. */
 	struct verbs_context *(*alloc_context)(struct ibv_device *device,
 					       int cmd_fd);
 	void (*free_context)(struct ibv_context *context);
-
-	/* New interface */
-	int (*init_context)(struct verbs_device *device,
-			    struct ibv_context *ctx, int cmd_fd);
-	void (*uninit_context)(struct verbs_device *device,
-			       struct ibv_context *ctx);
 
 	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
 	void (*uninit_device)(struct verbs_device *device);
@@ -171,8 +164,6 @@ struct verbs_device_ops {
 struct verbs_device {
 	struct ibv_device device; /* Must be first */
 	const struct verbs_device_ops *ops;
-	size_t	sz;
-	size_t	size_of_context;
 	atomic_int refcount;
 	struct list_node entry;
 	struct verbs_sysfs_dev *sysfs;

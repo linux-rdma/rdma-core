@@ -1135,10 +1135,6 @@ static struct verbs_device *mlx5_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	dev->driver_abi_ver = sysfs_dev->abi_ver;
 
-	dev->verbs_dev.sz = sizeof(*dev);
-	dev->verbs_dev.size_of_context = sizeof(struct mlx5_context) -
-		sizeof(struct ibv_context);
-
 	return &dev->verbs_dev;
 }
 
