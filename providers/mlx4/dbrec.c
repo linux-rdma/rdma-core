@@ -55,7 +55,7 @@ static struct mlx4_db_page *__add_page(struct mlx4_context *context,
 				       enum mlx4_db_type type)
 {
 	struct mlx4_db_page *page;
-	int ps = to_mdev(context->ibv_ctx.device)->page_size;
+	int ps = to_mdev(context->ibv_ctx.context.device)->page_size;
 	int pp;
 	int i;
 
@@ -120,7 +120,7 @@ void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type,
 		  __be32 *db)
 {
 	struct mlx4_db_page *page;
-	uintptr_t ps = to_mdev(context->ibv_ctx.device)->page_size;
+	uintptr_t ps = to_mdev(context->ibv_ctx.context.device)->page_size;
 	int i;
 
 	pthread_mutex_lock(&context->db_list_mutex);

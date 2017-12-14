@@ -99,7 +99,7 @@ struct mlx4_device {
 struct mlx4_db_page;
 
 struct mlx4_context {
-	struct ibv_context		ibv_ctx;
+	struct verbs_context		ibv_ctx;
 
 	void			       *uar;
 
@@ -260,7 +260,7 @@ static inline struct mlx4_device *to_mdev(struct ibv_device *ibdev)
 
 static inline struct mlx4_context *to_mctx(struct ibv_context *ibctx)
 {
-	return to_mxxx(ctx, context);
+	return container_of(ibctx, struct mlx4_context, ibv_ctx.context);
 }
 
 static inline struct mlx4_pd *to_mpd(struct ibv_pd *ibpd)
