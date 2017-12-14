@@ -141,7 +141,7 @@ struct bnxt_re_dev {
 };
 
 struct bnxt_re_context {
-	struct ibv_context ibvctx;
+	struct verbs_context ibvctx;
 	uint32_t dev_id;
 	uint32_t max_qp;
 	uint32_t max_srq;
@@ -167,7 +167,7 @@ static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
 static inline struct bnxt_re_context *to_bnxt_re_context(
 		struct ibv_context *ibvctx)
 {
-	return container_of(ibvctx, struct bnxt_re_context, ibvctx);
+	return container_of(ibvctx, struct bnxt_re_context, ibvctx.context);
 }
 
 static inline struct bnxt_re_pd *to_bnxt_re_pd(struct ibv_pd *ibvpd)

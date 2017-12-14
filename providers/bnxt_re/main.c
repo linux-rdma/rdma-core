@@ -104,23 +104,22 @@ static struct ibv_context_ops bnxt_re_cntx_ops = {
 };
 
 /* Context Init functions */
-static int bnxt_re_init_context(struct verbs_device *vdev,
-				struct ibv_context *ibvctx, int cmd_fd)
+static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
+						   int cmd_fd)
 {
 	struct ibv_get_context cmd;
 	struct bnxt_re_cntx_resp resp;
-	struct bnxt_re_dev *dev;
+	struct bnxt_re_dev *dev = to_bnxt_re_dev(vdev);
 	struct bnxt_re_context *cntx;
-	struct verbs_context *verbs_ctx = verbs_get_ctx(ibvctx);
 
-	dev = to_bnxt_re_dev(&vdev->device);
-	cntx = to_bnxt_re_context(ibvctx);
+	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx);
+	if (!cntx)
+		return NULL;
 
 	memset(&resp, 0, sizeof(resp));
-	ibvctx->cmd_fd = cmd_fd;
-	if (ibv_cmd_get_context(verbs_ctx, &cmd, sizeof(cmd), &resp.resp,
-				sizeof(resp)))
-		return errno;
+	if (ibv_cmd_get_context(&cntx->ibvctx, &cmd, sizeof(cmd),
+				&resp.resp, sizeof(resp)))
+		goto failed;
 
 	cntx->dev_id = resp.dev_id;
 	cntx->max_qp = resp.max_qp;
@@ -137,22 +136,21 @@ static int bnxt_re_init_context(struct verbs_device *vdev,
 	}
 	pthread_mutex_init(&cntx->shlock, NULL);
 
-	ibvctx->ops = bnxt_re_cntx_ops;
+	cntx->ibvctx.context.ops = bnxt_re_cntx_ops;
 
-	return 0;
+	return &cntx->ibvctx;
+
 failed:
-	fprintf(stderr, DEV "Failed to allocate context for device\n");
-	return errno;
+	verbs_uninit_context(&cntx->ibvctx);
+	free(cntx);
+	return NULL;
 }
 
-static void bnxt_re_uninit_context(struct verbs_device *vdev,
-				   struct ibv_context *ibvctx)
+static void bnxt_re_free_context(struct ibv_context *ibvctx)
 {
-	struct bnxt_re_dev *dev;
-	struct bnxt_re_context *cntx;
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
+	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
 
-	dev = to_bnxt_re_dev(&vdev->device);
-	cntx = to_bnxt_re_context(ibvctx);
 	/* Unmap if anything device specific was mapped in init_context. */
 	pthread_mutex_destroy(&cntx->shlock);
 	if (cntx->shpg)
@@ -167,6 +165,9 @@ static void bnxt_re_uninit_context(struct verbs_device *vdev,
 		munmap(cntx->udpi.dbpage, dev->pg_size);
 		cntx->udpi.dbpage = NULL;
 	}
+
+	verbs_uninit_context(&cntx->ibvctx);
+	free(cntx);
 }
 
 static struct verbs_device *
@@ -191,7 +192,7 @@ static const struct verbs_device_ops bnxt_re_dev_ops = {
 	.match_max_abi_version = BNXT_RE_ABI_VERSION,
 	.match_table = cna_table,
 	.alloc_device = bnxt_re_device_alloc,
-	.init_context = bnxt_re_init_context,
-	.uninit_context = bnxt_re_uninit_context,
+	.alloc_context = bnxt_re_alloc_context,
+	.free_context = bnxt_re_free_context,
 };
 PROVIDER_DRIVER(bnxt_re_dev_ops);
