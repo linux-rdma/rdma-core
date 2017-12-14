@@ -224,6 +224,8 @@ int verbs_init_context(struct verbs_context *context_ex,
 		return -1;
 	}
 
+	verbs_set_ops(context_ex, &verbs_dummy_ops);
+
 	return 0;
 }
 
