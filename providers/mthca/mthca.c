@@ -89,7 +89,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context_ops mthca_ctx_ops = {
+static const struct verbs_context_ops mthca_ctx_common_ops = {
 	.query_device  = mthca_query_device,
 	.query_port    = mthca_query_port,
 	.alloc_pd      = mthca_alloc_pd,
@@ -112,6 +112,21 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.destroy_ah    = mthca_destroy_ah,
 	.attach_mcast  = ibv_cmd_attach_mcast,
 	.detach_mcast  = ibv_cmd_detach_mcast
+};
+
+static const struct verbs_context_ops mthca_ctx_arbel_ops = {
+	.cq_event = mthca_arbel_cq_event,
+	.post_recv = mthca_arbel_post_recv,
+	.post_send = mthca_arbel_post_send,
+	.post_srq_recv = mthca_arbel_post_srq_recv,
+	.req_notify_cq = mthca_arbel_arm_cq,
+};
+
+static const struct verbs_context_ops mthca_ctx_tavor_ops = {
+	.post_recv = mthca_tavor_post_recv,
+	.post_send = mthca_tavor_post_send,
+	.post_srq_recv = mthca_tavor_post_srq_recv,
+	.req_notify_cq = mthca_tavor_arm_cq,
 };
 
 static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
@@ -158,23 +173,11 @@ static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
 
 	context->pd->context = &context->ibv_ctx.context;
 
-	context->ibv_ctx.context.ops = mthca_ctx_ops;
-
-	if (mthca_is_memfree(&context->ibv_ctx.context)) {
-		context->ibv_ctx.context.ops.req_notify_cq = mthca_arbel_arm_cq;
-		context->ibv_ctx.context.ops.cq_event = mthca_arbel_cq_event;
-		context->ibv_ctx.context.ops.post_send = mthca_arbel_post_send;
-		context->ibv_ctx.context.ops.post_recv = mthca_arbel_post_recv;
-		context->ibv_ctx.context.ops.post_srq_recv =
-			mthca_arbel_post_srq_recv;
-	} else {
-		context->ibv_ctx.context.ops.req_notify_cq = mthca_tavor_arm_cq;
-		context->ibv_ctx.context.ops.cq_event = NULL;
-		context->ibv_ctx.context.ops.post_send = mthca_tavor_post_send;
-		context->ibv_ctx.context.ops.post_recv = mthca_tavor_post_recv;
-		context->ibv_ctx.context.ops.post_srq_recv =
-			mthca_tavor_post_srq_recv;
-	}
+	verbs_set_ops(&context->ibv_ctx, &mthca_ctx_common_ops);
+	if (mthca_is_memfree(&context->ibv_ctx.context))
+		verbs_set_ops(&context->ibv_ctx, &mthca_ctx_arbel_ops);
+	else
+		verbs_set_ops(&context->ibv_ctx, &mthca_ctx_tavor_ops);
 
 	return &context->ibv_ctx;
 

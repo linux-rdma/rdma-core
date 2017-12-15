@@ -81,7 +81,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context_ops mlx4_ctx_ops = {
+static const struct verbs_context_ops mlx4_ctx_ops = {
 	.query_device  = mlx4_query_device,
 	.query_port    = mlx4_query_port,
 	.alloc_pd      = mlx4_alloc_pd,
@@ -112,7 +112,25 @@ static struct ibv_context_ops mlx4_ctx_ops = {
 	.create_ah     = mlx4_create_ah,
 	.destroy_ah    = mlx4_destroy_ah,
 	.attach_mcast  = ibv_cmd_attach_mcast,
-	.detach_mcast  = ibv_cmd_detach_mcast
+	.detach_mcast  = ibv_cmd_detach_mcast,
+
+	.close_xrcd = mlx4_close_xrcd,
+	.create_cq_ex = mlx4_create_cq_ex,
+	.create_flow = mlx4_create_flow,
+	.create_qp_ex = mlx4_create_qp_ex,
+	.create_rwq_ind_table = mlx4_create_rwq_ind_table,
+	.create_srq_ex = mlx4_create_srq_ex,
+	.create_wq = mlx4_create_wq,
+	.destroy_flow = mlx4_destroy_flow,
+	.destroy_rwq_ind_table = mlx4_destroy_rwq_ind_table,
+	.destroy_wq = mlx4_destroy_wq,
+	.get_srq_num = verbs_get_srq_num,
+	.modify_cq = mlx4_modify_cq,
+	.modify_wq = mlx4_modify_wq,
+	.open_qp = mlx4_open_qp,
+	.open_xrcd = mlx4_open_xrcd,
+	.query_device_ex = mlx4_query_device_ex,
+	.query_rt_values = mlx4_query_rt_values,
 };
 
 static void mlx4_read_env(void)
@@ -226,7 +244,7 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 		context->bf_buf_size = 0;
 	}
 
-	verbs_ctx->context.ops = mlx4_ctx_ops;
+	verbs_set_ops(verbs_ctx, &mlx4_ctx_ops);
 
 	context->hca_core_clock = NULL;
 	memset(&dev_attrs, 0, sizeof(dev_attrs));
@@ -237,24 +255,6 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 		if (context->core_clock.offset_valid)
 			mlx4_map_internal_clock(dev, &verbs_ctx->context);
 	}
-
-	verbs_ctx->close_xrcd = mlx4_close_xrcd;
-	verbs_ctx->open_xrcd = mlx4_open_xrcd;
-	verbs_ctx->create_srq_ex = mlx4_create_srq_ex;
-	verbs_ctx->get_srq_num = verbs_get_srq_num;
-	verbs_ctx->create_qp_ex = mlx4_create_qp_ex;
-	verbs_ctx->open_qp = mlx4_open_qp;
-	verbs_ctx->ibv_create_flow = mlx4_create_flow;
-	verbs_ctx->ibv_destroy_flow = mlx4_destroy_flow;
-	verbs_ctx->create_cq_ex = mlx4_create_cq_ex;
-	verbs_ctx->query_device_ex = mlx4_query_device_ex;
-	verbs_ctx->query_rt_values = mlx4_query_rt_values;
-	verbs_ctx->create_wq = mlx4_create_wq;
-	verbs_ctx->modify_wq = mlx4_modify_wq;
-	verbs_ctx->destroy_wq = mlx4_destroy_wq;
-	verbs_ctx->create_rwq_ind_table = mlx4_create_rwq_ind_table;
-	verbs_ctx->destroy_rwq_ind_table = mlx4_destroy_rwq_ind_table;
-	verbs_ctx->modify_cq = mlx4_modify_cq;
 
 	return verbs_ctx;
 

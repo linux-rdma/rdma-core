@@ -81,7 +81,7 @@ static const struct verbs_match_ent hca_table[] = {
 uint32_t mlx5_debug_mask = 0;
 int mlx5_freeze_on_error_cqe;
 
-static struct ibv_context_ops mlx5_ctx_ops = {
+static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.query_device  = mlx5_query_device,
 	.query_port    = mlx5_query_port,
 	.alloc_pd      = mlx5_alloc_pd,
@@ -112,7 +112,32 @@ static struct ibv_context_ops mlx5_ctx_ops = {
 	.create_ah     = mlx5_create_ah,
 	.destroy_ah    = mlx5_destroy_ah,
 	.attach_mcast  = mlx5_attach_mcast,
-	.detach_mcast  = mlx5_detach_mcast
+	.detach_mcast  = mlx5_detach_mcast,
+
+	.alloc_parent_domain = mlx5_alloc_parent_domain,
+	.alloc_td = mlx5_alloc_td,
+	.close_xrcd = mlx5_close_xrcd,
+	.create_cq_ex = mlx5_create_cq_ex,
+	.create_flow = mlx5_create_flow,
+	.create_qp_ex = mlx5_create_qp_ex,
+	.create_rwq_ind_table = mlx5_create_rwq_ind_table,
+	.create_srq_ex = mlx5_create_srq_ex,
+	.create_wq = mlx5_create_wq,
+	.dealloc_td = mlx5_dealloc_td,
+	.destroy_flow = mlx5_destroy_flow,
+	.destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table,
+	.destroy_wq = mlx5_destroy_wq,
+	.get_srq_num = mlx5_get_srq_num,
+	.modify_cq = mlx5_modify_cq,
+	.modify_wq = mlx5_modify_wq,
+	.open_xrcd = mlx5_open_xrcd,
+	.post_srq_ops = mlx5_post_srq_ops,
+	.query_device_ex = mlx5_query_device_ex,
+	.query_rt_values = mlx5_query_rt_values,
+};
+
+static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
+	.poll_cq = mlx5_poll_cq_v1,
 };
 
 static int read_number_from_line(const char *line, int *value)
@@ -954,12 +979,6 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	}
 
 	context->cqe_version = resp.cqe_version;
-	if (context->cqe_version) {
-		if (context->cqe_version == MLX5_CQE_VERSION_V1)
-			mlx5_ctx_ops.poll_cq = mlx5_poll_cq_v1;
-		else
-			goto err_free;
-	}
 
 	adjust_uar_info(mdev, context, resp);
 
@@ -1034,28 +1053,13 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	mlx5_spinlock_init(&context->hugetlb_lock);
 	list_head_init(&context->hugetlb_list);
 
-	v_ctx->context.ops = mlx5_ctx_ops;
-
-	v_ctx->create_qp_ex = mlx5_create_qp_ex;
-	v_ctx->open_xrcd = mlx5_open_xrcd;
-	v_ctx->close_xrcd = mlx5_close_xrcd;
-	v_ctx->create_srq_ex = mlx5_create_srq_ex;
-	v_ctx->get_srq_num = mlx5_get_srq_num;
-	v_ctx->query_device_ex = mlx5_query_device_ex;
-	v_ctx->query_rt_values = mlx5_query_rt_values;
-	v_ctx->ibv_create_flow = mlx5_create_flow;
-	v_ctx->ibv_destroy_flow = mlx5_destroy_flow;
-	v_ctx->create_cq_ex = mlx5_create_cq_ex;
-	v_ctx->create_wq = mlx5_create_wq;
-	v_ctx->modify_wq = mlx5_modify_wq;
-	v_ctx->destroy_wq = mlx5_destroy_wq;
-	v_ctx->create_rwq_ind_table = mlx5_create_rwq_ind_table;
-	v_ctx->destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table;
-	v_ctx->post_srq_ops = mlx5_post_srq_ops;
-	v_ctx->modify_cq = mlx5_modify_cq;
-	v_ctx->alloc_td = mlx5_alloc_td;
-	v_ctx->dealloc_td = mlx5_dealloc_td;
-	v_ctx->alloc_parent_domain = mlx5_alloc_parent_domain;
+	verbs_set_ops(v_ctx, &mlx5_ctx_common_ops);
+	if (context->cqe_version) {
+		if (context->cqe_version == MLX5_CQE_VERSION_V1)
+			verbs_set_ops(v_ctx, &mlx5_ctx_cqev1_ops);
+		else
+			goto err_free;
+	}
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (!mlx5_query_device_ex(&v_ctx->context, NULL, &device_attr,

@@ -91,7 +91,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context_ops i40iw_uctx_ops = {
+static const struct verbs_context_ops i40iw_uctx_ops = {
 	.query_device	= i40iw_uquery_device,
 	.query_port	= i40iw_uquery_port,
 	.alloc_pd	= i40iw_ualloc_pd,
@@ -104,11 +104,6 @@ static struct ibv_context_ops i40iw_uctx_ops = {
 	.cq_event	= i40iw_cq_event,
 	.resize_cq	= i40iw_uresize_cq,
 	.destroy_cq	= i40iw_udestroy_cq,
-	.create_srq	= NULL,
-	.modify_srq	= NULL,
-	.query_srq	= NULL,
-	.destroy_srq	= NULL,
-	.post_srq_recv	= NULL,
 	.create_qp	= i40iw_ucreate_qp,
 	.query_qp	= i40iw_uquery_qp,
 	.modify_qp	= i40iw_umodify_qp,
@@ -161,7 +156,7 @@ static struct verbs_context *i40iw_ualloc_context(struct ibv_device *ibdev,
 		goto err_free;
 	}
 
-	iwvctx->ibv_ctx.context.ops = i40iw_uctx_ops;
+	verbs_set_ops(&iwvctx->ibv_ctx, &i40iw_uctx_ops);
 	iwvctx->max_pds = resp.max_pds;
 	iwvctx->max_qps = resp.max_qps;
 	iwvctx->wq_size = resp.wq_size;

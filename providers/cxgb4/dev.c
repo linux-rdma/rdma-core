@@ -71,7 +71,7 @@ int t5_en_wc = 1;
 
 static LIST_HEAD(devices);
 
-static struct ibv_context_ops c4iw_ctx_ops = {
+static const struct verbs_context_ops  c4iw_ctx_common_ops = {
 	.query_device = c4iw_query_device,
 	.query_port = c4iw_query_port,
 	.alloc_pd = c4iw_alloc_pd,
@@ -93,6 +93,14 @@ static struct ibv_context_ops c4iw_ctx_ops = {
 	.attach_mcast = c4iw_attach_mcast,
 	.detach_mcast = c4iw_detach_mcast,
 	.post_srq_recv = c4iw_post_srq_recv,
+	.req_notify_cq = c4iw_arm_cq,
+};
+
+static const struct verbs_context_ops c4iw_ctx_t4_ops = {
+	.async_event = c4iw_async_event,
+	.poll_cq = c4iw_poll_cq,
+	.post_recv = c4iw_post_receive,
+	.post_send = c4iw_post_send,
 	.req_notify_cq = c4iw_arm_cq,
 };
 
@@ -130,7 +138,7 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 			goto err_free;
 	} 
 
-	context->ibv_ctx.context.ops = c4iw_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_common_ops);
 
 	switch (rhp->chip_version) {
 	case CHELSIO_T6:
@@ -139,11 +147,7 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		PDBG("%s T5/T4 device\n", __FUNCTION__);
 	case CHELSIO_T4:
 		PDBG("%s T4 device\n", __FUNCTION__);
-		context->ibv_ctx.context.ops.async_event = c4iw_async_event;
-		context->ibv_ctx.context.ops.post_send = c4iw_post_send;
-		context->ibv_ctx.context.ops.post_recv = c4iw_post_receive;
-		context->ibv_ctx.context.ops.poll_cq = c4iw_poll_cq;
-		context->ibv_ctx.context.ops.req_notify_cq = c4iw_arm_cq;
+		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
 		break;
 	default:
 		PDBG("%s unknown hca type %d\n", __FUNCTION__,

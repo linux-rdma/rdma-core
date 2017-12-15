@@ -51,7 +51,7 @@
 #define PCI_VENDOR_ID_VMWARE		0x15AD
 #define PCI_DEVICE_ID_VMWARE_PVRDMA	0x0820
 
-static struct ibv_context_ops pvrdma_ctx_ops = {
+static const struct verbs_context_ops pvrdma_ctx_ops = {
 	.query_device = pvrdma_query_device,
 	.query_port = pvrdma_query_port,
 	.alloc_pd = pvrdma_alloc_pd,
@@ -129,7 +129,8 @@ static int pvrdma_init_context_shared(struct pvrdma_context *context,
 	}
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
-	context->ibv_ctx.context.ops = pvrdma_ctx_ops;
+
+	verbs_set_ops(&context->ibv_ctx, &pvrdma_ctx_ops);
 
 	return 0;
 }

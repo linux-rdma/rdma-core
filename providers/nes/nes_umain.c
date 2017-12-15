@@ -63,7 +63,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{},
 };
 
-static struct ibv_context_ops nes_uctx_ops = {
+static const struct verbs_context_ops nes_uctx_ops = {
 	.query_device = nes_uquery_device,
 	.query_port = nes_uquery_port,
 	.alloc_pd = nes_ualloc_pd,
@@ -76,11 +76,6 @@ static struct ibv_context_ops nes_uctx_ops = {
 	.cq_event = nes_cq_event,
 	.resize_cq = nes_uresize_cq,
 	.destroy_cq = nes_udestroy_cq,
-	.create_srq = NULL,
-	.modify_srq = NULL,
-	.query_srq = NULL,
-	.destroy_srq = NULL,
-	.post_srq_recv = NULL,
 	.create_qp = nes_ucreate_qp,
 	.query_qp = nes_uquery_qp,
 	.modify_qp = nes_umodify_qp,
@@ -92,6 +87,10 @@ static struct ibv_context_ops nes_uctx_ops = {
 	.attach_mcast = nes_uattach_mcast,
 	.detach_mcast = nes_udetach_mcast,
 	.async_event = nes_async_event
+};
+
+static const struct verbs_context_ops nes_uctx_no_db_ops = {
+	.poll_cq = nes_upoll_cq_no_db_read,
 };
 
 
@@ -134,10 +133,10 @@ static struct verbs_context *nes_ualloc_context(struct ibv_device *ibdev,
 			sscanf(value, "%d", &nes_drv_opt);
 	}
 
+	verbs_set_ops(&nesvctx->ibv_ctx, &nes_uctx_ops);
 	if (nes_drv_opt & NES_DRV_OPT_NO_DB_READ)
-		nes_uctx_ops.poll_cq = nes_upoll_cq_no_db_read;
+		verbs_set_ops(&nesvctx->ibv_ctx, &nes_uctx_no_db_ops);
 
-	nesvctx->ibv_ctx.context.ops = nes_uctx_ops;
 	nesvctx->max_pds = resp.max_pds;
 	nesvctx->max_qps = resp.max_qps;
 	nesvctx->wq_size = resp.wq_size;

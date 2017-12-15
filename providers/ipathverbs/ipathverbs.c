@@ -84,7 +84,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context_ops ipath_ctx_ops = {
+static const struct verbs_context_ops ipath_ctx_common_ops = {
 	.query_device	= ipath_query_device,
 	.query_port	= ipath_query_port,
 
@@ -97,7 +97,6 @@ static struct ibv_context_ops ipath_ctx_ops = {
 	.create_cq	= ipath_create_cq,
 	.poll_cq	= ipath_poll_cq,
 	.req_notify_cq	= ibv_cmd_req_notify_cq,
-	.cq_event	= NULL,
 	.resize_cq	= ipath_resize_cq,
 	.destroy_cq	= ipath_destroy_cq,
 
@@ -122,6 +121,20 @@ static struct ibv_context_ops ipath_ctx_ops = {
 	.detach_mcast	= ibv_cmd_detach_mcast
 };
 
+static const struct verbs_context_ops ipath_ctx_v1_ops = {
+	.create_cq = ipath_create_cq_v1,
+	.poll_cq = ibv_cmd_poll_cq,
+	.resize_cq = ipath_resize_cq_v1,
+	.destroy_cq = ipath_destroy_cq_v1,
+	.create_srq = ipath_create_srq_v1,
+	.destroy_srq = ipath_destroy_srq_v1,
+	.modify_srq = ipath_modify_srq_v1,
+	.post_srq_recv = ibv_cmd_post_srq_recv,
+	.create_qp = ipath_create_qp_v1,
+	.destroy_qp = ipath_destroy_qp_v1,
+	.post_recv = ibv_cmd_post_recv,
+};
+
 static struct verbs_context *ipath_alloc_context(struct ibv_device *ibdev,
 						 int cmd_fd)
 {
@@ -138,22 +151,10 @@ static struct verbs_context *ipath_alloc_context(struct ibv_device *ibdev,
 				sizeof cmd, &resp, sizeof resp))
 		goto err_free;
 
-	context->ibv_ctx.context.ops = ipath_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &ipath_ctx_common_ops);
 	dev = to_idev(ibdev);
-	if (dev->abi_version == 1) {
-		context->ibv_ctx.context.ops.create_cq = ipath_create_cq_v1;
-		context->ibv_ctx.context.ops.poll_cq = ibv_cmd_poll_cq;
-		context->ibv_ctx.context.ops.resize_cq = ipath_resize_cq_v1;
-		context->ibv_ctx.context.ops.destroy_cq = ipath_destroy_cq_v1;
-		context->ibv_ctx.context.ops.create_srq = ipath_create_srq_v1;
-		context->ibv_ctx.context.ops.destroy_srq = ipath_destroy_srq_v1;
-		context->ibv_ctx.context.ops.modify_srq = ipath_modify_srq_v1;
-		context->ibv_ctx.context.ops.post_srq_recv =
-			ibv_cmd_post_srq_recv;
-		context->ibv_ctx.context.ops.create_qp = ipath_create_qp_v1;
-		context->ibv_ctx.context.ops.destroy_qp = ipath_destroy_qp_v1;
-		context->ibv_ctx.context.ops.post_recv = ibv_cmd_post_recv;
-	}
+	if (dev->abi_version == 1)
+		verbs_set_ops(&context->ibv_ctx, &ipath_ctx_v1_ops);
 	return &context->ibv_ctx;
 
 err_free:

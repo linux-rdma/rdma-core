@@ -85,7 +85,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context_ops hfi1_ctx_ops = {
+static const struct verbs_context_ops hfi1_ctx_common_ops = {
 	.query_device	= hfi1_query_device,
 	.query_port	= hfi1_query_port,
 
@@ -98,7 +98,6 @@ static struct ibv_context_ops hfi1_ctx_ops = {
 	.create_cq	= hfi1_create_cq,
 	.poll_cq	= hfi1_poll_cq,
 	.req_notify_cq	= ibv_cmd_req_notify_cq,
-	.cq_event	= NULL,
 	.resize_cq	= hfi1_resize_cq,
 	.destroy_cq	= hfi1_destroy_cq,
 
@@ -123,6 +122,20 @@ static struct ibv_context_ops hfi1_ctx_ops = {
 	.detach_mcast	= ibv_cmd_detach_mcast
 };
 
+static const struct verbs_context_ops hfi1_ctx_v1_ops = {
+	.create_cq = hfi1_create_cq_v1,
+	.create_qp = hfi1_create_qp_v1,
+	.create_srq = hfi1_create_srq_v1,
+	.destroy_cq = hfi1_destroy_cq_v1,
+	.destroy_qp = hfi1_destroy_qp_v1,
+	.destroy_srq = hfi1_destroy_srq_v1,
+	.modify_srq = hfi1_modify_srq_v1,
+	.poll_cq = ibv_cmd_poll_cq,
+	.post_recv = ibv_cmd_post_recv,
+	.post_srq_recv = ibv_cmd_post_srq_recv,
+	.resize_cq = hfi1_resize_cq_v1,
+};
+
 static struct verbs_context *hfi1_alloc_context(struct ibv_device *ibdev,
 						int cmd_fd)
 {
@@ -139,22 +152,12 @@ static struct verbs_context *hfi1_alloc_context(struct ibv_device *ibdev,
 				sizeof cmd, &resp, sizeof resp))
 		goto err_free;
 
-	context->ibv_ctx.context.ops = hfi1_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &hfi1_ctx_common_ops);
+
 	dev = to_idev(ibdev);
-	if (dev->abi_version == 1) {
-		context->ibv_ctx.context.ops.create_cq = hfi1_create_cq_v1;
-		context->ibv_ctx.context.ops.poll_cq = ibv_cmd_poll_cq;
-		context->ibv_ctx.context.ops.resize_cq = hfi1_resize_cq_v1;
-		context->ibv_ctx.context.ops.destroy_cq = hfi1_destroy_cq_v1;
-		context->ibv_ctx.context.ops.create_srq = hfi1_create_srq_v1;
-		context->ibv_ctx.context.ops.destroy_srq = hfi1_destroy_srq_v1;
-		context->ibv_ctx.context.ops.modify_srq = hfi1_modify_srq_v1;
-		context->ibv_ctx.context.ops.post_srq_recv =
-			ibv_cmd_post_srq_recv;
-		context->ibv_ctx.context.ops.create_qp = hfi1_create_qp_v1;
-		context->ibv_ctx.context.ops.destroy_qp = hfi1_destroy_qp_v1;
-		context->ibv_ctx.context.ops.post_recv = ibv_cmd_post_recv;
-	}
+	if (dev->abi_version == 1)
+		verbs_set_ops(&context->ibv_ctx, &hfi1_ctx_v1_ops);
+
 	return &context->ibv_ctx;
 
 err_free:

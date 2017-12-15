@@ -80,7 +80,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context_ops qelr_ctx_ops = {
+static const struct verbs_context_ops qelr_ctx_ops = {
 	.query_device = qelr_query_device,
 	.query_port = qelr_query_port,
 	.alloc_pd = qelr_alloc_pd,
@@ -176,8 +176,9 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
 
+	verbs_set_ops(&ctx->ibv_ctx, &qelr_ctx_ops);
+
 	ctx->kernel_page_size = sysconf(_SC_PAGESIZE);
-	ctx->ibv_ctx.context.ops = qelr_ctx_ops;
 	ctx->db_pa = resp.db_pa;
 	ctx->db_size = resp.db_size;
 	ctx->max_send_wr = resp.max_send_wr;

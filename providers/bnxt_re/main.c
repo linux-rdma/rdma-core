@@ -75,7 +75,7 @@ static const struct verbs_match_ent cna_table[] = {
 	{}
 };
 
-static struct ibv_context_ops bnxt_re_cntx_ops = {
+static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.query_device  = bnxt_re_query_device,
 	.query_port    = bnxt_re_query_port,
 	.alloc_pd      = bnxt_re_alloc_pd,
@@ -136,7 +136,7 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 	}
 	pthread_mutex_init(&cntx->shlock, NULL);
 
-	cntx->ibvctx.context.ops = bnxt_re_cntx_ops;
+	verbs_set_ops(&cntx->ibvctx, &bnxt_re_cntx_ops);
 
 	return &cntx->ibvctx;
 

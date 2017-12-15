@@ -64,7 +64,7 @@ static const struct verbs_match_ent ucna_table[] = {
 	{}
 };
 
-static struct ibv_context_ops ocrdma_ctx_ops = {
+static const struct verbs_context_ops ocrdma_ctx_ops = {
 	.query_device = ocrdma_query_device,
 	.query_port = ocrdma_query_port,
 	.alloc_pd = ocrdma_alloc_pd,
@@ -121,7 +121,8 @@ static struct verbs_context *ocrdma_alloc_context(struct ibv_device *ibdev,
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
 
-	ctx->ibv_ctx.context.ops = ocrdma_ctx_ops;
+	verbs_set_ops(&ctx->ibv_ctx, &ocrdma_ctx_ops);
+
 	get_ocrdma_dev(ibdev)->id = resp.dev_id;
 	get_ocrdma_dev(ibdev)->max_inline_data = resp.max_inline_data;
 	get_ocrdma_dev(ibdev)->wqe_size = resp.wqe_size;
