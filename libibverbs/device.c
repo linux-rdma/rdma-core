@@ -358,8 +358,7 @@ LATEST_SYMVER_FUNC(ibv_get_async_event, 1_1, "IBVERBS_1.1",
 		break;
 	}
 
-	if (context->ops.async_event)
-		context->ops.async_event(event);
+	context->ops.async_event(event);
 
 	return 0;
 }
