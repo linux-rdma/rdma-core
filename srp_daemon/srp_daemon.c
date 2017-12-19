@@ -2073,12 +2073,6 @@ static int ibsrpdm(int argc, char *argv[])
 	if (ret)
 		pr_err("Querying SRP targets failed\n");
 
-	assert(res->sync_res);
-	pthread_mutex_lock(&res->sync_res->retry_mutex);
-	res->sync_res->stop_threads = 1;
-	pthread_cond_signal(&res->sync_res->retry_cond);
-	pthread_mutex_unlock(&res->sync_res->retry_mutex);
-
 	free_res(res);
 umad_done:
 	umad_done();
