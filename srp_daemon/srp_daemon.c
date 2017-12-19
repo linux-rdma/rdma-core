@@ -1945,12 +1945,12 @@ static struct resources *alloc_res(void)
 				     run_thread_get_trap_notices, &res->res);
 		if (ret)
 			goto err;
-	}
 
-	ret = pthread_create(&res->res.async_ev_thread, NULL,
-			     run_thread_listen_to_events, &res->res);
-	if (ret)
-		goto err;
+		ret = pthread_create(&res->res.async_ev_thread, NULL,
+				     run_thread_listen_to_events, &res->res);
+		if (ret)
+			goto err;
+	}
 
 	if (config->retry_timeout && !config->once) {
 		ret = pthread_create(&res->res.reconnect_thread, NULL,
