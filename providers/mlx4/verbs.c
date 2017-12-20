@@ -135,6 +135,9 @@ int mlx4_query_rt_values(struct ibv_context *context,
 	uint32_t comp_mask = 0;
 	int err = 0;
 
+	if (!check_comp_mask(values->comp_mask, IBV_VALUES_MASK_RAW_CLOCK))
+		return EINVAL;
+
 	if (values->comp_mask & IBV_VALUES_MASK_RAW_CLOCK) {
 		uint64_t cycles;
 
@@ -572,6 +575,11 @@ struct ibv_cq_ex *mlx4_create_cq_ex(struct ibv_context *context,
 						.wc_flags = cq_attr->wc_flags,
 						.comp_mask = cq_attr->comp_mask,
 						.flags = cq_attr->flags};
+
+	if (!check_comp_mask(cq_attr_c.comp_mask, IBV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	return create_cq(context, &cq_attr_c, MLX4_CQ_FLAGS_EXTENDED);
 }

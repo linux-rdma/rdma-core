@@ -108,6 +108,9 @@ int mlx5_query_rt_values(struct ibv_context *context,
 	uint32_t comp_mask = 0;
 	int err = 0;
 
+	if (!check_comp_mask(values->comp_mask, IBV_VALUES_MASK_RAW_CLOCK))
+		return EINVAL;
+
 	if (values->comp_mask & IBV_VALUES_MASK_RAW_CLOCK) {
 		uint64_t cycles;
 

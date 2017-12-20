@@ -1967,11 +1967,6 @@ struct ibv_cq_ex *ibv_create_cq_ex(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (cq_attr->comp_mask & ~(IBV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
-		errno = EINVAL;
-		return NULL;
-	}
-
 	return vctx->create_cq_ex(context, cq_attr);
 }
 
@@ -2199,9 +2194,6 @@ ibv_query_rt_values_ex(struct ibv_context *context,
 	vctx = verbs_get_ctx_op(context, query_rt_values);
 	if (!vctx)
 		return ENOSYS;
-
-	if (values->comp_mask & ~(IBV_VALUES_MASK_RESERVED - 1))
-		return EINVAL;
 
 	return vctx->query_rt_values(context, values);
 }
