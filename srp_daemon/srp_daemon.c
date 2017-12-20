@@ -1103,7 +1103,7 @@ static int get_shared_pkeys(struct resources *res,
 	int i, num_pkeys = 0;
 	uint16_t pkey;
 	uint16_t local_port_lid = get_port_lid(res->ud_res->ib_ctx,
-					       config->port_num);
+					       config->port_num, NULL);
 
 	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
 			    node_table_response_size);
@@ -2092,7 +2092,7 @@ int main(int argc, char *argv[])
 {
 	int			ret;
 	struct resources       *res;
-	uint16_t 		lid;
+	uint16_t                lid, sm_lid;
 	uint16_t 		pkey;
 	union umad_gid 		gid;
 	struct target_details  *target;
@@ -2196,8 +2196,10 @@ catas_start:
 
 			pr_debug("Starting a recalculation\n");
 			port_lid = get_port_lid(res->ud_res->ib_ctx,
-					   config->port_num);
-			if (port_lid != res->ud_res->port_attr.lid) {
+						config->port_num, &sm_lid);
+			if (port_lid != res->ud_res->port_attr.lid ||
+				sm_lid != res->ud_res->port_attr.sm_lid) {
+
 				if (res->ud_res->ah) {
 					ibv_destroy_ah(res->ud_res->ah);
 					res->ud_res->ah = NULL;
