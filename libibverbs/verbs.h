@@ -67,18 +67,6 @@ union ibv_gid {
 	} global;
 };
 
-#ifndef container_of
-/**
-  * container_of - cast a member of a structure out to the containing structure
-  * @ptr:        the pointer to the member.
-  * @type:       the type of the container struct this is embedded in.
-  * @member:     the name of the member within the struct.
-  *
- */
-#define container_of(ptr, type, member) \
-	((type *) ((uint8_t *)(ptr) - offsetof(type, member)))
-#endif
-
 #define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
 
 #ifdef __cplusplus
@@ -1690,8 +1678,13 @@ struct verbs_context {
 
 static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
 {
-	return (ctx->abi_compat != __VERBS_ABI_IS_EXTENDED) ?
-		NULL : container_of(ctx, struct verbs_context, context);
+	if (ctx->abi_compat != __VERBS_ABI_IS_EXTENDED)
+		return NULL;
+
+	/* open code container_of to not pollute the global namespace */
+	return (struct verbs_context *)(((uint8_t *)ctx) -
+					offsetof(struct verbs_context,
+						 context));
 }
 
 #define verbs_get_ctx_op(ctx, op) ({ \

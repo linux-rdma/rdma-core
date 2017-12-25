@@ -321,13 +321,12 @@ struct nes_uqp {
 	uint64_t recv_wr_id[512]; /* IMA receive wr_id ring content */
 };
 
-#define to_nes_uxxx(xxx, type)				\
-	((struct nes_u##type *)					\
-	((void *) ib##xxx - offsetof(struct nes_u##type, ibv_##xxx)))
+#define to_nes_uxxx(xxx, type)                                                 \
+	container_of(ib##xxx, struct nes_u##type, ibv_##xxx)
 
 static inline struct nes_udevice *to_nes_udev(struct ibv_device *ibdev)
 {
-	return to_nes_uxxx(dev, device);
+	return container_of(ibdev, struct nes_udevice, ibv_dev.device);
 }
 
 static inline struct nes_uvcontext *to_nes_uctx(struct ibv_context *ibctx)

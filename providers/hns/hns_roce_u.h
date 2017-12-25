@@ -216,7 +216,7 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
 {
-	return container_of(ibv_dev, struct hns_roce_device, ibv_dev);
+	return container_of(ibv_dev, struct hns_roce_device, ibv_dev.device);
 }
 
 static inline struct hns_roce_context *to_hr_ctx(struct ibv_context *ibv_ctx)

@@ -154,8 +154,7 @@ struct hfi1_srq {
 };
 
 #define to_ixxx(xxx, type)						\
-	((struct hfi1_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct hfi1_##type, ibv_##xxx)))
+	container_of(ib##xxx, struct hfi1_##type, ibv_##xxx)
 
 static inline struct hfi1_context *to_ictx(struct ibv_context *ibctx)
 {
@@ -164,7 +163,7 @@ static inline struct hfi1_context *to_ictx(struct ibv_context *ibctx)
 
 static inline struct hfi1_device *to_idev(struct ibv_device *ibdev)
 {
-	return to_ixxx(dev, device);
+	return container_of(ibdev, struct hfi1_device, ibv_dev.device);
 }
 
 static inline struct hfi1_cq *to_icq(struct ibv_cq *ibcq)

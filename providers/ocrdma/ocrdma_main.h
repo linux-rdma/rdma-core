@@ -226,9 +226,8 @@ struct ocrdma_ah {
 	uint8_t hdr_type;
 };
 
-#define get_ocrdma_xxx(xxx, type)				\
-	((struct ocrdma_##type *)					\
-	((void *) ib##xxx - offsetof(struct ocrdma_##type, ibv_##xxx)))
+#define get_ocrdma_xxx(xxx, type)                                              \
+	container_of(ib##xxx, struct ocrdma_##type, ibv_##xxx)
 
 static inline struct ocrdma_devctx *get_ocrdma_ctx(struct ibv_context *ibctx)
 {
@@ -237,7 +236,7 @@ static inline struct ocrdma_devctx *get_ocrdma_ctx(struct ibv_context *ibctx)
 
 static inline struct ocrdma_device *get_ocrdma_dev(struct ibv_device *ibdev)
 {
-	return get_ocrdma_xxx(dev, device);
+	return container_of(ibdev, struct ocrdma_device, ibv_dev.device);
 }
 
 static inline struct ocrdma_qp *get_ocrdma_qp(struct ibv_qp *ibqp)

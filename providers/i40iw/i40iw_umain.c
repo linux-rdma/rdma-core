@@ -91,9 +91,6 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context *i40iw_ualloc_context(struct ibv_device *, int);
-static void i40iw_ufree_context(struct ibv_context *);
-
 static struct ibv_context_ops i40iw_uctx_ops = {
 	.query_device	= i40iw_uquery_device,
 	.query_port	= i40iw_uquery_port,

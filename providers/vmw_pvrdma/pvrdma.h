@@ -196,7 +196,7 @@ static inline int align_next_power2(int size)
 
 static inline struct pvrdma_device *to_vdev(struct ibv_device *ibdev)
 {
-	return container_of(ibdev, struct pvrdma_device, ibv_dev);
+	return container_of(ibdev, struct pvrdma_device, ibv_dev.device);
 }
 
 static inline struct pvrdma_context *to_vctx(struct ibv_context *ibctx)

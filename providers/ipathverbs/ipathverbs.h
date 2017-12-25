@@ -133,9 +133,7 @@ struct ipath_srq {
 	struct ipath_rq		rq;
 };
 
-#define to_ixxx(xxx, type)						\
-	((struct ipath_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct ipath_##type, ibv_##xxx)))
+#define to_ixxx(xxx, type) container_of(ib##xxx, struct ipath_##type, ibv_##xxx)
 
 static inline struct ipath_context *to_ictx(struct ibv_context *ibctx)
 {
@@ -144,7 +142,7 @@ static inline struct ipath_context *to_ictx(struct ibv_context *ibctx)
 
 static inline struct ipath_device *to_idev(struct ibv_device *ibdev)
 {
-	return to_ixxx(dev, device);
+	return container_of(ibdev, struct ipath_device, ibv_dev.device);
 }
 
 static inline struct ipath_cq *to_icq(struct ibv_cq *ibcq)
