@@ -172,45 +172,6 @@ Description: Debug symbols for the libibverbs library
  libibverbs1. They will automatically be used by gdb for debugging
  libibverbs-related issues.
 
-Package: libibcm-dev
-Section: libdevel
-Architecture: linux-any
-Multi-Arch: same
-Depends: libibcm1 (= ${binary:Version}), libibverbs-dev, ${misc:Depends}
-Description: Development files for the libibcm library
- libibcm provides a userspace implementation of an InfiniBand
- Communication Manager (CM). The CM handles both connection
- establishment as well as service ID resolution.
- .
- This package is needed to compile programs against libibcm1.
- It contains the header files and static libraries (optionally)
- needed for compiling.
-
-Package: libibcm1
-Architecture: linux-any
-Multi-Arch: same
-Section: libs
-Depends: ${misc:Depends}, ${shlibs:Depends}
-Description: InfiniBand Communication Manager (CM) library
- libibcm provides a userspace implementation of an InfiniBand
- Communication Manager (CM). The CM handles both connection
- establishment as well as service ID resolution.
- .
- This package contains the shared library.
-
-Package: libibcm1-dbg
-Section: debug
-Architecture: linux-any
-Depends: libibcm1 (= ${binary:Version}), ${misc:Depends}
-Description: Debug symbols for the libibcm1 library
- libibcm provides a userspace implementation of an InfiniBand
- Communication Manager (CM). The CM handles both connection
- establishment as well as service ID resolution.
- .
- This package contains the debug symbols associated with
- libibcm1. They will automatically be used by gdb for debugging
- libibcm-related issues.
-
 Package: libibumad-dev
 Section: libdevel
 Architecture: linux-any
