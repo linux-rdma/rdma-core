@@ -24,6 +24,7 @@ Homepage: https://github.com/linux-rdma/rdma-core
 Package: rdma-core
 Architecture: linux-any
 Depends: lsb-base (>= 3.2-14~),
+         udev,
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends}
@@ -342,6 +343,7 @@ Package: srptools
 Architecture: linux-any
 Depends: lsb-base (>= 3.2-14~),
          rdma-core (>= 15),
+         udev,
          ${misc:Depends},
          ${shlibs:Depends}
 Description: Tools for Infiniband attached storage (SRP)
