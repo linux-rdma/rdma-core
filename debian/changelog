@@ -1,8 +1,24 @@
-rdma-core (17.0-1) unstable; urgency=low
+rdma-core (17.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 14 Nov 2017 12:24:09 +0100
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Thu, 04 Jan 2018 15:25:06 +0100
+
+rdma-core (16.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+  * Bump Standards-Version to 4.1.3 (no changes needed)
+  * Add udev dependency to rdma-core and srptools
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 04 Jan 2018 14:42:26 +0100
+
+rdma-core (16.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update private libibverbs symbols
+  * Bump Standards-Version to 4.1.2 (no changes needed)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Tue, 12 Dec 2017 11:01:38 +0100
 
 rdma-core (15.1-1) unstable; urgency=medium
 
