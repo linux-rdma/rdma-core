@@ -346,4 +346,16 @@ static inline size_t __check_divide(size_t val, unsigned int div)
 	return val / div;
 }
 
+static inline struct ib_uverbs_attr *
+fill_attr_in_enum(struct ibv_command_buffer *cmd, uint16_t attr_id,
+		  uint8_t elem_id, const void *data, size_t len)
+{
+	struct ib_uverbs_attr *attr;
+
+	attr = fill_attr_in(cmd, attr_id, data, len);
+	attr->attr_data.enum_data.elem_id = elem_id;
+
+	return attr;
+}
+
 #endif
