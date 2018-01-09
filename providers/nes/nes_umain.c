@@ -109,7 +109,8 @@ static struct verbs_context *nes_ualloc_context(struct ibv_device *ibdev,
 
 	page_size = sysconf(_SC_PAGESIZE);
 
-	nesvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, nesvctx, ibv_ctx);
+	nesvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, nesvctx, ibv_ctx,
+					       RDMA_DRIVER_NES);
 	if (!nesvctx)
 		return NULL;
 

@@ -147,7 +147,8 @@ static struct verbs_context *pvrdma_alloc_context(struct ibv_device *ibdev,
 {
 	struct pvrdma_context *context;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_VMW_PVRDMA);
 	if (!context)
 		return NULL;
 

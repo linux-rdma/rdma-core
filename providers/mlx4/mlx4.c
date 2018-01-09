@@ -177,7 +177,8 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 	struct verbs_context		*verbs_ctx;
 	struct ibv_device_attr_ex	dev_attrs;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_MLX4);
 	if (!context)
 		return NULL;
 

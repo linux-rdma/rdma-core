@@ -41,6 +41,7 @@
 #include <ccan/list.h>
 #include <config.h>
 #include <stdbool.h>
+#include <rdma/rdma_user_ioctl_cmds.h>
 
 struct verbs_device;
 
@@ -300,15 +301,18 @@ void verbs_register_driver(const struct verbs_device_ops *ops);
 
 void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
 				    size_t alloc_size,
-				    struct verbs_context *context_offset);
+				    struct verbs_context *context_offset,
+				    uint32_t driver_id);
 
-#define verbs_init_and_alloc_context(ibdev, cmd_fd, drv_ctx_ptr, ctx_memb)     \
+#define verbs_init_and_alloc_context(ibdev, cmd_fd, drv_ctx_ptr, ctx_memb,     \
+				     driver_id)				       \
 	((typeof(drv_ctx_ptr))_verbs_init_and_alloc_context(                   \
 		ibdev, cmd_fd, sizeof(*drv_ctx_ptr),                           \
-		&((typeof(drv_ctx_ptr))NULL)->ctx_memb))
+		&((typeof(drv_ctx_ptr))NULL)->ctx_memb, (driver_id)))
 
 int verbs_init_context(struct verbs_context *context_ex,
-		       struct ibv_device *device, int cmd_fd);
+		       struct ibv_device *device, int cmd_fd,
+		       uint32_t driver_id);
 void verbs_uninit_context(struct verbs_context *context);
 void verbs_set_ops(struct verbs_context *vctx,
 		   const struct verbs_context_ops *ops);

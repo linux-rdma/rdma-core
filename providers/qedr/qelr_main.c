@@ -162,7 +162,8 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	struct qelr_get_context cmd;
 	struct qelr_alloc_ucontext_resp resp;
 
-	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx);
+	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx,
+					   RDMA_DRIVER_QEDR);
 	if (!ctx)
 		return NULL;
 

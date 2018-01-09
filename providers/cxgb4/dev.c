@@ -115,7 +115,8 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	uint64_t raw_fw_ver;
 	struct ibv_device_attr attr;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_CXGB4);
 	if (!context)
 		return NULL;
 
