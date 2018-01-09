@@ -546,6 +546,13 @@ struct mlx5_counters {
 	struct list_head counters_list;
 	pthread_mutex_t lock;
 	uint32_t ncounters;
+	/* number of bounded objects */
+	int refcount;
+};
+
+struct mlx5_flow {
+	struct ibv_flow flow_id;
+	struct mlx5_counters *mcounters;
 };
 
 static inline int mlx5_ilog2(int n)
@@ -681,6 +688,11 @@ static inline struct mlx5_rwq *rsc_to_mrwq(struct mlx5_resource *rsc)
 static inline struct mlx5_counters *to_mcounters(struct ibv_counters *ibcounters)
 {
 	return container_of(ibcounters, struct mlx5_counters, vcounters.counters);
+}
+
+static inline struct mlx5_flow *to_mflow(struct ibv_flow *flow_id)
+{
+	return container_of(flow_id, struct mlx5_flow, flow_id);
 }
 
 int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);

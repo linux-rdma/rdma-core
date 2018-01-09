@@ -2970,33 +2970,158 @@ int mlx5_destroy_wq(struct ibv_wq *wq)
 	return 0;
 }
 
+static void free_flow_counters_descriptions(struct mlx5_ib_create_flow *cmd)
+{
+	int i;
+
+	for (i = 0; i < cmd->ncounters_data; i++)
+		free(cmd->data[i].counters_data);
+}
+
+static int get_flow_mcounters(struct mlx5_flow *mflow,
+			      struct ibv_flow_attr *flow_attr,
+			      struct mlx5_counters **mcounters,
+			      uint32_t *data_size)
+{
+	struct ibv_flow_spec *ib_spec;
+	uint32_t ncounters_used = 0;
+	int i;
+
+	ib_spec = (struct ibv_flow_spec *)(flow_attr + 1);
+	for (i = 0; i < flow_attr->num_of_specs; i++, ib_spec = (void *)ib_spec + ib_spec->hdr.size) {
+		if (ib_spec->hdr.type != IBV_FLOW_SPEC_ACTION_COUNT)
+			continue;
+
+		/* currently support only one counters data */
+		if (ncounters_used > 0)
+			return EINVAL;
+
+		*mcounters  = to_mcounters(ib_spec->flow_count.counters);
+		ncounters_used++;
+	}
+
+	*data_size = ncounters_used * sizeof(struct mlx5_ib_flow_counters_data);
+	return 0;
+}
+
+static int allocate_flow_counters_descriptions(struct mlx5_counters *mcounters,
+					       struct mlx5_ib_create_flow *cmd)
+{
+	struct mlx5_ib_flow_counters_data *mcntrs_data;
+	struct mlx5_ib_flow_counters_desc *cntrs_data;
+	struct mlx5_counter_node *cntr_node;
+	uint32_t ncounters;
+	int j = 0;
+
+	mcntrs_data = cmd->data;
+	ncounters = mcounters->ncounters;
+
+	/* mlx5_attach_counters_point_flow was never called */
+	if (!ncounters)
+		return EINVAL;
+
+	/* each counter has both index and description */
+	cntrs_data = calloc(ncounters, sizeof(*cntrs_data));
+	if (!cntrs_data)
+		return ENOMEM;
+
+	list_for_each(&mcounters->counters_list, cntr_node, entry) {
+		cntrs_data[j].description = cntr_node->desc;
+		cntrs_data[j].index = cntr_node->index;
+		j++;
+	}
+
+	scrub_ptr_attr(cntrs_data);
+	mcntrs_data[cmd->ncounters_data].counters_data = cntrs_data;
+	mcntrs_data[cmd->ncounters_data].ncounters = ncounters;
+	cmd->ncounters_data++;
+
+	return 0;
+}
+
 struct ibv_flow *mlx5_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_attr)
 {
+	struct mlx5_ib_create_flow *cmd;
+	uint32_t required_cmd_size = 0;
 	struct ibv_flow *flow_id;
+	struct mlx5_flow *mflow;
 	int ret;
 
-	flow_id = calloc(1, sizeof *flow_id);
-	if (!flow_id)
+	mflow = calloc(1, sizeof(*mflow));
+	if (!mflow) {
+		errno = ENOMEM;
 		return NULL;
+	}
 
+	ret = get_flow_mcounters(mflow, flow_attr, &mflow->mcounters, &required_cmd_size);
+	if (ret) {
+		errno = ret;
+		goto err_get_mcounters;
+	}
+
+	required_cmd_size += sizeof(*cmd);
+	cmd = calloc(1, required_cmd_size);
+	if (!cmd) {
+		errno = ENOMEM;
+		goto err_get_mcounters;
+	}
+
+	if (mflow->mcounters) {
+		pthread_mutex_lock(&mflow->mcounters->lock);
+		/* if the counters already bound no need to pass its description */
+		if (!mflow->mcounters->refcount) {
+			ret = allocate_flow_counters_descriptions(mflow->mcounters, cmd);
+			if (ret) {
+				errno = ret;
+				goto err_desc_alloc;
+			}
+		}
+	}
+
+	flow_id = &mflow->flow_id;
 	ret = ibv_cmd_create_flow(qp, flow_id, flow_attr,
-				  NULL, 0);
-	if (!ret)
-		return flow_id;
+				  cmd, required_cmd_size);
+	if (ret)
+		goto err_create_flow;
 
-	free(flow_id);
+	if (mflow->mcounters) {
+		free_flow_counters_descriptions(cmd);
+		mflow->mcounters->refcount++;
+		pthread_mutex_unlock(&mflow->mcounters->lock);
+	}
+
+	free(cmd);
+
+	return flow_id;
+
+err_create_flow:
+	if (mflow->mcounters) {
+		free_flow_counters_descriptions(cmd);
+		pthread_mutex_unlock(&mflow->mcounters->lock);
+	}
+err_desc_alloc:
+	free(cmd);
+err_get_mcounters:
+	free(mflow);
 	return NULL;
 }
 
 int mlx5_destroy_flow(struct ibv_flow *flow_id)
 {
+	struct mlx5_flow *mflow = to_mflow(flow_id);
 	int ret;
 
 	ret = ibv_cmd_destroy_flow(flow_id);
 	if (ret)
 		return ret;
 
-	free(flow_id);
+	if (mflow->mcounters) {
+		pthread_mutex_lock(&mflow->mcounters->lock);
+		mflow->mcounters->refcount--;
+		pthread_mutex_unlock(&mflow->mcounters->lock);
+	}
+
+	free(mflow);
 	return 0;
 }
 
@@ -3334,6 +3459,7 @@ int mlx5_attach_counters_point_flow(struct ibv_counters *counters,
 {
 	struct mlx5_counters *mcntrs = to_mcounters(counters);
 	struct mlx5_counter_node *cntrs_node;
+	int ret;
 
 	/* The driver supports only the static binding mode as part of ibv_create_flow */
 	if (flow)
@@ -3351,14 +3477,25 @@ int mlx5_attach_counters_point_flow(struct ibv_counters *counters,
 	if (!cntrs_node)
 		return ENOMEM;
 
+	pthread_mutex_lock(&mcntrs->lock);
+	/* The counter is bound to a flow, attach is not allowed */
+	if (mcntrs->refcount) {
+		ret = EBUSY;
+		goto err_already_bound;
+	}
+
 	cntrs_node->index = attr->index;
 	cntrs_node->desc = attr->counter_desc;
-	pthread_mutex_lock(&mcntrs->lock);
 	list_add(&mcntrs->counters_list, &cntrs_node->entry);
 	mcntrs->ncounters++;
 	pthread_mutex_unlock(&mcntrs->lock);
 
 	return 0;
+
+err_already_bound:
+	pthread_mutex_unlock(&mcntrs->lock);
+	free(cntrs_node);
+	return ret;
 }
 
 int mlx5_read_counters(struct ibv_counters *counters,
