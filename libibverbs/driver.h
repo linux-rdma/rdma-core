@@ -514,7 +514,9 @@ int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t l
 
 int ibv_cmd_create_flow(struct ibv_qp *qp,
 				     struct ibv_flow *flow_id,
-				     struct ibv_flow_attr *flow_attr);
+				     struct ibv_flow_attr *flow_attr,
+				     void *ucmd,
+				     size_t ucmd_size);
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id);
 int ibv_cmd_create_wq(struct ibv_context *context,
 		      struct ibv_wq_init_attr *wq_init_attr,

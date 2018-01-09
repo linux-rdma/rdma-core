@@ -1817,7 +1817,9 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 
 int ibv_cmd_create_flow(struct ibv_qp *qp,
 			struct ibv_flow *flow_id,
-			struct ibv_flow_attr *flow_attr)
+			struct ibv_flow_attr *flow_attr,
+			void *ucmd,
+			size_t ucmd_size)
 {
 	struct ibv_create_flow *cmd;
 	struct ib_uverbs_destroy_flow  resp;
@@ -1829,8 +1831,8 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 
 	cmd_size = sizeof(*cmd) + (flow_attr->num_of_specs *
 				  sizeof(struct ibv_kern_spec));
-	cmd = alloca(cmd_size);
-	memset(cmd, 0, cmd_size);
+	cmd = alloca(cmd_size + ucmd_size);
+	memset(cmd, 0, cmd_size + ucmd_size);
 
 	cmd->qp_handle = qp->handle;
 
@@ -1855,7 +1857,13 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 	}
 
 	written_size = sizeof(*cmd) + cmd->flow_attr.size;
-	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size, written_size, CREATE_FLOW,
+	if (ucmd) {
+		memcpy((char *)cmd + written_size, ucmd, ucmd_size);
+		written_size += ucmd_size;
+	}
+
+	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size - ucmd_size,
+				  written_size, CREATE_FLOW,
 				  &resp, sizeof(resp));
 	if (write(qp->context->cmd_fd, cmd, written_size) != written_size)
 		goto err;
