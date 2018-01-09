@@ -5,6 +5,7 @@ publish_internal_headers(rdma
   rdma/hns-abi.h
   rdma/i40iw-abi.h
   rdma/ib_user_cm.h
+  rdma/ib_user_ioctl_cmds.h
   rdma/ib_user_ioctl_verbs.h
   rdma/ib_user_mad.h
   rdma/ib_user_sa.h
@@ -18,6 +19,7 @@ publish_internal_headers(rdma
   rdma/rdma_netlink.h
   rdma/rdma_user_cm.h
   rdma/rdma_user_ioctl.h
+  rdma/rdma_user_ioctl_cmds.h
   rdma/rdma_user_rxe.h
   rdma/vmw_pvrdma-abi.h
   )

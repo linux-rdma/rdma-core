@@ -53,8 +53,8 @@ enum write_fallback _check_legacy(struct ibv_command_buffer *cmdb, int *ret)
 
 	for (cmdb = cmdb->next; cmdb; cmdb = cmdb->next) {
 		for (cur = cmdb->hdr.attrs; cur != cmdb->next_attr; cur++) {
-			if (cur->attr_id != UVERBS_UHW_IN &&
-			    cur->attr_id != UVERBS_UHW_OUT &&
+			if (cur->attr_id != UVERBS_ATTR_UHW_IN &&
+			    cur->attr_id != UVERBS_ATTR_UHW_OUT &&
 			    cur->flags & UVERBS_ATTR_F_MANDATORY)
 				goto not_supp;
 		}
@@ -133,7 +133,7 @@ void *_write_get_req(struct ibv_command_buffer *link, void *onstack,
 	if (link->uhw_in_idx != _UHW_NO_INDEX) {
 		struct ib_uverbs_attr *uhw = &link->hdr.attrs[link->uhw_in_idx];
 
-		assert(uhw->attr_id == UVERBS_UHW_IN);
+		assert(uhw->attr_id == UVERBS_ATTR_UHW_IN);
 		assert(link->uhw_in_headroom_dwords * 4 >= size);
 		hdr = (void *)((uintptr_t)uhw->data - size);
 		hdr->in_words = __check_divide(size + uhw->len, 4);
@@ -154,7 +154,7 @@ void *_write_get_req_ex(struct ibv_command_buffer *link, void *onstack,
 	if (link->uhw_in_idx != _UHW_NO_INDEX) {
 		struct ib_uverbs_attr *uhw = &link->hdr.attrs[link->uhw_in_idx];
 
-		assert(uhw->attr_id == UVERBS_UHW_IN);
+		assert(uhw->attr_id == UVERBS_ATTR_UHW_IN);
 		assert(link->uhw_in_headroom_dwords * 4 >= full_size);
 		hdr = (void *)((uintptr_t)uhw->data - full_size);
 		hdr->hdr.in_words = __check_divide(size, 8);
@@ -178,7 +178,7 @@ void *_write_get_resp(struct ibv_command_buffer *link,
 		struct ib_uverbs_attr *uhw =
 			&link->hdr.attrs[link->uhw_out_idx];
 
-		assert(uhw->attr_id == UVERBS_UHW_OUT);
+		assert(uhw->attr_id == UVERBS_ATTR_UHW_OUT);
 		assert(link->uhw_out_headroom_dwords * 4 >= resp_size);
 		resp_start = (void *)((uintptr_t)uhw->data - resp_size);
 		hdr->out_words = __check_divide(resp_size + uhw->len, 4);
@@ -200,7 +200,7 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
 		struct ib_uverbs_attr *uhw =
 			&link->hdr.attrs[link->uhw_out_idx];
 
-		assert(uhw->attr_id == UVERBS_UHW_OUT);
+		assert(uhw->attr_id == UVERBS_ATTR_UHW_OUT);
 		assert(link->uhw_out_headroom_dwords * 4 >= resp_size);
 		resp_start = (void *)((uintptr_t)uhw->data - resp_size);
 		hdr->hdr.out_words = __check_divide(resp_size, 8);

@@ -37,8 +37,7 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include <rdma/rdma_user_ioctl.h>
-#include <rdma/ib_user_ioctl_verbs.h>
+#include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/verbs.h>
 
 static inline uint64_t ioctl_ptr_to_u64(const void *ptr)

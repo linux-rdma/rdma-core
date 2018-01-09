@@ -37,25 +37,25 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			      uint32_t flags, struct ibv_cq *cq,
 			      struct ibv_command_buffer *link)
 {
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_CQ_CREATE, 7, link);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE, 7, link);
 	struct ib_uverbs_attr *handle;
 	uint32_t resp_cqe;
 	int ret;
 
 	cq->context = context;
 
-	handle = fill_attr_out_obj(cmdb, CREATE_CQ_HANDLE);
-	fill_attr_out_ptr(cmdb, CREATE_CQ_RESP_CQE, &resp_cqe);
+	handle = fill_attr_out_obj(cmdb, UVERBS_ATTR_CREATE_CQ_HANDLE);
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_CQ_RESP_CQE, &resp_cqe);
 
-	fill_attr_in_uint32(cmdb, CREATE_CQ_CQE, cqe);
-	fill_attr_in_uint64(cmdb, CREATE_CQ_USER_HANDLE, (uintptr_t)cq);
+	fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_CQ_CQE, cqe);
+	fill_attr_in_uint64(cmdb, UVERBS_ATTR_CREATE_CQ_USER_HANDLE, (uintptr_t)cq);
 	if (channel)
-		fill_attr_in_fd(cmdb, CREATE_CQ_COMP_CHANNEL, channel->fd);
-	fill_attr_in_uint32(cmdb, CREATE_CQ_COMP_VECTOR, comp_vector);
+		fill_attr_in_fd(cmdb, UVERBS_ATTR_CREATE_CQ_COMP_CHANNEL, channel->fd);
+	fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_CQ_COMP_VECTOR, comp_vector);
 
 	if (flags) {
 		fallback_require_ex(cmdb);
-		fill_attr_in_uint32(cmdb, CREATE_CQ_FLAGS, flags);
+		fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_CQ_FLAGS, flags);
 	}
 
 	switch (execute_ioctl_fallback(cq->context, create_cq, cmdb, &ret)) {
@@ -108,7 +108,7 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 		break;
 	}
 
-	cq->handle = read_attr_obj(CREATE_CQ_HANDLE, handle);
+	cq->handle = read_attr_obj(UVERBS_ATTR_CREATE_CQ_HANDLE, handle);
 	cq->cqe = resp_cqe;
 
 	return 0;
@@ -120,7 +120,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      size_t cmd_size, struct ib_uverbs_create_cq_resp *resp,
 		      size_t resp_size)
 {
-	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_CQ_CREATE);
+	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE);
 
 	return ibv_icmd_create_cq(context, cqe, channel, comp_vector, 0, cq,
 				  cmdb);
@@ -134,7 +134,7 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
 			 size_t resp_size)
 {
-	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_CQ_CREATE);
+	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE);
 	uint32_t flags = 0;
 
 	if (!check_comp_mask(cq_attr->comp_mask, IBV_CQ_INIT_ATTR_MASK_FLAGS))
@@ -150,13 +150,13 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 
 int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 {
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_CQ_DESTROY, 2,
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_DESTROY, 2,
 			     NULL);
 	DECLARE_LEGACY_CORE_BUFS(destroy_cq);
 	int ret;
 
-	fill_attr_out_ptr(cmdb, DESTROY_CQ_RESP, &resp);
-	fill_attr_in_obj(cmdb, DESTROY_CQ_HANDLE, cq->handle);
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_DESTROY_CQ_RESP, &resp);
+	fill_attr_in_obj(cmdb, UVERBS_ATTR_DESTROY_CQ_HANDLE, cq->handle);
 
 	switch (execute_ioctl_fallback(cq->context, destroy_cq, cmdb, &ret)) {
 	case TRY_WRITE: {
