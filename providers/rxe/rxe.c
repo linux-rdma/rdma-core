@@ -162,7 +162,6 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 				    int comp_vector)
 {
 	struct rxe_cq *cq;
-	struct ibv_create_cq cmd;
 	struct rxe_create_cq_resp resp;
 	int ret;
 
@@ -172,7 +171,7 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 	}
 
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&cq->ibv_cq, &cmd, sizeof cmd,
+				&cq->ibv_cq, NULL, 0,
 				&resp.ibv_resp, sizeof resp);
 	if (ret) {
 		free(cq);

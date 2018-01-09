@@ -169,7 +169,6 @@ struct ibv_cq *hfi1_create_cq(struct ibv_context *context, int cqe,
 			       int comp_vector)
 {
 	struct hfi1_cq		   *cq;
-	struct ibv_create_cq	    cmd;
 	struct hfi1_create_cq_resp resp;
 	int			    ret;
 	size_t			    size;
@@ -180,7 +179,7 @@ struct ibv_cq *hfi1_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&cq->ibv_cq, &cmd, sizeof cmd,
+				&cq->ibv_cq, NULL, 0,
 				&resp.ibv_resp, sizeof resp);
 	if (ret) {
 		free(cq);
@@ -205,8 +204,6 @@ struct ibv_cq *hfi1_create_cq_v1(struct ibv_context *context, int cqe,
 				  int comp_vector)
 {
 	struct ibv_cq		   *cq;
-	struct ibv_create_cq	    cmd;
-	struct ib_uverbs_create_cq_resp   resp;
 	int			    ret;
 
 	cq = malloc(sizeof *cq);
@@ -214,7 +211,7 @@ struct ibv_cq *hfi1_create_cq_v1(struct ibv_context *context, int cqe,
 		return NULL;
 
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				cq, &cmd, sizeof cmd, &resp, sizeof resp);
+				cq, NULL, 0, NULL, 0);
 	if (ret) {
 		free(cq);
 		return NULL;

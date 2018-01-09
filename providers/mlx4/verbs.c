@@ -413,8 +413,8 @@ static int mlx4_cmd_create_cq(struct ibv_context *context,
 			      struct ibv_cq_init_attr_ex *cq_attr,
 			      struct mlx4_cq *cq)
 {
-	struct mlx4_create_cq      cmd = {};
-	struct mlx4_create_cq_resp resp = {};
+	struct mlx4_create_cq      cmd;
+	struct mlx4_create_cq_resp resp;
 	int ret;
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
@@ -436,8 +436,8 @@ static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
 				 struct ibv_cq_init_attr_ex *cq_attr,
 				 struct mlx4_cq *cq)
 {
-	struct mlx4_create_cq_ex      cmd = {};
-	struct mlx4_create_cq_resp_ex resp = {};
+	struct mlx4_create_cq_ex      cmd;
+	struct mlx4_create_cq_resp_ex resp;
 	int ret;
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
@@ -445,10 +445,8 @@ static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
 
 	ret = ibv_cmd_create_cq_ex(context, cq_attr,
 				   &cq->ibv_cq, &cmd.ibv_cmd,
-				   sizeof(cmd.ibv_cmd),
 				   sizeof(cmd),
 				   &resp.ibv_resp,
-				   sizeof(resp.ibv_resp),
 				   sizeof(resp));
 	if (!ret)
 		cq->cqn = resp.cqn;
