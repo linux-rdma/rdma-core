@@ -151,20 +151,218 @@ struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 
+	atomic_init(&pd->refcount, 1);
 	pd->pdn = resp.pdn;
 
 	return &pd->ibv_pd;
 }
 
+static void mlx5_put_bfreg_index(struct mlx5_context *ctx, uint32_t bfreg_dyn_index)
+{
+	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
+	ctx->count_dyn_bfregs[bfreg_dyn_index]--;
+	pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+}
+
+static int mlx5_get_bfreg_index(struct mlx5_context *ctx)
+{
+	int i;
+
+	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
+	for (i = 0; i < ctx->num_dyn_bfregs; i++) {
+		if (!ctx->count_dyn_bfregs[i]) {
+			ctx->count_dyn_bfregs[i]++;
+			pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+			return i;
+		}
+	}
+
+	pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+
+	return -1;
+}
+
+/* Returns a dedicated BF to be used by a thread domain */
+static struct mlx5_bf *mlx5_attach_dedicated_bf(struct ibv_context *context)
+{
+	struct mlx5_uar_info uar;
+	struct mlx5_context *ctx = to_mctx(context);
+	struct mlx5_device *dev = to_mdev(ctx->ibv_ctx.device);
+	int bfreg_dyn_index;
+	uint32_t bfreg_total_index;
+	uint32_t uar_page_index;
+	int index_in_uar, index_uar_in_page;
+	int mmap_bf_index;
+	int num_bfregs_per_page;
+
+	bfreg_dyn_index = mlx5_get_bfreg_index(ctx);
+	if (bfreg_dyn_index < 0) {
+		errno = ENOENT;
+		return NULL;
+	}
+
+	bfreg_total_index = ctx->start_dyn_bfregs_index + bfreg_dyn_index;
+	/* Check whether this bfreg index was already mapped and ready to be used */
+	if (ctx->bfs[bfreg_total_index].reg)
+		return &(ctx->bfs[bfreg_total_index]);
+
+	num_bfregs_per_page = ctx->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+	uar_page_index = bfreg_dyn_index / num_bfregs_per_page;
+
+	/* The first bf index of each page will hold the mapped area address of the UAR */
+	mmap_bf_index = ctx->start_dyn_bfregs_index + (uar_page_index * num_bfregs_per_page);
+
+	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
+	if (ctx->bfs[mmap_bf_index].uar) {
+		/* UAR was already mapped, set its matching bfreg */
+		goto set_reg;
+	}
+
+	ctx->bfs[mmap_bf_index].uar = mlx5_mmap(&uar, uar_page_index, ctx->ibv_ctx.cmd_fd, dev->page_size,
+				  MLX5_UAR_TYPE_REGULAR_DYN);
+	if (ctx->bfs[mmap_bf_index].uar == MAP_FAILED) {
+		ctx->bfs[mmap_bf_index].uar = NULL;
+		pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+		goto out;
+	}
+
+set_reg:
+	pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+	/* Find the uar index in the system page, may be different than 1 when 4K UAR is used in 64K system page */
+	index_uar_in_page = (bfreg_dyn_index % num_bfregs_per_page) /
+			    MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+	index_in_uar = bfreg_dyn_index % MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+	/* set the global index so that this entry will be detected as a valid BF entry as part of post_send */
+	ctx->bfs[bfreg_total_index].uuarn = bfreg_total_index;
+	ctx->bfs[bfreg_total_index].reg = ctx->bfs[mmap_bf_index].uar + (index_uar_in_page * MLX5_ADAPTER_PAGE_SIZE) +
+					MLX5_BF_OFFSET + (index_in_uar * ctx->bf_reg_size);
+	ctx->bfs[bfreg_total_index].buf_size = ctx->bf_reg_size / 2;
+	ctx->bfs[bfreg_total_index].bfreg_dyn_index = bfreg_dyn_index;
+	/* This mmap command can't be repeated by secondary processes, no option to re-allocate same UAR */
+	ctx->bfs[bfreg_total_index].uar_mmap_offset = 0;
+	ctx->bfs[bfreg_total_index].need_lock = 0;
+
+	return &ctx->bfs[bfreg_total_index];
+out:
+	mlx5_put_bfreg_index(ctx, bfreg_dyn_index);
+	return NULL;
+}
+
+static void mlx5_detach_dedicated_bf(struct ibv_context *context, struct mlx5_bf *bf)
+{
+	struct mlx5_context *ctx = to_mctx(context);
+
+	mlx5_put_bfreg_index(ctx, bf->bfreg_dyn_index);
+}
+
+struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr)
+{
+	struct mlx5_td	*td;
+
+	if (init_attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	td = calloc(1, sizeof(*td));
+	if (!td) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	td->bf = mlx5_attach_dedicated_bf(context);
+	if (!td->bf) {
+		free(td);
+		return NULL;
+	}
+
+	td->ibv_td.context = context;
+	atomic_init(&td->refcount, 1);
+
+	return &td->ibv_td;
+}
+
+int mlx5_dealloc_td(struct ibv_td *ib_td)
+{
+	struct mlx5_td	*td;
+
+	td = to_mtd(ib_td);
+	if (atomic_load(&td->refcount) > 1)
+		return EBUSY;
+
+	mlx5_detach_dedicated_bf(ib_td->context, td->bf);
+	free(td);
+
+	return 0;
+}
+
+struct ibv_pd *
+mlx5_alloc_parent_domain(struct ibv_context *context,
+			 struct ibv_parent_domain_init_attr *attr)
+{
+	struct mlx5_parent_domain *mparent_domain;
+
+	if (ibv_check_alloc_parent_domain(attr))
+		return NULL;
+
+	if (attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	mparent_domain = calloc(1, sizeof(*mparent_domain));
+	if (!mparent_domain) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	if (attr->td) {
+		mparent_domain->mtd = to_mtd(attr->td);
+		atomic_fetch_add(&mparent_domain->mtd->refcount, 1);
+	}
+
+	mparent_domain->mpd.mprotection_domain = to_mpd(attr->pd);
+	atomic_fetch_add(&mparent_domain->mpd.mprotection_domain->refcount, 1);
+	atomic_init(&mparent_domain->mpd.refcount, 1);
+
+	ibv_initialize_parent_domain(
+	    &mparent_domain->mpd.ibv_pd,
+	    &mparent_domain->mpd.mprotection_domain->ibv_pd);
+
+	return &mparent_domain->mpd.ibv_pd;
+}
+
+static int mlx5_dealloc_parent_domain(struct mlx5_parent_domain *mparent_domain)
+{
+	if (atomic_load(&mparent_domain->mpd.refcount) > 1)
+		return EBUSY;
+
+	atomic_fetch_sub(&mparent_domain->mpd.mprotection_domain->refcount, 1);
+
+	if (mparent_domain->mtd)
+		atomic_fetch_sub(&mparent_domain->mtd->refcount, 1);
+
+	free(mparent_domain);
+	return 0;
+}
+
 int mlx5_free_pd(struct ibv_pd *pd)
 {
 	int ret;
+	struct mlx5_parent_domain *mparent_domain = to_mparent_domain(pd);
+	struct mlx5_pd *mpd = to_mpd(pd);
+
+	if (mparent_domain)
+		return mlx5_dealloc_parent_domain(mparent_domain);
+
+	if (atomic_load(&mpd->refcount) > 1)
+		return EBUSY;
 
 	ret = ibv_cmd_dealloc_pd(pd);
 	if (ret)
 		return ret;
 
-	free(to_mpd(pd));
+	free(mpd);
 	return 0;
 }
 
@@ -1071,11 +1269,14 @@ static int mlx5_calc_wq_size(struct mlx5_context *ctx,
 }
 
 static void map_uuar(struct ibv_context *context, struct mlx5_qp *qp,
-		     int uuar_index)
+		     int uuar_index, struct mlx5_bf *dyn_bf)
 {
 	struct mlx5_context *ctx = to_mctx(context);
 
-	qp->bf = &ctx->bfs[uuar_index];
+	if (!dyn_bf)
+		qp->bf = &ctx->bfs[uuar_index];
+	else
+		qp->bf = dyn_bf;
 }
 
 static const char *qptype2key(enum ibv_qp_type type)
@@ -1306,7 +1507,9 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	int32_t				usr_idx = 0;
 	uint32_t			uuar_index;
 	uint32_t			mlx5_create_flags = 0;
+	struct mlx5_bf			*bf = NULL;
 	FILE *fp = ctx->dbg_fp;
+	struct mlx5_parent_domain *mparent_domain;
 
 	if (attr->comp_mask & ~MLX5_CREATE_QP_SUP_COMP_MASK)
 		return NULL;
@@ -1320,6 +1523,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
 		return NULL;
 	}
+
 	ibqp = (struct ibv_qp *)&qp->verbs_qp;
 	qp->ibv_qp = ibqp;
 
@@ -1450,6 +1654,15 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		cmd.uidx = usr_idx;
 	}
 
+	mparent_domain = to_mparent_domain(attr->pd);
+	if (mparent_domain && mparent_domain->mtd)
+		bf = mparent_domain->mtd->bf;
+
+	if (bf) {
+		cmd.bfreg_index = bf->bfreg_dyn_index;
+		cmd.flags |= MLX5_QP_FLAG_BFREG_INDEX;
+	}
+
 	if (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK)
 		ret = mlx5_cmd_create_qp_ex(context, attr, &cmd, qp, &resp_ex);
 	else
@@ -1475,7 +1688,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		pthread_mutex_unlock(&ctx->qp_table_mutex);
 	}
 
-	map_uuar(context, qp, uuar_index);
+	map_uuar(context, qp, uuar_index, bf);
 
 	qp->rq.max_post = qp->rq.wqe_cnt;
 	if (attr->sq_sig_all)
@@ -1491,6 +1704,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	qp->rsc.rsn = (ctx->cqe_version && !is_xrc_tgt(attr->qp_type)) ?
 		      usr_idx : ibqp->qp_num;
 
+	if (mparent_domain)
+		atomic_fetch_add(&mparent_domain->mpd.refcount, 1);
 	return ibqp;
 
 err_destroy:
@@ -1580,6 +1795,7 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 	struct mlx5_qp *qp = to_mqp(ibqp);
 	struct mlx5_context *ctx = to_mctx(ibqp->context);
 	int ret;
+	struct mlx5_parent_domain *mparent_domain = to_mparent_domain(ibqp->pd);
 
 	if (qp->rss_qp) {
 		ret = ibv_cmd_destroy_qp(ibqp);
@@ -1619,6 +1835,9 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 	mlx5_free_db(ctx, qp->db);
 	mlx5_free_qp_buf(qp);
 free:
+	if (mparent_domain)
+		atomic_fetch_sub(&mparent_domain->mpd.refcount, 1);
+
 	free(qp);
 
 	return 0;

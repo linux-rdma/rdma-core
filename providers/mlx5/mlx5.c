@@ -651,6 +651,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_DYN_BFREGS) {
+		attrs_out->max_dynamic_bfregs = mctx->num_dyn_bfregs;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_DYN_BFREGS;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
@@ -782,7 +787,12 @@ static off_t get_uar_mmap_offset(int idx, int page_size, int command)
 	off_t offset = 0;
 
 	set_command(command, &offset);
-	set_index(idx, &offset);
+
+	if (command == MLX5_MMAP_ALLOC_WC &&
+	    idx >= (1 << MLX5_IB_MMAP_CMD_SHIFT))
+		set_extended_index(idx, &offset);
+	else
+		set_index(idx, &offset);
 
 	return offset * page_size;
 }
@@ -793,8 +803,8 @@ static off_t uar_type_to_cmd(int uar_type)
 		MLX5_MMAP_GET_REGULAR_PAGES_CMD;
 }
 
-static void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
-		       int cmd_fd, int page_size, int uar_type)
+void *mlx5_mmap(struct mlx5_uar_info *uar, int index, int cmd_fd, int page_size,
+		int uar_type)
 {
 	off_t offset;
 
@@ -813,6 +823,8 @@ static void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 	 * MLX5_MMAP_GET_NC_PAGES_CMD mmap command.
 	 */
 	offset = get_uar_mmap_offset(index, page_size,
+				     (uar_type == MLX5_UAR_TYPE_REGULAR_DYN) ?
+				     MLX5_MMAP_ALLOC_WC :
 				     MLX5_MMAP_GET_REGULAR_PAGES_CMD);
 	uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
 			cmd_fd, offset);
@@ -928,6 +940,16 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	context->num_ports	= resp.num_ports;
 	context->max_recv_wr	= resp.max_recv_wr;
 	context->max_srq_recv_wr = resp.max_srq_recv_wr;
+	context->num_dyn_bfregs = resp.num_dyn_bfregs;
+
+	if (context->num_dyn_bfregs) {
+		context->count_dyn_bfregs = calloc(context->num_dyn_bfregs,
+						   sizeof(*context->count_dyn_bfregs));
+		if (!context->count_dyn_bfregs) {
+			errno = ENOMEM;
+			goto err_free;
+		}
+	}
 
 	context->cqe_version = resp.cqe_version;
 	if (context->cqe_version) {
@@ -940,7 +962,8 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	adjust_uar_info(mdev, context, resp);
 
 	gross_uuars = context->tot_uuars / MLX5_NUM_NON_FP_BFREGS_PER_UAR * NUM_BFREGS_PER_UAR;
-	context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
+	context->bfs = calloc(gross_uuars + context->num_dyn_bfregs, sizeof(*context->bfs));
+
 	if (!context->bfs) {
 		errno = ENOMEM;
 		goto err_free;
@@ -948,10 +971,12 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	context->cmds_supp_uhw = resp.cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
+	context->start_dyn_bfregs_index = gross_uuars;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
+	pthread_mutex_init(&context->dyn_bfregs_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
@@ -1026,6 +1051,9 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	v_ctx->destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table;
 	v_ctx->post_srq_ops = mlx5_post_srq_ops;
 	v_ctx->modify_cq = mlx5_modify_cq;
+	v_ctx->alloc_td = mlx5_alloc_td;
+	v_ctx->dealloc_td = mlx5_dealloc_td;
+	v_ctx->alloc_parent_domain = mlx5_alloc_parent_domain;
 
 	memset(&device_attr, 0, sizeof(device_attr));
 	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,
@@ -1048,6 +1076,7 @@ err_free_bf:
 	free(context->bfs);
 
 err_free:
+	free(context->count_dyn_bfregs);
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
 		if (context->uar[i].reg)
 			munmap(context->uar[i].reg, page_size);
@@ -1063,6 +1092,13 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 	int page_size = to_mdev(ibctx->device)->page_size;
 	int i;
 
+	for (i = context->start_dyn_bfregs_index;
+	      i < context->start_dyn_bfregs_index + context->num_dyn_bfregs; i++) {
+		if (context->bfs[i].uar)
+			munmap(context->bfs[i].uar, page_size);
+	}
+
+	free(context->count_dyn_bfregs);
 	free(context->bfs);
 	for (i = 0; i < MLX5_MAX_UARS; ++i) {
 		if (context->uar[i].reg)

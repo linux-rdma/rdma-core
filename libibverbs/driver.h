@@ -405,4 +405,29 @@ static inline bool check_comp_mask(uint64_t input, uint64_t supported)
 
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 		       unsigned int index, enum ibv_gid_type *type);
+
+static inline int
+ibv_check_alloc_parent_domain(struct ibv_parent_domain_init_attr *attr)
+{
+	/* A valid protection domain must be set */
+	if (!attr->pd) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Initialize the ibv_pd which is being used as a parent_domain. From the
+ * perspective of the core code the new ibv_pd is completely interchangable
+ * with the passed contained_pd.
+ */
+static inline void ibv_initialize_parent_domain(struct ibv_pd *parent_domain,
+						struct ibv_pd *contained_pd)
+{
+	parent_domain->context = contained_pd->context;
+	parent_domain->handle = contained_pd->handle;
+}
+
 #endif /* INFINIBAND_DRIVER_H */

@@ -58,7 +58,8 @@ enum {
 
 enum {
 	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
-	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5
+	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5,
+	MLX5_MMAP_ALLOC_WC		= 6,
 };
 
 enum {
@@ -222,6 +223,7 @@ struct mlx5_spinlock {
 enum mlx5_uar_type {
 	MLX5_UAR_TYPE_REGULAR,
 	MLX5_UAR_TYPE_NC,
+	MLX5_UAR_TYPE_REGULAR_DYN,
 };
 
 struct mlx5_uar_info {
@@ -294,6 +296,10 @@ struct mlx5_context {
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
+	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
+	uint32_t			num_dyn_bfregs;
+	uint32_t			*count_dyn_bfregs;
+	uint32_t			start_dyn_bfregs_index;
 };
 
 struct mlx5_bitmap {
@@ -320,9 +326,22 @@ struct mlx5_buf {
 	enum mlx5_alloc_type		type;
 };
 
+struct mlx5_td {
+	struct ibv_td			ibv_td;
+	struct mlx5_bf			*bf;
+	atomic_int			refcount;
+};
+
 struct mlx5_pd {
 	struct ibv_pd			ibv_pd;
 	uint32_t			pdn;
+	atomic_int			refcount;
+	struct mlx5_pd			*mprotection_domain;
+};
+
+struct mlx5_parent_domain {
+	struct mlx5_pd mpd;
+	struct mlx5_td *mtd;
 };
 
 enum {
@@ -450,6 +469,10 @@ struct mlx5_bf {
 	unsigned			buf_size;
 	unsigned			uuarn;
 	off_t				uar_mmap_offset;
+	/* The virtual address of the mmaped uar, applicable for the dynamic use case */
+	void				*uar;
+	/* Index in the dynamic bfregs portion */
+	uint32_t			bfreg_dyn_index;
 };
 
 struct mlx5_mr {
@@ -551,9 +574,27 @@ static inline struct mlx5_context *to_mctx(struct ibv_context *ibctx)
 	return to_mxxx(ctx, context);
 }
 
+/* to_mpd always returns the real mlx5_pd object ie the protection domain. */
 static inline struct mlx5_pd *to_mpd(struct ibv_pd *ibpd)
 {
-	return to_mxxx(pd, pd);
+	struct mlx5_pd *mpd = to_mxxx(pd, pd);
+
+	if (mpd->mprotection_domain)
+		return mpd->mprotection_domain;
+
+	return mpd;
+}
+
+static inline struct mlx5_parent_domain *to_mparent_domain(struct ibv_pd *ibpd)
+{
+	struct mlx5_parent_domain *mparent_domain =
+	    ibpd ? container_of(ibpd, struct mlx5_parent_domain, mpd.ibv_pd) : NULL;
+
+	if (mparent_domain && mparent_domain->mpd.mprotection_domain)
+		return mparent_domain;
+
+	/* Otherwise ibpd isn't a parent_domain */
+	return NULL;
 }
 
 static inline struct mlx5_cq *to_mcq(struct ibv_cq *ibcq)
@@ -566,6 +607,11 @@ static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
 	struct verbs_srq *vsrq = (struct verbs_srq *)ibsrq;
 
 	return container_of(vsrq, struct mlx5_srq, vsrq);
+}
+
+static inline struct mlx5_td *to_mtd(struct ibv_td *ibtd)
+{
+	return to_mxxx(td, td);
 }
 
 static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
@@ -753,6 +799,15 @@ int mlx5_post_srq_ops(struct ibv_srq *srq,
 		      struct ibv_ops_wr *wr,
 		      struct ibv_ops_wr **bad_wr);
 
+struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
+int mlx5_dealloc_td(struct ibv_td *td);
+
+struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
+					struct ibv_parent_domain_init_attr *attr);
+
+
+void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
+		int cmd_fd, int page_size, int uar_type);
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
@@ -824,6 +879,11 @@ static inline void set_order(int order, off_t *offset)
 static inline void set_index(int index, off_t *offset)
 {
 	set_arg(index, offset);
+}
+
+static inline void set_extended_index(int index, off_t *offset)
+{
+	*offset |= (index & 0xff) | ((index >> 8) << 16);
 }
 
 static inline uint8_t calc_sig(void *wqe, int size)
