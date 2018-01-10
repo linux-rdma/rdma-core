@@ -867,7 +867,7 @@ int ucma_complete(struct rdma_cm_id *id)
 		else if (id_priv->id.event->status < 0)
 			ret = ERR(-id_priv->id.event->status);
 		else
-			ret = ERR(-id_priv->id.event->status);
+			ret = ERR(id_priv->id.event->status);
 	}
 	return ret;
 }
