@@ -83,12 +83,20 @@ struct verbs_ex_private {
 		(cmd)->response  = (uintptr_t) (out);			\
 	} while (0)
 
+static inline uint32_t _cmd_ex(uint32_t cmd)
+{
+	return (IB_USER_VERBS_CMD_FLAG_EXTENDED
+		<< IB_USER_VERBS_CMD_FLAGS_SHIFT) |
+	       cmd;
+}
+
 #define IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out, resp_size,\
 		outsize)						   \
 	do {                                                               \
 		size_t c_size = cmd_size - sizeof(struct ex_hdr);	   \
 		if (abi_ver > 2)					   \
-			(cmd)->hdr.command = IB_USER_VERBS_CMD_##opcode;   \
+			(cmd)->hdr.command =				   \
+				_cmd_ex(IB_USER_VERBS_EX_CMD_##opcode);    \
 		else							   \
 			(cmd)->hdr.command =				   \
 				IB_USER_VERBS_CMD_##opcode##_V2;	   \

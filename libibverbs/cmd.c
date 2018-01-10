@@ -156,7 +156,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		return EINVAL;
 
 	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size,
-			       QUERY_DEVICE_EX, resp, resp_core_size,
+			       QUERY_DEVICE, resp, resp_core_size,
 			       resp_size);
 	cmd->comp_mask = 0;
 	cmd->reserved = 0;
@@ -527,7 +527,7 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 	int err;
 
 	memset(cmd, 0, cmd_core_size);
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_CQ_EX, resp,
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_CQ, resp,
 			       resp_core_size, resp_size);
 
 	if (cq_attr->comp_mask & ~(IBV_CQ_INIT_ATTR_MASK_RESERVED - 1))
@@ -993,7 +993,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 
 	memset(cmd, 0, cmd_core_size);
 
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_QP_EX, resp,
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_QP, resp,
 			       resp_core_size, resp_size);
 
 	err = create_qp_ex_common(qp, qp_attr, vxrcd, &cmd->base);
@@ -1389,7 +1389,7 @@ int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			     response_length) + sizeof(resp->response_length))
 		return EINVAL;
 
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, MODIFY_QP_EX,
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, MODIFY_QP,
 			       resp, resp_core_size, resp_size);
 
 	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
