@@ -64,16 +64,6 @@
  *    different between 32-bit and 64-bit architectures.
  */
 
-struct hdr {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-};
-
-struct response_hdr {
-	__u64 response;
-};
-
 struct ex_hdr {
 	struct {
 		__u32 command;
@@ -107,17 +97,6 @@ struct ibv_comp_event {
  * words).  The kernel driver will read these fields first and read
  * the rest of the command struct based on these value.
  */
-
-struct ibv_query_params {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u64 response;
-};
-
-struct ibv_query_params_resp {
-	__u32 num_cq_events;
-};
 
 struct ibv_get_context {
 	__u32 command;
