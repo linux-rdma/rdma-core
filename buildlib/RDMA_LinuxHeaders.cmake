@@ -86,7 +86,7 @@ function(rdma_report_missing_kheaders)
 endfunction()
 
 # This list is topologically sorted
-rdma_check_kheader("rdma/ib_user_verbs.h" "${DEFAULT_TEST}" NO_SHIM OPTIONAL)
+rdma_check_kheader("rdma/ib_user_verbs.h" "int main(int argc,const char *argv[]) { return IB_USER_VERBS_EX_CMD_MODIFY_CQ; }")
 rdma_check_kheader("rdma/ib_user_sa.h" "${DEFAULT_TEST}" NO_SHIM)
 rdma_check_kheader("rdma/ib_user_cm.h" "${DEFAULT_TEST}" NO_SHIM)
 rdma_check_kheader("rdma/hfi/hfi1_ioctl.h" "${DEFAULT_TEST}" NO_SHIM OPTIONAL)
