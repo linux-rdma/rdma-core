@@ -48,9 +48,6 @@ int ibv_cmd_get_context(struct verbs_context *context_ex,
 			struct ibv_get_context *cmd, size_t cmd_size,
 			struct ibv_get_context_resp *resp, size_t resp_size)
 {
-	if (abi_ver < IB_USER_VERBS_MIN_ABI_VERSION)
-		return ENOSYS;
-
 	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
 
 	if (write(context_ex->context.cmd_fd, cmd, cmd_size) != cmd_size)
