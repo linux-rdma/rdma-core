@@ -806,7 +806,14 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	struct verbs_xrcd *vxrcd = NULL;
 	int err;
 
-	if (qp_attr->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
+	if (!check_comp_mask(qp_attr->comp_mask,
+			     IBV_QP_INIT_ATTR_PD |
+			     IBV_QP_INIT_ATTR_XRCD |
+			     IBV_QP_INIT_ATTR_CREATE_FLAGS |
+			     IBV_QP_INIT_ATTR_MAX_TSO_HEADER |
+			     IBV_QP_INIT_ATTR_IND_TABLE |
+			     IBV_QP_INIT_ATTR_RX_HASH |
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS))
 		return EINVAL;
 
 	memset(&cmd->core_payload, 0, sizeof(cmd->core_payload));
@@ -850,7 +857,10 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 	struct verbs_xrcd *vxrcd = NULL;
 	int err;
 
-	if (attr_ex->comp_mask > (IBV_QP_INIT_ATTR_XRCD | IBV_QP_INIT_ATTR_PD))
+	if (!check_comp_mask(attr_ex->comp_mask,
+			     IBV_QP_INIT_ATTR_PD |
+			     IBV_QP_INIT_ATTR_XRCD |
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS))
 		return ENOSYS;
 
 	err = create_qp_ex_common(qp, attr_ex, vxrcd,

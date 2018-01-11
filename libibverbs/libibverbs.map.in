@@ -111,6 +111,11 @@ IBVERBS_1.5 {
 		ibv_get_pkey_index;
 } IBVERBS_1.1;
 
+IBVERBS_1.6 {
+	global:
+		ibv_qp_to_qp_ex;
+} IBVERBS_1.5;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 

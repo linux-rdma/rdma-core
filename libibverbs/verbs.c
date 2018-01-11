@@ -589,6 +589,15 @@ LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
 	return qp;
 }
 
+struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp)
+{
+	struct verbs_qp *vqp = (struct verbs_qp *)qp;
+
+	if (vqp->comp_mask & VERBS_QP_EX)
+		return &vqp->qp_ex;
+	return NULL;
+}
+
 LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_qp *qp, struct ibv_qp_attr *attr,
