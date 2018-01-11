@@ -88,15 +88,15 @@ static inline uint32_t _cmd_ex(uint32_t cmd)
 		outsize)						   \
 	do {                                                               \
 		size_t c_size = cmd_size - sizeof(struct ex_hdr);	   \
-		(cmd)->hdr.command =					   \
+		(cmd)->hdr.hdr.command =				   \
 			_cmd_ex(IB_USER_VERBS_EX_CMD_##opcode);		   \
-		(cmd)->hdr.in_words  = ((c_size) / 8);                     \
-		(cmd)->hdr.out_words = ((resp_size) / 8);                  \
-		(cmd)->hdr.provider_in_words   = (((size) - (cmd_size))/8);\
-		(cmd)->hdr.provider_out_words  =			   \
+		(cmd)->hdr.hdr.in_words  = ((c_size) / 8);                 \
+		(cmd)->hdr.hdr.out_words = ((resp_size) / 8);              \
+		(cmd)->hdr.ex_hdr.provider_in_words   = (((size) - (cmd_size))/8);\
+		(cmd)->hdr.ex_hdr.provider_out_words  =			   \
 			     (((outsize) - (resp_size)) / 8);              \
-		(cmd)->hdr.response  = (uintptr_t) (out);                  \
-		(cmd)->hdr.reserved = 0;				   \
+		(cmd)->hdr.ex_hdr.response  = (uintptr_t) (out);           \
+		(cmd)->hdr.ex_hdr.cmd_hdr_reserved = 0;			   \
 	} while (0)
 
 #define IBV_INIT_CMD_RESP_EX_VCMD(cmd, cmd_size, size, opcode, out, outsize) \

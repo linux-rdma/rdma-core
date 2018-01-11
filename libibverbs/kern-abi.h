@@ -65,19 +65,8 @@
  */
 
 struct ex_hdr {
-	struct {
-		__u32 command;
-		__u16 in_words;
-		__u16 out_words;
-	};
-	struct {
-		__u64 response;
-	};
-	struct {
-		__u16 provider_in_words;
-		__u16 provider_out_words;
-		__u32 reserved;
-	};
+	struct ib_uverbs_cmd_hdr hdr;
+	struct ib_uverbs_ex_cmd_hdr ex_hdr;
 };
 
 /*
