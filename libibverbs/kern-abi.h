@@ -560,10 +560,6 @@ struct ibv_create_ah {
 	struct ib_uverbs_ah_attr attr;
 };
 
-struct ibv_create_ah_resp {
-	__u32 handle;
-};
-
 struct ibv_destroy_ah {
 	__u32 command;
 	__u16 in_words;

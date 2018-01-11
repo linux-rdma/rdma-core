@@ -1621,7 +1621,7 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 
 int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 		      struct ibv_ah_attr *attr,
-		      struct ibv_create_ah_resp *resp,
+		      struct ib_uverbs_create_ah_resp *resp,
 		      size_t resp_size)
 {
 	struct ibv_create_ah      cmd;
@@ -1646,7 +1646,7 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	ah->handle  = resp->handle;
+	ah->handle  = resp->ah_handle;
 	ah->context = pd->context;
 
 	return 0;
