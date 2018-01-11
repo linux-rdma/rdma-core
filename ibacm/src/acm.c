@@ -2017,7 +2017,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%46s%32s%d%8s", name, dev, &port, pkey_str) != 4)
+		if (sscanf(s, "%46s%31s%d%7s", name, dev, &port, pkey_str) != 4)
 			continue;
 
 		acm_log(2, "%s", s);
