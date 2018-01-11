@@ -31,6 +31,7 @@ rdma_man_pages(
   ibv_get_srq_num.3
   ibv_inc_rkey.3
   ibv_modify_qp.3
+  ibv_modify_qp_rate_limit.3
   ibv_modify_srq.3
   ibv_modify_wq.3
   ibv_open_device.3

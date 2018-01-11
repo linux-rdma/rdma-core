@@ -233,6 +233,8 @@ struct verbs_context_ops {
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask);
+	int (*modify_qp_rate_limit)(struct ibv_qp *qp,
+				    struct ibv_qp_rate_limit_attr *attr);
 	int (*modify_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 			  int srq_attr_mask);
 	int (*modify_wq)(struct ibv_wq *wq, struct ibv_wq_attr *wq_attr);

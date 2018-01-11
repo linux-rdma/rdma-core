@@ -233,6 +233,12 @@ static int modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 	return ENOSYS;
 }
 
+static int modify_qp_rate_limit(struct ibv_qp *qp,
+				struct ibv_qp_rate_limit_attr *attr)
+{
+	return ENOSYS;
+}
+
 static int modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 		      int srq_attr_mask)
 {
@@ -393,6 +399,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	get_srq_num,
 	modify_cq,
 	modify_qp,
+	modify_qp_rate_limit,
 	modify_srq,
 	modify_wq,
 	open_qp,
@@ -470,6 +477,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, get_srq_num);
 	SET_OP(vctx, modify_cq);
 	SET_OP(ctx, modify_qp);
+	SET_OP(vctx, modify_qp_rate_limit);
 	SET_OP(ctx, modify_srq);
 	SET_OP(vctx, modify_wq);
 	SET_OP(vctx, open_qp);

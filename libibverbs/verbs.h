@@ -969,6 +969,13 @@ struct ibv_qp_attr {
 	uint32_t		rate_limit;
 };
 
+struct ibv_qp_rate_limit_attr {
+	uint32_t	rate_limit;  /* in kbps */
+	uint32_t	max_burst_sz; /* total burst size in bytes */
+	uint16_t	typical_pkt_sz; /* typical send packet size in bytes */
+	uint32_t	comp_mask;
+};
+
 enum ibv_wr_opcode {
 	IBV_WR_RDMA_WRITE,
 	IBV_WR_RDMA_WRITE_WITH_IMM,
@@ -1657,6 +1664,8 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*modify_qp_rate_limit)(struct ibv_qp *qp,
+				    struct ibv_qp_rate_limit_attr *attr);
 	struct ibv_pd *(*alloc_parent_domain)(struct ibv_context *context,
 					      struct ibv_parent_domain_init_attr *attr);
 	int (*dealloc_td)(struct ibv_td *td);
@@ -2319,6 +2328,24 @@ ibv_open_qp(struct ibv_context *context, struct ibv_qp_open_attr *qp_open_attr)
  */
 int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		  int attr_mask);
+
+/**
+ * ibv_modify_qp_rate_limit - Modify a queue pair rate limit values
+ * @qp - QP object to modify
+ * @attr - Attributes to configure the rate limiting values of the QP
+ */
+static inline int
+ibv_modify_qp_rate_limit(struct ibv_qp *qp,
+			 struct ibv_qp_rate_limit_attr *attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(qp->context, modify_qp_rate_limit);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->modify_qp_rate_limit(qp, attr);
+}
 
 /**
  * ibv_query_qp - Returns the attribute list and current values for the

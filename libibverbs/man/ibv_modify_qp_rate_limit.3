@@ -1,0 +1,67 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH IBV_MODIFY_QP_RATE_LIMIT 3 2018-01-09 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_modify_qp_rate_limit \- modify the send rate limits attributes of a queue pair (QP)
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "int ibv_modify_qp_rate_limit(struct ibv_qp " "*qp" ", struct ibv_qp_rate_limit_attr " "*attr");
+.fi
+.SH "DESCRIPTION"
+.B ibv_modify_qp_rate_limit()
+modifies the send rate limiting packet pacing attributes of QP
+.I qp
+with the attributes in
+.I attr\fR.
+The argument \fIattr\fR is an ibv_qp_rate_limit_attr struct, as defined in <infiniband/verbs.h>.
+.PP
+The
+.I rate_limit
+defines the MAX send rate this QP will send as long as the link in not blocked and there are work requestes in send queue.
+.PP
+Finer control for shaping the rate limit of a QP is achieved by defining the
+.I max_burst_sz\fR,
+single burst max bytes size and the
+.I typical_pkt_sz\fR,
+typical packet bytes size. These allow the device to adjust the inter-burst gap delay required to correctly shape the scheduling of sends to the wire in order to reach for requested application requirements.
+.PP
+Setting a value of 0 for
+.I max_burst_sz
+or
+.I typical_pkt_sz
+will use the devices defaults.
+.I typical_pkt_sz
+will default to the port's MTU value.
+.PP
+.nf
+struct ibv_qp_rate_limit_attr {
+.in +8
+uint32_t        rate_limit;     /* kbps */
+uint32_t        max_burst_sz;   /* bytes */
+uint16_t        typical_pkt_sz; /* bytes */
+.in -8
+};
+.fi
+.PP
+.SH "RETURN VALUE"
+.B ibv_modify_qp_rate_limit()
+returns 0 on success, or the value of errno on failure (which indicates the failure reason).
+.SH "ERRORS"
+.SS EINVAL
+Invalid arguments.
+.SS ENOSYS
+Function is not implemented for this device.
+.PP
+.SH "SEE ALSO"
+.BR ibv_create_qp (3),
+.BR ibv_destroy_qp (3),
+.BR ibv_modify_qp (3),
+.BR ibv_query_qp (3)
+.SH "AUTHORS"
+.TP
+Alex Rosenbaum <alexr@mellanox.com>
+.TP
+Bodong Wang <bodong@mellanox.com>
