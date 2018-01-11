@@ -257,8 +257,8 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		if (resp->response_length >=
 		    offsetof(struct ibv_query_device_resp_ex, cq_mod_caps) +
 		    sizeof(resp->cq_mod_caps)) {
-			attr->cq_mod_caps.max_cq_count = resp->cq_mod_caps.cq_count;
-			attr->cq_mod_caps.max_cq_period = resp->cq_mod_caps.cq_period;
+			attr->cq_mod_caps.max_cq_count = resp->cq_mod_caps.max_cq_moderation_count;
+			attr->cq_mod_caps.max_cq_period = resp->cq_mod_caps.max_cq_moderation_period;
 		}
 	}
 
