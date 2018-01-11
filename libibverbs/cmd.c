@@ -1790,7 +1790,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 	switch (kern_spec->hdr.type) {
 	case IBV_FLOW_SPEC_ETH:
 	case IBV_FLOW_SPEC_ETH | IBV_FLOW_SPEC_INNER:
-		kern_spec->eth.size = sizeof(struct ibv_kern_spec_eth);
+		kern_spec->eth.size = sizeof(struct ib_uverbs_flow_spec_eth);
 		memcpy(&kern_spec->eth.val, &ib_spec->eth.val,
 		       sizeof(struct ibv_flow_eth_filter));
 		memcpy(&kern_spec->eth.mask, &ib_spec->eth.mask,
@@ -1815,7 +1815,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		kern_spec->hdr.type = IBV_FLOW_SPEC_IPV4 |
 				     (IBV_FLOW_SPEC_INNER & ib_spec->hdr.type);
 		kern_spec->ipv4_ext.size = sizeof(struct
-						  ibv_kern_spec_ipv4_ext);
+						  ib_uverbs_flow_spec_ipv4);
 		memcpy(&kern_spec->ipv4_ext.val, &ib_spec->ipv4_ext.val,
 		       kern_filter_size);
 		memcpy(&kern_spec->ipv4_ext.mask, (void *)&ib_spec->ipv4_ext.val
@@ -1829,7 +1829,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		if (ret)
 			return ret;
 
-		kern_spec->ipv6.size = sizeof(struct ibv_kern_spec_ipv6);
+		kern_spec->ipv6.size = sizeof(struct ib_uverbs_flow_spec_ipv6);
 		memcpy(&kern_spec->ipv6.val, &ib_spec->ipv6.val,
 		       kern_filter_size);
 		memcpy(&kern_spec->ipv6.mask, (void *)&ib_spec->ipv6.val
@@ -1839,7 +1839,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 	case IBV_FLOW_SPEC_UDP:
 	case IBV_FLOW_SPEC_TCP | IBV_FLOW_SPEC_INNER:
 	case IBV_FLOW_SPEC_UDP | IBV_FLOW_SPEC_INNER:
-		kern_spec->tcp_udp.size = sizeof(struct ibv_kern_spec_tcp_udp);
+		kern_spec->tcp_udp.size = sizeof(struct ib_uverbs_flow_spec_tcp_udp);
 		memcpy(&kern_spec->tcp_udp.val, &ib_spec->tcp_udp.val,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
 		memcpy(&kern_spec->tcp_udp.mask, &ib_spec->tcp_udp.mask,
@@ -1852,7 +1852,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		if (ret)
 			return ret;
 
-		kern_spec->tunnel.size = sizeof(struct ibv_kern_spec_tunnel);
+		kern_spec->tunnel.size = sizeof(struct ib_uverbs_flow_spec_tunnel);
 		memcpy(&kern_spec->tunnel.val, &ib_spec->tunnel.val,
 		       kern_filter_size);
 		memcpy(&kern_spec->tunnel.mask, (void *)&ib_spec->tunnel.val
@@ -1860,11 +1860,11 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		break;
 	case IBV_FLOW_SPEC_ACTION_TAG:
 		kern_spec->flow_tag.size =
-			sizeof(struct ibv_kern_spec_action_tag);
+			sizeof(struct ib_uverbs_flow_spec_action_tag);
 		kern_spec->flow_tag.tag_id = ib_spec->flow_tag.tag_id;
 		break;
 	case IBV_FLOW_SPEC_ACTION_DROP:
-		kern_spec->drop.size = sizeof(struct ibv_kern_spec_action_drop);
+		kern_spec->drop.size = sizeof(struct ib_uverbs_flow_spec_action_drop);
 		break;
 	default:
 		return EINVAL;

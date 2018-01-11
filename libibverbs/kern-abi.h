@@ -390,14 +390,6 @@ struct ibv_destroy_qp {
 	__u32 reserved;
 };
 
-struct ibv_kern_spec_eth {
-	__u32 type;
-	__u16  size;
-	__u16 reserved;
-	struct ib_uverbs_flow_eth_filter val;
-	struct ib_uverbs_flow_eth_filter mask;
-};
-
 struct ibv_kern_ipv4_filter {
 	__u32 src_ip;
 	__u32 dst_ip;
@@ -411,67 +403,17 @@ struct ibv_kern_spec_ipv4 {
 	struct ibv_kern_ipv4_filter mask;
 };
 
-struct ibv_kern_spec_ipv4_ext {
-	__u32  type;
-	__u16  size;
-	__u16 reserved;
-	struct ib_uverbs_flow_ipv4_filter val;
-	struct ib_uverbs_flow_ipv4_filter mask;
-};
-
-struct ibv_kern_spec_ipv6 {
-	__u32  type;
-	__u16  size;
-	__u16 reserved;
-	struct ib_uverbs_flow_ipv6_filter val;
-	struct ib_uverbs_flow_ipv6_filter mask;
-};
-
-struct ibv_kern_spec_tcp_udp {
-	__u32  type;
-	__u16  size;
-	__u16 reserved;
-	struct ib_uverbs_flow_tcp_udp_filter val;
-	struct ib_uverbs_flow_tcp_udp_filter mask;
-};
-
-struct ibv_kern_spec_action_tag {
-	__u32  type;
-	__u16  size;
-	__u16 reserved;
-	__u32 tag_id;
-	__u32 reserved1;
-};
-
-struct ibv_kern_spec_tunnel {
-	__u32  type;
-	__u16  size;
-	__u16 reserved;
-	struct ib_uverbs_flow_tunnel_filter val;
-	struct ib_uverbs_flow_tunnel_filter mask;
-};
-
-struct ibv_kern_spec_action_drop {
-	__u32  type;
-	__u16  size;
-	__u16 reserved;
-};
-
 struct ibv_kern_spec {
 	union {
-		struct {
-			__u32 type;
-			__u16 size;
-			__u16 reserved;
-		} hdr;
-		struct ibv_kern_spec_eth eth;
+		struct ib_uverbs_flow_spec_hdr hdr;
+		struct ib_uverbs_flow_spec_eth eth;
 		struct ibv_kern_spec_ipv4 ipv4;
-		struct ibv_kern_spec_ipv4_ext ipv4_ext;
-		struct ibv_kern_spec_tcp_udp tcp_udp;
-		struct ibv_kern_spec_ipv6 ipv6;
-		struct ibv_kern_spec_tunnel tunnel;
-		struct ibv_kern_spec_action_tag flow_tag;
-		struct ibv_kern_spec_action_drop drop;
+		struct ib_uverbs_flow_spec_ipv4 ipv4_ext;
+		struct ib_uverbs_flow_spec_tcp_udp tcp_udp;
+		struct ib_uverbs_flow_spec_ipv6 ipv6;
+		struct ib_uverbs_flow_spec_tunnel tunnel;
+		struct ib_uverbs_flow_spec_action_tag flow_tag;
+		struct ib_uverbs_flow_spec_action_drop drop;
 	};
 };
 
