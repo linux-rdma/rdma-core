@@ -1273,7 +1273,7 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 static void copy_modify_qp_fields(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 				  int attr_mask,
-				  struct ibv_modify_qp_common *cmd)
+				  struct ib_uverbs_modify_qp *cmd)
 {
 	cmd->qp_handle = qp->handle;
 	cmd->attr_mask = attr_mask;
