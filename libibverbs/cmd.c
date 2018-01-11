@@ -562,12 +562,12 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 {
 	struct ibv_poll_cq       cmd;
-	struct ibv_poll_cq_resp *resp;
+	struct ib_uverbs_poll_cq_resp *resp;
 	int                      i;
 	int                      rsize;
 	int                      ret;
 
-	rsize = sizeof *resp + ne * sizeof(struct ibv_kern_wc);
+	rsize = sizeof *resp + ne * sizeof(struct ib_uverbs_wc);
 	resp  = malloc(rsize);
 	if (!resp)
 		return -1;
@@ -589,7 +589,7 @@ int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 		wc[i].opcode 	     = resp->wc[i].opcode;
 		wc[i].vendor_err     = resp->wc[i].vendor_err;
 		wc[i].byte_len 	     = resp->wc[i].byte_len;
-		wc[i].imm_data 	     = resp->wc[i].imm_data;
+		wc[i].imm_data 	     = resp->wc[i].ex.imm_data;
 		wc[i].qp_num 	     = resp->wc[i].qp_num;
 		wc[i].src_qp 	     = resp->wc[i].src_qp;
 		wc[i].wc_flags 	     = resp->wc[i].wc_flags;

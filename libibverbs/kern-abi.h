@@ -240,24 +240,6 @@ struct ibv_create_cq_ex {
 	__u32		reserved;
 };
 
-struct ibv_kern_wc {
-	__u64  wr_id;
-	__u32  status;
-	__u32  opcode;
-	__u32  vendor_err;
-	__u32  byte_len;
-	__be32  imm_data;
-	__u32  qp_num;
-	__u32  src_qp;
-	__u32  wc_flags;
-	__u16  pkey_index;
-	__u16  slid;
-	__u8   sl;
-	__u8   dlid_path_bits;
-	__u8   port_num;
-	__u8   reserved;
-};
-
 struct ibv_poll_cq {
 	__u32 command;
 	__u16 in_words;
@@ -265,12 +247,6 @@ struct ibv_poll_cq {
 	__u64 response;
 	__u32 cq_handle;
 	__u32 ne;
-};
-
-struct ibv_poll_cq_resp {
-	__u32 count;
-	__u32 reserved;
-	struct ibv_kern_wc wc[0];
 };
 
 struct ibv_req_notify_cq {
