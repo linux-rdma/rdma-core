@@ -1014,7 +1014,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 				    sizeof(cmd->ind_tbl_handle))
 			return EINVAL;
 		cmd->ind_tbl_handle = qp_attr->rwq_ind_tbl->ind_tbl_handle;
-		cmd->comp_mask = IBV_CREATE_QP_EX_KERNEL_MASK_IND_TABLE;
+		cmd->comp_mask = IB_UVERBS_CREATE_QP_MASK_IND_TABLE;
 	}
 
 	err = write(context->cmd_fd, cmd, cmd_size);

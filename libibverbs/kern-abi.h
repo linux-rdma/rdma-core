@@ -318,11 +318,6 @@ struct ibv_open_qp {
 	__u64 driver_data[0];
 };
 
-
-enum ibv_create_qp_ex_kernel_mask {
-	IBV_CREATE_QP_EX_KERNEL_MASK_IND_TABLE = 1 << 0,
-};
-
 struct ibv_create_qp_ex {
 	struct ex_hdr	hdr;
 	struct ibv_create_qp_common base;
