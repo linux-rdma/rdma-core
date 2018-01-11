@@ -64,16 +64,16 @@ struct verbs_ex_private {
 
 #define IBV_INIT_CMD(cmd, size, opcode)					\
 	do {								\
-		(cmd)->command = IB_USER_VERBS_CMD_##opcode;		\
-		(cmd)->in_words  = (size) / 4;				\
-		(cmd)->out_words = 0;					\
+		(cmd)->hdr.command = IB_USER_VERBS_CMD_##opcode;	\
+		(cmd)->hdr.in_words  = (size) / 4;			\
+		(cmd)->hdr.out_words = 0;				\
 	} while (0)
 
 #define IBV_INIT_CMD_RESP(cmd, size, opcode, out, outsize)		\
 	do {								\
-		(cmd)->command = IB_USER_VERBS_CMD_##opcode;		\
-		(cmd)->in_words  = (size) / 4;				\
-		(cmd)->out_words = (outsize) / 4;			\
+		(cmd)->hdr.command = IB_USER_VERBS_CMD_##opcode;	\
+		(cmd)->hdr.in_words  = (size) / 4;			\
+		(cmd)->hdr.out_words = (outsize) / 4;			\
 		(cmd)->response  = (uintptr_t) (out);			\
 	} while (0)
 

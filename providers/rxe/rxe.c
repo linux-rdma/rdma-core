@@ -672,9 +672,9 @@ static int post_send_db(struct ibv_qp *ibqp)
 	struct ibv_post_send cmd;
 	struct ib_uverbs_post_send_resp resp;
 
-	cmd.command	= IB_USER_VERBS_CMD_POST_SEND;
-	cmd.in_words	= sizeof(cmd)/4;
-	cmd.out_words	= sizeof(resp)/4;
+	cmd.hdr.command	= IB_USER_VERBS_CMD_POST_SEND;
+	cmd.hdr.in_words = sizeof(cmd) / 4;
+	cmd.hdr.out_words = sizeof(resp) / 4;
 	cmd.response	= (uintptr_t)&resp;
 	cmd.qp_handle	= ibqp->handle;
 	cmd.wr_count	= 0;

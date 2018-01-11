@@ -78,19 +78,13 @@ struct ex_hdr {
  */
 
 struct ibv_get_context {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
-	__u64 driver_data[0];
 };
 
 struct ibv_query_device {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
-	__u64 driver_data[0];
 };
 
 struct ibv_query_device_ex {
@@ -100,64 +94,46 @@ struct ibv_query_device_ex {
 };
 
 struct ibv_query_port {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u8  port_num;
 	__u8  reserved[7];
-	__u64 driver_data[0];
 };
 
 struct ibv_alloc_pd {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
-	__u64 driver_data[0];
 };
 
 struct ibv_dealloc_pd {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 pd_handle;
 };
 
 struct ibv_open_xrcd {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 fd;
 	__u32 oflags;
-	__u64 driver_data[0];
 };
 
 struct ibv_close_xrcd {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 xrcd_handle;
 };
 
 struct ibv_reg_mr {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u64 start;
 	__u64 length;
 	__u64 hca_va;
 	__u32 pd_handle;
 	__u32 access_flags;
-	__u64 driver_data[0];
 };
 
 struct ibv_rereg_mr {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 mr_handle;
 	__u32 flags;
@@ -166,20 +142,15 @@ struct ibv_rereg_mr {
 	__u64 hca_va;
 	__u32 pd_handle;
 	__u32 access_flags;
-	__u64 driver_data[0];
 };
 
 struct ibv_dereg_mr {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 mr_handle;
 };
 
 struct ibv_alloc_mw {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 pd_handle;
 	__u8  mw_type;
@@ -187,31 +158,24 @@ struct ibv_alloc_mw {
 };
 
 struct ibv_dealloc_mw {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 mw_handle;
 	__u32 reserved;
 };
 
 struct ibv_create_comp_channel {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 };
 
 struct ibv_create_cq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u64 user_handle;
 	__u32 cqe;
 	__u32 comp_vector;
 	__s32 comp_channel;
 	__u32 reserved;
-	__u64 driver_data[0];
 };
 
 enum ibv_create_cq_ex_kernel_flags {
@@ -230,36 +194,27 @@ struct ibv_create_cq_ex {
 };
 
 struct ibv_poll_cq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 cq_handle;
 	__u32 ne;
 };
 
 struct ibv_req_notify_cq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 cq_handle;
 	__u32 solicited;
 };
 
 struct ibv_resize_cq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 cq_handle;
 	__u32 cqe;
-	__u64 driver_data[0];
 };
 
 struct ibv_destroy_cq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 cq_handle;
 	__u32 reserved;
@@ -282,12 +237,9 @@ struct ibv_destroy_cq {
 	__u8  reserved
 
 struct ibv_create_qp {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	IBV_CREATE_QP_COMMON;
-	__u64 driver_data[0];
 };
 
 struct ibv_create_qp_common {
@@ -295,16 +247,13 @@ struct ibv_create_qp_common {
 };
 
 struct ibv_open_qp {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u64 user_handle;
 	__u32 pd_handle;
 	__u32 qpn;
 	__u8  qp_type;
 	__u8  reserved[7];
-	__u64 driver_data[0];
 };
 
 struct ibv_create_qp_ex {
@@ -317,21 +266,15 @@ struct ibv_create_qp_ex {
 };
 
 struct ibv_query_qp {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 qp_handle;
 	__u32 attr_mask;
-	__u64 driver_data[0];
 };
 
 struct ibv_modify_qp {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	struct ib_uverbs_modify_qp base;
-	__u64 driver_data[0];
 };
 
 struct ibv_modify_qp_ex {
@@ -342,9 +285,7 @@ struct ibv_modify_qp_ex {
 };
 
 struct ibv_destroy_qp {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 qp_handle;
 	__u32 reserved;
@@ -378,9 +319,7 @@ struct ibv_kern_spec {
 };
 
 struct ibv_post_send {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 qp_handle;
 	__u32 wr_count;
@@ -390,9 +329,7 @@ struct ibv_post_send {
 };
 
 struct ibv_post_recv {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 qp_handle;
 	__u32 wr_count;
@@ -402,9 +339,7 @@ struct ibv_post_recv {
 };
 
 struct ibv_post_srq_recv {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 srq_handle;
 	__u32 wr_count;
@@ -414,9 +349,7 @@ struct ibv_post_srq_recv {
 };
 
 struct ibv_create_ah {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u64 user_handle;
 	__u32 pd_handle;
@@ -425,21 +358,16 @@ struct ibv_create_ah {
 };
 
 struct ibv_destroy_ah {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 ah_handle;
 };
 
 struct ibv_attach_mcast {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u8  gid[16];
 	__u32 qp_handle;
 	__u16 mlid;
 	__u16 reserved;
-	__u64 driver_data[0];
 };
 
 struct ibv_create_flow  {
@@ -456,33 +384,25 @@ struct ibv_destroy_flow  {
 };
 
 struct ibv_detach_mcast {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u8  gid[16];
 	__u32 qp_handle;
 	__u16 mlid;
 	__u16 reserved;
-	__u64 driver_data[0];
 };
 
 struct ibv_create_srq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u64 user_handle;
 	__u32 pd_handle;
 	__u32 max_wr;
 	__u32 max_sge;
 	__u32 srq_limit;
-	__u64 driver_data[0];
 };
 
 struct ibv_create_xsrq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u64 user_handle;
 	__u32 srq_type;
@@ -493,50 +413,38 @@ struct ibv_create_xsrq {
 	__u32 max_num_tags;
 	__u32 xrcd_handle;
 	__u32 cq_handle;
-	__u64 driver_data[0];
 };
 
 struct ibv_modify_srq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 srq_handle;
 	__u32 attr_mask;
 	__u32 max_wr;
 	__u32 srq_limit;
-	__u64 driver_data[0];
 };
 
 struct ibv_query_srq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 srq_handle;
 	__u32 reserved;
-	__u64 driver_data[0];
 };
 
 struct ibv_destroy_srq {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u64 response;
 	__u32 srq_handle;
 	__u32 reserved;
 };
 
 struct ibv_modify_srq_v3 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
+	struct ib_uverbs_cmd_hdr hdr;
 	__u32 srq_handle;
 	__u32 attr_mask;
 	__u32 max_wr;
 	__u32 max_sge;
 	__u32 srq_limit;
 	__u32 reserved;
-	__u64 driver_data[0];
 };
 
 struct ibv_create_qp_resp_v3 {

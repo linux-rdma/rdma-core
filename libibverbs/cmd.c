@@ -793,7 +793,7 @@ static int ibv_cmd_modify_srq_v3(struct ibv_srq *srq,
 
 	cmd_size = sizeof *cmd + new_cmd_size - sizeof *new_cmd;
 	cmd      = alloca(cmd_size);
-	memcpy(cmd->driver_data, new_cmd->driver_data, new_cmd_size - sizeof *new_cmd);
+	memcpy(cmd + 1, new_cmd + 1, new_cmd_size - sizeof *new_cmd);
 
 	IBV_INIT_CMD(cmd, cmd_size, MODIFY_SRQ);
 
