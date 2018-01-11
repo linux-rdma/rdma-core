@@ -66,7 +66,7 @@ struct ocrdma_get_context {
 };
 
 struct ocrdma_alloc_ucontext_resp {
-	struct ibv_get_context_resp ibv_resp;
+	struct ib_uverbs_get_context_resp ibv_resp;
 	uint32_t dev_id;
 	uint32_t wqe_size;
 	uint32_t max_inline_data;
@@ -85,7 +85,7 @@ struct ocrdma_alloc_pd_req {
 };
 
 struct ocrdma_alloc_pd_resp {
-	struct ibv_alloc_pd_resp ibv_resp;
+	struct ib_uverbs_alloc_pd_resp ibv_resp;
 	uint32_t id;
 	uint32_t dpp_enabled;
 	uint32_t dpp_page_addr_hi;
@@ -101,7 +101,7 @@ struct ocrdma_create_cq_req {
 
 #define MAX_CQ_PAGES 8
 struct ocrdma_create_cq_resp {
-	struct ibv_create_cq_resp ibv_resp;
+	struct ib_uverbs_create_cq_resp ibv_resp;
 	uint32_t cq_id;
 	uint32_t size;
 	uint32_t num_pages;
@@ -119,7 +119,7 @@ struct ocrdma_reg_mr {
 };
 
 struct ocrdma_reg_mr_resp {
-	struct ibv_reg_mr_resp ibv_resp;
+	struct ib_uverbs_reg_mr_resp ibv_resp;
 };
 
 struct ocrdma_create_qp_cmd {
@@ -134,7 +134,7 @@ struct ocrdma_create_qp_cmd {
 #define MAX_UD_HDR_PAGES 8
 
 struct ocrdma_create_qp_uresp {
-	struct ibv_create_qp_resp ibv_resp;
+	struct ib_uverbs_create_qp_resp ibv_resp;
 	uint16_t qp_id;
 	uint16_t sq_dbid;
 	uint16_t rq_dbid;
@@ -162,7 +162,7 @@ struct ocrdma_create_srq_cmd {
 };
 
 struct ocrdma_create_srq_resp {
-	struct ibv_create_srq_resp ibv_resp;
+	struct ib_uverbs_create_srq_resp ibv_resp;
 	uint16_t rq_dbid;
 	uint16_t resv0;
 	uint32_t resv1;

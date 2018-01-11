@@ -46,7 +46,7 @@
 
 int ibv_cmd_get_context(struct verbs_context *context_ex,
 			struct ibv_get_context *cmd, size_t cmd_size,
-			struct ibv_get_context_resp *resp, size_t resp_size)
+			struct ib_uverbs_get_context_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
 
@@ -62,7 +62,7 @@ int ibv_cmd_get_context(struct verbs_context *context_ex,
 }
 
 static void copy_query_dev_fields(struct ibv_device_attr *device_attr,
-				  struct ibv_query_device_resp *resp,
+				  struct ib_uverbs_query_device_resp *resp,
 				  uint64_t *raw_fw_ver)
 {
 	*raw_fw_ver				= resp->fw_ver;
@@ -112,7 +112,7 @@ int ibv_cmd_query_device(struct ibv_context *context,
 			 uint64_t *raw_fw_ver,
 			 struct ibv_query_device *cmd, size_t cmd_size)
 {
-	struct ibv_query_device_resp resp;
+	struct ib_uverbs_query_device_resp resp;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_DEVICE, &resp, sizeof resp);
 
@@ -269,7 +269,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
 		       struct ibv_query_port *cmd, size_t cmd_size)
 {
-	struct ibv_query_port_resp resp;
+	struct ib_uverbs_query_port_resp resp;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_PORT, &resp, sizeof resp);
 	cmd->port_num = port_num;
@@ -306,7 +306,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 
 int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
-		     struct ibv_alloc_pd_resp *resp, size_t resp_size)
+		     struct ib_uverbs_alloc_pd_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_PD, resp, resp_size);
 
@@ -338,7 +338,7 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 		      int vxrcd_size,
 		      struct ibv_xrcd_init_attr *attr,
 		      struct ibv_open_xrcd *cmd, size_t cmd_size,
-		      struct ibv_open_xrcd_resp *resp, size_t resp_size)
+		      struct ib_uverbs_open_xrcd_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, OPEN_XRCD, resp, resp_size);
 
@@ -383,7 +383,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, int access,
 		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
 		   size_t cmd_size,
-		   struct ibv_reg_mr_resp *resp, size_t resp_size)
+		   struct ib_uverbs_reg_mr_resp *resp, size_t resp_size)
 {
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, REG_MR, resp, resp_size);
@@ -410,7 +410,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 		     size_t length, uint64_t hca_va, int access,
 		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
-		     size_t cmd_sz, struct ibv_rereg_mr_resp *resp,
+		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
 		     size_t resp_sz)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_sz, REREG_MR, resp, resp_sz);
@@ -452,7 +452,7 @@ int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
-		     struct ibv_alloc_mw_resp *resp, size_t resp_size)
+		     struct ib_uverbs_alloc_mw_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_MW, resp, resp_size);
 	cmd->pd_handle	= pd->handle;
@@ -490,7 +490,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_comp_channel *channel,
 		      int comp_vector, struct ibv_cq *cq,
 		      struct ibv_create_cq *cmd, size_t cmd_size,
-		      struct ibv_create_cq_resp *resp, size_t resp_size)
+		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
 	cmd->user_handle   = (uintptr_t) cq;
@@ -517,7 +517,7 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_core_size,
 			 size_t cmd_size,
-			 struct ibv_create_cq_resp_ex *resp,
+			 struct ib_uverbs_ex_create_cq_resp *resp,
 			 size_t resp_core_size,
 			 size_t resp_size)
 {
@@ -622,7 +622,7 @@ int ibv_cmd_req_notify_cq(struct ibv_cq *ibcq, int solicited_only)
 
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 		      struct ibv_resize_cq *cmd, size_t cmd_size,
-		      struct ibv_resize_cq_resp *resp, size_t resp_size)
+		      struct ib_uverbs_resize_cq_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, RESIZE_CQ, resp, resp_size);
 	cmd->cq_handle = cq->handle;
@@ -641,7 +641,7 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 {
 	struct ibv_destroy_cq      cmd;
-	struct ibv_destroy_cq_resp resp;
+	struct ib_uverbs_destroy_cq_resp resp;
 
 	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_CQ, &resp, sizeof resp);
 	cmd.cq_handle = cq->handle;
@@ -664,7 +664,7 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_srq *srq, struct ibv_srq_init_attr *attr,
 		       struct ibv_create_srq *cmd, size_t cmd_size,
-		       struct ibv_create_srq_resp *resp, size_t resp_size)
+		       struct ib_uverbs_create_srq_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_SRQ, resp, resp_size);
 	cmd->user_handle = (uintptr_t) srq;
@@ -700,7 +700,7 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 			  struct verbs_srq *srq, int vsrq_sz,
 			  struct ibv_srq_init_attr_ex *attr_ex,
 			  struct ibv_create_xsrq *cmd, size_t cmd_size,
-			  struct ibv_create_srq_resp *resp, size_t resp_size)
+			  struct ib_uverbs_create_srq_resp *resp, size_t resp_size)
 {
 	struct verbs_xrcd *vxrcd = NULL;
 
@@ -835,7 +835,7 @@ int ibv_cmd_modify_srq(struct ibv_srq *srq,
 int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 		      struct ibv_query_srq *cmd, size_t cmd_size)
 {
-	struct ibv_query_srq_resp resp;
+	struct ib_uverbs_query_srq_resp resp;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_SRQ, &resp, sizeof resp);
 	cmd->srq_handle = srq->handle;
@@ -856,7 +856,7 @@ int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 {
 	struct ibv_destroy_srq      cmd;
-	struct ibv_destroy_srq_resp resp;
+	struct ib_uverbs_destroy_qp_resp resp;
 
 	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_SRQ, &resp, sizeof resp);
 	cmd.srq_handle = srq->handle;
@@ -925,7 +925,7 @@ static int create_qp_ex_common(struct verbs_qp *qp,
 static void create_qp_handle_resp_common(struct ibv_context *context,
 					 struct verbs_qp *qp,
 					 struct ibv_qp_init_attr_ex *qp_attr,
-					 struct ibv_create_qp_resp *resp,
+					 struct ib_uverbs_create_qp_resp *resp,
 					 struct verbs_xrcd *vxrcd,
 					 int vqp_sz)
 {
@@ -973,7 +973,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			  struct ibv_create_qp_ex *cmd,
 			  size_t cmd_core_size,
 			  size_t cmd_size,
-			  struct ibv_create_qp_resp_ex *resp,
+			  struct ib_uverbs_ex_create_qp_resp *resp,
 			  size_t resp_core_size,
 			  size_t resp_size)
 {
@@ -984,7 +984,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 		return EINVAL;
 
 	if (resp_core_size <
-	    offsetof(struct ibv_create_qp_resp_ex, response_length) +
+	    offsetof(struct ib_uverbs_ex_create_qp_resp, response_length) +
 	    sizeof(resp->response_length))
 		return EINVAL;
 
@@ -1033,7 +1033,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			 struct verbs_qp *qp, int vqp_sz,
 			 struct ibv_qp_init_attr_ex *attr_ex,
 			 struct ibv_create_qp *cmd, size_t cmd_size,
-			 struct ibv_create_qp_resp *resp, size_t resp_size)
+			 struct ib_uverbs_create_qp_resp *resp, size_t resp_size)
 {
 	struct verbs_xrcd *vxrcd = NULL;
 	int err;
@@ -1077,7 +1077,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_qp *qp, struct ibv_qp_init_attr *attr,
 		      struct ibv_create_qp *cmd, size_t cmd_size,
-		      struct ibv_create_qp_resp *resp, size_t resp_size)
+		      struct ib_uverbs_create_qp_resp *resp, size_t resp_size)
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
 
@@ -1136,7 +1136,7 @@ int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
 		    int vqp_sz,
 		    struct ibv_qp_open_attr *attr,
 		    struct ibv_open_qp *cmd, size_t cmd_size,
-		    struct ibv_create_qp_resp *resp, size_t resp_size)
+		    struct ib_uverbs_create_qp_resp *resp, size_t resp_size)
 {
 	struct verbs_xrcd *xrcd;
 	IBV_INIT_CMD_RESP(cmd, cmd_size, OPEN_QP, resp, resp_size);
@@ -1187,7 +1187,7 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		     struct ibv_qp_init_attr *init_attr,
 		     struct ibv_query_qp *cmd, size_t cmd_size)
 {
-	struct ibv_query_qp_resp resp;
+	struct ib_uverbs_query_qp_resp resp;
 
 	/*
 	 * Starting with IBV_QP_RATE_LIMIT the attribute must go through the
@@ -1379,10 +1379,10 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask, struct ibv_modify_qp_ex *cmd,
 			 size_t cmd_core_size, size_t cmd_size,
-			 struct ibv_modify_qp_resp_ex *resp,
+			 struct ib_uverbs_ex_modify_qp_resp *resp,
 			 size_t resp_core_size, size_t resp_size)
 {
-	if (resp_core_size < offsetof(struct ibv_modify_qp_resp_ex,
+	if (resp_core_size < offsetof(struct ib_uverbs_ex_modify_qp_resp,
 			     response_length) + sizeof(resp->response_length))
 		return EINVAL;
 
@@ -1411,7 +1411,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		      struct ibv_send_wr **bad_wr)
 {
 	struct ibv_post_send     *cmd;
-	struct ibv_post_send_resp resp;
+	struct ib_uverbs_post_send_resp resp;
 	struct ibv_send_wr       *i;
 	struct ibv_kern_send_wr  *n, *tmp;
 	struct ibv_sge           *s;
@@ -1501,9 +1501,9 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		      struct ibv_recv_wr **bad_wr)
 {
 	struct ibv_post_recv     *cmd;
-	struct ibv_post_recv_resp resp;
+	struct ib_uverbs_post_send_resp resp;
 	struct ibv_recv_wr       *i;
-	struct ibv_kern_recv_wr  *n, *tmp;
+	struct ib_uverbs_recv_wr  *n, *tmp;
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
@@ -1524,7 +1524,7 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	cmd->sge_count = sge_count;
 	cmd->wqe_size  = sizeof *n;
 
-	n = (struct ibv_kern_recv_wr *) ((void *) cmd + sizeof *cmd);
+	n = (struct ib_uverbs_recv_wr *) ((void *) cmd + sizeof *cmd);
 	s = (struct ibv_sge *) (n + wr_count);
 
 	tmp = n;
@@ -1562,9 +1562,9 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 		      struct ibv_recv_wr **bad_wr)
 {
 	struct ibv_post_srq_recv *cmd;
-	struct ibv_post_srq_recv_resp resp;
+	struct ib_uverbs_post_recv_resp resp;
 	struct ibv_recv_wr       *i;
-	struct ibv_kern_recv_wr  *n, *tmp;
+	struct ib_uverbs_recv_wr  *n, *tmp;
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
@@ -1585,7 +1585,7 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	cmd->sge_count = sge_count;
 	cmd->wqe_size  = sizeof *n;
 
-	n = (struct ibv_kern_recv_wr *) ((void *) cmd + sizeof *cmd);
+	n = (struct ib_uverbs_recv_wr *) ((void *) cmd + sizeof *cmd);
 	s = (struct ibv_sge *) (n + wr_count);
 
 	tmp = n;
@@ -1668,7 +1668,7 @@ int ibv_cmd_destroy_ah(struct ibv_ah *ah)
 int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 {
 	struct ibv_destroy_qp      cmd;
-	struct ibv_destroy_qp_resp resp;
+	struct ib_uverbs_destroy_qp_resp resp;
 
 	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_QP, &resp, sizeof resp);
 	cmd.qp_handle = qp->handle;
@@ -1738,7 +1738,7 @@ static int get_filters_size(struct ibv_flow_spec *ib_spec,
 	switch (type) {
 	case IBV_FLOW_SPEC_IPV4_EXT:
 		min_filter_size =
-			offsetof(struct ibv_kern_ipv4_ext_filter, flags) +
+			offsetof(struct ib_uverbs_flow_ipv4_filter, flags) +
 			sizeof(kern_spec->ipv4_ext.mask.flags);
 		curr_kern_filter_size = min_filter_size;
 		ib_spec_filter_mask = (void *)&ib_spec->ipv4_ext.val +
@@ -1746,7 +1746,7 @@ static int get_filters_size(struct ibv_flow_spec *ib_spec,
 		break;
 	case IBV_FLOW_SPEC_IPV6:
 		min_filter_size =
-			offsetof(struct ibv_kern_ipv6_filter, hop_limit) +
+			offsetof(struct ib_uverbs_flow_ipv6_filter, hop_limit) +
 			sizeof(kern_spec->ipv6.mask.hop_limit);
 		curr_kern_filter_size = min_filter_size;
 		ib_spec_filter_mask = (void *)&ib_spec->ipv6.val +
@@ -1754,7 +1754,7 @@ static int get_filters_size(struct ibv_flow_spec *ib_spec,
 		break;
 	case IBV_FLOW_SPEC_VXLAN_TUNNEL:
 		min_filter_size =
-			offsetof(struct ibv_kern_tunnel_filter,
+			offsetof(struct ib_uverbs_flow_tunnel_filter,
 				 tunnel_id) +
 			sizeof(kern_spec->tunnel.mask.tunnel_id);
 		curr_kern_filter_size = min_filter_size;
@@ -1877,7 +1877,7 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 			struct ibv_flow_attr *flow_attr)
 {
 	struct ibv_create_flow *cmd;
-	struct ibv_create_flow_resp resp;
+	struct ib_uverbs_destroy_flow  resp;
 	size_t cmd_size;
 	size_t written_size;
 	int i, err;
@@ -1946,7 +1946,7 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 		      struct ibv_create_wq *cmd,
 		      size_t cmd_core_size,
 		      size_t cmd_size,
-		      struct ibv_create_wq_resp *resp,
+		      struct ib_uverbs_ex_create_wq_resp *resp,
 		      size_t resp_core_size,
 		      size_t resp_size)
 {
@@ -2033,7 +2033,7 @@ int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 int ibv_cmd_destroy_wq(struct ibv_wq *wq)
 {
 	struct ibv_destroy_wq cmd;
-	struct ibv_destroy_wq_resp resp;
+	struct ib_uverbs_ex_destroy_wq_resp resp;
 	int ret = 0;
 
 	memset(&cmd, 0, sizeof(cmd));
@@ -2062,7 +2062,7 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 				 struct ibv_create_rwq_ind_table *cmd,
 				 size_t cmd_core_size,
 				 size_t cmd_size,
-				 struct ibv_create_rwq_ind_table_resp *resp,
+				 struct ib_uverbs_ex_create_rwq_ind_table_resp *resp,
 				 size_t resp_core_size,
 				 size_t resp_size)
 {

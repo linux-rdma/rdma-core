@@ -322,7 +322,7 @@ LATEST_SYMVER_FUNC(ibv_get_async_event, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context,
 		   struct ibv_async_event *event)
 {
-	struct ibv_kern_async_event ev;
+	struct ib_uverbs_async_event_desc ev;
 
 	if (read(context->async_fd, &ev, sizeof ev) != sizeof ev)
 		return -1;

@@ -97,7 +97,7 @@ static int rxe_query_port(struct ibv_context *context, uint8_t port,
 static struct ibv_pd *rxe_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd cmd;
-	struct ibv_alloc_pd_resp resp;
+	struct ib_uverbs_alloc_pd_resp resp;
 	struct ibv_pd *pd;
 
 	pd = malloc(sizeof *pd);
@@ -128,7 +128,7 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof *mr);
@@ -670,7 +670,7 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 static int post_send_db(struct ibv_qp *ibqp)
 {
 	struct ibv_post_send cmd;
-	struct ibv_post_send_resp resp;
+	struct ib_uverbs_post_send_resp resp;
 
 	cmd.command	= IB_USER_VERBS_CMD_POST_SEND;
 	cmd.in_words	= sizeof(cmd)/4;
@@ -862,7 +862,7 @@ static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
 {
 	struct rxe_context *context;
 	struct ibv_get_context cmd;
-	struct ibv_get_context_resp resp;
+	struct ib_uverbs_get_context_resp resp;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)

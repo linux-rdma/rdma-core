@@ -153,7 +153,7 @@ struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int a
 {
 	struct ibv_mr *mr;
 	struct i40iw_ureg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 
 	mr = malloc(sizeof(*mr));
 	if (!mr)
@@ -218,7 +218,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 
 	struct i40iw_ureg_mr reg_mr_cmd;
 
-	struct ibv_reg_mr_resp reg_mr_resp;
+	struct ib_uverbs_reg_mr_resp reg_mr_resp;
 
 	if (cqe > I40IW_MAX_CQ_SIZE)
 		return NULL;
@@ -502,7 +502,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	int ret;
 	struct i40iw_ureg_mr reg_mr_cmd;
 	u32 sq_pages, rq_pages;
-	struct ibv_reg_mr_resp reg_mr_resp;
+	struct ib_uverbs_reg_mr_resp reg_mr_resp;
 
 	memset(&reg_mr_cmd, 0, sizeof(reg_mr_cmd));
 	sqsize = sqdepth * I40IW_QP_WQE_MIN_SIZE;

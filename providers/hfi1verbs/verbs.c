@@ -101,7 +101,7 @@ int hfi1_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *hfi1_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd	  cmd;
-	struct ibv_alloc_pd_resp  resp;
+	struct ib_uverbs_alloc_pd_resp  resp;
 	struct ibv_pd		 *pd;
 
 	pd = malloc(sizeof *pd);
@@ -134,7 +134,7 @@ struct ibv_mr *hfi1_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof *mr);
@@ -206,7 +206,7 @@ struct ibv_cq *hfi1_create_cq_v1(struct ibv_context *context, int cqe,
 {
 	struct ibv_cq		   *cq;
 	struct ibv_create_cq	    cmd;
-	struct ibv_create_cq_resp   resp;
+	struct ib_uverbs_create_cq_resp   resp;
 	int			    ret;
 
 	cq = malloc(sizeof *cq);
@@ -257,7 +257,7 @@ int hfi1_resize_cq(struct ibv_cq *ibcq, int cqe)
 int hfi1_resize_cq_v1(struct ibv_cq *ibcq, int cqe)
 {
 	struct ibv_resize_cq		cmd;
-	struct ibv_resize_cq_resp	resp;
+	struct ib_uverbs_resize_cq_resp	resp;
 
 	return ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd,
 				 &resp, sizeof resp);
@@ -364,7 +364,7 @@ struct ibv_qp *hfi1_create_qp_v1(struct ibv_pd *pd,
 				  struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp	     cmd;
-	struct ibv_create_qp_resp    resp;
+	struct ib_uverbs_create_qp_resp    resp;
 	struct ibv_qp		    *qp;
 	int			     ret;
 
@@ -561,7 +561,7 @@ struct ibv_srq *hfi1_create_srq_v1(struct ibv_pd *pd,
 {
 	struct ibv_srq *srq;
 	struct ibv_create_srq cmd;
-	struct ibv_create_srq_resp resp;
+	struct ib_uverbs_create_srq_resp resp;
 	int ret;
 
 	srq = malloc(sizeof *srq);

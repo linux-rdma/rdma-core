@@ -308,7 +308,7 @@ int ocrdma_resize_cq(struct ibv_cq *ibcq, int new_entries)
 {
 	int status;
 	struct ibv_resize_cq cmd;
-	struct ibv_resize_cq_resp resp;
+	struct ib_uverbs_resize_cq_resp resp;
 	status = ibv_cmd_resize_cq(ibcq, new_entries,
 				   &cmd, sizeof cmd, &resp, sizeof resp);
 	if (status == 0)

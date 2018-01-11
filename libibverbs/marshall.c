@@ -37,7 +37,7 @@
 #include <infiniband/marshall.h>
 
 void ibv_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
-				struct ibv_kern_ah_attr *src)
+				struct ib_uverbs_ah_attr *src)
 {
 	memcpy(dst->grh.dgid.raw, src->grh.dgid, sizeof dst->grh.dgid);
 	dst->grh.flow_label = src->grh.flow_label;
@@ -54,7 +54,7 @@ void ibv_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
 }
 
 void ibv_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
-				struct ibv_kern_qp_attr *src)
+				struct ib_uverbs_qp_attr *src)
 {
 	dst->cur_qp_state = src->cur_qp_state;
 	dst->path_mtu = src->path_mtu;

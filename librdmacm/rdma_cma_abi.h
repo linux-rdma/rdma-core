@@ -216,7 +216,7 @@ struct ucma_abi_conn_param {
 struct ucma_abi_ud_param {
 	__u32 qp_num;
 	__u32 qkey;
-	struct ibv_kern_ah_attr ah_attr;
+	struct ib_uverbs_ah_attr ah_attr;
 	__u8 private_data[RDMA_MAX_PRIVATE_DATA];
 	__u8 private_data_len;
 	__u8 reserved[7];

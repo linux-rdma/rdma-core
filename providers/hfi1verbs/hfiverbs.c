@@ -141,7 +141,7 @@ static struct verbs_context *hfi1_alloc_context(struct ibv_device *ibdev,
 {
 	struct hfi1_context	    *context;
 	struct ibv_get_context       cmd;
-	struct ibv_get_context_resp  resp;
+	struct ib_uverbs_get_context_resp  resp;
 	struct hfi1_device         *dev;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);

@@ -319,7 +319,7 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
 	struct ibv_comp_channel            *channel;
 	struct ibv_create_comp_channel      cmd;
-	struct ibv_create_comp_channel_resp resp;
+	struct ib_uverbs_create_comp_channel_resp resp;
 
 	channel = malloc(sizeof *channel);
 	if (!channel)
@@ -410,7 +410,7 @@ LATEST_SYMVER_FUNC(ibv_get_cq_event, 1_1, "IBVERBS_1.1",
 		   struct ibv_comp_channel *channel,
 		   struct ibv_cq **cq, void **cq_context)
 {
-	struct ibv_comp_event ev;
+	struct ib_uverbs_comp_event_desc ev;
 
 	if (read(channel->fd, &ev, sizeof ev) != sizeof ev)
 		return -1;

@@ -42,7 +42,7 @@ struct qelr_get_context {
 };
 
 struct qelr_alloc_ucontext_resp {
-	struct ibv_get_context_resp ibv_resp;	/* must be first */
+	struct ib_uverbs_get_context_resp ibv_resp;	/* must be first */
 	__u64 db_pa;
 	__u32 db_size;
 
@@ -60,7 +60,7 @@ struct qelr_alloc_pd_req {
 };
 
 struct qelr_alloc_pd_resp {
-	struct ibv_alloc_pd_resp ibv_resp;	/* must be first */
+	struct ib_uverbs_alloc_pd_resp ibv_resp;	/* must be first */
 	__u32 pd_id;
 };
 
@@ -72,7 +72,7 @@ struct qelr_create_cq_req {
 };
 
 struct qelr_create_cq_resp {
-	struct ibv_create_cq_resp ibv_resp;	/* must be first */
+	struct ib_uverbs_create_cq_resp ibv_resp;	/* must be first */
 	__u32 db_offset;
 	__u16 icid;
 };
@@ -82,7 +82,7 @@ struct qelr_reg_mr {
 };
 
 struct qelr_reg_mr_resp {
-	struct ibv_reg_mr_resp ibv_resp;	/* must be first */
+	struct ib_uverbs_reg_mr_resp ibv_resp;	/* must be first */
 };
 
 struct qelr_create_qp_req {
@@ -101,7 +101,7 @@ struct qelr_create_qp_req {
 };
 
 struct qelr_create_qp_resp {
-	struct ibv_create_qp_resp ibv_resp;	/* must be first */
+	struct ib_uverbs_create_qp_resp ibv_resp;	/* must be first */
 
 	__u32 qp_id;
 	__u32 atomic_supported;

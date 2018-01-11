@@ -235,7 +235,7 @@ struct ibv_xrcd *mlx4_open_xrcd(struct ibv_context *context,
 				struct ibv_xrcd_init_attr *attr)
 {
 	struct ibv_open_xrcd cmd;
-	struct ibv_open_xrcd_resp resp;
+	struct ib_uverbs_open_xrcd_resp resp;
 	struct verbs_xrcd *xrcd;
 	int ret;
 
@@ -273,7 +273,7 @@ struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof *mr);
@@ -297,7 +297,7 @@ int mlx4_rereg_mr(struct ibv_mr *mr,
 		  size_t length, int access)
 {
 	struct ibv_rereg_mr cmd;
-	struct ibv_rereg_mr_resp resp;
+	struct ib_uverbs_rereg_mr_resp resp;
 
 	if (flags & IBV_REREG_MR_KEEP_VALID)
 		return ENOTSUP;
@@ -325,7 +325,7 @@ struct ibv_mw *mlx4_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	struct ibv_mw *mw;
 	struct ibv_alloc_mw cmd;
-	struct ibv_alloc_mw_resp resp;
+	struct ib_uverbs_alloc_mw_resp resp;
 	int ret;
 
 	mw = calloc(1, sizeof(*mw));
@@ -588,7 +588,7 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
 	struct mlx4_cq *cq = to_mcq(ibcq);
 	struct mlx4_resize_cq cmd;
-	struct ibv_resize_cq_resp resp;
+	struct ib_uverbs_resize_cq_resp resp;
 	struct mlx4_buf buf;
 	int old_cqe, outst_cqe, ret;
 
@@ -863,7 +863,7 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 {
 	struct mlx4_context *ctx = to_mctx(context);
 	struct mlx4_create_qp     cmd = {};
-	struct ibv_create_qp_resp resp = {};
+	struct ib_uverbs_create_qp_resp resp = {};
 	struct mlx4_qp		 *qp;
 	int			  ret;
 
@@ -1042,7 +1042,7 @@ struct ibv_qp *mlx4_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 struct ibv_qp *mlx4_open_qp(struct ibv_context *context, struct ibv_qp_open_attr *attr)
 {
 	struct ibv_open_qp cmd;
-	struct ibv_create_qp_resp resp;
+	struct ib_uverbs_create_qp_resp resp;
 	struct mlx4_qp *qp;
 	int ret;
 
@@ -1398,7 +1398,7 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 {
 	struct mlx4_context		*ctx = to_mctx(context);
 	struct mlx4_create_wq		cmd = {};
-	struct ibv_create_wq_resp	resp = {};
+	struct ib_uverbs_ex_create_wq_resp	resp = {};
 	struct mlx4_qp			*qp;
 	int				ret;
 
@@ -1600,7 +1600,7 @@ struct ibv_rwq_ind_table *mlx4_create_rwq_ind_table(struct ibv_context *context,
 						    struct ibv_rwq_ind_table_init_attr *init_attr)
 {
 	struct ibv_create_rwq_ind_table *cmd;
-	struct ibv_create_rwq_ind_table_resp resp = {};
+	struct ib_uverbs_ex_create_rwq_ind_table_resp resp = {};
 	struct ibv_rwq_ind_table *ind_table;
 	uint32_t required_tbl_size;
 	unsigned int num_tbl_entries;

@@ -170,7 +170,7 @@ struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 	struct nes_ureg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
@@ -212,7 +212,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 {
 	struct nes_ucq *nesucq;
 	struct nes_ureg_mr reg_mr_cmd;
-	struct ibv_reg_mr_resp reg_mr_resp;
+	struct ib_uverbs_reg_mr_resp reg_mr_resp;
 	struct nes_ucreate_cq cmd;
 	struct nes_ucreate_cq_resp resp;
 	int ret;
@@ -937,7 +937,7 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 {
 	struct nes_ucreate_qp cmd;
 	struct nes_ureg_mr reg_mr_cmd;
-        struct ibv_reg_mr_resp reg_mr_resp;
+	struct ib_uverbs_reg_mr_resp reg_mr_resp;
 	int totalqpsize;
 	int ret;
 
