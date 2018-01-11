@@ -2131,6 +2131,38 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return ret;
 }
 
+int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
+			      struct ibv_qp_rate_limit_attr *attr)
+{
+	struct ibv_qp_attr qp_attr = {};
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
+	struct mlx5_ib_modify_qp cmd = {};
+	struct mlx5_context *mctx = to_mctx(qp->context);
+	int ret;
+
+	if (attr->comp_mask)
+		return EINVAL;
+
+	if ((attr->max_burst_sz ||
+	     attr->typical_pkt_sz) &&
+	    (!attr->rate_limit ||
+	     !(mctx->packet_pacing_caps.cap_flags &
+	       MLX5_IB_PP_SUPPORT_BURST)))
+		return EINVAL;
+
+	cmd.burst_info.max_burst_sz = attr->max_burst_sz;
+	cmd.burst_info.typical_pkt_sz = attr->typical_pkt_sz;
+	qp_attr.rate_limit = attr->rate_limit;
+
+	ret = ibv_cmd_modify_qp_ex(qp, &qp_attr, IBV_QP_RATE_LIMIT,
+				   &cmd.ibv_cmd,
+				   sizeof(cmd.ibv_cmd), sizeof(cmd),
+				   &resp,
+				   sizeof(resp), sizeof(resp));
+
+	return ret;
+}
+
 #define RROCE_UDP_SPORT_MIN 0xC000
 #define RROCE_UDP_SPORT_MAX 0xFFFF
 struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
@@ -2603,6 +2635,7 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	mctx->sw_parsing_caps = resp.sw_parsing_caps;
 	mctx->striding_rq_caps = resp.striding_rq_caps.caps;
 	mctx->tunnel_offloads_caps = resp.tunnel_offloads_caps;
+	mctx->packet_pacing_caps = resp.packet_pacing_caps;
 
 	if (resp.flags & MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP;

@@ -314,9 +314,14 @@ struct mlx5_rss_caps {
 	__u8 reserved[7];
 };
 
+enum mlx5_ib_packet_pacing_cap_flags {
+	MLX5_IB_PP_SUPPORT_BURST	= 1 << 0,
+};
+
 struct mlx5_packet_pacing_caps {
 	struct ibv_packet_pacing_caps caps;
-	__u32  reserved;
+	__u8   cap_flags; /* enum mlx5_ib_packet_pacing_cap_flags */
+	__u8   reserved[3];
 };
 
 enum mlx5_mpw_caps {
@@ -355,6 +360,19 @@ struct mlx5_modify_qp_resp_ex {
 	struct ib_uverbs_ex_modify_qp_resp base;
 	__u32  response_length;
 	__u32  dctn;
+};
+
+struct mlx5_ib_burst_info {
+	__u32	max_burst_sz;
+	__u16	typical_pkt_sz;
+	__u16	reserved;
+};
+
+struct mlx5_ib_modify_qp {
+	struct ibv_modify_qp_ex		ibv_cmd;
+	__u32				comp_mask;
+	struct mlx5_ib_burst_info	burst_info;
+	__u32				reserved;
 };
 
 #endif /* MLX5_ABI_H */
