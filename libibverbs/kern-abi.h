@@ -768,8 +768,8 @@ struct ibv_kern_send_wr {
 struct ibv_kern_eth_filter {
 	__u8  dst_mac[6];
 	__u8  src_mac[6];
-	__u16  ether_type;
-	__u16  vlan_tag;
+	__be16  ether_type;
+	__be16  vlan_tag;
 };
 
 struct ibv_kern_spec_eth {
@@ -794,8 +794,8 @@ struct ibv_kern_spec_ipv4 {
 };
 
 struct ibv_kern_ipv4_ext_filter {
-	__u32 src_ip;
-	__u32 dst_ip;
+	__be32 src_ip;
+	__be32 dst_ip;
 	__u8  proto;
 	__u8  tos;
 	__u8  ttl;
@@ -813,7 +813,7 @@ struct ibv_kern_spec_ipv4_ext {
 struct ibv_kern_ipv6_filter {
 	__u8  src_ip[16];
 	__u8  dst_ip[16];
-	__u32 flow_label;
+	__be32 flow_label;
 	__u8  next_hdr;
 	__u8  traffic_class;
 	__u8  hop_limit;
@@ -829,8 +829,8 @@ struct ibv_kern_spec_ipv6 {
 };
 
 struct ibv_kern_tcp_udp_filter {
-	__u16 dst_port;
-	__u16 src_port;
+	__be16 dst_port;
+	__be16 src_port;
 };
 
 struct ibv_kern_spec_tcp_udp {
@@ -850,7 +850,7 @@ struct ibv_kern_spec_action_tag {
 };
 
 struct ibv_kern_tunnel_filter {
-	__u32 tunnel_id;
+	__be32 tunnel_id;
 };
 
 struct ibv_kern_spec_tunnel {
@@ -897,6 +897,7 @@ struct ibv_kern_flow_attr {
 	 * struct ibv_kern_flow_spec_xxx
 	 * struct ibv_kern_flow_spec_yyy
 	 */
+	struct ib_uverbs_flow_spec_hdr flow_specs[0];
 };
 
 struct ibv_post_send {
