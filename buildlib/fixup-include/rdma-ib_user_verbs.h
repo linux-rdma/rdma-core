@@ -765,7 +765,7 @@ struct ib_uverbs_send_wr {
 	__u32 opcode;
 	__u32 send_flags;
 	union {
-		__u32 imm_data;
+		__be32 imm_data;
 		__u32 invalidate_rkey;
 	} ex;
 	union {

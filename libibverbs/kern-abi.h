@@ -395,39 +395,6 @@ struct ibv_destroy_qp {
 	__u32 reserved;
 };
 
-struct ibv_kern_send_wr {
-	__u64 wr_id;
-	__u32 num_sge;
-	__u32 opcode;
-	__u32 send_flags;
-	__be32 imm_data;
-	union {
-		struct {
-			__u64 remote_addr;
-			__u32 rkey;
-			__u32 reserved;
-		} rdma;
-		struct {
-			__u64 remote_addr;
-			__u64 compare_add;
-			__u64 swap;
-			__u32 rkey;
-			__u32 reserved;
-		} atomic;
-		struct {
-			__u32 ah;
-			__u32 remote_qpn;
-			__u32 remote_qkey;
-			__u32 reserved;
-		} ud;
-	} wr;
-	union {
-		struct {
-			__u32 remote_srqn;
-		} xrc;
-	} qp_type;
-};
-
 struct ibv_kern_spec_eth {
 	__u32 type;
 	__u16  size;
@@ -522,7 +489,7 @@ struct ibv_post_send {
 	__u32 wr_count;
 	__u32 sge_count;
 	__u32 wqe_size;
-	struct ibv_kern_send_wr send_wr[0];
+	struct ib_uverbs_send_wr send_wr[0];
 };
 
 struct ibv_post_recv {

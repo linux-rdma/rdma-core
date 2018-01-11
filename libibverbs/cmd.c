@@ -1413,7 +1413,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	struct ibv_post_send     *cmd;
 	struct ib_uverbs_post_send_resp resp;
 	struct ibv_send_wr       *i;
-	struct ibv_kern_send_wr  *n, *tmp;
+	struct ib_uverbs_send_wr  *n, *tmp;
 	struct ibv_sge           *s;
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
@@ -1434,7 +1434,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	cmd->sge_count = sge_count;
 	cmd->wqe_size  = sizeof *n;
 
-	n = (struct ibv_kern_send_wr *) ((void *) cmd + sizeof *cmd);
+	n = (struct ib_uverbs_send_wr *) ((void *) cmd + sizeof *cmd);
 	s = (struct ibv_sge *) (n + wr_count);
 
 	tmp = n;
@@ -1443,7 +1443,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		tmp->num_sge 	= i->num_sge;
 		tmp->opcode 	= i->opcode;
 		tmp->send_flags = i->send_flags;
-		tmp->imm_data 	= i->imm_data;
+		tmp->ex.imm_data = i->imm_data;
 		if (ibqp->qp_type == IBV_QPT_UD) {
 			tmp->wr.ud.ah 	       = i->wr.ud.ah->handle;
 			tmp->wr.ud.remote_qpn  = i->wr.ud.remote_qpn;
