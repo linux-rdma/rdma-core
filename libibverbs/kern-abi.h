@@ -110,21 +110,6 @@ struct ibv_query_device_ex {
 	__u32		reserved;
 };
 
-struct ibv_query_device_resp_ex {
-	struct ib_uverbs_query_device_resp base;
-	__u32 comp_mask;
-	__u32 response_length;
-	struct ib_uverbs_odp_caps odp_caps;
-	__u64 timestamp_mask;
-	__u64 hca_core_clock;
-	__u64 device_cap_flags_ex;
-	struct ib_uverbs_rss_caps rss_caps;
-	__u32  max_wq_type_rq;
-	__u32 raw_packet_caps;
-	struct ib_uverbs_tm_caps tm_caps;
-	struct ib_uverbs_cq_moderation_caps cq_mod_caps;
-};
-
 struct ibv_query_port {
 	__u32 command;
 	__u16 in_words;

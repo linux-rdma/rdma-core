@@ -331,7 +331,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    struct ibv_query_device_ex *cmd,
 			    size_t cmd_core_size,
 			    size_t cmd_size,
-			    struct ibv_query_device_resp_ex *resp,
+			    struct ib_uverbs_ex_query_device_resp *resp,
 			    size_t resp_core_size,
 			    size_t resp_size);
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,

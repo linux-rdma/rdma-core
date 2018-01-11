@@ -134,7 +134,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    struct ibv_query_device_ex *cmd,
 			    size_t cmd_core_size,
 			    size_t cmd_size,
-			    struct ibv_query_device_resp_ex *resp,
+			    struct ib_uverbs_ex_query_device_resp *resp,
 			    size_t resp_core_size,
 			    size_t resp_size)
 {
@@ -147,7 +147,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			sizeof(attr->comp_mask))
 		return EINVAL;
 
-	if (resp_core_size < offsetof(struct ibv_query_device_resp_ex,
+	if (resp_core_size < offsetof(struct ib_uverbs_ex_query_device_resp,
 				      response_length) +
 			     sizeof(resp->response_length))
 		return EINVAL;
@@ -171,7 +171,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, odp_caps) +
 			 sizeof(attr->odp_caps)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, odp_caps) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, odp_caps) +
 		    sizeof(resp->odp_caps)) {
 			attr->odp_caps.general_caps = resp->odp_caps.general_caps;
 			attr->odp_caps.per_transport_caps.rc_odp_caps =
@@ -187,7 +187,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 				  completion_timestamp_mask) +
 			 sizeof(attr->completion_timestamp_mask)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, timestamp_mask) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, timestamp_mask) +
 		    sizeof(resp->timestamp_mask))
 			attr->completion_timestamp_mask = resp->timestamp_mask;
 	}
@@ -195,7 +195,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, hca_core_clock) +
 			 sizeof(attr->hca_core_clock)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, hca_core_clock) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, hca_core_clock) +
 		    sizeof(resp->hca_core_clock))
 			attr->hca_core_clock = resp->hca_core_clock;
 	}
@@ -203,7 +203,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, device_cap_flags_ex) +
 			 sizeof(attr->device_cap_flags_ex)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, device_cap_flags_ex) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, device_cap_flags_ex) +
 		    sizeof(resp->device_cap_flags_ex))
 			attr->device_cap_flags_ex = resp->device_cap_flags_ex;
 	}
@@ -211,7 +211,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, rss_caps) +
 			 sizeof(attr->rss_caps)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, rss_caps) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, rss_caps) +
 		    sizeof(resp->rss_caps)) {
 			attr->rss_caps.supported_qpts = resp->rss_caps.supported_qpts;
 			attr->rss_caps.max_rwq_indirection_tables = resp->rss_caps.max_rwq_indirection_tables;
@@ -222,7 +222,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, max_wq_type_rq) +
 			 sizeof(attr->max_wq_type_rq)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, max_wq_type_rq) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, max_wq_type_rq) +
 		    sizeof(resp->max_wq_type_rq))
 			attr->max_wq_type_rq = resp->max_wq_type_rq;
 	}
@@ -230,7 +230,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, raw_packet_caps) +
 			 sizeof(attr->raw_packet_caps)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, raw_packet_caps) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, raw_packet_caps) +
 		    sizeof(resp->raw_packet_caps))
 			attr->raw_packet_caps = resp->raw_packet_caps;
 	}
@@ -238,7 +238,7 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, tm_caps) +
 			 sizeof(attr->tm_caps)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, tm_caps) +
+		    offsetof(struct ib_uverbs_ex_query_device_resp, tm_caps) +
 		    sizeof(resp->tm_caps)) {
 			attr->tm_caps.max_rndv_hdr_size =
 				resp->tm_caps.max_rndv_hdr_size;
@@ -255,10 +255,10 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, cq_mod_caps) +
 			 sizeof(attr->cq_mod_caps)) {
 		if (resp->response_length >=
-		    offsetof(struct ibv_query_device_resp_ex, cq_mod_caps) +
-		    sizeof(resp->cq_mod_caps)) {
-			attr->cq_mod_caps.max_cq_count = resp->cq_mod_caps.max_cq_moderation_count;
-			attr->cq_mod_caps.max_cq_period = resp->cq_mod_caps.max_cq_moderation_period;
+		    offsetof(struct ib_uverbs_ex_query_device_resp, cq_moderation_caps) +
+		    sizeof(resp->cq_moderation_caps)) {
+			attr->cq_mod_caps.max_cq_count = resp->cq_moderation_caps.max_cq_moderation_count;
+			attr->cq_mod_caps.max_cq_period = resp->cq_moderation_caps.max_cq_moderation_period;
 		}
 	}
 

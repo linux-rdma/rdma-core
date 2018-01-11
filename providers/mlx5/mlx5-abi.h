@@ -304,7 +304,7 @@ struct mlx5_striding_rq_caps {
 };
 
 struct mlx5_query_device_ex_resp {
-	struct ibv_query_device_resp_ex ibv_resp;
+	struct ib_uverbs_ex_query_device_resp ibv_resp;
 	__u32				comp_mask;
 	__u32				response_length;
 	struct ibv_tso_caps		tso_caps;
