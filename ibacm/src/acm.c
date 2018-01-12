@@ -2584,6 +2584,7 @@ static void acm_load_prov_config(void)
 				subnet = calloc(1, sizeof (*subnet));
 				if (!subnet) {
 					acm_log(0, "Error: out of memory\n");
+					fclose(fd);
 					return;
 				}
 				subnet->subnet_prefix = htobe64(prefix);
