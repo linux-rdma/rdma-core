@@ -2276,7 +2276,8 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	uint32_t gid_type;
 	__be32 tmp;
 	uint8_t grh;
-	int is_eth;
+	bool is_eth;
+	bool grh_req;
 
 	if (attr->port_num < 1 || attr->port_num > ctx->num_ports)
 		return NULL;
@@ -2284,14 +2285,17 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	if (ctx->cached_link_layer[attr->port_num - 1]) {
 		is_eth = ctx->cached_link_layer[attr->port_num - 1] ==
 			IBV_LINK_LAYER_ETHERNET;
+		grh_req = ctx->cached_port_flags[attr->port_num - 1] &
+			IBV_QPF_GRH_REQUIRED;
 	} else {
 		if (ibv_query_port(pd->context, attr->port_num, &port_attr))
 			return NULL;
 
-		is_eth = (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET);
+		is_eth = port_attr.link_layer == IBV_LINK_LAYER_ETHERNET;
+		grh_req = port_attr.flags & IBV_QPF_GRH_REQUIRED;
 	}
 
-	if (unlikely((!attr->is_global) && is_eth)) {
+	if (unlikely((!attr->is_global) && (is_eth || grh_req))) {
 		errno = EINVAL;
 		return NULL;
 	}

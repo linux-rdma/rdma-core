@@ -1196,8 +1196,10 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {
 		memset(&port_attr, 0, sizeof(port_attr));
-		if (!mlx5_query_port(&v_ctx->context, j + 1, &port_attr))
+		if (!mlx5_query_port(&v_ctx->context, j + 1, &port_attr)) {
 			context->cached_link_layer[j] = port_attr.link_layer;
+			context->cached_port_flags[j] = port_attr.flags;
+		}
 	}
 
 	return v_ctx;

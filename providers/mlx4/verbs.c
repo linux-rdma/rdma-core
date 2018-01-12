@@ -170,6 +170,8 @@ int mlx4_query_port(struct ibv_context *context, uint8_t port,
 				attr->link_layer;
 			mctx->port_query_cache[port - 1].caps =
 				attr->port_cap_flags;
+			mctx->port_query_cache[port - 1].flags =
+				attr->flags;
 			mctx->port_query_cache[port - 1].valid = 1;
 		}
 	}
@@ -193,6 +195,10 @@ static int query_port_cache(struct ibv_context *context, uint8_t port_num,
 			mctx->
 			port_query_cache[port_num - 1].
 			caps;
+		port_attr->flags =
+			mctx->
+			port_query_cache[port_num - 1].
+			flags;
 		return 0;
 	}
 	return mlx4_query_port(context, port_num,
@@ -1326,6 +1332,10 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct ibv_port_attr port_attr;
 
 	if (query_port_cache(pd->context, attr->port_num, &port_attr))
+		return NULL;
+
+	if (port_attr.flags & IBV_QPF_GRH_REQUIRED &&
+	    !attr->is_global)
 		return NULL;
 
 	ah = malloc(sizeof *ah);
