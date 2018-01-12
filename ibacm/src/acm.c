@@ -2934,7 +2934,7 @@ static void acm_set_options(void)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%32s%256s", opt, value) != 2)
+		if (sscanf(s, "%31s%255s", opt, value) != 2)
 			continue;
 
 		if (!strcasecmp("log_file", opt))
