@@ -165,7 +165,7 @@ static void scan_config(void)
 		if (line[0] == '#')
 			continue;
 
-		if (sscanf(line, "%64s%16s%16s%16s", prog, dom, type, proto) != 4)
+		if (sscanf(line, "%63s%15s%15s%15s", prog, dom, type, proto) != 4)
 			continue;
 
 		new_config = realloc(config, (config_cnt + 1) *
