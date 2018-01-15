@@ -73,6 +73,7 @@ class DockerFile(object):
         self.lines = ["FROM %s"%(src)];
 
 class Environment(object):
+    python_cmd = "python";
     aliases = set();
     use_make = False;
     proxy = True;
@@ -324,6 +325,9 @@ class tumbleweed(ZypperEnvironment):
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
     rpmbuild_options = [ "--without=curlmini" ];
+    # tumbleweed no longer includes python2 in the base docker images, only python3,
+    # use that instead.
+    python_cmd = "python3";
 
 # -------------------------------------------------------------------------
 
@@ -474,17 +478,17 @@ def run_rpm_build(args,spec_file,env):
             print >> F,"""
 import os,subprocess;
 with open("/etc/passwd","a") as F:
-   print >> F, {passwd!r};
+   F.write({passwd!r} + "\\n");
 with open("/etc/group","a") as F:
-   print >> F, {group!r};
+   F.write({group!r} + "\\n");
 os.setgid({gid:d});
 os.setuid({uid:d});
 
 # Get RPM to tell us the expected tar filename.
 for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
-   if ln.startswith("Source:"):
-      tarfn = ln.strip().partition(' ')[2].strip();
-os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
+   if ln.startswith(b"Source:"):
+      tarfn = ln.strip().partition(b' ')[2].strip();
+os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 """.format(passwd=":".join(str(I) for I in pwd.getpwuid(os.getuid())),
            group=":".join(str(I) for I in grp.getgrgid(os.getgid())),
            uid=os.getuid(),
@@ -505,7 +509,7 @@ os.symlink({tarfn!r},os.path.join("SOURCES",tarfn));
         if args.run_shell:
             opts.append("/bin/bash");
         else:
-            opts.extend(["python","go.py"]);
+            opts.extend([env.python_cmd,"go.py"]);
 
         docker_cmd(args,*opts)
 
