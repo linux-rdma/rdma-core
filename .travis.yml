@@ -11,15 +11,15 @@ addons:
   apt:
     sources:
       # sourceline because travis won't white list trusty builds, and hasn't
-      # whitelisted 4.0
-      - sourceline: "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-4.0 main"
+      # whitelisted 5.0
+      - sourceline: "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-5.0 main"
         key_url: "http://apt.llvm.org/llvm-snapshot.gpg.key"
       - ubuntu-toolchain-r-test
       # Multiverse is not on by default and we need it to get sparse
       - sourceline: "deb http://archive.ubuntu.com/ubuntu/ trusty multiverse"
     packages:
       - build-essential
-      - clang-4.0
+      - clang-5.0
       - cmake
       - debhelper
       - dh-systemd
