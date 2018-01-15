@@ -30,9 +30,9 @@ cd ../build-sparse
 mv ../CMakeLists.txt ../CMakeLists-orig.txt
 grep -v "# NO SPARSE" ../CMakeLists-orig.txt > ../CMakeLists.txt
 CC=cgcc CFLAGS="-Werror" cmake -GNinja ..
-ninja > out
+ninja | grep -v '^\[' | tee out
 # sparse does not fail gcc on messages
-if grep -v '^\[' out; then
+if [ -s out ]; then
    false
 fi
 mv ../CMakeLists-orig.txt ../CMakeLists.txt
