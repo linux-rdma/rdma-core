@@ -58,8 +58,6 @@
 #include <ccan/minmax.h>
 #include <util/compiler.h>
 
-#define BIT(nr) (1UL << (nr))
-
 #include "pvrdma-abi-fix.h"
 #include "pvrdma_ring.h"
 
