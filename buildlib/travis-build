@@ -9,9 +9,9 @@ mkdir build-clang build32 build-sparse build-aarch64
 
 # Build with latest clang first
 cd build-clang
-CC=clang-4.0 CFLAGS=-Werror cmake -GNinja ..
+CC=clang-5.0 CFLAGS=-Werror cmake -GNinja ..
 ninja
-../buildlib/check-build --src .. --cc clang-4.0
+../buildlib/check-build --src .. --cc clang-5.0
 
 # 32 bit build to check format strings/etc
 cd ../build32
@@ -30,9 +30,9 @@ cd ../build-sparse
 mv ../CMakeLists.txt ../CMakeLists-orig.txt
 grep -v "# NO SPARSE" ../CMakeLists-orig.txt > ../CMakeLists.txt
 CC=cgcc CFLAGS="-Werror" cmake -GNinja ..
-ninja > out
+ninja | grep -v '^\[' | tee out
 # sparse does not fail gcc on messages
-if grep -v '^\[' out; then
+if [ -s out ]; then
    false
 fi
 mv ../CMakeLists-orig.txt ../CMakeLists.txt
@@ -42,7 +42,7 @@ cd ../build-clang
 cp ../util/udma_barrier.h ../util/udma_barrier.h.old
 echo "#error Fail" >> ../util/udma_barrier.h
 rm CMakeCache.txt
-CC=clang-4.0 CFLAGS=-Werror cmake -GNinja ..
+CC=clang-5.0 CFLAGS=-Werror cmake -GNinja ..
 ninja
 cp ../util/udma_barrier.h.old ../util/udma_barrier.h
 
