@@ -574,7 +574,8 @@ struct ibv_cq_ex *mlx4_create_cq_ex(struct ibv_context *context,
 						.comp_mask = cq_attr->comp_mask,
 						.flags = cq_attr->flags};
 
-	if (!check_comp_mask(cq_attr_c.comp_mask, IBV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
+	if (!check_comp_mask(cq_attr_c.comp_mask,
+			     IBV_CQ_INIT_ATTR_MASK_FLAGS)) {
 		errno = EINVAL;
 		return NULL;
 	}
