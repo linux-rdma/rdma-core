@@ -9,6 +9,7 @@ publish_headers(infiniband
 
 publish_internal_headers(infiniband
   cmd_ioctl.h
+  cmd_write.h
   driver.h
   kern-abi.h
   marshall.h
@@ -27,6 +28,7 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
   1 1.1.${PACKAGE_VERSION}
   cmd.c
+  cmd_fallback.c
   cmd_ioctl.c
   compat-1_0.c
   device.c

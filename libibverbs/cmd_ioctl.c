@@ -31,9 +31,10 @@
  */
 
 #include <infiniband/cmd_ioctl.h>
+#include <infiniband/cmd_write.h>
+#include "ibverbs.h"
 
 #include <sys/ioctl.h>
-#include <valgrind/memcheck.h>
 
 /* Number of attrs in this and all the link'd buffers */
 unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
@@ -57,6 +58,16 @@ static void prepare_attrs(struct ibv_command_buffer *cmd)
 		assert(cmd->hdr.object_id == link->hdr.object_id);
 		assert(cmd->hdr.method_id == link->hdr.method_id);
 
+		/*
+		 * Keep track of where the uhw_in lands in the final array if
+		 * we copy it from a link
+		 */
+		if (!VERBS_IOCTL_ONLY && link->uhw_in_idx != _UHW_NO_INDEX) {
+			assert(cmd->uhw_in_idx == _UHW_NO_INDEX);
+			cmd->uhw_in_idx =
+				link->uhw_in_idx + (end - cmd->hdr.attrs);
+		}
+
 		for (cur = link->hdr.attrs; cur != link->next_attr; cur++)
 			*end++ = *cur;
 
@@ -64,6 +75,20 @@ static void prepare_attrs(struct ibv_command_buffer *cmd)
 	}
 
 	cmd->hdr.num_attrs = end - cmd->hdr.attrs;
+
+	/*
+	 * We keep the in UHW uninlined until directly before sending to
+	 * support the compat path. See _fill_attr_in_uhw
+	 */
+	if (!VERBS_IOCTL_ONLY && cmd->uhw_in_idx != _UHW_NO_INDEX) {
+		struct ib_uverbs_attr *uhw = &cmd->hdr.attrs[cmd->uhw_in_idx];
+
+		assert(uhw->attr_id == UVERBS_UHW_IN);
+
+		if (uhw->len <= sizeof(uhw->data))
+			memcpy(&uhw->data, (void *)(uintptr_t)uhw->data,
+			       uhw->len);
+	}
 }
 
 static void finalize_attr(struct ib_uverbs_attr *attr)
@@ -109,4 +134,60 @@ int execute_ioctl(struct ibv_context *context, struct ibv_command_buffer *cmd)
 	finalize_attrs(cmd);
 
 	return 0;
+}
+
+/*
+ * The compat scheme for UHW IN requires a pointer in .data, however the
+ * kernel protocol requires pointers < 8 to be inlined into .data. We defer
+ * that transformation until directly before the ioctl.
+ */
+static inline struct ib_uverbs_attr *
+_fill_attr_in_uhw(struct ibv_command_buffer *cmd, uint16_t attr_id,
+		 const void *data, size_t len)
+{
+	struct ib_uverbs_attr *attr = _ioctl_next_attr(cmd, attr_id);
+
+	assert(len <= UINT16_MAX);
+
+	attr->len = len;
+	attr->data = ioctl_ptr_to_u64(data);
+
+	return attr;
+}
+
+/*
+ * This helper is used in the driver compat wrappers to build the
+ * command buffer from the legacy input pointers format.
+ */
+void _write_set_uhw(struct ibv_command_buffer *cmdb, const void *req,
+		    size_t core_req_size, size_t req_size, void *resp,
+		    size_t core_resp_size, size_t resp_size)
+{
+	if (req && core_req_size < req_size) {
+		if (VERBS_IOCTL_ONLY)
+			cmdb->uhw_in_idx =
+				fill_attr_in(cmdb, UVERBS_UHW_IN,
+					     (uint8_t *)req + core_req_size,
+					     req_size - core_req_size) -
+				cmdb->hdr.attrs;
+		else
+			cmdb->uhw_in_idx =
+				_fill_attr_in_uhw(cmdb, UVERBS_UHW_IN,
+						  (uint8_t *)req +
+							  core_req_size,
+						  req_size - core_req_size) -
+				cmdb->hdr.attrs;
+		cmdb->uhw_in_headroom_dwords = __check_divide(core_req_size, 4);
+	}
+
+
+	if (resp && core_resp_size < resp_size) {
+		cmdb->uhw_out_idx =
+			fill_attr_out(cmdb, UVERBS_UHW_OUT,
+				      (uint8_t *)resp + core_resp_size,
+				      resp_size - core_resp_size) -
+			cmdb->hdr.attrs;
+		cmdb->uhw_out_headroom_dwords =
+			__check_divide(core_resp_size, 4);
+	}
 }

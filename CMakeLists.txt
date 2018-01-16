@@ -26,6 +26,9 @@
 #      Do not generate backwards compatibility symbols in the shared
 #      libraries. This may is necessary if using a dynmic linker that does
 #      not support symbol versions, such as uclibc.
+#  -DIOCTL_MODE=both (default write)
+#      Enable new kABI ioctl() support and support for the legacy write
+#      path. May also be 'ioctl' to disable fallback to write.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -433,6 +436,18 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
 # directory. For developer convenience
 if (NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   file(WRITE ${CMAKE_BINARY_DIR}/.gitignore "*")
+endif()
+
+if ("${IOCTL_MODE}" STREQUAL "both")
+  set(IOCTL_MODE_NUM 3)
+elseif ("${IOCTL_MODE}" STREQUAL "write")
+  set(IOCTL_MODE_NUM 2)
+elseif ("${IOCTL_MODE}" STREQUAL "ioctl")
+  set(IOCTL_MODE_NUM 1)
+elseif ("${IOCTL_MODE}" STREQUAL "")
+  set(IOCTL_MODE_NUM 2)
+else()
+  message(FATAL_ERROR "-DIOCTL_MODE=${IOCTL_MODE} is not a valid choice")
 endif()
 
 configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOTES @ONLY)

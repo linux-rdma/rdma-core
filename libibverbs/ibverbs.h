@@ -60,6 +60,8 @@ void ibverbs_device_hold(struct ibv_device *dev);
 struct verbs_ex_private {
 	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,
 					  struct ibv_cq_init_attr_ex *init_attr);
+
+	uint64_t unsupported_ioctls;
 };
 
 #define IBV_INIT_CMD(cmd, size, opcode)					\

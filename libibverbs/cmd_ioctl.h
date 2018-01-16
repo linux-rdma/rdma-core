@@ -33,6 +33,8 @@
 #ifndef __INFINIBAND_VERBS_IOCTL_H
 #define __INFINIBAND_VERBS_IOCTL_H
 
+#include <config.h>
+
 #include <stdint.h>
 #include <assert.h>
 #include <rdma/rdma_user_ioctl.h>
@@ -69,8 +71,26 @@ struct ibv_command_buffer {
 	struct ibv_command_buffer *next;
 	struct ib_uverbs_attr *next_attr;
 	struct ib_uverbs_attr *last_attr;
+	/*
+	 * Used by the legacy write interface to keep track of where the UHW
+	 * buffer is located and the 'headroom' space that the common code
+	 * uses to construct the command header and common command struct
+	 * directly before the drivers' UHW.
+	 */
+	uint8_t uhw_in_idx;
+	uint8_t uhw_out_idx;
+	uint8_t uhw_in_headroom_dwords;
+	uint8_t uhw_out_headroom_dwords;
+	/*
+	 * These flags control what execute_ioctl_fallback does if the kernel
+	 * does not support ioctl
+	 */
+	uint8_t fallback_require_ex:1;
+	uint8_t fallback_ioctl_only:1;
 	struct ib_uverbs_ioctl_hdr hdr;
 };
+
+enum {_UHW_NO_INDEX = 0xFF};
 
 /*
  * Constructing an array of ibv_command_buffer is a reasonable way to expand
@@ -102,6 +122,8 @@ unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
 				.method_id = (_method_id),                     \
 			},                                                     \
 		.next = _link,                                                 \
+		.uhw_in_idx = _UHW_NO_INDEX,                                   \
+		.uhw_out_idx = _UHW_NO_INDEX,                                  \
 		.next_attr = (_hdr).attrs,                                     \
 		.last_attr = (_hdr).attrs + _num_attrs})
 
@@ -170,6 +192,29 @@ _ioctl_next_attr(struct ibv_command_buffer *cmd, uint16_t attr_id)
 
 	return attr;
 }
+
+/*
+ * This construction is insane, an expression with a side effect that returns
+ * from the calling function, but it is a non-invasive way to get the compiler
+ * to elide the IOCTL support in the backwards compat command functions
+ * without disturbing native ioctl support.
+ *
+ * A command function will set last_attr on the stack to NULL, and if it is
+ * coded properly, the compiler will prove that last_attr is never changed and
+ * elide the function. Unfortunately this penalizes native ioctl uses with the
+ * extra if overhead.
+ *
+ * For this reason, _ioctl_next_attr must never be called outside a fill
+ * function.
+ */
+#if VERBS_WRITE_ONLY
+#define _ioctl_next_attr(cmd, attr_id)                                         \
+	({                                                                     \
+		if (!((cmd)->last_attr))                                       \
+			return NULL;                                           \
+		_ioctl_next_attr(cmd, attr_id);                                \
+	})
+#endif
 
 /* Make the attribute optional. */
 static inline struct ib_uverbs_attr *attr_optional(struct ib_uverbs_attr *attr)
@@ -295,5 +340,11 @@ fill_attr_out(struct ibv_command_buffer *cmd, uint16_t attr_id, void *data,
 
 #define fill_attr_out_ptr(cmd, attr_id, ptr)                                 \
 	fill_attr_out(cmd, attr_id, ptr, sizeof(*(ptr)))
+
+static inline size_t __check_divide(size_t val, unsigned int div)
+{
+	assert(val % div == 0);
+	return val / div;
+}
 
 #endif
