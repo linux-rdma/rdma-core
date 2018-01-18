@@ -351,4 +351,10 @@ struct mlx5_query_device_ex_resp {
 	__u32				reserved;
 };
 
+struct mlx5_modify_qp_resp_ex {
+	struct ib_uverbs_ex_modify_qp_resp base;
+	__u32  response_length;
+	__u32  dctn;
+};
+
 #endif /* MLX5_ABI_H */

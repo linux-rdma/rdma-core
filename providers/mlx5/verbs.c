@@ -1922,8 +1922,16 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 		__mlx5_cq_clean(to_mcq(ibqp->send_cq), qp->rsc.rsn, NULL);
 
 	if (!ctx->cqe_version) {
-		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt)
-			mlx5_clear_qp(ctx, ibqp->qp_num);
+		if (qp->dc_type == MLX5DV_DCTYPE_DCT) {
+			/* The QP was inserted to the tracking table only after
+			 * that it was modifed to RTR
+			 */
+			if (ibqp->state == IBV_QPS_RTR)
+				mlx5_clear_qp(ctx, ibqp->qp_num);
+		} else {
+			if (qp->sq.wqe_cnt || qp->rq.wqe_cnt)
+				mlx5_clear_qp(ctx, ibqp->qp_num);
+		}
 	}
 
 	mlx5_unlock_cqs(ibqp);
@@ -1932,8 +1940,10 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 	else if (!is_xrc_tgt(ibqp->qp_type))
 		mlx5_clear_uidx(ctx, qp->rsc.rsn);
 
-	mlx5_free_db(ctx, qp->db);
-	mlx5_free_qp_buf(qp);
+	if (qp->dc_type != MLX5DV_DCTYPE_DCT) {
+		mlx5_free_db(ctx, qp->db);
+		mlx5_free_qp_buf(qp);
+	}
 free:
 	if (mparent_domain)
 		atomic_fetch_sub(&mparent_domain->mpd.refcount, 1);
@@ -1970,6 +1980,61 @@ enum {
 	MLX5_MODIFY_QP_EX_ATTR_MASK = IBV_QP_RATE_LIMIT,
 };
 
+static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		      int attr_mask)
+{
+	struct ibv_modify_qp_ex cmd_ex = {};
+	struct mlx5_modify_qp_resp_ex resp = {};
+	struct mlx5_qp *mqp = to_mqp(qp);
+	struct mlx5_context *context = to_mctx(qp->context);
+	int min_resp_size;
+	bool dct_create;
+	int ret;
+
+	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask,
+				   &cmd_ex,
+				   sizeof(cmd_ex), sizeof(cmd_ex),
+				   &resp.base,
+				   sizeof(resp.base), sizeof(resp));
+	if (ret)
+		return ret;
+
+	/* dct is created in hardware and gets unique qp number when QP
+	 * is modified to RTR so operations that require QP number need
+	 * to be delayed to this time
+	 */
+	dct_create =
+		(attr_mask & IBV_QP_STATE) &&
+		(attr->qp_state == IBV_QPS_RTR);
+
+	if (!dct_create)
+		return 0;
+
+	min_resp_size =
+		offsetof(typeof(resp), dctn) +
+		sizeof(resp.dctn) -
+		sizeof(resp.base);
+
+	if (resp.response_length < min_resp_size) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	qp->qp_num = resp.dctn;
+
+	if (!context->cqe_version) {
+		pthread_mutex_lock(&context->qp_table_mutex);
+		ret = mlx5_store_qp(context, qp->qp_num, mqp);
+		if (!ret)
+			mqp->rsc.rsn = qp->qp_num;
+		else
+			errno = ENOMEM;
+		pthread_mutex_unlock(&context->qp_table_mutex);
+		return ret ? errno : 0;
+	}
+	return 0;
+}
+
 int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
@@ -1980,6 +2045,9 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct mlx5_context *context = to_mctx(qp->context);
 	int ret;
 	__be32 *db;
+
+	if (mqp->dc_type == MLX5DV_DCTYPE_DCT)
+		return modify_dct(qp, attr, attr_mask);
 
 	if (mqp->rss_qp)
 		return ENOSYS;
