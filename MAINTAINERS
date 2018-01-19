@@ -99,12 +99,6 @@ H:	Robert Sharp <robert.o.sharp@intel.com>
 S:	Supported
 F:	iwpmd/
 
-LIBIBCM USERSPACE LIBRARY FOR IB CONNECTION MANAGEMENT (/dev/infiniband/ucmX)
-M:	Sean Hefty <sean.hefty@intel.com>
-H:	Libor Michalek <libor@topspin.com>
-S:	Obsolete
-F:	libibcm/
-
 LIBIBUMAD USERSPACE LIBRARY FOR SMP AND GMP MAD PROCESSING (/dev/infiniband/umadX)
 M:	Hal Rosenstock <hal@dev.mellanox.co.il>
 H:	Sasha Khapyorsky <sashak@voltaire.com>

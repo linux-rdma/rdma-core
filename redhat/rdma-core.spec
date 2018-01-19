@@ -56,9 +56,6 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 Requires: libibverbs = %{version}-%{release}
 Provides: libibverbs-devel = %{version}-%{release}
 Obsoletes: libibverbs-devel < %{version}-%{release}
-Requires: libibcm = %{version}-%{release}
-Provides: libibcm-devel = %{version}-%{release}
-Obsoletes: libibcm-devel < %{version}-%{release}
 Requires: libibumad = %{version}-%{release}
 Provides: libibumad-devel = %{version}-%{release}
 Obsoletes: libibumad-devel < %{version}-%{release}
@@ -159,15 +156,6 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 %description -n iwpmd
 iwpmd provides a userspace service for iWarp drivers to claim
 tcp ports through the standard socket interface.
-
-%package -n libibcm
-Summary: Userspace InfiniBand Connection Manager
-ExcludeArch: s390 s390x
-Requires: %{name}%{?_isa} = %{version}-%{release}
-
-%description -n libibcm
-libibcm provides a userspace library that handles the majority of the low
-level work required to open an RDMA connection between two machines.
 
 %package -n libibumad
 Summary: OpenFabrics Alliance InfiniBand umad (userspace management datagram) library
@@ -275,10 +263,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 # libibverbs
 %post -n libibverbs -p /sbin/ldconfig
 %postun -n libibverbs -p /sbin/ldconfig
-
-# libibcm
-%post -n libibcm -p /sbin/ldconfig
-%postun -n libibcm -p /sbin/ldconfig
 
 # libibumad
 %post -n libibumad -p /sbin/ldconfig
@@ -408,10 +392,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-iwpmd.rules
 %{_mandir}/man8/iwpmd.*
 %{_mandir}/man5/iwpmd.*
-
-%files -n libibcm
-%{_libdir}/libibcm*.so.*
-%doc %{_docdir}/%{name}-%{version}/libibcm.md
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*

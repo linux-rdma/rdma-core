@@ -26,14 +26,12 @@ License:        GPL-2.0 or BSD-2-Clause
 Group:          Productivity/Networking/Other
 
 %define verbs_so_major  1
-%define ibcm_so_major   1
 %define rdmacm_so_major 1
 %define umad_so_major   3
 %define mlx4_so_major   1
 %define mlx5_so_major   1
 
 %define  verbs_lname  libibverbs%{verbs_so_major}
-%define  ibcm_lname   libibcm%{ibcm_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
 %define  mlx4_lname   libmlx4-%{mlx4_so_major}
@@ -123,7 +121,6 @@ Summary:        RDMA core development libraries and headers
 Group:          Development/Libraries/C and C++
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 
-Requires:       %{ibcm_lname} = %{version}-%{release}
 Requires:       %{rdmacm_lname} = %{version}-%{release}
 Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
@@ -135,9 +132,6 @@ Requires:       rsocket = %{version}-%{release}
 
 Provides:       libibverbs-devel = %{version}-%{release}
 Obsoletes:      libibverbs-devel < %{version}-%{release}
-
-Provides:       libibcm-devel = %{version}-%{release}
-Obsoletes:      libibcm-devel < %{version}-%{release}
 
 Provides:       libibumad-devel = %{version}-%{release}
 Obsoletes:      libibumad-devel < %{version}-%{release}
@@ -255,14 +249,6 @@ Requires:       %{name}%{?_isa} = %{version}
 %description -n iwpmd
 iwpmd provides a userspace service for iWarp drivers to claim
 tcp ports through the standard socket interface.
-
-%package -n %ibcm_lname
-Summary:        Userspace InfiniBand Connection Manager
-Group:          System/Libraries
-
-%description -n %ibcm_lname
-libibcm provides a userspace library that handles the majority of the low
-level work required to open an RDMA connection between two machines.
 
 %package -n %umad_lname
 Summary:        OpenFabrics Alliance InfiniBand Userspace Management Datagram library
@@ -407,9 +393,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %mlx5_lname -p /sbin/ldconfig
 %postun -n %mlx5_lname -p /sbin/ldconfig
 %endif
-
-%post -n %ibcm_lname -p /sbin/ldconfig
-%postun -n %ibcm_lname -p /sbin/ldconfig
 
 %post -n %umad_lname -p /sbin/ldconfig
 %postun -n %umad_lname -p /sbin/ldconfig
@@ -609,11 +592,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-iwpmd.rules
 %{_mandir}/man8/iwpmd.*
 %{_mandir}/man5/iwpmd.*
-
-%files -n %ibcm_lname
-%defattr(-,root,root)
-%{_libdir}/libibcm*.so.*
-%doc %{_docdir}/%{name}-%{version}/libibcm.md
 
 %files -n %umad_lname
 %defattr(-,root,root)

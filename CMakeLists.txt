@@ -429,7 +429,6 @@ add_subdirectory(libibverbs)
 add_subdirectory(libibverbs/man)
 add_subdirectory(librdmacm)
 add_subdirectory(librdmacm/man)
-add_subdirectory(libibcm)
 
 # Providers
 if (HAVE_COHERENT_DMA)
@@ -459,7 +458,6 @@ add_subdirectory(ibacm) # NO SPARSE
 if (NOT NL_KIND EQUAL 0)
   add_subdirectory(iwpmd)
 endif()
-add_subdirectory(libibcm/examples)
 add_subdirectory(libibumad/tests)
 add_subdirectory(libibverbs/examples)
 add_subdirectory(librdmacm/examples)
