@@ -1,3 +1,9 @@
+rdma-core (16.1-2) unstable; urgency=medium
+
+  * Do not require valgrind on ia64 (Closes: #887511)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Fri, 19 Jan 2018 12:37:05 +0100
+
 rdma-core (16.1-1) unstable; urgency=medium
 
   * New upstream bugfix release.
