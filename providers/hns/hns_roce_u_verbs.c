@@ -208,7 +208,8 @@ static void hns_roce_set_sq_sizes(struct hns_roce_qp *qp,
 
 static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
 {
-	struct hns_roce_device *hr_dev = to_hr_dev(context->ibv_ctx.device);
+	struct hns_roce_device *hr_dev =
+		to_hr_dev(context->ibv_ctx.context.device);
 
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		if (*cqe < HNS_ROCE_MIN_CQE_NUM) {
@@ -328,7 +329,8 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 			      struct hns_roce_context *context)
 {
-	struct hns_roce_device *hr_dev = to_hr_dev(context->ibv_ctx.device);
+	struct hns_roce_device *hr_dev =
+		to_hr_dev(context->ibv_ctx.context.device);
 
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
 		if (attr->cap.max_send_wr < HNS_ROCE_MIN_WQE_NUM) {

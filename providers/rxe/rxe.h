@@ -54,7 +54,7 @@ struct rxe_device {
 };
 
 struct rxe_context {
-	struct ibv_context	ibv_ctx;
+	struct verbs_context	ibv_ctx;
 };
 
 struct rxe_cq {
@@ -98,7 +98,7 @@ struct rxe_srq {
 
 static inline struct rxe_context *to_rctx(struct ibv_context *ibctx)
 {
-	return to_rxxx(ctx, context);
+	return container_of(ibctx, struct rxe_context, ibv_ctx.context);
 }
 
 static inline struct rxe_device *to_rdev(struct ibv_device *ibdev)

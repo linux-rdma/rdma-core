@@ -152,16 +152,9 @@ struct verbs_device_ops {
 
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
-	/* Old interface, do not use in new code. */
-	struct ibv_context *(*alloc_context)(struct ibv_device *device,
-					     int cmd_fd);
+	struct verbs_context *(*alloc_context)(struct ibv_device *device,
+					       int cmd_fd);
 	void (*free_context)(struct ibv_context *context);
-
-	/* New interface */
-	int (*init_context)(struct verbs_device *device,
-			    struct ibv_context *ctx, int cmd_fd);
-	void (*uninit_context)(struct verbs_device *device,
-			       struct ibv_context *ctx);
 
 	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
 	void (*uninit_device)(struct verbs_device *device);
@@ -171,11 +164,111 @@ struct verbs_device_ops {
 struct verbs_device {
 	struct ibv_device device; /* Must be first */
 	const struct verbs_device_ops *ops;
-	size_t	sz;
-	size_t	size_of_context;
 	atomic_int refcount;
 	struct list_node entry;
 	struct verbs_sysfs_dev *sysfs;
+};
+
+/*
+ * Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed. This is
+ * the union of every op the driver can support. If new elements are added to
+ * this structure then verbs_dummy_ops must also be updated.
+ *
+ * Keep sorted.
+ */
+struct verbs_context_ops {
+	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
+	struct ibv_pd *(*alloc_parent_domain)(
+		struct ibv_context *context,
+		struct ibv_parent_domain_init_attr *attr);
+	struct ibv_pd *(*alloc_pd)(struct ibv_context *context);
+	struct ibv_td *(*alloc_td)(struct ibv_context *context,
+				   struct ibv_td_init_attr *init_attr);
+	void (*async_event)(struct ibv_async_event *event);
+	int (*attach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
+			    uint16_t lid);
+	int (*bind_mw)(struct ibv_qp *qp, struct ibv_mw *mw,
+		       struct ibv_mw_bind *mw_bind);
+	int (*close_xrcd)(struct ibv_xrcd *xrcd);
+	void (*cq_event)(struct ibv_cq *cq);
+	struct ibv_ah *(*create_ah)(struct ibv_pd *pd,
+				    struct ibv_ah_attr *attr);
+	struct ibv_cq *(*create_cq)(struct ibv_context *context, int cqe,
+				    struct ibv_comp_channel *channel,
+				    int comp_vector);
+	struct ibv_cq_ex *(*create_cq_ex)(
+		struct ibv_context *context,
+		struct ibv_cq_init_attr_ex *init_attr);
+	struct ibv_flow *(*create_flow)(struct ibv_qp *qp,
+					struct ibv_flow_attr *flow_attr);
+	struct ibv_qp *(*create_qp)(struct ibv_pd *pd,
+				    struct ibv_qp_init_attr *attr);
+	struct ibv_qp *(*create_qp_ex)(
+		struct ibv_context *context,
+		struct ibv_qp_init_attr_ex *qp_init_attr_ex);
+	struct ibv_rwq_ind_table *(*create_rwq_ind_table)(
+		struct ibv_context *context,
+		struct ibv_rwq_ind_table_init_attr *init_attr);
+	struct ibv_srq *(*create_srq)(struct ibv_pd *pd,
+				      struct ibv_srq_init_attr *srq_init_attr);
+	struct ibv_srq *(*create_srq_ex)(
+		struct ibv_context *context,
+		struct ibv_srq_init_attr_ex *srq_init_attr_ex);
+	struct ibv_wq *(*create_wq)(struct ibv_context *context,
+				    struct ibv_wq_init_attr *wq_init_attr);
+	int (*dealloc_mw)(struct ibv_mw *mw);
+	int (*dealloc_pd)(struct ibv_pd *pd);
+	int (*dealloc_td)(struct ibv_td *td);
+	int (*dereg_mr)(struct ibv_mr *mr);
+	int (*destroy_ah)(struct ibv_ah *ah);
+	int (*destroy_cq)(struct ibv_cq *cq);
+	int (*destroy_flow)(struct ibv_flow *flow);
+	int (*destroy_qp)(struct ibv_qp *qp);
+	int (*destroy_rwq_ind_table)(struct ibv_rwq_ind_table *rwq_ind_table);
+	int (*destroy_srq)(struct ibv_srq *srq);
+	int (*destroy_wq)(struct ibv_wq *wq);
+	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
+			    uint16_t lid);
+	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
+	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
+	int (*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			 int attr_mask);
+	int (*modify_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
+			  int srq_attr_mask);
+	int (*modify_wq)(struct ibv_wq *wq, struct ibv_wq_attr *wq_attr);
+	struct ibv_qp *(*open_qp)(struct ibv_context *context,
+				  struct ibv_qp_open_attr *attr);
+	struct ibv_xrcd *(*open_xrcd)(
+		struct ibv_context *context,
+		struct ibv_xrcd_init_attr *xrcd_init_attr);
+	int (*poll_cq)(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc);
+	int (*post_recv)(struct ibv_qp *qp, struct ibv_recv_wr *wr,
+			 struct ibv_recv_wr **bad_wr);
+	int (*post_send)(struct ibv_qp *qp, struct ibv_send_wr *wr,
+			 struct ibv_send_wr **bad_wr);
+	int (*post_srq_ops)(struct ibv_srq *srq, struct ibv_ops_wr *op,
+			    struct ibv_ops_wr **bad_op);
+	int (*post_srq_recv)(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
+			     struct ibv_recv_wr **bad_recv_wr);
+	int (*query_device)(struct ibv_context *context,
+			    struct ibv_device_attr *device_attr);
+	int (*query_device_ex)(struct ibv_context *context,
+			       const struct ibv_query_device_ex_input *input,
+			       struct ibv_device_attr_ex *attr,
+			       size_t attr_size);
+	int (*query_port)(struct ibv_context *context, uint8_t port_num,
+			  struct ibv_port_attr *port_attr);
+	int (*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			int attr_mask, struct ibv_qp_init_attr *init_attr);
+	int (*query_rt_values)(struct ibv_context *context,
+			       struct ibv_values_ex *values);
+	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
+				 int access);
+	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
+	int (*rereg_mr)(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+			void *addr, size_t length, int access);
+	int (*resize_cq)(struct ibv_cq *cq, int cqe);
 };
 
 static inline struct verbs_device *
@@ -205,13 +298,28 @@ void verbs_register_driver(const struct verbs_device_ops *ops);
 		verbs_register_driver(&drv);                                   \
 	}
 
+void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
+				    size_t alloc_size,
+				    struct verbs_context *context_offset);
+
+#define verbs_init_and_alloc_context(ibdev, cmd_fd, drv_ctx_ptr, ctx_memb)     \
+	((typeof(drv_ctx_ptr))_verbs_init_and_alloc_context(                   \
+		ibdev, cmd_fd, sizeof(*drv_ctx_ptr),                           \
+		&((typeof(drv_ctx_ptr))NULL)->ctx_memb))
+
+int verbs_init_context(struct verbs_context *context_ex,
+		       struct ibv_device *device, int cmd_fd);
+void verbs_uninit_context(struct verbs_context *context);
+void verbs_set_ops(struct verbs_context *vctx,
+		   const struct verbs_context_ops *ops);
+
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context);
 
-int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd,
-			size_t cmd_size, struct ibv_get_context_resp *resp,
-			size_t resp_size);
+int ibv_cmd_get_context(struct verbs_context *context,
+			struct ibv_get_context *cmd, size_t cmd_size,
+			struct ibv_get_context_resp *resp, size_t resp_size);
 int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
 			 uint64_t *raw_fw_ver,

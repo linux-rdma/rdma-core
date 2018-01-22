@@ -103,7 +103,7 @@ struct pvrdma_device {
 };
 
 struct pvrdma_context {
-	struct ibv_context		ibv_ctx;
+	struct verbs_context		ibv_ctx;
 	void				*uar;
 	pthread_spinlock_t		uar_lock;
 	int				max_qp_wr;
@@ -199,7 +199,7 @@ static inline struct pvrdma_device *to_vdev(struct ibv_device *ibdev)
 
 static inline struct pvrdma_context *to_vctx(struct ibv_context *ibctx)
 {
-	return container_of(ibctx, struct pvrdma_context, ibv_ctx);
+	return container_of(ibctx, struct pvrdma_context, ibv_ctx.context);
 }
 
 static inline struct pvrdma_pd *to_vpd(struct ibv_pd *ibpd)

@@ -68,7 +68,7 @@ struct ocrdma_device {
 };
 
 struct ocrdma_devctx {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	uint32_t *ah_tbl;
 	uint32_t ah_tbl_len;
 	pthread_mutex_t tbl_lock;
@@ -231,7 +231,7 @@ struct ocrdma_ah {
 
 static inline struct ocrdma_devctx *get_ocrdma_ctx(struct ibv_context *ibctx)
 {
-	return get_ocrdma_xxx(ctx, devctx);
+	return container_of(ibctx, struct ocrdma_devctx, ibv_ctx.context);
 }
 
 static inline struct ocrdma_device *get_ocrdma_dev(struct ibv_device *ibdev)

@@ -80,7 +80,7 @@ static inline int dev_is_t4(struct c4iw_dev *dev)
 }
 
 struct c4iw_context {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	struct t4_dev_status_page *status_page;
 	int status_page_size;
 };
@@ -129,7 +129,7 @@ static inline struct c4iw_dev *to_c4iw_dev(struct ibv_device *ibdev)
 
 static inline struct c4iw_context *to_c4iw_context(struct ibv_context *ibctx)
 {
-	return to_c4iw_xxx(ctx, context);
+	return container_of(ibctx, struct c4iw_context, ibv_ctx.context);
 }
 
 static inline struct c4iw_pd *to_c4iw_pd(struct ibv_pd *ibpd)

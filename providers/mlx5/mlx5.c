@@ -81,7 +81,7 @@ static const struct verbs_match_ent hca_table[] = {
 uint32_t mlx5_debug_mask = 0;
 int mlx5_freeze_on_error_cqe;
 
-static struct ibv_context_ops mlx5_ctx_ops = {
+static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.query_device  = mlx5_query_device,
 	.query_port    = mlx5_query_port,
 	.alloc_pd      = mlx5_alloc_pd,
@@ -112,7 +112,32 @@ static struct ibv_context_ops mlx5_ctx_ops = {
 	.create_ah     = mlx5_create_ah,
 	.destroy_ah    = mlx5_destroy_ah,
 	.attach_mcast  = mlx5_attach_mcast,
-	.detach_mcast  = mlx5_detach_mcast
+	.detach_mcast  = mlx5_detach_mcast,
+
+	.alloc_parent_domain = mlx5_alloc_parent_domain,
+	.alloc_td = mlx5_alloc_td,
+	.close_xrcd = mlx5_close_xrcd,
+	.create_cq_ex = mlx5_create_cq_ex,
+	.create_flow = mlx5_create_flow,
+	.create_qp_ex = mlx5_create_qp_ex,
+	.create_rwq_ind_table = mlx5_create_rwq_ind_table,
+	.create_srq_ex = mlx5_create_srq_ex,
+	.create_wq = mlx5_create_wq,
+	.dealloc_td = mlx5_dealloc_td,
+	.destroy_flow = mlx5_destroy_flow,
+	.destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table,
+	.destroy_wq = mlx5_destroy_wq,
+	.get_srq_num = mlx5_get_srq_num,
+	.modify_cq = mlx5_modify_cq,
+	.modify_wq = mlx5_modify_wq,
+	.open_xrcd = mlx5_open_xrcd,
+	.post_srq_ops = mlx5_post_srq_ops,
+	.query_device_ex = mlx5_query_device_ex,
+	.query_rt_values = mlx5_query_rt_values,
+};
+
+static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
+	.poll_cq = mlx5_poll_cq_v1,
 };
 
 static int read_number_from_line(const char *line, int *value)
@@ -549,7 +574,9 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 				struct mlx5_alloc_ucontext_resp *resp,
 				size_t resp_len)
 {
-	if (!ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+	struct verbs_context *verbs_ctx = &context->ibv_ctx;
+
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
 				 req_len, &resp->ibv_resp, resp_len))
 		return 0;
 
@@ -572,12 +599,12 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 * to do so. If zero is a valid response, we will add a new
 	 * field that indicates whether the request was handled.
 	 */
-	if (!ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
 				 &resp->ibv_resp, resp_len))
 		return 0;
 
-	return ibv_cmd_get_context(&context->ibv_ctx, &req->ibv_req,
+	return ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
 				   offsetof(struct mlx5_alloc_ucontext,
 					    cqe_version),
 				   &resp->ibv_resp, resp_len);
@@ -866,8 +893,8 @@ static void adjust_uar_info(struct mlx5_device *mdev,
 	context->num_uars_per_page = resp.num_uars_per_page;
 }
 
-static int mlx5_init_context(struct verbs_device *vdev,
-			     struct ibv_context *ctx, int cmd_fd)
+static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct mlx5_context	       *context;
 	struct mlx5_alloc_ucontext	req;
@@ -878,7 +905,7 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	int				low_lat_uuars;
 	int				gross_uuars;
 	int				j;
-	struct mlx5_device	       *mdev;
+	struct mlx5_device	       *mdev = to_mdev(ibdev);
 	struct verbs_context	       *v_ctx;
 	struct ibv_port_attr		port_attr;
 	struct ibv_device_attr_ex	device_attr;
@@ -886,13 +913,13 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	int				bfi;
 	int				num_sys_page_map;
 
-	mdev = to_mdev(&vdev->device);
-	v_ctx = verbs_get_ctx(ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	if (!context)
+		return NULL;
+
+	v_ctx = &context->ibv_ctx;
 	page_size = mdev->page_size;
 	mlx5_single_threaded = single_threaded_app();
-
-	context = to_mctx(ctx);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	open_debug_file(context);
 	set_debug_mask();
@@ -952,12 +979,6 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	}
 
 	context->cqe_version = resp.cqe_version;
-	if (context->cqe_version) {
-		if (context->cqe_version == MLX5_CQE_VERSION_V1)
-			mlx5_ctx_ops.poll_cq = mlx5_poll_cq_v1;
-		else
-			goto err_free;
-	}
 
 	adjust_uar_info(mdev, context, resp);
 
@@ -1024,39 +1045,24 @@ static int mlx5_init_context(struct verbs_device *vdev,
 	    sizeof(resp.hca_core_clock_offset) &&
 	    resp.comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET) {
 		context->core_clock.offset = resp.hca_core_clock_offset;
-		mlx5_map_internal_clock(mdev, ctx);
+		mlx5_map_internal_clock(mdev, &v_ctx->context);
 	}
 
-	mlx5_read_env(&vdev->device, context);
+	mlx5_read_env(ibdev, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
 	list_head_init(&context->hugetlb_list);
 
-	context->ibv_ctx.ops = mlx5_ctx_ops;
-
-	v_ctx->create_qp_ex = mlx5_create_qp_ex;
-	v_ctx->open_xrcd = mlx5_open_xrcd;
-	v_ctx->close_xrcd = mlx5_close_xrcd;
-	v_ctx->create_srq_ex = mlx5_create_srq_ex;
-	v_ctx->get_srq_num = mlx5_get_srq_num;
-	v_ctx->query_device_ex = mlx5_query_device_ex;
-	v_ctx->query_rt_values = mlx5_query_rt_values;
-	v_ctx->ibv_create_flow = mlx5_create_flow;
-	v_ctx->ibv_destroy_flow = mlx5_destroy_flow;
-	v_ctx->create_cq_ex = mlx5_create_cq_ex;
-	v_ctx->create_wq = mlx5_create_wq;
-	v_ctx->modify_wq = mlx5_modify_wq;
-	v_ctx->destroy_wq = mlx5_destroy_wq;
-	v_ctx->create_rwq_ind_table = mlx5_create_rwq_ind_table;
-	v_ctx->destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table;
-	v_ctx->post_srq_ops = mlx5_post_srq_ops;
-	v_ctx->modify_cq = mlx5_modify_cq;
-	v_ctx->alloc_td = mlx5_alloc_td;
-	v_ctx->dealloc_td = mlx5_dealloc_td;
-	v_ctx->alloc_parent_domain = mlx5_alloc_parent_domain;
+	verbs_set_ops(v_ctx, &mlx5_ctx_common_ops);
+	if (context->cqe_version) {
+		if (context->cqe_version == MLX5_CQE_VERSION_V1)
+			verbs_set_ops(v_ctx, &mlx5_ctx_cqev1_ops);
+		else
+			goto err_free;
+	}
 
 	memset(&device_attr, 0, sizeof(device_attr));
-	if (!mlx5_query_device_ex(ctx, NULL, &device_attr,
+	if (!mlx5_query_device_ex(&v_ctx->context, NULL, &device_attr,
 				  sizeof(struct ibv_device_attr_ex))) {
 		context->cached_device_cap_flags =
 			device_attr.orig_attr.device_cap_flags;
@@ -1066,11 +1072,11 @@ static int mlx5_init_context(struct verbs_device *vdev,
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {
 		memset(&port_attr, 0, sizeof(port_attr));
-		if (!mlx5_query_port(ctx, j + 1, &port_attr))
+		if (!mlx5_query_port(&v_ctx->context, j + 1, &port_attr))
 			context->cached_link_layer[j] = port_attr.link_layer;
 	}
 
-	return 0;
+	return v_ctx;
 
 err_free_bf:
 	free(context->bfs);
@@ -1082,11 +1088,13 @@ err_free:
 			munmap(context->uar[i].reg, page_size);
 	}
 	close_debug_file(context);
-	return errno;
+
+	verbs_uninit_context(&context->ibv_ctx);
+	free(context);
+	return NULL;
 }
 
-static void mlx5_cleanup_context(struct verbs_device *device,
-				 struct ibv_context *ibctx)
+static void mlx5_free_context(struct ibv_context *ibctx)
 {
 	struct mlx5_context *context = to_mctx(ibctx);
 	int page_size = to_mdev(ibctx->device)->page_size;
@@ -1108,6 +1116,9 @@ static void mlx5_cleanup_context(struct verbs_device *device,
 		munmap(context->hca_core_clock - context->core_clock.offset,
 		       page_size);
 	close_debug_file(context);
+
+	verbs_uninit_context(&context->ibv_ctx);
+	free(context);
 }
 
 static void mlx5_uninit_device(struct verbs_device *verbs_device)
@@ -1128,10 +1139,6 @@ static struct verbs_device *mlx5_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 	dev->driver_abi_ver = sysfs_dev->abi_ver;
 
-	dev->verbs_dev.sz = sizeof(*dev);
-	dev->verbs_dev.size_of_context = sizeof(struct mlx5_context) -
-		sizeof(struct ibv_context);
-
 	return &dev->verbs_dev;
 }
 
@@ -1142,7 +1149,7 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.match_table = hca_table,
 	.alloc_device = mlx5_device_alloc,
 	.uninit_device = mlx5_uninit_device,
-	.init_context = mlx5_init_context,
-	.uninit_context = mlx5_cleanup_context,
+	.alloc_context = mlx5_alloc_context,
+	.free_context = mlx5_free_context,
 };
 PROVIDER_DRIVER(mlx5_dev_ops);

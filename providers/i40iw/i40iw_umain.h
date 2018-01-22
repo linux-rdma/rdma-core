@@ -83,7 +83,7 @@ struct i40iw_upd {
 };
 
 struct i40iw_uvcontext {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	struct i40iw_upd *iwupd;
 	uint32_t max_pds;	/* maximum pds allowed for this user process */
 	uint32_t max_qps;	/* maximum qps allowed for this user process */
@@ -137,7 +137,7 @@ static inline struct i40iw_udevice *to_i40iw_udev(struct ibv_device *ibdev)
 
 static inline struct i40iw_uvcontext *to_i40iw_uctx(struct ibv_context *ibctx)
 {
-	return to_i40iw_uxxx(ctx, vcontext);
+	return container_of(ibctx, struct i40iw_uvcontext, ibv_ctx.context);
 }
 
 static inline struct i40iw_upd *to_i40iw_upd(struct ibv_pd *ibpd)

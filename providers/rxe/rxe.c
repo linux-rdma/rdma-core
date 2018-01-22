@@ -828,7 +828,7 @@ static int rxe_destroy_ah(struct ibv_ah *ibah)
 	return 0;
 }
 
-static struct ibv_context_ops rxe_ctx_ops = {
+static const struct verbs_context_ops rxe_ctx_ops = {
 	.query_device = rxe_query_device,
 	.query_port = rxe_query_port,
 	.alloc_pd = rxe_alloc_pd,
@@ -838,7 +838,6 @@ static struct ibv_context_ops rxe_ctx_ops = {
 	.create_cq = rxe_create_cq,
 	.poll_cq = rxe_poll_cq,
 	.req_notify_cq = ibv_cmd_req_notify_cq,
-	.cq_event = NULL,
 	.resize_cq = rxe_resize_cq,
 	.destroy_cq = rxe_destroy_cq,
 	.create_srq = rxe_create_srq,
@@ -858,29 +857,27 @@ static struct ibv_context_ops rxe_ctx_ops = {
 	.detach_mcast = ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *rxe_alloc_context(struct ibv_device *ibdev,
-					     int cmd_fd)
+static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
+					       int cmd_fd)
 {
 	struct rxe_context *context;
 	struct ibv_get_context cmd;
 	struct ibv_get_context_resp resp;
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
 				sizeof cmd, &resp, sizeof resp))
 		goto out;
 
-	context->ibv_ctx.ops = rxe_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &rxe_ctx_ops);
 
 	return &context->ibv_ctx;
 
 out:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -889,6 +886,7 @@ static void rxe_free_context(struct ibv_context *ibctx)
 {
 	struct rxe_context *context = to_rctx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

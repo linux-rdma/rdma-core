@@ -118,7 +118,7 @@ struct qelr_device {
 };
 
 struct qelr_devctx {
-	struct ibv_context	ibv_ctx;
+	struct verbs_context	ibv_ctx;
 	FILE			*dbg_fp;
 	void			*db_addr;
 	uint64_t		db_pa;
@@ -251,7 +251,7 @@ struct qelr_qp {
 
 static inline struct qelr_devctx *get_qelr_ctx(struct ibv_context *ibctx)
 {
-	return container_of(ibctx, struct qelr_devctx, ibv_ctx);
+	return container_of(ibctx, struct qelr_devctx, ibv_ctx.context);
 }
 
 static inline struct qelr_device *get_qelr_dev(struct ibv_device *ibdev)

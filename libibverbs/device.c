@@ -162,7 +162,8 @@ static struct ibv_cq_ex *
 __lib_ibv_create_cq_ex(struct ibv_context *context,
 		       struct ibv_cq_init_attr_ex *cq_attr)
 {
-	struct verbs_context *vctx = verbs_get_ctx(context);
+	struct verbs_context *vctx =
+		container_of(context, struct verbs_context, context);
 	struct ibv_cq_ex *cq;
 
 	if (cq_attr->wc_flags & ~IBV_CREATE_CQ_SUP_WC_FLAGS) {
@@ -179,14 +180,93 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
 	return cq;
 }
 
+/*
+ * Ownership of cmd_fd is transferred into this function, and it will either
+ * be released during the matching call to verbs_uninit_contxt or during the
+ * failure path of this function.
+ */
+int verbs_init_context(struct verbs_context *context_ex,
+		       struct ibv_device *device, int cmd_fd)
+{
+	struct ibv_context *context = &context_ex->context;
+
+	ibverbs_device_hold(device);
+
+	context->device = device;
+	context->cmd_fd = cmd_fd;
+	context->async_fd = -1;
+	pthread_mutex_init(&context->mutex, NULL);
+
+	context_ex->context.abi_compat = __VERBS_ABI_IS_EXTENDED;
+	context_ex->sz = sizeof(*context_ex);
+
+	/*
+	 * In order to maintain backward/forward binary compatibility
+	 * with apps compiled against libibverbs-1.1.8 that use the
+	 * flow steering addition, we need to set the two
+	 * ABI_placeholder entries to match the driver set flow
+	 * entries.  This is because apps compiled against
+	 * libibverbs-1.1.8 use an inline ibv_create_flow and
+	 * ibv_destroy_flow function that looks in the placeholder
+	 * spots for the proper entry points.  For apps compiled
+	 * against libibverbs-1.1.9 and later, the inline functions
+	 * will be looking in the right place.
+	 */
+	context_ex->ABI_placeholder1 =
+		(void (*)(void))context_ex->ibv_create_flow;
+	context_ex->ABI_placeholder2 =
+		(void (*)(void))context_ex->ibv_destroy_flow;
+
+	context_ex->priv = calloc(1, sizeof(context_ex->priv));
+	if (!context_ex->priv) {
+		errno = ENOMEM;
+		close(cmd_fd);
+		return -1;
+	}
+
+	verbs_set_ops(context_ex, &verbs_dummy_ops);
+
+	return 0;
+}
+
+/*
+ * Allocate and initialize a context structure. This is called to create the
+ * driver wrapper, and context_offset is the number of bytes into the wrapper
+ * structure where the verbs_context starts.
+ */
+void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
+				    size_t alloc_size,
+				    struct verbs_context *context_offset)
+{
+	void *drv_context;
+	struct verbs_context *context;
+
+	drv_context = calloc(1, alloc_size);
+	if (!drv_context) {
+		errno = ENOMEM;
+		close(cmd_fd);
+		return NULL;
+	}
+
+	context = drv_context + (uintptr_t)context_offset;
+
+	if (verbs_init_context(context, device, cmd_fd))
+		goto err_free;
+
+	return drv_context;
+
+err_free:
+	free(drv_context);
+	return NULL;
+}
+
 LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *,
 		   struct ibv_device *device)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
 	char *devpath;
-	int cmd_fd, ret;
-	struct ibv_context *context;
+	int cmd_fd;
 	struct verbs_context *context_ex;
 
 	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev_name) < 0)
@@ -202,95 +282,37 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	if (cmd_fd < 0)
 		return NULL;
 
-	if (!verbs_device->ops->init_context) {
-		context = verbs_device->ops->alloc_context(device, cmd_fd);
-		if (!context)
-			goto err;
-	} else {
-		struct verbs_ex_private *priv;
+	/*
+	 * cmd_fd ownership is transferred into alloc_context, if it fails
+	 * then it closes cmd_fd and returns NULL
+	 */
+	context_ex = verbs_device->ops->alloc_context(device, cmd_fd);
+	if (!context_ex)
+		return NULL;
 
-		/* Library now allocates the context */
-		context_ex = calloc(1, sizeof(*context_ex) +
-				       verbs_device->size_of_context);
-		if (!context_ex) {
-			errno = ENOMEM;
-			goto err;
-		}
-
-		priv = calloc(1, sizeof(*priv));
-		if (!priv) {
-			errno = ENOMEM;
-			free(context_ex);
-			goto err;
-		}
-
-		context_ex->priv = priv;
-		context_ex->context.abi_compat  = __VERBS_ABI_IS_EXTENDED;
-		context_ex->sz = sizeof(*context_ex);
-
-		context = &context_ex->context;
-		ret = verbs_device->ops->init_context(verbs_device, context, cmd_fd);
-		if (ret)
-			goto verbs_err;
-		/*
-		 * In order to maintain backward/forward binary compatibility
-		 * with apps compiled against libibverbs-1.1.8 that use the
-		 * flow steering addition, we need to set the two
-		 * ABI_placeholder entries to match the driver set flow
-		 * entries.  This is because apps compiled against
-		 * libibverbs-1.1.8 use an inline ibv_create_flow and
-		 * ibv_destroy_flow function that looks in the placeholder
-		 * spots for the proper entry points.  For apps compiled
-		 * against libibverbs-1.1.9 and later, the inline functions
-		 * will be looking in the right place.
-		 */
-		context_ex->ABI_placeholder1 = (void (*)(void)) context_ex->ibv_create_flow;
-		context_ex->ABI_placeholder2 = (void (*)(void)) context_ex->ibv_destroy_flow;
-
-		if (context_ex->create_cq_ex) {
-			priv->create_cq_ex = context_ex->create_cq_ex;
-			context_ex->create_cq_ex = __lib_ibv_create_cq_ex;
-		}
+	if (context_ex->create_cq_ex) {
+		context_ex->priv->create_cq_ex = context_ex->create_cq_ex;
+		context_ex->create_cq_ex = __lib_ibv_create_cq_ex;
 	}
 
-	context->device = device;
-	context->cmd_fd = cmd_fd;
-	pthread_mutex_init(&context->mutex, NULL);
+	return &context_ex->context;
+}
 
-	ibverbs_device_hold(device);
-
-	return context;
-
-verbs_err:
+void verbs_uninit_context(struct verbs_context *context_ex)
+{
 	free(context_ex->priv);
-	free(context_ex);
-err:
-	close(cmd_fd);
-	return NULL;
+	close(context_ex->context.cmd_fd);
+	close(context_ex->context.async_fd);
+	ibverbs_device_put(context_ex->context.device);
 }
 
 LATEST_SYMVER_FUNC(ibv_close_device, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_context *context)
 {
-	int async_fd = context->async_fd;
-	int cmd_fd   = context->cmd_fd;
-	struct verbs_context *context_ex;
 	struct verbs_device *verbs_device = verbs_get_device(context->device);
-	struct ibv_device *device = context->device;
 
-	context_ex = verbs_get_ctx(context);
-	if (context_ex) {
-		verbs_device->ops->uninit_context(verbs_device, context);
-		free(context_ex->priv);
-		free(context_ex);
-	} else {
-		verbs_device->ops->free_context(context);
-	}
-
-	close(async_fd);
-	close(cmd_fd);
-	ibverbs_device_put(device);
+	verbs_device->ops->free_context(context);
 
 	return 0;
 }
@@ -336,8 +358,7 @@ LATEST_SYMVER_FUNC(ibv_get_async_event, 1_1, "IBVERBS_1.1",
 		break;
 	}
 
-	if (context->ops.async_event)
-		context->ops.async_event(event);
+	context->ops.async_event(event);
 
 	return 0;
 }

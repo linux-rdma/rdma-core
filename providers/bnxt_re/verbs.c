@@ -730,7 +730,7 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 	struct ibv_device_attr devattr;
 	int ret;
 
-	ret = bnxt_re_query_device(&cntx->ibvctx, &devattr);
+	ret = bnxt_re_query_device(&cntx->ibvctx.context, &devattr);
 	if (ret)
 		return ret;
 	if (attr->cap.max_send_sge > devattr.max_sge)
@@ -865,7 +865,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	struct bnxt_re_qpcap *cap;
 
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
-	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.device);
+	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.context.device);
 
 	if (bnxt_re_check_qp_limits(cntx, attr))
 		return NULL;

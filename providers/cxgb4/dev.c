@@ -71,7 +71,7 @@ int t5_en_wc = 1;
 
 static LIST_HEAD(devices);
 
-static struct ibv_context_ops c4iw_ctx_ops = {
+static const struct verbs_context_ops  c4iw_ctx_common_ops = {
 	.query_device = c4iw_query_device,
 	.query_port = c4iw_query_port,
 	.alloc_pd = c4iw_alloc_pd,
@@ -96,8 +96,16 @@ static struct ibv_context_ops c4iw_ctx_ops = {
 	.req_notify_cq = c4iw_arm_cq,
 };
 
-static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
-					      int cmd_fd)
+static const struct verbs_context_ops c4iw_ctx_t4_ops = {
+	.async_event = c4iw_async_event,
+	.poll_cq = c4iw_poll_cq,
+	.post_recv = c4iw_post_receive,
+	.post_send = c4iw_post_send,
+	.req_notify_cq = c4iw_arm_cq,
+};
+
+static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct c4iw_context *context;
 	struct ibv_get_context cmd;
@@ -107,12 +115,9 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	uint64_t raw_fw_ver;
 	struct ibv_device_attr attr;
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	resp.status_page_size = 0;
 	resp.reserved = 0;
@@ -133,8 +138,7 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 			goto err_free;
 	} 
 
-	context->ibv_ctx.device = ibdev;
-	context->ibv_ctx.ops = c4iw_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_common_ops);
 
 	switch (rhp->chip_version) {
 	case CHELSIO_T6:
@@ -143,11 +147,7 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		PDBG("%s T5/T4 device\n", __FUNCTION__);
 	case CHELSIO_T4:
 		PDBG("%s T4 device\n", __FUNCTION__);
-		context->ibv_ctx.ops.async_event = c4iw_async_event;
-		context->ibv_ctx.ops.post_send = c4iw_post_send;
-		context->ibv_ctx.ops.post_recv = c4iw_post_receive;
-		context->ibv_ctx.ops.poll_cq = c4iw_poll_cq;
-		context->ibv_ctx.ops.req_notify_cq = c4iw_arm_cq;
+		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
 		break;
 	default:
 		PDBG("%s unknown hca type %d\n", __FUNCTION__,
@@ -159,8 +159,8 @@ static struct ibv_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	if (!rhp->mmid2ptr) {
 		int ret;
 
-		ret = ibv_cmd_query_device(&context->ibv_ctx, &attr, &raw_fw_ver, &qcmd,
-					   sizeof qcmd);
+		ret = ibv_cmd_query_device(&context->ibv_ctx.context, &attr,
+					   &raw_fw_ver, &qcmd, sizeof(qcmd));
 		if (ret)
 			goto err_unmap;
 		rhp->max_mr = attr.max_mr;
@@ -201,6 +201,7 @@ err_free:
 		free(rhp->cqid2ptr);
 	if (rhp->mmid2ptr)
 		free(rhp->cqid2ptr);
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -211,6 +212,8 @@ static void c4iw_free_context(struct ibv_context *ibctx)
 
 	if (context->status_page_size)
 		munmap(context->status_page, context->status_page_size);
+
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

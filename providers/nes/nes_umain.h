@@ -261,7 +261,7 @@ struct nes_upd {
 };
 
 struct nes_uvcontext {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	struct nes_upd *nesupd;
 	uint32_t max_pds; /* maximum pds allowed for this user process */
 	uint32_t max_qps; /* maximum qps allowed for this user process */
@@ -331,7 +331,7 @@ static inline struct nes_udevice *to_nes_udev(struct ibv_device *ibdev)
 
 static inline struct nes_uvcontext *to_nes_uctx(struct ibv_context *ibctx)
 {
-	return to_nes_uxxx(ctx, vcontext);
+	return container_of(ibctx, struct nes_uvcontext, ibv_ctx.context);
 }
 
 static inline struct nes_upd *to_nes_upd(struct ibv_pd *ibpd)

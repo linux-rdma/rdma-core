@@ -538,7 +538,7 @@ int mlx5_alloc_buf_contig(struct mlx5_context *mctx,
 	int block_size_exp;
 	int max_block_log;
 	int min_block_log;
-	struct ibv_context *context = &mctx->ibv_ctx;
+	struct ibv_context *context = &mctx->ibv_ctx.context;
 	off_t offset;
 
 	mlx5_alloc_get_env_info(&max_block_log,

@@ -71,7 +71,7 @@ static inline int t3a_device(struct iwch_device *dev)
 }
 
 struct iwch_context {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 };
 
 struct iwch_pd {
@@ -111,7 +111,7 @@ static inline struct iwch_device *to_iwch_dev(struct ibv_device *ibdev)
 
 static inline struct iwch_context *to_iwch_ctx(struct ibv_context *ibctx)
 {
-	return to_iwch_xxx(ctx, context);
+	return container_of(ibctx, struct iwch_context, ibv_ctx.context);
 }
 
 static inline struct iwch_pd *to_iwch_pd(struct ibv_pd *ibpd)
