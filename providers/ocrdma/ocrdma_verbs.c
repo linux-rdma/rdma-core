@@ -308,7 +308,7 @@ int ocrdma_resize_cq(struct ibv_cq *ibcq, int new_entries)
 {
 	int status;
 	struct ibv_resize_cq cmd;
-	struct ibv_resize_cq_resp resp;
+	struct ib_uverbs_resize_cq_resp resp;
 	status = ibv_cmd_resize_cq(ibcq, new_entries,
 				   &cmd, sizeof cmd, &resp, sizeof resp);
 	if (status == 0)
@@ -2099,7 +2099,7 @@ struct ibv_ah *ocrdma_create_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 	int ahtbl_idx;
 	struct ocrdma_pd *pd;
 	struct ocrdma_ah *ah;
-	struct ibv_create_ah_resp resp;
+	struct ib_uverbs_create_ah_resp resp;
 
 	pd = get_ocrdma_pd(ibpd);
 	ah = malloc(sizeof *ah);

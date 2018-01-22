@@ -373,7 +373,7 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	struct ibv_reg_mr cmd;
 	int ret;
 	enum ibv_access_flags access = (enum ibv_access_flags)acc;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
@@ -396,7 +396,7 @@ int mlx5_rereg_mr(struct ibv_mr *ibmr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access)
 {
 	struct ibv_rereg_mr cmd;
-	struct ibv_rereg_mr_resp resp;
+	struct ib_uverbs_rereg_mr_resp resp;
 
 	if (flags & IBV_REREG_MR_KEEP_VALID)
 		return ENOTSUP;
@@ -423,7 +423,7 @@ struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	struct ibv_mw *mw;
 	struct ibv_alloc_mw cmd;
-	struct ibv_alloc_mw_resp resp;
+	struct ib_uverbs_alloc_mw_resp resp;
 	int ret;
 
 	mw = malloc(sizeof(*mw));
@@ -1875,7 +1875,7 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 {
 	struct ibv_modify_qp cmd = {};
 	struct ibv_modify_qp_ex cmd_ex = {};
-	struct ibv_modify_qp_resp_ex resp = {};
+	struct ib_uverbs_ex_modify_qp_resp resp = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
 	struct mlx5_context *context = to_mctx(qp->context);
 	int ret;
@@ -2106,7 +2106,7 @@ mlx5_open_xrcd(struct ibv_context *context,
 	int err;
 	struct verbs_xrcd *xrcd;
 	struct ibv_open_xrcd cmd = {};
-	struct ibv_open_xrcd_resp resp = {};
+	struct ib_uverbs_open_xrcd_resp resp = {};
 
 	xrcd = calloc(1, sizeof(*xrcd));
 	if (!xrcd)

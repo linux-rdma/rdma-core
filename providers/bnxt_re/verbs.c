@@ -1390,7 +1390,7 @@ struct ibv_ah *bnxt_re_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
 {
 	struct bnxt_re_context *uctx;
 	struct bnxt_re_ah *ah;
-	struct ibv_create_ah_resp resp;
+	struct ib_uverbs_create_ah_resp resp;
 	int status;
 
 	uctx = to_bnxt_re_context(ibvpd->context);

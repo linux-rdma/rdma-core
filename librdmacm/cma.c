@@ -993,7 +993,7 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 			     int *qp_attr_mask)
 {
 	struct ucma_abi_init_qp_attr cmd;
-	struct ibv_kern_qp_attr resp;
+	struct ib_uverbs_qp_attr resp;
 	struct cma_id_private *id_priv;
 	int ret;
 	

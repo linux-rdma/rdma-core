@@ -44,28 +44,28 @@ struct mmap_info {
 };
 
 struct rxe_get_context_resp {
-	struct ibv_get_context_resp ibv_resp;
+	struct ib_uverbs_get_context_resp ibv_resp;
 	__u32 version;
 };
 
 struct rxe_create_cq_resp {
-	struct ibv_create_cq_resp ibv_resp;
+	struct ib_uverbs_create_cq_resp ibv_resp;
 	struct mmap_info mi;
 };
 
 struct rxe_resize_cq_resp {
-	struct ibv_resize_cq_resp ibv_resp;
+	struct ib_uverbs_resize_cq_resp ibv_resp;
 	struct mmap_info mi;
 };
 
 struct rxe_create_qp_resp {
-	struct ibv_create_qp_resp ibv_resp;
+	struct ib_uverbs_create_qp_resp ibv_resp;
 	struct mmap_info rq_mi;
 	struct mmap_info sq_mi;
 };
 
 struct rxe_create_srq_resp {
-	struct ibv_create_srq_resp ibv_resp;
+	struct ib_uverbs_create_srq_resp ibv_resp;
 	struct mmap_info mi;
 	__u32 srq_num;
 };

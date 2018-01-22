@@ -116,7 +116,7 @@ struct ibv_mr *pvrdma_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof(*mr));

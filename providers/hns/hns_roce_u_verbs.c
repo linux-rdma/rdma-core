@@ -124,7 +124,7 @@ struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	int ret;
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 
 	if (!addr) {
 		fprintf(stderr, "2nd parm addr is NULL!\n");
@@ -154,7 +154,7 @@ int hns_roce_u_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access)
 {
 	struct ibv_rereg_mr cmd;
-	struct ibv_rereg_mr_resp resp;
+	struct ib_uverbs_rereg_mr_resp resp;
 
 	return ibv_cmd_rereg_mr(mr, flags, addr, length, (uintptr_t)addr,
 				access, pd, &cmd, sizeof(cmd), &resp,
@@ -502,7 +502,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	int ret;
 	struct hns_roce_qp *qp = NULL;
 	struct hns_roce_create_qp cmd;
-	struct ibv_create_qp_resp resp;
+	struct ib_uverbs_create_qp_resp resp;
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
 	unsigned int sge_ex_count;
 

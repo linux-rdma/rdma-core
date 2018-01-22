@@ -36,19 +36,19 @@
 #include <infiniband/kern-abi.h>
 
 struct c4iw_alloc_ucontext_resp {
-	struct ibv_get_context_resp ibv_resp;
+	struct ib_uverbs_get_context_resp ibv_resp;
 	__u64 status_page_key;
 	__u32 status_page_size;
 	__u32 reserved;
 };
 
 struct c4iw_alloc_pd_resp {
-	struct ibv_alloc_pd_resp ibv_resp;
+	struct ib_uverbs_alloc_pd_resp ibv_resp;
 	uint32_t pdid;
 };
 
 struct c4iw_create_cq_resp {
-	struct ibv_create_cq_resp ibv_resp;
+	struct ib_uverbs_create_cq_resp ibv_resp;
 	__u64 key;
 	__u64 gts_key;
 	__u64 memsize;
@@ -63,7 +63,7 @@ enum {
 };
 
 struct c4iw_create_qp_resp_v0 {
-	struct ibv_create_qp_resp ibv_resp;
+	struct ib_uverbs_create_qp_resp ibv_resp;
 	__u64 sq_key;
 	__u64 rq_key;
 	__u64 sq_db_gts_key;
@@ -78,7 +78,7 @@ struct c4iw_create_qp_resp_v0 {
 };
 
 struct c4iw_create_qp_resp {
-	struct ibv_create_qp_resp ibv_resp;
+	struct ib_uverbs_create_qp_resp ibv_resp;
 	__u64 ma_sync_key;
 	__u64 sq_key;
 	__u64 rq_key;

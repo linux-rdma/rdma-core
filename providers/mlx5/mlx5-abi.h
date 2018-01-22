@@ -82,7 +82,7 @@ enum mlx5_ib_alloc_ucontext_resp_mask {
 };
 
 struct mlx5_alloc_ucontext_resp {
-	struct ibv_get_context_resp	ibv_resp;
+	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
 	__u32				bf_reg_size;
 	__u32				tot_uuars;
@@ -107,14 +107,14 @@ struct mlx5_alloc_ucontext_resp {
 };
 
 struct mlx5_create_ah_resp {
-	struct ibv_create_ah_resp	ibv_resp;
+	struct ib_uverbs_create_ah_resp	ibv_resp;
 	__u32				response_length;
 	__u8				dmac[ETHERNET_LL_SIZE];
 	__u8				reserved[6];
 };
 
 struct mlx5_alloc_pd_resp {
-	struct ibv_alloc_pd_resp	ibv_resp;
+	struct ib_uverbs_alloc_pd_resp	ibv_resp;
 	__u32				pdn;
 };
 
@@ -133,7 +133,7 @@ struct mlx5_create_cq {
 };
 
 struct mlx5_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
+	struct ib_uverbs_create_cq_resp	ibv_resp;
 	__u32				cqn;
 };
 
@@ -145,7 +145,7 @@ struct mlx5_create_srq {
 };
 
 struct mlx5_create_srq_resp {
-	struct ibv_create_srq_resp	ibv_resp;
+	struct ib_uverbs_create_srq_resp	ibv_resp;
 	__u32				srqn;
 	__u32				reserved;
 };
@@ -190,7 +190,7 @@ struct mlx5_create_qp_ex_rss {
 };
 
 struct mlx5_create_qp_resp_ex {
-	struct ibv_create_qp_resp_ex	ibv_resp;
+	struct ib_uverbs_ex_create_qp_resp	ibv_resp;
 	__u32				uuar_index;
 	__u32				reserved;
 };
@@ -210,7 +210,7 @@ struct mlx5_create_qp {
 };
 
 struct mlx5_create_qp_resp {
-	struct ibv_create_qp_resp	ibv_resp;
+	struct ib_uverbs_create_qp_resp	ibv_resp;
 	__u32				uuar_index;
 };
 
@@ -237,7 +237,7 @@ struct mlx5_create_wq {
 };
 
 struct mlx5_create_wq_resp {
-	struct ibv_create_wq_resp	ibv_resp;
+	struct ib_uverbs_ex_create_wq_resp	ibv_resp;
 	__u32			response_length;
 	__u32			reserved;
 };
@@ -249,7 +249,7 @@ struct mlx5_modify_wq {
 };
 
 struct mlx5_create_rwq_ind_table_resp {
-	struct ibv_create_rwq_ind_table_resp ibv_resp;
+	struct ib_uverbs_ex_create_rwq_ind_table_resp ibv_resp;
 };
 
 struct mlx5_destroy_rwq_ind_table {
@@ -265,7 +265,7 @@ struct mlx5_resize_cq {
 };
 
 struct mlx5_resize_cq_resp {
-	struct ibv_resize_cq_resp	ibv_resp;
+	struct ib_uverbs_resize_cq_resp	ibv_resp;
 };
 
 struct mlx5_query_device_ex {
@@ -304,7 +304,7 @@ struct mlx5_striding_rq_caps {
 };
 
 struct mlx5_query_device_ex_resp {
-	struct ibv_query_device_resp_ex ibv_resp;
+	struct ib_uverbs_ex_query_device_resp ibv_resp;
 	__u32				comp_mask;
 	__u32				response_length;
 	struct ibv_tso_caps		tso_caps;

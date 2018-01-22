@@ -315,32 +315,11 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 	return ret;
 }
 
-static struct ibv_comp_channel *ibv_create_comp_channel_v2(struct ibv_context *context)
-{
-	struct ibv_abi_compat_v2 *t = context->abi_compat;
-	static int warned;
-
-	if (!pthread_mutex_trylock(&t->in_use))
-		return &t->channel;
-
-	if (!warned) {
-		fprintf(stderr, PFX "Warning: kernel's ABI version %d limits capacity.\n"
-			"    Only one completion channel can be created per context.\n",
-			abi_ver);
-		++warned;
-	}
-
-	return NULL;
-}
-
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
 	struct ibv_comp_channel            *channel;
 	struct ibv_create_comp_channel      cmd;
-	struct ibv_create_comp_channel_resp resp;
-
-	if (abi_ver <= 2)
-		return ibv_create_comp_channel_v2(context);
+	struct ib_uverbs_create_comp_channel_resp resp;
 
 	channel = malloc(sizeof *channel);
 	if (!channel)
@@ -361,13 +340,6 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 	return channel;
 }
 
-static int ibv_destroy_comp_channel_v2(struct ibv_comp_channel *channel)
-{
-	struct ibv_abi_compat_v2 *t = (struct ibv_abi_compat_v2 *) channel;
-	pthread_mutex_unlock(&t->in_use);
-	return 0;
-}
-
 int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 {
 	struct ibv_context *context;
@@ -378,11 +350,6 @@ int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 
 	if (channel->refcnt) {
 		ret = EBUSY;
-		goto out;
-	}
-
-	if (abi_ver <= 2) {
-		ret = ibv_destroy_comp_channel_v2(channel);
 		goto out;
 	}
 
@@ -443,7 +410,7 @@ LATEST_SYMVER_FUNC(ibv_get_cq_event, 1_1, "IBVERBS_1.1",
 		   struct ibv_comp_channel *channel,
 		   struct ibv_cq **cq, void **cq_context)
 {
-	struct ibv_comp_event ev;
+	struct ib_uverbs_comp_event_desc ev;
 
 	if (read(channel->fd, &ev, sizeof ev) != sizeof ev)
 		return -1;

@@ -140,7 +140,7 @@ static struct verbs_context *ipath_alloc_context(struct ibv_device *ibdev,
 {
 	struct ipath_context	    *context;
 	struct ibv_get_context       cmd;
-	struct ibv_get_context_resp  resp;
+	struct ib_uverbs_get_context_resp  resp;
 	struct ipath_device         *dev;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);

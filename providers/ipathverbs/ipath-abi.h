@@ -40,27 +40,27 @@
 #include <infiniband/kern-abi.h>
 
 struct ipath_get_context_resp {
-	struct ibv_get_context_resp	ibv_resp;
+	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				version;
 };
 
 struct ipath_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
+	struct ib_uverbs_create_cq_resp	ibv_resp;
 	__u64				offset;
 };
 
 struct ipath_resize_cq_resp {
-	struct ibv_resize_cq_resp	ibv_resp;
+	struct ib_uverbs_resize_cq_resp	ibv_resp;
 	__u64				offset;
 };
 
 struct ipath_create_qp_resp {
-	struct ibv_create_qp_resp	ibv_resp;
+	struct ib_uverbs_create_qp_resp	ibv_resp;
 	__u64				offset;
 };
 
 struct ipath_create_srq_resp {
-	struct ibv_create_srq_resp	ibv_resp;
+	struct ib_uverbs_create_srq_resp	ibv_resp;
 	__u64				offset;
 };
 

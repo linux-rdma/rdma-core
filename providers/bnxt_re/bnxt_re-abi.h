@@ -196,7 +196,7 @@ struct bnxt_re_db_hdr {
 };
 
 struct bnxt_re_cntx_resp {
-	struct ibv_get_context_resp resp;
+	struct ib_uverbs_get_context_resp resp;
 	__u32 dev_id;
 	__u32 max_qp; /* To allocate qp-table */
 	__u32 pg_size;
@@ -206,14 +206,14 @@ struct bnxt_re_cntx_resp {
 };
 
 struct bnxt_re_pd_resp {
-	struct ibv_alloc_pd_resp resp;
+	struct ib_uverbs_alloc_pd_resp resp;
 	__u32 pdid;
 	__u32 dpi;
 	__u64 dbr;
 };
 
 struct bnxt_re_mr_resp {
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 };
 
 struct bnxt_re_cq_req {
@@ -223,7 +223,7 @@ struct bnxt_re_cq_req {
 };
 
 struct bnxt_re_cq_resp {
-	struct ibv_create_cq_resp resp;
+	struct ib_uverbs_create_cq_resp resp;
 	__u32 cqid;
 	__u32 tail;
 	__u32 phase;
@@ -271,7 +271,7 @@ struct bnxt_re_qp_req {
 };
 
 struct bnxt_re_qp_resp {
-	struct ibv_create_qp_resp resp;
+	struct ib_uverbs_create_qp_resp resp;
 	__u32 qpid;
 	__u32 rsvd;
 };
