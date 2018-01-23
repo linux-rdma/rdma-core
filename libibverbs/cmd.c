@@ -1766,6 +1766,13 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->tcp_udp.mask, &ib_spec->tcp_udp.mask,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
 		break;
+	case IBV_FLOW_SPEC_GRE:
+		kern_spec->gre.size = sizeof(struct ib_uverbs_flow_spec_gre);
+		memcpy(&kern_spec->gre.val, &ib_spec->gre.val,
+		       sizeof(struct ibv_flow_gre_filter));
+		memcpy(&kern_spec->gre.mask, &ib_spec->gre.mask,
+		       sizeof(struct ibv_flow_gre_filter));
+		break;
 	case IBV_FLOW_SPEC_VXLAN_TUNNEL:
 		ret = get_filters_size(ib_spec, kern_spec,
 				       &ib_filter_size, &kern_filter_size,
