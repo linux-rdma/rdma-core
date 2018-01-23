@@ -1401,6 +1401,7 @@ enum ibv_flow_spec_type {
 	IBV_FLOW_SPEC_UDP		= 0x41,
 	IBV_FLOW_SPEC_VXLAN_TUNNEL	= 0x50,
 	IBV_FLOW_SPEC_GRE		= 0x51,
+	IBV_FLOW_SPEC_MPLS		= 0x60,
 	IBV_FLOW_SPEC_INNER		= 0x100,
 	IBV_FLOW_SPEC_ACTION_TAG	= 0x1000,
 	IBV_FLOW_SPEC_ACTION_DROP	= 0x1001,
@@ -1513,6 +1514,22 @@ struct ibv_flow_spec_gre {
 	struct ibv_flow_gre_filter mask;
 };
 
+struct ibv_flow_mpls_filter {
+	/* The field includes the entire MPLS label:
+	 * bits 0:19 - label value field.
+	 * bits 20:22 - traffic class field.
+	 * bits 23 - bottom of stack bit.
+	 * bits 24:31 - ttl field.
+	 */
+	uint32_t label;
+};
+
+struct ibv_flow_spec_mpls {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_mpls_filter val;
+	struct ibv_flow_mpls_filter mask;
+};
 
 struct ibv_flow_tunnel_filter {
 	uint32_t tunnel_id;
@@ -1556,6 +1573,7 @@ struct ibv_flow_spec {
 		struct ibv_flow_spec_esp esp;
 		struct ibv_flow_spec_tunnel tunnel;
 		struct ibv_flow_spec_gre gre;
+		struct ibv_flow_spec_mpls mpls;
 		struct ibv_flow_spec_action_tag flow_tag;
 		struct ibv_flow_spec_action_drop drop;
 		struct ibv_flow_spec_action_handle handle;

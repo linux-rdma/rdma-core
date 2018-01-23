@@ -1773,6 +1773,13 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->gre.mask, &ib_spec->gre.mask,
 		       sizeof(struct ibv_flow_gre_filter));
 		break;
+	case IBV_FLOW_SPEC_MPLS:
+		kern_spec->mpls.size = sizeof(struct ib_uverbs_flow_spec_mpls);
+		memcpy(&kern_spec->mpls.val, &ib_spec->mpls.val,
+		       sizeof(struct ibv_flow_mpls_filter));
+		memcpy(&kern_spec->mpls.mask, &ib_spec->mpls.mask,
+		       sizeof(struct ibv_flow_mpls_filter));
+		break;
 	case IBV_FLOW_SPEC_VXLAN_TUNNEL:
 		ret = get_filters_size(ib_spec, kern_spec,
 				       &ib_filter_size, &kern_filter_size,
