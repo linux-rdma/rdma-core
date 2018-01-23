@@ -63,7 +63,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_STRIDING_RQ		= 1 << 2,
 	MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS	= 1 << 3,
 	MLX5DV_CONTEXT_MASK_DYN_BFREGS		= 1 << 4,
-	MLX5DV_CONTEXT_MASK_RESERVED		= 1 << 5,
+	MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE	= 1 << 5,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -102,6 +102,7 @@ struct mlx5dv_context {
 	struct mlx5dv_striding_rq_caps striding_rq_caps;
 	uint32_t	tunnel_offloads_caps;
 	uint32_t	max_dynamic_bfregs;
+	uint64_t	max_clock_info_update_nsec;
 };
 
 enum mlx5dv_context_flags {
@@ -787,5 +788,67 @@ struct mlx5dv_ctx_allocators {
  */
 int mlx5dv_set_context_attr(struct ibv_context *context,
 		enum mlx5dv_set_ctx_attr_type type, void *attr);
+
+struct mlx5dv_clock_info {
+	uint64_t nsec;
+	uint64_t last_cycles;
+	uint64_t frac;
+	uint32_t mult;
+	uint32_t shift;
+	uint64_t mask;
+};
+
+/*
+ * Get mlx5 core clock info
+ *
+ * Output:
+ *      clock_info  - clock info to be filled
+ * Input:
+ *      context     - device context
+ *
+ * Return: 0 on success, or the value of errno on failure
+ */
+int mlx5dv_get_clock_info(struct ibv_context *context,
+			  struct mlx5dv_clock_info *clock_info);
+
+/*
+ * Translate device timestamp to nano-sec
+ *
+ * Input:
+ *      clock_info  - clock info to be filled
+ *      device_timestamp   - timestamp to translate
+ *
+ * Return: nano-sec
+ */
+static inline uint64_t mlx5dv_ts_to_ns(struct mlx5dv_clock_info *clock_info,
+				       uint64_t device_timestamp)
+{
+	uint64_t delta, nsec;
+
+	/*
+	 * device_timestamp & cycles are the free running 'mask' bit counters
+	 * from the hardware hca_core_clock clock.
+	 */
+	delta = (device_timestamp - clock_info->last_cycles) & clock_info->mask;
+	nsec  = clock_info->nsec;
+
+	/*
+	 * Guess if the device_timestamp is more recent than
+	 * clock_info->last_cycles, if not (too far in the future) treat
+	 * it as old time stamp. This will break every max_clock_info_update_nsec.
+	 */
+
+	if (delta > clock_info->mask / 2) {
+		delta = (clock_info->last_cycles - device_timestamp) &
+				clock_info->mask;
+		nsec -= ((delta * clock_info->mult) - clock_info->frac) >>
+				clock_info->shift;
+	} else {
+		nsec += ((delta * clock_info->mult) + clock_info->frac) >>
+				clock_info->shift;
+	}
+
+	return nsec;
+}
 
 #endif /* _MLX5DV_H_ */

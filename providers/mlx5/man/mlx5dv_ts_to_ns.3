@@ -1,0 +1,35 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org (MIT) - See COPYING.md
+.\"
+.TH MLX5DV_TS_TO_NS 3 2017-11-08 1.0.0
+.SH "NAME"
+mlx5dv_ts_to_ns \- Convert device timestamp from HCA core clock units to
+the corresponding nanosecond counts
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/mlx5dv.h>
+.sp
+.BI "uint64_t mlx5dv_ts_to_ns(struct mlx5dv_clock_info *clock_info,
+.BI "			      uint64_t device_timestamp);
+.fi
+.SH "DESCRIPTION"
+.B mlx5dv_ts_to_ns(3)
+Converts a host byte order
+.I device_timestamp
+from HCA core clock units into the corresponding nanosecond wallclock time.
+.PP
+\fBstruct mlx5dv_clock_info\fR can be retrieved using \fBmlx5dv_get_clock_info(3)\fR.
+.PP
+The greater the difference between the device reporting a timestamp and the last
+mlx5dv_clock_info update, the greater the inaccuracy of the clock time conversion.
+
+.fi
+.SH "RETURN VALUE"
+Timestamp in nanoseconds
+.SH "SEE ALSO"
+.BR mlx5dv (7),
+.BR mlx5dv_get_clock_info (3),
+.BR mlx5dv_query_device (3)
+.SH "AUTHORS"
+.TP
+Feras Daoud <ferasda@mellanox.com>

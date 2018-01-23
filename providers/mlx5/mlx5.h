@@ -60,6 +60,7 @@ enum {
 	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
 	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5,
 	MLX5_MMAP_ALLOC_WC		= 6,
+	MLX5_MMAP_GET_CLOCK_INFO_CMD    = 7,
 };
 
 enum {
@@ -287,6 +288,7 @@ struct mlx5_context {
 		uint64_t                mask;
 	} core_clock;
 	void			       *hca_core_clock;
+	const struct mlx5_ib_clock_info *clock_info_page;
 	struct ibv_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
 	uint32_t			uar_size;
@@ -385,6 +387,7 @@ struct mlx5_cq {
 	struct mlx5_cqe64		*cqe64;
 	uint32_t			flags;
 	int			umr_opcode;
+	struct mlx5dv_clock_info	last_clock_info;
 };
 
 struct mlx5_tag_entry {
@@ -711,7 +714,9 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 			       int comp_vector);
 struct ibv_cq_ex *mlx5_create_cq_ex(struct ibv_context *context,
 				    struct ibv_cq_init_attr_ex *cq_attr);
-void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr);
+int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
+		      const struct ibv_cq_init_attr_ex *cq_attr,
+		      struct mlx5_context *mctx);
 int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 		      struct mlx5_buf *buf, int nent, int cqe_sz);
 int mlx5_free_cq_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);

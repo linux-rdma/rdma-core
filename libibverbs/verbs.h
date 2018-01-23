@@ -466,6 +466,7 @@ enum ibv_create_cq_wc_flags {
 	IBV_WC_EX_WITH_CVLAN		= 1 << 8,
 	IBV_WC_EX_WITH_FLOW_TAG		= 1 << 9,
 	IBV_WC_EX_WITH_TM_INFO		= 1 << 10,
+	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK	= 1 << 11,
 };
 
 enum {
@@ -483,7 +484,8 @@ enum {
 				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
 				IBV_WC_EX_WITH_CVLAN |
 				IBV_WC_EX_WITH_FLOW_TAG |
-				IBV_WC_EX_WITH_TM_INFO
+				IBV_WC_EX_WITH_TM_INFO |
+				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
 };
 
 enum ibv_wc_flags {
@@ -1205,6 +1207,7 @@ struct ibv_cq_ex {
 	uint32_t (*read_flow_tag)(struct ibv_cq_ex *current);
 	void (*read_tm_info)(struct ibv_cq_ex *current,
 			     struct ibv_wc_tm_info *tm_info);
+	uint64_t (*read_completion_wallclock_ns)(struct ibv_cq_ex *current);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
@@ -1305,6 +1308,11 @@ static inline uint8_t ibv_wc_read_dlid_path_bits(struct ibv_cq_ex *cq)
 static inline uint64_t ibv_wc_read_completion_ts(struct ibv_cq_ex *cq)
 {
 	return cq->read_completion_ts(cq);
+}
+
+static inline uint64_t ibv_wc_read_completion_wallclock_ns(struct ibv_cq_ex *cq)
+{
+	return cq->read_completion_wallclock_ns(cq);
 }
 
 static inline uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex *cq)
