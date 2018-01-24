@@ -807,7 +807,8 @@ enum ibv_qp_type {
 	IBV_QPT_UD,
 	IBV_QPT_RAW_PACKET = 8,
 	IBV_QPT_XRC_SEND = 9,
-	IBV_QPT_XRC_RECV
+	IBV_QPT_XRC_RECV,
+	IBV_QPT_DRIVER = 0xff,
 };
 
 struct ibv_qp_cap {

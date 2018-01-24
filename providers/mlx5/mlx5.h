@@ -514,6 +514,7 @@ struct mlx5_qp {
 	uint16_t			max_tso_header;
 	int                             rss_qp;
 	uint32_t			flags; /* Use enum mlx5_qp_flags */
+	enum mlx5dv_dc_type		dc_type;
 };
 
 struct mlx5_ah {
