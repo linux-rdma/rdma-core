@@ -393,6 +393,7 @@ static int test_port(const char *guid_file, int portid, int agentid, int tmo,
 	f = fopen(guid_file, "r");
 	if (!f) {
 		err("cannot open %s: %s\n", guid_file, strerror(errno));
+		free(list);
 		return -1;
 	}
 
