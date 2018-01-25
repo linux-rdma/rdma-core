@@ -278,7 +278,7 @@ static void server_close(int rs, struct msg_hdr *msg)
 
 	if (file_addr) {
 		munmap(file_addr, bytes);
-		file_addr = 0;
+		file_addr = NULL;
 	}
 
 	if (fd > 0) {

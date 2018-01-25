@@ -35,6 +35,7 @@
 #include <config.h>
 
 #include <assert.h>
+#include <endian.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,31 +45,21 @@
 #include <pthread.h>
 #include <malloc.h>
 #include <sys/mman.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <endian.h>
 
 #include "ocrdma_main.h"
 #include "ocrdma_abi.h"
 #include <ccan/list.h>
+#include <util/compiler.h>
 
 static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
 			      int solicited, uint32_t num_cqe);
 
-static inline uint32_t ocrdma_cpu_to_le(uint32_t val)
-{
-	return htole32(val);
-}
-
-static inline uint32_t ocrdma_le_to_cpu(uint32_t val)
-{
-	return le32toh(val);
-}
-
 static inline void ocrdma_swap_cpu_to_le(void *dst, uint32_t len)
 {
 	int i = 0;
-	uint32_t *src_ptr = dst;
+        __le32 *src_ptr = dst;
 	uint32_t *dst_ptr = dst;
 	for (; i < (len / 4); i++)
 		*dst_ptr++ = le32toh(*src_ptr++);
@@ -317,7 +308,7 @@ int ocrdma_resize_cq(struct ibv_cq *ibcq, int new_entries)
 {
 	int status;
 	struct ibv_resize_cq cmd;
-	struct ibv_resize_cq_resp resp;
+	struct ib_uverbs_resize_cq_resp resp;
 	status = ibv_cmd_resize_cq(ibcq, new_entries,
 				   &cmd, sizeof cmd, &resp, sizeof resp);
 	if (status == 0)
@@ -831,7 +822,7 @@ static int ocrdma_qp_state_machine(struct ocrdma_qp *qp,
 int ocrdma_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		     int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	struct ocrdma_qp *qp = get_ocrdma_qp(ibqp);
 	int status;
 
@@ -948,26 +939,25 @@ static inline void ocrdma_hwq_inc_tail_by_idx(struct ocrdma_qp_hwq_info *q,
 static int is_cqe_valid(struct ocrdma_cq *cq, struct ocrdma_cqe *cqe)
 {
 	int cqe_valid;
-	cqe_valid =
-	    ocrdma_le_to_cpu(cqe->flags_status_srcqpn) & OCRDMA_CQE_VALID;
+	cqe_valid = le32toh(cqe->flags_status_srcqpn) & OCRDMA_CQE_VALID;
 	return (cqe_valid == cq->phase);
 }
 
 static int is_cqe_for_sq(struct ocrdma_cqe *cqe)
 {
-	return (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+	return (le32toh(cqe->flags_status_srcqpn) &
 		OCRDMA_CQE_QTYPE) ? 0 : 1;
 }
 
 static int is_cqe_imm(struct ocrdma_cqe *cqe)
 {
-	return (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+	return (le32toh(cqe->flags_status_srcqpn) &
 		OCRDMA_CQE_IMM) ? 1 : 0;
 }
 
 static int is_cqe_wr_imm(struct ocrdma_cqe *cqe)
 {
-	return (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+	return (le32toh(cqe->flags_status_srcqpn) &
 		OCRDMA_CQE_WRITE_IMM) ? 1 : 0;
 }
 
@@ -976,7 +966,7 @@ static inline void ocrdma_srq_inc_tail(struct ocrdma_qp *qp,
 {
 	int wqe_idx;
 
-	wqe_idx = (ocrdma_le_to_cpu(cqe->rq.buftag_qpn) >>
+	wqe_idx = (le32toh(cqe->rq.buftag_qpn) >>
 	    OCRDMA_CQE_BUFTAG_SHIFT) & qp->srq->rq.max_wqe_idx;
 
 	if (wqe_idx < 1)
@@ -1017,7 +1007,7 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 		 *    (c) qp_xq becomes empty.
 		 * then exit
 		 */
-		qpn = ocrdma_le_to_cpu(cqe->cmn.qpn) & OCRDMA_CQE_QPN_MASK;
+		qpn = le32toh(cqe->cmn.qpn) & OCRDMA_CQE_QPN_MASK;
 		/* if previously discarded cqe found, skip that too.
 		 * check for matching qp
 		 */
@@ -1028,7 +1018,7 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 		 * in the poll_cq().
 		 */
 		if (is_cqe_for_sq(cqe)) {
-			wqe_idx = (ocrdma_le_to_cpu(cqe->wq.wqeidx) &
+			wqe_idx = (le32toh(cqe->wq.wqeidx) &
 			    OCRDMA_CQE_WQEIDX_MASK) & qp->sq.max_wqe_idx;
 			ocrdma_hwq_inc_tail_by_idx(&qp->sq, wqe_idx);
 		} else {
@@ -1083,7 +1073,7 @@ int ocrdma_destroy_qp(struct ibv_qp *ibqp)
 		munmap(qp->sq.va, qp->sq.len);
 
 	/* ensure that CQEs for newly created QP (whose id may be same with
-	 * one which just getting destroyed are same), dont get
+	 * one which just getting destroyed are same), don't get
 	 * discarded until the old CQEs are discarded.
 	 */
 	pthread_mutex_lock(&dev->dev_lock);
@@ -1109,20 +1099,26 @@ int ocrdma_destroy_qp(struct ibv_qp *ibqp)
 
 static void ocrdma_ring_sq_db(struct ocrdma_qp *qp)
 {
-	uint32_t db_val = ocrdma_cpu_to_le((qp->sq.dbid | (1 << 16)));
-	*(uint32_t *) (((uint8_t *) qp->db_sq_va)) = db_val;
+	__le32 db_val = htole32((qp->sq.dbid | (1 << 16)));
+
+	udma_to_device_barrier();
+	*(__le32 *) (((uint8_t *) qp->db_sq_va)) = db_val;
 }
 
 static void ocrdma_ring_rq_db(struct ocrdma_qp *qp)
 {
-	uint32_t db_val = ocrdma_cpu_to_le((qp->rq.dbid | (1 << qp->db_shift)));
-	*(uint32_t *) ((uint8_t *) qp->db_rq_va) = db_val;
+	__le32 db_val = htole32((qp->rq.dbid | (1 << qp->db_shift)));
+
+	udma_to_device_barrier();
+	*(__le32 *) ((uint8_t *) qp->db_rq_va) = db_val;
 }
 
 static void ocrdma_ring_srq_db(struct ocrdma_srq *srq)
 {
-	uint32_t db_val = ocrdma_cpu_to_le(srq->rq.dbid | (1 << srq->db_shift));
-	*(uint32_t *) (srq->db_va) = db_val;
+	__le32 db_val = htole32(srq->rq.dbid | (1 << srq->db_shift));
+
+	udma_to_device_barrier();
+	*(__le32 *) (srq->db_va) = db_val;
 }
 
 static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
@@ -1140,8 +1136,9 @@ static void ocrdma_ring_cq_db(struct ocrdma_cq *cq, uint32_t armed,
 		val |= (1 << OCRDMA_DB_CQ_SOLICIT_SHIFT);
 	val |= (num_cqe << OCRDMA_DB_CQ_NUM_POPPED_SHIFT);
 
-	*(uint32_t *) ((uint8_t *) (cq->db_va) + OCRDMA_DB_CQ_OFFSET) =
-	    ocrdma_cpu_to_le(val);
+	udma_to_device_barrier();
+	*(__le32 *) ((uint8_t *) (cq->db_va) + OCRDMA_DB_CQ_OFFSET) =
+	    htole32(val);
 }
 
 static void ocrdma_build_ud_hdr(struct ocrdma_qp *qp,
@@ -1200,7 +1197,7 @@ static inline int ocrdma_build_inline_sges(struct ocrdma_qp *qp,
 		hdr->total_len = ocrdma_sglist_len(wr->sg_list, wr->num_sge);
 		if (hdr->total_len > qp->max_inline_data) {
 			ocrdma_err
-			("%s() supported_len=0x%x, unspported len req=0x%x\n",
+			("%s() supported_len=0x%x, unsupported len req=0x%x\n",
 			__func__, qp->max_inline_data, hdr->total_len);
 			return EINVAL;
 		}
@@ -1321,14 +1318,18 @@ static void ocrdma_build_dpp_wqe(void *va, struct ocrdma_hdr_wqe *wqe,
 {
 	uint32_t pyld_len = (wqe->cw >> OCRDMA_WQE_SIZE_SHIFT) * 2;
 	uint32_t i = 0;
+
+	mmio_wc_start();
+
 	/* convert WQE header to LE format */
 	for (; i < hdr_len; i++)
-		*((uint32_t *) va + i) =
-			ocrdma_cpu_to_le(*((uint32_t *) wqe + i));
+		*((__le32 *) va + i) =
+			htole32(*((uint32_t *) wqe + i));
 	/* Convertion of data is done in HW */
 	for (; i < pyld_len; i++)
 		*((uint32_t *) va + i) = (*((uint32_t *) wqe + i));
-	wc_wmb();
+
+	mmio_flush_writes();
 }
 
 static void ocrdma_post_dpp_wqe(struct ocrdma_qp *qp,
@@ -1401,14 +1402,16 @@ int ocrdma_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 		switch (wr->opcode) {
 		case IBV_WR_SEND_WITH_IMM:
 			hdr->cw |= (OCRDMA_FLAG_IMM << OCRDMA_WQE_FLAGS_SHIFT);
-			hdr->immdt = ntohl(wr->imm_data);
+			hdr->immdt = be32toh(wr->imm_data);
+			SWITCH_FALLTHROUGH;
 		case IBV_WR_SEND:
 			hdr->cw |= (OCRDMA_SEND << OCRDMA_WQE_OPCODE_SHIFT);
 			status = ocrdma_build_send(qp, hdr, wr);
 			break;
 		case IBV_WR_RDMA_WRITE_WITH_IMM:
 			hdr->cw |= (OCRDMA_FLAG_IMM << OCRDMA_WQE_FLAGS_SHIFT);
-			hdr->immdt = ntohl(wr->imm_data);
+			hdr->immdt = be32toh(wr->imm_data);
+			SWITCH_FALLTHROUGH;
 		case IBV_WR_RDMA_WRITE:
 			hdr->cw |= (OCRDMA_WRITE << OCRDMA_WQE_OPCODE_SHIFT);
 			status = ocrdma_build_write(qp, hdr, wr);
@@ -1436,7 +1439,6 @@ int ocrdma_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 				      OCRDMA_WQE_SIZE_MASK) *
 				      OCRDMA_WQE_STRIDE);
 
-		wmb();
 		ocrdma_ring_sq_db(qp);
 
 		/* update pointer, counter for next wr */
@@ -1498,7 +1500,6 @@ int ocrdma_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		rqe = ocrdma_hwq_head(&qp->rq);
 		ocrdma_build_rqe(rqe, wr, 0);
 		qp->rqe_wr_id_tbl[qp->rq.head] = wr->wr_id;
-		wmb();
 		ocrdma_ring_rq_db(qp);
 
 		/* update pointer, counter for next wr */
@@ -1584,7 +1585,7 @@ static enum ibv_wc_status ocrdma_to_ibwc_err(uint16_t status)
 static void ocrdma_update_wc(struct ocrdma_qp *qp, struct ibv_wc *ibwc,
 			     uint32_t wqe_idx)
 {
-	struct ocrdma_hdr_wqe *hdr;
+	struct ocrdma_hdr_wqe_le *hdr;
 	struct ocrdma_sge *rw;
 	int opcode;
 
@@ -1593,7 +1594,7 @@ static void ocrdma_update_wc(struct ocrdma_qp *qp, struct ibv_wc *ibwc,
 	ibwc->wr_id = qp->wqe_wr_id_tbl[wqe_idx].wrid;
 
 	/* Undo the hdr->cw swap */
-	opcode = ocrdma_le_to_cpu(hdr->cw) & OCRDMA_WQE_OPCODE_MASK;
+	opcode = le32toh(hdr->cw) & OCRDMA_WQE_OPCODE_MASK;
 	switch (opcode) {
 	case OCRDMA_WRITE:
 		ibwc->opcode = IBV_WC_RDMA_WRITE;
@@ -1609,7 +1610,7 @@ static void ocrdma_update_wc(struct ocrdma_qp *qp, struct ibv_wc *ibwc,
 	default:
 		ibwc->status = IBV_WC_GENERAL_ERR;
 		ocrdma_err("%s() invalid opcode received = 0x%x\n",
-			   __func__, hdr->cw & OCRDMA_WQE_OPCODE_MASK);
+			   __func__, le32toh(hdr->cw) & OCRDMA_WQE_OPCODE_MASK);
 		break;
 	};
 }
@@ -1619,30 +1620,30 @@ static void ocrdma_set_cqe_status_flushed(struct ocrdma_qp *qp,
 {
 	if (is_cqe_for_sq(cqe)) {
 		cqe->flags_status_srcqpn =
-		    ocrdma_cpu_to_le(ocrdma_le_to_cpu(cqe->flags_status_srcqpn)
+		    htole32(le32toh(cqe->flags_status_srcqpn)
 				     & ~OCRDMA_CQE_STATUS_MASK);
 		cqe->flags_status_srcqpn =
-		    ocrdma_cpu_to_le(ocrdma_le_to_cpu(cqe->flags_status_srcqpn)
+		    htole32(le32toh(cqe->flags_status_srcqpn)
 				     | (OCRDMA_CQE_WR_FLUSH_ERR <<
 					OCRDMA_CQE_STATUS_SHIFT));
 	} else {
 		if (qp->qp_type == IBV_QPT_UD) {
 			cqe->flags_status_srcqpn =
-			    ocrdma_cpu_to_le(ocrdma_le_to_cpu
+			    htole32(le32toh
 					     (cqe->flags_status_srcqpn) &
 					     ~OCRDMA_CQE_UD_STATUS_MASK);
 			cqe->flags_status_srcqpn =
-			    ocrdma_cpu_to_le(ocrdma_le_to_cpu
+			    htole32(le32toh
 					     (cqe->flags_status_srcqpn) |
 					     (OCRDMA_CQE_WR_FLUSH_ERR <<
 					      OCRDMA_CQE_UD_STATUS_SHIFT));
 		} else {
 			cqe->flags_status_srcqpn =
-			    ocrdma_cpu_to_le(ocrdma_le_to_cpu
+			    htole32(le32toh
 					     (cqe->flags_status_srcqpn) &
 					     ~OCRDMA_CQE_STATUS_MASK);
 			cqe->flags_status_srcqpn =
-			    ocrdma_cpu_to_le(ocrdma_le_to_cpu
+			    htole32(le32toh
 					     (cqe->flags_status_srcqpn) |
 					     (OCRDMA_CQE_WR_FLUSH_ERR <<
 					      OCRDMA_CQE_STATUS_SHIFT));
@@ -1696,7 +1697,7 @@ static int ocrdma_poll_err_scqe(struct ocrdma_qp *qp,
 				int *polled, int *stop)
 {
 	int expand;
-	int status = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+	int status = (le32toh(cqe->flags_status_srcqpn) &
 		      OCRDMA_CQE_STATUS_MASK) >> OCRDMA_CQE_STATUS_SHIFT;
 
 	/* when hw sq is empty, but rq is not empty, so we continue
@@ -1745,7 +1746,7 @@ static int ocrdma_poll_success_scqe(struct ocrdma_qp *qp,
 		*polled = 1;
 	}
 
-	wqe_idx = (ocrdma_le_to_cpu(cqe->wq.wqeidx) &
+	wqe_idx = (le32toh(cqe->wq.wqeidx) &
 	    OCRDMA_CQE_WQEIDX_MASK) & qp->sq.max_wqe_idx;
 	if (tail != wqe_idx)	/* CQE cannot be consumed yet */
 		expand = 1;	/* Coallesced CQE */
@@ -1759,7 +1760,7 @@ static int ocrdma_poll_scqe(struct ocrdma_qp *qp, struct ocrdma_cqe *cqe,
 {
 	int status, expand;
 
-	status = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+	status = (le32toh(cqe->flags_status_srcqpn) &
 		  OCRDMA_CQE_STATUS_MASK) >> OCRDMA_CQE_STATUS_SHIFT;
 
 	if (status == OCRDMA_CQE_SUCCESS)
@@ -1773,14 +1774,14 @@ static int ocrdma_update_ud_rcqe(struct ibv_wc *ibwc, struct ocrdma_cqe *cqe)
 {
 	int status;
 
-	status = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+	status = (le32toh(cqe->flags_status_srcqpn) &
 		  OCRDMA_CQE_UD_STATUS_MASK) >> OCRDMA_CQE_UD_STATUS_SHIFT;
-	ibwc->src_qp = ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+	ibwc->src_qp = le32toh(cqe->flags_status_srcqpn) &
 	    OCRDMA_CQE_SRCQP_MASK;
-	ibwc->pkey_index = ocrdma_le_to_cpu(cqe->ud.rxlen_pkey) &
+	ibwc->pkey_index = le32toh(cqe->ud.rxlen_pkey) &
 	    OCRDMA_CQE_PKEY_MASK;
 	ibwc->wc_flags = IBV_WC_GRH;
-	ibwc->byte_len = (ocrdma_le_to_cpu(cqe->ud.rxlen_pkey) >>
+	ibwc->byte_len = (le32toh(cqe->ud.rxlen_pkey) >>
 			  OCRDMA_CQE_UD_XFER_LEN_SHIFT);
 	return status;
 }
@@ -1794,10 +1795,10 @@ static void ocrdma_update_free_srq_cqe(struct ibv_wc *ibwc,
 
 	srq = get_ocrdma_srq(qp->ibv_qp.srq);
 #if !defined(SKH_A0_WORKAROUND) /* BUG 113416 */
-	wqe_idx = (ocrdma_le_to_cpu(cqe->rq.buftag_qpn) >>
+	wqe_idx = (le32toh(cqe->rq.buftag_qpn) >>
 	    OCRDMA_CQE_BUFTAG_SHIFT) & srq->rq.max_wqe_idx;
 #else
-	wqe_idx = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn)) & 0xFFFF;
+	wqe_idx = (le32toh(cqe->flags_status_srcqpn)) & 0xFFFF;
 #endif
 	if (wqe_idx < 1)
 		assert(0);
@@ -1852,14 +1853,14 @@ static void ocrdma_poll_success_rcqe(struct ocrdma_qp *qp,
 	if (qp->qp_type == IBV_QPT_UD)
 		ocrdma_update_ud_rcqe(ibwc, cqe);
 	else
-		ibwc->byte_len = ocrdma_le_to_cpu(cqe->rq.rxlen);
+		ibwc->byte_len = le32toh(cqe->rq.rxlen);
 
 	if (is_cqe_imm(cqe)) {
-		ibwc->imm_data = htonl(ocrdma_le_to_cpu(cqe->rq.lkey_immdt));
+		ibwc->imm_data = htobe32(le32toh(cqe->rq.lkey_immdt));
 		ibwc->wc_flags |= IBV_WC_WITH_IMM;
 	} else if (is_cqe_wr_imm(cqe)) {
 		ibwc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
-		ibwc->imm_data = htonl(ocrdma_le_to_cpu(cqe->rq.lkey_immdt));
+		ibwc->imm_data = htobe32(le32toh(cqe->rq.lkey_immdt));
 		ibwc->wc_flags |= IBV_WC_WITH_IMM;
 	}
 	if (qp->ibv_qp.srq)
@@ -1878,11 +1879,11 @@ static int ocrdma_poll_rcqe(struct ocrdma_qp *qp, struct ocrdma_cqe *cqe,
 
 	ibwc->wc_flags = 0;
 	if (qp->qp_type == IBV_QPT_UD)
-		status = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+		status = (le32toh(cqe->flags_status_srcqpn) &
 			  OCRDMA_CQE_UD_STATUS_MASK) >>
 				OCRDMA_CQE_UD_STATUS_SHIFT;
 	else
-		status = (ocrdma_le_to_cpu(cqe->flags_status_srcqpn) &
+		status = (le32toh(cqe->flags_status_srcqpn) &
 			  OCRDMA_CQE_STATUS_MASK) >> OCRDMA_CQE_STATUS_SHIFT;
 
 	if (status == OCRDMA_CQE_SUCCESS) {
@@ -1925,7 +1926,7 @@ static int ocrdma_poll_hwcq(struct ocrdma_cq *cq, int num_entries,
 		/* check whether valid cqe or not */
 		if (!is_cqe_valid(cq, cqe))
 			break;
-		qpn = (ocrdma_le_to_cpu(cqe->cmn.qpn) & OCRDMA_CQE_QPN_MASK);
+		qpn = (le32toh(cqe->cmn.qpn) & OCRDMA_CQE_QPN_MASK);
 		/* ignore discarded cqe */
 		if (qpn == 0)
 			goto skip_cqe;
@@ -2079,7 +2080,6 @@ int ocrdma_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 		ocrdma_build_rqe(rqe, wr, tag);
 		srq->rqe_wr_id_tbl[tag] = wr->wr_id;
 
-		wmb();
 		ocrdma_ring_srq_db(srq);
 
 		/* update pointer, counter for next wr */
@@ -2099,6 +2099,7 @@ struct ibv_ah *ocrdma_create_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 	int ahtbl_idx;
 	struct ocrdma_pd *pd;
 	struct ocrdma_ah *ah;
+	struct ib_uverbs_create_ah_resp resp;
 
 	pd = get_ocrdma_pd(ibpd);
 	ah = malloc(sizeof *ah);
@@ -2111,7 +2112,8 @@ struct ibv_ah *ocrdma_create_ah(struct ibv_pd *ibpd, struct ibv_ah_attr *attr)
 	if (ahtbl_idx < 0)
 		goto tbl_err;
 	attr->dlid = ahtbl_idx;
-	status = ibv_cmd_create_ah(ibpd, &ah->ibv_ah, attr);
+	memset(&resp, 0, sizeof(resp));
+	status = ibv_cmd_create_ah(ibpd, &ah->ibv_ah, attr, &resp, sizeof(resp));
 	if (status)
 		goto cmd_err;
 

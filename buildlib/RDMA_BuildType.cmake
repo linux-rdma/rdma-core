@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2015 Obsidian Research Corporation. See COPYING file
+# COPYRIGHT (c) 2015 Obsidian Research Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 function(RDMA_BuildType)
   set(build_types Debug Release RelWithDebInfo MinSizeRel)

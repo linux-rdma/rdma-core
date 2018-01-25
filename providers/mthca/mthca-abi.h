@@ -39,13 +39,13 @@
 #define MTHCA_UVERBS_ABI_VERSION	1
 
 struct mthca_alloc_ucontext_resp {
-	struct ibv_get_context_resp	ibv_resp;
+	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
 	__u32				uarc_size;
 };
 
 struct mthca_alloc_pd_resp {
-	struct ibv_alloc_pd_resp	ibv_resp;
+	struct ib_uverbs_alloc_pd_resp	ibv_resp;
 	__u32				pdn;
 	__u32				reserved;
 };
@@ -72,7 +72,7 @@ struct mthca_create_cq {
 };
 
 struct mthca_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
+	struct ib_uverbs_create_cq_resp	ibv_resp;
 	__u32				cqn;
 	__u32				reserved;
 };
@@ -91,7 +91,7 @@ struct mthca_create_srq {
 };
 
 struct mthca_create_srq_resp {
-	struct ibv_create_srq_resp	ibv_resp;
+	struct ib_uverbs_create_srq_resp	ibv_resp;
 	__u32				srqn;
 	__u32				reserved;
 };

@@ -72,16 +72,10 @@
 #define PCI_VENDOR_ID_TOPSPIN			0x1867
 #endif
 
-#define HCA(v, d, t) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_MELLANOX_##d,		\
-	  .type = MTHCA_##t }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-	enum mthca_hca_type	type;
-} hca_table[] = {
+#define HCA(v, d, t)                                                           \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_MELLANOX_##d,         \
+			(void *)(MTHCA_##t))
+static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, TAVOR,	    TAVOR),
 	HCA(MELLANOX, ARBEL_COMPAT, TAVOR),
 	HCA(MELLANOX, ARBEL,	    ARBEL),
@@ -92,9 +86,10 @@ static struct {
 	HCA(TOPSPIN,  ARBEL,	    ARBEL),
 	HCA(TOPSPIN,  SINAI_OLD,    ARBEL),
 	HCA(TOPSPIN,  SINAI,	    ARBEL),
+	{}
 };
 
-static struct ibv_context_ops mthca_ctx_ops = {
+static const struct verbs_context_ops mthca_ctx_common_ops = {
 	.query_device  = mthca_query_device,
 	.query_port    = mthca_query_port,
 	.alloc_pd      = mthca_alloc_pd,
@@ -119,18 +114,32 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.detach_mcast  = ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd_fd)
+static const struct verbs_context_ops mthca_ctx_arbel_ops = {
+	.cq_event = mthca_arbel_cq_event,
+	.post_recv = mthca_arbel_post_recv,
+	.post_send = mthca_arbel_post_send,
+	.post_srq_recv = mthca_arbel_post_srq_recv,
+	.req_notify_cq = mthca_arbel_arm_cq,
+};
+
+static const struct verbs_context_ops mthca_ctx_tavor_ops = {
+	.post_recv = mthca_tavor_post_recv,
+	.post_send = mthca_tavor_post_send,
+	.post_srq_recv = mthca_tavor_post_srq_recv,
+	.req_notify_cq = mthca_tavor_arm_cq,
+};
+
+static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
+						 int cmd_fd)
 {
 	struct mthca_context            *context;
 	struct ibv_get_context           cmd;
 	struct mthca_alloc_ucontext_resp resp;
 	int                              i;
 
-	context = calloc(1, sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp))
@@ -140,13 +149,7 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd
 	context->qp_table_shift = ffs(context->num_qps) - 1 - MTHCA_QP_TABLE_BITS;
 	context->qp_table_mask  = (1 << context->qp_table_shift) - 1;
 
-	/*
-	 * Need to set ibv_ctx.device because mthca_is_memfree() will
-	 * look at it to figure out the HCA type.
-	 */
-	context->ibv_ctx.device = ibdev;
-
-	if (mthca_is_memfree(&context->ibv_ctx)) {
+	if (mthca_is_memfree(&context->ibv_ctx.context)) {
 		context->db_tab = mthca_alloc_db_tab(resp.uarc_size);
 		if (!context->db_tab)
 			goto err_free;
@@ -164,27 +167,17 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
-	context->pd = mthca_alloc_pd(&context->ibv_ctx);
+	context->pd = mthca_alloc_pd(&context->ibv_ctx.context);
 	if (!context->pd)
 		goto err_unmap;
 
-	context->pd->context = &context->ibv_ctx;
+	context->pd->context = &context->ibv_ctx.context;
 
-	context->ibv_ctx.ops = mthca_ctx_ops;
-
-	if (mthca_is_memfree(&context->ibv_ctx)) {
-		context->ibv_ctx.ops.req_notify_cq = mthca_arbel_arm_cq;
-		context->ibv_ctx.ops.cq_event      = mthca_arbel_cq_event;
-		context->ibv_ctx.ops.post_send     = mthca_arbel_post_send;
-		context->ibv_ctx.ops.post_recv     = mthca_arbel_post_recv;
-		context->ibv_ctx.ops.post_srq_recv = mthca_arbel_post_srq_recv;
-	} else {
-		context->ibv_ctx.ops.req_notify_cq = mthca_tavor_arm_cq;
-		context->ibv_ctx.ops.cq_event      = NULL;
-		context->ibv_ctx.ops.post_send     = mthca_tavor_post_send;
-		context->ibv_ctx.ops.post_recv     = mthca_tavor_post_recv;
-		context->ibv_ctx.ops.post_srq_recv = mthca_tavor_post_srq_recv;
-	}
+	verbs_set_ops(&context->ibv_ctx, &mthca_ctx_common_ops);
+	if (mthca_is_memfree(&context->ibv_ctx.context))
+		verbs_set_ops(&context->ibv_ctx, &mthca_ctx_arbel_ops);
+	else
+		verbs_set_ops(&context->ibv_ctx, &mthca_ctx_tavor_ops);
 
 	return &context->ibv_ctx;
 
@@ -195,6 +188,7 @@ err_db_tab:
 	mthca_free_db_tab(context->db_tab);
 
 err_free:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -206,61 +200,41 @@ static void mthca_free_context(struct ibv_context *ibctx)
 	mthca_free_pd(context->pd);
 	munmap(context->uar, to_mdev(ibctx->device)->page_size);
 	mthca_free_db_tab(context->db_tab);
+
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 
-static struct ibv_device_ops mthca_dev_ops = {
-	.alloc_context = mthca_alloc_context,
-	.free_context  = mthca_free_context
-};
-
-static struct ibv_device *mthca_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static void mthca_uninit_device(struct verbs_device *verbs_device)
 {
-	char			value[8];
+	struct mthca_device *dev = to_mdev(&verbs_device->device);
+
+	free(dev);
+}
+
+static struct verbs_device *
+mthca_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
 	struct mthca_device    *dev;
-	unsigned                vendor, device;
-	int                     i;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return NULL;
-	sscanf(value, "%i", &vendor);
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
-	if (abi_version > MTHCA_UVERBS_ABI_VERSION) {
-		fprintf(stderr, PFX "Fatal: ABI version %d of %s is too new (expected %d)\n",
-			abi_version, uverbs_sys_path, MTHCA_UVERBS_ABI_VERSION);
-		return NULL;
-	}
-
-	dev = malloc(sizeof *dev);
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
-		return NULL;
-	}
-
-	dev->ibv_dev.ops = mthca_dev_ops;
-	dev->hca_type    = hca_table[i].type;
+	dev->hca_type    = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->page_size   = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void mthca_register_driver(void)
-{
-	ibv_register_driver("mthca", mthca_driver_init);
-}
+static const struct verbs_device_ops mthca_dev_ops = {
+	.name = "mthca",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = MTHCA_UVERBS_ABI_VERSION,
+	.match_table = hca_table,
+	.alloc_device = mthca_device_alloc,
+	.uninit_device = mthca_uninit_device,
+	.alloc_context = mthca_alloc_context,
+	.free_context = mthca_free_context,
+};
+PROVIDER_DRIVER(mthca_dev_ops);

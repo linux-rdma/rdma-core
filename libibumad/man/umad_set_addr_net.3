@@ -8,7 +8,7 @@ umad_set_addr_net \- set MAD address fields within umad buffer using network ord
 .nf
 .B #include <infiniband/umad.h>
 .sp
-.BI "int umad_set_addr_net(void " "*umad" ", int " "dlid" ", int " "dqp" ", int " "sl" ", int " "qkey");
+.BI "int umad_set_addr_net(void " "*umad" ", __be16 " "dlid" ", __be32 " "dqp" ", int " "sl" ", __be32 " "qkey");
 .fi
 .SH "DESCRIPTION"
 .B umad_set_addr_net()

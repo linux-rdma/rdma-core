@@ -1,0 +1,24 @@
+[Unit]
+Description=InfiniBand Address Cache Manager Daemon
+Documentation=man:ibacm file:@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/ibacm_opts.cfg
+# Cause systemd to always start the socket, which means the parameters in
+# ibacm.socket always configures the listening socket, even if the deamon is
+# started directly.
+Wants=ibacm.socket
+# Ensure required kernel modules are loaded before starting
+Wants=rdma-load-modules@rdma.service
+After=rdma-load-modules@rdma.service
+# Order ibacm startup after basic RDMA hw setup.
+After=rdma-hw.target
+
+# Implicitly after basic.target, note that ibacm writes to /var/log directly
+# and thus needs writable filesystems setup.
+
+[Service]
+Type=notify
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm --systemd
+
+[Install]
+Also=ibacm.socket
+# Only want ibacm if RDMA hardware is present (or the socket is touched)
+WantedBy=rdma-hw.target

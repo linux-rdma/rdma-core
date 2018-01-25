@@ -14,8 +14,7 @@ The communication channel to destroy.
 Release all resources associated with an event channel and closes the
 associated file descriptor.
 .SH "RETURN VALUE"
-Returns 0 on success, or -1 on error.  If an error occurs, errno will be
-set to indicate the failure reason.
+None
 .SH "NOTES"
 All rdma_cm_id's associated with the event channel must be destroyed,
 and all returned events must be acked before calling this function.

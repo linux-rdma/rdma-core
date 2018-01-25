@@ -34,14 +34,18 @@
 #define _GNU_SOURCE
 #include <config.h>
 
+#include <endian.h>
 #include <stdio.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <linux/ip.h>
 #include <dirent.h>
+#include <netinet/in.h>
+
+#include <util/compiler.h>
+#include <util/symver.h>
 
 #include "ibverbs.h"
 #ifndef NRESOLVE_NEIGH
@@ -50,7 +54,9 @@
 #include "neigh.h"
 #endif
 
-int ibv_rate_to_mult(enum ibv_rate rate)
+#undef ibv_query_port
+
+int __attribute__((const)) ibv_rate_to_mult(enum ibv_rate rate)
 {
 	switch (rate) {
 	case IBV_RATE_2_5_GBPS: return  1;
@@ -66,7 +72,7 @@ int ibv_rate_to_mult(enum ibv_rate rate)
 	}
 }
 
-enum ibv_rate mult_to_ibv_rate(int mult)
+enum ibv_rate __attribute__((const)) mult_to_ibv_rate(int mult)
 {
 	switch (mult) {
 	case 1:  return IBV_RATE_2_5_GBPS;
@@ -82,7 +88,7 @@ enum ibv_rate mult_to_ibv_rate(int mult)
 	}
 }
 
-int ibv_rate_to_mbps(enum ibv_rate rate)
+int  __attribute__((const)) ibv_rate_to_mbps(enum ibv_rate rate)
 {
 	switch (rate) {
 	case IBV_RATE_2_5_GBPS: return 2500;
@@ -106,7 +112,7 @@ int ibv_rate_to_mbps(enum ibv_rate rate)
 	}
 }
 
-enum ibv_rate mbps_to_ibv_rate(int mbps)
+enum ibv_rate __attribute__((const)) mbps_to_ibv_rate(int mbps)
 {
 	switch (mbps) {
 	case 2500:   return IBV_RATE_2_5_GBPS;
@@ -130,24 +136,26 @@ enum ibv_rate mbps_to_ibv_rate(int mbps)
 	}
 }
 
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
-
-int __ibv_query_device(struct ibv_context *context,
-		       struct ibv_device_attr *device_attr)
+LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_context *context,
+		   struct ibv_device_attr *device_attr)
 {
 	return context->ops.query_device(context, device_attr);
 }
-default_symver(__ibv_query_device, ibv_query_device);
 
-int __ibv_query_port(struct ibv_context *context, uint8_t port_num,
-		     struct ibv_port_attr *port_attr)
+LATEST_SYMVER_FUNC(ibv_query_port, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_context *context, uint8_t port_num,
+		   struct ibv_port_attr *port_attr)
 {
 	return context->ops.query_port(context, port_num, port_attr);
 }
-default_symver(__ibv_query_port, ibv_query_port);
 
-int __ibv_query_gid(struct ibv_context *context, uint8_t port_num,
-		    int index, union ibv_gid *gid)
+LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_context *context, uint8_t port_num,
+		   int index, union ibv_gid *gid)
 {
 	char name[24];
 	char attr[41];
@@ -169,10 +177,11 @@ int __ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 
 	return 0;
 }
-default_symver(__ibv_query_gid, ibv_query_gid);
 
-int __ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
-		     int index, uint16_t *pkey)
+LATEST_SYMVER_FUNC(ibv_query_pkey, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_context *context, uint8_t port_num,
+		   int index, __be16 *pkey)
 {
 	char name[24];
 	char attr[8];
@@ -187,12 +196,13 @@ int __ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 	if (sscanf(attr, "%hx", &val) != 1)
 		return -1;
 
-	*pkey = htons(val);
+	*pkey = htobe16(val);
 	return 0;
 }
-default_symver(__ibv_query_pkey, ibv_query_pkey);
 
-struct ibv_pd *__ibv_alloc_pd(struct ibv_context *context)
+LATEST_SYMVER_FUNC(ibv_alloc_pd, 1_1, "IBVERBS_1.1",
+		   struct ibv_pd *,
+		   struct ibv_context *context)
 {
 	struct ibv_pd *pd;
 
@@ -202,16 +212,18 @@ struct ibv_pd *__ibv_alloc_pd(struct ibv_context *context)
 
 	return pd;
 }
-default_symver(__ibv_alloc_pd, ibv_alloc_pd);
 
-int __ibv_dealloc_pd(struct ibv_pd *pd)
+LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_pd *pd)
 {
 	return pd->context->ops.dealloc_pd(pd);
 }
-default_symver(__ibv_dealloc_pd, ibv_dealloc_pd);
 
-struct ibv_mr *__ibv_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, int access)
+LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
+		   struct ibv_mr *,
+		   struct ibv_pd *pd, void *addr,
+		   size_t length, int access)
 {
 	struct ibv_mr *mr;
 
@@ -229,9 +241,10 @@ struct ibv_mr *__ibv_reg_mr(struct ibv_pd *pd, void *addr,
 
 	return mr;
 }
-default_symver(__ibv_reg_mr, ibv_reg_mr);
 
-int __ibv_rereg_mr(struct ibv_mr *mr, int flags,
+LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_mr *mr, int flags,
 		   struct ibv_pd *pd, void *addr,
 		   size_t length, int access)
 {
@@ -253,11 +266,6 @@ int __ibv_rereg_mr(struct ibv_mr *mr, int flags,
 
 	if (access && !(flags & IBV_REREG_MR_CHANGE_ACCESS)) {
 		errno = EINVAL;
-		return IBV_REREG_MR_ERR_INPUT;
-	}
-
-	if (!mr->context->ops.rereg_mr) {
-		errno = ENOSYS;
 		return IBV_REREG_MR_ERR_INPUT;
 	}
 
@@ -291,9 +299,10 @@ int __ibv_rereg_mr(struct ibv_mr *mr, int flags,
 
 	return err;
 }
-default_symver(__ibv_rereg_mr, ibv_rereg_mr);
 
-int __ibv_dereg_mr(struct ibv_mr *mr)
+LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_mr *mr)
 {
 	int ret;
 	void *addr	= mr->addr;
@@ -305,34 +314,12 @@ int __ibv_dereg_mr(struct ibv_mr *mr)
 
 	return ret;
 }
-default_symver(__ibv_dereg_mr, ibv_dereg_mr);
-
-static struct ibv_comp_channel *ibv_create_comp_channel_v2(struct ibv_context *context)
-{
-	struct ibv_abi_compat_v2 *t = context->abi_compat;
-	static int warned;
-
-	if (!pthread_mutex_trylock(&t->in_use))
-		return &t->channel;
-
-	if (!warned) {
-		fprintf(stderr, PFX "Warning: kernel's ABI version %d limits capacity.\n"
-			"    Only one completion channel can be created per context.\n",
-			abi_ver);
-		++warned;
-	}
-
-	return NULL;
-}
 
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
 	struct ibv_comp_channel            *channel;
 	struct ibv_create_comp_channel      cmd;
-	struct ibv_create_comp_channel_resp resp;
-
-	if (abi_ver <= 2)
-		return ibv_create_comp_channel_v2(context);
+	struct ib_uverbs_create_comp_channel_resp resp;
 
 	channel = malloc(sizeof *channel);
 	if (!channel)
@@ -353,13 +340,6 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 	return channel;
 }
 
-static int ibv_destroy_comp_channel_v2(struct ibv_comp_channel *channel)
-{
-	struct ibv_abi_compat_v2 *t = (struct ibv_abi_compat_v2 *) channel;
-	pthread_mutex_unlock(&t->in_use);
-	return 0;
-}
-
 int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 {
 	struct ibv_context *context;
@@ -373,11 +353,6 @@ int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 		goto out;
 	}
 
-	if (abi_ver <= 2) {
-		ret = ibv_destroy_comp_channel_v2(channel);
-		goto out;
-	}
-
 	close(channel->fd);
 	free(channel);
 	ret = 0;
@@ -388,66 +363,54 @@ out:
 	return ret;
 }
 
-struct ibv_cq *__ibv_create_cq(struct ibv_context *context, int cqe, void *cq_context,
-			       struct ibv_comp_channel *channel, int comp_vector)
+LATEST_SYMVER_FUNC(ibv_create_cq, 1_1, "IBVERBS_1.1",
+		   struct ibv_cq *,
+		   struct ibv_context *context, int cqe, void *cq_context,
+		   struct ibv_comp_channel *channel, int comp_vector)
 {
 	struct ibv_cq *cq;
 
-	pthread_mutex_lock(&context->mutex);
-
 	cq = context->ops.create_cq(context, cqe, channel, comp_vector);
 
-	if (cq) {
-		cq->context    	     	   = context;
-		cq->channel		   = channel;
-		if (channel)
-			++channel->refcnt;
-		cq->cq_context 	     	   = cq_context;
-		cq->comp_events_completed  = 0;
-		cq->async_events_completed = 0;
-		pthread_mutex_init(&cq->mutex, NULL);
-		pthread_cond_init(&cq->cond, NULL);
-	}
-
-	pthread_mutex_unlock(&context->mutex);
+	if (cq)
+		verbs_init_cq(cq, context, channel, cq_context);
 
 	return cq;
 }
-default_symver(__ibv_create_cq, ibv_create_cq);
 
-int __ibv_resize_cq(struct ibv_cq *cq, int cqe)
+LATEST_SYMVER_FUNC(ibv_resize_cq, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_cq *cq, int cqe)
 {
-	if (!cq->context->ops.resize_cq)
-		return ENOSYS;
-
 	return cq->context->ops.resize_cq(cq, cqe);
 }
-default_symver(__ibv_resize_cq, ibv_resize_cq);
 
-int __ibv_destroy_cq(struct ibv_cq *cq)
+LATEST_SYMVER_FUNC(ibv_destroy_cq, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_cq *cq)
 {
 	struct ibv_comp_channel *channel = cq->channel;
 	int ret;
 
-	if (channel)
-		pthread_mutex_lock(&channel->context->mutex);
-
 	ret = cq->context->ops.destroy_cq(cq);
 
 	if (channel) {
-		if (!ret)
+		if (!ret) {
+			pthread_mutex_lock(&channel->context->mutex);
 			--channel->refcnt;
-		pthread_mutex_unlock(&channel->context->mutex);
+			pthread_mutex_unlock(&channel->context->mutex);
+		}
 	}
 
 	return ret;
 }
-default_symver(__ibv_destroy_cq, ibv_destroy_cq);
 
-int __ibv_get_cq_event(struct ibv_comp_channel *channel,
-		       struct ibv_cq **cq, void **cq_context)
+LATEST_SYMVER_FUNC(ibv_get_cq_event, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_comp_channel *channel,
+		   struct ibv_cq **cq, void **cq_context)
 {
-	struct ibv_comp_event ev;
+	struct ib_uverbs_comp_event_desc ev;
 
 	if (read(channel->fd, &ev, sizeof ev) != sizeof ev)
 		return -1;
@@ -455,29 +418,27 @@ int __ibv_get_cq_event(struct ibv_comp_channel *channel,
 	*cq         = (struct ibv_cq *) (uintptr_t) ev.cq_handle;
 	*cq_context = (*cq)->cq_context;
 
-	if ((*cq)->context->ops.cq_event)
-		(*cq)->context->ops.cq_event(*cq);
+	(*cq)->context->ops.cq_event(*cq);
 
 	return 0;
 }
-default_symver(__ibv_get_cq_event, ibv_get_cq_event);
 
-void __ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
+LATEST_SYMVER_FUNC(ibv_ack_cq_events, 1_1, "IBVERBS_1.1",
+		   void,
+		   struct ibv_cq *cq, unsigned int nevents)
 {
 	pthread_mutex_lock(&cq->mutex);
 	cq->comp_events_completed += nevents;
 	pthread_cond_signal(&cq->cond);
 	pthread_mutex_unlock(&cq->mutex);
 }
-default_symver(__ibv_ack_cq_events, ibv_ack_cq_events);
 
-struct ibv_srq *__ibv_create_srq(struct ibv_pd *pd,
-				 struct ibv_srq_init_attr *srq_init_attr)
+LATEST_SYMVER_FUNC(ibv_create_srq, 1_1, "IBVERBS_1.1",
+		   struct ibv_srq *,
+		   struct ibv_pd *pd,
+		   struct ibv_srq_init_attr *srq_init_attr)
 {
 	struct ibv_srq *srq;
-
-	if (!pd->context->ops.create_srq)
-		return NULL;
 
 	srq = pd->context->ops.create_srq(pd, srq_init_attr);
 	if (srq) {
@@ -491,30 +452,34 @@ struct ibv_srq *__ibv_create_srq(struct ibv_pd *pd,
 
 	return srq;
 }
-default_symver(__ibv_create_srq, ibv_create_srq);
 
-int __ibv_modify_srq(struct ibv_srq *srq,
-		     struct ibv_srq_attr *srq_attr,
-		     int srq_attr_mask)
+LATEST_SYMVER_FUNC(ibv_modify_srq, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_srq *srq,
+		   struct ibv_srq_attr *srq_attr,
+		   int srq_attr_mask)
 {
 	return srq->context->ops.modify_srq(srq, srq_attr, srq_attr_mask);
 }
-default_symver(__ibv_modify_srq, ibv_modify_srq);
 
-int __ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
+LATEST_SYMVER_FUNC(ibv_query_srq, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 {
 	return srq->context->ops.query_srq(srq, srq_attr);
 }
-default_symver(__ibv_query_srq, ibv_query_srq);
 
-int __ibv_destroy_srq(struct ibv_srq *srq)
+LATEST_SYMVER_FUNC(ibv_destroy_srq, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_srq *srq)
 {
 	return srq->context->ops.destroy_srq(srq);
 }
-default_symver(__ibv_destroy_srq, ibv_destroy_srq);
 
-struct ibv_qp *__ibv_create_qp(struct ibv_pd *pd,
-			       struct ibv_qp_init_attr *qp_init_attr)
+LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
+		   struct ibv_qp *,
+		   struct ibv_pd *pd,
+		   struct ibv_qp_init_attr *qp_init_attr)
 {
 	struct ibv_qp *qp = pd->context->ops.create_qp(pd, qp_init_attr);
 
@@ -534,9 +499,10 @@ struct ibv_qp *__ibv_create_qp(struct ibv_pd *pd,
 
 	return qp;
 }
-default_symver(__ibv_create_qp, ibv_create_qp);
 
-int __ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask,
 		   struct ibv_qp_init_attr *init_attr)
 {
@@ -551,10 +517,11 @@ int __ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	return 0;
 }
-default_symver(__ibv_query_qp, ibv_query_qp);
 
-int __ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		    int attr_mask)
+LATEST_SYMVER_FUNC(ibv_modify_qp, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_qp *qp, struct ibv_qp_attr *attr,
+		   int attr_mask)
 {
 	int ret;
 
@@ -567,15 +534,17 @@ int __ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	return 0;
 }
-default_symver(__ibv_modify_qp, ibv_modify_qp);
 
-int __ibv_destroy_qp(struct ibv_qp *qp)
+LATEST_SYMVER_FUNC(ibv_destroy_qp, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_qp *qp)
 {
 	return qp->context->ops.destroy_qp(qp);
 }
-default_symver(__ibv_destroy_qp, ibv_destroy_qp);
 
-struct ibv_ah *__ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
+		   struct ibv_ah *,
+		   struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct ibv_ah *ah = pd->context->ops.create_ah(pd, attr);
 
@@ -586,7 +555,6 @@ struct ibv_ah *__ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 
 	return ah;
 }
-default_symver(__ibv_create_ah, ibv_create_ah);
 
 /* GID types as appear in sysfs, no change is expected as of ABI
  * compatibility.
@@ -676,11 +644,11 @@ static inline void map_ipv4_addr_to_ipv6(__be32 ipv4, struct in6_addr *ipv6)
 {
 	ipv6->s6_addr32[0] = 0;
 	ipv6->s6_addr32[1] = 0;
-	ipv6->s6_addr32[2] = htonl(0x0000FFFF);
+	ipv6->s6_addr32[2] = htobe32(0x0000FFFF);
 	ipv6->s6_addr32[3] = ipv4;
 }
 
-static inline uint16_t ipv4_calc_hdr_csum(uint16_t *data, unsigned int num_hwords)
+static inline __sum16 ipv4_calc_hdr_csum(uint16_t *data, unsigned int num_hwords)
 {
 	unsigned int i = 0;
 	uint32_t sum = 0;
@@ -690,12 +658,12 @@ static inline uint16_t ipv4_calc_hdr_csum(uint16_t *data, unsigned int num_hword
 
 	sum = (sum & 0xffff) + (sum >> 16);
 
-	return ~sum;
+	return (__force __sum16)~sum;
 }
 
 static inline int get_grh_header_version(struct ibv_grh *grh)
 {
-	int ip6h_version = (ntohl(grh->version_tclass_flow) >> 28) & 0xf;
+	int ip6h_version = (be32toh(grh->version_tclass_flow) >> 28) & 0xf;
 	struct iphdr *ip4h = (struct iphdr *)((void *)grh + 20);
 	struct iphdr ip4h_checked;
 
@@ -732,7 +700,7 @@ static inline void set_ah_attr_generic_fields(struct ibv_ah_attr *ah_attr,
 {
 	uint32_t flow_class;
 
-	flow_class = ntohl(grh->version_tclass_flow);
+	flow_class = be32toh(grh->version_tclass_flow);
 	ah_attr->grh.flow_label = flow_class & 0xFFFFF;
 	ah_attr->dlid = wc->slid;
 	ah_attr->sl = wc->sl;
@@ -748,7 +716,7 @@ static inline int set_ah_attr_by_ipv4(struct ibv_context *context,
 	int ret;
 
 	/* No point searching multicast GIDs in GID table */
-	if (IN_CLASSD(ntohl(ip4h->daddr))) {
+	if (IN_CLASSD(be32toh(ip4h->daddr))) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -799,7 +767,7 @@ static inline int set_ah_attr_by_ipv6(struct ibv_context *context,
 		return ret;
 
 	ah_attr->grh.sgid_index = (uint8_t) ret;
-	flow_class = ntohl(grh->version_tclass_flow);
+	flow_class = be32toh(grh->version_tclass_flow);
 	ah_attr->grh.hop_limit = grh->hop_limit;
 	ah_attr->grh.traffic_class = (flow_class >> 20) & 0xFF;
 
@@ -847,31 +815,34 @@ struct ibv_ah *ibv_create_ah_from_wc(struct ibv_pd *pd, struct ibv_wc *wc,
 	return ibv_create_ah(pd, &ah_attr);
 }
 
-int __ibv_destroy_ah(struct ibv_ah *ah)
+LATEST_SYMVER_FUNC(ibv_destroy_ah, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_ah *ah)
 {
 	return ah->context->ops.destroy_ah(ah);
 }
-default_symver(__ibv_destroy_ah, ibv_destroy_ah);
 
-int __ibv_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
+LATEST_SYMVER_FUNC(ibv_attach_mcast, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	return qp->context->ops.attach_mcast(qp, gid, lid);
 }
-default_symver(__ibv_attach_mcast, ibv_attach_mcast);
 
-int __ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
+LATEST_SYMVER_FUNC(ibv_detach_mcast, 1_1, "IBVERBS_1.1",
+		   int,
+		   struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	return qp->context->ops.detach_mcast(qp, gid, lid);
 }
-default_symver(__ibv_detach_mcast, ibv_detach_mcast);
 
 static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 {
 	return IN6_IS_ADDR_V4MAPPED(&a->s6_addr32) ||
 		/* IPv4 encoded multicast addresses */
-		(a->s6_addr32[0]  == htonl(0xff0e0000) &&
+		(a->s6_addr32[0]  == htobe32(0xff0e0000) &&
 		((a->s6_addr32[1] |
-		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL));
+		 (a->s6_addr32[2] ^ htobe32(0x0000ffff))) == 0UL));
 }
 
 struct peer_address {

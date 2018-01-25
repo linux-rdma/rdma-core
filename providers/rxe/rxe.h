@@ -36,6 +36,12 @@
 #ifndef RXE_H
 #define RXE_H
 
+#include <infiniband/driver.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <rdma/rdma_user_rxe.h> /* struct rxe_av */
+#include "rxe-abi.h"
+
 enum rdma_network_type {
 	RDMA_NETWORK_IB,
 	RDMA_NETWORK_IPV4,
@@ -43,12 +49,12 @@ enum rdma_network_type {
 };
 
 struct rxe_device {
-	struct ibv_device	ibv_dev;
+	struct verbs_device	ibv_dev;
 	int	abi_version;
 };
 
 struct rxe_context {
-	struct ibv_context	ibv_ctx;
+	struct verbs_context	ibv_ctx;
 };
 
 struct rxe_cq {
@@ -88,18 +94,16 @@ struct rxe_srq {
 	uint32_t		srq_num;
 };
 
-#define to_rxxx(xxx, type)						\
-	((struct rxe_##type *)					      \
-	 ((void *) ib##xxx - offsetof(struct rxe_##type, ibv_##xxx)))
+#define to_rxxx(xxx, type) container_of(ib##xxx, struct rxe_##type, ibv_##xxx)
 
 static inline struct rxe_context *to_rctx(struct ibv_context *ibctx)
 {
-	return to_rxxx(ctx, context);
+	return container_of(ibctx, struct rxe_context, ibv_ctx.context);
 }
 
 static inline struct rxe_device *to_rdev(struct ibv_device *ibdev)
 {
-	return to_rxxx(dev, device);
+	return container_of(ibdev, struct rxe_device, ibv_dev.device);
 }
 
 static inline struct rxe_cq *to_rcq(struct ibv_cq *ibcq)

@@ -76,7 +76,7 @@ int qelr_chain_alloc(struct qelr_chain *chain, int chain_size, int page_size,
 	addr = mmap(NULL, a_chain_size, PROT_READ | PROT_WRITE,
 			 MAP_PRIVATE | MAP_ANONYMOUS, QELR_ANON_FD,
 			 QELR_ANON_OFFSET);
-	if (chain->first_addr == MAP_FAILED)
+	if (addr == MAP_FAILED)
 		return errno;
 
 	ret = ibv_dontfork_range(addr, a_chain_size);
@@ -87,7 +87,6 @@ int qelr_chain_alloc(struct qelr_chain *chain, int chain_size, int page_size,
 
 	/* init chain */
 	memset(chain, 0, sizeof(*chain));
-	memset(chain->first_addr, 0, chain->size);
 	chain->first_addr = addr;
 	chain->size = a_chain_size;
 	chain->p_cons_elem = chain->first_addr;
@@ -96,6 +95,8 @@ int qelr_chain_alloc(struct qelr_chain *chain, int chain_size, int page_size,
 	chain->n_elems = chain->size / elem_size;
 	chain->last_addr = (void *)
 			((uint8_t *)addr + (elem_size * (chain->n_elems -1)));
+
+	/* Note: since we are using MAP_ANONYMOUS the chain is zeroed for us */
 
 	return 0;
 }

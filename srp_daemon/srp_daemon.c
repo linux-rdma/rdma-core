@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,10 +52,8 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <netinet/in.h>
 #include <linux/types.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <errno.h>
 #include <getopt.h>
 #include <dirent.h>
@@ -63,6 +62,8 @@
 #include <signal.h>
 #include <sys/syslog.h>
 #include <infiniband/umad.h>
+#include <infiniband/umad_types.h>
+#include <infiniband/umad_sa.h>
 #include "srp_ib_types.h"
 
 #include "srp_daemon.h"
@@ -79,7 +80,8 @@
 
 enum log_dest { log_to_syslog, log_to_stderr };
 
-static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid);
+static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
+		   uint16_t *lid);
 
 static const int   node_table_response_size = 1 << 18;
 static const char *sysfs_path = "/sys";
@@ -181,7 +183,7 @@ static int srpd_sys_read_gid(const char *dir_name, const char *file_name,
 			     uint8_t *gid)
 {
 	char buf[64], *str, *s;
-	uint16_t *ugid = (uint16_t *)gid;
+	__be16 *ugid = (__be16 *)gid;
 	int r, i;
 
 	if ((r = srpd_sys_read_string(dir_name, file_name, buf, sizeof(buf))) < 0)
@@ -190,7 +192,7 @@ static int srpd_sys_read_gid(const char *dir_name, const char *file_name,
 	for (s = buf, i = 0 ; i < 8; i++) {
 		if (!(str = strsep(&s, ": \t\n")))
 			return -EINVAL;
-		ugid[i] = htons(strtoul(str, NULL, 16) & 0xffff);
+		ugid[i] = htobe16(strtoul(str, NULL, 16) & 0xffff);
 	}
 
 	return 0;
@@ -225,6 +227,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-d <umad device>	use umad Device \n");
 	fprintf(stderr, "-i <infiniband device>	use InfiniBand device \n");
 	fprintf(stderr, "-p <port_num>		use Port num \n");
+	fprintf(stderr, "-j <dev>:<port_num>	use the IB dev / port_num combination \n");
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
 	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after Timeout of <retry timeout> seconds\n");
 	fprintf(stderr, "-l <tl_retry timeout>	Transport retry count before failing IO. should be in range [2..7], (default 2)\n");
@@ -232,6 +235,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extension\n");
+	fprintf(stderr, "--systemd		Enable systemd integration.\n");
 	fprintf(stderr, "\nExample: srp_daemon -e -n -i mthca0 -p 1 -R 60\n");
 }
 
@@ -293,38 +297,32 @@ void pr_debug(const char *fmt, ...)
 void pr_err(const char *fmt, ...)
 {
 	va_list args;
-	int pos;
-	char str[1000];
 
 	va_start(args, fmt);
-	pos = vsnprintf(str, sizeof(str), fmt, args);
-	va_end(args);
-	if (pos >= sizeof(str))
-		str[sizeof(str) - 1] = '\0';
 	switch (s_log_dest) {
 	case log_to_syslog:
-		syslog(LOG_DAEMON | LOG_ERR, "%s", str);
+		vsyslog(LOG_DAEMON | LOG_ERR, fmt, args);
 		break;
 	case log_to_stderr:
-		fprintf(stderr, "%s", str);
+		vfprintf(stderr, fmt, args);
 		break;
 	}
+	va_end(args);
 }
 
 static int check_not_equal_str(const char *dir_name, const char *attr,
 			       const char *value)
 {
-	const int MAX_ATTR_STRING_LENGTH=64;
-
- 	char attr_value[MAX_ATTR_STRING_LENGTH];
+	char attr_value[64];
 	int len = strlen(value);
 
-	if (len > MAX_ATTR_STRING_LENGTH) {
+	if (len > sizeof(attr_value)) {
 		pr_err("string %s is too long\n", value);
 		return 1;
 	}
 
-	if (srpd_sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
+	if (srpd_sys_read_string(dir_name, attr, attr_value,
+				 sizeof(attr_value)))
 		return 0;
 	if (strncmp(attr_value, value, len))
 		return 1;
@@ -335,11 +333,10 @@ static int check_not_equal_str(const char *dir_name, const char *attr,
 static int check_not_equal_int(const char *dir_name, const char *attr,
 			       int value)
 {
-	const int MAX_ATTR_STRING_LENGTH=64;
+	char attr_value[64];
 
-	char attr_value[MAX_ATTR_STRING_LENGTH];
-
-	if (srpd_sys_read_string(dir_name, attr, attr_value, MAX_ATTR_STRING_LENGTH))
+	if (srpd_sys_read_string(dir_name, attr, attr_value,
+				 sizeof(attr_value)))
 		return 0;
 	if (value != atoi(attr_value))
 		return 1;
@@ -365,7 +362,7 @@ static int is_enabled_by_rules_file(struct target_details *target)
 			continue;
 
 		if (conf->rules[rule].ioc_guid[0] != '\0' &&
-		    ntohll(target->ioc_prof.guid) !=
+		    be64toh(target->ioc_prof.guid) !=
 		    strtoull(conf->rules[rule].ioc_guid, NULL, 16))
 			continue;
 
@@ -404,15 +401,13 @@ static int is_enabled_by_rules_file(struct target_details *target)
 
 static int add_non_exist_target(struct target_details *target)
 {
-	const int MAX_SCSI_HOST_DIR_NAME_LENGTH = 50;
-	char scsi_host_dir[MAX_SCSI_HOST_DIR_NAME_LENGTH];
+	char scsi_host_dir[50];
 	DIR *dir;
 	struct dirent *subdir;
 	char *subdir_name_ptr;
 	int prefix_len;
-	uint8_t dgid_val[16];
-	const int MAX_TARGET_CONFIG_STR_STRING = 255;
-	char target_config_str[MAX_TARGET_CONFIG_STR_STRING];
+	union umad_gid dgid_val;
+	char target_config_str[255];
 	int len;
 	int not_connected = 1;
 
@@ -438,7 +433,7 @@ static int add_non_exist_target(struct target_details *target)
 			continue;
 
 		strncpy(subdir_name_ptr, subdir->d_name,
-			MAX_SCSI_HOST_DIR_NAME_LENGTH - prefix_len);
+			sizeof(scsi_host_dir) - prefix_len);
 		if (!check_equal_uint64(scsi_host_dir, "id_ext",
 				        strtoull(target->id_ext, NULL, 16)))
 			continue;
@@ -450,21 +445,24 @@ static int add_non_exist_target(struct target_details *target)
 					target->h_service_id))
 			continue;
 		if (!check_equal_uint64(scsi_host_dir, "ioc_guid",
-					ntohll(target->ioc_prof.guid)))
+					be64toh(target->ioc_prof.guid)))
 			continue;
-		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid", dgid_val)) {
+		if (srpd_sys_read_gid(scsi_host_dir, "orig_dgid",
+				      dgid_val.raw)) {
 			/*
 			 * In case this is an old kernel that does not have
 			 * orig_dgid in sysfs, use dgid instead (this is
 			 * problematic when there is a dgid redirection
 			 * by the CM)
 			 */
-			if (srpd_sys_read_gid(scsi_host_dir, "dgid", dgid_val))
+			if (srpd_sys_read_gid(scsi_host_dir, "dgid",
+					      dgid_val.raw))
 				continue;
 		}
-		if (htonll(target->subnet_prefix) != *((uint64_t *) dgid_val))
+		if (htobe64(target->subnet_prefix) !=
+		    dgid_val.global.subnet_prefix)
 			continue;
-		if (htonll(target->h_guid) != *((uint64_t *) (dgid_val+8)))
+		if (htobe64(target->h_guid) != dgid_val.global.interface_id)
 			continue;
 
 		/* If there is no local_ib_device in the scsi host dir (old kernel module), assumes it is equal */
@@ -512,29 +510,29 @@ static int add_non_exist_target(struct target_details *target)
 
 	}
 
-	len = snprintf(target_config_str, MAX_TARGET_CONFIG_STR_STRING, "id_ext=%s,"
+	len = snprintf(target_config_str, sizeof(target_config_str), "id_ext=%s,"
 		"ioc_guid=%016llx,"
 		"dgid=%016llx%016llx,"
 		"pkey=%04x,"
 		"service_id=%016llx",
 		target->id_ext,
-		(unsigned long long) ntohll(target->ioc_prof.guid),
+		(unsigned long long) be64toh(target->ioc_prof.guid),
 		(unsigned long long) target->subnet_prefix,
 		(unsigned long long) target->h_guid,
 		target->pkey,
 		(unsigned long long) target->h_service_id);
-	if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+	if (len >= sizeof(target_config_str)) {
 		pr_err("Target config string is too long, ignoring target\n");
 		closedir(dir);
 		return -1;
 	}
 
-	if (target->ioc_prof.io_class != htons(SRP_REV16A_IB_IO_CLASS)) {
+	if (target->ioc_prof.io_class != htobe16(SRP_REV16A_IB_IO_CLASS)) {
 		len += snprintf(target_config_str+len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
-				",io_class=%04hx", ntohs(target->ioc_prof.io_class));
+				sizeof(target_config_str) - len,
+				",io_class=%04hx", be16toh(target->ioc_prof.io_class));
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
@@ -543,11 +541,11 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (config->print_initiator_ext) {
 		len += snprintf(target_config_str+len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
+				sizeof(target_config_str) - len,
 				",initiator_ext=%016llx",
-				(unsigned long long) ntohll(target->h_guid));
+				(unsigned long long) target->h_guid);
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
@@ -556,10 +554,10 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (config->execute && config->tl_retry_count) {
 		len += snprintf(target_config_str + len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
+				sizeof(target_config_str) - len,
 				",tl_retry_count=%d", config->tl_retry_count);
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
@@ -568,11 +566,11 @@ static int add_non_exist_target(struct target_details *target)
 
 	if (target->options) {
 		len += snprintf(target_config_str+len,
-				MAX_TARGET_CONFIG_STR_STRING - len,
+				sizeof(target_config_str) - len,
 				"%s",
 				target->options);
 
-		if (len >= MAX_TARGET_CONFIG_STR_STRING) {
+		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
 			closedir(dir);
 			return -1;
@@ -588,11 +586,11 @@ static int add_non_exist_target(struct target_details *target)
 	return 1;
 }
 
-static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
-		 srp_ib_user_mad_t *in_mad, int in_mad_size)
+static int send_and_get(int portid, int agent, struct srp_ib_user_mad *out_mad,
+		 struct srp_ib_user_mad *in_mad, int in_mad_size)
 {
-	struct srp_dm_mad *out_dm_mad = (void *) out_mad->hdr.data;
-	struct srp_dm_mad *in_dm_mad = (void *) in_mad->hdr.data;
+	struct umad_dm_packet *out_dm_mad = (void *) out_mad->hdr.data;
+	struct umad_dm_packet *in_dm_mad = (void *) in_mad->hdr.data;
 	int i, len;
 	int in_agent;
 	int ret;
@@ -603,13 +601,13 @@ static int send_and_get(int portid, int agent, srp_ib_user_mad_t *out_mad,
 		/* Skip tid 0 because OpenSM ignores it. */
 		if (++tid == 0)
 			++tid;
-		out_dm_mad->tid = htonll(tid);
+		out_dm_mad->mad_hdr.tid = htobe64(tid);
 
 		ret = umad_send(portid, agent, out_mad, MAD_BLOCK_SIZE,
 				config->timeout, 0);
 		if (ret < 0) {
 			pr_err("umad_send to %u failed\n",
-				(uint16_t) ntohs(out_mad->hdr.addr.lid));
+				(uint16_t) be16toh(out_mad->hdr.addr.lid));
 			return ret;
 		}
 
@@ -620,7 +618,7 @@ recv:
 					     &len, config->timeout);
 			if (in_agent < 0) {
 				pr_err("umad_recv from %u failed - %d\n",
-					(uint16_t) ntohs(out_mad->hdr.addr.lid),
+					(uint16_t) be16toh(out_mad->hdr.addr.lid),
 					in_agent);
 				return in_agent;
 			}
@@ -632,12 +630,12 @@ recv:
 			ret = umad_status(in_mad);
 			if (ret) {
 				pr_err(
-					"bad MAD status (%u) from lid %d\n",
-					ret, (uint16_t) ntohs(out_mad->hdr.addr.lid));
+					"bad MAD status (%u) from lid %#x\n",
+					ret, be16toh(out_mad->hdr.addr.lid));
 				return -ret;
 			}
 
-			received_tid = ntohll(in_dm_mad->tid);
+			received_tid = be64toh(in_dm_mad->mad_hdr.tid);
 			if (tid != received_tid)
 				pr_debug("umad_recv returned different transaction id sent %d got %d\n",
 					 tid, received_tid);
@@ -732,57 +730,57 @@ end:
 	return ret;
 }
 
-static void init_srp_mad(srp_ib_user_mad_t *out_umad, int agent,
+static void init_srp_mad(struct srp_ib_user_mad *out_umad, int agent,
 			 uint16_t h_dlid, uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	struct srp_dm_mad *out_mad;
+	struct umad_dm_packet *out_mad;
 
 	memset(out_umad, 0, sizeof *out_umad);
 
 	out_umad->hdr.agent_id   = agent;
-	out_umad->hdr.addr.qpn   = htonl(1);
-	out_umad->hdr.addr.qkey  = htonl(0x80010000);
-	out_umad->hdr.addr.lid   = htons(h_dlid);
+	out_umad->hdr.addr.qpn   = htobe32(1);
+	out_umad->hdr.addr.qkey  = htobe32(UMAD_QKEY);
+	out_umad->hdr.addr.lid   = htobe16(h_dlid);
 
 	out_mad = (void *) out_umad->hdr.data;
 
-	out_mad->base_version  = 1;
-	out_mad->method        = SRP_MAD_METHOD_GET;
-	out_mad->attr_id       = htons(h_attr_id);
-	out_mad->attr_mod      = htonl(h_attr_mod);
+	out_mad->mad_hdr.base_version  = UMAD_BASE_VERSION;
+	out_mad->mad_hdr.method        = UMAD_METHOD_GET;
+	out_mad->mad_hdr.attr_id       = htobe16(h_attr_id);
+	out_mad->mad_hdr.attr_mod      = htobe32(h_attr_mod);
 }
 
-static void init_srp_dm_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
+static void init_srp_dm_mad(struct srp_ib_user_mad *out_mad, int agent, uint16_t h_dlid,
 			    uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	ib_sa_mad_t *out_dm_mad = get_data_ptr(*out_mad);
+	struct umad_sa_packet *out_dm_mad = get_data_ptr(*out_mad);
 
 	init_srp_mad(out_mad, agent, h_dlid, h_attr_id, h_attr_mod);
-	out_dm_mad->mgmt_class = SRP_MGMT_CLASS_DM;
-	out_dm_mad->class_ver  = 1;
+	out_dm_mad->mad_hdr.mgmt_class = UMAD_CLASS_DEVICE_MGMT;
+	out_dm_mad->mad_hdr.class_version  = 1;
 }
 
-static void init_srp_sa_mad(srp_ib_user_mad_t *out_mad, int agent, uint16_t h_dlid,
+static void init_srp_sa_mad(struct srp_ib_user_mad *out_mad, int agent, uint16_t h_dlid,
 			    uint16_t h_attr_id, uint32_t h_attr_mod)
 {
-	ib_sa_mad_t *out_sa_mad = get_data_ptr(*out_mad);
+	struct umad_sa_packet *out_sa_mad = get_data_ptr(*out_mad);
 
 	init_srp_mad(out_mad, agent, h_dlid, h_attr_id, h_attr_mod);
-	out_sa_mad->mgmt_class = SRP_MGMT_CLASS_SA;
-	out_sa_mad->class_ver  = SRP_MGMT_CLASS_SA_VERSION;
+	out_sa_mad->mad_hdr.mgmt_class = UMAD_CLASS_SUBN_ADM;
+	out_sa_mad->mad_hdr.class_version  = UMAD_SA_CLASS_VERSION;
 }
 
 static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *in_sa_mad;
-	struct srp_class_port_info     *cpi;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet	       *in_sa_mad;
+	struct umad_class_port_info    *cpi;
 	int				ret;
 
 	in_sa_mad  = get_data_ptr(in_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_MAD_ATTR_CLASS_PORT_INFO, 0);
+		        UMAD_ATTR_CLASS_PORT_INFO, 0);
 
 	ret = send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0);
 	if (ret < 0)
@@ -790,23 +788,23 @@ static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 
 	cpi = (void *) in_sa_mad->data;
 
-	*mask_match = !!(ntohs(cpi->cap_mask) & SRP_SM_SUPPORTS_MASK_MATCH);
+	*mask_match = !!(be16toh(cpi->cap_mask) & SRP_SM_SUPPORTS_MASK_MATCH);
 
 	return 0;
 }
 
 static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *out_dm_mad, *in_dm_mad;
-	struct srp_class_port_info     *cpi;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *out_dm_mad, *in_dm_mad;
+	struct umad_class_port_info    *cpi;
 	char val[64];
 	int i;
 
-	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_MAD_ATTR_CLASS_PORT_INFO, 0);
+	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, UMAD_ATTR_CLASS_PORT_INFO, 0);
 
 	out_dm_mad = get_data_ptr(out_mad);
-	out_dm_mad->method = SRP_MAD_METHOD_SET;
+	out_dm_mad->mad_hdr.method = UMAD_METHOD_SET;
 
 	cpi                = (void *) out_dm_mad->data;
 
@@ -815,7 +813,7 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 		return -1;
 	}
 
-	cpi->trap_lid = htons(strtol(val, NULL, 0));
+	cpi->trap_lid = htobe16(strtol(val, NULL, 0));
 
 	if (srpd_sys_read_string(umad_res->port_sysfs_path, "gids/0", val, sizeof val) < 0) {
 		pr_err("Couldn't read GID[0]\n");
@@ -823,15 +821,15 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	}
 
 	for (i = 0; i < 8; ++i)
-		((uint16_t *) cpi->trap_gid)[i] = htons(strtol(val + i * 5, NULL, 16));
+		cpi->trapgid.raw_be16[i] = htobe16(strtol(val + i * 5, NULL, 16));
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("Class Port Info set returned status 0x%04x\n",
-			ntohs(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -841,8 +839,8 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 			struct srp_dm_iou_info *iou_info)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_IO_UNIT_INFO, 0);
 
@@ -850,9 +848,9 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("IO Unit Info query returned status 0x%04x\n",
-			ntohs(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -866,8 +864,8 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int ioc,
 			struct srp_dm_ioc_prof *ioc_prof)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, h_dlid, SRP_DM_ATTR_IO_CONTROLLER_PROFILE, ioc);
 
@@ -875,9 +873,9 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("IO Controller Profile query returned status 0x%04x for %d\n",
-			ntohs(in_dm_mad->status), ioc);
+			be16toh(in_dm_mad->mad_hdr.status), ioc);
 		return -1;
 	}
 
@@ -889,8 +887,8 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int ioc,
 			   int start, int end, struct srp_dm_svc_entries *svc_entries)
 {
-	srp_ib_user_mad_t		in_mad, out_mad;
-	struct srp_dm_mad	       *in_dm_mad;
+	struct srp_ib_user_mad		in_mad, out_mad;
+	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_SERVICE_ENTRIES,
 			(ioc << 16) | (end << 8) | start);
@@ -899,9 +897,9 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 		return -1;
 
 	in_dm_mad = get_data_ptr(in_mad);
-	if (in_dm_mad->status) {
+	if (in_dm_mad->mad_hdr.status) {
 		pr_err("Service Entries query returned status 0x%04x\n",
-			ntohs(in_dm_mad->status));
+			be16toh(in_dm_mad->mad_hdr.status));
 		return -1;
 	}
 
@@ -935,7 +933,7 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 
 	ret = get_iou_info(umad_res, dlid, &iou_info);
 	if (ret < 0) {
-		pr_err("failed to get iou info for dlid %x\n", dlid);
+		pr_err("failed to get iou info for dlid %#x\n", dlid);
 		goto out;
 	}
 
@@ -944,7 +942,7 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 	pr_human("    port GID:        %016llx%016llx\n",
 		 (unsigned long long) target->subnet_prefix,
 		 (unsigned long long) target->h_guid);
-	pr_human("    change ID:       %04x\n", ntohs(iou_info.change_id));
+	pr_human("    change ID:       %04x\n", be16toh(iou_info.change_id));
 	pr_human("    max controllers: 0x%02x\n", iou_info.max_controllers);
 
 	if (config->verbose > 0)
@@ -970,10 +968,10 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 			pr_human("    controller[%3d]\n", i + 1);
 
 			pr_human("        GUID:      %016llx\n",
-				 (unsigned long long) ntohll(target->ioc_prof.guid));
-			pr_human("        vendor ID: %06x\n", ntohl(target->ioc_prof.vendor_id) >> 8);
-			pr_human("        device ID: %06x\n", ntohl(target->ioc_prof.device_id));
-			pr_human("        IO class : %04hx\n", ntohs(target->ioc_prof.io_class));
+				 (unsigned long long) be64toh(target->ioc_prof.guid));
+			pr_human("        vendor ID: %06x\n", be32toh(target->ioc_prof.vendor_id) >> 8);
+			pr_human("        device ID: %06x\n", be32toh(target->ioc_prof.device_id));
+			pr_human("        IO class : %04hx\n", be16toh(target->ioc_prof.io_class));
 			pr_human("        ID:        %s\n", target->ioc_prof.id);
 			pr_human("        service entries: %d\n", target->ioc_prof.service_entries);
 
@@ -997,10 +995,10 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 
 					pr_human("            service[%3d]: %016llx / %s\n",
 						 j + k,
-						 (unsigned long long) ntohll(svc_entries.service[k].id),
+						 (unsigned long long) be64toh(svc_entries.service[k].id),
 						 svc_entries.service[k].name);
 
-					target->h_service_id = ntohll(svc_entries.service[k].id);
+					target->h_service_id = be64toh(svc_entries.service[k].id);
 					target->pkey = pkey;
 					if (is_enabled_by_rules_file(target)) {
 						if (!add_non_exist_target(target) && !config->once) {
@@ -1023,25 +1021,25 @@ out:
 
 int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 
 	in_sa_mad = get_data_ptr(in_mad);
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_NODE, 0);
+		        UMAD_SA_ATTR_NODE_REC, 0);
 
-	out_sa_mad->comp_mask     = htonll(1); /* LID */
+	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	node			  = (void *) out_sa_mad->data;
-	node->lid		  = htons(dlid);
+	node->lid		  = htobe16(dlid);
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
 	node  = (void *) in_sa_mad->data;
-	*guid = ntohll(node->port_guid);
+	*guid = be64toh(node->port_guid);
 
 	return 0;
 }
@@ -1049,26 +1047,26 @@ int get_node(struct umad_resources *umad_res, uint16_t dlid, uint64_t *guid)
 static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 			 uint64_t *subnet_prefix, int *isdm)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_port_info_rec    *port_info;
 
 	in_sa_mad = get_data_ptr(in_mad);
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PORT_INFO, 0);
+		        UMAD_SA_ATTR_PORT_INFO_REC, 0);
 
-	out_sa_mad->comp_mask     = htonll(1); /* LID */
+	out_sa_mad->comp_mask     = htobe64(1); /* LID */
 	port_info                 = (void *) out_sa_mad->data;
-	port_info->endport_lid	  = htons(dlid);
+	port_info->endport_lid	  = htobe16(dlid);
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
 	port_info = (void *) in_sa_mad->data;
-	*subnet_prefix = ntohll(port_info->subnet_prefix);
-	*isdm          = !!(ntohl(port_info->capability_mask) & SRP_IS_DM);
+	*subnet_prefix = be64toh(port_info->subnet_prefix);
+	*isdm          = !!(be32toh(port_info->capability_mask) & SRP_IS_DM);
 
 	return 0;
 }
@@ -1097,16 +1095,15 @@ static int get_shared_pkeys(struct resources *res,
 {
 	struct umad_resources          *umad_res = res->umad_res;
 	uint8_t                        *in_mad_buf;
-	srp_ib_user_mad_t		out_mad;
+	struct srp_ib_user_mad		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
-	ib_path_rec_t		       *path_rec;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
+	struct ib_path_rec	       *path_rec;
 	ssize_t len;
-	int size;
 	int i, num_pkeys = 0;
 	uint16_t pkey;
 	uint16_t local_port_lid = get_port_lid(res->ud_res->ib_ctx,
-					       config->port_num);
+					       config->port_num, NULL);
 
 	in_mad_buf = malloc(sizeof(struct ib_user_mad) +
 			    node_table_response_size);
@@ -1118,7 +1115,7 @@ static int get_shared_pkeys(struct resources *res,
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PATH_REC, 0);
+		        UMAD_SA_ATTR_PATH_REC, 0);
 
 	/**
 	 * Due to OpenSM bug (issue #335016) SM won't return
@@ -1134,30 +1131,20 @@ static int get_shared_pkeys(struct resources *res,
 			continue;
 
 		/* Mark components: DLID, SLID, PKEY */
-		out_sa_mad->comp_mask = htonll(1 << 4 | 1 << 5 | 1 << 13);
-		out_sa_mad->rmpp_version = 1;
-		out_sa_mad->rmpp_type = 1;
-		path_rec = (ib_path_rec_t *)out_sa_mad->data;
-		path_rec->slid = htons(local_port_lid);
-		path_rec->dlid = htons(dest_port_lid);
-		path_rec->pkey = htons(pkey);
+		out_sa_mad->comp_mask = htobe64(1 << 4 | 1 << 5 | 1 << 13);
+		path_rec = (struct ib_path_rec *)out_sa_mad->data;
+		path_rec->slid = htobe16(local_port_lid);
+		path_rec->dlid = htobe16(dest_port_lid);
+		path_rec->pkey = htobe16(pkey);
 
 		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-				   (srp_ib_user_mad_t *)in_mad,
+				   (struct srp_ib_user_mad *)in_mad,
 				   node_table_response_size);
 		if (len < 0)
 			goto err;
 
-		size = ib_get_attr_size(in_sa_mad->attr_offset);
-		if (!size) {
-			if (config->verbose)
-				printf("PathRec Query did not find any targets "
-				       "over P_Key %x\n", pkey);
-			continue;
-		}
-
-		path_rec = (ib_path_rec_t *)in_sa_mad->data;
-		pkeys[num_pkeys++] = ntohs(path_rec->pkey);
+		path_rec = (struct ib_path_rec *)in_sa_mad->data;
+		pkeys[num_pkeys++] = be16toh(path_rec->pkey);
 	}
 
 	free(in_mad_buf);
@@ -1171,9 +1158,9 @@ static int do_dm_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
 	uint8_t                        *in_mad_buf;
-	srp_ib_user_mad_t		out_mad;
+	struct srp_ib_user_mad		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_port_info_rec    *port_info;
 	ssize_t len;
 	int size;
@@ -1191,17 +1178,17 @@ static int do_dm_port_list(struct resources *res)
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PORT_INFO, SRP_SM_CAP_MASK_MATCH_ATTR_MOD);
+		        UMAD_SA_ATTR_PORT_INFO_REC, SRP_SM_CAP_MASK_MATCH_ATTR_MOD);
 
-	out_sa_mad->method     	   = SRP_SA_METHOD_GET_TABLE;
-	out_sa_mad->comp_mask      = htonll(1 << 7); /* Capability mask */
-	out_sa_mad->rmpp_version   = 1;
-	out_sa_mad->rmpp_type      = 1;
+	out_sa_mad->mad_hdr.method = UMAD_SA_METHOD_GET_TABLE;
+	out_sa_mad->comp_mask      = htobe64(1 << 7); /* Capability mask */
+	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+	out_sa_mad->rmpp_hdr.rmpp_type = 1;
 	port_info		   = (void *) out_sa_mad->data;
-	port_info->capability_mask = htonl(SRP_IS_DM); /* IsDM */
+	port_info->capability_mask = htobe32(SRP_IS_DM); /* IsDM */
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-			   (srp_ib_user_mad_t *) in_mad,
+			   (struct srp_ib_user_mad *) in_mad,
 			   node_table_response_size);
 	if (len < 0) {
 		free(in_mad_buf);
@@ -1219,21 +1206,21 @@ static int do_dm_port_list(struct resources *res)
 
 	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
 		port_info = (void *) in_sa_mad->data + i * size;
-		if (get_node(umad_res, ntohs(port_info->endport_lid), &guid))
+		if (get_node(umad_res, be16toh(port_info->endport_lid), &guid))
 			continue;
 
-		num_pkeys = get_shared_pkeys(res, ntohs(port_info->endport_lid),
+		num_pkeys = get_shared_pkeys(res, be16toh(port_info->endport_lid),
 					     pkeys);
 		if (num_pkeys < 0) {
-			pr_err("failed to get shared P_Keys with LID %x\n",
-			       ntohs(port_info->endport_lid));
+			pr_err("failed to get shared P_Keys with LID %#x\n",
+			       be16toh(port_info->endport_lid));
 			free(in_mad_buf);
 			return num_pkeys;
 		}
 
 		for (j = 0; j < num_pkeys; ++j)
-			do_port(res, pkeys[j], ntohs(port_info->endport_lid),
-				ntohll(port_info->subnet_prefix), guid);
+			do_port(res, pkeys[j], be16toh(port_info->endport_lid),
+				be64toh(port_info->subnet_prefix), guid);
 	}
 
 	free(in_mad_buf);
@@ -1246,7 +1233,7 @@ void handle_port(struct resources *res, uint16_t pkey, uint16_t lid, uint64_t h_
 	uint64_t subnet_prefix;
 	int isdm;
 
- 	pr_debug("enter handle_port for lid %d\n", lid);
+	pr_debug("enter handle_port for lid %#x\n", lid);
 	if (get_port_info(umad_res, lid, &subnet_prefix, &isdm))
 		return;
 
@@ -1261,9 +1248,9 @@ static int do_full_port_list(struct resources *res)
 {
 	struct umad_resources 	       *umad_res = res->umad_res;
 	uint8_t                        *in_mad_buf;
-	srp_ib_user_mad_t		out_mad;
+	struct srp_ib_user_mad		out_mad;
 	struct ib_user_mad	       *in_mad;
-	struct srp_dm_rmpp_sa_mad      *out_sa_mad, *in_sa_mad;
+	struct umad_sa_packet	       *out_sa_mad, *in_sa_mad;
 	struct srp_sa_node_rec	       *node;
 	ssize_t len;
 	int size;
@@ -1280,38 +1267,38 @@ static int do_full_port_list(struct resources *res)
 	out_sa_mad = get_data_ptr(out_mad);
 
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_NODE, 0);
+		        UMAD_SA_ATTR_NODE_REC, 0);
 
-	out_sa_mad->method     	  = SRP_SA_METHOD_GET_TABLE;
+	out_sa_mad->mad_hdr.method = UMAD_SA_METHOD_GET_TABLE;
 	out_sa_mad->comp_mask     = 0; /* Get all end ports */
-	out_sa_mad->rmpp_version  = 1;
-	out_sa_mad->rmpp_type     = 1;
+	out_sa_mad->rmpp_hdr.rmpp_version = UMAD_RMPP_VERSION;
+	out_sa_mad->rmpp_hdr.rmpp_type = 1;
 
 	len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
-			   (srp_ib_user_mad_t *) in_mad,
+			   (struct srp_ib_user_mad *) in_mad,
 			   node_table_response_size);
 	if (len < 0) {
 		free(in_mad_buf);
 		return len;
 	}
 
-	size = ntohs(in_sa_mad->attr_offset) * 8;
+	size = be16toh(in_sa_mad->attr_offset) * 8;
 
 	for (i = 0; (i + 1) * size <= len - MAD_RMPP_HDR_SIZE; ++i) {
 		node = (void *) in_sa_mad->data + i * size;
 
-		num_pkeys = get_shared_pkeys(res, ntohs(node->lid),
+		num_pkeys = get_shared_pkeys(res, be16toh(node->lid),
 					     pkeys);
 		if (num_pkeys < 0) {
-			pr_err("failed to get shared P_Keys with LID %x\n",
-			       ntohs(node->lid));
+			pr_err("failed to get shared P_Keys with LID %#x\n",
+			       be16toh(node->lid));
 			free(in_mad_buf);
 			return num_pkeys;
 		}
 
 		for (j = 0; j < num_pkeys; ++j)
-			(void) handle_port(res, pkeys[j], ntohs(node->lid),
-					   ntohll(node->port_guid));
+			(void) handle_port(res, pkeys[j], be16toh(node->lid),
+					   be64toh(node->port_guid));
 	}
 
 	free(in_mad_buf);
@@ -1605,6 +1592,29 @@ out:
 	return ret;
 }
 
+static const struct option long_opts[] = {
+	{ "systemd",        0, NULL, 'S' },
+	{}
+};
+static const char short_opts[] = "caveod:i:j:p:t:r:R:T:l:Vhnf:";
+
+/* Check if the --systemd options was passed in very early so we can setup
+ * logging properly.
+ */
+static bool is_systemd(int argc, char *argv[])
+{
+	while (1) {
+		int c;
+
+		c = getopt_long(argc, argv, short_opts, long_opts, NULL);
+		if (c == -1)
+			break;
+		if (c == 'S')
+			return true;
+
+	}
+	return false;
+}
 
 static int get_config(struct config_t *conf, int argc, char *argv[])
 {
@@ -1631,10 +1641,11 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->rules			= NULL;
 	conf->tl_retry_count		= 0;
 
+	optind = 1;
 	while (1) {
 		int c;
 
-		c = getopt(argc, argv, "caveod:i:p:t:r:R:T:l:Vhnf:");
+		c = getopt_long(argc, argv, short_opts, long_opts, NULL);
 		if (c == -1)
 			break;
 
@@ -1654,6 +1665,19 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			if (conf->port_num == 0) {
 				pr_err("Bad port number %s\n", optarg);
 				return -1;
+			}
+			break;
+		case 'j': {
+			char dev[32];
+			int port_num;
+
+			if (sscanf(optarg, "%31[^:]:%d", dev, &port_num) != 2) {
+				pr_err("Bad dev:port specification %s\n",
+				       optarg);
+				return -1;
+			}
+			conf->dev_name = strdup(dev);
+			conf->port_num = port_num;
 			}
 			break;
 		case 'c':
@@ -1717,6 +1741,8 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 				       conf->tl_retry_count);
 				return -1;
 			}
+			break;
+		case 'S':
 			break;
 		case 'h':
 		default:
@@ -1798,9 +1824,9 @@ static int umad_resources_create(struct umad_resources *umad_res)
 		return -ENXIO;
 	}
 
-	umad_res->agent = umad_register(umad_res->portid, SRP_MGMT_CLASS_SA,
-					   SRP_MGMT_CLASS_SA_VERSION,
-					   SRP_SA_RMPP_VERSION, NULL);
+	umad_res->agent = umad_register(umad_res->portid, UMAD_CLASS_SUBN_ADM,
+					   UMAD_SA_CLASS_VERSION,
+					   UMAD_RMPP_VERSION, NULL);
 	if (umad_res->agent < 0) {
 		pr_err("umad_register failed\n");
 		return umad_res->agent;
@@ -1919,12 +1945,12 @@ static struct resources *alloc_res(void)
 				     run_thread_get_trap_notices, &res->res);
 		if (ret)
 			goto err;
-	}
 
-	ret = pthread_create(&res->res.async_ev_thread, NULL,
-			     run_thread_listen_to_events, &res->res);
-	if (ret)
-		goto err;
+		ret = pthread_create(&res->res.async_ev_thread, NULL,
+				     run_thread_listen_to_events, &res->res);
+		if (ret)
+			goto err;
+	}
 
 	if (config->retry_timeout && !config->once) {
 		ret = pthread_create(&res->res.reconnect_thread, NULL,
@@ -1950,6 +1976,41 @@ static void ts_sub(const struct timespec *a, const struct timespec *b,
 		res->tv_sec--;
 		res->tv_nsec += 1000 * 1000 * 1000;
 	}
+}
+
+static void cleanup_wakeup_fd(void)
+{
+	struct sigaction sa = {};
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = SIG_DFL;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SRP_CATAS_ERR, &sa, NULL);
+
+	close(wakeup_pipe[1]);
+	close(wakeup_pipe[0]);
+	wakeup_pipe[0] = -1;
+	wakeup_pipe[1] = -1;
+}
+
+static int setup_wakeup_fd(void)
+{
+	struct sigaction sa = {};
+	int ret;
+
+	ret = pipe2(wakeup_pipe, O_NONBLOCK | O_CLOEXEC);
+	if (ret < 0) {
+		pr_err("could not create pipe\n");
+		return -1;
+	}
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = signal_handler;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SRP_CATAS_ERR, &sa, NULL);
+	return 0;
 }
 
 static int ibsrpdm(int argc, char *argv[])
@@ -1998,7 +2059,7 @@ static int ibsrpdm(int argc, char *argv[])
 	ret = set_conf_dev_and_port(umad_dev, config);
 	if (ret) {
 		pr_err("Failed to build config\n");
-		return 1;
+		goto out;
 	}
 
 	umad_init();
@@ -2012,16 +2073,10 @@ static int ibsrpdm(int argc, char *argv[])
 	if (ret)
 		pr_err("Querying SRP targets failed\n");
 
-	assert(res->sync_res);
-	pthread_mutex_lock(&res->sync_res->retry_mutex);
-	res->sync_res->stop_threads = 1;
-	pthread_cond_signal(&res->sync_res->retry_cond);
-	pthread_mutex_unlock(&res->sync_res->retry_mutex);
-
 	free_res(res);
 umad_done:
 	umad_done();
-
+out:
 	free_config(config);
 
 	return ret;
@@ -2029,57 +2084,45 @@ umad_done:
 
 int main(int argc, char *argv[])
 {
-	int			ret, i, flags;
+	int			ret;
 	struct resources       *res;
-	uint16_t 		lid;
+	uint16_t                lid, sm_lid;
 	uint16_t 		pkey;
-	ib_gid_t 		gid;
+	union umad_gid 		gid;
 	struct target_details  *target;
-	struct sigaction	sa;
 	int			subscribed;
 	int			lockfd = -1;
 	int			received_signal = 0;
+	bool                    systemd;
 
-	STATIC_ASSERT(sizeof(struct srp_dm_mad) == 256);
-	STATIC_ASSERT(sizeof(struct srp_dm_rmpp_sa_mad) == 256);
-	STATIC_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
-	STATIC_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
-	STATIC_ASSERT(sizeof(struct srp_class_port_info) == 72);
-	STATIC_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
-	STATIC_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
-
-	ret = pipe(wakeup_pipe);
-	if (ret < 0) {
-		pr_err("could not create pipe\n");
-		goto out;
-	}
-	for (i = 0; i < 2; i++) {
-		flags = fcntl(wakeup_pipe[i], F_GETFL);
-		if (flags < 0) {
-			pr_err("fcntl F_GETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
-		if (fcntl(wakeup_pipe[i], F_SETFL, flags | O_NONBLOCK) < 0) {
-			pr_err("fcntl F_SETFL failed for %d\n", wakeup_pipe[i]);
-			goto close_pipe;
-		}
-
-	}
-
-	memset(&sa, 0, sizeof(sa));
-	sigemptyset(&sa.sa_mask);
-	sa.sa_handler = signal_handler;
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SRP_CATAS_ERR, &sa, NULL);
+#ifndef __CHECKER__
+	/*
+	 * Hide these checks for sparse because these checks fail with
+	 * older versions of sparse.
+	 */
+	BUILD_ASSERT(sizeof(struct ib_path_rec) == 64);
+	BUILD_ASSERT(sizeof(struct ib_inform_info) == 36);
+	BUILD_ASSERT(sizeof(struct ib_mad_notice_attr) == 80);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr,
+			      data_details.ntc_64_67.gid) == 16);
+#endif
+	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
+	BUILD_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
+	BUILD_ASSERT(sizeof(struct srp_dm_iou_info) == 132);
+	BUILD_ASSERT(sizeof(struct srp_dm_ioc_prof) == 128);
 
 	if (strcmp(argv[0] + max_t(int, 0, strlen(argv[0]) - strlen("ibsrpdm")),
 		   "ibsrpdm") == 0) {
 		ret = ibsrpdm(argc, argv);
-		goto restore_sig;
+		goto out;
 	}
 
-	openlog("srp_daemon", LOG_PID | LOG_PERROR, LOG_DAEMON);
+	systemd = is_systemd(argc, argv);
+
+	if (systemd)
+		openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
+	else
+		openlog("srp_daemon", LOG_PID, LOG_DAEMON);
 
 	config = calloc(1, sizeof(*config));
 	if (!config) {
@@ -2103,6 +2146,10 @@ int main(int argc, char *argv[])
 			goto free_config;
 		}
 	}
+
+	ret = setup_wakeup_fd();
+	if (ret)
+		goto cleanup_wakeup;
 
 catas_start:
 	subscribed = 0;
@@ -2143,8 +2190,10 @@ catas_start:
 
 			pr_debug("Starting a recalculation\n");
 			port_lid = get_port_lid(res->ud_res->ib_ctx,
-					   config->port_num);
-			if (port_lid != res->ud_res->port_attr.lid) {
+						config->port_num, &sm_lid);
+			if (port_lid != res->ud_res->port_attr.lid ||
+				sm_lid != res->ud_res->port_attr.sm_lid) {
+
 				if (res->ud_res->ah) {
 					ibv_destroy_ah(res->ud_res->ah);
 					res->ud_res->ah = NULL;
@@ -2159,7 +2208,7 @@ catas_start:
 			if (res->ud_res->ah) {
 				if (register_to_traps(res, 1))
 					pr_err("Fail to register to traps, maybe there "
-					       "is no opensm running on fabric or IB port is down\n");
+					       "is no SM running on fabric or IB port is down\n");
 				else
 					subscribed = 1;
 			}
@@ -2191,29 +2240,30 @@ catas_start:
 					/* unexpected error - do a full rescan */
 					schedule_rescan(res->sync_res, 0);
 				else {
-					pr_debug("lid is %d\n", lid);
+					pr_debug("lid is %#x\n", lid);
 
 					srp_sleep(0, 100);
 					handle_port(res, pkey, lid,
-						    ntohll(ib_gid_get_guid(&gid)));
+						    be64toh(ib_gid_get_guid(&gid)));
 				}
 			}
 		} else {
+			static const struct timespec zero;
 			struct timespec now, delta;
+			struct timespec recalc = {
+				.tv_sec = config->recalc_time
+			};
 			struct timeval timeout;
 
 			clock_gettime(CLOCK_MONOTONIC, &now);
 			ts_sub(&res->sync_res->next_recalc_time, &now, &delta);
 			pthread_mutex_unlock(&res->sync_res->mutex);
 
-			if (delta.tv_sec > 0 ||
-			    (delta.tv_sec == 0 && delta.tv_nsec > 0)) {
-				timeout.tv_sec = delta.tv_sec;
-				timeout.tv_usec = delta.tv_nsec / 1000 + 1;
-			} else {
-				timeout.tv_sec = 0;
-				timeout.tv_usec = 0;
-			}
+			if (ts_cmp(&zero, &delta, <=) &&
+			    ts_cmp(&delta, &recalc, <))
+				recalc = delta;
+			timeout.tv_sec = recalc.tv_sec;
+			timeout.tv_usec = recalc.tv_nsec / 1000 + 1;
 
 			received_signal = get_received_signal(timeout.tv_sec,
 							timeout.tv_usec) ? :
@@ -2267,20 +2317,12 @@ clean_umad:
 close_lockfd:
 	if (lockfd >= 0)
 		close(lockfd);
+cleanup_wakeup:
+	cleanup_wakeup_fd();
 free_config:
 	free_config(config);
 close_log:
 	closelog();
-restore_sig:
-	sa.sa_handler = SIG_DFL;
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SRP_CATAS_ERR, &sa, NULL);
-close_pipe:
-	close(wakeup_pipe[1]);
-	close(wakeup_pipe[0]);
-	wakeup_pipe[0] = -1;
-	wakeup_pipe[1] = -1;
 out:
 	exit(ret ? 1 : 0);
 }
@@ -2300,7 +2342,7 @@ static int recalc(struct resources *res)
 
 	umad_res->sm_lid = strtol(val, NULL, 0);
 	if (umad_res->sm_lid == 0) {
-		pr_err("SM LID is 0, maybe no opensm is running\n");
+		pr_err("SM LID is 0, maybe no SM is running\n");
 		return -1;
 	}
 
@@ -2319,30 +2361,31 @@ static int recalc(struct resources *res)
 	return ret;
 }
 
-static int get_lid(struct umad_resources *umad_res, ib_gid_t *gid, uint16_t *lid)
+static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
+		   uint16_t *lid)
 {
-	srp_ib_user_mad_t		out_mad, in_mad;
-	struct srp_dm_rmpp_sa_mad 	*in_sa_mad  = get_data_ptr(in_mad);
-	struct srp_dm_rmpp_sa_mad 	*out_sa_mad = get_data_ptr(out_mad);
-	ib_path_rec_t			*path_rec   = (ib_path_rec_t *) out_sa_mad->data;
+	struct srp_ib_user_mad		out_mad, in_mad;
+	struct umad_sa_packet		*in_sa_mad  = get_data_ptr(in_mad);
+	struct umad_sa_packet		*out_sa_mad = get_data_ptr(out_mad);
+	struct ib_path_rec		*path_rec   = (struct ib_path_rec *) out_sa_mad->data;
 
 	memset(&in_mad, 0, sizeof(in_mad));
 	init_srp_sa_mad(&out_mad, umad_res->agent, umad_res->sm_lid,
-		        SRP_SA_ATTR_PATH_REC, 0);
+		        UMAD_SA_ATTR_PATH_REC, 0);
 
-	out_sa_mad->comp_mask = htonll( 4 | 8 | 64 | 512 | 4096 );
+	out_sa_mad->comp_mask = htobe64( 4 | 8 | 64 | 512 | 4096 );
 
 	path_rec->sgid = *gid;
 	path_rec->dgid = *gid;
 	path_rec->num_path = 1;
-	path_rec->hop_flow_raw = htonl(1 << 31); /* rawtraffic=1 hoplimit = 0 */
+	path_rec->hop_flow_raw = htobe32(1 << 31); /* rawtraffic=1 hoplimit = 0 */
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
 
-	path_rec = (ib_path_rec_t *) in_sa_mad->data;
+	path_rec = (struct ib_path_rec *) in_sa_mad->data;
 
-	*lid = ntohs(path_rec->dlid);
+	*lid = be16toh(path_rec->dlid);
 
 	return 0;
 }

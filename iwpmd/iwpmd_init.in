@@ -1,0 +1,118 @@
+#!/bin/bash
+# Start the IWPMD daemon
+#
+# chkconfig: 1235 90 15
+# description: iWarp Port Mapper Daemon for opening sockets to reserve ports from userspace
+# processname: iwpmd
+# pidfile: /var/run/iwpmd.pid
+#
+### BEGIN INIT INFO
+# Provides: iwpmd
+# Required-Start: $network $syslog $remote_fs
+# Required-Stop: $remote_fs
+# Default-Stop: 0 1 6
+# Default-Start: 2 3 4 5
+# Short-Description: iWarp Port Mapper Daemon
+# Description: iWarp Port Mapper Daemon for opening sockets to claim TCP ports from userspace
+### END INIT INFO
+
+IWPMD_BIN="@CMAKE_INSTALL_FULL_SBINDIR@/iwpmd"
+LOCK="/var/lock/subsys/iwpmd"
+IWPMD_PID=0
+RETVAL=0
+
+# Source function library.
+if [ -f "/etc/redhat-release" ]; then
+	. /etc/rc.d/init.d/functions
+	STARTD=daemon
+	STOPD=killproc
+	STATUSD=status
+	GETPID=/sbin/pidof
+
+else
+	# Debian / openSUSE / Ubuntu
+	. /lib/lsb/init-functions
+	STARTD=start_daemon
+	STOPD=killproc
+	STATUSD=/sbin/checkproc
+	GETPID=pidofproc
+fi
+
+check() {
+	# Check if iwpm is executable
+	test -x $IWPMD_BIN || ( echo "Couldn't find $IWPMD_BIN"; exit 5 )
+}
+
+start() {
+	check
+	RETVAL=$?
+	[ $RETVAL -gt 0 ] && exit $RETVAL
+
+	echo -n $"Starting iwpm daemon: "
+	if [ ! -f "$LOCK" ]; then
+		ulimit -n 102400
+		$STARTD $IWPMD_BIN &> /dev/null
+		RETVAL=$?
+		[ $RETVAL -eq 0 ] && ( touch $LOCK; echo "OK" ) || echo "NO"
+	else
+		echo "NO (iwpm is already running)"
+	fi
+	return $RETVAL
+}
+
+stop() {
+	check
+	RETVAL=$?
+	[ $RETVAL -gt 0 ] && exit $RETVAL
+
+	echo -n $"Stopping iwpm daemon: "
+	if [ -f "$LOCK" ]; then
+		$STOPD $IWPMD_BIN &> /dev/null
+		RETVAL=$?
+		[ $RETVAL -eq 0 ] && ( rm -f $LOCK; echo "OK" ) || echo "NO"
+	else
+		echo "NO (iwpm is already stopped)"
+	fi
+	return $RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+show_status() {
+	check
+	RETVAL=$?
+	[ $RETVAL -gt 0 ] && exit $RETVAL
+
+	IWPMD_PID="$($GETPID $IWPMD_BIN)"
+	$STATUSD $IWPMD_BIN &> /dev/null
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && echo "iwpm daemon (pid $IWPMD_PID) is running" || echo "iwpm daemon isn't available"
+
+	return $RETVAL
+}
+
+case "$1" in
+start)
+	start
+	;;
+stop)
+	stop
+	;;
+restart)
+	restart
+	;;
+force-reload)
+	restart
+	;;
+status)
+	show_status
+	;;
+*)
+	echo $"Usage: $0 {start|stop|restart|force-reload|status}"
+	RETVAL=2
+esac
+
+exit $RETVAL

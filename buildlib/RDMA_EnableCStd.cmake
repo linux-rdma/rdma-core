@@ -1,4 +1,5 @@
-# COPYRIGHT (c) 2016 Obsidian Research Corporation. See COPYING file
+# COPYRIGHT (c) 2016 Obsidian Research Corporation.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
 # cmake does not have way to do this even slightly sanely until CMP0056
 function(RDMA_CHECK_C_LINKER_FLAG FLAG CACHE_VAR)
@@ -33,16 +34,24 @@ function(RDMA_AddOptCFlag TO_VAR CACHE_VAR FLAG)
   endif()
 endfunction()
 
-# Enable the minimum required gnu99 standard in the compiler.
+# Enable the minimum required gnu11 standard in the compiler
+# This was introduced in GCC 4.7
 function(RDMA_EnableCStd)
+  if (HAVE_SPARSE)
+    # Sparse doesn't support gnu11, but doesn't fail if the option is present,
+    # force gnu99 instead.
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99" PARENT_SCOPE)
+    return()
+  endif()
+
   if (CMAKE_VERSION VERSION_LESS "3.1")
     # Check for support of the usual flag
-    CHECK_C_COMPILER_FLAG("-std=gnu99" SUPPORTS_GNU99)
-    if (SUPPORTS_GNU99)
-      SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99" PARENT_SCOPE)
+    CHECK_C_COMPILER_FLAG("-std=gnu11" SUPPORTS_GNU11)
+    if (SUPPORTS_GNU11)
+      SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11" PARENT_SCOPE)
     endif()
   else()
     # Newer cmake can do this internally
-    set(CMAKE_C_STANDARD 99 PARENT_SCOPE)
+    set(CMAKE_C_STANDARD 11 PARENT_SCOPE)
   endif()
 endfunction()

@@ -33,6 +33,8 @@
 
 #include <infiniband/acm.h>
 
+struct sockaddr;
+
 int ib_acm_connect(char *dest_svc);
 void ib_acm_disconnect(void);
 

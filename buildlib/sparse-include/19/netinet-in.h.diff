@@ -1,0 +1,121 @@
+--- /usr/include/netinet/in.h	2016-05-26 10:27:23.000000000 +0000
++++ build-sparse/include/netinet/in.h	2017-03-15 21:50:20.436860311 +0000
+@@ -22,12 +22,12 @@
+ #include <stdint.h>
+ #include <sys/socket.h>
+ #include <bits/types.h>
+-
++#include <linux/types.h>
+ 
+ __BEGIN_DECLS
+ 
+ /* Internet address.  */
+-typedef uint32_t in_addr_t;
++typedef __be32 in_addr_t;
+ struct in_addr
+   {
+     in_addr_t s_addr;
+@@ -114,7 +114,7 @@
+ #endif /* !__USE_KERNEL_IPV6_DEFS */
+ 
+ /* Type to represent a port.  */
+-typedef uint16_t in_port_t;
++typedef __be16 in_port_t;
+ 
+ /* Standard well-known ports.  */
+ enum
+@@ -173,36 +173,36 @@
+ #define	IN_CLASSB_HOST		(0xffffffff & ~IN_CLASSB_NET)
+ #define	IN_CLASSB_MAX		65536
+ 
+-#define	IN_CLASSC(a)		((((in_addr_t)(a)) & 0xe0000000) == 0xc0000000)
++#define	IN_CLASSC(a)		((((uint32_t)(a)) & 0xe0000000) == 0xc0000000)
+ #define	IN_CLASSC_NET		0xffffff00
+ #define	IN_CLASSC_NSHIFT	8
+ #define	IN_CLASSC_HOST		(0xffffffff & ~IN_CLASSC_NET)
+ 
+-#define	IN_CLASSD(a)		((((in_addr_t)(a)) & 0xf0000000) == 0xe0000000)
++#define	IN_CLASSD(a)		((((uint32_t)(a)) & 0xf0000000) == 0xe0000000)
+ #define	IN_MULTICAST(a)		IN_CLASSD(a)
+ 
+-#define	IN_EXPERIMENTAL(a)	((((in_addr_t)(a)) & 0xe0000000) == 0xe0000000)
+-#define	IN_BADCLASS(a)		((((in_addr_t)(a)) & 0xf0000000) == 0xf0000000)
++#define	IN_EXPERIMENTAL(a)	((((uint32_t)(a)) & 0xe0000000) == 0xe0000000)
++#define	IN_BADCLASS(a)		((((uint32_t)(a)) & 0xf0000000) == 0xf0000000)
+ 
+ /* Address to accept any incoming messages.  */
+-#define	INADDR_ANY		((in_addr_t) 0x00000000)
++#define	INADDR_ANY		((uint32_t) 0x00000000)
+ /* Address to send to all hosts.  */
+-#define	INADDR_BROADCAST	((in_addr_t) 0xffffffff)
++#define	INADDR_BROADCAST	((uint32_t) 0xffffffff)
+ /* Address indicating an error return.  */
+-#define	INADDR_NONE		((in_addr_t) 0xffffffff)
++#define	INADDR_NONE		((uint32_t) 0xffffffff)
+ 
+ /* Network number for local host loopback.  */
+ #define	IN_LOOPBACKNET		127
+ /* Address to loopback in software to local host.  */
+ #ifndef INADDR_LOOPBACK
+-# define INADDR_LOOPBACK	((in_addr_t) 0x7f000001) /* Inet 127.0.0.1.  */
++# define INADDR_LOOPBACK	((uint32_t) 0x7f000001) /* Inet 127.0.0.1.  */
+ #endif
+ 
+ /* Defines for Multicast INADDR.  */
+-#define INADDR_UNSPEC_GROUP	((in_addr_t) 0xe0000000) /* 224.0.0.0 */
+-#define INADDR_ALLHOSTS_GROUP	((in_addr_t) 0xe0000001) /* 224.0.0.1 */
+-#define INADDR_ALLRTRS_GROUP    ((in_addr_t) 0xe0000002) /* 224.0.0.2 */
+-#define INADDR_MAX_LOCAL_GROUP  ((in_addr_t) 0xe00000ff) /* 224.0.0.255 */
++#define INADDR_UNSPEC_GROUP	((uint32_t) 0xe0000000) /* 224.0.0.0 */
++#define INADDR_ALLHOSTS_GROUP	((uint32_t) 0xe0000001) /* 224.0.0.1 */
++#define INADDR_ALLRTRS_GROUP    ((uint32_t) 0xe0000002) /* 224.0.0.2 */
++#define INADDR_MAX_LOCAL_GROUP  ((uint32_t) 0xe00000ff) /* 224.0.0.255 */
+ 
+ #ifndef __USE_KERNEL_IPV6_DEFS
+ /* IPv6 address */
+@@ -212,8 +212,8 @@
+       {
+ 	uint8_t	__u6_addr8[16];
+ #if defined __USE_MISC || defined __USE_GNU
+-	uint16_t __u6_addr16[8];
+-	uint32_t __u6_addr32[4];
++	__be16 __u6_addr16[8];
++	__be32 __u6_addr32[4];
+ #endif
+       } __in6_u;
+ #define s6_addr			__in6_u.__u6_addr8
+@@ -253,7 +253,7 @@
+   {
+     __SOCKADDR_COMMON (sin6_);
+     in_port_t sin6_port;	/* Transport layer port # */
+-    uint32_t sin6_flowinfo;	/* IPv6 flow information */
++    __be32 sin6_flowinfo;	/* IPv6 flow information */
+     struct in6_addr sin6_addr;	/* IPv6 address */
+     uint32_t sin6_scope_id;	/* IPv6 scope-id */
+   };
+@@ -371,12 +371,12 @@
+    this was a short-sighted decision since on different systems the types
+    may have different representations but the values are always the same.  */
+ 
+-extern uint32_t ntohl (uint32_t __netlong) __THROW __attribute__ ((__const__));
+-extern uint16_t ntohs (uint16_t __netshort)
++extern uint32_t ntohl (__be32 __netlong) __THROW __attribute__ ((__const__));
++extern uint16_t ntohs (__be16 __netshort)
+      __THROW __attribute__ ((__const__));
+-extern uint32_t htonl (uint32_t __hostlong)
++extern __be32 htonl (uint32_t __hostlong)
+      __THROW __attribute__ ((__const__));
+-extern uint16_t htons (uint16_t __hostshort)
++extern __be16 htons (uint16_t __hostshort)
+      __THROW __attribute__ ((__const__));
+ 
+ #include <endian.h>
+@@ -384,7 +384,7 @@
+ /* Get machine dependent optimized versions of byte swapping functions.  */
+ #include <bits/byteswap.h>
+ 
+-#ifdef __OPTIMIZE__
++#ifdef __disabled_OPTIMIZE__
+ /* We can optimize calls to the conversion functions.  Either nothing has
+    to be done or we are using directly the byte-swapping functions which
+    often can be inlined.  */

@@ -36,6 +36,7 @@
 #include <infiniband/kern-abi.h>
 #include <rdma/ib_user_sa.h>
 #include <infiniband/sa.h>
+#include <netinet/in.h>
 
 /*
  * This file must be kept in sync with the kernel's version of rdma_user_cm.h
@@ -172,7 +173,7 @@ struct ucma_abi_query {
 };
 
 struct ucma_abi_query_route_resp {
-	__u64 node_guid;
+	__be64 node_guid;
 	struct ib_user_path_rec ib_route[2];
 	struct sockaddr_in6 src_addr;
 	struct sockaddr_in6 dst_addr;
@@ -182,10 +183,10 @@ struct ucma_abi_query_route_resp {
 };
 
 struct ucma_abi_query_addr_resp {
-	__u64 node_guid;
+	__be64 node_guid;
 	__u8  port_num;
 	__u8  reserved;
-	__u16 pkey;
+	__be16 pkey;
 	__u16 src_size;
 	__u16 dst_size;
 	struct sockaddr_storage src_addr;
@@ -215,7 +216,7 @@ struct ucma_abi_conn_param {
 struct ucma_abi_ud_param {
 	__u32 qp_num;
 	__u32 qkey;
-	struct ibv_kern_ah_attr ah_attr;
+	struct ib_uverbs_ah_attr ah_attr;
 	__u8 private_data[RDMA_MAX_PRIVATE_DATA];
 	__u8 private_data_len;
 	__u8 reserved[7];
@@ -301,7 +302,7 @@ struct ucma_abi_join_mcast {
 	__u64 uid;
 	__u32 id;
 	__u16 addr_size;
-	__u16 reserved;
+	__u16 join_flags;
 	struct sockaddr_storage addr;
 };
 

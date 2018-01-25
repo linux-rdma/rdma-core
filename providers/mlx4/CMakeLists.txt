@@ -1,4 +1,5 @@
-rdma_provider(mlx4
+rdma_shared_provider(mlx4 libmlx4.map
+  1 1.0.${PACKAGE_VERSION}
   buf.c
   cq.c
   dbrec.c
@@ -7,3 +8,9 @@ rdma_provider(mlx4
   srq.c
   verbs.c
 )
+
+publish_headers(infiniband
+  mlx4dv.h
+)
+
+install(FILES "mlx4.conf" DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/modprobe.d/")

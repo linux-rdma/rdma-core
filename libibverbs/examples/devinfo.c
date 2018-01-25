@@ -38,14 +38,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <getopt.h>
-#include <netinet/in.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <inttypes.h>
 
 #include <infiniband/verbs.h>
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 
 static int verbose;
 
@@ -55,9 +52,9 @@ static int null_gid(union ibv_gid *gid)
 		 gid->raw[12] | gid->raw[13] | gid->raw[14] | gid->raw[15]);
 }
 
-static const char *guid_str(uint64_t node_guid, char *str)
+static const char *guid_str(__be64 _node_guid, char *str)
 {
-	node_guid = ntohll(node_guid);
+	uint64_t node_guid = be64toh(_node_guid);
 	sprintf(str, "%04x:%04x:%04x:%04x",
 		(unsigned) (node_guid >> 48) & 0xffff,
 		(unsigned) (node_guid >> 32) & 0xffff,
@@ -333,14 +330,33 @@ static void print_odp_caps(const struct ibv_odp_caps *caps)
 
 static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
 {
-	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000;
-	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS);
+	uint64_t ex_flags = device_cap_flags_ex & 0xffffffff00000000ULL;
+	uint64_t unknown_flags = ~(IBV_DEVICE_RAW_SCATTER_FCS |
+				   IBV_DEVICE_PCI_WRITE_END_PADDING);
 
 	if (ex_flags & IBV_DEVICE_RAW_SCATTER_FCS)
 		printf("\t\t\t\t\tRAW_SCATTER_FCS\n");
+	if (ex_flags & IBV_DEVICE_PCI_WRITE_END_PADDING)
+		printf("\t\t\t\t\tPCI_WRITE_END_PADDING\n");
 	if (ex_flags & unknown_flags)
 		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
 		       ex_flags & unknown_flags);
+}
+
+static void print_tm_caps(const struct ibv_tm_caps *caps)
+{
+	if (caps->max_num_tags) {
+		printf("\tmax_rndv_hdr_size:\t\t%u\n",
+				caps->max_rndv_hdr_size);
+		printf("\tmax_num_tags:\t\t\t%u\n", caps->max_num_tags);
+		printf("\tmax_ops:\t\t\t%u\n", caps->max_ops);
+		printf("\tmax_sge:\t\t\t%u\n", caps->max_sge);
+		printf("\tflags:\n");
+		if (caps->flags & IBV_TM_CAP_RC)
+			printf("\t\t\t\t\tIBV_TM_CAP_RC\n");
+	} else {
+		printf("\ttag matching not supported\n");
+	}
 }
 
 static void print_tso_caps(const struct ibv_tso_caps *caps)
@@ -382,6 +398,49 @@ static void print_rss_caps(const struct ibv_rss_caps *caps)
 			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
 			       caps->supported_qpts & unknown_general_caps);
 	}
+}
+
+static void print_cq_moderation_caps(const struct ibv_cq_moderation_caps *cq_caps)
+{
+	if (!cq_caps->max_cq_count || !cq_caps->max_cq_period)
+		return;
+
+	printf("\n\tcq moderation caps:\n");
+	printf("\t\tmax_cq_count:\t%u\n", cq_caps->max_cq_count);
+	printf("\t\tmax_cq_period:\t%u us\n\n", cq_caps->max_cq_period);
+}
+
+static void print_packet_pacing_caps(const struct ibv_packet_pacing_caps *caps)
+{
+	uint32_t unknown_general_caps = ~(1 << IBV_QPT_RAW_PACKET |
+					  1 << IBV_QPT_UD);
+	printf("\tpacket_pacing_caps:\n");
+	printf("\t\tqp_rate_limit_min:\t%ukbps\n", caps->qp_rate_limit_min);
+	printf("\t\tqp_rate_limit_max:\t%ukbps\n", caps->qp_rate_limit_max);
+
+	if (caps->qp_rate_limit_max) {
+		printf("\t\tsupported_qp:\n");
+		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_RAW_PACKET))
+			printf("\t\t\t\t\tSUPPORT_RAW_PACKET\n");
+		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_UD))
+			printf("\t\t\t\t\tSUPPORT_UD\n");
+		if (caps->supported_qpts & unknown_general_caps)
+			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
+			       caps->supported_qpts & unknown_general_caps);
+	}
+}
+
+static void print_raw_packet_caps(uint32_t raw_packet_caps)
+{
+	printf("\traw packet caps:\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_CVLAN_STRIPPING)
+		printf("\t\t\t\t\tC-VLAN stripping offload\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_SCATTER_FCS)
+		printf("\t\t\t\t\tScatter FCS offload\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
+		printf("\t\t\t\t\tIP csum offload\n");
+	if (raw_packet_caps & IBV_RAW_PACKET_CAP_DELAY_DROP)
+		printf("\t\t\t\t\tDelay drop\n");
 }
 
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
@@ -482,11 +541,17 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		else
 			printf("\tcore clock not supported\n");
 
+		if (device_attr.raw_packet_caps)
+			print_raw_packet_caps(device_attr.raw_packet_caps);
+
 		printf("\tdevice_cap_flags_ex:\t\t0x%" PRIX64 "\n", device_attr.device_cap_flags_ex);
 		print_device_cap_flags_ex(device_attr.device_cap_flags_ex);
 		print_tso_caps(&device_attr.tso_caps);
 		print_rss_caps(&device_attr.rss_caps);
 		printf("\tmax_wq_type_rq:\t\t\t%u\n", device_attr.max_wq_type_rq);
+		print_packet_pacing_caps(&device_attr.packet_pacing_caps);
+		print_tm_caps(&device_attr.tm_caps);
+		print_cq_moderation_caps(&device_attr.cq_mod_caps);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
@@ -573,7 +638,7 @@ int main(int argc, char *argv[])
 			{ .name = "ib-port",  .has_arg = 1, .val = 'i' },
 			{ .name = "list",     .has_arg = 0, .val = 'l' },
 			{ .name = "verbose",  .has_arg = 0, .val = 'v' },
-			{ 0, 0, 0, 0}
+			{ }
 		};
 
 		c = getopt_long(argc, argv, "d:i:lv", long_options, NULL);

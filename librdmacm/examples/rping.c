@@ -31,23 +31,19 @@
  * SOFTWARE.
  */
 #define _GNU_SOURCE
+#include <endian.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <byteswap.h>
 #include <semaphore.h>
-#include <arpa/inet.h>
 #include <pthread.h>
 #include <inttypes.h>
-
 #include <rdma/rdma_cma.h>
-#include <infiniband/arch.h>
 
 static int debug = 0;
 #define DEBUG_LOG if (debug) printf
@@ -87,9 +83,9 @@ enum test_state {
 };
 
 struct rping_rdma_info {
-	uint64_t buf;
-	uint32_t rkey;
-	uint32_t size;
+	__be64 buf;
+	__be32 rkey;
+	__be32 size;
 };
 
 /*
@@ -145,7 +141,8 @@ struct rping_cb {
 	sem_t sem;
 
 	struct sockaddr_storage sin;
-	uint16_t port;			/* dst port in NBO */
+	struct sockaddr_storage ssource;
+	__be16 port;			/* dst port in NBO */
 	int verbose;			/* verbose logging */
 	int count;			/* ping count */
 	int size;			/* ping data size */
@@ -245,9 +242,9 @@ static int server_recv(struct rping_cb *cb, struct ibv_wc *wc)
 		return -1;
 	}
 
-	cb->remote_rkey = ntohl(cb->recv_buf.rkey);
-	cb->remote_addr = ntohll(cb->recv_buf.buf);
-	cb->remote_len  = ntohl(cb->recv_buf.size);
+	cb->remote_rkey = be32toh(cb->recv_buf.rkey);
+	cb->remote_addr = be64toh(cb->recv_buf.buf);
+	cb->remote_len  = be32toh(cb->recv_buf.size);
 	DEBUG_LOG("Received rkey %x addr %" PRIx64 " len %d from peer\n",
 		  cb->remote_rkey, cb->remote_addr, cb->remote_len);
 
@@ -622,12 +619,12 @@ static void rping_format_send(struct rping_cb *cb, char *buf, struct ibv_mr *mr)
 {
 	struct rping_rdma_info *info = &cb->send_buf;
 
-	info->buf = htonll((uint64_t) (unsigned long) buf);
-	info->rkey = htonl(mr->rkey);
-	info->size = htonl(cb->size);
+	info->buf = htobe64((uint64_t) (unsigned long) buf);
+	info->rkey = htobe32(mr->rkey);
+	info->size = htobe32(cb->size);
 
 	DEBUG_LOG("RDMA addr %" PRIx64" rkey %x len %d\n",
-		  ntohll(info->buf), ntohl(info->rkey), ntohl(info->size));
+		  be64toh(info->buf), be32toh(info->rkey), be32toh(info->size));
 }
 
 static int rping_test_server(struct rping_cb *cb)
@@ -1043,7 +1040,12 @@ static int rping_bind_client(struct rping_cb *cb)
 	else
 		((struct sockaddr_in6 *) &cb->sin)->sin6_port = cb->port;
 
-	ret = rdma_resolve_addr(cb->cm_id, NULL, (struct sockaddr *) &cb->sin, 2000);
+	if (cb->ssource.ss_family) 
+		ret = rdma_resolve_addr(cb->cm_id, (struct sockaddr *) &cb->ssource,
+					(struct sockaddr *) &cb->sin, 2000);
+	else
+		ret = rdma_resolve_addr(cb->cm_id, NULL, (struct sockaddr *) &cb->sin, 2000);
+
 	if (ret) {
 		perror("rdma_resolve_addr");
 		return ret;
@@ -1144,9 +1146,10 @@ static void usage(const char *name)
 {
 	printf("%s -s [-vVd] [-S size] [-C count] [-a addr] [-p port]\n", 
 	       basename(name));
-	printf("%s -c [-vVd] [-S size] [-C count] -a addr [-p port]\n", 
+	printf("%s -c [-vVd] [-S size] [-C count] [-I addr] -a addr [-p port]\n", 
 	       basename(name));
 	printf("\t-c\t\tclient side\n");
+	printf("\t-I\t\tSource address to bind to for client.\n");
 	printf("\t-s\t\tserver side.  To bind to any address with IPv6 use -a ::0\n");
 	printf("\t-v\t\tdisplay ping data to stdout\n");
 	printf("\t-V\t\tvalidate ping data\n");
@@ -1174,20 +1177,23 @@ int main(int argc, char *argv[])
 	cb->state = IDLE;
 	cb->size = 64;
 	cb->sin.ss_family = PF_INET;
-	cb->port = htons(7174);
+	cb->port = htobe16(7174);
 	sem_init(&cb->sem, 0, 0);
 
 	opterr = 0;
-	while ((op=getopt(argc, argv, "a:Pp:C:S:t:scvVd")) != -1) {
+	while ((op=getopt(argc, argv, "a:I:Pp:C:S:t:scvVd")) != -1) {
 		switch (op) {
 		case 'a':
 			ret = get_addr(optarg, (struct sockaddr *) &cb->sin);
+			break;
+		case 'I':
+			ret = get_addr(optarg, (struct sockaddr *) &cb->ssource);
 			break;
 		case 'P':
 			persistent_server = 1;
 			break;
 		case 'p':
-			cb->port = htons(atoi(optarg));
+			cb->port = htobe16(atoi(optarg));
 			DEBUG_LOG("port %d\n", (int) atoi(optarg));
 			break;
 		case 's':

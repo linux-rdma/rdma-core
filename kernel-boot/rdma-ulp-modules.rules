@@ -1,0 +1,11 @@
+ACTION=="remove", GOTO="rdma_ulp_modules_end"
+SUBSYSTEM!="infiniband", GOTO="rdma_ulp_modules_end"
+
+# Automatically load general RDMA ULP modules when RDMA hardware is installed
+TAG+="systemd", ENV{SYSTEMD_WANTS}+="rdma-hw.target"
+TAG+="systemd", ENV{ID_RDMA_INFINIBAND}=="1", ENV{SYSTEMD_WANTS}+="rdma-load-modules@infiniband.service"
+TAG+="systemd", ENV{ID_RDMA_IWARP}=="1", ENV{SYSTEMD_WANTS}+="rdma-load-modules@iwarp.service"
+TAG+="systemd", ENV{ID_RDMA_OPA}=="1", ENV{SYSTEMD_WANTS}+="rdma-load-modules@opa.service"
+TAG+="systemd", ENV{ID_RDMA_ROCE}=="1", ENV{SYSTEMD_WANTS}+="rdma-load-modules@roce.service"
+
+LABEL="rdma_ulp_modules_end"

@@ -1,0 +1,1 @@
+SUBSYSTEM=="infiniband_mad", KERNEL=="*umad*", PROGRAM=="/bin/systemctl show srp_daemon -p ActiveState", RESULT=="ActiveState=active", ENV{SYSTEMD_WANTS}+="srp_daemon_port@$attr{ibdev}:$attr{port}.service"

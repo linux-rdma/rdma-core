@@ -1,0 +1,19 @@
+[Unit]
+Description=Daemon that discovers and logs in to SRP target systems
+Documentation=man:srp_daemon file:/etc/srp_daemon.conf
+DefaultDependencies=false
+Conflicts=emergency.target emergency.service
+Before=remote-fs-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/srp_daemon/start_on_all_ports
+MemoryDenyWriteExecute=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=remote-fs-pre.target

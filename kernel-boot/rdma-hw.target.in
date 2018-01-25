@@ -1,0 +1,13 @@
+[Unit]
+Description=RDMA Hardware
+Documentation=file:@CMAKE_INSTALL_FULL_DOCDIR@/udev.md
+StopWhenUnneeded=yes
+
+# Start the basic ULP RDMA kernel modules when RDMA hardware is detected (note
+# the rdma-load-modules@.service is already before this target)
+Wants=rdma-load-modules@rdma.service
+# Order after the standard network.target for compatibility with init.d
+# scripts that order after networking - this will mean RDMA is ready too.
+Before=network.target
+# We do not order rdma-hw before basic.target, units for daemons that use RDMA
+# have to manually order after rdma-hw.target

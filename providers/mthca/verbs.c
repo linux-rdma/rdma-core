@@ -38,7 +38,6 @@
 #include <strings.h>
 #include <pthread.h>
 #include <errno.h>
-#include <netinet/in.h>
 
 #include "mthca.h"
 #include "mthca-abi.h"
@@ -120,7 +119,7 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ibv_mr *mr;
 	struct mthca_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
 	/*
@@ -276,7 +275,7 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 	struct mthca_resize_cq cmd;
 	struct ibv_mr *mr;
 	struct mthca_buf buf;
-	struct ibv_resize_cq_resp resp;
+	struct ib_uverbs_resize_cq_resp resp;
 	int old_cqe;
 	int ret;
 
@@ -491,7 +490,7 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
 	struct mthca_create_qp    cmd;
-	struct ibv_create_qp_resp resp;
+	struct ib_uverbs_create_qp_resp resp;
 	struct mthca_qp          *qp;
 	int                       ret;
 
@@ -613,7 +612,7 @@ int mthca_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 int mthca_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		    int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	int ret;
 
 	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof cmd);

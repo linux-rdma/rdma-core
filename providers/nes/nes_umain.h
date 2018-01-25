@@ -37,16 +37,10 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <endian.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
-
-#ifndef likely
-#define likely(x)   __builtin_expect((x),1)
-#endif
-#ifndef unlikely
-#define unlikely(x) __builtin_expect((x),0)
-#endif
+#include <util/udma_barrier.h>
 
 #define PFX	"libnes: "
 
@@ -254,7 +248,7 @@ struct nes_user_doorbell {
 };
 
 struct nes_udevice {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	enum nes_uhca_type hca_type;
 	int page_size;
 };
@@ -267,7 +261,7 @@ struct nes_upd {
 };
 
 struct nes_uvcontext {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	struct nes_upd *nesupd;
 	uint32_t max_pds; /* maximum pds allowed for this user process */
 	uint32_t max_qps; /* maximum qps allowed for this user process */
@@ -327,18 +321,17 @@ struct nes_uqp {
 	uint64_t recv_wr_id[512]; /* IMA receive wr_id ring content */
 };
 
-#define to_nes_uxxx(xxx, type)				\
-	((struct nes_u##type *)					\
-	((void *) ib##xxx - offsetof(struct nes_u##type, ibv_##xxx)))
+#define to_nes_uxxx(xxx, type)                                                 \
+	container_of(ib##xxx, struct nes_u##type, ibv_##xxx)
 
 static inline struct nes_udevice *to_nes_udev(struct ibv_device *ibdev)
 {
-	return to_nes_uxxx(dev, device);
+	return container_of(ibdev, struct nes_udevice, ibv_dev.device);
 }
 
 static inline struct nes_uvcontext *to_nes_uctx(struct ibv_context *ibctx)
 {
-	return to_nes_uxxx(ctx, vcontext);
+	return container_of(ibctx, struct nes_uvcontext, ibv_ctx.context);
 }
 
 static inline struct nes_upd *to_nes_upd(struct ibv_pd *ibpd)
@@ -356,9 +349,6 @@ static inline struct nes_uqp *to_nes_uqp(struct ibv_qp *ibqp)
 	return to_nes_uxxx(qp, qp);
 }
 
-
-/* nes_umain.c */
-struct ibv_device *nes_driver_init(const char *, int);
 
 /* nes_uverbs.c */
 int nes_uquery_device(struct ibv_context *, struct ibv_device_attr *);
@@ -390,15 +380,6 @@ int nes_udestroy_ah(struct ibv_ah *);
 int nes_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 int nes_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 void nes_async_event(struct ibv_async_event *event);
-
-static inline uint32_t cpu_to_le32(uint32_t x)
-{
-	return htole32(x);
-}
-static inline uint32_t le32_to_cpu(uint32_t x)
-{
-	return le32toh(x);
-}
 
 extern long int page_size;
 

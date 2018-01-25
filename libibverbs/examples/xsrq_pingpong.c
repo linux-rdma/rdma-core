@@ -97,7 +97,7 @@ struct pingpong_context {
 	int			 gidx;
 };
 
-struct pingpong_context ctx;
+static struct pingpong_context ctx;
 
 
 static int open_device(char *ib_devname)
@@ -633,7 +633,7 @@ static int pp_server_connect(int port)
 	listen(sockfd, ctx.num_clients);
 
 	for (i = 0; i < ctx.num_clients; i++) {
-		connfd = accept(sockfd, NULL, 0);
+		connfd = accept(sockfd, NULL, NULL);
 		if (connfd < 0) {
 			fprintf(stderr, "accept() failed for client %d\n", i);
 			return 1;
@@ -825,7 +825,7 @@ static void init(void)
 	ctx.ib_port = 1;
 	ctx.num_clients  = 1;
 	ctx.num_tests = 5;
-	ctx.mtu = IBV_MTU_2048;
+	ctx.mtu = IBV_MTU_1024;
 	ctx.sl = 0;
 	ctx.gidx = -1;
 }

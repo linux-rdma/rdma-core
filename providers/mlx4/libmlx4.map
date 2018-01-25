@@ -1,0 +1,10 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+MLX4_1.0 {
+	global:
+		mlx4dv_init_obj;
+		mlx4dv_query_device;
+		mlx4dv_create_qp;
+		mlx4dv_set_context_attr;
+	local: *;
+};

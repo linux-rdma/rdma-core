@@ -1,0 +1,12 @@
+# This is a sample udev rules file that demonstrates how to get udev to
+# set the name of IPoIB interfaces to whatever you wish.  There is a
+# 16 character limit on network device names.
+#
+# Important items to note: ATTR{type}=="32" is IPoIB interfaces, and the
+# ATTR{address} match must start with ?* and only reference the last 8
+# bytes of the address or else the address might not match the variable QPN
+# portion.
+#
+# Modern udev is case sensitive and all addresses need to be in lower case.
+#
+# ACTION=="add", SUBSYSTEM=="net", DRIVERS=="?*", ATTR{type}=="32", ATTR{address}=="?*00:02:c9:03:00:31:78:f2", NAME="mlx4_ib3"

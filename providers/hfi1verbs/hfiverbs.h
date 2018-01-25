@@ -59,23 +59,22 @@
 #define HFI1_H
 
 #include <endian.h>
-#include <byteswap.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <stdatomic.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 
 #define PFX		"hfi1: "
 
 struct hfi1_device {
-	struct ibv_device	ibv_dev;
+	struct verbs_device	ibv_dev;
 	int			abi_version;
 };
 
 struct hfi1_context {
-	struct ibv_context	ibv_ctx;
+	struct verbs_context	ibv_ctx;
 };
 
 /*
@@ -100,8 +99,8 @@ struct hfi1_wc {
 };
 
 struct hfi1_cq_wc {
-	uint32_t		head;
-	uint32_t		tail;
+	_Atomic(uint32_t)	head;
+	_Atomic(uint32_t)	tail;
 	struct hfi1_wc		queue[1];
 };
 
@@ -132,8 +131,8 @@ struct hfi1_rwqe {
  * use get_rwqe_ptr() instead.
  */
 struct hfi1_rwq {
-	uint32_t		head;	/* new requests posted to the head */
-	uint32_t		tail;	/* receives pull requests from here. */
+	_Atomic(uint32_t)	head;	/* new requests posted to the head. */
+	_Atomic(uint32_t)	tail;	/* receives pull requests from here. */
 	struct hfi1_rwqe	wq[0];
 };
 
@@ -155,17 +154,16 @@ struct hfi1_srq {
 };
 
 #define to_ixxx(xxx, type)						\
-	((struct hfi1_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct hfi1_##type, ibv_##xxx)))
+	container_of(ib##xxx, struct hfi1_##type, ibv_##xxx)
 
 static inline struct hfi1_context *to_ictx(struct ibv_context *ibctx)
 {
-	return to_ixxx(ctx, context);
+	return container_of(ibctx, struct hfi1_context, ibv_ctx.context);
 }
 
 static inline struct hfi1_device *to_idev(struct ibv_device *ibdev)
 {
-	return to_ixxx(dev, device);
+	return container_of(ibdev, struct hfi1_device, ibv_dev.device);
 }
 
 static inline struct hfi1_cq *to_icq(struct ibv_cq *ibcq)

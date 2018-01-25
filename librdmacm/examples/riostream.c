@@ -41,11 +41,11 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
+#include <util/compiler.h>
 #include "common.h"
 
 struct test_size_param {
@@ -422,7 +422,7 @@ static int server_connect(void)
 			}
 		}
 
-		rs = raccept(lrs, NULL, 0);
+		rs = raccept(lrs, NULL, NULL);
 	} while (rs < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
 	if (rs < 0) {
 		perror("raccept");
@@ -644,6 +644,7 @@ int main(int argc, char **argv)
 			if (!set_test_opt(optarg))
 				break;
 			/* invalid option - fall through */
+			SWITCH_FALLTHROUGH;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");

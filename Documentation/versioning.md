@@ -17,38 +17,53 @@ When the PACKAGE_VERSION is changed, the packaging files should be updated:
 
 ```diff
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 389feee1e0f9..63854fe8f07f 100644
+index a2464ec5..cf237904 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -26,7 +26,7 @@ project(RDMA C)
+@@ -44,7 +44,7 @@ endif()
  set(PACKAGE_NAME "RDMA")
- 
+
  # See Documentation/versioning.md
--set(PACKAGE_VERSION "11")
-+set(PACKAGE_VERSION "12")
- 
- #-------------------------
- # Basic standard paths
-diff --git a/rdma-core.spec b/rdma-core.spec
-index d1407ee9e24b..fca79ccf57e5 100644
---- a/rdma-core.spec
-+++ b/rdma-core.spec
-@@ -1,5 +1,5 @@
- Name: rdma-core
--Version: 11
-+Version: 12
- Release: 1%{?dist}
- Summary: Userspace components for the Linux Kernel\'s drivers/infiniband stack
+-set(PACKAGE_VERSION "15")
++set(PACKAGE_VERSION "16")
+ # When this is changed the values in these files need changing too:
+ #   debian/libibverbs1.symbols
+ #   libibverbs/libibverbs.map
 diff --git a/debian/changelog b/debian/changelog
-index 0e6cba0be464..a12ac6b60028 100644
+index 86b402f4..9ee7fe16 100644
 --- a/debian/changelog
 +++ b/debian/changelog
 @@ -1,4 +1,4 @@
--rdma-core (11-1) unstable; urgency=low
-+rdma-core (12-1) unstable; urgency=low
- 
-   * New version
- 
+-rdma-core (15-1) unstable; urgency=low
++rdma-core (16-1) unstable; urgency=low
+
+   * New version.
+   * Adding debian/copyright.
+diff --git a/redhat/rdma-core.spec b/redhat/rdma-core.spec
+index cc0c3ba0..62334730 100644
+--- a/redhat/rdma-core.spec
++++ b/redhat/rdma-core.spec
+@@ -1,5 +1,5 @@
+ Name: rdma-core
+-Version: 15
++Version: 16
+ Release: 1%{?dist}
+ Summary: RDMA core userspace libraries and daemons
+
+diff --git a/suse/rdma-core.spec b/suse/rdma-core.spec
+index 76ca7286..a19f9e01 100644
+--- a/suse/rdma-core.spec
++++ b/suse/rdma-core.spec
+@@ -19,7 +19,7 @@
+ %bcond_without  systemd
+ %define         git_ver %{nil}
+ Name:           rdma-core
+-Version:        15
++Version:        16
+ Release:        0
+ Summary:        RDMA core userspace libraries and daemons
+ License:        GPL-2.0 or BSD-2-Clause
+
 ```
 
 # Shared Library Versions
@@ -126,3 +141,25 @@ $ readelf -s build/lib/libibumad.so.3.1.11
 ```
 
 Finally update the `debian/libibumad3.symbols` file.
+
+## Private symbols in libibverbs
+
+Many symbols in libibverbs are private to rdma-core, they are being marked in
+the map file using the IBVERBS_PRIVATE_ prefix.
+
+For simplicity, there is only one version of the private symbol version
+stanza, and it is bumped whenever any change (add/remove/modify) to any of the
+private ABI is done. This makes it very clear if an incompatible provider is
+being used with libibverbs.
+
+Due to this there is no reason to provide compat symbol versions for the
+private ABI.
+
+### Use of private symbols between component packages
+
+A distribution packaging system still must have the correct dependencies
+between libraries within rdma-core that may use these private symbols.
+
+For this reason the private symbols can only be used by provider libraries and
+the distribution must ensure that a matched set of provider libraries and
+libibverbs are installed.

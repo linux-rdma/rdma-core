@@ -37,7 +37,6 @@
 #include <errno.h>
 #include <pthread.h>
 #include <sys/mman.h>
-#include <netinet/in.h>
 #include <inttypes.h>
 #include <assert.h>
 
@@ -114,7 +113,7 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct c4iw_mr *mhp;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
 
 	mhp = malloc(sizeof *mhp);
@@ -246,7 +245,7 @@ int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
 	int ret;
 
 	struct ibv_resize_cq cmd;
-	struct ibv_resize_cq_resp resp;
+	struct ib_uverbs_resize_cq_resp resp;
 	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd, &resp, sizeof resp);
 	PDBG("%s ret %d\n", __func__, ret);
 	return ret;
@@ -573,13 +572,15 @@ static void reset_qp(struct c4iw_qp *qhp)
 	qhp->wq.rq.cidx = qhp->wq.rq.pidx = qhp->wq.rq.in_use = 0;
 	qhp->wq.sq.oldest_read = NULL;
 	memset(qhp->wq.sq.queue, 0, qhp->wq.sq.memsize);
+	if (t4_sq_onchip(&qhp->wq))
+		mmio_flush_writes();
 	memset(qhp->wq.rq.queue, 0, qhp->wq.rq.memsize);
 }
 
 int c4iw_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
 	int ret;
 

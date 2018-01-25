@@ -35,15 +35,13 @@
 #include <config.h>
 
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
+#include <util/mmio.h>
 #include <util/compiler.h>
 
 #include "mlx4.h"
-#include "doorbell.h"
-#include "wqe.h"
 
 static const uint32_t mlx4_ib_opcode[] = {
 	[IBV_WR_SEND]			= MLX4_OPCODE_SEND,
@@ -98,7 +96,7 @@ void mlx4_qp_init_sq_ownership(struct mlx4_qp *qp)
 
 	for (i = 0; i < qp->sq.wqe_cnt; ++i) {
 		ctrl = get_send_wqe(qp, i);
-		ctrl->owner_opcode = htonl(1 << 31);
+		ctrl->owner_opcode = htobe32(1 << 31);
 		ctrl->fence_size = 1 << (qp->sq.wqe_shift - 4);
 
 		stamp_send_wqe(qp, i);
@@ -125,20 +123,20 @@ static void set_bind_seg(struct mlx4_wqe_bind_seg *bseg, struct ibv_send_wr *wr)
 	int acc = wr->bind_mw.bind_info.mw_access_flags;
 	bseg->flags1 = 0;
 	if (acc & IBV_ACCESS_REMOTE_ATOMIC)
-		bseg->flags1 |= htonl(MLX4_WQE_MW_ATOMIC);
+		bseg->flags1 |= htobe32(MLX4_WQE_MW_ATOMIC);
 	if (acc & IBV_ACCESS_REMOTE_WRITE)
-		bseg->flags1 |= htonl(MLX4_WQE_MW_REMOTE_WRITE);
+		bseg->flags1 |= htobe32(MLX4_WQE_MW_REMOTE_WRITE);
 	if (acc & IBV_ACCESS_REMOTE_READ)
-		bseg->flags1 |= htonl(MLX4_WQE_MW_REMOTE_READ);
+		bseg->flags1 |= htobe32(MLX4_WQE_MW_REMOTE_READ);
 
 	bseg->flags2 = 0;
 	if (((struct ibv_mw *)(wr->bind_mw.mw))->type == IBV_MW_TYPE_2)
-		bseg->flags2 |= htonl(MLX4_WQE_BIND_TYPE_2);
+		bseg->flags2 |= htobe32(MLX4_WQE_BIND_TYPE_2);
 	if (acc & IBV_ACCESS_ZERO_BASED)
-		bseg->flags2 |= htonl(MLX4_WQE_BIND_ZERO_BASED);
+		bseg->flags2 |= htobe32(MLX4_WQE_BIND_ZERO_BASED);
 
-	bseg->new_rkey = htonl(wr->bind_mw.rkey);
-	bseg->lkey = htonl(wr->bind_mw.bind_info.mr->lkey);
+	bseg->new_rkey = htobe32(wr->bind_mw.rkey);
+	bseg->lkey = htobe32(wr->bind_mw.bind_info.mr->lkey);
 	bseg->addr = htobe64((uint64_t) wr->bind_mw.bind_info.addr);
 	bseg->length = htobe64(wr->bind_mw.bind_info.length);
 }
@@ -146,7 +144,7 @@ static void set_bind_seg(struct mlx4_wqe_bind_seg *bseg, struct ibv_send_wr *wr)
 static inline void set_local_inv_seg(struct mlx4_wqe_local_inval_seg *iseg,
 		uint32_t rkey)
 {
-	iseg->mem_key	= htonl(rkey);
+	iseg->mem_key	= htobe32(rkey);
 
 	iseg->reserved1    = 0;
 	iseg->reserved2    = 0;
@@ -157,18 +155,18 @@ static inline void set_local_inv_seg(struct mlx4_wqe_local_inval_seg *iseg,
 static inline void set_raddr_seg(struct mlx4_wqe_raddr_seg *rseg,
 				 uint64_t remote_addr, uint32_t rkey)
 {
-	rseg->raddr    = htonll(remote_addr);
-	rseg->rkey     = htonl(rkey);
+	rseg->raddr    = htobe64(remote_addr);
+	rseg->rkey     = htobe32(rkey);
 	rseg->reserved = 0;
 }
 
 static void set_atomic_seg(struct mlx4_wqe_atomic_seg *aseg, struct ibv_send_wr *wr)
 {
 	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-		aseg->swap_add = htonll(wr->wr.atomic.swap);
-		aseg->compare  = htonll(wr->wr.atomic.compare_add);
+		aseg->swap_add = htobe64(wr->wr.atomic.swap);
+		aseg->compare  = htobe64(wr->wr.atomic.compare_add);
 	} else {
-		aseg->swap_add = htonll(wr->wr.atomic.compare_add);
+		aseg->swap_add = htobe64(wr->wr.atomic.compare_add);
 		aseg->compare  = 0;
 	}
 
@@ -177,24 +175,24 @@ static void set_atomic_seg(struct mlx4_wqe_atomic_seg *aseg, struct ibv_send_wr 
 static void set_datagram_seg(struct mlx4_wqe_datagram_seg *dseg,
 			     struct ibv_send_wr *wr)
 {
-	memcpy(dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof (struct mlx4_av));
-	dseg->dqpn = htonl(wr->wr.ud.remote_qpn);
-	dseg->qkey = htonl(wr->wr.ud.remote_qkey);
-	dseg->vlan = htons(to_mah(wr->wr.ud.ah)->vlan);
+	memcpy(&dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof (struct mlx4_av));
+	dseg->dqpn = htobe32(wr->wr.ud.remote_qpn);
+	dseg->qkey = htobe32(wr->wr.ud.remote_qkey);
+	dseg->vlan = htobe16(to_mah(wr->wr.ud.ah)->vlan);
 	memcpy(dseg->mac, to_mah(wr->wr.ud.ah)->mac, 6);
 }
 
 static void __set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
-	dseg->byte_count = htonl(sg->length);
-	dseg->lkey       = htonl(sg->lkey);
-	dseg->addr       = htonll(sg->addr);
+	dseg->byte_count = htobe32(sg->length);
+	dseg->lkey       = htobe32(sg->lkey);
+	dseg->addr       = htobe64(sg->addr);
 }
 
 static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 {
-	dseg->lkey       = htonl(sg->lkey);
-	dseg->addr       = htonll(sg->addr);
+	dseg->lkey       = htobe32(sg->lkey);
+	dseg->addr       = htobe64(sg->addr);
 
 	/*
 	 * Need a barrier here before writing the byte_count field to
@@ -204,12 +202,12 @@ static void set_data_seg(struct mlx4_wqe_data_seg *dseg, struct ibv_sge *sg)
 	 * chunk and get a valid (!= * 0xffffffff) byte count but
 	 * stale data, and end up sending the wrong data.
 	 */
-	wmb();
+	udma_to_device_barrier();
 
 	if (likely(sg->length))
-		dseg->byte_count = htonl(sg->length);
+		dseg->byte_count = htobe32(sg->length);
 	else
-		dseg->byte_count = htonl(0x80000000);
+		dseg->byte_count = htobe32(0x80000000);
 }
 
 int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
@@ -256,9 +254,9 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		ctrl->srcrb_flags =
 			(wr->send_flags & IBV_SEND_SIGNALED ?
-			 htonl(MLX4_WQE_CTRL_CQ_UPDATE) : 0) |
+			 htobe32(MLX4_WQE_CTRL_CQ_UPDATE) : 0) |
 			(wr->send_flags & IBV_SEND_SOLICITED ?
-			 htonl(MLX4_WQE_CTRL_SOLICIT) : 0)   |
+			 htobe32(MLX4_WQE_CTRL_SOLICIT) : 0)   |
 			qp->sq_signal_bits;
 
 		if (wr->opcode == IBV_WR_SEND_WITH_IMM ||
@@ -305,8 +303,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				break;
 			case IBV_WR_LOCAL_INV:
 				ctrl->srcrb_flags |=
-					htonl(MLX4_WQE_CTRL_STRONG_ORDER);
-				set_local_inv_seg(wqe, wr->imm_data);
+					htobe32(MLX4_WQE_CTRL_STRONG_ORDER);
+				set_local_inv_seg(wqe, wr->invalidate_rkey);
 				wqe  += sizeof
 					(struct mlx4_wqe_local_inval_seg);
 				size += sizeof
@@ -314,7 +312,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				break;
 			case IBV_WR_BIND_MW:
 				ctrl->srcrb_flags |=
-					htonl(MLX4_WQE_CTRL_STRONG_ORDER);
+					htobe32(MLX4_WQE_CTRL_STRONG_ORDER);
 				set_bind_seg(wqe, wr);
 				wqe  += sizeof
 					(struct mlx4_wqe_bind_seg);
@@ -322,7 +320,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					(struct mlx4_wqe_bind_seg) / 16;
 				break;
 			case IBV_WR_SEND_WITH_INV:
-				ctrl->imm = htonl(wr->imm_data);
+				ctrl->imm = htobe32(wr->invalidate_rkey);
 				break;
 
 			default:
@@ -342,7 +340,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					*bad_wr = wr;
 					goto out;
 				}
-				ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_IP_HDR_CSUM |
+				ctrl->srcrb_flags |= htobe32(MLX4_WQE_CTRL_IP_HDR_CSUM |
 							   MLX4_WQE_CTRL_TCP_UDP_CSUM);
 			}
 			break;
@@ -350,14 +348,14 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		case IBV_QPT_RAW_PACKET:
 			/* For raw eth, the MLX4_WQE_CTRL_SOLICIT flag is used
 			 * to indicate that no icrc should be calculated */
-			ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_SOLICIT);
+			ctrl->srcrb_flags |= htobe32(MLX4_WQE_CTRL_SOLICIT);
 			if (wr->send_flags & IBV_SEND_IP_CSUM) {
 				if (!(qp->qp_cap_cache & MLX4_CSUM_SUPPORT_RAW_OVER_ETH)) {
 					ret = EINVAL;
 					*bad_wr = wr;
 					goto out;
 				}
-				ctrl->srcrb_flags |= htonl(MLX4_WQE_CTRL_IP_HDR_CSUM |
+				ctrl->srcrb_flags |= htobe32(MLX4_WQE_CTRL_IP_HDR_CSUM |
 							   MLX4_WQE_CTRL_TCP_UDP_CSUM);
 			}
 			break;
@@ -400,8 +398,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					wqe += to_copy;
 					addr += to_copy;
 					seg_len += to_copy;
-					wmb(); /* see comment below */
-					seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
+					udma_to_device_barrier(); /* see comment below */
+					seg->byte_count = htobe32(MLX4_INLINE_SEG | seg_len);
 					seg_len = 0;
 					seg = wqe;
 					wqe += sizeof *seg;
@@ -428,8 +426,8 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				 * data, and end up sending the wrong
 				 * data.
 				 */
-				wmb();
-				seg->byte_count = htonl(MLX4_INLINE_SEG | seg_len);
+				udma_to_device_barrier();
+				seg->byte_count = htobe32(MLX4_INLINE_SEG | seg_len);
 			}
 
 			size += (inl + num_seg * sizeof * seg + 15) / 16;
@@ -450,10 +448,10 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		 * setting ownership bit (because HW can start
 		 * executing as soon as we do).
 		 */
-		wmb();
+		udma_to_device_barrier();
 
-		ctrl->owner_opcode = htonl(mlx4_ib_opcode[wr->opcode]) |
-			(ind & qp->sq.wqe_cnt ? htonl(1 << 31) : 0);
+		ctrl->owner_opcode = htobe32(mlx4_ib_opcode[wr->opcode]) |
+			(ind & qp->sq.wqe_cnt ? htobe32(1 << 31) : 0);
 
 		/*
 		 * We can improve latency by not stamping the last
@@ -471,22 +469,20 @@ out:
 	ctx = to_mctx(ibqp->context);
 
 	if (nreq == 1 && inl && size > 1 && size <= ctx->bf_buf_size / 16) {
-		ctrl->owner_opcode |= htonl((qp->sq.head & 0xffff) << 8);
+		ctrl->owner_opcode |= htobe32((qp->sq.head & 0xffff) << 8);
 
 		ctrl->bf_qpn |= qp->doorbell_qpn;
+		++qp->sq.head;
 		/*
 		 * Make sure that descriptor is written to memory
 		 * before writing to BlueFlame page.
 		 */
-		wmb();
+		mmio_wc_spinlock(&ctx->bf_lock);
 
-		++qp->sq.head;
-
-		pthread_spin_lock(&ctx->bf_lock);
-
-		mlx4_bf_copy(ctx->bf_page + ctx->bf_offset, (unsigned long *) ctrl,
-			     align(size * 16, 64));
-		wc_wmb();
+		mmio_memcpy_x64(ctx->bf_page + ctx->bf_offset, ctrl,
+				align(size * 16, 64));
+		/* Flush before toggling bf_offset to be latency oriented */
+		mmio_flush_writes();
 
 		ctx->bf_offset ^= ctx->bf_buf_size;
 
@@ -498,10 +494,10 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 
-		mmio_writel((unsigned long)(ctx->uar + MLX4_SEND_DOORBELL),
-			    qp->doorbell_qpn);
+		mmio_write32_be(ctx->uar + MLX4_SEND_DOORBELL,
+				qp->doorbell_qpn);
 	}
 
 	if (nreq)
@@ -513,10 +509,14 @@ out:
 	return ret;
 }
 
-int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
-		   struct ibv_recv_wr **bad_wr)
+static inline int _mlx4_post_recv(struct mlx4_qp *qp, struct mlx4_cq *cq,
+				  struct ibv_recv_wr *wr,
+				  struct ibv_recv_wr **bad_wr)
+				  ALWAYS_INLINE;
+static inline int _mlx4_post_recv(struct mlx4_qp *qp, struct mlx4_cq *cq,
+				  struct ibv_recv_wr *wr,
+				  struct ibv_recv_wr **bad_wr)
 {
-	struct mlx4_qp *qp = to_mqp(ibqp);
 	struct mlx4_wqe_data_seg *scat;
 	int ret = 0;
 	int nreq;
@@ -530,7 +530,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wq_overflow(&qp->rq, nreq, to_mcq(ibqp->recv_cq))) {
+		if (wq_overflow(&qp->rq, nreq, cq)) {
 			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
@@ -549,7 +549,7 @@ int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 
 		if (i < qp->rq.max_gs) {
 			scat[i].byte_count = 0;
-			scat[i].lkey       = htonl(MLX4_INVALID_LKEY);
+			scat[i].lkey       = htobe32(MLX4_INVALID_LKEY);
 			scat[i].addr       = 0;
 		}
 
@@ -566,14 +566,32 @@ out:
 		 * Make sure that descriptors are written before
 		 * doorbell record.
 		 */
-		wmb();
+		udma_to_device_barrier();
 
-		*qp->db = htonl(qp->rq.head & 0xffff);
+		*qp->db = htobe32(qp->rq.head & 0xffff);
 	}
 
 	pthread_spin_unlock(&qp->rq.lock);
 
 	return ret;
+}
+
+int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
+		   struct ibv_recv_wr **bad_wr)
+{
+	struct mlx4_qp *qp = to_mqp(ibqp);
+	struct mlx4_cq *cq = to_mcq(ibqp->recv_cq);
+
+	return _mlx4_post_recv(qp, cq, wr, bad_wr);
+}
+
+int mlx4_post_wq_recv(struct ibv_wq *ibwq, struct ibv_recv_wr *wr,
+		      struct ibv_recv_wr **bad_wr)
+{
+	struct mlx4_qp *qp = wq_to_mqp(ibwq);
+	struct mlx4_cq *cq = to_mcq(ibwq->cq);
+
+	return _mlx4_post_recv(qp, cq, wr, bad_wr);
 }
 
 static int num_inline_segs(int data, enum ibv_qp_type type)
@@ -654,10 +672,18 @@ void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 		; /* nothing */
 }
 
-int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
-		       enum ibv_qp_type type, struct mlx4_qp *qp)
+int mlx4_alloc_qp_buf(struct ibv_context *context, uint32_t max_recv_sge,
+		      enum ibv_qp_type type, struct mlx4_qp *qp,
+		      struct mlx4dv_qp_init_attr *mlx4qp_attr)
 {
-	qp->rq.max_gs	 = cap->max_recv_sge;
+	int wqe_size;
+
+	qp->rq.max_gs	 = max_recv_sge;
+	wqe_size = qp->rq.max_gs * sizeof(struct mlx4_wqe_data_seg);
+	if (mlx4qp_attr &&
+	    mlx4qp_attr->comp_mask & MLX4DV_QP_INIT_ATTR_MASK_INL_RECV &&
+	    mlx4qp_attr->inl_recv_sz > wqe_size)
+		wqe_size = mlx4qp_attr->inl_recv_sz;
 
 	if (qp->sq.wqe_cnt) {
 		qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof (uint64_t));
@@ -674,9 +700,11 @@ int mlx4_alloc_qp_buf(struct ibv_context *context, struct ibv_qp_cap *cap,
 	}
 
 	for (qp->rq.wqe_shift = 4;
-	     1 << qp->rq.wqe_shift < qp->rq.max_gs * sizeof (struct mlx4_wqe_data_seg);
+	     1 << qp->rq.wqe_shift < wqe_size;
 	     qp->rq.wqe_shift++)
 		; /* nothing */
+	if (mlx4qp_attr)
+		mlx4qp_attr->inl_recv_sz = 1 << qp->rq.wqe_shift;
 
 	qp->buf_size = (qp->rq.wqe_cnt << qp->rq.wqe_shift) +
 		(qp->sq.wqe_cnt << qp->sq.wqe_shift);

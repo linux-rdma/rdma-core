@@ -37,7 +37,7 @@
 #include <stddef.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #include "cxio_wr.h"
 
@@ -51,7 +51,7 @@ struct iwch_mr;
 #define ABI_VERS 1
 
 struct iwch_device {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	enum iwch_hca_type hca_type;
 	struct iwch_mr **mmid2ptr;
 	struct iwch_qp **qpid2ptr;
@@ -71,7 +71,7 @@ static inline int t3a_device(struct iwch_device *dev)
 }
 
 struct iwch_context {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 };
 
 struct iwch_pd {
@@ -101,18 +101,17 @@ struct iwch_qp {
 	int sq_sig_all;
 };
 
-#define to_iwch_xxx(xxx, type)						\
-	((struct iwch_##type *)						\
-	 ((void *) ib##xxx - offsetof(struct iwch_##type, ibv_##xxx)))
+#define to_iwch_xxx(xxx, type)                                                 \
+	container_of(ib##xxx, struct iwch_##type, ibv_##xxx)
 
 static inline struct iwch_device *to_iwch_dev(struct ibv_device *ibdev)
 {
-	return to_iwch_xxx(dev, device);
+	return container_of(ibdev, struct iwch_device, ibv_dev.device);
 }
 
 static inline struct iwch_context *to_iwch_ctx(struct ibv_context *ibctx)
 {
-	return to_iwch_xxx(ctx, context);
+	return container_of(ibctx, struct iwch_context, ibv_ctx.context);
 }
 
 static inline struct iwch_pd *to_iwch_pd(struct ibv_pd *ibpd)

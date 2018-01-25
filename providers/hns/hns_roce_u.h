@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Hisilicon Limited.
+ * Copyright (c) 2016-2017 Hisilicon Limited.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -34,9 +34,10 @@
 #define _HNS_ROCE_U_H
 
 #include <stddef.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 #include <infiniband/verbs.h>
 #include <ccan/container_of.h>
 
@@ -49,22 +50,20 @@
 #define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
+#define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
+
 #define PFX				"hns: "
 
-#ifndef likely
-#define likely(x)     __builtin_expect(!!(x), 1)
-#endif
-
 #define roce_get_field(origin, mask, shift) \
-	(((origin) & (mask)) >> (shift))
+	(((le32toh(origin)) & (mask)) >> (shift))
 
 #define roce_get_bit(origin, shift) \
 	roce_get_field((origin), (1ul << (shift)), (shift))
 
 #define roce_set_field(origin, mask, shift, val) \
 	do { \
-		(origin) &= (~(mask)); \
-		(origin) |= (((unsigned int)(val) << (shift)) & (mask)); \
+		(origin) &= ~htole32(mask); \
+		(origin) |= htole32(((unsigned int)(val) << (shift)) & (mask)); \
 	} while (0)
 
 #define roce_set_bit(origin, shift, val) \
@@ -83,7 +82,7 @@ enum {
 };
 
 struct hns_roce_device {
-	struct ibv_device		ibv_dev;
+	struct verbs_device		ibv_dev;
 	int				page_size;
 	struct hns_roce_u_hw		*u_hw;
 	int				hw_version;
@@ -95,7 +94,7 @@ struct hns_roce_buf {
 };
 
 struct hns_roce_context {
-	struct ibv_context		ibv_ctx;
+	struct verbs_context		ibv_ctx;
 	void				*uar;
 	pthread_spinlock_t		uar_lock;
 
@@ -160,6 +159,27 @@ struct hns_roce_wq {
 	int				offset;
 };
 
+struct hns_roce_sge_ex {
+	int				offset;
+	unsigned int			sge_cnt;
+	int				sge_shift;
+};
+
+struct hns_roce_rinl_sge {
+	void				*addr;
+	unsigned int			len;
+};
+
+struct hns_roce_rinl_wqe {
+	struct hns_roce_rinl_sge	*sg_list;
+	unsigned int			sge_cnt;
+};
+
+struct hns_roce_rinl_buf {
+	struct hns_roce_rinl_wqe	*wqe_list;
+	unsigned int			wqe_cnt;
+};
+
 struct hns_roce_qp {
 	struct ibv_qp			ibv_qp;
 	struct hns_roce_buf		buf;
@@ -168,11 +188,16 @@ struct hns_roce_qp {
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
+	struct hns_roce_sge_ex		sge;
+	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
+
+	struct hns_roce_rinl_buf	rq_rinl_buf;
 };
 
 struct hns_roce_u_hw {
+	uint32_t hw_version;
 	int (*poll_cq)(struct ibv_cq *ibvcq, int ne, struct ibv_wc *wc);
 	int (*arm_cq)(struct ibv_cq *ibvcq, int solicited);
 	int (*post_send)(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
@@ -191,12 +216,12 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
 {
-	return container_of(ibv_dev, struct hns_roce_device, ibv_dev);
+	return container_of(ibv_dev, struct hns_roce_device, ibv_dev.device);
 }
 
 static inline struct hns_roce_context *to_hr_ctx(struct ibv_context *ibv_ctx)
 {
-	return container_of(ibv_ctx, struct hns_roce_context, ibv_ctx);
+	return container_of(ibv_ctx, struct hns_roce_context, ibv_ctx.context);
 }
 
 static inline struct hns_roce_pd *to_hr_pd(struct ibv_pd *ibv_pd)
@@ -229,6 +254,8 @@ int hns_roce_u_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 				 int access);
+int hns_roce_u_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+			void *addr, size_t length, int access);
 int hns_roce_u_dereg_mr(struct ibv_mr *mr);
 
 struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
@@ -251,5 +278,6 @@ void hns_roce_free_buf(struct hns_roce_buf *buf);
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 
 extern struct hns_roce_u_hw hns_roce_u_hw_v1;
+extern struct hns_roce_u_hw hns_roce_u_hw_v2;
 
 #endif /* _HNS_ROCE_U_H */

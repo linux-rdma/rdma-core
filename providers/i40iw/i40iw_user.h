@@ -77,6 +77,7 @@ enum i40iw_device_capabilities_const {
 	I40IW_MAX_WQ_ENTRIES =			2048,
 	I40IW_MAX_ORD_SIZE =			32,
 	I40IW_Q2_BUFFER_SIZE =			(248 + 100),
+	I40IW_MAX_WQE_SIZE_RQ =			128,
 	I40IW_QP_CTX_SIZE =			248
 };
 
@@ -103,6 +104,7 @@ enum i40iw_device_capabilities_const {
 #define I40IW_STAG_INDEX_FROM_STAG(stag)    (((stag) && 0xFFFFFF00) >> 8)
 
 #define	I40IW_MAX_MR_SIZE	0x10000000000L
+#define I40IW_MAX_RQ_WQE_SHIFT	2
 
 struct i40iw_qp_uk;
 struct i40iw_cq_uk;
@@ -380,6 +382,7 @@ struct i40iw_qp_uk {
 	u8 rwqe_polarity;
 	u8 rq_wqe_size;
 	u8 rq_wqe_size_multiplier;
+	bool first_sq_wq;
 	bool deferred_flag;
 };
 
@@ -411,7 +414,7 @@ struct i40iw_qp_uk_init_info {
 	u32 max_sq_frag_cnt;
 	u32 max_rq_frag_cnt;
 	u32 max_inline_data;
-
+	int abi_ver;
 };
 
 struct i40iw_cq_uk_init_info {
@@ -447,5 +450,7 @@ enum i40iw_status_code i40iw_fragcnt_to_wqesize_sq(u32 frag_cnt, u8 *wqe_size);
 enum i40iw_status_code i40iw_fragcnt_to_wqesize_rq(u32 frag_cnt, u8 *wqe_size);
 enum i40iw_status_code i40iw_inline_data_size_to_wqesize(u32 data_size,
 							 u8 *wqe_size);
-enum i40iw_status_code i40iw_get_wqe_shift(u32 wqdepth, u32 sge, u32 inline_data, u8 *shift);
+void i40iw_get_wqe_shift(u32 sge, u32 inline_data, u8 *shift);
+enum i40iw_status_code i40iw_get_sqdepth(u32 sq_size, u8 shift, u32 *sqdepth);
+enum i40iw_status_code i40iw_get_rqdepth(u32 rq_size, u8 shift, u32 *rqdepth);
 #endif

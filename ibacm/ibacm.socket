@@ -1,0 +1,19 @@
+[Unit]
+Description=Socket for InfiniBand Address Cache Manager Daemon
+Documentation=man:ibacm
+# Ensure that anything ordered after rdma-hw.target will see the socket, even
+# if that thing is not ordered after socket.target/basic.target.
+Before=rdma-hw.target
+# ibacm.socket always starts
+
+[Socket]
+ListenStream=6125
+BindToDevice=lo
+
+# Bind to PF_NETLINK, NETLINK_RDMA, RDMA_NL_GROUP_LS
+# Supported in systemd > 234
+ListenNetlink=rdma 4
+
+[Install]
+# Standard for all sockets
+WantedBy=sockets.target

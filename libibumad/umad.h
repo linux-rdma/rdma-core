@@ -34,40 +34,52 @@
 #ifndef _UMAD_H
 #define _UMAD_H
 
+#include <endian.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <byteswap.h>
 #include <arpa/inet.h>
+#include <linux/types.h> /* __be16, __be32 and __be64 */
 
 #ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else				/* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif				/* __cplusplus */
+extern "C" {
+#endif
 
-BEGIN_C_DECLS
+typedef __be16 __attribute__((deprecated)) be16_t;
+typedef __be32 __attribute__((deprecated)) be32_t;
+typedef __be64 __attribute__((deprecated)) be64_t;
 
-typedef uint16_t be16_t;
-typedef uint32_t be32_t;
-typedef uint64_t be64_t;
+/*
+ * A GID data structure that may be used in definitions of on-the-wire data
+ * structures. Do not cast umad_gid pointers to ibv_gid pointers because the
+ * alignment of these two data structures is different.
+ */
+union umad_gid {
+	uint8_t		raw[16];
+	__be16		raw_be16[8];
+	struct {
+		__be64	subnet_prefix;
+		__be64	interface_id;
+	} global;
+} __attribute__((aligned(4))) __attribute__((packed));
 
 #define UMAD_MAX_DEVICES 32
 #define UMAD_ANY_PORT	0
 typedef struct ib_mad_addr {
-	be32_t qpn;
-	be32_t qkey;
-	be16_t lid;
+	__be32 qpn;
+	__be32 qkey;
+	__be16 lid;
 	uint8_t sl;
 	uint8_t path_bits;
 	uint8_t grh_present;
 	uint8_t gid_index;
 	uint8_t hop_limit;
 	uint8_t traffic_class;
-	uint8_t gid[16]; /* network-byte order */
-	be32_t flow_label;
-	be16_t pkey_index;
+	union {
+		uint8_t		gid[16]; /* network-byte order */
+		union umad_gid	ib_gid;
+	};
+	__be32 flow_label;
+	uint16_t pkey_index;
 	uint8_t reserved[6];
 } ib_mad_addr_t;
 
@@ -139,9 +151,9 @@ typedef struct umad_port {
 	unsigned state;
 	unsigned phys_state;
 	unsigned rate;
-	uint32_t capmask;
-	uint64_t gid_prefix;
-	uint64_t port_guid;
+	__be32 capmask;
+	__be64	 gid_prefix;
+	__be64	 port_guid;
 	unsigned pkeys_size;
 	uint16_t *pkeys;
 	char link_layer[UMAD_CA_NAME_LEN];
@@ -154,8 +166,8 @@ typedef struct umad_ca {
 	char fw_ver[20];
 	char ca_type[40];
 	char hw_ver[20];
-	uint64_t node_guid;
-	uint64_t system_guid;
+	__be64 node_guid;
+	__be64 system_guid;
 	umad_port_t *ports[UMAD_CA_MAX_PORTS];
 } umad_ca_t;
 
@@ -163,7 +175,7 @@ int umad_init(void);
 int umad_done(void);
 
 int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max);
-int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max);
+int umad_get_ca_portguids(const char *ca_name, __be64 *portguids, int max);
 
 int umad_get_ca(const char *ca_name, umad_ca_t * ca);
 int umad_release_ca(umad_ca_t * ca);
@@ -182,7 +194,7 @@ int umad_status(void *umad);
 ib_mad_addr_t *umad_get_mad_addr(void *umad);
 int umad_set_grh_net(void *umad, void *mad_addr);
 int umad_set_grh(void *umad, void *mad_addr);
-int umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey);
+int umad_set_addr_net(void *umad, __be16 dlid, __be32 dqp, int sl, __be32 qkey);
 int umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey);
 int umad_set_pkey(void *umad, int pkey_index);
 int umad_get_pkey(void *umad);
@@ -229,16 +241,19 @@ static inline void umad_free(void *umad)
 	free(umad);
 }
 
+/* Users should use the glibc functions directly, not these wrappers */
 #ifndef ntohll
-  #if __BYTE_ORDER == __LITTLE_ENDIAN
-    #define ntohll(x) bswap_64(x)
-  #elif __BYTE_ORDER == __BIG_ENDIAN
-    #define ntohll(x) x
-  #endif
+#undef ntohll
+static inline __attribute__((deprecated)) uint64_t ntohll(uint64_t x) { return be64toh(x); }
+#define ntohll ntohll
 #endif
 #ifndef htonll
-  #define htonll ntohll
+#undef htonll
+static inline __attribute__((deprecated)) uint64_t htonll(uint64_t x) { return htobe64(x); }
+#define htonll htonll
 #endif
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 #endif				/* _UMAD_H */

@@ -32,6 +32,7 @@
  */
 
 #include "iwarp_pm.h"
+#include <endian.h>
 
 /* iwpm config params */
 static const char * iwpm_param_names[IWPM_PARAM_NUM] =
@@ -109,8 +110,8 @@ int create_iwpm_socket_v4(__u16 bind_port)
 	memset(&bind_addr, 0, sizeof(bind_addr));
 	bind_in4 = &bind_addr.v4_sockaddr;
 	bind_in4->sin_family = AF_INET;
-	bind_in4->sin_addr.s_addr = INADDR_ANY;
-	bind_in4->sin_port = htons(bind_port);
+	bind_in4->sin_addr.s_addr = htobe32(INADDR_ANY);
+	bind_in4->sin_port = htobe16(bind_port);
 
 	if (bind(pm_sock, &bind_addr.sock_addr, sizeof(struct sockaddr_in))) {
 		syslog(LOG_WARNING, "create_iwpm_socket_v4: Unable to bind socket (port = %u). %s.\n",
@@ -132,7 +133,7 @@ int create_iwpm_socket_v4(__u16 bind_port)
 
 	iwpm_debug(IWARP_PM_WIRE_DBG, "create_iwpm_socket_v4: Socket IP address:port %s:%u\n",
 		inet_ntop(bind_in4->sin_family, &bind_in4->sin_addr.s_addr, ip_address_text,
-			INET6_ADDRSTRLEN), ntohs(bind_in4->sin_port));
+			INET6_ADDRSTRLEN), be16toh(bind_in4->sin_port));
 create_socket_v4_exit:
 	return pm_sock;
 }
@@ -175,7 +176,7 @@ int create_iwpm_socket_v6(__u16 bind_port)
 	bind_in6 = &bind_addr.v6_sockaddr;
 	bind_in6->sin6_family = AF_INET6;
 	bind_in6->sin6_addr = in6addr_any;
-	bind_in6->sin6_port = htons(bind_port);
+	bind_in6->sin6_port = htobe16(bind_port);
 
 	if (bind(pm_sock, &bind_addr.sock_addr, sizeof(struct sockaddr_in6))) {
 		syslog(LOG_WARNING, "create_iwpm_socket_v6: Unable to bind socket (port = %u). %s.\n", 
@@ -197,7 +198,7 @@ int create_iwpm_socket_v6(__u16 bind_port)
 
 	iwpm_debug(IWARP_PM_WIRE_DBG, "create_iwpm_socket_v6: Socket IP address:port %s:%04X\n",
 		inet_ntop(bind_in6->sin6_family, &bind_in6->sin6_addr, ip_address_text,
-			INET6_ADDRSTRLEN), ntohs(bind_in6->sin6_port));
+			INET6_ADDRSTRLEN), be16toh(bind_in6->sin6_port));
 create_socket_v6_exit:
 	return pm_sock;
 }
@@ -380,7 +381,7 @@ int parse_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 	int ret_value = 0;
 
 	msg_parms->pmtime = pm_msg->pmtime;
-	msg_parms->assochandle = __be64_to_cpu(pm_msg->assochandle);
+	msg_parms->assochandle = be64toh(pm_msg->assochandle);
 	msg_parms->ip_ver = (pm_msg->magic & IWARP_PM_IPVER_MASK) >> IWARP_PM_IPVER_SHIFT;
 	switch (msg_parms->ip_ver) {
 	case 4:
@@ -420,7 +421,7 @@ static void form_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 {
 	memset(pm_msg, 0, sizeof(struct iwpm_wire_msg));
 	pm_msg->pmtime = msg_parms->pmtime;
-	pm_msg->assochandle = __cpu_to_be64(msg_parms->assochandle);
+	pm_msg->assochandle = htobe64(msg_parms->assochandle);
 	/* record IP version, port mapper version, message type */
 	pm_msg->magic = (msg_parms->ip_ver << IWARP_PM_IPVER_SHIFT) & IWARP_PM_IPVER_MASK;
 	pm_msg->magic |= (msg_parms->ver << IWARP_PM_VER_SHIFT) & IWARP_PM_VER_MASK;
@@ -617,13 +618,13 @@ void print_iwpm_sockaddr(struct sockaddr_storage *sockaddr, const char *msg,
 		sockaddr_v4 = (struct sockaddr_in *)sockaddr;
 		iwpm_debug(dbg_flag, "%s IPV4 %s:%u(0x%04X)\n", msg,
 			inet_ntop(AF_INET, &sockaddr_v4->sin_addr, ip_address_text, INET6_ADDRSTRLEN),
-			ntohs(sockaddr_v4->sin_port), ntohs(sockaddr_v4->sin_port));
+			be16toh(sockaddr_v4->sin_port), be16toh(sockaddr_v4->sin_port));
 		break;
 	case AF_INET6:
 		sockaddr_v6 = (struct sockaddr_in6 *)sockaddr;
 		iwpm_debug(dbg_flag, "%s IPV6 %s:%u(0x%04X)\n", msg,
 			inet_ntop(AF_INET6, &sockaddr_v6->sin6_addr, ip_address_text, INET6_ADDRSTRLEN),
-			ntohs(sockaddr_v6->sin6_port), ntohs(sockaddr_v6->sin6_port));
+			be16toh(sockaddr_v6->sin6_port), be16toh(sockaddr_v6->sin6_port));
 		break;
 	default:
 		break;

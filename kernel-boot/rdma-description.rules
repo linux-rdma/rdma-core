@@ -1,0 +1,45 @@
+# This is a version of net-description.rules for /sys/class/infiniband devices
+
+ACTION=="remove", GOTO="rdma_description_end"
+SUBSYSTEM!="infiniband", GOTO="rdma_description_end"
+
+# NOTE: DRIVERS searches up the sysfs path to find the driver that is bound to
+# the PCI/etc device that the RDMA device is linked to. This is not the kernel
+# driver that is supplying the RDMA device (eg as seen in ID_NET_DRIVER)
+
+# FIXME: with kernel support we could actually detect the protocols the RDMA
+# driver itself supports, this is a work around for lack of that support.
+# In future we could do this with a udev IMPORT{program} helper program
+# that extracted the ID information from the RDMA netlink.
+
+# Hardware that supports InfiniBand
+DRIVERS=="ib_mthca", ENV{ID_RDMA_INFINIBAND}="1"
+DRIVERS=="mlx4_core", ENV{ID_RDMA_INFINIBAND}="1"
+DRIVERS=="mlx5_core", ENV{ID_RDMA_INFINIBAND}="1"
+DRIVERS=="ib_qib", ENV{ID_RDMA_INFINIBAND}="1"
+
+# Hardware that supports OPA
+DRIVERS=="hfi1", ENV{ID_RDMA_OPA}="1"
+
+# Hardware that supports iWarp
+DRIVERS=="cxgb3", ENV{ID_RDMA_IWARP}="1"
+DRIVERS=="cxgb4", ENV{ID_RDMA_IWARP}="1"
+DRIVERS=="i40e", ENV{ID_RDMA_IWARP}="1"
+DRIVERS=="nes", ENV{ID_RDMA_IWARP}="1"
+
+# Hardware that supports RoCE
+DRIVERS=="be2net", ENV{ID_RDMA_ROCE}="1"
+DRIVERS=="bnxt_en", ENV{ID_RDMA_ROCE}="1"
+DRIVERS=="hns", ENV{ID_RDMA_ROCE}="1"
+DRIVERS=="mlx4_core", ENV{ID_RDMA_ROCE}="1"
+DRIVERS=="mlx5_core", ENV{ID_RDMA_ROCE}="1"
+DRIVERS=="qede", ENV{ID_RDMA_ROCE}="1"
+DRIVERS=="vmw_pvrdma", ENV{ID_RDMA_ROCE}="1"
+DEVPATH=="*/infiniband/rxe*", ATTR{parent}=="*", ENV{ID_RDMA_ROCE}="1"
+
+# Setup the usual ID information so that systemd will display a sane name for
+# the RDMA device units.
+SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
+SUBSYSTEMS=="pci", IMPORT{builtin}="hwdb --subsystem=pci"
+
+LABEL="rdma_description_end"

@@ -1,1 +1,0 @@
-install cxgb4 /sbin/modprobe --ignore-install cxgb4 $CMDLINE_OPTS && /sbin/modprobe iw_cxgb4

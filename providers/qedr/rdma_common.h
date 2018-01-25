@@ -32,6 +32,9 @@
 
 #ifndef __RDMA_COMMON__
 #define __RDMA_COMMON__
+
+#include <linux/types.h>
+
 /************************/
 /* RDMA FW CONSTANTS */
 /************************/

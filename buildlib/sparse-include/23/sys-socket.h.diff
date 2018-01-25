@@ -1,0 +1,11 @@
+--- /usr/include/sys/socket.h	2016-11-16 15:43:53.000000000 -0700
++++ build-sparse/include/sys/socket.h	2017-03-15 12:43:28.736376893 -0600
+@@ -65,7 +65,7 @@
+    uses with any of the listed types to be allowed without complaint.
+    G++ 2.7 does not support transparent unions so there we want the
+    old-style declaration, too.  */
+-#if defined __cplusplus || !__GNUC_PREREQ (2, 7) || !defined __USE_GNU
++#if 1
+ # define __SOCKADDR_ARG		struct sockaddr *__restrict
+ # define __CONST_SOCKADDR_ARG	const struct sockaddr *
+ #else

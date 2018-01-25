@@ -279,7 +279,7 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 		mapped_port = &((struct sockaddr_in *)mapped_addr)->sin_port;
 		bind_in4 = &bind_addr.v4_sockaddr;
 		bind_in4->sin_family = addr_family;
-		bind_in4->sin_addr.s_addr = INADDR_ANY;
+		bind_in4->sin_addr.s_addr = htobe32(INADDR_ANY);
 		if (requested_port)
 			requested_port = *mapped_port;
 		bind_in4->sin_port = requested_port;
@@ -313,11 +313,11 @@ static int get_iwpm_tcp_port(__u16 addr_family, __be16 requested_port,
 	*mapped_port = *new_port;
 	iwpm_debug(IWARP_PM_ALL_DBG, "get_iwpm_tcp_port: Open tcp port "
 		"(addr family = %04X, requested port = %04X, mapped port = %04X).\n",
-		addr_family, ntohs(requested_port), ntohs(*mapped_port));
+		addr_family, be16toh(requested_port), be16toh(*mapped_port));
 	return 0;
 get_tcp_port_error:
 	syslog(LOG_WARNING, "get_iwpm_tcp_port: %s (addr family = %04X, requested port = %04X).\n",
-				str_err, addr_family, ntohs(requested_port));
+				str_err, addr_family, be16toh(requested_port));
 	return -errno;
 }
 
@@ -341,10 +341,9 @@ static iwpm_mapped_port *get_iwpm_port(int client_idx, struct sockaddr_storage *
 	memcpy(&iwpm_port->mapped_addr, mapped_addr, sizeof(struct sockaddr_storage));
 	iwpm_port->owner_client = client_idx;
 	iwpm_port->sd = sd;
-        if (is_wcard_ipaddr(local_addr)) {
+	atomic_init(&iwpm_port->ref_cnt, 1);
+	if (is_wcard_ipaddr(local_addr))
 		iwpm_port->wcard = 1;
-		iwpm_port->ref_cnt = 1;
-	}
 	return iwpm_port;
 }
 
@@ -396,7 +395,7 @@ iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 		goto reopen_mapped_port_error;
 	}
 	/* get a tcp port from the host net stack */
-	if (get_iwpm_tcp_port(local_addr->ss_family, 1, mapped_addr, &new_sd))
+	if (get_iwpm_tcp_port(local_addr->ss_family, htobe16(1), mapped_addr, &new_sd))
 		goto reopen_mapped_port_error;
 
 	iwpm_port = get_iwpm_port(client_idx, local_addr, mapped_addr, new_sd);
@@ -415,12 +414,9 @@ reopen_mapped_port_error:
 void add_iwpm_mapped_port(iwpm_mapped_port *iwpm_port)
 {
 	static int dbg_idx = 1;
+	if (atomic_load(&iwpm_port->ref_cnt) > 1)
+		return;
 	iwpm_debug(IWARP_PM_ALL_DBG, "add_iwpm_mapped_port: Adding a new mapping #%d\n", dbg_idx++);
-	/* only one mapping per wild card ip address */
-	if (iwpm_port->wcard) {
-		if (iwpm_port->ref_cnt > 1)
-			return;
-	}
 	list_add(&mapped_ports, &iwpm_port->entry);
 }
 
@@ -516,21 +512,6 @@ iwpm_mapped_port *find_iwpm_same_mapping(struct sockaddr_storage *search_addr,
 	}
 find_same_mapping_exit:
 	return saved_iwpm_port;
-}
-
-/**
- * free_iwpm_wcard_port - Free wild card mapping object
- * @iwpm_port: mapped port object to be freed
- *
- * Mappings with wild card IP addresses can't be freed
- * while their reference count > 0
- */
-int free_iwpm_wcard_mapping(iwpm_mapped_port *iwpm_port)
-{
-	if (iwpm_port->ref_cnt > 0)
-		iwpm_port->ref_cnt--;
-
-	return iwpm_port->ref_cnt;
 }
 
 /**

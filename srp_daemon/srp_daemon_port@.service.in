@@ -1,0 +1,42 @@
+[Unit]
+Description=SRP daemon that monitors port %i
+Documentation=man:srp_daemon file:/etc/rdma/rdma.conf file:/etc/srp_daemon.conf
+# srp_daemon is required to mount filesystems, and could run before sysinit.target
+DefaultDependencies=false
+Before=remote-fs-pre.target
+# Do not execute concurrently with an ongoing shutdown (required for DefaultDependencies=no)
+Conflicts=shutdown.target
+Before=shutdown.target
+# Ensure required kernel modules are loaded before starting
+Requires=rdma-load-modules@srp_daemon.service
+After=rdma-load-modules@srp_daemon.service
+# Complete setting up low level RDMA hardware
+After=rdma-hw.target
+# Only run while the RDMA udev device is in an active state, and shutdown if
+# it becomes unplugged.
+After=sys-subsystem-rdma-devices-%i-umad.device
+BindsTo=sys-subsystem-rdma-devices-%i-umad.device
+# Allow srp_daemon to act as a leader for all of the port services for
+# stop/start/reset
+After=srp_daemon.service
+BindsTo=srp_daemon.service
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/srp_daemon --systemd -e -c -n -j %I -R 60
+MemoryDenyWriteExecute=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectSystem=full
+RestrictRealtime=yes
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @mount @obsolete @raw-io
+
+[Install]
+# Instances of this template unit file is started automatically by udev or by
+# srp_daemon.service as devices are discovered.  However, if the user manually
+# enables a template unit then it will be installed with remote-fs-pre. Note
+# that systemd will defer starting the unit until the rdma .device appears.
+WantedBy=remote-fs-pre.target

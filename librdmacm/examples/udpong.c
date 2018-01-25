@@ -40,12 +40,12 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rsocket.h>
+#include <util/compiler.h>
 #include "common.h"
 
 static int test_size[] = {
@@ -70,7 +70,7 @@ struct message {
 	uint8_t id;
 	uint8_t seqno;
 	uint8_t reserved;
-	uint32_t data;
+	__be32 data;
 	uint8_t  buf[2048];
 };
 
@@ -109,7 +109,7 @@ static void show_perf(void)
 	int transfers;
 
 	usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-	transfers = echo ? transfer_count * 2 : ntohl(g_msg.data);
+	transfers = echo ? transfer_count * 2 : be32toh(g_msg.data);
 	bytes = (long long) transfers * transfer_size;
 
 	/* name size transfers bytes seconds Gb/sec usec/xfer */
@@ -246,7 +246,7 @@ static int svr_process(struct message *msg, size_t size,
 		clients[msg->id].recvcnt++;
 		break;
 	case msg_op_end:
-		msg->data = htonl(clients[msg->id].recvcnt);
+		msg->data = htobe32(clients[msg->id].recvcnt);
 		break;
 	default:
 		clients[msg->id].recvcnt++;
@@ -543,6 +543,7 @@ int main(int argc, char **argv)
 			if (!set_test_opt(optarg))
 				break;
 			/* invalid option - fall through */
+			SWITCH_FALLTHROUGH;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");

@@ -1,0 +1,25 @@
+[Unit]
+Description=Load RDMA modules from @CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/modules/%I.conf
+Documentation=file:@CMAKE_INSTALL_FULL_DOCDIR@/udev.md
+# Kernel module loading must take place before sysinit.target, similar to
+# systemd-modules-load.service
+DefaultDependencies=no
+Before=sysinit.target
+# Do not execute concurrently with an ongoing shutdown
+Conflicts=shutdown.target
+Before=shutdown.target
+# Partially support distro network setup scripts that run after
+# systemd-modules-load.service but before sysinit.target, eg a classic network
+# setup script. Run them after modules have loaded.
+Wants=network-pre.target
+Before=network-pre.target
+# Orders all kernel module startup before rdma-hw.target can become ready
+Before=rdma-hw.target
+
+ConditionCapability=CAP_SYS_MODULE
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@CMAKE_INSTALL_SYSTEMD_BINDIR@/systemd-modules-load @CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/modules/%I.conf
+TimeoutSec=90s

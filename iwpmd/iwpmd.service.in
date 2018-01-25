@@ -1,0 +1,28 @@
+[Unit]
+Description=iWarp Port Mapper
+Documentation=man:iwpmd file:/etc/iwpmd.conf
+StopWhenUnneeded=yes
+# iwpmd is a kernel support program and needs to run as early as possible,
+# otherwise the kernel or userspace cannot establish RDMA connections and
+# things will just fail, not block until iwpmd arrives.
+DefaultDependencies=no
+Before=sysinit.target
+# Do not execute concurrently with an ongoing shutdown (required for DefaultDependencies=no)
+Conflicts=shutdown.target
+Before=shutdown.target
+# Ensure required kernel modules are loaded before starting
+Wants=rdma-load-modules@iwpmd.service
+After=rdma-load-modules@iwpmd.service
+# iwpmd needs to start before networking is brought up, even kernel networking
+# (eg NFS) since it provides kernel support for iWarp's RDMA CM.
+Wants=network-pre.target
+Before=network-pre.target
+# rdma-hw is not ready until iwpmd is running
+Before=rdma-hw.target
+
+[Service]
+Type=notify
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/iwpmd --systemd
+LimitNOFILE=102400
+
+# iwpmd is automatically wanted by udev when an iWarp RDMA device is present

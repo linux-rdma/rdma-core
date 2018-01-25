@@ -1,0 +1,49 @@
+'\" t
+.TH "SRP_DAEMON_PORT@\&.SERVICE" "5" "" "srp_daemon" "srp_daemon_port@.service"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+srp_daemon_port@.service \- srp_daemon_port@ systemd service that controls a
+single port
+.SH "SYNOPSIS"
+.PP
+srp_daemon_port@\&.service
+.SH "DESCRIPTION"
+.PP
+The srp_daemon_port@\&.service controls whether or not an srp_daemon process
+is monitoring the RDMA port specified as template argument. The format for the
+RDMA port name is \fIdev:port\fR where \fIdev\fR is the name of an RDMA device
+and \fIport\fR is an port number starting from one. Starting an instance of
+this template will start an srp_daemon process. Stopping an instance of this
+template will stop the srp_daemon process for the specified port. It can be
+prevented that srp_daemon is started for a certain port by masking the
+corresponding systemd service, e.g. \fBsystemctl mask
+srp_daemon_port@mlx4_0:1\fR.
+
+A list of all RDMA device and port number pairs can be obtained e.g. as follows:
+.PP
+.nf
+.RS
+$ (cd /sys/class/infiniband >&/dev/null && for p in */ports/*; do
+   [ -e "$p" ] && echo "${p/\\/ports\\//:}"; done)
+mlx4_0:1
+mlx4_0:2
+mlx4_1:1
+mlx4_1:2
+.RE
+.fi
+.PP
+
+.SH "SEE ALSO"
+.PP
+\fBsrp_daemon\fR(1),
+\fBsrp_daemon.service\fR(5),
+\fBsystemctl\fR(1)

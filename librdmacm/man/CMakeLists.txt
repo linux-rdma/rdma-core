@@ -1,4 +1,5 @@
 rdma_man_pages(
+  cmtime.1
   mckey.1
   rcopy.1
   rdma_accept.3
@@ -32,6 +33,7 @@ rdma_man_pages(
   rdma_get_src_port.3
   rdma_getaddrinfo.3
   rdma_join_multicast.3
+  rdma_join_multicast_ex.3
   rdma_leave_multicast.3
   rdma_listen.3
   rdma_migrate_id.3
@@ -61,4 +63,5 @@ rdma_man_pages(
   rstream.1
   ucmatose.1
   udaddy.1
+  udpong.1
   )

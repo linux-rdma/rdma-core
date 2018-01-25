@@ -28,6 +28,8 @@
  * SOFTWARE.
  */
 
+#define _GNU_SOURCE
+
 #include <config.h>
 
 #include <stdio.h>
@@ -51,14 +53,16 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
-#include <netinet/in.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <rdma/rdma_netlink.h>
 #include <rdma/ib_user_sa.h>
 #include <poll.h>
 #include <inttypes.h>
+#include <getopt.h>
+#include <systemd/sd-daemon.h>
 #include <ccan/list.h>
+#include <util/util.h>
 #include "acm_mad.h"
 #include "acm_util.h"
 
@@ -73,7 +77,7 @@
 
 struct acmc_subnet {
 	struct list_node       entry;
-	uint64_t               subnet_prefix;
+	__be64                 subnet_prefix;
 };
 
 struct acmc_prov {
@@ -258,14 +262,14 @@ void acm_format_name(int level, char *name, size_t name_size,
 		path = (struct ibv_path_record *) addr;
 		if (path->dlid) {
 			snprintf(name, name_size, "SLID(%u) DLID(%u)",
-				ntohs(path->slid), ntohs(path->dlid));
+				be16toh(path->slid), be16toh(path->dlid));
 		} else {
 			acm_format_name(level, name, name_size, ACM_ADDRESS_GID,
 					path->dgid.raw, sizeof path->dgid);
 		}
 		break;
 	case ACM_ADDRESS_LID:
-		snprintf(name, name_size, "LID(%u)", ntohs(*((uint16_t *) addr)));
+		snprintf(name, name_size, "LID(%u)", be16toh(*((__be16 *) addr)));
 		break;
 	default:
 		strcpy(name, "Unknown");
@@ -413,11 +417,11 @@ acm_addr_lookup(const struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr
 	return NULL;
 }
 
-uint64_t acm_path_comp_mask(struct ibv_path_record *path)
+__be64 acm_path_comp_mask(struct ibv_path_record *path)
 {
 	uint32_t fl_hop;
 	uint16_t qos_sl;
-	uint64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 
 	acm_log(2, "\n");
 	if (path->service_id)
@@ -431,7 +435,7 @@ uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 	if (path->slid)
 		comp_mask |= IB_COMP_MASK_PR_SLID;
 
-	fl_hop = ntohl(path->flowlabel_hoplimit);
+	fl_hop = be32toh(path->flowlabel_hoplimit);
 	if (fl_hop >> 8)
 		comp_mask |= IB_COMP_MASK_PR_FLOW_LABEL;
 	if (fl_hop & 0xFF)
@@ -444,7 +448,7 @@ uint64_t acm_path_comp_mask(struct ibv_path_record *path)
 	if (path->pkey)
 		comp_mask |= IB_COMP_MASK_PR_PKEY;
 
-	qos_sl = ntohs(path->qosclass_sl);
+	qos_sl = be16toh(path->qosclass_sl);
 	if (qos_sl >> 4)
 		comp_mask |= IB_COMP_MASK_PR_QOS_CLASS;
 	if (qos_sl & 0xF)
@@ -580,7 +584,7 @@ static int acm_listen(void)
 
 	memset(&addr, 0, sizeof addr);
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(server_port);
+	addr.sin_port = htobe16(server_port);
 	ret = bind(listen_socket, (struct sockaddr *) &addr, sizeof addr);
 	if (ret == -1) {
 		acm_log(0, "ERROR - unable to bind listen socket\n");
@@ -594,6 +598,62 @@ static int acm_listen(void)
 	}
 
 	acm_log(2, "listen active\n");
+	return 0;
+}
+
+/* Retrieve the listening socket from systemd. */
+static int acm_listen_systemd(void)
+{
+	int fd;
+
+	int rc = sd_listen_fds(1);
+	if (rc == -1) {
+		fprintf(stderr, "sd_listen_fds failed %d\n", rc);
+		return rc;
+	}
+
+	if (rc > 2) {
+		fprintf(stderr,
+			"sd_listen_fds returned %d fds, expected <= 2\n", rc);
+		return -1;
+	}
+
+	for (fd = SD_LISTEN_FDS_START; fd != SD_LISTEN_FDS_START + rc; fd++) {
+		if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, 0)) {
+			/* ListenNetlink for RDMA_NL_GROUP_LS multicast
+			 * messages from the kernel
+			 */
+			if (client_array[NL_CLIENT_INDEX].sock != -1) {
+				fprintf(stderr,
+					"sd_listen_fds returned more than one netlink socket\n");
+				return -1;
+			}
+			client_array[NL_CLIENT_INDEX].sock = fd;
+
+			/* systemd sets NONBLOCK on the netlink socket, while
+			 * we want blocking send to the kernel.
+			 */
+			if (set_fd_nonblock(fd, false)) {
+				fprintf(stderr,
+					"Unable to drop O_NOBLOCK on netlink socket");
+				return -1;
+			}
+		} else if (sd_is_socket(SD_LISTEN_FDS_START, AF_UNSPEC,
+					SOCK_STREAM, 1)) {
+			/* Socket for user space client communication */
+			if (listen_socket != -1) {
+				fprintf(stderr,
+					"sd_listen_fds returned more than one listening socket\n");
+				return -1;
+			}
+			listen_socket = fd;
+		} else {
+			fprintf(stderr,
+				"sd_listen_fds socket is not a SOCK_STREAM/SOCK_NETLINK listening socket\n");
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -648,7 +708,7 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 	}
 
 	if (path->slid) {
-		return (port->lid == (ntohs(path->slid) & port->lid_mask));
+		return (port->lid == (be16toh(path->slid) & port->lid_mask));
 	}
 
 	if (ib_any_gid(&path->dgid)) {
@@ -686,7 +746,7 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 	list_for_each(&port->ep_list, ep, entry) {
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
-		     (ntohs(data->info.path.pkey) == ep->endpoint.pkey))) {
+		     (be16toh(data->info.path.pkey) == ep->endpoint.pkey))) {
 			for (i = 0; i < MAX_EP_ADDR; i++) {
 				if (ep->addr_info[i].addr.type)
 					return &ep->addr_info[i];
@@ -994,12 +1054,12 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	msg->hdr.status = ACM_STATUS_SUCCESS;
 	msg->hdr.data[2] = 0;
 
-	if ((ntohs(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
+	if ((be16toh(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && index < 1) ||
-	    ((ntohs(msg->hdr.length) >= (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
+	    ((be16toh(msg->hdr.length) >= (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && !(msg->resolve_data[0].flags & ACM_EP_FLAG_SOURCE)))) {
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
-			msg->perf_data[i] = htonll((uint64_t) atomic_get(&counter[i]));
+			msg->perf_data[i] = htobe64((uint64_t) atomic_get(&counter[i]));
 
 		msg->hdr.data[0] = ACM_MAX_COUNTER;
 		len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
@@ -1022,7 +1082,7 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 			len = ACM_MSG_HDR_LENGTH;
 		}
 	}
-	msg->hdr.length = htons(len);
+	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);
 	if (ret != len)
@@ -1047,7 +1107,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 		msg->hdr.status = ACM_STATUS_SUCCESS;
 		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
 		msg->ep_data[0].port_num = ep->port->port.port_num;
-		msg->ep_data[0].pkey = htons(ep->endpoint.pkey);
+		msg->ep_data[0].pkey = htobe16(ep->endpoint.pkey);
 		strncpy((char *)msg->ep_data[0].prov_name, ep->port->prov->name,
 			ACM_MAX_PROV_NAME - 1);
 		msg->ep_data[0].prov_name[ACM_MAX_PROV_NAME - 1] = '\0';
@@ -1059,7 +1119,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 				       ACM_MAX_ADDRESS);
 			}
 		}
-		msg->ep_data[0].addr_cnt = htons(cnt);
+		msg->ep_data[0].addr_cnt = htobe16(cnt);
 		len += cnt * ACM_MAX_ADDRESS;
 	} else {
 		msg->hdr.status = ACM_STATUS_EINVAL;
@@ -1068,7 +1128,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.data[1] = 0;
 	msg->hdr.data[2] = 0;
-	msg->hdr.length = htons(len);
+	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);
 	if (ret != len)
@@ -1082,7 +1142,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 static int acm_msg_length(struct acm_msg *msg)
 {
 	return (msg->hdr.opcode == ACM_OP_RESOLVE) ?
-		msg->hdr.length : ntohs(msg->hdr.length);
+		msg->hdr.length : be16toh(msg->hdr.length);
 }
 
 static void acm_svr_receive(struct acmc_client *client)
@@ -1425,7 +1485,7 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 		sid = (uint64_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*sid)) {
 			acm_log(2, "service_id 0x%" PRIx64 "\n", *sid);
-			path->service_id = htonll(*sid);
+			path->service_id = htobe64(*sid);
 		} else {
 			ret = -1;
 		}
@@ -1473,7 +1533,7 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 		pkey = (uint16_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*pkey)) {
 			acm_log(2, "pkey 0x%x\n", *pkey);
-			path->pkey = htons(*pkey);
+			path->pkey = htobe16(*pkey);
 		} else {
 			ret = -1;
 		}
@@ -1483,10 +1543,10 @@ static int acm_nl_parse_path_attr(struct nlattr *attr,
 		qos = (uint16_t *) NLA_DATA(attr);
 		if (NLA_LEN(attr) == sizeof(*qos)) {
 			acm_log(2, "qos_class 0x%x\n", *qos);
-			val = ntohs(path->qosclass_sl);
+			val = be16toh(path->qosclass_sl);
 			val &= ~IBV_PATH_RECORD_QOS_MASK;
 			val |= (*qos & IBV_PATH_RECORD_QOS_MASK);
-			path->qosclass_sl = htons(val);
+			path->qosclass_sl = htobe16(val);
 		} else {
 			ret = -1;
 		}
@@ -1667,7 +1727,7 @@ static int acm_init_nl(void)
 	return 0;
 }
 
-static void acm_server(void)
+static void acm_server(bool systemd)
 {
 	fd_set readfds;
 	int i, n, ret;
@@ -1675,15 +1735,33 @@ static void acm_server(void)
 
 	acm_log(0, "started\n");
 	acm_init_server();
-	ret = acm_listen();
-	if (ret) {
-		acm_log(0, "ERROR - server listen failed\n");
-		return;
+
+	client_array[NL_CLIENT_INDEX].sock = -1;
+	listen_socket = -1;
+	if (systemd) {
+		ret = acm_listen_systemd();
+		if (ret) {
+			acm_log(0, "ERROR - systemd server listen failed\n");
+			return;
+		}
 	}
 
-	ret = acm_init_nl();
-	if (ret)
-		acm_log(1, "Warn - Netlink init failed\n");
+	if (listen_socket == -1) {
+		ret = acm_listen();
+		if (ret) {
+			acm_log(0, "ERROR - server listen failed\n");
+			return;
+		}
+	}
+
+	if (client_array[NL_CLIENT_INDEX].sock == -1) {
+		ret = acm_init_nl();
+		if (ret)
+			acm_log(1, "Warn - Netlink init failed\n");
+	}
+
+	if (systemd)
+		sd_notify(0, "READY=1");
 
 	while (1) {
 		n = (int) listen_socket;
@@ -1939,7 +2017,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%46s%32s%d%8s", name, dev, &port, pkey_str) != 4)
+		if (sscanf(s, "%46s%31s%d%7s", name, dev, &port, pkey_str) != 4)
 			continue;
 
 		acm_log(2, "%s", s);
@@ -2136,8 +2214,8 @@ static void acm_port_get_gid_tbl(struct acmc_port *port)
 			if (ret || !port->gid_tbl[j].global.interface_id)
 				break;
 			acm_log(2, "guid %d: 0x%" PRIx64 " %" PRIx64 "\n", j,
-				port->gid_tbl[j].global.subnet_prefix,
-				port->gid_tbl[j].global.interface_id);
+				be64toh(port->gid_tbl[j].global.subnet_prefix),
+				be64toh(port->gid_tbl[j].global.interface_id));
 		}
 		port->gid_cnt = j;
 	}
@@ -2149,6 +2227,7 @@ static void acm_port_up(struct acmc_port *port)
 {
 	struct ibv_port_attr attr;
 	uint16_t pkey;
+	__be16 pkey_be;
 	int i, ret;
 	struct acmc_prov_context *dev_ctx;
 	int index = -1;
@@ -2170,7 +2249,7 @@ static void acm_port_up(struct acmc_port *port)
 	acm_port_get_gid_tbl(port);
 	port->lid = attr.lid;
 	port->lid_mask = 0xffff - ((1 << attr.lmc) - 1);
-	port->sa_addr.lid = attr.sm_lid;
+	port->sa_addr.lid = htobe16(attr.sm_lid);
 	port->sa_addr.sl = attr.sm_sl;
 	port->state = IBV_PORT_ACTIVE;
 	acm_assign_provider(port);
@@ -2204,10 +2283,10 @@ static void acm_port_up(struct acmc_port *port)
 	 */
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->device.verbs,
-				     port->port.port_num, i, &pkey);
+				     port->port.port_num, i, &pkey_be);
 		if (ret)
 			continue;
-		pkey = ntohs(pkey);
+		pkey = be16toh(pkey_be);
 		if (i == 0)
 			first_pkey = pkey;
 		if (pkey == 0xffff) {
@@ -2223,10 +2302,10 @@ static void acm_port_up(struct acmc_port *port)
 
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->device.verbs,
-				     port->port.port_num, i, &pkey);
+				     port->port.port_num, i, &pkey_be);
 		if (ret)
 			continue;
-		pkey = ntohs(pkey);
+		pkey = be16toh(pkey_be);
 		if (!(pkey & 0x7fff))
 			continue;
 
@@ -2369,8 +2448,8 @@ acm_open_port(struct acmc_port *port, struct acmc_device *dev, uint8_t port_num)
 	list_head_init(&port->sa_pending);
 	list_head_init(&port->sa_wait);
 	port->sa_credits = sa.depth;
-	port->sa_addr.qpn = htonl(1);
-	port->sa_addr.qkey = htonl(ACM_QKEY);
+	port->sa_addr.qpn = htobe32(1);
+	port->sa_addr.qkey = htobe32(ACM_QKEY);
 
 	port->mad_portid = umad_open_port(dev->device.verbs->device->name, port_num);
 	if (port->mad_portid < 0)
@@ -2378,8 +2457,10 @@ acm_open_port(struct acmc_port *port, struct acmc_device *dev, uint8_t port_num)
 
 	port->mad_agentid = umad_register(port->mad_portid,
 					  IB_MGMT_CLASS_SA, 1, 1, NULL);
-	if (port->mad_agentid < 0)
+	if (port->mad_agentid < 0) {
+		umad_close_port(port->mad_portid);
 		acm_log(0, "ERROR - unable to register MAD client\n");
+	}
 
 	port->prov = NULL;
 	port->state = IBV_PORT_DOWN;
@@ -2497,19 +2578,18 @@ static void acm_load_prov_config(void)
 		prefix = strtoull(p, NULL, 0);
 		acm_log(2, "provider %s subnet_prefix 0x%" PRIx64 "\n",
 			prov_name, prefix);
-		/* Convert it into network byte order */
-		prefix = htonll(prefix);
 
 		list_for_each(&provider_list, prov, entry) {
 			if (!strcasecmp(prov->prov->name, prov_name)) {
 				subnet = calloc(1, sizeof (*subnet));
 				if (!subnet) {
 					acm_log(0, "Error: out of memory\n");
+					fclose(fd);
 					return;
 				}
-				subnet->subnet_prefix = prefix;
-				list_add_after(&provider_list, &prov->entry,
-						&subnet->entry);
+				subnet->subnet_prefix = htobe64(prefix);
+				list_add_tail(&prov->subnet_list,
+					      &subnet->entry);
 			}
 		}
 	}
@@ -2549,8 +2629,10 @@ static int acm_open_providers(void)
 		if (!strstr(dent->d_name, ".so"))
 			continue;
 
-		snprintf(file_name, sizeof(file_name), "%s/%s", prov_lib_path,
-			 dent->d_name);
+		if (!check_snprintf(file_name, sizeof(file_name), "%s/%s",
+				    prov_lib_path, dent->d_name))
+			continue;
+
 		if (lstat(file_name, &buf)) {
 			acm_log(0, "Error - could not stat: %s\n", file_name);
 			continue;
@@ -2567,7 +2649,7 @@ static int acm_open_providers(void)
 
 		query = dlsym(handle, "provider_query");
 		if ((err_str = dlerror()) != NULL) {
-			acm_log(0, "Error -provider_query not found in %s (%s)\n",
+			acm_log(0, "Error - provider_query not found in %s (%s)\n",
 				file_name, err_str);
 			dlclose(handle);
 			continue;
@@ -2644,7 +2726,7 @@ static int acmc_init_sa_fds(void)
 		for (p = 0; p < dev->port_cnt; p++) {
 			sa.fds[i].fd = umad_get_fd(dev->port[p].mad_portid);
 			sa.fds[i].events = POLLIN;
-			ret = fcntl(sa.fds[i].fd, F_SETFL, O_NONBLOCK);
+			ret = set_fd_nonblock(sa.fds[i].fd, true);
 			if (ret)
 				acm_log(0, "WARNING - umad fd is blocking\n");
 
@@ -2699,7 +2781,7 @@ int acm_send_sa_mad(struct acm_sa_mad *mad)
 	port = req->ep->port;
 	mad->umad.addr.qpn = port->sa_addr.qpn;
 	mad->umad.addr.qkey = port->sa_addr.qkey;
-	mad->umad.addr.lid = htons(port->sa_addr.lid);
+	mad->umad.addr.lid = port->sa_addr.lid;
 	mad->umad.addr.sl = port->sa_addr.sl;
 	mad->umad.addr.pkey_index = req->ep->port->sa_pkey_index;
 
@@ -2764,12 +2846,12 @@ static void acmc_recv_mad(struct acmc_port *port)
 	hdr = &resp.sa_mad.mad_hdr;
 	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %" PRIx64 "x at %x atm %x\n",
 		hdr->base_version, hdr->mgmt_class, hdr->class_version,
-		hdr->method, hdr->status, hdr->tid, hdr->attr_id, hdr->attr_mod);
+		hdr->method, hdr->status, be64toh(hdr->tid), hdr->attr_id, hdr->attr_mod);
 	found = 0;
 	pthread_mutex_lock(&port->lock);
 	list_for_each(&port->sa_pending, req, entry) {
-		/* The lower 32-bit of the tid is used for agentid in umad */
-		if (req->mad.sa_mad.mad_hdr.tid == (hdr->tid & 0xFFFFFFFF00000000ULL)) {
+		/* The upper 32-bit of the tid is used for agentid in umad */
+		if (req->mad.sa_mad.mad_hdr.tid == (hdr->tid & htobe64(0xFFFFFFFF))) {
 			found = 1;
 			list_del(&req->entry);
 			port->sa_credits++;
@@ -2853,7 +2935,7 @@ static void acm_set_options(void)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%32s%256s", opt, value) != 2)
+		if (sscanf(s, "%31s%255s", opt, value) != 2)
 			continue;
 
 		if (!strcasecmp("log_file", opt))
@@ -2932,29 +3014,6 @@ static int acm_open_lock_file(void)
 	return 0;
 }
 
-static void daemonize(void)
-{
-	pid_t pid, sid;
-
-	pid = fork();
-	if (pid)
-		exit(pid < 0);
-
-	sid = setsid();
-	if (sid < 0)
-		exit(1);
-
-	if (chdir("/"))
-		exit(1);
-
-	if(!freopen("/dev/null", "r", stdin))
-		exit(1);
-	if(!freopen("/dev/null", "w", stdout))
-		exit(1);
-	if(!freopen("/dev/null", "w", stderr))
-		exit(1);
-}
-
 static void show_usage(char *program)
 {
 	printf("usage: %s\n", program);
@@ -2968,15 +3027,22 @@ static void show_usage(char *program)
 
 int main(int argc, char **argv)
 {
-	int i, op, daemon = 1;
+	int i, op, as_daemon = 1;
+	bool systemd = false;
 
-	while ((op = getopt(argc, argv, "DPA:O:")) != -1) {
+	static const struct option long_opts[] = {
+		{"systemd", 0, NULL, 's'},
+		{}
+	};
+
+	while ((op = getopt_long(argc, argv, "DPA:O:", long_opts, NULL)) !=
+	       -1) {
 		switch (op) {
 		case 'D':
 			/* option no longer required */
 			break;
 		case 'P':
-			daemon = 0;
+			as_daemon = 0;
 			break;
 		case 'A':
 			addr_file = optarg;
@@ -2984,14 +3050,19 @@ int main(int argc, char **argv)
 		case 'O':
 			opts_file = optarg;
 			break;
+		case 's':
+			systemd = true;
+			break;
 		default:
 			show_usage(argv[0]);
 			exit(1);
 		}
 	}
 
-	if (daemon)
-		daemonize();
+	if (as_daemon && !systemd) {
+		if (daemon(0, 0))
+			return EXIT_FAILURE;
+	}
 
 	acm_set_options();
 	if (acm_open_lock_file())
@@ -3031,7 +3102,7 @@ int main(int argc, char **argv)
 	}
 	acm_activate_devices();
 	acm_log(1, "starting server\n");
-	acm_server();
+	acm_server(systemd);
 
 	acm_log(0, "shutting down\n");
 	if (client_array[NL_CLIENT_INDEX].sock != -1)

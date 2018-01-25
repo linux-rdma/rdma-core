@@ -9,7 +9,6 @@ following device nodes:
  - /dev/infiniband/uverbsX (libibverbs)
  - /dev/infiniband/rdma_cm (librdmacm)
  - /dev/infiniband/umadX (libibumad)
- - /dev/infiniband/ucmX (libibcm, deprecated)
 
 The userspace component of the libibverbs RDMA kernel drivers are included
 under the providers/ directory. Support for the following Kernel RDMA drivers
@@ -28,10 +27,12 @@ is included:
  - ocrdma.ko
  - qedr.ko
  - rdma_rxe.ko
+ - vmw_pvrdma.ko
 
 Additional service daemons are provided for:
  - srp_daemon (ib_srp.ko)
  - iwpmd (for iwarp kernel providers)
+ - ibacm (for InfiniBand communication management assistant)
 
 # Building
 
@@ -42,7 +43,8 @@ $ bash build.sh
 ```
 
 *build/bin* will contain the sample programs and *build/lib* will contain the
-shared libraries.
+shared libraries. The build is configured to run all the programs 'in-place'
+and cannot be installed.
 
 NOTE: It is not currently easy to run from the build directory, the plugins
 only load from the system path.

@@ -1,0 +1,37 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org (MIT) - See COPYING.md
+.\"
+.TH MLX5DV_GET_CLOCK_INFO 3 2017-11-08 1.0.0
+.SH "NAME"
+mlx5dv_get_clock_info \- Get device clock information
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/mlx5dv.h>
+.sp
+.BI "int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
+.BI "                          struct mlx5dv_clock_info *clock_info);
+.fi
+.SH "DESCRIPTION"
+Get the updated core
+.I clock_info
+from the device driver. This information will be used later to translate the
+completion timestamp from HCA core clock to nanoseconds. The values of the clock are
+updated from the driver's PTP clock, therefore, without a running PTP
+client on the machine, the wall clock conversion will not be accurate.
+.PP
+Pass the latest \fBstruct mlx5dv_clock_info\fR to \fBmlx5dv_ts_to_ns(3)\fR in order to translate
+the completion timestamp from HCA core clock to nanoseconds.
+.PP
+If the clock_info becomes too old then time conversion will return wrong conversion results.
+The user must ensure that  \fBmlx5dv_get_clock_info(3)\fR is called at least once every
+\fBmax_clock_info_update_nsec\fR as returned by the \fBmlx5dv_query_device(3)\fR function.
+.PP
+.fi
+.SH "RETURN VALUE"
+0 on success or the value of errno on failure (which indicates the failure reason).
+.SH "SEE ALSO"
+.BR mlx5dv (7),
+.BR mlx5dv_ts_to_ns (3)
+.SH "AUTHORS"
+.TP
+Feras Daoud <ferasda@mellanox.com>

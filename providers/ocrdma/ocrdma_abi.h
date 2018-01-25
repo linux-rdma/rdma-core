@@ -35,6 +35,7 @@
 #ifndef __OCRDMA_ABI_H__
 #define __OCRDMA_ABI_H__
 
+#include <stdint.h>
 #include <infiniband/kern-abi.h>
 
 #define OCRDMA_ABI_VERSION	2
@@ -65,7 +66,7 @@ struct ocrdma_get_context {
 };
 
 struct ocrdma_alloc_ucontext_resp {
-	struct ibv_get_context_resp ibv_resp;
+	struct ib_uverbs_get_context_resp ibv_resp;
 	uint32_t dev_id;
 	uint32_t wqe_size;
 	uint32_t max_inline_data;
@@ -84,7 +85,7 @@ struct ocrdma_alloc_pd_req {
 };
 
 struct ocrdma_alloc_pd_resp {
-	struct ibv_alloc_pd_resp ibv_resp;
+	struct ib_uverbs_alloc_pd_resp ibv_resp;
 	uint32_t id;
 	uint32_t dpp_enabled;
 	uint32_t dpp_page_addr_hi;
@@ -100,7 +101,7 @@ struct ocrdma_create_cq_req {
 
 #define MAX_CQ_PAGES 8
 struct ocrdma_create_cq_resp {
-	struct ibv_create_cq_resp ibv_resp;
+	struct ib_uverbs_create_cq_resp ibv_resp;
 	uint32_t cq_id;
 	uint32_t size;
 	uint32_t num_pages;
@@ -118,7 +119,7 @@ struct ocrdma_reg_mr {
 };
 
 struct ocrdma_reg_mr_resp {
-	struct ibv_reg_mr_resp ibv_resp;
+	struct ib_uverbs_reg_mr_resp ibv_resp;
 };
 
 struct ocrdma_create_qp_cmd {
@@ -133,7 +134,7 @@ struct ocrdma_create_qp_cmd {
 #define MAX_UD_HDR_PAGES 8
 
 struct ocrdma_create_qp_uresp {
-	struct ibv_create_qp_resp ibv_resp;
+	struct ib_uverbs_create_qp_resp ibv_resp;
 	uint16_t qp_id;
 	uint16_t sq_dbid;
 	uint16_t rq_dbid;
@@ -161,7 +162,7 @@ struct ocrdma_create_srq_cmd {
 };
 
 struct ocrdma_create_srq_resp {
-	struct ibv_create_srq_resp ibv_resp;
+	struct ib_uverbs_create_srq_resp ibv_resp;
 	uint16_t rq_dbid;
 	uint16_t resv0;
 	uint32_t resv1;
@@ -241,27 +242,27 @@ struct ocrdma_cqe {
 	union {
 		/* w0 to w2 */
 		struct {
-			uint32_t wqeidx;
-			uint32_t bytes_xfered;
-			uint32_t qpn;
+			__le32 wqeidx;
+			__le32 bytes_xfered;
+			__le32 qpn;
 		} wq;
 		struct {
-			uint32_t lkey_immdt;
-			uint32_t rxlen;
-			uint32_t buftag_qpn;
+			__le32 lkey_immdt;
+			__le32 rxlen;
+			__le32 buftag_qpn;
 		} rq;
 		struct {
-			uint32_t lkey_immdt;
-			uint32_t rxlen_pkey;
-			uint32_t buftag_qpn;
+			__le32 lkey_immdt;
+			__le32 rxlen_pkey;
+			__le32 buftag_qpn;
 		} ud;
 		struct {
-			uint32_t word_0;
-			uint32_t word_1;
-			uint32_t qpn;
+			__le32 word_0;
+			__le32 word_1;
+			__le32 qpn;
 		} cmn;
 	};
-	uint32_t flags_status_srcqpn;	/* w3 */
+	__le32 flags_status_srcqpn;	/* w3 */
 } __attribute__ ((packed));
 
 struct ocrdma_sge {
@@ -332,6 +333,19 @@ struct ocrdma_hdr_wqe {
 		uint32_t lkey;
 	};
 	uint32_t total_len;
+} __attribute__ ((packed));
+
+struct ocrdma_hdr_wqe_le {
+	__le32 cw;
+	union {
+		__le32 rsvd_tag;
+		__le32 rsvd_stag_flags;
+	};
+	union {
+		__le32 immdt;
+		__le32 lkey;
+	};
+	__le32 total_len;
 } __attribute__ ((packed));
 
 struct ocrdma_ewqe_atomic {

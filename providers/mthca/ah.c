@@ -32,8 +32,8 @@
 
 #include <config.h>
 
+#include <endian.h>
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <string.h>
 
@@ -132,12 +132,12 @@ int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
 
 	memset(ah->av, 0, sizeof *ah->av);
 
-	ah->av->port_pd = htonl(pd->pdn | (attr->port_num << 24));
+	ah->av->port_pd = htobe32(pd->pdn | (attr->port_num << 24));
 	ah->av->g_slid  = attr->src_path_bits;
-	ah->av->dlid    = htons(attr->dlid);
+	ah->av->dlid    = htobe16(attr->dlid);
 	ah->av->msg_sr  = (3 << 4) | /* 2K message */
 		attr->static_rate;
-	ah->av->sl_tclass_flowlabel = htonl(attr->sl << 28);
+	ah->av->sl_tclass_flowlabel = htobe32(attr->sl << 28);
 	if (attr->is_global) {
 		ah->av->g_slid |= 0x80;
 		/* XXX get gid_table length */
@@ -145,12 +145,12 @@ int mthca_alloc_av(struct mthca_pd *pd, struct ibv_ah_attr *attr,
 			attr->grh.sgid_index;
 		ah->av->hop_limit = attr->grh.hop_limit;
 		ah->av->sl_tclass_flowlabel |=
-			htonl((attr->grh.traffic_class << 20) |
+			htobe32((attr->grh.traffic_class << 20) |
 				    attr->grh.flow_label);
 		memcpy(ah->av->dgid, attr->grh.dgid.raw, 16);
 	} else {
 		/* Arbel workaround -- low byte of GID must be 2 */
-		ah->av->dgid[3] = htonl(2);
+		ah->av->dgid[3] = htobe32(2);
 	}
 
 	return 0;

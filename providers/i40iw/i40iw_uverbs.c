@@ -43,7 +43,6 @@
 #include <pthread.h>
 #include <malloc.h>
 #include <sys/mman.h>
-#include <netinet/in.h>
 #include <linux/if_ether.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -154,7 +153,7 @@ struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int a
 {
 	struct ibv_mr *mr;
 	struct i40iw_ureg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 
 	mr = malloc(sizeof(*mr));
 	if (!mr)
@@ -219,7 +218,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 
 	struct i40iw_ureg_mr reg_mr_cmd;
 
-	struct ibv_reg_mr_resp reg_mr_resp;
+	struct ib_uverbs_reg_mr_resp reg_mr_resp;
 
 	if (cqe > I40IW_MAX_CQ_SIZE)
 		return NULL;
@@ -286,7 +285,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 	if (!ret)
 		return &iwucq->ibv_cq;
 	else
-		fprintf(stderr, PFX "%s: failed to initialze CQ, status %d\n", __func__, ret);
+		fprintf(stderr, PFX "%s: failed to initialize CQ, status %d\n", __func__, ret);
 err:
 	if (info.cq_base)
 		free(info.cq_base);
@@ -503,7 +502,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	int ret;
 	struct i40iw_ureg_mr reg_mr_cmd;
 	u32 sq_pages, rq_pages;
-	struct ibv_reg_mr_resp reg_mr_resp;
+	struct ib_uverbs_reg_mr_resp reg_mr_resp;
 
 	memset(&reg_mr_cmd, 0, sizeof(reg_mr_cmd));
 	sqsize = sqdepth * I40IW_QP_WQE_MIN_SIZE;
@@ -588,40 +587,6 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 }
 
 /**
- * i40iw_qp_round_up - round up rq and sq ring sizes
- * @wr_ring_size: size of the ring
- */
-static int i40iw_qp_round_up(u32 wr_ring_size)
-{
-	int scount = 1;
-
-	if (wr_ring_size <= MIN_WQ_DEPTH)
-		wr_ring_size = MIN_WQ_DEPTH;
-
-	for (wr_ring_size--; scount <= 16; scount *= 2)
-		wr_ring_size |= wr_ring_size >> scount;
-	return ++wr_ring_size;
-}
-
-/*
- * i40iw_qp_get_qdepth of the ring depending of sge and qdepth
- * @qdepth: queue depth
- * @sge: max number of SGEs
- * @inline_data: max QP inline data size
- *
- * returns depth of the ring
- */
-static int i40iw_qp_get_qdepth(uint32_t qdepth, u32 sge, u32 inline_data)
-{
-	u8 shift = 0;
-
-	if (i40iw_get_wqe_shift(qdepth, sge, inline_data, &shift))
-		return 0;
-
-	return (qdepth << shift);
-}
-
-/**
  * i40iw_ucreate_qp - create qp on user app
  * @pd: pd for the qp
  * @attr: attributes of the qp to be created (sizes, sge, cq)
@@ -631,10 +596,9 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	struct i40iw_ucreate_qp_resp resp;
 	struct i40iw_uvcontext *iwvctx = to_i40iw_uctx(pd->context);
 	struct i40iw_uqp *iwuqp;
-	int sqdepth, rqdepth;
-	int status = 1;
 	struct i40iw_qp_uk_init_info info;
-	int sq_attr, rq_attr;
+	u32 sqdepth, rqdepth;
+	u8 sqshift, rqshift;
 
 	if (attr->qp_type != IBV_QPT_RC) {
 		fprintf(stderr, PFX "%s: failed to create QP, unsupported QP type: 0x%x\n", __func__, attr->qp_type);
@@ -650,23 +614,29 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	if (attr->cap.max_inline_data > I40IW_MAX_INLINE_DATA_SIZE)
 		attr->cap.max_inline_data = I40IW_MAX_INLINE_DATA_SIZE;
 
-	sq_attr = i40iw_qp_round_up(attr->cap.max_send_wr + 1);
-	rq_attr = i40iw_qp_round_up(attr->cap.max_recv_wr + 1);
-
-	/* Sanity check QP size before proceeding */
-	sqdepth = i40iw_qp_get_qdepth(sq_attr, attr->cap.max_send_sge, attr->cap.max_inline_data);
-	if (!sqdepth) {
-		fprintf(stderr, PFX "%s: invalid SQ attributes, max_send_wr=%d max_send_sge=%d\n",
-			__func__, attr->cap.max_send_wr, attr->cap.max_send_sge);
+	i40iw_get_wqe_shift(attr->cap.max_send_sge, attr->cap.max_inline_data, &sqshift);
+	if (i40iw_get_sqdepth(attr->cap.max_send_wr, sqshift, &sqdepth)) {
+		fprintf(stderr, PFX "invalid SQ attributes, max_send_wr=%d max_send_sge=%d max_inline=%d\n",
+			attr->cap.max_send_wr, attr->cap.max_send_sge, attr->cap.max_inline_data);
 		return NULL;
 	}
 
-	rqdepth = i40iw_qp_get_qdepth(rq_attr, attr->cap.max_recv_sge, 0);
-	if (!rqdepth) {
-		fprintf(stderr, PFX "%s: invalid RQ attributes, max_recv_wr=%d max_recv_sge=%d\n",
-			__func__, attr->cap.max_recv_wr, attr->cap.max_recv_sge);
+	switch (iwvctx->abi_ver) {
+	case 4:
+		i40iw_get_wqe_shift(attr->cap.max_recv_sge, 0, &rqshift);
+		break;
+	case 5: /* fallthrough until next ABI version */
+	default:
+		rqshift = I40IW_MAX_RQ_WQE_SHIFT;
+		break;
+	}
+
+	if (i40iw_get_rqdepth(attr->cap.max_recv_wr, rqshift, &rqdepth)) {
+		fprintf(stderr, PFX "invalid RQ attributes, max_recv_wr=%d max_recv_sge=%d\n",
+			attr->cap.max_recv_wr, attr->cap.max_recv_sge);
 		return NULL;
 	}
+
 	iwuqp = memalign(1024, sizeof(*iwuqp));
 	if (!iwuqp)
 		return NULL;
@@ -677,16 +647,17 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 
 	memset(&info, 0, sizeof(info));
 
-	info.sq_size = sq_attr;
-	info.rq_size = rq_attr;
-	attr->cap.max_send_wr = sq_attr;
-	attr->cap.max_recv_wr = rq_attr;
+	info.sq_size = sqdepth >> sqshift;
+	info.rq_size = rqdepth >> rqshift;
+	attr->cap.max_send_wr = info.sq_size;
+	attr->cap.max_recv_wr = info.rq_size;
 
 	info.max_sq_frag_cnt = attr->cap.max_send_sge;
 	info.max_rq_frag_cnt = attr->cap.max_recv_sge;
 
 	info.wqe_alloc_reg = (u32 *)iwvctx->iwupd->db;
 	info.sq_wrtrk_array = calloc(sqdepth, sizeof(*info.sq_wrtrk_array));
+	info.abi_ver = iwvctx->abi_ver;
 
 	if (!info.sq_wrtrk_array) {
 		fprintf(stderr, PFX "%s: failed to allocate memory for SQ work array\n", __func__);
@@ -701,9 +672,7 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 
 	iwuqp->sq_sig_all = attr->sq_sig_all;
 	memset(&resp, 0, sizeof(resp));
-	status = i40iw_vmapped_qp(iwuqp, pd, attr, &resp, sqdepth, rqdepth, &info);
-
-	if (!status) {
+	if (!i40iw_vmapped_qp(iwuqp, pd, attr, &resp, sqdepth, rqdepth, &info)) {
 		fprintf(stderr, PFX "%s: failed to map QP\n", __func__);
 		goto err_free_rq_wrid;
 	}
@@ -715,8 +684,7 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	info.max_rq_frag_cnt = attr->cap.max_recv_sge;
 	info.max_inline_data = attr->cap.max_inline_data;
 
-	status = iwvctx->dev.ops_uk.iwarp_qp_uk_init(&iwuqp->qp, &info);
-	if (!status)
+	if (!iwvctx->dev.ops_uk.iwarp_qp_uk_init(&iwuqp->qp, &info))
 		return &iwuqp->ibv_qp;
 
 	i40iw_destroy_vmapped_qp(iwuqp, info.sq);
@@ -754,7 +722,7 @@ int i40iw_uquery_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask,
  */
 int i40iw_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 
 	return ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
 }

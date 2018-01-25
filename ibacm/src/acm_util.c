@@ -35,7 +35,6 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -128,6 +127,7 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	struct ifconf *ifc;
 	struct ifreq *ifr;
 	char ip_str[INET6_ADDRSTRLEN];
+	int family = AF_INET6;
 	int s, ret, i, len;
 	uint16_t pkey;
 	union ibv_gid sgid;
@@ -136,9 +136,13 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	size_t addr_len;
 	char *alias_sep;
 
-	s = socket(AF_INET6, SOCK_DGRAM, 0);
-	if (!s)
-		return -1;
+	s = socket(family, SOCK_DGRAM, 0);
+	if (!s) {
+		family = AF_INET;
+		s = socket(family, SOCK_DGRAM, 0);
+		if (!s)
+			return -1;
+	}
 
 	len = sizeof(*ifc) + sizeof(*ifr) * 64;
 	ifc = malloc(len);
@@ -151,9 +155,21 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	ifc->ifc_len = len - sizeof(*ifc);
 	ifc->ifc_req = (struct ifreq *) (ifc + 1);
 
+retry_ioctl:
 	ret = ioctl(s, SIOCGIFCONF, ifc);
 	if (ret < 0) {
-		acm_log(0, "ioctl ifconf error %d\n", ret);
+		acm_log(0, "ioctl IPv%s ifconf error: %s\n",
+			(family == AF_INET6) ? "6" : "4", strerror(errno));
+		if (family == AF_INET6) {
+			close(s);
+			family = AF_INET;
+			s = socket(family, SOCK_DGRAM, 0);
+			if (!s) {
+				free(ifc);
+				return ret;
+			}
+			goto retry_ioctl;
+		}
 		goto out2;
 	}
 
@@ -208,5 +224,4 @@ out2:
 out1:
 	close(s);
 	return ret;
-
 }

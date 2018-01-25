@@ -87,7 +87,8 @@ const char *ibv_event_type_str(enum ibv_event_type event)
 		[IBV_EVENT_SRQ_LIMIT_REACHED]	= "SRQ limit reached",
 		[IBV_EVENT_QP_LAST_WQE_REACHED]	= "last WQE reached",
 		[IBV_EVENT_CLIENT_REREGISTER]	= "client reregistration",
-		[IBV_EVENT_GID_CHANGE]		= "GID table change"
+		[IBV_EVENT_GID_CHANGE]		= "GID table change",
+		[IBV_EVENT_WQ_FATAL]		= "WQ fatal"
 	};
 
 	if (event < IBV_EVENT_CQ_ERR || event > IBV_EVENT_GID_CHANGE)
@@ -120,10 +121,12 @@ const char *ibv_wc_status_str(enum ibv_wc_status status)
 		[IBV_WC_INV_EEC_STATE_ERR]	= "invalid EE context state",
 		[IBV_WC_FATAL_ERR]		= "fatal error",
 		[IBV_WC_RESP_TIMEOUT_ERR]	= "response timeout error",
-		[IBV_WC_GENERAL_ERR]		= "general error"
+		[IBV_WC_GENERAL_ERR]		= "general error",
+		[IBV_WC_TM_ERR]			= "TM error",
+		[IBV_WC_TM_RNDV_INCOMPLETE]     = "TM software rendezvous",
 	};
 
-	if (status < IBV_WC_SUCCESS || status > IBV_WC_GENERAL_ERR)
+	if (status < IBV_WC_SUCCESS || status > IBV_WC_TM_RNDV_INCOMPLETE)
 		return "unknown";
 
 	return wc_status_str[status];

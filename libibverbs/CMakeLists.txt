@@ -1,12 +1,16 @@
 publish_headers(infiniband
   arch.h
-  driver.h
   kern-abi.h
-  marshall.h
   opcode.h
   sa-kern-abi.h
   sa.h
   verbs.h
+  tm_types.h
+  )
+
+publish_internal_headers(infiniband
+  driver.h
+  marshall.h
   )
 
 if (NOT NL_KIND EQUAL 0)
@@ -15,12 +19,16 @@ else()
   set(NEIGH "")
 endif()
 
-rdma_library(ibverbs libibverbs.map
+configure_file("libibverbs.map.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map" @ONLY)
+
+rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
-  1 1.3.${PACKAGE_VERSION}
+  1 1.1.${PACKAGE_VERSION}
   cmd.c
   compat-1_0.c
   device.c
+  dummy_ops.c
   enum_strs.c
   init.c
   marshall.c

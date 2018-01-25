@@ -40,7 +40,7 @@
 #include <endian.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #include <ccan/list.h>
 
@@ -54,11 +54,10 @@
 struct ocrdma_qp;
 
 struct ocrdma_device {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	struct ocrdma_qp **qp_tbl;
 	pthread_mutex_t dev_lock;
 	pthread_spinlock_t flush_q_lock;
-	struct list_node entry;
 	int id;
 	int gen;
 	uint32_t wqe_size;
@@ -69,7 +68,7 @@ struct ocrdma_device {
 };
 
 struct ocrdma_devctx {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	uint32_t *ah_tbl;
 	uint32_t ah_tbl_len;
 	pthread_mutex_t tbl_lock;
@@ -227,18 +226,17 @@ struct ocrdma_ah {
 	uint8_t hdr_type;
 };
 
-#define get_ocrdma_xxx(xxx, type)				\
-	((struct ocrdma_##type *)					\
-	((void *) ib##xxx - offsetof(struct ocrdma_##type, ibv_##xxx)))
+#define get_ocrdma_xxx(xxx, type)                                              \
+	container_of(ib##xxx, struct ocrdma_##type, ibv_##xxx)
 
 static inline struct ocrdma_devctx *get_ocrdma_ctx(struct ibv_context *ibctx)
 {
-	return get_ocrdma_xxx(ctx, devctx);
+	return container_of(ibctx, struct ocrdma_devctx, ibv_ctx.context);
 }
 
 static inline struct ocrdma_device *get_ocrdma_dev(struct ibv_device *ibdev)
 {
-	return get_ocrdma_xxx(dev, device);
+	return container_of(ibdev, struct ocrdma_device, ibv_dev.device);
 }
 
 static inline struct ocrdma_qp *get_ocrdma_qp(struct ibv_qp *ibqp)
@@ -265,8 +263,6 @@ static inline struct ocrdma_ah *get_ocrdma_ah(struct ibv_ah *ibah)
 {
 	return get_ocrdma_xxx(ah, ah);
 }
-
-struct ibv_device *ocrdma_driver_init(const char *, int);
 
 void ocrdma_init_ahid_tbl(struct ocrdma_devctx *ctx);
 int ocrdma_query_device(struct ibv_context *, struct ibv_device_attr *);

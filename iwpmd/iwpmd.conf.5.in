@@ -17,4 +17,4 @@ nl_sock_rbuf_size=419430400
 .SH "FILES"
 @CMAKE_INSTALL_FULL_SYSCONFDIR@/iwpmd.conf
 .SH "SEE ALSO"
-iwpmd(1)
+iwpmd(8)

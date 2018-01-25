@@ -34,6 +34,7 @@
 #ifndef IWARP_PM_H
 #define IWARP_PM_H
 
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,11 +42,9 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/stat.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <linux/netlink.h>
-#include <linux/byteorder/big_endian.h>
 #include <netlink/attr.h>
 #include <signal.h>
 #include <ifaddrs.h>
@@ -54,6 +53,7 @@
 #include <netlink/msg.h>
 #include <ccan/list.h>
 #include <rdma/rdma_netlink.h>
+#include <stdatomic.h>
 
 #define IWARP_PM_PORT          3935
 #define IWARP_PM_VER_SHIFT     6
@@ -139,13 +139,13 @@ typedef struct iwpm_mapped_port {
 	struct sockaddr_storage	    local_addr;
 	struct sockaddr_storage	    mapped_addr;
 	int			    wcard;
-	int			    ref_cnt; /* the number of owners, if wcard */
+	_Atomic(int)		    ref_cnt; /* the number of owners */
 } iwpm_mapped_port;
 
 typedef struct iwpm_wire_msg {
 	__u8	magic;
 	__u8	pmtime;
-	__u16	reserved;
+	__be16	reserved;
 	__be16	apport;
 	__be16	cpport;
 	__be64	assochandle;
@@ -251,8 +251,6 @@ void remove_iwpm_mapped_port(iwpm_mapped_port *);
 void print_iwpm_mapped_ports(void);
 
 void free_iwpm_port(iwpm_mapped_port *);
-
-int free_iwpm_wcard_mapping(iwpm_mapped_port *);
 
 iwpm_mapping_request *create_iwpm_map_request(struct nlmsghdr *, struct sockaddr_storage *,
 					struct sockaddr_storage *, __u64, int, iwpm_send_msg *);

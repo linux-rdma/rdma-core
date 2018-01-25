@@ -35,57 +35,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <netinet/in.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
 
+#include <util/compiler.h>
+#include <util/mmio.h>
 #include <infiniband/opcode.h>
 
 #include "mlx5.h"
 #include "wqe.h"
-#include "doorbell.h"
-
-enum {
-	MLX5_CQ_DOORBELL			= 0x20
-};
 
 enum {
 	CQ_OK					=  0,
 	CQ_EMPTY				= -1,
 	CQ_POLL_ERR				= -2
-};
-
-#define MLX5_CQ_DB_REQ_NOT_SOL			(1 << 24)
-#define MLX5_CQ_DB_REQ_NOT			(0 << 24)
-
-enum {
-	MLX5_CQE_SYNDROME_LOCAL_LENGTH_ERR		= 0x01,
-	MLX5_CQE_SYNDROME_LOCAL_QP_OP_ERR		= 0x02,
-	MLX5_CQE_SYNDROME_LOCAL_PROT_ERR		= 0x04,
-	MLX5_CQE_SYNDROME_WR_FLUSH_ERR			= 0x05,
-	MLX5_CQE_SYNDROME_MW_BIND_ERR			= 0x06,
-	MLX5_CQE_SYNDROME_BAD_RESP_ERR			= 0x10,
-	MLX5_CQE_SYNDROME_LOCAL_ACCESS_ERR		= 0x11,
-	MLX5_CQE_SYNDROME_REMOTE_INVAL_REQ_ERR		= 0x12,
-	MLX5_CQE_SYNDROME_REMOTE_ACCESS_ERR		= 0x13,
-	MLX5_CQE_SYNDROME_REMOTE_OP_ERR			= 0x14,
-	MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR	= 0x15,
-	MLX5_CQE_SYNDROME_RNR_RETRY_EXC_ERR		= 0x16,
-	MLX5_CQE_SYNDROME_REMOTE_ABORTED_ERR		= 0x22,
-};
-
-enum {
-	MLX5_CQE_OWNER_MASK	= 1,
-	MLX5_CQE_REQ		= 0,
-	MLX5_CQE_RESP_WR_IMM	= 1,
-	MLX5_CQE_RESP_SEND	= 2,
-	MLX5_CQE_RESP_SEND_IMM	= 3,
-	MLX5_CQE_RESP_SEND_INV	= 4,
-	MLX5_CQE_RESIZE_CQ	= 5,
-	MLX5_CQE_REQ_ERR	= 13,
-	MLX5_CQE_RESP_ERR	= 14,
-	MLX5_CQE_INVALID	= 15,
 };
 
 enum {
@@ -95,47 +59,38 @@ enum {
 };
 
 enum {
-	MLX5_CQE_L2_OK = 1 << 0,
-	MLX5_CQE_L3_OK = 1 << 1,
-	MLX5_CQE_L4_OK = 1 << 2,
+	MLX5_CQE_APP_TAG_MATCHING = 1,
 };
 
 enum {
-	MLX5_CQE_L3_HDR_TYPE_NONE = 0x0,
-	MLX5_CQE_L3_HDR_TYPE_IPV6 = 0x1,
-	MLX5_CQE_L3_HDR_TYPE_IPV4 = 0x2,
+	MLX5_CQE_APP_OP_TM_CONSUMED = 0x1,
+	MLX5_CQE_APP_OP_TM_EXPECTED = 0x2,
+	MLX5_CQE_APP_OP_TM_UNEXPECTED = 0x3,
+	MLX5_CQE_APP_OP_TM_NO_TAG = 0x4,
+	MLX5_CQE_APP_OP_TM_APPEND = 0x5,
+	MLX5_CQE_APP_OP_TM_REMOVE = 0x6,
+	MLX5_CQE_APP_OP_TM_NOOP = 0x7,
+	MLX5_CQE_APP_OP_TM_CONSUMED_SW_RDNV = 0x9,
+	MLX5_CQE_APP_OP_TM_CONSUMED_MSG = 0xA,
+	MLX5_CQE_APP_OP_TM_CONSUMED_MSG_SW_RDNV = 0xB,
+	MLX5_CQE_APP_OP_TM_MSG_COMPLETION_CANCELED = 0xC,
 };
 
-struct mlx5_err_cqe {
-	uint8_t		rsvd0[32];
-	uint32_t	srqn;
-	uint8_t		rsvd1[18];
-	uint8_t		vendor_err_synd;
-	uint8_t		syndrome;
-	uint32_t	s_wqe_opcode_qpn;
-	uint16_t	wqe_counter;
-	uint8_t		signature;
-	uint8_t		op_own;
-};
 
-struct mlx5_cqe64 {
-	uint8_t		rsvd0[17];
-	uint8_t		ml_path;
-	uint8_t		rsvd20[4];
-	uint16_t	slid;
-	uint32_t	flags_rqpn;
-	uint8_t		hds_ip_ext;
-	uint8_t		l4_hdr_type_etc;
-	uint16_t	vlan_info;
-	uint32_t	srqn_uidx;
-	uint32_t	imm_inval_pkey;
-	uint8_t		rsvd40[4];
-	uint32_t	byte_cnt;
-	__be64		timestamp;
-	uint32_t	sop_drop_qpn;
-	uint16_t	wqe_counter;
-	uint8_t		signature;
-	uint8_t		op_own;
+/* When larger messages or rendezvous transfers are involved, matching and
+ * data transfer completion are distinct events that generate 2 completion
+ * events for the same recv_wr_id.
+ */
+static inline bool mlx5_cqe_app_op_tm_is_complete(int op)
+{
+	return op != MLX5_CQE_APP_OP_TM_CONSUMED &&
+	       op != MLX5_CQE_APP_OP_TM_CONSUMED_SW_RDNV;
+}
+
+enum {
+	MLX5_CQ_LAZY_FLAGS =
+		MLX5_CQ_FLAGS_RX_CSUM_VALID |
+		MLX5_CQ_FLAGS_TM_SYNC_REQ
 };
 
 int mlx5_stall_num_loop = 60;
@@ -143,6 +98,10 @@ int mlx5_stall_cq_poll_min = 60;
 int mlx5_stall_cq_poll_max = 100000;
 int mlx5_stall_cq_inc_step = 100;
 int mlx5_stall_cq_dec_step = 10;
+
+enum {
+	MLX5_TM_MAX_SYNC_DIFF = 0x3fff
+};
 
 static inline uint8_t get_cqe_l3_hdr_type(struct mlx5_cqe64 *cqe)
 {
@@ -166,7 +125,7 @@ static void *get_sw_cqe(struct mlx5_cq *cq, int n)
 
 	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
 
-	if (likely((cqe64->op_own) >> 4 != MLX5_CQE_INVALID) &&
+	if (likely(mlx5dv_get_cqe_opcode(cqe64) != MLX5_CQE_INVALID) &&
 	    !((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^ !!(n & (cq->ibv_cq.cqe + 1)))) {
 		return cqe;
 	} else {
@@ -181,26 +140,28 @@ static void *next_cqe_sw(struct mlx5_cq *cq)
 
 static void update_cons_index(struct mlx5_cq *cq)
 {
-	cq->dbrec[MLX5_CQ_SET_CI] = htonl(cq->cons_index & 0xffffff);
+	cq->dbrec[MLX5_CQ_SET_CI] = htobe32(cq->cons_index & 0xffffff);
 }
 
 static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, struct mlx5_wq *wq, int idx)
 {
-	switch (ntohl(cqe->sop_drop_qpn) >> 24) {
+	switch (be32toh(cqe->sop_drop_qpn) >> 24) {
 	case MLX5_OPCODE_RDMA_WRITE_IMM:
 		wc->wc_flags |= IBV_WC_WITH_IMM;
+		SWITCH_FALLTHROUGH;
 	case MLX5_OPCODE_RDMA_WRITE:
 		wc->opcode    = IBV_WC_RDMA_WRITE;
 		break;
 	case MLX5_OPCODE_SEND_IMM:
 		wc->wc_flags |= IBV_WC_WITH_IMM;
+		SWITCH_FALLTHROUGH;
 	case MLX5_OPCODE_SEND:
 	case MLX5_OPCODE_SEND_INVAL:
 		wc->opcode    = IBV_WC_SEND;
 		break;
 	case MLX5_OPCODE_RDMA_READ:
 		wc->opcode    = IBV_WC_RDMA_READ;
-		wc->byte_len  = ntohl(cqe->byte_cnt);
+		wc->byte_len  = be32toh(cqe->byte_cnt);
 		break;
 	case MLX5_OPCODE_ATOMIC_CS:
 		wc->opcode    = IBV_WC_COMP_SWAP;
@@ -228,15 +189,15 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 	int err = IBV_WC_SUCCESS;
 
 	if (srq) {
-		wqe_ctr = ntohs(cqe->wqe_counter);
+		wqe_ctr = be16toh(cqe->wqe_counter);
 		cq->ibv_cq.wr_id = srq->wrid[wqe_ctr];
 		mlx5_free_srq_wqe(srq, wqe_ctr);
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
 			err = mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe,
-						    ntohl(cqe->byte_cnt));
+						    be32toh(cqe->byte_cnt));
 		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
 			err = mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe - 1,
-						    ntohl(cqe->byte_cnt));
+						    be32toh(cqe->byte_cnt));
 	} else {
 		if (likely(cur_rsc->type == MLX5_RSC_TYPE_QP)) {
 			wq = &qp->rq;
@@ -251,13 +212,22 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 		++wq->tail;
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe,
-						    ntohl(cqe->byte_cnt));
+						    be32toh(cqe->byte_cnt));
 		else if (cqe->op_own & MLX5_INLINE_SCATTER_64)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe - 1,
-						    ntohl(cqe->byte_cnt));
+						    be32toh(cqe->byte_cnt));
 	}
 
 	return err;
+}
+
+/* Returns IBV_WC_IP_CSUM_OK or 0 */
+static inline int get_csum_ok(struct mlx5_cqe64 *cqe)
+{
+	return (((cqe->hds_ip_ext & (MLX5_CQE_L4_OK | MLX5_CQE_L3_OK)) ==
+		 (MLX5_CQE_L4_OK | MLX5_CQE_L3_OK)) &
+		(get_cqe_l3_hdr_type(cqe) == MLX5_CQE_L3_HDR_TYPE_IPV4))
+	       << IBV_WC_IP_CSUM_OK_SHIFT;
 }
 
 static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
@@ -269,9 +239,9 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 	uint8_t g;
 	int err = 0;
 
-	wc->byte_len = ntohl(cqe->byte_cnt);
+	wc->byte_len = be32toh(cqe->byte_cnt);
 	if (srq) {
-		wqe_ctr = ntohs(cqe->wqe_counter);
+		wqe_ctr = be16toh(cqe->wqe_counter);
 		wc->wr_id = srq->wrid[wqe_ctr];
 		mlx5_free_srq_wqe(srq, wqe_ctr);
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
@@ -284,11 +254,7 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 		if (likely(cur_rsc->type == MLX5_RSC_TYPE_QP)) {
 			wq = &qp->rq;
 			if (qp->qp_cap_cache & MLX5_RX_CSUM_VALID)
-				wc->wc_flags |= (!!(cqe->hds_ip_ext & MLX5_CQE_L4_OK) &
-						 !!(cqe->hds_ip_ext & MLX5_CQE_L3_OK) &
-						(get_cqe_l3_hdr_type(cqe) ==
-						MLX5_CQE_L3_HDR_TYPE_IPV4)) <<
-						IBV_WC_IP_CSUM_OK_SHIFT;
+				wc->wc_flags |= get_csum_ok(cqe);
 		} else {
 			wq = &(rsc_to_mrwq(cur_rsc)->rq);
 		}
@@ -305,8 +271,6 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 	}
 	if (err)
 		return err;
-
-	wc->byte_len = ntohl(cqe->byte_cnt);
 
 	switch (cqe->op_own >> 4) {
 	case MLX5_CQE_RESP_WR_IMM:
@@ -325,28 +289,28 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 	case MLX5_CQE_RESP_SEND_INV:
 		wc->opcode = IBV_WC_RECV;
 		wc->wc_flags |= IBV_WC_WITH_INV;
-		wc->imm_data = ntohl(cqe->imm_inval_pkey);
+		wc->invalidated_rkey = be32toh(cqe->imm_inval_pkey);
 		break;
 	}
-	wc->slid	   = ntohs(cqe->slid);
-	wc->sl		   = (ntohl(cqe->flags_rqpn) >> 24) & 0xf;
-	wc->src_qp	   = ntohl(cqe->flags_rqpn) & 0xffffff;
+	wc->slid	   = be16toh(cqe->slid);
+	wc->sl		   = (be32toh(cqe->flags_rqpn) >> 24) & 0xf;
+	wc->src_qp	   = be32toh(cqe->flags_rqpn) & 0xffffff;
 	wc->dlid_path_bits = cqe->ml_path & 0x7f;
-	g = (ntohl(cqe->flags_rqpn) >> 28) & 3;
+	g = (be32toh(cqe->flags_rqpn) >> 28) & 3;
 	wc->wc_flags |= g ? IBV_WC_GRH : 0;
-	wc->pkey_index     = ntohl(cqe->imm_inval_pkey) & 0xffff;
+	wc->pkey_index     = be32toh(cqe->imm_inval_pkey) & 0xffff;
 
 	return IBV_WC_SUCCESS;
 }
 
 static void dump_cqe(FILE *fp, void *buf)
 {
-	uint32_t *p = buf;
+	__be32 *p = buf;
 	int i;
 
 	for (i = 0; i < 16; i += 4)
-		fprintf(fp, "%08x %08x %08x %08x\n", ntohl(p[i]), ntohl(p[i + 1]),
-			ntohl(p[i + 2]), ntohl(p[i + 3]));
+		fprintf(fp, "%08x %08x %08x %08x\n", be32toh(p[i]), be32toh(p[i + 1]),
+			be32toh(p[i + 2]), be32toh(p[i + 3]));
 }
 
 static enum ibv_wc_status mlx5_handle_error_cqe(struct mlx5_err_cqe *cqe)
@@ -566,7 +530,7 @@ static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 	 * Make sure we read CQ entry contents after we've checked the
 	 * ownership bit.
 	 */
-	rmb();
+	udma_from_device_barrier();
 
 #ifdef MLX5_DEBUG
 	{
@@ -582,6 +546,115 @@ static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 #endif
 	*pcqe64 = cqe64;
 	*pcqe = cqe;
+
+	return CQ_OK;
+}
+
+static int handle_tag_matching(struct mlx5_cq *cq,
+			       struct mlx5_cqe64 *cqe64,
+			       struct mlx5_srq *srq)
+{
+	FILE *fp = to_mctx(srq->vsrq.srq.context)->dbg_fp;
+	struct mlx5_tag_entry *tag;
+	struct mlx5_srq_op *op;
+	uint16_t wqe_ctr;
+
+	cq->ibv_cq.status = IBV_WC_SUCCESS;
+	switch (cqe64->app_op) {
+	case MLX5_CQE_APP_OP_TM_CONSUMED_MSG_SW_RDNV:
+	case MLX5_CQE_APP_OP_TM_CONSUMED_SW_RDNV:
+	case MLX5_CQE_APP_OP_TM_MSG_COMPLETION_CANCELED:
+		cq->ibv_cq.status = IBV_WC_TM_RNDV_INCOMPLETE;
+		SWITCH_FALLTHROUGH;
+
+	case MLX5_CQE_APP_OP_TM_CONSUMED_MSG:
+	case MLX5_CQE_APP_OP_TM_CONSUMED:
+	case MLX5_CQE_APP_OP_TM_EXPECTED:
+		mlx5_spin_lock(&srq->lock);
+		tag = &srq->tm_list[be16toh(cqe64->app_info)];
+		if (!tag->expect_cqe) {
+			mlx5_dbg(fp, MLX5_DBG_CQ, "got idx %d which wasn't added\n",
+				 be16toh(cqe64->app_info));
+			cq->ibv_cq.status = IBV_WC_GENERAL_ERR;
+			mlx5_spin_unlock(&srq->lock);
+			return CQ_OK;
+		}
+		cq->ibv_cq.wr_id = tag->wr_id;
+		if (mlx5_cqe_app_op_tm_is_complete(cqe64->app_op))
+			mlx5_tm_release_tag(srq, tag);
+		/* inline scatter 32 not supported for TM */
+		if (cqe64->op_own & MLX5_INLINE_SCATTER_64) {
+			if (be32toh(cqe64->byte_cnt) > tag->size)
+				cq->ibv_cq.status = IBV_WC_LOC_LEN_ERR;
+			else
+				memcpy(tag->ptr, cqe64 - 1,
+				       be32toh(cqe64->byte_cnt));
+		}
+		mlx5_spin_unlock(&srq->lock);
+		break;
+
+	case MLX5_CQE_APP_OP_TM_REMOVE:
+		if (!(be32toh(cqe64->tm_cqe.success) & MLX5_TMC_SUCCESS))
+			cq->ibv_cq.status = IBV_WC_TM_ERR;
+		SWITCH_FALLTHROUGH;
+
+	case MLX5_CQE_APP_OP_TM_APPEND:
+	case MLX5_CQE_APP_OP_TM_NOOP:
+		mlx5_spin_lock(&srq->lock);
+#ifdef MLX5_DEBUG
+		if (srq->op_tail == srq->op_head) {
+			mlx5_dbg(fp, MLX5_DBG_CQ, "got unexpected list op CQE\n");
+			cq->ibv_cq.status = IBV_WC_GENERAL_ERR;
+			mlx5_spin_unlock(&srq->lock);
+			return CQ_OK;
+		}
+#endif
+		op = srq->op + (srq->op_head++ &
+				(to_mqp(srq->cmd_qp)->sq.wqe_cnt - 1));
+		if (op->tag) { /* APPEND or REMOVE */
+			mlx5_tm_release_tag(srq, op->tag);
+			if (cqe64->app_op == MLX5_CQE_APP_OP_TM_REMOVE &&
+			    cq->ibv_cq.status == IBV_WC_SUCCESS)
+				/*
+				 * If tag entry was successfully removed we
+				 * don't expect consumption completion for it
+				 * anymore. Remove reports failure if tag was
+				 * consumed meanwhile.
+				 */
+				mlx5_tm_release_tag(srq, op->tag);
+			if (be16toh(cqe64->tm_cqe.hw_phase_cnt) !=
+			    op->tag->phase_cnt)
+				cq->flags |= MLX5_CQ_FLAGS_TM_SYNC_REQ;
+		}
+
+		to_mqp(srq->cmd_qp)->sq.tail = op->wqe_head + 1;
+		cq->ibv_cq.wr_id = op->wr_id;
+
+		mlx5_spin_unlock(&srq->lock);
+		break;
+
+	case MLX5_CQE_APP_OP_TM_UNEXPECTED:
+		srq->unexp_in++;
+		if (srq->unexp_in - srq->unexp_out > MLX5_TM_MAX_SYNC_DIFF)
+			cq->flags |= MLX5_CQ_FLAGS_TM_SYNC_REQ;
+		SWITCH_FALLTHROUGH;
+
+	case MLX5_CQE_APP_OP_TM_NO_TAG:
+		wqe_ctr = be16toh(cqe64->wqe_counter);
+		cq->ibv_cq.wr_id = srq->wrid[wqe_ctr];
+		mlx5_free_srq_wqe(srq, wqe_ctr);
+		if (cqe64->op_own & MLX5_INLINE_SCATTER_32)
+			return mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe64,
+						    be32toh(cqe64->byte_cnt));
+		else if (cqe64->op_own & MLX5_INLINE_SCATTER_64)
+			return mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe64 - 1,
+						    be32toh(cqe64->byte_cnt));
+		break;
+#ifdef MLX5_DEBUG
+	default:
+		mlx5_dbg(fp, MLX5_DBG_CQ, "un-expected TM opcode in cqe\n");
+#endif
+	}
 
 	return CQ_OK;
 }
@@ -615,37 +688,37 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 	uint8_t is_srq = 0;
 
 	mctx = to_mctx(ibv_cq_ex_to_cq(&cq->ibv_cq)->context);
-	qpn = ntohl(cqe64->sop_drop_qpn) & 0xffffff;
+	qpn = be32toh(cqe64->sop_drop_qpn) & 0xffffff;
 	if (lazy) {
 		cq->cqe64 = cqe64;
-		cq->flags &= (~MLX5_CQ_FLAGS_RX_CSUM_VALID);
+		cq->flags &= (~MLX5_CQ_LAZY_FLAGS);
 	} else {
 		wc->wc_flags = 0;
 		wc->qp_num = qpn;
 	}
 
-	opcode = cqe64->op_own >> 4;
+	opcode = mlx5dv_get_cqe_opcode(cqe64);
 	switch (opcode) {
 	case MLX5_CQE_REQ:
 	{
 		mqp = get_req_context(mctx, cur_rsc,
-				      (cqe_ver ? (ntohl(cqe64->srqn_uidx) & 0xffffff) : qpn),
+				      (cqe_ver ? (be32toh(cqe64->srqn_uidx) & 0xffffff) : qpn),
 				      cqe_ver);
 		if (unlikely(!mqp))
 			return CQ_POLL_ERR;
 		wq = &mqp->sq;
-		wqe_ctr = ntohs(cqe64->wqe_counter);
+		wqe_ctr = be16toh(cqe64->wqe_counter);
 		idx = wqe_ctr & (wq->wqe_cnt - 1);
 		if (lazy) {
 			uint32_t wc_byte_len;
 
-			switch (ntohl(cqe64->sop_drop_qpn) >> 24) {
+			switch (be32toh(cqe64->sop_drop_qpn) >> 24) {
 			case MLX5_OPCODE_UMR:
 				cq->umr_opcode = wq->wr_data[idx];
 				break;
 
 			case MLX5_OPCODE_RDMA_READ:
-				wc_byte_len = ntohl(cqe64->byte_cnt);
+				wc_byte_len = be32toh(cqe64->byte_cnt);
 				goto scatter_out;
 			case MLX5_OPCODE_ATOMIC_CS:
 			case MLX5_OPCODE_ATOMIC_FA:
@@ -684,25 +757,49 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 	case MLX5_CQE_RESP_SEND:
 	case MLX5_CQE_RESP_SEND_IMM:
 	case MLX5_CQE_RESP_SEND_INV:
-		srqn_uidx = ntohl(cqe64->srqn_uidx) & 0xffffff;
+		srqn_uidx = be32toh(cqe64->srqn_uidx) & 0xffffff;
 		err = get_cur_rsc(mctx, cqe_ver, qpn, srqn_uidx, cur_rsc,
 				  cur_srq, &is_srq);
 		if (unlikely(err))
 			return CQ_POLL_ERR;
 
-		if (lazy)
-			cq->ibv_cq.status = handle_responder_lazy(cq, cqe64,
-							      *cur_rsc,
-							      is_srq ? *cur_srq : NULL);
-		else
+		if (lazy) {
+			if (likely(cqe64->app != MLX5_CQE_APP_TAG_MATCHING)) {
+				cq->ibv_cq.status = handle_responder_lazy
+					(cq, cqe64, *cur_rsc,
+					 is_srq ? *cur_srq : NULL);
+			} else {
+				if (unlikely(!is_srq))
+					return CQ_POLL_ERR;
+
+				err = handle_tag_matching(cq, cqe64, *cur_srq);
+				if (unlikely(err))
+					return CQ_POLL_ERR;
+			}
+		} else {
 			wc->status = handle_responder(wc, cqe64, *cur_rsc,
 					      is_srq ? *cur_srq : NULL);
+		}
 		break;
+
+	case MLX5_CQE_NO_PACKET:
+		if (unlikely(cqe64->app != MLX5_CQE_APP_TAG_MATCHING))
+			return CQ_POLL_ERR;
+		srqn_uidx = be32toh(cqe64->srqn_uidx) & 0xffffff;
+		err = get_cur_rsc(mctx, cqe_ver, qpn, srqn_uidx, cur_rsc,
+				  cur_srq, &is_srq);
+		if (unlikely(err || !is_srq))
+			return CQ_POLL_ERR;
+		err = handle_tag_matching(cq, cqe64, *cur_srq);
+		if (unlikely(err))
+			return CQ_POLL_ERR;
+		break;
+
 	case MLX5_CQE_RESIZE_CQ:
 		break;
 	case MLX5_CQE_REQ_ERR:
 	case MLX5_CQE_RESP_ERR:
-		srqn_uidx = ntohl(cqe64->srqn_uidx) & 0xffffff;
+		srqn_uidx = be32toh(cqe64->srqn_uidx) & 0xffffff;
 		ecqe = (struct mlx5_err_cqe *)cqe64;
 		{
 			enum ibv_wc_status *pstatus = lazy ? &cq->ibv_cq.status : &wc->status;
@@ -732,7 +829,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 			if (unlikely(!mqp))
 				return CQ_POLL_ERR;
 			wq = &mqp->sq;
-			wqe_ctr = ntohs(cqe64->wqe_counter);
+			wqe_ctr = be16toh(cqe64->wqe_counter);
 			idx = wqe_ctr & (wq->wqe_cnt - 1);
 			if (lazy)
 				cq->ibv_cq.wr_id = wq->wrid[idx];
@@ -746,7 +843,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 				return CQ_POLL_ERR;
 
 			if (is_srq) {
-				wqe_ctr = ntohs(cqe64->wqe_counter);
+				wqe_ctr = be16toh(cqe64->wqe_counter);
 				if (lazy)
 					cq->ibv_cq.wr_id = (*cur_srq)->wrid[wqe_ctr];
 				else
@@ -907,10 +1004,12 @@ static inline void _mlx5_end_poll(struct ibv_cq_ex *ibcq,
 }
 
 static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr,
-				  int lock, enum polling_mode stall, int cqe_version)
+				  int lock, enum polling_mode stall,
+				  int cqe_version, int clock_update)
 				  ALWAYS_INLINE;
 static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr,
-				  int lock, enum polling_mode stall, int cqe_version)
+				  int lock, enum polling_mode stall,
+				  int cqe_version, int clock_update)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 	struct mlx5_cqe64 *cqe64;
@@ -969,8 +1068,14 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 		}
 
 		cq->flags &= ~(MLX5_CQ_FLAGS_FOUND_CQES);
+
+		goto out;
 	}
 
+	if (clock_update && !err)
+		err = mlx5dv_get_clock_info(ibcq->context, &cq->last_clock_info);
+
+out:
 	return err;
 }
 
@@ -1020,73 +1125,145 @@ static inline int mlx5_next_poll_v1(struct ibv_cq_ex *ibcq)
 static inline int mlx5_start_poll_v0(struct ibv_cq_ex *ibcq,
 				     struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 0, 0, 0);
+	return mlx5_start_poll(ibcq, attr, 0, 0, 0, 0);
 }
 
 static inline int mlx5_start_poll_v1(struct ibv_cq_ex *ibcq,
 				     struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 0, 0, 1);
+	return mlx5_start_poll(ibcq, attr, 0, 0, 1, 0);
 }
 
 static inline int mlx5_start_poll_v0_lock(struct ibv_cq_ex *ibcq,
 					  struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 1, 0, 0);
+	return mlx5_start_poll(ibcq, attr, 1, 0, 0, 0);
 }
 
 static inline int mlx5_start_poll_v1_lock(struct ibv_cq_ex *ibcq,
 					  struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 1, 0, 1);
+	return mlx5_start_poll(ibcq, attr, 1, 0, 1, 0);
 }
 
 static inline int mlx5_start_poll_adaptive_stall_v0_lock(struct ibv_cq_ex *ibcq,
 							 struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 0);
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 0, 0);
 }
 
 static inline int mlx5_start_poll_stall_v0_lock(struct ibv_cq_ex *ibcq,
 						struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 0);
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 0, 0);
 }
 
 static inline int mlx5_start_poll_adaptive_stall_v1_lock(struct ibv_cq_ex *ibcq,
 							 struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 1);
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 1, 0);
 }
 
 static inline int mlx5_start_poll_stall_v1_lock(struct ibv_cq_ex *ibcq,
 						struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 1);
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 1, 0);
 }
 
 static inline int mlx5_start_poll_stall_v0(struct ibv_cq_ex *ibcq,
 					   struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 0);
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 0, 0);
 }
 
 static inline int mlx5_start_poll_adaptive_stall_v0(struct ibv_cq_ex *ibcq,
 						    struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 0);
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 0, 0);
 }
 
 static inline int mlx5_start_poll_adaptive_stall_v1(struct ibv_cq_ex *ibcq,
 						    struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 1);
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 1, 0);
 }
 
 static inline int mlx5_start_poll_stall_v1(struct ibv_cq_ex *ibcq,
 					   struct ibv_poll_cq_attr *attr)
 {
-	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 1);
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 1, 0);
+}
+
+static inline int mlx5_start_poll_v0_lock_clock_update(struct ibv_cq_ex *ibcq,
+						       struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, 0, 0, 1);
+}
+
+static inline int mlx5_start_poll_v1_lock_clock_update(struct ibv_cq_ex *ibcq,
+						       struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, 0, 1, 1);
+}
+
+static inline int mlx5_start_poll_v1_clock_update(struct ibv_cq_ex *ibcq,
+						  struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, 0, 1, 1);
+}
+
+static inline int mlx5_start_poll_v0_clock_update(struct ibv_cq_ex *ibcq,
+						  struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, 0, 0, 1);
+}
+
+static inline int mlx5_start_poll_stall_v1_lock_clock_update(struct ibv_cq_ex *ibcq,
+							     struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 1, 1);
+}
+
+static inline int mlx5_start_poll_stall_v0_lock_clock_update(struct ibv_cq_ex *ibcq,
+							     struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL, 0, 1);
+}
+
+static inline int mlx5_start_poll_stall_v1_clock_update(struct ibv_cq_ex *ibcq,
+							struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 1, 1);
+}
+
+static inline int mlx5_start_poll_stall_v0_clock_update(struct ibv_cq_ex *ibcq,
+							struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL, 0, 1);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v0_lock_clock_update(struct ibv_cq_ex *ibcq,
+								      struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 0, 1);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v1_lock_clock_update(struct ibv_cq_ex *ibcq,
+								      struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 1, POLLING_MODE_STALL_ADAPTIVE, 1, 1);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v0_clock_update(struct ibv_cq_ex *ibcq,
+								 struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 0, 1);
+}
+
+static inline int mlx5_start_poll_adaptive_stall_v1_clock_update(struct ibv_cq_ex *ibcq,
+								 struct ibv_poll_cq_attr *attr)
+{
+	return mlx5_start_poll(ibcq, attr, 0, POLLING_MODE_STALL_ADAPTIVE, 1, 1);
 }
 
 static inline void mlx5_end_poll_adaptive_stall_lock(struct ibv_cq_ex *ibcq)
@@ -1133,15 +1310,39 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	switch (cq->cqe64->op_own >> 4) {
+	switch (mlx5dv_get_cqe_opcode(cq->cqe64)) {
 	case MLX5_CQE_RESP_WR_IMM:
 		return IBV_WC_RECV_RDMA_WITH_IMM;
 	case MLX5_CQE_RESP_SEND:
 	case MLX5_CQE_RESP_SEND_IMM:
 	case MLX5_CQE_RESP_SEND_INV:
+		if (unlikely(cq->cqe64->app == MLX5_CQE_APP_TAG_MATCHING)) {
+			switch (cq->cqe64->app_op) {
+			case MLX5_CQE_APP_OP_TM_CONSUMED_MSG_SW_RDNV:
+			case MLX5_CQE_APP_OP_TM_CONSUMED_MSG:
+			case MLX5_CQE_APP_OP_TM_CONSUMED_SW_RDNV:
+			case MLX5_CQE_APP_OP_TM_EXPECTED:
+			case MLX5_CQE_APP_OP_TM_UNEXPECTED:
+				return IBV_WC_TM_RECV;
+			case MLX5_CQE_APP_OP_TM_NO_TAG:
+				return IBV_WC_TM_NO_TAG;
+			}
+		}
 		return IBV_WC_RECV;
+	case MLX5_CQE_NO_PACKET:
+		switch (cq->cqe64->app_op) {
+		case MLX5_CQE_APP_OP_TM_REMOVE:
+			return IBV_WC_TM_DEL;
+		case MLX5_CQE_APP_OP_TM_APPEND:
+			return IBV_WC_TM_ADD;
+		case MLX5_CQE_APP_OP_TM_NOOP:
+			return IBV_WC_TM_SYNC;
+		case MLX5_CQE_APP_OP_TM_CONSUMED:
+			return IBV_WC_TM_RECV;
+		}
+		break;
 	case MLX5_CQE_REQ:
-		switch (ntohl(cq->cqe64->sop_drop_qpn) >> 24) {
+		switch (be32toh(cq->cqe64->sop_drop_qpn) >> 24) {
 		case MLX5_OPCODE_RDMA_WRITE_IMM:
 		case MLX5_OPCODE_RDMA_WRITE:
 			return IBV_WC_RDMA_WRITE;
@@ -1176,22 +1377,18 @@ static inline uint32_t mlx5_cq_read_wc_qp_num(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohl(cq->cqe64->sop_drop_qpn) & 0xffffff;
+	return be32toh(cq->cqe64->sop_drop_qpn) & 0xffffff;
 }
 
-static inline int mlx5_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
+static inline unsigned int mlx5_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 	int wc_flags = 0;
 
 	if (cq->flags & MLX5_CQ_FLAGS_RX_CSUM_VALID)
-		wc_flags = (!!(cq->cqe64->hds_ip_ext & MLX5_CQE_L4_OK) &
-				 !!(cq->cqe64->hds_ip_ext & MLX5_CQE_L3_OK) &
-				 (get_cqe_l3_hdr_type(cq->cqe64) ==
-				  MLX5_CQE_L3_HDR_TYPE_IPV4)) <<
-				IBV_WC_IP_CSUM_OK_SHIFT;
+		wc_flags = get_csum_ok(cq->cqe64);
 
-	switch (cq->cqe64->op_own >> 4) {
+	switch (mlx5dv_get_cqe_opcode(cq->cqe64)) {
 	case MLX5_CQE_RESP_WR_IMM:
 	case MLX5_CQE_RESP_SEND_IMM:
 		wc_flags	|= IBV_WC_WITH_IMM;
@@ -1201,7 +1398,28 @@ static inline int mlx5_cq_read_wc_flags(struct ibv_cq_ex *ibcq)
 		break;
 	}
 
-	wc_flags |= ((ntohl(cq->cqe64->flags_rqpn) >> 28) & 3) ? IBV_WC_GRH : 0;
+	if (cq->flags & MLX5_CQ_FLAGS_TM_SYNC_REQ)
+		wc_flags |= IBV_WC_TM_SYNC_REQ;
+
+	if (unlikely(cq->cqe64->app == MLX5_CQE_APP_TAG_MATCHING)) {
+		switch (cq->cqe64->app_op) {
+		case MLX5_CQE_APP_OP_TM_CONSUMED_MSG_SW_RDNV:
+		case MLX5_CQE_APP_OP_TM_CONSUMED_MSG:
+		case MLX5_CQE_APP_OP_TM_MSG_COMPLETION_CANCELED:
+						   /* Full completion */
+			wc_flags |= (IBV_WC_TM_MATCH | IBV_WC_TM_DATA_VALID);
+			break;
+		case MLX5_CQE_APP_OP_TM_CONSUMED_SW_RDNV:
+		case MLX5_CQE_APP_OP_TM_CONSUMED:  /* First completion */
+			wc_flags |= IBV_WC_TM_MATCH;
+			break;
+		case MLX5_CQE_APP_OP_TM_EXPECTED:  /* Second completion */
+			wc_flags |= IBV_WC_TM_DATA_VALID;
+			break;
+		}
+	}
+
+	wc_flags |= ((be32toh(cq->cqe64->flags_rqpn) >> 28) & 3) ? IBV_WC_GRH : 0;
 	return wc_flags;
 }
 
@@ -1209,7 +1427,7 @@ static inline uint32_t mlx5_cq_read_wc_byte_len(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohl(cq->cqe64->byte_cnt);
+	return be32toh(cq->cqe64->byte_cnt);
 }
 
 static inline uint32_t mlx5_cq_read_wc_vendor_err(struct ibv_cq_ex *ibcq)
@@ -1220,13 +1438,16 @@ static inline uint32_t mlx5_cq_read_wc_vendor_err(struct ibv_cq_ex *ibcq)
 	return ecqe->vendor_err_synd;
 }
 
-static inline uint32_t mlx5_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
+static inline __be32 mlx5_cq_read_wc_imm_data(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	switch (cq->cqe64->op_own >> 4) {
+	switch (mlx5dv_get_cqe_opcode(cq->cqe64)) {
 	case MLX5_CQE_RESP_SEND_INV:
-		return ntohl(cq->cqe64->imm_inval_pkey);
+		/* This is returning invalidate_rkey which is in host order, see
+		 * ibv_wc_read_invalidated_rkey
+		 */
+		return (__force __be32)be32toh(cq->cqe64->imm_inval_pkey);
 	default:
 		return cq->cqe64->imm_inval_pkey;
 	}
@@ -1236,21 +1457,21 @@ static inline uint32_t mlx5_cq_read_wc_slid(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return (uint32_t)ntohs(cq->cqe64->slid);
+	return (uint32_t)be16toh(cq->cqe64->slid);
 }
 
 static inline uint8_t mlx5_cq_read_wc_sl(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return (ntohl(cq->cqe64->flags_rqpn) >> 24) & 0xf;
+	return (be32toh(cq->cqe64->flags_rqpn) >> 24) & 0xf;
 }
 
 static inline uint32_t mlx5_cq_read_wc_src_qp(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohl(cq->cqe64->flags_rqpn) & 0xffffff;
+	return be32toh(cq->cqe64->flags_rqpn) & 0xffffff;
 }
 
 static inline uint8_t mlx5_cq_read_wc_dlid_path_bits(struct ibv_cq_ex *ibcq)
@@ -1264,7 +1485,39 @@ static inline uint64_t mlx5_cq_read_wc_completion_ts(struct ibv_cq_ex *ibcq)
 {
 	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
 
-	return ntohll(cq->cqe64->timestamp);
+	return be64toh(cq->cqe64->timestamp);
+}
+
+static inline uint64_t
+mlx5_cq_read_wc_completion_wallclock_ns(struct ibv_cq_ex *ibcq)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+
+	return mlx5dv_ts_to_ns(&cq->last_clock_info,
+			       mlx5_cq_read_wc_completion_ts(ibcq));
+}
+
+static inline uint16_t mlx5_cq_read_wc_cvlan(struct ibv_cq_ex *ibcq)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+
+	return be16toh(cq->cqe64->vlan_info);
+}
+
+static inline uint32_t mlx5_cq_read_flow_tag(struct ibv_cq_ex *ibcq)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+
+	return be32toh(cq->cqe64->sop_drop_qpn) & MLX5_FLOW_TAG_MASK;
+}
+
+static inline void mlx5_cq_read_wc_tm_info(struct ibv_cq_ex *ibcq,
+					   struct ibv_wc_tm_info *tm_info)
+{
+	struct mlx5_cq *cq = to_mcq(ibv_cq_ex_to_cq(ibcq));
+
+	tm_info->tag = be64toh(cq->cqe64->tmh.tag);
+	tm_info->priv = be32toh(cq->cqe64->tmh.app_ctx);
 }
 
 #define BIT(i) (1UL << (i))
@@ -1273,16 +1526,17 @@ static inline uint64_t mlx5_cq_read_wc_completion_ts(struct ibv_cq_ex *ibcq)
 #define STALL BIT(1)
 #define V1 BIT(2)
 #define ADAPTIVE BIT(3)
+#define CLOCK_UPDATE BIT(4)
 
-#define mlx5_start_poll_name(cqe_ver, lock, stall, adaptive) \
-	mlx5_start_poll##adaptive##stall##cqe_ver##lock
+#define mlx5_start_poll_name(cqe_ver, lock, stall, adaptive, clock_update) \
+	mlx5_start_poll##adaptive##stall##cqe_ver##lock##clock_update
 #define mlx5_next_poll_name(cqe_ver, adaptive) \
 	mlx5_next_poll##adaptive##cqe_ver
 #define mlx5_end_poll_name(lock, stall, adaptive) \
 	mlx5_end_poll##adaptive##stall##lock
 
-#define POLL_FN_ENTRY(cqe_ver, lock, stall, adaptive) { \
-		.start_poll = &mlx5_start_poll_name(cqe_ver, lock, stall, adaptive), \
+#define POLL_FN_ENTRY(cqe_ver, lock, stall, adaptive, clock_update) { \
+		.start_poll = &mlx5_start_poll_name(cqe_ver, lock, stall, adaptive, clock_update), \
 		.next_poll = &mlx5_next_poll_name(cqe_ver, adaptive), \
 		.end_poll = &mlx5_end_poll_name(lock, stall, adaptive), \
 	}
@@ -1292,29 +1546,44 @@ static const struct op
 	int (*start_poll)(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_attr *attr);
 	int (*next_poll)(struct ibv_cq_ex *ibcq);
 	void (*end_poll)(struct ibv_cq_ex *ibcq);
-} ops[ADAPTIVE + V1 + STALL + SINGLE_THREADED + 1] = {
-	[V1] =  POLL_FN_ENTRY(_v1, _lock, , ),
-	[0] =  POLL_FN_ENTRY(_v0, _lock, , ),
-	[V1 | SINGLE_THREADED] =  POLL_FN_ENTRY(_v1, , , ),
-	[SINGLE_THREADED] =  POLL_FN_ENTRY(_v0, , , ),
-	[V1 | STALL] =  POLL_FN_ENTRY(_v1, _lock, _stall, ),
-	[STALL] =  POLL_FN_ENTRY(_v0, _lock, _stall, ),
-	[V1 | SINGLE_THREADED | STALL] =  POLL_FN_ENTRY(_v1, , _stall, ),
-	[SINGLE_THREADED | STALL] =  POLL_FN_ENTRY(_v0, , _stall, ),
-	[V1 | STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v1, _lock, _stall, _adaptive),
-	[STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v0, _lock, _stall, _adaptive),
-	[V1 | SINGLE_THREADED | STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v1, , _stall, _adaptive),
-	[SINGLE_THREADED | STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v0, , _stall, _adaptive),
+} ops[ADAPTIVE + V1 + STALL + SINGLE_THREADED + CLOCK_UPDATE + 1] = {
+	[V1] =  POLL_FN_ENTRY(_v1, _lock, , ,),
+	[0] =  POLL_FN_ENTRY(_v0, _lock, , ,),
+	[V1 | SINGLE_THREADED] =  POLL_FN_ENTRY(_v1, , , , ),
+	[SINGLE_THREADED] =  POLL_FN_ENTRY(_v0, , , , ),
+	[V1 | STALL] =  POLL_FN_ENTRY(_v1, _lock, _stall, , ),
+	[STALL] =  POLL_FN_ENTRY(_v0, _lock, _stall, , ),
+	[V1 | SINGLE_THREADED | STALL] =  POLL_FN_ENTRY(_v1, , _stall, , ),
+	[SINGLE_THREADED | STALL] =  POLL_FN_ENTRY(_v0, , _stall, , ),
+	[V1 | STALL | ADAPTIVE] = POLL_FN_ENTRY(_v1, _lock, _stall, _adaptive, ),
+	[STALL | ADAPTIVE] =  POLL_FN_ENTRY(_v0, _lock, _stall, _adaptive, ),
+	[V1 | SINGLE_THREADED | STALL | ADAPTIVE] = POLL_FN_ENTRY(_v1, , _stall, _adaptive, ),
+	[SINGLE_THREADED | STALL | ADAPTIVE] = POLL_FN_ENTRY(_v0, , _stall, _adaptive, ),
+	[V1 | CLOCK_UPDATE] = POLL_FN_ENTRY(_v1, _lock, , , _clock_update),
+	[0 | CLOCK_UPDATE] = POLL_FN_ENTRY(_v0, _lock, , , _clock_update),
+	[V1 | SINGLE_THREADED | CLOCK_UPDATE] = POLL_FN_ENTRY(_v1, , , , _clock_update),
+	[SINGLE_THREADED | CLOCK_UPDATE] = POLL_FN_ENTRY(_v0, , , , _clock_update),
+	[V1 | STALL | CLOCK_UPDATE] = POLL_FN_ENTRY(_v1, _lock, _stall, , _clock_update),
+	[STALL | CLOCK_UPDATE] = POLL_FN_ENTRY(_v0, _lock, _stall, , _clock_update),
+	[V1 | SINGLE_THREADED | STALL | CLOCK_UPDATE] = POLL_FN_ENTRY(_v1, , _stall, , _clock_update),
+	[SINGLE_THREADED | STALL | CLOCK_UPDATE] = POLL_FN_ENTRY(_v0, , _stall, , _clock_update),
+	[V1 | STALL | ADAPTIVE | CLOCK_UPDATE] = POLL_FN_ENTRY(_v1, _lock, _stall, _adaptive, _clock_update),
+	[STALL | ADAPTIVE | CLOCK_UPDATE] = POLL_FN_ENTRY(_v0, _lock, _stall, _adaptive, _clock_update),
+	[V1 | SINGLE_THREADED | STALL | ADAPTIVE | CLOCK_UPDATE] = POLL_FN_ENTRY(_v1, , _stall, _adaptive, _clock_update),
+	[SINGLE_THREADED | STALL | ADAPTIVE | CLOCK_UPDATE] = POLL_FN_ENTRY(_v0, , _stall, _adaptive, _clock_update),
 };
 
-void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr)
+int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
+		      const struct ibv_cq_init_attr_ex *cq_attr,
+		      struct mlx5_context *mctx)
 {
-	struct mlx5_context *mctx = to_mctx(ibv_cq_ex_to_cq(&cq->ibv_cq)->context);
 	const struct op *poll_ops = &ops[((cq->stall_enable && cq->stall_adaptive_enable) ? ADAPTIVE : 0) |
 					 (mctx->cqe_version ? V1 : 0) |
 					 (cq->flags & MLX5_CQ_FLAGS_SINGLE_THREADED ?
 						      SINGLE_THREADED : 0) |
-					 (cq->stall_enable ? STALL : 0)];
+					 (cq->stall_enable ? STALL : 0) |
+					 ((cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) ?
+							CLOCK_UPDATE : 0)];
 
 	cq->ibv_cq.start_poll = poll_ops->start_poll;
 	cq->ibv_cq.next_poll = poll_ops->next_poll;
@@ -1339,13 +1608,27 @@ void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_
 		cq->ibv_cq.read_dlid_path_bits = mlx5_cq_read_wc_dlid_path_bits;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
 		cq->ibv_cq.read_completion_ts = mlx5_cq_read_wc_completion_ts;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_CVLAN)
+		cq->ibv_cq.read_cvlan = mlx5_cq_read_wc_cvlan;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_FLOW_TAG)
+		cq->ibv_cq.read_flow_tag = mlx5_cq_read_flow_tag;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_TM_INFO)
+		cq->ibv_cq.read_tm_info = mlx5_cq_read_wc_tm_info;
+	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) {
+		if (!mctx->clock_info_page)
+			return EOPNOTSUPP;
+		cq->ibv_cq.read_completion_wallclock_ns =
+		    mlx5_cq_read_wc_completion_wallclock_ns;
+	}
+
+	return 0;
 }
 
 int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 {
 	struct mlx5_cq *cq = to_mcq(ibvcq);
 	struct mlx5_context *ctx = to_mctx(ibvcq->context);
-	uint32_t doorbell[2];
+	uint64_t doorbell;
 	uint32_t sn;
 	uint32_t ci;
 	uint32_t cmd;
@@ -1354,20 +1637,21 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	ci  = cq->cons_index & 0xffffff;
 	cmd = solicited ? MLX5_CQ_DB_REQ_NOT_SOL : MLX5_CQ_DB_REQ_NOT;
 
-	cq->dbrec[MLX5_CQ_ARM_DB] = htonl(sn << 28 | cmd | ci);
+	doorbell = sn << 28 | cmd | ci;
+	doorbell <<= 32;
+	doorbell |= cq->cqn;
+
+	cq->dbrec[MLX5_CQ_ARM_DB] = htobe32(sn << 28 | cmd | ci);
 
 	/*
 	 * Make sure that the doorbell record in host memory is
-	 * written before ringing the doorbell via PCI MMIO.
+	 * written before ringing the doorbell via PCI WC MMIO.
 	 */
-	wmb();
+	mmio_wc_start();
 
-	doorbell[0] = htonl(sn << 28 | cmd | ci);
-	doorbell[1] = htonl(cq->cqn);
+	mmio_write64_be(ctx->uar[0].reg + MLX5_CQ_DOORBELL, htobe64(doorbell));
 
-	mlx5_write64(doorbell, ctx->uar[0] + MLX5_CQ_DOORBELL, &ctx->lock32);
-
-	wc_wmb();
+	mmio_flush_writes();
 
 	return 0;
 }
@@ -1379,12 +1663,12 @@ void mlx5_cq_event(struct ibv_cq *cq)
 
 static int is_equal_rsn(struct mlx5_cqe64 *cqe64, uint32_t rsn)
 {
-	return rsn == (ntohl(cqe64->sop_drop_qpn) & 0xffffff);
+	return rsn == (be32toh(cqe64->sop_drop_qpn) & 0xffffff);
 }
 
 static inline int is_equal_uidx(struct mlx5_cqe64 *cqe64, uint32_t uidx)
 {
-	return uidx == (ntohl(cqe64->srqn_uidx) & 0xffffff);
+	return uidx == (be32toh(cqe64->srqn_uidx) & 0xffffff);
 }
 
 static inline int is_responder(uint8_t opcode)
@@ -1406,16 +1690,16 @@ static inline int free_res_cqe(struct mlx5_cqe64 *cqe64, uint32_t rsn,
 {
 	if (cqe_version) {
 		if (is_equal_uidx(cqe64, rsn)) {
-			if (srq && is_responder(cqe64->op_own >> 4))
+			if (srq && is_responder(mlx5dv_get_cqe_opcode(cqe64)))
 				mlx5_free_srq_wqe(srq,
-						  ntohs(cqe64->wqe_counter));
+						  be16toh(cqe64->wqe_counter));
 			return 1;
 		}
 	} else {
 		if (is_equal_rsn(cqe64, rsn)) {
-			if (srq && (ntohl(cqe64->srqn_uidx) & 0xffffff))
+			if (srq && (be32toh(cqe64->srqn_uidx) & 0xffffff))
 				mlx5_free_srq_wqe(srq,
-						  ntohs(cqe64->wqe_counter));
+						  be16toh(cqe64->wqe_counter));
 			return 1;
 		}
 	}
@@ -1432,7 +1716,7 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	uint8_t owner_bit;
 	int cqe_version;
 
-	if (!cq)
+	if (!cq || cq->flags & MLX5_CQ_FLAGS_DV_OWNED)
 		return;
 
 	/*
@@ -1472,7 +1756,7 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 		 * Make sure update of buffer contents is done before
 		 * updating consumer index.
 		 */
-		wmb();
+		udma_to_device_barrier();
 		update_cons_index(cq);
 	}
 }
@@ -1546,7 +1830,7 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 {
 	struct mlx5_cqe64 *cqe;
 	int i;
-	struct mlx5_device *dev = to_mdev(mctx->ibv_ctx.device);
+	struct mlx5_device *dev = to_mdev(mctx->ibv_ctx.context.device);
 	int ret;
 	enum mlx5_alloc_type type;
 	enum mlx5_alloc_type default_type = MLX5_ALLOC_TYPE_ANON;
@@ -1554,7 +1838,7 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 	if (mlx5_use_huge("HUGE_CQ"))
 		default_type = MLX5_ALLOC_TYPE_HUGE;
 
-	mlx5_get_alloc_type(MLX5_CQ_PREFIX, &type, default_type);
+	mlx5_get_alloc_type(mctx, MLX5_CQ_PREFIX, &type, default_type);
 
 	ret = mlx5_alloc_prefered_buf(mctx, buf,
 				      align(nent * cqe_sz, dev->page_size),

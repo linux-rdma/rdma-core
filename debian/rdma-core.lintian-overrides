@@ -1,0 +1,5 @@
+# The rdma-ndd service is started by udev.
+rdma-core: systemd-service-file-missing-install-key lib/systemd/system/iwpmd.service
+rdma-core: systemd-service-file-missing-install-key lib/systemd/system/rdma-ndd.service
+# Example/documentary udev rules file
+rdma-core: udev-rule-in-etc etc/udev/rules.d/70-persistent-ipoib.rules

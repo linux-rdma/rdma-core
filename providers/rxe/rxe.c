@@ -35,6 +35,7 @@
 
 #include <config.h>
 
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -45,18 +46,22 @@
 #include <errno.h>
 
 #include <endian.h>
-#include <byteswap.h>
 #include <pthread.h>
 #include <stddef.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_user_rxe.h>
 
 #include "rxe_queue.h"
 #include "rxe-abi.h"
 #include "rxe.h"
+
+static const struct verbs_match_ent hca_table[] = {
+	/* FIXME: rxe needs a more reliable way to detect the rxe device */
+	VERBS_NAME_MATCH("rxe", NULL),
+	{},
+};
 
 static int rxe_query_device(struct ibv_context *context,
 			    struct ibv_device_attr *attr)
@@ -92,7 +97,7 @@ static int rxe_query_port(struct ibv_context *context, uint8_t port,
 static struct ibv_pd *rxe_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd cmd;
-	struct ibv_alloc_pd_resp resp;
+	struct ib_uverbs_alloc_pd_resp resp;
 	struct ibv_pd *pd;
 
 	pd = malloc(sizeof *pd);
@@ -123,7 +128,7 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof *mr);
@@ -255,7 +260,7 @@ static int rxe_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 		if (queue_empty(q))
 			break;
 
-		rmb();
+		atomic_thread_fence(memory_order_acquire);
 		src = consumer_addr(q);
 		memcpy(wc, src, sizeof(*wc));
 		advance_consumer(q);
@@ -402,8 +407,6 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 	wqe->dma.num_sge = wqe->num_sge;
 	wqe->dma.sge_offset = 0;
 
-	rmb();
-
 	advance_producer(q);
 
 out:
@@ -506,7 +509,7 @@ static int rxe_modify_qp(struct ibv_qp *ibvqp,
 			 struct ibv_qp_attr *attr,
 			 int attr_mask)
 {
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 
 	return ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof cmd);
 }
@@ -667,11 +670,11 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 static int post_send_db(struct ibv_qp *ibqp)
 {
 	struct ibv_post_send cmd;
-	struct ibv_post_send_resp resp;
+	struct ib_uverbs_post_send_resp resp;
 
-	cmd.command	= IB_USER_VERBS_CMD_POST_SEND;
-	cmd.in_words	= sizeof(cmd)/4;
-	cmd.out_words	= sizeof(resp)/4;
+	cmd.hdr.command	= IB_USER_VERBS_CMD_POST_SEND;
+	cmd.hdr.in_words = sizeof(cmd) / 4;
+	cmd.hdr.out_words = sizeof(resp) / 4;
 	cmd.response	= (uintptr_t)&resp;
 	cmd.qp_handle	= ibqp->handle;
 	cmd.wr_count	= 0;
@@ -756,8 +759,7 @@ static int rxe_post_recv(struct ibv_qp *ibqp,
 
 static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 {
-	 return ((unsigned long)(a->s6_addr32[0] | a->s6_addr32[1]) |
-		 (unsigned long)(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
+	return IN6_IS_ADDR_V4MAPPED(a);
 }
 
 static inline int rdma_gid2ip(struct sockaddr *out, union ibv_gid *gid)
@@ -781,6 +783,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct rxe_ah *ah;
 	struct rxe_av *av;
 	union ibv_gid sgid;
+	struct ib_uverbs_create_ah_resp resp;
 
 	err = ibv_query_gid(pd->context, attr->port_num, attr->grh.sgid_index,
 			    &sgid);
@@ -803,7 +806,8 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	rdma_gid2ip(&av->sgid_addr._sockaddr, &sgid);
 	rdma_gid2ip(&av->dgid_addr._sockaddr, &attr->grh.dgid);
 
-	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr)) {
+	memset(&resp, 0, sizeof(resp));
+	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {
 		free(ah);
 		return NULL;
 	}
@@ -824,7 +828,7 @@ static int rxe_destroy_ah(struct ibv_ah *ibah)
 	return 0;
 }
 
-static struct ibv_context_ops rxe_ctx_ops = {
+static const struct verbs_context_ops rxe_ctx_ops = {
 	.query_device = rxe_query_device,
 	.query_port = rxe_query_port,
 	.alloc_pd = rxe_alloc_pd,
@@ -834,7 +838,6 @@ static struct ibv_context_ops rxe_ctx_ops = {
 	.create_cq = rxe_create_cq,
 	.poll_cq = rxe_poll_cq,
 	.req_notify_cq = ibv_cmd_req_notify_cq,
-	.cq_event = NULL,
 	.resize_cq = rxe_resize_cq,
 	.destroy_cq = rxe_destroy_cq,
 	.create_srq = rxe_create_srq,
@@ -854,29 +857,27 @@ static struct ibv_context_ops rxe_ctx_ops = {
 	.detach_mcast = ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *rxe_alloc_context(struct ibv_device *ibdev,
-					     int cmd_fd)
+static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
+					       int cmd_fd)
 {
 	struct rxe_context *context;
 	struct ibv_get_context cmd;
-	struct ibv_get_context_resp resp;
+	struct ib_uverbs_get_context_resp resp;
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
 				sizeof cmd, &resp, sizeof resp))
 		goto out;
 
-	context->ibv_ctx.ops = rxe_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &rxe_ctx_ops);
 
 	return &context->ibv_ctx;
 
 out:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -885,44 +886,37 @@ static void rxe_free_context(struct ibv_context *ibctx)
 {
 	struct rxe_context *context = to_rctx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 
-static struct ibv_device_ops rxe_dev_ops = {
-	.alloc_context = rxe_alloc_context,
-	.free_context = rxe_free_context,
-};
+static void rxe_uninit_device(struct verbs_device *verbs_device)
+{
+	struct rxe_device *dev = to_rdev(&verbs_device->device);
 
-static struct ibv_device *rxe_driver_init(const char *uverbs_sys_path,
-					  int abi_version)
+	free(dev);
+}
+
+static struct verbs_device *rxe_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct rxe_device *dev;
-	char value[16];
-
-	/* make sure it is a rxe device */
-	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev",
-				value, sizeof(value)) < 0)
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return NULL;
 
-	if (strncmp(value, "rxe", 3))
-		return NULL;
-
-	dev = malloc(sizeof *dev);
-	if (!dev) {
-		fprintf(stderr,
-			"rxe: Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
-		return NULL;
-	}
-
-	dev->ibv_dev.ops = rxe_dev_ops;
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__ ((constructor))
-void rxe_register_driver(void)
-{
-	ibv_register_driver("rxe", rxe_driver_init);
-}
+static const struct verbs_device_ops rxe_dev_ops = {
+	.name = "rxe",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_table = hca_table,
+	.alloc_device = rxe_device_alloc,
+	.uninit_device = rxe_uninit_device,
+	.alloc_context = rxe_alloc_context,
+	.free_context = rxe_free_context,
+};
+PROVIDER_DRIVER(rxe_dev_ops);

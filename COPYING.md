@@ -28,7 +28,7 @@ Refer to individual files for information on the copyright holders.
 Utility source code that may be linked into any binary are available under
 several licenses:
 
-   - MIT license (see ccan/LICENSE.BSD-MIT)
+   - MIT license (see ccan/LICENSE.MIT)
    - Creative Commons CC0 1.0 Universal License (see ccan/LICENSE.CC0)
 
 ## Providers
@@ -53,7 +53,7 @@ Default Dual License.
 Unmarked ancillary files may be available under a Dual License: GPLv2 or
 OpenIB.org BSD (FreeBSD variant).
 
-## Tools (iwpmd, srp_deamon, ibacm)
+## Tools (iwpmd, srp_daemon, ibacm)
 
 All compilable source code (.c and .h files) are available under the Default
 Dual License.

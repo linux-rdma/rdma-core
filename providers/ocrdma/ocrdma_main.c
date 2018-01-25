@@ -55,24 +55,16 @@
 #define PCI_DEVICE_ID_EMULEX_GEN2        0x720
 #define PCI_DEVICE_ID_EMULEX_GEN2_VF     0x728
 
-#define UCNA(v, d)                            \
-	{ .vendor = PCI_VENDOR_ID_##v,        \
-	  .device = PCI_DEVICE_ID_EMULEX_##d }
-
-static struct {
-	unsigned vendor;
-	unsigned device;
-} ucna_table[] = {
-	UCNA(EMULEX, GEN1), UCNA(EMULEX, GEN2), UCNA(EMULEX, GEN2_VF)
+#define UCNA(v, d)                                                             \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_EMULEX_##d, NULL)
+static const struct verbs_match_ent ucna_table[] = {
+	UCNA(EMULEX, GEN1),
+	UCNA(EMULEX, GEN2),
+	UCNA(EMULEX, GEN2_VF),
+	{}
 };
 
-static LIST_HEAD(ocrdma_dev_list);
-static pthread_mutex_t ocrdma_dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
-
-static struct ibv_context *ocrdma_alloc_context(struct ibv_device *, int);
-static void ocrdma_free_context(struct ibv_context *);
-
-static struct ibv_context_ops ocrdma_ctx_ops = {
+static const struct verbs_context_ops ocrdma_ctx_ops = {
 	.query_device = ocrdma_query_device,
 	.query_port = ocrdma_query_port,
 	.alloc_pd = ocrdma_alloc_pd,
@@ -103,35 +95,34 @@ static struct ibv_context_ops ocrdma_ctx_ops = {
 	.detach_mcast = ocrdma_detach_mcast
 };
 
-static struct ibv_device_ops ocrdma_dev_ops = {
-	.alloc_context = ocrdma_alloc_context,
-	.free_context = ocrdma_free_context
-};
+static void ocrdma_uninit_device(struct verbs_device *verbs_device)
+{
+	struct ocrdma_device *dev = get_ocrdma_dev(&verbs_device->device);
+
+	free(dev);
+}
 
 /*
  * ocrdma_alloc_context
  */
-static struct ibv_context *ocrdma_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+static struct verbs_context *ocrdma_alloc_context(struct ibv_device *ibdev,
+						  int cmd_fd)
 {
 	struct ocrdma_devctx *ctx;
 	struct ocrdma_get_context cmd;
 	struct ocrdma_alloc_ucontext_resp resp;
 
-	ctx = calloc(1, sizeof(struct ocrdma_devctx));
+	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx);
 	if (!ctx)
 		return NULL;
-	memset(&resp, 0, sizeof(resp));
-
-	ctx->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&ctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
 
-	ctx->ibv_ctx.device = ibdev;
-	ctx->ibv_ctx.ops = ocrdma_ctx_ops;
+	verbs_set_ops(&ctx->ibv_ctx, &ocrdma_ctx_ops);
+
 	get_ocrdma_dev(ibdev)->id = resp.dev_id;
 	get_ocrdma_dev(ibdev)->max_inline_data = resp.max_inline_data;
 	get_ocrdma_dev(ibdev)->wqe_size = resp.wqe_size;
@@ -152,6 +143,7 @@ static struct ibv_context *ocrdma_alloc_context(struct ibv_device *ibdev,
 
 cmd_err:
 	ocrdma_err("%s: Failed to allocate context for device.\n", __func__);
+	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 	return NULL;
 }
@@ -166,97 +158,39 @@ static void ocrdma_free_context(struct ibv_context *ibctx)
 	if (ctx->ah_tbl)
 		munmap((void *)ctx->ah_tbl, ctx->ah_tbl_len);
 
+	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
 }
 
-/**
- * ocrdma_driver_init
- */
-struct ibv_device *ocrdma_driver_init(const char *uverbs_sys_path,
-				      int abi_version)
+static struct verbs_device *
+ocrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-
-	char value[16];
 	struct ocrdma_device *dev;
-	unsigned vendor, device;
-	int i;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof(value)) < 0) {
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return NULL;
-	}
-	sscanf(value, "%i", &vendor);
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof(value)) < 0) {
-		return NULL;
-	}
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof ucna_table / sizeof ucna_table[0]; ++i) {
-		if (vendor == ucna_table[i].vendor &&
-		    device == ucna_table[i].device)
-			goto found;
-	}
-	return NULL;
-found:
-	if (abi_version != OCRDMA_ABI_VERSION) {
-		fprintf(stderr,
-		  "Fatal: libocrdma ABI version %d of %s is not supported.\n",
-		  abi_version, uverbs_sys_path);
-		return NULL;
-	}
-
-	dev = malloc(sizeof *dev);
-	if (!dev) {
-		ocrdma_err("%s() Fatal: fail allocate device for libocrdma\n",
-			   __func__);
-		return NULL;
-	}
-	bzero(dev, sizeof *dev);
 	dev->qp_tbl = malloc(OCRDMA_MAX_QP * sizeof(struct ocrdma_qp *));
 	if (!dev->qp_tbl)
 		goto qp_err;
 	bzero(dev->qp_tbl, OCRDMA_MAX_QP * sizeof(struct ocrdma_qp *));
 	pthread_mutex_init(&dev->dev_lock, NULL);
 	pthread_spin_init(&dev->flush_q_lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = ocrdma_dev_ops;
-	list_node_init(&dev->entry);
-	pthread_mutex_lock(&ocrdma_dev_list_lock);
-	list_add_tail(&ocrdma_dev_list, &dev->entry);
-	pthread_mutex_unlock(&ocrdma_dev_list_lock);
 	return &dev->ibv_dev;
 qp_err:
 	free(dev);
 	return NULL;
 }
 
-/*
- * ocrdma_register_driver
- */
-static __attribute__ ((constructor))
-void ocrdma_register_driver(void)
-{
-	ibv_register_driver("ocrdma", ocrdma_driver_init);
-}
-
-static __attribute__ ((destructor))
-void ocrdma_unregister_driver(void)
-{
-	struct ocrdma_device *dev;
-	struct ocrdma_device *dev_tmp;
-	pthread_mutex_lock(&ocrdma_dev_list_lock);
-	list_for_each_safe(&ocrdma_dev_list, dev, dev_tmp, entry) {
-		pthread_mutex_destroy(&dev->dev_lock);
-		pthread_spin_destroy(&dev->flush_q_lock);
-		list_del(&dev->entry);
-		/*
-		 * Avoid freeing the dev here since MPI get SIGSEGV
-		 * in few error cases because of reference to ib_dev
-		 * after free.
-		 * TODO Bug 135437 fix it properly to avoid mem leak
-		 */
-		/* free(dev); */
-	}
-	pthread_mutex_unlock(&ocrdma_dev_list_lock);
-}
+static const struct verbs_device_ops ocrdma_dev_ops = {
+	.name = "ocrdma",
+	.match_min_abi_version = OCRDMA_ABI_VERSION,
+	.match_max_abi_version = OCRDMA_ABI_VERSION,
+	.match_table = ucna_table,
+	.alloc_device = ocrdma_device_alloc,
+	.uninit_device = ocrdma_uninit_device,
+	.alloc_context = ocrdma_alloc_context,
+	.free_context = ocrdma_free_context,
+};
+PROVIDER_DRIVER(ocrdma_dev_ops);

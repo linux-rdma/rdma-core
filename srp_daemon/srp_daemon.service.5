@@ -1,0 +1,30 @@
+'\" t
+.TH "SRP_DAEMON\&.SERVICE" "5" "" "srp_daemon" "srp_daemon.service"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+srp_daemon.service \- srp_daemon systemd service that controls all ports
+.SH "SYNOPSIS"
+.PP
+srp_daemon\&.service
+.SH "DESCRIPTION"
+.PP
+The srp_daemon\&.service controls whether or not any srp_daemon processes are
+running. Although no srp_daemon processes are controlled directly by the
+srp_daemon\&.service, this service controls whether or not any
+srp_daemon_port@\&.service are allowed to be active. Each
+srp_daemon_port@\&.service controls one srp_daemon process.
+
+.SH "SEE ALSO"
+.PP
+\fBsrp_daemon\fR(1),
+\fBsrp_daemon_port@.service\fR(5),
+\fBsystemctl\fR(1)

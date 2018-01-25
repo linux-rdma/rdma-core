@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2015-2016 Obsidian Research Corp. See COPYING.
+# Copyright 2015-2016 Obsidian Research Corp.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 # PYTHON_ARGCOMPLETE_OK
 """cbuild - Build in a docker container
 
@@ -37,6 +38,7 @@ useful for debugging certain kinds of build problems."""
 
 import argparse
 import collections
+import filecmp
 import grp
 import imp
 import inspect
@@ -71,6 +73,7 @@ class DockerFile(object):
         self.lines = ["FROM %s"%(src)];
 
 class Environment(object):
+    python_cmd = "python";
     aliases = set();
     use_make = False;
     proxy = True;
@@ -106,7 +109,7 @@ class centos6(YumEnvironment):
 
 class centos7(YumEnvironment):
     docker_parent = "centos:7";
-    pkgs = centos6.pkgs;
+    pkgs = centos6.pkgs | {'systemd-devel'};
     name = "centos7";
     use_make = True;
     specfile = "redhat/rdma-core.spec";
@@ -125,10 +128,10 @@ class centos7_epel(centos7):
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
         return res;
 
-class fc25(Environment):
-    docker_parent = "fedora:25";
+class fc26(Environment):
+    docker_parent = "fedora:26";
     pkgs = (centos7.pkgs - {"make"}) | {"ninja-build"};
-    name = "fc25";
+    name = "fc26";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -151,7 +154,7 @@ class APTEnvironment(Environment):
 
 class trusty(APTEnvironment):
     docker_parent = "ubuntu:14.04";
-    pkgs = {
+    common_pkgs = {
         'build-essential',
         'cmake',
         'debhelper',
@@ -166,20 +169,48 @@ class trusty(APTEnvironment):
         'python',
         'valgrind',
         };
+    pkgs = common_pkgs | {
+        'libsystemd-daemon-dev',
+        'libsystemd-id128-dev',
+        'libsystemd-journal-dev',
+        };
     name = "ubuntu-14.04";
     aliases = {"trusty"};
 
 class xenial(APTEnvironment):
     docker_parent = "ubuntu:16.04"
-    pkgs = trusty.pkgs;
+    pkgs = trusty.common_pkgs | {"libsystemd-dev"};
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
+class artful(APTEnvironment):
+    docker_parent = "ubuntu:17.10"
+    pkgs = xenial.pkgs
+    name = "ubuntu-17.10";
+    aliases = {"artful"};
+
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
-    pkgs = trusty.pkgs;
+    pkgs = xenial.pkgs;
     name = "debian-8";
     aliases = {"jessie"};
+
+class stretch(APTEnvironment):
+    docker_parent = "debian:9"
+    pkgs = jessie.pkgs;
+    name = "debian-9";
+    aliases = {"stretch"};
+
+class debian_experimental(APTEnvironment):
+    docker_parent = "debian:experimental"
+    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-7"};
+    name = "debian-experimental";
+
+    def get_docker_file(self):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN apt-get update && apt-get -t experimental install -y --no-install-recommends %s && apt-get clean"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
 
 class travis(APTEnvironment):
     """This parses the .travis.yml "apt" add on and converts it to a dockerfile,
@@ -215,7 +246,7 @@ class travis(APTEnvironment):
         for src in self.yaml["addons"]["apt"]["sources"]:
             if isinstance(src,dict):
                 res.add(Source(sourceline=src["sourceline"],
-                               key_url=src["key_url"]));
+                               key_url=src.get("key_url",None)));
             else:
                 res.add(pre_defined[src]);
 
@@ -233,6 +264,12 @@ class travis(APTEnvironment):
         cmds.append("RUN " + " && ".join(scmds));
         return cmds;
 
+    def get_before_script(self):
+        """Return a list of commands to run from before_script"""
+        cmds = ["RUN useradd -ms /bin/bash travis && \\"
+                "su -l -c %s"%(pipes.quote(" && ".join(self.yaml["before_script"]))) + " travis"];
+        return cmds
+
     def get_docker_file(self):
         # First this to get apt-add-repository
         self.pkgs = {"software-properties-common"}
@@ -244,6 +281,9 @@ class travis(APTEnvironment):
         # Package list from the travis.yml
         res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s"%(
             " ".join(sorted(self.yaml["addons"]["apt"]["packages"]))));
+
+        # Adding before_script commands
+        res.lines.extend(self.get_before_script())
 
         return res;
 
@@ -259,34 +299,35 @@ class ZypperEnvironment(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class harlequin(ZypperEnvironment):
-    proxy = False;
-    docker_parent = "opensuse:13.2";
+class leap(ZypperEnvironment):
+    docker_parent = "opensuse:42.3";
+    specfile = "suse/rdma-core.spec";
     pkgs = {
         'cmake',
         'gcc',
         'libnl3-devel',
         'libudev-devel',
+        'udev',
         'make',
         'ninja',
         'pkg-config',
-        'python',
+        'python3',
         'rpm-build',
+        'systemd-devel',
         'valgrind-devel',
     };
-    name = "opensuse-13.2";
-    aliases = {"harelequin"};
-
-class malachite(ZypperEnvironment):
-    docker_parent = "opensuse:42.1";
-    pkgs = harlequin.pkgs;
-    name = "opensuse-42.1";
-    aliases = {"malachite"};
+    name = "opensuse-42.3";
+    aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse:tumbleweed";
-    pkgs = harlequin.pkgs;
+    pkgs = leap.pkgs;
     name = "tumbleweed";
+    specfile = "suse/rdma-core.spec";
+    rpmbuild_options = [ "--without=curlmini" ];
+    # tumbleweed no longer includes python2 in the base docker images, only python3,
+    # use that instead.
+    python_cmd = "python3";
 
 # -------------------------------------------------------------------------
 
@@ -296,11 +337,13 @@ environments = [centos6(),
                 travis(),
                 trusty(),
                 xenial(),
+                artful(),
                 jessie(),
-                fc25(),
-                harlequin(),
-                malachite(),
+                stretch(),
+                fc26(),
+                leap(),
                 tumbleweed(),
+                debian_experimental(),
 ];
 
 class ToEnvAction(argparse.Action):
@@ -363,6 +406,22 @@ def inDirectory(dir):
     finally:
         os.chdir(cdir);
 
+def map_git_args(src_root,to):
+    """Return a list of docker arguments that will map the .git directory into the
+    container"""
+    srcd = os.path.join(src_root,".git");
+    res = ["-v","%s:%s:ro"%(srcd,
+                            os.path.join(to,".git"))];
+
+    alternates = os.path.join(srcd,"objects/info/alternates");
+    if os.path.exists(alternates):
+        with open(alternates) as F:
+            for I in F.readlines():
+                I = I.strip();
+                res.extend(["-v","%s:%s:ro"%(I,I)]);
+
+    return res;
+
 def get_image_id(args,image_name):
     img = json.loads(docker_cmd_str(args,"inspect",image_name));
     image_id = img[0]["Id"];
@@ -374,16 +433,14 @@ def get_image_id(args,image_name):
 # -------------------------------------------------------------------------
 
 def run_rpm_build(args,spec_file,env):
-    version = get_version();
     with open(spec_file,"r") as F:
         for ln in F:
             if ln.startswith("Version:"):
-                ver = ln.strip().partition(' ')[2];
+                ver = ln.strip().partition(' ')[2].strip();
                 assert(ver == get_version());
 
             if ln.startswith("Source:"):
-                tarfn = ln.strip().partition(' ')[2];
-    tarfn = tarfn.replace("%{version}",version);
+                tarfn = ln.strip().partition(' ')[2].strip();
 
     image_id = get_image_id(args,env.image_name());
     with private_tmp(args) as tmpdir:
@@ -391,7 +448,8 @@ def run_rpm_build(args,spec_file,env):
         os.mkdir(os.path.join(tmpdir,"tmp"));
 
         subprocess.check_call(["git","archive",
-                               "--prefix","%s/"%(os.path.splitext(tarfn)[0]),
+                               # This must match the prefix generated buildlib/github-release
+                               "--prefix","%s-%s/"%(project,get_version()),
                                "--output",os.path.join(tmpdir,"SOURCES",tarfn),
                                "HEAD"]);
 
@@ -418,19 +476,28 @@ def run_rpm_build(args,spec_file,env):
         # for the user we are going to use to do the build.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
             print >> F,"""
-import os;
+import os,subprocess;
 with open("/etc/passwd","a") as F:
-   print >> F, {passwd!r};
+   F.write({passwd!r} + "\\n");
 with open("/etc/group","a") as F:
-   print >> F, {group!r};
+   F.write({group!r} + "\\n");
 os.setgid({gid:d});
 os.setuid({uid:d});
+
+# Get RPM to tell us the expected tar filename.
+for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
+   if ln.startswith(b"Source:"):
+      tarfn = ln.strip().partition(b' ')[2].strip();
+os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 """.format(passwd=":".join(str(I) for I in pwd.getpwuid(os.getuid())),
            group=":".join(str(I) for I in grp.getgrgid(os.getgid())),
            uid=os.getuid(),
-           gid=os.getgid());
+           gid=os.getgid(),
+           tarfn=tarfn,
+           tspec_file=tspec_file);
 
-            bopts = ["-bb",tspec_file];
+            extra_opts = getattr(env,"rpmbuild_options", [])
+            bopts = ["-bb",tspec_file] + extra_opts;
 
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
@@ -442,7 +509,7 @@ os.setuid({uid:d});
         if args.run_shell:
             opts.append("/bin/bash");
         else:
-            opts.extend(["python","go.py"]);
+            opts.extend([env.python_cmd,"go.py"]);
 
         docker_cmd(args,*opts)
 
@@ -511,6 +578,25 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
                 shutil.move(os.path.join(tmpdir,I),
                             os.path.join("..",I));
 
+def copy_abi_files(src):
+    """Retrieve the current ABI files and place them in the source tree."""
+    if not os.path.isdir(src):
+        return;
+
+    for path,jnk,files in os.walk(src):
+        for I in files:
+            if not I.startswith("current-"):
+                continue;
+
+            ref_fn = os.path.join("ABI",I[8:]);
+            cur_fn = os.path.join(src, path, I);
+
+            if os.path.isfile(ref_fn) and filecmp.cmp(ref_fn,cur_fn,False):
+                continue;
+
+            print "Changed ABI File: ", ref_fn;
+            shutil.copy(cur_fn, ref_fn);
+
 def run_travis_build(args,env):
     with private_tmp(args) as tmpdir:
         os.mkdir(os.path.join(tmpdir,"src"));
@@ -521,19 +607,33 @@ def run_travis_build(args,env):
             subprocess.check_call(["git",
                                    "--git-dir",os.path.join(opwd,".git"),
                                    "reset","--hard","HEAD"]);
+            subprocess.check_call(["git",
+                                   "--git-dir",os.path.join(opwd,".git"),
+                                   "fetch",
+                                   "--no-tags",
+                                   "https://github.com/linux-rdma/rdma-core.git","HEAD",
+                                   "master"]);
+            base = subprocess.check_output(["git",
+                                            "--git-dir",os.path.join(opwd,".git"),
+                                            "merge-base",
+                                            "HEAD","FETCH_HEAD"]).strip();
 
-        home = os.path.join(os.path.sep,"home",os.getenv("LOGNAME"));
+        home = os.path.join(os.path.sep,"home","travis");
+        home_build = os.path.join(os.path.sep,home,"build");
 
         opts = [
             "run",
             "--read-only",
             "--rm=true",
-            "-v","%s:%s"%(tmpdir,home),
-            "-w",os.path.join(home,"src"),
+            "-v","%s:%s"%(tmpdir, home_build),
+            "-w",os.path.join(home_build,"src"),
             "-u",str(os.getuid()),
+            "-e","TRAVIS_COMMIT_RANGE=%s..HEAD"%(base),
+            "-e","TRAVIS_BRANCH=%s"%(base),
+            "-e","TRAVIS_EVENT_TYPE=pull_request",
             "-e","HOME=%s"%(home),
-            "-e","TMPDIR=%s"%(os.path.join(home,"tmp")),
-        ];
+            "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
+        ] + map_git_args(opwd,os.path.join(home_build,"src"));
 
         # Load the commands from the travis file
         with open(os.path.join(opwd,".travis.yml")) as F:
@@ -552,9 +652,14 @@ def run_travis_build(args,env):
         if args.run_shell:
             opts.append("/bin/bash");
         else:
-            opts.extend(["/bin/bash",os.path.join(home,"go.sh")]);
+            opts.extend(["/bin/bash",os.path.join(home_build,"go.sh")]);
 
-        docker_cmd(args,*opts);
+        try:
+            docker_cmd(args,*opts);
+        except subprocess.CalledProcessError, e:
+            copy_abi_files(os.path.join(tmpdir, "src/ABI"));
+            raise;
+        copy_abi_files(os.path.join(tmpdir, "src/ABI"));
 
 def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
@@ -735,6 +840,4 @@ if __name__ == '__main__':
     if git_top != ".git":
         os.chdir(os.path.dirname(git_top));
 
-    if not args.func(args):
-        sys.exit(100);
-    sys.exit(0);
+    args.func(args);

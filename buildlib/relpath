@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+# Copyright 2017 Mellanox Technologies, Inc.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
+
+import os
+import sys
+
+print(os.path.relpath(sys.argv[1], sys.argv[2]))

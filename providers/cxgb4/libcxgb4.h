@@ -40,7 +40,7 @@
 #include <sys/errno.h>
 #include <sys/time.h>
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 #include <ccan/list.h>
 #include "t4.h"
 
@@ -51,7 +51,7 @@ extern unsigned long c4iw_page_mask;
 struct c4iw_mr;
 
 struct c4iw_dev {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	unsigned chip_version;
 	int max_mr;
 	struct c4iw_mr **mmid2ptr;
@@ -80,7 +80,7 @@ static inline int dev_is_t4(struct c4iw_dev *dev)
 }
 
 struct c4iw_context {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	struct t4_dev_status_page *status_page;
 	int status_page_size;
 };
@@ -120,17 +120,16 @@ struct c4iw_qp {
 };
 
 #define to_c4iw_xxx(xxx, type)						\
-	((struct c4iw_##type *)						\
-	 ((void *) ib##xxx - offsetof(struct c4iw_##type, ibv_##xxx)))
+	container_of(ib##xxx, struct c4iw_##type, ibv_##xxx)
 
 static inline struct c4iw_dev *to_c4iw_dev(struct ibv_device *ibdev)
 {
-	return to_c4iw_xxx(dev, dev);
+	return container_of(ibdev, struct c4iw_dev, ibv_dev.device);
 }
 
 static inline struct c4iw_context *to_c4iw_context(struct ibv_context *ibctx)
 {
-	return to_c4iw_xxx(ctx, context);
+	return container_of(ibctx, struct c4iw_context, ibv_ctx.context);
 }
 
 static inline struct c4iw_pd *to_c4iw_pd(struct ibv_pd *ibpd)

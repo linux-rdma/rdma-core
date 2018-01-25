@@ -36,10 +36,12 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <endian.h>
+#include <stdio.h>
+#include <endian.h>
 #include <ccan/minmax.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #define writel(b, p) (*(uint32_t *)(p) = (b))
 #define writeq(b, p) (*(uint64_t *)(p) = (b))
@@ -112,11 +114,11 @@ struct qelr_buf {
 };
 
 struct qelr_device {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 };
 
 struct qelr_devctx {
-	struct ibv_context	ibv_ctx;
+	struct verbs_context	ibv_ctx;
 	FILE			*dbg_fp;
 	void			*db_addr;
 	uint64_t		db_pa;
@@ -190,29 +192,32 @@ struct qelr_qp_hwq_info {
 	void					*db;      /* Doorbell address */
 	void					*edpm_db;
 	union db_prod32				db_data;  /* Doorbell data */
+	void					*iwarp_db2;
+	union db_prod32				iwarp_db2_data;
 
 	uint16_t				icid;
 };
 
 struct qelr_rdma_ext {
-	uint64_t remote_va;
-	uint32_t remote_key;
-	uint32_t dma_length;
+	__be64	remote_va;
+	__be32	remote_key;
+	__be32	dma_length;
 };
 
 /* rdma extension, invalidate / immediate data + padding, inline data... */
 #define QELR_MAX_DPM_PAYLOAD (sizeof(struct qelr_rdma_ext) + sizeof(uint64_t) +\
 			       ROCE_REQ_MAX_INLINE_DATA_SIZE)
-struct qelr_edpm {
+struct qelr_dpm {
+	uint8_t			is_edpm;
 	union {
 		struct db_roce_dpm_data	data;
 		uint64_t raw;
 	} msg;
 
-	uint8_t			dpm_payload[QELR_MAX_DPM_PAYLOAD];
-	uint32_t		dpm_payload_size;
-	uint32_t		dpm_payload_offset;
-	uint8_t			is_edpm;
+	uint8_t			payload[QELR_MAX_DPM_PAYLOAD];
+	uint32_t		payload_size;
+	uint32_t		payload_offset;
+
 	struct qelr_rdma_ext    *rdma_ext;
 };
 
@@ -236,23 +241,22 @@ struct qelr_qp {
 		uint8_t wqe_size;
 	} *rqe_wr_id;
 
-	struct qelr_edpm			edpm;
 	uint8_t					prev_wqe_size;
 	uint32_t				max_inline_data;
 	uint32_t				qp_id;
 	int					sq_sig_all;
 	int					atomic_supported;
-
+	uint8_t					edpm_disabled;
 };
 
 static inline struct qelr_devctx *get_qelr_ctx(struct ibv_context *ibctx)
 {
-	return container_of(ibctx, struct qelr_devctx, ibv_ctx);
+	return container_of(ibctx, struct qelr_devctx, ibv_ctx.context);
 }
 
 static inline struct qelr_device *get_qelr_dev(struct ibv_device *ibdev)
 {
-	return container_of(ibdev, struct qelr_device, ibv_dev);
+	return container_of(ibdev, struct qelr_device, ibv_dev.device);
 }
 
 static inline struct qelr_qp *get_qelr_qp(struct ibv_qp *ibqp)
@@ -283,6 +287,7 @@ static inline struct qelr_cq *get_qelr_cq(struct ibv_cq *ibcq)
 	(((value) >> (name ## _SHIFT)) & name ## _MASK)
 
 #define ROCE_WQE_ELEM_SIZE	sizeof(struct rdma_sq_sge)
+#define RDMA_WQE_BYTES		(16)
 
 #define QELR_RESP_IMM (RDMA_CQE_RESPONDER_IMM_FLG_MASK <<	\
 			RDMA_CQE_RESPONDER_IMM_FLG_SHIFT)

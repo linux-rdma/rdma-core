@@ -43,10 +43,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <netinet/in.h>
 #include <dirent.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <util/compiler.h>
 
 #include <infiniband/umad.h>
 
@@ -125,9 +125,10 @@ static int check_for_digit_name(const struct dirent *dent)
 static int get_port(const char *ca_name, const char *dir, int portnum, umad_port_t * port)
 {
 	char port_dir[256];
-	uint8_t gid[16];
+	union umad_gid gid;
 	struct dirent **namelist = NULL;
 	int i, len, num_pkeys = 0;
+	uint32_t capmask;
 
 	strncpy(port->ca_name, ca_name, sizeof port->ca_name - 1);
 	port->portnum = portnum;
@@ -149,9 +150,8 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 		goto clean;
 	if (sys_read_uint(port_dir, SYS_PORT_PHY_STATE, &port->phys_state) < 0)
 		goto clean;
-	if (sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate) < 0)
-		goto clean;
-	if (sys_read_uint(port_dir, SYS_PORT_CAPMASK, &port->capmask) < 0)
+	sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate);
+	if (sys_read_uint(port_dir, SYS_PORT_CAPMASK, &capmask) < 0)
 		goto clean;
 
 	if (sys_read_string(port_dir, SYS_PORT_LINK_LAYER,
@@ -159,13 +159,13 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 		/* assume IB by default */
 		sprintf(port->link_layer, "IB");
 
-	port->capmask = htonl(port->capmask);
+	port->capmask = htobe32(capmask);
 
-	if (sys_read_gid(port_dir, SYS_PORT_GID, gid) < 0)
+	if (sys_read_gid(port_dir, SYS_PORT_GID, &gid) < 0)
 		goto clean;
 
-	memcpy(&port->gid_prefix, gid, sizeof port->gid_prefix);
-	memcpy(&port->port_guid, gid + 8, sizeof port->port_guid);
+	port->gid_prefix = gid.global.subnet_prefix;
+	port->port_guid = gid.global.interface_id;
 
 	snprintf(port_dir + len, sizeof(port_dir) - len, "/pkeys");
 	num_pkeys = scandir(port_dir, &namelist, check_for_digit_name, NULL);
@@ -568,7 +568,7 @@ int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 	return j;
 }
 
-int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max)
+int umad_get_ca_portguids(const char *ca_name, __be64 *portguids, int max)
 {
 	umad_ca_t ca;
 	int ports = 0, i;
@@ -587,8 +587,8 @@ int umad_get_ca_portguids(const char *ca_name, uint64_t * portguids, int max)
 		}
 
 		for (i = 0; i <= ca.numports; i++)
-			portguids[ports++] =
-			    ca.ports[i] ? ca.ports[i]->port_guid : 0;
+			portguids[ports++] = ca.ports[i] ?
+				ca.ports[i]->port_guid : htobe64(0);
 	}
 
 	release_ca(&ca);
@@ -735,8 +735,10 @@ int umad_set_grh(void *umad, void *mad_addr)
 
 	if (mad_addr) {
 		mad->addr.grh_present = 1;
-		memcpy(mad->addr.gid, addr->gid, 16);
-		mad->addr.flow_label = htonl(addr->flow_label);
+		mad->addr.ib_gid = addr->ib_gid;
+		/* The definition for umad_set_grh requires that the input be
+		 * in host order */
+		mad->addr.flow_label = htobe32((__force uint32_t)addr->flow_label);
 		mad->addr.hop_limit = addr->hop_limit;
 		mad->addr.traffic_class = addr->traffic_class;
 	} else
@@ -770,20 +772,20 @@ int umad_set_addr(void *umad, int dlid, int dqp, int sl, int qkey)
 
 	TRACE("umad %p dlid %u dqp %d sl %d, qkey %x",
 	      umad, dlid, dqp, sl, qkey);
-	mad->addr.qpn = htonl(dqp);
-	mad->addr.lid = htons(dlid);
-	mad->addr.qkey = htonl(qkey);
+	mad->addr.qpn = htobe32(dqp);
+	mad->addr.lid = htobe16(dlid);
+	mad->addr.qkey = htobe32(qkey);
 	mad->addr.sl = sl;
 
 	return 0;
 }
 
-int umad_set_addr_net(void *umad, int dlid, int dqp, int sl, int qkey)
+int umad_set_addr_net(void *umad, __be16 dlid, __be32 dqp, int sl, __be32 qkey)
 {
 	struct ib_user_mad *mad = umad;
 
 	TRACE("umad %p dlid %u dqp %d sl %d qkey %x",
-	      umad, ntohs(dlid), ntohl(dqp), sl, ntohl(qkey));
+	      umad, be16toh(dlid), be32toh(dqp), sl, be32toh(qkey));
 	mad->addr.qpn = dqp;
 	mad->addr.lid = dlid;
 	mad->addr.qkey = qkey;
@@ -939,7 +941,7 @@ int umad_register(int fd, int mgmt_class, int mgmt_version,
 		  uint8_t rmpp_version, long method_mask[])
 {
 	struct ib_user_mad_reg_req req;
-	uint32_t oui = htonl(IB_OPENIB_OUI);
+	__be32 oui = htobe32(IB_OPENIB_OUI);
 	int qp;
 
 	TRACE
@@ -1094,7 +1096,7 @@ void umad_addr_dump(ib_mad_addr_t * addr)
 	IBWARN("qpn %d qkey 0x%x lid %u sl %d\n"
 	       "grh_present %d gid_index %d hop_limit %d traffic_class %d flow_label 0x%x pkey_index 0x%x\n"
 	       "Gid 0x%s",
-	       ntohl(addr->qpn), ntohl(addr->qkey), ntohs(addr->lid), addr->sl,
+	       be32toh(addr->qpn), be32toh(addr->qkey), be16toh(addr->lid), addr->sl,
 	       addr->grh_present, (int)addr->gid_index, (int)addr->hop_limit,
 	       (int)addr->traffic_class, addr->flow_label, addr->pkey_index,
 	       gid_str);

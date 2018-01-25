@@ -8,7 +8,7 @@ Descriptions of section entries:
         F: Files and directories with wildcard patterns.
            A trailing slash includes all files and subdirectory files.
            F:   providers/mlx4/ all files in and below providers/mlx4/
-           F:   providers/*     all files in drivers/net, but not below
+           F:   providers/*     all files in providers, but not below
            F:   */net/*         all files in "any top level directory"/net
            One pattern per line.  Multiple F: lines acceptable.
         H: Historical authors
@@ -31,14 +31,25 @@ Descriptions of section entries:
 * OVERALL PACKAGE
 M:	Doug Ledford <dledford@redhat.com>
 M:	Leon Romanovsky <leon@kernel.org>
+M:	Jason Gunthorpe <jgg@mellanox.com>
 S:	Supported
 
 BUILD SYSTEM
-M:	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+M:	Jason Gunthorpe <jgg@mellanox.com>
 S:	Supported
 F:	*/CMakeLists.txt
 F:	*/lib*.map
 F:	buildlib/
+
+DEBIAN PACKAGING
+M:	Benjamin Drung <benjamin.drung@profitbricks.com>
+S:	Supported
+F:	debian/
+
+BNXT_RE USERSPACE PROVIDER (for bnxt_re.ko)
+M:	Devesh Sharma  <Devesh.sharma@broadcom.com>
+S:	Supported
+F:	providers/bnxt_re/
 
 CXGB3 USERSPACE PROVIDER (for iw_cxgb3.ko)
 M:	Steve Wise <swise@opengridcomputing.com>
@@ -87,12 +98,6 @@ M:	Steve Wise <swise@opengridcomputing.com>
 H:	Robert Sharp <robert.o.sharp@intel.com>
 S:	Supported
 F:	iwpmd/
-
-LIBIBCM USERSPACE LIBRARY FOR IB CONNECTION MANAGEMENT (/dev/infiniband/ucmX)
-M:	Sean Hefty <sean.hefty@intel.com>
-H:	Libor Michalek <libor@topspin.com>
-S:	Obsolete
-F:	libibcm/
 
 LIBIBUMAD USERSPACE LIBRARY FOR SMP AND GMP MAD PROCESSING (/dev/infiniband/umadX)
 M:	Hal Rosenstock <hal@dev.mellanox.co.il>
@@ -160,3 +165,14 @@ SRP DAEMON (for ib_srp.ko)
 M:	Bart Van Assche <bvanassche@acm.org>
 S:	Supported
 F:	srp_daemon/
+
+SUSE PACKAGING
+M:	Nicolas Morey-Chaisemartin <nmoreychaisemartin@suse.de>
+S:	Supported
+F:	suse/
+
+VMWARE PVRDMA USERSPACE PROVIDER (for vmw_pvrdma.ko)
+M:	Adit Ranadive <aditr@vmware.com>
+L:	pv-drivers@vmware.com
+S:	Supported
+F:	providers/vmw_pvrdma/

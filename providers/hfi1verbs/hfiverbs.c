@@ -77,19 +77,15 @@
 #define PCI_DEVICE_ID_HFI_INTEL1		0x24f1
 #endif
 
-#define HFI(v, d) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_HFI_##d }
-
-static struct {
-	unsigned		vendor;
-	unsigned		device;
-} hca_table[] = {
+#define HFI(v, d)                                                              \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_HFI_##d, NULL)
+static const struct verbs_match_ent hca_table[] = {
 	HFI(INTEL, INTEL0),
 	HFI(INTEL, INTEL1),
+	{}
 };
 
-static struct ibv_context_ops hfi1_ctx_ops = {
+static const struct verbs_context_ops hfi1_ctx_common_ops = {
 	.query_device	= hfi1_query_device,
 	.query_port	= hfi1_query_port,
 
@@ -102,7 +98,6 @@ static struct ibv_context_ops hfi1_ctx_ops = {
 	.create_cq	= hfi1_create_cq,
 	.poll_cq	= hfi1_poll_cq,
 	.req_notify_cq	= ibv_cmd_req_notify_cq,
-	.cq_event	= NULL,
 	.resize_cq	= hfi1_resize_cq,
 	.destroy_cq	= hfi1_destroy_cq,
 
@@ -127,41 +122,46 @@ static struct ibv_context_ops hfi1_ctx_ops = {
 	.detach_mcast	= ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *hfi1_alloc_context(struct ibv_device *ibdev,
-					       int cmd_fd)
+static const struct verbs_context_ops hfi1_ctx_v1_ops = {
+	.create_cq = hfi1_create_cq_v1,
+	.create_qp = hfi1_create_qp_v1,
+	.create_srq = hfi1_create_srq_v1,
+	.destroy_cq = hfi1_destroy_cq_v1,
+	.destroy_qp = hfi1_destroy_qp_v1,
+	.destroy_srq = hfi1_destroy_srq_v1,
+	.modify_srq = hfi1_modify_srq_v1,
+	.poll_cq = ibv_cmd_poll_cq,
+	.post_recv = ibv_cmd_post_recv,
+	.post_srq_recv = ibv_cmd_post_srq_recv,
+	.resize_cq = hfi1_resize_cq_v1,
+};
+
+static struct verbs_context *hfi1_alloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct hfi1_context	    *context;
 	struct ibv_get_context       cmd;
-	struct ibv_get_context_resp  resp;
+	struct ib_uverbs_get_context_resp  resp;
 	struct hfi1_device         *dev;
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
+
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
 				sizeof cmd, &resp, sizeof resp))
 		goto err_free;
 
-	context->ibv_ctx.ops = hfi1_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &hfi1_ctx_common_ops);
+
 	dev = to_idev(ibdev);
-	if (dev->abi_version == 1) {
-		context->ibv_ctx.ops.create_cq     = hfi1_create_cq_v1;
-		context->ibv_ctx.ops.poll_cq       = ibv_cmd_poll_cq;
-		context->ibv_ctx.ops.resize_cq     = hfi1_resize_cq_v1;
-		context->ibv_ctx.ops.destroy_cq    = hfi1_destroy_cq_v1;
-		context->ibv_ctx.ops.create_srq    = hfi1_create_srq_v1;
-		context->ibv_ctx.ops.destroy_srq   = hfi1_destroy_srq_v1;
-		context->ibv_ctx.ops.modify_srq    = hfi1_modify_srq_v1;
-		context->ibv_ctx.ops.post_srq_recv = ibv_cmd_post_srq_recv;
-		context->ibv_ctx.ops.create_qp     = hfi1_create_qp_v1;
-		context->ibv_ctx.ops.destroy_qp    = hfi1_destroy_qp_v1;
-		context->ibv_ctx.ops.post_recv     = ibv_cmd_post_recv;
-	}
+	if (dev->abi_version == 1)
+		verbs_set_ops(&context->ibv_ctx, &hfi1_ctx_v1_ops);
+
 	return &context->ibv_ctx;
 
 err_free:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -170,54 +170,38 @@ static void hfi1_free_context(struct ibv_context *ibctx)
 {
 	struct hfi1_context *context = to_ictx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 
-static struct ibv_device_ops hfi1_dev_ops = {
-	.alloc_context	= hfi1_alloc_context,
-	.free_context	= hfi1_free_context
-};
-
-static struct ibv_device *hfi1_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static void hf11_uninit_device(struct verbs_device *verbs_device)
 {
-	char			value[8];
+	struct hfi1_device *dev = to_idev(&verbs_device->device);
+
+	free(dev);
+}
+
+static struct verbs_device *hfi1_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
 	struct hfi1_device    *dev;
-	unsigned                vendor, device;
-	int                     i;
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return NULL;
-	sscanf(value, "%i", &vendor);
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
-	dev = malloc(sizeof *dev);
-	if (!dev) {
-		fprintf(stderr, PFX "Fatal: couldn't allocate device for %s\n",
-			uverbs_sys_path);
-		return NULL;
-	}
-
-	dev->ibv_dev.ops = hfi1_dev_ops;
-	dev->abi_version = abi_version;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	return &dev->ibv_dev;
 }
 
-static __attribute__((constructor)) void hfi1_register_driver(void)
-{
-	ibv_register_driver("hfi1verbs", hfi1_driver_init);
-}
+static const struct verbs_device_ops hfi1_dev_ops = {
+	.name = "hfi1verbs",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_table = hca_table,
+	.alloc_device = hfi1_device_alloc,
+	.uninit_device  = hf11_uninit_device,
+	.alloc_context = hfi1_alloc_context,
+	.free_context = hfi1_free_context,
+};
+PROVIDER_DRIVER(hfi1_dev_ops);

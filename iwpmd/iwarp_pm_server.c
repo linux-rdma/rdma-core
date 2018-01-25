@@ -32,6 +32,8 @@
  */
 
 #include "config.h"
+#include <systemd/sd-daemon.h>
+#include <getopt.h>
 #include "iwarp_pm.h"
 
 static const char iwpm_ulib_name [] = "iWarpPortMapperUser";
@@ -315,7 +317,7 @@ static int process_iwpm_add_mapping(struct nlmsghdr *req_nlh, int client_idx, in
 	__u16 err_code = 0;
 	const char *msg_type = "Add Mapping Request";
 	const char *str_err = "";
-	int ret = -EINVAL, ref_cnt;
+	int ret = -EINVAL;
 
 	if (parse_iwpm_nlmsg(req_nlh, IWPM_NLA_MANAGE_MAPPING_MAX, manage_map_policy, nltb, msg_type)) {
 		err_code = IWPM_INVALID_NLMSG_ERR;
@@ -327,7 +329,7 @@ static int process_iwpm_add_mapping(struct nlmsghdr *req_nlh, int client_idx, in
 	iwpm_port = find_iwpm_mapping(local_addr, not_mapped);
 	if (iwpm_port) {
 		if (check_same_sockaddr(local_addr, &iwpm_port->local_addr) && iwpm_port->wcard) {
-				iwpm_port->ref_cnt++;
+			atomic_fetch_add(&iwpm_port->ref_cnt, 1);
 		} else {
 			err_code = IWPM_DUPLICATE_MAPPING_ERR;
 			str_err = "Duplicate mapped port";
@@ -373,12 +375,8 @@ add_mapping_free_error:
 	if (resp_nlmsg)
 		nlmsg_free(resp_nlmsg);
 	if (iwpm_port) {
-		if (iwpm_port->wcard) {
-			ref_cnt = free_iwpm_wcard_mapping(iwpm_port);
-			if (ref_cnt)
-				goto add_mapping_error;
-		}
-		free_iwpm_port(iwpm_port);
+		if (atomic_fetch_sub(&iwpm_port->ref_cnt, 1) == 1)
+			free_iwpm_port(iwpm_port);
 	}
 add_mapping_error:
 	syslog(LOG_WARNING, "process_add_mapping: %s (failed request from client = %s).\n",
@@ -433,15 +431,14 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 
 	iwpm_port = find_iwpm_mapping(local_addr, not_mapped);
 	if (iwpm_port) {
-		err_code = IWPM_DUPLICATE_MAPPING_ERR;
-		str_err = "Duplicate mapped port";
-		goto query_mapping_error;
-	}
-	iwpm_port = create_iwpm_mapped_port(local_addr, client_idx);
-	if (!iwpm_port) {
-		err_code = IWPM_CREATE_MAPPING_ERR;
-		str_err = "Unable to create new mapping";
-		goto query_mapping_error;
+		atomic_fetch_add(&iwpm_port->ref_cnt, 1);
+	} else {
+		iwpm_port = create_iwpm_mapped_port(local_addr, client_idx);
+		if (!iwpm_port) {
+			err_code = IWPM_CREATE_MAPPING_ERR;
+			str_err = "Unable to create new mapping";
+			goto query_mapping_error;
+		}
 	}
 	if (iwpm_port->wcard) {
 		err_code = IWPM_CREATE_MAPPING_ERR;
@@ -452,13 +449,13 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	memcpy(&dest_addr.s_sockaddr, remote_addr, sizeof(struct sockaddr_storage));
 	switch (dest_addr.s_sockaddr.ss_family) {
 	case AF_INET:
-		dest_addr.v4_sockaddr.sin_port = htons(IWARP_PM_PORT);
+		dest_addr.v4_sockaddr.sin_port = htobe16(IWARP_PM_PORT);
 		msg_parms.ip_ver = 4;
 		msg_parms.address_family = AF_INET;
 		pm_client_sock = pmv4_client_sock;
 		break;
 	case AF_INET6:
-		dest_addr.v6_sockaddr.sin6_port = htons(IWARP_PM_PORT);
+		dest_addr.v6_sockaddr.sin6_port = htobe16(IWARP_PM_PORT);
 		msg_parms.ip_ver = 6;
 		msg_parms.address_family = AF_INET6;
 		pm_client_sock = pmv6_client_sock;
@@ -478,7 +475,7 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 	msg_parms.ver = 0;
 	iwpm_debug(IWARP_PM_WIRE_DBG, "process_query_mapping: Local port = 0x%04X, "
 			"remote port = 0x%04X\n",
-			ntohs(msg_parms.cpport), ntohs(msg_parms.apport));
+			be16toh(msg_parms.cpport), be16toh(msg_parms.apport));
 	ret = -ENOMEM;
         send_msg = (iwpm_send_msg *)malloc(sizeof(iwpm_send_msg));
 	if (!send_msg) {
@@ -497,10 +494,13 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 
 	add_iwpm_map_request(iwpm_map_req);
 	add_iwpm_mapped_port(iwpm_port);
+
 	return send_iwpm_msg(form_iwpm_request, &msg_parms, &dest_addr.s_sockaddr, pm_client_sock);
 query_mapping_free_error:
-	if (iwpm_port)
-		free_iwpm_port(iwpm_port);
+	if (iwpm_port) {
+		if (atomic_fetch_sub(&iwpm_port->ref_cnt, 1) == 1)
+			free_iwpm_port(iwpm_port);
+	}
 	if (send_msg)
 		free(send_msg);
 	if (iwpm_map_req)
@@ -528,7 +528,7 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 	struct nlattr *nltb [IWPM_NLA_MANAGE_MAPPING_MAX];
 	int not_mapped = 1;
 	const char *msg_type = "Remove Mapping Request";
-	int ret = 0, ref_cnt;
+	int ret = 0;
 
 	if (parse_iwpm_nlmsg(req_nlh, IWPM_NLA_MANAGE_MAPPING_MAX, manage_map_policy, nltb, msg_type)) {
 		send_iwpm_error_msg(req_nlh->nlmsg_seq, IWPM_INVALID_NLMSG_ERR, client_idx, nl_sock);
@@ -554,13 +554,10 @@ static int process_iwpm_remove_mapping(struct nlmsghdr *req_nlh, int client_idx,
 				client_idx);
 		goto remove_mapping_exit;
 	}
-	if (iwpm_port->wcard) {
-		ref_cnt = free_iwpm_wcard_mapping(iwpm_port);
-		if (ref_cnt)
-			goto remove_mapping_exit;
+	if (atomic_fetch_sub(&iwpm_port->ref_cnt, 1) == 1) {
+		remove_iwpm_mapped_port(iwpm_port);
+		free_iwpm_port(iwpm_port);
 	}
-	remove_iwpm_mapped_port(iwpm_port);
-	free_iwpm_port(iwpm_port);
 remove_mapping_exit:
 	return ret;
 }
@@ -1355,42 +1352,16 @@ iwarp_port_mapper_exit:
 
 /**
  * daemonize_iwpm_server - Make iwarp port mapper a daemon process
- */ 
+ */
 static void daemonize_iwpm_server(void)
 {
-	pid_t pid, sid;
-
-	/* check if already a daemon */
-	if (getppid() == 1) return;
-
-    	pid = fork();
-    	if (pid < 0) {
-		syslog(LOG_WARNING, "daemonize_iwpm_server: Couldn't fork a new process\n");
-        	exit(EXIT_FAILURE);
-    	}
-
-    	/* exit the parent process */
-	if (pid > 0)
-        	exit(EXIT_SUCCESS);
-
-	umask(0); /* change file mode mask */
-	sid = setsid();	/* create a new session, new group, no tty */
-	if (sid < 0) {
-    		syslog(LOG_WARNING, "daemonize_iwpm_server: Couldn't create new session\n");
-        	exit(EXIT_FAILURE);
-    	}
-
-    	if ((chdir("/")) < 0) {
-		syslog(LOG_WARNING, "daemonize_iwpm_server: Couldn't change the current directory\n");
-        	exit(EXIT_FAILURE);
-   	}
+	if (daemon(0, 0) != 0) {
+		syslog(LOG_ERR, "Failed to daemonize\n");
+		exit(EXIT_FAILURE);
+	}
 
 	syslog(LOG_WARNING, "daemonize_iwpm_server: Starting iWarp Port Mapper V%d process\n",
 				iwpm_version);
-	/* close standard IO streams */
-	close(STDIN_FILENO);
-	close(STDOUT_FILENO);
-	close(STDERR_FILENO);
 }
 
 int main(int argc, char *argv[])
@@ -1398,11 +1369,35 @@ int main(int argc, char *argv[])
 	__u32 iwarp_clients[IWARP_PM_MAX_CLIENTS];
 	int known_clients;
 	FILE *fp;
+	int c;
 	int ret = EXIT_FAILURE;
+	bool systemd = false;
 
-	openlog("iWarpPortMapper", LOG_CONS | LOG_PID, LOG_DAEMON);
+	while (1) {
+		static const struct option long_opts[] = {
+			{"systemd", 0, NULL, 's'},
+			{}
+		};
 
-	daemonize_iwpm_server();
+		c = getopt_long(argc, argv, "fs", long_opts, NULL);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 's':
+			systemd = true;
+			break;
+		default:
+			break;
+
+		}
+	}
+
+	openlog(NULL, LOG_NDELAY | LOG_CONS | LOG_PID, LOG_DAEMON);
+
+	if (!systemd)
+		daemonize_iwpm_server();
+	umask(0); /* change file mode mask */
 
 	fp = fopen(IWPM_CONFIG_FILE, "r");
 	if (fp) {
@@ -1448,6 +1443,10 @@ int main(int argc, char *argv[])
 
 	known_clients = init_iwpm_clients(&iwarp_clients[0]);
 	send_iwpm_mapinfo_request(netlink_sock, &iwarp_clients[0], known_clients);
+
+	if (systemd)
+		sd_notify(0, "READY=1");
+
 	iwarp_port_mapper(); /* start iwarp port mapper process */
 
 	free_iwpm_mapped_ports();

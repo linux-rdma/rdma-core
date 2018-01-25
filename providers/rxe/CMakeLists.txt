@@ -1,7 +1,8 @@
 rdma_provider(rxe
   rxe.c
   )
-install(FILES rxe_cfg
+rdma_subst_install(FILES "rxe_cfg.in"
+  RENAME "rxe_cfg"
   DESTINATION "${CMAKE_INSTALL_BINDIR}"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE
   )

@@ -1,4 +1,4 @@
-/* Licensed under BSD-MIT - see LICENSE.BSD-MIT file for details */
+/* Licensed under MIT - see LICENSE.MIT file for details */
 #ifndef CCAN_LIST_H
 #define CCAN_LIST_H
 //#define CCAN_LIST_DEBUG 1

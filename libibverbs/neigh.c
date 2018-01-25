@@ -5,9 +5,15 @@
 #include <net/if_packet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
+#if HAVE_WORKING_IF_H
+#include <net/if.h>
+#endif
+
 #include <netlink/route/rtnl.h>
 #include <netlink/route/link.h>
 #include <netlink/route/route.h>
@@ -16,15 +22,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/timerfd.h>
-#include <netinet/in.h>
 #include <errno.h>
 #include <unistd.h>
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <assert.h>
-#if HAVE_WORKING_IF_H
-#include <net/if.h>
-#else
+
+#if !HAVE_WORKING_IF_H
 /* We need this decl from net/if.h but old systems do not let use co-include
    net/if.h and netlink/route/link.h */
 extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
@@ -32,11 +36,9 @@ extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
 
 /* for PFX */
 #include "ibverbs.h"
+#include <ccan/minmax.h>
 
 #include "neigh.h"
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 #ifndef HAVE_LIBNL1
 #include <netlink/route/link/vlan.h>
@@ -56,7 +58,7 @@ struct skt {
 	socklen_t len;
 };
 
-static int set_link_port(union sktaddr *s, int port, int oif)
+static int set_link_port(union sktaddr *s, __be16 port, int oif)
 {
 	switch (s->s.sa_family) {
 	case AF_INET:
@@ -189,7 +191,7 @@ static struct rtnl_neigh *create_filter_neigh_for_dst(struct nl_addr *dst_addr,
 	return filter_neigh;
 }
 
-#define PORT_DISCARD htons(9)
+#define PORT_DISCARD htobe16(9)
 #define SEND_PAYLOAD "H"
 
 static int create_socket(struct get_neigh_handler *neigh_handler,
@@ -342,7 +344,7 @@ static struct nl_addr *process_get_neigh_mac(
 	if (timer_fd < 0)
 		goto close_socket;
 
-	nfds = MAX(fd, timer_fd) + 1;
+	nfds = max(fd, timer_fd) + 1;
 
 	while (1) {
 		FD_ZERO(&fdset);
@@ -373,7 +375,7 @@ static struct nl_addr *process_get_neigh_mac(
 
 			if (FD_ISSET(timer_fd, &fdset)) {
 				uint64_t read_val;
-				ssize_t rc;
+				ssize_t __attribute__((unused)) rc;
 
 				rc =
 				    read(timer_fd, &read_val, sizeof(read_val));
@@ -396,7 +398,7 @@ close_socket:
 static int get_mcast_mac_ipv4(struct nl_addr *dst, struct nl_addr **ll_addr)
 {
 	uint8_t mac_addr[6] = {0x01, 0x00, 0x5E};
-	uint32_t addr = ntohl(*(uint32_t *)nl_addr_get_binary_addr(dst));
+	uint32_t addr = be32toh(*(__be32 *)nl_addr_get_binary_addr(dst));
 
 	mac_addr[5] = addr & 0xFF;
 	addr >>= 8;
@@ -455,7 +457,7 @@ static const struct encoded_l3_addr {
 
 static int nl_addr_cmp_prefix_msb(void *addr1, int len1, void *addr2, int len2)
 {
-	int len = MIN(len1, len2);
+	int len = min(len1, len2);
 	int bytes = len / 8;
 	int d = memcmp(addr1, addr2, bytes);
 
@@ -483,11 +485,10 @@ static int handle_encoded_mac(struct nl_addr *dst, struct nl_addr **ll_addr)
 			continue;
 
 		prefix = nl_addr_build(
-				family,
-				(void *)encoded_prefixes[i].data,
-				MIN(encoded_prefixes[i].prefix_bits/8 +
-				    !!(encoded_prefixes[i].prefix_bits % 8),
-				    sizeof(encoded_prefixes[i].data)));
+		    family, (void *)encoded_prefixes[i].data,
+		    min_t(size_t, encoded_prefixes[i].prefix_bits / 8 +
+				      !!(encoded_prefixes[i].prefix_bits % 8),
+			  sizeof(encoded_prefixes[i].data)));
 
 		if (prefix == NULL)
 			return -ENOMEM;
@@ -628,16 +629,9 @@ free:
 	return oif;
 }
 
-static void destroy_zero_based_socket(void)
-{
-	if (zero_socket != NULL)
-		nl_socket_free(zero_socket);
-}
-
 static void alloc_zero_based_socket(void)
 {
 	zero_socket = nl_socket_alloc();
-	atexit(&destroy_zero_based_socket);
 }
 
 int neigh_init_resources(struct get_neigh_handler *neigh_handler, int timeout)

@@ -53,6 +53,7 @@ enum {
 };
 
 static int page_size;
+static int validate_buf;
 
 struct pingpong_context {
 	struct ibv_context	*context;
@@ -62,7 +63,7 @@ struct pingpong_context {
 	struct ibv_cq		*cq;
 	struct ibv_qp		*qp;
 	struct ibv_ah		*ah;
-	void			*buf;
+	char			*buf;
 	int			 size;
 	int			 send_flags;
 	int			 rx_depth;
@@ -246,7 +247,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	}
 
 	listen(sockfd, 1);
-	connfd = accept(sockfd, NULL, 0);
+	connfd = accept(sockfd, NULL, NULL);
 	close(sockfd);
 	if (connfd < 0) {
 		fprintf(stderr, "accept() failed\n");
@@ -544,8 +545,10 @@ static void usage(const char *argv0)
 	printf("  -s, --size=<size>      size of message to exchange (default 2048)\n");
 	printf("  -r, --rx-depth=<dep>   number of receives to post at a time (default 500)\n");
 	printf("  -n, --iters=<iters>    number of exchanges (default 1000)\n");
+        printf("  -l, --sl=<SL>          send messages with service level <SL> (default 0)\n");
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
+	printf("  -c, --chk              validate received buffer\n");
 }
 
 int main(int argc, char *argv[])
@@ -586,11 +589,12 @@ int main(int argc, char *argv[])
 			{ .name = "sl",       .has_arg = 1, .val = 'l' },
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
+			{ .name = "chk",      .has_arg = 0, .val = 'c' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:r:n:l:eg:",
-							long_options, NULL);
+		c = getopt_long(argc, argv, "p:d:i:s:r:n:l:eg:c:", long_options,
+				NULL);
 		if (c == -1)
 			break;
 
@@ -637,6 +641,10 @@ int main(int argc, char *argv[])
 
 		case 'g':
 			gidx = strtol(optarg, NULL, 0);
+			break;
+
+		case 'c':
+			validate_buf = 1;
 			break;
 
 		default:
@@ -737,6 +745,10 @@ int main(int argc, char *argv[])
 	ctx->pending = PINGPONG_RECV_WRID;
 
 	if (servername) {
+		if (validate_buf)
+			for (int i = 0; i < size; i += page_size)
+				ctx->buf[i] = i / page_size % sizeof(char);
+
 		if (pp_post_send(ctx, rem_dest->qpn)) {
 			fprintf(stderr, "Couldn't post send\n");
 			return 1;
@@ -845,6 +857,13 @@ int main(int argc, char *argv[])
 		       bytes, usec / 1000000., bytes * 8. / usec);
 		printf("%d iters in %.2f seconds = %.2f usec/iter\n",
 		       iters, usec / 1000000., usec / iters);
+
+		if ((!servername) && (validate_buf)) {
+			for (int i = 0; i < size; i += page_size)
+				if (ctx->buf[i] != i / page_size % sizeof(char))
+					printf("invalid data in page %d\n",
+					       i / page_size);
+		}
 	}
 
 	ibv_ack_cq_events(ctx->cq, num_cq_events);

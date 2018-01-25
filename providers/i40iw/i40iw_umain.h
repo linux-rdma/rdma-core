@@ -38,21 +38,15 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <endian.h>
+#include <util/compiler.h>
 
 #include <infiniband/driver.h>
-#include <infiniband/arch.h>
+#include <util/udma_barrier.h>
 
 #include "i40iw_osdep.h"
 #include "i40iw_d.h"
 #include "i40iw_status.h"
 #include "i40iw_user.h"
-
-#ifndef likely
-#define likely(x)   __builtin_expect((x), 1)
-#endif
-#ifndef unlikely
-#define unlikely(x) __builtin_expect((x), 0)
-#endif
 
 #define PFX "libi40iw-"
 
@@ -75,7 +69,7 @@ enum i40iw_uhca_type {
 };
 
 struct i40iw_udevice {
-	struct ibv_device ibv_dev;
+	struct verbs_device ibv_dev;
 	enum i40iw_uhca_type hca_type;
 	int page_size;
 };
@@ -89,12 +83,13 @@ struct i40iw_upd {
 };
 
 struct i40iw_uvcontext {
-	struct ibv_context ibv_ctx;
+	struct verbs_context ibv_ctx;
 	struct i40iw_upd *iwupd;
 	uint32_t max_pds;	/* maximum pds allowed for this user process */
 	uint32_t max_qps;	/* maximum qps allowed for this user process */
 	uint32_t wq_size;	/* size of the WQs (sq+rq) + shadow allocated to the mmaped area */
 	struct i40iw_dev_uk dev;
+	int abi_ver;
 };
 
 struct i40iw_uqp;
@@ -132,18 +127,17 @@ struct i40iw_uqp {
 
 };
 
-#define to_i40iw_uxxx(xxx, type)                         \
-	((struct i40iw_u ## type *)                                        \
-	 ((void *)ib ## xxx - offsetof(struct i40iw_u ## type, ibv_ ## xxx)))
+#define to_i40iw_uxxx(xxx, type)                                               \
+	container_of(ib##xxx, struct i40iw_u##type, ibv_##xxx)
 
 static inline struct i40iw_udevice *to_i40iw_udev(struct ibv_device *ibdev)
 {
-	return to_i40iw_uxxx(dev, device);
+	return container_of(ibdev, struct i40iw_udevice, ibv_dev.device);
 }
 
 static inline struct i40iw_uvcontext *to_i40iw_uctx(struct ibv_context *ibctx)
 {
-	return to_i40iw_uxxx(ctx, vcontext);
+	return container_of(ibctx, struct i40iw_uvcontext, ibv_ctx.context);
 }
 
 static inline struct i40iw_upd *to_i40iw_upd(struct ibv_pd *ibpd)
@@ -160,9 +154,6 @@ static inline struct i40iw_uqp *to_i40iw_uqp(struct ibv_qp *ibqp)
 {
 	return to_i40iw_uxxx(qp, qp);
 }
-
-/* i40iw_umain.c */
-struct ibv_device *i40iw_driver_init(const char *, int);
 
 /* i40iw_uverbs.c */
 int i40iw_uquery_device(struct ibv_context *, struct ibv_device_attr *);
@@ -192,15 +183,5 @@ int i40iw_udestroy_ah(struct ibv_ah *);
 int i40iw_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 int i40iw_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 void i40iw_async_event(struct ibv_async_event *event);
-
-static inline uint32_t cpu_to_le32(uint32_t x)
-{
-	return htole32(x);
-}
-
-static inline uint32_t le32_to_cpu(uint32_t x)
-{
-	return le32toh(x);
-}
 
 #endif /* i40iw_umain_H */

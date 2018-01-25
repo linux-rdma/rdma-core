@@ -8,7 +8,7 @@ umad_get_ca_portguids \- get the InfiniBand device ports GUIDs
 .nf
 .B #include <infiniband/umad.h>
 .sp
-.BI "int umad_get_ca_portguids(char " "*ca_name" ", uint64_t " "*portguids" ", int " "max" );
+.BI "int umad_get_ca_portguids(char " "*ca_name" ", __be64 " "*portguids" ", int " "max" );
 .fi
 .SH "DESCRIPTION"
 .B umad_get_ca_portguids()

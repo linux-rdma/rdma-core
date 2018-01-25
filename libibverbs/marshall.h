@@ -39,20 +39,14 @@
 #include <rdma/ib_user_sa.h>
 
 #ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else /* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif /* __cplusplus */
-
-BEGIN_C_DECLS
+extern "C" {
+#endif
 
 void ibv_copy_qp_attr_from_kern(struct ibv_qp_attr *dst,
-				struct ibv_kern_qp_attr *src);
+				struct ib_uverbs_qp_attr *src);
 
 void ibv_copy_ah_attr_from_kern(struct ibv_ah_attr *dst,
-				struct ibv_kern_ah_attr *src);
+				struct ib_uverbs_ah_attr *src);
 
 void ibv_copy_path_rec_from_kern(struct ibv_sa_path_rec *dst,
 				 struct ib_user_path_rec *src);
@@ -60,6 +54,8 @@ void ibv_copy_path_rec_from_kern(struct ibv_sa_path_rec *dst,
 void ibv_copy_path_rec_to_kern(struct ib_user_path_rec *dst,
 			       struct ibv_sa_path_rec *src);
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* INFINIBAND_MARSHALL_H */

@@ -1,6 +1,8 @@
 rdma_man_pages(
   ibv_alloc_mw.3
+  ibv_alloc_parent_domain.3
   ibv_alloc_pd.3
+  ibv_alloc_td.3
   ibv_asyncwatch.1
   ibv_attach_mcast.3
   ibv_bind_mw.3
@@ -9,6 +11,7 @@ rdma_man_pages(
   ibv_create_comp_channel.3
   ibv_create_cq.3
   ibv_create_cq_ex.3
+  ibv_modify_cq.3
   ibv_create_flow.3
   ibv_create_qp.3
   ibv_create_qp_ex.3
@@ -36,6 +39,7 @@ rdma_man_pages(
   ibv_poll_cq.3
   ibv_post_recv.3
   ibv_post_send.3
+  ibv_post_srq_ops.3
   ibv_post_srq_recv.3
   ibv_query_device.3
   ibv_query_device_ex.3
@@ -60,6 +64,7 @@ rdma_man_pages(
 rdma_alias_man_pages(
   ibv_alloc_mw.3 ibv_dealloc_mw.3
   ibv_alloc_pd.3 ibv_dealloc_pd.3
+  ibv_alloc_td.3 ibv_dealloc_td.3
   ibv_attach_mcast.3 ibv_detach_mcast.3
   ibv_create_ah.3 ibv_destroy_ah.3
   ibv_create_ah_from_wc.3 ibv_init_ah_from_wc.3

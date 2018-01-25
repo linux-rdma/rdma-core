@@ -10,8 +10,8 @@
 # Provides:       ibacm
 # Default-Start: 2 3 4 5
 # Default-Stop: 0 1 6
-# Required-Start: @rdmascript@ $network
-# Required-Stop: @rdmascript@ $network
+# Required-Start: $network $remote_fs
+# Required-Stop: $network $remote_fs
 # Should-Start:
 # Should-Stop:
 # Short-Description: Starts and stops the InfiniBand ACM service
@@ -35,15 +35,15 @@ if [ -s /etc/init.d/functions ]; then
 elif [ -s /lib/lsb/init-functions ]; then
 	# SLES / OpenSuSE / Debian
 	. /lib/lsb/init-functions
-	_daemon()   { /sbin/start_daemon ${1+"$@"}; }
-        _checkpid() { checkproc -p $pidfile @prefix@/sbin/ibacm; }
+	_daemon()   { start_daemon "$@"; }
+        _checkpid() { checkproc -p $pidfile @CMAKE_INSTALL_FULL_SBINDIR@/ibacm; }
 	_success()  { log_success_msg; }
 	_failure()  { log_failure_msg; }
 elif [ -s /etc/rc.status ]; then
 	# Older SuSE
 	. /etc/rc.status
 	_daemon()   { /sbin/start_daemon ${1+"$@"}; }
-        _checkpid() { checkproc -p $pidfile @prefix@/sbin/ibacm; }
+        _checkpid() { checkproc -p $pidfile @CMAKE_INSTALL_FULL_SBINDIR@/ibacm; }
 	_success()  { rc_status -v; }
 	_failure()  { rc_status -v; }
 fi	
@@ -51,7 +51,7 @@ fi
 start()
 {
     echo -n "Starting ibacm daemon:"
-    _daemon @prefix@/sbin/ibacm
+    _daemon @CMAKE_INSTALL_FULL_SBINDIR@/ibacm
     if [[ $RETVAL -eq 0 ]]; then
         _success
     else

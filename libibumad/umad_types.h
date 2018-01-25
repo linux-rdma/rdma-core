@@ -41,14 +41,8 @@
 #include <infiniband/umad.h>
 
 #ifdef __cplusplus
-#  define BEGIN_C_DECLS extern "C" {
-#  define END_C_DECLS   }
-#else				/* !__cplusplus */
-#  define BEGIN_C_DECLS
-#  define END_C_DECLS
-#endif				/* __cplusplus */
-
-BEGIN_C_DECLS
+extern "C" {
+#endif
 
 #define UMAD_BASE_VERSION		1
 #define UMAD_QKEY			0x80010000
@@ -119,6 +113,7 @@ enum {
 enum {
 	UMAD_LEN_DATA			= 232,
 	UMAD_LEN_RMPP_DATA		= 220,
+	UMAD_LEN_DM_DATA		= 192,
 	UMAD_LEN_VENDOR_DATA		= 216,
 };
 
@@ -127,12 +122,12 @@ struct umad_hdr {
 	uint8_t	 mgmt_class;
 	uint8_t	 class_version;
 	uint8_t	 method;
-	be16_t   status;
-	be16_t   class_specific;
-	be64_t   tid;
-	be16_t   attr_id;
-	be16_t   resv;
-	be32_t   attr_mod;
+	__be16   status;
+	__be16   class_specific;
+	__be64   tid;
+	__be16   attr_id;
+	__be16   resv;
+	__be32   attr_mod;
 };
 
 struct umad_rmpp_hdr {
@@ -140,8 +135,8 @@ struct umad_rmpp_hdr {
 	uint8_t	 rmpp_type;
 	uint8_t	 rmpp_rtime_flags;
 	uint8_t	 rmpp_status;
-	be32_t   seg_num;
-	be32_t   paylen_newwin;
+	__be32   seg_num;
+	__be32   paylen_newwin;
 };
 
 struct umad_packet {
@@ -153,6 +148,12 @@ struct umad_rmpp_packet {
 	struct umad_hdr		mad_hdr;
 	struct umad_rmpp_hdr	rmpp_hdr;
 	uint8_t			data[UMAD_LEN_RMPP_DATA]; /* network-byte order */
+};
+
+struct umad_dm_packet {
+	struct umad_hdr		mad_hdr;
+	uint8_t			reserved[40];
+	uint8_t			data[UMAD_LEN_DM_DATA];	/* network-byte order */
 };
 
 struct umad_vendor_packet {
@@ -173,32 +174,40 @@ enum {
 struct umad_class_port_info {
 	uint8_t base_ver;
 	uint8_t class_ver;
-	be16_t  cap_mask;
-	be32_t  cap_mask2_resp_time;
-	uint8_t redir_gid[16]; /* network byte order */
-	be32_t  redir_tc_sl_fl;
-	be16_t  redir_lid;
-	be16_t  redir_pkey;
-	be32_t  redir_qp;
-	be32_t  redir_qkey;
-	uint8_t trap_gid[16]; /* network byte order */
-	be32_t  trap_tc_sl_fl;
-	be16_t  trap_lid;
-	be16_t  trap_pkey;
-	be32_t  trap_hl_qp;
-	be32_t  trap_qkey;
+	__be16  cap_mask;
+	__be32  cap_mask2_resp_time;
+	union {
+		uint8_t redir_gid[16] __attribute__((deprecated)); /* network byte order */
+		union umad_gid redirgid;
+	};
+	__be32  redir_tc_sl_fl;
+	__be16  redir_lid;
+	__be16  redir_pkey;
+	__be32  redir_qp;
+	__be32  redir_qkey;
+	union {
+		uint8_t trap_gid[16] __attribute__((deprecated)); /* network byte order */
+		union umad_gid trapgid;
+	};
+	__be32  trap_tc_sl_fl;
+	__be16  trap_lid;
+	__be16  trap_pkey;
+	__be32  trap_hl_qp;
+	__be32  trap_qkey;
 };
 static inline uint32_t
 umad_class_cap_mask2(struct umad_class_port_info *cpi)
 {
-	return (ntohl(cpi->cap_mask2_resp_time) >> 5);
+	return (be32toh(cpi->cap_mask2_resp_time) >> 5);
 }
 static inline uint8_t
 umad_class_resp_time(struct umad_class_port_info *cpi)
 {
-	return (uint8_t)(ntohl(cpi->cap_mask2_resp_time)
+	return (uint8_t)(be32toh(cpi->cap_mask2_resp_time)
 			 & UMAD_CLASS_RESP_TIME_MASK);
 }
 
-END_C_DECLS
+#ifdef __cplusplus
+}
+#endif
 #endif				/* _UMAD_TYPES_H */

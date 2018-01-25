@@ -29,7 +29,7 @@ struct ibv_cq          *send_cq;        /* CQ to be associated with the Send Que
 struct ibv_cq          *recv_cq;        /* CQ to be associated with the Receive Queue (RQ) */
 struct ibv_srq         *srq;            /* SRQ handle if QP is to be associated with an SRQ, otherwise NULL */
 struct ibv_qp_cap       cap;            /* QP capabilities */
-enum ibv_qp_type        qp_type;        /* QP Transport Service Type: IBV_QPT_RC, IBV_QPT_UC, IBV_QPT_UD or IBV_QPT_RAW_PACKET */
+enum ibv_qp_type        qp_type;        /* QP Transport Service Type: IBV_QPT_RC, IBV_QPT_UC, IBV_QPT_UD, IBV_QPT_RAW_PACKET or IBV_QPT_DRIVER */
 int                     sq_sig_all;     /* If set, each Work Request (WR) submitted to the SQ generates a completion entry */
 uint32_t                comp_mask;	/* Identifies valid fields */
 struct ibv_pd          *pd;		/* PD to be associated with the QP */
@@ -38,6 +38,7 @@ enum ibv_qp_create_flags create_flags;	/* Creation flags for this QP */
 uint16_t                max_tso_header; /* Maximum TSO header size */
 struct ibv_rwq_ind_table *rwq_ind_tbl;  /* Indirection table to be associated with the QP */
 struct ibv_rx_hash_conf  rx_hash_conf;  /* RX hash configuration to be used */
+uint32_t                source_qpn;     /* Source QP number, creation flag IBV_QP_CREATE_SOURCE_QPN should be set, few NOTEs below */
 .in -8
 };
 .sp
@@ -52,6 +53,16 @@ uint32_t                max_inline_data;/* Requested max number of data (bytes) 
 .in -8
 };
 .nf
+enum ibv_qp_create_flags {
+.in +8
+IBV_QP_CREATE_BLOCK_SELF_MCAST_LB       = 1 << 1, /* Prevent self multicast loopback */
+IBV_QP_CREATE_SCATTER_FCS               = 1 << 8, /* FCS field will be scattered to host memory */
+IBV_QP_CREATE_CVLAN_STRIPPING           = 1 << 9, /* CVLAN field will be stripped from incoming packets */
+IBV_QP_CREATE_SOURCE_QPN                = 1 << 10, /* The created QP will use the source_qpn as its wire QP number */
+IBV_QP_CREATE_PCI_WRITE_END_PADDING     = 1 << 11, /* Incoming packets will be padded to cacheline size */
+.in -8
+};
+.nf
 struct ibv_rx_hash_conf {
 .in +8
 uint8_t                rx_hash_function;       /* RX hash function, use enum ibv_rx_hash_function_flags */
@@ -61,6 +72,26 @@ uint64_t               rx_hash_fields_mask;    /* RX fields that should particip
 .in -8
 };
 .fi
+
+.nf
+enum ibv_rx_hash_fields {
+.in +8
+IBV_RX_HASH_SRC_IPV4            = 1 << 0,
+IBV_RX_HASH_DST_IPV4            = 1 << 1,
+IBV_RX_HASH_SRC_IPV6            = 1 << 2,
+IBV_RX_HASH_DST_IPV6            = 1 << 3,
+IBV_RX_HASH_SRC_PORT_TCP        = 1 << 4,
+IBV_RX_HASH_DST_PORT_TCP        = 1 << 5,
+IBV_RX_HASH_SRC_PORT_UDP        = 1 << 6,
+IBV_RX_HASH_DST_PORT_UDP        = 1 << 7,
+/* When using tunneling protocol, e.g. VXLAN, then we have an inner (encapsulated packet) and outer.
+ * For applying RSS on the inner packet, then the following field should be set with one of the L3/L4 fields.
+*/
+IBV_RX_HASH_INNER		= (1UL << 31),
+.in -8
+};
+.fi
+
 .PP
 The function
 .B ibv_create_qp_ex()
@@ -85,8 +116,13 @@ The attributes max_recv_wr and max_recv_sge are ignored by
 .B ibv_create_qp_ex()
 if the QP is to be associated with an SRQ.
 .PP
+The attribute source_qpn is supported only on UD QP, without flow steering RX should not be possible.
+.PP
 .B ibv_destroy_qp()
 fails if the QP is attached to a multicast group.
+.PP
+.B IBV_QPT_DRIVER
+does not represent a specific service and is used for vendor specific QP logic.
 .SH "SEE ALSO"
 .BR ibv_alloc_pd (3),
 .BR ibv_modify_qp (3),

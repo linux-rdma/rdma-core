@@ -15,4 +15,39 @@
 #define uninitialized_var(x) x = x
 #endif
 
+#ifndef likely
+#ifdef __GNUC__
+#define likely(x)       __builtin_expect(!!(x), 1)
+#else
+#define likely(x)      (x)
+#endif
+#endif
+
+#ifndef unlikely
+#ifdef __GNUC__
+#define unlikely(x)      __builtin_expect(!!(x), 0)
+#else
+#define unlikely(x)    (x)
+#endif
+#endif
+
+#ifdef HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
+#define ALWAYS_INLINE __attribute__((always_inline))
+#else
+#define ALWAYS_INLINE
+#endif
+
+/* Use to mark fall through on switch statements as desired. */
+#if __GNUC__ >= 7
+#define SWITCH_FALLTHROUGH __attribute__ ((fallthrough))
+#else
+#define SWITCH_FALLTHROUGH
+#endif
+
+#ifdef __CHECKER__
+# define __force __attribute__((force))
+#else
+# define __force
+#endif
+
 #endif

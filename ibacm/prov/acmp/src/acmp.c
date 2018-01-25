@@ -30,6 +30,7 @@
 
 #include <config.h>
 
+#include <endian.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -112,7 +113,7 @@ struct acmp_dest {
 	struct ibv_ah_attr     av;
 	struct ibv_path_record path;
 	union ibv_gid          mgid;
-	uint64_t               req_id;
+	__be64                 req_id;
 	struct list_head       req_queue;
 	uint32_t               remote_qpn;
 	pthread_mutex_t        lock;
@@ -147,7 +148,7 @@ struct acmp_device {
 	const struct acm_device *device;
 	struct ibv_comp_channel *channel;
 	struct ibv_pd           *pd;
-	uint64_t                guid;
+	__be64                  guid;
 	struct list_node        entry;
 	pthread_t               comp_thread_id;
 	int                     port_cnt;
@@ -174,7 +175,7 @@ struct acmp_ep {
 	struct ibv_mr         *mr;
 	uint8_t               *recv_bufs;
 	struct list_node      entry;
-	char		      id_string[ACM_MAX_ADDRESS];
+	char		      id_string[IBV_SYSFS_NAME_MAX + 11];
 	void                  *dest_map[ACM_ADDRESS_RESERVED - 1];
 	struct acmp_dest      mc_dest[MAX_EP_MC];
 	int                   mc_cnt;
@@ -570,7 +571,7 @@ static void acmp_complete_send(struct acmp_send_msg *msg)
 	pthread_mutex_unlock(&ep->lock);
 }
 
-static struct acmp_send_msg *acmp_get_request(struct acmp_ep *ep, uint64_t tid, int *free)
+static struct acmp_send_msg *acmp_get_request(struct acmp_ep *ep, __be64 tid, int *free)
 {
 	struct acmp_send_msg *msg, *next, *req = NULL;
 	struct acm_mad *mad;
@@ -636,9 +637,9 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 {
 	uint32_t sl_flow_hop;
 
-	sl_flow_hop = ntohl(mc_rec->sl_flow_hop);
+	sl_flow_hop = be32toh(mc_rec->sl_flow_hop);
 
-	dest->av.dlid = ntohs(mc_rec->mlid);
+	dest->av.dlid = be16toh(mc_rec->mlid);
 	dest->av.sl = (uint8_t) (sl_flow_hop >> 28);
 	dest->av.src_path_bits = port->sa_dest.av.src_path_bits;
 	dest->av.static_rate = mc_rec->rate & 0x3F;
@@ -655,12 +656,12 @@ acmp_record_mc_av(struct acmp_port *port, struct ib_mc_member_rec *mc_rec,
 	dest->path.dgid = mc_rec->mgid;
 	dest->path.sgid = mc_rec->port_gid;
 	dest->path.dlid = mc_rec->mlid;
-	dest->path.slid = htons(port->lid) | port->sa_dest.av.src_path_bits;
-	dest->path.flowlabel_hoplimit = htonl(sl_flow_hop & 0xFFFFFFF);
+	dest->path.slid = htobe16(port->lid | port->sa_dest.av.src_path_bits);
+	dest->path.flowlabel_hoplimit = htobe32(sl_flow_hop & 0xFFFFFFF);
 	dest->path.tclass = mc_rec->tclass;
 	dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE | 1;
 	dest->path.pkey = mc_rec->pkey;
-	dest->path.qosclass_sl = htons((uint16_t) (sl_flow_hop >> 28));
+	dest->path.qosclass_sl = htobe16((uint16_t) (sl_flow_hop >> 28));
 	dest->path.mtu = mc_rec->mtu;
 	dest->path.rate = mc_rec->rate;
 	dest->path.packetlifetime = mc_rec->packet_lifetime;
@@ -672,13 +673,13 @@ acmp_init_path_av(struct acmp_port *port, struct acmp_dest *dest)
 {
 	uint32_t flow_hop;
 
-	dest->av.dlid = ntohs(dest->path.dlid);
-	dest->av.sl = ntohs(dest->path.qosclass_sl) & 0xF;
-	dest->av.src_path_bits = dest->path.slid & 0x7F;
+	dest->av.dlid = be16toh(dest->path.dlid);
+	dest->av.sl = be16toh(dest->path.qosclass_sl) & 0xF;
+	dest->av.src_path_bits = be16toh(dest->path.slid) & 0x7F;
 	dest->av.static_rate = dest->path.rate & 0x3F;
 	dest->av.port_num = port->port_num;
 
-	flow_hop = ntohl(dest->path.flowlabel_hoplimit);
+	flow_hop = be32toh(dest->path.flowlabel_hoplimit);
 	dest->av.is_global = 1;
 	dest->av.grh.flow_label = (flow_hop >> 8) & 0xFFFFF;
 	pthread_mutex_lock(&port->lock);
@@ -731,7 +732,7 @@ static void acmp_process_join_resp(struct acm_sa_mad *sa_mad)
 			acm_log(0, "ERROR - unable to create ah\n");
 			goto out;
 		}
-		ret = ibv_attach_mcast(ep->qp, &mc_rec->mgid, mc_rec->mlid);
+		ret = ibv_attach_mcast(ep->qp, &dest->mgid, dest->av.dlid);
 		if (ret) {
 			acm_log(0, "ERROR - unable to attach QP to multicast group\n");
 			ibv_destroy_ah(dest->ah);
@@ -766,7 +767,7 @@ acmp_record_acm_route(struct acmp_ep *ep, struct acmp_dest *dest)
 
 	dest->path = ep->mc_dest[i].path;
 	dest->path.dgid = dest->av.grh.dgid;
-	dest->path.dlid = htons(dest->av.dlid);
+	dest->path.dlid = htobe16(dest->av.dlid);
 	dest->addr_timeout = time_stamp_min() + (unsigned) addr_timeout;
 	dest->route_timeout = time_stamp_min() + (unsigned) route_timeout;
 	dest->state = ACMP_READY;
@@ -780,7 +781,7 @@ static void acmp_init_path_query(struct ib_sa_mad *mad)
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_GET;
-	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
+	mad->tid = htobe64((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_PATH_REC;
 }
 
@@ -859,12 +860,12 @@ acmp_record_path_addr(struct acmp_ep *ep, struct acmp_dest *dest,
 	struct ibv_path_record *path)
 {
 	acm_log(2, "%s\n", dest->name);
-	dest->path.pkey = htons(ep->pkey);
+	dest->path.pkey = htobe16(ep->pkey);
 	dest->path.dgid = path->dgid;
 	if (path->slid) {
 		dest->path.slid = path->slid;
 	} else {
-		dest->path.slid = htons(ep->port->lid);
+		dest->path.slid = htobe16(ep->port->lid);
 	}
 	if (!ib_any_gid(&path->sgid)) {
 		dest->path.sgid = path->sgid;
@@ -988,7 +989,7 @@ acmp_dest_sa_resp(struct acm_sa_mad *mad)
 	uint8_t status;
 
 	if (!mad->umad.status) {
-		status = (uint8_t) (ntohs(sa_mad->status) >> 8);
+		status = (uint8_t) (be16toh(sa_mad->status) >> 8);
 	} else {
 		status = ACM_STATUS_ETIMEDOUT;
 	}
@@ -1217,7 +1218,7 @@ acmp_sa_resp(struct acm_sa_mad *mad)
 
 	req->msg.hdr.opcode |= ACM_OP_ACK;
 	if (!mad->umad.status) {
-		req->msg.hdr.status = (uint8_t) (ntohs(sa_mad->status) >> 8);
+		req->msg.hdr.status = (uint8_t) (be16toh(sa_mad->status) >> 8);
 		memcpy(&req->msg.resolve_data[0].info.path, sa_mad->data,
 		       sizeof(struct ibv_path_record));
 	} else {
@@ -1367,7 +1368,7 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 	mad->mgmt_class = IB_MGMT_CLASS_SA;
 	mad->class_version = 2;
 	mad->method = IB_METHOD_SET;
-	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
+	mad->tid = htobe64((uint64_t) atomic_inc(&g_tid));
 	mad->attr_id = IB_SA_ATTR_MC_MEMBER_REC;
 	mad->comp_mask =
 		IB_COMP_MASK_MC_MGID | IB_COMP_MASK_MC_PORT_GID |
@@ -1379,12 +1380,12 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
 	acmp_format_mgid(&mc_rec->mgid, pkey | 0x8000, tos, rate, mtu);
 	mc_rec->port_gid = *port_gid;
-	mc_rec->qkey = htonl(ACM_QKEY);
+	mc_rec->qkey = htobe32(ACM_QKEY);
 	mc_rec->mtu = 0x80 | mtu;
 	mc_rec->tclass = tclass;
-	mc_rec->pkey = htons(pkey);
+	mc_rec->pkey = htobe16(pkey);
 	mc_rec->rate = 0x80 | rate;
-	mc_rec->sl_flow_hop = htonl(((uint32_t) sl) << 28);
+	mc_rec->sl_flow_hop = htobe32(((uint32_t) sl) << 28);
 	mc_rec->scope_state = 0x51;
 }
 
@@ -1428,7 +1429,7 @@ static void acmp_ep_join(struct acmp_ep *ep)
 
 	if (ep->mc_dest[0].state == ACMP_READY && ep->mc_dest[0].ah) {
 		ibv_detach_mcast(ep->qp, &ep->mc_dest[0].mgid,
-				 ntohs(ep->mc_dest[0].av.dlid));
+				 ep->mc_dest[0].av.dlid);
 		ibv_destroy_ah(ep->mc_dest[0].ah);
 		ep->mc_dest[0].ah = NULL;
 	}
@@ -1506,7 +1507,7 @@ static void acmp_process_wait_queue(struct acmp_ep *ep, uint64_t *next_expire)
 	struct ibv_send_wr *bad_wr;
 
 	list_for_each_safe(&ep->wait_queue, msg, next, entry) {
-		if (msg->expires < time_stamp_ms()) {
+		if (msg->expires <= time_stamp_ms()) {
 			list_del(&msg->entry);
 			(void) atomic_dec(&wait_cnt);
 			if (--msg->tries) {
@@ -1578,10 +1579,12 @@ static void *acmp_retry_handler(void *context)
 		pthread_mutex_unlock(&acmp_dev_lock);
 
 		acmp_process_timeouts();
-		wait = (int) (next_expire - time_stamp_ms());
-		if (wait > 0 && atomic_get(&wait_cnt)) {
-			pthread_testcancel();
-			event_wait(&timeout_event, wait);
+		if (next_expire != -1) {
+			wait = (int) (next_expire - time_stamp_ms());
+			if (wait > 0 && atomic_get(&wait_cnt)) {
+				pthread_testcancel();
+				event_wait(&timeout_event, wait);
+			}
 		}
 	}
 
@@ -1673,7 +1676,7 @@ acmp_send_resolve(struct acmp_ep *ep, struct acmp_dest *dest,
 	mad->class_version = 1;
 	mad->method = IB_METHOD_GET;
 	mad->control = ACM_CTRL_RESOLVE;
-	mad->tid = htonll((uint64_t) atomic_inc(&g_tid));
+	mad->tid = htobe64((uint64_t) atomic_inc(&g_tid));
 
 	rec = (struct acm_resolve_rec *) mad->data;
 	rec->src_type = (uint8_t) saddr->type;
@@ -1878,7 +1881,7 @@ acmp_resolve_path(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 	addr = msg->resolve_data[1].info.addr;
 	memset(addr, 0, ACM_MAX_ADDRESS);
 	if (path->dlid) {
-		* ((uint16_t *) addr) = path->dlid;
+		* ((__be16 *) addr) = path->dlid;
 		dest = acmp_acquire_dest(ep, ACM_ADDRESS_LID, addr);
 	} else {
 		memcpy(addr, &path->dgid, sizeof path->dgid);
@@ -1957,7 +1960,7 @@ static void acmp_query_perf(void *ep_context, uint64_t *values, uint8_t *cnt)
 	int i;
 
 	for (i = 0; i < ACM_MAX_COUNTER; i++)
-		values[i] = htonll((uint64_t) atomic_get(&ep->counters[i]));
+		values[i] = htobe64((uint64_t) atomic_get(&ep->counters[i]));
 	*cnt = ACM_MAX_COUNTER;
 }
 
@@ -2038,7 +2041,7 @@ err:
 }
 
 /* Parse "opensm full v1" file to build LID to GUID table */
-static void acmp_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
+static void acmp_parse_osm_fullv1_lid2guid(FILE *f, __be64 *lid2guid)
 {
 	char s[128];
 	char *p, *ptr, *p_guid, *p_lid;
@@ -2082,12 +2085,12 @@ static void acmp_parse_osm_fullv1_lid2guid(FILE *f, uint64_t *lid2guid)
 		if (lid2guid[lid])
 			acm_log(0, "ERROR - duplicate lid %u\n", lid);
 		else
-			lid2guid[lid] = htonll(guid);
+			lid2guid[lid] = htobe64(guid);
 	}
 }
 
 /* Parse 'opensm full v1' file to populate PR cache */
-static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_ep *ep)
+static int acmp_parse_osm_fullv1_paths(FILE *f, __be64 *lid2guid, struct acmp_ep *ep)
 {
 	union ibv_gid sgid, dgid;
 	struct ibv_port_attr attr = {};
@@ -2095,7 +2098,8 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 	char s[128];
 	char *p, *ptr, *p_guid, *p_lid;
 	uint64_t guid;
-	uint16_t lid, dlid, net_dlid;
+	uint16_t lid, dlid;
+	__be16 net_dlid;
 	int sl, mtu, rate;
 	int ret = 1, i;
 	uint8_t addr[ACM_MAX_ADDRESS];
@@ -2126,7 +2130,7 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 			continue;
 
 		guid = (uint64_t) strtoull(p_guid, NULL, 16);
-		if (guid != ntohll(sgid.global.interface_id))
+		if (guid != be64toh(sgid.global.interface_id))
 			continue;
 
 		ptr = strstr(ptr, "base LID");
@@ -2158,7 +2162,7 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 			break;
 
 		dlid = strtoul(p, NULL, 0);
-		net_dlid = htons(dlid);
+		net_dlid = htobe16(dlid);
 
 		p = strtok_r(NULL, ":", &ptr);
 		if (!p)
@@ -2201,14 +2205,14 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 			}
 
 			dest->path.sgid = sgid;
-			dest->path.slid = htons(ep->port->lid);
+			dest->path.slid = htobe16(ep->port->lid);
 			dest->path.dgid = dgid;
 			dest->path.dlid = net_dlid;
 			dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE;
-			dest->path.pkey = htons(ep->pkey);
+			dest->path.pkey = htobe16(ep->pkey);
 			dest->path.mtu = (uint8_t) mtu;
 			dest->path.rate = (uint8_t) rate;
-			dest->path.qosclass_sl = htons((uint16_t) sl & 0xF);
+			dest->path.qosclass_sl = htobe16((uint16_t) sl & 0xF);
 			if (dlid == ep->port->lid) {
 				dest->path.packetlifetime = 0;
 				dest->addr_timeout = (uint64_t)~0ULL;
@@ -2230,7 +2234,7 @@ static int acmp_parse_osm_fullv1_paths(FILE *f, uint64_t *lid2guid, struct acmp_
 static int acmp_parse_osm_fullv1(struct acmp_ep *ep)
 {
 	FILE *f;
-	uint64_t *lid2guid;
+	__be64 *lid2guid;
 	int ret = 1;
 
 	if (!(f = fopen(route_data_file, "r"))) {
@@ -2309,9 +2313,9 @@ static void acmp_parse_hosts_file(struct acmp_ep *ep)
 			memcpy(&dest->path.dgid, &ib_addr, 16);
 			//ibv_query_gid(ep->port->dev->verbs, ep->port->port_num,
 			//		0, &dest->path.sgid);
-			dest->path.slid = htons(ep->port->lid);
+			dest->path.slid = htobe16(ep->port->lid);
 			dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE;
-			dest->path.pkey = htons(ep->pkey);
+			dest->path.pkey = htobe16(ep->pkey);
 			dest->state = ACMP_ADDR_RESOLVED;
 		}
 
@@ -2388,9 +2392,9 @@ static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
 
 	acm_get_gid((struct acm_port *) ep->port->port, 0, &dest->path.sgid);
 	dest->path.dgid = dest->path.sgid;
-	dest->path.dlid = dest->path.slid = htons(ep->port->lid);
+	dest->path.dlid = dest->path.slid = htobe16(ep->port->lid);
 	dest->path.reversible_numpath = IBV_PATH_RECORD_REVERSIBLE;
-	dest->path.pkey = htons(ep->pkey);
+	dest->path.pkey = htobe16(ep->pkey);
 	dest->path.mtu = (uint8_t) ep->port->mtu;
 	dest->path.rate = (uint8_t) ep->port->rate;
 
@@ -2418,8 +2422,8 @@ static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
 	struct acmp_device *dev;
 
 	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
-		endpoint->port->dev->dev_guid, endpoint->port->port_num,
-		endpoint->pkey);
+		be64toh(endpoint->port->dev->dev_guid),
+		endpoint->port->port_num, endpoint->pkey);
 
 	list_for_each(&acmp_dev_list, dev, entry) {
 		if (dev->guid == endpoint->port->dev->dev_guid)
@@ -2435,7 +2439,8 @@ acmp_get_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	struct acmp_ep *ep;
 
 	acm_log(1, "dev 0x%" PRIx64 " port %d pkey 0x%x\n",
-		endpoint->port->dev->dev_guid, endpoint->port->port_num, endpoint->pkey);
+		be64toh(endpoint->port->dev->dev_guid),
+		endpoint->port->port_num, endpoint->pkey);
 
 	list_for_each(&port->ep_list, ep, entry) {
 		if (ep->pkey == endpoint->pkey)
@@ -2449,7 +2454,8 @@ static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 {
 	struct acmp_port *port;
 	int ret;
-	uint16_t pkey, i;
+	__be16 pkey;
+	uint16_t i;
 
 	port = acmp_get_port(endpoint);
 	if (!port)
@@ -2457,7 +2463,7 @@ static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 
 	for (i = 0, ret = 0; !ret; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
-		if (!ret && endpoint->pkey == pkey)
+		if (!ret && endpoint->pkey == be16toh(pkey))
 			return i;
 	}
 	return 0;
@@ -2612,7 +2618,9 @@ err0:
 static void acmp_port_up(struct acmp_port *port)
 {
 	struct ibv_port_attr attr;
-	uint16_t pkey, sm_lid;
+	uint16_t pkey;
+	__be16 pkey_be;
+	__be16 sm_lid;
 	int i, ret;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
@@ -2635,17 +2643,17 @@ static void acmp_port_up(struct acmp_port *port)
 	port->sa_dest.av.sl = attr.sm_sl;
 	port->sa_dest.av.port_num = port->port_num;
 	port->sa_dest.remote_qpn = 1;
-	sm_lid = htons(attr.sm_lid);
+	sm_lid = htobe16(attr.sm_lid);
 	acmp_set_dest_addr(&port->sa_dest, ACM_ADDRESS_LID,
 			   (uint8_t *) &sm_lid, sizeof(sm_lid));
 
 	atomic_set(&port->sa_dest.refcnt, 1);
 	port->sa_dest.state = ACMP_READY;
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
-		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
+		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey_be);
 		if (ret)
 			continue;
-		pkey = ntohs(pkey);
+		pkey = be16toh(pkey_be);
 		if (!(pkey & 0x7fff))
 			continue;
 
@@ -2735,13 +2743,13 @@ static int acmp_open_dev(const struct acm_device *device, void **dev_context)
 	int i, ret;
 	struct ibv_context *verbs;
 
-	acm_log(1, "dev_guid 0x%" PRIx64 " %s\n", device->dev_guid,
+	acm_log(1, "dev_guid 0x%" PRIx64 " %s\n", be64toh(device->dev_guid),
 		device->verbs->device->name);
 
 	list_for_each(&acmp_dev_list, dev, entry) {
 		if (dev->guid == device->dev_guid) {
 			acm_log(2, "dev_guid 0x%" PRIx64 " already exits\n",
-				device->dev_guid);
+				be64toh(device->dev_guid));
 			*dev_context = dev;
 			dev->device = device;
 			return 0;
@@ -2822,7 +2830,7 @@ static void acmp_close_dev(void *dev_context)
 {
 	struct acmp_device *dev = dev_context;
 
-	acm_log(1, "dev_guid 0x%" PRIx64 "\n", dev->device->dev_guid);
+	acm_log(1, "dev_guid 0x%" PRIx64 "\n", be64toh(dev->device->dev_guid));
 	dev->device = NULL;
 }
 
@@ -2921,25 +2929,6 @@ static void __attribute__((constructor)) acmp_init(void)
 	}
 
 	acmp_initialized = 1;
-}
-
-static void __attribute__((destructor)) acmp_exit(void)
-{
-	acm_log(1, "Unloading...\n");
-	if (retry_thread_started) {
-		if (pthread_cancel(retry_thread_id)) {
-			acm_log(0, "Error: failed to cancel the retry thread\n");
-			return;
-		}
-		if (pthread_join(retry_thread_id, NULL)) {
-			acm_log(0, "Error: failed to join the retry thread\n");
-			return;
-		}
-		retry_thread_started = 0;
-	}
-
-	umad_done();
-	acmp_initialized = 0;
 }
 
 int provider_query(struct acm_provider **provider, uint32_t *version)

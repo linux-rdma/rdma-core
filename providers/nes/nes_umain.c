@@ -55,24 +55,15 @@ long int page_size;
 #define PCI_VENDOR_ID_NETEFFECT		0x1678
 #endif
 
-#define HCA(v, d, t)                            \
-	{ .vendor = PCI_VENDOR_ID_##v,              \
-	  .device = d,    \
-	  .type = NETEFFECT_##t }
-
-static struct {
-	unsigned vendor;
-	unsigned device;
-	enum nes_uhca_type type;
-} hca_table[] = {
+#define HCA(v, d, t)                                                           \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, (void *)(NETEFFECT_##t))
+static const struct verbs_match_ent hca_table[] = {
 	HCA(NETEFFECT, 0x0100, nes),
 	HCA(NETEFFECT, 0x0110, nes),
+	{},
 };
 
-static struct ibv_context *nes_ualloc_context(struct ibv_device *, int);
-static void nes_ufree_context(struct ibv_context *);
-
-static struct ibv_context_ops nes_uctx_ops = {
+static const struct verbs_context_ops nes_uctx_ops = {
 	.query_device = nes_uquery_device,
 	.query_port = nes_uquery_port,
 	.alloc_pd = nes_ualloc_pd,
@@ -85,11 +76,6 @@ static struct ibv_context_ops nes_uctx_ops = {
 	.cq_event = nes_cq_event,
 	.resize_cq = nes_uresize_cq,
 	.destroy_cq = nes_udestroy_cq,
-	.create_srq = NULL,
-	.modify_srq = NULL,
-	.query_srq = NULL,
-	.destroy_srq = NULL,
-	.post_srq_recv = NULL,
 	.create_qp = nes_ucreate_qp,
 	.query_qp = nes_uquery_qp,
 	.modify_qp = nes_umodify_qp,
@@ -103,11 +89,16 @@ static struct ibv_context_ops nes_uctx_ops = {
 	.async_event = nes_async_event
 };
 
+static const struct verbs_context_ops nes_uctx_no_db_ops = {
+	.poll_cq = nes_upoll_cq_no_db_read,
+};
+
 
 /**
  * nes_ualloc_context
  */
-static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_fd)
+static struct verbs_context *nes_ualloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct ibv_pd *ibv_pd;
 	struct nes_uvcontext *nesvctx;
@@ -118,16 +109,14 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 
 	page_size = sysconf(_SC_PAGESIZE);
 
-	nesvctx = malloc(sizeof *nesvctx);
+	nesvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, nesvctx, ibv_ctx);
 	if (!nesvctx)
 		return NULL;
 
-	memset(nesvctx, 0, sizeof *nesvctx);
-	nesvctx->ibv_ctx.cmd_fd = cmd_fd;
 	cmd.userspace_ver = NES_ABI_USERSPACE_VER;
 
 	if (ibv_cmd_get_context(&nesvctx->ibv_ctx, (struct ibv_get_context *)&cmd, sizeof cmd,
-			&resp.ibv_resp, sizeof(resp)))
+				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
 	if (resp.kernel_ver != NES_ABI_KERNEL_VER) {
@@ -144,12 +133,10 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 			sscanf(value, "%d", &nes_drv_opt);
 	}
 
-	nesvctx->ibv_ctx.device = ibdev;
-
+	verbs_set_ops(&nesvctx->ibv_ctx, &nes_uctx_ops);
 	if (nes_drv_opt & NES_DRV_OPT_NO_DB_READ)
-		nes_uctx_ops.poll_cq = nes_upoll_cq_no_db_read;
+		verbs_set_ops(&nesvctx->ibv_ctx, &nes_uctx_no_db_ops);
 
-	nesvctx->ibv_ctx.ops = nes_uctx_ops;
 	nesvctx->max_pds = resp.max_pds;
 	nesvctx->max_qps = resp.max_qps;
 	nesvctx->wq_size = resp.wq_size;
@@ -157,16 +144,17 @@ static struct ibv_context *nes_ualloc_context(struct ibv_device *ibdev, int cmd_
 	nesvctx->mcrqf = 0;
 
 	/* Get a doorbell region for the CQs */
-	ibv_pd = nes_ualloc_pd(&nesvctx->ibv_ctx);
+	ibv_pd = nes_ualloc_pd(&nesvctx->ibv_ctx.context);
 	if (!ibv_pd)
 		goto err_free;
-	ibv_pd->context = &nesvctx->ibv_ctx;
+	ibv_pd->context = &nesvctx->ibv_ctx.context;
 	nesvctx->nesupd = to_nes_upd(ibv_pd);
 
 	return &nesvctx->ibv_ctx;
 
 err_free:
  	fprintf(stderr, PFX "%s: Failed to allocate context for device.\n", __FUNCTION__);
+	verbs_uninit_context(&nesvctx->ibv_ctx);
 	free(nesvctx);
 
 	return NULL;
@@ -181,46 +169,23 @@ static void nes_ufree_context(struct ibv_context *ibctx)
 	struct nes_uvcontext *nesvctx = to_nes_uctx(ibctx);
 	nes_ufree_pd(&nesvctx->nesupd->ibv_pd);
 
+	verbs_uninit_context(&nesvctx->ibv_ctx);
 	free(nesvctx);
 }
 
-
-static struct ibv_device_ops nes_udev_ops = {
-	.alloc_context = nes_ualloc_context,
-	.free_context = nes_ufree_context
-};
-
-
-/**
- * nes_driver_init
- */
-struct ibv_device *nes_driver_init(const char *uverbs_sys_path, int abi_version)
+static void nes_uninit_device(struct verbs_device *verbs_device)
 {
-	char value[16];
+	struct nes_udevice *dev = to_nes_udev(&verbs_device->device);
+
+	free(dev);
+}
+
+static struct verbs_device *
+nes_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
 	struct nes_udevice *dev;
-	unsigned vendor, device;
-	int i;
+	char value[16];
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-			value, sizeof(value)) < 0) {
-		return NULL;
-	}
-	sscanf(value, "%i", &vendor);
-
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-			value, sizeof(value)) < 0) {
-		return NULL;
-	}
-	sscanf(value, "%i", &device);
-
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-				device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
 	if (ibv_read_sysfs_file("/sys/module/iw_nes", "parameters/debug_level",
 			value, sizeof(value)) > 0) {
 		sscanf(value, "%u", &nes_debug_level);
@@ -229,14 +194,11 @@ found:
 			sscanf(value, "%u", &nes_debug_level);
 	}
 
-	dev = malloc(sizeof *dev);
-	if (!dev) {
-		nes_debug(NES_DBG_INIT, "Fatal: couldn't allocate device for libnes\n");
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return NULL;
-	}
 
-	dev->ibv_dev.ops = nes_udev_ops;
-	dev->hca_type = hca_table[i].type;
+	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
 	nes_debug(NES_DBG_INIT, "libnes initialized\n");
@@ -244,13 +206,14 @@ found:
 	return &dev->ibv_dev;
 }
 
-
-/**
- * nes_register_driver
- */
-static __attribute__((constructor)) void nes_register_driver(void)
-{
-	/* fprintf(stderr, PFX "nes_register_driver: call ibv_register_driver()\n"); */
-
-	ibv_register_driver("nes", nes_driver_init);
-}
+static const struct verbs_device_ops nes_udev_ops = {
+	.name = "nes",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = INT_MAX,
+	.match_table = hca_table,
+	.alloc_device = nes_device_alloc,
+	.uninit_device = nes_uninit_device,
+	.alloc_context = nes_ualloc_context,
+	.free_context = nes_ufree_context,
+};
+PROVIDER_DRIVER(nes_udev_ops);

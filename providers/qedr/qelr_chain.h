@@ -33,6 +33,9 @@
 #ifndef __QELR_CHAIN_H__
 #define __QELR_CHAIN_H__
 
+#include <stddef.h>
+#include <stdint.h>
+
 struct qelr_chain {
 	void		*first_addr;	/* Address of first element in chain */
 	void		*last_addr;	/* Address of last element in chain */

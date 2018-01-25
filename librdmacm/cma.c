@@ -43,7 +43,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <endian.h>
-#include <byteswap.h>
 #include <stddef.h>
 #include <netdb.h>
 #include <syslog.h>
@@ -81,7 +80,7 @@ struct cma_device {
 	struct ibv_pd	   *pd;
 	struct ibv_xrcd    *xrcd;
 	struct cma_port    *port;
-	uint64_t	    guid;
+	__be64		    guid;
 	int		    port_cnt;
 	int		    refcnt;
 	int		    max_qpsize;
@@ -115,6 +114,7 @@ struct cma_multicast {
 	uint32_t	handle;
 	union ibv_gid	mgid;
 	uint16_t	mlid;
+	uint16_t	join_flags;
 	struct sockaddr_storage addr;
 };
 
@@ -133,28 +133,6 @@ static int abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
 int af_ib_support;
 static struct index_map ucma_idm;
 static fastlock_t idm_lock;
-
-static void ucma_cleanup(void)
-{
-	ucma_ib_cleanup();
-
-	if (cma_dev_cnt) {
-		while (cma_dev_cnt--) {
-			if (!cma_dev_array[cma_dev_cnt].verbs)
-				continue;
-
-			if (cma_dev_array[cma_dev_cnt].refcnt)
-				ibv_dealloc_pd(cma_dev_array[cma_dev_cnt].pd);
-			ibv_close_device(cma_dev_array[cma_dev_cnt].verbs);
-			free(cma_dev_array[cma_dev_cnt].port);
-			cma_init_cnt--;
-		}
-
-		fastlock_destroy(&idm_lock);
-		free(cma_dev_array);
-		cma_dev_cnt = 0;
-	}
-}
 
 static int check_abi_version(void)
 {
@@ -199,8 +177,8 @@ static void ucma_set_af_ib_support(void)
 
 	memset(&sib, 0, sizeof sib);
 	sib.sib_family = AF_IB;
-	sib.sib_sid = htonll(RDMA_IB_IP_PS_TCP);
-	sib.sib_sid_mask = htonll(RDMA_IB_IP_PS_MASK);
+	sib.sib_sid = htobe64(RDMA_IB_IP_PS_TCP);
+	sib.sib_sid_mask = htobe64(RDMA_IB_IP_PS_MASK);
 	af_ib_support = 1;
 	ret = rdma_bind_addr(id, (struct sockaddr *) &sib);
 	af_ib_support = !ret;
@@ -225,8 +203,10 @@ int ucma_init(void)
 
 	fastlock_init(&idm_lock);
 	ret = check_abi_version();
-	if (ret)
+	if (ret) {
+		ret = ERR(EPERM);
 		goto err1;
+	}
 
 	dev_list = ibv_get_device_list(&dev_cnt);
 	if (!dev_list) {
@@ -262,7 +242,7 @@ err1:
 	return ret;
 }
 
-static struct ibv_context *ucma_open_device(uint64_t guid)
+static struct ibv_context *ucma_open_device(__be64 guid)
 {
 	struct ibv_device **dev_list;
 	struct ibv_context *verbs = NULL;
@@ -378,11 +358,6 @@ void rdma_free_devices(struct ibv_context **list)
 	free(list);
 }
 
-static void __attribute__((destructor)) rdma_cma_fini(void)
-{
-	ucma_cleanup();
-}
-
 struct rdma_event_channel *rdma_create_event_channel(void)
 {
 	struct rdma_event_channel *channel;
@@ -410,7 +385,7 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 	free(channel);
 }
 
-static int ucma_get_device(struct cma_id_private *id_priv, uint64_t guid)
+static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid)
 {
 	struct cma_device *cma_dev;
 	int i, ret;
@@ -718,15 +693,15 @@ static void ucma_convert_path(struct ibv_path_data *path_data,
 	sa_path->slid = path_data->path.slid;
 	sa_path->raw_traffic = 0;
 
-	fl_hop = ntohl(path_data->path.flowlabel_hoplimit);
-	sa_path->flow_label = htonl(fl_hop >> 8);
+	fl_hop = be32toh(path_data->path.flowlabel_hoplimit);
+	sa_path->flow_label = htobe32(fl_hop >> 8);
 	sa_path->hop_limit = (uint8_t) fl_hop;
 
 	sa_path->traffic_class = path_data->path.tclass;
 	sa_path->reversible = path_data->path.reversible_numpath >> 7;
 	sa_path->numb_path = 1;
 	sa_path->pkey = path_data->path.pkey;
-	sa_path->sl = ntohs(path_data->path.qosclass_sl) & 0xF;
+	sa_path->sl = be16toh(path_data->path.qosclass_sl) & 0xF;
 	sa_path->mtu_selector = 2;	/* exactly */
 	sa_path->mtu = path_data->path.mtu & 0x1F;
 	sa_path->rate_selector = 2;
@@ -892,7 +867,7 @@ int ucma_complete(struct rdma_cm_id *id)
 		else if (id_priv->id.event->status < 0)
 			ret = ERR(-id_priv->id.event->status);
 		else
-			ret = ERR(-id_priv->id.event->status);
+			ret = ERR(id_priv->id.event->status);
 	}
 	return ret;
 }
@@ -908,8 +883,8 @@ static int rdma_resolve_addr2(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	CMA_INIT_CMD(&cmd, sizeof cmd, RESOLVE_ADDR);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
-	if ((cmd.src_size = src_len))
-		memcpy(&cmd.src_addr, src_addr, src_len);
+	cmd.src_size = src_len;
+	memcpy(&cmd.src_addr, src_addr, src_len);
 	memcpy(&cmd.dst_addr, dst_addr, dst_len);
 	cmd.dst_size = dst_len;
 	cmd.timeout_ms = timeout_ms;
@@ -1018,7 +993,7 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 			     int *qp_attr_mask)
 {
 	struct ucma_abi_init_qp_attr cmd;
-	struct ibv_kern_qp_attr resp;
+	struct ib_uverbs_qp_attr resp;
 	struct cma_id_private *id_priv;
 	int ret;
 	
@@ -1116,10 +1091,10 @@ static int ucma_modify_qp_err(struct rdma_cm_id *id)
 }
 
 static int ucma_find_pkey(struct cma_device *cma_dev, uint8_t port_num,
-			  uint16_t pkey, uint16_t *pkey_index)
+			  __be16 pkey, uint16_t *pkey_index)
 {
 	int ret, i;
-	uint16_t chk_pkey;
+	__be16 chk_pkey;
 
 	for (i = 0, ret = 0; !ret; i++) {
 		ret = ibv_query_pkey(cma_dev->verbs, port_num, i, &chk_pkey);
@@ -1741,7 +1716,8 @@ int rdma_disconnect(struct rdma_cm_id *id)
 }
 
 static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
-				socklen_t addrlen, void *context)
+				socklen_t addrlen, uint16_t join_flags,
+				void *context)
 {
 	struct ucma_abi_create_id_resp resp;
 	struct cma_id_private *id_priv;
@@ -1755,6 +1731,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 
 	mc->context = context;
 	mc->id_priv = id_priv;
+	mc->join_flags = join_flags;
 	memcpy(&mc->addr, addr, addrlen);
 	if (pthread_cond_init(&mc->cond, NULL)) {
 		ret = -1;
@@ -1774,7 +1751,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 		memcpy(&cmd.addr, addr, addrlen);
 		cmd.addr_size = addrlen;
 		cmd.uid = (uintptr_t) mc;
-		cmd.reserved = 0;
+		cmd.join_flags = join_flags;
 
 		ret = write(id->channel->fd, &cmd, sizeof cmd);
 		if (ret != sizeof cmd) {
@@ -1812,6 +1789,30 @@ err1:
 	return ret;
 }
 
+int rdma_join_multicast_ex(struct rdma_cm_id *id,
+			   struct rdma_cm_join_mc_attr_ex *mc_join_attr,
+			   void *context)
+{
+	int addrlen;
+
+	if (mc_join_attr->comp_mask >= RDMA_CM_JOIN_MC_ATTR_RESERVED)
+		return ERR(ENOTSUP);
+
+	if (!(mc_join_attr->comp_mask & RDMA_CM_JOIN_MC_ATTR_ADDRESS))
+		return ERR(EINVAL);
+
+	if (!(mc_join_attr->comp_mask & RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS) ||
+	    (mc_join_attr->join_flags >= RDMA_MC_JOIN_FLAG_RESERVED))
+		return ERR(EINVAL);
+
+	addrlen = ucma_addrlen(mc_join_attr->addr);
+	if (!addrlen)
+		return ERR(EINVAL);
+
+	return rdma_join_multicast2(id, mc_join_attr->addr, addrlen,
+				    mc_join_attr->join_flags, context);
+}
+
 int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 			void *context)
 {
@@ -1821,7 +1822,8 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 	if (!addrlen)
 		return ERR(EINVAL);
 
-	return rdma_join_multicast2(id, addr, addrlen, context);
+	return rdma_join_multicast2(id, addr, addrlen,
+				    RDMA_MC_JOIN_FLAG_FULLMEMBER, context);
 }
 
 int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
@@ -1849,7 +1851,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 	if (!mc)
 		return ERR(EADDRNOTAVAIL);
 
-	if (id->qp)
+	if (id->qp && (mc->join_flags != RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER))
 		ibv_detach_mcast(id->qp, &mc->mgid, mc->mlid);
 	
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, LEAVE_MCAST, &resp, sizeof resp);
@@ -2035,6 +2037,10 @@ static int ucma_process_join(struct cma_event *evt)
 	evt->mc->mlid = evt->event.param.ud.ah_attr.dlid;
 
 	if (!evt->id_priv->id.qp)
+		return 0;
+
+	/* Don't attach QP to multicast if joined as send only full member */
+	if (evt->mc->join_flags == RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER)
 		return 0;
 
 	return rdma_seterrno(ibv_attach_mcast(evt->id_priv->id.qp,
@@ -2462,7 +2468,7 @@ int ucma_max_qpsize(struct rdma_cm_id *id)
 	return max_size;
 }
 
-uint16_t ucma_get_port(struct sockaddr *addr)
+__be16 ucma_get_port(struct sockaddr *addr)
 {
 	switch (addr->sa_family) {
 	case AF_INET:
@@ -2470,18 +2476,18 @@ uint16_t ucma_get_port(struct sockaddr *addr)
 	case AF_INET6:
 		return ((struct sockaddr_in6 *) addr)->sin6_port;
 	case AF_IB:
-		return htons((uint16_t) ntohll(((struct sockaddr_ib *) addr)->sib_sid));
+		return htobe16((uint16_t) be64toh(((struct sockaddr_ib *) addr)->sib_sid));
 	default:
 		return 0;
 	}
 }
 
-uint16_t rdma_get_src_port(struct rdma_cm_id *id)
+__be16 rdma_get_src_port(struct rdma_cm_id *id)
 {
 	return ucma_get_port(&id->route.addr.src_addr);
 }
 
-uint16_t rdma_get_dst_port(struct rdma_cm_id *id)
+__be16 rdma_get_dst_port(struct rdma_cm_id *id)
 {
 	return ucma_get_port(&id->route.addr.dst_addr);
 }

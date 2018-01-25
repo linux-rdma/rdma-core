@@ -30,9 +30,9 @@
 #if !defined(ACM_MAD_H)
 #define ACM_MAD_H
 
+#include <endian.h>
 #include <infiniband/verbs.h>
 #include <infiniband/acm.h>
-#include <netinet/in.h>
 
 #define ACM_SEND_SIZE 256
 #define ACM_RECV_SIZE (ACM_SEND_SIZE + sizeof(struct ibv_grh))
@@ -46,22 +46,22 @@
 
 #define ACM_MGMT_CLASS   0x2C
 
-#define ACM_CTRL_ACK     htons(0x8000)
-#define ACM_CTRL_RESOLVE htons(0x0001)
+#define ACM_CTRL_ACK     htobe16(0x8000)
+#define ACM_CTRL_RESOLVE htobe16(0x0001)
 
 struct acm_mad {
 	uint8_t  base_version;
 	uint8_t  mgmt_class;
 	uint8_t  class_version;
 	uint8_t  method;
-	uint16_t status;
-	uint16_t control;
-	uint64_t tid;
+	__be16   status;
+	__be16   control;
+	__be64   tid;
 
 	uint8_t  data[240];
 };
 
-#define acm_class_status(status) ((uint8_t) (ntohs(status) >> 8))
+#define acm_class_status(status) ((uint8_t) (be16toh(status) >> 8))
 
 #define ACM_QKEY 0x80010000
 
@@ -97,88 +97,88 @@ struct ib_sa_mad {
 	uint8_t  mgmt_class;
 	uint8_t  class_version;
 	uint8_t  method;
-	uint16_t status;
-	uint16_t reserved1;
-	uint64_t tid;
-	uint16_t attr_id;
-	uint16_t reserved2;
-	uint32_t attr_mod;
+	__be16 status;
+	__be16 reserved1;
+	__be64 tid;
+	__be16 attr_id;
+	__be16 reserved2;
+	__be32 attr_mod;
 
 	uint8_t  rmpp_version;
 	uint8_t  rmpp_type;
 	uint8_t  rmpp_flags;
 	uint8_t  rmpp_status;
-	uint32_t seg_num;
-	uint32_t paylen_newwin;
+	__be32 seg_num;
+	__be32 paylen_newwin;
 
-	uint32_t sm_key[2];
-	uint16_t attr_offset;
-	uint16_t reserved3;
-	uint64_t comp_mask;
+	__be32 sm_key[2];
+	__be16 attr_offset;
+	__be16 reserved3;
+	__be64 comp_mask;
 
 	uint8_t  data[200];
 };
 
-#define IB_SA_ATTR_PATH_REC htons(0x0035)
+#define IB_SA_ATTR_PATH_REC htobe16(0x0035)
 
-#define IB_COMP_MASK_PR_SERVICE_ID         (htonll(1 << 0) | \
-                                            htonll(1 << 1))
-#define IB_COMP_MASK_PR_DGID                htonll(1 << 2)
-#define IB_COMP_MASK_PR_SGID                htonll(1 << 3)
-#define IB_COMP_MASK_PR_DLID                htonll(1 << 4)
-#define IB_COMP_MASK_PR_SLID                htonll(1 << 5)
-#define IB_COMP_MASK_PR_RAW_TRAFFIC         htonll(1 << 6)
-/* RESERVED                                 htonll(1 << 7) */
-#define IB_COMP_MASK_PR_FLOW_LABEL          htonll(1 << 8)
-#define IB_COMP_MASK_PR_HOP_LIMIT           htonll(1 << 9)
-#define IB_COMP_MASK_PR_TCLASS              htonll(1 << 10)
-#define IB_COMP_MASK_PR_REVERSIBLE          htonll(1 << 11)
-#define IB_COMP_MASK_PR_NUM_PATH            htonll(1 << 12)
-#define IB_COMP_MASK_PR_PKEY                htonll(1 << 13)
-#define IB_COMP_MASK_PR_QOS_CLASS           htonll(1 << 14)
-#define IB_COMP_MASK_PR_SL                  htonll(1 << 15)
-#define IB_COMP_MASK_PR_MTU_SELECTOR        htonll(1 << 16)
-#define IB_COMP_MASK_PR_MTU                 htonll(1 << 17)
-#define IB_COMP_MASK_PR_RATE_SELECTOR       htonll(1 << 18)
-#define IB_COMP_MASK_PR_RATE                htonll(1 << 19)
-#define IB_COMP_MASK_PR_PACKET_LIFETIME_SELECTOR htonll(1 << 20)
-#define IB_COMP_MASK_PR_PACKET_LIFETIME     htonll(1 << 21)
-#define IB_COMP_MASK_PR_PREFERENCE          htonll(1 << 22)
-/* RESERVED                                 htonll(1 << 23) */
+#define IB_COMP_MASK_PR_SERVICE_ID         (htobe64(1 << 0) | \
+                                            htobe64(1 << 1))
+#define IB_COMP_MASK_PR_DGID                htobe64(1 << 2)
+#define IB_COMP_MASK_PR_SGID                htobe64(1 << 3)
+#define IB_COMP_MASK_PR_DLID                htobe64(1 << 4)
+#define IB_COMP_MASK_PR_SLID                htobe64(1 << 5)
+#define IB_COMP_MASK_PR_RAW_TRAFFIC         htobe64(1 << 6)
+/* RESERVED                                 htobe64(1 << 7) */
+#define IB_COMP_MASK_PR_FLOW_LABEL          htobe64(1 << 8)
+#define IB_COMP_MASK_PR_HOP_LIMIT           htobe64(1 << 9)
+#define IB_COMP_MASK_PR_TCLASS              htobe64(1 << 10)
+#define IB_COMP_MASK_PR_REVERSIBLE          htobe64(1 << 11)
+#define IB_COMP_MASK_PR_NUM_PATH            htobe64(1 << 12)
+#define IB_COMP_MASK_PR_PKEY                htobe64(1 << 13)
+#define IB_COMP_MASK_PR_QOS_CLASS           htobe64(1 << 14)
+#define IB_COMP_MASK_PR_SL                  htobe64(1 << 15)
+#define IB_COMP_MASK_PR_MTU_SELECTOR        htobe64(1 << 16)
+#define IB_COMP_MASK_PR_MTU                 htobe64(1 << 17)
+#define IB_COMP_MASK_PR_RATE_SELECTOR       htobe64(1 << 18)
+#define IB_COMP_MASK_PR_RATE                htobe64(1 << 19)
+#define IB_COMP_MASK_PR_PACKET_LIFETIME_SELECTOR htobe64(1 << 20)
+#define IB_COMP_MASK_PR_PACKET_LIFETIME     htobe64(1 << 21)
+#define IB_COMP_MASK_PR_PREFERENCE          htobe64(1 << 22)
+/* RESERVED                                 htobe64(1 << 23) */
 
 #define IB_MC_QPN 0xffffff
-#define IB_SA_ATTR_MC_MEMBER_REC htons(0x0038)
+#define IB_SA_ATTR_MC_MEMBER_REC htobe16(0x0038)
 
-#define IB_COMP_MASK_MC_MGID                htonll(1 << 0)
-#define IB_COMP_MASK_MC_PORT_GID            htonll(1 << 1)
-#define IB_COMP_MASK_MC_QKEY                htonll(1 << 2)
-#define IB_COMP_MASK_MC_MLID                htonll(1 << 3)
-#define IB_COMP_MASK_MC_MTU_SEL             htonll(1 << 4)
-#define IB_COMP_MASK_MC_MTU                 htonll(1 << 5)
-#define IB_COMP_MASK_MC_TCLASS              htonll(1 << 6)
-#define IB_COMP_MASK_MC_PKEY                htonll(1 << 7)
-#define IB_COMP_MASK_MC_RATE_SEL            htonll(1 << 8)
-#define IB_COMP_MASK_MC_RATE                htonll(1 << 9)
-#define IB_COMP_MASK_MC_PACKET_LIFETIME_SEL htonll(1 << 10)
-#define IB_COMP_MASK_MC_PACKET_LIFETIME     htonll(1 << 11)
-#define IB_COMP_MASK_MC_SL                  htonll(1 << 12)
-#define IB_COMP_MASK_MC_FLOW                htonll(1 << 13)
-#define IB_COMP_MASK_MC_HOP                 htonll(1 << 14)
-#define IB_COMP_MASK_MC_SCOPE               htonll(1 << 15)
-#define IB_COMP_MASK_MC_JOIN_STATE          htonll(1 << 16)
-#define IB_COMP_MASK_MC_PROXY_JOIN          htonll(1 << 17)
+#define IB_COMP_MASK_MC_MGID                htobe64(1 << 0)
+#define IB_COMP_MASK_MC_PORT_GID            htobe64(1 << 1)
+#define IB_COMP_MASK_MC_QKEY                htobe64(1 << 2)
+#define IB_COMP_MASK_MC_MLID                htobe64(1 << 3)
+#define IB_COMP_MASK_MC_MTU_SEL             htobe64(1 << 4)
+#define IB_COMP_MASK_MC_MTU                 htobe64(1 << 5)
+#define IB_COMP_MASK_MC_TCLASS              htobe64(1 << 6)
+#define IB_COMP_MASK_MC_PKEY                htobe64(1 << 7)
+#define IB_COMP_MASK_MC_RATE_SEL            htobe64(1 << 8)
+#define IB_COMP_MASK_MC_RATE                htobe64(1 << 9)
+#define IB_COMP_MASK_MC_PACKET_LIFETIME_SEL htobe64(1 << 10)
+#define IB_COMP_MASK_MC_PACKET_LIFETIME     htobe64(1 << 11)
+#define IB_COMP_MASK_MC_SL                  htobe64(1 << 12)
+#define IB_COMP_MASK_MC_FLOW                htobe64(1 << 13)
+#define IB_COMP_MASK_MC_HOP                 htobe64(1 << 14)
+#define IB_COMP_MASK_MC_SCOPE               htobe64(1 << 15)
+#define IB_COMP_MASK_MC_JOIN_STATE          htobe64(1 << 16)
+#define IB_COMP_MASK_MC_PROXY_JOIN          htobe64(1 << 17)
 
 struct ib_mc_member_rec {
 	union ibv_gid mgid;
 	union ibv_gid port_gid;
-	uint32_t      qkey;
-	uint16_t      mlid;
+	__be32        qkey;
+	__be16        mlid;
 	uint8_t       mtu;
 	uint8_t       tclass;
-	uint16_t      pkey;
+	__be16        pkey;
 	uint8_t       rate;
 	uint8_t       packet_lifetime;
-	uint32_t      sl_flow_hop;
+	__be32        sl_flow_hop;
 	uint8_t       scope_state;
 	uint8_t       proxy_join;
 	uint8_t       reserved[2];

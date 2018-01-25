@@ -56,16 +56,10 @@
 #define PCI_DEVICE_ID_CHELSIO_T3C20	0x0035
 #define PCI_DEVICE_ID_CHELSIO_S320E	0x0036
 
-#define HCA(v, d, t) \
-	{ .vendor = PCI_VENDOR_ID_##v,			\
-	  .device = PCI_DEVICE_ID_CHELSIO_##d,		\
-	  .type = CHELSIO_##t }
-
-static struct {
-	unsigned vendor;
-	unsigned device;
-	enum iwch_hca_type type;
-} hca_table[] = {
+#define HCA(v, d, t)                                                           \
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_CHELSIO_##d,          \
+			(void *)(CHELSIO_##t))
+static const struct verbs_match_ent hca_table[] = {
 	HCA(CHELSIO, PE9000_2C, T3B),
 	HCA(CHELSIO, T302E, T3A),
 	HCA(CHELSIO, T302X, T3A),
@@ -78,9 +72,10 @@ static struct {
 	HCA(CHELSIO, T3B02, T3B),
 	HCA(CHELSIO, T3C20, T3B),
 	HCA(CHELSIO, S320E, T3B),
+	{},
 };
 
-static struct ibv_context_ops iwch_ctx_ops = {
+static const struct verbs_context_ops iwch_ctx_common_ops = {
 	.query_device = iwch_query_device,
 	.query_port = iwch_query_port,
 	.alloc_pd = iwch_alloc_pd,
@@ -105,46 +100,49 @@ static struct ibv_context_ops iwch_ctx_ops = {
 	.req_notify_cq = iwch_arm_cq,
 };
 
+static const struct verbs_context_ops iwch_ctx_t3a_ops = {
+	.poll_cq = t3a_poll_cq,
+	.post_recv = t3a_post_recv,
+	.post_send = t3a_post_send,
+};
+
+static const struct verbs_context_ops iwch_ctx_t3b_ops = {
+	.async_event = t3b_async_event,
+	.poll_cq = t3b_poll_cq,
+	.post_recv = t3b_post_recv,
+	.post_send = t3b_post_send,
+};
+
 unsigned long iwch_page_size;
 unsigned long iwch_page_shift;
 unsigned long iwch_page_mask;
 
-static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
-					      int cmd_fd)
+static struct verbs_context *iwch_alloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct iwch_context *context;
 	struct ibv_get_context cmd;
 	struct iwch_alloc_ucontext_resp resp;
 	struct iwch_device *rhp = to_iwch_dev(ibdev);
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp))
 		goto err_free;
 
-	context->ibv_ctx.device = ibdev;
-	context->ibv_ctx.ops = iwch_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &iwch_ctx_common_ops);
 
 	switch (rhp->hca_type) {
 	case CHELSIO_T3B:
 		PDBG("%s T3B device\n", __FUNCTION__);
-		context->ibv_ctx.ops.async_event = t3b_async_event;
-		context->ibv_ctx.ops.post_send = t3b_post_send;
-		context->ibv_ctx.ops.post_recv = t3b_post_recv;
-		context->ibv_ctx.ops.poll_cq = t3b_poll_cq;
+		verbs_set_ops(&context->ibv_ctx, &iwch_ctx_t3b_ops);
 		break;
 	case CHELSIO_T3A:
 		PDBG("%s T3A device\n", __FUNCTION__);
-		context->ibv_ctx.ops.async_event = NULL;
-		context->ibv_ctx.ops.post_send = t3a_post_send;
-		context->ibv_ctx.ops.post_recv = t3a_post_recv;
-		context->ibv_ctx.ops.poll_cq = t3a_poll_cq;
+		verbs_set_ops(&context->ibv_ctx, &iwch_ctx_t3a_ops);
 		break;
 	default:
 		PDBG("%s unknown hca type %d\n", __FUNCTION__, rhp->hca_type);
@@ -155,6 +153,7 @@ static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 	return &context->ibv_ctx;
 
 err_free:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -163,54 +162,33 @@ static void iwch_free_context(struct ibv_context *ibctx)
 {
 	struct iwch_context *context = to_iwch_ctx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 
-static struct ibv_device_ops iwch_dev_ops = {
-	.alloc_context = iwch_alloc_context,
-	.free_context = iwch_free_context
-};
-
-static struct ibv_device *cxgb3_driver_init(const char *uverbs_sys_path,
-					    int abi_version)
+static void iwch_uninit_device(struct verbs_device *verbs_device)
 {
-	char devstr[IBV_SYSFS_PATH_MAX], ibdev[16], value[32], *cp;
-	struct iwch_device *dev;
-	unsigned vendor, device, fw_maj, fw_min;
-	int i;
+	struct iwch_device *dev = to_iwch_dev(&verbs_device->device);
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/vendor",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &vendor);
+	free(dev);
+}
 
-	if (ibv_read_sysfs_file(uverbs_sys_path, "device/device",
-				value, sizeof value) < 0)
-		return NULL;
-	sscanf(value, "%i", &device);
+static bool iwch_device_match(struct verbs_sysfs_dev *sysfs_dev)
+{
+	char value[32], *cp;
+	unsigned int fw_maj, fw_min;
 
-	for (i = 0; i < sizeof hca_table / sizeof hca_table[0]; ++i)
-		if (vendor == hca_table[i].vendor &&
-		    device == hca_table[i].device)
-			goto found;
-
-	return NULL;
-
-found:
+	/* Rely on the core code to match PCI devices */
+	if (!sysfs_dev->match)
+		return false;
 
 	/* 
 	 * Verify that the firmware major number matches.  Major number
 	 * mismatches are fatal.  Minor number mismatches are tolerated.
 	 */
-	if (ibv_read_sysfs_file(uverbs_sys_path, "ibdev", 
-				ibdev, sizeof ibdev) < 0)
-		return NULL;
-
-	memset(devstr, 0, sizeof devstr);
-	snprintf(devstr, sizeof devstr, "%s/class/infiniband/%s", 
-		 ibv_get_sysfs_path(), ibdev);
-	if (ibv_read_sysfs_file(devstr, "fw_ver", value, sizeof value) < 0)
-		return NULL;
+	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "fw_ver", value,
+				sizeof(value)) < 0)
+		return false;
 
 	cp = strtok(value+1, ".");
 	sscanf(cp, "%i", &fw_maj);
@@ -222,7 +200,7 @@ found:
 			"Firmware major number is %u and libcxgb3 needs %u.\n",
 			fw_maj, FW_MAJ);	
 		fflush(stderr);
-		return NULL;
+		return false;
 	}
 
 	DBGLOG("libcxgb3");
@@ -234,26 +212,20 @@ found:
 		fflush(stderr);
 	}
 
-	if (abi_version > ABI_VERS) {
-		PDBG("libcxgb3: ABI version mismatch.  "
-			"Kernel driver ABI is %u and libcxgb3 needs <= %u.\n",
-			abi_version, ABI_VERS);	
-		fflush(stderr);
-		return NULL;
-	}
+	return true;
+}
 
-	PDBG("%s found vendor %d device %d type %d\n", 
-	     __FUNCTION__, vendor, device, hca_table[i].type);
+static struct verbs_device *iwch_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct iwch_device *dev;
 
-	dev = malloc(sizeof *dev);
-	if (!dev) {
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return NULL;
-	}
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
-	dev->ibv_dev.ops = iwch_dev_ops;
-	dev->hca_type = hca_table[i].type;
-	dev->abi_version = abi_version;
+	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
+	dev->abi_version = sysfs_dev->abi_ver;
 
 	iwch_page_size = sysconf(_SC_PAGESIZE);
 	iwch_page_shift = long_log2(iwch_page_size);
@@ -282,7 +254,15 @@ err1:
 	return NULL;
 }
 
-static __attribute__((constructor)) void cxgb3_register_driver(void)
-{
-	ibv_register_driver("cxgb3", cxgb3_driver_init);
-}
+static const struct verbs_device_ops iwch_dev_ops = {
+	.name = "cxgb3",
+	.match_min_abi_version = 0,
+	.match_max_abi_version = ABI_VERS,
+	.match_table = hca_table,
+	.match_device = iwch_device_match,
+	.alloc_device = iwch_device_alloc,
+	.uninit_device = iwch_uninit_device,
+	.alloc_context = iwch_alloc_context,
+	.free_context = iwch_free_context,
+};
+PROVIDER_DRIVER(iwch_dev_ops);

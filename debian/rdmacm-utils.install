@@ -11,6 +11,7 @@ usr/bin/rstream
 usr/bin/ucmatose
 usr/bin/udaddy
 usr/bin/udpong
+usr/share/man/man1/cmtime.1
 usr/share/man/man1/mckey.1
 usr/share/man/man1/rcopy.1
 usr/share/man/man1/rdma_client.1
@@ -22,3 +23,4 @@ usr/share/man/man1/rping.1
 usr/share/man/man1/rstream.1
 usr/share/man/man1/ucmatose.1
 usr/share/man/man1/udaddy.1
+usr/share/man/man1/udpong.1

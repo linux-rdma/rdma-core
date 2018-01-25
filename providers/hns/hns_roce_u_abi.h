@@ -36,12 +36,12 @@
 #include <infiniband/kern-abi.h>
 
 struct hns_roce_alloc_ucontext_resp {
-	struct ibv_get_context_resp	ibv_resp;
+	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
 };
 
 struct hns_roce_alloc_pd_resp {
-	struct ibv_alloc_pd_resp	ibv_resp;
+	struct ib_uverbs_alloc_pd_resp	ibv_resp;
 	__u32				pdn;
 	__u32				reserved;
 };
@@ -53,7 +53,7 @@ struct hns_roce_create_cq {
 };
 
 struct hns_roce_create_cq_resp {
-	struct ibv_create_cq_resp	ibv_resp;
+	struct ib_uverbs_create_cq_resp	ibv_resp;
 	__u32				cqn;
 	__u32				reserved;
 };
@@ -61,8 +61,10 @@ struct hns_roce_create_cq_resp {
 struct hns_roce_create_qp {
 	struct ibv_create_qp		ibv_cmd;
 	__u64				buf_addr;
+	__u64				db_addr;
 	__u8				log_sq_bb_count;
 	__u8				log_sq_stride;
+	__u8				sq_no_prefetch;
 	__u8				reserved[5];
 };
 
