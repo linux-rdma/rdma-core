@@ -70,13 +70,6 @@
 #define I40E_DB_SHADOW_AREA_SIZE 64
 #define I40E_DB_CQ_OFFSET 0x40
 
-extern unsigned int i40iw_dbg;
-#define i40iw_debug(fmt, args...) \
-do { \
-	if (i40iw_dbg) \
-		fprintf(stderr, PFX "%s: " fmt, __FUNCTION__, ##args); \
-} while (0)
-
 enum i40iw_uhca_type {
 	INTEL_i40iw
 };
