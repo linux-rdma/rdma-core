@@ -58,12 +58,14 @@ int bnxt_re_query_device(struct ibv_context *ibvctx,
 			 struct ibv_device_attr *dev_attr)
 {
 	struct ibv_query_device cmd;
-	uint64_t fw_ver;
+	uint8_t fw_ver[8];
 	int status;
 
 	memset(dev_attr, 0, sizeof(struct ibv_device_attr));
-	status = ibv_cmd_query_device(ibvctx, dev_attr, &fw_ver,
+	status = ibv_cmd_query_device(ibvctx, dev_attr, (uint64_t *)&fw_ver,
 				      &cmd, sizeof(cmd));
+	snprintf(dev_attr->fw_ver, 64, "%d.%d.%d.%d",
+		 fw_ver[0], fw_ver[1], fw_ver[2], fw_ver[3]);
 	return status;
 }
 
