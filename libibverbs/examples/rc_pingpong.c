@@ -730,7 +730,7 @@ int main(int argc, char *argv[])
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:ot:c",
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:otc",
 				long_options, NULL);
 
 		if (c == -1)
