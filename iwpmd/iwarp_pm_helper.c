@@ -578,7 +578,6 @@ int add_iwpm_pending_msg(iwpm_send_msg *send_msg)
 
 	pthread_mutex_lock(&pending_msg_mutex);
 	list_add(&pending_messages, &pending_msg->entry);
- 	pthread_mutex_unlock(&pending_msg_mutex);
 	pthread_mutex_unlock(&pending_msg_mutex);
 	/* signal the thread that a new message has been posted */
 	pthread_cond_signal(&cond_pending_msg);
