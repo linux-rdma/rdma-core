@@ -76,6 +76,9 @@ struct bnxt_re_cq {
 	struct list_head rfhead;
 	uint32_t cqe_size;
 	uint8_t  phase;
+	int deferred_arm_flags;
+	bool first_arm;
+	bool deferred_arm;
 };
 
 struct bnxt_re_srq {
