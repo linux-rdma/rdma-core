@@ -1,6 +1,5 @@
 publish_headers(infiniband
   arch.h
-  kern-abi.h
   opcode.h
   sa-kern-abi.h
   sa.h
@@ -10,6 +9,7 @@ publish_headers(infiniband
 
 publish_internal_headers(infiniband
   driver.h
+  kern-abi.h
   marshall.h
   )
 

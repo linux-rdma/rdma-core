@@ -33,8 +33,8 @@
 #ifndef RDMA_CMA_ABI_H
 #define RDMA_CMA_ABI_H
 
-#include <infiniband/kern-abi.h>
 #include <rdma/ib_user_sa.h>
+#include <rdma/ib_user_verbs.h>
 #include <infiniband/sa.h>
 #include <netinet/in.h>
 
