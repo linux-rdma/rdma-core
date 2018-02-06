@@ -264,6 +264,17 @@ if (NOT HAVE_LONG_LONG_U64)
   add_definitions("-D__SANE_USERSPACE_TYPES__")
 endif()
 
+# glibc and kernel uapi headers can co-exist
+CHECK_C_SOURCE_COMPILES("
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <linux/in.h>
+ #include <linux/in6.h>
+ int main(int argc,const char *argv[]) { return 0; }"
+  HAVE_GLIBC_UAPI_COMPAT)
+RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in.h")
+RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in6.h")
+
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
@@ -535,4 +546,7 @@ if (NOT HAVE_C_WORKING_SHADOW)
 endif()
 if (NOT HAVE_C_WREDUNDANT_DECLS)
   message(STATUS " -Wredundant-decls does NOT work")
+endif()
+if (NOT HAVE_GLIBC_UAPI_COMPAT)
+  message(STATUS " libc netinet/in.h and linux/in.h do NOT coexist")
 endif()
