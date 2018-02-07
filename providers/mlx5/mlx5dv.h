@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include <linux/types.h> /* For the __be64 type */
+#include <sys/types.h>
 #include <endian.h>
 #if defined(__SSE3__)
 #include <limits.h>
