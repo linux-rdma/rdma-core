@@ -288,12 +288,12 @@ enum {
 };
 
 enum {
-	MLX4_WQE_BIND_TYPE_2		= (1<<31),
+	MLX4_WQE_BIND_TYPE_2		= (1UL<<31),
 	MLX4_WQE_BIND_ZERO_BASED	= (1<<30),
 };
 
 enum {
-	MLX4_INLINE_SEG		= 1 << 31,
+	MLX4_INLINE_SEG		= 1UL << 31,
 	MLX4_INLINE_ALIGN	= 64,
 };
 
@@ -304,7 +304,7 @@ enum {
 enum {
 	MLX4_WQE_MW_REMOTE_READ   = 1 << 29,
 	MLX4_WQE_MW_REMOTE_WRITE  = 1 << 30,
-	MLX4_WQE_MW_ATOMIC        = 1 << 31
+	MLX4_WQE_MW_ATOMIC        = 1UL << 31
 };
 
 struct mlx4_wqe_local_inval_seg {
