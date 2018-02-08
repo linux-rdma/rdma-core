@@ -1387,7 +1387,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 
 	return 0;
 rq_buf:
-	mlx5_free_actual_buf(to_mctx(qp->verbs_qp.qp.context), &qp->buf);
+	mlx5_free_actual_buf(to_mctx(context), &qp->buf);
 ex_wrid:
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
@@ -1403,10 +1403,8 @@ ex_wrid:
 	return err;
 }
 
-static void mlx5_free_qp_buf(struct mlx5_qp *qp)
+static void mlx5_free_qp_buf(struct mlx5_context *ctx, struct mlx5_qp *qp)
 {
-	struct mlx5_context *ctx = to_mctx(qp->ibv_qp->context);
-
 	mlx5_free_actual_buf(ctx, &qp->buf);
 
 	if (qp->sq_buf.buf)
@@ -1821,7 +1819,7 @@ err_rq_db:
 	mlx5_free_db(to_mctx(context), qp->db);
 
 err_free_qp_buf:
-	mlx5_free_qp_buf(qp);
+	mlx5_free_qp_buf(ctx, qp);
 
 err:
 	free(qp);
@@ -1942,7 +1940,7 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 
 	if (qp->dc_type != MLX5DV_DCTYPE_DCT) {
 		mlx5_free_db(ctx, qp->db);
-		mlx5_free_qp_buf(qp);
+		mlx5_free_qp_buf(ctx, qp);
 	}
 free:
 	if (mparent_domain)
