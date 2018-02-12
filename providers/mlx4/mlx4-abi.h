@@ -111,6 +111,8 @@ struct mlx4_query_device_ex_resp {
 	__u32				response_length;
 	__u64				hca_core_clock_offset;
 	__u32				max_inl_recv_sz;
+	/* Explicitly align the response to u64 */
+	__u32				reserved;
 	struct mlx4_rss_caps            rss_caps; /* vendor data channel */
 };
 
